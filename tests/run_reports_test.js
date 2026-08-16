@@ -306,4 +306,49 @@ ok('برایش هشدار تلگرام نرفت', TG.length === tgBefore);
 ok('در «در انتظار اقدام» شمرده نمی‌شود',
    !openInstructions_(hub).some(o => o.title.indexOf('نسخهٔ تازه بسته شده') !== -1));
 
+console.log('\n=== ط) ردیفِ «نیازمند تعویض کد» که نسخه‌اش رسیده، ایرادِ دروغین نسازد ===');
+// همان چیزی که در تولید دیده شد: ردیف‌هایی از نسخه‌های ۵٫۱ تا ۵٫۱۰ که با
+// چسباندنِ دستیِ کد جا ماندند و afterCodeSwap هرگز اجرا نشد، پس تا ابد
+// «در انتظار» می‌ماندند و هر روز یک ایراد می‌ساختند.
+const mkCodeRow = (id, title) => {
+  const r = new Array(REPORT_HEADERS.length).fill('');
+  r[RC.ID-1] = id; r[RC.AT-1] = '2026-08-13 12:20'; r[RC.PRI-1] = 'جدی';
+  r[RC.CAT-1] = 'نسخهٔ کد'; r[RC.TITLE-1] = title; r[RC.INSTR-1] = 'کد را عوض کن';
+  r[RC.OWNER-1] = ROWNER_CODE; r[RC.STATUS-1] = RST.NEEDS_CODE;
+  r[RC.SEEN-1] = 1; r[RC.TG-1] = 'ارسال شد 2026-08-13 12:59';
+  return r;
+};
+const staleRows = [
+  mkCodeRow('CODE-5.1',  'نسخهٔ تازهٔ کد آماده است — کد باید تعویض شود (5.0 ← 5.1)'),
+  mkCodeRow('CODE-5.10', 'نسخهٔ تازهٔ کد آماده است — کد باید تعویض شود (5.8 ← 5.10)'),
+];
+const baseline = reportSummary_(hub);          // ردیف‌های کدِ بی‌نسخه از بخش‌های قبلی
+const atRow = rt.getLastRow() + 1;
+rt.getRange(atRow, 1, staleRows.length, REPORT_HEADERS.length).setValues(staleRows);
+
+console.log('  نسخهٔ در حالِ اجرا:', CFG.CODE_VERSION,
+            '| needsCodeِ پایه:', baseline.needsCode);
+ok('نسخهٔ هدفِ ردیف از شناسه/عنوان درست درمی‌آید',
+   codeRowTargetVer_(staleRows[1]) === '5.10', codeRowTargetVer_(staleRows[1]));
+ok('ردیفِ کهنه «انجام‌شده» حساب می‌شود', codeRowSatisfied_(staleRows[1]));
+
+const sum1 = reportSummary_(hub);
+console.log('  needsCode:', sum1.needsCode, '| codeItems:', sum1.codeItems.length);
+ok('دو ردیفِ کهنه چیزی به «نیازمند تعویض کد» اضافه نکردند',
+   sum1.needsCode === baseline.needsCode, sum1.needsCode + ' == ' + baseline.needsCode);
+ok('در codeItems هم نیامدند',
+   !sum1.codeItems.some(c => String(c.id).indexOf('CODE-5.') === 0));
+ok('در عوض «اعمال شد» شمرده شدند', sum1.applied === baseline.applied + 2);
+
+// اما ردیفی که واقعاً جلوتر از نسخهٔ در حالِ اجراست باید باز بماند
+const future = mkCodeRow('CODE-9.9', 'نسخهٔ تازهٔ کد آماده است — کد باید تعویض شود (5.13 ← 9.9)');
+rt.getRange(rt.getLastRow() + 1, 1, 1, REPORT_HEADERS.length).setValues([future]);
+const sum2 = reportSummary_(hub);
+console.log('  پس از افزودنِ ردیفِ واقعاً تازه → needsCode:', sum2.needsCode);
+ok('ردیفِ نسخهٔ بالاتر همچنان باز می‌ماند', sum2.needsCode === baseline.needsCode + 1);
+ok('و در codeItems می‌آید',
+   sum2.codeItems.some(c => String(c.id) === 'CODE-9.9'));
+ok('ردیفِ بی‌نسخه محافظه‌کارانه باز می‌ماند',
+   codeRowSatisfied_(mkCodeRow('RPT#42', 'کد باید عوض شود')) === false);
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

@@ -547,6 +547,7 @@ function retryFailedCodeAlerts_(hub, shOpt) {
     var stt = String(r[RC.STATUS - 1]);
     if (stt !== RST.NEEDS_CODE && String(r[RC.OWNER - 1]) !== ROWNER_CODE) continue;
     if (stt === RST.APPLIED || stt === RST.CLOSED || stt === RST.SKIPPED) continue;
+    if (codeRowSatisfied_(r)) continue;      // نسخه‌اش رسیده — هشدارِ دوباره بی‌معناست
     if (!tg) continue;                       // هنوز تلاشی نشده — کارِ همین اجرا نیست
     n += alertCodeRows_(hub, i + 2, [r], sh);
   }
@@ -822,6 +823,36 @@ function logSelfFinding_(hub, f) {
   } catch (e) { logLine_('ثبت یافتهٔ خودِ موتور ناموفق: ' + e.message); }
 }
 
+/**
+ * نسخهٔ هدفِ یک ردیفِ «نیازمند تعویض کد».
+ * شناسه به شکلِ «CODE-5.10» است و عنوان به شکلِ «… (5.8 ← 5.10)»؛ در هر دو
+ * حالت، بزرگ‌ترین عددِ نسخه‌مانند همان نسخه‌ای است که ردیف انتظارش را می‌کشد.
+ * اگر چیزی پیدا نشد '' برمی‌گردد (یعنی نمی‌شود دربارهٔ کهنه‌بودنش قضاوت کرد).
+ */
+function codeRowTargetVer_(vals) {
+  var txt = String(vals[RC.ID - 1] || '') + ' ' + String(vals[RC.TITLE - 1] || '');
+  var m = txt.match(/\d+\.\d+(\.\d+)?/g);
+  if (!m || !m.length) return '';
+  var best = m[0];
+  for (var i = 1; i < m.length; i++) if (verCmp_(m[i], best) > 0) best = m[i];
+  return best;
+}
+
+/**
+ * آیا این ردیفِ «نیازمند تعویض کد» را نسخهٔ در حالِ اجرا از قبل پوشش داده؟
+ * هر نسخهٔ کامل همهٔ اصلاح‌های اعلام‌شده تا آن لحظه را در خود دارد، پس ردیفی
+ * که نسخهٔ هدفش از نسخهٔ در حالِ اجرا بالاتر نیست، دیگر کاری برای انجام ندارد.
+ *
+ * بی این وارسی، ردیف‌هایی که پیش از سازوکارِ نصبِ خودکار ساخته شده‌اند (یا هر
+ * وقت کد دستی چسبانده شود و afterCodeSwap اجرا نشود) تا ابد «در انتظار» می‌مانند
+ * و هر روز یک ایرادِ دروغین می‌سازند.
+ */
+function codeRowSatisfied_(vals) {
+  var want = codeRowTargetVer_(vals);
+  if (!want) return false;
+  return verCmp_(want, CFG.CODE_VERSION) <= 0;
+}
+
 /** خلاصهٔ تب گزارش‌ها برای فایل وضعیت و برای ناظر روزانه. */
 function reportSummary_(hub) {
   var out = { total: 0, open: 0, info: 0, applied: 0, needsCode: 0, repeated: 0,
@@ -841,6 +872,9 @@ function reportSummary_(hub) {
         continue;
       }
       if (s === RST.NEEDS_CODE) {
+        // نسخهٔ در حالِ اجرا از این ردیف جلوتر (یا برابر) است؟ پس کارش انجام
+        // شده — چه با نصبِ خودکار، چه با چسباندنِ دستی.
+        if (codeRowSatisfied_(v)) { out.applied++; continue; }
         out.needsCode++;
         out.codeItems.push({ id: String(v[RC.ID - 1]), title: String(v[RC.TITLE - 1]),
                              at: at, telegram: String(v[RC.TG - 1]) });
