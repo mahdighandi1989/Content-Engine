@@ -49,3 +49,25 @@ const bl = chunkBacklog_(hub);
 console.log(JSON.stringify({ mode: MODE, v: Number(tot[IX.V]), p: Number(tot[IX.P]),
   a: Number(tot[IX.A]), d: Number(tot[IX.D]), total: Number(tot[IX.TOTAL]),
   elig: Number(tot[IX.ELIG]), staged: bl.rows, pendingFiles: bl.files }));
+
+// ── سرآیندِ engine.gs باید همان CODE_VERSION را بگوید ──────────────────────
+// باگِ واقعی: نسخه در build_header.txt دستی نوشته شده بود و از ۵٫۱۲ به بعد جا
+// ماند؛ فایلِ نصب‌شده ۵٫۱۶ بود ولی بالایش «۵٫۱۲» می‌نوشت و کاربر فکر کرد نصب
+// نشده. حالا build.js نسخه را تزریق می‌کند و این آزمون نگهبانش است.
+{
+  const eng = fs.readFileSync('engine.gs', 'utf8');
+  const cfg = fs.readFileSync('src/00_Config.gs', 'utf8');
+  const want = (cfg.match(/CODE_VERSION:\s*'([^']+)'/) || [])[1];
+  const head = eng.slice(0, 400);
+  const inHead = (head.match(/نسخهٔ\s*([0-9.]+)/) || [])[1];
+  const inFile = (eng.match(/CODE_VERSION:\s*'([^']+)'/) || [])[1];
+  const okHead = inHead === want, okFile = inFile === want;
+  console.log('  نسخه — src:', want, '| سرآیندِ engine.gs:', inHead, '| CODE_VERSION:', inFile);
+  console.log('  ' + (okHead ? '✅' : '❌') + ' سرآیند با CODE_VERSION یکی است');
+  console.log('  ' + (okFile ? '✅' : '❌') + ' نسخهٔ داخلِ فایل با src یکی است');
+  if (!okHead || !okFile) { console.error('FAILED: نسخهٔ سرآیند/فایل جا مانده'); process.exit(1); }
+  if (fs.readFileSync('tools/build_header.txt', 'utf8').indexOf('{{VERSION}}') === -1) {
+    console.error('FAILED: جای‌نشانِ {{VERSION}} از build_header.txt حذف شده'); process.exit(1);
+  }
+  console.log('  ✅ جای‌نشانِ {{VERSION}} سرِ جایش است');
+}

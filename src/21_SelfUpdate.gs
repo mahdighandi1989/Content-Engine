@@ -250,7 +250,8 @@ function selfUpdateCause_(full) {
       'یعنی این یک پروژهٔ «پیش‌فرضِ» Apps Script است و گوگل هیچ‌کس را داخلش راه نمی‌دهد — ' +
       'دکمهٔ Request access را نزنید، صاحبی نیست که تأیید کند. راهِ درست این است که اسکریپت ' +
       'را به یک پروژهٔ ابریِ «استاندارد» ببرید:\n' +
-      '  ۱) یک پروژهٔ تازه بسازید: https://console.cloud.google.com/projectcreate\n' +
+      '  ۱) یک پروژهٔ استاندارد بردارید — یکی از پروژه‌های موجودتان هم می‌شود، ' +
+      'یا تازه بسازید: https://console.cloud.google.com/projectcreate\n' +
       '  ۲) در همان پروژه Apps Script API را روشن کنید:\n' +
       '     https://console.cloud.google.com/apis/library/script.googleapis.com\n' +
       '  ۳) در همان پروژه OAuth consent screen را پر کنید (نوعِ External، فقط نام و ایمیل) — ' +
