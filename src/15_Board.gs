@@ -1,0 +1,1095 @@
+/**
+ * 15_Board.gs — تختهٔ مجموعه‌های آموزشی
+ *
+ * یک پنجرهٔ تصویری که از منوی خودِ شیت باز می‌شود و سه کار می‌کند:
+ *   ۱) مجموعه‌ها را ذیل دستهٔ مرتبطشان فهرست می‌کند، به همان ترتیبِ اولویت
+ *      (مقدماتی ← پیشرفته) که برنامهٔ درسی تعیین کرده.
+ *   ۲) پیشرفت را نشان می‌دهد: نمودار دایره‌ای برای کلِ کار و نمودار میله‌ای
+ *      برای هر مجموعه — چند درصدِ قطعه‌هایش به پادکست تبدیل شده.
+ *   ۳) اجازه می‌دهد یک مجموعه یا یک دسته را دستی انتخاب کنید («سنجاق»). از آن
+ *      لحظه موتور روی همان کار می‌کند و به ترتیب جلو می‌رود؛ همین که تمامش کرد،
+ *      سنجاق خودش برداشته می‌شود و موتور به مجموعه‌ای که قبلاً نیمه‌کاره
+ *      گذاشته بود برمی‌گردد — مگر شما دوباره چیز دیگری سنجاق کنید.
+ *
+ * نمودارها SVG‌ی خالص‌اند و در همان اسکریپت ساخته می‌شوند؛ هیچ کتابخانه یا
+ * منبع بیرونی لازم نیست (که در پنجره‌های Apps Script هم مسدود است).
+ */
+
+// ------------------------------------------------------------ داده
+
+/**
+ * وضعیتِ کاملِ همهٔ مجموعه‌ها، گروه‌شده بر اساس دسته و مرتب بر اساس اولویت.
+ * همین ساختار هم به پنجره می‌رود و هم در آزمون‌ها سنجیده می‌شود.
+ */
+function seriesBoardData_(hub) {
+  hub = hub || getHub_();
+  var reg = readSeriesReg_(hub);
+  var parts = readSeriesParts_(hub);
+  var pin = seriesPin_();
+  var current = null, planInfo = { pinExhausted: false };
+  try {
+    planInfo = pickSeriesPlan_(hub, reg, parts);
+    current = planInfo.rec;
+  } catch (e) { current = null; planInfo = { pinExhausted: false }; }
+  var curKey = current ? current.key : '';
+
+  // نقشه‌ها باید بی‌نیا باشند: سلولی که مقدارش «constructor» یا «toString» است
+  // در شیءِ سادهٔ جاوااسکریپت «موجود» به نظر می‌رسد و کلِ تخته را می‌شکست.
+  var levelRank = Object.create(null);
+  levelRank['مقدماتی'] = 0; levelRank['میانی'] = 1; levelRank['پیشرفته'] = 2;
+  var lvRank = function (x) {
+    return Object.prototype.hasOwnProperty.call(levelRank, x) ? levelRank[x] : 1;
+  };
+  var rows = [];
+  for (var i = 0; i < reg.rows.length; i++) {
+    var v = reg.rows[i].vals;
+    var key = reg.rows[i].key;
+    var list = parts.byKey[key] || [];
+    var totChunks = 0, doneChunks = 0, donePartsN = 0, partRows = [];
+    for (var p = 0; p < list.length; p++) {
+      var pv = list[p].vals;
+      var n = Number(pv[SP.CHUNKS - 1]) || 0;
+      // مکان‌نما می‌تواند کسری باشد (قطعهٔ نیمه‌برش‌خورده)
+      var d = Math.min(n, Math.max(0, Number(pv[SP.DONE_TO - 1]) || 0));
+      totChunks += n; doneChunks += d;
+      if (n > 0 && d >= n) donePartsN++;
+      partRows.push({ file: String(pv[SP.FILE - 1] || ''),
+                      name: String(pv[SP.NAME - 1] || ''),
+                      seq: Number(pv[SP.SEQ - 1]) || 0,
+                      chunks: n, done: d,
+                      pct: n ? Math.round((d / n) * 100) : 0,
+                      episodes: String(pv[SP.EPISODES - 1] || '').trim(),
+                      link: String(pv[SP.LINK - 1] || '') });
+    }
+    partRows.sort(function (a, b) { return a.seq - b.seq || (a.name < b.name ? -1 : 1); });
+    var st = String(v[SC.STATUS - 1] || SST.NEW);
+    var epList = String(v[SC.EPISODES - 1] || '').split(/\s+/).filter(String);
+    rows.push({
+      key: key,
+      name: String(v[SC.NAME - 1] || key),
+      cat: seriesCatOf_(v),
+      level: String(v[SC.LEVEL - 1] || '').trim(),
+      levelRank: lvRank(String(v[SC.LEVEL - 1] || '').trim()),
+      topic: String(v[SC.TOPIC - 1] || ''),
+      order: Number(v[SC.ORDER - 1]) || 999,
+      // ── تنظیمِ دستیِ شما ──
+      morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
+      mcat: String(v[SC.MCAT - 1] || '').trim(),
+      msub: seriesSubOf_(v),
+      locked: seriesManualLock_(v),
+      status: st,
+      kind: String(v[SC.KIND - 1] || ''),
+      src: String(v[SC.SRC - 1] || ''),
+      parts: Number(v[SC.PARTS - 1]) || list.length,
+      donePartsN: donePartsN,
+      chunks: totChunks || (Number(v[SC.CHUNKS - 1]) || 0),
+      doneChunks: doneChunks,
+      pct: totChunks ? Math.round((doneChunks / totChunks) * 100)
+                     : (st === SST.DONE ? 100 : 0),
+      episodes: epList.length,
+      lastEpAt: String(v[SC.LAST_EP_AT - 1] || ''),
+      note: String(v[SC.NOTE - 1] || ''),
+      related: String(v[SC.RELATED - 1] || ''),
+      isCurrent: key === curKey,
+      isPinned: !!(pin && pin.kind === 'series' && pin.value === key),
+      // ── داوریِ محتوایی ──
+      about: String(v[SC.ABOUT - 1] || '').trim(),
+      why: String(v[SC.WHY - 1] || '').trim(),
+      cscore: Number(v[SC.CSCORE - 1]) || 0,
+      judgedAt: String(v[SC.JUDGED - 1] || '').trim(),
+      manual: String(v[SC.MANUAL - 1] || '').trim(),
+      isCourse: seriesIsCourse_(v),                  // true / false / null
+      // داوریِ بی‌مدل: در تخته صریح گفته می‌شود که این تصمیم از قاعده‌های خودیِ
+      // موتور آمده، نه از مدل — تا حرفِ ماشین با حرفِ مدل قاتی نشود.
+      byRule: String(v[SC.WHY - 1] || '').indexOf(JUDGE_LOCAL_MARK) !== -1,
+      unsure: String(v[SC.IS_COURSE - 1] || '') === SJ.UNSURE &&
+              !String(v[SC.MANUAL - 1] || '').trim(),
+      // «کارِ ناتمام دارد؟» — دکمهٔ انتخاب بر همین تکیه می‌کند، نه بر درصد.
+      // ردیفِ «نادیده گرفته شد» هرگز نوبت تولید نمی‌گیرد، پس هرچقدر هم قطعهٔ
+      // نساخته داشته باشد، انتخابش بی‌اثر است و دکمه‌اش باید خاموش باشد؛ وگرنه
+      // کاربر انتخاب می‌کرد، بنر می‌گفت «فعال است» و موتور چیز دیگری می‌ساخت.
+      hasWork: (function () {
+        if (st === SST.SKIPPED) return false;
+        for (var w = 0; w < partRows.length; w++) {
+          if (!partRows[w].chunks) return true;
+          if (partRows[w].done < partRows[w].chunks) return true;
+        }
+        return false;
+      })(),
+      partRows: partRows
+    });
+  }
+
+  // ── جدا کردنِ «آموزشی» از «آموزشی نیست» ──
+  // خواستهٔ صریح: چیزی که آموزشی نیست نباید در فهرستِ انتخاب قاطی شود، ولی دور
+  // هم ریخته نشود؛ پایین با دلیلش دیده می‌شود و می‌توان دستی نظر را عوض کرد.
+  var excluded = [];
+  var live = [];
+  for (var e0 = 0; e0 < rows.length; e0++) {
+    // مجموعه‌ای که خودتان انتخابش کرده‌اید هرگز به بخشِ کنارگذاشته‌ها نمی‌رود:
+    // انتخابِ دستیِ شما بالاتر از داوری است و همان لحظه هم تولید می‌شود، پس
+    // دیدنش در فهرستِ «آموزشی نیست» فقط گیج‌کننده بود.
+    // ردیفِ قفل‌شده با تنظیمِ دستی هم مثل سنجاق‌شده در فهرستِ زنده می‌ماند:
+    // موتور می‌سازدش (قفل یعنی واجدِ شرط)، پس نمایشش در «آموزشی نیست» تناقضِ
+    // روی یک صفحه بود. یک استثنا: «آموزشی نیست»ِ دستیِ خودِ شما (SMAN.NO) از
+    // قفل هم بالاتر است — همان‌طور که در seriesEligible_ هم وتوی شماست.
+    var vetoed = rows[e0].manual === SMAN.NO;
+    if (rows[e0].isCourse === false && !rows[e0].isPinned &&
+        (!rows[e0].locked || vetoed)) {
+      excluded.push(rows[e0]);
+    } else live.push(rows[e0]);
+  }
+  excluded.sort(function (a, b) {
+    if (a.cscore !== b.cscore) return b.cscore - a.cscore;
+    return a.name < b.name ? -1 : 1;
+  });
+
+  // گروه‌بندی بر اساس دسته، و درونِ هر دسته ترتیبِ اولویت
+  var byCat = Object.create(null), catOrder = [];
+  for (var r = 0; r < live.length; r++) {
+    var c = live[r].cat;
+    if (!byCat[c]) { byCat[c] = []; catOrder.push(c); }
+    byCat[c].push(live[r]);
+  }
+  var groups = [];
+  for (var g = 0; g < catOrder.length; g++) {
+    var arr = byCat[catOrder[g]];
+    arr.sort(function (a, b) {
+      // «در حال تولید» همیشه بالای دسته، بعد شمارهٔ دستیِ شما، بعد ترتیبِ
+      // برنامهٔ درسی، بعد سطح
+      var ra = a.status === SST.ACTIVE ? 0 : 1, rb = b.status === SST.ACTIVE ? 0 : 1;
+      if (ra !== rb) return ra - rb;
+      var ma = a.morder !== null ? a.morder - 1000000 : a.order;
+      var mb = b.morder !== null ? b.morder - 1000000 : b.order;
+      if (ma !== mb) return ma - mb;
+      if (a.levelRank !== b.levelRank) return a.levelRank - b.levelRank;
+      return a.name < b.name ? -1 : 1;
+    });
+    var tc = 0, dc = 0, eps = 0;
+    for (var q = 0; q < arr.length; q++) { tc += arr[q].chunks; dc += arr[q].doneChunks;
+                                          eps += arr[q].episodes; }
+    groups.push({
+      cat: catOrder[g], series: arr,
+      chunks: tc, doneChunks: dc, episodes: eps,
+      pct: tc ? Math.round((dc / tc) * 100) : 0,
+      // کم‌ترین اولویتِ واقعیِ دسته، نه اولویتِ ردیفِ اول. ردیفِ اول بعد از
+      // مرتب‌سازیِ «در حال تولید اول» می‌آید، پس می‌توانست اولویت ۵۰ باشد در
+      // حالی که همان دسته مجموعهٔ اولویت ۱ هم داشت — و ترتیبِ دسته‌ها برعکس شود.
+      minOrder: (function () {
+        var m = 999;
+        for (var z = 0; z < arr.length; z++) {
+          var o = arr[z].morder !== null ? arr[z].morder - 1000000 : arr[z].order;
+          if (o < m) m = o;
+        }
+        return m;
+      })(),
+      // مقدماتی‌ترین سطح و بهترین امتیازِ داوری در این دسته — برای مرتب‌کردنِ
+      // خودِ دسته‌ها وقتی همه‌شان مجموعهٔ شمارهٔ ۱ دارند.
+      minLevel: (function () {
+        var m = 9;
+        for (var z2 = 0; z2 < arr.length; z2++) if (arr[z2].levelRank < m) m = arr[z2].levelRank;
+        return m;
+      })(),
+      bestScore: (function () {
+        var m = 0;
+        for (var z3 = 0; z3 < arr.length; z3++) if (arr[z3].cscore > m) m = arr[z3].cscore;
+        return m;
+      })(),
+      hasWork: arr.some(function (x) { return x.hasWork; }),
+      pinned: !!(pin && pin.kind === 'cat' && pin.value === catOrder[g]),
+      hasCurrent: arr.some(function (x) { return x.isCurrent; })
+    });
+  }
+  // دسته‌ای که موتور الان در آن کار می‌کند اول می‌آید، بعد بر پایهٔ اولویت
+  groups.sort(function (a, b) {
+    if (a.hasCurrent !== b.hasCurrent) return a.hasCurrent ? -1 : 1;
+    if (a.minOrder !== b.minOrder) return a.minOrder - b.minOrder;
+    if (a.minLevel !== b.minLevel) return a.minLevel - b.minLevel;
+    if (a.bestScore !== b.bestScore) return b.bestScore - a.bestScore;
+    return a.cat < b.cat ? -1 : 1;
+  });
+
+  var tot = { series: rows.length, done: 0, active: 0, queued: 0, reopened: 0, skipped: 0,
+              chunks: 0, doneChunks: 0, episodes: 0 };
+  for (var t = 0; t < rows.length; t++) {
+    var x = rows[t];
+    if (x.status === SST.DONE) tot.done++;
+    else if (x.status === SST.ACTIVE) tot.active++;
+    else if (x.status === SST.REOPENED) tot.reopened++;
+    else if (x.status === SST.SKIPPED) tot.skipped++;
+    else tot.queued++;
+    tot.chunks += x.chunks; tot.doneChunks += x.doneChunks; tot.episodes += x.episodes;
+  }
+  tot.pct = tot.chunks ? Math.round((tot.doneChunks / tot.chunks) * 100) : 0;
+
+  var spEps = 0;
+  try {
+    var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
+    if (sh && sh.getLastRow() >= 2) spEps = sh.getLastRow() - 1;
+  } catch (eS) {}
+
+  // نامِ خواندنیِ انتخاب دستی (نه کلیدِ درونی) — برای نمایش در پنجره و در هشدارها
+  var pinShow = pin ? { kind: pin.kind, value: String(pin.value || ''),
+                        name: pinLabel_(hub, pin, reg), at: pin.at || '',
+                        // کارِ سنجاق تمام شده و در اجرای بعد خودش برداشته می‌شود.
+                        // بی این نشان، بنر می‌گفت «موتور سراغ چیز دیگری نمی‌رود» و
+                        // درست زیرش می‌نوشت «الان روی این کار می‌شود: مجموعهٔ دیگر».
+                        exhausted: !!planInfo.pinExhausted } : null;
+
+  var jsum = { course: 0, notCourse: excluded.length, unjudged: 0, unsure: 0, byRule: 0 };
+  for (var jj = 0; jj < live.length; jj++) {
+    // «مشکوک» داوری شده است، فقط قطعی نیست. شمردنش در «داوری‌نشده» باعث می‌شد
+    // بنرِ بالای تخته بگوید هیچ‌کاری انجام نشده.
+    if (live[jj].unsure) jsum.unsure++;
+    else if (live[jj].isCourse === null) jsum.unjudged++;
+    else jsum.course++;
+    if (live[jj].byRule) jsum.byRule++;
+  }
+  for (var jx = 0; jx < excluded.length; jx++) if (excluded[jx].byRule) jsum.byRule++;
+
+  return {
+    groups: groups, totals: tot, pin: pinShow,
+    excluded: excluded, judge: jsum,
+    judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
+    current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
+                         cat: String(current.vals[SC.CAT - 1] || MISC_TITLE),
+                         status: String(current.vals[SC.STATUS - 1] || '') } : null,
+    scannedAt: String(props_().getProperty(PK.SERIES_SCAN_AT) || ''),
+    rescanHours: CFG.SERIES_RESCAN_HOURS,
+    version: String(CFG.CODE_VERSION || ''),
+    episodesMade: spEps,
+    enabled: !!CFG.SPECIAL_ENABLED,
+    specialHour: CFG.SPECIAL_HOUR,
+    now: nowStr_()
+  };
+}
+
+// ------------------------------------------------------------ نمودارها
+
+function bEsc_(s) {
+  // نویسهٔ سطر تازه هم باید کدگذاری شود: مرورگر داخلِ attribute، CR را به LF
+  // تبدیل می‌کند و آن‌وقت رشته‌ای که از data-key برمی‌گردد دیگر با کلیدِ واقعی
+  // یکی نیست — دکمه برای همیشه بی‌اثر می‌ماند.
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/\r/g, '&#13;').replace(/\n/g, '&#10;').replace(/\t/g, '&#9;');
+}
+
+/** حلقهٔ دایره‌ای پیشرفت: چند درصدِ کلِ قطعه‌های آموزشی به پادکست تبدیل شده. */
+function donutSvg_(pct, label, sub) {
+  var R = 54, C = 2 * Math.PI * R;
+  var p = Number(pct);
+  if (!isFinite(p)) p = 0;
+  var on = Math.max(0, Math.min(100, p)) / 100 * C;
+  return '' +
+    '<svg viewBox="0 0 140 140" width="140" height="140" role="img">' +
+    '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="#e6e9f0" stroke-width="16"/>' +
+    '<circle cx="70" cy="70" r="' + R + '" fill="none" stroke="#2e5cb8" stroke-width="16"' +
+    ' stroke-linecap="round" stroke-dasharray="' + on.toFixed(1) + ' ' + (C - on).toFixed(1) + '"' +
+    ' transform="rotate(-90 70 70)"/>' +
+    '<text x="70" y="66" text-anchor="middle" font-size="26" font-weight="bold" fill="#1f3864">' +
+    faNum_(Math.round(p)) + '٪</text>' +
+    '<text x="70" y="88" text-anchor="middle" font-size="11" fill="#5a6478">' +
+    bEsc_(label) + '</text>' +
+    (sub ? '<text x="70" y="104" text-anchor="middle" font-size="10" fill="#8a93a5">' +
+           bEsc_(sub) + '</text>' : '') +
+    '</svg>';
+}
+
+/** دایرهٔ سهم‌بندیِ وضعیت مجموعه‌ها (تمام‌شده / در حال تولید / در نوبت / …). */
+function pieSvg_(slices) {
+  var total = 0, i;
+  for (i = 0; i < slices.length; i++) {
+    var sv = Number(slices[i].n);
+    if (isFinite(sv) && sv > 0) total += sv;
+  }
+  if (!total) {
+    return '<svg viewBox="0 0 140 140" width="140" height="140">' +
+           '<circle cx="70" cy="70" r="54" fill="#e6e9f0"/></svg>';
+  }
+  var out = ['<svg viewBox="0 0 140 140" width="140" height="140" role="img">'];
+  var a0 = -Math.PI / 2;
+  for (i = 0; i < slices.length; i++) {
+    var sn = Number(slices[i].n);
+    if (!isFinite(sn) || sn <= 0) continue;
+    var frac = sn / total;
+    var a1 = a0 + frac * 2 * Math.PI;
+    if (frac >= 0.9999) {
+      out.push('<circle cx="70" cy="70" r="54" fill="' + slices[i].color + '"/>');
+      break;
+    }
+    var x0 = (70 + 54 * Math.cos(a0)).toFixed(2), y0 = (70 + 54 * Math.sin(a0)).toFixed(2);
+    var x1 = (70 + 54 * Math.cos(a1)).toFixed(2), y1 = (70 + 54 * Math.sin(a1)).toFixed(2);
+    out.push('<path d="M70,70 L' + x0 + ',' + y0 + ' A54,54 0 ' +
+             (frac > 0.5 ? 1 : 0) + ',1 ' + x1 + ',' + y1 + ' Z" fill="' + slices[i].color +
+             '"><title>' + bEsc_(slices[i].label + ': ' + slices[i].n) + '</title></path>');
+    a0 = a1;
+  }
+  out.push('<circle cx="70" cy="70" r="26" fill="#fff"/>');
+  out.push('</svg>');
+  return out.join('');
+}
+
+/** میلهٔ افقیِ پیشرفتِ یک مجموعه. */
+function barSvg_(pct, w, color) {
+  w = Number(w) || 150;
+  var p = Number(pct);
+  if (!isFinite(p)) p = 0;
+  var on = Math.max(0, Math.min(100, p)) / 100 * w;
+  return '<svg viewBox="0 0 ' + w + ' 12" width="' + w + '" height="12" role="img">' +
+         '<rect x="0" y="2" width="' + w + '" height="8" rx="4" fill="#e6e9f0"/>' +
+         (on > 0 ? '<rect x="0" y="2" width="' + on.toFixed(1) + '" height="8" rx="4" fill="' +
+                   (color || '#2e5cb8') + '"/>' : '') +
+         '</svg>';
+}
+
+/** رقم فارسی، برای اینکه اعداد پنجره با بقیهٔ برنامه یکدست باشند. */
+function faNum_(n) {
+  var d = '۰۱۲۳۴۵۶۷۸۹';
+  var v = (n === null || n === undefined || (typeof n === 'number' && !isFinite(n))) ? 0 : n;
+  return String(v).replace(/[0-9]/g, function (c) { return d.charAt(Number(c)); });
+}
+
+// ------------------------------------------------------------ پنجره
+
+var BOARD_CSS =
+  'body{font-family:Tahoma,"Segoe UI",Arial,sans-serif;direction:rtl;text-align:right;' +
+  'background:#f4f6fa;color:#1a2233;margin:0;padding:14px;line-height:1.7;font-size:13px}' +
+  '.hd{background:linear-gradient(135deg,#1f3864,#2e5cb8);color:#fff;border-radius:12px;' +
+  'padding:14px 18px;margin-bottom:12px}' +
+  '.hd h1{margin:0 0 4px;font-size:17px}.hd .s{opacity:.85;font-size:12px}' +
+  '.card{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:12px;' +
+  'box-shadow:0 1px 6px rgba(20,30,60,.07)}' +
+  '.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}' +
+  '.tile{flex:1;min-width:96px;background:#f7f9fd;border-radius:10px;padding:9px 11px}' +
+  '.tile b{display:block;font-size:19px;color:#1f3864}' +
+  '.tile span{font-size:11px;color:#5a6478}' +
+  '.lg{font-size:11px;color:#5a6478;margin-top:6px}' +
+  '.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:4px}' +
+  'h2{font-size:14px;color:#1f3864;margin:16px 0 6px;padding-bottom:5px;' +
+  'border-bottom:2px solid #e8eefc;display:flex;justify-content:space-between;align-items:center}' +
+  'table{width:100%;border-collapse:collapse;font-size:12px}' +
+  'th{background:#eef2fb;color:#1f3864;padding:6px 8px;text-align:right;font-weight:normal;' +
+  'font-size:11px}' +
+  'td{border-bottom:1px solid #eef0f5;padding:6px 8px;vertical-align:middle}' +
+  '.now{background:#eaf6ec!important}.pinned{background:#fff6e5!important}' +
+  '.bdg{display:inline-block;border-radius:20px;padding:1px 9px;font-size:10px;color:#fff}' +
+  '.b-act{background:#166534}.b-done{background:#5a6478}.b-new{background:#2e5cb8}' +
+  '.b-re{background:#b45309}.b-skip{background:#9ca3af}.b-man{background:#7c3aed}' +
+  '.abt{font-size:11px;color:#cbd5e1;margin-top:2px;line-height:1.6}' +
+  '.exc{opacity:.85}.exc td{background:#241f1f}' +
+  '.lvl{font-size:10px;color:#5a6478}' +
+  'button{font-family:inherit;font-size:11px;border:1px solid #2e5cb8;background:#fff;' +
+  'color:#2e5cb8;border-radius:7px;padding:4px 10px;cursor:pointer}' +
+  'button:hover{background:#eef2fb}button[disabled]{opacity:.45;cursor:default}' +
+  'button.pin{background:#2e5cb8;color:#fff}' +
+  '.warn{background:#fff6e5;border:1px solid #f0d9a8;border-radius:10px;padding:10px 12px;' +
+  'font-size:12px;margin-bottom:12px}' +
+  '.ok{background:#eaf6ec;border:1px solid #c7e4cd;border-radius:10px;padding:10px 12px;' +
+  'font-size:12px;margin-bottom:12px}' +
+  '.sub{font-size:11px;color:#5a6478}' +
+  '#msg{position:sticky;top:0;z-index:9}';
+
+function badgeOf_(st) {
+  if (st === SST.ACTIVE) return '<span class="bdg b-act">در حال تولید</span>';
+  if (st === SST.DONE) return '<span class="bdg b-done">تمام‌شده</span>';
+  if (st === SST.REOPENED) return '<span class="bdg b-re">قسمت تازه</span>';
+  if (st === SST.SKIPPED) return '<span class="bdg b-skip">نادیده</span>';
+  return '<span class="bdg b-new">در نوبت</span>';
+}
+
+/**
+ * ساختِ HTML پنجره. تابعِ خالص است (فقط از داده می‌سازد) تا در آزمون هم
+ * قابل سنجش باشد.
+ */
+// JSON برای جاسازی امن داخلِ یک تگِ <script>: نویسه‌های < و > و جداکننده‌های
+// خطِّ یونیکد را escape می‌کند تا نه از تگ بیرون بزند (</script>) و نه جاوااسکریپت
+// را بشکند. مقدار در زمانِ اجرا دقیقاً همان رشتهٔ اصلی می‌ماند.
+function jsonScript_(o) {
+  return JSON.stringify(o)
+    .replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
+function seriesBoardHtml_(d) {
+  var H = [];
+  // فهرستِ دسته‌های موجود، برای فرمِ تنظیمِ دستی: هم دسته‌های استانداردِ
+  // تاکسونومی، هم هر دسته‌ای که همین حالا روی تخته هست.
+  var catList = [], seenC = Object.create(null);
+  try {
+    for (var ci = 0; ci < TAXONOMY.length; ci++) {
+      var ct = String(TAXONOMY[ci].title || '');
+      if (ct && !seenC[ct]) { seenC[ct] = 1; catList.push(ct); }
+    }
+  } catch (eTx) {}
+  for (var gi = 0; gi < d.groups.length; gi++) {
+    var gc = String(d.groups[gi].cat || '');
+    if (gc && gc !== MISC_TITLE && !seenC[gc]) { seenC[gc] = 1; catList.push(gc); }
+  }
+
+  H.push('<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">');
+  H.push('<style>' + BOARD_CSS + '</style></head><body>');
+  H.push('<script>var MO_CATS=' + jsonScript_(catList) + ';</script>');
+  H.push('<div id="msg"></div>');
+
+  // ── فرمِ تنظیمِ دستی (یکجا؛ جای سه پنجرهٔ پشتِ‌هم) ──
+  H.push(
+    '<div id="moOv" data-key="" style="display:none;position:fixed;inset:0;' +
+    'background:rgba(0,0,0,.55);z-index:60">' +
+    '<div style="max-width:470px;margin:6% auto;background:#fff;color:#1a2030;' +
+    'border-radius:12px;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.3)">' +
+    '<div id="moTitle" style="font-weight:bold;font-size:15px;margin-bottom:12px"></div>' +
+    '<div style="margin:10px 0"><div style="font-size:12px;color:#5a6478;margin-bottom:3px">' +
+    'شمارهٔ دستی (۱ = اولِ صف؛ خالی = بی‌شماره)</div>' +
+    '<input id="moNum" type="text" inputmode="numeric" style="width:100%;box-sizing:border-box;' +
+    'padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:inherit"></div>' +
+    '<div style="margin:10px 0"><div style="font-size:12px;color:#5a6478;margin-bottom:3px">دسته</div>' +
+    '<select id="moCat" onchange="moCatChange()" style="width:100%;box-sizing:border-box;' +
+    'padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:inherit"></select>' +
+    '<input id="moNew" placeholder="نامِ دستهٔ نو" style="display:none;width:100%;box-sizing:border-box;' +
+    'margin-top:6px;padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:inherit"></div>' +
+    '<div style="margin:10px 0"><div style="font-size:12px;color:#5a6478;margin-bottom:3px">' +
+    'زیردسته (اختیاری)</div>' +
+    '<input id="moSub" type="text" style="width:100%;box-sizing:border-box;padding:8px;' +
+    'border:1px solid #cbd5e1;border-radius:7px;font:inherit"></div>' +
+    '<div style="font-size:11.5px;color:#5a6478;margin-top:8px">با ثبت، این مجموعه برای داوریِ ' +
+    'خودکار قفل می‌شود، پوشهٔ درایوش زیرِ دسته می‌رود و شماره/دسته برای قسمت‌های قبلی هم عقب‌گرد می‌خورد.</div>' +
+    '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-start">' +
+    '<button onclick="moSave()" style="background:#166534;color:#fff;border:0;padding:8px 16px;' +
+    'border-radius:7px;cursor:pointer;font:inherit">ثبت</button>' +
+    '<button onclick="moCancel()" style="padding:8px 16px;border:1px solid #cbd5e1;' +
+    'border-radius:7px;background:#fff;cursor:pointer;font:inherit">انصراف</button></div>' +
+    '</div></div>');
+
+  H.push('<div class="hd"><h1>مجموعه‌های آموزشی — «' + bEsc_(CFG.SPECIAL_SHOW_NAME) + '»</h1>');
+  H.push('<div class="s">' +
+         (d.enabled ? 'تولید روزانه ساعت ' + faNum_(d.specialHour) + ' صبح'
+                    : '⚠️ تولید تخصصی خاموش است') +
+         '  ·  اسکن خودکار هر ' + faNum_(d.rescanHours) + ' ساعت' +
+         (d.scannedAt ? '  ·  آخرین اسکن: ' + bEsc_(d.scannedAt) : '') +
+         (d.version ? '  ·  نسخهٔ کد: ' + bEsc_(d.version) : '') + '</div></div>');
+
+  // ── جست‌وجو — خواستهٔ صریح: این فهرست باید «حتماً» قابلِ جست‌وجو باشد ──
+  H.push('<div class="card" style="position:sticky;top:0;z-index:5">' +
+         '<input id="q" type="search" placeholder="جست‌وجو در مجموعه‌ها، درس‌ها، دسته‌ها…" ' +
+         'style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;' +
+         'border-radius:8px;font:inherit" oninput="doSearch()">' +
+         '<div id="qn" class="sub" style="margin-top:4px"></div></div>');
+
+  // ── وضعیت انتخاب ──
+  if (d.pin && d.pin.exhausted) {
+    H.push('<div class="ok"><b>انتخاب دستی تمام شد:</b> ' +
+           (d.pin.kind === 'cat' ? 'دستهٔ «' : 'مجموعهٔ «') + bEsc_(d.pin.name || d.pin.value) +
+           '» کارِ ساخته‌نشده‌ای ندارد.' +
+           '<br>در اجرای بعد خودش برداشته می‌شود و موتور ' +
+           (d.current
+              ? 'به مجموعه‌ای که نیمه‌کاره گذاشته بود برمی‌گردد — همان که پایین با نشانِ ' +
+                '«الان روی این کار می‌شود» دیده می‌شود.'
+              : 'سراغ مجموعهٔ بعدی می‌رود؛ ولی الان هیچ مجموعهٔ ناتمامی در فهرست نیست.') +
+           ' &nbsp; <button onclick="clearPin()">همین حالا بردار</button></div>');
+  } else if (d.pin) {
+    H.push('<div class="warn"><b>انتخاب دستی فعال است:</b> ' +
+           (d.pin.kind === 'cat' ? 'دستهٔ «' : 'مجموعهٔ «') + bEsc_(d.pin.name || d.pin.value) + '»' +
+           (d.pin.at ? ' <span class="sub">(از ' + bEsc_(d.pin.at) + ')</span>' : '') +
+           '<br>تا این کار تمام نشود، موتور سراغ چیز دیگری نمی‌رود. همین که تمام شد، ' +
+           'انتخاب دستی خودش برداشته می‌شود و موتور به مجموعه‌ای که نیمه‌کاره گذاشته بود ' +
+           'برمی‌گردد. &nbsp; <button onclick="clearPin()">برداشتن انتخاب دستی</button></div>');
+  }
+  if (d.judge && (d.judge.unjudged || !d.judgedAt)) {
+    H.push('<div class="warn"><b>' + (d.judge.unjudged ? faNum_(d.judge.unjudged) +
+           ' مجموعه هنوز داوری نشده' : 'داوریِ محتوایی هنوز انجام نشده') + '.</b> ' +
+           'تا داوری نشوند، دسته و سطح و اولویتشان قطعی نیست. داوری خودش پیش از هر ' +
+           'تولید انجام می‌شود، ولی می‌توانید همین حالا هم بزنیدش:' +
+           ' &nbsp; <button onclick="judgeNow()">داوری و مرتب‌سازی همین حالا</button></div>');
+  }
+  if (d.judge && d.judge.byRule) {
+    // شفافیت: کاربر باید بداند کدام تصمیم‌ها از مدل آمده و کدام‌ها از
+    // قاعده‌های خودیِ موتور — وگرنه به هر دو یک‌جور اعتماد می‌کند.
+    H.push('<div class="warn"><b>' + faNum_(d.judge.byRule) +
+           ' مجموعه با قاعده‌های خودیِ موتور دسته‌بندی شده‌اند، نه با مدل.</b> ' +
+           'این وقتی پیش می‌آید که مدلِ داوری جواب نمی‌دهد؛ کارش این است که فهرست ' +
+           'بی‌نظم و بی‌دسته نماند. دقتش کمتر است و در دورهای بعد خودش با مدل ' +
+           'بازبینی می‌شود. در ستونِ دلیل با نشانهٔ «' + bEsc_(JUDGE_LOCAL_MARK) +
+           '» مشخص‌اند.</div>');
+  }
+  if (d.current) {
+    H.push('<div class="ok"><b>الان روی این کار می‌شود:</b> ' + bEsc_(d.current.name) +
+           ' <span class="sub">(دستهٔ ' + bEsc_(d.current.cat) + ')</span>' +
+           '<br><span class="sub">دکمهٔ «ساخت یک قسمت همین حالا» هم همین را ادامه می‌دهد — ' +
+           'مگر مجموعهٔ دیگری را دستی انتخاب کنید.</span></div>');
+  } else {
+    H.push('<div class="warn">هیچ مجموعه‌ای برای تولید در نوبت نیست. اگر تازه شیت تازه‌ای ' +
+           'اضافه کرده‌اید، «اسکن مجموعه‌های آموزشی» را بزنید.</div>');
+  }
+
+  // ── نمودارها ──
+  var t = d.totals;
+  H.push('<div class="card"><div class="row">');
+  H.push('<div style="text-align:center">' +
+         donutSvg_(t.pct, 'از کلِ درس‌ها', faNum_(Math.round(t.doneChunks)) + ' از ' + faNum_(t.chunks) +
+                   ' قطعه') + '</div>');
+  H.push('<div style="text-align:center">' +
+         pieSvg_([{ n: t.done, color: '#5a6478', label: 'تمام‌شده' },
+                  { n: t.active, color: '#166534', label: 'در حال تولید' },
+                  { n: t.reopened, color: '#b45309', label: 'قسمت تازه' },
+                  { n: t.queued, color: '#2e5cb8', label: 'در نوبت' },
+                  { n: t.skipped, color: '#9ca3af', label: 'نادیده' }]) +
+         '<div class="lg">' +
+         '<i style="background:#166534"></i>در حال تولید ' + faNum_(t.active) +
+         ' &nbsp;<i style="background:#2e5cb8"></i>در نوبت ' + faNum_(t.queued) +
+         ' &nbsp;<i style="background:#b45309"></i>قسمت تازه ' + faNum_(t.reopened) +
+         ' &nbsp;<i style="background:#5a6478"></i>تمام‌شده ' + faNum_(t.done) +
+         '</div></div>');
+  H.push('<div class="tile"><b>' + faNum_(t.series) + '</b><span>مجموعهٔ آموزشی</span></div>');
+  H.push('<div class="tile"><b>' + faNum_(d.episodesMade) + '</b><span>قسمتِ ساخته‌شده</span></div>');
+  H.push('<div class="tile"><b>' + faNum_(Math.max(0, Math.round(t.chunks - t.doneChunks))) +
+         '</b><span>قطعهٔ باقی‌مانده</span></div>');
+  if (d.judge) {
+    H.push('<div class="tile"><b>' + faNum_(d.judge.notCourse) +
+           '</b><span>آموزشی نبود</span></div>');
+    if (d.judge.unjudged) {
+      H.push('<div class="tile"><b>' + faNum_(d.judge.unjudged) +
+             '</b><span>داوری‌نشده</span></div>');
+    }
+  }
+  H.push('</div></div>');
+
+  // ── فهرست، ذیل هر دسته ──
+  if (!d.groups.length) {
+    H.push('<div class="card">هنوز هیچ مجموعه‌ای شناسایی نشده است.</div>');
+  }
+  for (var g = 0; g < d.groups.length; g++) {
+    var grp = d.groups[g];
+    H.push('<div class="grp" data-cat="' + bEsc_(grp.cat) + '">');
+    H.push('<h2><span>' + bEsc_(grp.cat) +
+           (grp.hasCurrent ? ' &nbsp;<span class="bdg b-act">دستهٔ جاری</span>' : '') +
+           (grp.pinned ? ' &nbsp;<span class="bdg b-re">انتخاب دستی</span>' : '') +
+           '</span><span class="sub">' + faNum_(grp.pct) + '٪ &nbsp; ' +
+           faNum_(grp.series.length) + ' مجموعه &nbsp; ' + faNum_(grp.episodes) + ' قسمت' +
+           '</span></h2>');
+    H.push('<div class="card"><div style="margin-bottom:8px">' +
+           barSvg_(grp.pct, 260, grp.hasCurrent ? '#166534' : '#2e5cb8') +
+           ' &nbsp;<button ' + (grp.pinned ? 'class="pin" ' : '') +
+           'data-cat="' + bEsc_(grp.cat) + '" ' +
+           'data-act="' + (grp.pinned ? 'unpin' : 'pin') + '" ' +
+           (grp.pinned || grp.hasWork ? '' :
+             'disabled title="مجموعه‌های این دسته تمام شده‌اند یا نادیده گرفته شده‌اند؛ چیزی برای ساختن نمانده" ') +
+           'onclick="pinCat(this)">' +
+           (grp.pinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این دسته') +
+           '</button></div>');
+    H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
+           '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th><th></th></tr>');
+    for (var i = 0; i < grp.series.length; i++) {
+      var x = grp.series[i];
+      var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
+      // متنِ جست‌وجو: نام، موضوع، شرح، دسته، زیر‌دسته و نامِ همهٔ درس‌ها
+      var hay = [x.name, x.topic, x.about, grp.cat, x.msub, x.level, x.key]
+        .concat(x.partRows.map(function (pr) { return pr.name; })).join(' ');
+      H.push('<tr class="' + clsName + '" data-hay="' + bEsc_(hay) + '">');
+      H.push('<td>' +
+             (x.morder !== null
+                ? faNum_(x.morder) + ' <span class="bdg b-man">دستی</span>'
+                : (x.order >= 999 ? '—' : faNum_(x.order))) + '</td>');
+      H.push('<td><b>' + bEsc_(x.name) + '</b>' +
+             (x.isCurrent ? ' ◀ <span class="sub">همین حالا</span>' : '') +
+             (x.manual === SMAN.YES ? ' <span class="bdg b-man">نظرِ شما</span>' : '') +
+             (x.locked ? ' <span class="bdg b-man">🔒 تنظیمِ دستی — داوریِ خودکار بی‌اثر</span>' : '') +
+             (!x.locked && x.isCourse === null ? ' <span class="bdg b-new">داوری نشده</span>' : '') +
+             (!x.locked && x.unsure ? ' <span class="bdg b-re">مشکوک</span>' : '') +
+             (x.msub ? ' <span class="sub">زیر‌دسته: ' + bEsc_(x.msub) + '</span>' : '') +
+             // شرحِ یک‌خطیِ محتوا: برای فایل‌هایی که از نامشان چیزی فهمیده نمی‌شود
+             (x.about ? '<div class="abt">' + bEsc_(x.about) + '</div>'
+                      : (x.topic ? '<div class="sub">' + bEsc_(x.topic) + '</div>' : '')) +
+             '</td>');
+      H.push('<td class="lvl">' + bEsc_(x.level || '—') + '</td>');
+      H.push('<td>' + faNum_(x.donePartsN) + '/' + faNum_(x.parts) + '</td>');
+      H.push('<td>' + barSvg_(x.pct, 110, x.isCurrent ? '#166534' : '#2e5cb8') +
+             '<div class="sub">' + faNum_(x.pct) + '٪ — ' + faNum_(Math.round(x.doneChunks)) + ' از ' +
+             faNum_(x.chunks) + ' قطعه</div></td>');
+      H.push('<td>' + (x.status === SST.ACTIVE && !x.hasWork
+                         ? '<span class="bdg b-done">تمام شد — بسته می‌شود</span>'
+                         : badgeOf_(x.status)) +
+             (x.lastEpAt ? '<div class="sub">' + bEsc_(x.lastEpAt) + '</div>' : '') + '</td>');
+      H.push('<td>' + faNum_(x.episodes) + '</td>');
+      H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
+             'data-key="' + bEsc_(x.key) + '" ' +
+             'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
+             (x.isPinned || x.hasWork ? '' :
+               'disabled title="' + (x.status === SST.SKIPPED ?
+                 'این مجموعه نادیده گرفته شده (ردیفش در شیت‌های منبع پیدا نمی‌شود)' :
+                 'کارِ این مجموعه تمام شده؛ قطعهٔ ساخته‌نشده‌ای ندارد') + '" ') +
+             'onclick="pinSeries(this)">' +
+             (x.isPinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این') + '</button>' +
+             '<br><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
+             'data-name="' + bEsc_(x.name) + '" ' +
+             'data-mo="' + (x.morder === null ? '' : x.morder) + '" ' +
+             'data-mc="' + bEsc_(x.mcat) + '" data-msu="' + bEsc_(x.msub) + '" ' +
+             'onclick="setManual(this)">شماره و دستهٔ دستی</button>' +
+             (x.locked ? '<br><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
+                         'onclick="clearManual(this)">برداشتنِ تنظیمِ دستی</button>' : '') +
+             '</td>');
+      H.push('</tr>');
+
+      // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
+      if (x.partRows.length) {
+        H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
+               '<td colspan="7"><table style="font-size:11px">');
+        for (var p = 0; p < x.partRows.length; p++) {
+          var pr = x.partRows[p];
+          H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
+                 '<td>' + bEsc_(pr.name) + '</td>' +
+                 '<td style="width:120px">' + barSvg_(pr.pct, 90,
+                    pr.pct >= 100 ? '#5a6478' : '#8ab4f8') + '</td>' +
+                 '<td style="width:120px" class="sub">قطعهٔ ' + faNum_(Math.round(pr.done)) +
+                 ' از ' + faNum_(pr.chunks) + '</td>' +
+                 '<td class="sub">' + (pr.episodes ? 'قسمت ' + bEsc_(pr.episodes) : '—') +
+                 '</td></tr>');
+        }
+        H.push('</table></td></tr>');
+      }
+    }
+    H.push('</table></div>');
+    H.push('</div>');   // .grp — مرزِ جست‌وجو
+  }
+
+  // ── بخشِ «آموزشی تشخیص داده نشد» ──
+  if (d.excluded && d.excluded.length) {
+    H.push('<h2><span>آموزشی تشخیص داده نشد ' +
+           '<span class="bdg b-skip">' + faNum_(d.excluded.length) + '</span></span>' +
+           '<span class="sub">در «' + bEsc_(CFG.SHOW_NAME) + '» استفاده می‌شوند</span></h2>');
+    H.push('<div class="card"><div class="sub" style="margin-bottom:8px">' +
+           'این‌ها از فهرستِ «' + bEsc_(CFG.SPECIAL_SHOW_NAME) + '» کنار گذاشته شده‌اند چون ' +
+           'داوریِ محتوایی — با خواندنِ متنِ واقعیِ خودشان، نه نامشان — تشخیص داده که ' +
+           'آموختنِ منظم در آن‌ها نیست. <b>دور ریخته نشده‌اند:</b> در برنامهٔ «' +
+           bEsc_(CFG.SHOW_NAME) + '» عیناً استفاده می‌شوند. اگر با داوری موافق نیستید، ' +
+           'دکمهٔ «آموزشی است» را بزنید تا از این پس در فهرستِ درس‌نامه بیاید.' +
+           '</div>');
+    H.push('<table><tr><th>مجموعه</th><th>چه چیزی است</th><th>امتیاز</th>' +
+           '<th>قسمت</th><th></th></tr>');
+    for (var xx = 0; xx < d.excluded.length; xx++) {
+      var ex = d.excluded[xx];
+      H.push('<tr class="exc">');
+      H.push('<td><b>' + bEsc_(ex.name) + '</b>' +
+             (ex.manual === SMAN.NO ? ' <span class="bdg b-man">نظرِ شما</span>' : '') +
+             (ex.about ? '<div class="abt">' + bEsc_(ex.about) + '</div>' : '') + '</td>');
+      H.push('<td class="sub">' + bEsc_(ex.why || '—') + '</td>');
+      H.push('<td>' + faNum_(ex.cscore) + '</td>');
+      H.push('<td>' + faNum_(ex.parts) + ' / ' + faNum_(ex.chunks) + ' قطعه</td>');
+      H.push('<td><button data-key="' + bEsc_(ex.key) + '" data-act="course" ' +
+             'onclick="setCourse(this)">آموزشی است</button>' +
+             // اگر همین ردیف تنظیمِ دستی دارد (وتوی SMAN.NO بر قفل چربیده)،
+             // دکمهٔ دیدن/برداشتنِ آن هم باید همین‌جا باشد، نه گم.
+             (ex.locked ? '<br><button style="margin-top:4px" data-key="' + bEsc_(ex.key) + '" ' +
+                          'onclick="clearManual(this)">برداشتنِ تنظیمِ دستی</button>' : '') +
+             '</td>');
+      H.push('</tr>');
+    }
+    H.push('</table></div>');
+  }
+
+  H.push('<div class="card sub">' +
+         'ترتیب هر دسته از «برنامهٔ درسی» می‌آید: مقدماتی‌ترین مجموعه اولویت ۱ می‌گیرد و ' +
+         'موتور به همان ترتیب جلو می‌رود. تا یک مجموعه تمام نشود سراغ بعدی نمی‌رود. ' +
+         'اگر مجموعه‌ای را دستی انتخاب کنید، اولویت‌ها موقتاً کنار می‌روند تا کارِ آن تمام شود.' +
+         '</div>');
+
+  // ── ارتباط با سرور ──
+  H.push('<script>');
+  H.push('function say(t,ok){var m=document.getElementById("msg");' +
+         'm.innerHTML=\'<div class="\'+(ok?"ok":"warn")+\'">\'+t+\'</div>\';' +
+         'window.scrollTo(0,0);}');
+  H.push('function busy(){document.querySelectorAll("button").forEach(function(b){' +
+         'b.disabled=true;});}');
+  H.push('function done(r){say(r&&r.message?r.message:"انجام شد.",true);' +
+         'setTimeout(function(){google.script.run.withSuccessHandler(function(h){' +
+         'document.open();document.write(h);document.close();})' +
+         '.uiBoardHtml();},700);}');
+  H.push('function fail(e){say("خطا: "+(e&&e.message?e.message:e),false);' +
+         'document.querySelectorAll("button").forEach(function(b){b.disabled=false;});}');
+  // کلیدها با data-attribute می‌آیند، نه داخل رشتهٔ جاوااسکریپت — تا هیچ نویسه‌ای
+  // (کوتیشن، بک‌اسلش، خطِ تازه) نتواند دکمه را بشکند یا کدی تزریق کند.
+  // «کنش» هم از خودِ دکمه می‌آید (pin / unpin) تا دکمهٔ کهنه، انتخابِ برداشته‌شده را برنگرداند.
+  H.push('function pinSeries(b){var k=b.dataset.key,a=b.dataset.act||"pin";' +
+         'busy();say("ثبت انتخاب…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiPinSeries(k,a);}');
+  H.push('function pinCat(b){var c=b.dataset.cat,a=b.dataset.act||"pin";' +
+         'busy();say("ثبت انتخاب…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiPinCategory(c,a);}');
+  H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
+  H.push('function setCourse(b){var k=b.dataset.key,a=b.dataset.act||"course";' +
+         'busy();say("ثبت نظر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiSetCourse(k,a);}');
+  H.push('function judgeNow(){busy();say("داوریِ محتوایی… چند لحظه صبر کنید",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiJudgeNow();}');
+  // ── تنظیمِ دستی: یک فرمِ واحد (شماره + دسته + زیردسته با هم) ──
+  // چرا فرم و نه سه پنجرهٔ prompt: در نسخهٔ قبل سه پنجرهٔ پشتِ‌هم می‌آمد و
+  // کاربر فقط اولی (شماره) را می‌دید و فکر می‌کرد دسته اصلاً قابلِ تغییر نیست.
+  H.push('function moFill(cur){var s=document.getElementById("moCat");s.innerHTML="";' +
+         'var o0=document.createElement("option");o0.value="";' +
+         'o0.textContent="— بی‌دسته (دسته را خودکار بگذار) —";s.appendChild(o0);' +
+         'MO_CATS.forEach(function(c){var o=document.createElement("option");' +
+         'o.value=c;o.textContent=c;s.appendChild(o);});' +
+         'var on=document.createElement("option");on.value="__new";' +
+         'on.textContent="+ دستهٔ نو…";s.appendChild(on);' +
+         'var hit=false,i;for(i=0;i<s.options.length;i++){if(s.options[i].value===cur){' +
+         's.selectedIndex=i;hit=true;break;}}' +
+         'var nw=document.getElementById("moNew");' +
+         'if(cur&&!hit){s.value="__new";nw.style.display="block";nw.value=cur;}' +
+         'else{nw.style.display="none";nw.value="";}}');
+  H.push('function setManual(b){' +
+         'document.getElementById("moOv").dataset.key=b.dataset.key;' +
+         'document.getElementById("moTitle").textContent="تنظیمِ دستی: "+(b.dataset.name||"");' +
+         'document.getElementById("moNum").value=b.dataset.mo||"";' +
+         'document.getElementById("moSub").value=b.dataset.msu||"";' +
+         'moFill(b.dataset.mc||"");' +
+         'document.getElementById("moOv").style.display="block";}');
+  H.push('function moCatChange(){var v=document.getElementById("moCat").value;' +
+         'document.getElementById("moNew").style.display=(v==="__new")?"block":"none";}');
+  H.push('function moCancel(){document.getElementById("moOv").style.display="none";}');
+  H.push('function moSave(){var k=document.getElementById("moOv").dataset.key;' +
+         'var num=document.getElementById("moNum").value;' +
+         'var cv=document.getElementById("moCat").value;' +
+         'var cat=(cv==="__new")?document.getElementById("moNew").value:cv;' +
+         'var sub=document.getElementById("moSub").value;' +
+         'document.getElementById("moOv").style.display="none";' +
+         'busy();say("ثبتِ تنظیمِ دستی و اصلاحِ قسمت‌های قبلی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiSetManual(k,num,cat,sub);}');
+  H.push('function clearManual(b){if(!confirm("تنظیمِ دستی برداشته شود و این مجموعه ' +
+         'دوباره به داوری و ترتیبِ خودکار برگردد؟"))return;' +
+         'busy();say("برداشتنِ تنظیمِ دستی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiClearManual(b.dataset.key);}');
+  // ── جست‌وجو ──
+  H.push('function doSearch(){var q=(document.getElementById("q").value||"")' +
+         '.trim().replace(/\\u200c/g," ").toLowerCase();' +
+         'var rows=document.querySelectorAll("tr.srow");var n=0,tot=0;' +
+         'rows.forEach(function(r){tot++;' +
+         'var hay=(r.dataset.hay||"").replace(/\\u200c/g," ").toLowerCase();' +
+         'var hit=!q||hay.indexOf(q)!==-1;' +
+         'r.style.display=hit?"":"none";if(hit)n++;' +
+         'var d=r.nextElementSibling;' +
+         'if(d&&d.classList.contains("sdetail"))d.style.display=hit?"":"none";});' +
+         'document.querySelectorAll(".grp").forEach(function(g){' +
+         'var any=false;g.querySelectorAll("tr.srow").forEach(function(r){' +
+         'if(r.style.display!=="none")any=true;});' +
+         'g.style.display=any?"":"none";});' +
+         'var qn=document.getElementById("qn");' +
+         'qn.textContent=q?("نمایش "+n+" از "+tot+" مجموعه"):"";}');
+  H.push('</script></body></html>');
+  return H.join('\n');
+}
+
+// --------------------------------------------------------- توابع منو و پنجره
+
+/** منو: نمایش تختهٔ مجموعه‌ها. */
+function showSeriesBoard() {
+  var ui = ui_();
+  var html = uiBoardHtml();
+  if (!ui) { console.log(html.slice(0, 400)); return html; }
+  var out = HtmlService.createHtmlOutput(html).setWidth(1000).setHeight(680);
+  ui.showModalDialog(out, 'مجموعه‌های آموزشی و پیشرفت تولید');
+}
+
+/** همان HTML، برای بازخوانیِ پنجره بعد از هر انتخاب. */
+function uiBoardHtml() {
+  var hub = getHub_();
+  // اگر رجیستری کهنه است، همین‌جا تازه‌اش کن تا فهرست همیشه به‌روز دیده شود
+  var scanned = null;
+  try { scanned = scanSeries(false); } catch (e) {}
+  // مجموعهٔ تازه‌کشف‌شده اولویت ندارد و در فهرست «—» دیده می‌شد. اگر اسکن
+  // واقعاً چیزی تازه کرد، همین‌جا ترتیبِ درسی را هم به‌روز می‌کنیم تا آنچه
+  // می‌بینید همان چیزی باشد که موتور بر پایه‌اش تصمیم می‌گیرد.
+  // فقط وقتی ردیفِ بی‌اولویت داریم — وگرنه هر بار بازکردنِ پنجره یک فراخوانِ
+  // مدل می‌شد و پنجره چند ثانیه معلق می‌ماند.
+  if (scanned && !scanned.skipped) {
+    try {
+      var rg0 = readSeriesReg_(hub), needPlan = false;
+      for (var z = 0; z < rg0.rows.length; z++) {
+        if (String(rg0.rows[z].vals[SC.STATUS - 1] || '') === SST.SKIPPED) continue;
+        if (!String(rg0.rows[z].vals[SC.ORDER - 1] || '').toString().trim()) { needPlan = true; break; }
+      }
+      if (needPlan) rankWithinCategories_(hub, rg0);
+    } catch (eP) {}
+  }
+  return seriesBoardHtml_(seriesBoardData_(hub));
+}
+
+/** انتخاب دستیِ یک مجموعه. `act` از خودِ دکمه می‌آید: 'pin' یا 'unpin'.
+    اگر خالی باشد (پنجرهٔ کهنه) همان رفتارِ کلید‌گردانِ قبلی را دارد. */
+function uiPinSeries(key, act) {
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  var rec = Object.prototype.hasOwnProperty.call(reg.byKey, String(key))
+              ? reg.byKey[String(key)] : null;
+  if (!rec) return { ok: false, message: 'مجموعه پیدا نشد. پنجره را ببندید و «اسکن مجموعه‌های آموزشی» را بزنید.' };
+  var nm = String(rec.vals[SC.NAME - 1] || key);
+  var pin = seriesPin_();
+  var isPinned = !!(pin && pin.kind === 'series' && pin.value === String(key));
+  var a = String(act || '');
+  if (a !== 'pin' && a !== 'unpin') a = isPinned ? 'unpin' : 'pin';   // سازگاری با پنجرهٔ کهنه
+
+  if (a === 'unpin') {
+    if (!isPinned) {
+      // دکمهٔ کهنه: این مجموعه دیگر انتخابِ دستی نیست. چیزی را برنمی‌داریم.
+      return { ok: true, message: 'این مجموعه از قبل انتخابِ دستی نبود؛ چیزی تغییر نکرد.' };
+    }
+    clearSeriesPin_();
+    logLine_('انتخاب دستی برداشته شد (مجموعهٔ «' + nm + '»).');
+    return { ok: true, message: 'انتخاب دستی برداشته شد. موتور به ترتیبِ خودکار برمی‌گردد.' };
+  }
+
+  // ردیفِ «نادیده گرفته شد» هیچ‌وقت نوبت نمی‌گیرد؛ پس انتخابش را نمی‌پذیریم
+  if (String(rec.vals[SC.STATUS - 1] || '') === SST.SKIPPED) {
+    return { ok: false, message: 'مجموعهٔ «' + nm + '» در فهرست «نادیده گرفته شد» است ' +
+      '(ردیفش دیگر در شیت‌های منبع پیدا نمی‌شود). انتخاب دستی ثبت نشد. ' +
+      'اگر فایل‌هایش برگشته‌اند، «اسکن مجموعه‌های آموزشی» را بزنید تا دوباره زنده شود.' };
+  }
+
+  // ── نگهبان: مجموعه‌ای که قطعهٔ ساخته‌نشده ندارد، انتخابِ دستی نمی‌شود ──
+  // وگرنه سنجاق ثبت می‌شد، هیچ قسمتی ساخته نمی‌شد و همان مجموعه بی‌جهت
+  // «تمام‌شده» علامت می‌خورد.
+  if (!seriesHasWork_(hub, String(key))) {
+    return { ok: false, message: 'مجموعهٔ «' + nm + '» قطعهٔ ساخته‌نشده‌ای ندارد؛ ' +
+      'کارش تمام شده است. انتخاب دستی ثبت نشد و موتور به کارِ فعلی‌اش ادامه می‌دهد. ' +
+      'اگر قسمتِ تازه‌ای به این مجموعه اضافه کرده‌اید، اول «اسکن مجموعه‌های آموزشی» را بزنید.' };
+  }
+
+  setSeriesPin_('series', String(key));
+  logLine_('انتخاب دستی: از این پس روی مجموعهٔ «' + nm + '» کار می‌شود.');
+  return { ok: true, message: 'انتخاب شد: «' + nm + '». ' +
+    'قسمتِ بعدی — چه خودکار و چه با دکمهٔ دستی — از همین مجموعه ساخته می‌شود و به ترتیب ' +
+    'جلو می‌رود. همین که تمام شد، موتور خودش به مجموعهٔ قبلی برمی‌گردد.' };
+}
+
+/** انتخاب دستیِ یک دسته. `act`: 'pin' یا 'unpin'. */
+function uiPinCategory(cat, act) {
+  var hub = getHub_();
+  var c = String(cat === null || cat === undefined ? '' : cat).trim();
+  var pin = seriesPin_();
+  var isPinned = !!(pin && pin.kind === 'cat' && String(pin.value).trim() === c);
+  var a = String(act || '');
+  if (a !== 'pin' && a !== 'unpin') a = isPinned ? 'unpin' : 'pin';
+
+  if (a === 'unpin') {
+    if (!isPinned) return { ok: true, message: 'این دسته از قبل انتخابِ دستی نبود؛ چیزی تغییر نکرد.' };
+    clearSeriesPin_();
+    logLine_('انتخاب دستی برداشته شد (دستهٔ «' + c + '»).');
+    return { ok: true, message: 'انتخاب دستی برداشته شد.' };
+  }
+
+  // نگهبان: دسته‌ای که هیچ مجموعهٔ ناتمامی ندارد، انتخابِ دستی نمی‌شود
+  var reg = readSeriesReg_(hub);
+  var parts = readSeriesParts_(hub);
+  var found = false, live = 0, skipped = 0;
+  for (var i = 0; i < reg.rows.length; i++) {
+    var r = reg.rows[i];
+    if (seriesCatOf_(r.vals) !== c) continue;
+    found = true;
+    if (String(r.vals[SC.STATUS - 1] || '') === SST.SKIPPED) { skipped++; continue; }
+    // موردی که داوری «آموزشی نیست» تشخیص داده، با سنجاقِ دسته هم ساخته نمی‌شود؛
+    // پس نباید در شمارشِ «مجموعهٔ ناتمام» بیاید و وعدهٔ الکی بدهد.
+    if (!seriesEligible_(r.vals, r.key, null)) continue;
+    if (seriesHasWork_(hub, r.key, parts)) live++;
+  }
+  if (!found) return { ok: false, message: 'دستهٔ «' + c + '» در فهرست نیست. ' +
+    'پنجره را ببندید و دوباره باز کنید.' };
+  if (!live) return { ok: false, message: (skipped && live === 0 && skipped >= 1 ?
+      'مجموعه‌های دستهٔ «' + c + '» یا تمام شده‌اند یا «نادیده گرفته شد» علامت خورده‌اند' :
+      'همهٔ مجموعه‌های دستهٔ «' + c + '» تمام شده‌اند') +
+    '؛ قطعهٔ ساخته‌نشده‌ای برای تولید نمانده. انتخاب دستی ثبت نشد و موتور به کارِ فعلی‌اش ادامه می‌دهد.' };
+
+  setSeriesPin_('cat', c);
+  logLine_('انتخاب دستی: از این پس روی دستهٔ «' + c + '» کار می‌شود.');
+  return { ok: true, message: 'دستهٔ «' + c + '» انتخاب شد (' + faNum_(live) + ' مجموعهٔ ناتمام). ' +
+    'موتور مقدماتی‌ترین مجموعهٔ همین دسته را برمی‌دارد و به ترتیب جلو می‌رود.' };
+}
+
+/** نظرِ دستیِ شما: «این آموزشی است» یا «آموزشی نیست». */
+function uiSetCourse(key, act) {
+  var hub = getHub_();
+  var a = String(act || 'course');
+  var dec = (a === 'notcourse') ? SMAN.NO : (a === 'auto' ? '' : SMAN.YES);
+  var r = setSeriesManual_(hub, key, dec);
+  if (!r.ok) return r;
+  if (dec === SMAN.YES) {
+    return { ok: true, message: 'ثبت شد: «' + r.name + '» از این پس آموزشی حساب می‌شود و ' +
+      'ذیل دستهٔ خودش در نوبتِ درس‌نامه می‌آید. داوریِ خودکار دیگر رویش دست نمی‌گذارد.' };
+  }
+  if (dec === SMAN.NO) {
+    return { ok: true, message: 'ثبت شد: «' + r.name + '» از فهرستِ درس‌نامه کنار رفت. ' +
+      'در برنامهٔ «' + CFG.SHOW_NAME + '» عیناً استفاده می‌شود.' };
+  }
+  return { ok: true, message: '«' + r.name + '» به داوریِ خودکار برگشت.' };
+}
+
+/**
+ * ثبتِ شماره و دسته و زیر‌دستهٔ دستیِ یک مجموعه — و اصلاحِ گذشته.
+ *
+ * سه قاعدهٔ خواسته‌شده:
+ *   ۱) این تنظیم بر همهٔ سازوکارهای خودکار مقدم است و آن ردیف را برای داوری
+ *      و مرتب‌سازیِ خودکار «قفل» می‌کند (seriesManualLock_).
+ *   ۲) قسمت‌های قبلاً ساخته‌شدهٔ همان مجموعه هم به‌روز می‌شوند: نامِ
+ *      شماره‌دارِ پوشهٔ مجموعه در درایو، و پروندهٔ وضعیتِ هر قسمت.
+ *   ۳) هیچ چیزی در شیت‌های منبع دست نمی‌خورد — همهٔ این‌ها در CONTENT-HUB و
+ *      پوشهٔ OUTPUT است.
+ */
+function uiSetManual(key, numStr, cat, sub) {
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  var rec = Object.prototype.hasOwnProperty.call(reg.byKey, String(key))
+              ? reg.byKey[String(key)] : null;
+  if (!rec) return { ok: false, message: 'مجموعه پیدا نشد.' };
+
+  var raw = faDigits_(String(numStr === null || numStr === undefined ? '' : numStr)).trim();
+  var num = '';
+  if (raw) {
+    var n = Number(raw);
+    if (!isFinite(n) || n < 1 || n !== Math.floor(n) || n > 9999) {
+      return { ok: false, message: 'شماره باید یک عددِ صحیحِ از ۱ به بالا باشد (یا خالی).' };
+    }
+    num = String(n);
+  }
+  var c = String(cat === null || cat === undefined ? '' : cat).trim().slice(0, 60);
+  var su = String(sub === null || sub === undefined ? '' : sub).trim().slice(0, 60);
+  if (su && !c && !String(rec.vals[SC.CAT - 1] || '').trim()) {
+    return { ok: false, message: 'زیر‌دسته بدونِ دسته معنا ندارد؛ اول دسته را بدهید.' };
+  }
+
+  rec.vals[SC.MORDER - 1] = num;
+  rec.vals[SC.MCAT - 1] = c;
+  rec.vals[SC.MSUB - 1] = su;
+  rec.vals[SC.UPDATED - 1] = nowStr_();
+  var lockOn = !!(num || c);
+  var revived = false;
+  // ردیفی که صافیِ ساختاری «نادیده» کرده بود، با قفلِ دستی زنده می‌شود؛
+  // وگرنه پیامِ «ساخته می‌شود» دروغ بود — انتخاب‌کننده ردیفِ نادیده را
+  // پیش از هر شرطی کنار می‌گذارد.
+  if (lockOn && String(rec.vals[SC.STATUS - 1] || '') === SST.SKIPPED) {
+    rec.vals[SC.STATUS - 1] = SST.NEW;
+    rec.vals[SC.NOTE - 1] = 'با تنظیمِ دستی به فهرست برگشت (' + nowStr_() + ')';
+    revived = true;
+  }
+  try { reg.sheet.getRange(rec.row, 1, 1, SERIES_HEADERS.length).setValues([rec.vals]); }
+  catch (e) { return { ok: false, message: 'نوشتن ناموفق: ' + e.message }; }
+
+  var nm = String(rec.vals[SC.NAME - 1] || key);
+  var fixed = [];
+  try { fixed = applyManualSeriesPast_(reg, rec); }
+  catch (eP) { fixed = ['اصلاحِ گذشته ناقص ماند: ' + eP.message]; }
+
+  logLine_('تنظیمِ دستیِ مجموعهٔ «' + nm + '»: ' +
+           (num ? 'شماره ' + num : 'بی‌شماره') +
+           (c ? '، دسته «' + c + '»' : '') + (su ? '، زیر‌دسته «' + su + '»' : '') +
+           (revived ? '، و از «نادیده» به فهرست برگشت' : '') +
+           (fixed.length ? ' — ' + fixed.join('؛ ') : '') + '.');
+  // پیام واردِ innerHTML پنجره می‌شود؛ هر چه از کاربر یا درایو آمده esc می‌شود
+  return { ok: true, message: 'ثبت شد: «' + bEsc_(nm) + '»' +
+           (num ? ' — شمارهٔ ' + num + ' (در نوبت‌دهی پیش از همهٔ ترتیب‌های خودکار می‌نشیند؛ ' +
+                  'فقط مجموعه‌ای که همین حالا نیمه‌کاره در حال تولید است، اول تمام می‌شود)' : '') +
+           (c ? ' — دستهٔ «' + bEsc_(c) + '»' + (su ? ' / «' + bEsc_(su) + '»' : '') : '') +
+           (revived ? ' — و از «نادیده گرفته شد» به فهرست برگشت' : '') +
+           (lockOn ? '. این مجموعه از این پس برای داوری و مرتب‌سازیِ خودکار قفل است.'
+                   : '. تنظیمِ دستی برداشته شد.') +
+           (fixed.length ? '<br>' + fixed.map(bEsc_).join('<br>') : '') };
+}
+
+function uiClearManual(key) {
+  return uiSetManual(key, '', '', '');
+}
+
+/**
+ * اصلاحِ ردپای گذشتهٔ یک مجموعه پس از تنظیمِ دستی. برمی‌گرداند فهرستِ
+ * خواناییِ کارهایی که واقعاً انجام شد.
+ *
+ * چه چیزهایی شماره/دسته را حمل می‌کنند و باید عوض شوند:
+ *   • نامِ پوشهٔ مجموعه در درایو: «NN — نام» — شماره‌اش از ترتیبِ برنامه
+ *     می‌آمد؛ حالا از شمارهٔ دستی.
+ *   • پروندهٔ «_special.json» هر قسمتِ ساخته‌شده: فیلد seriesCat.
+ * نامِ فایل‌های صوتی و اسناد، شماره و دسته ندارند (فقط نامِ مجموعه و شمارهٔ
+ * قسمت را دارند که هیچ‌کدام عوض نشده)، پس سالم‌اند و دست نمی‌خورند.
+ */
+function applyManualSeriesPast_(reg, rec) {
+  var out = [];
+  var folderId = String(rec.vals[SC.FOLDER - 1] || '');
+  if (!folderId) return out;
+  var folder = null;
+  try { folder = DriveApp.getFolderById(folderId); }
+  catch (e) { return out; }
+
+  var cat = seriesCatOf_(rec.vals);
+
+  // ── جای پوشه: زیرِ دستهٔ خودش ──
+  // این همان خواستهٔ صریح است که دسته هم مثلِ شماره در درایو اثر بگذارد و
+  // برای قسمت‌های قبلی هم عقب‌گرد بخورد.
+  try {
+    var target = seriesCatFolder_(cat);
+    var already = false;
+    try {
+      var ps = folder.getParents();
+      while (ps.hasNext()) { if (ps.next().getId() === target.getId()) { already = true; break; } }
+    } catch (ePP) { already = true; }   // نتوانستیم والد را بخوانیم؟ جابه‌جا نکن
+    if (!already) {
+      folder.moveTo(target);
+      out.push('پوشهٔ مجموعه زیرِ دستهٔ «' +
+               (cat && cat !== MISC_TITLE ? cat : 'بی‌دسته') + '» منتقل شد');
+    }
+  } catch (eMv) { out.push('انتقالِ پوشه به دسته نشد: ' + eMv.message); }
+
+  // ── نامِ شماره‌دارِ پوشه ──
+  try {
+    var mo = seriesMOrder_(rec.vals);
+    var order = isFinite(mo) ? mo : (Number(rec.vals[SC.ORDER - 1]) || 0);
+    if (order > 0) {
+      var want = seriesFolderNo_(order) + ' — ' +
+                 String(rec.vals[SC.NAME - 1] || rec.key).slice(0, 70);
+      if (folder.getName() !== want) {
+        var was = folder.getName();
+        folder.setName(want);
+        out.push('نامِ پوشه از «' + was + '» به «' + want + '» شد');
+      }
+    }
+  } catch (eN) { out.push('تغییرنامِ پوشه نشد: ' + eN.message); }
+
+  // ── پروندهٔ وضعیتِ قسمت‌های قبلی ──
+  try {
+    var subs = folder.getFolders(), patched = 0;
+    var guard = 0;
+    while (subs.hasNext() && guard++ < 400) {
+      var epF = subs.next();
+      var itJ = epF.getFilesByName('_special.json');
+      if (!itJ.hasNext()) continue;
+      var fJ = itJ.next();
+      try {
+        var meta = JSON.parse(fJ.getBlob().getDataAsString());
+        if (String(meta.seriesKey || '') && String(meta.seriesKey) !== String(rec.key)) continue;
+        if (String(meta.seriesCat || '') === cat) continue;
+        meta.seriesCat = cat;
+        fJ.setContent(JSON.stringify(meta));
+        patched++;
+      } catch (eOne) {}
+    }
+    if (patched) out.push('دستهٔ ' + patched + ' قسمتِ قبلی در پروندهٔ وضعیتشان به‌روز شد');
+  } catch (eJ) {}
+  return out;
+}
+
+/** داوریِ محتوایی از داخلِ پنجره. */
+function uiJudgeNow() {
+  var r;
+  try { r = judgeSeries(false, new Date().getTime() + 180 * 1000); }
+  catch (e) { return { ok: false, message: 'داوری ناموفق: ' + e.message }; }
+  var msg = 'داوری شد: ' + (r.judged || 0) + ' مجموعه' +
+            (r.left ? ' · ' + r.left + ' مجموعه ماند (دوباره بزنید)' : ' — چیزی نمانده') + '.';
+  return { ok: true, message: msg };
+}
+
+function uiClearPin() {
+  clearSeriesPin_();
+  logLine_('انتخاب دستی برداشته شد.');
+  return { ok: true, message: 'انتخاب دستی برداشته شد. موتور به ترتیبِ خودکار برمی‌گردد.' };
+}

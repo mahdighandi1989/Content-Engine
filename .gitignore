@@ -1,0 +1,8 @@
+__pycache__/
+node_modules/
+*.pyc
+
+# خروجی‌های تولیدشدهٔ آزمون‌ها (هر اجرا از نو ساخته می‌شوند)
+out_*
+*.wav
+/test_report.txt

@@ -1,0 +1,557 @@
+/**
+ * 21_SelfUpdate.gs — نصبِ خودکارِ کدِ تازه با Google Apps Script API
+ *
+ * ══ مسئله‌ای که این بخش حل می‌کند ══
+ *
+ * تا امروز چرخهٔ «کد باید عوض شود» دستی و آشفته بود: ناظرِ Cowork در تبِ
+ * گزارش‌ها می‌نوشت «نیازمند تعویض کد»، جایی یک _CODE-LATEST.json می‌گذاشت که
+ * فقط می‌گفت «نسخهٔ تازه ساخته شد» — بی اینکه بگوید خودِ کد کجاست — و کاربر
+ * باید در سشن‌های ساعت‌به‌ساعت دنبالِ فایل می‌گشت، دستی کپی می‌کرد، و هیچ‌کس
+ * هم جلوی ردیفِ گزارش «انجام شد» نمی‌زد. یک بار هم بسته‌ای با برچسبِ ۵٫۹
+ * ساخته شد که داخلش ۵٫۸ بود — چون برچسب و محتوا دو جای جدا نوشته می‌شدند.
+ *
+ * ══ چرخهٔ تازه ══
+ *
+ *   ۱) ناظرِ Cowork کدِ کامل را می‌سازد و دو چیز در OUTPUT می‌گذارد:
+ *      خودِ فایلِ کامل («_CODE-v<نسخه>.gs») و بیانیهٔ «_CODE-LATEST.json» با
+ *      نسخه، خلاصه، نامِ فایل، اثرانگشتِ SHA-256 و شناسهٔ ردیف‌های گزارشی
+ *      که این کد جوابشان است.
+ *   ۲) موتور هر شب (پیش از پشتیبان‌گیری) selfUpdateStep را اجرا می‌کند:
+ *      بسته را برمی‌دارد، سخت‌گیرانه وارسی می‌کند — از جمله اینکه نسخهٔ
+ *      نوشته‌شده «داخلِ خودِ فایل» با نسخهٔ اعلامی یکی باشد (همان دامِ
+ *      ۵٫۹/۵٫۸) — از کدِ فعلی نسخهٔ پشتیبان می‌گیرد، و با Apps Script API
+ *      کدِ پروژه را جایگزین می‌کند. فایلِ خراب اصلاً نصب نمی‌شود: خودِ
+ *      گوگل هنگامِ ذخیره کد را کامپایل می‌کند و خطای ساختاری را رد می‌دهد.
+ *   ۳) بلافاصله یک تریگرِ یک‌بارمصرف afterCodeSwap را صدا می‌زند که دیگر با
+ *      «کدِ تازه» اجرا می‌شود: زمان‌بندی‌ها را وارسی می‌کند، جلوی ردیف‌های
+ *      گزارش «کد نصب شد» می‌زند، بیانیه را با ساعتِ نصب کامل می‌کند و در
+ *      تلگرام و ایمیل با لینکِ دقیقِ نسخهٔ ذخیره‌شده خبر می‌دهد.
+ *   ۴) ناظرِ فردا می‌بیند نسخهٔ در حالِ اجرا همان است، ردیف را «تأیید» و
+ *      بسته می‌کند. هیچ‌جای این چرخه دستِ کاربر لازم نیست.
+ *
+ * هر نسخه — قبلی و تازه — در پوشهٔ «کدها» داخلِ OUTPUT می‌ماند و هر شب
+ * همراهِ شیت‌ها پشتیبان گرفته و در پیامِ پشتیبان لینک می‌شود.
+ *
+ * ══ اگر دسترسیِ API نبود ══
+ *
+ * این قابلیت دو پیش‌نیازِ یک‌باره دارد: روشن‌بودنِ «Google Apps Script API» در
+ * تنظیماتِ کاربری (که روشن شده)، و بودنِ اسکوپِ script.projects در
+ * appsscript.json (راهنمای نصب، بخشِ «نصبِ خودکارِ کد»). اگر اسکوپ نباشد،
+ * موتور خراب نمی‌شود: یک بار پیامِ روشن می‌دهد که چه چیزی را کجا اضافه کنید
+ * و تا آن موقع همان روالِ اعلامِ دستی برقرار می‌ماند.
+ */
+
+var SELFUP_ANCHORS = ['function produceEpisode', 'function renderAudioStep_',
+                      'function runBackupStep', 'function selfUpdateStep',
+                      'function afterCodeSwap', 'function syncCatalog'];
+
+function scriptContentUrl_() {
+  return 'https://script.googleapis.com/v1/projects/' +
+         encodeURIComponent(ScriptApp.getScriptId()) + '/content';
+}
+
+/** فراخوانِ Apps Script API با هویتِ خودِ کاربر. */
+function scriptApiFetch_(method, payloadOpt) {
+  var opt = {
+    method: method,
+    muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  };
+  if (payloadOpt !== undefined) {
+    opt.contentType = 'application/json';
+    opt.payload = JSON.stringify(payloadOpt);
+  }
+  var res = UrlFetchApp.fetch(scriptContentUrl_(), opt);
+  var out = { code: res.getResponseCode(), text: res.getContentText(), json: null };
+  try { out.json = JSON.parse(out.text); } catch (e) {}
+  return out;
+}
+
+function sha256Hex_(text) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+                                      String(text), Utilities.Charset.UTF_8);
+  var hex = '';
+  for (var i = 0; i < bytes.length; i++) {
+    var b = (bytes[i] + 256) % 256;
+    hex += (b < 16 ? '0' : '') + b.toString(16);
+  }
+  return hex;
+}
+
+/** بیانیهٔ کد (جلوترین نسخه، همان قاعدهٔ checkCodeUpdate_). */
+/** آدرسِ raw یک فایل در ریپوی گیت‌هاب، با ضدِ حافظهٔ پنهانِ CDN. */
+function githubRawUrl_(file) {
+  return 'https://raw.githubusercontent.com/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO +
+         '/' + CFG.GITHUB_BRANCH + '/' + file + '?t=' + (new Date().getTime());
+}
+
+/** بیانیه مستقیم از raw گیت‌هاب. */
+function readCodeManifestGithub_() {
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.GITHUB_MANIFEST),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return null;
+    var info = JSON.parse(res.getContentText());
+    if (!info || !info.version) return null;
+    return { info: info, file: null };   // روی گیت‌هاب فایلِ قابلِ‌بازنویسی نداریم
+  } catch (e) { return null; }
+}
+
+function readCodeManifest_() {
+  if (CFG.CODE_SOURCE === 'github') return readCodeManifestGithub_();
+  var info = null, file = null;
+  try {
+    var it = outFolder_().getFilesByName(CFG.CODE_FILE), seen = 0;
+    while (it.hasNext() && seen++ < 10) {
+      var f = it.next(), cand = null;
+      try { cand = JSON.parse(f.getBlob().getDataAsString()); } catch (e) { continue; }
+      if (!cand || !cand.version) continue;
+      if (!info || verCmp_(String(cand.version), String(info.version)) > 0) {
+        info = cand; file = f;
+      }
+    }
+  } catch (e) {}
+  return info ? { info: info, file: file } : null;
+}
+
+/** خودِ بستهٔ کد: با شناسه اگر داده شده، وگرنه با نام در OUTPUT. */
+function findCodePkg_(info) {
+  if (CFG.CODE_SOURCE === 'github') {
+    try {
+      var gf = String(info.codeFile || CFG.GITHUB_CODE_FILE);
+      var gres = UrlFetchApp.fetch(githubRawUrl_(gf),
+                   { muteHttpExceptions: true, followRedirects: true });
+      if (gres.getResponseCode() !== 200) return null;
+      return { file: null, text: gres.getContentText() };
+    } catch (eg) { return null; }
+  }
+  try {
+    if (info.fileId) {
+      var f0 = DriveApp.getFileById(String(info.fileId));
+      return { file: f0, text: f0.getBlob().getDataAsString() };
+    }
+  } catch (e0) {}
+  try {
+    if (info.fileName) {
+      var it = outFolder_().getFilesByName(String(info.fileName));
+      if (it.hasNext()) {
+        var f1 = it.next();
+        return { file: f1, text: f1.getBlob().getDataAsString() };
+      }
+    }
+  } catch (e1) {}
+  return null;
+}
+
+/**
+ * وارسیِ سخت‌گیرانهٔ بسته. فهرستِ ایرادها را برمی‌گرداند؛ خالی یعنی سالم.
+ * مهم‌ترینش «نسخهٔ داخلِ فایل»: همان چیزی که یک بار ۵٫۸ ماند و برچسب ۵٫۹ خورد.
+ */
+function validateCodePkg_(text, info) {
+  var errs = [];
+  var t = String(text || '');
+  if (t.length < 100000) errs.push('فایل خیلی کوچک است (' + t.length + ' نویسه) — کدِ کامل نیست');
+  if (t.length > 3000000) errs.push('فایل به‌طرزِ نامعقولی بزرگ است');
+  var m = t.match(/CODE_VERSION:\s*'([^']+)'/);
+  if (!m) errs.push('CODE_VERSION داخلِ فایل پیدا نشد');
+  else if (String(m[1]) !== String(info.version)) {
+    errs.push('نسخهٔ داخلِ فایل (' + m[1] + ') با نسخهٔ اعلامی (' + info.version +
+              ') نمی‌خواند — همان اشتباهی که یک بار با برچسبِ ۵٫۹ و محتوای ۵٫۸ رخ داد');
+  }
+  if (info.sha256) {
+    var got = sha256Hex_(t);
+    if (got !== String(info.sha256).toLowerCase()) {
+      errs.push('اثرانگشتِ SHA-256 نمی‌خواند (فایل ناقص رسیده یا عوض شده)');
+    }
+  }
+  for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
+    if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
+      errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در بسته نیست — نصبش موتور را ناقص می‌کرد');
+    }
+  }
+  return errs;
+}
+
+/** وسطِ کارِ حساس؟ (صداگذاری، پشتیبان‌گیری) — نصب به بعد موکول می‌شود. */
+function engineBusyForSwap_() {
+  var p = props_();
+  return !!(p.getProperty(PK.PENDING) || p.getProperty(PK.SP_PENDING) ||
+            p.getProperty(PK.BACKUP_STATE));
+}
+
+/** پوشهٔ «کدها» داخل OUTPUT — بایگانیِ همهٔ نسخه‌ها. */
+function codeFolder_() {
+  var root = outFolder_();
+  var it = root.getFoldersByName(CFG.CODE_FOLDER);
+  if (it.hasNext()) return it.next();
+  return root.createFolder(CFG.CODE_FOLDER);
+}
+
+function saveCodeCopy_(name, text) {
+  var folder = codeFolder_();
+  var it = folder.getFilesByName(name);
+  if (it.hasNext()) { var f = it.next(); f.setContent(text); return f; }
+  return folder.createFile(Utilities.newBlob(text, 'text/plain', name));
+}
+
+/** تازه‌ترین فایلِ پوشهٔ کدها — برای پشتیبانِ شبانه و پیام‌ها. */
+function latestCodeCopy_() {
+  try {
+    var it = codeFolder_().getFiles(), best = null, bestT = 0;
+    while (it.hasNext()) {
+      var f = it.next();
+      var t = f.getLastUpdated ? f.getLastUpdated().getTime() : 0;
+      if (t >= bestT) { bestT = t; best = f; }
+    }
+    return best;
+  } catch (e) { return null; }
+}
+
+/** پیامِ یک‌بارهٔ «اسکوپ نیست» — با راهِ دقیقِ درست‌کردن، بی تکرارِ روزانه. */
+function selfUpdateNoScope_(code) {
+  var last = props_().getProperty(PK.SELFUP_NOSCOPE) || '';
+  var ageH = last ? (new Date().getTime() - parseWhen_(last)) / 3600000 : 1e9;
+  if (ageH < 24 * 6) return;                       // هفته‌ای یک بار بس است
+  props_().setProperty(PK.SELFUP_NOSCOPE, nowStr_());
+  var msg = 'نصبِ خودکارِ کد فعال نشد (HTTP ' + code + '): دسترسیِ Apps Script API به ' +
+            'خودِ پروژه باز نیست.\n' +
+            'یک کارِ یک‌باره لازم است: در ویرایشگرِ Apps Script، «تنظیمات پروژه» ' +
+            '(Project Settings) → گزینهٔ «Show \"appsscript.json\"» را روشن کنید، بعد در ' +
+            'فایل appsscript.json فهرست oauthScopes را مطابق راهنمای نصب (بخش «نصبِ ' +
+            'خودکارِ کد») بگذارید، ذخیره کنید و یک بار یکی از توابع را دستی اجرا و ' +
+            'اجازه‌ها را تأیید کنید. تا آن موقع، کدِ تازه فقط «اعلام» می‌شود و نصبش ' +
+            'دستی می‌ماند — مثل قبل.';
+  logLine_('نصب خودکار: اسکوپِ script.projects در دسترس نیست (HTTP ' + code + ').');
+  try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — نصبِ خودکارِ کد یک اجازهٔ یک‌باره می‌خواهد',
+                        htmlBody: '<div dir="rtl">' + esc_(msg).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e2) {}
+}
+
+/**
+ * نصبِ یک متنِ کد در خودِ پروژه. مشترکِ نصبِ خودکار و بازگشت به نسخهٔ قبل.
+ * برمی‌گرداند: { ok, code, reason }
+ */
+function installSource_(text, wantVersion, label) {
+  // ── کدِ فعلیِ پروژه (هم آزمونِ اسکوپ است، هم مادهٔ پشتیبان) ──
+  var cur = scriptApiFetch_('get');
+  if (cur.code === 401 || cur.code === 403) {
+    selfUpdateNoScope_(cur.code);
+    return { ok: false, reason: 'no-scope', code: cur.code };
+  }
+  if (cur.code !== 200 || !cur.json || !cur.json.files) {
+    logLine_('نصب خودکار: خواندنِ کدِ فعلی ناموفق (HTTP ' + cur.code + ').');
+    return { ok: false, reason: 'get-failed', code: cur.code };
+  }
+
+  // ── پشتیبان از کدِ در حالِ اجرا، پیش از هر تغییری ──
+  var curSrc = '';
+  for (var i = 0; i < cur.json.files.length; i++) {
+    var f = cur.json.files[i];
+    if (f.type === 'SERVER_JS') {
+      curSrc += '\n/* ═══ ' + f.name + ' ═══ */\n' + String(f.source || '');
+    }
+  }
+  var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH-mm');
+  var bak = null;
+  try {
+    bak = saveCodeCopy_('موتور — v' + CFG.CODE_VERSION + ' — پیش از ' + label + ' — ' + stamp + '.gs', curSrc);
+  } catch (eB) { logLine_('نصب خودکار: ذخیرهٔ نسخهٔ پشتیبانِ کد ناموفق: ' + eB.message); }
+
+  // ── ساختنِ فهرستِ فایل‌های تازه: هرچه SERVER_JS بود، یک فایلِ واحد می‌شود ──
+  var keep = [], firstJsName = null;
+  for (var k = 0; k < cur.json.files.length; k++) {
+    var fk = cur.json.files[k];
+    if (fk.type === 'SERVER_JS') { if (!firstJsName) firstJsName = fk.name; continue; }
+    keep.push({ name: fk.name, type: fk.type, source: fk.source });
+  }
+  keep.push({ name: firstJsName || 'موتور-محتوا', type: 'SERVER_JS', source: String(text) });
+
+  // نشانهٔ «وسطِ تعویض» پیش از PUT می‌نشیند تا اگر اجرا همین‌جا کشته شد،
+  // afterCodeSwap یا دورِ فردا بتواند وضع را جمع کند.
+  props_().setProperty(PK.SELFUP_PENDING, String(wantVersion));
+
+  var put = scriptApiFetch_('put', { files: keep });
+  if (put.code !== 200) {
+    props_().deleteProperty(PK.SELFUP_PENDING);
+    var why = put.json && put.json.error && put.json.error.message
+                ? String(put.json.error.message).slice(0, 300) : ('HTTP ' + put.code);
+    logLine_('نصب خودکار: ذخیرهٔ کد رد شد — ' + why);
+    try {
+      tgSend_('🛠 نصبِ خودکارِ کدِ نسخهٔ ' + tgEsc_(String(wantVersion)) + ' انجام نشد: ' +
+              tgEsc_(why) + '\nنسخهٔ فعلی دست‌نخورده و سالم است.' +
+              (put.code === 400 ? '\n(ردِ کامپایلرِ گوگل یعنی فایل خطای ساختاری داشت — ' +
+               'به سازنده‌اش برگردانده می‌شود.)' : ''));
+    } catch (eT) {}
+    return { ok: false, reason: 'put-failed', code: put.code, why: why };
+  }
+
+  // موفق. اجرای فعلی هنوز با کدِ قدیم است؛ راه‌اندازیِ نو با تریگرِ تازه.
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var d = 0; d < ts.length; d++) {
+      if (ts[d].getHandlerFunction() === 'afterCodeSwap') ScriptApp.deleteTrigger(ts[d]);
+    }
+    ScriptApp.newTrigger('afterCodeSwap').timeBased().after(90 * 1000).create();
+  } catch (eTr) {}
+  logLine_('کدِ نسخهٔ ' + wantVersion + ' در پروژه ذخیره شد (' + label +
+           ')؛ راه‌اندازیِ دوباره تا دو دقیقهٔ دیگر.');
+  return { ok: true, backup: bak ? bak.getUrl() : '' };
+}
+
+/**
+ * گامِ روزانهٔ نصبِ خودکار — پیش از پشتیبانِ شبانه.
+ * force=true از منو می‌آید و «مشغول بودن» را هم نادیده نمی‌گیرد، فقط سقفِ
+ * روزانه ندارد (این گام اصلاً سقفِ روزانه ندارد؛ ارزان است).
+ */
+function selfUpdateStep(force) {
+  if (CFG.AUTOUPDATE_ENABLED === false) return { ok: false, reason: 'disabled' };
+  var got = readCodeManifest_();
+  if (!got) return { ok: false, reason: 'no-manifest' };
+  var info = got.info;
+  if (verCmp_(String(info.version), String(CFG.CODE_VERSION)) <= 0) {
+    return { ok: false, reason: 'up-to-date', current: CFG.CODE_VERSION };
+  }
+  // بیانیهٔ بی‌بسته: همان روالِ قدیمِ «فقط اعلام» — ولی این را هم صریح بگو.
+  // در حالتِ گیت‌هاب، کد همیشه از codeFile/GITHUB_CODE_FILE گرفته می‌شود، پس این
+  // بند فقط برای حالتِ درایو است.
+  if (CFG.CODE_SOURCE !== 'github' && !info.fileName && !info.fileId) {
+    logLine_('کدِ ' + info.version + ' اعلام شده ولی خودِ فایل ضمیمه نیست (fileName/fileId خالی)؛ ' +
+             'نصبِ خودکار ممکن نیست — روالِ دستی برقرار است.');
+    return { ok: false, reason: 'no-package' };
+  }
+  var pkg = findCodePkg_(info);
+  if (!pkg) {
+    logLine_('کدِ ' + info.version + ': فایلِ اعلام‌شده («' + (info.fileName || info.fileId) +
+             '») در OUTPUT پیدا نشد؛ نصب نشد.');
+    return { ok: false, reason: 'package-missing' };
+  }
+  var errs = validateCodePkg_(pkg.text, info);
+  if (errs.length) {
+    logLine_('کدِ ' + info.version + ' ردِ وارسی شد: ' + errs.join(' | '));
+    try {
+      tgSend_('🛠 کدِ اعلامیِ نسخهٔ ' + tgEsc_(String(info.version)) + ' نصب نشد — ردِ وارسی:\n• ' +
+              tgEsc_(errs.join('\n• ')) + '\nنسخهٔ فعلی (' + tgEsc_(CFG.CODE_VERSION) +
+              ') سالم و برقرار است.');
+    } catch (eT) {}
+    try { noteCodeRows_(info, 'نصب خودکار رد شد: ' + errs.join(' | ')); } catch (eN) {}
+    return { ok: false, reason: 'invalid', errors: errs };
+  }
+  if (engineBusyForSwap_()) {
+    // وسطِ صداگذاری یا پشتیبان، کد عوض نمی‌شود؛ دو ساعت دیگر دوباره.
+    try {
+      var ts = ScriptApp.getProjectTriggers();
+      for (var i = 0; i < ts.length; i++) {
+        if (ts[i].getHandlerFunction() === 'selfUpdateDaily') continue;
+      }
+      ScriptApp.newTrigger('selfUpdateRetry').timeBased().after(2 * 60 * 60 * 1000).create();
+    } catch (eS) {}
+    logLine_('نصبِ کدِ ' + info.version + ' به دو ساعت بعد موکول شد (موتور وسطِ کار است).');
+    return { ok: false, reason: 'busy', retry: true };
+  }
+  // نسخهٔ تازه هم در بایگانیِ «کدها» ذخیره می‌شود — همین نسخه لینکِ پیام‌هاست.
+  var stored = null;
+  try {
+    stored = saveCodeCopy_('موتور — v' + info.version + ' — ' +
+                           Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') + '.gs',
+                           pkg.text);
+  } catch (eC) {}
+  var r = installSource_(pkg.text, info.version, 'نصبِ نسخهٔ ' + info.version);
+  if (r.ok) {
+    r.storedUrl = stored ? stored.getUrl() : '';
+    // بیانیه همین حالا مُهرِ «در حالِ نصب» می‌گیرد؛ afterCodeSwap کاملش می‌کند.
+    try {
+      info.installStartedAt = nowStr_();
+      info.storedUrl = r.storedUrl;
+      if (got.file) got.file.setContent(JSON.stringify(info, null, 1));
+    } catch (eM) {}
+  }
+  return r;
+}
+
+function selfUpdateDaily() {
+  try { return selfUpdateStep(false); }
+  catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
+}
+
+function selfUpdateRetry() { return selfUpdateDaily(); }
+
+/**
+ * اولین اجرای پس از تعویض — این تابع دیگر با «کدِ تازه» اجرا می‌شود.
+ * راه‌اندازی، ثبت، و اطلاع‌رسانی؛ و اگر تعویض واقعاً ننشسته بود، اعلامِ صریح.
+ */
+function afterCodeSwap() {
+  var want = props_().getProperty(PK.SELFUP_PENDING) || '';
+  if (!want) return { ok: false, reason: 'nothing-pending' };
+  if (String(CFG.CODE_VERSION) !== String(want)) {
+    // هنوز کدِ قدیم اجرا شده؟ (انتشارِ نسخه چند ثانیه طول می‌کشد.) یک تلاشِ
+    // دیگر؛ اگر باز نشد، یعنی تعویض ننشسته و باید صادقانه گفته شود.
+    var tries = Number(props_().getProperty(PK.SELFUP_TRIES) || 0) + 1;
+    if (tries <= 2) {
+      props_().setProperty(PK.SELFUP_TRIES, String(tries));
+      try { ScriptApp.newTrigger('afterCodeSwap').timeBased().after(3 * 60 * 1000).create(); } catch (e) {}
+      return { ok: false, reason: 'not-yet', running: CFG.CODE_VERSION };
+    }
+    props_().deleteProperty(PK.SELFUP_PENDING);
+    props_().deleteProperty(PK.SELFUP_TRIES);
+    logLine_('تعویضِ کد به ' + want + ' ننشست؛ نسخهٔ در حالِ اجرا ' + CFG.CODE_VERSION + ' است.');
+    try { tgSend_('🛠 تعویضِ خودکارِ کد به ' + tgEsc_(want) + ' کامل نشد؛ نسخهٔ در حالِ اجرا ' +
+                  tgEsc_(CFG.CODE_VERSION) + ' است. راهنمای نصب را ببینید یا دستی جایگزین کنید.'); } catch (e) {}
+    return { ok: false, reason: 'mismatch' };
+  }
+  props_().deleteProperty(PK.SELFUP_PENDING);
+  props_().deleteProperty(PK.SELFUP_TRIES);
+  props_().setProperty(PK.SELFUP_LAST, nowStr_());
+
+  // زمان‌بندی‌ها با پیکربندیِ نسخهٔ تازه وارسی/تکمیل می‌شوند
+  try { ensureScheduledTriggers_(); } catch (e1) {}
+
+  // بیانیه کامل می‌شود: کی، توسطِ که، کجا ذخیره شده
+  var storedUrl = '', bakUrl = '';
+  try {
+    var got = readCodeManifest_();
+    if (got && String(got.info.version) === String(want)) {
+      got.info.installedAt = nowStr_();
+      got.info.installedBy = 'خودِ موتور (نصبِ خودکار با Apps Script API)';
+      got.info.installedVersion = String(CFG.CODE_VERSION);
+      storedUrl = String(got.info.storedUrl || '');
+      if (got.file) got.file.setContent(JSON.stringify(got.info, null, 1));
+    }
+  } catch (e2) {}
+
+  // ردیف‌های گزارش: «کد نصب شد — در انتظارِ تأییدِ ناظر»
+  var marked = 0;
+  try { marked = markCodeRowsInstalled_(want); } catch (e3) {}
+
+  var msg = '✅ کدِ نسخهٔ ' + want + ' خودکار نصب و راه‌اندازی شد.\n' +
+            (marked ? '📋 ' + marked + ' ردیفِ «نیازمند تعویض کد» در تبِ گزارش‌ها «نصب شد» خورد ' +
+                      'و تأییدِ نهایی با ناظرِ فرداست.\n' : '') +
+            (storedUrl ? '📄 نسخهٔ ذخیره‌شده در پوشهٔ «' + CFG.CODE_FOLDER + '»: ' + storedUrl + '\n' : '') +
+            'نسخهٔ قبلی هم در همان پوشه با برچسبِ «پیش از نصب» مانده و از منو قابلِ بازگشت است.';
+  try { tgSend_(tgEsc_(msg)); } catch (e4) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+      subject: 'موتور محتوا — کدِ نسخهٔ ' + want + ' خودکار نصب شد',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                esc_(msg).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e5) {}
+  logLine_('afterCodeSwap: نسخهٔ ' + want + ' برقرار شد؛ ' + marked + ' ردیفِ گزارش به‌روز شد.');
+  return { ok: true, version: want, marked: marked };
+}
+
+/** ردیف‌های «نیازمند تعویض کد» که این نسخه جوابشان است، مُهرِ نصب می‌گیرند. */
+function markCodeRowsInstalled_(version) {
+  var hub = getHub_();
+  var st = loadReportRows_(hub);
+  if (!st || !st.sheet || st.sheet.getLastRow() < 2) return 0;
+  var sh = st.sheet;
+  var n = sh.getLastRow() - 1;
+  var vals = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+  var ids = {};
+  try {
+    var got = readCodeManifest_();
+    var src = (got && got.info && got.info.sourceReportIds) || [];
+    for (var s = 0; s < src.length; s++) ids[String(src[s])] = true;
+  } catch (e) {}
+  var marked = 0;
+  for (var i = 0; i < n; i++) {
+    var r = vals[i];
+    var isCode = String(r[RC.OWNER - 1]) === ROWNER_CODE ||
+                 String(r[RC.STATUS - 1]) === RST.NEEDS_CODE;
+    if (!isCode) continue;
+    if (String(r[RC.STATUS - 1]) === RST.CLOSED) continue;
+    var hit = ids[String(r[RC.ID - 1])] ||
+              String(r[RC.ID - 1]) === 'CODE-' + version ||
+              // اگر بیانیه فهرستِ ردیف نداده، همهٔ بازهای «نیازمند کد» را
+              // این نسخه پوشش می‌دهد — چون هر نسخهٔ کامل، همهٔ اصلاح‌های
+              // اعلام‌شده تا آن لحظه را در خود دارد.
+              !Object.keys(ids).length;
+    if (!hit) continue;
+    r[RC.STATUS - 1] = RST.INSTALLED;
+    r[RC.DONE - 1] = String(r[RC.DONE - 1] || '');
+    r[RC.DONE - 1] = (r[RC.DONE - 1] ? r[RC.DONE - 1] + ' | ' : '') +
+                     'کدِ نسخهٔ ' + version + ' خودکار نصب شد';
+    r[RC.DONE_AT - 1] = nowStr_();
+    sh.getRange(2 + i, RC.STATUS, 1, 3).setValues([[r[RC.STATUS - 1], r[RC.DONE - 1], r[RC.DONE_AT - 1]]]);
+    marked++;
+  }
+  return marked;
+}
+
+/** یادداشتِ ردِ نصب جلوی ردیفِ CODE-<نسخه>. */
+function noteCodeRows_(info, note) {
+  var hub = getHub_();
+  var st = loadReportRows_(hub);
+  if (!st || !st.sheet || st.sheet.getLastRow() < 2) return;
+  var sh = st.sheet;
+  var n = sh.getLastRow() - 1;
+  var vals = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+  for (var i = 0; i < n; i++) {
+    if (String(vals[i][RC.ID - 1]) !== 'CODE-' + info.version) continue;
+    sh.getRange(2 + i, RC.DONE, 1, 2).setValues([[note, nowStr_()]]);
+    return;
+  }
+}
+
+/** منو: بازگشت به تازه‌ترین نسخهٔ «پیش از نصب». */
+function installCodeRollback() {
+  var ui = ui_();
+  var it = null, best = null, bestT = 0;
+  try {
+    it = codeFolder_().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (f.getName().indexOf('پیش از') === -1) continue;
+      var t = f.getLastUpdated ? f.getLastUpdated().getTime() : 0;
+      if (t >= bestT) { bestT = t; best = f; }
+    }
+  } catch (e) {}
+  if (!best) {
+    if (ui) ui.alert('هیچ نسخهٔ پشتیبانی از کد در پوشهٔ «' + CFG.CODE_FOLDER + '» پیدا نشد.');
+    return { ok: false, reason: 'no-backup' };
+  }
+  if (ui) {
+    var ans = ui.alert('بازگشت به نسخهٔ پشتیبانِ کد',
+      'کدِ فعلی با «' + best.getName() + '» جایگزین شود؟\n' +
+      'از کدِ فعلی هم پیش از تعویض، پشتیبان گرفته می‌شود.', ui.ButtonSet.YES_NO);
+    if (ans !== ui.Button.YES) return { cancelled: true };
+  }
+  var text = best.getBlob().getDataAsString();
+  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
+  var ver = m ? m[1] : 'قبلی';
+  var r = installSource_(text, ver, 'بازگشت به نسخهٔ ' + ver);
+  if (ui) {
+    ui.alert(r.ok ? 'انجام شد؛ راه‌اندازیِ دوباره تا دو دقیقهٔ دیگر.'
+                  : 'انجام نشد: ' + (r.why || r.reason));
+  }
+  return r;
+}
+
+/** منو: بررسی و نصبِ همین حالا. */
+function runSelfUpdateNow() {
+  var r = selfUpdateStep(true);
+  var ui = ui_();
+  if (!ui) return r;
+  var msg = r.ok ? 'کدِ تازه ذخیره شد؛ راه‌اندازی تا دو دقیقهٔ دیگر و بعدش پیامِ تأیید می‌آید.'
+    : r.reason === 'up-to-date' ? 'کدِ در حالِ اجرا (' + CFG.CODE_VERSION + ') تازه‌ترین است.'
+    : r.reason === 'no-manifest' ? 'هیچ اعلانِ کدی (_CODE-LATEST.json) در OUTPUT نیست.'
+    : r.reason === 'no-package' ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
+    : r.reason === 'invalid' ? 'بسته ردِ وارسی شد:\n• ' + (r.errors || []).join('\n• ')
+    : r.reason === 'busy' ? 'موتور وسطِ کار است؛ دو ساعت دیگر خودش دوباره تلاش می‌کند.'
+    : r.reason === 'no-scope' ? 'دسترسیِ API باز نیست — پیامِ راهنما برایتان رفت.'
+    : 'انجام نشد: ' + (r.why || r.reason);
+  ui.alert('نصبِ خودکارِ کد', msg, ui.ButtonSet.OK);
+  return r;
+}
+
+/** خلاصهٔ وضعیت برای _STATUS.json و ناظر. */
+function selfUpdateStatus_() {
+  return {
+    enabled: CFG.AUTOUPDATE_ENABLED !== false,
+    lastInstallAt: props_().getProperty(PK.SELFUP_LAST) || '',
+    midSwapTo: props_().getProperty(PK.SELFUP_PENDING) || '',
+    noScopeSince: props_().getProperty(PK.SELFUP_NOSCOPE) || '',
+    codeFolder: (function () { try { return codeFolder_().getUrl(); } catch (e) { return ''; } })()
+  };
+}
