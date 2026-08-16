@@ -1,7 +1,8 @@
 /* دیدبانیِ شیت‌های منبع: گرفتنِ خطاهای خط لوله، و تشخیص رکود بر پایهٔ الگوی
    زمانیِ خودِ هر تب — نه یک آستانهٔ ثابت. */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
@@ -192,7 +193,7 @@ ok('هیچ‌چیزی در شیت‌های منبع نوشته نشد', (() => {
 
 // ============ و) یک خرابی = یک هشدار، نه یک هشدار به ازای هر ردیف ==========
 console.log('\n=== و) خرابیِ یک فایل، سی‌وچهار بار گزارش نمی‌شود ===');
-const NEWD = JSON.parse(fs.readFileSync('newsheets.json', 'utf8'));
+const NEWD = JSON.parse(fs.readFileSync('tests/fixtures/newsheets.json', 'utf8'));
 const tv = NEWD.trading.find(x => x.name === 'Video Analysis');
 mk('REAL_TRADING', [{ name: 'Video Analysis', hdr: tv.hdr, rows: tv.rows }]);
 CFG.SOURCES.push({ key: 'rt', id: 'REAL_TRADING', title: 'Trading واقعی', schema: 'auto',

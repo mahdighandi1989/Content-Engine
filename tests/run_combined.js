@@ -1,6 +1,7 @@
 /* End-to-end execution of the real engine against the real archive rows. */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread, Sheet } = require('./mock.js');
+const { Spread, Sheet } = require('./lib/mock.js');
 
 // ---- load the actual .gs sources ----
 const DIR = 'src/';
@@ -11,8 +12,8 @@ src = fs.readFileSync('engine.gs','utf8');
 
 // ---- build source spreadsheets from the real extracted rows ----
 const rd = f => fs.readFileSync(f, 'utf8').trim().split('\n').map(l => JSON.parse(l));
-const vids = rd('videos.jsonl');
-const phos = rd('photos.jsonl');
+const vids = rd('tests/fixtures/videos.jsonl');
+const phos = rd('tests/fixtures/photos.jsonl');
 
 function mkSheet(id, headers, rows) {
   const ss = new Spread('src', id);

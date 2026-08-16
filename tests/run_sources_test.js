@@ -8,8 +8,9 @@
      D) orphan chunks (roll-up never arrives) wait, then assemble on timeout
      E) the source sheets are never written to
      F) dashboard + episode selection across four kinds                        */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
@@ -17,10 +18,10 @@ const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync(DIR + f, 'utf8');
 (0, eval)(src);
 
-const NEW = JSON.parse(fs.readFileSync('newsheets.json', 'utf8'));
+const NEW = JSON.parse(fs.readFileSync('tests/fixtures/newsheets.json', 'utf8'));
 const rd = f => fs.readFileSync(f, 'utf8').trim().split('\n').map(l => JSON.parse(l));
-const vids = rd('videos.jsonl');
-const phos = rd('photos.jsonl');
+const vids = rd('tests/fixtures/videos.jsonl');
+const phos = rd('tests/fixtures/photos.jsonl');
 
 const VH = ['تاریخ پردازش','File ID','نام اصلی فایل','نام جدید فایل','لینک دسترسی','اشخاص شناسایی شده (JSON)',
   '🎵 تحلیل موسیقی (JSON)','اطلاعات زمانی (JSON)','متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی',

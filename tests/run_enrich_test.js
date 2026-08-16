@@ -8,7 +8,8 @@
  *   • sources land in the sheet, the attachment and Telegram, unabridged
  *   • if Cowork never answers, the podcast is still produced and says so
  */
-const L = require('./probe_r4_lib.js');
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const L = require('./lib/probe_r4_lib.js');
 const { ok, summary, quiet, buildSources, installStub, syncAll } = L;
 
 // هر قطعه باید واژگانِ خودش را داشته باشد، وگرنه صافیِ «رونوشتِ تکراری»
@@ -64,12 +65,12 @@ function writeAns(show, ep, obj) {
 // برنامهٔ متنوع از ردیف‌های «هر ردیف یک فایل» تغذیه می‌شود و درس‌نامه از
 // ردیف‌های قطعه‌قطعه. پس هر دو را می‌کاریم، وگرنه یکی از دو مسیر آزمون نمی‌شود.
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const VH = ['تاریخ پردازش','File ID','نام اصلی فایل','نام جدید فایل','لینک دسترسی',
   'اشخاص شناسایی شده (JSON)','🎵 تحلیل موسیقی (JSON)','اطلاعات زمانی (JSON)',
   'متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی','مشخصات فنی (JSON)','تحلیل محتوا (JSON)',
   'تحلیل صوتی','تحلیل بصری','نکات حرفه‌ای','خلاصه اجرایی','وضعیت'];
-const VIDS = fs.readFileSync('videos.jsonl', 'utf8')
+const VIDS = fs.readFileSync('tests/fixtures/videos.jsonl', 'utf8')
                 .trim().split('\n').map(l => JSON.parse(l));
 
 function seedVariety() {

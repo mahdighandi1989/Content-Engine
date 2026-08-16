@@ -2,8 +2,9 @@
    ۱) ۹۸۲ فایل → ۲۶۳ «مجموعه» با نام‌هایی مثل «1»، «892»، هگز، و ابزارِ تبدیل صدا
    ۲) داوری/برنامه‌ریزی صفر برمی‌گشت چون مدل قالبِ خروجی (integer/boolean) را رد می‌کرد
    ۳) پادکست تخصصی هرگز اجرا نشد چون تریگرش نصب نشده بود (۴ تریگر به‌جای ۶) */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
   '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',

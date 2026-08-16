@@ -1,8 +1,9 @@
 /* نسخهٔ ۵٫۲ — داوریِ محتوایی، دسته‌بندیِ واقعی، پوشهٔ هر قسمت، و پشتیبانِ شیت‌ها.
    عمداً آرشیوی ساخته می‌شود که نامِ فایل‌هایش گمراه‌کننده است: چیزی که اسمش
    «دوره» است ولی روضه است، و چیزی که اسمش بی‌معنی است ولی درسِ واقعی است. */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread, DFolder } = require('./mock.js');
+const { Spread, DFolder } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',

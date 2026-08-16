@@ -1,7 +1,8 @@
 /* حلقهٔ بستهٔ «گزارش ← اقدام»:
    گزارش Cowork → تب گزارش‌ها → تزریق به پرامپت → بازخورد → ضدتکرار → تلگرامِ تعویض کد */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread, DFolder } = require('./mock.js');
+const { Spread, DFolder } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',

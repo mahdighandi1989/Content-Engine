@@ -9,26 +9,42 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 «درس‌نامه» (specialist, 08:00) — by reading five **read-only** Google Sheets and
 writing audio/text/status to a Drive OUTPUT folder.
 
-The deployed engine is ONE file, `engine.gs`, assembled from the 22 section files
-in `src/` by `build.js`. `CODE_VERSION` lives near the top of `src/00_Config.gs`.
+The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
+the 22 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
 - The five SOURCE spreadsheets and their folders are **READ-ONLY**. Never write,
   rename, move, or delete anything in them.
 - All writes go to the OUTPUT folder only. **Never** write in the backup folder.
 - **RUN the tests** — never just read the code. A change isn't done until every
-  `run_*.js` suite passes.
+  `tests/run_*.js` suite passes.
 - The user is cost-conscious: prefer the cheap path. Don't spin up review-fleet
   agents unless explicitly asked.
 
+## Repo layout
+```
+engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
+src/                 22 numbered sections — the source of truth for the code
+tools/               build.js + build_header.txt
+tests/               the 26 run_*.js suites
+tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
+tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
+docs/                monitor_prompt_current.txt
+archive/             historical only — NEVER a build/test source
+```
+**Hard constraint:** `engine.gs` and `manifest.json` must stay at the repo root —
+the engine reads them from the root raw URLs. `tools/build.js` always writes
+`engine.gs` to the root no matter where you invoke it from.
+
 ## Build & test
 ```sh
-# from the repo root
-node build.js                 # -> writes engine.gs (header from build_header.txt)
-for f in run_*.js; do node "$f" || echo "FAILED: $f"; done   # ALL must pass
+node tools/build.js                                   # -> writes root engine.gs
+for f in tests/run_*.js; do node "$f" || echo "FAILED: $f"; done   # ALL must pass
 ```
-Tests read the sections from `src/` and use `mock.js` (a Node mock of the GAS
-runtime). If a fresh clone can't find paths, run everything from the repo root.
+Tests read the sections from `src/` and use `tests/lib/mock.js` (a Node mock of
+the GAS runtime). Each suite requires `tests/lib/root.js` first, which pins the
+cwd to the repo root — so the suites run from any directory.
 
 ## The auto-update cycle (how a code change reaches the engine)
 From v5.12 the **source of truth is this GitHub repo**. Nightly (2:30 Dubai) the
@@ -44,8 +60,8 @@ copy to the Drive «کدها» folder.
 2. New version = `max(running, this repo's CODE_VERSION) + 0.1`. Set
    `CODE_VERSION` in `src/00_Config.gs` to it **exactly** — the engine rejects a
    package whose in-file version ≠ manifest version (the real 5.9/5.8 bug).
-3. `node build.js` to rebuild `engine.gs`.
-4. Run every `run_*.js`; all green.
+3. `node tools/build.js` to rebuild the root `engine.gs`.
+4. Run every `tests/run_*.js`; all green.
 5. `sha256sum engine.gs` → hex.
 6. Update `manifest.json`:
    `{version, codeFile:"engine.gs", sha256, releasedAt, summary, fixes:[...], sourceReportIds:[...]}`.
@@ -76,10 +92,12 @@ Set `CODE_SOURCE: 'drive'` in `src/00_Config.gs` to fall back to the old
 Drive-based update path. The Apps Script menu also has «بازگشت به نسخهٔ پشتیبانِ کد».
 
 ## تمیزیِ ریپو (Repo hygiene)
-منبعِ حقیقت این‌هاست: `src/` + `engine.gs` + `manifest.json` + تست‌ها + `CLAUDE.md` +
-`README.md`. اگر در ریشه فایلِ کهنه/تکراری ظاهر شد (نسخه‌های قدیمیِ `_CODE-v*.gs`،
-زیپ‌های آپلودشده مثلِ `*.tgz`، خروجی‌های ادیتور)، آن را به `archive/` ببر، نه اینکه
-پاک کنی و نه اینکه منبع حسابش کنی. ریشهٔ ریپو فقط مجموعهٔ کاریِ واقعی بماند.
+منبعِ حقیقت این‌هاست: `src/` + `engine.gs` + `manifest.json` + `tests/` + `tools/` +
+`CLAUDE.md` + `README.md`. **ریشه فقط چهار فایل + پوشه‌ها را نگه می‌دارد** — چیزِ
+تازه‌ای در ریشه نریز؛ جایش `tools/` یا `tests/` یا `docs/` است.
+
+اگر فایلِ کهنه/تکراری ظاهر شد (نسخه‌های قدیمیِ `_CODE-v*.gs`، خروجی‌های ادیتور)،
+آن را به `archive/` ببر، نه اینکه پاک کنی و نه اینکه منبع حسابش کنی.
 
 هرگز از فایل‌های `archive/` ساخت/تست نکن. فهرستِ آنچه بایگانی شده و چرا، در
 [`archive/README.md`](./archive/README.md) است.
@@ -97,7 +115,7 @@ Drive-based update path. The Apps Script menu also has «بازگشت به نس�
    مجموعه‌ها را چک می‌کند، `_REPORT-YYYYMMDD.json` می‌سازد، و وقتی باگی پیدا شود
    نسخهٔ تازهٔ کد را می‌سازد.
 
-   ⚠️ **نکتهٔ هماهنگیِ مهم:** پرامپتِ فعلیِ این تسک (`monitor_prompt_current.txt`)
+   ⚠️ **نکتهٔ هماهنگیِ مهم:** پرامپتِ فعلیِ این تسک (`docs/monitor_prompt_current.txt`)
    هنوز کدِ تازه را در **درایو** می‌گذارد (روشِ نسخهٔ ۵٫۱۰)، اما موتورِ ۵٫۱۲ کد را از
    **گیت‌هاب** می‌خواند. پس تا وقتی این تسک به‌روز نشده، ساخته‌هایش را موتور نمی‌بیند.
    این تسک باید عوض شود تا به‌جای درایو، در همین ریپو build/test کند، Changelog و

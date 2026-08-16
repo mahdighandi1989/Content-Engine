@@ -4,7 +4,8 @@
  * داخلش ۵٫۸ بود؛ _CODE-LATEST.json فقط می‌گفت «کد ساخته شد» بی هیچ نشانی؛
  * و هیچ‌کس جلوی ردیفِ گزارش «انجام شد» نمی‌زد.
  */
-const L = require('./probe_r4_lib.js');
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const L = require('./lib/probe_r4_lib.js');
 const { ok, summary, quiet } = L;
 global.__PROPS['GEMINI_API_KEY'] = 'TEST';
 L.installStub();

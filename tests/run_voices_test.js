@@ -4,7 +4,8 @@
  * تنوع، و تنوع درونِ هر قسمت هم؛ و لحن و انتخابِ صدا باید از سرشتِ متن بیاید —
  * احساسی، علمی، مذهبی، تاریخی…
  */
-const L = require('./probe_r4_lib.js');
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const L = require('./lib/probe_r4_lib.js');
 const { ok, summary, quiet } = L;
 
 function mkEp(sections, hook, outro) {
@@ -227,14 +228,14 @@ console.log('\n=== 7. دستورِ گفتارِ کوتاه (پادزهرِ «پ�
 console.log('\n=== 8. نقش‌گزینی وسطِ صداگذاری عوض نمی‌شود ===');
 {
   const fs = require('fs');
-  const { Spread } = require('./mock.js');
+  const { Spread } = require('./lib/mock.js');
   global.__SS = {}; global.__PROPS = {}; global.__FOLDERS = {}; global.__FILES = [];
   global._ssCache = null; global.__hdrCache = null;
   const VH = ['تاریخ پردازش','File ID','نام اصلی فایل','نام جدید فایل','لینک دسترسی',
     'اشخاص شناسایی شده (JSON)','🎵 تحلیل موسیقی (JSON)','اطلاعات زمانی (JSON)',
     'متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی','مشخصات فنی (JSON)','تحلیل محتوا (JSON)',
     'تحلیل صوتی','تحلیل بصری','نکات حرفه‌ای','خلاصه اجرایی','وضعیت'];
-  const VIDS = fs.readFileSync('videos.jsonl', 'utf8')
+  const VIDS = fs.readFileSync('tests/fixtures/videos.jsonl', 'utf8')
                  .trim().split('\n').map(l => JSON.parse(l));
   const rows = [];
   for (let i = 0; i < 40; i++) {

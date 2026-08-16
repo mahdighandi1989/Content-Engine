@@ -5,7 +5,8 @@
  * تلگرام رفت. سیاههٔ واقعی: «ادغام صدا انجام نشد: حجم کل 45 مگابایت از سقف
  * بیشتر است.»
  */
-const L = require('./probe_r4_lib.js');
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const L = require('./lib/probe_r4_lib.js');
 const { ok, summary, quiet } = L;
 
 function folderStub() {

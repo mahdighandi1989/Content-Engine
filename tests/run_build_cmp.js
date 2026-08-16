@@ -1,7 +1,8 @@
 /* Runs the DELIVERED single-file build (not the split modules) against the real
    five sources, to be sure the paste-ready file behaves identically. */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const MODE = process.argv[2] || 'file';
 if (MODE === 'file') {
   (0, eval)(fs.readFileSync('engine.gs', 'utf8'));
@@ -13,9 +14,9 @@ if (MODE === 'file') {
   (0, eval)(S);
 }
 
-const NEW = JSON.parse(fs.readFileSync('newsheets.json', 'utf8'));
+const NEW = JSON.parse(fs.readFileSync('tests/fixtures/newsheets.json', 'utf8'));
 const rd = f => fs.readFileSync(f, 'utf8').trim().split('\n').map(l => JSON.parse(l));
-const vids = rd('videos.jsonl'), phos = rd('photos.jsonl');
+const vids = rd('tests/fixtures/videos.jsonl'), phos = rd('tests/fixtures/photos.jsonl');
 const VH = ['تاریخ پردازش','File ID','نام اصلی فایل','نام جدید فایل','لینک دسترسی','اشخاص شناسایی شده (JSON)',
   '🎵 تحلیل موسیقی (JSON)','اطلاعات زمانی (JSON)','متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی',
   'مشخصات فنی (JSON)','تحلیل محتوا (JSON)','تحلیل صوتی','تحلیل بصری','نکات حرفه‌ای','خلاصه اجرایی','وضعیت'];

@@ -1,7 +1,8 @@
 /* Version 2 tests: model auto-selection, retired-model self-healing,
    pronunciation table, and Telegram delivery. */
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
-const { Spread } = require('./mock.js');
+const { Spread } = require('./lib/mock.js');
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs'];
@@ -9,8 +10,8 @@ let src = fs.readFileSync('engine.gs','utf8');
 (0, eval)(src);
 
 const rd = f => fs.readFileSync(f, 'utf8').trim().split('\n').map(l => JSON.parse(l));
-const vids = rd('videos.jsonl');
-const phos = rd('photos.jsonl');
+const vids = rd('tests/fixtures/videos.jsonl');
+const phos = rd('tests/fixtures/photos.jsonl');
 const VH = ['تاریخ پردازش','File ID','نام اصلی فایل','نام جدید فایل','لینک دسترسی','اشخاص شناسایی شده (JSON)',
   '🎵 تحلیل موسیقی (JSON)','اطلاعات زمانی (JSON)','متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی',
   'مشخصات فنی (JSON)','تحلیل محتوا (JSON)','تحلیل صوتی','تحلیل بصری','نکات حرفه‌ای','خلاصه اجرایی','وضعیت'];

@@ -12,7 +12,8 @@
  *
  * هر آزمونِ این فایل باید *اجرا* شود، نه خوانده.
  */
-const L = require('./probe_r4_lib.js');
+require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const L = require('./lib/probe_r4_lib.js');
 const { ok, summary, quiet } = L;
 
 // ═══ یک فهرستِ تریگرِ واقعی، به‌جای stubِ همیشه‌خالیِ mock ═══
