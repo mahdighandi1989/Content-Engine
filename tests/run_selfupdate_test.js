@@ -201,11 +201,14 @@ console.log('\n=== ۴. HTTP 403 — اسکوپِ script.projects نیست ===');
      b.indexOf('script.google.com/home/usersettings') !== -1);
   ok('4.6 تصریح می‌کند تنظیمِ «کاربر» است نه «پروژه»',
      b.indexOf('کاربر') !== -1 && b.indexOf('پروژه') !== -1);
-  ok('4.7 پیش‌نیازِ appsscript.json هم سرِ جایش هست',
-     b.indexOf('appsscript.json') !== -1);
+  ok('4.7 راهِ چارهٔ همین علت را می‌دهد (نه فهرستِ همهٔ علت‌ها)',
+     b.indexOf('روشن کنید') !== -1);
   ok('4.8 متنِ خودِ گوگل عیناً نقل شده (همان می‌گوید کدام‌یک غایب است)',
      b.indexOf('User has not enabled the Apps Script API') !== -1);
-  ok('4.9 هر دو پیش‌نیاز شماره‌گذاری شده‌اند', b.indexOf('۱)') !== -1 && b.indexOf('۲)') !== -1);
+  // ۵٫۱۶: پیام دیگر فهرستِ سه‌تایی نمی‌دهد — فقط علتی که گوگل گفته.
+  // فهرست‌کردنِ همه دقیقاً همان چیزی بود که کاربر را سرگردان کرد.
+  ok('4.9 فقط یک علت را می‌گوید، نه فهرستی از حدس‌ها',
+     b.indexOf('علت:') !== -1 && b.indexOf('oauthScopes') === -1);
 
   // اگر گوگل متنی نداد، پیام باید همچنان سالم و بی‌«undefined» بسازد
   delete global.__PROPS[PK.SELFUP_NOSCOPE];
@@ -213,7 +216,7 @@ console.log('\n=== ۴. HTTP 403 — اسکوپِ script.projects نیست ===');
   const un3 = quiet(); selfUpdateStep(false); un3();
   const b2 = String(global.__MAIL[global.__MAIL.length - 1].htmlBody || '');
   ok('4.10 بی‌متنِ گوگل هم پیام سالم است و undefined ندارد',
-     b2.indexOf('undefined') === -1 && b2.indexOf('usersettings') !== -1);
+     b2.indexOf('undefined') === -1 && b2.indexOf('علت') !== -1);
   API.getText = API_403_TEXT;
 
   // ── ۴-ج) دیالوگِ منو نباید ادعای دروغ کند.
@@ -229,6 +232,52 @@ console.log('\n=== ۴. HTTP 403 — اسکوپِ script.projects نیست ===');
      String(second.apiText || '').indexOf('has not enabled') !== -1);
 
   API.getCode = 200;
+
+  // ── ۴-د) تشخیصِ علت از روی پاسخِ واقعیِ گوگل، نه فهرستِ حدس.
+  // این سه متن عیناً از سه شکستِ واقعی گرفته شده‌اند.
+  const REAL_SERVICE_DISABLED = '{ "error": { "code": 403, "message": "Apps Script API has not ' +
+    'been used in project 273225291516 before or it is disabled. Enable it by visiting ' +
+    'https://console.developers.google.com/apis/api/script.googleapis.com/overview?project=273225291516 ' +
+    'then retry.", "status": "PERMISSION_DENIED", "details": [ { "@type": ' +
+    '"type.googleapis.com/google.rpc.ErrorInfo", "reason": "SERVICE_DISABLED", "domain": ' +
+    '"googleapis.com", "metadata": { "containerInfo": "273225291516", "service": ' +
+    '"script.googleapis.com", "activationUrl": ' +
+    '"https://console.developers.google.com/apis/api/script.googleapis.com/overview?project=273225291516" ' +
+    '} } ] } }';
+
+  const c1 = selfUpdateCause_(REAL_SERVICE_DISABLED);
+  ok('4.14 سرویسِ خاموش در پروژهٔ ابری درست تشخیص داده شد', c1.key === 'service-disabled', c1.key);
+  ok('4.15 نشانیِ دقیقِ Enable با شمارهٔ پروژه در پیام هست',
+     c1.text.indexOf('project=273225291516') !== -1);
+  ok('4.16 راهِ دومِ «پروژهٔ پیش‌فرض بسته است» هم گفته شده',
+     c1.text.indexOf('Change project') !== -1);
+  ok('4.16-ب حالتِ «You need additional access» را نام می‌برد و از Request access برحذر می‌دارد',
+     c1.text.indexOf('additional access') !== -1 &&
+     c1.text.indexOf('Request access را نزنید') !== -1);
+  ok('4.16-ج مرحلهٔ OAuth consent screen را جا نینداخته (بی آن جابه‌جایی رد می‌شود)',
+     c1.text.indexOf('consent') !== -1);
+  ok('4.17 دستورِ اشتباهِ «اسکوپ را ویرایش کن» را نمی‌دهد',
+     c1.text.indexOf('oauthScopes') === -1);
+
+  const c2 = selfUpdateCause_(API_403_TEXT);
+  ok('4.18 سوییچِ حسابِ کاربری درست تشخیص داده شد', c2.key === 'user-setting', c2.key);
+  ok('4.19 و نشانیِ usersettings را می‌دهد',
+     c2.text.indexOf('home/usersettings') !== -1);
+
+  const c3 = selfUpdateCause_('{ "error": { "code": 403, "message": "Request had insufficient ' +
+                              'authentication scopes.", "status": "PERMISSION_DENIED" } }');
+  ok('4.20 نبودِ اسکوپ به‌عنوان حالتِ پیش‌فرض می‌ماند', c3.key === 'scope', c3.key);
+  ok('4.21 و تأکید می‌کند اجازه‌ها باید از نو تأیید شوند',
+     c3.text.indexOf('از نو') !== -1);
+
+  // پیامِ نهایی هم باید علتِ درست را داشته باشد، نه هر سه را
+  delete global.__PROPS[PK.SELFUP_NOSCOPE];
+  API.getCode = 403; API.getText = REAL_SERVICE_DISABLED;
+  const un6 = quiet(); selfUpdateStep(false); un6();
+  const bd = String(global.__MAIL[global.__MAIL.length - 1].htmlBody || '');
+  ok('4.22 ایمیل لینکِ Enable را دارد و دستورِ اشتباهِ اسکوپ را نمی‌دهد',
+     bd.indexOf('project=273225291516') !== -1 && bd.indexOf('oauthScopes') === -1);
+  API.getText = API_403_TEXT; API.getCode = 200;
 }
 
 // ═════ ۵. سایرِ دروازه‌ها ═════

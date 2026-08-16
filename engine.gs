@@ -433,7 +433,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.15',
+  CODE_VERSION: '5.16',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -16481,13 +16481,17 @@ function runBlockVoice() {
  *
  * ══ اگر دسترسیِ API نبود ══
  *
- * این قابلیت دو پیش‌نیازِ یک‌بارهٔ *جدا از هم* دارد و هر دو باید برقرار باشند:
+ * این قابلیت سه پیش‌نیازِ یک‌بارهٔ *جدا از هم* دارد و هر سه باید برقرار باشند:
  *
  *   ۱) سوییچِ «Google Apps Script API» در تنظیماتِ کاربریِ حساب:
  *      https://script.google.com/home/usersettings
  *      این تنظیمِ «کاربر» است، نه «پروژه» — در appsscript.json دیده نمی‌شود و
  *      از داخلِ ویرایشگر هم پیدا نیست. خاموش بودنش دقیقاً HTTP 403 می‌دهد.
- *   ۲) اسکوپِ script.projects در appsscript.json.
+ *   ۲) اسکوپِ script.projects در appsscript.json — و تأییدِ دوبارهٔ اجازه‌ها،
+ *      چون افزودنِ اسکوپ به‌تنهایی توکنِ قبلی را عوض نمی‌کند.
+ *   ۳) فعال‌بودنِ سرویسِ script.googleapis.com در پروژهٔ ابریِ (GCP) متصل به
+ *      اسکریپت. این سومی جای کاملاً دیگری است و در تجربهٔ واقعی همان بود که
+ *      همه را گمراه کرد: دوتای اول درست بودند و باز ۴۰۳ می‌آمد.
  *
  * هیچ‌کدام جای دیگری را جبران نمی‌کند. پیشتر این کامنت فرض کرده بود مورد ۱
  * «روشن شده» و پیامِ خطا فقط مورد ۲ را می‌گفت — نتیجه‌اش این بود که کاربر
@@ -16663,6 +16667,67 @@ function latestCodeCopy_() {
 }
 
 /**
+ * از پاسخِ خودِ گوگل می‌فهمد کدام‌یک از سه پیش‌نیاز غایب است و فقط همان را
+ * می‌گوید. فهرست‌کردنِ هر سه‌تا کاربر را سرگردان می‌کند — بارِ اول دقیقاً همین
+ * شد: پیام «appsscript.json» را نشان داد، کاربر همان را درست کرده بود، و علتِ
+ * واقعی چیزِ سومی بود (سرویس در پروژهٔ ابری فعال نبود) که اصلاً گفته نمی‌شد.
+ *
+ * برمی‌گرداند { key, text }.
+ */
+function selfUpdateCause_(full) {
+  var t = String(full || '');
+
+  // ۱) سرویس در پروژهٔ ابریِ متصل به اسکریپت فعال نیست (SERVICE_DISABLED)
+  if (t.indexOf('SERVICE_DISABLED') !== -1 || t.indexOf('has not been used in project') !== -1) {
+    var url = '';
+    var m = t.match(/"activationUrl"\s*:\s*"([^"]+)"/);
+    if (m) url = m[1].replace(/\\u003d/g, '=').replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+    if (!url) {
+      var pm = t.match(/project[ =]([0-9]{6,})/);
+      url = 'https://console.developers.google.com/apis/api/script.googleapis.com/overview' +
+            (pm ? '?project=' + pm[1] : '');
+    }
+    return { key: 'service-disabled', text:
+      'علت: خودِ «Apps Script API» در پروژهٔ ابری (Google Cloud) که این اسکریپت به آن وصل است ' +
+      'فعال نیست. این با سوییچِ تنظیماتِ کاربری و با اسکوپِ appsscript.json فرق دارد و ' +
+      'جای دیگری روشن می‌شود.\n\n' +
+      'چاره (یک‌باره): این نشانی را باز کنید و دکمهٔ Enable را بزنید، بعد دو-سه دقیقه صبر ' +
+      'کنید تا در سامانهٔ گوگل جا بیفتد:\n' + url + '\n\n' +
+      'اگر کنسول گفت «You need additional access» یا resourcemanager.projects.get غایب است، ' +
+      'یعنی این یک پروژهٔ «پیش‌فرضِ» Apps Script است و گوگل هیچ‌کس را داخلش راه نمی‌دهد — ' +
+      'دکمهٔ Request access را نزنید، صاحبی نیست که تأیید کند. راهِ درست این است که اسکریپت ' +
+      'را به یک پروژهٔ ابریِ «استاندارد» ببرید:\n' +
+      '  ۱) یک پروژهٔ تازه بسازید: https://console.cloud.google.com/projectcreate\n' +
+      '  ۲) در همان پروژه Apps Script API را روشن کنید:\n' +
+      '     https://console.cloud.google.com/apis/library/script.googleapis.com\n' +
+      '  ۳) در همان پروژه OAuth consent screen را پر کنید (نوعِ External، فقط نام و ایمیل) — ' +
+      'بی این، Apps Script اجازهٔ جابه‌جایی نمی‌دهد.\n' +
+      '  ۴) شمارهٔ پروژه (Project number) را از صفحهٔ اصلیِ کنسول بردارید.\n' +
+      '  ۵) در ویرایشگرِ Apps Script: Project Settings → Google Cloud Platform (GCP) Project → ' +
+      'Change project → همان شماره → Set project.\n' +
+      '  ۶) یک تابع را دستی اجرا کنید و اجازه‌ها را از نو تأیید کنید (کلاینتِ OAuth عوض شده).' };
+  }
+
+  // ۲) سوییچِ حسابِ کاربری خاموش است
+  if (t.indexOf('home/usersettings') !== -1 || t.indexOf('User has not enabled') !== -1) {
+    return { key: 'user-setting', text:
+      'علت: سوییچِ «Google Apps Script API» در تنظیماتِ حسابِ کاربری خاموش است. این تنظیمِ ' +
+      '«کاربر» است نه «پروژه»، و در ویرایشگر پیدا نیست.\n\n' +
+      'چاره (یک‌باره): https://script.google.com/home/usersettings را باز کنید، ' +
+      '«Google Apps Script API» را روشن کنید و چند دقیقه صبر کنید.' };
+  }
+
+  // ۳) اسکوپ در توکن نیست
+  return { key: 'scope', text:
+    'علت (محتمل‌ترین): توکنِ اجازه اسکوپِ script.projects را ندارد.\n\n' +
+    'چاره (یک‌باره): در ویرایشگر، Project Settings → «Show \"appsscript.json\"» را روشن کنید، ' +
+    'اسکوپ را در فهرستِ oauthScopes بگذارید، ذخیره کنید، و بعد اجازه‌ها را *از نو* تأیید کنید — ' +
+    'افزودنِ اسکوپ به‌تنهایی توکنِ قبلی را عوض نمی‌کند. اگر پنجرهٔ تأیید نیامد، دسترسیِ پروژه ' +
+    'را در https://myaccount.google.com/permissions پس بگیرید و یک تابع را دستی اجرا کنید.\n\n' +
+    'برای دیدنِ اسکوپ‌های واقعیِ توکن، از منو «🔎 عیب‌یابیِ نصبِ خودکار» را بزنید.' };
+}
+
+/**
  * پیامِ یک‌بارهٔ «دسترسی نیست» — با راهِ دقیقِ درست‌کردن، بی تکرارِ روزانه.
  * `apiTextOpt` متنِ خامِ پاسخِ گوگل است؛ همان معمولاً می‌گوید کدام پیش‌نیاز
  * غایب است (مثلاً «User has not enabled the Apps Script API»)، پس عیناً نقل
@@ -16674,22 +16739,12 @@ function selfUpdateNoScope_(code, apiTextOpt) {
   // هفته‌ای یک بار بس است — ولی خبرش را برگردان، وگرنه منو ادعای دروغ می‌کند
   if (ageH < 24 * 6) return false;
   props_().setProperty(PK.SELFUP_NOSCOPE, nowStr_());
-  var api = String(apiTextOpt || '').replace(/\s+/g, ' ').slice(0, 300);
-  var msg = 'نصبِ خودکارِ کد فعال نشد (HTTP ' + code + '): دسترسیِ Apps Script API به ' +
-            'خودِ پروژه باز نیست.\n\n' +
-            'دو پیش‌نیازِ یک‌بارهٔ جدا از هم لازم است — اگر یکی را قبلاً انجام داده‌اید، ' +
-            'آن یکی را چک کنید:\n\n' +
-            '۱) سوییچِ حسابِ کاربری (این معمولاً همان موردِ جاافتاده است، و داخلِ ' +
-            'ویرایشگر پیدا نیست): به https://script.google.com/home/usersettings بروید و ' +
-            '«Google Apps Script API» را روشن کنید. این تنظیمِ «کاربر» است نه «پروژه»، ' +
-            'پس هرچه در appsscript.json بگذارید جایش را نمی‌گیرد. بعد از روشن‌کردن ' +
-            'چند دقیقه صبر کنید تا در سامانهٔ گوگل جا بیفتد.\n\n' +
-            '۲) اسکوپِ پروژه: در ویرایشگرِ Apps Script، «تنظیمات پروژه» (Project Settings) → ' +
-            'گزینهٔ «Show \"appsscript.json\"» را روشن کنید، در فایل appsscript.json فهرست ' +
-            'oauthScopes را مطابق راهنمای نصب بگذارید، ذخیره کنید و یک بار یکی از توابع را ' +
-            'دستی اجرا و اجازه‌ها را تأیید کنید.\n\n' +
-            (api ? 'پاسخِ خودِ گوگل (معمولاً مستقیم می‌گوید کدام‌یک غایب است):\n' + api + '\n\n' : '') +
-            'تا آن موقع، کدِ تازه فقط «اعلام» می‌شود و نصبش دستی می‌ماند — مثل قبل.';
+  var full = String(apiTextOpt || '');
+  var cause = selfUpdateCause_(full);
+  var api = full.replace(/\s+/g, ' ').slice(0, 300);
+  var msg = 'نصبِ خودکارِ کد فعال نشد (HTTP ' + code + ').\n\n' + cause.text +
+            (api ? '\n\nپاسخِ خودِ گوگل:\n' + api : '') +
+            '\n\nتا آن موقع، کدِ تازه فقط «اعلام» می‌شود و نصبش دستی می‌ماند — مثل قبل.';
   logLine_('نصب خودکار: دسترسیِ Apps Script API نیست (HTTP ' + code + ')' +
            (api ? ' — ' + api.slice(0, 120) : '') + '.');
   try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e) {}
@@ -17073,9 +17128,15 @@ function selfUpdateDiagnose_() {
     try {
       var res = UrlFetchApp.fetch(scriptContentUrl_(), { method: 'get', muteHttpExceptions: true,
                                   headers: { Authorization: 'Bearer ' + tok } });
+      var body = String(res.getContentText() || '');
       L.push('');
       L.push('فراخوانِ واقعیِ Apps Script API → HTTP ' + res.getResponseCode());
-      L.push(String(res.getContentText() || '').replace(/\s+/g, ' ').slice(0, 600));
+      if (res.getResponseCode() !== 200) {
+        L.push('');
+        L.push(selfUpdateCause_(body).text);
+        L.push('');
+      }
+      L.push(body.replace(/\s+/g, ' ').slice(0, 600));
     } catch (e) { L.push('فراخوانِ API ناموفق: ' + e.message); }
   }
   return L.join('\n');
