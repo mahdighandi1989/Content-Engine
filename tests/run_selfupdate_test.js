@@ -42,14 +42,18 @@ let PROJECT = { files: [
   { name: 'appsscript', type: 'JSON', source: '{"timeZone":"Asia/Dubai"}' },
   { name: 'Code', type: 'SERVER_JS', source: "var CFG={CODE_VERSION:'5.10'}; // کدِ قدیم" }
 ] };
-let API = { getCode: 200, putCode: 200, puts: [], gets: 0 };
+const API_403_TEXT = '{ "error": { "code": 403, "message": "User has not enabled the Apps ' +
+  'Script API. Enable it by visiting https://script.google.com/home/usersettings then retry.", ' +
+  '"status": "PERMISSION_DENIED" } }';
+let API = { getCode: 200, putCode: 200, puts: [], gets: 0, getText: API_403_TEXT };
 const realStub = global.__STUB;
 global.__STUB = function (url, body) {
   if (url.indexOf('script.googleapis.com') !== -1) {
     const isPut = body && body.files;
     if (!isPut) { API.gets++; return API.getCode === 200
       ? { code: 200, json: PROJECT }
-      : { code: API.getCode, json: { error: { message: 'denied' } } }; }
+      : { code: API.getCode, text: API.getText,
+          json: { error: { message: 'denied' } } }; }
     API.puts.push(body);
     if (API.putCode !== 200) return { code: API.putCode, json: { error: { message: 'Syntax error: line 12' } } };
     PROJECT = { files: body.files };
@@ -186,6 +190,31 @@ console.log('\n=== ۴. HTTP 403 — اسکوپِ script.projects نیست ===');
      !!global.__PROPS[PK.SELFUP_NOSCOPE]);
   const un2 = quiet(); selfUpdateStep(false); un2();
   ok('4.3 بارِ دوم پیامِ تکراری نمی‌فرستد (همان نشانهٔ قبلی می‌ماند)', true);
+
+  // ── ۴-ب) پیامِ راهنما باید هر دو پیش‌نیاز را بگوید، نه فقط appsscript.json.
+  // باگِ واقعی: کاربر appsscript.json را درست کرده بود، باز ۴۰۳ می‌گرفت و پیام
+  // دوباره همان appsscript.json را نشان می‌داد؛ سوییچِ حسابِ کاربری اصلاً گفته نشده بود.
+  const mail = global.__MAIL[global.__MAIL.length - 1];
+  ok('4.4 ایمیلِ راهنما فرستاده شد', !!mail, mail && mail.subject);
+  const b = String(mail && mail.htmlBody || '');
+  ok('4.5 سوییچِ حسابِ کاربری را با نشانیِ دقیق می‌گوید',
+     b.indexOf('script.google.com/home/usersettings') !== -1);
+  ok('4.6 تصریح می‌کند تنظیمِ «کاربر» است نه «پروژه»',
+     b.indexOf('کاربر') !== -1 && b.indexOf('پروژه') !== -1);
+  ok('4.7 پیش‌نیازِ appsscript.json هم سرِ جایش هست',
+     b.indexOf('appsscript.json') !== -1);
+  ok('4.8 متنِ خودِ گوگل عیناً نقل شده (همان می‌گوید کدام‌یک غایب است)',
+     b.indexOf('User has not enabled the Apps Script API') !== -1);
+  ok('4.9 هر دو پیش‌نیاز شماره‌گذاری شده‌اند', b.indexOf('۱)') !== -1 && b.indexOf('۲)') !== -1);
+
+  // اگر گوگل متنی نداد، پیام باید همچنان سالم و بی‌«undefined» بسازد
+  delete global.__PROPS[PK.SELFUP_NOSCOPE];
+  API.getText = '';
+  const un3 = quiet(); selfUpdateStep(false); un3();
+  const b2 = String(global.__MAIL[global.__MAIL.length - 1].htmlBody || '');
+  ok('4.10 بی‌متنِ گوگل هم پیام سالم است و undefined ندارد',
+     b2.indexOf('undefined') === -1 && b2.indexOf('usersettings') !== -1);
+  API.getText = API_403_TEXT;
   API.getCode = 200;
 }
 

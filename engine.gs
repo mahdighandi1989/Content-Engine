@@ -433,7 +433,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.13',
+  CODE_VERSION: '5.14',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -16480,11 +16480,19 @@ function runBlockVoice() {
  *
  * ══ اگر دسترسیِ API نبود ══
  *
- * این قابلیت دو پیش‌نیازِ یک‌باره دارد: روشن‌بودنِ «Google Apps Script API» در
- * تنظیماتِ کاربری (که روشن شده)، و بودنِ اسکوپِ script.projects در
- * appsscript.json (راهنمای نصب، بخشِ «نصبِ خودکارِ کد»). اگر اسکوپ نباشد،
- * موتور خراب نمی‌شود: یک بار پیامِ روشن می‌دهد که چه چیزی را کجا اضافه کنید
- * و تا آن موقع همان روالِ اعلامِ دستی برقرار می‌ماند.
+ * این قابلیت دو پیش‌نیازِ یک‌بارهٔ *جدا از هم* دارد و هر دو باید برقرار باشند:
+ *
+ *   ۱) سوییچِ «Google Apps Script API» در تنظیماتِ کاربریِ حساب:
+ *      https://script.google.com/home/usersettings
+ *      این تنظیمِ «کاربر» است، نه «پروژه» — در appsscript.json دیده نمی‌شود و
+ *      از داخلِ ویرایشگر هم پیدا نیست. خاموش بودنش دقیقاً HTTP 403 می‌دهد.
+ *   ۲) اسکوپِ script.projects در appsscript.json.
+ *
+ * هیچ‌کدام جای دیگری را جبران نمی‌کند. پیشتر این کامنت فرض کرده بود مورد ۱
+ * «روشن شده» و پیامِ خطا فقط مورد ۲ را می‌گفت — نتیجه‌اش این بود که کاربر
+ * appsscript.json را درست می‌کرد، باز ۴۰۳ می‌گرفت و دلیلش را نمی‌فهمید.
+ * اگر هر کدام نباشد موتور خراب نمی‌شود: پیامِ روشن می‌دهد (همراهِ متنِ خودِ
+ * گوگل، که معمولاً مستقیم می‌گوید کدام‌یک است) و روالِ اعلامِ دستی برقرار می‌ماند.
  */
 
 var SELFUP_ANCHORS = ['function produceEpisode', 'function renderAudioStep_',
@@ -16653,21 +16661,35 @@ function latestCodeCopy_() {
   } catch (e) { return null; }
 }
 
-/** پیامِ یک‌بارهٔ «اسکوپ نیست» — با راهِ دقیقِ درست‌کردن، بی تکرارِ روزانه. */
-function selfUpdateNoScope_(code) {
+/**
+ * پیامِ یک‌بارهٔ «دسترسی نیست» — با راهِ دقیقِ درست‌کردن، بی تکرارِ روزانه.
+ * `apiTextOpt` متنِ خامِ پاسخِ گوگل است؛ همان معمولاً می‌گوید کدام پیش‌نیاز
+ * غایب است (مثلاً «User has not enabled the Apps Script API»)، پس عیناً نقل
+ * می‌شود تا کاربر دنبالِ پیش‌نیازِ اشتباه نگردد.
+ */
+function selfUpdateNoScope_(code, apiTextOpt) {
   var last = props_().getProperty(PK.SELFUP_NOSCOPE) || '';
   var ageH = last ? (new Date().getTime() - parseWhen_(last)) / 3600000 : 1e9;
   if (ageH < 24 * 6) return;                       // هفته‌ای یک بار بس است
   props_().setProperty(PK.SELFUP_NOSCOPE, nowStr_());
+  var api = String(apiTextOpt || '').replace(/\s+/g, ' ').slice(0, 300);
   var msg = 'نصبِ خودکارِ کد فعال نشد (HTTP ' + code + '): دسترسیِ Apps Script API به ' +
-            'خودِ پروژه باز نیست.\n' +
-            'یک کارِ یک‌باره لازم است: در ویرایشگرِ Apps Script، «تنظیمات پروژه» ' +
-            '(Project Settings) → گزینهٔ «Show \"appsscript.json\"» را روشن کنید، بعد در ' +
-            'فایل appsscript.json فهرست oauthScopes را مطابق راهنمای نصب (بخش «نصبِ ' +
-            'خودکارِ کد») بگذارید، ذخیره کنید و یک بار یکی از توابع را دستی اجرا و ' +
-            'اجازه‌ها را تأیید کنید. تا آن موقع، کدِ تازه فقط «اعلام» می‌شود و نصبش ' +
-            'دستی می‌ماند — مثل قبل.';
-  logLine_('نصب خودکار: اسکوپِ script.projects در دسترس نیست (HTTP ' + code + ').');
+            'خودِ پروژه باز نیست.\n\n' +
+            'دو پیش‌نیازِ یک‌بارهٔ جدا از هم لازم است — اگر یکی را قبلاً انجام داده‌اید، ' +
+            'آن یکی را چک کنید:\n\n' +
+            '۱) سوییچِ حسابِ کاربری (این معمولاً همان موردِ جاافتاده است، و داخلِ ' +
+            'ویرایشگر پیدا نیست): به https://script.google.com/home/usersettings بروید و ' +
+            '«Google Apps Script API» را روشن کنید. این تنظیمِ «کاربر» است نه «پروژه»، ' +
+            'پس هرچه در appsscript.json بگذارید جایش را نمی‌گیرد. بعد از روشن‌کردن ' +
+            'چند دقیقه صبر کنید تا در سامانهٔ گوگل جا بیفتد.\n\n' +
+            '۲) اسکوپِ پروژه: در ویرایشگرِ Apps Script، «تنظیمات پروژه» (Project Settings) → ' +
+            'گزینهٔ «Show \"appsscript.json\"» را روشن کنید، در فایل appsscript.json فهرست ' +
+            'oauthScopes را مطابق راهنمای نصب بگذارید، ذخیره کنید و یک بار یکی از توابع را ' +
+            'دستی اجرا و اجازه‌ها را تأیید کنید.\n\n' +
+            (api ? 'پاسخِ خودِ گوگل (معمولاً مستقیم می‌گوید کدام‌یک غایب است):\n' + api + '\n\n' : '') +
+            'تا آن موقع، کدِ تازه فقط «اعلام» می‌شود و نصبش دستی می‌ماند — مثل قبل.';
+  logLine_('نصب خودکار: دسترسیِ Apps Script API نیست (HTTP ' + code + ')' +
+           (api ? ' — ' + api.slice(0, 120) : '') + '.');
   try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e) {}
   try {
     MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — نصبِ خودکارِ کد یک اجازهٔ یک‌باره می‌خواهد',
@@ -16683,7 +16705,7 @@ function installSource_(text, wantVersion, label) {
   // ── کدِ فعلیِ پروژه (هم آزمونِ اسکوپ است، هم مادهٔ پشتیبان) ──
   var cur = scriptApiFetch_('get');
   if (cur.code === 401 || cur.code === 403) {
-    selfUpdateNoScope_(cur.code);
+    selfUpdateNoScope_(cur.code, cur.text);
     return { ok: false, reason: 'no-scope', code: cur.code };
   }
   if (cur.code !== 200 || !cur.json || !cur.json.files) {
