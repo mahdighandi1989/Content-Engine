@@ -33,6 +33,7 @@ function onOpen() {
       .addItem('سامان‌دهیِ پوشهٔ قسمت‌ها', 'runOrganizeFolders')
       .addSeparator()
       .addItem('⬆️ بررسی و نصبِ کدِ تازه (همین حالا)', 'runSelfUpdateNow')
+      .addItem('🔎 عیب‌یابیِ نصبِ خودکار', 'runSelfUpdateDiagnose')
       .addItem('بازگشت به نسخهٔ پشتیبانِ کد', 'installCodeRollback')
       .addSeparator()
       .addItem('وارسی سلامت', 'healthCheck')

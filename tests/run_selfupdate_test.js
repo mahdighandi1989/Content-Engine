@@ -215,6 +215,19 @@ console.log('\n=== ۴. HTTP 403 — اسکوپِ script.projects نیست ===');
   ok('4.10 بی‌متنِ گوگل هم پیام سالم است و undefined ندارد',
      b2.indexOf('undefined') === -1 && b2.indexOf('usersettings') !== -1);
   API.getText = API_403_TEXT;
+
+  // ── ۴-ج) دیالوگِ منو نباید ادعای دروغ کند.
+  // باگِ واقعی: throttle جلوی ایمیل را می‌گرفت ولی دیالوگ باز می‌گفت
+  // «پیامِ راهنما برایتان رفت» — کاربر دنبالِ ایمیلی می‌گشت که هرگز نرفته بود.
+  delete global.__PROPS[PK.SELFUP_NOSCOPE];
+  const un4 = quiet(); const first = selfUpdateStep(false); un4();
+  ok('4.11 بارِ اول واقعاً خبر داد → notified=true', first.notified === true);
+  const un5 = quiet(); const second = selfUpdateStep(false); un5();
+  ok('4.12 بارِ دوم throttle شد → notified=false (نه undefined)',
+     second.notified === false, JSON.stringify(second.notified));
+  ok('4.13 متنِ پاسخِ گوگل هم در برگشتی هست تا دیالوگ نشانش دهد',
+     String(second.apiText || '').indexOf('has not enabled') !== -1);
+
   API.getCode = 200;
 }
 

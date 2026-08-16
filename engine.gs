@@ -433,7 +433,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.14',
+  CODE_VERSION: '5.15',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -5131,6 +5131,7 @@ function onOpen() {
       .addItem('سامان‌دهیِ پوشهٔ قسمت‌ها', 'runOrganizeFolders')
       .addSeparator()
       .addItem('⬆️ بررسی و نصبِ کدِ تازه (همین حالا)', 'runSelfUpdateNow')
+      .addItem('🔎 عیب‌یابیِ نصبِ خودکار', 'runSelfUpdateDiagnose')
       .addItem('بازگشت به نسخهٔ پشتیبانِ کد', 'installCodeRollback')
       .addSeparator()
       .addItem('وارسی سلامت', 'healthCheck')
@@ -16670,7 +16671,8 @@ function latestCodeCopy_() {
 function selfUpdateNoScope_(code, apiTextOpt) {
   var last = props_().getProperty(PK.SELFUP_NOSCOPE) || '';
   var ageH = last ? (new Date().getTime() - parseWhen_(last)) / 3600000 : 1e9;
-  if (ageH < 24 * 6) return;                       // هفته‌ای یک بار بس است
+  // هفته‌ای یک بار بس است — ولی خبرش را برگردان، وگرنه منو ادعای دروغ می‌کند
+  if (ageH < 24 * 6) return false;
   props_().setProperty(PK.SELFUP_NOSCOPE, nowStr_());
   var api = String(apiTextOpt || '').replace(/\s+/g, ' ').slice(0, 300);
   var msg = 'نصبِ خودکارِ کد فعال نشد (HTTP ' + code + '): دسترسیِ Apps Script API به ' +
@@ -16695,6 +16697,7 @@ function selfUpdateNoScope_(code, apiTextOpt) {
     MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — نصبِ خودکارِ کد یک اجازهٔ یک‌باره می‌خواهد',
                         htmlBody: '<div dir="rtl">' + esc_(msg).replace(/\n/g, '<br>') + '</div>' });
   } catch (e2) {}
+  return true;
 }
 
 /**
@@ -16705,8 +16708,9 @@ function installSource_(text, wantVersion, label) {
   // ── کدِ فعلیِ پروژه (هم آزمونِ اسکوپ است، هم مادهٔ پشتیبان) ──
   var cur = scriptApiFetch_('get');
   if (cur.code === 401 || cur.code === 403) {
-    selfUpdateNoScope_(cur.code, cur.text);
-    return { ok: false, reason: 'no-scope', code: cur.code };
+    var notified = selfUpdateNoScope_(cur.code, cur.text);
+    return { ok: false, reason: 'no-scope', code: cur.code, notified: notified,
+             apiText: String(cur.text || '').replace(/\s+/g, ' ').slice(0, 300) };
   }
   if (cur.code !== 200 || !cur.json || !cur.json.files) {
     logLine_('نصب خودکار: خواندنِ کدِ فعلی ناموفق (HTTP ' + cur.code + ').');
@@ -17007,10 +17011,88 @@ function runSelfUpdateNow() {
     : r.reason === 'no-package' ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
     : r.reason === 'invalid' ? 'بسته ردِ وارسی شد:\n• ' + (r.errors || []).join('\n• ')
     : r.reason === 'busy' ? 'موتور وسطِ کار است؛ دو ساعت دیگر خودش دوباره تلاش می‌کند.'
-    : r.reason === 'no-scope' ? 'دسترسیِ API باز نیست — پیامِ راهنما برایتان رفت.'
+    : r.reason === 'no-scope'
+        ? 'دسترسیِ API باز نیست (HTTP ' + r.code + ').\n\n' +
+          (r.notified
+             ? 'پیامِ راهنما برایتان ایمیل/تلگرام شد.'
+             : 'پیامِ راهنما همین چند روزِ پیش فرستاده شده، پس دوباره فرستاده نشد.') +
+          (r.apiText ? '\n\nپاسخِ خودِ گوگل:\n' + r.apiText : '') +
+          '\n\nبرای اینکه دقیقاً بدانید کدام اجازه کم است، از همین منو ' +
+          '«🔎 عیب‌یابیِ نصبِ خودکار» را بزنید.'
     : 'انجام نشد: ' + (r.why || r.reason);
   ui.alert('نصبِ خودکارِ کد', msg, ui.ButtonSet.OK);
   return r;
+}
+
+/**
+ * عیب‌یابیِ نصبِ خودکار — فقط می‌خواند، هیچ‌چیز را عوض نمی‌کند.
+ *
+ * ۴۰۳ دو علتِ کاملاً جدا دارد و از بیرون شبیه هم‌اند. این تابع قطعی جوابش را
+ * می‌دهد: اسکوپ‌هایی که توکنِ در حالِ اجرا *واقعاً* دارد را از tokeninfo گوگل
+ * می‌گیرد و بعد همان فراخوانِ واقعیِ Apps Script API را می‌زند و پاسخِ خام را
+ * نشان می‌دهد. نکتهٔ کلیدی: افزودنِ اسکوپ به appsscript.json به‌تنهایی کافی
+ * نیست — تا وقتی اجازه‌ها دوباره تأیید نشوند، توکن همان اسکوپ‌های قبلی را دارد.
+ */
+function selfUpdateDiagnose_() {
+  var L = [];
+  var sid = '';
+  try { sid = ScriptApp.getScriptId(); } catch (e) {}
+  L.push('scriptId: ' + sid);
+  L.push('نسخهٔ در حالِ اجرا: ' + CFG.CODE_VERSION);
+
+  var tok = '';
+  try { tok = ScriptApp.getOAuthToken(); } catch (e) { L.push('گرفتنِ توکن ناموفق: ' + e.message); }
+
+  var scopes = '';
+  if (tok) {
+    try {
+      var ti = UrlFetchApp.fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' +
+                                 encodeURIComponent(tok), { muteHttpExceptions: true });
+      if (ti.getResponseCode() === 200) {
+        scopes = String((JSON.parse(ti.getContentText()) || {}).scope || '');
+      } else {
+        L.push('tokeninfo HTTP ' + ti.getResponseCode());
+      }
+    } catch (e) { L.push('tokeninfo ناموفق: ' + e.message); }
+  }
+  var want = 'https://www.googleapis.com/auth/script.projects';
+  var has = scopes.indexOf(want) !== -1;
+  L.push('');
+  L.push('اسکوپِ script.projects در توکن: ' + (has ? 'هست ✅' : 'نیست ❌  ← همین علتِ ۴۰۳ است'));
+  if (!has) {
+    L.push('  چاره: اسکوپ را در appsscript.json بگذارید و بعد اجازه‌ها را *از نو* تأیید کنید');
+    L.push('  (اگر پنجرهٔ تأیید نیامد، دسترسیِ پروژه را در');
+    L.push('   https://myaccount.google.com/permissions پس بگیرید و یک تابع را دستی اجرا کنید).');
+  }
+  L.push('');
+  L.push('همهٔ اسکوپ‌های توکن:');
+  var list = scopes.split(/\s+/);
+  for (var i = 0; i < list.length; i++) if (list[i]) L.push('  • ' + list[i]);
+
+  if (sid && tok) {
+    try {
+      var res = UrlFetchApp.fetch(scriptContentUrl_(), { method: 'get', muteHttpExceptions: true,
+                                  headers: { Authorization: 'Bearer ' + tok } });
+      L.push('');
+      L.push('فراخوانِ واقعیِ Apps Script API → HTTP ' + res.getResponseCode());
+      L.push(String(res.getContentText() || '').replace(/\s+/g, ' ').slice(0, 600));
+    } catch (e) { L.push('فراخوانِ API ناموفق: ' + e.message); }
+  }
+  return L.join('\n');
+}
+
+/** اجرای عیب‌یاب از منو. */
+function runSelfUpdateDiagnose() {
+  var txt = selfUpdateDiagnose_();
+  logLine_('عیب‌یابیِ نصبِ خودکار اجرا شد.');
+  var ui = ui_();
+  if (ui) ui.alert('🔎 عیب‌یابیِ نصبِ خودکار', txt, ui.ButtonSet.OK);
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — عیب‌یابیِ نصبِ خودکار',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma"><pre style="white-space:pre-wrap">' +
+                esc_(txt) + '</pre></div>' });
+  } catch (e) {}
+  return txt;
 }
 
 /** خلاصهٔ وضعیت برای _STATUS.json و ناظر. */
