@@ -483,6 +483,7 @@ function afterCodeSwap() {
   }
   props_().deleteProperty(PK.SELFUP_PENDING);
   props_().deleteProperty(PK.SELFUP_TRIES);
+  props_().deleteProperty(PK.SELFUP_NOSCOPE);
   props_().setProperty(PK.SELFUP_LAST, nowStr_());
 
   // زمان‌بندی‌ها با پیکربندیِ نسخهٔ تازه وارسی/تکمیل می‌شوند

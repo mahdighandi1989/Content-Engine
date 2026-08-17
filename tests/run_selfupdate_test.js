@@ -140,6 +140,10 @@ console.log('\n=== ۲. نصبِ کامل، سرِ هم ===');
   ok('2.6 اگر هنوز کدِ قدیم اجرا شود، صبورانه دوباره زمان‌بندی می‌کند',
      a1.reason === 'not-yet' && trigsOf('afterCodeSwap').length >= 1, JSON.stringify(a1));
 
+  // یک نشانِ کهنهٔ «اسکوپ نبود» از یک شکستِ قبلی روی جا مانده — نصبِ موفقِ
+  // امروز باید پاکش کند، وگرنه ناظرِ فردا فکر می‌کند دسترسیِ API هنوز بسته است.
+  global.__PROPS[PK.SELFUP_NOSCOPE] = nowStr_();
+
   // حالا «کدِ تازه» را شبیه‌سازی می‌کنیم
   const keepVer = CFG.CODE_VERSION;
   CFG.CODE_VERSION = '5.11';
@@ -148,6 +152,8 @@ console.log('\n=== ۲. نصبِ کامل، سرِ هم ===');
   ok('2.7 راه‌اندازی موفق و نشانه‌ها پاک شد',
      a2.ok === true && !global.__PROPS[PK.SELFUP_PENDING] &&
      global.__PROPS[PK.SELFUP_LAST], JSON.stringify(a2));
+  ok('2.7-ب نشانِ کهنهٔ «اسکوپ نبود» هم با نصبِ موفق پاک شد (ناظر گمراه نمی‌شود)',
+     !global.__PROPS[PK.SELFUP_NOSCOPE]);
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, REPORT_HEADERS.length).getValues();
   ok('2.8 ردیفِ هدف «کد نصب شد» خورد و شرحِ اقدام گرفت',
      vals[0][RC.STATUS - 1] === RST.INSTALLED &&

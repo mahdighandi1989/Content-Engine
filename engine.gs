@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.17
+ *  موتور محتوا و پادکست — نسخهٔ 5.18
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -434,7 +434,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.17',
+  CODE_VERSION: '5.18',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -16931,6 +16931,7 @@ function afterCodeSwap() {
   }
   props_().deleteProperty(PK.SELFUP_PENDING);
   props_().deleteProperty(PK.SELFUP_TRIES);
+  props_().deleteProperty(PK.SELFUP_NOSCOPE);
   props_().setProperty(PK.SELFUP_LAST, nowStr_());
 
   // زمان‌بندی‌ها با پیکربندیِ نسخهٔ تازه وارسی/تکمیل می‌شوند

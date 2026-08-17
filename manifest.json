@@ -1,16 +1,14 @@
 {
- "version": "5.17",
+ "version": "5.18",
  "codeFile": "engine.gs",
- "sha256": "5e377d7aa2eb0018d7b1d4b1167f3d77f252a5ab06a165faaa02edba426d5246",
- "releasedAt": "2026-08-16 23:19",
- "summary": "نسخه در سرآیندِ engine.gs دیگر دستی نوشته نمی‌شود؛ tools/build.js آن را از CODE_VERSION تزریق می‌کند. سرآیند از ۵٫۱۲ به بعد جا مانده بود و فایلِ ۵٫۱۶ بالایش «۵٫۱۲» می‌نوشت.",
+ "sha256": "27a9bf73bd6ef25b8fd3fe3fb87f71153881e241a68f9ebb8d7d14986ed45336",
+ "releasedAt": "2026-08-17 12:13",
+ "summary": "نشانِ کهنهٔ selfUpdate.noScopeSince دیگر پس از نصبِ خودکارِ موفق روی جا نمی‌ماند؛ afterCodeSwap حالا پاکش می‌کند تا ناظرِ روزانه با وجودِ نصبِ سالم اشتباهاً «دسترسیِ API بسته است» گزارش نکند.",
  "fixes": [
-  "build_header.txt جای‌نشانِ {{VERSION}} گرفت و build.js نسخه را از src/00_Config.gs می‌خواند و جایگذاری می‌کند؛ اگر جای‌نشان نباشد ساخت با خطا می‌ایستد",
-  "آزمونِ نگهبان در run_build_cmp.js: سرآیند، CODE_VERSION و src باید هر سه یکی باشند",
-  "جملهٔ «چسباندنِ دستی» از سرآیند برداشته شد (از ۵٫۱۲ موتور خودش نصب می‌کند) و بخشِ ۵٫۱۲ به «پیشینه» تغییر نام داد",
-  "در راهنمای ۴۰۳: «پروژهٔ تازه بسازید» به «یکی از پروژه‌های موجودتان هم می‌شود» اصلاح شد"
+  "afterCodeSwap در مسیرِ موفق props_().deleteProperty(PK.SELFUP_NOSCOPE) را هم می‌زند، کنارِ پاک‌کردنِ SELFUP_PENDING/SELFUP_TRIES و ثبتِ SELFUP_LAST",
+  "آزمونِ ۲٫۷-ب در run_selfupdate_test.js: نشانِ کهنهٔ اسکوپ پیش از افترکدسواپِ موفق دستی کاشته می‌شود و پس از آن باید پاک شده باشد"
  ],
  "sourceReportIds": [
-  "header-version-drift"
+  "selfupdate-noscope-stale"
  ]
 }
