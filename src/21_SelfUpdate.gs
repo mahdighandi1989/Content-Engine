@@ -57,9 +57,18 @@ var SELFUP_ANCHORS = ['function produceEpisode', 'function renderAudioStep_',
                       'function runBackupStep', 'function selfUpdateStep',
                       'function afterCodeSwap', 'function syncCatalog'];
 
-function scriptContentUrl_() {
+/**
+ * آدرسِ محتوای هر اسکریپت. اینجا (بخشِ ۲۱) تعریف می‌شود نه در ۲۲، چون بخشِ
+ * پایین‌تر نباید به بالاتر وابسته باشد: در فایلِ سرِهم‌شده hoisting نجاتش
+ * می‌دهد، ولی هر بارگذارِ جزئی (آزمون‌ها) با ReferenceError می‌شکند.
+ */
+function scriptContentUrlFor_(scriptId) {
   return 'https://script.googleapis.com/v1/projects/' +
-         encodeURIComponent(ScriptApp.getScriptId()) + '/content';
+         encodeURIComponent(scriptId) + '/content';
+}
+
+function scriptContentUrl_() {
+  return scriptContentUrlFor_(ScriptApp.getScriptId());
 }
 
 /** فراخوانِ Apps Script API با هویتِ خودِ کاربر. */

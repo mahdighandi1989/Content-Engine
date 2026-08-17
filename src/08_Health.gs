@@ -135,6 +135,7 @@ function writeStatus_(hub, note) {
     backup: (function () { try { return backupStatus_(); } catch (e) { return null; } })(),
     // نصبِ خودکارِ کد — تا ناظرِ Cowork نسخهٔ در حالِ اجرا و وضعِ چرخه را ببیند
     selfUpdate: (function () { try { return selfUpdateStatus_(); } catch (e) { return null; } })(),
+    sourceScripts: (function () { try { return sourceScriptsStatus_(); } catch (e) { return null; } })(),
     // وضعیتِ غنی‌سازیِ اینترنتی — تا Cowork در بازبینیِ روزانه ببیند کدام
     // درخواست بی‌پاسخ مانده و چرا.
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),

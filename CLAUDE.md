@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 22 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 23 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 22 numbered sections — the source of truth for the code
+src/                 23 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 26 run_*.js suites
+tests/               the 27 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                monitor_prompt_current.txt
@@ -81,6 +81,24 @@ copy to the Drive «کدها» folder.
 - Apps Script project (the engine's own — never touch other projects):
   `1HhFoQFVgQvJF7lJSl1smYcRcCHKnO0xDbNXkMlCgGK2CBicy2X_AVr4_`
 - This repo: `github.com/mahdighandi1989/Content-Engine` (public)
+
+## Source-sheet scripts (section 22) — diagnosis only
+Some SOURCE sheets carry their own bound Apps Script (photo analyzer, RESULT).
+`CFG.SOURCE_SCRIPTS` lists them; a bound script's id cannot be discovered from
+its sheet, so it is configured once and the binding is then verified against the
+`parentId` the API returns. A sheet that is absent from the list simply has no
+script — that is not a fault.
+
+**This section only reads.** It never installs and never writes to a source
+sheet. Its findings carry `ROWNER_SRCCODE`, deliberately *without* the word
+«کد» in it: `reportRow_` turns any owner containing «کد» into `ROWNER_CODE` with
+status `NEEDS_CODE`, which feeds the engine's own installer — and that installer
+replaces `engine.gs`. An analyzer's source reaching that path would overwrite the
+engine. `tests/run_srcscripts_test.js` asserts this boundary through
+`reportRow_` itself, not a restatement of the rule.
+
+Sections must not depend forwards (21 → 22). Hoisting hides it in the assembled
+file, but every partial loader in `tests/` breaks with a ReferenceError.
 
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.

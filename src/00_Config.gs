@@ -13,6 +13,18 @@ var CFG = {
   VIDEO_SHEET_ID: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4',
   PHOTO_SHEET_ID: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ',
 
+  // اسکریپت‌های چسبیده به شیت‌های منبع — فقط برای وارسیِ فقط‌خواندنی.
+  // شناسه از خودِ شیت درمی‌آید: Extensions → Apps Script، بعد از /projects/ در
+  // نشانیِ مرورگر. کشفِ خودکارش ممکن نیست (گوگل اسکریپتِ چسبیده را فهرست نمی‌کند)،
+  // ولی همان لحظهٔ خواندن، چسبندگی با parentId وارسی می‌شود.
+  // شیتی که اینجا نیست یعنی اسکریپتی ندارد — ایراد نیست.
+  SOURCE_SCRIPTS: [
+    { key: 'photo',  name: 'تحلیلگرِ عکس (photo analyzer)',
+      scriptId: '', sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
+    { key: 'result', name: 'پردازشگرِ RESULT (ویدیو)',
+      scriptId: '', sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
+  ],
+
   SOURCES: [
     { key: 'video',   id: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4',
       title: 'RESULT (ویدیو)',        schema: 'legacy-video' },
@@ -350,7 +362,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.18',
+  CODE_VERSION: '5.19',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

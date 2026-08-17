@@ -34,6 +34,7 @@ function onOpen() {
       .addSeparator()
       .addItem('⬆️ بررسی و نصبِ کدِ تازه (همین حالا)', 'runSelfUpdateNow')
       .addItem('🔎 عیب‌یابیِ نصبِ خودکار', 'runSelfUpdateDiagnose')
+      .addItem('🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)', 'runAuditSourceScripts')
       .addItem('بازگشت به نسخهٔ پشتیبانِ کد', 'installCodeRollback')
       .addSeparator()
       .addItem('وارسی سلامت', 'healthCheck')
