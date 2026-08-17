@@ -17,7 +17,7 @@ const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d 
 
 const SHEET = 'SHEET-PHOTO', OTHER = 'SHEET-OTHER';
 const SRC = 'function doAnalyze(){} function helper_(){} function onOpen(){}';
-let API = { code: 200, parent: SHEET, puts: 0 };
+let API = { code: 200, parent: SHEET, puts: 0, source: SRC };
 const realStub = global.__STUB;
 global.__STUB = function (url, body) {
   if (url.indexOf('script.googleapis.com') !== -1) {
@@ -27,7 +27,7 @@ global.__STUB = function (url, body) {
                json: { error: { message: 'nope' } } };
     }
     return { code: 200, json: { parentId: API.parent,
-             files: [{ name: 'Code', type: 'SERVER_JS', source: SRC },
+             files: [{ name: 'Code', type: 'SERVER_JS', source: API.source },
                      { name: 'appsscript', type: 'JSON', source: '{}' }] } };
   }
   return realStub ? realStub(url, body) : { code: 404 };
@@ -63,6 +63,28 @@ console.log('\n=== ۳. شناسهٔ اشتباه بی‌صدا رد نمی‌ش�
   ok('۳.۱ چسبندگیِ نادرست گرفته شد', r.scripts[0].bindingOk === false);
   ok('۳.۲ و به‌عنوان ایراد ثبت شد', r.problems.length === 1, r.problems[0]);
   API.parent = SHEET;
+}
+
+console.log('\n=== ۳-ب. اسکریپتِ مستقل (مثل Photo-Analyzer-Gemini) ===');
+{
+  // اسکریپت‌های واقعیِ این سامانه مستقل‌اند: parentId ندارند و با openById
+  // به شیت وصل می‌شوند. اگر با معیارِ «چسبندگی» سنجیده شوند، هر کدامِ سالمی
+  // «نامرتبط» گزارش می‌شد — همان هشدارِ دروغینی که این بخش باید نسازد.
+  API.parent = '';
+  API.source = 'function run(){ SpreadsheetApp.openById("' + SHEET + '").getSheets(); }';
+  const r = sourceScriptsAudit_();
+  ok('۳-ب.۱ گونه‌اش «مستقل» تشخیص داده شد', r.scripts[0].kind === 'standalone', r.scripts[0].kind);
+  ok('۳-ب.۲ ارتباط از روی شناسهٔ شیت در کد تأیید شد', r.scripts[0].bindingOk === true);
+  ok('۳-ب.۳ هیچ ایرادِ دروغینی ثبت نشد', r.problems.length === 0,
+     JSON.stringify(r.problems));
+
+  // و اگر واقعاً بی‌ربط بود، باید بگیردش
+  API.source = 'function run(){ SpreadsheetApp.openById("SOME-OTHER-SHEET"); }';
+  const r2 = sourceScriptsAudit_();
+  ok('۳-ب.۴ اسکریپتِ مستقلِ بی‌ربط گرفته می‌شود', r2.scripts[0].bindingOk === false);
+  ok('۳-ب.۵ و علتش روشن گفته می‌شود', /مستقل/.test(r2.scripts[0].note), r2.scripts[0].note);
+
+  API.parent = SHEET; API.source = SRC;
 }
 
 console.log('\n=== ۴. شیتِ بی‌اسکریپت ایراد نیست ===');
@@ -112,6 +134,40 @@ console.log('\n=== ۷. مرزِ ایمنی: هرگز واردِ نصبِ خود�
      String(row[RC.STATUS - 1]) !== RST.NEEDS_CODE, String(row[RC.STATUS - 1]));
   ok('۷.۴ و مسئولش ROWNER_CODE نیست',
      String(row[RC.OWNER - 1]) !== ROWNER_CODE, String(row[RC.OWNER - 1]));
+}
+
+console.log('\n=== ۸. ساختِ وضعیت نباید شبکه بزند ===');
+{
+  // باگِ واقعی: sourceScriptsStatus_ اول وارسیِ زنده می‌کرد. تا وقتی شناسه‌ها
+  // خالی بودند بی‌اثر بود، ولی همین که پر شدند هر ساختِ _STATUS.json به‌ازای
+  // هر اسکریپت یک فراخوانِ Apps Script API می‌شد — و آن مسیر داخلِ تولیدِ
+  // پادکست هم می‌دود. سه آزمونِ دیگر با همین شکستند.
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'ت', scriptId: 'S1', sheetId: SHEET }];
+  let calls = 0;
+  const prev = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('script.googleapis.com') !== -1) calls++;
+    return prev(url, body);
+  };
+
+  delete global.__PROPS[PK.SRCSCRIPT_LAST];
+  const s0 = sourceScriptsStatus_();
+  ok('۸.۱ پیش از هر وارسی، وضعیت بی‌شبکه جواب می‌دهد', calls === 0, 'calls=' + calls);
+  ok('۸.۲ و صادقانه می‌گوید هنوز وارسی نشده', /وارسی نشده/.test(s0.note || ''), s0.note);
+
+  const a = sourceScriptsAudit_();
+  sourceScriptsRemember_(a);
+  const after = calls;
+  ok('۸.۳ خودِ وارسی البته شبکه می‌زند', after > 0, 'calls=' + after);
+
+  const s1 = sourceScriptsStatus_();
+  ok('۸.۴ وضعیت پس از وارسی هم شبکه نمی‌زند', calls === after, 'calls=' + calls);
+  ok('۸.۵ و نتیجهٔ ذخیره‌شده را می‌دهد', s1.scripts.length === 1 && !!s1.checkedAt,
+     JSON.stringify(s1.checkedAt));
+  ok('۸.۶ متنِ کد در وضعیت نمی‌آید (سبک می‌ماند)',
+     JSON.stringify(s1).indexOf('function ') === -1);
+
+  global.__STUB = prev;
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');

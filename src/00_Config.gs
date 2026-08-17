@@ -19,10 +19,12 @@ var CFG = {
   // ولی همان لحظهٔ خواندن، چسبندگی با parentId وارسی می‌شود.
   // شیتی که اینجا نیست یعنی اسکریپتی ندارد — ایراد نیست.
   SOURCE_SCRIPTS: [
-    { key: 'photo',  name: 'تحلیلگرِ عکس (photo analyzer)',
-      scriptId: '', sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
-    { key: 'result', name: 'پردازشگرِ RESULT (ویدیو)',
-      scriptId: '', sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
+    { key: 'photo', name: 'Photo-Analyzer-Gemini (تحلیلگرِ عکس)',
+      scriptId: '1P7Zqj2oMqGYxS4htb939rNyeG50Bl3L_qzkrq1qyujI6T19vnY6vpSzV',
+      sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
+    { key: 'video', name: 'Video-Analyzer-Gemini (تحلیلگرِ ویدیو)',
+      scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXIeWbmddUqbAL',
+      sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
   ],
 
   SOURCES: [
@@ -362,7 +364,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.19',
+  CODE_VERSION: '5.20',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -558,6 +560,7 @@ var PK = {
   SELFUP_TRIES: 'CODE_SWAP_TRIES',      // تلاش‌های afterCodeSwap
   SELFUP_LAST: 'CODE_SWAP_LAST_AT',     // آخرین نصبِ خودکارِ موفق
   SELFUP_NOSCOPE: 'CODE_SWAP_NO_SCOPE_AT', // آخرین باری که «اسکوپ نیست» گفته شد
+  SRCSCRIPT_LAST: 'SRC_SCRIPTS_LAST',   // آخرین نتیجهٔ وارسیِ اسکریپت‌های منبع
   // «نوبتِ ادامه»: لحظه‌ای که تریگرِ ادامهٔ صداگذاری قرار است بزند. نگهبان با
   // همین می‌فهمد رشته پاره شده — نه با «آیا تریگری در فهرست هست»، چون تریگرِ
   // یک‌بارمصرفی که زده و اجرایش کشته شده، همچنان در فهرست می‌ماند.

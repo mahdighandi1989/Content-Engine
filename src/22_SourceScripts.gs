@@ -16,11 +16,19 @@
  *  • شیتی که اسکریپت ندارد ایراد نیست: تحلیلش جای دیگری انجام می‌شود.
  *
  *  ══ چرا شناسهٔ اسکریپت را باید دستی داد ══
- *  اسکریپتِ چسبیده به یک شیت (container-bound) از روی شناسهٔ شیت قابلِ کشف
- *  نیست؛ گوگل فهرستش نمی‌کند. پس شناسه یک بار در CFG.SOURCE_SCRIPTS گذاشته
- *  می‌شود — و همین‌جا وارسی می‌شود که واقعاً به همان شیت چسبیده باشد
- *  (فیلدِ parentId در پاسخِ API). این جلوی «شناسهٔ اشتباه برای شیتِ اشتباه»
- *  را می‌گیرد، که وگرنه بی‌سروصدا کدِ عوضی را تحلیل می‌کردیم.
+ *  از روی شناسهٔ شیت نمی‌شود به اسکریپتش رسید؛ گوگل چنین راهی نمی‌دهد. پس
+ *  شناسه یک بار در CFG.SOURCE_SCRIPTS گذاشته می‌شود و همین‌جا وارسی می‌شود
+ *  که واقعاً به همان شیت مربوط باشد — وگرنه بی‌سروصدا کدِ عوضی را تحلیل
+ *  می‌کردیم و یافته‌هایمان دربارهٔ فایلِ اشتباه بود.
+ *
+ *  دو گونه اسکریپت داریم و وارسیِ هرکدام فرق دارد:
+ *    • چسبیده (container-bound): پاسخِ API فیلدِ parentId دارد = شناسهٔ همان
+ *      شیت. مستقیم مقایسه می‌شود.
+ *    • مستقل (standalone): parentId ندارد و با openById به شیت وصل می‌شود.
+ *      اینجا نشانهٔ ارتباط این است که شناسهٔ شیت در خودِ کدش آمده باشد.
+ *  اگر گونهٔ دوم را با معیارِ اولی می‌سنجیدیم، هر اسکریپتِ مستقلِ سالمی
+ *  «نامرتبط» گزارش می‌شد — هشدارِ دروغین، همان چیزی که کلِ این بخش قرار است
+ *  از آن پرهیز کند.
  * ═════════════════════════════════════════════════════════════════════════ */
 
 /** خواندنِ کدِ یک اسکریپتِ دیگر. فقط GET — این بخش هرگز نمی‌نویسد. */
@@ -77,7 +85,7 @@ function sourceScriptsAudit_() {
   for (var i = 0; i < list.length; i++) {
     var s = list[i];
     var rec = { key: s.key, name: s.name, scriptId: s.scriptId, sheetId: s.sheetId,
-                reachable: false, boundTo: '', bindingOk: null, files: 0, chars: 0,
+                reachable: false, boundTo: '', kind: '', bindingOk: null, files: 0, chars: 0,
                 functions: [], sha256: '', note: '' };
     if (!s.scriptId) {
       rec.note = 'شناسهٔ اسکریپت داده نشده — وارسی ممکن نیست.';
@@ -96,23 +104,31 @@ function sourceScriptsAudit_() {
     var files = (got.json && got.json.files) || [];
     rec.files = files.length;
 
-    // چسبندگی: اسکریپتِ container-bound فیلدِ parentId دارد = شناسهٔ همان شیت
-    rec.boundTo = String((got.json && got.json.parentId) || '');
-    if (s.sheetId) {
-      rec.bindingOk = (rec.boundTo === s.sheetId);
-      if (!rec.bindingOk) {
-        rec.note = rec.boundTo
-          ? 'این اسکریپت به شیتِ دیگری چسبیده (' + rec.boundTo + ') — شناسه‌ها را چک کنید.'
-          : 'اسکریپتِ مستقل است و به شیتی نچسبیده — شاید شناسهٔ اشتباهی داده شده.';
-        out.problems.push(rec.name + ': ' + rec.note);
-      }
-    }
-
     var all = '';
     for (var f = 0; f < files.length; f++) {
       if (files[f].type === 'SERVER_JS') all += '\n' + String(files[f].source || '');
     }
     rec.chars = all.length;
+
+    // ── ارتباط با شیت، به‌تناسبِ گونهٔ اسکریپت ──
+    rec.boundTo = String((got.json && got.json.parentId) || '');
+    rec.kind = rec.boundTo ? 'bound' : 'standalone';
+    if (s.sheetId) {
+      if (rec.kind === 'bound') {
+        rec.bindingOk = (rec.boundTo === s.sheetId);
+        if (!rec.bindingOk) {
+          rec.note = 'به شیتِ دیگری چسبیده (' + rec.boundTo + ') — شناسه‌ها را چک کنید.';
+        }
+      } else {
+        // مستقل: اگر شناسهٔ شیت در کدش باشد، ارتباط تأیید است
+        rec.bindingOk = (all.indexOf(s.sheetId) !== -1);
+        if (!rec.bindingOk) {
+          rec.note = 'اسکریپتِ مستقل است و شناسهٔ این شیت در کدش نیامده — ' +
+                     'یا شناسه اشتباه است، یا شیت را از راهِ دیگری صدا می‌زند.';
+        }
+      }
+      if (!rec.bindingOk) out.problems.push(rec.name + ': ' + rec.note);
+    }
     var fn = all.match(/function\s+([A-Za-z_$][\w$]*)/g) || [];
     for (var k = 0; k < fn.length && rec.functions.length < 60; k++) {
       rec.functions.push(fn[k].replace(/function\s+/, ''));
@@ -131,20 +147,40 @@ function sourceScriptsAudit_() {
   return out;
 }
 
-/** خلاصه برای _STATUS.json — سبک، بی متنِ کد. */
+/**
+ * خلاصه برای _STATUS.json — از حافظه، نه از شبکه.
+ *
+ * این تابع در مسیرِ ساختِ وضعیت صدا زده می‌شود، و آن مسیر داخلِ تولیدِ پادکست
+ * هم اجرا می‌شود. اگر اینجا شبکه بزنیم، هر بار ساختِ وضعیت به‌ازای هر اسکریپت
+ * یک فراخوانِ Apps Script API می‌شود — کندی و مصرفِ سهمیه در داغ‌ترین مسیرِ
+ * سامانه. پس وارسیِ واقعی جای دیگری (شبانه/منو) انجام می‌شود و اینجا فقط
+ * آخرین نتیجه گزارش می‌شود، با زمانش تا کهنگی‌اش پیدا باشد.
+ */
 function sourceScriptsStatus_() {
   try {
-    var a = sourceScriptsAudit_();
-    var slim = [];
-    for (var i = 0; i < a.scripts.length; i++) {
-      var s = a.scripts[i];
-      slim.push({ key: s.key, name: s.name, reachable: s.reachable, bindingOk: s.bindingOk,
-                  files: s.files, chars: s.chars, sha256: s.sha256,
-                  functions: s.functions.length, note: s.note });
+    var raw = props_().getProperty(PK.SRCSCRIPT_LAST) || '';
+    if (!raw) {
+      return { configured: (CFG.SOURCE_SCRIPTS || []).length, checkedAt: '',
+               note: 'هنوز وارسی نشده — از منو «وارسیِ اسکریپت‌های منبع» یا در دورِ شبانه.',
+               scripts: [] };
     }
-    return { configured: a.configured, checked: a.checked, ok: a.ok,
-             problems: a.problems, scripts: slim };
+    return JSON.parse(raw);
   } catch (e) { return null; }
+}
+
+/** نتیجهٔ وارسی را برای گزارش‌های بعدی نگه می‌دارد (سبک، بی متنِ کد). */
+function sourceScriptsRemember_(a) {
+  var slim = [];
+  for (var i = 0; i < a.scripts.length; i++) {
+    var s = a.scripts[i];
+    slim.push({ key: s.key, name: s.name, reachable: s.reachable, kind: s.kind,
+                bindingOk: s.bindingOk, files: s.files, chars: s.chars,
+                sha256: s.sha256, functions: s.functions.length, note: s.note });
+  }
+  var out = { configured: a.configured, checked: a.checked, ok: a.ok,
+              checkedAt: nowStr_(), problems: a.problems, scripts: slim };
+  try { props_().setProperty(PK.SRCSCRIPT_LAST, JSON.stringify(out)); } catch (e) {}
+  return out;
 }
 
 /**
@@ -186,6 +222,7 @@ function sourceErrDigest_(hub) {
 function auditSourceScripts(hub) {
   hub = hub || getHub_();
   var a = sourceScriptsAudit_();
+  try { sourceScriptsRemember_(a); } catch (e) {}
   var d = sourceErrDigest_(hub);
   var n = 0;
 
