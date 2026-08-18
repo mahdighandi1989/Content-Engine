@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.20
+ *  موتور محتوا و پادکست — نسخهٔ 5.21
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -107,7 +107,7 @@ var CFG = {
       scriptId: '1P7Zqj2oMqGYxS4htb939rNyeG50Bl3L_qzkrq1qyujI6T19vnY6vpSzV',
       sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
     { key: 'video', name: 'Video-Analyzer-Gemini (تحلیلگرِ ویدیو)',
-      scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXIeWbmddUqbAL',
+      scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXleWbmddUqbAL',
       sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
   ],
 
@@ -448,7 +448,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.20',
+  CODE_VERSION: '5.21',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -17293,7 +17293,7 @@ function sourceScriptsAudit_() {
   for (var i = 0; i < list.length; i++) {
     var s = list[i];
     var rec = { key: s.key, name: s.name, scriptId: s.scriptId, sheetId: s.sheetId,
-                reachable: false, boundTo: '', kind: '', bindingOk: null, files: 0, chars: 0,
+                reachable: false, httpCode: 0, boundTo: '', kind: '', bindingOk: null, files: 0, chars: 0,
                 functions: [], sha256: '', note: '' };
     if (!s.scriptId) {
       rec.note = 'شناسهٔ اسکریپت داده نشده — وارسی ممکن نیست.';
@@ -17304,7 +17304,19 @@ function sourceScriptsAudit_() {
     var got = srcScriptGet_(s.scriptId);
     if (got.code !== 200) {
       var why = (got.json && got.json.error && got.json.error.message) || ('HTTP ' + got.code);
-      rec.note = 'خوانده نشد — ' + String(why).replace(/\s+/g, ' ').slice(0, 200);
+      // این سه علت کاملاً فرق دارند و «خوانده نشد» هر سه را یک‌شکل نشان می‌داد.
+      // ۴۰۰ در عمل یعنی شناسه غلط رونویسی شده — یک کاراکترِ I/l یا O/0 بس است.
+      // فرستادنِ کاربر دنبالِ «دسترسی» وقتی مشکل تایپِ شناسه است، وقت تلف کردن است.
+      var head = got.code === 400
+        ? 'شناسهٔ اسکریپت نامعتبر است (۴۰۰) — احتمالاً اشتباه رونویسی شده. ' +
+          'از صفحهٔ اسکریپت با دکمهٔ Copy برش دار، نه از روی تصویر. '
+        : (got.code === 403 || got.code === 401)
+          ? 'دسترسی نداریم (' + got.code + ') — '
+          : got.code === 404
+            ? 'چنین اسکریپتی نیست (۴۰۴) — شاید پاک یا جابه‌جا شده. '
+            : 'خوانده نشد (' + got.code + ') — ';
+      rec.httpCode = got.code;
+      rec.note = head + String(why).replace(/\s+/g, ' ').slice(0, 160);
       out.scripts.push(rec); out.problems.push(rec.name + ': ' + rec.note);
       continue;
     }

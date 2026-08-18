@@ -23,7 +23,7 @@ var CFG = {
       scriptId: '1P7Zqj2oMqGYxS4htb939rNyeG50Bl3L_qzkrq1qyujI6T19vnY6vpSzV',
       sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
     { key: 'video', name: 'Video-Analyzer-Gemini (تحلیلگرِ ویدیو)',
-      scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXIeWbmddUqbAL',
+      scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXleWbmddUqbAL',
       sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
   ],
 
@@ -364,7 +364,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.20',
+  CODE_VERSION: '5.21',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

@@ -100,7 +100,29 @@ console.log('\n=== ۵. نبودِ دسترسی صادقانه گزارش می‌
   API.code = 403;
   const r = sourceScriptsAudit_();
   ok('۵.۱ ناخواندنی علامت خورد', r.scripts[0].reachable === false);
-  ok('۵.۲ علتش در یادداشت آمد', /خوانده نشد/.test(r.scripts[0].note), r.scripts[0].note);
+  ok('۵.۲ علتش در یادداشت آمد', /دسترسی نداریم \(403\)/.test(r.scripts[0].note),
+     r.scripts[0].note);
+  API.code = 200;
+}
+
+console.log('\n=== ۵-ب. علت‌های مختلفِ نخواندن از هم تفکیک می‌شوند ===');
+{
+  // واقعی: یک کاراکترِ I/l در شناسه غلط رونویسی شده بود و پیام فقط می‌گفت
+  // «خوانده نشد»، که کاربر را دنبالِ مشکلِ دسترسی می‌فرستاد.
+  API.code = 400;
+  let r = sourceScriptsAudit_();
+  ok('۵-ب.۱ ۴۰۰ را «شناسهٔ نامعتبر» می‌گوید', /نامعتبر/.test(r.scripts[0].note), r.scripts[0].note);
+  ok('۵-ب.۲ و راهنماییِ عملی می‌دهد (دکمهٔ Copy)', /Copy/.test(r.scripts[0].note));
+
+  API.code = 403;
+  r = sourceScriptsAudit_();
+  ok('۵-ب.۳ ۴۰۳ را «دسترسی» می‌گوید، نه شناسهٔ غلط',
+     /دسترسی/.test(r.scripts[0].note) && !/نامعتبر/.test(r.scripts[0].note), r.scripts[0].note);
+
+  API.code = 404;
+  r = sourceScriptsAudit_();
+  ok('۵-ب.۴ ۴۰۴ را «چنین اسکریپتی نیست» می‌گوید', /نیست/.test(r.scripts[0].note), r.scripts[0].note);
+  ok('۵-ب.۵ کدِ HTTP هم نگه داشته می‌شود', r.scripts[0].httpCode === 404);
   API.code = 200;
 }
 

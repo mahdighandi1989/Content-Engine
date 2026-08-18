@@ -85,7 +85,7 @@ function sourceScriptsAudit_() {
   for (var i = 0; i < list.length; i++) {
     var s = list[i];
     var rec = { key: s.key, name: s.name, scriptId: s.scriptId, sheetId: s.sheetId,
-                reachable: false, boundTo: '', kind: '', bindingOk: null, files: 0, chars: 0,
+                reachable: false, httpCode: 0, boundTo: '', kind: '', bindingOk: null, files: 0, chars: 0,
                 functions: [], sha256: '', note: '' };
     if (!s.scriptId) {
       rec.note = 'شناسهٔ اسکریپت داده نشده — وارسی ممکن نیست.';
@@ -96,7 +96,19 @@ function sourceScriptsAudit_() {
     var got = srcScriptGet_(s.scriptId);
     if (got.code !== 200) {
       var why = (got.json && got.json.error && got.json.error.message) || ('HTTP ' + got.code);
-      rec.note = 'خوانده نشد — ' + String(why).replace(/\s+/g, ' ').slice(0, 200);
+      // این سه علت کاملاً فرق دارند و «خوانده نشد» هر سه را یک‌شکل نشان می‌داد.
+      // ۴۰۰ در عمل یعنی شناسه غلط رونویسی شده — یک کاراکترِ I/l یا O/0 بس است.
+      // فرستادنِ کاربر دنبالِ «دسترسی» وقتی مشکل تایپِ شناسه است، وقت تلف کردن است.
+      var head = got.code === 400
+        ? 'شناسهٔ اسکریپت نامعتبر است (۴۰۰) — احتمالاً اشتباه رونویسی شده. ' +
+          'از صفحهٔ اسکریپت با دکمهٔ Copy برش دار، نه از روی تصویر. '
+        : (got.code === 403 || got.code === 401)
+          ? 'دسترسی نداریم (' + got.code + ') — '
+          : got.code === 404
+            ? 'چنین اسکریپتی نیست (۴۰۴) — شاید پاک یا جابه‌جا شده. '
+            : 'خوانده نشد (' + got.code + ') — ';
+      rec.httpCode = got.code;
+      rec.note = head + String(why).replace(/\s+/g, ' ').slice(0, 160);
       out.scripts.push(rec); out.problems.push(rec.name + ': ' + rec.note);
       continue;
     }
