@@ -12,6 +12,7 @@ let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync(DIR + f, 'utf
 (0, eval)(src);
 
 let pass = 0;
+const quiet = () => { const o = console.log; console.log = () => {}; return () => { console.log = o; }; };
 const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
   if (!c) throw new Error('FAILED: ' + n); pass++; };
 
@@ -188,6 +189,92 @@ console.log('\n=== ۸. ساختِ وضعیت نباید شبکه بزند ===');
      JSON.stringify(s1.checkedAt));
   ok('۸.۶ متنِ کد در وضعیت نمی‌آید (سبک می‌ماند)',
      JSON.stringify(s1).indexOf('function ') === -1);
+
+  global.__STUB = prev;
+}
+
+console.log('\n=== ۹. سدهای ایمنیِ نصب ===');
+{
+  const CODE = 'function a(){} function b(){}';
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'ت', scriptId: 'S1', sheetId: SHEET }];
+
+  let MAN = { target: 'ت', version: '1.1', codeFile: 'analyzer.gs',
+              sha256: shaOf(CODE), baseSha256: shaOf(SRC),
+              requiredFunctions: ['function a', 'function b'] };
+  let PKG = CODE, puts = 0;
+  const prev = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: PKG };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) { puts++; return { code: 200, json: {} }; }
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: SRC },
+                       { name: 'appsscript', type: 'JSON', source: '{"oauthScopes":["x"]}' }] } };
+    }
+    return prev(url, body);
+  };
+
+  const v0 = srcVerify_('photo');
+  ok('۹.۱ بستهٔ سالم آمادهٔ نصب است', v0.ok, (v0.errors || []).join('|'));
+  // این دقیقاً همان باگی بود که آزمون گرفت: اگر اثرانگشتِ کدِ زنده جور دیگری
+  // حساب شود (مثلاً با یک \n اضافه در ابتدا)، baseSha256 هرگز نمی‌خواند و هر
+  // نصبی در تولید متوقف می‌شد.
+  ok('۹.۱-ب اثرانگشتِ کدِ زنده همان تعریفِ فایلِ ریپوست', v0.live.sha === shaOf(SRC),
+     v0.live.sha.slice(0,12) + ' vs ' + shaOf(SRC).slice(0,12));
+
+  // اثرانگشتِ بسته نخواند → نصب نشود
+  PKG = CODE + ' // دستکاری‌شده';
+  let v = srcVerify_('photo');
+  ok('۹.۲ بستهٔ دستکاری‌شده رد می‌شود',
+     !v.ok && v.errors.some(e => /اثرانگشتِ بسته/.test(e)), v.errors.join('|'));
+  PKG = CODE;
+
+  // تابعِ ضروری غایب → نصب نشود (تریگرها به همین نام‌ها بسته‌اند)
+  MAN = Object.assign({}, MAN, { requiredFunctions: ['function a', 'function GONE'] });
+  v = srcVerify_('photo');
+  ok('۹.۳ نبودِ تابعِ ضروری جلوی نصب را می‌گیرد',
+     !v.ok && v.errors.some(e => /تابعِ ضروری/.test(e)));
+  MAN = Object.assign({}, MAN, { requiredFunctions: ['function a', 'function b'] });
+
+  // کدِ زنده دستی عوض شده → نصب نشود
+  MAN = Object.assign({}, MAN, { baseSha256: shaOf('یک کدِ دیگر') });
+  v = srcVerify_('photo');
+  ok('۹.۴ کدِ زندهٔ دستکاری‌شده نصب را متوقف می‌کند',
+     !v.ok && v.errors.some(e => /دستی عوض شده/.test(e)), v.errors.join('|'));
+  MAN = Object.assign({}, MAN, { baseSha256: shaOf(SRC) });
+
+  // همین نسخه از قبل نصب است → دوباره ننویس
+  MAN = Object.assign({}, MAN, { sha256: shaOf(SRC) });
+  v = srcVerify_('photo');
+  ok('۹.۵ نسخهٔ از قبل نصب‌شده دوباره نوشته نمی‌شود',
+     !v.ok && v.errors.some(e => /از قبل نصب/.test(e)));
+  MAN = Object.assign({}, MAN, { sha256: shaOf(CODE) });
+
+  ok('۹.۶ تا اینجا هیچ نوشتنی در اسکریپت انجام نشد', puts === 0, 'puts=' + puts);
+
+  // نصبِ واقعی: appsscript.json باید دست‌نخورده بماند
+  let sent = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: PKG };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) { sent = body.files; puts++; return { code: 200, json: {} }; }
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: SRC },
+                       { name: 'appsscript', type: 'JSON', source: '{"oauthScopes":["x"]}' }] } };
+    }
+    return prev(url, body);
+  };
+  const un9 = quiet(); const r = srcInstall_('photo'); un9();
+  ok('۹.۷ نصب انجام شد', r.ok === true, JSON.stringify(r.errors || ''));
+  ok('۹.۸ appsscript.json عیناً حفظ شد',
+     sent.some(f => f.type === 'JSON' && f.source === '{"oauthScopes":["x"]}'));
+  ok('۹.۹ فقط یک فایلِ SERVER_JS نوشته شد و محتوایش بستهٔ تأییدشده است',
+     sent.filter(f => f.type === 'SERVER_JS').length === 1 &&
+     sent.find(f => f.type === 'SERVER_JS').source === CODE);
+  ok('۹.۱۰ پیش از نصب پشتیبان گرفته شد', /پیش از نصب/.test(r.backup || ''), r.backup);
 
   global.__STUB = prev;
 }

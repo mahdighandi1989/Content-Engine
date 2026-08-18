@@ -116,10 +116,7 @@ function sourceScriptsAudit_() {
     var files = (got.json && got.json.files) || [];
     rec.files = files.length;
 
-    var all = '';
-    for (var f = 0; f < files.length; f++) {
-      if (files[f].type === 'SERVER_JS') all += '\n' + String(files[f].source || '');
-    }
+    var all = srcJoinJs_(files);
     rec.chars = all.length;
 
     // ── ارتباط با شیت، به‌تناسبِ گونهٔ اسکریپت ──
@@ -290,4 +287,240 @@ function runAuditSourceScripts() {
   L.push(r.logged + ' یافته در تبِ گزارش‌ها ثبت شد (بدونِ هیچ نصبی).');
   ui.alert('🔍 وارسیِ اسکریپت‌های منبع', L.join('\n'), ui.ButtonSet.OK);
   return r;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  نصبِ کدِ تحلیلگرهای منبع — از گیت‌هاب، با تأییدِ کاربر
+ *
+ *  همان دستِ‌دادنِ engine.gs، با سه سختگیریِ بیشتر چون اینجا خطِ تغذیهٔ آرشیو
+ *  است و این اسکریپت‌ها آزمونِ خودکار ندارند:
+ *
+ *  ۱) اثرانگشتِ کدِ زنده باید با baseSha256 بخوانَد. اگر کسی اسکریپت را دستی
+ *     عوض کرده باشد، نصب متوقف می‌شود — وگرنه بی‌خبر رویش می‌نوشتیم.
+ *  ۲) appsscript.json هرگز جایگزین نمی‌شود؛ فقط فایل‌های SERVER_JS. پس اسکوپ‌ها
+ *     دست‌نخورده می‌مانند و هیچ اجازهٔ تازه‌ای لازم نمی‌شود.
+ *  ۳) نامِ توابع باید همان بماند (requiredFunctions وارسی می‌شود). Apps Script
+ *     API راهی برای ساختِ تریگر از راهِ دور ندارد؛ تریگرهای موجود فقط تا وقتی
+ *     زنده‌اند که تابعِ هدفشان سرِ جایش باشد.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * کدِ SERVER_JS یک اسکریپت به‌صورتِ یک متن.
+ *
+ * تعریفش باید *دقیقاً* همانی باشد که فایلِ داخلِ ریپو دارد، وگرنه اثرانگشت‌ها
+ * هرگز نمی‌خوانند و baseSha256 هر نصبی را متوقف می‌کند. پس فایل‌ها با \n به هم
+ * می‌چسبند و هیچ \n اضافه‌ای در ابتدا نمی‌آید.
+ */
+function srcJoinJs_(files) {
+  var parts = [];
+  for (var i = 0; i < (files || []).length; i++) {
+    if (files[i].type === 'SERVER_JS') parts.push(String(files[i].source || ''));
+  }
+  return parts.join('\n');
+}
+
+/** بیانیهٔ یک تحلیلگر از گیت‌هاب. */
+function srcManifest_(key) {
+  try {
+    var r = UrlFetchApp.fetch(githubRawUrl_('sources/' + key + '/manifest.json'),
+                              { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) return null;
+    return JSON.parse(r.getContentText());
+  } catch (e) { return null; }
+}
+
+/** کدِ یک تحلیلگر از گیت‌هاب. */
+function srcPackage_(key, codeFile) {
+  try {
+    var r = UrlFetchApp.fetch(githubRawUrl_('sources/' + key + '/' + (codeFile || 'analyzer.gs')),
+                              { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) return null;
+    return r.getContentText();
+  } catch (e) { return null; }
+}
+
+/**
+ * وارسیِ کاملِ یک بسته پیش از نصب. هیچ‌چیز را عوض نمی‌کند.
+ * برمی‌گرداند { ok, errors[], info, text, live }.
+ */
+function srcVerify_(key) {
+  var out = { ok: false, errors: [], info: null, text: '', live: null };
+  var cfg = null;
+  var list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) cfg = list[i];
+  if (!cfg) { out.errors.push('این کلید در CFG.SOURCE_SCRIPTS نیست: ' + key); return out; }
+  if (!cfg.scriptId) { out.errors.push('شناسهٔ اسکریپت خالی است.'); return out; }
+
+  var info = srcManifest_(key);
+  if (!info) { out.errors.push('بیانیه از گیت‌هاب خوانده نشد.'); return out; }
+  out.info = info;
+
+  var text = srcPackage_(key, info.codeFile);
+  if (!text) { out.errors.push('فایلِ کد از گیت‌هاب خوانده نشد.'); return out; }
+  out.text = text;
+
+  // اثرانگشتِ بسته
+  var sha = srcSha256_(text);
+  if (sha !== String(info.sha256)) {
+    out.errors.push('اثرانگشتِ بسته نمی‌خواند — دانلود ناقص یا دستکاری‌شده.');
+  }
+
+  // توابعِ ضروری
+  var need = info.requiredFunctions || [];
+  for (var f = 0; f < need.length; f++) {
+    if (text.indexOf(need[f]) === -1) out.errors.push('تابعِ ضروری در بسته نیست: ' + need[f]);
+  }
+
+  // کدِ زنده: هم آزمونِ دسترسی، هم وارسیِ baseSha256
+  var got = srcScriptGet_(cfg.scriptId);
+  if (got.code !== 200) {
+    out.errors.push('کدِ زنده خوانده نشد (HTTP ' + got.code + ').');
+    return out;
+  }
+  var files = (got.json && got.json.files) || [];
+  var liveJs = srcJoinJs_(files);
+  out.live = { files: files, js: liveJs, sha: srcSha256_(liveJs) };
+
+  if (info.baseSha256 && out.live.sha !== String(info.baseSha256)) {
+    out.errors.push('کدِ زندهٔ اسکریپت با نسخه‌ای که این اصلاح رویش ساخته شده فرق دارد ' +
+                    '— یعنی دستی عوض شده. نصب متوقف شد تا تغییرِ شما پاک نشود.');
+  }
+  if (out.live.sha === String(info.sha256)) {
+    out.errors.push('همین نسخه از قبل نصب است.');
+  }
+
+  out.ok = (out.errors.length === 0);
+  return out;
+}
+
+/** اثرانگشتِ SHA-256 به‌صورتِ hex. */
+function srcSha256_(text) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+/**
+ * نصبِ بستهٔ وارسی‌شده در اسکریپتِ تحلیلگر.
+ * فقط بعد از srcVerify_ صدا زده می‌شود و خودش هم دوباره وارسی می‌کند.
+ */
+function srcInstall_(key) {
+  var v = srcVerify_(key);
+  if (!v.ok) return { ok: false, errors: v.errors };
+
+  var cfg = null, list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) cfg = list[i];
+
+  // پشتیبانِ کدِ زنده پیش از هر تعویض
+  var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH-mm');
+  var bakName = 'منبع — ' + key + ' — پیش از نصبِ ' + v.info.version + ' — ' + stamp + '.gs';
+  try { saveCodeCopy_(bakName, v.live.js); }
+  catch (e) { return { ok: false, errors: ['پشتیبانِ کدِ زنده گرفته نشد؛ نصب انجام نشد: ' + e.message] }; }
+
+  // فهرستِ فایل‌ها: هرچه SERVER_JS بود یک فایل می‌شود، بقیه (appsscript.json) دست‌نخورده
+  var keep = [], firstJs = null;
+  for (var k = 0; k < v.live.files.length; k++) {
+    var fk = v.live.files[k];
+    if (fk.type === 'SERVER_JS') { if (!firstJs) firstJs = fk.name; continue; }
+    keep.push({ name: fk.name, type: fk.type, source: fk.source });
+  }
+  keep.push({ name: firstJs || 'Code', type: 'SERVER_JS', source: v.text });
+
+  var res = UrlFetchApp.fetch(scriptContentUrlFor_(cfg.scriptId), {
+    method: 'put', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify({ files: keep })
+  });
+  if (res.getResponseCode() !== 200) {
+    var why = String(res.getContentText() || '').replace(/\s+/g, ' ').slice(0, 250);
+    logLine_('نصبِ ' + key + ' ناموفق: ' + why);
+    return { ok: false, errors: ['نصب رد شد (HTTP ' + res.getResponseCode() + '): ' + why],
+             backup: bakName };
+  }
+
+  // رونوشتِ نسخهٔ نصب‌شده
+  try { saveCodeCopy_('منبع — ' + key + ' — v' + v.info.version + ' — نصب‌شده ' + stamp + '.gs', v.text); } catch (e2) {}
+
+  var msg = '✅ کدِ «' + v.info.target + '» نسخهٔ ' + v.info.version + ' نصب شد.\n' +
+            'نسخهٔ قبلی در پوشهٔ «' + CFG.CODE_FOLDER + '» با نامِ «' + bakName + '» ماند.\n' +
+            'تریگرها دست نخوردند (نامِ هیچ تابعی عوض نشده) و اسکوپ‌ها هم همان‌اند.';
+  logLine_('نصبِ تحلیلگرِ منبع: ' + key + ' → ' + v.info.version);
+  try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e3) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+      subject: 'موتور محتوا — کدِ ' + v.info.target + ' نسخهٔ ' + v.info.version + ' نصب شد',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' + esc_(msg).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e4) {}
+  try {
+    logSelfFinding_(getHub_(), { priority: 'کم', category: 'اسکریپتِ منبع',
+      key: 'srcinstall-' + key + '-' + v.info.version,
+      title: 'کدِ ' + v.info.target + ' به نسخهٔ ' + v.info.version + ' رسید',
+      detail: v.info.summary || '', instruction: '', owner: ROWNER_SRCCODE });
+  } catch (e5) {}
+
+  return { ok: true, version: v.info.version, backup: bakName };
+}
+
+/** وضعیتِ «چه چیزی آمادهٔ نصب است» — بی هیچ نصبی. */
+function srcPendingStatus_() {
+  var out = [];
+  var list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) {
+    var v = srcVerify_(list[i].key);
+    out.push({ key: list[i].key, name: list[i].name,
+               version: v.info ? v.info.version : '',
+               ready: v.ok, errors: v.errors });
+  }
+  return out;
+}
+
+/** منو: نشان بده چه آماده است (بی نصب). */
+function runShowSourceUpdates() {
+  var st = srcPendingStatus_();
+  var ui = ui_();
+  var L = [];
+  for (var i = 0; i < st.length; i++) {
+    var s = st[i];
+    L.push((s.ready ? '🆕 ' : '• ') + s.name + (s.version ? ' → نسخهٔ ' + s.version : ''));
+    if (s.ready) L.push('     آمادهٔ نصب است.');
+    else for (var e = 0; e < s.errors.length; e++) L.push('     ' + s.errors[e]);
+  }
+  var ready = st.filter(function (x) { return x.ready; }).length;
+  L.push('');
+  L.push(ready ? ready + ' مورد آمادهٔ نصب است — از منو «نصبِ کدِ تحلیلگرهای منبع» را بزنید.'
+               : 'چیزی برای نصب نیست.');
+  if (ui) ui.alert('🔄 کدِ تازهٔ تحلیلگرهای منبع', L.join('\n'), ui.ButtonSet.OK);
+  return st;
+}
+
+/** منو: نصب، با تأییدِ صریحِ کاربر. */
+function runInstallSourceUpdates() {
+  var ui = ui_();
+  var st = srcPendingStatus_();
+  var ready = st.filter(function (x) { return x.ready; });
+  if (!ready.length) {
+    if (ui) ui.alert('نصبِ کدِ تحلیلگرهای منبع', 'چیزی برای نصب نیست.', ui.ButtonSet.OK);
+    return { installed: 0 };
+  }
+  if (ui) {
+    var names = ready.map(function (x) { return '• ' + x.name + ' → ' + x.version; }).join('\n');
+    var ans = ui.alert('نصبِ کدِ تحلیلگرهای منبع',
+      'این‌ها نصب می‌شوند:\n\n' + names + '\n\n' +
+      'پیش از هر نصب، از کدِ فعلی پشتیبان گرفته می‌شود و appsscript.json دست نمی‌خورد.\n' +
+      'ادامه بدهم؟', ui.ButtonSet.YES_NO);
+    if (ans !== ui.Button.YES) return { installed: 0, cancelled: true };
+  }
+  var done = [], failed = [];
+  for (var i = 0; i < ready.length; i++) {
+    var r = srcInstall_(ready[i].key);
+    if (r.ok) done.push(ready[i].name + ' → ' + r.version);
+    else failed.push(ready[i].name + ': ' + (r.errors || []).join(' · '));
+  }
+  if (ui) {
+    ui.alert('نصبِ کدِ تحلیلگرهای منبع',
+      (done.length ? '✅ نصب شد:\n' + done.join('\n') + '\n\n' : '') +
+      (failed.length ? '❌ نشد:\n' + failed.join('\n') : '') +
+      '\n\nنسخه‌های قبلی در پوشهٔ «' + CFG.CODE_FOLDER + '» ماندند.',
+      ui.ButtonSet.OK);
+  }
+  return { installed: done.length, failed: failed.length };
 }
