@@ -1,0 +1,25 @@
+{
+ "target": "Video-Analyzer-Gemini",
+ "key": "video",
+ "scriptId": "1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXleWbmddUqbAL",
+ "sheetId": "1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4",
+ "codeFile": "analyzer.gs",
+ "version": "1.1",
+ "sha256": "a14b2e84ef099452f59b0baff72efd0a4a8c9cec25d1bb676ff2482877229806",
+ "baseSha256": "7880a98bb6ac70f9866a2dbdd63f1f5272fe09eca2be4451215a998e64e046ab",
+ "releasedAt": "2026-08-18 22:39",
+ "requiredFunctions": [
+  "function startChainedProcessing",
+  "function writeAnalysisToSheet",
+  "function writeErrorToSheet",
+  "function getAllProcessedFileIds",
+  "function cleanErrorRows",
+  "function deleteErrorRows_"
+ ],
+ "summary": "هشت اصلاحِ ایمنی و درستی روی تحلیلگرهای منبع؛ رفتارِ «شناسه در شیت = پردازش‌شده» به طراحیِ اصلی برگشت.",
+ "notes": [
+  "baseSha256 اثرانگشتِ کدی است که این نسخه رویش ساخته شده. اگر کدِ زندهٔ اسکریپت با آن نخوانَد یعنی کسی دستی عوضش کرده و نصب باید متوقف شود.",
+  "appsscript.json هرگز جایگزین نمی‌شود؛ فقط فایل‌های SERVER_JS. پس اسکوپ‌ها عوض نمی‌شوند و اجازهٔ تازه‌ای لازم نیست.",
+  "نامِ هیچ تابعی عوض نشده تا تریگرهای موجود سرِ جایشان بمانند — API راهی برای ساختِ تریگر از راه دور ندارد."
+ ]
+}

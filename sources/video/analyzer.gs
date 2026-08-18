@@ -272,12 +272,22 @@ function processChainedBatch() {
       const renamedFileName = renameFileInDrive(file.getId(), newFileName);
       if (renamedFileName) analysisResult.New_File_Name = renamedFileName;
 
-      moveFileToArchive(file, sourceFolder, archiveFolder);
-      
+      // ترتیب عمداً این است: اول نتیجه در شیت ثبت شود، بعد فایل جابه‌جا شود.
+      // پیشتر برعکس بود و اگر بینِ انتقال و ثبت خطایی می‌آمد (سهمیه، قفلِ شیت،
+      // قطعیِ لحظه‌ای)، فایل از پوشهٔ منبع رفته بود ولی تحلیلش ثبت نشده بود —
+      // هیچ دوری دیگر پیدایش نمی‌کرد و تحلیل برای همیشه از دست می‌رفت.
       const fileLink = createShareableLink(file.getId());
       analysisResult.File_Link = fileLink;
 
       writeAnalysisToSheet(sheet, analysisResult, "SUCCESS");
+
+      // moveFileToArchive اینجا نگهبانِ try ندارد و شکستش به catch می‌رفت؛ حالا
+      // که ثبت پیش از آن انجام شده، شکستِ انتقال نباید ردیفِ ERROR بی‌جا بسازد.
+      try {
+        moveFileToArchive(file, sourceFolder, archiveFolder);
+      } catch (moveErr) {
+        Logger.log(`⚠️ انتقال به بایگانی ناموفق (تحلیل ثبت شد): ${moveErr}`);
+      }
       
       // آپدیت کش
       if (PROCESSED_FILE_IDS_CACHE) {
@@ -296,8 +306,21 @@ function processChainedBatch() {
       
     } catch (e) {
       errorCount++;
-      Logger.log(`❌ خطا: ${file.getName()} - ${e.toString()}`);
-      writeErrorToSheet(sheet, file.getId(), file.getName(), e.toString());
+      const msg = e.toString();
+      Logger.log(`❌ خطا: ${file.getName()} - ${msg}`);
+
+      // توقفِ فوری وقتی کلید/دسترسیِ Gemini خراب است.
+      // بی این، یک قطعیِ کلید تک‌تکِ فایل‌های صف را با خطا رد می‌کرد — و چون هر
+      // شناسه‌ای که در شیت بنشیند «پردازش‌شده» است، همه برای همیشه پارک می‌شدند.
+      // اینجا هیچ ردیفی نوشته نمی‌شود تا فایل‌ها دست‌نخورده بمانند.
+      if (msg.indexOf('403') > -1 || msg.indexOf('401') > -1 ||
+          msg.indexOf('API key') > -1 || msg.indexOf('PERMISSION_DENIED') > -1) {
+        if (geminiFileId) { try { deleteFileFromGemini(geminiFileId); } catch (x) {} }
+        Logger.log('🛑 توقف اضطراری: مشکل کلید API — هیچ ردیفی ثبت نشد تا فایل‌ها نسوزند.');
+        throw new Error('🛑 توقف اضطراری: خطای احراز هویت Gemini — کلید را بررسی کنید');
+      }
+
+      writeErrorToSheet(sheet, file.getId(), file.getName(), msg);
     } finally {
       if (geminiFileId) {
         try {
@@ -717,7 +740,21 @@ function analyzeVideoContent(geminiFileId, driveFileId, driveFileName) {
     throw new Error(`پاسخ نامعتبر از مدل: ${responseText}`);
   }
 
-  const rawJsonText = jsonResponse.candidates[0].content.parts[0].text.trim();
+  // وقتی مدل محتوا را رد می‌کند، candidate می‌آید ولی content/parts ندارد.
+  // نگهبانِ بالا فقط candidates را می‌سنجید، پس دسترسیِ مستقیم کرش می‌کرد:
+  //   TypeError: Cannot read properties of undefined (reading 'parts')
+  // حالا علتِ واقعی (finishReason / blockReason) در پیام می‌آید تا در شیت
+  // معلوم باشد فایل چرا رد شد.
+  const cand = jsonResponse.candidates[0];
+  if (!cand.content || !cand.content.parts || !cand.content.parts[0] ||
+      typeof cand.content.parts[0].text !== 'string') {
+    const why = cand.finishReason ||
+                (jsonResponse.promptFeedback && jsonResponse.promptFeedback.blockReason) ||
+                'نامعلوم';
+    throw new Error(`مدل محتوایی برنگرداند (علت: ${why}) — پاسخ: ${String(responseText).substring(0, 300)}`);
+  }
+
+  const rawJsonText = cand.content.parts[0].text.trim();
   
   try {
     const parsedResponse = JSON.parse(rawJsonText);
@@ -793,6 +830,17 @@ function writeErrorToSheet(sheet, fileId, fileName, errorMessage) {
 
 function setupSheetHeaders() {
   const sheet = SpreadsheetApp.openByUrl(SHEET_URL).getActiveSheet();
+
+  // نگهبانِ داده: این تابع کلِ شیت را پاک می‌کند و برای شیتِ *خالی* نوشته شده.
+  // از منو در دسترس نیست، ولی از فهرستِ توابعِ ویرایشگر یک کلیک فاصله دارد و
+  // اجرای اشتباهی‌اش یعنی نابودیِ همهٔ تحلیل‌های ثبت‌شده. اگر شیت ردیفِ داده
+  // دارد، دست نگه می‌دارد.
+  const existingRows = sheet.getLastRow() - 1;
+  if (existingRows > 0) {
+    const m = `⛔ لغو شد: شیت ${existingRows} ردیفِ داده دارد و setupSheetHeaders آن‌ها را پاک می‌کرد.`;
+    Logger.log(m);
+    throw new Error(m);
+  }
   
   const headers = [
     'تاریخ پردازش',
@@ -866,24 +914,13 @@ function ensureSheetHeaders() {
   }
 }
 
-function writeErrorToSheet(sheet, fileId, fileName, errorMessage) {
-  const errorRow = [
-    new Date(),
-    fileId,
-    fileName,
-    '', // Farsi_Transcription
-    '', // Vibe_Atmosphere  
-    '', // Expert_Analysis
-    '', // Technical_Specs
-    '', // Content_Analysis
-    '', // Audio_Analysis
-    '', // Visual_Analysis
-    '', // Professional_Insights
-    '', // Executive_Summary
-    'ERROR: ' + errorMessage.substring(0, 100)
-  ];
-  sheet.appendRow(errorRow);
-}
+// ── تعریفِ کهنه و تکراریِ writeErrorToSheet اینجا بود و حذف شد ──
+// دو تابعِ هم‌نام وجود داشت و در جاوااسکریپت تعریفِ دوم برنده می‌شود، پس همین
+// نسخهٔ کهنه فعال بود: فقط ۱۳ ستون می‌نوشت در حالی که شیت ۱۸ ستون دارد.
+// نتیجه‌اش این بود که «ERROR: …» در اندیسِ ۱۲ (ستونِ «تحلیل محتوا») می‌نشست،
+// ستونِ «وضعیت» (اندیسِ ۱۷) خالی می‌ماند، و پنج ستونِ «نام جدید»، «لینک»،
+// «اشخاص»، «موسیقی» و «اطلاعات زمانی» جا می‌افتادند و بقیهٔ داده یک خانه
+// جابه‌جا می‌شد. نسخهٔ درستِ ۱۸ ستونی بالاتر هست و می‌ماند.
 
 
 // تابع کمکی برای فرمت‌دهی بهتر اطلاعات موسیقی
@@ -1996,4 +2033,85 @@ function fullWebAppTest() {
       error: error.toString()
     };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  🧹 حذفِ ردیف‌های خطا — تا فایلِ خطاخورده بتواند دوباره تحلیل شود
+//  چون هر شناسه‌ای که در شیت باشد «پردازش‌شده» حساب می‌شود، تنها راهِ امتحانِ
+//  دوبارهٔ یک فایلِ خطاخورده حذفِ ردیفِ آن است. خودِ فایل در پوشهٔ منبع مانده.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// بر پایهٔ همان ۱۸ سرستونِ شیت (صفر-پایه)
+const STATUS_COLUMN_INDEX = 17;
+const ANALYSIS_COLUMNS_TO_VERIFY = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+
+function cleanErrorRows() {
+  return deleteErrorRows_(SHEET_URL, STATUS_COLUMN_INDEX, ANALYSIS_COLUMNS_TO_VERIFY);
+}
+
+/**
+ * حذفِ امنِ ردیف‌های خطا — تا فایلِ خطاخورده بتواند دوباره تحلیل شود.
+ *
+ * ══ چرا با deleteRows و نه clearContents ══
+ * روشِ قبلی کلِ شیت را clearContents می‌کرد و بعد ردیف‌های سالم را برمی‌گرداند.
+ * یعنی بینِ آن دو خط، شیت **کاملاً خالی** بود. اگر همان‌جا اجرا قطع می‌شد —
+ * مهلتِ ۶ دقیقه‌ایِ Apps Script، قطعیِ شبکه، پایانِ سهمیه — تمامِ ده‌ها هزار
+ * ردیفِ تحلیل‌شده از بین می‌رفت. برای شیتی با ۳۵٬۰۰۰ ردیف این خطرِ واقعی بود.
+ * deleteRows هر بازه را جدا حذف می‌کند و هیچ لحظه‌ای شیت خالی نمی‌شود؛ اگر
+ * وسطش قطع شود، فقط بخشی از ردیف‌های خطا مانده و بقیهٔ داده سالم است.
+ *
+ * ══ چرا حذف و نه پاک‌کردنِ محتوا ══
+ * پاک‌کردنِ محتوا یک ردیفِ خالی جا می‌گذارد و تحلیلِ بعدی همان‌جا می‌نشیند —
+ * یعنی در ترتیبِ زمانی جلوتر از تحلیل‌های قدیمی‌تر ظاهر می‌شود.
+ *
+ * ══ دو شرطِ سخت برای حذف ══
+ * ۱) وضعیت با ERROR شروع شود، و
+ * ۲) هیچ‌کدام از ستون‌های تحلیل محتوا نداشته باشند.
+ * ردیفی که تحلیلِ واقعی دارد هرگز حذف نمی‌شود، حتی اگر وضعیتش خطا بخورد.
+ */
+function deleteErrorRows_(sheetUrl, statusIdx, analysisIdxs) {
+  const sheet = SpreadsheetApp.openByUrl(sheetUrl).getActiveSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('✅ شیت خالی است'); return { removed: 0, kept: 0, skipped: 0 }; }
+
+  const data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+
+  const doomed = [];
+  let skipped = 0;
+  for (let i = 1; i < data.length; i++) {
+    const status = String(data[i][statusIdx] || '');
+    if (status.indexOf('ERROR') !== 0) continue;
+
+    let hasAnalysis = false;
+    for (let c = 0; c < analysisIdxs.length; c++) {
+      const v = String(data[i][analysisIdxs[c]] || '').trim();
+      if (v && v !== '{}' && v !== '[]') { hasAnalysis = true; break; }
+    }
+    if (hasAnalysis) { skipped++; continue; }
+
+    doomed.push(i + 1);
+  }
+
+  if (!doomed.length) {
+    Logger.log(`✅ هیچ ردیفِ خطای بی‌تحلیلی نبود (${skipped} ردیفِ خطا محتوا داشتند و دست نخوردند)`);
+    return { removed: 0, kept: lastRow - 1, skipped: skipped };
+  }
+
+  // از پایین به بالا، و ردیف‌های پشت‌سرهم یک‌جا
+  let removed = 0;
+  let end = doomed.length - 1;
+  while (end >= 0) {
+    let start = end;
+    while (start > 0 && doomed[start - 1] === doomed[start] - 1) start--;
+    const count = end - start + 1;
+    sheet.deleteRows(doomed[start], count);
+    removed += count;
+    end = start - 1;
+  }
+
+  PROCESSED_FILE_IDS_CACHE = null;
+  CACHE_TIMESTAMP = null;
+  Logger.log(`🧹 ${removed} ردیفِ خطا حذف شد · ${skipped} ردیفِ خطای دارای محتوا دست نخورد · ` +
+             `${sheet.getLastRow() - 1} ردیف باقی ماند`);
+  return { removed: removed, kept: sheet.getLastRow() - 1, skipped: skipped };
 }

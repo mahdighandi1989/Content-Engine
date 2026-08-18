@@ -1,0 +1,26 @@
+{
+ "target": "Photo-Analyzer-Gemini",
+ "key": "photo",
+ "scriptId": "1P7Zqj2oMqGYxS4htb939rNyeG50Bl3L_qzkrq1qyujI6T19vnY6vpSzV",
+ "sheetId": "1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ",
+ "codeFile": "analyzer.gs",
+ "version": "1.1",
+ "sha256": "3c39e7c3e7c7f00978611e5dce7efb17ace1890149fd980fae0b6b56be884f6b",
+ "baseSha256": "ac1bb26abd6ee0e32c30e049f810977b2c543b7a87ad285fb4f37646e4c70b60",
+ "releasedAt": "2026-08-18 22:39",
+ "requiredFunctions": [
+  "function startChainedProcessing",
+  "function analyzeImageContent",
+  "function writeAnalysisToSheet",
+  "function writeErrorToSheet",
+  "function getAllProcessedFileIds",
+  "function cleanErrorRows",
+  "function deleteErrorRows_"
+ ],
+ "summary": "هشت اصلاحِ ایمنی و درستی روی تحلیلگرهای منبع؛ رفتارِ «شناسه در شیت = پردازش‌شده» به طراحیِ اصلی برگشت.",
+ "notes": [
+  "baseSha256 اثرانگشتِ کدی است که این نسخه رویش ساخته شده. اگر کدِ زندهٔ اسکریپت با آن نخوانَد یعنی کسی دستی عوضش کرده و نصب باید متوقف شود.",
+  "appsscript.json هرگز جایگزین نمی‌شود؛ فقط فایل‌های SERVER_JS. پس اسکوپ‌ها عوض نمی‌شوند و اجازهٔ تازه‌ای لازم نیست.",
+  "نامِ هیچ تابعی عوض نشده تا تریگرهای موجود سرِ جایشان بمانند — API راهی برای ساختِ تریگر از راه دور ندارد."
+ ]
+}
