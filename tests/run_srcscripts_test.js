@@ -279,4 +279,52 @@ console.log('\n=== ۹. سدهای ایمنیِ نصب ===');
   global.__STUB = prev;
 }
 
+
+/* ۱۰. پس از نصب، وضعیت باید «به‌روز» خوانده شود — نه «دستکاری‌شده».
+
+   یک نصبِ موفق کدِ زنده را از baseSha256 به sha256 می‌بَرَد. اگر وارسی اول
+   baseSha256 را بسنجد، همان نصبِ موفق از لحظهٔ بعدش خودش را «دستی عوض شده»
+   گزارش می‌کند و کاربر فکر می‌کند چیزی خراب شده. این دقیقاً همان چیزی بود که
+   بعد از اولین نصبِ واقعی روی صفحه آمد.                                        */
+console.log('\n=== ۱۰. حالتِ «از قبل نصب است» با «دستکاری» قاطی نمی‌شود ===');
+{
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  const SHEET = 'SH-10';
+  const BASE = 'function a(){}\nfunction b(){}';   // آنچه پیش از نصب زنده بود
+  const NEW  = 'function a(){}\nfunction b(){/*نو*/}'; // آنچه نصب شد
+  const MAN = { target: 'ت', version: '1.1', codeFile: 'analyzer.gs',
+                sha256: shaOf(NEW), baseSha256: shaOf(BASE),
+                requiredFunctions: ['function a', 'function b'] };
+  let LIVE = NEW;                                   // یعنی نصب انجام شده
+  const prev = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: NEW };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: LIVE }] } };
+    }
+    return prev(url, body);
+  };
+
+  let v = srcVerify_('photo');
+  ok('۱۰.۱ می‌گوید از قبل نصب است', v.installed === true);
+  ok('۱۰.۲ و حرفی از «دستی عوض شده» نمی‌زند',
+     !v.errors.some(e => /دستی عوض شده/.test(e)), v.errors.join('|'));
+  ok('۱۰.۳ و دوباره نصب نمی‌کند', v.ok === false);
+
+  // کدِ زنده نه مبناست و نه نسخهٔ تازه → این یکی واقعاً دستکاری است
+  LIVE = 'function a(){}\nfunction b(){}\n// دستِ آدمیزاد';
+  v = srcVerify_('photo');
+  ok('۱۰.۴ دستکاریِ واقعی هنوز گرفته می‌شود',
+     v.installed === false && v.errors.some(e => /دستی عوض شده/.test(e)), v.errors.join('|'));
+
+  // و متنی که به کاربر نشان داده می‌شود
+  LIVE = NEW;
+  const un10 = quiet(); const st = runShowSourceUpdates(); un10();
+  ok('۱۰.۵ در فهرستِ منو هم «نصب‌شده» علامت می‌خورد',
+     st.length > 0 && st.every(x => x.installed === true && x.ready === false));
+  global.__STUB = prev;
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');

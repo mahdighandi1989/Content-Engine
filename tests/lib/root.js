@@ -13,3 +13,28 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 process.chdir(ROOT);
 module.exports = { ROOT };
+
+/* ساعتِ آزمون‌ها ثابت است.
+ *
+ * پیش از این، آزمون‌ها ساعتِ واقعیِ ماشین را می‌دیدند و ۱۱ سوئیت فقط بعد از
+ * ساعتِ انتشار سبز می‌شدند: بینِ نیمه‌شب تا ۷ صبح قرمز، بعدش سبز. رفتارِ موتور
+ * درست بود — `enrichWorthWaiting_` پیش از ساعتِ انتشار قسمت را عقب می‌اندازد تا
+ * غنی‌سازیِ اینترنتی برسد — این آزمون‌ها بودند که بی‌آنکه بگویند فرض کرده بودند
+ * «الان بعد از ۷ است». نتیجه‌اش این بود که «همه سبز» به ساعتِ اجرا بستگی داشت،
+ * که یعنی هیچ.
+ *
+ * پس ساعت را می‌بندیم. عقربه همچنان جلو می‌رود (فاصله‌ها و سقف‌های زمانی سالم
+ * می‌مانند)، فقط مبدأ ثابت است. برای وارسیِ رفتارِ موتور در ساعتی دیگر:
+ *     TEST_NOW=2026-08-18T03:00:00Z node tests/run_board_test.js
+ */
+const FIXED = Date.parse(process.env.TEST_NOW || '2026-08-18T12:00:00Z');
+if (isFinite(FIXED)) {
+  const Real = Date;
+  const bootedAt = Real.now();
+  const shifted = () => FIXED + (Real.now() - bootedAt);
+  class FixedDate extends Real {
+    constructor(...a) { if (a.length === 0) super(shifted()); else super(...a); }
+    static now() { return shifted(); }
+  }
+  global.Date = FixedDate;
+}

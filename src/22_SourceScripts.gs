@@ -344,7 +344,7 @@ function srcPackage_(key, codeFile) {
  * برمی‌گرداند { ok, errors[], info, text, live }.
  */
 function srcVerify_(key) {
-  var out = { ok: false, errors: [], info: null, text: '', live: null };
+  var out = { ok: false, installed: false, errors: [], info: null, text: '', live: null };
   var cfg = null;
   var list = CFG.SOURCE_SCRIPTS || [];
   for (var i = 0; i < list.length; i++) if (list[i].key === key) cfg = list[i];
@@ -381,12 +381,16 @@ function srcVerify_(key) {
   var liveJs = srcJoinJs_(files);
   out.live = { files: files, js: liveJs, sha: srcSha256_(liveJs) };
 
-  if (info.baseSha256 && out.live.sha !== String(info.baseSha256)) {
+  // ترتیب مهم است. پس از یک نصبِ موفق، کدِ زنده دیگر برابرِ baseSha256 نیست —
+  // برابرِ sha256 است. اگر «دستی عوض شده» را اول بسنجیم، هر نصبِ موفق از فردایش
+  // خودش را به‌صورتِ دستکاری گزارش می‌کند و کاربر را بی‌خود می‌ترساند. پس اول
+  // «از قبل نصب است» را جواب می‌دهیم، که یک وضعیت است نه یک خطا.
+  if (out.live.sha === String(info.sha256)) {
+    out.installed = true;
+    out.errors.push('نسخهٔ ' + (info.version || '') + ' از قبل نصب است — کاری لازم نیست.');
+  } else if (info.baseSha256 && out.live.sha !== String(info.baseSha256)) {
     out.errors.push('کدِ زندهٔ اسکریپت با نسخه‌ای که این اصلاح رویش ساخته شده فرق دارد ' +
                     '— یعنی دستی عوض شده. نصب متوقف شد تا تغییرِ شما پاک نشود.');
-  }
-  if (out.live.sha === String(info.sha256)) {
-    out.errors.push('همین نسخه از قبل نصب است.');
   }
 
   out.ok = (out.errors.length === 0);
@@ -468,7 +472,7 @@ function srcPendingStatus_() {
     var v = srcVerify_(list[i].key);
     out.push({ key: list[i].key, name: list[i].name,
                version: v.info ? v.info.version : '',
-               ready: v.ok, errors: v.errors });
+               ready: v.ok, installed: !!v.installed, errors: v.errors });
   }
   return out;
 }
@@ -480,14 +484,17 @@ function runShowSourceUpdates() {
   var L = [];
   for (var i = 0; i < st.length; i++) {
     var s = st[i];
-    L.push((s.ready ? '🆕 ' : '• ') + s.name + (s.version ? ' → نسخهٔ ' + s.version : ''));
+    var mark = s.ready ? '🆕 ' : (s.installed ? '✅ ' : '⚠️ ');
+    L.push(mark + s.name + (s.version ? ' → نسخهٔ ' + s.version : ''));
     if (s.ready) L.push('     آمادهٔ نصب است.');
     else for (var e = 0; e < s.errors.length; e++) L.push('     ' + s.errors[e]);
   }
   var ready = st.filter(function (x) { return x.ready; }).length;
+  var done  = st.filter(function (x) { return x.installed; }).length;
   L.push('');
-  L.push(ready ? ready + ' مورد آمادهٔ نصب است — از منو «نصبِ کدِ تحلیلگرهای منبع» را بزنید.'
-               : 'چیزی برای نصب نیست.');
+  if (ready) L.push(ready + ' مورد آمادهٔ نصب است — از منو «نصبِ کدِ تحلیلگرهای منبع» را بزنید.');
+  else if (done === st.length && st.length) L.push('همه‌چیز به‌روز است — کاری لازم نیست. ✅');
+  else L.push('چیزی برای نصب نیست.');
   if (ui) ui.alert('🔄 کدِ تازهٔ تحلیلگرهای منبع', L.join('\n'), ui.ButtonSet.OK);
   return st;
 }
