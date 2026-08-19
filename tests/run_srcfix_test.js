@@ -124,4 +124,31 @@ ok('۷.۳ و ۱۸ ستون می‌نویسد (نه ۱۳)', entries.length === 18
 ok('۷.۴ «ERROR» در آخرین ستون (وضعیت) می‌نشیند',
    entries[entries.length - 1].indexOf('ERROR') !== -1, entries[entries.length - 1].trim());
 
+
+/* ۸. بیانیهٔ هر بسته باید دقیقاً همان فایلی را توصیف کند که کنارش نشسته.
+
+   این بخش یک باگِ واقعیِ تولید را برای همیشه می‌بندد: نسخهٔ نخستِ خطِ مبنا با
+   یک «\n» اضافه در ابتدای فایل ذخیره شده بود (باقی‌ماندهٔ همان روشِ قدیمیِ
+   حساب‌کردنِ اثرانگشت). فایل برای چشمِ آدم درست به نظر می‌رسید، اما اثرانگشتش
+   با کدِ زندهٔ اسکریپت یک بایت فرق داشت — و srcVerify_ هر نصبی را با پیامِ
+   «دستی عوض شده» متوقف می‌کرد. یعنی سدِ ایمنی کار می‌کرد ولی روی خطای خودمان.  */
+console.log('\n=== ۸. بیانیهٔ بسته با فایل می‌خوانَد ===');
+const crypto = require('crypto');
+for (const k of ['photo', 'video']) {
+  const bytes = fs.readFileSync(`sources/${k}/analyzer.gs`);
+  const man = JSON.parse(fs.readFileSync(`sources/${k}/manifest.json`, 'utf8'));
+
+  ok(`۸.${k}.۱ فایل با خطِ خالی شروع نمی‌شود`, bytes[0] !== 0x0a && bytes[0] !== 0x0d,
+     'بایتِ نخست = ' + bytes[0]);
+  ok(`۸.${k}.۲ sha256 بیانیه همان اثرانگشتِ فایل است`,
+     crypto.createHash('sha256').update(bytes).digest('hex') === man.sha256,
+     man.sha256.slice(0, 12));
+  ok(`۸.${k}.۳ baseSha256 با sha256 یکی نیست`, man.baseSha256 !== man.sha256);
+  ok(`۸.${k}.۴ هر تابعِ ضروری واقعاً در فایل هست`,
+     (man.requiredFunctions || []).length > 0 &&
+     (man.requiredFunctions || []).every(fn => bytes.toString('utf8').indexOf(fn) !== -1),
+     (man.requiredFunctions || []).length + ' تابع');
+  ok(`۸.${k}.۵ شناسهٔ اسکریپت و شیت ثبت شده`, !!man.scriptId && !!man.sheetId);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ اصلاحِ تحلیلگرها گذشت.');

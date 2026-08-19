@@ -5,8 +5,8 @@
  "sheetId": "1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4",
  "codeFile": "analyzer.gs",
  "version": "1.1",
- "sha256": "a14b2e84ef099452f59b0baff72efd0a4a8c9cec25d1bb676ff2482877229806",
- "baseSha256": "7880a98bb6ac70f9866a2dbdd63f1f5272fe09eca2be4451215a998e64e046ab",
+ "sha256": "fc763e3ce4cf883ae0ed95d8f8eacc586ad4fd937f74e137a3d883be61e939da",
+ "baseSha256": "64516dc3368be3ca827296e2838cf6d51784172db5f2bfdee8eeb00f729b8283",
  "releasedAt": "2026-08-18 22:39",
  "requiredFunctions": [
   "function startChainedProcessing",
