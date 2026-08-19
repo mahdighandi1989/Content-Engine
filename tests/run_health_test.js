@@ -52,6 +52,10 @@ let h=healthCheck();
 console.log('  ایرادها:',h.problems.length,'| ایمیل هشدار:',global.__MAIL.length, h.problems.length&&global.__MAIL.length?'✅':'❌');
 if(!h.problems.length||!global.__MAIL.length) throw new Error('should have alerted');
 console.log('  نمونه:',h.problems[0].slice(0,80));
+const stAfter=JSON.parse(global.__ROOT_FOLDER._files.find(x=>x.getName()==='_STATUS.json').getBlob().getDataAsString());
+console.log('  فهرستِ ایرادها در _STATUS.json آمد:',stAfter.health&&stAfter.health.problems.length===h.problems.length?'✅':'❌');
+if(!stAfter.health||stAfter.health.problems.length!==h.problems.length) throw new Error('health snapshot missing/mismatched in status file');
+if(stAfter.health.problems[0]!==h.problems[0]) throw new Error('health snapshot content mismatch');
 
 console.log('\n=== ۳) بعد از تولید قسمت → نباید هشدار بدهد ===');
 let r=produceEpisode(); let d=0;

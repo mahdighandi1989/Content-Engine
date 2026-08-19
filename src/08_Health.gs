@@ -151,6 +151,45 @@ function writeStatus_(hub, note) {
 }
 
 /**
+ * هر ایرادِ وارسیِ سلامت فقط شمرده و ایمیل می‌شد؛ در _STATUS.json هیچ‌جا نمی‌آمد،
+ * پس ناظرِ بیرونی (که فقط همین فایل را می‌خواند) می‌دانست چند تا ایراد هست ولی
+ * نمی‌توانست حتی یکی‌شان را نام ببرد. اینجا همان فهرست را — با سقفِ حجم — در
+ * فایلِ از‌قبل‌نوشته‌شده می‌گنجاند تا دو بار کامل سریالایز نشود.
+ */
+var HEALTH_SNAPSHOT_MAX_CHARS = 9000;
+
+function capHealthList_(list, maxChars) {
+  var out = [], used = 0;
+  for (var i = 0; i < list.length; i++) {
+    var s = String(list[i]);
+    used += s.length + 2;
+    if (used > maxChars) return { list: out, omitted: list.length - out.length };
+    out.push(s);
+  }
+  return { list: out, omitted: 0 };
+}
+
+function saveHealthSnapshot_(problems, notes) {
+  try {
+    var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var it = folder.getFilesByName(STATUS_FILE);
+    if (!it.hasNext()) return;
+    var f = it.next();
+    var st;
+    try { st = JSON.parse(f.getBlob().getDataAsString()); } catch (eParse) { return; }
+    var capped = capHealthList_(problems || [], HEALTH_SNAPSHOT_MAX_CHARS);
+    st.health = {
+      checkedAt: nowStr_(),
+      problemCount: (problems || []).length,
+      problems: capped.list,
+      omitted: capped.omitted,
+      notes: (notes || []).slice(0, 20)
+    };
+    f.setContent(JSON.stringify(st, null, 1));
+  } catch (e) { logLine_('نوشتنِ خلاصهٔ سلامت ناموفق: ' + e.message); }
+}
+
+/**
  * وارسی سلامت. فقط وقتی ایمیل می‌زند که ایرادی باشد.
  * روی تریگر روزانه بنشیند تا اگر روزی چیزی نیامد، خودتان بی‌خبر نمانید.
  */
@@ -333,6 +372,7 @@ function healthCheck() {
                   'می‌توانید MIN_PRIORITY را پایین‌تر بیاورید.');
   }
 
+  saveHealthSnapshot_(problems, notes);
   logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست'));
 
   if (problems.length) {
