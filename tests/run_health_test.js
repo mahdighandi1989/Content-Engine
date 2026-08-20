@@ -57,6 +57,12 @@ console.log('  فهرستِ ایرادها در _STATUS.json آمد:',stAfter.he
 if(!stAfter.health||stAfter.health.problems.length!==h.problems.length) throw new Error('health snapshot missing/mismatched in status file');
 if(stAfter.health.problems[0]!==h.problems[0]) throw new Error('health snapshot content mismatch');
 
+console.log('\n=== ۲-ب) سینکِ بعدی نباید health را پاک کند ===');
+writeStatus_(hub,'همگام‌سازی کامل شد');
+const stAfterSync=JSON.parse(global.__ROOT_FOLDER._files.find(x=>x.getName()==='_STATUS.json').getBlob().getDataAsString());
+console.log('  health بعد از یک writeStatus_ نامرتبط سرِ جایش ماند:',stAfterSync.health&&stAfterSync.health.problems.length===h.problems.length?'✅':'❌');
+if(!stAfterSync.health||stAfterSync.health.problems.length!==h.problems.length) throw new Error('health snapshot wiped by unrelated writeStatus_ call');
+
 console.log('\n=== ۳) بعد از تولید قسمت → نباید هشدار بدهد ===');
 let r=produceEpisode(); let d=0;
 while(global.__PROPS['PENDING_EPISODE']&&d++<80) produceEpisodeContinue();

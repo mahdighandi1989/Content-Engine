@@ -64,6 +64,23 @@ function lastEpisode_(hub) {
   };
 }
 
+/**
+ * کلیدِ health را از نسخهٔ فعلیِ _STATUS.json (اگر باشد) برمی‌دارد، تا
+ * writeStatus_ با بازنویسیِ کامل فایل — که هر ساعت از سینک، تولید قسمت و
+ * درس‌نامه هم صدا زده می‌شود — آن را پاک نکند. healthCheck خودش در پایان
+ * saveHealthSnapshot_ را دوباره صدا می‌زند و این کلید را با دادهٔ تازه
+ * جایگزین می‌کند؛ بین دو وارسیِ سلامت، آخرین خلاصه باید سرِ جایش بماند.
+ */
+function readExistingHealth_() {
+  try {
+    var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var it = folder.getFilesByName(STATUS_FILE);
+    if (!it.hasNext()) return null;
+    var st = JSON.parse(it.next().getBlob().getDataAsString());
+    return st.health || null;
+  } catch (e) { return null; }
+}
+
 /** نوشتن/به‌روزرسانی فایل وضعیت در OUTPUT */
 function writeStatus_(hub, note) {
   hub = hub || getHub_();
@@ -139,7 +156,8 @@ function writeStatus_(hub, note) {
     // وضعیتِ غنی‌سازیِ اینترنتی — تا Cowork در بازبینیِ روزانه ببیند کدام
     // درخواست بی‌پاسخ مانده و چرا.
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),
-    recentLog: recentLog_(hub, 25)
+    recentLog: recentLog_(hub, 25),
+    health: readExistingHealth_()
   };
 
   var body = JSON.stringify(status, null, 1);
