@@ -197,15 +197,101 @@ function sourceScriptsRemember_(a) {
  * یک شناسهٔ فایل که بارها در گزارش تکرار شده یعنی کد آن را برای همیشه کنار
  * نمی‌گذارد و هر دور دوباره امتحانش می‌کند — همان چیزی که ۲۳۲ خطا از ۲۳۶ را ساخت.
  */
+/* دو نصبِ نخست پیش از آنکه این مُهر وجود داشته باشد انجام شدند (۱۹ آگوست، از
+   منو). بی این جدول، وارسیِ فردا پنجره‌ای نمی‌شناخت و باز کلِ انبارِ خطاهای
+   کدِ قبلی را به پای کدِ تازه می‌نوشت. کلید، اثرانگشتِ همان کدی است که نصب شد —
+   پس اگر کد عوض شود این ردیف خودبه‌خود بی‌اثر می‌شود و جای درستش را مُهرِ واقعیِ
+   نصب می‌گیرد. */
+var SRC_INSTALL_BACKFILL = {
+  '846afc460ca73daa93b3247404c677977d0849725ebc88579866bc64cd8d29b5':
+    { key: 'photo', version: '1.1', at: '2026-08-19 08:43' },
+  'fc763e3ce4cf883ae0ed95d8f8eacc586ad4fd937f74e137a3d883be61e939da':
+    { key: 'video', version: '1.1', at: '2026-08-19 08:43' }
+};
+
+/**
+ * اگر کدِ زندهٔ یک تحلیلگر همانی باشد که در جدولِ بالا ثبت شده و هنوز مُهرِ نصب
+ * نداشته باشد، مُهرش را می‌زند. یک‌بار اجرا می‌شود و بعدش بی‌کار است.
+ */
+function srcBackfillStamps_(audit) {
+  var have = srcInstalls_(), added = 0;
+  var list = (audit && audit.scripts) || [];
+  for (var i = 0; i < list.length; i++) {
+    var sc = list[i];
+    var b = SRC_INSTALL_BACKFILL[String(sc.sha256 || '')];
+    if (!b || have[b.key]) continue;
+    var ms = parseWhen_(b.at);
+    if (isNaN(ms)) continue;
+    have[b.key] = { version: b.version, sha: sc.sha256, at: b.at, ms: ms, backfilled: true };
+    added++;
+  }
+  if (added) {
+    PropertiesService.getScriptProperties().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(have));
+    logLine_('مُهرِ زمانِ نصبِ ' + added + ' تحلیلگرِ منبع از روی اثرانگشت بازسازی شد.');
+  }
+  return added;
+}
+
+/** مُهرِ زمانِ نصبِ کدِ یک تحلیلگر را نگه می‌دارد. */
+function srcStampInstall_(key, version, sha) {
+  var p = PropertiesService.getScriptProperties();
+  var all = {};
+  try { all = JSON.parse(p.getProperty(PK.SRCSCRIPT_INST) || '{}') || {}; } catch (e) {}
+  all[key] = { version: String(version || ''), sha: String(sha || ''),
+               at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm'),
+               ms: new Date().getTime() };
+  p.setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  return all[key];
+}
+
+/** آنچه تا حالا نصب شده. */
+function srcInstalls_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties()
+           .getProperty(PK.SRCSCRIPT_INST) || '{}') || {}; } catch (e) { return {}; }
+}
+
+/**
+ * مبدأِ سنجش: تازه‌ترین زمانِ نصب میانِ تحلیلگرها.
+ *
+ * چرا تازه‌ترین و نه قدیمی‌ترین: می‌خواهیم بدانیم «کدی که *الان* کار می‌کند چند
+ * خطا ساخته». اگر عکس دیروز نصب شده و ویدیو امروز، خطاهای بینِ این دو هنوز
+ * نیمی مالِ کدِ قدیمِ ویدیوست. پس محتاطانه از تازه‌ترین نصب می‌شماریم.
+ *
+ * اگر هیچ نصبی ثبت نشده باشد پنجره‌ای در کار نیست و همه‌چیز شمرده می‌شود —
+ * همان رفتارِ قبلی، ولی این بار خودش می‌گوید که پنجره‌ای ندارد.
+ */
+function srcSince_() {
+  var all = srcInstalls_(), best = null;
+  for (var k in all) {
+    if (!all.hasOwnProperty(k)) continue;
+    var ms = Number(all[k].ms || 0);
+    if (isFinite(ms) && ms > 0 && (best === null || ms > best.ms)) best = { ms: ms, at: all[k].at, key: k };
+  }
+  return best;   // null یعنی هنوز چیزی نصب نشده
+}
+
 function sourceErrDigest_(hub) {
-  var out = { total: 0, byKind: {}, storms: [], samples: [] };
+  var out = { total: 0, byKind: {}, storms: [], samples: [], since: null, before: 0, inWindow: 0 };
   var errs;
-  try { errs = srcErrorSummary_(hub || getHub_(), 60); } catch (e) { return out; }
+  // نمونهٔ بزرگ‌تر برمی‌داریم چون بعدش با زمان صافش می‌کنیم؛ خواندنِ شیت هم
+  // به‌هرحال کامل انجام می‌شود، پس این نمونه هزینهٔ تازه‌ای ندارد.
+  try { errs = srcErrorSummary_(hub || getHub_(), 400); } catch (e) { return out; }
   var rec = (errs && errs.recent) || [];
   out.total = (errs && errs.total) || 0;
+  var since = srcSince_();
+  out.since = since;
   var seenFile = {}, seenKind = {};
   for (var i = 0; i < rec.length; i++) {
-    var r = rec[i], k = srcErrKind_(r.text);
+    var r = rec[i];
+    // خطایی که پیش از نصبِ کدِ فعلی ثبت شده مالِ کدِ قبلی است. اگر این را حساب
+    // نکنیم، انبارهٔ خطاهای قدیمی هر شب دوباره گزارش می‌شود و همان اشکالِ
+    // درست‌شده را بارها به‌عنوانِ «هنوز خراب» جار می‌زند.
+    if (since) {
+      var w = parseWhen_(r.at);
+      if (!isNaN(w) && w < since.ms) { out.before++; continue; }
+    }
+    out.inWindow++;
+    var k = srcErrKind_(r.text);
     out.byKind[k.kind] = (out.byKind[k.kind] || 0) + 1;
     if (r.fileId) seenFile[r.fileId] = (seenFile[r.fileId] || 0) + 1;
     if (!seenKind[k.label]) {
@@ -232,6 +318,7 @@ function auditSourceScripts(hub) {
   hub = hub || getHub_();
   var a = sourceScriptsAudit_();
   try { sourceScriptsRemember_(a); } catch (e) {}
+  try { srcBackfillStamps_(a); } catch (eB) {}
   var d = sourceErrDigest_(hub);
   var n = 0;
 
@@ -281,8 +368,15 @@ function runAuditSourceScripts() {
            (s.note ? '\n     ' + s.note : ''));
   }
   L.push('');
-  L.push('خطاهای اخیر بر پایهٔ دسته: ' + JSON.stringify(r.errors.byKind));
-  if (r.errors.storms.length) L.push('طوفانِ تلاشِ دوباره: ' + r.errors.storms.length + ' فایل');
+  var d = r.errors;
+  if (d.since) {
+    L.push('پنجرهٔ سنجش: از نصبِ کدِ تازه (' + d.since.at + ') تا حالا.');
+    L.push('خطا در این پنجره: ' + d.inWindow + '  ·  پیش از آن (کدِ قبلی): ' + d.before);
+  } else {
+    L.push('هنوز نصبی ثبت نشده، پس همهٔ خطاها شمرده می‌شوند: ' + d.inWindow);
+  }
+  L.push('دسته‌بندی: ' + (d.inWindow ? JSON.stringify(d.byKind) : 'هیچ'));
+  if (d.storms.length) L.push('طوفانِ تلاشِ دوباره: ' + d.storms.length + ' فایل');
   L.push('');
   L.push(r.logged + ' یافته در تبِ گزارش‌ها ثبت شد (بدونِ هیچ نصبی).');
   ui.alert('🔍 وارسیِ اسکریپت‌های منبع', L.join('\n'), ui.ButtonSet.OK);
@@ -440,6 +534,10 @@ function srcInstall_(key) {
     return { ok: false, errors: ['نصب رد شد (HTTP ' + res.getResponseCode() + '): ' + why],
              backup: bakName };
   }
+
+  // مُهرِ زمانِ نصب. پنجرهٔ سنجشِ خطاها از همین‌جا شروع می‌شود: خطایی که پیش از
+  // این ثبت شده مالِ کدِ قبلی است و دیگر نباید به پای کدِ تازه نوشته شود.
+  try { srcStampInstall_(key, v.info.version, srcSha256_(v.text)); } catch (eS) {}
 
   // رونوشتِ نسخهٔ نصب‌شده
   try { saveCodeCopy_('منبع — ' + key + ' — v' + v.info.version + ' — نصب‌شده ' + stamp + '.gs', v.text); } catch (e2) {}

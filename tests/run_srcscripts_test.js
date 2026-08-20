@@ -132,6 +132,7 @@ console.log('\n=== ۶. طوفانِ تلاشِ دوباره ===');
   const rec = [];
   for (let i = 0; i < 4; i++) rec.push({ fileId: 'F-STUCK', tab: 'Sheet1', text: 'ERROR: (400) File x' });
   rec.push({ fileId: 'F-OK', tab: 'Sheet1', text: 'ERROR: TypeError: Cannot read properties of undefined' });
+  const realSummary = global.srcErrorSummary_;
   global.srcErrorSummary_ = () => ({ total: 5, recent: rec });
   const d = sourceErrDigest_(null);
   ok('۶.۱ فایلِ گیرکرده پیدا شد', d.storms.length === 1 && d.storms[0].fileId === 'F-STUCK',
@@ -139,6 +140,9 @@ console.log('\n=== ۶. طوفانِ تلاشِ دوباره ===');
   ok('۶.۲ شمارشِ تکرار درست است', d.storms[0].times === 4);
   ok('۶.۳ دسته‌ها تفکیک شدند', d.byKind.data === 4 && d.byKind.code === 1,
      JSON.stringify(d.byKind));
+  // بازگرداندنِ تابعِ واقعی — وگرنه هر بخشِ بعدی همین دادهٔ ساختگی را می‌بیند
+  // و بی‌آنکه بفهمد روی پنجرهٔ خطای اشتباهی قضاوت می‌کند.
+  global.srcErrorSummary_ = realSummary;
 }
 
 console.log('\n=== ۷. مرزِ ایمنی: هرگز واردِ نصبِ خودکارِ موتور نشود ===');
@@ -325,6 +329,72 @@ console.log('\n=== ۱۰. حالتِ «از قبل نصب است» با «دست�
   ok('۱۰.۵ در فهرستِ منو هم «نصب‌شده» علامت می‌خورد',
      st.length > 0 && st.every(x => x.installed === true && x.ready === false));
   global.__STUB = prev;
+}
+
+
+/* ۱۱. خطاهای پیش از نصب به پای کدِ تازه نوشته نمی‌شوند.
+
+   این را وارسیِ واقعیِ روزِ بعدِ نصب بیرون کشید: گزارش گفت «code: ۸ خطا» و
+   «طوفانِ تلاشِ دوباره: ۸ فایل» — در حالی که هر ۸ تا پیش از نصب ثبت شده بودند و
+   بعد از نصب فقط یک خطا آمده بود، آن هم نه باگ. digest آخرین N ردیف را برمی‌داشت
+   بی‌آنکه به تاریخشان نگاه کند، پس انبارهٔ خطاهای قدیمی هر شب دوباره گزارش
+   می‌شد و همان اشکالِ درست‌شده را «هنوز خراب» نشان می‌داد.                       */
+console.log('\n=== ۱۱. پنجرهٔ سنجشِ خطا از زمانِ نصب شروع می‌شود ===');
+{
+  // یک هابِ ساختگی که فقط تبِ خطاهای منبع دارد
+  const makeHub_ = rows => ({
+    getSheetByName: name => name !== CFG.SRC_ERR_TAB ? null : {
+      getLastRow: () => rows.length + 1,
+      getRange: (r, c, n, w) => ({
+        getValues: () => rows.slice(r - 2, r - 2 + n).map(x => x.slice(c - 1, c - 1 + w))
+      })
+    }
+  });
+  const INSTALLED_AT = Date.parse('2026-08-19T04:43:00Z');   // ۰۸:۴۳ دبی
+  PropertiesService.getScriptProperties().setProperty(
+    PK.SRCSCRIPT_INST,
+    JSON.stringify({ photo: { version: '1.1', at: '2026-08-19 08:43', ms: INSTALLED_AT } }));
+
+  const stamp = (iso) => Utilities.formatDate(new Date(iso), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const rows = [
+    // پیش از نصب — کدِ قبلی. سه بارِ یک فایل، یعنی طوفانِ همان زمان.
+    [stamp('2026-08-19T00:58:00Z'), 'RESULT-PHOTO', 'Sheet1', 10, 'F-OLD', 'وضعیت ناموفق', "TypeError: Cannot read properties of undefined (reading 'parts')", ''],
+    [stamp('2026-08-19T01:58:00Z'), 'RESULT-PHOTO', 'Sheet1', 11, 'F-OLD', 'وضعیت ناموفق', "TypeError: Cannot read properties of undefined (reading 'parts')", ''],
+    [stamp('2026-08-19T02:58:00Z'), 'RESULT-PHOTO', 'Sheet1', 12, 'F-OLD', 'وضعیت ناموفق', "TypeError: Cannot read properties of undefined (reading 'parts')", ''],
+    // پس از نصب — کدِ فعلی. مدل تحلیل نکرد؛ این باگ نیست.
+    [stamp('2026-08-20T08:58:00Z'), 'RESULT-PHOTO', 'Sheet1', 13, 'F-NEW', 'ناتوانی در تحلیل', 'تصویر حاوی موضوع حساس است', '']
+  ];
+  const hub = makeHub_(rows);
+
+  const d = sourceErrDigest_(hub);
+  ok('۱۱.۱ پنجره از زمانِ نصب شناخته شد', !!d.since && d.since.at === '2026-08-19 08:43',
+     d.since ? d.since.at : 'ندارد');
+  ok('۱۱.۲ سه خطای پیش از نصب کنار گذاشته شد', d.before === 3, 'before=' + d.before);
+  ok('۱۱.۳ فقط یک خطا در پنجره ماند', d.inWindow === 1, 'inWindow=' + d.inWindow);
+  ok('۱۱.۴ و آن یکی «کد» شمرده نمی‌شود', !d.byKind.code, JSON.stringify(d.byKind));
+  ok('۱۱.۵ طوفانِ گذشته دیگر گزارش نمی‌شود', d.storms.length === 0, d.storms.length + ' فایل');
+  ok('۱۱.۶ ولی جمعِ کلِ تبِ خطاها همچنان دیده می‌شود', d.total === 4, 'total=' + d.total);
+
+  // بی‌مُهرِ نصب، رفتار همان قبلی است: همه‌چیز شمرده می‌شود
+  PropertiesService.getScriptProperties().deleteProperty(PK.SRCSCRIPT_INST);
+  const d2 = sourceErrDigest_(makeHub_(rows));
+  ok('۱۱.۷ بی‌مُهرِ نصب، پنجره‌ای در کار نیست', d2.since === null && d2.inWindow === 4,
+     'inWindow=' + d2.inWindow);
+  ok('۱۱.۸ و آن‌وقت طوفانِ قدیمی باز دیده می‌شود', d2.storms.length === 1);
+
+  ok('۱۱.۹ پیش از نصب، مُهری نیست', Object.keys(srcInstalls_()).length === 0);
+
+  // بازسازیِ مُهر از روی اثرانگشت (برای دو نصبی که پیش از این ساز و کار انجام شدند)
+  const SHA_PHOTO = Object.keys(SRC_INSTALL_BACKFILL)[0];
+  const n = srcBackfillStamps_({ scripts: [{ key: 'photo', sha256: SHA_PHOTO }] });
+  ok('۱۱.۱۰ مُهر از روی اثرانگشتِ کدِ زنده بازسازی شد', n === 1);
+  ok('۱۱.۱۱ و زمانش همان زمانِ نصبِ واقعی است',
+     srcInstalls_().photo.at === SRC_INSTALL_BACKFILL[SHA_PHOTO].at, srcInstalls_().photo.at);
+  ok('۱۱.۱۲ دوباره‌زدن مُهرِ تکراری نمی‌سازد',
+     srcBackfillStamps_({ scripts: [{ key: 'photo', sha256: SHA_PHOTO }] }) === 0);
+  ok('۱۱.۱۳ اثرانگشتِ ناشناس مُهر نمی‌گیرد',
+     srcBackfillStamps_({ scripts: [{ key: 'video', sha256: 'یک اثرانگشتِ دیگر' }] }) === 0);
+  PropertiesService.getScriptProperties().deleteProperty(PK.SRCSCRIPT_INST);
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');
