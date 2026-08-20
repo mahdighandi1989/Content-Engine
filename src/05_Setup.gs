@@ -37,6 +37,7 @@ function onOpen() {
       .addItem('🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)', 'runAuditSourceScripts')
       .addItem('🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟', 'runShowSourceUpdates')
       .addItem('⬆️ نصبِ کدِ تحلیلگرهای منبع', 'runInstallSourceUpdates')
+      .addItem('📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها', 'runShowSourceVerdict')
       .addItem('بازگشت به نسخهٔ پشتیبانِ کد', 'installCodeRollback')
       .addSeparator()
       .addItem('وارسی سلامت', 'healthCheck')

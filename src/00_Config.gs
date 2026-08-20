@@ -18,11 +18,17 @@ var CFG = {
   // نشانیِ مرورگر. کشفِ خودکارش ممکن نیست (گوگل اسکریپتِ چسبیده را فهرست نمی‌کند)،
   // ولی همان لحظهٔ خواندن، چسبندگی با parentId وارسی می‌شود.
   // شیتی که اینجا نیست یعنی اسکریپتی ندارد — ایراد نیست.
+  // چرخهٔ خودکارِ کدِ تحلیلگرهای منبع
+  SRC_AUTO_INSTALL: true,     // نصبِ شبانه بی‌آنکه کسی دکمه بزند
+  SRC_VERDICT_HOURS: 24,      // پس از این مدت، دربارهٔ نصب داوری می‌شود
+  SRC_ROLLBACK_MIN: 5,        // کمتر از این تعداد خطای کدی، نوسان است نه فاجعه
+  SRC_ROLLBACK_FACTOR: 1.5,   // نرخِ خطای کدی چند برابر شود تا برگشت بخورد
+
   SOURCE_SCRIPTS: [
-    { key: 'photo', name: 'Photo-Analyzer-Gemini (تحلیلگرِ عکس)',
+    { key: 'photo', name: 'Photo-Analyzer-Gemini (تحلیلگرِ عکس)', errSource: 'RESULT-PHOTO',
       scriptId: '1P7Zqj2oMqGYxS4htb939rNyeG50Bl3L_qzkrq1qyujI6T19vnY6vpSzV',
       sheetId: '1VBqPb-Vd_e0yGc2IXRO7vsyFf9q4Dy6iND8yD6A9WWQ' },
-    { key: 'video', name: 'Video-Analyzer-Gemini (تحلیلگرِ ویدیو)',
+    { key: 'video', name: 'Video-Analyzer-Gemini (تحلیلگرِ ویدیو)', errSource: 'RESULT (ویدیو)',
       scriptId: '1oCmiO4cDypTGMUADCG1uHQv1vDidqk3bLZj8hzmyUZIXleWbmddUqbAL',
       sheetId: '1hKcfoJeqaWrxfSUZgUu-nIwORgpg-hoW3H8z3UZK5D4' }
   ],
@@ -364,7 +370,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.26',
+  CODE_VERSION: '5.27',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -562,6 +568,7 @@ var PK = {
   SELFUP_NOSCOPE: 'CODE_SWAP_NO_SCOPE_AT', // آخرین باری که «اسکوپ نیست» گفته شد
   SRCSCRIPT_LAST: 'SRC_SCRIPTS_LAST',   // آخرین نتیجهٔ وارسیِ اسکریپت‌های منبع
   SRCSCRIPT_INST: 'SRC_SCRIPTS_INSTALLS', // زمانِ نصبِ کدِ هر تحلیلگرِ منبع
+  SRCSCRIPT_BLOCK: 'SRC_SCRIPTS_BLOCKED', // اثرانگشتِ بسته‌هایی که برگشت خورده‌اند
   // «نوبتِ ادامه»: لحظه‌ای که تریگرِ ادامهٔ صداگذاری قرار است بزند. نگهبان با
   // همین می‌فهمد رشته پاره شده — نه با «آیا تریگری در فهرست هست»، چون تریگرِ
   // یک‌بارمصرفی که زده و اجرایش کشته شده، همچنان در فهرست می‌ماند.

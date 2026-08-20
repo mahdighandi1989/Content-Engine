@@ -397,4 +397,196 @@ console.log('\n=== ۱۱. پنجرهٔ سنجشِ خطا از زمانِ نصب �
   PropertiesService.getScriptProperties().deleteProperty(PK.SRCSCRIPT_INST);
 }
 
+
+/* ۱۲. چرخهٔ خودکار: نصب → داوریِ روزِ بعد → برگشت اگر بدتر شد.
+
+   این بخش کلِ چرخه را روی یک شیتِ خطای ساختگی می‌دوانَد. سه چیزی که باید
+   ثابت شود، همان سه چیزی است که کاربر پرسید: نصب خبر می‌دهد، روزِ بعد سنجیده
+   می‌شود که اشکالِ قبلی رفع شده یا نه، و همه‌چیز در شیت ثبت می‌شود.          */
+console.log('\n=== ۱۲. چرخهٔ خودکارِ کدِ تحلیلگرها ===');
+{
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  const OLD = 'function a(){}\nfunction b(){}';
+  const NEW = 'function a(){}\nfunction b(){/*اصلاح‌شده*/}';
+  const RESOLVES = [{ id: 'parts', match: "reading '?parts'?", title: 'کرشِ parts' },
+                    { id: 'storm', storm: true, title: 'طوفانِ تلاشِ دوباره' }];
+  const MAN = { target: 'تحلیلگرِ عکس', version: '1.2', codeFile: 'analyzer.gs',
+                sha256: shaOf(NEW), baseSha256: shaOf(OLD),
+                requiredFunctions: ['function a', 'function b'], resolves: RESOLVES };
+
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'تحلیلگرِ عکس', errSource: 'RESULT-PHOTO',
+                          scriptId: 'S1', sheetId: SHEET }];
+  CFG.SRC_VERDICT_HOURS = 24; CFG.SRC_ROLLBACK_MIN = 5; CFG.SRC_ROLLBACK_FACTOR = 1.5;
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+  props_().deleteProperty(PK.SRCSCRIPT_BLOCK);
+
+  const HOUR = 3600000, NOW = new Date().getTime();
+  let LIVE = OLD, sheetRows = [];
+  const stampOf = ms => Utilities.formatDate(new Date(ms), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const addErr = (msAgo, text, fileId) => sheetRows.push(
+    [stampOf(NOW - msAgo), 'RESULT-PHOTO (عکس)', 'Sheet1', 1, fileId || 'F' + sheetRows.length,
+     'وضعیت ناموفق', text, '']);
+  const hub = {
+    getSheetByName: name => name !== CFG.SRC_ERR_TAB ? null : {
+      getLastRow: () => sheetRows.length + 1,
+      getRange: (r, c, n, w) => ({
+        getValues: () => sheetRows.slice(r - 2, r - 2 + n).map(x => x.slice(c - 1, c - 1 + w)) })
+    }
+  };
+
+  const prev = global.__STUB;
+  let puts = 0, lastPut = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: NEW };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) {
+        puts++;
+        lastPut = body.files.filter(f => f.type === 'SERVER_JS')[0].source;
+        LIVE = lastPut;
+        return { code: 200, json: {} };
+      }
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: LIVE },
+                       { name: 'appsscript', type: 'JSON', source: '{"x":1}' }] } };
+    }
+    return prev(url, body);
+  };
+
+  // ── ۱۲-الف: پیش از نصب، ۶ کرشِ parts در ۲۴ ساعتِ گذشته
+  for (let i = 0; i < 6; i++) addErr((20 - i) * HOUR, "TypeError: Cannot read properties of undefined (reading 'parts')", 'F-OLD');
+  let un = quiet(); let ins = srcAutoInstall_(hub); un();
+  ok('۱۲.۱ نصبِ خودکار انجام شد', ins.length === 1 && ins[0].ok === true, JSON.stringify(ins));
+  ok('۱۲.۲ کدِ تازه واقعاً نوشته شد', lastPut === NEW && puts === 1);
+  const rec = srcInstalls_().photo;
+  ok('۱۲.۳ عکسِ پیش از نصب گرفته شد', rec.baseline && rec.baseline.sig.parts === 6,
+     JSON.stringify(rec.baseline && rec.baseline.sig));
+  ok('۱۲.۴ نامِ پشتیبان ثبت شد', /پیش از نصب/.test(rec.backup || ''), rec.backup);
+  ok('۱۲.۵ هنوز داوری نشده', rec.pending === true && rec.judged === false);
+
+  // ── ۱۲-ب: هنوز ۲۴ ساعت نگذشته → داوری نکن
+  un = quiet(); let v = srcVerdict_(hub); un();
+  ok('۱۲.۶ پیش از موعد داوری نمی‌شود', v[0].state === 'زود است', JSON.stringify(v[0]));
+
+  // ── ۱۲-ج: ۲۶ ساعت بعد، کرشِ parts دیگر نیامده → «خوب»
+  srcInstalls_();  // فقط برای خواندن
+  let all = srcInstalls_(); all.photo.ms = NOW - 26 * HOUR; all.photo.at = stampOf(all.photo.ms);
+  props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  sheetRows = [];
+  for (let i = 0; i < 6; i++) addErr((50 - i) * HOUR, "TypeError: Cannot read properties of undefined (reading 'parts')", 'F-OLD');
+  addErr(3 * HOUR, 'blockReason: OTHER — مدل تحلیل نکرد', 'F-NEW');   // مدل، نه کد
+  un = quiet(); v = srcVerdict_(hub); un();
+  ok('۱۲.۷ داوری انجام شد و نتیجه «خوب» است', v[0].state === 'خوب', JSON.stringify(v[0].sig));
+  ok('۱۲.۸ نشانهٔ کرشِ parts برطرف اعلام شد',
+     v[0].sig.find(x => x.id === 'parts').fixed === true &&
+     v[0].sig.find(x => x.id === 'parts').before === 6);
+  ok('۱۲.۹ خطای مدل به پای کد نوشته نشد', v[0].code === 0, 'code=' + v[0].code);
+  ok('۱۲.۱۰ برگشتی در کار نبود', puts === 1 && LIVE === NEW);
+  ok('۱۲.۱۱ دوباره داوری نمی‌شود', srcVerdict_(hub).length === 0);
+
+  // ── ۱۲-د: حالا نصبی که اوضاع را بدتر می‌کند → باید برگردد
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+  LIVE = OLD; sheetRows = []; puts = 0;
+  for (let i = 0; i < 2; i++) addErr((20 - i) * HOUR, "TypeError: Cannot read properties of undefined (reading 'parts')", 'F-OLD');
+  un = quiet(); srcAutoInstall_(hub); un();
+  ok('۱۲.۱۲ نصبِ دوم انجام شد', puts === 1 && LIVE === NEW);
+  all = srcInstalls_(); all.photo.ms = NOW - 26 * HOUR;
+  props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  sheetRows = [];
+  for (let i = 0; i < 2; i++) addErr((50 - i) * HOUR, "TypeError: Cannot read properties of undefined", 'F-OLD');
+  for (let i = 0; i < 12; i++) addErr((20 - i) * HOUR, 'TypeError: خطای تازه پس از نصب', 'F' + i);
+  un = quiet(); v = srcVerdict_(hub); un();
+  ok('۱۲.۱۳ بدترشدن تشخیص داده شد و کد برگشت خورد', v[0].state === 'برگشت خورد',
+     v[0].state + ' — ' + (v[0].why || ''));
+  ok('۱۲.۱۴ کدِ قبلی دوباره نوشته شد', LIVE === OLD && puts === 2);
+  ok('۱۲.۱۵ بستهٔ برگشت‌خورده مسدود شد', !!srcBlocked_()[MAN.sha256]);
+  un = quiet(); const again = srcAutoInstall_(hub); un();
+  ok('۱۲.۱۶ و شبِ بعد دوباره نصب نمی‌شود',
+     puts === 2 && again[0].ok === false && /برگشت خورده/.test(again[0].why), JSON.stringify(again));
+
+  global.__STUB = prev;
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+  props_().deleteProperty(PK.SRCSCRIPT_BLOCK);
+}
+
+
+/* ۱۳. هر رویداد باید هم خبر بدهد و هم در شیت بنشیند.
+
+   بی این، چرخه بی‌صدا کار می‌کند: کد عوض می‌شود، شاید برگردد، و صاحبِ پروژه
+   هیچ‌وقت نمی‌فهمد. پس اینجا خودِ کانال‌ها را می‌شماریم، نه نیتِ کد را.        */
+console.log('\n=== ۱۳. اطلاع‌رسانی و ثبت در شیت ===');
+{
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  const OLD = 'function a(){}\nfunction b(){}';
+  const NEW = 'function a(){}\nfunction b(){/*نو*/}';
+  const MAN = { target: 'تحلیلگرِ عکس', version: '1.3', codeFile: 'analyzer.gs',
+                sha256: shaOf(NEW), baseSha256: shaOf(OLD),
+                requiredFunctions: ['function a'],
+                resolves: [{ id: 'parts', match: "reading '?parts'?", title: 'کرشِ parts' }] };
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'تحلیلگرِ عکس', errSource: 'RESULT-PHOTO',
+                          scriptId: 'S1', sheetId: SHEET }];
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+  props_().deleteProperty(PK.SRCSCRIPT_BLOCK);
+
+  const HOUR = 3600000, NOW = new Date().getTime();
+  let LIVE = OLD, rows = [];
+  const stampOf = ms => Utilities.formatDate(new Date(ms), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const hub = {
+    getSheetByName: name => name !== CFG.SRC_ERR_TAB ? null : {
+      getLastRow: () => rows.length + 1,
+      getRange: (r, c, n, w) => ({
+        getValues: () => rows.slice(r - 2, r - 2 + n).map(x => x.slice(c - 1, c - 1 + w)) })
+    }
+  };
+
+  // شنودِ کانال‌ها
+  const tg = [], mail = [], sheet = [];
+  const realTg = global.tgSend_, realFind = global.logSelfFinding_, realMail = global.MailApp;
+  global.tgSend_ = m => { tg.push(String(m)); return true; };
+  global.logSelfFinding_ = (h, f) => { sheet.push(f); return true; };
+  global.MailApp = { sendEmail: o => { mail.push(o); } };
+
+  const prev = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: NEW };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) { LIVE = body.files.filter(f => f.type === 'SERVER_JS')[0].source;
+                                return { code: 200, json: {} }; }
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: LIVE },
+                       { name: 'appsscript', type: 'JSON', source: '{}' }] } };
+    }
+    return prev(url, body);
+  };
+
+  let un = quiet(); srcAutoInstall_(hub); un();
+  ok('۱۳.۱ نصب پیامِ تلگرام فرستاد', tg.length === 1 && /نصب شد/.test(tg[0]));
+  ok('۱۳.۲ نصب ایمیل فرستاد', mail.length === 1 && /نصب شد/.test(mail[0].subject), mail[0] && mail[0].subject);
+  ok('۱۳.۳ پیام می‌گوید داوری در راه است', /داوری/.test(tg[0]));
+  ok('۱۳.۴ نصب در شیت ثبت شد',
+     sheet.some(f => /رسید/.test(f.title) && f.owner === ROWNER_SRCCODE),
+     sheet.map(f => f.title).join(' | '));
+
+  // داوریِ خوب
+  const all = srcInstalls_(); all.photo.ms = NOW - 26 * HOUR;
+  props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  rows = [[stampOf(NOW - 2 * HOUR), 'RESULT-PHOTO (عکس)', 'Sheet1', 1, 'F1',
+           'ناتوانی در تحلیل', 'موضوع حساس', '']];
+  un = quiet(); const v = srcVerdict_(hub); un();
+  ok('۱۳.۵ داوری هم خبر داد', tg.length === 2 && /نتیجهٔ نصب/.test(tg[1]), tg[1]);
+  ok('۱۳.۶ داوری هم ایمیل شد', mail.length === 2 && /نتیجهٔ نصب/.test(mail[1].subject));
+  ok('۱۳.۷ متنِ خبر می‌گوید کدام اشکال برطرف شد', /✅ کرشِ parts/.test(tg[1]), tg[1]);
+  ok('۱۳.۸ داوری در شیت ثبت شد',
+     sheet.some(f => /داوریِ نصب/.test(f.title) && f.owner === ROWNER_SRCCODE),
+     sheet.map(f => f.title).join(' | '));
+  ok('۱۳.۹ هیچ ردیفی مسئولش «کد» نیست (وگرنه به نصبِ خودِ موتور می‌رفت)',
+     sheet.every(f => String(f.owner).indexOf('کد') === -1));
+  ok('۱۳.۱۰ داوری نتیجه را هم برگرداند', v.length === 1 && v[0].state === 'خوب');
+
+  global.__STUB = prev; global.tgSend_ = realTg;
+  global.logSelfFinding_ = realFind; global.MailApp = realMail;
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');

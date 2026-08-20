@@ -464,6 +464,8 @@ function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
   try { auditSourceScripts(); } catch (eSS) {}
+  // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
+  try { srcNightly_(); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
 
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }

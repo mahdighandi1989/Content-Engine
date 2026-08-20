@@ -82,23 +82,60 @@ copy to the Drive «کدها» folder.
   `1HhFoQFVgQvJF7lJSl1smYcRcCHKnO0xDbNXkMlCgGK2CBicy2X_AVr4_`
 - This repo: `github.com/mahdighandi1989/Content-Engine` (public)
 
-## Source-sheet scripts (section 22) — diagnosis only
-Some SOURCE sheets carry their own bound Apps Script (photo analyzer, RESULT).
-`CFG.SOURCE_SCRIPTS` lists them; a bound script's id cannot be discovered from
-its sheet, so it is configured once and the binding is then verified against the
-`parentId` the API returns. A sheet that is absent from the list simply has no
-script — that is not a fault.
+## Source-sheet scripts (section 22) — audit, auto-install, verdict
+Some SOURCE sheets carry their own Apps Script (photo analyzer, video analyzer).
+`CFG.SOURCE_SCRIPTS` lists them — a script's id cannot be discovered from its
+sheet, so it is configured once and the link is then verified (`parentId` when
+bound, else the sheet id appearing in its own source). A sheet absent from the
+list simply has no script; that is not a fault.
 
-**This section only reads.** It never installs and never writes to a source
-sheet. Its findings carry `ROWNER_SRCCODE`, deliberately *without* the word
-«کد» in it: `reportRow_` turns any owner containing «کد» into `ROWNER_CODE` with
-status `NEEDS_CODE`, which feeds the engine's own installer — and that installer
-replaces `engine.gs`. An analyzer's source reaching that path would overwrite the
-engine. `tests/run_srcscripts_test.js` asserts this boundary through
-`reportRow_` itself, not a restatement of the rule.
+The analyzers have their own release channel, parallel to the engine's but
+separate from it: `sources/<key>/analyzer.gs` + `sources/<key>/manifest.json`
+(`version`, `sha256`, `baseSha256`, `requiredFunctions`, `resolves`). Nightly,
+`srcNightly_` runs **verdict first, then install** — reversed, tonight's install
+would blur into last night's and no error could be attributed.
+
+**Three gates before any write** (`srcVerify_`): package sha matches its
+manifest · every `requiredFunctions` entry is present (triggers bind by name) ·
+`baseSha256` matches the live code. The third one means a hand-edited analyzer
+stops the install instead of losing your edit. `srcJoinJs_` must be the *only*
+way live JS is hashed — computing it differently in two places is exactly the
+bug that once blocked every install (`run_srcscripts_test.js` ۹.۱-ب).
+
+**Install** (`srcInstall_`) backs the live code up to the Drive «کدها» folder
+first, writes one `SERVER_JS` file and preserves every other file verbatim, so
+`appsscript.json` (scopes) and any HTML stay untouched. It stamps the install
+time plus a **baseline**: how often each `resolves` signature fired in the
+equal-length window before the swap.
+
+**Verdict** (`srcVerdict_`), `CFG.SRC_VERDICT_HOURS` later, asks two separate
+questions. *Did the thing we fixed stop happening?* — each signature's hit count
+in the window after the install. *Did we make it worse?* — code-kind error rate
+vs the baseline rate. Only the second triggers `srcRollback_`, which restores the
+Drive backup and blocks that sha from auto-reinstalling, so a bad package cannot
+loop. A signature that is still firing means the fix was insufficient, not that
+things got worse — that gets reported, not reverted.
+
+Error rows are attributed per analyzer through `errSource` (a prefix match on
+the report's source column). Without it, one analyzer's errors would be judged
+against another's code.
+
+**The boundary that must never move.** Findings carry `ROWNER_SRCCODE`,
+deliberately *without* the word «کد» in it: `reportRow_` turns any owner
+containing «کد» into `ROWNER_CODE` with status `NEEDS_CODE`, which feeds the
+engine's own installer — and that installer replaces `engine.gs`. An analyzer's
+source reaching that path would overwrite the engine.
+`tests/run_srcscripts_test.js` asserts this through `reportRow_` itself, not a
+restatement of the rule.
+
+Rollback restores *code*, never sheet data. An analyzer that corrupts rows is
+not undone by reverting it — which is why the shipped `cleanErrorRows` deletes
+only rows whose status is `ERROR` **and** whose every analysis column is empty.
 
 Sections must not depend forwards (21 → 22). Hoisting hides it in the assembled
-file, but every partial loader in `tests/` breaks with a ReferenceError.
+file, but every partial loader in `tests/` breaks with a ReferenceError. The two
+calls 21 makes into 22 (`auditSourceScripts`, `srcNightly_`) sit inside
+try/catch for exactly that reason.
 
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.

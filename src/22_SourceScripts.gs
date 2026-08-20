@@ -173,7 +173,21 @@ function sourceScriptsStatus_() {
                note: 'هنوز وارسی نشده — از منو «وارسیِ اسکریپت‌های منبع» یا در دورِ شبانه.',
                scripts: [] };
     }
-    return JSON.parse(raw);
+    var st = JSON.parse(raw);
+    // چرخهٔ نصب هم در وضعیت بیاید — از حافظه خوانده می‌شود، پس شبکه نمی‌زند.
+    try {
+      var inst = srcInstalls_(), cyc = [];
+      for (var k in inst) {
+        if (!inst.hasOwnProperty(k)) continue;
+        var r = inst[k];
+        cyc.push({ key: k, version: r.version, installedAt: r.at, auto: !!r.auto,
+                   rolledBackAt: r.rolledBackAt || '',
+                   verdict: r.verdict || (r.pending === false ? null : 'در انتظارِ داوری') });
+      }
+      st.installs = cyc;
+      st.autoInstall = CFG.SRC_AUTO_INSTALL !== false;
+    } catch (e2) {}
+    return st;
   } catch (e) { return null; }
 }
 
@@ -233,13 +247,19 @@ function srcBackfillStamps_(audit) {
 }
 
 /** مُهرِ زمانِ نصبِ کدِ یک تحلیلگر را نگه می‌دارد. */
-function srcStampInstall_(key, version, sha) {
+function srcStampInstall_(key, version, sha, extra) {
+  extra = extra || {};
   var p = PropertiesService.getScriptProperties();
   var all = {};
   try { all = JSON.parse(p.getProperty(PK.SRCSCRIPT_INST) || '{}') || {}; } catch (e) {}
   all[key] = { version: String(version || ''), sha: String(sha || ''),
                at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm'),
-               ms: new Date().getTime() };
+               ms: new Date().getTime(),
+               backup: String(extra.backup || ''),
+               baseline: extra.baseline || null,
+               auto: !!extra.auto,
+               // pending یعنی «هنوز داوری نشده». داوریِ فردا این را می‌بندد.
+               pending: true, judged: false };
   p.setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
   return all[key];
 }
@@ -501,7 +521,8 @@ function srcSha256_(text) {
  * نصبِ بستهٔ وارسی‌شده در اسکریپتِ تحلیلگر.
  * فقط بعد از srcVerify_ صدا زده می‌شود و خودش هم دوباره وارسی می‌کند.
  */
-function srcInstall_(key) {
+function srcInstall_(key, opt) {
+  opt = opt || {};
   var v = srcVerify_(key);
   if (!v.ok) return { ok: false, errors: v.errors };
 
@@ -537,14 +558,20 @@ function srcInstall_(key) {
 
   // مُهرِ زمانِ نصب. پنجرهٔ سنجشِ خطاها از همین‌جا شروع می‌شود: خطایی که پیش از
   // این ثبت شده مالِ کدِ قبلی است و دیگر نباید به پای کدِ تازه نوشته شود.
-  try { srcStampInstall_(key, v.info.version, srcSha256_(v.text)); } catch (eS) {}
+  try {
+    srcStampInstall_(key, v.info.version, srcSha256_(v.text),
+                     { backup: bakName, baseline: opt.baseline || null, auto: !!opt.auto });
+  } catch (eS) {}
 
   // رونوشتِ نسخهٔ نصب‌شده
   try { saveCodeCopy_('منبع — ' + key + ' — v' + v.info.version + ' — نصب‌شده ' + stamp + '.gs', v.text); } catch (e2) {}
 
   var msg = '✅ کدِ «' + v.info.target + '» نسخهٔ ' + v.info.version + ' نصب شد.\n' +
             'نسخهٔ قبلی در پوشهٔ «' + CFG.CODE_FOLDER + '» با نامِ «' + bakName + '» ماند.\n' +
-            'تریگرها دست نخوردند (نامِ هیچ تابعی عوض نشده) و اسکوپ‌ها هم همان‌اند.';
+            'تریگرها دست نخوردند (نامِ هیچ تابعی عوض نشده) و اسکوپ‌ها هم همان‌اند.\n' +
+            (opt.auto ? 'این نصب خودکار بود. ' : '') +
+            (CFG.SRC_VERDICT_HOURS || 24) + ' ساعتِ دیگر دربارهٔ نتیجه‌اش داوری می‌شود؛ ' +
+            'اگر خطاها بیشتر شده باشد خودکار به همین نسخهٔ پشتیبان برمی‌گردد.';
   logLine_('نصبِ تحلیلگرِ منبع: ' + key + ' → ' + v.info.version);
   try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e3) {}
   try {
@@ -628,4 +655,332 @@ function runInstallSourceUpdates() {
       ui.ButtonSet.OK);
   }
   return { installed: done.length, failed: failed.length };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   چرخهٔ خودکارِ کدِ تحلیلگرهای منبع.
+
+   هر شب سه کار پشتِ سرِ هم:
+     ۱) داوریِ نصب‌های قبلی که ۲۴ ساعتشان تمام شده — آیا اشکالی که قرار بود
+        برطرف شود واقعاً برطرف شد؟ اگر اوضاع بدتر شده، برگشت به کدِ قبلی.
+     ۲) نصبِ هر بستهٔ تازه‌ای که سه سدِ ایمنی را رد کند.
+     ۳) ثبتِ همه‌چیز در تبِ گزارش‌ها و خبر دادن از تلگرام و ایمیل.
+
+   ترتیب مهم است: اول داوری، بعد نصب. اگر برعکس بود، نصبِ امشب با نصبِ دیشب
+   قاطی می‌شد و معلوم نبود خطای فردا مالِ کدام است.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/** ردیف‌های خطای یک تحلیلگر در یک بازهٔ زمانی. */
+function srcErrRows_(hub, key, fromMs, toMs) {
+  var cfg = srcCfg_(key);
+  var pre = cfg && cfg.errSource ? String(cfg.errSource) : '';
+  var errs;
+  try { errs = srcErrorSummary_(hub || getHub_(), SRC_ERR_MAX); } catch (e) { return []; }
+  var rec = (errs && errs.recent) || [], out = [];
+  for (var i = 0; i < rec.length; i++) {
+    var r = rec[i];
+    // خطاهای شیت‌های دیگر به پای این تحلیلگر نوشته نشوند. اگر منبعی تعریف
+    // نشده باشد چیزی برنمی‌گردانیم — شمردنِ خطای بی‌صاحب بدتر از نشمردن است.
+    if (!pre || String(r.source || '').indexOf(pre) !== 0) continue;
+    var w = parseWhen_(r.at);
+    if (isNaN(w)) continue;
+    if (fromMs && w < fromMs) continue;
+    if (toMs && w >= toMs) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+function srcCfg_(key) {
+  var list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return null;
+}
+
+/**
+ * شمارشِ یک نشانه در مجموعه‌ای از ردیف‌ها.
+ * نشانهٔ «طوفان» فرق دارد: متن نیست، تکرارِ یک شناسهٔ فایل است.
+ */
+function srcSigHits_(rows, sig) {
+  if (sig && sig.storm) {
+    var seen = {}, worst = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var id = rows[i].fileId;
+      if (!id) continue;
+      seen[id] = (seen[id] || 0) + 1;
+      if (seen[id] > worst) worst = seen[id];
+    }
+    return worst >= 3 ? worst : 0;
+  }
+  var re;
+  try { re = new RegExp(sig.match, 'i'); } catch (e) { return 0; }
+  var n = 0;
+  for (var j = 0; j < rows.length; j++) if (re.test(String(rows[j].text || ''))) n++;
+  return n;
+}
+
+/** شمارشِ خطاهای «کدی» — تنها دسته‌ای که تعویضِ کد می‌تواند مقصرش باشد. */
+function srcCodeCount_(rows) {
+  var n = 0;
+  for (var i = 0; i < rows.length; i++) if (srcErrKind_(rows[i].text).kind === 'code') n++;
+  return n;
+}
+
+/**
+ * عکسِ وضعیتِ پیش از نصب: هر نشانه چند بار در بازه‌ای هم‌اندازهٔ پنجرهٔ داوری
+ * دیده شده. همین می‌شود ترازوی فردا.
+ */
+function srcBaseline_(hub, key, sigs, atMs, hours) {
+  var span = (Number(hours) || 24) * 3600000;
+  var rows = srcErrRows_(hub, key, atMs - span, atMs);
+  var b = { hours: Number(hours) || 24, rows: rows.length, code: srcCodeCount_(rows), sig: {} };
+  for (var i = 0; i < (sigs || []).length; i++) b.sig[sigs[i].id] = srcSigHits_(rows, sigs[i]);
+  return b;
+}
+
+/** فهرستِ اثرانگشت‌هایی که برگشت خورده‌اند و نباید دوباره خودکار نصب شوند. */
+function srcBlocked_() {
+  try { return JSON.parse(props_().getProperty(PK.SRCSCRIPT_BLOCK) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function srcBlock_(sha, why) {
+  var all = srcBlocked_();
+  all[String(sha)] = { at: nowStr_(), why: String(why || '') };
+  props_().setProperty(PK.SRCSCRIPT_BLOCK, JSON.stringify(all));
+}
+
+/** پشتیبانِ پیش از نصب را در پوشهٔ کدها پیدا می‌کند. */
+function srcFindBackup_(key, exactName) {
+  var folder = codeFolder_();
+  if (exactName) {
+    var it = folder.getFilesByName(exactName);
+    if (it.hasNext()) return it.next();
+  }
+  // نامِ دقیق را نداریم (مثلاً نصبِ دستیِ پیش از این سازوکار) — تازه‌ترین
+  // پشتیبانِ همین تحلیلگر را برمی‌داریم.
+  var pre = 'منبع — ' + key + ' — پیش از نصبِ ';
+  var all = folder.getFiles(), best = null;
+  while (all.hasNext()) {
+    var f = all.next();
+    if (String(f.getName()).indexOf(pre) !== 0) continue;
+    if (!best || f.getDateCreated().getTime() > best.getDateCreated().getTime()) best = f;
+  }
+  return best;
+}
+
+/** نوشتنِ یک متنِ کد در اسکریپت، با حفظِ هر فایلِ غیرِ SERVER_JS. */
+function srcPutJs_(key, js) {
+  var cfg = srcCfg_(key);
+  if (!cfg) return { ok: false, why: 'کلیدِ ناشناس: ' + key };
+  var got = srcScriptGet_(cfg.scriptId);
+  if (got.code !== 200) return { ok: false, why: 'کدِ زنده خوانده نشد (HTTP ' + got.code + ')' };
+  var files = (got.json && got.json.files) || [];
+  var keep = [], firstJs = null;
+  for (var i = 0; i < files.length; i++) {
+    if (files[i].type === 'SERVER_JS') { if (!firstJs) firstJs = files[i].name; continue; }
+    keep.push({ name: files[i].name, type: files[i].type, source: files[i].source });
+  }
+  keep.push({ name: firstJs || 'Code', type: 'SERVER_JS', source: js });
+  var res = UrlFetchApp.fetch(scriptContentUrlFor_(cfg.scriptId), {
+    method: 'put', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: JSON.stringify({ files: keep })
+  });
+  if (res.getResponseCode() !== 200) {
+    return { ok: false, why: 'HTTP ' + res.getResponseCode() + ' — ' +
+             String(res.getContentText() || '').replace(/\s+/g, ' ').slice(0, 200) };
+  }
+  return { ok: true };
+}
+
+/** خبر دادن از یک رویداد: تلگرام + ایمیل + خطِ لاگ. */
+function srcNotify_(subject, body) {
+  logLine_(subject);
+  try { tgSend_('🛠 ' + tgEsc_(subject + '\n' + body)); } catch (e) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — ' + subject,
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                esc_(body).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e2) {}
+}
+
+/**
+ * برگشت به کدِ پیش از نصب.
+ * اثرانگشتِ بستهٔ برگشت‌خورده مسدود می‌شود تا شبِ بعد دوباره نصب نشود و
+ * چرخهٔ نصب/برگشت راه نیفتد.
+ */
+function srcRollback_(key, rec, why) {
+  var f = srcFindBackup_(key, rec && rec.backup);
+  if (!f) {
+    return { ok: false, why: 'پشتیبانِ پیش از نصب پیدا نشد؛ برگشت انجام نشد.' };
+  }
+  var js = f.getBlob().getDataAsString();
+  var put = srcPutJs_(key, js);
+  if (!put.ok) return { ok: false, why: put.why };
+  srcBlock_(rec && rec.sha, why);
+  var all = srcInstalls_();
+  if (all[key]) { all[key].rolledBackAt = nowStr_(); all[key].pending = false; }
+  props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  return { ok: true, from: f.getName() };
+}
+
+/**
+ * داوریِ نصب‌هایی که ۲۴ ساعتشان گذشته.
+ *
+ * دو سؤال جدا می‌پرسد:
+ *   «آنچه قرار بود درست شود، شد؟»  → هر نشانه در پنجرهٔ پس از نصب چند بار آمد
+ *   «چیزِ تازه‌ای خراب شد؟»        → نرخِ خطای کدی نسبت به پیش از نصب
+ * فقط سؤالِ دوم می‌تواند برگشت را راه بیندازد. نشانه‌ای که برطرف نشده یعنی
+ * اصلاح کافی نبوده — بدتر نشده، پس کد را برنمی‌گردانیم و فقط گزارش می‌دهیم.
+ */
+function srcVerdict_(hub) {
+  hub = hub || getHub_();
+  var all = srcInstalls_(), out = [], changed = false;
+  var waitMs = (Number(CFG.SRC_VERDICT_HOURS) || 24) * 3600000;
+  var now = new Date().getTime();
+
+  for (var key in all) {
+    if (!all.hasOwnProperty(key)) continue;
+    var rec = all[key];
+    if (!rec || rec.pending === false || rec.judged) continue;
+    var age = now - Number(rec.ms || 0);
+    if (!isFinite(age) || age < waitMs) {
+      out.push({ key: key, state: 'زود است', hoursLeft: Math.ceil((waitMs - age) / 3600000) });
+      continue;
+    }
+
+    var info = null;
+    try { info = srcManifest_(key); } catch (e) {}
+    var cfgK = srcCfg_(key);
+    var nice = (cfgK && cfgK.name) || key;
+    var sigs = (info && info.resolves) || [];
+    var rows = srcErrRows_(hub, key, Number(rec.ms), 0);
+    var r = { key: key, state: 'خوب', version: rec.version, at: rec.at,
+              rows: rows.length, code: srcCodeCount_(rows), sig: [], rolledBack: false };
+
+    for (var i = 0; i < sigs.length; i++) {
+      var hits = srcSigHits_(rows, sigs[i]);
+      var was = rec.baseline && rec.baseline.sig ? Number(rec.baseline.sig[sigs[i].id] || 0) : null;
+      r.sig.push({ id: sigs[i].id, title: sigs[i].title, before: was, after: hits,
+                   fixed: hits === 0 });
+    }
+
+    // بدتر شد؟ نرخِ خطای کدی را با پیش از نصب می‌سنجیم، نه عددِ خام را —
+    // پنجره‌ها هم‌اندازه نیستند.
+    var hours = Math.max(1, age / 3600000);
+    var rateNow = r.code / hours;
+    var base = rec.baseline;
+    var rateWas = base && base.hours ? (Number(base.code || 0) / base.hours) : null;
+    var worse = (rateWas !== null) &&
+                (r.code >= (Number(CFG.SRC_ROLLBACK_MIN) || 5)) &&
+                (rateNow > rateWas * (Number(CFG.SRC_ROLLBACK_FACTOR) || 1.5));
+    r.rateNow = Math.round(rateNow * 100) / 100;
+    r.rateWas = rateWas === null ? null : Math.round(rateWas * 100) / 100;
+
+    if (worse) {
+      var why = 'نرخِ خطای کدی از ' + r.rateWas + ' به ' + r.rateNow + ' در ساعت رسید.';
+      var rb = srcRollback_(key, rec, why);
+      r.state = rb.ok ? 'برگشت خورد' : 'بدتر شد ولی برگشت نخورد';
+      r.rolledBack = rb.ok;
+      r.why = rb.ok ? why : (why + ' ' + rb.why);
+      srcNotify_('کدِ ' + nice + ' برگشت خورد به نسخهٔ قبل',
+        why + '\n' + (rb.ok ? 'از روی پشتیبانِ «' + rb.from + '».' : rb.why) +
+        '\nاین بسته تا بررسیِ دستی دیگر خودکار نصب نمی‌شود.');
+      logSelfFinding_(hub, { priority: 'جدی', category: 'اسکریپتِ منبع',
+        key: 'srcrollback-' + key + '-' + rec.version,
+        title: 'کدِ ' + nice + ' نسخهٔ ' + rec.version + ' برگشت خورد',
+        detail: r.why, instruction: 'علتِ افزایشِ خطا بررسی و بستهٔ تازه ساخته شود.',
+        owner: ROWNER_SRCCODE });
+    } else {
+      var unfixed = r.sig.filter(function (x) { return !x.fixed; });
+      r.state = unfixed.length ? 'برخی اشکال‌ها باقی است' : 'خوب';
+      var lines = r.sig.map(function (x) {
+        return (x.fixed ? '✅ ' : '⚠️ ') + x.title +
+               (x.before === null ? '' : ' — پیش: ' + x.before) + ' · پس: ' + x.after;
+      });
+      srcNotify_('نتیجهٔ نصبِ کدِ ' + nice + ' نسخهٔ ' + rec.version + ' — ' + r.state,
+        'پنجره: ' + Math.round(hours) + ' ساعت پس از نصب.\n' +
+        'خطای کدی در این مدت: ' + r.code + ' (نرخ ' + r.rateNow + ' در ساعت' +
+        (r.rateWas === null ? '' : '، پیش از نصب ' + r.rateWas) + ')\n' + lines.join('\n'));
+      logSelfFinding_(hub, { priority: unfixed.length ? 'متوسط' : 'کم',
+        category: 'اسکریپتِ منبع',
+        key: 'srcverdict-' + key + '-' + rec.version,
+        title: 'داوریِ نصبِ ' + nice + ' نسخهٔ ' + rec.version + ': ' + r.state,
+        detail: lines.join(' ؛ ') + ' — خطای کدی: ' + r.code,
+        instruction: unfixed.length ? 'برای نشانه‌های باقی‌مانده اصلاحِ تازه ساخته شود.' : '',
+        owner: ROWNER_SRCCODE });
+    }
+
+    all[key].judged = true;
+    all[key].verdict = { state: r.state, at: nowStr_(), code: r.code };
+    changed = true;
+    out.push(r);
+  }
+
+  if (changed) props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify(all));
+  return out;
+}
+
+/**
+ * نصبِ خودکارِ هر بستهٔ آماده. همان سه سدِ srcVerify_ سرِ جایشان‌اند؛ این تابع
+ * فقط دکمهٔ تأییدِ آدم را برمی‌دارد و به‌جایش داوریِ فردا را می‌گذارد.
+ */
+function srcAutoInstall_(hub) {
+  if (CFG.SRC_AUTO_INSTALL === false) return [];
+  hub = hub || getHub_();
+  var list = CFG.SOURCE_SCRIPTS || [], done = [], blocked = srcBlocked_();
+
+  for (var i = 0; i < list.length; i++) {
+    var key = list[i].key;
+    var v = srcVerify_(key);
+    if (!v.ok) continue;
+    var sha = v.info ? String(v.info.sha256) : '';
+    if (blocked[sha]) {
+      done.push({ key: key, ok: false, why: 'این بسته پیش‌تر برگشت خورده؛ دستی بررسی شود.' });
+      continue;
+    }
+    // عکسِ پیش از نصب را همین‌جا می‌گیریم — بعد از نوشتنِ کد دیگر نمی‌شود.
+    var base = null;
+    try {
+      base = srcBaseline_(hub, key, (v.info && v.info.resolves) || [],
+                          new Date().getTime(), CFG.SRC_VERDICT_HOURS || 24);
+    } catch (eB) {}
+    var r = srcInstall_(key, { auto: true, baseline: base });
+    done.push({ key: key, ok: !!r.ok, version: r.version, why: (r.errors || []).join(' ') });
+  }
+  return done;
+}
+
+/** دورِ شبانهٔ کاملِ تحلیلگرهای منبع: اول داوری، بعد نصب. */
+function srcNightly_() {
+  var hub = getHub_();
+  var verdicts = [];
+  try { verdicts = srcVerdict_(hub); } catch (e) { logLine_('داوریِ تحلیلگرهای منبع ناموفق: ' + e.message); }
+  var installs = [];
+  try { installs = srcAutoInstall_(hub); } catch (e2) { logLine_('نصبِ خودکارِ تحلیلگرها ناموفق: ' + e2.message); }
+  return { verdicts: verdicts, installs: installs };
+}
+
+/** نمایشِ وضعیتِ چرخه از منو. */
+function runShowSourceVerdict() {
+  var all = srcInstalls_(), ui = ui_();
+  var L = [];
+  var keys = [];
+  for (var k in all) if (all.hasOwnProperty(k)) keys.push(k);
+  if (!keys.length) L.push('هنوز هیچ نصبی ثبت نشده.');
+  for (var i = 0; i < keys.length; i++) {
+    var r = all[keys[i]];
+    L.push('• ' + keys[i] + ' — نسخهٔ ' + r.version + ' · نصب: ' + r.at +
+           (r.backfilled ? ' (بازسازی‌شده)' : ''));
+    if (r.rolledBackAt) L.push('     ↩️ برگشت خورد در ' + r.rolledBackAt);
+    else if (r.verdict) L.push('     داوری: ' + r.verdict.state + ' (' + r.verdict.at +
+                               ') · خطای کدی: ' + r.verdict.code);
+    else L.push('     هنوز داوری نشده — ' + (CFG.SRC_VERDICT_HOURS || 24) + ' ساعت پس از نصب.');
+  }
+  var bl = srcBlocked_(), nb = 0;
+  for (var b in bl) if (bl.hasOwnProperty(b)) nb++;
+  if (nb) L.push('', nb + ' بسته به‌خاطرِ برگشت مسدود است و خودکار نصب نمی‌شود.');
+  L.push('', 'نصبِ خودکار: ' + (CFG.SRC_AUTO_INSTALL === false ? 'خاموش' : 'روشن'));
+  if (ui) ui.alert('📊 چرخهٔ کدِ تحلیلگرهای منبع', L.join('\n'), ui.ButtonSet.OK);
+  return all;
 }
