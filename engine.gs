@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.34
+ *  موتور محتوا و پادکست — نسخهٔ 5.35
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -492,7 +492,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.34',
+  CODE_VERSION: '5.35',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2690,11 +2690,90 @@ function pronMap_() {
   return _pronCache;
 }
 
-/** جایگزینی سادهٔ رشته‌ای (بدون regex تا نویسه‌های ویژه دردسر نسازند) */
+/* نویسه‌هایی که در جست‌وجوی واژه باید نادیده گرفته شوند: اعراب، کشیده، و
+   نیم‌فاصله. اینها «شکلِ» واژه‌اند نه خودش. */
+var PRON_MARKS = 'ًٌٍَُِّْ' +
+                 'ٰٕٓٔـ‌';
+function pronIsMark_(c) { return PRON_MARKS.indexOf(c) !== -1; }
+
+/** متن بی‌علامت، به‌همراهِ نقشهٔ برگشت به جای اصلیِ هر نویسه. */
+function pronStrip_(s) {
+  var out = '', idx = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (pronIsMark_(c)) continue;
+    out += c; idx.push(i);
+  }
+  return { text: out, idx: idx };
+}
+
+/**
+ * جدولِ تلفظ را روی متن اعمال می‌کند — بی‌اعتنا به اعراب.
+ *
+ * ══ چرا بازنویسی شد ══
+ * نسخهٔ قبل یک split/join سادهٔ رشته‌ای بود. تا وقتی متنِ صوتی بی‌اعراب بود
+ * کار می‌کرد؛ ولی از نسخه‌ای که متنِ اعراب‌دار مبنای صداگذاری شد، «هدایت» در
+ * متن به‌صورتِ «هِدایَت» نوشته می‌شود و جست‌وجوی رشته‌ایِ «هدایت» دیگر هرگز
+ * پیدایش نمی‌کند. یعنی جدولِ تلفظ بی‌صدا از کار افتاد: کاربر واژه‌ها را
+ * می‌نوشت، هیچ خطایی هم نمی‌آمد، و هیچ‌کدام اعمال نمی‌شد.
+ *
+ * حالا جست‌وجو روی متنِ بی‌علامت انجام می‌شود و جایگزینی روی متنِ اصلی —
+ * با همان نقشهٔ برگشت. علامت‌هایی که به دُمِ واژه چسبیده‌اند هم با خودِ واژه
+ * برداشته می‌شوند، وگرنه کسرهٔ اضافه پس از جایگزینی جا می‌ماند.
+ */
 function applyPron_(text) {
   var m = pronMap_();
-  for (var i = 0; i < m.length; i++) text = String(text).split(m[i][0]).join(m[i][1]);
-  return text;
+  var s = String(text);
+  if (!m.length) return s;
+  for (var i = 0; i < m.length; i++) {
+    var needle = pronStrip_(String(m[i][0])).text;
+    var to = String(m[i][1]);
+    if (!needle) continue;
+    var st = pronStrip_(s);
+    var hits = [], at = st.text.indexOf(needle);
+    while (at !== -1) { hits.push(at); at = st.text.indexOf(needle, at + needle.length); }
+    for (var h = hits.length - 1; h >= 0; h--) {
+      var a = st.idx[hits[h]];
+      // فقط تا آخرین *حرفِ* واژه. علامتِ پس از آن دستِ خودش می‌ماند، چون
+      // کسرهٔ اضافه («هدایتِ او») نشانهٔ دستور زبان است نه بخشی از واژه؛
+      // برداشتنش معنا را عوض می‌کند.
+      var b = st.idx[hits[h] + needle.length - 1] + 1;
+      s = s.slice(0, a) + to + s.slice(b);
+    }
+  }
+  return s;
+}
+
+/**
+ * چند واژه از جدولِ تلفظ واقعاً در این متن پیدا شد.
+ *
+ * جدول یک بار درست کار می‌کرد و بعد از تغییرِ متنِ صوتی به نسخهٔ اعراب‌دار از کار
+ * افتاد — بی هیچ خطایی، بی هیچ سطری در سیاهه. تنها نشانه‌اش این بود که کاربر در
+ * صدا می‌شنید.
+ *
+ * وسوسه شدم از این عدد یک هشدار بسازم («جدول پر است ولی چیزی نخورد») و پس
+ * گرفتم: بیشترِ قسمت‌ها بی‌آنکه ایرادی داشته باشند هیچ‌کدام از آن واژه‌ها را
+ * ندارند، پس آن هشدار هر روز شلیک می‌شد. هشدارِ دروغ، هشدارهای واقعی را هم
+ * بی‌اثر می‌کند. درستیِ خودِ سازوکار را آزمون‌ها نگه می‌دارند، نه هشدار.
+ */
+/** همهٔ متنِ گفتنیِ یک قسمت، یکجا. */
+function allTextForPron_(ep) {
+  var t = String((ep && ep.hook) || '') + ' ' + String((ep && ep.outro) || '');
+  var secs = (ep && ep.sections) || [];
+  for (var i = 0; i < secs.length; i++) t += ' ' + String((secs[i] || {}).narration || '');
+  return t;
+}
+
+function pronHits_(text) {
+  var m = pronMap_(), s = String(text), n = 0;
+  var st = pronStrip_(s);
+  for (var i = 0; i < m.length; i++) {
+    var needle = pronStrip_(String(m[i][0])).text;
+    if (!needle) continue;
+    var at = st.text.indexOf(needle);
+    while (at !== -1) { n++; at = st.text.indexOf(needle, at + needle.length); }
+  }
+  return { rules: m.length, hits: n };
 }
 
 /**
