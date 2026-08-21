@@ -448,6 +448,33 @@ var VOICE_TEST_LINE =
   'این جمله برای سنجشِ تلفظِ فارسیِ معیارِ ایران خوانده می‌شود.';
 
 /**
+ * ترتیبِ ساختِ نمونه‌ها: یکی در میان زن و مرد.
+ *
+ * فهرستِ TTS_VOICES اول ده زن دارد و بعد دوازده مرد. آزمون بودجهٔ زمانی دارد و
+ * در هر اجرا فقط چند صدا می‌سازد، پس اجرای اول دقیقاً ده صدای زن ساخت و
+ * ایستاد — و به نظر می‌رسید مردها اصلاً وجود ندارند. پیام «۱۲ مانده» را
+ * می‌گفت ولی کسی که ده فایلِ زن می‌بیند، نتیجه‌اش را از فایل‌ها می‌گیرد نه از
+ * پیام.
+ *
+ * با یکی در میان، هر اجرا نمونه‌ای از هر دو جنس می‌دهد و این سوءتفاهم دیگر
+ * ممکن نیست. خودِ TTS_VOICES دست نمی‌خورد، چون ترتیبش در انتخابِ گویندهٔ
+ * بخش‌ها معنا دارد.
+ */
+function auditionOrder_() {
+  var f = [], m = [];
+  for (var i = 0; i < TTS_VOICES.length; i++) {
+    if (!TTS_VOICES[i] || !TTS_VOICES[i].n) continue;
+    (TTS_VOICES[i].g === 'f' ? f : m).push(TTS_VOICES[i]);
+  }
+  var out = [];
+  for (var k = 0; k < Math.max(f.length, m.length); k++) {
+    if (k < m.length) out.push(m[k]);
+    if (k < f.length) out.push(f[k]);
+  }
+  return out;
+}
+
+/**
  * منو: «آزمونِ شنیداریِ گویندگان».
  *
  * چرا این ابزار لازم شد: لهجه، خصیصهٔ خودِ صداست نه دستورِ متن. هر چقدر هم در
@@ -473,9 +500,10 @@ function runVoiceAudition() {
     var it = root.getFoldersByName(name);
     folder = it.hasNext() ? it.next() : root.createFolder(name);
 
-    for (var i = 0; i < TTS_VOICES.length; i++) {
+    var order = auditionOrder_();
+    for (var i = 0; i < order.length; i++) {
       if (new Date().getTime() > deadline) break;
-      var v = TTS_VOICES[i];
+      var v = order[i];
       if (!v || !v.n) continue;
       var fname = 'صدا — ' + v.n + ' (' + (v.g === 'f' ? 'زن' : 'مرد') + ').wav';
       // ساخته‌شده‌ها دوباره ساخته نمی‌شوند، پس اجرای دوم از همان‌جا ادامه می‌دهد
@@ -508,10 +536,11 @@ function runVoiceAudition() {
     }
   } catch (eZ) {}
 
-  var m = 'ساخته شد: ' + made.length + ' صدا' +
+  var m = (left ? '⚠️ هنوز ' + left + ' گوینده مانده — همین گزینه را دوباره بزنید ' +
+                  '(هر اجرا چند صدا می‌سازد و بقیه به اجرای بعد می‌ماند).\n\n'
+                : '✅ همهٔ ' + TTS_VOICES.length + ' گوینده آماده‌اند.\n\n') +
+          'ساخته شد: ' + made.length + ' صدا' +
           (made.length ? ' (' + made.join('، ') + ')' : '') + '\n' +
-          (left ? 'مانده: ' + left + ' — همین گزینه را دوباره بزنید.\n'
-                : 'همهٔ گویندگان آماده‌اند.\n') +
           (failed.length ? 'ناموفق: ' + failed.join('، ') + '\n' : '') +
           '\nپوشه: ' + (folder ? folder.getUrl() : '—') + '\n\n' +
           'جملهٔ آزمون: «' + VOICE_TEST_LINE.slice(0, 60) + '…»\n\n' +

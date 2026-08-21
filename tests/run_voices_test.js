@@ -292,4 +292,28 @@ console.log('\n=== 8. نقش‌گزینی وسطِ صداگذاری عوض نم�
   CFG.ENRICH_ENABLED = keepEnrich; CFG.MAX_RUNTIME_MS = keepRt;
 }
 
+/* ترتیبِ آزمونِ شنیداری: یکی در میان زن و مرد.
+
+   فهرست ده زن دارد و بعد دوازده مرد، و آزمون بودجهٔ زمانی دارد. اجرای اول
+   دقیقاً ده صدای زن ساخت و ایستاد — و به نظر رسید مردها اصلاً وجود ندارند.
+   پیامِ «۱۲ مانده» را می‌گفت، ولی کسی که ده فایلِ زن می‌بیند نتیجه‌اش را از
+   فایل‌ها می‌گیرد نه از پیام.                                                */
+{
+  const o = auditionOrder_();
+  ok('هیچ گوینده‌ای از قلم نیفتاد', o.length === TTS_VOICES.filter(v => v && v.n).length,
+     o.length + ' از ' + TTS_VOICES.length);
+  const first10 = o.slice(0, 10);
+  ok('در ده تای اول هر دو جنس هست',
+     first10.some(v => v.g === 'f') && first10.some(v => v.g !== 'f'),
+     first10.map(v => v.g).join(''));
+  ok('و تقریباً نصف‌نصف است',
+     Math.abs(first10.filter(v => v.g === 'f').length - 5) <= 1);
+  let maxRun = 0, run = 0, prev = null;
+  for (const v of o) { run = (v.g === prev) ? run + 1 : 1; prev = v.g; if (run > maxRun) maxRun = run; }
+  ok('پشتِ سرِ هم از یک جنس، جز در ته فهرست، پیش نمی‌آید', maxRun <= 2, 'بیشترین رشته: ' + maxRun);
+  const names = o.map(v => v.n);
+  ok('هیچ نامی تکرار نشده', new Set(names).size === names.length);
+}
+
+
 process.exit(summary('نقش‌گزینیِ گویندگان و تلفظ') ? 1 : 0);
