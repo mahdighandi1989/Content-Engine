@@ -539,6 +539,13 @@ function afterCodeSwap() {
     }
   } catch (e2) {}
 
+  // اگر این نسخه چیزی را عوض کرده که روتین‌ها و تسک‌ها به آن تکیه دارند —
+  // نامِ تابع، گزینهٔ منو، کلیدِ فایلِ وضعیت، ساعتِ زمان‌بندی — بیانیه‌اش را در
+  // promptImpact نوشته است. آن‌جا چیزی هست یعنی «دستورِ روتین هم باید عوض شود»،
+  // و این چیزی است که هیچ‌کس خودبه‌خود نمی‌فهمد: کد عوض می‌شود، روتین سرِ جایش
+  // می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
+  try { promptImpactNotice_(want); } catch (ePI) {}
+
   // ردیف‌های گزارش: «کد نصب شد — در انتظارِ تأییدِ ناظر»
   var marked = 0;
   try { marked = markCodeRowsInstalled_(want); } catch (e3) {}
@@ -757,4 +764,46 @@ function selfUpdateStatus_() {
     noScopeSince: props_().getProperty(PK.SELFUP_NOSCOPE) || '',
     codeFolder: (function () { try { return codeFolder_().getUrl(); } catch (e) { return ''; } })()
   };
+}
+
+/**
+ * «این نسخه چه چیزی را در روتین‌ها و تسک‌ها می‌شکند؟»
+ *
+ * روتینِ «نظارت روزانه» و تسکِ «غنی‌سازی» بیرون از این ریپو زندگی می‌کنند و
+ * دستورشان متن است، نه کد. پس وقتی نامِ تابعی عوض شود، گزینهٔ منویی جابه‌جا شود
+ * یا کلیدی در _STATUS.json تغییر کند، هیچ آزمونی نمی‌شکند و هیچ‌کس خبردار
+ * نمی‌شود — روتین سرِ جایش می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
+ *
+ * درمانش این است که سازندهٔ نسخه همان‌جا که manifest را می‌نویسد، اثرش را هم
+ * اعلام کند. `promptImpact` فهرستی از جمله‌هاست: هرکدام می‌گوید کدام دستور باید
+ * چه شود. اگر خالی باشد، هیچ خبری نمی‌رود.
+ */
+function promptImpactNotice_(version) {
+  var got = readCodeManifest_();
+  var list = (got && got.info && got.info.promptImpact) || [];
+  if (!list.length) return { sent: false };
+
+  var body = 'نسخهٔ ' + version + ' چیزهایی را عوض کرده که دستورِ روتین‌ها و تسک‌ها ' +
+             'به آن‌ها تکیه دارند:\n\n• ' + list.join('\n• ') +
+             '\n\nاین‌ها کد نیستند؛ متنِ دستورند و بیرونِ ریپو زندگی می‌کنند، پس ' +
+             'خودشان عوض نمی‌شوند. تا وقتی دستی به‌روز نشوند، روتین همان کارِ قدیم ' +
+             'را می‌کند بی‌آنکه خطایی بدهد.';
+  try { tgSend_('🧭 ' + tgEsc_('دستورِ روتین‌ها باید به‌روز شود — نسخهٔ ' + version + '\n' + body)); } catch (e) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+      subject: 'موتور محتوا — دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                esc_(body).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e2) {}
+  try {
+    logSelfFinding_(getHub_(), { priority: 'جدی', category: 'دستورِ روتین‌ها',
+      key: 'promptimpact-' + version,
+      title: 'دستورِ روتین‌ها/تسک‌ها با نسخهٔ ' + version + ' هماهنگ نیست',
+      detail: list.join(' ؛ '),
+      instruction: 'متنِ دستورِ روتینِ «نظارت روزانه» و تسکِ «غنی‌سازی» با این ' +
+                   'فهرست تطبیق داده شود. این کار بیرونِ ریپوست و دستی انجام می‌شود.',
+      owner: ROWNER_ENGSRC });
+  } catch (e3) {}
+  logLine_('اثرِ نسخهٔ ' + version + ' بر دستورِ روتین‌ها اعلام شد: ' + list.length + ' مورد.');
+  return { sent: true, items: list };
 }

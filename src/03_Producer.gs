@@ -595,10 +595,29 @@ function ttsCue_(sectionStyle, text) {
   return cue + '، فقط این متن را اجرا کن:';
 }
 
-function ttsPayloads_(text, modelOverride, sectionStyle, voice) {
+/**
+ * آیا این تکه باید دستورِ لحن را هم بگیرد؟
+ *
+ * در حالتِ perSection فقط نخستین تکهٔ هر لحن. لحن که عوض شود دوباره فرستاده
+ * می‌شود، پس اجرای هر بخش همان‌طور که نویسنده خواسته شروع می‌شود.
+ * تکهٔ نخست همیشه دستور می‌گیرد — حتی وقتی ادامهٔ اجرای قبلی است — چون هر
+ * فراخوانِ گفتارسازی مستقل است و چیزی از تکهٔ قبل به یاد نمی‌آورد.
+ */
+function ttsCueWanted_(chunks, i) {
+  if (String(CFG.TTS_CUE_MODE || 'perSection') !== 'perSection') return true;
+  if (i <= 0) return true;
+  var prev = chunks[i - 1] || {}, cur = chunks[i] || {};
+  if (String(prev.style || '') !== String(cur.style || '')) return true;
+  if (String(prev.voice || '') !== String(cur.voice || '')) return true;
+  return false;
+}
+
+function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   var model = modelOverride || ttsModel_();
   var vc = voice || CFG.TTS_VOICE;
-  var styled = ttsCue_(sectionStyle, text) + '\n' + text;
+  // بی‌دستور یعنی هیچ سطری جز خودِ متن فرستاده نمی‌شود — پس چیزی هم برای
+  // اشتباه‌خواندن نمی‌ماند.
+  var styled = (withCue === false) ? text : (ttsCue_(sectionStyle, text) + '\n' + text);
   return {
     generateContent: {
       url: 'https://generativelanguage.googleapis.com/v1beta/models/' + model +
@@ -625,8 +644,8 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice) {
 }
 
 /** یک تکه متن → base64 خام PCM. sectionStyle می‌گوید این تکه چطور اجرا شود. */
-function ttsChunk_(text, sectionStyle, voice) {
-  try { return ttsChunkTry_(text, sectionStyle, voice); }
+function ttsChunk_(text, sectionStyle, voice, withCue) {
+  try { return ttsChunkTry_(text, sectionStyle, voice, withCue); }
   catch (e) {
     // نامِ صدا را API می‌تواند نپذیرد (نامِ تازه، نامِ بازنشسته، غلطِ تایپی در
     // جدول). آن‌وقت نباید کلِ قسمت زمین بخورد: با صدای پشتیبان ادامه می‌دهیم و
@@ -643,13 +662,13 @@ function ttsChunk_(text, sectionStyle, voice) {
         props_().setProperty(PK.VOICE_BLOCK, cur ? cur + ',' + voice : voice);
       }
     } catch (eB) {}
-    return ttsChunkTry_(text, sectionStyle, CFG.TTS_VOICE);
+    return ttsChunkTry_(text, sectionStyle, CFG.TTS_VOICE, withCue);
   }
 }
 
-function ttsChunkTry_(text, sectionStyle, voice) {
+function ttsChunkTry_(text, sectionStyle, voice, withCue) {
   var model = ttsModel_();
-  var modes = ttsPayloads_(text, model, sectionStyle, voice);
+  var modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
   var pref = props_().getProperty(PK.TTS_MODE);
   var order = pref ? [pref, pref === 'generateContent' ? 'interactions' : 'generateContent']
                    : ['generateContent', 'interactions'];
@@ -673,7 +692,7 @@ function ttsChunkTry_(text, sectionStyle, voice) {
           var fresh = resolveModels_(true).tts;
           logLine_('مدل صوتی «' + model + '» در دسترس نیست؛ جانشین: ' + fresh);
           model = fresh;
-          modes = ttsPayloads_(text, model, sectionStyle, voice);
+          modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
           continue;
         }
         if (m.indexOf('HTTP 4') !== -1 && m.indexOf('429') === -1) break; // خطای ساختاری: مود بعدی
@@ -1137,7 +1156,11 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
     if (i > startChunk && new Date().getTime() > deadline - reserve) break;
-    var b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice));
+    // دستورِ لحن فقط وقتی همراه می‌شود که لحن تازه باشد. تکهٔ دوم به بعدِ یک
+    // بخش، متنِ خالی می‌گیرد؛ صدا از voiceConfig می‌آید نه از دستور، پس گوینده
+    // همان است و فقط شانسِ «دستور را بخواند» از بین می‌رود.
+    var withCue = ttsCueWanted_(chunks, i);
+    var b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
     if (!b64) continue;
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);

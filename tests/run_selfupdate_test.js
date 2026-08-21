@@ -536,4 +536,45 @@ console.log('\n=== ۱۰. نصب از گیت‌هاب (raw) ===');
   delete P[PK.ENG_STAMP]; delete P[PK.ENG_BEAT]; delete P[PK.ENG_BLOCK];
 }
 
+
+/* ۱۲. وقتی نسخهٔ تازه دستورِ روتین‌ها را می‌شکند.
+
+   روتینِ «نظارت روزانه» و تسکِ «غنی‌سازی» بیرونِ این ریپو زندگی می‌کنند و
+   دستورشان متن است نه کد. اگر نامِ تابعی عوض شود یا کلیدی در فایلِ وضعیت جابه‌جا
+   شود، هیچ آزمونی نمی‌شکند و هیچ‌کس خبردار نمی‌شود — روتین سرِ جایش می‌ماند و یک
+   روز بی‌صدا کارِ اشتباه می‌کند. بیانیه باید بتواند این را اعلام کند.        */
+{
+  const tg = [], mail = [], sheet = [];
+  const realTg = global.tgSend_, realMail = global.MailApp, realFind = global.logSelfFinding_;
+  const realMan = global.readCodeManifest_;
+  global.tgSend_ = m => { tg.push(String(m)); };
+  global.MailApp = { sendEmail: o => { mail.push(o); } };
+  global.logSelfFinding_ = (h, f) => { sheet.push(f); };
+
+  // بیانیهٔ بی‌اثر → هیچ خبری نباید برود
+  global.readCodeManifest_ = () => ({ info: { version: '9.9' }, file: null });
+  let un = quiet(); let r = promptImpactNotice_('9.9'); un();
+  ok('۱۲.۱ نسخهٔ بی‌اثر خبری نمی‌فرستد', r.sent === false && tg.length === 0);
+
+  // بیانیه‌ای که اثرش را اعلام کرده
+  global.readCodeManifest_ = () => ({ info: { version: '9.9', promptImpact: [
+    'گزینهٔ منو «نصبِ کدِ تحلیلگرهای منبع» حالا خودکار است؛ از دستورِ روتین بردارید.',
+    'کلیدِ installs به sourceScripts در _STATUS.json اضافه شد.'] }, file: null });
+  un = quiet(); r = promptImpactNotice_('9.9'); un();
+  ok('۱۲.۲ اثرِ اعلام‌شده خبر داده می‌شود', r.sent === true && r.items.length === 2);
+  ok('۱۲.۳ تلگرام رفت', tg.length === 1 && /دستورِ روتین‌ها باید به‌روز شود/.test(tg[0]));
+  ok('۱۲.۴ ایمیل رفت', mail.length === 1 && /دستورِ روتین‌ها/.test(mail[0].subject));
+  ok('۱۲.۵ متنِ خبر خودِ موردها را می‌آورد', /کلیدِ installs/.test(tg[0]), tg[0].slice(0, 120));
+  ok('۱۲.۶ و می‌گوید که خودشان عوض نمی‌شوند', /خودشان عوض نمی‌شوند/.test(tg[0]));
+
+  const f = sheet.find(x => String(x.key).indexOf('promptimpact') === 0);
+  ok('۱۲.۷ در شیت هم ثبت شد', !!f, sheet.map(x => x.key).join(','));
+  ok('۱۲.۸ و به صفِ «نیازمند تعویض کد» می‌رود تا گم نشود',
+     reportRow_({}, f, 0, 'fp')[RC.STATUS - 1] === RST.NEEDS_CODE);
+  ok('۱۲.۹ دستورش می‌گوید این کار بیرونِ ریپوست', /بیرونِ ریپو/.test(f.instruction));
+
+  global.tgSend_ = realTg; global.MailApp = realMail;
+  global.logSelfFinding_ = realFind; global.readCodeManifest_ = realMan;
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

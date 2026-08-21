@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.31
+ *  موتور محتوا و پادکست — نسخهٔ 5.32
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -283,6 +283,19 @@ var CFG = {
   // دستورِ بلند دشمنِ اجراست، نه کمکش.
   TTS_CUE_MAX: 300,
 
+  // هر بار که سطرِ دستور همراهِ متن فرستاده شود، یک شانسِ تازه است که مدل
+  // به‌جای اجرا، خودش را بخواند. این بارها گزارش شد: «گوینده وسطِ متن، دستورِ
+  // لحن را هم می‌خواند». کوتاه‌کردنِ دستور کمش کرد ولی تمامش نکرد — چون تعدادِ
+  // دفعات دست‌نخورده ماند: یک قسمتِ ۱۴ دقیقه‌ای بیش از ده تکه دارد و هر تکه
+  // دستورِ خودش را می‌گرفت.
+  //
+  //   'perSection' (پیش‌فرض) — دستور فقط در نخستین تکهٔ هر لحن. تا وقتی لحن
+  //        عوض نشده، تکه‌های بعدی متنِ خالی می‌گیرند. صدا از voiceConfig می‌آید،
+  //        نه از دستور، پس گوینده عوض نمی‌شود.
+  //   'perChunk'   — رفتارِ قدیمی؛ برای مقایسه نگه داشته شده.
+  TTS_CUE_MODE: 'perSection',
+
+
   // سازگاری با کدها و آزمون‌های قدیمی؛ در ساختِ صدا دیگر استفاده نمی‌شود.
   TTS_STYLE_TAIL: '',
 
@@ -459,7 +472,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.31',
+  CODE_VERSION: '5.32',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2201,10 +2214,29 @@ function ttsCue_(sectionStyle, text) {
   return cue + '، فقط این متن را اجرا کن:';
 }
 
-function ttsPayloads_(text, modelOverride, sectionStyle, voice) {
+/**
+ * آیا این تکه باید دستورِ لحن را هم بگیرد؟
+ *
+ * در حالتِ perSection فقط نخستین تکهٔ هر لحن. لحن که عوض شود دوباره فرستاده
+ * می‌شود، پس اجرای هر بخش همان‌طور که نویسنده خواسته شروع می‌شود.
+ * تکهٔ نخست همیشه دستور می‌گیرد — حتی وقتی ادامهٔ اجرای قبلی است — چون هر
+ * فراخوانِ گفتارسازی مستقل است و چیزی از تکهٔ قبل به یاد نمی‌آورد.
+ */
+function ttsCueWanted_(chunks, i) {
+  if (String(CFG.TTS_CUE_MODE || 'perSection') !== 'perSection') return true;
+  if (i <= 0) return true;
+  var prev = chunks[i - 1] || {}, cur = chunks[i] || {};
+  if (String(prev.style || '') !== String(cur.style || '')) return true;
+  if (String(prev.voice || '') !== String(cur.voice || '')) return true;
+  return false;
+}
+
+function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   var model = modelOverride || ttsModel_();
   var vc = voice || CFG.TTS_VOICE;
-  var styled = ttsCue_(sectionStyle, text) + '\n' + text;
+  // بی‌دستور یعنی هیچ سطری جز خودِ متن فرستاده نمی‌شود — پس چیزی هم برای
+  // اشتباه‌خواندن نمی‌ماند.
+  var styled = (withCue === false) ? text : (ttsCue_(sectionStyle, text) + '\n' + text);
   return {
     generateContent: {
       url: 'https://generativelanguage.googleapis.com/v1beta/models/' + model +
@@ -2231,8 +2263,8 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice) {
 }
 
 /** یک تکه متن → base64 خام PCM. sectionStyle می‌گوید این تکه چطور اجرا شود. */
-function ttsChunk_(text, sectionStyle, voice) {
-  try { return ttsChunkTry_(text, sectionStyle, voice); }
+function ttsChunk_(text, sectionStyle, voice, withCue) {
+  try { return ttsChunkTry_(text, sectionStyle, voice, withCue); }
   catch (e) {
     // نامِ صدا را API می‌تواند نپذیرد (نامِ تازه، نامِ بازنشسته، غلطِ تایپی در
     // جدول). آن‌وقت نباید کلِ قسمت زمین بخورد: با صدای پشتیبان ادامه می‌دهیم و
@@ -2249,13 +2281,13 @@ function ttsChunk_(text, sectionStyle, voice) {
         props_().setProperty(PK.VOICE_BLOCK, cur ? cur + ',' + voice : voice);
       }
     } catch (eB) {}
-    return ttsChunkTry_(text, sectionStyle, CFG.TTS_VOICE);
+    return ttsChunkTry_(text, sectionStyle, CFG.TTS_VOICE, withCue);
   }
 }
 
-function ttsChunkTry_(text, sectionStyle, voice) {
+function ttsChunkTry_(text, sectionStyle, voice, withCue) {
   var model = ttsModel_();
-  var modes = ttsPayloads_(text, model, sectionStyle, voice);
+  var modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
   var pref = props_().getProperty(PK.TTS_MODE);
   var order = pref ? [pref, pref === 'generateContent' ? 'interactions' : 'generateContent']
                    : ['generateContent', 'interactions'];
@@ -2279,7 +2311,7 @@ function ttsChunkTry_(text, sectionStyle, voice) {
           var fresh = resolveModels_(true).tts;
           logLine_('مدل صوتی «' + model + '» در دسترس نیست؛ جانشین: ' + fresh);
           model = fresh;
-          modes = ttsPayloads_(text, model, sectionStyle, voice);
+          modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
           continue;
         }
         if (m.indexOf('HTTP 4') !== -1 && m.indexOf('429') === -1) break; // خطای ساختاری: مود بعدی
@@ -2743,7 +2775,11 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
     if (i > startChunk && new Date().getTime() > deadline - reserve) break;
-    var b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice));
+    // دستورِ لحن فقط وقتی همراه می‌شود که لحن تازه باشد. تکهٔ دوم به بعدِ یک
+    // بخش، متنِ خالی می‌گیرد؛ صدا از voiceConfig می‌آید نه از دستور، پس گوینده
+    // همان است و فقط شانسِ «دستور را بخواند» از بین می‌رود.
+    var withCue = ttsCueWanted_(chunks, i);
+    var b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
     if (!b64) continue;
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);
@@ -17106,6 +17142,13 @@ function afterCodeSwap() {
     }
   } catch (e2) {}
 
+  // اگر این نسخه چیزی را عوض کرده که روتین‌ها و تسک‌ها به آن تکیه دارند —
+  // نامِ تابع، گزینهٔ منو، کلیدِ فایلِ وضعیت، ساعتِ زمان‌بندی — بیانیه‌اش را در
+  // promptImpact نوشته است. آن‌جا چیزی هست یعنی «دستورِ روتین هم باید عوض شود»،
+  // و این چیزی است که هیچ‌کس خودبه‌خود نمی‌فهمد: کد عوض می‌شود، روتین سرِ جایش
+  // می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
+  try { promptImpactNotice_(want); } catch (ePI) {}
+
   // ردیف‌های گزارش: «کد نصب شد — در انتظارِ تأییدِ ناظر»
   var marked = 0;
   try { marked = markCodeRowsInstalled_(want); } catch (e3) {}
@@ -17324,6 +17367,48 @@ function selfUpdateStatus_() {
     noScopeSince: props_().getProperty(PK.SELFUP_NOSCOPE) || '',
     codeFolder: (function () { try { return codeFolder_().getUrl(); } catch (e) { return ''; } })()
   };
+}
+
+/**
+ * «این نسخه چه چیزی را در روتین‌ها و تسک‌ها می‌شکند؟»
+ *
+ * روتینِ «نظارت روزانه» و تسکِ «غنی‌سازی» بیرون از این ریپو زندگی می‌کنند و
+ * دستورشان متن است، نه کد. پس وقتی نامِ تابعی عوض شود، گزینهٔ منویی جابه‌جا شود
+ * یا کلیدی در _STATUS.json تغییر کند، هیچ آزمونی نمی‌شکند و هیچ‌کس خبردار
+ * نمی‌شود — روتین سرِ جایش می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
+ *
+ * درمانش این است که سازندهٔ نسخه همان‌جا که manifest را می‌نویسد، اثرش را هم
+ * اعلام کند. `promptImpact` فهرستی از جمله‌هاست: هرکدام می‌گوید کدام دستور باید
+ * چه شود. اگر خالی باشد، هیچ خبری نمی‌رود.
+ */
+function promptImpactNotice_(version) {
+  var got = readCodeManifest_();
+  var list = (got && got.info && got.info.promptImpact) || [];
+  if (!list.length) return { sent: false };
+
+  var body = 'نسخهٔ ' + version + ' چیزهایی را عوض کرده که دستورِ روتین‌ها و تسک‌ها ' +
+             'به آن‌ها تکیه دارند:\n\n• ' + list.join('\n• ') +
+             '\n\nاین‌ها کد نیستند؛ متنِ دستورند و بیرونِ ریپو زندگی می‌کنند، پس ' +
+             'خودشان عوض نمی‌شوند. تا وقتی دستی به‌روز نشوند، روتین همان کارِ قدیم ' +
+             'را می‌کند بی‌آنکه خطایی بدهد.';
+  try { tgSend_('🧭 ' + tgEsc_('دستورِ روتین‌ها باید به‌روز شود — نسخهٔ ' + version + '\n' + body)); } catch (e) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+      subject: 'موتور محتوا — دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                esc_(body).replace(/\n/g, '<br>') + '</div>' });
+  } catch (e2) {}
+  try {
+    logSelfFinding_(getHub_(), { priority: 'جدی', category: 'دستورِ روتین‌ها',
+      key: 'promptimpact-' + version,
+      title: 'دستورِ روتین‌ها/تسک‌ها با نسخهٔ ' + version + ' هماهنگ نیست',
+      detail: list.join(' ؛ '),
+      instruction: 'متنِ دستورِ روتینِ «نظارت روزانه» و تسکِ «غنی‌سازی» با این ' +
+                   'فهرست تطبیق داده شود. این کار بیرونِ ریپوست و دستی انجام می‌شود.',
+      owner: ROWNER_ENGSRC });
+  } catch (e3) {}
+  logLine_('اثرِ نسخهٔ ' + version + ' بر دستورِ روتین‌ها اعلام شد: ' + list.length + ' مورد.');
+  return { sent: true, items: list };
 }
 
 /* ═══════════════════════════ 22_SourceScripts.gs ═══════════════════════════ */

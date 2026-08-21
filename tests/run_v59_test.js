@@ -347,4 +347,46 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
      sorted[0].key === 'b', sorted.map(x => x.key).join(','));
 }
 
+
+/* دستورِ لحن نباید با هر تکه تکرار شود.
+
+   شکایتِ واقعی و تکراری: «گوینده وسطِ متن، دستورِ لحن را هم می‌خواند». کوتاه‌کردنِ
+   دستور کمش کرد ولی تمامش نکرد، چون تعدادِ دفعات دست‌نخورده مانده بود — یک
+   قسمتِ ۱۴ دقیقه‌ای بیش از ده تکه دارد و هر تکه دستورِ خودش را می‌گرفت. هر بار
+   یک شانسِ تازه برای همان اشتباه.                                              */
+{
+  const mk = (style, voice) => ({ text: 'متنِ نمونه.', style: style, voice: voice });
+  const chunks = [mk('گرم', 'A'), mk('گرم', 'A'), mk('گرم', 'A'),
+                  mk('جدی', 'A'), mk('جدی', 'A'), mk('جدی', 'B')];
+  const saved = CFG.TTS_CUE_MODE;
+
+  CFG.TTS_CUE_MODE = 'perSection';
+  const got = chunks.map((_, i) => ttsCueWanted_(chunks, i));
+  ok('دستور فقط با نخستین تکهٔ هر لحن می‌رود',
+     got.join(',') === 'true,false,false,true,false,true', got.join(','));
+  ok('و تعدادِ دفعات از ۶ به ۳ رسید', got.filter(Boolean).length === 3);
+  ok('تکهٔ نخست همیشه دستور می‌گیرد', got[0] === true);
+  ok('عوض‌شدنِ لحن دوباره دستور می‌فرستد', got[3] === true);
+  ok('عوض‌شدنِ صدا هم دوباره دستور می‌فرستد', got[5] === true);
+
+  // متنِ فرستاده‌شده در تکهٔ بی‌دستور باید *فقط* خودِ متن باشد
+  global.__PROPS['GEMINI_API_KEY'] = global.__PROPS['GEMINI_API_KEY'] || 'TEST';
+  const TXT = 'یک جملهٔ آزمایشی برای گفتار.';
+  const withCue = ttsPayloads_(TXT, null, 'گرم', 'Kore', true);
+  const noCue = ttsPayloads_(TXT, null, 'گرم', 'Kore', false);
+  ok('تکهٔ بی‌دستور هیچ سطرِ اضافه‌ای ندارد',
+     noCue.generateContent.body.contents[0].parts[0].text === TXT,
+     JSON.stringify(noCue.generateContent.body.contents[0].parts[0].text).slice(0, 80));
+  ok('و تکهٔ دستوردار همچنان دستور دارد',
+     /فقط این متن را اجرا کن:/.test(withCue.generateContent.body.contents[0].parts[0].text));
+  ok('صدا در هر دو یکی است (صدا از voiceConfig می‌آید نه از دستور)',
+     noCue.generateContent.body.generationConfig.speechConfig.voiceConfig
+          .prebuiltVoiceConfig.voiceName === 'Kore');
+
+  CFG.TTS_CUE_MODE = 'perChunk';
+  ok('حالتِ قدیمی هنوز در دسترس است',
+     chunks.map((_, i) => ttsCueWanted_(chunks, i)).every(Boolean));
+  CFG.TTS_CUE_MODE = saved;
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);
