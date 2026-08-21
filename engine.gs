@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.28
+ *  موتور محتوا و پادکست — نسخهٔ 5.29
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -103,6 +103,11 @@ var CFG = {
   // ولی همان لحظهٔ خواندن، چسبندگی با parentId وارسی می‌شود.
   // شیتی که اینجا نیست یعنی اسکریپتی ندارد — ایراد نیست.
   // چرخهٔ خودکارِ کدِ تحلیلگرهای منبع
+  // داوریِ نصبِ خودِ موتور (قرینهٔ همان چیزی که برای تحلیلگرها هست)
+  ENG_VERDICT: true,          // پس از هر تعویضِ کد، فردا دربارهٔ نتیجه‌اش داوری کن
+  ENG_VERDICT_HOURS: 20,      // آن‌قدر که یک دورِ کاملِ تولید (۰۷:۰۰ و ۰۸:۰۰) داخلش بیفتد
+  ENG_ROLLBACK: true,         // اگر موتور از تولید ایستاد، خودکار به نسخهٔ قبل برگرد
+
   SRC_AUTO_INSTALL: true,     // نصبِ شبانه بی‌آنکه کسی دکمه بزند
   SRC_VERDICT_HOURS: 24,      // پس از این مدت، دربارهٔ نصب داوری می‌شود
   SRC_ROLLBACK_MIN: 5,        // کمتر از این تعداد خطای کدی، نوسان است نه فاجعه
@@ -454,7 +459,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.28',
+  CODE_VERSION: '5.29',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -653,6 +658,9 @@ var PK = {
   SRCSCRIPT_LAST: 'SRC_SCRIPTS_LAST',   // آخرین نتیجهٔ وارسیِ اسکریپت‌های منبع
   SRCSCRIPT_INST: 'SRC_SCRIPTS_INSTALLS', // زمانِ نصبِ کدِ هر تحلیلگرِ منبع
   SRCSCRIPT_BLOCK: 'SRC_SCRIPTS_BLOCKED', // اثرانگشتِ بسته‌هایی که برگشت خورده‌اند
+  ENG_STAMP: 'ENGINE_SWAP_STAMP',    // مُهرِ آخرین تعویضِ کدِ موتور + شمارنده‌های آن لحظه
+  ENG_BEAT: 'ENGINE_HEARTBEAT',      // نمونهٔ روزانهٔ شمارنده‌ها (حلقهٔ ۷تایی)
+  ENG_BLOCK: 'ENGINE_BLOCKED_VERS',  // نسخه‌هایی که برگشت خورده‌اند و دوباره نصب نمی‌شوند
   // «نوبتِ ادامه»: لحظه‌ای که تریگرِ ادامهٔ صداگذاری قرار است بزند. نگهبان با
   // همین می‌فهمد رشته پاره شده — نه با «آیا تریگری در فهرست هست»، چون تریگرِ
   // یک‌بارمصرفی که زده و اجرایش کشته شده، همچنان در فهرست می‌ماند.
@@ -16942,6 +16950,14 @@ function selfUpdateStep(force) {
   if (verCmp_(String(info.version), String(CFG.CODE_VERSION)) <= 0) {
     return { ok: false, reason: 'up-to-date', current: CFG.CODE_VERSION };
   }
+  // نسخه‌ای که دیشب برگشت خورد، امشب دوباره نصب نشود — وگرنه چرخهٔ
+  // نصب/برگشت راه می‌افتد و هر شب یک بار تولید را می‌خواباند.
+  var eBlocked = {};
+  try { eBlocked = engBlocked_(); } catch (eB) {}
+  if (eBlocked[String(info.version)]) {
+    logLine_('نسخهٔ ' + info.version + ' پیشتر برگشت خورده؛ نصبِ خودکارش رد شد.');
+    return { ok: false, reason: 'blocked', version: info.version };
+  }
   // بیانیهٔ بی‌بسته: همان روالِ قدیمِ «فقط اعلام» — ولی این را هم صریح بگو.
   // در حالتِ گیت‌هاب، کد همیشه از codeFile/GITHUB_CODE_FILE گرفته می‌شود، پس این
   // بند فقط برای حالتِ درایو است.
@@ -17003,8 +17019,17 @@ function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
   try { auditSourceScripts(); } catch (eSS) {}
+
+  // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
+  // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
+  try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
+
   // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
   try { srcNightly_(); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+
+  // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
+  // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
+  try { engHeartbeat_(); } catch (eHB) {}
 
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
@@ -17042,6 +17067,10 @@ function afterCodeSwap() {
 
   // زمان‌بندی‌ها با پیکربندیِ نسخهٔ تازه وارسی/تکمیل می‌شوند
   try { ensureScheduledTriggers_(); } catch (e1) {}
+
+  // مُهرِ تعویض: شمارنده‌های همین لحظه، تا فردا بشود پرسید «این نسخه تولید را
+  // خواباند یا نه». پیش از این، تعویضِ کدِ موتور هیچ داوری‌ای نداشت.
+  try { engStampSwap_(want); } catch (eStamp) {}
 
   // بیانیه کامل می‌شود: کی، توسطِ که، کجا ذخیره شده
   var storedUrl = '', bakUrl = '';
@@ -18163,6 +18192,7 @@ function srcVerdict_(hub) {
                 (rateNow > rateWas * (Number(CFG.SRC_ROLLBACK_FACTOR) || 1.5));
     r.rateNow = Math.round(rateNow * 100) / 100;
     r.rateWas = rateWas === null ? null : Math.round(rateWas * 100) / 100;
+    r.scaled = (rateWas !== null);
 
     if (worse) {
       var why = 'نرخِ خطای کدی از ' + r.rateWas + ' به ' + r.rateNow + ' در ساعت رسید.';
@@ -18185,10 +18215,18 @@ function srcVerdict_(hub) {
         return (x.fixed ? '✅ ' : '⚠️ ') + x.title +
                (x.before === null ? '' : ' — پیش: ' + x.before) + ' · پس: ' + x.after;
       });
+      // اگر ترازوی پیش از نصب نداریم، باید بگوییم — وگرنه «خوب» جوری خوانده
+      // می‌شود که انگار بدترنشدن هم سنجیده شده، و نشده.
+      var noScale = (r.rateWas === null)
+        ? '\n⚠️ این نصب ترازوی پیش از خودش را ندارد (دستی و پیش از این سازوکار انجام شده)، ' +
+          'پس فقط سنجیده شد که نشانه‌ها برگشته‌اند یا نه — «بدتر نشد» سنجیده نشد. ' +
+          'از نصبِ بعدی هر دو سنجیده می‌شود.'
+        : '';
       srcNotify_('نتیجهٔ نصبِ کدِ ' + nice + ' نسخهٔ ' + rec.version + ' — ' + r.state,
         'پنجره: ' + Math.round(hours) + ' ساعت پس از نصب.\n' +
         'خطای کدی در این مدت: ' + r.code + ' (نرخ ' + r.rateNow + ' در ساعت' +
-        (r.rateWas === null ? '' : '، پیش از نصب ' + r.rateWas) + ')\n' + lines.join('\n'));
+        (r.rateWas === null ? '' : '، پیش از نصب ' + r.rateWas) + ')\n' +
+        lines.join('\n') + noScale);
       logSelfFinding_(hub, { priority: unfixed.length ? 'متوسط' : 'کم',
         category: 'اسکریپتِ منبع',
         key: 'srcverdict-' + key + '-' + rec.version,
@@ -18271,7 +18309,8 @@ function runSourceCycleNow() {
     L.push((v.rolledBack ? '↩️ ' : (v.state === 'خوب' ? '✅ ' : '⚠️ ')) +
            v.key + ' نسخهٔ ' + v.version + ' — ' + v.state);
     L.push('     خطای کدی پس از نصب: ' + v.code +
-           (v.rateWas === null ? '' : ' · نرخ ' + v.rateNow + ' در ساعت، پیش از نصب ' + v.rateWas));
+           (v.rateWas === null ? ' · ترازوی پیش از نصب ندارد، پس «بدتر نشد» سنجیده نشد'
+                               : ' · نرخ ' + v.rateNow + ' در ساعت، پیش از نصب ' + v.rateWas));
     for (var j = 0; j < (v.sig || []).length; j++) {
       var g = v.sig[j];
       L.push('     ' + (g.fixed ? '✅' : '⚠️') + ' ' + g.title +
@@ -18314,4 +18353,199 @@ function runShowSourceVerdict() {
   L.push('', 'نصبِ خودکار: ' + (CFG.SRC_AUTO_INSTALL === false ? 'خاموش' : 'روشن'));
   if (ui) ui.alert('📊 چرخهٔ کدِ تحلیلگرهای منبع', L.join('\n'), ui.ButtonSet.OK);
   return all;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   داوریِ نصبِ خودِ موتور — قرینهٔ همان چیزی که تحلیلگرها دارند.
+
+   تا اینجا موتور هر شب خودش را عوض می‌کرد و هیچ‌کس فردا نمی‌پرسید «بهتر شد یا
+   بدتر؟». تحلیلگرها این را داشتند و موتور نه؛ همان بخشی که بیشترین قدرت را دارد
+   کمترین نظارت را داشت.
+
+   ترازو دو شمارندهٔ ساده است: شمارهٔ قسمتِ «از همه جا از همه رنگ» و شمارهٔ قسمتِ
+   «درس‌نامه». هر دو فقط وقتی جلو می‌روند که قسمتی واقعاً ساخته شده باشد — پس
+   دروغ نمی‌گویند. اگر در پنجره‌ای که یک دورِ کاملِ تولید (۰۷:۰۰ و ۰۸:۰۰) داخلش
+   است هیچ‌کدام جلو نرفته باشند، موتور کارش را نمی‌کند.
+
+   فقط همین یک نشانه برگشت را راه می‌اندازد. شمارشِ ایرادهای وارسیِ سلامت هم
+   سنجیده می‌شود ولی فقط گزارش می‌شود: بالا رفتنش ده‌ها علتِ بیرونی دارد و
+   برگرداندنِ کدِ سالم به‌خاطرش، خودش خرابی است.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/** شمارنده‌های همین لحظه: چند قسمت از هر پادکست تا حالا ساخته شده. */
+function engCounters_() {
+  var p = props_();
+  return { ep: Number(p.getProperty(PK.EP_NUM) || 0) || 0,
+           sp: Number(p.getProperty(PK.SP_EP_NUM) || 0) || 0 };
+}
+
+/** شمارشِ ایرادهای آخرین وارسیِ سلامت (از _STATUS.json، بی‌شبکه‌ای اضافه). */
+function engHealthCount_() {
+  try {
+    var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFilesByName(STATUS_FILE);
+    if (!it.hasNext()) return null;
+    var st = JSON.parse(it.next().getBlob().getDataAsString());
+    return st && st.health ? Number(st.health.problemCount || 0) : null;
+  } catch (e) { return null; }
+}
+
+/**
+ * نمونهٔ روزانهٔ شمارنده‌ها. حلقهٔ ۷تایی، پس هرگز بزرگ نمی‌شود.
+ * بی این، در لحظهٔ تعویض نمی‌شد فهمید «نسخهٔ قبلی داشت تولید می‌کرد یا نه» —
+ * و بی آن، برگرداندنِ کد به نسخه‌ای که خودش هم کار نمی‌کرد بی‌معنا بود.
+ */
+function engHeartbeat_() {
+  var p = props_(), list = [];
+  try { list = JSON.parse(p.getProperty(PK.ENG_BEAT) || '[]') || []; } catch (e) {}
+  var c = engCounters_();
+  list.push({ at: nowStr_(), ms: new Date().getTime(), ep: c.ep, sp: c.sp });
+  while (list.length > 7) list.shift();
+  p.setProperty(PK.ENG_BEAT, JSON.stringify(list));
+  return list;
+}
+
+/** نزدیک‌ترین نمونه به «h ساعت پیش». اگر نداشتیم null. */
+function engBeatBefore_(ms, hours) {
+  var list = [];
+  try { list = JSON.parse(props_().getProperty(PK.ENG_BEAT) || '[]') || []; } catch (e) {}
+  var want = ms - (Number(hours) || 24) * 3600000, best = null, bestGap = Infinity;
+  for (var i = 0; i < list.length; i++) {
+    var gap = Math.abs(Number(list[i].ms || 0) - want);
+    if (Number(list[i].ms || 0) <= ms && gap < bestGap) { bestGap = gap; best = list[i]; }
+  }
+  // نمونه‌ای که بیش از ۱۲ ساعت با هدف فاصله دارد ترازوی قابلِ اتکایی نیست.
+  return (best && bestGap <= 12 * 3600000) ? best : null;
+}
+
+/** مُهرِ تعویضِ کد: شمارنده‌ها در لحظهٔ سوییچ + نرخِ تولیدِ نسخهٔ قبلی. */
+function engStampSwap_(version) {
+  var c = engCounters_(), now = new Date().getTime();
+  var was = engBeatBefore_(now, Number(CFG.ENG_VERDICT_HOURS) || 20);
+  var stamp = {
+    version: String(version || ''), at: nowStr_(), ms: now,
+    ep: c.ep, sp: c.sp,
+    health: engHealthCount_(),
+    // تولیدِ نسخهٔ قبلی در پنجره‌ای هم‌اندازه؛ null یعنی ترازو نداریم
+    wasProducing: was ? ((c.ep - Number(was.ep || 0)) + (c.sp - Number(was.sp || 0))) : null,
+    pending: true, judged: false
+  };
+  props_().setProperty(PK.ENG_STAMP, JSON.stringify(stamp));
+  return stamp;
+}
+
+function engStamp_() {
+  try { return JSON.parse(props_().getProperty(PK.ENG_STAMP) || 'null'); } catch (e) { return null; }
+}
+
+/** نسخه‌هایی که برگشت خورده‌اند و نباید دوباره خودکار نصب شوند. */
+function engBlocked_() {
+  try { return JSON.parse(props_().getProperty(PK.ENG_BLOCK) || '{}') || {}; } catch (e) { return {}; }
+}
+function engBlock_(version, why) {
+  var all = engBlocked_();
+  all[String(version)] = { at: nowStr_(), why: String(why || '') };
+  props_().setProperty(PK.ENG_BLOCK, JSON.stringify(all));
+}
+
+/**
+ * برگشتِ غیرتعاملیِ کدِ موتور به تازه‌ترین پشتیبان.
+ * قرینهٔ installCodeRollback است بی‌پرسشِ YES/NO — چون در دورِ شبانه کسی نیست
+ * که جواب بدهد.
+ */
+function engRollbackAuto_(why) {
+  var best = null, bestT = 0;
+  try {
+    var it = codeFolder_().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      var nm = String(f.getName());
+      // فقط پشتیبانِ کدِ خودِ موتور؛ فایل‌های «منبع — …» مالِ تحلیلگرهاست.
+      if (nm.indexOf('پیش از') === -1 || nm.indexOf('منبع — ') === 0) continue;
+      var t = f.getLastUpdated ? f.getLastUpdated().getTime() : 0;
+      if (t >= bestT) { bestT = t; best = f; }
+    }
+  } catch (e) { return { ok: false, why: 'پوشهٔ کدها خوانده نشد: ' + e.message }; }
+  if (!best) return { ok: false, why: 'هیچ پشتیبانی از کدِ موتور پیدا نشد.' };
+
+  var text = best.getBlob().getDataAsString();
+  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
+  var ver = m ? m[1] : '';
+  if (ver && verCmp_(String(ver), String(CFG.CODE_VERSION)) >= 0) {
+    return { ok: false, why: 'پشتیبانِ پیداشده (' + ver + ') قدیمی‌تر از نسخهٔ فعلی نیست.' };
+  }
+  var r = installSource_(text, ver || 'قبلی', 'برگشتِ خودکار: ' + String(why || ''));
+  if (!r.ok) return { ok: false, why: r.why || r.reason };
+  return { ok: true, from: best.getName(), version: ver };
+}
+
+/**
+ * داوریِ آخرین تعویضِ کدِ موتور، اگر وقتش رسیده باشد.
+ * در دورِ شبانه پیش از هر نصبِ تازه صدا زده می‌شود.
+ */
+function engVerdict_() {
+  if (CFG.ENG_VERDICT === false) return { state: 'خاموش' };
+  var rec = engStamp_();
+  if (!rec || rec.judged || rec.pending === false) return { state: 'چیزی برای داوری نیست' };
+  var waitMs = (Number(CFG.ENG_VERDICT_HOURS) || 20) * 3600000;
+  var now = new Date().getTime();
+  var age = now - Number(rec.ms || 0);
+  if (!isFinite(age) || age < waitMs) {
+    return { state: 'زود است', hoursLeft: Math.ceil((waitMs - age) / 3600000) };
+  }
+
+  var c = engCounters_();
+  var made = (c.ep - Number(rec.ep || 0)) + (c.sp - Number(rec.sp || 0));
+  var healthNow = engHealthCount_();
+  var out = { state: 'خوب', version: rec.version, at: rec.at,
+              hours: Math.round(age / 3600000), made: made,
+              wasProducing: rec.wasProducing,
+              healthWas: rec.health, healthNow: healthNow, rolledBack: false };
+
+  // نشانهٔ سخت: در یک دورِ کاملِ تولید هیچ قسمتی ساخته نشد، درحالی‌که نسخهٔ
+  // قبلی داشت می‌ساخت. اگر نسخهٔ قبلی هم نمی‌ساخت، برگرداندن دردی دوا نمی‌کند.
+  var stopped = (made === 0) && (rec.wasProducing === null || rec.wasProducing > 0);
+
+  if (stopped && CFG.ENG_ROLLBACK !== false) {
+    var why = 'در ' + out.hours + ' ساعت پس از نصبِ ' + rec.version +
+              ' هیچ قسمتی ساخته نشد' +
+              (rec.wasProducing ? ' (نسخهٔ قبلی در همین مدت ' + rec.wasProducing + ' قسمت ساخته بود)' : '') + '.';
+    var rb = engRollbackAuto_(why);
+    out.state = rb.ok ? 'برگشت خورد' : 'ایستاده ولی برگشت نخورد';
+    out.rolledBack = !!rb.ok;
+    out.why = why + (rb.ok ? ' برگشت به ' + rb.version + '.' : ' ' + rb.why);
+    if (rb.ok) engBlock_(rec.version, why);
+    srcNotify_('⛔ موتور پس از نسخهٔ ' + rec.version + ' قسمتی نساخت — ' +
+               (rb.ok ? 'برگشت به نسخهٔ قبل' : 'برگشت انجام نشد'), out.why);
+    try {
+      logSelfFinding_(getHub_(), { priority: 'جدی', category: 'کدِ موتور',
+        key: 'engverdict-' + rec.version, title: 'نصبِ ' + rec.version + ': ' + out.state,
+        detail: out.why, instruction: 'علتِ ایستادنِ تولید بررسی شود.',
+        owner: ROWNER_SRCCODE });
+    } catch (eL) {}
+  } else {
+    var healthUp = (healthNow !== null && rec.health !== null &&
+                    healthNow - rec.health >= 3 && healthNow > rec.health * 2);
+    out.state = stopped ? 'قسمتی ساخته نشد (برگشت خاموش است)'
+                        : (healthUp ? 'تولید سالم، ولی ایرادهای سلامت بالا رفت' : 'خوب');
+    srcNotify_('نتیجهٔ نصبِ کدِ موتور نسخهٔ ' + rec.version + ' — ' + out.state,
+      'پنجره: ' + out.hours + ' ساعت پس از نصب.\n' +
+      'قسمت‌های ساخته‌شده در این مدت: ' + made +
+      (rec.wasProducing === null ? ' (نسخهٔ قبلی ترازو نداشت)'
+                                 : ' · نسخهٔ قبلی در مدتی هم‌اندازه: ' + rec.wasProducing) + '\n' +
+      'ایرادهای وارسیِ سلامت: ' + (rec.health === null ? '؟' : rec.health) +
+      ' → ' + (healthNow === null ? '؟' : healthNow) +
+      (healthUp ? '\n⚠️ این بالا رفتن گزارش می‌شود ولی برگشت را راه نمی‌اندازد؛ ' +
+                  'علت‌های بیرونی زیاد دارد.' : ''));
+    try {
+      logSelfFinding_(getHub_(), { priority: healthUp ? 'متوسط' : 'کم', category: 'کدِ موتور',
+        key: 'engverdict-' + rec.version,
+        title: 'داوریِ نصبِ کدِ موتور ' + rec.version + ': ' + out.state,
+        detail: 'قسمت‌ها: ' + made + ' · سلامت: ' + rec.health + ' → ' + healthNow,
+        instruction: '', owner: ROWNER_SRCCODE });
+    } catch (eL2) {}
+  }
+
+  rec.judged = true; rec.pending = false; rec.verdict = { state: out.state, at: nowStr_() };
+  props_().setProperty(PK.ENG_STAMP, JSON.stringify(rec));
+  return out;
 }

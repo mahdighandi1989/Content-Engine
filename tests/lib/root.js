@@ -12,7 +12,7 @@
 const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 process.chdir(ROOT);
-module.exports = { ROOT };
+
 
 /* ساعتِ آزمون‌ها ثابت است.
  *
@@ -38,3 +38,16 @@ if (isFinite(FIXED)) {
   }
   global.Date = FixedDate;
 }
+
+/* خروجی‌های آزمون در ریشهٔ ریپو نریزند.
+ *
+ * چند سوئیت فایلِ صوتی و HTML و گزارش می‌سازند. چون cwd روی ریشه پین است، همه
+ * همان‌جا می‌نشستند و ریشه‌ای که قرار بود فقط چهار فایل داشته باشد شلوغ می‌شد.
+ * .gitignore جلوی وارد شدنشان به گیت را می‌گرفت، ولی جلوی ریختنشان را نه.
+ */
+const fs = require('fs');
+const OUT = path.join(ROOT, 'tests', '_out');
+try { fs.mkdirSync(OUT, { recursive: true }); } catch (e) {}
+const outPath = (name) => path.join(OUT, name);
+
+module.exports = { ROOT, OUT, outPath };

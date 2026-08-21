@@ -1,5 +1,5 @@
 /* End-to-end execution of the real engine against the real archive rows. */
-require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const { outPath } = require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread, Sheet } = require('./lib/mock.js');
 
@@ -130,7 +130,7 @@ global.__FILES.forEach(f => log('  ' + f.getName() + '  (' + f._b._data.length +
 // write the wav + html out for real inspection
 global.__FILES.forEach(f => {
   const safe = f.getName().replace(/[\/\\]/g, '_');
-  fs.writeFileSync('out_' + safe, f._b._data);
+  fs.writeFileSync(outPath('out_' + safe), f._b._data);
 });
 
 log('\n=== ۶) علامت‌گذاری استفاده‌شده‌ها ===');
@@ -151,7 +151,7 @@ if (global.__MAIL.length) {
   log('  to:', m.to);
   log('  subject:', m.subject);
   log('  htmlBody bytes:', m.htmlBody.length, '| attachments:', m.attachments.length);
-  fs.writeFileSync('out_email.html', m.htmlBody);
+  fs.writeFileSync(outPath('out_email.html'), m.htmlBody);
   const dl = (m.htmlBody.match(/https:\/\/drive\.google\.com\/file\/d\//g) || []).length;
   log('  لینک درایو داخل ایمیل:', dl);
 }
@@ -162,5 +162,5 @@ let dg2 = 0; while (global.__PROPS['PENDING_EPISODE'] && dg2++ < 60) { const y =
 log('  قسمت دوم:', JSON.stringify(r2));
 log('  دستهٔ قسمت ۱ vs ۲:', pod.getRange(2, 4).getValues()[0][0], '|', pod.getRange(3, 4).getValues()[0][0]);
 
-fs.writeFileSync('test_report.txt', out.join('\n'));
+fs.writeFileSync(outPath('test_report.txt'), out.join('\n'));
 log('\n✅ همهٔ مراحل بدون خطا اجرا شد.');

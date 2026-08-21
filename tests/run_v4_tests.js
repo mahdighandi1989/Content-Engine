@@ -1,5 +1,5 @@
 /* v3.3: spoken date, thread-first curation with callbacks, single merged audio */
-require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
+const { outPath } = require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs=require('fs');const{Spread}=require('./lib/mock.js');
 const F=['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs','05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs','10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs','14_Special.gs','15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs','21_SelfUpdate.gs','22_SourceScripts.gs'];
 let src='';for(const f of F)src+='\n'+fs.readFileSync('src/'+f,'utf8');(0,eval)(src);
@@ -86,7 +86,7 @@ if(sumParts!==wholeData) throw new Error('merge lost data');
 const dd=whole[0]._b._data;
 if(dd.slice(0,4).toString()!=='RIFF'||dd.readUInt32LE(4)!==dd.length-8) throw new Error('merged wav invalid');
 say('  RIFF معتبر و اندازه درست ✅');
-fs.writeFileSync('out_merged.wav', dd);
+fs.writeFileSync(outPath('out_merged.wav'), dd);
 
 say('\n=== ۴) تلگرام: یک فایل، نه چند تکه ===');
 const audioCalls=tg.filter(c=>c.m==='sendAudio'||c.m==='sendDocument').filter(c=>{

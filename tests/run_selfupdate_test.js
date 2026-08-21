@@ -437,4 +437,103 @@ console.log('\n=== ۱۰. نصب از گیت‌هاب (raw) ===');
   global.__STUB = prevStub; CFG.CODE_SOURCE = savedSrc;
 }
 
+
+/* ۱۱. داوریِ نصبِ خودِ موتور.
+
+   موتور هر شب خودش را عوض می‌کرد و هیچ‌کس فردا نمی‌پرسید بهتر شد یا بدتر —
+   همان بخشی که بیشترین قدرت را دارد کمترین نظارت را داشت. ترازو دو شمارندهٔ
+   قسمت است، چون فقط وقتی جلو می‌روند که قسمتی واقعاً ساخته شده باشد.        */
+{
+  const HOUR = 3600000;
+  const P = global.__PROPS;
+  const reset = (epNow, spNow) => {
+    delete P[PK.ENG_STAMP]; delete P[PK.ENG_BEAT]; delete P[PK.ENG_BLOCK];
+    P[PK.EP_NUM] = String(epNow); P[PK.SP_EP_NUM] = String(spNow);
+  };
+
+  // ── ترازو: دیروز نمونه گرفتیم، امروز کد عوض شد
+  reset(10, 4);
+  const now = new Date().getTime();
+  P[PK.ENG_BEAT] = JSON.stringify([{ at: 'دیروز', ms: now - 20 * HOUR, ep: 8, sp: 3 }]);
+  let un = quiet(); const st = engStampSwap_('9.9'); un();
+  ok('۱۱.۱ مُهرِ تعویض شمارنده‌ها را نگه داشت', st.ep === 10 && st.sp === 4,
+     JSON.stringify({ ep: st.ep, sp: st.sp }));
+  ok('۱۱.۲ و فهمید نسخهٔ قبلی داشت تولید می‌کرد', st.wasProducing === 3,
+     'wasProducing=' + st.wasProducing);
+
+  // ── هنوز زود است
+  un = quiet(); let v = engVerdict_(); un();
+  ok('۱۱.۳ پیش از موعد داوری نمی‌شود', v.state === 'زود است', JSON.stringify(v));
+
+  // ── ۲۲ ساعت بعد و تولید ادامه دارد → خوب، بی برگشت
+  let rec = JSON.parse(P[PK.ENG_STAMP]); rec.ms = now - 22 * HOUR;
+  P[PK.ENG_STAMP] = JSON.stringify(rec);
+  P[PK.EP_NUM] = '11'; P[PK.SP_EP_NUM] = '5';
+  un = quiet(); v = engVerdict_(); un();
+  ok('۱۱.۴ تولیدِ سالم = «خوب»', v.state === 'خوب', v.state);
+  ok('۱۱.۵ دو قسمت شمرده شد', v.made === 2, 'made=' + v.made);
+  ok('۱۱.۶ برگشتی رخ نداد', v.rolledBack === false);
+  un = quiet(); const again = engVerdict_(); un();
+  ok('۱۱.۷ دوباره داوری نمی‌شود', again.state === 'چیزی برای داوری نیست', again.state);
+
+  // ── حالا نسخه‌ای که تولید را می‌خواباند
+  // نسخهٔ در حالِ اجرا را ۹٫۹ می‌گیریم تا پشتیبانِ ۹٫۸ واقعاً قدیمی‌تر باشد؛
+  // وگرنه همان نگهبانِ درست جلوی برگشت را می‌گیرد («پشتیبان قدیمی‌تر نیست»).
+  const verSaved = CFG.CODE_VERSION; CFG.CODE_VERSION = '9.9';
+  reset(20, 9);
+  P[PK.ENG_BEAT] = JSON.stringify([{ at: 'دیروز', ms: now - 20 * HOUR, ep: 18, sp: 8 }]);
+  un = quiet(); engStampSwap_('9.9'); un();
+  rec = JSON.parse(P[PK.ENG_STAMP]); rec.ms = now - 22 * HOUR;
+  P[PK.ENG_STAMP] = JSON.stringify(rec);
+  // شمارنده‌ها تکان نخوردند: هیچ قسمتی ساخته نشد
+
+  // یک پشتیبانِ کدِ قدیمی‌تر در پوشهٔ کدها
+  const older = "var CFG = { CODE_VERSION: '9.8' };";
+  saveCodeCopy_('کدِ موتور — پیش از نصبِ 9.9 — 2026-01-01 00-00.gs', older);
+  let installed = null;
+  const realInstall = global.installSource_;
+  global.installSource_ = (text, ver, why) => { installed = { ver: ver, why: why }; return { ok: true }; };
+
+  un = quiet(); v = engVerdict_(); un();
+  ok('۱۱.۸ ایستادنِ تولید تشخیص داده شد و برگشت خورد', v.state === 'برگشت خورد',
+     v.state + ' — ' + (v.why || ''));
+  ok('۱۱.۹ کدِ قدیمی‌تر نصب شد', installed && installed.ver === '9.8', JSON.stringify(installed));
+  ok('۱۱.۱۰ علتِ برگشت در پیام آمد', /هیچ قسمتی ساخته نشد/.test(v.why || ''), v.why);
+  ok('۱۱.۱۱ نسخهٔ برگشت‌خورده مسدود شد', !!engBlocked_()['9.9']);
+
+  // ── و شبِ بعد دوباره نصب نمی‌شود
+  CFG.CODE_VERSION = '9.7';
+  const prevRead = global.readCodeManifest_;
+  global.readCodeManifest_ = () => ({ info: { version: '9.9', codeFile: 'engine.gs' }, file: null });
+  un = quiet(); const step = selfUpdateStep(false); un();
+  ok('۱۱.۱۲ نسخهٔ مسدود دوباره نصب نمی‌شود',
+     step.ok === false && step.reason === 'blocked', JSON.stringify(step));
+  global.readCodeManifest_ = prevRead; CFG.CODE_VERSION = '9.9';
+
+  // نگهبانِ «پشتیبان باید قدیمی‌تر باشد» هم سنجیده شود — وگرنه برگشت می‌توانست
+  // کدی تازه‌تر از نسخهٔ فعلی را به‌جای نسخهٔ قبلی بنشاند.
+  {
+    const vs = CFG.CODE_VERSION; CFG.CODE_VERSION = '9.0';
+    un = quiet(); const g = engRollbackAuto_('آزمون'); un();
+    ok('۱۱.۱۲-ب پشتیبانی که قدیمی‌تر نیست، برگردانده نمی‌شود',
+       g.ok === false && /قدیمی‌تر/.test(g.why), g.why);
+    CFG.CODE_VERSION = vs;
+  }
+
+  // ── اگر نسخهٔ قبلی هم تولید نمی‌کرد، برگرداندن دردی دوا نمی‌کند
+  reset(30, 12);
+  delete P[PK.ENG_BLOCK];
+  P[PK.ENG_BEAT] = JSON.stringify([{ at: 'دیروز', ms: now - 20 * HOUR, ep: 30, sp: 12 }]);
+  un = quiet(); engStampSwap_('9.9'); un();
+  rec = JSON.parse(P[PK.ENG_STAMP]); rec.ms = now - 22 * HOUR;
+  P[PK.ENG_STAMP] = JSON.stringify(rec);
+  installed = null;
+  un = quiet(); v = engVerdict_(); un();
+  ok('۱۱.۱۳ وقتی نسخهٔ قبلی هم تولید نداشت، برگشت رخ نمی‌دهد',
+     v.rolledBack === false && installed === null, v.state);
+
+  global.installSource_ = realInstall; CFG.CODE_VERSION = verSaved;
+  delete P[PK.ENG_STAMP]; delete P[PK.ENG_BEAT]; delete P[PK.ENG_BLOCK];
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

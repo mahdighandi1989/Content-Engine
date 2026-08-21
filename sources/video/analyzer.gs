@@ -449,6 +449,12 @@ function sendCompletionNotification(successCount, errorCount) {
 
 // شروع پردازش زنجیره‌ای
 function startChainedProcessing() {
+  // روزی یک بار، پیش از شروعِ پردازش: ردیف‌های خطای بی‌تحلیل حذف شوند تا
+  // فایل‌هایشان دوباره در صف بیفتند. خودش می‌داند که امروز اجرا شده یا نه.
+  try { autoCleanErrorRows_(false); } catch (eClean) {
+    Logger.log('⚠️ پاک‌سازیِ خودکارِ ردیف‌های خطا انجام نشد: ' + eClean.toString());
+  }
+
   Logger.log("🚀 شروع پردازش زنجیره‌ای خودکار...");
   
   // پاکسازی کش قدیمی
@@ -2045,7 +2051,158 @@ const STATUS_COLUMN_INDEX = 17;
 const ANALYSIS_COLUMNS_TO_VERIFY = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 function cleanErrorRows() {
-  return deleteErrorRows_(SHEET_URL, STATUS_COLUMN_INDEX, ANALYSIS_COLUMNS_TO_VERIFY);
+  // اجرای دستی: سیاستِ تلاشِ دوباره همان است، فقط سقفِ «روزی یک بار» ندارد.
+  return autoCleanErrorRows_(true);
+}
+
+/**
+ * ══ پاک‌سازیِ خودکارِ ردیف‌های خطا ══
+ *
+ * در این شیت، «هر شناسه‌ای که در شیت هست» یعنی «پردازش‌شده». پس فایلی که یک بار
+ * با خطا نشست، رد‌یفش تا ابد می‌ماند و آن فایل دیگر هرگز تحلیل نمی‌شود و به
+ * آرشیو هم نمی‌رود. تنها راهِ برگرداندنش حذفِ همان ردیف است.
+ *
+ * تا حالا این کار دستی بود (cleanErrorRows در ویرایشگر). حالا خودکار است — ولی
+ * خودکارِ ساده خطرناک است: فایلی که همیشه شکست می‌خورد، هر بار ردیفش حذف
+ * می‌شود، دوباره تحلیل می‌شود، دوباره می‌شکند... همان «طوفانِ تلاشِ دوباره» که
+ * یک بار ۲۳۲ خطا از ۲۳۶ ساخت. پس دو ترمز گذاشته شده:
+ *
+ *   ۱) خطای «دائمی» اصلاً حذف نمی‌شود. وقتی مدل محتوا را رد کرده، تلاشِ دوباره
+ *      همان جواب را می‌گیرد و فقط سهمیه می‌سوزاند.
+ *   ۲) خطای «قابلِ تلاشِ دوباره» حداکثر RETRY_MAX_ATTEMPTS بار. بعدش ردیف با
+ *      برچسبِ «نهایی» می‌ماند و دیگر نامزدِ حذف نیست — یعنی خودِ ردیف حافظه
+ *      می‌شود و جدولِ شمارش می‌تواند فراموشش کند.
+ *
+ * شمارشِ تلاش‌ها فقط برای فایل‌هایی نگه داشته می‌شود که هنوز به سقف نرسیده‌اند،
+ * پس این جدول کوچک می‌ماند. با این حال تکه‌تکه ذخیره می‌شود تا به سقفِ ۹ کیلوبایتیِ
+ * هر Property نخورد.
+ */
+const RETRY_FILE_ID_INDEX = 1;      // ستونِ شناسهٔ فایل (در هر دو شیت یکی است)
+const RETRY_MAX_ATTEMPTS  = 3;      // بیش از این، فایل کنار گذاشته می‌شود
+const RETRY_ROWS_PER_RUN  = 200;    // سقفِ حذف در هر اجرا، تا مهلتِ ۶ دقیقه نشکند
+const RETRY_FINAL_MARK    = ' ⟪نهایی⟫';
+const RETRY_PROP_PREFIX   = 'ERR_RETRY_';
+const RETRY_CHUNK         = 8000;
+const RETRY_DAY_PROP      = 'ERR_RETRY_LAST_DAY';
+
+/** جدولِ شمارشِ تلاش‌ها را از چند Property کنارِ هم می‌چیند. */
+function retryLoad_() {
+  try {
+    const p = PropertiesService.getScriptProperties();
+    let s = '';
+    for (let i = 0; ; i++) {
+      const part = p.getProperty(RETRY_PROP_PREFIX + i);
+      if (part === null) break;
+      s += part;
+    }
+    return s ? (JSON.parse(s) || {}) : {};
+  } catch (e) { return {}; }
+}
+
+/** و دوباره تکه‌تکه ذخیره‌اش می‌کند؛ تکه‌های اضافیِ قبلی پاک می‌شوند. */
+function retrySave_(map) {
+  const p = PropertiesService.getScriptProperties();
+  const s = JSON.stringify(map || {});
+  let i = 0;
+  for (let at = 0; at < s.length; at += RETRY_CHUNK) {
+    p.setProperty(RETRY_PROP_PREFIX + i, s.substring(at, at + RETRY_CHUNK));
+    i++;
+  }
+  for (;; i++) {
+    if (p.getProperty(RETRY_PROP_PREFIX + i) === null) break;
+    p.deleteProperty(RETRY_PROP_PREFIX + i);
+  }
+}
+
+/**
+ * خطایی که تلاشِ دوباره جوابش را عوض نمی‌کند.
+ * محتاطانه بسته شده: هرچه مطمئن نیستیم، «قابلِ تلاشِ دوباره» حساب می‌شود و
+ * سقفِ تلاش از حلقه‌شدنش جلو می‌گیرد.
+ */
+function errorIsPermanent_(text) {
+  const t = String(text || '');
+  if (/blockReason|promptFeedback|SAFETY|RECITATION|PROHIBITED/i.test(t)) return true;
+  if (/موضوع حساس|محتوای حساس|نمی‌توانم|قادر به تحلیل نیستم/.test(t)) return true;
+  if (/unsupported|not supported|invalid argument|فرمت پشتیبانی/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * پاک‌سازی با سیاستِ تلاشِ دوباره.
+ * force=true یعنی اجرای دستی؛ وگرنه فقط روزی یک بار انجام می‌شود.
+ */
+function autoCleanErrorRows_(force) {
+  const props = PropertiesService.getScriptProperties();
+  const today = Utilities.formatDate(new Date(), 'Asia/Dubai', 'yyyy-MM-dd');
+  if (!force && props.getProperty(RETRY_DAY_PROP) === today) {
+    return { skipped: 'امروز انجام شده' };
+  }
+  props.setProperty(RETRY_DAY_PROP, today);
+
+  const sheet = SpreadsheetApp.openByUrl(SHEET_URL).getActiveSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0, permanent: 0, exhausted: 0 };
+
+  const data = sheet.getRange(1, 1, lastRow, sheet.getLastColumn()).getValues();
+  const tries = retryLoad_();
+  const doomed = [], finalize = [];
+  let permanent = 0, withContent = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const status = String(data[i][STATUS_COLUMN_INDEX] || '');
+    if (status.indexOf('ERROR') !== 0) continue;
+    if (status.indexOf(RETRY_FINAL_MARK) !== -1) continue;   // قبلاً کنار گذاشته شده
+
+    // ردیفی که تحلیلِ واقعی دارد هرگز دست نمی‌خورد — همان شرطِ سختِ همیشگی
+    let hasAnalysis = false;
+    for (let c = 0; c < ANALYSIS_COLUMNS_TO_VERIFY.length; c++) {
+      const v = String(data[i][ANALYSIS_COLUMNS_TO_VERIFY[c]] || '').trim();
+      if (v && v !== '{}' && v !== '[]') { hasAnalysis = true; break; }
+    }
+    if (hasAnalysis) { withContent++; continue; }
+
+    if (errorIsPermanent_(status)) { permanent++; continue; }
+
+    const id = String(data[i][RETRY_FILE_ID_INDEX] || '');
+    const n = id ? (Number(tries[id] || 0) || 0) : 0;
+    if (id && n >= RETRY_MAX_ATTEMPTS) {
+      finalize.push({ row: i + 1, status: status, id: id });
+      continue;
+    }
+    if (doomed.length >= RETRY_ROWS_PER_RUN) continue;
+    doomed.push({ row: i + 1, id: id });
+  }
+
+  // آنهایی که به سقف رسیدند: ردیف می‌ماند و برچسب می‌خورد، پس دیگر نامزد نیست.
+  // از این به بعد خودِ ردیف حافظه است، پس شمارشش را دور می‌ریزیم.
+  for (let f = 0; f < finalize.length; f++) {
+    sheet.getRange(finalize[f].row, STATUS_COLUMN_INDEX + 1)
+         .setValue(finalize[f].status + RETRY_FINAL_MARK);
+    delete tries[finalize[f].id];
+  }
+
+  // حذف از پایین به بالا، بازه‌های پشت‌سرهم یک‌جا — هیچ لحظه‌ای شیت خالی نمی‌شود
+  const rows = doomed.map(d => d.row);
+  let removed = 0, end = rows.length - 1;
+  while (end >= 0) {
+    let start = end;
+    while (start > 0 && rows[start - 1] === rows[start] - 1) start--;
+    sheet.deleteRows(rows[start], end - start + 1);
+    removed += end - start + 1;
+    end = start - 1;
+  }
+  for (let d = 0; d < doomed.length; d++) {
+    if (doomed[d].id) tries[doomed[d].id] = (Number(tries[doomed[d].id] || 0) || 0) + 1;
+  }
+  retrySave_(tries);
+
+  PROCESSED_FILE_IDS_CACHE = null;
+  CACHE_TIMESTAMP = null;
+  Logger.log(`🧹 ${removed} ردیف حذف شد (دوباره تحلیل می‌شوند) · ` +
+             `${finalize.length} ردیف به سقفِ تلاش رسید و کنار گذاشته شد · ` +
+             `${permanent} خطای دائمی دست نخورد · ${withContent} ردیفِ دارای تحلیل دست نخورد`);
+  return { removed: removed, exhausted: finalize.length,
+           permanent: permanent, withContent: withContent };
 }
 
 /**

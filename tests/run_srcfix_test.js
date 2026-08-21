@@ -151,4 +151,117 @@ for (const k of ['photo', 'video']) {
   ok(`۸.${k}.۵ شناسهٔ اسکریپت و شیت ثبت شده`, !!man.scriptId && !!man.sheetId);
 }
 
+
+/* ۹. پاک‌سازیِ خودکار — و ترمزی که جلوی طوفانِ تلاشِ دوباره را می‌گیرد.
+
+   حذفِ خودکارِ ردیفِ خطا فایل را دوباره به صف برمی‌گرداند. بی ترمز، فایلی که
+   همیشه می‌شکند هر روز حذف/تحلیل/شکست می‌شود و همان ۲۳۲-خطا-از-۲۳۶ برمی‌گردد.
+   اینجا خودِ حلقه را می‌دوانیم تا ببینیم واقعاً می‌ایستد یا نه.               */
+console.log('\n=== ۹. پاک‌سازیِ خودکار و سقفِ تلاش ===');
+for (const k of ['photo', 'video']) {
+  const STATUS = k === 'photo' ? 15 : 17;
+  const ANALYSIS = k === 'photo' ? [5,6,7,8,9,10,11,12,13] : [5,6,7,8,9,10,11,12,13,14,15,16];
+  const WIDTH = STATUS + 1;
+
+  // شیتِ ساختگی
+  let rows = [];
+  const mkRow = (id, status, analysis) => {
+    const r = new Array(WIDTH).fill('');
+    r[0] = new Date(); r[1] = id; r[STATUS] = status;
+    if (analysis) r[ANALYSIS[0]] = analysis;
+    return r;
+  };
+  const sheet = {
+    getLastRow: () => rows.length + 1,
+    getLastColumn: () => WIDTH,
+    getRange: (r, c, n, w) => ({
+      getValues: () => {
+        const all = [new Array(WIDTH).fill('H')].concat(rows);
+        return all.slice(r - 1, r - 1 + (n || 1)).map(x => x.slice(c - 1, c - 1 + (w || 1)));
+      },
+      setValue: (v) => { rows[r - 2][c - 1] = v; }
+    }),
+    deleteRows: (start, count) => { rows.splice(start - 2, count); }
+  };
+
+  const PROPS = {};
+  const scope = {
+    SHEET_URL: 'u', STATUS_COLUMN_INDEX: STATUS, ANALYSIS_COLUMNS_TO_VERIFY: ANALYSIS,
+    PROCESSED_FILE_IDS_CACHE: null, CACHE_TIMESTAMP: null,
+    SpreadsheetApp: { openByUrl: () => ({ getActiveSheet: () => sheet }) },
+    PropertiesService: { getScriptProperties: () => ({
+      getProperty: n => (n in PROPS ? PROPS[n] : null),
+      setProperty: (n, v) => { PROPS[n] = String(v); },
+      deleteProperty: n => { delete PROPS[n]; } }) },
+    Utilities: { formatDate: (d, tz, f) => '2026-08-21' },
+    Logger: { log: () => {} }
+  };
+
+  // فقط بلوکِ پاک‌سازی را از فایلِ واقعی برمی‌داریم و در همین صحنه می‌دوانیم
+  const SRCK = SRC[k];
+  const from = SRCK.indexOf('const RETRY_FILE_ID_INDEX');
+  const to = SRCK.indexOf('\n}', SRCK.indexOf('function autoCleanErrorRows_')) + 2;
+  ok(`۹.${k}.۰ بلوکِ پاک‌سازی در فایل هست`, from !== -1 && to > from);
+  const code = SRCK.slice(from, to);
+  const run = new Function(...Object.keys(scope),
+    code + '\n; return { autoCleanErrorRows_, errorIsPermanent_, retryLoad_ };');
+  const api = run(...Object.values(scope));
+
+  ok(`۹.${k}.۱ ردِ مدل «دائمی» شناخته می‌شود`,
+     api.errorIsPermanent_('ERROR: blockReason OTHER') === true);
+  ok(`۹.${k}.۲ کرشِ کد «دائمی» نیست`,
+     api.errorIsPermanent_("ERROR: TypeError: reading 'parts'") === false);
+
+  // صحنه: ۱ ردیفِ سالم، ۱ خطای دارای تحلیل، ۱ ردِ مدل، ۱ خطای قابلِ تلاش
+  rows = [
+    mkRow('OK1', 'SUCCESS', 'تحلیلِ کامل'),
+    mkRow('E-CONTENT', 'ERROR: چیزی', 'تحلیلِ نیمه'),
+    mkRow('E-MODEL', 'ERROR: blockReason OTHER', ''),
+    mkRow('E-RETRY', "ERROR: TypeError: reading 'parts'", '')
+  ];
+  let r = api.autoCleanErrorRows_(true);
+  ok(`۹.${k}.۳ فقط ردیفِ قابلِ تلاش حذف شد`, r.removed === 1, JSON.stringify(r));
+  ok(`۹.${k}.۴ ردیفِ دارای تحلیل دست نخورد`, rows.some(x => x[1] === 'E-CONTENT'));
+  ok(`۹.${k}.۵ ردیفِ سالم دست نخورد`, rows.some(x => x[1] === 'OK1'));
+  ok(`۹.${k}.۶ ردِ مدل نه حذف شد نه دوباره تلاش می‌شود`,
+     rows.some(x => x[1] === 'E-MODEL') && r.permanent === 1);
+
+  // حالا همان فایل باز هم می‌شکند. هر بار که ردیفش حذف شود، تحلیلگر دوباره
+  // امتحانش می‌کند و ردیفِ خطای تازه می‌نویسد — همین را شبیه‌سازی می‌کنیم.
+  // بارِ چهارم باید به‌جای حذف، برچسب بخورد و برای همیشه بایستد.
+  let deletions = r.removed;      // تلاشِ ۱
+  for (let round = 2; round <= 4; round++) {
+    rows.push(mkRow('E-RETRY', "ERROR: TypeError: reading 'parts'", ''));
+    const rr = api.autoCleanErrorRows_(true);
+    deletions += rr.removed;
+  }
+  ok(`۹.${k}.۷ تلاشِ دوباره روی سقفِ ۳ ایستاد`, deletions === 3, 'حذف‌ها=' + deletions);
+  const stuck = rows.find(x => x[1] === 'E-RETRY');
+  ok(`۹.${k}.۸ ردیفِ به‌سقف‌رسیده مانده و برچسبِ «نهایی» خورده`,
+     !!stuck && /نهایی/.test(String(stuck[STATUS])), stuck && String(stuck[STATUS]));
+
+  // و از این به بعد دیگر نامزدِ حذف نیست — هر چند بار هم که اجرا شود.
+  // این همان چیزی است که جلوی طوفانِ تلاشِ دوباره را می‌گیرد.
+  const before = rows.length;
+  api.autoCleanErrorRows_(true);
+  api.autoCleanErrorRows_(true);
+  ok(`۹.${k}.۹ ردیفِ «نهایی» هرگز دوباره حذف نمی‌شود`, rows.length === before,
+     'ردیف‌ها=' + rows.length + ' از ' + before);
+  ok(`۹.${k}.۹-ب و شمارشش از جدول پاک شده (جدول کوچک می‌ماند)`,
+     !(('E-RETRY') in api.retryLoad_()), JSON.stringify(api.retryLoad_()));
+
+  // سقفِ «روزی یک بار» برای اجرای خودکار
+  const auto = api.autoCleanErrorRows_(false);
+  ok(`۹.${k}.۱۰ اجرای خودکار روزی یک بار است`, !!auto.skipped, JSON.stringify(auto));
+}
+
+console.log('\n=== ۱۰. پاک‌سازی به شروعِ پردازش وصل است ===');
+for (const k of ['photo', 'video']) {
+  const chain = SRC[k].slice(SRC[k].indexOf('function startChainedProcessing'),
+                             SRC[k].indexOf('function startChainedProcessing') + 500);
+  ok(`۱۰.${k} پیش از شروعِ پردازش صدا زده می‌شود`,
+     /autoCleanErrorRows_\(false\)/.test(chain));
+  ok(`۱۰.${k}-ب و اگر شکست بخورد جلوی پردازش را نمی‌گیرد`, /catch \(eClean\)/.test(chain));
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ اصلاحِ تحلیلگرها گذشت.');

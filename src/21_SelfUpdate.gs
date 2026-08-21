@@ -403,6 +403,14 @@ function selfUpdateStep(force) {
   if (verCmp_(String(info.version), String(CFG.CODE_VERSION)) <= 0) {
     return { ok: false, reason: 'up-to-date', current: CFG.CODE_VERSION };
   }
+  // نسخه‌ای که دیشب برگشت خورد، امشب دوباره نصب نشود — وگرنه چرخهٔ
+  // نصب/برگشت راه می‌افتد و هر شب یک بار تولید را می‌خواباند.
+  var eBlocked = {};
+  try { eBlocked = engBlocked_(); } catch (eB) {}
+  if (eBlocked[String(info.version)]) {
+    logLine_('نسخهٔ ' + info.version + ' پیشتر برگشت خورده؛ نصبِ خودکارش رد شد.');
+    return { ok: false, reason: 'blocked', version: info.version };
+  }
   // بیانیهٔ بی‌بسته: همان روالِ قدیمِ «فقط اعلام» — ولی این را هم صریح بگو.
   // در حالتِ گیت‌هاب، کد همیشه از codeFile/GITHUB_CODE_FILE گرفته می‌شود، پس این
   // بند فقط برای حالتِ درایو است.
@@ -464,8 +472,17 @@ function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
   try { auditSourceScripts(); } catch (eSS) {}
+
+  // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
+  // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
+  try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
+
   // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
   try { srcNightly_(); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+
+  // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
+  // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
+  try { engHeartbeat_(); } catch (eHB) {}
 
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
@@ -503,6 +520,10 @@ function afterCodeSwap() {
 
   // زمان‌بندی‌ها با پیکربندیِ نسخهٔ تازه وارسی/تکمیل می‌شوند
   try { ensureScheduledTriggers_(); } catch (e1) {}
+
+  // مُهرِ تعویض: شمارنده‌های همین لحظه، تا فردا بشود پرسید «این نسخه تولید را
+  // خواباند یا نه». پیش از این، تعویضِ کدِ موتور هیچ داوری‌ای نداشت.
+  try { engStampSwap_(want); } catch (eStamp) {}
 
   // بیانیه کامل می‌شود: کی، توسطِ که، کجا ذخیره شده
   var storedUrl = '', bakUrl = '';
