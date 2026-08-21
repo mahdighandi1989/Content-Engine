@@ -21,6 +21,19 @@
  * را دارد ولی خالی می‌گذارد و نکته‌ها را در Concepts_Definitions می‌نویسد؛ با
  * منطقِ «اولین تطبیق»، همهٔ اصطلاح‌ها و تعریف‌های درس دور ریخته می‌شد.
  */
+/**
+ * سقفِ نویسهٔ «درس‌نامه» — از هدفِ خودش حساب می‌شود، نه از سقفِ یک فایل.
+ *
+ * اگر SPECIAL_ONE_FILE روشن شود، سقفِ واقعی هرکدام که کمتر است می‌شود؛ یعنی
+ * روشن‌کردنِ آن کلید خودبه‌خود درس را هم کوتاه‌تر می‌کند، نه اینکه فقط علامت
+ * بزند و متن همان بماند.
+ */
+function specialMaxChars_() {
+  var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * 150 * 5.5 * 1.1);
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, oneFileMaxChars_());
+  return byTarget;
+}
+
 function colsAll_(headers, names) {
   var out = [], seen = {};
   for (var i = 0; i < names.length; i++) {
@@ -588,6 +601,10 @@ function buildSpecialPrompt_(ctx) {
   L.push('• نویسه‌های عربی (ي، ك، ة) به کار نبر؛ معادل فارسی بنویس.');
   L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(CFG.SPECIAL_TARGET_MINUTES * 150) +
          ' واژه باشد (' + CFG.SPECIAL_TARGET_MINUTES + ' دقیقه گفتار).');
+  // سقفِ سخت لازم است چون هدفِ واژه‌ای را مدل مرتب رد می‌کند، و متنِ بلندتر یعنی
+  // هم فایلِ سنگین‌تر، هم جای بیشتر برای پُرکردن و حرفِ اضافه.
+  L.push('• سقفِ سخت: از ' + specialMaxChars_() + ' نویسه بیشتر نشود. کوتاه‌تر ایرادی ' +
+         'ندارد؛ بلندتر یعنی درس کِش آمده است.');
   L.push('• پیوندِ میان بخش‌ها را با عبارت‌های کلیشه‌ای نساز. اگر پیوندی نیست، ساده رد شو.');
   return L.join('\n');
 }
@@ -1021,8 +1038,12 @@ function produceSpecialEpisode() {
     }
     var fid = [];
     try {
+      // «درس‌نامه» هدفش ۱۵ دقیقه است و در نرخِ ۲۴ کیلوهرتز اصلاً در یک فایل جا
+      // نمی‌شود (~۴۳ مگابایت در برابرِ سقفِ ۳۶). پس علامتِ «بلندتر از یک فایل»
+      // برایش هشدارِ دروغ است، مگر صاحبِ برنامه صریح بخواهد یک‌فایلی شود.
       fid = fidelityCheck_({ hook: String(ep.hook || '') + ' ' + String(ep.recap || ''),
-                             outro: ep.outro, sections: ep.sections }, fakeItems, when);
+                             outro: ep.outro, sections: ep.sections }, fakeItems, when, '',
+                            { expectOneFile: CFG.SPECIAL_ONE_FILE === true });
     } catch (eF) { fid = []; }
     if (fid.length) {
       var byKind = {};

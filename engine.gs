@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.33
+ *  موتور محتوا و پادکست — نسخهٔ 5.34
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -344,6 +344,12 @@ var CFG = {
   // می‌شود (oneFileMaxChars_). قسمتی که از این بلندتر شود، ناگزیر دو فایل است.
   ONE_FILE_STRICT: true,
 
+  // «درس‌نامه» هدفش ۱۵ دقیقه است ≈ ۴۳ مگابایت — بالاتر از سقفِ ادغام، پس
+  // ناگزیر دو فایل می‌شود. یک‌فایلی‌کردنش یعنی کوتاه‌کردنِ درس به ~۱۱٫۵ دقیقه،
+  // و این تصمیمِ محتوایی است نه فنی؛ پس خاموش می‌ماند تا صاحبِ برنامه بخواهد.
+  // روشن که شود، سقفِ نویسهٔ درس‌نامه هم خودبه‌خود پایین می‌آید.
+  SPECIAL_ONE_FILE: false,
+
 
   // ---- فایل‌های تکه‌تکه‌شده ----
   // در شیت‌های تازه، فایل بزرگ تکه‌تکه تحلیل شده و هر قطعه یک ردیف است. قطعه‌ها
@@ -486,7 +492,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.33',
+  CODE_VERSION: '5.34',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3903,7 +3909,8 @@ function epScore_(ep) {
          (ep.__repaired ? 6 : 0);
 }
 
-function fidelityCheck_(ep, items, when, showName) {
+function fidelityCheck_(ep, items, when, showName, opt) {
+  opt = opt || {};
   var byId = {}, allText = '';
   for (var i = 0; i < items.length; i++) {
     var t = txNorm([items[i].topic, items[i].msg, items[i].summary, items[i].body].join(' '));
@@ -3972,7 +3979,10 @@ function fidelityCheck_(ep, items, when, showName) {
 
   // ۵-ب) طولِ کل: قسمتی که از سقف بگذرد ناگزیر دو فایل می‌شود.
   // این را همین‌جا علامت می‌زنیم چون تنها جایی است که کلِ متن یکجا در دست است.
-  if (CFG.ONE_FILE_STRICT !== false) {
+  // «انتظارِ یک فایل» برای هر برنامه فرق دارد: «از همه جا از همه رنگ» هدفش ۱۰
+  // دقیقه است و باید در یک فایل جا شود؛ «درس‌نامه» هدفش ۱۵ دقیقه است و در این
+  // نرخِ نمونه‌برداری اصلاً نمی‌تواند — علامت‌زدنش هر روز، هشدارِ دروغ است.
+  if (CFG.ONE_FILE_STRICT !== false && opt.expectOneFile !== false) {
     var allText = String(joint || '');
     for (var q2 = 0; q2 < (ep.sections || []).length; q2++) {
       allText += ' ' + String((ep.sections[q2] || {}).narration || '');
@@ -4430,7 +4440,8 @@ function produceEpisode() {
     var fid = [];
     try {
       fid = fidelityCheck_({ hook: ep.hook, outro: ep.outro, sections: ep.sections,
-                             connection: connection }, items, when, CFG.SHOW_NAME);
+                             connection: connection }, items, when, CFG.SHOW_NAME,
+                            { expectOneFile: true });
     } catch (eF) { fid = []; }
     if (fid.length) {
       var byKind = {};
@@ -10435,6 +10446,19 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
  * را دارد ولی خالی می‌گذارد و نکته‌ها را در Concepts_Definitions می‌نویسد؛ با
  * منطقِ «اولین تطبیق»، همهٔ اصطلاح‌ها و تعریف‌های درس دور ریخته می‌شد.
  */
+/**
+ * سقفِ نویسهٔ «درس‌نامه» — از هدفِ خودش حساب می‌شود، نه از سقفِ یک فایل.
+ *
+ * اگر SPECIAL_ONE_FILE روشن شود، سقفِ واقعی هرکدام که کمتر است می‌شود؛ یعنی
+ * روشن‌کردنِ آن کلید خودبه‌خود درس را هم کوتاه‌تر می‌کند، نه اینکه فقط علامت
+ * بزند و متن همان بماند.
+ */
+function specialMaxChars_() {
+  var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * 150 * 5.5 * 1.1);
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, oneFileMaxChars_());
+  return byTarget;
+}
+
 function colsAll_(headers, names) {
   var out = [], seen = {};
   for (var i = 0; i < names.length; i++) {
@@ -11002,6 +11026,10 @@ function buildSpecialPrompt_(ctx) {
   L.push('• نویسه‌های عربی (ي، ك، ة) به کار نبر؛ معادل فارسی بنویس.');
   L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(CFG.SPECIAL_TARGET_MINUTES * 150) +
          ' واژه باشد (' + CFG.SPECIAL_TARGET_MINUTES + ' دقیقه گفتار).');
+  // سقفِ سخت لازم است چون هدفِ واژه‌ای را مدل مرتب رد می‌کند، و متنِ بلندتر یعنی
+  // هم فایلِ سنگین‌تر، هم جای بیشتر برای پُرکردن و حرفِ اضافه.
+  L.push('• سقفِ سخت: از ' + specialMaxChars_() + ' نویسه بیشتر نشود. کوتاه‌تر ایرادی ' +
+         'ندارد؛ بلندتر یعنی درس کِش آمده است.');
   L.push('• پیوندِ میان بخش‌ها را با عبارت‌های کلیشه‌ای نساز. اگر پیوندی نیست، ساده رد شو.');
   return L.join('\n');
 }
@@ -11435,8 +11463,12 @@ function produceSpecialEpisode() {
     }
     var fid = [];
     try {
+      // «درس‌نامه» هدفش ۱۵ دقیقه است و در نرخِ ۲۴ کیلوهرتز اصلاً در یک فایل جا
+      // نمی‌شود (~۴۳ مگابایت در برابرِ سقفِ ۳۶). پس علامتِ «بلندتر از یک فایل»
+      // برایش هشدارِ دروغ است، مگر صاحبِ برنامه صریح بخواهد یک‌فایلی شود.
       fid = fidelityCheck_({ hook: String(ep.hook || '') + ' ' + String(ep.recap || ''),
-                             outro: ep.outro, sections: ep.sections }, fakeItems, when);
+                             outro: ep.outro, sections: ep.sections }, fakeItems, when, '',
+                            { expectOneFile: CFG.SPECIAL_ONE_FILE === true });
     } catch (eF) { fid = []; }
     if (fid.length) {
       var byKind = {};

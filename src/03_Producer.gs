@@ -2270,7 +2270,8 @@ function epScore_(ep) {
          (ep.__repaired ? 6 : 0);
 }
 
-function fidelityCheck_(ep, items, when, showName) {
+function fidelityCheck_(ep, items, when, showName, opt) {
+  opt = opt || {};
   var byId = {}, allText = '';
   for (var i = 0; i < items.length; i++) {
     var t = txNorm([items[i].topic, items[i].msg, items[i].summary, items[i].body].join(' '));
@@ -2339,7 +2340,10 @@ function fidelityCheck_(ep, items, when, showName) {
 
   // ۵-ب) طولِ کل: قسمتی که از سقف بگذرد ناگزیر دو فایل می‌شود.
   // این را همین‌جا علامت می‌زنیم چون تنها جایی است که کلِ متن یکجا در دست است.
-  if (CFG.ONE_FILE_STRICT !== false) {
+  // «انتظارِ یک فایل» برای هر برنامه فرق دارد: «از همه جا از همه رنگ» هدفش ۱۰
+  // دقیقه است و باید در یک فایل جا شود؛ «درس‌نامه» هدفش ۱۵ دقیقه است و در این
+  // نرخِ نمونه‌برداری اصلاً نمی‌تواند — علامت‌زدنش هر روز، هشدارِ دروغ است.
+  if (CFG.ONE_FILE_STRICT !== false && opt.expectOneFile !== false) {
     var allText = String(joint || '');
     for (var q2 = 0; q2 < (ep.sections || []).length; q2++) {
       allText += ' ' + String((ep.sections[q2] || {}).narration || '');
@@ -2797,7 +2801,8 @@ function produceEpisode() {
     var fid = [];
     try {
       fid = fidelityCheck_({ hook: ep.hook, outro: ep.outro, sections: ep.sections,
-                             connection: connection }, items, when, CFG.SHOW_NAME);
+                             connection: connection }, items, when, CFG.SHOW_NAME,
+                            { expectOneFile: true });
     } catch (eF) { fid = []; }
     if (fid.length) {
       var byKind = {};

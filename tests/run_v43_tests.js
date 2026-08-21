@@ -714,6 +714,29 @@ console.log('\n=== ۲۷) نصیحت‌گری و سقفِ یک فایل ===');
   CFG.MERGE_MAX_BYTES = before;
   ok('تخمینِ زمان معقول است', Math.abs(speechSeconds_('x'.repeat(1370)) - 100) <= 2,
      speechSeconds_('x'.repeat(1370)) + ' ثانیه');
+
+  /* انتظارِ «یک فایل» برای هر برنامه فرق دارد.
+     «از همه جا از همه رنگ» هدفش ۱۰ دقیقه است و باید جا شود. «درس‌نامه» هدفش
+     ۱۵ دقیقه است و در این نرخِ نمونه‌برداری اصلاً نمی‌تواند — علامت‌زدنش هر روز
+     هشدارِ دروغ می‌شد و هشدارِ دروغ، هشدارهای واقعی را هم بی‌اثر می‌کند.       */
+  const longEp = { hook: 'x'.repeat(200), outro: '', sections: [
+    { heading: 'ب', narration: 'x'.repeat(oneFileMaxChars_() + 500) }] };
+  const asVariety = fidelityCheck_(longEp, [], new Date(), '', { expectOneFile: true });
+  ok('برنامهٔ متنوعِ بلندتر از سقف علامت می‌خورد',
+     asVariety.some(f => f.kind === 'بلندتر از یک فایل'),
+     asVariety.map(f => f.kind).join(','));
+  const asSpecial = fidelityCheck_(longEp, [], new Date(), '', { expectOneFile: false });
+  ok('درس‌نامه بی‌جهت علامت نمی‌خورد',
+     !asSpecial.some(f => f.kind === 'بلندتر از یک فایل'));
+
+  const savedOne = CFG.SPECIAL_ONE_FILE;
+  CFG.SPECIAL_ONE_FILE = false;
+  const capOff = specialMaxChars_();
+  CFG.SPECIAL_ONE_FILE = true;
+  const capOn = specialMaxChars_();
+  ok('روشن‌کردنِ کلیدِ یک‌فایلیِ درس‌نامه واقعاً درس را کوتاه می‌کند',
+     capOn < capOff && capOn === oneFileMaxChars_(), capOff + ' → ' + capOn);
+  CFG.SPECIAL_ONE_FILE = savedOne;
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ نسخهٔ ۴٫۴ گذشت.');
