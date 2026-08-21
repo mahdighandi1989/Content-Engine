@@ -120,6 +120,19 @@ Error rows are attributed per analyzer through `errSource` (a prefix match on
 the report's source column). Without it, one analyzer's errors would be judged
 against another's code.
 
+**Three finding categories, not two.** `ROWNER_SRCCODE` = the analyzer's code is
+at fault. `ROWNER_ENGINE` = the engine's podcast work is at fault. The third,
+`ROWNER_ENGSRC`, is the one that kept having no home: *the engine's machinery for
+handling source code is at fault*. Every real instance so far needed an engine
+version, not an analyzer one — the live-code fingerprint computed two different
+ways (blocking every install), the verdict with no baseline, the analyzers having
+no notification channel. `srcCycleHealth_` raises these automatically after N
+consecutive bad nights (one bad night can be a network blip). Because
+`ROWNER_ENGSRC` contains «کد», `reportRow_` routes it to `ROWNER_CODE` /
+`NEEDS_CODE` — the queue a monitor session builds the next engine version from.
+That is safe: a `NEEDS_CODE` row is a marker, never a payload; installs always
+come from GitHub's `manifest.json` + `engine.gs`.
+
 **The boundary that must never move.** Findings carry `ROWNER_SRCCODE`,
 deliberately *without* the word «کد» in it: `reportRow_` turns any owner
 containing «کد» into `ROWNER_CODE` with status `NEEDS_CODE`, which feeds the

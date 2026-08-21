@@ -730,4 +730,84 @@ console.log('\n=== ۱۵. گزارشِ شبانه به تلگرام و ایمیل
   props_().deleteProperty(PK.SRCSCRIPT_SNAP);
 }
 
+
+/* ۱۶. دستهٔ سوم: وقتی خودِ سازوکار ایراد دارد، اصلاحِ *موتور* خواسته شود.
+
+   تا اینجا هر یافته یا «کدِ تحلیلگر» بود یا «موتور در کارِ پادکست». حالتی که
+   چند بار واقعاً پیش آمد هیچ‌کدام نبود: اثرانگشت را موتور اشتباه حساب می‌کرد و
+   هر نصبی متوقف می‌شد. آن ردیف باید به صفِ «نیازمند تعویض کد» برود، وگرنه
+   کسی سراغش نمی‌رود.                                                          */
+console.log('\n=== ۱۶. یافته‌ای که اصلاحِ خودِ موتور را می‌خواهد ===');
+{
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  const LIVE = 'function a(){}';
+  const MAN = { target: 'ت', version: '2.0', codeFile: 'analyzer.gs',
+                sha256: shaOf('بستهٔ تازه'), baseSha256: shaOf('چیزِ دیگری'),
+                requiredFunctions: ['function a'], resolves: [] };
+  CFG.SOURCE_SCRIPTS = [
+    { key: 'photo', name: 'تحلیلگرِ عکس', errSource: 'RESULT-PHOTO', scriptId: 'S1', sheetId: SHEET },
+    { key: 'video', name: 'تحلیلگرِ ویدیو', errSource: 'RESULT (ویدیو)', scriptId: 'S2', sheetId: SHEET }];
+  props_().deleteProperty(PK.SRCSCRIPT_HEALTH);
+  props_().deleteProperty(PK.SRCSCRIPT_BLOCK);
+
+  const sheet = [], tg = [];
+  const realFind = global.logSelfFinding_, realTg = global.tgSend_, realMail = global.MailApp;
+  global.logSelfFinding_ = (h, f) => { sheet.push(f); };
+  global.tgSend_ = m => { tg.push(String(m)); };
+  global.MailApp = { sendEmail: () => {} };
+
+  const prev = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: 'بستهٔ تازه' };
+    if (url.indexOf('script.googleapis.com') !== -1)
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: LIVE }] } };
+    return prev(url, body);
+  };
+  const hub = { getSheetByName: () => null };
+
+  // شبِ اول: هر دو «دستی عوض شده» — ولی یک شب دلیلِ کافی نیست
+  let un = quiet(); let h = srcCycleHealth_(hub, { verdicts: [], installs: [] }); un();
+  ok('۱۶.۱ یک شبِ بد چیزی را راه نمی‌اندازد', h.raised.length === 0, JSON.stringify(h.state));
+
+  // شبِ دوم: همان وضع → حالا باید اصلاحِ موتور خواسته شود
+  un = quiet(); h = srcCycleHealth_(hub, { verdicts: [], installs: [] }); un();
+  ok('۱۶.۲ دو شبِ پیاپی، یافتهٔ سازوکار ساخته شد',
+     h.raised.indexOf('basesha-all') !== -1, JSON.stringify(h.raised));
+
+  const f = sheet.find(x => x.key === 'engsrc-basesha-all');
+  ok('۱۶.۳ در شیت ثبت شد', !!f);
+  ok('۱۶.۴ مسئولش «کدِ موتور» است، نه تحلیلگر', f.owner === ROWNER_ENGSRC, f.owner);
+  ok('۱۶.۵ و چون کلمهٔ «کد» دارد، به صفِ «نیازمند تعویض کد» می‌رود',
+     reportRow_({}, f, 0, 'fp')[RC.STATUS - 1] === RST.NEEDS_CODE,
+     reportRow_({}, f, 0, 'fp')[RC.STATUS - 1]);
+  ok('۱۶.۶ دستورش می‌گوید در کدِ موتور چه چیزی را نگاه کند',
+     /srcJoinJs_/.test(f.instruction) && /بخشِ ۲۲/.test(f.instruction), f.instruction);
+  ok('۱۶.۷ هیچ متنی از کدِ تحلیلگر در ردیف نیامده',
+     f.detail.indexOf(LIVE) === -1 && f.detail.indexOf('بستهٔ تازه') === -1);
+  ok('۱۶.۸ به تلگرام هم رفت', tg.some(m => /سازوکارِ کدِ منبع/.test(m)));
+  ok('۱۶.۹ شمارنده پس از اعلام صفر شد (هر شب تکرار نمی‌شود)',
+     Number(h.state.tampered || 0) === 0, JSON.stringify(h.state));
+
+  // اصلاحِ ناکافی: دو داوریِ پیاپی با نشانهٔ برطرف‌نشده
+  const withUnfixed = { verdicts: [{ key: 'photo', sig: [{ id: 'parts', fixed: false }] }], installs: [] };
+  un = quiet(); srcCycleHealth_(hub, withUnfixed);
+  h = srcCycleHealth_(hub, withUnfixed); un();
+  ok('۱۶.۱۰ نشانهٔ برطرف‌نشده در دو نسخهٔ پیاپی هم اصلاحِ موتور را می‌خواهد',
+     h.raised.indexOf('fix-insufficient') !== -1, JSON.stringify(h.raised));
+  const f2 = sheet.find(x => x.key === 'engsrc-fix-insufficient');
+  ok('۱۶.۱۱ و آن هم به همان صف می‌رود', f2 && f2.owner === ROWNER_ENGSRC);
+
+  // وضعِ سالم: شمارنده‌ها صفر می‌مانند
+  MAN.baseSha256 = shaOf(LIVE);
+  un = quiet(); h = srcCycleHealth_(hub, { verdicts: [], installs: [] }); un();
+  ok('۱۶.۱۲ در وضعِ سالم چیزی ساخته نمی‌شود',
+     h.raised.length === 0 && Number(h.state.tampered || 0) === 0);
+
+  global.__STUB = prev; global.logSelfFinding_ = realFind;
+  global.tgSend_ = realTg; global.MailApp = realMail;
+  props_().deleteProperty(PK.SRCSCRIPT_HEALTH);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');

@@ -975,9 +975,13 @@ function srcNightly_(audit) {
   var installs = [];
   try { installs = srcAutoInstall_(hub); } catch (e2) { logLine_('نصبِ خودکارِ تحلیلگرها ناموفق: ' + e2.message); }
   // آنچه در شیت می‌ماند باید به تلگرام و ایمیل هم برسد
+  // آیا خودِ چرخه گیر کرده؟ اگر آری، اصلاحِ موتور خواسته می‌شود، نه اصلاحِ تحلیلگر.
+  var health = null;
+  try { health = srcCycleHealth_(hub, { verdicts: verdicts, installs: installs }); }
+  catch (e4) { logLine_('سنجشِ سلامتِ چرخه ناموفق: ' + e4.message); }
   var digest = null;
   try { digest = srcNightlyDigest_(hub, audit); } catch (e3) { logLine_('گزارشِ شبانه ناموفق: ' + e3.message); }
-  return { verdicts: verdicts, installs: installs, digest: digest };
+  return { verdicts: verdicts, installs: installs, digest: digest, health: health };
 }
 
 /**
@@ -1319,4 +1323,151 @@ function srcNightlyDigest_(hub, audit) {
   if (!changed) return { sent: false, snapshot: now };
   srcNotify_('🧹 گزارشِ شبانهٔ تحلیلگرهای منبع', lines.join('\n'));
   return { sent: true, snapshot: now, lines: lines };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   وقتی خودِ چرخه گیر می‌کند — نه کدِ تحلیلگر، نه کدِ پادکست.
+
+   تا اینجا هر یافته یکی از دو جا می‌رفت: «کدِ تحلیلگر ایراد دارد» یا «موتور در
+   کارِ پادکست ایراد دارد». ولی چند بار چیزی پیش آمد که هیچ‌کدام نبود:
+
+     • اثرانگشتِ کدِ زنده در موتور جور دیگری حساب می‌شد و baseSha256 هرگز
+       نمی‌خواند — یعنی هر نصبی برای همیشه متوقف می‌شد
+     • داوری ترازوی پیش از نصب نداشت
+     • تحلیلگرها هیچ راهی برای خبردادن نداشتند
+
+   هیچ‌کدام باگِ تحلیلگر نبود. برای هرکدام باید *کدِ موتور* عوض می‌شد تا دفعهٔ
+   بعد کدِ منبع را بهتر اداره کند. و هیچ‌کدام هم خودبه‌خود در گزارش‌ها به این
+   شکل ثبت نمی‌شد؛ آدم باید می‌دید و می‌فهمید.
+
+   اینجا همان را خودکار می‌کنیم. شرطِ «چند شبِ پیاپی» عمدی است: یک شبِ بد
+   می‌تواند قطعیِ شبکه باشد؛ سه شبِ پشتِ سرِ هم یعنی سازوکار ایراد دارد.
+   ───────────────────────────────────────────────────────────────────────── */
+
+function srcHealthState_() {
+  try { return JSON.parse(props_().getProperty(PK.SRCSCRIPT_HEALTH) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+function srcHealthSave_(st) {
+  props_().setProperty(PK.SRCSCRIPT_HEALTH, JSON.stringify(st || {}));
+}
+
+/**
+ * یافته‌ای که می‌گوید «کدِ خودِ موتور باید عوض شود تا کدِ منبع را بهتر اداره کند».
+ * جدا نوشته شده تا هر جای دیگری هم که چنین چیزی فهمید، از همین در وارد شود.
+ */
+function srcEngineFinding_(hub, key, title, detail, instruction) {
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'سازوکارِ کدِ منبع',
+      key: 'engsrc-' + key,
+      title: title,
+      // هرگز متنِ کدِ تحلیلگر در این ردیف نمی‌آید؛ این ردیف نشانه است نه بسته.
+      detail: String(detail || '').slice(0, 1200),
+      instruction: instruction,
+      owner: ROWNER_ENGSRC
+    });
+  } catch (e) { logLine_('ثبتِ یافتهٔ سازوکار ناموفق: ' + e.message); }
+  try {
+    srcNotify_('🧩 سازوکارِ کدِ منبع نیاز به اصلاحِ موتور دارد — ' + title,
+      String(detail || '') + '\n\nچه باید بشود: ' + instruction +
+      '\n\nاین در تبِ گزارش‌ها با وضعیتِ «نیازمند تعویض کد» ثبت شد، ' +
+      'پس در دورِ بعدیِ ساختِ کد برداشته می‌شود.');
+  } catch (e2) {}
+}
+
+/**
+ * سلامتِ خودِ چرخه را می‌سنجد و اگر گیر کرده باشد، اصلاحِ موتور را می‌خواهد.
+ * `res` همان چیزی است که srcNightly_ تا اینجا جمع کرده.
+ */
+function srcCycleHealth_(hub, res) {
+  hub = hub || getHub_();
+  var st = srcHealthState_();
+  var list = CFG.SOURCE_SCRIPTS || [];
+  var raised = [];
+  var bump = function (k) { st[k] = (Number(st[k]) || 0) + 1; return st[k]; };
+  var clear = function (k) { st[k] = 0; };
+
+  // ── ۱) همهٔ تحلیلگرها می‌گویند «کدِ زنده دستی عوض شده»
+  // یکی‌شان ممکن است واقعاً دستی عوض شده باشد. هر دو، چند شبِ پیاپی، یعنی
+  // اثرانگشت را ما اشتباه حساب می‌کنیم. این دقیقاً همان باگِ «\n» اضافه بود.
+  var tampered = 0, checked = 0;
+  for (var i = 0; i < list.length; i++) {
+    var v = null;
+    try { v = srcVerify_(list[i].key); } catch (e) { continue; }
+    checked++;
+    if ((v.errors || []).some(function (x) { return /دستی عوض شده/.test(x); })) tampered++;
+  }
+  if (checked && tampered === checked) {
+    if (bump('tampered') >= 2) {
+      srcEngineFinding_(hub, 'basesha-all',
+        'همهٔ تحلیلگرها «دستی عوض شده» گزارش می‌شوند — احتمالاً اثرانگشت را موتور اشتباه حساب می‌کند',
+        'در ' + st.tampered + ' شبِ پیاپی، هر ' + checked + ' تحلیلگر با پیامِ «کدِ زنده دستی عوض ' +
+        'شده» رد شدند. اینکه همه با هم دستی عوض شده باشند بعید است؛ محتمل‌تر این است که ' +
+        'محاسبهٔ اثرانگشتِ کدِ زنده در موتور با تعریفِ فایلِ ریپو یکی نباشد.',
+        'در بخشِ ۲۲، srcJoinJs_ را با کدِ زندهٔ واقعی بسنج و مطمئن شو تنها همان‌جا ' +
+        'اثرانگشتِ کدِ زنده حساب می‌شود. یک بار یک «\\n» اضافه در ابتدای فایل همین ' +
+        'را به وجود آورد و هر نصبی را برای همیشه متوقف کرد.');
+      clear('tampered');
+      raised.push('basesha-all');
+    }
+  } else { clear('tampered'); }
+
+  // ── ۲) نصب پیاپی شکست می‌خورد (نه «چیزی برای نصب نبود»)
+  var failed = ((res && res.installs) || []).filter(function (x) {
+    return x && x.ok === false && x.why && !/از قبل نصب|آماده نبود|برگشت خورده/.test(x.why); });
+  if (failed.length) {
+    if (bump('installFail') >= 2) {
+      srcEngineFinding_(hub, 'install-fail',
+        'نصبِ کدِ تحلیلگرها چند شبِ پیاپی شکست می‌خورد',
+        st.installFail + ' شبِ پیاپی. آخرین علت‌ها: ' +
+        failed.map(function (x) { return x.key + ': ' + x.why; }).join(' | '),
+        'مسیرِ نصب در بخشِ ۲۲ (srcInstall_/srcPutJs_) بررسی شود — دسترسی، آدرسِ ' +
+        'محتوا، یا شکلِ بسته‌ای که PUT می‌شود.');
+      clear('installFail');
+      raised.push('install-fail');
+    }
+  } else { clear('installFail'); }
+
+  // ── ۳) اصلاح جواب نداده: نشانه‌ای که پس از نصب هنوز می‌آید
+  // یعنی خودِ اصلاح ناکافی بوده. اگر دو نسخهٔ پیاپی هم درستش نکردند، مشکل در
+  // شیوهٔ ساختِ اصلاح است، نه در آن یک نسخه.
+  var unfixed = [];
+  var vs = (res && res.verdicts) || [];
+  for (var q = 0; q < vs.length; q++) {
+    var sig = vs[q].sig || [];
+    for (var g = 0; g < sig.length; g++) {
+      if (sig[g].fixed === false) unfixed.push(vs[q].key + '/' + sig[g].id);
+    }
+  }
+  if (unfixed.length) {
+    if (bump('unfixed') >= 2) {
+      srcEngineFinding_(hub, 'fix-insufficient',
+        'اصلاحِ ساخته‌شده نشانه را از بین نبرده — دو نسخهٔ پیاپی کافی نبوده',
+        'نشانه‌های هنوز فعال: ' + unfixed.join(' ، ') + '. یعنی بسته‌ای که ساختیم ' +
+        'ریشهٔ خطا را نگرفته است.',
+        'پیش از ساختِ بستهٔ بعدی، جمله‌های واقعیِ خطا از تبِ «خطاهای منبع» خوانده و ' +
+        'ریشه‌یابی شود؛ و اگر نشانهٔ resolves درست تعریف نشده، خودِ تعریفش اصلاح شود.');
+      clear('unfixed');
+      raised.push('fix-insufficient');
+    }
+  } else { clear('unfixed'); }
+
+  // ── ۴) بسته‌ای که برگشت خورده و چند شب مسدود مانده
+  var blocked = srcBlocked_(), nb = 0;
+  for (var b in blocked) if (blocked.hasOwnProperty(b)) nb++;
+  if (nb) {
+    if (bump('blocked') >= 3) {
+      srcEngineFinding_(hub, 'stuck-blocked',
+        nb + ' بستهٔ تحلیلگر برگشت خورده و چرخه ' + st.blocked + ' شب است گیر کرده',
+        'تا وقتی بستهٔ تازه‌ای ساخته نشود، این تحلیلگر روی کدِ قدیمی می‌ماند.',
+        'علتِ برگشت از پیام‌های داوری خوانده شود و بستهٔ تازه با نسخهٔ بالاتر ساخته ' +
+        'شود؛ اثرانگشتِ تازه خودبه‌خود از فهرستِ مسدود بیرون است.');
+      clear('blocked');
+      raised.push('stuck-blocked');
+    }
+  } else { clear('blocked'); }
+
+  srcHealthSave_(st);
+  return { raised: raised, state: st };
 }
