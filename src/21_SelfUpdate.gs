@@ -471,14 +471,15 @@ function selfUpdateStep(force) {
 function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
-  try { auditSourceScripts(); } catch (eSS) {}
+  var srcAudit = null;
+  try { srcAudit = auditSourceScripts(); } catch (eSS) {}
 
   // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
   // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
   try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
 
   // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
-  try { srcNightly_(); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+  try { srcNightly_(srcAudit); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
 
   // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
   // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.

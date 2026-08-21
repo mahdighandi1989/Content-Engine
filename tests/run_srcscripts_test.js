@@ -667,4 +667,67 @@ console.log('\n=== ۱۴. دواندنِ چرخه با دست، روی مُهرِ
   props_().deleteProperty(PK.SRCSCRIPT_INST);
 }
 
+
+/* ۱۵. آنچه در شیت می‌ماند باید به تلگرام و ایمیل هم برسد.
+
+   پاک‌سازیِ ردیف‌های خطا داخلِ خودِ تحلیلگرها انجام می‌شود و آن اسکریپت‌ها هیچ
+   راهی برای خبردادن ندارند. صاحبِ پروژه هم به شیت نگاه نمی‌کند. پس اگر موتور
+   خودش تفاوتِ شمارش را نگوید، بزرگ‌ترین اثرِ این چرخه نامرئی می‌ماند.        */
+console.log('\n=== ۱۵. گزارشِ شبانه به تلگرام و ایمیل ===');
+{
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'تحلیلگرِ عکس', errSource: 'RESULT-PHOTO',
+                          scriptId: 'S1', sheetId: SHEET }];
+  props_().deleteProperty(PK.SRCSCRIPT_SNAP);
+  const HOUR = 3600000, NOW = new Date().getTime();
+  const stampOf = ms => Utilities.formatDate(new Date(ms), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  let rows = [];
+  const add = (n, text) => { for (let i = 0; i < n; i++)
+    rows.push([stampOf(NOW - (i + 1) * HOUR), 'RESULT-PHOTO (عکس)', 'Sheet1', i, 'F' + i,
+               'وضعیت ناموفق', text || 'ERROR: چیزی', '']); };
+  const hub = { getSheetByName: n => n !== CFG.SRC_ERR_TAB ? null : {
+      getLastRow: () => rows.length + 1,
+      getRange: (r, c, k, w) => ({ getValues: () =>
+        rows.slice(r - 2, r - 2 + k).map(x => x.slice(c - 1, c - 1 + w)) }) } };
+
+  const tg = [], mail = [];
+  const realTg = global.tgSend_, realMail = global.MailApp;
+  global.tgSend_ = m => { tg.push(String(m)); return true; };
+  global.MailApp = { sendEmail: o => { mail.push(o); } };
+
+  add(300);
+  let un = quiet(); let d = srcNightlyDigest_(hub, null); un();
+  ok('۱۵.۱ نخستین شمارش پیام نمی‌فرستد (چیزی برای مقایسه نیست)',
+     d.sent === false && tg.length === 0, JSON.stringify(d.snapshot));
+
+  // شبِ بعد: پاک‌سازی ۲۴۰ ردیف را برداشته
+  rows = []; add(60);
+  un = quiet(); d = srcNightlyDigest_(hub, null); un();
+  ok('۱۵.۲ کاهشِ ردیف‌ها خبر داده شد', d.sent === true && tg.length === 1);
+  ok('۱۵.۳ و عددِ درست را می‌گوید', /300 → 60/.test(tg[0]) && /240 ردیف حذف شد/.test(tg[0]), tg[0]);
+  ok('۱۵.۴ ایمیل هم رفت', mail.length === 1 && /گزارشِ شبانه/.test(mail[0].subject));
+  ok('۱۵.۵ می‌گوید فایل‌ها دوباره در صف‌اند', /دوباره در صفِ تحلیل/.test(tg[0]));
+
+  // شبِ سوم: هیچ تغییری — نباید پیام برود
+  un = quiet(); d = srcNightlyDigest_(hub, null); un();
+  ok('۱۵.۶ شبِ بی‌تغییر پیام نمی‌فرستد', d.sent === false && tg.length === 1);
+
+  // ردیف‌های «نهایی» شمرده و گزارش می‌شوند
+  rows = []; add(50); add(4, 'ERROR: TypeError ⟪نهایی⟫');
+  un = quiet(); d = srcNightlyDigest_(hub, null); un();
+  ok('۱۵.۷ ردیف‌های «نهایی» جدا شمرده می‌شوند',
+     d.snapshot.photo.final === 4, JSON.stringify(d.snapshot.photo));
+  ok('۱۵.۸ و در پیام توضیح داده می‌شوند', /برچسبِ «نهایی»/.test(tg[tg.length - 1]));
+
+  // یافته‌های ثبت‌شده در شیت هم بیرون می‌آیند
+  rows = []; add(54);
+  un = quiet(); d = srcNightlyDigest_(hub, { logged: 2, errors: { samples: [
+    { kind: 'code', label: 'باگِ کد — دسترسی به فیلدِ نبوده' } ] } }); un();
+  ok('۱۵.۹ یافته‌های تبِ گزارش‌ها هم به تلگرام می‌رسند',
+     /۲ یافتهٔ تازه|2 یافتهٔ تازه/.test(tg[tg.length - 1]) &&
+     /باگِ کد/.test(tg[tg.length - 1]), tg[tg.length - 1]);
+
+  global.tgSend_ = realTg; global.MailApp = realMail;
+  props_().deleteProperty(PK.SRCSCRIPT_SNAP);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');

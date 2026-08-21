@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.29
+ *  موتور محتوا و پادکست — نسخهٔ 5.30
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -459,7 +459,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.29',
+  CODE_VERSION: '5.30',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -661,6 +661,7 @@ var PK = {
   ENG_STAMP: 'ENGINE_SWAP_STAMP',    // مُهرِ آخرین تعویضِ کدِ موتور + شمارنده‌های آن لحظه
   ENG_BEAT: 'ENGINE_HEARTBEAT',      // نمونهٔ روزانهٔ شمارنده‌ها (حلقهٔ ۷تایی)
   ENG_BLOCK: 'ENGINE_BLOCKED_VERS',  // نسخه‌هایی که برگشت خورده‌اند و دوباره نصب نمی‌شوند
+  SRCSCRIPT_SNAP: 'SRC_ERR_SNAPSHOT', // شمارشِ دیشبِ ردیف‌های خطا، برای گزارشِ تغییر
   // «نوبتِ ادامه»: لحظه‌ای که تریگرِ ادامهٔ صداگذاری قرار است بزند. نگهبان با
   // همین می‌فهمد رشته پاره شده — نه با «آیا تریگری در فهرست هست»، چون تریگرِ
   // یک‌بارمصرفی که زده و اجرایش کشته شده، همچنان در فهرست می‌ماند.
@@ -17018,14 +17019,15 @@ function selfUpdateStep(force) {
 function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
-  try { auditSourceScripts(); } catch (eSS) {}
+  var srcAudit = null;
+  try { srcAudit = auditSourceScripts(); } catch (eSS) {}
 
   // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
   // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
   try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
 
   // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
-  try { srcNightly_(); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+  try { srcNightly_(srcAudit); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
 
   // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
   // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
@@ -18277,13 +18279,16 @@ function srcAutoInstall_(hub) {
 }
 
 /** دورِ شبانهٔ کاملِ تحلیلگرهای منبع: اول داوری، بعد نصب. */
-function srcNightly_() {
+function srcNightly_(audit) {
   var hub = getHub_();
   var verdicts = [];
   try { verdicts = srcVerdict_(hub); } catch (e) { logLine_('داوریِ تحلیلگرهای منبع ناموفق: ' + e.message); }
   var installs = [];
   try { installs = srcAutoInstall_(hub); } catch (e2) { logLine_('نصبِ خودکارِ تحلیلگرها ناموفق: ' + e2.message); }
-  return { verdicts: verdicts, installs: installs };
+  // آنچه در شیت می‌ماند باید به تلگرام و ایمیل هم برسد
+  var digest = null;
+  try { digest = srcNightlyDigest_(hub, audit); } catch (e3) { logLine_('گزارشِ شبانه ناموفق: ' + e3.message); }
+  return { verdicts: verdicts, installs: installs, digest: digest };
 }
 
 /**
@@ -18548,4 +18553,81 @@ function engVerdict_() {
   rec.judged = true; rec.pending = false; rec.verdict = { state: out.state, at: nowStr_() };
   props_().setProperty(PK.ENG_STAMP, JSON.stringify(rec));
   return out;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   گزارشِ شبانه به تلگرام و ایمیل.
+
+   صاحبِ پروژه به شیت نگاه نمی‌کند — و نباید مجبور باشد. تا اینجا هر چیزی که
+   دربارهٔ *کد* بود خبر می‌داد (نصب، داوری، برگشت)، ولی دو چیز فقط در شیت
+   می‌ماند و بیرون نمی‌آمد:
+
+     ۱) نتیجهٔ پاک‌سازیِ ردیف‌های خطا. آن کار داخلِ خودِ تحلیلگرها انجام می‌شود و
+        آن اسکریپت‌ها اصلاً راهی برای خبردادن ندارند — نه ایمیل، نه تلگرام.
+        پس موتور خودش شمارش را پیش و پس می‌کند و تفاوت را می‌گوید.
+     ۲) یافته‌هایی که وارسیِ شبانه در تبِ گزارش‌ها ثبت می‌کند.
+
+   فقط وقتی چیزی عوض شده باشد پیام می‌رود؛ گزارشِ «هیچ اتفاقی نیفتاد» هر شب،
+   خودش می‌شود نویز و بعد از یک هفته کسی نمی‌خواندش.
+   ───────────────────────────────────────────────────────────────────────── */
+
+var SRC_FINAL_MARK = '⟪نهایی⟫';
+
+/** شمارشِ ردیف‌های خطای هر تحلیلگر، همین حالا. */
+function srcErrSnap_(hub) {
+  var out = {}, list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) {
+    var rows = srcErrRows_(hub, list[i].key, 0, 0);
+    var fin = 0;
+    for (var r = 0; r < rows.length; r++) {
+      if (String(rows[r].text || '').indexOf(SRC_FINAL_MARK) !== -1 ||
+          String(rows[r].type || '').indexOf(SRC_FINAL_MARK) !== -1) fin++;
+    }
+    out[list[i].key] = { rows: rows.length, final: fin };
+  }
+  return out;
+}
+
+/**
+ * تفاوتِ امشب با دیشب را می‌گوید و در صورتِ لزوم خبر می‌دهد.
+ * `audit` همان چیزی است که auditSourceScripts برگردانده (برای شمردنِ یافته‌ها).
+ */
+function srcNightlyDigest_(hub, audit) {
+  hub = hub || getHub_();
+  var now = srcErrSnap_(hub), prev = null;
+  try { prev = JSON.parse(props_().getProperty(PK.SRCSCRIPT_SNAP) || 'null'); } catch (e) {}
+  props_().setProperty(PK.SRCSCRIPT_SNAP, JSON.stringify(now));
+
+  var lines = [], changed = false;
+  var list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) {
+    var k = list[i].key, nm = list[i].name || k;
+    var a = prev && prev[k] ? Number(prev[k].rows || 0) : null;
+    var b = Number(now[k].rows || 0);
+    if (a === null) { lines.push('• ' + nm + ': ' + b + ' ردیفِ خطا (نخستین شمارش)'); continue; }
+    if (a === b) { lines.push('• ' + nm + ': ' + b + ' ردیف — بی‌تغییر'); continue; }
+    changed = true;
+    lines.push('• ' + nm + ': ' + a + ' → ' + b + ' ردیف' +
+               (b < a ? '  (' + (a - b) + ' ردیف حذف شد؛ فایل‌هایشان دوباره در صفِ تحلیل‌اند)'
+                      : '  (' + (b - a) + ' خطای تازه)'));
+    if (now[k].final) {
+      lines.push('     ' + now[k].final + ' ردیف با برچسبِ «نهایی» کنار گذاشته شده — ' +
+                 'بیش از سه بار شکستند و دیگر تلاش نمی‌شوند.');
+    }
+  }
+
+  var logged = audit && audit.logged ? Number(audit.logged) : 0;
+  if (logged) {
+    changed = true;
+    lines.push('', '📋 ' + logged + ' یافتهٔ تازه در تبِ گزارش‌ها ثبت شد.');
+    var samples = (audit.errors && audit.errors.samples) || [];
+    for (var s = 0; s < Math.min(samples.length, 3); s++) {
+      if (samples[s].kind !== 'code') continue;
+      lines.push('   • ' + samples[s].label);
+    }
+  }
+
+  if (!changed) return { sent: false, snapshot: now };
+  srcNotify_('🧹 گزارشِ شبانهٔ تحلیلگرهای منبع', lines.join('\n'));
+  return { sent: true, snapshot: now, lines: lines };
 }
