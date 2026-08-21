@@ -48,8 +48,15 @@ function srcScriptGet_(scriptId) {
  * فقط یکی‌شان با تغییرِ کد حل می‌شود؛ بقیه داده/مدل‌اند و «اصلاحِ کد» برایشان
  * یعنی درست‌کردنِ چیزی که خراب نیست.
  */
-function srcErrKind_(text) {
+function srcErrKind_(text, typeOpt) {
   var t = String(text || '');
+  // ستونِ «نوع» گاهی چیزی می‌داند که متن نمی‌گوید: وقتی مدل با توضیحِ فارسی
+  // تحلیل را رد می‌کند، در متن نه blockReason هست نه safety، و بی این ردیف
+  // «دسته‌بندی‌نشده» می‌ماند — که یعنی هیچ‌کس نمی‌فهمد ردِ مدل بوده.
+  if (/ناتوانی در تحلیل/.test(String(typeOpt || ''))) {
+    return { kind: 'model', label: 'مدل تحلیل را رد کرد (با توضیح)',
+             fix: 'کد باید این را «شکستِ دائمی» علامت بزند تا هر دور دوباره امتحان نشود.' };
+  }
   if (/Cannot read propert\w+ of undefined|Cannot read propert\w+ of null|TypeError/.test(t)) {
     return { kind: 'code', label: 'باگِ کد — دسترسی به فیلدِ نبوده',
              fix: 'پیش از خواندنِ فیلد، بودنش وارسی شود و پاسخِ ناقص با خطای روشن رد شود.' };
@@ -311,7 +318,7 @@ function sourceErrDigest_(hub) {
       if (!isNaN(w) && w < since.ms) { out.before++; continue; }
     }
     out.inWindow++;
-    var k = srcErrKind_(r.text);
+    var k = srcErrKind_(r.text, r.type);
     out.byKind[k.kind] = (out.byKind[k.kind] || 0) + 1;
     if (r.fileId) seenFile[r.fileId] = (seenFile[r.fileId] || 0) + 1;
     if (!seenKind[k.label]) {
@@ -722,7 +729,7 @@ function srcSigHits_(rows, sig) {
 /** شمارشِ خطاهای «کدی» — تنها دسته‌ای که تعویضِ کد می‌تواند مقصرش باشد. */
 function srcCodeCount_(rows) {
   var n = 0;
-  for (var i = 0; i < rows.length; i++) if (srcErrKind_(rows[i].text).kind === 'code') n++;
+  for (var i = 0; i < rows.length; i++) if (srcErrKind_(rows[i].text, rows[i].type).kind === 'code') n++;
   return n;
 }
 
@@ -961,6 +968,49 @@ function srcNightly_() {
   return { verdicts: verdicts, installs: installs };
 }
 
+/**
+ * دواندنِ چرخه همین حالا، بی‌آنکه تا دورِ شبانه صبر کنیم.
+ *
+ * لازم است چون کدِ تازه در همان دورِ شبانه نصب می‌شود که خودش تمام شده — پس
+ * قابلیتی که امشب رسیده، تا فردا شب اجرا نمی‌شود. این دکمه همان فاصله را پر
+ * می‌کند. همان srcNightly_ را صدا می‌زند، نه نسخهٔ نرم‌ترش: اگر داوری به برگشت
+ * برسد، همین‌جا هم برمی‌گردد.
+ */
+function runSourceCycleNow() {
+  var ui = ui_();
+  var r = srcNightly_();
+  var L = [];
+
+  if (!r.verdicts.length) L.push('داوری: چیزی برای داوری نبود.');
+  for (var i = 0; i < r.verdicts.length; i++) {
+    var v = r.verdicts[i];
+    if (v.state === 'زود است') {
+      L.push('⏳ ' + v.key + ' — هنوز زود است (' + v.hoursLeft + ' ساعت مانده).');
+      continue;
+    }
+    L.push((v.rolledBack ? '↩️ ' : (v.state === 'خوب' ? '✅ ' : '⚠️ ')) +
+           v.key + ' نسخهٔ ' + v.version + ' — ' + v.state);
+    L.push('     خطای کدی پس از نصب: ' + v.code +
+           (v.rateWas === null ? '' : ' · نرخ ' + v.rateNow + ' در ساعت، پیش از نصب ' + v.rateWas));
+    for (var j = 0; j < (v.sig || []).length; j++) {
+      var g = v.sig[j];
+      L.push('     ' + (g.fixed ? '✅' : '⚠️') + ' ' + g.title +
+             (g.before === null ? '' : ' — پیش: ' + g.before) + ' · پس: ' + g.after);
+    }
+  }
+
+  L.push('');
+  if (!r.installs.length) L.push('نصب: بستهٔ تازه‌ای آماده نبود.');
+  for (var k = 0; k < r.installs.length; k++) {
+    var it = r.installs[k];
+    L.push((it.ok ? '⬆️ ' : '• ') + it.key + (it.ok ? ' → نسخهٔ ' + it.version + ' نصب شد' : ' — ' + it.why));
+  }
+  L.push('');
+  L.push('هرچه اینجا آمد، در تبِ گزارش‌ها هم ثبت شد و تلگرام/ایمیل هم رفت.');
+  if (ui) ui.alert('▶️ چرخهٔ کدِ تحلیلگرهای منبع', L.join('\n'), ui.ButtonSet.OK);
+  return r;
+}
+
 /** نمایشِ وضعیتِ چرخه از منو. */
 function runShowSourceVerdict() {
   var all = srcInstalls_(), ui = ui_();
@@ -975,7 +1025,8 @@ function runShowSourceVerdict() {
     if (r.rolledBackAt) L.push('     ↩️ برگشت خورد در ' + r.rolledBackAt);
     else if (r.verdict) L.push('     داوری: ' + r.verdict.state + ' (' + r.verdict.at +
                                ') · خطای کدی: ' + r.verdict.code);
-    else L.push('     هنوز داوری نشده — ' + (CFG.SRC_VERDICT_HOURS || 24) + ' ساعت پس از نصب.');
+    else L.push('     هنوز داوری نشده — در دورِ شبانهٔ بعد، یا همین حالا با ' +
+                '«چرخهٔ تحلیلگرها را همین حالا بدوان».');
   }
   var bl = srcBlocked_(), nb = 0;
   for (var b in bl) if (bl.hasOwnProperty(b)) nb++;

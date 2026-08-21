@@ -589,4 +589,80 @@ console.log('\n=== ۱۳. اطلاع‌رسانی و ثبت در شیت ===');
   props_().deleteProperty(PK.SRCSCRIPT_INST);
 }
 
+
+/* ۱۴. همان وضعیتی که واقعاً پیش آمد.
+
+   کدِ تازه در همان دورِ شبانه نصب می‌شود که خودش تمام شده، پس چرخه‌ای که امشب
+   رسیده تا فردا شب اجرا نمی‌شود. صاحبِ پروژه منتظرِ پیامی می‌ماند که قرار نبوده
+   بیاید. دکمهٔ «همین حالا بدوان» همان فاصله را پر می‌کند — و این آزمون روی یک
+   مُهرِ بازسازی‌شده (بی‌عکسِ پیش از نصب) می‌دواندش، چون دقیقاً همان چیزی است که
+   در تولید هست.                                                              */
+console.log('\n=== ۱۴. دواندنِ چرخه با دست، روی مُهرِ بازسازی‌شده ===');
+{
+  const shaOf = t => require('crypto').createHash('sha256').update(t, 'utf8').digest('hex');
+  const LIVEJS = 'function a(){}\nfunction b(){}';
+  const MAN = { target: 'تحلیلگرِ عکس', version: '1.1', codeFile: 'analyzer.gs',
+                sha256: shaOf(LIVEJS), baseSha256: shaOf('کدِ قدیمی'),
+                requiredFunctions: ['function a'],
+                resolves: [{ id: 'parts', match: "reading '?parts'?", title: 'کرشِ parts' },
+                           { id: 'storm', storm: true, title: 'طوفانِ تلاشِ دوباره' }] };
+  CFG.SOURCE_SCRIPTS = [{ key: 'photo', name: 'تحلیلگرِ عکس', errSource: 'RESULT-PHOTO',
+                          scriptId: 'S1', sheetId: SHEET }];
+  const HOUR = 3600000, NOW = new Date().getTime();
+  const stampOf = ms => Utilities.formatDate(new Date(ms), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+
+  // مُهرِ بازسازی‌شده: زمان دارد، ولی نه عکسِ پیش از نصب و نه نامِ پشتیبان
+  props_().setProperty(PK.SRCSCRIPT_INST, JSON.stringify({
+    photo: { version: '1.1', sha: MAN.sha256, at: stampOf(NOW - 48 * HOUR),
+             ms: NOW - 48 * HOUR, backfilled: true } }));
+  props_().deleteProperty(PK.SRCSCRIPT_BLOCK);
+
+  let rows = [
+    [stampOf(NOW - 60 * HOUR), 'RESULT-PHOTO (عکس)', 'Sheet1', 1, 'F1', 'وضعیت ناموفق',
+     "TypeError: Cannot read properties of undefined (reading 'parts')", ''],
+    [stampOf(NOW - 22 * HOUR), 'RESULT-PHOTO (عکس)', 'Sheet1', 2, 'F2', 'ناتوانی در تحلیل',
+     'تصویر حاوی موضوع حساس سیاسی است', ''],
+    [stampOf(NOW - 5 * HOUR), 'RESULT-VIDEO', 'Audio Analysis', 3, 'F3', 'خطای اجرا',
+     'TypeError: مالِ اسکریپتِ دیگری', '']
+  ];
+  const hub = { getSheetByName: n => n !== CFG.SRC_ERR_TAB ? null : {
+      getLastRow: () => rows.length + 1,
+      getRange: (r, c, k, w) => ({ getValues: () =>
+        rows.slice(r - 2, r - 2 + k).map(x => x.slice(c - 1, c - 1 + w)) }) } };
+
+  const prev = global.__STUB;
+  let puts = 0;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('manifest.json') !== -1) return { code: 200, text: JSON.stringify(MAN) };
+    if (url.indexOf('analyzer.gs') !== -1)   return { code: 200, text: LIVEJS };
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) { puts++; return { code: 200, json: {} }; }
+      return { code: 200, json: { parentId: SHEET,
+               files: [{ name: 'Code', type: 'SERVER_JS', source: LIVEJS }] } };
+    }
+    return prev(url, body);
+  };
+  const realHub = global.getHub_;
+  global.getHub_ = () => hub;
+
+  let un = quiet(); const r = runSourceCycleNow(); un();
+  const v = r.verdicts[0];
+  ok('۱۴.۱ داوری همین حالا انجام شد', !!v && v.state !== 'زود است', JSON.stringify(v && v.state));
+  ok('۱۴.۲ کرشِ parts برطرف اعلام شد (پیش از نصب بوده، پس از آن نه)',
+     v.sig.find(x => x.id === 'parts').fixed === true);
+  ok('۱۴.۳ بی‌عکسِ پیش از نصب، «بدتر شد» ادعا نمی‌شود',
+     v.rateWas === null && v.state !== 'برگشت خورد', 'rateWas=' + v.rateWas);
+  ok('۱۴.۴ خطای شیتِ دیگر به پای این تحلیلگر نوشته نشد', v.rows === 1, 'rows=' + v.rows);
+  ok('۱۴.۵ ردِ مدل «کدی» حساب نشد', v.code === 0, 'code=' + v.code);
+  ok('۱۴.۶ نصبِ تازه‌ای لازم نبود و چیزی نوشته نشد',
+     puts === 0 && r.installs.every(x => !x.ok));
+
+  // ردِ مدل با توضیحِ فارسی دیگر «دسته‌بندی‌نشده» نیست
+  const k = srcErrKind_('تصویر حاوی موضوع حساس سیاسی است', 'ناتوانی در تحلیل');
+  ok('۱۴.۷ ردِ مدل با توضیحِ فارسی هم شناخته می‌شود', k.kind === 'model', k.label);
+
+  global.__STUB = prev; global.getHub_ = realHub;
+  props_().deleteProperty(PK.SRCSCRIPT_INST);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ وارسیِ اسکریپت‌های منبع گذشت.');
