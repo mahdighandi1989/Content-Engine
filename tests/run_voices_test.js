@@ -316,4 +316,61 @@ console.log('\n=== 8. نقش‌گزینی وسطِ صداگذاری عوض نم�
 }
 
 
+/* ویرایشِ فهرستِ گویندگانِ کنارگذاشته‌شده.
+
+   کادر همیشه «جایگزین» می‌کرد: برای برگرداندنِ یک نفر باید نامِ همهٔ بقیه از نو
+   نوشته می‌شد، و یک قلم‌افتادگی یعنی برگشتنِ ناخواستهٔ یک صدای بد. حالا «-» و
+   «+» هم هست، ولی رفتارِ قدیم باید دست‌نخورده بماند وگرنه هر کسی که فهرستِ
+   کامل می‌نویسد غافلگیر می‌شود.                                                */
+{
+  const base = 'Autonoe, Aoede, Kore, Sulafat, Orus';
+  const j = r => r.list.join(',');
+
+  const rep = applyBlockEdit_(base, 'Autonoe, Aoede');
+  ok('فهرستِ بی‌پیشوند همچنان جایگزین می‌کند',
+     j(rep) === 'Autonoe,Aoede' && rep.mode === 'جایگزینی', j(rep));
+
+  const del = applyBlockEdit_(base, '-Kore');
+  ok('«-» یک نفر را برمی‌گرداند و بقیه دست‌نخورده می‌مانند',
+     j(del) === 'Autonoe,Aoede,Sulafat,Orus', j(del));
+
+  const add = applyBlockEdit_(base, '+Charon');
+  ok('«+» یک نفر را اضافه می‌کند', j(add) === base.split(', ').join(',') + ',Charon', j(add));
+
+  const both = applyBlockEdit_(base, '-Kore, +Charon');
+  ok('«-» و «+» با هم کار می‌کنند',
+     j(both) === 'Autonoe,Aoede,Sulafat,Orus,Charon', j(both));
+
+  const clear = applyBlockEdit_(base, '');
+  ok('کادرِ خالی همه را برمی‌گرداند', clear.list.length === 0);
+
+  const typo = applyBlockEdit_(base, 'Kore, Koreh');
+  ok('نامِ اشتباه وارد فهرست نمی‌شود', j(typo) === 'Kore', j(typo));
+  ok('و جدا گزارش می‌شود تا بی‌صدا نماند',
+     typo.unknown.length === 1 && typo.unknown[0] === 'Koreh');
+
+  const typo2 = applyBlockEdit_(base, '-Koreh');
+  ok('«-»ی اشتباه هم فهرست را دست نمی‌زند',
+     j(typo2) === base.split(', ').join(',') && typo2.unknown.length === 1, j(typo2));
+
+  const noop = applyBlockEdit_(base, '-Puck');
+  ok('برگرداندنِ کسی که مسدود نبوده، بی‌اثر است',
+     j(noop) === base.split(', ').join(','), j(noop));
+
+  const dup = applyBlockEdit_(base, '+Kore');
+  ok('افزودنِ کسی که از قبل هست، تکراری نمی‌سازد',
+     j(dup) === base.split(', ').join(','), j(dup));
+
+  // و آنچه ماند باید واقعاً در نقش‌گزینی به کار برود
+  global.__PROPS[PK.VOICE_BLOCK] = del.list.join(',');
+  const ep = { sections: [{ heading: 'a', narration: 'م' }, { heading: 'b', narration: 'م' }] };
+  const cast = ensureCast_(ep, 'special', 21, 'علمی و آموزشی');
+  ok('گویندهٔ برگردانده‌شده دوباره قابلِ انتخاب است (مسدود نمی‌ماند)',
+     del.list.indexOf('Kore') === -1 &&
+     (cast.all || []).every(v => del.list.indexOf(v) === -1),
+     (cast.all || []).join(', '));
+  global.__PROPS[PK.VOICE_BLOCK] = '';
+}
+
+
 process.exit(summary('نقش‌گزینیِ گویندگان و تلفظ') ? 1 : 0);

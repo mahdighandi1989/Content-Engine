@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.37
+ *  موتور محتوا و پادکست — نسخهٔ 5.38
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -507,7 +507,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.37',
+  CODE_VERSION: '5.38',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -16822,37 +16822,87 @@ function runVoiceAudition() {
            folder: folder ? folder.getUrl() : '' };
 }
 
+/**
+ * ویرایشِ فهرستِ کنارگذاشته‌شده‌ها — جایگزین یا افزودن/برداشتن.
+ *
+ * پیش از این کادر همیشه «جایگزین» می‌کرد: برای برگرداندنِ یک نفر باید نامِ همهٔ
+ * بقیه را از نو می‌نوشتی، و یک قلم‌افتادگی یعنی برگشتنِ ناخواستهٔ یک صدای بد.
+ *
+ * حالا اگر هیچ نامی پیشوند نداشته باشد، همان رفتارِ قدیم است (جایگزینیِ کامل).
+ * اگر دستِ‌کم یک نام با «-» یا «+» شروع شود، کلِ ورودی «ویرایشی» خوانده می‌شود:
+ * «-» برمی‌گرداند و «+» (یا بی‌پیشوند) کنار می‌گذارد. این‌طور «-Kore» به‌تنهایی
+ * یعنی «Kore برگردد» و بقیه دست‌نخورده می‌مانند.
+ *
+ * نامِ ناشناس هرگز وارد فهرست نمی‌شود و جدا گزارش می‌شود، تا یک غلطِ تایپی نه
+ * بی‌صدا بماند و نه فهرست را خراب کند.
+ */
+function applyBlockEdit_(current, input) {
+  var cur = [];
+  var c = String(current || '').split(',');
+  for (var a = 0; a < c.length; a++) { var t = c[a].trim(); if (t) cur.push(t); }
+
+  var parts = String(input || '').split(',');
+  var items = [], incremental = false;
+  for (var i = 0; i < parts.length; i++) {
+    var raw = parts[i].trim();
+    if (!raw) continue;
+    var sign = '';
+    if (raw.charAt(0) === '-' || raw.charAt(0) === '+') { sign = raw.charAt(0); raw = raw.slice(1).trim(); }
+    if (sign) incremental = true;
+    if (raw) items.push({ sign: sign, name: raw });
+  }
+
+  var unknown = [], out;
+  if (!incremental) {
+    out = [];
+    for (var j = 0; j < items.length; j++) {
+      if (idxOfVoice_(items[j].name) >= 0) {
+        if (out.indexOf(items[j].name) === -1) out.push(items[j].name);
+      } else unknown.push(items[j].name);
+    }
+    return { list: out, unknown: unknown, mode: 'جایگزینی' };
+  }
+
+  out = cur.slice();
+  for (var k = 0; k < items.length; k++) {
+    var nm = items[k].name;
+    if (idxOfVoice_(nm) < 0) { unknown.push(nm); continue; }
+    var at = out.indexOf(nm);
+    if (items[k].sign === '-') { if (at !== -1) out.splice(at, 1); }
+    else if (at === -1) out.push(nm);
+  }
+  return { list: out, unknown: unknown, mode: 'ویرایش' };
+}
+
 /** منو: کنار گذاشتن (یا برگرداندنِ) یک گوینده. */
 function runBlockVoice() {
   var ui = ui_();
   if (!ui) return { ok: false };
   var cur = String(props_().getProperty(PK.VOICE_BLOCK) || '');
   var r = ui.prompt('کنار گذاشتنِ گوینده',
-    'نامِ گویندگانی که نمی‌خواهید استفاده شوند را با کاما بنویسید.\n' +
-    'فهرستِ فعلی: ' + (cur || '(خالی)') + '\n\n' +
-    'گویندگانِ موجود: ' + TTS_VOICES.map(function (v) { return v.n; }).join('، ') + '\n\n' +
-    'برای برگرداندنِ همه، این کادر را خالی بگذارید و تأیید کنید.',
+    'فهرستِ فعلی:  ' + (cur || '(خالی)') + '\n\n' +
+    'سه کار می‌شود کرد:\n' +
+    '۱) فهرستِ کامل را با کاما بنویسید — جایگزینِ فهرستِ فعلی می‌شود.\n' +
+    '۲) برای برگرداندنِ یکی، فقط بنویسید:  -نامِ‌گوینده   (بقیه دست‌نخورده می‌مانند)\n' +
+    '۳) برای افزودنِ یکی، فقط بنویسید:  +نامِ‌گوینده\n\n' +
+    'کادرِ خالی + تأیید = همه برمی‌گردند.\n' +
+    'نامِ اشتباه پذیرفته نمی‌شود و جدا به شما گفته می‌شود.\n\n' +
+    'گویندگانِ موجود: ' + TTS_VOICES.map(function (v) { return v.n; }).join('، '),
     ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return { ok: false };
   var txt = String(r.getResponseText() || '').trim();
-  // فقط نام‌های شناخته‌شده پذیرفته می‌شوند، تا یک غلطِ تایپی همهٔ صداها را
-  // کنار نگذارد یا فهرست را با چیزهای بی‌معنی پر نکند.
-  var good = [], unknown = [];
-  var parts = txt.split(',');
-  for (var i = 0; i < parts.length; i++) {
-    var n = parts[i].trim();
-    if (!n) continue;
-    if (idxOfVoice_(n) >= 0) { if (good.indexOf(n) === -1) good.push(n); }
-    else unknown.push(n);
-  }
+  var edit = applyBlockEdit_(cur, txt);
+  var good = edit.list, unknown = edit.unknown;
   if (good.length >= TTS_VOICES.length) {
     ui.alert('همهٔ گویندگان را نمی‌شود کنار گذاشت؛ دست‌کم یکی باید بماند.');
     return { ok: false };
   }
   props_().setProperty(PK.VOICE_BLOCK, good.join(','));
   logLine_('گویندگانِ کنارگذاشته‌شده: ' + (good.join('، ') || '(هیچ)'));
-  ui.alert('ثبت شد', 'کنارگذاشته‌شده: ' + (good.join('، ') || '(هیچ)') +
-           (unknown.length ? '\n\nنامِ ناشناس (نادیده گرفته شد): ' + unknown.join('، ') : '') +
+  ui.alert('ثبت شد', 'کنارگذاشته‌شده (' + good.length + ' نفر): ' + (good.join('، ') || '(هیچ)') +
+           '\nدر گردشِ گویندگان می‌مانند: ' + (TTS_VOICES.length - good.length) + ' نفر' +
+           (unknown.length ? '\n\n⚠️ نامِ ناشناس، پذیرفته نشد: ' + unknown.join('، ') +
+                             '\nاملای درست را از فهرستِ همان کادر بردارید.' : '') +
            '\n\nاز قسمتِ بعد اعمال می‌شود.', ui.ButtonSet.OK);
   return { ok: true, blocked: good, unknown: unknown };
 }
