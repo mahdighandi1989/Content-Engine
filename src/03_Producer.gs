@@ -2813,7 +2813,19 @@ function episodeNarration_(ep) {
  * مرحلهٔ ۱: انتخاب محتوا، نگارش متن، ثبت در شیت. سریع است و در یک اجرا تمام می‌شود.
  * سپس ساخت صدا شروع می‌شود و اگر وقت کم بیاید، خودکار ادامه پیدا می‌کند.
  */
-function produceEpisode() {
+function produceEpisode(opt) {
+  opt = opt || {};
+  // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
+  // همیشه اجازه دارد. تریگرهای گوگل یک شیءِ رویداد پاس می‌دهند که manual
+  // ندارد، پس همان مسیرِ خودکار شمرده می‌شود.
+  // فراخوانِ رو به جلو (۳ → ۲۵) پس در try است؛ و اگر تقویم بترکد، تولید
+  // ادامه می‌یابد — سکوتِ ناخواسته بدتر از یک قسمتِ اضافه است.
+  if (!opt.manual) {
+    try {
+      var g = calGate_(ENRICH_SHOW_VARIETY, CFG.SHOW_NAME);
+      if (g && g.ok === false) return { ok: false, reason: 'calendar', why: g.why };
+    } catch (eCal) { logLine_('تقویمِ تولید وارسی نشد: ' + eCal.message); }
+  }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
     logLine_('تولید: اسکریپت دیگری در حال اجراست (احتمالاً همگام‌سازی)؛ فعلاً رد شد.');

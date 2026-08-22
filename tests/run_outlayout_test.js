@@ -12,7 +12,7 @@ const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04
   '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
   '10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs','14_Special.gs',
   '15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs',
-  '21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs'];
+  '21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs'];
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
 (0, eval)(src);
 
@@ -229,6 +229,51 @@ console.log('=== ۸٫۶) یادآورِ تازگیِ دستور — که خود�
   // بدهی فقط جلو می‌رود
   promptDueSet_('5.10');
   ok('۸٫۶-ز بدهی عقب نمی‌آید', promptFreshStatus_().due === '5.48');
+
+  /* بدهیِ خانواده‌دار (۵٫۵۲).
+   *
+   * تا اینجا بدهی همهٔ خانواده‌ها را با هم کهنه می‌کرد. یعنی تقویمِ ۵٫۵۲ که
+   * فقط به کارِ ناظر ربط دارد، تسکِ غنی‌سازی را هم کهنه اعلام می‌کرد و هر شب
+   * یک ردیفِ دروغ می‌ساخت. هشداری که برای هیچ می‌آید، همان است که آدم یاد
+   * می‌گیرد نادیده بگیرد — و آن‌وقت هشدارِ واقعی هم گم می‌شود. */
+  delete global.__PROPS[PK.PROMPT_DUE];
+  delete global.__PROPS[PK.PROMPT_DUE_KINDS];
+  promptDueSet_('5.52', ['monitor']);
+  const sK = promptFreshStatus_();
+  ok('۸٫۶-ط بدهیِ خانواده‌دار فقط همان خانواده را کهنه می‌کند',
+     sK.stale.join() === 'monitor', JSON.stringify(sK.families));
+  ok('۸٫۶-ی و خانواده‌های هدف در وضعیت دیده می‌شوند',
+     sK.kinds.join() === 'monitor', JSON.stringify(sK.kinds));
+
+  // خالی یعنی «نمی‌دانم، پس همه» — محافظه‌کارانه، مثلِ رفتارِ پیش از ۵٫۵۲
+  delete global.__PROPS[PK.PROMPT_DUE];
+  delete global.__PROPS[PK.PROMPT_DUE_KINDS];
+  promptDueSet_('5.52');
+  ok('۸٫۶-ک بی اعلامِ خانواده، همه کهنه‌اند',
+     promptFreshStatus_().stale.length === 2, JSON.stringify(promptFreshStatus_().stale));
+
+  /* و آن سرِ دیگرِ ماجرا: نسخه‌ای با promptImpactِ خالی اصلاً نباید بدهی
+   * بسازد. پیشتر هر نصبی بدهی می‌ساخت، پس ۵٫۴۹ و ۵٫۵۰ و ۵٫۵۱ — هیچ‌کدام
+   * مربوط به دستورها — هم فایلِ تازه می‌خواستند. */
+  {
+    const realMan = global.readCodeManifest_;
+    const realTg = global.tgSend_, realMail = global.MailApp;
+    global.tgSend_ = () => {}; global.MailApp = { sendEmail: () => {} };
+    global.readCodeManifest_ = () => ({ info: { version: '9.9' }, file: null });
+    const r0 = promptImpactNotice_('9.9');
+    ok('۸٫۶-ل نسخهٔ بی‌اثر بدهی نمی‌سازد', r0.sent === false);
+    global.readCodeManifest_ = () => ({ info: { version: '9.9',
+      promptImpact: ['یک چیز'], promptImpactKinds: ['enrich'] }, file: null });
+    const r1 = promptImpactNotice_('9.9');
+    ok('۸٫۶-م و خانواده‌ها از manifest می‌آیند',
+       r1.sent === true && r1.kinds.join() === 'enrich', JSON.stringify(r1.kinds));
+    global.readCodeManifest_ = realMan;
+    global.tgSend_ = realTg; global.MailApp = realMail;
+  }
+
+  // وضع را برای سنجه‌های بعدی به همان حالِ قبل برگردان
+  delete global.__PROPS[PK.PROMPT_DUE_KINDS];
+  global.__PROPS[PK.PROMPT_DUE] = '5.48';
 
   // و مهم‌ترین سنجه: ردیفی که این یادآور می‌سازد نباید با نصبِ کد بسته شود.
   // نسخهٔ قبلیِ این یادآور شمارهٔ نسخه در عنوانش داشت و دقیقاً همین بلا سرش آمد.

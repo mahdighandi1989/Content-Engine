@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 24 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 26 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 24 numbered sections — the source of truth for the code
+src/                 26 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 31 run_*.js suites
+tests/               the 34 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
@@ -75,6 +75,12 @@ copy to the Drive «کدها» folder.
    From 5.48 the engine enforces this: on install it records the version as a
    debt (`PK.PROMPT_DUE`), and `promptFreshNag_` compares that debt against each
    prompt's declared version **every night** until a new file clears it.
+   From 5.52 the debt is narrower in two ways, so the nag stays credible: a
+   version with an empty `promptImpact` records no debt at all (before that,
+   5.49–5.51 all demanded new prompt files while touching nothing prompts rely
+   on), and `promptImpactKinds` (e.g. `["monitor"]`) names which families the
+   debt applies to — omit it and it means all of them. A warning that fires for
+   nothing is the warning people learn to ignore.
    The pre-5.48 reminder put the version in its own title, so
    `codeRowSatisfied_` closed it the night the code installed — it warned once
    and went quiet forever. That is exactly how 5.46 shipped with a stale prompt.
@@ -238,6 +244,38 @@ Prompt texts live in Drive (`_PROMPT-*-v<N>.md`, append-only — a new version i
 new file, never an overwrite). A copy of each goes in `docs/prompts/` so git has
 the history.
 
+## Production calendar (section 25)
+The owner's only way to stop a show used to be deleting its trigger — manual,
+and easy to forget to undo. The «تقویمِ تولید» tab in the hub now holds one row
+per show: «فعال» (بله/خیر), «روزهای هفته», «استثناها», and «آخرین تصمیم».
+
+`calGate_(key, name)` runs at the top of `produceEpisode` and
+`produceSpecialEpisode` and returns `{ok, why}`. Three things about it matter:
+
+- **It writes its decision back into the row, every run.** That column is the
+  only honest answer to "did my setting actually take effect?" — the engine
+  shows rather than claims. A missing decision for today means the trigger
+  never fired, which is a different (and worse) problem than a paused show.
+- **It fails open.** If the tab can't be read the episode is still produced and
+  the failure is logged. An unintended silent podcast is worse than an extra
+  episode, and nobody notices silence for days.
+- **There is no list of shows anywhere in section 25.** An unknown key creates
+  its own row defaulting to «فعال / همه», so the next podcast appears in the
+  calendar with no code change. `run_calendar_test.js` ۶ asserts this with a
+  key that doesn't exist yet.
+
+Manual runs pass `{manual: true}` and skip the gate — the owner pressing the
+button has already decided. `produceEpisodeContinue` deliberately skips it too:
+an episode started yesterday must be allowed to finish today.
+
+Exceptions accept Jalali (`۱۴۰۵/۰۶/۱۰ تا ۱۴۰۵/۰۶/۲۰ = تعطیل`) and Gregorian
+dates, Persian or Latin digits. A `= فعال` line beats a `= تعطیل` one and even
+overrides the weekday filter, so one day can be reopened inside a long break
+without deleting the whole range.
+
+Note `faNumber_` spells numbers as words («هزار و چهارصد و پنج») — the date
+column uses `faDigitsOut_`.
+
 ## Dead code is the failure mode here
 Three real bugs in this repo were all the same shape: a function written,
 commented, and unit-tested — but never called. `sfxAllow_` guarded effects
@@ -247,6 +285,14 @@ behind an early return so an empty bank could never bootstrap itself. None
 raised an error. `tests/run_wiring_test.js` now fails if any private
 (`name_`) function has no caller, and asserts the specific call sites that
 carry a promise to the user. Add to its LEGACY allowlist only with a reason.
+
+A fourth shape joined them in 5.52: **a test loader that doesn't know about a
+section.** Most suites list the section files by hand; 21 of them still ended
+at `24_ContentAudit.gs`, so every call into section 25 raised a ReferenceError
+that the surrounding try/catch swallowed. The suites stayed green while the
+real path was never exercised once. `run_wiring_test.js` ۴.۱/۴.۲ now fail if
+`tools/build.js` or any hand-listed loader is missing a file that exists in
+`src/`.
 
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.

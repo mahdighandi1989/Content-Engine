@@ -3,9 +3,6 @@
 require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread } = require('./lib/mock.js');
-const DIR = 'src/';
-const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
-               '05_Setup.gs','06_Models.gs','07_Telegram.gs'];
 let src = fs.readFileSync('engine.gs','utf8');
 (0, eval)(src);
 

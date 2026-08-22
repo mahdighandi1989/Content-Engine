@@ -4,8 +4,6 @@ const fs = require('fs');
 const { Spread, Sheet } = require('./lib/mock.js');
 
 // ---- load the actual .gs sources ----
-const DIR = 'src/';
-const FILES = ['00_Config.gs', '01_Taxonomy.gs', '02_Sync.gs', '03_Producer.gs', '04_Mailer.gs', '05_Setup.gs'];
 let src = '';
 src = fs.readFileSync('engine.gs','utf8');
 (0, eval)(src);

@@ -782,7 +782,8 @@ function runProduceEnriched_(show) {
   setEnrichForce_();
   var r;
   try {
-    r = (show === ENRICH_SHOW_SPECIAL) ? produceSpecialEpisode() : produceEpisode();
+    r = (show === ENRICH_SHOW_SPECIAL) ? produceSpecialEpisode({ manual: true })
+                                       : produceEpisode({ manual: true });
   } catch (e) {
     r = { ok: false, reason: 'error', detail: e.message };
   }

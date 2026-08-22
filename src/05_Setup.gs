@@ -31,6 +31,7 @@ function onOpen() {
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
+      .addItem('📅 تقویمِ تولید — توقف، روزها و استثناها', 'runProductionCalendar')
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')
@@ -317,7 +318,7 @@ function runProduceSpecial() {
     }
   } catch (ePre) {}
   var r;
-  try { r = produceSpecialEpisode() || { ok: false, reason: 'unknown' }; }
+  try { r = produceSpecialEpisode({ manual: true }) || { ok: false, reason: 'unknown' }; }
   catch (e) { r = { ok: false, reason: 'error', detail: e.message }; }
   var m;
   if (r.audioOnly || (pendingBefore && r.reason === 'audio-pending')) {
@@ -356,8 +357,8 @@ function runProduceSpecial() {
 
 function runProduceBoth() {
   var a, b;
-  try { a = produceEpisode(); } catch (e) { a = { ok: false, reason: 'error', detail: e.message }; }
-  try { b = produceSpecialEpisode(); } catch (e2) { b = { ok: false, reason: 'error', detail: e2.message }; }
+  try { a = produceEpisode({ manual: true }); } catch (e) { a = { ok: false, reason: 'error', detail: e.message }; }
+  try { b = produceSpecialEpisode({ manual: true }); } catch (e2) { b = { ok: false, reason: 'error', detail: e2.message }; }
   var m = 'از همه جا از همه رنگ: ' +
           (a && a.ok ? 'قسمت ' + a.episode + ' نوشته شد' : 'انجام نشد (' +
             ((a && a.reason) || '—') + ')') + '\n' +
@@ -392,7 +393,7 @@ function runScanSeries() {
 
 function runProduceNow() {
   var ui = ui_();
-  var r = produceEpisode() || { ok: false, reason: 'unknown' };
+  var r = produceEpisode({ manual: true }) || { ok: false, reason: 'unknown' };
   var m;
   if (r.ok === false && r.reason === 'busy')
     m = 'الان همگام‌سازی در حال اجراست و قفل اسکریپت را گرفته.\n\n' +

@@ -612,10 +612,17 @@ function afterCodeSwap() {
   // promptImpact نوشته است. آن‌جا چیزی هست یعنی «دستورِ روتین هم باید عوض شود»،
   // و این چیزی است که هیچ‌کس خودبه‌خود نمی‌فهمد: کد عوض می‌شود، روتین سرِ جایش
   // می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
-  try { promptImpactNotice_(want); } catch (ePI) {}
   // و مهم‌تر از خبردادن: ثبتِ «بدهی». خبر یک‌بار می‌آید و رد می‌شود؛ این عدد
   // می‌ماند تا وقتی فایلِ دستور در درایو خودش را با آن هماهنگ کند.
-  try { promptDueSet_(want); } catch (ePD) {}
+  //
+  // بدهی فقط وقتی ثبت می‌شود که خودِ نسخه اعلام کرده باشد چیزی را لمس کرده
+  // (promptImpact خالی نباشد). پیشتر هر نصبی بدهی می‌ساخت، پس ۵٫۴۹ و ۵٫۵۰ و
+  // ۵٫۵۱ — که هیچ‌کدام به دستورها ربطی نداشتند — هم می‌خواستند فایلِ تازه.
+  // هشداری که برای هیچ می‌آید، هشداری است که کسی جدی‌اش نمی‌گیرد.
+  try {
+    var pi = promptImpactNotice_(want);
+    if (pi && pi.sent) promptDueSet_(want, pi.kinds);
+  } catch (ePI) {}
 
   // ردیف‌های گزارش: «کد نصب شد — در انتظارِ تأییدِ ناظر»
   var marked = 0;
@@ -879,16 +886,36 @@ function selfUpdateStatus_() {
 
 var PROMPT_FOR_RE = /برای\s+نسخهٔ?\s*موتور\s*:\s*v?([0-9.]+)/;
 
-/** بدهی را ثبت می‌کند؛ فقط جلو می‌رود، هرگز عقب نمی‌آید. */
-function promptDueSet_(version) {
+/**
+ * بدهی را ثبت می‌کند؛ فقط جلو می‌رود، هرگز عقب نمی‌آید.
+ *
+ * `kinds` می‌گوید کدام خانواده‌های دستور را این نسخه لمس کرده — مثلاً
+ * ['monitor']. خالی یعنی «نمی‌دانم، پس همه» که محافظه‌کارانه است.
+ * بی این، تقویمِ ۵٫۵۲ که فقط به کارِ ناظر ربط دارد، تسکِ غنی‌سازی را هم کهنه
+ * اعلام می‌کرد و هر شب یک هشدارِ دروغ می‌ساخت — و مکانیزمی که گرگ‌گرگ می‌کند،
+ * همان مکانیزمی است که آدم یاد می‌گیرد نادیده‌اش بگیرد.
+ */
+function promptDueSet_(version, kinds) {
   var v = String(version || '').trim();
   if (!v) return '';
+  var ks = (kinds || []).map(function (k) { return String(k).trim(); })
+                        .filter(function (k) { return !!k; });
   try {
     var cur = String(props_().getProperty(PK.PROMPT_DUE) || '');
     if (cur && verCmp_(v, cur) <= 0) return cur;
     props_().setProperty(PK.PROMPT_DUE, v);
+    props_().setProperty(PK.PROMPT_DUE_KINDS, ks.join(','));
     return v;
   } catch (e) { return ''; }
+}
+
+/** خانواده‌هایی که بدهیِ جاری به آن‌ها مربوط است. خالی یعنی همه. */
+function promptDueKinds_() {
+  try {
+    return String(props_().getProperty(PK.PROMPT_DUE_KINDS) || '')
+      .split(',').map(function (k) { return k.trim(); })
+      .filter(function (k) { return !!k; });
+  } catch (e) { return []; }
 }
 
 /** «برای نسخهٔ موتور: x.y» را از سرِ فایل می‌خواند. نبودش یعنی نامعلوم. */
@@ -905,8 +932,9 @@ function promptDeclaredVer_(file) {
  * {due, families:[{kind, n, forVer, stale}], stale:[…]}
  */
 function promptFreshStatus_() {
-  var out = { due: '', families: [], stale: [] };
+  var out = { due: '', kinds: [], families: [], stale: [] };
   try { out.due = String(props_().getProperty(PK.PROMPT_DUE) || ''); } catch (e0) {}
+  out.kinds = promptDueKinds_();
   var top = Object.create(null);
   try {
     var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFiles();
@@ -924,7 +952,9 @@ function promptFreshStatus_() {
     if (!Object.prototype.hasOwnProperty.call(top, k)) continue;
     var forVer = promptDeclaredVer_(top[k].file);
     // بی بدهی، هیچ‌چیز کهنه نیست — نبودِ اعلام به‌تنهایی ایراد نیست.
-    var stale = !!out.due && (!forVer || verCmp_(forVer, out.due) < 0);
+    // و اگر بدهی خانوادهٔ هدف دارد، خانوادهٔ بیرونِ آن فهرست دست‌نخورده است.
+    var mine = !out.kinds.length || out.kinds.indexOf(k) !== -1;
+    var stale = !!out.due && mine && (!forVer || verCmp_(forVer, out.due) < 0);
     out.families.push({ kind: k, n: top[k].n, forVer: forVer || '—', stale: stale });
     if (stale) out.stale.push(k);
   }
@@ -965,7 +995,8 @@ function promptFreshNag_() {
 function promptImpactNotice_(version) {
   var got = readCodeManifest_();
   var list = (got && got.info && got.info.promptImpact) || [];
-  if (!list.length) return { sent: false };
+  var kinds = (got && got.info && got.info.promptImpactKinds) || [];
+  if (!list.length) return { sent: false, kinds: kinds };
 
   var body = 'نسخهٔ ' + version + ' چیزهایی را عوض کرده که دستورِ روتین‌ها و تسک‌ها ' +
              'به آن‌ها تکیه دارند:\n\n• ' + list.join('\n• ') +
@@ -989,5 +1020,5 @@ function promptImpactNotice_(version) {
       owner: ROWNER_ENGSRC });
   } catch (e3) {}
   logLine_('اثرِ نسخهٔ ' + version + ' بر دستورِ روتین‌ها اعلام شد: ' + list.length + ' مورد.');
-  return { sent: true, items: list };
+  return { sent: true, items: list, kinds: kinds };
 }

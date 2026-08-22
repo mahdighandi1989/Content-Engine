@@ -672,8 +672,17 @@ function recapTextOf_(rec) {
   return lines.slice(-CFG.SPECIAL_RECAP_EPISODES).join('\n');
 }
 
-function produceSpecialEpisode() {
+function produceSpecialEpisode(opt) {
+  opt = opt || {};
   if (!CFG.SPECIAL_ENABLED) return { ok: false, reason: 'disabled' };
+  // همان دروازهٔ «از همه جا از همه رنگ»، با کلیدِ خودش. ردیفِ این برنامه در
+  // تقویم با نخستین اجرا ساخته می‌شود.
+  if (!opt.manual) {
+    try {
+      var g = calGate_(ENRICH_SHOW_SPECIAL, CFG.SPECIAL_SHOW_NAME);
+      if (g && g.ok === false) return { ok: false, reason: 'calendar', why: g.why };
+    } catch (eCal) { logLine_('تقویمِ تولید وارسی نشد: ' + eCal.message); }
+  }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
     logLine_('درس‌نامه: اسکریپت دیگری در حال اجراست؛ فعلاً رد شد.');

@@ -83,4 +83,33 @@ for (const [key, what] of [['auditSnap_', 'عکسِ محتوا'],
      'از‌همه‌جا=' + (v.indexOf(key) !== -1) + ' درس‌نامه=' + (sp.indexOf(key) !== -1));
 }
 
+console.log('=== ۴) هیچ بارگذاری از بخشی جا نمانده باشد ===');
+// چرا: بیشترِ آزمون‌ها فهرستِ دستیِ بخش‌ها دارند. وقتی بخشِ تازه‌ای اضافه
+// می‌شود و به آن فهرست‌ها نمی‌رود، فراخوان‌هایش ReferenceError می‌دهند و در try/catch
+// بلعیده می‌شوند — یعنی آزمون سبز می‌ماند و مسیرِ واقعی هرگز سنجیده نمی‌شود.
+// ۵٫۵۲ دقیقاً همین را دید: ۲۱ فایلِ آزمون بخشِ ۲۵ را نمی‌شناختند.
+{
+  const SECTIONS = fs.readdirSync('src').filter(f => /^\d\d_.*\.gs$/.test(f)).sort();
+  const build = fs.readFileSync('tools/build.js', 'utf8');
+  const missingBuild = SECTIONS.filter(f => build.indexOf("'" + f + "'") === -1);
+  ok('۴.۱ tools/build.js همهٔ بخش‌ها را می‌سازد',
+     missingBuild.length === 0, missingBuild.join(', '));
+
+  const TESTS = fs.readdirSync('tests').filter(f => /^run_.*\.js$/.test(f)).sort();
+  const bad = [];
+  for (const t of TESTS) {
+    const txt = fs.readFileSync('tests/' + t, 'utf8');
+    if (t === 'run_wiring_test.js') continue;                       // خودِ همین فایل
+    // فقط آزمونی که بخش‌ها را با فهرستِ دستی از src/ می‌خواند. آن‌هایی که
+    // engine.gs را eval می‌کنند یا readdirSync می‌زنند، خودبه‌خود کامل‌اند.
+    if (!/readFileSync\((DIR|'src\/')\s*\+/.test(txt)) continue;
+    if (/readdirSync\('src'\)/.test(txt)) continue;                // خودش پوشه را می‌خواند
+    const miss = SECTIONS.filter(f => txt.indexOf("'" + f + "'") === -1);
+    if (miss.length) bad.push(t + ' ← ' + miss.join(', '));
+  }
+  ok('۴.۲ هر آزمونِ فهرست‌دار، همهٔ بخش‌ها را می‌بارد',
+     bad.length === 0, bad.join(' | '));
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

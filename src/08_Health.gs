@@ -344,6 +344,8 @@ function writeStatus_(hub, note) {
     outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
     // سنجهٔ محتوا: متنِ نهایی در برابرِ متنِ خام — انتخاب، پیوند، وفاداری
     contentAudit: (function () { try { return auditStatus_(); } catch (e) { return null; } })(),
+    // تقویمِ تولید — کدام برنامه امروز ساخته می‌شود و چرا
+    calendar: (function () { try { return calStatus_(); } catch (e) { return null; } })(),
     // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
