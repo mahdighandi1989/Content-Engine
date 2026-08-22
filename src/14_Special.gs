@@ -1071,6 +1071,19 @@ function produceSpecialEpisode() {
       } catch (eL) {}
     }
 
+    // عکسِ محتوا — همان کاری که «از همه جا از همه رنگ» می‌کند، با همان تابع.
+    // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
+    // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
+    try {
+      auditSnap_(ENRICH_SHOW_SPECIAL,
+                 { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
+                   title: ep.title, category: seriesName,
+                   targetMin: CFG.SPECIAL_TARGET_MINUTES },
+                 { hook: ep.hook, outro: ep.outro, connection: ep.recap,
+                   sections: ep.sections },
+                 fakeItems, fid);
+    } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
+
     // ── وارسیِ افشای مکمل ──
     // پرامپت به مدل گفته هر جا از موادِ مکمل استفاده کرد، در همان جمله بگوید
     // که این توضیح خارج از درس است. اگر نگفت، آن مکمل «استفاده‌شده» حساب

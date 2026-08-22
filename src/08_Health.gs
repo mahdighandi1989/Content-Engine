@@ -139,7 +139,8 @@ function outRootFolderNames_() {
   return [
     String(CFG.VARIETY_FOLDER || ''), String(CFG.SPECIAL_FOLDER || ''),
     String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
-    String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || '')
+    String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || ''),
+    String(CFG.AUDIT_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -274,6 +275,8 @@ function writeStatus_(hub, note) {
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),
     // چیدمانِ پوشهٔ OUTPUT — تا ناظر ببیند چه چیزی در ریشه سبز شده
     outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
+    // سنجهٔ محتوا: متنِ نهایی در برابرِ متنِ خام — انتخاب، پیوند، وفاداری
+    contentAudit: (function () { try { return auditStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -407,6 +410,32 @@ function healthCheck() {
       }
     }
   } catch (eLay) {}
+
+  // ۰٫۶) سنجهٔ محتوا — اگر عکس‌ها انباشته شوند یعنی داوری اصلاً اجرا نمی‌شود
+  try {
+    var ca = st.contentAudit || auditStatus_();
+    if (ca && ca.enabled) {
+      if (ca.pending > 6) {
+        problems.push('‏' + ca.pending + ' عکسِ محتوا داوری نشده مانده — یعنی سنجهٔ ' +
+                      'محتوا اجرا نمی‌شود و مقایسهٔ متنِ نهایی با متنِ خام متوقف است.');
+      }
+      for (var ci = 0; ci < (ca.items || []).length; ci++) {
+        var cx = ca.items[ci];
+        if (!cx) continue;
+        if (cx.broken) {
+          problems.push('سنجهٔ محتوا در «' + (cx.showName || cx.show) + '» قسمت ' +
+                        cx.episode + ': ' + cx.broken + ' اِسنادِ شکسته.');
+        } else if (cx.unfaith || cx.fake) {
+          problems.push('سنجهٔ محتوا در «' + (cx.showName || cx.show) + '» قسمت ' +
+                        cx.episode + ' — فراتر از خام: ' + (cx.unfaith || 0) +
+                        '، پیوندِ ساختگی: ' + (cx.fake || 0) + '.');
+        } else if (cx.verdict) {
+          notes.push('سنجهٔ محتوا «' + (cx.showName || cx.show) + '» قسمت ' +
+                     cx.episode + ': ' + cx.verdict + ' (اِسناد ' + cx.attribPct + '٪)');
+        }
+      }
+    }
+  } catch (eCa) {}
 
   // ۱) قسمت اخیر
   var ep = st.lastEpisode;

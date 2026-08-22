@@ -540,6 +540,12 @@ function selfUpdateDaily() {
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
 
+  // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود. پیش از نصبِ کد انجام
+  // می‌شود تا داوریِ قسمت‌هایی که با کدِ امشب ساخته شده‌اند به نسخهٔ همان کد
+  // نسبت داده شود، نه به نسخه‌ای که چند دقیقه بعد نصب می‌شود.
+  try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
+  try { auditPrune_(); } catch (eCP) {}
+
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
 }

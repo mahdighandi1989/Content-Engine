@@ -2975,6 +2975,22 @@ function produceEpisode() {
       } catch (eL) {}
     }
 
+    // عکسِ محتوا: همین‌جا و نه جای دیگر، چون فقط در این نقطه متنِ نهایی و
+    // متن‌های خام هر دو در حافظه‌اند. داوریِ معناییِ آن‌ها فردا انجام می‌شود
+    // (بخش ۲۴) — وسطِ تولید نه وقتش هست نه جایش.
+    // فراخوانِ رو به جلو (۳ → ۲۴) عمداً در try/catch است: در فایلِ سرِهم‌شده
+    // بالا‌بردنِ تعریف‌ها مشکلی نمی‌سازد، ولی بارگذارهای جزئیِ tests/ می‌شکنند.
+    try {
+      auditSnap_(ENRICH_SHOW_VARIETY,
+                 // picked.title نامِ «دسته» است، نه عنوانِ قسمت — همان‌طور که
+                 // ستونِ چهارمِ تبِ پادکست‌ها هم همین را می‌گیرد.
+                 { showName: CFG.SHOW_NAME, episode: epNum, title: ep.title,
+                   category: picked.title, targetMin: CFG.TARGET_MINUTES },
+                 { hook: ep.hook, outro: ep.outro, connection: connection,
+                   sections: ep.sections },
+                 items, fid);
+    } catch (eSn) { logLine_('عکسِ محتوا گرفته نشد: ' + eSn.message); }
+
     var pad = ('0000' + epNum).slice(-4);
     var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyyMMdd');
     // پوشهٔ اختصاصیِ همین برنامه، تا با قسمت‌های درس‌نامه قاطی نشود
