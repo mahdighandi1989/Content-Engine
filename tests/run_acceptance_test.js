@@ -165,8 +165,16 @@ console.log('══ ۱۰) نسخه و انسجامِ بسته ══');
      man.version===CFG.CODE_VERSION && eng.indexOf("CODE_VERSION: '"+man.version+"'")!==-1,
      man.version+' / '+CFG.CODE_VERSION);
   ok('اثرانگشتِ manifest با فایل می‌خواند', man.sha256===sha, sha.slice(0,16));
-  ok('promptImpact دربارهٔ چیدمان خبر می‌دهد',
-     JSON.stringify(man.promptImpact).indexOf('OUTPUT')!==-1);
+  // promptImpact عمداً «هر نسخه باید چیزی بگوید» سنجیده نمی‌شود: نسخه‌ای که
+  // هیچ قراردادی با تسک و روتین را عوض نکرده باید خالی باشد، وگرنه هر بار یک
+  // پیامِ بی‌مورد به کاربر می‌رود. آنچه باید همیشه درست باشد، شکلش است.
+  ok('manifest کلیدهای لازم را دارد',
+     ['version','codeFile','sha256','releasedAt','summary','fixes']
+       .every(k => man[k] !== undefined));
+  ok('promptImpact اگر باشد آرایه است',
+     man.promptImpact === undefined || Array.isArray(man.promptImpact));
+  ok('fixes خالی نیست — هر نسخه باید بگوید چه چیزی را درست کرده',
+     Array.isArray(man.fixes) && man.fixes.length > 0);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
