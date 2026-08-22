@@ -25,6 +25,9 @@
    ناسازگار» کنار گذاشته می‌شود تا بی‌صدا نادیده گرفته نشود.
    ═════════════════════════════════════════════════════════════════════════ */
 
+/** نامِ پروندهٔ درخواستِ موسیقی — یک جا، تا وارسیِ چیدمان هم همان را بشناسد. */
+function MUSIC_WISH_() { return CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json'; }
+
 /** پوشهٔ بانک در OUTPUT؛ اگر نبود ساخته می‌شود. */
 function musicFolder_() {
   var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
@@ -493,7 +496,7 @@ function runMusicAuto() {
            'گویندگان تصمیم می‌گیرد کدام قطعه، از کدام ثانیه، و با چه بلندی.',
            '', 'هر ستونی که خودتان پر کنید، دستِ سیستم به آن نمی‌خورد.'];
   var wish = null;
-  try { wish = getOutJson_('_MUSIC-WISH.json'); } catch (e2) {}
+  try { wish = getOutJson_(MUSIC_WISH_()); } catch (e2) {}
   if (wish && wish.items && wish.items.length) {
     var last = wish.items[wish.items.length - 1];
     L.push('', '📝 آخرین خواسته: ' + (last.slots || []).join('، ') +
@@ -678,7 +681,7 @@ function musicPlanModel_(bank, ctx) {
 function musicWish_(mood, missing, ctx) {
   if (!missing || !missing.length) return null;
   try {
-    var prev = getOutJson_('_MUSIC-WISH.json') || { items: [] };
+    var prev = getOutJson_(MUSIC_WISH_()) || { items: [] };
     var items = (prev.items || []).slice(-20);
     items.push({
       at: nowStr_(), mood: String(mood || ''), slots: missing,
@@ -686,7 +689,7 @@ function musicWish_(mood, missing, ctx) {
       note: 'فقط WAV. ترجیحاً ۲۴ کیلوهرتز، تک‌کاناله، ۱۶ بیت. ' +
             'فایل را در پوشهٔ «' + (CFG.MUSIC_FOLDER || 'موسیقی و افکت') + '» بگذارید.'
     });
-    putOutJson_('_MUSIC-WISH.json', { updatedAt: nowStr_(), items: items });
+    putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
     logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
     return items.length;
   } catch (e) { return null; }
@@ -847,9 +850,19 @@ function musicTexture_(pr) {
  * این تنها چیزی است که «هویت» را می‌گوید: از کجا آمد، چه بود، چه مجوزی دارد.
  * نامِ فایل حدس است؛ این سند است. اگر هست، بر نامِ فایل مقدم می‌شود.
  */
+/**
+ * شناسنامهٔ کنارِ فایلِ صوتی — همان چیزی که هویت را اعلام می‌کند، نه نامِ فایل.
+ *
+ * جایش پوشهٔ خودِ بانک است، کنارِ صوت. پیش‌تر در ریشهٔ OUTPUT خوانده می‌شد و
+ * یعنی هر آهنگ یک فایلِ تازه در ریشه می‌گذاشت؛ ریشه جای فایل‌های زندهٔ موتور
+ * است و بس. ریشه هنوز خوانده می‌شود تا شناسنامه‌های پیشین گم نشوند.
+ */
 function musicMeta_(fileName) {
+  var base = String(fileName || '').replace(/\.wav$/i, '');
+  var name = '_MUSIC-META-' + base + '.json';
   try {
-    var base = String(fileName || '').replace(/\.wav$/i, '');
-    return getOutJson_('_MUSIC-META-' + base + '.json');
-  } catch (e) { return null; }
+    var it = musicFolder_().getFilesByName(name);
+    if (it.hasNext()) return JSON.parse(it.next().getBlob().getDataAsString('UTF-8'));
+  } catch (e) {}
+  try { return getOutJson_(name); } catch (e2) { return null; }
 }

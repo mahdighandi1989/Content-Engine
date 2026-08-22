@@ -205,12 +205,69 @@ function pendingReportFiles_() {
   return out;
 }
 
+/**
+ * پوشهٔ بایگانیِ گزارش‌های خوانده‌شده، در OUTPUT. ساخته می‌شود اگر نباشد.
+ */
+function reportArchiveFolder_() {
+  var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  var name = CFG.REPORT_ARCHIVE_FOLDER || 'بایگانی — گزارش‌های خوانده‌شده';
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/**
+ * گزارشِ خوانده‌شده را از ریشه به بایگانی می‌برد.
+ * چرا مهم است: ریشهٔ OUTPUT جای فایل‌های زندهٔ موتور است — وضعیت، بانکِ محتوا،
+ * درخواست‌های در جریان. گزارشِ خوانده‌شده هیچ‌کدامِ این‌ها نیست و ماندنش فقط
+ * دیدِ آدم را کور می‌کند. شکست در جابه‌جایی نباید برداشتِ گزارش را بکشد، پس
+ * همه‌چیز در try است و خطایش فقط در سیاهه می‌نشیند.
+ */
+function archiveReportFile_(file) {
+  if (CFG.OUT_TIDY === false) return false;
+  try {
+    var dest = reportArchiveFolder_();
+    // moveTo در همهٔ نسخه‌ها نیست؛ راهِ کهنه (افزودن + برداشتن) همه‌جا هست.
+    if (typeof file.moveTo === 'function') { file.moveTo(dest); return true; }
+    dest.addFile(file);
+    DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).removeFile(file);
+    return true;
+  } catch (e) {
+    logLine_('بردنِ گزارش به بایگانی ناموفق: ' + e.message);
+    return false;
+  }
+}
+
+/**
+ * بایگانیِ کهنه را هرس می‌کند. بی این، همان انباشتی که از ریشه برداشتیم یک
+ * لایه پایین‌تر تکرار می‌شد.
+ */
+function pruneReportArchive_(keepDays) {
+  var days = Number(keepDays) > 0 ? Number(keepDays) : Number(CFG.REPORT_KEEP_DAYS || 0);
+  if (!(days > 0)) return 0;
+  var cut = new Date().getTime() - days * 86400000;
+  var n = 0;
+  try {
+    var it = reportArchiveFolder_().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (String(f.getName()).indexOf(CFG.REPORT_FILE_PREFIX) !== 0) continue;
+      var when = f.getLastUpdated ? f.getLastUpdated() : f.getDateCreated();
+      if (when && when.getTime() < cut) { f.setTrashed(true); n++; }
+    }
+  } catch (e) { logLine_('هرسِ بایگانیِ گزارش‌ها ناموفق: ' + e.message); }
+  if (n) logLine_('گزارشِ بایگانیِ کهنه پاک شد: ' + n + ' فایل.');
+  return n;
+}
+
 /** فایل خوانده‌شده را هم با تغییر نام و هم در سیاههٔ داخلی علامت می‌زند. */
 function markReportDone_(file, suffix) {
   var n = '', id = '';
   try { n = file.getName(); } catch (e0) {}
   try { id = String(file.getId()); } catch (e1) {}
   try { if (n) file.setName(n + (suffix || '.ingested')); } catch (e) {}
+  // بایگانی پس از نام‌گذاری: اگر جابه‌جایی شکست بخورد، نامِ «.ingested» همچنان
+  // جلوی برداشتِ دوباره را می‌گیرد.
+  archiveReportFile_(file);
   try {
     var raw = props_().getProperty(PK.REPORTS_DONE) || '';
     var arr = raw ? raw.split('|') : [];

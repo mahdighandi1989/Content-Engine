@@ -468,6 +468,52 @@ function selfUpdateStep(force) {
   return r;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   نقشهٔ پوشهٔ OUTPUT
+
+   خواسته این بود: «هر تغییری و جابه‌جایی، علاوه بر گیت‌هاب، آنجا هم ثبت شود».
+   دو نسخهٔ دستیِ یک متن همیشه از هم دور می‌افتند — پس فقط یکی نوشته می‌شود:
+   docs/drive_layout.md در ریپو. موتور شبانه آن را می‌خواند و اگر با فایلِ
+   داخلِ OUTPUT فرق داشت، بازنویسی‌اش می‌کند. یعنی تاریخچهٔ گیت خودش دفترِ
+   ثبتِ تغییرهاست و در درایو هم همان متن می‌نشیند، بی آنکه کسی یادش بماند.
+
+   اگر شبکه نبود یا فایل در ریپو نبود، هیچ اتفاقی نمی‌افتد: نسخهٔ قبلی سرِ
+   جایش می‌ماند. یک نقشهٔ کمی کهنه از هیچ نقشه بهتر است.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+function outReadmeSync_() {
+  var name = String(CFG.OUT_README || '');
+  var path = String(CFG.OUT_README_PATH || '');
+  if (!name || !path) return { ok: false, reason: 'تنظیم نشده' };
+  var body = '';
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(path),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return { ok: false, reason: 'کد ' + res.getResponseCode() };
+    body = res.getContentText();
+  } catch (e) { return { ok: false, reason: e.message }; }
+  if (!body || body.length < 40) return { ok: false, reason: 'متنِ خالی' };
+
+  try {
+    var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var it = folder.getFilesByName(name);
+    if (it.hasNext()) {
+      var f = it.next();
+      var cur = '';
+      try { cur = f.getBlob().getDataAsString('UTF-8'); } catch (eR) { cur = ''; }
+      // نسخه‌های تکراریِ هم‌نام کنار گذاشته می‌شوند تا خواننده سرگردان نشود
+      while (it.hasNext()) { try { it.next().setTrashed(true); } catch (eT) {} }
+      if (cur === body) return { ok: true, changed: false };
+      f.setContent(body);
+      logLine_('نقشهٔ پوشهٔ OUTPUT تازه شد.');
+      return { ok: true, changed: true };
+    }
+    folder.createFile(Utilities.newBlob(body, 'text/markdown', name));
+    logLine_('نقشهٔ پوشهٔ OUTPUT نوشته شد.');
+    return { ok: true, changed: true, created: true };
+  } catch (e2) { return { ok: false, reason: e2.message }; }
+}
+
 function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
@@ -489,6 +535,10 @@ function selfUpdateDaily() {
   // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
   // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
   try { engHeartbeat_(); } catch (eHB) {}
+
+  // مرتب نگه‌داشتنِ ریشهٔ OUTPUT: نقشه تازه شود، بایگانیِ کهنه هرس شود.
+  try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
+  try { pruneReportArchive_(); } catch (ePA) {}
 
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }

@@ -198,6 +198,34 @@ Bytes in Apps Script are signed. Every read of a 16-bit sample must mask the
 high byte before shifting; without it, negative samples become nonsense that
 raises no error and is only audible. `run_music_test.js` ۵.۱/۶.۲ hold that line.
 
+## The OUTPUT folder has a layout (docs/drive_layout.md)
+
+OUTPUT's **root** holds only what the engine looks up by name — `_STATUS.json`,
+the hub, `_CODE-LATEST.json`, in-flight `_ENRICH-*`, not-yet-ingested `_REPORT-*`,
+`_MUSIC-WISH.json`, the `_PROMPT-*.md` control files. `getFilesByName()` never
+searches subfolders, so moving any of these makes the engine silently blind.
+Everything else belongs in a subfolder.
+
+Two prunes decide what may move, and both scan the root only:
+`pruneEnrichFiles_` (10 days) and `pendingReportFiles_`. That is why the
+`_ENRICH-*` files must stay at root — subfoldered, they would never be cleaned.
+Ingested reports are the opposite: `markReportDone_` moves each to
+«بایگانی — گزارش‌های خوانده‌شده» and `pruneReportArchive_` trims it at 60 days.
+
+`outLayoutCheck_` (section 8) compares the root against the known-name list and
+reports anything unrecognised into `_STATUS.json` (`outLayout`) and the health
+alerts. It only *reports* — the engine never deletes something it doesn't know.
+
+**The map is `docs/drive_layout.md`, and it is the only copy.** `outReadmeSync_`
+fetches it nightly and mirrors it into OUTPUT as
+«README — نقشهٔ پوشهٔ OUTPUT.md» — so never hand-edit that file in Drive, it is
+overwritten. Any layout change ships as: edit `docs/drive_layout.md` **in the
+same commit** as the code, plus a row in its «تاریخچهٔ تغییرهای چیدمان» table.
+
+Prompt texts live in Drive (`_PROMPT-*-v<N>.md`, append-only — a new version is a
+new file, never an overwrite). A copy of each goes in `docs/prompts/` so git has
+the history.
+
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.
 A monitor session reads these, fixes in `src/`, tests, and ships via the handshake

@@ -100,6 +100,98 @@ function readExistingHealth_() {
 }
 
 /** نوشتن/به‌روزرسانی فایل وضعیت در OUTPUT */
+/* ═════════════════════════════════════════════════════════════════════════
+   وارسیِ چیدمانِ پوشهٔ OUTPUT
+
+   ریشهٔ OUTPUT جای فایل‌های زندهٔ موتور است و بس: وضعیت، بانکِ محتوا، نشانهٔ
+   کد، گزارشِ هنوز خوانده‌نشده، پرونده‌های در جریانِ غنی‌سازی، و پرامپت‌ها.
+   هر چیزِ دیگری که آنجا سبز شود یعنی یا کسی دستی گذاشته، یا کدی جایی
+   می‌نویسد که نباید. هر دو باید دیده شود، نه اینکه در شلوغی گم شود.
+
+   چرا فقط «گزارش» می‌دهد و خودش پاک نمی‌کند: فایلِ ناشناخته ممکن است کارِ
+   دستِ خودِ آدم باشد. پاک‌کردنِ خودکار یعنی موتور چیزی را از بین ببرد که
+   نمی‌شناسدش — همان کاری که در این ریپو هرگز مجاز نیست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** الگوهای نامِ فایلی که ماندنش در ریشه درست است. */
+function outRootFilePatterns_() {
+  return [
+    { re: new RegExp('^' + rxQuote_(STATUS_FILE) + '$'), what: 'فایل وضعیت' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.HUB_FILE_NAME || '')) + '$'), what: 'بانک محتوا' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.CODE_FILE || '')) + '$'), what: 'نشانهٔ کد' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.OUT_README || '')) + '$'), what: 'نقشهٔ پوشه' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json')) + '$'),
+      what: 'درخواستِ موسیقی' },
+    // گزارشِ هنوز برداشته‌نشده. خوانده‌شده‌اش («.ingested») باید رفته باشد به
+    // بایگانی — پس اگر در ریشه ماند، خودش یک یافته است، نه یک استثنا.
+    { re: new RegExp('^' + rxQuote_(String(CFG.REPORT_FILE_PREFIX || '_REPORT-')) + '.*$'),
+      what: 'گزارش' },
+    { re: /^_ENRICH(-REQ)?-[a-z]+-\d+\.json$/, what: 'غنی‌سازیِ در جریان' },
+    { re: /^_PROMPT-[^/]*\.md$/, what: 'پرامپتِ تسک' },
+    // شناسنامهٔ آهنگ‌های پیشین: جای تازه‌اش پوشهٔ بانک است، ولی آنچه از
+    // قبل در ریشه مانده هم شناخته است — سرگردان نیست.
+    { re: /^_MUSIC-META-[^/]*\.json$/, what: 'شناسنامهٔ آهنگ (جای قدیم)' }
+  ];
+}
+
+/** نامِ پوشه‌هایی که جایشان ریشهٔ OUTPUT است. */
+function outRootFolderNames_() {
+  return [
+    String(CFG.VARIETY_FOLDER || ''), String(CFG.SPECIAL_FOLDER || ''),
+    String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
+    String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || '')
+  ].filter(function (x) { return !!x; });
+}
+
+/** گریزِ نویسه‌های ویژه، تا نامِ فارسیِ حاوی نقطه به الگوی باز تبدیل نشود. */
+function rxQuote_(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * سیاههٔ ریشهٔ OUTPUT و آنچه در آن جا ندارد.
+ * برمی‌گرداند {files, folders, strays:[{name,kind}], stale:[...], readme:{...}}
+ */
+function outLayoutCheck_() {
+  var out = { files: 0, folders: 0, strays: [], stale: [], readme: null, error: '' };
+  try {
+    var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
+    var now = new Date().getTime();
+
+    var fi = root.getFiles();
+    while (fi.hasNext()) {
+      var f = fi.next(), n = String(f.getName());
+      out.files++;
+      if (n === String(CFG.OUT_README || '')) {
+        var w = null;
+        try { w = f.getLastUpdated(); } catch (eU) {}
+        out.readme = { at: w ? fmtWhen_(w) : '', ageDays: w ? Math.round((now - w.getTime()) / 86400000) : null };
+      }
+      var hit = false;
+      for (var p = 0; p < pats.length; p++) if (pats[p].re.test(n)) { hit = true; break; }
+      if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
+      // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
+      if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    var di = root.getFolders();
+    while (di.hasNext()) {
+      var d = di.next(), dn = String(d.getName());
+      out.folders++;
+      var okd = false;
+      for (var q = 0; q < okFolders.length; q++) if (okFolders[q] === dn) { okd = true; break; }
+      if (!okd && out.strays.length < 25) out.strays.push({ name: dn, kind: 'پوشه' });
+    }
+  } catch (e) { out.error = e.message; }
+  return out;
+}
+
+function fmtWhen_(d) {
+  try { return Utilities.formatDate(d, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm'); }
+  catch (e) { return String(d); }
+}
+
 function writeStatus_(hub, note) {
   hub = hub || getHub_();
   var models = {};
@@ -180,6 +272,8 @@ function writeStatus_(hub, note) {
     // وضعیتِ غنی‌سازیِ اینترنتی — تا Cowork در بازبینیِ روزانه ببیند کدام
     // درخواست بی‌پاسخ مانده و چرا.
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),
+    // چیدمانِ پوشهٔ OUTPUT — تا ناظر ببیند چه چیزی در ریشه سبز شده
+    outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -288,6 +382,31 @@ function healthCheck() {
       }
     }
   } catch (eBk) {}
+
+  // ۰٫۵) چیدمانِ پوشهٔ OUTPUT — شلوغیِ ریشه خودش یک ایراد است
+  try {
+    var lay = st.outLayout || outLayoutCheck_();
+    if (lay && !lay.error) {
+      if (lay.strays && lay.strays.length) {
+        var names = [];
+        for (var sI = 0; sI < lay.strays.length && sI < 6; sI++) {
+          names.push(lay.strays[sI].kind + ' «' + lay.strays[sI].name + '»');
+        }
+        problems.push('در ریشهٔ پوشهٔ OUTPUT ' + lay.strays.length +
+                      ' چیزِ ناشناخته هست: ' + names.join(' · ') +
+                      (lay.strays.length > names.length ? ' …' : '') +
+                      ' — جایش زیرپوشه است یا باید در نقشهٔ پوشه («' +
+                      CFG.OUT_README + '») ثبت شود.');
+      }
+      if (lay.stale && lay.stale.length) {
+        problems.push('‏' + lay.stale.length + ' گزارشِ خوانده‌شده هنوز در ریشه مانده ' +
+                      '— بایگانی‌اش نگرفته است.');
+      }
+      if (!lay.readme) {
+        notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');
+      }
+    }
+  } catch (eLay) {}
 
   // ۱) قسمت اخیر
   var ep = st.lastEpisode;

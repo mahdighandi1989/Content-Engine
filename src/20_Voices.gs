@@ -496,7 +496,7 @@ function runVoiceAudition() {
   var made = [], failed = [], folder = null;
   try {
     var root = outFolder_();
-    var name = 'آزمونِ صدای گویندگان';
+    var name = CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان';
     var it = root.getFoldersByName(name);
     folder = it.hasNext() ? it.next() : root.createFolder(name);
 

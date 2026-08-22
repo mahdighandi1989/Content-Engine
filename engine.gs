@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.43
+ *  موتور محتوا و پادکست — نسخهٔ 5.44
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -535,7 +535,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.43',
+  CODE_VERSION: '5.44',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -554,7 +554,26 @@ var CFG = {
   GITHUB_CODE_FILE: 'engine.gs',        // نامِ ثابتِ فایلِ کاملِ کد در ریشهٔ ریپو
   GITHUB_MANIFEST: 'manifest.json',     // بیانیه در ریشهٔ ریپو
   REPORT_FILE_PREFIX: '_REPORT-',   // نامِ فایل‌های گزارشِ Cowork در OUTPUT
-  MAX_OPEN_INSTRUCTIONS: 12         // حداکثر دستورِ بازِ تزریق‌شده به یک قسمت
+  MAX_OPEN_INSTRUCTIONS: 12,        // حداکثر دستورِ بازِ تزریق‌شده به یک قسمت
+
+  // ---------------------------------------------- مرتب نگه‌داشتنِ پوشهٔ OUTPUT
+  // گزارشِ خوانده‌شده تا امروز برای همیشه در ریشه می‌ماند: روزی یک فایل، و
+  // ریشه کم‌کم آن‌قدر شلوغ می‌شود که فایل‌های زندهٔ موتور در آن گم می‌شوند.
+  // خوانده‌شده‌ها به این پوشه می‌روند. جست‌وجوی گزارشِ تازه فقط ریشه را
+  // می‌گردد و اسمِ «.ingested» را هم رد می‌کند، پس این جابه‌جایی چیزی را
+  // نمی‌شکند — همان کاری را می‌کند که نامِ فایل از قبل اعلام کرده بود.
+  REPORT_ARCHIVE_FOLDER: 'بایگانی — گزارش‌های خوانده‌شده',
+  REPORT_KEEP_DAYS: 60,             // بایگانیِ قدیمی‌تر از این پاک می‌شود (۰ = هرگز)
+  OUT_TIDY: true,                   // بایگانی و هرسِ خودکار
+
+  // نقشهٔ پوشه: منبعِ حقیقتش در ریپوست و موتور شبانه در OUTPUT بازتابش می‌دهد،
+  // تا «هر تغییری هم در گیت‌هاب ثبت شود هم آنجا» خودبه‌خود برقرار بماند.
+  OUT_README: 'README — نقشهٔ پوشهٔ OUTPUT.md',
+  OUT_README_PATH: 'docs/drive_layout.md',
+
+  // نامِ پوشهٔ نمونه‌های صدا — تا وارسیِ چیدمان و خودِ آزمون یک اسم را بگویند
+  VOICE_AUDIT_FOLDER: 'آزمونِ صدای گویندگان',
+  MUSIC_WISH_FILE: '_MUSIC-WISH.json'
 };
 
 // جدول اصلاح تلفظ: هر چه اینجا بگذارید، پیش از ساختن صدا در متن جایگزین می‌شود.
@@ -6763,6 +6782,98 @@ function readExistingHealth_() {
 }
 
 /** نوشتن/به‌روزرسانی فایل وضعیت در OUTPUT */
+/* ═════════════════════════════════════════════════════════════════════════
+   وارسیِ چیدمانِ پوشهٔ OUTPUT
+
+   ریشهٔ OUTPUT جای فایل‌های زندهٔ موتور است و بس: وضعیت، بانکِ محتوا، نشانهٔ
+   کد، گزارشِ هنوز خوانده‌نشده، پرونده‌های در جریانِ غنی‌سازی، و پرامپت‌ها.
+   هر چیزِ دیگری که آنجا سبز شود یعنی یا کسی دستی گذاشته، یا کدی جایی
+   می‌نویسد که نباید. هر دو باید دیده شود، نه اینکه در شلوغی گم شود.
+
+   چرا فقط «گزارش» می‌دهد و خودش پاک نمی‌کند: فایلِ ناشناخته ممکن است کارِ
+   دستِ خودِ آدم باشد. پاک‌کردنِ خودکار یعنی موتور چیزی را از بین ببرد که
+   نمی‌شناسدش — همان کاری که در این ریپو هرگز مجاز نیست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** الگوهای نامِ فایلی که ماندنش در ریشه درست است. */
+function outRootFilePatterns_() {
+  return [
+    { re: new RegExp('^' + rxQuote_(STATUS_FILE) + '$'), what: 'فایل وضعیت' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.HUB_FILE_NAME || '')) + '$'), what: 'بانک محتوا' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.CODE_FILE || '')) + '$'), what: 'نشانهٔ کد' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.OUT_README || '')) + '$'), what: 'نقشهٔ پوشه' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json')) + '$'),
+      what: 'درخواستِ موسیقی' },
+    // گزارشِ هنوز برداشته‌نشده. خوانده‌شده‌اش («.ingested») باید رفته باشد به
+    // بایگانی — پس اگر در ریشه ماند، خودش یک یافته است، نه یک استثنا.
+    { re: new RegExp('^' + rxQuote_(String(CFG.REPORT_FILE_PREFIX || '_REPORT-')) + '.*$'),
+      what: 'گزارش' },
+    { re: /^_ENRICH(-REQ)?-[a-z]+-\d+\.json$/, what: 'غنی‌سازیِ در جریان' },
+    { re: /^_PROMPT-[^/]*\.md$/, what: 'پرامپتِ تسک' },
+    // شناسنامهٔ آهنگ‌های پیشین: جای تازه‌اش پوشهٔ بانک است، ولی آنچه از
+    // قبل در ریشه مانده هم شناخته است — سرگردان نیست.
+    { re: /^_MUSIC-META-[^/]*\.json$/, what: 'شناسنامهٔ آهنگ (جای قدیم)' }
+  ];
+}
+
+/** نامِ پوشه‌هایی که جایشان ریشهٔ OUTPUT است. */
+function outRootFolderNames_() {
+  return [
+    String(CFG.VARIETY_FOLDER || ''), String(CFG.SPECIAL_FOLDER || ''),
+    String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
+    String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || '')
+  ].filter(function (x) { return !!x; });
+}
+
+/** گریزِ نویسه‌های ویژه، تا نامِ فارسیِ حاوی نقطه به الگوی باز تبدیل نشود. */
+function rxQuote_(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * سیاههٔ ریشهٔ OUTPUT و آنچه در آن جا ندارد.
+ * برمی‌گرداند {files, folders, strays:[{name,kind}], stale:[...], readme:{...}}
+ */
+function outLayoutCheck_() {
+  var out = { files: 0, folders: 0, strays: [], stale: [], readme: null, error: '' };
+  try {
+    var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
+    var now = new Date().getTime();
+
+    var fi = root.getFiles();
+    while (fi.hasNext()) {
+      var f = fi.next(), n = String(f.getName());
+      out.files++;
+      if (n === String(CFG.OUT_README || '')) {
+        var w = null;
+        try { w = f.getLastUpdated(); } catch (eU) {}
+        out.readme = { at: w ? fmtWhen_(w) : '', ageDays: w ? Math.round((now - w.getTime()) / 86400000) : null };
+      }
+      var hit = false;
+      for (var p = 0; p < pats.length; p++) if (pats[p].re.test(n)) { hit = true; break; }
+      if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
+      // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
+      if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    var di = root.getFolders();
+    while (di.hasNext()) {
+      var d = di.next(), dn = String(d.getName());
+      out.folders++;
+      var okd = false;
+      for (var q = 0; q < okFolders.length; q++) if (okFolders[q] === dn) { okd = true; break; }
+      if (!okd && out.strays.length < 25) out.strays.push({ name: dn, kind: 'پوشه' });
+    }
+  } catch (e) { out.error = e.message; }
+  return out;
+}
+
+function fmtWhen_(d) {
+  try { return Utilities.formatDate(d, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm'); }
+  catch (e) { return String(d); }
+}
+
 function writeStatus_(hub, note) {
   hub = hub || getHub_();
   var models = {};
@@ -6843,6 +6954,8 @@ function writeStatus_(hub, note) {
     // وضعیتِ غنی‌سازیِ اینترنتی — تا Cowork در بازبینیِ روزانه ببیند کدام
     // درخواست بی‌پاسخ مانده و چرا.
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),
+    // چیدمانِ پوشهٔ OUTPUT — تا ناظر ببیند چه چیزی در ریشه سبز شده
+    outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -6951,6 +7064,31 @@ function healthCheck() {
       }
     }
   } catch (eBk) {}
+
+  // ۰٫۵) چیدمانِ پوشهٔ OUTPUT — شلوغیِ ریشه خودش یک ایراد است
+  try {
+    var lay = st.outLayout || outLayoutCheck_();
+    if (lay && !lay.error) {
+      if (lay.strays && lay.strays.length) {
+        var names = [];
+        for (var sI = 0; sI < lay.strays.length && sI < 6; sI++) {
+          names.push(lay.strays[sI].kind + ' «' + lay.strays[sI].name + '»');
+        }
+        problems.push('در ریشهٔ پوشهٔ OUTPUT ' + lay.strays.length +
+                      ' چیزِ ناشناخته هست: ' + names.join(' · ') +
+                      (lay.strays.length > names.length ? ' …' : '') +
+                      ' — جایش زیرپوشه است یا باید در نقشهٔ پوشه («' +
+                      CFG.OUT_README + '») ثبت شود.');
+      }
+      if (lay.stale && lay.stale.length) {
+        problems.push('‏' + lay.stale.length + ' گزارشِ خوانده‌شده هنوز در ریشه مانده ' +
+                      '— بایگانی‌اش نگرفته است.');
+      }
+      if (!lay.readme) {
+        notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');
+      }
+    }
+  } catch (eLay) {}
 
   // ۱) قسمت اخیر
   var ep = st.lastEpisode;
@@ -8874,12 +9012,69 @@ function pendingReportFiles_() {
   return out;
 }
 
+/**
+ * پوشهٔ بایگانیِ گزارش‌های خوانده‌شده، در OUTPUT. ساخته می‌شود اگر نباشد.
+ */
+function reportArchiveFolder_() {
+  var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  var name = CFG.REPORT_ARCHIVE_FOLDER || 'بایگانی — گزارش‌های خوانده‌شده';
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/**
+ * گزارشِ خوانده‌شده را از ریشه به بایگانی می‌برد.
+ * چرا مهم است: ریشهٔ OUTPUT جای فایل‌های زندهٔ موتور است — وضعیت، بانکِ محتوا،
+ * درخواست‌های در جریان. گزارشِ خوانده‌شده هیچ‌کدامِ این‌ها نیست و ماندنش فقط
+ * دیدِ آدم را کور می‌کند. شکست در جابه‌جایی نباید برداشتِ گزارش را بکشد، پس
+ * همه‌چیز در try است و خطایش فقط در سیاهه می‌نشیند.
+ */
+function archiveReportFile_(file) {
+  if (CFG.OUT_TIDY === false) return false;
+  try {
+    var dest = reportArchiveFolder_();
+    // moveTo در همهٔ نسخه‌ها نیست؛ راهِ کهنه (افزودن + برداشتن) همه‌جا هست.
+    if (typeof file.moveTo === 'function') { file.moveTo(dest); return true; }
+    dest.addFile(file);
+    DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).removeFile(file);
+    return true;
+  } catch (e) {
+    logLine_('بردنِ گزارش به بایگانی ناموفق: ' + e.message);
+    return false;
+  }
+}
+
+/**
+ * بایگانیِ کهنه را هرس می‌کند. بی این، همان انباشتی که از ریشه برداشتیم یک
+ * لایه پایین‌تر تکرار می‌شد.
+ */
+function pruneReportArchive_(keepDays) {
+  var days = Number(keepDays) > 0 ? Number(keepDays) : Number(CFG.REPORT_KEEP_DAYS || 0);
+  if (!(days > 0)) return 0;
+  var cut = new Date().getTime() - days * 86400000;
+  var n = 0;
+  try {
+    var it = reportArchiveFolder_().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (String(f.getName()).indexOf(CFG.REPORT_FILE_PREFIX) !== 0) continue;
+      var when = f.getLastUpdated ? f.getLastUpdated() : f.getDateCreated();
+      if (when && when.getTime() < cut) { f.setTrashed(true); n++; }
+    }
+  } catch (e) { logLine_('هرسِ بایگانیِ گزارش‌ها ناموفق: ' + e.message); }
+  if (n) logLine_('گزارشِ بایگانیِ کهنه پاک شد: ' + n + ' فایل.');
+  return n;
+}
+
 /** فایل خوانده‌شده را هم با تغییر نام و هم در سیاههٔ داخلی علامت می‌زند. */
 function markReportDone_(file, suffix) {
   var n = '', id = '';
   try { n = file.getName(); } catch (e0) {}
   try { id = String(file.getId()); } catch (e1) {}
   try { if (n) file.setName(n + (suffix || '.ingested')); } catch (e) {}
+  // بایگانی پس از نام‌گذاری: اگر جابه‌جایی شکست بخورد، نامِ «.ingested» همچنان
+  // جلوی برداشتِ دوباره را می‌گیرد.
+  archiveReportFile_(file);
   try {
     var raw = props_().getProperty(PK.REPORTS_DONE) || '';
     var arr = raw ? raw.split('|') : [];
@@ -16980,7 +17175,7 @@ function runVoiceAudition() {
   var made = [], failed = [], folder = null;
   try {
     var root = outFolder_();
-    var name = 'آزمونِ صدای گویندگان';
+    var name = CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان';
     var it = root.getFoldersByName(name);
     folder = it.hasNext() ? it.next() : root.createFolder(name);
 
@@ -17593,6 +17788,52 @@ function selfUpdateStep(force) {
   return r;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════
+   نقشهٔ پوشهٔ OUTPUT
+
+   خواسته این بود: «هر تغییری و جابه‌جایی، علاوه بر گیت‌هاب، آنجا هم ثبت شود».
+   دو نسخهٔ دستیِ یک متن همیشه از هم دور می‌افتند — پس فقط یکی نوشته می‌شود:
+   docs/drive_layout.md در ریپو. موتور شبانه آن را می‌خواند و اگر با فایلِ
+   داخلِ OUTPUT فرق داشت، بازنویسی‌اش می‌کند. یعنی تاریخچهٔ گیت خودش دفترِ
+   ثبتِ تغییرهاست و در درایو هم همان متن می‌نشیند، بی آنکه کسی یادش بماند.
+
+   اگر شبکه نبود یا فایل در ریپو نبود، هیچ اتفاقی نمی‌افتد: نسخهٔ قبلی سرِ
+   جایش می‌ماند. یک نقشهٔ کمی کهنه از هیچ نقشه بهتر است.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+function outReadmeSync_() {
+  var name = String(CFG.OUT_README || '');
+  var path = String(CFG.OUT_README_PATH || '');
+  if (!name || !path) return { ok: false, reason: 'تنظیم نشده' };
+  var body = '';
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(path),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return { ok: false, reason: 'کد ' + res.getResponseCode() };
+    body = res.getContentText();
+  } catch (e) { return { ok: false, reason: e.message }; }
+  if (!body || body.length < 40) return { ok: false, reason: 'متنِ خالی' };
+
+  try {
+    var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var it = folder.getFilesByName(name);
+    if (it.hasNext()) {
+      var f = it.next();
+      var cur = '';
+      try { cur = f.getBlob().getDataAsString('UTF-8'); } catch (eR) { cur = ''; }
+      // نسخه‌های تکراریِ هم‌نام کنار گذاشته می‌شوند تا خواننده سرگردان نشود
+      while (it.hasNext()) { try { it.next().setTrashed(true); } catch (eT) {} }
+      if (cur === body) return { ok: true, changed: false };
+      f.setContent(body);
+      logLine_('نقشهٔ پوشهٔ OUTPUT تازه شد.');
+      return { ok: true, changed: true };
+    }
+    folder.createFile(Utilities.newBlob(body, 'text/markdown', name));
+    logLine_('نقشهٔ پوشهٔ OUTPUT نوشته شد.');
+    return { ok: true, changed: true, created: true };
+  } catch (e2) { return { ok: false, reason: e2.message }; }
+}
+
 function selfUpdateDaily() {
   // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
   // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
@@ -17614,6 +17855,10 @@ function selfUpdateDaily() {
   // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
   // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
   try { engHeartbeat_(); } catch (eHB) {}
+
+  // مرتب نگه‌داشتنِ ریشهٔ OUTPUT: نقشه تازه شود، بایگانیِ کهنه هرس شود.
+  try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
+  try { pruneReportArchive_(); } catch (ePA) {}
 
   try { return selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
@@ -19443,6 +19688,9 @@ function srcCycleHealth_(hub, res) {
    ناسازگار» کنار گذاشته می‌شود تا بی‌صدا نادیده گرفته نشود.
    ═════════════════════════════════════════════════════════════════════════ */
 
+/** نامِ پروندهٔ درخواستِ موسیقی — یک جا، تا وارسیِ چیدمان هم همان را بشناسد. */
+function MUSIC_WISH_() { return CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json'; }
+
 /** پوشهٔ بانک در OUTPUT؛ اگر نبود ساخته می‌شود. */
 function musicFolder_() {
   var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
@@ -19911,7 +20159,7 @@ function runMusicAuto() {
            'گویندگان تصمیم می‌گیرد کدام قطعه، از کدام ثانیه، و با چه بلندی.',
            '', 'هر ستونی که خودتان پر کنید، دستِ سیستم به آن نمی‌خورد.'];
   var wish = null;
-  try { wish = getOutJson_('_MUSIC-WISH.json'); } catch (e2) {}
+  try { wish = getOutJson_(MUSIC_WISH_()); } catch (e2) {}
   if (wish && wish.items && wish.items.length) {
     var last = wish.items[wish.items.length - 1];
     L.push('', '📝 آخرین خواسته: ' + (last.slots || []).join('، ') +
@@ -20096,7 +20344,7 @@ function musicPlanModel_(bank, ctx) {
 function musicWish_(mood, missing, ctx) {
   if (!missing || !missing.length) return null;
   try {
-    var prev = getOutJson_('_MUSIC-WISH.json') || { items: [] };
+    var prev = getOutJson_(MUSIC_WISH_()) || { items: [] };
     var items = (prev.items || []).slice(-20);
     items.push({
       at: nowStr_(), mood: String(mood || ''), slots: missing,
@@ -20104,7 +20352,7 @@ function musicWish_(mood, missing, ctx) {
       note: 'فقط WAV. ترجیحاً ۲۴ کیلوهرتز، تک‌کاناله، ۱۶ بیت. ' +
             'فایل را در پوشهٔ «' + (CFG.MUSIC_FOLDER || 'موسیقی و افکت') + '» بگذارید.'
     });
-    putOutJson_('_MUSIC-WISH.json', { updatedAt: nowStr_(), items: items });
+    putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
     logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
     return items.length;
   } catch (e) { return null; }
@@ -20265,9 +20513,19 @@ function musicTexture_(pr) {
  * این تنها چیزی است که «هویت» را می‌گوید: از کجا آمد، چه بود، چه مجوزی دارد.
  * نامِ فایل حدس است؛ این سند است. اگر هست، بر نامِ فایل مقدم می‌شود.
  */
+/**
+ * شناسنامهٔ کنارِ فایلِ صوتی — همان چیزی که هویت را اعلام می‌کند، نه نامِ فایل.
+ *
+ * جایش پوشهٔ خودِ بانک است، کنارِ صوت. پیش‌تر در ریشهٔ OUTPUT خوانده می‌شد و
+ * یعنی هر آهنگ یک فایلِ تازه در ریشه می‌گذاشت؛ ریشه جای فایل‌های زندهٔ موتور
+ * است و بس. ریشه هنوز خوانده می‌شود تا شناسنامه‌های پیشین گم نشوند.
+ */
 function musicMeta_(fileName) {
+  var base = String(fileName || '').replace(/\.wav$/i, '');
+  var name = '_MUSIC-META-' + base + '.json';
   try {
-    var base = String(fileName || '').replace(/\.wav$/i, '');
-    return getOutJson_('_MUSIC-META-' + base + '.json');
-  } catch (e) { return null; }
+    var it = musicFolder_().getFilesByName(name);
+    if (it.hasNext()) return JSON.parse(it.next().getBlob().getDataAsString('UTF-8'));
+  } catch (e) {}
+  try { return getOutJson_(name); } catch (e2) { return null; }
 }
