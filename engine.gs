@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.46
+ *  موتور محتوا و پادکست — نسخهٔ 5.47
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -556,7 +556,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.46',
+  CODE_VERSION: '5.47',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -585,6 +585,9 @@ var CFG = {
   // نمی‌شکند — همان کاری را می‌کند که نامِ فایل از قبل اعلام کرده بود.
   REPORT_ARCHIVE_FOLDER: 'بایگانی — گزارش‌های خوانده‌شده',
   REPORT_KEEP_DAYS: 60,             // بایگانیِ قدیمی‌تر از این پاک می‌شود (۰ = هرگز)
+  // پرامپت‌ها append-only هستند، پس ریشه با هر به‌روزرسانی یک فایل شلوغ‌تر
+  // می‌شد. فقط بالاترین نسخه در ریشه می‌ماند؛ بقیه اینجا — پاک نمی‌شوند.
+  PROMPT_ARCHIVE_FOLDER: 'بایگانی — پرامپت‌های پیشین',
   OUT_TIDY: true,                   // بایگانی و هرسِ خودکار
 
   // نقشهٔ پوشه: منبعِ حقیقتش در ریپوست و موتور شبانه در OUTPUT بازتابش می‌دهد،
@@ -6885,7 +6888,7 @@ function outRootFolderNames_() {
     String(CFG.VARIETY_FOLDER || ''), String(CFG.SPECIAL_FOLDER || ''),
     String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
     String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || ''),
-    String(CFG.AUDIT_FOLDER || '')
+    String(CFG.AUDIT_FOLDER || ''), String(CFG.PROMPT_ARCHIVE_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -6936,6 +6939,73 @@ function outLayoutCheck_() {
 function fmtWhen_(d) {
   try { return Utilities.formatDate(d, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm'); }
   catch (e) { return String(d); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   بایگانیِ نسخه‌های کهنهٔ پرامپت
+
+   پرامپت‌ها append-only هستند — نسخهٔ تازه یک فایلِ تازه است و قدیمی هرگز
+   بازنویسی نمی‌شود، چون تاریخچه باید بماند. ولی نتیجه‌اش این است که ریشه
+   با هر به‌روزرسانی یک فایل شلوغ‌تر می‌شود؛ همان انباشتی که گزارش‌ها داشتند.
+
+   تسک و روتین فقط **بالاترین شماره** را می‌خوانند، پس نسخه‌های پیشین در ریشه
+   هیچ کاری نمی‌کنند جز اینکه دیدِ آدم را کور کنند. اینجا آن‌ها به زیرپوشه
+   می‌روند — نه پاک می‌شوند و نه گم: تاریخچه هم در آن پوشه هست، هم در گیت
+   (`docs/prompts/`).
+
+   مقایسه **عددی** است نه حرفی. با مقایسهٔ حرفی «v10» کوچک‌تر از «v9» می‌شد و
+   روزی که به نسخهٔ دهم می‌رسیدیم، بایگانی نسخهٔ تازه را می‌برد و کهنه را در
+   ریشه نگه می‌داشت — یعنی تسک برای همیشه دستورِ قدیمی را می‌خواند.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var PROMPT_RE = /^_PROMPT-(.+)-v(\d+)\.md$/;
+
+function promptArchiveFolder_() {
+  var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  var name = CFG.PROMPT_ARCHIVE_FOLDER || 'بایگانی — پرامپت‌های پیشین';
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/**
+ * برای هر خانوادهٔ پرامپت فقط بالاترین نسخه در ریشه می‌ماند.
+ * برمی‌گرداند: شمارِ فایل‌هایی که بایگانی شدند.
+ */
+function promptPrune_() {
+  if (CFG.OUT_TIDY === false) return 0;
+  var moved = 0;
+  try {
+    var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var fam = Object.create(null);
+    var it = root.getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      var m = String(f.getName()).match(PROMPT_RE);
+      if (!m) continue;
+      var kind = m[1], n = parseInt(m[2], 10);
+      if (!isFinite(n)) continue;
+      if (!fam[kind]) fam[kind] = [];
+      fam[kind].push({ file: f, n: n });
+    }
+    for (var k in fam) {
+      if (!Object.prototype.hasOwnProperty.call(fam, k)) continue;
+      var list = fam[k];
+      if (list.length < 2) continue;
+      var top = list[0].n;
+      for (var i = 1; i < list.length; i++) if (list[i].n > top) top = list[i].n;
+      for (var j = 0; j < list.length; j++) {
+        if (list[j].n >= top) continue;          // بالاترین می‌ماند
+        try {
+          var dest = promptArchiveFolder_();
+          if (typeof list[j].file.moveTo === 'function') list[j].file.moveTo(dest);
+          else { dest.addFile(list[j].file); root.removeFile(list[j].file); }
+          moved++;
+        } catch (eM) {}
+      }
+    }
+  } catch (e) { logLine_('بایگانیِ پرامپت‌های کهنه ناموفق: ' + e.message); }
+  if (moved) logLine_('نسخهٔ کهنهٔ پرامپت بایگانی شد: ' + moved + ' فایل.');
+  return moved;
 }
 
 function writeStatus_(hub, note) {
@@ -17970,6 +18040,7 @@ function selfUpdateDaily() {
   // مرتب نگه‌داشتنِ ریشهٔ OUTPUT: نقشه تازه شود، بایگانیِ کهنه هرس شود.
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
+  try { promptPrune_(); } catch (ePP) {}
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود. پیش از نصبِ کد انجام
   // می‌شود تا داوریِ قسمت‌هایی که با کدِ امشب ساخته شده‌اند به نسخهٔ همان کد

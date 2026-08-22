@@ -539,6 +539,7 @@ function selfUpdateDaily() {
   // مرتب نگه‌داشتنِ ریشهٔ OUTPUT: نقشه تازه شود، بایگانیِ کهنه هرس شود.
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
+  try { promptPrune_(); } catch (ePP) {}
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود. پیش از نصبِ کد انجام
   // می‌شود تا داوریِ قسمت‌هایی که با کدِ امشب ساخته شده‌اند به نسخهٔ همان کد

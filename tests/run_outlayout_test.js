@@ -150,6 +150,44 @@ console.log('=== ۸) مرزی که نباید جابه‌جا شود ===');
      /function pruneEnrichFiles_[\s\S]*?outFolder_\(\)\.getFiles\(\)/.test(src19));
 }
 
+console.log('=== ۸٫۵) بایگانیِ نسخه‌های کهنهٔ پرامپت ===');
+{
+  const OUTF = OUT();
+  for (const n of ['_PROMPT-monitor-v1.md', '_PROMPT-monitor-v2.md',
+                   '_PROMPT-enrich-v1.md', '_PROMPT-enrich-v2.md',
+                   '_PROMPT-enrich-v3.md']) {
+    OUTF.createFile(n, '#', 'text/markdown');
+  }
+  const before = rootFileNames().filter(n => /^_PROMPT-/.test(n)).length;
+  const moved = promptPrune_();
+  ok('۸٫۵-الف نسخه‌های کهنه بایگانی می‌شوند', moved > 0, 'جابه‌جا: ' + moved);
+  const rootP = rootFileNames().filter(n => /^_PROMPT-/.test(n)).sort();
+  ok('۸٫۵-ب فقط بالاترینِ هر خانواده در ریشه می‌ماند',
+     rootP.join() === '_PROMPT-enrich-v3.md,_PROMPT-monitor-v2.md', rootP.join(' · '));
+  // مهم‌ترین سنجه: هرچه از ریشه رفت باید در بایگانی باشد. اگر روزی این تابع
+  // به‌جای جابه‌جایی چیزی را پاک کند، همین‌جا معلوم می‌شود.
+  ok('۸٫۵-ج هیچ‌چیز پاک نشده — هرچه رفت، در بایگانی است',
+     names(promptArchiveFolder_().getFiles()).length === moved &&
+     rootP.length === before - moved,
+     'بایگانی: ' + names(promptArchiveFolder_().getFiles()).length + ' · جابه‌جا: ' + moved);
+
+  // مقایسه باید عددی باشد. با مقایسهٔ حرفی «v10» < «v9» است و روزی که به
+  // نسخهٔ دهم برسیم، بایگانی نسخهٔ تازه را می‌برد و کهنه را نگه می‌دارد —
+  // یعنی تسک تا ابد دستورِ قدیمی را می‌خواند. این سنجه همان روز را می‌گیرد.
+  OUTF.createFile('_PROMPT-monitor-v9.md', '#', 'text/markdown');
+  OUTF.createFile('_PROMPT-monitor-v10.md', '#', 'text/markdown');
+  promptPrune_();
+  const after = rootFileNames().filter(n => /^_PROMPT-monitor-/.test(n));
+  ok('۸٫۵-د «v10» بالاتر از «v9» شمرده می‌شود، نه پایین‌تر',
+     after.length === 1 && after[0] === '_PROMPT-monitor-v10.md', after.join(' · '));
+
+  ok('۸٫۵-ه پوشهٔ بایگانیِ پرامپت در چیدمان شناخته است',
+     outRootFolderNames_().indexOf(CFG.PROMPT_ARCHIVE_FOLDER) !== -1);
+  ok('۸٫۵-و پس سرگردان شمرده نمی‌شود',
+     outLayoutCheck_().strays.map(s => s.name).indexOf(CFG.PROMPT_ARCHIVE_FOLDER) === -1);
+  ok('۸٫۵-ز یک نسخهٔ تنها جابه‌جا نمی‌شود', promptPrune_() === 0);
+}
+
 console.log('=== ۹) نقشهٔ پوشه: ریپو منبع است، درایو بازتاب ===');
 {
   const doc = fs.readFileSync('docs/drive_layout.md', 'utf8');
