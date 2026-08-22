@@ -159,6 +159,11 @@ function writeStatus_(hub, note) {
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
     lastEpisode: lastEpisode_(hub),
+    // شمارِ فایل‌های «کلِ قسمت» — از حافظه، چون ستونِ لینک هم بخش‌های خام را دارد
+    lastEpisodeAudio: (function () {
+      try { return JSON.parse(props_().getProperty(PK.EP_LAST) || 'null'); }
+      catch (e) { return null; }
+    })(),
     pendingEpisode: pending,
     models: models,
     telegram: tgEnabled_() ? 'فعال' : 'تنظیم نشده',
@@ -314,10 +319,13 @@ function healthCheck() {
     }
     if (!ep.audioLinks.length) problems.push('قسمت ' + ep.number + ' فایل صوتی ندارد.');
 
-    // «صفر فایل» سنجیده می‌شد و «بیش از یک فایل» نه. قسمتی که دو تکه فرستاده
-    // شود کارِ حرفه‌ای به نظر نمی‌رسد، و تا امروز هیچ سنجه‌ای نمی‌دیدش.
-    if (ep.audioLinks.length > 1) {
-      problems.push('قسمت ' + ep.number + ' در ' + ep.audioLinks.length +
+    // «صفر فایل» سنجیده می‌شد و «بیش از یک فایل» نه. ولی شمارِ لینک‌ها اینجا
+    // معیار نیست: ستونِ لینک هم فایلِ یکجا را دارد هم بخش‌های خام را، پس یک
+    // قسمتِ تک‌فایلی که از پنج بخش ساخته شده شش لینک دارد. معیار، شمارِ
+    // فایل‌های «کلِ قسمت» است که در حافظه نگه داشته می‌شود.
+    var epa = st.lastEpisodeAudio || null;
+    if (epa && Number(epa.files) > 1 && String(epa.episode) === String(ep.number)) {
+      problems.push('قسمت ' + ep.number + ' در ' + epa.files +
                     ' فایلِ صوتی فرستاده شد، نه یکی — متن از سقفِ یک فایل بلندتر شده.');
     }
     var overP = epTooLong_(ep.duration, CFG.TARGET_MINUTES);

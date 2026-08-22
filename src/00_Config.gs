@@ -426,7 +426,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.39',
+  CODE_VERSION: '5.40',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -642,7 +642,8 @@ var PK = {
   // آن مجموعه تمام شود، خودش پاک می‌شود و موتور به همان‌جایی که بود برمی‌گردد.
   SP_PIN: 'SPECIAL_PINNED',            // 'series:<کلید>' یا 'cat:<دسته>'
   SP_PIN_AT: 'SPECIAL_PINNED_AT',
-  SP_LAST: 'SPECIAL_LAST_EPISODE'  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
+  SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
+  EP_LAST: 'EPISODE_LAST_AUDIO'     // همان، برای «از همه جا از همه رنگ»
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }

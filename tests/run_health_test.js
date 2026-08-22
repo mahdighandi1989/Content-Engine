@@ -109,6 +109,23 @@ console.log('\n=== نقطه‌های کورِ نظارت ===');
   ok('مدتِ خالی یا نامفهوم هشدار نمی‌سازد',
      epTooLong_('', 10) === 0 && epTooLong_('نامعلوم', 10) === 0);
   ok('هدفِ صفر یا نامعتبر هم امن است', epTooLong_('14:15', 0) === 0);
+
+  /* شمارِ لینک‌ها معیارِ «چند فایل تحویل شد» نیست.
+     ستونِ لینک هم فایلِ یکجا را دارد هم بخش‌های خام: قسمتِ ۱۴ امروز شش لینک
+     داشت و فقط یک فایلِ یکجا. سنجه‌ای که روی شمارِ لینک بنشیند هر روز بی‌خود
+     شلیک می‌کند — همان هشدارِ دروغی که خودمان دربارهٔ درس‌نامه گفتیم بد است. */
+  const many = { number: 14, audioLinks: new Array(6).fill('u') };
+  const oneWhole = { lastEpisodeAudio: { episode: 14, files: 1, parts: 5 } };
+  const twoWhole = { lastEpisodeAudio: { episode: 14, files: 2, parts: 7 } };
+  const flags = (st, ep) => {
+    const epa = st.lastEpisodeAudio;
+    return !!(epa && Number(epa.files) > 1 && String(epa.episode) === String(ep.number));
+  };
+  ok('شش لینک با یک فایلِ یکجا هشدار نمی‌سازد', flags(oneWhole, many) === false);
+  ok('دو فایلِ یکجا هشدار می‌سازد', flags(twoWhole, many) === true);
+  ok('اگر شمارش مالِ قسمتِ دیگری باشد، نادیده گرفته می‌شود',
+     flags({ lastEpisodeAudio: { episode: 13, files: 3 } }, many) === false);
+  ok('نبودِ شمارش هشدار نمی‌سازد', flags({}, many) === false);
 }
 
 

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.39
+ *  موتور محتوا و پادکست — نسخهٔ 5.40
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -510,7 +510,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.39',
+  CODE_VERSION: '5.40',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -726,7 +726,8 @@ var PK = {
   // آن مجموعه تمام شود، خودش پاک می‌شود و موتور به همان‌جایی که بود برمی‌گردد.
   SP_PIN: 'SPECIAL_PINNED',            // 'series:<کلید>' یا 'cat:<دسته>'
   SP_PIN_AT: 'SPECIAL_PINNED_AT',
-  SP_LAST: 'SPECIAL_LAST_EPISODE'  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
+  SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
+  EP_LAST: 'EPISODE_LAST_AUDIO'     // همان، برای «از همه جا از همه رنگ»
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -4961,6 +4962,18 @@ function renderAudioStep_() {
       props_().setProperty(PK.PENDING, JSON.stringify(st));
     }
 
+    // چند فایلِ «کلِ قسمت» تحویل داده شد.
+    //
+    // ستونِ لینک‌ها برای این کار به درد نمی‌خورد: هم فایلِ یکجا در آن است هم
+    // بخش‌های خام. یک قسمتِ تک‌فایلی که از پنج بخش ساخته شده، شش لینک دارد.
+    // سنجه‌ای که روی شمارِ لینک‌ها بنشیند، هر روز بی‌خود شلیک می‌کند.
+    try {
+      props_().setProperty(PK.EP_LAST, JSON.stringify({
+        episode: epNum, duration: dur + ' دقیقه',
+        files: mgList.length || st.files.length, parts: st.files.length,
+        at: nowStr_() }));
+    } catch (eEL) {}
+
     var pod = ensureTab_(hub, CFG.TAB_PODCASTS, PODCAST_HEADERS);
     pod.getRange(st.podRow, 7, 1, 3).setValues([[dur + ' دقیقه',
       audioLinks.map(function (x) { return x.url; }).join('\n'), docFile.getUrl()]]);
@@ -6725,6 +6738,11 @@ function writeStatus_(hub, note) {
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
     lastEpisode: lastEpisode_(hub),
+    // شمارِ فایل‌های «کلِ قسمت» — از حافظه، چون ستونِ لینک هم بخش‌های خام را دارد
+    lastEpisodeAudio: (function () {
+      try { return JSON.parse(props_().getProperty(PK.EP_LAST) || 'null'); }
+      catch (e) { return null; }
+    })(),
     pendingEpisode: pending,
     models: models,
     telegram: tgEnabled_() ? 'فعال' : 'تنظیم نشده',
@@ -6880,10 +6898,13 @@ function healthCheck() {
     }
     if (!ep.audioLinks.length) problems.push('قسمت ' + ep.number + ' فایل صوتی ندارد.');
 
-    // «صفر فایل» سنجیده می‌شد و «بیش از یک فایل» نه. قسمتی که دو تکه فرستاده
-    // شود کارِ حرفه‌ای به نظر نمی‌رسد، و تا امروز هیچ سنجه‌ای نمی‌دیدش.
-    if (ep.audioLinks.length > 1) {
-      problems.push('قسمت ' + ep.number + ' در ' + ep.audioLinks.length +
+    // «صفر فایل» سنجیده می‌شد و «بیش از یک فایل» نه. ولی شمارِ لینک‌ها اینجا
+    // معیار نیست: ستونِ لینک هم فایلِ یکجا را دارد هم بخش‌های خام را، پس یک
+    // قسمتِ تک‌فایلی که از پنج بخش ساخته شده شش لینک دارد. معیار، شمارِ
+    // فایل‌های «کلِ قسمت» است که در حافظه نگه داشته می‌شود.
+    var epa = st.lastEpisodeAudio || null;
+    if (epa && Number(epa.files) > 1 && String(epa.episode) === String(ep.number)) {
+      problems.push('قسمت ' + ep.number + ' در ' + epa.files +
                     ' فایلِ صوتی فرستاده شد، نه یکی — متن از سقفِ یک فایل بلندتر شده.');
     }
     var overP = epTooLong_(ep.duration, CFG.TARGET_MINUTES);

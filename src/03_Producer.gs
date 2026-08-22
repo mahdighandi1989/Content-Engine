@@ -3303,6 +3303,18 @@ function renderAudioStep_() {
       props_().setProperty(PK.PENDING, JSON.stringify(st));
     }
 
+    // چند فایلِ «کلِ قسمت» تحویل داده شد.
+    //
+    // ستونِ لینک‌ها برای این کار به درد نمی‌خورد: هم فایلِ یکجا در آن است هم
+    // بخش‌های خام. یک قسمتِ تک‌فایلی که از پنج بخش ساخته شده، شش لینک دارد.
+    // سنجه‌ای که روی شمارِ لینک‌ها بنشیند، هر روز بی‌خود شلیک می‌کند.
+    try {
+      props_().setProperty(PK.EP_LAST, JSON.stringify({
+        episode: epNum, duration: dur + ' دقیقه',
+        files: mgList.length || st.files.length, parts: st.files.length,
+        at: nowStr_() }));
+    } catch (eEL) {}
+
     var pod = ensureTab_(hub, CFG.TAB_PODCASTS, PODCAST_HEADERS);
     pod.getRange(st.podRow, 7, 1, 3).setValues([[dur + ' دقیقه',
       audioLinks.map(function (x) { return x.url; }).join('\n'), docFile.getUrl()]]);
