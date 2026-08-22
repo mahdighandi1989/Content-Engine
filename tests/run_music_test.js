@@ -277,4 +277,78 @@ console.log('\n=== ۸. بودجهٔ زمان و دیده‌شدن ===');
      health.indexOf("هیچ موسیقی‌ای پخش نشد") !== -1);
 }
 
+
+/* ۹. شناختِ فایل از روی خودِ موج، نه نامش.
+
+   نامِ فایل حدس است. «calm-piano.wav» ممکن است سکوت باشد، دانلودِ نصفه باشد،
+   یا چیزِ دیگری. پس سلامت اندازه گرفته می‌شود.                               */
+console.log('\n=== ۹. اندازه‌گیریِ فایل ===');
+{
+  const sine = (amp, hz) => mkWav(CFG.SAMPLE_RATE, 1, 16, 3,
+    f => Math.round(amp * Math.sin(2 * Math.PI * hz * f / CFG.SAMPLE_RATE)));
+
+  const good = sine(9000, 220);
+  const pg = musicProbe_(good, wavInfo_(good));
+  ok('۹.۱ موسیقیِ سالم پذیرفته می‌شود', musicVerdict_(pg).ok, JSON.stringify(pg));
+  ok('۹.۲ بلندی اندازه گرفته می‌شود', pg.rms > 4000 && pg.rms < 9000, pg.rms + '');
+  ok('۹.۳ سکوتِ ناچیز', pg.silentPct === 0);
+
+  const silent = mkWav(CFG.SAMPLE_RATE, 1, 16, 3, () => 0);
+  const ps = musicProbe_(silent, wavInfo_(silent));
+  const vs = musicVerdict_(ps);
+  ok('۹.۴ فایلِ سکوت رد می‌شود', !vs.ok, vs.why);
+
+  const tiny = mkWav(CFG.SAMPLE_RATE, 1, 16, 3, () => 20);
+  const vt = musicVerdict_(musicProbe_(tiny, wavInfo_(tiny)));
+  ok('۹.۵ فایلِ تقریباً بی‌صدا هم رد می‌شود', !vt.ok, vt.why);
+
+  const short = mkWav(CFG.SAMPLE_RATE, 1, 16, 1, () => 9000);
+  ok('۹.۶ قطعهٔ یک‌ثانیه‌ای هم رد می‌شود',
+     !musicVerdict_(musicProbe_(short, wavInfo_(short))).ok);
+
+  // بافت: فرکانسِ بالا باید نرخِ گذر از صفر را بالا ببرد
+  const low = musicProbe_(sine(9000, 80), wavInfo_(sine(9000, 80)));
+  const high = musicProbe_(sine(9000, 4000), wavInfo_(sine(9000, 4000)));
+  ok('۹.۷ فرکانسِ بالاتر، نرخِ گذر از صفرِ بیشتر', high.zcr > low.zcr * 3,
+     low.zcr + ' → ' + high.zcr);
+  ok('۹.۸ و در توصیفِ بافت دیده می‌شود',
+     musicTexture_(low).indexOf('نرم') !== -1 && musicTexture_(high).indexOf('پرنویز') !== -1,
+     musicTexture_(low) + ' | ' + musicTexture_(high));
+  ok('۹.۹ دادهٔ ناقص، اندازه‌گیری را زمین نمی‌زند', musicProbe_([1, 2, 3], null) === null);
+}
+
+/* ۱۰. خویشتن‌داری در افکت.
+
+   «یک بار اسمِ باران آمد» نباید صدای باران بسازد. معیار باید ساختاری باشد،
+   و درس‌نامه اصلاً افکت نگیرد.                                              */
+console.log('\n=== ۱۰. افکت فقط وقتی بجاست ===');
+{
+  const secs = [
+    { heading: 'شهر و باران', narration: 'در این بخش از باران می‌گوییم.' },
+    { heading: 'اقتصاد', narration: 'یک بار به باران اشاره شد و تمام.' },
+    { heading: 'طبیعت', narration: 'باران آمد. باران بند نیامد. باران همه‌جا بود.' }
+  ];
+  const picks = [0, 1, 2].map(i => ({ section: i, word: 'باران', id: 'X' }));
+  const savedCap = CFG.MUSIC_SFX_MAX_PER_EP, savedOn = CFG.MUSIC_SFX_ENABLED;
+
+  CFG.MUSIC_SFX_MAX_PER_EP = 5;
+  const v = sfxAllow_(secs, picks, 'variety');
+  ok('۱۰.۱ واژه در سرِ بخش، بجاست', v.some(x => x.section === 0));
+  ok('۱۰.۲ تکرارِ چندباره در همان بخش، بجاست', v.some(x => x.section === 2));
+  ok('۱۰.۳ اشارهٔ گذرا (یک بار) رد می‌شود', !v.some(x => x.section === 1),
+     JSON.stringify(v.map(x => x.section)));
+
+  CFG.MUSIC_SFX_MAX_PER_EP = 1;
+  ok('۱۰.۴ سقفِ هر قسمت رعایت می‌شود', sfxAllow_(secs, picks, 'variety').length === 1);
+  ok('۱۰.۵ درس‌نامه اصلاً افکت نمی‌گیرد', sfxAllow_(secs, picks, 'special').length === 0);
+  CFG.MUSIC_SFX_ENABLED = false;
+  ok('۱۰.۶ و با خاموش‌بودن، هیچ', sfxAllow_(secs, picks, 'variety').length === 0);
+  CFG.MUSIC_SFX_ENABLED = savedOn; CFG.MUSIC_SFX_MAX_PER_EP = savedCap;
+
+  ok('۱۰.۷ واژهٔ کوتاه یا خالی پذیرفته نمی‌شود',
+     sfxAllow_(secs, [{ section: 0, word: 'ا', id: 'X' }], 'variety').length === 0);
+  ok('۱۰.۸ بخشِ ناموجود، خطا نمی‌سازد',
+     sfxAllow_(secs, [{ section: 99, word: 'باران', id: 'X' }], 'variety').length === 0);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

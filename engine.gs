@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.42
+ *  موتور محتوا و پادکست — نسخهٔ 5.43
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -374,6 +374,14 @@ var CFG = {
   MUSIC_GAIN: 0.8,             // ضریبِ بلندیِ کلی، روی بلندیِ خودِ ردیف
   MUSIC_MAX_CLIP_SEC: 45,      // سقفِ هر برش — نگهبانِ حافظه و زمان
 
+  // ── افکتِ صوتی: عمداً سخت‌گیر ──
+  // اگر معیار «آمدنِ یک واژه» باشد، هر اشارهٔ گذرا به باران یک صدای باران
+  // می‌سازد؛ مصنوعی می‌شود و در درس‌نامه فاجعه است. پس واژه باید ساختاری
+  // باشد (در سرِ بخش، یا دستِ‌کم دو بار در همان بخش) و سقفِ هر قسمت هم سخت.
+  MUSIC_SFX_ENABLED: true,
+  MUSIC_SFX_IN_SPECIAL: false, // درس‌نامه شمرده و بی‌جلوه است
+  MUSIC_SFX_MAX_PER_EP: 1,     // حتی اگر ده جای مناسب باشد، یکی
+
   ONE_FILE_STRICT: true,
 
   // «درس‌نامه» هدفش ۱۵ دقیقه است ≈ ۴۳ مگابایت — بالاتر از سقفِ ادغام، پس
@@ -527,7 +535,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.42',
+  CODE_VERSION: '5.43',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -19586,9 +19594,9 @@ function musicClip_(fileId, opt) {
 
 var MUSIC_HEADERS = ['شناسهٔ فایل', 'نام', 'نوع', 'حال‌وهوا', 'مناسب برای',
                      'مدت (ثانیه)', 'قالب', 'بلندی', 'بارِ استفاده',
-                     'آخرین استفاده', 'یادداشت'];
+                     'آخرین استفاده', 'یادداشت', 'سرشتِ اندازه‌گیری‌شده', 'منبع'];
 var MC = { ID: 1, NAME: 2, KIND: 3, MOOD: 4, SLOTS: 5, SEC: 6, FMT: 7,
-           GAIN: 8, USED: 9, LAST: 10, NOTE: 11 };
+           GAIN: 8, USED: 9, LAST: 10, NOTE: 11, PROBE: 12, SRC: 13 };
 
 /**
  * پویشِ پوشهٔ بانک و به‌روزکردنِ تب.
@@ -19610,22 +19618,41 @@ function musicScan_(hub) {
   while (it.hasNext()) {
     var f = it.next(), id = f.getId();
     seen[id] = 1;
-    var info = null;
-    try { info = wavInfo_(f.getBlob().getBytes()); } catch (e) { info = null; }
+    var info = null, probe = null, bytes = null;
+    try { bytes = f.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
+    // خودِ موج اندازه گرفته می‌شود، نه نامِ فایل. دانلودِ ناقص، سکوت و فایلِ
+    // خراب همین‌جا گیر می‌افتند — نه بعداً وسطِ قسمت.
+    try { probe = info ? musicProbe_(bytes, info) : null; } catch (eP) { probe = null; }
+    var vd = musicVerdict_(probe);
     var fmt = !info ? 'قالب ناسازگار (فقط WAV)'
-                    : (musicNative_(info) ? 'آماده'
-                       : info.rate + 'Hz/' + info.channels + 'ch/' + info.bits + 'bit — تبدیل هنگام استفاده');
+                    : (!vd.ok ? 'ردشد: ' + vd.why
+                       : (musicNative_(info) ? 'آماده'
+                          : info.rate + 'Hz/' + info.channels + 'ch/' + info.bits + 'bit — تبدیل هنگام استفاده'));
     var sec = info ? Math.round(info.seconds) : 0;
-    if (!info) bad++;
+    if (!info || !vd.ok) bad++;
+    var meta = musicMeta_(f.getName());
+    var probeTxt = probe ? (musicTexture_(probe) + ' · بلندی ' + probe.rms +
+                            ' · سکوت ' + probe.silentPct + '٪') : '';
+    var srcTxt = meta ? (String(meta.title || '') + ' — ' + String(meta.url || '') +
+                         (meta.license ? ' (' + meta.license + ')' : '')) : '';
 
     if (byId[id]) {
       var r = byId[id];
-      if (String(r.v[MC.SEC - 1]) !== String(sec) || String(r.v[MC.FMT - 1]) !== fmt) {
+      if (String(r.v[MC.SEC - 1]) !== String(sec) || String(r.v[MC.FMT - 1]) !== fmt ||
+          String(r.v[MC.PROBE - 1] || '') !== probeTxt) {
         sh.getRange(r.row, MC.SEC, 1, 2).setValues([[sec, fmt]]);
+        sh.getRange(r.row, MC.PROBE).setValue(probeTxt);
+        if (srcTxt && !String(r.v[MC.SRC - 1] || '').trim()) sh.getRange(r.row, MC.SRC).setValue(srcTxt);
         updated++;
       }
     } else {
-      sh.appendRow([id, f.getName(), 'موسیقی', '', 'شروع، پایان', sec, fmt, 1, 0, '', '']);
+      // نوع و جایگاه از شناسنامهٔ منبع می‌آید اگر باشد، وگرنه از اندازه‌گیری.
+      // نامِ فایل آخرین گزینه است، چون کمترین اعتبار را دارد.
+      var kind = meta && meta.kind ? String(meta.kind)
+                 : ((probe && probe.seconds <= 8 && probe.steadiness < 60) ? 'افکت' : 'موسیقی');
+      var slots = meta && meta.slots ? String(meta.slots) : (kind === 'افکت' ? 'میانه' : 'شروع، پایان');
+      sh.appendRow([id, f.getName(), kind, (meta && meta.mood) || '', slots, sec, fmt,
+                    (meta && meta.gain) || 1, 0, '', '', probeTxt, srcTxt]);
       added++;
     }
   }
@@ -19660,6 +19687,8 @@ function musicBank_(hub) {
       mood: String(v[i][MC.MOOD - 1] || ''),
       slots: String(v[i][MC.SLOTS - 1] || ''),
       sec: Number(v[i][MC.SEC - 1]) || 0,
+      probe: String(v[i][MC.PROBE - 1] || ''),
+      src: String(v[i][MC.SRC - 1] || ''),
       gain: (Number(v[i][MC.GAIN - 1]) > 0 ? Number(v[i][MC.GAIN - 1]) : 1),
       used: Number(v[i][MC.USED - 1]) || 0,
       lastAt: String(v[i][MC.LAST - 1] || '')
@@ -20078,5 +20107,167 @@ function musicWish_(mood, missing, ctx) {
     putOutJson_('_MUSIC-WISH.json', { updatedAt: nowStr_(), items: items });
     logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
     return items.length;
+  } catch (e) { return null; }
+}
+
+/* ──────────────────────── خویشتن‌داری در افکت ──────────────────────── */
+
+/**
+ * افکتِ صوتی فقط وقتی که واقعاً بجاست.
+ *
+ * ══ خطری که باید دور زده شود ══
+ * اگر معیارْ «آمدنِ یک واژه در متن» باشد، هر اشارهٔ گذرا به باران یک صدای
+ * باران می‌سازد. نتیجه‌اش مصنوعی است و در «درس‌نامه» فاجعه: یک درسِ فلسفه
+ * وسطش صدای شهر بدهد یعنی کسی به متن گوش نداده.
+ *
+ * ══ سه سدی که اینجا هست ══
+ *  ۱) افکت به‌طور پیش‌فرض فقط در برنامهٔ متنوع است، نه درس‌نامه. سرشتِ درس‌نامه
+ *     شمرده و بی‌جلوه است؛ این تصمیمِ سلیقه نیست، اقتضای برنامه است.
+ *  ۲) واژه باید *ساختاری* باشد نه گذرا: یا در سرِ بخش بیاید، یا دستِ‌کم دو بار
+ *     در روایتِ همان بخش تکرار شود. یک بار آمدن یعنی گذرا.
+ *  ۳) سقفِ سختِ هر قسمت. حتی اگر ده جای مناسب پیدا شود، بیش از این گذاشته
+ *     نمی‌شود؛ برنامهٔ رادیویی است نه جدولِ افکت.
+ *
+ * برمی‌گرداند: فهرستِ افکت‌های مجاز، با شمارهٔ بخش.
+ */
+function sfxAllow_(sections, picks, showKind) {
+  var out = [];
+  if (CFG.MUSIC_SFX_ENABLED === false) return out;
+  if (String(showKind || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true) return out;
+  var cap = Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0);
+  if (!cap) return out;
+
+  for (var i = 0; i < (picks || []).length && out.length < cap; i++) {
+    var p = picks[i];
+    if (!p || !p.word) continue;
+    var idx = Number(p.section);
+    var sec = (sections || [])[idx];
+    if (!sec) continue;
+    var word = String(p.word).trim();
+    if (word.length < 3) continue;
+
+    var head = String(sec.heading || '');
+    var body = String(sec.narration || '');
+    var inHead = head.indexOf(word) !== -1;
+    var times = body.split(word).length - 1;
+
+    // «یک بار در متن» کافی نیست — همان اشارهٔ گذراست
+    if (!inHead && times < 2) continue;
+    out.push({ section: idx, word: word, id: p.id,
+               why: inHead ? 'در سرِ بخش آمده' : times + ' بار در همان بخش' });
+  }
+  return out;
+}
+
+/* ────────────── شناختِ فایل: اندازه‌گیری، نه شباهتِ اسمی ────────────── */
+
+/**
+ * اندازه‌گیریِ سرشتِ صوتیِ یک فایل.
+ *
+ * ══ چرا اسم کافی نیست ══
+ * فایلی که «calm-piano.wav» نام دارد ممکن است سکوت باشد، ممکن است دانلود
+ * نصفه‌کاره باشد، ممکن است اصلاً چیزِ دیگری باشد. اعتماد به نامِ فایل یعنی
+ * اعتماد به چیزی که هیچ‌کس وارسی‌اش نکرده. پس خودِ موج اندازه گرفته می‌شود.
+ *
+ * ══ چه چیزی را واقعاً می‌شود فهمید ══
+ * • بلندیِ میانگین و قله — سکوت، یا فایلِ خرابِ نزدیک‌به‌صفر
+ * • درصدِ سکوت — فایلی که بیشترش خالی است
+ * • نرخِ گذر از صفر — بافتِ صدا: موسیقیِ آرام عددِ پایین، افکتِ نویزی و
+ *   «س/ش»دارِ گفتار عددِ بالا
+ * • یکنواختی — موسیقی معمولاً پیوسته است، گفتار پر از مکث
+ *
+ * ══ و چه چیزی را نمی‌شود ══
+ * «این پیانوی آرام است» از روی موج فهمیده نمی‌شود. آن را فقط شناسنامهٔ منبع
+ * می‌گوید (musicMeta_). این تابع سلامت و بافت را می‌سنجد، نه هویت را.
+ *
+ * برای سرعت، سراسرِ فایل خوانده نمی‌شود: چند ده پنجرهٔ کوتاه، پخش‌شده در طولِ
+ * قطعه. برای قضاوتِ سلامت کافی است و از مهلتِ اجرا هم نمی‌گذرد.
+ */
+function musicProbe_(b, info) {
+  if (!info || info.format !== 1) return null;
+  var bps = info.bits / 8, ch = info.channels, frameB = bps * ch;
+  var total = Math.floor(info.dataLen / frameB);
+  if (total < 100) return null;
+
+  var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
+  var rd = function (fr) {
+    var i = info.dataAt + fr * frameB;
+    if (info.bits === 8) return (u(i) - 128) * 256;
+    var v = u(i + bps - 2) | (u(i + bps - 1) << 8);
+    return (v & 0x8000) ? v - 65536 : v;
+  };
+
+  var WINDOWS = 48, WIN = 512;
+  var step = Math.max(1, Math.floor((total - WIN) / WINDOWS));
+  var rmsList = [], zc = 0, zcN = 0, peak = 0, silent = 0, seen = 0;
+
+  for (var w = 0; w < WINDOWS; w++) {
+    var from = w * step;
+    if (from + WIN >= total) break;
+    var sum = 0, prev = 0;
+    for (var k = 0; k < WIN; k++) {
+      var s = rd(from + k);
+      if (s > peak) peak = s; if (-s > peak) peak = -s;
+      sum += s * s;
+      if (k && ((s < 0) !== (prev < 0))) zc++;
+      prev = s; zcN++;
+    }
+    var rms = Math.sqrt(sum / WIN);
+    rmsList.push(rms);
+    if (rms < 200) silent++;               // زیرِ این، عملاً سکوت است
+    seen++;
+  }
+  if (!seen) return null;
+
+  var mean = 0;
+  for (var m = 0; m < rmsList.length; m++) mean += rmsList[m];
+  mean /= rmsList.length;
+  var varc = 0;
+  for (var v2 = 0; v2 < rmsList.length; v2++) varc += Math.pow(rmsList[v2] - mean, 2);
+  varc = Math.sqrt(varc / rmsList.length);
+
+  return {
+    seconds: Math.round(info.seconds),
+    rms: Math.round(mean),
+    peak: peak,
+    silentPct: Math.round(silent / seen * 100),
+    zcr: Math.round(zc / (zcN / (CFG.SAMPLE_RATE || 24000))),   // گذر بر ثانیه
+    steadiness: mean > 0 ? Math.round((1 - Math.min(varc / mean, 1)) * 100) : 0
+  };
+}
+
+/**
+ * آیا این فایل به‌دردِ بانک می‌خورد؟
+ * فقط سلامت را می‌گوید، نه تناسبِ حال‌وهوا.
+ */
+function musicVerdict_(pr) {
+  if (!pr) return { ok: false, why: 'خوانده نشد یا PCM نیست' };
+  if (pr.seconds < 2) return { ok: false, why: 'کوتاه‌تر از دو ثانیه' };
+  if (pr.silentPct >= 80) return { ok: false, why: pr.silentPct + '٪ سکوت — احتمالاً دانلودِ ناقص' };
+  if (pr.rms < 150) return { ok: false, why: 'تقریباً بی‌صدا (بلندیِ میانگین ' + pr.rms + ')' };
+  if (pr.peak >= 32767 && pr.rms > 12000) return { ok: true, why: 'سالم ولی بلند و کلیپ‌شده — بلندی را کم بگذارید' };
+  return { ok: true, why: 'سالم' };
+}
+
+/** حدسِ بافت از روی اندازه‌ها — کمکِ تصمیم، نه حکم. */
+function musicTexture_(pr) {
+  if (!pr) return '';
+  var t = [];
+  t.push(pr.zcr > 3000 ? 'پرنویز/سوزناک' : (pr.zcr > 1200 ? 'میانه' : 'نرم و کم‌فرکانس'));
+  t.push(pr.steadiness > 70 ? 'یکنواخت (موسیقی‌وار)' : 'پرنوسان (افکت/گفتاروار)');
+  if (pr.silentPct > 30) t.push('پرمکث');
+  return t.join(' · ');
+}
+
+/**
+ * شناسنامهٔ منبع، اگر تسکِ غنی‌سازی گذاشته باشد.
+ *
+ * این تنها چیزی است که «هویت» را می‌گوید: از کجا آمد، چه بود، چه مجوزی دارد.
+ * نامِ فایل حدس است؛ این سند است. اگر هست، بر نامِ فایل مقدم می‌شود.
+ */
+function musicMeta_(fileName) {
+  try {
+    var base = String(fileName || '').replace(/\.wav$/i, '');
+    return getOutJson_('_MUSIC-META-' + base + '.json');
   } catch (e) { return null; }
 }
