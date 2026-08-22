@@ -1532,6 +1532,25 @@ function buildSpecialChunks_(ep, epNum, catHint) {
                  voice: segs[i].voice || CFG.TTS_VOICE_SPECIAL });
     }
   }
+  // موسیقی برای درس‌نامه هم، با همان سازوکار. بخشِ ۲۳ پایین‌تر است، پس
+  // فراخوانش در try/catch — بارگذارِ جزئیِ آزمون‌ها نباید تولید را زمین بزند.
+  try {
+    var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
+                  .filter(Boolean).slice(0, 8).join(' · ');
+    var mw = musicWrap_(out, null, {
+      category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
+      mood: 'آموزشی، شمرده',
+      title: String((ep && ep.title) || ''), headings: heads,
+      cast: (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '',
+      plan: (ep && ep.music) || {} });
+    if (mw && mw.chunks && mw.chunks.length) {
+      if (mw.picks && mw.picks.length) {
+        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum); } catch (eU) {}
+        try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
+      }
+      return mw.chunks;
+    }
+  } catch (eM) { logLine_('موسیقیِ درس‌نامه افزوده نشد: ' + eM.message); }
   return out;
 }
 

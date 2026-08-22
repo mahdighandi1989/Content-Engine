@@ -1042,6 +1042,7 @@ function buildChunks_(ep, cat, epNum) {
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
         try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
+        try { musicRemember_(mw, 'قسمت ' + epNum); } catch (eR) {}
       }
       return mw.chunks;
     }
@@ -2275,9 +2276,35 @@ function scrubSourceIds_(ep, items, refs) {
 function oneFileMaxChars_() {
   var bytesPerSec = (Number(CFG.SAMPLE_RATE) || 24000) * 2;      // ۱۶ بیت، تک‌کاناله
   var seconds = (Number(CFG.MERGE_MAX_BYTES) || 33000000) / bytesPerSec;
+  // جای موسیقی صریح کنار گذاشته می‌شود.
+  //
+  // تا پیش از این، سقف فقط از روی گفتار حساب می‌شد و موسیقی روی آن سوار
+  // می‌شد. اتفاقاً جا می‌شد — حاشیهٔ ۸ درصدی از پسِ نزدیک به سی ثانیه موسیقی
+  // برمی‌آمد. ولی «اتفاقاً جا می‌شود» تضمین نیست: کافی بود طولِ آغاز یا فاصلهٔ
+  // میانه‌ها عوض شود تا قسمت بی‌صدا دو تکه شود، و دلیلش هم پیدا نبود.
+  seconds -= musicBudgetSec_();
   var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
   // ۸٪ حاشیه برای مکث‌ها و نفس‌ها، که در نویسه نمی‌آیند ولی وقت می‌گیرند
-  return Math.floor(seconds * cps * 0.92);
+  return Math.floor(Math.max(seconds, 60) * cps * 0.92);
+}
+
+/** بیشترین ثانیه‌ای که موسیقیِ یک قسمت می‌تواند بگیرد. */
+function musicBudgetSec_() {
+  if (CFG.MUSIC_ENABLED === false) return 0;
+  var intro = Number(CFG.MUSIC_INTRO_SEC) || 0;
+  var outro = Number(CFG.MUSIC_OUTRO_SEC) || 0;
+  var every = Number(CFG.MUSIC_BRIDGE_EVERY) || 0;
+  var bSec = Number(CFG.MUSIC_BRIDGE_SEC) || 0;
+  var bridges = 0;
+  if (every > 0) {
+    // تخمینِ شمارِ تکه‌ها از روی سقفِ خامِ گفتار — دقیق نیست و لازم هم نیست،
+    // فقط باید دست‌بالا باشد تا بودجه کم نیاید.
+    var rawSec = (Number(CFG.MERGE_MAX_BYTES) || 33000000) / (((Number(CFG.SAMPLE_RATE) || 24000) * 2));
+    var chunks = Math.ceil((rawSec * (Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7)) /
+                           (Number(CFG.TTS_CHUNK_CHARS) || 1100));
+    bridges = Math.max(0, Math.floor(chunks / every));
+  }
+  return intro + outro + bridges * bSec;
 }
 
 /** تخمینِ ثانیهٔ گفتار برای یک متن. */

@@ -224,4 +224,57 @@ console.log('\n=== ۷. انتخابِ خودکار با مدل ===');
   global.geminiText_ = realGem;
 }
 
+
+/* ۸. موسیقی نباید قسمت را دو تکه کند، و نباید نامرئی بماند.
+
+   سه چیز را سؤالِ صاحبِ برنامه بیرون کشید و هر سه واقعی بودند:
+   درس‌نامه اصلاً موسیقی نمی‌گرفت؛ بودجهٔ یک فایل جای موسیقی را کنار نگذاشته
+   بود (اتفاقاً جا می‌شد، که تضمین نیست)؛ و موسیقی نه در وضعیت بود نه در
+   وارسیِ سلامت — یعنی همان نقطهٔ کوری که درس‌نامه داشت.                      */
+console.log('\n=== ۸. بودجهٔ زمان و دیده‌شدن ===');
+{
+  const budget = musicBudgetSec_();
+  ok('۸.۱ بودجهٔ موسیقی حساب می‌شود', budget > 0, budget + ' ثانیه');
+  const speech = oneFileMaxChars_() / (CFG.SPEECH_CHARS_PER_SEC || 13.7);
+  const cap = CFG.MERGE_MAX_BYTES / ((CFG.SAMPLE_RATE || 24000) * 2);
+  ok('۸.۲ گفتار + موسیقی زیرِ سقفِ یک فایل می‌ماند', speech + budget <= cap,
+     Math.round(speech + budget) + ' از ' + Math.round(cap) + ' ثانیه');
+
+  // اگر موسیقی بلندتر شود، سقفِ گفتار باید خودش پایین بیاید
+  const savedI = CFG.MUSIC_INTRO_SEC, savedO = CFG.MUSIC_OUTRO_SEC;
+  const before = oneFileMaxChars_();
+  CFG.MUSIC_INTRO_SEC = 60; CFG.MUSIC_OUTRO_SEC = 60;
+  const after = oneFileMaxChars_();
+  ok('۸.۳ موسیقیِ بلندتر، سقفِ گفتار را پایین می‌آورد', after < before,
+     before + ' → ' + after);
+  const speech2 = after / (CFG.SPEECH_CHARS_PER_SEC || 13.7);
+  ok('۸.۴ و باز هم از سقف نمی‌گذرد', speech2 + musicBudgetSec_() <= cap,
+     Math.round(speech2 + musicBudgetSec_()) + ' از ' + Math.round(cap));
+  CFG.MUSIC_INTRO_SEC = savedI; CFG.MUSIC_OUTRO_SEC = savedO;
+
+  const savedE = CFG.MUSIC_ENABLED;
+  CFG.MUSIC_ENABLED = false;
+  ok('۸.۵ با موسیقیِ خاموش، بودجه صفر است', musicBudgetSec_() === 0);
+  CFG.MUSIC_ENABLED = savedE;
+
+  // هر دو برنامه باید از همین مسیر بگذرند
+  const fs2 = require('fs');
+  const prod = fs2.readFileSync('src/03_Producer.gs', 'utf8');
+  const spec = fs2.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۸.۶ «از همه جا از همه رنگ» موسیقی می‌گیرد', prod.indexOf('musicWrap_(') !== -1);
+  ok('۸.۷ «درس‌نامه» هم موسیقی می‌گیرد', spec.indexOf('musicWrap_(') !== -1);
+  ok('۸.۸ و هر دو استفاده را ثبت می‌کنند',
+     prod.indexOf('musicRemember_') !== -1 && spec.indexOf('musicRemember_') !== -1);
+
+  const health = fs2.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۸.۹ موسیقی در فایلِ وضعیت می‌آید', health.indexOf('musicStatus_()') !== -1);
+  ok('۸.۱۰ و وارسیِ سلامت هم می‌سنجدش', health.indexOf('بانکِ موسیقی خالی است') !== -1);
+  // بانکِ خالی حالتِ طبیعی است و نباید هر روز هشدار بدهد؛ ایراد آن است که
+  // بانک قطعه دارد و باز هم چیزی پخش نشده.
+  ok('۸.۱۱ بانکِ خالی یادداشت است نه ایراد',
+     health.indexOf("notes.push('بانکِ موسیقی خالی است") !== -1);
+  ok('۸.۱۲ ولی پخش‌نشدن با بانکِ پر، ایراد است',
+     health.indexOf("هیچ موسیقی‌ای پخش نشد") !== -1);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

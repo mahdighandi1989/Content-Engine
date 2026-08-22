@@ -402,6 +402,41 @@ function musicWrap_(chunks, hub, opt) {
   return { chunks: out, picks: picks, mood: mood, missing: missing };
 }
 
+/**
+ * آنچه در این قسمت واقعاً پخش شد — برای دیده‌شدن در وضعیت و گزارش.
+ *
+ * بی این، موسیقی همان نقطهٔ کوری می‌شد که درس‌نامه بود: کار انجام می‌شد یا
+ * نمی‌شد و هیچ ناظری — آدم یا کد — نمی‌توانست تفاوتش را ببیند.
+ */
+function musicRemember_(mw, epLabel) {
+  try {
+    props_().setProperty(PK.MUSIC_LAST, JSON.stringify({
+      at: nowStr_(), episode: String(epLabel || ''),
+      mood: String((mw && mw.mood) || ''),
+      tracks: ((mw && mw.picks) || []).map(function (p) { return p.name; }),
+      missing: (mw && mw.missing) || []
+    }));
+  } catch (e) {}
+}
+
+/** وضعیتِ بانک و آخرین استفاده — بی‌شبکه، برای _STATUS.json. */
+function musicStatus_() {
+  var out = { enabled: CFG.MUSIC_ENABLED !== false, auto: CFG.MUSIC_AUTO !== false,
+              tracks: 0, last: null };
+  try {
+    var sh = getHub_().getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+    if (sh && sh.getLastRow() > 1) {
+      var v = sh.getRange(2, MC.FMT, sh.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < v.length; i++) {
+        var f = String(v[i][0] || '');
+        if (f && f.indexOf('ناسازگار') === -1 && f.indexOf('نیست') === -1) out.tracks++;
+      }
+    }
+  } catch (e) {}
+  try { out.last = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null'); } catch (e2) {}
+  return out;
+}
+
 /** منو: پویشِ بانک. */
 function runMusicScan() {
   var r = musicScan_();

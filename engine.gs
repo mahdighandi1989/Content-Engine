@@ -744,7 +744,8 @@ var PK = {
   SP_PIN: 'SPECIAL_PINNED',            // 'series:<کلید>' یا 'cat:<دسته>'
   SP_PIN_AT: 'SPECIAL_PINNED_AT',
   SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
-  EP_LAST: 'EPISODE_LAST_AUDIO'     // همان، برای «از همه جا از همه رنگ»
+  EP_LAST: 'EPISODE_LAST_AUDIO',    // همان، برای «از همه جا از همه رنگ»
+  MUSIC_LAST: 'MUSIC_LAST_USE'      // موسیقیِ آخرین قسمت، برای دیده‌شدن در وضعیت
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -2718,6 +2719,7 @@ function buildChunks_(ep, cat, epNum) {
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
         try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
+        try { musicRemember_(mw, 'قسمت ' + epNum); } catch (eR) {}
       }
       return mw.chunks;
     }
@@ -3951,9 +3953,35 @@ function scrubSourceIds_(ep, items, refs) {
 function oneFileMaxChars_() {
   var bytesPerSec = (Number(CFG.SAMPLE_RATE) || 24000) * 2;      // ۱۶ بیت، تک‌کاناله
   var seconds = (Number(CFG.MERGE_MAX_BYTES) || 33000000) / bytesPerSec;
+  // جای موسیقی صریح کنار گذاشته می‌شود.
+  //
+  // تا پیش از این، سقف فقط از روی گفتار حساب می‌شد و موسیقی روی آن سوار
+  // می‌شد. اتفاقاً جا می‌شد — حاشیهٔ ۸ درصدی از پسِ نزدیک به سی ثانیه موسیقی
+  // برمی‌آمد. ولی «اتفاقاً جا می‌شود» تضمین نیست: کافی بود طولِ آغاز یا فاصلهٔ
+  // میانه‌ها عوض شود تا قسمت بی‌صدا دو تکه شود، و دلیلش هم پیدا نبود.
+  seconds -= musicBudgetSec_();
   var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
   // ۸٪ حاشیه برای مکث‌ها و نفس‌ها، که در نویسه نمی‌آیند ولی وقت می‌گیرند
-  return Math.floor(seconds * cps * 0.92);
+  return Math.floor(Math.max(seconds, 60) * cps * 0.92);
+}
+
+/** بیشترین ثانیه‌ای که موسیقیِ یک قسمت می‌تواند بگیرد. */
+function musicBudgetSec_() {
+  if (CFG.MUSIC_ENABLED === false) return 0;
+  var intro = Number(CFG.MUSIC_INTRO_SEC) || 0;
+  var outro = Number(CFG.MUSIC_OUTRO_SEC) || 0;
+  var every = Number(CFG.MUSIC_BRIDGE_EVERY) || 0;
+  var bSec = Number(CFG.MUSIC_BRIDGE_SEC) || 0;
+  var bridges = 0;
+  if (every > 0) {
+    // تخمینِ شمارِ تکه‌ها از روی سقفِ خامِ گفتار — دقیق نیست و لازم هم نیست،
+    // فقط باید دست‌بالا باشد تا بودجه کم نیاید.
+    var rawSec = (Number(CFG.MERGE_MAX_BYTES) || 33000000) / (((Number(CFG.SAMPLE_RATE) || 24000) * 2));
+    var chunks = Math.ceil((rawSec * (Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7)) /
+                           (Number(CFG.TTS_CHUNK_CHARS) || 1100));
+    bridges = Math.max(0, Math.floor(chunks / every));
+  }
+  return intro + outro + bridges * bSec;
 }
 
 /** تخمینِ ثانیهٔ گفتار برای یک متن. */
@@ -6785,6 +6813,7 @@ function writeStatus_(hub, note) {
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
+    music: (function () { try { return musicStatus_(); } catch (e) { return null; } })(),
     lastEpisode: lastEpisode_(hub),
     // شمارِ فایل‌های «کلِ قسمت» — از حافظه، چون ستونِ لینک هم بخش‌های خام را دارد
     lastEpisodeAudio: (function () {
@@ -6961,6 +6990,27 @@ function healthCheck() {
                     CFG.TARGET_MINUTES + ' دقیقه (' + overP + '٪ بلندتر).');
     }
   }
+
+  // ۱-ج) موسیقی: اگر روشن است ولی بانک خالی است، یا قسمتِ آخر چیزی نگرفت.
+  try {
+    var mus = st.music || null;
+    if (mus && mus.enabled) {
+      // بانکِ خالی «ایراد» نیست: شاید هنوز قطعه‌ای نگذاشته‌اند یا نمی‌خواهند.
+      // ایراد آن است که بانک قطعه دارد و باز هم چیزی پخش نشده — یعنی چیزی
+      // شکسته. هشدارِ روزانه برای یک حالتِ طبیعی، هشدارهای واقعی را کور می‌کند.
+      if (!mus.tracks) {
+        notes.push('بانکِ موسیقی خالی است؛ قسمت‌ها بی‌موسیقی ساخته می‌شوند. ' +
+                   'برای پرکردنش: منو ← «بانکِ موسیقی — پویش و برچسبِ خودکار».');
+      } else if (mus.last && (!mus.last.tracks || !mus.last.tracks.length)) {
+        problems.push('در «' + mus.last.episode + '» هیچ موسیقی‌ای پخش نشد' +
+                      ((mus.last.missing || []).length
+                        ? ' — جای خالی: ' + mus.last.missing.join('، ') : '') + '.');
+      } else if (mus.last && (mus.last.missing || []).length) {
+        notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
+                   ' — ولی برای ' + mus.last.missing.join('، ') + ' قطعه‌ای نبود.');
+      }
+    }
+  } catch (eMu) {}
 
   // ۱-ب) درس‌نامه: همان دو سنجه. تا امروز هیچ‌کدام از این‌ها در فایلِ وضعیت
   // نبود، پس ناظر — آدم یا کد — اصلاً نمی‌توانست ببیندشان.
@@ -12180,6 +12230,25 @@ function buildSpecialChunks_(ep, epNum, catHint) {
                  voice: segs[i].voice || CFG.TTS_VOICE_SPECIAL });
     }
   }
+  // موسیقی برای درس‌نامه هم، با همان سازوکار. بخشِ ۲۳ پایین‌تر است، پس
+  // فراخوانش در try/catch — بارگذارِ جزئیِ آزمون‌ها نباید تولید را زمین بزند.
+  try {
+    var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
+                  .filter(Boolean).slice(0, 8).join(' · ');
+    var mw = musicWrap_(out, null, {
+      category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
+      mood: 'آموزشی، شمرده',
+      title: String((ep && ep.title) || ''), headings: heads,
+      cast: (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '',
+      plan: (ep && ep.music) || {} });
+    if (mw && mw.chunks && mw.chunks.length) {
+      if (mw.picks && mw.picks.length) {
+        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum); } catch (eU) {}
+        try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
+      }
+      return mw.chunks;
+    }
+  } catch (eM) { logLine_('موسیقیِ درس‌نامه افزوده نشد: ' + eM.message); }
   return out;
 }
 
@@ -19741,6 +19810,41 @@ function musicWrap_(chunks, hub, opt) {
     logLine_('موسیقیِ قسمت: ' + picks.map(function (p) { return p.name; }).join(' · '));
   }
   return { chunks: out, picks: picks, mood: mood, missing: missing };
+}
+
+/**
+ * آنچه در این قسمت واقعاً پخش شد — برای دیده‌شدن در وضعیت و گزارش.
+ *
+ * بی این، موسیقی همان نقطهٔ کوری می‌شد که درس‌نامه بود: کار انجام می‌شد یا
+ * نمی‌شد و هیچ ناظری — آدم یا کد — نمی‌توانست تفاوتش را ببیند.
+ */
+function musicRemember_(mw, epLabel) {
+  try {
+    props_().setProperty(PK.MUSIC_LAST, JSON.stringify({
+      at: nowStr_(), episode: String(epLabel || ''),
+      mood: String((mw && mw.mood) || ''),
+      tracks: ((mw && mw.picks) || []).map(function (p) { return p.name; }),
+      missing: (mw && mw.missing) || []
+    }));
+  } catch (e) {}
+}
+
+/** وضعیتِ بانک و آخرین استفاده — بی‌شبکه، برای _STATUS.json. */
+function musicStatus_() {
+  var out = { enabled: CFG.MUSIC_ENABLED !== false, auto: CFG.MUSIC_AUTO !== false,
+              tracks: 0, last: null };
+  try {
+    var sh = getHub_().getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+    if (sh && sh.getLastRow() > 1) {
+      var v = sh.getRange(2, MC.FMT, sh.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < v.length; i++) {
+        var f = String(v[i][0] || '');
+        if (f && f.indexOf('ناسازگار') === -1 && f.indexOf('نیست') === -1) out.tracks++;
+      }
+    }
+  } catch (e) {}
+  try { out.last = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null'); } catch (e2) {}
+  return out;
 }
 
 /** منو: پویشِ بانک. */

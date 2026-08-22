@@ -660,7 +660,8 @@ var PK = {
   SP_PIN: 'SPECIAL_PINNED',            // 'series:<کلید>' یا 'cat:<دسته>'
   SP_PIN_AT: 'SPECIAL_PINNED_AT',
   SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
-  EP_LAST: 'EPISODE_LAST_AUDIO'     // همان، برای «از همه جا از همه رنگ»
+  EP_LAST: 'EPISODE_LAST_AUDIO',    // همان، برای «از همه جا از همه رنگ»
+  MUSIC_LAST: 'MUSIC_LAST_USE'      // موسیقیِ آخرین قسمت، برای دیده‌شدن در وضعیت
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }

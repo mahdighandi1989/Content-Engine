@@ -158,6 +158,7 @@ function writeStatus_(hub, note) {
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
+    music: (function () { try { return musicStatus_(); } catch (e) { return null; } })(),
     lastEpisode: lastEpisode_(hub),
     // شمارِ فایل‌های «کلِ قسمت» — از حافظه، چون ستونِ لینک هم بخش‌های خام را دارد
     lastEpisodeAudio: (function () {
@@ -334,6 +335,27 @@ function healthCheck() {
                     CFG.TARGET_MINUTES + ' دقیقه (' + overP + '٪ بلندتر).');
     }
   }
+
+  // ۱-ج) موسیقی: اگر روشن است ولی بانک خالی است، یا قسمتِ آخر چیزی نگرفت.
+  try {
+    var mus = st.music || null;
+    if (mus && mus.enabled) {
+      // بانکِ خالی «ایراد» نیست: شاید هنوز قطعه‌ای نگذاشته‌اند یا نمی‌خواهند.
+      // ایراد آن است که بانک قطعه دارد و باز هم چیزی پخش نشده — یعنی چیزی
+      // شکسته. هشدارِ روزانه برای یک حالتِ طبیعی، هشدارهای واقعی را کور می‌کند.
+      if (!mus.tracks) {
+        notes.push('بانکِ موسیقی خالی است؛ قسمت‌ها بی‌موسیقی ساخته می‌شوند. ' +
+                   'برای پرکردنش: منو ← «بانکِ موسیقی — پویش و برچسبِ خودکار».');
+      } else if (mus.last && (!mus.last.tracks || !mus.last.tracks.length)) {
+        problems.push('در «' + mus.last.episode + '» هیچ موسیقی‌ای پخش نشد' +
+                      ((mus.last.missing || []).length
+                        ? ' — جای خالی: ' + mus.last.missing.join('، ') : '') + '.');
+      } else if (mus.last && (mus.last.missing || []).length) {
+        notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
+                   ' — ولی برای ' + mus.last.missing.join('، ') + ' قطعه‌ای نبود.');
+      }
+    }
+  } catch (eMu) {}
 
   // ۱-ب) درس‌نامه: همان دو سنجه. تا امروز هیچ‌کدام از این‌ها در فایلِ وضعیت
   // نبود، پس ناظر — آدم یا کد — اصلاً نمی‌توانست ببیندشان.
