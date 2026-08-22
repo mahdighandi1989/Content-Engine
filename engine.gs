@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.47
+ *  موتور محتوا و پادکست — نسخهٔ 5.48
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -556,7 +556,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.47',
+  CODE_VERSION: '5.48',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -820,7 +820,10 @@ var PK = {
   // یکی باشد.
   AUDIT_DONE: 'AUDIT_DONE_IDS',
   AUDIT_LAST: 'AUDIT_LAST_RESULT',  // خلاصهٔ آخرین داوری، برای _STATUS.json
-  AUDIT_BAD: 'AUDIT_BAD_NIGHTS'     // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  AUDIT_BAD: 'AUDIT_BAD_NIGHTS',    // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
+  // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
+  PROMPT_DUE: 'PROMPT_REVIEW_DUE'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -7092,6 +7095,8 @@ function writeStatus_(hub, note) {
     outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
     // سنجهٔ محتوا: متنِ نهایی در برابرِ متنِ خام — انتخاب، پیوند، وفاداری
     contentAudit: (function () { try { return auditStatus_(); } catch (e) { return null; } })(),
+    // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
+    promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -7251,6 +7256,25 @@ function healthCheck() {
       }
     }
   } catch (eCa) {}
+
+  // ۰٫۷) تازگیِ دستورِ روتین‌ها. این هشدار عمداً هر شب تکرار می‌شود: نسخهٔ
+  // قبلی‌اش یک‌بار می‌آمد و خودش را می‌بست، و دقیقاً به همین دلیل ۵٫۴۶ بدونِ
+  // به‌روزرسانیِ دستور رد شد.
+  try {
+    var pf = st.promptFresh || promptFreshStatus_();
+    if (pf && pf.stale && pf.stale.length) {
+      var pd = [];
+      for (var pi = 0; pi < pf.families.length; pi++) {
+        if (pf.families[pi].stale) {
+          pd.push(pf.families[pi].kind + ' (v' + pf.families[pi].n +
+                  ' برای ' + pf.families[pi].forVer + ')');
+        }
+      }
+      problems.push('دستورِ روتین/تسک از کد عقب مانده — بدهی از نسخهٔ ' + pf.due +
+                    ': ' + pd.join(' · ') + '. تا فایلِ تازه با «برای نسخهٔ موتور: ' +
+                    pf.due + '» گذاشته نشود، این هشدار هر شب تکرار می‌شود.');
+    }
+  } catch (ePf) {}
 
   // ۱) قسمت اخیر
   var ep = st.lastEpisode;
@@ -18041,6 +18065,8 @@ function selfUpdateDaily() {
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
   try { promptPrune_(); } catch (ePP) {}
+  // و وارسیِ تازگیِ دستورها — هر شب، تا انجام شود.
+  try { promptFreshNag_(); } catch (ePF) {}
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود. پیش از نصبِ کد انجام
   // می‌شود تا داوریِ قسمت‌هایی که با کدِ امشب ساخته شده‌اند به نسخهٔ همان کد
@@ -18108,6 +18134,9 @@ function afterCodeSwap() {
   // و این چیزی است که هیچ‌کس خودبه‌خود نمی‌فهمد: کد عوض می‌شود، روتین سرِ جایش
   // می‌ماند و یک روز بی‌صدا کارِ اشتباه می‌کند.
   try { promptImpactNotice_(want); } catch (ePI) {}
+  // و مهم‌تر از خبردادن: ثبتِ «بدهی». خبر یک‌بار می‌آید و رد می‌شود؛ این عدد
+  // می‌ماند تا وقتی فایلِ دستور در درایو خودش را با آن هماهنگ کند.
+  try { promptDueSet_(want); } catch (ePD) {}
 
   // ردیف‌های گزارش: «کد نصب شد — در انتظارِ تأییدِ ناظر»
   var marked = 0;
@@ -18341,6 +18370,119 @@ function selfUpdateStatus_() {
  * اعلام کند. `promptImpact` فهرستی از جمله‌هاست: هرکدام می‌گوید کدام دستور باید
  * چه شود. اگر خالی باشد، هیچ خبری نمی‌رود.
  */
+/* ═════════════════════════════════════════════════════════════════════════
+   تازگیِ دستورِ روتین‌ها — یادآوری که خودش خفه نمی‌شود
+
+   ══ چرا لازم شد ══
+   promptImpactNotice_ از قبل خبر می‌داد: تلگرام، ایمیل، و یک ردیف در تب
+   گزارش‌ها. ولی عنوانِ آن ردیف شمارهٔ نسخه را در خود داشت، و
+   codeRowSatisfied_ هر ردیفی را که نسخهٔ هدفش از نسخهٔ در حالِ اجرا جلوتر
+   نباشد «انجام‌شده» می‌شمارد. نتیجه: یادآور همان شبی که کد نصب می‌شد خودش
+   را می‌بست. یک بار می‌گفت و برای همیشه ساکت می‌شد — و دستور دست‌نخورده
+   می‌ماند بی‌آنکه چیزی خطا بدهد. دقیقاً همین اتفاق برای ۵٫۴۶ افتاد.
+
+   ══ چه چیزی عوض شد ══
+   خبر جای خودش، ولی حالا یک «بدهی» هم ثبت می‌شود: نسخه‌ای که از آن به بعد
+   دستور باید به‌روز شود. و هر فایلِ دستور در سرش اعلام می‌کند برای کدام
+   نسخهٔ موتور نوشته شده:
+
+       > برای نسخهٔ موتور: 5.48
+
+   هر شب این دو با هم سنجیده می‌شوند. تا وقتی اعلامِ فایل از بدهی عقب‌تر
+   باشد — یا اصلاً نباشد — هشدار تکرار می‌شود. و لحظه‌ای که فایلِ تازه با
+   عددِ درست گذاشته شود، خودبه‌خود ساکت می‌شود. کسی چیزی را دستی نمی‌بندد.
+
+   ══ چرا این یکی خودش را نمی‌بندد ══
+   ردیفی که این وارسی می‌سازد هیچ شمارهٔ نسخه‌ای در شناسه و عنوانش ندارد، پس
+   codeRowTargetVer_ چیزی پیدا نمی‌کند و codeRowSatisfied_ محافظه‌کارانه
+   false برمی‌گرداند. همان رفتاری که برای «ردیفِ بی‌نسخه» مستند شده است.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var PROMPT_FOR_RE = /برای\s+نسخهٔ?\s*موتور\s*:\s*v?([0-9.]+)/;
+
+/** بدهی را ثبت می‌کند؛ فقط جلو می‌رود، هرگز عقب نمی‌آید. */
+function promptDueSet_(version) {
+  var v = String(version || '').trim();
+  if (!v) return '';
+  try {
+    var cur = String(props_().getProperty(PK.PROMPT_DUE) || '');
+    if (cur && verCmp_(v, cur) <= 0) return cur;
+    props_().setProperty(PK.PROMPT_DUE, v);
+    return v;
+  } catch (e) { return ''; }
+}
+
+/** «برای نسخهٔ موتور: x.y» را از سرِ فایل می‌خواند. نبودش یعنی نامعلوم. */
+function promptDeclaredVer_(file) {
+  try {
+    var head = String(file.getBlob().getDataAsString('UTF-8')).slice(0, 1500);
+    var m = faDigits_(head).match(PROMPT_FOR_RE);
+    return m ? String(m[1]).replace(/\.$/, '') : '';
+  } catch (e) { return ''; }
+}
+
+/**
+ * وضعِ تازگیِ دستورها.
+ * {due, families:[{kind, n, forVer, stale}], stale:[…]}
+ */
+function promptFreshStatus_() {
+  var out = { due: '', families: [], stale: [] };
+  try { out.due = String(props_().getProperty(PK.PROMPT_DUE) || ''); } catch (e0) {}
+  var top = Object.create(null);
+  try {
+    var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      var m = String(f.getName()).match(PROMPT_RE);
+      if (!m) continue;
+      var n = parseInt(m[2], 10);
+      if (!isFinite(n)) continue;
+      if (!top[m[1]] || n > top[m[1]].n) top[m[1]] = { file: f, n: n };
+    }
+  } catch (e) { return out; }
+
+  for (var k in top) {
+    if (!Object.prototype.hasOwnProperty.call(top, k)) continue;
+    var forVer = promptDeclaredVer_(top[k].file);
+    // بی بدهی، هیچ‌چیز کهنه نیست — نبودِ اعلام به‌تنهایی ایراد نیست.
+    var stale = !!out.due && (!forVer || verCmp_(forVer, out.due) < 0);
+    out.families.push({ kind: k, n: top[k].n, forVer: forVer || '—', stale: stale });
+    if (stale) out.stale.push(k);
+  }
+  out.families.sort(function (a, b) { return a.kind < b.kind ? -1 : 1; });
+  return out;
+}
+
+/**
+ * یادآورِ شبانه. تا انجام نشود هر شب تکرار می‌شود؛ همین که فایلِ تازه با
+ * عددِ درست بیاید، دیگر ردیفی ساخته نمی‌شود و ردیفِ باز را ناظر می‌بندد.
+ */
+function promptFreshNag_() {
+  var st = promptFreshStatus_();
+  if (!st.stale.length) return st;
+  var bits = [];
+  for (var i = 0; i < st.families.length; i++) {
+    var f = st.families[i];
+    bits.push(f.kind + ' (v' + f.n + ' برای ' + f.forVer + ')' + (f.stale ? ' ← کهنه' : ''));
+  }
+  try {
+    logSelfFinding_(getHub_(), {
+      // عمداً بی شمارهٔ نسخه در شناسه و عنوان — وگرنه همین یادآور هم مثل
+      // نسخهٔ قبلی‌اش خودش را «انجام‌شده» علامت می‌زد.
+      priority: 'جدی', category: 'دستورِ روتین‌ها', key: 'prompt-stale',
+      title: 'دستورِ روتین/تسک از کدِ در حالِ اجرا عقب مانده است',
+      detail: 'بدهی از نسخهٔ ' + st.due + ' — وضعِ فایل‌ها: ' + bits.join(' · '),
+      instruction: 'برای هر خانوادهٔ کهنه یک فایلِ _PROMPT-<نوع>-v<N+1>.md در ' +
+                   'ریشهٔ OUTPUT بساز و در سرش بنویس «برای نسخهٔ موتور: ' +
+                   st.due + '». فایلِ قدیمی را پاک نکن؛ موتور خودش بایگانی‌اش ' +
+                   'می‌کند. تا این کار نشود این هشدار هر شب تکرار می‌شود.',
+      owner: ROWNER_ENGINE
+    });
+  } catch (e) {}
+  logLine_('دستورِ روتین‌ها عقب مانده: ' + st.stale.join('، ') + ' (بدهی ' + st.due + ').');
+  return st;
+}
+
 function promptImpactNotice_(version) {
   var got = readCodeManifest_();
   var list = (got && got.info && got.info.promptImpact) || [];

@@ -67,6 +67,17 @@ copy to the Drive «کدها» folder.
    `{version, codeFile:"engine.gs", sha256, releasedAt, summary, fixes:[...], sourceReportIds:[...]}`.
 7. Append a new row to the **Changelog** table in `README.md` (version, date,
    one-line summary). Every shipped change is recorded there.
+7b. **If the change touches anything the Cowork prompts rely on** — a function
+   name, a menu item, a `_STATUS.json` key, a schedule hour, the OUTPUT layout —
+   do BOTH in the same session: write `promptImpact` in `manifest.json` **and
+   create `_PROMPT-<kind>-v<N+1>.md`** in Drive's OUTPUT root, whose header says
+   `> برای نسخهٔ موتور: <this version>`. Mirror it into `docs/prompts/`.
+   From 5.48 the engine enforces this: on install it records the version as a
+   debt (`PK.PROMPT_DUE`), and `promptFreshNag_` compares that debt against each
+   prompt's declared version **every night** until a new file clears it.
+   The pre-5.48 reminder put the version in its own title, so
+   `codeRowSatisfied_` closed it the night the code installed — it warned once
+   and went quiet forever. That is exactly how 5.46 shipped with a stale prompt.
 8. `git add -A && git commit && git push origin main` — **push directly, always.**
    Never hand the file to the user and wait for a manual push; the workflow ends
    with your own push. (The engine installs it that night; if the user also pasted

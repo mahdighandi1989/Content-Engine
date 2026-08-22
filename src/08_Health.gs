@@ -344,6 +344,8 @@ function writeStatus_(hub, note) {
     outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
     // سنجهٔ محتوا: متنِ نهایی در برابرِ متنِ خام — انتخاب، پیوند، وفاداری
     contentAudit: (function () { try { return auditStatus_(); } catch (e) { return null; } })(),
+    // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
+    promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -503,6 +505,25 @@ function healthCheck() {
       }
     }
   } catch (eCa) {}
+
+  // ۰٫۷) تازگیِ دستورِ روتین‌ها. این هشدار عمداً هر شب تکرار می‌شود: نسخهٔ
+  // قبلی‌اش یک‌بار می‌آمد و خودش را می‌بست، و دقیقاً به همین دلیل ۵٫۴۶ بدونِ
+  // به‌روزرسانیِ دستور رد شد.
+  try {
+    var pf = st.promptFresh || promptFreshStatus_();
+    if (pf && pf.stale && pf.stale.length) {
+      var pd = [];
+      for (var pi = 0; pi < pf.families.length; pi++) {
+        if (pf.families[pi].stale) {
+          pd.push(pf.families[pi].kind + ' (v' + pf.families[pi].n +
+                  ' برای ' + pf.families[pi].forVer + ')');
+        }
+      }
+      problems.push('دستورِ روتین/تسک از کد عقب مانده — بدهی از نسخهٔ ' + pf.due +
+                    ': ' + pd.join(' · ') + '. تا فایلِ تازه با «برای نسخهٔ موتور: ' +
+                    pf.due + '» گذاشته نشود، این هشدار هر شب تکرار می‌شود.');
+    }
+  } catch (ePf) {}
 
   // ۱) قسمت اخیر
   var ep = st.lastEpisode;

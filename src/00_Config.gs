@@ -472,7 +472,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.47',
+  CODE_VERSION: '5.48',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -736,7 +736,10 @@ var PK = {
   // یکی باشد.
   AUDIT_DONE: 'AUDIT_DONE_IDS',
   AUDIT_LAST: 'AUDIT_LAST_RESULT',  // خلاصهٔ آخرین داوری، برای _STATUS.json
-  AUDIT_BAD: 'AUDIT_BAD_NIGHTS'     // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  AUDIT_BAD: 'AUDIT_BAD_NIGHTS',    // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
+  // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
+  PROMPT_DUE: 'PROMPT_REVIEW_DUE'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }

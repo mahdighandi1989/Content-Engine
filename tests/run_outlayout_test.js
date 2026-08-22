@@ -188,6 +188,56 @@ console.log('=== ۸٫۵) بایگانیِ نسخه‌های کهنهٔ پرام�
   ok('۸٫۵-ز یک نسخهٔ تنها جابه‌جا نمی‌شود', promptPrune_() === 0);
 }
 
+console.log('=== ۸٫۶) یادآورِ تازگیِ دستور — که خودش خفه نمی‌شود ===');
+{
+  const OUTF = OUT();
+  // پاک‌سازیِ فایل‌های پرامپتِ آزمون‌های قبلی
+  let it0 = OUTF.getFiles();
+  while (it0.hasNext()) { const f = it0.next(); if (/^_PROMPT-/.test(f.getName())) f.setTrashed(true); }
+  delete global.__PROPS[PK.PROMPT_DUE];
+
+  OUTF.createFile('_PROMPT-monitor-v2.md', '> نسخه: 2\nمتن', 'text/markdown');
+  ok('۸٫۶-الف بی بدهی، هیچ‌چیز کهنه نیست', promptFreshStatus_().stale.length === 0);
+
+  // نسخه‌ای نصب شد که قرارداد را عوض کرده
+  promptDueSet_('5.48');
+  const s1 = promptFreshStatus_();
+  ok('۸٫۶-ب دستورِ بی‌اعلام کهنه شمرده می‌شود',
+     s1.stale.join() === 'monitor', JSON.stringify(s1.families));
+  ok('۸٫۶-ج بدهی ثبت شده', s1.due === '5.48');
+
+  // فایلِ تازه با اعلامِ درست → خودبه‌خود ساکت
+  OUTF.createFile('_PROMPT-monitor-v3.md',
+                  '> نسخه: 3\n> برای نسخهٔ موتور: 5.48\nمتن', 'text/markdown');
+  ok('۸٫۶-د با فایلِ تازه خودبه‌خود ساکت می‌شود',
+     promptFreshStatus_().stale.length === 0, JSON.stringify(promptFreshStatus_()));
+
+  // اعلامِ عقب‌تر باز هم کهنه است
+  OUTF.createFile('_PROMPT-enrich-v2.md',
+                  '> نسخه: 2\n> برای نسخهٔ موتور: 5.40\nمتن', 'text/markdown');
+  ok('۸٫۶-ه اعلامِ عقب‌تر از بدهی کهنه است',
+     promptFreshStatus_().stale.join() === 'enrich');
+  ok('۸٫۶-و رقمِ فارسی در اعلام هم خوانده می‌شود',
+     promptDeclaredVer_(OUTF.createFile('_x.md', '> برای نسخهٔ موتور: ۵٫۵۰', 'text/markdown')) === '5.50');
+
+  // بدهی فقط جلو می‌رود
+  promptDueSet_('5.10');
+  ok('۸٫۶-ز بدهی عقب نمی‌آید', promptFreshStatus_().due === '5.48');
+
+  // و مهم‌ترین سنجه: ردیفی که این یادآور می‌سازد نباید با نصبِ کد بسته شود.
+  // نسخهٔ قبلیِ این یادآور شمارهٔ نسخه در عنوانش داشت و دقیقاً همین بلا سرش آمد.
+  const row = [];
+  row[RC.ID - 1] = 'prompt-stale';
+  row[RC.TITLE - 1] = 'دستورِ روتین/تسک از کدِ در حالِ اجرا عقب مانده است';
+  ok('۸٫۶-ح یادآور با نصبِ کد خودش را نمی‌بندد',
+     codeRowSatisfied_(row) === false, 'هدف: «' + codeRowTargetVer_(row) + '»');
+  // و برای مقایسه: شکلِ قدیمی واقعاً بسته می‌شد
+  const old = [];
+  old[RC.ID - 1] = 'promptimpact-5.46';
+  old[RC.TITLE - 1] = 'دستورِ روتین‌ها با نسخهٔ 5.46 هماهنگ نیست';
+  ok('۸٫۶-ط (شاهد) شکلِ قدیمی بسته می‌شد — همان باگ', codeRowSatisfied_(old) === true);
+}
+
 console.log('=== ۹) نقشهٔ پوشه: ریپو منبع است، درایو بازتاب ===');
 {
   const doc = fs.readFileSync('docs/drive_layout.md', 'utf8');
