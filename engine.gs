@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.38
+ *  موتور محتوا و پادکست — نسخهٔ 5.39
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -363,7 +363,10 @@ var CFG = {
   // ناگزیر دو فایل می‌شود. یک‌فایلی‌کردنش یعنی کوتاه‌کردنِ درس به ~۱۱٫۵ دقیقه،
   // و این تصمیمِ محتوایی است نه فنی؛ پس خاموش می‌ماند تا صاحبِ برنامه بخواهد.
   // روشن که شود، سقفِ نویسهٔ درس‌نامه هم خودبه‌خود پایین می‌آید.
-  SPECIAL_ONE_FILE: false,
+  // صاحبِ برنامه صریح گفت درس‌نامه هم باید یک فایل باشد. با روشن‌بودنش سقفِ
+  // نویسهٔ درس‌نامه خودبه‌خود به اندازهٔ یک فایل می‌آید (specialMaxChars_)، پس
+  // درس کوتاه‌تر می‌شود و در یک فایل جا می‌گیرد.
+  SPECIAL_ONE_FILE: true,
 
 
   // ---- فایل‌های تکه‌تکه‌شده ----
@@ -507,7 +510,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.38',
+  CODE_VERSION: '5.39',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -722,7 +725,8 @@ var PK = {
   // انتخابِ دستیِ شما. تا وقتی پر باشد، بر انتخابِ خودکار مقدم است و همین که
   // آن مجموعه تمام شود، خودش پاک می‌شود و موتور به همان‌جایی که بود برمی‌گردد.
   SP_PIN: 'SPECIAL_PINNED',            // 'series:<کلید>' یا 'cat:<دسته>'
-  SP_PIN_AT: 'SPECIAL_PINNED_AT'
+  SP_PIN_AT: 'SPECIAL_PINNED_AT',
+  SP_LAST: 'SPECIAL_LAST_EPISODE'  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -6612,6 +6616,24 @@ function indexSnapshot_(hub) {
   return { categories: cats, eligibleTotal: totalElig, freshTotal: totalFresh };
 }
 
+/**
+ * چند درصد از هدف بلندتر شد؟ اگر معقول بود، صفر.
+ *
+ * «مدت» به‌صورتِ «۱۴:۱۵ دقیقه» ذخیره می‌شود. سنجه محافظه‌کار است: تا ۲۵٪ بالاتر
+ * از هدف طبیعی است و چیزی گزارش نمی‌شود؛ بالاتر از آن یعنی متن کِش آمده — همان
+ * چیزی که هم فایل را دو تکه می‌کند و هم جای پُرکردن می‌دهد.
+ */
+function epTooLong_(durText, targetMin) {
+  var t = Number(targetMin) || 0;
+  if (!t) return 0;
+  var m = String(durText || '').match(/(\d+)\s*:\s*(\d+)/);
+  if (!m) return 0;
+  var mins = Number(m[1]) + Number(m[2]) / 60;
+  if (!isFinite(mins) || mins <= 0) return 0;
+  var pct = Math.round((mins - t) / t * 100);
+  return pct > 25 ? pct : 0;
+}
+
 function lastEpisode_(hub) {
   var pod = hub.getSheetByName(CFG.TAB_PODCASTS);
   if (!pod || pod.getLastRow() < 2) return null;
@@ -6857,7 +6879,35 @@ function healthCheck() {
                     'تلفیق نوع‌ها آن‌طور که باید انجام نشده.');
     }
     if (!ep.audioLinks.length) problems.push('قسمت ' + ep.number + ' فایل صوتی ندارد.');
+
+    // «صفر فایل» سنجیده می‌شد و «بیش از یک فایل» نه. قسمتی که دو تکه فرستاده
+    // شود کارِ حرفه‌ای به نظر نمی‌رسد، و تا امروز هیچ سنجه‌ای نمی‌دیدش.
+    if (ep.audioLinks.length > 1) {
+      problems.push('قسمت ' + ep.number + ' در ' + ep.audioLinks.length +
+                    ' فایلِ صوتی فرستاده شد، نه یکی — متن از سقفِ یک فایل بلندتر شده.');
+    }
+    var overP = epTooLong_(ep.duration, CFG.TARGET_MINUTES);
+    if (overP) {
+      problems.push('قسمت ' + ep.number + ' ' + ep.duration + ' شد در برابرِ هدفِ ' +
+                    CFG.TARGET_MINUTES + ' دقیقه (' + overP + '٪ بلندتر).');
+    }
   }
+
+  // ۱-ب) درس‌نامه: همان دو سنجه. تا امروز هیچ‌کدام از این‌ها در فایلِ وضعیت
+  // نبود، پس ناظر — آدم یا کد — اصلاً نمی‌توانست ببیندشان.
+  try {
+    var spx = st.special || {};
+    var spFiles = Number(spx.lastFiles || 0);
+    if (spFiles > 1 && CFG.SPECIAL_ONE_FILE === true) {
+      problems.push('درس‌نامه در ' + spFiles + ' فایلِ صوتی فرستاده شد، نه یکی — ' +
+                    'متن از سقفِ یک فایل بلندتر شده.');
+    }
+    var overS = epTooLong_(spx.lastDuration, CFG.SPECIAL_TARGET_MINUTES);
+    if (overS) {
+      problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +
+                    CFG.SPECIAL_TARGET_MINUTES + ' دقیقه (' + overS + '٪ بلندتر).');
+    }
+  } catch (eSp) {}
 
   // ۲) قسمت نیمه‌تمامِ گیرکرده
   if (st.pendingEpisode) {
@@ -7047,8 +7097,18 @@ function specialStatus_(hub) {
       out.lastTg = String(last[XC.TG - 1] || '');
       out.lastCoverage = String(last[XC.CHUNKS - 1] || '');
       out.lastMore = String(last[XC.MORE - 1] || '');
+      // ستونِ مدت در خودِ تب هست ولی تا امروز خوانده نمی‌شد
+      out.lastDuration = String(last[XC.DUR - 1] || '');
     }
   } catch (e2) {}
+  // تعدادِ فایلِ صوتیِ آخرین درس‌نامه — در تب ستونی ندارد، پس از حافظه می‌آید
+  try {
+    var spl = JSON.parse(props_().getProperty(PK.SP_LAST) || 'null');
+    if (spl) {
+      out.lastFiles = Number(spl.files) || 0;
+      if (!out.lastDuration) out.lastDuration = String(spl.duration || '');
+    }
+  } catch (eF) {}
   try {
     var raw = props_().getProperty(PK.SP_PENDING);
     if (raw) {
@@ -12305,6 +12365,14 @@ function renderSpecialAudioStep_() {
     clearSpecialContinuation_();
     try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     logLine_('درس‌نامه ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
+    // مدت و تعدادِ فایل را نگه می‌داریم تا در _STATUS.json دیده شوند. تا امروز
+    // هیچ‌کدام به فایلِ وضعیت نمی‌رسید: «از همه جا از همه رنگ» هر دو را داشت و
+    // درس‌نامه هیچ‌کدام را. برای همین وقتی درس‌نامه دو تکه آمد، هیچ ناظری —
+    // نه آدم نه کد — اصلاً نمی‌توانست ببیندش. سنجه شکست نخورد؛ داده وجود نداشت.
+    try {
+      props_().setProperty(PK.SP_LAST, JSON.stringify({
+        episode: epNum, duration: dur, files: st.files.length, at: nowStr_() }));
+    } catch (eL) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);

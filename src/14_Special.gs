@@ -1786,6 +1786,14 @@ function renderSpecialAudioStep_() {
     clearSpecialContinuation_();
     try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
     logLine_('درس‌نامه ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
+    // مدت و تعدادِ فایل را نگه می‌داریم تا در _STATUS.json دیده شوند. تا امروز
+    // هیچ‌کدام به فایلِ وضعیت نمی‌رسید: «از همه جا از همه رنگ» هر دو را داشت و
+    // درس‌نامه هیچ‌کدام را. برای همین وقتی درس‌نامه دو تکه آمد، هیچ ناظری —
+    // نه آدم نه کد — اصلاً نمی‌توانست ببیندش. سنجه شکست نخورد؛ داده وجود نداشت.
+    try {
+      props_().setProperty(PK.SP_LAST, JSON.stringify({
+        episode: epNum, duration: dur, files: st.files.length, at: nowStr_() }));
+    } catch (eL) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);
