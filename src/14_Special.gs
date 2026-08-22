@@ -1551,6 +1551,9 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
                   .filter(Boolean).slice(0, 8).join(' · ');
     var mw = musicWrap_(out, null, {
+      // «special» یعنی sfxAllow_ هر افکتی را رد می‌کند — سرشتِ درس‌نامه
+      // شمرده و بی‌جلوه است و این خواستهٔ صریحِ صاحبِ برنامه بود.
+      show: 'special', sections: (ep && ep.sections) || [],
       category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
       mood: 'آموزشی، شمرده',
       title: String((ep && ep.title) || ''), headings: heads,
@@ -1558,7 +1561,7 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum); } catch (eU) {}
+        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum, CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
         try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
       }
       return mw.chunks;

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.48
+ *  موتور محتوا و پادکست — نسخهٔ 5.49
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -365,6 +365,7 @@ var CFG = {
   // شود، فقط ستون‌هایی که آدم در تب پر کرده ملاک است.
   MUSIC_AUTO: true,
   MUSIC_FOLDER: 'موسیقی و افکت',
+  MUSE_TAB: 'کاربردِ موسیقی',   // تاریخچهٔ پخش: کدام قطعه، کدام قسمت، کدام جایگاه
   MUSIC_TAB: 'موسیقی',
   MUSIC_INTRO_SEC: 8,          // طولِ موسیقیِ آغاز
   MUSIC_OUTRO_SEC: 10,         // طولِ موسیقیِ پایان
@@ -556,7 +557,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.48',
+  CODE_VERSION: '5.49',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2792,11 +2793,12 @@ function buildChunks_(ep, cat, epNum) {
                   .filter(Boolean).slice(0, 8).join(' · ');
     var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
     var mw = musicWrap_(out, null, {
+      show: 'variety', sections: (ep && ep.sections) || [],
       category: cat, mood: cat, title: String((ep && ep.title) || ''),
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
+        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum, CFG.SHOW_NAME); } catch (eU) {}
         try { musicRemember_(mw, 'قسمت ' + epNum); } catch (eR) {}
       }
       return mw.chunks;
@@ -12644,6 +12646,9 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
                   .filter(Boolean).slice(0, 8).join(' · ');
     var mw = musicWrap_(out, null, {
+      // «special» یعنی sfxAllow_ هر افکتی را رد می‌کند — سرشتِ درس‌نامه
+      // شمرده و بی‌جلوه است و این خواستهٔ صریحِ صاحبِ برنامه بود.
+      show: 'special', sections: (ep && ep.sections) || [],
       category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
       mood: 'آموزشی، شمرده',
       title: String((ep && ep.title) || ''), headings: heads,
@@ -12651,7 +12656,7 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum); } catch (eU) {}
+        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum, CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
         try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
       }
       return mw.chunks;
@@ -20172,9 +20177,23 @@ function musicClip_(fileId, opt) {
 
 var MUSIC_HEADERS = ['شناسهٔ فایل', 'نام', 'نوع', 'حال‌وهوا', 'مناسب برای',
                      'مدت (ثانیه)', 'قالب', 'بلندی', 'بارِ استفاده',
-                     'آخرین استفاده', 'یادداشت', 'سرشتِ اندازه‌گیری‌شده', 'منبع'];
+                     'آخرین استفاده', 'یادداشت', 'سرشتِ اندازه‌گیری‌شده', 'منبع',
+                     'لینک'];
 var MC = { ID: 1, NAME: 2, KIND: 3, MOOD: 4, SLOTS: 5, SEC: 6, FMT: 7,
-           GAIN: 8, USED: 9, LAST: 10, NOTE: 11, PROBE: 12, SRC: 13 };
+           GAIN: 8, USED: 9, LAST: 10, NOTE: 11, PROBE: 12, SRC: 13, LINK: 14 };
+
+/* تبِ تاریخچه: هر بار که قطعه‌ای واقعاً پخش شد، یک ردیف.
+   ستونِ «بارِ استفاده» فقط یک عدد است و «آخرین استفاده» فقط آخری را نگه
+   می‌دارد؛ هیچ‌کدام نمی‌گویند این قطعه در کدام قسمت‌ها و در کدام جایگاه
+   پخش شده. آن سؤال را فقط یک تاریخچه جواب می‌دهد. */
+var MUSE_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'جایگاه', 'قطعه', 'نوع',
+                    'حال‌وهوا', 'بلندی', 'ثانیه', 'لینک'];
+var MU = { AT: 1, SHOW: 2, EP: 3, SLOT: 4, NAME: 5, KIND: 6,
+           MOOD: 7, GAIN: 8, SEC: 9, LINK: 10 };
+
+function musicUrl_(id) {
+  return id ? 'https://drive.google.com/file/d/' + String(id) + '/view' : '';
+}
 
 /**
  * پویشِ پوشهٔ بانک و به‌روزکردنِ تب.
@@ -20223,6 +20242,10 @@ function musicScan_(hub) {
         if (srcTxt && !String(r.v[MC.SRC - 1] || '').trim()) sh.getRange(r.row, MC.SRC).setValue(srcTxt);
         updated++;
       }
+      // ردیف‌هایی که پیش از افزوده‌شدنِ ستونِ لینک ساخته شده‌اند
+      if (!String(r.v[MC.LINK - 1] || '').trim()) {
+        try { sh.getRange(r.row, MC.LINK).setValue(musicUrl_(id)); } catch (eL) {}
+      }
     } else {
       // نوع و جایگاه از شناسنامهٔ منبع می‌آید اگر باشد، وگرنه از اندازه‌گیری.
       // نامِ فایل آخرین گزینه است، چون کمترین اعتبار را دارد.
@@ -20230,7 +20253,8 @@ function musicScan_(hub) {
                  : ((probe && probe.seconds <= 8 && probe.steadiness < 60) ? 'افکت' : 'موسیقی');
       var slots = meta && meta.slots ? String(meta.slots) : (kind === 'افکت' ? 'میانه' : 'شروع، پایان');
       sh.appendRow([id, f.getName(), kind, (meta && meta.mood) || '', slots, sec, fmt,
-                    (meta && meta.gain) || 1, 0, '', '', probeTxt, srcTxt]);
+                    (meta && meta.gain) || 1, 0, '', '', probeTxt, srcTxt,
+                    musicUrl_(id)]);
       added++;
     }
   }
@@ -20312,10 +20336,11 @@ function musicPick_(bank, slot, moodWords, wantedId) {
 }
 
 /** ثبتِ استفاده در تب، تا هم تاریخچه بماند هم نوبت‌دهی درست کار کند. */
-function musicMarkUsed_(hub, picks, epLabel) {
-  var sh = (hub || getHub_()).getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+function musicMarkUsed_(hub, picks, epLabel, showName) {
+  hub = hub || getHub_();
+  var sh = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
   if (!sh) return 0;
-  var n = 0;
+  var n = 0, hist = [];
   for (var i = 0; i < (picks || []).length; i++) {
     var p = picks[i];
     if (!p || !p.row) continue;
@@ -20324,6 +20349,16 @@ function musicMarkUsed_(hub, picks, epLabel) {
       sh.getRange(p.row, MC.LAST).setValue(nowStr_() + ' — ' + String(epLabel || ''));
       n++;
     } catch (e) {}
+    hist.push([nowStr_(), String(showName || ''), String(epLabel || ''),
+               String(p.slot || '—'), p.name, p.kind, p.mood, p.gain, p.sec,
+               musicUrl_(p.id)]);
+  }
+  // تاریخچه: شمارنده می‌گوید «چند بار»، این می‌گوید «کجا و در چه جایگاهی».
+  if (hist.length) {
+    try {
+      var hs = ensureTab_(hub, CFG.MUSE_TAB || 'کاربردِ موسیقی', MUSE_HEADERS);
+      hs.getRange(hs.getLastRow() + 1, 1, hist.length, MUSE_HEADERS.length).setValues(hist);
+    } catch (eH) { logLine_('تاریخچهٔ موسیقی نوشته نشد: ' + eH.message); }
   }
   return n;
 }
@@ -20346,7 +20381,19 @@ function musicWrap_(chunks, hub, opt) {
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
   var bank = [];
   try { bank = musicBank_(hub); } catch (e) { return { chunks: chunks, picks: [] }; }
-  if (!bank.length) return { chunks: chunks, picks: [] };
+
+  // بانکِ خالی هم باید خواسته بنویسد — وگرنه بن‌بست است: موسیقی نیست چون
+  // بانک خالی است، و بانک خالی می‌ماند چون هیچ‌کس نگفته چه چیزی لازم است.
+  // خواسته تنها چیزی است که تسکِ غنی‌سازی از آن می‌فهمد باید چه دانلود کند،
+  // پس این تنها راهِ راه‌افتادنِ بانک از صفر است.
+  if (!bank.length) {
+    var want0 = ['شروع', 'پایان'];
+    if (Math.max(0, Number(CFG.MUSIC_BRIDGE_EVERY) || 0)) want0.push('میانه');
+    var mood0 = String(opt.mood || opt.category || '');
+    try { musicWish_(mood0, want0, opt); } catch (eW0) {}
+    logLine_('بانکِ موسیقی خالی است؛ خواستهٔ ' + want0.join('، ') + ' نوشته شد.');
+    return { chunks: chunks, picks: [], mood: mood0, missing: want0 };
+  }
 
   var mood = String(opt.mood || opt.category || '');
   var plan = opt.plan || {};
@@ -20383,7 +20430,8 @@ function musicWrap_(chunks, hub, opt) {
   var intro = musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro) {
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8);
-    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name }); picks.push(intro); }
+    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name });
+              intro.slot = 'شروع'; picks.push(intro); }
   }
 
   var every = Math.max(0, Number(CFG.MUSIC_BRIDGE_EVERY) || 0);
@@ -20402,8 +20450,33 @@ function musicWrap_(chunks, hub, opt) {
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
     var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10);
-    if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name }); picks.push(outro); }
+    if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name });
+              outro.slot = 'پایان'; picks.push(outro); }
   }
+
+  // ── افکت‌ها ──
+  // تا ۵٫۴۸ این تکه نبود: sfxAllow_ نوشته و آزموده شده بود ولی هیچ‌جا صدا
+  // زده نمی‌شد، پس هیچ افکتی در هیچ قسمتی پخش نمی‌شد. مدل پیشنهاد می‌دهد،
+  // sfxAllow_ خویشتن‌داری را اعمال می‌کند (واژه باید ساختاری باشد؛ درس‌نامه
+  // اصلاً افکت نمی‌گیرد) و کد قطعه را سرِ همان بخش می‌گذارد.
+  try {
+    var okSfx = sfxAllow_(opt.sections || [], (plan.sfx || []), String(opt.show || ''));
+    for (var sx = 0; sx < okSfx.length; sx++) {
+      var eb = null;
+      for (var bz = 0; bz < bank.length; bz++) if (bank[bz].id === okSfx[sx].id) eb = bank[bz];
+      if (!eb) continue;
+      var ec = musicClip_(eb.id, { startSec: 0,
+                 lenSec: Math.min(eb.sec || 4, Number(CFG.MUSIC_BRIDGE_SEC) || 4),
+                 gain: eb.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
+                 fadeIn: 0.3, fadeOut: 0.6 });
+      if (!ec) continue;
+      // پیش از روایتِ همان بخش می‌نشیند، نه وسطِ جمله
+      var at = idxOfSection_(out, Number(okSfx[sx].section));
+      var piece = { pcm: ec, label: 'افکت — ' + eb.name + ' (' + okSfx[sx].why + ')' };
+      if (at >= 0) out.splice(at, 0, piece); else out.push(piece);
+      eb.slot = 'افکت'; picks.push(eb);
+    }
+  } catch (eSx) { logLine_('افکت افزوده نشد: ' + eSx.message); }
 
   // جایگاهی که بانک برایش چیزی نداشت، خواسته می‌شود — تا تسکِ غنی‌سازی
   // بتواند قطعهٔ مناسب را پیدا و در پوشه بگذارد.
@@ -20425,6 +20498,18 @@ function musicWrap_(chunks, hub, opt) {
  * بی این، موسیقی همان نقطهٔ کوری می‌شد که درس‌نامه بود: کار انجام می‌شد یا
  * نمی‌شد و هیچ ناظری — آدم یا کد — نمی‌توانست تفاوتش را ببیند.
  */
+/** نخستین تکهٔ گفتاریِ بخشِ n در فهرستِ خروجی؛ -۱ اگر پیدا نشد. */
+function idxOfSection_(out, n) {
+  if (!isFinite(n) || n < 0) return -1;
+  var seen = -1;
+  for (var i = 0; i < out.length; i++) {
+    if (out[i] && out[i].pcm) continue;      // تکهٔ موسیقی بخش حساب نمی‌شود
+    seen++;
+    if (seen === n) return i;
+  }
+  return -1;
+}
+
 function musicRemember_(mw, epLabel) {
   try {
     props_().setProperty(PK.MUSIC_LAST, JSON.stringify({
@@ -20597,7 +20682,19 @@ var MUSIC_PLAN_SCHEMA = {
     outroId: { type: 'string' }, outroStart: { type: 'string' },
     gain: { type: 'string' },
     mood: { type: 'string' },
-    why: { type: 'string' }
+    why: { type: 'string' },
+    // پیشنهادِ افکت. مدل می‌گوید «کدام واژه، در کدام بخش، با کدام قطعه» —
+    // ولی خودش تصمیم نمی‌گیرد: sfxAllow_ ساختاری‌بودنِ واژه را می‌سنجد و
+    // هرچه گذرا باشد رد می‌شود. همه رشته، مثل بقیه.
+    sfx: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { id: { type: 'string' }, word: { type: 'string' },
+                      section: { type: 'string' } },
+        required: ['id', 'word', 'section']
+      }
+    }
   },
   required: ['mood']
 };
@@ -20655,7 +20752,13 @@ function musicPlanModel_(bank, ctx) {
       bridgeId: keep(r.bridgeId), bridgeStart: Number(r.bridgeStart) || 0,
       outroId: keep(r.outroId), outroStart: Number(r.outroStart) || 0,
       gain: (Number(r.gain) > 0 && Number(r.gain) <= 1) ? Number(r.gain) : 0,
-      mood: String(r.mood || ''), why: String(r.why || '')
+      mood: String(r.mood || ''), why: String(r.why || ''),
+      // شناسهٔ بیرونِ بانک همین‌جا دور ریخته می‌شود؛ مدل نمی‌تواند قطعهٔ
+      // ساختگی به قسمت تحمیل کند.
+      sfx: (r.sfx || []).map(function (x) {
+        return { id: keep(x && x.id), word: String((x && x.word) || ''),
+                 section: String((x && x.section) || '') };
+      }).filter(function (x) { return x.id && x.word; })
     };
   } catch (e) {
     logLine_('انتخابِ خودکارِ موسیقی انجام نشد: ' + e.message);

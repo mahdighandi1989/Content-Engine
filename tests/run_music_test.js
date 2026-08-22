@@ -351,4 +351,48 @@ console.log('\n=== ۱۰. افکت فقط وقتی بجاست ===');
      sfxAllow_(secs, [{ section: 99, word: 'باران', id: 'X' }], 'variety').length === 0);
 }
 
+console.log('=== ۱۱) بن‌بستِ بانکِ خالی، لینک، و تاریخچه ===');
+{
+  // ۱۱٫۱ — مهم‌ترین: بانکِ خالی باید خواسته بنویسد، وگرنه هرگز پر نمی‌شود.
+  // بی این، همان نقشه‌ای که «عمداً موسیقی نمی‌گذارم تا سیستم خودش دانلود کند»
+  // بی‌صدا شکست می‌خورد: موسیقی نیست چون بانک خالی است، و بانک خالی می‌ماند
+  // چون هیچ خواسته‌ای نوشته نشده.
+  const hub = getHub_();
+  const old = hub.getSheetByName(CFG.MUSIC_TAB);
+  if (old) hub.deleteSheet(old);
+  const it0 = global.__ROOT_FOLDER.getFilesByName(MUSIC_WISH_());
+  while (it0.hasNext()) it0.next().setTrashed(true);
+
+  const r = musicWrap_([{ text: 'الف' }], hub, { category: 'طنز و سرگرمی', title: 'ت' });
+  ok('۱۱.۱ بانکِ خالی هم خواسته می‌نویسد', !!getOutJson_(MUSIC_WISH_()),
+     JSON.stringify(r.missing));
+  const w = getOutJson_(MUSIC_WISH_());
+  ok('۱۱.۲ خواسته شروع و پایان را می‌خواهد',
+     JSON.stringify(w.items[w.items.length - 1].slots).indexOf('شروع') !== -1);
+  ok('۱۱.۳ و تکه‌های گفتار دست‌نخورده برمی‌گردند', r.chunks.length === 1);
+
+  // ۱۱٫۴ — ستونِ لینک
+  const f = musicFolder_().createFile(
+    Utilities.newBlob(mkWav(24000, 1, 16, 20, i => 1000), 'audio/wav', 'calm.wav'));
+  musicScan_(hub);
+  const sh = hub.getSheetByName(CFG.MUSIC_TAB);
+  const row = sh.getRange(2, 1, 1, MUSIC_HEADERS.length).getValues()[0];
+  ok('۱۱.۴ ستونِ لینک پر می‌شود',
+     String(row[MC.LINK - 1]).indexOf('drive.google.com') !== -1, String(row[MC.LINK - 1]));
+
+  // ۱۱٫۵ — تاریخچه: کدام قطعه، کدام قسمت، کدام جایگاه
+  const bank = musicBank_(hub);
+  bank[0].slot = 'شروع';
+  musicMarkUsed_(hub, [bank[0]], 'قسمت 7', 'از همه جا از همه رنگ');
+  const hs = hub.getSheetByName(CFG.MUSE_TAB);
+  ok('۱۱.۵ تبِ تاریخچه ساخته شد', !!hs);
+  const h = hs.getRange(2, 1, 1, MUSE_HEADERS.length).getValues()[0];
+  ok('۱۱.۶ جایگاه ثبت می‌شود', String(h[MU.SLOT - 1]) === 'شروع', String(h[MU.SLOT - 1]));
+  ok('۱۱.۷ نامِ برنامه و قسمت هم', String(h[MU.SHOW - 1]) === 'از همه جا از همه رنگ' &&
+     String(h[MU.EP - 1]) === 'قسمت 7');
+  ok('۱۱.۸ و لینکِ خودِ قطعه', String(h[MU.LINK - 1]).indexOf('drive.google.com') !== -1);
+  ok('۱۱.۹ شمارندهٔ ردیفِ بانک هم بالا رفت',
+     Number(sh.getRange(2, MC.USED).getValue()) === 1);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

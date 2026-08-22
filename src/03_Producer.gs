@@ -1037,11 +1037,12 @@ function buildChunks_(ep, cat, epNum) {
                   .filter(Boolean).slice(0, 8).join(' · ');
     var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
     var mw = musicWrap_(out, null, {
+      show: 'variety', sections: (ep && ep.sections) || [],
       category: cat, mood: cat, title: String((ep && ep.title) || ''),
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
+        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum, CFG.SHOW_NAME); } catch (eU) {}
         try { musicRemember_(mw, 'قسمت ' + epNum); } catch (eR) {}
       }
       return mw.chunks;
