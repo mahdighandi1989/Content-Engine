@@ -474,6 +474,11 @@ function selfUpdateDaily() {
   var srcAudit = null;
   try { srcAudit = auditSourceScripts(); } catch (eSS) {}
 
+  // بانکِ موسیقی: فایلِ تازه‌ای که کاربر در پوشه گذاشته، شبانه دیده و
+  // برچسب‌گذاری می‌شود — تا صبح آمادهٔ استفاده باشد.
+  try { musicScan_(); musicAutoTag_(); }
+  catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
+
   // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
   // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
   try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }

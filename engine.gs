@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.41
+ *  موتور محتوا و پادکست — نسخهٔ 5.42
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -361,6 +361,9 @@ var CFG = {
   // فایل‌ها در پوشه‌ای در OUTPUT می‌نشینند و فهرستشان در تبِ «موسیقی» است.
   // فقط WAV؛ رمزگشاییِ MP3 در Apps Script ممکن نیست.
   MUSIC_ENABLED: true,
+  // خودکار یعنی مدل خودش حال‌وهوا و قطعه و جایِ برش را تعیین کند. خاموش که
+  // شود، فقط ستون‌هایی که آدم در تب پر کرده ملاک است.
+  MUSIC_AUTO: true,
   MUSIC_FOLDER: 'موسیقی و افکت',
   MUSIC_TAB: 'موسیقی',
   MUSIC_INTRO_SEC: 8,          // طولِ موسیقیِ آغاز
@@ -524,7 +527,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.41',
+  CODE_VERSION: '5.42',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2706,7 +2709,12 @@ function buildChunks_(ep, cat, epNum) {
   // try/catch است: در فایلِ سرِهم‌شده hoisting نجاتش می‌دهد، ولی بارگذارِ جزئیِ
   // آزمون‌ها با ReferenceError می‌شکند و نباید تولید را زمین بزند.
   try {
-    var mw = musicWrap_(out, null, { category: cat, mood: cat, plan: (ep && ep.music) || {} });
+    var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
+                  .filter(Boolean).slice(0, 8).join(' · ');
+    var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
+    var mw = musicWrap_(out, null, {
+      category: cat, mood: cat, title: String((ep && ep.title) || ''),
+      headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
         try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
@@ -5453,7 +5461,8 @@ function onOpen() {
       .addSeparator()
       .addItem('🌐 وضعیتِ غنی‌سازیِ اینترنتی', 'showEnrichStatus')
       .addSeparator()
-      .addItem('🎵 پویشِ بانکِ موسیقی', 'runMusicScan')
+      .addItem('🎵 بانکِ موسیقی — پویش و برچسبِ خودکار', 'runMusicAuto')
+      .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
@@ -17513,6 +17522,11 @@ function selfUpdateDaily() {
   var srcAudit = null;
   try { srcAudit = auditSourceScripts(); } catch (eSS) {}
 
+  // بانکِ موسیقی: فایلِ تازه‌ای که کاربر در پوشه گذاشته، شبانه دیده و
+  // برچسب‌گذاری می‌شود — تا صبح آمادهٔ استفاده باشد.
+  try { musicScan_(); musicAutoTag_(); }
+  catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
+
   // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
   // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
   try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
@@ -19660,6 +19674,23 @@ function musicWrap_(chunks, hub, opt) {
 
   var mood = String(opt.mood || opt.category || '');
   var plan = opt.plan || {};
+
+  // حالتِ خودکار: پیش از هر چیز از مدل می‌پرسیم. چیزی که به او می‌دهیم عنوان و
+  // سرِ بخش‌ها و گویندگانِ همین قسمت است، نه فقط برچسبِ دسته — حال‌وهوا را
+  // این‌ها می‌سازند. اگر چیزی نداد یا شناسه‌اش در بانک نبود، قاعده جایش را
+  // می‌گیرد و هیچ‌چیز زمین نمی‌ماند.
+  if (CFG.MUSIC_AUTO !== false && !plan.introId && !plan.outroId) {
+    var mp = musicPlanModel_(bank, opt);
+    if (mp) {
+      plan = { introId: mp.introId, introStart: mp.introStart,
+               bridgeId: mp.bridgeId, bridgeStart: mp.bridgeStart,
+               outroId: mp.outroId, outroStart: mp.outroStart };
+      if (mp.mood) mood = mp.mood;
+      if (mp.gain) opt.gain = mp.gain;
+      logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
+    }
+  }
+
   var picks = [], out = [];
 
   var clipOf = function (b, slot, secs) {
@@ -19668,7 +19699,7 @@ function musicWrap_(chunks, hub, opt) {
     var fade = Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 2);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
-      gain: b.gain * (Number(CFG.MUSIC_GAIN) || 1),
+      gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
       fadeIn: fade, fadeOut: fade
     });
   };
@@ -19698,10 +19729,18 @@ function musicWrap_(chunks, hub, opt) {
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name }); picks.push(outro); }
   }
 
+  // جایگاهی که بانک برایش چیزی نداشت، خواسته می‌شود — تا تسکِ غنی‌سازی
+  // بتواند قطعهٔ مناسب را پیدا و در پوشه بگذارد.
+  var missing = [];
+  if (!intro) missing.push('شروع');
+  if (!outro) missing.push('پایان');
+  if (every && !bridge) missing.push('میانه');
+  if (missing.length) { try { musicWish_(mood, missing, opt); } catch (eW) {} }
+
   if (picks.length) {
     logLine_('موسیقیِ قسمت: ' + picks.map(function (p) { return p.name; }).join(' · '));
   }
-  return { chunks: out, picks: picks };
+  return { chunks: out, picks: picks, mood: mood, missing: missing };
 }
 
 /** منو: پویشِ بانک. */
@@ -19721,4 +19760,219 @@ function runMusicScan() {
          '  بلندی: عددی مثل 0.6 (پیش‌فرض ۱)');
   if (ui) ui.alert('🎵 بانکِ موسیقی', L.join('\n'), ui.ButtonSet.OK);
   return r;
+}
+
+/** منو: پویش + برچسبِ خودکار، یک‌جا. */
+function runMusicAuto() {
+  var ui = ui_();
+  var r = musicScan_();
+  var t = { tagged: 0 };
+  try { t = musicAutoTag_(); } catch (e) {}
+  var bank = musicBank_();
+  var L = ['پویش: ' + r.added + ' تازه · ' + r.updated + ' به‌روز · ' +
+           r.bad + ' ناسازگار · ' + r.gone + ' ناموجود',
+           'برچسبِ خودکار برای ' + t.tagged + ' قطعهٔ تازه ثبت شد.',
+           'آمادهٔ استفاده: ' + bank.length + ' قطعه', '',
+           'حالتِ خودکار: ' + (CFG.MUSIC_AUTO === false ? 'خاموش' : 'روشن') + '.',
+           'در حالتِ روشن، برای هر قسمت خودِ سیستم از روی عنوان، سرِ بخش‌ها و',
+           'گویندگان تصمیم می‌گیرد کدام قطعه، از کدام ثانیه، و با چه بلندی.',
+           '', 'هر ستونی که خودتان پر کنید، دستِ سیستم به آن نمی‌خورد.'];
+  var wish = null;
+  try { wish = getOutJson_('_MUSIC-WISH.json'); } catch (e2) {}
+  if (wish && wish.items && wish.items.length) {
+    var last = wish.items[wish.items.length - 1];
+    L.push('', '📝 آخرین خواسته: ' + (last.slots || []).join('، ') +
+           ' با حال‌وهوای «' + last.mood + '» — در _MUSIC-WISH.json');
+  }
+  if (ui) ui.alert('🎵 بانکِ موسیقی — خودکار', L.join('\n'), ui.ButtonSet.OK);
+  return { scan: r, tag: t, ready: bank.length };
+}
+
+/* ─────────────── حالتِ خودکار: برچسب‌زدن و انتخاب با مدل ─────────────── */
+
+var MUSIC_TAG_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          mood: { type: 'string' },
+          slots: { type: 'string' },
+          gain: { type: 'string' }
+        },
+        required: ['id', 'mood', 'slots']
+      }
+    }
+  },
+  required: ['items']
+};
+
+/**
+ * برچسب‌زدنِ خودکارِ قطعه‌های تازهٔ بانک.
+ *
+ * مدل صدا نمی‌شنود؛ آنچه دارد نامِ فایل و مدتِ آن است. برای بانکی که آدم پر
+ * می‌کند این کافی است، چون نامِ فایل‌های موسیقی تقریباً همیشه توصیفی است
+ * («calm-piano-intro», «باران-شهر»). حدس‌ها با نشانِ «خودکار» ثبت می‌شوند تا
+ * معلوم باشد کدام را آدم گفته و کدام را ماشین.
+ *
+ * ستونی که آدم پر کرده باشد هرگز بازنویسی نمی‌شود — نه اینجا، نه در پویش.
+ */
+function musicAutoTag_(hub) {
+  hub = hub || getHub_();
+  var sh = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+  if (!sh || sh.getLastRow() < 2) return { tagged: 0 };
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues();
+
+  var need = [];
+  for (var i = 0; i < v.length; i++) {
+    var fmt = String(v[i][MC.FMT - 1] || '');
+    if (!v[i][MC.ID - 1] || fmt.indexOf('ناسازگار') !== -1 || fmt.indexOf('نیست') !== -1) continue;
+    if (String(v[i][MC.MOOD - 1] || '').trim()) continue;      // آدم گفته — دست نزن
+    need.push({ row: i + 2, id: String(v[i][MC.ID - 1]),
+                name: String(v[i][MC.NAME - 1] || ''), sec: Number(v[i][MC.SEC - 1]) || 0 });
+  }
+  if (!need.length) return { tagged: 0 };
+
+  var lines = need.map(function (n) {
+    return '• شناسه ' + n.id + ' | نام فایل: «' + n.name + '» | مدت: ' + n.sec + ' ثانیه';
+  });
+  var prompt = [
+    'تو سرپرستِ موسیقیِ یک برنامهٔ رادیوییِ فارسی هستی.',
+    'برای هر قطعهٔ زیر، از روی نامِ فایل و مدتش حدس بزن:',
+    '  mood: دو تا چهار واژهٔ فارسی برای حال‌وهوا (مثل «آرام، امیدوار» یا «کوبنده، خبری»).',
+    '  slots: از میانِ «شروع»، «پایان»، «میانه» — با کاما. قطعهٔ کوتاه‌تر از ۱۵ ثانیه',
+    '         معمولاً «میانه» است؛ قطعهٔ بلند برای «شروع» و «پایان».',
+    '  gain: عددی بین ۰٫۳ تا ۱ — قطعهٔ پرهیاهو عددِ کمتر بگیرد.',
+    'اگر نامِ فایل چیزی نمی‌گوید، حال‌وهوای خنثی بده؛ از خودت داستان نساز.',
+    '', lines.join('\n')
+  ].join('\n');
+
+  var res = null;
+  try { res = geminiText_(prompt, MUSIC_TAG_SCHEMA, 4096); } catch (e) {
+    logLine_('برچسب‌زنیِ خودکارِ موسیقی انجام نشد: ' + e.message);
+    return { tagged: 0 };
+  }
+  var items = (res && res.items) || [];
+  var byId = {};
+  for (var k = 0; k < items.length; k++) byId[String(items[k].id)] = items[k];
+
+  var n = 0;
+  for (var q = 0; q < need.length; q++) {
+    var it = byId[need[q].id];
+    if (!it) continue;
+    var gain = Number(it.gain);
+    if (!(gain > 0 && gain <= 1)) gain = 0.8;
+    sh.getRange(need[q].row, MC.MOOD).setValue(String(it.mood || '').slice(0, 80));
+    sh.getRange(need[q].row, MC.SLOTS).setValue(String(it.slots || 'شروع، پایان').slice(0, 60));
+    sh.getRange(need[q].row, MC.GAIN).setValue(gain);
+    sh.getRange(need[q].row, MC.NOTE).setValue('خودکار — می‌توانید عوضش کنید');
+    n++;
+  }
+  if (n) logLine_('برچسبِ خودکار برای ' + n + ' قطعهٔ موسیقی ثبت شد.');
+  return { tagged: n };
+}
+
+var MUSIC_PLAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    // همهٔ فیلدها رشته‌اند، حتی عددها. تجربهٔ همین ریپو: مدل قالبی را که
+    // نوعِ integer/number/boolean داشته باشد رد می‌کند. تبدیل با Number()
+    // در همین‌جا انجام می‌شود و مقدارِ بیرون از بازه دور ریخته می‌شود.
+    introId: { type: 'string' }, introStart: { type: 'string' },
+    bridgeId: { type: 'string' }, bridgeStart: { type: 'string' },
+    outroId: { type: 'string' }, outroStart: { type: 'string' },
+    gain: { type: 'string' },
+    mood: { type: 'string' },
+    why: { type: 'string' }
+  },
+  required: ['mood']
+};
+
+/**
+ * انتخابِ موسیقیِ یک قسمت به‌دستِ مدل.
+ *
+ * چیزی که به مدل داده می‌شود عمداً بیش از «دستهٔ قسمت» است: عنوان، سرِ بخش‌ها،
+ * و گویندگانی که قرار است بخوانند. حال‌وهوای یک قسمت را همین‌ها می‌سازند، نه
+ * برچسبِ دسته؛ دو قسمتِ «علمی و آموزشی» می‌توانند یکی آرام باشد و یکی کوبنده.
+ *
+ * خروجی وارسی می‌شود: شناسه‌ای که در بانک نباشد دور ریخته می‌شود و همان‌جا
+ * قاعدهٔ قدیمی جایش را می‌گیرد. مدل پیشنهاد می‌دهد، تصمیمِ نهایی با کد است.
+ */
+function musicPlanModel_(bank, ctx) {
+  if (CFG.MUSIC_AUTO === false || !bank.length) return null;
+  var list = bank.slice(0, 60).map(function (b) {
+    return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
+           ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
+  }).join('\n');
+
+  var prompt = [
+    'تو سرپرستِ موسیقیِ یک برنامهٔ رادیوییِ فارسی هستی و باید برای این قسمت،',
+    'موسیقیِ آغاز و پایان و یک قطعهٔ میانه انتخاب کنی.',
+    '',
+    'قسمت:',
+    '  عنوان: ' + String(ctx.title || '—'),
+    '  دسته: ' + String(ctx.category || '—'),
+    '  سرِ بخش‌ها: ' + String(ctx.headings || '—'),
+    '  گویندگان: ' + String(ctx.cast || '—'),
+    '',
+    'قاعده‌ها:',
+    '  ۱) فقط از شناسه‌های همین فهرست انتخاب کن. شناسهٔ ساختگی ممنوع.',
+    '  ۲) هر قطعه را برای همان جایی بگذار که ستونِ «مناسب» اجازه داده.',
+    '  ۳) اگر قطعه بلند است، introStart/outroStart را طوری بده که بهترین جای',
+    '     قطعه شنیده شود (ثانیه). اگر نمی‌دانی، صفر بده.',
+    '  ۴) gain بین ۰٫۳ تا ۱: هرچه متن جدی‌تر و آرام‌تر، موسیقی آرام‌تر.',
+    '  ۵) mood را در دو تا چهار واژه بنویس — همان حال‌وهوایی که این قسمت',
+    '     باید بدهد. اگر هیچ قطعه‌ای مناسب نبود، شناسه‌ها را خالی بگذار ولی',
+    '     mood را حتماً بنویس؛ از روی همان، قطعهٔ تازه تهیه می‌شود.',
+    '  ۶) قطعه‌ای که بارِ استفاده‌اش کمتر است در شرایطِ برابر بهتر است.',
+    '',
+    '--- بانکِ موسیقی ---',
+    list
+  ].join('\n');
+
+  try {
+    var r = geminiText_(prompt, MUSIC_PLAN_SCHEMA, 2048);
+    if (!r) return null;
+    var ok = {};
+    for (var i = 0; i < bank.length; i++) ok[bank[i].id] = 1;
+    var keep = function (id) { return (id && ok[String(id)]) ? String(id) : ''; };
+    return {
+      introId: keep(r.introId), introStart: Number(r.introStart) || 0,
+      bridgeId: keep(r.bridgeId), bridgeStart: Number(r.bridgeStart) || 0,
+      outroId: keep(r.outroId), outroStart: Number(r.outroStart) || 0,
+      gain: (Number(r.gain) > 0 && Number(r.gain) <= 1) ? Number(r.gain) : 0,
+      mood: String(r.mood || ''), why: String(r.why || '')
+    };
+  } catch (e) {
+    logLine_('انتخابِ خودکارِ موسیقی انجام نشد: ' + e.message);
+    return null;
+  }
+}
+
+/**
+ * وقتی بانک چیزی برای یک جایگاه ندارد، خواسته را می‌نویسد.
+ *
+ * موتور خودش نمی‌تواند موسیقی پیدا و دانلود کند؛ این کارِ تسکِ غنی‌سازی است
+ * که به اینترنت دسترسی دارد. پس همان‌طور که برای متن درخواست می‌گذارد، اینجا
+ * هم یک فایلِ خواسته در OUTPUT می‌گذارد. اگر کسی برش ندارد، هیچ چیز خراب
+ * نمی‌شود — قسمت بی‌موسیقی ساخته می‌شود.
+ */
+function musicWish_(mood, missing, ctx) {
+  if (!missing || !missing.length) return null;
+  try {
+    var prev = getOutJson_('_MUSIC-WISH.json') || { items: [] };
+    var items = (prev.items || []).slice(-20);
+    items.push({
+      at: nowStr_(), mood: String(mood || ''), slots: missing,
+      title: String((ctx && ctx.title) || ''), category: String((ctx && ctx.category) || ''),
+      note: 'فقط WAV. ترجیحاً ۲۴ کیلوهرتز، تک‌کاناله، ۱۶ بیت. ' +
+            'فایل را در پوشهٔ «' + (CFG.MUSIC_FOLDER || 'موسیقی و افکت') + '» بگذارید.'
+    });
+    putOutJson_('_MUSIC-WISH.json', { updatedAt: nowStr_(), items: items });
+    logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
+    return items.length;
+  } catch (e) { return null; }
 }

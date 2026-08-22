@@ -167,6 +167,27 @@ Music enters the episode as a chunk carrying `pcm` instead of `text`.
 quota and offers no chance to be read aloud. `ttsCueWanted_` skips backwards
 over music chunks — otherwise every sting would force an extra style cue.
 
+**Auto mode** (`CFG.MUSIC_AUTO`, on by default) asks the model twice, in
+different places. Nightly, `musicAutoTag_` fills mood/slots/gain for tracks the
+curator left blank — it only has the filename and duration to go on, which is
+enough because music filenames are almost always descriptive, and it stamps
+«خودکار» so a guess is never mistaken for a decision. Per episode,
+`musicPlanModel_` picks the tracks, the second to cut from, and the gain, given
+the title, section headings and the **cast** — because what sets an episode's
+mood is those, not the category label; two «علمی و آموزشی» episodes can want
+opposite music. The model proposes and the code decides: an id that is not in
+the bank is dropped and the rule-based `musicPick_` takes over, so a
+hallucinated id can never leave an episode silent.
+
+Every schema field is a string, gain and seconds included. This repo's model
+rejects any schema carrying `integer`/`number`/`boolean`; `run_real_test.js`
+enforces it across the whole codebase, and it caught this section.
+
+When the bank has nothing for a slot, `musicWish_` appends to
+`_MUSIC-WISH.json` in OUTPUT — the same request channel the enrichment task
+already uses for text. Nothing breaks if no one picks it up; the episode is
+simply built without music.
+
 **What is not possible here.** A music bed *under* the narration for a whole
 episode means sample-wise addition over ~14M samples; Google's six-minute limit
 does not allow it. The feasible route is mixing into each speech chunk inside

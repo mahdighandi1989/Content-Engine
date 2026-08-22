@@ -159,4 +159,69 @@ console.log('\n=== ۶. موجِ واقعی با نیمهٔ منفی ===');
      ss[Math.floor(ss.length / 2)] + '');
 }
 
+
+/* ۷. حالتِ خودکار.
+
+   خواسته این بود که خودِ سیستم حال‌وهوا و قطعه و جای برش را تعیین کند، نه
+   اینکه آدم سه ستون را پر کند. ولی «مدل تصمیم می‌گیرد» نباید یعنی «مدل هرچه
+   گفت». شناسه‌ای که در بانک نیست باید دور ریخته شود و قاعده جایش را بگیرد،
+   وگرنه یک شناسهٔ ساختگی قسمت را بی‌موسیقی می‌کند.                          */
+console.log('\n=== ۷. انتخابِ خودکار با مدل ===');
+{
+  const bank = [
+    { row: 2, id: 'A', name: 'calm-piano', mood: 'آرام، امیدوار', slots: 'شروع، پایان', sec: 40, gain: 1, used: 0, lastAt: '' },
+    { row: 3, id: 'B', name: 'news-hit',   mood: 'کوبنده، خبری',  slots: 'شروع',        sec: 30, gain: 1, used: 5, lastAt: '' },
+    { row: 4, id: 'C', name: 'short-sting', mood: 'خنثی',         slots: 'میانه',       sec: 6,  gain: 1, used: 1, lastAt: '' }
+  ];
+  const realGem = global.geminiText_;
+
+  global.geminiText_ = () => ({ introId: 'B', introStart: 5, outroId: 'A', outroStart: 12,
+                                bridgeId: 'C', gain: 0.5, mood: 'کوبنده، خبری', why: 'قسمتِ خبری' });
+  let plan = musicPlanModel_(bank, { title: 'ت', category: 'سیاسی و خبری' });
+  ok('۷.۱ انتخابِ مدل پذیرفته می‌شود', plan.introId === 'B' && plan.outroId === 'A',
+     JSON.stringify(plan).slice(0, 90));
+  ok('۷.۲ ثانیهٔ شروعِ برش هم می‌آید', plan.introStart === 5 && plan.outroStart === 12);
+  ok('۷.۳ بلندی در بازهٔ مجاز پذیرفته می‌شود', plan.gain === 0.5);
+
+  global.geminiText_ = () => ({ introId: 'شناسهٔ-ساختگی', outroId: 'A', mood: 'آرام' });
+  plan = musicPlanModel_(bank, {});
+  ok('۷.۴ شناسهٔ ساختگی دور ریخته می‌شود', plan.introId === '', JSON.stringify(plan.introId));
+  ok('۷.۵ ولی شناسهٔ درستِ کنارش می‌ماند', plan.outroId === 'A');
+
+  global.geminiText_ = () => ({ introId: 'A', gain: 99, mood: 'آرام' });
+  plan = musicPlanModel_(bank, {});
+  ok('۷.۶ بلندیِ بیرون از بازه پذیرفته نمی‌شود', plan.gain === 0);
+
+  global.geminiText_ = () => { throw new Error('مدل جواب نداد'); };
+  ok('۷.۷ شکستِ مدل، تولید را زمین نمی‌زند', musicPlanModel_(bank, {}) === null);
+
+  const savedAuto = CFG.MUSIC_AUTO;
+  CFG.MUSIC_AUTO = false;
+  global.geminiText_ = () => ({ introId: 'A', mood: 'آرام' });
+  ok('۷.۸ با خاموش‌بودنِ حالتِ خودکار، اصلاً از مدل پرسیده نمی‌شود',
+     musicPlanModel_(bank, {}) === null);
+  CFG.MUSIC_AUTO = savedAuto;
+
+  // قاعده باید همچنان مستقل کار کند — پشتیبانِ حالتِ خودکار همین است
+  const byRule = musicPick_(bank, 'شروع', 'کوبنده خبری');
+  ok('۷.۹ قاعده هم بی مدل کار می‌کند', byRule && byRule.id === 'B', byRule && byRule.id);
+  const calm = musicPick_(bank, 'شروع', 'آرام امیدوار');
+  ok('۷.۱۰ و حال‌وهوای دیگر، قطعهٔ دیگری می‌آورد', calm && calm.id === 'A', calm && calm.id);
+  ok('۷.۱۱ برای جایگاهی که قطعه ندارد، چیزی برنمی‌گرداند',
+     musicPick_(bank, 'جایگاهِ‌ناموجود', 'آرام') === null);
+
+  // مدل عددها را رشته می‌فرستد (قالب‌ها عمداً رشته‌ای‌اند، چون همین مدل قالبِ
+  // عددی را رد می‌کند). پس تبدیل باید همین‌جا انجام شود.
+  global.geminiText_ = () => ({ introId: 'A', introStart: '7', gain: '0.4', mood: 'آرام' });
+  plan = musicPlanModel_(bank, {});
+  ok('۷.۱۲ عددِ رشته‌ای درست خوانده می‌شود',
+     plan.introStart === 7 && plan.gain === 0.4, JSON.stringify(plan.introStart) + ' / ' + plan.gain);
+  global.geminiText_ = () => ({ introId: 'A', introStart: 'سه', gain: 'زیاد', mood: 'آرام' });
+  plan = musicPlanModel_(bank, {});
+  ok('۷.۱۳ عددِ نامفهوم به صفر می‌افتد، نه به NaN',
+     plan.introStart === 0 && plan.gain === 0);
+
+  global.geminiText_ = realGem;
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

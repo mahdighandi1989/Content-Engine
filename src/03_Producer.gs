@@ -1033,7 +1033,12 @@ function buildChunks_(ep, cat, epNum) {
   // try/catch است: در فایلِ سرِهم‌شده hoisting نجاتش می‌دهد، ولی بارگذارِ جزئیِ
   // آزمون‌ها با ReferenceError می‌شکند و نباید تولید را زمین بزند.
   try {
-    var mw = musicWrap_(out, null, { category: cat, mood: cat, plan: (ep && ep.music) || {} });
+    var heads = ((ep && ep.sections) || []).map(function (x) { return String(x.heading || ''); })
+                  .filter(Boolean).slice(0, 8).join(' · ');
+    var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
+    var mw = musicWrap_(out, null, {
+      category: cat, mood: cat, title: String((ep && ep.title) || ''),
+      headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
         try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
