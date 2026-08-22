@@ -27,10 +27,10 @@ top of `src/00_Config.gs`.
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
 src/                 24 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 29 run_*.js suites
+tests/               the 31 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
-docs/                monitor_prompt_current.txt
+docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
 archive/             historical only — NEVER a build/test source
 ```
 **Hard constraint:** `engine.gs` and `manifest.json` must stay at the repo root —
