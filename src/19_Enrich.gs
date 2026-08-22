@@ -44,8 +44,26 @@
 var ENRICH_SHOW_VARIETY = 'variety';
 var ENRICH_SHOW_SPECIAL = 'special';
 
+/**
+ * تنها فهرستِ برنامه‌های شناخته‌شدهٔ موتور.
+ *
+ * دروازهٔ تقویم به این نیاز ندارد — کلیدِ ناشناخته ردیفِ خودش را می‌سازد و
+ * پادکستِ بعدی بی هیچ تغییری در کد کار می‌کند. این فهرست فقط برای دو کارِ
+ * «پیش‌دستانه» است: نامِ نمایشی، و بذرِ ردیف‌های تقویم پیش از آنکه برنامه
+ * حتی یک‌بار اجرا شده باشد. پیشتر این دانش داخلِ یک if/else بود، پس اضافه‌کردنِ
+ * پادکستِ سوم یعنی گشتن دنبالِ همهٔ if/elseها. حالا یک جاست.
+ */
+function knownShows_() {
+  return [
+    { key: ENRICH_SHOW_VARIETY, name: CFG.SHOW_NAME },
+    { key: ENRICH_SHOW_SPECIAL, name: CFG.SPECIAL_SHOW_NAME }
+  ];
+}
+
 function enrichShowName_(show) {
-  return show === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
+  var L = knownShows_();
+  for (var i = 0; i < L.length; i++) if (L[i].key === show) return L[i].name;
+  return CFG.SHOW_NAME;   // پیش‌فرضِ تاریخی؛ رفتارش عوض نشده
 }
 
 function enrichReqName_(show, epNum) {

@@ -264,6 +264,17 @@ per show: «فعال» (بله/خیر), «روزهای هفته», «استثن�
   calendar with no code change. `run_calendar_test.js` ۶ asserts this with a
   key that doesn't exist yet.
 
+The menu item does the work, not just a readout: it seeds the tab and every
+show's row on first open (5.53 — before that the row appeared only after the
+first *automatic* run, so someone installing today and wanting tonight off had
+nothing to edit), and it pauses/resumes by number («۱», «۱،۲», «همه») via
+`calPickIdx_`. The example exception dates in that dialog are labelled as
+examples — unlabelled, they read as the current setting, which is exactly how
+they were read.
+
+`knownShows_()` (section 19) is the engine's single list of shows, used for
+display names and for seeding. The gate still needs no list at all.
+
 Manual runs pass `{manual: true}` and skip the gate — the owner pressing the
 button has already decided. `produceEpisodeContinue` deliberately skips it too:
 an episode started yesterday must be allowed to finish today.
