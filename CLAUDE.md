@@ -218,7 +218,8 @@ searches subfolders, so moving any of these makes the engine silently blind.
 Everything else belongs in a subfolder.
 
 Two prunes decide what may move, and both scan the root only:
-`pruneEnrichFiles_` (10 days) and `pendingReportFiles_`. That is why the
+`pruneEnrichFiles_` (10 days, called from `selfUpdateDaily`) and
+`pendingReportFiles_`. That is why the
 `_ENRICH-*` files must stay at root — subfoldered, they would never be cleaned.
 Ingested reports are the opposite: `markReportDone_` moves each to
 «بایگانی — گزارش‌های خوانده‌شده» and `pruneReportArchive_` trims it at 60 days.
@@ -236,6 +237,16 @@ same commit** as the code, plus a row in its «تاریخچهٔ تغییرهای
 Prompt texts live in Drive (`_PROMPT-*-v<N>.md`, append-only — a new version is a
 new file, never an overwrite). A copy of each goes in `docs/prompts/` so git has
 the history.
+
+## Dead code is the failure mode here
+Three real bugs in this repo were all the same shape: a function written,
+commented, and unit-tested — but never called. `sfxAllow_` guarded effects
+that were never placed; `pruneEnrichFiles_` promised a 10-day prune that
+never ran (and `docs/drive_layout.md` stated it as fact); `musicWish_` sat
+behind an early return so an empty bank could never bootstrap itself. None
+raised an error. `tests/run_wiring_test.js` now fails if any private
+(`name_`) function has no caller, and asserts the specific call sites that
+carry a promise to the user. Add to its LEGACY allowlist only with a reason.
 
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.

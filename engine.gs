@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.50
+ *  موتور محتوا و پادکست — نسخهٔ 5.51
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -559,7 +559,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.50',
+  CODE_VERSION: '5.51',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -12615,6 +12615,7 @@ function specialSegments_(ep, catHint) {
     if (!t.trim()) continue;
     var regS = voiceRegister_(catHint, s.tone, t);
     segs.push({ text: t, kind: 'body', tone: String(s.tone || ''), secIndex: i,
+                heading: String(s.heading || ''),
                 style: base + (s.tone ? ' ' + s.tone : '') + ' ' + styleForRegister_(regS) });
   }
   if (ep.outro) segs.push({ text: ep.outro, kind: 'outro', tone: '',
@@ -12638,12 +12639,16 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       logLine_('نقش‌گزینیِ درس‌نامه: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eC.message); }
   }
-  var out = [];
+  var out = [], bounds = [];
   for (var i = 0; i < segs.length; i++) {
     // همان قاعدهٔ برنامهٔ متنوع: متنِ صوتیِ اعراب‌دار + پاک‌سازی از شناسه و لینک
     var plainS = speakSanitize_(String(segs[i].text || ''));
     var spoken = speakSanitize_(speakTextOf_(ep, i, plainS));
     var pieces = splitForTts_(applyPron_(spoken));
+    // مرزِ واقعیِ هر قطعه — همان چیزی که «از همه جا از همه رنگ» هم دارد.
+    // بی این، موسیقیِ میانه در درس‌نامه اصلاً پخش نمی‌شد.
+    bounds.push({ at: out.length, kind: String(segs[i].kind || 'body'),
+                  heading: String(segs[i].heading || '') });
     for (var j = 0; j < pieces.length; j++) {
       out.push({ text: pieces[j], style: segs[i].style,
                  voice: segs[i].voice || CFG.TTS_VOICE_SPECIAL });
@@ -12657,7 +12662,7 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     var mw = musicWrap_(out, null, {
       // «special» یعنی sfxAllow_ هر افکتی را رد می‌کند — سرشتِ درس‌نامه
       // شمرده و بی‌جلوه است و این خواستهٔ صریحِ صاحبِ برنامه بود.
-      show: 'special', sections: (ep && ep.sections) || [],
+      show: 'special', sections: (ep && ep.sections) || [], bounds: bounds,
       category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
       mood: 'آموزشی، شمرده',
       title: String((ep && ep.title) || ''), headings: heads,
@@ -18079,6 +18084,10 @@ function selfUpdateDaily() {
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
   try { promptPrune_(); } catch (ePP) {}
+  // هرسِ پرونده‌های غنی‌سازی. تا ۵٫۵۰ این تابع نوشته شده بود ولی هیچ‌جا صدا
+  // زده نمی‌شد — یعنی «ده روز و پاک می‌شوند» که در نقشهٔ پوشه نوشته بودیم
+  // هرگز اتفاق نمی‌افتاد و ریشه آرام‌آرام پر می‌شد، درست مثل گزارش‌ها.
+  try { pruneEnrichFiles_(); } catch (ePE) {}
   // و وارسیِ تازگیِ دستورها — هر شب، تا انجام شود.
   try { promptFreshNag_(); } catch (ePF) {}
 

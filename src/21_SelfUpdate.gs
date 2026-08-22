@@ -540,6 +540,10 @@ function selfUpdateDaily() {
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
   try { promptPrune_(); } catch (ePP) {}
+  // هرسِ پرونده‌های غنی‌سازی. تا ۵٫۵۰ این تابع نوشته شده بود ولی هیچ‌جا صدا
+  // زده نمی‌شد — یعنی «ده روز و پاک می‌شوند» که در نقشهٔ پوشه نوشته بودیم
+  // هرگز اتفاق نمی‌افتاد و ریشه آرام‌آرام پر می‌شد، درست مثل گزارش‌ها.
+  try { pruneEnrichFiles_(); } catch (ePE) {}
   // و وارسیِ تازگیِ دستورها — هر شب، تا انجام شود.
   try { promptFreshNag_(); } catch (ePF) {}
 
