@@ -395,4 +395,74 @@ console.log('=== ۱۱) بن‌بستِ بانکِ خالی، لینک، و تا�
      Number(sh.getRange(2, MC.USED).getValue()) === 1);
 }
 
+console.log('=== ۱۲) موسیقیِ میانه سرِ مرزِ بخش‌ها، نه هر چند تکه ===');
+{
+  const hub = getHub_();
+  // بانکی با یک قطعهٔ «میانه»
+  const sh = hub.getSheetByName(CFG.MUSIC_TAB);
+  musicFolder_().createFile(
+    Utilities.newBlob(mkWav(24000, 1, 16, 12, i => 900), 'audio/wav', 'bridge.wav'));
+  musicScan_(hub);
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues();
+  for (let r = 0; r < rows.length; r++) {
+    if (String(rows[r][MC.NAME - 1]) === 'bridge.wav') {
+      sh.getRange(r + 2, MC.SLOTS).setValue('میانه');
+    }
+  }
+
+  // شش تکه، ولی فقط دو مرزِ واقعی: تکهٔ ۱ (بخش الف) و تکهٔ ۴ (بخش ب)
+  const chunks = [];
+  for (let i = 0; i < 6; i++) chunks.push({ text: 'ت' + i });
+  const bounds = [
+    { at: 0, kind: 'hook', heading: '' },
+    { at: 1, kind: 'body', heading: 'بخشِ الف' },
+    { at: 4, kind: 'body', heading: 'بخشِ ب' },
+    { at: 6, kind: 'outro', heading: '' }
+  ];
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: '{"mood":"آرام"}' }] } }] } });
+
+  const r = musicWrap_(chunks, hub, { mood: 'آرام', bounds: bounds, show: 'variety' });
+  const at = [];
+  r.chunks.forEach((c, i) => { if (c.pcm && /میانه/.test(c.label || '')) at.push(i); });
+  ok('۱۲.۱ حداکثر یک قطعهٔ میانه در پشتوانه', at.length <= 1, 'تعداد: ' + at.length);
+
+  // مهم‌ترین: موسیقی نباید وسطِ روایتِ یک بخش بیفتد. تکه‌های گفتار را
+  // بشمار و ببین موسیقی دقیقاً سرِ یکی از مرزهاست.
+  let spoken = -1, okPos = true;
+  for (const c of r.chunks) {
+    if (c.pcm) {
+      if (/میانه/.test(c.label || '')) {
+        const nextSpoken = spoken + 1;
+        if (!bounds.some(b => b.at === nextSpoken)) okPos = false;
+      }
+      continue;
+    }
+    spoken++;
+  }
+  ok('۱۲.۲ موسیقی دقیقاً سرِ مرزِ یک بخش می‌نشیند، نه وسطِ بخش', okPos);
+
+  // مدل می‌تواند مرز و قطعه را انتخاب کند
+  const bank = musicBank_(hub);
+  const brId = bank.filter(b => b.slots.indexOf('میانه') !== -1)[0].id;
+  const r2 = musicWrap_(chunks, hub, { mood: 'آرام', bounds: bounds, show: 'variety',
+    plan: { bridges: [{ after: '1', id: brId }] } });
+  let sp2 = -1, atIdx = -1;
+  for (const c of r2.chunks) {
+    if (c.pcm) { if (/میانه/.test(c.label || '')) atIdx = sp2 + 1; continue; }
+    sp2++;
+  }
+  ok('۱۲.۳ مرزی که مدل گفت رعایت می‌شود', atIdx === 4, 'سرِ تکهٔ ' + atIdx);
+
+  // شناسهٔ ساختگی و مرزِ بیرون از بازه دور ریخته می‌شوند
+  const r3 = musicWrap_(chunks, hub, { mood: 'آرام', bounds: bounds, show: 'variety',
+    plan: { bridges: [{ after: '99', id: brId }, { after: '0', id: 'GHOST' }] } });
+  const n3 = r3.chunks.filter(c => c.pcm && /میانه/.test(c.label || '')).length;
+  ok('۱۲.۴ مرزِ بیرون از بازه و شناسهٔ ساختگی رد می‌شوند', n3 <= 1, 'تعداد: ' + n3);
+
+  // بی هیچ مرزی (مثلِ درس‌نامه که bounds نمی‌دهد) نباید بترکد
+  const r4 = musicWrap_(chunks, hub, { mood: 'آرام', show: 'special' });
+  ok('۱۲.۵ بی مرز هم کار می‌کند', Array.isArray(r4.chunks));
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

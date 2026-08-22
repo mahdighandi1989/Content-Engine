@@ -995,7 +995,10 @@ function episodeSegments_(ep, cat) {
     // لحن از سرشتِ خودِ همین بخش می‌آید، نه فقط از دستهٔ کلِ قسمت: یک بندِ سوگ
     // در یک قسمتِ علمی هم باید مثلِ سوگ خوانده شود.
     var reg = voiceRegister_(cat, sec.tone, t);
+    // عنوانِ بخش همراهِ قطعه می‌ماند تا موسیقیِ میانه بداند بینِ کدام دو بخش
+    // می‌نشیند. بی این، جای موسیقی فقط شمارهٔ تکهٔ صوتی بود.
     segs.push({ text: t, kind: 'body', tone: String(sec.tone || ''), secIndex: i,
+                heading: String(sec.heading || ''),
                 style: base + (sec.tone ? ' ' + sec.tone : '') + ' ' + styleForRegister_(reg) });
   }
   if (ep.outro) {
@@ -1018,13 +1021,17 @@ function buildChunks_(ep, cat, epNum) {
       logLine_('نقش‌گزینیِ قسمت: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ گویندگان انجام نشد: ' + eC.message); }
   }
-  var out = [];
+  var out = [], bounds = [];
   for (var i = 0; i < segs.length; i++) {
     // متنِ صوتی: نسخهٔ اعراب‌دارِ وارسی‌شده (اگر آماده شده)، پاک‌شده از هر
     // شناسه و لینکی که «گفتنی» نیست. متنِ خواندنیِ سند دست نمی‌خورد.
     var plainS = speakSanitize_(String(segs[i].text || ''));
     var spoken = speakSanitize_(speakTextOf_(ep, i, plainS));
     var pieces = splitForTts_(applyPron_(spoken));
+    // مرزِ واقعیِ این قطعه در فهرستِ تکه‌ها. موسیقیِ میانه فقط اینجاها
+    // می‌نشیند، وگرنه وسطِ روایتِ یک بخش می‌افتاد.
+    bounds.push({ at: out.length, kind: String(segs[i].kind || 'section'),
+                  heading: String(segs[i].heading || '') });
     for (var j = 0; j < pieces.length; j++) {
       out.push({ text: pieces[j], style: segs[i].style, voice: segs[i].voice });
     }
@@ -1037,7 +1044,7 @@ function buildChunks_(ep, cat, epNum) {
                   .filter(Boolean).slice(0, 8).join(' · ');
     var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
     var mw = musicWrap_(out, null, {
-      show: 'variety', sections: (ep && ep.sections) || [],
+      show: 'variety', sections: (ep && ep.sections) || [], bounds: bounds,
       category: cat, mood: cat, title: String((ep && ep.title) || ''),
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {

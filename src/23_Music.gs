@@ -405,11 +405,13 @@ function musicWrap_(chunks, hub, opt) {
   // این‌ها می‌سازند. اگر چیزی نداد یا شناسه‌اش در بانک نبود، قاعده جایش را
   // می‌گیرد و هیچ‌چیز زمین نمی‌ماند.
   if (CFG.MUSIC_AUTO !== false && !plan.introId && !plan.outroId) {
+    // opt خودش bounds را دارد؛ مدل باید مرزها را ببیند تا بتواند انتخاب کند.
     var mp = musicPlanModel_(bank, opt);
     if (mp) {
       plan = { introId: mp.introId, introStart: mp.introStart,
                bridgeId: mp.bridgeId, bridgeStart: mp.bridgeStart,
-               outroId: mp.outroId, outroStart: mp.outroStart };
+               outroId: mp.outroId, outroStart: mp.outroStart,
+               bridges: mp.bridges || [], sfx: mp.sfx || [] };
       if (mp.mood) mood = mp.mood;
       if (mp.gain) opt.gain = mp.gain;
       logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
@@ -436,18 +438,65 @@ function musicWrap_(chunks, hub, opt) {
               intro.slot = 'شروع'; picks.push(intro); }
   }
 
-  var every = Math.max(0, Number(CFG.MUSIC_BRIDGE_EVERY) || 0);
-  var bridge = every ? musicPick_(bank, 'میانه', mood, plan.bridgeId) : null;
+  /* ── موسیقیِ میانه: سرِ مرزِ بخش‌ها، نه هر چند تکه ──
+     تا ۵٫۴۹ این‌طور بود: یک قطعه یک بار انتخاب می‌شد و هر `every` تکهٔ صوتی
+     یک بار تکرار می‌شد. ولی «تکه» بخش نیست — splitForTts_ هر بخش را از روی
+     سقفِ نویسه می‌شکند، پس شمارش روی تکه‌ها یعنی موسیقی می‌توانست وسطِ
+     روایتِ یک بخش بیفتد و حرف را قطع کند. و چون یک قطعه بیشتر نبود، همان
+     یکی هر بار تکرار می‌شد.
+
+     حالا: جای مجاز فقط مرزِ قطعه‌هاست (`bounds`)، مدل می‌گوید کدام مرز و
+     کدام قطعه، و کد اعتبارسنجی می‌کند. اگر مدل چیزی نگفت، حداکثر یک قطعه
+     سرِ نزدیک‌ترین مرز به میانهٔ برنامه — نه بیشتر. */
+  var bounds = (opt.bounds || []).filter(function (b) {
+    // آغازِ برنامه و آغازِ نخستین بخش جای موسیقی نیست؛ پایان هم موسیقیِ
+    // خودش را دارد.
+    return b && b.at > 0 && b.kind !== 'hook' && b.kind !== 'outro';
+  });
+  var maxBr = Math.max(0, Number(CFG.MUSIC_BRIDGE_MAX) || 0);
+  var want = [];
+
+  for (var bi = 0; bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
+    var pb = plan.bridges[bi];
+    var k = parseInt(faDigits_(String(pb.after)), 10);
+    if (!isFinite(k) || k < 0 || k >= bounds.length) continue;
+    var tr = null;
+    for (var tz = 0; tz < bank.length; tz++) if (bank[tz].id === pb.id) tr = bank[tz];
+    if (!tr) continue;
+    if (tr.slots && tr.slots.indexOf('میانه') === -1) continue;
+    var dup = false;
+    for (var dz = 0; dz < want.length; dz++) if (want[dz].at === bounds[k].at) dup = true;
+    if (dup) continue;
+    want.push({ at: bounds[k].at, track: tr, why: String(pb.why || ''),
+                head: bounds[k].heading });
+  }
+
+  // پشتوانه: مدل خاموش بود یا چیزی نداد. یک قطعه، سرِ مرزِ میانه.
+  if (!want.length && maxBr && bounds.length) {
+    var fb = musicPick_(bank, 'میانه', mood, plan.bridgeId);
+    if (fb) {
+      var mid = bounds[Math.floor(bounds.length / 2)];
+      want.push({ at: mid.at, track: fb, why: 'میانهٔ برنامه', head: mid.heading });
+    }
+  }
+
+  var atMap = {};
+  for (var wz = 0; wz < want.length; wz++) atMap[want[wz].at] = want[wz];
+
   for (var i = 0; i < chunks.length; i++) {
-    if (bridge && every && i > 0 && i % every === 0) {
-      var bb = clipOf(bridge, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4);
+    var w = atMap[i];
+    if (w) {
+      var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4);
       if (bb) {
-        out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + bridge.name });
-        if (picks.indexOf(bridge) === -1) picks.push(bridge);
+        out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
+                        (w.head ? ' (پیش از «' + w.head + '»)' : '') });
+        w.track.slot = 'میانه';
+        if (picks.indexOf(w.track) === -1) picks.push(w.track);
       }
     }
     out.push(chunks[i]);
   }
+  var bridge = want.length ? want[0].track : null;
 
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
@@ -485,7 +534,9 @@ function musicWrap_(chunks, hub, opt) {
   var missing = [];
   if (!intro) missing.push('شروع');
   if (!outro) missing.push('پایان');
-  if (every && !bridge) missing.push('میانه');
+  // «میانه» فقط وقتی خواسته می‌شود که جای مناسبی برایش بود ولی قطعه نبود.
+  // اگر خودِ برنامه مرزی نداشت، نبودِ موسیقیِ میانه کمبود نیست.
+  if (maxBr && bounds.length && !bridge) missing.push('میانه');
   if (missing.length) { try { musicWish_(mood, missing, opt); } catch (eW) {} }
 
   if (picks.length) {
@@ -688,6 +739,18 @@ var MUSIC_PLAN_SCHEMA = {
     // پیشنهادِ افکت. مدل می‌گوید «کدام واژه، در کدام بخش، با کدام قطعه» —
     // ولی خودش تصمیم نمی‌گیرد: sfxAllow_ ساختاری‌بودنِ واژه را می‌سنجد و
     // هرچه گذرا باشد رد می‌شود. همه رشته، مثل بقیه.
+    // موسیقیِ میانه: مدل می‌گوید بینِ کدام دو بخش و با کدام قطعه. تا ۵٫۴۹
+    // یک قطعه انتخاب می‌شد و هر چند تکه یک بار کورکورانه تکرار می‌شد — که
+    // می‌توانست وسطِ روایتِ یک بخش بیفتد.
+    bridges: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { after: { type: 'string' }, id: { type: 'string' },
+                      why: { type: 'string' } },
+        required: ['after', 'id']
+      }
+    },
     sfx: {
       type: 'array',
       items: {
@@ -718,6 +781,14 @@ function musicPlanModel_(bank, ctx) {
            ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
   }).join('\n');
 
+  // مرزهای مجاز، با همان شماره‌ای که مدل باید در `after` برگرداند
+  var brd = (ctx.bounds || []).filter(function (b) {
+    return b && b.at > 0 && b.kind !== 'hook' && b.kind !== 'outro';
+  });
+  var brdList = brd.map(function (b, i) {
+    return '  ' + i + ') پیش از بخشِ «' + (b.heading || '—') + '»';
+  }).join('\n');
+
   var prompt = [
     'تو سرپرستِ موسیقیِ یک برنامهٔ رادیوییِ فارسی هستی و باید برای این قسمت،',
     'موسیقیِ آغاز و پایان و یک قطعهٔ میانه انتخاب کنی.',
@@ -738,6 +809,15 @@ function musicPlanModel_(bank, ctx) {
     '     باید بدهد. اگر هیچ قطعه‌ای مناسب نبود، شناسه‌ها را خالی بگذار ولی',
     '     mood را حتماً بنویس؛ از روی همان، قطعهٔ تازه تهیه می‌شود.',
     '  ۶) قطعه‌ای که بارِ استفاده‌اش کمتر است در شرایطِ برابر بهتر است.',
+    '  ۷) موسیقیِ میانه: فقط اگر واقعاً لازم است. جای مجازش فقط مرزهای زیر',
+    '     است (شمارهٔ مرز را در `after` بده) — یعنی بینِ دو بخش، نه وسطِ',
+    '     حرف. حداکثر ' + (Number(CFG.MUSIC_BRIDGE_MAX) || 2) + ' تا، و',
+    '     ترجیحاً وقتی موضوع از این بخش به بخشِ بعد واقعاً عوض می‌شود.',
+    '     اگر برنامه یکدست است و جایی برای نفس‌کشیدن لازم ندارد، bridges را',
+    '     خالی بگذار — موسیقیِ بی‌مناسبت بدتر از نبودنش است.',
+    '',
+    '--- مرزهای مجاز برای موسیقیِ میانه ---',
+    (brdList || '[این قسمت مرزِ مناسبی ندارد]'),
     '',
     '--- بانکِ موسیقی ---',
     list
@@ -757,6 +837,10 @@ function musicPlanModel_(bank, ctx) {
       mood: String(r.mood || ''), why: String(r.why || ''),
       // شناسهٔ بیرونِ بانک همین‌جا دور ریخته می‌شود؛ مدل نمی‌تواند قطعهٔ
       // ساختگی به قسمت تحمیل کند.
+      bridges: (r.bridges || []).map(function (x) {
+        return { after: String((x && x.after) || ''), id: keep(x && x.id),
+                 why: String((x && x.why) || '') };
+      }).filter(function (x) { return x.id; }),
       sfx: (r.sfx || []).map(function (x) {
         return { id: keep(x && x.id), word: String((x && x.word) || ''),
                  section: String((x && x.section) || '') };
