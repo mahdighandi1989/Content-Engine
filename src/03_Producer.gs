@@ -606,7 +606,12 @@ function ttsCue_(sectionStyle, text) {
 function ttsCueWanted_(chunks, i) {
   if (String(CFG.TTS_CUE_MODE || 'perSection') !== 'perSection') return true;
   if (i <= 0) return true;
-  var prev = chunks[i - 1] || {}, cur = chunks[i] || {};
+  // تکهٔ موسیقی لحن ندارد؛ برای مقایسه باید از رویش پرید، وگرنه هر قطعهٔ
+  // موسیقی یک دستورِ اضافه به تکهٔ بعدی تحمیل می‌کند.
+  var j = i - 1;
+  while (j > 0 && chunks[j] && chunks[j].pcm) j--;
+  if (chunks[j] && chunks[j].pcm) return true;
+  var prev = chunks[j] || {}, cur = chunks[i] || {};
   if (String(prev.style || '') !== String(cur.style || '')) return true;
   if (String(prev.voice || '') !== String(cur.voice || '')) return true;
   return false;
@@ -1024,6 +1029,18 @@ function buildChunks_(ep, cat, epNum) {
       out.push({ text: pieces[j], style: segs[i].style, voice: segs[i].voice });
     }
   }
+  // موسیقی لای تکه‌ها می‌نشیند. بخشِ ۲۳ پایین‌تر از این است، پس فراخوانش در
+  // try/catch است: در فایلِ سرِهم‌شده hoisting نجاتش می‌دهد، ولی بارگذارِ جزئیِ
+  // آزمون‌ها با ReferenceError می‌شکند و نباید تولید را زمین بزند.
+  try {
+    var mw = musicWrap_(out, null, { category: cat, mood: cat, plan: (ep && ep.music) || {} });
+    if (mw && mw.chunks && mw.chunks.length) {
+      if (mw.picks && mw.picks.length) {
+        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum); } catch (eU) {}
+      }
+      return mw.chunks;
+    }
+  } catch (eM) { logLine_('موسیقیِ قسمت افزوده نشد: ' + eM.message); }
   return out;
 }
 
@@ -1238,8 +1255,15 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     // دستورِ لحن فقط وقتی همراه می‌شود که لحن تازه باشد. تکهٔ دوم به بعدِ یک
     // بخش، متنِ خالی می‌گیرد؛ صدا از voiceConfig می‌آید نه از دستور، پس گوینده
     // همان است و فقط شانسِ «دستور را بخواند» از بین می‌رود.
-    var withCue = ttsCueWanted_(chunks, i);
-    var b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
+    // تکهٔ موسیقی از پیش صدا دارد و به مدل فرستاده نمی‌شود — نه هزینه‌ای
+    // دارد، نه شانسی برای اشتباه‌خواندن.
+    var b64;
+    if (chunks[i] && chunks[i].pcm) {
+      b64 = alignB64_(chunks[i].pcm);
+    } else {
+      var withCue = ttsCueWanted_(chunks, i);
+      b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
+    }
     if (!b64) continue;
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);

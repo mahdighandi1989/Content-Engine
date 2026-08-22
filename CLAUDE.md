@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 23 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 24 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 23 numbered sections — the source of truth for the code
+src/                 24 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 27 run_*.js suites
+tests/               the 29 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                monitor_prompt_current.txt
@@ -149,6 +149,33 @@ Sections must not depend forwards (21 → 22). Hoisting hides it in the assemble
 file, but every partial loader in `tests/` breaks with a ReferenceError. The two
 calls 21 makes into 22 (`auditSourceScripts`, `srcNightly_`) sit inside
 try/catch for exactly that reason.
+
+## Background music (section 23)
+Tracks live in a Drive folder under OUTPUT («موسیقی و افکت») and are catalogued
+in the «موسیقی» tab. `runMusicScan` reads each file's WAV header, records
+duration and format, and never overwrites the columns a human fills in (mood,
+slots, gain, notes) — a scan that erased the curator's taste would be worse
+than no scan.
+
+**WAV only.** Apps Script cannot decode MP3 and no library is reachable; a
+non-WAV file is catalogued and marked «قالب ناسازگار» rather than silently
+skipped. Anything else (rate, channels, depth) is converted at use time:
+channels averaged, rate linearly resampled.
+
+Music enters the episode as a chunk carrying `pcm` instead of `text`.
+`synthesizeStep_` splices it straight into the buffer, so music costs no model
+quota and offers no chance to be read aloud. `ttsCueWanted_` skips backwards
+over music chunks — otherwise every sting would force an extra style cue.
+
+**What is not possible here.** A music bed *under* the narration for a whole
+episode means sample-wise addition over ~14M samples; Google's six-minute limit
+does not allow it. The feasible route is mixing into each speech chunk inside
+the existing loop, which is a separate piece of work — not promised by this
+section.
+
+Bytes in Apps Script are signed. Every read of a 16-bit sample must mask the
+high byte before shifting; without it, negative samples become nonsense that
+raises no error and is only audible. `run_music_test.js` ۵.۱/۶.۲ hold that line.
 
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.

@@ -26,6 +26,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🌐 وضعیتِ غنی‌سازیِ اینترنتی', 'showEnrichStatus')
       .addSeparator()
+      .addItem('🎵 پویشِ بانکِ موسیقی', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
