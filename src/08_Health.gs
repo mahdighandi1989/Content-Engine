@@ -156,16 +156,30 @@ function rxQuote_(s) {
  * برمی‌گرداند {files, folders, strays:[{name,kind}], stale:[...], readme:{...}}
  */
 function outLayoutCheck_() {
-  var out = { files: 0, folders: 0, strays: [], stale: [], readme: null, error: '' };
+  var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
+              readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
     var now = new Date().getTime();
 
+    /* ── هم‌نامِ تکراری ──
+     * ۲۳ اوت، در ریشه سه تا `_MUSIC-FEED.json` بود: تسکِ غنی‌سازی هر ساعت
+     * یک فایلِ تازه می‌ساخت به‌جای اینکه همان را به‌روز کند. getFilesByName
+     * فقط یکی را برمی‌گرداند و کدام‌یک تضمینی نیست — پس موتور می‌توانست
+     * نسخهٔ کهنه را بخواند و نامزدهای تازه اصلاً دیده نشوند. بدتر:
+     * putOutJson_ هنگام نوشتن، هم‌نام‌های دیگر را به سطلِ زباله می‌برد، پس
+     * همان نامزدهای نادیده برای همیشه از دست می‌رفتند.
+     * نامِ ناشناخته «سرگردان» است؛ نامِ *شناخته‌شده* که دو بار آمده، از آن
+     * بدتر است — چون هیچ‌کس نگاهش نمی‌کند.
+     */
+    var byName = {};
+
     var fi = root.getFiles();
     while (fi.hasNext()) {
       var f = fi.next(), n = String(f.getName());
       out.files++;
+      byName[n] = (byName[n] || 0) + 1;
       if (n === String(CFG.OUT_README || '')) {
         var w = null;
         try { w = f.getLastUpdated(); } catch (eU) {}
@@ -176,6 +190,12 @@ function outLayoutCheck_() {
       if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
       // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
       if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    for (var nm in byName) {
+      if (byName[nm] > 1 && out.dups.length < 25) {
+        out.dups.push({ name: nm, count: byName[nm] });
+      }
     }
 
     var di = root.getFolders();
@@ -477,6 +497,17 @@ function healthCheck() {
       if (lay.stale && lay.stale.length) {
         problems.push('‏' + lay.stale.length + ' گزارشِ خوانده‌شده هنوز در ریشه مانده ' +
                       '— بایگانی‌اش نگرفته است.');
+      }
+      // هم‌نامِ تکراری از فایلِ سرگردان خطرناک‌تر است: نامش شناخته است، پس
+      // هیچ هشداری نمی‌گرفت، و خواننده بی‌خبر نسخهٔ کهنه را می‌خواند.
+      if (lay.dups && lay.dups.length) {
+        var dn = [];
+        for (var dI = 0; dI < lay.dups.length && dI < 6; dI++) {
+          dn.push('«' + lay.dups[dI].name + '» (' + lay.dups[dI].count + ' نسخه)');
+        }
+        problems.push('در ریشهٔ OUTPUT فایلِ هم‌نامِ تکراری هست: ' + dn.join(' · ') +
+                      ' — getFilesByName فقط یکی را برمی‌گرداند و کدام‌یک معلوم ' +
+                      'نیست، پس ممکن است نسخهٔ کهنه خوانده شود و تازه هرگز دیده نشود.');
       }
       if (!lay.readme) {
         notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');

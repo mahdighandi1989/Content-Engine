@@ -91,12 +91,40 @@ function putOutJson_(name, obj) {
   return folder.createFile(Utilities.newBlob(body, 'application/json', name));
 }
 
-function getOutJson_(name) {
+/**
+ * همهٔ فایل‌های هم‌نامِ ریشه، **تازه‌ترین اول**.
+ *
+ * ══ چرا لازم شد (۲۳ اوت) ══
+ * در ریشه سه تا `_MUSIC-FEED.json` بود؛ تسکِ غنی‌سازی هر ساعت به‌جای
+ * به‌روزکردنِ همان فایل، یکی تازه می‌ساخت. `getFilesByName` یک تکرارگر
+ * می‌دهد و ترتیبش تضمین‌شده نیست، پس موتور می‌توانست نسخهٔ کهنه را بخواند
+ * و نامزدهای تازه را اصلاً نبیند — و بعد putOutJson_ هنگام نوشتن بقیه را
+ * به سطلِ زباله می‌بُرد. یعنی کارِ تسک بی‌صدا از دست می‌رفت.
+ */
+function outFilesByName_(name) {
+  var out = [];
   try {
     var it = outFolder_().getFilesByName(name);
-    if (!it.hasNext()) return null;
-    var txt = it.next().getBlob().getDataAsString();
-    return JSON.parse(txt);
+    while (it.hasNext()) out.push(it.next());
+  } catch (e) { return out; }
+  out.sort(function (a, b) {
+    var ta = 0, tb = 0;
+    try { ta = a.getLastUpdated().getTime(); } catch (e1) {}
+    try { tb = b.getLastUpdated().getTime(); } catch (e2) {}
+    return tb - ta;
+  });
+  return out;
+}
+
+function getOutJson_(name) {
+  try {
+    var fs = outFilesByName_(name);
+    if (!fs.length) return null;
+    if (fs.length > 1) {
+      logLine_('‏' + fs.length + ' نسخهٔ هم‌نام از «' + name +
+               '» در ریشه هست؛ تازه‌ترین خوانده شد.');
+    }
+    return JSON.parse(fs[0].getBlob().getDataAsString());
   } catch (e) {
     logLine_('خواندنِ «' + name + '» ناموفق: ' + e.message);
     return null;

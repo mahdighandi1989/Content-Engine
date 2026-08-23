@@ -1599,7 +1599,12 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
     // موسیقی فقط عنوانِ بخش را می‌دید — و «وایب» دقیقاً همان چیزی است که
     // موسیقی باید با آن بخوانَد، نه عنوان.
+    // secIndex پلِ میانِ دو فضای شماره‌گذاری است: شمارهٔ بخش در ep.sections
+    // و جای واقعیِ آن در فهرستِ تکه‌ها. تا ۵٫۶۴ این پل نبود و افکت با
+    // شمردنِ تکه‌ها جا داده می‌شد — یعنی «بخشِ ۳» می‌شد «تکهٔ ۳»، که با
+    // وجودِ hook و شکستنِ بخش‌های بلند، جای کاملاً دیگری است.
     bounds.push({ at: out.length, kind: String(segs[i].kind || 'body'),
+                  secIndex: (segs[i].secIndex === undefined ? -1 : Number(segs[i].secIndex)),
                   heading: String(segs[i].heading || ''),
                   tone: String(segs[i].tone || ''),
                   voice: String(segs[i].voice || '') });

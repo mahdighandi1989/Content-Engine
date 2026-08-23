@@ -527,7 +527,15 @@ function selfUpdateDaily() {
   // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
   try {
     var miss = musicThinSlots_();
-    if (miss.length) musicSeek_(miss);
+    // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
+    // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
+    // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
+    var why = 'کمبود';
+    if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+    if (miss.length) {
+      logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
+      musicSeek_(miss);
+    }
   } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
   try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
   try { musicScan_(); musicAutoTag_(); }

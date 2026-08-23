@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.64
+ *  موتور محتوا و پادکست — نسخهٔ 5.65
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -408,6 +408,27 @@ var CFG = {
   // ۵٫۴۹ کامل بود ولی بانک صفر افکت داشت، پس sfxAllow_ چیزی برای اجازه‌دادن
   // نداشت — همان بن‌بستی که موسیقی داشت.
   MUSIC_SFX_TARGET: 8,
+
+  // ── چرخشِ بانک: گشتن هرگز نباید بایستد ──
+  // تا ۵٫۶۴ لحظه‌ای که پوششِ خانواده‌ها کامل می‌شد، musicThinSlots_ خالی
+  // برمی‌گشت و در کارِ شبانه musicSeek_ دیگر هرگز صدا زده نمی‌شد. یعنی بانک
+  // برای همیشه منجمد می‌شد: همان قطعه‌ها تا ابد، هرچند بار هم پخش شده باشند.
+  // «بارِ استفاده» ثبت می‌شد و در تبِ تاریخچه هم می‌نشست، ولی به گشتن وصل
+  // نبود — یک اندازه‌گیریِ دیگر که هیچ تصمیمی بر آن سوار نشده بود.
+  //
+  // حالا وقتی کمبودی نیست، خانوادهٔ *فرسوده* هدف می‌شود: خانواده‌ای که همهٔ
+  // قطعه‌هایش دستِ‌کم MUSIC_ROTATE_USED بار پخش شده‌اند.
+  MUSIC_ROTATE: true,
+  MUSIC_ROTATE_USED: 4,       // قطعه‌ای که این‌قدر پخش شده «فرسوده» است
+  MUSIC_ROTATE_SLOTS: 1,      // شبی که کمبودی نیست، فقط این تعداد جایگاه
+  MUSIC_BANK_MAX: 90,         // سقفِ مطلقِ بانک — رشدِ بی‌پایان هم درست نیست
+  // اشباعِ امتیازِ «کم‌مصرف‌تر جلوتر». تا ۵٫۶۴ عددش ۵ بود، پس وقتی همهٔ
+  // قطعه‌ها پنج بار پخش می‌شدند این معیار از کار می‌افتاد و نوبت‌دهی کور
+  // می‌شد — دقیقاً همان‌جا که تازه لازم می‌شد.
+  MUSIC_USED_CAP: 12,
+  // چرخش با همان واژه‌های جست‌وجو نتیجهٔ تازه نمی‌دهد: archive.org همان
+  // ۲۵ نتیجهٔ اول را می‌دهد و همه‌شان قبلاً دیده شده‌اند. پس صفحه می‌چرخد.
+  MUSIC_SEEK_PAGES: 5,
   // دانلود در کارِ شبانه جا دارد ولی مهلتِ شش‌دقیقه‌ای گوگل هم هست. به‌جای
   // یک سقفِ ثابتِ محافظه‌کارانه، سقفِ زمانی: تا وقتی وقت هست بیاور.
   MUSIC_FETCH_BUDGET_MS: 150000,
@@ -437,6 +458,14 @@ var CFG = {
   MUSIC_SFX_ENABLED: true,
   MUSIC_SFX_IN_SPECIAL: false, // درس‌نامه شمرده و بی‌جلوه است
   MUSIC_SFX_MAX_PER_EP: 1,     // حتی اگر ده جای مناسب باشد، یکی
+  // و سه سدِ دیگر که تا ۵٫۶۴ نبودند:
+  //  • افکتی که تأییدِ شنیداری ندارد پخش نمی‌شود (ستونِ «تأییدِ شنیداری»).
+  //  • افکتی که با وایبِ بخش نمی‌خوانَد رد می‌شود — «واژه دو بار آمده» سنجهٔ
+  //    بسامد است نه سنجهٔ تناسب؛ در یک بندِ سوگ، واژهٔ «در» هم دو بار می‌آید.
+  //  • جای پخش از لنگرِ متنی می‌آید نه سرِ بخش، پس تکه‌ای که دو نیم می‌شود
+  //    نباید نیمهٔ خیلی کوتاه بسازد.
+  MUSIC_SFX_NEED_HEARD: true,
+  MUSIC_SFX_MIN_SPLIT: 40,     // نویسه — کوتاه‌تر از این، نصف نمی‌کنیم
 
   ONE_FILE_STRICT: true,
 
@@ -617,7 +646,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.64',
+  CODE_VERSION: '5.65',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -892,7 +921,8 @@ var PK = {
   // نشانی‌هایی که یک‌بار آورده شده‌اند — تا فایلی که کاربر پاک کرده دوباره برنگردد
   MUSIC_FETCHED: 'MUSIC_FETCHED_URLS',
   // مجموعه‌هایی که یک بار گشته شده‌اند — تا هر شب همان‌ها بالا نیایند
-  MUSIC_SEEN: 'MUSIC_SEEK_SEEN'
+  MUSIC_SEEN: 'MUSIC_SEEK_SEEN',
+  MUSIC_PAGE: 'MUSIC_SEEK_PAGE'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -2998,7 +3028,12 @@ function buildChunks_(ep, cat, epNum) {
     // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
     // موسیقی فقط عنوانِ بخش را می‌دید — و «وایب» دقیقاً همان چیزی است که
     // موسیقی باید با آن بخوانَد، نه عنوان.
+    // secIndex پلِ میانِ دو فضای شماره‌گذاری است: شمارهٔ بخش در ep.sections
+    // و جای واقعیِ آن در فهرستِ تکه‌ها. تا ۵٫۶۴ این پل نبود و افکت با
+    // شمردنِ تکه‌ها جا داده می‌شد — یعنی «بخشِ ۳» می‌شد «تکهٔ ۳»، که با
+    // وجودِ hook و شکستنِ بخش‌های بلند، جای کاملاً دیگری است.
     bounds.push({ at: out.length, kind: String(segs[i].kind || 'section'),
+                  secIndex: (segs[i].secIndex === undefined ? -1 : Number(segs[i].secIndex)),
                   heading: String(segs[i].heading || ''),
                   tone: String(segs[i].tone || ''),
                   voice: String(segs[i].voice || '') });
@@ -7199,16 +7234,30 @@ function rxQuote_(s) {
  * برمی‌گرداند {files, folders, strays:[{name,kind}], stale:[...], readme:{...}}
  */
 function outLayoutCheck_() {
-  var out = { files: 0, folders: 0, strays: [], stale: [], readme: null, error: '' };
+  var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
+              readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
     var now = new Date().getTime();
 
+    /* ── هم‌نامِ تکراری ──
+     * ۲۳ اوت، در ریشه سه تا `_MUSIC-FEED.json` بود: تسکِ غنی‌سازی هر ساعت
+     * یک فایلِ تازه می‌ساخت به‌جای اینکه همان را به‌روز کند. getFilesByName
+     * فقط یکی را برمی‌گرداند و کدام‌یک تضمینی نیست — پس موتور می‌توانست
+     * نسخهٔ کهنه را بخواند و نامزدهای تازه اصلاً دیده نشوند. بدتر:
+     * putOutJson_ هنگام نوشتن، هم‌نام‌های دیگر را به سطلِ زباله می‌برد، پس
+     * همان نامزدهای نادیده برای همیشه از دست می‌رفتند.
+     * نامِ ناشناخته «سرگردان» است؛ نامِ *شناخته‌شده* که دو بار آمده، از آن
+     * بدتر است — چون هیچ‌کس نگاهش نمی‌کند.
+     */
+    var byName = {};
+
     var fi = root.getFiles();
     while (fi.hasNext()) {
       var f = fi.next(), n = String(f.getName());
       out.files++;
+      byName[n] = (byName[n] || 0) + 1;
       if (n === String(CFG.OUT_README || '')) {
         var w = null;
         try { w = f.getLastUpdated(); } catch (eU) {}
@@ -7219,6 +7268,12 @@ function outLayoutCheck_() {
       if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
       // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
       if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    for (var nm in byName) {
+      if (byName[nm] > 1 && out.dups.length < 25) {
+        out.dups.push({ name: nm, count: byName[nm] });
+      }
     }
 
     var di = root.getFolders();
@@ -7520,6 +7575,17 @@ function healthCheck() {
       if (lay.stale && lay.stale.length) {
         problems.push('‏' + lay.stale.length + ' گزارشِ خوانده‌شده هنوز در ریشه مانده ' +
                       '— بایگانی‌اش نگرفته است.');
+      }
+      // هم‌نامِ تکراری از فایلِ سرگردان خطرناک‌تر است: نامش شناخته است، پس
+      // هیچ هشداری نمی‌گرفت، و خواننده بی‌خبر نسخهٔ کهنه را می‌خواند.
+      if (lay.dups && lay.dups.length) {
+        var dn = [];
+        for (var dI = 0; dI < lay.dups.length && dI < 6; dI++) {
+          dn.push('«' + lay.dups[dI].name + '» (' + lay.dups[dI].count + ' نسخه)');
+        }
+        problems.push('در ریشهٔ OUTPUT فایلِ هم‌نامِ تکراری هست: ' + dn.join(' · ') +
+                      ' — getFilesByName فقط یکی را برمی‌گرداند و کدام‌یک معلوم ' +
+                      'نیست، پس ممکن است نسخهٔ کهنه خوانده شود و تازه هرگز دیده نشود.');
       }
       if (!lay.readme) {
         notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');
@@ -13007,7 +13073,12 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
     // موسیقی فقط عنوانِ بخش را می‌دید — و «وایب» دقیقاً همان چیزی است که
     // موسیقی باید با آن بخوانَد، نه عنوان.
+    // secIndex پلِ میانِ دو فضای شماره‌گذاری است: شمارهٔ بخش در ep.sections
+    // و جای واقعیِ آن در فهرستِ تکه‌ها. تا ۵٫۶۴ این پل نبود و افکت با
+    // شمردنِ تکه‌ها جا داده می‌شد — یعنی «بخشِ ۳» می‌شد «تکهٔ ۳»، که با
+    // وجودِ hook و شکستنِ بخش‌های بلند، جای کاملاً دیگری است.
     bounds.push({ at: out.length, kind: String(segs[i].kind || 'body'),
+                  secIndex: (segs[i].secIndex === undefined ? -1 : Number(segs[i].secIndex)),
                   heading: String(segs[i].heading || ''),
                   tone: String(segs[i].tone || ''),
                   voice: String(segs[i].voice || '') });
@@ -16741,12 +16812,40 @@ function putOutJson_(name, obj) {
   return folder.createFile(Utilities.newBlob(body, 'application/json', name));
 }
 
-function getOutJson_(name) {
+/**
+ * همهٔ فایل‌های هم‌نامِ ریشه، **تازه‌ترین اول**.
+ *
+ * ══ چرا لازم شد (۲۳ اوت) ══
+ * در ریشه سه تا `_MUSIC-FEED.json` بود؛ تسکِ غنی‌سازی هر ساعت به‌جای
+ * به‌روزکردنِ همان فایل، یکی تازه می‌ساخت. `getFilesByName` یک تکرارگر
+ * می‌دهد و ترتیبش تضمین‌شده نیست، پس موتور می‌توانست نسخهٔ کهنه را بخواند
+ * و نامزدهای تازه را اصلاً نبیند — و بعد putOutJson_ هنگام نوشتن بقیه را
+ * به سطلِ زباله می‌بُرد. یعنی کارِ تسک بی‌صدا از دست می‌رفت.
+ */
+function outFilesByName_(name) {
+  var out = [];
   try {
     var it = outFolder_().getFilesByName(name);
-    if (!it.hasNext()) return null;
-    var txt = it.next().getBlob().getDataAsString();
-    return JSON.parse(txt);
+    while (it.hasNext()) out.push(it.next());
+  } catch (e) { return out; }
+  out.sort(function (a, b) {
+    var ta = 0, tb = 0;
+    try { ta = a.getLastUpdated().getTime(); } catch (e1) {}
+    try { tb = b.getLastUpdated().getTime(); } catch (e2) {}
+    return tb - ta;
+  });
+  return out;
+}
+
+function getOutJson_(name) {
+  try {
+    var fs = outFilesByName_(name);
+    if (!fs.length) return null;
+    if (fs.length > 1) {
+      logLine_('‏' + fs.length + ' نسخهٔ هم‌نام از «' + name +
+               '» در ریشه هست؛ تازه‌ترین خوانده شد.');
+    }
+    return JSON.parse(fs[0].getBlob().getDataAsString());
   } catch (e) {
     logLine_('خواندنِ «' + name + '» ناموفق: ' + e.message);
     return null;
@@ -18650,7 +18749,15 @@ function selfUpdateDaily() {
   // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
   try {
     var miss = musicThinSlots_();
-    if (miss.length) musicSeek_(miss);
+    // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
+    // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
+    // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
+    var why = 'کمبود';
+    if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+    if (miss.length) {
+      logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
+      musicSeek_(miss);
+    }
   } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
   try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
   try { musicScan_(); musicAutoTag_(); }
@@ -20965,6 +21072,10 @@ function musicPick_(bank, slot, moodWords, wantedId) {
   var cands = [];
   for (var i = 0; i < bank.length; i++) {
     var b = bank[i];
+    // جلوهٔ صوتی موسیقی نیست. از ۵٫۶۴ نامزدهای افکت با slots:'میانه' وارد
+    // بانک می‌شوند، پس بی این سد، صدای بسته‌شدنِ در می‌توانست به‌عنوانِ
+    // «موسیقیِ میانه» پخش شود.
+    if (String(b.kind || '') === 'افکت') continue;
     if (b.slots && b.slots.indexOf(slot) === -1) continue;
     if (!b.sec) continue;
     cands.push(b);
@@ -20984,7 +21095,11 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     for (var m = 0; m < words.length; m++) {
       if (words[m] && b.mood && b.mood.indexOf(words[m]) !== -1) s += 3;
     }
-    s -= Math.min(b.used, 5) * 0.5;          // کم‌مصرف‌تر، جلوتر
+    // کم‌مصرف‌تر، جلوتر. سقفِ اشباع تا ۵٫۶۴ عددِ ۵ بود: وقتی همهٔ قطعه‌ها
+    // پنج بار پخش می‌شدند این معیار از کار می‌افتاد و نوبت‌دهی کور می‌شد،
+    // درست همان‌جا که تازه لازم می‌شد.
+    var uc = Math.max(1, Number(CFG.MUSIC_USED_CAP) || 12);
+    s -= (Math.min(b.used, uc) / uc) * 3;
     // و قطعهٔ قسمتِ پیش، اگر جایگزینی هست، دوباره پخش نمی‌شود. شنونده‌ای که
     // هر روز همان جینگل را بشنود، بعد از یک هفته آن را نمی‌شنود.
     if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
@@ -21192,6 +21307,9 @@ function musicWrap_(chunks, hub, opt) {
   var atMap = {};
   for (var wz = 0; wz < want.length; wz++) atMap[want[wz].at] = want[wz];
 
+  // نقشهٔ جابه‌جایی: تکهٔ iاُمِ ورودی، در out کجا نشست. موسیقیِ آغاز و
+  // میانه شماره‌ها را جلو می‌برند، پس bounds[].at بی این نقشه به out نمی‌خورَد.
+  var posOf = [];
   for (var i = 0; i < chunks.length; i++) {
     var w = atMap[i];
     if (w) {
@@ -21203,6 +21321,7 @@ function musicWrap_(chunks, hub, opt) {
         if (picks.indexOf(w.track) === -1) picks.push(w.track);
       }
     }
+    posOf[i] = out.length;
     out.push(chunks[i]);
   }
   var bridge = want.length ? want[0].track : null;
@@ -21220,21 +21339,38 @@ function musicWrap_(chunks, hub, opt) {
   // sfxAllow_ خویشتن‌داری را اعمال می‌کند (واژه باید ساختاری باشد؛ درس‌نامه
   // اصلاً افکت نمی‌گیرد) و کد قطعه را سرِ همان بخش می‌گذارد.
   try {
-    var okSfx = sfxAllow_(opt.sections || [], (plan.sfx || []), String(opt.show || ''));
+    var okSfx = sfxAllow_(opt.sections || [], (plan.sfx || []), String(opt.show || ''), bank);
     for (var sx = 0; sx < okSfx.length; sx++) {
       var eb = null;
       for (var bz = 0; bz < bank.length; bz++) if (bank[bz].id === okSfx[sx].id) eb = bank[bz];
       if (!eb) continue;
+      var rng = sfxSecRange_(opt.bounds || [], posOf, out.length, Number(okSfx[sx].section));
+      if (!rng) continue;
+      var pl = sfxPlace_(out, rng.from, rng.to, okSfx[sx]);
+      if (!pl) continue;
       var ec = musicClip_(eb.id, { startSec: 0,
                  lenSec: Math.min(eb.sec || 4, Number(CFG.MUSIC_BRIDGE_SEC) || 4),
                  gain: eb.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
                  fadeIn: 0.3, fadeOut: 0.6 });
       if (!ec) continue;
-      // پیش از روایتِ همان بخش می‌نشیند، نه وسطِ جمله
-      var at = idxOfSection_(out, Number(okSfx[sx].section));
-      var piece = { pcm: ec, label: 'افکت — ' + eb.name + ' (' + okSfx[sx].why + ')' };
-      if (at >= 0) out.splice(at, 0, piece); else out.push(piece);
+      var piece = { pcm: ec, label: 'افکت — ' + eb.name + ' (' + okSfx[sx].why +
+                                    '؛ ' + pl.how + ')' };
+      var host = out[pl.at], txt = String((host && host.text) || '');
+      if (pl.cut > 0 && pl.cut < txt.length) {
+        // تکه دو نیم می‌شود و افکت بینشان می‌نشیند — لحن و گویندهٔ هر دو نیمه
+        // همان است که بود، وگرنه وسطِ بخش صدا عوض می‌شد.
+        out.splice(pl.at, 1,
+                   { text: txt.slice(0, pl.cut), style: host.style, voice: host.voice },
+                   piece,
+                   { text: txt.slice(pl.cut), style: host.style, voice: host.voice });
+      } else if (pl.cut <= 0) {
+        out.splice(pl.at, 0, piece);
+      } else {
+        out.splice(pl.at + 1, 0, piece);
+      }
       eb.slot = 'افکت'; picks.push(eb);
+      logLine_('افکتِ قسمت: ' + eb.name + ' — ' + pl.how +
+               (okSfx[sx].fit ? ' | ' + okSfx[sx].fit : ''));
     }
   } catch (eSx) { logLine_('افکت افزوده نشد: ' + eSx.message); }
 
@@ -21260,18 +21396,6 @@ function musicWrap_(chunks, hub, opt) {
  * بی این، موسیقی همان نقطهٔ کوری می‌شد که درس‌نامه بود: کار انجام می‌شد یا
  * نمی‌شد و هیچ ناظری — آدم یا کد — نمی‌توانست تفاوتش را ببیند.
  */
-/** نخستین تکهٔ گفتاریِ بخشِ n در فهرستِ خروجی؛ -۱ اگر پیدا نشد. */
-function idxOfSection_(out, n) {
-  if (!isFinite(n) || n < 0) return -1;
-  var seen = -1;
-  for (var i = 0; i < out.length; i++) {
-    if (out[i] && out[i].pcm) continue;      // تکهٔ موسیقی بخش حساب نمی‌شود
-    seen++;
-    if (seen === n) return i;
-  }
-  return -1;
-}
-
 function musicRemember_(mw, epLabel) {
   try {
     props_().setProperty(PK.MUSIC_LAST, JSON.stringify({
@@ -21471,7 +21595,15 @@ var MUSIC_PLAN_SCHEMA = {
       items: {
         type: 'object',
         properties: { id: { type: 'string' }, word: { type: 'string' },
-                      section: { type: 'string' } },
+                      section: { type: 'string' },
+                      // لنگر: یک عبارتِ کوتاه که **عیناً** در روایتِ همان بخش
+                      // آمده. تا ۵٫۶۴ فقط شمارهٔ بخش پرسیده می‌شد، پس افکت
+                      // سرِ بخش پخش می‌شد — شاید نود ثانیه پیش از جایی که
+                      // آن چیز اصلاً گفته شود.
+                      anchor: { type: 'string' },
+                      // پیش | روی | پس — نسبت به همان عبارت
+                      when: { type: 'string' },
+                      why: { type: 'string' } },
         required: ['id', 'word', 'section']
       }
     }
@@ -21491,7 +21623,9 @@ var MUSIC_PLAN_SCHEMA = {
  */
 function musicPlanModel_(bank, ctx) {
   if (CFG.MUSIC_AUTO === false || !bank.length) return null;
-  var list = bank.slice(0, 60).map(function (b) {
+  var list = bank.filter(function (b) {
+    return String(b.kind || '') !== 'افکت';     // افکت‌ها فهرستِ خودشان را دارند
+  }).slice(0, 60).map(function (b) {
     return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
            ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
   }).join('\n');
@@ -21527,6 +21661,62 @@ function musicPlanModel_(bank, ctx) {
   var secList = allB.map(function (b) {
     return '  • «' + (b.heading || b.kind || '—') + '»' + toneAt(b);
   }).join('\n');
+
+  /* ── بخشِ جلوهٔ صوتی ──
+   * تا ۵٫۶۴ قالبِ پاسخ فیلدِ sfx داشت، parse می‌شد، sfxAllow_ می‌سنجیدش و
+   * musicWrap_ جایش می‌گذاشت — ولی **در متنِ پرسش یک کلمه هم دربارهٔ افکت
+   * نبود**. یعنی هرگز از مدل خواسته نشد. همان شکلِ همیشگیِ این ریپو: کدِ
+   * کامل و آزموده، بی هیچ فراخوانی.
+   *
+   * حالا پرسیده می‌شود — ولی فقط وقتی افکتی در بانک باشد و برنامه اجازه‌اش
+   * را بدهد. پرسیدن دربارهٔ چیزی که وجود ندارد، دعوت به توهّمِ شناسه است.
+   */
+  var sfxBank = bank.filter(function (b) { return String(b.kind || '') === 'افکت'; });
+  var sfxOn = CFG.MUSIC_SFX_ENABLED !== false && sfxBank.length > 0 &&
+              Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0) > 0 &&
+              !(String(ctx.show || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true);
+  var sfxBlock = [];
+  if (sfxOn) {
+    var secs = ctx.sections || [];
+    var secTxt = [];
+    for (var sIdx = 0; sIdx < secs.length; sIdx++) {
+      var nar = String((secs[sIdx] && secs[sIdx].narration) || '');
+      secTxt.push('  [' + sIdx + '] «' + String((secs[sIdx] && secs[sIdx].heading) || '—') +
+                  '»' + (secs[sIdx] && secs[sIdx].tone ? ' (وایب: ' + secs[sIdx].tone + ')' : '') +
+                  '\n      ' + nar.slice(0, 700).replace(/\s+/g, ' '));
+    }
+    sfxBlock = [
+      '',
+      '--- جلوهٔ صوتی (اختیاری، حداکثر ' +
+        (Number(CFG.MUSIC_SFX_MAX_PER_EP) || 1) + ' تا در کلِ قسمت) ---',
+      'اگر — و فقط اگر — جایی هست که یک صدای کوتاه واقعاً به شنونده چیزی',
+      'اضافه می‌کند، پیشنهاد بده. نبودنِ افکت هیچ ایرادی ندارد؛ افکتِ',
+      'بی‌مناسبت آبروی برنامه را می‌برد. sfx را خالی گذاشتن جوابِ درستی است.',
+      '',
+      'برای هر پیشنهاد:',
+      '  • id: شناسهٔ یک ردیفِ «نوع: افکت» از همین بانک.',
+      '  • section: شمارهٔ بخش از فهرستِ زیر (همان عددِ داخلِ کروشه).',
+      '  • word: آن چیزی که صدا دارد (باران، در، تلفن، …).',
+      '  • anchor: یک عبارتِ کوتاهِ سه تا هشت کلمه‌ای که **عیناً و حرف‌به‌حرف**',
+      '    در روایتِ همان بخش آمده و جایی است که آن صدا باید شنیده شود.',
+      '    اگر عبارت را دقیقاً کپی نکنی، افکت به سرِ بخش عقب می‌رود.',
+      '  • when: «پیش» یعنی پیش از آن جمله، «روی» یعنی درست پیش از خودِ آن',
+      '    عبارت، «پس» یعنی بعد از پایانِ آن جمله. این را از وایب انتخاب کن:',
+      '    در فضای تعلیق «پیش» بهتر است (صدا انتظار می‌سازد)، در روایتِ',
+      '    توصیفی «روی»، و آن‌جا که صدا واکنشِ چیزی است «پس».',
+      '  • why: در یک جمله بگو چرا این صدا با وایبِ همین بخش می‌خوانَد.',
+      '    اگر نمی‌توانی این جمله را بنویسی، یعنی نباید پیشنهادش بدهی.',
+      '',
+      '--- بخش‌ها با متنشان (برای انتخابِ لنگر) ---',
+      (secTxt.join('\n') || '  [متنِ بخش‌ها در دسترس نیست]'),
+      '',
+      '--- افکت‌های موجود ---',
+      sfxBank.map(function (b) {
+        return '• ' + b.id + ' | «' + b.name + '» | حال‌وهوا: ' + (b.mood || '—') +
+               ' | مدت: ' + b.sec + 'ث';
+      }).join('\n')
+    ];
+  }
 
   var prompt = [
     'تو سرپرستِ موسیقیِ یک برنامهٔ رادیوییِ فارسی هستی و باید برای این قسمت،',
@@ -21567,7 +21757,7 @@ function musicPlanModel_(bank, ctx) {
     '',
     '--- بانکِ موسیقی ---',
     list
-  ].join('\n');
+  ].concat(sfxBlock).join('\n');
 
   try {
     var r = geminiText_(prompt, MUSIC_PLAN_SCHEMA, 2048);
@@ -21589,7 +21779,10 @@ function musicPlanModel_(bank, ctx) {
       }).filter(function (x) { return x.id; }),
       sfx: (r.sfx || []).map(function (x) {
         return { id: keep(x && x.id), word: String((x && x.word) || ''),
-                 section: String((x && x.section) || '') };
+                 section: String((x && x.section) || ''),
+                 anchor: String((x && x.anchor) || ''),
+                 when: sfxWhen_(x && x.when),
+                 why: String((x && x.why) || '') };
       }).filter(function (x) { return x.id && x.word; })
     };
   } catch (e) {
@@ -21701,6 +21894,48 @@ function musicFileName_(item) {
 }
 
 /**
+ * فهرستِ پیشنهادی، **از روی همهٔ نسخه‌های هم‌نام**.
+ *
+ * تازه‌ترین نسخه را خواندن کافی نیست: هیچ تضمینی نیست که نسخهٔ تازه
+ * ابرمجموعهٔ کهنه باشد. اگر تسک فایلِ تازه‌ای بسازد که فقط پیشنهادهای
+ * همین ساعت را دارد، «تازه‌ترین را بخوان» یعنی هرچه دیشب آمده گم شود —
+ * و بدتر، وضعیتِ «آمد/رد شد» هم گم شود و همان فایلِ ردشده دوباره دانلود.
+ * پس اجتماعِ همه، کلیدش نشانی، و تازه‌ترین رکورد برنده.
+ */
+function musicFeedRead_() {
+  var files = [];
+  try { files = outFilesByName_(MUSIC_FEED_()); } catch (e) { files = []; }
+  if (!files.length) return { items: [] };
+  if (files.length === 1) {
+    try { return JSON.parse(files[0].getBlob().getDataAsString()) || { items: [] }; }
+    catch (e1) { return { items: [] }; }
+  }
+
+  var byUrl = {}, order = [];
+  // از کهنه به تازه، تا رکوردِ تازه‌تر روی کهنه بنشیند
+  for (var i = files.length - 1; i >= 0; i--) {
+    var j = null;
+    try { j = JSON.parse(files[i].getBlob().getDataAsString()); } catch (e2) { continue; }
+    var it = (j && j.items) || [];
+    for (var k = 0; k < it.length; k++) {
+      var u = String((it[k] && it[k].url) || '');
+      if (!u) continue;
+      if (!byUrl[u]) order.push(u);
+      // رکوردی که وضعیت دارد («آمد» یا «رد شد») هرگز با رکوردِ بی‌وضعیت
+      // پوشانده نمی‌شود — وگرنه فایلِ ردشده دوباره دانلود می‌شود.
+      var old = byUrl[u];
+      if (old && String(old.status || '') && !String(it[k].status || '')) continue;
+      byUrl[u] = it[k];
+    }
+  }
+  var out = [];
+  for (var z = 0; z < order.length; z++) out.push(byUrl[order[z]]);
+  logLine_('فهرستِ موسیقی از ' + files.length + ' نسخهٔ هم‌نام یکی شد: ' +
+           out.length + ' نامزد.');
+  return { items: out };
+}
+
+/**
  * فهرستِ پیشنهادها را می‌خواند، دانلود می‌کند و در بانک می‌نشاند.
  * برمی‌گرداند {read, added, failed, notes:[…]}
  */
@@ -21709,7 +21944,7 @@ function musicFetch_() {
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_FETCH === false) return out;
 
   var feed = null;
-  try { feed = getOutJson_(MUSIC_FEED_()); } catch (e) { return out; }
+  try { feed = musicFeedRead_(); } catch (e) { return out; }
   if (!feed || !feed.items || !feed.items.length) return out;
 
   var cap = Number(CFG.MUSIC_FETCH_MAX_PER_RUN) || 3;
@@ -21740,6 +21975,24 @@ function musicFetch_() {
     if (done.indexOf(url) !== -1) {
       it.status = 'تکراری'; it.error = 'این نشانی قبلاً آورده شده';
       changed = true; continue;
+    }
+    /* ── سدِ ارزان: پیش از دانلود ──
+     * صاحبِ برنامه pixabay را پیشنهاد داد — ۱۳۰ هزار جلوهٔ صوتی، ولی همه
+     * MP3، و Apps Script رمزگشای MP3 ندارد و کتابخانه‌ای هم در دسترس نیست.
+     * سدِ هدر (پایین‌تر) این‌ها را می‌گیرد، ولی *بعد از* دانلودِ کاملشان.
+     * وقتی از خودِ نشانی پیداست که WAV نیست، چند مگابایت و چند ده ثانیه از
+     * مهلتِ شش‌دقیقه‌ای را خرج نمی‌کنیم. و پیام صریح است، تا آن که پیشنهاد
+     * می‌دهد بفهمد چرا رد شد و همان را دوباره نفرستد.
+     */
+    var ext = String((url.split('?')[0].match(/\.([a-z0-9]{2,4})$/i) || [])[1] || '')
+                .toLowerCase();
+    if (ext && ext !== 'wav' && ext !== 'wave') {
+      it.status = 'رد';
+      it.error = 'قالبِ «' + ext + '» — موتور فقط WAV می‌خوانَد (Apps Script ' +
+                 'رمزگشای MP3/OGG ندارد). پیش از پیشنهاد، به WAV تبدیلش کنید.';
+      changed = true; out.failed++;
+      musicFetchedAdd_(url);
+      continue;
     }
 
     var bytes = null, code = 0;
@@ -22005,7 +22258,7 @@ function musicSeek_(slots) {
   var base = String(CFG.MUSIC_SEEK_API || 'https://archive.org').replace(/\/+$/, '');
 
   var feed = null;
-  try { feed = getOutJson_(MUSIC_FEED_()); } catch (e) {}
+  try { feed = musicFeedRead_(); } catch (e) {}
   if (!feed || !feed.items) feed = { items: [] };
 
   var already = {};
@@ -22019,19 +22272,34 @@ function musicSeek_(slots) {
     // اگر می‌دانیم *کدام خانواده* کم است، دنبالِ همان می‌گردیم — نه دنبالِ
     // «موسیقیِ خوب» به‌طور کلی. بانکی که همه‌اش پیانوی آرام باشد، برای
     // قسمتِ طنز هیچ ندارد هرچقدر هم بزرگ باشد.
-    var gap = null;
+    var gap = null, worn = false;
     try {
       var cov = musicCoverage_();
       for (var gi = 0; gi < cov.gaps.length; gi++) {
         if (cov.gaps[gi].slot === slot && cov.gaps[gi].family) { gap = cov.gaps[gi]; break; }
       }
+      // کمبودی نبود؟ پس دنبالِ خانوادهٔ فرسوده می‌گردیم — همان چرخشی که
+      // بانک را از انجماد در می‌آورد.
+      if (!gap) {
+        for (var wi = 0; wi < (cov.worn || []).length; wi++) {
+          if (cov.worn[wi].slot === slot && cov.worn[wi].family) {
+            gap = cov.worn[wi]; worn = true; break;
+          }
+        }
+      }
     } catch (eC) {}
     var terms = gap ? musicTermsForFamily_(gap.family, slot) : musicSeekTerms_(slot);
-    out.notes.push(slot + (gap ? ' (کمبودِ خانوادهٔ ' + gap.family.split('|')[0] + ')' : '') +
+    // صفحه فقط وقتی جلو می‌رود که چرخش باشد؛ برای کمبودِ واقعی، نتیجه‌های
+    // اولِ همان واژه‌ها بهترین‌اند.
+    var page = worn ? musicSeekPage_(true) : 1;
+    out.notes.push(slot +
+                   (gap ? (worn ? ' (چرخش — خانوادهٔ ' + gap.family.split('|')[0] +
+                                  ' فرسوده، صفحهٔ ' + page + ')'
+                                : ' (کمبودِ خانوادهٔ ' + gap.family.split('|')[0] + ')') : '') +
                    ' ← گشته شد با: ' + terms);
     var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot, terms)) +
               '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
-              '&rows=25&page=1&output=json';
+              '&rows=25&page=' + page + '&output=json';
     var sr = musicApiJson_(url);
     var docs = (sr && sr.response && sr.response.docs) || [];
     out.looked += docs.length;
@@ -22198,10 +22466,18 @@ function musicCoverage_(hub) {
   try { bank = musicBank_(hub); } catch (e) { bank = []; }
   var per = Math.max(1, Number(CFG.MUSIC_PER_MOOD) || 2);
   var floor = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
+  var wornAt = Math.max(1, Number(CFG.MUSIC_ROTATE_USED) || 4);
+  var bankMax = Math.max(0, Number(CFG.MUSIC_BANK_MAX) || 0);
+  // چرخش تا سقفِ بانک. بالاتر از آن، بانک بزرگ‌تر نمی‌شود — نگه‌داشتنِ
+  // صدها فایل هم خودش هزینه است و پویشِ شبانه را کند می‌کند.
+  var rotate = (CFG.MUSIC_ROTATE !== false) && (!bankMax || bank.length < bankMax);
 
-  var out = { gaps: [], slots: {}, sfx: 0, sfxTarget: Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0) };
+  var out = { gaps: [], worn: [], total: bank.length, slots: {}, sfx: 0,
+              sfxTarget: Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0) };
   for (var s0 = 0; s0 < MUSIC_SLOTS.length; s0++) out.slots[MUSIC_SLOTS[s0]] = 0;
 
+  // خودِ قطعه‌ها نگه داشته می‌شوند، نه فقط شمارشان: برای «فرسودگی» باید
+  // بارِ استفادهٔ تک‌تکشان دیده شود، و شمارنده آن را دور می‌ریخت.
   var byFam = {};
   for (var i = 0; i < bank.length; i++) {
     var b = bank[i];
@@ -22212,7 +22488,7 @@ function musicCoverage_(hub) {
       out.slots[MUSIC_SLOTS[s]]++;
       if (!fam) continue;
       var k = fam + '§' + MUSIC_SLOTS[s];
-      byFam[k] = (byFam[k] || 0) + 1;
+      (byFam[k] = byFam[k] || []).push(b);
     }
   }
 
@@ -22221,10 +22497,25 @@ function musicCoverage_(hub) {
   var want = musicWantedFamilies_();
   for (var w = 0; w < want.length; w++) {
     for (var s2 = 0; s2 < MUSIC_SLOTS.length; s2++) {
-      var have = byFam[want[w] + '§' + MUSIC_SLOTS[s2]] || 0;
-      if (have < per) out.gaps.push({ family: want[w], slot: MUSIC_SLOTS[s2], have: have });
+      var lst = byFam[want[w] + '§' + MUSIC_SLOTS[s2]] || [];
+      if (lst.length < per) {
+        out.gaps.push({ family: want[w], slot: MUSIC_SLOTS[s2], have: lst.length });
+        continue;
+      }
+      // پُر است — ولی آیا تازه است؟ خانواده‌ای که *همهٔ* قطعه‌هایش فرسوده‌اند
+      // هدفِ چرخش می‌شود. یک قطعهٔ تازه در میانشان یعنی هنوز انتخاب هست.
+      if (!rotate) continue;
+      var fresh = 0, minUsed = -1;
+      for (var z = 0; z < lst.length; z++) {
+        if ((Number(lst[z].used) || 0) < wornAt) fresh++;
+        if (minUsed < 0 || (Number(lst[z].used) || 0) < minUsed) minUsed = Number(lst[z].used) || 0;
+      }
+      if (!fresh) out.worn.push({ family: want[w], slot: MUSIC_SLOTS[s2],
+                                  have: lst.length, used: minUsed });
     }
   }
+  // فرسوده‌ترین اول — خانواده‌ای که کم‌مصرف‌ترین قطعه‌اش هم زیاد پخش شده.
+  out.worn.sort(function (a, b) { return b.used - a.used; });
   // و کفِ مطلق: جایگاهی که اصلاً کم دارد، مستقل از خانواده
   for (var s3 = 0; s3 < MUSIC_SLOTS.length; s3++) {
     if (out.slots[MUSIC_SLOTS[s3]] < floor) {
@@ -22262,6 +22553,48 @@ function musicThinSlots_(hub) {
   return out;
 }
 
+
+/**
+ * جایگاه‌هایی که کمبود ندارند ولی **فرسوده**اند — سوختِ چرخش.
+ *
+ * ══ چرا لازم شد ══
+ * صاحبِ برنامه پرسید: «بعد از چند هفته و استفادهٔ زیاد از همهٔ موسیقی‌ها، باز
+ * نمی‌رود دنبالِ تازه‌ها حتی اگر سقفِ هر دسته پر شده باشد؟» جواب تا ۵٫۶۴ «نه»
+ * بود، و این نقصِ واقعی است: کارِ شبانه فقط وقتی می‌گشت که musicThinSlots_
+ * چیزی برگرداند، و آن فقط *کمبود* را می‌شناخت. شبِ کامل‌شدنِ پوشش، جست‌وجو
+ * برای همیشه خاموش می‌شد.
+ */
+function musicRotateSlots_(hub) {
+  if (CFG.MUSIC_ROTATE === false) return [];
+  var cov;
+  try { cov = musicCoverage_(hub); } catch (e) { return []; }
+  var cap = Math.max(0, Number(CFG.MUSIC_ROTATE_SLOTS) || 0);
+  if (!cap) return [];
+  var out = [], seen = {};
+  for (var i = 0; i < cov.worn.length && out.length < cap; i++) {
+    var sl = cov.worn[i].slot;
+    if (seen[sl]) continue;
+    seen[sl] = 1; out.push(sl);
+  }
+  return out;
+}
+
+/**
+ * شمارهٔ صفحهٔ جست‌وجو، و چرخاندنش.
+ *
+ * چرخش با همان واژه‌ها هیچ نتیجهٔ تازه‌ای نمی‌دهد: archive.org همان ۲۵ نتیجهٔ
+ * اول را می‌دهد و musicSeenIds_ همه‌شان را قبلاً دیده، پس شبِ چرخش صفر قطعه
+ * اضافه می‌شد و چرخش فقط روی کاغذ بود.
+ */
+function musicSeekPage_(advance) {
+  var pages = Math.max(1, Number(CFG.MUSIC_SEEK_PAGES) || 5);
+  var n = 0;
+  try { n = parseInt(props_().getProperty(PK.MUSIC_PAGE) || '0', 10) || 0; } catch (e) {}
+  if (advance) {
+    try { props_().setProperty(PK.MUSIC_PAGE, String((n + 1) % pages)); } catch (e2) {}
+  }
+  return 1 + (n % pages);
+}
 
 /** شمارِ قطعه‌های هر جایگاه — برای وضعیت و گزارش. */
 function musicSlotCounts_(hub) {
@@ -22453,12 +22786,15 @@ function runMusicFetch() {
  *
  * برمی‌گرداند: فهرستِ افکت‌های مجاز، با شمارهٔ بخش.
  */
-function sfxAllow_(sections, picks, showKind) {
+function sfxAllow_(sections, picks, showKind, bank) {
   var out = [];
   if (CFG.MUSIC_SFX_ENABLED === false) return out;
   if (String(showKind || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true) return out;
   var cap = Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0);
   if (!cap) return out;
+
+  var byId = {};
+  for (var bz = 0; bz < (bank || []).length; bz++) byId[String(bank[bz].id)] = bank[bz];
 
   for (var i = 0; i < (picks || []).length && out.length < cap; i++) {
     var p = picks[i];
@@ -22476,10 +22812,170 @@ function sfxAllow_(sections, picks, showKind) {
 
     // «یک بار در متن» کافی نیست — همان اشارهٔ گذراست
     if (!inHead && times < 2) continue;
+
+    /* ── سدِ چهارم: تناسب، نه بسامد ──
+     * صاحبِ برنامه دقیقاً همین را پرسید: «ممکن است اسمی از چیزی بیاید که
+     * جلوهٔ صوتی‌اش هست، ولی مناسبِ آن فضا و موضوع و متن نیست.» قاعدهٔ
+     * بالا بسامدِ واژه را می‌سنجد، نه تناسب را — در یک بندِ سوگ، واژهٔ «در»
+     * هم دو بار می‌آید و از سدِ بسامد رد می‌شود.
+     */
+    var tr = byId[String(p.id)] || null;
+    if (bank && bank.length) {
+      if (!tr) continue;
+      if (String(tr.kind || '') !== 'افکت') continue;   // موسیقی، افکت نیست
+      // افکتی که گوشِ مدل تأییدش نکرده پخش نمی‌شود. ۵٫۵۶ نشان داد فایلی که
+      // «افکت» نامیده شده می‌تواند سخنرانیِ ۱۲۹ثانیه‌ای باشد.
+      if (CFG.MUSIC_SFX_NEED_HEARD !== false && String(tr.heard || '') !== 'جلوه') continue;
+    }
+    var clash = sfxToneClash_(String(sec.tone || ''),
+                              (tr ? (tr.mood + ' ' + tr.name) : ''));
+    if (clash) continue;
+
     out.push({ section: idx, word: word, id: p.id,
+               anchor: String(p.anchor || ''),
+               when: sfxWhen_(p.when),
+               fit: String(p.why || ''),
                why: inHead ? 'در سرِ بخش آمده' : times + ' بار در همان بخش' });
   }
   return out;
+}
+
+/** «پیش» | «روی» | «پس» — هرچیزِ دیگر، «روی». */
+function sfxWhen_(v) {
+  var t = String(v || '').trim();
+  if (t.indexOf('پیش') !== -1 || t.indexOf('قبل') !== -1) return 'پیش';
+  if (t.indexOf('پس') !== -1 || t.indexOf('بعد') !== -1) return 'پس';
+  return 'روی';
+}
+
+/* وایب‌هایی که با هم نمی‌خوانند. عمداً کوچک و صریح: هر جفتی که اینجا نیست
+   رد نمی‌شود — سدِ تناسب باید چیزهای آشکار را بگیرد، نه اینکه قاضیِ سلیقه
+   شود. سنجهٔ اصلی جملهٔ توجیهیِ خودِ مدل است؛ این پشتوانهٔ کدی است. */
+var SFX_TONE_CLASH = [
+  [/سوگ|اندوه|غم|تلخ|فاجعه|مرگ|عزا|دلخراش/,
+   /طنز|خنده|شاد|بازیگوش|کارتون|کمیک|مفرح|جشن|comic|funny|cartoon|party/i],
+  [/جدی|رسمی|علمی|تحلیل|مستند|فلسف/,
+   /کارتون|بامزه|مسخره|بوق|slapstick|cartoon|goofy|boing/i],
+  [/کودک|بازیگوش|شاد|طنز/,
+   /ترسناک|وحشت|دلهره|جیغ|horror|scream|creepy/i]
+];
+
+/**
+ * آیا این افکت با وایبِ این بخش نمی‌خوانَد؟ رشتهٔ دلیل، یا '' اگر ایرادی نبود.
+ */
+function sfxToneClash_(tone, effect) {
+  var t = String(tone || ''), e = String(effect || '');
+  if (!t || !e) return '';
+  for (var i = 0; i < SFX_TONE_CLASH.length; i++) {
+    if (SFX_TONE_CLASH[i][0].test(t) && SFX_TONE_CLASH[i][1].test(e)) {
+      return 'وایبِ «' + t + '» با این افکت نمی‌خوانَد';
+    }
+  }
+  return '';
+}
+
+/* نویسه‌هایی که در یافتنِ لنگر شمرده نمی‌شوند: اعراب، کشیده، نیم‌فاصله. */
+var SFX_SKIP = 'ًٌٍَُِّْـ\u200c\u200f\u200e';
+
+/**
+ * نرمال‌سازیِ متن **همراه با نقشهٔ جای اصلی**.
+ *
+ * بی نقشه، جایی که در رشتهٔ نرمال‌شده پیدا می‌شود به متنِ واقعی نمی‌خورَد
+ * (اعراب طول را عوض می‌کند) و برشْ وسطِ یک واژه می‌افتد.
+ */
+function sfxNormMap_(str) {
+  var s = String(str || ''), o = '', map = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (SFX_SKIP.indexOf(c) !== -1) continue;
+    if (c === 'ي') c = 'ی'; else if (c === 'ك') c = 'ک';
+    if (c === ' ' || c === '\n' || c === '\t' || c === '\r') {
+      if (!o.length || o.charAt(o.length - 1) === ' ') continue;
+      c = ' ';
+    }
+    o += c; map.push(i);
+  }
+  return { s: o, map: map };
+}
+
+/* پایانِ جمله در فارسی */
+var SFX_STOP = '.!?؟؛\n';
+
+/**
+ * جای دقیقِ افکت در فهرستِ تکه‌ها.
+ *
+ * ══ آنچه تا ۵٫۶۴ بود، و چرا غلط بود ══
+ * `idxOfSection_(out, n)` تکه‌های گفتاری را می‌شمرد و nاُمین را برمی‌گرداند.
+ * ولی n شمارهٔ بخش در ep.sections است، نه شمارهٔ تکه: hook یک تکه جلو
+ * می‌بردش و splitForTts_ هر بخشِ بلند را به چند تکه می‌شکند. یعنی «بخشِ ۳»
+ * تقریباً همیشه جایی داخلِ بخشِ ۰ یا ۱ می‌افتاد. هیچ‌وقت دیده نشد چون بانک
+ * هیچ افکتی نداشت و این شاخه یک بار هم اجرا نشده بود.
+ *
+ * ══ و آنچه صاحبِ برنامه خواست ══
+ * «همان ثانیه، یا کمی قبل‌تر، یا کمی بعدتر» — نه سرِ بخش. پس جا از لنگرِ
+ * متنی می‌آید: عبارتی که مدل از خودِ روایت کپی کرده. تکهٔ حاویِ آن عبارت دو
+ * نیم می‌شود و افکت بینشان می‌نشیند.
+ *
+ * برمی‌گرداند {at, cut} — at شمارهٔ تکه در out، cut جای برش در متنِ همان
+ * تکه (۰ یعنی پیش از کلِ تکه، طولِ متن یعنی پس از آن). null یعنی جا پیدا نشد.
+ */
+function sfxPlace_(out, from, to, item) {
+  if (!(from >= 0) || !(to > from)) return null;
+  var anc = sfxNormMap_(item && item.anchor);
+  var minSp = Math.max(0, Number(CFG.MUSIC_SFX_MIN_SPLIT) || 0);
+  if (anc.s.length < 3) return { at: from, cut: 0, how: 'سرِ بخش — لنگری نبود' };
+
+  for (var i = from; i < to && i < out.length; i++) {
+    var ch = out[i];
+    if (!ch || ch.pcm || !ch.text) continue;
+    var hay = sfxNormMap_(ch.text);
+    var p = hay.s.indexOf(anc.s);
+    if (p === -1) continue;
+
+    var txt = String(ch.text);
+    var start = hay.map[p];
+    var end = hay.map[Math.min(p + anc.s.length - 1, hay.map.length - 1)] + 1;
+    var when = sfxWhen_(item.when), cut;
+    if (when === 'پیش') {
+      cut = 0;
+      for (var a = start - 1; a >= 0; a--) {
+        if (SFX_STOP.indexOf(txt.charAt(a)) !== -1) { cut = a + 1; break; }
+      }
+      while (cut < txt.length && /\s/.test(txt.charAt(cut))) cut++;
+    } else if (when === 'پس') {
+      cut = txt.length;
+      for (var b = end; b < txt.length; b++) {
+        if (SFX_STOP.indexOf(txt.charAt(b)) !== -1) { cut = b + 1; break; }
+      }
+    } else {
+      cut = start;
+    }
+
+    // نیمهٔ خیلی کوتاه بدتر از نصف‌نکردن است: چند واژه که جدا خوانده شوند،
+    // با مکث و آهنگِ غلط شنیده می‌شوند.
+    if (txt.slice(0, cut).trim().length < minSp) cut = 0;
+    else if (txt.slice(cut).trim().length < minSp) cut = txt.length;
+    return { at: i, cut: cut, how: 'لنگر «' + String(item.anchor).slice(0, 40) +
+                                   '» — ' + when };
+  }
+  return { at: from, cut: 0, how: 'سرِ بخش — لنگر در متن پیدا نشد' };
+}
+
+/** بازهٔ تکه‌های یک بخش در out، از روی مرزها و نقشهٔ جابه‌جایی. */
+function sfxSecRange_(bounds, posOf, total, secIdx) {
+  var k = -1;
+  for (var i = 0; i < (bounds || []).length; i++) {
+    if (Number(bounds[i].secIndex) === Number(secIdx)) { k = i; break; }
+  }
+  if (k === -1) return null;
+  var from = posOf[bounds[k].at];
+  if (!(from >= 0)) return null;
+  var to = total;
+  if (k + 1 < bounds.length) {
+    var nx = posOf[bounds[k + 1].at];
+    if (nx >= 0) to = nx;
+  }
+  return { from: from, to: to };
 }
 
 /* ────────────── شناختِ فایل: اندازه‌گیری، نه شباهتِ اسمی ────────────── */

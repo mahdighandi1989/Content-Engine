@@ -872,4 +872,232 @@ console.log('=== ۱۳) تنوعِ بانک، و جلوه‌های صوتی که 
 }
 
 
+console.log('=== ۱۴) گشتن هرگز نمی‌ایستد: بانکِ پُر اما فرسوده ===');
+{
+  /* پرسشِ صاحبِ برنامه: «بعد از چند هفته و استفادهٔ زیاد از همهٔ موسیقی‌ها،
+   * باز نمی‌رود دنبالِ تازه‌ها حتی اگر سقفِ هر دسته پر شده باشد؟»
+   * تا ۵٫۶۴ جواب «نه» بود و این یک نقصِ واقعی بود: کارِ شبانه فقط وقتی
+   * می‌گشت که musicThinSlots_ چیزی برگرداند، و آن فقط *کمبود* را می‌شناخت.
+   * شبِ کامل‌شدنِ پوشش، جست‌وجو برای همیشه خاموش می‌شد. */
+  const realBank = global.musicBank_;
+  const realFam = global.musicWantedFamilies_;
+  const FAM = 'آموزش|شمرده|درس|علمی|فلسف';
+  global.musicWantedFamilies_ = () => [FAM];
+
+  const mk = (n, used) => ({ id: 'T' + n, name: 't' + n, kind: 'موسیقی',
+    mood: 'آموزشی', slots: 'شروع میانه پایان', sec: 30, gain: 1,
+    used: used, heard: '', lastAt: '' });
+
+  // بانکی که پوششش کامل است و همه‌اش فرسوده
+  global.musicBank_ = () => [mk(1, 9), mk(2, 7), mk(3, 12), mk(4, 8), mk(5, 6)];
+  ok('۱۴.۱ پوشش کامل است، پس کمبودی گزارش نمی‌شود',
+     musicThinSlots_().length === 0, JSON.stringify(musicThinSlots_()));
+  ok('۱۴.۲ ولی جایگاهِ فرسوده پیدا می‌شود — گشتن ادامه دارد',
+     musicRotateSlots_().length > 0, JSON.stringify(musicRotateSlots_()));
+
+  // یک قطعهٔ تازه در میانشان یعنی هنوز انتخاب هست
+  global.musicBank_ = () => [mk(1, 9), mk(2, 7), mk(3, 12), mk(4, 8), mk(5, 0)];
+  ok('۱۴.۳ یک قطعهٔ تازه کافی است تا خانواده فرسوده شمرده نشود',
+     musicCoverage_().worn.length === 0);
+
+  // سقفِ بانک: رشدِ بی‌پایان هم درست نیست
+  global.musicBank_ = () => [mk(1, 9), mk(2, 7), mk(3, 12), mk(4, 8), mk(5, 6)];
+  const keepMax = CFG.MUSIC_BANK_MAX;
+  CFG.MUSIC_BANK_MAX = 3;
+  ok('۱۴.۴ بالاتر از سقفِ بانک، چرخش هم متوقف می‌شود',
+     musicRotateSlots_().length === 0);
+  CFG.MUSIC_BANK_MAX = keepMax;
+
+  const keepRot = CFG.MUSIC_ROTATE;
+  CFG.MUSIC_ROTATE = false;
+  ok('۱۴.۵ و با خاموش‌بودنِ چرخش، هیچ', musicRotateSlots_().length === 0);
+  CFG.MUSIC_ROTATE = keepRot;
+
+  // کارِ شبانه واقعاً صدایش می‌زند — وگرنه همان کدِ مرده‌ای می‌شد که
+  // این ریپو پنج نمونه‌اش را دیده.
+  const p21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۱۴.۶ کارِ شبانه وقتی کمبودی نیست سراغِ چرخش می‌رود',
+     /musicRotateSlots_\(\)/.test(p21) && /if \(!miss\.length\)/.test(p21));
+
+  // و صفحهٔ جست‌وجو می‌چرخد؛ وگرنه همان ۲۵ نتیجهٔ دیده‌شده برمی‌گردد و
+  // چرخش فقط روی کاغذ است.
+  global.__PROPS[PK.MUSIC_PAGE] = '';
+  const pages = [musicSeekPage_(true), musicSeekPage_(true), musicSeekPage_(true)];
+  ok('۱۴.۷ صفحهٔ جست‌وجو با هر چرخش جلو می‌رود',
+     pages[0] !== pages[1] && pages[1] !== pages[2], pages.join(','));
+  ok('۱۴.۸ و بی چرخش، صفحه دست نمی‌خورد',
+     musicSeekPage_(false) === musicSeekPage_(false));
+
+  // نوبت‌دهی بالای پنج بار هم باید تفاوت بگذارد. تا ۵٫۶۴ امتیاز روی
+  // عددِ ۵ اشباع می‌شد، پس وقتی همه پنج بار پخش شده بودند کور می‌شد.
+  const bank2 = [mk(1, 6), mk(2, 20)];
+  ok('۱۴.۹ میانِ «۶ بار» و «۲۰ بار»، کم‌مصرف‌تر انتخاب می‌شود',
+     musicPick_(bank2, 'شروع', '').id === 'T1');
+
+  global.musicBank_ = realBank;
+  global.musicWantedFamilies_ = realFam;
+}
+
+console.log('=== ۱۵) جای افکت: لنگرِ متنی، نه سرِ بخش ===');
+{
+  /* دو چیز اینجا آزموده می‌شود، هر دو از پرسشِ صاحبِ برنامه:
+   * «چطور دقیقاً همان زمانی پخش می‌شود که لازم است — همان ثانیه یا کمی
+   *  قبل‌تر یا کمی بعدتر؟» و «آن گاردی که برای افکتِ نامناسب گذاشتی».
+   *
+   * و یک باگِ واقعی که هیچ‌وقت دیده نشد چون بانک صفر افکت داشت:
+   * idxOfSection_ تکه‌ها را می‌شمرد و nاُمین را برمی‌گرداند، ولی n شمارهٔ
+   * بخش بود. hook یک تکه جلو می‌بردش و splitForTts_ بخش‌های بلند را
+   * می‌شکست — یعنی «بخشِ ۳» تقریباً همیشه داخلِ بخشِ ۰ یا ۱ می‌افتاد. */
+  const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۵.۱ شمارشِ تکه‌ای دیگر جای بخش را تعیین نمی‌کند',
+     !/function idxOfSection_/.test(p23));
+  ok('۱۵.۲ مرزها پلِ شمارهٔ بخش را با خود می‌برند',
+     /secIndex:/.test(fs.readFileSync('src/03_Producer.gs', 'utf8')) &&
+     /secIndex:/.test(fs.readFileSync('src/14_Special.gs', 'utf8')));
+
+  // بازهٔ بخش، با موسیقی‌ای که شماره‌ها را جلو برده
+  const bounds = [{ at: 0, kind: 'hook', secIndex: -1 },
+                  { at: 1, kind: 'body', secIndex: 0 },
+                  { at: 3, kind: 'body', secIndex: 1 }];
+  const posOf = [0, 2, 3, 5];          // موسیقیِ آغاز و یک میانه
+  const rng = sfxSecRange_(bounds, posOf, 7, 1);
+  ok('۱۵.۳ بازهٔ بخشِ ۱ با جابه‌جاییِ موسیقی درست درمی‌آید',
+     rng && rng.from === 5 && rng.to === 7, JSON.stringify(rng));
+  ok('۱۵.۴ بخشِ ناموجود بازه‌ای ندارد', sfxSecRange_(bounds, posOf, 7, 9) === null);
+
+  // برشِ واقعی روی متن
+  const A = 'جملهٔ نخستِ این بند همین‌جا و بی هیچ حاشیه‌ای تمام می‌شود. ';
+  const B = 'باران بی‌امان می‌بارید و کوچه خالی بود. ';
+  const C = 'و بعد همه‌چیز آرام گرفت و شبِ بلند بی هیچ صدایی از راه رسید.';
+  const out = [{ text: A + B + C, style: 's', voice: 'v' }];
+
+  const at = (when) => sfxPlace_(out, 0, 1,
+    { anchor: 'باران بی‌امان می‌بارید', when: when });
+  ok('۱۵.۵ «روی» درست پیش از خودِ عبارت می‌برد',
+     at('روی').cut === A.length, String(at('روی').cut) + ' / ' + A.length);
+  ok('۱۵.۶ «پیش» به آغازِ همان جمله می‌برد', at('پیش').cut === A.length);
+  ok('۱۵.۷ «پس» به بعد از پایانِ همان جمله می‌برد',
+     at('پس').cut === (A + B).trimEnd().length, String(at('پس').cut));
+
+  // اعراب و «ي/ك» نباید لنگر را گم کنند
+  const dia = [{ text: 'شبِ سردی بود و هیچ‌کس در کوچه نمانده بود. ' +
+                       'در بارانِ شدیدِ آن شب کسی بیرون نبود و کوچه خالی ماند.',
+                 style: 's', voice: 'v' }];
+  const hit = sfxPlace_(dia, 0, 1, { anchor: 'باران شدید آن شب', when: 'روی' });
+  ok('۱۵.۸ لنگر با اعراب و «ي/ك» هم پیدا می‌شود',
+     /^لنگر/.test(hit.how) && hit.cut > 0, JSON.stringify(hit));
+
+  // لنگرِ پیدانشده → عقب‌نشینی به سرِ بخش، نه انداختنِ افکت
+  const nf = sfxPlace_(out, 0, 1, { anchor: 'چیزی که در متن نیست', when: 'روی' });
+  ok('۱۵.۹ لنگرِ پیدانشده به سرِ بخش عقب می‌نشیند',
+     nf && nf.at === 0 && nf.cut === 0 && /پیدا نشد/.test(nf.how), JSON.stringify(nf));
+
+  // نیمهٔ خیلی کوتاه ساخته نمی‌شود
+  const tiny = [{ text: 'باران آمد. ' + C, style: 's', voice: 'v' }];
+  ok('۱۵.۱۰ نیمهٔ کوتاه‌تر از سقف ساخته نمی‌شود',
+     sfxPlace_(tiny, 0, 1, { anchor: 'باران آمد', when: 'روی' }).cut === 0);
+
+  /* ── گاردِ تناسب ── */
+  const secs = [{ heading: 'شبِ باران', tone: 'سوگ و اندوه',
+                  narration: 'باران می‌بارید. باران بند نمی‌آمد.' }];
+  const bankSfx = (mood, heard) => [{ id: 'E1', name: 'rain', kind: 'افکت',
+    mood: mood, slots: 'میانه', sec: 4, gain: 1, used: 0, heard: heard, lastAt: '' }];
+  const pick = [{ id: 'E1', word: 'باران', section: '0', anchor: 'باران می‌بارید',
+                  when: 'روی', why: 'صدای باران با اندوهِ بخش می‌خوانَد' }];
+
+  ok('۱۵.۱۱ افکتِ متناسب و تأییدشده مجاز است',
+     sfxAllow_(secs, pick, 'variety', bankSfx('بارانی', 'جلوه')).length === 1);
+  ok('۱۵.۱۲ افکتِ بی تأییدِ شنیداری پخش نمی‌شود',
+     sfxAllow_(secs, pick, 'variety', bankSfx('بارانی', '')).length === 0);
+  ok('۱۵.۱۳ افکتی که با وایبِ بخش نمی‌خوانَد رد می‌شود',
+     sfxAllow_(secs, pick, 'variety', bankSfx('طنز و خنده', 'جلوه')).length === 0);
+  ok('۱۵.۱۴ ردیفی که «موسیقی» است افکت نمی‌شود',
+     sfxAllow_(secs, pick, 'variety',
+       [{ id: 'E1', name: 'x', kind: 'موسیقی', mood: '', slots: 'میانه',
+          sec: 4, gain: 1, used: 0, heard: 'موسیقی' }]).length === 0);
+  ok('۱۵.۱۵ و لنگر تا انتها با پیشنهاد می‌آید',
+     sfxAllow_(secs, pick, 'variety', bankSfx('بارانی', 'جلوه'))[0].anchor ===
+       'باران می‌بارید');
+
+  ok('۱۵.۱۶ سنجهٔ وایب فقط برخوردهای آشکار را می‌گیرد',
+     sfxToneClash_('آرام و توصیفی', 'باران ملایم') === '' &&
+     sfxToneClash_('سوگ و اندوه', 'cartoon boing') !== '');
+
+  // و مدل واقعاً پرسیده می‌شود — وگرنه همان کدِ مرده‌ای است که تا ۵٫۶۴ بود
+  ok('۱۵.۱۷ پرامپت واقعاً دربارهٔ جلوهٔ صوتی می‌پرسد',
+     /جلوهٔ صوتی \(اختیاری/.test(p23) && /anchor: یک عبارتِ کوتاه/.test(p23));
+  ok('۱۵.۱۸ و فقط وقتی افکتی در بانک باشد', /var sfxOn = /.test(p23));
+
+  // جلوهٔ صوتی نباید به‌عنوانِ موسیقیِ میانه پخش شود
+  ok('۱۵.۱۹ افکت نامزدِ جایگاه‌های موسیقی نمی‌شود',
+     musicPick_([{ id: 'E1', name: 'rain', kind: 'افکت', mood: '', slots: 'میانه',
+                   sec: 4, gain: 1, used: 0 }], 'میانه', '') === null);
+}
+
+console.log('=== ۱۶) سه نسخهٔ هم‌نام در ریشه — کارِ تسک بی‌صدا از دست می‌رفت ===');
+{
+  /* ۲۳ اوت، ساعت ۱۵: در ریشهٔ OUTPUT سه تا `_MUSIC-FEED.json` بود
+   * (۱۴:۰۴، ۱۴:۲۷، ۱۵:۲۷). تسکِ غنی‌سازی هر ساعت یکی تازه می‌ساخت به‌جای
+   * به‌روزکردنِ همان. getFilesByName ترتیبِ تضمین‌شده ندارد، پس موتور
+   * می‌توانست کهنه را بخواند — و putOutJson_ هنگام نوشتن بقیه را به سطلِ
+   * زباله می‌بُرد. یعنی سه نامزدِ تازه‌ای که تسک پیدا کرده بود، خوانده‌نشده
+   * پاک می‌شدند. هیچ خطایی هم بلند نمی‌شد. */
+  const mkFile = (obj) => ({
+    getBlob: () => ({ getDataAsString: () => JSON.stringify(obj) }),
+    getLastUpdated: () => new Date()
+  });
+  const realList = global.outFilesByName_;
+
+  // تازه‌ترین اول (همان ترتیبی که outFilesByName_ می‌دهد)
+  global.outFilesByName_ = () => [
+    mkFile({ items: [{ url: 'https://a/1.wav', title: 'تازه' },
+                     { url: 'https://c/3.wav', title: 'فقط در تازه' }] }),
+    mkFile({ items: [{ url: 'https://a/1.wav', title: 'کهنه', status: 'رد',
+                       error: 'گفتار بود' },
+                     { url: 'https://b/2.wav', title: 'فقط در کهنه' }] })
+  ];
+  const merged = musicFeedRead_();
+  const byUrl = {};
+  merged.items.forEach(x => { byUrl[x.url] = x; });
+  ok('۱۶.۱ نامزدِ موجود در نسخهٔ کهنه گم نمی‌شود',
+     !!byUrl['https://b/2.wav'], JSON.stringify(merged.items.map(x => x.url)));
+  ok('۱۶.۲ نامزدِ تازه هم می‌ماند', !!byUrl['https://c/3.wav']);
+  ok('۱۶.۳ و رکوردی که وضعیت دارد با بی‌وضعیت پوشانده نمی‌شود',
+     byUrl['https://a/1.wav'].status === 'رد', JSON.stringify(byUrl['https://a/1.wav']));
+
+  global.outFilesByName_ = () => [mkFile({ items: [{ url: 'https://x/1.wav' }] })];
+  ok('۱۶.۴ با یک نسخه، همان خوانده می‌شود',
+     musicFeedRead_().items.length === 1);
+  global.outFilesByName_ = () => [];
+  ok('۱۶.۵ و با هیچ نسخه، فهرستِ خالی — نه خطا',
+     musicFeedRead_().items.length === 0);
+  global.outFilesByName_ = realList;
+
+  // خواننده باید تازه‌ترین را بگیرد
+  const p19 = fs.readFileSync('src/19_Enrich.gs', 'utf8');
+  ok('۱۶.۶ فایلِ هم‌نام بر اساسِ زمانِ به‌روزرسانی مرتب می‌شود',
+     /getLastUpdated\(\)\.getTime\(\)/.test(p19) && /function outFilesByName_/.test(p19));
+
+  // و دیده می‌شود: نامِ شناخته‌شدهٔ تکراری هشدار می‌گیرد
+  const p08 = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۱۶.۷ هم‌نامِ تکراری در وارسیِ چیدمان گزارش می‌شود',
+     /dups: \[\]/.test(p08) && /فایلِ هم‌نامِ تکراری/.test(p08));
+}
+
+console.log('=== ۱۷) MP3 پیش از دانلود رد می‌شود ===');
+{
+  /* pixabay ۱۳۰ هزار جلوهٔ صوتی دارد و صاحبِ برنامه درست دید که همه MP3اند.
+   * سدِ هدر آن‌ها را می‌گرفت — ولی بعد از دانلودِ کاملشان، از مهلتِ
+   * شش‌دقیقه‌ایِ کارِ شبانه. حالا از خودِ نشانی رد می‌شوند، با پیامی که
+   * می‌گوید چرا. */
+  const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۷.۱ پسوندِ غیرWAV پیش از UrlFetchApp رد می‌شود',
+     p23.indexOf("ext !== 'wav'") < p23.indexOf('UrlFetchApp.fetch(url'),
+     'گیت باید بالاتر از دانلود باشد');
+  ok('۱۷.۲ و دلیلش صریح است، نه «WAV نیست»',
+     /رمزگشای MP3\/OGG ندارد/.test(p23));
+  ok('۱۷.۳ نشانیِ بی‌پسوند دانلود می‌شود — قضاوت با هدر است',
+     /if \(ext && ext !== 'wav'/.test(p23));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
