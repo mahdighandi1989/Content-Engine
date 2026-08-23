@@ -28,6 +28,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🎵 بانکِ موسیقی — پویش و برچسبِ خودکار', 'runMusicAuto')
       .addItem('⬇️ موسیقی — گشتن در اینترنت و آوردن', 'runMusicFetch')
+      .addItem('🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»', 'runMusicRecheck')
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')

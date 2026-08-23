@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.56
+ *  موتور محتوا و پادکست — نسخهٔ 5.57
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -387,6 +387,10 @@ var CFG = {
   MUSIC_SEEK_MAX: 4,                 // هر بار حداکثر این تعداد نامزد به فهرست
   MUSIC_SEEK_MIN_SEC: 5,             // کوتاه‌تر از این، قطعه نیست
   MUSIC_SEEK_API: 'https://archive.org',
+  // فایلی که سنجه ردش می‌کند به این زیرپوشه می‌رود — پاک نمی‌شود.
+  // قاعدهٔ ریپو: موتور چیزی را که خودش نساخته حذف نمی‌کند، و حتی چیزی
+  // را که ساخته هم بی اطلاعِ صاحبِ برنامه پاک نمی‌کند.
+  MUSIC_REJECT_FOLDER: 'کنارگذاشته — گفتار یا نامناسب',
 
   MUSE_TAB: 'کاربردِ موسیقی',   // تاریخچهٔ پخش: کدام قطعه، کدام قسمت، کدام جایگاه
   MUSIC_TAB: 'موسیقی',
@@ -587,7 +591,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.56',
+  CODE_VERSION: '5.57',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -5644,6 +5648,7 @@ function onOpen() {
       .addSeparator()
       .addItem('🎵 بانکِ موسیقی — پویش و برچسبِ خودکار', 'runMusicAuto')
       .addItem('⬇️ موسیقی — گشتن در اینترنت و آوردن', 'runMusicFetch')
+      .addItem('🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»', 'runMusicRecheck')
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
@@ -21346,6 +21351,16 @@ function musicFetch_() {
       continue;
     }
 
+    // و سدِ چهارم، که ۵٫۵۶ نداشت: «این اصلاً موسیقی است؟»
+    var acc = musicAccept_(bytes, info, String(it.title || '') + ' ' + url);
+    if (!acc.ok) {
+      it.status = 'رد'; it.error = acc.why;
+      changed = true; out.failed++;
+      musicFetchedAdd_(url);
+      logLine_('موسیقی رد شد — ' + auditCut_(String(it.title || url), 50) + ': ' + acc.why);
+      continue;
+    }
+
     var name = musicFileName_(it);
     var file;
     try {
@@ -21443,11 +21458,20 @@ function musicApiJson_(url) {
  * musicAutoTag_ است، بعد از رسیدنِ فایل.
  */
 function musicSeekQuery_(slot) {
-  var kind = (slot === 'میانه') ? 'transition OR interlude OR bumper'
-           : (slot === 'پایان') ? 'outro OR ending OR credits'
-           : 'intro OR theme OR opening';
-  return 'mediatype:(audio) AND format:(WAVE) AND licenseurl:(*creativecommons* OR *publicdomain*) AND (' +
-         kind + ' OR instrumental)';
+  /* پرسشِ ۵٫۵۶ اشتباه بود و نتیجه‌اش دیدنی: واژهٔ «intro» در متنِ آزاد،
+   * «Opening Remarks of Sean F. Byrnes at LVG Debate» را هم می‌گرفت.
+   * mediatype:(audio) در archive.org یعنی «هر صدایی» — سخنرانی، مناظره،
+   * کتابِ صوتی، خطبه. موسیقی زیرمجموعهٔ کوچکی از آن است.
+   *
+   * پس به‌جای گشتن در همهٔ صداها و امید به واژه‌ها، از خودِ مجموعه‌های
+   * موسیقی می‌گیریم. netlabels آرشیوِ آلبوم‌های آزادِ لیبل‌های اینترنتی است
+   * و اساساً چیزی جز موسیقی ندارد. واژهٔ «intro» هم به کل حذف شد.
+   */
+  var kind = (slot === 'میانه') ? '(loop OR interlude OR short)'
+           : (slot === 'پایان') ? '(ambient OR calm OR instrumental)'
+           : '(instrumental OR ambient OR piano)';
+  return 'collection:(netlabels OR audio_music) AND format:(WAVE) AND ' +
+         'licenseurl:(*creativecommons* OR *publicdomain*) AND ' + kind;
 }
 
 /**
@@ -21494,6 +21518,12 @@ function musicSeek_(slots) {
       var lic = String((meta.metadata && meta.metadata.licenseurl) || docs[di].licenseurl || '');
       if (!lic) continue;                       // مجوزِ نامعلوم = رد
       var title = String((meta.metadata && meta.metadata.title) || docs[di].title || id);
+      // ارزان‌ترین سد: نامی که خودش می‌گوید گفتار است، اصلاً دانلود نشود
+      var pre = musicIsSpeech_(null, null, title + ' ' + id);
+      if (pre.speech && pre.sure) {
+        out.notes.push('رد پیش از دانلود: ' + auditCut_(title, 40) + ' — ' + pre.why);
+        continue;
+      }
 
       // کوچک‌ترین WAVِ زیرِ سقف: کمترین احتمالِ شکست، و برای بریدن هم بس است
       var best = null;
@@ -21556,6 +21586,76 @@ function musicMissingSlots_(hub) {
   return out;
 }
 
+/**
+ * بازبینیِ هرچه همین حالا در بانک است.
+ *
+ * لازم شد چون ۵٫۵۶ دو فایلِ گفتار را وارد بانک کرد و آن‌ها همان‌جا ماندند؛
+ * سدِ تازه فقط جلوی *ورودِ* بعدی را می‌گیرد. این تابع همان سنجه را روی
+ * فایل‌های موجود می‌زند و ردشده‌ها را به زیرپوشهٔ «کنارگذاشته» می‌بَرد —
+ * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
+ */
+function musicRecheck_(hub) {
+  var out = { checked: 0, moved: 0, kept: 0, notes: [] };
+  var folder = musicFolder_();
+  var rej = null;
+  var it = folder.getFiles();
+  var todo = [];
+  while (it.hasNext()) {
+    var f = it.next();
+    if (/\.wav$/i.test(f.getName())) todo.push(f);
+  }
+
+  for (var i = 0; i < todo.length; i++) {
+    var f2 = todo[i], bytes = null, info = null;
+    out.checked++;
+    try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
+    var acc = info ? musicAccept_(bytes, info, f2.getName())
+                   : { ok: false, why: 'WAV خوانده نشد' };
+    if (acc.ok) { out.kept++; continue; }
+
+    if (!rej) {
+      var nm = CFG.MUSIC_REJECT_FOLDER || 'کنارگذاشته — گفتار یا نامناسب';
+      var fi = folder.getFoldersByName(nm);
+      rej = fi.hasNext() ? fi.next() : folder.createFolder(nm);
+    }
+    try {
+      f2.moveTo(rej);
+      // شناسنامه‌اش هم همراهش می‌رود، وگرنه در بانک یتیم می‌ماند
+      var side = folder.getFilesByName('_MUSIC-META-' +
+                   f2.getName().replace(/\.wav$/i, '') + '.json');
+      if (side.hasNext()) side.next().moveTo(rej);
+      out.moved++;
+      out.notes.push(auditCut_(f2.getName(), 45) + ' — ' + acc.why);
+      logLine_('موسیقی کنار گذاشته شد: «' + f2.getName() + '» — ' + acc.why);
+    } catch (eM) { out.notes.push(f2.getName() + ' — جابه‌جا نشد: ' + eM.message); }
+  }
+
+  // ردیف‌های سهم‌شان در تب هم باید برود، وگرنه بانک هنوز می‌بیندشان
+  if (out.moved) { try { musicScan_(hub); } catch (eS) {} }
+  return out;
+}
+
+/** منو: بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟» */
+function runMusicRecheck() {
+  var r = musicRecheck_(null);
+  var L = ['🔎 بازبینیِ بانکِ موسیقی', '',
+           r.checked + ' فایل سنجیده شد: ' + r.kept + ' ماند، ' + r.moved + ' کنار گذاشته شد.'];
+  if (r.notes.length) {
+    L.push('');
+    for (var i = 0; i < r.notes.length; i++) L.push('• ' + r.notes[i]);
+    L.push('');
+    L.push('کنارگذاشته‌ها پاک نشده‌اند — در زیرپوشهٔ');
+    L.push('«' + (CFG.MUSIC_REJECT_FOLDER || 'کنارگذاشته — گفتار یا نامناسب') + '» هستند.');
+    L.push('اگر سنجه اشتباه کرده، فایل را دستی برگردانید به پوشهٔ اصلی.');
+  } else if (r.checked) {
+    L.push('', 'همه‌شان موسیقی‌اند.');
+  } else {
+    L.push('', 'بانک خالی است.');
+  }
+  try { SpreadsheetApp.getUi().alert(L.join('\n')); } catch (e) { logLine_(L.join(' ')); }
+  return r;
+}
+
 /** منو: آوردنِ موسیقی از فهرستِ پیشنهادی، همین حالا. */
 function runMusicFetch() {
   // یک زدن، سه مرحله: بگرد، بیاور، بپوی. کاربر نباید سه گزینهٔ منو را
@@ -21569,6 +21669,9 @@ function runMusicFetch() {
   var r = musicFetch_();
   var scan = null;
   if (r.added) { try { scan = musicScan_(); } catch (e) {} }
+  // و آنچه از پیش در بانک بود هم یک بار با همین سنجه بازبینی می‌شود
+  var rc = { checked: 0, moved: 0, kept: 0, notes: [] };
+  try { rc = musicRecheck_(null); } catch (eR) {}
 
   var L = ['🎵 موسیقی — گشتن، آوردن، پویش', ''];
   if (seek.added) {
@@ -21591,6 +21694,10 @@ function runMusicFetch() {
     if (r.notes.length) { L.push(''); for (var i = 0; i < r.notes.length; i++) L.push('• ' + r.notes[i]); }
     if (scan) L.push('', 'بانک پویش شد: ' + scan.added + ' تازه، ' + scan.updated + ' به‌روز.');
     L.push('', 'دلیلِ رد شدنِ هرکدام در خودِ «' + MUSIC_FEED_() + '» نوشته شده.');
+  }
+  if (rc.moved) {
+    L.push('', '🔎 بازبینیِ بانک: ' + rc.moved + ' فایل کنار گذاشته شد (پاک نشد):');
+    for (var z = 0; z < rc.notes.length; z++) L.push('   • ' + rc.notes[z]);
   }
   try { SpreadsheetApp.getUi().alert(L.join('\n')); } catch (e) { logLine_(L.join(' ')); }
   return { seek: seek, fetch: r };
@@ -21733,6 +21840,161 @@ function musicVerdict_(pr) {
   if (pr.rms < 150) return { ok: false, why: 'تقریباً بی‌صدا (بلندیِ میانگین ' + pr.rms + ')' };
   if (pr.peak >= 32767 && pr.rms > 12000) return { ok: true, why: 'سالم ولی بلند و کلیپ‌شده — بلندی را کم بگذارید' };
   return { ok: true, why: 'سالم' };
+}
+
+/* ═══════════════ «این اصلاً موسیقی است؟» (۵٫۵۷) ═══════════════
+
+   ══ خرابی‌ای که این را لازم کرد ══
+   ۵٫۵۶ سه فایل آورد و دو تایش گفتار بود — یکی «Opening Remarks of Sean F.
+   Byrnes at LVG Debate»، ۱۲۹ ثانیه، ۱۶ کیلوهرتز. یعنی یک نفر پشتِ تریبون
+   حرف می‌زد و قرار بود سرِ پادکست پخش شود.
+
+   دو اشتباه، هر دو مالِ من:
+     ۱) پرسشِ جست‌وجو واژهٔ «intro» داشت، و «Opening Remarks … Intro» هم با
+        همان می‌خورَد. archive.org پر از سخنرانی و مناظره و کتابِ صوتی است.
+     ۲) و مهم‌تر: هیچ سدی نمی‌پرسید «این موسیقی است؟». musicProbe_ از قبل
+        درصدِ سکوت و یکنواختی را می‌سنجید و در توضیحاتش نوشته بود «گفتار پر
+        از مکث» — ولی هیچ‌جا به‌عنوان دروازه به کار نمی‌رفت. تحلیلی که نوشته
+        شده و تصمیمی از آن ساخته نمی‌شود، همان کدِ مرده است.
+
+   ══ سه لایه، و پیش‌فرضِ رد ══
+   ۱) نرخِ نمونه‌برداری: زیرِ ۲۲ کیلوهرتز یعنی ضبطِ گفتار. موسیقی در این نرخ
+      منتشر نمی‌شود.
+   ۲) نامِ فایل: مناظره، سخنرانی، مصاحبه، خطبه، کتابِ صوتی…
+   ۳) خودِ موج: گفتار مکث دارد و بلندی‌اش پرنوسان است؛ موسیقی پیوسته است.
+
+   و آخرین حرف را مدل می‌زند — با گوش‌دادن به یک بریدهٔ واقعی از فایل، نه از
+   روی نام. اگر مدل در دسترس نبود، حکمِ سه لایهٔ بالا می‌ماند.
+
+   **پیش‌فرض، ردِ فایل است.** بانکِ خالی بدتر از یک مناظره وسطِ پادکست نیست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+var SPEECH_WORDS = ['remarks', 'speech', 'lecture', 'debate', 'interview', 'talk',
+  'sermon', 'address', 'panel', 'conference', 'meeting', 'testimony', 'reading',
+  'audiobook', 'audio book', 'podcast', 'commentary', 'discussion', 'seminar',
+  'keynote', 'briefing', 'hearing', 'q&a', 'interviews', 'oral history',
+  'radio show', 'news', 'preaching', 'homily'];
+
+/**
+ * حکمِ قطعی‌نشدنی از روی اندازه‌ها و نام.
+ * برمی‌گرداند {speech:true|false, why:'…', sure:true|false}
+ */
+function musicIsSpeech_(pr, info, name) {
+  var nm = String(name || '').toLowerCase();
+  for (var i = 0; i < SPEECH_WORDS.length; i++) {
+    if (nm.indexOf(SPEECH_WORDS[i]) !== -1) {
+      return { speech: true, sure: true, why: 'نامش «' + SPEECH_WORDS[i] + '» دارد' };
+    }
+  }
+  var rate = Number((info && info.rate) || 0);
+  if (rate && rate < 22050) {
+    return { speech: true, sure: true,
+             why: rate + ' هرتز — نرخِ ضبطِ گفتار، نه انتشارِ موسیقی' };
+  }
+  if (!pr) return { speech: false, sure: false, why: 'موج سنجیده نشد' };
+
+  // مکث‌های زیاد + بلندیِ پرنوسان = الگوی گفتار
+  if (pr.silentPct >= 25 && pr.steadiness < 55) {
+    return { speech: true, sure: false,
+             why: pr.silentPct + '٪ مکث و یکنواختیِ ' + pr.steadiness + '٪ — الگوی گفتار' };
+  }
+  if (pr.steadiness < 35) {
+    return { speech: true, sure: false,
+             why: 'یکنواختیِ ' + pr.steadiness + '٪ — بیش از حد پرنوسان برای موسیقی' };
+  }
+  return { speech: false, sure: pr.steadiness > 70 && pr.silentPct < 15,
+           why: 'الگوی پیوسته' };
+}
+
+/** بریده‌ای از وسطِ فایل، برای شنیدنِ مدل. WAVِ تک‌کاناله با نرخِ خودِ فایل. */
+function musicExcerpt_(b, info, secs) {
+  try {
+    var want = Math.max(2, Math.min(Number(secs) || 8, Math.floor(info.seconds)));
+    var bps = info.bits / 8, frameB = bps * info.channels;
+    var total = Math.floor(info.dataLen / frameB);
+    var n = Math.min(total, Math.round(want * info.rate));
+    var from = Math.max(0, Math.floor((total - n) / 2));          // از وسط
+
+    var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
+    var out = [];
+    for (var f = 0; f < n; f++) {
+      var i = info.dataAt + (from + f) * frameB;
+      var v;
+      if (info.bits === 8) v = (u(i) - 128) * 256;
+      else { v = u(i + bps - 2) | (u(i + bps - 1) << 8); if (v & 0x8000) v -= 65536; }
+      out.push(v & 255, (v >> 8) & 255);
+    }
+
+    var h = [], dataLen = out.length;
+    var str = function (t) { for (var q = 0; q < t.length; q++) h.push(t.charCodeAt(q)); };
+    var u32 = function (v) { h.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255); };
+    var u16 = function (v) { h.push(v & 255, (v >>> 8) & 255); };
+    str('RIFF'); u32(36 + dataLen); str('WAVE');
+    str('fmt '); u32(16); u16(1); u16(1); u32(info.rate);
+    u32(info.rate * 2); u16(2); u16(16);
+    str('data'); u32(dataLen);
+    var all = h.concat(out);
+    for (var z = 0; z < all.length; z++) if (all[z] > 127) all[z] -= 256;
+    return Utilities.base64Encode(all);
+  } catch (e) { return ''; }
+}
+
+/**
+ * مدل به یک بریده گوش می‌دهد و می‌گوید موسیقی است یا گفتار.
+ * برمی‌گرداند 'موسیقی' | 'گفتار' | '' (نتوانست).
+ *
+ * این تنها سنجه‌ای است که واقعاً *می‌شنود*. بقیه از روی عدد حدس می‌زنند.
+ * اگر در دسترس نبود، حکمِ اندازه‌ها می‌ماند — ولی نبودش سکوتِ تأیید نیست.
+ */
+function musicListen_(b, info, name) {
+  try {
+    if (!info || !(info.seconds > 0)) return '';
+    var b64 = musicExcerpt_(b, info, 8);
+    if (!b64) return '';
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
+    var payload = { contents: [{ role: 'user', parts: [
+      { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست به‌عنوان موسیقیِ ' +
+              'آغاز یا پایان یا فاصله پخش شود.\n\n' +
+              'فقط یکی از این سه واژه را برگردان، بی هیچ توضیحی:\n' +
+              '«موسیقی» — اگر ساز یا آهنگ است.\n' +
+              '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
+              '«نامعلوم» — اگر مطمئن نیستی.' },
+      { inlineData: { mimeType: 'audio/wav', data: b64 } }
+    ] }], generationConfig: { temperature: 0, maxOutputTokens: 16 } };
+
+    var j = geminiFetch_(url, payload);
+    var t = String(extractText_(j) || '');
+    if (t.indexOf('گفتار') !== -1) return 'گفتار';
+    if (t.indexOf('موسیقی') !== -1) return 'موسیقی';
+    return '';
+  } catch (e) {
+    logLine_('شنیدنِ مدل انجام نشد (' + String(name || '') + '): ' + e.message);
+    return '';
+  }
+}
+
+/**
+ * حکمِ نهایی: آیا این فایل وارد بانک شود؟
+ * برمی‌گرداند {ok, why}
+ */
+function musicAccept_(b, info, name) {
+  var pr = null;
+  try { pr = musicProbe_(b, info); } catch (e) {}
+  var vd = musicVerdict_(pr);
+  if (!vd.ok) return { ok: false, why: vd.why };
+
+  var g = musicIsSpeech_(pr, info, name);
+  // چیزی که از روی نام یا نرخ قطعی است، اصلاً به مدل نمی‌رسد — هزینهٔ بی‌دلیل
+  if (g.speech && g.sure) return { ok: false, why: 'گفتار است: ' + g.why };
+
+  var heard = musicListen_(b, info, name);
+  if (heard === 'گفتار') return { ok: false, why: 'مدل گوش داد و گفت گفتار است' };
+  if (heard === 'موسیقی') return { ok: true, why: 'مدل تأیید کرد موسیقی است' };
+
+  // مدل نتوانست. حالا حکمِ اندازه‌ها تنها چیزی است که داریم، و شک یعنی رد.
+  if (g.speech) return { ok: false, why: 'احتمالِ گفتار: ' + g.why };
+  return { ok: true, why: g.why };
 }
 
 /** حدسِ بافت از روی اندازه‌ها — کمکِ تصمیم، نه حکم. */

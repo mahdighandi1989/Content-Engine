@@ -229,6 +229,26 @@ download goes through `musicFetch_` with the same three gates and the same
 recorded rejection. Two download paths would mean two places to fail and half a
 history in each.
 
+**Is it even music?** 5.56 fetched three files and two were speech — one a
+129-second debate address at 16 kHz. Two mistakes: the search matched `intro`
+in free text (which catches «Opening Remarks …»), and `mediatype:(audio)` on
+archive.org means *any* sound — lectures, sermons, audiobooks. The search now
+draws from music collections (`netlabels`, `audio_music`) instead.
+
+The deeper miss: nothing asked whether the file was music. `musicProbe_` had
+measured silence ratio and steadiness since 5.43, and its own comment said
+«گفتار پر از مکث» — but no decision was ever built on it. That is the fourth
+instance in this repo of analysis written and never turned into a gate.
+`musicAccept_` now layers sample rate (< 22 kHz = a speech recording), speech
+words in the name, and the waveform pattern — and gives the last word to
+`musicListen_`, which sends the model a real eight-second excerpt as
+`inlineData`. It is the only check that actually *hears*. **The default is
+reject:** if the model is unavailable the measurements stand and doubt means
+no. An absent model is not silent approval.
+
+Rejects are moved to a subfolder, never deleted — if the check is wrong, the
+file is still there.
+
 **Nothing generates music.** No model composes anything — the model only chooses
 which existing track plays where and where to cut it.
 

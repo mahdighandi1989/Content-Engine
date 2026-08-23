@@ -182,7 +182,8 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
     const i16 = v => { out.push(v & 255, (v >> 8) & 255); };
     s4('RIFF'); i32(36 + dataLen); s4('WAVE'); s4('fmt '); i32(16); i16(1); i16(1);
     i32(rate); i32(rate * 2); i16(2); i16(16); s4('data'); i32(dataLen);
-    for (let i = 0; i < n; i++) i16(0);
+    // موجِ واقعی، نه سکوت: سدِ سلامت فایلِ بی‌صدا را رد می‌کند و باید بکند
+    for (let i = 0; i < n; i++) i16(Math.round(9000 * Math.sin(i / 12)));
     return out;
   };
 
@@ -204,6 +205,9 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
     { url: 'http://insecure.example/x.wav', title: 'بی https' }
   ]});
 
+  // در این بلوک مدل موضوع نیست؛ حکمِ اندازه‌ها باید کافی باشد
+  const keepGF = global.geminiFetch_;
+  global.geminiFetch_ = () => { throw new Error('در این آزمون مدل موضوع نیست'); };
   global.__STUB = (url) => {
     if (url.indexOf('ok.example') !== -1) return { code: 200, bytes: wav(3, 24000) };
     if (url.indexOf('liar.example') !== -1) return { code: 200, bytes: [73, 68, 51, 4, 0, 0, 0] };
@@ -285,6 +289,7 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
 
   wipe(/_MUSIC-FEED/);
   delete global.__PROPS[PK.MUSIC_FETCHED];
+  global.geminiFetch_ = keepGF;
 }
 
 
@@ -377,6 +382,98 @@ console.log('=== ۷) موتور خودش می‌گردد — بی وابستگی
 
   wipe(/_MUSIC-FEED/);
   delete global.__PROPS[PK.MUSIC_SEEN];
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+}
+
+
+console.log('=== ۸) «این اصلاً موسیقی است؟» — سدی که ۵٫۵۶ نداشت ===');
+{
+  /* ۵٫۵۶ سه فایل آورد و دو تایش گفتار بود. یکی «Opening Remarks of Sean F.
+   * Byrnes at LVG Debate»، ۱۲۹ ثانیه، ۱۶ کیلوهرتز — یک نفر پشتِ تریبون.
+   * هیچ سدی نمی‌پرسید این موسیقی است یا نه، در حالی که musicProbe_ از قبل
+   * درصدِ سکوت و یکنواختی را می‌سنجید و در توضیحاتش نوشته بود «گفتار پر از
+   * مکث». تحلیلی که تصمیمی از آن ساخته نشود، کدِ مرده است. */
+
+  // ۱) نام — ارزان‌ترین سد، و همان که فایلِ واقعیِ امروز را می‌گرفت
+  const byName = musicIsSpeech_(null, null, 'Opening Remarks of Sean F. Byrnes at LVG Debate');
+  ok('۸.۱ فایلِ واقعیِ امروز از روی نامش رد می‌شود',
+     byName.speech === true && byName.sure === true, byName.why);
+  ok('۸.۲ و نامِ بی‌گناه رد نمی‌شود',
+     musicIsSpeech_(null, null, 'Calm Piano Loop').speech === false);
+
+  // ۲) نرخِ نمونه‌برداری — همان ۱۶۰۰۰ هرتزِ فایلِ مناظره
+  const byRate = musicIsSpeech_(null, { rate: 16000 }, 'x.wav');
+  ok('۸.۳ ۱۶ کیلوهرتز یعنی ضبطِ گفتار، نه انتشارِ موسیقی',
+     byRate.speech === true && byRate.sure === true, byRate.why);
+  ok('۸.۴ و ۴۴٫۱ کیلوهرتز به‌تنهایی دلیلِ رد نیست',
+     musicIsSpeech_(null, { rate: 44100 }, 'x.wav').speech === false);
+
+  // ۳) خودِ موج — برای نامی مثل «Jump Master Intro» که هیچ واژهٔ گفتاری ندارد
+  ok('۸.۵ مکثِ زیاد + بلندیِ پرنوسان = الگوی گفتار',
+     musicIsSpeech_({ silentPct: 32, steadiness: 41 }, { rate: 44100 }, 'Jump Master Intro').speech === true);
+  ok('۸.۶ ولی موجِ پیوسته می‌ماند',
+     musicIsSpeech_({ silentPct: 4, steadiness: 88 }, { rate: 44100 }, 'Loop').speech === false);
+
+  // ۴) و حرفِ آخر با مدلی که واقعاً می‌شنود
+  const wav = (secs, rate) => {
+    const n = Math.round(rate * secs), d = n * 2, o = [];
+    const s4 = t => { for (const c of t) o.push(c.charCodeAt(0)); };
+    const i32 = v => { o.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); };
+    const i16 = v => { o.push(v & 255, (v >> 8) & 255); };
+    s4('RIFF'); i32(36 + d); s4('WAVE'); s4('fmt '); i32(16); i16(1); i16(1);
+    i32(rate); i32(rate * 2); i16(2); i16(16); s4('data'); i32(d);
+    for (let i = 0; i < n; i++) i16(Math.round(9000 * Math.sin(i / 12)));
+    return o;
+  };
+  const bytes = wav(4, 44100), info = wavInfo_(bytes);
+  const realFetch = global.geminiFetch_;
+  let heardPayload = null;
+  global.geminiFetch_ = (u, p) => { heardPayload = p;
+    return { candidates: [{ content: { parts: [{ text: 'گفتار' }] } }] }; };
+  ok('۸.۷ مدل که بگوید گفتار، فایل رد می‌شود',
+     musicAccept_(bytes, info, 'Ambient Loop').ok === false);
+  ok('۸.۸ و واقعاً صدا برایش فرستاده شده، نه فقط نام',
+     !!(heardPayload && heardPayload.contents[0].parts.some(x => x.inlineData &&
+        x.inlineData.mimeType === 'audio/wav' && x.inlineData.data.length > 100)));
+
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'موسیقی' }] } }] });
+  ok('۸.۹ و که بگوید موسیقی، می‌ماند', musicAccept_(bytes, info, 'Ambient Loop').ok === true);
+
+  // مهم‌ترین مرز: نبودِ مدل، تأیید نیست
+  global.geminiFetch_ = () => { throw new Error('بی‌پاسخ'); };
+  ok('۸.۱۰ مدل که نبود، حکمِ اندازه‌ها می‌ماند — نبودش سکوتِ تأیید نیست',
+     musicAccept_(wav(4, 16000), wavInfo_(wav(4, 16000)), 'x').ok === false);
+  ok('۸.۱۱ و فایلِ آشکارا گفتاری اصلاً به مدل نمی‌رسد — هزینهٔ بی‌دلیل ممنوع',
+     musicAccept_(bytes, info, 'Sean Byrnes Debate').ok === false);
+  global.geminiFetch_ = realFetch;
+
+  // ۵) و دانلود واقعاً از این سد رد می‌شود
+  const OUTF = () => DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const wipe = re => { const it = OUTF().getFiles();
+    while (it.hasNext()) { const f = it.next(); if (re.test(f.getName())) f.setTrashed(true); } };
+  const bankWavs = () => { const out = []; const it = musicFolder_().getFiles();
+    while (it.hasNext()) { const n = it.next().getName(); if (/\.wav$/i.test(n)) out.push(n); } return out; };
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+  const n0 = bankWavs().length;
+  putOutJson_(MUSIC_FEED_(), { items: [
+    { url: 'https://a.example/talk.wav', title: 'Opening Remarks at Debate' }] });
+  global.__STUB = () => ({ code: 200, bytes: wav(4, 44100) });
+  musicFetch_();
+  ok('۸.۱۲ فایلِ گفتاری دانلود می‌شود ولی وارد بانک نمی‌شود',
+     bankWavs().length === n0, bankWavs().join(' | '));
+  ok('۸.۱۳ و دلیلش در فهرست نوشته می‌شود',
+     /گفتار/.test(String(getOutJson_(MUSIC_FEED_()).items[0].error)),
+     String(getOutJson_(MUSIC_FEED_()).items[0].error));
+
+  // ۶) پرسشِ جست‌وجو دیگر «intro» ندارد و در مجموعه‌های موسیقی می‌گردد
+  const q = musicSeekQuery_('شروع');
+  ok('۸.۱۴ پرسش در مجموعه‌های موسیقی می‌گردد، نه در همهٔ صداها',
+     /collection:\(netlabels/.test(q) && !/mediatype:\(audio\)/.test(q), q);
+  ok('۸.۱۵ و واژهٔ «intro» — که Opening Remarks را می‌گرفت — حذف شده',
+     q.indexOf('intro') === -1, q);
+
+  wipe(/_MUSIC-FEED/);
   delete global.__PROPS[PK.MUSIC_FETCHED];
 }
 
