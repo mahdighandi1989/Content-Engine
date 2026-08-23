@@ -622,6 +622,22 @@ function selfUpdateDaily() {
     catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
   }
 
+  /* بازبینیِ شنیداریِ قطعه‌های نامعلوم. مدل همیشه در دسترس نیست و قطعه‌ای
+     که بارِ اول قضاوت نشد، از ۵٫۶۵ هرگز پخش نمی‌شود. ۵٫۷۱ راهِ تجدیدنظر را
+     باز کرد ولی فقط با دکمه — یعنی کاری روی دستِ صاحبِ برنامه. حالا خودکار،
+     چندتا در هر شب، افکت‌ها اول. */
+  if (CFG.MUSIC_REHEAR !== false && nightHas_(45000, 'بازبینیِ شنیداریِ نامعلوم‌ها')) {
+    try {
+      var rh = musicRecheck_(null, { onlyUnknown: true,
+                 cap: Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3),
+                 budgetMs: 60000 });
+      if (rh && (rh.heard || rh.moved)) {
+        logLine_('بازبینیِ شنیداری: ' + rh.heard + ' تأیید شد، ' +
+                 rh.moved + ' کنار گذاشته شد.');
+      }
+    } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
+  }
+
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
   if (nightHas_(45000, 'سنجهٔ محتوا')) {
     try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }

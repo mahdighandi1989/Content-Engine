@@ -2512,7 +2512,8 @@ function musicSlotCounts_(hub) {
  * فایل‌های موجود می‌زند و ردشده‌ها را به زیرپوشهٔ «کنارگذاشته» می‌بَرد —
  * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
  */
-function musicRecheck_(hub) {
+function musicRecheck_(hub, opt) {
+  opt = opt || {};
   var out = { checked: 0, moved: 0, kept: 0, heard: 0, notes: [] };
   var folder = musicFolder_();
   var rej = null;
@@ -2523,7 +2524,45 @@ function musicRecheck_(hub) {
     if (/\.wav$/i.test(f.getName())) todo.push(f);
   }
 
+  /* ── حالتِ شبانه: فقط آن‌هایی که هنوز داوری ندارند ──
+   *
+   * پاسخِ مدل همیشه در دسترس نیست؛ قطعه‌ای که بارِ اول «❓ مدل نشنید»
+   * گرفت، از ۵٫۶۵ دیگر هرگز پخش نمی‌شود (پیش‌فرض ردّ، که درست است).
+   * ۵٫۷۱ راهِ تجدیدنظر را باز کرد ولی فقط با فشردنِ دکمه — یعنی باز هم
+   * کاری روی دستِ صاحبِ برنامه می‌ماند، و او همین را رد کرد.
+   * حالا هر شب چندتا از نامعلوم‌ها دوباره پرسیده می‌شوند. پویشِ کاملِ
+   * بانک هر شب گران است (بایتِ هر فایل)، پس فهرست باریک می‌شود. */
+  if (opt.onlyUnknown) {
+    var known = {};
+    try {
+      var bk = musicBank_(hub);
+      for (var b0 = 0; b0 < bk.length; b0++) known[bk[b0].id] = bk[b0];
+    } catch (eB) {}
+    todo = todo.filter(function (f2) {
+      var row = known[f2.getId()];
+      if (!row) return true;                       // هنوز در تب ننشسته
+      return !heardSays_(row.heard, 'موسیقی') && !heardSays_(row.heard, 'جلوه');
+    });
+    // افکت‌ها اول: تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد
+    todo.sort(function (a, c) {
+      var ra = known[a.getId()], rc = known[c.getId()];
+      return ((ra && String(ra.kind || '') === 'افکت') ? 0 : 1) -
+             ((rc && String(rc.kind || '') === 'افکت') ? 0 : 1);
+    });
+  }
+  var capN = Math.max(0, Number(opt.cap) || 0);
+  if (capN && todo.length > capN) {
+    out.notes.push('این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
+    todo = todo.slice(0, capN);
+  }
+  var rt0 = new Date().getTime();
+  var rBudget = Math.max(0, Number(opt.budgetMs) || 0);
+
   for (var i = 0; i < todo.length; i++) {
+    if (rBudget && new Date().getTime() - rt0 > rBudget) {
+      out.notes.push('وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.');
+      break;
+    }
     var f2 = todo[i], bytes = null, info = null;
     out.checked++;
     try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.76
+ *  موتور محتوا و پادکست — نسخهٔ 5.77
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -420,6 +420,12 @@ var CFG = {
   MUSIC_SFX_PREFETCH: true,
   MUSIC_SFX_PREFETCH_MS: 90000,
   MUSIC_SFX_PREFETCH_MAX: 2,   // حداکثر فایل در همین پنجره
+  // ── بازبینیِ شنیداریِ خودکار ──
+  // قطعه‌ای که بارِ اول مدل نتوانست قضاوتش کند «❓» می‌گیرد، و افکتِ «❓»
+  // هرگز پخش نمی‌شود. تا ۵٫۷۶ تنها راهِ تجدیدنظر فشردنِ دکمه بود — یعنی
+  // کاری روی دستِ صاحبِ برنامه، که درست هم نبود. حالا هر شب چندتا.
+  MUSIC_REHEAR: true,
+  MUSIC_REHEAR_MAX: 3,
 
   // ── چرخشِ بانک: گشتن هرگز نباید بایستد ──
   // تا ۵٫۶۴ لحظه‌ای که پوششِ خانواده‌ها کامل می‌شد، musicThinSlots_ خالی
@@ -673,7 +679,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.76',
+  CODE_VERSION: '5.77',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -18933,6 +18939,22 @@ function selfUpdateDaily() {
     catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
   }
 
+  /* بازبینیِ شنیداریِ قطعه‌های نامعلوم. مدل همیشه در دسترس نیست و قطعه‌ای
+     که بارِ اول قضاوت نشد، از ۵٫۶۵ هرگز پخش نمی‌شود. ۵٫۷۱ راهِ تجدیدنظر را
+     باز کرد ولی فقط با دکمه — یعنی کاری روی دستِ صاحبِ برنامه. حالا خودکار،
+     چندتا در هر شب، افکت‌ها اول. */
+  if (CFG.MUSIC_REHEAR !== false && nightHas_(45000, 'بازبینیِ شنیداریِ نامعلوم‌ها')) {
+    try {
+      var rh = musicRecheck_(null, { onlyUnknown: true,
+                 cap: Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3),
+                 budgetMs: 60000 });
+      if (rh && (rh.heard || rh.moved)) {
+        logLine_('بازبینیِ شنیداری: ' + rh.heard + ' تأیید شد، ' +
+                 rh.moved + ' کنار گذاشته شد.');
+      }
+    } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
+  }
+
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
   if (nightHas_(45000, 'سنجهٔ محتوا')) {
     try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
@@ -23400,7 +23422,8 @@ function musicSlotCounts_(hub) {
  * فایل‌های موجود می‌زند و ردشده‌ها را به زیرپوشهٔ «کنارگذاشته» می‌بَرد —
  * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
  */
-function musicRecheck_(hub) {
+function musicRecheck_(hub, opt) {
+  opt = opt || {};
   var out = { checked: 0, moved: 0, kept: 0, heard: 0, notes: [] };
   var folder = musicFolder_();
   var rej = null;
@@ -23411,7 +23434,45 @@ function musicRecheck_(hub) {
     if (/\.wav$/i.test(f.getName())) todo.push(f);
   }
 
+  /* ── حالتِ شبانه: فقط آن‌هایی که هنوز داوری ندارند ──
+   *
+   * پاسخِ مدل همیشه در دسترس نیست؛ قطعه‌ای که بارِ اول «❓ مدل نشنید»
+   * گرفت، از ۵٫۶۵ دیگر هرگز پخش نمی‌شود (پیش‌فرض ردّ، که درست است).
+   * ۵٫۷۱ راهِ تجدیدنظر را باز کرد ولی فقط با فشردنِ دکمه — یعنی باز هم
+   * کاری روی دستِ صاحبِ برنامه می‌ماند، و او همین را رد کرد.
+   * حالا هر شب چندتا از نامعلوم‌ها دوباره پرسیده می‌شوند. پویشِ کاملِ
+   * بانک هر شب گران است (بایتِ هر فایل)، پس فهرست باریک می‌شود. */
+  if (opt.onlyUnknown) {
+    var known = {};
+    try {
+      var bk = musicBank_(hub);
+      for (var b0 = 0; b0 < bk.length; b0++) known[bk[b0].id] = bk[b0];
+    } catch (eB) {}
+    todo = todo.filter(function (f2) {
+      var row = known[f2.getId()];
+      if (!row) return true;                       // هنوز در تب ننشسته
+      return !heardSays_(row.heard, 'موسیقی') && !heardSays_(row.heard, 'جلوه');
+    });
+    // افکت‌ها اول: تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد
+    todo.sort(function (a, c) {
+      var ra = known[a.getId()], rc = known[c.getId()];
+      return ((ra && String(ra.kind || '') === 'افکت') ? 0 : 1) -
+             ((rc && String(rc.kind || '') === 'افکت') ? 0 : 1);
+    });
+  }
+  var capN = Math.max(0, Number(opt.cap) || 0);
+  if (capN && todo.length > capN) {
+    out.notes.push('این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
+    todo = todo.slice(0, capN);
+  }
+  var rt0 = new Date().getTime();
+  var rBudget = Math.max(0, Number(opt.budgetMs) || 0);
+
   for (var i = 0; i < todo.length; i++) {
+    if (rBudget && new Date().getTime() - rt0 > rBudget) {
+      out.notes.push('وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.');
+      break;
+    }
     var f2 = todo[i], bytes = null, info = null;
     out.checked++;
     try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
