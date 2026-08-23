@@ -16,6 +16,7 @@
 | `_PROMPT-monitor-v4.md` | `196mXt2barWgFr9WOvvDzrGZlG8J5WjAS` | ۲۰۲۶-۰۸-۲۲ |
 | `_PROMPT-enrich-v4.md` | `1AJ_pboBmRqEYmriVEAXW3Cs0OfHBKr0J` | ۲۰۲۶-۰۸-۲۳ |
 | `_PROMPT-enrich-v5.md` | `1Bzcj09mKcUtJk3Dvu2s80KiVC5ZFK_ut` | ۲۰۲۶-۰۸-۲۳ |
+| `_PROMPT-monitor-v5.md` | `15mE_c6NEpn7W2moREuyl3QpDLwLWzb7R` | ۲۰۲۶-۰۸-۲۳ |
 
 ## دو لایه‌اند، نه یکی
 

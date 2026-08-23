@@ -357,7 +357,7 @@ console.log('=== ۷) موتور خودش می‌گردد — بی وابستگی
   ok('۷.۱۰ اجرای دوباره همان‌ها را تکرار نمی‌کند', r2.added === 0);
 
   // فقط برای جایگاهِ کم می‌گردد
-  ok('۷.۱۱ با بانکِ خالی هر سه جایگاه کم‌اند', musicMissingSlots_().length === 3);
+  ok('۷.۱۱ با بانکِ خالی هر سه جایگاه کم‌اند', musicThinSlots_().length === 3);
 
   // و بعد musicFetch_ همان سدها را می‌زند — گشتن راهِ میان‌بر نساخته
   wipe(/_MUSIC-FEED/);
@@ -375,7 +375,7 @@ console.log('=== ۷) موتور خودش می‌گردد — بی وابستگی
   ok('۷.۱۳ در کارِ شبانه، گشتن پیش از آوردن می‌آید',
      p21.indexOf('musicSeek_') !== -1 &&
      p21.indexOf('musicSeek_') < p21.indexOf('musicFetch_()'));
-  ok('۷.۱۴ و فقط برای جایگاهِ کم گشته می‌شود', /musicMissingSlots_\(\)/.test(p21));
+  ok('۷.۱۴ و فقط برای جایگاهِ کم گشته می‌شود', /musicThinSlots_\(\)/.test(p21));
   ok('۷.۱۵ منو هر سه مرحله را در یک زدن انجام می‌دهد',
      /musicSeek_[\s\S]{0,400}musicFetch_[\s\S]{0,200}musicScan_/.test(
        fs.readFileSync('src/23_Music.gs', 'utf8').split('function runMusicFetch')[1]));
@@ -643,6 +643,74 @@ console.log('=== ۱۰) گوینده هرگز نباید دستورِ لحن را
   // ه) و سقوط همیشه به سمتِ امن است، نه به چسباندنِ دوباره
   ok('۱۰.۱۵ خطای ساختاریِ قالبِ دستور → بی‌دستور، نه چسباندن',
      /return ttsChunkTry_\(text, sectionStyle, voice, false\)/.test(p3));
+}
+
+
+console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، اطلاع‌رسانی ===');
+{
+  /* پنج پرسشِ صاحبِ برنامه: فقط از همین‌ها استفاده می‌کند یا باز هم می‌گردد؟
+   * ثبت می‌شود؟ تکرار می‌شود؟ ناظر می‌بیند؟ اطلاع می‌دهد؟
+   * و یکی‌شان یک باگِ واقعی بود: بانک روی چهار قطعه یخ می‌زد. */
+
+  const realBank = global.musicBank_;
+  const mk = n => Array.from({ length: n }, (_, i) => ({
+    id: 'T' + i, name: 'قطعه ' + i, sec: 30, gain: 1, used: 0,
+    slots: 'شروع، پایان، میانه', mood: 'آرام' }));
+
+  // الف) بانک تا رسیدن به هدف رشد می‌کند — «صفر نبودن» کافی نیست
+  global.musicBank_ = () => mk(1);
+  ok('۱۱.۱ یک قطعه در هر جایگاه هنوز «کم» است — گشتن ادامه دارد',
+     musicThinSlots_().length === 3, JSON.stringify(musicThinSlots_()));
+  global.musicBank_ = () => mk(CFG.MUSIC_BANK_TARGET);
+  ok('۱۱.۲ و با رسیدن به هدف، دیگر گشته نمی‌شود',
+     musicThinSlots_().length === 0);
+  ok('۱۱.۳ شمارِ هر جایگاه جداگانه دیده می‌شود',
+     musicSlotCounts_()['شروع'] === CFG.MUSIC_BANK_TARGET,
+     JSON.stringify(musicSlotCounts_()));
+
+  // ب) قطعهٔ قسمتِ قبل، اگر جایگزینی هست، دوباره پخش نمی‌شود
+  const bank = mk(3);
+  global.__PROPS[PK.MUSIC_LAST] = JSON.stringify({ tracks: ['قطعه 0'] });
+  const pick = musicPick_(bank, 'شروع', 'آرام');
+  ok('۱۱.۴ قطعهٔ دیروز دوباره انتخاب نمی‌شود', pick && pick.name !== 'قطعه 0',
+     pick && pick.name);
+  // ولی اگر تنها گزینه باشد، سکوت بدتر است
+  const one = [bank[0]];
+  ok('۱۱.۵ مگر آنکه تنها گزینه باشد — سکوت بدتر از تکرار است',
+     musicPick_(one, 'شروع', 'آرام').name === 'قطعه 0');
+  delete global.__PROPS[PK.MUSIC_LAST];
+
+  // ج) وضعیت، شمار و لنگی را می‌گوید — ناظر از رویش می‌سنجد
+  global.musicBank_ = () => mk(2);
+  const st = musicStatus_();
+  ok('۱۱.۶ وضعیت شمارِ هر جایگاه و هدف را دارد',
+     st.slots && st.target === CFG.MUSIC_BANK_TARGET && st.thin.length === 3,
+     JSON.stringify({ slots: st.slots, thin: st.thin }));
+  global.musicBank_ = realBank;
+
+  // د) و اطلاع‌رسانی: تا امروز هیچ‌جای ایمیل و تلگرام نامی از موسیقی نبود
+  const mail = fs.readFileSync('src/04_Mailer.gs', 'utf8');
+  ok('۱۱.۷ بندِ موسیقی در ایمیلِ هر دو برنامه هست',
+     (mail.match(/h\.push\(musicHtml_\(\)\)/g) || []).length === 2,
+     String((mail.match(/musicHtml_\(\)/g) || []).length));
+  const tg = fs.readFileSync('src/07_Telegram.gs', 'utf8');
+  ok('۱۱.۸ و خطِ موسیقی در سرپیامِ تلگرامِ هر دو برنامه',
+     (tg.match(/tgMusicLine_\(\)/g) || []).length >= 3);
+
+  global.__PROPS[PK.MUSIC_LAST] = JSON.stringify(
+    { episode: 'قسمت ۱', tracks: ['پیانوی آرام'], mood: 'آرام، امیدوار', missing: [] });
+  const html = musicHtml_();
+  ok('۱۱.۹ و واقعاً نامِ قطعه و حال‌وهوا را می‌نویسد',
+     /پیانوی آرام/.test(html) && /آرام، امیدوار/.test(html), html.slice(0, 90));
+  ok('۱۱.۱۰ خطِ تلگرام هم همان را می‌گوید', /پیانوی آرام/.test(tgMusicLine_()));
+
+  // ه) و سلامت، بانکِ لنگ را به ناظر می‌گوید — بی‌آنکه هشدارِ دروغ بسازد
+  const p8 = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۱۱.۱۱ بانکِ لنگ یادداشت می‌شود، نه هشدار',
+     /mus\.thin[\s\S]{0,400}notes\.push/.test(p8));
+  ok('۱۱.۱۲ و قطعهٔ پخش‌شده در یادداشت‌های سلامت می‌آید',
+     /موسیقیِ «' \+ mus\.last\.episode/.test(p8));
+  delete global.__PROPS[PK.MUSIC_LAST];
 }
 
 

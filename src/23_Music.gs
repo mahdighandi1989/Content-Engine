@@ -321,12 +321,20 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     for (var w = 0; w < cands.length; w++) if (cands[w].id === String(wantedId)) return cands[w];
   }
   var words = String(moodWords || '').split(/[\s،,]+/).filter(Boolean);
+  var lastNames = [];
+  try {
+    var lp = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null');
+    lastNames = (lp && lp.tracks) || [];
+  } catch (eL) {}
   var score = function (b) {
     var s = 0;
     for (var m = 0; m < words.length; m++) {
       if (words[m] && b.mood && b.mood.indexOf(words[m]) !== -1) s += 3;
     }
     s -= Math.min(b.used, 5) * 0.5;          // کم‌مصرف‌تر، جلوتر
+    // و قطعهٔ قسمتِ پیش، اگر جایگزینی هست، دوباره پخش نمی‌شود. شنونده‌ای که
+    // هر روز همان جینگل را بشنود، بعد از یک هفته آن را نمی‌شنود.
+    if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
     return s;
   };
   cands.sort(function (a, b) {
@@ -637,6 +645,12 @@ function musicStatus_() {
     }
   } catch (e) {}
   try { out.last = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null'); } catch (e2) {}
+  // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
+  try {
+    out.slots = musicSlotCounts_();
+    out.target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
+    out.thin = musicThinSlots_();
+  } catch (e3) {}
   return out;
 }
 
@@ -1402,19 +1416,42 @@ function musicSeek_(slots) {
 }
 
 /**
- * جایگاه‌هایی که بانک برایشان چیزی ندارد.
- * بی این، هر شب برای جایگاهی می‌گشتیم که ده قطعه دارد.
+ * جایگاه‌هایی که بانک برایشان **کم** دارد — نه فقط آن‌هایی که خالی‌اند.
+ *
+ * ══ باگی که این را لازم کرد (۵٫۶۰) ══
+ * نسخهٔ قبلی جایگاهی را «کم» می‌شمرد که *صفر* قطعه داشت. یعنی همان شبی که
+ * سه فایلِ اول رسیدند، گشتن برای همیشه متوقف می‌شد و بانک روی چهار قطعه
+ * یخ می‌زد. از آن به بعد هر قسمت همان موسیقی را می‌گرفت، برای همیشه.
+ *
+ * و بدتر: «انتخابِ متناسب با وایب» از میانِ یک قطعه در هر جایگاه، انتخاب
+ * نیست. تا وقتی بانک به هدف نرسد، انتخاب معنایی ندارد.
  */
-function musicMissingSlots_(hub) {
+function musicThinSlots_(hub) {
   var need = ['شروع', 'پایان', 'میانه'], out = [];
+  var target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
   var bank = [];
   try { bank = musicBank_(hub); } catch (e) { return need; }
   for (var i = 0; i < need.length; i++) {
-    var has = false;
+    var n = 0;
     for (var j = 0; j < bank.length; j++) {
-      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) { has = true; break; }
+      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) n++;
     }
-    if (!has) out.push(need[i]);
+    if (n < target) out.push(need[i]);
+  }
+  return out;
+}
+
+
+/** شمارِ قطعه‌های هر جایگاه — برای وضعیت و گزارش. */
+function musicSlotCounts_(hub) {
+  var need = ['شروع', 'پایان', 'میانه'], out = {};
+  var bank = [];
+  try { bank = musicBank_(hub); } catch (e) { return out; }
+  for (var i = 0; i < need.length; i++) {
+    out[need[i]] = 0;
+    for (var j = 0; j < bank.length; j++) {
+      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) out[need[i]]++;
+    }
   }
   return out;
 }
@@ -1495,7 +1532,7 @@ function runMusicFetch() {
   // به‌ترتیب بزند تا یک فایل موسیقی داشته باشد.
   var seek = { added: 0, notes: [] };
   try {
-    var miss = musicMissingSlots_();
+    var miss = musicThinSlots_();
     if (miss.length) seek = musicSeek_(miss);
   } catch (eS) {}
 

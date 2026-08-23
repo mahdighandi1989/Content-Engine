@@ -526,7 +526,7 @@ function selfUpdateDaily() {
   // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
   // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
   try {
-    var miss = musicMissingSlots_();
+    var miss = musicThinSlots_();
     if (miss.length) musicSeek_(miss);
   } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
   try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }

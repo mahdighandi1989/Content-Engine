@@ -61,6 +61,20 @@ function tgApi_(method, payload) {
 }
 
 /** نشانِ نوع منبع در فهرست تلگرام. */
+/** یک خطِ کوتاهِ موسیقی برای سرپیامِ تلگرام. خالی، اگر چیزی پخش نشده. */
+function tgMusicLine_() {
+  try {
+    var st = musicStatus_();
+    var last = st && st.last;
+    if (last && last.tracks && last.tracks.length) {
+      return '🎵 ' + tgEsc_(last.tracks.join(' · ')) +
+             (last.mood ? '  ·  ' + tgEsc_(last.mood) : '') + '\n';
+    }
+    if (st && !st.tracks) return '🎵 ' + tgEsc_('بی‌موسیقی — بانک خالی است') + '\n';
+    return '🎵 ' + tgEsc_('بی‌موسیقی') + '\n';
+  } catch (e) { return ''; }
+}
+
 function tgKindIcon_(kind) {
   if (kind === 'ویدیو') return '🎬';
   if (kind === 'صدا') return '🎧';
@@ -216,6 +230,7 @@ function sendTelegramEpisode_(epNum, ep, items, cat, audioFiles, docBlob, dur, f
                '📂 ' + tgEsc_(cat) + '  ·  ⏱ ' + tgEsc_(dur) + '  ·  📎 ' + items.length + ' منبع\n\n' +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (tags ? tgEsc_(tags) + '\n' : '') +
+               tgMusicLine_() +
                '<a href="' + tgEsc_(folder.getUrl()) + '">پوشهٔ قسمت در درایو</a>';
     tgSend_(head); sent++;
   } catch (e) { failed++; notes.push('سرپیام: ' + e.message); }
@@ -375,7 +390,8 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                '⏱ ' + tgEsc_(dur) +
                (meta.enrich && meta.enrich.length
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
-               (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') + '\n' +
+               (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
+               tgMusicLine_() + '\n' +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (ep.goal && ep.goal.message ? '🎯 ' + tgEsc_(ep.goal.message) + '\n\n' : '') +
                tgEsc_((tags || []).join(' ')) + '\n' +

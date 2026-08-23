@@ -593,6 +593,20 @@ function healthCheck() {
       } else if (mus.last && (mus.last.missing || []).length) {
         notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
                    ' — ولی برای ' + mus.last.missing.join('، ') + ' قطعه‌ای نبود.');
+      } else if (mus.last && mus.last.tracks) {
+        notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
+                   (mus.last.mood ? ' (' + mus.last.mood + ')' : '') + '.');
+      }
+      // بانکِ لنگ: جایگاهی که یک‌دو قطعه دارد یعنی هر قسمت همان را می‌گیرد.
+      // این ایرادِ خرابی نیست، ایرادِ یکنواختی است — پس یادداشت، نه هشدار.
+      if (mus.tracks && (mus.thin || []).length) {
+        var sb = [];
+        for (var sk in (mus.slots || {})) {
+          if (mus.slots.hasOwnProperty(sk)) sb.push(sk + ': ' + mus.slots[sk]);
+        }
+        notes.push('بانکِ موسیقی برای ' + mus.thin.join('، ') + ' کم دارد (' +
+                   sb.join(' · ') + ' — هدف ' + mus.target + ' در هر جایگاه). ' +
+                   'موتور شبانه خودش دنبالِ قطعهٔ تازه می‌گردد.');
       }
     }
   } catch (eMu) {}

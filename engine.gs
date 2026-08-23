@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.59
+ *  موتور محتوا و پادکست — نسخهٔ 5.60
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -394,6 +394,10 @@ var CFG = {
   // موسیقیِ آزاد فقط MP3 می‌دهند و Apps Script رمزگشای MP3 ندارد.
   MUSIC_SEEK: true,
   MUSIC_SEEK_MAX: 4,                 // هر بار حداکثر این تعداد نامزد به فهرست
+  // هدفِ اندازهٔ بانک برای هر جایگاه. تا اینجا «کم» شمرده می‌شود و گشتن
+  // ادامه دارد. با یک قطعه در هر جایگاه، «انتخابِ متناسب با وایب» معنا
+  // ندارد — انتخاب از میانِ یکی، انتخاب نیست.
+  MUSIC_BANK_TARGET: 5,
   MUSIC_SEEK_MIN_SEC: 5,             // کوتاه‌تر از این، قطعه نیست
   MUSIC_SEEK_API: 'https://archive.org',
   // فایلی که سنجه ردش می‌کند به این زیرپوشه می‌رود — پاک نمی‌شود.
@@ -600,7 +604,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.59',
+  CODE_VERSION: '5.60',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -5531,6 +5535,43 @@ function mustSeeHtml_(sec, itemsOpt) {
   return h.join('');
 }
 
+/**
+ * بندِ موسیقیِ ایمیل — «چه پخش شد، کجا، و چرا».
+ *
+ * تا ۵٫۶۰ هیچ‌جای ایمیل و تلگرام نامی از موسیقی نبود. یعنی برای فهمیدنِ
+ * اینکه امروز چه قطعه‌ای سرِ برنامه پخش شده، باید شیت باز می‌شد. تصمیمی که
+ * دیده نشود، بازبینی هم نمی‌شود.
+ */
+function musicHtml_() {
+  try {
+    var st = musicStatus_();
+    if (!st) return '';
+    var L = ['<div class="audio" style="background:#f5f3ff;border-color:#ddd6fe">',
+             '🎵 <b>موسیقی:</b><br>'];
+    var last = st.last;
+    if (last && last.tracks && last.tracks.length) {
+      L.push('پخش‌شده: ' + esc_(last.tracks.join(' · ')) + '<br>');
+      if (last.mood) L.push('حال‌وهوا: ' + esc_(last.mood) + '<br>');
+    } else if (st.tracks) {
+      L.push('این قسمت بی‌موسیقی ساخته شد (بانک ' + st.tracks + ' قطعه دارد).<br>');
+    } else {
+      L.push('بانکِ موسیقی خالی است؛ قسمت بی‌موسیقی ساخته شد.<br>');
+    }
+    if (last && last.missing && last.missing.length) {
+      L.push('<span style="color:#b45309">برای این جایگاه‌ها قطعه‌ای نبود: ' +
+             esc_(last.missing.join('، ')) + '</span><br>');
+    }
+    if (st.slots) {
+      var bits = [];
+      for (var k in st.slots) if (st.slots.hasOwnProperty(k)) bits.push(k + ': ' + st.slots[k]);
+      L.push('<span style="color:#666;font-size:12px">بانک — ' + esc_(bits.join(' · ')) +
+             ' (هدف ' + st.target + ' در هر جایگاه)</span>');
+    }
+    L.push('</div>');
+    return L.join('');
+  } catch (e) { return ''; }
+}
+
 function episodeHtml_(epNum, ep, items, cat, audioLinks) {
   var h = [];
   h.push('<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">');
@@ -5558,6 +5599,7 @@ function episodeHtml_(epNum, ep, items, cat, audioLinks) {
     }
     h.push('</div>');
   }
+  h.push(musicHtml_());
 
   h.push('<h2>متن قسمت</h2>');
   h.push('<p><i>' + esc_(ep.hook) + '</i></p>');
@@ -5682,6 +5724,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   }
   h.push('</table>');
   if (ep.coverage) h.push('<p>' + esc_(ep.coverage) + '</p>');
+  h.push(musicHtml_());
 
   // هدف و انتظارِ دوره
   if (ep.goal) {
@@ -6574,6 +6617,20 @@ function tgApi_(method, payload) {
 }
 
 /** نشانِ نوع منبع در فهرست تلگرام. */
+/** یک خطِ کوتاهِ موسیقی برای سرپیامِ تلگرام. خالی، اگر چیزی پخش نشده. */
+function tgMusicLine_() {
+  try {
+    var st = musicStatus_();
+    var last = st && st.last;
+    if (last && last.tracks && last.tracks.length) {
+      return '🎵 ' + tgEsc_(last.tracks.join(' · ')) +
+             (last.mood ? '  ·  ' + tgEsc_(last.mood) : '') + '\n';
+    }
+    if (st && !st.tracks) return '🎵 ' + tgEsc_('بی‌موسیقی — بانک خالی است') + '\n';
+    return '🎵 ' + tgEsc_('بی‌موسیقی') + '\n';
+  } catch (e) { return ''; }
+}
+
 function tgKindIcon_(kind) {
   if (kind === 'ویدیو') return '🎬';
   if (kind === 'صدا') return '🎧';
@@ -6729,6 +6786,7 @@ function sendTelegramEpisode_(epNum, ep, items, cat, audioFiles, docBlob, dur, f
                '📂 ' + tgEsc_(cat) + '  ·  ⏱ ' + tgEsc_(dur) + '  ·  📎 ' + items.length + ' منبع\n\n' +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (tags ? tgEsc_(tags) + '\n' : '') +
+               tgMusicLine_() +
                '<a href="' + tgEsc_(folder.getUrl()) + '">پوشهٔ قسمت در درایو</a>';
     tgSend_(head); sent++;
   } catch (e) { failed++; notes.push('سرپیام: ' + e.message); }
@@ -6888,7 +6946,8 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                '⏱ ' + tgEsc_(dur) +
                (meta.enrich && meta.enrich.length
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
-               (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') + '\n' +
+               (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
+               tgMusicLine_() + '\n' +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (ep.goal && ep.goal.message ? '🎯 ' + tgEsc_(ep.goal.message) + '\n\n' : '') +
                tgEsc_((tags || []).join(' ')) + '\n' +
@@ -7565,6 +7624,20 @@ function healthCheck() {
       } else if (mus.last && (mus.last.missing || []).length) {
         notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
                    ' — ولی برای ' + mus.last.missing.join('، ') + ' قطعه‌ای نبود.');
+      } else if (mus.last && mus.last.tracks) {
+        notes.push('موسیقیِ «' + mus.last.episode + '»: ' + mus.last.tracks.join(' · ') +
+                   (mus.last.mood ? ' (' + mus.last.mood + ')' : '') + '.');
+      }
+      // بانکِ لنگ: جایگاهی که یک‌دو قطعه دارد یعنی هر قسمت همان را می‌گیرد.
+      // این ایرادِ خرابی نیست، ایرادِ یکنواختی است — پس یادداشت، نه هشدار.
+      if (mus.tracks && (mus.thin || []).length) {
+        var sb = [];
+        for (var sk in (mus.slots || {})) {
+          if (mus.slots.hasOwnProperty(sk)) sb.push(sk + ': ' + mus.slots[sk]);
+        }
+        notes.push('بانکِ موسیقی برای ' + mus.thin.join('، ') + ' کم دارد (' +
+                   sb.join(' · ') + ' — هدف ' + mus.target + ' در هر جایگاه). ' +
+                   'موتور شبانه خودش دنبالِ قطعهٔ تازه می‌گردد.');
       }
     }
   } catch (eMu) {}
@@ -18460,7 +18533,7 @@ function selfUpdateDaily() {
   // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
   // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
   try {
-    var miss = musicMissingSlots_();
+    var miss = musicThinSlots_();
     if (miss.length) musicSeek_(miss);
   } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
   try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
@@ -20766,12 +20839,20 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     for (var w = 0; w < cands.length; w++) if (cands[w].id === String(wantedId)) return cands[w];
   }
   var words = String(moodWords || '').split(/[\s،,]+/).filter(Boolean);
+  var lastNames = [];
+  try {
+    var lp = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null');
+    lastNames = (lp && lp.tracks) || [];
+  } catch (eL) {}
   var score = function (b) {
     var s = 0;
     for (var m = 0; m < words.length; m++) {
       if (words[m] && b.mood && b.mood.indexOf(words[m]) !== -1) s += 3;
     }
     s -= Math.min(b.used, 5) * 0.5;          // کم‌مصرف‌تر، جلوتر
+    // و قطعهٔ قسمتِ پیش، اگر جایگزینی هست، دوباره پخش نمی‌شود. شنونده‌ای که
+    // هر روز همان جینگل را بشنود، بعد از یک هفته آن را نمی‌شنود.
+    if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
     return s;
   };
   cands.sort(function (a, b) {
@@ -21082,6 +21163,12 @@ function musicStatus_() {
     }
   } catch (e) {}
   try { out.last = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null'); } catch (e2) {}
+  // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
+  try {
+    out.slots = musicSlotCounts_();
+    out.target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
+    out.thin = musicThinSlots_();
+  } catch (e3) {}
   return out;
 }
 
@@ -21847,19 +21934,42 @@ function musicSeek_(slots) {
 }
 
 /**
- * جایگاه‌هایی که بانک برایشان چیزی ندارد.
- * بی این، هر شب برای جایگاهی می‌گشتیم که ده قطعه دارد.
+ * جایگاه‌هایی که بانک برایشان **کم** دارد — نه فقط آن‌هایی که خالی‌اند.
+ *
+ * ══ باگی که این را لازم کرد (۵٫۶۰) ══
+ * نسخهٔ قبلی جایگاهی را «کم» می‌شمرد که *صفر* قطعه داشت. یعنی همان شبی که
+ * سه فایلِ اول رسیدند، گشتن برای همیشه متوقف می‌شد و بانک روی چهار قطعه
+ * یخ می‌زد. از آن به بعد هر قسمت همان موسیقی را می‌گرفت، برای همیشه.
+ *
+ * و بدتر: «انتخابِ متناسب با وایب» از میانِ یک قطعه در هر جایگاه، انتخاب
+ * نیست. تا وقتی بانک به هدف نرسد، انتخاب معنایی ندارد.
  */
-function musicMissingSlots_(hub) {
+function musicThinSlots_(hub) {
   var need = ['شروع', 'پایان', 'میانه'], out = [];
+  var target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
   var bank = [];
   try { bank = musicBank_(hub); } catch (e) { return need; }
   for (var i = 0; i < need.length; i++) {
-    var has = false;
+    var n = 0;
     for (var j = 0; j < bank.length; j++) {
-      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) { has = true; break; }
+      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) n++;
     }
-    if (!has) out.push(need[i]);
+    if (n < target) out.push(need[i]);
+  }
+  return out;
+}
+
+
+/** شمارِ قطعه‌های هر جایگاه — برای وضعیت و گزارش. */
+function musicSlotCounts_(hub) {
+  var need = ['شروع', 'پایان', 'میانه'], out = {};
+  var bank = [];
+  try { bank = musicBank_(hub); } catch (e) { return out; }
+  for (var i = 0; i < need.length; i++) {
+    out[need[i]] = 0;
+    for (var j = 0; j < bank.length; j++) {
+      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) out[need[i]]++;
+    }
   }
   return out;
 }
@@ -21940,7 +22050,7 @@ function runMusicFetch() {
   // به‌ترتیب بزند تا یک فایل موسیقی داشته باشد.
   var seek = { added: 0, notes: [] };
   try {
-    var miss = musicMissingSlots_();
+    var miss = musicThinSlots_();
     if (miss.length) seek = musicSeek_(miss);
   } catch (eS) {}
 

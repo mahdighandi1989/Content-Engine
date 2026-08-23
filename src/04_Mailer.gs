@@ -74,6 +74,43 @@ function mustSeeHtml_(sec, itemsOpt) {
   return h.join('');
 }
 
+/**
+ * بندِ موسیقیِ ایمیل — «چه پخش شد، کجا، و چرا».
+ *
+ * تا ۵٫۶۰ هیچ‌جای ایمیل و تلگرام نامی از موسیقی نبود. یعنی برای فهمیدنِ
+ * اینکه امروز چه قطعه‌ای سرِ برنامه پخش شده، باید شیت باز می‌شد. تصمیمی که
+ * دیده نشود، بازبینی هم نمی‌شود.
+ */
+function musicHtml_() {
+  try {
+    var st = musicStatus_();
+    if (!st) return '';
+    var L = ['<div class="audio" style="background:#f5f3ff;border-color:#ddd6fe">',
+             '🎵 <b>موسیقی:</b><br>'];
+    var last = st.last;
+    if (last && last.tracks && last.tracks.length) {
+      L.push('پخش‌شده: ' + esc_(last.tracks.join(' · ')) + '<br>');
+      if (last.mood) L.push('حال‌وهوا: ' + esc_(last.mood) + '<br>');
+    } else if (st.tracks) {
+      L.push('این قسمت بی‌موسیقی ساخته شد (بانک ' + st.tracks + ' قطعه دارد).<br>');
+    } else {
+      L.push('بانکِ موسیقی خالی است؛ قسمت بی‌موسیقی ساخته شد.<br>');
+    }
+    if (last && last.missing && last.missing.length) {
+      L.push('<span style="color:#b45309">برای این جایگاه‌ها قطعه‌ای نبود: ' +
+             esc_(last.missing.join('، ')) + '</span><br>');
+    }
+    if (st.slots) {
+      var bits = [];
+      for (var k in st.slots) if (st.slots.hasOwnProperty(k)) bits.push(k + ': ' + st.slots[k]);
+      L.push('<span style="color:#666;font-size:12px">بانک — ' + esc_(bits.join(' · ')) +
+             ' (هدف ' + st.target + ' در هر جایگاه)</span>');
+    }
+    L.push('</div>');
+    return L.join('');
+  } catch (e) { return ''; }
+}
+
 function episodeHtml_(epNum, ep, items, cat, audioLinks) {
   var h = [];
   h.push('<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">');
@@ -101,6 +138,7 @@ function episodeHtml_(epNum, ep, items, cat, audioLinks) {
     }
     h.push('</div>');
   }
+  h.push(musicHtml_());
 
   h.push('<h2>متن قسمت</h2>');
   h.push('<p><i>' + esc_(ep.hook) + '</i></p>');
@@ -225,6 +263,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   }
   h.push('</table>');
   if (ep.coverage) h.push('<p>' + esc_(ep.coverage) + '</p>');
+  h.push(musicHtml_());
 
   // هدف و انتظارِ دوره
   if (ep.goal) {
