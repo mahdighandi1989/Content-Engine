@@ -1615,7 +1615,7 @@ console.log('=== ۲۶) «افکت‌ها کِی قرار است از اینتر�
   const p23h = fs.readFileSync('src/23_Music.gs', 'utf8');
   ok('۲۶.۱ گشتنِ افکت دیگر به سقفِ موسیقی وابسته نیست',
      !/sfxHave < sfxWant && out\.added < cap/.test(p23h) &&
-     /sfxHave < sfxWant\) \{/.test(p23h));
+     /\(sfxOnly \|\| sfxHave < sfxWant\)/.test(p23h));
   ok('۲۶.۲ و بودجهٔ خودش را دارد',
      /sfxAdded < sfxCap/.test(p23h) && Number(CFG.MUSIC_SFX_SEEK_MAX) >= 1,
      String(CFG.MUSIC_SFX_SEEK_MAX));
@@ -1701,6 +1701,59 @@ console.log('=== ۲۷) افکت، درست بعد از آماده‌شدنِ م�
 
   ok('۲۷.۱۴ بی بخش، اصلاً از مدل پرسیده نمی‌شود',
      sfxWantModel_({ sections: [] }).length === 0 && sfxWantModel_(null).length === 0);
+
+  /* ── و مسیرِ واقعی، نه فقط الگوی متن ──
+   * ۵٫۷۶: در بازبینی یک `max` پیدا شد که هرگز تعریف نشده بود. ReferenceError
+   * داخلِ try می‌افتاد، `catch` می‌بلعیدش و «آوردن نشد» می‌نوشت — یعنی
+   * دانلود هیچ‌وقت اجرا نمی‌شد و هیچ خطایی هم بالا نمی‌آمد. همان الگوی
+   * همیشگیِ این ریپو، این بار در کدِ دیشبِ خودم.
+   * سنجهٔ الگوی متن این را نمی‌گرفت؛ فقط صدازدنِ واقعیِ تابع می‌گیردش. */
+  const realSeek = global.musicSeek_, realFetch = global.musicFetch_;
+  const realScan = global.musicScan_, realBank2 = global.musicBank_;
+  const realGet2 = global.getOutJson_, realPut2 = global.putOutJson_;
+  let store2 = { items: [] }, seekCalls = 0, fetchBudget = null;
+  global.getOutJson_ = () => store2;
+  global.putOutJson_ = (n, o) => { store2 = o; };
+  global.musicBank_ = () => [];
+  global.musicSeek_ = (slots, sfxOnly) => { seekCalls++; return { added: 1, notes: [] }; };
+  global.musicFetch_ = () => { fetchBudget = CFG.MUSIC_FETCH_BUDGET_MS; return { added: 1 }; };
+  global.musicScan_ = () => ({ added: 1 });
+  global.geminiText_ = () => ({ wants: [
+    { sound: 'باران', en: 'rain on roof', why: 'موضوعِ بخش' }] });
+
+  const keepB = CFG.MUSIC_FETCH_BUDGET_MS, keepC = CFG.MUSIC_FETCH_MAX_PER_RUN;
+  const pf = sfxPrefetch_({ title: 'شبِ بارانی',
+    sections: [{ heading: 'باران', tone: 'آرام', narration: 'باران می‌بارید.' }] },
+    'variety', 9);
+  ok('۲۷.۱۵ مسیرِ کامل واقعاً می‌دود و فایل می‌آورد',
+     pf.asked === 1 && pf.need === 1 && pf.got === 1, JSON.stringify(pf));
+  ok('۲۷.۱۶ گشتن در حالتِ «فقط افکت» صدا زده شد', seekCalls === 1, String(seekCalls));
+  ok('۲۷.۱۷ و بودجهٔ دانلود به مهلتِ همین پنجره بسته شد، نه ۱۵۰ ثانیهٔ شبانه',
+     fetchBudget !== null && fetchBudget <= CFG.MUSIC_SFX_PREFETCH_MS,
+     String(fetchBudget));
+  ok('۲۷.۱۸ و بعدش بودجه و سقف برگردانده شدند',
+     CFG.MUSIC_FETCH_BUDGET_MS === keepB && CFG.MUSIC_FETCH_MAX_PER_RUN === keepC);
+  ok('۲۷.۱۹ خواسته هم ثبت شد، تا اگر امروز نشد شبِ بعد بیاید',
+     (store2.items || []).some(x => x.kind === 'افکت' && x.en === 'rain on roof'),
+     JSON.stringify((store2.items || []).map(x => x.sound)));
+
+  // و اگر بانک همان صدا را دارد، نه می‌گردد نه می‌آورد
+  seekCalls = 0;
+  global.musicBank_ = () => [{ id: 'E1', name: 'rain drops', kind: 'افکت',
+    mood: 'بارانی', slots: 'میانه', sec: 4, gain: 1, used: 0, heard: '' }];
+  const pf2 = sfxPrefetch_({ title: 'ب',
+    sections: [{ heading: 'باران', narration: 'باران.' }] }, 'variety', 9);
+  ok('۲۷.۲۰ صدایی که بانک دارد دوباره آورده نمی‌شود',
+     pf2.need === 0 && seekCalls === 0, JSON.stringify(pf2));
+
+  global.musicSeek_ = realSeek; global.musicFetch_ = realFetch;
+  global.musicScan_ = realScan; global.musicBank_ = realBank2;
+  global.getOutJson_ = realGet2; global.putOutJson_ = realPut2;
+  global.geminiText_ = realG;
+
+  // و سقفِ شمارشی نباید جلوی «صدای مشخصِ لازم» را بگیرد
+  ok('۲۷.۲۱ در حالتِ «فقط افکت»، پُربودنِ بانک مانعِ گشتن نیست',
+     /\(sfxOnly \|\| sfxHave < sfxWant\)/.test(p23i));
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -541,6 +541,7 @@ function sfxPrefetch_(ep, showKind, epNum) {
 
   var t0 = new Date().getTime();
   var budget = Math.max(20000, Number(CFG.MUSIC_SFX_PREFETCH_MS) || 90000);
+  var max = Math.max(1, Number(CFG.MUSIC_SFX_PREFETCH_MAX) || 2);
 
   var wants = [];
   try { wants = sfxWantModel_(ep); } catch (e) { return out; }
@@ -587,8 +588,17 @@ function sfxPrefetch_(ep, showKind, epNum) {
     return out;
   }
 
-  // و آوردنش — از ۵٫۷۴ افکت جلوی صفِ دانلود است
+  /* و آوردنش — از ۵٫۷۴ افکت جلوی صفِ دانلود است.
+     musicFetch_ بودجهٔ خودش را دارد (۱۵۰ ثانیه) که برای کارِ شبانه درست
+     است ولی اینجا نه: گفتم «مهلتِ سخت ۹۰ ثانیه» و بعد تابعی صدا زدم که
+     می‌توانست ۱۵۰ ثانیه بدود. آن‌قدر که وعده و کد یکی نباشند، همان‌قدر
+     بد است که خودِ تأخیر. پس در این پنجره بودجه‌اش را به باقی‌ماندهٔ
+     همین مهلت می‌بندیم و بعد برش می‌گردانیم. */
+  var keepBudget = CFG.MUSIC_FETCH_BUDGET_MS;
+  var keepCap = CFG.MUSIC_FETCH_MAX_PER_RUN;
   try {
+    CFG.MUSIC_FETCH_BUDGET_MS = Math.max(20000, budget - (new Date().getTime() - t0));
+    CFG.MUSIC_FETCH_MAX_PER_RUN = max;
     var r = musicFetch_();
     out.got = (r && r.added) || 0;
     if (out.got) {
@@ -596,6 +606,8 @@ function sfxPrefetch_(ep, showKind, epNum) {
       logLine_('افکتِ این قسمت همین حالا آورده شد: ' + out.got + ' فایل.');
     }
   } catch (e5) { out.notes.push('آوردن نشد: ' + e5.message); }
+  CFG.MUSIC_FETCH_BUDGET_MS = keepBudget;
+  CFG.MUSIC_FETCH_MAX_PER_RUN = keepCap;
   return out;
 }
 
@@ -2238,7 +2250,12 @@ function musicSeek_(slots, sfxOnly) {
    * صادقانه‌اش تا این نسخه «شاید هیچ‌وقت» بود. */
   var sfxCap = Math.max(1, Number(CFG.MUSIC_SFX_SEEK_MAX) || 3);
   var sfxAdded = 0;
-  if (CFG.MUSIC_SFX_ENABLED !== false && sfxHave < sfxWant) {
+  /* سقفِ `sfxHave < sfxWant` برای پر کردنِ *عمومیِ* بانک درست است، ولی وقتی
+     صدای **مشخصی** لازم است غلط می‌شود: بانکی که هشت افکتِ دیگر دارد،
+     برای قسمتی که «باران» می‌خواهد هیچ ندارد — و این شرط جلوی گشتن را
+     می‌گرفت. در حالتِ sfxOnly (پیش از صداگذاری) دنبالِ یک خواستهٔ معیّنیم،
+     پس شمارِ کلِ بانک ربطی به آن ندارد. */
+  if (CFG.MUSIC_SFX_ENABLED !== false && (sfxOnly || sfxHave < sfxWant)) {
     // دنبالِ صدایی که واقعاً خواسته شده، نه «افکتِ خوب» به‌طور کلی
     var sfxTerms = '';
     try { sfxTerms = sfxWantedTerms_().join(' OR '); } catch (eST) {}
