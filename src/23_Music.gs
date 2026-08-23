@@ -403,6 +403,56 @@ function musicMetaWrite_(wavName, meta) {
   return folder.createFile(Utilities.newBlob(body, 'application/json', nm));
 }
 
+/**
+ * پر کردنِ مرزها تا کفِ خواسته‌شده.
+ *
+ * دو چیز را رعایت می‌کند و هر دو از شنیدنِ قسمتِ ۲۴ اوت آمده‌اند:
+ *  • **پخشِ یکنواخت**: هر بار مرزی انتخاب می‌شود که از همهٔ انتخاب‌های
+ *    فعلی دورتر است. وگرنه دو قطعه پشتِ هم می‌افتادند و باز هم نیمی از
+ *    برنامه بی‌موسیقی می‌ماند.
+ *  • **قطعهٔ متفاوت برای هر مرز**: تکرارِ یک جینگل در سه جای یک قسمت،
+ *    خودش همان بی‌سلیقگی است که قرار بود درست شود.
+ */
+function bridgeFill_(want, bounds, bank, mood, minBr) {
+  if (!bounds || !bounds.length || !(minBr > 0)) return want;
+  var pool = bank.slice();
+  var drop = function (id) {
+    if (pool.length <= 1) return;
+    for (var i = 0; i < pool.length; i++) {
+      if (pool[i].id === id) { pool.splice(i, 1); return; }
+    }
+  };
+  for (var uz = 0; uz < want.length; uz++) {
+    if (want[uz] && want[uz].track) drop(want[uz].track.id);
+  }
+
+  var guard = 0;
+  while (want.length < minBr && guard++ <= bounds.length) {
+    var best = -1, bestD = -1;
+    for (var ci = 0; ci < bounds.length; ci++) {
+      var taken = false, d = -1;
+      for (var wz = 0; wz < want.length; wz++) {
+        var dd = Math.abs(want[wz].at - bounds[ci].at);
+        if (dd === 0) { taken = true; break; }
+        if (d < 0 || dd < d) d = dd;
+      }
+      if (taken) continue;
+      // نخستین انتخاب: میانهٔ برنامه، نه ابتدایش
+      if (!want.length) d = Math.min(ci + 1, bounds.length - ci);
+      if (d > bestD) { bestD = d; best = ci; }
+    }
+    if (best < 0) break;
+    var bd = bounds[best];
+    // وایبِ خودِ آن بخش هم در انتخاب بیاید، نه فقط حال‌وهوای کلِ قسمت
+    var fb = musicPick_(pool, 'میانه', String(mood || '') + ' ' + String(bd.tone || ''), '');
+    if (!fb) break;
+    want.push({ at: bd.at, track: fb,
+                why: 'مرزِ بخش «' + (bd.heading || '—') + '»', head: bd.heading });
+    drop(fb.id);
+  }
+  return want;
+}
+
 /** پوشهٔ کنارگذاشته‌ها — ساخته می‌شود اگر نباشد. هرگز پاک نمی‌کنیم. */
 function musicRejectFolder_() {
   var folder = musicFolder_();
@@ -764,37 +814,17 @@ function musicWrap_(chunks, hub, opt) {
                 head: bounds[k].heading });
   }
 
-  /* پشتوانه: مدل خاموش بود یا چیزی نداد.
+  /* ── کف، نه فقط سقف ──
    *
-   * تا ۵٫۷۱ اینجا **یک** قطعه سرِ مرزِ وسط گذاشته می‌شد. صاحبِ برنامه درست
-   * گفت: «یعنی واقعاً فکر کردی میانه استفاده بشه یعنی یه بار بین اول و
-   * آخر؟» برای برنامه‌ای که چند بخش و چند گوینده دارد، یک قطعه در کلِ
-   * برنامه عملاً یعنی هیچ.
-   * حالا مرزها در طولِ برنامه پخش می‌شوند و هر کدام قطعهٔ خودش را می‌گیرد —
-   * تکرارِ یک جینگل در سه جای یک قسمت، خودش بی‌سلیقگی است. */
-  if (!want.length && maxBr && bounds.length) {
-    var n = Math.min(maxBr, bounds.length);
-    var pool = bank.slice();
-    for (var fi2 = 0; fi2 < n; fi2++) {
-      var bIdx = Math.floor(((fi2 + 1) * bounds.length) / (n + 1));
-      if (bIdx >= bounds.length) bIdx = bounds.length - 1;
-      var bd = bounds[bIdx];
-      if (!bd) continue;
-      var dup2 = false;
-      for (var dz2 = 0; dz2 < want.length; dz2++) if (want[dz2].at === bd.at) dup2 = true;
-      if (dup2) continue;
-      // وایبِ خودِ آن بخش هم در انتخاب بیاید، نه فقط حال‌وهوای کلِ قسمت
-      var fb = musicPick_(pool, 'میانه', mood + ' ' + String(bd.tone || ''), '');
-      if (!fb) break;
-      want.push({ at: bd.at, track: fb, why: 'مرزِ بخش «' + (bd.heading || '—') + '»',
-                  head: bd.heading });
-      if (pool.length > 1) {
-        for (var pz = 0; pz < pool.length; pz++) {
-          if (pool[pz].id === fb.id) { pool.splice(pz, 1); break; }
-        }
-      }
-    }
-  }
+   * تا ۵٫۷۲ اینجا نوشته بود `if (!want.length)` — یعنی این تکه **فقط وقتی**
+   * کار می‌کرد که مدل هیچ مرزی نداده باشد. ولی مدل معمولاً یکی می‌دهد، نه
+   * صفر؛ و آن‌وقت همان یکی می‌ماند و کف هیچ‌وقت اعمال نمی‌شد. یعنی سقف را
+   * به ۴ رساندم و در عمل باز هم یک قطعه پخش می‌شد.
+   * `MUSIC_BRIDGE_MAX` سقف است و `MUSIC_BRIDGE_EVERY_SECTIONS` کف را
+   * می‌سازد: تقریباً یک قطعه به‌ازای هر دو مرزِ بخش. */
+  var per = Math.max(1, Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS) || 2);
+  var minBr = Math.min(maxBr, Math.ceil(bounds.length / per));
+  if (want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
 
   var atMap = {};
   for (var wz = 0; wz < want.length; wz++) atMap[want[wz].at] = want[wz];

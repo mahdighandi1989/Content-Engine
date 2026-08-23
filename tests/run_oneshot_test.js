@@ -1513,13 +1513,23 @@ console.log('=== ۲۴) «موسیقیِ یک‌ثانیه‌ای» — سه عل
   }
 
   // ── علتِ ۳: یک میانه در کلِ برنامه ──
-  ok('۲۴.۶ پشتوانه چند مرز را در طولِ برنامه پخش می‌کند',
-     /for \(var fi2 = 0; fi2 < n; fi2\+\+\)/.test(p23f) &&
-     /Math\.floor\(\(\(fi2 \+ 1\) \* bounds\.length\) \/ \(n \+ 1\)\)/.test(p23f));
-  ok('۲۴.۷ و هر مرز قطعهٔ خودش را می‌گیرد، نه تکرارِ یکی',
-     /pool\.splice\(pz, 1\)/.test(p23f));
-  ok('۲۴.۸ وایبِ خودِ بخش در انتخابِ قطعهٔ آن مرز می‌آید',
-     /mood \+ ' ' \+ String\(bd\.tone \|\| ''\)/.test(p23f));
+  /* این سه تا در ۵٫۷۲ الگوی متنیِ کدِ درون‌خطی را می‌سنجیدند و با انتقالِ
+     همان کد به bridgeFill_ در ۵٫۷۳ شکستند — در حالی که رفتار عوض نشده بود.
+     سنجهٔ الگوی متنی شکننده است؛ حالا خودِ رفتار سنجیده می‌شود. */
+  {
+    const bnds = [], bnk = [];
+    for (let i = 0; i < 6; i++) bnds.push({ at: i * 10 + 5, heading: 'ب' + i, tone: '' });
+    for (let i = 0; i < 6; i++) bnk.push({ id: 'X' + i, name: 'x' + i, kind: 'موسیقی',
+      mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '' });
+    const w = bridgeFill_([], bnds, bnk, '', 3);
+    ok('۲۴.۶ پشتوانه چند مرز را در طولِ برنامه پخش می‌کند', w.length === 3,
+       String(w.length));
+    const idsx = w.map(x => x.track.id);
+    ok('۲۴.۷ و هر مرز قطعهٔ خودش را می‌گیرد، نه تکرارِ یکی',
+       new Set(idsx).size === idsx.length, idsx.join(','));
+    ok('۲۴.۸ وایبِ خودِ بخش در انتخابِ قطعهٔ آن مرز می‌آید',
+       /String\(mood \|\| ''\) \+ ' ' \+ String\(bd\.tone \|\| ''\)/.test(p23f));
+  }
   ok('۲۴.۹ سقفِ میانه بالا رفت', Number(CFG.MUSIC_BRIDGE_MAX) >= 4,
      String(CFG.MUSIC_BRIDGE_MAX));
   ok('۲۴.۱۰ و طولِ قطعه‌ها دیگر رادیویی است',
@@ -1528,6 +1538,67 @@ console.log('=== ۲۴) «موسیقیِ یک‌ثانیه‌ای» — سه عل
      CFG.MUSIC_INTRO_SEC + '/' + CFG.MUSIC_BRIDGE_SEC + '/' + CFG.MUSIC_OUTRO_SEC);
   ok('۲۴.۱۱ تغییرِ گوینده هم به مدل به‌عنوان مرزِ واقعی معرفی می‌شود',
      /تغییرِ گوینده هم یک تغییرِ واقعی/.test(p23f));
+}
+
+console.log('=== ۲۵) «موسیقیِ میانه فقط یک بار پخش می‌شود؟» ===');
+{
+  /* ۵٫۷۲ سقف را از ۲ به ۴ رساند و پشتوانه را پخش‌شونده کرد. ولی پشتوانه
+   * پشتِ `if (!want.length)` بود — یعنی فقط وقتی کار می‌کرد که مدل **هیچ**
+   * مرزی نداده باشد. و مدل معمولاً یکی می‌دهد، نه صفر.
+   * پس سقف بالا رفته بود و در عمل باز هم یک قطعه پخش می‌شد. سقف بی کف
+   * کاری نمی‌کند. */
+  const p23g = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۵.۱ پر کردن دیگر پشتِ «هیچ مرزی نداده» نیست',
+     !/if \(!want\.length && maxBr && bounds\.length\)/.test(p23g) &&
+     /if \(want\.length < minBr\) bridgeFill_/.test(p23g));
+  ok('۲۵.۲ کف از شمارِ مرزها ساخته می‌شود',
+     /Math\.ceil\(bounds\.length \/ per\)/.test(p23g));
+
+  const bounds = [];
+  for (let i = 0; i < 6; i++) bounds.push({ at: i * 10 + 5, heading: 'ب' + i, tone: '' });
+  const bank = [];
+  for (let i = 0; i < 6; i++) bank.push({ id: 'T' + i, name: 't' + i, kind: 'موسیقی',
+    mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '' });
+
+  // مدل یکی داده — کف باید بقیه را پر کند
+  let want = [{ at: bounds[0].at, track: bank[0], why: 'مدل', head: 'ب0' }];
+  bridgeFill_(want, bounds, bank, '', 3);
+  ok('۲۵.۳ وقتی مدل یکی داده، تا کف پر می‌شود', want.length === 3,
+     String(want.length));
+  ok('۲۵.۴ انتخابِ مدل دست‌نخورده می‌مانَد',
+     want[0].at === bounds[0].at && want[0].why === 'مدل');
+
+  const ats = want.map(w => w.at).sort((a, b) => a - b);
+  let minGap = 1e9;
+  for (let i = 1; i < ats.length; i++) minGap = Math.min(minGap, ats[i] - ats[i - 1]);
+  ok('۲۵.۵ مرزها پخش می‌شوند، نه پشتِ هم', minGap >= 20, 'کمترین فاصله ' + minGap);
+
+  const ids = want.map(w => w.track.id);
+  ok('۲۵.۶ هر مرز قطعهٔ خودش را دارد — تکرارِ یک جینگل نه',
+     new Set(ids).size === ids.length, ids.join(','));
+
+  // از صفر هم درست شروع می‌کند، و از میانه نه از ابتدا
+  want = [];
+  bridgeFill_(want, bounds, bank, '', 1);
+  ok('۲۵.۷ نخستین انتخاب میانهٔ برنامه است، نه ابتدایش',
+     want.length === 1 && want[0].at > bounds[0].at &&
+     want[0].at < bounds[bounds.length - 1].at, JSON.stringify(want[0] && want[0].at));
+
+  // بانکِ تک‌قطعه‌ای نباید حلقه را بشکند
+  want = [];
+  bridgeFill_(want, bounds, [bank[0]], '', 3);
+  ok('۲۵.۸ با یک قطعه در بانک هم کار می‌کند و گیر نمی‌کند',
+     want.length >= 1 && want.length <= 3, String(want.length));
+
+  // بی مرز، هیچ
+  want = [];
+  ok('۲۵.۹ بی مرز چیزی گذاشته نمی‌شود',
+     bridgeFill_(want, [], bank, '', 3).length === 0);
+
+  ok('۲۵.۱۰ و سقف همچنان سقف است',
+     Math.min(Number(CFG.MUSIC_BRIDGE_MAX),
+              Math.ceil(6 / Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS))) <=
+     Number(CFG.MUSIC_BRIDGE_MAX));
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
