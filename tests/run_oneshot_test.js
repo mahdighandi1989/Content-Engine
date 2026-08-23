@@ -1282,4 +1282,56 @@ console.log('=== ۲۰) کارِ شبانه: نصبِ کد پشتِ صفِ سنگ
      /promptPrune_\) اجرا نشده/.test(p08b));
 }
 
+console.log('=== ۲۱) شناسنامهٔ بی‌صدا، و افکتی که «ambience» نیست ===');
+{
+  /* ۲۳ اوت در پوشهٔ بانک دو `_MUSIC-META-*.json` بود بی هیچ فایلِ صوتی:
+   * calm-study-lesson-intro و warm-slice-of-life-intro. تسکِ غنی‌سازی هر دو
+   * را ساخته و شناسنامه‌شان را نوشته بود، ولی خودِ WAV فقط به گفت‌وگو پیوست
+   * شده بود و هرگز به درایو نرسید.
+   * بدترین شکلِ خرابی: شناسنامه می‌گوید قطعه هست، و نیست. و پویش تا امروز
+   * شناسنامه‌ها را کلاً رد می‌کرد، پس هیچ‌کس نمی‌دیدش. */
+  const p23c = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۱.۱ پویش شناسنامه‌ها و فایل‌های صوتی را جدا می‌شمارد',
+     /var metaOf = \{\}, wavOf = \{\};/.test(p23c));
+  ok('۲۱.۲ و شناسنامه‌ای که صدایش نیست گزارش می‌شود',
+     /شناسنامهٔ بی‌صدا در بانک/.test(p23c));
+  ok('۲۱.۳ و در نتیجهٔ پویش برمی‌گردد تا دیده شود',
+     /orphan: orphan/.test(p23c));
+
+  /* و گشتنِ عمومی: «foley OR ambience OR nature recording» ضبطِ *بلندِ* فضای
+   * محیطی می‌دهد — ده دقیقه جنگل — نه صدای سه‌ثانیه‌ایِ بستنِ در. */
+  ok('۲۱.۴ فهرستِ صداهای پایه‌ای مشخص است، نه کلی',
+     Array.isArray(SFX_STARTER) && SFX_STARTER.length >= 8 &&
+     SFX_STARTER.some(x => /door/.test(x[1])) &&
+     SFX_STARTER.some(x => /rain/.test(x[1])));
+
+  const realBank = global.musicBank_;
+  global.musicBank_ = () => [];
+  global.__PROPS[PK.SFX_TURN] = '';
+  const first = sfxStarterTerms_();
+  const second = sfxStarterTerms_();
+  ok('۲۱.۵ با بانکِ خالی، یک صدای مشخص برمی‌گرداند',
+     !!first && first.indexOf(' ') !== -1, String(first));
+  ok('۲۱.۶ و هر اجرا سراغِ صدای بعدی می‌رود', first !== second,
+     first + ' / ' + second);
+
+  // صدایی که بانک از قبل دارد، دوباره گشته نمی‌شود
+  global.musicBank_ = () => SFX_STARTER.map(x => ({
+    id: 'E' + x[1], name: x[1], kind: 'افکت', mood: '', slots: 'میانه',
+    sec: 3, gain: 1, used: 0, heard: ''
+  }));
+  ok('۲۱.۷ وقتی همهٔ صداهای پایه‌ای هست، چیزی نمی‌گردد',
+     sfxStarterTerms_() === '', JSON.stringify(sfxStarterTerms_()));
+
+  global.musicBank_ = () => [{ id: 'E1', name: 'rain drops loop', kind: 'افکت',
+    mood: '', slots: 'میانه', sec: 3, gain: 1, used: 0, heard: '' }];
+  global.__PROPS[PK.SFX_TURN] = '0';
+  ok('۲۱.۸ و صدایی که هست رد می‌شود، نه اینکه دوباره بیاید',
+     sfxStarterTerms_().indexOf('rain') === -1, String(sfxStarterTerms_()));
+  global.musicBank_ = realBank;
+
+  ok('۲۱.۹ خواستهٔ ثبت‌شده بر صدای پایه‌ای مقدم است',
+     p23c.indexOf('sfxWantedTerms_().join') < p23c.indexOf('sfxTerms = sfxStarterTerms_()'));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

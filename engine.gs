@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.68
+ *  موتور محتوا و پادکست — نسخهٔ 5.69
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -651,7 +651,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.68',
+  CODE_VERSION: '5.69',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -927,7 +927,9 @@ var PK = {
   MUSIC_FETCHED: 'MUSIC_FETCHED_URLS',
   // مجموعه‌هایی که یک بار گشته شده‌اند — تا هر شب همان‌ها بالا نیایند
   MUSIC_SEEN: 'MUSIC_SEEK_SEEN',
-  MUSIC_PAGE: 'MUSIC_SEEK_PAGE'
+  MUSIC_PAGE: 'MUSIC_SEEK_PAGE',
+  // نوبتِ صدای پایه‌ای — تا هر اجرا سراغِ یکی برود، نه همیشه همان
+  SFX_TURN: 'SFX_STARTER_TURN'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -21053,6 +21055,13 @@ function musicScan_(hub) {
   for (var i = 0; i < rows.length; i++) byId[String(rows[i][MC.ID - 1])] = { row: i + 2, v: rows[i] };
 
   var seen = {}, added = 0, updated = 0, bad = 0, skipped = 0;
+  /* شناسنامهٔ بی‌صدا: `_MUSIC-META-X.json` که `X.wav` کنارش نیست.
+     ۲۳ اوت دو تا از این‌ها در پوشه بودند — تسکِ غنی‌سازی فایل را ساخته و
+     شناسنامه‌اش را نوشته بود، ولی خودِ صدا فقط به گفت‌وگو پیوست شده بود و
+     هرگز به درایو نرسید. این بدترین شکلِ خرابی است: شناسنامه می‌گوید قطعه
+     هست، و نیست. تا امروز هیچ‌کس نمی‌دیدش چون پویش شناسنامه‌ها را کلاً رد
+     می‌کرد. */
+  var metaOf = {}, wavOf = {};
   var it = musicFolder_().getFiles();
   while (it.hasNext()) {
     var f = it.next(), id = f.getId();
@@ -21066,7 +21075,9 @@ function musicScan_(hub) {
     //
     // فایلِ صوتیِ واقعاً ناسازگار (MP3ی که کاربر گذاشته) همچنان فهرست و
     // علامت می‌خورد؛ آن هشدارِ درستی است و باید بماند.
-    if (/^_MUSIC-META-.*\.json$/i.test(f.getName())) continue;
+    var mm = String(f.getName()).match(/^_MUSIC-META-(.+)\.json$/i);
+    if (mm) { metaOf[mm[1]] = 1; continue; }
+    wavOf[String(f.getName()).replace(/\.wav$/i, '')] = 1;
     seen[id] = 1;
 
     /* ── ردیفی که قبلاً کامل سنجیده شده، دوباره خوانده نمی‌شود ──
@@ -21158,10 +21169,22 @@ function musicScan_(hub) {
     sh.getRange(byId[k].row, MC.FMT).setValue('فایل در پوشه نیست');
     gone++;
   }
+  var orphan = [];
+  for (var mo in metaOf) {
+    if (!Object.prototype.hasOwnProperty.call(metaOf, mo)) continue;
+    if (!wavOf[mo]) orphan.push(mo);
+  }
+  if (orphan.length) {
+    logLine_('شناسنامهٔ بی‌صدا در بانک: ' + orphan.length + ' — ' +
+             orphan.slice(0, 4).join(' · ') +
+             ' (فایلِ صوتی‌شان به پوشه نرسیده است).');
+  }
+
   logLine_('بانکِ موسیقی: ' + added + ' تازه، ' + updated + ' به‌روز، ' +
            skipped + ' بی‌تغییر (دوباره خوانده نشد)، ' +
            bad + ' ناسازگار، ' + gone + ' ناموجود.');
-  return { added: added, updated: updated, bad: bad, gone: gone, skipped: skipped };
+  return { added: added, updated: updated, bad: bad, gone: gone,
+           skipped: skipped, orphan: orphan };
 }
 
 /**
@@ -22535,6 +22558,53 @@ function sfxSeekQuery_(terms) {
          ')';
 }
 
+/* صداهای پایه‌ای که تقریباً هر برنامهٔ گفت‌وگومحوری دیر یا زود لازمشان دارد.
+ *
+ * ══ چرا فهرستِ عمومی بد بود ══
+ * تا ۵٫۶۸ وقتی خواسته‌ای ثبت نشده بود، دنبالِ «foley OR ambience OR nature
+ * recording» می‌گشتیم. این‌ها ضبط‌های *بلندِ* فضای محیطی برمی‌گردانند —
+ * ده دقیقه جنگل، بیست دقیقه ترافیک — نه صدای سه‌ثانیه‌ایِ بستنِ در. یعنی
+ * بانکِ افکت با چیزهایی پر می‌شد که هیچ‌وقت به‌دردِ یک جملهٔ روایت نمی‌خورند.
+ *
+ * حالا تا وقتی خواسته‌ای نرسیده، سراغِ صداهای مشخص می‌رویم — یکی در هر
+ * اجرا، و آن‌هایی که بانک از قبل دارد رد می‌شوند.
+ */
+var SFX_STARTER = [
+  ['باران', 'rain drops'],
+  ['در', 'door open close'],
+  ['تلفن', 'telephone ring'],
+  ['قدم', 'footsteps walking'],
+  ['جمعیت', 'crowd murmur'],
+  ['ساعت', 'clock ticking'],
+  ['باد', 'wind gust'],
+  ['کاغذ', 'paper page turn'],
+  ['دریا', 'ocean waves'],
+  ['تایپ', 'typewriter keys']
+];
+
+/** نخستین صدای پایه‌ای که بانک هنوز ندارد. '' یعنی همه را دارد. */
+function sfxStarterTerms_() {
+  var have = '';
+  try {
+    var bank = musicBank_();
+    for (var i = 0; i < bank.length; i++) {
+      if (String(bank[i].kind || '') !== 'افکت') continue;
+      have += ' ' + String(bank[i].name || '') + ' ' + String(bank[i].mood || '');
+    }
+  } catch (e) {}
+  have = have.toLowerCase();
+  var n = 0;
+  try { n = parseInt(props_().getProperty(PK.SFX_TURN) || '0', 10) || 0; } catch (e2) {}
+  for (var k = 0; k < SFX_STARTER.length; k++) {
+    var idx = (n + k) % SFX_STARTER.length;
+    var word = SFX_STARTER[idx][1].split(' ')[0];
+    if (have.indexOf(word) !== -1) continue;         // از قبل هست
+    try { props_().setProperty(PK.SFX_TURN, String((idx + 1) % SFX_STARTER.length)); } catch (e3) {}
+    return SFX_STARTER[idx][1];
+  }
+  return '';
+}
+
 function musicSeek_(slots) {
   var out = { added: 0, looked: 0, notes: [] };
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
@@ -22659,6 +22729,8 @@ function musicSeek_(slots) {
     // دنبالِ صدایی که واقعاً خواسته شده، نه «افکتِ خوب» به‌طور کلی
     var sfxTerms = '';
     try { sfxTerms = sfxWantedTerms_().join(' OR '); } catch (eST) {}
+    // خواسته‌ای نبود؟ سراغِ صدای پایه‌ایِ مشخص، نه «ambience»ی کلی.
+    if (!sfxTerms) { try { sfxTerms = sfxStarterTerms_(); } catch (eSS2) {} }
     out.notes.push('افکت ← گشته شد با: ' + (sfxTerms || 'واژه‌های عمومی (خواسته‌ای ثبت نشده)'));
     var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_(sfxTerms)) +
              '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
