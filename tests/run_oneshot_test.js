@@ -1459,4 +1459,75 @@ console.log('=== ۲۳) داوریِ نامعلوم باید قابلِ تجدی�
                row(musicHeardTxt_({ heard: 'جلوه' }))).length === 1);
 }
 
+console.log('=== ۲۴) «موسیقیِ یک‌ثانیه‌ای» — سه علت، هر سه واقعی ===');
+{
+  /* نخستین قسمتِ واقعاً موسیقی‌دار، ۲۴ اوت: «موسیقیِ اول و گاهی وسط در حدِ
+   * یک ثانیه است!!! موسیقیِ آخر فقط ۵ ثانیه بود… خیلی غیرحرفه‌ای.»
+   * و: «یعنی واقعاً فکر کردی میانه یعنی یک بار بین اول و آخر؟» */
+
+  // ── علتِ ۱: شروعِ دیرهنگام، بی‌صدا قطعه را می‌بُرید ──
+  // قطعهٔ ۱۰ ثانیه‌ای، ۸ ثانیه می‌خواهیم، مدل می‌گوید از ثانیهٔ ۹ شروع کن.
+  const SR = 24000;
+  const mkWav = (sec, rate) => {
+    const n = sec * rate, d = [];
+    for (let i = 0; i < n; i++) d.push(Math.round(9000 * Math.sin(i / 20)));
+    const bytes = [];
+    const push32 = v => bytes.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255);
+    const push16 = v => bytes.push(v & 255, (v >> 8) & 255);
+    'RIFF'.split('').forEach(c => bytes.push(c.charCodeAt(0)));
+    push32(36 + n * 2);
+    'WAVEfmt '.split('').forEach(c => bytes.push(c.charCodeAt(0)));
+    push32(16); push16(1); push16(1); push32(rate); push32(rate * 2); push16(2); push16(16);
+    'data'.split('').forEach(c => bytes.push(c.charCodeAt(0)));
+    push32(n * 2);
+    for (let i = 0; i < n; i++) { let v = d[i] < 0 ? d[i] + 65536 : d[i]; push16(v); }
+    return bytes.map(b => (b > 127 ? b - 256 : b));
+  };
+  const wav = mkWav(10, SR);
+  const info = wavInfo_(wav);
+  ok('۲۴.۰ فایلِ آزمون ۱۰ ثانیه است', Math.round(info.seconds) === 10, String(info.seconds));
+
+  const late = musicSamples_(wav, info, 9, 8);
+  ok('۲۴.۱ شروعِ دیرهنگام دیگر قطعه را نمی‌بُرد',
+     Math.round(late.length / SR) === 8, (late.length / SR).toFixed(2) + ' ثانیه');
+  const early = musicSamples_(wav, info, 0, 8);
+  ok('۲۴.۲ و شروعِ به‌موقع همان هشت ثانیه است',
+     Math.round(early.length / SR) === 8);
+  const tooLong = musicSamples_(wav, info, 0, 30);
+  ok('۲۴.۳ خواسته‌ای بلندتر از خودِ قطعه، به طولِ قطعه محدود می‌شود',
+     Math.round(tooLong.length / SR) === 10, (tooLong.length / SR).toFixed(2));
+
+  // ── علتِ ۲: محو کلِ قطعهٔ کوتاه را می‌خورد ──
+  const p23f = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۴.۴ محو حداکثر یک‌چهارمِ قطعه است، نه نصفش',
+     /MUSIC_FADE_SEC\) \|\| 2, len \/ 4\)/.test(p23f));
+  {
+    // با len/2 هیچ نمونه‌ای در بلندیِ کامل نمی‌ماند؛ با len/4 می‌ماند.
+    const n = 4 * SR, samples = [];
+    for (let i = 0; i < n; i++) samples.push(10000);
+    musicShape_(samples, 1, 1, 1);            // ۴ ثانیه، محو ۱ ثانیه (len/4)
+    let full = 0;
+    for (let i = 0; i < n; i++) if (samples[i] >= 9999) full++;
+    ok('۲۴.۵ دستِ‌کم نیمی از قطعه در بلندیِ کامل می‌مانَد',
+       full >= n / 2, Math.round(full / SR * 100) / 100 + ' ثانیه از ۴');
+  }
+
+  // ── علتِ ۳: یک میانه در کلِ برنامه ──
+  ok('۲۴.۶ پشتوانه چند مرز را در طولِ برنامه پخش می‌کند',
+     /for \(var fi2 = 0; fi2 < n; fi2\+\+\)/.test(p23f) &&
+     /Math\.floor\(\(\(fi2 \+ 1\) \* bounds\.length\) \/ \(n \+ 1\)\)/.test(p23f));
+  ok('۲۴.۷ و هر مرز قطعهٔ خودش را می‌گیرد، نه تکرارِ یکی',
+     /pool\.splice\(pz, 1\)/.test(p23f));
+  ok('۲۴.۸ وایبِ خودِ بخش در انتخابِ قطعهٔ آن مرز می‌آید',
+     /mood \+ ' ' \+ String\(bd\.tone \|\| ''\)/.test(p23f));
+  ok('۲۴.۹ سقفِ میانه بالا رفت', Number(CFG.MUSIC_BRIDGE_MAX) >= 4,
+     String(CFG.MUSIC_BRIDGE_MAX));
+  ok('۲۴.۱۰ و طولِ قطعه‌ها دیگر رادیویی است',
+     Number(CFG.MUSIC_INTRO_SEC) >= 12 && Number(CFG.MUSIC_OUTRO_SEC) >= 14 &&
+     Number(CFG.MUSIC_BRIDGE_SEC) >= 6,
+     CFG.MUSIC_INTRO_SEC + '/' + CFG.MUSIC_BRIDGE_SEC + '/' + CFG.MUSIC_OUTRO_SEC);
+  ok('۲۴.۱۱ تغییرِ گوینده هم به مدل به‌عنوان مرزِ واقعی معرفی می‌شود',
+     /تغییرِ گوینده هم یک تغییرِ واقعی/.test(p23f));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

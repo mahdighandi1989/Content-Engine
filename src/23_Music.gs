@@ -88,6 +88,14 @@ function musicSamples_(b, info, startSec, lenSec) {
   var from = Math.max(0, Math.floor((Number(startSec) || 0) * info.rate));
   var want = (Number(lenSec) > 0) ? Math.floor(lenSec * info.rate) : (total - from);
   if (from >= total) return [];
+  /* ── باگی که «موسیقیِ یک‌ثانیه‌ای» را ساخت ──
+   * مدل برای هر جایگاه یک `startSec` می‌دهد تا بهترین جای قطعه شنیده شود.
+   * هیچ‌جا وارسی نمی‌شد که از آن ثانیه به بعد، اصلاً به‌اندازهٔ طولِ خواسته‌شده
+   * صدا مانده باشد. `want = min(want, total - from)` بی‌صدا کوتاهش می‌کرد:
+   * روی قطعهٔ ۲۴ثانیه‌ای با startSec=۲۳، از هشت ثانیه یک ثانیه می‌رسید.
+   * هیچ خطایی هم نمی‌داد — فقط در گوش شنیده می‌شد.
+   * حالا اگر قطعه جا دارد، شروع عقب کشیده می‌شود تا طولِ کامل برسد. */
+  if (Number(lenSec) > 0 && from + want > total) from = Math.max(0, total - want);
   want = Math.min(want, total - from);
 
   var rd = function (fr, c) {
@@ -704,7 +712,11 @@ function musicWrap_(chunks, hub, opt) {
   var clipOf = function (b, slot, secs) {
     if (!b) return '';
     var len = Math.min(secs, b.sec || secs);
-    var fade = Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 2);
+    /* محو نباید کلِ قطعه را بخورد. با `len/2` یک قطعهٔ چهارثانیه‌ای دو ثانیه
+       بالا می‌آمد و دو ثانیه پایین می‌رفت — یعنی هیچ لحظه‌ای در بلندیِ کامل
+       نبود و مثل یک تلنگرِ یک‌ثانیه‌ای شنیده می‌شد. حالا دستِ‌کم نیمی از
+       قطعه در بلندیِ کامل می‌مانَد. */
+    var fade = Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
@@ -752,12 +764,35 @@ function musicWrap_(chunks, hub, opt) {
                 head: bounds[k].heading });
   }
 
-  // پشتوانه: مدل خاموش بود یا چیزی نداد. یک قطعه، سرِ مرزِ میانه.
+  /* پشتوانه: مدل خاموش بود یا چیزی نداد.
+   *
+   * تا ۵٫۷۱ اینجا **یک** قطعه سرِ مرزِ وسط گذاشته می‌شد. صاحبِ برنامه درست
+   * گفت: «یعنی واقعاً فکر کردی میانه استفاده بشه یعنی یه بار بین اول و
+   * آخر؟» برای برنامه‌ای که چند بخش و چند گوینده دارد، یک قطعه در کلِ
+   * برنامه عملاً یعنی هیچ.
+   * حالا مرزها در طولِ برنامه پخش می‌شوند و هر کدام قطعهٔ خودش را می‌گیرد —
+   * تکرارِ یک جینگل در سه جای یک قسمت، خودش بی‌سلیقگی است. */
   if (!want.length && maxBr && bounds.length) {
-    var fb = musicPick_(bank, 'میانه', mood, plan.bridgeId);
-    if (fb) {
-      var mid = bounds[Math.floor(bounds.length / 2)];
-      want.push({ at: mid.at, track: fb, why: 'میانهٔ برنامه', head: mid.heading });
+    var n = Math.min(maxBr, bounds.length);
+    var pool = bank.slice();
+    for (var fi2 = 0; fi2 < n; fi2++) {
+      var bIdx = Math.floor(((fi2 + 1) * bounds.length) / (n + 1));
+      if (bIdx >= bounds.length) bIdx = bounds.length - 1;
+      var bd = bounds[bIdx];
+      if (!bd) continue;
+      var dup2 = false;
+      for (var dz2 = 0; dz2 < want.length; dz2++) if (want[dz2].at === bd.at) dup2 = true;
+      if (dup2) continue;
+      // وایبِ خودِ آن بخش هم در انتخاب بیاید، نه فقط حال‌وهوای کلِ قسمت
+      var fb = musicPick_(pool, 'میانه', mood + ' ' + String(bd.tone || ''), '');
+      if (!fb) break;
+      want.push({ at: bd.at, track: fb, why: 'مرزِ بخش «' + (bd.heading || '—') + '»',
+                  head: bd.heading });
+      if (pool.length > 1) {
+        for (var pz = 0; pz < pool.length; pz++) {
+          if (pool[pz].id === fb.id) { pool.splice(pz, 1); break; }
+        }
+      }
     }
   }
 
@@ -1253,7 +1288,11 @@ function musicPlanModel_(bank, ctx) {
     '     است (شمارهٔ مرز را در `after` بده) — یعنی بینِ دو بخش، نه وسطِ',
     '     حرف. حداکثر ' + (Number(CFG.MUSIC_BRIDGE_MAX) || 2) + ' تا، و',
     '     فقط جایی که **وایب واقعاً عوض می‌شود** — مرزی که وایبِ دو طرفش یکی',
-    '     است، نیازی به قطعهٔ فاصله ندارد.',
+    '     است، نیازی به قطعهٔ فاصله ندارد. **تغییرِ گوینده هم یک تغییرِ واقعی',
+    '     است**: وقتی صدای دیگری شروع می‌کند، یک قطعهٔ کوتاه به شنونده',
+    '     می‌گوید صحنه عوض شد. مرزها را دست‌ودل‌باز ببین، نه با اکراه —',
+    '     برنامه‌ای که در ده دقیقه فقط یک بار موسیقیِ میانه دارد، خشک است.',
+    '     ولی هر مرز هم لازم ندارد؛ جایی که واقعاً چیزی عوض می‌شود.',
     '     اگر برنامه یکدست است و جایی برای نفس‌کشیدن لازم ندارد، bridges را',
     '     خالی بگذار — موسیقیِ بی‌مناسبت بدتر از نبودنش است.',
     '',
