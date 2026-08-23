@@ -166,4 +166,126 @@ console.log('=== ۵) شمارِ فایل، همان چیزی که تحویل ش�
   ok('۵.۳ شمارِ تکه‌های پیش از ادغام هم گم نمی‌شود', /parts: st\.files\.length/.test(p14));
 }
 
+console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از دستِ کاربر ===');
+{
+  /* خواستهٔ صریحِ صاحبِ برنامه از اول همین بود: «اگر من فایل موسیقی نذارم
+   * خودش از سطح اینترنت پیدا کنه و قرار بده». دستورش هم به تسکِ غنی‌سازی
+   * داده شده بود — ولی خودِ تسک گزارش داد که در محیطِ ابری نمی‌تواند فایلِ
+   * صوتی تهیه و بارگذاری کند، و بانک هفته‌ها خالی ماند.
+   * حالا کار تقسیم شده: تسک نشانی می‌نویسد، موتور دانلود می‌کند. */
+
+  // یک WAVِ کوچکِ واقعی می‌سازیم تا هدرش واقعاً سنجیده شود
+  const wav = (secs, rate) => {
+    const n = Math.round(rate * secs), dataLen = n * 2, out = [];
+    const s4 = t => { for (const c of t) out.push(c.charCodeAt(0)); };
+    const i32 = v => { out.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); };
+    const i16 = v => { out.push(v & 255, (v >> 8) & 255); };
+    s4('RIFF'); i32(36 + dataLen); s4('WAVE'); s4('fmt '); i32(16); i16(1); i16(1);
+    i32(rate); i32(rate * 2); i16(2); i16(16); s4('data'); i32(dataLen);
+    for (let i = 0; i < n; i++) i16(0);
+    return out;
+  };
+
+  const OUTF = () => DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const wipe = re => { const it = OUTF().getFiles();
+    while (it.hasNext()) { const f = it.next(); if (re.test(f.getName())) f.setTrashed(true); } };
+  const bankNames = () => { const out = []; const it = musicFolder_().getFiles();
+    while (it.hasNext()) out.push(it.next().getName()); return out; };
+
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+  const before = bankNames().length;
+
+  putOutJson_(MUSIC_FEED_(), { items: [
+    { url: 'https://ok.example/calm.wav', title: 'پیانوی آرام', license: 'CC0',
+      kind: 'موسیقی', mood: 'آرام، امیدوار', slots: 'شروع، پایان', gain: '0.7' },
+    { url: 'https://liar.example/fake.wav', title: 'ام‌پی‌تری با پسوندِ دروغ' },
+    { url: 'https://gone.example/404.wav', title: 'نیست' },
+    { url: 'http://insecure.example/x.wav', title: 'بی https' }
+  ]});
+
+  global.__STUB = (url) => {
+    if (url.indexOf('ok.example') !== -1) return { code: 200, bytes: wav(3, 24000) };
+    if (url.indexOf('liar.example') !== -1) return { code: 200, bytes: [73, 68, 51, 4, 0, 0, 0] };
+    return { code: 404, json: {} };
+  };
+
+  const r = musicFetch_();
+  ok('۶.۱ فایلِ سالم آورده و در بانک نشسته', r.added === 1 && bankNames().length > before,
+     JSON.stringify(r.notes));
+  ok('۶.۲ و هویتش هم کنارش نوشته شده',
+     bankNames().some(n => /^_MUSIC-META-/.test(n)), bankNames().join(' | '));
+
+  const meta = musicMeta_(bankNames().filter(n => /\.wav$/.test(n))[0]);
+  ok('۶.۳ مجوز و حال‌وهوا از فهرست آمده، نه از حدسِ نام',
+     meta && meta.license === 'CC0' && /آرام/.test(String(meta.mood)), JSON.stringify(meta));
+
+  // مهم‌ترین سنجه: آنچه WAV نیست نباید وارد بانک شود
+  ok('۶.۴ فایلی که ادعا می‌کند WAV است ولی نیست، ذخیره نمی‌شود',
+     !bankNames().some(n => /دروغ/.test(n)), bankNames().join(' | '));
+  const fed = getOutJson_(MUSIC_FEED_());
+  ok('۶.۵ و دلیلِ ردش در همان فایل نوشته می‌شود',
+     /WAV نیست/.test(String(fed.items[1].error)), String(fed.items[1].error));
+  ok('۶.۶ پاسخِ ۴۰۴ هم رد می‌شود با دلیل', /404/.test(String(fed.items[2].error)));
+  ok('۶.۷ سقفِ «شبی چند فایل» رعایت می‌شود — چهارمی امشب دست نخورد',
+     !fed.items[3].status, JSON.stringify(fed.items[3]));
+  ok('۶.۸ و آنچه آمد در فهرست «آمد» می‌خورد با شناسهٔ فایل',
+     fed.items[0].status === 'آمد' && !!fed.items[0].fileId);
+
+  // نشانیِ بی https جداگانه، چون بالا سقف جلویش را گرفت
+  wipe(/_MUSIC-FEED/);
+  putOutJson_(MUSIC_FEED_(), { items: [{ url: 'http://insecure.example/x.wav', title: 'بی https' }] });
+  const nBefore = bankNames().length;
+  musicFetch_();
+  const f2 = getOutJson_(MUSIC_FEED_()).items[0];
+  ok('۶.۸-ب نشانیِ بی https اصلاً دانلود نمی‌شود',
+     f2.status === 'رد' && /https/.test(String(f2.error)) && bankNames().length === nBefore,
+     JSON.stringify(f2));
+  wipe(/_MUSIC-FEED/);
+  putOutJson_(MUSIC_FEED_(), { items: [
+    { url: 'https://ok.example/calm.wav', title: 'پیانوی آرام' },
+    { url: 'https://liar.example/fake.wav', title: 'ام‌پی‌تری با پسوندِ دروغ' },
+    { url: 'https://gone.example/404.wav', title: 'نیست' }
+  ]});
+  for (const it of getOutJson_(MUSIC_FEED_()).items) void it;
+
+  // اجرای دوباره نباید چیزی را دوباره بیاورد
+  musicFetch_();
+  const n2 = bankNames().length;
+  const r2 = musicFetch_();
+  ok('۶.۹ اجرای دوباره چیزی را تکرار نمی‌کند',
+     r2.added === 0 && bankNames().length === n2);
+
+  // فایلی که کاربر پاک کرده نباید برگردد
+  wipe(/_MUSIC-FEED/);
+  putOutJson_(MUSIC_FEED_(), { items: [{ url: 'https://ok.example/calm.wav', title: 'دوباره' }] });
+  ok('۶.۱۰ نشانیِ قبلاً آمده دوباره دانلود نمی‌شود — پاک‌کردنِ کاربر محترم است',
+     musicFetch_().added === 0);
+
+  // سقفِ حجم
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+  putOutJson_(MUSIC_FEED_(), { items: [{ url: 'https://big.example/huge.wav', title: 'غول' }] });
+  global.__STUB = () => ({ code: 200, bytes: wav(2, 24000) });
+  const keepCap = CFG.MUSIC_FETCH_MAX_BYTES;
+  CFG.MUSIC_FETCH_MAX_BYTES = 1000;
+  musicFetch_();
+  ok('۶.۱۱ فایلِ بزرگ‌تر از سقف رد می‌شود',
+     /حجم/.test(String(getOutJson_(MUSIC_FEED_()).items[0].error)));
+  CFG.MUSIC_FETCH_MAX_BYTES = keepCap;
+
+  // و وصل‌بودنش — وگرنه همان «کدِ نوشته‌شده که صدا زده نمی‌شود»
+  ok('۶.۱۲ در کارِ شبانه پیش از پویش صدا زده می‌شود',
+     /musicFetch_\(\);[\s\S]{0,200}musicScan_\(\)/.test(
+       fs.readFileSync('src/21_SelfUpdate.gs', 'utf8')));
+  ok('۶.۱۳ و از منو هم در دسترس است',
+     /runMusicFetch/.test(fs.readFileSync('src/05_Setup.gs', 'utf8')));
+  ok('۶.۱۴ فایلِ فهرست در نقشهٔ ریشه شناخته‌شده است — وگرنه «ناشناس» گزارش می‌شود',
+     /MUSIC_FEED_FILE/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

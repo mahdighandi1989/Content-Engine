@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.54
+ *  موتور محتوا و پادکست — نسخهٔ 5.55
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -365,6 +365,17 @@ var CFG = {
   // شود، فقط ستون‌هایی که آدم در تب پر کرده ملاک است.
   MUSIC_AUTO: true,
   MUSIC_FOLDER: 'موسیقی و افکت',
+  // ── آوردنِ موسیقی از اینترنت ──
+  // تقسیمِ کار: تسکِ غنی‌سازی وب را می‌گردد و *نشانیِ* یک فایلِ WAVِ آزاد را
+  // در این فایل می‌نویسد؛ دانلود و ذخیره کارِ خودِ موتور است. پیشتر همهٔ
+  // این کار به تسک سپرده شده بود و تسک گزارش داد که در محیطِ ابری
+  // نمی‌تواند فایلِ صوتی تهیه و بارگذاری کند — پس بانک هرگز پر نشد.
+  // موتور UrlFetchApp دارد و همین حالا هم engine.gs را با آن می‌گیرد.
+  MUSIC_FEED_FILE: '_MUSIC-FEED.json',
+  MUSIC_FETCH: true,
+  MUSIC_FETCH_MAX_BYTES: 12000000,   // ~۲ دقیقه WAVِ ۲۴ کیلوهرتز
+  MUSIC_FETCH_MAX_PER_RUN: 3,        // شبی سه فایل؛ بانک آرام پر می‌شود
+
   MUSE_TAB: 'کاربردِ موسیقی',   // تاریخچهٔ پخش: کدام قطعه، کدام قسمت، کدام جایگاه
   MUSIC_TAB: 'موسیقی',
   MUSIC_INTRO_SEC: 8,          // طولِ موسیقیِ آغاز
@@ -564,7 +575,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.54',
+  CODE_VERSION: '5.55',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -835,7 +846,9 @@ var PK = {
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
   PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS',
   // نقشهٔ موسیقیِ قسمتِ در جریان — تا از سر گرفتنِ صداگذاری نقشه را عوض نکند
-  MUSIC_PLAN: 'MUSIC_PLAN_CACHE'
+  MUSIC_PLAN: 'MUSIC_PLAN_CACHE',
+  // نشانی‌هایی که یک‌بار آورده شده‌اند — تا فایلی که کاربر پاک کرده دوباره برنگردد
+  MUSIC_FETCHED: 'MUSIC_FETCHED_URLS'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }
@@ -5616,6 +5629,7 @@ function onOpen() {
       .addItem('🌐 وضعیتِ غنی‌سازیِ اینترنتی', 'showEnrichStatus')
       .addSeparator()
       .addItem('🎵 بانکِ موسیقی — پویش و برچسبِ خودکار', 'runMusicAuto')
+      .addItem('⬇️ آوردنِ موسیقی از فهرستِ پیشنهادی', 'runMusicFetch')
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
@@ -6904,6 +6918,8 @@ function outRootFilePatterns_() {
     { re: new RegExp('^' + rxQuote_(String(CFG.HUB_FILE_NAME || '')) + '$'), what: 'بانک محتوا' },
     { re: new RegExp('^' + rxQuote_(String(CFG.CODE_FILE || '')) + '$'), what: 'نشانهٔ کد' },
     { re: new RegExp('^' + rxQuote_(String(CFG.OUT_README || '')) + '$'), what: 'نقشهٔ پوشه' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_FEED_FILE || '_MUSIC-FEED.json')) + '$'),
+      what: 'فهرستِ موسیقیِ پیشنهادی — تسک نشانی می‌نویسد، موتور می‌آوردشان' },
     { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json')) + '$'),
       what: 'درخواستِ موسیقی' },
     // گزارشِ هنوز برداشته‌نشده. خوانده‌شده‌اش («.ingested») باید رفته باشد به
@@ -18261,6 +18277,9 @@ function selfUpdateDaily() {
 
   // بانکِ موسیقی: فایلِ تازه‌ای که کاربر در پوشه گذاشته، شبانه دیده و
   // برچسب‌گذاری می‌شود — تا صبح آمادهٔ استفاده باشد.
+  // ترتیب مهم است: اول فایل‌های تازه آورده می‌شوند، بعد پویش می‌شود.
+  // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
+  try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
   try { musicScan_(); musicAutoTag_(); }
   catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
 
@@ -21188,6 +21207,191 @@ function musicWish_(mood, missing, ctx) {
     putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
     return items.length;
   } catch (e) { return null; }
+}
+
+/* ═══════════════════ آوردنِ موسیقی از اینترنت (۵٫۵۵) ═══════════════════
+
+   ══ چرا بانک تا امروز خالی ماند ══
+   طرحِ اولیه این بود: موتور می‌گوید چه لازم دارد (_MUSIC-WISH.json) و تسکِ
+   غنی‌سازی از وب پیدا می‌کند، به WAV تبدیل می‌کند و در پوشهٔ بانک می‌گذارد.
+   دستورش هم نوشته شده بود. ولی خودِ تسک گزارش داد که در محیطِ ابری نمی‌تواند
+   فایلِ صوتی تهیه و بارگذاری کند — و کسی آن گزارش را به کارِ بعدی وصل نکرد.
+   نتیجه: هفت آرزوی ثبت‌شده و صفر فایل.
+
+   ══ تقسیمِ کارِ تازه ══
+   هرکس همان کاری را می‌کند که واقعاً از دستش برمی‌آید:
+     • تسکِ غنی‌سازی وب را می‌گردد و *نشانیِ* یک فایلِ WAVِ آزاد را با مجوزش
+       در `_MUSIC-FEED.json` می‌نویسد. این فقط متن است؛ از پسش برمی‌آید.
+     • موتور نشانی را می‌گیرد، دانلود می‌کند، **هدرِ WAV را می‌سنجد** و در
+       پوشهٔ بانک می‌نشاند. UrlFetchApp همین حالا هم engine.gs را می‌آورد.
+
+   ══ چه چیزی وارد بانک نمی‌شود ══
+   هرچه هدرِ RIFF/WAVE نداشته باشد — MP3ی که پسوندش را WAV گذاشته‌اند، صفحهٔ
+   HTMLِ خطا، دانلودِ نصفه. اینها ذخیره نمی‌شوند، چون یک فایلِ خرابِ در بانک
+   بدتر از بانکِ خالی است: هر شب انتخاب می‌شود و هر شب سکوت پخش می‌کند.
+
+   ══ و آنچه اینجا نیست ══
+   هیچ موسیقی‌ای *ساخته* نمی‌شود. مدل فقط انتخاب می‌کند کدام قطعهٔ موجود کجا
+   پخش شود و از کجایش بریده شود. ساختنِ موسیقی نه در توانِ این موتور است و نه
+   جایی از این پروژه خواسته شده.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+function MUSIC_FEED_() { return CFG.MUSIC_FEED_FILE || '_MUSIC-FEED.json'; }
+
+/** نشانی‌هایی که یک بار آورده شده‌اند. فایلی که کاربر پاک کند برنمی‌گردد. */
+function musicFetchedUrls_() {
+  try { return JSON.parse(props_().getProperty(PK.MUSIC_FETCHED) || '[]') || []; }
+  catch (e) { return []; }
+}
+
+function musicFetchedAdd_(url) {
+  try {
+    var L = musicFetchedUrls_();
+    if (L.indexOf(url) === -1) L.push(url);
+    props_().setProperty(PK.MUSIC_FETCHED, JSON.stringify(L.slice(-200)));
+  } catch (e) {}
+}
+
+/** نامِ فایلِ امن از روی عنوان یا نشانی. */
+function musicFileName_(item) {
+  var base = String((item && item.title) || '').trim();
+  if (!base) {
+    base = String((item && item.url) || '').split('?')[0].split('/').pop() || 'track';
+    base = base.replace(/\.[A-Za-z0-9]+$/, '');
+  }
+  base = base.replace(/[\\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return (base || 'track') + '.wav';
+}
+
+/**
+ * فهرستِ پیشنهادها را می‌خواند، دانلود می‌کند و در بانک می‌نشاند.
+ * برمی‌گرداند {read, added, failed, notes:[…]}
+ */
+function musicFetch_() {
+  var out = { read: 0, added: 0, failed: 0, notes: [] };
+  if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_FETCH === false) return out;
+
+  var feed = null;
+  try { feed = getOutJson_(MUSIC_FEED_()); } catch (e) { return out; }
+  if (!feed || !feed.items || !feed.items.length) return out;
+
+  var cap = Number(CFG.MUSIC_FETCH_MAX_PER_RUN) || 3;
+  var maxB = Number(CFG.MUSIC_FETCH_MAX_BYTES) || 12000000;
+  var done = musicFetchedUrls_();
+  var folder = musicFolder_();
+  var changed = false;
+
+  for (var i = 0; i < feed.items.length && out.added + out.failed < cap; i++) {
+    var it = feed.items[i] || {};
+    if (it.status) continue;                       // قبلاً رسیدگی شده
+    var url = String(it.url || '').trim();
+    out.read++;
+
+    if (!/^https:\/\//i.test(url)) {
+      it.status = 'رد'; it.error = 'نشانی باید https باشد';
+      changed = true; out.failed++; continue;
+    }
+    if (done.indexOf(url) !== -1) {
+      it.status = 'تکراری'; it.error = 'این نشانی قبلاً آورده شده';
+      changed = true; continue;
+    }
+
+    var bytes = null, code = 0;
+    try {
+      var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+      code = res.getResponseCode();
+      if (code === 200) bytes = res.getBlob().getBytes();
+    } catch (eF) {
+      it.status = 'رد'; it.error = 'دانلود نشد: ' + eF.message;
+      changed = true; out.failed++; continue;
+    }
+    if (code !== 200 || !bytes) {
+      it.status = 'رد'; it.error = 'پاسخِ ' + code;
+      changed = true; out.failed++; continue;
+    }
+    if (bytes.length > maxB) {
+      it.status = 'رد';
+      it.error = 'حجم ' + Math.round(bytes.length / 1e6) + ' مگابایت، بیشتر از سقفِ ' +
+                 Math.round(maxB / 1e6);
+      changed = true; out.failed++; continue;
+    }
+
+    // تنها سنجهٔ معتبر: خودِ هدر. پسوندِ فایل و Content-Type هر دو دروغ می‌گویند.
+    var info = null;
+    try { info = wavInfo_(bytes); } catch (eW) { info = null; }
+    if (!info || !(info.seconds > 0)) {
+      it.status = 'رد';
+      it.error = 'WAV نیست (یا هدرش خوانده نشد). MP3 در Apps Script رمزگشایی نمی‌شود.';
+      changed = true; out.failed++;
+      musicFetchedAdd_(url);                       // دوباره امتحان نمی‌شود
+      continue;
+    }
+
+    var name = musicFileName_(it);
+    var file;
+    try {
+      file = folder.createFile(Utilities.newBlob(bytes, 'audio/wav', name));
+    } catch (eC) {
+      it.status = 'رد'; it.error = 'ذخیره نشد: ' + eC.message;
+      changed = true; out.failed++; continue;
+    }
+
+    // همراهِ فایل، هویتش. موتور این را بر نامِ فایل مقدم می‌داند.
+    try {
+      folder.createFile(Utilities.newBlob(JSON.stringify({
+        title: String(it.title || name.replace(/\.wav$/i, '')),
+        url: url, license: String(it.license || ''),
+        kind: String(it.kind || 'موسیقی'), mood: String(it.mood || ''),
+        slots: String(it.slots || ''), gain: String(it.gain || ''),
+        source: String(it.source || ''), at: nowStr_()
+      }, null, 1), 'application/json',
+        '_MUSIC-META-' + name.replace(/\.wav$/i, '') + '.json'));
+    } catch (eS) {}
+
+    musicFetchedAdd_(url);
+    it.status = 'آمد';
+    it.fileId = file.getId();
+    it.at = nowStr_();
+    it.sec = Math.round(info.seconds);
+    changed = true; out.added++;
+    out.notes.push(name + ' (' + Math.round(info.seconds) + 'ث، ' + info.rate + ' هرتز)');
+    logLine_('موسیقی آورده شد: «' + name + '» — ' + Math.round(info.seconds) + ' ثانیه، ' +
+             info.rate + ' هرتز، ' + Math.round(bytes.length / 1e6 * 10) / 10 + ' مگابایت.');
+  }
+
+  // نتیجه به همان فایل برمی‌گردد تا تسک ببیند چه شد و چه چیزی رد شد.
+  if (changed) {
+    try { putOutJson_(MUSIC_FEED_(), { updatedAt: nowStr_(), items: feed.items }); } catch (eP) {}
+  }
+  if (out.failed) {
+    logLine_('آوردنِ موسیقی: ' + out.added + ' آمد، ' + out.failed + ' رد شد.');
+  }
+  return out;
+}
+
+/** منو: آوردنِ موسیقی از فهرستِ پیشنهادی، همین حالا. */
+function runMusicFetch() {
+  var r = musicFetch_();
+  var scan = null;
+  if (r.added) { try { scan = musicScan_(); } catch (e) {} }
+  var L = ['🎵 آوردنِ موسیقی از فهرستِ پیشنهادی', ''];
+  if (!r.read && !r.added) {
+    L.push('فایلِ «' + MUSIC_FEED_() + '» در ریشهٔ OUTPUT نبود یا پیشنهادِ تازه‌ای نداشت.');
+    L.push('');
+    L.push('این فایل را تسکِ «غنی‌سازی اینترنتی» پر می‌کند: وب را می‌گردد و');
+    L.push('نشانیِ فایل‌های WAVِ آزاد را می‌نویسد. خودِ موتور دانلودشان می‌کند.');
+    L.push('');
+    L.push('اگر خودتان نشانی‌ای دارید، می‌توانید همین فایل را دستی بسازید:');
+    L.push('{"items":[{"url":"https://…/x.wav","title":"…","license":"CC0",');
+    L.push(' "kind":"موسیقی","mood":"آرام","slots":"شروع، پایان","gain":"0.7"}]}');
+  } else {
+    L.push(r.added + ' فایل آمد، ' + r.failed + ' رد شد.');
+    if (r.notes.length) { L.push(''); for (var i = 0; i < r.notes.length; i++) L.push('• ' + r.notes[i]); }
+    if (scan) L.push('', 'بانک پویش شد: ' + scan.added + ' تازه، ' + scan.updated + ' به‌روز.');
+    L.push('', 'دلیلِ رد شدنِ هرکدام در خودِ «' + MUSIC_FEED_() + '» نوشته شده.');
+  }
+  try { SpreadsheetApp.getUi().alert(L.join('\n')); } catch (e) { logLine_(L.join(' ')); }
+  return r;
 }
 
 /* ──────────────────────── خویشتن‌داری در افکت ──────────────────────── */

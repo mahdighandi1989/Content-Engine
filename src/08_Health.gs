@@ -120,6 +120,8 @@ function outRootFilePatterns_() {
     { re: new RegExp('^' + rxQuote_(String(CFG.HUB_FILE_NAME || '')) + '$'), what: 'بانک محتوا' },
     { re: new RegExp('^' + rxQuote_(String(CFG.CODE_FILE || '')) + '$'), what: 'نشانهٔ کد' },
     { re: new RegExp('^' + rxQuote_(String(CFG.OUT_README || '')) + '$'), what: 'نقشهٔ پوشه' },
+    { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_FEED_FILE || '_MUSIC-FEED.json')) + '$'),
+      what: 'فهرستِ موسیقیِ پیشنهادی — تسک نشانی می‌نویسد، موتور می‌آوردشان' },
     { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json')) + '$'),
       what: 'درخواستِ موسیقی' },
     // گزارشِ هنوز برداشته‌نشده. خوانده‌شده‌اش («.ingested») باید رفته باشد به

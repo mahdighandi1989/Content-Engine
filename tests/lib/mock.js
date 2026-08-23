@@ -307,7 +307,11 @@ global.UrlFetchApp = {
     const r = global.__STUB(url, body);
     // پاسخ می‌تواند json بدهد یا متنِ خام (برای شبیه‌سازیِ خطاهای واقعیِ API)
     const txt = (r && typeof r.text === 'string') ? r.text : JSON.stringify(r && r.json);
+    // پاسخِ دودویی (دانلودِ موسیقی): اگر بایت داده شده باشد، getBlob هم هست
     return { getResponseCode: () => r.code,
+             getBlob: () => (r && r.bytes
+               ? global.Utilities.newBlob(r.bytes, r.mime || 'audio/wav', 'x')
+               : global.Utilities.newBlob(txt || '', 'text/plain', 'x')),
              getContentText: () => (txt === undefined ? '' : txt) };
   }
 };
