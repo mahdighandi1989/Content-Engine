@@ -133,6 +133,8 @@ WAV and upload it. You reported you cannot do that in the cloud environment, and
 you were right — so nothing ever arrived and the bank stayed empty for weeks
 while wishes piled up. The work is now split along what each side can actually
 do: **you search the web and write a direct URL; the engine fetches it.**
+(v7 revisits the other half of that: see §9 — conversion IS possible after all,
+with one `pip install`, and it was never re-tested until today.)
 
 Do this on every run, after the enrichment work:
 
@@ -209,11 +211,11 @@ Do this on every run, after the enrichment work:
    are all MP3; the engine has no MP3 decoder and from 5.65 rejects such a URL on
    sight, without downloading. The same goes for Free Music Archive, Incompetech,
    Chosic and Bensound. **But do not write pixabay off** — §9 below is exactly
-   how you use it: you convert the MP3 yourself and upload the WAV. Also do not propose freesound.org (downloads
-   need an API key and previews are MP3/OGG), the BBC sound-effects archive (its
-   licence does not cover a published podcast), or any URL you found but did not
-   verify. If you ever find a genuine `.wav` URL on one of these sites, it is
-   allowed — the rule is about the format, not the domain.
+   how you use it: you convert the MP3 yourself and upload the WAV. Also do not
+   propose freesound.org (downloads need an API key and previews are MP3/OGG), the
+   BBC sound-effects archive (its licence does not cover a published podcast), or
+   any URL you found but did not verify. If you ever find a genuine `.wav` URL on
+   one of these sites, it is allowed — the rule is about the format, not the domain.
 
 4. **Licence, always.** CC0, public domain, or an explicit royalty-free licence.
    Never propose audio whose licence you cannot name — put the exact licence
