@@ -465,4 +465,22 @@ console.log('=== ۱۲) موسیقیِ میانه سرِ مرزِ بخش‌ها،
   ok('۱۲.۵ بی مرز هم کار می‌کند', Array.isArray(r4.chunks));
 }
 
+// ۵٫۶۲ — شناسنامه‌ها قطعه نیستند
+{
+  const F = musicFolder_();
+  F.createFile(Utilities.newBlob('{"title":"x"}', 'application/json',
+                                 '_MUSIC-META-x.json'));
+  const before = musicScan_();
+  let listed = false;
+  const sh = getHub_().getSheetByName(CFG.MUSIC_TAB);
+  const last = sh.getLastRow();
+  if (last > 1) {
+    const v = sh.getRange(2, MC.NAME, last - 1, 1).getValues();
+    listed = v.some(r => /_MUSIC-META-/.test(String(r[0])));
+  }
+  console.log((!listed ? '  ✅' : '  ❌') +
+    ' شناسنامهٔ JSON به‌عنوان قطعهٔ «ناسازگار» فهرست نمی‌شود');
+  if (listed) throw new Error('sidecar catalogued as a broken track');
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

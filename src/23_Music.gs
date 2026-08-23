@@ -216,6 +216,17 @@ function musicScan_(hub) {
   var it = musicFolder_().getFiles();
   while (it.hasNext()) {
     var f = it.next(), id = f.getId();
+    // شناسنامه‌های خودِ موتور قطعه نیستند و نباید در فهرست بنشینند.
+    //
+    // ۲۳ اوت، ۱۴:۰۵: «۶ ناسازگار» در پیامِ پویش، در واقع شش فایلِ
+    // _MUSIC-META-*.json بود که کنارِ هر قطعه گذاشته می‌شود. musicBank_
+    // ردشان می‌کرد پس هرگز پخش نمی‌شدند، ولی در تب می‌نشستند و عددِ
+    // «ناسازگار» را بی‌دلیل بالا می‌بردند — یعنی سنجه‌ای که آدم باید به آن
+    // نگاه کند، چیزی می‌گفت که معنایش آن نبود.
+    //
+    // فایلِ صوتیِ واقعاً ناسازگار (MP3ی که کاربر گذاشته) همچنان فهرست و
+    // علامت می‌خورد؛ آن هشدارِ درستی است و باید بماند.
+    if (/^_MUSIC-META-.*\.json$/i.test(f.getName())) continue;
     seen[id] = 1;
     var info = null, probe = null, bytes = null;
     try { bytes = f.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
