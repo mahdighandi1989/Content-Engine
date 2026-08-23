@@ -28,6 +28,10 @@ global.__STUB=function(url,body){
   if(url.indexOf('/v1beta/models?')!==-1)return{code:200,json:{models:[{name:'models/gemini-2.5-flash',supportedGenerationMethods:['generateContent']},{name:'models/gemini-2.5-flash-preview-tts',supportedGenerationMethods:['generateContent']}]}};
   if(url.indexOf('api.telegram.org')!==-1){tg.push({m:url.split('/').pop(),body});return{code:200,json:{ok:true,result:{username:'b'}}};}
   const t=body.contents?body.contents[0].parts[0].text:'';
+  if (body.contents && body.contents[0].parts.some(x => x.inlineData)) {
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      text: 'متنِ سالمِ برنامه' }] } }] } };
+  }
   if(t.indexOf('سردبیرِ یک برنامهٔ رادیویی')!==-1){
     curatorPrompts.push(t);
     const cand=[...t.matchAll(/- id: (\S+) \| نامزد/g)].map(m=>m[1]);

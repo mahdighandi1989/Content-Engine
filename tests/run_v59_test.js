@@ -19,20 +19,33 @@ console.log('\n=== ۵. دستورِ گفتار دیگر «خواندنی» نی�
   const style = 'آرام، روشن و معلم‌وار. شمرده و با اطمینان، مثل مدرسی که می‌خواهد مطلب جا بیفتد. ' +
                 'روی تعریف‌ها و اصطلاح‌ها تأکید کن و پیش از هر مفهوم تازه یک مکث کوتاه بگذار. ' +
                 'این بخشِ «چرا این درس» است: شمرده، با تأکید، و کمی آهسته‌تر.';
-  const p = ttsPayloads_('متنِ درسِ امروز دربارهٔ الگوهای نموداری است. '.repeat(15), null, style, 'Kore');
+  const TEXT = 'متنِ درسِ امروز دربارهٔ الگوهای نموداری است. '.repeat(15);
+  const p = ttsPayloads_(TEXT, null, style, 'Kore');
   const sent = p.generateContent.body.contents[0].parts[0].text;
-  const line1 = sent.split('\n')[0];
-  ok('5.1 کلِ دستور یک سطر است و متن از سطرِ دوم', sent.indexOf('\n') === line1.length);
+  const cue = p.generateContent.body.systemInstruction.parts[0].text;
+
+  /* ۵٫۵۹ فرضِ این پنج سنجه را عوض کرد.
+   *
+   * تا اینجا طرح این بود: «دستور را کوتاه کن و سطرِ اول بگذار تا خوانده
+   * نشود». همان طرح بود که باگ را می‌ساخت — کوتاهیِ دستور احتمالِ خوانده‌شدن
+   * را کم می‌کند، صفر نمی‌کند، و «کم» برای چیزی که آبروی برنامه را می‌برد
+   * کافی نیست. حالا دستور اصلاً در متن نیست.
+   *
+   * پس سنجه‌ها همان *قصد* را نگه می‌دارند (دستور کوتاه، بی نشانه‌های قدیمی)
+   * ولی در جای درست می‌سنجند — و یکی از قبل قوی‌تر است: «در متن نیست».
+   */
+  ok('5.1 متنِ فرستاده‌شده عیناً خودِ گفتار است و بس', sent === TEXT,
+     JSON.stringify(sent.slice(0, 60)));
   ok('5.2 دستور کوتاه است حتی با لحنِ بلندِ درس‌نامه',
-     line1.length <= (CFG.TTS_CUE_MAX + 40), line1.length + ' نویسه');
+     cue.length <= (CFG.TTS_CUE_MAX + 40), cue.length + ' نویسه');
   ok('5.3 هیچ‌کدام از نشانه‌های دستورِ قدیمی (که خوانده می‌شد) نیست',
      sent.indexOf('قاعدهٔ شمارهٔ یک') === -1 && sent.indexOf('•') === -1 &&
      sent.indexOf('هیچ‌کدام از دستورهای بالا') === -1);
-  ok('5.4 دستور با «:» به متن می‌رسد', /فقط این متن را اجرا کن:$/.test(line1));
-  ok('5.5 متنِ واقعی غالب است', line1.length < sent.length / 2,
-     line1.length + ' از ' + sent.length);
-  // مقایسه با گذشته: دستورِ قبلی ~۲۲۰۰ نویسه بود و متن تهِ آن
-  ok('5.6 دستور از یک‌دهمِ دستورِ قبلی کوتاه‌تر است', line1.length < 350, line1.length);
+  ok('5.4 دستور با «:» تمام می‌شود', /فقط این متن را اجرا کن:$/.test(cue));
+  ok('5.5 و هیچ تکه‌ای از دستور در متن نیست — سنجهٔ اصلیِ ۵٫۵۹',
+     sent.indexOf('فقط این متن را اجرا کن') === -1 &&
+     sent.indexOf('با صدای') === -1 && sent.indexOf(cue) === -1);
+  ok('5.6 دستور از یک‌دهمِ دستورِ قبلی کوتاه‌تر است', cue.length < 350, cue.length);
 }
 
 // ═════ ۶) پاک‌سازیِ گفتار از شناسه و لینک ═════
@@ -377,8 +390,9 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
   ok('تکهٔ بی‌دستور هیچ سطرِ اضافه‌ای ندارد',
      noCue.generateContent.body.contents[0].parts[0].text === TXT,
      JSON.stringify(noCue.generateContent.body.contents[0].parts[0].text).slice(0, 80));
-  ok('و تکهٔ دستوردار همچنان دستور دارد',
-     /فقط این متن را اجرا کن:/.test(withCue.generateContent.body.contents[0].parts[0].text));
+  ok('و تکهٔ دستوردار همچنان دستور دارد — ولی جدا از متن (۵٫۵۹)',
+     /فقط این متن را اجرا کن:/.test(withCue.generateContent.body.systemInstruction.parts[0].text) &&
+     withCue.generateContent.body.contents[0].parts[0].text === TXT);
   ok('صدا در هر دو یکی است (صدا از voiceConfig می‌آید نه از دستور)',
      noCue.generateContent.body.generationConfig.speechConfig.voiceConfig
           .prebuiltVoiceConfig.voiceName === 'Kore');

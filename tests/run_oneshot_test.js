@@ -553,4 +553,97 @@ console.log('=== ۹) موسیقی با وایبِ همین قسمت کار دا�
 }
 
 
+console.log('=== ۱۰) گوینده هرگز نباید دستورِ لحن را بخوانَد ===');
+{
+  /* خواستهٔ صاحبِ برنامه، چند بار در چند سشن، و هر بار «حل‌شده» اعلام شد و
+   * برگشت: «گاهی گوینده به‌جای متن، پرامپتِ نوعِ بیان را می‌خواند».
+   *
+   * علتِ برنگشتن‌ناپذیر نبودنش این بود که هر بار *عبارتِ* دستور عوض می‌شد،
+   * در حالی که ریشه ساختاری بود: دستور و متن یک رشته بودند و مدل باید حدس
+   * می‌زد کدام کدام است. عبارت هرچه باشد، حدس حدس می‌ماند.
+   *
+   * و هیچ‌وقت کسی به خروجی گوش نداده بود — فقط ورودی عوض می‌شد. */
+
+  const p3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
+
+  // الف) مرزِ ساختاری: دستور دیگر به متن چسبانده نمی‌شود
+  ok('۱۰.۱ دستور دیگر به متن چسبانده نمی‌شود',
+     !/ttsCue_\([^)]*\)\s*\+\s*'\\n'\s*\+\s*text/.test(p3));
+  const pay = ttsPayloads_('متنِ گفتار.', 'm', 'آرام', 'Leda', true);
+  ok('۱۰.۲ متنِ فرستاده‌شده فقط خودِ گفتار است',
+     pay.generateContent.body.contents[0].parts[0].text === 'متنِ گفتار.',
+     JSON.stringify(pay.generateContent.body.contents[0].parts[0].text));
+  ok('۱۰.۳ و دستور در systemInstruction نشسته',
+     /با صدای/.test(pay.generateContent.body.systemInstruction.parts[0].text));
+  const noCue = ttsPayloads_('متنِ گفتار.', 'm', 'آرام', 'Leda', false);
+  ok('۱۰.۴ بی‌دستور یعنی اصلاً systemInstruction نیست',
+     !noCue.generateContent.body.systemInstruction);
+
+  // ب) «off» واقعاً یعنی هرگز — پیشتر هر مقدارِ ناشناخته «همیشه» معنا می‌شد
+  const keepMode = CFG.TTS_CUE_MODE;
+  CFG.TTS_CUE_MODE = 'off';
+  ok('۱۰.۵ در حالتِ off هیچ تکه‌ای دستور نمی‌گیرد — حتی اولی',
+     ttsCueWanted_([{ text: 'a' }, { text: 'b' }], 0) === false &&
+     ttsCueWanted_([{ text: 'a' }, { text: 'b' }], 1) === false);
+  CFG.TTS_CUE_MODE = keepMode;
+  ok('۱۰.۶ و در حالتِ عادی تکهٔ اول دستور می‌گیرد',
+     ttsCueWanted_([{ text: 'a' }], 0) === true);
+
+  // ج) و مهم‌ترین: به خروجی گوش داده می‌شود
+  const realFetch = global.geminiFetch_;
+  const pcm = Utilities.base64Encode(new Array(24000 * 2).fill(0));
+  let heardCalls = 0, sentAudio = false;
+
+  global.geminiFetch_ = (u, p) => {
+    if (p && p.contents && p.contents[0].parts.some(x => x.inlineData)) {
+      heardCalls++;
+      sentAudio = p.contents[0].parts.some(x => x.inlineData &&
+        x.inlineData.mimeType === 'audio/wav' && x.inlineData.data.length > 100);
+      return { candidates: [{ content: { parts: [{
+        text: 'با صدای گویندهٔ حرفه‌ای، فقط این متن را اجرا کن. سلام به شما' }] } }] };
+    }
+    throw new Error('unexpected');
+  };
+  const leak = ttsCueLeaked_(pcm, ttsCue_('آرام', 'سلام به شما'), 'سلام به شما');
+  ok('۱۰.۷ خواندنِ دستور در صدا تشخیص داده می‌شود', leak.leaked === true, leak.heard);
+  ok('۱۰.۸ و واقعاً صدا برای مدل فرستاده شده، نه متن', sentAudio && heardCalls === 1);
+
+  // متنی که خودش دربارهٔ «صدای گوینده» حرف می‌زند نباید دوباره ساخته شود
+  const body = 'در این بخش با صدای گویندهٔ حرفه‌ای آشنا می‌شویم';
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: body }] } }] });
+  ok('۱۰.۹ نشانه‌ای که در خودِ متن هست، هشدارِ دروغ نمی‌سازد',
+     ttsCueLeaked_(pcm, ttsCue_('آرام', body), body).leaked === false);
+
+  // شکستِ وارسی نباید کلِ قسمت را دوباره بسازد
+  global.geminiFetch_ = () => { throw new Error('بی‌پاسخ'); };
+  const f = ttsCueLeaked_(pcm, 'دستور', 'متن');
+  ok('۱۰.۱۰ نشنیدن، «خوانده شد» معنا نمی‌دهد', f.leaked === false && f.failed === true);
+  global.geminiFetch_ = realFetch;
+
+  // د) و وقتی خوانده شده باشد، تکه واقعاً بی‌دستور از نو ساخته می‌شود
+  const realTry = global.ttsChunkTry_, realLeak = global.ttsCueLeaked_;
+  const calls = [];
+  global.ttsChunkTry_ = (t, st, v, wc) => { calls.push(wc); return 'PCM'; };
+  global.ttsCueLeaked_ = () => ({ leaked: calls.length === 1, heard: 'دستور' });
+  const out = ttsGuarded_('متن', 'آرام', 'Leda', true);
+  ok('۱۰.۱۱ تکهٔ آلوده بی‌دستور دوباره ساخته می‌شود',
+     calls.length === 2 && calls[0] === true && calls[1] === false, JSON.stringify(calls));
+  ok('۱۰.۱۲ و همان نسخهٔ پاک برگردانده می‌شود', out === 'PCM');
+
+  calls.length = 0;
+  global.ttsCueLeaked_ = () => ({ leaked: false, heard: '' });
+  ttsGuarded_('متن', 'آرام', 'Leda', true);
+  ok('۱۰.۱۳ تکهٔ سالم دوباره ساخته نمی‌شود — هزینهٔ بی‌دلیل ممنوع', calls.length === 1);
+
+  calls.length = 0;
+  ttsGuarded_('متن', 'آرام', 'Leda', false);
+  ok('۱۰.۱۴ تکهٔ بی‌دستور اصلاً سنجیده نمی‌شود', calls.length === 1);
+  global.ttsChunkTry_ = realTry; global.ttsCueLeaked_ = realLeak;
+
+  // ه) و سقوط همیشه به سمتِ امن است، نه به چسباندنِ دوباره
+  ok('۱۰.۱۵ خطای ساختاریِ قالبِ دستور → بی‌دستور، نه چسباندن',
+     /return ttsChunkTry_\(text, sectionStyle, voice, false\)/.test(p3));
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

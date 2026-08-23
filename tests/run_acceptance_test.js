@@ -40,8 +40,14 @@ console.log('══ ۱) گوینده دیگر دستورِ سبک را نمی‌
   const sent = p.generateContent.body.contents[0].parts[0].text;
   ok('بی‌دستور: هیچ سطرِ اضافه‌ای فرستاده نمی‌شود', sent==='متنِ خالص', JSON.stringify(sent));
   const p2 = ttsPayloads_('متنِ خالص','m','آرام','Puck',true);
-  ok('بادستور: دستور هست و با «فقط این متن را اجرا کن» تمام می‌شود',
-     /فقط این متن را اجرا کن:\nمتنِ خالص$/.test(p2.generateContent.body.contents[0].parts[0].text));
+  // ۵٫۵۹: دستور دیگر به متن چسبانده نمی‌شود. سنجه قوی‌تر شد، نه ضعیف‌تر:
+  // پیشتر فقط «دستور هست» را می‌سنجید؛ حالا «دستور هست *و در متن نیست*».
+  ok('بادستور: متنِ فرستاده‌شده هنوز فقط خودِ گفتار است',
+     p2.generateContent.body.contents[0].parts[0].text === 'متنِ خالص',
+     JSON.stringify(p2.generateContent.body.contents[0].parts[0].text));
+  ok('و دستور جدا، در systemInstruction',
+     /فقط این متن را اجرا کن:$/.test(
+       p2.generateContent.body.systemInstruction.parts[0].text));
 }
 
 console.log('══ ۲) لهجه: الف باز و کوتاه، نه افغانی ══');

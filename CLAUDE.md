@@ -375,6 +375,30 @@ The duplicate records in `_MUSIC-WISH.json` were this bug's only visible
 symptom — seven wishes where three and four were byte-identical. When a data
 file shows the same row N times, look for the loop that re-runs, not the writer.
 
+## A fix that only changes the input is not a fix
+The narrator sometimes read the style cue aloud instead of the script. Reported
+across several sessions, declared fixed each time, and back each time — because
+every fix rewrote the *wording* of the cue (shorter, one line, ending in a colon)
+while the cause was structural: `ttsPayloads_` joined cue and script into one
+string, so the model had to **guess** which line was an instruction. No wording
+makes a guess reliable; shortening only lowers the odds, and "lower odds" is not
+enough for something that costs the show its credibility.
+
+The cue now goes in `systemInstruction`, the script in `contents` — a boundary,
+not a request. But the reason this bug could be declared fixed three times is
+that **nobody ever listened to the output**; only the input changed.
+`ttsCueLeaked_` sends the first six seconds of the actual audio back to the model
+and asks what it hears. A marker present in the audio but absent from the script
+means the cue leaked: that chunk is re-synthesized without a cue and a «جدی»
+finding is logged. Failing to hear is not a leak (an unavailable model would
+otherwise rebuild every episode), but it is logged.
+
+Degradation always goes toward silence, never back to concatenation:
+if the API rejects the new shape, the chunk is built **with no cue at all**.
+`TTS_CUE_MODE:'off'` is the structurally safe setting — and it now actually
+means never (any unknown value used to mean "always cue", the opposite of its
+name).
+
 ## Dead code is the failure mode here
 Three real bugs in this repo were all the same shape: a function written,
 commented, and unit-tested — but never called. `sfxAllow_` guarded effects

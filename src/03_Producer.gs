@@ -604,7 +604,13 @@ function ttsCue_(sectionStyle, text) {
  * فراخوانِ گفتارسازی مستقل است و چیزی از تکهٔ قبل به یاد نمی‌آورد.
  */
 function ttsCueWanted_(chunks, i) {
-  if (String(CFG.TTS_CUE_MODE || 'perSection') !== 'perSection') return true;
+  var mode = String(CFG.TTS_CUE_MODE || 'perSection');
+  // «off» تنها حالتِ ساختاراً امن است: دستوری فرستاده نمی‌شود، پس چیزی هم
+  // برای اشتباه‌خواندن نمی‌ماند. پیشتر این حالت وجود نداشت و هر مقدارِ
+  // ناشناخته‌ای «همیشه دستور بده» معنا می‌شد — یعنی برعکسِ چیزی که نامش
+  // می‌گفت.
+  if (mode === 'off') return false;
+  if (mode !== 'perSection') return true;
   if (i <= 0) return true;
   // تکهٔ موسیقی لحن ندارد؛ برای مقایسه باید از رویش پرید، وگرنه هر قطعهٔ
   // موسیقی یک دستورِ اضافه به تکهٔ بعدی تحمیل می‌کند.
@@ -617,40 +623,137 @@ function ttsCueWanted_(chunks, i) {
   return false;
 }
 
+/**
+ * ══ چرا این تابع بازنویسی شد (۵٫۵۹) ══
+ * تا امروز دستورِ لحن و متنِ گفتار *یک رشته* بودند:
+ *     'با صدای …، فقط این متن را اجرا کن:\n' + متن
+ * یعنی مدل باید حدس می‌زد کدام سطر دستور است و کدام متن. گاهی حدس نمی‌زد و
+ * دستور را بلند می‌خواند. این باگ چند بار گزارش شد و هر بار با عوض‌کردنِ
+ * *عبارتِ* دستور «حل» شد — که حل نبود: عبارت هرچه باشد، تشخیصْ حدس می‌ماند.
+ *
+ * حالا دستور در systemInstruction می‌نشیند و متن در contents. این یک مرزِ
+ * ساختاری است، نه یک خواهش. و اگر API این قالب را نپذیرد، به «بی‌دستور»
+ * برمی‌گردیم — هرگز به چسباندنِ دوباره. لحنِ خنثی بی‌ضرر است؛ خواندنِ دستور نه.
+ */
 function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   var model = modelOverride || ttsModel_();
   var vc = voice || CFG.TTS_VOICE;
-  // بی‌دستور یعنی هیچ سطری جز خودِ متن فرستاده نمی‌شود — پس چیزی هم برای
-  // اشتباه‌خواندن نمی‌ماند.
-  var styled = (withCue === false) ? text : (ttsCue_(sectionStyle, text) + '\n' + text);
+  var cue = (withCue === false) ? '' : ttsCue_(sectionStyle, text);
+
+  var gc = {
+    contents: [{ parts: [{ text: text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vc } } }
+    }
+  };
+  if (cue) gc.systemInstruction = { parts: [{ text: cue }] };
+
+  var ix = {
+    model: model,
+    input: text,
+    response_format: { type: 'audio' },
+    generation_config: { speech_config: [{ voice: vc }] }
+  };
+  if (cue) ix.instructions = cue;
+
   return {
     generateContent: {
       url: 'https://generativelanguage.googleapis.com/v1beta/models/' + model +
            ':generateContent?key=' + encodeURIComponent(apiKey_()),
-      body: {
-        contents: [{ parts: [{ text: styled }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vc } } }
-        }
-      }
+      body: gc
     },
     interactions: {
       url: 'https://generativelanguage.googleapis.com/v1beta/interactions?key=' +
            encodeURIComponent(apiKey_()),
-      body: {
-        model: model,
-        input: styled,
-        response_format: { type: 'audio' },
-        generation_config: { speech_config: [{ voice: vc }] }
-      }
+      body: ix
     }
   };
 }
 
+/* ═══════ نگهبانِ «گوینده دستور را نخواند» (۵٫۵۹) ═══════
+
+   ══ چرا نگهبان لازم است، با وجودِ جداکردنِ ساختاری ══
+   جداکردنِ دستور از متن کارِ درست است، ولی ضمانت نیست: نمی‌دانیم این مدل
+   systemInstruction را چطور تعبیر می‌کند، و رفتارش می‌تواند با نسخهٔ بعدیِ
+   مدل عوض شود. این باگ چند بار «حل» اعلام شده و هر بار برگشته، دقیقاً چون
+   هیچ‌وقت کسی به خروجی گوش نداده بود — فقط ورودی عوض شده بود.
+
+   ══ تنها راهِ فهمیدن ══
+   شش ثانیهٔ اولِ خودِ صدا به مدل داده می‌شود: «چه می‌شنوی؟». اگر واژه‌های
+   دستور در آن باشد و در متنِ گفتار نباشد، دستور خوانده شده. آن‌وقت همان تکه
+   بی‌دستور دوباره ساخته می‌شود.
+
+   ══ هزینه ══
+   فقط تکه‌هایی که دستور گرفته‌اند سنجیده می‌شوند — یعنی سرِ هر بخش، نه هر
+   تکه. برای یک قسمتِ معمولی سه تا هشت فراخوانِ کوچک. با CFG.TTS_CUE_VERIFY
+   می‌شود خاموشش کرد، و با TTS_CUE_MODE='off' اصلاً دستور نفرستاد.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** واژه‌های امضاداری که فقط در دستور می‌آیند، نه در روایتِ یک پادکست. */
+var CUE_MARKERS = ['فقط این متن را اجرا کن', 'با صدای', 'گویندهٔ حرفه‌ای',
+                   'گوینده حرفه‌ای', 'زیر و زبر', 'فارسیِ معیار', 'فارسی معیار'];
+
+/** PCMِ خام (۲۴ کیلوهرتز، ۱۶ بیت، تک‌کاناله) → WAVِ base64 برای شنیدنِ مدل. */
+function ttsWavOf_(pcmB64, secs) {
+  var raw = Utilities.base64Decode(pcmB64);
+  var want = Math.max(1, Number(secs) || 6);
+  var n = Math.min(raw.length, Math.round(want * (CFG.SAMPLE_RATE || 24000)) * 2);
+  var body = raw.slice(0, n - (n % 2));
+  var h = wavHeader54_(body.length);
+  return Utilities.base64Encode(h.concat(Array.prototype.slice.call(body)));
+}
+
+/**
+ * آیا در این صدا دستورِ لحن خوانده شده؟
+ * برمی‌گرداند {leaked, heard} — و leaked فقط وقتی true است که واقعاً شنیده
+ * شده باشد. نشنیدن (خطا، مدلِ در دسترس نبودن) leaked نمی‌سازد، ولی لاگ
+ * می‌شود؛ وگرنه هر نبودِ مدل کلِ قسمت را دوباره می‌ساخت.
+ */
+function ttsCueLeaked_(pcmB64, cueText, spokenText) {
+  try {
+    if (!pcmB64 || !cueText) return { leaked: false, heard: '' };
+    var b64 = ttsWavOf_(pcmB64, Number(CFG.TTS_CUE_VERIFY_SEC) || 6);
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
+    var j = geminiFetch_(url, { contents: [{ role: 'user', parts: [
+      { text: 'دقیقاً بنویس در این صدا چه گفته می‌شود. فقط خودِ واژه‌ها، ' +
+              'بی هیچ توضیح یا نشانه‌گذاریِ اضافه.' },
+      { inlineData: { mimeType: 'audio/wav', data: b64 } }
+    ] }], generationConfig: { temperature: 0, maxOutputTokens: 256 } });
+
+    var heard = String(extractAudioText_(j) || '').replace(/\s+/g, ' ').trim();
+    if (!heard) return { leaked: false, heard: '' };
+
+    var body = String(spokenText || '').replace(/\s+/g, ' ');
+    for (var i = 0; i < CUE_MARKERS.length; i++) {
+      var mk = CUE_MARKERS[i];
+      // نشانه فقط وقتی معنا دارد که در خودِ متنِ گفتار نباشد — وگرنه یک
+      // قسمتِ رادیویی که واقعاً دربارهٔ «صدای گوینده» حرف می‌زند، هر بار
+      // بی‌دلیل دوباره ساخته می‌شد.
+      if (heard.indexOf(mk) !== -1 && body.indexOf(mk) === -1) {
+        return { leaked: true, heard: heard.slice(0, 120) };
+      }
+    }
+    return { leaked: false, heard: heard.slice(0, 120) };
+  } catch (e) {
+    logLine_('وارسیِ «دستور خوانده نشد» انجام نشد: ' + e.message);
+    return { leaked: false, heard: '', failed: true };
+  }
+}
+
+/** متنِ پاسخ، برای وارسیِ شنیداری. extractText_ برای پاسخِ JSON است. */
+function extractAudioText_(j) {
+  try {
+    var parts = j.candidates[0].content.parts;
+    for (var i = 0; i < parts.length; i++) if (parts[i].text) return parts[i].text;
+  } catch (e) {}
+  return '';
+}
+
 /** یک تکه متن → base64 خام PCM. sectionStyle می‌گوید این تکه چطور اجرا شود. */
 function ttsChunk_(text, sectionStyle, voice, withCue) {
-  try { return ttsChunkTry_(text, sectionStyle, voice, withCue); }
+  try { return ttsGuarded_(text, sectionStyle, voice, withCue); }
   catch (e) {
     // نامِ صدا را API می‌تواند نپذیرد (نامِ تازه، نامِ بازنشسته، غلطِ تایپی در
     // جدول). آن‌وقت نباید کلِ قسمت زمین بخورد: با صدای پشتیبان ادامه می‌دهیم و
@@ -669,6 +772,36 @@ function ttsChunk_(text, sectionStyle, voice, withCue) {
     } catch (eB) {}
     return ttsChunkTry_(text, sectionStyle, CFG.TTS_VOICE, withCue);
   }
+}
+
+/**
+ * ساخت، و بعد گوش‌دادن. اگر دستور خوانده شده باشد، بی‌دستور از نو.
+ * این تنها جایی است که خروجی — نه ورودی — سنجیده می‌شود.
+ */
+function ttsGuarded_(text, sectionStyle, voice, withCue) {
+  var b64 = ttsChunkTry_(text, sectionStyle, voice, withCue);
+  if (withCue === false || CFG.TTS_CUE_VERIFY === false || !b64) return b64;
+
+  var v = ttsCueLeaked_(b64, ttsCue_(sectionStyle, text), text);
+  if (!v.leaked) return b64;
+
+  logLine_('⚠️ گوینده دستورِ لحن را خواند؛ همین تکه بی‌دستور از نو ساخته شد. ' +
+           'شنیده‌شده: «' + v.heard + '»');
+  try {
+    logSelfFinding_(getHub_(), {
+      priority: 'جدی', category: 'گفتارسازی', key: 'tts-cue-leak',
+      title: 'گوینده دستورِ لحن را به‌جای متن خواند',
+      detail: 'شنیده‌شده: «' + v.heard + '». تکه بی‌دستور دوباره ساخته شد و ' +
+              'صدای منتشرشده سالم است.',
+      instruction: 'اگر تکرار شد، CFG.TTS_CUE_MODE را روی «off» بگذارید: ' +
+                   'هیچ دستوری فرستاده نمی‌شود، پس ساختاراً ممکن نیست خوانده شود. ' +
+                   'بهایش لحنِ خنثی‌تر است.',
+      owner: ROWNER_CODE
+    });
+  } catch (eF) {}
+
+  var clean = ttsChunkTry_(text, sectionStyle, voice, false);
+  return clean || b64;
 }
 
 function ttsChunkTry_(text, sectionStyle, voice, withCue) {
@@ -700,7 +833,15 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
           modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
           continue;
         }
-        if (m.indexOf('HTTP 4') !== -1 && m.indexOf('429') === -1) break; // خطای ساختاری: مود بعدی
+        if (m.indexOf('HTTP 4') !== -1 && m.indexOf('429') === -1) {
+          // اگر ایرادِ ساختاری از خودِ قالبِ دستور باشد، یک‌بار بی‌دستور
+          // امتحان می‌کنیم. سقوط همیشه به سمتِ امن است: بی‌لحن، نه بی‌مرز.
+          if (withCue !== false) {
+            logLine_('قالبِ دستورِ لحن پذیرفته نشد؛ همین تکه بی‌دستور ساخته می‌شود.');
+            return ttsChunkTry_(text, sectionStyle, voice, false);
+          }
+          break;   // خطای ساختاری: مود بعدی
+        }
         Utilities.sleep(3000 * (attempt + 1));
       }
     }

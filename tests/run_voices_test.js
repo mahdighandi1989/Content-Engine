@@ -216,10 +216,12 @@ console.log('\n=== 7. دستورِ گفتارِ کوتاه (پادزهرِ «پ�
   // مهم‌تر از همه: در بستهٔ نهایی، دستور فقط سطرِ اول است و متن غالب است
   const p = ttsPayloads_('این متنِ اصلیِ برنامه است. '.repeat(20), null, 'آرام', 'Kore');
   const sent = p.generateContent.body.contents[0].parts[0].text;
-  const line1 = sent.split('\n')[0];
-  ok('7.7 سطرِ اولِ بسته همان دستورِ کوتاه است', /فقط این متن را اجرا کن:$/.test(line1));
-  ok('7.8 و باقیِ بسته عیناً خودِ متن است',
-     sent.slice(line1.length + 1).indexOf('این متنِ اصلیِ برنامه است.') === 0);
+  // ۵٫۵۹: دستور دیگر سطرِ اولِ متن نیست، چون اصلاً در متن نیست.
+  const line1 = p.generateContent.body.systemInstruction.parts[0].text;
+  ok('7.7 دستورِ کوتاه در systemInstruction است، نه سطرِ اولِ متن',
+     /فقط این متن را اجرا کن:$/.test(line1) && sent.indexOf(line1) === -1);
+  ok('7.8 و بسته عیناً خودِ متن است، از نویسهٔ اول',
+     sent.indexOf('این متنِ اصلیِ برنامه است.') === 0);
   ok('7.9 سهمِ دستور از کلِ بسته کم است (متن غالب است)',
      line1.length < sent.length * 0.4,
      line1.length + ' از ' + sent.length);

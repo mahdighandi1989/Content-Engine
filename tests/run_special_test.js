@@ -149,7 +149,10 @@ global.__STUB = function (url, body) {
     const t = body.contents[0].parts[0].text;
     const v = body.generationConfig && body.generationConfig.speechConfig &&
               body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName;
-    ttsVoices.push(v); ttsStyles.push(t.slice(0, 3000));
+    // ۵٫۵۹: دستورِ لحن از contents به systemInstruction رفت
+    var sysT = '';
+    try { sysT = body.systemInstruction.parts[0].text; } catch (e) {}
+    ttsVoices.push(v); ttsStyles.push((sysT + ' ' + t).slice(0, 3000));
     return { code: 200, json: { candidates: [{ content: { parts: [{
       inlineData: { data: Buffer.alloc(30000).toString('base64') } }] } }] } };
   }
