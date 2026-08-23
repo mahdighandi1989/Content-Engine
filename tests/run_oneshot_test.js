@@ -1141,4 +1141,68 @@ console.log('=== ۱۸) ستونی که هم آدم می‌خواند هم کد �
                mkBank(musicHeardTxt_({ verdict: 'مدل نشنید' }))).length === 0);
 }
 
+console.log('=== ۱۹) گشتنِ افکت کور بود: متنِ فردا هنوز نوشته نشده ===');
+{
+  /* پرسشِ صاحبِ برنامه: «وقتی می‌خواهد افکتی را از اینترنت بگیرد، مگر قبلش
+   * دیده و می‌داند متنِ پادکستِ فردا چیست؟» — نه. گشتن شبانه (۲:۳۰) اجرا
+   * می‌شود و متنِ قسمت ساعتِ ۷ نوشته می‌شود. و sfxSeekQuery_ تا ۵٫۶۶ هیچ
+   * آرگومانی نمی‌گرفت: یک رشتهٔ ثابتِ «foley OR ambience OR …».
+   *
+   * ولی ایرادِ عمیق‌تر نبودِ راهِ برگشت بود: هیچ‌جا ثبت نمی‌شد که قسمتی صدای
+   * باران می‌خواست و بانک نداشت. musicWish_ فقط جایگاه را ثبت می‌کرد. */
+  const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۹.۱ پرسشِ جست‌وجوی افکت دیگر ثابت نیست',
+     /function sfxSeekQuery_\(terms\)/.test(p23));
+  ok('۱۹.۲ و با واژهٔ خواسته‌شده ساخته می‌شود',
+     sfxSeekQuery_('rain on roof').indexOf('rain on roof') !== -1);
+  ok('۱۹.۳ بی خواسته، به واژه‌های عمومی برمی‌گردد — نه پرسشِ خالی',
+     sfxSeekQuery_('').indexOf('foley') !== -1);
+
+  // ثبتِ خواسته و خواندنش
+  const realGet = global.getOutJson_, realPut = global.putOutJson_;
+  let store = { items: [] };
+  global.getOutJson_ = () => store;
+  global.putOutJson_ = (n, o) => { store = o; };
+
+  sfxWish_([{ sound: 'باران روی شیروانی', en: 'rain on roof', why: 'موضوعِ بخش' },
+            { sound: 'درِ چوبی', en: 'old door creak', why: 'دو بار آمده' }],
+           { title: 'شبِ بارانی', category: 'اجتماعی' });
+  ok('۱۹.۴ خواستهٔ افکت با نامِ خودِ صدا ثبت می‌شود',
+     store.items.length === 2 && store.items[0].sound === 'باران روی شیروانی',
+     JSON.stringify(store.items.map(x => x.sound)));
+  ok('۱۹.۵ و نوعش «افکت» است، نه موسیقی',
+     store.items.every(x => x.kind === 'افکت'));
+
+  // دو صدای متفاوت نباید یکی شمرده شوند — کلیدِ قدیمی نامِ صدا را نداشت
+  ok('۱۹.۶ دو صدای متفاوت با هم ادغام نمی‌شوند',
+     wishKey_(store.items[0]) !== wishKey_(store.items[1]));
+
+  // تکرارِ همان صدا فقط شمارنده را بالا می‌برد
+  sfxWish_([{ sound: 'باران روی شیروانی', en: 'rain on roof', why: 'باز هم' }],
+           { title: 'شبِ بارانی', category: 'اجتماعی' });
+  ok('۱۹.۷ خواستهٔ تکراری ردیفِ تازه نمی‌سازد، شمارنده را بالا می‌برد',
+     store.items.length === 2 && Number(store.items[0].times) === 2,
+     JSON.stringify(store.items.length) + ' / ' + store.items[0].times);
+
+  ok('۱۹.۸ و گشتنِ شبِ بعد دقیقاً همان را می‌گردد',
+     sfxWantedTerms_().indexOf('rain on roof') !== -1,
+     JSON.stringify(sfxWantedTerms_()));
+
+  // آرزوی افکت نباید به‌عنوان «حال‌وهوای خواسته‌شده» شمرده شود، وگرنه
+  // جست‌وجوی موسیقی دنبالِ «باران» می‌گردد
+  ok('۱۹.۹ آرزوی افکت حال‌وهوای موسیقی شمرده نمی‌شود',
+     musicWantedMoods_().indexOf('باران روی شیروانی') === -1,
+     JSON.stringify(musicWantedMoods_()));
+
+  global.getOutJson_ = realGet; global.putOutJson_ = realPut;
+
+  // و مدل واقعاً پرسیده می‌شود — حتی وقتی بانک هیچ افکتی ندارد
+  ok('۱۹.۱۰ قالبِ پاسخ فیلدِ خواسته دارد', /sfxWant: \{/.test(p23));
+  ok('۱۹.۱۱ و پرسش مستقل از بانکِ افکت مطرح می‌شود',
+     /چه صدایی این قسمت می‌خواهد/.test(p23) &&
+     p23.indexOf('چه صدایی این قسمت می‌خواهد') < p23.indexOf('if (sfxOn) {'));
+  ok('۱۹.۱۲ خواستهٔ برآورده‌نشده به آرزو می‌رود',
+     /if \(missSfx\.length\) sfxWish_\(missSfx, opt\)/.test(p23));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

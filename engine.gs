@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.66
+ *  موتور محتوا و پادکست — نسخهٔ 5.67
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -646,7 +646,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.66',
+  CODE_VERSION: '5.67',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -21264,6 +21264,7 @@ function musicWrap_(chunks, hub, opt) {
                bridgeId: mp.bridgeId, bridgeStart: mp.bridgeStart,
                outroId: mp.outroId, outroStart: mp.outroStart,
                bridges: mp.bridges || [], sfx: mp.sfx || [],
+               sfxWant: mp.sfxWant || [],
                mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '' };
       if (mp.mood) mood = mp.mood;
       if (mp.gain) opt.gain = mp.gain;
@@ -21405,6 +21406,23 @@ function musicWrap_(chunks, hub, opt) {
                (okSfx[sx].fit ? ' | ' + okSfx[sx].fit : ''));
     }
   } catch (eSx) { logLine_('افکت افزوده نشد: ' + eSx.message); }
+
+  /* صدایی که این قسمت می‌خواست و بانک نداشت → آرزو.
+     این همان راهِ برگشتی است که تا ۵٫۶۶ وجود نداشت: گشتنِ شبانه ساعت‌ها
+     پیش از نوشته‌شدنِ متنِ فردا اجرا می‌شود و هیچ خبری از آن ندارد. تنها
+     چیزی که می‌تواند به آن خبر بدهد، همین ثبتِ *دیروز* است. */
+  try {
+    var wantSfx = plan.sfxWant || [];
+    if (wantSfx.length) {
+      var haveWords = bank.filter(function (b) { return String(b.kind || '') === 'افکت'; })
+                          .map(function (b) { return (b.name + ' ' + b.mood).toLowerCase(); })
+                          .join(' ');
+      var missSfx = wantSfx.filter(function (w) {
+        return haveWords.indexOf(String(w.en || '').toLowerCase().split(' ')[0]) === -1;
+      });
+      if (missSfx.length) sfxWish_(missSfx, opt);
+    }
+  } catch (eSw) { logLine_('خواستهٔ افکت ثبت نشد: ' + eSw.message); }
 
   // جایگاهی که بانک برایش چیزی نداشت، خواسته می‌شود — تا تسکِ غنی‌سازی
   // بتواند قطعهٔ مناسب را پیدا و در پوشه بگذارد.
@@ -21622,6 +21640,18 @@ var MUSIC_PLAN_SCHEMA = {
         required: ['after', 'id']
       }
     },
+    // «این قسمت چه صدایی می‌خواهد» — مستقل از اینکه بانک داردش یا نه.
+    // این تنها راهِ برگشتِ حلقه است: بی آن، هیچ‌جا ثبت نمی‌شود که قسمتی
+    // صدای باران لازم داشت و ما نداشتیم، و بانک هرگز یاد نمی‌گیرد.
+    sfxWant: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { sound: { type: 'string' }, en: { type: 'string' },
+                      why: { type: 'string' } },
+        required: ['sound', 'en']
+      }
+    },
     sfx: {
       type: 'array',
       items: {
@@ -21708,6 +21738,25 @@ function musicPlanModel_(bank, ctx) {
               Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0) > 0 &&
               !(String(ctx.show || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true);
   var sfxBlock = [];
+
+  /* پرسشِ «چه صدایی لازم است» **همیشه** پرسیده می‌شود، حتی وقتی بانک هیچ
+     افکتی ندارد — چون جوابش برای پر کردنِ بانک است، نه برای همین قسمت. */
+  if (CFG.MUSIC_SFX_ENABLED !== false &&
+      !(String(ctx.show || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true)) {
+    sfxBlock = sfxBlock.concat([
+      '',
+      '--- چه صدایی این قسمت می‌خواهد؟ (sfxWant) ---',
+      'جدا از بانک و مستقل از آن: در متنِ این قسمت، آیا چیزی هست که صدایش',
+      'واقعاً به شنونده کمک می‌کند؟ باران، در، تلفن، جمعیت، قدم، دریا…',
+      'شرطش این است که **ساختاری** باشد — موضوعِ یک بخش، نه یک اشارهٔ گذرا.',
+      'اگر چنین چیزی نیست، sfxWant را خالی بگذار؛ این جوابِ درستی است.',
+      'برای هرکدام: `sound` نامِ فارسیِ صدا، `en` دو تا چهار واژهٔ **انگلیسی**',
+      'برای جست‌وجو (مثلاً «rain on roof» یا «old door creak»)، و `why` در یک',
+      'جمله. حداکثر دو تا. این فهرست برای *تهیه* است، نه برای پخشِ همین قسمت —',
+      'پس چیزی را که بانک ندارد هم بنویس؛ اتفاقاً همان مهم‌تر است.'
+    ]);
+  }
+
   if (sfxOn) {
     var secs = ctx.sections || [];
     var secTxt = [];
@@ -21809,6 +21858,10 @@ function musicPlanModel_(bank, ctx) {
         return { after: String((x && x.after) || ''), id: keep(x && x.id),
                  why: String((x && x.why) || '') };
       }).filter(function (x) { return x.id; }),
+      sfxWant: (r.sfxWant || []).map(function (x) {
+        return { sound: String((x && x.sound) || ''), en: String((x && x.en) || ''),
+                 why: String((x && x.why) || '') };
+      }).filter(function (x) { return x.sound && x.en; }),
       sfx: (r.sfx || []).map(function (x) {
         return { id: keep(x && x.id), word: String((x && x.word) || ''),
                  section: String((x && x.section) || ''),
@@ -21853,22 +21906,89 @@ function musicWish_(mood, missing, ctx) {
      * رشد می‌کند و آن که باید تهیه کند، هفت‌بار یک چیز می‌بیند و نمی‌فهمد
      * هفت خواسته است یا یکی. حالا رکوردِ همسان فقط زمانش تازه می‌شود.
      */
-    var key = function (r) {
-      return [String(r.mood || ''), (r.slots || []).join('|'),
-              String(r.category || ''), String(r.title || '')].join('§');
-    };
-    var k = key(rec), dup = -1;
-    for (var i = 0; i < items.length; i++) if (key(items[i]) === k) { dup = i; break; }
-    if (dup >= 0) {
-      items[dup].at = rec.at;
-      items[dup].times = (Number(items[dup].times) || 1) + 1;
-    } else {
-      items.push(rec);
-      logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
-    }
-    putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
-    return items.length;
+    return wishAdd_(items, rec,
+                    'خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
   } catch (e) { return null; }
+}
+
+/** کلیدِ یکتاییِ یک آرزو. نوع و نامِ صدا هم در آن هست، وگرنه دو افکتِ متفاوت
+ *  یکی شمرده می‌شدند و فقط اولی ثبت می‌شد. */
+function wishKey_(r) {
+  return [String(r.kind || 'موسیقی'), String(r.sound || ''), String(r.mood || ''),
+          (r.slots || []).join('|'), String(r.category || ''),
+          String(r.title || '')].join('§');
+}
+
+/** افزودنِ آرزو با حذفِ تکرار، و نوشتنِ فایل. یک نویسنده، برای هر دو نوع. */
+function wishAdd_(items, rec, note) {
+  var k = wishKey_(rec), dup = -1;
+  for (var i = 0; i < items.length; i++) if (wishKey_(items[i]) === k) { dup = i; break; }
+  if (dup >= 0) {
+    items[dup].at = rec.at;
+    items[dup].times = (Number(items[dup].times) || 1) + 1;
+  } else {
+    items.push(rec);
+    if (note) logLine_(note);
+  }
+  putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
+  return items.length;
+}
+
+/**
+ * آرزوی **جلوهٔ صوتی** — نامِ خودِ صدا، نه فقط جایگاه.
+ *
+ * ══ شکافی که این را لازم کرد ══
+ * صاحبِ برنامه پرسید: «وقتی می‌خواهد افکتی را از اینترنت بگیرد، مگر قبلش
+ * دیده و می‌داند متنِ پادکستِ فردا چیست؟» — و نه، نمی‌دانست. گشتنِ افکت
+ * شبانه اجرا می‌شد، ساعت‌ها پیش از آنکه متنِ فردا اصلاً نوشته شود، و
+ * sfxSeekQuery_ یک پرسشِ **ثابت و کلی** بود («foley OR ambience OR …»).
+ *
+ * ولی ایرادِ عمیق‌تر این بود: هیچ‌جا ثبت نمی‌شد که «این قسمت صدای باران
+ * می‌خواست و بانک نداشت». musicWish_ فقط *جایگاه* را ثبت می‌کرد
+ * (شروع/پایان/میانه)، و musicPlanModel_ هم فقط شناسه‌های موجود را به مدل
+ * نشان می‌داد — پس مدل حتی نمی‌توانست بگوید چه چیزی کم دارد.
+ * یعنی حلقه‌ای که بسته به‌نظر می‌رسید ولی راهِ برگشت نداشت: بانک هرگز
+ * نمی‌توانست یاد بگیرد برنامه‌ها واقعاً به چه صدایی نیاز دارند.
+ */
+function sfxWish_(wants, ctx) {
+  if (!wants || !wants.length) return null;
+  try {
+    var prev = getOutJson_(MUSIC_WISH_()) || { items: [] };
+    var items = (prev.items || []).slice(-30);
+    var n = 0;
+    for (var i = 0; i < wants.length; i++) {
+      var w = wants[i] || {};
+      var sound = String(w.sound || '').trim();
+      if (!sound) continue;
+      n = wishAdd_(items, {
+        at: nowStr_(), kind: 'افکت', sound: sound,
+        en: String(w.en || ''), why: String(w.why || ''),
+        slots: ['میانه'], mood: '',
+        title: String((ctx && ctx.title) || ''),
+        category: String((ctx && ctx.category) || ''),
+        note: 'جلوهٔ صوتیِ کوتاه (۲ تا ۶ ثانیه)، فقط WAV. ' +
+              'در پوشهٔ «' + (CFG.MUSIC_FOLDER || 'موسیقی و افکت') + '» بگذارید.'
+      }, 'خواستهٔ جلوهٔ صوتی ثبت شد: «' + sound + '»' +
+         (w.en ? ' (' + w.en + ')' : ''));
+    }
+    return n;
+  } catch (e) { return null; }
+}
+
+/** واژه‌های انگلیسیِ جست‌وجو، از روی افکت‌هایی که واقعاً خواسته شده‌اند. */
+function sfxWantedTerms_() {
+  var out = [], seen = {};
+  try {
+    var w = getOutJson_(MUSIC_WISH_());
+    var items = (w && w.items) || [];
+    for (var i = items.length - 1; i >= 0 && out.length < 5; i--) {
+      if (String(items[i].kind || '') !== 'افکت') continue;
+      var t = String(items[i].en || '').trim();
+      if (!t || seen[t]) continue;
+      seen[t] = 1; out.push(t);
+    }
+  } catch (e) {}
+  return out;
 }
 
 /* ═══════════════════ آوردنِ موسیقی از اینترنت (۵٫۵۵) ═══════════════════
@@ -22197,6 +22317,7 @@ function musicWantedMoods_() {
     var items = (w && w.items) || [];
     var seen = {}, out = [];
     for (var i = items.length - 1; i >= 0 && out.length < 8; i--) {
+      if (String(items[i].kind || '') === 'افکت') continue;   // آرزوی افکت حال‌وهوا نیست
       var m = String(items[i].mood || items[i].category || '').trim();
       if (!m || seen[m]) continue;
       seen[m] = 1; out.push(m);
@@ -22273,10 +22394,17 @@ function musicSeekQuery_(slot, terms) {
  * برمی‌گرداند {added, looked, notes:[…]}
  */
 /** پرسشِ جست‌وجوی جلوهٔ صوتی. عمداً از موسیقی جداست. */
-function sfxSeekQuery_() {
+function sfxSeekQuery_(terms) {
+  /* تا ۵٫۶۶ این پرسش هیچ آرگومانی نمی‌گرفت: یک رشتهٔ ثابت که هیچ ربطی به
+     هیچ قسمتی نداشت. بانکِ افکت با هرچه archive.org برای «foley» می‌داد پر
+     می‌شد و روی عددِ هدف می‌ایستاد — و اگر قسمتِ فردا صدای باران می‌خواست،
+     شانسی بود که باران در آن هشت‌تا باشد.
+     حالا اگر خواسته‌ای ثبت شده باشد، دنبالِ همان می‌گردیم. */
+  var t = String(terms || '').trim();
   return 'collection:(soundeffects OR opensource_audio) AND format:(WAVE) AND ' +
-         'licenseurl:(*creativecommons* OR *publicdomain*) AND ' +
-         '(foley OR ambience OR ambient sound OR "sound effect" OR nature recording)';
+         'licenseurl:(*creativecommons* OR *publicdomain*) AND (' +
+         (t || 'foley OR ambience OR ambient sound OR "sound effect" OR nature recording') +
+         ')';
 }
 
 function musicSeek_(slots) {
@@ -22400,7 +22528,11 @@ function musicSeek_(slots) {
   var sfxHave = 0;
   try { sfxHave = musicCoverage_().sfx; } catch (eS0) {}
   if (CFG.MUSIC_SFX_ENABLED !== false && sfxHave < sfxWant && out.added < cap) {
-    var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_()) +
+    // دنبالِ صدایی که واقعاً خواسته شده، نه «افکتِ خوب» به‌طور کلی
+    var sfxTerms = '';
+    try { sfxTerms = sfxWantedTerms_().join(' OR '); } catch (eST) {}
+    out.notes.push('افکت ← گشته شد با: ' + (sfxTerms || 'واژه‌های عمومی (خواسته‌ای ثبت نشده)'));
+    var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_(sfxTerms)) +
              '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
              '&rows=25&page=1&output=json';
     var sres = musicApiJson_(su);
