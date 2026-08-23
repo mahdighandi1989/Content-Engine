@@ -288,4 +288,97 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
 }
 
 
+console.log('=== ۷) موتور خودش می‌گردد — بی وابستگی به تسک ===');
+{
+  /* ۵٫۵۵ کار را درست تقسیم کرد ولی یک وابستگی گذاشت: اگر تسک اجرا نشود یا
+   * نتواند نشانیِ WAV پیدا کند، بانک باز هم خالی می‌ماند. و بیشترِ سایت‌های
+   * موسیقیِ آزاد فقط MP3 می‌دهند. */
+  const OUTF = () => DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const wipe = re => { const it = OUTF().getFiles();
+    while (it.hasNext()) { const f = it.next(); if (re.test(f.getName())) f.setTrashed(true); } };
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_SEEN];
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+
+  const SEARCH = { response: { docs: [
+    { identifier: 'good-one', title: 'Calm Piano Loop', licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+    { identifier: 'mp3-only', title: 'Only MP3 Here', licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+    { identifier: 'no-license', title: 'Nice But Unlicensed' },
+    { identifier: 'too-big', title: 'Huge Symphony', licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' }
+  ] } };
+  const META = {
+    'good-one': { metadata: { title: 'Calm Piano Loop', licenseurl: 'CC0-1.0' },
+      files: [{ name: 'big.wav', format: 'WAVE', size: 9000000, length: '40' },
+              { name: 'small.wav', format: 'WAVE', size: 400000, length: '30' },
+              { name: 'cover.jpg', format: 'JPEG', size: 1000 }] },
+    'mp3-only': { metadata: { licenseurl: 'CC0-1.0' },
+      files: [{ name: 'track.mp3', format: 'VBR MP3', size: 300000, length: '30' }] },
+    'no-license': { metadata: {}, files: [{ name: 'x.wav', format: 'WAVE', size: 200000, length: '20' }] },
+    'too-big': { metadata: { licenseurl: 'CC0-1.0' },
+      files: [{ name: 'huge.wav', format: 'WAVE', size: 90000000, length: '600' }] }
+  };
+  let searches = 0;
+  global.__STUB = (url) => {
+    if (url.indexOf('advancedsearch') !== -1) { searches++; return { code: 200, json: SEARCH }; }
+    const m = url.match(/\/metadata\/([^?]+)/);
+    if (m) return { code: 200, json: META[decodeURIComponent(m[1])] || {} };
+    return { code: 404, json: {} };
+  };
+
+  const r = musicSeek_(['شروع']);
+  const feed = getOutJson_(MUSIC_FEED_());
+  ok('۷.۱ نامزد پیدا شد و در فهرست نشست', r.added === 1 && feed.items.length === 1,
+     JSON.stringify(r.notes));
+  ok('۷.۲ کوچک‌ترین WAVِ زیرِ سقف انتخاب می‌شود، نه اولی',
+     /small\.wav/.test(feed.items[0].url), feed.items[0].url);
+  ok('۷.۳ مجوز از metadata برداشته می‌شود', feed.items[0].license === 'CC0-1.0');
+  ok('۷.۴ و جایگاهش همان چیزی است که کم داشتیم', feed.items[0].slots === 'شروع');
+  ok('۷.۵ منشأش علامت می‌خورد تا با پیشنهادِ تسک اشتباه نشود',
+     /موتور/.test(String(feed.items[0].by)), String(feed.items[0].by));
+
+  ok('۷.۶ مجموعه‌ای که فقط MP3 دارد رد می‌شود',
+     !feed.items.some(x => /mp3-only/.test(x.url)));
+  ok('۷.۷ مجموعهٔ بی‌مجوز رد می‌شود — «مجوزی که نتوانی نامش را بگویی»',
+     !feed.items.some(x => /no-license/.test(x.url)));
+  ok('۷.۸ فایلِ بزرگ‌تر از سقف اصلاً پیشنهاد نمی‌شود',
+     !feed.items.some(x => /too-big/.test(x.url)));
+
+  // مرزی که نباید شکسته شود: گشتن دانلود نمی‌کند
+  ok('۷.۹ گشتن هیچ فایلی به بانک اضافه نمی‌کند — دانلود فقط از یک مسیر',
+     feed.items[0].status === undefined && !feed.items[0].fileId);
+
+  // اجرای دوباره همان مجموعه‌ها را دوباره پیشنهاد نمی‌دهد
+  const r2 = musicSeek_(['شروع']);
+  ok('۷.۱۰ اجرای دوباره همان‌ها را تکرار نمی‌کند', r2.added === 0);
+
+  // فقط برای جایگاهِ کم می‌گردد
+  ok('۷.۱۱ با بانکِ خالی هر سه جایگاه کم‌اند', musicMissingSlots_().length === 3);
+
+  // و بعد musicFetch_ همان سدها را می‌زند — گشتن راهِ میان‌بر نساخته
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_SEEN];
+  musicSeek_(['شروع']);
+  global.__STUB = (url) => (url.indexOf('archive') !== -1 && /small\.wav/.test(url))
+    ? { code: 200, bytes: [73, 68, 51, 4, 0, 0] }      // ادعای WAV، ولی MP3
+    : { code: 404, json: {} };
+  musicFetch_();
+  ok('۷.۱۲ نامزدی که سرِ دانلود WAV از آب درنیامد، باز هم رد می‌شود',
+     /WAV نیست/.test(String(getOutJson_(MUSIC_FEED_()).items[0].error)));
+
+  // وصل‌بودن
+  const p21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۷.۱۳ در کارِ شبانه، گشتن پیش از آوردن می‌آید',
+     p21.indexOf('musicSeek_') !== -1 &&
+     p21.indexOf('musicSeek_') < p21.indexOf('musicFetch_()'));
+  ok('۷.۱۴ و فقط برای جایگاهِ کم گشته می‌شود', /musicMissingSlots_\(\)/.test(p21));
+  ok('۷.۱۵ منو هر سه مرحله را در یک زدن انجام می‌دهد',
+     /musicSeek_[\s\S]{0,400}musicFetch_[\s\S]{0,200}musicScan_/.test(
+       fs.readFileSync('src/23_Music.gs', 'utf8').split('function runMusicFetch')[1]));
+
+  wipe(/_MUSIC-FEED/);
+  delete global.__PROPS[PK.MUSIC_SEEN];
+  delete global.__PROPS[PK.MUSIC_FETCHED];
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

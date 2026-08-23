@@ -1108,19 +1108,202 @@ function musicFetch_() {
   return out;
 }
 
+/* ═══════════ گشتنِ خودکار در archive.org (۵٫۵۶) ═══════════
+
+   ══ چرا لازم شد ══
+   ۵٫۵۵ کار را درست تقسیم کرد (تسک نشانی می‌نویسد، موتور دانلود می‌کند) ولی
+   یک وابستگی باقی گذاشت: اگر تسک اجرا نشود، یا نتواند نشانیِ مستقیمِ WAV
+   پیدا کند، بانک باز هم خالی می‌ماند. و بیشترِ سایت‌های موسیقیِ آزاد فقط MP3
+   می‌دهند — که Apps Script رمزگشایش نمی‌کند. یعنی محتمل‌ترین نتیجه همان
+   «رد — WAV نیست» بود، هر شب.
+
+   ══ چرا archive.org و نه جای دیگر ══
+   تنها جایی که پیش از دانلود می‌شود مطمئن شد: metadata API فهرستِ فایل‌ها را
+   با **فرمت و حجم** می‌دهد و مجوز را هم. پس نامزدی که WAV نیست یا بزرگ‌تر از
+   سقف است اصلاً وارد فهرست نمی‌شود. جاهای دیگر باید دانلود کنی تا بفهمی.
+
+   ══ مرزی که رعایت می‌شود ══
+   این تابع **دانلود نمی‌کند** — فقط نامزدها را در همان `_MUSIC-FEED.json`
+   می‌نویسد. دانلود همیشه از یک مسیر می‌گذرد (musicFetch_) با همان سه سد و
+   همان ردِ ثبت‌شده. دو مسیرِ دانلود یعنی دو جای شکست و یک تاریخچهٔ نصفه.
+
+   ══ مجوز ══
+   نامزدی که `licenseurl` نداشته باشد کنار گذاشته می‌شود. «مجوزی که نتوانی
+   نامش را بگویی» همان قاعده‌ای است که در دستورِ تسک هم هست.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** مجموعه‌هایی که قبلاً دیده شده‌اند. */
+function musicSeenIds_() {
+  try { return JSON.parse(props_().getProperty(PK.MUSIC_SEEN) || '[]') || []; }
+  catch (e) { return []; }
+}
+
+function musicSeenAdd_(id) {
+  try {
+    var L = musicSeenIds_();
+    if (L.indexOf(id) === -1) L.push(id);
+    props_().setProperty(PK.MUSIC_SEEN, JSON.stringify(L.slice(-300)));
+  } catch (e) {}
+}
+
+/** یک GETِ JSON با گذشتِ نرم — هر شکستی یعنی «چیزی پیدا نشد»، نه خطا. */
+function musicApiJson_(url) {
+  try {
+    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return null;
+    return JSON.parse(res.getContentText());
+  } catch (e) { return null; }
+}
+
+/**
+ * پرسشِ جست‌وجو از روی جایگاهی که کم داریم.
+ *
+ * حال‌وهوا عمداً وارد پرسش نمی‌شود: برچسب‌های archive.org فارسی نیستند و
+ * «اجتماعی و سبک زندگی» هیچ نتیجه‌ای نمی‌دهد. برچسب‌زنیِ حال‌وهوا کارِ
+ * musicAutoTag_ است، بعد از رسیدنِ فایل.
+ */
+function musicSeekQuery_(slot) {
+  var kind = (slot === 'میانه') ? 'transition OR interlude OR bumper'
+           : (slot === 'پایان') ? 'outro OR ending OR credits'
+           : 'intro OR theme OR opening';
+  return 'mediatype:(audio) AND format:(WAVE) AND licenseurl:(*creativecommons* OR *publicdomain*) AND (' +
+         kind + ' OR instrumental)';
+}
+
+/**
+ * نامزد پیدا می‌کند و به `_MUSIC-FEED.json` اضافه می‌کند. دانلود نمی‌کند.
+ * برمی‌گرداند {added, looked, notes:[…]}
+ */
+function musicSeek_(slots) {
+  var out = { added: 0, looked: 0, notes: [] };
+  if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
+
+  var want = (slots && slots.length) ? slots : ['شروع', 'پایان', 'میانه'];
+  var cap = Number(CFG.MUSIC_SEEK_MAX) || 4;
+  var maxB = Number(CFG.MUSIC_FETCH_MAX_BYTES) || 12000000;
+  var minSec = Number(CFG.MUSIC_SEEK_MIN_SEC) || 5;
+  var base = String(CFG.MUSIC_SEEK_API || 'https://archive.org').replace(/\/+$/, '');
+
+  var feed = null;
+  try { feed = getOutJson_(MUSIC_FEED_()); } catch (e) {}
+  if (!feed || !feed.items) feed = { items: [] };
+
+  var already = {};
+  for (var q = 0; q < feed.items.length; q++) already[String(feed.items[q].url || '')] = 1;
+  var fetched = musicFetchedUrls_();
+  for (var q2 = 0; q2 < fetched.length; q2++) already[fetched[q2]] = 1;
+  var seen = musicSeenIds_();
+
+  for (var si = 0; si < want.length && out.added < cap; si++) {
+    var slot = want[si];
+    var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot)) +
+              '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
+              '&rows=25&page=1&output=json';
+    var sr = musicApiJson_(url);
+    var docs = (sr && sr.response && sr.response.docs) || [];
+    out.looked += docs.length;
+    if (!docs.length) { out.notes.push(slot + ': نتیجه‌ای نیامد'); continue; }
+
+    for (var di = 0; di < docs.length && out.added < cap; di++) {
+      var id = String(docs[di].identifier || '');
+      if (!id || seen.indexOf(id) !== -1) continue;
+      musicSeenAdd_(id); seen.push(id);
+
+      var meta = musicApiJson_(base + '/metadata/' + encodeURIComponent(id));
+      if (!meta || !meta.files) continue;
+      var lic = String((meta.metadata && meta.metadata.licenseurl) || docs[di].licenseurl || '');
+      if (!lic) continue;                       // مجوزِ نامعلوم = رد
+      var title = String((meta.metadata && meta.metadata.title) || docs[di].title || id);
+
+      // کوچک‌ترین WAVِ زیرِ سقف: کمترین احتمالِ شکست، و برای بریدن هم بس است
+      var best = null;
+      for (var fi = 0; fi < meta.files.length; fi++) {
+        var f = meta.files[fi] || {};
+        var nm = String(f.name || '');
+        if (!/\.wav$/i.test(nm)) continue;
+        var sz = Number(f.size || 0);
+        if (!(sz > 0) || sz > maxB) continue;
+        var len = Number(f.length || 0);        // archive گاهی ثانیه می‌دهد، گاهی هیچ
+        if (len && len < minSec) continue;
+        if (!best || sz < best.size) best = { name: nm, size: sz, length: len };
+      }
+      if (!best) continue;
+
+      var dl = base + '/download/' + encodeURIComponent(id) + '/' +
+               encodeURIComponent(best.name);
+      if (already[dl]) continue;
+      already[dl] = 1;
+
+      feed.items.push({
+        url: dl,
+        title: auditCut_(title, 60),
+        license: lic,
+        kind: 'موسیقی',
+        mood: '',                                // musicAutoTag_ پس از رسیدن پر می‌کند
+        slots: slot,
+        gain: '',
+        source: base + '/details/' + id,
+        by: 'موتور — گشتنِ خودکار'
+      });
+      out.added++;
+      out.notes.push(slot + ': ' + auditCut_(title, 40) +
+                     ' (' + Math.round(best.size / 1e5) / 10 + ' مگابایت)');
+    }
+  }
+
+  if (out.added) {
+    try { putOutJson_(MUSIC_FEED_(), { updatedAt: nowStr_(), items: feed.items }); } catch (eP) {}
+    logLine_('گشتنِ خودکارِ موسیقی: ' + out.added + ' نامزد به فهرست اضافه شد.');
+  }
+  return out;
+}
+
+/**
+ * جایگاه‌هایی که بانک برایشان چیزی ندارد.
+ * بی این، هر شب برای جایگاهی می‌گشتیم که ده قطعه دارد.
+ */
+function musicMissingSlots_(hub) {
+  var need = ['شروع', 'پایان', 'میانه'], out = [];
+  var bank = [];
+  try { bank = musicBank_(hub); } catch (e) { return need; }
+  for (var i = 0; i < need.length; i++) {
+    var has = false;
+    for (var j = 0; j < bank.length; j++) {
+      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) { has = true; break; }
+    }
+    if (!has) out.push(need[i]);
+  }
+  return out;
+}
+
 /** منو: آوردنِ موسیقی از فهرستِ پیشنهادی، همین حالا. */
 function runMusicFetch() {
+  // یک زدن، سه مرحله: بگرد، بیاور، بپوی. کاربر نباید سه گزینهٔ منو را
+  // به‌ترتیب بزند تا یک فایل موسیقی داشته باشد.
+  var seek = { added: 0, notes: [] };
+  try {
+    var miss = musicMissingSlots_();
+    if (miss.length) seek = musicSeek_(miss);
+  } catch (eS) {}
+
   var r = musicFetch_();
   var scan = null;
   if (r.added) { try { scan = musicScan_(); } catch (e) {} }
-  var L = ['🎵 آوردنِ موسیقی از فهرستِ پیشنهادی', ''];
-  if (!r.read && !r.added) {
-    L.push('فایلِ «' + MUSIC_FEED_() + '» در ریشهٔ OUTPUT نبود یا پیشنهادِ تازه‌ای نداشت.');
+
+  var L = ['🎵 موسیقی — گشتن، آوردن، پویش', ''];
+  if (seek.added) {
+    L.push(seek.added + ' نامزدِ تازه از archive.org به فهرست اضافه شد:');
+    for (var k = 0; k < seek.notes.length; k++) L.push('   • ' + seek.notes[k]);
     L.push('');
-    L.push('این فایل را تسکِ «غنی‌سازی اینترنتی» پر می‌کند: وب را می‌گردد و');
-    L.push('نشانیِ فایل‌های WAVِ آزاد را می‌نویسد. خودِ موتور دانلودشان می‌کند.');
+  }
+  if (!r.read && !r.added && !seek.added) {
+    L.push('چیزی برای آوردن نبود.');
     L.push('');
-    L.push('اگر خودتان نشانی‌ای دارید، می‌توانید همین فایل را دستی بسازید:');
+    L.push('یا بانک برای هر سه جایگاه (شروع، پایان، میانه) قطعه دارد،');
+    L.push('یا archive.org این بار نتیجه‌ای نداد و فهرستِ پیشنهادی هم خالی است.');
+    L.push('');
+    L.push('فهرست را تسکِ «غنی‌سازی اینترنتی» هم پر می‌کند. و اگر خودتان نشانیِ');
+    L.push('یک فایلِ WAV دارید، می‌توانید «' + MUSIC_FEED_() + '» را دستی بسازید:');
     L.push('{"items":[{"url":"https://…/x.wav","title":"…","license":"CC0",');
     L.push(' "kind":"موسیقی","mood":"آرام","slots":"شروع، پایان","gain":"0.7"}]}');
   } else {
@@ -1130,7 +1313,7 @@ function runMusicFetch() {
     L.push('', 'دلیلِ رد شدنِ هرکدام در خودِ «' + MUSIC_FEED_() + '» نوشته شده.');
   }
   try { SpreadsheetApp.getUi().alert(L.join('\n')); } catch (e) { logLine_(L.join(' ')); }
-  return r;
+  return { seek: seek, fetch: r };
 }
 
 /* ──────────────────────── خویشتن‌داری در افکت ──────────────────────── */

@@ -200,10 +200,37 @@ Every schema field is a string, gain and seconds included. This repo's model
 rejects any schema carrying `integer`/`number`/`boolean`; `run_real_test.js`
 enforces it across the whole codebase, and it caught this section.
 
-When the bank has nothing for a slot, `musicWish_` appends to
-`_MUSIC-WISH.json` in OUTPUT — the same request channel the enrichment task
-already uses for text. Nothing breaks if no one picks it up; the episode is
-simply built without music.
+**How the bank fills — and why it stayed empty for weeks.** When the bank has
+nothing for a slot, `musicWish_` appends to `_MUSIC-WISH.json`. The design was
+always that the enrichment task then fetches it from the web, and the task's
+prompt said so. But the task reported it *cannot* download, convert and upload
+audio in the cloud environment — and nobody connected that open report to the
+next step. Seven wishes piled up, zero files arrived.
+
+From 5.55 the work is split along what each side can actually do: **the task
+writes a direct URL into `_MUSIC-FEED.json`; the engine downloads it** with
+`UrlFetchApp` — the same tool that already fetches `engine.gs` nightly. From
+5.56 the engine does not wait for the task either: `musicSeek_` queries
+**archive.org** for whichever slot the bank still lacks. That source is chosen
+for one reason — its `metadata` endpoint lists every file with format, size and
+licence, so a candidate is rejected *before* being downloaded. Everywhere else
+you must download to find out, and most free-music sites serve MP3 only, which
+Apps Script cannot decode.
+
+`musicFetch_` verifies the **RIFF/WAVE header of the bytes it received**, never
+the extension or `Content-Type`; both lie. A broken file in the bank is worse
+than an empty bank — it gets picked every night and plays silence. Rejections go
+back into the same feed file with a reason, so nobody re-proposes the same MP3.
+Three per night, and a URL fetched once is never fetched again, so a file the
+user deletes stays deleted.
+
+**Seeking never downloads.** It only appends candidates to the feed; every
+download goes through `musicFetch_` with the same three gates and the same
+recorded rejection. Two download paths would mean two places to fail and half a
+history in each.
+
+**Nothing generates music.** No model composes anything — the model only chooses
+which existing track plays where and where to cut it.
 
 **What is not possible here.** A music bed *under* the narration for a whole
 episode means sample-wise addition over ~14M samples; Google's six-minute limit

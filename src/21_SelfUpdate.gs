@@ -524,6 +524,11 @@ function selfUpdateDaily() {
   // برچسب‌گذاری می‌شود — تا صبح آمادهٔ استفاده باشد.
   // ترتیب مهم است: اول فایل‌های تازه آورده می‌شوند، بعد پویش می‌شود.
   // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
+  // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
+  try {
+    var miss = musicMissingSlots_();
+    if (miss.length) musicSeek_(miss);
+  } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
   try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
   try { musicScan_(); musicAutoTag_(); }
   catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
