@@ -324,13 +324,25 @@ per show: «فعال» (بله/خیر), «روزهای هفته», «استثن�
   calendar with no code change. `run_calendar_test.js` ۶ asserts this with a
   key that doesn't exist yet.
 
-The menu item does the work, not just a readout: it seeds the tab and every
-show's row on first open (5.53 — before that the row appeared only after the
-first *automatic* run, so someone installing today and wanting tonight off had
-nothing to edit), and it pauses/resumes by number («۱», «۱،۲», «همه») via
-`calPickIdx_`. The example exception dates in that dialog are labelled as
-examples — unlabelled, they read as the current setting, which is exactly how
-they were read.
+**The control lives inside the series board, not in the menu** (5.61). A control
+that sits somewhere other than the work it controls does not get found. The panel
+at the top of «مجموعه‌های آموزشی و پیشرفت» carries one box per show: on/off, the
+seven weekday ticks (all ticked by default), the exceptions box, and the engine's
+own last decision. `calBoardData_` / `calBoardSave_` read and write the **same tab
+and the same columns** `calGate_` reads — the data model was deliberately left
+untouched, so the gate's suite still guards it and a broken dialog cannot break
+production.
+
+Seven ticks are stored as «همه», not a seven-item list — that is what
+`calDayOk_` already understood. And «on, but no day ticked» is converted to off
+with an explicit note: it used to fall through to "every day", the exact opposite
+of what the user meant.
+
+**A dialog button that silently does nothing is the worst failure shape here.**
+`google.script.run.X()` against a missing `X` raises no error and breaks no test;
+the button just does nothing. `run_wiring_test.js` ۵.۲ extracts every such call
+from the rendered board and asserts the function exists — walking the chain by
+paren depth, because `withSuccessHandler`'s argument is itself a function.
 
 `knownShows_()` (section 19) is the engine's single list of shows, used for
 display names and for seeding. The gate still needs no list at all.

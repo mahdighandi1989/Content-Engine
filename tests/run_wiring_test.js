@@ -112,4 +112,60 @@ console.log('=== ۴) هیچ بارگذاری از بخشی جا نمانده ب�
 }
 
 
+console.log('=== \u06f5) \u062f\u06a9\u0645\u0647\u200c\u0627\u06cc \u06a9\u0647 \u0628\u06cc\u200c\u0635\u062f\u0627 \u0647\u06cc\u0686 \u06a9\u0627\u0631\u06cc \u0646\u0645\u06cc\u200c\u06a9\u0646\u062f ===');
+/* پنجره‌های HtmlService با google.script.run.X() به سرور وصل می‌شوند. اگر X
+ * وجود نداشته باشد، هیچ خطایی در کد نیست و هیچ آزمونی نمی‌شکند — فقط دکمه
+ * زده می‌شود و هیچ اتفاقی نمی‌افتد. این بدترین جنسِ خرابی است: ظاهر درست،
+ * رفتار هیچ. و دقیقاً همان چیزی که صاحبِ برنامه نگرانش بود.
+ */
+{
+  require('./lib/mock.js');
+  const SRC = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort()
+    .map(f => fs.readFileSync('src/' + f, 'utf8')).join('\n');
+  (0, eval)(SRC);
+
+  const html = String(uiBoardHtml());
+  // زنجیره را با شمارشِ پرانتز می‌پیماییم، نه با رجکس: آرگومانِ
+  // withSuccessHandler خودش یک تابعِ کامل با پرانتزهای تودرتوست و هر رجکسِ
+  // ساده‌ای همان را به‌جای تابعِ سرور می‌گیرد.
+  const HANDLERS = ['withSuccessHandler', 'withFailureHandler', 'withUserObject'];
+  const called = [];
+  const KEY = 'google.script.run';
+  for (let at = html.indexOf(KEY); at !== -1; at = html.indexOf(KEY, at + 1)) {
+    let i = at + KEY.length;
+    while (html[i] === '.') {
+      let j = i + 1;
+      while (j < html.length && /[\w$]/.test(html[j])) j++;
+      const name = html.slice(i + 1, j);
+      if (html[j] !== '(') break;
+      let depth = 0, k = j;
+      for (; k < html.length; k++) {
+        if (html[k] === '(') depth++;
+        else if (html[k] === ')') { depth--; if (!depth) { k++; break; } }
+      }
+      if (HANDLERS.indexOf(name) === -1) {
+        if (called.indexOf(name) === -1) called.push(name);
+        break;                                   // تابعِ سرور، آخرِ زنجیره
+      }
+      i = k;
+    }
+  }
+
+  ok('۵.۱ تخته واقعاً دکمهٔ سروری دارد', called.length >= 5, called.join(', '));
+  const missing = called.filter(n => typeof global[n] !== 'function');
+  ok('۵.۲ هر google.script.run.X یک تابعِ واقعی دارد', missing.length === 0,
+     missing.length ? 'گم‌شده: ' + missing.join(', ') : called.join(', '));
+
+  // و برعکسش: پنلِ تقویم واقعاً در تخته هست، نه فقط تابعش نوشته شده
+  ok('۵.۳ پنلِ تقویم در خودِ تخته رندر می‌شود',
+     html.indexOf('تقویمِ تولید') !== -1 && /class="calDay"/.test(html));
+  ok('۵.۴ و برای هر هفت روز تیک دارد',
+     (html.match(/class="calDay"/g) || []).length % 7 === 0 &&
+     (html.match(/class="calDay"/g) || []).length >= 7,
+     String((html.match(/class="calDay"/g) || []).length));
+  ok('۵.۵ گزینهٔ جداگانهٔ تقویم از منو برداشته شد',
+     fs.readFileSync('src/05_Setup.gs', 'utf8').indexOf('runProductionCalendar') === -1);
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

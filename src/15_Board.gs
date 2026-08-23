@@ -469,6 +469,12 @@ function seriesBoardHtml_(d) {
          (d.scannedAt ? '  ·  آخرین اسکن: ' + bEsc_(d.scannedAt) : '') +
          (d.version ? '  ·  نسخهٔ کد: ' + bEsc_(d.version) : '') + '</div></div>');
 
+  // ── تقویمِ تولید ──
+  // خواستهٔ صاحبِ برنامه: کنترلِ توقف و روزها باید همین‌جا باشد، نه گزینه‌ای
+  // جدا در منو. مدلِ داده همان تبِ «تقویمِ تولید» است و calGate_ دست نخورده؛
+  // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
+  H.push(calPanelHtml_());
+
   // ── جست‌وجو — خواستهٔ صریح: این فهرست باید «حتماً» قابلِ جست‌وجو باشد ──
   H.push('<div class="card" style="position:sticky;top:0;z-index:5">' +
          '<input id="q" type="search" placeholder="جست‌وجو در مجموعه‌ها، درس‌ها، دسته‌ها…" ' +
@@ -780,8 +786,88 @@ function seriesBoardHtml_(d) {
          'g.style.display=any?"":"none";});' +
          'var qn=document.getElementById("qn");' +
          'qn.textContent=q?("نمایش "+n+" از "+tot+" مجموعه"):"";}');
+  // ── تقویم ──
+  H.push('function calSave(b){var box=document.getElementById(b.dataset.box);' +
+         'var key=box.dataset.key;' +
+         'var on=box.querySelector(".calOn").checked;' +
+         'var days=[];box.querySelectorAll(".calDay").forEach(function(c){' +
+         'days[Number(c.dataset.d)]=c.checked;});' +
+         'var exc=box.querySelector(".calExc").value;' +
+         'busy();say("ثبتِ تقویم…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiCalSave(key,on,days,exc);}');
   H.push('</script></body></html>');
   return H.join('\n');
+}
+
+/**
+ * پنلِ تقویم در تخته — یک ردیف برای هر برنامه.
+ *
+ * بخشِ ۲۵ بالاتر از ۱۵ است، پس فراخوان‌ها در try/catch‌اند: بارگذارِ جزئیِ
+ * آزمون‌ها نباید کلِ تخته را زمین بزند (همان قاعدهٔ همیشگیِ این ریپو).
+ */
+function calPanelHtml_() {
+  var d = null;
+  try { d = calBoardData_(); } catch (e) { return ''; }
+  if (!d) return '';
+
+  var H = ['<div class="card"><div style="font-weight:700;margin-bottom:6px">' +
+           '📅 تقویمِ تولید</div>' +
+           '<div class="sub" style="margin-bottom:10px">' +
+           'اینجا تعیین می‌کنید هر برنامه کدام روزها ساخته شود. ' +
+           'ستونِ «آخرین تصمیم» را خودِ موتور می‌نویسد — تنها راهِ مطمئن‌شدن از ' +
+           'اینکه تنظیم واقعاً اعمال شده.' +
+           (d.today ? ' امروز: ' + bEsc_(d.today.fa) + '، ' + bEsc_(d.today.weekday) : '') +
+           '</div>'];
+
+  if (!d.enabled) {
+    H.push('<div class="warn">تقویم در تنظیماتِ کد خاموش است (CAL_ENABLED)؛ ' +
+           'همهٔ برنامه‌ها هر روز ساخته می‌شوند و تنظیمِ زیر اثری ندارد.</div>');
+  }
+  if (!d.shows.length) {
+    H.push('<div class="sub">هنوز برنامه‌ای ثبت نشده.</div></div>');
+    return H.join('');
+  }
+
+  for (var i = 0; i < d.shows.length; i++) {
+    var sx = d.shows[i];
+    var id = 'cal' + i;
+    H.push('<div id="' + id + '" data-key="' + bEsc_(sx.key) + '" ' +
+           'style="border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">');
+    H.push('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+           '<label style="font-weight:700"><input type="checkbox" class="calOn"' +
+           (sx.on ? ' checked' : '') + '> ' + bEsc_(sx.name) + '</label>' +
+           '<span class="sub">' + (sx.on ? 'روشن' : '⏸ متوقف') + '</span></div>');
+
+    H.push('<div style="margin-top:8px">روزهای تولید: ');
+    for (var w = 0; w < FA_WEEKDAYS.length; w++) {
+      H.push('<label style="margin-left:10px;white-space:nowrap">' +
+             '<input type="checkbox" class="calDay" data-d="' + w + '"' +
+             (sx.days[w] ? ' checked' : '') + '> ' + bEsc_(FA_WEEKDAYS[w]) + '</label>');
+    }
+    H.push('</div>');
+
+    H.push('<div style="margin-top:8px">' +
+           '<div class="sub">استثناها — هر خط یکی. نمونه (فقط نمونهٔ قالب است، ' +
+           'نه تنظیمِ شما):<br>' +
+           '<code>۱۴۰۵/۰۶/۱۰ تا ۱۴۰۵/۰۶/۱۵ = تعطیل</code> &nbsp; ' +
+           '<code>۱۴۰۵/۰۶/۲۰ = فعال</code></div>' +
+           '<textarea class="calExc" rows="2" style="width:100%;box-sizing:border-box;' +
+           'margin-top:4px;padding:6px;border:1px solid #cbd5e1;border-radius:6px;' +
+           'font:inherit">' + bEsc_(sx.exceptions) + '</textarea></div>');
+
+    H.push('<div style="margin-top:8px;display:flex;align-items:center;gap:10px;' +
+           'flex-wrap:wrap">' +
+           '<button onclick="calSave(this)" data-box="' + id + '">ذخیرهٔ این برنامه</button>' +
+           '<span class="sub">آخرین تصمیمِ موتور: ' +
+           bEsc_(sx.last || 'هنوز اجرا نشده') + '</span></div>');
+    H.push('</div>');
+  }
+
+  H.push('<div class="sub">اجرای دستی از منو هیچ‌وقت مسدود نمی‌شود، و قسمتی که ' +
+         'صداگذاری‌اش شروع شده تا آخر تمام می‌شود.</div>');
+  H.push('</div>');
+  return H.join('');
 }
 
 // --------------------------------------------------------- توابع منو و پنجره
@@ -817,6 +903,24 @@ function uiBoardHtml() {
     } catch (eP) {}
   }
   return seriesBoardHtml_(seriesBoardData_(hub));
+}
+
+/**
+ * ذخیرهٔ تقویمِ یک برنامه از تخته.
+ *
+ * کارِ واقعی در بخشِ ۲۵ است (calBoardSave_) و همان‌جا روی همان تبی می‌نویسد
+ * که calGate_ می‌خواند. اینجا فقط پوسته است: پیام برای پنجره، و try/catch
+ * چون بخشِ ۲۵ بالاتر از ۱۵ است.
+ */
+function uiCalSave(key, on, days, exc) {
+  try {
+    var r = calBoardSave_(key, !!on, days || [], exc || '');
+    var msg = 'تقویم ذخیره شد — ' + (r.on ? 'روشن' : '⏸ متوقف') + ' · ' + r.days + '.';
+    if (r.note) msg += ' (' + r.note + ')';
+    return { ok: true, message: msg };
+  } catch (e) {
+    return { ok: false, message: 'ذخیرهٔ تقویم انجام نشد: ' + e.message };
+  }
 }
 
 /** انتخاب دستیِ یک مجموعه. `act` از خودِ دکمه می‌آید: 'pin' یا 'unpin'.

@@ -33,7 +33,6 @@ function onOpen() {
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
-      .addItem('📅 تقویمِ تولید — توقف، روزها و استثناها', 'runProductionCalendar')
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')

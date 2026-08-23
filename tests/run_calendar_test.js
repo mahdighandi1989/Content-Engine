@@ -165,101 +165,84 @@ console.log('=== ۸) دیده‌شدن در وضعیت ===');
   ok('۸.۳ و کلیدِ calendar در _STATUS.json هست', /calendar:.*calStatus_\(\)/.test(p8));
 }
 
-console.log('=== \u06f9) \u0645\u0646\u0648 \u2014 \u0633\u0647 \u067e\u0631\u0633\u0634\u06cc \u06a9\u0647 \u0635\u0627\u062d\u0628\u0650 \u0628\u0631\u0646\u0627\u0645\u0647 \u067e\u0631\u0633\u06cc\u062f ===');
+console.log('=== ۹) تقویم از داخلِ تختهٔ مجموعه‌ها ===');
 {
-  /* «تقویم کجاست؟ · این تاریخ‌ها چیه؟ · چطور متوقفش کنم؟»
-   * نسخهٔ اولِ این پیام هر سه را جواب نمی‌داد: ردیفی نساخته بود («هنوز ردیفی
-   * ساخته نشده»)، تاریخ‌های نمونه را طوری نشان می‌داد که انگار تنظیمِ فعلی‌اند،
-   * و راهی برای توقف نمی‌داد جز ویرایشِ دستیِ تبی که هنوز وجود نداشت. */
-
-  // تب را از صفر می‌سازیم تا حالتِ «روزِ نصب» بازسازی شود
+  /* خواستهٔ صاحبِ برنامه: تقویم باید ذیلِ همان جایی باشد که مجموعه‌ها را
+   * مدیریت می‌کند، نه گزینه‌ای جدا در منو.
+   *
+   * و نگرانیِ صریحش: «نکنه از ظاهر فکر کنم درسته ولی پر از باگ باشه».
+   * پس اینجا *رفتار* سنجیده می‌شود نه ظاهر: پس از هر ذخیره، خودِ دروازه —
+   * همان calGate_ که سنجه‌های بالا داشت — پرسیده می‌شود.
+   */
   const hubSS = getHub_();
-  const old = hubSS.getSheetByName(CFG.CAL_TAB);
-  if (old) hubSS.deleteSheet(old);
-  ok('۹.۱ در آغاز هیچ ردیفی نیست', calStatus_().shows.length === 0);
+  const oldT = hubSS.getSheetByName(CFG.CAL_TAB);
+  if (oldT) hubSS.deleteSheet(oldT);
 
-  const alerts = [], prompts = [];
-  const UI = {
-    Button: { OK: 'OK', CANCEL: 'CANCEL', YES: 'YES', NO: 'NO' },
-    ButtonSet: { OK: 'OK', OK_CANCEL: 'OK_CANCEL', YES_NO: 'YES_NO' },
-    alert: function () { alerts.push(Array.prototype.join.call(arguments, ' | ')); return UI.__ans; },
-    prompt: function () {
-      prompts.push(Array.prototype.join.call(arguments, ' | '));
-      return { getSelectedButton: () => UI.__pbtn, getResponseText: () => UI.__ptext };
-    }
-  };
-  global.__UI = UI;
+  const d0 = calBoardData_();
+  ok('۹.۱ تخته همان بار اول ردیفِ هر دو برنامه را می‌سازد',
+     d0.shows.length === 2, JSON.stringify(d0.shows.map(s => s.key)));
+  ok('۹.۲ و پیش‌فرض: روشن، با هر هفت روز تیک‌خورده',
+     d0.shows.every(s => s.on === true && s.allDays === true &&
+                    s.days.length === 7 && s.days.every(Boolean)),
+     JSON.stringify(d0.shows[0]));
 
-  // ── الف) فقط نگاه‌کردن: «نه» به تغییر ──
-  UI.__ans = 'NO';
-  let st = runProductionCalendar();
-  ok('۹.۲ همان بار اول ردیفِ هر دو برنامه ساخته می‌شود — نه فردا',
-     st.shows.length === 2, JSON.stringify(st.shows.map(s => s.key)));
-  const all = alerts.join('\n');
-  ok('۹.۳ می‌گوید تقویم کجاست (نامِ تب و اینکه تب است)',
-     all.indexOf(CFG.CAL_TAB) !== -1 && /تب/.test(all));
-  ok('۹.۴ تاریخ‌های نمونه صریحاً «نمونه» معرفی می‌شوند — نه تنظیمِ فعلی',
-     /نمونه/.test(all) && /هیچ‌کدام از/.test(all), all.slice(0, 200));
-  ok('۹.۵ و وضعِ واقعیِ هر دو برنامه در پیام هست',
-     all.indexOf(CFG.SHOW_NAME) !== -1 && all.indexOf(CFG.SPECIAL_SHOW_NAME) !== -1);
-  ok('۹.۶ «هنوز ردیفی ساخته نشده» دیگر گفته نمی‌شود',
-     all.indexOf('هنوز ردیفی ساخته نشده') === -1);
+  const k = d0.shows[0].key, nm = d0.shows[0].name;
+  const ALL = FA_WEEKDAYS.map(() => true);
 
-  // ── ب) توقف از خودِ منو، بی ویرایشِ دستیِ تب ──
-  alerts.length = 0;
-  UI.__ans = 'YES'; UI.__pbtn = 'OK'; UI.__ptext = '۱';   // رقمِ فارسی هم باید کار کند
-  st = runProductionCalendar();
-  const first = st.shows[0];
-  ok('۹.۷ با یک عدد از منو متوقف می‌شود', first.on === false, JSON.stringify(first));
-  ok('۹.۸ و دروازه واقعاً جلویش را می‌گیرد',
-     calGate_(first.key, first.name).ok === false);
-  ok('۹.۹ برنامهٔ دیگر دست‌نخورده می‌ماند', st.shows[1].on === true);
+  calBoardSave_(k, false, ALL, '');
+  ok('۹.۳ خاموش‌کردن از تخته، دروازه را می‌بندد',
+     calGate_(k, nm).ok === false, calGate_(k, nm).why);
+  ok('۹.۴ و برنامهٔ دیگر دست‌نخورده می‌ماند',
+     calGate_(d0.shows[1].key, d0.shows[1].name).ok === true);
 
-  // ── ج) و با زدنِ دوباره از سر گرفته می‌شود ──
-  st = runProductionCalendar();
-  ok('۹.۱۰ زدنِ دوباره از سر می‌گیرد', st.shows[0].on === true);
-  ok('۹.۱۱ و دروازه دوباره اجازه می‌دهد',
-     calGate_(first.key, first.name).ok === true);
+  calBoardSave_(k, true, ALL, '');
+  ok('۹.۵ روشن‌کردن دوباره، از سر می‌گیرد', calGate_(k, nm).ok === true);
+  ok('۹.۶ و هفت تیک به «همه» تبدیل می‌شود، نه فهرستِ هفت‌تایی',
+     calBoardData_().shows.filter(s => s.key === k)[0].allDays === true);
 
-  // ── د) عددِ بی‌ربط هیچ‌چیز را عوض نمی‌کند ──
-  UI.__ptext = '9';
-  const before = JSON.stringify(calStatus_().shows.map(s => s.on));
-  runProductionCalendar();
-  ok('۹.۱۲ عددِ بیرونِ فهرست چیزی را عوض نمی‌کند',
-     JSON.stringify(calStatus_().shows.map(s => s.on)) === before);
+  const today = calToday_();
+  const idx = FA_WEEKDAYS.indexOf(today.weekday);
+  calBoardSave_(k, true, FA_WEEKDAYS.map((_, i) => i === idx), '');
+  ok('۹.۷ فقط روزِ امروز تیک بخورد → ساخته می‌شود', calGate_(k, nm).ok === true);
+  const not = FA_WEEKDAYS.map((_, i) => i !== idx);
+  calBoardSave_(k, true, not, '');
+  const g = calGate_(k, nm);
+  ok('۹.۸ امروز تیک نخورده باشد → تعطیل', g.ok === false, g.why);
+  ok('۹.۹ و تیک‌ها همان‌طور که ذخیره شده‌اند برمی‌گردند — نه بیشتر نه کمتر',
+     JSON.stringify(calBoardData_().shows.filter(s => s.key === k)[0].days) ===
+     JSON.stringify(not));
 
-  // ── د-۲) «همه» و چند شماره با هم ──
-  UI.__ptext = 'همه';
-  st = runProductionCalendar();
-  ok('۹.۱۲-ب «همه» هر دو را با هم عوض می‌کند',
-     st.shows.filter(s => s.key === 'variety' || s.key === 'special')
-             .every(s => s.on === false), JSON.stringify(st.shows));
-  UI.__ptext = '۱،۲';
-  st = runProductionCalendar();
-  ok('۹.۱۲-ج «۱،۲» هم همان کار را می‌کند',
-     st.shows[0].on === true && st.shows[1].on === true);
-  ok('۹.۱۲-د و تفسیرِ پاسخ جداگانه سنجیدنی است',
-     calPickIdx_('۱،۲', 3).join() === '1,2' &&
-     calPickIdx_('همه', 3).join() === '1,2,3' &&
-     calPickIdx_('9', 3).length === 0 &&
-     calPickIdx_('2 2 1', 3).join() === '2,1');
+  // مرزی که مبهم بود: هیچ روزی تیک نخورده
+  const r0 = calBoardSave_(k, true, FA_WEEKDAYS.map(() => false), '');
+  ok('۹.۱۰ «روشن ولی هیچ روزی» صریحاً به خاموش تبدیل می‌شود',
+     r0.on === false && /خاموش/.test(r0.note), JSON.stringify(r0));
+  ok('۹.۱۱ و دروازه هم همان را می‌گوید', calGate_(k, nm).ok === false);
 
-  // ── ه) فهرستِ برنامه‌ها یک جاست، نه پخش در if/elseها ──
-  ok('۹.۱۳ knownShows_ هر دو برنامه را با نامشان می‌دهد',
-     knownShows_().length === 2 &&
-     knownShows_()[0].name === CFG.SHOW_NAME &&
-     knownShows_()[1].name === CFG.SPECIAL_SHOW_NAME);
-  ok('۹.۱۴ و enrichShowName_ از همان می‌خوانَد — یک منبع، نه دو',
-     enrichShowName_(ENRICH_SHOW_SPECIAL) === CFG.SPECIAL_SHOW_NAME &&
-     enrichShowName_(ENRICH_SHOW_VARIETY) === CFG.SHOW_NAME);
+  // استثناها از همان کادر
+  const jy = Math.floor(today.j / 10000), jm = Math.floor(today.j / 100) % 100,
+        jd = today.j % 100;
+  calBoardSave_(k, true, ALL, jy + '/' + jm + '/' + jd + ' = تعطیل');
+  ok('۹.۱۲ استثنای امروز از کادرِ تخته اثر می‌گذارد', calGate_(k, nm).ok === false);
+  ok('۹.۱۳ و متنش سالم برمی‌گردد',
+     calBoardData_().shows.filter(s => s.key === k)[0].exceptions.indexOf('تعطیل') !== -1);
+  calBoardSave_(k, true, ALL, '');
+  ok('۹.۱۴ و برداشتنش هم اثر می‌گذارد', calGate_(k, nm).ok === true);
 
-  // ── و) و کلیدِ ناشناخته هنوز بی هیچ فهرستی کار می‌کند (مرزِ ۶ نشکسته) ──
-  ok('۹.۱۵ بذرِ منو، خودکاری برای برنامهٔ ناشناخته را نکشته',
-     calGate_('podcast-1406', 'برنامهٔ ۱۴۰۶').ok === true &&
-     calStatus_().shows.filter(s => s.key === 'podcast-1406').length === 1);
+  // پادکستِ آینده هنوز خودبه‌خود می‌آید
+  calGate_('podcast-1407', 'برنامهٔ ۱۴۰۷');
+  ok('۹.۱۵ برنامهٔ ناشناخته خودش در تخته پیدا می‌شود',
+     calBoardData_().shows.filter(s => s.key === 'podcast-1407').length === 1);
 
-  global.__UI = null;
+  // و پوستهٔ تخته
+  const u = uiCalSave(k, false, ALL, '');
+  ok('۹.۱۶ uiCalSave پیامِ خواندنی می‌دهد', u.ok === true && /متوقف/.test(u.message),
+     u.message);
+  ok('۹.۱۷ و واقعاً اثر گذاشته', calGate_(k, nm).ok === false);
+  const bad = uiCalSave(null, true, null, null);
+  ok('۹.۱۸ ورودیِ خراب پنجره را نمی‌ترکاند', bad && typeof bad.ok === 'boolean',
+     JSON.stringify(bad));
+  uiCalSave(k, true, ALL, '');
+  ok('۹.۱۹ و در پایان همه‌چیز به حالِ سالم برگشت', calGate_(k, nm).ok === true);
 }
-
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

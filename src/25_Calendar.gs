@@ -213,6 +213,96 @@ function calStatus_() {
   return out;
 }
 
+/* ═══════════ تقویم، از داخلِ تختهٔ مجموعه‌ها (۵٫۶۱) ═══════════
+
+   ══ چرا جابه‌جا شد ══
+   خواستهٔ صاحبِ برنامه: «تقویم باید ذیلِ همان جایی باشد که مجموعه‌ها را
+   مدیریت می‌کنم، نه یک گزینهٔ جدا در منو.» درست است — کنترلی که جای دیگری
+   از کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود.
+
+   ══ و چه چیزی عمداً دست نخورد ══
+   **هیچ‌چیز در مدلِ داده.** همان تبِ «تقویمِ تولید»، همان ستون‌ها، همان
+   calGate_. این‌ها ۵۷ سنجه دارند و هر تغییری در آن‌ها یعنی از نو اثبات‌کردنِ
+   چیزی که ثابت شده. آنچه عوض شد فقط *سطحِ نمایش* است: توابعِ زیر می‌خوانند
+   و می‌نویسند، همان‌جا که calGate_ می‌خواند.
+
+   پس اگر این پنجره بشکند، تولید نمی‌شکند — بدترین حالت این است که تنظیم از
+   پنجره انجام نشود و کاربر همان تب را دستی ویرایش کند.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/** دادهٔ تقویم برای تخته: یک ردیف برای هر برنامه. */
+function calBoardData_() {
+  var out = { enabled: CFG.CAL_ENABLED !== false, today: null, shows: [] };
+  try { out.today = calToday_(); } catch (e) {}
+  var hub;
+  try { hub = getHub_(); } catch (eH) { return out; }
+
+  // برنامه‌های شناخته‌شده اول بذر می‌خورند تا ردیفشان باشد، بعد کلِ تب خوانده
+  // می‌شود — پس برنامه‌ای که فقط در تب هست (پادکستِ آینده) هم می‌آید.
+  try { calSeed_(hub); } catch (e2) {}
+  try {
+    var sh = calTab_(hub);
+    if (sh.getLastRow() < 2) return out;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, CAL_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      var key = String(v[i][CC.KEY - 1] || '').trim();
+      if (!key) continue;
+      var days = String(v[i][CC.DAYS - 1] || 'همه').trim();
+      var all = !days || /همه|هر ?روز|all/i.test(days);
+      var ticks = [];
+      for (var d = 0; d < FA_WEEKDAYS.length; d++) {
+        ticks.push(all ? true : days.indexOf(FA_WEEKDAYS[d]) !== -1);
+      }
+      out.shows.push({
+        key: key,
+        name: String(v[i][CC.NAME - 1] || key),
+        on: calOn_(v[i][CC.ON - 1]),
+        days: ticks,
+        allDays: all,
+        exceptions: String(v[i][CC.EXC - 1] || ''),
+        last: String(v[i][CC.LAST - 1] || '')
+      });
+    }
+  } catch (e3) {}
+  return out;
+}
+
+/**
+ * ذخیرهٔ یک ردیف از تخته.
+ *
+ * `days` آرایه‌ای هفت‌تایی از بله/خیر است، به همان ترتیبِ FA_WEEKDAYS.
+ * همه تیک‌خورده → «همه» نوشته می‌شود، نه فهرستِ هفت‌تایی: هم خواناتر است و
+ * هم همان چیزی که calDayOk_ از اول می‌فهمید.
+ *
+ * هیچ تیکی نخورده → این یعنی «هیچ روزی»، که با «فعال = خیر» یکی است ولی
+ * گیج‌کننده. پس برنامه خاموش می‌شود و صریح گفته می‌شود چه شد.
+ */
+function calBoardSave_(key, on, days, exceptions) {
+  var hub = getHub_();
+  var r = calRow_(hub, String(key || ''), '');
+  var note = [];
+
+  var picked = [];
+  for (var i = 0; i < FA_WEEKDAYS.length; i++) {
+    if (days && days[i]) picked.push(FA_WEEKDAYS[i]);
+  }
+  var onVal = on ? 'بله' : 'خیر';
+  if (on && !picked.length) {
+    onVal = 'خیر';
+    note.push('هیچ روزی تیک نخورده بود، پس برنامه خاموش شد');
+  }
+  var daysVal = (picked.length === FA_WEEKDAYS.length || !picked.length)
+                  ? 'همه' : picked.join('، ');
+
+  r.sheet.getRange(r.row, CC.ON).setValue(onVal);
+  r.sheet.getRange(r.row, CC.DAYS).setValue(daysVal);
+  r.sheet.getRange(r.row, CC.EXC).setValue(String(exceptions == null ? '' : exceptions));
+
+  logLine_('تقویمِ تولید: «' + r.vals[CC.NAME - 1] + '» از تخته تنظیم شد — ' +
+           onVal + ' · ' + daysVal + '.');
+  return { ok: true, on: onVal === 'بله', days: daysVal, note: note.join('؛ ') };
+}
+
 /* ─────────────────────────────── منو ─────────────────────────────────── */
 
 /**
@@ -245,131 +335,4 @@ function calWidths_(sh) {
   sh.getRange(2, CC.EXC, Math.max(sh.getMaxRows() - 1, 1), 1).setWrap(true);
   sh.getRange(2, CC.LAST, Math.max(sh.getMaxRows() - 1, 1), 1)
     .setNumberFormat('@').setFontColor('#666666');
-}
-
-/** متنِ وضع — همان چیزی که در پیام و در لاگ دیده می‌شود. */
-function calReport_(st, today) {
-  var L = ['📅 تقویمِ تولید — امروز ' + today.fa + '، ' + today.weekday, ''];
-  for (var i = 0; i < st.shows.length; i++) {
-    var s = st.shows[i];
-    L.push((i + 1) + ') ' + (s.on ? '▶️ روشن' : '⏸ متوقف') + ' — ' + s.name);
-    L.push('     روزها: ' + s.days +
-           (s.exceptions ? ' · ' + s.exceptions + ' سطر استثنا' : ' · بدون استثنا'));
-    L.push('     آخرین تصمیمِ موتور: ' + (s.last || 'هنوز اجرا نشده'));
-    L.push('');
-  }
-  return L.join('\n');
-}
-
-/**
- * پاسخِ کاربر → فهرستِ شماره‌ها. «۱»، «۱،۲»، «1 2»، «همه».
- * چیزی که در بازه نباشد کنار گذاشته می‌شود؛ خالی یعنی «کاری نکن».
- */
-function calPickIdx_(raw, count) {
-  var t = faDigits_(String(raw || '')).trim();
-  if (/همه|هردو|هر ?دو|all/i.test(t)) {
-    var a = [];
-    for (var i = 1; i <= count; i++) a.push(i);
-    return a;
-  }
-  var out = [], seen = Object.create(null);
-  var parts = t.split(/[^0-9]+/);
-  for (var j = 0; j < parts.length; j++) {
-    var n = parseInt(parts[j], 10);
-    if (n >= 1 && n <= count && !seen[n]) { seen[n] = 1; out.push(n); }
-  }
-  return out;
-}
-
-/**
- * منو: «📅 تقویمِ تولید».
- *
- * سه کار می‌کند و به‌همین‌ترتیب، چون سه پرسشِ صاحبِ برنامه همین‌ها بودند:
- * «تقویم کجاست؟» → تب را می‌سازد و نشانی‌اش را می‌گوید.
- * «الان چه خبر است؟» → وضعِ هر برنامه با آخرین تصمیمِ خودِ موتور.
- * «چطور متوقفش کنم؟» → همین‌جا، با یک عدد؛ نه با ویرایشِ دستیِ تب.
- */
-function runProductionCalendar() {
-  var ui = null;
-  try { ui = SpreadsheetApp.getUi(); } catch (e) {}
-  var hub = getHub_();
-  var tabName = CFG.CAL_TAB || 'تقویمِ تولید';
-  calSeed_(hub);
-  var st = calStatus_();
-  var today = calToday_();
-
-  var head = calReport_(st, today);
-  var where = 'این تقویم یک تبِ تازه در همین فایل است، به نامِ «' + tabName + '»\n' +
-              '(پایینِ صفحه، کنارِ بقیهٔ تب‌ها). همین حالا ساخته شد.';
-
-  if (!ui) { logLine_(head + '\n' + where); return st; }
-
-  // ── گامِ یک: وضع + پیشنهادِ تغییر ─────────────────────────────────────
-  var ans = ui.alert('تقویمِ تولید',
-    head + where + '\n\n' +
-    'می‌خواهید همین حالا یکی از برنامه‌ها را متوقف یا از سر بگیرید؟',
-    ui.ButtonSet.YES_NO);
-
-  if (ans !== ui.Button.YES) {
-    ui.alert('تنظیمِ دقیق‌تر',
-      'برای روزهای هفته و استثناها، تبِ «' + tabName + '» را باز کنید:\n\n' +
-      '• ستونِ «فعال»  →  «خیر» یعنی توقفِ موقت، «بله» یعنی از سر گرفتن.\n' +
-      '• ستونِ «روزهای هفته»  →  «همه» یا مثلاً «شنبه، دوشنبه، چهارشنبه».\n' +
-      '• ستونِ «استثناها»  →  هر خط یک بازه.\n\n' +
-      'نمونهٔ نوشتنِ استثنا (فقط برای نشان‌دادنِ قالب است — الان هیچ‌کدام از\n' +
-      'این تاریخ‌ها در تقویمِ شما نیست):\n\n' +
-      '    ۱۴۰۵/۰۶/۱۰ تا ۱۴۰۵/۰۶/۱۵ = تعطیل\n' +
-      '    ۱۴۰۵/۰۶/۲۰ = فعال\n' +
-      '    2026-09-01 تا 2026-09-05 = تعطیل\n\n' +
-      'خطِ «= فعال» بر «= تعطیل» مقدم است، پس می‌شود وسطِ یک بازهٔ بلندِ تعطیل\n' +
-      'یک روز را باز کرد بی‌آنکه کلِ بازه پاک شود.\n\n' +
-      'ستونِ «آخرین تصمیم» را خودِ موتور می‌نویسد؛ دستش نزنید. اگر برای امروز\n' +
-      'چیزی در آن نوشته نشده باشد، یعنی زمان‌بندی اصلاً اجرا نشده — و آن\n' +
-      'مشکلی جداست از تعطیلی.\n\n' +
-      'اجرای دستی از منو هیچ‌وقت مسدود نمی‌شود، و قسمتی که صداگذاری‌اش شروع\n' +
-      'شده تا آخر تمام می‌شود.');
-    return st;
-  }
-
-  // ── گامِ دو: کدام برنامه ──────────────────────────────────────────────
-  var pick = ui.prompt('کدام برنامه؟',
-    head + 'شمارهٔ برنامه را بنویسید و OK را بزنید — ۱ تا ' +
-    faDigitsOut_(st.shows.length) + '.\n' +
-    'چند تا با هم: «۱،۲». همه با هم: «همه».\n\n' +
-    'وضعش برعکس می‌شود: روشن ← متوقف، متوقف ← روشن.',
-    ui.ButtonSet.OK_CANCEL);
-  if (pick.getSelectedButton() !== ui.Button.OK) return st;
-
-  var raw = String(pick.getResponseText() || '');
-  var idx = calPickIdx_(raw, st.shows.length);
-  if (!idx.length) {
-    ui.alert('«' + raw + '» در فهرست نیست. کاری انجام نشد.\n\n' +
-             'یک عدد بنویسید (مثلاً ۱)، یا چند تا با ویرگول (۱،۲)، یا «همه».');
-    return st;
-  }
-
-  // ── گامِ سه: تغییر، و نشان‌دادنِ نتیجه از روی خودِ تب ──────────────────
-  var did = [];
-  for (var q = 0; q < idx.length; q++) {
-    var target = st.shows[idx[q] - 1];
-    var r = calRow_(hub, target.key, target.name);
-    var was = calOn_(r.vals[CC.ON - 1]);
-    r.sheet.getRange(r.row, CC.ON).setValue(was ? 'خیر' : 'بله');
-    did.push({ name: target.name, off: was });
-    logLine_('تقویمِ تولید: «' + target.name + '» از منو ' +
-             (was ? 'متوقف' : 'از سر گرفته') + ' شد.');
-  }
-
-  var lines = did.map(function (d) {
-    return (d.off ? '⏸ «' + d.name + '» متوقف شد — دیگر خودکار ساخته نمی‌شود.'
-                  : '▶️ «' + d.name + '» از سر گرفته شد — طبقِ روزهای تعیین‌شده.');
-  });
-  var after = calStatus_();
-  ui.alert('انجام شد',
-    lines.join('\n') + '\n\n' +
-    'برای برگرداندن، همین گزینهٔ منو را دوباره بزنید و همان شماره را بدهید.\n\n' +
-    calReport_(after, today) +
-    'تغییر در تبِ «' + tabName + '»، ستونِ «فعال» نشست — همان‌جا هم می‌بینیدش.',
-    ui.ButtonSet.OK);
-  return after;
 }
