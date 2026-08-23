@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.63
+ *  موتور محتوا و پادکست — نسخهٔ 5.64
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -383,7 +383,7 @@ var CFG = {
   MUSIC_FEED_FILE: '_MUSIC-FEED.json',
   MUSIC_FETCH: true,
   MUSIC_FETCH_MAX_BYTES: 12000000,   // ~۲ دقیقه WAVِ ۲۴ کیلوهرتز
-  MUSIC_FETCH_MAX_PER_RUN: 3,        // شبی سه فایل؛ بانک آرام پر می‌شود
+  MUSIC_FETCH_MAX_PER_RUN: 8,        // سقفِ شمار؛ سقفِ واقعی زمان است
 
   // ── گشتنِ خودکار، بی هیچ واسطه‌ای ──
   // فهرستِ پیشنهادی را تسکِ غنی‌سازی پر می‌کند، ولی نباید تنها راه باشد:
@@ -393,11 +393,24 @@ var CFG = {
   // پس پیش از دانلود می‌شود مطمئن شد فایل واقعاً WAV است — بیشترِ سایت‌های
   // موسیقیِ آزاد فقط MP3 می‌دهند و Apps Script رمزگشای MP3 ندارد.
   MUSIC_SEEK: true,
-  MUSIC_SEEK_MAX: 4,                 // هر بار حداکثر این تعداد نامزد به فهرست
+  MUSIC_SEEK_MAX: 8,                 // هر بار حداکثر این تعداد نامزد به فهرست
   // هدفِ اندازهٔ بانک برای هر جایگاه. تا اینجا «کم» شمرده می‌شود و گشتن
   // ادامه دارد. با یک قطعه در هر جایگاه، «انتخابِ متناسب با وایب» معنا
   // ندارد — انتخاب از میانِ یکی، انتخاب نیست.
-  MUSIC_BANK_TARGET: 5,
+  // ── اندازهٔ بانک ──
+  // «پنج قطعه در هر جایگاه» غلط بود و صاحبِ برنامه درست گفت: وایب‌ها زیادند
+  // و پنج‌تا هیچ‌کدامشان را پوشش نمی‌دهد. حالا هدف بر حسبِ *خانوادهٔ حال‌وهوا*
+  // است، نه یک عددِ تخت: برای هر خانواده (طنز، آموزشی، مذهبی، خبری، …) و هر
+  // جایگاه، این تعداد قطعه. یعنی چند ده قطعه، نه پانزده‌تا.
+  MUSIC_PER_MOOD: 2,
+  MUSIC_BANK_TARGET: 5,              // کفِ مطلق برای هر جایگاه، مستقل از خانواده
+  // جلوه‌های صوتی: تا ۵٫۶۴ هیچ‌وقت جست‌وجو نمی‌شدند. ساز و کارِ پخششان از
+  // ۵٫۴۹ کامل بود ولی بانک صفر افکت داشت، پس sfxAllow_ چیزی برای اجازه‌دادن
+  // نداشت — همان بن‌بستی که موسیقی داشت.
+  MUSIC_SFX_TARGET: 8,
+  // دانلود در کارِ شبانه جا دارد ولی مهلتِ شش‌دقیقه‌ای گوگل هم هست. به‌جای
+  // یک سقفِ ثابتِ محافظه‌کارانه، سقفِ زمانی: تا وقتی وقت هست بیاور.
+  MUSIC_FETCH_BUDGET_MS: 150000,
   MUSIC_SEEK_MIN_SEC: 5,             // کوتاه‌تر از این، قطعه نیست
   MUSIC_SEEK_API: 'https://archive.org',
   // فایلی که سنجه ردش می‌کند به این زیرپوشه می‌رود — پاک نمی‌شود.
@@ -604,7 +617,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.63',
+  CODE_VERSION: '5.64',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -21701,11 +21714,20 @@ function musicFetch_() {
 
   var cap = Number(CFG.MUSIC_FETCH_MAX_PER_RUN) || 3;
   var maxB = Number(CFG.MUSIC_FETCH_MAX_BYTES) || 12000000;
+  // سقفِ واقعی زمان است، نه شمار: کارِ شبانه مهلتِ شش‌دقیقه‌ای دارد و هر
+  // دانلود چند ده ثانیه می‌برد. با سقفِ ثابتِ کوچک، بانک بی‌دلیل آرام پر
+  // می‌شد؛ با سقفِ بزرگ و بی‌مهلت، کلِ کارِ شبانه وسط کشته می‌شد.
+  var t0 = new Date().getTime();
+  var budget = Math.max(20000, Number(CFG.MUSIC_FETCH_BUDGET_MS) || 150000);
   var done = musicFetchedUrls_();
   var folder = musicFolder_();
   var changed = false;
 
   for (var i = 0; i < feed.items.length && out.added + out.failed < cap; i++) {
+    if (new Date().getTime() - t0 > budget) {
+      out.notes.push('وقتِ این اجرا تمام شد؛ بقیه در اجرای بعد.');
+      break;
+    }
     var it = feed.items[i] || {};
     if (it.status) continue;                       // قبلاً رسیدگی شده
     var url = String(it.url || '').trim();
@@ -21752,7 +21774,8 @@ function musicFetch_() {
     }
 
     // و سدِ چهارم، که ۵٫۵۶ نداشت: «این اصلاً موسیقی است؟»
-    var acc = musicAccept_(bytes, info, String(it.title || '') + ' ' + url);
+    var acc = musicAccept_(bytes, info, String(it.title || '') + ' ' + url,
+                           String(it.kind || 'موسیقی'));
     if (!acc.ok) {
       it.status = 'رد'; it.error = acc.why;
       changed = true; out.failed++;
@@ -21964,6 +21987,13 @@ function musicSeekQuery_(slot, terms) {
  * نامزد پیدا می‌کند و به `_MUSIC-FEED.json` اضافه می‌کند. دانلود نمی‌کند.
  * برمی‌گرداند {added, looked, notes:[…]}
  */
+/** پرسشِ جست‌وجوی جلوهٔ صوتی. عمداً از موسیقی جداست. */
+function sfxSeekQuery_() {
+  return 'collection:(soundeffects OR opensource_audio) AND format:(WAVE) AND ' +
+         'licenseurl:(*creativecommons* OR *publicdomain*) AND ' +
+         '(foley OR ambience OR ambient sound OR "sound effect" OR nature recording)';
+}
+
 function musicSeek_(slots) {
   var out = { added: 0, looked: 0, notes: [] };
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
@@ -21986,8 +22016,19 @@ function musicSeek_(slots) {
 
   for (var si = 0; si < want.length && out.added < cap; si++) {
     var slot = want[si];
-    var terms = musicSeekTerms_(slot);
-    out.notes.push(slot + ' ← گشته شد با: ' + terms);
+    // اگر می‌دانیم *کدام خانواده* کم است، دنبالِ همان می‌گردیم — نه دنبالِ
+    // «موسیقیِ خوب» به‌طور کلی. بانکی که همه‌اش پیانوی آرام باشد، برای
+    // قسمتِ طنز هیچ ندارد هرچقدر هم بزرگ باشد.
+    var gap = null;
+    try {
+      var cov = musicCoverage_();
+      for (var gi = 0; gi < cov.gaps.length; gi++) {
+        if (cov.gaps[gi].slot === slot && cov.gaps[gi].family) { gap = cov.gaps[gi]; break; }
+      }
+    } catch (eC) {}
+    var terms = gap ? musicTermsForFamily_(gap.family, slot) : musicSeekTerms_(slot);
+    out.notes.push(slot + (gap ? ' (کمبودِ خانوادهٔ ' + gap.family.split('|')[0] + ')' : '') +
+                   ' ← گشته شد با: ' + terms);
     var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot, terms)) +
               '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
               '&rows=25&page=1&output=json';
@@ -22051,11 +22092,71 @@ function musicSeek_(slots) {
     }
   }
 
+  // ── جلوه‌های صوتی ──
+  // تا ۵٫۶۴ هیچ‌وقت جست‌وجو نمی‌شدند: musicSeek_ فقط سه جایگاهِ موسیقی را
+  // می‌گشت و همهٔ نامزدها kind:'موسیقی' می‌گرفتند. یعنی sfxAllow_ — که از
+  // ۵٫۴۹ وصل بود — هیچ‌وقت چیزی برای اجازه‌دادن نداشت.
+  var sfxWant = Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0);
+  var sfxHave = 0;
+  try { sfxHave = musicCoverage_().sfx; } catch (eS0) {}
+  if (CFG.MUSIC_SFX_ENABLED !== false && sfxHave < sfxWant && out.added < cap) {
+    var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_()) +
+             '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
+             '&rows=25&page=1&output=json';
+    var sres = musicApiJson_(su);
+    var sdocs = (sres && sres.response && sres.response.docs) || [];
+    out.looked += sdocs.length;
+    for (var sd = 0; sd < sdocs.length && out.added < cap; sd++) {
+      var sid = String(sdocs[sd].identifier || '');
+      if (!sid || seen.indexOf(sid) !== -1) continue;
+      musicSeenAdd_(sid); seen.push(sid);
+      var sPre = musicIsSpeech_(null, null, String(sdocs[sd].title || '') + ' ' + sid);
+      if (sPre.speech && sPre.sure) continue;
+      var smeta = musicApiJson_(base + '/metadata/' + encodeURIComponent(sid));
+      if (!smeta || !smeta.files) continue;
+      var slic = String((smeta.metadata && smeta.metadata.licenseurl) || sdocs[sd].licenseurl || '');
+      if (!slic) continue;
+      // افکت کوتاه است؛ فایلِ چندمگابایتی احتمالاً یک آلبومِ کامل است
+      var sbest = null;
+      for (var sf = 0; sf < smeta.files.length; sf++) {
+        var ff = smeta.files[sf] || {};
+        if (!/\.wav$/i.test(String(ff.name || ''))) continue;
+        var fsz = Number(ff.size || 0);
+        if (!(fsz > 0) || fsz > Math.min(maxB, 3000000)) continue;
+        if (!sbest || fsz < sbest.size) sbest = { name: String(ff.name), size: fsz };
+      }
+      if (!sbest) continue;
+      var sdl = base + '/download/' + encodeURIComponent(sid) + '/' +
+                encodeURIComponent(sbest.name);
+      if (already[sdl]) continue;
+      already[sdl] = 1;
+      feed.items.push({
+        url: sdl,
+        title: auditCut_(String((smeta.metadata && smeta.metadata.title) || sid), 60),
+        license: slic, kind: 'افکت', mood: '', slots: 'میانه', gain: '',
+        source: base + '/details/' + sid, by: 'موتور — گشتنِ خودکار'
+      });
+      out.added++;
+      out.notes.push('افکت: ' + auditCut_(sbest.name, 40));
+    }
+  }
+
   if (out.added) {
     try { putOutJson_(MUSIC_FEED_(), { updatedAt: nowStr_(), items: feed.items }); } catch (eP) {}
     logLine_('گشتنِ خودکارِ موسیقی: ' + out.added + ' نامزد به فهرست اضافه شد.');
   }
   return out;
+}
+
+/** واژه‌های انگلیسیِ یک خانوادهٔ مشخص، با چاشنیِ جایگاه. */
+function musicTermsForFamily_(family, slot) {
+  var base = '';
+  for (var i = 0; i < MUSIC_MOOD_HINTS.length; i++) {
+    if (MUSIC_MOOD_HINTS[i][0] === family) { base = MUSIC_MOOD_HINTS[i][1]; break; }
+  }
+  if (!base) return musicSeekTerms_(slot);
+  var extra = (slot === 'میانه') ? ' OR short OR loop' : ' OR instrumental';
+  return base + extra;
 }
 
 /**
@@ -22069,17 +22170,94 @@ function musicSeek_(slots) {
  * و بدتر: «انتخابِ متناسب با وایب» از میانِ یک قطعه در هر جایگاه، انتخاب
  * نیست. تا وقتی بانک به هدف نرسد، انتخاب معنایی ندارد.
  */
-function musicThinSlots_(hub) {
-  var need = ['شروع', 'پایان', 'میانه'], out = [];
-  var target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
+var MUSIC_SLOTS = ['شروع', 'پایان', 'میانه'];
+
+/** نامِ خانوادهٔ حال‌وهوا از روی متنِ فارسی. '' یعنی نشناخت. */
+function musicMoodFamily_(text) {
+  var t = String(text || '');
+  for (var i = 0; i < MUSIC_MOOD_HINTS.length; i++) {
+    if (new RegExp(MUSIC_MOOD_HINTS[i][0]).test(t)) return MUSIC_MOOD_HINTS[i][0];
+  }
+  return '';
+}
+
+/**
+ * پوششِ بانک: برای هر (خانوادهٔ حال‌وهوا × جایگاه) چند قطعه داریم؟
+ *
+ * ══ چرا عددِ تخت غلط بود ══
+ * تا ۵٫۶۳ هدف «پنج قطعه در هر جایگاه» بود. صاحبِ برنامه درست گفت: وایب‌ها
+ * زیادند و پنج‌تا هیچ‌کدامشان را پوشش نمی‌دهد. یک بانکِ پنج‌تایی که همه‌اش
+ * پیانوی آرام باشد، برای قسمتِ طنز هیچ ندارد — و شمارنده می‌گوید «پُر است».
+ *
+ * پس شمارش بر حسبِ خانواده است: طنز، آموزشی، مذهبی، خبری، نوستالژی،
+ * اجتماعی، هنری، مالی. کمبود هم به همان دقت گزارش می‌شود، تا جست‌وجو
+ * دنبالِ همان چیزی برود که واقعاً کم است.
+ */
+function musicCoverage_(hub) {
   var bank = [];
-  try { bank = musicBank_(hub); } catch (e) { return need; }
-  for (var i = 0; i < need.length; i++) {
-    var n = 0;
-    for (var j = 0; j < bank.length; j++) {
-      if (String(bank[j].slots || '').indexOf(need[i]) !== -1) n++;
+  try { bank = musicBank_(hub); } catch (e) { bank = []; }
+  var per = Math.max(1, Number(CFG.MUSIC_PER_MOOD) || 2);
+  var floor = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
+
+  var out = { gaps: [], slots: {}, sfx: 0, sfxTarget: Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0) };
+  for (var s0 = 0; s0 < MUSIC_SLOTS.length; s0++) out.slots[MUSIC_SLOTS[s0]] = 0;
+
+  var byFam = {};
+  for (var i = 0; i < bank.length; i++) {
+    var b = bank[i];
+    if (String(b.kind || '') === 'افکت') { out.sfx++; continue; }
+    var fam = musicMoodFamily_(b.mood);
+    for (var s = 0; s < MUSIC_SLOTS.length; s++) {
+      if (String(b.slots || '').indexOf(MUSIC_SLOTS[s]) === -1) continue;
+      out.slots[MUSIC_SLOTS[s]]++;
+      if (!fam) continue;
+      var k = fam + '§' + MUSIC_SLOTS[s];
+      byFam[k] = (byFam[k] || 0) + 1;
     }
-    if (n < target) out.push(need[i]);
+  }
+
+  // کمبودِ خانواده‌ای — فقط برای خانواده‌هایی که برنامه واقعاً خواسته‌شان
+  // دارد. دنبالِ «موسیقیِ مالی» گشتن وقتی هیچ قسمتِ مالی نداریم، هدررفت است.
+  var want = musicWantedFamilies_();
+  for (var w = 0; w < want.length; w++) {
+    for (var s2 = 0; s2 < MUSIC_SLOTS.length; s2++) {
+      var have = byFam[want[w] + '§' + MUSIC_SLOTS[s2]] || 0;
+      if (have < per) out.gaps.push({ family: want[w], slot: MUSIC_SLOTS[s2], have: have });
+    }
+  }
+  // و کفِ مطلق: جایگاهی که اصلاً کم دارد، مستقل از خانواده
+  for (var s3 = 0; s3 < MUSIC_SLOTS.length; s3++) {
+    if (out.slots[MUSIC_SLOTS[s3]] < floor) {
+      out.gaps.push({ family: '', slot: MUSIC_SLOTS[s3], have: out.slots[MUSIC_SLOTS[s3]] });
+    }
+  }
+  return out;
+}
+
+/** خانواده‌هایی که از روی آرزوهای ثبت‌شده واقعاً لازم‌اند. */
+function musicWantedFamilies_() {
+  var moods = [];
+  try { moods = musicWantedMoods_(); } catch (e) {}
+  var out = [], seen = {};
+  for (var i = 0; i < moods.length; i++) {
+    var f = musicMoodFamily_(moods[i]);
+    if (f && !seen[f]) { seen[f] = 1; out.push(f); }
+  }
+  // اگر هنوز آرزویی ثبت نشده، همهٔ خانواده‌ها لازم‌اند — بانک از صفر شروع
+  // می‌شود و نمی‌دانیم فردا چه قسمتی می‌آید.
+  if (!out.length) {
+    for (var j = 0; j < MUSIC_MOOD_HINTS.length; j++) out.push(MUSIC_MOOD_HINTS[j][0]);
+  }
+  return out;
+}
+
+/** جایگاه‌هایی که هنوز کم دارند — از روی پوشش، نه عددِ تخت. */
+function musicThinSlots_(hub) {
+  var cov = musicCoverage_(hub);
+  var out = [], seen = {};
+  for (var i = 0; i < cov.gaps.length; i++) {
+    var sl = cov.gaps[i].slot;
+    if (!seen[sl]) { seen[sl] = 1; out.push(sl); }
   }
   return out;
 }
@@ -22122,7 +22300,10 @@ function musicRecheck_(hub) {
     var f2 = todo[i], bytes = null, info = null;
     out.checked++;
     try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
-    var acc = info ? musicAccept_(bytes, info, f2.getName())
+    var mt = null;
+    try { mt = musicMeta_(f2.getName()); } catch (eMt) {}
+    var acc = info ? musicAccept_(bytes, info, f2.getName(),
+                                  (mt && mt.kind) || 'موسیقی')
                    : { ok: false, why: 'WAV خوانده نشد' };
     if (acc.ok) { out.kept++; continue; }
 
@@ -22503,10 +22684,10 @@ function musicListen_(b, info, name) {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
               textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
     var payload = { contents: [{ role: 'user', parts: [
-      { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست به‌عنوان موسیقیِ ' +
-              'آغاز یا پایان یا فاصله پخش شود.\n\n' +
-              'فقط یکی از این سه واژه را برگردان، بی هیچ توضیحی:\n' +
+      { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست پخش شود.\n\n' +
+              'فقط یکی از این چهار واژه را برگردان، بی هیچ توضیحی:\n' +
               '«موسیقی» — اگر ساز یا آهنگ است.\n' +
+              '«جلوه» — اگر صدای محیط یا شیء است: باران، شهر، در، قدم، پرنده، زنگ.\n' +
               '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
               '«نامعلوم» — اگر مطمئن نیستی.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
@@ -22515,6 +22696,7 @@ function musicListen_(b, info, name) {
     var j = geminiFetch_(url, payload);
     var t = String(extractText_(j) || '');
     if (t.indexOf('گفتار') !== -1) return 'گفتار';
+    if (t.indexOf('جلوه') !== -1) return 'جلوه';
     if (t.indexOf('موسیقی') !== -1) return 'موسیقی';
     return '';
   } catch (e) {
@@ -22527,13 +22709,20 @@ function musicListen_(b, info, name) {
  * حکمِ نهایی: آیا این فایل وارد بانک شود؟
  * برمی‌گرداند {ok, why}
  */
-function musicAccept_(b, info, name) {
+function musicAccept_(b, info, name, kind) {
+  var wantSfx = String(kind || '') === 'افکت';
   var pr = null;
   try { pr = musicProbe_(b, info); } catch (e) {}
   var vd = musicVerdict_(pr);
   if (!vd.ok) return { ok: false, why: vd.why };
 
   var g = musicIsSpeech_(pr, info, name);
+  // ══ تلهٔ افکت ══
+  // سنجهٔ «پرنوسان یعنی گفتار» برای موسیقی درست است و برای جلوهٔ صوتی غلط:
+  // صدای در، قدم و باران ذاتاً پرنوسان و پرمکث‌اند. اگر همان قاعده را روی
+  // افکت بزنیم، هیچ افکتی هرگز وارد بانک نمی‌شود — و دقیقاً همان بن‌بستی
+  // تکرار می‌شد که تازه از موسیقی برداشتیم.
+  if (wantSfx && !g.sure) g = { speech: false, sure: false, why: 'جلوهٔ صوتی — الگوی موج سنجیده نشد' };
   // چیزی که از روی نام یا نرخ قطعی است، اصلاً به مدل نمی‌رسد — هزینهٔ بی‌دلیل
   if (g.speech && g.sure) return { ok: false, why: 'گفتار است: ' + g.why };
 
@@ -22543,8 +22732,20 @@ function musicAccept_(b, info, name) {
              why: 'مدل گوش داد و گفت گفتار است' };
   }
   if (heard === 'موسیقی') {
+    if (wantSfx) {
+      return { ok: false, sure: true, heard: 'موسیقی',
+               why: 'موسیقی است، نه جلوهٔ صوتی — جای این در بانکِ افکت نیست' };
+    }
     return { ok: true, sure: true, heard: 'موسیقی',
              why: 'مدل تأیید کرد موسیقی است' };
+  }
+  if (heard === 'جلوه') {
+    if (!wantSfx) {
+      return { ok: false, sure: true, heard: 'جلوه',
+               why: 'جلوهٔ صوتی است، نه موسیقی — به‌عنوان قطعهٔ آغاز/پایان نمی‌خورد' };
+    }
+    return { ok: true, sure: true, heard: 'جلوه',
+             why: 'مدل تأیید کرد جلوهٔ صوتی است' };
   }
 
   // مدل نتوانست. حالا حکمِ اندازه‌ها تنها چیزی است که داریم، و شک یعنی رد.

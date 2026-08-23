@@ -231,8 +231,25 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
   ok('۶.۵ و دلیلِ ردش در همان فایل نوشته می‌شود',
      /WAV نیست/.test(String(fed.items[1].error)), String(fed.items[1].error));
   ok('۶.۶ پاسخِ ۴۰۴ هم رد می‌شود با دلیل', /404/.test(String(fed.items[2].error)));
-  ok('۶.۷ سقفِ «شبی چند فایل» رعایت می‌شود — چهارمی امشب دست نخورد',
-     !fed.items[3].status, JSON.stringify(fed.items[3]));
+  // سقف را خودِ آزمون تعیین می‌کند، نه تنظیماتِ روز: وگرنه هر بار که
+  // MUSIC_FETCH_MAX_PER_RUN عوض شود این سنجه بی‌دلیل قرمز می‌شود و
+  // چیزی را می‌سنجد که قصدش نبوده.
+  {
+    wipe(/_MUSIC-FEED/);
+    delete global.__PROPS[PK.MUSIC_FETCHED];
+    const keepCap = CFG.MUSIC_FETCH_MAX_PER_RUN;
+    CFG.MUSIC_FETCH_MAX_PER_RUN = 1;
+    putOutJson_(MUSIC_FEED_(), { items: [
+      { url: 'https://ok.example/a.wav', title: 'یک' },
+      { url: 'https://ok.example/b.wav', title: 'دو' }
+    ]});
+    global.__STUB = () => ({ code: 200, bytes: wav(3, 24000) });
+    musicFetch_();
+    const two = getOutJson_(MUSIC_FEED_()).items;
+    ok('۶.۷ سقفِ «هر اجرا چند فایل» رعایت می‌شود — دومی دست نخورد',
+       !!two[0].status && !two[1].status, JSON.stringify(two.map(x => x.status)));
+    CFG.MUSIC_FETCH_MAX_PER_RUN = keepCap;
+  }
   ok('۶.۸ و آنچه آمد در فهرست «آمد» می‌خورد با شناسهٔ فایل',
      fed.items[0].status === 'آمد' && !!fed.items[0].fileId);
 
@@ -661,9 +678,22 @@ console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، �
   global.musicBank_ = () => mk(1);
   ok('۱۱.۱ یک قطعه در هر جایگاه هنوز «کم» است — گشتن ادامه دارد',
      musicThinSlots_().length === 3, JSON.stringify(musicThinSlots_()));
+  // «پُر» یعنی هر خانوادهٔ حال‌وهوا پوشش داشته باشد، نه فقط عددِ کل.
+  // این همان چیزی است که ۵٫۶۴ عوض کرد: پنج قطعهٔ هم‌وایب، بانکِ پُر نیست.
+  const fams = MUSIC_MOOD_HINTS.map(h => h[0].split('|')[0]);
+  const full = [];
+  fams.forEach((f, fi) => {
+    for (let n = 0; n < CFG.MUSIC_PER_MOOD; n++) {
+      full.push({ id: 'F' + fi + '_' + n, name: f + ' ' + n, sec: 30, gain: 1, used: 0,
+                  slots: 'شروع، پایان، میانه', mood: f, kind: 'موسیقی' });
+    }
+  });
+  global.musicBank_ = () => full;
+  ok('۱۱.۲ بانکی که همهٔ خانواده‌ها را پوشش می‌دهد، دیگر گشته نمی‌شود',
+     musicThinSlots_().length === 0, JSON.stringify(musicThinSlots_()));
   global.musicBank_ = () => mk(CFG.MUSIC_BANK_TARGET);
-  ok('۱۱.۲ و با رسیدن به هدف، دیگر گشته نمی‌شود',
-     musicThinSlots_().length === 0);
+  ok('۱۱.۲-ب ولی همان تعداد قطعه از یک خانواده، پُر نیست',
+     musicThinSlots_().length > 0, JSON.stringify(musicThinSlots_()));
   ok('۱۱.۳ شمارِ هر جایگاه جداگانه دیده می‌شود',
      musicSlotCounts_()['شروع'] === CFG.MUSIC_BANK_TARGET,
      JSON.stringify(musicSlotCounts_()));
@@ -686,6 +716,8 @@ console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، �
   ok('۱۱.۶ وضعیت شمارِ هر جایگاه و هدف را دارد',
      st.slots && st.target === CFG.MUSIC_BANK_TARGET && st.thin.length === 3,
      JSON.stringify({ slots: st.slots, thin: st.thin }));
+  ok('۱۱.۶-ب و شمارِ جایگاه‌ها همان چیزی است که در بانک هست',
+     st.slots['شروع'] === 2, JSON.stringify(st.slots));
   global.musicBank_ = realBank;
 
   // د) و اطلاع‌رسانی: تا امروز هیچ‌جای ایمیل و تلگرام نامی از موسیقی نبود
@@ -759,6 +791,84 @@ console.log('=== ۱۲) موتور بگوید به کدام قطعه مطمئن �
      /تأییدِ شنیداری ندارد — فقط به این‌ها گوش بدهید/.test(p23));
   ok('۱۲.۸ و جایگاهی که یک قطعه دارد صریح هشدار می‌گیرد',
      /انتخابِ متناسب با وایب از میانِ یک قطعه، انتخاب نیست/.test(p23));
+}
+
+
+console.log('=== ۱۳) تنوعِ بانک، و جلوه‌های صوتی که هرگز جست‌وجو نمی‌شدند ===');
+{
+  /* دو ایرادِ صاحبِ برنامه، هر دو درست:
+   * «پنج قطعه هیچ وایبی را پوشش نمی‌دهد» — و راست می‌گفت: بانکی که همه‌اش
+   *   پیانوی آرام باشد برای قسمتِ طنز هیچ ندارد، ولی شمارنده می‌گفت پُر است.
+   * «برای جلوه‌های صوتی چه کردی؟» — هیچ. ساز و کارِ پخش از ۵٫۴۹ کامل بود
+   *   ولی musicSeek_ فقط سه جایگاهِ موسیقی را می‌گشت و همهٔ نامزدها
+   *   kind:'موسیقی' می‌گرفتند. sfxAllow_ چیزی برای اجازه‌دادن نداشت. */
+  const realBank = global.musicBank_;
+
+  // الف) پوشش بر حسبِ خانواده شمرده می‌شود، نه عددِ تخت
+  global.musicBank_ = () => Array.from({ length: 9 }, (_, i) => ({
+    id: 'P' + i, name: 'پیانو ' + i, sec: 30, gain: 1, used: 0,
+    slots: 'شروع، پایان، میانه', mood: 'آموزشی، شمرده', kind: 'موسیقی' }));
+  const cov = musicCoverage_();
+  ok('۱۳.۱ نُه قطعه از یک خانواده، بانک را پُر نمی‌کند',
+     cov.gaps.length > 0, JSON.stringify(cov.gaps.slice(0, 3)));
+  ok('۱۳.۲ و کمبود به نامِ خانواده گزارش می‌شود، نه فقط جایگاه',
+     cov.gaps.some(g => g.family), JSON.stringify(cov.gaps[0]));
+  ok('۱۳.۳ خانوادهٔ موجود دیگر کمبود ندارد',
+     !cov.gaps.some(g => /آموزش/.test(g.family) && g.have >= CFG.MUSIC_PER_MOOD),
+     JSON.stringify(cov.gaps.filter(g => /آموزش/.test(g.family))));
+
+  ok('۱۳.۴ خانوادهٔ حال‌وهوا از متنِ فارسی شناخته می‌شود',
+     musicMoodFamily_('طنز و سرگرمی') !== musicMoodFamily_('آموزشی، شمرده') &&
+     !!musicMoodFamily_('طنز و سرگرمی'));
+  ok('۱۳.۵ و واژه‌های جست‌وجو برای هر خانواده فرق می‌کنند',
+     musicTermsForFamily_(musicMoodFamily_('طنز و سرگرمی'), 'شروع') !==
+     musicTermsForFamily_(musicMoodFamily_('آموزشی، شمرده'), 'شروع'));
+
+  // ب) جلوهٔ صوتی: نه موسیقی است نه گفتار، و نباید با قاعدهٔ موسیقی رد شود
+  const wav = (secs, rate) => {
+    const n = Math.round(rate * secs), d = n * 2, o = [];
+    const s4 = t => { for (const c of t) o.push(c.charCodeAt(0)); };
+    const i32 = v => { o.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); };
+    const i16 = v => { o.push(v & 255, (v >> 8) & 255); };
+    s4('RIFF'); i32(36 + d); s4('WAVE'); s4('fmt '); i32(16); i16(1); i16(1);
+    i32(rate); i32(rate * 2); i16(2); i16(16); s4('data'); i32(d);
+    // موجِ پرنوسان: دقیقاً همان چیزی که قاعدهٔ موسیقی «گفتار» می‌شمارد
+    for (let i = 0; i < n; i++) i16(Math.round(9000 * Math.sin(i / 9) * (i % 9000 < 3000 ? 0.02 : 1)));
+    return o;
+  };
+  const b = wav(4, 44100), info = wavInfo_(b);
+  const realFetch = global.geminiFetch_;
+
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'جلوه' }] } }] });
+  ok('۱۳.۶ جلوهٔ صوتی به‌عنوان افکت پذیرفته می‌شود',
+     musicAccept_(b, info, 'rain', 'افکت').ok === true,
+     JSON.stringify(musicAccept_(b, info, 'rain', 'افکت')));
+  ok('۱۳.۷ ولی همان جلوه به‌عنوان موسیقیِ آغاز رد می‌شود',
+     musicAccept_(b, info, 'rain', 'موسیقی').ok === false,
+     musicAccept_(b, info, 'rain', 'موسیقی').why);
+
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'موسیقی' }] } }] });
+  ok('۱۳.۸ و موسیقی به‌عنوان افکت رد می‌شود — هر کدام جای خودش',
+     musicAccept_(b, info, 'song', 'افکت').ok === false,
+     musicAccept_(b, info, 'song', 'افکت').why);
+
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'گفتار' }] } }] });
+  ok('۱۳.۹ گفتار در هر دو حالت رد می‌شود',
+     musicAccept_(b, info, 'x', 'افکت').ok === false &&
+     musicAccept_(b, info, 'x', 'موسیقی').ok === false);
+  global.geminiFetch_ = realFetch;
+
+  // ج) و گشتن واقعاً دنبالِ افکت هم می‌رود
+  const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۳.۱۰ پرسشِ جداگانه برای جلوهٔ صوتی هست', /function sfxSeekQuery_/.test(p23));
+  ok('۱۳.۱۱ و نامزدِ افکت با kind درست در فهرست می‌نشیند',
+     /kind: 'افکت', mood: '', slots: 'میانه'/.test(p23));
+  ok('۱۳.۱۲ افکت فقط تا رسیدن به هدف گشته می‌شود',
+     /sfxHave < sfxWant/.test(p23));
+  ok('۱۳.۱۳ و دانلود سقفِ زمانی دارد تا کارِ شبانه کشته نشود',
+     /MUSIC_FETCH_BUDGET_MS/.test(p23) && /وقتِ این اجرا تمام شد/.test(p23));
+
+  global.musicBank_ = realBank;
 }
 
 
