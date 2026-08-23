@@ -604,10 +604,15 @@ function healthCheck() {
       problems.push('درس‌نامه در ' + spFiles + ' فایلِ صوتی فرستاده شد، نه یکی — ' +
                     'متن از سقفِ یک فایل بلندتر شده.');
     }
-    var overS = epTooLong_(spx.lastDuration, CFG.SPECIAL_TARGET_MINUTES);
+    // با هدفِ *مؤثر* سنجیده می‌شود، نه با ۱۵ دقیقهٔ خام. وقتی «یک فایل» روشن
+    // است هدف عملاً ~۱۱ دقیقه است؛ سنجیدن با ۱۵ یعنی قسمتِ ۱۳:۲۷ — که دقیقاً
+    // به‌خاطرِ همان بلندی دو فایل شد — هیچ اعتراضی برنینگیزد.
+    var tMin = CFG.SPECIAL_TARGET_MINUTES;
+    try { tMin = specialTargetMin_(); } catch (eT) {}
+    var overS = epTooLong_(spx.lastDuration, tMin);
     if (overS) {
       problems.push('درس‌نامه ' + spx.lastDuration + ' شد در برابرِ هدفِ ' +
-                    CFG.SPECIAL_TARGET_MINUTES + ' دقیقه (' + overS + '٪ بلندتر).');
+                    tMin + ' دقیقه (' + overS + '٪ بلندتر).');
     }
   } catch (eSp) {}
 

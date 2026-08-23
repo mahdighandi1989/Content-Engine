@@ -287,6 +287,34 @@ without deleting the whole range.
 Note `faNumber_` spells numbers as words («هزار و چهارصد و پنج») — the date
 column uses `faDigitsOut_`.
 
+## Two settings that must move together
+`SPECIAL_ONE_FILE` is the case study. Turning it on changed `specialMaxChars_`
+and nothing else — five other places still said `SPECIAL_TARGET_MINUTES` (15
+min), including the prompt line two lines above the cap it contradicted, and a
+review order that told the model «کوتاه ننویس». The engine spent every day
+pulling toward 15 minutes while one line asked for 11. Every درس‌نامه episode
+came out two files, and health didn't complain because it compared against 15
+too. `specialTargetMin_()` is now the single source; adding a sixth caller of
+the raw config value is the regression `run_oneshot_test.js` ۱.۳ blocks.
+
+**A cap stated only in a prompt is not a cap.** The model ignored
+«از N نویسه بیشتر نشود» daily. `specialCondense_` enforces it in code — and
+refuses any condensed version that lost a section, because a dropped lesson
+never comes back (the cursor moves past it) while two files are merely ugly.
+
+## Anything rebuilt on resume must be deterministic
+`renderAudioStep_` resumes across the 6-minute cap and re-runs `buildChunks_` /
+`buildSpecialChunks_` each time — but `synthesizeStep_` continues from a saved
+`chunkIdx` taken against the *previous* array. `musicWrap_` was asking the
+model for a fresh plan on every resume, so one more or fewer bridge would shift
+every index: chunks skipped or repeated, no error, audible only. It stayed
+invisible because the bank is empty and that branch never ran. The plan is now
+computed once per (show, episode) and cached in `PK.MUSIC_PLAN`.
+
+The duplicate records in `_MUSIC-WISH.json` were this bug's only visible
+symptom — seven wishes where three and four were byte-identical. When a data
+file shows the same row N times, look for the loop that re-runs, not the writer.
+
 ## Dead code is the failure mode here
 Three real bugs in this repo were all the same shape: a function written,
 commented, and unit-tested — but never called. `sfxAllow_` guarded effects

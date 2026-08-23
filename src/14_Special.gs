@@ -34,6 +34,31 @@ function specialMaxChars_() {
   return byTarget;
 }
 
+/**
+ * هدفِ *مؤثرِ* طولِ درس‌نامه، به دقیقه.
+ *
+ * ══ باگی که این را لازم کرد (۲۳ اوت) ══
+ * SPECIAL_ONE_FILE روشن بود، ولی فقط specialMaxChars_ از آن خبر داشت. پنج
+ * جای دیگر هنوز «۱۵ دقیقه» می‌گفتند — و بدتر از همه، خودِ پرامپت هر دو را
+ * پشتِ سرِ هم می‌گفت:
+ *     «طولِ مجموع باید حدود ۲۲۵۰ واژه باشد (۱۵ دقیقه گفتار).»   ≈ ۱۲۳۷۵ نویسه
+ *     «سقفِ سخت: از ۹۱۲۵ نویسه بیشتر نشود.»
+ * یعنی پرامپت ۳۶٪ بلندتر از سقفِ خودش را می‌خواست. مدل وسطِ این دو نشست
+ * (۱۱۰۵۶ نویسه ≈ ۱۳:۲۷) و قسمت ناگزیر دو فایل شد — هر روز، بی استثنا. حتی
+ * دستورِ بازبینیِ «کوتاه ننویس» هم همان ۱۵ دقیقه را دوباره به مدل می‌گفت، و
+ * وارسیِ سلامت هم چون با ۱۵ می‌سنجید اصلاً اعتراض نمی‌کرد.
+ *
+ * حالا همهٔ آن شش جا از همین یک تابع می‌خوانند. «یک فایل» یعنی درسِ کوتاه‌تر —
+ * این را CFG هم از اول نوشته بود؛ چیزی که نبود، اعمالش در همه‌جا بود.
+ */
+function specialTargetMin_() {
+  var base = Number(CFG.SPECIAL_TARGET_MINUTES) || 15;
+  if (CFG.SPECIAL_ONE_FILE !== true) return base;
+  var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
+  var oneFileMin = specialMaxChars_() / cps / 60;
+  return Math.max(1, Math.round(Math.min(base, oneFileMin) * 10) / 10);
+}
+
 function colsAll_(headers, names) {
   var out = [], seen = {};
   for (var i = 0; i < names.length; i++) {
@@ -599,8 +624,8 @@ function buildSpecialPrompt_(ctx) {
   L.push('• کسرهٔ اضافه را در ترکیب‌های اضافی با «ـِ» بنویس تا گوینده درست بخواند.');
   L.push('• هیچ جمله‌ای بیش از ' + CFG.MAX_SENTENCE_WORDS + ' واژه نباشد.');
   L.push('• نویسه‌های عربی (ي، ك، ة) به کار نبر؛ معادل فارسی بنویس.');
-  L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(CFG.SPECIAL_TARGET_MINUTES * 150) +
-         ' واژه باشد (' + CFG.SPECIAL_TARGET_MINUTES + ' دقیقه گفتار).');
+  L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(specialTargetMin_() * 150) +
+         ' واژه باشد (' + specialTargetMin_() + ' دقیقه گفتار).');
   // سقفِ سخت لازم است چون هدفِ واژه‌ای را مدل مرتب رد می‌کند، و متنِ بلندتر یعنی
   // هم فایلِ سنگین‌تر، هم جای بیشتر برای پُرکردن و حرفِ اضافه.
   L.push('• سقفِ سخت: از ' + specialMaxChars_() + ' نویسه بیشتر نشود. کوتاه‌تر ایرادی ' +
@@ -1035,6 +1060,25 @@ function produceSpecialEpisode(opt) {
     if (!ep.sections.length) throw new Error('متن درس‌نامه بدون بخشِ کامل برگشت.');
     try { delete ep.__repaired; } catch (eD) {}
 
+    // «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
+    if (CFG.SPECIAL_ONE_FILE === true) {
+      try {
+        var cnd = specialCondense_(ep, specialMaxChars_(), epNum);
+        ep = cnd.ep;
+        if (cnd.over > 0) {
+          logSelfFinding_(hub, {
+            priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-over-one-file',
+            title: 'متن درس‌نامه حتی پس از فشرده‌سازی از سقفِ یک فایل بلندتر ماند',
+            detail: 'قسمت ' + epNum + ': ' + cnd.over + ' نویسه بالاتر از سقفِ ' +
+                    specialMaxChars_() + '. قسمت در دو فایل فرستاده می‌شود.',
+            instruction: 'متن باید از ' + specialMaxChars_() + ' نویسه کوتاه‌تر باشد؛ ' +
+                         'قطعه‌های کمتری در هر قسمت پوشش بده تا جا شود.',
+            owner: 'موتور', episode: epNum
+          });
+        }
+      } catch (eCd) { logLine_('فشرده‌سازیِ درس‌نامه رد شد: ' + eCd.message); }
+    }
+
     // وارسی وفاداری: نقل‌قول باید در متنِ همین قطعه‌ها باشد
     // موادِ مکمل هم باید در دامنهٔ وفاداری باشند: خودِ پرامپت به مدل گفته از
     // آن‌ها نقل کند. بی این، هر قسمتِ درست یک یافتهٔ «نقل‌قولِ بی‌پشتوانه»ی
@@ -1087,7 +1131,7 @@ function produceSpecialEpisode(opt) {
       auditSnap_(ENRICH_SHOW_SPECIAL,
                  { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
                    title: ep.title, category: seriesName,
-                   targetMin: CFG.SPECIAL_TARGET_MINUTES },
+                   targetMin: specialTargetMin_() },
                  { hook: ep.hook, outro: ep.outro, connection: ep.recap,
                    sections: ep.sections },
                  fakeItems, fid);
@@ -1230,7 +1274,7 @@ function produceSpecialEpisode(opt) {
     }
 
     var narrChars = specialNarration_(ep).length;
-    var wantChars = Math.round(CFG.SPECIAL_TARGET_MINUTES * 150 * 6);
+    var wantChars = Math.round(specialTargetMin_() * 150 * 6);
     var thin = narrChars < wantChars * (CFG.SPECIAL_MIN_OUTPUT_RATIO || 0.4);
 
     // تا کدام نقطهٔ جریان اجازهٔ پیشرفت داریم؟
@@ -1297,7 +1341,7 @@ function produceSpecialEpisode(opt) {
             detail: 'قسمت ' + epNum + ': ' + narrChars + ' نویسه در برابر هدفِ حدود ' +
                     wantChars + '. مکان‌نما فقط تا قطعهٔ ' + (upTo + 1) + ' از ' +
                     stream.length + ' جلو رفت.',
-            instruction: 'متن هر قسمت باید حدود ' + Math.round(CFG.SPECIAL_TARGET_MINUTES * 150) +
+            instruction: 'متن هر قسمت باید حدود ' + Math.round(specialTargetMin_() * 150) +
                          ' واژه باشد و همهٔ قطعه‌های داده‌شده را پوشش بدهد؛ کوتاه ننویس.',
             owner: 'موتور', episode: epNum
           });
@@ -1567,8 +1611,10 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     var mw = musicWrap_(out, null, {
       // «special» یعنی sfxAllow_ هر افکتی را رد می‌کند — سرشتِ درس‌نامه
       // شمرده و بی‌جلوه است و این خواستهٔ صریحِ صاحبِ برنامه بود.
-      show: 'special', sections: (ep && ep.sections) || [], bounds: bounds,
-      category: 'درس‌نامه — ' + String((ep && ep.series) || ''),
+      show: 'special', episode: epNum, sections: (ep && ep.sections) || [], bounds: bounds,
+      // بی این trim، وقتی نامِ مجموعه خالی بود دسته «درس‌نامه — » می‌شد؛ همان
+      // خطِ ناقص در _MUSIC-WISH.json نشسته بود.
+      category: ('درس‌نامه — ' + String((ep && ep.series) || '')).replace(/\s*—\s*$/, ''),
       mood: 'آموزشی، شمرده',
       title: String((ep && ep.title) || ''), headings: heads,
       cast: (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '',
@@ -1582,6 +1628,88 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     }
   } catch (eM) { logLine_('موسیقیِ درس‌نامه افزوده نشد: ' + eM.message); }
   return out;
+}
+
+/**
+ * اگر متن از سقفِ «یک فایل» بلندتر شد، یک‌بار از مدل می‌خواهیم فشرده‌اش کند.
+ *
+ * ══ چرا کد، نه فقط پرامپت ══
+ * سقف تا امروز فقط یک جملهٔ دستوری در پرامپت بود («از N نویسه بیشتر نشود»).
+ * جمله را می‌شود نادیده گرفت و مدل هر روز نادیده می‌گرفت. خواستهٔ صاحبِ
+ * برنامه «یک فایل» است، نه «به مدل گفتیم یک فایل». پس سنجه در کد است.
+ *
+ * ══ مرزی که رد نمی‌شود ══
+ * نسخهٔ فشرده فقط وقتی پذیرفته می‌شود که *همان تعدادِ بخش* را داشته باشد و
+ * هیچ بخشی خالی نباشد. فشرده‌کردن یعنی کوتاه‌تر گفتن، نه انداختنِ یک درس —
+ * و یک درسِ افتاده دیگر هرگز برنمی‌گردد، چون مکان‌نما از رویش رد می‌شود.
+ * اگر شرط برقرار نبود، متنِ اصلی می‌ماند و قسمت دو فایل می‌شود؛ دو فایل
+ * بدتر از یک درسِ گم‌شده نیست.
+ */
+function specialCondense_(ep, capChars, epNum) {
+  var have = specialNarration_(ep).length;
+  if (!(capChars > 0) || have <= capChars) return { ep: ep, over: 0, tried: false };
+
+  var need = Math.round(capChars * 0.93);        // کمی زیرِ سقف، نه دقیقاً رویش
+  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و سقفِ یک فایل ' +
+           capChars + '؛ یک‌بار فشرده‌سازی خواسته شد.');
+
+  var L = [
+    'این متنِ یک قسمتِ درس‌نامهٔ فارسی است و ' + have + ' نویسه دارد.',
+    'باید به حدود ' + need + ' نویسه برسد — یعنی حدود ' +
+      Math.round((1 - need / have) * 100) + ' درصد کوتاه‌تر.',
+    '',
+    'قواعدِ سختِ فشرده‌سازی:',
+    '۱) هیچ بخشی را حذف نکن. تعدادِ بخش‌ها و ترتیب و عنوان‌هایشان باید دقیقاً همان بماند.',
+    '۲) هیچ مفهوم، اصطلاح، نام یا عددی را نینداز. آنچه کوتاه می‌شود، «طرزِ گفتن» است:',
+    '   مثال‌های تکراری، بازگویی، مقدمه‌چینی، و جمله‌های توضیحیِ اضافه.',
+    '۳) چیزِ تازه‌ای اضافه نکن.',
+    '۴) همان قواعدِ نگارشی: بی رقم، بی لاتین، بی مارک‌داون، جمله‌های کوتاه.',
+    '',
+    'متنِ فعلی، به‌شکلِ JSON:',
+    JSON.stringify({ hook: ep.hook || '', recap: ep.recap || '', outro: ep.outro || '',
+                     sections: (ep.sections || []).map(function (x) {
+                       return { heading: x.heading || '', narration: x.narration || '' }; }) })
+  ];
+
+  var out = null;
+  try { out = geminiText_(L.join('\n'), SPECIAL_SCHEMA, 40960); } catch (e) {
+    logLine_('فشرده‌سازیِ درس‌نامه انجام نشد: ' + e.message);
+    return { ep: ep, over: have - capChars, tried: true };
+  }
+
+  var okShape = !!(out && out.sections &&
+                   out.sections.length === (ep.sections || []).length);
+  if (okShape) {
+    for (var i = 0; i < out.sections.length; i++) {
+      if (!String((out.sections[i] || {}).narration || '').trim()) { okShape = false; break; }
+    }
+  }
+  if (!okShape) {
+    logLine_('نسخهٔ فشرده بخشی کم داشت؛ متنِ اصلی نگه داشته شد (قسمت دو فایل می‌شود).');
+    return { ep: ep, over: have - capChars, tried: true };
+  }
+
+  // چیزهایی که فشرده‌سازی به آن‌ها کاری ندارد از متنِ اصلی برداشته می‌شوند
+  var merged = {};
+  for (var k in ep) if (Object.prototype.hasOwnProperty.call(ep, k)) merged[k] = ep[k];
+  merged.hook = out.hook || ep.hook;
+  merged.recap = out.recap || ep.recap;
+  merged.outro = out.outro || ep.outro;
+  merged.sections = ep.sections.map(function (sec, i) {
+    var n = {};
+    for (var k2 in sec) if (Object.prototype.hasOwnProperty.call(sec, k2)) n[k2] = sec[k2];
+    n.narration = out.sections[i].narration;
+    return n;
+  });
+
+  var now = specialNarration_(merged).length;
+  if (now >= have) {
+    logLine_('نسخهٔ فشرده کوتاه‌تر نشد؛ متنِ اصلی نگه داشته شد.');
+    return { ep: ep, over: have - capChars, tried: true };
+  }
+  logLine_('درس‌نامه ' + epNum + ': متن از ' + have + ' به ' + now + ' نویسه فشرده شد' +
+           (now <= capChars ? ' — در یک فایل جا می‌شود.' : ' — هنوز از سقف بالاتر است.'));
+  return { ep: merged, over: Math.max(0, now - capChars), tried: true };
 }
 
 /** متنِ گفتاریِ کلِ یک قسمتِ درس‌نامه — برای تشخیصِ سرشتِ کلی. */
@@ -1834,14 +1962,24 @@ function renderSpecialAudioStep_() {
     props_().deleteProperty(PK.SP_PENDING);
     clearSpecialContinuation_();
     try { writeStatus_(hub, 'درس‌نامه ' + epNum + ' کامل شد'); } catch (eS) {}
-    logLine_('درس‌نامه ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
+    // شمارِ *تحویل‌شده*، نه شمارِ تکه‌های پیش از ادغام.
+    //
+    // ۲۳ اوت: قسمت ۱۴ در دو فایلِ «یکجا» تحویل شد، ولی هم سیاهه و هم
+    // _STATUS.json «۷ فایل» نوشتند — شمارِ تکه‌های کوتاهِ پیش از ادغام. وارسیِ
+    // سلامت هم بر همان بنا هشدار داد: «درس‌نامه در ۷ فایل فرستاده شد». هشداری
+    // که عددش غلط است، اعتمادِ به بقیهٔ هشدارها را هم می‌بَرَد.
+    var deliveredN = mgListSp.length ? mgListSp.length : st.files.length;
+    logLine_('درس‌نامه ' + epNum + ' کامل شد (' + dur + '، ' + deliveredN + ' فایل صوتی' +
+             (mgListSp.length && st.files.length > mgListSp.length
+                ? ' — از ' + st.files.length + ' تکه چسبانده شد' : '') + ').');
     // مدت و تعدادِ فایل را نگه می‌داریم تا در _STATUS.json دیده شوند. تا امروز
     // هیچ‌کدام به فایلِ وضعیت نمی‌رسید: «از همه جا از همه رنگ» هر دو را داشت و
     // درس‌نامه هیچ‌کدام را. برای همین وقتی درس‌نامه دو تکه آمد، هیچ ناظری —
     // نه آدم نه کد — اصلاً نمی‌توانست ببیندش. سنجه شکست نخورد؛ داده وجود نداشت.
     try {
       props_().setProperty(PK.SP_LAST, JSON.stringify({
-        episode: epNum, duration: dur, files: st.files.length, at: nowStr_() }));
+        episode: epNum, duration: dur, files: deliveredN,
+        parts: st.files.length, at: nowStr_() }));
     } catch (eL) {}
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {

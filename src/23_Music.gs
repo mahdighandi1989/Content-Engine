@@ -378,6 +378,37 @@ function musicMarkUsed_(hub, picks, epLabel, showName) {
  * میانه‌ها عمداً کم‌اند: یک قطعهٔ کوتاه سرِ هر چند بخش، نه سرِ هر بخش — وگرنه
  * قسمت به‌جای برنامه، مجموعه‌ای از جینگل می‌شود.
  */
+/** کلیدِ نقشه: برنامه + قسمت. بی شمارهٔ قسمت، حافظه بی‌معناست. */
+function musicPlanKey_(opt) {
+  var show = String((opt && opt.show) || '').trim();
+  var ep = String((opt && opt.episode) || '').trim();
+  return (show && ep) ? (show + '#' + ep) : '';
+}
+
+/** نقشهٔ ذخیره‌شدهٔ همین قسمت، اگر باشد. */
+function musicPlanCacheGet_(key) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.MUSIC_PLAN) || '{}');
+    return m && m[key] ? m[key] : null;
+  } catch (e) { return null; }
+}
+
+/** ذخیره — فقط دو خانه می‌ماند (یکی برای هر برنامه)، پس انباشته نمی‌شود. */
+function musicPlanCachePut_(key, plan) {
+  try {
+    var m = {};
+    try { m = JSON.parse(props_().getProperty(PK.MUSIC_PLAN) || '{}') || {}; } catch (e0) {}
+    var show = String(key).split('#')[0];
+    // خانهٔ همان برنامه بازنویسی می‌شود؛ قسمتِ تازه، نقشهٔ تازه.
+    for (var k in m) {
+      if (Object.prototype.hasOwnProperty.call(m, k) &&
+          String(k).split('#')[0] === show && k !== key) delete m[k];
+    }
+    m[key] = plan;
+    props_().setProperty(PK.MUSIC_PLAN, JSON.stringify(m));
+  } catch (e) {}
+}
+
 function musicWrap_(chunks, hub, opt) {
   opt = opt || {};
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
@@ -405,16 +436,33 @@ function musicWrap_(chunks, hub, opt) {
   // این‌ها می‌سازند. اگر چیزی نداد یا شناسه‌اش در بانک نبود، قاعده جایش را
   // می‌گیرد و هیچ‌چیز زمین نمی‌ماند.
   if (CFG.MUSIC_AUTO !== false && !plan.introId && !plan.outroId) {
-    // opt خودش bounds را دارد؛ مدل باید مرزها را ببیند تا بتواند انتخاب کند.
-    var mp = musicPlanModel_(bank, opt);
+    // نقشه یک بار برای هر قسمت ساخته می‌شود، نه هر بار از سرگیری.
+    //
+    // ══ باگی که این را لازم کرد و هنوز دیده نشده بود ══
+    // صداگذاریِ یک قسمت به‌خاطرِ مهلتِ شش‌دقیقه‌ای چند بار از سر گرفته می‌شود، و
+    // هر بار buildChunks_/buildSpecialChunks_ از نو اجرا می‌شود — یعنی
+    // musicWrap_ هم. تا امروز این یعنی هر اجرا یک پرسشِ تازه از مدل، با پاسخی
+    // که می‌توانست قطعه‌های دیگری باشد. ولی synthesizeStep_ از chunkIdxِ ذخیره‌شده
+    // ادامه می‌دهد — شماره‌ای که روی آرایهٔ *قبلی* گرفته شده بود. اگر نقشهٔ تازه
+    // یک میانهٔ کمتر یا بیشتر بگذارد، همهٔ شماره‌ها می‌لغزند و قسمت یا تکه‌ای را
+    // جا می‌اندازد یا دوباره می‌گوید — بی هیچ خطایی، فقط در صدا شنیده می‌شود.
+    // امروز پنهان است چون بانک خالی است و این شاخه اصلاً اجرا نمی‌شود؛ روزی که
+    // اولین فایل در پوشه بنشیند، پیدا می‌شد.
+    var ck = musicPlanKey_(opt);
+    var cached = ck ? musicPlanCacheGet_(ck) : null;
+    var mp = cached || musicPlanModel_(bank, opt);
     if (mp) {
       plan = { introId: mp.introId, introStart: mp.introStart,
                bridgeId: mp.bridgeId, bridgeStart: mp.bridgeStart,
                outroId: mp.outroId, outroStart: mp.outroStart,
-               bridges: mp.bridges || [], sfx: mp.sfx || [] };
+               bridges: mp.bridges || [], sfx: mp.sfx || [],
+               mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '' };
       if (mp.mood) mood = mp.mood;
       if (mp.gain) opt.gain = mp.gain;
-      logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
+      if (!cached) {
+        if (ck) musicPlanCachePut_(ck, plan);
+        logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
+      }
     }
   }
 
@@ -865,14 +913,37 @@ function musicWish_(mood, missing, ctx) {
   try {
     var prev = getOutJson_(MUSIC_WISH_()) || { items: [] };
     var items = (prev.items || []).slice(-20);
-    items.push({
+
+    var rec = {
       at: nowStr_(), mood: String(mood || ''), slots: missing,
       title: String((ctx && ctx.title) || ''), category: String((ctx && ctx.category) || ''),
       note: 'فقط WAV. ترجیحاً ۲۴ کیلوهرتز، تک‌کاناله، ۱۶ بیت. ' +
             'فایل را در پوشهٔ «' + (CFG.MUSIC_FOLDER || 'موسیقی و افکت') + '» بگذارید.'
-    });
+    };
+
+    /* آرزوی تکراری افزوده نمی‌شود.
+     *
+     * ۲۳ اوت: فایل هفت رکورد داشت که سه‌تایشان نویسه‌به‌نویسه یکی بودند
+     * (۰۷:۰۱، ۰۷:۰۶، ۰۷:۱۲) و چهارتای دیگر هم همین‌طور. چون صداگذاریِ یک
+     * قسمت چند بار از سر گرفته می‌شود و هر بار تکه‌ها از نو ساخته می‌شدند،
+     * هر اجرا یک آرزوی تازه می‌نوشت. با بانکِ خالی این یعنی فایل بی‌پایان
+     * رشد می‌کند و آن که باید تهیه کند، هفت‌بار یک چیز می‌بیند و نمی‌فهمد
+     * هفت خواسته است یا یکی. حالا رکوردِ همسان فقط زمانش تازه می‌شود.
+     */
+    var key = function (r) {
+      return [String(r.mood || ''), (r.slots || []).join('|'),
+              String(r.category || ''), String(r.title || '')].join('§');
+    };
+    var k = key(rec), dup = -1;
+    for (var i = 0; i < items.length; i++) if (key(items[i]) === k) { dup = i; break; }
+    if (dup >= 0) {
+      items[dup].at = rec.at;
+      items[dup].times = (Number(items[dup].times) || 1) + 1;
+    } else {
+      items.push(rec);
+      logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
+    }
     putOutJson_(MUSIC_WISH_(), { updatedAt: nowStr_(), items: items });
-    logLine_('خواستهٔ موسیقی ثبت شد: ' + missing.join('، ') + ' — حال‌وهوا: ' + mood);
     return items.length;
   } catch (e) { return null; }
 }

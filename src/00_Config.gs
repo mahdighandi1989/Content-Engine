@@ -480,7 +480,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.53',
+  CODE_VERSION: '5.54',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -749,7 +749,9 @@ var PK = {
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
-  PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS'
+  PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS',
+  // نقشهٔ موسیقیِ قسمتِ در جریان — تا از سر گرفتنِ صداگذاری نقشه را عوض نکند
+  MUSIC_PLAN: 'MUSIC_PLAN_CACHE'
 };
 
 function props_() { return PropertiesService.getScriptProperties(); }

@@ -1044,7 +1044,7 @@ function buildChunks_(ep, cat, epNum) {
                   .filter(Boolean).slice(0, 8).join(' · ');
     var castTxt = (ep && ep.__cast && ep.__cast.note) ? String(ep.__cast.note) : '';
     var mw = musicWrap_(out, null, {
-      show: 'variety', sections: (ep && ep.sections) || [], bounds: bounds,
+      show: 'variety', episode: epNum, sections: (ep && ep.sections) || [], bounds: bounds,
       category: cat, mood: cat, title: String((ep && ep.title) || ''),
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
