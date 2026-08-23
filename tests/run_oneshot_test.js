@@ -714,4 +714,52 @@ console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، �
 }
 
 
+console.log('=== ۱۲) موتور بگوید به کدام قطعه مطمئن است ===');
+{
+  /* اشتباهِ من: بانک را با «بله/خیر» پر کردم و به صاحبِ برنامه گفتم خودش
+   * فایل‌ها را گوش بدهد تا مطمئن شود. یعنی نگهبانِ کیفیت را کردم او.
+   * «مدل شنید و تأیید کرد» با «مدل نشنید، از روی اندازه‌ها پذیرفتم» یکی
+   * نیست و باید در بانک از هم جدا باشند. */
+  const wav = (secs, rate) => {
+    const n = Math.round(rate * secs), d = n * 2, o = [];
+    const s4 = t => { for (const c of t) o.push(c.charCodeAt(0)); };
+    const i32 = v => { o.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255); };
+    const i16 = v => { o.push(v & 255, (v >> 8) & 255); };
+    s4('RIFF'); i32(36 + d); s4('WAVE'); s4('fmt '); i32(16); i16(1); i16(1);
+    i32(rate); i32(rate * 2); i16(2); i16(16); s4('data'); i32(d);
+    for (let i = 0; i < n; i++) i16(Math.round(9000 * Math.sin(i / 12)));
+    return o;
+  };
+  const bytes = wav(4, 44100), info = wavInfo_(bytes);
+  const realFetch = global.geminiFetch_;
+
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'موسیقی' }] } }] });
+  const heardOk = musicAccept_(bytes, info, 'Loop');
+  ok('۱۲.۱ وقتی مدل می‌شنود، حکم قطعی علامت می‌خورد',
+     heardOk.ok === true && heardOk.sure === true && heardOk.heard === 'موسیقی',
+     JSON.stringify(heardOk));
+
+  global.geminiFetch_ = () => { throw new Error('بی‌پاسخ'); };
+  const guessed = musicAccept_(bytes, info, 'Loop');
+  ok('۱۲.۲ وقتی نمی‌شنود، پذیرفته می‌شود ولی «قطعی» نیست',
+     guessed.ok === true && guessed.sure === false && guessed.heard === '',
+     JSON.stringify(guessed));
+  ok('۱۲.۳ و دلیلش صریح می‌گوید مدل نشنید',
+     /مدل نشنید/.test(guessed.why), guessed.why);
+  global.geminiFetch_ = realFetch;
+
+  // و در بانک از هم جدا دیده می‌شوند
+  const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۱۲.۴ ستونِ «تأییدِ شنیداری» در تبِ موسیقی هست',
+     /'تأییدِ شنیداری'/.test(p23) && /HEARD: 15/.test(p23));
+  ok('۱۲.۵ حکم در شناسنامه ثبت می‌شود تا پویش هزینهٔ تازه ندهد',
+     /heard: String\(acc\.heard/.test(p23));
+  ok('۱۲.۶ و musicBank_ آن را برمی‌گرداند', /heard: String\(v\[i\]\[MC\.HEARD/.test(p23));
+  ok('۱۲.۷ بازبینی فقط قطعه‌های نامعلوم را فهرست می‌کند، نه همه',
+     /تأییدِ شنیداری ندارد — فقط به این‌ها گوش بدهید/.test(p23));
+  ok('۱۲.۸ و جایگاهی که یک قطعه دارد صریح هشدار می‌گیرد',
+     /انتخابِ متناسب با وایب از میانِ یک قطعه، انتخاب نیست/.test(p23));
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

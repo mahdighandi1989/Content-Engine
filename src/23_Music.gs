@@ -180,9 +180,10 @@ function musicClip_(fileId, opt) {
 var MUSIC_HEADERS = ['شناسهٔ فایل', 'نام', 'نوع', 'حال‌وهوا', 'مناسب برای',
                      'مدت (ثانیه)', 'قالب', 'بلندی', 'بارِ استفاده',
                      'آخرین استفاده', 'یادداشت', 'سرشتِ اندازه‌گیری‌شده', 'منبع',
-                     'لینک'];
+                     'لینک', 'تأییدِ شنیداری'];
 var MC = { ID: 1, NAME: 2, KIND: 3, MOOD: 4, SLOTS: 5, SEC: 6, FMT: 7,
-           GAIN: 8, USED: 9, LAST: 10, NOTE: 11, PROBE: 12, SRC: 13, LINK: 14 };
+           GAIN: 8, USED: 9, LAST: 10, NOTE: 11, PROBE: 12, SRC: 13, LINK: 14,
+           HEARD: 15 };
 
 /* تبِ تاریخچه: هر بار که قطعه‌ای واقعاً پخش شد، یک ردیف.
    ستونِ «بارِ استفاده» فقط یک عدد است و «آخرین استفاده» فقط آخری را نگه
@@ -245,6 +246,9 @@ function musicScan_(hub) {
                             ' · سکوت ' + probe.silentPct + '٪') : '';
     var srcTxt = meta ? (String(meta.title || '') + ' — ' + String(meta.url || '') +
                          (meta.license ? ' (' + meta.license + ')' : '')) : '';
+    var heardTxt = meta && meta.heard === 'موسیقی' ? '✅ مدل شنید: موسیقی'
+                 : (meta && meta.verdict ? '❓ ' + String(meta.verdict)
+                    : '❓ نامعلوم — کسی به این گوش نداده');
 
     if (byId[id]) {
       var r = byId[id];
@@ -254,6 +258,9 @@ function musicScan_(hub) {
         sh.getRange(r.row, MC.PROBE).setValue(probeTxt);
         if (srcTxt && !String(r.v[MC.SRC - 1] || '').trim()) sh.getRange(r.row, MC.SRC).setValue(srcTxt);
         updated++;
+      }
+      if (!String(r.v[MC.HEARD - 1] || '').trim()) {
+        try { sh.getRange(r.row, MC.HEARD).setValue(heardTxt); } catch (eHd) {}
       }
       // ردیف‌هایی که پیش از افزوده‌شدنِ ستونِ لینک ساخته شده‌اند
       if (!String(r.v[MC.LINK - 1] || '').trim()) {
@@ -267,7 +274,7 @@ function musicScan_(hub) {
       var slots = meta && meta.slots ? String(meta.slots) : (kind === 'افکت' ? 'میانه' : 'شروع، پایان');
       sh.appendRow([id, f.getName(), kind, (meta && meta.mood) || '', slots, sec, fmt,
                     (meta && meta.gain) || 1, 0, '', '', probeTxt, srcTxt,
-                    musicUrl_(id)]);
+                    musicUrl_(id), heardTxt]);
       added++;
     }
   }
@@ -306,6 +313,7 @@ function musicBank_(hub) {
       src: String(v[i][MC.SRC - 1] || ''),
       gain: (Number(v[i][MC.GAIN - 1]) > 0 ? Number(v[i][MC.GAIN - 1]) : 1),
       used: Number(v[i][MC.USED - 1]) || 0,
+      heard: String(v[i][MC.HEARD - 1] || ''),
       lastAt: String(v[i][MC.LAST - 1] || '')
     });
   }
@@ -1148,7 +1156,10 @@ function musicFetch_() {
         url: url, license: String(it.license || ''),
         kind: String(it.kind || 'موسیقی'), mood: String(it.mood || ''),
         slots: String(it.slots || ''), gain: String(it.gain || ''),
-        source: String(it.source || ''), at: nowStr_()
+        source: String(it.source || ''), at: nowStr_(),
+        // «چطور تأیید شد» — تا در تب دیده شود و کاربر فقط به همان‌هایی که
+        // نامعلوم‌اند گوش بدهد، نه به همه.
+        heard: String(acc.heard || ''), verdict: String(acc.why || '')
       }, null, 1), 'application/json',
         '_MUSIC-META-' + name.replace(/\.wav$/i, '') + '.json'));
     } catch (eS) {}
@@ -1521,6 +1532,42 @@ function runMusicRecheck() {
   var r = musicRecheck_(null);
   var L = ['🔎 بازبینیِ بانکِ موسیقی', '',
            r.checked + ' فایل سنجیده شد: ' + r.kept + ' ماند، ' + r.moved + ' کنار گذاشته شد.'];
+
+  /* و مهم‌تر از شمار: کدام‌ها *تأییدِ شنیداری* دارند و کدام‌ها نه.
+   *
+   * تا امروز موتور فقط بله/خیر می‌گفت و صاحبِ برنامه ناچار بود همهٔ فایل‌ها
+   * را خودش گوش بدهد تا مطمئن شود — یعنی نگهبانِ کیفیت او بود، نه موتور.
+   * حالا فهرستِ «نامعلوم» جدا می‌آید و گوش‌دادن فقط به همان‌ها لازم است.
+   */
+  try {
+    var bank = musicBank_(), sure = [], unsure = [];
+    for (var q = 0; q < bank.length; q++) {
+      (String(bank[q].heard || '').indexOf('✅') === 0 ? sure : unsure).push(bank[q]);
+    }
+    L.push('');
+    L.push('✅ ' + sure.length + ' قطعه را مدل شنیده و تأیید کرده.');
+    if (unsure.length) {
+      L.push('❓ ' + unsure.length + ' قطعه تأییدِ شنیداری ندارد — فقط به این‌ها گوش بدهید:');
+      for (var u2 = 0; u2 < unsure.length && u2 < 10; u2++) {
+        L.push('   • ' + auditCut_(unsure[u2].name, 45) +
+               '  [' + (unsure[u2].slots || '—') + ']');
+      }
+      L.push('   اگر یکی‌شان گفتار بود، در درایو ببریدش به زیرپوشهٔ');
+      L.push('   «' + (CFG.MUSIC_REJECT_FOLDER || 'کنارگذاشته — گفتار یا نامناسب') + '»');
+      L.push('   و دوباره «پویشِ بانک» را بزنید.');
+    }
+    // و اگر جایگاهی فقط یک قطعه دارد، انتخاب معنایی ندارد
+    var cnt = musicSlotCounts_(), thin = [];
+    for (var sk in cnt) if (cnt.hasOwnProperty(sk) && cnt[sk] <= 1) thin.push(sk + ': ' + cnt[sk]);
+    if (thin.length) {
+      L.push('');
+      L.push('⚠️ این جایگاه‌ها یک قطعه یا کمتر دارند (' + thin.join(' · ') + ').');
+      L.push('انتخابِ متناسب با وایب از میانِ یک قطعه، انتخاب نیست — هر قسمت');
+      L.push('همان یکی را می‌گیرد. موتور شبانه خودش تا ' +
+             (Number(CFG.MUSIC_BANK_TARGET) || 5) + ' قطعه در هر جایگاه می‌گردد،');
+      L.push('یا همین گزینه را چند بار پشتِ‌هم بزنید تا زودتر پر شود.');
+    }
+  } catch (eB) {}
   if (r.notes.length) {
     L.push('');
     for (var i = 0; i < r.notes.length; i++) L.push('• ' + r.notes[i]);
@@ -1870,12 +1917,23 @@ function musicAccept_(b, info, name) {
   if (g.speech && g.sure) return { ok: false, why: 'گفتار است: ' + g.why };
 
   var heard = musicListen_(b, info, name);
-  if (heard === 'گفتار') return { ok: false, why: 'مدل گوش داد و گفت گفتار است' };
-  if (heard === 'موسیقی') return { ok: true, why: 'مدل تأیید کرد موسیقی است' };
+  if (heard === 'گفتار') {
+    return { ok: false, sure: true, heard: 'گفتار',
+             why: 'مدل گوش داد و گفت گفتار است' };
+  }
+  if (heard === 'موسیقی') {
+    return { ok: true, sure: true, heard: 'موسیقی',
+             why: 'مدل تأیید کرد موسیقی است' };
+  }
 
   // مدل نتوانست. حالا حکمِ اندازه‌ها تنها چیزی است که داریم، و شک یعنی رد.
-  if (g.speech) return { ok: false, why: 'احتمالِ گفتار: ' + g.why };
-  return { ok: true, why: g.why };
+  //
+  // ولی «پذیرفته‌شده از روی اندازه‌ها» با «مدل شنید و تأیید کرد» یکی نیست، و
+  // تا امروز هر دو یک‌شکل در بانک می‌نشستند. نتیجه‌اش این شد که صاحبِ برنامه
+  // ناچار بود *همهٔ* فایل‌ها را خودش گوش بدهد تا مطمئن شود — یعنی من او را
+  // نگهبانِ کیفیت کرده بودم. حالا موتور می‌گوید به کدام مطمئن است.
+  if (g.speech) return { ok: false, sure: false, heard: '', why: 'احتمالِ گفتار: ' + g.why };
+  return { ok: true, sure: false, heard: '', why: 'مدل نشنید؛ از روی اندازه‌ها: ' + g.why };
 }
 
 /** حدسِ بافت از روی اندازه‌ها — کمکِ تصمیم، نه حکم. */
