@@ -1334,4 +1334,83 @@ console.log('=== ۲۱) شناسنامهٔ بی‌صدا، و افکتی که «a
      p23c.indexOf('sfxWantedTerms_().join') < p23c.indexOf('sfxTerms = sfxStarterTerms_()'));
 }
 
+console.log('=== ۲۲) «نمی‌خواهم دستی چیزی بگذارم» — و نباید هم بگذارد ===');
+{
+  /* شناسنامهٔ واقعیِ ۲۳ اوت این جمله را در خود داشت:
+   *   «کانکتورِ درایو نمی‌تواند فایلِ صوتیِ چنددقیقه‌ای را بالا ببرد …
+   *    کافی است همان را با همین نام در همین پوشه بگذارید.»
+   * یعنی سامانه کارش را به آدم واگذار کرده بود. صاحبِ برنامه درست گفت:
+   * «من این‌همه اتوماسیون نکردم که آخرش بروم دستی چیزی را بگذارم جایی.»
+   * سشن فقط معرفی می‌کند؛ آوردن کارِ موتور است. */
+  const p23d = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۲.۱ موتور خودش شناسنامهٔ بی‌صدا را حل می‌کند',
+     /function musicOrphanFix_/.test(p23d) && /musicOrphanFix_\(orphan\)/.test(p23d));
+
+  const realFolder = global.musicFolder_, realFeed = global.musicFeedRead_;
+  const realPut = global.putOutJson_, realFetched = global.musicFetchedUrls_;
+  let written = null, movedTo = [];
+  const mkMeta = (obj, name) => ({
+    getName: () => name,
+    getBlob: () => ({ getDataAsString: () => JSON.stringify(obj) }),
+    moveTo: (d) => { movedTo.push(name); }
+  });
+  const WAVMETA = { title: 'باران', url: 'https://x.example/rain.wav',
+                    license: 'CC0', kind: 'افکت', mood: 'بارانی',
+                    slots: 'میانه', gain: 0.8 };
+  const MP3META = { title: 'مطالعه', url: 'https://x.example/study.mp3',
+                    license: 'PD', kind: 'موسیقی', mood: 'آرام',
+                    slots: 'شروع، پایان', gain: 0.55 };
+  const files = {
+    '_MUSIC-META-rain.json': mkMeta(WAVMETA, '_MUSIC-META-rain.json'),
+    '_MUSIC-META-study.json': mkMeta(MP3META, '_MUSIC-META-study.json')
+  };
+  global.musicFolder_ = () => ({
+    getFilesByName: (n) => { let done = false;
+      return { hasNext: () => !done && !!files[n], next: () => { done = true; return files[n]; } }; },
+    getFoldersByName: () => ({ hasNext: () => true, next: () => ({ __rej: 1 }) }),
+    createFolder: () => ({ __rej: 1 })
+  });
+  global.musicFeedRead_ = () => ({ items: [] });
+  global.musicFetchedUrls_ = () => [];
+  global.putOutJson_ = (n, o) => { written = o; };
+
+  const r = musicOrphanFix_(['rain', 'study']);
+  ok('۲۲.۲ شناسنامه‌ای با نشانیِ WAV به فهرست می‌رود — نه به دستِ آدم',
+     r.fed === 1 && written && written.items.length === 1 &&
+     written.items[0].url === 'https://x.example/rain.wav', JSON.stringify(r));
+  ok('۲۲.۳ و حال‌وهوا و جایگاهش با خودش می‌رود',
+     written.items[0].mood === 'بارانی' && written.items[0].slots === 'میانه' &&
+     written.items[0].kind === 'افکت');
+  ok('۲۲.۴ عددِ بلندی هم رشته می‌شود، چون فهرست همه‌رشته است',
+     typeof written.items[0].gain === 'string', typeof written.items[0].gain);
+  ok('۲۲.۵ شناسنامه‌ای که نشانی‌اش MP3 است از بانک بیرون می‌رود',
+     r.moved === 1 && movedTo.indexOf('_MUSIC-META-study.json') !== -1,
+     JSON.stringify(movedTo));
+  ok('۲۲.۶ ولی پاک نمی‌شود — فقط جابه‌جا', /moveTo\(musicRejectFolder_\(\)\)/.test(p23d));
+
+  // نشانی‌ای که قبلاً آورده شده دوباره به فهرست نمی‌رود
+  written = null; movedTo = [];
+  global.musicFetchedUrls_ = () => ['https://x.example/rain.wav'];
+  const r2 = musicOrphanFix_(['rain']);
+  ok('۲۲.۷ نشانیِ قبلاً آمده دوباره به فهرست نمی‌رود',
+     r2.fed === 0 && written === null, JSON.stringify(r2));
+  ok('۲۲.۷-ب و دلیلِ کنارگذاشتنش راست است، نه «WAV نیست»',
+     /فایلش از پوشه برداشته شده/.test(r2.notes.join(' ')), r2.notes.join(' '));
+
+  // و آنچه در فهرست است و منتظرِ نوبت — نباید دست بخورد
+  written = null; movedTo = [];
+  global.musicFetchedUrls_ = () => [];
+  global.musicFeedRead_ = () => ({ items: [{ url: 'https://x.example/rain.wav' }] });
+  const r3 = musicOrphanFix_(['rain']);
+  ok('۲۲.۷-ج شناسنامه‌ای که نشانی‌اش در صفِ دانلود است دست نمی‌خورد',
+     r3.fed === 0 && r3.moved === 0 && /منتظرِ نوبت/.test(r3.notes.join(' ')),
+     JSON.stringify(r3));
+
+  global.musicFolder_ = realFolder; global.musicFeedRead_ = realFeed;
+  global.putOutJson_ = realPut; global.musicFetchedUrls_ = realFetched;
+
+  ok('۲۲.۸ و بی شناسنامهٔ یتیم، هیچ کاری نمی‌کند',
+     musicOrphanFix_([]).fed === 0 && musicOrphanFix_(null).moved === 0);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

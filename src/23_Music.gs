@@ -333,17 +333,20 @@ function musicScan_(hub) {
     if (!Object.prototype.hasOwnProperty.call(metaOf, mo)) continue;
     if (!wavOf[mo]) orphan.push(mo);
   }
+  var fixed = { fed: 0, moved: 0, notes: [] };
   if (orphan.length) {
     logLine_('شناسنامهٔ بی‌صدا در بانک: ' + orphan.length + ' — ' +
              orphan.slice(0, 4).join(' · ') +
              ' (فایلِ صوتی‌شان به پوشه نرسیده است).');
+    // و همان‌جا حلش می‌کنیم؛ گزارش‌دادن به آدم راه‌حل نیست.
+    try { fixed = musicOrphanFix_(orphan); } catch (eOF) {}
   }
 
   logLine_('بانکِ موسیقی: ' + added + ' تازه، ' + updated + ' به‌روز، ' +
            skipped + ' بی‌تغییر (دوباره خوانده نشد)، ' +
            bad + ' ناسازگار، ' + gone + ' ناموجود.');
   return { added: added, updated: updated, bad: bad, gone: gone,
-           skipped: skipped, orphan: orphan };
+           skipped: skipped, orphan: orphan, orphanFixed: fixed };
 }
 
 /**
@@ -374,6 +377,101 @@ function heardSays_(cell, word) {
   var t = String(cell || '').trim();
   if (!t || t.charAt(0) === '❓') return false;
   return t.indexOf(String(word)) !== -1;
+}
+
+/** پوشهٔ کنارگذاشته‌ها — ساخته می‌شود اگر نباشد. هرگز پاک نمی‌کنیم. */
+function musicRejectFolder_() {
+  var folder = musicFolder_();
+  var nm = CFG.MUSIC_REJECT_FOLDER || 'کنارگذاشته — گفتار یا نامناسب';
+  var it = folder.getFoldersByName(nm);
+  return it.hasNext() ? it.next() : folder.createFolder(nm);
+}
+
+/**
+ * شناسنامهٔ بی‌صدا را خودِ موتور حل می‌کند — نه صاحبِ برنامه.
+ *
+ * ══ قاعده‌ای که این از آن می‌آید ══
+ * «من این‌همه اتوماسیون نکردم که آخرش بروم دستی چیزی را بگذارم جایی.»
+ * درست است. سشن فقط باید **معرفی** کند؛ آوردن و سرِ جا گذاشتن کارِ سامانه
+ * است. شناسنامه‌ای که در آن نوشته شده «کافی است خودتان فایل را بگذارید»
+ * یعنی همان اتوماسیون شکسته.
+ *
+ * پس دو راه، و هیچ‌کدام دستِ آدم نیست:
+ *  • نشانی‌اش WAV است → به `_MUSIC-FEED.json` می‌رود و موتور خودش می‌آوردش.
+ *  • نشانی‌اش به‌دردنخور است (MP3 یا نبود) → شناسنامه از بانک بیرون می‌رود،
+ *    چون تا وقتی آنجاست دارد دروغ می‌گوید که قطعه‌ای هست.
+ * پاک نمی‌شود؛ به زیرپوشهٔ کنارگذاشته‌ها می‌رود.
+ */
+function musicOrphanFix_(orphan) {
+  var out = { fed: 0, moved: 0, notes: [] };
+  if (!orphan || !orphan.length) return out;
+  var folder = musicFolder_();
+  var feed = null;
+  try { feed = musicFeedRead_(); } catch (e) { feed = null; }
+  if (!feed || !feed.items) feed = { items: [] };
+  var have = {};
+  for (var q = 0; q < feed.items.length; q++) have[String(feed.items[q].url || '')] = 1;
+  var done = [];
+  try { done = musicFetchedUrls_(); } catch (eD) {}
+  var changed = false;
+
+  for (var i = 0; i < orphan.length; i++) {
+    var nm2 = '_MUSIC-META-' + orphan[i] + '.json';
+    var meta = null, file = null;
+    try {
+      var fit = folder.getFilesByName(nm2);
+      if (fit.hasNext()) {
+        file = fit.next();
+        meta = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+      }
+    } catch (e2) {}
+    if (!meta || !file) continue;
+
+    var url = String(meta.url || '').trim();
+    var path = url.split('?')[0];
+    var wav = /^https:\/\//i.test(url) && /\.wave?$/i.test(path);
+
+    // در فهرست هست و هنوز نوبتش نرسیده؟ دست نزن — فایلش دارد می‌آید.
+    if (url && have[url]) {
+      out.notes.push(orphan[i] + ' → در فهرست است؛ منتظرِ نوبتِ دانلود.');
+      continue;
+    }
+
+    if (wav && done.indexOf(url) === -1) {
+      feed.items.push({
+        url: url, title: String(meta.title || orphan[i]),
+        license: String(meta.license || ''), kind: String(meta.kind || 'موسیقی'),
+        mood: String(meta.mood || ''), slots: String(meta.slots || ''),
+        gain: String(meta.gain === undefined ? '' : meta.gain),
+        source: String(meta.source || ''),
+        by: 'موتور — نجاتِ شناسنامهٔ بی‌صدا'
+      });
+      changed = true; out.fed++;
+      out.notes.push(orphan[i] + ' → به فهرست رفت؛ موتور خودش می‌آوردش.');
+      continue;
+    }
+
+    /* دلیل باید راست باشد. سه حالتِ متفاوت‌اند و پیامِ یکسان برایشان یعنی
+       فردا کسی که سیاهه را می‌خواند دنبالِ مشکلِ اشتباه می‌گردد. */
+    var why = !url ? 'نشانی ندارد'
+            : (done.indexOf(url) !== -1
+                 ? 'قبلاً آورده شده و فایلش از پوشه برداشته شده'
+                 : 'نشانی‌اش WAV نیست (' + path.slice(-8) + ')');
+    try {
+      file.moveTo(musicRejectFolder_());
+      out.moved++;
+      out.notes.push(orphan[i] + ' → کنار گذاشته شد (' + why + ').');
+    } catch (e3) {}
+  }
+
+  if (changed) {
+    try { putOutJson_(MUSIC_FEED_(), { updatedAt: nowStr_(), items: feed.items }); }
+    catch (e4) {}
+  }
+  if (out.fed || out.moved) {
+    logLine_('شناسنامهٔ بی‌صدا: ' + out.fed + ' به فهرست، ' + out.moved + ' کنار گذاشته.');
+  }
+  return out;
 }
 
 /** ردیف‌های قابلِ استفادهٔ بانک. */
