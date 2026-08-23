@@ -179,6 +179,19 @@ non-WAV file is catalogued and marked «قالب ناسازگار» rather than 
 skipped. Anything else (rate, channels, depth) is converted at use time:
 channels averaged, rate linearly resampled.
 
+**Two moments, and both must see the episode.** Choosing a track per episode
+(`musicPlanModel_`) and filling the bank (`musicSeek_`) are separate, and until
+5.58 only the first was even partly informed. The planner got the title and
+section headings but not each section's **`tone`** — the vibe, which is exactly
+what music has to match, and which had been sitting in `segs[i].tone` since the
+start. And the seek was fully blind, so the bank filled with random tracks and
+"pick the one that fits the vibe" ran over that randomness: theatre, not choice.
+Boundaries now carry `tone` and `voice`; bridge boundaries show the vibe on
+*both* sides (a bridge marks a change of mood — where the mood does not change,
+none is needed); and `musicSeekTerms_` translates the moods actually recorded in
+`_MUSIC-WISH.json` into English search terms. Speech words are stripped even
+from the model's own suggestion.
+
 Music enters the episode as a chunk carrying `pcm` instead of `text`.
 `synthesizeStep_` splices it straight into the buffer, so music costs no model
 quota and offers no chance to be read aloud. `ttsCueWanted_` skips backwards

@@ -478,4 +478,79 @@ console.log('=== ۸) «این اصلاً موسیقی است؟» — سدی که
 }
 
 
+console.log('=== ۹) موسیقی با وایبِ همین قسمت کار دارد، نه با برچسبِ دسته ===');
+{
+  /* پرسشِ صاحبِ برنامه: «موسیقی‌ای که پیدا می‌کند اصلاً به متن و وایبِ پادکست
+   * و بخش‌های داخلش و صدای گوینده توجه می‌کند؟»
+   *
+   * دو مرحله است و تا ۵٫۵۷ فقط یکی‌شان تا نیمه درست بود:
+   *   • انتخابِ هر قسمت — عنوان و سرِ بخش‌ها را می‌دید، ولی «وایب» را نه؛
+   *     در حالی که وایب از اول در segs[i].tone بود و همان‌جا زمین می‌ماند.
+   *   • پرکردنِ بانک — کاملاً کور بود. یعنی «انتخابِ متناسب با وایب» از میانِ
+   *     قطعه‌های تصادفی انجام می‌شد: نمایش، نه انتخاب.
+   */
+
+  // الف) وایب و گوینده واقعاً به مرزها می‌رسند
+  for (const [f, what] of [['src/03_Producer.gs', 'از همه جا'],
+                           ['src/14_Special.gs', 'درس‌نامه']]) {
+    const t = fs.readFileSync(f, 'utf8');
+    ok('۹.۱ وایب و گویندهٔ هر بخش با مرز می‌رود — ' + what,
+       /tone: String\(segs\[i\]\.tone/.test(t) && /voice: String\(segs\[i\]\.voice/.test(t));
+  }
+
+  // ب) و انتخاب‌کننده واقعاً می‌بیندشان
+  let seen = '';
+  const realGT = global.geminiText_;
+  global.geminiText_ = (p) => { seen = p; return null; };
+  musicPlanModel_(
+    [{ id: 'A', name: 'الف', mood: 'آرام', slots: 'شروع', sec: 30, used: 0 }],
+    { title: 'ت', category: 'علمی و آموزشی', cast: 'Leda',
+      bounds: [{ at: 0, kind: 'hook', heading: 'قلاب', tone: '', voice: 'Leda' },
+               { at: 5, kind: 'section', heading: 'کودکی', tone: 'نوستالژیک', voice: 'Leda' },
+               { at: 9, kind: 'section', heading: 'فروپاشی', tone: 'تلخ و کوبنده', voice: 'Gacrux' }] });
+  ok('۹.۲ وایبِ بخش‌ها در پرسشِ انتخاب هست', /نوستالژیک/.test(seen) && /تلخ و کوبنده/.test(seen), '');
+  ok('۹.۳ و گویندهٔ هر بخش هم', /Gacrux/.test(seen));
+  ok('۹.۴ و مرزها تغییرِ وایب را نشان می‌دهند، نه فقط مقصد را',
+     /از بخشِ «کودکی»[\s\S]{0,80}به بخشِ «فروپاشی»/.test(seen), '');
+  ok('۹.۵ و صریح گفته شده حال‌وهوا را از وایب بردارد نه از دسته',
+     /از همین وایب‌ها بردار، نه از برچسبِ دسته/.test(seen));
+  ok('۹.۶ و میانه فقط جایی که وایب عوض می‌شود',
+     /وایب واقعاً عوض می‌شود/.test(seen));
+
+  // ج) و گشتن هم دیگر کور نیست
+  const OUTF = () => DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const wipe = re => { const it = OUTF().getFiles();
+    while (it.hasNext()) { const f = it.next(); if (re.test(f.getName())) f.setTrashed(true); } };
+  wipe(/_MUSIC-WISH/);
+  global.geminiText_ = () => { throw new Error('مدل نیست'); };
+  ok('۹.۷ بی هیچ آرزویی، پیش‌فرضِ بی‌طرف',
+     musicSeekTerms_('شروع') === MUSIC_TERMS_FALLBACK['شروع'], musicSeekTerms_('شروع'));
+
+  musicWish_('طنز و سرگرمی', ['شروع'], { title: 'ت', category: 'طنز و سرگرمی' });
+  ok('۹.۸ با آرزوی «طنز»، واژه‌های شاد — نه همان پیش‌فرض',
+     /upbeat/.test(musicSeekTerms_('شروع')), musicSeekTerms_('شروع'));
+  wipe(/_MUSIC-WISH/);
+  musicWish_('آموزشی، شمرده', ['شروع'], { title: 'ت', category: 'درس‌نامه' });
+  ok('۹.۹ و با «آموزشی، شمرده»، واژه‌های آرام — یعنی واقعاً فرق می‌کند',
+     /calm|minimal|contemplative/.test(musicSeekTerms_('شروع')), musicSeekTerms_('شروع'));
+
+  // د) مدل که باشد، حرفِ او مقدم است — ولی واژهٔ گفتاری‌اش پذیرفته نمی‌شود
+  global.geminiText_ = () => ({ terms: 'intro OR warm piano OR mellow guitar' });
+  const t2 = musicSeekTerms_('شروع');
+  ok('۹.۱۰ واژه‌های مدل استفاده می‌شود', /warm piano/.test(t2), t2);
+  ok('۹.۱۱ ولی «intro» — همان که به مناظره رسید — از آن هم پاک می‌شود',
+     t2.indexOf('intro') === -1, t2);
+
+  global.geminiText_ = () => ({ terms: 'شاد و پرانرژی' });
+  ok('۹.۱۲ پاسخِ غیرلاتین پذیرفته نمی‌شود؛ جدول جایش را می‌گیرد',
+     /^[\x20-\x7E]+$/.test(musicSeekTerms_('شروع')), musicSeekTerms_('شروع'));
+
+  ok('۹.۱۳ و پرسشِ نهایی همان واژه‌ها را دارد',
+     musicSeekQuery_('شروع', 'warm piano').indexOf('warm piano') !== -1);
+
+  global.geminiText_ = realGT;
+  wipe(/_MUSIC-WISH/);
+}
+
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

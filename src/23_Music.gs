@@ -829,12 +829,36 @@ function musicPlanModel_(bank, ctx) {
            ' | مناسب: ' + (b.slots || '—') + ' | مدت: ' + b.sec + 'ث | بارِ استفاده: ' + b.used;
   }).join('\n');
 
-  // مرزهای مجاز، با همان شماره‌ای که مدل باید در `after` برگرداند
-  var brd = (ctx.bounds || []).filter(function (b) {
+  /* مرزهای مجاز — حالا با وایبِ دو طرف.
+   *
+   * تا ۵٫۵۷ اینجا فقط عنوانِ بخش نوشته می‌شد. ولی موسیقیِ میانه دقیقاً برای
+   * *تغییرِ حال‌وهوا* است؛ عنوان این را نمی‌گوید، وایب می‌گوید. و وایب از اول
+   * در segs[i].tone بود و همان‌جا زمین می‌ماند.
+   */
+  var allB = ctx.bounds || [];
+  var brd = allB.filter(function (b) {
     return b && b.at > 0 && b.kind !== 'hook' && b.kind !== 'outro';
   });
+  var toneAt = function (b) {
+    var t = [];
+    if (b && b.tone) t.push('وایب: ' + b.tone);
+    if (b && b.voice) t.push('گوینده: ' + b.voice);
+    return t.length ? ' (' + t.join('، ') + ')' : '';
+  };
   var brdList = brd.map(function (b, i) {
-    return '  ' + i + ') پیش از بخشِ «' + (b.heading || '—') + '»';
+    // وایبِ بخشِ پیش از این مرز، تا تغییر دیده شود نه فقط مقصد
+    var prev = null;
+    for (var k = 0; k < allB.length; k++) {
+      if (allB[k] === b) break;
+      prev = allB[k];
+    }
+    return '  ' + i + ') از بخشِ «' + ((prev && prev.heading) || 'آغاز') + '»' +
+           toneAt(prev) + '\n     به بخشِ «' + (b.heading || '—') + '»' + toneAt(b);
+  }).join('\n');
+
+  // فهرستِ کاملِ بخش‌ها با وایبشان — سرشتِ قسمت از این خوانده می‌شود
+  var secList = allB.map(function (b) {
+    return '  • «' + (b.heading || b.kind || '—') + '»' + toneAt(b);
   }).join('\n');
 
   var prompt = [
@@ -844,8 +868,14 @@ function musicPlanModel_(bank, ctx) {
     'قسمت:',
     '  عنوان: ' + String(ctx.title || '—'),
     '  دسته: ' + String(ctx.category || '—'),
-    '  سرِ بخش‌ها: ' + String(ctx.headings || '—'),
     '  گویندگان: ' + String(ctx.cast || '—'),
+    '',
+    '--- بخش‌های این قسمت و وایبِ هرکدام ---',
+    (secList || '  ' + String(ctx.headings || '—')),
+    '',
+    'حال‌وهوای موسیقی را از همین وایب‌ها بردار، نه از برچسبِ دسته. دو قسمتِ',
+    'هم‌دسته می‌توانند وایبِ کاملاً متضاد داشته باشند، و آن‌وقت موسیقیِ',
+    'یکسان برای هر دو یعنی هیچ‌کدام.',
     '',
     'قاعده‌ها:',
     '  ۱) فقط از شناسه‌های همین فهرست انتخاب کن. شناسهٔ ساختگی ممنوع.',
@@ -860,7 +890,8 @@ function musicPlanModel_(bank, ctx) {
     '  ۷) موسیقیِ میانه: فقط اگر واقعاً لازم است. جای مجازش فقط مرزهای زیر',
     '     است (شمارهٔ مرز را در `after` بده) — یعنی بینِ دو بخش، نه وسطِ',
     '     حرف. حداکثر ' + (Number(CFG.MUSIC_BRIDGE_MAX) || 2) + ' تا، و',
-    '     ترجیحاً وقتی موضوع از این بخش به بخشِ بعد واقعاً عوض می‌شود.',
+    '     فقط جایی که **وایب واقعاً عوض می‌شود** — مرزی که وایبِ دو طرفش یکی',
+    '     است، نیازی به قطعهٔ فاصله ندارد.',
     '     اگر برنامه یکدست است و جایی برای نفس‌کشیدن لازم ندارد، bridges را',
     '     خالی بگذار — موسیقیِ بی‌مناسبت بدتر از نبودنش است.',
     '',
@@ -1172,21 +1203,104 @@ function musicApiJson_(url) {
  * «اجتماعی و سبک زندگی» هیچ نتیجه‌ای نمی‌دهد. برچسب‌زنیِ حال‌وهوا کارِ
  * musicAutoTag_ است، بعد از رسیدنِ فایل.
  */
-function musicSeekQuery_(slot) {
-  /* پرسشِ ۵٫۵۶ اشتباه بود و نتیجه‌اش دیدنی: واژهٔ «intro» در متنِ آزاد،
-   * «Opening Remarks of Sean F. Byrnes at LVG Debate» را هم می‌گرفت.
+/* واژه‌های انگلیسیِ پیش‌فرض، اگر نه آرزویی ثبت شده باشد و نه مدل در دسترس
+ * باشد. عمداً کوتاه و بی‌طرف — این «هیچ ترجیحی نداریم» است، نه یک سلیقه. */
+var MUSIC_TERMS_FALLBACK = {
+  'شروع': 'instrumental OR ambient OR piano',
+  'پایان': 'ambient OR calm OR instrumental',
+  'میانه': 'loop OR interlude OR short'
+};
+
+/* نگاشتِ دستیِ فارسی → انگلیسی. راهِ دومِ ارزان، وقتی مدل نبود.
+ * دقیق نیست و لازم هم نیست باشد: فقط باید جست‌وجو را از «هر موسیقی» به
+ * «موسیقیِ این حال‌وهوا» ببرد. */
+var MUSIC_MOOD_HINTS = [
+  ['طنز|سرگرم|شاد|کمدی', 'upbeat OR playful OR light'],
+  ['آموزش|شمرده|درس|علمی|فلسف', 'calm OR minimal OR contemplative'],
+  ['مذهب|معنوی|عرفان', 'meditative OR ambient OR drone'],
+  ['خبر|سیاس|هشدار', 'tense OR serious OR cinematic'],
+  ['نوستالژ|احساس|غم', 'melancholic OR nostalgic OR piano'],
+  ['اجتماع|سبک زندگی|روزمره', 'warm OR acoustic OR mellow'],
+  ['هنر|موسیقی|فرهنگ|تاریخ', 'orchestral OR folk OR acoustic'],
+  ['مال|اقتصاد|ترید', 'neutral OR corporate OR minimal']
+];
+
+/** حال‌وهواهایی که واقعاً خواسته شده‌اند، از فایلِ آرزوها. */
+function musicWantedMoods_() {
+  try {
+    var w = getOutJson_(MUSIC_WISH_());
+    var items = (w && w.items) || [];
+    var seen = {}, out = [];
+    for (var i = items.length - 1; i >= 0 && out.length < 8; i--) {
+      var m = String(items[i].mood || items[i].category || '').trim();
+      if (!m || seen[m]) continue;
+      seen[m] = 1; out.push(m);
+    }
+    return out;
+  } catch (e) { return []; }
+}
+
+/**
+ * واژه‌های جست‌وجو، از روی حال‌وهوایی که واقعاً خواسته شده.
+ *
+ * ══ چرا لازم شد ══
+ * ۵٫۵۶ عمداً حال‌وهوا را از پرسش بیرون گذاشته بود، با این استدلال که
+ * برچسب‌های archive.org فارسی نیستند. استدلال درست بود، نتیجه‌گیری غلط:
+ * راهش ترجمه بود، نه انداختنِ حال‌وهوا. نتیجه این شد که بانک با موسیقیِ
+ * تصادفی پر می‌شد و بعد «انتخابِ متناسب با وایب» از میانِ همان تصادف انجام
+ * می‌شد — یعنی نمایش.
+ *
+ * حالا آرزوهای ثبت‌شده (که خودشان از عنوان و دستهٔ قسمت‌های واقعی آمده‌اند)
+ * به واژهٔ انگلیسی ترجمه می‌شوند. مدل اگر نبود، جدولِ نگاشت؛ آن هم اگر
+ * نخورد، پیش‌فرضِ بی‌طرف.
+ */
+function musicSeekTerms_(slot) {
+  var moods = musicWantedMoods_();
+  if (!moods.length) return MUSIC_TERMS_FALLBACK[slot] || MUSIC_TERMS_FALLBACK['شروع'];
+
+  if (CFG.MUSIC_AUTO !== false) {
+    try {
+      var r = geminiText_(
+        'این‌ها حال‌وهواهایی است که یک پادکستِ فارسی برای موسیقیِ خودش خواسته:\n' +
+        moods.map(function (m) { return '• ' + m; }).join('\n') +
+        '\n\nجایگاهِ موردِ نظر: ' + slot +
+        ' (شروع = موسیقیِ آغازِ برنامه، پایان = موسیقیِ پایان، میانه = قطعهٔ کوتاهِ بینِ دو بخش)' +
+        '\n\nسه تا پنج واژهٔ انگلیسیِ جست‌وجو بده که در آرشیوِ موسیقیِ آزاد،' +
+        ' قطعهٔ سازیِ متناسب با این حال‌وهوا را پیدا کند. فقط صفتِ حال‌وهوا و نامِ ساز' +
+        ' و سبک — نه نامِ خواننده، نه واژه‌ای که به گفتار بخورد (مثل talk یا intro).' +
+        ' با OR جدا کن. فقط همان رشته را برگردان.',
+        { type: 'object', properties: { terms: { type: 'string' } }, required: ['terms'] },
+        256);
+      var t = String((r && r.terms) || '').trim();
+      // «intro/talk/…» حتی اگر مدل بدهد پذیرفته نمی‌شود — همان واژه‌ای که
+      // ۵٫۵۶ را به مناظرهٔ آقای برنز رساند.
+      t = t.replace(/\b(intro|talk|speech|remarks|lecture|interview|podcast|opening)\b/gi, '')
+           .replace(/\s*OR\s*OR\s*/gi, ' OR ').replace(/^\s*OR\s*|\s*OR\s*$/gi, '').trim();
+      if (t.length > 3 && /^[\x20-\x7E]+$/.test(t)) return t;
+    } catch (e) {}
+  }
+
+  for (var i = 0; i < MUSIC_MOOD_HINTS.length; i++) {
+    for (var j = 0; j < moods.length; j++) {
+      if (new RegExp(MUSIC_MOOD_HINTS[i][0]).test(moods[j])) return MUSIC_MOOD_HINTS[i][1];
+    }
+  }
+  return MUSIC_TERMS_FALLBACK[slot] || MUSIC_TERMS_FALLBACK['شروع'];
+}
+
+function musicSeekQuery_(slot, terms) {
+  /* پرسشِ ۵٫۵۶ دو ایراد داشت. اول اینکه واژهٔ «intro» در متنِ آزاد،
+   * «Opening Remarks of Sean F. Byrnes at LVG Debate» را هم می‌گرفت، و
    * mediatype:(audio) در archive.org یعنی «هر صدایی» — سخنرانی، مناظره،
-   * کتابِ صوتی، خطبه. موسیقی زیرمجموعهٔ کوچکی از آن است.
+   * کتابِ صوتی. پس حالا از خودِ مجموعه‌های موسیقی گرفته می‌شود.
    *
-   * پس به‌جای گشتن در همهٔ صداها و امید به واژه‌ها، از خودِ مجموعه‌های
-   * موسیقی می‌گیریم. netlabels آرشیوِ آلبوم‌های آزادِ لیبل‌های اینترنتی است
-   * و اساساً چیزی جز موسیقی ندارد. واژهٔ «intro» هم به کل حذف شد.
+   * دوم اینکه هیچ ربطی به قسمت‌های واقعی نداشت؛ آن را musicSeekTerms_ حل
+   * می‌کند.
    */
-  var kind = (slot === 'میانه') ? '(loop OR interlude OR short)'
-           : (slot === 'پایان') ? '(ambient OR calm OR instrumental)'
-           : '(instrumental OR ambient OR piano)';
+  var t = String(terms || '').trim() || MUSIC_TERMS_FALLBACK[slot] ||
+          MUSIC_TERMS_FALLBACK['شروع'];
   return 'collection:(netlabels OR audio_music) AND format:(WAVE) AND ' +
-         'licenseurl:(*creativecommons* OR *publicdomain*) AND ' + kind;
+         'licenseurl:(*creativecommons* OR *publicdomain*) AND (' + t + ')';
 }
 
 /**
@@ -1215,7 +1329,9 @@ function musicSeek_(slots) {
 
   for (var si = 0; si < want.length && out.added < cap; si++) {
     var slot = want[si];
-    var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot)) +
+    var terms = musicSeekTerms_(slot);
+    out.notes.push(slot + ' ← گشته شد با: ' + terms);
+    var url = base + '/advancedsearch.php?q=' + encodeURIComponent(musicSeekQuery_(slot, terms)) +
               '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
               '&rows=25&page=1&output=json';
     var sr = musicApiJson_(url);
@@ -1264,7 +1380,9 @@ function musicSeek_(slots) {
         title: auditCut_(title, 60),
         license: lic,
         kind: 'موسیقی',
-        mood: '',                                // musicAutoTag_ پس از رسیدن پر می‌کند
+        // حال‌وهوای *خواسته‌شده*، نه حدسِ نام. musicAutoTag_ بعداً دقیق‌ترش می‌کند.
+        mood: (musicWantedMoods_()[0] || ''),
+        terms: terms,
         slots: slot,
         gain: '',
         source: base + '/details/' + id,

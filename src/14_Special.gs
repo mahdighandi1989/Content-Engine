@@ -1596,8 +1596,13 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     var pieces = splitForTts_(applyPron_(spoken));
     // مرزِ واقعیِ هر قطعه — همان چیزی که «از همه جا از همه رنگ» هم دارد.
     // بی این، موسیقیِ میانه در درس‌نامه اصلاً پخش نمی‌شد.
+    // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
+    // موسیقی فقط عنوانِ بخش را می‌دید — و «وایب» دقیقاً همان چیزی است که
+    // موسیقی باید با آن بخوانَد، نه عنوان.
     bounds.push({ at: out.length, kind: String(segs[i].kind || 'body'),
-                  heading: String(segs[i].heading || '') });
+                  heading: String(segs[i].heading || ''),
+                  tone: String(segs[i].tone || ''),
+                  voice: String(segs[i].voice || '') });
     for (var j = 0; j < pieces.length; j++) {
       out.push({ text: pieces[j], style: segs[i].style,
                  voice: segs[i].voice || CFG.TTS_VOICE_SPECIAL });
