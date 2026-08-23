@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.74
+ *  موتور محتوا و پادکست — نسخهٔ 5.75
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -411,6 +411,14 @@ var CFG = {
   // و بودجهٔ گشتنِ افکت، **جدا** از موسیقی. با سقفِ مشترک، موسیقی که همیشه
   // اول می‌دود می‌توانست همه‌اش را مصرف کند و افکت هرگز گشته نشود.
   MUSIC_SFX_SEEK_MAX: 3,
+  // ── افکت، درست بعد از آماده‌شدنِ متن ──
+  // تا ۵٫۷۴ افکت شبِ قبل و بی‌خبر از متنِ فردا گشته می‌شد، پس صدا همیشه
+  // برای قسمتِ *بعدی* می‌رسید. حالا در پنجرهٔ میانِ آماده‌شدنِ متن و شروعِ
+  // صداگذاری، از مدل پرسیده می‌شود این متن چه صدایی می‌خواهد و همان لحظه
+  // آورده می‌شود. مهلت سخت است: انتظار نباید ساعتِ رسیدنِ پادکست را عقب
+  // بیندازد. خاموشش کنید و رفتار به همان «شبِ بعد» برمی‌گردد.
+  MUSIC_SFX_PREFETCH: true,
+  MUSIC_SFX_PREFETCH_MS: 90000,
 
   // ── چرخشِ بانک: گشتن هرگز نباید بایستد ──
   // تا ۵٫۶۴ لحظه‌ای که پوششِ خانواده‌ها کامل می‌شد، musicThinSlots_ خالی
@@ -664,7 +672,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.74',
+  CODE_VERSION: '5.75',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -5240,6 +5248,31 @@ function renderAudioStep_() {
     // نام فایل با نامِ برنامه شروع می‌شود تا در درایو و در تلگرام هرگز با
     // فایل‌های درس‌نامه اشتباه گرفته نشود.
     var baseName = CFG.SHOW_NAME + ' — قسمت ' + pad + ' — ' + String(ep.title || '').slice(0, 60);
+
+    /* ── پیش از صدا: افکتِ همین قسمت ──
+     * متن آماده است و صداگذاری هنوز شروع نشده. تا ۵٫۷۴ افکت شبِ قبل و
+     * بی‌خبر از این متن گشته می‌شد، پس صدا همیشه برای قسمتِ *بعدی* می‌رسید.
+     * حالا همین‌جا از مدل پرسیده می‌شود این متن چه صدایی می‌خواهد، و اگر
+     * بانک نداشت، همان لحظه گشته و آورده می‌شود.
+     *
+     * در اجرای خودش انجام می‌شود (بعدش scheduleContinue) تا به مهلتِ
+     * شش‌دقیقه‌ایِ صداگذاری اضافه نشود، و پرچمِ sfxDone می‌گذارد تا با هر
+     * از سرگیری دوباره تکرار نشود. هر شکستی بی‌صداست: نبودِ افکت هرگز
+     * نباید جلوی ساختِ قسمت را بگیرد. */
+    if (st.phase === 'speak' && !st.sfxDone) {
+      st.sfxDone = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+      try {
+        var pf = sfxPrefetch_(ep, 'variety', epNum);
+        if (pf && (pf.asked || pf.got)) {
+          logLine_('افکتِ پیش از صدا: ' + pf.asked + ' خواسته، ' + pf.need +
+                   ' نبود، ' + pf.got + ' آورده شد.' +
+                   (pf.notes.length ? ' — ' + pf.notes.join(' · ') : ''));
+        }
+      } catch (ePf) { logLine_('پیش‌آوردنِ افکت انجام نشد: ' + ePf.message); }
+      scheduleContinue_(5 * 1000);
+      return { ok: true, episode: epNum, pending: true, sfxPrefetch: true };
+    }
 
     // ── مرحلهٔ «انتظارِ غنی‌سازی» ──
     if (st.phase === 'enrich') {
@@ -21307,6 +21340,152 @@ function bridgeFill_(want, bounds, bank, mood, minBr) {
   return want;
 }
 
+/* ═══════════ افکت، درست بعد از آماده‌شدنِ متن ═══════════
+
+   ══ ترتیبی که باید می‌بود و نبود ══
+   تا ۵٫۷۴ زنجیره این بود: شب ۲:۳۰ دنبالِ افکت بگرد (بی خبر از فردا) →
+   صبح متن نوشته شود → از هرچه در بانک هست انتخاب کن → آنچه نبود را ثبت
+   کن → **شبِ بعد** بیاورش. یعنی صدا همیشه برای قسمتِ بعدی می‌رسید.
+
+   صاحبِ برنامه گفت «قاعدتاً باید این ترتیب را داشته باشد: متن آماده شود،
+   بعد افکتش جست‌وجو و دانلود شود و در همان پادکست استفاده شود.» درست است،
+   و پنجره‌اش هم از اول وجود داشت: بینِ نوشته‌شدنِ متن و شروعِ صداگذاری،
+   موتور دستِ‌کم چهل‌وپنج ثانیه و معمولاً چند دقیقه صبر می‌کند (انتظارِ
+   غنی‌سازی). همان‌جا کار انجام می‌شود، در اجرای خودش، با مهلتِ سخت.
+
+   قاعدهٔ صاحبِ برنامه که نباید شکسته شود: «انتظار نباید ساعتِ رسیدنِ
+   پادکست را عقب بیندازد.» پس مهلت سخت است و هر شکستی بی‌صدا رد می‌شود —
+   نبودِ افکت هیچ‌وقت نباید جلوی ساختِ قسمت را بگیرد. */
+
+var SFX_WANT_SCHEMA = {
+  type: 'object',
+  properties: {
+    wants: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { sound: { type: 'string' }, en: { type: 'string' },
+                      why: { type: 'string' } },
+        required: ['sound', 'en']
+      }
+    }
+  },
+  required: ['wants']
+};
+
+/** «این متن چه صدایی می‌خواهد؟» — پرسشی کوچک و متمرکز، روی متنِ نهایی. */
+function sfxWantModel_(ep) {
+  var secs = (ep && ep.sections) || [];
+  if (!secs.length) return [];
+  var list = [];
+  for (var i = 0; i < secs.length && i < 12; i++) {
+    list.push('  [' + i + '] «' + String(secs[i].heading || '—') + '»' +
+              (secs[i].tone ? ' (وایب: ' + secs[i].tone + ')' : '') + '\n      ' +
+              String(secs[i].narration || '').slice(0, 600).replace(/\s+/g, ' '));
+  }
+  var prompt = [
+    'این متنِ یک قسمتِ پادکستِ فارسی است. یک سؤال دارم و بس:',
+    'آیا جایی در آن هست که یک **صدای کوتاه** واقعاً به شنونده چیزی اضافه کند؟',
+    '',
+    'شرط‌ها:',
+    '  • صدا باید برای چیزی باشد که **موضوعِ** یک بخش است، نه یک اشارهٔ گذرا.',
+    '  • کوتاه و بی‌ابهام: باران، در، تلفن، قدم، جمعیت، ساعت، دریا، کاغذ…',
+    '    نه موسیقی، نه فضای محیطیِ بلند.',
+    '  • حداکثر دو تا. و اگر چنین جایی نیست، `wants` را **خالی** بگذار —',
+    '    این جوابِ درستی است و اغلبِ قسمت‌ها همین‌اند. افکتِ بی‌مناسبت',
+    '    آبروی برنامه را می‌برد.',
+    '',
+    'برای هرکدام: `sound` نامِ فارسیِ صدا، `en` دو تا چهار واژهٔ **انگلیسی**',
+    'برای جست‌وجو (مثل «rain on roof» یا «old door creak»)، `why` در یک جمله.',
+    '',
+    'عنوانِ قسمت: ' + String((ep && ep.title) || '—'),
+    '',
+    '--- بخش‌ها ---',
+    list.join('\n')
+  ].join('\n');
+
+  try {
+    var r = geminiText_(prompt, SFX_WANT_SCHEMA, 1024);
+    var w = (r && r.wants) || [];
+    return w.map(function (x) {
+      return { sound: String((x && x.sound) || ''), en: String((x && x.en) || ''),
+               why: String((x && x.why) || '') };
+    }).filter(function (x) { return x.sound && x.en; }).slice(0, 2);
+  } catch (e) {
+    logLine_('پرسشِ صدای موردنیاز انجام نشد: ' + e.message);
+    return [];
+  }
+}
+
+/**
+ * متن آماده است و صدا هنوز شروع نشده — همین‌جا افکتِ لازم را بیاور.
+ * برمی‌گرداند {asked, need, got, notes}. هر شکستی بی‌صداست.
+ */
+function sfxPrefetch_(ep, showKind, epNum) {
+  var out = { asked: 0, need: 0, got: 0, notes: [] };
+  if (CFG.MUSIC_SFX_ENABLED === false || CFG.MUSIC_SFX_PREFETCH === false) return out;
+  if (String(showKind || '') === 'special' && CFG.MUSIC_SFX_IN_SPECIAL !== true) return out;
+
+  var t0 = new Date().getTime();
+  var budget = Math.max(20000, Number(CFG.MUSIC_SFX_PREFETCH_MS) || 90000);
+
+  var wants = [];
+  try { wants = sfxWantModel_(ep); } catch (e) { return out; }
+  out.asked = wants.length;
+  if (!wants.length) { out.notes.push('این قسمت صدایی نمی‌خواهد.'); return out; }
+
+  // آنچه بانک از قبل دارد لازم نیست دوباره آورده شود
+  var have = '';
+  try {
+    var bank = musicBank_();
+    for (var i = 0; i < bank.length; i++) {
+      if (String(bank[i].kind || '') !== 'افکت') continue;
+      have += ' ' + String(bank[i].name || '') + ' ' + String(bank[i].mood || '');
+    }
+  } catch (e2) {}
+  have = have.toLowerCase();
+  var need = [];
+  for (var n = 0; n < wants.length; n++) {
+    var key = String(wants[n].en || '').toLowerCase().split(' ')[0];
+    if (key && have.indexOf(key) !== -1) {
+      out.notes.push('«' + wants[n].sound + '» از قبل در بانک هست.');
+      continue;
+    }
+    need.push(wants[n]);
+  }
+  out.need = need.length;
+  if (!need.length) return out;
+
+  /* خواسته را **اول** ثبت کن. اگر آوردنِ همین حالا نشد، شبِ بعد از روی
+     همین ثبت آورده می‌شود — یعنی تلاشِ امروز هیچ‌وقت کاملاً هدر نمی‌رود. */
+  try { sfxWish_(need, { title: (ep && ep.title) || '', category: String(showKind || '') }); }
+  catch (e3) {}
+
+  if (new Date().getTime() - t0 > budget) {
+    out.notes.push('وقت نماند؛ خواسته ثبت شد و شبِ بعد آورده می‌شود.');
+    return out;
+  }
+
+  // گشتن فقط برای افکت — و sfxWantedTerms_ همین حالا همان خواسته را می‌خواند
+  try { musicSeek_(null, true); } catch (e4) { out.notes.push('گشتن نشد: ' + e4.message); }
+
+  if (new Date().getTime() - t0 > budget) {
+    out.notes.push('گشته شد ولی وقتِ دانلود نماند؛ شبِ بعد می‌آید.');
+    return out;
+  }
+
+  // و آوردنش — از ۵٫۷۴ افکت جلوی صفِ دانلود است
+  try {
+    var r = musicFetch_();
+    out.got = (r && r.added) || 0;
+    if (out.got) {
+      try { musicScan_(); } catch (e6) {}   // تا همین حالا در بانک دیده شود
+      logLine_('افکتِ این قسمت همین حالا آورده شد: ' + out.got + ' فایل.');
+    }
+  } catch (e5) { out.notes.push('آوردن نشد: ' + e5.message); }
+  return out;
+}
+
 /** پوشهٔ کنارگذاشته‌ها — ساخته می‌شود اگر نباشد. هرگز پاک نمی‌کنیم. */
 function musicRejectFolder_() {
   var folder = musicFolder_();
@@ -22815,7 +22994,7 @@ function sfxStarterTerms_() {
   return '';
 }
 
-function musicSeek_(slots) {
+function musicSeek_(slots, sfxOnly) {
   var out = { added: 0, looked: 0, notes: [] };
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_SEEK === false) return out;
 
@@ -22835,7 +23014,7 @@ function musicSeek_(slots) {
   for (var q2 = 0; q2 < fetched.length; q2++) already[fetched[q2]] = 1;
   var seen = musicSeenIds_();
 
-  for (var si = 0; si < want.length && out.added < cap; si++) {
+  for (var si = 0; si < want.length && out.added < cap && !sfxOnly; si++) {
     var slot = want[si];
     // اگر می‌دانیم *کدام خانواده* کم است، دنبالِ همان می‌گردیم — نه دنبالِ
     // «موسیقیِ خوب» به‌طور کلی. بانکی که همه‌اش پیانوی آرام باشد، برای

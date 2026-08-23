@@ -75,6 +75,12 @@ global.__STUB = function (url, body) {
     return { code: 200, json: { candidates: [{ content: { parts: [{
       text: JSON.stringify({ v: piece.replace(/([\u0622-\u064A\u066E-\u06D5])/g, '$1َ') }) }] } }] } };
   }
+  // پرسشِ «این متن چه صدایی می‌خواهد؟» (۵٫۷۵) نباید جای پرامپتِ نویسنده را
+  // بگیرد — همان تلهٔ اعراب‌گذاری، این بار برای افکت.
+  if (t.indexOf('آیا جایی در آن هست که یک **صدای کوتاه**') !== -1) {
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      text: JSON.stringify({ wants: [] }) }] } }] } };
+  }
   writerPrompt = t;
   const ids = [...t.matchAll(/شناسه: (\S+)/g)].map(m => m[1]);
   // قلاب باید روز و تاریخ را بگوید و تعداد بخش‌ها کامل باشد، وگرنه پاس وفاداری

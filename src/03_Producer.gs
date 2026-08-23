@@ -3367,6 +3367,31 @@ function renderAudioStep_() {
     // فایل‌های درس‌نامه اشتباه گرفته نشود.
     var baseName = CFG.SHOW_NAME + ' — قسمت ' + pad + ' — ' + String(ep.title || '').slice(0, 60);
 
+    /* ── پیش از صدا: افکتِ همین قسمت ──
+     * متن آماده است و صداگذاری هنوز شروع نشده. تا ۵٫۷۴ افکت شبِ قبل و
+     * بی‌خبر از این متن گشته می‌شد، پس صدا همیشه برای قسمتِ *بعدی* می‌رسید.
+     * حالا همین‌جا از مدل پرسیده می‌شود این متن چه صدایی می‌خواهد، و اگر
+     * بانک نداشت، همان لحظه گشته و آورده می‌شود.
+     *
+     * در اجرای خودش انجام می‌شود (بعدش scheduleContinue) تا به مهلتِ
+     * شش‌دقیقه‌ایِ صداگذاری اضافه نشود، و پرچمِ sfxDone می‌گذارد تا با هر
+     * از سرگیری دوباره تکرار نشود. هر شکستی بی‌صداست: نبودِ افکت هرگز
+     * نباید جلوی ساختِ قسمت را بگیرد. */
+    if (st.phase === 'speak' && !st.sfxDone) {
+      st.sfxDone = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+      try {
+        var pf = sfxPrefetch_(ep, 'variety', epNum);
+        if (pf && (pf.asked || pf.got)) {
+          logLine_('افکتِ پیش از صدا: ' + pf.asked + ' خواسته، ' + pf.need +
+                   ' نبود، ' + pf.got + ' آورده شد.' +
+                   (pf.notes.length ? ' — ' + pf.notes.join(' · ') : ''));
+        }
+      } catch (ePf) { logLine_('پیش‌آوردنِ افکت انجام نشد: ' + ePf.message); }
+      scheduleContinue_(5 * 1000);
+      return { ok: true, episode: epNum, pending: true, sfxPrefetch: true };
+    }
+
     // ── مرحلهٔ «انتظارِ غنی‌سازی» ──
     if (st.phase === 'enrich') {
       var g = enrichGate_(st, ENRICH_SHOW_VARIETY, ep, epNum);

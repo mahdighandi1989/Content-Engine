@@ -46,6 +46,10 @@ global.__STUB=function(url,body){
   if(t.indexOf('اعراب‌گذاریِ کامل')!==-1&&t.indexOf('فیلد v')!==-1){
     const piece=t.split('\n\n').slice(1).join('\n\n').replace(/\n\nیادآوری:[\s\S]*$/,'');
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({v:piece.replace(/([\u0622-\u064A\u066E-\u06D5])/g,'$1َ')})}]}}]}};}
+  // پرسشِ «این متن چه صدایی می‌خواهد؟» (۵٫۷۵) نباید در فهرستِ پرامپتِ
+  // نویسنده بنشیند — همان تلهٔ اعراب‌گذاری، این بار برای افکت.
+  if(t.indexOf('آیا جایی در آن هست که یک **صدای کوتاه**')!==-1){
+    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({wants:[]})}]}}]}};}
   writerPrompts.push(t);
   const ids=[...t.matchAll(/شناسه: (\S+)/g)].map(m=>m[1]);
   return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({title:'قسمت آزمایشی',

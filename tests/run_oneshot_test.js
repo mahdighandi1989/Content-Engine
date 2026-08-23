@@ -1644,4 +1644,63 @@ console.log('=== ۲۶) «افکت‌ها کِی قرار است از اینتر�
      ' → ' + ord.join(','));
 }
 
+console.log('=== ۲۷) افکت، درست بعد از آماده‌شدنِ متن ===');
+{
+  /* «آیا افکت بعد از آماده شدنِ متنِ پادکست به‌صورت خودکار جست‌وجو و دانلود
+   * و در همان پادکست استفاده می‌شود؟ باید قاعدتاً یک همچین ترتیبی داشته
+   * باشد.» — درست بود، و تا ۵٫۷۴ این ترتیب را نداشت: شب ۲:۳۰ بی‌خبر از
+   * فردا می‌گشت، پس صدا همیشه برای قسمتِ *بعدی* می‌رسید. */
+  const p03 = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  const p23i = fs.readFileSync('src/23_Music.gs', 'utf8');
+
+  ok('۲۷.۱ پیش از صداگذاری، افکتِ همین قسمت آورده می‌شود',
+     /sfxPrefetch_\(ep, 'variety', epNum\)/.test(p03));
+  ok('۲۷.۲ و پس از آماده‌شدنِ متن است، نه قبلش',
+     p03.indexOf("st.phase === 'speak' && !st.sfxDone") >
+       p03.indexOf('function renderAudioStep_'));
+  ok('۲۷.۳ در اجرای خودش، تا به مهلتِ صداگذاری اضافه نشود',
+     /sfxDone = 1;[\s\S]{0,900}scheduleContinue_\(5 \* 1000\);[\s\S]{0,120}sfxPrefetch: true/
+       .test(p03));
+  ok('۲۷.۴ و با هر از سرگیری دوباره تکرار نمی‌شود',
+     /!st\.sfxDone/.test(p03) && /st\.sfxDone = 1;/.test(p03));
+  ok('۲۷.۵ هر شکستی بی‌صداست — نبودِ افکت جلوی قسمت را نمی‌گیرد',
+     /catch \(ePf\) \{ logLine_\('پیش‌آوردنِ افکت انجام نشد/.test(p03));
+
+  ok('۲۷.۶ درس‌نامه از این مسیر هم افکت نمی‌گیرد',
+     /showKind \|\| ''\) === 'special' && CFG\.MUSIC_SFX_IN_SPECIAL !== true\) return out/
+       .test(p23i));
+  ok('۲۷.۷ مهلتِ سخت دارد', /MUSIC_SFX_PREFETCH_MS/.test(p23i) &&
+     Number(CFG.MUSIC_SFX_PREFETCH_MS) > 0, String(CFG.MUSIC_SFX_PREFETCH_MS));
+  ok('۲۷.۸ خواسته **اول** ثبت می‌شود تا تلاشِ امروز هدر نرود',
+     p23i.indexOf('sfxWish_(need,') < p23i.indexOf('musicSeek_(null, true)'));
+  ok('۲۷.۹ گشتن فقط برای افکت است، نه دوباره برای موسیقی',
+     /function musicSeek_\(slots, sfxOnly\)/.test(p23i) &&
+     /out\.added < cap && !sfxOnly/.test(p23i));
+
+  // رفتارِ واقعیِ پرسش: مدل می‌گوید چه صدایی لازم است
+  const realG = global.geminiText_;
+  global.geminiText_ = () => ({ wants: [
+    { sound: 'باران روی شیروانی', en: 'rain on roof', why: 'موضوعِ بخشِ دوم' },
+    { sound: 'درِ چوبی', en: 'old door creak', why: 'دو بار آمده' },
+    { sound: 'سومی', en: 'third one', why: 'اضافه' }
+  ] });
+  const w = sfxWantModel_({ title: 'شبِ بارانی',
+    sections: [{ heading: 'باران', tone: 'آرام', narration: 'باران می‌بارید.' }] });
+  ok('۲۷.۱۰ پرسش خواسته‌ها را با نامِ فارسی و واژهٔ انگلیسی می‌گیرد',
+     w.length === 2 && w[0].en === 'rain on roof', JSON.stringify(w));
+  ok('۲۷.۱۱ و بیش از دو تا نمی‌گیرد — خویشتن‌داری', w.length === 2);
+
+  global.geminiText_ = () => ({ wants: [] });
+  ok('۲۷.۱۲ «این قسمت صدایی نمی‌خواهد» جوابِ درستی است',
+     sfxWantModel_({ sections: [{ heading: 'ا', narration: 'ب' }] }).length === 0);
+
+  global.geminiText_ = () => { throw new Error('مدل در دسترس نیست'); };
+  ok('۲۷.۱۳ و نبودِ مدل چیزی را زمین نمی‌زند',
+     sfxWantModel_({ sections: [{ heading: 'ا', narration: 'ب' }] }).length === 0);
+  global.geminiText_ = realG;
+
+  ok('۲۷.۱۴ بی بخش، اصلاً از مدل پرسیده نمی‌شود',
+     sfxWantModel_({ sections: [] }).length === 0 && sfxWantModel_(null).length === 0);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
