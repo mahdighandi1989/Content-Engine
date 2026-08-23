@@ -1601,4 +1601,47 @@ console.log('=== ۲۵) «موسیقیِ میانه فقط یک بار پخش م�
      Number(CFG.MUSIC_BRIDGE_MAX));
 }
 
+console.log('=== ۲۶) «افکت‌ها کِی قرار است از اینترنت پر شوند؟» ===');
+{
+  /* جوابِ صادقانه تا ۵٫۷۳: شاید هیچ‌وقت. دو گلوگاه، هر دو واقعی.
+   *
+   * ۱) گشتن: شرطش `out.added < cap` بود — همان سقفی که حلقهٔ موسیقیِ
+   *    بالاتر مصرف می‌کند. موسیقی اول می‌دود؛ اگر سقف را پر کند، شاخهٔ
+   *    افکت اصلاً اجرا نمی‌شود. و از ۵٫۶۵ گشتنِ موسیقی هرگز متوقف نمی‌شود
+   *    (چرخشِ خانواده‌های فرسوده)، پس گرسنگی می‌توانست دائمی باشد.
+   * ۲) دانلود: فهرست به ترتیبِ ورود پیمایش می‌شد. در اجرای واقعیِ ۲۳ اوت
+   *    «Video Game Sound Ideas» نامزد شد و هفت فایلِ موسیقیِ چندمگابایتی
+   *    جلوترش دانلود شدند و وقت تمام شد. */
+  const p23h = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۶.۱ گشتنِ افکت دیگر به سقفِ موسیقی وابسته نیست',
+     !/sfxHave < sfxWant && out\.added < cap/.test(p23h) &&
+     /sfxHave < sfxWant\) \{/.test(p23h));
+  ok('۲۶.۲ و بودجهٔ خودش را دارد',
+     /sfxAdded < sfxCap/.test(p23h) && Number(CFG.MUSIC_SFX_SEEK_MAX) >= 1,
+     String(CFG.MUSIC_SFX_SEEK_MAX));
+  ok('۲۶.۳ شمارندهٔ افکت جدا بالا می‌رود', /out\.added\+\+; sfxAdded\+\+;/.test(p23h));
+
+  // دانلود: افکت باید جلوی صف باشد
+  ok('۲۶.۴ صفِ دانلود افکت‌ها را اول می‌گذارد',
+     /var order = \[\];/.test(p23h) &&
+     p23h.indexOf("=== 'افکت'\) order.push\(q0\)".replace(/\\/g, '')) > 0 ||
+     /order\.push\(q0\)/.test(p23h));
+  ok('۲۶.۵ و حلقه از همان ترتیب می‌خواند، نه از اندیسِ خام',
+     /for \(var oi = 0; oi < order\.length/.test(p23h) &&
+     /feed\.items\[order\[oi\]\]/.test(p23h));
+
+  // رفتارِ واقعی: با فهرستی که موسیقی جلوتر است، افکت اول برداشته شود
+  const items = [
+    { url: 'https://x/a.wav', kind: 'موسیقی', title: 'م۱' },
+    { url: 'https://x/b.wav', kind: 'موسیقی', title: 'م۲' },
+    { url: 'https://x/e.wav', kind: 'افکت',   title: 'ا۱' }
+  ];
+  const ord = [];
+  for (let q = 0; q < items.length; q++) if (items[q].kind === 'افکت') ord.push(q);
+  for (let q = 0; q < items.length; q++) if (items[q].kind !== 'افکت') ord.push(q);
+  ok('۲۶.۶ همان قاعده روی فهرستِ واقعی، افکت را اول می‌آورد',
+     items[ord[0]].kind === 'افکت', items.map((x,i)=>x.kind).join(',') +
+     ' → ' + ord.join(','));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

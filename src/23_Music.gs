@@ -1603,12 +1603,26 @@ function musicFetch_() {
   var folder = musicFolder_();
   var changed = false;
 
-  for (var i = 0; i < feed.items.length && out.added + out.failed < cap; i++) {
+  /* ── افکت‌ها اول دانلود می‌شوند ──
+   * فهرست به ترتیبِ ورود پیمایش می‌شد. موسیقی چند مگابایت است و افکت چند
+   * صد کیلوبایت؛ یک صفِ موسیقی می‌توانست شب‌ها جلوی تنها افکتِ صف را
+   * بگیرد — همان چیزی که در عمل هم شد: «Video Game Sound Ideas» نامزد شد
+   * و هفت فایلِ موسیقی جلوترش دانلود شدند و وقت تمام شد.
+   * افکت هم کمیاب‌تر است هم ارزان‌تر، پس اولویتش طبیعی است. */
+  var order = [];
+  for (var q0 = 0; q0 < feed.items.length; q0++) {
+    if (String((feed.items[q0] || {}).kind || '') === 'افکت') order.push(q0);
+  }
+  for (var q1 = 0; q1 < feed.items.length; q1++) {
+    if (String((feed.items[q1] || {}).kind || '') !== 'افکت') order.push(q1);
+  }
+
+  for (var oi = 0; oi < order.length && out.added + out.failed < cap; oi++) {
     if (new Date().getTime() - t0 > budget) {
       out.notes.push('وقتِ این اجرا تمام شد؛ بقیه در اجرای بعد.');
       break;
     }
-    var it = feed.items[i] || {};
+    var it = feed.items[order[oi]] || {};
     if (it.status) continue;                       // قبلاً رسیدگی شده
     var url = String(it.url || '').trim();
     out.read++;
@@ -2067,7 +2081,18 @@ function musicSeek_(slots) {
   var sfxWant = Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0);
   var sfxHave = 0;
   try { sfxHave = musicCoverage_().sfx; } catch (eS0) {}
-  if (CFG.MUSIC_SFX_ENABLED !== false && sfxHave < sfxWant && out.added < cap) {
+  /* ── بودجهٔ جدا، وگرنه افکت هرگز نوبتش نمی‌رسد ──
+   *
+   * تا ۵٫۷۳ اینجا `out.added < cap` بود — یعنی همان سقفی که حلقهٔ موسیقی
+   * بالاترش مصرف می‌کند. موسیقی اول می‌دود؛ اگر هشت نامزد اضافه کند،
+   * این شرط غلط می‌شود و افکت **اصلاً گشته نمی‌شود**.
+   * و از ۵٫۶۵ گشتنِ موسیقی هیچ‌وقت متوقف نمی‌شود (چرخشِ خانواده‌های
+   * فرسوده)، پس این یعنی افکت می‌توانست تا ابد گرسنه بماند.
+   * صاحبِ برنامه پرسید «افکت‌ها کِی قرار است از اینترنت پر شوند؟» و جوابِ
+   * صادقانه‌اش تا این نسخه «شاید هیچ‌وقت» بود. */
+  var sfxCap = Math.max(1, Number(CFG.MUSIC_SFX_SEEK_MAX) || 3);
+  var sfxAdded = 0;
+  if (CFG.MUSIC_SFX_ENABLED !== false && sfxHave < sfxWant) {
     // دنبالِ صدایی که واقعاً خواسته شده، نه «افکتِ خوب» به‌طور کلی
     var sfxTerms = '';
     try { sfxTerms = sfxWantedTerms_().join(' OR '); } catch (eST) {}
@@ -2080,7 +2105,7 @@ function musicSeek_(slots) {
     var sres = musicApiJson_(su);
     var sdocs = (sres && sres.response && sres.response.docs) || [];
     out.looked += sdocs.length;
-    for (var sd = 0; sd < sdocs.length && out.added < cap; sd++) {
+    for (var sd = 0; sd < sdocs.length && sfxAdded < sfxCap; sd++) {
       var sid = String(sdocs[sd].identifier || '');
       if (!sid || seen.indexOf(sid) !== -1) continue;
       musicSeenAdd_(sid); seen.push(sid);
@@ -2110,7 +2135,7 @@ function musicSeek_(slots) {
         license: slic, kind: 'افکت', mood: '', slots: 'میانه', gain: '',
         source: base + '/details/' + sid, by: 'موتور — گشتنِ خودکار'
       });
-      out.added++;
+      out.added++; sfxAdded++;
       out.notes.push('افکت: ' + auditCut_(sbest.name, 40));
     }
   }
