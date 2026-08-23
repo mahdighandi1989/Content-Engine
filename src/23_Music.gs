@@ -258,9 +258,14 @@ function musicScan_(hub) {
       if (!String(known.v[MC.LINK - 1] || '').trim()) {
         try { sh.getRange(known.row, MC.LINK).setValue(musicUrl_(id)); } catch (eL0) {}
       }
-      if (!String(known.v[MC.HEARD - 1] || '').trim()) {
+      var curH = String(known.v[MC.HEARD - 1] || '').trim();
+      // خالی، یا «❓» که حالا تأیید شده. نوشتهٔ خودِ آدم هرگز پاک نمی‌شود.
+      if (!curH || curH.charAt(0) === '❓') {
         try {
-          sh.getRange(known.row, MC.HEARD).setValue(musicHeardTxt_(musicMeta_(f.getName())));
+          var nextH = musicHeardTxt_(musicMeta_(f.getName()));
+          if (!curH || nextH.charAt(0) === '✅') {
+            sh.getRange(known.row, MC.HEARD).setValue(nextH);
+          }
         } catch (eH0) {}
       }
       skipped++;
@@ -299,7 +304,8 @@ function musicScan_(hub) {
         if (srcTxt && !String(r.v[MC.SRC - 1] || '').trim()) sh.getRange(r.row, MC.SRC).setValue(srcTxt);
         updated++;
       }
-      if (!String(r.v[MC.HEARD - 1] || '').trim()) {
+      var cH = String(r.v[MC.HEARD - 1] || '').trim();
+      if (!cH || (cH.charAt(0) === '❓' && heardTxt.charAt(0) === '✅')) {
         try { sh.getRange(r.row, MC.HEARD).setValue(heardTxt); } catch (eHd) {}
       }
       // ردیف‌هایی که پیش از افزوده‌شدنِ ستونِ لینک ساخته شده‌اند
@@ -377,6 +383,16 @@ function heardSays_(cell, word) {
   var t = String(cell || '').trim();
   if (!t || t.charAt(0) === '❓') return false;
   return t.indexOf(String(word)) !== -1;
+}
+
+/** به‌روزکردنِ شناسنامهٔ یک قطعه، بی دست‌زدن به فایلِ صوتی. */
+function musicMetaWrite_(wavName, meta) {
+  var nm = '_MUSIC-META-' + String(wavName).replace(/\.wav$/i, '') + '.json';
+  var body = JSON.stringify(meta, null, 1);
+  var folder = musicFolder_();
+  var it = folder.getFilesByName(nm);
+  if (it.hasNext()) { var f = it.next(); f.setContent(body); return f; }
+  return folder.createFile(Utilities.newBlob(body, 'application/json', nm));
 }
 
 /** پوشهٔ کنارگذاشته‌ها — ساخته می‌شود اگر نباشد. هرگز پاک نمی‌کنیم. */
@@ -2240,7 +2256,7 @@ function musicSlotCounts_(hub) {
  * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
  */
 function musicRecheck_(hub) {
-  var out = { checked: 0, moved: 0, kept: 0, notes: [] };
+  var out = { checked: 0, moved: 0, kept: 0, heard: 0, notes: [] };
   var folder = musicFolder_();
   var rej = null;
   var it = folder.getFiles();
@@ -2259,7 +2275,30 @@ function musicRecheck_(hub) {
     var acc = info ? musicAccept_(bytes, info, f2.getName(),
                                   (mt && mt.kind) || 'موسیقی')
                    : { ok: false, why: 'WAV خوانده نشد' };
-    if (acc.ok) { out.kept++; continue; }
+    if (acc.ok) {
+      out.kept++;
+      /* ── داوریِ تازه باید ثبت شود، وگرنه بازبینی بی‌اثر است ──
+       * تا ۵٫۷۰ اینجا فقط شمرده می‌شد. یعنی قطعه‌ای که بارِ اول مدل نتوانست
+       * قضاوتش کند («❓ مدل نشنید») تا ابد نامعلوم می‌ماند، هرچند بار هم
+       * بازبینی می‌شد. و از ۵٫۶۵ همین «نامعلوم» جلوی پخشِ افکت را می‌گیرد،
+       * پس یک ناتوانیِ گذرا به یک بن‌بستِ دائمی تبدیل می‌شد.
+       * «Paper Pages» دقیقاً همین بود: تنها افکتِ بانک، سالم، و بی‌استفاده.
+       */
+      if (acc.sure && acc.heard && !(mt && String(mt.heard || '').trim())) {
+        try {
+          var nm2 = mt || {};
+          nm2.heard = String(acc.heard);
+          nm2.verdict = String(acc.why || '');
+          if (!nm2.title) nm2.title = f2.getName().replace(/\.wav$/i, '');
+          if (!nm2.kind) nm2.kind = 'موسیقی';
+          musicMetaWrite_(f2.getName(), nm2);
+          out.heard = (out.heard || 0) + 1;
+          out.notes.push(auditCut_(f2.getName(), 45) + ' — تأیید شد: ' + acc.heard);
+          logLine_('تأییدِ شنیداری ثبت شد: «' + f2.getName() + '» → ' + acc.heard);
+        } catch (eW) {}
+      }
+      continue;
+    }
 
     if (!rej) {
       var nm = CFG.MUSIC_REJECT_FOLDER || 'کنارگذاشته — گفتار یا نامناسب';
@@ -2279,7 +2318,9 @@ function musicRecheck_(hub) {
   }
 
   // ردیف‌های سهم‌شان در تب هم باید برود، وگرنه بانک هنوز می‌بیندشان
-  if (out.moved) { try { musicScan_(hub); } catch (eS) {} }
+  // پویش هم لازم است وقتی فقط تأییدی ثبت شده — وگرنه ستونِ تب همان «❓»
+  // می‌ماند و سدِ افکت باز نمی‌شود.
+  if (out.moved || out.heard) { try { musicScan_(hub); } catch (eS) {} }
   return out;
 }
 
