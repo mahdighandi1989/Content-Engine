@@ -296,9 +296,15 @@ console.log('=== ۶) موسیقی از اینترنت می‌آید، نه از 
   CFG.MUSIC_FETCH_MAX_BYTES = keepCap;
 
   // و وصل‌بودنش — وگرنه همان «کدِ نوشته‌شده که صدا زده نمی‌شود»
-  ok('۶.۱۲ در کارِ شبانه پیش از پویش صدا زده می‌شود',
-     /musicFetch_\(\);[\s\S]{0,200}musicScan_\(\)/.test(
-       fs.readFileSync('src/21_SelfUpdate.gs', 'utf8')));
+  // «پیش از پویش» یک ترتیب است، نه یک فاصله. سنجهٔ قبلی ۲۰۰ نویسه فاصله
+  // می‌خواست و با افزودنِ نگهبانِ زمان در ۵٫۶۸ شکست — در حالی که ترتیب
+  // دست‌نخورده بود. حالا خودِ ترتیب سنجیده می‌شود.
+  {
+    const p21f = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+    ok('۶.۱۲ در کارِ شبانه پیش از پویش صدا زده می‌شود',
+       p21f.indexOf('musicFetch_();') > 0 &&
+       p21f.indexOf('musicFetch_();') < p21f.indexOf('musicScan_(); musicAutoTag_()'));
+  }
   ok('۶.۱۳ و از منو هم در دسترس است',
      /runMusicFetch/.test(fs.readFileSync('src/05_Setup.gs', 'utf8')));
   ok('۶.۱۴ فایلِ فهرست در نقشهٔ ریشه شناخته‌شده است — وگرنه «ناشناس» گزارش می‌شود',
@@ -1203,6 +1209,77 @@ console.log('=== ۱۹) گشتنِ افکت کور بود: متنِ فردا هن
      p23.indexOf('چه صدایی این قسمت می‌خواهد') < p23.indexOf('if (sfxOn) {'));
   ok('۱۹.۱۲ خواستهٔ برآورده‌نشده به آرزو می‌رود',
      /if \(missSfx\.length\) sfxWish_\(missSfx, opt\)/.test(p23));
+}
+
+console.log('=== ۲۰) کارِ شبانه: نصبِ کد پشتِ صفِ سنگین‌ها ایستاده بود ===');
+{
+  /* صاحبِ برنامه دید که هشت نسخهٔ کهنهٔ پرامپت هنوز در ریشهٔ OUTPUT‌اند، با
+   * اینکه promptPrune_ از ۵٫۴۷ نوشته و وصل و آزموده شده بود — و پرسید «مگر
+   * قبلاً سازوکارش را درست نکردی؟». تابع سالم بود؛ **نوبتش نمی‌رسید**.
+   *
+   * selfUpdateDaily به ترتیبِ تاریخِ افزوده‌شدن چیده شده بود، نه به ترتیبِ
+   * اهمیت: گشتنِ موسیقی، دانلود با سقفِ ۱۵۰ ثانیه، و پویشی که بایتِ هر فایلِ
+   * بانک را می‌خواند — همه پیش از خانه‌داری، و پیش از خودِ نصبِ کد که آخرین
+   * خط بود. مهلتِ شش‌دقیقه‌ایِ Apps Script اجرا را بی‌صدا می‌کشد، پس هرچه
+   * پس از موسیقی بود گرسنه می‌ماند. با چهار فایل دیده نمی‌شد؛ با یازده
+   * فایل و ~۶۰ مگابایت شد. */
+  // فقط بدنهٔ خودِ selfUpdateDaily — وگرنه تعریفِ nightHas_ که بالاترش
+  // نشسته، ترتیب را جعل می‌کند.
+  const whole = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const p21 = whole.slice(whole.indexOf('function selfUpdateDaily() {'),
+                          whole.indexOf('function selfUpdateRetry()'));
+  const at = (needle) => p21.indexOf(needle);
+
+  ok('۲۰.۱ داوریِ نصبِ دیشب هنوز پیش از نصبِ امشب است',
+     at('engVerdict_()') < at('installed = selfUpdateStep(false)'));
+  ok('۲۰.۲ نصبِ کد پیش از کارِ سنگین انجام می‌شود، نه بعدش',
+     at('installed = selfUpdateStep(false)') < at('musicSeek_(miss)'),
+     'نصب باید جلوتر از موسیقی باشد');
+  ok('۲۰.۳ بایگانیِ پرامپت‌ها هم پیش از کارِ سنگین',
+     at('promptPrune_()') < at('musicSeek_(miss)'));
+  ok('۲۰.۴ و هرسِ گزارش و پرونده‌های غنی‌سازی همین‌طور',
+     at('pruneReportArchive_()') < at('musicSeek_(miss)') &&
+     at('pruneEnrichFiles_()') < at('musicSeek_(miss)'));
+  ok('۲۰.۵ سنجهٔ محتوا هنوز در همان اجرا هست',
+     /auditRun_\(\)/.test(p21) && /auditPrune_\(\)/.test(p21));
+  ok('۲۰.۶ و نتیجهٔ نصب همچنان برگردانده می‌شود',
+     /return installed;/.test(p21));
+
+  // نگهبانِ زمان: هر کارِ سنگین پشتِ آن است
+  ok('۲۰.۷ هر کارِ سنگین پیش از شروع وقت را می‌سنجد',
+     (p21.match(/nightHas_\(/g) || []).length >= 4,
+     String((p21.match(/nightHas_\(/g) || []).length));
+  ok('۲۰.۸ و خانه‌داری پشتِ نگهبان نیست — همیشه اجرا می‌شود',
+     at('promptPrune_()') < at('nightHas_('),
+     'خانه‌داری باید بی‌قید و شرط باشد');
+
+  nightStart_();
+  ok('۲۰.۹ در آغازِ اجرا وقت هست', nightHas_(60000, 'آزمون') === true);
+  const keep = CFG.NIGHT_BUDGET_MS;
+  CFG.NIGHT_BUDGET_MS = 1;                    // سهم تمام‌شده
+  ok('۲۰.۱۰ با تمام‌شدنِ سهم، کارِ سنگین رد می‌شود — نه اینکه اجرا کشته شود',
+     nightHas_(60000, 'آزمون') === false);
+  CFG.NIGHT_BUDGET_MS = keep;
+  nightStart_();
+  ok('۲۰.۱۱ و سهم دوباره از صفر شمرده می‌شود', nightHas_(60000, 'آزمون') === true);
+
+  // پویشِ بانک نباید هر شب بایتِ همهٔ فایل‌ها را بخواند
+  const p23b = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۰.۱۲ ردیفِ سنجیده‌شده دوباره از روی بایت خوانده نمی‌شود',
+     /skipped\+\+;\s*\n\s*continue;/.test(p23b) &&
+     p23b.indexOf('var known = byId[id];') <
+       p23b.indexOf('bytes = f.getBlob().getBytes()'));
+
+  /* و سازوکاری که نگذارد این دوباره بی‌صدا بماند: خودِ موتور باید بگوید
+     نسخهٔ کهنهٔ پرامپت در ریشه مانده. تا ۵٫۶۷ نامِ `_PROMPT-*.md` «شناخته»
+     بود، پس سرگردان شمرده نمی‌شد و هیچ هشداری نمی‌گرفت — و تشخیصش افتاده
+     بود گردنِ صاحبِ برنامه، که دو بار یادآوری کرد. */
+  const p08b = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۲۰.۱۳ وارسیِ چیدمان نسخهٔ کهنهٔ پرامپت را جدا می‌شمارد',
+     /oldPrompts: \[\]/.test(p08b) && /promptFam/.test(p08b));
+  ok('۲۰.۱۴ و در هشدارِ سلامت دیده می‌شود، با اشاره به علتِ اصلی',
+     /نسخهٔ کهنهٔ پرامپت هنوز در ریشهٔ/.test(p08b) &&
+     /promptPrune_\) اجرا نشده/.test(p08b));
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -84,6 +84,19 @@ copy to the Drive «کدها» folder.
    The pre-5.48 reminder put the version in its own title, so
    `codeRowSatisfied_` closed it the night the code installed — it warned once
    and went quiet forever. That is exactly how 5.46 shipped with a stale prompt.
+
+7c. **When you create `_PROMPT-<kind>-v<N+1>.md` in Drive, move `v<N>` out of the
+   root in the same session** — into «بایگانی — پرامپت‌های پیشین»
+   (`1bAj5nQA9Umr9mTW5pubeDNwpOPCV1moB`), with
+   `mcp__Google_Drive__update_file` + `parentId`. Never delete it.
+   `promptPrune_` does this nightly, but nightly is not soon enough: between
+   your upload and 02:30 the root holds two versions of the same prompt, and the
+   task or the routine can read the wrong one. On 23 August eight stale versions
+   were sitting in the root and the owner had to point it out twice — the second
+   time asking, correctly, why he has to keep reminding us.
+   From 5.68 `outLayoutCheck_` reports them (`outLayout.oldPrompts`) so the
+   engine complains rather than the owner, but the fix is not to leave them
+   there in the first place.
 8. `git add -A && git commit && git push origin main` — **push directly, always.**
    Never hand the file to the user and wait for a manual push; the workflow ends
    with your own push. (The engine installs it that night; if the user also pasted
@@ -293,6 +306,22 @@ Ingested reports are the opposite: `markReportDone_` moves each to
 `outLayoutCheck_` (section 8) compares the root against the known-name list and
 reports anything unrecognised into `_STATUS.json` (`outLayout`) and the health
 alerts. It only *reports* — the engine never deletes something it doesn't know.
+
+Two things it reports that are **not** unrecognised names, and are worse for
+exactly that reason — a known name draws no attention: `dups` (the same known
+name twice; `getFilesByName` returns one of them and does not promise which, and
+`putOutJson_` trashes the rest on its next write) and `oldPrompts` (a prompt
+version that is not the highest of its family). Both mean a reader can silently
+get the wrong file.
+
+**The nightly job runs in importance order, not in the order things were added**
+(5.68). Verdict → **code install** → housekeeping → heavy work, and every heavy
+block sits behind `nightHas_`. Before that, the install was the last line of
+`selfUpdateDaily`, behind music seeking, a 150-second download budget, and a
+scan that read every bank file's bytes; Apps Script kills a run at six minutes
+without an error, so on a busy night nothing after the music ran — including the
+install. Anything you add to the nightly goes **after** the housekeeping and
+**behind a `nightHas_` guard**, or it will starve the things that matter.
 
 **The map is `docs/drive_layout.md`, and it is the only copy.** `outReadmeSync_`
 fetches it nightly and mirrors it into OUTPUT as

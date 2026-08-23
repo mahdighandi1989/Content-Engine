@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.67
+ *  موتور محتوا و پادکست — نسخهٔ 5.68
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -432,6 +432,11 @@ var CFG = {
   // دانلود در کارِ شبانه جا دارد ولی مهلتِ شش‌دقیقه‌ای گوگل هم هست. به‌جای
   // یک سقفِ ثابتِ محافظه‌کارانه، سقفِ زمانی: تا وقتی وقت هست بیاور.
   MUSIC_FETCH_BUDGET_MS: 150000,
+  // سهمِ کلِ کارِ شبانه از مهلتِ شش‌دقیقه‌ایِ گوگل. هر کارِ سنگین پیش از
+  // شروع می‌پرسد وقت مانده یا نه؛ نمانده باشد، صریح گزارش می‌شود و فردا
+  // شب نوبتش می‌رسد — به‌جای اینکه اجرا وسطِ کار بی‌صدا کشته شود و هرچه
+  // بعد از آن بود (از جمله نصبِ کد) اصلاً اجرا نشود.
+  NIGHT_BUDGET_MS: 270000,
   MUSIC_SEEK_MIN_SEC: 5,             // کوتاه‌تر از این، قطعه نیست
   MUSIC_SEEK_API: 'https://archive.org',
   // فایلی که سنجه ردش می‌کند به این زیرپوشه می‌رود — پاک نمی‌شود.
@@ -646,7 +651,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.67',
+  CODE_VERSION: '5.68',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -7235,7 +7240,7 @@ function rxQuote_(s) {
  */
 function outLayoutCheck_() {
   var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
-              readme: null, error: '' };
+              oldPrompts: [], readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
@@ -7252,12 +7257,26 @@ function outLayoutCheck_() {
      * بدتر است — چون هیچ‌کس نگاهش نمی‌کند.
      */
     var byName = {};
+    /* نسخهٔ کهنهٔ پرامپت در ریشه: نامش «شناخته» است پس سرگردان شمرده نمی‌شد
+       و هیچ هشداری نمی‌گرفت. ۲۳ اوت هشت‌تا از آن‌ها آنجا بودند و کسی جز
+       خودِ صاحبِ برنامه ندیدشان — بعد از اینکه دو بار یادآوری کرد.
+       promptPrune_ شبانه جمعشان می‌کند؛ این فهرست می‌گوید *امروز* هنوز
+       هستند، تا اگر آن هرس اجرا نشده باشد، سکوت نکند. */
+    var promptFam = {};
 
     var fi = root.getFiles();
     while (fi.hasNext()) {
       var f = fi.next(), n = String(f.getName());
       out.files++;
       byName[n] = (byName[n] || 0) + 1;
+      var pm = n.match(PROMPT_RE);
+      if (pm) {
+        var pk = pm[1], pn = parseInt(pm[2], 10);
+        if (isFinite(pn)) {
+          if (!promptFam[pk]) promptFam[pk] = [];
+          promptFam[pk].push({ name: n, n: pn });
+        }
+      }
       if (n === String(CFG.OUT_README || '')) {
         var w = null;
         try { w = f.getLastUpdated(); } catch (eU) {}
@@ -7268,6 +7287,18 @@ function outLayoutCheck_() {
       if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
       // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
       if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    for (var pfk in promptFam) {
+      if (!Object.prototype.hasOwnProperty.call(promptFam, pfk)) continue;
+      var pl = promptFam[pfk];
+      if (pl.length < 2) continue;
+      var ptop = pl[0].n;
+      for (var pi2 = 1; pi2 < pl.length; pi2++) if (pl[pi2].n > ptop) ptop = pl[pi2].n;
+      for (var pj = 0; pj < pl.length; pj++) {
+        if (pl[pj].n >= ptop) continue;
+        if (out.oldPrompts.length < 25) out.oldPrompts.push(pl[pj].name);
+      }
     }
 
     for (var nm in byName) {
@@ -7578,6 +7609,15 @@ function healthCheck() {
       }
       // هم‌نامِ تکراری از فایلِ سرگردان خطرناک‌تر است: نامش شناخته است، پس
       // هیچ هشداری نمی‌گرفت، و خواننده بی‌خبر نسخهٔ کهنه را می‌خواند.
+      // نسخهٔ کهنهٔ پرامپت که هنوز در ریشه است. خودش خطرِ خواندنِ اشتباه
+      // است، و نشانهٔ اینکه هرسِ شبانه اجرا نشده — که خودش ایرادِ بزرگ‌تری است.
+      if (lay.oldPrompts && lay.oldPrompts.length) {
+        problems.push('‏' + lay.oldPrompts.length + ' نسخهٔ کهنهٔ پرامپت هنوز در ریشهٔ ' +
+                      'OUTPUT است (' + lay.oldPrompts.slice(0, 5).join(' · ') + ') — ' +
+                      'جایش «' + (CFG.PROMPT_ARCHIVE_FOLDER || 'بایگانی — پرامپت‌های پیشین') +
+                      '» است. یعنی هرسِ شبانه (promptPrune_) اجرا نشده؛ دنبالِ ' +
+                      'همان بگرد، نه دنبالِ خودِ فایل‌ها.');
+      }
       if (lay.dups && lay.dups.length) {
         var dn = [];
         for (var dI = 0; dI < lay.dups.length && dI < 6; dI++) {
@@ -18736,45 +18776,67 @@ function outReadmeSync_() {
   } catch (e2) { return { ok: false, reason: e2.message }; }
 }
 
+/* ══════════════════ مهلتِ کارِ شبانه ══════════════════
+
+   Apps Script هر اجرا را پس از شش دقیقه می‌کشد — بی خطا، بی پیام، وسطِ کار.
+   کارِ شبانه سال‌ها زیرِ این سقف بود، تا اینکه ۵٫۵۵–۵٫۶۷ کارِ موسیقی را به
+   آن افزود: گشتن در اینترنت، دانلود با سقفِ ۱۵۰ ثانیه، و پویشی که بایتِ هر
+   فایلِ بانک را می‌خواند. آن‌وقت هرچه پس از موسیقی بود گرسنه ماند.
+
+   و آنچه پس از آن بود، بی‌اهمیت نبود: بایگانیِ نسخه‌های کهنهٔ پرامپت، هرسِ
+   گزارش‌ها، یادآورِ تازگیِ دستور — و در انتهای همه، **خودِ نصبِ کد**.
+   یعنی مهم‌ترین کارِ شب پشتِ صفِ سنگین‌ترین کارها ایستاده بود.
+
+   نشانهٔ بیرونی‌اش را صاحبِ برنامه دید: ۲۳ اوت هشت نسخهٔ کهنهٔ پرامپت هنوز
+   در ریشه بودند، با اینکه promptPrune_ از ۵٫۴۷ نوشته و وصل و آزموده شده
+   بود. تابع سالم بود؛ نوبتش نمی‌رسید.
+
+   دو درمان: ترتیب (ارزان و حیاتی اول، سنگین آخر) و نگهبانِ زمان که به‌جای
+   کشته‌شدنِ خاموش، صریح می‌گوید چه چیزی این شب اجرا نشد. */
+
+var _nightT0 = 0;
+
+function nightStart_() { _nightT0 = new Date().getTime(); }
+
+/** میلی‌ثانیهٔ باقی‌مانده از سهمِ این اجرا. */
+function nightLeft_() {
+  if (!_nightT0) nightStart_();
+  var budget = Math.max(30000, Number(CFG.NIGHT_BUDGET_MS) || 270000);
+  return budget - (new Date().getTime() - _nightT0);
+}
+
+/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ می‌شود. */
+function nightHas_(needMs, what) {
+  var left = nightLeft_();
+  if (left >= needMs) return true;
+  logLine_('کارِ شبانه: «' + what + '» امشب اجرا نشد — وقت نمانده (' +
+           Math.round(left / 1000) + ' ثانیه). فردا شب دوباره.');
+  return false;
+}
+
+/**
+ * کارِ شبانه — به ترتیبِ اهمیت، نه به ترتیبِ تاریخِ افزوده‌شدن.
+ *
+ * ۱) داوریِ نصبِ دیشب (باید پیش از نصبِ امشب باشد، وگرنه دو نصب قاطی می‌شوند)
+ * ۲) نصبِ کد — مهم‌ترین کارِ شب
+ * ۳) خانه‌داریِ ارزان و کران‌دار
+ * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
+ */
 function selfUpdateDaily() {
-  // وارسیِ اسکریپت‌های منبع یک بار در شبانه‌روز، همین‌جا — تا مسیرِ ساختِ
-  // وضعیت (که داخلِ تولیدِ پادکست هم می‌دود) هیچ فراخوانِ شبکه‌ای نداشته باشد.
-  var srcAudit = null;
-  try { srcAudit = auditSourceScripts(); } catch (eSS) {}
+  nightStart_();
 
-  // بانکِ موسیقی: فایلِ تازه‌ای که کاربر در پوشه گذاشته، شبانه دیده و
-  // برچسب‌گذاری می‌شود — تا صبح آمادهٔ استفاده باشد.
-  // ترتیب مهم است: اول فایل‌های تازه آورده می‌شوند، بعد پویش می‌شود.
-  // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
-  // فقط برای جایگاهی می‌گردیم که بانک برایش چیزی ندارد.
-  try {
-    var miss = musicThinSlots_();
-    // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
-    // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
-    // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
-    var why = 'کمبود';
-    if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
-    if (miss.length) {
-      logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
-      musicSeek_(miss);
-    }
-  } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
-  try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
-  try { musicScan_(); musicAutoTag_(); }
-  catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
-
-  // داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب با
-  // تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
+  // ۱) داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب
+  // با تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
   try { engVerdict_(); } catch (eEV) { logLine_('داوریِ کدِ موتور ناموفق: ' + eEV.message); }
 
-  // چرخهٔ کدِ تحلیلگرهای منبع: اول داوریِ نصبِ دیروز، بعد نصبِ بستهٔ تازه.
-  try { srcNightly_(srcAudit); } catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+  // ۲) نصبِ کد. تا ۵٫۶۷ این آخرین خطِ تابع بود و هر شب پشتِ سرِ گشتنِ
+  // موسیقی و دانلود و پویش و داوریِ محتوا می‌ایستاد — یعنی شبی که آن‌ها
+  // طول می‌کشیدند، کدِ تازه اصلاً نصب نمی‌شد و هیچ خطایی هم بلند نمی‌شد.
+  var installed = { ok: false };
+  try { installed = selfUpdateStep(false); }
+  catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); }
 
-  // نمونهٔ روزانهٔ شمارنده‌ها. بعد از داوری گرفته می‌شود تا ترازوی امروز
-  // نمونهٔ دیروز باشد، نه نمونه‌ای که همین الان ساختیم.
-  try { engHeartbeat_(); } catch (eHB) {}
-
-  // مرتب نگه‌داشتنِ ریشهٔ OUTPUT: نقشه تازه شود، بایگانیِ کهنه هرس شود.
+  // ۳) خانه‌داری: ارزان، کران‌دار، و هرکدام یک وعده به صاحبِ برنامه.
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
   try { promptPrune_(); } catch (ePP) {}
@@ -18784,15 +18846,51 @@ function selfUpdateDaily() {
   try { pruneEnrichFiles_(); } catch (ePE) {}
   // و وارسیِ تازگیِ دستورها — هر شب، تا انجام شود.
   try { promptFreshNag_(); } catch (ePF) {}
+  // نمونهٔ روزانهٔ شمارنده‌ها، پس از داوری تا ترازوی امروز نمونهٔ دیروز باشد.
+  try { engHeartbeat_(); } catch (eHB) {}
 
-  // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود. پیش از نصبِ کد انجام
-  // می‌شود تا داوریِ قسمت‌هایی که با کدِ امشب ساخته شده‌اند به نسخهٔ همان کد
-  // نسبت داده شود، نه به نسخه‌ای که چند دقیقه بعد نصب می‌شود.
-  try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
-  try { auditPrune_(); } catch (eCP) {}
+  // ۴) کارِ سنگین. هرکدام فقط اگر وقتش باشد؛ وگرنه صریح گزارش می‌شود و
+  // فردا شب نوبتش می‌رسد. نبودنِ یک شبِ این‌ها هزینه‌ای ندارد؛ نبودنِ نصب
+  // و خانه‌داری دارد.
+  if (nightHas_(60000, 'وارسی و چرخهٔ اسکریپت‌های منبع')) {
+    var srcAudit = null;
+    try { srcAudit = auditSourceScripts(); } catch (eSS) {}
+    try { srcNightly_(srcAudit); }
+    catch (eSN) { logLine_('چرخهٔ تحلیلگرهای منبع ناموفق: ' + eSN.message); }
+  }
 
-  try { return selfUpdateStep(false); }
-  catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); return { ok: false }; }
+  // بانکِ موسیقی: فایلِ تازه‌ای که کاربر در پوشه گذاشته، شبانه دیده و
+  // برچسب‌گذاری می‌شود. ترتیبِ درونی مهم است: اول آوردن، بعد پویش —
+  // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
+  if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
+    try {
+      var miss = musicThinSlots_();
+      // کمبودی نبود یعنی «پوشش کامل است»، نه «کار تمام است». بانکی که همهٔ
+      // قطعه‌هایش ده بار پخش شده‌اند، برای شنونده همان بانکِ خالی است. پس
+      // شبی که کمبودی نیست، سراغِ فرسوده‌ترین خانواده می‌رویم.
+      var why = 'کمبود';
+      if (!miss.length) { miss = musicRotateSlots_(); why = 'چرخش'; }
+      if (miss.length) {
+        logLine_('گشتنِ موسیقی (' + why + '): ' + miss.join('، '));
+        musicSeek_(miss);
+      }
+    } catch (eMS) { logLine_('گشتنِ موسیقی انجام نشد: ' + eMS.message); }
+    try { musicFetch_(); } catch (eMF) { logLine_('آوردنِ موسیقی انجام نشد: ' + eMF.message); }
+  }
+  // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
+  // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
+  if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {
+    try { musicScan_(); musicAutoTag_(); }
+    catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
+  }
+
+  // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
+  if (nightHas_(45000, 'سنجهٔ محتوا')) {
+    try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
+    try { auditPrune_(); } catch (eCP) {}
+  }
+
+  return installed;
 }
 
 function selfUpdateRetry() { return selfUpdateDaily(); }
@@ -20954,7 +21052,7 @@ function musicScan_(hub) {
   var byId = {};
   for (var i = 0; i < rows.length; i++) byId[String(rows[i][MC.ID - 1])] = { row: i + 2, v: rows[i] };
 
-  var seen = {}, added = 0, updated = 0, bad = 0;
+  var seen = {}, added = 0, updated = 0, bad = 0, skipped = 0;
   var it = musicFolder_().getFiles();
   while (it.hasNext()) {
     var f = it.next(), id = f.getId();
@@ -20970,6 +21068,35 @@ function musicScan_(hub) {
     // علامت می‌خورد؛ آن هشدارِ درستی است و باید بماند.
     if (/^_MUSIC-META-.*\.json$/i.test(f.getName())) continue;
     seen[id] = 1;
+
+    /* ── ردیفی که قبلاً کامل سنجیده شده، دوباره خوانده نمی‌شود ──
+     *
+     * ══ چرا لازم شد ══
+     * این حلقه بایتِ *هر* فایل را می‌خواند تا wavInfo_ و musicProbe_ را
+     * بسنجد. با چهار فایل چند ثانیه بود؛ با یازده فایل و ~۶۰ مگابایت،
+     * دقیقه‌ها. و این پویش در کارِ شبانه اجرا می‌شود که مهلتش شش دقیقه است
+     * — پس هرچه پس از آن بود گرسنه می‌ماند: بایگانیِ پرامپت‌ها، هرسِ
+     * گزارش‌ها، و بدتر از همه خودِ نصبِ کد.
+     * فایلِ درایو با همان شناسه عوض نمی‌شود، پس اندازه‌گیریِ دوباره چیزی
+     * به دست نمی‌دهد. فقط ستون‌های خالی پر می‌شوند.
+     */
+    var known = byId[id];
+    if (known && Number(known.v[MC.SEC - 1]) > 0 &&
+        String(known.v[MC.FMT - 1] || '').indexOf('ناسازگار') === -1 &&
+        String(known.v[MC.FMT - 1] || '').indexOf('نیست') === -1 &&
+        String(known.v[MC.PROBE - 1] || '').trim()) {
+      if (!String(known.v[MC.LINK - 1] || '').trim()) {
+        try { sh.getRange(known.row, MC.LINK).setValue(musicUrl_(id)); } catch (eL0) {}
+      }
+      if (!String(known.v[MC.HEARD - 1] || '').trim()) {
+        try {
+          sh.getRange(known.row, MC.HEARD).setValue(musicHeardTxt_(musicMeta_(f.getName())));
+        } catch (eH0) {}
+      }
+      skipped++;
+      continue;
+    }
+
     var info = null, probe = null, bytes = null;
     try { bytes = f.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
     // خودِ موج اندازه گرفته می‌شود، نه نامِ فایل. دانلودِ ناقص، سکوت و فایلِ
@@ -21032,8 +21159,9 @@ function musicScan_(hub) {
     gone++;
   }
   logLine_('بانکِ موسیقی: ' + added + ' تازه، ' + updated + ' به‌روز، ' +
+           skipped + ' بی‌تغییر (دوباره خوانده نشد)، ' +
            bad + ' ناسازگار، ' + gone + ' ناموجود.');
-  return { added: added, updated: updated, bad: bad, gone: gone };
+  return { added: added, updated: updated, bad: bad, gone: gone, skipped: skipped };
 }
 
 /**

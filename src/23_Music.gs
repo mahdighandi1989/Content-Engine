@@ -213,7 +213,7 @@ function musicScan_(hub) {
   var byId = {};
   for (var i = 0; i < rows.length; i++) byId[String(rows[i][MC.ID - 1])] = { row: i + 2, v: rows[i] };
 
-  var seen = {}, added = 0, updated = 0, bad = 0;
+  var seen = {}, added = 0, updated = 0, bad = 0, skipped = 0;
   var it = musicFolder_().getFiles();
   while (it.hasNext()) {
     var f = it.next(), id = f.getId();
@@ -229,6 +229,35 @@ function musicScan_(hub) {
     // علامت می‌خورد؛ آن هشدارِ درستی است و باید بماند.
     if (/^_MUSIC-META-.*\.json$/i.test(f.getName())) continue;
     seen[id] = 1;
+
+    /* ── ردیفی که قبلاً کامل سنجیده شده، دوباره خوانده نمی‌شود ──
+     *
+     * ══ چرا لازم شد ══
+     * این حلقه بایتِ *هر* فایل را می‌خواند تا wavInfo_ و musicProbe_ را
+     * بسنجد. با چهار فایل چند ثانیه بود؛ با یازده فایل و ~۶۰ مگابایت،
+     * دقیقه‌ها. و این پویش در کارِ شبانه اجرا می‌شود که مهلتش شش دقیقه است
+     * — پس هرچه پس از آن بود گرسنه می‌ماند: بایگانیِ پرامپت‌ها، هرسِ
+     * گزارش‌ها، و بدتر از همه خودِ نصبِ کد.
+     * فایلِ درایو با همان شناسه عوض نمی‌شود، پس اندازه‌گیریِ دوباره چیزی
+     * به دست نمی‌دهد. فقط ستون‌های خالی پر می‌شوند.
+     */
+    var known = byId[id];
+    if (known && Number(known.v[MC.SEC - 1]) > 0 &&
+        String(known.v[MC.FMT - 1] || '').indexOf('ناسازگار') === -1 &&
+        String(known.v[MC.FMT - 1] || '').indexOf('نیست') === -1 &&
+        String(known.v[MC.PROBE - 1] || '').trim()) {
+      if (!String(known.v[MC.LINK - 1] || '').trim()) {
+        try { sh.getRange(known.row, MC.LINK).setValue(musicUrl_(id)); } catch (eL0) {}
+      }
+      if (!String(known.v[MC.HEARD - 1] || '').trim()) {
+        try {
+          sh.getRange(known.row, MC.HEARD).setValue(musicHeardTxt_(musicMeta_(f.getName())));
+        } catch (eH0) {}
+      }
+      skipped++;
+      continue;
+    }
+
     var info = null, probe = null, bytes = null;
     try { bytes = f.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
     // خودِ موج اندازه گرفته می‌شود، نه نامِ فایل. دانلودِ ناقص، سکوت و فایلِ
@@ -291,8 +320,9 @@ function musicScan_(hub) {
     gone++;
   }
   logLine_('بانکِ موسیقی: ' + added + ' تازه، ' + updated + ' به‌روز، ' +
+           skipped + ' بی‌تغییر (دوباره خوانده نشد)، ' +
            bad + ' ناسازگار، ' + gone + ' ناموجود.');
-  return { added: added, updated: updated, bad: bad, gone: gone };
+  return { added: added, updated: updated, bad: bad, gone: gone, skipped: skipped };
 }
 
 /**

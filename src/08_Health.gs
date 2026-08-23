@@ -157,7 +157,7 @@ function rxQuote_(s) {
  */
 function outLayoutCheck_() {
   var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
-              readme: null, error: '' };
+              oldPrompts: [], readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
@@ -174,12 +174,26 @@ function outLayoutCheck_() {
      * بدتر است — چون هیچ‌کس نگاهش نمی‌کند.
      */
     var byName = {};
+    /* نسخهٔ کهنهٔ پرامپت در ریشه: نامش «شناخته» است پس سرگردان شمرده نمی‌شد
+       و هیچ هشداری نمی‌گرفت. ۲۳ اوت هشت‌تا از آن‌ها آنجا بودند و کسی جز
+       خودِ صاحبِ برنامه ندیدشان — بعد از اینکه دو بار یادآوری کرد.
+       promptPrune_ شبانه جمعشان می‌کند؛ این فهرست می‌گوید *امروز* هنوز
+       هستند، تا اگر آن هرس اجرا نشده باشد، سکوت نکند. */
+    var promptFam = {};
 
     var fi = root.getFiles();
     while (fi.hasNext()) {
       var f = fi.next(), n = String(f.getName());
       out.files++;
       byName[n] = (byName[n] || 0) + 1;
+      var pm = n.match(PROMPT_RE);
+      if (pm) {
+        var pk = pm[1], pn = parseInt(pm[2], 10);
+        if (isFinite(pn)) {
+          if (!promptFam[pk]) promptFam[pk] = [];
+          promptFam[pk].push({ name: n, n: pn });
+        }
+      }
       if (n === String(CFG.OUT_README || '')) {
         var w = null;
         try { w = f.getLastUpdated(); } catch (eU) {}
@@ -190,6 +204,18 @@ function outLayoutCheck_() {
       if (!hit) { if (out.strays.length < 25) out.strays.push({ name: n, kind: 'فایل' }); continue; }
       // گزارشی که خوانده شده ولی هنوز در ریشه است: بایگانی‌اش نگرفته.
       if (n.indexOf('.ingested') !== -1 && out.stale.length < 25) out.stale.push(n);
+    }
+
+    for (var pfk in promptFam) {
+      if (!Object.prototype.hasOwnProperty.call(promptFam, pfk)) continue;
+      var pl = promptFam[pfk];
+      if (pl.length < 2) continue;
+      var ptop = pl[0].n;
+      for (var pi2 = 1; pi2 < pl.length; pi2++) if (pl[pi2].n > ptop) ptop = pl[pi2].n;
+      for (var pj = 0; pj < pl.length; pj++) {
+        if (pl[pj].n >= ptop) continue;
+        if (out.oldPrompts.length < 25) out.oldPrompts.push(pl[pj].name);
+      }
     }
 
     for (var nm in byName) {
@@ -500,6 +526,15 @@ function healthCheck() {
       }
       // هم‌نامِ تکراری از فایلِ سرگردان خطرناک‌تر است: نامش شناخته است، پس
       // هیچ هشداری نمی‌گرفت، و خواننده بی‌خبر نسخهٔ کهنه را می‌خواند.
+      // نسخهٔ کهنهٔ پرامپت که هنوز در ریشه است. خودش خطرِ خواندنِ اشتباه
+      // است، و نشانهٔ اینکه هرسِ شبانه اجرا نشده — که خودش ایرادِ بزرگ‌تری است.
+      if (lay.oldPrompts && lay.oldPrompts.length) {
+        problems.push('‏' + lay.oldPrompts.length + ' نسخهٔ کهنهٔ پرامپت هنوز در ریشهٔ ' +
+                      'OUTPUT است (' + lay.oldPrompts.slice(0, 5).join(' · ') + ') — ' +
+                      'جایش «' + (CFG.PROMPT_ARCHIVE_FOLDER || 'بایگانی — پرامپت‌های پیشین') +
+                      '» است. یعنی هرسِ شبانه (promptPrune_) اجرا نشده؛ دنبالِ ' +
+                      'همان بگرد، نه دنبالِ خودِ فایل‌ها.');
+      }
       if (lay.dups && lay.dups.length) {
         var dn = [];
         for (var dI = 0; dI < lay.dups.length && dI < 6; dI++) {
