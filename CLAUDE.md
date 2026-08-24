@@ -404,7 +404,14 @@ queue — a sentence in the health mail is replaced tomorrow, a finding is not.
 One bad night raises nothing: a warning that fires for a busy night is the
 warning people learn to ignore.
 
-The monitor checks it every day (`_PROMPT-monitor-v7.md` §۴٫۷) — including
+**The control lives under the series it belongs to** (5.87) — a «جزوه» column in
+«مجموعه‌های آموزشی و پیشرفت» with the link, counts, coverage and a per-series
+rebuild button, plus a summary panel. Same boundary as the calendar board in
+5.61: the board only *reads* (one read of the «کاربردِ جزوه» tab for all 264
+series, never 264 Drive round-trips) and its buttons call functions that already
+had tests. A broken window cannot break handout building.
+
+The monitor checks it every day (`_PROMPT-monitor-v8.md` §۴٫۷) — including
 opening an actual handout, because the code tests can see the file's shape but
 not its quality.
 

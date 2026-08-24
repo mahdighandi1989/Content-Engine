@@ -40,6 +40,13 @@ function seriesBoardData_(hub) {
   var lvRank = function (x) {
     return Object.prototype.hasOwnProperty.call(levelRank, x) ? levelRank[x] : 1;
   };
+  /* بخشِ ۲۶ جلوتر از این است، پس try/catch: در فایلِ سرِهم‌شده hoisting
+     نجاتش می‌دهد، ولی بارگذارِ جزئیِ آزمون‌ها با ReferenceError می‌شکند و
+     نباید کلِ تخته را زمین بزند. */
+  var hoMap = Object.create(null), hoDue = Object.create(null);
+  try { hoMap = handoutBoardMap_(hub); } catch (eH) {}
+  try { hoDue = handoutDueByKey_(); } catch (eH2) {}
+
   var rows = [];
   for (var i = 0; i < reg.rows.length; i++) {
     var v = reg.rows[i].vals;
@@ -108,6 +115,9 @@ function seriesBoardData_(hub) {
       // ردیفِ «نادیده گرفته شد» هرگز نوبت تولید نمی‌گیرد، پس هرچقدر هم قطعهٔ
       // نساخته داشته باشد، انتخابش بی‌اثر است و دکمه‌اش باید خاموش باشد؛ وگرنه
       // کاربر انتخاب می‌کرد، بنر می‌گفت «فعال است» و موتور چیز دیگری می‌ساخت.
+      // حالِ جزوه — از تبِ «کاربردِ جزوه»، یک خواندن برای کلِ تخته
+      handout: hoMap[key] || null,
+      handoutDue: hoDue[key] || 0,
       hasWork: (function () {
         if (st === SST.SKIPPED) return false;
         for (var w = 0; w < partRows.length; w++) {
@@ -474,6 +484,7 @@ function seriesBoardHtml_(d) {
   // جدا در منو. مدلِ داده همان تبِ «تقویمِ تولید» است و calGate_ دست نخورده؛
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
+  H.push(handoutPanelHtml_(d));
 
   // ── جست‌وجو — خواستهٔ صریح: این فهرست باید «حتماً» قابلِ جست‌وجو باشد ──
   H.push('<div class="card" style="position:sticky;top:0;z-index:5">' +
@@ -584,7 +595,8 @@ function seriesBoardHtml_(d) {
            (grp.pinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این دسته') +
            '</button></div>');
     H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
-           '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th><th></th></tr>');
+           '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
+           '<th>جزوه</th><th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
       var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
@@ -617,6 +629,7 @@ function seriesBoardHtml_(d) {
                          : badgeOf_(x.status)) +
              (x.lastEpAt ? '<div class="sub">' + bEsc_(x.lastEpAt) + '</div>' : '') + '</td>');
       H.push('<td>' + faNum_(x.episodes) + '</td>');
+      H.push(handoutCell_(x));
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -639,7 +652,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="7"><table style="font-size:11px">');
+               '<td colspan="8"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -725,6 +738,17 @@ function seriesBoardHtml_(d) {
          '.uiPinCategory(c,a);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
+  /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
+     پیام «چند لحظه صبر کنید» لازم است — دکمه‌ای که بی‌خبر ساکت بماند، از
+     دکمه‌ای که کار نکند فرق نمی‌کند. */
+  H.push('function handoutSeries(b){var k=b.dataset.key;' +
+         'busy();say("ساختِ جزوه… این کار چند ده ثانیه طول می‌کشد",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiHandoutSeries(k);}');
+  H.push('function handoutAll(){busy();' +
+         'say("واردکردنِ قسمت‌های گذشته و ساختِ جزوه‌ها… چند لحظه صبر کنید",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiHandoutAll();}');
   H.push('function setCourse(b){var k=b.dataset.key,a=b.dataset.act||"course";' +
          'busy();say("ثبت نظر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -806,6 +830,87 @@ function seriesBoardHtml_(d) {
  * بخشِ ۲۵ بالاتر از ۱۵ است، پس فراخوان‌ها در try/catch‌اند: بارگذارِ جزئیِ
  * آزمون‌ها نباید کلِ تخته را زمین بزند (همان قاعدهٔ همیشگیِ این ریپو).
  */
+/* ═══════════ جزوه، ذیلِ همان مجموعه‌ای که مالِ اوست (۵٫۸۷) ═══════════
+
+   صاحبِ برنامه: «بهتره که این پیشرفتِ جزوات و برخی کنترل‌هاش خودش رو تو این
+   قسمت هم ذیلِ اون مجموعه نشون بده؟» — بله، و همان درسی است که ۵٫۶۱ برای
+   تقویم داد: **کنترلی که جای دیگری از کاری که کنترل می‌کند بنشیند، پیدا
+   نمی‌شود.** تا امروز حالِ جزوه فقط در `_STATUS.json` و یک تب بود؛ کسی که
+   تختهٔ مجموعه‌ها را باز می‌کند تا ببیند این مجموعه کجاست، هیچ نشانی از
+   جزوه‌اش نمی‌دید.
+
+   و مثلِ ۵٫۶۱، **هیچ‌چیز در مدلِ داده عوض نمی‌شود**: این ستون فقط می‌خواند
+   (از تبِ «کاربردِ جزوه»، یک بار برای کلِ تخته) و دکمه‌اش همان
+   `handoutOneSeries_` را صدا می‌زند که از قبل هست و سنجه دارد. اگر این
+   پنجره بشکند، ساختِ جزوه نمی‌شکند. */
+
+/** خانهٔ «جزوه» در ردیفِ هر مجموعه. */
+function handoutCell_(x) {
+  var h = x && x.handout;
+  var due = (x && x.handoutDue) || 0;
+  if (!h || !h.totCh) {
+    // مجموعه‌ای که هنوز قسمتی نساخته، جزوه هم لازم ندارد — و دکمهٔ خاموش
+    // بهتر از دکمه‌ای است که زده شود و هیچ نکند.
+    if (!x.episodes) return '<td class="sub">—</td>';
+    return '<td><span class="bdg b-new">ساخته نشده</span>' +
+           (due ? '<div class="sub">' + faNum_(due) + ' درس در صف</div>' : '') +
+           '<div><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
+           'onclick="handoutSeries(this)">ساختِ جزوه</button></div></td>';
+  }
+  var behind = Math.max(0, (x.episodes || 0) - (h.lessons || 0));
+  return '<td>' +
+    (h.url ? '<a href="' + bEsc_(h.url) + '" target="_blank">باز کردنِ جزوه</a>'
+           : '<span class="sub">بی لینک</span>') +
+    '<div class="sub">' + faNum_(h.totCh) + ' فصل · ' + faNum_(h.totSec) + ' بخش · ' +
+    faNum_(h.totRef) + ' ارجاع</div>' +
+    '<div class="sub">' + faNum_(h.lessons || 0) + ' از ' + faNum_(x.episodes || 0) +
+    ' درس' + (h.amend ? ' · ' + faNum_(h.amend) + ' تکمیلِ درسِ قبلی' : '') + '</div>' +
+    (behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(behind) +
+              ' درس هنوز وارد نشده</div>' : '') +
+    (h.result && h.result !== 'به‌روز شد'
+       ? '<div class="sub" style="color:#8a2f2f">آخرین تلاش: ' + bEsc_(h.result) + '</div>'
+       : '') +
+    (due ? '<div class="sub">' + faNum_(due) + ' در صف</div>' : '') +
+    '<div><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
+    'onclick="handoutSeries(this)">به‌روزرسانیِ جزوه</button></div></td>';
+}
+
+/** جعبهٔ بالای تخته: حالِ کلیِ جزوه‌ها و یک دکمه برای همه. */
+function handoutPanelHtml_(d) {
+  /* ردیف‌ها زیرِ `groups[].series` هستند، نه در `d.rows`. نوشتنِ `d.rows`
+     هیچ خطایی نمی‌داد — فقط آرایهٔ خالی و جعبه‌ای که بی‌صدا رندر نمی‌شد.
+     همان «ظاهرِ درست، رفتارِ هیچ» که این ریپو بارها گرفته. */
+  var rows = [];
+  var gs = (d && d.groups) || [];
+  for (var g = 0; g < gs.length; g++) rows = rows.concat(gs[g].series || []);
+  var made = 0, lessons = 0, produced = 0, due = 0, behind = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var x = rows[i];
+    if (!x.episodes) continue;
+    produced += x.episodes;
+    due += (x.handoutDue || 0);
+    if (x.handout && x.handout.totCh) {
+      made++; lessons += (x.handout.lessons || 0);
+      if (x.episodes > (x.handout.lessons || 0)) behind++;
+    } else behind++;
+  }
+  if (!produced) return '';
+  return '<h2><span>جزوهٔ مجموعه‌ها</span>' +
+    '<span class="sub">هر مجموعه یک جزوه، در پوشهٔ خودش</span></h2>' +
+    '<div class="card"><div class="sub" style="margin-bottom:8px">' +
+    'جزوه با هر قسمتِ تازه خودکار به‌روز می‌شود؛ مطلبی که تکمیلِ درسِ قبلی ' +
+    'باشد در همان‌جا می‌نشیند، نه ته جزوه. تاریخچهٔ کامل در تبِ «' +
+    bEsc_(CFG.HANDOUT_TAB || 'کاربردِ جزوه') + '».</div>' +
+    '<div><b>' + faNum_(made) + '</b> جزوه ساخته شده · ' +
+    '<b>' + faNum_(lessons) + '</b> از <b>' + faNum_(produced) + '</b> درس وارد شده' +
+    (behind ? ' · <span style="color:#8a6d1f">' + faNum_(behind) +
+              ' مجموعه عقب است</span>' : '') +
+    (due ? ' · ' + faNum_(due) + ' درس در صف' : '') + '</div>' +
+    '<div style="margin-top:8px"><button onclick="handoutAll(this)">' +
+    'واردکردنِ قسمت‌های گذشته و ساختِ جزوه‌ها</button></div>' +
+    '<div class="sub" id="hoMsg" style="margin-top:6px"></div></div>';
+}
+
 function calPanelHtml_() {
   var d = null;
   try { d = calBoardData_(); } catch (e) { return ''; }
@@ -912,6 +1017,35 @@ function uiBoardHtml() {
  * که calGate_ می‌خواند. اینجا فقط پوسته است: پیام برای پنجره، و try/catch
  * چون بخشِ ۲۵ بالاتر از ۱۵ است.
  */
+/* ── دکمه‌های جزوه ──
+   کارِ واقعی در بخشِ ۲۶ است و همان‌جا سنجه دارد؛ اینجا فقط پوسته است، تا
+   اگر پنجره بشکند ساختِ جزوه نشکند (همان مرزی که ۵٫۶۱ برای تقویم گذاشت). */
+function uiHandoutSeries(key) {
+  try {
+    var r = handoutOneSeries_(key, Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+    var msg = 'جزوه: ' + r.done + ' درس ساخته شد' +
+              (r.queued ? '، ' + r.queued + ' درسِ گذشته به صف رفت' : '') +
+              (r.left ? '، ' + r.left + ' در صف مانده (کارِ شبانه ادامه می‌دهد)' : '') + '.';
+    if (r.notes && r.notes.length) msg += ' — ' + r.notes.slice(0, 3).join(' · ');
+    // قالبِ پاسخ همانِ بقیهٔ دکمه‌هاست: {message}. رشتهٔ خالی یعنی پنجره
+    // «انجام شد.» می‌گوید و همهٔ جزئیات را دور می‌ریزد.
+    return { ok: true, message: msg };
+  } catch (e) { return { ok: false, message: 'جزوه ساخته نشد: ' + e.message }; }
+}
+
+function uiHandoutAll() {
+  try {
+    var b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25);
+    var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+    var left = 0;
+    try { left = handoutDueList_().length; } catch (e2) {}
+    return { ok: true, message:
+      'جزوه: ' + b.queued + ' درسِ گذشته از ' + b.series + ' مجموعه به صف رفت، ' +
+      r.done + ' همین حالا ساخته شد، ' + left + ' در صف مانده' +
+      (b.wrapped ? ' (کاوشِ همهٔ مجموعه‌ها یک دور کامل شد)' : '') + '.' };
+  } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
+}
+
 function uiCalSave(key, on, days, exc) {
   try {
     var r = calBoardSave_(key, !!on, days || [], exc || '');

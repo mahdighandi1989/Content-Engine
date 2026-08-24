@@ -731,6 +731,7 @@ function handoutUpdate_(folder, meta, hub) {
     var t = totals();
     try {
       handoutLog_(hub, { series: book.seriesName || (meta && meta.seriesName) || '',
+                         key: book.seriesKey || (meta && meta.seriesKey) || '',
                          ep: epNum, title: String(ep.title || ''),
                          newCh: (st && st.chapters) || 0, newSec: (st && st.sections) || 0,
                          amend: (st && st.amended) || 0, radio: radio || 0,
@@ -809,10 +810,13 @@ var HANDOUT_HEADERS = ['تاریخ', 'مجموعه', 'درسِ تازه', 'عن�
                        'فصلِ تازه', 'بخشِ تازه', 'تکمیلِ درس‌های قبلی',
                        'جمله‌های رادیوییِ حذف‌شده', 'ارجاعِ تازه',
                        'کلِ فصل‌ها', 'کلِ بخش‌ها', 'کلِ ارجاع‌ها',
-                       'بازنگری', 'نتیجه', 'لینکِ جزوه'];
+                       'بازنگری', 'نتیجه', 'لینکِ جزوه',
+                       // کلید، نه فقط نام: تختهٔ مجموعه‌ها با کلید می‌گردد و
+                       // دو مجموعه می‌توانند نامِ یکسان داشته باشند.
+                       'کلیدِ مجموعه'];
 var HU = { AT: 1, SERIES: 2, EP: 3, TITLE: 4, NEWCH: 5, NEWSEC: 6, AMEND: 7,
            RADIO: 8, NEWREF: 9, TOTCH: 10, TOTSEC: 11, TOTREF: 12,
-           REV: 13, RESULT: 14, LINK: 15 };
+           REV: 13, RESULT: 14, LINK: 15, KEY: 16 };
 
 /**
  * یک ردیف برای هر تلاش — موفق یا ناموفق.
@@ -831,10 +835,99 @@ function handoutLog_(hub, row) {
                        String(row.radio || 0), String(row.newRef || 0),
                        String(row.totCh || 0), String(row.totSec || 0),
                        String(row.totRef || 0), String(row.rev || 0),
-                       String(row.result || ''), String(row.url || '')]],
+                       String(row.result || ''), String(row.url || ''),
+                       String(row.key || '')]],
                 HANDOUT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ کاربردِ جزوه نوشته نشد: ' + e.message); return false; }
+}
+
+/**
+ * حالِ جزوهٔ هر مجموعه برای تختهٔ «مجموعه‌های آموزشی و پیشرفت».
+ *
+ * ══ چرا از تب، نه از درایو ══
+ * تخته همهٔ ۲۶۴ مجموعه را می‌کشد. خواندنِ `_HANDOUT.json` برای هرکدام یعنی
+ * ۲۶۴ رفت‌وبرگشتِ درایو در یک بازکردنِ پنجره — پنجره‌ای که باید سریع باز
+ * شود. تبِ «کاربردِ جزوه» همین حالا آخرین حالِ هر مجموعه را دارد و **یک**
+ * خواندن است. تاریخچه‌ای که برای نظارت ساخته شد، همین‌جا دومین کارش را
+ * می‌کند.
+ *
+ * @return {Object} نگاشتِ کلیدِ مجموعه → آخرین حالِ جزوه‌اش
+ */
+function handoutBoardMap_(hub) {
+  var map = Object.create(null);
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.HANDOUT_TAB || 'کاربردِ جزوه');
+    if (!sh || sh.getLastRow() < 2) return map;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, HANDOUT_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      var k = String(v[i][HU.KEY - 1] || '').trim();
+      if (!k) continue;
+      var cur = map[k];
+      // آخرین ردیفِ هر مجموعه برنده است؛ ولی لینک و مجموع‌ها فقط از ردیفی
+      // برداشته می‌شوند که واقعاً موفق بوده — وگرنه یک شکستِ دیشب، آمارِ
+      // درستِ پریشب را با صفر می‌پوشاند.
+      var okRow = String(v[i][HU.RESULT - 1]) === 'به‌روز شد';
+      if (!cur) cur = map[k] = { at: '', ep: '', result: '', tries: 0, lessons: 0,
+                                 totCh: 0, totSec: 0, totRef: 0, amend: 0,
+                                 url: '', lastOkAt: '', lastOkEp: '' };
+      cur.tries++;
+      cur.at = String(v[i][HU.AT - 1] || '');
+      cur.ep = String(v[i][HU.EP - 1] || '');
+      cur.result = String(v[i][HU.RESULT - 1] || '');
+      if (okRow) {
+        cur.lessons++;                          // هر ردیفِ موفق = یک درسِ واردشده
+        cur.totCh = Number(v[i][HU.TOTCH - 1]) || 0;
+        cur.totSec = Number(v[i][HU.TOTSEC - 1]) || 0;
+        cur.totRef = Number(v[i][HU.TOTREF - 1]) || 0;
+        cur.amend += Number(v[i][HU.AMEND - 1]) || 0;
+        cur.url = String(v[i][HU.LINK - 1] || '') || cur.url;
+        cur.lastOkAt = cur.at; cur.lastOkEp = cur.ep;
+      }
+    }
+  } catch (e) {}
+  return map;
+}
+
+/** شمارِ درس‌های در صفِ هر مجموعه — برای همان تخته. */
+function handoutDueByKey_() {
+  var out = Object.create(null);
+  try {
+    var l = handoutDueList_();
+    for (var i = 0; i < l.length; i++) {
+      out[l[i].key] = (out[l[i].key] || 0) + 1;
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * یک مجموعهٔ مشخص: گذشته‌اش را به صف بیاور و همین حالا بساز.
+ * دکمهٔ ذیلِ همان مجموعه در تخته این را صدا می‌زند.
+ */
+function handoutOneSeries_(key, maxItems) {
+  var out = { queued: 0, done: 0, left: 0, notes: [] };
+  var k = String(key || '');
+  if (!k) { out.notes.push('کلیدِ مجموعه خالی است'); return out; }
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  var rec = reg.byKey[k];
+  if (!rec) { out.notes.push('مجموعه در رجیستری نیست'); return out; }
+  try {
+    var sf = seriesFolder_(reg, rec);
+    var eps = handoutSeriesEpisodes_(sf);
+    var book = handoutRead_(sf, null);
+    var have = Object.create(null);
+    for (var e = 0; e < (book.episodes || []).length; e++) have[String(book.episodes[e].n)] = 1;
+    var nums = [];
+    for (var n in eps) if (Object.prototype.hasOwnProperty.call(eps, n) && !have[n]) nums.push(n);
+    nums.sort(function (a, b) { return (Number(a) || 0) - (Number(b) || 0); });
+    out.queued = handoutDueAddMany_(nums.map(function (x) { return { key: k, ep: x }; }));
+  } catch (e2) { out.notes.push(e2.message); return out; }
+  var r = handoutRunDue_(Math.max(1, Number(maxItems) || Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+  out.done = r.done; out.notes = out.notes.concat(r.notes);
+  out.left = (handoutDueByKey_()[k] || 0);
+  return out;
 }
 
 /** تاریخچهٔ جزوه برای وضعیت و ناظر — آخرین ردیف‌ها. */
@@ -862,21 +955,63 @@ function handoutDueList_() {
   catch (e) { return []; }
 }
 
+/* ══ بریدنِ صف، از کدام سر؟ (باگِ ۵٫۸۶) ══
+   `slice(-40)` **آخرین** چهل تا را نگه می‌داشت. صف به‌ترتیبِ صعودیِ درس پر
+   می‌شود، پس واردکردنِ گذشتهٔ یک مجموعهٔ شصت‌درسی، درس‌های ۱ تا ۲۰ را بی‌صدا
+   می‌انداخت و جزوه از درسِ ۲۱ شروع می‌شد — دقیقاً همان «به‌هم‌ریختگی» که
+   نباید پیش بیاید، و بی هیچ خطایی.
+
+   حالا از **ته** بریده می‌شود (قدیمی‌ترها می‌مانند، چون کتاب از فصلِ اول
+   نوشته می‌شود) و اندازه با خودِ رشته سنجیده می‌شود، نه با یک عددِ حدسی:
+   هر خاصیتِ Apps Script سقفِ ۹ کیلوبایتی دارد و شمردنِ رکورد این را تضمین
+   نمی‌کند. و آنچه بریده شد نوشته می‌شود؛ کاوشِ شبانه دوباره پیدایشان می‌کند. */
 function handoutDueSave_(list) {
-  try { props_().setProperty(PK.HANDOUT_DUE, JSON.stringify((list || []).slice(-40))); }
-  catch (e) {}
+  var arr = (list || []).slice(0);
+  var cut = 0;
+  var body = JSON.stringify(arr);
+  while (body.length > 8000 && arr.length > 1) { arr.pop(); cut++; body = JSON.stringify(arr); }
+  try { props_().setProperty(PK.HANDOUT_DUE, body); } catch (e) { return 0; }
+  if (cut) {
+    logLine_('صفِ جزوه پر بود؛ ' + cut + ' درسِ تازه‌تر فعلاً نگه داشته نشد — ' +
+             'کاوشِ شبانه دوباره به صف می‌آوردشان.');
+  }
+  return arr.length;
+}
+
+/**
+ * افزودنِ چند بدهی با **یک** خواندن و **یک** نوشتن.
+ *
+ * `handoutDueAdd_` برای پایانِ یک قسمت درست است (یک مورد)، ولی واردکردنِ
+ * گذشته ده‌ها مورد دارد و فراخوانِ تک‌تکش یعنی ده‌ها خواندن/نوشتنِ خاصیت —
+ * همان‌جایی که اجرا بی‌صدا کند می‌شود.
+ *
+ * @return {number} چند تا واقعاً تازه بودند
+ */
+function handoutDueAddMany_(pairs) {
+  var list = handoutDueList_();
+  var have = Object.create(null);
+  for (var i = 0; i < list.length; i++) have[list[i].key + '#' + list[i].ep] = 1;
+  var added = 0, now = nowStr_();
+  for (var p = 0; p < (pairs || []).length; p++) {
+    var k = String(pairs[p].key || ''), n = String(pairs[p].ep || '');
+    if (!k || !n || have[k + '#' + n]) continue;
+    have[k + '#' + n] = 1;
+    list.push({ key: k, ep: n, at: now });
+    added++;
+  }
+  // ترتیبِ صعودی درونِ هر مجموعه، پیش از هر بریدنی — تا اگر بریده شد،
+  // چیزی که می‌مانَد ابتدای کتاب باشد نه وسطش.
+  list.sort(function (a, b) {
+    if (a.key !== b.key) return a.key < b.key ? -1 : 1;
+    return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+  });
+  if (added) handoutDueSave_(list);
+  return added;
 }
 
 /** ثبتِ بدهی در پایانِ هر قسمت. ارزان، بی‌شبکه، و هرگز شکست نمی‌خورد. */
 function handoutDueAdd_(seriesKey, epNum) {
-  var list = handoutDueList_();
-  var k = String(seriesKey || ''), n = String(epNum || '');
-  if (!k || !n) return;
-  for (var i = 0; i < list.length; i++) {
-    if (list[i].key === k && list[i].ep === n) return;
-  }
-  list.push({ key: k, ep: n, at: nowStr_() });
-  handoutDueSave_(list);
+  return handoutDueAddMany_([{ key: seriesKey, ep: epNum }]);
 }
 
 /**
@@ -1010,12 +1145,12 @@ function handoutBackfill_(maxSeries) {
     for (var e = 0; e < (book.episodes || []).length; e++) have[String(book.episodes[e].n)] = 1;
 
     nums.sort(function (a, b) { return (Number(a) || 0) - (Number(b) || 0); });
-    var added = 0;
+    var batch = [];
     for (var n = 0; n < nums.length; n++) {
       if (have[nums[n]]) continue;
-      handoutDueAdd_(String(rec.key), nums[n]);
-      added++;
+      batch.push({ key: String(rec.key), ep: nums[n] });
     }
+    var added = batch.length ? handoutDueAddMany_(batch) : 0;
     if (added) {
       out.queued += added; out.series++;
       out.names.push(String(rec.vals[SC.NAME - 1] || rec.key) + ' (' + added + ')');
@@ -1186,6 +1321,13 @@ function handoutHealth_(problems, notes) {
 
   if (st.due > 3) {
     problems.push('صفِ به‌روزرسانیِ جزوه ' + st.due + ' درس عقب افتاده است.');
+  }
+  /* سقفِ پیمایش خورده؟ یعنی مجموعه‌هایی هستند که این وارسی اصلاً ندیدشان.
+     نقطهٔ کورِ نادیده، از نقطهٔ کورِ اعلام‌شده بدتر است. */
+  if (st.truncated && notes) {
+    notes.push('وارسیِ جزوه به سقفِ پیمایش خورد؛ مجموعه‌های بعد از ' +
+               (Number(CFG.HANDOUT_SCAN_MAX) || 25) + 'اُمین موردِ دارای قسمت ' +
+               'امروز سنجیده نشدند. اگر تکرار شد، HANDOUT_SCAN_MAX را بالا ببرید.');
   }
 
   /* ── و آنچه واقعاً به تغییرِ کد می‌رسد ──

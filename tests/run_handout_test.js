@@ -669,4 +669,129 @@ console.log('=== ۸) دستورها خودشان از ریپو می‌آیند =
   global.UrlFetchApp.fetch = realFetch;
 }
 
+console.log('=== ۱۳) صف: کدام سر بریده می‌شود ===');
+{
+  /* ══ باگِ ۵٫۸۶ ══
+   * `handoutDueSave_` با `slice(-40)` **آخرین** چهل تا را نگه می‌داشت. صف
+   * به‌ترتیبِ صعودیِ درس پر می‌شود، پس واردکردنِ گذشتهٔ یک مجموعهٔ شصت‌درسی
+   * درس‌های ۱ تا ۲۰ را بی‌صدا می‌انداخت و جزوه از درسِ ۲۱ شروع می‌شد —
+   * دقیقاً همان «به‌هم‌ریختگی» که نباید پیش بیاید، و بی هیچ خطایی. */
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  const many = [];
+  for (let n = 1; n <= 60; n++) many.push({ key: 'kBig', ep: String(n) });
+  handoutDueAddMany_(many);
+  const l = handoutDueList_();
+  ok('۱۳.۱ درسِ اول در صف می‌مانَد، نه اینکه از ته بریده شود',
+     l.length && String(l[0].ep) === '1', l.length + ' مورد، اولی: ' +
+     (l[0] ? l[0].ep : '—'));
+  ok('۱۳.۲ و ترتیب صعودی است',
+     l.every((x, i2) => i2 === 0 || Number(x.ep) > Number(l[i2 - 1].ep)),
+     l.slice(0, 5).map(x => x.ep).join(','));
+
+  // افزودنِ دسته‌ای: یک خواندن و یک نوشتن، و تکراری‌ها را نمی‌گیرد
+  const again = handoutDueAddMany_([{ key: 'kBig', ep: '5' }, { key: 'kBig', ep: '61' }]);
+  ok('۱۳.۳ تکراری دوباره اضافه نمی‌شود', again === 1, String(again));
+
+  // و سقف با اندازهٔ واقعیِ رشته سنجیده می‌شود، نه با یک عددِ حدسی
+  const huge = [];
+  for (let n = 1; n <= 400; n++) huge.push({ key: 'kHuge'.repeat(3), ep: String(n) });
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  handoutDueAddMany_(huge);
+  const stored = String(global.__PROPS[PK.HANDOUT_DUE] || '');
+  ok('۱۳.۴ صف زیرِ سقفِ خاصیتِ Apps Script می‌مانَد',
+     stored.length > 0 && stored.length <= 8000, String(stored.length) + ' نویسه');
+  const kept = handoutDueList_();
+  ok('۱۳.۵ و آنچه ماند، ابتدای کتاب است نه وسطش',
+     String(kept[0].ep) === '1', String(kept[0].ep));
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+}
+
+console.log('=== ۱۴) جزوه، ذیلِ همان مجموعه در تخته ===');
+{
+  /* «بهتره که این پیشرفتِ جزوات و برخی کنترل‌هاش خودش رو تو این قسمت هم
+   * ذیلِ اون مجموعه نشون بده؟» — همان درسِ ۵٫۶۱ برای تقویم: کنترلی که جای
+   * دیگری از کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود. */
+  const hub = new Spread('هاب۱۴');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sf = global.__ROOT_FOLDER.createFolder('۰۶ — تخته');
+  const row = new Array(SERIES_HEADERS.length).fill('');
+  row[SC.KEY - 1] = 'kBoard'; row[SC.NAME - 1] = 'مجموعهٔ تخته';
+  row[SC.FOLDER - 1] = sf.getId(); row[SC.EPISODES - 1] = '1 2';
+  row[SC.STATUS - 1] = SST.ACTIVE; row[SC.CHUNKS - 1] = 10; row[SC.CUR_CHUNK - 1] = 4;
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
+  for (const n of [1, 2]) {
+    const g = sf.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kBoard', seriesName: 'مجموعهٔ تخته',
+      ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'م. د.' }] } }),
+      'application/json', '_special.json'));
+  }
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+
+  // یک درس ساخته می‌شود، یکی در صف می‌مانَد
+  handoutDueAdd_('kBoard', '1');
+  handoutRunDue_(1);
+  handoutDueAdd_('kBoard', '2');
+
+  const map = handoutBoardMap_(hub);
+  ok('۱۴.۱ تخته حالِ جزوه را از تب می‌خواند، نه از درایو',
+     !!map['kBoard'] && map['kBoard'].totCh === 1 && map['kBoard'].lessons === 1,
+     JSON.stringify(map['kBoard'] || null));
+  ok('۱۴.۲ و شمارِ صفِ همان مجموعه را می‌داند',
+     handoutDueByKey_()['kBoard'] === 1, String(handoutDueByKey_()['kBoard']));
+
+  const d = seriesBoardData_(hub);
+  const allRows = (d.groups || []).reduce((a, g) => a.concat(g.series || []), []);
+  const r = allRows.filter(x => x.key === 'kBoard')[0];
+  ok('۱۴.۳ ردیفِ مجموعه در تخته دادهٔ جزوه دارد',
+     !!r && !!r.handout && r.handoutDue === 1,
+     r ? JSON.stringify({ h: !!r.handout, due: r.handoutDue }) : 'بی‌ردیف');
+
+  const html = seriesBoardHtml_(d);
+  ok('۱۴.۴ ستونِ «جزوه» در جدول هست', html.indexOf('<th>جزوه</th>') !== -1);
+  ok('۱۴.۵ و ذیلِ همان مجموعه، فصل و بخش و ارجاع را نشان می‌دهد',
+     html.indexOf('باز کردنِ جزوه') !== -1 && /فصل\s*·/.test(html));
+  ok('۱۴.۶ و می‌گوید چند درس هنوز وارد نشده',
+     html.indexOf('درس هنوز وارد نشده') !== -1 || html.indexOf('در صف') !== -1);
+  ok('۱۴.۷ جعبهٔ بالای تخته هم حالِ کلی را می‌گوید',
+     html.indexOf('جزوهٔ مجموعه‌ها') !== -1 &&
+     html.indexOf('واردکردنِ قسمت‌های گذشته') !== -1);
+
+  /* ══ بدترین جنسِ خرابی در این پنجره‌ها ══
+     `google.script.run.X()` روی تابعِ ناموجود هیچ خطایی نمی‌دهد و هیچ
+     آزمونی نمی‌شکند — فقط دکمه زده می‌شود و هیچ اتفاقی نمی‌افتد.
+     run_wiring_test.js ۵.۲ این را برای کلِ تخته می‌گیرد؛ اینجا هم صریح. */
+  ok('۱۴.۸ دکمهٔ هر مجموعه به تابعِ واقعی وصل است',
+     /onclick="handoutSeries\(this\)"/.test(html) &&
+     html.indexOf('.uiHandoutSeries(k)') !== -1 &&
+     typeof global.uiHandoutSeries === 'function');
+  ok('۱۴.۹ و دکمهٔ همه هم',
+     html.indexOf('.uiHandoutAll()') !== -1 && typeof global.uiHandoutAll === 'function');
+
+  // و خودِ دکمه واقعاً کار می‌کند
+  const res = uiHandoutSeries('kBoard');
+  ok('۱۴.۱۰ دکمه درسِ در صف را می‌سازد و پیامِ قابل‌فهم می‌دهد',
+     res && res.ok === true && /\d/.test(String(res.message)), String(res.message));
+  const book = JSON.parse(sf.getFilesByName('_HANDOUT.json').next().getBlob().getDataAsString());
+  ok('۱۴.۱۱ و هر دو درس حالا در جزوه‌اند', book.episodes.length === 2,
+     String(book.episodes.length));
+  ok('۱۴.۱۲ پاسخِ دکمه قالبِ {message} دارد — وگرنه پنجره «انجام شد.» می‌گوید و بس',
+     typeof res.message === 'string' && res.message.length > 5);
+
+  // مجموعه‌ای که هنوز قسمتی نساخته، دکمهٔ بی‌اثر نمی‌گیرد
+  const row2 = new Array(SERIES_HEADERS.length).fill('');
+  row2[SC.KEY - 1] = 'kEmpty'; row2[SC.NAME - 1] = 'خالی';
+  reg.getRange(3, 1, 1, SERIES_HEADERS.length).setValues([row2]);
+  const d2 = seriesBoardData_(hub);
+  const e2 = (d2.groups || []).reduce((a, g) => a.concat(g.series || []), [])
+               .filter(x => x.key === 'kEmpty')[0];
+  ok('۱۴.۱۳ مجموعهٔ بی‌قسمت خانهٔ خالی می‌گیرد، نه دکمهٔ بی‌اثر',
+     handoutCell_(e2).indexOf('button') === -1, handoutCell_(e2));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');
