@@ -423,9 +423,17 @@ function sendBackupEmail_(m, pruned) {
     ((m.failed || []).length ? '<p style="color:#b00">ناموفق: ' + m.failed.length +
       ' — ' + m.failed.map(function (z) { return bEsc_(z.title); }).join(' ، ') + '</p>' : '') +
     '<p style="color:#666;font-size:12px">شیت‌های اصلی تغییری نکردند.</p></div>';
-  MailApp.sendEmail({ to: CFG.EMAIL_TO,
-                      subject: 'پشتیبانِ شیت‌ها — ' + m.folder,
-                      htmlBody: html });
+  /* پشتیبانِ موفق خبرِ روزمره است، نه رویداد: هر روز می‌آید و هر روز
+     همان را می‌گوید. جزئیاتِ جدولی در همان پوشه هست؛ اینجا یک خط بس است.
+     شکستِ پشتیبان همچنان فوری ایمیل می‌شود. */
+  try {
+    mailQueue_('backup', 'پشتیبانِ شیت‌ها گرفته شد — ' + m.folder,
+               (m.copied || []).length + ' شیت کپی شد' +
+               ((m.failed || []).length ? '، ' + m.failed.length + ' ناموفق' : '') + '.');
+  } catch (eQ) {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+                        subject: 'پشتیبانِ شیت‌ها — ' + m.folder, htmlBody: html });
+  }
   return true;
 }
 

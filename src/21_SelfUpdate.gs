@@ -758,12 +758,8 @@ function afterCodeSwap() {
             (storedUrl ? '📄 نسخهٔ ذخیره‌شده در پوشهٔ «' + CFG.CODE_FOLDER + '»: ' + storedUrl + '\n' : '') +
             'نسخهٔ قبلی هم در همان پوشه با برچسبِ «پیش از نصب» مانده و از منو قابلِ بازگشت است.';
   try { tgSend_(tgEsc_(msg)); } catch (e4) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — کدِ نسخهٔ ' + want + ' خودکار نصب شد',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(msg).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e5) {}
+  // خبرِ روزمره: تلگرام همین حالا، ایمیل در گزارشِ ساعت ۱۰ با بقیه.
+  try { mailQueue_('code', 'کدِ نسخهٔ ' + want + ' خودکار نصب شد', msg); } catch (e5) {}
   logLine_('afterCodeSwap: نسخهٔ ' + want + ' برقرار شد؛ ' + marked + ' ردیفِ گزارش به‌روز شد.');
   return { ok: true, version: want, marked: marked };
 }
@@ -1128,12 +1124,8 @@ function promptImpactNotice_(version) {
              'خودشان عوض نمی‌شوند. تا وقتی دستی به‌روز نشوند، روتین همان کارِ قدیم ' +
              'را می‌کند بی‌آنکه خطایی بدهد.';
   try { tgSend_('🧭 ' + tgEsc_('دستورِ روتین‌ها باید به‌روز شود — نسخهٔ ' + version + '\n' + body)); } catch (e) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(body).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e2) {}
+  try { mailQueue_('prompt', 'دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')', body); }
+  catch (e2) {}
   try {
     logSelfFinding_(getHub_(), { priority: 'جدی', category: 'دستورِ روتین‌ها',
       key: 'promptimpact-' + version,

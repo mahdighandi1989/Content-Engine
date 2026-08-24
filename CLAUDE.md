@@ -493,6 +493,26 @@ without deleting the whole range.
 Note `faNumber_` spells numbers as words («هزار و چهارصد و پنج») — the date
 column uses `faDigitsOut_`.
 
+## One operational email a day (5.91)
+The engine used to send six to eight a day: install succeeded, backup succeeded,
+prompts are stale, a finding needs code, health. **When everything has its own
+email, none of them get read** — and the real alert is lost among the routine.
+
+`mailQueue_` collects routine news; `healthCheck` (10:00 Dubai) sends it as one
+email. 10:00 is the only point where the night job (02:30), the backup (03:00)
+and both episodes (07:00, 08:00) are done and the monitor (12:00) has not run yet.
+It sends **even with zero problems** when there is news — silence cannot be told
+apart from a dead system.
+
+Immediate still means immediate for what cannot wait until 10:00: the one-time
+install authorisation (it blocks the whole chain), a failed backup, and a code
+rollback. Everything else queues.
+
+`mailQueue_` returns `false` rather than throwing. Callers that treat a queued
+notice as delivered **must check the return value** — otherwise a broken queue
+counts as delivered and the alert is lost, which is exactly what the alert
+exists to prevent (`run_v43_tests.js` ۱۹).
+
 ## Two settings that must move together
 `SPECIAL_ONE_FILE` is the case study. Turning it on changed `specialMaxChars_`
 and nothing else — five other places still said `SPECIAL_TARGET_MINUTES` (15

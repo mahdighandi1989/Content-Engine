@@ -594,12 +594,19 @@ function alertCodeRows_(hub, startRow, rows, shOpt) {
     catch (e) { logLine_('هشدار تلگرامِ تعویض کد نرفت: ' + e.message); }
     // اگر تلگرام تنظیم نشده یا نرسید، دست‌کم ایمیل بزن — این هشدار نباید گم شود
     if (!via) {
+      /* تلگرام نرسید؟ ایمیل، ولی در گزارشِ روزانه با بقیه — نه یک ایمیلِ
+         جدا به‌ازای هر یافته. یافته‌ها می‌توانند روزی چند تا باشند و
+         همان‌جاست که صندوقِ ورودی از دست می‌رود. */
+      /* `mailQueue_` خطا پرتاب نمی‌کند؛ false برمی‌گرداند. اگر مقدارش را
+         نسنجیم، صفِ پرشده یا خاصیتِ خراب «رسید» شمرده می‌شود و هشدار
+         بی‌صدا گم — و همان بدترین حالتی است که این هشدار برای جلوگیری از
+         آن ساخته شده. `run_v43_tests.js` ۱۹ همین را نگه می‌دارد. */
       try {
-        MailApp.sendEmail({ to: CFG.EMAIL_TO, name: 'موتور محتوای آرشیو',
-          subject: '🛠 کد موتور باید تعویض شود — ' + String(r[RC.TITLE - 1]).slice(0, 80),
-          htmlBody: '<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">' +
-                    msg.replace(/<\/?b>/g, '').replace(/\n/g, '<br>') + '</div>' });
-        via = 'ایمیل (تلگرام نرسید)';
+        if (mailQueue_('code-needed', 'کد موتور باید تعویض شود — ' +
+                       String(r[RC.TITLE - 1]).slice(0, 80),
+                       msg.replace(/<\/?b>/g, ''))) {
+          via = 'گزارشِ روزانه (تلگرام نرسید)';
+        }
       } catch (e2) {}
     }
     r[RC.TG - 1] = (via ? 'ارسال شد از ' + via + ' ' : 'ناموفق ') + nowStr_();

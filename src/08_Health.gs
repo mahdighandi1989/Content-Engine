@@ -539,6 +539,72 @@ function saveHealthSnapshot_(problems, notes) {
  * وارسی سلامت. فقط وقتی ایمیل می‌زند که ایرادی باشد.
  * روی تریگر روزانه بنشیند تا اگر روزی چیزی نیامد، خودتان بی‌خبر نمانید.
  */
+/* ═══════════ یک ایمیل در روز، نه شش تا (۵٫۹۱) ═══════════
+
+   ══ آنچه واقعاً به صندوقِ ورودی می‌رسید ══
+   هر روز، تضمینی: قسمتِ «از همه جا از همه رنگ»، قسمتِ «درس‌نامه»، پشتیبانِ
+   شیت‌ها، گزارشِ ناظر. و روی آن‌ها: «کدِ نسخهٔ فلان نصب شد» (هر شبی که
+   نسخه‌ای ساخته شده باشد)، «دستورِ روتین‌ها باید به‌روز شود» (هر شب تا وقتی
+   انجام شود)، «کد موتور باید تعویض شود» (به‌ازای هر یافته)، و ایمیلِ سلامت.
+   شش تا هشت ایمیل در روز برای سامانه‌ای که خودش باید کار کند.
+
+   صاحبِ برنامه: «تعددِ ایمیل‌ها زیاد شده و نمی‌خواهم هی برای هر چیز یک
+   ایمیلِ جدا بیاید.» درست است — و ایرادِ طراحی است نه سلیقه: وقتی هر چیزی
+   ایمیلِ خودش را دارد، هیچ‌کدام خوانده نمی‌شوند و هشدارِ واقعی لای
+   خبرهای روزمره گم می‌شود.
+
+   ══ چه چیزی صف می‌شود و چه چیزی نه ══
+   خبرهای روزمره (نصب شد، پشتیبان گرفته شد، دستور کهنه است، یافتهٔ تازه)
+   در صف می‌نشینند و ساعت ۱۰ در **یک** ایمیلِ سلامت با هم می‌آیند.
+   فوری می‌مانَد آنچه تا ۱۰ صبح صبر نمی‌کند: اجازهٔ نصب که کلِ زنجیره را
+   خوابانده، شکستِ پشتیبان، و بازگردانیِ کدِ خراب.
+
+   ══ چرا ساعت ۱۰ ══
+   کارِ شبانه ۲:۳۰ است، پشتیبان ۳:۰۰، دو قسمت ۷ و ۸. وارسیِ سلامت ۱۰:۰۰
+   اجرا می‌شود و ناظر ۱۲:۰۰ — پس ۱۰ تنها نقطه‌ای است که همهٔ کارِ شب و صبح
+   تمام شده و هنوز پیش از گزارشِ ناظر است.
+*/
+
+/** یک خبر برای ایمیلِ روزانه. متن کوتاه بماند: سقفِ خاصیت ۹ کیلوبایت است. */
+function mailQueue_(kind, title, body) {
+  try {
+    var q = [];
+    try { q = JSON.parse(props_().getProperty(PK.MAIL_QUEUE) || '[]') || []; } catch (e0) {}
+    q.push({ at: nowStr_(), kind: String(kind || ''),
+             title: String(title || '').slice(0, 200),
+             body: String(body || '').slice(0, 1200) });
+    var dropped = 0;
+    var s = JSON.stringify(q);
+    while (s.length > 8000 && q.length > 1) { q.shift(); dropped++; s = JSON.stringify(q); }
+    props_().setProperty(PK.MAIL_QUEUE, s);
+    if (dropped) logLine_('صفِ ایمیلِ روزانه پر بود؛ ' + dropped + ' خبرِ قدیمی جا نشد.');
+    return true;
+  } catch (e) { return false; }
+}
+
+function mailQueueRead_() {
+  try { return JSON.parse(props_().getProperty(PK.MAIL_QUEUE) || '[]') || []; }
+  catch (e) { return []; }
+}
+
+function mailQueueClear_() {
+  try { props_().deleteProperty(PK.MAIL_QUEUE); } catch (e) {}
+}
+
+/** خبرهای صف‌شده، به HTML. */
+function mailQueueHtml_(q) {
+  if (!q || !q.length) return '';
+  var h = ['<h3>خبرهای امروز</h3><ul>'];
+  for (var i = 0; i < q.length; i++) {
+    h.push('<li><b>' + esc_(q[i].title) + '</b>' +
+           (q[i].body ? '<br><span style="color:#555;font-size:13px">' +
+                        esc_(q[i].body).replace(/\n/g, '<br>') + '</span>' : '') +
+           '<br><span style="color:#999;font-size:11px">' + esc_(q[i].at) + '</span></li>');
+  }
+  h.push('</ul>');
+  return h.join('');
+}
+
 function healthCheck() {
   var hub = getHub_();
   var problems = [], notes = [];
@@ -886,22 +952,41 @@ function healthCheck() {
   saveHealthSnapshot_(problems, notes);
   logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست'));
 
-  if (problems.length) {
-    var html = ['<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">',
-      '<h2 style="color:#b45309">⚠️ موتور محتوا — ' + problems.length + ' ایراد</h2><ul>'];
-    for (var q = 0; q < problems.length; q++) html.push('<li>' + esc_(problems[q]) + '</li>');
-    html.push('</ul>');
+  /* ── یک ایمیل در روز ──
+   * پیش از ۵٫۹۱ این ایمیل فقط وقتی می‌رفت که ایرادی بود، و خبرهای روزمره
+   * (نصبِ کد، پشتیبان، کهنگیِ دستور، یافتهٔ تازه) هرکدام ایمیلِ خودشان را
+   * داشتند: شش تا هشت ایمیل در روز. حالا همه یک‌جا، و **حتی وقتی هیچ
+   * ایرادی نیست هم می‌رود** — اگر خبری باشد. سکوت را نمی‌شود از «سامانه
+   * خوابیده» تشخیص داد. */
+  var queued = mailQueueRead_();
+  if (problems.length || queued.length) {
+    var bad = problems.length;
+    var html = ['<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">'];
+    html.push(bad
+      ? '<h2 style="color:#b45309">⚠️ موتور محتوا — ' + bad + ' ایراد</h2>'
+      : '<h2 style="color:#166534">✅ موتور محتوا — همه‌چیز درست است</h2>');
+    if (bad) {
+      html.push('<ul>');
+      for (var q = 0; q < problems.length; q++) html.push('<li>' + esc_(problems[q]) + '</li>');
+      html.push('</ul>');
+    }
+    html.push(mailQueueHtml_(queued));
     if (notes.length) {
       html.push('<h3>وضعیت</h3><ul>');
       for (var w = 0; w < notes.length; w++) html.push('<li>' + esc_(notes[w]) + '</li>');
       html.push('</ul>');
     }
-    html.push('<p><a href="' + esc_(st.hubUrl) + '">باز کردن CONTENT-HUB</a> — ' +
-              'تب «_گزارش» جزئیات کامل را دارد.</p></div>');
+    html.push('<p style="color:#666;font-size:12px">این تنها ایمیلِ عملیاتیِ روز است؛ ' +
+              'خبرهای روزمره همه در همین یکی می‌آیند. ' +
+              '<a href="' + esc_(st.hubUrl) + '">CONTENT-HUB</a></p></div>');
     try {
-      MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: '⚠️ موتور محتوا: ' + problems.length + ' ایراد',
+      MailApp.sendEmail({ to: CFG.EMAIL_TO,
+                          subject: (bad ? '⚠️ موتور محتوا: ' + bad + ' ایراد'
+                                        : '✅ موتور محتوا — گزارشِ روزانه') +
+                                   (queued.length ? ' · ' + queued.length + ' خبر' : ''),
                           htmlBody: html.join(''), name: 'موتور محتوای آرشیو' });
-    } catch (e) { logLine_('ارسال ایمیل هشدار ناموفق: ' + e.message); }
+      mailQueueClear_();
+    } catch (e) { logLine_('ارسال ایمیلِ روزانه ناموفق: ' + e.message); }
   }
 
   var msg = (problems.length ? '⚠️ ' + problems.length + ' ایراد:\n• ' + problems.join('\n• ')

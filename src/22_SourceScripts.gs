@@ -582,9 +582,8 @@ function srcInstall_(key, opt) {
   logLine_('نصبِ تحلیلگرِ منبع: ' + key + ' → ' + v.info.version);
   try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e3) {}
   try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — کدِ ' + v.info.target + ' نسخهٔ ' + v.info.version + ' نصب شد',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' + esc_(msg).replace(/\n/g, '<br>') + '</div>' });
+    mailQueue_('src-install',
+               'کدِ ' + v.info.target + ' نسخهٔ ' + v.info.version + ' نصب شد', msg);
   } catch (e4) {}
   try {
     logSelfFinding_(getHub_(), { priority: 'کم', category: 'اسکریپتِ منبع',
@@ -800,15 +799,25 @@ function srcPutJs_(key, js) {
   return { ok: true };
 }
 
-/** خبر دادن از یک رویداد: تلگرام + ایمیل + خطِ لاگ. */
-function srcNotify_(subject, body) {
+/**
+ * خبر دادن از یک رویداد: تلگرام همین حالا + خطِ لاگ + ایمیلِ روزانه.
+ *
+ * `urgent` فقط برای چیزی که تا ساعت ۱۰ صبر نمی‌کند — مثلِ بازگردانیِ یک
+ * کدِ خراب. بقیه در گزارشِ روزانه با هم می‌آیند، وگرنه هر رویدادِ کوچک
+ * یک ایمیلِ جدا می‌شود و صندوقِ ورودی از دست می‌رود.
+ */
+function srcNotify_(subject, body, urgent) {
   logLine_(subject);
   try { tgSend_('🛠 ' + tgEsc_(subject + '\n' + body)); } catch (e) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — ' + subject,
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(body).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e2) {}
+  if (urgent) {
+    try {
+      MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — ' + subject,
+        htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                  esc_(body).replace(/\n/g, '<br>') + '</div>' });
+    } catch (e2) {}
+    return;
+  }
+  try { mailQueue_('src', subject, body); } catch (e3) {}
 }
 
 /**
@@ -893,7 +902,7 @@ function srcVerdict_(hub) {
       r.why = rb.ok ? why : (why + ' ' + rb.why);
       srcNotify_('کدِ ' + nice + ' برگشت خورد به نسخهٔ قبل',
         why + '\n' + (rb.ok ? 'از روی پشتیبانِ «' + rb.from + '».' : rb.why) +
-        '\nاین بسته تا بررسیِ دستی دیگر خودکار نصب نمی‌شود.');
+        '\nاین بسته تا بررسیِ دستی دیگر خودکار نصب نمی‌شود.', true);
       logSelfFinding_(hub, { priority: 'جدی', category: 'اسکریپتِ منبع',
         key: 'srcrollback-' + key + '-' + rec.version,
         title: 'کدِ ' + nice + ' نسخهٔ ' + rec.version + ' برگشت خورد',
@@ -1213,7 +1222,7 @@ function engVerdict_() {
     out.why = why + (rb.ok ? ' برگشت به ' + rb.version + '.' : ' ' + rb.why);
     if (rb.ok) engBlock_(rec.version, why);
     srcNotify_('⛔ موتور پس از نسخهٔ ' + rec.version + ' قسمتی نساخت — ' +
-               (rb.ok ? 'برگشت به نسخهٔ قبل' : 'برگشت انجام نشد'), out.why);
+               (rb.ok ? 'برگشت به نسخهٔ قبل' : 'برگشت انجام نشد'), out.why, true);
     try {
       logSelfFinding_(getHub_(), { priority: 'جدی', category: 'کدِ موتور',
         key: 'engverdict-' + rec.version, title: 'نصبِ ' + rec.version + ': ' + out.state,

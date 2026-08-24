@@ -1105,4 +1105,73 @@ console.log('=== ۱۷) بی بازکردنِ هیچ تبی ===');
   global.__PROPS[PK.HANDOUT_DUE] = '';
 }
 
+console.log('=== ۱۸) یک ایمیل در روز، نه شش تا ===');
+{
+  /* «تعددِ ایمیل‌ها زیاد شده و نمی‌خواهم هی برای هر چیز یک ایمیلِ جدا
+   * بیاید.» — و ایرادِ طراحی بود نه سلیقه: وقتی هر چیزی ایمیلِ خودش را
+   * دارد، هیچ‌کدام خوانده نمی‌شوند و هشدارِ واقعی لای خبرهای روزمره گم
+   * می‌شود. */
+  const hub = new Spread('هاب۱۸');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  mailQueueClear_();
+  global.__MAIL.length = 0;
+
+  ok('۱۸.۱ صف در آغاز خالی است', mailQueueRead_().length === 0);
+  mailQueue_('code', 'کدِ نسخهٔ ۹.۹ نصب شد', 'متنِ خبر');
+  mailQueue_('backup', 'پشتیبانِ شیت‌ها گرفته شد', '۵ شیت');
+  ok('۱۸.۲ خبرها در صف می‌نشینند، نه در صندوقِ ورودی',
+     mailQueueRead_().length === 2 && global.__MAIL.length === 0,
+     mailQueueRead_().length + ' در صف، ' + global.__MAIL.length + ' ایمیل');
+
+  const html = mailQueueHtml_(mailQueueRead_());
+  ok('۱۸.۳ و همه در یک بخشِ ایمیل رندر می‌شوند',
+     html.indexOf('کدِ نسخهٔ ۹.۹ نصب شد') !== -1 &&
+     html.indexOf('پشتیبانِ شیت‌ها گرفته شد') !== -1 &&
+     html.indexOf('خبرهای امروز') !== -1);
+
+  /* سقف با اندازهٔ رشته سنجیده می‌شود (خاصیتِ Apps Script ۹ کیلوبایت است)
+     و از **سر** بریده می‌شود، چون تازه‌ترین خبر مهم‌تر است. */
+  for (let k = 0; k < 200; k++) mailQueue_('x', 'خبرِ ' + k, 'م'.repeat(80));
+  const big = String(global.__PROPS[PK.MAIL_QUEUE] || '');
+  ok('۱۸.۴ صف زیرِ سقفِ خاصیت می‌مانَد', big.length > 0 && big.length <= 8000,
+     String(big.length) + ' نویسه');
+  const kept = mailQueueRead_();
+  ok('۱۸.۵ و تازه‌ترین خبر همیشه می‌مانَد',
+     kept[kept.length - 1].title === 'خبرِ 199', kept[kept.length - 1].title);
+
+  /* شکستِ صف باید **دیده** شود، نه اینکه «رسید» شمرده شود: هشداری که به
+     هیچ‌کس نرسیده نباید تحویل‌شده ثبت شود. */
+  const realProps = global.PropertiesService.getScriptProperties;
+  global.PropertiesService.getScriptProperties = function () {
+    const real = realProps.call(global.PropertiesService);
+    return { getProperty: (k) => real.getProperty(k),
+             deleteProperty: (k) => real.deleteProperty(k),
+             setProperty: (k) => { throw new Error('down'); } };
+  };
+  ok('۱۸.۶ صفِ خراب false برمی‌گرداند، نه اینکه بی‌صدا موفق شود',
+     mailQueue_('x', 'ی', 'م') === false);
+  global.PropertiesService.getScriptProperties = realProps;
+
+  // و مسیرهای واقعی: هیچ‌کدام دیگر ایمیلِ جدا نمی‌فرستند
+  const src = ['src/17_Backup.gs', 'src/21_SelfUpdate.gs', 'src/22_SourceScripts.gs',
+               'src/12_Reports.gs'].map(f => fs.readFileSync(f, 'utf8')).join('\n');
+  ok('۱۸.۷ نصبِ کد، پشتیبان، یادآورِ دستور و یافته همه در صف می‌روند',
+     /mailQueue_\('code'/.test(src) && /mailQueue_\('backup'/.test(src) &&
+     /mailQueue_\('prompt'/.test(src) && /mailQueue_\('code-needed'/.test(src));
+  const he = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۱۸.۸ و وارسیِ سلامت همه را در یک ایمیل می‌فرستد',
+     he.indexOf('mailQueueHtml_(queued)') !== -1 &&
+     /if \(problems\.length \|\| queued\.length\)/.test(he));
+  ok('۱۸.۹ و صف فقط پس از ارسالِ موفق پاک می‌شود',
+     he.indexOf('mailQueueClear_();') > he.indexOf('MailApp.sendEmail({ to: CFG.EMAIL_TO,'),
+     'ترتیب درست است');
+  ok('۱۸.۱۰ ایمیلِ روزانه حتی بی‌ایراد هم می‌رود، اگر خبری باشد',
+     he.indexOf('✅ موتور محتوا — گزارشِ روزانه') !== -1);
+  /* و آنچه تا ساعت ۱۰ صبر نمی‌کند، فوری می‌مانَد */
+  ok('۱۸.۱۱ ولی بازگردانیِ کدِ خراب همچنان فوری ایمیل می‌شود',
+     /برگشت خورد به نسخهٔ قبل'[\s\S]{0,200}, true\)/.test(src));
+  mailQueueClear_();
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

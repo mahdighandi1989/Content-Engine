@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.90
+ *  موتور محتوا و پادکست — نسخهٔ 5.91
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -755,7 +755,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.90',
+  CODE_VERSION: '5.91',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1022,6 +1022,7 @@ var PK = {
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
+  MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
   // نامِ عکس با شمارهٔ قسمت ساخته می‌شود و شمارهٔ قسمتِ دو برنامه می‌تواند
@@ -8029,6 +8030,72 @@ function saveHealthSnapshot_(problems, notes) {
  * وارسی سلامت. فقط وقتی ایمیل می‌زند که ایرادی باشد.
  * روی تریگر روزانه بنشیند تا اگر روزی چیزی نیامد، خودتان بی‌خبر نمانید.
  */
+/* ═══════════ یک ایمیل در روز، نه شش تا (۵٫۹۱) ═══════════
+
+   ══ آنچه واقعاً به صندوقِ ورودی می‌رسید ══
+   هر روز، تضمینی: قسمتِ «از همه جا از همه رنگ»، قسمتِ «درس‌نامه»، پشتیبانِ
+   شیت‌ها، گزارشِ ناظر. و روی آن‌ها: «کدِ نسخهٔ فلان نصب شد» (هر شبی که
+   نسخه‌ای ساخته شده باشد)، «دستورِ روتین‌ها باید به‌روز شود» (هر شب تا وقتی
+   انجام شود)، «کد موتور باید تعویض شود» (به‌ازای هر یافته)، و ایمیلِ سلامت.
+   شش تا هشت ایمیل در روز برای سامانه‌ای که خودش باید کار کند.
+
+   صاحبِ برنامه: «تعددِ ایمیل‌ها زیاد شده و نمی‌خواهم هی برای هر چیز یک
+   ایمیلِ جدا بیاید.» درست است — و ایرادِ طراحی است نه سلیقه: وقتی هر چیزی
+   ایمیلِ خودش را دارد، هیچ‌کدام خوانده نمی‌شوند و هشدارِ واقعی لای
+   خبرهای روزمره گم می‌شود.
+
+   ══ چه چیزی صف می‌شود و چه چیزی نه ══
+   خبرهای روزمره (نصب شد، پشتیبان گرفته شد، دستور کهنه است، یافتهٔ تازه)
+   در صف می‌نشینند و ساعت ۱۰ در **یک** ایمیلِ سلامت با هم می‌آیند.
+   فوری می‌مانَد آنچه تا ۱۰ صبح صبر نمی‌کند: اجازهٔ نصب که کلِ زنجیره را
+   خوابانده، شکستِ پشتیبان، و بازگردانیِ کدِ خراب.
+
+   ══ چرا ساعت ۱۰ ══
+   کارِ شبانه ۲:۳۰ است، پشتیبان ۳:۰۰، دو قسمت ۷ و ۸. وارسیِ سلامت ۱۰:۰۰
+   اجرا می‌شود و ناظر ۱۲:۰۰ — پس ۱۰ تنها نقطه‌ای است که همهٔ کارِ شب و صبح
+   تمام شده و هنوز پیش از گزارشِ ناظر است.
+*/
+
+/** یک خبر برای ایمیلِ روزانه. متن کوتاه بماند: سقفِ خاصیت ۹ کیلوبایت است. */
+function mailQueue_(kind, title, body) {
+  try {
+    var q = [];
+    try { q = JSON.parse(props_().getProperty(PK.MAIL_QUEUE) || '[]') || []; } catch (e0) {}
+    q.push({ at: nowStr_(), kind: String(kind || ''),
+             title: String(title || '').slice(0, 200),
+             body: String(body || '').slice(0, 1200) });
+    var dropped = 0;
+    var s = JSON.stringify(q);
+    while (s.length > 8000 && q.length > 1) { q.shift(); dropped++; s = JSON.stringify(q); }
+    props_().setProperty(PK.MAIL_QUEUE, s);
+    if (dropped) logLine_('صفِ ایمیلِ روزانه پر بود؛ ' + dropped + ' خبرِ قدیمی جا نشد.');
+    return true;
+  } catch (e) { return false; }
+}
+
+function mailQueueRead_() {
+  try { return JSON.parse(props_().getProperty(PK.MAIL_QUEUE) || '[]') || []; }
+  catch (e) { return []; }
+}
+
+function mailQueueClear_() {
+  try { props_().deleteProperty(PK.MAIL_QUEUE); } catch (e) {}
+}
+
+/** خبرهای صف‌شده، به HTML. */
+function mailQueueHtml_(q) {
+  if (!q || !q.length) return '';
+  var h = ['<h3>خبرهای امروز</h3><ul>'];
+  for (var i = 0; i < q.length; i++) {
+    h.push('<li><b>' + esc_(q[i].title) + '</b>' +
+           (q[i].body ? '<br><span style="color:#555;font-size:13px">' +
+                        esc_(q[i].body).replace(/\n/g, '<br>') + '</span>' : '') +
+           '<br><span style="color:#999;font-size:11px">' + esc_(q[i].at) + '</span></li>');
+  }
+  h.push('</ul>');
+  return h.join('');
+}
+
 function healthCheck() {
   var hub = getHub_();
   var problems = [], notes = [];
@@ -8376,22 +8443,41 @@ function healthCheck() {
   saveHealthSnapshot_(problems, notes);
   logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست'));
 
-  if (problems.length) {
-    var html = ['<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">',
-      '<h2 style="color:#b45309">⚠️ موتور محتوا — ' + problems.length + ' ایراد</h2><ul>'];
-    for (var q = 0; q < problems.length; q++) html.push('<li>' + esc_(problems[q]) + '</li>');
-    html.push('</ul>');
+  /* ── یک ایمیل در روز ──
+   * پیش از ۵٫۹۱ این ایمیل فقط وقتی می‌رفت که ایرادی بود، و خبرهای روزمره
+   * (نصبِ کد، پشتیبان، کهنگیِ دستور، یافتهٔ تازه) هرکدام ایمیلِ خودشان را
+   * داشتند: شش تا هشت ایمیل در روز. حالا همه یک‌جا، و **حتی وقتی هیچ
+   * ایرادی نیست هم می‌رود** — اگر خبری باشد. سکوت را نمی‌شود از «سامانه
+   * خوابیده» تشخیص داد. */
+  var queued = mailQueueRead_();
+  if (problems.length || queued.length) {
+    var bad = problems.length;
+    var html = ['<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">'];
+    html.push(bad
+      ? '<h2 style="color:#b45309">⚠️ موتور محتوا — ' + bad + ' ایراد</h2>'
+      : '<h2 style="color:#166534">✅ موتور محتوا — همه‌چیز درست است</h2>');
+    if (bad) {
+      html.push('<ul>');
+      for (var q = 0; q < problems.length; q++) html.push('<li>' + esc_(problems[q]) + '</li>');
+      html.push('</ul>');
+    }
+    html.push(mailQueueHtml_(queued));
     if (notes.length) {
       html.push('<h3>وضعیت</h3><ul>');
       for (var w = 0; w < notes.length; w++) html.push('<li>' + esc_(notes[w]) + '</li>');
       html.push('</ul>');
     }
-    html.push('<p><a href="' + esc_(st.hubUrl) + '">باز کردن CONTENT-HUB</a> — ' +
-              'تب «_گزارش» جزئیات کامل را دارد.</p></div>');
+    html.push('<p style="color:#666;font-size:12px">این تنها ایمیلِ عملیاتیِ روز است؛ ' +
+              'خبرهای روزمره همه در همین یکی می‌آیند. ' +
+              '<a href="' + esc_(st.hubUrl) + '">CONTENT-HUB</a></p></div>');
     try {
-      MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: '⚠️ موتور محتوا: ' + problems.length + ' ایراد',
+      MailApp.sendEmail({ to: CFG.EMAIL_TO,
+                          subject: (bad ? '⚠️ موتور محتوا: ' + bad + ' ایراد'
+                                        : '✅ موتور محتوا — گزارشِ روزانه') +
+                                   (queued.length ? ' · ' + queued.length + ' خبر' : ''),
                           htmlBody: html.join(''), name: 'موتور محتوای آرشیو' });
-    } catch (e) { logLine_('ارسال ایمیل هشدار ناموفق: ' + e.message); }
+      mailQueueClear_();
+    } catch (e) { logLine_('ارسال ایمیلِ روزانه ناموفق: ' + e.message); }
   }
 
   var msg = (problems.length ? '⚠️ ' + problems.length + ' ایراد:\n• ' + problems.join('\n• ')
@@ -10507,12 +10593,19 @@ function alertCodeRows_(hub, startRow, rows, shOpt) {
     catch (e) { logLine_('هشدار تلگرامِ تعویض کد نرفت: ' + e.message); }
     // اگر تلگرام تنظیم نشده یا نرسید، دست‌کم ایمیل بزن — این هشدار نباید گم شود
     if (!via) {
+      /* تلگرام نرسید؟ ایمیل، ولی در گزارشِ روزانه با بقیه — نه یک ایمیلِ
+         جدا به‌ازای هر یافته. یافته‌ها می‌توانند روزی چند تا باشند و
+         همان‌جاست که صندوقِ ورودی از دست می‌رود. */
+      /* `mailQueue_` خطا پرتاب نمی‌کند؛ false برمی‌گرداند. اگر مقدارش را
+         نسنجیم، صفِ پرشده یا خاصیتِ خراب «رسید» شمرده می‌شود و هشدار
+         بی‌صدا گم — و همان بدترین حالتی است که این هشدار برای جلوگیری از
+         آن ساخته شده. `run_v43_tests.js` ۱۹ همین را نگه می‌دارد. */
       try {
-        MailApp.sendEmail({ to: CFG.EMAIL_TO, name: 'موتور محتوای آرشیو',
-          subject: '🛠 کد موتور باید تعویض شود — ' + String(r[RC.TITLE - 1]).slice(0, 80),
-          htmlBody: '<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">' +
-                    msg.replace(/<\/?b>/g, '').replace(/\n/g, '<br>') + '</div>' });
-        via = 'ایمیل (تلگرام نرسید)';
+        if (mailQueue_('code-needed', 'کد موتور باید تعویض شود — ' +
+                       String(r[RC.TITLE - 1]).slice(0, 80),
+                       msg.replace(/<\/?b>/g, ''))) {
+          via = 'گزارشِ روزانه (تلگرام نرسید)';
+        }
       } catch (e2) {}
     }
     r[RC.TG - 1] = (via ? 'ارسال شد از ' + via + ' ' : 'ناموفق ') + nowStr_();
@@ -16995,9 +17088,17 @@ function sendBackupEmail_(m, pruned) {
     ((m.failed || []).length ? '<p style="color:#b00">ناموفق: ' + m.failed.length +
       ' — ' + m.failed.map(function (z) { return bEsc_(z.title); }).join(' ، ') + '</p>' : '') +
     '<p style="color:#666;font-size:12px">شیت‌های اصلی تغییری نکردند.</p></div>';
-  MailApp.sendEmail({ to: CFG.EMAIL_TO,
-                      subject: 'پشتیبانِ شیت‌ها — ' + m.folder,
-                      htmlBody: html });
+  /* پشتیبانِ موفق خبرِ روزمره است، نه رویداد: هر روز می‌آید و هر روز
+     همان را می‌گوید. جزئیاتِ جدولی در همان پوشه هست؛ اینجا یک خط بس است.
+     شکستِ پشتیبان همچنان فوری ایمیل می‌شود. */
+  try {
+    mailQueue_('backup', 'پشتیبانِ شیت‌ها گرفته شد — ' + m.folder,
+               (m.copied || []).length + ' شیت کپی شد' +
+               ((m.failed || []).length ? '، ' + m.failed.length + ' ناموفق' : '') + '.');
+  } catch (eQ) {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+                        subject: 'پشتیبانِ شیت‌ها — ' + m.folder, htmlBody: html });
+  }
   return true;
 }
 
@@ -19681,12 +19782,8 @@ function afterCodeSwap() {
             (storedUrl ? '📄 نسخهٔ ذخیره‌شده در پوشهٔ «' + CFG.CODE_FOLDER + '»: ' + storedUrl + '\n' : '') +
             'نسخهٔ قبلی هم در همان پوشه با برچسبِ «پیش از نصب» مانده و از منو قابلِ بازگشت است.';
   try { tgSend_(tgEsc_(msg)); } catch (e4) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — کدِ نسخهٔ ' + want + ' خودکار نصب شد',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(msg).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e5) {}
+  // خبرِ روزمره: تلگرام همین حالا، ایمیل در گزارشِ ساعت ۱۰ با بقیه.
+  try { mailQueue_('code', 'کدِ نسخهٔ ' + want + ' خودکار نصب شد', msg); } catch (e5) {}
   logLine_('afterCodeSwap: نسخهٔ ' + want + ' برقرار شد؛ ' + marked + ' ردیفِ گزارش به‌روز شد.');
   return { ok: true, version: want, marked: marked };
 }
@@ -20051,12 +20148,8 @@ function promptImpactNotice_(version) {
              'خودشان عوض نمی‌شوند. تا وقتی دستی به‌روز نشوند، روتین همان کارِ قدیم ' +
              'را می‌کند بی‌آنکه خطایی بدهد.';
   try { tgSend_('🧭 ' + tgEsc_('دستورِ روتین‌ها باید به‌روز شود — نسخهٔ ' + version + '\n' + body)); } catch (e) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(body).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e2) {}
+  try { mailQueue_('prompt', 'دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')', body); }
+  catch (e2) {}
   try {
     logSelfFinding_(getHub_(), { priority: 'جدی', category: 'دستورِ روتین‌ها',
       key: 'promptimpact-' + version,
@@ -20656,9 +20749,8 @@ function srcInstall_(key, opt) {
   logLine_('نصبِ تحلیلگرِ منبع: ' + key + ' → ' + v.info.version);
   try { tgSend_('🛠 ' + tgEsc_(msg)); } catch (e3) {}
   try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO,
-      subject: 'موتور محتوا — کدِ ' + v.info.target + ' نسخهٔ ' + v.info.version + ' نصب شد',
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' + esc_(msg).replace(/\n/g, '<br>') + '</div>' });
+    mailQueue_('src-install',
+               'کدِ ' + v.info.target + ' نسخهٔ ' + v.info.version + ' نصب شد', msg);
   } catch (e4) {}
   try {
     logSelfFinding_(getHub_(), { priority: 'کم', category: 'اسکریپتِ منبع',
@@ -20874,15 +20966,25 @@ function srcPutJs_(key, js) {
   return { ok: true };
 }
 
-/** خبر دادن از یک رویداد: تلگرام + ایمیل + خطِ لاگ. */
-function srcNotify_(subject, body) {
+/**
+ * خبر دادن از یک رویداد: تلگرام همین حالا + خطِ لاگ + ایمیلِ روزانه.
+ *
+ * `urgent` فقط برای چیزی که تا ساعت ۱۰ صبر نمی‌کند — مثلِ بازگردانیِ یک
+ * کدِ خراب. بقیه در گزارشِ روزانه با هم می‌آیند، وگرنه هر رویدادِ کوچک
+ * یک ایمیلِ جدا می‌شود و صندوقِ ورودی از دست می‌رود.
+ */
+function srcNotify_(subject, body, urgent) {
   logLine_(subject);
   try { tgSend_('🛠 ' + tgEsc_(subject + '\n' + body)); } catch (e) {}
-  try {
-    MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — ' + subject,
-      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
-                esc_(body).replace(/\n/g, '<br>') + '</div>' });
-  } catch (e2) {}
+  if (urgent) {
+    try {
+      MailApp.sendEmail({ to: CFG.EMAIL_TO, subject: 'موتور محتوا — ' + subject,
+        htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                  esc_(body).replace(/\n/g, '<br>') + '</div>' });
+    } catch (e2) {}
+    return;
+  }
+  try { mailQueue_('src', subject, body); } catch (e3) {}
 }
 
 /**
@@ -20967,7 +21069,7 @@ function srcVerdict_(hub) {
       r.why = rb.ok ? why : (why + ' ' + rb.why);
       srcNotify_('کدِ ' + nice + ' برگشت خورد به نسخهٔ قبل',
         why + '\n' + (rb.ok ? 'از روی پشتیبانِ «' + rb.from + '».' : rb.why) +
-        '\nاین بسته تا بررسیِ دستی دیگر خودکار نصب نمی‌شود.');
+        '\nاین بسته تا بررسیِ دستی دیگر خودکار نصب نمی‌شود.', true);
       logSelfFinding_(hub, { priority: 'جدی', category: 'اسکریپتِ منبع',
         key: 'srcrollback-' + key + '-' + rec.version,
         title: 'کدِ ' + nice + ' نسخهٔ ' + rec.version + ' برگشت خورد',
@@ -21287,7 +21389,7 @@ function engVerdict_() {
     out.why = why + (rb.ok ? ' برگشت به ' + rb.version + '.' : ' ' + rb.why);
     if (rb.ok) engBlock_(rec.version, why);
     srcNotify_('⛔ موتور پس از نسخهٔ ' + rec.version + ' قسمتی نساخت — ' +
-               (rb.ok ? 'برگشت به نسخهٔ قبل' : 'برگشت انجام نشد'), out.why);
+               (rb.ok ? 'برگشت به نسخهٔ قبل' : 'برگشت انجام نشد'), out.why, true);
     try {
       logSelfFinding_(getHub_(), { priority: 'جدی', category: 'کدِ موتور',
         key: 'engverdict-' + rec.version, title: 'نصبِ ' + rec.version + ': ' + out.state,

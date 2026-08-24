@@ -288,8 +288,14 @@ console.log('  ستون تلگرام:', JSON.stringify(String(tgRow[RC.TG-1]).sl
             '| ایمیل جانشین:', global.__MAIL.length);
 ok('ستون تلگرام ادعای ارسالِ تلگرامی نمی‌کند',
    String(tgRow[RC.TG-1]).indexOf('تلگرام نرسید') !== -1, String(tgRow[RC.TG-1]));
-ok('به‌جایش ایمیل جانشین رفت و همان هم در سلول نوشته شد',
-   global.__MAIL.length >= 1 && String(tgRow[RC.TG-1]).indexOf('ایمیل') !== -1);
+/* از ۵٫۹۱ جانشینِ تلگرام «گزارشِ روزانه» است، نه یک ایمیلِ جدا به‌ازای هر
+   یافته: یافته‌ها می‌توانند روزی چند تا باشند و همان‌جاست که صندوقِ ورودی
+   از دست می‌رود. آنچه نباید عوض شود این است که خبر **می‌رسد** و ستون
+   دروغ نمی‌گوید. */
+ok('به‌جایش در گزارشِ روزانه رفت و همان هم در سلول نوشته شد',
+   mailQueueRead_().some(x => /کد موتور باید تعویض شود/.test(x.title)) &&
+   String(tgRow[RC.TG-1]).indexOf('گزارشِ روزانه') !== -1,
+   String(tgRow[RC.TG-1]) + ' | ' + JSON.stringify(mailQueueRead_().map(x => x.title)));
 TG_OK = true;
 
 // ================= 8) truncated episode =================================
@@ -510,8 +516,21 @@ ok('تلاش دوم موفق شد و یافته ثبت شد',
 
 console.log('\n=== ۱۹) هشدارِ نرسیده دوباره تلاش می‌شود ===');
 TG_OK = false; global.__MAIL.length = 0; resetCodeAlertBudget_();
+/* از ۵٫۹۱ جانشینِ تلگرام «گزارشِ روزانه» است، پس برای ساختنِ حالتِ «هیچ
+   کانالی نرسید» باید صف را خراب کرد، نه MailApp را. آنچه سنجیده می‌شود
+   عوض نشده: هشداری که به هیچ‌کس نرسیده نباید «دیده‌شده» ثبت شود. */
 const mailOrig = global.MailApp.sendEmail;
 global.MailApp.sendEmail = function () { throw new Error('quota'); };
+const propsOrig = global.PropertiesService.getScriptProperties;
+global.PropertiesService.getScriptProperties = function () {
+  const real = propsOrig.call(global.PropertiesService);
+  return { getProperty: (k) => real.getProperty(k),
+           deleteProperty: (k) => real.deleteProperty(k),
+           setProperty: (k, v) => {
+             if (k === PK.MAIL_QUEUE) throw new Error('props down');
+             return real.setProperty(k, v);
+           } };
+};
 OUT.getFilesByName(CFG.CODE_FILE).next().setContent(JSON.stringify({
   version: NEWER, releasedAt: '2026-08-16 10:00', summary: 'نسخهٔ جدید.' }));
 un = quiet(); checkCodeUpdate_(hub); un();
@@ -521,7 +540,9 @@ const failRow = rows().find(r => String(r[RC.ID-1]) === 'CODE-' + NEWER);
 ok('ستون هشدار «ناموفق» خورد', String(failRow[RC.TG-1]).indexOf('ناموفق') === 0,
    String(failRow[RC.TG-1]));
 // حالا کانال‌ها برمی‌گردند و اجرای بعدی دوباره تلاش می‌کند
-global.MailApp.sendEmail = mailOrig; TG_OK = true; TG.length = 0;
+global.MailApp.sendEmail = mailOrig;
+global.PropertiesService.getScriptProperties = propsOrig;
+TG_OK = true; TG.length = 0;
 OUT.createFile(CFG.REPORT_FILE_PREFIX + '2026-08-16-1100.json', JSON.stringify({
   reportId: 'R-X', at: '2026-08-16 11:00', findings: [] }), 'application/json');
 un = quiet(); ingestReports_(hub); un();

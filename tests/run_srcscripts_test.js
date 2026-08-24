@@ -562,7 +562,11 @@ console.log('\n=== ۱۳. اطلاع‌رسانی و ثبت در شیت ===');
 
   let un = quiet(); srcAutoInstall_(hub); un();
   ok('۱۳.۱ نصب پیامِ تلگرام فرستاد', tg.length === 1 && /نصب شد/.test(tg[0]));
-  ok('۱۳.۲ نصب ایمیل فرستاد', mail.length === 1 && /نصب شد/.test(mail[0].subject), mail[0] && mail[0].subject);
+  /* از ۵٫۹۱ نصبِ موفقِ تحلیلگر خبرِ روزمره است: تلگرام همین حالا، ایمیل در
+     گزارشِ روزانه با بقیه. یک رویدادِ کوچک نباید یک ایمیلِ جدا بسازد. */
+  ok('۱۳.۲ نصب در گزارشِ روزانه خبر می‌دهد، نه ایمیلِ جدا',
+     mailQueueRead_().some(x => /نصب شد/.test(x.title)) && mail.length === 0,
+     JSON.stringify(mailQueueRead_().map(x => x.title)) + ' | mail=' + mail.length);
   ok('۱۳.۳ پیام می‌گوید داوری در راه است', /داوری/.test(tg[0]));
   ok('۱۳.۴ نصب در شیت ثبت شد',
      sheet.some(f => /رسید/.test(f.title) && f.owner === ROWNER_SRCCODE),
@@ -575,7 +579,9 @@ console.log('\n=== ۱۳. اطلاع‌رسانی و ثبت در شیت ===');
            'ناتوانی در تحلیل', 'موضوع حساس', '']];
   un = quiet(); const v = srcVerdict_(hub); un();
   ok('۱۳.۵ داوری هم خبر داد', tg.length === 2 && /نتیجهٔ نصب/.test(tg[1]), tg[1]);
-  ok('۱۳.۶ داوری هم ایمیل شد', mail.length === 2 && /نتیجهٔ نصب/.test(mail[1].subject));
+  ok('۱۳.۶ داوری هم در گزارشِ روزانه می‌آید',
+     mailQueueRead_().some(x => /نتیجهٔ نصب/.test(x.title)) && mail.length === 0,
+     JSON.stringify(mailQueueRead_().map(x => x.title)) + ' | mail=' + mail.length);
   ok('۱۳.۷ متنِ خبر می‌گوید کدام اشکال برطرف شد', /✅ کرشِ parts/.test(tg[1]), tg[1]);
   ok('۱۳.۸ داوری در شیت ثبت شد',
      sheet.some(f => /داوریِ نصب/.test(f.title) && f.owner === ROWNER_SRCCODE),
@@ -704,7 +710,9 @@ console.log('\n=== ۱۵. گزارشِ شبانه به تلگرام و ایمیل
   un = quiet(); d = srcNightlyDigest_(hub, null); un();
   ok('۱۵.۲ کاهشِ ردیف‌ها خبر داده شد', d.sent === true && tg.length === 1);
   ok('۱۵.۳ و عددِ درست را می‌گوید', /300 → 60/.test(tg[0]) && /240 ردیف حذف شد/.test(tg[0]), tg[0]);
-  ok('۱۵.۴ ایمیل هم رفت', mail.length === 1 && /گزارشِ شبانه/.test(mail[0].subject));
+  ok('۱۵.۴ و در گزارشِ روزانه هم می‌آید — نه ایمیلِ شبانهٔ جدا',
+     mailQueueRead_().some(x => /گزارشِ شبانه/.test(x.title)) && mail.length === 0,
+     JSON.stringify(mailQueueRead_().map(x => x.title)) + ' | mail=' + mail.length);
   ok('۱۵.۵ می‌گوید فایل‌ها دوباره در صف‌اند', /دوباره در صفِ تحلیل/.test(tg[0]));
 
   // شبِ سوم: هیچ تغییری — نباید پیام برود
