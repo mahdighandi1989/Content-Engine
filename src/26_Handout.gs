@@ -977,8 +977,9 @@ function handoutOneSeries_(key, maxItems) {
     nums.sort(function (a, b) { return (Number(a) || 0) - (Number(b) || 0); });
     out.queued = handoutDueAddMany_(nums.map(function (x) { return { key: k, ep: x }; }));
   } catch (e2) { out.notes.push(e2.message); return out; }
-  var r = handoutRunDue_(Math.max(1, Number(maxItems) || Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
-  out.done = r.done; out.notes = out.notes.concat(r.notes);
+  var r = handoutRunDue_(Math.max(1, Number(maxItems) || Number(CFG.HANDOUT_MANUAL_MAX) || 12),
+                         Number(CFG.HANDOUT_MANUAL_MS) || 210000);
+  out.done = r.done; out.notes = out.notes.concat(r.notes); out.ranOut = r.ranOut;
   out.left = (handoutDueByKey_()[k] || 0);
   return out;
 }
@@ -1082,12 +1083,32 @@ function handoutDueAdd_(seriesKey, epNum) {
  * ۲) **گروه‌بندی بر اساسِ مجموعه.** هر مجموعه یک بار پیمایش می‌شود، نه یک
  *    بار به‌ازای هر درس.
  */
-function handoutRunDue_(maxItems) {
-  var res = { tried: 0, done: 0, left: 0, notes: [] };
+function handoutRunDue_(maxItems, budgetMs) {
+  var res = { tried: 0, done: 0, left: 0, notes: [], ranOut: false };
   if (CFG.HANDOUT_ENABLED === false) return res;
   var list = handoutDueList_();
   if (!list.length) return res;
   var cap = Math.max(1, Number(maxItems) || Number(CFG.HANDOUT_MAX_PER_RUN) || 2);
+  /* ── سقفِ زمان، نه فقط سقفِ شمارش (۵٫۸۹) ──
+   * کارِ شبانه و پایانِ قسمت باید محافظه‌کار باشند: آن‌ها مهمان‌اند و
+   * کارِ اصلی جای دیگری است. ولی وقتی آدم دکمه را می‌زند، کارِ اصلی
+   * همین است و شش دقیقهٔ کامل در اختیار است. سقفِ ثابتِ دو تا یعنی
+   * صاحبِ برنامه برای پانزده درسِ عقب‌مانده هشت بار دکمه بزند — همان
+   * کارِ دستی‌ای که قرار بود نباشد. */
+  var t0 = new Date().getTime();
+  /* صفر یا نامعتبر = بی‌کران (سقفِ شمارش تصمیم می‌گیرد). عددِ منفی یعنی
+     «وقت از همان اول تمام است» — حالتِ واقعیِ `deadline - now` وقتی اجرا
+     دیر رسیده باشد، و همان چیزی که ضمانتِ «دستِ‌کم یکی» را آزمودنی می‌کند. */
+  var budget = Number(budgetMs);
+  if (!isFinite(budget)) budget = 0;
+  /* دستِ‌کم یکی همیشه ساخته می‌شود، هر قدر هم وقت کم باشد — همان قاعده‌ای
+     که `synthesizeStep_` دارد. بی آن، اجرایی که با وقتِ تمام‌شده شروع شود
+     بی هیچ پیشرفتی برمی‌گردد و صف تا ابد سرِ جایش می‌مانَد. */
+  var timeLeft = function () {
+    if (!budget) return true;
+    if (res.tried === 0) return true;
+    return (new Date().getTime() - t0) < budget;
+  };
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
 
@@ -1116,7 +1137,10 @@ function handoutRunDue_(maxItems) {
                  keep = keep.concat(items); continue; }
 
     for (var i = 0; i < items.length; i++) {
-      if (res.tried >= cap) { keep.push(items[i]); continue; }
+      if (res.tried >= cap || !timeLeft()) {
+        if (!timeLeft()) res.ranOut = true;
+        keep.push(items[i]); continue;
+      }
       res.tried++;
       var item = items[i];
       try {
@@ -1583,7 +1607,8 @@ function runHandoutBuild() {
   var b = { queued: 0, series: 0, names: [], wrapped: false };
   try { b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25); }
   catch (e) { logLine_('کاوشِ قسمت‌های گذشته انجام نشد: ' + e.message); }
-  var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+  var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MANUAL_MAX) || 12),
+                         Number(CFG.HANDOUT_MANUAL_MS) || 210000);
   var left = 0;
   try { left = handoutDueList_().length; } catch (e2) {}
   var msg = 'جزوه:\n' +
@@ -1591,7 +1616,8 @@ function runHandoutBuild() {
                 (b.names.length ? ' — ' + b.names.slice(0, 6).join('، ') : '') + '\n' : '') +
     '• ' + r.done + ' جزوه همین حالا به‌روز شد\n' +
     '• ' + left + ' درس در صف مانده' +
-    (left ? ' — کارِ شبانه ادامه‌شان می‌دهد، یا دوباره همین دکمه را بزنید.' : '.') +
+    (left ? (r.ranOut ? ' — وقتِ این اجرا تمام شد؛ دوباره همین دکمه را بزنید یا بگذارید کارِ شبانه ادامه دهد.'
+                      : ' — کارِ شبانه ادامه‌شان می‌دهد.') : '.') +
     (b.wrapped ? '\n• کاوشِ همهٔ مجموعه‌ها یک دور کامل شد.' : '') +
     (r.notes.length ? '\n\n' + r.notes.slice(0, 8).join('\n') : '');
   try { SpreadsheetApp.getUi().alert(msg); } catch (e3) { logLine_(msg); }

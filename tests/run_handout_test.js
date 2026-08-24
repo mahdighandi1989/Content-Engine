@@ -932,4 +932,79 @@ console.log('=== ۱۵) بی هیچ دکمه‌ای — سه پرسشِ صاحب�
   CFG.HANDOUT_SCAN_MAX = savedCap;
 }
 
+console.log('=== ۱۶) دکمهٔ دستی: سقفِ زمان، نه سقفِ شمارش ===');
+{
+  /* کارِ شبانه و پایانِ قسمت مهمان‌اند و باید محافظه‌کار باشند. ولی وقتی
+   * آدم دکمه را می‌زند، کارِ اصلیِ آن اجرا همین است و شش دقیقه در اختیار
+   * دارد. سقفِ ثابتِ دو تا یعنی برای پانزده درسِ عقب‌مانده هشت بار فشردن —
+   * همان کارِ دستی‌ای که قرار بود نباشد. */
+  const hub = new Spread('هاب۱۶');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sf = global.__ROOT_FOLDER.createFolder('م۱۶');
+  const eps = [1, 2, 3, 4, 5, 6, 7, 8];
+  const row = new Array(SERIES_HEADERS.length).fill('');
+  row[SC.KEY - 1] = 'kMany'; row[SC.NAME - 1] = 'پرقسمت';
+  row[SC.FOLDER - 1] = sf.getId(); row[SC.EPISODES - 1] = eps.join(' ');
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
+  for (const n of eps) {
+    const g = sf.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kMany', seriesName: 'پرقسمت',
+      ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'متن. دوم.' }] } }),
+      'application/json', '_special.json'));
+  }
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+
+  const r = uiHandoutAll();
+  const book = JSON.parse(sf.getFilesByName('_HANDOUT.json').next().getBlob().getDataAsString());
+  ok('۱۶.۱ یک فشردن، همهٔ هشت درس را ساخت — نه دو تا',
+     book.episodes.length === 8, String(book.episodes.length) + ' — ' + r.message);
+  ok('۱۶.۲ و ترتیبِ کتاب درست ماند',
+     book.chapters.map(c => c.title).join('|') === eps.map(n => 'فصلِ ' + n).join('|'),
+     book.chapters.map(c => c.title).join('|'));
+  ok('۱۶.۳ صف خالی شد', handoutDueList_().length === 0);
+
+  /* ولی سقفِ زمان واقعاً کار می‌کند: با بودجهٔ صفرِ عملی، هیچ‌کدام ساخته
+     نمی‌شوند و صف دست‌نخورده می‌مانَد — نه اینکه بی‌صدا دور ریخته شود. */
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  const sf2 = global.__ROOT_FOLDER.createFolder('م۱۶ب');
+  const row2 = new Array(SERIES_HEADERS.length).fill('');
+  row2[SC.KEY - 1] = 'kTime'; row2[SC.NAME - 1] = 'زمان';
+  row2[SC.FOLDER - 1] = sf2.getId(); row2[SC.EPISODES - 1] = '1 2 3';
+  reg.getRange(3, 1, 1, SERIES_HEADERS.length).setValues([row2]);
+  for (const n of [1, 2, 3]) {
+    const g = sf2.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kTime', seriesName: 'زمان',
+      ep: { title: 'د', sections: [{ heading: 'ب', narration: 'م. د.' }] } }),
+      'application/json', '_special.json'));
+  }
+  handoutDueAddMany_([1, 2, 3].map(n => ({ key: 'kTime', ep: String(n) })));
+  /* بودجهٔ منفی یعنی «وقت از همان اول تمام است» — سخت‌ترین حالت، و
+     ساعتِ ساختگیِ آزمون هم آن را می‌فهمد (برخلافِ «یک میلی‌ثانیه» که در
+     یک اجرای فوریِ ماک هرگز نمی‌گذرد). */
+  const rt = handoutRunDue_(99, -1);
+  ok('۱۶.۴ با تمام‌شدنِ وقت، بقیه در صف می‌مانند نه اینکه گم شوند',
+     rt.ranOut === true && handoutDueList_().length === 2,
+     JSON.stringify({ ranOut: rt.ranOut, left: handoutDueList_().length }));
+  ok('۱۶.۵ و دستِ‌کم یکی ساخته می‌شود — اجرا بی‌پیشرفت برنمی‌گردد',
+     rt.done === 1, String(rt.done));
+
+  // کارِ شبانه محافظه‌کار می‌مانَد
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۱۶.۶ ولی کارِ شبانه همان سقفِ محافظه‌کار را دارد',
+     su.indexOf('HANDOUT_MAX_PER_RUN') !== -1 &&
+     su.indexOf('HANDOUT_MANUAL_MS') === -1);
+  const sp = fs.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۱۶.۷ و پایانِ قسمت فقط یکی می‌سازد — نباید رسیدنِ پادکست را عقب بیندازد',
+     sp.indexOf('handoutRunDue_(1)') !== -1);
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

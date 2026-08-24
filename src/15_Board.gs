@@ -1039,13 +1039,16 @@ function uiHandoutSeries(key) {
 function uiHandoutAll() {
   try {
     var b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25);
-    var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+    var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MANUAL_MAX) || 12),
+                           Number(CFG.HANDOUT_MANUAL_MS) || 210000);
     var left = 0;
     try { left = handoutDueList_().length; } catch (e2) {}
     return { ok: true, message:
       'جزوه: ' + b.queued + ' درسِ گذشته از ' + b.series + ' مجموعه به صف رفت، ' +
       r.done + ' همین حالا ساخته شد، ' + left + ' در صف مانده' +
-      (b.wrapped ? ' (کاوشِ همهٔ مجموعه‌ها یک دور کامل شد)' : '') + '.' };
+      (left ? (r.ranOut ? ' (وقتِ این اجرا تمام شد — دوباره بزنید یا بگذارید کارِ شبانه ادامه دهد)'
+                        : ' (کارِ شبانه ادامه می‌دهد)') : '') +
+      (b.wrapped ? ' · کاوشِ همهٔ مجموعه‌ها یک دور کامل شد' : '') + '.' };
   } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
 }
 
