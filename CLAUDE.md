@@ -384,6 +384,26 @@ those fields are now printed, not just stored.
 (`PK.HANDOUT_DUE`) *first* and only then builds if time remains; the nightly is
 the safety net. Reverse that order and a killed run silently drops a lesson.
 
+**Past episodes matter too.** `handoutBackfill_` (5.86) queues every produced
+lesson missing from its handout, with a cursor because 264 series do not fit in
+one run. `handoutRunDue_` groups by series (one folder walk, not one per lesson)
+and builds **in lesson order** — a book's chapter 5 cannot precede chapter 1, and
+`amend` cannot reference a lesson not yet written.
+
+**Which episodes exist is answered by the folder, never by the registry column.**
+«قسمت‌های پادکست» carries a date glued to the numbers in real data
+(`Fri Jan 02 2026 … 3 4 5`), so counting words gives 22 where 13 is right and
+counting digits is no better (`02`, `2026`). That made an up-to-date handout
+report "behind" every single day.
+
+**The tab is «کاربردِ جزوه», one row per attempt — successes and failures both.**
+`_STATUS.json` answers "how many chapters now"; the question you actually ask
+when something breaks is "since when", and only history answers that. Persistent
+lag (`HANDOUT_STUCK_DAYS`) raises a `ROWNER_CODE` finding into the `NEEDS_CODE`
+queue — a sentence in the health mail is replaced tomorrow, a finding is not.
+One bad night raises nothing: a warning that fires for a busy night is the
+warning people learn to ignore.
+
 The monitor checks it every day (`_PROMPT-monitor-v7.md` §۴٫۷) — including
 opening an actual handout, because the code tests can see the file's shape but
 not its quality.

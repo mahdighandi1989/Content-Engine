@@ -653,6 +653,16 @@ function selfUpdateDaily() {
    * بی این، «به‌روزرسانی با هر تولید» به یک وعده تبدیل می‌شد که هر بار که
    * اجرا شلوغ بود، بی‌صدا شکسته می‌شد. */
   if (CFG.HANDOUT_ENABLED !== false && nightHas_(60000, 'جزوهٔ مجموعه‌ها')) {
+    /* کاوشِ گذشته اول، و ارزان: هیچ فراخوانِ مدلی ندارد و مکان‌نما دارد، پس
+       هر شب چند مجموعه جلو می‌رود تا همه دیده شوند. بی این، جزوه فقط از
+       نصبِ ۵٫۸۵ به بعد را می‌شناخت و درس‌های گذشته هرگز وارد نمی‌شدند. */
+    try {
+      var bf = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25);
+      if (bf.queued) {
+        logLine_('جزوه: ' + bf.queued + ' درسِ گذشته از ' + bf.series +
+                 ' مجموعه به صف رفت.');
+      }
+    } catch (eBf) { logLine_('کاوشِ قسمت‌های گذشتهٔ جزوه انجام نشد: ' + eBf.message); }
     try {
       var hd = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
       if (hd.tried) {

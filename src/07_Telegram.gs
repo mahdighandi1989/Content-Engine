@@ -91,6 +91,16 @@ function tgMusicLine_() {
   } catch (e) { return ''; }
 }
 
+/* خطِ جزوه در سرپیامِ درس‌نامه. خواستهٔ صاحبِ برنامه بود که «اطلاع‌رسانی
+   بشه» — و جای طبیعی‌اش همان‌جاست که خودِ قسمت اعلام می‌شود، نه یک گزارشِ
+   جدا که باید سراغش رفت. بخشِ ۲۶ جلوتر است، پس try/catch. */
+function tgHandoutLine_(seriesName) {
+  try {
+    var t = handoutLine_(seriesName);
+    return t ? '📘 ' + tgEsc_(t) + '\n' : '';
+  } catch (e) { return ''; }
+}
+
 function tgKindIcon_(kind) {
   if (kind === 'ویدیو') return '🎬';
   if (kind === 'صدا') return '🎧';
@@ -408,6 +418,7 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
                (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
                tgMusicLine_() + '\n' +
+               tgHandoutLine_(meta.seriesName) +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (ep.goal && ep.goal.message ? '🎯 ' + tgEsc_(ep.goal.message) + '\n\n' : '') +
                tgEsc_((tags || []).join(' ')) + '\n' +

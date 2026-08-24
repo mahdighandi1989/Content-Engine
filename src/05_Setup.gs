@@ -33,7 +33,7 @@ function onOpen() {
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
-      .addItem('📘 جزوهٔ مجموعه‌ها — ساخت و به‌روزرسانی', 'runHandoutBuild')
+      .addItem('📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته', 'runHandoutBuild')
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')

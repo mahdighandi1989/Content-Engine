@@ -234,6 +234,16 @@ function sendEpisodeEmail_(epNum, ep, items, cat, audioLinks, docBlob, dur, fold
  * جدولِ پوشش (چه قطعه‌هایی از کدام قسمت آمد و چه چیزی مانده)، و جداییِ صریحِ
  * «موادِ مکمل خارج از درس» از خودِ درس.
  */
+/* جعبهٔ جزوه در ایمیلِ درس‌نامه — «اطلاع‌رسانی بشه». بخشِ ۲۶ جلوتر است. */
+function handoutHtmlLine_(seriesName) {
+  try {
+    var t = handoutLine_(seriesName);
+    if (!t) return '';
+    return '<div class="audio" style="background:#f2f7ff;border-color:#cfe0f7">' +
+           '<b>📘 جزوهٔ مجموعه</b> — ' + esc_(t) + '</div>';
+  } catch (e) { return ''; }
+}
+
 function specialHtml_(meta, audioLinks, dur, tags) {
   var ep = meta.ep || {};
   var h = [];
@@ -264,6 +274,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   h.push('</table>');
   if (ep.coverage) h.push('<p>' + esc_(ep.coverage) + '</p>');
   h.push(musicHtml_());
+  h.push(handoutHtmlLine_(meta.seriesName));
 
   // هدف و انتظارِ دوره
   if (ep.goal) {
