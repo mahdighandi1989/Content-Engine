@@ -776,6 +776,17 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     if (String(b.kind || '') === 'افکت') continue;
     if (b.slots && b.slots.indexOf(slot) === -1) continue;
     if (!b.sec) continue;
+    /* ── کفِ طول ──
+     * ۲۴ اوت فایلی سه‌ثانیه‌ای با نامِ «freemusicarchive public domain» وارد
+     * بانک شد و شناسنامه‌اش «موسیقی» می‌گفت، با جایگاهِ شروع و پایان.
+     * clipOf طولِ قطعه را سقفِ برش می‌کند (`min(14, 3)`)، پس همان فایل یک
+     * موسیقیِ آغازِ سه‌ثانیه‌ای می‌ساخت — و چون بارِ استفاده‌اش صفر است،
+     * امتیازِ «کم‌مصرف‌تر جلوتر» آن را جلو هم می‌انداخت.
+     * قطعه‌ای که از تلفیقِ لبه هم کوتاه‌تر است، موسیقیِ آغاز نیست. */
+    var need = (slot === 'میانه')
+      ? (Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4)
+      : (Number(CFG.MUSIC_MIN_EDGE_SEC) || 8);
+    if (b.sec < need) continue;
     cands.push(b);
   }
   if (!cands.length) return null;
