@@ -1219,9 +1219,24 @@ function handoutAbandoned_(book) {
  * @return {{scanned:number, queued:number, series:number, wrapped:boolean}}
  */
 function handoutBackfill_(maxSeries) {
-  var out = { scanned: 0, queued: 0, series: 0, wrapped: false, names: [], abandoned: 0 };
+  var out = { scanned: 0, rows: 0, walked: 0, queued: 0, series: 0,
+              wrapped: false, ranOut: false, names: [], abandoned: 0 };
   if (CFG.HANDOUT_ENABLED === false) return out;
+  /* ══ سقف باید کارِ گران را بشمارد، نه ردیف‌ها (باگِ ۵٫۹۱) ══
+   * تا امروز `scanned` برای **هر ردیفِ رجیستری** بالا می‌رفت و سقف ۲۵ بود.
+   * رجیستری ۲۶۴ ردیف دارد و بیشترشان اصلاً پوشه‌ای ندارند (هنوز قسمتی
+   * نساخته‌اند) — یعنی یک فشردنِ دکمه فقط ردیف‌های ۰ تا ۲۴ را می‌دید و
+   * ردِ ارزانِ ۲۰ ردیفِ بی‌پوشه، کلِ بودجه را می‌خورد.
+   *
+   * نتیجه‌اش را صاحبِ برنامه دید: دکمه را زد و پیام گفت «۰ ساخته شد، ۰ در
+   * صف» — در حالی که مجموعهٔ فعالش سیزده قسمتِ واردنشده داشت. فقط نوبتش
+   * نرسیده بود، و پیام هم این را نمی‌گفت.
+   *
+   * حالا سقف روی **پیمایشِ پوشه** است (تنها کارِ گران) و ردِ ارزان مجانی
+   * است؛ به‌علاوهٔ یک نگهبانِ زمان، چون رجیستری می‌تواند بلند شود. */
   var cap = Math.max(1, Number(maxSeries) || Number(CFG.HANDOUT_SCAN_MAX) || 25);
+  var t0 = new Date().getTime();
+  var budget = Math.max(20000, Number(CFG.HANDOUT_SCAN_MS) || 90000);
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
   if (!reg.rows.length) return out;
@@ -1231,13 +1246,16 @@ function handoutBackfill_(maxSeries) {
   if (cur >= reg.rows.length) { cur = 0; out.wrapped = true; }
 
   var i = cur;
-  while (out.scanned < cap && i < reg.rows.length) {
+  while (out.walked < cap && i < reg.rows.length) {
+    if (out.walked && new Date().getTime() - t0 > budget) { out.ranOut = true; break; }
     var rec = reg.rows[i]; i++;
-    out.scanned++;
+    out.rows++;
     var fid = String(rec.vals[SC.FOLDER - 1] || '');
     if (!fid) continue;                       // هنوز پوشه‌ای ندارد یعنی قسمتی نساخته
     var sf = null;
     try { sf = DriveApp.getFolderById(fid); } catch (eF) { continue; }
+    out.walked++;                             // از اینجا به بعد گران است
+    out.scanned = out.walked;
     var eps = handoutSeriesEpisodes_(sf);
     var nums = [];
     for (var k in eps) if (Object.prototype.hasOwnProperty.call(eps, k)) nums.push(k);
@@ -1655,22 +1673,59 @@ function handoutLineFull_(seriesName) {
  * کسی که دکمه را می‌زند، بارِ اول هیچ اتفاقی نمی‌بیند چون صف خالی است.
  */
 function runHandoutBuild() {
-  var b = { queued: 0, series: 0, names: [], wrapped: false };
+  var b = { queued: 0, series: 0, names: [], wrapped: false, rows: 0, walked: 0, ranOut: false };
   try { b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25); }
   catch (e) { logLine_('کاوشِ قسمت‌های گذشته انجام نشد: ' + e.message); }
   var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MANUAL_MAX) || 12),
                          Number(CFG.HANDOUT_MANUAL_MS) || 210000);
   var left = 0;
   try { left = handoutDueList_().length; } catch (e2) {}
-  var msg = 'جزوه:\n' +
-    (b.queued ? '• ' + b.queued + ' درسِ گذشته از ' + b.series + ' مجموعه به صف رفت' +
-                (b.names.length ? ' — ' + b.names.slice(0, 6).join('، ') : '') + '\n' : '') +
-    '• ' + r.done + ' جزوه همین حالا به‌روز شد\n' +
-    '• ' + left + ' درس در صف مانده' +
-    (left ? (r.ranOut ? ' — وقتِ این اجرا تمام شد؛ دوباره همین دکمه را بزنید یا بگذارید کارِ شبانه ادامه دهد.'
-                      : ' — کارِ شبانه ادامه‌شان می‌دهد.') : '.') +
-    (b.wrapped ? '\n• کاوشِ همهٔ مجموعه‌ها یک دور کامل شد.' : '') +
-    (r.notes.length ? '\n\n' + r.notes.slice(0, 8).join('\n') : '');
+
+  /* ── پیام باید بگوید چه شد، مخصوصاً وقتی هیچ نشد ──
+   * صاحبِ برنامه دکمه را زد و دید «۰ ساخته شد، ۰ در صف» — و هیچ راهی
+   * نداشت بفهمد یعنی «همه‌چیز به‌روز است» یا «نوبتِ مجموعه‌ات نرسید» یا
+   * «چیزی خراب است». سه حالتِ کاملاً متفاوت با یک پیام.
+   *
+   * و عددها **پس از** واژهٔ فارسی می‌آیند، نه پیش از آن: در متنِ راست‌به‌چپ
+   * عددی که سرِ سطر بیاید به انتهای دیدنیِ سطر پرت می‌شود و «۰ جزوه ساخته
+   * شد» به «جزوه ساخته شد ۰» تبدیل می‌شود — همان چیزی که در تصویر دیده شد. */
+  var L = ['جزوه:'];
+  if (b.queued) {
+    L.push('• درسِ گذشته که به صف رفت: ' + b.queued +
+           ' (از ' + b.series + ' مجموعه)' +
+           (b.names.length ? ' — ' + b.names.slice(0, 6).join('، ') : ''));
+  }
+  L.push('• جزوه‌ای که همین حالا ساخته شد: ' + r.done);
+  L.push('• درسِ باقی‌مانده در صف: ' + left);
+
+  if (!b.queued && !r.done && !left) {
+    // هیچ اتفاقی نیفتاد — بگو چرا، وگرنه دکمه «خراب» به‌نظر می‌رسد
+    if (b.walked) {
+      L.push('');
+      L.push(b.wrapped
+        ? '✅ همهٔ مجموعه‌ها کاوش شدند و همه به‌روزند؛ کاری نمانده.'
+        : 'ℹ️ ' + b.walked + ' مجموعه کاوش شد و همه به‌روز بودند. کاوش از جایی که ' +
+          'ماند ادامه می‌یابد — دوباره همین دکمه را بزنید تا بقیه هم دیده شوند.');
+    } else {
+      L.push('');
+      L.push('ℹ️ هیچ مجموعه‌ای با پوشه و قسمتِ ساخته‌شده در این بازه پیدا نشد.');
+    }
+  } else if (left) {
+    L.push('');
+    L.push(r.ranOut
+      ? 'وقتِ این اجرا تمام شد — دوباره همین دکمه را بزنید، یا بگذارید کارِ شبانه ادامه دهد.'
+      : 'کارِ شبانه بقیه را ادامه می‌دهد.');
+  }
+  if (b.walked && !b.wrapped) {
+    L.push('(کاوش: ' + b.walked + ' مجموعه از ردیفِ ' + b.rows + ' — دورِ کامل نشده)');
+  }
+  if (b.abandoned) {
+    L.push('⚠️ درسِ رهاشده (سقفِ تلاش خورده): ' + b.abandoned +
+           ' — دکمهٔ همان مجموعه در تختهٔ پیشرفت از نو امتحانش می‌کند.');
+  }
+
+  var msg = L.join('\n') +
+            (r.notes.length ? '\n\n' + r.notes.slice(0, 8).join('\n') : '');
   try { SpreadsheetApp.getUi().alert(msg); } catch (e3) { logLine_(msg); }
-  return { backfill: b, run: r, left: left };
+  return { backfill: b, run: r, left: left, message: msg };
 }

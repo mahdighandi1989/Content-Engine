@@ -392,17 +392,23 @@ console.log('=== ۹) قسمت‌های گذشته هم وارد جزوه می‌
   ok('۹.۵ کاوشِ دوباره درسی را دوبار به صف نمی‌آورد', b2.queued === 0, String(b2.queued));
 
   /* مکان‌نما: ۲۶۴ مجموعه در یک اجرا جا نمی‌شوند، و بی مکان‌نما هر اجرا از
-     اولِ فهرست شروع می‌کند و به انتها نمی‌رسد. */
+     اولِ فهرست شروع می‌کند و به انتها نمی‌رسد.
+
+     از ۵٫۹۲ سقف روی **پیمایشِ پوشه** است، نه روی ردیف: ردیفی که پوشه ندارد
+     کارِ گرانی نمی‌برد و نباید بودجه را بخورد. مجموعه‌های زیر پوشه‌دارند،
+     پس هرکدام یک واحد از سقف می‌گیرند. */
   delete global.__PROPS[PK.HANDOUT_SCAN];
   for (let n = 3; n <= 6; n++) {
+    const fx = global.__ROOT_FOLDER.createFolder('پوشهٔ ' + n);
     const r2 = new Array(SERIES_HEADERS.length).fill('');
-    r2[SC.KEY - 1] = 'k' + n; r2[SC.NAME - 1] = 'م' + n;
+    r2[SC.KEY - 1] = 'k' + n; r2[SC.NAME - 1] = 'م' + n; r2[SC.FOLDER - 1] = fx.getId();
     reg.getRange(n, 1, 1, SERIES_HEADERS.length).setValues([r2]);
   }
   const p1 = handoutBackfill_(2);
-  ok('۹.۶ کاوش کران‌دار است', p1.scanned === 2, String(p1.scanned));
+  ok('۹.۶ کاوش کران‌دار است — و سقف کارِ گران را می‌شمارد',
+     p1.walked === 2, p1.walked + ' پوشه از ' + p1.rows + ' ردیف');
   ok('۹.۷ و مکان‌نما جلو می‌رود',
-     Number(global.__PROPS[PK.HANDOUT_SCAN]) === 2, String(global.__PROPS[PK.HANDOUT_SCAN]));
+     Number(global.__PROPS[PK.HANDOUT_SCAN]) > 0, String(global.__PROPS[PK.HANDOUT_SCAN]));
   const p2 = handoutBackfill_(10);
   ok('۹.۸ اجرای بعد از همان‌جا ادامه می‌دهد و دور را تمام می‌کند',
      p2.wrapped === true && Number(global.__PROPS[PK.HANDOUT_SCAN] || 0) === 0,
@@ -1172,6 +1178,87 @@ console.log('=== ۱۸) یک ایمیل در روز، نه شش تا ===');
   ok('۱۸.۱۱ ولی بازگردانیِ کدِ خراب همچنان فوری ایمیل می‌شود',
      /برگشت خورد به نسخهٔ قبل'[\s\S]{0,200}, true\)/.test(src));
   mailQueueClear_();
+}
+
+console.log('=== ۱۹) رجیستریِ ۲۶۴ ردیفی و دکمه‌ای که «۰ و ۰» گفت ===');
+{
+  /* ══ آنچه صاحبِ برنامه دید ══
+   * نصب کرد، دکمه را زد، و پیام گفت «جزوه همین حالا به‌روز شد ۰ · درس در
+   * صف مانده ۰» — در حالی که مجموعهٔ فعالش سیزده قسمتِ واردنشده داشت.
+   * علت: سقفِ کاوش برای **هر ردیفِ رجیستری** بالا می‌رفت، و رجیستری ۲۶۴
+   * ردیف دارد که بیشترشان اصلاً پوشه‌ای ندارند. یعنی ردِ ارزانِ ۲۵ ردیفِ
+   * بی‌پوشه کلِ بودجه را می‌خورد و به مجموعهٔ واقعی هرگز نمی‌رسید. */
+  const hub = new Spread('هاب۱۹');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  // ۶۰ مجموعهٔ بی‌پوشه (هنوز قسمتی نساخته‌اند) — همان چیزی که رجیستریِ
+  // واقعی پر از آن است
+  const rows = [];
+  for (let n = 0; n < 60; n++) {
+    const r = new Array(SERIES_HEADERS.length).fill('');
+    r[SC.KEY - 1] = 'empty' + n; r[SC.NAME - 1] = 'بی‌قسمت ' + n;
+    rows.push(r);
+  }
+  // و در ردیفِ ۶۱ ام، مجموعهٔ واقعی با سیزده قسمت
+  const sf = global.__ROOT_FOLDER.createFolder('مجموعهٔ واقعی');
+  const real = new Array(SERIES_HEADERS.length).fill('');
+  real[SC.KEY - 1] = 'kReal'; real[SC.NAME - 1] = 'معرفت‌شناسی';
+  real[SC.FOLDER - 1] = sf.getId();
+  real[SC.EPISODES - 1] = '3 4 5 6 7 8 9 10 11 12 13 14 15';
+  rows.push(real);
+  reg.getRange(2, 1, rows.length, SERIES_HEADERS.length).setValues(rows);
+  for (let n = 3; n <= 15; n++) {
+    const g = sf.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kReal', seriesName: 'معرفت‌شناسی',
+      ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'متن. دوم.' }] } }),
+      'application/json', '_special.json'));
+  }
+
+  const b = handoutBackfill_(25);
+  ok('۱۹.۱ ردیف‌های بی‌پوشه بودجه را نمی‌خورند',
+     b.rows >= 61 && b.walked === 1, b.rows + ' ردیف دیده شد، ' + b.walked + ' پوشه پیمایش شد');
+  ok('۱۹.۲ و مجموعهٔ واقعی — هرچقدر هم پایینِ فهرست — پیدا می‌شود',
+     b.queued === 13 && b.series === 1, String(b.queued));
+  ok('۱۹.۳ و یک دور کامل شد', b.wrapped === true);
+
+  global.handoutPatchModel_ = (bk, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+  const res = runHandoutBuild();
+  ok('۱۹.۴ و همان یک فشردن هر سیزده درس را می‌سازد',
+     res.run.done === 13 && res.left === 0,
+     res.run.done + ' ساخته، ' + res.left + ' مانده');
+  const book = JSON.parse(sf.getFilesByName('_HANDOUT.json').next().getBlob().getDataAsString());
+  ok('۱۹.۵ و به‌ترتیبِ درس', book.chapters[0].title === 'فصلِ 3' &&
+     book.chapters[book.chapters.length - 1].title === 'فصلِ 15',
+     book.chapters[0].title + ' … ' + book.chapters[book.chapters.length - 1].title);
+
+  /* ── و پیام: «۰ و ۰» بی توضیح، سه حالتِ کاملاً متفاوت را یک‌شکل می‌کرد ── */
+  const again = runHandoutBuild();
+  ok('۱۹.۶ وقتی کاری نمانده، پیام صریح می‌گوید «همه به‌روزند»',
+     /همه به‌روز|کاری نمانده/.test(again.message), again.message.replace(/\n/g, ' | '));
+  /* و عدد **پس از** واژهٔ فارسی می‌آید: در متنِ راست‌به‌چپ عددی که سرِ سطر
+     بیاید به انتهای دیدنیِ سطر پرت می‌شود — «۰ جزوه ساخته شد» روی صفحه
+     «جزوه ساخته شد ۰» دیده می‌شد، که همان چیزی است که در تصویر بود. */
+  ok('۱۹.۷ و هیچ سطری با عدد شروع نمی‌شود',
+     again.message.split('\n').every(x => !/^[•\s]*\d/.test(x)),
+     again.message.split('\n').filter(x => /^[•\s]*\d/.test(x)).join(' / ') || 'هیچ');
+
+  // مجموعه‌ای که هیچ پوشه‌ای ندارد: پیام باید بگوید چیزی پیدا نشد، نه سکوت
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+  const hub2 = new Spread('هاب۱۹ب');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub2 };
+  global.getHub_ = () => hub2;
+  ensureTab_(hub2, CFG.SERIES_TAB, SERIES_HEADERS);
+  const none = runHandoutBuild();
+  ok('۱۹.۸ رجیستریِ بی‌پوشه هم پیامِ روشن می‌گیرد، نه صفرِ خاموش',
+     /پیدا نشد|همه به‌روز|کاری نمانده/.test(none.message),
+     none.message.replace(/\n/g, ' | '));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');
