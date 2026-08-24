@@ -268,18 +268,33 @@ global.PropertiesService = {
   }
 };
 global.LockService = { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) };
+/* تریگرها واقعاً ثبت می‌شوند، نه اینکه بی‌صدا دور ریخته شوند.
+   بی این، هیچ آزمونی نمی‌توانست بپرسد «آیا حذفِ زمان‌بندی همان چیزی را
+   برداشت که نصبِ زمان‌بندی گذاشته بود؟» — و دقیقاً همان سؤالی بود که سه
+   تریگرِ جامانده را پنهان نگه داشته بود. فهرست از خالی شروع می‌شود، پس
+   رفتارِ آزمون‌هایی که تریگر نمی‌سازند عوض نمی‌شود. */
+global.__TRIGGERS = [];
 global.ScriptApp = {
   getScriptId: () => 'SCRIPT_ID_TEST',
   getOAuthToken: () => 'TOKEN_TEST',
-  getProjectTriggers: () => [],
-  newTrigger: () => ({
+  getProjectTriggers: () => global.__TRIGGERS.slice(),
+  newTrigger: (fn) => ({
+    _fn: String(fn || ''),
     timeBased: function () { return this; }, forSpreadsheet: function () { return this; },
     everyHours: function () { return this; }, atHour: function () { return this; },
     nearMinute: function () { return this; }, everyDays: function () { return this; },
     inTimezone: function () { return this; }, onOpen: function () { return this; },
-    after: function () { return this; }, create: function () { return this; }
+    after: function () { return this; },
+    create: function () {
+      const fnName = this._fn;
+      const t = { getHandlerFunction: () => fnName };
+      global.__TRIGGERS.push(t); return t;
+    }
   }),
-  deleteTrigger() {}
+  deleteTrigger(t) {
+    const i = global.__TRIGGERS.indexOf(t);
+    if (i >= 0) global.__TRIGGERS.splice(i, 1);
+  }
 };
 global.__HTML = [];
 global.HtmlService = {

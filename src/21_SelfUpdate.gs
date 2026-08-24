@@ -168,11 +168,41 @@ function findCodePkg_(info) {
  * وارسیِ سخت‌گیرانهٔ بسته. فهرستِ ایرادها را برمی‌گرداند؛ خالی یعنی سالم.
  * مهم‌ترینش «نسخهٔ داخلِ فایل»: همان چیزی که یک بار ۵٫۸ ماند و برچسب ۵٫۹ خورد.
  */
+/**
+ * آیا این متن اصلاً «کدِ موتور» است؟ — یک تعریف، نه دو تا.
+ *
+ * ══ چرا این تابع هست ══
+ * پوشهٔ «کدها» دو خانوادهٔ فایل دارد: پشتیبانِ خودِ موتور («موتور — …») و
+ * پشتیبانِ تحلیلگرهای منبع («منبع — …»). هر دو در نامشان «پیش از» دارند.
+ * `engRollbackAuto_` این را می‌دانست و فیلتر می‌کرد؛ دکمهٔ دستیِ
+ * `installCodeRollback` — که خودِ آن تابع «قرینه»‌اش می‌نامد — نمی‌دانست و
+ * تازه‌ترین فایلِ «پیش از»دار را برمی‌داشت. هر شب که یک تحلیلگر نصب می‌شود،
+ * تازه‌ترینْ مالِ تحلیلگر است: فشردنِ آن دکمه یک تحلیلگرِ ۵۰ کیلوبایتی را
+ * به‌جای موتور در پروژه می‌نشاند. کامپایلرِ گوگل هم قبولش می‌کند (جاوااسکریپتِ
+ * سالمی است) و بعدش نه منویی مانده نه تولیدی.
+ *
+ * فیلترِ نام لازم است ولی کافی نیست: نام را آدم هم می‌تواند عوض کند. پس
+ * دروازهٔ اصلی این‌جاست و درست پیش از نوشتن در پروژه اجرا می‌شود — همان
+ * حرفی که CLAUDE.md می‌زند: مرزی که فقط با اصلاحِ ورودی نگه داشته شود،
+ * نگه داشته نشده.
+ */
+function engineTextProblems_(text) {
+  var t = String(text || ''), errs = [];
+  if (t.length < 100000) {
+    errs.push('متن برای کدِ موتور خیلی کوچک است (' + t.length + ' نویسه)');
+  }
+  if (t.length > 3000000) errs.push('متن به‌طرزِ نامعقولی بزرگ است');
+  for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
+    if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
+      errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در متن نیست');
+    }
+  }
+  return errs;
+}
+
 function validateCodePkg_(text, info) {
-  var errs = [];
+  var errs = engineTextProblems_(text);
   var t = String(text || '');
-  if (t.length < 100000) errs.push('فایل خیلی کوچک است (' + t.length + ' نویسه) — کدِ کامل نیست');
-  if (t.length > 3000000) errs.push('فایل به‌طرزِ نامعقولی بزرگ است');
   var m = t.match(/CODE_VERSION:\s*'([^']+)'/);
   if (!m) errs.push('CODE_VERSION داخلِ فایل پیدا نشد');
   else if (String(m[1]) !== String(info.version)) {
@@ -183,11 +213,6 @@ function validateCodePkg_(text, info) {
     var got = sha256Hex_(t);
     if (got !== String(info.sha256).toLowerCase()) {
       errs.push('اثرانگشتِ SHA-256 نمی‌خواند (فایل ناقص رسیده یا عوض شده)');
-    }
-  }
-  for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
-    if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
-      errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در بسته نیست — نصبش موتور را ناقص می‌کرد');
     }
   }
   return errs;
@@ -323,6 +348,15 @@ function selfUpdateNoScope_(code, apiTextOpt) {
  * برمی‌گرداند: { ok, code, reason }
  */
 function installSource_(text, wantVersion, label) {
+  // ── هرچه می‌خواهد در پروژهٔ خودِ موتور بنشیند، اول باید *موتور* باشد ──
+  // این تنها دروازهٔ مشترکِ هر سه مسیر است: نصبِ خودکار، برگشتِ خودکار، و
+  // دکمهٔ دستیِ بازگشت. جای درستِ مرز همین‌جاست، نه در سه فیلترِ نام.
+  var guard = engineTextProblems_(text);
+  if (guard.length) {
+    logLine_('نصب رد شد (' + label + '): ' + guard.join(' | '));
+    return { ok: false, reason: 'not-engine', errors: guard, why: guard.join(' · ') };
+  }
+
   // ── کدِ فعلیِ پروژه (هم آزمونِ اسکوپ است، هم مادهٔ پشتیبان) ──
   var cur = scriptApiFetch_('get');
   if (cur.code === 401 || cur.code === 403) {
@@ -670,6 +704,21 @@ function selfUpdateDaily() {
                  (hd.notes.length ? ' — ' + hd.notes.join(' · ') : '') + '.');
       }
     } catch (eHd) { logLine_('جزوهٔ شبانه اجرا نشد: ' + eHd.message); }
+    /* مهاجرتِ یک‌بارهٔ عنوانِ فصل‌ها. خودش را که تمام شد خاموش می‌کند، پس
+       بارِ همیشگی نیست؛ ولی تا تمام نشده هر شب چند مجموعه جلو می‌رود.
+       آخرِ بلوک است تا اگر بودجه ته کشید، چیزی که واقعاً درس وارد می‌کند
+       قربانیِ یک اصلاحِ آرایشی نشود. */
+    if (nightHas_(30000, 'مرتب‌سازیِ عنوانِ فصل‌های جزوه')) {
+      try {
+        var rt = handoutRetitle_(12, 45000);
+        if (rt.titles) {
+          mailQueue_('جزوه', 'عنوانِ فصل‌های کهنه مرتب شد',
+                     rt.titles + ' عنوانِ فصل در ' + rt.series + ' مجموعه از پیشوندِ ' +
+                     '«فصل N:» پاک شد و فهرست‌شان از نو ساخته شد.' +
+                     (rt.names.length ? '\n' + rt.names.slice(0, 6).join(' · ') : ''));
+        }
+      } catch (eRt) { logLine_('مرتب‌سازیِ عنوانِ فصل‌ها انجام نشد: ' + eRt.message); }
+    }
   }
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
@@ -841,24 +890,39 @@ function installCodeRollback() {
     it = codeFolder_().getFiles();
     while (it.hasNext()) {
       var f = it.next();
-      if (f.getName().indexOf('پیش از') === -1) continue;
+      var nm = String(f.getName());
+      // فقط پشتیبانِ کدِ خودِ موتور. فایل‌های «منبع — …» مالِ تحلیلگرهای
+      // منبع‌اند و هر شب یکی‌شان تازه می‌شود — بی این خط، تازه‌ترین فایلِ
+      // «پیش از»دارِ پوشه معمولاً مالِ تحلیلگر است. (قرینه‌اش در
+      // engRollbackAuto_ همین فیلتر را داشت؛ این یکی نداشت.)
+      if (nm.indexOf('پیش از') === -1 || nm.indexOf('منبع — ') === 0) continue;
       var t = f.getLastUpdated ? f.getLastUpdated().getTime() : 0;
       if (t >= bestT) { bestT = t; best = f; }
     }
   } catch (e) {}
   if (!best) {
-    if (ui) ui.alert('هیچ نسخهٔ پشتیبانی از کد در پوشهٔ «' + CFG.CODE_FOLDER + '» پیدا نشد.');
+    if (ui) ui.alert('هیچ نسخهٔ پشتیبانی از کدِ موتور در پوشهٔ «' + CFG.CODE_FOLDER +
+                     '» پیدا نشد.\n(فایل‌های «منبع — …» مالِ تحلیلگرهای منبع‌اند و ' +
+                     'به‌جای موتور نصب نمی‌شوند.)');
     return { ok: false, reason: 'no-backup' };
   }
+  var text = best.getBlob().getDataAsString();
+  var bad = engineTextProblems_(text);
+  if (bad.length) {
+    if (ui) ui.alert('بازگشت به نسخهٔ پشتیبانِ کد',
+      'تازه‌ترین پشتیبان («' + best.getName() + '») کدِ کاملِ موتور نیست و نصب نشد:\n• ' +
+      bad.join('\n• ') + '\n\nکدِ فعلی دست‌نخورده ماند.', ui.ButtonSet.OK);
+    return { ok: false, reason: 'not-engine', errors: bad };
+  }
+  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
+  var ver = m ? m[1] : 'قبلی';
   if (ui) {
     var ans = ui.alert('بازگشت به نسخهٔ پشتیبانِ کد',
-      'کدِ فعلی با «' + best.getName() + '» جایگزین شود؟\n' +
+      'کدِ فعلی (نسخهٔ ' + CFG.CODE_VERSION + ') با «' + best.getName() + '» ' +
+      'جایگزین شود؟\nنسخهٔ داخلِ آن فایل: ' + ver + '\n' +
       'از کدِ فعلی هم پیش از تعویض، پشتیبان گرفته می‌شود.', ui.ButtonSet.YES_NO);
     if (ans !== ui.Button.YES) return { cancelled: true };
   }
-  var text = best.getBlob().getDataAsString();
-  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
-  var ver = m ? m[1] : 'قبلی';
   var r = installSource_(text, ver, 'بازگشت به نسخهٔ ' + ver);
   if (ui) {
     ui.alert(r.ok ? 'انجام شد؛ راه‌اندازیِ دوباره تا دو دقیقهٔ دیگر.'
@@ -874,8 +938,21 @@ function runSelfUpdateNow() {
   if (!ui) return r;
   var msg = r.ok ? 'کدِ تازه ذخیره شد؛ راه‌اندازی تا دو دقیقهٔ دیگر و بعدش پیامِ تأیید می‌آید.'
     : r.reason === 'up-to-date' ? 'کدِ در حالِ اجرا (' + CFG.CODE_VERSION + ') تازه‌ترین است.'
-    : r.reason === 'no-manifest' ? 'هیچ اعلانِ کدی (_CODE-LATEST.json) در OUTPUT نیست.'
-    : r.reason === 'no-package' ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
+    : r.reason === 'no-manifest'
+        ? (CFG.CODE_SOURCE === 'github'
+             ? 'اعلانِ نسخه از گیت‌هاب خوانده نشد (manifest.json).\n' +
+               'یعنی یا شبکه در دسترس نبود یا فایل هنوز آن‌جا نیست — ' +
+               'کدِ در حالِ اجرا دست‌نخورده و سالم است.'
+             : 'هیچ اعلانِ کدی (_CODE-LATEST.json) در OUTPUT نیست.')
+    : r.reason === 'no-package'
+        ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
+    : r.reason === 'package-missing'
+        ? (CFG.CODE_SOURCE === 'github'
+             ? 'خودِ فایلِ کد (engine.gs) از گیت‌هاب گرفته نشد.'
+             : 'فایلِ اعلام‌شده در پوشهٔ OUTPUT پیدا نشد.')
+    : r.reason === 'blocked'
+        ? 'نسخهٔ ' + (r.version || '') + ' پیشتر برگشت خورده و نصبِ خودکارش مسدود است.'
+    : r.reason === 'disabled' ? 'نصبِ خودکار در تنظیمات خاموش است (AUTOUPDATE_ENABLED).'
     : r.reason === 'invalid' ? 'بسته ردِ وارسی شد:\n• ' + (r.errors || []).join('\n• ')
     : r.reason === 'busy' ? 'موتور وسطِ کار است؛ دو ساعت دیگر خودش دوباره تلاش می‌کند.'
     : r.reason === 'no-scope'

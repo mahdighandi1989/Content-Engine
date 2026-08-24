@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.94
+ *  موتور محتوا و پادکست — نسخهٔ 5.95
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -759,7 +759,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.94',
+  CODE_VERSION: '5.95',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1026,6 +1026,8 @@ var PK = {
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
+  // مهاجرتِ یک‌بارهٔ عنوانِ فصل‌ها (پیشوندِ «فصل ۳:» در کتاب‌های پیش از ۵٫۹۳)
+  HANDOUT_RETITLE: 'HANDOUT_RETITLE',
   MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
@@ -6343,6 +6345,21 @@ function ensureMenuTrigger_() {
   ScriptApp.newTrigger('onOpen').forSpreadsheet(hubId).onOpen().create();
 }
 
+/** فهرستِ خواندنیِ زمان‌بندی‌ها برای «نمایش وضعیت». */
+function trigList_() {
+  var t = trigNames_();
+  if (t.error) return 'خوانده نشد (' + t.error + ')';
+  if (!t.names.length) return '۰ مورد — هیچ زمان‌بندی‌ای نصب نیست';
+  var parts = [];
+  for (var k = 0; k < t.names.length; k++) {
+    var c = (t.counts && t.counts[t.names[k]]) || 1;
+    parts.push('    • ' + t.names[k] + (c > 1 ? '  ⚠️ ' + c + ' بار (تکراری)' : ''));
+  }
+  if (t.missing.length) parts.push('    ⚠️ نصب‌نشده: ' + t.missing.join('، '));
+  if (t.off) parts.push('    (زمان‌بندی عمداً خاموش شده — «۲) نصب زمان‌بندی خودکار»)');
+  return t.count + ' مورد\n' + parts.join('\n');
+}
+
 function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
@@ -6420,11 +6437,15 @@ function installTriggers() {
  * هم دیده نمی‌شود — فقط سکوت. دقیقاً همین اتفاق افتاد: پادکست تخصصی هفته‌ها
  * تریگر نداشت و هیچ‌کس نفهمید.
  */
-function ensureScheduledTriggers_() {
-  // اگر خودتان «حذف زمان‌بندی» را زده‌اید، خودکار برنمی‌گردد. «نصب زمان‌بندی»
-  // این نشانه را پاک می‌کند. بی این، یک کلیکِ ساده همهٔ چیزی را که عمداً خاموش
-  // کرده بودید بی‌صدا روشن می‌کرد.
-  if (props_().getProperty(PK.SCHED_OFF)) return { checked: 0, added: 0, off: true };
+/**
+ * زمان‌بندی‌هایی که این پیکربندی *باید* داشته باشد — یک فهرست، دو خواننده.
+ *
+ * تا ۵٫۹۴ این فهرست فقط داخلِ `ensureScheduledTriggers_` بود، و هر جای
+ * دیگری که می‌خواست بداند «چه چیزی باید نصب باشد» ناچار بود نسخهٔ خودش را
+ * بنویسد. `removeTriggers` دقیقاً همین کار را کرده بود و سه نام عقب افتاده
+ * بود. یک فهرست، هر تعداد خواننده.
+ */
+function wantedTriggers_() {
   var want = [
     { fn: 'syncCatalog',           kind: 'hours', every: 2 },
     { fn: 'produceEpisode',        kind: 'daily', hour: CFG.EPISODE_HOUR || 7 },
@@ -6449,6 +6470,49 @@ function ensureScheduledTriggers_() {
   if (CFG.AUTOUPDATE_ENABLED !== false) {
     want.push({ fn: 'selfUpdateDaily', kind: 'daily', hour: clampHour_(CFG.UPDATE_HOUR, 2) });
   }
+  return want;
+}
+
+/**
+ * چه زمان‌بندی‌هایی الان نصب‌اند، کدام تکراری‌اند، کدام گم.
+ * هم `_STATUS.json` این را می‌خواند (ناظر جای دیگری ندارد که ببیند)، هم
+ * «نمایش وضعیت»، هم وارسیِ سلامت.
+ */
+function trigNames_() {
+  var out = { count: 0, names: [], dups: [], missing: [] };
+  var ts;
+  try { ts = ScriptApp.getProjectTriggers(); } catch (e) { out.error = e.message; return out; }
+  var cnt = Object.create(null);
+  for (var i = 0; i < ts.length; i++) {
+    var f = ts[i].getHandlerFunction();
+    if (cnt[f] === undefined) { cnt[f] = 0; out.names.push(f); }
+    cnt[f]++;
+  }
+  out.count = ts.length;
+  for (var k = 0; k < out.names.length; k++) {
+    if (cnt[out.names[k]] > 1) out.dups.push(out.names[k] + ' ×' + cnt[out.names[k]]);
+  }
+  out.counts = cnt;
+  // «گم» فقط وقتی معنا دارد که زمان‌بندی عمداً خاموش نشده باشد؛ وگرنه
+  // خاموش‌کردنِ عمدی هر روز یک هشدارِ دروغ می‌داد.
+  var off = false;
+  try { off = !!props_().getProperty(PK.SCHED_OFF); } catch (eO) {}
+  out.off = off;
+  if (off) return out;
+  var want = wantedTriggers_();
+  for (var w = 0; w < want.length; w++) {
+    if (!cnt[want[w].fn]) out.missing.push(want[w].fn);
+  }
+  if (!cnt.onOpen) out.missing.push('onOpen');   // بی این، منو در شیت نیست
+  return out;
+}
+
+function ensureScheduledTriggers_() {
+  // اگر خودتان «حذف زمان‌بندی» را زده‌اید، خودکار برنمی‌گردد. «نصب زمان‌بندی»
+  // این نشانه را پاک می‌کند. بی این، یک کلیکِ ساده همهٔ چیزی را که عمداً خاموش
+  // کرده بودید بی‌صدا روشن می‌کرد.
+  if (props_().getProperty(PK.SCHED_OFF)) return { checked: 0, added: 0, off: true };
+  var want = wantedTriggers_();
   var have = Object.create(null);
   var ts;
   try { ts = ScriptApp.getProjectTriggers(); } catch (e) { return { checked: 0, added: 0 }; }
@@ -6506,24 +6570,45 @@ function ensureScheduledTriggers_() {
 }
 
 function removeTriggers(silent) {
+  /* ══ چرا فهرستِ سفید، نه فهرستِ سیاه (باگِ ۵٫۹۵) ══
+   * تا ۵٫۹۴ این‌جا ده نامِ دستی‌نوشته بود و هر قابلیتِ تازه‌ای که زمان‌بندیِ
+   * خودش را آورد، از قلم افتاد: `prepareEpisode` (۵٫۵)،
+   * `prepareSpecialEpisode` (۵٫۵) و `selfUpdateDaily` (۵٫۱۲) هیچ‌وقت به
+   * فهرست اضافه نشدند. یعنی «حذف زمان‌بندی» سه تریگر را زنده می‌گذاشت و
+   * پیامش می‌گفت «زمان‌بندی حذف شد» — ادعایی که راست نبود.
+   *
+   * بدتر: `installTriggers` اول همین را صدا می‌زند و بعد همه را می‌سازد؛
+   * پس هر بار فشردنِ «نصب زمان‌بندی» سه تریگرِ تکراری اضافه می‌کرد. دو
+   * `selfUpdateDaily` یعنی دو کارِ شبانهٔ هم‌زمان روی یک پروژه.
+   *
+   * فهرستِ سفید همان اشتباه را نمی‌کند: هرچه تریگر است می‌رود، جز منو.
+   * قابلیتِ بعدی هم بی هیچ ویرایشی این‌جا پوشش دارد. */
   var ts = ScriptApp.getProjectTriggers();
+  var gone = [];
   for (var i = 0; i < ts.length; i++) {
     var f = ts[i].getHandlerFunction();
-    if (f === 'syncCatalog' || f === 'produceEpisode' || f === 'healthCheck' ||
-        f === 'syncCatalogContinue' || f === 'produceEpisodeContinue' ||
-        f === 'produceSpecialEpisode' || f === 'produceSpecialContinue' ||
-        f === 'backupDaily' || f === 'backupContinue' || f === 'organizeContinue') {
-      ScriptApp.deleteTrigger(ts[i]);
-    }
+    if (f === 'onOpen') continue;             // منو دست‌نخورده می‌ماند
+    try { ScriptApp.deleteTrigger(ts[i]); gone.push(f); } catch (eD) {}
   }
   // حذفِ دستی یعنی «خاموش بماند». وارسیِ خودکارِ زمان‌بندی به آن احترام می‌گذارد
   // تا با یک همگام‌سازی دوباره روشن نشود. «نصب زمان‌بندی» این نشانه را برمی‌دارد.
   if (!silent) {
     props_().setProperty(PK.SCHED_OFF, nowStr_());
+    // چه چیزی واقعاً حذف شد — نه ادعای «حذف شد»، بلکه فهرستش.
+    var left = [];
+    try {
+      var after = ScriptApp.getProjectTriggers();
+      for (var j = 0; j < after.length; j++) left.push(after[j].getHandlerFunction());
+    } catch (eL) {}
+    logLine_('زمان‌بندی حذف شد: ' + (gone.join('، ') || 'چیزی نبود') + '.');
     var ui = ui_();
-    if (ui) ui.alert('زمان‌بندی حذف شد. (منو دست‌نخورده ماند)\n\n' +
-                     'تا وقتی «۲) نصب زمان‌بندی خودکار» را نزنید، خودکار برنمی‌گردد.');
+    if (ui) ui.alert('زمان‌بندی حذف شد',
+                     'حذف‌شده (' + gone.length + '): ' + (gone.join('، ') || '—') + '\n' +
+                     'باقی‌مانده (' + left.length + '): ' + (left.join('، ') || '—') +
+                     '\n\nتا وقتی «۲) نصب زمان‌بندی خودکار» را نزنید، خودکار برنمی‌گردد.',
+                     ui.ButtonSet.OK);
   }
+  return { removed: gone };
 }
 
 function runSyncNow() {
@@ -6717,7 +6802,9 @@ function showStatus() {
     'قسمت نیمه‌تمام: ' + (props_().getProperty(PK.PENDING) ? 'بله — صداگذاری ادامه دارد' : 'خیر'),
     'کلید Gemini: ' + (props_().getProperty(PK.API_KEY) ? 'ثبت شده' : 'ثبت نشده'),
     '',
-    'زمان‌بندی فعال: ' + ScriptApp.getProjectTriggers().length + ' مورد'
+    // شمار به‌تنهایی نمی‌گوید کدام کار زنده است و کدام تکراری — و تریگرِ
+    // تکراری دقیقاً همان چیزی است که سال‌ها دیده نشد. نام‌ها را بشمار.
+    'زمان‌بندی فعال: ' + trigList_()
   ]).join('\n');
   var ui = ui_(); if (ui) ui.alert('وضعیت موتور', m, ui.ButtonSet.OK); else console.log(m);
 }
@@ -7958,6 +8045,10 @@ function writeStatus_(hub, note) {
     models: models,
     telegram: tgEnabled_() ? 'فعال' : 'تنظیم نشده',
     triggers: ScriptApp.getProjectTriggers().length,
+    /* و نامشان، نه فقط شمارشان. شمار به‌تنهایی نمی‌گوید کدام کار زنده است:
+       ۹ می‌تواند «همه سرِ جایشان» باشد یا «یکی گم و یکی تکراری». ناظر فقط
+       همین فایل را می‌خواند، پس چیزی که این‌جا نباشد، دیده نمی‌شود. */
+    triggerNames: (function () { try { return trigNames_(); } catch (e) { return null; } })(),
     special: specialStatus_(hub),
     // داوریِ محتوایی: چند مجموعه آموزشی است، چند تا نه، چند تا داوری‌نشده
     curation: (function () { try { return judgeSummary_(hub); } catch (e) { return null; } })(),
@@ -8153,6 +8244,28 @@ function healthCheck() {
       }
     }
   } catch (eBk) {}
+
+  /* ۰٫۴) زمان‌بندیِ گم‌شده یا تکراری.
+   * تا ۵٫۹۴ «حذف زمان‌بندی» فهرستِ دستیِ ده‌تایی داشت و سه نام را جا
+   * می‌گذاشت؛ و چون «نصب زمان‌بندی» اول همان را صدا می‌زند و بعد همه را
+   * می‌سازد، هر فشردنِ آن گزینه یک `selfUpdateDaily` و یک `prepareEpisode`
+   * اضافه می‌کرد. دو کارِ شبانهٔ هم‌زمان روی یک پروژه هیچ خطایی نمی‌دهد —
+   * فقط دو برابر کار می‌کند و گاهی همدیگر را قطع.
+   *
+   * ۵٫۹۵ علتش را برد، ولی پروژه‌ای که همین حالا تریگرِ تکراری دارد با
+   * نصبِ کدِ تازه خودبه‌خود تمیز نمی‌شود. پس دیده‌شدنش لازم است. */
+  try {
+    var tn = st.triggerNames || trigNames_();
+    if (tn && tn.dups && tn.dups.length) {
+      problems.push('زمان‌بندیِ تکراری هست: ' + tn.dups.join(' · ') +
+                    ' — یک بار «حذف زمان‌بندی» و بعد «۲) نصب زمان‌بندی خودکار» ' +
+                    'را بزنید تا از هرکدام یکی بماند.');
+    }
+    if (tn && tn.missing && tn.missing.length) {
+      problems.push('این زمان‌بندی‌ها نصب نیستند: ' + tn.missing.join(' · ') +
+                    ' — یعنی آن کارها اصلاً اجرا نمی‌شوند. «۲) نصب زمان‌بندی خودکار» را بزنید.');
+    }
+  } catch (eTg) {}
 
   // ۰٫۵) چیدمانِ پوشهٔ OUTPUT — شلوغیِ ریشه خودش یک ایراد است
   try {
@@ -19267,11 +19380,41 @@ function findCodePkg_(info) {
  * وارسیِ سخت‌گیرانهٔ بسته. فهرستِ ایرادها را برمی‌گرداند؛ خالی یعنی سالم.
  * مهم‌ترینش «نسخهٔ داخلِ فایل»: همان چیزی که یک بار ۵٫۸ ماند و برچسب ۵٫۹ خورد.
  */
+/**
+ * آیا این متن اصلاً «کدِ موتور» است؟ — یک تعریف، نه دو تا.
+ *
+ * ══ چرا این تابع هست ══
+ * پوشهٔ «کدها» دو خانوادهٔ فایل دارد: پشتیبانِ خودِ موتور («موتور — …») و
+ * پشتیبانِ تحلیلگرهای منبع («منبع — …»). هر دو در نامشان «پیش از» دارند.
+ * `engRollbackAuto_` این را می‌دانست و فیلتر می‌کرد؛ دکمهٔ دستیِ
+ * `installCodeRollback` — که خودِ آن تابع «قرینه»‌اش می‌نامد — نمی‌دانست و
+ * تازه‌ترین فایلِ «پیش از»دار را برمی‌داشت. هر شب که یک تحلیلگر نصب می‌شود،
+ * تازه‌ترینْ مالِ تحلیلگر است: فشردنِ آن دکمه یک تحلیلگرِ ۵۰ کیلوبایتی را
+ * به‌جای موتور در پروژه می‌نشاند. کامپایلرِ گوگل هم قبولش می‌کند (جاوااسکریپتِ
+ * سالمی است) و بعدش نه منویی مانده نه تولیدی.
+ *
+ * فیلترِ نام لازم است ولی کافی نیست: نام را آدم هم می‌تواند عوض کند. پس
+ * دروازهٔ اصلی این‌جاست و درست پیش از نوشتن در پروژه اجرا می‌شود — همان
+ * حرفی که CLAUDE.md می‌زند: مرزی که فقط با اصلاحِ ورودی نگه داشته شود،
+ * نگه داشته نشده.
+ */
+function engineTextProblems_(text) {
+  var t = String(text || ''), errs = [];
+  if (t.length < 100000) {
+    errs.push('متن برای کدِ موتور خیلی کوچک است (' + t.length + ' نویسه)');
+  }
+  if (t.length > 3000000) errs.push('متن به‌طرزِ نامعقولی بزرگ است');
+  for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
+    if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
+      errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در متن نیست');
+    }
+  }
+  return errs;
+}
+
 function validateCodePkg_(text, info) {
-  var errs = [];
+  var errs = engineTextProblems_(text);
   var t = String(text || '');
-  if (t.length < 100000) errs.push('فایل خیلی کوچک است (' + t.length + ' نویسه) — کدِ کامل نیست');
-  if (t.length > 3000000) errs.push('فایل به‌طرزِ نامعقولی بزرگ است');
   var m = t.match(/CODE_VERSION:\s*'([^']+)'/);
   if (!m) errs.push('CODE_VERSION داخلِ فایل پیدا نشد');
   else if (String(m[1]) !== String(info.version)) {
@@ -19282,11 +19425,6 @@ function validateCodePkg_(text, info) {
     var got = sha256Hex_(t);
     if (got !== String(info.sha256).toLowerCase()) {
       errs.push('اثرانگشتِ SHA-256 نمی‌خواند (فایل ناقص رسیده یا عوض شده)');
-    }
-  }
-  for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
-    if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
-      errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در بسته نیست — نصبش موتور را ناقص می‌کرد');
     }
   }
   return errs;
@@ -19422,6 +19560,15 @@ function selfUpdateNoScope_(code, apiTextOpt) {
  * برمی‌گرداند: { ok, code, reason }
  */
 function installSource_(text, wantVersion, label) {
+  // ── هرچه می‌خواهد در پروژهٔ خودِ موتور بنشیند، اول باید *موتور* باشد ──
+  // این تنها دروازهٔ مشترکِ هر سه مسیر است: نصبِ خودکار، برگشتِ خودکار، و
+  // دکمهٔ دستیِ بازگشت. جای درستِ مرز همین‌جاست، نه در سه فیلترِ نام.
+  var guard = engineTextProblems_(text);
+  if (guard.length) {
+    logLine_('نصب رد شد (' + label + '): ' + guard.join(' | '));
+    return { ok: false, reason: 'not-engine', errors: guard, why: guard.join(' · ') };
+  }
+
   // ── کدِ فعلیِ پروژه (هم آزمونِ اسکوپ است، هم مادهٔ پشتیبان) ──
   var cur = scriptApiFetch_('get');
   if (cur.code === 401 || cur.code === 403) {
@@ -19769,6 +19916,21 @@ function selfUpdateDaily() {
                  (hd.notes.length ? ' — ' + hd.notes.join(' · ') : '') + '.');
       }
     } catch (eHd) { logLine_('جزوهٔ شبانه اجرا نشد: ' + eHd.message); }
+    /* مهاجرتِ یک‌بارهٔ عنوانِ فصل‌ها. خودش را که تمام شد خاموش می‌کند، پس
+       بارِ همیشگی نیست؛ ولی تا تمام نشده هر شب چند مجموعه جلو می‌رود.
+       آخرِ بلوک است تا اگر بودجه ته کشید، چیزی که واقعاً درس وارد می‌کند
+       قربانیِ یک اصلاحِ آرایشی نشود. */
+    if (nightHas_(30000, 'مرتب‌سازیِ عنوانِ فصل‌های جزوه')) {
+      try {
+        var rt = handoutRetitle_(12, 45000);
+        if (rt.titles) {
+          mailQueue_('جزوه', 'عنوانِ فصل‌های کهنه مرتب شد',
+                     rt.titles + ' عنوانِ فصل در ' + rt.series + ' مجموعه از پیشوندِ ' +
+                     '«فصل N:» پاک شد و فهرست‌شان از نو ساخته شد.' +
+                     (rt.names.length ? '\n' + rt.names.slice(0, 6).join(' · ') : ''));
+        }
+      } catch (eRt) { logLine_('مرتب‌سازیِ عنوانِ فصل‌ها انجام نشد: ' + eRt.message); }
+    }
   }
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
@@ -19940,24 +20102,39 @@ function installCodeRollback() {
     it = codeFolder_().getFiles();
     while (it.hasNext()) {
       var f = it.next();
-      if (f.getName().indexOf('پیش از') === -1) continue;
+      var nm = String(f.getName());
+      // فقط پشتیبانِ کدِ خودِ موتور. فایل‌های «منبع — …» مالِ تحلیلگرهای
+      // منبع‌اند و هر شب یکی‌شان تازه می‌شود — بی این خط، تازه‌ترین فایلِ
+      // «پیش از»دارِ پوشه معمولاً مالِ تحلیلگر است. (قرینه‌اش در
+      // engRollbackAuto_ همین فیلتر را داشت؛ این یکی نداشت.)
+      if (nm.indexOf('پیش از') === -1 || nm.indexOf('منبع — ') === 0) continue;
       var t = f.getLastUpdated ? f.getLastUpdated().getTime() : 0;
       if (t >= bestT) { bestT = t; best = f; }
     }
   } catch (e) {}
   if (!best) {
-    if (ui) ui.alert('هیچ نسخهٔ پشتیبانی از کد در پوشهٔ «' + CFG.CODE_FOLDER + '» پیدا نشد.');
+    if (ui) ui.alert('هیچ نسخهٔ پشتیبانی از کدِ موتور در پوشهٔ «' + CFG.CODE_FOLDER +
+                     '» پیدا نشد.\n(فایل‌های «منبع — …» مالِ تحلیلگرهای منبع‌اند و ' +
+                     'به‌جای موتور نصب نمی‌شوند.)');
     return { ok: false, reason: 'no-backup' };
   }
+  var text = best.getBlob().getDataAsString();
+  var bad = engineTextProblems_(text);
+  if (bad.length) {
+    if (ui) ui.alert('بازگشت به نسخهٔ پشتیبانِ کد',
+      'تازه‌ترین پشتیبان («' + best.getName() + '») کدِ کاملِ موتور نیست و نصب نشد:\n• ' +
+      bad.join('\n• ') + '\n\nکدِ فعلی دست‌نخورده ماند.', ui.ButtonSet.OK);
+    return { ok: false, reason: 'not-engine', errors: bad };
+  }
+  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
+  var ver = m ? m[1] : 'قبلی';
   if (ui) {
     var ans = ui.alert('بازگشت به نسخهٔ پشتیبانِ کد',
-      'کدِ فعلی با «' + best.getName() + '» جایگزین شود؟\n' +
+      'کدِ فعلی (نسخهٔ ' + CFG.CODE_VERSION + ') با «' + best.getName() + '» ' +
+      'جایگزین شود؟\nنسخهٔ داخلِ آن فایل: ' + ver + '\n' +
       'از کدِ فعلی هم پیش از تعویض، پشتیبان گرفته می‌شود.', ui.ButtonSet.YES_NO);
     if (ans !== ui.Button.YES) return { cancelled: true };
   }
-  var text = best.getBlob().getDataAsString();
-  var m = text.match(/CODE_VERSION:\s*'([^']+)'/);
-  var ver = m ? m[1] : 'قبلی';
   var r = installSource_(text, ver, 'بازگشت به نسخهٔ ' + ver);
   if (ui) {
     ui.alert(r.ok ? 'انجام شد؛ راه‌اندازیِ دوباره تا دو دقیقهٔ دیگر.'
@@ -19973,8 +20150,21 @@ function runSelfUpdateNow() {
   if (!ui) return r;
   var msg = r.ok ? 'کدِ تازه ذخیره شد؛ راه‌اندازی تا دو دقیقهٔ دیگر و بعدش پیامِ تأیید می‌آید.'
     : r.reason === 'up-to-date' ? 'کدِ در حالِ اجرا (' + CFG.CODE_VERSION + ') تازه‌ترین است.'
-    : r.reason === 'no-manifest' ? 'هیچ اعلانِ کدی (_CODE-LATEST.json) در OUTPUT نیست.'
-    : r.reason === 'no-package' ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
+    : r.reason === 'no-manifest'
+        ? (CFG.CODE_SOURCE === 'github'
+             ? 'اعلانِ نسخه از گیت‌هاب خوانده نشد (manifest.json).\n' +
+               'یعنی یا شبکه در دسترس نبود یا فایل هنوز آن‌جا نیست — ' +
+               'کدِ در حالِ اجرا دست‌نخورده و سالم است.'
+             : 'هیچ اعلانِ کدی (_CODE-LATEST.json) در OUTPUT نیست.')
+    : r.reason === 'no-package'
+        ? 'کد اعلام شده ولی خودِ فایل ضمیمه نیست؛ نصبِ خودکار ممکن نیست.'
+    : r.reason === 'package-missing'
+        ? (CFG.CODE_SOURCE === 'github'
+             ? 'خودِ فایلِ کد (engine.gs) از گیت‌هاب گرفته نشد.'
+             : 'فایلِ اعلام‌شده در پوشهٔ OUTPUT پیدا نشد.')
+    : r.reason === 'blocked'
+        ? 'نسخهٔ ' + (r.version || '') + ' پیشتر برگشت خورده و نصبِ خودکارش مسدود است.'
+    : r.reason === 'disabled' ? 'نصبِ خودکار در تنظیمات خاموش است (AUTOUPDATE_ENABLED).'
     : r.reason === 'invalid' ? 'بسته ردِ وارسی شد:\n• ' + (r.errors || []).join('\n• ')
     : r.reason === 'busy' ? 'موتور وسطِ کار است؛ دو ساعت دیگر خودش دوباره تلاش می‌کند.'
     : r.reason === 'no-scope'
@@ -26588,6 +26778,29 @@ function handoutTitleClean_(t) {
   return x.trim() || String(t || '').trim();
 }
 
+/**
+ * عنوانِ فصل‌های یک کتابِ *موجود* را از پیشوندِ «فصل ۳:» پاک می‌کند.
+ *
+ * ══ چرا این جدا از handoutTitleClean_ لازم شد ══
+ * آن یکی روی **ورودی** کار می‌کند: از ۵٫۹۳ به بعد هر فصلی که مدل پیشنهاد
+ * می‌دهد پیش از نشستن در کتاب تمیز می‌شود. ولی فصل‌هایی که پیش از ۵٫۹۳
+ * ساخته شده بودند دست‌نخورده ماندند و در فهرست «فصل ۳: فصل ۳ — …» دیده
+ * می‌شوند. این همان درسی است که در CLAUDE.md نوشته شده: پاک‌کردنِ ورودی،
+ * آنچه را قبلاً نوشته شده درست نمی‌کند؛ کهنه‌ها بازسازی می‌خواهند.
+ *
+ * @return {number} شمارِ عنوان‌هایی که واقعاً عوض شدند
+ */
+function handoutRetitleBook_(book) {
+  var n = 0;
+  var chs = (book && book.chapters) || [];
+  for (var i = 0; i < chs.length; i++) {
+    var was = String(chs[i].title || '');
+    var now = handoutTitleClean_(was);
+    if (now && now !== was) { chs[i].title = now; n++; }
+  }
+  return n;
+}
+
 /** شناسهٔ یکتا و پایدار. شماره‌ها هرگز بازاستفاده نمی‌شوند. */
 function handoutNextId_(book, prefix) {
   var n = Number(book.__seq || 0);
@@ -27059,6 +27272,10 @@ function handoutUpdate_(folder, meta, hub) {
   book.revision = Number(book.revision || 0) + 1;
   book.updatedAt = nowStr_();
   handoutRoadmapState_(book, meta.progress);
+  // کتابی که به‌روز می‌شود، همان‌جا عنوان‌های کهنه‌اش هم مرتب می‌شود — یک
+  // مهاجرتِ یک‌باره که به دستِ کسی نیاز نداشته باشد، سه در دارد نه یکی.
+  var fixedT = handoutRetitleBook_(book);
+  if (fixedT) logLine_('جزوهٔ «' + book.seriesName + '»: ' + fixedT + ' عنوانِ فصلِ کهنه مرتب شد.');
 
   handoutWrite_(folder, book);
   var file = handoutRender_(folder, book);
@@ -27231,9 +27448,23 @@ function handoutOneSeries_(key, maxItems) {
       for (var t in book.tried) {
         if (Object.prototype.hasOwnProperty.call(book.tried, t)) reset++;
       }
-      if (reset) { book.tried = {}; try { handoutWrite_(sf, book); } catch (eR) {} }
+      if (reset) book.tried = {};
     }
     out.reset = reset;
+    /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
+       شد». دکمه‌ای که آدم می‌زند باید همیشه کارش را بکند؛ اگر یک بار جارو
+       رد شده و چیزی جا مانده، این دومین در است. */
+    out.retitled = handoutRetitleBook_(book);
+    if (reset || out.retitled) {
+      try {
+        if (out.retitled) {
+          book.revision = Number(book.revision || 0) + 1;
+          book.updatedAt = nowStr_();
+        }
+        handoutWrite_(sf, book);
+        if (out.retitled) handoutRender_(sf, book);
+      } catch (eR) {}
+    }
     var have = Object.create(null);
     for (var e = 0; e < (book.episodes || []).length; e++) have[String(book.episodes[e].n)] = 1;
     var nums = [];
@@ -27552,6 +27783,91 @@ function handoutBackfill_(maxSeries) {
   try { props_().setProperty(PK.HANDOUT_SCAN, String(i >= reg.rows.length ? 0 : i)); }
   catch (e2) {}
   if (i >= reg.rows.length) out.wrapped = true;
+  return out;
+}
+
+/**
+ * مهاجرتِ یک‌بارهٔ عنوان‌های فصل — روی کتاب‌هایی که دیگر به‌روز نمی‌شوند.
+ *
+ * ══ چرا یک جاروی جدا لازم است ══
+ * `handoutUpdate_` هر کتابی را که درسِ تازه‌ای می‌گیرد خودش مرتب می‌کند. ولی
+ * مجموعه‌ای که تمام شده دیگر درسِ تازه‌ای نمی‌گیرد؛ فهرستش تا ابد «فصل ۳:
+ * فصل ۳ — …» می‌ماند و هیچ مسیرِ خودکاری به آن نمی‌رسد. جاروی زیر همان
+ * مسیر است.
+ *
+ * سه چیزِ عمدی در طراحی‌اش:
+ *  ۱) **مکان‌نما دارد** — ۲۶۴ مجموعه در یک اجرای شش‌دقیقه‌ای جا نمی‌شوند،
+ *     پس هر شب چند تا جلو می‌رود و دورش که تمام شد خودش را خاموش می‌کند.
+ *  ۲) **فقط وقتی می‌نویسد که چیزی عوض شده باشد** — کتابی که عنوان‌هایش
+ *     تمیزند نه نوشته می‌شود نه از نو رندر؛ وگرنه یک مهاجرتِ آرایشی، تاریخِ
+ *     تغییرِ ۲۶۴ فایل را جابه‌جا می‌کرد.
+ *  ۳) **دستِ آدم هم می‌رسد** — دکمهٔ «به‌روزرسانیِ جزوه» ذیلِ هر مجموعه
+ *     بی‌قیدِ این نشانه همان کار را برای همان مجموعه می‌کند. نشانه‌ای که
+ *     فقط کد بتواند بازش کند، همان سدی است که این ریپو بارها از آن ضربه
+ *     خورده.
+ *
+ * @return {{walked:number, series:number, titles:number, done:boolean}}
+ */
+function handoutRetitle_(maxSeries, budgetMs) {
+  var out = { walked: 0, series: 0, titles: 0, done: false, ranOut: false, names: [] };
+  if (CFG.HANDOUT_ENABLED === false) return out;
+
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.HANDOUT_RETITLE) || 'null'); } catch (e) {}
+  if (st && st.done) { out.done = true; return out; }
+  if (!st) st = { cur: 0, done: false, fixed: 0, series: 0 };
+
+  var cap = Math.max(1, Number(maxSeries) || 12);
+  var budget = Math.max(15000, Number(budgetMs) || 60000);
+  var t0 = new Date().getTime();
+
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  if (!reg.rows.length) return out;
+
+  var i = Math.max(0, Number(st.cur) || 0);
+  if (i >= reg.rows.length) i = 0;
+
+  while (out.walked < cap && i < reg.rows.length) {
+    if (out.walked && new Date().getTime() - t0 > budget) { out.ranOut = true; break; }
+    var rec = reg.rows[i]; i++;
+    var fid = String(rec.vals[SC.FOLDER - 1] || '');
+    if (!fid) continue;                       // بی‌پوشه یعنی هنوز جزوه‌ای ندارد
+    var sf = null;
+    try { sf = DriveApp.getFolderById(fid); } catch (eF) { continue; }
+    // خواندنِ کتاب گران است؛ فقط از این‌جا به بعد شمرده می‌شود
+    var has = false;
+    try { has = sf.getFilesByName(handoutJsonName_()).hasNext(); } catch (eH) { continue; }
+    if (!has) continue;
+    out.walked++;
+
+    var book = null;
+    try { book = handoutRead_(sf, null); } catch (eR) { continue; }
+    var n = handoutRetitleBook_(book);
+    if (!n) continue;                         // تمیز بود؛ دست نمی‌خورد
+
+    try {
+      book.revision = Number(book.revision || 0) + 1;
+      book.updatedAt = nowStr_();
+      handoutWrite_(sf, book);
+      handoutRender_(sf, book);
+    } catch (eW) { continue; }
+    out.series++; out.titles += n;
+    out.names.push(String(rec.vals[SC.NAME - 1] || rec.key) + ' (' + n + ')');
+  }
+
+  st.cur = i;
+  st.fixed = (Number(st.fixed) || 0) + out.titles;
+  st.series = (Number(st.series) || 0) + out.series;
+  if (i >= reg.rows.length) { st.done = true; st.at = nowStr_(); out.done = true; }
+  try { props_().setProperty(PK.HANDOUT_RETITLE, JSON.stringify(st)); } catch (eP) {}
+
+  if (out.titles) {
+    logLine_('جزوه — مرتب‌سازیِ عنوانِ فصل‌ها: ' + out.titles + ' عنوان در ' +
+             out.series + ' مجموعه (' + out.names.slice(0, 4).join('، ') + ').');
+  }
+  out.total = Number(st.fixed) || 0;
+  out.totalSeries = Number(st.series) || 0;
   return out;
 }
 

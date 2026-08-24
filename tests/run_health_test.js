@@ -64,6 +64,10 @@ console.log('  health بعد از یک writeStatus_ نامرتبط سرِ جای
 if(!stAfterSync.health||stAfterSync.health.problems.length!==h.problems.length) throw new Error('health snapshot wiped by unrelated writeStatus_ call');
 
 console.log('\n=== ۳) بعد از تولید قسمت → نباید هشدار بدهد ===');
+/* «سالم» یعنی زمان‌بندی هم نصب است. از ۵٫۹۵ نبودنِ زمان‌بندی خودش یک ایرادِ
+   گزارش‌شدنی است — و درست هم هست: پروژه‌ای بی تریگر هیچ کاری نمی‌کند و تا
+   امروز هیچ‌کس خبردار نمی‌شد. پس سناریوی سالم باید واقعاً سالم باشد. */
+installTriggers();
 let r=produceEpisode(); let d=0;
 while(global.__PROPS['PENDING_EPISODE']&&d++<80) produceEpisodeContinue();
 global.__MAIL.length=0;

@@ -90,6 +90,21 @@ function ensureMenuTrigger_() {
   ScriptApp.newTrigger('onOpen').forSpreadsheet(hubId).onOpen().create();
 }
 
+/** فهرستِ خواندنیِ زمان‌بندی‌ها برای «نمایش وضعیت». */
+function trigList_() {
+  var t = trigNames_();
+  if (t.error) return 'خوانده نشد (' + t.error + ')';
+  if (!t.names.length) return '۰ مورد — هیچ زمان‌بندی‌ای نصب نیست';
+  var parts = [];
+  for (var k = 0; k < t.names.length; k++) {
+    var c = (t.counts && t.counts[t.names[k]]) || 1;
+    parts.push('    • ' + t.names[k] + (c > 1 ? '  ⚠️ ' + c + ' بار (تکراری)' : ''));
+  }
+  if (t.missing.length) parts.push('    ⚠️ نصب‌نشده: ' + t.missing.join('، '));
+  if (t.off) parts.push('    (زمان‌بندی عمداً خاموش شده — «۲) نصب زمان‌بندی خودکار»)');
+  return t.count + ' مورد\n' + parts.join('\n');
+}
+
 function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
@@ -167,11 +182,15 @@ function installTriggers() {
  * هم دیده نمی‌شود — فقط سکوت. دقیقاً همین اتفاق افتاد: پادکست تخصصی هفته‌ها
  * تریگر نداشت و هیچ‌کس نفهمید.
  */
-function ensureScheduledTriggers_() {
-  // اگر خودتان «حذف زمان‌بندی» را زده‌اید، خودکار برنمی‌گردد. «نصب زمان‌بندی»
-  // این نشانه را پاک می‌کند. بی این، یک کلیکِ ساده همهٔ چیزی را که عمداً خاموش
-  // کرده بودید بی‌صدا روشن می‌کرد.
-  if (props_().getProperty(PK.SCHED_OFF)) return { checked: 0, added: 0, off: true };
+/**
+ * زمان‌بندی‌هایی که این پیکربندی *باید* داشته باشد — یک فهرست، دو خواننده.
+ *
+ * تا ۵٫۹۴ این فهرست فقط داخلِ `ensureScheduledTriggers_` بود، و هر جای
+ * دیگری که می‌خواست بداند «چه چیزی باید نصب باشد» ناچار بود نسخهٔ خودش را
+ * بنویسد. `removeTriggers` دقیقاً همین کار را کرده بود و سه نام عقب افتاده
+ * بود. یک فهرست، هر تعداد خواننده.
+ */
+function wantedTriggers_() {
   var want = [
     { fn: 'syncCatalog',           kind: 'hours', every: 2 },
     { fn: 'produceEpisode',        kind: 'daily', hour: CFG.EPISODE_HOUR || 7 },
@@ -196,6 +215,49 @@ function ensureScheduledTriggers_() {
   if (CFG.AUTOUPDATE_ENABLED !== false) {
     want.push({ fn: 'selfUpdateDaily', kind: 'daily', hour: clampHour_(CFG.UPDATE_HOUR, 2) });
   }
+  return want;
+}
+
+/**
+ * چه زمان‌بندی‌هایی الان نصب‌اند، کدام تکراری‌اند، کدام گم.
+ * هم `_STATUS.json` این را می‌خواند (ناظر جای دیگری ندارد که ببیند)، هم
+ * «نمایش وضعیت»، هم وارسیِ سلامت.
+ */
+function trigNames_() {
+  var out = { count: 0, names: [], dups: [], missing: [] };
+  var ts;
+  try { ts = ScriptApp.getProjectTriggers(); } catch (e) { out.error = e.message; return out; }
+  var cnt = Object.create(null);
+  for (var i = 0; i < ts.length; i++) {
+    var f = ts[i].getHandlerFunction();
+    if (cnt[f] === undefined) { cnt[f] = 0; out.names.push(f); }
+    cnt[f]++;
+  }
+  out.count = ts.length;
+  for (var k = 0; k < out.names.length; k++) {
+    if (cnt[out.names[k]] > 1) out.dups.push(out.names[k] + ' ×' + cnt[out.names[k]]);
+  }
+  out.counts = cnt;
+  // «گم» فقط وقتی معنا دارد که زمان‌بندی عمداً خاموش نشده باشد؛ وگرنه
+  // خاموش‌کردنِ عمدی هر روز یک هشدارِ دروغ می‌داد.
+  var off = false;
+  try { off = !!props_().getProperty(PK.SCHED_OFF); } catch (eO) {}
+  out.off = off;
+  if (off) return out;
+  var want = wantedTriggers_();
+  for (var w = 0; w < want.length; w++) {
+    if (!cnt[want[w].fn]) out.missing.push(want[w].fn);
+  }
+  if (!cnt.onOpen) out.missing.push('onOpen');   // بی این، منو در شیت نیست
+  return out;
+}
+
+function ensureScheduledTriggers_() {
+  // اگر خودتان «حذف زمان‌بندی» را زده‌اید، خودکار برنمی‌گردد. «نصب زمان‌بندی»
+  // این نشانه را پاک می‌کند. بی این، یک کلیکِ ساده همهٔ چیزی را که عمداً خاموش
+  // کرده بودید بی‌صدا روشن می‌کرد.
+  if (props_().getProperty(PK.SCHED_OFF)) return { checked: 0, added: 0, off: true };
+  var want = wantedTriggers_();
   var have = Object.create(null);
   var ts;
   try { ts = ScriptApp.getProjectTriggers(); } catch (e) { return { checked: 0, added: 0 }; }
@@ -253,24 +315,45 @@ function ensureScheduledTriggers_() {
 }
 
 function removeTriggers(silent) {
+  /* ══ چرا فهرستِ سفید، نه فهرستِ سیاه (باگِ ۵٫۹۵) ══
+   * تا ۵٫۹۴ این‌جا ده نامِ دستی‌نوشته بود و هر قابلیتِ تازه‌ای که زمان‌بندیِ
+   * خودش را آورد، از قلم افتاد: `prepareEpisode` (۵٫۵)،
+   * `prepareSpecialEpisode` (۵٫۵) و `selfUpdateDaily` (۵٫۱۲) هیچ‌وقت به
+   * فهرست اضافه نشدند. یعنی «حذف زمان‌بندی» سه تریگر را زنده می‌گذاشت و
+   * پیامش می‌گفت «زمان‌بندی حذف شد» — ادعایی که راست نبود.
+   *
+   * بدتر: `installTriggers` اول همین را صدا می‌زند و بعد همه را می‌سازد؛
+   * پس هر بار فشردنِ «نصب زمان‌بندی» سه تریگرِ تکراری اضافه می‌کرد. دو
+   * `selfUpdateDaily` یعنی دو کارِ شبانهٔ هم‌زمان روی یک پروژه.
+   *
+   * فهرستِ سفید همان اشتباه را نمی‌کند: هرچه تریگر است می‌رود، جز منو.
+   * قابلیتِ بعدی هم بی هیچ ویرایشی این‌جا پوشش دارد. */
   var ts = ScriptApp.getProjectTriggers();
+  var gone = [];
   for (var i = 0; i < ts.length; i++) {
     var f = ts[i].getHandlerFunction();
-    if (f === 'syncCatalog' || f === 'produceEpisode' || f === 'healthCheck' ||
-        f === 'syncCatalogContinue' || f === 'produceEpisodeContinue' ||
-        f === 'produceSpecialEpisode' || f === 'produceSpecialContinue' ||
-        f === 'backupDaily' || f === 'backupContinue' || f === 'organizeContinue') {
-      ScriptApp.deleteTrigger(ts[i]);
-    }
+    if (f === 'onOpen') continue;             // منو دست‌نخورده می‌ماند
+    try { ScriptApp.deleteTrigger(ts[i]); gone.push(f); } catch (eD) {}
   }
   // حذفِ دستی یعنی «خاموش بماند». وارسیِ خودکارِ زمان‌بندی به آن احترام می‌گذارد
   // تا با یک همگام‌سازی دوباره روشن نشود. «نصب زمان‌بندی» این نشانه را برمی‌دارد.
   if (!silent) {
     props_().setProperty(PK.SCHED_OFF, nowStr_());
+    // چه چیزی واقعاً حذف شد — نه ادعای «حذف شد»، بلکه فهرستش.
+    var left = [];
+    try {
+      var after = ScriptApp.getProjectTriggers();
+      for (var j = 0; j < after.length; j++) left.push(after[j].getHandlerFunction());
+    } catch (eL) {}
+    logLine_('زمان‌بندی حذف شد: ' + (gone.join('، ') || 'چیزی نبود') + '.');
     var ui = ui_();
-    if (ui) ui.alert('زمان‌بندی حذف شد. (منو دست‌نخورده ماند)\n\n' +
-                     'تا وقتی «۲) نصب زمان‌بندی خودکار» را نزنید، خودکار برنمی‌گردد.');
+    if (ui) ui.alert('زمان‌بندی حذف شد',
+                     'حذف‌شده (' + gone.length + '): ' + (gone.join('، ') || '—') + '\n' +
+                     'باقی‌مانده (' + left.length + '): ' + (left.join('، ') || '—') +
+                     '\n\nتا وقتی «۲) نصب زمان‌بندی خودکار» را نزنید، خودکار برنمی‌گردد.',
+                     ui.ButtonSet.OK);
   }
+  return { removed: gone };
 }
 
 function runSyncNow() {
@@ -464,7 +547,9 @@ function showStatus() {
     'قسمت نیمه‌تمام: ' + (props_().getProperty(PK.PENDING) ? 'بله — صداگذاری ادامه دارد' : 'خیر'),
     'کلید Gemini: ' + (props_().getProperty(PK.API_KEY) ? 'ثبت شده' : 'ثبت نشده'),
     '',
-    'زمان‌بندی فعال: ' + ScriptApp.getProjectTriggers().length + ' مورد'
+    // شمار به‌تنهایی نمی‌گوید کدام کار زنده است و کدام تکراری — و تریگرِ
+    // تکراری دقیقاً همان چیزی است که سال‌ها دیده نشد. نام‌ها را بشمار.
+    'زمان‌بندی فعال: ' + trigList_()
   ]).join('\n');
   var ui = ui_(); if (ui) ui.alert('وضعیت موتور', m, ui.ButtonSet.OK); else console.log(m);
 }

@@ -420,6 +420,17 @@ from `behind`**: "behind" means something is still going to happen, and reportin
 an unfixable item as behind forever is how a warning becomes noise. The per-series
 button clears the attempt record — a gate that a human cannot open is not a gate.
 
+**Cleaning the input does not fix what is already written** (5.95). 5.93 added
+`handoutTitleClean_` so a new chapter never carries «فصل ۳:» in its own title —
+but the chapters written before it kept theirs, and the contents page read
+«فصل ۳: فصل ۳ — …» every night. `handoutRetitleBook_` is the retro-fix, and it has
+three doors on purpose: every book that gets a new lesson is cleaned in
+`handoutUpdate_`, the per-series button cleans regardless of any flag, and
+`handoutRetitle_` sweeps the rest nightly with a cursor and switches itself off
+when the round completes. It writes only when something actually changed — a
+cosmetic migration must not restamp 264 files. A one-shot flag no human can reopen
+is the failure shape this repo keeps hitting; the button is the door.
+
 **The daily check rotates and never blinds permanently** (5.88). The scan cap used
 to count from the top of the registry, so series past it were never checked on any
 night. Now: every series ever seen with a problem stays on a permanent watch list
@@ -600,6 +611,45 @@ a row closes. And `RST.INSTALLED` now reopens on recurrence like `APPLIED` and
 `CLOSED` do: a finding stamped installed that is seen again means the install
 did not fix it, and without reopening it would sit in "awaiting the monitor"
 forever.
+
+## A twin fixed once is a twin fixed once (5.95)
+`engRollbackAuto_` picks the newest engine backup out of the «کدها» Drive folder,
+and it filters: `nm.indexOf('منبع — ') === 0` → skip. Its own comment calls it
+«قرینهٔ installCodeRollback» — the mirror of the menu button. The mirror had no
+filter. The analyzers write their backups into the *same* folder with the *same*
+«پیش از» in the name and install **nightly**, so the newest such file is usually
+an analyzer's: pressing «بازگشت به نسخهٔ پشتیبانِ کد» could put a 50 KB photo
+analyzer into the engine's own Apps Script project. Google's compiler accepts it
+(it is valid JS), `onOpen` disappears with the menu, and nothing is left to fix it
+from.
+
+The name filter is now on both — but the boundary is `engineTextProblems_`, called
+inside `installSource_`, the one place all three install paths pass through
+(nightly install, auto-rollback, manual rollback). A boundary held by a filter at
+each caller is a boundary that the next caller forgets, which is exactly what
+happened here. When you find a bug in one of two symmetrical functions, fix the
+asymmetry *and* move the check to where neither can skip it.
+
+## A hand-written list of what the code does will go stale (5.95)
+`removeTriggers` listed ten handler names by hand. `prepareEpisode` and
+`prepareSpecialEpisode` arrived in 5.5, `selfUpdateDaily` in 5.12, and none was
+added — so «حذف زمان‌بندی» left three triggers running while saying «زمان‌بندی
+حذف شد». Worse, `installTriggers` calls `removeTriggers(true)` first and then
+creates everything: every press added one more of those three. Two
+`selfUpdateDaily` triggers means two nightly jobs on one project — no error, just
+double work.
+
+It is now a whitelist (everything but `onOpen` goes), `wantedTriggers_()` is the
+single list of what *should* exist, and `trigNames_()` reports duplicates and
+gaps into `_STATUS.json` (`triggerNames`) and the health problems.
+`run_menu_test.js` ۲ asserts it without naming a single trigger: it runs
+`installTriggers()`, then `removeTriggers()`, and asks what is left — so the next
+feature that brings its own schedule is covered with no edit.
+
+Note what made this invisible for a year: a trigger list lives in the Apps Script
+project, not in the code and not in any sheet. `_STATUS.json` carried only
+`triggers: <count>`, and a count cannot tell «all nine present» from «one missing
+and one duplicated».
 
 ## Instructions that outlived their truth
 Three notification texts still described workflows that had been dead for

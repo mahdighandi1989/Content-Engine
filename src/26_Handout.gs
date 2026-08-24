@@ -351,6 +351,29 @@ function handoutTitleClean_(t) {
   return x.trim() || String(t || '').trim();
 }
 
+/**
+ * عنوانِ فصل‌های یک کتابِ *موجود* را از پیشوندِ «فصل ۳:» پاک می‌کند.
+ *
+ * ══ چرا این جدا از handoutTitleClean_ لازم شد ══
+ * آن یکی روی **ورودی** کار می‌کند: از ۵٫۹۳ به بعد هر فصلی که مدل پیشنهاد
+ * می‌دهد پیش از نشستن در کتاب تمیز می‌شود. ولی فصل‌هایی که پیش از ۵٫۹۳
+ * ساخته شده بودند دست‌نخورده ماندند و در فهرست «فصل ۳: فصل ۳ — …» دیده
+ * می‌شوند. این همان درسی است که در CLAUDE.md نوشته شده: پاک‌کردنِ ورودی،
+ * آنچه را قبلاً نوشته شده درست نمی‌کند؛ کهنه‌ها بازسازی می‌خواهند.
+ *
+ * @return {number} شمارِ عنوان‌هایی که واقعاً عوض شدند
+ */
+function handoutRetitleBook_(book) {
+  var n = 0;
+  var chs = (book && book.chapters) || [];
+  for (var i = 0; i < chs.length; i++) {
+    var was = String(chs[i].title || '');
+    var now = handoutTitleClean_(was);
+    if (now && now !== was) { chs[i].title = now; n++; }
+  }
+  return n;
+}
+
 /** شناسهٔ یکتا و پایدار. شماره‌ها هرگز بازاستفاده نمی‌شوند. */
 function handoutNextId_(book, prefix) {
   var n = Number(book.__seq || 0);
@@ -822,6 +845,10 @@ function handoutUpdate_(folder, meta, hub) {
   book.revision = Number(book.revision || 0) + 1;
   book.updatedAt = nowStr_();
   handoutRoadmapState_(book, meta.progress);
+  // کتابی که به‌روز می‌شود، همان‌جا عنوان‌های کهنه‌اش هم مرتب می‌شود — یک
+  // مهاجرتِ یک‌باره که به دستِ کسی نیاز نداشته باشد، سه در دارد نه یکی.
+  var fixedT = handoutRetitleBook_(book);
+  if (fixedT) logLine_('جزوهٔ «' + book.seriesName + '»: ' + fixedT + ' عنوانِ فصلِ کهنه مرتب شد.');
 
   handoutWrite_(folder, book);
   var file = handoutRender_(folder, book);
@@ -994,9 +1021,23 @@ function handoutOneSeries_(key, maxItems) {
       for (var t in book.tried) {
         if (Object.prototype.hasOwnProperty.call(book.tried, t)) reset++;
       }
-      if (reset) { book.tried = {}; try { handoutWrite_(sf, book); } catch (eR) {} }
+      if (reset) book.tried = {};
     }
     out.reset = reset;
+    /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
+       شد». دکمه‌ای که آدم می‌زند باید همیشه کارش را بکند؛ اگر یک بار جارو
+       رد شده و چیزی جا مانده، این دومین در است. */
+    out.retitled = handoutRetitleBook_(book);
+    if (reset || out.retitled) {
+      try {
+        if (out.retitled) {
+          book.revision = Number(book.revision || 0) + 1;
+          book.updatedAt = nowStr_();
+        }
+        handoutWrite_(sf, book);
+        if (out.retitled) handoutRender_(sf, book);
+      } catch (eR) {}
+    }
     var have = Object.create(null);
     for (var e = 0; e < (book.episodes || []).length; e++) have[String(book.episodes[e].n)] = 1;
     var nums = [];
@@ -1315,6 +1356,91 @@ function handoutBackfill_(maxSeries) {
   try { props_().setProperty(PK.HANDOUT_SCAN, String(i >= reg.rows.length ? 0 : i)); }
   catch (e2) {}
   if (i >= reg.rows.length) out.wrapped = true;
+  return out;
+}
+
+/**
+ * مهاجرتِ یک‌بارهٔ عنوان‌های فصل — روی کتاب‌هایی که دیگر به‌روز نمی‌شوند.
+ *
+ * ══ چرا یک جاروی جدا لازم است ══
+ * `handoutUpdate_` هر کتابی را که درسِ تازه‌ای می‌گیرد خودش مرتب می‌کند. ولی
+ * مجموعه‌ای که تمام شده دیگر درسِ تازه‌ای نمی‌گیرد؛ فهرستش تا ابد «فصل ۳:
+ * فصل ۳ — …» می‌ماند و هیچ مسیرِ خودکاری به آن نمی‌رسد. جاروی زیر همان
+ * مسیر است.
+ *
+ * سه چیزِ عمدی در طراحی‌اش:
+ *  ۱) **مکان‌نما دارد** — ۲۶۴ مجموعه در یک اجرای شش‌دقیقه‌ای جا نمی‌شوند،
+ *     پس هر شب چند تا جلو می‌رود و دورش که تمام شد خودش را خاموش می‌کند.
+ *  ۲) **فقط وقتی می‌نویسد که چیزی عوض شده باشد** — کتابی که عنوان‌هایش
+ *     تمیزند نه نوشته می‌شود نه از نو رندر؛ وگرنه یک مهاجرتِ آرایشی، تاریخِ
+ *     تغییرِ ۲۶۴ فایل را جابه‌جا می‌کرد.
+ *  ۳) **دستِ آدم هم می‌رسد** — دکمهٔ «به‌روزرسانیِ جزوه» ذیلِ هر مجموعه
+ *     بی‌قیدِ این نشانه همان کار را برای همان مجموعه می‌کند. نشانه‌ای که
+ *     فقط کد بتواند بازش کند، همان سدی است که این ریپو بارها از آن ضربه
+ *     خورده.
+ *
+ * @return {{walked:number, series:number, titles:number, done:boolean}}
+ */
+function handoutRetitle_(maxSeries, budgetMs) {
+  var out = { walked: 0, series: 0, titles: 0, done: false, ranOut: false, names: [] };
+  if (CFG.HANDOUT_ENABLED === false) return out;
+
+  var st = null;
+  try { st = JSON.parse(props_().getProperty(PK.HANDOUT_RETITLE) || 'null'); } catch (e) {}
+  if (st && st.done) { out.done = true; return out; }
+  if (!st) st = { cur: 0, done: false, fixed: 0, series: 0 };
+
+  var cap = Math.max(1, Number(maxSeries) || 12);
+  var budget = Math.max(15000, Number(budgetMs) || 60000);
+  var t0 = new Date().getTime();
+
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  if (!reg.rows.length) return out;
+
+  var i = Math.max(0, Number(st.cur) || 0);
+  if (i >= reg.rows.length) i = 0;
+
+  while (out.walked < cap && i < reg.rows.length) {
+    if (out.walked && new Date().getTime() - t0 > budget) { out.ranOut = true; break; }
+    var rec = reg.rows[i]; i++;
+    var fid = String(rec.vals[SC.FOLDER - 1] || '');
+    if (!fid) continue;                       // بی‌پوشه یعنی هنوز جزوه‌ای ندارد
+    var sf = null;
+    try { sf = DriveApp.getFolderById(fid); } catch (eF) { continue; }
+    // خواندنِ کتاب گران است؛ فقط از این‌جا به بعد شمرده می‌شود
+    var has = false;
+    try { has = sf.getFilesByName(handoutJsonName_()).hasNext(); } catch (eH) { continue; }
+    if (!has) continue;
+    out.walked++;
+
+    var book = null;
+    try { book = handoutRead_(sf, null); } catch (eR) { continue; }
+    var n = handoutRetitleBook_(book);
+    if (!n) continue;                         // تمیز بود؛ دست نمی‌خورد
+
+    try {
+      book.revision = Number(book.revision || 0) + 1;
+      book.updatedAt = nowStr_();
+      handoutWrite_(sf, book);
+      handoutRender_(sf, book);
+    } catch (eW) { continue; }
+    out.series++; out.titles += n;
+    out.names.push(String(rec.vals[SC.NAME - 1] || rec.key) + ' (' + n + ')');
+  }
+
+  st.cur = i;
+  st.fixed = (Number(st.fixed) || 0) + out.titles;
+  st.series = (Number(st.series) || 0) + out.series;
+  if (i >= reg.rows.length) { st.done = true; st.at = nowStr_(); out.done = true; }
+  try { props_().setProperty(PK.HANDOUT_RETITLE, JSON.stringify(st)); } catch (eP) {}
+
+  if (out.titles) {
+    logLine_('جزوه — مرتب‌سازیِ عنوانِ فصل‌ها: ' + out.titles + ' عنوان در ' +
+             out.series + ' مجموعه (' + out.names.slice(0, 4).join('، ') + ').');
+  }
+  out.total = Number(st.fixed) || 0;
+  out.totalSeries = Number(st.series) || 0;
   return out;
 }
 

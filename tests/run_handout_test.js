@@ -1482,4 +1482,87 @@ console.log('=== ۲۳) تخته می‌گفت «۷ درس هنوز وارد نش
      sp.indexOf('epNumsJoin_(epsNow)') !== -1);
 }
 
+console.log('=== ۲۴) جاروی یک‌بارهٔ عنوانِ فصل‌ها روی کتاب‌های واقعی ===');
+{
+  /* کتابی که دیگر درسِ تازه‌ای نمی‌گیرد (مجموعهٔ تمام‌شده) از هیچ مسیرِ
+     دیگری مرتب نمی‌شود. این‌جا جارو با درایو و رجیستریِ واقعیِ ماک اجرا
+     می‌شود، نه با گرپ روی متنِ کد. */
+  const hub = new Spread('هاب۲۴');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  delete global.__PROPS[PK.HANDOUT_RETITLE];
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+
+  const dirty = global.__ROOT_FOLDER.createFolder('۲۴ — کهنه');
+  const clean = global.__ROOT_FOLDER.createFolder('۲۴ — تمیز');
+  const mk = (folder, titles) => {
+    const book = { seriesKey: 'k', seriesName: folder.getName(), cat: '', level: '',
+                   createdAt: nowStr_(), updatedAt: '', revision: 2,
+                   roadmap: { intro: '', stages: [], note: '' },
+                   chapters: titles.map((t, i) => ({ id: 'c' + (i + 1), title: t, sections: [
+                     { id: 's' + (i + 1), title: 'بخش', text: 'متنِ درس.', ep: '1', refs: [] }
+                   ] })), refs: [], episodes: [{ n: '1', title: 'د۱', at: nowStr_() }] };
+    handoutWrite_(folder, book);
+    return book;
+  };
+  mk(dirty, ['فصل ۱: آغاز', 'فصل ۲: میانه']);
+  mk(clean, ['آغاز', 'میانه']);
+  const rows = [[ 'kD', 'کهنه' ], [ 'kC', 'تمیز' ]];
+  const folders = [dirty, clean];
+  for (let i = 0; i < rows.length; i++) {
+    const r = new Array(SERIES_HEADERS.length).fill('');
+    r[SC.KEY - 1] = rows[i][0]; r[SC.NAME - 1] = rows[i][1];
+    r[SC.FOLDER - 1] = folders[i].getId();
+    reg.getRange(2 + i, 1, 1, SERIES_HEADERS.length).setValues([r]);
+  }
+
+  const before = JSON.parse(dirty.getFilesByName(handoutJsonName_()).next()
+                                 .getBlob().getDataAsString());
+  const r1 = handoutRetitle_(10, 60000);
+  ok('۲۴.۱ جارو کتابِ کهنه را پیدا و مرتب کرد',
+     r1.series === 1 && r1.titles === 2, JSON.stringify({ s: r1.series, t: r1.titles }));
+  const after = JSON.parse(dirty.getFilesByName(handoutJsonName_()).next()
+                                .getBlob().getDataAsString());
+  ok('۲۴.۲ و روی دیسک نوشته شد',
+     after.chapters[0].title === 'آغاز' && after.chapters[1].title === 'میانه',
+     after.chapters.map(c => c.title).join(' | '));
+  ok('۲۴.۳ بازنگری یک پله بالا رفت',
+     Number(after.revision) === Number(before.revision) + 1,
+     before.revision + ' → ' + after.revision);
+  ok('۲۴.۴ و HTML از نو ساخته شد',
+     dirty.getFilesByName(handoutHtmlName_(after.seriesName)).hasNext());
+
+  /* کتابِ تمیز نباید اصلاً نوشته شود — یک مهاجرتِ آرایشی که تاریخِ تغییرِ
+     ۲۶۴ فایل را جابه‌جا کند، خودش یک خرابی است. */
+  const cleanAfter = JSON.parse(clean.getFilesByName(handoutJsonName_()).next()
+                                     .getBlob().getDataAsString());
+  ok('۲۴.۵ کتابِ تمیز دست نمی‌خورد', Number(cleanAfter.revision) === 2 &&
+     cleanAfter.updatedAt === '', JSON.stringify({ rev: cleanAfter.revision }));
+  ok('۲۴.۶ و برای آن HTMLای هم ساخته نشد',
+     !clean.getFilesByName(handoutHtmlName_(cleanAfter.seriesName)).hasNext());
+
+  /* دورش که تمام شد خودش را خاموش می‌کند — وگرنه هر شب همهٔ پوشه‌ها را
+     دوباره می‌خواند برای کاری که تمام شده. */
+  ok('۲۴.۷ دور تمام شد و نشانه ثبت شد', r1.done === true);
+  const r2 = handoutRetitle_(10, 60000);
+  ok('۲۴.۸ اجرای بعدی هیچ پوشه‌ای را باز نمی‌کند',
+     r2.walked === 0 && r2.done === true, JSON.stringify({ w: r2.walked }));
+
+  /* ولی دستِ آدم همیشه باز است: دکمهٔ ذیلِ مجموعه بی‌قیدِ آن نشانه کار
+     می‌کند. سدی که آدم هم نتواند بازش کند، سد نیست. */
+  const book2 = JSON.parse(dirty.getFilesByName(handoutJsonName_()).next()
+                                .getBlob().getDataAsString());
+  book2.chapters.push({ id: 'c9', title: 'فصل ۹: افزوده', sections: [] });
+  handoutWrite_(dirty, book2);
+  const one = handoutOneSeries_('kD', 1);
+  ok('۲۴.۹ دکمهٔ مجموعه با وجودِ «تمام‌شده» باز هم مرتب می‌کند',
+     one.retitled === 1, JSON.stringify({ r: one.retitled }));
+  const fin = JSON.parse(dirty.getFilesByName(handoutJsonName_()).next()
+                              .getBlob().getDataAsString());
+  ok('۲۴.۱۰ و روی دیسک نشست',
+     fin.chapters[fin.chapters.length - 1].title === 'افزوده',
+     fin.chapters[fin.chapters.length - 1].title);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');
