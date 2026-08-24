@@ -3241,6 +3241,11 @@ function produceEpisode(opt) {
     // (بخش ۲۴) — وسطِ تولید نه وقتش هست نه جایش.
     // فراخوانِ رو به جلو (۳ → ۲۴) عمداً در try/catch است: در فایلِ سرِهم‌شده
     // بالا‌بردنِ تعریف‌ها مشکلی نمی‌سازد، ولی بارگذارهای جزئیِ tests/ می‌شکنند.
+    // scrubSourceIds_ بالاتر هر شناسه‌ای از items و همچنین refs (ارجاع به
+    // قسمت‌های گذشته) را «معتبر» می‌شمارد. اگر اینجا فقط items داده شود، بخشی
+    // که به‌درستی به یک refs اِسناد داده «شکسته» شمرده می‌شود — دقیقاً همان
+    // چیزی که در قسمت ۱۵ و ۱۶ دیده شد. items+refs باید همان استخری باشد که
+    // scrubSourceIds_ برایش «شناخته‌شده» را تعریف کرده.
     try {
       auditSnap_(ENRICH_SHOW_VARIETY,
                  // picked.title نامِ «دسته» است، نه عنوانِ قسمت — همان‌طور که
@@ -3249,7 +3254,7 @@ function produceEpisode(opt) {
                    category: picked.title, targetMin: CFG.TARGET_MINUTES },
                  { hook: ep.hook, outro: ep.outro, connection: connection,
                    sections: ep.sections },
-                 items, fid);
+                 items.concat(refs), fid);
     } catch (eSn) { logLine_('عکسِ محتوا گرفته نشد: ' + eSn.message); }
 
     var pad = ('0000' + epNum).slice(-4);

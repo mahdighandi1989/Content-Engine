@@ -218,4 +218,32 @@ console.log('=== ۸) مرزها ===');
   ok('۸.۸ و بقیه می‌مانند', names(auditFolder_()).length === nBefore - 1);
 }
 
+console.log('=== ۹) اِسنادِ معتبر به refs نباید «شکسته» شمرده شود ===');
+{
+  // ۵٫۸۱ — scrubSourceIds_ در ۰۳ شناسه‌های items و refs را هر دو «معتبر»
+  // می‌شمارد؛ اگر auditSnap_ فقط items بگیرد، بخشی که به یک refs اِسناد داده
+  // به‌غلط «شکسته» می‌شود (قسمت ۱۵/۱۶: broken=2 با اینکه اسنادها معتبر بودند).
+  const REFS = [
+    { id: 'R9', kind: 'ویدیو', topic: 'قسمتِ پیشین', msg: 'ارجاع به قسمتِ پیشین',
+      summary: 'خلاصهٔ ارجاع', body: 'ر'.repeat(50) }
+  ];
+  const EP2 = {
+    hook: 'سلام.', outro: 'پایان.', connection: 'پیوند.',
+    sections: [
+      { heading: 'ارجاع به گذشته', narration: 'همان‌طور که پیش‌تر گفتیم…', sourceIds: ['R9'] }
+    ]
+  };
+  const snap9 = auditSnap_('variety',
+    { showName: CFG.SHOW_NAME, episode: 8, title: 'عنوان', category: 'طنز و سرگرمی', targetMin: 10 },
+    EP2, ITEMS.concat(REFS), []);
+  const det9 = auditDeterministic_(snap9);
+  ok('۹.۱ شناسهٔ refs در عکس ذخیره می‌شود', !!snap9.sources['R9']);
+  ok('۹.۲ اِسنادِ معتبر به refs شکسته شمرده نمی‌شود', det9.broken === 0, JSON.stringify(det9));
+
+  // وارسیِ سیمِ فراخوان: محلِ واقعیِ تولید باید items و refs را با هم بدهد.
+  const p3b = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۹.۳ فراخوانِ تولید، items و refs را با هم به عکس می‌دهد',
+     /auditSnap_\(ENRICH_SHOW_VARIETY[\s\S]{0,700}items\.concat\(refs\), fid\);/.test(p3b));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
