@@ -237,10 +237,13 @@ function sendEpisodeEmail_(epNum, ep, items, cat, audioLinks, docBlob, dur, fold
 /* جعبهٔ جزوه در ایمیلِ درس‌نامه — «اطلاع‌رسانی بشه». بخشِ ۲۶ جلوتر است. */
 function handoutHtmlLine_(seriesName) {
   try {
-    var t = handoutLine_(seriesName);
-    if (!t) return '';
+    var h = handoutLineFull_(seriesName);
+    if (!h || !h.text) return '';
+    // لینک، نه فقط خبر: کسی که شیت باز نمی‌کند باید از همین‌جا به جزوه برسد.
     return '<div class="audio" style="background:#f2f7ff;border-color:#cfe0f7">' +
-           '<b>📘 جزوهٔ مجموعه</b> — ' + esc_(t) + '</div>';
+           '<b>📘 جزوهٔ مجموعه</b> — ' + esc_(h.text) +
+           (h.url ? ' <a href="' + esc_(h.url) + '">باز کردنِ جزوه</a>' : '') +
+           '</div>';
   } catch (e) { return ''; }
 }
 

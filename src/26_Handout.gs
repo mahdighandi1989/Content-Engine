@@ -996,6 +996,7 @@ function handoutHistory_(hub, n) {
       out.push({ at: String(v[i][HU.AT - 1]), series: String(v[i][HU.SERIES - 1]),
                  ep: String(v[i][HU.EP - 1]), newCh: String(v[i][HU.NEWCH - 1]),
                  newSec: String(v[i][HU.NEWSEC - 1]), amend: String(v[i][HU.AMEND - 1]),
+                 totCh: String(v[i][HU.TOTCH - 1]), url: String(v[i][HU.LINK - 1] || ''),
                  result: String(v[i][HU.RESULT - 1]) });
     }
   } catch (e) {}
@@ -1401,7 +1402,41 @@ function handoutStatus_() {
   // تاریخچه: «از کِی» را فقط این جواب می‌دهد، و همان چیزی است که ناظر
   // برای تشخیصِ «شبِ شلوغ» از «زنجیرهٔ شکسته» لازم دارد.
   try { out.recent = handoutHistory_(null, 8); } catch (e5) { out.recent = []; }
+  out.line = handoutLineOf_(out);
   return out;
+}
+
+/**
+ * یک جملهٔ آمادهٔ فارسی از حالِ همهٔ جزوه‌ها.
+ *
+ * ══ چرا خودِ موتور جمله می‌سازد و نه ناظر ══
+ * صاحبِ برنامه: «من هیچ‌وقت نمی‌روم توی شیت و تب‌ها را نگاه کنم؛ این را
+ * باید خودِ ناظر ببیند.» درست است — ولی اگر ناظر مجبور باشد از روی
+ * عددهای خام جمله بسازد، هر روز ممکن است شکلِ دیگری بسازد یا اصلاً
+ * ننویسدش. یک فیلدِ آمادهٔ `line` یعنی جمله همیشه هست، همیشه یک‌شکل است،
+ * و ناظر فقط نقلش می‌کند. **و مهم‌تر: وقتی همه‌چیز خوب است هم هست** —
+ * سکوت را نمی‌شود از «این قابلیت مرده» تشخیص داد.
+ */
+function handoutLineOf_(st) {
+  if (!st || st.enabled === false) return 'جزوه: خاموش است.';
+  var n = (st.series || []).length;
+  if (!n) return 'جزوه: هنوز مجموعه‌ای با قسمتِ تولیدشده نیست.';
+  var made = 0, cov = 0, prod = 0, beh = 0, ab = 0;
+  for (var i = 0; i < st.series.length; i++) {
+    var r = st.series[i];
+    if (!r.missing) made++;
+    cov += Number(r.covered) || 0;
+    prod += Number(r.episodes) || 0;
+    beh += Number(r.behind) || 0;
+    ab += Number(r.abandoned) || 0;
+  }
+  var bits = [made + ' جزوه از ' + n + ' مجموعه',
+              cov + ' از ' + prod + ' درس وارد شده'];
+  if (beh) bits.push(beh + ' درس در راه');
+  if (ab) bits.push('⚠ ' + ab + ' درس رهاشده — نیاز به رسیدگی');
+  if (Number(st.due)) bits.push(st.due + ' در صف');
+  if (!beh && !ab && cov === prod) bits.push('همه به‌روز');
+  return 'جزوه: ' + bits.join(' · ') + '.';
 }
 
 /**
@@ -1428,6 +1463,11 @@ function handoutHealth_(problems, notes) {
   var st = null;
   try { st = handoutStatus_(); } catch (e) { return; }
   if (!st) return;
+  /* خطِ حال، **همیشه** — حتی وقتی هیچ ایرادی نیست.
+     سکوت را نمی‌شود از «این قابلیت مرده» تشخیص داد، و صاحبِ برنامه شیت
+     باز نمی‌کند. پس گزارشِ روزانه باید خودش بگوید جزوه‌ها در چه حال‌اند،
+     نه اینکه فقط وقتی خراب شد حرف بزند. */
+  if (notes && st.line) notes.push(st.line);
 
   // از کِی هر مجموعه عقب است — تا «یک شبِ شلوغ» با «زنجیرهٔ شکسته» یکی نشود
   var lag = {};
@@ -1579,20 +1619,31 @@ function handoutHealth_(problems, notes) {
 }
 
 /** یک خطِ کوتاه برای ایمیل و تلگرامِ درس‌نامه — تا اطلاع‌رسانی بشود. */
-function handoutLine_(seriesName) {
+/**
+ * خطِ جزوهٔ یک مجموعه، با لینک — تا از داخلِ ایمیلِ قسمت مستقیم به جزوه بروی.
+ *
+ * صاحبِ برنامه شیت باز نمی‌کند و حق هم دارد. پس هرچه لازم است باید در
+ * همان چیزی باشد که می‌خواند: ایمیل و تلگرامِ خودِ قسمت.
+ */
+function handoutLineFull_(seriesName) {
+  var out = { text: '', url: '' };
   try {
     var hist = handoutHistory_(null, 12);
     for (var i = 0; i < hist.length; i++) {
       if (String(hist[i].series) !== String(seriesName)) continue;
+      out.url = String(hist[i].url || '');
       if (hist[i].result === 'به‌روز شد') {
-        return 'جزوهٔ مجموعه به‌روز شد: ' + hist[i].newCh + ' فصلِ تازه، ' +
-               hist[i].newSec + ' بخش' +
-               (Number(hist[i].amend) ? '، ' + hist[i].amend + ' تکمیلِ درس‌های قبلی' : '') + '.';
+        out.text = 'جزوهٔ مجموعه به‌روز شد: ' + hist[i].newCh + ' فصلِ تازه، ' +
+                   hist[i].newSec + ' بخش' +
+                   (Number(hist[i].amend) ? '، ' + hist[i].amend + ' تکمیلِ درس‌های قبلی' : '') +
+                   (hist[i].totCh ? ' — جزوه حالا ' + hist[i].totCh + ' فصل دارد' : '') + '.';
+      } else {
+        out.text = 'جزوهٔ مجموعه این بار به‌روز نشد — ' + hist[i].result + '.';
       }
-      return 'جزوهٔ مجموعه این بار به‌روز نشد — ' + hist[i].result + '.';
+      return out;
     }
   } catch (e) {}
-  return '';
+  return out;
 }
 
 /* ───────────────────────────── دکمهٔ دستی ───────────────────────────── */

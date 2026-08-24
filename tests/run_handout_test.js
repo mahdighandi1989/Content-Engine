@@ -472,7 +472,8 @@ console.log('=== ۱۰) ثبت در شیت: چه شد، کِی، و چرا نشد
   ok('۱۰.۱۰ و در _STATUS.json می‌آید', (handoutStatus_().recent || []).length === 2);
   /* و خطِ اطلاع‌رسانی که در ایمیل و تلگرامِ همان قسمت دیده می‌شود */
   ok('۱۰.۱۱ خطِ اطلاع‌رسانیِ قسمت ساخته می‌شود',
-     handoutLine_('اخلاق').indexOf('به‌روز نشد') !== -1, handoutLine_('اخلاق'));
+     handoutLineFull_('اخلاق').text.indexOf('به‌روز نشد') !== -1,
+     handoutLineFull_('اخلاق').text);
 }
 
 console.log('=== ۱۱) نظارت: آنچه به تغییرِ کد می‌رسد ===');
@@ -1004,6 +1005,103 @@ console.log('=== ۱۶) دکمهٔ دستی: سقفِ زمان، نه سقفِ ش
   const sp = fs.readFileSync('src/14_Special.gs', 'utf8');
   ok('۱۶.۷ و پایانِ قسمت فقط یکی می‌سازد — نباید رسیدنِ پادکست را عقب بیندازد',
      sp.indexOf('handoutRunDue_(1)') !== -1);
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+}
+
+console.log('=== ۱۷) بی بازکردنِ هیچ تبی ===');
+{
+  /* «من هیچ‌وقت نمی‌روم توی شیت و تب‌ها را نگاه کنم و این را باید خودِ
+   * ناظر همه‌چیز را ببیند. چون دیدم بارها می‌گویی برو فلان تب را ببین.»
+   * درست است. پس هرچه لازم است باید در چیزی باشد که او می‌خواند: ایمیلِ
+   * قسمت، و گزارشِ روزانه. */
+  const hub = new Spread('هاب۱۷');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+  delete global.__PROPS[PK.HANDOUT_STAT];
+  delete global.__PROPS[PK.HANDOUT_SEEN];
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sf = global.__ROOT_FOLDER.createFolder('م۱۷');
+  const row = new Array(SERIES_HEADERS.length).fill('');
+  row[SC.KEY - 1] = 'kSee'; row[SC.NAME - 1] = 'دیدنی';
+  row[SC.FOLDER - 1] = sf.getId(); row[SC.EPISODES - 1] = '1 2';
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
+  for (const n of [1, 2]) {
+    const g = sf.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kSee', seriesName: 'دیدنی',
+      ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'متن. دوم.' }] } }),
+      'application/json', '_special.json'));
+  }
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+  handoutDueAddMany_([{ key: 'kSee', ep: '1' }, { key: 'kSee', ep: '2' }]);
+  handoutRunDue_(9);
+
+  /* ۱) گزارشِ روزانه: خطِ حال **همیشه** هست، حتی وقتی هیچ ایرادی نیست.
+        سکوت را نمی‌شود از «این قابلیت مرده» تشخیص داد. */
+  const probs = [], notes = [];
+  handoutHealth_(probs, notes);
+  ok('۱۷.۱ وقتی همه‌چیز خوب است، هیچ ایرادی گزارش نمی‌شود',
+     probs.length === 0, probs.join(' | '));
+  ok('۱۷.۲ ولی خطِ حال باز هم می‌آید — سکوت پاسخ نیست',
+     notes.some(x => x.indexOf('جزوه:') === 0), notes.join(' | '));
+  ok('۱۷.۳ و خط عددهای واقعی را می‌گوید، نه جملهٔ کلی',
+     notes.some(x => /جزوه: .*۱|جزوه: .*1 جزوه/.test(x) || /2 از 2 درس/.test(x)),
+     notes.join(' | '));
+
+  const st = handoutStatus_();
+  ok('۱۷.۴ همان جمله در _STATUS.json هم هست تا ناظر فقط نقلش کند',
+     typeof st.line === 'string' && st.line.indexOf('جزوه:') === 0, st.line);
+  ok('۱۷.۵ و وقتی همه به‌روزند، صریح می‌گوید «همه به‌روز»',
+     st.line.indexOf('همه به‌روز') !== -1, st.line);
+
+  /* ۲) ایمیل و تلگرامِ خودِ قسمت: خبر **و لینک**، تا لازم نباشد جایی باز
+        شود. این پرخوانده‌ترین چیزی است که صاحبِ برنامه می‌بیند. */
+  const line = handoutLineFull_('دیدنی');
+  ok('۱۷.۶ خطِ قسمت لینکِ جزوه را هم دارد',
+     !!line.text && String(line.url).indexOf('http') === 0,
+     line.text + ' | ' + line.url);
+  const mailBox = handoutHtmlLine_('دیدنی');
+  ok('۱۷.۷ و در ایمیلِ قسمت یک لینکِ واقعی رندر می‌شود',
+     mailBox.indexOf('<a href="') !== -1 && mailBox.indexOf('باز کردنِ جزوه') !== -1,
+     mailBox.slice(0, 120));
+  const tgBox = tgHandoutLine_('دیدنی');
+  ok('۱۷.۸ در تلگرام هم', tgBox.indexOf('<a href="') !== -1, tgBox.slice(0, 100));
+
+  /* ۳) و وقتی چیزی خراب است، خطِ حال خودش هشدار را می‌بَرد — نه اینکه
+        بگوید «برو تب را ببین». */
+  const sf2 = global.__ROOT_FOLDER.createFolder('م۱۷ب');
+  const row2 = new Array(SERIES_HEADERS.length).fill('');
+  row2[SC.KEY - 1] = 'kBad'; row2[SC.NAME - 1] = 'خراب';
+  row2[SC.FOLDER - 1] = sf2.getId(); row2[SC.EPISODES - 1] = '1';
+  reg.getRange(3, 1, 1, SERIES_HEADERS.length).setValues([row2]);
+  const g2 = sf2.createFolder('قسمت 1');
+  g2.createFile(Utilities.newBlob(JSON.stringify({
+    epNum: 1, seriesKey: 'kBad', seriesName: 'خراب',
+    ep: { title: 'د', sections: [{ heading: 'ب', narration: 'م. د.' }] } }),
+    'application/json', '_special.json'));
+  global.handoutPatchModel_ = () => ({ newChapters: [] });
+  for (let k = 0; k < 5; k++) {
+    handoutDueAddMany_([{ key: 'kBad', ep: '1' }]);
+    handoutRunDue_(3);
+  }
+  const st2 = handoutStatus_();
+  ok('۱۷.۹ خطِ حال، خودش «رهاشده» را با نشانِ هشدار می‌آورد',
+     st2.line.indexOf('رهاشده') !== -1 && st2.line.indexOf('⚠') !== -1, st2.line);
+
+  /* ۴) و دستورِ ناظر صریح ممنوع کرده که به‌جای جواب، آدرسِ تب بدهد. */
+  const pr = fs.readFileSync('docs/prompts/_PROMPT-monitor-v10.md', 'utf8');
+  ok('۱۷.۱۰ دستورِ ناظر «برو فلان تب را ببین» را ممنوع کرده',
+     pr.indexOf('هرگز ننویس «برو فلان تب را ببین»') !== -1 ||
+     pr.indexOf('هرگز در ایمیل ننویس «برو فلان تب/شیت/فایل را ببین»') !== -1);
+  ok('۱۷.۱۱ و کارتابلِ روزانه هر روز می‌آید، حتی وقتی همه‌چیز خوب است',
+     pr.indexOf('کارتابلِ روزانه') !== -1 &&
+     pr.indexOf('حتی وقتی همه‌چیز خوب است') !== -1);
+  ok('۱۷.۱۲ و جزوه یکی از ردیف‌های ثابتِ آن است',
+     pr.indexOf('`handout.line`') !== -1);
   global.__PROPS[PK.HANDOUT_DUE] = '';
 }
 

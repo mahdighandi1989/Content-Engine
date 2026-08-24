@@ -96,8 +96,10 @@ function tgMusicLine_() {
    جدا که باید سراغش رفت. بخشِ ۲۶ جلوتر است، پس try/catch. */
 function tgHandoutLine_(seriesName) {
   try {
-    var t = handoutLine_(seriesName);
-    return t ? '📘 ' + tgEsc_(t) + '\n' : '';
+    var h = handoutLineFull_(seriesName);
+    if (!h || !h.text) return '';
+    return '📘 ' + tgEsc_(h.text) +
+           (h.url ? ' <a href="' + tgEsc_(h.url) + '">باز کردنِ جزوه</a>' : '') + '\n';
   } catch (e) { return ''; }
 }
 

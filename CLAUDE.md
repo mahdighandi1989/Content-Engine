@@ -427,7 +427,14 @@ until it is fixed, plus a rotating window with a cursor over the rest.
 `pending` means "not their turn tonight", not "unseen", and `cycleNights` says how
 long a full round takes.
 
-The monitor checks it every day (`_PROMPT-monitor-v9.md` §۴٫۷) — including
+**The owner never opens a sheet — so nothing may live only in one** (5.90).
+`handoutStatus_().line` is a ready Persian sentence that is present *every day,
+including when everything is fine*, and rides into the health notes; the episode
+email and Telegram carry a direct link to the handout itself. The monitor prompt
+(v10) forbids writing "go look at tab X" — it looks, and brings the answer —
+and mandates a fixed daily table so silence can never be mistaken for health.
+
+The monitor checks it every day (`_PROMPT-monitor-v10.md` §۴٫۷) — including
 opening an actual handout, because the code tests can see the file's shape but
 not its quality.
 
