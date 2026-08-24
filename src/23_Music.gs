@@ -2777,10 +2777,21 @@ function runMusicRecheck() {
 function runMusicFetch() {
   // یک زدن، سه مرحله: بگرد، بیاور، بپوی. کاربر نباید سه گزینهٔ منو را
   // به‌ترتیب بزند تا یک فایل موسیقی داشته باشد.
+  /* ردهای ناحقِ نسخه‌های پیش، همین‌جا هم باز می‌شوند. کارِ شبانه این را
+     می‌کند، ولی کسی که دکمه را می‌زند نباید تا فردا شب صبر کند. */
+  var unb = { freed: 0 };
+  try { unb = musicUnblock_(); } catch (eU) {}
+
   var seek = { added: 0, notes: [] };
   try {
     var miss = musicThinSlots_();
-    if (miss.length) seek = musicSeek_(miss);
+    // کمبودی نبود یعنی پوششِ موسیقی کامل است، نه اینکه کاری نمانده —
+    // همان چیزی که کارِ شبانه از ۵٫۶۵ می‌فهمد و این دکمه نمی‌فهمید.
+    if (!miss.length) miss = musicRotateSlots_();
+    /* و مهم‌تر: تا ۵٫۷۸ اگر هیچ جایگاهی کم نداشت، musicSeek_ اصلاً صدا
+       زده نمی‌شد — یعنی گشتنِ **افکت** هم انجام نمی‌شد، با اینکه بانک
+       افکت کم دارد. حالا در آن حالت با «فقط افکت» می‌گردد. */
+    seek = musicSeek_(miss.length ? miss : null, !miss.length);
   } catch (eS) {}
 
   var r = musicFetch_();
@@ -2791,6 +2802,10 @@ function runMusicFetch() {
   try { rc = musicRecheck_(null); } catch (eR) {}
 
   var L = ['🎵 موسیقی — گشتن، آوردن، پویش', ''];
+  if (unb && unb.freed) {
+    L.push('‏' + unb.freed + ' نشانی که پیش‌تر به‌ناحق رد شده بود، دوباره باز شد.');
+    L.push('');
+  }
   if (seek.added) {
     L.push(seek.added + ' نامزدِ تازه از archive.org به فهرست اضافه شد:');
     for (var k = 0; k < seek.notes.length; k++) L.push('   • ' + seek.notes[k]);
