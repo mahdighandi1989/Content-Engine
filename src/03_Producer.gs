@@ -1324,6 +1324,70 @@ function pronHits_(text) {
  * هر گروه ۴ نویسه = ۳ بایت. برای هم‌ترازی نمونه‌های ۱۶ بیتی، تعداد گروه‌ها باید زوج
  * باشد تا طول بایت مضربی از ۶ شود. حداکثر ۵ بایت (~۰٫۱ میلی‌ثانیه) حذف می‌شود.
  */
+/* ═════════ هم‌پوشانیِ نرمِ موسیقی و گفتار (۵٫۸۰) ═════════
+
+   ══ چه چیزی غیرحرفه‌ای بود ══
+   تکه‌ها **پشتِ سرِ هم** چسبانده می‌شدند: موسیقی تمام می‌شد، بعد گوینده
+   شروع می‌کرد. صاحبِ برنامه گفت «یهو اون قطع شه و این شروع بشه… باید
+   ثانیه‌های آخرِ موسیقی و ابتداییِ صدای گوینده کمی در هم تلفیق بشن.»
+
+   ══ چرا شدنی است، با اینکه «بسترِ موسیقی زیرِ کلِ روایت» نیست ══
+   بسترِ سراسری یعنی جمعِ نمونه‌به‌نمونه روی ~۱۴ میلیون نمونه — مهلتِ
+   شش‌دقیقه‌ای گوگل اجازه نمی‌دهد. ولی هم‌پوشانی فقط **دو ثانیه سرِ هر
+   اتصال** است: ۴۸ هزار نمونه، و در هر قسمت شش‌هفت اتصال. کلِ کار کمتر از
+   نیم‌میلیون عمل است.
+
+   ══ ترفندِ مرزِ امن ══
+   هر نمونه ۲ بایت است و هر گروهِ base64 سه بایت. پس تنها جایی که هم روی
+   مرزِ نمونه است و هم روی مرزِ گروه، مضربِ ۶ بایت (= ۳ نمونه = ۸ نویسه)
+   است. با این مرز، برشِ رشته هیچ نمونه‌ای را نصف نمی‌کند و لازم نیست کلِ
+   تکه رمزگشایی شود — فقط همان دو ثانیهٔ لبه.
+*/
+
+/** خواندنِ یک نمونهٔ ۱۶بیتیِ علامت‌دار. بایت‌های Apps Script علامت‌دارند. */
+function rd16_(b, i) {
+  var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
+  var v = u(i) | (u(i + 1) << 8);
+  return (v & 0x8000) ? v - 65536 : v;
+}
+
+/**
+ * دو تکهٔ base64 را با هم‌پوشانیِ `secs` ثانیه در هم می‌بَرد.
+ * برمی‌گرداند [تکهٔ اولِ تازه، تکهٔ دومِ تازه] یا null اگر جا نبود.
+ */
+function pcmXfade_(prevB64, nextB64, secs) {
+  var sr = CFG.SAMPLE_RATE || 24000;
+  var n = Math.floor((Number(secs) || 0) * sr);
+  if (!(n > 0) || !prevB64 || !nextB64) return null;
+
+  var bytes = Math.floor(n * 2 / 6) * 6;      // مرزِ امنِ نمونه × base64
+  if (bytes < 6) return null;
+  var chars = bytes / 3 * 4;
+  // هر دو طرف باید بیش از ناحیهٔ هم‌پوشانی صدا داشته باشند، وگرنه از
+  // خودشان چیزی نمی‌مانَد و «تلفیق» می‌شود «حذف».
+  if (prevB64.length < chars * 2 || nextB64.length < chars * 2) return null;
+
+  var a, b;
+  try {
+    a = Utilities.base64Decode(prevB64.slice(prevB64.length - chars));
+    b = Utilities.base64Decode(nextB64.slice(0, chars));
+  } catch (e) { return null; }
+
+  var cnt = Math.floor(Math.min(a.length, b.length) / 2);
+  if (cnt < 3) return null;
+  var out = [];
+  for (var k = 0; k < cnt; k++) {
+    var i2 = k * 2, t = k / cnt;
+    var v = Math.round(rd16_(a, i2) * (1 - t) + rd16_(b, i2) * t);
+    if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+    if (v < 0) v += 65536;
+    var lo = v & 255, hi = (v >>> 8) & 255;
+    out.push(lo > 127 ? lo - 256 : lo, hi > 127 ? hi - 256 : hi);
+  }
+  return [prevB64.slice(0, prevB64.length - chars) + Utilities.base64Encode(out),
+          nextB64.slice(chars)];
+}
+
 function alignB64_(b64) {
   b64 = String(b64).replace(/\s+/g, '').replace(/=+$/, '');
   var g = Math.floor(b64.length / 4);
@@ -1413,6 +1477,9 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // «آیا وقتِ تمام‌کردنِ تکهٔ بعدی هم هست؟». همین یک خط، فرقِ «ادامه در اجرای
   // بعد» با «Exceeded maximum execution time» است.
   var reserve = Number(CFG.TTS_RESERVE_MS) > 0 ? Number(CFG.TTS_RESERVE_MS) : 110000;
+  // نوعِ آخرین تکه‌ای که واقعاً در بافر نشست — نه chunks[i-1]، چون تکه‌ای
+  // که b64 خالی داد اصلاً اضافه نشده و مرزِ واقعی جای دیگری است.
+  var prevMusic = null;
   for (; i < chunks.length; i++) {
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
@@ -1430,6 +1497,29 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
     }
     if (!b64) continue;
+
+    /* ── تلفیقِ لبه‌ها ──
+     * جایی که یک طرف موسیقی/افکت است و طرفِ دیگر گفتار، دو ثانیهٔ آخرِ
+     * یکی و دو ثانیهٔ اولِ دیگری روی هم می‌افتند: یکی محو می‌شود و دیگری
+     * بالا می‌آید. اگر بافر تازه خالی شده باشد (مرزِ فایل) از این اتصال
+     * می‌گذریم — دو فایلِ جدا را نمی‌شود در هم برد. */
+    var curMusic = !!(chunks[i] && chunks[i].pcm);
+    if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
+        prevMusic !== curMusic) {
+      var mus = curMusic ? chunks[i] : chunks[i - 1];
+      var xs = Number(mus && mus.xfade);
+      if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
+      try {
+        var mix = pcmXfade_(buf[buf.length - 1], b64, xs);
+        if (mix) {
+          bufChars += mix[0].length - buf[buf.length - 1].length;
+          buf[buf.length - 1] = mix[0];
+          b64 = mix[1];
+        }
+      } catch (eX) { logLine_('تلفیقِ لبه انجام نشد: ' + eX.message); }
+    }
+    prevMusic = curMusic;
+
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);
       if (f) {

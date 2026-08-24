@@ -1924,4 +1924,77 @@ console.log('=== ۳۱) دکمهٔ دستی باید همان کارِ شبانه
      /به‌ناحق رد شده بود، دوباره باز شد/.test(p23m));
 }
 
+console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
+{
+  /* «یهو اون قطع شه و این شروع بشه … باید ثانیه‌های آخرِ موسیقی و ابتداییِ
+   * صدای گوینده کمی در هم تلفیق بشن، fade شده و خیلی حرفه‌ای.»
+   * تا ۵٫۷۹ تکه‌ها صرفاً پشتِ سرِ هم چسبانده می‌شدند. */
+  const SR = CFG.SAMPLE_RATE || 24000;
+  const b64of = (vals) => {
+    const bytes = [];
+    for (const v0 of vals) {
+      let v = v0 < 0 ? v0 + 65536 : v0;
+      const lo = v & 255, hi = (v >>> 8) & 255;
+      bytes.push(lo > 127 ? lo - 256 : lo, hi > 127 ? hi - 256 : hi);
+    }
+    return Utilities.base64Encode(bytes);
+  };
+  const samplesOf = (b64) => {
+    const b = Utilities.base64Decode(b64), out = [];
+    for (let i = 0; i + 1 < b.length; i += 2) out.push(rd16_(b, i));
+    return out;
+  };
+
+  // یک ثانیه هم‌پوشانی روی دو تکهٔ سه‌ثانیه‌ای با مقدارِ ثابت
+  const A = [], B = [];
+  for (let i = 0; i < SR * 3; i++) { A.push(10000); B.push(-10000); }
+  const a64 = b64of(A), b64b = b64of(B);
+  const mix = pcmXfade_(a64, b64b, 1);
+  ok('۳۲.۱ تلفیق انجام می‌شود', !!mix && mix.length === 2);
+
+  const pa = samplesOf(mix[0]), pb = samplesOf(mix[1]);
+  ok('۳۲.۲ طولِ کل به اندازهٔ هم‌پوشانی کوتاه می‌شود',
+     Math.abs((pa.length + pb.length) - (A.length + B.length - SR)) <= 3,
+     (pa.length + pb.length) + ' در برابرِ ' + (A.length + B.length - SR));
+  ok('۳۲.۳ ابتدای تکهٔ اول دست‌نخورده می‌ماند',
+     pa[0] === 10000 && pa[100] === 10000);
+  ok('۳۲.۴ در آغازِ ناحیهٔ هم‌پوشانی، صدای اول غالب است',
+     pa[pa.length - SR + 5] > 9000, String(pa[pa.length - SR + 5]));
+  ok('۳۲.۵ در پایانِ ناحیه، صدای دوم غالب است',
+     pa[pa.length - 5] < -9000, String(pa[pa.length - 5]));
+  ok('۳۲.۶ و وسطش تقریباً خنثی — یکی می‌رود، دیگری می‌آید',
+     Math.abs(pa[pa.length - Math.floor(SR / 2)]) < 1500,
+     String(pa[pa.length - Math.floor(SR / 2)]));
+  ok('۳۲.۷ تکهٔ دوم از بعدِ ناحیهٔ هم‌پوشانی شروع می‌شود',
+     pb.length === B.length - SR && pb[0] === -10000,
+     pb.length + ' / ' + (B.length - SR));
+
+  // مرزهای امن
+  ok('۳۲.۸ تکهٔ کوتاه‌تر از ناحیهٔ هم‌پوشانی تلفیق نمی‌شود — «حذف» نه',
+     pcmXfade_(b64of([1, 2, 3]), b64b, 1) === null);
+  ok('۳۲.۹ ثانیهٔ صفر یا منفی کاری نمی‌کند',
+     pcmXfade_(a64, b64b, 0) === null && pcmXfade_(a64, b64b, -1) === null);
+  ok('۳۲.۱۰ و هیچ نمونه‌ای نصف نمی‌شود — مرزِ مضربِ ۶ بایت',
+     samplesOf(mix[0]).length * 2 % 2 === 0 &&
+     (Utilities.base64Decode(mix[0]).length % 2) === 0);
+
+  // وصل‌بودن به مسیرِ واقعی
+  const p03b = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۳۲.۱۱ در حلقهٔ صداگذاری صدا زده می‌شود',
+     /pcmXfade_\(buf\[buf\.length - 1\], b64, xs\)/.test(p03b));
+  ok('۳۲.۱۲ فقط سرِ مرزِ موسیقی↔گفتار، نه میانِ دو تکهٔ گفتار',
+     /prevMusic !== curMusic/.test(p03b));
+  ok('۳۲.۱۳ و نوعِ تکهٔ واقعاً افزوده‌شده دنبال می‌شود، نه chunks\\[i-1\\]',
+     /var prevMusic = null;/.test(p03b) && /prevMusic = curMusic;/.test(p03b));
+  ok('۳۲.۱۴ سرِ مرزِ فایل از تلفیق می‌گذرد — دو فایل را نمی‌شود در هم برد',
+     /buf\.length && prevMusic !== null/.test(p03b));
+
+  const p23n = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۳۲.۱۵ آغاز و میانه و پایان هر سه طولِ تلفیق را با خود می‌برند',
+     (p23n.match(/xfade: Number\(CFG\.MUSIC_XFADE_SEC\)/g) || []).length === 3);
+  ok('۳۲.۱۶ و افکت طولِ کوتاه‌ترِ خودش را دارد',
+     /xfade: Number\(CFG\.MUSIC_SFX_XFADE_SEC\)/.test(p23n) &&
+     Number(CFG.MUSIC_SFX_XFADE_SEC) < Number(CFG.MUSIC_XFADE_SEC));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

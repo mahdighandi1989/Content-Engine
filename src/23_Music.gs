@@ -961,7 +961,8 @@ function musicWrap_(chunks, hub, opt) {
   var intro = musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro) {
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8);
-    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name });
+    if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
+                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
               intro.slot = 'شروع'; picks.push(intro); }
   }
 
@@ -1022,7 +1023,8 @@ function musicWrap_(chunks, hub, opt) {
       var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4);
       if (bb) {
         out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
-                        (w.head ? ' (پیش از «' + w.head + '»)' : '') });
+                        (w.head ? ' (پیش از «' + w.head + '»)' : ''),
+                   xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
         w.track.slot = 'میانه';
         if (picks.indexOf(w.track) === -1) picks.push(w.track);
       }
@@ -1035,7 +1037,8 @@ function musicWrap_(chunks, hub, opt) {
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
     var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10);
-    if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name });
+    if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
+                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
               outro.slot = 'پایان'; picks.push(outro); }
   }
 
@@ -1059,8 +1062,11 @@ function musicWrap_(chunks, hub, opt) {
                  gain: eb.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
                  fadeIn: 0.3, fadeOut: 0.6 });
       if (!ec) continue;
+      // افکت کوتاه است؛ هم‌پوشانیِ دوثانیه‌ای کلش را می‌خورد. لبه‌اش
+      // فقط آن‌قدر نرم می‌شود که تلنگر نزند.
       var piece = { pcm: ec, label: 'افکت — ' + eb.name + ' (' + okSfx[sx].why +
-                                    '؛ ' + pl.how + ')' };
+                                    '؛ ' + pl.how + ')',
+                    xfade: Number(CFG.MUSIC_SFX_XFADE_SEC) || 0.35 };
       var host = out[pl.at], txt = String((host && host.text) || '');
       if (pl.cut > 0 && pl.cut < txt.length) {
         // تکه دو نیم می‌شود و افکت بینشان می‌نشیند — لحن و گویندهٔ هر دو نیمه
