@@ -271,6 +271,92 @@ function promptArchiveFolder_() {
  * برای هر خانوادهٔ پرامپت فقط بالاترین نسخه در ریشه می‌ماند.
  * برمی‌گرداند: شمارِ فایل‌هایی که بایگانی شدند.
  */
+/* ═══════════ پرامپت‌ها از ریپو به درایو، خودکار (۵٫۸۵) ═══════════
+
+   ══ کارِ دستی‌ای که هر بار تکرار می‌شد ══
+   قاعدهٔ ۷ج در CLAUDE.md می‌گوید نسخهٔ تازهٔ هر پرامپت باید هم در
+   `docs/prompts/` باشد و هم در ریشهٔ OUTPUT. تا امروز نیمهٔ دومش را **آدم**
+   انجام می‌داد: متن را از ریپو برمی‌داشت و در درایو می‌ساخت.
+
+   دو ایراد داشت، و هر دو واقعی‌اند نه نظری:
+   ۱) همان کارِ دستی‌ای است که صاحبِ برنامه بارها گفته نمی‌خواهد:
+      «من این‌همه اتوماسیون نکردم که آخرش بروم دستی چیزی را بگذارم جایی.»
+   ۲) و بدتر: **دو نسخه از یک متن، دستی هم‌گام‌شده.** آنچه git ثبت می‌کند و
+      آنچه تسک می‌خواند می‌توانستند بی‌صدا از هم فاصله بگیرند — و هیچ سنجه‌ای
+      این را نمی‌گرفت، چون هر دو فایل به‌تنهایی سالم‌اند.
+
+   حالا همان راهی که `outReadmeSync_` از ۵٫۶۸ برای نقشهٔ پوشه می‌رود:
+   raw گیت‌هاب → درایو. تنها منبعِ حقیقت ریپوست.
+
+   ══ چرا فقط «افزودن»، هرگز بازنویسی ══
+   پرامپت‌ها append-only هستند. اگر این تابع فایلِ موجود را بازنویسی می‌کرد،
+   یک ویرایشِ اشتباه در ریپو می‌توانست نسخه‌ای را که تسک همین حالا دارد
+   می‌خواند عوض کند. پس فقط شماره‌های **بالاتر از آنچه هست** ساخته می‌شوند.
+*/
+
+/** بالاترین شمارهٔ هر خانوادهٔ پرامپت در ریشهٔ OUTPUT. */
+function promptTopVersions_() {
+  var top = Object.create(null);
+  try {
+    var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFiles();
+    while (it.hasNext()) {
+      var m = String(it.next().getName()).match(PROMPT_RE);
+      if (!m) continue;
+      var n = parseInt(m[2], 10);
+      if (!isFinite(n)) continue;
+      if (!(top[m[1]] >= n)) top[m[1]] = n;
+    }
+  } catch (e) {}
+  return top;
+}
+
+/**
+ * نسخه‌های تازهٔ پرامپت را از `docs/prompts/` در ریپو به ریشهٔ OUTPUT می‌آورد.
+ * @return {{added:Array, checked:number, error:string}}
+ */
+function promptSyncFromRepo_() {
+  var out = { added: [], checked: 0, error: '' };
+  if (CFG.PROMPT_SYNC === false) return out;
+  var kinds = CFG.PROMPT_KINDS || ['monitor', 'enrich'];
+  var lookAhead = Math.max(1, Number(CFG.PROMPT_SYNC_AHEAD) || 3);
+  var root;
+  try { root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID); }
+  catch (e) { out.error = e.message; return out; }
+  var top = promptTopVersions_();
+
+  for (var k = 0; k < kinds.length; k++) {
+    var kind = String(kinds[k]);
+    var have = Number(top[kind] || 0);
+    var miss = 0;
+    /* از نسخهٔ بعدی به بالا کاوش می‌شود تا `lookAhead` بارِ پیاپی نبودن.
+       بی این حاشیه، جا انداختنِ یک شماره در ریپو (که پیش می‌آید) زنجیره را
+       برای همیشه متوقف می‌کرد. */
+    for (var n = have + 1; miss < lookAhead; n++) {
+      out.checked++;
+      var name = '_PROMPT-' + kind + '-v' + n + '.md';
+      var body = '';
+      try {
+        var res = UrlFetchApp.fetch(githubRawUrl_('docs/prompts/' + name),
+                    { muteHttpExceptions: true, followRedirects: true });
+        if (res.getResponseCode() === 200) body = res.getContentText();
+      } catch (eF) {}
+      if (!body || body.length < 200) { miss++; continue; }
+      miss = 0;
+      // هرگز روی فایلِ موجود نمی‌نویسد؛ فقط نبودنش را پر می‌کند.
+      try {
+        if (root.getFilesByName(name).hasNext()) continue;
+        root.createFile(Utilities.newBlob(body, 'text/markdown', name));
+        out.added.push(name);
+        logLine_('دستورِ تازه از ریپو آورده شد: ' + name);
+      } catch (eC) { out.error = eC.message; }
+    }
+  }
+  // نسخهٔ تازه که نشست، کهنه همان لحظه بایگانی می‌شود — نه فردا شب. بینِ این
+  // دو، ریشه دو نسخه از یک دستور دارد و خواننده می‌تواند اشتباهی را بردارد.
+  if (out.added.length) { try { promptPrune_(); } catch (eP) {} }
+  return out;
+}
+
 function promptPrune_() {
   if (CFG.OUT_TIDY === false) return 0;
   var moved = 0;
@@ -396,6 +482,8 @@ function writeStatus_(hub, note) {
     calendar: (function () { try { return calStatus_(); } catch (e) { return null; } })(),
     // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
+    // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
+    handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -776,6 +864,10 @@ function healthCheck() {
     if (!st.special) st.special = specialStatus_(hub);
     var spProbs = specialProblems_(st);
     for (var sp2 = 0; sp2 < spProbs.length; sp2++) problems.push(spProbs[sp2]);
+    /* جزوهٔ مجموعه‌ها. خواستهٔ صریح: «باید این قابلیت و به‌روزرسانی‌شدنش حتماً
+       موردِ توجهِ ناظر به‌طور مکرر قرار بگیرد و گزارش بشود.» پس هر روز، نه
+       یک بار. بخشِ ۲۶ جلوتر است، پس try/catch. */
+    try { handoutHealth_(problems, notes); } catch (eHh) {}
     if (st.special && st.special.active) {
       notes.push('درس‌نامه: مجموعهٔ «' + st.special.active.name + '» در حال تولید — ' +
                  'قسمت ' + st.special.active.curPart + '، قطعهٔ ' + st.special.active.curChunk +

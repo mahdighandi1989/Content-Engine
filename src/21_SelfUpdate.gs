@@ -576,6 +576,12 @@ function selfUpdateDaily() {
 
   // ۳) خانه‌داری: ارزان، کران‌دار، و هرکدام یک وعده به صاحبِ برنامه.
   try { outReadmeSync_(); } catch (eRM) { logLine_('نقشهٔ پوشه تازه نشد: ' + eRM.message); }
+  /* دستورهای تازه از ریپو. **پیش از** promptPrune_ و promptFreshNag_، وگرنه
+     نسخه‌ای که همین حالا آمده تا فردا شب نه بایگانی‌کننده می‌بیندش و نه
+     یادآور — یعنی موتور همان شب بابتِ دستوری که خودش تازه آورده، هشدار
+     می‌دهد. */
+  try { promptSyncFromRepo_(); }
+  catch (ePS) { logLine_('دستورهای تازه از ریپو نیامدند: ' + ePS.message); }
   try { pruneReportArchive_(); } catch (ePA) {}
   try { promptPrune_(); } catch (ePP) {}
   // هرسِ پرونده‌های غنی‌سازی. تا ۵٫۵۰ این تابع نوشته شده بود ولی هیچ‌جا صدا
@@ -639,6 +645,21 @@ function selfUpdateDaily() {
                  rh.moved + ' کنار گذاشته شد.');
       }
     } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
+  }
+
+  /* ── تورِ ایمنیِ جزوه ──
+   * جزوه معمولاً در پایانِ خودِ قسمت ساخته می‌شود. این‌جا فقط بدهیِ باقی‌مانده
+   * پرداخت می‌شود: قسمتی که وقتِ اجرایش نرسیده بود، یا شبی که مدل جواب نداد.
+   * بی این، «به‌روزرسانی با هر تولید» به یک وعده تبدیل می‌شد که هر بار که
+   * اجرا شلوغ بود، بی‌صدا شکسته می‌شد. */
+  if (CFG.HANDOUT_ENABLED !== false && nightHas_(60000, 'جزوهٔ مجموعه‌ها')) {
+    try {
+      var hd = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+      if (hd.tried) {
+        logLine_('جزوهٔ شبانه: ' + hd.done + ' به‌روز شد، ' + hd.left + ' در صف' +
+                 (hd.notes.length ? ' — ' + hd.notes.join(' · ') : '') + '.');
+      }
+    } catch (eHd) { logLine_('جزوهٔ شبانه اجرا نشد: ' + eHd.message); }
   }
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.

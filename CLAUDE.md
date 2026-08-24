@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 26 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 27 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 26 numbered sections — the source of truth for the code
+src/                 27 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 34 run_*.js suites
+tests/               the 36 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
@@ -85,7 +85,21 @@ copy to the Drive «کدها» folder.
    `codeRowSatisfied_` closed it the night the code installed — it warned once
    and went quiet forever. That is exactly how 5.46 shipped with a stale prompt.
 
-7c. **When you create `_PROMPT-<kind>-v<N+1>.md` in Drive, move `v<N>` out of the
+7c-0. **From 5.85 you no longer upload prompts by hand.** `promptSyncFromRepo_`
+   fetches `docs/prompts/_PROMPT-<kind>-v<N>.md` from GitHub raw nightly and
+   creates any version the OUTPUT root is missing — the same path
+   `outReadmeSync_` already used for the layout map. So writing the file under
+   `docs/prompts/` and pushing it **is** shipping it. It only ever adds a
+   higher version and never overwrites an existing one (prompts are
+   append-only and a task may be reading one right now), and it calls
+   `promptPrune_` immediately after adding so the old version leaves the root
+   in the same run. Upload by hand only when it must land this hour rather
+   than tonight.
+   This was a manual step for eleven prompt versions, and the real cost was
+   never the effort: it was **two copies of one text kept in sync by hand**,
+   with nothing checking that git's copy and the task's copy still matched.
+
+7c. **If you do place a prompt in Drive by hand, move `v<N>` out of the
    root in the same session** — into «بایگانی — پرامپت‌های پیشین»
    (`1bAj5nQA9Umr9mTW5pubeDNwpOPCV1moB`), with
    `mcp__Google_Drive__update_file` + `parentId`. Never delete it.
@@ -332,6 +346,47 @@ same commit** as the code, plus a row in its «تاریخچهٔ تغییرهای
 Prompt texts live in Drive (`_PROMPT-*-v<N>.md`, append-only — a new version is a
 new file, never an overwrite). A copy of each goes in `docs/prompts/` so git has
 the history.
+
+## The handout — one per series, not per episode (section 26)
+The owner's ask: «نسبت به هر مجموعه‌ای که یاد می‌گیرم … یک جزوه باشد که هر سری با
+تولید پادکست به‌روزرسانی بشه … و بشه با کلیک روی فهرست به مطلب هدایت شد.»
+
+Each درس‌نامه series folder carries `_HANDOUT.json` (the structural book) and
+«جزوه — <name>.html» (the rendered one). Two files, not one: keeping only the
+HTML would mean the model must re-read and re-understand its own output every
+night — a fresh chance to break what was already right.
+
+**The model returns a patch, never a book.** `handoutApply_` only ever *adds*:
+a new chapter, a section inside an existing chapter (`intoChapter`), or an
+appended paragraph on an old section (`amend`, shown as «تکمیل از درسِ N»).
+That last one is the whole point of the request — a later lesson often completes
+an earlier one, and it must land *there*, not at the end. A hallucinated id is
+never fatal: an unknown `chapterId` becomes its own chapter, an unknown
+`sectionId` becomes a section. A lost lesson does not come back.
+
+**Podcast prose is not book prose.** `hook`/`outro`/`recap` never reach the
+handout writer at all — they are radio framing by definition. Inside the
+narration, `handoutDePodcast_` drops radio sentences, and (as everywhere in this
+repo) it can never empty a section: if every sentence looks like radio, the
+detection was wrong and the original text stands.
+
+**Facts from code, prose from the model.** The roadmap's per-stage state
+(«انجام‌شده/در جریان/پیشِ رو») is computed from the registry's chunk cursor, not
+asked. A roadmap that shows a finished stage as upcoming is worse than none.
+
+**References are footnotes, numbered like a book** — per chapter, with a
+back-link, plus a full کتاب‌نامه. A ref's number never changes once assigned;
+old chapters' footnotes point at it. `_PROMPT-enrich-v11.md` §CITE makes the
+enrichment task supply title/publisher/date/url and a verbatim quote, because
+those fields are now printed, not just stored.
+
+**It never delays an episode.** The end of a درس‌نامه run records a debt
+(`PK.HANDOUT_DUE`) *first* and only then builds if time remains; the nightly is
+the safety net. Reverse that order and a killed run silently drops a lesson.
+
+The monitor checks it every day (`_PROMPT-monitor-v7.md` §۴٫۷) — including
+opening an actual handout, because the code tests can see the file's shape but
+not its quality.
 
 ## Production calendar (section 25)
 The owner's only way to stop a show used to be deleting its trigger — manual,

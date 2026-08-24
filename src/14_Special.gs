@@ -1991,6 +1991,28 @@ function renderSpecialAudioStep_() {
         episode: epNum, duration: dur, files: deliveredN,
         parts: st.files.length, at: nowStr_() }));
     } catch (eL) {}
+
+    /* ── جزوهٔ مجموعه ──
+     * بخشِ ۲۶ جلوتر از این است، پس فراخوانش در try/catch است: در فایلِ
+     * سرِهم‌شده hoisting نجاتش می‌دهد، ولی بارگذارِ جزئیِ آزمون‌ها با
+     * ReferenceError می‌شکند و نباید قسمتِ تحویل‌شده را زمین بزند.
+     *
+     * اول **بدهی** ثبت می‌شود و بعد اگر وقت بود همان‌جا پرداخت. ترتیبش
+     * مهم است: اگر اجرا وسطِ ساختِ جزوه کشته شود، بدهی سرِ جایش می‌مانَد و
+     * کارِ شبانه پرداختش می‌کند. برعکسش یعنی یک درس بی‌صدا از جزوه جا
+     * می‌مانَد — و هیچ‌کس هم خبردار نمی‌شود. */
+    try {
+      handoutDueAdd_(meta.seriesKey, epNum);
+      var leftMs = deadline - new Date().getTime();
+      if (leftMs > (Number(CFG.HANDOUT_MIN_MS) || 90000)) {
+        var hr = handoutRunDue_(1);
+        logLine_('جزوه: ' + hr.done + ' به‌روز شد، ' + hr.left + ' در صف' +
+                 (hr.notes.length ? ' — ' + hr.notes.join(' · ') : '') + '.');
+      } else {
+        logLine_('جزوه: وقتِ این اجرا نرسید؛ در صف ماند و کارِ شبانه می‌سازدش.');
+      }
+    } catch (eH) { logLine_('جزوهٔ مجموعه ساخته نشد: ' + eH.message); }
+
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);
