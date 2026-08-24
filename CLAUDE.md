@@ -583,6 +583,33 @@ real path was never exercised once. `run_wiring_test.js` ۴.۱/۴.۲ now fail if
 `tools/build.js` or any hand-listed loader is missing a file that exists in
 `src/`.
 
+## A finding is closed by name, never by default (5.93)
+`markCodeRowsInstalled_` used to stamp **every** open `NEEDS_CODE` row as
+installed whenever a manifest shipped without `sourceReportIds` — reasoning that
+"a complete version contains every fix announced so far". It contains every
+*line of code*; that is not the same as having *solved that finding*. Since
+almost every manifest ships an empty list, every install closed everything.
+
+The real data on 24 Aug: one row carried install stamps from **fourteen**
+versions (5.51 → 5.92); 26 rows carried more than three. The nightly
+"30 rows marked installed" message came from the same place.
+
+An empty `sourceReportIds` now means **this version answers nothing**. When you
+ship a version that does answer findings, list their ids — that is the only way
+a row closes. And `RST.INSTALLED` now reopens on recurrence like `APPLIED` and
+`CLOSED` do: a finding stamped installed that is seen again means the install
+did not fix it, and without reopening it would sit in "awaiting the monitor"
+forever.
+
+## Instructions that outlived their truth
+Three notification texts still described workflows that had been dead for
+dozens of versions — "take the file from Cowork and replace Code.gs" (pre-5.12,
+the engine self-installs from GitHub) and two telling the owner to update
+prompts by hand (pre-5.85, `promptSyncFromRepo_` does it). They shipped nightly.
+**A wrong instruction is worse than none:** the reader either does useless work
+or learns to stop reading the message. When you change a mechanism, grep the
+notification texts for the old one.
+
 ## Reports / errors → fixes
 The engine logs issues to the «گزارش‌های نظارت» tab and `_STATUS.json` in OUTPUT.
 A monitor session reads these, fixes in `src/`, tests, and ships via the handshake

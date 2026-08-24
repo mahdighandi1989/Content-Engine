@@ -1261,4 +1261,138 @@ console.log('=== ۱۹) رجیستریِ ۲۶۴ ردیفی و دکمه‌ای ک�
      none.message.replace(/\n/g, ' | '));
 }
 
+console.log('=== ۲۰) یافته‌ای که هیچ‌کس حلش نکرده، «نصب شد» نمی‌خورد ===');
+{
+  /* ══ آنچه در دادهٔ واقعیِ ۲۴ اوت بود ══
+   * یک ردیفِ یافته (`RPT-2026-08-10-1235#5`) مُهرِ **چهارده** نسخهٔ مختلف
+   * را داشت: ۵٫۵۱، ۵٫۵۲، ۵٫۵۳، ۵٫۵۶ … ۵٫۹۲ — و هیچ‌کدام سراغش نرفته
+   * بودند. ۲۶ ردیف بیش از سه مُهر داشتند، و هر شب پیامِ «۳۰ ردیفِ نیازمند
+   * تعویض کد نصب شد» می‌رفت.
+   *
+   * علت: `markCodeRowsInstalled_` وقتی بیانیه `sourceReportIds` نداده بود
+   * **همهٔ** ردیف‌های باز را مُهر می‌زد، با این استدلال که «هر نسخهٔ کامل،
+   * همهٔ اصلاح‌های اعلام‌شده تا آن لحظه را در خود دارد». نسخه همهٔ *کد* را
+   * دارد، ولی این دلیل نمی‌شود که آن یافته را **حل کرده باشد**. */
+  const hub = new Spread('هاب۲۰');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+
+  const sh = ensureTab_(hub, CFG.REPORT_TAB, REPORT_HEADERS);
+  const mk = (id, title) => {
+    const r = new Array(REPORT_HEADERS.length).fill('');
+    r[RC.ID - 1] = id; r[RC.TITLE - 1] = title;
+    r[RC.OWNER - 1] = ROWNER_CODE; r[RC.STATUS - 1] = RST.NEEDS_CODE;
+    return r;
+  };
+  sh.getRange(2, 1, 3, REPORT_HEADERS.length).setValues([
+    mk('RPT-A#1', 'یافتهٔ حل‌نشده'), mk('RPT-B#2', 'یافتهٔ دیگر'),
+    mk('RPT-C#3', 'یافتهٔ سوم')]);
+
+  // بیانیه‌ای که هیچ ردیفی را به‌نام اعلام نکرده — همان چیزی که تقریباً
+  // همهٔ نسخه‌ها می‌فرستند
+  global.readCodeManifest_ = () => ({ info: { version: '9.9', sourceReportIds: [] } });
+  const n0 = markCodeRowsInstalled_('9.9');
+  ok('۲۰.۱ بیانیهٔ بی‌فهرست هیچ یافته‌ای را «نصب شد» نمی‌زند', n0 === 0, String(n0));
+  const after = sh.getRange(2, 1, 3, REPORT_HEADERS.length).getValues();
+  ok('۲۰.۲ و هر سه یافته در صف می‌مانند',
+     after.every(r => String(r[RC.STATUS - 1]) === RST.NEEDS_CODE),
+     after.map(r => r[RC.STATUS - 1]).join(' | '));
+
+  // ولی بیانیه‌ای که ردیف را **به‌نام** اعلام کند، همان یکی را می‌بندد
+  global.readCodeManifest_ = () => ({ info: { version: '9.9', sourceReportIds: ['RPT-B#2'] } });
+  const n1 = markCodeRowsInstalled_('9.9');
+  ok('۲۰.۳ ولی ردیفِ اعلام‌شده به‌نام مُهر می‌خورد', n1 === 1, String(n1));
+  const after2 = sh.getRange(2, 1, 3, REPORT_HEADERS.length).getValues();
+  ok('۲۰.۴ و فقط همان یکی',
+     String(after2[1][RC.STATUS - 1]) === RST.INSTALLED &&
+     String(after2[0][RC.STATUS - 1]) === RST.NEEDS_CODE &&
+     String(after2[2][RC.STATUS - 1]) === RST.NEEDS_CODE,
+     after2.map(r => r[RC.STATUS - 1]).join(' | '));
+
+  // و مُهرِ دوباره روی ردیفِ مُهرخورده نمی‌نشیند — علتِ «۳۰ ردیف» هر شب
+  const n2 = markCodeRowsInstalled_('9.10');
+  ok('۲۰.۵ ردیفِ مُهرخورده هر شب دوباره مُهر نمی‌خورد', n2 === 0, String(n2));
+  ok('۲۰.۶ و ستونِ «انجام‌شده» چهارده‌بار تکرار نمی‌شود',
+     String(after2[1][RC.DONE - 1]).split('خودکار نصب شد').length - 1 === 1,
+     String(after2[1][RC.DONE - 1]));
+
+  /* و راهِ برگشت: یافته‌ای که «نصب شد» خورده ولی دوباره دیده می‌شود، یعنی
+     آن نصب حلش نکرده. اگر باز نشود، برای همیشه در «انتظارِ تأییدِ ناظر»
+     می‌مانَد و هیچ‌وقت به صف برنمی‌گردد. */
+  /* حالا مسیرِ واقعی: یافته‌ای که خودِ موتور ثبت کرده، «نصب شد» بخورد، و
+     بعد دوباره دیده شود. اگر باز نشود، برای همیشه در «انتظارِ تأییدِ ناظر»
+     می‌مانَد و هیچ‌وقت به صف برنمی‌گردد — و با باگِ مُهرِ خودکار، ۳۰ یافته
+     می‌توانستند این‌طور دفن شوند. */
+  const realLog = global.logLine_;
+  global.logLine_ = () => {};
+  const F = { priority: 'جدی', category: 'تست', key: 'again-1',
+              title: 'یافتهٔ تکرارشونده', detail: 'د', instruction: 'ی',
+              owner: ROWNER_CODE };
+  logSelfFinding_(hub, F);
+  const findRow = () => {
+    const n = sh.getLastRow() - 1;
+    const v = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+    return v.filter(r => String(r[RC.TITLE - 1]) === 'یافتهٔ تکرارشونده')[0];
+  };
+  const rowNo = (() => {
+    const n = sh.getLastRow() - 1;
+    const v = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+    for (let k = 0; k < v.length; k++) {
+      if (String(v[k][RC.TITLE - 1]) === 'یافتهٔ تکرارشونده') return 2 + k;
+    }
+    return 0;
+  })();
+  sh.getRange(rowNo, RC.STATUS).setValue(RST.INSTALLED);
+  logSelfFinding_(hub, F);
+  global.logLine_ = realLog;
+  ok('۲۰.۷ یافتهٔ «نصب‌شده» که تکرار شود، دوباره باز می‌شود',
+     String(findRow()[RC.STATUS - 1]).indexOf('تکرار') !== -1,
+     String(findRow()[RC.STATUS - 1]));
+}
+
+console.log('=== ۲۱) دستورهایی که غلط شده بودند ===');
+{
+  /* دستوری که غلط باشد از دستورِ نبوده بدتر است: خواننده یا کارِ بیهوده
+   * می‌کند یا یاد می‌گیرد کلِ پیام را نخواند. سه متن از دورانِ پیش از
+   * ۵٫۱۲ و ۵٫۸۵ مانده بودند و هر شب در تلگرام می‌رفتند. */
+  const rep = fs.readFileSync('src/12_Reports.gs', 'utf8');
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۲۱.۱ دیگر نمی‌گوید فایل را از Cowork بردار و Code.gs را پاک کن',
+     rep.indexOf('کل ') === -1 || rep.indexOf('<code>Code.gs</code> را پاک کنید') === -1);
+  ok('۲۱.۲ و می‌گوید کد خودش شبانه نصب می‌شود',
+     rep.indexOf('خودش هر شب ساعت ۲:۳۰ از گیت‌هاب نصب می‌شود') !== -1);
+  ok('۲۱.۳ یادآورِ دستورها دیگر «دستی» نمی‌گوید',
+     su.indexOf('تا وقتی دستی به‌روز نشوند') === -1);
+  ok('۲۱.۴ و مسیرِ درست را می‌گوید: docs/prompts در ریپو',
+     su.indexOf('docs/prompts/ ساخته و push شود') !== -1 &&
+     su.indexOf('docs/prompts/ ریپو**') !== -1);
+}
+
+console.log('=== ۲۲) عنوانِ فصل دو بار شماره نمی‌گیرد ===');
+{
+  /* در جزوهٔ واقعیِ «معرفت شناسی» شش فصل عنوانشان با «فصل N:» شروع می‌شد و
+   * نمایش هم شماره می‌گذاشت: «۷. فصل 7: …». و شمارهٔ مدل با جای واقعیِ فصل
+   * یکی نمی‌مانَد — کافی است درسی بعداً فصلی را وسط جا بدهد. */
+  ok('۲۲.۱ «فصل ۷:» از سرِ عنوان برداشته می‌شود',
+     handoutTitleClean_('فصل ۷: تقسیمات اولیهٔ علم حصولی') === 'تقسیمات اولیهٔ علم حصولی');
+  ok('۲۲.۲ با رقمِ لاتین هم', handoutTitleClean_('فصل 7 — تصور و تصدیق') === 'تصور و تصدیق');
+  ok('۲۲.۳ و شمارهٔ تنها هم', handoutTitleClean_('۳. مراتبِ ادراک') === 'مراتبِ ادراک');
+  ok('۲۲.۴ ولی عنوانِ سالم دست نمی‌خورد',
+     handoutTitleClean_('تعریفِ معرفت و سه شرطِ آن') === 'تعریفِ معرفت و سه شرطِ آن' &&
+     handoutTitleClean_('فصل‌بندیِ دانش') === 'فصل‌بندیِ دانش');
+  ok('۲۲.۵ و عنوانِ کاملاً شماره‌ای خالی نمی‌شود',
+     handoutTitleClean_('فصل ۹:') === 'فصل ۹:');
+
+  const book = handoutNew_({ seriesName: 'م' });
+  handoutApply_(book, { newChapters: [{ title: 'فصل ۵: چیستیِ علم',
+    sections: [{ title: '۱. باور', body: 'م', takeaway: 'چ' }] }] }, { epNum: '1' }, []);
+  ok('۲۲.۶ و هنگامِ اعمال هم پاک می‌شود — نه فقط در تابع',
+     book.chapters[0].title === 'چیستیِ علم' &&
+     book.chapters[0].sections[0].title === 'باور',
+     book.chapters[0].title + ' / ' + book.chapters[0].sections[0].title);
+  const p26 = fs.readFileSync('src/26_Handout.gs', 'utf8');
+  ok('۲۲.۷ و پرامپت هم صریح می‌گوید شماره نگذار',
+     p26.indexOf('در عنوان شماره نگذار') !== -1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

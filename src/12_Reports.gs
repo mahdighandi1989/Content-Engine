@@ -582,8 +582,14 @@ function alertCodeRows_(hub, startRow, rows, shOpt) {
               tgEsc_(String(r[RC.DETAIL - 1]).slice(0, 600)) + '\n\n' +
               (r[RC.INSTR - 1] ? '<b>چه باید بشود:</b> ' +
                  tgEsc_(String(r[RC.INSTR - 1]).slice(0, 600)) + '\n\n' : '') +
-              'فایل تازهٔ <code>موتور-محتوا.gs</code> را از Cowork بردارید، کل ' +
-              '<code>Code.gs</code> را پاک کنید و آن را بچسبانید، و راهنمای نصب را بخوانید.\n' +
+              /* متنِ پیشین از دورانِ پیش از ۵٫۱۲ مانده بود و می‌گفت فایل را
+                 از Cowork بردارید و Code.gs را دستی جایگزین کنید — کاری که
+                 هشتاد نسخه است لازم نیست. دستوری که غلط باشد از دستورِ
+                 نبوده بدتر است: خواننده یا کارِ بیهوده می‌کند یا یاد می‌گیرد
+                 کلِ پیام را نخواند. */
+              'کد خودش هر شب ساعت ۲:۳۰ از گیت‌هاب نصب می‌شود؛ کاری لازم ' +
+              'نیست. اگر همین امروز می‌خواهیدش، از منو «⬆️ بررسی و نصبِ کدِ ' +
+              'تازه (همین حالا)» را بزنید.\n' +
               'ردیف مربوطه: تب «' + tgEsc_(CFG.REPORT_TAB) + '» — شناسه ' +
               tgEsc_(String(r[RC.ID - 1]));
     // کانالِ واقعیِ ارسال در سلول نوشته می‌شود. پیش‌تر وقتی تلگرام نمی‌رسید و
@@ -888,7 +894,14 @@ function logSelfFinding_(hub, f) {
         prev.vals[RC.DONE - 1] = RECUR_MARK + f.episode;
         prev.vals[RC.DONE_AT - 1] = nowStr_();
       }
-      if (stt === RST.APPLIED || stt === RST.CLOSED) prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
+      /* `INSTALLED` هم باید باز شود. یافته‌ای که «کد نصب شد» خورده ولی
+         دوباره دیده می‌شود، یعنی آن نصب حلش نکرده — و اگر باز نشود، برای
+         همیشه در حالتِ «در انتظارِ تأییدِ ناظر» می‌مانَد و هیچ‌وقت به صف
+         برنمی‌گردد. با باگِ مُهرِ خودکارِ ۵٫۹۲ این یعنی ۳۰ یافته می‌توانستند
+         تا ابد بسته بمانند بی آنکه کسی سراغشان برود. */
+      if (stt === RST.APPLIED || stt === RST.CLOSED || stt === RST.INSTALLED) {
+        prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
+      }
       sh.getRange(prev.row, 1, 1, REPORT_HEADERS.length).setValues([prev.vals]);
       return;
     }

@@ -302,7 +302,9 @@ function handoutPrompt_(book, secs, meta) {
   L.push('--- کاری که باید بکنی ---');
   L.push('۱) `newChapters`: مطالبِ این درس را به فصل و بخش تبدیل کن. عنوان‌ها');
   L.push('   باید عنوانِ **کتاب** باشند («تعریفِ معرفت و سه شرطِ آن»)، نه عنوانِ');
-  L.push('   قسمتِ رادیویی («ادامهٔ بحثِ جلسهٔ قبل»). هر بخش یک `takeaway` دارد:');
+  L.push('   قسمتِ رادیویی («ادامهٔ بحثِ جلسهٔ قبل»). **در عنوان شماره نگذار**');
+  L.push('   («فصل ۷: …» نه) — شماره‌گذاری کارِ خودِ جزوه است و شمارهٔ تو با');
+  L.push('   جای واقعیِ فصل یکی نمی‌مانَد. هر بخش یک `takeaway` دارد:');
   L.push('   یک جملهٔ کوتاه که چکیدهٔ آن بخش است.');
   L.push('');
   L.push('۲) `intoChapter`: **اگر** بخشی از این درس در واقع جای دیگری از جزوه');
@@ -336,6 +338,18 @@ function handoutPatchModel_(book, secs, meta) {
 }
 
 /* ───────────────────────────── اعمالِ وصله ───────────────────────────── */
+
+/* عنوانِ فصل نباید خودش شماره داشته باشد.
+   مدل گاهی «فصل ۷: …» می‌نویسد و نمایش هم شماره می‌گذارد، پس خواننده
+   «۷. فصل ۷: …» می‌بیند. بدتر: شمارهٔ مدل با جای واقعیِ فصل یکی نمی‌مانَد —
+   کافی است درسی بعداً فصلی را وسط جا بدهد تا هر دو شماره تا ابد با هم
+   اختلاف داشته باشند. در جزوهٔ «معرفت شناسی» شش فصل این‌طور بودند. */
+function handoutTitleClean_(t) {
+  var x = String(t || '').trim();
+  x = x.replace(/^فصل\s*[\u06F0-\u06F90-9]+\s*[:—\-–]\s*/, '');
+  x = x.replace(/^[\u06F0-\u06F90-9]+\s*[.)]\s*/, '');
+  return x.trim() || String(t || '').trim();
+}
 
 /** شناسهٔ یکتا و پایدار. شماره‌ها هرگز بازاستفاده نمی‌شوند. */
 function handoutNextId_(book, prefix) {
@@ -381,7 +395,7 @@ function handoutApply_(book, patch, meta, refNos) {
   var ep = String(meta.epNum || '');
 
   var mkSec = function (x) {
-    return { id: handoutNextId_(book, 's'), title: String(x.title || 'بی‌عنوان'),
+    return { id: handoutNextId_(book, 's'), title: handoutTitleClean_(x.title) || 'بی‌عنوان',
              body: String(x.body || ''), takeaway: String(x.takeaway || ''),
              addedIn: ep, refs: (refNos || []).slice(0), adds: [] };
   };
@@ -394,7 +408,8 @@ function handoutApply_(book, patch, meta, refNos) {
       secs.push(mkSec(nc.sections[s]));
     }
     if (!secs.length) continue;
-    book.chapters.push({ id: handoutNextId_(book, 'ch'), title: String(nc.title || 'فصل'),
+    book.chapters.push({ id: handoutNextId_(book, 'ch'),
+                         title: handoutTitleClean_(nc.title) || 'فصل',
                          intro: String(nc.intro || ''), addedIn: ep, sections: secs });
     st.chapters++; st.sections += secs.length;
   }
@@ -412,7 +427,7 @@ function handoutApply_(book, patch, meta, refNos) {
       // شناسهٔ ناشناخته: فصلِ خودش را می‌گیرد، نه اینکه دور ریخته شود
       st.orphan++;
       book.chapters.push({ id: handoutNextId_(book, 'ch'),
-                           title: String(ic.title || 'افزودهٔ درسِ ' + ep),
+                           title: handoutTitleClean_(ic.title) || ('افزودهٔ درسِ ' + ep),
                            intro: '', addedIn: ep, sections: [sec] });
       st.chapters++;
     }

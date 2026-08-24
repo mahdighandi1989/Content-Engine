@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.92
+ *  موتور محتوا و پادکست — نسخهٔ 5.93
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -759,7 +759,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.92',
+  CODE_VERSION: '5.93',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -10585,8 +10585,14 @@ function alertCodeRows_(hub, startRow, rows, shOpt) {
               tgEsc_(String(r[RC.DETAIL - 1]).slice(0, 600)) + '\n\n' +
               (r[RC.INSTR - 1] ? '<b>چه باید بشود:</b> ' +
                  tgEsc_(String(r[RC.INSTR - 1]).slice(0, 600)) + '\n\n' : '') +
-              'فایل تازهٔ <code>موتور-محتوا.gs</code> را از Cowork بردارید، کل ' +
-              '<code>Code.gs</code> را پاک کنید و آن را بچسبانید، و راهنمای نصب را بخوانید.\n' +
+              /* متنِ پیشین از دورانِ پیش از ۵٫۱۲ مانده بود و می‌گفت فایل را
+                 از Cowork بردارید و Code.gs را دستی جایگزین کنید — کاری که
+                 هشتاد نسخه است لازم نیست. دستوری که غلط باشد از دستورِ
+                 نبوده بدتر است: خواننده یا کارِ بیهوده می‌کند یا یاد می‌گیرد
+                 کلِ پیام را نخواند. */
+              'کد خودش هر شب ساعت ۲:۳۰ از گیت‌هاب نصب می‌شود؛ کاری لازم ' +
+              'نیست. اگر همین امروز می‌خواهیدش، از منو «⬆️ بررسی و نصبِ کدِ ' +
+              'تازه (همین حالا)» را بزنید.\n' +
               'ردیف مربوطه: تب «' + tgEsc_(CFG.REPORT_TAB) + '» — شناسه ' +
               tgEsc_(String(r[RC.ID - 1]));
     // کانالِ واقعیِ ارسال در سلول نوشته می‌شود. پیش‌تر وقتی تلگرام نمی‌رسید و
@@ -10891,7 +10897,14 @@ function logSelfFinding_(hub, f) {
         prev.vals[RC.DONE - 1] = RECUR_MARK + f.episode;
         prev.vals[RC.DONE_AT - 1] = nowStr_();
       }
-      if (stt === RST.APPLIED || stt === RST.CLOSED) prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
+      /* `INSTALLED` هم باید باز شود. یافته‌ای که «کد نصب شد» خورده ولی
+         دوباره دیده می‌شود، یعنی آن نصب حلش نکرده — و اگر باز نشود، برای
+         همیشه در حالتِ «در انتظارِ تأییدِ ناظر» می‌مانَد و هیچ‌وقت به صف
+         برنمی‌گردد. با باگِ مُهرِ خودکارِ ۵٫۹۲ این یعنی ۳۰ یافته می‌توانستند
+         تا ابد بسته بمانند بی آنکه کسی سراغشان برود. */
+      if (stt === RST.APPLIED || stt === RST.CLOSED || stt === RST.INSTALLED) {
+        prev.vals[RC.STATUS - 1] = RST.NEW + ' (تکرار)';
+      }
       sh.getRange(prev.row, 1, 1, REPORT_HEADERS.length).setValues([prev.vals]);
       return;
     }
@@ -19812,13 +19825,28 @@ function markCodeRowsInstalled_(version) {
     var isCode = String(r[RC.OWNER - 1]) === ROWNER_CODE ||
                  String(r[RC.STATUS - 1]) === RST.NEEDS_CODE;
     if (!isCode) continue;
-    if (String(r[RC.STATUS - 1]) === RST.CLOSED) continue;
+    var stt0 = String(r[RC.STATUS - 1]);
+    if (stt0 === RST.CLOSED || stt0 === RST.INSTALLED) continue;
+    /* ══ چرا «فهرستِ خالی» یعنی هیچ، نه همه (باگِ ۵٫۹۳) ══
+     * تا ۵٫۹۲ این‌جا نوشته بود: اگر بیانیه `sourceReportIds` نداده، این
+     * نسخه **همهٔ** ردیف‌های بازِ «نیازمند تعویض کد» را پوشش می‌دهد —
+     * با این استدلال که «هر نسخهٔ کامل، همهٔ اصلاح‌های اعلام‌شده تا آن
+     * لحظه را در خود دارد».
+     *
+     * استدلال غلط بود: نسخه همهٔ **کدِ** تا آن لحظه را دارد، ولی این
+     * دلیل نمی‌شود که آن یافته را **حل کرده باشد**. و چون تقریباً همهٔ
+     * نسخه‌ها `sourceReportIds` خالی می‌دهند، در عمل هر نصب همهٔ یافته‌های
+     * باز را «نصب شد» می‌زد.
+     *
+     * دادهٔ واقعیِ ۲۴ اوت: یک ردیف (`RPT-2026-08-10-1235#5`) مُهرِ چهارده
+     * نسخهٔ مختلف را داشت — ۵٫۵۱ تا ۵٫۹۲ — و هیچ‌کدام سراغش نرفته بودند.
+     * ۲۶ ردیف بیش از سه مُهر داشتند. پیامِ هرشبهٔ «۳۰ ردیف نصب شد» هم از
+     * همین می‌آمد.
+     *
+     * حالا: فهرستِ خالی یعنی این نسخه جوابِ هیچ یافته‌ای نیست. فقط
+     * ردیف‌هایی مُهر می‌خورند که بیانیه **به‌نام** اعلامشان کرده. */
     var hit = ids[String(r[RC.ID - 1])] ||
-              String(r[RC.ID - 1]) === 'CODE-' + version ||
-              // اگر بیانیه فهرستِ ردیف نداده، همهٔ بازهای «نیازمند کد» را
-              // این نسخه پوشش می‌دهد — چون هر نسخهٔ کامل، همهٔ اصلاح‌های
-              // اعلام‌شده تا آن لحظه را در خود دارد.
-              !Object.keys(ids).length;
+              String(r[RC.ID - 1]) === 'CODE-' + version;
     if (!hit) continue;
     r[RC.STATUS - 1] = RST.INSTALLED;
     r[RC.DONE - 1] = String(r[RC.DONE - 1] || '');
@@ -20130,9 +20158,11 @@ function promptFreshNag_() {
       title: 'دستورِ روتین/تسک از کدِ در حالِ اجرا عقب مانده است',
       detail: 'بدهی از نسخهٔ ' + st.due + ' — وضعِ فایل‌ها: ' + bits.join(' · '),
       instruction: 'برای هر خانوادهٔ کهنه یک فایلِ _PROMPT-<نوع>-v<N+1>.md در ' +
-                   'ریشهٔ OUTPUT بساز و در سرش بنویس «برای نسخهٔ موتور: ' +
-                   st.due + '». فایلِ قدیمی را پاک نکن؛ موتور خودش بایگانی‌اش ' +
-                   'می‌کند. تا این کار نشود این هشدار هر شب تکرار می‌شود.',
+                   '**docs/prompts/ ریپو** بساز و در سرش بنویس «برای نسخهٔ ' +
+                   'موتور: ' + st.due + '»، و push کن. موتور همان شب خودش ' +
+                   'به درایو می‌آوردش (promptSyncFromRepo_) و نسخهٔ کهنه را ' +
+                   'بایگانی می‌کند — بارگذاریِ دستی لازم نیست. تا این کار ' +
+                   'نشود این هشدار هر شب تکرار می‌شود.',
       owner: ROWNER_ENGINE
     });
   } catch (e) {}
@@ -20146,11 +20176,15 @@ function promptImpactNotice_(version) {
   var kinds = (got && got.info && got.info.promptImpactKinds) || [];
   if (!list.length) return { sent: false, kinds: kinds };
 
+  /* از ۵٫۸۵ دستورها هم در ریپو زندگی می‌کنند و `promptSyncFromRepo_` هر شب
+     نسخه‌های تازه را به درایو می‌آورد. پس جملهٔ «دستی به‌روز کنید» دیگر
+     درست نیست: کاری که مانده، **نوشتنِ نسخهٔ تازه در ریپو** است. */
   var body = 'نسخهٔ ' + version + ' چیزهایی را عوض کرده که دستورِ روتین‌ها و تسک‌ها ' +
              'به آن‌ها تکیه دارند:\n\n• ' + list.join('\n• ') +
-             '\n\nاین‌ها کد نیستند؛ متنِ دستورند و بیرونِ ریپو زندگی می‌کنند، پس ' +
-             'خودشان عوض نمی‌شوند. تا وقتی دستی به‌روز نشوند، روتین همان کارِ قدیم ' +
-             'را می‌کند بی‌آنکه خطایی بدهد.';
+             '\n\nتا وقتی نسخهٔ تازهٔ دستور نوشته نشود، روتین همان کارِ قدیم را ' +
+             'می‌کند بی‌آنکه خطایی بدهد. کارِ لازم در ریپوست: فایلِ ' +
+             '_PROMPT-<نوع>-v<N+1>.md در docs/prompts/ ساخته و push شود؛ ' +
+             'موتور خودش همان شب به درایو می‌آوردش. کاری از شما لازم نیست.';
   try { tgSend_('🧭 ' + tgEsc_('دستورِ روتین‌ها باید به‌روز شود — نسخهٔ ' + version + '\n' + body)); } catch (e) {}
   try { mailQueue_('prompt', 'دستورِ روتین‌ها باید به‌روز شود (نسخهٔ ' + version + ')', body); }
   catch (e2) {}
@@ -26447,7 +26481,9 @@ function handoutPrompt_(book, secs, meta) {
   L.push('--- کاری که باید بکنی ---');
   L.push('۱) `newChapters`: مطالبِ این درس را به فصل و بخش تبدیل کن. عنوان‌ها');
   L.push('   باید عنوانِ **کتاب** باشند («تعریفِ معرفت و سه شرطِ آن»)، نه عنوانِ');
-  L.push('   قسمتِ رادیویی («ادامهٔ بحثِ جلسهٔ قبل»). هر بخش یک `takeaway` دارد:');
+  L.push('   قسمتِ رادیویی («ادامهٔ بحثِ جلسهٔ قبل»). **در عنوان شماره نگذار**');
+  L.push('   («فصل ۷: …» نه) — شماره‌گذاری کارِ خودِ جزوه است و شمارهٔ تو با');
+  L.push('   جای واقعیِ فصل یکی نمی‌مانَد. هر بخش یک `takeaway` دارد:');
   L.push('   یک جملهٔ کوتاه که چکیدهٔ آن بخش است.');
   L.push('');
   L.push('۲) `intoChapter`: **اگر** بخشی از این درس در واقع جای دیگری از جزوه');
@@ -26481,6 +26517,18 @@ function handoutPatchModel_(book, secs, meta) {
 }
 
 /* ───────────────────────────── اعمالِ وصله ───────────────────────────── */
+
+/* عنوانِ فصل نباید خودش شماره داشته باشد.
+   مدل گاهی «فصل ۷: …» می‌نویسد و نمایش هم شماره می‌گذارد، پس خواننده
+   «۷. فصل ۷: …» می‌بیند. بدتر: شمارهٔ مدل با جای واقعیِ فصل یکی نمی‌مانَد —
+   کافی است درسی بعداً فصلی را وسط جا بدهد تا هر دو شماره تا ابد با هم
+   اختلاف داشته باشند. در جزوهٔ «معرفت شناسی» شش فصل این‌طور بودند. */
+function handoutTitleClean_(t) {
+  var x = String(t || '').trim();
+  x = x.replace(/^فصل\s*[\u06F0-\u06F90-9]+\s*[:—\-–]\s*/, '');
+  x = x.replace(/^[\u06F0-\u06F90-9]+\s*[.)]\s*/, '');
+  return x.trim() || String(t || '').trim();
+}
 
 /** شناسهٔ یکتا و پایدار. شماره‌ها هرگز بازاستفاده نمی‌شوند. */
 function handoutNextId_(book, prefix) {
@@ -26526,7 +26574,7 @@ function handoutApply_(book, patch, meta, refNos) {
   var ep = String(meta.epNum || '');
 
   var mkSec = function (x) {
-    return { id: handoutNextId_(book, 's'), title: String(x.title || 'بی‌عنوان'),
+    return { id: handoutNextId_(book, 's'), title: handoutTitleClean_(x.title) || 'بی‌عنوان',
              body: String(x.body || ''), takeaway: String(x.takeaway || ''),
              addedIn: ep, refs: (refNos || []).slice(0), adds: [] };
   };
@@ -26539,7 +26587,8 @@ function handoutApply_(book, patch, meta, refNos) {
       secs.push(mkSec(nc.sections[s]));
     }
     if (!secs.length) continue;
-    book.chapters.push({ id: handoutNextId_(book, 'ch'), title: String(nc.title || 'فصل'),
+    book.chapters.push({ id: handoutNextId_(book, 'ch'),
+                         title: handoutTitleClean_(nc.title) || 'فصل',
                          intro: String(nc.intro || ''), addedIn: ep, sections: secs });
     st.chapters++; st.sections += secs.length;
   }
@@ -26557,7 +26606,7 @@ function handoutApply_(book, patch, meta, refNos) {
       // شناسهٔ ناشناخته: فصلِ خودش را می‌گیرد، نه اینکه دور ریخته شود
       st.orphan++;
       book.chapters.push({ id: handoutNextId_(book, 'ch'),
-                           title: String(ic.title || 'افزودهٔ درسِ ' + ep),
+                           title: handoutTitleClean_(ic.title) || ('افزودهٔ درسِ ' + ep),
                            intro: '', addedIn: ep, sections: [sec] });
       st.chapters++;
     }
