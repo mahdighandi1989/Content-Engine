@@ -1658,9 +1658,17 @@ console.log('=== ۲۷) افکت، درست بعد از آماده‌شدنِ م�
   ok('۲۷.۲ و پس از آماده‌شدنِ متن است، نه قبلش',
      p03.indexOf("st.phase === 'speak' && !st.sfxDone") >
        p03.indexOf('function renderAudioStep_'));
+  /* سنجهٔ پیشین یک پنجرهٔ ۹۰۰نویسه‌ای بینِ `sfxDone = 1` و `scheduleContinue_`
+     می‌گذاشت — یعنی افزودنِ یک توضیح آن را می‌شکست، بی آنکه رفتار عوض شود.
+     همان شکنندگی که چند بار در این ریپو تکرار شده. حالا خودِ بلوکِ دروازه
+     بریده می‌شود و محتوایش سنجیده، نه فاصلهٔ نویسه‌ها. */
+  const gateFrom = p03.indexOf("if (st.phase === 'speak' && !st.sfxDone) {");
+  const gateTo = p03.indexOf("if (st.phase === 'enrich') {", gateFrom);
+  const gate = gateFrom > 0 && gateTo > gateFrom ? p03.slice(gateFrom, gateTo) : '';
   ok('۲۷.۳ در اجرای خودش، تا به مهلتِ صداگذاری اضافه نشود',
-     /sfxDone = 1;[\s\S]{0,900}scheduleContinue_\(5 \* 1000\);[\s\S]{0,120}sfxPrefetch: true/
-       .test(p03));
+     !!gate && gate.indexOf('scheduleContinue_(5 * 1000);') !== -1 &&
+     gate.indexOf('sfxPrefetch: true') !== -1 &&
+     gate.indexOf('scheduleContinue_(5 * 1000);') < gate.indexOf('sfxPrefetch: true'));
   ok('۲۷.۴ و با هر از سرگیری دوباره تکرار نمی‌شود',
      /!st\.sfxDone/.test(p03) && /st\.sfxDone = 1;/.test(p03));
   ok('۲۷.۵ هر شکستی بی‌صداست — نبودِ افکت جلوی قسمت را نمی‌گیرد',
@@ -1949,7 +1957,9 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
   const A = [], B = [];
   for (let i = 0; i < SR * 3; i++) { A.push(10000); B.push(-10000); }
   const a64 = b64of(A), b64b = b64of(B);
-  const mix = pcmXfade_(a64, b64b, 1);
+  // A = موسیقی (۱۰۰۰۰)، B = گفتار (−۱۰۰۰۰). prevIsMusic=true یعنی
+  // موسیقی → گفتار، که شکلِ «duck» را می‌گیرد نه شیبِ متقارن.
+  const mix = pcmXfade_(a64, b64b, 1, true);
   ok('۳۲.۱ تلفیق انجام می‌شود', !!mix && mix.length === 2);
 
   const pa = samplesOf(mix[0]), pb = samplesOf(mix[1]);
@@ -1958,43 +1968,175 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
      (pa.length + pb.length) + ' در برابرِ ' + (A.length + B.length - SR));
   ok('۳۲.۳ ابتدای تکهٔ اول دست‌نخورده می‌ماند',
      pa[0] === 10000 && pa[100] === 10000);
-  ok('۳۲.۴ در آغازِ ناحیهٔ هم‌پوشانی، صدای اول غالب است',
-     pa[pa.length - SR + 5] > 9000, String(pa[pa.length - SR + 5]));
-  ok('۳۲.۵ در پایانِ ناحیه، صدای دوم غالب است',
-     pa[pa.length - 5] < -9000, String(pa[pa.length - 5]));
-  ok('۳۲.۶ و وسطش تقریباً خنثی — یکی می‌رود، دیگری می‌آید',
-     Math.abs(pa[pa.length - Math.floor(SR / 2)]) < 1500,
-     String(pa[pa.length - Math.floor(SR / 2)]));
-  ok('۳۲.۷ تکهٔ دوم از بعدِ ناحیهٔ هم‌پوشانی شروع می‌شود',
+
+  /* ── و حالا آنچه ۵٫۸۴ عوض کرد ──
+   * صاحبِ برنامه بعد از شنیدنِ قسمتِ ۱۸: «این fade باید خیلی حرفه‌ای‌تر
+   * بشه؛ خیلی جای کار داره.» شیبِ خطیِ متقارن سه ایراد داشت.
+   *
+   * شیب‌ها را **از خودِ تابع** بیرون می‌کشیم، نه با بازنویسیِ فرمول در
+   * آزمون: یک بار با موسیقیِ ثابت و گفتارِ ساکت (فقط شیبِ موسیقی می‌مانَد)
+   * و یک بار برعکس. سنجه‌ای که فرمول را تکرار کند، فقط خودش را می‌سنجد. */
+  const zero = b64of(new Array(SR * 3).fill(0));
+  const one = b64of(new Array(SR * 3).fill(10000));
+  const gainCurve = (aB64, bB64) => {
+    const m = pcmXfade_(aB64, bB64, 1, true);
+    const t = samplesOf(m[0]);
+    return t.slice(t.length - SR).map((v) => v / 10000);
+  };
+  const gMusic = gainCurve(one, zero);   // شیبِ طرفِ رونده (موسیقی)
+  const gVoice = gainCurve(zero, one);   // شیبِ طرفِ آینده (گفتار)
+
+  // ۱) گوینده از صفر بالا نمی‌آید — وگرنه نخستین هجای هر بخش نامفهوم است.
+  ok('۳۲.۴ گوینده از صفر شروع نمی‌شود — از کفِ MUSIC_DUCK_FLOOR',
+     gVoice[0] >= Number(CFG.MUSIC_DUCK_FLOOR) - 0.05 && gVoice[0] > 0.3,
+     gVoice[0].toFixed(2));
+  ok('۳۲.۴-ب و خیلی زود به بلندیِ کامل می‌رسد',
+     gVoice[Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE))] > 0.95,
+     gVoice[Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE))].toFixed(2));
+
+  // ۲) موسیقی زیرِ صدا می‌رود، نه اینکه بمیرد و بعد حرف شروع شود.
+  const kRise = Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE));
+  ok('۳۲.۵ موسیقی در لحظهٔ اوجِ گوینده هنوز زنده است، فقط زیرش',
+     gMusic[kRise] > 0.2 && gMusic[kRise] < 0.6, gMusic[kRise].toFixed(2));
+  ok('۳۲.۶ و در پایانِ ناحیه به صفر می‌رسد', gMusic[SR - 1] < 0.01,
+     gMusic[SR - 1].toFixed(3));
+
+  /* ۳) چالهٔ وسط. با شیبِ **خطی** در نقطهٔ میانی هر دو روی ۰٫۵ می‌نشینند و
+   *    توانِ کل (مجموعِ مجذورها) به ۰٫۵ می‌افتد — افتی که گوش آن را «یک
+   *    چاله» می‌شنود. شیبِ هم‌توان همین مجموع را نزدیکِ ۱ نگه می‌دارد.
+   *    این تنها سنجه‌ای است که خطی را از هم‌توان جدا می‌کند. */
+  let minPow = 1e9, minAt = 0;
+  for (let k = 0; k < SR; k++) {
+    const pw = gMusic[k] * gMusic[k] + gVoice[k] * gVoice[k];
+    if (pw < minPow) { minPow = pw; minAt = k; }
+  }
+  ok('۳۲.۷ توانِ گذر هیچ‌جا نمی‌افتد — چالهٔ شیبِ خطی بسته شد',
+     minPow > 0.75, 'کمینهٔ توان ' + minPow.toFixed(2) + ' در نمونهٔ ' + minAt +
+     ' (شیبِ خطی اینجا ۰٫۵ می‌داد)');
+
+  ok('۳۲.۸ تکهٔ دوم از بعدِ ناحیهٔ هم‌پوشانی شروع می‌شود',
      pb.length === B.length - SR && pb[0] === -10000,
      pb.length + ' / ' + (B.length - SR));
 
+  /* ── گفتار → موسیقی: واژه‌های پایانی بریده نمی‌شوند ──
+     اگر گوینده وسطِ جملهٔ آخر محو شود، فاجعه است. تا `MUSIC_XFADE_HOLD`
+     صدا دست نمی‌خورد و موسیقی زیرش بالا می‌آید. */
+  const curve2 = (aB64, bB64) => {
+    const m = pcmXfade_(aB64, bB64, 1, false);
+    const t = samplesOf(m[0]);
+    return t.slice(t.length - SR).map((v) => v / 10000);
+  };
+  const gTalk = curve2(one, zero);   // شیبِ گفتارِ رونده
+  const gMus2 = curve2(zero, one);   // شیبِ موسیقیِ آینده
+  const hold = Math.floor(SR * Number(CFG.MUSIC_XFADE_HOLD));
+  ok('۳۲.۹ واژه‌های پایانی بریده نمی‌شوند — گفتار تا HOLD دست‌نخورده است',
+     gTalk[0] > 0.99 && gTalk[Math.floor(hold * 0.9)] > 0.99,
+     gTalk[Math.floor(hold * 0.9)].toFixed(2));
+  ok('۳۲.۹-ب و بعدش می‌رود', gTalk[SR - 1] < 0.02, gTalk[SR - 1].toFixed(3));
+  ok('۳۲.۱۰ و موسیقی زیرِ همان واژه‌ها بالا می‌آید، نه بعد از سکوت',
+     gMus2[Math.floor(hold * 0.5)] > 0.05 && gMus2[Math.floor(hold * 0.5)] < 0.6,
+     gMus2[Math.floor(hold * 0.5)].toFixed(2));
+  ok('۳۲.۱۰-ب و در پایان به بلندیِ کامل می‌رسد', gMus2[SR - 1] > 0.95,
+     gMus2[SR - 1].toFixed(2));
+
   // مرزهای امن
-  ok('۳۲.۸ تکهٔ کوتاه‌تر از ناحیهٔ هم‌پوشانی تلفیق نمی‌شود — «حذف» نه',
-     pcmXfade_(b64of([1, 2, 3]), b64b, 1) === null);
-  ok('۳۲.۹ ثانیهٔ صفر یا منفی کاری نمی‌کند',
-     pcmXfade_(a64, b64b, 0) === null && pcmXfade_(a64, b64b, -1) === null);
-  ok('۳۲.۱۰ و هیچ نمونه‌ای نصف نمی‌شود — مرزِ مضربِ ۶ بایت',
-     samplesOf(mix[0]).length * 2 % 2 === 0 &&
-     (Utilities.base64Decode(mix[0]).length % 2) === 0);
+  ok('۳۲.۱۱ ثانیهٔ صفر یا منفی کاری نمی‌کند',
+     pcmXfade_(a64, b64b, 0, true) === null && pcmXfade_(a64, b64b, -1, true) === null);
+  ok('۳۲.۱۲ و هیچ نمونه‌ای نصف نمی‌شود — مرزِ مضربِ ۶ بایت',
+     (Utilities.base64Decode(mix[0]).length % 2) === 0 &&
+     (Utilities.base64Decode(mix[1]).length % 2) === 0);
+
+  /* ── کوتاه‌شدن، نه لغوشدن ──
+     تا ۵٫۸۳ اگر یکی از دو طرف کمتر از دو برابرِ هم‌پوشانی صدا داشت، null
+     برمی‌گشت و همان‌جا یک بُرشِ خشک می‌ماند — بی هیچ سیاهه‌ای. و تکهٔ
+     گفتارِ کوتاه دقیقاً همان‌جایی است که موسیقیِ میانه می‌آید. */
+  const short = [];
+  for (let i = 0; i < Math.floor(SR * 0.6); i++) short.push(-10000);
+  const mixS = pcmXfade_(a64, b64of(short), 1, true);
+  ok('۳۲.۱۳ طرفِ کوتاه، تلفیقِ کوتاه‌تر می‌گیرد — نه بُرشِ خشک', !!mixS);
+  if (mixS) {
+    // تکهٔ اول طولش را نگه می‌دارد (لبه‌اش بازنویسی می‌شود)؛ آنچه کوتاه
+    // می‌شود تکهٔ دوم است، دقیقاً به اندازهٔ هم‌پوشانی.
+    const cut = short.length - samplesOf(mixS[1]).length;
+    ok('۳۲.۱۴ و هم‌پوشانی از نصفِ طرفِ کوتاه بیشتر نمی‌شود',
+       cut > 0 && cut <= Math.ceil(short.length / 2) + 3,
+       cut + ' نمونه از ' + short.length);
+    ok('۳۲.۱۴-ب و آن‌قدر کوتاه نمی‌شود که تلنگر بشود',
+       cut >= Math.floor(SR * Number(CFG.MUSIC_XFADE_MIN_SEC)),
+       cut + ' ≥ ' + Math.floor(SR * Number(CFG.MUSIC_XFADE_MIN_SEC)));
+  }
+  ok('۳۲.۱۵ ولی تکهٔ واقعاً ریز اصلاً تلفیق نمی‌شود',
+     pcmXfade_(b64of([1, 2, 3]), b64b, 1, true) === null);
+
+  // جمعِ دو صدا نباید بریده شود؛ فشردنِ نرم بالای زانو
+  ok('۳۲.۱۶ جمع نرم فشرده می‌شود، نه بریده',
+     pcmSoft_(40000) < 32767 && pcmSoft_(40000) > CFG.MUSIC_LIMIT_KNEE &&
+     pcmSoft_(-40000) === -pcmSoft_(40000) && pcmSoft_(1000) === 1000,
+     String(pcmSoft_(40000)));
 
   // وصل‌بودن به مسیرِ واقعی
   const p03b = fs.readFileSync('src/03_Producer.gs', 'utf8');
-  ok('۳۲.۱۱ در حلقهٔ صداگذاری صدا زده می‌شود',
-     /pcmXfade_\(buf\[buf\.length - 1\], b64, xs\)/.test(p03b));
-  ok('۳۲.۱۲ فقط سرِ مرزِ موسیقی↔گفتار، نه میانِ دو تکهٔ گفتار',
+  ok('۳۲.۱۷ در حلقهٔ صداگذاری صدا زده می‌شود، با اعلامِ اینکه کدام طرف موسیقی است',
+     /pcmXfade_\(buf\[buf\.length - 1\], b64, xs, !curMusic\)/.test(p03b));
+  ok('۳۲.۱۸ فقط سرِ مرزِ موسیقی↔گفتار، نه میانِ دو تکهٔ گفتار',
      /prevMusic !== curMusic/.test(p03b));
-  ok('۳۲.۱۳ و نوعِ تکهٔ واقعاً افزوده‌شده دنبال می‌شود، نه chunks\\[i-1\\]',
-     /var prevMusic = null;/.test(p03b) && /prevMusic = curMusic;/.test(p03b));
-  ok('۳۲.۱۴ سرِ مرزِ فایل از تلفیق می‌گذرد — دو فایل را نمی‌شود در هم برد',
+  ok('۳۲.۱۹ و طولِ تلفیق از تکه‌ای می‌آید که واقعاً در بافر نشست',
+     /var prevXf = 0;/.test(p03b) && /prevXf = Number\(chunks\[i\] && chunks\[i\]\.xfade\)/.test(p03b));
+  ok('۳۲.۲۰ سرِ مرزِ فایل از تلفیق می‌گذرد — دو فایل را نمی‌شود در هم برد',
      /buf\.length && prevMusic !== null/.test(p03b));
 
+  /* ── و محوِ دوباره، که ریشهٔ «موسیقی می‌میرد بعد حرف شروع می‌شود» بود ──
+     خودِ قطعه با MUSIC_FADE_SEC (۲ ثانیه) محو می‌شد و تلفیق **همان ناحیه**
+     را دوباره پایین می‌کشید: ضربِ دو شیب. یعنی هرچه هم‌پوشانی بلندتر
+     می‌شد، «قطع و شروع» بدتر می‌شد — برعکسِ چیزی که ساخته شده بود.
+     اینجا خودِ musicWrap_ اجرا می‌شود و آرگومان‌های واقعیِ musicClip_
+     گرفته می‌شود؛ سنجهٔ متنی نمی‌گوید کدام لبه کدام محو را گرفت. */
+  {
+    delete global.__PROPS[PK.MUSIC_PLAN];
+    const realClip = global.musicClip_, realBank = global.musicBank_;
+    const realPlan = global.musicPlanModel_, realUsed = global.musicMarkUsed_;
+    const seen = [];
+    global.musicClip_ = (id, o) => { seen.push({ id: id, fi: o.fadeIn, fo: o.fadeOut,
+                                                 len: o.lenSec }); return 'PCM-' + id; };
+    global.musicBank_ = () => ([
+      { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' },
+      { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' }
+    ]);
+    global.musicPlanModel_ = () => ({ introId: 'A', outroId: 'B',
+      bridges: [{ after: '0', id: 'B' }], sfx: [], mood: 'م' });
+    global.musicMarkUsed_ = () => 0;
+    const r = musicWrap_([{ text: 'یک' }, { text: 'دو' }, { text: 'سه' }], null,
+      { show: 'variety', episode: 900, mood: 'م', title: 'ت',
+        bounds: [{ at: 0, kind: 'body' }, { at: 2, kind: 'section', heading: 'ب' }],
+        sections: [{ heading: 'ب' }] });
+    const byId = {};
+    for (const x of seen) { (byId[x.id] = byId[x.id] || []).push(x); }
+    ok('۳۲.۲۱ سه جایگاه ساخته شد', seen.length >= 3 && r.picks.length >= 3,
+       seen.length + ' برش، ' + r.picks.length + ' قطعه');
+    const intro = seen[0], outro = seen[seen.length - 1];
+    ok('۳۲.۲۲ آغازِ قسمت محوِ کاملِ خودش را دارد (همسایه‌ای ندارد)',
+       intro.fi > 0.5, 'fadeIn=' + intro.fi);
+    ok('۳۲.۲۳ ولی لبه‌اش که به گفتار می‌رسد، محوِ بلند نمی‌گیرد — تلفیق کارِ آن را می‌کند',
+       intro.fo <= 0.25, 'fadeOut=' + intro.fo);
+    ok('۳۲.۲۴ و پایانِ قسمت برعکس: ورودش کوتاه، خروجش کامل',
+       outro.fi <= 0.25 && outro.fo > 0.5, outro.fi + ' / ' + outro.fo);
+    const mid = seen.filter((x, i) => i > 0 && i < seen.length - 1);
+    ok('۳۲.۲۵ میانه هر دو سرش کوتاه است — هر دو لبه‌اش تلفیق می‌شود',
+       mid.length > 0 && mid.every((x) => x.fi <= 0.25 && x.fo <= 0.25),
+       mid.map((x) => x.fi + '/' + x.fo).join(' '));
+    global.musicClip_ = realClip; global.musicBank_ = realBank;
+    global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realUsed;
+    delete global.__PROPS[PK.MUSIC_PLAN];
+  }
+
   const p23n = fs.readFileSync('src/23_Music.gs', 'utf8');
-  ok('۳۲.۱۵ آغاز و میانه و پایان هر سه طولِ تلفیق را با خود می‌برند',
-     (p23n.match(/xfade: Number\(CFG\.MUSIC_XFADE_SEC\)/g) || []).length === 3);
-  ok('۳۲.۱۶ و افکت طولِ کوتاه‌ترِ خودش را دارد',
+  ok('۳۲.۲۶ و طولِ تلفیق جایگاه‌به‌جایگاه است — نه یک عدد برای هر سه',
+     Number(CFG.MUSIC_XFADE_BRIDGE_SEC) < Number(CFG.MUSIC_XFADE_EDGE_SEC) &&
+     /xfade: xfEdgeSec_\(\)/.test(p23n) && /xfade: xfBridgeSec_\(\)/.test(p23n),
+     CFG.MUSIC_XFADE_BRIDGE_SEC + ' < ' + CFG.MUSIC_XFADE_EDGE_SEC);
+  ok('۳۲.۲۷ و افکت طولِ کوتاه‌ترِ خودش را دارد',
      /xfade: Number\(CFG\.MUSIC_SFX_XFADE_SEC\)/.test(p23n) &&
-     Number(CFG.MUSIC_SFX_XFADE_SEC) < Number(CFG.MUSIC_XFADE_SEC));
+     Number(CFG.MUSIC_SFX_XFADE_SEC) < Number(CFG.MUSIC_XFADE_BRIDGE_SEC));
 }
 
 console.log('=== ۳۳) سدی که هیچ‌وقت باز نمی‌شد ===');
@@ -2068,6 +2210,93 @@ console.log('=== ۳۴) قطعهٔ سه‌ثانیه‌ای، موسیقیِ آغ
   ok('۳۴.۶ کفِ لبه از تلفیقِ لبه بلندتر است',
      Number(CFG.MUSIC_MIN_EDGE_SEC) > Number(CFG.MUSIC_XFADE_SEC),
      CFG.MUSIC_MIN_EDGE_SEC + ' > ' + CFG.MUSIC_XFADE_SEC);
+}
+
+console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ===');
+{
+  /* ══ آنچه در قسمتِ ۱۸ واقعاً افتاد (۲۴ اوت) ══
+   * صداگذاری سه بار از سر گرفته شد و buildChunks_ هر بار musicWrap_ را از
+   * نو صدا زد و بلافاصله musicMarkUsed_ و musicRemember_ را. نتیجه:
+   *   • تبِ «کاربردِ موسیقی» ۱۲ ردیف گرفت به‌جای ۴ (قسمتِ ۱۷: ۲۰ به‌جای ۵)
+   *   • «بارِ استفاده» سه برابر شد — همان عددی که چرخش رویش می‌چرخد
+   *   • و musicRemember_ نامِ قطعه‌های همین قسمت را در MUSIC_LAST نوشت، و
+   *     musicPick_ در اجرای بعد همان‌ها را با امتیازِ منفی کنار زد. پس هر
+   *     از سرگیری قطعهٔ *دیگری* انتخاب کرد:
+   *       ۱۳:۰۴ Somewhere · Kalimba · Underwater · Somewhere
+   *       ۱۳:۰۹ Somewhere · Menu Loop · Kalimba · Somewhere
+   *       ۱۳:۱۴ Somewhere · Underwater · Kalimba · Somewhere
+   * ۵٫۶۸ نقشهٔ *مدل* را کَش کرده بود و همین کافی به‌نظر می‌رسید. نبود:
+   * نقشه ثابت ماند، انتخاب نه. */
+  delete global.__PROPS[PK.MUSIC_PLAN];
+  delete global.__PROPS[PK.MUSIC_LAST];
+  delete global.__PROPS[PK.MUSIC_LOGGED];
+  const realClip = global.musicClip_, realBank = global.musicBank_;
+  const realPlan = global.musicPlanModel_, realMark = global.musicMarkUsed_;
+  let marked = 0;
+  global.musicClip_ = (id) => 'PCM-' + id;
+  global.musicMarkUsed_ = (h, picks) => { marked += (picks || []).length; return 0; };
+  global.musicBank_ = () => ([
+    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 },
+    { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 },
+    { id: 'C', name: 'ج', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 }
+  ]);
+  // مدل هیچ شناسه‌ای نمی‌دهد — یعنی انتخاب کاملاً به musicPick_ می‌افتد،
+  // همان‌جایی که شمارنده‌ها تصمیم می‌گیرند. بدترین حالت، و باید بسته باشد.
+  global.musicPlanModel_ = () => ({ introId: '', outroId: '', bridges: [], sfx: [], mood: 'م' });
+
+  const mk = () => [{ text: 'یک' }, { text: 'دو' }, { text: 'سه' }, { text: 'چهار' }];
+  const opt = { show: 'variety', episode: 18, mood: 'م', title: 'ت',
+                bounds: [{ at: 0, kind: 'body' }, { at: 2, kind: 'section', heading: 'ب' }],
+                sections: [{ heading: 'ب' }] };
+
+  const r1 = musicWrap_(mk(), null, opt);
+  const rec1 = musicRecordOnce_(null, r1, 'variety#18', 'قسمت 18', 'برنامه');
+  const r2 = musicWrap_(mk(), null, opt);
+  const rec2 = musicRecordOnce_(null, r2, 'variety#18', 'قسمت 18', 'برنامه');
+  const r3 = musicWrap_(mk(), null, opt);
+  const rec3 = musicRecordOnce_(null, r3, 'variety#18', 'قسمت 18', 'برنامه');
+
+  ok('۳۵.۱ ثبت فقط در اجرای اول انجام می‌شود',
+     rec1 === true && rec2 === false && rec3 === false, [rec1, rec2, rec3].join(','));
+  ok('۳۵.۲ پس شمارندهٔ «بارِ استفاده» سه برابر نمی‌شود',
+     marked === r1.picks.length, marked + ' در برابرِ ' + r1.picks.length);
+
+  const ids = (r) => r.picks.map((p) => p.id).join('>');
+  ok('۳۵.۳ و هر سه اجرا **همان** قطعه‌ها را می‌گیرند',
+     ids(r1) === ids(r2) && ids(r2) === ids(r3),
+     ids(r1) + ' | ' + ids(r2) + ' | ' + ids(r3));
+  ok('۳۵.۴ و آرایهٔ تکه‌ها هم‌اندازه می‌مانَد — شماره‌ها نمی‌لغزند',
+     r1.chunks.length === r2.chunks.length && r2.chunks.length === r3.chunks.length,
+     [r1.chunks.length, r2.chunks.length, r3.chunks.length].join('/'));
+
+  /* سنجهٔ اصلی: حتی اگر «قسمتِ قبل» روی همین قطعه‌ها گذاشته شود — یعنی
+     همان کاری که musicRemember_ وسطِ قسمت می‌کرد — انتخاب نباید عوض شود. */
+  global.__PROPS[PK.MUSIC_LAST] = JSON.stringify({ tracks: r1.picks.map((p) => p.name) });
+  const r4 = musicWrap_(mk(), null, opt);
+  ok('۳۵.۵ حافظهٔ «قسمتِ قبل» وسطِ همین قسمت انتخاب را عوض نمی‌کند',
+     ids(r4) === ids(r1), ids(r4) + ' در برابرِ ' + ids(r1));
+
+  const r5 = musicWrap_(mk(), null, Object.assign({}, opt, { episode: 19 }));
+  ok('۳۵.۶ ولی قسمتِ بعد قفل نیست',
+     musicRecordOnce_(null, r5, 'variety#19', 'قسمت 19', 'برنامه') === true);
+
+  /* و ردیفِ تاریخچه باید جایگاهِ درست را بگوید. وقتی یک قطعه هم آغاز است هم
+     پایان، `track.slot = ...` دومی اولی را بازنویسی می‌کرد: در قسمتِ ۱۸ هیچ
+     ردیفِ «شروع» در تبِ کاربرد نبود، با اینکه موسیقیِ آغاز پخش شده بود. */
+  global.musicBank_ = () => ([
+    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان'], mood: 'م', used: 0 }
+  ]);
+  delete global.__PROPS[PK.MUSIC_PLAN];
+  const r6 = musicWrap_(mk(), null, Object.assign({}, opt, { episode: 20 }));
+  const slots = r6.picks.map((p) => p.slot);
+  ok('۳۵.۷ یک قطعه در دو جایگاه، دو ردیفِ درست می‌دهد — نه دو تا «پایان»',
+     slots.indexOf('شروع') !== -1 && slots.indexOf('پایان') !== -1, slots.join('،'));
+
+  global.musicClip_ = realClip; global.musicBank_ = realBank;
+  global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realMark;
+  delete global.__PROPS[PK.MUSIC_PLAN];
+  delete global.__PROPS[PK.MUSIC_LAST];
+  delete global.__PROPS[PK.MUSIC_LOGGED];
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

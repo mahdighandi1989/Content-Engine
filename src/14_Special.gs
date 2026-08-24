@@ -1631,8 +1631,8 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum, CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
-        try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
+        try { musicRecordOnce_(null, mw, 'special#' + epNum, 'درس‌نامه ' + epNum,
+                               CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
       }
       return mw.chunks;
     }

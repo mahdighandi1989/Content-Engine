@@ -26,11 +26,27 @@ function tgApi_(method, payload) {
     opt.payload = JSON.stringify(payload);
   }
 
+  /* ── چرا حلقه دورِ fetch یک try لازم دارد (۵٫۸۴) ──
+     `UrlFetchApp.fetch` وقتی خودِ اتصال برقرار نشود (DNS، شبکه) **پرتاب**
+     می‌کند، نه اینکه کدِ خطا برگرداند. تا ۵٫۸۳ این پرتاب از همان تلاشِ اول
+     بیرونِ حلقه می‌پرید — یعنی حلقهٔ سه‌تلاشی برای این حالت اصلاً وجود
+     نداشت. در تولیدِ دستیِ ۲۴ اوت همین شد: «تلگرام: ۴ ارسال، ۲ ناموفق —
+     متن: Address unavailable». یک لحظه شبکه، و متنِ کاملِ قسمت برای همیشه
+     نرفت؛ صاحبِ برنامه گفت «متنِ پادکست توی تلگرام نیومده».
+     یک قطعیِ گذرا باید تکرار شود، نه اینکه پیام را ببلعد. */
   var last = '';
-  for (var attempt = 0; attempt < 3; attempt++) {
-    var res = UrlFetchApp.fetch(url, opt);
-    var code = res.getResponseCode();
-    var txt = res.getContentText();
+  var attempts = Math.max(1, Number(CFG.TG_ATTEMPTS) || 4);
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    var res, code, txt;
+    try {
+      res = UrlFetchApp.fetch(url, opt);
+      code = res.getResponseCode();
+      txt = res.getContentText();
+    } catch (eNet) {
+      last = 'شبکه: ' + String((eNet && eNet.message) || eNet).slice(0, 200);
+      if (attempt < attempts - 1) { Utilities.sleep(2000 * (attempt + 1)); continue; }
+      break;
+    }
     if (code === 200) {
       // تلگرام خطاهای منطقی را هم با کد ۲۰۰ و ok:false برمی‌گرداند (مثلاً
       // چت پیدا نشد، ربات بلاک شده). بی این وارسی، فرستنده «ارسال شد» ثبت

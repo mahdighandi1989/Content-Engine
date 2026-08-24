@@ -570,7 +570,8 @@ function sfxPrefetch_(ep, showKind, epNum) {
   var max = Math.max(1, Number(CFG.MUSIC_SFX_PREFETCH_MAX) || 2);
 
   var wants = [];
-  try { wants = sfxWantModel_(ep); } catch (e) { return out; }
+  try { wants = sfxWantModel_(ep); }
+  catch (e) { out.notes.push('پرسش از مدل نشد: ' + e.message); return out; }
   out.asked = wants.length;
   if (!wants.length) { out.notes.push('این قسمت صدایی نمی‌خواهد.'); return out; }
 
@@ -850,6 +851,62 @@ function musicMarkUsed_(hub, picks, epLabel, showName) {
   return n;
 }
 
+/* ═══════ ثبت، یک بار در هر قسمت — نه یک بار در هر از سرگیری (۵٫۸۴) ═══════
+
+   ══ آنچه در قسمتِ ۱۸ واقعاً افتاد ══
+   صداگذاری به‌خاطرِ مهلتِ شش‌دقیقه‌ای سه بار از سر گرفته شد، و
+   `buildChunks_` هر بار `musicWrap_` را از نو صدا زد و بلافاصله بعدش
+   `musicMarkUsed_` و `musicRemember_` را. یعنی برای یک قسمت:
+
+     • تبِ «کاربردِ موسیقی» ۱۲ ردیف گرفت به‌جای ۴ (و قسمتِ ۱۷: ۲۰ به‌جای ۵)
+     • «بارِ استفاده»ی هر قطعه سه برابر بالا رفت — همان عددی که نوبت‌دهی
+       رویش می‌چرخد، پس چرخش هم خراب شد
+     • و بدتر از هر دو: `musicRemember_` نامِ قطعه‌های **همین قسمت** را در
+       PK.MUSIC_LAST نوشت، و `musicPick_` در اجرای بعدی همان‌ها را با
+       امتیازِ منفی کنار زد. پس هر از سرگیری قطعه‌های *دیگری* انتخاب کرد:
+
+         ۱۳:۰۴  Somewhere · Kalimba · Underwater · Somewhere
+         ۱۳:۰۹  Somewhere · Menu Loop · Kalimba · Somewhere
+         ۱۳:۱۴  Somewhere · Underwater · Kalimba · Somewhere
+
+   ۵٫۶۸ نقشهٔ *مدل* را کَش کرد و فکر کردیم مسئله بسته شد. نبود: نقشه ثابت
+   ماند ولی **انتخابِ قطعه** ثابت نماند، چون انتخاب به شمارنده‌ای نگاه
+   می‌کند که خودِ همین اجرا داشت جلو می‌بردش. سیاههٔ قسمت هم دروغ می‌گفت:
+   آخرین خط چیزی را اعلام می‌کرد که نیمی‌اش قبلاً با قطعهٔ دیگری ساخته
+   شده بود. و اگر تعدادِ میانه‌ها بینِ دو اجرا فرق می‌کرد، شماره‌ها
+   می‌لغزیدند و تکه‌ای جا می‌افتاد یا دوباره گفته می‌شد.
+
+   دو قفل، چون یکی کافی نیست:
+     ۱) ثبت فقط یک بار — با کلیدِ (برنامه، قسمت).
+     ۲) شناسه‌های واقعاً انتخاب‌شده در همان کَشِ نقشه نوشته می‌شوند، پس
+        اجرای بعدی همان‌ها را می‌گیرد حتی اگر شمارنده‌ها عوض شده باشند.
+*/
+
+/** یک نسخهٔ سبک از ردیفِ بانک، با جایگاهِ همین بار. */
+function pickOf_(track, slot) {
+  return { id: track.id, row: track.row, name: track.name, kind: track.kind,
+           mood: track.mood, gain: track.gain, sec: track.sec,
+           used: track.used, slot: slot };
+}
+
+/**
+ * ثبتِ استفاده و حافظهٔ «قسمتِ قبل» — دقیقاً یک بار برای هر قسمت.
+ * @return {boolean} آیا این فراخوان واقعاً ثبت کرد
+ */
+function musicRecordOnce_(hub, mw, key, epLabel, showName) {
+  if (!mw || !mw.picks || !mw.picks.length) return false;
+  var k = String(key || '');
+  if (k) {
+    var seen = '';
+    try { seen = String(props_().getProperty(PK.MUSIC_LOGGED) || ''); } catch (e0) {}
+    if (seen === k) return false;
+  }
+  try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {}
+  try { musicRemember_(mw, epLabel); } catch (eR) {}
+  if (k) { try { props_().setProperty(PK.MUSIC_LOGGED, k); } catch (e1) {} }
+  return true;
+}
+
 /* ──────────────────── چسباندنِ موسیقی به تکه‌های قسمت ──────────────────── */
 
 /**
@@ -892,6 +949,18 @@ function musicPlanCachePut_(key, plan) {
     m[key] = plan;
     props_().setProperty(PK.MUSIC_PLAN, JSON.stringify(m));
   } catch (e) {}
+}
+
+/* طولِ هم‌پوشانی، جایگاه‌به‌جایگاه. یک عددِ ثابت برای هر سه غلط است:
+   ۲٫۴ ثانیه سرِ یک قطعهٔ میانهٔ هفت‌ثانیه‌ای، دو سرش را می‌خورد و از خودِ
+   موسیقی چیزی نمی‌مانَد. */
+function xfEdgeSec_() {
+  var v = Number(CFG.MUSIC_XFADE_EDGE_SEC);
+  return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
+}
+function xfBridgeSec_() {
+  var v = Number(CFG.MUSIC_XFADE_BRIDGE_SEC);
+  return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
 }
 
 function musicWrap_(chunks, hub, opt) {
@@ -954,27 +1023,47 @@ function musicWrap_(chunks, hub, opt) {
 
   var picks = [], out = [];
 
-  var clipOf = function (b, slot, secs) {
+  /* ── محو، لبه‌به‌لبه — نه یک عدد برای هر دو سر (۵٫۸۴) ──
+   *
+   * تا ۵٫۸۳ هر قطعه دو سرش یک محوِ دوثانیه‌ای می‌گرفت، و بعد تلفیقِ لبه
+   * **همان ناحیه** را دوباره پایین می‌کشید. حاصل ضربِ دو شیب بود: موسیقی
+   * در نیمهٔ اولِ هم‌پوشانی عملاً تمام می‌شد و بقیه‌اش سکوت بود روی صدای
+   * گوینده. یعنی هرچه هم‌پوشانی را بلندتر می‌کردی، «قطع و شروع» بدتر
+   * می‌شد — درست برعکسِ چیزی که ساخته شده بود.
+   *
+   * حالا هر لبه جداگانه تصمیم می‌شود: لبه‌ای که تلفیق رویش می‌افتد فقط یک
+   * محوِ کوتاهِ ضدِ تلنگر می‌گیرد (تلفیق خودش شکلِ موسیقایی را می‌سازد)، و
+   * لبه‌ای که همسایه ندارد — آغازِ موسیقیِ اول و پایانِ موسیقیِ آخر، یعنی
+   * نخستین و آخرین صدای قسمت — محوِ کاملِ خودش را نگه می‌دارد. */
+  var xfOn = CFG.MUSIC_XFADE !== false;
+  var softFade = function (len) { return Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4); };
+  var edgeFade = function (len) { return Math.min(0.25, len / 8); };
+
+  var clipOf = function (b, slot, secs, opts) {
     if (!b) return '';
+    opts = opts || {};
     var len = Math.min(secs, b.sec || secs);
-    /* محو نباید کلِ قطعه را بخورد. با `len/2` یک قطعهٔ چهارثانیه‌ای دو ثانیه
-       بالا می‌آمد و دو ثانیه پایین می‌رفت — یعنی هیچ لحظه‌ای در بلندیِ کامل
-       نبود و مثل یک تلنگرِ یک‌ثانیه‌ای شنیده می‌شد. حالا دستِ‌کم نیمی از
-       قطعه در بلندیِ کامل می‌مانَد. */
-    var fade = Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4);
+    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود.
+    var fi = (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
+    var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : softFade(len);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
-      fadeIn: fade, fadeOut: fade
+      fadeIn: fi, fadeOut: fo
     });
   };
 
   var intro = musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro) {
-    var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8);
+    // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
+    var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
+                    { inEdge: 'soft', outEdge: 'xf' });
     if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
-                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-              intro.slot = 'شروع'; picks.push(intro); }
+                         xfade: xfEdgeSec_() });
+              // نسخه، نه خودِ ردیف: وقتی یک قطعه هم آغاز است هم پایان،
+              // `track.slot = ...` دومی اولی را بازنویسی می‌کرد و ردیفِ
+              // «شروع» در تاریخچه «پایان» ثبت می‌شد. در قسمتِ ۱۸ همین شد.
+              picks.push(pickOf_(intro, 'شروع')); }
   }
 
   /* ── موسیقیِ میانه: سرِ مرزِ بخش‌ها، نه هر چند تکه ──
@@ -1031,13 +1120,14 @@ function musicWrap_(chunks, hub, opt) {
   for (var i = 0; i < chunks.length; i++) {
     var w = atMap[i];
     if (w) {
-      var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4);
+      // میانه هر دو سرش گفتار است → هر دو لبه تلفیق می‌شوند.
+      var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
+                      { inEdge: 'xf', outEdge: 'xf' });
       if (bb) {
         out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
-                   xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-        w.track.slot = 'میانه';
-        if (picks.indexOf(w.track) === -1) picks.push(w.track);
+                   xfade: xfBridgeSec_() });
+        picks.push(pickOf_(w.track, 'میانه'));
       }
     }
     posOf[i] = out.length;
@@ -1047,10 +1137,12 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
-    var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10);
+    // آغازش از گفتار می‌آید → تلفیق؛ پایانش آخرین صدای قسمت است → محوِ کامل.
+    var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10,
+                    { inEdge: 'xf', outEdge: 'soft' });
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
-                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-              outro.slot = 'پایان'; picks.push(outro); }
+                         xfade: xfEdgeSec_() });
+              picks.push(pickOf_(outro, 'پایان')); }
   }
 
   // ── افکت‌ها ──
@@ -1091,7 +1183,7 @@ function musicWrap_(chunks, hub, opt) {
       } else {
         out.splice(pl.at + 1, 0, piece);
       }
-      eb.slot = 'افکت'; picks.push(eb);
+      picks.push(pickOf_(eb, 'افکت'));
       logLine_('افکتِ قسمت: ' + eb.name + ' — ' + pl.how +
                (okSfx[sx].fit ? ' | ' + okSfx[sx].fit : ''));
     }
@@ -1123,6 +1215,31 @@ function musicWrap_(chunks, hub, opt) {
   // اگر خودِ برنامه مرزی نداشت، نبودِ موسیقیِ میانه کمبود نیست.
   if (maxBr && bounds.length && !bridge) missing.push('میانه');
   if (missing.length) { try { musicWish_(mood, missing, opt); } catch (eW) {} }
+
+  /* ── قفلِ دوم: شناسه‌های واقعاً انتخاب‌شده در کَش نوشته می‌شوند ──
+     نقشهٔ مدل از ۵٫۶۸ کَش می‌شد، ولی مدل همیشه شناسه نمی‌دهد؛ آنجا که
+     نمی‌دهد `musicPick_` تصمیم می‌گیرد و تصمیمش به شمارنده‌ای نگاه می‌کند
+     که همین اجرا داشت جلو می‌بردش. پس انتخابِ نهایی هم باید بماند، نه فقط
+     پیشنهادِ مدل. با این، از سرگیری همان قطعه‌ها را می‌گیرد. */
+  var ck2 = musicPlanKey_(opt);
+  if (ck2 && picks.length) {
+    var lock = { introId: '', outroId: '', bridges: [],
+                 introStart: plan.introStart || '', outroStart: plan.outroStart || '',
+                 bridgeStart: plan.bridgeStart || '',
+                 sfx: plan.sfx || [], sfxWant: plan.sfxWant || [],
+                 mood: mood, gain: plan.gain || '', why: plan.why || '' };
+    for (var pk = 0; pk < picks.length; pk++) {
+      if (picks[pk].slot === 'شروع') lock.introId = picks[pk].id;
+      if (picks[pk].slot === 'پایان') lock.outroId = picks[pk].id;
+    }
+    for (var wq = 0; wq < want.length; wq++) {
+      var atIdx = -1;
+      for (var bq = 0; bq < bounds.length; bq++) if (bounds[bq].at === want[wq].at) atIdx = bq;
+      if (atIdx >= 0) lock.bridges.push({ after: String(atIdx), id: want[wq].track.id,
+                                          why: want[wq].why || '' });
+    }
+    musicPlanCachePut_(ck2, lock);
+  }
 
   if (picks.length) {
     logLine_('موسیقیِ قسمت: ' + picks.map(function (p) { return p.name; }).join(' · '));

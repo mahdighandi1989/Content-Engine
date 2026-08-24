@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.83
+ *  موتور محتوا و پادکست — نسخهٔ 5.84
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -369,6 +369,9 @@ var CFG = {
   // ── بانکِ موسیقی و افکت (بخشِ ۲۳) ──
   // فایل‌ها در پوشه‌ای در OUTPUT می‌نشینند و فهرستشان در تبِ «موسیقی» است.
   // فقط WAV؛ رمزگشاییِ MP3 در Apps Script ممکن نیست.
+  // تلاشِ دوبارهٔ تلگرام وقتی خودِ اتصال برقرار نشود (پرتابِ fetch).
+  TG_ATTEMPTS: 4,
+
   MUSIC_ENABLED: true,
   // خودکار یعنی مدل خودش حال‌وهوا و قطعه و جایِ برش را تعیین کند. خاموش که
   // شود، فقط ستون‌هایی که آدم در تب پر کرده ملاک است.
@@ -488,7 +491,32 @@ var CFG = {
      حالا سرِ هر اتصالِ موسیقی↔گفتار، این تعداد ثانیه روی هم می‌افتد:
      یکی محو می‌شود و دیگری بالا می‌آید. */
   MUSIC_XFADE: true,
-  MUSIC_XFADE_SEC: 1.8,
+  MUSIC_XFADE_SEC: 1.8,        // پیش‌فرض، وقتی جایگاه عددِ خودش را ندارد
+  /* ── و آنچه ۵٫۸۰ نداشت (۵٫۸۴) ──
+     صاحبِ برنامه بعد از شنیدنِ قسمتِ ۱۸: «این حالتِ fade باز باید خیلی
+     بهتر و حرفه‌ای‌تر انجام بشه؛ خیلی جای کار داره.» و درست بود — تلفیق
+     وجود داشت ولی شکلش آماتوری بود:
+
+     ۱) شیبِ خطی. دو صدای بی‌ربط با شیبِ خطی روی هم، وسطِ گذر ۶ دسی‌بل
+        افت می‌کنند (توان با مجذورِ دامنه می‌رود، نه با خودش). گوش این را
+        «یک چاله» می‌شنود. شیبِ هم‌توان (cos/sin) این چاله را می‌بندد.
+     ۲) محوِ دوباره. خودِ قطعه از قبل با MUSIC_FADE_SEC (۲ ثانیه) محو
+        می‌شد، و بعد تلفیق دوباره همان ناحیه را پایین می‌کشید — حاصلش
+        ضربِ دو شیب بود، یعنی موسیقی خیلی زودتر از آنچه باید می‌مُرد.
+        همان چیزی که شنیده می‌شد: «موسیقی می‌میرد، بعد گوینده می‌آید.»
+     ۳) گوینده از صفر بالا می‌آمد؛ یعنی نخستین هجای هر بخش نامفهوم بود.
+        حالا گوینده از کفِ MUSIC_DUCK_FLOOR وارد می‌شود و موسیقی زیرش
+        می‌رود — این همان کاری است که در رادیو می‌کنند، و برعکسش نه.
+     ۴) اگر یکی از دو طرف کوتاه بود، تلفیق بی‌صدا لغو می‌شد و همان‌جا
+        بُرشِ خشک می‌ماند. حالا کوتاه می‌شود، نه لغو. */
+  MUSIC_XFADE_EDGE_SEC: 2.4,   // آغاز و پایانِ قسمت — جایی که وقت هست
+  MUSIC_XFADE_BRIDGE_SEC: 1.4, // میانه کوتاه‌تر است؛ ۲.۴ کلش را می‌خورد
+  MUSIC_XFADE_MIN_SEC: 0.15,   // کمتر از این، تلفیق نیست؛ تلنگر است
+  MUSIC_DUCK_FLOOR: 0.55,      // بلندیِ گوینده در لحظهٔ ورود (نه صفر)
+  MUSIC_DUCK_RISE: 0.35,       // در چند درصدِ گذر به بلندیِ کامل می‌رسد
+  MUSIC_DUCK_UNDER: 0.5,       // موسیقی زیرِ صدای گوینده تا این ضریب
+  MUSIC_XFADE_HOLD: 0.5,       // گفتار→موسیقی: واژه‌های پایانی بریده نشوند
+  MUSIC_LIMIT_KNEE: 28000,     // از این بالاتر نرم فشرده می‌شود، نه بریده
   // کفِ طولِ قطعه برای هر جایگاه. قطعه‌ای که از تلفیقِ لبه هم کوتاه‌تر
   // است، موسیقیِ آغاز نیست — و بی این کف، یک فایلِ سه‌ثانیه‌ای می‌توانست
   // موسیقیِ آغازِ قسمت شود چون بارِ استفاده‌اش صفر بود.
@@ -700,7 +728,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.83',
+  CODE_VERSION: '5.84',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -959,6 +987,8 @@ var PK = {
   SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
   EP_LAST: 'EPISODE_LAST_AUDIO',    // همان، برای «از همه جا از همه رنگ»
   MUSIC_LAST: 'MUSIC_LAST_USE',     // موسیقیِ آخرین قسمت، برای دیده‌شدن در وضعیت
+  MUSIC_LOGGED: 'MUSIC_LOGGED_EP',  // آخرین قسمتی که ثبتِ موسیقی‌اش انجام شد
+  TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
   // نامِ عکس با شمارهٔ قسمت ساخته می‌شود و شمارهٔ قسمتِ دو برنامه می‌تواند
   // یکی باشد.
@@ -2550,7 +2580,13 @@ function ttsCueWanted_(chunks, i) {
 function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   var model = modelOverride || ttsModel_();
   var vc = voice || CFG.TTS_VOICE;
-  var cue = (withCue === false) ? '' : ttsCue_(sectionStyle, text);
+  // مدلی که یک بار این قالب را رد کرده، دوباره امتحان نمی‌شود.
+  // `!!model` لازم است: بی آن، مدلِ ناشناخته (null) با کلیدِ خالیِ خاصیت
+  // (null) برابر می‌شد و دستور برای همه خاموش می‌ماند — سدی که همیشه بسته
+  // است، همان اشتباهی است که ۵٫۶۵ کرد.
+  var cueOff = false;
+  try { cueOff = !!model && props_().getProperty(PK.TTS_CUE_OFF) === model; } catch (eC) {}
+  var cue = (withCue === false || cueOff) ? '' : ttsCue_(sectionStyle, text);
 
   var gc = {
     contents: [{ parts: [{ text: text }] }],
@@ -2716,6 +2752,14 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
   return clean || b64;
 }
 
+/** آیا این خطا دربارهٔ خودِ فیلدِ دستور است، یا چیزِ دیگری در همان بسته؟ */
+function ttsCueRejected_(msg) {
+  var m = String(msg || '');
+  return m.indexOf('systemInstruction') !== -1 ||
+         m.indexOf('system_instruction') !== -1 ||
+         m.indexOf('instructions') !== -1;
+}
+
 function ttsChunkTry_(text, sectionStyle, voice, withCue) {
   var model = ttsModel_();
   var modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
@@ -2749,7 +2793,31 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
           // اگر ایرادِ ساختاری از خودِ قالبِ دستور باشد، یک‌بار بی‌دستور
           // امتحان می‌کنیم. سقوط همیشه به سمتِ امن است: بی‌لحن، نه بی‌مرز.
           if (withCue !== false) {
-            logLine_('قالبِ دستورِ لحن پذیرفته نشد؛ همین تکه بی‌دستور ساخته می‌شود.');
+            /* ── یک بار یاد بگیر، نه سیزده بار (۵٫۸۴) ──
+               در قسمتِ ۱۸ این خط **هشت بار** نوشته شد: هر تکه‌ای که سرِ یک
+               بخش بود، یک فراخوانِ ردشده می‌داد و بعد بی‌دستور دوباره
+               ساخته می‌شد. یعنی هشت رفت‌وبرگشتِ دورانداختنی و یک سیاههٔ
+               پر از تکرار — و در میانِ آن تکرار، دیده نمی‌شد که قابلیتِ
+               «دستورِ لحن» عملاً مرده است.
+               حکمِ مدل برای همان مدل ذخیره می‌شود و تا وقتی مدل عوض نشود
+               دیگر امتحان نمی‌شود. سقوط همچنان به سمتِ امن است: بی‌لحن،
+               نه بی‌مرز. */
+            /* ولی فقط وقتی خطا **واقعاً** دربارهٔ همین قالب باشد.
+               هر ۴xx دلیلِ خاموش‌کردنِ دستور نیست: نامِ صدای نامعتبر هم ۴۰۰
+               می‌دهد، و اگر آن را «قالب را نپذیرفت» بخوانیم، یک اسمِ اشتباهِ
+               گذرا لحنِ همهٔ قسمت‌ها را برای همیشه خاموش می‌کند.
+               `run_voices_test.js` ۶ دقیقاً همین حالت را می‌سازد. */
+            if (ttsCueRejected_(m)) {
+              try {
+                if (props_().getProperty(PK.TTS_CUE_OFF) !== model) {
+                  props_().setProperty(PK.TTS_CUE_OFF, model);
+                  logLine_('قالبِ دستورِ لحن را مدل «' + model + '» نپذیرفت؛ ' +
+                           'از این پس تکه‌ها بی‌دستور ساخته می‌شوند.');
+                }
+              } catch (eP) {}
+            } else {
+              logLine_('قالبِ دستورِ لحن پذیرفته نشد؛ همین تکه بی‌دستور ساخته می‌شود.');
+            }
             return ttsChunkTry_(text, sectionStyle, voice, false);
           }
           break;   // خطای ساختاری: مود بعدی
@@ -3112,8 +3180,10 @@ function buildChunks_(ep, cat, epNum) {
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'قسمت ' + epNum, CFG.SHOW_NAME); } catch (eU) {}
-        try { musicRemember_(mw, 'قسمت ' + epNum); } catch (eR) {}
+        // یک بار در هر قسمت، نه یک بار در هر از سرگیری — وگرنه شمارندهٔ
+        // «بارِ استفاده» سه‌برابر می‌شود و حافظهٔ «قسمتِ قبل» انتخابِ
+        // همین قسمت را عوض می‌کند.
+        try { musicRecordOnce_(null, mw, 'variety#' + epNum, 'قسمت ' + epNum, CFG.SHOW_NAME); } catch (eU) {}
       }
       return mw.chunks;
     }
@@ -3263,21 +3333,76 @@ function rd16_(b, i) {
   return (v & 0x8000) ? v - 65536 : v;
 }
 
-/**
- * دو تکهٔ base64 را با هم‌پوشانیِ `secs` ثانیه در هم می‌بَرد.
- * برمی‌گرداند [تکهٔ اولِ تازه، تکهٔ دومِ تازه] یا null اگر جا نبود.
- */
-function pcmXfade_(prevB64, nextB64, secs) {
-  var sr = CFG.SAMPLE_RATE || 24000;
-  var n = Math.floor((Number(secs) || 0) * sr);
-  if (!(n > 0) || !prevB64 || !nextB64) return null;
+/* ═══════ شکلِ گذر — و چرا شکلش مهم‌تر از وجودش است (۵٫۸۴) ═══════
 
-  var bytes = Math.floor(n * 2 / 6) * 6;      // مرزِ امنِ نمونه × base64
-  if (bytes < 6) return null;
-  var chars = bytes / 3 * 4;
-  // هر دو طرف باید بیش از ناحیهٔ هم‌پوشانی صدا داشته باشند، وگرنه از
-  // خودشان چیزی نمی‌مانَد و «تلفیق» می‌شود «حذف».
-  if (prevB64.length < chars * 2 || nextB64.length < chars * 2) return null;
+   ۵٫۸۰ هم‌پوشانی را ساخت و همان‌جا ایستاد: هر دو طرف با شیبِ **خطی**.
+   برای دو صدای بی‌ربط (موسیقی و گفتار) این غلط است — توان با مجذورِ
+   دامنه می‌رود، پس وسطِ گذر که هر دو روی ۰٫۵ هستند، توانِ کل ۰٫۵ است نه
+   ۱: افتِ ۳ تا ۶ دسی‌بل، که گوش آن را «چاله» می‌شنود. شیبِ هم‌توان
+   (cos برای رونده، sin برای آینده) مجموعِ مجذورها را ثابت نگه می‌دارد.
+
+   ولی هم‌توانِ متقارن هم برای اینجا کافی نیست، چون دو طرفِ این اتصال
+   هم‌ارز نیستند: یکی حرف است و یکی موسیقی، و **حرف نباید محو شود.**
+   پس دو شکلِ متفاوت، بسته به اینکه کدام طرف موسیقی است:
+
+     موسیقی → گفتار   گوینده از کفِ MUSIC_DUCK_FLOOR وارد می‌شود (نه از
+                      صفر) و در MUSIC_DUCK_RISE از گذر به بلندیِ کامل
+                      می‌رسد؛ موسیقی با شیبِ هم‌توان می‌افتد و ضربدرِ
+                      MUSIC_DUCK_UNDER زیرِ صدا می‌رود. این همان چیزی است
+                      که در رادیو «duck» می‌گویند: موسیقی کنار می‌رود،
+                      نه اینکه بمیرد و بعد حرف شروع شود.
+
+     گفتار → موسیقی   واژه‌های پایانی تا MUSIC_XFADE_HOLD **دست نمی‌خورند**
+                      (اگر گوینده وسطِ جمله محو شود، فاجعه است)، و
+                      موسیقی زیرشان بالا می‌آید و بعد از رفتنِ صدا به
+                      بلندیِ کامل می‌رسد.
+
+   و جمع، نرم فشرده می‌شود نه بریده: دو صدای هم‌زمان می‌توانند از سقفِ
+   ۱۶بیتی رد شوند، و بریدنِ خشک صدای خش می‌دهد.
+*/
+
+/** شیبِ هم‌توان، بی نیاز به Math.cos برای هر نمونه (ارزان‌تر و دقیق). */
+function xfCos_(t) { return Math.cos(t * Math.PI / 2); }
+function xfSin_(t) { return Math.sin(t * Math.PI / 2); }
+
+/** فشردنِ نرمِ بالای زانو — به‌جای بریدنِ خشک در ±۳۲۷۶۷. */
+function pcmSoft_(v) {
+  var knee = Number(CFG.MUSIC_LIMIT_KNEE) || 28000;
+  var top = 32767;
+  var a = v < 0 ? -v : v;
+  if (a <= knee) return Math.round(v);
+  var over = a - knee, room = top - knee;
+  var out = knee + room * (over / (over + room));
+  return Math.round(v < 0 ? -out : out);
+}
+
+/**
+ * دو تکهٔ base64 را با هم‌پوشانی در هم می‌بَرد.
+ *
+ * @param {string} prevB64  تکهٔ پیشین (آخرش کوتاه می‌شود و بازنویسی)
+ * @param {string} nextB64  تکهٔ پسین (اولش برداشته می‌شود)
+ * @param {number} secs     طولِ خواسته‌شدهٔ هم‌پوشانی
+ * @param {boolean} prevIsMusic  کدام طرف موسیقی است — شکلِ گذر را همین
+ *                               تعیین می‌کند، نه فقط طولش
+ * @return {Array|null} [تکهٔ اولِ تازه، تکهٔ دومِ تازه]، یا null اگر حتی
+ *                      کوتاه‌ترین هم‌پوشانی هم جا نشد
+ */
+function pcmXfade_(prevB64, nextB64, secs, prevIsMusic) {
+  var sr = CFG.SAMPLE_RATE || 24000;
+  if (!prevB64 || !nextB64) return null;
+
+  /* ── طولِ سازگار، نه «یا همه یا هیچ» ──
+     تا ۵٫۸۳ اگر یکی از دو طرف کمتر از دو برابرِ هم‌پوشانی صدا داشت،
+     null برمی‌گشت و همان‌جا یک بُرشِ خشک می‌ماند — بی هیچ سیاهه‌ای. و
+     تکهٔ گفتارِ کوتاه (یک جملهٔ پایانِ بخش) دقیقاً همان‌جایی است که
+     موسیقیِ میانه می‌آید، پس این حالت نادر نبود؛ قاعده بود. */
+  var wantChars = Math.floor(Math.floor((Number(secs) || 0) * sr) * 2 / 6) * 6 / 3 * 4;
+  var room = Math.min(Math.floor(prevB64.length / 2), Math.floor(nextB64.length / 2));
+  var chars = Math.min(wantChars, room);
+  chars = Math.floor(chars / 8) * 8;          // مرزِ نمونه × مرزِ گروهِ base64
+  var minChars = Math.floor(
+    Math.floor((Number(CFG.MUSIC_XFADE_MIN_SEC) || 0.15) * sr) * 2 / 6) * 6 / 3 * 4;
+  if (chars < Math.max(8, minChars)) return null;
 
   var a, b;
   try {
@@ -3287,10 +3412,29 @@ function pcmXfade_(prevB64, nextB64, secs) {
 
   var cnt = Math.floor(Math.min(a.length, b.length) / 2);
   if (cnt < 3) return null;
+
+  var floorG = Number(CFG.MUSIC_DUCK_FLOOR); if (!(floorG >= 0)) floorG = 0.55;
+  var rise = Number(CFG.MUSIC_DUCK_RISE); if (!(rise > 0)) rise = 0.35;
+  var under = Number(CFG.MUSIC_DUCK_UNDER); if (!(under >= 0)) under = 0.5;
+  var hold = Number(CFG.MUSIC_XFADE_HOLD); if (!(hold >= 0 && hold < 1)) hold = 0.5;
+
   var out = [];
   for (var k = 0; k < cnt; k++) {
-    var i2 = k * 2, t = k / cnt;
-    var v = Math.round(rd16_(a, i2) * (1 - t) + rd16_(b, i2) * t);
+    var i2 = k * 2, t = k / cnt, ga, gb;
+    if (prevIsMusic === false) {
+      // گفتار → موسیقی: حرف تا `hold` دست‌نخورده، بعد می‌رود؛ موسیقی زیرش
+      // بالا می‌آید و پس از رفتنِ حرف به بلندیِ کامل می‌رسد.
+      var u = t <= hold ? 0 : (t - hold) / (1 - hold);
+      ga = t <= hold ? 1 : xfCos_(u);
+      gb = xfSin_(t) * (under + (1 - under) * u);
+    } else {
+      // موسیقی → گفتار: موسیقی هم‌توان می‌افتد و زیرِ صدا می‌رود؛ گوینده از
+      // کف وارد می‌شود، نه از صفر.
+      var r = rise > 0 ? Math.min(1, t / rise) : 1;
+      ga = xfCos_(t) * (1 - (1 - under) * r);
+      gb = floorG + (1 - floorG) * r;
+    }
+    var v = pcmSoft_(rd16_(a, i2) * ga + rd16_(b, i2) * gb);
     if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
     if (v < 0) v += 65536;
     var lo = v & 255, hi = (v >>> 8) & 255;
@@ -3392,6 +3536,10 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نوعِ آخرین تکه‌ای که واقعاً در بافر نشست — نه chunks[i-1]، چون تکه‌ای
   // که b64 خالی داد اصلاً اضافه نشده و مرزِ واقعی جای دیگری است.
   var prevMusic = null;
+  // …و طولِ تلفیقی که آن تکه اعلام کرده بود. `chunks[i-1]` جوابِ درستی
+  // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
+  // این اتصال نیست.
+  var prevXf = 0;
   for (; i < chunks.length; i++) {
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
@@ -3418,11 +3566,12 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     var curMusic = !!(chunks[i] && chunks[i].pcm);
     if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
         prevMusic !== curMusic) {
-      var mus = curMusic ? chunks[i] : chunks[i - 1];
-      var xs = Number(mus && mus.xfade);
+      var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : prevXf;
       if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
       try {
-        var mix = pcmXfade_(buf[buf.length - 1], b64, xs);
+        // شکلِ گذر به این بستگی دارد که کدام طرف موسیقی است — گفتار
+        // هرگز مثل موسیقی محو نمی‌شود.
+        var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic);
         if (mix) {
           bufChars += mix[0].length - buf[buf.length - 1].length;
           buf[buf.length - 1] = mix[0];
@@ -3431,6 +3580,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       } catch (eX) { logLine_('تلفیقِ لبه انجام نشد: ' + eX.message); }
     }
     prevMusic = curMusic;
+    prevXf = Number(chunks[i] && chunks[i].xfade) || 0;
 
     if (bufChars + b64.length > maxB64 && buf.length) {
       var f = writeWavPart_(buf, baseName, partNo, folder);
@@ -5387,13 +5537,19 @@ function renderAudioStep_() {
     if (st.phase === 'speak' && !st.sfxDone) {
       st.sfxDone = 1;
       props_().setProperty(PK.PENDING, JSON.stringify(st));
+      /* سیاهه **همیشه** نوشته می‌شود، حتی وقتی جواب «هیچ» است.
+         تا ۵٫۸۳ شرطش `pf.asked || pf.got` بود، پس وقتی مدل می‌گفت این
+         قسمت صدایی نمی‌خواهد — که جوابِ درستی است و اغلبِ قسمت‌ها همین‌اند
+         — هیچ خطی نوشته نمی‌شد. نتیجه‌اش این بود که صاحبِ برنامه بعد از
+         چند روز می‌پرسید «تا الان که افکتی نشنیدم» و هیچ‌جا نمی‌شد فهمید
+         کدام است: مدل گفته لازم نیست، یا زنجیره اصلاً اجرا نشده. آن دو تا
+         زمین تا آسمان فرق دارند و از بیرون یک‌شکل بودند. */
       try {
         var pf = sfxPrefetch_(ep, 'variety', epNum);
-        if (pf && (pf.asked || pf.got)) {
-          logLine_('افکتِ پیش از صدا: ' + pf.asked + ' خواسته، ' + pf.need +
-                   ' نبود، ' + pf.got + ' آورده شد.' +
-                   (pf.notes.length ? ' — ' + pf.notes.join(' · ') : ''));
-        }
+        logLine_('افکتِ پیش از صدا: ' + ((pf && pf.asked) || 0) + ' خواسته، ' +
+                 ((pf && pf.need) || 0) + ' نبود، ' + ((pf && pf.got) || 0) +
+                 ' آورده شد.' +
+                 (pf && pf.notes && pf.notes.length ? ' — ' + pf.notes.join(' · ') : ''));
       } catch (ePf) { logLine_('پیش‌آوردنِ افکت انجام نشد: ' + ePf.message); }
       scheduleContinue_(5 * 1000);
       return { ok: true, episode: epNum, pending: true, sfxPrefetch: true };
@@ -6807,11 +6963,27 @@ function tgApi_(method, payload) {
     opt.payload = JSON.stringify(payload);
   }
 
+  /* ── چرا حلقه دورِ fetch یک try لازم دارد (۵٫۸۴) ──
+     `UrlFetchApp.fetch` وقتی خودِ اتصال برقرار نشود (DNS، شبکه) **پرتاب**
+     می‌کند، نه اینکه کدِ خطا برگرداند. تا ۵٫۸۳ این پرتاب از همان تلاشِ اول
+     بیرونِ حلقه می‌پرید — یعنی حلقهٔ سه‌تلاشی برای این حالت اصلاً وجود
+     نداشت. در تولیدِ دستیِ ۲۴ اوت همین شد: «تلگرام: ۴ ارسال، ۲ ناموفق —
+     متن: Address unavailable». یک لحظه شبکه، و متنِ کاملِ قسمت برای همیشه
+     نرفت؛ صاحبِ برنامه گفت «متنِ پادکست توی تلگرام نیومده».
+     یک قطعیِ گذرا باید تکرار شود، نه اینکه پیام را ببلعد. */
   var last = '';
-  for (var attempt = 0; attempt < 3; attempt++) {
-    var res = UrlFetchApp.fetch(url, opt);
-    var code = res.getResponseCode();
-    var txt = res.getContentText();
+  var attempts = Math.max(1, Number(CFG.TG_ATTEMPTS) || 4);
+  for (var attempt = 0; attempt < attempts; attempt++) {
+    var res, code, txt;
+    try {
+      res = UrlFetchApp.fetch(url, opt);
+      code = res.getResponseCode();
+      txt = res.getContentText();
+    } catch (eNet) {
+      last = 'شبکه: ' + String((eNet && eNet.message) || eNet).slice(0, 200);
+      if (attempt < attempts - 1) { Utilities.sleep(2000 * (attempt + 1)); continue; }
+      break;
+    }
     if (code === 200) {
       // تلگرام خطاهای منطقی را هم با کد ۲۰۰ و ok:false برمی‌گرداند (مثلاً
       // چت پیدا نشد، ربات بلاک شده). بی این وارسی، فرستنده «ارسال شد» ثبت
@@ -13318,8 +13490,8 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
-        try { musicMarkUsed_(null, mw.picks, 'درس‌نامه ' + epNum, CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
-        try { musicRemember_(mw, 'درس‌نامه ' + epNum); } catch (eR) {}
+        try { musicRecordOnce_(null, mw, 'special#' + epNum, 'درس‌نامه ' + epNum,
+                               CFG.SPECIAL_SHOW_NAME); } catch (eU) {}
       }
       return mw.chunks;
     }
@@ -21601,7 +21773,8 @@ function sfxPrefetch_(ep, showKind, epNum) {
   var max = Math.max(1, Number(CFG.MUSIC_SFX_PREFETCH_MAX) || 2);
 
   var wants = [];
-  try { wants = sfxWantModel_(ep); } catch (e) { return out; }
+  try { wants = sfxWantModel_(ep); }
+  catch (e) { out.notes.push('پرسش از مدل نشد: ' + e.message); return out; }
   out.asked = wants.length;
   if (!wants.length) { out.notes.push('این قسمت صدایی نمی‌خواهد.'); return out; }
 
@@ -21881,6 +22054,62 @@ function musicMarkUsed_(hub, picks, epLabel, showName) {
   return n;
 }
 
+/* ═══════ ثبت، یک بار در هر قسمت — نه یک بار در هر از سرگیری (۵٫۸۴) ═══════
+
+   ══ آنچه در قسمتِ ۱۸ واقعاً افتاد ══
+   صداگذاری به‌خاطرِ مهلتِ شش‌دقیقه‌ای سه بار از سر گرفته شد، و
+   `buildChunks_` هر بار `musicWrap_` را از نو صدا زد و بلافاصله بعدش
+   `musicMarkUsed_` و `musicRemember_` را. یعنی برای یک قسمت:
+
+     • تبِ «کاربردِ موسیقی» ۱۲ ردیف گرفت به‌جای ۴ (و قسمتِ ۱۷: ۲۰ به‌جای ۵)
+     • «بارِ استفاده»ی هر قطعه سه برابر بالا رفت — همان عددی که نوبت‌دهی
+       رویش می‌چرخد، پس چرخش هم خراب شد
+     • و بدتر از هر دو: `musicRemember_` نامِ قطعه‌های **همین قسمت** را در
+       PK.MUSIC_LAST نوشت، و `musicPick_` در اجرای بعدی همان‌ها را با
+       امتیازِ منفی کنار زد. پس هر از سرگیری قطعه‌های *دیگری* انتخاب کرد:
+
+         ۱۳:۰۴  Somewhere · Kalimba · Underwater · Somewhere
+         ۱۳:۰۹  Somewhere · Menu Loop · Kalimba · Somewhere
+         ۱۳:۱۴  Somewhere · Underwater · Kalimba · Somewhere
+
+   ۵٫۶۸ نقشهٔ *مدل* را کَش کرد و فکر کردیم مسئله بسته شد. نبود: نقشه ثابت
+   ماند ولی **انتخابِ قطعه** ثابت نماند، چون انتخاب به شمارنده‌ای نگاه
+   می‌کند که خودِ همین اجرا داشت جلو می‌بردش. سیاههٔ قسمت هم دروغ می‌گفت:
+   آخرین خط چیزی را اعلام می‌کرد که نیمی‌اش قبلاً با قطعهٔ دیگری ساخته
+   شده بود. و اگر تعدادِ میانه‌ها بینِ دو اجرا فرق می‌کرد، شماره‌ها
+   می‌لغزیدند و تکه‌ای جا می‌افتاد یا دوباره گفته می‌شد.
+
+   دو قفل، چون یکی کافی نیست:
+     ۱) ثبت فقط یک بار — با کلیدِ (برنامه، قسمت).
+     ۲) شناسه‌های واقعاً انتخاب‌شده در همان کَشِ نقشه نوشته می‌شوند، پس
+        اجرای بعدی همان‌ها را می‌گیرد حتی اگر شمارنده‌ها عوض شده باشند.
+*/
+
+/** یک نسخهٔ سبک از ردیفِ بانک، با جایگاهِ همین بار. */
+function pickOf_(track, slot) {
+  return { id: track.id, row: track.row, name: track.name, kind: track.kind,
+           mood: track.mood, gain: track.gain, sec: track.sec,
+           used: track.used, slot: slot };
+}
+
+/**
+ * ثبتِ استفاده و حافظهٔ «قسمتِ قبل» — دقیقاً یک بار برای هر قسمت.
+ * @return {boolean} آیا این فراخوان واقعاً ثبت کرد
+ */
+function musicRecordOnce_(hub, mw, key, epLabel, showName) {
+  if (!mw || !mw.picks || !mw.picks.length) return false;
+  var k = String(key || '');
+  if (k) {
+    var seen = '';
+    try { seen = String(props_().getProperty(PK.MUSIC_LOGGED) || ''); } catch (e0) {}
+    if (seen === k) return false;
+  }
+  try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {}
+  try { musicRemember_(mw, epLabel); } catch (eR) {}
+  if (k) { try { props_().setProperty(PK.MUSIC_LOGGED, k); } catch (e1) {} }
+  return true;
+}
+
 /* ──────────────────── چسباندنِ موسیقی به تکه‌های قسمت ──────────────────── */
 
 /**
@@ -21923,6 +22152,18 @@ function musicPlanCachePut_(key, plan) {
     m[key] = plan;
     props_().setProperty(PK.MUSIC_PLAN, JSON.stringify(m));
   } catch (e) {}
+}
+
+/* طولِ هم‌پوشانی، جایگاه‌به‌جایگاه. یک عددِ ثابت برای هر سه غلط است:
+   ۲٫۴ ثانیه سرِ یک قطعهٔ میانهٔ هفت‌ثانیه‌ای، دو سرش را می‌خورد و از خودِ
+   موسیقی چیزی نمی‌مانَد. */
+function xfEdgeSec_() {
+  var v = Number(CFG.MUSIC_XFADE_EDGE_SEC);
+  return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
+}
+function xfBridgeSec_() {
+  var v = Number(CFG.MUSIC_XFADE_BRIDGE_SEC);
+  return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
 }
 
 function musicWrap_(chunks, hub, opt) {
@@ -21985,27 +22226,47 @@ function musicWrap_(chunks, hub, opt) {
 
   var picks = [], out = [];
 
-  var clipOf = function (b, slot, secs) {
+  /* ── محو، لبه‌به‌لبه — نه یک عدد برای هر دو سر (۵٫۸۴) ──
+   *
+   * تا ۵٫۸۳ هر قطعه دو سرش یک محوِ دوثانیه‌ای می‌گرفت، و بعد تلفیقِ لبه
+   * **همان ناحیه** را دوباره پایین می‌کشید. حاصل ضربِ دو شیب بود: موسیقی
+   * در نیمهٔ اولِ هم‌پوشانی عملاً تمام می‌شد و بقیه‌اش سکوت بود روی صدای
+   * گوینده. یعنی هرچه هم‌پوشانی را بلندتر می‌کردی، «قطع و شروع» بدتر
+   * می‌شد — درست برعکسِ چیزی که ساخته شده بود.
+   *
+   * حالا هر لبه جداگانه تصمیم می‌شود: لبه‌ای که تلفیق رویش می‌افتد فقط یک
+   * محوِ کوتاهِ ضدِ تلنگر می‌گیرد (تلفیق خودش شکلِ موسیقایی را می‌سازد)، و
+   * لبه‌ای که همسایه ندارد — آغازِ موسیقیِ اول و پایانِ موسیقیِ آخر، یعنی
+   * نخستین و آخرین صدای قسمت — محوِ کاملِ خودش را نگه می‌دارد. */
+  var xfOn = CFG.MUSIC_XFADE !== false;
+  var softFade = function (len) { return Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4); };
+  var edgeFade = function (len) { return Math.min(0.25, len / 8); };
+
+  var clipOf = function (b, slot, secs, opts) {
     if (!b) return '';
+    opts = opts || {};
     var len = Math.min(secs, b.sec || secs);
-    /* محو نباید کلِ قطعه را بخورد. با `len/2` یک قطعهٔ چهارثانیه‌ای دو ثانیه
-       بالا می‌آمد و دو ثانیه پایین می‌رفت — یعنی هیچ لحظه‌ای در بلندیِ کامل
-       نبود و مثل یک تلنگرِ یک‌ثانیه‌ای شنیده می‌شد. حالا دستِ‌کم نیمی از
-       قطعه در بلندیِ کامل می‌مانَد. */
-    var fade = Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4);
+    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود.
+    var fi = (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
+    var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : softFade(len);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
-      fadeIn: fade, fadeOut: fade
+      fadeIn: fi, fadeOut: fo
     });
   };
 
   var intro = musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro) {
-    var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8);
+    // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
+    var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
+                    { inEdge: 'soft', outEdge: 'xf' });
     if (ib) { out.push({ pcm: ib, label: 'موسیقیِ آغاز — ' + intro.name,
-                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-              intro.slot = 'شروع'; picks.push(intro); }
+                         xfade: xfEdgeSec_() });
+              // نسخه، نه خودِ ردیف: وقتی یک قطعه هم آغاز است هم پایان،
+              // `track.slot = ...` دومی اولی را بازنویسی می‌کرد و ردیفِ
+              // «شروع» در تاریخچه «پایان» ثبت می‌شد. در قسمتِ ۱۸ همین شد.
+              picks.push(pickOf_(intro, 'شروع')); }
   }
 
   /* ── موسیقیِ میانه: سرِ مرزِ بخش‌ها، نه هر چند تکه ──
@@ -22062,13 +22323,14 @@ function musicWrap_(chunks, hub, opt) {
   for (var i = 0; i < chunks.length; i++) {
     var w = atMap[i];
     if (w) {
-      var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4);
+      // میانه هر دو سرش گفتار است → هر دو لبه تلفیق می‌شوند.
+      var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
+                      { inEdge: 'xf', outEdge: 'xf' });
       if (bb) {
         out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
-                   xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-        w.track.slot = 'میانه';
-        if (picks.indexOf(w.track) === -1) picks.push(w.track);
+                   xfade: xfBridgeSec_() });
+        picks.push(pickOf_(w.track, 'میانه'));
       }
     }
     posOf[i] = out.length;
@@ -22078,10 +22340,12 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
-    var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10);
+    // آغازش از گفتار می‌آید → تلفیق؛ پایانش آخرین صدای قسمت است → محوِ کامل.
+    var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10,
+                    { inEdge: 'xf', outEdge: 'soft' });
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
-                         xfade: Number(CFG.MUSIC_XFADE_SEC) || 1.8 });
-              outro.slot = 'پایان'; picks.push(outro); }
+                         xfade: xfEdgeSec_() });
+              picks.push(pickOf_(outro, 'پایان')); }
   }
 
   // ── افکت‌ها ──
@@ -22122,7 +22386,7 @@ function musicWrap_(chunks, hub, opt) {
       } else {
         out.splice(pl.at + 1, 0, piece);
       }
-      eb.slot = 'افکت'; picks.push(eb);
+      picks.push(pickOf_(eb, 'افکت'));
       logLine_('افکتِ قسمت: ' + eb.name + ' — ' + pl.how +
                (okSfx[sx].fit ? ' | ' + okSfx[sx].fit : ''));
     }
@@ -22154,6 +22418,31 @@ function musicWrap_(chunks, hub, opt) {
   // اگر خودِ برنامه مرزی نداشت، نبودِ موسیقیِ میانه کمبود نیست.
   if (maxBr && bounds.length && !bridge) missing.push('میانه');
   if (missing.length) { try { musicWish_(mood, missing, opt); } catch (eW) {} }
+
+  /* ── قفلِ دوم: شناسه‌های واقعاً انتخاب‌شده در کَش نوشته می‌شوند ──
+     نقشهٔ مدل از ۵٫۶۸ کَش می‌شد، ولی مدل همیشه شناسه نمی‌دهد؛ آنجا که
+     نمی‌دهد `musicPick_` تصمیم می‌گیرد و تصمیمش به شمارنده‌ای نگاه می‌کند
+     که همین اجرا داشت جلو می‌بردش. پس انتخابِ نهایی هم باید بماند، نه فقط
+     پیشنهادِ مدل. با این، از سرگیری همان قطعه‌ها را می‌گیرد. */
+  var ck2 = musicPlanKey_(opt);
+  if (ck2 && picks.length) {
+    var lock = { introId: '', outroId: '', bridges: [],
+                 introStart: plan.introStart || '', outroStart: plan.outroStart || '',
+                 bridgeStart: plan.bridgeStart || '',
+                 sfx: plan.sfx || [], sfxWant: plan.sfxWant || [],
+                 mood: mood, gain: plan.gain || '', why: plan.why || '' };
+    for (var pk = 0; pk < picks.length; pk++) {
+      if (picks[pk].slot === 'شروع') lock.introId = picks[pk].id;
+      if (picks[pk].slot === 'پایان') lock.outroId = picks[pk].id;
+    }
+    for (var wq = 0; wq < want.length; wq++) {
+      var atIdx = -1;
+      for (var bq = 0; bq < bounds.length; bq++) if (bounds[bq].at === want[wq].at) atIdx = bq;
+      if (atIdx >= 0) lock.bridges.push({ after: String(atIdx), id: want[wq].track.id,
+                                          why: want[wq].why || '' });
+    }
+    musicPlanCachePut_(ck2, lock);
+  }
 
   if (picks.length) {
     logLine_('موسیقیِ قسمت: ' + picks.map(function (p) { return p.name; }).join(' · '));

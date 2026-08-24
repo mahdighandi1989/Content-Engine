@@ -274,7 +274,15 @@ console.log('\n=== ۸. بودجهٔ زمان و دیده‌شدن ===');
   ok('۸.۶ «از همه جا از همه رنگ» موسیقی می‌گیرد', prod.indexOf('musicWrap_(') !== -1);
   ok('۸.۷ «درس‌نامه» هم موسیقی می‌گیرد', spec.indexOf('musicWrap_(') !== -1);
   ok('۸.۸ و هر دو استفاده را ثبت می‌کنند',
-     prod.indexOf('musicRemember_') !== -1 && spec.indexOf('musicRemember_') !== -1);
+     prod.indexOf('musicRecordOnce_') !== -1 && spec.indexOf('musicRecordOnce_') !== -1);
+  /* و از راهِ یک‌بارِه، نه مستقیم. صداگذاری برای مهلتِ شش‌دقیقه‌ای چند بار
+     از سر گرفته می‌شود و buildChunks_ هر بار از نو اجرا می‌شود؛ فراخوانِ
+     مستقیمِ musicMarkUsed_/musicRemember_ یعنی شمارندهٔ «بارِ استفاده» سه
+     برابر و — بدتر — حافظهٔ «قسمتِ قبل» که انتخابِ همین قسمت را عوض می‌کند.
+     در قسمتِ ۱۸ همین شد. */
+  ok('۸.۸-ب و هیچ‌کدام مستقیم ثبت نمی‌کنند',
+     prod.indexOf('musicMarkUsed_(') === -1 && spec.indexOf('musicMarkUsed_(') === -1 &&
+     prod.indexOf('musicRemember_(') === -1 && spec.indexOf('musicRemember_(') === -1);
 
   const health = fs2.readFileSync('src/08_Health.gs', 'utf8');
   ok('۸.۹ موسیقی در فایلِ وضعیت می‌آید', health.indexOf('musicStatus_()') !== -1);
