@@ -56,6 +56,11 @@ function wavInfo_(b) {
     if (id === 'fmt ') {
       fmt = { format: u16(pos + 8), channels: u16(pos + 10), rate: u32(pos + 12),
               bits: u16(pos + 22) };
+      /* WAVE_FORMAT_EXTENSIBLE (0xFFFE = 65534) هم PCM است — قالبِ واقعی
+         در GUIDِ زیرقالب می‌آید که دو بایتِ اولش همان کدِ قالب است. هر
+         فایلِ ۲۴بیتی یا چندکاناله‌ای که از یک DAW بیرون بیاید معمولاً
+         همین است. */
+      if (fmt.format === 65534 && sz >= 40) fmt.sub = u16(pos + 8 + 24);
     } else if (id === 'data') {
       data = { at: pos + 8, len: Math.min(sz, b.length - pos - 8) };
       break;
@@ -68,9 +73,30 @@ function wavInfo_(b) {
   return fmt;
 }
 
+/**
+ * آیا این PCMِ صحیحِ علامت‌دار است؟ (همان چیزی که musicSamples_ می‌خواند)
+ *
+ * ══ باگی که پنج فایلِ سالم را رد کرد ══
+ * ۲۴ اوت، در `_MUSIC-FEED.json`: پنج نامزد با «خوانده نشد یا PCM نیست» رد
+ * شده بودند — از جمله سه فایلِ CC0 از OpenGameArt که تسک خودش وارسی کرده
+ * بود. علتش این بود که سه جای کد `info.format !== 1` می‌گفتند، و
+ * WAVE_FORMAT_EXTENSIBLE (۶۵۵۳۴) هم PCM است ولی عددش ۱ نیست. هر فایلِ
+ * ۲۴بیتی یا چندکاناله‌ای که از یک DAW بیرون بیاید معمولاً همین است.
+ *
+ * و قالبِ ۳ (اعشاریِ IEEE) عمداً رد می‌شود: نمونه‌هایش عدد صحیح نیستند و
+ * musicSamples_ آن‌ها را نویز می‌خوانَد — یعنی رد کردنش درست است، ولی
+ * پیامش باید راست باشد نه «PCM نیست».
+ */
+function wavIsPcm_(info) {
+  if (!info) return false;
+  if (info.format === 1) return true;
+  if (info.format === 65534) return !info.sub || info.sub === 1;
+  return false;
+}
+
 /** آیا این فایل همان قالبی است که موتور با آن کار می‌کند؟ */
 function musicNative_(info) {
-  return !!info && info.format === 1 && info.channels === 1 &&
+  return wavIsPcm_(info) && info.channels === 1 &&
          info.bits === 16 && info.rate === (CFG.SAMPLE_RATE || 24000);
 }
 
@@ -170,7 +196,7 @@ function musicClip_(fileId, opt) {
   try {
     var b = DriveApp.getFileById(fileId).getBlob().getBytes();
     var info = wavInfo_(b);
-    if (!info || info.format !== 1) return '';
+    if (!wavIsPcm_(info)) return '';
     var cap = Number(CFG.MUSIC_MAX_CLIP_SEC) || 45;
     var len = Math.min(Number(opt.lenSec) || cap, cap);
     var s = musicSamples_(b, info, opt.startSec || 0, len);
@@ -285,7 +311,7 @@ function musicScan_(hub) {
     // خودِ موج اندازه گرفته می‌شود، نه نامِ فایل. دانلودِ ناقص، سکوت و فایلِ
     // خراب همین‌جا گیر می‌افتند — نه بعداً وسطِ قسمت.
     try { probe = info ? musicProbe_(bytes, info) : null; } catch (eP) { probe = null; }
-    var vd = musicVerdict_(probe);
+    var vd = musicVerdict_(probe, info);
     var fmt = !info ? 'قالب ناسازگار (فقط WAV)'
                     : (!vd.ok ? 'ردشد: ' + vd.why
                        : (musicNative_(info) ? 'آماده'
@@ -1685,6 +1711,76 @@ function musicFetchedAdd_(url) {
   } catch (e) {}
 }
 
+function musicFetchedDrop_(urls) {
+  try {
+    var L = musicFetchedUrls_();
+    var out = L.filter(function (u) { return urls.indexOf(u) === -1; });
+    props_().setProperty(PK.MUSIC_FETCHED, JSON.stringify(out));
+    return L.length - out.length;
+  } catch (e) { return 0; }
+}
+
+/* ردهایی که علتشان اصلاح شده و باید یک بار دوباره امتحان شوند.
+   هر ردیف: [بخشی از متنِ خطا، نوعِ محدودکننده یا خالی]. */
+var MUSIC_RETRY_WHY = [
+  ['خوانده نشد یا PCM نیست', ''],      // ۵٫۷۸: EXTENSIBLE هم PCM است
+  ['نرخِ ضبطِ گفتار', 'افکت']           // ۵٫۷۸: نرخِ پایین برای افکت عادی است
+];
+
+/**
+ * ردهای ناحقِ گذشته را یک بار باز می‌کند.
+ *
+ * ══ چرا اصلاحِ کد به‌تنهایی کافی نیست ══
+ * وقتی نامزدی رد می‌شود دو چیز ثبت می‌شود: `status:'رد'` در فهرست، و
+ * نشانی‌اش در سیاههٔ «دیگر امتحان نکن». هر دو عمدی‌اند و درست: بی آن‌ها
+ * موتور هر شب همان MP3 را دانلود می‌کرد و فایلی که کاربر پاک کرده
+ * برمی‌گشت.
+ * ولی وقتی معلوم شود ردّ *ناحق* بوده، همان دو ثبت آن را برای همیشه دفن
+ * می‌کنند. ۲۴ اوت پنج فایلِ سالم — سه‌تا CC0 از OpenGameArt — با
+ * «PCM نیست» رد شده بودند چون قالبشان EXTENSIBLE بود. اصلاحِ خواننده
+ * بی این تابع، فقط برای فایل‌های *آینده* کار می‌کرد.
+ * یک بار برای هر نسخه اجرا می‌شود، و فقط علت‌هایی را باز می‌کند که در
+ * MUSIC_RETRY_WHY نام برده شده‌اند — نه هر ردّی را.
+ */
+function musicUnblock_() {
+  var out = { freed: 0, notes: [] };
+  var tag = 'v' + String(CFG.CODE_VERSION);
+  try {
+    if (String(props_().getProperty(PK.MUSIC_UNBLOCK) || '') === tag) return out;
+  } catch (e0) {}
+
+  var feed = null;
+  try { feed = musicFeedRead_(); } catch (e) { return out; }
+  if (!feed || !feed.items) return out;
+
+  var freed = [];
+  for (var i = 0; i < feed.items.length; i++) {
+    var it = feed.items[i] || {};
+    if (String(it.status || '') !== 'رد') continue;
+    var why = String(it.error || '');
+    var kind = String(it.kind || '');
+    for (var r = 0; r < MUSIC_RETRY_WHY.length; r++) {
+      var pat = MUSIC_RETRY_WHY[r][0], onlyKind = MUSIC_RETRY_WHY[r][1];
+      if (why.indexOf(pat) === -1) continue;
+      if (onlyKind && kind !== onlyKind) continue;
+      it.status = ''; it.error = '';
+      it.note = 'ردِ پیشین ناحق بود (' + pat + ') — در ' + tag + ' دوباره امتحان می‌شود.';
+      freed.push(String(it.url || ''));
+      break;
+    }
+  }
+
+  try { props_().setProperty(PK.MUSIC_UNBLOCK, tag); } catch (e1) {}
+  if (!freed.length) return out;
+
+  musicFetchedDrop_(freed);
+  try { putOutJson_(MUSIC_FEED_(), { updatedAt: nowStr_(), items: feed.items }); }
+  catch (e2) { return out; }
+  out.freed = freed.length;
+  logLine_('ردِ ناحقِ پیشین باز شد: ' + freed.length + ' نشانی دوباره امتحان می‌شود.');
+  return out;
+}
+
 /** نامِ فایلِ امن از روی عنوان یا نشانی. */
 function musicFileName_(item) {
   var base = String((item && item.title) || '').trim();
@@ -2961,7 +3057,7 @@ function sfxSecRange_(bounds, posOf, total, secIdx) {
  * قطعه. برای قضاوتِ سلامت کافی است و از مهلتِ اجرا هم نمی‌گذرد.
  */
 function musicProbe_(b, info) {
-  if (!info || info.format !== 1) return null;
+  if (!wavIsPcm_(info)) return null;
   var bps = info.bits / 8, ch = info.channels, frameB = bps * ch;
   var total = Math.floor(info.dataLen / frameB);
   if (total < 100) return null;
@@ -3017,8 +3113,16 @@ function musicProbe_(b, info) {
  * آیا این فایل به‌دردِ بانک می‌خورد؟
  * فقط سلامت را می‌گوید، نه تناسبِ حال‌وهوا.
  */
-function musicVerdict_(pr) {
-  if (!pr) return { ok: false, why: 'خوانده نشد یا PCM نیست' };
+function musicVerdict_(pr, info) {
+  if (!pr) {
+    if (info && Number(info.format) === 3) {
+      return { ok: false, why: 'WAVِ اعشاری (IEEE float) است؛ موتور PCMِ صحیح می‌خواند' };
+    }
+    if (info && !wavIsPcm_(info)) {
+      return { ok: false, why: 'قالبِ ' + info.format + ' — PCM نیست' };
+    }
+    return { ok: false, why: 'خوانده نشد یا خیلی کوتاه است' };
+  }
   if (pr.seconds < 2) return { ok: false, why: 'کوتاه‌تر از دو ثانیه' };
   if (pr.silentPct >= 80) return { ok: false, why: pr.silentPct + '٪ سکوت — احتمالاً دانلودِ ناقص' };
   if (pr.rms < 150) return { ok: false, why: 'تقریباً بی‌صدا (بلندیِ میانگین ' + pr.rms + ')' };
@@ -3063,7 +3167,7 @@ var SPEECH_WORDS = ['remarks', 'speech', 'lecture', 'debate', 'interview', 'talk
  * حکمِ قطعی‌نشدنی از روی اندازه‌ها و نام.
  * برمی‌گرداند {speech:true|false, why:'…', sure:true|false}
  */
-function musicIsSpeech_(pr, info, name) {
+function musicIsSpeech_(pr, info, name, wantSfx) {
   var nm = String(name || '').toLowerCase();
   for (var i = 0; i < SPEECH_WORDS.length; i++) {
     if (nm.indexOf(SPEECH_WORDS[i]) !== -1) {
@@ -3071,7 +3175,14 @@ function musicIsSpeech_(pr, info, name) {
     }
   }
   var rate = Number((info && info.rate) || 0);
-  if (rate && rate < 22050) {
+  /* ── نرخِ پایین برای موسیقی نشانه است، برای جلوهٔ صوتی نه ──
+   * ۲۴ اوت: «Video Game Sound Ideas, Magical Energy» با پیامِ
+   * «۱۱۰۲۵ هرتز — نرخِ ضبطِ گفتار» رد شد. ولی ۱۱۰۲۵ برای یک افکتِ بازی
+   * کاملاً عادی است؛ نرخِ پایین آنجا انتخابِ سازنده است، نه نشانهٔ ضبطِ
+   * صدای آدم. در ۵٫۶۴ سنجهٔ «پرنوسان یعنی گفتار» را برای افکت کنار
+   * گذاشتم و همین سنجه را ندیدم — و چون sure:true می‌داد، آن کنارگذاشتن
+   * هم نجاتش نمی‌داد. یعنی تنها افکتی که موتور خودش پیدا کرد، رد شد. */
+  if (rate && rate < 22050 && !wantSfx) {
     return { speech: true, sure: true,
              why: rate + ' هرتز — نرخِ ضبطِ گفتار، نه انتشارِ موسیقی' };
   }
@@ -3167,10 +3278,10 @@ function musicAccept_(b, info, name, kind) {
   var wantSfx = String(kind || '') === 'افکت';
   var pr = null;
   try { pr = musicProbe_(b, info); } catch (e) {}
-  var vd = musicVerdict_(pr);
+  var vd = musicVerdict_(pr, info);
   if (!vd.ok) return { ok: false, why: vd.why };
 
-  var g = musicIsSpeech_(pr, info, name);
+  var g = musicIsSpeech_(pr, info, name, wantSfx);
   // ══ تلهٔ افکت ══
   // سنجهٔ «پرنوسان یعنی گفتار» برای موسیقی درست است و برای جلوهٔ صوتی غلط:
   // صدای در، قدم و باران ذاتاً پرنوسان و پرمکث‌اند. اگر همان قاعده را روی

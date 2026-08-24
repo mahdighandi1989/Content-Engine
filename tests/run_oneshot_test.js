@@ -1793,4 +1793,114 @@ console.log('=== ۲۸) بازبینیِ شنیداری خودکار شد ===');
      heardSays_('جلوه', 'جلوه') === true);
 }
 
+console.log('=== ۲۹) دو ردِّ ناحقِ دیشب، از دادهٔ واقعی ===');
+{
+  /* بازبینیِ `_MUSIC-FEED.json` صبحِ ۲۴ اوت: هیچ فایلی دیشب به بانک اضافه
+   * نشده بود، با اینکه فهرست رشد کرده بود. علتش دو ردِّ ناحق بود. */
+
+  // ── الف) WAVE_FORMAT_EXTENSIBLE هم PCM است ──
+  // پنج نامزد با «خوانده نشد یا PCM نیست» رد شدند، از جمله سه CC0 از
+  // OpenGameArt که تسک خودش وارسی کرده بود. سه جای کد info.format !== 1
+  // می‌گفتند و ۶۵۵۳۴ را PCM حساب نمی‌کردند.
+  ok('۲۹.۱ قالبِ ۱ همان PCمِ همیشگی است', wavIsPcm_({ format: 1 }) === true);
+  ok('۲۹.۲ و EXTENSIBLE هم PCM است',
+     wavIsPcm_({ format: 65534 }) === true &&
+     wavIsPcm_({ format: 65534, sub: 1 }) === true);
+  ok('۲۹.۳ ولی EXTENSIBLEِ اعشاری نه',
+     wavIsPcm_({ format: 65534, sub: 3 }) === false);
+  ok('۲۹.۴ و اعشاریِ IEEE رد می‌شود — نمونه‌هایش صحیح نیستند',
+     wavIsPcm_({ format: 3 }) === false);
+  ok('۲۹.۵ و دلیلِ ردش راست نوشته می‌شود، نه «PCM نیست»',
+     /اعشاری \(IEEE float\)/.test(musicVerdict_(null, { format: 3 }).why),
+     musicVerdict_(null, { format: 3 }).why);
+  // کامنت نباید شمرده شود — نخستین نگارشِ این سنجه، توضیحِ خودِ همین
+  // اصلاح را «کدِ باقی‌مانده» دید.
+  ok('۲۹.۶ هر سه جای کد از همین یک سنجه می‌پرسند',
+     fs.readFileSync('src/23_Music.gs', 'utf8').split('\n')
+       .filter(l => !/^\s*(\*|\/\/|\/\*)/.test(l))
+       .filter(l => /info\.format !== 1/.test(l)).length === 0);
+
+  // و خودِ هدرخوان باید زیرقالب را بردارد
+  const p23k = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۲۹.۷ هدرخوان زیرقالبِ EXTENSIBLE را می‌خواند',
+     /fmt\.format === 65534 && sz >= 40\) fmt\.sub = u16\(pos \+ 8 \+ 24\)/.test(p23k));
+
+  // ── ب) نرخِ پایین برای افکت، نشانهٔ گفتار نیست ──
+  // «Video Game Sound Ideas, Magical Energy» با «۱۱۰۲۵ هرتز — نرخِ ضبطِ
+  // گفتار» رد شد. برای افکتِ بازی، ۱۱۰۲۵ کاملاً عادی است.
+  const lowRate = { rate: 11025, channels: 1, bits: 16 };
+  const pr = { rms: 3000, peak: 20000, silentPct: 10, zcr: 40, steadiness: 70,
+               seconds: 3 };
+  ok('۲۹.۸ برای موسیقی، نرخِ پایین همچنان نشانهٔ گفتار است',
+     musicIsSpeech_(pr, lowRate, 'magical energy', false).speech === true,
+     musicIsSpeech_(pr, lowRate, 'magical energy', false).why);
+  ok('۲۹.۹ ولی برای جلوهٔ صوتی نه',
+     musicIsSpeech_(pr, lowRate, 'magical energy', true).speech === false,
+     JSON.stringify(musicIsSpeech_(pr, lowRate, 'magical energy', true)));
+  ok('۲۹.۱۰ و نامِ گفتاری همچنان برای هر دو ردّ است',
+     musicIsSpeech_(pr, lowRate, 'interview podcast', true).speech === true);
+  ok('۲۹.۱۱ و musicAccept_ همین پرچم را رد می‌کند',
+     /musicIsSpeech_\(pr, info, name, wantSfx\)/.test(p23k));
+}
+
+console.log('=== ۳۰) ردِ ناحق باید باز شود، وگرنه اصلاح فقط برای آینده است ===');
+{
+  /* وقتی نامزدی رد می‌شود دو چیز ثبت می‌شود: status:'رد' در فهرست، و
+   * نشانی در سیاههٔ «دیگر امتحان نکن». هر دو عمدی و درست‌اند.
+   * ولی وقتی معلوم شود ردّ ناحق بوده، همان دو ثبت آن را برای همیشه دفن
+   * می‌کنند — و اصلاحِ خواننده فقط به دردِ فایل‌های *آینده* می‌خورد.
+   * ۲۴ اوت پنج فایلِ سالم این‌طور دفن شده بودند. */
+  const realGet3 = global.getOutJson_, realPut3 = global.putOutJson_;
+  const realFeed3 = global.musicFeedRead_;
+  let store3 = { items: [
+    { url: 'https://x/a.wav', kind: 'موسیقی', status: 'رد',
+      error: 'خوانده نشد یا PCM نیست' },
+    { url: 'https://x/b.wav', kind: 'افکت', status: 'رد',
+      error: 'گفتار است: 11025 هرتز — نرخِ ضبطِ گفتار، نه انتشارِ موسیقی' },
+    { url: 'https://x/c.wav', kind: 'موسیقی', status: 'رد',
+      error: 'گفتار است: 8000 هرتز — نرخِ ضبطِ گفتار، نه انتشارِ موسیقی' },
+    { url: 'https://x/d.wav', kind: 'موسیقی', status: 'رد',
+      error: 'حجم 40 مگابایت، بیشتر از سقفِ 12' },
+    { url: 'https://x/e.wav', kind: 'موسیقی', status: 'آمد' }
+  ] };
+  global.musicFeedRead_ = () => store3;
+  global.getOutJson_ = () => store3;
+  global.putOutJson_ = (n, o) => { store3 = o; };
+  global.__PROPS[PK.MUSIC_FETCHED] = JSON.stringify(
+    ['https://x/a.wav', 'https://x/b.wav', 'https://x/c.wav', 'https://x/d.wav']);
+  global.__PROPS[PK.MUSIC_UNBLOCK] = '';
+
+  const r = musicUnblock_();
+  ok('۳۰.۱ ردِ «PCM نیست» باز می‌شود — قالبش EXTENSIBLE بوده',
+     store3.items[0].status === '', JSON.stringify(store3.items[0]));
+  ok('۳۰.۲ و نرخِ پایین برای **افکت** باز می‌شود',
+     store3.items[1].status === '');
+  ok('۳۰.۳ ولی نرخِ پایین برای **موسیقی** باز نمی‌شود — آن ردّ درست بود',
+     store3.items[2].status === 'رد');
+  ok('۳۰.۴ و ردِ حجم دست نمی‌خورد — علتش اصلاح نشده',
+     store3.items[3].status === 'رد');
+  ok('۳۰.۵ و آنچه آمده دست نمی‌خورد', store3.items[4].status === 'آمد');
+  ok('۳۰.۶ دو نشانی باز شد', r.freed === 2, String(r.freed));
+
+  const fetched = JSON.parse(global.__PROPS[PK.MUSIC_FETCHED]);
+  ok('۳۰.۷ و از سیاههٔ «دیگر امتحان نکن» هم بیرون آمدند',
+     fetched.indexOf('https://x/a.wav') === -1 &&
+     fetched.indexOf('https://x/b.wav') === -1, JSON.stringify(fetched));
+  ok('۳۰.۸ ولی آن‌هایی که باز نشدند، همان‌جا ماندند',
+     fetched.indexOf('https://x/c.wav') !== -1 &&
+     fetched.indexOf('https://x/d.wav') !== -1);
+  ok('۳۰.۹ و دلیلِ بازشدن در خودِ ردیف نوشته می‌شود',
+     /ردِ پیشین ناحق بود/.test(String(store3.items[0].note || '')));
+
+  const r2 = musicUnblock_();
+  ok('۳۰.۱۰ دوباره اجرا نمی‌شود — یک بار برای هر نسخه', r2.freed === 0);
+
+  global.getOutJson_ = realGet3; global.putOutJson_ = realPut3;
+  global.musicFeedRead_ = realFeed3;
+
+  ok('۳۰.۱۱ و کارِ شبانه پیش از گشتن صدایش می‌زند',
+     /musicUnblock_\(\); \} catch \(eUB\)/.test(
+       fs.readFileSync('src/21_SelfUpdate.gs', 'utf8')));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

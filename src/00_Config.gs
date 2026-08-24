@@ -595,7 +595,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.77',
+  CODE_VERSION: '5.78',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -872,6 +872,8 @@ var PK = {
   // مجموعه‌هایی که یک بار گشته شده‌اند — تا هر شب همان‌ها بالا نیایند
   MUSIC_SEEN: 'MUSIC_SEEK_SEEN',
   MUSIC_PAGE: 'MUSIC_SEEK_PAGE',
+  // نسخه‌ای که ردهای ناحقش یک بار باز شده — تا هر شب تکرار نشود
+  MUSIC_UNBLOCK: 'MUSIC_UNBLOCK_AT',
   // نوبتِ صدای پایه‌ای — تا هر اجرا سراغِ یکی برود، نه همیشه همان
   SFX_TURN: 'SFX_STARTER_TURN'
 };
