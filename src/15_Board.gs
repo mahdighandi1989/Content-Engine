@@ -867,6 +867,8 @@ function handoutCell_(x) {
     ' درس' + (h.amend ? ' · ' + faNum_(h.amend) + ' تکمیلِ درسِ قبلی' : '') + '</div>' +
     (behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(behind) +
               ' درس هنوز وارد نشده</div>' : '') +
+    (h.abandoned ? '<div class="sub" style="color:#8a2f2f">' + faNum_(h.abandoned) +
+                   ' درس رهاشده — دکمه را بزنید تا از نو امتحان شود</div>' : '') +
     (h.result && h.result !== 'به‌روز شد'
        ? '<div class="sub" style="color:#8a2f2f">آخرین تلاش: ' + bEsc_(h.result) + '</div>'
        : '') +
@@ -1024,6 +1026,7 @@ function uiHandoutSeries(key) {
   try {
     var r = handoutOneSeries_(key, Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
     var msg = 'جزوه: ' + r.done + ' درس ساخته شد' +
+              (r.reset ? '، ' + r.reset + ' درسِ رهاشده از نو امتحان شد' : '') +
               (r.queued ? '، ' + r.queued + ' درسِ گذشته به صف رفت' : '') +
               (r.left ? '، ' + r.left + ' در صف مانده (کارِ شبانه ادامه می‌دهد)' : '') + '.';
     if (r.notes && r.notes.length) msg += ' — ' + r.notes.slice(0, 3).join(' · ');

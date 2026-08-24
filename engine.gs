@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.87
+ *  موتور محتوا و پادکست — نسخهٔ 5.88
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -383,6 +383,8 @@ var CFG = {
   HANDOUT_TAB: 'کاربردِ جزوه',  // تاریخچه: هر به‌روزرسانیِ جزوه یک ردیف
   HANDOUT_SCAN_MAX: 25,        // چند مجموعه در هر بارِ واردکردنِ گذشته
   HANDOUT_STUCK_DAYS: 3,       // چند روز عقب‌ماندگی تا «ایرادِ کد» شمرده شود
+  HANDOUT_TRY_MAX: 4,          // چند تلاشِ ناموفق تا «رهاشده» شمرده شود
+  HANDOUT_WATCH_MAX: 60,       // سقفِ مجموعه‌های زیرِ نظرِ همیشگی
 
   PROMPT_SYNC: true,
   PROMPT_KINDS: ['monitor', 'enrich'],
@@ -749,7 +751,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.87',
+  CODE_VERSION: '5.88',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1015,6 +1017,7 @@ var PK = {
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
+  HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
   // نامِ عکس با شمارهٔ قسمت ساخته می‌شود و شمارهٔ قسمتِ دو برنامه می‌تواند
@@ -14897,6 +14900,8 @@ function handoutCell_(x) {
     ' درس' + (h.amend ? ' · ' + faNum_(h.amend) + ' تکمیلِ درسِ قبلی' : '') + '</div>' +
     (behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(behind) +
               ' درس هنوز وارد نشده</div>' : '') +
+    (h.abandoned ? '<div class="sub" style="color:#8a2f2f">' + faNum_(h.abandoned) +
+                   ' درس رهاشده — دکمه را بزنید تا از نو امتحان شود</div>' : '') +
     (h.result && h.result !== 'به‌روز شد'
        ? '<div class="sub" style="color:#8a2f2f">آخرین تلاش: ' + bEsc_(h.result) + '</div>'
        : '') +
@@ -15054,6 +15059,7 @@ function uiHandoutSeries(key) {
   try {
     var r = handoutOneSeries_(key, Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
     var msg = 'جزوه: ' + r.done + ' درس ساخته شد' +
+              (r.reset ? '، ' + r.reset + ' درسِ رهاشده از نو امتحان شد' : '') +
               (r.queued ? '، ' + r.queued + ' درسِ گذشته به صف رفت' : '') +
               (r.left ? '، ' + r.left + ' در صف مانده (کارِ شبانه ادامه می‌دهد)' : '') + '.';
     if (r.notes && r.notes.length) msg += ' — ' + r.notes.slice(0, 3).join(' · ');
@@ -26748,6 +26754,25 @@ function handoutUpdate_(folder, meta, hub) {
     return { totCh: book.chapters.length, totSec: sc, totRef: book.refs.length,
              rev: book.revision || 0 };
   };
+  /* ══ تلاشِ ناموفق باید در خودِ کتاب بماند (۵٫۸۸) ══
+     تا ۵٫۸۷ درسی که وارد جزوه نمی‌شد، در `episodes` ثبت نمی‌شد — پس کاوشِ
+     شبانه هر شب دوباره به صف می‌آوردش و هر شب دوباره شکست می‌خورد: یک
+     فراخوانِ مدل و یک ردیفِ تب، هر شب، تا ابد. و شکافِ «چند از چند درس»
+     هرگز بسته نمی‌شد، پس یافتهٔ `handout-stuck` هم هرگز حل نمی‌شد.
+     حالا تلاش‌ها شمرده می‌شوند و پس از `HANDOUT_TRY_MAX` بار، درس
+     **رهاشده** اعلام می‌شود: دیگر تلاش نمی‌شود، ولی — و این مهم است —
+     پنهان هم نمی‌شود؛ در وضعیت و سلامت و یافتهٔ کد صریح می‌آید. */
+  if (!book.tried) book.tried = {};
+  var noteTry = function (why) {
+    var rec = book.tried[epNum] || { n: 0, why: '', at: '' };
+    rec.n = Number(rec.n || 0) + 1;
+    rec.why = String(why || '');
+    rec.at = nowStr_();
+    book.tried[epNum] = rec;
+    try { handoutWrite_(folder, book); } catch (eW) {}
+    return rec.n;
+  };
+
   var say = function (why, st, radio, newRef, url) {
     var t = totals();
     try {
@@ -26777,6 +26802,7 @@ function handoutUpdate_(folder, meta, hub) {
     secs.push({ heading: String(ep.sections[s].heading || ''), narration: cleaned.text });
   }
   if (!secs.length) { out.why = 'این قسمت متنی برای جزوه ندارد';
+                      out.tries = noteTry(out.why);
                       say(out.why, null, dropped, 0, ''); return out; }
 
   var refsBefore = book.refs.length;
@@ -26787,17 +26813,20 @@ function handoutUpdate_(folder, meta, hub) {
     seriesName: book.seriesName || meta.seriesName, level: meta.level,
     epNum: epNum, epTitle: ep.title || ''
   });
-  if (!patch) { out.why = 'مدل جواب نداد'; say(out.why, null, dropped, newRefs, ''); return out; }
+  if (!patch) { out.why = 'مدل جواب نداد'; out.tries = noteTry(out.why);
+                say(out.why, null, dropped, newRefs, ''); return out; }
 
   var st = handoutApply_(book, patch, { epNum: epNum }, refNos);
   if (!st.chapters && !st.sections && !st.amended) {
-    out.why = 'وصله خالی بود'; say(out.why, st, dropped, newRefs, ''); return out;
+    out.why = 'وصله خالی بود'; out.tries = noteTry(out.why);
+    say(out.why, st, dropped, newRefs, ''); return out;
   }
 
   book.seriesKey = book.seriesKey || String(meta.seriesKey || '');
   book.seriesName = book.seriesName || String(meta.seriesName || '');
   book.cat = book.cat || String(meta.seriesCat || '');
   book.level = book.level || String(meta.level || '');
+  if (book.tried && book.tried[epNum]) delete book.tried[epNum];   // موفق شد؛ سابقه پاک
   book.episodes.push({ n: epNum, title: String(ep.title || ''), at: nowStr_(),
                        chapters: String(st.chapters), sections: String(st.sections),
                        amended: String(st.amended), radioDropped: String(dropped) });
@@ -26891,8 +26920,16 @@ function handoutBoardMap_(hub) {
       var okRow = String(v[i][HU.RESULT - 1]) === 'به‌روز شد';
       if (!cur) cur = map[k] = { at: '', ep: '', result: '', tries: 0, lessons: 0,
                                  totCh: 0, totSec: 0, totRef: 0, amend: 0,
-                                 url: '', lastOkAt: '', lastOkEp: '' };
+                                 url: '', lastOkAt: '', lastOkEp: '', abandoned: 0,
+                                 __fail: Object.create(null) };
       cur.tries++;
+      // شمارِ شکستِ هر درس، تا تخته «رهاشده» را هم نشان بدهد. موفقیت
+      // شمارنده را صفر می‌کند، چون همان کاری است که خودِ کتاب می‌کند.
+      var epK = String(v[i][HU.EP - 1] || '');
+      if (epK) {
+        if (okRow) cur.__fail[epK] = 0;
+        else cur.__fail[epK] = (cur.__fail[epK] || 0) + 1;
+      }
       cur.at = String(v[i][HU.AT - 1] || '');
       cur.ep = String(v[i][HU.EP - 1] || '');
       cur.result = String(v[i][HU.RESULT - 1] || '');
@@ -26905,6 +26942,15 @@ function handoutBoardMap_(hub) {
         cur.url = String(v[i][HU.LINK - 1] || '') || cur.url;
         cur.lastOkAt = cur.at; cur.lastOkEp = cur.ep;
       }
+    }
+    var lim = Math.max(1, Number(CFG.HANDOUT_TRY_MAX) || 4);
+    for (var kk in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, kk)) continue;
+      var f = map[kk].__fail || {};
+      for (var ee in f) {
+        if (Object.prototype.hasOwnProperty.call(f, ee) && f[ee] >= lim) map[kk].abandoned++;
+      }
+      delete map[kk].__fail;
     }
   } catch (e) {}
   return map;
@@ -26938,6 +26984,19 @@ function handoutOneSeries_(key, maxItems) {
     var sf = seriesFolder_(reg, rec);
     var eps = handoutSeriesEpisodes_(sf);
     var book = handoutRead_(sf, null);
+    /* دستِ آدم، سابقهٔ تلاش را پاک می‌کند.
+       رهاکردن برای این است که موتور هر شب بی‌فایده تلاش نکند — نه اینکه
+       درس برای همیشه دفن شود. کسی که پس از یک اصلاح دکمه را می‌زند،
+       دارد می‌گوید «حالا دوباره امتحان کن»، و سدی که با دستِ آدم هم باز
+       نشود، سد نیست. */
+    var reset = 0;
+    if (book.tried) {
+      for (var t in book.tried) {
+        if (Object.prototype.hasOwnProperty.call(book.tried, t)) reset++;
+      }
+      if (reset) { book.tried = {}; try { handoutWrite_(sf, book); } catch (eR) {} }
+    }
+    out.reset = reset;
     var have = Object.create(null);
     for (var e = 0; e < (book.episodes || []).length; e++) have[String(book.episodes[e].n)] = 1;
     var nums = [];
@@ -27090,6 +27149,10 @@ function handoutRunDue_(maxItems) {
       try {
         var meta = eps[String(item.ep)];
         if (!meta) { res.notes.push('فایلِ وضعیتِ درسِ ' + item.ep + ' پیدا نشد'); continue; }
+        // ردیفی که پیش از رسیدن به سقفِ تلاش در صف مانده بود
+        if (handoutGaveUp_(handoutRead_(sf, null), item.ep)) {
+          res.notes.push('درسِ ' + item.ep + ': رهاشده (سقفِ تلاش)'); continue;
+        }
         meta.seriesKey = key;
         meta.seriesName = meta.seriesName || String(rec.vals[SC.NAME - 1] || '');
         meta.level = meta.level || String(rec.vals[SC.LEVEL - 1] || '');
@@ -27119,6 +27182,27 @@ function handoutRunDue_(maxItems) {
   return res;
 }
 
+/** آیا این درس آن‌قدر تلاش شده که دیگر تلاش بی‌فایده است؟ */
+function handoutGaveUp_(book, epNum) {
+  var t = book && book.tried && book.tried[String(epNum)];
+  if (!t) return false;
+  return Number(t.n || 0) >= Math.max(1, Number(CFG.HANDOUT_TRY_MAX) || 4);
+}
+
+/** درس‌های رهاشدهٔ یک کتاب، با علتشان. */
+function handoutAbandoned_(book) {
+  var out = [];
+  var t = (book && book.tried) || {};
+  for (var k in t) {
+    if (!Object.prototype.hasOwnProperty.call(t, k)) continue;
+    if (Number(t[k].n || 0) < Math.max(1, Number(CFG.HANDOUT_TRY_MAX) || 4)) continue;
+    out.push({ ep: k, tries: Number(t[k].n || 0), why: String(t[k].why || ''),
+               at: String(t[k].at || '') });
+  }
+  out.sort(function (a, b) { return (Number(a.ep) || 0) - (Number(b.ep) || 0); });
+  return out;
+}
+
 /* ─────────────────── واردکردنِ قسمت‌های گذشته ─────────────────── */
 
 /**
@@ -27137,7 +27221,7 @@ function handoutRunDue_(maxItems) {
  * @return {{scanned:number, queued:number, series:number, wrapped:boolean}}
  */
 function handoutBackfill_(maxSeries) {
-  var out = { scanned: 0, queued: 0, series: 0, wrapped: false, names: [] };
+  var out = { scanned: 0, queued: 0, series: 0, wrapped: false, names: [], abandoned: 0 };
   if (CFG.HANDOUT_ENABLED === false) return out;
   var cap = Math.max(1, Number(maxSeries) || Number(CFG.HANDOUT_SCAN_MAX) || 25);
   var hub = getHub_();
@@ -27169,6 +27253,10 @@ function handoutBackfill_(maxSeries) {
     var batch = [];
     for (var n = 0; n < nums.length; n++) {
       if (have[nums[n]]) continue;
+      // درسِ رهاشده دوباره به صف نمی‌رود — وگرنه هر شب یک فراخوانِ مدل و
+      // یک ردیفِ تب هدر می‌رود و شکاف هرگز بسته نمی‌شود. پنهانش هم نمی‌کنیم:
+      // handoutStatus_ جداگانه می‌شمردش و سلامت اعلامش می‌کند.
+      if (handoutGaveUp_(book, nums[n])) { out.abandoned++; continue; }
       batch.push({ key: String(rec.key), ep: nums[n] });
     }
     var added = batch.length ? handoutDueAddMany_(batch) : 0;
@@ -27213,46 +27301,88 @@ function handoutSeriesEpisodes_(seriesFolder) {
 /* ───────────────────────────── دیده‌شدن ───────────────────────────── */
 
 /** وضعیتِ جزوه‌ها برای `_STATUS.json` — بی‌شبکه، ارزان. */
+/* ═══════ وارسیِ روزانه وقتی مجموعه‌ها از سقف بگذرند (۵٫۸۸) ═══════
+
+   ۵٫۸۷ سقفِ پیمایش گذاشت و صادقانه اعلامش می‌کرد — ولی سقف **همیشه از
+   ابتدای فهرست** شمرده می‌شد. یعنی مجموعهٔ بیست‌وششم به بعد هرگز، در هیچ
+   شبی، وارسی نمی‌شد. یک نقطهٔ کورِ دائمی که فقط یک یادداشت داشت، و
+   یادداشت جای وارسی را نمی‌گیرد.
+
+   حالا دو فهرست، نه یکی:
+     • **زیرِ نظرِ همیشگی** — هر مجموعه‌ای که یک بار عقب یا رهاشده دیده شده،
+       هر شب دوباره سنجیده می‌شود تا وقتی درست شود. مشکلی که پیدا شده،
+       نباید با چرخشِ پنجره از دید برود.
+     • **پنجرهٔ چرخان** — بقیه، با مکان‌نما. هیچ مجموعه‌ای بیش از یک دورِ
+       کامل نادیده نمی‌مانَد، و طولِ دور در خودِ وضعیت نوشته می‌شود تا
+       معلوم باشد «هر چند شب یک بار».
+*/
 function handoutStatus_() {
   var out = { enabled: CFG.HANDOUT_ENABLED !== false, series: [], due: 0, stale: [],
-              truncated: false };
+              truncated: false, watched: 0, rotating: 0, pending: 0, cycleNights: 0 };
   try { out.due = handoutDueList_().length; } catch (e) {}
-  // سقفِ پیمایش، تا وضعیت هرگز نتواند مهلتِ اجرا را بخورد
   var scanCap = Math.max(5, Number(CFG.HANDOUT_SCAN_MAX) || 25);
-  var walked = 0;
+  var watchCap = Math.max(scanCap, Number(CFG.HANDOUT_WATCH_MAX) || 60);
   try {
     var hub = getHub_();
     var reg = readSeriesReg_(hub);
+
+    // نامزدها: هر مجموعه‌ای که ردی از قسمت دارد و پوشه‌اش معلوم است.
+    // این وارسیِ ارزان است (فقط سلول)، پس روی همه انجام می‌شود.
+    var cand = [];
     for (var i = 0; i < reg.rows.length; i++) {
-      var rec = reg.rows[i];
-      /* ── شمارِ قسمت‌ها از **پوشه**، نه از ستون ──
-       * ستونِ «قسمت‌های پادکست» در دادهٔ واقعی این شکلی است:
-       *   «Fri Jan 02 2026 00:00:00 GMT+0400 (Gulf Standard Time) 3 4 5 …»
-       * یک تاریخ به شماره‌ها چسبیده. نه شمردنِ واژه‌ها جواب می‌دهد (۲۲ به‌جای
-       * ۱۳) و نه شمردنِ عددها (۰۲، ۲۰۲۶، ۰۴۰۰ هم عددند). هر دو یعنی جزوه‌ای
-       * که کاملاً به‌روز است هر روز «عقب» گزارش شود و هر روز یک یافتهٔ دروغ
-       * بسازد — و هشداری که بی‌جهت می‌آید، همان است که آدم یاد می‌گیرد
-       * نادیده بگیرد.
-       *
-       * حقیقتِ «چه قسمت‌هایی ساخته شده» یک جای مطمئن دارد: خودِ پوشهٔ
-       * مجموعه. ستون فقط برای این می‌مانَد که بگوید «اصلاً چیزی ساخته شده؟»
-       * — یک پرسشِ ارزان که جلوی پیمایشِ ۲۶۴ پوشه را می‌گیرد. */
-      if (!/\d/.test(String(rec.vals[SC.EPISODES - 1] || ''))) continue;
+      var rc = reg.rows[i];
+      if (!/\d/.test(String(rc.vals[SC.EPISODES - 1] || ''))) continue;
+      if (!String(rc.vals[SC.FOLDER - 1] || '')) continue;
+      cand.push(rc);
+    }
+
+    var watchMap = {};
+    try { watchMap = JSON.parse(props_().getProperty(PK.HANDOUT_SEEN) || '{}') || {}; } catch (e0) {}
+
+    var pickKeys = Object.create(null), order = [];
+    for (var w = 0; w < cand.length && order.length < watchCap; w++) {
+      if (!watchMap[String(cand[w].key)]) continue;
+      pickKeys[String(cand[w].key)] = 1; order.push(cand[w]); out.watched++;
+    }
+
+    var cur = 0;
+    try { cur = Number(props_().getProperty(PK.HANDOUT_STAT) || 0) || 0; } catch (e1) {}
+    if (cur >= cand.length) cur = 0;
+    var seen = 0, idx = cur;
+    while (out.rotating < scanCap && seen < cand.length) {
+      var rc2 = cand[idx];
+      idx = (idx + 1) % Math.max(1, cand.length);
+      seen++;
+      if (!rc2 || pickKeys[String(rc2.key)]) continue;
+      pickKeys[String(rc2.key)] = 1; order.push(rc2); out.rotating++;
+    }
+    try { props_().setProperty(PK.HANDOUT_STAT, String(cand.length ? idx : 0)); } catch (e2) {}
+    out.pending = Math.max(0, cand.length - order.length);
+    out.truncated = out.pending > 0;
+    out.cycleNights = out.rotating ? Math.ceil(cand.length / out.rotating) : 0;
+
+    for (var q = 0; q < order.length; q++) {
+      var rec = order[q];
       var fid = String(rec.vals[SC.FOLDER - 1] || '');
-      if (!fid) continue;
-      if (walked >= scanCap) { out.truncated = true; continue; }
       var sfx = null;
       try { sfx = DriveApp.getFolderById(fid); } catch (eFx) { continue; }
-      walked++;
       var made = handoutSeriesEpisodes_(sfx);
       var nMade = 0;
       for (var mk in made) if (Object.prototype.hasOwnProperty.call(made, mk)) nMade++;
       if (!nMade) continue;                     // هنوز قسمتی نساخته — جزوه هم لازم ندارد
-      var row = { name: String(rec.vals[SC.NAME - 1] || rec.key),
+      var row = { key: String(rec.key),
+                  name: String(rec.vals[SC.NAME - 1] || rec.key),
                   episodes: nMade,
-                  chapters: 0, sections: 0, refs: 0, covered: 0, updatedAt: '', missing: true };
+                  chapters: 0, sections: 0, refs: 0, covered: 0, updatedAt: '',
+                  missing: true, abandoned: 0, abandonedWhy: '' };
       try {
         var b = handoutRead_(sfx, null);
+        var gone = handoutAbandoned_(b);
+        row.abandoned = gone.length;
+        if (gone.length) {
+          row.abandonedWhy = gone.slice(0, 3).map(function (x) {
+            return 'درسِ ' + x.ep + ' (' + x.why + ')'; }).join('، ');
+        }
         if (b.revision) {
           row.missing = false;
           row.chapters = b.chapters.length;
@@ -27261,14 +27391,19 @@ function handoutStatus_() {
           row.updatedAt = b.updatedAt;
           for (var c = 0; c < b.chapters.length; c++) row.sections += (b.chapters[c].sections || []).length;
         }
-      } catch (e2) {}
-      if (row.missing || row.covered < row.episodes) out.stale.push(row.name);
+      } catch (e3) {}
+      /* «عقب» یعنی هنوز قرار است اتفاقی بیفتد. درسِ رهاشده عقب نیست —
+         یک مشکلِ *دیگر* است و باید جدا شمرده شود، وگرنه یک ایرادِ حل‌نشدنی
+         تا ابد به‌عنوانِ «عقب‌ماندگی» گزارش می‌شود و هشدار بی‌اثر می‌گردد. */
+      row.behind = Math.max(0, row.episodes - row.covered - row.abandoned);
+      if (row.missing || row.behind) out.stale.push(row.name);
+      if (row.abandoned) out.abandonedSeries = (out.abandonedSeries || 0) + 1;
       out.series.push(row);
     }
-  } catch (e3) { out.error = String(e3.message || e3); }
+  } catch (e4) { out.error = String(e4.message || e4); }
   // تاریخچه: «از کِی» را فقط این جواب می‌دهد، و همان چیزی است که ناظر
   // برای تشخیصِ «شبِ شلوغ» از «زنجیرهٔ شکسته» لازم دارد.
-  try { out.recent = handoutHistory_(null, 8); } catch (e4) { out.recent = []; }
+  try { out.recent = handoutHistory_(null, 8); } catch (e5) { out.recent = []; }
   return out;
 }
 
@@ -27303,10 +27438,15 @@ function handoutHealth_(problems, notes) {
   /* پاک‌سازی **پیش از** هر خروجِ زودهنگام: فهرستِ خالی هم یک واقعیت است
      («هیچ مجموعه‌ای عقب نیست») و باید حافظه را خالی کند، نه اینکه از کنارش
      رد شود و تاریخِ کهنه را برای همیشه نگه دارد. */
+  /* کلید، نه نام: فهرستِ «زیرِ نظر» در handoutStatus_ با کلید گشته می‌شود،
+     و دو مجموعه می‌توانند نامِ یکسان داشته باشند. */
   var live = {};
-  for (var lv = 0; lv < st.series.length; lv++) live[st.series[lv].name] = 1;
+  for (var lv = 0; lv < st.series.length; lv++) live[st.series[lv].key] = 1;
   for (var lk in lag) {
-    if (Object.prototype.hasOwnProperty.call(lag, lk) && !live[lk]) delete lag[lk];
+    // مجموعه‌ای که این شب اصلاً وارسی نشده (پنجرهٔ چرخان) نباید از فهرستِ
+    // زیرِ نظر بیفتد — وگرنه همان چرخش، مشکلی را که پیدا شده گم می‌کند.
+    if (Object.prototype.hasOwnProperty.call(lag, lk) && !live[lk] &&
+        !st.truncated) delete lag[lk];
   }
   if (!st.series.length) {
     try { props_().setProperty(PK.HANDOUT_SEEN, JSON.stringify(lag)); } catch (eE) {}
@@ -27319,10 +27459,10 @@ function handoutHealth_(problems, notes) {
 
   for (var i = 0; i < st.series.length; i++) {
     var r = st.series[i];
-    var lagging = r.missing || r.covered < r.episodes;
-    if (!lagging) { delete lag[r.name]; continue; }
-    if (!lag[r.name]) lag[r.name] = today;
-    var days = dayNo(today) - dayNo(String(lag[r.name]));
+    var lagging = r.missing || r.behind > 0 || r.abandoned > 0;
+    if (!lagging) { delete lag[r.key]; continue; }
+    if (!lag[r.key]) lag[r.key] = today;
+    var days = dayNo(today) - dayNo(String(lag[r.key]));
     behind.push({ r: r, days: days });
 
     if (r.missing) {
@@ -27340,15 +27480,57 @@ function handoutHealth_(problems, notes) {
   }
   try { props_().setProperty(PK.HANDOUT_SEEN, JSON.stringify(lag)); } catch (e1) {}
 
+  /* ── درس‌های رهاشده ──
+     این‌ها دیگر خودبه‌خود درست نمی‌شوند: سقفِ تلاش خورده و موتور دیگر
+     سراغشان نمی‌رود. پس نه «عقب‌ماندگی»اند و نه چیزی که فردا حل شود —
+     یا کد باید عوض شود یا آدم باید دکمهٔ همان مجموعه را بزند. اعلامِ
+     صریح، هم در سلامت و هم در صفِ ساختِ نسخهٔ بعد. */
+  var gaveUp = [];
+  for (var gu = 0; gu < st.series.length; gu++) {
+    if (st.series[gu].abandoned) gaveUp.push(st.series[gu]);
+  }
+  if (gaveUp.length) {
+    var gTxt = gaveUp.map(function (x) {
+      return '«' + x.name + '»: ' + x.abandoned + ' درس' +
+             (x.abandonedWhy ? ' — ' + x.abandonedWhy : '');
+    }).join(' | ');
+    problems.push('درس‌هایی هستند که پس از ' +
+                  (Number(CFG.HANDOUT_TRY_MAX) || 4) +
+                  ' تلاش وارد جزوه نشدند و دیگر تلاش نمی‌شود: ' + gTxt);
+    try {
+      logSelfFinding_(getHub_(), {
+        priority: 'جدی', category: 'جزوه', key: 'handout-abandoned',
+        title: 'درس‌هایی پس از سقفِ تلاش وارد جزوه نشدند',
+        detail: gTxt + '. این‌ها دیگر خودبه‌خود درست نمی‌شوند — موتور از ' +
+                'تلاشِ دوباره دست کشیده تا هر شب یک فراخوانِ مدل هدر ندهد. ' +
+                'علتِ هر کدام در ستونِ «نتیجه»ی تبِ «' +
+                (CFG.HANDOUT_TAB || 'کاربردِ جزوه') + '» هست.',
+        instruction: 'اگر علت «وصله خالی بود» است، پرامپتِ نویسندهٔ جزوه ' +
+                     '(handoutPrompt_) یا اعتبارسنجیِ handoutApply_ را اصلاح کن. ' +
+                     'اگر «این قسمت متنی برای جزوه ندارد» است، ببین متنِ آن قسمت ' +
+                     'در _special.json واقعاً خالی است یا خواننده اشتباه می‌کند. ' +
+                     'پس از اصلاح، دکمهٔ «به‌روزرسانیِ جزوه»ی همان مجموعه سابقهٔ ' +
+                     'تلاش را پاک می‌کند و از نو امتحان می‌شود.',
+        owner: ROWNER_CODE
+      });
+    } catch (eG) {}
+  }
+
   if (st.due > 3) {
     problems.push('صفِ به‌روزرسانیِ جزوه ' + st.due + ' درس عقب افتاده است.');
   }
   /* سقفِ پیمایش خورده؟ یعنی مجموعه‌هایی هستند که این وارسی اصلاً ندیدشان.
      نقطهٔ کورِ نادیده، از نقطهٔ کورِ اعلام‌شده بدتر است. */
   if (st.truncated && notes) {
-    notes.push('وارسیِ جزوه به سقفِ پیمایش خورد؛ مجموعه‌های بعد از ' +
-               (Number(CFG.HANDOUT_SCAN_MAX) || 25) + 'اُمین موردِ دارای قسمت ' +
-               'امروز سنجیده نشدند. اگر تکرار شد، HANDOUT_SCAN_MAX را بالا ببرید.');
+    /* این دیگر نقطهٔ کور نیست، فقط کندی است: هر مجموعه‌ای که یک بار
+       ایراد داشته زیرِ نظرِ همیشگی می‌مانَد، و بقیه با پنجرهٔ چرخان دیده
+       می‌شوند. جمله باید همین را بگوید، وگرنه خواننده فکر می‌کند چیزی
+       دیده نمی‌شود. */
+    notes.push('وارسیِ جزوه امشب ' + st.watched + ' مجموعهٔ زیرِ نظر و ' +
+               st.rotating + ' مجموعه از پنجرهٔ چرخان را سنجید؛ ' + st.pending +
+               ' مورد نوبتشان نشد. دورِ کامل حدودِ ' + st.cycleNights +
+               ' شب طول می‌کشد و هیچ مجموعه‌ای بیش از یک دور نادیده نمی‌مانَد. ' +
+               'برای تندترشدن، HANDOUT_SCAN_MAX را بالا ببرید.');
   }
 
   /* ── و آنچه واقعاً به تغییرِ کد می‌رسد ──

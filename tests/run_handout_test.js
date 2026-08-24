@@ -510,7 +510,9 @@ console.log('=== ۱۱) نظارت: آنچه به تغییرِ کد می‌رسد
      نسخهٔ بعدیِ موتور از رویش ساخته می‌شود. */
   const back = JSON.parse(global.__PROPS[PK.HANDOUT_SEEN]);
   const old = new Date(Date.now() - 5 * 86400000);
-  back['عقب‌مانده'] = Utilities.formatDate(old, CFG.TIMEZONE, 'yyyy-MM-dd');
+  // با کلید، نه نام: دو مجموعه می‌توانند نامِ یکسان داشته باشند و فهرستِ
+  // «زیرِ نظر» در handoutStatus_ با کلید گشته می‌شود.
+  back['kLag'] = Utilities.formatDate(old, CFG.TIMEZONE, 'yyyy-MM-dd');
   global.__PROPS[PK.HANDOUT_SEEN] = JSON.stringify(back);
 
   handoutHealth_([], []);
@@ -535,7 +537,8 @@ console.log('=== ۱۱) نظارت: آنچه به تغییرِ کد می‌رسد
   reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
   handoutHealth_([], []);
   ok('۱۱.۷ و با رفعِ عقب‌ماندگی، حافظه‌اش پاک می‌شود',
-     !JSON.parse(global.__PROPS[PK.HANDOUT_SEEN] || '{}')['عقب‌مانده']);
+     !JSON.parse(global.__PROPS[PK.HANDOUT_SEEN] || '{}')['kLag'],
+     global.__PROPS[PK.HANDOUT_SEEN]);
 }
 
 console.log('=== ۱۲-پیش) ستونی که تاریخ به شماره‌ها چسبیده ===');
@@ -792,6 +795,141 @@ console.log('=== ۱۴) جزوه، ذیلِ همان مجموعه در تخته =
                .filter(x => x.key === 'kEmpty')[0];
   ok('۱۴.۱۳ مجموعهٔ بی‌قسمت خانهٔ خالی می‌گیرد، نه دکمهٔ بی‌اثر',
      handoutCell_(e2).indexOf('button') === -1, handoutCell_(e2));
+}
+
+console.log('=== ۱۵) بی هیچ دکمه‌ای — سه پرسشِ صاحبِ برنامه ===');
+{
+  const hub = new Spread('هاب۱۵');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+  delete global.__PROPS[PK.HANDOUT_STAT];
+  delete global.__PROPS[PK.HANDOUT_SEEN];
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const mk = (r, key, name, eps) => {
+    const sf = global.__ROOT_FOLDER.createFolder('م-' + key);
+    const row = new Array(SERIES_HEADERS.length).fill('');
+    row[SC.KEY - 1] = key; row[SC.NAME - 1] = name;
+    row[SC.FOLDER - 1] = sf.getId(); row[SC.EPISODES - 1] = eps.join(' ');
+    reg.getRange(r, 1, 1, SERIES_HEADERS.length).setValues([row]);
+    for (const n of eps) {
+      const g = sf.createFolder('قسمت ' + n);
+      g.createFile(Utilities.newBlob(JSON.stringify({
+        epNum: n, seriesKey: key, seriesName: name,
+        ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'متنِ درس. دوم.' }] } }),
+        'application/json', '_special.json'));
+    }
+    return sf;
+  };
+  const sfA = mk(2, 'kAuto', 'خودکار', [1, 2, 3]);
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+
+  /* ── پرسشِ ۱: «آیا باید همیشه دکمهٔ به‌روزرسانی را بزنم؟» ──
+     نه. هیچ دکمه‌ای زده نمی‌شود؛ فقط همان کاری که کارِ شبانه می‌کند. */
+  for (let night = 1; night <= 3; night++) {
+    delete global.__PROPS[PK.HANDOUT_SCAN];
+    handoutBackfill_(50);
+    handoutRunDue_(2);
+  }
+  const bookA = JSON.parse(sfA.getFilesByName('_HANDOUT.json').next()
+                    .getBlob().getDataAsString());
+  ok('۱۵.۱ بی هیچ دکمه‌ای، هر سه درس وارد جزوه شدند',
+     bookA.episodes.length === 3, String(bookA.episodes.length));
+  ok('۱۵.۲ و به‌ترتیب', bookA.chapters.map(c => c.title).join('|') ===
+     'فصلِ 1|فصلِ 2|فصلِ 3', bookA.chapters.map(c => c.title).join('|'));
+
+  /* ── پرسشِ ۲: «ممکن است قسمتی وارد نشود و کسی هم متوجه نشود؟» ──
+     مدل را برای همیشه خراب می‌کنیم. باید سه چیز بشود: تلاش متوقف شود
+     (هدر نرود)، درس **رهاشده** اعلام شود، و یافتهٔ کد ساخته شود. */
+  const sfB = mk(3, 'kFail', 'شکست‌خورده', [1]);
+  global.handoutPatchModel_ = () => ({ newChapters: [] });
+  let rowsBefore = 0;
+  for (let night = 1; night <= 8; night++) {
+    delete global.__PROPS[PK.HANDOUT_SCAN];
+    handoutBackfill_(50);
+    handoutRunDue_(3);
+    if (night === 5) rowsBefore = hub.getSheetByName(CFG.HANDOUT_TAB).getLastRow();
+  }
+  const rowsAfter = hub.getSheetByName(CFG.HANDOUT_TAB).getLastRow();
+  ok('۱۵.۳ تلاشِ بی‌فایده متوقف می‌شود — هر شب یک فراخوانِ مدل هدر نمی‌رود',
+     rowsAfter === rowsBefore, rowsBefore + ' → ' + rowsAfter);
+  const bookB = JSON.parse(sfB.getFilesByName('_HANDOUT.json').next()
+                    .getBlob().getDataAsString());
+  ok('۱۵.۴ ولی درس پنهان نمی‌شود — در خودِ کتاب «رهاشده» ثبت است',
+     handoutAbandoned_(bookB).length === 1 &&
+     handoutAbandoned_(bookB)[0].why === 'وصله خالی بود',
+     JSON.stringify(handoutAbandoned_(bookB)));
+  const st = handoutStatus_();
+  const rB = st.series.filter(x => x.key === 'kFail')[0];
+  ok('۱۵.۵ وضعیت آن را «رهاشده» می‌شمارد، نه «عقب»',
+     rB && rB.abandoned === 1 && rB.behind === 0,
+     rB ? JSON.stringify({ ab: rB.abandoned, be: rB.behind }) : 'بی‌ردیف');
+
+  const probs = [], notes = [];
+  handoutHealth_(probs, notes);
+  ok('۱۵.۶ سلامت صریح اعلامش می‌کند',
+     probs.some(x => x.indexOf('رهاشده') !== -1 || x.indexOf('تلاش') !== -1),
+     probs.join(' | '));
+  const rep = hub.getSheetByName(CFG.REPORT_TAB);
+  const found = [];
+  if (rep && rep.getLastRow() > 1) {
+    const vv = rep.getRange(2, 1, rep.getLastRow() - 1, REPORT_HEADERS.length).getValues();
+    for (const v of vv) found.push(String(v[RC.ID - 1]) + '|' + String(v[RC.OWNER - 1]) +
+                                  '|' + String(v[RC.STATUS - 1]));
+  }
+  ok('۱۵.۷ و یافتهٔ «کد» در صفِ NEEDS_CODE می‌سازد',
+     found.some(x => x.indexOf('handout-abandoned') !== -1 &&
+                     x.indexOf('کد') !== -1 && x.indexOf(RST.NEEDS_CODE) !== -1),
+     found.join(' ; '));
+
+  /* و راهِ برگشت: سدی که با دستِ آدم هم باز نشود، سد نیست. */
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'حالا شد', sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+  const back = handoutOneSeries_('kFail', 3);
+  ok('۱۵.۸ دکمهٔ همان مجموعه سابقهٔ تلاش را پاک می‌کند و از نو می‌سازد',
+     back.reset === 1 && back.done === 1,
+     JSON.stringify({ reset: back.reset, done: back.done }));
+
+  /* ── پرسشِ ۳: «بعد از به سقف خوردنِ وارسیِ روزانه چه؟» ──
+     سقف دیگر همیشه از ابتدای فهرست شمرده نمی‌شود. */
+  const savedCap = CFG.HANDOUT_SCAN_MAX;
+  CFG.HANDOUT_SCAN_MAX = 5;                       // کف ۵ است
+  for (let n = 4; n <= 15; n++) mk(n, 'kR' + n, 'چرخان ' + n, [1]);
+  delete global.__PROPS[PK.HANDOUT_STAT];
+  const seenKeys = Object.create(null);
+  let nights = 0, rotating = 0, cyc = 0;
+  while (nights < 12) {
+    nights++;
+    const s2 = handoutStatus_();
+    rotating = s2.rotating; cyc = s2.cycleNights;
+    s2.series.forEach(x => { seenKeys[x.key] = 1; });
+  }
+  const allKeys = [];
+  for (let n = 4; n <= 15; n++) allKeys.push('kR' + n);
+  allKeys.push('kAuto', 'kFail');
+  const missed = allKeys.filter(k => !seenKeys[k]);
+  ok('۱۵.۹ با پنجرهٔ چرخان، هیچ مجموعه‌ای برای همیشه نادیده نمی‌مانَد',
+     missed.length === 0, 'ندیده: ' + (missed.join(',') || '—'));
+  ok('۱۵.۱۰ و وضعیت می‌گوید دورِ کامل چند شب است',
+     cyc > 0 && rotating > 0, 'چرخان ' + rotating + '، دور ' + cyc + ' شب');
+
+  /* و مشکلی که پیدا شده، با چرخش گم نمی‌شود: مجموعهٔ عقب‌مانده هر شب
+     دوباره سنجیده می‌شود، حتی وقتی نوبتِ پنجره نیست. */
+  const watchNow = JSON.parse(global.__PROPS[PK.HANDOUT_SEEN] || '{}');
+  ok('۱۵.۱۱ مجموعهٔ ایراددار زیرِ نظرِ همیشگی می‌مانَد',
+     Object.keys(watchNow).length > 0, Object.keys(watchNow).join(','));
+  const s3 = handoutStatus_();
+  const watchedKeys = s3.series.map(x => x.key);
+  ok('۱۵.۱۲ و در همان شب هم سنجیده می‌شود، هرچند نوبتِ پنجره‌اش نباشد',
+     Object.keys(watchNow).every(k => watchedKeys.indexOf(k) !== -1),
+     'زیرِ نظر: ' + Object.keys(watchNow).join(',') + ' | سنجیده: ' + watchedKeys.join(','));
+  ok('۱۵.۱۳ و سقف‌خوردن به‌جای «دیده نشد»، «نوبتش نشد» گزارش می‌شود',
+     (function () { const nn = []; handoutHealth_([], nn);
+       return nn.some(x => x.indexOf('نوبتشان نشد') !== -1 && x.indexOf('دورِ کامل') !== -1); })());
+  CFG.HANDOUT_SCAN_MAX = savedCap;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

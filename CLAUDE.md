@@ -411,7 +411,23 @@ rebuild button, plus a summary panel. Same boundary as the calendar board in
 series, never 264 Drive round-trips) and its buttons call functions that already
 had tests. A broken window cannot break handout building.
 
-The monitor checks it every day (`_PROMPT-monitor-v8.md` §۴٫۷) — including
+**A lesson that cannot be written is abandoned, not retried forever** (5.88).
+Attempts are counted in the book; after `HANDOUT_TRY_MAX` the lesson stops being
+re-queued — otherwise the nightly backfill re-queued it every night, burning a
+model call and a sheet row each time, and the coverage gap never closed so the
+`handout-stuck` finding could never resolve. `abandoned` is counted **separately
+from `behind`**: "behind" means something is still going to happen, and reporting
+an unfixable item as behind forever is how a warning becomes noise. The per-series
+button clears the attempt record — a gate that a human cannot open is not a gate.
+
+**The daily check rotates and never blinds permanently** (5.88). The scan cap used
+to count from the top of the registry, so series past it were never checked on any
+night. Now: every series ever seen with a problem stays on a permanent watch list
+until it is fixed, plus a rotating window with a cursor over the rest.
+`pending` means "not their turn tonight", not "unseen", and `cycleNights` says how
+long a full round takes.
+
+The monitor checks it every day (`_PROMPT-monitor-v9.md` §۴٫۷) — including
 opening an actual handout, because the code tests can see the file's shape but
 not its quality.
 
