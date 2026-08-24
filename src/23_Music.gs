@@ -2898,9 +2898,31 @@ function sfxAllow_(sections, picks, showKind, bank) {
     if (bank && bank.length) {
       if (!tr) continue;
       if (String(tr.kind || '') !== 'افکت') continue;   // موسیقی، افکت نیست
-      // افکتی که گوشِ مدل تأییدش نکرده پخش نمی‌شود. ۵٫۵۶ نشان داد فایلی که
-      // «افکت» نامیده شده می‌تواند سخنرانیِ ۱۲۹ثانیه‌ای باشد.
-      if (CFG.MUSIC_SFX_NEED_HEARD !== false && !heardSays_(tr.heard, 'جلوه')) continue;
+      /* ── سدی که خودش بن‌بست شد ──
+       *
+       * ۵٫۶۵ گفت «افکتی که گوشِ مدل تأییدش نکرده پخش نمی‌شود»، چون ۵٫۵۶
+       * نشان داده بود فایلی که «افکت» نامیده شده می‌تواند سخنرانی باشد.
+       * منطقش درست بود؛ ولی نتیجه‌اش این شد که **هیچ افکتی هرگز پخش
+       * نشود**: مدل برای هر فایلی که تا امروز آمده «نامعلوم» داده، و
+       * «نامعلوم» یعنی ردِّ دائمی.
+       *
+       * سدی که هیچ‌وقت باز نمی‌شود، سد نیست — نبودِ قابلیت است.
+       *
+       * پس شهادتِ دوم پذیرفته می‌شود: فایلی که **شناسنامهٔ منبع** دارد
+       * (یعنی هویتش از صفحهٔ اثر آمده، نه از حدسِ نامِ فایل)، خودش را
+       * «افکت» اعلام کرده، و کوتاه است. این سه با هم، شهادتِ ضعیف‌تری از
+       * گوشِ مدل‌اند ولی شهادت‌اند.
+       * و وتو سرِ جایش می‌ماند: هرچه «گفتار» خورده باشد، هرگز. */
+      if (CFG.MUSIC_SFX_NEED_HEARD !== false) {
+        var h = String(tr.heard || '');
+        if (h.indexOf('گفتار') !== -1) continue;             // وتوی مطلق
+        var okHeard = heardSays_(h, 'جلوه');
+        var okSrc = CFG.MUSIC_SFX_TRUST_SOURCE !== false &&
+                    !!String(tr.src || '').trim() &&
+                    Number(tr.sec) > 0 &&
+                    Number(tr.sec) <= (Number(CFG.MUSIC_SFX_MAX_SEC) || 10);
+        if (!okHeard && !okSrc) continue;
+      }
     }
     var clash = sfxToneClash_(String(sec.tone || ''),
                               (tr ? (tr.mood + ' ' + tr.name) : ''));
@@ -3277,13 +3299,18 @@ function musicListen_(b, info, name) {
               '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
               '«نامعلوم» — اگر مطمئن نیستی.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
-    ] }], generationConfig: { temperature: 0, maxOutputTokens: 16 } };
+    ] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } };
 
     var j = geminiFetch_(url, payload);
     var t = String(extractText_(j) || '');
     if (t.indexOf('گفتار') !== -1) return 'گفتار';
     if (t.indexOf('جلوه') !== -1) return 'جلوه';
     if (t.indexOf('موسیقی') !== -1) return 'موسیقی';
+    /* «نتوانست» تا ۵٫۸۰ بی‌صدا برمی‌گشت، و چون همین «نتوانست» جلوی پخشِ
+       هر افکتی را می‌گرفت، مهم‌ترین شکستِ این زنجیره نامرئی‌ترینش بود.
+       جوابِ خامِ مدل نوشته می‌شود تا دفعهٔ بعد بشود فهمید چرا. */
+    logLine_('شنیدنِ مدل نتیجه نداد (' + auditCut_(String(name || ''), 40) +
+             '): جوابِ خام «' + auditCut_(t, 40) + '»');
     return '';
   } catch (e) {
     logLine_('شنیدنِ مدل انجام نشد (' + String(name || '') + '): ' + e.message);

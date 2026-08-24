@@ -1997,4 +1997,49 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
      Number(CFG.MUSIC_SFX_XFADE_SEC) < Number(CFG.MUSIC_XFADE_SEC));
 }
 
+console.log('=== ۳۳) سدی که هیچ‌وقت باز نمی‌شد ===');
+{
+  /* ۵٫۶۵ گفت «افکتِ بی تأییدِ شنیداری پخش نمی‌شود». منطقش درست بود.
+   * ولی نتیجه‌اش این شد که هیچ افکتی هرگز پخش نشود: مدل برای هر فایلی که
+   * تا امروز آمده «نامعلوم» داد، و نامعلوم یعنی ردِّ دائمی.
+   * سدی که هیچ‌وقت باز نمی‌شود، سد نیست — نبودِ قابلیت است. */
+  const secs = [{ heading: 'دفترِ کاغذی', tone: 'آرام و توصیفی',
+                  narration: 'کاغذ ورق می‌خورد. کاغذ بوی کهنگی می‌داد.' }];
+  const pick = [{ id: 'P1', word: 'کاغذ', section: '0',
+                  anchor: 'کاغذ ورق می‌خورد', when: 'روی' }];
+  const row = (o) => [Object.assign({ id: 'P1', name: 'Paper Pages', kind: 'افکت',
+    mood: 'ورق‌خوردنِ کاغذ', slots: 'میانه', sec: 5, gain: 0.5, used: 0,
+    heard: '', src: 'Paper Pages — https://opengameart.org/… (CC-BY 3.0)' }, o)];
+
+  ok('۳۳.۱ افکتِ «نامعلوم» ولی با شناسنامهٔ منبع، حالا پخش می‌شود',
+     sfxAllow_(secs, pick, 'variety',
+               row({ heard: musicHeardTxt_({ verdict: 'مدل نشنید' }) })).length === 1);
+  ok('۳۳.۲ و تأییدِ مدل همچنان کافی است',
+     sfxAllow_(secs, pick, 'variety',
+               row({ heard: musicHeardTxt_({ heard: 'جلوه' }) })).length === 1);
+  ok('۳۳.۳ ولی «گفتار» وتوی مطلق است — حتی با شناسنامهٔ منبع',
+     sfxAllow_(secs, pick, 'variety',
+               row({ heard: '✅ مدل شنید: گفتار' })).length === 0);
+
+  ok('۳۳.۴ بی شناسنامهٔ منبع و بی تأیید، همچنان رد',
+     sfxAllow_(secs, pick, 'variety', row({ src: '' })).length === 0);
+  ok('۳۳.۵ و فایلِ بلند افکت شمرده نمی‌شود، هرچه شناسنامه بگوید',
+     sfxAllow_(secs, pick, 'variety', row({ sec: 120 })).length === 0);
+  ok('۳۳.۶ و می‌شود این شهادت را خاموش کرد',
+     (function () {
+       var k = CFG.MUSIC_SFX_TRUST_SOURCE;
+       CFG.MUSIC_SFX_TRUST_SOURCE = false;
+       var n = sfxAllow_(secs, pick, 'variety', row({})).length;
+       CFG.MUSIC_SFX_TRUST_SOURCE = k;
+       return n === 0;
+     })());
+
+  // و شکستِ شنیدن دیگر نامرئی نیست
+  const p23o = fs.readFileSync('src/23_Music.gs', 'utf8');
+  ok('۳۳.۷ جوابِ خامِ مدل وقتی شناخته نشد، نوشته می‌شود',
+     /شنیدنِ مدل نتیجه نداد/.test(p23o) && /جوابِ خام/.test(p23o));
+  ok('۳۳.۸ و سقفِ پاسخ آن‌قدر هست که یک واژه جا شود',
+     /maxOutputTokens: 48/.test(p23o));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
