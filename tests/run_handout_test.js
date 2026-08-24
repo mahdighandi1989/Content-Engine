@@ -1395,4 +1395,91 @@ console.log('=== ۲۲) عنوانِ فصل دو بار شماره نمی‌گی�
      p26.indexOf('در عنوان شماره نگذار') !== -1);
 }
 
+console.log('=== ۲۳) تخته می‌گفت «۷ درس هنوز وارد نشده» و هر ۱۵ درس در جزوه بودند ===');
+{
+  /* ══ آنچه صاحبِ برنامه دید ══
+   * ستونِ جزوه در تخته: «۱۵ از ۲۲ درس» و «۷ درس هنوز وارد نشده» — در حالی
+   * که فایلِ واقعیِ جزوه هر ۱۵ درس را داشت. دو علتِ جدا:
+   *
+   * ۱) ستونِ «قسمت‌های پادکست» یک تاریخِ چسبیده دارد و تخته واژه‌هایش را
+   *    می‌شمرد: ۹ توکنِ تاریخ + ۱۳ شماره = ۲۲.
+   * ۲) و حتی شماره‌های همان ستون هم حقیقت نیستند: ستون ۳ تا ۱۵ را داشت،
+   *    ولی پوشه ۱ تا ۱۵ را. مخرج باید از پوشه بیاید، نه از ستون. */
+  ok('۲۳.۱ تاریخِ چسبیده دیگر قسمت شمرده نمی‌شود',
+     epNumsOf_('Fri Jan 02 2026 00:00:00 GMT+0400 (Gulf Standard Time) 3 4 5 6 7 8 9 10 11 12 13 14 15')
+       .length === 13);
+  ok('۲۳.۲ و «۰۲» و «۲۰۲۶» شمارهٔ قسمت نیستند',
+     epNumsOf_('02 2026 3 4').join(',') === '3,4');
+  ok('۲۳.۳ ولی سلولِ سالم دست نمی‌خورد', epNumsOf_('1 2 3').join(',') === '1,2,3');
+  ok('۲۳.۴ و تکراری‌ها یک بار شمرده می‌شوند', epNumsOf_('3 3 4').join(',') === '3,4');
+  ok('۲۳.۵ سلولِ خالی صفر می‌دهد، نه خطا', epNumsOf_('').length === 0 && epNumsOf_(null).length === 0);
+
+  const hub = new Spread('هاب۲۳');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  delete global.__PROPS[PK.HANDOUT_SCAN];
+
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sf = global.__ROOT_FOLDER.createFolder('م۲۳');
+  const row = new Array(SERIES_HEADERS.length).fill('');
+  row[SC.KEY - 1] = 'kBoard23'; row[SC.NAME - 1] = 'معرفت‌شناسی';
+  row[SC.FOLDER - 1] = sf.getId(); row[SC.STATUS - 1] = SST.ACTIVE;
+  // همان سلولِ خرابِ واقعی: تاریخ + شماره‌های ۳ تا ۱۵ (نه ۱ و ۲)
+  row[SC.EPISODES - 1] =
+    'Fri Jan 02 2026 00:00:00 GMT+0400 (Gulf Standard Time) 3 4 5 6 7 8 9 10 11 12 13 14 15';
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
+  // ولی پوشه هر ۱۵ قسمت را دارد
+  for (let n = 1; n <= 15; n++) {
+    const g = sf.createFolder('قسمت ' + n);
+    g.createFile(Utilities.newBlob(JSON.stringify({
+      epNum: n, seriesKey: 'kBoard23', seriesName: 'معرفت‌شناسی',
+      ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'متن. دوم.' }] } }),
+      'application/json', '_special.json'));
+  }
+  global.handoutPatchModel_ = (b, secs, meta) => ({ newChapters: [
+    { title: 'فصلِ ' + meta.epNum, sections: [{ title: 'ب', body: 'م', takeaway: 'چ' }] }] });
+
+  handoutBackfill_(50);
+  handoutRunDue_(99, 0);
+
+  const map = handoutBoardMap_(hub);
+  ok('۲۳.۶ شمارِ واقعیِ پوشه در تب ثبت می‌شود',
+     map['kBoard23'] && map['kBoard23'].produced === 15,
+     JSON.stringify(map['kBoard23'] && { made: map['kBoard23'].produced,
+                                          lessons: map['kBoard23'].lessons }));
+  ok('۲۳.۷ و هر ۱۵ درس وارد جزوه شده', map['kBoard23'].lessons === 15,
+     String(map['kBoard23'].lessons));
+
+  const d = seriesBoardData_(hub);
+  const r = (d.groups || []).reduce((a, g) => a.concat(g.series || []), [])
+              .filter(x => x.key === 'kBoard23')[0];
+  ok('۲۳.۸ ستونِ «قسمت‌های ساخته‌شده» دیگر ۲۲ نمی‌گوید',
+     r && r.episodes === 13, r ? String(r.episodes) : 'بی‌ردیف');
+
+  const cell = handoutCell_(r);
+  ok('۲۳.۹ و ستونِ جزوه «۱۵ از ۱۵» می‌گوید، نه «۱۵ از ۲۲»',
+     cell.indexOf(faNum_(15) + ' از ' + faNum_(15)) !== -1,
+     cell.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120));
+  ok('۲۳.۱۰ و دیگر نمی‌گوید درسی وارد نشده',
+     cell.indexOf('درس هنوز وارد نشده') === -1);
+
+  const panel = handoutPanelHtml_(d);
+  ok('۲۳.۱۱ جعبهٔ بالای تخته هم «عقب» نمی‌گوید',
+     panel.indexOf('مجموعه عقب است') === -1,
+     panel.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140));
+
+  /* و سلولِ خراب هنگامِ افزودنِ قسمتِ بعدی خودش تمیز می‌شود — هیچ شماره‌ای
+     از دست نمی‌رود. */
+  const cleaned = epNumsOf_(row[SC.EPISODES - 1]);
+  cleaned.push(16); cleaned.sort((a, b) => a - b);
+  ok('۲۳.۱۲ سلول با قسمتِ تازه، تمیز بازنویسی می‌شود',
+     epNumsJoin_(cleaned) === '3 4 5 6 7 8 9 10 11 12 13 14 15 16',
+     epNumsJoin_(cleaned));
+  const sp = fs.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۲۳.۱۳ و مسیرِ واقعیِ افزودن همین کار را می‌کند',
+     sp.indexOf('epNumsOf_(rec.vals[SC.EPISODES - 1])') !== -1 &&
+     sp.indexOf('epNumsJoin_(epsNow)') !== -1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

@@ -1372,7 +1372,13 @@ function produceSpecialEpisode(opt) {
     rec.vals[SC.CUR_CHUNK - 1] = advNote.length
       ? Number(String(advNote[advNote.length - 1]).replace(/^.*قطعهٔ /, '')) || seg.toNo
       : 0;
-    rec.vals[SC.EPISODES - 1] = (String(rec.vals[SC.EPISODES - 1] || '') + ' ' + epNum).trim();
+    /* هنگامِ افزودن، سلول تمیز هم می‌شود: اگر تاریخی در آن نشسته باشد
+       (که یک بار افتاده و برای همیشه مانده)، همین‌جا می‌رود و فقط
+       شماره‌ها می‌مانند. هیچ شماره‌ای از دست نمی‌رود. */
+    var epsNow = epNumsOf_(rec.vals[SC.EPISODES - 1]);
+    if (epsNow.indexOf(Number(epNum)) === -1) epsNow.push(Number(epNum));
+    epsNow.sort(function (a, b) { return a - b; });
+    rec.vals[SC.EPISODES - 1] = epNumsJoin_(epsNow);
     rec.vals[SC.LAST_EP_AT - 1] = nowStr_();
     rec.vals[SC.UPDATED - 1] = nowStr_();
     rec.vals[SC.STORY - 1] = (String(rec.vals[SC.STORY - 1] || '') + '\n' +

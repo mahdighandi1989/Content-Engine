@@ -70,7 +70,9 @@ function seriesBoardData_(hub) {
     }
     partRows.sort(function (a, b) { return a.seq - b.seq || (a.name < b.name ? -1 : 1); });
     var st = String(v[SC.STATUS - 1] || SST.NEW);
-    var epList = String(v[SC.EPISODES - 1] || '').split(/\s+/).filter(String);
+    // ستون می‌تواند یک تاریخِ چسبیده داشته باشد؛ شمردنِ واژه‌ها ۲۲ می‌داد
+    // جایی که ۱۳ شماره بود. (توضیحِ کامل کنارِ epNumsOf_ در بخشِ ۱۳.)
+    var epList = epNumsOf_(v[SC.EPISODES - 1]);
     rows.push({
       key: key,
       name: String(v[SC.NAME - 1] || key),
@@ -857,13 +859,17 @@ function handoutCell_(x) {
            '<div><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
            'onclick="handoutSeries(this)">ساختِ جزوه</button></div></td>';
   }
-  var behind = Math.max(0, (x.episodes || 0) - (h.lessons || 0));
+  /* مخرج باید حقیقت باشد، نه حدسِ ستون. `h.produced` از پیمایشِ واقعیِ
+     پوشه در آخرین به‌روزرسانی می‌آید؛ ستونِ «قسمت‌های پادکست» هم تاریخ
+     قاطی‌اش می‌شود و هم قسمت‌های پیش از شروعِ ثبت را ندارد. */
+  var made = Number(h.produced) || Number(x.episodes) || 0;
+  var behind = Math.max(0, made - (h.lessons || 0));
   return '<td>' +
     (h.url ? '<a href="' + bEsc_(h.url) + '" target="_blank">باز کردنِ جزوه</a>'
            : '<span class="sub">بی لینک</span>') +
     '<div class="sub">' + faNum_(h.totCh) + ' فصل · ' + faNum_(h.totSec) + ' بخش · ' +
     faNum_(h.totRef) + ' ارجاع</div>' +
-    '<div class="sub">' + faNum_(h.lessons || 0) + ' از ' + faNum_(x.episodes || 0) +
+    '<div class="sub">' + faNum_(h.lessons || 0) + ' از ' + faNum_(made) +
     ' درس' + (h.amend ? ' · ' + faNum_(h.amend) + ' تکمیلِ درسِ قبلی' : '') + '</div>' +
     (behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(behind) +
               ' درس هنوز وارد نشده</div>' : '') +
@@ -888,12 +894,13 @@ function handoutPanelHtml_(d) {
   var made = 0, lessons = 0, produced = 0, due = 0, behind = 0;
   for (var i = 0; i < rows.length; i++) {
     var x = rows[i];
-    if (!x.episodes) continue;
-    produced += x.episodes;
+    var mk = Number(x.handout && x.handout.produced) || Number(x.episodes) || 0;
+    if (!mk) continue;
+    produced += mk;
     due += (x.handoutDue || 0);
     if (x.handout && x.handout.totCh) {
       made++; lessons += (x.handout.lessons || 0);
-      if (x.episodes > (x.handout.lessons || 0)) behind++;
+      if (mk > (x.handout.lessons || 0)) behind++;
     } else behind++;
   }
   if (!produced) return '';

@@ -766,6 +766,7 @@ function handoutUpdate_(folder, meta, hub) {
     try {
       handoutLog_(hub, { series: book.seriesName || (meta && meta.seriesName) || '',
                          key: book.seriesKey || (meta && meta.seriesKey) || '',
+                         made: (meta && meta.producedCount) || '',
                          ep: epNum, title: String(ep.title || ''),
                          newCh: (st && st.chapters) || 0, newSec: (st && st.sections) || 0,
                          amend: (st && st.amended) || 0, radio: radio || 0,
@@ -851,10 +852,18 @@ var HANDOUT_HEADERS = ['تاریخ', 'مجموعه', 'درسِ تازه', 'عن�
                        'بازنگری', 'نتیجه', 'لینکِ جزوه',
                        // کلید، نه فقط نام: تختهٔ مجموعه‌ها با کلید می‌گردد و
                        // دو مجموعه می‌توانند نامِ یکسان داشته باشند.
-                       'کلیدِ مجموعه'];
+                       'کلیدِ مجموعه',
+                       /* شمارِ قسمت‌هایی که واقعاً در پوشهٔ مجموعه هستند.
+                          تنها جای مطمئنِ این عدد، خودِ پوشه است: ستونِ
+                          «قسمت‌های پادکست» هم تاریخ قاطی‌اش می‌شود و هم
+                          قسمت‌های قدیمی‌تر از شروعِ ثبت را ندارد — در
+                          «معرفت شناسی» ستون ۳ تا ۱۵ را داشت ولی پوشه ۱ تا
+                          ۱۵ را. تخته باید همین عدد را نشان بدهد، نه حدسِ
+                          ستون را. */
+                       'قسمتِ تولیدشده'];
 var HU = { AT: 1, SERIES: 2, EP: 3, TITLE: 4, NEWCH: 5, NEWSEC: 6, AMEND: 7,
            RADIO: 8, NEWREF: 9, TOTCH: 10, TOTSEC: 11, TOTREF: 12,
-           REV: 13, RESULT: 14, LINK: 15, KEY: 16 };
+           REV: 13, RESULT: 14, LINK: 15, KEY: 16, MADE: 17 };
 
 /**
  * یک ردیف برای هر تلاش — موفق یا ناموفق.
@@ -874,7 +883,7 @@ function handoutLog_(hub, row) {
                        String(row.totCh || 0), String(row.totSec || 0),
                        String(row.totRef || 0), String(row.rev || 0),
                        String(row.result || ''), String(row.url || ''),
-                       String(row.key || '')]],
+                       String(row.key || ''), String(row.made || '')]],
                 HANDOUT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ کاربردِ جزوه نوشته نشد: ' + e.message); return false; }
@@ -907,6 +916,7 @@ function handoutBoardMap_(hub) {
       // درستِ پریشب را با صفر می‌پوشاند.
       var okRow = String(v[i][HU.RESULT - 1]) === 'به‌روز شد';
       if (!cur) cur = map[k] = { at: '', ep: '', result: '', tries: 0, lessons: 0,
+                                 produced: 0,
                                  totCh: 0, totSec: 0, totRef: 0, amend: 0,
                                  url: '', lastOkAt: '', lastOkEp: '', abandoned: 0,
                                  __fail: Object.create(null) };
@@ -921,6 +931,8 @@ function handoutBoardMap_(hub) {
       cur.at = String(v[i][HU.AT - 1] || '');
       cur.ep = String(v[i][HU.EP - 1] || '');
       cur.result = String(v[i][HU.RESULT - 1] || '');
+      var madeCell = Number(v[i][HU.MADE - 1]) || 0;
+      if (madeCell) cur.produced = madeCell;    // تازه‌ترین شمارِ واقعیِ پوشه
       if (okRow) {
         cur.lessons++;                          // هر ردیفِ موفق = یک درسِ واردشده
         cur.totCh = Number(v[i][HU.TOTCH - 1]) || 0;
@@ -1171,6 +1183,10 @@ function handoutRunDue_(maxItems, budgetMs) {
         meta.level = meta.level || String(rec.vals[SC.LEVEL - 1] || '');
         meta.progress = { done: Number(rec.vals[SC.CUR_CHUNK - 1]) || 0,
                           total: Number(rec.vals[SC.CHUNKS - 1]) || 0 };
+        // شمارِ واقعیِ قسمت‌ها — همین‌جا از پیمایشِ پوشه در دست است
+        var madeN = 0;
+        for (var mk2 in eps) if (Object.prototype.hasOwnProperty.call(eps, mk2)) madeN++;
+        meta.producedCount = madeN;
         var u = handoutUpdate_(sf, meta, hub);
         if (u.ok) {
           res.done++;

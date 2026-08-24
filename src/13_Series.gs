@@ -954,6 +954,51 @@ function pickSeries_(hub, regOpt, partsOpt) {
  * خروجی: { rec, pinExhausted, spent: [ردیف‌هایی که دیگر کاری ندارند] }
  */
 /** بزرگ‌ترین شمارهٔ قسمتی که در سلولِ «قسمت‌های پادکست» نوشته شده. */
+/* ═══════ خواندنِ ستونِ «قسمت‌های پادکست» (۵٫۹۴) ═══════
+
+   ══ چه چیزی در آن سلول است ══
+   موتور شمارهٔ هر قسمت را به همان سلول می‌چسباند. ولی اگر روزی یک Date در
+   آن نشسته باشد، `String(date)` کلِ تاریخ را می‌چسباند و برای همیشه
+   می‌مانَد. دادهٔ واقعیِ ۲۴ اوت:
+
+     «Fri Jan 02 2026 00:00:00 GMT+0400 (Gulf Standard Time) 3 4 5 … 15»
+
+   شمردنِ واژه‌ها ۲۲ می‌دهد، جایی که ۱۳ شماره هست. تختهٔ مجموعه‌ها همین کار
+   را می‌کرد و «۲۲ قسمتِ ساخته‌شده» نشان می‌داد؛ و ستونِ جزوه از روی همان
+   «۷ درس هنوز وارد نشده» می‌گفت، در حالی که هر ۱۵ درس در جزوه بودند.
+
+   قاعده‌ها، به‌ترتیبِ اهمیت:
+     • توکنی که حرفِ لاتین دارد، شمارهٔ قسمت نیست (Fri, GMT+0400, (Gulf…).
+     • ساعت (۰۰:۰۰:۰۰) نیست.
+     • عددِ با صفرِ پیشرو («۰۲») نیست — موتور شماره را بی صفرِ پیشرو می‌نویسد.
+     • عددِ بزرگ‌تر از SERIES_EP_MAX سال است، نه قسمت.
+   هرچه ماند، شمارهٔ قسمت است. */
+var SERIES_EP_MAX = 500;
+
+function epNumsOf_(cell) {
+  var t = String(cell === null || cell === undefined ? '' : cell);
+  t = faDigits_(t);
+  var out = [], seen = Object.create(null);
+  var toks = t.split(/[\s,،]+/);
+  for (var i = 0; i < toks.length; i++) {
+    var x = toks[i];
+    if (!x) continue;
+    if (/[A-Za-z]/.test(x)) continue;              // Fri، GMT+0400، (Gulf…
+    if (/\d+:\d+/.test(x)) continue;               // ۰۰:۰۰:۰۰
+    if (!/^\d+$/.test(x)) continue;
+    if (x.length > 1 && x.charAt(0) === '0') continue;   // «۰۲» تاریخ است
+    var n = parseInt(x, 10);
+    if (!isFinite(n) || n < 1 || n > SERIES_EP_MAX) continue;
+    if (seen[n]) continue;
+    seen[n] = 1; out.push(n);
+  }
+  out.sort(function (a, b) { return a - b; });
+  return out;
+}
+
+/** همان سلول، تمیز و مرتب — برای نوشتنِ دوباره. */
+function epNumsJoin_(nums) { return (nums || []).join(' '); }
+
 function lastEpNo_(cell) {
   var t = faDigits_(String(cell === null || cell === undefined ? '' : cell));
   var m = t.match(/\d+/g);

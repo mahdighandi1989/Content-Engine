@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.93
+ *  موتور محتوا و پادکست — نسخهٔ 5.94
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -759,7 +759,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.93',
+  CODE_VERSION: '5.94',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -11975,6 +11975,51 @@ function pickSeries_(hub, regOpt, partsOpt) {
  * خروجی: { rec, pinExhausted, spent: [ردیف‌هایی که دیگر کاری ندارند] }
  */
 /** بزرگ‌ترین شمارهٔ قسمتی که در سلولِ «قسمت‌های پادکست» نوشته شده. */
+/* ═══════ خواندنِ ستونِ «قسمت‌های پادکست» (۵٫۹۴) ═══════
+
+   ══ چه چیزی در آن سلول است ══
+   موتور شمارهٔ هر قسمت را به همان سلول می‌چسباند. ولی اگر روزی یک Date در
+   آن نشسته باشد، `String(date)` کلِ تاریخ را می‌چسباند و برای همیشه
+   می‌مانَد. دادهٔ واقعیِ ۲۴ اوت:
+
+     «Fri Jan 02 2026 00:00:00 GMT+0400 (Gulf Standard Time) 3 4 5 … 15»
+
+   شمردنِ واژه‌ها ۲۲ می‌دهد، جایی که ۱۳ شماره هست. تختهٔ مجموعه‌ها همین کار
+   را می‌کرد و «۲۲ قسمتِ ساخته‌شده» نشان می‌داد؛ و ستونِ جزوه از روی همان
+   «۷ درس هنوز وارد نشده» می‌گفت، در حالی که هر ۱۵ درس در جزوه بودند.
+
+   قاعده‌ها، به‌ترتیبِ اهمیت:
+     • توکنی که حرفِ لاتین دارد، شمارهٔ قسمت نیست (Fri, GMT+0400, (Gulf…).
+     • ساعت (۰۰:۰۰:۰۰) نیست.
+     • عددِ با صفرِ پیشرو («۰۲») نیست — موتور شماره را بی صفرِ پیشرو می‌نویسد.
+     • عددِ بزرگ‌تر از SERIES_EP_MAX سال است، نه قسمت.
+   هرچه ماند، شمارهٔ قسمت است. */
+var SERIES_EP_MAX = 500;
+
+function epNumsOf_(cell) {
+  var t = String(cell === null || cell === undefined ? '' : cell);
+  t = faDigits_(t);
+  var out = [], seen = Object.create(null);
+  var toks = t.split(/[\s,،]+/);
+  for (var i = 0; i < toks.length; i++) {
+    var x = toks[i];
+    if (!x) continue;
+    if (/[A-Za-z]/.test(x)) continue;              // Fri، GMT+0400، (Gulf…
+    if (/\d+:\d+/.test(x)) continue;               // ۰۰:۰۰:۰۰
+    if (!/^\d+$/.test(x)) continue;
+    if (x.length > 1 && x.charAt(0) === '0') continue;   // «۰۲» تاریخ است
+    var n = parseInt(x, 10);
+    if (!isFinite(n) || n < 1 || n > SERIES_EP_MAX) continue;
+    if (seen[n]) continue;
+    seen[n] = 1; out.push(n);
+  }
+  out.sort(function (a, b) { return a - b; });
+  return out;
+}
+
+/** همان سلول، تمیز و مرتب — برای نوشتنِ دوباره. */
+function epNumsJoin_(nums) { return (nums || []).join(' '); }
+
 function lastEpNo_(cell) {
   var t = faDigits_(String(cell === null || cell === undefined ? '' : cell));
   var m = t.match(/\d+/g);
@@ -13495,7 +13540,13 @@ function produceSpecialEpisode(opt) {
     rec.vals[SC.CUR_CHUNK - 1] = advNote.length
       ? Number(String(advNote[advNote.length - 1]).replace(/^.*قطعهٔ /, '')) || seg.toNo
       : 0;
-    rec.vals[SC.EPISODES - 1] = (String(rec.vals[SC.EPISODES - 1] || '') + ' ' + epNum).trim();
+    /* هنگامِ افزودن، سلول تمیز هم می‌شود: اگر تاریخی در آن نشسته باشد
+       (که یک بار افتاده و برای همیشه مانده)، همین‌جا می‌رود و فقط
+       شماره‌ها می‌مانند. هیچ شماره‌ای از دست نمی‌رود. */
+    var epsNow = epNumsOf_(rec.vals[SC.EPISODES - 1]);
+    if (epsNow.indexOf(Number(epNum)) === -1) epsNow.push(Number(epNum));
+    epsNow.sort(function (a, b) { return a - b; });
+    rec.vals[SC.EPISODES - 1] = epNumsJoin_(epsNow);
     rec.vals[SC.LAST_EP_AT - 1] = nowStr_();
     rec.vals[SC.UPDATED - 1] = nowStr_();
     rec.vals[SC.STORY - 1] = (String(rec.vals[SC.STORY - 1] || '') + '\n' +
@@ -14222,7 +14273,9 @@ function seriesBoardData_(hub) {
     }
     partRows.sort(function (a, b) { return a.seq - b.seq || (a.name < b.name ? -1 : 1); });
     var st = String(v[SC.STATUS - 1] || SST.NEW);
-    var epList = String(v[SC.EPISODES - 1] || '').split(/\s+/).filter(String);
+    // ستون می‌تواند یک تاریخِ چسبیده داشته باشد؛ شمردنِ واژه‌ها ۲۲ می‌داد
+    // جایی که ۱۳ شماره بود. (توضیحِ کامل کنارِ epNumsOf_ در بخشِ ۱۳.)
+    var epList = epNumsOf_(v[SC.EPISODES - 1]);
     rows.push({
       key: key,
       name: String(v[SC.NAME - 1] || key),
@@ -15009,13 +15062,17 @@ function handoutCell_(x) {
            '<div><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
            'onclick="handoutSeries(this)">ساختِ جزوه</button></div></td>';
   }
-  var behind = Math.max(0, (x.episodes || 0) - (h.lessons || 0));
+  /* مخرج باید حقیقت باشد، نه حدسِ ستون. `h.produced` از پیمایشِ واقعیِ
+     پوشه در آخرین به‌روزرسانی می‌آید؛ ستونِ «قسمت‌های پادکست» هم تاریخ
+     قاطی‌اش می‌شود و هم قسمت‌های پیش از شروعِ ثبت را ندارد. */
+  var made = Number(h.produced) || Number(x.episodes) || 0;
+  var behind = Math.max(0, made - (h.lessons || 0));
   return '<td>' +
     (h.url ? '<a href="' + bEsc_(h.url) + '" target="_blank">باز کردنِ جزوه</a>'
            : '<span class="sub">بی لینک</span>') +
     '<div class="sub">' + faNum_(h.totCh) + ' فصل · ' + faNum_(h.totSec) + ' بخش · ' +
     faNum_(h.totRef) + ' ارجاع</div>' +
-    '<div class="sub">' + faNum_(h.lessons || 0) + ' از ' + faNum_(x.episodes || 0) +
+    '<div class="sub">' + faNum_(h.lessons || 0) + ' از ' + faNum_(made) +
     ' درس' + (h.amend ? ' · ' + faNum_(h.amend) + ' تکمیلِ درسِ قبلی' : '') + '</div>' +
     (behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(behind) +
               ' درس هنوز وارد نشده</div>' : '') +
@@ -15040,12 +15097,13 @@ function handoutPanelHtml_(d) {
   var made = 0, lessons = 0, produced = 0, due = 0, behind = 0;
   for (var i = 0; i < rows.length; i++) {
     var x = rows[i];
-    if (!x.episodes) continue;
-    produced += x.episodes;
+    var mk = Number(x.handout && x.handout.produced) || Number(x.episodes) || 0;
+    if (!mk) continue;
+    produced += mk;
     due += (x.handoutDue || 0);
     if (x.handout && x.handout.totCh) {
       made++; lessons += (x.handout.lessons || 0);
-      if (x.episodes > (x.handout.lessons || 0)) behind++;
+      if (mk > (x.handout.lessons || 0)) behind++;
     } else behind++;
   }
   if (!produced) return '';
@@ -26945,6 +27003,7 @@ function handoutUpdate_(folder, meta, hub) {
     try {
       handoutLog_(hub, { series: book.seriesName || (meta && meta.seriesName) || '',
                          key: book.seriesKey || (meta && meta.seriesKey) || '',
+                         made: (meta && meta.producedCount) || '',
                          ep: epNum, title: String(ep.title || ''),
                          newCh: (st && st.chapters) || 0, newSec: (st && st.sections) || 0,
                          amend: (st && st.amended) || 0, radio: radio || 0,
@@ -27030,10 +27089,18 @@ var HANDOUT_HEADERS = ['تاریخ', 'مجموعه', 'درسِ تازه', 'عن�
                        'بازنگری', 'نتیجه', 'لینکِ جزوه',
                        // کلید، نه فقط نام: تختهٔ مجموعه‌ها با کلید می‌گردد و
                        // دو مجموعه می‌توانند نامِ یکسان داشته باشند.
-                       'کلیدِ مجموعه'];
+                       'کلیدِ مجموعه',
+                       /* شمارِ قسمت‌هایی که واقعاً در پوشهٔ مجموعه هستند.
+                          تنها جای مطمئنِ این عدد، خودِ پوشه است: ستونِ
+                          «قسمت‌های پادکست» هم تاریخ قاطی‌اش می‌شود و هم
+                          قسمت‌های قدیمی‌تر از شروعِ ثبت را ندارد — در
+                          «معرفت شناسی» ستون ۳ تا ۱۵ را داشت ولی پوشه ۱ تا
+                          ۱۵ را. تخته باید همین عدد را نشان بدهد، نه حدسِ
+                          ستون را. */
+                       'قسمتِ تولیدشده'];
 var HU = { AT: 1, SERIES: 2, EP: 3, TITLE: 4, NEWCH: 5, NEWSEC: 6, AMEND: 7,
            RADIO: 8, NEWREF: 9, TOTCH: 10, TOTSEC: 11, TOTREF: 12,
-           REV: 13, RESULT: 14, LINK: 15, KEY: 16 };
+           REV: 13, RESULT: 14, LINK: 15, KEY: 16, MADE: 17 };
 
 /**
  * یک ردیف برای هر تلاش — موفق یا ناموفق.
@@ -27053,7 +27120,7 @@ function handoutLog_(hub, row) {
                        String(row.totCh || 0), String(row.totSec || 0),
                        String(row.totRef || 0), String(row.rev || 0),
                        String(row.result || ''), String(row.url || ''),
-                       String(row.key || '')]],
+                       String(row.key || ''), String(row.made || '')]],
                 HANDOUT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ کاربردِ جزوه نوشته نشد: ' + e.message); return false; }
@@ -27086,6 +27153,7 @@ function handoutBoardMap_(hub) {
       // درستِ پریشب را با صفر می‌پوشاند.
       var okRow = String(v[i][HU.RESULT - 1]) === 'به‌روز شد';
       if (!cur) cur = map[k] = { at: '', ep: '', result: '', tries: 0, lessons: 0,
+                                 produced: 0,
                                  totCh: 0, totSec: 0, totRef: 0, amend: 0,
                                  url: '', lastOkAt: '', lastOkEp: '', abandoned: 0,
                                  __fail: Object.create(null) };
@@ -27100,6 +27168,8 @@ function handoutBoardMap_(hub) {
       cur.at = String(v[i][HU.AT - 1] || '');
       cur.ep = String(v[i][HU.EP - 1] || '');
       cur.result = String(v[i][HU.RESULT - 1] || '');
+      var madeCell = Number(v[i][HU.MADE - 1]) || 0;
+      if (madeCell) cur.produced = madeCell;    // تازه‌ترین شمارِ واقعیِ پوشه
       if (okRow) {
         cur.lessons++;                          // هر ردیفِ موفق = یک درسِ واردشده
         cur.totCh = Number(v[i][HU.TOTCH - 1]) || 0;
@@ -27350,6 +27420,10 @@ function handoutRunDue_(maxItems, budgetMs) {
         meta.level = meta.level || String(rec.vals[SC.LEVEL - 1] || '');
         meta.progress = { done: Number(rec.vals[SC.CUR_CHUNK - 1]) || 0,
                           total: Number(rec.vals[SC.CHUNKS - 1]) || 0 };
+        // شمارِ واقعیِ قسمت‌ها — همین‌جا از پیمایشِ پوشه در دست است
+        var madeN = 0;
+        for (var mk2 in eps) if (Object.prototype.hasOwnProperty.call(eps, mk2)) madeN++;
+        meta.producedCount = madeN;
         var u = handoutUpdate_(sf, meta, hub);
         if (u.ok) {
           res.done++;
