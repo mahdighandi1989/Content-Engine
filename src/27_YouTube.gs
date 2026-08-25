@@ -586,11 +586,13 @@ function ytRenderRead_() {
 function ytRenderSave_(d) {
   d.updatedAt = nowStr_();
   d.note = 'موتور نمی‌تواند ویدئو بسازد (Apps Script نه ffmpeg دارد نه مهلتِ کافی). ' +
-           'برای هر ردیفِ status=«در انتظار»: آرایهٔ audio را **به همان ترتیب** ' +
-           'بردار — بعضی قسمت‌ها دو فایل‌اند و باید پشتِ‌هم چسبانده شوند تا یک ' +
-           'ویدئوی واحد شود — با کاور یک MP4 با تصویرِ ثابت بساز (h264 + aac، ' +
-           '۱۲۸ کیلوبیت) و با همان نامِ outName در همان پوشه بگذار. ' +
-           'موتور خودش پیدایش می‌کند و منتشر می‌کند. هیچ‌جای دیگری را دست نزن.';
+           'این فایل را «tools/render.js» در GitHub Actions می‌خواند. برای هر ردیفِ ' +
+           'status=«در انتظار»: نشانی‌های audio[].url را **به همان ترتیب** بگیر — ' +
+           'بعضی قسمت‌ها چند فایل‌اند و باید پشتِ‌هم چسبانده شوند تا یک ویدئوی ' +
+           'واحد شود — با coverUrl یک MP4 با تصویرِ ثابت بساز (h264 + aac، ' +
+           '۱۲۸ کیلوبیت)، به‌صورتِ release asset منتشرش کن و نشانی‌اش را با همین ' +
+           'key در docs/renders.json بنویس. موتور خودش برمی‌دارد، در پوشهٔ قسمت ' +
+           'می‌گذارد و اشتراکِ موقتِ صوت را پس می‌گیرد. هیچ‌جای دیگری را دست نزن.';
   try { putOutJson_(ytRenderName_(), d); return true; } catch (e) {
     logLine_('درخواستِ رندرِ ویدئو نوشته نشد: ' + e.message);
     return false;
@@ -706,17 +708,26 @@ function ytRenderAsk_(item) {
   var cap = Math.max(1, Number(CFG.YT_RENDER_MAX) || 8);
   var pend = d.items.filter(function (x) { return String(x.status || '') === 'در انتظار'; });
   if (pend.length >= cap) return false;
-  d.items.push({ key: key, show: item.show, ep: String(item.ep),
-                 title: String(item.title || ''), folderId: String(item.folderId || ''),
-                 // فهرستِ مرتبِ بخش‌های صوتی. یک قسمت می‌تواند دو فایل باشد و
-                 // باید پشتِ‌هم چسبانده شود تا **یک** ویدئو بدهد.
-                 audio: (item.audio || []).map(function (a) {
-                   return { id: String(a.id || ''), name: String(a.name || '') }; }),
-                 audioKind: String(item.audioKind || ''),
-                 coverFileId: String(item.coverFileId || ''),
-                 outName: String(item.outName || ''), at: nowStr_(),
-                 status: 'در انتظار' });
-  return ytRenderSave_(d);
+  var row = { key: key, show: item.show, ep: String(item.ep),
+              title: String(item.title || ''), folderId: String(item.folderId || ''),
+              // فهرستِ مرتبِ بخش‌های صوتی. یک قسمت می‌تواند دو فایل باشد و
+              // باید پشتِ‌هم چسبانده شود تا **یک** ویدئو بدهد.
+              audio: (item.audio || []).map(function (a) {
+                return { id: String(a.id || ''), name: String(a.name || ''),
+                         url: ytDlUrl_(a.id) }; }),
+              audioKind: String(item.audioKind || ''),
+              coverFileId: String(item.coverFileId || ''),
+              coverUrl: ytDlUrl_(item.coverFileId || ''),
+              outName: String(item.outName || ''), at: nowStr_(),
+              status: 'در انتظار' };
+  /* اجازه همراهِ درخواست داده می‌شود، نه پیش از آن و نه جدا از آن: هر فایلی
+     که این‌جا باز می‌شود در `ytShareSweep_` نامش هست و پس گرفته می‌شود. */
+  row.shared = ytRenderShare_(row, true) > 0;
+  row.sharedAt = nowStr_();
+  d.items.push(row);
+  var okSave = ytRenderSave_(d);
+  if (okSave) ytQueueShare_();
+  return okSave;
 }
 
 /** رسید: ویدئو آمد، ردیف بسته می‌شود. تاریخچه پاک نمی‌شود. */
@@ -745,6 +756,231 @@ function ytRenderPending_() {
     }
   }
   return out;
+}
+
+/* ────────── ۶‑ب) مسیرِ داده: چطور صوت بیرون می‌رود و ویدئو برمی‌گردد (۶٫۶) ──────────
+ *
+ * ══ چرا این‌طور و نه ساده‌تر ══
+ * درخواستِ رندر از ۵٫۹۷ نوشته می‌شد و هیچ‌کس جوابش را نمی‌داد. علتش را
+ * ۲۵ اوت با آزمایش فهمیدیم، نه با حدس: در محیطِ سشن‌های ابری
+ * `drive.google.com` و `docs.google.com` و `script.google.com` **اصلاً باز
+ * نمی‌شوند**، و ابزارهای MCP محتوا را داخلِ خودِ گفت‌وگو می‌آورند — صوتِ یک
+ * قسمت سی مگابایت است و از آن راه رد نمی‌شود. یعنی مشکل هرگز ffmpeg نبود
+ * (که از PyPI در چند ثانیه نصب می‌شود)؛ مشکل **رسیدن به فایل** بود.
+ *
+ * پس کار به GitHub Actions سپرده شد، که هم شبکهٔ باز دارد و هم ffmpeg. و
+ * چون آن‌جا هیچ اجازه‌ای به درایو ندارد، اجازه از این سمت داده می‌شود:
+ *
+ *   موتور → صوت و کاورِ همان قسمت را «هرکس با لینک: فقط دیدن» می‌کند و
+ *           نشانی‌شان را در `_YT-RENDER.json` می‌گذارد
+ *   اکشن  → می‌گیرد، MP4 می‌سازد، به‌صورتِ release asset منتشر می‌کند و
+ *           نشانی‌اش را در `docs/renders.json` همین ریپو می‌نویسد
+ *   موتور → از raw گیت‌هاب برمی‌دارد، در پوشهٔ قسمت می‌گذارد، و
+ *           **اشتراک را پس می‌گیرد**
+ *
+ * همان الگوی `promptSyncFromRepo_` و `outReadmeSync_`: ریپو تختهٔ اعلانِ
+ * مشترک است، و هیچ رمزی جایی نمی‌نشیند.
+ *
+ * ══ و آنچه باید صریح نوشته شود ══
+ * چیزی که عمومی می‌شود، فردا در یوتیوب عمومی است — ولی «فردا عمومی می‌شود»
+ * مجوزِ «برای همیشه باز بماند» نیست. `ytShareSweep_` هر شب هر اشتراکی را که
+ * کارش تمام شده یا از `YT_SHARE_DAYS` گذشته پس می‌گیرد. اشتراکی که با شکستِ
+ * یک مرحله جا بماند، دقیقاً همان چیزی است که این سوپاپ برایش هست.
+ */
+
+/** نشانیِ دانلودِ مستقیمِ یک فایلِ درایو.
+ *
+ * `drive.google.com/uc?export=download` برای فایلِ بزرگ‌تر از ~۲۵ مگابایت
+ * به‌جای بایت‌ها یک صفحهٔ هشدارِ HTML می‌دهد — و صوتِ ما همیشه از آن بزرگ‌تر
+ * است. مسیرِ `usercontent` با `confirm=t` همان هشدار را رد می‌کند. */
+function ytDlUrl_(fileId) {
+  return 'https://drive.usercontent.google.com/download?id=' +
+         encodeURIComponent(String(fileId || '')) + '&export=download&confirm=t';
+}
+
+/** اشتراکِ «هرکس با لینک: فقط دیدن» — روشن. */
+function ytShareOn_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل برقرار نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}
+
+/** و خاموش. */
+function ytShareOff_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}
+
+/** صوت و کاورِ یک ردیف را با هم باز یا بسته می‌کند. */
+function ytRenderShare_(item, on) {
+  var ids = [], au = (item || {}).audio || [];
+  for (var i = 0; i < au.length; i++) if (au[i] && au[i].id) ids.push(au[i].id);
+  if (item && item.coverFileId) ids.push(item.coverFileId);
+  var n = 0;
+  for (var j = 0; j < ids.length; j++) {
+    if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
+  }
+  return n;
+}
+
+/** خودِ صف هم باید از بیرون خواندنی باشد — وگرنه اکشن نمی‌داند چه بسازد. */
+function ytQueueShare_() {
+  try {
+    var f = outFolder_().getFilesByName(ytRenderName_());
+    if (!f.hasNext()) return '';
+    var id = f.next().getId();
+    ytShareOn_(id);
+    return id;
+  } catch (e) { return ''; }
+}
+
+/**
+ * شناسهٔ صف عوض شده است یا نه.
+ *
+ * اکشن شناسهٔ `_YT-RENDER.json` را ثابت در `tools/render.js` دارد، چون از
+ * بیرون راهی برای جست‌وجو در درایو ندارد. `putOutJson_` با `setContent`
+ * می‌نویسد و شناسه را نگه می‌دارد — ولی اگر کسی فایل را پاک کند، فایلِ تازه
+ * شناسهٔ تازه می‌گیرد و اکشن **بی هیچ خطایی** برای همیشه صفِ کهنه را
+ * می‌خواند. این تابع همان را می‌گیرد و می‌گوید چه باید عوض شود.
+ */
+function ytQueueIdOk_() {
+  var want = String(CFG.YT_QUEUE_ID || ''), got = '';
+  try {
+    var f = outFolder_().getFilesByName(ytRenderName_());
+    if (f.hasNext()) got = f.next().getId();
+  } catch (e) {}
+  if (!want || !got) return { ok: true, want: want, got: got };
+  return { ok: want === got, want: want, got: got };
+}
+
+/** نقشهٔ ویدئوهای ساخته‌شده، از raw گیت‌هاب. */
+function ytRenderMap_() {
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return null;
+    var d = JSON.parse(res.getContentText());
+    var m = (d && d.items) || null;
+    return (m && typeof m === 'object') ? m : null;
+  } catch (e) { return null; }
+}
+
+/**
+ * بایت‌هایی که رسیدند واقعاً MP4 هستند یا نه.
+ *
+ * همان قاعدهٔ `musicFetch_`: نه پسوند، نه `Content-Type` — سرآیندِ خودِ
+ * فایل. یک صفحهٔ ۴۰۴ی گیت‌هاب هم ۲۰۰ برنمی‌گرداند، ولی یک فایلِ نیمه‌کاره
+ * برمی‌گرداند؛ و ویدئوی خرابی که در پوشه بنشیند، منتشر می‌شود.
+ */
+function ytMp4Ok_(blob) {
+  var b = null;
+  try { b = blob.getBytes(); } catch (e) { return { ok: false, why: 'بایت‌ها خوانده نشدند' }; }
+  if (!b || b.length < 5000) {
+    return { ok: false, why: 'فایل بسیار کوچک است (' + (b ? b.length : 0) + ' بایت)' };
+  }
+  var s = '';
+  for (var i = 4; i < 8; i++) s += String.fromCharCode(b[i] & 0xFF);
+  if (s !== 'ftyp') return { ok: false, why: 'MP4 نیست — نشانِ ftyp ندارد' };
+  return { ok: true, why: '' };
+}
+
+/** یک ویدئو را از نشانی‌اش بردار و در پوشهٔ همان قسمت بگذار. */
+function ytRenderFetch_(item, url) {
+  var res = null;
+  try {
+    res = UrlFetchApp.fetch(String(url), { muteHttpExceptions: true, followRedirects: true });
+  } catch (e) { return { ok: false, why: 'دانلود نشد: ' + String(e.message).slice(0, 80) }; }
+  if (res.getResponseCode() !== 200) return { ok: false, why: 'کدِ ' + res.getResponseCode() };
+  var blob = null;
+  try { blob = res.getBlob(); } catch (e2) { return { ok: false, why: 'بایت‌ها خوانده نشدند' }; }
+  var chk = ytMp4Ok_(blob);
+  if (!chk.ok) return { ok: false, why: chk.why };
+
+  var folder = null;
+  try { folder = DriveApp.getFolderById(String(item.folderId || '')); } catch (e3) {}
+  if (!folder) return { ok: false, why: 'پوشهٔ قسمت پیدا نشد' };
+  var name = String(item.outName || ytVideoName_('قسمت ' + item.ep));
+  try {
+    var old = folder.getFilesByName(name);
+    while (old.hasNext()) old.next().setTrashed(true);
+    folder.createFile(blob.setName(name));
+  } catch (e4) {
+    return { ok: false, why: 'در پوشه نوشته نشد: ' + String(e4.message).slice(0, 80) };
+  }
+  return { ok: true, why: '' };
+}
+
+/** ویدئوهای آماده را از ریپو بردار. */
+function ytRenderCollect_(budgetMs) {
+  var out = { got: 0, tried: 0, why: '' };
+  var d = ytRenderRead_();
+  var pend = [];
+  for (var p = 0; p < d.items.length; p++) {
+    if (String(d.items[p].status || '') === 'در انتظار') pend.push(d.items[p]);
+  }
+  if (!pend.length) return out;
+  var map = ytRenderMap_();
+  if (!map) { out.why = 'نقشهٔ ویدئوها خوانده نشد'; return out; }
+
+  var cap = Math.max(1, Number(CFG.YT_COLLECT_MAX) || 3);
+  var t0 = new Date().getTime();
+  var budget = Math.max(20000, Number(budgetMs) || Number(CFG.YT_COLLECT_MS) || 120000);
+  for (var i = 0; i < pend.length && out.got < cap; i++) {
+    if (new Date().getTime() - t0 > budget) break;
+    var rec = map[pend[i].key];
+    if (!rec || !rec.url) continue;
+    out.tried++;
+    var r = ytRenderFetch_(pend[i], rec.url);
+    if (r.ok) {
+      out.got++;
+      ytRenderDone_(pend[i].show, pend[i].ep);
+      ytRenderShare_(pend[i], false);
+      logLine_('ویدئوی «' + pend[i].key + '» رسید و در پوشهٔ قسمت نشست.');
+    } else {
+      logLine_('ویدئوی «' + pend[i].key + '» برداشته نشد: ' + r.why);
+    }
+  }
+  return out;
+}
+
+/**
+ * هر اشتراکی که کارش تمام شده یا کهنه شده، پس گرفته می‌شود.
+ *
+ * دو حالت، و دومی مهم‌تر است: ردیفی که «رسید» شده دیگر اشتراک لازم ندارد؛ و
+ * ردیفی که هفته‌ها در انتظار مانده یعنی چیزی در زنجیره شکسته — و صوتش نباید
+ * تا ابد با لینک خواندنی بماند. باز نگه داشتنِ چیزی که کسی منتظرش نیست، همان
+ * نشتی است که هیچ‌کس نمی‌بیندش.
+ */
+function ytShareSweep_() {
+  var d = ytRenderRead_(), now = new Date().getTime(), n = 0, changed = false;
+  var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (!it.shared) continue;
+    var done = String(it.status || '') !== 'در انتظار';
+    var t = parseWhen_(String(it.sharedAt || it.at || ''));
+    var old = !isNaN(t) && (now - t) / 86400000 > maxD;
+    if (!done && !old) continue;
+    ytRenderShare_(it, false);
+    it.shared = false;
+    it.unsharedAt = nowStr_();
+    changed = true; n++;
+  }
+  if (changed) ytRenderSave_(d);
+  return n;
 }
 
 /* ─────────────────── ۷) پلی‌لیست‌ها ───────────────────
@@ -1669,6 +1905,20 @@ function ytHealth_(problems, notes) {
                   '). موتور نمی‌تواند ویدئو بسازد؛ تا وقتی کسی آن MP4ها را ' +
                   'نسازد، هیچ قسمتی منتشر نمی‌شود.');
   }
+
+  /* شناسهٔ صف در `tools/render.js` ثابت نوشته شده، چون اکشن از بیرون راهی
+     برای جست‌وجو در درایو ندارد. اگر فایل پاک و دوباره ساخته شود، شناسه عوض
+     می‌شود و اکشن **بی هیچ خطایی** تا ابد صفِ کهنه را می‌خواند. این تنها
+     جایی است که آن سکوت شکسته می‌شود. */
+  try {
+    var qi = ytQueueIdOk_();
+    if (!qi.ok) {
+      problems.push('شناسهٔ «' + (CFG.YT_RENDER_FILE || '_YT-RENDER.json') +
+                    '» عوض شده است: اکشن دنبالِ ' + qi.want + ' می‌گردد ولی فایل ' +
+                    'حالا ' + qi.got + ' است. تا وقتی YT_QUEUE_ID و ' +
+                    'tools/render.js به‌روز نشوند، هیچ ویدئویی ساخته نمی‌شود.');
+    }
+  } catch (eQi) {}
   if (st.unlisted) {
     problems.push('ویدئو در انتظارِ وارسی: ' + faDigitsOut_(String(st.unlisted)) +
                   ' مورد عمومی نشده‌اند — یعنی در کپشنشان چیزی از جنسِ خصوصی ' +
@@ -1713,12 +1963,15 @@ function runYouTubePublish() {
   var b = { walked: 0, queued: 0, wrapped: false };
   try { b = ytBackfill_(Number(CFG.YT_BACKFILL_WALK) || 12); }
   catch (e) { logLine_('کاوشِ قسمت‌های گذشته برای یوتیوب نشد: ' + e.message); }
+  var c = { got: 0, tried: 0, why: '' };
+  try { c = ytRenderCollect_(Number(CFG.YT_COLLECT_MS) || 120000); } catch (eC) {}
   var r = ytRunDue_(Number(CFG.YT_MANUAL_MAX) || 6, 210000);
   var p = { made: 0, renamed: 0, linked: 0 };
   try { p = ytPlaylistSync_(45000); } catch (e2) {}
 
   var L = ['انتشار در یوتیوب:'];
   if (b.queued) L.push('• قسمتِ تازه‌ای که به صف رفت: ' + b.queued);
+  if (c.got) L.push('• ویدئوی آماده که برداشته شد: ' + c.got);
   L.push('• منتشرشده در این اجرا: ' + r.done);
   if (r.waiting) L.push('• منتظرِ ساختِ ویدئو: ' + r.waiting);
   if (r.failed) L.push('• ناموفق: ' + r.failed);
@@ -1730,7 +1983,8 @@ function runYouTubePublish() {
     L.push('');
     L.push('یادآوری: موتور نمی‌تواند ویدئو بسازد (Apps Script نه ffmpeg دارد نه ' +
            'مهلتِ کافی). درخواست‌ها در «' + (CFG.YT_RENDER_FILE || '_YT-RENDER.json') +
-           '» است و تسکِ غنی‌سازی آن‌ها را می‌سازد.');
+           '» است و GitHub Actions هر ساعت آن‌ها را می‌سازد؛ ویدئوی آماده شبِ ' +
+           'بعد — یا با همین دکمه — برداشته و منتشر می‌شود.');
   }
   var m = L.join('\n');
   if (ui) ui.alert('انتشار در یوتیوب', m, ui.ButtonSet.OK); else console.log(m);

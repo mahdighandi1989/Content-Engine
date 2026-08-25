@@ -730,6 +730,12 @@ function selfUpdateDaily() {
       var yb = ytBackfill_(Number(CFG.YT_BACKFILL_WALK) || 12);
       if (yb.queued) logLine_('یوتیوب: ' + yb.queued + ' قسمتِ گذشته به صف رفت.');
     } catch (eYb) { logLine_('کاوشِ قسمت‌های گذشته برای یوتیوب نشد: ' + eYb.message); }
+    /* برداشتِ ویدئوهای آماده **پیش از** آپلود: ویدئویی که امشب رسیده باید
+       همین امشب منتشر شود، نه فردا شب. */
+    try {
+      var yc = ytRenderCollect_(Number(CFG.YT_COLLECT_MS) || 120000);
+      if (yc.got) logLine_('یوتیوب: ' + yc.got + ' ویدئوی آماده از ریپو برداشته شد.');
+    } catch (eYc0) { logLine_('برداشتِ ویدئوهای آماده نشد: ' + eYc0.message); }
     try {
       var yr = ytRunDue_(Number(CFG.YT_MAX_PER_RUN) || 2, Number(CFG.YT_MS) || 150000);
       if (yr.tried || yr.waiting) {
@@ -739,6 +745,12 @@ function selfUpdateDaily() {
     } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
     try { ytPlaylistSync_(45000); } catch (eYp) {}
     try { ytChannelSync_(false); } catch (eYc) {}
+    /* و آخر از همه، اشتراک‌های موقت پس گرفته می‌شوند — بعد از آپلود، تا
+       ویدئویی که همین اجرا منتشر شد صوتش را زیرِ پا از دست ندهد. */
+    try {
+      var ys = ytShareSweep_();
+      if (ys) logLine_('یوتیوب: اشتراکِ موقتِ ' + ys + ' قسمت پس گرفته شد.');
+    } catch (eYs) { logLine_('پس‌گرفتنِ اشتراکِ موقت نشد: ' + eYs.message); }
   }
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.

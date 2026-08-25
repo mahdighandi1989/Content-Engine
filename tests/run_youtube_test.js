@@ -1040,4 +1040,109 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
      ytApiOff_('{"items":[]}').off === false);
 }
 
+console.log('=== ۳۵) مسیرِ داده: صوت بیرون، ویدئو برمی‌گردد (۶٫۶) ===');
+{
+  const root = global.__ROOT_FOLDER;
+  const nm = CFG.YT_RENDER_FILE || '_YT-RENDER.json';
+  const kill = root.getFilesByName(nm); while (kill.hasNext()) kill.next().setTrashed(true);
+
+  /* فایلِ ۳۰ مگابایتی با `uc?export=download` یک صفحهٔ هشدارِ HTML می‌گیرد،
+     نه بایت‌ها. این تنها جایی است که آن اشتباه گرفته می‌شود. */
+  const u = ytDlUrl_('ABC');
+  ok('۳۵.۱ نشانیِ دانلود از مسیرِ usercontent است، نه uc',
+     u.indexOf('drive.usercontent.google.com') !== -1 &&
+     u.indexOf('confirm=t') !== -1 && u.indexOf('/uc?') === -1, u);
+
+  // پوشهٔ قسمت و فایل‌های واقعی، تا اشتراک روی چیزی واقعی سنجیده شود
+  const ep = DriveApp.__register('EPF35', 'قسمت ۳۵');
+  const w1 = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'یکجا 1 از 2.wav'));
+  const w2 = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'یکجا 2 از 2.wav'));
+  const cv = root.createFile(Utilities.newBlob('PNG', 'image/png', 'کاور.png'));
+
+  const asked = ytRenderAsk_({ show: 'special', ep: '35', title: 'ت', folderId: 'EPF35',
+    audio: [{ id: w1.getId(), name: w1.getName() }, { id: w2.getId(), name: w2.getName() }],
+    audioKind: 'یکجا ×۲', coverFileId: cv.getId(), outName: 'قسمت ۳۵ — ویدئو.mp4' });
+  ok('۳۵.۲ درخواست ثبت می‌شود', asked === true);
+
+  const row = ytRenderRead_().items.filter(x => x.key === 'special:35')[0] || {};
+  ok('۳۵.۳ هر بخشِ صوتی نشانیِ خودش را دارد — وگرنه اکشن نمی‌تواند بگیردش',
+     (row.audio || []).length === 2 && (row.audio || []).every(a => /usercontent/.test(a.url || '')));
+  ok('۳۵.۴ و کاور هم', /usercontent/.test(row.coverUrl || ''));
+  /* اجازه رفتاری سنجیده می‌شود: خودِ فایل باید باز شده باشد، نه اینکه
+     ردیف ادعا کند باز شده. */
+  ok('۳۵.۵ صوت و کاور واقعاً «هرکس با لینک: فقط دیدن» شدند',
+     w1.getSharingAccess() === 'ANYONE_WITH_LINK' &&
+     w2.getSharingAccess() === 'ANYONE_WITH_LINK' &&
+     cv.getSharingAccess() === 'ANYONE_WITH_LINK' && row.shared === true);
+
+  /* بایت‌ها باور می‌شوند، نه نام و نه Content-Type. */
+  const mkMp4 = n => { const a = new Array(n); for (let i = 0; i < n; i++) a[i] = 0;
+    'ftyp'.split('').forEach((c, i) => a[4 + i] = c.charCodeAt(0)); return a; };
+  ok('۳۵.۶ صفحهٔ HTML به‌جای ویدئو رد می‌شود',
+     ytMp4Ok_(Utilities.newBlob('<!DOCTYPE html><html>…', 'video/mp4', 'x.mp4')).ok === false);
+  ok('۳۵.۷ و بایت‌های واقعی پذیرفته می‌شوند',
+     ytMp4Ok_(Utilities.newBlob(mkMp4(6000), 'application/octet-stream', 'x')).ok === true);
+
+  // نقشهٔ ریپو + دانلودِ ویدئو
+  const stubWas = global.__STUB;
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) {
+      return { code: 200, text: JSON.stringify({ items: {
+        'special:35': { url: 'https://github.test/releases/download/renders/special-35.mp4' } } }) };
+    }
+    if (url.indexOf('special-35.mp4') !== -1) return { code: 200, bytes: mkMp4(6000), mime: 'video/mp4' };
+    return stubWas(url);
+  };
+  const got = ytRenderCollect_(60000);
+  ok('۳۵.۸ ویدئوی آماده برداشته می‌شود', got.got === 1, JSON.stringify(got));
+  const names = [];
+  { const it = ep.getFiles(); while (it.hasNext()) names.push(it.next().getName()); }
+  ok('۳۵.۹ و در پوشهٔ همان قسمت می‌نشیند، با نامِ خودش',
+     names.indexOf('قسمت ۳۵ — ویدئو.mp4') !== -1, names.join(' | '));
+  ok('۳۵.۱۰ ردیف بسته می‌شود',
+     (ytRenderRead_().items.filter(x => x.key === 'special:35')[0] || {}).status === 'رسید');
+  /* و این مهم‌ترین سنجهٔ این بند است: اجازه‌ای که داده شد، پس گرفته می‌شود. */
+  ok('۳۵.۱۱ و اشتراکِ موقت همان‌جا پس گرفته می‌شود',
+     w1.getSharingAccess() === 'PRIVATE' && w2.getSharingAccess() === 'PRIVATE' &&
+     cv.getSharingAccess() === 'PRIVATE');
+
+  /* بایتِ خراب نباید ردیف را ببندد — وگرنه قسمت برای همیشه گم می‌شود. */
+  const w3 = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'کامل.wav'));
+  DriveApp.__register('EPF36', 'قسمت ۳۶');
+  ytRenderAsk_({ show: 'special', ep: '36', title: 'ت', folderId: 'EPF36',
+    audio: [{ id: w3.getId(), name: 'کامل.wav' }], coverFileId: '', outName: 'ق۳۶.mp4' });
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) {
+      return { code: 200, text: JSON.stringify({ items: {
+        'special:36': { url: 'https://github.test/x/bad.mp4' } } }) };
+    }
+    if (url.indexOf('bad.mp4') !== -1) return { code: 200, text: '<html>404</html>' };
+    return stubWas(url);
+  };
+  const bad = ytRenderCollect_(60000);
+  ok('۳۵.۱۲ ویدئوی خراب برداشته نمی‌شود', bad.got === 0 && bad.tried === 1);
+  ok('۳۵.۱۳ و ردیفش باز می‌ماند تا دوباره ساخته شود',
+     (ytRenderRead_().items.filter(x => x.key === 'special:36')[0] || {}).status === 'در انتظار');
+  ok('۳۵.۱۴ و اشتراکش هم باز می‌ماند — وگرنه تلاشِ بعدی هم شکست می‌خورد',
+     w3.getSharingAccess() === 'ANYONE_WITH_LINK');
+
+  /* سوپاپ: اشتراکی که کارش تمام نشده ولی کهنه شده هم پس گرفته می‌شود. */
+  const d36 = ytRenderRead_();
+  for (const it of d36.items) if (it.key === 'special:36') it.sharedAt = '1400/01/01 00:00';
+  ytRenderSave_(d36);
+  const swept = ytShareSweep_();
+  ok('۳۵.۱۵ اشتراکِ کهنه پس گرفته می‌شود، حتی اگر ویدئو هرگز نیامده باشد',
+     swept >= 1 && w3.getSharingAccess() === 'PRIVATE');
+
+  global.__STUB = stubWas;
+
+  /* شناسهٔ صف: اگر عوض شود، اکشن بی‌صدا صفِ کهنه را می‌خواند. */
+  const qWas = CFG.YT_QUEUE_ID;
+  CFG.YT_QUEUE_ID = 'یک-شناسهٔ-دیگر';
+  ok('۳۵.۱۶ عوض‌شدنِ شناسهٔ صف گرفته می‌شود', ytQueueIdOk_().ok === false);
+  CFG.YT_QUEUE_ID = '';
+  ok('۳۵.۱۷ و اگر شناسه‌ای تنظیم نشده باشد، هشدارِ الکی نمی‌دهد', ytQueueIdOk_().ok === true);
+  CFG.YT_QUEUE_ID = qWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

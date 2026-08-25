@@ -1,0 +1,58 @@
+# رندرِ ویدئوی یوتیوب — کاری که موتور نمی‌تواند
+#
+# یوتیوب صوت نمی‌گیرد، ویدئو می‌گیرد؛ و Apps Script نه ffmpeg دارد نه مهلتِ
+# کافی. سشن‌های ابری هم چاره نبودند: از آن محیط‌ها drive.google.com اصلاً باز
+# نمی‌شود و ابزارهای MCP محتوا را داخلِ گفت‌وگو می‌آورند (صوتِ یک قسمت ۳۰
+# مگابایت است). این‌جا هر دو هست: شبکهٔ باز و ffmpeg.
+#
+# هیچ رمزی لازم نیست. موتور صوت و کاورِ همان قسمت را موقتاً «هرکس با لینک:
+# فقط دیدن» می‌کند و نشانی‌شان را در صف می‌گذارد؛ این کار می‌سازد و در
+# docs/renders.json می‌نویسد؛ موتور برمی‌دارد و اشتراک را پس می‌گیرد.
+
+name: render-youtube-video
+
+on:
+  schedule:
+    # هر ساعت، دقیقهٔ ۴۰ — بعد از غنی‌سازی (۲۰) تا با آن هم‌زمان نشود
+    - cron: '40 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # دو اجرای هم‌زمان یعنی دو بار رندرِ یک قسمت و برخورد روی docs/renders.json
+  group: render-youtube-video
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: نسخهٔ ffmpeg
+        run: ffmpeg -version | head -1
+
+      - name: ساختِ ویدئوها
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node tools/render.js
+
+      - name: ثبتِ نشانی‌ها در ریپو
+        run: |
+          if git diff --quiet -- docs/renders.json; then
+            echo "چیزی عوض نشد."
+            exit 0
+          fi
+          git config user.name  "content-engine-render"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/renders.json
+          git commit -m "رندر: نشانیِ ویدئوهای تازه"
+          # اجرای دیگری ممکن است همین بین چیزی push کرده باشد
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 3))
+          done
+          exit 1

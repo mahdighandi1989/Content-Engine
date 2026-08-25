@@ -152,6 +152,11 @@ class DFile {
     return this;
   }
   getAs() { return this._b; }
+  // اشتراک — حالتش نگه داشته می‌شود تا آزمون بتواند بپرسد چه چیزی باز شد و
+  // مهم‌تر: چه چیزی دوباره بسته شد.
+  setSharing(access, perm) { this._share = { access, perm }; return this; }
+  getSharingAccess() { return (this._share || {}).access || 'PRIVATE'; }
+  getSharingPermission() { return (this._share || {}).perm || 'NONE'; }
   makeCopy(name, folder) {
     const b = global.Utilities.newBlob(this._b ? this._b.getDataAsString() : '',
                                       'application/octet-stream', name || this.getName());
@@ -226,6 +231,8 @@ class DFolder {
 }
 global.__ROOT_FOLDER = new DFolder('OUTPUT');
 global.DriveApp = {
+  Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', PRIVATE: 'PRIVATE' },
+  Permission: { VIEW: 'VIEW', NONE: 'NONE' },
   getFolderById(id) { return global.__FOLDERS[id] || global.__ROOT_FOLDER; },
   // آزمون‌ها می‌توانند یک پوشهٔ مستقل با شناسهٔ دلخواه ثبت کنند
   __register(id, name) {
