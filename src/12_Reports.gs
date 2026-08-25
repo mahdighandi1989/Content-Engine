@@ -388,6 +388,42 @@ function ingestReports_(hub, deadline) {
            reopened: reopened, codeItems: codeItems };
 }
 
+/**
+ * گزارشی که خوانده نشد، باید *دیده* شود.
+ *
+ * ══ چرا این لازم شد (۲۵ اوت) ══
+ * تسکِ غنی‌سازی هر ساعت یک `_REPORT-enrich-*.json` می‌نویسد. شکلش با آنچه
+ * موتور می‌خواند نمی‌خواند، پس **هر ساعت** رد می‌شد، `.ingested.bad` علامت
+ * می‌خورد، بایگانی می‌شد — و تنها ردش یک سطر در سیاههٔ داخلی بود. یعنی حلقهٔ
+ * بازخوردِ آن تسک ماه‌ها قطع بود و هیچ‌کس خبر نداشت؛ صاحبِ برنامه هم دقیقاً
+ * همین را پرسیده بود: «آیا واقعاً به این گزارش‌ها توجهی می‌شود؟»
+ *
+ * یک گزارشِ ناخوانا از نبودِ گزارش بدتر است: نویسنده‌اش فکر می‌کند خبر داده.
+ * پس رد شدن خودش یک یافته می‌شود، با کلیدِ ثابت تا تکرارش شمرده شود، و
+ * دستوری که دقیقاً شکلِ درست را می‌گوید.
+ */
+function reportRejected_(hub, file, why) {
+  var nm = String((file && file.getName && file.getName()) || 'بی‌نام');
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'متوسط', category: 'گزارش‌های نظارت',
+      // کلید بر پایهٔ *خانوادهٔ* نام است نه نامِ کاملِ فایل: هر ساعت یک نامِ
+      // تازه یعنی هر ساعت یک ردیفِ تازه، و تکرار — که تنها نشانهٔ «هنوز
+      // خراب است» است — هرگز شمرده نمی‌شد.
+      key: 'report-unreadable-' + nm.replace(/[0-9]+/g, '#').slice(0, 60),
+      title: 'گزارشِ «' + nm + '» خوانده نشد و دور ریخته شد',
+      detail: 'علت: ' + String(why || '') + '. فایل با پسوندِ .ingested.bad ' +
+              'بایگانی شد. تا وقتی شکلش درست نشود، هرچه آن تسک گزارش می‌کند ' +
+              'به هیچ‌کس نمی‌رسد.',
+      instruction: 'شکلِ درست: {"generatedAt":"…","source":"…","findings":[' +
+                   '{"priority":"جدی|متوسط|جزئی|زیاد|کم","category":"…","key":"…",' +
+                   '"title":"…","detail":"…","instruction":"…","owner":"…"}]} — ' +
+                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است.',
+      owner: ROWNER_ENGINE
+    });
+  } catch (e) {}
+}
+
 /** یک فایل گزارش: خواندن، نوشتن، و تنها در صورت موفقیت علامت‌زدن. */
 function ingestOneReport_(hub, sh, state, file) {
   var out = { added: 0, repeated: 0, reopened: 0, codeItems: 0 };
@@ -395,17 +431,21 @@ function ingestOneReport_(hub, sh, state, file) {
   try { rep = JSON.parse(file.getBlob().getDataAsString()); }
   catch (e) {
     logLine_('گزارش «' + file.getName() + '» خوانده نشد: ' + e.message);
+    reportRejected_(hub, file, 'JSON نبود: ' + String(e.message).slice(0, 120));
     markReportDone_(file, '.ingested.bad');
     return out;
   }
   if (!rep || typeof rep !== 'object' || Object.prototype.toString.call(rep) === '[object Array]') {
     logLine_('گزارش «' + file.getName() + '» ساختار درستی ندارد؛ رد شد.');
+    reportRejected_(hub, file, 'شیءِ JSON نبود (آرایه یا مقدارِ ساده بود)');
     markReportDone_(file, '.ingested.bad');
     return out;
   }
   var findings = rep.findings;
   if (Object.prototype.toString.call(findings) !== '[object Array]') {
     logLine_('گزارش «' + file.getName() + '» فیلد findings به‌شکل فهرست ندارد؛ رد شد.');
+    reportRejected_(hub, file, 'فیلدِ findings آرایه نبود (' +
+                    (findings === undefined ? 'اصلاً نبود' : typeof findings) + ')');
     markReportDone_(file, '.ingested.bad');
     return out;
   }

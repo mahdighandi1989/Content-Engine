@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.95
+ *  موتور محتوا و پادکست — نسخهٔ 5.96
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -726,6 +726,14 @@ var CFG = {
   ENRICH_MAX_OUTSIDE_PCT: 15,
   ENRICH_MAX_INSIDE_PCT: 15,
   ENRICH_MAX_TOTAL_PCT: 25,
+  /* سهمی از سقفِ «یک فایل» که هنگامِ نگارشِ درس‌نامه برای غنی‌سازی کنار
+     گذاشته می‌شود.
+     چرا نه صفر و نه ۲۵: با صفر، متنِ درس تا سقفِ فایل پر می‌شود و غنی‌سازی
+     هیچ جایی ندارد — قابلیتی که کاربر خواسته، بی‌صدا می‌میرد. با ۲۵ (سقفِ
+     مطلقِ غنی‌سازی) هر درس یک‌چهارم کوتاه‌تر می‌شود حتی شبی که هیچ غنی‌سازی
+     نرسیده. پس «آنچه معمولاً لازم است» کنار گذاشته می‌شود و «آنچه هرگز
+     نباید از آن بگذرد» در applyEnrichment_ سختگیرانه اعمال. */
+  SPECIAL_ENRICH_RESERVE_PCT: 12,
   ENRICH_KEEP_DAYS: 10,             // پرونده‌های دستِ‌به‌دستِ کهنه پاک می‌شوند
 
   // ------------------------------------------- دیدبانِ محتوا (بخش ۲۴)
@@ -759,7 +767,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.95',
+  CODE_VERSION: '5.96',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2857,7 +2865,13 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                 }
               } catch (eP) {}
             } else {
-              logLine_('قالبِ دستورِ لحن پذیرفته نشد؛ همین تکه بی‌دستور ساخته می‌شود.');
+              /* اینجا یعنی خطا **دربارهٔ قالبِ دستور نبود** — پس گفتنِ «قالبِ
+                 دستور پذیرفته نشد» دروغ است و علتِ واقعی را پنهان می‌کند.
+                 یک تکه که بی‌صدا بی‌لحن ساخته شود ایرادِ بزرگی نیست؛ ولی
+                 خطایی که هیچ‌جا نوشته نشود، دفعهٔ بعد هم قابلِ تشخیص نیست.
+                 (۲۵ اوت: قسمت ۱۶ یک بار همین را داد و متنِ خطا هیچ‌جا نماند.) */
+              logLine_('صداسازیِ یک تکه رد شد؛ بی‌دستور دوباره ساخته می‌شود — ' +
+                       m.replace(/\s+/g, ' ').slice(0, 180));
             }
             return ttsChunkTry_(text, sectionStyle, voice, false);
           }
@@ -10504,6 +10518,42 @@ function ingestReports_(hub, deadline) {
            reopened: reopened, codeItems: codeItems };
 }
 
+/**
+ * گزارشی که خوانده نشد، باید *دیده* شود.
+ *
+ * ══ چرا این لازم شد (۲۵ اوت) ══
+ * تسکِ غنی‌سازی هر ساعت یک `_REPORT-enrich-*.json` می‌نویسد. شکلش با آنچه
+ * موتور می‌خواند نمی‌خواند، پس **هر ساعت** رد می‌شد، `.ingested.bad` علامت
+ * می‌خورد، بایگانی می‌شد — و تنها ردش یک سطر در سیاههٔ داخلی بود. یعنی حلقهٔ
+ * بازخوردِ آن تسک ماه‌ها قطع بود و هیچ‌کس خبر نداشت؛ صاحبِ برنامه هم دقیقاً
+ * همین را پرسیده بود: «آیا واقعاً به این گزارش‌ها توجهی می‌شود؟»
+ *
+ * یک گزارشِ ناخوانا از نبودِ گزارش بدتر است: نویسنده‌اش فکر می‌کند خبر داده.
+ * پس رد شدن خودش یک یافته می‌شود، با کلیدِ ثابت تا تکرارش شمرده شود، و
+ * دستوری که دقیقاً شکلِ درست را می‌گوید.
+ */
+function reportRejected_(hub, file, why) {
+  var nm = String((file && file.getName && file.getName()) || 'بی‌نام');
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'متوسط', category: 'گزارش‌های نظارت',
+      // کلید بر پایهٔ *خانوادهٔ* نام است نه نامِ کاملِ فایل: هر ساعت یک نامِ
+      // تازه یعنی هر ساعت یک ردیفِ تازه، و تکرار — که تنها نشانهٔ «هنوز
+      // خراب است» است — هرگز شمرده نمی‌شد.
+      key: 'report-unreadable-' + nm.replace(/[0-9]+/g, '#').slice(0, 60),
+      title: 'گزارشِ «' + nm + '» خوانده نشد و دور ریخته شد',
+      detail: 'علت: ' + String(why || '') + '. فایل با پسوندِ .ingested.bad ' +
+              'بایگانی شد. تا وقتی شکلش درست نشود، هرچه آن تسک گزارش می‌کند ' +
+              'به هیچ‌کس نمی‌رسد.',
+      instruction: 'شکلِ درست: {"generatedAt":"…","source":"…","findings":[' +
+                   '{"priority":"جدی|متوسط|جزئی|زیاد|کم","category":"…","key":"…",' +
+                   '"title":"…","detail":"…","instruction":"…","owner":"…"}]} — ' +
+                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است.',
+      owner: ROWNER_ENGINE
+    });
+  } catch (e) {}
+}
+
 /** یک فایل گزارش: خواندن، نوشتن، و تنها در صورت موفقیت علامت‌زدن. */
 function ingestOneReport_(hub, sh, state, file) {
   var out = { added: 0, repeated: 0, reopened: 0, codeItems: 0 };
@@ -10511,17 +10561,21 @@ function ingestOneReport_(hub, sh, state, file) {
   try { rep = JSON.parse(file.getBlob().getDataAsString()); }
   catch (e) {
     logLine_('گزارش «' + file.getName() + '» خوانده نشد: ' + e.message);
+    reportRejected_(hub, file, 'JSON نبود: ' + String(e.message).slice(0, 120));
     markReportDone_(file, '.ingested.bad');
     return out;
   }
   if (!rep || typeof rep !== 'object' || Object.prototype.toString.call(rep) === '[object Array]') {
     logLine_('گزارش «' + file.getName() + '» ساختار درستی ندارد؛ رد شد.');
+    reportRejected_(hub, file, 'شیءِ JSON نبود (آرایه یا مقدارِ ساده بود)');
     markReportDone_(file, '.ingested.bad');
     return out;
   }
   var findings = rep.findings;
   if (Object.prototype.toString.call(findings) !== '[object Array]') {
     logLine_('گزارش «' + file.getName() + '» فیلد findings به‌شکل فهرست ندارد؛ رد شد.');
+    reportRejected_(hub, file, 'فیلدِ findings آرایه نبود (' +
+                    (findings === undefined ? 'اصلاً نبود' : typeof findings) + ')');
     markReportDone_(file, '.ingested.bad');
     return out;
   }
@@ -12311,8 +12365,42 @@ function pickSeriesPlan_(hub, regOpt, partsOpt, skipOpt) {
  */
 function specialMaxChars_() {
   var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * 150 * 5.5 * 1.1);
-  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, oneFileMaxChars_());
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, specialWriteCap_());
   return byTarget;
+}
+
+/**
+ * سقفِ مطلقِ «یک فایل» برای درس‌نامه — همان چیزی که فایل واقعاً در آن جا می‌شود.
+ * پس از غنی‌سازی هم باید برقرار بماند.
+ */
+function specialFileCap_() { return oneFileMaxChars_(); }
+
+/**
+ * سقفی که هنگام **نوشتن** به مدل داده می‌شود — یعنی سقفِ فایل منهای جایی که
+ * غنی‌سازیِ اینترنتی قرار است بگیرد.
+ *
+ * ══ باگی که این را لازم کرد (۲۵ اوت) ══
+ * ۵٫۹۰ «یک فایل» را در کد تضمین کرد: `specialCondense_` متنِ تولیدشده را تا
+ * سقفِ یک فایل کوتاه می‌کند. و درست کار می‌کرد. ولی آن سقف روی متنِ **پیش از
+ * غنی‌سازی** اعمال می‌شد، و `applyEnrichment_` بعد از آن اجازه دارد تا
+ * `ENRICH_MAX_TOTAL_PCT` (۲۵٪) روی همان متن اضافه کند — بی آنکه چیزی دوباره
+ * سقف را بسنجد.
+ *
+ * دادهٔ واقعیِ ۲۵ اوت: هدف ۱۰٫۸ دقیقه، خروجی ۱۴:۱۴ — یعنی ۳۲٪ بالاتر، تقریباً
+ * دقیقاً همان ۲۵٪ به‌علاوهٔ سی ثانیه موسیقی. قسمت در دو فایل رفت و وارسیِ سلامت
+ * هم درست گزارشش کرد؛ کسی فقط علتش را نپرسیده بود.
+ *
+ * سقفی که مرحلهٔ بعد بتواند رویش اضافه کند، سقف نیست. حالا سهمِ غنی‌سازی از
+ * پیش کنار گذاشته می‌شود، و `applyEnrichment_` هم سقفِ مطلق را به‌عنوان مرزِ
+ * سختِ خودش می‌گیرد (بندِ دوم، چون یک مرز که فقط یک نگهبان داشته باشد همان
+ * الگویی است که این ریپو بارها از آن ضربه خورده).
+ */
+function specialWriteCap_() {
+  var cap = specialFileCap_();
+  if (CFG.ENRICH_ENABLED === false) return cap;
+  var pct = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
+  if (!isFinite(pct) || pct <= 0) return cap;
+  return Math.floor(cap / (1 + pct / 100));
 }
 
 /**
@@ -13409,12 +13497,46 @@ function produceSpecialEpisode(opt) {
     // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
     // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
     try {
+      /* ══ اِسناد را باید *ترجمه* کرد، نه فرض (باگِ ۲۵ اوت) ══
+       * `auditSnap_` اِسنادِ هر بخش را از `sourceIds` می‌خواند — قراردادی که
+       * «از همه جا از همه رنگ» رعایتش می‌کند. درس‌نامه اصلاً `sourceIds`
+       * ندارد؛ همان اطلاعات را در `chunkNos` و `enrichIds` می‌نویسد و از
+       * روزِ اول هم می‌نوشت. کسی این دو را به هم وصل نکرده بود.
+       *
+       * نتیجه‌اش یک هشدارِ دروغِ هرروزه بود: هر بخش «بی‌منبع» ثبت می‌شد،
+       * اِسناد ۰٪ می‌شد، و مدل — که چیزی برای مقایسه نداشت — هر بخش را
+       * «پیوندِ ساختگی» و «فراتر از خام» علامت می‌زد. دادهٔ ۲۵ اوت: قسمت ۱۵،
+       * ۶ بخش از ۶، حکمِ «ضعیف»، و جمله‌ای که خودش همه‌چیز را می‌گفت:
+       * «هیچ منبع خامی برای این بخش ارائه نشده است».
+       *
+       * این چهارمین بار در این ریپوست که تحلیلی نوشته شده و هیچ‌وقت به
+       * تصمیمی وصل نشده. `chunkNos` عددِ پیوستهٔ ۱..N است، همان `idx` که
+       * `fakeItems` با پیشوندِ C کلیدش کرده. */
+      var snapSecs = [];
+      for (var sa = 0; sa < ep.sections.length; sa++) {
+        var sec3 = ep.sections[sa] || {};
+        var sids = [];
+        var nos3 = sec3.chunkNos || [];
+        for (var na = 0; na < nos3.length; na++) {
+          var tk3 = faDigits_(String(nos3[na] === null || nos3[na] === undefined
+                                      ? '' : nos3[na])).trim();
+          if (!/^[0-9]{1,6}$/.test(tk3)) continue;
+          sids.push('C' + parseInt(tk3, 10));
+        }
+        var eid3 = sec3.enrichIds || [];
+        for (var ea = 0; ea < eid3.length; ea++) {
+          var ev3 = String(eid3[ea] || '').trim();
+          if (ev3) sids.push(ev3);
+        }
+        snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
+                        sourceIds: sids });
+      }
       auditSnap_(ENRICH_SHOW_SPECIAL,
                  { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
                    title: ep.title, category: seriesName,
                    targetMin: specialTargetMin_() },
                  { hook: ep.hook, outro: ep.outro, connection: ep.recap,
-                   sections: ep.sections },
+                   sections: snapSecs },
                  fakeItems, fid);
     } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
 
@@ -18024,6 +18146,33 @@ function applyEnrichment_(ep, ans, show, epNum) {
   var capIn = Math.round(base * (CFG.ENRICH_MAX_INSIDE_PCT || 15) / 100);
   var capAll = Math.round(base * (CFG.ENRICH_MAX_TOTAL_PCT || 25) / 100);
 
+  /* ── مرزِ سختِ «یک فایل» ──
+   * سهمیهٔ درصدی نسبت به متنِ پایه حساب می‌شود، و متنِ پایهٔ درس‌نامه دقیقاً
+   * سرِ سقفِ یک فایل نشسته است. جمعِ این دو یعنی دو فایل — همان چیزی که در
+   * قسمتِ ۱۶ رخ داد (۱۴:۱۴ در برابر هدفِ ۱۰٫۸). پس وقتی «یک فایل» خواسته
+   * شده، جای باقی‌مانده تا سقفِ واقعیِ فایل هم یک سقف است، و هرکدام کمتر
+   * بود برنده می‌شود.
+   *
+   * فراخوانِ رو به عقب (۱۹ → ۱۴ و ۰۳) است، پس مجاز؛ ولی در try/catch، چون
+   * بارگذارهای جزئیِ tests/ ممکن است بخشِ ۱۴ را نداشته باشند. */
+  var capRoom = Infinity, capFile = 0;
+  if (show === ENRICH_SHOW_SPECIAL && CFG.SPECIAL_ONE_FILE === true) {
+    try { capFile = specialFileCap_(); capRoom = Math.max(0, capFile - base); }
+    catch (eCap) { capRoom = Infinity; }
+  }
+  if (capRoom < capAll) capAll = capRoom;
+  if (capRoom < capOut) capOut = capRoom;
+  if (capRoom < capIn) capIn = capRoom;
+  /* و اگر جا صفر شد، بی‌صدا نگذر: یعنی متنِ درس تا لبِ سقفِ فایل پر است و
+     غنی‌سازی — قابلیتی که کاربر خواسته — آن شب هیچ سهمی ندارد. قابلیتی که
+     خاموش می‌شود و کسی خبردار نمی‌شود، همان الگویی است که بانکِ موسیقی را
+     هفته‌ها خالی نگه داشت. */
+  if (capRoom === 0) {
+    out.reasons.push('جای غنی‌سازی صفر بود: متنِ درس خودش تا سقفِ یک فایل پر است');
+    logLine_('غنی‌سازیِ درس‌نامه جایی نداشت: متنِ درس ' + base + ' نویسه است و ' +
+             'سقفِ یک فایل ' + capFile + ' — چیزی اضافه نشد.');
+  }
+
   // مرتب‌سازی: اولویتِ اعلام‌شده، بعد ترتیبِ خودِ فهرست. بی این، بریدنِ سهمیه
   // دلبخواه می‌شد و ممکن بود مهم‌ترین نکته حذف شود و کم‌اهمیت‌ترین بماند.
   var list = [];
@@ -18098,7 +18247,12 @@ function applyEnrichment_(ep, ans, show, epNum) {
     if (willOut > capOut || willIn > capIn ||
         (out.outsideChars + out.insideChars + cost) > capAll) {
       out.dropped++;
-      out.reasons.push('از سهمیه گذشت و بریده شد (' + type + '، ' + cost + ' نویسه)');
+      // کدام سقف خورد، مهم است: «سهمیه» یعنی متن پُر شده، «یک فایل» یعنی
+      // درس بلند نوشته شده. دو ایرادِ کاملاً متفاوت با یک پیام، همان چیزی
+      // است که علتِ دو‌فایلی‌شدن را ماه‌ها پنهان نگه داشت.
+      out.reasons.push(capRoom < Math.round(base * (CFG.ENRICH_MAX_TOTAL_PCT || 25) / 100)
+        ? ('جا نداشت — متنِ درس تا سقفِ یک فایل پر است (' + type + '، ' + cost + ' نویسه)')
+        : ('از سهمیه گذشت و بریده شد (' + type + '، ' + cost + ' نویسه)'));
       continue;
     }
 
@@ -25845,8 +25999,23 @@ function auditFindings_(hub, snap, det, tal, judged) {
   var who = (snap.showName || snap.show);
   var head = 'قسمت ' + snap.episode + ' «' + who + '»';
 
+  /* ── وقتی هیچ بخشی منبعی ندارد، داوریِ مدل شهادت نیست ──
+   * داور هر بخش را در برابرِ متنِ خامِ همان بخش می‌سنجد. اگر هیچ بخشی
+   * منبعی نگرفته باشد، داور چیزی برای مقایسه ندارد و طبیعتاً همه را
+   * «پیوندِ ساختگی» و «فراتر از خام» علامت می‌زند — و خودش هم صریح
+   * می‌گوید چرا: «هیچ منبع خامی برای این بخش ارائه نشده است».
+   *
+   * شمردنِ آن به‌عنوانِ ایرادِ نگارش، هر شب یک هشدارِ «جدی»ِ دروغ می‌سازد و
+   * دستوری به قسمتِ بعد می‌دهد که ربطی به مشکل ندارد. ایراد در سازوکارِ
+   * اِسناد است و مسیرِ کد پایین‌تر خودش سراغش می‌رود. */
+  var blind = !!(det && det.sections && det.noSrc === det.sections);
+  if (blind && tal && (tal.unfit || tal.fake || tal.unfaith)) {
+    logLine_('سنجهٔ محتوا ' + head + ': هیچ بخشی منبعی نگرفته بود، پس داوریِ ' +
+             'اِسناد و وفاداری معتبر نیست و به‌عنوان ایرادِ نگارش ثبت نشد.');
+  }
+
   // ── مسیرِ مدل ──
-  if (tal && (tal.unfit || tal.fake || tal.unfaith)) {
+  if (!blind && tal && (tal.unfit || tal.fake || tal.unfaith)) {
     var bits = [];
     if (tal.unfit) bits.push('منبعِ نامناسب: ' + tal.unfit);
     if (tal.fake) bits.push('پیوندِ ساختگی: ' + tal.fake);
@@ -25902,20 +26071,30 @@ function auditFindings_(hub, snap, det, tal, judged) {
   }
 
   // اِسنادِ ضعیف چند شبِ پیاپی → سازوکار خراب است، نه یک اتفاق.
+  /* ══ شمارنده باید برای هر برنامه جدا باشد (باگِ ۲۵ اوت) ══
+   * این هشدار درست نوشته شده بود — «چرا sourceIds پر نمی‌شود» با owner کد —
+   * ولی یک شمارندهٔ مشترک داشت. درس‌نامه هر شب ۰٪ می‌گرفت و شمارنده را بالا
+   * می‌برد، و «از همه جا از همه رنگ» با ۱۰۰٪ همان شب صفرش می‌کرد. عدد بین ۰
+   * و ۱ نوسان می‌کرد و هرگز به سه نمی‌رسید، پس هشداری که دقیقاً برای همین
+   * ساخته شده بود یک بار هم فیره نکرد — و به‌جایش هر شب یک ایرادِ «جدی»ِ
+   * اشتباه به گردنِ نگارش می‌افتاد.
+   *
+   * هشداری که دو برنامه در یک شمارنده شریک باشند، هشدارِ هیچ‌کدام نیست. */
+  var badKey = PK.AUDIT_BAD + '_' + String(snap.show || '');
   var minPct = Number(CFG.AUDIT_MIN_ATTRIB_PCT) || 60;
   if (det.sections && det.attribPct < minPct) {
     var bad = 0;
-    try { bad = Number(props_().getProperty(PK.AUDIT_BAD) || '0') || 0; } catch (e0) {}
+    try { bad = Number(props_().getProperty(badKey) || '0') || 0; } catch (e0) {}
     bad++;
-    try { props_().setProperty(PK.AUDIT_BAD, String(bad)); } catch (e1) {}
+    try { props_().setProperty(badKey, String(bad)); } catch (e1) {}
     if (bad >= (Number(CFG.AUDIT_CODE_AFTER) || 3)) {
       try {
         logSelfFinding_(hub, {
           priority: 'جدی',
           category: 'سنجهٔ محتوا',
-          key: 'audit-attrib-low',
-          title: 'اِسنادِ منبع ' + bad + ' شب پیاپی ضعیف بوده (آخرین: ' +
-                 det.attribPct + '٪ در ' + head + ')',
+          key: 'audit-attrib-low-' + String(snap.show || ''),
+          title: 'اِسنادِ منبع در «' + who + '» ' + bad + ' شب پیاپی ضعیف بوده ' +
+                 '(آخرین: ' + det.attribPct + '٪ در ' + head + ')',
           detail: det.noSrc + ' بخش از ' + det.sections + ' هیچ منبعی نگرفته‌اند. ' +
                   'تا وقتی بخش‌ها به منبع وصل نشوند، سنجشِ «انتخابِ درست» و ' +
                   '«وفاداری» ممکن نیست — دیدبان عملاً کور است.',
@@ -25926,7 +26105,7 @@ function auditFindings_(hub, snap, det, tal, judged) {
       } catch (e2) {}
     }
   } else if (det.sections) {
-    try { props_().setProperty(PK.AUDIT_BAD, '0'); } catch (e3) {}
+    try { props_().setProperty(badKey, '0'); } catch (e3) {}
   }
 }
 
@@ -26049,7 +26228,19 @@ function auditStatus_() {
       out.items = j.items || [];
     }
   } catch (e2) {}
-  try { out.badNights = Number(props_().getProperty(PK.AUDIT_BAD) || '0') || 0; } catch (e3) {}
+  /* بدترینِ برنامه‌ها، نه یک عددِ مشترک — و کدام‌شان، چون «۳ شب بد» بی نامِ
+     برنامه هیچ چیزی به ناظر نمی‌گوید. */
+  try {
+    var allP = props_().getProperties(), worst = 0, worstShow = '';
+    for (var pk in allP) {
+      if (!Object.prototype.hasOwnProperty.call(allP, pk)) continue;
+      if (pk.indexOf(PK.AUDIT_BAD + '_') !== 0) continue;
+      var vN = Number(allP[pk]) || 0;
+      if (vN > worst) { worst = vN; worstShow = pk.slice((PK.AUDIT_BAD + '_').length); }
+    }
+    out.badNights = worst;
+    out.badShow = worstShow;
+  } catch (e3) {}
   return out;
 }
 

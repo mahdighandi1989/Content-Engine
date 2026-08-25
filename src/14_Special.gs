@@ -30,8 +30,42 @@
  */
 function specialMaxChars_() {
   var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * 150 * 5.5 * 1.1);
-  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, oneFileMaxChars_());
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, specialWriteCap_());
   return byTarget;
+}
+
+/**
+ * سقفِ مطلقِ «یک فایل» برای درس‌نامه — همان چیزی که فایل واقعاً در آن جا می‌شود.
+ * پس از غنی‌سازی هم باید برقرار بماند.
+ */
+function specialFileCap_() { return oneFileMaxChars_(); }
+
+/**
+ * سقفی که هنگام **نوشتن** به مدل داده می‌شود — یعنی سقفِ فایل منهای جایی که
+ * غنی‌سازیِ اینترنتی قرار است بگیرد.
+ *
+ * ══ باگی که این را لازم کرد (۲۵ اوت) ══
+ * ۵٫۹۰ «یک فایل» را در کد تضمین کرد: `specialCondense_` متنِ تولیدشده را تا
+ * سقفِ یک فایل کوتاه می‌کند. و درست کار می‌کرد. ولی آن سقف روی متنِ **پیش از
+ * غنی‌سازی** اعمال می‌شد، و `applyEnrichment_` بعد از آن اجازه دارد تا
+ * `ENRICH_MAX_TOTAL_PCT` (۲۵٪) روی همان متن اضافه کند — بی آنکه چیزی دوباره
+ * سقف را بسنجد.
+ *
+ * دادهٔ واقعیِ ۲۵ اوت: هدف ۱۰٫۸ دقیقه، خروجی ۱۴:۱۴ — یعنی ۳۲٪ بالاتر، تقریباً
+ * دقیقاً همان ۲۵٪ به‌علاوهٔ سی ثانیه موسیقی. قسمت در دو فایل رفت و وارسیِ سلامت
+ * هم درست گزارشش کرد؛ کسی فقط علتش را نپرسیده بود.
+ *
+ * سقفی که مرحلهٔ بعد بتواند رویش اضافه کند، سقف نیست. حالا سهمِ غنی‌سازی از
+ * پیش کنار گذاشته می‌شود، و `applyEnrichment_` هم سقفِ مطلق را به‌عنوان مرزِ
+ * سختِ خودش می‌گیرد (بندِ دوم، چون یک مرز که فقط یک نگهبان داشته باشد همان
+ * الگویی است که این ریپو بارها از آن ضربه خورده).
+ */
+function specialWriteCap_() {
+  var cap = specialFileCap_();
+  if (CFG.ENRICH_ENABLED === false) return cap;
+  var pct = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
+  if (!isFinite(pct) || pct <= 0) return cap;
+  return Math.floor(cap / (1 + pct / 100));
 }
 
 /**
@@ -1128,12 +1162,46 @@ function produceSpecialEpisode(opt) {
     // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
     // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
     try {
+      /* ══ اِسناد را باید *ترجمه* کرد، نه فرض (باگِ ۲۵ اوت) ══
+       * `auditSnap_` اِسنادِ هر بخش را از `sourceIds` می‌خواند — قراردادی که
+       * «از همه جا از همه رنگ» رعایتش می‌کند. درس‌نامه اصلاً `sourceIds`
+       * ندارد؛ همان اطلاعات را در `chunkNos` و `enrichIds` می‌نویسد و از
+       * روزِ اول هم می‌نوشت. کسی این دو را به هم وصل نکرده بود.
+       *
+       * نتیجه‌اش یک هشدارِ دروغِ هرروزه بود: هر بخش «بی‌منبع» ثبت می‌شد،
+       * اِسناد ۰٪ می‌شد، و مدل — که چیزی برای مقایسه نداشت — هر بخش را
+       * «پیوندِ ساختگی» و «فراتر از خام» علامت می‌زد. دادهٔ ۲۵ اوت: قسمت ۱۵،
+       * ۶ بخش از ۶، حکمِ «ضعیف»، و جمله‌ای که خودش همه‌چیز را می‌گفت:
+       * «هیچ منبع خامی برای این بخش ارائه نشده است».
+       *
+       * این چهارمین بار در این ریپوست که تحلیلی نوشته شده و هیچ‌وقت به
+       * تصمیمی وصل نشده. `chunkNos` عددِ پیوستهٔ ۱..N است، همان `idx` که
+       * `fakeItems` با پیشوندِ C کلیدش کرده. */
+      var snapSecs = [];
+      for (var sa = 0; sa < ep.sections.length; sa++) {
+        var sec3 = ep.sections[sa] || {};
+        var sids = [];
+        var nos3 = sec3.chunkNos || [];
+        for (var na = 0; na < nos3.length; na++) {
+          var tk3 = faDigits_(String(nos3[na] === null || nos3[na] === undefined
+                                      ? '' : nos3[na])).trim();
+          if (!/^[0-9]{1,6}$/.test(tk3)) continue;
+          sids.push('C' + parseInt(tk3, 10));
+        }
+        var eid3 = sec3.enrichIds || [];
+        for (var ea = 0; ea < eid3.length; ea++) {
+          var ev3 = String(eid3[ea] || '').trim();
+          if (ev3) sids.push(ev3);
+        }
+        snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
+                        sourceIds: sids });
+      }
       auditSnap_(ENRICH_SHOW_SPECIAL,
                  { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
                    title: ep.title, category: seriesName,
                    targetMin: specialTargetMin_() },
                  { hook: ep.hook, outro: ep.outro, connection: ep.recap,
-                   sections: ep.sections },
+                   sections: snapSecs },
                  fakeItems, fid);
     } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
 

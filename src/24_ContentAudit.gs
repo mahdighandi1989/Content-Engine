@@ -371,8 +371,23 @@ function auditFindings_(hub, snap, det, tal, judged) {
   var who = (snap.showName || snap.show);
   var head = 'قسمت ' + snap.episode + ' «' + who + '»';
 
+  /* ── وقتی هیچ بخشی منبعی ندارد، داوریِ مدل شهادت نیست ──
+   * داور هر بخش را در برابرِ متنِ خامِ همان بخش می‌سنجد. اگر هیچ بخشی
+   * منبعی نگرفته باشد، داور چیزی برای مقایسه ندارد و طبیعتاً همه را
+   * «پیوندِ ساختگی» و «فراتر از خام» علامت می‌زند — و خودش هم صریح
+   * می‌گوید چرا: «هیچ منبع خامی برای این بخش ارائه نشده است».
+   *
+   * شمردنِ آن به‌عنوانِ ایرادِ نگارش، هر شب یک هشدارِ «جدی»ِ دروغ می‌سازد و
+   * دستوری به قسمتِ بعد می‌دهد که ربطی به مشکل ندارد. ایراد در سازوکارِ
+   * اِسناد است و مسیرِ کد پایین‌تر خودش سراغش می‌رود. */
+  var blind = !!(det && det.sections && det.noSrc === det.sections);
+  if (blind && tal && (tal.unfit || tal.fake || tal.unfaith)) {
+    logLine_('سنجهٔ محتوا ' + head + ': هیچ بخشی منبعی نگرفته بود، پس داوریِ ' +
+             'اِسناد و وفاداری معتبر نیست و به‌عنوان ایرادِ نگارش ثبت نشد.');
+  }
+
   // ── مسیرِ مدل ──
-  if (tal && (tal.unfit || tal.fake || tal.unfaith)) {
+  if (!blind && tal && (tal.unfit || tal.fake || tal.unfaith)) {
     var bits = [];
     if (tal.unfit) bits.push('منبعِ نامناسب: ' + tal.unfit);
     if (tal.fake) bits.push('پیوندِ ساختگی: ' + tal.fake);
@@ -428,20 +443,30 @@ function auditFindings_(hub, snap, det, tal, judged) {
   }
 
   // اِسنادِ ضعیف چند شبِ پیاپی → سازوکار خراب است، نه یک اتفاق.
+  /* ══ شمارنده باید برای هر برنامه جدا باشد (باگِ ۲۵ اوت) ══
+   * این هشدار درست نوشته شده بود — «چرا sourceIds پر نمی‌شود» با owner کد —
+   * ولی یک شمارندهٔ مشترک داشت. درس‌نامه هر شب ۰٪ می‌گرفت و شمارنده را بالا
+   * می‌برد، و «از همه جا از همه رنگ» با ۱۰۰٪ همان شب صفرش می‌کرد. عدد بین ۰
+   * و ۱ نوسان می‌کرد و هرگز به سه نمی‌رسید، پس هشداری که دقیقاً برای همین
+   * ساخته شده بود یک بار هم فیره نکرد — و به‌جایش هر شب یک ایرادِ «جدی»ِ
+   * اشتباه به گردنِ نگارش می‌افتاد.
+   *
+   * هشداری که دو برنامه در یک شمارنده شریک باشند، هشدارِ هیچ‌کدام نیست. */
+  var badKey = PK.AUDIT_BAD + '_' + String(snap.show || '');
   var minPct = Number(CFG.AUDIT_MIN_ATTRIB_PCT) || 60;
   if (det.sections && det.attribPct < minPct) {
     var bad = 0;
-    try { bad = Number(props_().getProperty(PK.AUDIT_BAD) || '0') || 0; } catch (e0) {}
+    try { bad = Number(props_().getProperty(badKey) || '0') || 0; } catch (e0) {}
     bad++;
-    try { props_().setProperty(PK.AUDIT_BAD, String(bad)); } catch (e1) {}
+    try { props_().setProperty(badKey, String(bad)); } catch (e1) {}
     if (bad >= (Number(CFG.AUDIT_CODE_AFTER) || 3)) {
       try {
         logSelfFinding_(hub, {
           priority: 'جدی',
           category: 'سنجهٔ محتوا',
-          key: 'audit-attrib-low',
-          title: 'اِسنادِ منبع ' + bad + ' شب پیاپی ضعیف بوده (آخرین: ' +
-                 det.attribPct + '٪ در ' + head + ')',
+          key: 'audit-attrib-low-' + String(snap.show || ''),
+          title: 'اِسنادِ منبع در «' + who + '» ' + bad + ' شب پیاپی ضعیف بوده ' +
+                 '(آخرین: ' + det.attribPct + '٪ در ' + head + ')',
           detail: det.noSrc + ' بخش از ' + det.sections + ' هیچ منبعی نگرفته‌اند. ' +
                   'تا وقتی بخش‌ها به منبع وصل نشوند، سنجشِ «انتخابِ درست» و ' +
                   '«وفاداری» ممکن نیست — دیدبان عملاً کور است.',
@@ -452,7 +477,7 @@ function auditFindings_(hub, snap, det, tal, judged) {
       } catch (e2) {}
     }
   } else if (det.sections) {
-    try { props_().setProperty(PK.AUDIT_BAD, '0'); } catch (e3) {}
+    try { props_().setProperty(badKey, '0'); } catch (e3) {}
   }
 }
 
@@ -575,7 +600,19 @@ function auditStatus_() {
       out.items = j.items || [];
     }
   } catch (e2) {}
-  try { out.badNights = Number(props_().getProperty(PK.AUDIT_BAD) || '0') || 0; } catch (e3) {}
+  /* بدترینِ برنامه‌ها، نه یک عددِ مشترک — و کدام‌شان، چون «۳ شب بد» بی نامِ
+     برنامه هیچ چیزی به ناظر نمی‌گوید. */
+  try {
+    var allP = props_().getProperties(), worst = 0, worstShow = '';
+    for (var pk in allP) {
+      if (!Object.prototype.hasOwnProperty.call(allP, pk)) continue;
+      if (pk.indexOf(PK.AUDIT_BAD + '_') !== 0) continue;
+      var vN = Number(allP[pk]) || 0;
+      if (vN > worst) { worst = vN; worstShow = pk.slice((PK.AUDIT_BAD + '_').length); }
+    }
+    out.badNights = worst;
+    out.badShow = worstShow;
+  } catch (e3) {}
   return out;
 }
 

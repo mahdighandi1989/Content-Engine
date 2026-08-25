@@ -755,8 +755,17 @@ console.log('\n=== ۲۷) نصیحت‌گری و سقفِ یک فایل ===');
   const capOff = specialMaxChars_();
   CFG.SPECIAL_ONE_FILE = true;
   const capOn = specialMaxChars_();
+  /* از ۵٫۹۶ سقفِ نگارش دقیقاً برابرِ سقفِ فایل نیست: جای غنی‌سازی از پیش
+     کنار گذاشته می‌شود، چون سهمیهٔ غنی‌سازی روی همین متن سوار می‌شود و
+     جمعشان بود که قسمت را دو فایل می‌کرد (۱۴:۱۴ در برابرِ هدفِ ۱۰٫۸).
+     خواستهٔ اصلی همان است — روشن‌کردنِ کلید باید درس را کوتاه کند — ولی
+     شرطِ درست «کمتر یا برابرِ سقفِ فایل» است، نه «برابر». */
   ok('روشن‌کردنِ کلیدِ یک‌فایلیِ درس‌نامه واقعاً درس را کوتاه می‌کند',
-     capOn < capOff && capOn === oneFileMaxChars_(), capOff + ' → ' + capOn);
+     capOn < capOff && capOn <= oneFileMaxChars_(), capOff + ' → ' + capOn);
+  ok('و جای غنی‌سازی هم در همان سقف کنار گذاشته شده',
+     capOn < oneFileMaxChars_() &&
+     capOn * (1 + (CFG.SPECIAL_ENRICH_RESERVE_PCT / 100)) <= oneFileMaxChars_() + 1,
+     capOn + ' + ' + CFG.SPECIAL_ENRICH_RESERVE_PCT + '٪ ≤ ' + oneFileMaxChars_());
   CFG.SPECIAL_ONE_FILE = savedOne;
 }
 

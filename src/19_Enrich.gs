@@ -313,6 +313,33 @@ function applyEnrichment_(ep, ans, show, epNum) {
   var capIn = Math.round(base * (CFG.ENRICH_MAX_INSIDE_PCT || 15) / 100);
   var capAll = Math.round(base * (CFG.ENRICH_MAX_TOTAL_PCT || 25) / 100);
 
+  /* ── مرزِ سختِ «یک فایل» ──
+   * سهمیهٔ درصدی نسبت به متنِ پایه حساب می‌شود، و متنِ پایهٔ درس‌نامه دقیقاً
+   * سرِ سقفِ یک فایل نشسته است. جمعِ این دو یعنی دو فایل — همان چیزی که در
+   * قسمتِ ۱۶ رخ داد (۱۴:۱۴ در برابر هدفِ ۱۰٫۸). پس وقتی «یک فایل» خواسته
+   * شده، جای باقی‌مانده تا سقفِ واقعیِ فایل هم یک سقف است، و هرکدام کمتر
+   * بود برنده می‌شود.
+   *
+   * فراخوانِ رو به عقب (۱۹ → ۱۴ و ۰۳) است، پس مجاز؛ ولی در try/catch، چون
+   * بارگذارهای جزئیِ tests/ ممکن است بخشِ ۱۴ را نداشته باشند. */
+  var capRoom = Infinity, capFile = 0;
+  if (show === ENRICH_SHOW_SPECIAL && CFG.SPECIAL_ONE_FILE === true) {
+    try { capFile = specialFileCap_(); capRoom = Math.max(0, capFile - base); }
+    catch (eCap) { capRoom = Infinity; }
+  }
+  if (capRoom < capAll) capAll = capRoom;
+  if (capRoom < capOut) capOut = capRoom;
+  if (capRoom < capIn) capIn = capRoom;
+  /* و اگر جا صفر شد، بی‌صدا نگذر: یعنی متنِ درس تا لبِ سقفِ فایل پر است و
+     غنی‌سازی — قابلیتی که کاربر خواسته — آن شب هیچ سهمی ندارد. قابلیتی که
+     خاموش می‌شود و کسی خبردار نمی‌شود، همان الگویی است که بانکِ موسیقی را
+     هفته‌ها خالی نگه داشت. */
+  if (capRoom === 0) {
+    out.reasons.push('جای غنی‌سازی صفر بود: متنِ درس خودش تا سقفِ یک فایل پر است');
+    logLine_('غنی‌سازیِ درس‌نامه جایی نداشت: متنِ درس ' + base + ' نویسه است و ' +
+             'سقفِ یک فایل ' + capFile + ' — چیزی اضافه نشد.');
+  }
+
   // مرتب‌سازی: اولویتِ اعلام‌شده، بعد ترتیبِ خودِ فهرست. بی این، بریدنِ سهمیه
   // دلبخواه می‌شد و ممکن بود مهم‌ترین نکته حذف شود و کم‌اهمیت‌ترین بماند.
   var list = [];
@@ -387,7 +414,12 @@ function applyEnrichment_(ep, ans, show, epNum) {
     if (willOut > capOut || willIn > capIn ||
         (out.outsideChars + out.insideChars + cost) > capAll) {
       out.dropped++;
-      out.reasons.push('از سهمیه گذشت و بریده شد (' + type + '، ' + cost + ' نویسه)');
+      // کدام سقف خورد، مهم است: «سهمیه» یعنی متن پُر شده، «یک فایل» یعنی
+      // درس بلند نوشته شده. دو ایرادِ کاملاً متفاوت با یک پیام، همان چیزی
+      // است که علتِ دو‌فایلی‌شدن را ماه‌ها پنهان نگه داشت.
+      out.reasons.push(capRoom < Math.round(base * (CFG.ENRICH_MAX_TOTAL_PCT || 25) / 100)
+        ? ('جا نداشت — متنِ درس تا سقفِ یک فایل پر است (' + type + '، ' + cost + ' نویسه)')
+        : ('از سهمیه گذشت و بریده شد (' + type + '، ' + cost + ' نویسه)'));
       continue;
     }
 

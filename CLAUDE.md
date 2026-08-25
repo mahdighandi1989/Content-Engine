@@ -612,6 +612,57 @@ a row closes. And `RST.INSTALLED` now reopens on recurrence like `APPLIED` and
 did not fix it, and without reopening it would sit in "awaiting the monitor"
 forever.
 
+## A cap the next stage can add to is not a cap (5.96)
+5.90 made «one file» real: `specialCondense_` trims the generated text to the
+one-file ceiling in code, not in a prompt line. It worked — episode 16 logged no
+`sp-over-one-file` finding at all. And the episode still shipped as two files,
+14:14 against a 10.8-minute target.
+
+The growth happened *after* the cap. `applyEnrichment_` sizes its quota as a
+percentage of the base narration (up to `ENRICH_MAX_TOTAL_PCT`, 25%), and the
+base was sitting exactly on the ceiling. 25% of 10.8 is 13.5; plus 44 seconds of
+music, 14:14.
+
+The fix has two halves because either alone fails: `specialWriteCap_` reserves
+the *expected* enrichment (`SPECIAL_ENRICH_RESERVE_PCT`, 12) so the lesson is
+written with room — reserving zero kills enrichment silently, reserving the full
+25% shortens every lesson by a quarter even on nights nothing arrives — and
+`specialFileCap_` is a hard stop inside `applyEnrichment_` so the sum can never
+exceed one file whatever turns up. When the room reaches zero the reason is
+logged; a capability that switches itself off unnoticed is how the music bank
+stayed empty for weeks.
+
+## The analysis existed; nobody wired it to the decision (5.96)
+`auditSnap_` reads each section's attribution from `sourceIds`. درس‌نامه has no
+`sourceIds` — it writes the same information into `chunkNos` and `enrichIds`, and
+has since the section was written. Nobody connected the two, so every درس‌نامه
+snapshot recorded zero sources, the semantic judge had nothing to compare against,
+and it dutifully marked every section «پیوندِ ساختگی» and «فراتر از خام». A
+«جدی» finding blaming the writing, every single night, for a mechanism gap. The
+judge even said so in its own words: «هیچ منبع خامی برای این بخش ارائه نشده است».
+
+Three lessons, all already in this file and all re-learned here:
+- Analysis written and never turned into a gate (the fifth instance).
+- A judge given an empty input returns a verdict, not evidence — so when no
+  section carries attribution, the model path is skipped entirely.
+- The right alarm *did* exist (`audit-attrib-low`, owner «کد», worded almost
+  exactly as the fix) — and never fired once, because its bad-night counter was
+  shared between the two shows. درس‌نامه raised it every night and the variety
+  show's 100% reset it the same night. **An alarm two subjects share is nobody's
+  alarm.**
+
+## A report that cannot be read is worse than no report (5.96)
+The enrichment task wrote a `_REPORT-enrich-*.json` every hour. Every one was
+rejected — `findings` was not an array — marked `.ingested.bad`, archived, and
+the only trace was one line in the internal log. Months of feedback from that
+task reached nobody, and its own prompt had never stated the file's shape.
+
+Its author believed it had reported. That is what makes an unreadable report
+worse than silence. Rejection is now itself a finding, carrying the correct
+shape in its instruction, keyed on the *family* of the filename (digits
+normalised) so the hourly repeat is counted as a repeat instead of creating a
+fresh row each time.
+
 ## A twin fixed once is a twin fixed once (5.95)
 `engRollbackAuto_` picks the newest engine backup out of the «کدها» Drive folder,
 and it filters: `nm.indexOf('منبع — ') === 0` → skip. Its own comment calls it

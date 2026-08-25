@@ -368,6 +368,12 @@ console.log('\n=== 6. درس‌نامه هم همین مسیر را می‌رو�
 {
   reset(); seed();
   CFG.ENRICH_ENABLED = true; CFG.SPECIAL_HOUR = 23;
+  /* متنِ ساختگیِ این آزمون بلندتر از یک قسمتِ واقعی است، و از ۵٫۹۶ سقفِ
+     «یک فایل» جای غنی‌سازی را از سقفِ واقعیِ فایل حساب می‌کند. پس این‌جا
+     سقفِ فایل بالا برده می‌شود تا موضوعِ همین بلوک — «درس‌نامه هم همان مسیر
+     را می‌رود» — سنجیده شود، نه سقف. خودِ سقف بلوکِ ۱۰ را دارد. */
+  const _mergeWas = CFG.MERGE_MAX_BYTES;
+  CFG.MERGE_MAX_BYTES = 120000000;
   let un = quiet();
   judgeSeries(false, Date.now() + 60000);
   const r = produceSpecialEpisode();
@@ -403,6 +409,7 @@ console.log('\n=== 6. درس‌نامه هم همین مسیر را می‌رو�
      meta.ep.__extSources.length === 1 &&
      meta.ep.__extSources[0].url.indexOf('investopedia.com') !== -1,
      meta.ep.__extSources[0].url);
+  CFG.MERGE_MAX_BYTES = _mergeWas;
 }
 
 // ═══════════════ 7. late preparation must not delay the podcast ═══════════

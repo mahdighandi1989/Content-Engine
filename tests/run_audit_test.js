@@ -207,9 +207,22 @@ console.log('=== ۸) مرزها ===');
   // جزئیِ آزمون‌ها با ReferenceError می‌شکند.
   const p3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
   const p14 = fs.readFileSync('src/14_Special.gs', 'utf8');
+  /* «داخلِ try است» را باید از ساختار پرسید، نه از اینکه اولین دستورِ بلوک
+     باشد: ۵٫۹۶ چند خط آماده‌سازی پیش از فراخوان گذاشت و این سنجه شکست،
+     در حالی که مرز دست‌نخورده بود. سنجه‌ای که با یک کامنت بشکند، آنچه را
+     می‌گوید نمی‌سنجد. */
+  const inTry = (txt, call) => {
+    const at = txt.indexOf(call);
+    if (at === -1) return false;
+    const before = txt.slice(0, at);
+    const t = before.lastIndexOf('try {');
+    if (t === -1) return false;
+    // بینِ آن try و فراخوان نباید بلوکِ try دیگری بسته شده باشد
+    return before.slice(t).indexOf('} catch') === -1;
+  };
   ok('۸.۵ فراخوانِ عکس‌برداری در تولید، در try است',
-     /try\s*\{\s*\n\s*auditSnap_\(ENRICH_SHOW_VARIETY/.test(p3));
-  ok('۸.۶ و در درس‌نامه هم', /try\s*\{\s*\n\s*auditSnap_\(ENRICH_SHOW_SPECIAL/.test(p14));
+     inTry(p3, 'auditSnap_(ENRICH_SHOW_VARIETY'));
+  ok('۸.۶ و در درس‌نامه هم', inTry(p14, 'auditSnap_(ENRICH_SHOW_SPECIAL'));
 
   const nBefore = names(auditFolder_()).length;
   const oldF = auditFolder_().getFilesByName('_AUDIT-variety-007.json').next();

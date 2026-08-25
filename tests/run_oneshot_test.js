@@ -10,7 +10,7 @@
  */
 require('./lib/root.js');
 const fs = require('fs');
-require('./lib/mock.js');
+const { Spread } = require('./lib/mock.js');
 const FILES = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort();
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
 (0, eval)(src);
@@ -2297,6 +2297,141 @@ console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ==
   delete global.__PROPS[PK.MUSIC_PLAN];
   delete global.__PROPS[PK.MUSIC_LAST];
   delete global.__PROPS[PK.MUSIC_LOGGED];
+}
+
+console.log('\n=== ۳۶) سقفی که مرحلهٔ بعد رویش اضافه کند، سقف نیست (۵٫۹۶) ===');
+{
+  /* ۲۵ اوت: درس‌نامهٔ ۱۶ باز در دو فایل رفت — ۱۴:۱۴ در برابرِ هدفِ ۱۰٫۸.
+   * ولی این‌بار specialCondense_ کارش را کرده بود: هیچ یافتهٔ
+   * sp-over-one-file ثبت نشده بود. متن *پس از* فشرده‌سازی بزرگ شد، چون
+   * applyEnrichment_ اجازه دارد تا ۲۵٪ روی متنِ پایه اضافه کند و متنِ پایه
+   * دقیقاً سرِ سقف نشسته بود. ۲۵٪ روی ۱۰٫۸ می‌شود ۱۳٫۵، به‌علاوهٔ موسیقی:
+   * ۱۴:۱۴. */
+  const fileCap = specialFileCap_();
+  const writeCap = specialWriteCap_();
+  ok('۳۶.۱ سقفِ نگارش از سقفِ فایل کمتر است — جا برای غنی‌سازی',
+     writeCap < fileCap, writeCap + ' < ' + fileCap);
+  ok('۳۶.۲ و همان چیزی است که به مدل گفته می‌شود',
+     specialMaxChars_() === writeCap, String(specialMaxChars_()));
+  /* ذخیره باید به‌اندازهٔ نیازِ *معمول* باشد، نه به‌اندازهٔ سقفِ مطلقِ
+     غنی‌سازی: با ۲۵٪ ذخیره، هر درس یک‌چهارم کوتاه‌تر می‌شد حتی شبی که هیچ
+     غنی‌سازی‌ای نرسیده. */
+  const reserved = fileCap - writeCap;
+  ok('۳۶.۳ ذخیره از سقفِ مطلقِ غنی‌سازی کمتر است',
+     reserved < Math.round(writeCap * (CFG.ENRICH_MAX_TOTAL_PCT / 100)),
+     reserved + ' < ' + Math.round(writeCap * (CFG.ENRICH_MAX_TOTAL_PCT / 100)));
+
+  // ── و مرزِ سخت: هرچه بیاید، جمع از سقفِ فایل نمی‌گذرد ──
+  const mk = (n) => ({ sections: [{ heading: 'ب', narration: 'م'.repeat(n) }] });
+  const many = [];
+  for (let i = 0; i < 40; i++) {
+    many.push({ targetSection: 0, type: 'outside', priority: 1,
+                spokenLeadIn: 'از بیرونِ آرشیو:', text: 'ن'.repeat(300),
+                sources: [{ title: 'T', publisher: 'P', date: '2026-01-01',
+                            url: 'https://example.com/x' + i }] });
+  }
+  const epA = mk(writeCap);
+  const rA = applyEnrichment_(epA, { items: many }, ENRICH_SHOW_SPECIAL, 1);
+  const totalA = narrationChars_(epA);
+  ok('۳۶.۴ غنی‌سازی روی متنِ سرِ سقفِ نگارش هم انجام می‌شود',
+     rA.applied > 0, rA.applied + ' افزوده');
+  ok('۳۶.۵ ولی جمع هرگز از سقفِ یک فایل نمی‌گذرد',
+     totalA <= fileCap, totalA + ' ≤ ' + fileCap);
+
+  /* و اگر متنِ درس خودش تا لبِ سقف پر باشد، غنی‌سازی صفر می‌گیرد — ولی
+     بی‌صدا نه. قابلیتی که خاموش شود و کسی خبردار نشود، همان الگویی است که
+     بانکِ موسیقی را هفته‌ها خالی نگه داشت. */
+  const epB = mk(fileCap + 500);
+  const rB = applyEnrichment_(epB, { items: many }, ENRICH_SHOW_SPECIAL, 1);
+  ok('۳۶.۶ متنِ پرشده، غنی‌سازی نمی‌گیرد', rB.applied === 0, String(rB.applied));
+  ok('۳۶.۷ و علتش نوشته می‌شود، نه اینکه بی‌صدا رد شود',
+     rB.reasons.join(' ').indexOf('سقفِ یک فایل') !== -1, rB.reasons[0]);
+
+  /* «از همه جا از همه رنگ» دو فایلی شدن ممنوع نیست، پس مرزِ فایل برایش
+     اعمال نمی‌شود — وگرنه یک اصلاحِ درس‌نامه، غنی‌سازیِ برنامهٔ دیگر را
+     هم می‌بُرید. */
+  const epC = mk(fileCap + 500);
+  const rC = applyEnrichment_(epC, { items: many }, ENRICH_SHOW_VARIETY, 1);
+  ok('۳۶.۸ ولی برنامهٔ دیگر دست‌نخورده می‌ماند', rC.applied > 0, String(rC.applied));
+}
+
+console.log('\n=== ۳۷) سنجهٔ محتوا: درس‌نامه هم اِسناد دارد (۵٫۹۶) ===');
+{
+  /* دادهٔ ۲۵ اوت: درس‌نامهٔ ۱۵ — «۶ بخش، اِسناد ۰٪، پیوندِ ساختگی ۶،
+   * فراتر از خام ۶، حکم: ضعیف» — و جملهٔ داور خودش همه‌چیز را می‌گفت:
+   * «هیچ منبع خامی برای این بخش ارائه نشده است».
+   *
+   * علت: auditSnap_ اِسناد را از `sourceIds` می‌خواند و درس‌نامه هرگز
+   * `sourceIds` نداشت — همان اطلاعات را در `chunkNos`/`enrichIds` می‌نوشت.
+   * تحلیلی که نوشته شده بود و هیچ‌وقت به تصمیمی وصل نشد. */
+  const sp = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const at = sp.indexOf('auditSnap_(ENRICH_SHOW_SPECIAL');
+  ok('۳۷.۱ عکسِ درس‌نامه اِسناد را از chunkNos می‌سازد',
+     at > 0 && sp.slice(at - 2000, at).indexOf('chunkNos') !== -1);
+  ok('۳۷.۲ و enrichIds را هم می‌آورد',
+     at > 0 && sp.slice(at - 2000, at).indexOf('enrichIds') !== -1);
+  ok('۳۷.۳ و همان کلیدی که fakeItems ساخته (C + شماره)',
+     at > 0 && sp.slice(at - 2000, at).indexOf("'C' + parseInt") !== -1);
+
+  /* و وقتی هیچ بخشی منبعی ندارد، داوریِ مدل شهادت نیست: نباید به‌عنوان
+     ایرادِ نگارش ثبت شود. */
+  const det0 = auditDeterministic_({ sections: [{ ids: [] }, { ids: [] }], sources: {} });
+  ok('۳۷.۴ بی‌اِسناد یعنی اِسناد ۰٪',
+     det0.noSrc === 2 && det0.attribPct === 0, JSON.stringify(det0));
+  const hub = new Spread('هاب۱۱');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const rowsBefore = () => {
+    const sh = hub.getSheetByName(CFG.TAB_REPORTS || 'گزارش‌های نظارت');
+    return sh ? sh.getLastRow() : 0;
+  };
+  const n0 = rowsBefore();
+  auditFindings_(hub, { show: 'special', showName: 'درس‌نامه', episode: 15 },
+                 det0, { unfit: 0, fake: 2, unfaith: 2, worst: 'هیچ منبع خامی…' }, null);
+  const n1 = rowsBefore();
+  ok('۳۷.۵ داوریِ کور، ایرادِ نگارش ثبت نمی‌کند', n1 === n0, n0 + ' → ' + n1);
+
+  /* شمارندهٔ «شبِ بدِ اِسناد» باید برای هر برنامه جدا باشد. با شمارندهٔ
+     مشترک، ۱۰۰٪ـِ «از همه جا از همه رنگ» هر شب صفرش می‌کرد و هشداری که
+     دقیقاً برای همین ساخته شده بود هرگز فیره نمی‌کرد. */
+  const ac = fs.readFileSync('src/24_ContentAudit.gs', 'utf8');
+  ok('۳۷.۶ شمارندهٔ شبِ بد برای هر برنامه جداست',
+     ac.indexOf("PK.AUDIT_BAD + '_'") !== -1);
+  ok('۳۷.۷ و هیچ‌جا شمارندهٔ مشترک نوشته نمی‌شود',
+     ac.indexOf('setProperty(PK.AUDIT_BAD,') === -1);
+}
+
+console.log('\n=== ۳۸) گزارشی که خوانده نشود، باید دیده شود (۵٫۹۶) ===');
+{
+  /* تسکِ غنی‌سازی هر ساعت یک _REPORT-enrich-*.json می‌نوشت و موتور هر ساعت
+   * ردش می‌کرد («فیلد findings به‌شکل فهرست ندارد») — و تنها ردش یک سطر در
+   * سیاههٔ داخلی بود. یعنی حلقهٔ بازخوردِ آن تسک قطع بود و هیچ‌کس خبر نداشت.
+   * گزارشی که ناخوانا باشد از نبودِ گزارش بدتر است: نویسنده‌اش فکر می‌کند
+   * خبر داده. */
+  const hub = new Spread('هاب۱۲');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const root = global.__ROOT_FOLDER;
+  root.createFile(Utilities.newBlob(
+    JSON.stringify({ generatedAt: '2026-08-25 10:33', source: 'enrich',
+                     findings: { a: 1 } }),
+    'application/json', '_REPORT-enrich-2026-08-25-1033.json'));
+  const before = (hub.getSheetByName(CFG.TAB_REPORTS || 'گزارش‌های نظارت') || {}).getLastRow
+    ? hub.getSheetByName(CFG.TAB_REPORTS || 'گزارش‌های نظارت').getLastRow() : 0;
+  ingestReports_(hub);
+  const sh = hub.getSheetByName(CFG.TAB_REPORTS || 'گزارش‌های نظارت');
+  ok('۳۸.۱ گزارشِ ناخوانا یک یافته می‌سازد', !!sh && sh.getLastRow() > before,
+     String(sh && sh.getLastRow()));
+  const txt = sh.getRange(2, 1, sh.getLastRow() - 1, REPORT_HEADERS.length)
+                .getValues().map(r => r.join(' | ')).join('\n');
+  ok('۳۸.۲ و می‌گوید چه شکلی درست است', txt.indexOf('findings') !== -1);
+  ok('۳۸.۳ و نامِ فایل در عنوانش هست', txt.indexOf('_REPORT-enrich') !== -1);
+  /* کلید بر پایهٔ خانوادهٔ نام است، نه نامِ کاملِ فایل: هر ساعت یک نامِ تازه
+     یعنی هر ساعت یک ردیفِ تازه، و «تکرار» — تنها نشانهٔ «هنوز خراب است» —
+     هرگز شمرده نمی‌شد. */
+  const rp = fs.readFileSync('src/12_Reports.gs', 'utf8');
+  ok('۳۸.۴ کلیدِ یافته به عددهای نام حساس نیست',
+     rp.indexOf("replace(/[0-9]+/g, '#')") !== -1);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
