@@ -636,4 +636,96 @@ console.log('=== ۲۵) سیاهه و دیده‌شدن ===');
      fs.readFileSync('src/21_SelfUpdate.gs', 'utf8').indexOf('ytChannelSync_(') !== -1);
 }
 
+console.log('=== ۲۶) «کانال خوانده نشد» جواب نیست (۶٫۰) ===');
+{
+  /* اولین فشردنِ دکمهٔ شناسنامه این را داد و کار همان‌جا خوابید. آن جمله
+     چهار علتِ کاملاً متفاوت دارد و از بیرون یک‌شکل‌اند — دقیقاً همان شکلِ
+     خرابی‌ای که ۵٫۱۸ برای نصبِ خودکار حل کرده بود و این‌جا تکرار شد. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۲۶.۱ هیچ مسیری دیگر «کانال خوانده نشد»ِ خالی برنمی‌گرداند',
+     src27.indexOf("out.why = 'کانال خوانده نشد'") === -1);
+
+  /* بی سرویس، خودِ علت برمی‌گردد — نه null. */
+  const r1 = ytChannelInfo_();
+  ok('۲۶.۲ بی سرویس، علتش گفته می‌شود', !!r1.why && r1.why.indexOf('Services') !== -1, r1.why);
+  ok('۲۶.۳ و info نمی‌دهد', !r1.info);
+
+  /* سهمیهٔ تمام‌شده علتِ جداگانه‌ای است و نباید با نبودِ دسترسی قاطی شود. */
+  global.YouTube = { Channels: { list: () => ({ items: [] }) } };
+  /* سطلِ واحدها را پر می‌کنیم (کفِ سقف صد است، پس صد واحد خرج می‌کنیم) تا
+     مسیرِ «سهمیه تمام شد» واقعاً پیموده شود، نه شبیه‌سازی. */
+  const uWas = CFG.YT_QUOTA_UNITS; CFG.YT_QUOTA_UNITS = 100;
+  delete global.__PROPS[PK.YT_QUOTA];
+  ytQuotaTake_(100, false);
+  const r2 = ytChannelInfo_();
+  ok('۲۶.۴ سهمیهٔ تمام‌شده علتِ خودش را دارد',
+     r2.why.indexOf('سهمیه') !== -1, r2.why);
+  CFG.YT_QUOTA_UNITS = uWas; delete global.__PROPS[PK.YT_QUOTA];
+
+  /* کانالِ نبوده، علتِ سومی است — و پرچمِ عیب‌یابی می‌خورد. */
+  const r3 = ytChannelInfo_();
+  ok('۲۶.۵ نبودِ کانال علتِ جدا دارد', r3.why.indexOf('کانالی') !== -1, r3.why);
+  ok('۲۶.۶ و برای عیب‌یابی علامت می‌خورد', r3.diag === true);
+
+  /* خطای خودِ API هم متنِ واقعی‌اش را برمی‌گرداند، نه یک جملهٔ عمومی. */
+  global.YouTube = { Channels: { list: () => { throw new Error('Insufficient Permission'); } } };
+  const r4 = ytChannelInfo_();
+  ok('۲۶.۷ خطای API متنِ واقعی‌اش را می‌آورد',
+     r4.why.indexOf('Insufficient Permission') !== -1, r4.why);
+  delete global.YouTube;
+}
+
+console.log('=== ۲۷) عیب‌یابی: از خودِ گوگل می‌پرسد ===');
+{
+  const fetchWas = global.__FETCHES.length;
+  const d = ytDiagnose_();
+  const urls = global.__FETCHES.slice(fetchWas).map(f => f.url);
+  ok('۲۷.۱ اسکوپ‌های واقعیِ توکن پرسیده می‌شوند',
+     urls.some(u => u.indexOf('tokeninfo') !== -1), urls.join(' | ').slice(0, 80));
+  ok('۲۷.۲ و خودِ فراخوانِ یوتیوب هم زده می‌شود',
+     urls.some(u => u.indexOf('youtube/v3/channels') !== -1));
+  ok('۲۷.۳ نتیجه چهار پرسشِ جدا دارد، نه یک بله/خیر',
+     'scopeOk' in d && 'apiOk' in d && 'channelOk' in d && 'code' in d);
+  ok('۲۷.۴ و پاسخِ خامِ گوگل نگه داشته می‌شود', typeof d.raw === 'string');
+
+  /* هر علت باید چارهٔ خودش را داشته باشد — «نامعلوم» یعنی کاربر بماند. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const body = src27.slice(src27.indexOf('function ytDiagnose_'),
+                           src27.indexOf('function ytAddScopes_'));
+  ok('۲۷.۵ نبودِ اسکوپ، چارهٔ خودش را می‌گوید',
+     body.indexOf('افزودنِ اجازهٔ یوتیوب') !== -1);
+  ok('۲۷.۶ خاموش‌بودنِ API در پروژهٔ ابری هم',
+     body.indexOf('SERVICE_DISABLED') !== -1 && body.indexOf('Enable') !== -1);
+  ok('۲۷.۷ و حسابِ برند هم (کانالی که زیرِ حسابِ دیگری است)',
+     body.indexOf('Brand Account') !== -1);
+  ok('۲۷.۸ سهمیه با نبودِ دسترسی قاطی نمی‌شود',
+     body.indexOf('سهمیهٔ یوتیوب تمام شده') !== -1);
+}
+
+console.log('=== ۲۸) و اگر علتش اجازه بود، همان‌جا درست می‌شود ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const body = src27.slice(src27.indexOf('function ytAddScopes_'),
+                           src27.indexOf('function runYouTubeFix'));
+  ok('۲۸.۱ فقط appsscript.json دست می‌خورد، نه کدِ موتور',
+     body.indexOf("String(files[i].type) === 'JSON'") !== -1 &&
+     body.indexOf('SERVER_JS') === -1);
+  ok('۲۸.۲ اسکوپ‌های موجود حفظ می‌شوند، نه جایگزین',
+     body.indexOf('had.concat(add)') !== -1);
+  ok('۲۸.۳ و اگر از قبل بودند، چیزی نوشته نمی‌شود',
+     body.indexOf('already: true') !== -1);
+  /* پروژه‌ای که فهرستِ صریح ندارد، Apps Script خودش استنتاج می‌کند — دست‌بردن
+     در آن هم بی‌فایده است هم گمراه‌کننده. */
+  ok('۲۸.۴ پروژهٔ بی فهرستِ صریح دست نمی‌خورد',
+     body.indexOf('!had.length') !== -1);
+  ok('۲۸.۵ گزینهٔ منو هست و تابعش وجود دارد',
+     fs.readFileSync('src/05_Setup.gs', 'utf8').indexOf("'runYouTubeFix'") !== -1 &&
+     typeof runYouTubeFix === 'function');
+  /* و سه اسکوپِ لازم، نه بیشتر: youtubepartner اسکوپِ حساسی است که تأییدِ
+     جداگانه می‌خواهد و هیچ‌کدام از کارهای ما لازمش ندارد. */
+  ok('۲۸.۶ فقط اسکوپ‌های لازم خواسته می‌شوند',
+     YT_SCOPES.length === 3 && YT_SCOPES.join(' ').indexOf('youtubepartner') === -1,
+     YT_SCOPES.join(' '));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

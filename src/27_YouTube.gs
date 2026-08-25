@@ -1555,6 +1555,21 @@ function ytHealth_(problems, notes) {
   if (!st.service) notes.push('یوتیوب هنوز وصل نیست: ' + st.why + '.');
   else notes.push(st.line);
 
+  /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
+     شبیهِ «کار می‌کند» به‌نظر می‌رسد و هیچ ویدئویی هم بالا نمی‌رود. پس
+     همان‌جا علتش پرسیده و نوشته می‌شود. */
+  if (st.service && st.channel && !st.channel.at && ytTodoDue_()) {
+    var dg = null;
+    try { dg = ytDiagnose_(); } catch (eDg) {}
+    if (dg && !dg.channelOk) {
+      problems.push('یوتیوب وصل است ولی کانال خوانده نمی‌شود — ' +
+                    (dg.cause || 'علت نامعلوم') +
+                    (dg.fix ? '. چاره: ' + dg.fix : '') +
+                    ' (منو ← «عیب‌یابی و رفعِ دسترسیِ یوتیوب»)');
+      try { props_().setProperty('YT_TODO_AT', nowStr_()); } catch (eS) {}
+    }
+  }
+
   /* بندِ رندر پیش از وارسیِ اتصال می‌آید و عمداً به آن وابسته نیست: ساختِ
      ویدئو کارِ طرفِ دیگر است. اگر این بند پشتِ «سرویس وصل است؟» می‌ماند،
      قطع‌شدنِ سرویس انبوهِ درخواست‌های بی‌جواب را هم نامرئی می‌کرد — یعنی
@@ -1836,16 +1851,21 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo) {
 
 /** یک خواندن از کانال — همهٔ چیزی که وارسی لازم دارد. */
 function ytChannelInfo_() {
-  var yt = ytSvc_(); if (!yt) return null;
-  if (!ytQuotaTake_(YT_COST.videosList, false)) return null;
+  /* برمی‌گرداند {info} یا {why}. هرگز `null`ِ خالی — «کانال خوانده نشد» چهار
+     علتِ متفاوت دارد و پیامی که نگوید کدام‌یک، کار را می‌خواباند. */
+  var yt = ytSvc_();
+  if (!yt) return { why: ytOffWhy_() };
+  if (!ytQuotaTake_(YT_COST.videosList, false)) {
+    return { why: 'سهمیهٔ امروزِ یوتیوب تمام شده؛ فردا خودش ادامه می‌دهد' };
+  }
   try {
     var r = yt.Channels.list('id,snippet,brandingSettings,contentDetails,statistics',
                              { mine: true });
-    if (!r || !r.items || !r.items.length) return null;
-    return r.items[0];
+    if (r && r.items && r.items.length) return { info: r.items[0] };
+    return { why: 'یوتیوب کانالی برای این حساب برنگرداند', diag: true };
   } catch (e) {
     logLine_('کانالِ یوتیوب خوانده نشد: ' + e.message);
-    return null;
+    return { why: String(e.message).slice(0, 200), diag: true };
   }
 }
 
@@ -2147,8 +2167,18 @@ function ytChannelSync_(force) {
   var out = { ok: false, ran: false, did: [], todo: [], why: '', rows: [] };
   if (!ytOn_() || CFG.YT_CHANNEL === false) { out.why = ytOffWhy_() || 'خاموش'; return out; }
   var hub = getHub_();
-  var info = ytChannelInfo_();
-  if (!info) { out.why = 'کانال خوانده نشد'; return out; }
+  var got = ytChannelInfo_();
+  if (!got.info) {
+    out.why = got.why || 'کانال خوانده نشد';
+    // و اگر علتش از جنسِ دسترسی بود، همان‌جا دقیق بگو — نه اینکه کاربر
+    // بماند با یک جملهٔ بی‌سرنخ و دنبالِ گزینهٔ دیگری بگردد.
+    if (got.diag) {
+      try { out.diag = ytDiagnose_(); } catch (eD) {}
+      if (out.diag && out.diag.cause) out.why = out.diag.cause;
+    }
+    return out;
+  }
+  var info = got.info;
   out.channelId = String(info.id || '');
   out.title = String((info.snippet || {}).title || '');
 
@@ -2293,8 +2323,195 @@ function runYouTubeChannel() {
     L.push('این‌ها از راهِ API شدنی نیستند و فقط از studio.youtube.com انجام می‌شوند:');
     for (var t = 0; t < r.todo.length; t++) L.push('   • ' + r.todo[t]);
   }
-  if (r.why) { L.push(''); L.push(r.why); }
+  if (r.why) { L.push(''); L.push('نتیجه: ' + r.why); }
+  if (r.diag) {
+    var d = r.diag;
+    L.push('');
+    L.push('عیب‌یابی:');
+    L.push('  سرویسِ یوتیوب در پروژه: ' + (ytSvc_() ? 'فعال ✅' : 'فعال نیست ❌'));
+    L.push('  اسکوپِ یوتیوب در توکن: ' + (d.scopeOk ? 'هست ✅' : 'نیست ❌'));
+    L.push('  پاسخِ یوتیوب: HTTP ' + d.code);
+    if (d.fix) { L.push(''); L.push('چاره: ' + d.fix); }
+    if (d.raw) { L.push(''); L.push('پاسخِ خامِ گوگل:'); L.push(d.raw); }
+    L.push('');
+    L.push('از همین منو «🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب» را بزنید — ' +
+           'اگر علتش اجازه باشد، همان‌جا درستش می‌کند.');
+  }
   var m = L.join('\n');
   if (ui) ui.alert('شناسنامهٔ کانال', m, ui.ButtonSet.OK); else console.log(m);
   return r;
+}
+
+/* ═══════════════ ۱۸) عیب‌یابی — چون «کانال خوانده نشد» جواب نیست ═══════════════
+ *
+ * ۲۵ اوت، اولین فشردنِ دکمه: «کانال خوانده نشد». و همین بس بود که کار بخوابد،
+ * چون آن جمله **چهار علتِ کاملاً متفاوت** دارد و از بیرون یک‌شکل‌اند:
+ *   ۱) اسکوپِ یوتیوب در توکن نیست (افزودنِ سرویس در ویرایشگر کافی نیست، اگر
+ *      appsscript.json فهرستِ صریحِ oauthScopes داشته باشد — که این پروژه دارد)
+ *   ۲) YouTube Data API در پروژهٔ ابری روشن نشده
+ *   ۳) این حسابِ گوگل اصلاً کانالی ندارد
+ *   ۴) سهمیه تمام شده
+ *
+ * همان درسی که ۵٫۱۸ برای نصبِ خودکار داد: «فهرست‌کردنِ هر چهار احتمال کاربر را
+ * سرگردان می‌کند؛ باید گفت کدام‌یک است.» پس این تابع از خودِ گوگل می‌پرسد و
+ * پاسخِ خامش را هم نشان می‌دهد.
+ */
+var YT_SCOPES = ['https://www.googleapis.com/auth/youtube',
+                 'https://www.googleapis.com/auth/youtube.force-ssl',
+                 'https://www.googleapis.com/auth/youtube.upload'];
+
+function ytDiagnose_() {
+  var d = { scopeOk: false, apiOk: false, channelOk: false, code: 0,
+            raw: '', cause: '', fix: '', scopes: [], channelId: '', channelTitle: '' };
+  var tok = '';
+  try { tok = ScriptApp.getOAuthToken(); }
+  catch (e) { d.cause = 'توکنِ دسترسی گرفته نشد: ' + e.message; return d; }
+
+  // ── ۱) توکن واقعاً چه اسکوپ‌هایی دارد؟ ──
+  var scopes = '';
+  try {
+    var ti = UrlFetchApp.fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' +
+                               encodeURIComponent(tok), { muteHttpExceptions: true });
+    if (ti.getResponseCode() === 200) {
+      scopes = String((JSON.parse(ti.getContentText()) || {}).scope || '');
+    }
+  } catch (e2) {}
+  d.scopes = scopes.split(/\s+/).filter(function (x) { return !!x; });
+  for (var i = 0; i < YT_SCOPES.length; i++) {
+    if (scopes.indexOf(YT_SCOPES[i]) !== -1) { d.scopeOk = true; break; }
+  }
+
+  // ── ۲) خودِ فراخوان، خام — تا پیامِ گوگل دست‌نخورده دیده شود ──
+  var r = ytHttp_('https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true', 'get');
+  d.code = r.code;
+  d.raw = String(r.text || '').replace(/\s+/g, ' ').slice(0, 400);
+  var msg = '';
+  try { msg = String((((r.json || {}).error || {}).message) || ''); } catch (e3) {}
+
+  if (r.code === 200) {
+    d.apiOk = true;
+    var items = (r.json && r.json.items) || [];
+    if (items.length) {
+      d.channelOk = true;
+      d.channelId = String(items[0].id || '');
+      d.channelTitle = String(((items[0].snippet) || {}).title || '');
+    } else {
+      d.cause = 'این حسابِ گوگل کانالِ یوتیوبی ندارد که موتور ببیند';
+      d.fix = 'اگر کانال زیرِ یک «حسابِ برند» (Brand Account) است، اسکریپت باید با ' +
+              'همان حساب اجازه بگیرد. در studio.youtube.com بالا سمتِ راست حساب را ' +
+              'عوض کنید و ببینید کانال زیرِ کدام حساب است.';
+    }
+    return d;
+  }
+
+  if (!d.scopeOk) {
+    d.cause = 'اسکوپِ یوتیوب در اجازه‌های اسکریپت نیست';
+    d.fix = 'افزودنِ سرویسِ YouTube در ویرایشگر به‌تنهایی کافی نیست: چون ' +
+            'appsscript.json این پروژه فهرستِ صریحِ oauthScopes دارد، اسکوپ‌ها ' +
+            'خودکار استنتاج نمی‌شوند. از همین منو «افزودنِ اجازهٔ یوتیوب» را بزنید ' +
+            'و بعد یک بار اجازه‌ها را تأیید کنید.';
+    return d;
+  }
+  if (/has not been used in project|is disabled|SERVICE_DISABLED/i.test(msg + ' ' + d.raw)) {
+    d.cause = 'YouTube Data API در پروژهٔ ابریِ این اسکریپت روشن نیست';
+    d.fix = 'در همان پروژهٔ Google Cloud که به این اسکریپت وصل است، ' +
+            'YouTube Data API v3 را Enable کنید. نشانی‌اش معمولاً در همین پیامِ ' +
+            'خامِ گوگل هست.';
+    return d;
+  }
+  if (r.code === 403 && /quota|rateLimit/i.test(msg)) {
+    d.cause = 'سهمیهٔ یوتیوب تمام شده';
+    d.fix = 'فردا خودش ادامه می‌دهد؛ کاری لازم نیست.';
+    return d;
+  }
+  d.cause = 'فراخوانِ یوتیوب کدِ ' + r.code + ' داد' + (msg ? ': ' + msg : '');
+  d.fix = 'پاسخِ خامِ گوگل پایین آمده — معمولاً خودش می‌گوید چه کم است.';
+  return d;
+}
+
+/**
+ * افزودنِ اسکوپ‌های یوتیوب به appsscript.json — همان کارِ دستیِ خسته‌کننده،
+ * ولی از داخلِ منو.
+ *
+ * موتور نمی‌تواند به خودش اجازه بدهد (اجازه را فقط آدم می‌دهد)، ولی می‌تواند
+ * فهرست را طوری بنویسد که تأییدِ بعدی شاملشان شود. بی این، کاربر باید JSON
+ * را دستی ویرایش کند — و همان جایی است که کار می‌خوابد.
+ */
+function ytAddScopes_() {
+  var cur = scriptApiFetch_('get');
+  if (cur.code !== 200 || !cur.json || !cur.json.files) {
+    return { ok: false, why: 'کدِ پروژه خوانده نشد (HTTP ' + cur.code + ')' };
+  }
+  var files = cur.json.files, mi = -1;
+  for (var i = 0; i < files.length; i++) {
+    if (String(files[i].name) === 'appsscript' && String(files[i].type) === 'JSON') mi = i;
+  }
+  if (mi === -1) return { ok: false, why: 'appsscript.json در پروژه پیدا نشد' };
+  var man = null;
+  try { man = JSON.parse(files[mi].source); }
+  catch (e) { return { ok: false, why: 'appsscript.json خوانده نشد: ' + e.message }; }
+
+  var had = man.oauthScopes || [];
+  if (!had.length) {
+    // بی فهرستِ صریح، Apps Script خودش استنتاج می‌کند و دست‌بردن لازم نیست
+    return { ok: false, why: 'این پروژه فهرستِ صریحِ oauthScopes ندارد؛ ' +
+                             'پس علت چیزِ دیگری است — عیب‌یابی را ببینید.' };
+  }
+  var add = [];
+  for (var s = 0; s < YT_SCOPES.length; s++) {
+    if (had.indexOf(YT_SCOPES[s]) === -1) add.push(YT_SCOPES[s]);
+  }
+  if (!add.length) {
+    return { ok: false, why: 'اسکوپ‌های یوتیوب از قبل در appsscript.json هستند — ' +
+                             'پس فقط تأییدِ دوبارهٔ اجازه‌ها مانده.', already: true };
+  }
+  man.oauthScopes = had.concat(add);
+  files[mi].source = JSON.stringify(man, null, 2);
+  var put = scriptApiFetch_('put', { files: files });
+  if (put.code !== 200) {
+    return { ok: false, why: 'ذخیرهٔ appsscript.json نشد (HTTP ' + put.code + ')' };
+  }
+  logLine_('اسکوپ‌های یوتیوب به appsscript.json افزوده شد: ' + add.join('، '));
+  return { ok: true, added: add };
+}
+
+/** منو: عیب‌یابی، و اگر علتش اسکوپ بود، همان‌جا درستش کن. */
+function runYouTubeFix() {
+  var ui = ui_();
+  var d = ytDiagnose_();
+  var L = ['عیب‌یابیِ یوتیوب:', ''];
+  L.push('سرویسِ یوتیوب در پروژه: ' + (ytSvc_() ? 'فعال ✅' : 'فعال نیست ❌'));
+  L.push('اسکوپِ یوتیوب در توکن: ' + (d.scopeOk ? 'هست ✅' : 'نیست ❌'));
+  L.push('پاسخِ خودِ یوتیوب: HTTP ' + d.code + (d.apiOk ? ' ✅' : ' ❌'));
+  if (d.channelOk) L.push('کانال: «' + d.channelTitle + '» ✅');
+  L.push('');
+  if (d.channelOk) {
+    L.push('همه‌چیز درست است. «شناسنامهٔ کانال» را بزنید.');
+  } else {
+    L.push('علت: ' + (d.cause || 'نامعلوم'));
+    if (d.fix) { L.push(''); L.push('چاره: ' + d.fix); }
+    if (d.raw) { L.push(''); L.push('پاسخِ خامِ گوگل:'); L.push(d.raw); }
+  }
+
+  if (!d.channelOk && !d.scopeOk && ui) {
+    var ans = ui.alert('عیب‌یابیِ یوتیوب',
+      L.join('\n') + '\n\n──────\nهمین حالا اسکوپ‌های یوتیوب به appsscript.json ' +
+      'اضافه شوند؟ (کدِ موتور دست نمی‌خورد؛ فقط فهرستِ اجازه‌ها.)',
+      ui.ButtonSet.YES_NO);
+    if (ans === ui.Button.YES) {
+      var r = ytAddScopes_();
+      ui.alert('افزودنِ اجازهٔ یوتیوب',
+        (r.ok ? '✅ افزوده شد: ' + r.added.join('، ') : '❌ ' + r.why) +
+        '\n\nحالا یک بار دیگر همین گزینه را بزنید؛ پنجرهٔ تأییدِ اجازه‌ها ' +
+        'می‌آید و بعدش کار می‌کند.\n\n' +
+        'اگر پنجره نیامد: در myaccount.google.com/permissions دسترسیِ این ' +
+        'اسکریپت را پس بگیرید و دوباره یکی از گزینه‌های منو را بزنید.',
+        ui.ButtonSet.OK);
+      return r;
+    }
+    return d;
+  }
+  var m = L.join('\n');
+  if (ui) ui.alert('عیب‌یابیِ یوتیوب', m, ui.ButtonSet.OK); else console.log(m);
+  return d;
 }
