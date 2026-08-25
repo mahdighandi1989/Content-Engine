@@ -460,6 +460,35 @@ an MP4 and drops it in the episode folder. The request lives in `_YT-RENDER.json
 and **a request left unanswered for `YT_STUCK_DAYS` is itself a reported problem** —
 that is the music-bank lesson, applied from day one instead of after seven weeks.
 
+**Order is guaranteed twice, independently** (5.98). `getFolders()` promises no
+order, so the queue is sorted by (show, series, episode) both when filled and when
+consumed. But the real guarantee is elsewhere: a video's playlist position is
+computed as *how many already-published episodes of this playlist have a lower
+number* — never "append", and never "episode minus one" (one abandoned episode
+would shift every later one). So even when uploads run out of order, the playlist
+reads correctly, and a late-arriving old episode inserts itself above the newer
+ones. Two independent guards for one promise, because the ordering the owner
+actually sees is the playlist's.
+
+**One series, one playlist.** The upload path once keyed playlists by series
+*name* and the sync path by registry *key* — the same series could get two
+playlists. `ytPlKey_` is now the single definition and the queue carries the
+series identity with it. Registry key beats name deliberately: the name changes
+(that is the point of the board), the playlist must not.
+
+**Cover text is written for the cover, not borrowed from the title.** A YouTube
+title has 100 characters and is read beside the video; a thumbnail is read at
+postage-stamp size. One string for both makes both bad, so the model returns
+`coverTitle` (≤42 chars) separately, with a good and a bad example in the prompt.
+
+**`_yt.json` in each episode folder is the answer to "what if it got it wrong?"**
+The publish plan is built once, reused across nights, and is a plain file a human
+or the monitor can edit. `runYouTubeRedo` then pushes title, description, tags and
+cover onto the already-published video through `videos.update` and
+`thumbnails.set` — no re-upload, so view count and URL survive. The leak scan runs
+again on that path too: a hand-edited description must pass the same gate, because
+the gate belongs at the door, not on one of the roads to it.
+
 **The privacy boundary is in code, not in the prompt.** The channel is public and
 a Drive link that goes public cannot be "better tomorrow" the way an episode's
 prose can. So `ytLeaks_` runs on the *final* text, the video uploads as `unlisted`,

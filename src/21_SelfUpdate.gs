@@ -738,6 +738,7 @@ function selfUpdateDaily() {
       }
     } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
     try { ytPlaylistSync_(45000); } catch (eYp) {}
+    try { ytChannelSync_(false); } catch (eYc) {}
   }
 
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.

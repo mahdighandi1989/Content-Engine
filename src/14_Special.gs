@@ -2091,7 +2091,8 @@ function renderSpecialAudioStep_() {
        آپلود چند ده مگابایت است و ویدئویش هم هنوز ساخته نشده؛ انجامش در
        همین اجرا یعنی ریسکِ کشته‌شدنِ اجرا وسطِ تحویلِ قسمت. کارِ شبانه
        پرداختش می‌کند. (فراخوانِ رو به جلو ۱۴ ← ۲۷، پس در try.) */
-    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId()); }
+    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId(),
+                    meta.seriesKey, meta.seriesName); }
     catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
 
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };

@@ -14,6 +14,23 @@ const FILES = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort();
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
 (0, eval)(src);
 
+global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+/* پاسخِ ساختگیِ مدل — کوتاه و قابلِ پیش‌بینی، تا سنجه‌ها به *کیفیتِ* نوشتهٔ
+   مدل بند نباشند. چیزی که این‌جا سنجیده می‌شود ساختار است: آیا نقشه ساخته و
+   ذخیره می‌شود، آیا اجرای دوم دوباره نمی‌پرسد، آیا ویرایشِ دستی خوانده می‌شود. */
+let __askCount = 0;
+global.__STUB = function (url, body) {
+  if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+    { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] }] } };
+  __askCount++;
+  return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
+    title: 'عنوانِ ساختگیِ شمارهٔ ' + __askCount,
+    coverTitle: 'سه شرطِ معرفت', coverKicker: 'معرفت‌شناسی',
+    hookLine: 'قلابِ آزمون', summary: 'خلاصهٔ آزمون',
+    bullets: ['یک', 'دو'], tags: ['برچسبِ الف', 'برچسبِ ب'],
+    hashtags: ['فلسفه'] }) }] } }] } };
+};
+
 let pass = 0;
 const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
   if (!c) throw new Error('FAILED: ' + n); pass++; };
@@ -278,6 +295,168 @@ console.log('=== ۱۳) اتصال‌ها: هیچ دکمه و هیچ قلابی �
      SERIES_HEADERS[SC.YT - 1] === 'پلی‌لیست یوتیوب', SERIES_HEADERS[SC.YT - 1]);
   ok('۱۳.۱۰ در schemaها هیچ number/integer/boolean نیست',
      !/"(number|integer|boolean)"/.test(JSON.stringify(YT_META_SCHEMA)));
+}
+
+console.log('=== ۱۴) ترتیب: نه در صف به‌هم می‌ریزد، نه در پلی‌لیست (۵٫۹۸) ===');
+{
+  /* `getFolders()` هیچ ترتیبی را تضمین نمی‌کند. تا ۵٫۹۷ صف از همان ترتیب پر
+     می‌شد، یعنی قسمتِ ۱۲ می‌توانست پیش از ۳ منتشر شود. */
+  delete global.__PROPS[PK.YT_DUE];
+  const order = ['12', '3', '19', '7'];
+  for (const e of order) ytDueAdd_('special', e, 'F' + e, 'kA', 'الف');
+  ytDueAdd_('variety', '5', 'FV5');
+  const l = ytDueOrder_(ytDueList_());
+  const sp = l.filter(x => x.show === 'special').map(x => x.ep);
+  ok('۱۴.۱ صف بر اساس شمارهٔ قسمت مرتب می‌شود',
+     sp.join(',') === '3,7,12,19', sp.join(','));
+  ok('۱۴.۲ و دو برنامه با هم قاتی نمی‌شوند',
+     l.filter(x => x.show === 'variety').length === 1 &&
+     l[0].show !== l[l.length - 1].show, l.map(x => x.show + ':' + x.ep).join(' '));
+
+  /* جای پلی‌لیست از شمارهٔ قسمت می‌آید، نه از ترتیبِ آپلود — پس **حتی اگر
+     ترتیبِ آپلود به‌هم بخورد، ترتیبِ پلی‌لیست درست می‌ماند.** */
+  const pub = {
+    'درس‌نامه:3': { videoId: 'a', series: 'الف' },
+    'درس‌نامه:7': { videoId: 'b', series: 'الف' },
+    'درس‌نامه:19': { videoId: 'c', series: 'الف' },
+    'درس‌نامه:5': { videoId: 'd', series: 'ب' },          // مجموعهٔ دیگر
+    'از همه جا از همه رنگ:4': { videoId: 'e', series: '' } // برنامهٔ دیگر
+  };
+  ok('۱۴.۳ قسمتِ ۱۲ بینِ ۷ و ۱۹ می‌نشیند',
+     ytWantPos_(pub, { show: 'special', ep: '12' }, 'الف') === 2,
+     String(ytWantPos_(pub, { show: 'special', ep: '12' }, 'الف')));
+  ok('۱۴.۴ قسمتِ ۱ اولِ همه، حتی اگر آخر آپلود شود',
+     ytWantPos_(pub, { show: 'special', ep: '1' }, 'الف') === 0);
+  ok('۱۴.۵ مجموعهٔ دیگر در شمارش نمی‌آید',
+     ytWantPos_(pub, { show: 'special', ep: '99' }, 'الف') === 3,
+     String(ytWantPos_(pub, { show: 'special', ep: '99' }, 'الف')));
+  ok('۱۴.۶ و برنامهٔ متنوع هم جای قطعی دارد، نه «آخرش اضافه کن»',
+     ytWantPos_(pub, { show: 'variety', ep: '9' }, '') === 1,
+     String(ytWantPos_(pub, { show: 'variety', ep: '9' }, '')));
+  /* شکاف در شماره‌ها (قسمتِ رهاشده) نباید بقیه را جابه‌جا کند — به همین دلیل
+     «شمارهٔ قسمت منهای یک» جوابِ درستی نبود. */
+  ok('۱۴.۷ شکاف در شماره‌ها ترتیب را خراب نمی‌کند',
+     ytWantPos_(pub, { show: 'special', ep: '20' }, 'الف') === 3);
+  delete global.__PROPS[PK.YT_DUE];
+}
+
+console.log('=== ۱۵) یک مجموعه، یک پلی‌لیست — نه دوتا (۵٫۹۸) ===');
+{
+  /* تا ۵٫۹۷ مسیرِ آپلود با *نام* کلید می‌زد و مسیرِ همگام‌سازی با *کلیدِ
+     رجیستری*. اگر این دو فرق می‌کردند، یک مجموعه دو پلی‌لیست می‌گرفت. */
+  ok('۱۵.۱ کلیدِ پلی‌لیست یک تعریف دارد',
+     ytPlKey_('special', 'kA', 'نامِ الف') === ytPlKey_('special', 'kA', 'نامِ تازه'),
+     ytPlKey_('special', 'kA', 'نامِ الف'));
+  ok('۱۵.۲ و کلیدِ رجیستری بر نام مقدم است — تغییرِ نام پلی‌لیست را عوض نمی‌کند',
+     ytPlKey_('special', 'kA', 'x') === 'series:kA');
+  ok('۱۵.۳ بی کلید، نام جانشین می‌شود', ytPlKey_('special', '', 'نامِ الف') === 'series:نامِ الف');
+  ok('۱۵.۴ برنامهٔ متنوع همیشه یک پلی‌لیست دارد',
+     ytPlKey_('variety', 'x', 'y') === 'show:variety');
+  /* و هر دو مسیر واقعاً از همین تابع می‌خوانند، نه از رشتهٔ دستیِ خودشان. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۵.۵ هیچ‌جا کلیدِ پلی‌لیست دستی ساخته نمی‌شود',
+     (src27.match(/'series:' \+/g) || []).length === 1,
+     String((src27.match(/'series:' \+/g) || []).length));
+  ok('۱۵.۶ و صف هویتِ مجموعه را با خودش می‌برد',
+     src27.indexOf('seriesKey: String(seriesKey') !== -1);
+}
+
+console.log('=== ۱۶) کاور: متنش برای کاور نوشته می‌شود، نه عنوانِ ویدئو ===');
+{
+  ok('۱۶.۱ مدل متنِ کاور را جدا می‌نویسد',
+     !!YT_META_SCHEMA.properties.coverTitle && !!YT_META_SCHEMA.properties.coverKicker);
+  ok('۱۶.۲ و اجباری است، وگرنه کاور به عنوانِ صد‌نویسه‌ای می‌افتد',
+     YT_META_SCHEMA.required.indexOf('coverTitle') !== -1);
+  const pr = ytMetaPrompt_({ showName: 'د', epNum: '۱', title: 'ت', duration: '5:00',
+                             headings: ['الف'] });
+  ok('۱۶.۳ و دستور می‌گوید چرا کوتاه باشد',
+     pr.indexOf('بندانگشتی') !== -1 && pr.indexOf('coverTitle') !== -1);
+  ok('۱۶.۴ با مثالِ خوب و بد، نه فقط قاعده',
+     pr.indexOf('مثالِ خوب') !== -1 && pr.indexOf('مثالِ بد') !== -1);
+  /* نامِ کاور ثابت است، پس اجرای دوم همان را برمی‌دارد و اسلایدِ تازه
+     نمی‌سازد — و بازسازی جایگزین می‌کند، نه هم‌نامِ دوم. */
+  const nm = ytCoverName_({ epLabel: 'قسمت ۱۶', showName: 'درس‌نامه' });
+  ok('۱۶.۵ نامِ کاور قطعی است', nm === 'کاور — قسمت ۱۶ — درس‌نامه.png', nm);
+  ok('۱۶.۶ بازسازی هم‌نامِ قدیمی را دور می‌ریزد، نه اینکه دومی بسازد',
+     fs.readFileSync('src/27_YouTube.gs', 'utf8')
+       .indexOf('while (old.hasNext()) old.next().setTrashed(true)') !== -1);
+}
+
+console.log('=== ۱۷) نقشهٔ انتشار: یک بار ساخته می‌شود و قابلِ ویرایش است ===');
+{
+  const folder = global.__ROOT_FOLDER.createFolder('قسمت 0042 — آزمون');
+  const ctx = { show: 'special', epRaw: '42', showName: 'درس‌نامه', seriesName: 'الف',
+                epNum: '۴۲', title: 'عنوانِ داخلی', duration: '9:00', headings: ['یک'],
+                sections: [{ heading: 'یک', narration: 'x'.repeat(3000) },
+                           { heading: 'دو', narration: 'y'.repeat(2000) },
+                           { heading: 'سه', narration: 'z'.repeat(1500) }],
+                totalSec: 540, sources: [] };
+  const p1 = ytPlan_(folder, ctx, false);
+  ok('۱۷.۱ نقشه ساخته می‌شود', !!p1 && !!p1.title, p1 && p1.title);
+  ok('۱۷.۲ و روی دیسک می‌نشیند',
+     folder.getFilesByName(ytPlanName_()).hasNext());
+  const askWas = __askCount;
+  const p2 = ytPlan_(folder, ctx, false);
+  ok('۱۷.۳ اجرای دوم مدل را دوباره نمی‌پرسد',
+     p2.cached === true && __askCount === askWas, String(__askCount - askWas) + ' فراخوان');
+
+  /* و آدم می‌تواند دستی ویرایشش کند — این جوابِ «اگر اشتباه زده باشه قابلِ
+     تغییره؟» است. */
+  const f = folder.getFilesByName(ytPlanName_()).next();
+  const edited = JSON.parse(f.getBlob().getDataAsString());
+  edited.title = 'عنوانی که آدم نوشت';
+  f.setContent(JSON.stringify(edited));
+  ok('۱۷.۴ ویرایشِ دستی خوانده می‌شود',
+     ytPlan_(folder, ctx, false).title === 'عنوانی که آدم نوشت');
+  ok('۱۷.۵ و «نو» مدل را از نو می‌پرسد',
+     ytPlan_(folder, ctx, true).title !== 'عنوانی که آدم نوشت');
+  ok('۱۷.۶ فایل خودش می‌گوید چطور اصلاحش کنند',
+     String(ytPlanRead_(folder).note).indexOf('بازساز') !== -1);
+}
+
+console.log('=== ۱۸) اصلاحِ پس از انتشار، بی آپلودِ دوباره ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const body = src27.slice(src27.indexOf('function ytRedoOne_'));
+  ok('۱۸.۱ عنوان و کپشن با videos.update عوض می‌شوند، نه با آپلودِ تازه',
+     body.indexOf('Videos.update') !== -1 && body.indexOf('Videos.insert') === -1);
+  ok('۱۸.۲ کاور هم دوباره می‌نشیند', body.indexOf('Thumbnails.set') !== -1);
+  ok('۱۸.۳ و وارسیِ نشتی دوباره اجرا می‌شود — متنِ دست‌نویس هم از دروازه رد می‌شود',
+     body.indexOf('ytLeaks_(') !== -1);
+  ok('۱۸.۴ ویدئویی که به‌خاطرِ نشتی unlisted مانده بود، پس از اصلاح عمومی می‌شود',
+     body.indexOf('YT_PRIVACY_FINAL') !== -1);
+  ok('۱۸.۵ و گزینهٔ منو هست',
+     fs.readFileSync('src/05_Setup.gs', 'utf8').indexOf("'runYouTubeRedo'") !== -1 &&
+     typeof runYouTubeRedo === 'function');
+  /* وارسیِ «سرویس هست؟» پیش از هر چیز است — پس بی سرویس، همان را می‌گوید و
+     سراغِ کارِ دیگری نمی‌رود. با سرویسِ ساختگی، شاخهٔ «منتشر نشده» دیده می‌شود. */
+  ok('۱۸.۶ بی سرویس، همان را می‌گوید و کاری نمی‌کند',
+     ytRedoOne_('special', '9999', {}).why.indexOf('Services') !== -1);
+  global.YouTube = { Videos: { update() {} }, Thumbnails: { set() {} },
+                     Channels: { list: () => ({ items: [] }) },
+                     PlaylistItems: { list: () => ({ items: [] }) },
+                     Playlists: {} };
+  ok('۱۸.۷ و بی انتشارِ قبلی، اصلاحی در کار نیست',
+     ytRedoOne_('special', '9999', {}).why.indexOf('منتشر نشده') !== -1,
+     ytRedoOne_('special', '9999', {}).why);
+  delete global.YouTube;
+}
+
+console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کانال ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۹.۱ کاورِ پلی‌لیست از playlistImages می‌رود',
+     src27.indexOf('playlistImages') !== -1);
+  ok('۱۹.۲ و فقط برای پلی‌لیستِ تازه یا تغییرِ نام، نه هر شب',
+     src27.indexOf('if (!had || (titleWas && titleWas !== pl.title))') !== -1);
+  ok('۱۹.۳ توضیح و کلیدواژهٔ کانال از پیکربندی ساخته می‌شوند',
+     ytChannelDesc_().indexOf(String(CFG.SHOW_NAME)) !== -1);
+  ok('۱۹.۴ کلیدواژه‌ها از سقفِ یوتیوب نمی‌گذرند',
+     ytChannelKeywords_().length <= 500, String(ytChannelKeywords_().length));
+  ok('۱۹.۵ و توضیحِ کانال هیچ نشتیِ خصوصی ندارد',
+     ytLeaks_(ytChannelDesc_()).length === 0);
+  ok('۱۹.۶ کارِ شبانه شناسنامهٔ کانال را هم نگه می‌دارد',
+     fs.readFileSync('src/21_SelfUpdate.gs', 'utf8').indexOf('ytChannelSync_(') !== -1);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

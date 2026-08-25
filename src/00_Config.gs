@@ -334,6 +334,10 @@ var CFG = {
   YT_RENDER_MAX: 8,                     // بیش از این، درخواستِ رندر انباشته نشود
   YT_VIDEO_MARK: 'ویدئو',               // نامِ فایلِ MP4 در پوشهٔ قسمت
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
+  YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
+  YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
+  YT_CHANNEL: true,                     // نگه‌داشتنِ توضیح و بنرِ کانال
+  YT_BANNER_EVERY_DAYS: 30,             // بنر هر ماه یک بار تازه می‌شود، نه هر شب
   YT_THUMB: true,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
@@ -721,7 +725,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.97',
+  CODE_VERSION: '5.98',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

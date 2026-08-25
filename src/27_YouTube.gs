@@ -207,13 +207,18 @@ var YT_META_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string' },
+    // متنِ روی کاور — عمداً جدا از عنوان. عنوانِ یوتیوب صد نویسه جا دارد و
+    // کنارِ ویدئو خوانده می‌شود؛ کاور در اندازهٔ بندانگشتی دیده می‌شود و
+    // بیش از چند واژه در آن خوانا نیست. یک متن برای دو کار، یعنی هر دو بد.
+    coverTitle: { type: 'string' },
+    coverKicker: { type: 'string' },
     hookLine: { type: 'string' },
     summary: { type: 'string' },
     bullets: { type: 'array', items: { type: 'string' } },
     tags: { type: 'array', items: { type: 'string' } },
     hashtags: { type: 'array', items: { type: 'string' } }
   },
-  required: ['title', 'hookLine', 'summary', 'tags']
+  required: ['title', 'coverTitle', 'hookLine', 'summary', 'tags']
 };
 
 function ytMetaPrompt_(ctx) {
@@ -240,6 +245,14 @@ function ytMetaPrompt_(ctx) {
   L.push('• title — عنوانِ یوتیوب. حداکثر ' + (CFG.YT_TITLE_MAX || 100) + ' نویسه. ' +
          'مهم‌ترین واژهٔ جست‌وجو در شصت نویسهٔ اول باشد. بی‌کلیک‌بیت، بی وعدهٔ دروغ، ' +
          'بی حروفِ بزرگِ فریاد. اگر مجموعه‌ای است، شمارهٔ درس در عنوان بیاید.');
+  L.push('• coverTitle — متنِ بزرگِ روی کاور. **حداکثر ' +
+         faDigitsOut_(String(CFG.YT_COVER_CHARS || 42)) + ' نویسه**، ترجیحاً کمتر. ' +
+         'کاور در اندازهٔ بندانگشتی دیده می‌شود، پس این باید در یک نگاه خوانده شود: ' +
+         'دو تا پنج واژه، خودِ موضوع، بی فعلِ اضافه، بی «قسمت فلان»، بی نامِ برنامه ' +
+         '(این‌ها جداگانه روی کاور هستند). مثالِ خوب: «سه شرطِ معرفت» — ' +
+         'مثالِ بد: «در این قسمت دربارهٔ شرایط معرفت صحبت می‌کنیم».');
+  L.push('• coverKicker — دو تا چهار واژه‌ی کوچک‌تر که بالای آن می‌نشیند و ' +
+         'موضوع را جا می‌اندازد (مثل «معرفت‌شناسی» یا «روان‌شناسیِ رسانه»).');
   L.push('• hookLine — یک جملهٔ کوتاه که در نتیجهٔ جست‌وجو زیرِ عنوان دیده می‌شود. ' +
          'صد و پنجاه نویسهٔ اولِ کپشن مهم‌ترین بخشِ سئوست؛ همین جمله آنجاست.');
   L.push('• summary — دو تا سه بند، هرکدام دو-سه جمله. چه چیزی در این قسمت گفته ' +
@@ -384,6 +397,21 @@ function ytDescBuild_(meta, ctx, chapters) {
  * تصویرش را می‌گیریم. فایلِ اسلاید پاک نمی‌شود — در زیرپوشهٔ «کاورهای یوتیوب»
  * می‌ماند تا اگر کاوری بد درآمد، بشود دید چه بوده.
  */
+/** نامِ ثابتِ کاورِ هر قسمت — پلِ میانِ «ساختن» و «دوباره پیدا کردن». */
+function ytCoverName_(c) {
+  return 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '') + '.png';
+}
+
+/** کاوری که قبلاً ساخته شده، اگر هست. */
+function ytCoverCached_(c) {
+  try {
+    var it = ytCoverFolder_().getFilesByName(ytCoverName_(c));
+    if (!it.hasNext()) return null;
+    var f = it.next();
+    return { blob: f.getBlob(), fileId: f.getId(), cached: true };
+  } catch (e) { return null; }
+}
+
 var YT_PALETTE = [
   { bg: '#0F172A', fg: '#F8FAFC', ac: '#38BDF8' },   // سرمه‌ای
   { bg: '#1E1B4B', fg: '#EEF2FF', ac: '#A78BFA' },   // بنفشِ عمیق
@@ -414,8 +442,16 @@ function ytCoverFolder_() {
 function ytCoverCard_(c) {
   var pres = null;
   try {
+    /* کاورِ ساخته‌شده دوباره ساخته نمی‌شود. `ytUploadOne_` ممکن است چند شب
+       پشتِ‌هم روی یک قسمت بیفتد (منتظرِ رسیدنِ ویدئو)، و هر بار یک اسلایدِ
+       تازه ساختن یعنی ده‌ها فایلِ دورریختنی در درایو. `redo` این را دور می‌زند
+       — همان دری که «کاور اشتباه درآمد» از آن باز می‌شود. */
+    if (!c.redo) {
+      var cached = ytCoverCached_(c);
+      if (cached) return cached;
+    }
     var pal = ytPalette_(c.cat || c.seriesName || c.showName);
-    var name = 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '');
+    var name = ytCoverName_(c).replace(/\.png$/, '');
     pres = SlidesApp.create(name);
     var slide = pres.getSlides()[0];
     try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
@@ -442,15 +478,23 @@ function ytCoverCard_(c) {
       return box;
     };
 
-    put(c.showName || '', H * 0.10, H * 0.10, 20, pal.ac, true);
-    var ttl = String(c.title || '');
-    // عنوانِ بلند فونتِ کوچک‌تر می‌گیرد، وگرنه از کارت بیرون می‌زند
-    var fs = ttl.length > 70 ? 30 : (ttl.length > 45 ? 36 : 44);
-    put(ttl, H * 0.24, H * 0.42, fs, pal.fg, true);
+    put(c.showName || '', H * 0.09, H * 0.09, 19, pal.ac, true);
+    if (c.kicker) put(c.kicker, H * 0.20, H * 0.09, 22, pal.fg, false);
+    /* متنِ بزرگ: `coverTitle` است، نه عنوانِ قسمت. اگر مدل نداده باشد، عنوان
+       کوتاه می‌شود — ولی هیچ‌وقت وسطِ واژه، چون کاورِ بریده بی‌دقت به‌نظر
+       می‌آید و کاور اولین چیزی است که آدم‌ها قضاوتش می‌کنند. */
+    var ttl = String(c.coverTitle || c.title || '');
+    if (ttl.length > (Number(CFG.YT_COVER_CHARS) || 42)) {
+      var cut = ttl.slice(0, Number(CFG.YT_COVER_CHARS) || 42);
+      var sp = cut.lastIndexOf(' ');
+      ttl = (sp > 12 ? cut.slice(0, sp) : cut).trim() + '…';
+    }
+    var fs = ttl.length > 34 ? 38 : (ttl.length > 22 ? 46 : 56);
+    put(ttl, H * 0.31, H * 0.36, fs, pal.fg, true);
     var foot = [];
     if (c.seriesName) foot.push(c.seriesName);
     if (c.epLabel) foot.push(c.epLabel);
-    put(foot.join('  ·  '), H * 0.72, H * 0.12, 18, pal.fg, false);
+    put(foot.join('  ·  '), H * 0.74, H * 0.10, 17, pal.ac, false);
 
     pres.saveAndClose();
     var id = pres.getId();
@@ -466,12 +510,16 @@ function ytCoverCard_(c) {
       logLine_('کاورِ یوتیوب ساخته نشد (خروجیِ PNG کدِ ' + res.getResponseCode() + ').');
       return null;
     }
-    var blob = res.getBlob().setName(name + '.png');
+    var blob = res.getBlob().setName(ytCoverName_(c));
     // فایلِ اسلاید و PNG هر دو می‌مانند — اگر کاوری بد درآمد باید دید چه بوده
     var f = null;
     try {
       var folder = ytCoverFolder_();
       DriveApp.getFileById(id).moveTo(folder);
+      // بازسازی باید *جایگزین* کند، نه یک هم‌نامِ دوم بسازد — وگرنه دفعهٔ
+      // بعد کدام‌یک خوانده شود معلوم نیست (همان تلهٔ getFilesByName).
+      var old = folder.getFilesByName(ytCoverName_(c));
+      while (old.hasNext()) old.next().setTrashed(true);
       f = folder.createFile(blob);
     } catch (eMv) {}
     return { blob: blob, fileId: f ? f.getId() : '', slideId: id };
@@ -757,10 +805,12 @@ function ytPublished_(hub) {
     for (var i = 0; i < v.length; i++) {
       var k = String(v[i][YU.SHOW - 1] || '') + ':' + String(v[i][YU.EP - 1] || '');
       if (k === ':') continue;
-      var cur = map[k] || { tries: 0, videoId: '', url: '', privacy: '', at: '', result: '' };
+      var cur = map[k] || { tries: 0, videoId: '', url: '', privacy: '', at: '',
+                            result: '', series: '' };
       cur.tries++;
       cur.at = String(v[i][YU.AT - 1] || '');
       cur.result = String(v[i][YU.RESULT - 1] || '');
+      cur.series = String(v[i][YU.SERIES - 1] || '') || cur.series || '';
       var vid = String(v[i][YU.VID - 1] || '');
       if (vid) {
         cur.videoId = vid;
@@ -802,13 +852,52 @@ function ytDueSave_(list) {
   return l.length;
 }
 
-function ytDueAdd_(show, ep, folderId) {
+function ytDueAdd_(show, ep, folderId, seriesKey, seriesName) {
   var l = ytDueList_(), k = String(show) + ':' + String(ep);
   for (var i = 0; i < l.length; i++) if (String(l[i].key) === k) return 0;
   l.push({ key: k, show: String(show), ep: String(ep),
-           folderId: String(folderId || ''), at: nowStr_() });
-  ytDueSave_(l);
+           folderId: String(folderId || ''),
+           // هویتِ مجموعه با خودِ ردیف می‌آید. بی این، مسیرِ آپلود ناچار بود
+           // پلی‌لیست را با *نام* کلید بزند و مسیرِ همگام‌سازی با *کلید* —
+           // یعنی یک مجموعه دو پلی‌لیست می‌گرفت (باگِ ۵٫۹۷).
+           seriesKey: String(seriesKey || ''), seriesName: String(seriesName || ''),
+           at: nowStr_() });
+  ytDueSave_(ytDueOrder_(l));
   return 1;
+}
+
+/**
+ * ترتیبِ صف: قدیمی‌ترین اول.
+ *
+ * ══ چرا لازم شد ══
+ * `getFolders()` هیچ ترتیبی را تضمین نمی‌کند. صفی که از آن پر شود یعنی
+ * قسمتِ ۱۲ ممکن است پیش از ۳ منتشر شود — و تاریخچهٔ کانال، که آدم‌ها از
+ * بالا به پایین می‌خوانندش، بی‌معنا شود.
+ *
+ * جایِ پلی‌لیست جداگانه از شمارهٔ قسمت حساب می‌شود، پس **حتی اگر ترتیبِ
+ * آپلود به‌هم بخورد، ترتیبِ پلی‌لیست درست می‌ماند.** این یکی برای مرتب‌بودنِ
+ * خودِ آپلود است، نه برای درستیِ پلی‌لیست: دو نگهبانِ مستقل برای یک خواسته.
+ */
+function ytDueOrder_(list) {
+  var l = (list || []).slice();
+  l.sort(function (a, b) {
+    var sa = String(a.show || ''), sb = String(b.show || '');
+    if (sa !== sb) return sa < sb ? -1 : 1;
+    var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+  });
+  return l;
+}
+
+/**
+ * کلیدِ پلی‌لیست — **یک** تعریف، هر تعداد خواننده.
+ * کلیدِ رجیستری بر نام مقدم است: نام عوض می‌شود (و باید هم بشود، چون
+ * صاحبِ برنامه همان‌جا تغییرش می‌دهد)، ولی پلی‌لیست باید همان بماند.
+ */
+function ytPlKey_(show, seriesKey, seriesName) {
+  if (String(show) !== ENRICH_SHOW_SPECIAL) return 'show:' + ENRICH_SHOW_VARIETY;
+  return 'series:' + String(seriesKey || seriesName || '');
 }
 
 function ytDueDrop_(key) {
@@ -872,6 +961,19 @@ function ytBackfill_(maxWalk) {
     } catch (e2) { logLine_('کاوشِ مجموعه‌های درس‌نامه نشد: ' + e2.message); }
   }
 
+  /* ترتیبِ پیمایش هم باید قطعی باشد، نه ترتیبی که درایو اتفاقی برمی‌گرداند —
+     وگرنه مکان‌نما بی‌معنا می‌شود: هر شب «نفرِ بیست‌ویکم» کسِ دیگری است و
+     بعضی پوشه‌ها هرگز نوبتشان نمی‌رسد. (همان اشتباهی که در وارسیِ روزانهٔ
+     جزوه رخ داد و با پنجرهٔ چرخان درست شد.) */
+  walk.sort(function (a, b) {
+    var sa = String(a.show || ''), sb = String(b.show || '');
+    if (sa !== sb) return sa < sb ? -1 : 1;
+    var ka = String(a.series || ''), kb = String(b.series || '');
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return (Number(ytEpNumOf_(a.folder.getName())) || 0) -
+           (Number(ytEpNumOf_(b.folder.getName())) || 0);
+  });
+
   var cur = 0;
   try { cur = Number(props_().getProperty(PK.YT_SCAN) || 0) || 0; } catch (e3) {}
   if (cur >= walk.length) cur = 0;
@@ -886,7 +988,7 @@ function ytBackfill_(maxWalk) {
     if (pub[key] && pub[key].videoId) { out.skipped++; continue; }
     if (ytGaveUp_(pub, w.show, ep)) { out.gaveUp++; continue; }
     if (due[key]) { out.skipped++; continue; }
-    if (ytDueAdd_(w.show, ep, w.folder.getId())) {
+    if (ytDueAdd_(w.show, ep, w.folder.getId(), w.seriesKey, w.series)) {
       out.queued++;
       if (out.names.length < 5) out.names.push((w.series || CFG.SHOW_NAME) + ' ' + ep);
     }
@@ -931,6 +1033,69 @@ function ytSecondsOf_(file) {
   } catch (e) { return 0; }
 }
 
+/**
+ * نقشهٔ انتشارِ یک قسمت — یک بار ساخته می‌شود و در `_yt.json`ِ همان پوشه
+ * می‌مانَد.
+ *
+ * سه دلیل، و هر سه واقعی:
+ *  ۱) **کاور پیش از ویدئو لازم است** (باید همراهِ درخواستِ رندر برود) ولی
+ *     عنوان و کپشن هنگامِ آپلود. اگر هر کدام مدل را جدا صدا بزنند، هر قسمت
+ *     دو فراخوان می‌گیرد و — بدتر — کاور و عنوان از دو پاسخِ متفاوت می‌آیند
+ *     و ممکن است با هم نخوانند.
+ *  ۲) `ytUploadOne_` تا رسیدنِ ویدئو ممکن است چند شب پشتِ‌هم اجرا شود. بی
+ *     حافظه، هر شب یک فراخوانِ مدل هدر می‌رفت.
+ *  ۳) **قابلِ تغییر بودن.** این فایل جایی است که آدم (یا ناظر) می‌تواند
+ *     عنوان و کپشن را دستی درست کند؛ `runYouTubeRedo` همان را دوباره
+ *     می‌نشاند روی ویدئوی منتشرشده. سؤالِ «اگر اشتباه زده باشه قابلِ
+ *     تغییره؟» جوابش همین فایل است.
+ */
+function ytPlanName_() { return CFG.YT_PLAN_FILE || '_yt.json'; }
+
+function ytPlanRead_(folder) {
+  try {
+    var it = folder.getFilesByName(ytPlanName_());
+    if (it.hasNext()) {
+      var d = JSON.parse(it.next().getBlob().getDataAsString());
+      if (d && d.title) return d;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function ytPlanWrite_(folder, plan) {
+  var body = JSON.stringify(plan, null, 1);
+  try {
+    var it = folder.getFilesByName(ytPlanName_());
+    if (it.hasNext()) { var f = it.next(); f.setContent(body); return f; }
+    return folder.createFile(Utilities.newBlob(body, 'application/json', ytPlanName_()));
+  } catch (e) { logLine_('نقشهٔ یوتیوب ذخیره نشد: ' + e.message); return null; }
+}
+
+/** نقشه را می‌سازد یا از روی دیسک برمی‌دارد. `redo` مدل را دوباره می‌پرسد. */
+function ytPlan_(folder, ctx, redo) {
+  if (!redo) {
+    var had = ytPlanRead_(folder);
+    if (had) { had.cached = true; return had; }
+  }
+  var mm = ytMetaModel_(ctx);
+  if (!mm) return null;
+  var chapters = ytChapters_(ctx.sections || [], ctx.totalSec,
+                             Number(CFG.MUSIC_INTRO_SEC) || 0);
+  var plan = {
+    at: nowStr_(), show: ctx.show, ep: String(ctx.epRaw || ''),
+    title: ytTitleBuild_(mm, ctx),
+    description: ytDescBuild_(mm, ctx, chapters),
+    tags: ytTags_(mm, ctx),
+    coverTitle: ytScrub_(String(mm.coverTitle || '')).trim(),
+    coverKicker: ytScrub_(String(mm.coverKicker || '')).trim(),
+    chapters: chapters.length,
+    note: 'این فایل را می‌شود دستی ویرایش کرد. بعدش از منو ' +
+          '«بازسازیِ عنوان و کاورِ یوتیوب» را بزنید تا روی ویدئو بنشیند.'
+  };
+  ytPlanWrite_(folder, plan);
+  return plan;
+}
+
 function ytUploadOne_(item, hub, pub) {
   var res = { key: item.key, ok: false, why: '', videoId: '', waiting: false };
   var yt = ytSvc_();
@@ -952,12 +1117,29 @@ function ytUploadOne_(item, hub, pub) {
   var totalSec = audio ? ytSecondsOf_(audio) : 0;
   var outName = ytVideoName_(String(folder.getName()));
 
+  // ── نقشه: یک بار ساخته می‌شود و می‌مانَد ──
+  var heads = [];
+  for (var h = 0; h < (ep.sections || []).length; h++) {
+    heads.push(String(ep.sections[h].heading || ''));
+  }
+  var ctx = { show: item.show, epRaw: item.ep,
+              showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
+              seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
+              title: String(ep.title || ''), cat: String(meta.cat || ''),
+              duration: ytTime_(totalSec), headings: heads,
+              hook: String(ep.hook || ''), summary: String(ep.summary || ''),
+              sources: (ep.__extSources || []),
+              sections: ep.sections || [], totalSec: totalSec };
+  var plan = ytPlan_(folder, ctx, false);
+  if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
+
   // ── کاور ──
   var cover = null;
   try {
-    cover = ytCoverCard_({ title: String(ep.title || ''), showName: showName,
-                           seriesName: seriesName, epLabel: epLabel,
-                           cat: String(meta.cat || seriesName || '') });
+    cover = ytCoverCard_({ title: String(ep.title || ''),
+                           coverTitle: plan.coverTitle, kicker: plan.coverKicker,
+                           showName: showName, seriesName: seriesName,
+                           epLabel: epLabel, cat: String(meta.cat || seriesName || '') });
   } catch (eC) {}
 
   // ── ویدئو رسیده؟ ──
@@ -982,25 +1164,14 @@ function ytUploadOne_(item, hub, pub) {
     return res;
   }
 
-  // ── متادیتا ──
-  var heads = [];
-  for (var h = 0; h < (ep.sections || []).length; h++) {
-    heads.push(String(ep.sections[h].heading || ''));
-  }
-  var ctx = { showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
-              seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
-              title: String(ep.title || ''), cat: String(meta.cat || ''),
-              duration: ytTime_(totalSec), headings: heads,
-              hook: String(ep.hook || ''), summary: String(ep.summary || ''),
-              sources: (ep.__extSources || []) };
-  var mm = ytMetaModel_(ctx);
-  if (!mm) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
-
-  var chapters = ytChapters_(ep.sections || [], totalSec,
-                             Number(CFG.MUSIC_INTRO_SEC) || 0);
-  var title = ytTitleBuild_(mm, ctx);
-  var desc = ytDescBuild_(mm, ctx, chapters);
-  var tags = ytTags_(mm, ctx);
+  // ── متنِ نهایی از همان نقشه ──
+  var title = String(plan.title || '');
+  var desc = String(plan.description || '');
+  var tags = plan.tags || [];
+  var chapters = { length: Number(plan.chapters) || 0 };
+  /* وارسیِ نشتی روی متنِ **نهایی** اجرا می‌شود، نه روی پاسخِ مدل — چون این
+     متن ممکن است از `_yt.json` آمده باشد و آن فایل را آدم هم می‌تواند
+     ویرایش کند. دروازه باید سرِ در باشد، نه سرِ یکی از راه‌ها. */
   var leaks = ytLeaks_(title + '\n' + desc + '\n' + tags.join(' '));
 
   // ── آپلود، اول unlisted ──
@@ -1050,8 +1221,7 @@ function ytUploadOne_(item, hub, pub) {
       var pl = ytPlFor_(item, seriesName, showName);
       if (pl.id) {
         var items = ytPlItems_(pl.id);
-        var want = isSpecial ? Math.max(0, (Number(item.ep) || 1) - 1) : items.length;
-        plPos = ytPlPlace_(pl.id, vid, want, items);
+        plPos = ytPlPlace_(pl.id, vid, ytWantPos_(pub, item, seriesName), items);
         plName = pl.title;
       }
     } catch (eP) { plPos = 'نشد: ' + String(eP.message).slice(0, 60); }
@@ -1112,11 +1282,44 @@ function ytPlFor_(item, seriesName, showName) {
                              String(CFG.TAGLINE || '') +
                              '\nهمهٔ قسمت‌ها، به ترتیبِ انتشار.'), title: t };
   }
-  var key = 'series:' + String(item.seriesKey || seriesName || '');
+  var key = ytPlKey_(item.show, item.seriesKey, seriesName);
   var title = String(seriesName || 'مجموعه') + ' — ' + String(showName || CFG.SPECIAL_SHOW_NAME);
   return { id: ytPlEnsure_(key, title,
                            'درس‌به‌درس، به ترتیب. ' + String(CFG.SPECIAL_TAGLINE || '')),
            title: title };
+}
+
+/**
+ * جای درستِ این ویدئو در پلی‌لیست.
+ *
+ * ══ چرا نه «آخرش اضافه کن» و نه «شمارهٔ قسمت منهای یک» ══
+ * «آخرش اضافه کن» ترتیب را به ترتیبِ آپلود گره می‌زند — و آپلود می‌تواند
+ * به‌هم بخورد (کاوشِ گذشته، یک شبِ ناموفق، سهمیه‌ای که وسطِ کار تمام شود).
+ * «شمارهٔ قسمت منهای یک» هم غلط است چون شماره‌ها همیشه پیوسته نیستند: یک
+ * قسمتِ رهاشده یعنی همهٔ بعدی‌ها یک خانه جلوتر از جای واقعی‌شان می‌افتند.
+ *
+ * جوابِ درست: **چند قسمتِ منتشرشدهٔ همین پلی‌لیست شماره‌شان از این کمتر
+ * است؟** آن عدد، دقیقاً همان جای درست است — با هر ترتیبِ آپلود و با هر
+ * شکافی در شماره‌ها. یعنی حتی اگر قسمتِ امشب پیش از قسمت‌های گذشته آپلود
+ * شود، وقتی آن‌ها برسند خودشان *بالای* آن می‌نشینند.
+ */
+function ytWantPos_(pub, item, seriesName) {
+  var mine = Number(item.ep) || 0;
+  var showName = String(item.show) === ENRICH_SHOW_SPECIAL
+                   ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
+  var n = 0;
+  for (var k in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
+    var rec = pub[k];
+    if (!rec || !rec.videoId) continue;
+    var bits = String(k).split(':');
+    if (bits[0] !== showName) continue;                   // برنامهٔ دیگر
+    if (String(item.show) === ENRICH_SHOW_SPECIAL &&
+        String(rec.series || '') !== String(seriesName || '')) continue;   // مجموعهٔ دیگر
+    var other = Number(bits[1]) || 0;
+    if (other && other < mine) n++;
+  }
+  return n;
 }
 
 /* ─────────────────── ۱۱) همگام‌سازیِ پلی‌لیست‌ها با رجیستری ───────────────────
@@ -1129,7 +1332,8 @@ function ytPlFor_(item, seriesName, showName) {
  * سهمیه‌ای که بی‌دلیل خرج شود، آپلودِ فردا را می‌خوابانَد.
  */
 function ytPlaylistSync_(budgetMs) {
-  var out = { checked: 0, made: 0, renamed: 0, linked: 0, skipped: false };
+  var out = { checked: 0, made: 0, renamed: 0, linked: 0, covers: 0,
+              coverFails: [], skipped: false };
   if (!ytOn_() || CFG.YT_PLAYLISTS === false) return out;
   var t0 = new Date().getTime();
   var budget = Math.max(15000, Number(budgetMs) || 60000);
@@ -1170,8 +1374,9 @@ function ytPlaylistSync_(budgetMs) {
     if (!name || !live[name]) continue;
     out.checked++;
     var map0 = ytPlMap_();
-    var had = !!(map0['series:' + rec.key] || {}).id;
-    var titleWas = String((map0['series:' + rec.key] || {}).title || '');
+    var pk = ytPlKey_(ENRICH_SHOW_SPECIAL, rec.key, name);
+    var had = !!(map0[pk] || {}).id;
+    var titleWas = String((map0[pk] || {}).title || '');
     var pl = ytPlFor_({ show: ENRICH_SHOW_SPECIAL, seriesKey: rec.key },
                       name, CFG.SPECIAL_SHOW_NAME);
     if (!pl.id) continue;
@@ -1182,6 +1387,15 @@ function ytPlaylistSync_(budgetMs) {
         reg.sheet.getRange(rec.row, SC.YT, 1, 1).setValue(url);
         out.linked++;
       } catch (e4) {}
+    }
+    /* کاورِ پلی‌لیست فقط برای پلی‌لیستِ **تازه** یا آنی که نامش عوض شده —
+       نه هر شب. یک تصویرِ ثابت که هر شب دوباره فرستاده شود، فقط سهمیه
+       می‌خورد. */
+    if (!had || (titleWas && titleWas !== pl.title)) {
+      var cv = ytPlaylistCover_(pl.id, name, CFG.SPECIAL_SHOW_NAME || '',
+                                String(rec.vals[SC.CAT - 1] || name), !had ? false : true);
+      if (cv === 'نشست') out.covers++;
+      else if (cv && cv.indexOf('نشد') === 0) out.coverFails.push(name + ': ' + cv);
     }
   }
   try { props_().setProperty(PK.YT_PLSIG, sigStr); } catch (e5) {}
@@ -1200,7 +1414,10 @@ function ytRunDue_(maxItems, budgetMs) {
   var t0 = new Date().getTime();
   var hub = getHub_();
   var pub = ytPublished_(hub);
-  var list = ytDueList_();
+  /* صف مرتب مصرف می‌شود — و مرتب‌سازی این‌جا دوباره انجام می‌شود، نه فقط
+     هنگامِ افزودن: ردیف‌هایی که پیش از ۵٫۹۸ ثبت شده‌اند ترتیب ندارند، و یک
+     مرتب‌سازیِ ارزان همه‌شان را سرِ جای درست می‌آورد. */
+  var list = ytDueOrder_(ytDueList_());
 
   for (var i = 0; i < list.length && out.tried < cap; i++) {
     // دستِ‌کم یکی، حتی اگر بودجه تنگ است — وگرنه در شبِ شلوغ هیچ‌وقت
@@ -1364,4 +1581,282 @@ function runYouTubePublish() {
   var m = L.join('\n');
   if (ui) ui.alert('انتشار در یوتیوب', m, ui.ButtonSet.OK); else console.log(m);
   return { backfill: b, run: r, playlists: p };
+}
+
+/* ─────────────── ۱۵) اصلاح پس از انتشار — «اگر اشتباه زده باشه؟» ───────────────
+ *
+ * جوابِ کوتاه: بله، همه‌چیزش. عنوان، کپشن، برچسب و کاورِ یک ویدئوی
+ * منتشرشده همگی قابلِ تعویض‌اند و ویدئو دوباره آپلود نمی‌شود — پس نه شمارِ
+ * بازدید از دست می‌رود، نه لینک عوض می‌شود، نه سهمیهٔ آپلود خرج می‌شود.
+ *
+ * دو راه:
+ *  • `_yt.json` را در پوشهٔ همان قسمت دستی ویرایش کنید و این را بزنید.
+ *  • یا `redo` بدهید تا مدل از نو بنویسد.
+ * در هر دو حالت `ytLeaks_` دوباره اجرا می‌شود: متنِ دست‌نویس هم از دروازه
+ * رد می‌شود، چون دروازه سرِ در است نه سرِ یکی از راه‌ها.
+ */
+function ytRedoOne_(show, ep, opt) {
+  opt = opt || {};
+  var out = { ok: false, why: '', changed: [] };
+  var yt = ytSvc_();
+  if (!yt) { out.why = ytOffWhy_(); return out; }
+  var hub = getHub_();
+  var pub = ytPublished_(hub);
+  var showName = String(show) === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
+  var rec = pub[showName + ':' + String(ep)];
+  if (!rec || !rec.videoId) { out.why = 'این قسمت هنوز منتشر نشده'; return out; }
+
+  // پوشهٔ قسمت از صف نمی‌آید (صف خالی شده)، پس از روی نامِ پوشه پیدایش می‌کنیم
+  var folder = ytFolderOf_(show, ep, rec.series);
+  if (!folder) { out.why = 'پوشهٔ قسمت پیدا نشد'; return out; }
+  var meta = ytEpisodeMeta_(folder);
+  if (!meta || !meta.ep) { out.why = 'پروندهٔ قسمت نبود'; return out; }
+  var epo = meta.ep, isSpecial = String(show) === ENRICH_SHOW_SPECIAL;
+  var audio = ytAudioIn_(folder);
+  var heads = [];
+  for (var h = 0; h < (epo.sections || []).length; h++) heads.push(String(epo.sections[h].heading || ''));
+  var ctx = { show: show, epRaw: ep, showName: showName,
+              tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
+              seriesName: String(meta.seriesName || rec.series || ''),
+              epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
+              cat: String(meta.cat || ''), duration: ytTime_(audio ? ytSecondsOf_(audio) : 0),
+              headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
+              sources: (epo.__extSources || []), sections: epo.sections || [],
+              totalSec: audio ? ytSecondsOf_(audio) : 0 };
+  var plan = ytPlan_(folder, ctx, opt.remodel === true);
+  if (!plan) { out.why = 'نقشهٔ انتشار ساخته نشد'; return out; }
+
+  var leaks = ytLeaks_(plan.title + '\n' + plan.description + '\n' + (plan.tags || []).join(' '));
+  if (leaks.length) {
+    out.why = 'متن هنوز چیزی از جنسِ خصوصی دارد: ' +
+              leaks.map(function (x) { return x.kind; }).join('، ');
+    return out;
+  }
+
+  if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+    try {
+      yt.Videos.update({ id: rec.videoId, snippet: {
+        title: plan.title, description: plan.description, tags: plan.tags,
+        categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27') : (CFG.YT_CATEGORY_VARIETY || '22'),
+        defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
+      out.changed.push('عنوان و کپشن');
+    } catch (e) { out.why = 'به‌روزرسانیِ متن نشد: ' + String(e.message).slice(0, 150); }
+  }
+
+  if (CFG.YT_THUMB !== false) {
+    var cover = ytCoverCard_({ title: String(epo.title || ''),
+                               coverTitle: plan.coverTitle, kicker: plan.coverKicker,
+                               showName: showName, seriesName: ctx.seriesName,
+                               epLabel: 'قسمت ' + faDigitsOut_(String(ep)),
+                               cat: String(meta.cat || ctx.seriesName || ''),
+                               redo: opt.recover !== false });
+    if (cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
+      try { yt.Thumbnails.set(rec.videoId, cover.blob); out.changed.push('کاور'); }
+      catch (eT) { out.why = (out.why ? out.why + ' · ' : '') + 'کاور ننشست: ' + String(eT.message).slice(0, 80); }
+    }
+  }
+
+  // اگر پیشتر به‌خاطرِ نشتی در unlisted مانده بود، حالا که پاک است عمومی شود
+  if (String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
+      ytQuotaTake_(YT_COST.videosUpdate, false)) {
+    try {
+      yt.Videos.update({ id: rec.videoId,
+                         status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
+                                   selfDeclaredMadeForKids: false } }, 'status');
+      out.changed.push('عمومی شد');
+    } catch (eP) {}
+  }
+
+  ytLog_(hub, { show: showName, ep: ep, series: ctx.seriesName, title: plan.title,
+                videoId: rec.videoId, url: rec.url,
+                privacy: out.changed.indexOf('عمومی شد') !== -1
+                           ? (CFG.YT_PRIVACY_FINAL || 'public') : rec.privacy,
+                thumb: out.changed.indexOf('کاور') !== -1 ? 'نشست' : '—',
+                chapters: plan.chapters, tags: (plan.tags || []).length,
+                descChars: String(plan.description || '').length,
+                result: 'اصلاح شد', note: out.changed.join('، ') + (out.why ? ' | ' + out.why : '') });
+  out.ok = out.changed.length > 0;
+  return out;
+}
+
+/** پوشهٔ یک قسمت، وقتی صف دیگر نشانی‌اش را ندارد. */
+function ytFolderOf_(show, ep, seriesName) {
+  var want = String(ep);
+  try {
+    if (String(show) !== ENRICH_SHOW_SPECIAL) {
+      var it = showFolder_(CFG.SHOW_NAME).getFolders();
+      while (it.hasNext()) { var f = it.next(); if (ytEpNumOf_(f.getName()) === want) return f; }
+      return null;
+    }
+    var reg = readSeriesReg_(getHub_());
+    for (var r = 0; r < reg.rows.length; r++) {
+      var nm = String(reg.rows[r].vals[SC.NAME - 1] || '');
+      if (seriesName && nm !== String(seriesName)) continue;
+      var fid = String(reg.rows[r].vals[SC.FOLDER - 1] || '');
+      if (!fid) continue;
+      var sub = null;
+      try { sub = DriveApp.getFolderById(fid).getFolders(); } catch (eS) { continue; }
+      while (sub.hasNext()) { var g = sub.next(); if (ytEpNumOf_(g.getName()) === want) return g; }
+    }
+  } catch (e) {}
+  return null;
+}
+
+/* ─────────────── ۱۶) کاورِ پلی‌لیست و شناسنامهٔ کانال ───────────────
+ *
+ * ══ چه چیزی از راهِ API ممکن است و چه چیزی نه ══
+ * • کاورِ پلی‌لیست: **ممکن است** — `playlistImages`. سرویسِ پیشرفتهٔ Apps
+ *   Script این منبعِ تازه را لزوماً ندارد، پس مستقیم با UrlFetchApp و
+ *   همان توکنِ OAuth صدا زده می‌شود.
+ * • بنرِ کانال: **ممکن است** — `channelBanners.insert` و بعد
+ *   `channels.update`. باید ۱۶:۹ و دست‌کم ۲۰۴۸×۱۱۵۲ باشد.
+ * • توضیح و کلیدواژهٔ کانال: **ممکن است** — `channels.update`.
+ * • **عکسِ پروفایل (آواتار): ممکن نیست.** یوتیوب هیچ راهی در API برایش
+ *   نگذاشته. این را باید صریح نوشت، وگرنه هر بار کسی دنبالش می‌گردد.
+ */
+function ytHttp_(url, method, payload, mime) {
+  var opt = { method: method || 'get', muteHttpExceptions: true,
+              headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } };
+  if (payload) {
+    opt.payload = payload;
+    opt.contentType = mime || 'application/json; charset=utf-8';
+  }
+  var res = UrlFetchApp.fetch(url, opt);
+  var code = res.getResponseCode();
+  var txt = '';
+  try { txt = res.getContentText(); } catch (e) {}
+  var json = null;
+  try { json = JSON.parse(txt); } catch (e2) {}
+  return { code: code, text: txt, json: json };
+}
+
+/** کاورِ پلی‌لیست: همان کارت، ولی با نامِ مجموعه به‌جای عنوانِ قسمت. */
+function ytPlaylistCover_(plId, title, kicker, cat, redo) {
+  if (!plId) return '';
+  var cover = ytCoverCard_({ coverTitle: title, kicker: kicker,
+                             showName: CFG.SPECIAL_SHOW_NAME || '',
+                             epLabel: 'مجموعه', cat: cat || title, redo: !!redo });
+  if (!cover || !cover.blob) return 'کاور ساخته نشد';
+  if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
+
+  /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و
+     چون `playlistImages` منبعِ تازه‌ای است که سرویسِ پیشرفتهٔ Apps Script
+     لزوماً نداردش. بایت‌ها به‌هم چسبانده می‌شوند، نه رشته‌ها: هر تبدیلِ
+     رشته‌ایِ داده‌های دودویی، PNG را خراب می‌کند. */
+  var boundary = '----ytpl' + String(plId).replace(/[^A-Za-z0-9]/g, '').slice(-10);
+  var head = '--' + boundary + '\r\n' +
+             'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+             JSON.stringify({ snippet: { playlistId: String(plId), type: 'hero' } }) +
+             '\r\n--' + boundary + '\r\n' +
+             'Content-Type: image/png\r\n\r\n';
+  var tail = '\r\n--' + boundary + '--\r\n';
+  var bytes = Utilities.newBlob(head).getBytes()
+                .concat(cover.blob.getBytes())
+                .concat(Utilities.newBlob(tail).getBytes());
+  var r = ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
+                  '?uploadType=multipart&part=snippet',
+                  'post', Utilities.newBlob(bytes).getBytes(),
+                  'multipart/related; boundary=' + boundary);
+  if (r.code === 200 || r.code === 201) return 'نشست';
+  /* نبودنِ این قابلیت روی کانال خرابی نیست — ولی باید گفته شود، وگرنه هر شب
+     بی‌صدا رد می‌شود و کسی نمی‌فهمد چرا پلی‌لیست کاور ندارد. اگر هم نشد،
+     یوتیوب خودش کاورِ اولین ویدئوی پلی‌لیست را می‌گذارد — و چون ترتیب از
+     شمارهٔ درس می‌آید، آن اولی همیشه درسِ یک است. یعنی حتی در بدترین حالت
+     کاورِ پلی‌لیست بی‌ربط نمی‌شود. */
+  return 'نشد (' + r.code + ')';
+}
+
+/**
+ * شناسنامهٔ کانال: توضیح، کلیدواژه، و بنر.
+ * فقط وقتی می‌نویسد که چیزی عوض شده باشد — اثرانگشت نگه داشته می‌شود، چون
+ * `channels.update` پنجاه واحد سهمیه دارد و شبی که هیچ‌چیز عوض نشده نباید
+ * خرج شود.
+ */
+function ytChannelSync_(force) {
+  var out = { ok: false, changed: [], why: '' };
+  if (!ytOn_() || CFG.YT_CHANNEL === false) { out.why = 'خاموش'; return out; }
+  var yt = ytSvc_();
+  var chId = '', cur = null;
+  try {
+    if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیه'; return out; }
+    var me = yt.Channels.list('id,brandingSettings', { mine: true });
+    if (!me || !me.items || !me.items.length) { out.why = 'کانالی پیدا نشد'; return out; }
+    chId = String(me.items[0].id);
+    cur = me.items[0].brandingSettings || {};
+  } catch (e) { out.why = 'کانال خوانده نشد: ' + String(e.message).slice(0, 120); return out; }
+
+  var desc = ytScrub_(ytChannelDesc_()).slice(0, 990);
+  var kw = ytChannelKeywords_();
+  var sig = desc + '|' + kw;
+  var was = '';
+  try { was = String(props_().getProperty('YT_CHANNEL_SIG') || ''); } catch (e2) {}
+  if (sig === was && !force) { out.ok = true; out.why = 'تازه است'; return out; }
+
+  if (ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
+    try {
+      var ch = (cur.channel || {});
+      yt.Channels.update({ id: chId, brandingSettings: {
+        channel: { title: ch.title, description: desc, keywords: kw,
+                   defaultLanguage: CFG.YT_LANG || 'fa' } } }, 'brandingSettings');
+      out.changed.push('توضیح و کلیدواژه');
+      try { props_().setProperty('YT_CHANNEL_SIG', sig); } catch (e3) {}
+    } catch (eU) { out.why = 'به‌روزرسانیِ کانال نشد: ' + String(eU.message).slice(0, 150); }
+  }
+  out.ok = out.changed.length > 0 || out.why === 'تازه است';
+  return out;
+}
+
+/** توضیحِ کانال — از خودِ پیکربندی، نه دستی. پس با تغییرِ برنامه‌ها تازه می‌شود. */
+function ytChannelDesc_() {
+  var L = [];
+  L.push(String(CFG.SHOW_NAME || '') + ' — ' + String(CFG.TAGLINE || ''));
+  if (CFG.SPECIAL_ENABLED) {
+    L.push(String(CFG.SPECIAL_SHOW_NAME || '') + ' — ' + String(CFG.SPECIAL_TAGLINE || ''));
+  }
+  L.push('');
+  L.push('هر روز دو پادکستِ فارسی: یکی از هر دری سخنی، و یکی درسِ دنباله‌دار ' +
+         'از یک مجموعهٔ آموزشی. مجموعه‌ها هرکدام پلی‌لیستِ خودشان را دارند و ' +
+         'به ترتیب چیده شده‌اند، پس می‌شود از درسِ اول شروع کرد.');
+  return L.join('\n');
+}
+
+function ytChannelKeywords_() {
+  var k = ['پادکست فارسی', 'پادکست آموزشی', String(CFG.SHOW_NAME || '')];
+  if (CFG.SPECIAL_ENABLED) k.push(String(CFG.SPECIAL_SHOW_NAME || ''));
+  k.push('آموزش', 'یادگیری', 'podcast farsi');
+  var out = [], used = 0;
+  for (var i = 0; i < k.length; i++) {
+    var t = String(k[i] || '').trim();
+    if (!t || used + t.length + 3 > 450) continue;
+    out.push(t.indexOf(' ') !== -1 ? '"' + t + '"' : t);
+    used += t.length + 3;
+  }
+  return out.join(' ');
+}
+
+/** منو: اصلاحِ عنوان و کاورِ یک قسمتِ منتشرشده. */
+function runYouTubeRedo() {
+  var ui = ui_();
+  if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };
+  if (!ytOn_()) { ui.alert('انتشار در یوتیوب', ytOffWhy_(), ui.ButtonSet.OK); return; }
+  var r = ui.prompt('بازسازیِ عنوان و کاور',
+    'کدام قسمت؟ به این شکل بنویسید:\n' +
+    '   درس‌نامه 16      یا      رنگ 19\n\n' +
+    'اگر می‌خواهید مدل از نو بنویسد، آخرش «نو» اضافه کنید:\n' +
+    '   درس‌نامه 16 نو\n\n' +
+    'بی «نو»، همان چیزی که در «' + (CFG.YT_PLAN_FILE || '_yt.json') + '» پوشهٔ ' +
+    'قسمت هست به کار می‌رود — پس می‌توانید اول آن فایل را دستی ویرایش کنید.',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var txt = faDigits_(String(r.getResponseText() || '')).trim();
+  var m = txt.match(/(\d{1,5})/);
+  if (!m) { ui.alert('شمارهٔ قسمت خوانده نشد.'); return; }
+  var show = /درس|تخصص|special/i.test(txt) ? ENRICH_SHOW_SPECIAL : ENRICH_SHOW_VARIETY;
+  var out = ytRedoOne_(show, m[1], { remodel: /نو|تازه|new/i.test(txt), recover: true });
+  ui.alert('بازسازیِ یوتیوب',
+    (out.ok ? '✅ انجام شد: ' + out.changed.join('، ') : '❌ انجام نشد') +
+    (out.why ? '\n\n' + out.why : '') +
+    '\n\nویدئو دوباره آپلود نشد، پس بازدید و لینکش دست‌نخورده است.',
+    ui.ButtonSet.OK);
+  return out;
 }
