@@ -932,4 +932,34 @@ console.log('=== ۳۲) اسکوپِ گم‌شده باید نام برده شو�
      partial.scopeOk === false && partial.missing.length === 2, partial.missing.join('، '));
 }
 
+console.log('=== ۳۳) نشانیِ روشن‌کردنِ API باید بیرون کشیده شود (۶٫۴) ===');
+{
+  /* پیامِ واقعیِ گوگل، کلمه‌به‌کلمه از ۲۶ اوت. نشانی و شمارهٔ پروژه در آن
+     هست ولی لای دیوارِ JSON — کاربر باید دنبالش بگردد. */
+  const real = '{ "error": { "code": 403, "message": "YouTube Data API v3 has not been ' +
+    'used in project 711710970959 before or it is disabled. Enable it by visiting ' +
+    'https://console.developers.google.com/apis/api/youtube.googleapis.com/overview' +
+    '?project=711710970959 then retry. If you enabled this API recently, wait a few ' +
+    'minutes for the action to propagate to our systems and retry.", "status": "PERMISSION_DENIED" } }';
+  global.__STUB = function (url) {
+    if (url.indexOf('tokeninfo') !== -1) return { code: 200, json: { scope: YT_SCOPES.join(' ') } };
+    if (url.indexOf('youtube/v3/channels') !== -1) return { code: 403, text: real };
+    return { code: 200, json: {} };
+  };
+  const d = ytDiagnose_();
+  ok('۳۳.۱ علت درست تشخیص داده می‌شود',
+     d.cause.indexOf('روشن نیست') !== -1, d.cause);
+  ok('۳۳.۲ و با نبودِ اسکوپ اشتباه گرفته نمی‌شود — اسکوپ‌ها که هستند',
+     d.scopeOk === true && d.slidesOk === true);
+  ok('۳۳.۳ نشانیِ صفحهٔ روشن‌کردن بیرون کشیده می‌شود',
+     d.enableUrl.indexOf('console.developers.google.com') !== -1, d.enableUrl);
+  ok('۳۳.۴ و تا انتها، بی بریدگی',
+     d.enableUrl.indexOf('project=711710970959') !== -1, d.enableUrl.slice(-30));
+  ok('۳۳.۵ شمارهٔ پروژه هم جدا خوانده می‌شود', d.project === '711710970959', d.project);
+  ok('۳۳.۶ و چاره شمارهٔ پروژه را می‌گوید', d.fix.indexOf('711710970959') !== -1);
+  /* گوگل خودش می‌گوید چند دقیقه طول می‌کشد. نگفتنش یعنی کاربر بلافاصله
+     دوباره می‌زند، همان را می‌بیند، و فکر می‌کند کار نکرده. */
+  ok('۳۳.۷ و می‌گوید که اثرش فوری نیست', d.fix.indexOf('صبر') !== -1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

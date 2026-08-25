@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.3
+ *  موتور محتوا و پادکست — نسخهٔ 6.4
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -812,7 +812,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.3',
+  CODE_VERSION: '6.4',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31179,9 +31179,24 @@ function ytDiagnose_() {
   }
   if (/has not been used in project|is disabled|SERVICE_DISABLED/i.test(msg + ' ' + d.raw)) {
     d.cause = 'YouTube Data API در پروژهٔ ابریِ این اسکریپت روشن نیست';
-    d.fix = 'در همان پروژهٔ Google Cloud که به این اسکریپت وصل است، ' +
-            'YouTube Data API v3 را Enable کنید. نشانی‌اش معمولاً در همین پیامِ ' +
-            'خامِ گوگل هست.';
+    /* گوگل در همان پیام نشانیِ دقیقِ صفحهٔ روشن‌کردن را می‌دهد — با شمارهٔ
+       پروژه در آن. بیرون کشیدنش یعنی کاربر لازم نیست لای دیوارِ JSON
+       دنبالش بگردد. یک نشانیِ آماده، یک قدم؛ یک پیامِ خام، ده دقیقه گشتن. */
+    var url = '', proj = '';
+    try {
+      var mu = (msg + ' ' + d.raw).match(/https:\/\/console\.[a-z.]*google\.com\/[^\s"',]+/);
+      if (mu) url = mu[0];
+      var mp = (msg + ' ' + d.raw).match(/project[= ]([0-9]{6,})/);
+      if (mp) proj = mp[1];
+    } catch (eU) {}
+    d.enableUrl = url;
+    d.project = proj;
+    d.fix = 'در پروژهٔ Google Cloud' + (proj ? ' شمارهٔ ' + proj : '') +
+            ' که به این اسکریپت وصل است، YouTube Data API v3 را Enable کنید' +
+            (url ? ':\n' + url : '.') +
+            '\nبعد از Enable، گوگل خودش می‌گوید چند دقیقه طول می‌کشد تا اثر ' +
+            'کند — پس اگر بلافاصله دوباره زدید و همین را گفت، دو-سه دقیقه صبر ' +
+            'کنید و باز بزنید.';
     return d;
   }
   if (r.code === 403 && /quota|rateLimit/i.test(msg)) {
@@ -31284,6 +31299,12 @@ function runYouTubeFix() {
   } else {
     L.push('علت: ' + (d.cause || 'نامعلوم'));
     if (d.fix) { L.push(''); L.push('چاره: ' + d.fix); }
+    if (d.enableUrl) {
+      L.push('');
+      L.push('══ نشانیِ صفحه (کپی کنید) ══');
+      L.push(d.enableUrl);
+      L.push('══════════════════════════');
+    }
     if (d.raw) { L.push(''); L.push('پاسخِ خامِ گوگل:'); L.push(d.raw); }
   }
 
