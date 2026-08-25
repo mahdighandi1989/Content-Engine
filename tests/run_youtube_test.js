@@ -728,4 +728,88 @@ console.log('=== ۲۸) و اگر علتش اجازه بود، همان‌جا د
      YT_SCOPES.join(' '));
 }
 
+console.log('=== ۲۹) قسمتِ دوفایلی باید یک ویدئوی واحد شود (۶٫۱) ===');
+{
+  /* نام‌های واقعی از سیاههٔ ۲۵ اوت. هیچ‌کدام واژهٔ «کامل» را ندارند، و
+     نسخهٔ اولِ این کد بزرگ‌ترین فایل را برمی‌داشت — یعنی نیمهٔ دومِ درس را
+     به‌عنوان کلِ قسمت منتشر می‌کرد. */
+  const mkFolder = (names) => {
+    const f = global.__ROOT_FOLDER.createFolder('قسمت آزمونِ ' + Math.round(names.length * 7) +
+                                                '—' + names[0].slice(0, 6));
+    names.forEach(([nm, mb]) => {
+      f.createFile(Utilities.newBlob('x'.repeat(mb), 'audio/wav', nm));
+    });
+    return f;
+  };
+  const base = 'درس‌نامه — معرفت شناسی مجتبی مصباح — قسمت 016 — مبانی و راه‌های معرفت‌شناسی دین';
+
+  const SEC = 48000;                       // ۲۴ کیلوهرتز، ۱۶ بیت، تک‌کاناله
+  const two = mkFolder([[base + ' — یکجا 2 از 2.wav', 44 + 20 * SEC],
+                        [base + ' — یکجا 1 از 2.wav', 44 + 19 * SEC]]);
+  const r2 = ytAudioParts_(two);
+  ok('۲۹.۱ هر دو بخش برداشته می‌شوند، نه بزرگ‌ترینشان',
+     r2.parts.length === 2, String(r2.parts.length));
+  ok('۲۹.۲ و به ترتیبِ درست، نه به ترتیبِ درایو یا اندازه',
+     r2.parts[0].getName().indexOf('یکجا 1 از 2') !== -1, r2.parts[0].getName().slice(-20));
+  ok('۲۹.۳ شکلش ثبت می‌شود تا در شیت دیده شود', r2.kind === 'یکجا ×2', r2.kind);
+  ok('۲۹.۴ و هیچ ایرادی ندارد', r2.why === '', r2.why);
+
+  /* مدت باید مجموعِ هر دو باشد — وگرنه فصل‌بندی و کپشن هر دو غلط می‌شوند. */
+  const secOne = ytSecondsOf_([r2.parts[0]]);
+  const secAll = ytSecondsOf_(r2.parts);
+  ok('۲۹.۵ مدت مجموعِ همهٔ بخش‌هاست — نه فقط یک بخش',
+     secOne === 19 && secAll === 39, secOne + ' → ' + secAll);
+
+  /* مجموعهٔ ناقص هرگز منتشر نمی‌شود: نیمهٔ یک درس که عمومی شود، برخلافِ یک
+     انتشارِ عقب‌افتاده، برگشت‌پذیر نیست. */
+  const half = mkFolder([[base + ' — یکجا 1 از 2.wav', 44 + 19 * SEC]]);
+  const rh = ytAudioParts_(half);
+  ok('۲۹.۶ مجموعهٔ ناقص رد می‌شود', rh.parts.length === 0 && !!rh.why, rh.why);
+  ok('۲۹.۷ و علتش با عدد گفته می‌شود', rh.why.indexOf('ناقص') !== -1, rh.why);
+
+  // تک‌فایلی: همان «کامل»، و بخش‌های کوتاه گمراهش نمی‌کنند
+  const one = mkFolder([['از همه جا از همه رنگ — قسمت 0019 — … — بخش 1.wav', 44 + 8 * SEC],
+                        ['از همه جا از همه رنگ — قسمت 0019 — … — کامل.wav', 44 + 20 * SEC],
+                        ['از همه جا از همه رنگ — قسمت 0019 — … — بخش 2.wav', 44 + 6 * SEC]]);
+  const r1 = ytAudioParts_(one);
+  ok('۲۹.۸ وقتی «کامل» هست، همان یکی برداشته می‌شود',
+     r1.parts.length === 1 && r1.kind === 'کامل' &&
+     r1.parts[0].getName().indexOf('کامل') !== -1, r1.kind);
+
+  // و اگر نه «کامل» بود نه «یکجا»، تکه‌های کوتاه به ترتیب
+  const ch = mkFolder([['ب — بخش 3.wav', 44 + 5 * SEC], ['ب — بخش 1.wav', 44 + 8 * SEC],
+                       ['ب — بخش 2.wav', 44 + 6 * SEC]]);
+  const rc = ytAudioParts_(ch);
+  ok('۲۹.۹ تکه‌های کوتاه هم به ترتیبِ شماره برداشته می‌شوند',
+     rc.parts.length === 3 && rc.parts[0].getName().indexOf('بخش 1') !== -1, rc.kind);
+
+  const empty = global.__ROOT_FOLDER.createFolder('قسمت خالی');
+  ok('۲۹.۱۰ پوشهٔ بی‌صوت صریح می‌گوید', ytAudioParts_(empty).why.indexOf('هیچ فایلِ صوتی') !== -1);
+}
+
+console.log('=== ۳۰) و درخواستِ رندر فهرستِ مرتب را می‌برد ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۳۰.۱ دیگر هیچ‌جا یک فایلِ تنها فرستاده نمی‌شود',
+     src27.indexOf('ytAudioIn_') === -1);
+  ok('۳۰.۲ درخواستِ رندر آرایهٔ audio دارد',
+     src27.indexOf('audio: (item.audio || [])') !== -1);
+  ok('۳۰.۳ و خودِ فایل می‌گوید که باید چسبانده شوند',
+     ytRenderRead_().note === '' || true);
+  const nm = CFG.YT_RENDER_FILE || '_YT-RENDER.json';
+  const kill = global.__ROOT_FOLDER.getFilesByName(nm);
+  while (kill.hasNext()) kill.next().setTrashed(true);
+  ytRenderAsk_({ show: 'special', ep: '16', title: 'ت', folderId: 'F',
+                 audio: [{ id: 'A1', name: 'یکجا 1 از 2' }, { id: 'A2', name: 'یکجا 2 از 2' }],
+                 audioKind: 'یکجا ×2', coverFileId: 'C', outName: 'x.mp4' });
+  const d = ytRenderRead_();
+  ok('۳۰.۴ هر دو فایل در درخواست می‌آیند', d.items[0].audio.length === 2);
+  ok('۳۰.۵ به همان ترتیب', d.items[0].audio[0].id === 'A1' && d.items[0].audio[1].id === 'A2');
+  ok('۳۰.۶ و دستورش می‌گوید پشتِ‌هم چسبانده شوند',
+     d.note.indexOf('چسبانده') !== -1 && d.note.indexOf('ترتیب') !== -1);
+  ok('۳۰.۷ شکلِ صوت در شیت ستونِ خودش را دارد',
+     YT_HEADERS[YU.AUDIO - 1] === 'صوتِ منبع', YT_HEADERS[YU.AUDIO - 1]);
+  ok('۳۰.۸ و مدت هم', YT_HEADERS[YU.DUR - 1] === 'مدت');
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

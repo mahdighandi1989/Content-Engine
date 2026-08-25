@@ -133,6 +133,9 @@ class DFile {
   getName() { return this._name || this._b.getName(); }
   setName(n) { this._name = n; if (this._b && this._b.setName) this._b.setName(n); return this; }
   getBlob() { return this._b; }
+  // فایلِ واقعیِ درایو این را دارد. نبودنش در ماک یعنی کدی که اندازه را
+  // می‌سنجد (مثلِ مدتِ صوت یا سقفِ آپلود) در آزمون بی‌صدا صفر می‌گیرد.
+  getSize() { return this._b && this._b.getBytes ? this._b.getBytes().length : 0; }
   getUrl() { return 'https://drive.google.com/file/d/' + this._id + '/view'; }
   getId() { return this._id; }
   moveTo(folder) {

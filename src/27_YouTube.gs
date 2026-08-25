@@ -586,9 +586,10 @@ function ytRenderRead_() {
 function ytRenderSave_(d) {
   d.updatedAt = nowStr_();
   d.note = 'موتور نمی‌تواند ویدئو بسازد (Apps Script نه ffmpeg دارد نه مهلتِ کافی). ' +
-           'برای هر ردیفِ status=«در انتظار»: فایلِ صوتی و کاور را از پوشهٔ قسمت ' +
-           'بردار، یک MP4 با تصویرِ ثابت بساز (h264 + aac، ۱۲۸ کیلوبیت، ۱ فریم بر ' +
-           'ثانیه کافی است) و با همان نامِ outName در همان پوشه بگذار. ' +
+           'برای هر ردیفِ status=«در انتظار»: آرایهٔ audio را **به همان ترتیب** ' +
+           'بردار — بعضی قسمت‌ها دو فایل‌اند و باید پشتِ‌هم چسبانده شوند تا یک ' +
+           'ویدئوی واحد شود — با کاور یک MP4 با تصویرِ ثابت بساز (h264 + aac، ' +
+           '۱۲۸ کیلوبیت) و با همان نامِ outName در همان پوشه بگذار. ' +
            'موتور خودش پیدایش می‌کند و منتشر می‌کند. هیچ‌جای دیگری را دست نزن.';
   try { putOutJson_(ytRenderName_(), d); return true; } catch (e) {
     logLine_('درخواستِ رندرِ ویدئو نوشته نشد: ' + e.message);
@@ -614,20 +615,85 @@ function ytVideoIn_(folder) {
 }
 
 /** صوتِ «کامل» همین پوشه — پایهٔ رندر. */
-function ytAudioIn_(folder) {
-  var best = null, bestSize = 0;
+/**
+ * همهٔ فایل‌های صوتیِ یک قسمت، **به ترتیب**.
+ *
+ * ══ باگی که این را لازم کرد (۲۵ اوت، پیش از اولین انتشار) ══
+ * قسمتی که در یک فایل جا نمی‌شود، در دو فایل تحویل می‌شود:
+ *     «… — یکجا ۱ از ۲.wav»  و  «… — یکجا ۲ از ۲.wav»
+ * هیچ‌کدام واژهٔ «کامل» را ندارند. نسخهٔ اولِ این تابع وقتی «کامل» پیدا
+ * نمی‌کرد، **بزرگ‌ترین فایل** را برمی‌داشت — یعنی برای درس‌نامهٔ ۱۶ فقط
+ * «یکجا ۲ از ۲» (۲۰ مگابایت در برابرِ ۱۹) را برمی‌داشت و **نیمهٔ دومِ درس
+ * را به‌عنوان کلِ قسمت** منتشر می‌کرد. بی هیچ خطایی: مدت از همان نیمه حساب
+ * می‌شد، فصل‌بندی بی‌معنا می‌شد، و کپشن کلِ درس را توصیف می‌کرد.
+ *
+ * سه مسیر، به ترتیبِ اعتماد:
+ *   ۱) «کامل» هست → همان، یک فایل.
+ *   ۲) «یکجا i از n» هست → مرتب بر اساس i، و **باید هر n تا باشند**.
+ *   ۳) هیچ‌کدام نبود → «بخش i» ها، که همان صدا با برشِ کوتاه‌ترند.
+ *
+ * و اگر مجموعه ناقص بود، `why` پر می‌شود و هیچ‌چیز منتشر نمی‌شود. نیمهٔ یک
+ * درس که عمومی شود، برخلافِ یک انتشارِ عقب‌افتاده، برگشت‌پذیر نیست.
+ */
+function ytAudioParts_(folder) {
+  var out = { parts: [], why: '', kind: '' };
+  var all = [];
   try {
     var it = folder.getFiles();
     while (it.hasNext()) {
       var f = it.next();
-      var nm = f.getName();
-      if (!/\.wav$/i.test(nm)) continue;
-      if (nm.indexOf('کامل') !== -1) return f;      // فایلِ یکجا، اگر هست
-      var sz = f.getSize ? f.getSize() : 0;
-      if (sz > bestSize) { bestSize = sz; best = f; }
+      if (!/\.wav$/i.test(f.getName())) continue;
+      all.push(f);
     }
-  } catch (e) {}
-  return best;
+  } catch (e) { out.why = 'پوشهٔ قسمت خوانده نشد: ' + e.message; return out; }
+  if (!all.length) { out.why = 'هیچ فایلِ صوتی در پوشهٔ قسمت نیست'; return out; }
+
+  // ۱) فایلِ یکجای تک — بهترین حالت
+  for (var i = 0; i < all.length; i++) {
+    if (String(all[i].getName()).indexOf('کامل') !== -1) {
+      out.parts = [all[i]]; out.kind = 'کامل'; return out;
+    }
+  }
+
+  // ۲) «یکجا i از n» — ترتیب از خودِ نام، نه از اندازه یا ترتیبِ درایو
+  var merged = [], total = 0;
+  for (var j = 0; j < all.length; j++) {
+    var m = faDigits_(String(all[j].getName())).match(/یکجا\s*(\d+)\s*از\s*(\d+)/);
+    if (!m) continue;
+    merged.push({ no: parseInt(m[1], 10), of: parseInt(m[2], 10), file: all[j] });
+    total = Math.max(total, parseInt(m[2], 10));
+  }
+  if (merged.length) {
+    merged.sort(function (a, b) { return a.no - b.no; });
+    var seen = Object.create(null), uniq = [];
+    for (var u = 0; u < merged.length; u++) {
+      if (seen[merged[u].no]) continue;
+      seen[merged[u].no] = 1; uniq.push(merged[u]);
+    }
+    if (uniq.length !== total) {
+      out.why = 'قسمت ' + faDigitsOut_(String(total)) + ' فایلی است ولی ' +
+                faDigitsOut_(String(uniq.length)) + ' تا پیدا شد — ناقص منتشر نمی‌شود';
+      return out;
+    }
+    for (var q = 0; q < uniq.length; q++) out.parts.push(uniq[q].file);
+    out.kind = 'یکجا ×' + total;
+    return out;
+  }
+
+  // ۳) تکه‌های کوتاه — همان صدا، فقط برشِ ریزتر
+  var chunks = [];
+  for (var c = 0; c < all.length; c++) {
+    var mc = faDigits_(String(all[c].getName())).match(/بخش\s*(\d+)/);
+    if (mc) chunks.push({ no: parseInt(mc[1], 10), file: all[c] });
+  }
+  if (chunks.length) {
+    chunks.sort(function (a, b) { return a.no - b.no; });
+    for (var z = 0; z < chunks.length; z++) out.parts.push(chunks[z].file);
+    out.kind = 'بخش ×' + chunks.length;
+    return out;
+  }
+  out.why = 'فایل‌های صوتیِ این قسمت شناخته نشدند';
+  return out;
 }
 
 /** یک درخواستِ تازه، بی تکرار. سقف دارد تا صف بی‌نهایت نشود. */
@@ -642,7 +708,11 @@ function ytRenderAsk_(item) {
   if (pend.length >= cap) return false;
   d.items.push({ key: key, show: item.show, ep: String(item.ep),
                  title: String(item.title || ''), folderId: String(item.folderId || ''),
-                 audioFileId: String(item.audioFileId || ''),
+                 // فهرستِ مرتبِ بخش‌های صوتی. یک قسمت می‌تواند دو فایل باشد و
+                 // باید پشتِ‌هم چسبانده شود تا **یک** ویدئو بدهد.
+                 audio: (item.audio || []).map(function (a) {
+                   return { id: String(a.id || ''), name: String(a.name || '') }; }),
+                 audioKind: String(item.audioKind || ''),
                  coverFileId: String(item.coverFileId || ''),
                  outName: String(item.outName || ''), at: nowStr_(),
                  status: 'در انتظار' });
@@ -805,10 +875,14 @@ function ytPlPlace_(plId, videoId, wantPos, existing) {
 var YT_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'عنوانِ یوتیوب',
                   'شناسهٔ ویدئو', 'لینک', 'وضعیت انتشار', 'پلی‌لیست',
                   'جای در پلی‌لیست', 'کاور', 'فصل‌ها', 'برچسب‌ها',
-                  'نویسهٔ کپشن', 'نشتیِ خصوصی', 'نتیجه', 'شرح'];
+                  'نویسهٔ کپشن', 'نشتیِ خصوصی', 'نتیجه', 'شرح',
+                  // شکلِ صوتِ منبع: «کامل» یا «یکجا ×۲». قسمتِ دوفایلی باید
+                  // در یک ویدئو بیاید و این ستون تنها جایی است که می‌شود
+                  // دید واقعاً چند تکه چسبانده شده.
+                  'صوتِ منبع', 'مدت'];
 var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
            PL: 9, POS: 10, THUMB: 11, CHAPS: 12, TAGS: 13, DESC: 14,
-           LEAK: 15, RESULT: 16, NOTE: 17 };
+           LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19 };
 
 function ytLog_(hub, row) {
   try {
@@ -821,7 +895,8 @@ function ytLog_(hub, row) {
                        String(row.thumb || ''), String(row.chapters || 0),
                        String(row.tags || 0), String(row.descChars || 0),
                        String(row.leak || ''), String(row.result || ''),
-                       String(row.note || '')]], YT_HEADERS.length);
+                       String(row.note || ''), String(row.audioKind || ''),
+                       String(row.duration || '')]], YT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ انتشارِ یوتیوب نوشته نشد: ' + e.message); return false; }
 }
@@ -1060,12 +1135,18 @@ function ytEpisodeMeta_(folder) {
 }
 
 /** مدتِ ویدئو از اندازهٔ فایلِ صوتی — دقیق‌تر از هر تخمینی از روی متن. */
-function ytSecondsOf_(file) {
-  try {
-    var b = file.getSize ? file.getSize() : 0;
-    if (!b) return 0;
-    return Math.max(0, Math.round((b - 44) / ((Number(CFG.SAMPLE_RATE) || 24000) * 2)));
-  } catch (e) { return 0; }
+function ytSecondsOf_(files) {
+  /* مجموعِ **همهٔ** بخش‌ها. یک قسمتِ دوفایلی که مدتش از یک فایل حساب شود،
+     هم فصل‌بندی‌اش غلط می‌شود هم کپشنش — و هیچ‌کدام خطا نمی‌دهند. */
+  var arr = Object.prototype.toString.call(files) === '[object Array]' ? files : [files];
+  var sec = 0;
+  for (var i = 0; i < arr.length; i++) {
+    try {
+      var b = (arr[i] && arr[i].getSize) ? arr[i].getSize() : 0;
+      if (b > 44) sec += (b - 44) / ((Number(CFG.SAMPLE_RATE) || 24000) * 2);
+    } catch (e) {}
+  }
+  return Math.max(0, Math.round(sec));
 }
 
 /**
@@ -1148,8 +1229,9 @@ function ytUploadOne_(item, hub, pub) {
   var seriesName = String(meta.seriesName || item.series || '');
   var epLabel = 'قسمت ' + faDigitsOut_(String(item.ep));
 
-  var audio = ytAudioIn_(folder);
-  var totalSec = audio ? ytSecondsOf_(audio) : 0;
+  var aud = ytAudioParts_(folder);
+  if (aud.why) { res.why = aud.why; return res; }
+  var totalSec = ytSecondsOf_(aud.parts);
   var outName = ytVideoName_(String(folder.getName()));
 
   // ── نقشه: یک بار ساخته می‌شود و می‌مانَد ──
@@ -1182,7 +1264,11 @@ function ytUploadOne_(item, hub, pub) {
   if (!video) {
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
-                   audioFileId: audio ? audio.getId() : '',
+                   // **فهرستِ مرتب**، نه یک فایل: قسمتِ دوفایلی باید یک ویدئوی
+                   // واحد شود، وگرنه نیمی از درس منتشر می‌شود.
+                   audio: aud.parts.map(function (f) {
+                     return { id: f.getId(), name: f.getName() }; }),
+                   audioKind: aud.kind,
                    coverFileId: cover ? cover.fileId : '',
                    outName: outName });
     res.waiting = true;
@@ -1291,6 +1377,7 @@ function ytUploadOne_(item, hub, pub) {
 
   ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,
                 videoId: vid, url: url, privacy: privacy, playlist: plName,
+                audioKind: aud.kind, duration: ytTime_(totalSec),
                 position: plPos, thumb: thumb, chapters: chapters.length,
                 tags: tags.length, descChars: desc.length,
                 leak: leaks.length ? leaks.map(function (x) { return x.kind; }).join('، ') : '',
@@ -1679,17 +1766,17 @@ function ytRedoOne_(show, ep, opt) {
   var meta = ytEpisodeMeta_(folder);
   if (!meta || !meta.ep) { out.why = 'پروندهٔ قسمت نبود'; return out; }
   var epo = meta.ep, isSpecial = String(show) === ENRICH_SHOW_SPECIAL;
-  var audio = ytAudioIn_(folder);
+  var audSec = ytSecondsOf_(ytAudioParts_(folder).parts);
   var heads = [];
   for (var h = 0; h < (epo.sections || []).length; h++) heads.push(String(epo.sections[h].heading || ''));
   var ctx = { show: show, epRaw: ep, showName: showName,
               tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
-              cat: String(meta.cat || ''), duration: ytTime_(audio ? ytSecondsOf_(audio) : 0),
+              cat: String(meta.cat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
-              totalSec: audio ? ytSecondsOf_(audio) : 0 };
+              totalSec: audSec };
   var plan = ytPlan_(folder, ctx, opt.remodel === true);
   if (!plan) { out.why = 'نقشهٔ انتشار ساخته نشد'; return out; }
 

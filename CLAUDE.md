@@ -460,6 +460,16 @@ an MP4 and drops it in the episode folder. The request lives in `_YT-RENDER.json
 and **a request left unanswered for `YT_STUCK_DAYS` is itself a reported problem** —
 that is the music-bank lesson, applied from day one instead of after seven weeks.
 
+**One video is one whole episode** (6.1). An episode too long for a single WAV
+ships as «… یکجا ۱ از ۲» and «… یکجا ۲ از ۲»; neither carries the word «کامل».
+The first picker fell back to *the largest WAV* when it found no «کامل» — so a
+two-file lesson published its **second half** as the whole episode, with the
+duration, chapters and description all computed from that half and no error
+anywhere. `ytAudioParts_` returns the ordered list, reads the order from the name
+rather than from size or Drive's iteration order, and **refuses to publish an
+incomplete set**: a half episode that goes public is not recoverable the way a
+delayed one is.
+
 **Order is guaranteed twice, independently** (5.98). `getFolders()` promises no
 order, so the queue is sorted by (show, series, episode) both when filled and when
 consumed. But the real guarantee is elsewhere: a video's playlist position is
