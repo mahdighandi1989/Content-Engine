@@ -160,15 +160,26 @@ function makeMp4(cover, wav, dest) {
 function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'yt-'));
   const qFile = path.join(tmp, 'queue.json');
-  fetchTo(dlUrl(QUEUE_ID), qFile);
+
+  /* دو نارسیدنِ متفاوت، و عمداً دو رفتارِ متفاوت.
+     ── فایل نیامد (اشتراکش هنوز برقرار نشده، یا برداشته شده): این حالتِ
+        عادیِ ساعت‌های اول است و خودش را درمان می‌کند. هر ساعت قرمزشدن برای
+        چیزی که خودبه‌خود درست می‌شود، همان هشداری است که آدم یاد می‌گیرد
+        نبیند — و اگر برنگشت، خودِ موتور از YT_STUCK_DAYS و ytQueueIdOk_
+        فریاد می‌زند. آن دو، این‌جا را پوشش می‌دهند.
+     ── فایل آمد ولی JSON نبود: این باگ است، نه انتظار. باید بشکند. */
+  try { fetchTo(dlUrl(QUEUE_ID), qFile); }
+  catch (e) {
+    log('صف هنوز خواندنی نیست (اشتراکش برقرار نشده یا برداشته شده). ' +
+        'موتور در اولین اجرای شبانه بازش می‌کند. QUEUE_ID = ' + QUEUE_ID);
+    return;
+  }
 
   let queue;
   try { queue = JSON.parse(fs.readFileSync(qFile, 'utf8')); }
   catch (e) {
-    // اگر صف خوانده نشود، اکشن باید **بشکند**. یک اجرای سبزِ بی‌کار همان
-    // سکوتی است که هفت هفته کسی نفهمید.
-    throw new Error('صف خوانده نشد — شاید شناسهٔ _YT-RENDER.json عوض شده یا ' +
-                    'اشتراکش برداشته شده. QUEUE_ID = ' + QUEUE_ID);
+    throw new Error('صف آمد ولی JSON نبود — شاید به‌جای فایل، صفحهٔ هشدارِ ' +
+                    'گوگل رسیده باشد. QUEUE_ID = ' + QUEUE_ID);
   }
   const items = Array.isArray(queue.items) ? queue.items : [];
   const map = readMap();
