@@ -721,6 +721,25 @@ function selfUpdateDaily() {
     }
   }
 
+  /* ── انتشار در یوتیوب ──
+   * پس از جزوه و پیش از سنجهٔ محتوا، و پشتِ نگهبانِ زمانِ خودش. آپلود
+   * سنگین است (چند ده مگابایت در هر ویدئو)، پس سقفِ کوچک و بودجهٔ صریح
+   * دارد: هر شب چند تا، نه همه. کاوشِ گذشته مکان‌نما دارد و ارزان است. */
+  if (CFG.YT_ENABLED !== false && nightHas_(60000, 'انتشار در یوتیوب')) {
+    try {
+      var yb = ytBackfill_(Number(CFG.YT_BACKFILL_WALK) || 12);
+      if (yb.queued) logLine_('یوتیوب: ' + yb.queued + ' قسمتِ گذشته به صف رفت.');
+    } catch (eYb) { logLine_('کاوشِ قسمت‌های گذشته برای یوتیوب نشد: ' + eYb.message); }
+    try {
+      var yr = ytRunDue_(Number(CFG.YT_MAX_PER_RUN) || 2, Number(CFG.YT_MS) || 150000);
+      if (yr.tried || yr.waiting) {
+        logLine_('یوتیوبِ شبانه: ' + yr.done + ' منتشر شد، ' + yr.waiting +
+                 ' منتظرِ ویدئو، ' + yr.left + ' در صف.');
+      }
+    } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
+    try { ytPlaylistSync_(45000); } catch (eYp) {}
+  }
+
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
   if (nightHas_(45000, 'سنجهٔ محتوا')) {
     try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }

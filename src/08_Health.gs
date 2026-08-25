@@ -124,6 +124,10 @@ function outRootFilePatterns_() {
       what: 'فهرستِ موسیقیِ پیشنهادی — تسک نشانی می‌نویسد، موتور می‌آوردشان' },
     { re: new RegExp('^' + rxQuote_(String(CFG.MUSIC_WISH_FILE || '_MUSIC-WISH.json')) + '$'),
       what: 'درخواستِ موسیقی' },
+    // درخواستِ ساختِ ویدئو. موتور نمی‌تواند ویدئو بسازد؛ این فایل تنها راهِ
+    // خواستنش است، پس بردنش به زیرپوشه یعنی هیچ‌وقت خوانده نمی‌شود.
+    { re: new RegExp('^' + rxQuote_(String(CFG.YT_RENDER_FILE || '_YT-RENDER.json')) + '$'),
+      what: 'درخواستِ ساختِ ویدئوی یوتیوب — موتور نشانی می‌دهد، تسک می‌سازدش' },
     // گزارشِ هنوز برداشته‌نشده. خوانده‌شده‌اش («.ingested») باید رفته باشد به
     // بایگانی — پس اگر در ریشه ماند، خودش یک یافته است، نه یک استثنا.
     { re: new RegExp('^' + rxQuote_(String(CFG.REPORT_FILE_PREFIX || '_REPORT-')) + '.*$'),
@@ -142,7 +146,8 @@ function outRootFolderNames_() {
     String(CFG.VARIETY_FOLDER || ''), String(CFG.SPECIAL_FOLDER || ''),
     String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
     String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || ''),
-    String(CFG.AUDIT_FOLDER || ''), String(CFG.PROMPT_ARCHIVE_FOLDER || '')
+    String(CFG.AUDIT_FOLDER || ''), String(CFG.PROMPT_ARCHIVE_FOLDER || ''),
+    String(CFG.YT_COVER_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -488,6 +493,7 @@ function writeStatus_(hub, note) {
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
     handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
+    youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -976,6 +982,12 @@ function healthCheck() {
        موردِ توجهِ ناظر به‌طور مکرر قرار بگیرد و گزارش بشود.» پس هر روز، نه
        یک بار. بخشِ ۲۶ جلوتر است، پس try/catch. */
     try { handoutHealth_(problems, notes); } catch (eHh) {}
+
+  /* یوتیوب — خطِ روزانه همیشه هست، حتی وقتی هیچ ایرادی نیست.
+     مهم‌ترین بندش «منتظرِ ساختِ ویدئو» است: اگر کسی MP4 نسازد هیچ‌چیز منتشر
+     نمی‌شود و از بیرون شبیهِ خاموشی است — همان شکلِ خرابی که بانکِ موسیقی
+     را هفته‌ها خالی نگه داشت. */
+  try { ytHealth_(problems, notes); } catch (eYt) {}
     if (st.special && st.special.active) {
       notes.push('درس‌نامه: مجموعهٔ «' + st.special.active.name + '» در حال تولید — ' +
                  'قسمت ' + st.special.active.curPart + '، قطعهٔ ' + st.special.active.curChunk +

@@ -2087,6 +2087,13 @@ function renderSpecialAudioStep_() {
       }
     } catch (eH) { logLine_('جزوهٔ مجموعه ساخته نشد: ' + eH.message); }
 
+    /* یوتیوب: فقط **بدهی** ثبت می‌شود، نه بیشتر.
+       آپلود چند ده مگابایت است و ویدئویش هم هنوز ساخته نشده؛ انجامش در
+       همین اجرا یعنی ریسکِ کشته‌شدنِ اجرا وسطِ تحویلِ قسمت. کارِ شبانه
+       پرداختش می‌کند. (فراخوانِ رو به جلو ۱۴ ← ۲۷، پس در try.) */
+    try { ytDueAdd_(ENRICH_SHOW_SPECIAL, epNum, folder.getId()); }
+    catch (eY) { logLine_('صفِ یوتیوب برای درس‌نامه ثبت نشد: ' + eY.message); }
+
     return { ok: true, episode: epNum, duration: dur, telegram: st.tg, done: true };
   } catch (err) {
     logLine_('خطای صداگذاری درس‌نامه: ' + err.message);

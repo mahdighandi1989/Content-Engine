@@ -35,6 +35,7 @@ function onOpen() {
       .addSeparator()
       .addItem('📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته', 'runHandoutBuild')
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
+      .addItem('▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست', 'runYouTubePublish')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')
       .addItem('سامان‌دهیِ پوشهٔ قسمت‌ها', 'runOrganizeFolders')

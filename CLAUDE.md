@@ -449,6 +449,47 @@ The monitor checks it every day (`_PROMPT-monitor-v10.md` §۴٫۷) — includin
 opening an actual handout, because the code tests can see the file's shape but
 not its quality.
 
+## YouTube publishing (section 27)
+The one fact everything else is shaped by: **YouTube takes video, not audio, and
+Apps Script cannot make video** — no ffmpeg, no library, and the six-minute cap
+rules out encoding fourteen minutes of frames. Write that down rather than hoping
+a way turns up; there isn't one. So the work splits the same way music split in
+5.55: the engine decides what to publish, writes title/description/tags, builds
+the cover, orders the playlists and uploads; something else turns WAV + cover into
+an MP4 and drops it in the episode folder. The request lives in `_YT-RENDER.json`,
+and **a request left unanswered for `YT_STUCK_DAYS` is itself a reported problem** —
+that is the music-bank lesson, applied from day one instead of after seven weeks.
+
+**The privacy boundary is in code, not in the prompt.** The channel is public and
+a Drive link that goes public cannot be "better tomorrow" the way an episode's
+prose can. So `ytLeaks_` runs on the *final* text, the video uploads as `unlisted`,
+and only a clean scan flips it to `public`; a leak logs a «جدی» finding owned by
+code and the video stays unlisted. Web sources stay in the description and Drive
+links never do — the owner asked for exactly that split.
+
+**Playlists read the series registry, never YouTube's memory.** Renaming or
+renumbering a series on the board changes the playlist's title and the order of
+its items, because the desired order is computed from the registry and only the
+differences are sent. The playlist URL lands in the «پلی‌لیست یوتیوب» column so it
+is visible where the series is, the same rule the handout column follows.
+
+**Quota is taken before it is spent**, in two separate buckets (uploads, units) —
+both close with a bare 403 that names neither. `search.list` costs 100 units and is
+never used anywhere in the section: what we published is in the sheet, and the
+sheet is one read.
+
+Chapters are estimated from each section's character share, scaled to the measured
+duration. That is deliberate: recording real offsets means touching the synthesis
+loop, the one part of this repo that should never be disturbed without cause, and
+a few seconds of drift in a chapter marker costs nothing next to having no chapters
+at all. YouTube's own rules (start at 00:00, three minimum, none under ten seconds)
+are enforced in code.
+
+Covers are 1280×720 cards the engine composes in Slides and exports as PNG. Not
+stock imagery: the channel is meant to earn, and every borrowed image is a licence
+question. Custom thumbnails need a verified channel — if `thumbnails.set` fails the
+row records why instead of failing silently.
+
 ## Production calendar (section 25)
 The owner's only way to stop a show used to be deleting its trigger — manual,
 and easy to forget to undo. The «تقویمِ تولید» tab in the hub now holds one row

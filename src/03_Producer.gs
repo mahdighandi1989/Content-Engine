@@ -3859,6 +3859,11 @@ function renderAudioStep_() {
     rebuildIndex_(hub);
     try { writeStatus_(hub, 'قسمت ' + epNum + ' کامل شد'); } catch (eS) {}
     logLine_('قسمت ' + epNum + ' کامل شد (' + dur + '، ' + st.files.length + ' فایل صوتی).');
+    /* یوتیوب: فقط بدهی ثبت می‌شود؛ آپلود کارِ شبانه است.
+       (فراخوانِ رو به جلو ۳ ← ۲۷، پس در try/catch — بارگذارِ جزئیِ آزمون‌ها
+       وگرنه با ReferenceError می‌شکند و قسمتِ تحویل‌شده را زمین می‌زند.) */
+    try { ytDueAdd_(ENRICH_SHOW_VARIETY, epNum, folder.getId()); }
+    catch (eYq) { logLine_('صفِ یوتیوب ثبت نشد: ' + eYq.message); }
     return { ok: true, episode: epNum, title: ep.title, duration: dur, telegram: st.tg };
   } catch (err) {
     logLine_('خطای صداگذاری: ' + err.message);
