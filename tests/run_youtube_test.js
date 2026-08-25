@@ -812,4 +812,69 @@ console.log('=== ۳۰) و درخواستِ رندر فهرستِ مرتب را �
   ok('۳۰.۸ و مدت هم', YT_HEADERS[YU.DUR - 1] === 'مدت');
 }
 
+console.log('=== ۳۱) نوشتن در پروژه: همان شکلی که API می‌پذیرد (۶٫۲) ===');
+{
+  /* پاسخِ getContent فیلدهای فقط‌خواندنی هم دارد. پس‌فرستادنشان به
+     updateContent یعنی ۴۰۰ — و installSource_، تنها مسیرِ اثبات‌شدهٔ نوشتن
+     در این پروژه، از اول آرایه را با سه فیلد بازمی‌ساخت. ytAddScopes_
+     کپی‌اش نکرده بود. */
+  let sent = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) { sent = body.files; return { code: 200, json: {} }; }
+      return { code: 200, json: { files: [
+        { name: 'appsscript', type: 'JSON', createTime: 'T', updateTime: 'T',
+          lastModifyUser: { name: 'x' },
+          source: JSON.stringify({ timeZone: 'Asia/Dubai',
+            oauthScopes: ['https://www.googleapis.com/auth/spreadsheets'] }) },
+        { name: 'موتور-محتوا', type: 'SERVER_JS', functionSet: { values: [] },
+          createTime: 'T', source: 'function onOpen(){}' }
+      ] } };
+    }
+    return { code: 200, json: {} };
+  };
+  const r = ytAddScopes_();
+  ok('۳۱.۱ نوشتن انجام می‌شود', r.ok === true, r.why || '');
+  ok('۳۱.۲ هر سه اسکوپ افزوده می‌شوند', r.added.length === 3, String(r.added.length));
+  ok('۳۱.۳ فقط سه فیلد پس فرستاده می‌شود',
+     sent.every(f => Object.keys(f).sort().join(',') === 'name,source,type'),
+     JSON.stringify(Object.keys(sent[0]).sort()));
+  ok('۳۱.۴ و هیچ فایلی جا نمی‌ماند — این فراخوان کلِ پروژه را جایگزین می‌کند',
+     sent.length === 2, String(sent.length));
+  ok('۳۱.۵ کدِ موتور دست‌نخورده برمی‌گردد',
+     sent[1].source === 'function onOpen(){}', sent[1].source);
+  const man = JSON.parse(sent[0].source);
+  ok('۳۱.۶ اسکوپِ قبلی حفظ می‌شود، نه جایگزین',
+     man.oauthScopes.indexOf('https://www.googleapis.com/auth/spreadsheets') !== -1);
+  ok('۳۱.۷ و بقیهٔ manifest هم', man.timeZone === 'Asia/Dubai');
+  ok('۳۱.۸ اسکوپ‌های یوتیوب واقعاً نشستند',
+     YT_SCOPES.every(x => man.oauthScopes.indexOf(x) !== -1));
+
+  /* بارِ دوم چیزی نوشته نمی‌شود — و صریح می‌گوید چرا. */
+  global.__STUB = function (url, body) {
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      return { code: 200, json: { files: [{ name: 'appsscript', type: 'JSON',
+        source: JSON.stringify({ oauthScopes: YT_SCOPES.concat(['x']) }) }] } };
+    }
+    return { code: 200, json: {} };
+  };
+  const r2 = ytAddScopes_();
+  ok('۳۱.۹ اگر از قبل بودند، دوباره نوشته نمی‌شود', r2.already === true, r2.why);
+
+  /* و خطای API متنِ واقعیِ گوگل را برمی‌گرداند، نه فقط یک کد. */
+  global.__STUB = function (url, body) {
+    if (url.indexOf('script.googleapis.com') !== -1) {
+      if (body && body.files) {
+        return { code: 400, json: { error: { message: 'Invalid JSON payload received.' } } };
+      }
+      return { code: 200, json: { files: [{ name: 'appsscript', type: 'JSON',
+        source: JSON.stringify({ oauthScopes: ['a'] }) }] } };
+    }
+    return { code: 200, json: {} };
+  };
+  const r3 = ytAddScopes_();
+  ok('۳۱.۱۰ و خطا متنِ خودِ گوگل را می‌آورد',
+     r3.ok === false && r3.why.indexOf('Invalid JSON payload') !== -1, r3.why);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

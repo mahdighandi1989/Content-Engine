@@ -2553,10 +2553,33 @@ function ytAddScopes_() {
                              'پس فقط تأییدِ دوبارهٔ اجازه‌ها مانده.', already: true };
   }
   man.oauthScopes = had.concat(add);
-  files[mi].source = JSON.stringify(man, null, 2);
-  var put = scriptApiFetch_('put', { files: files });
+
+  /* ══ فقط سه فیلد برگردانده می‌شود، نه آرایهٔ خامِ گوگل ══
+   * پاسخِ `projects.getContent` فیلدهای فقط‌خواندنی هم دارد (createTime،
+   * updateTime، lastModifyUser، functionSet). پس‌فرستادنشان به
+   * `updateContent` یعنی ۴۰۰. `installSource_` — تنها مسیرِ اثبات‌شدهٔ
+   * نوشتن در این پروژه — از اول همین کار را می‌کرد؛ این تابع کپی‌اش نکرده
+   * بود و همان‌جا می‌شکست.
+   *
+   * و **همهٔ** فایل‌ها برگردانده می‌شوند، نه فقط appsscript: این فراخوان
+   * کلِ محتوای پروژه را جایگزین می‌کند. یک فایلِ جامانده یعنی یک فایلِ
+   * پاک‌شده. */
+  var keep = [];
+  for (var f = 0; f < files.length; f++) {
+    keep.push({ name: String(files[f].name),
+                type: String(files[f].type),
+                source: f === mi ? JSON.stringify(man, null, 2) : String(files[f].source || '') });
+  }
+  if (keep.length !== files.length) {
+    return { ok: false, why: 'فهرستِ فایل‌ها ناقص شد؛ چیزی نوشته نشد' };
+  }
+  var put = scriptApiFetch_('put', { files: keep });
   if (put.code !== 200) {
-    return { ok: false, why: 'ذخیرهٔ appsscript.json نشد (HTTP ' + put.code + ')' };
+    var why = '';
+    try { why = String((((put.json || {}).error || {}).message) || ''); } catch (eW) {}
+    return { ok: false,
+             why: 'ذخیرهٔ appsscript.json نشد (HTTP ' + put.code + ')' +
+                  (why ? ': ' + why.slice(0, 160) : '') };
   }
   logLine_('اسکوپ‌های یوتیوب به appsscript.json افزوده شد: ' + add.join('، '));
   return { ok: true, added: add };
