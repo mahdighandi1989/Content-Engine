@@ -2443,9 +2443,25 @@ function runYouTubeChannel() {
  * سرگردان می‌کند؛ باید گفت کدام‌یک است.» پس این تابع از خودِ گوگل می‌پرسد و
  * پاسخِ خامش را هم نشان می‌دهد.
  */
-var YT_SCOPES = ['https://www.googleapis.com/auth/youtube',
-                 'https://www.googleapis.com/auth/youtube.force-ssl',
-                 'https://www.googleapis.com/auth/youtube.upload'];
+/* اسکوپ‌های خودِ یوتیوب. */
+var YT_API_SCOPES = ['https://www.googleapis.com/auth/youtube',
+                     'https://www.googleapis.com/auth/youtube.force-ssl',
+                     'https://www.googleapis.com/auth/youtube.upload'];
+
+/* و اسکوپی که *برای همین قابلیت* لازم است ولی اسمش یوتیوب نیست.
+ *
+ * ══ چرا جدا نوشته شده ══
+ * کاورِ قسمت، کاورِ پلی‌لیست و بنرِ کانال همه با Slides ساخته می‌شوند —
+ * تنها راهِ رستر کردنِ تصویر در Apps Script. پس بی این اسکوپ، انتشار
+ * «کار می‌کند» ولی هر ویدئو بی‌کاور می‌رود و هر شب یک خطای مجزا می‌دهد.
+ * و چون appsscript.json این پروژه فهرستِ صریح دارد، هیچ اسکوپی خودکار
+ * استنتاج نمی‌شود.
+ *
+ * اگر این‌جا نوشته نمی‌شد، کاربر یک بار برای یوتیوب تأیید می‌کرد، بعد به
+ * خطای کاور می‌خورد، و باید دوباره تأیید می‌کرد. یک تأیید، نه دو تا. */
+var YT_SLIDES_SCOPE = 'https://www.googleapis.com/auth/presentations';
+
+var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE]);
 
 function ytDiagnose_() {
   var d = { scopeOk: false, apiOk: false, channelOk: false, code: 0,
@@ -2464,9 +2480,16 @@ function ytDiagnose_() {
     }
   } catch (e2) {}
   d.scopes = scopes.split(/\s+/).filter(function (x) { return !!x; });
-  for (var i = 0; i < YT_SCOPES.length; i++) {
-    if (scopes.indexOf(YT_SCOPES[i]) !== -1) { d.scopeOk = true; break; }
+  /* «کدام‌یک نیست» را باید نام برد، نه یک بله/خیر. اسکوپِ Slides اگر تنها
+     چیزِ غایب باشد، یوتیوب کار می‌کند ولی هر ویدئو بی‌کاور می‌رود — و آن
+     دو حالت باید از هم جدا دیده شوند. */
+  d.missing = [];
+  for (var i = 0; i < YT_API_SCOPES.length; i++) {
+    if (scopes.indexOf(YT_API_SCOPES[i]) === -1) d.missing.push(YT_API_SCOPES[i]);
   }
+  d.scopeOk = d.missing.length === 0;
+  d.slidesOk = scopes.indexOf(YT_SLIDES_SCOPE) !== -1;
+  if (!d.slidesOk) d.missing.push(YT_SLIDES_SCOPE);
 
   // ── ۲) خودِ فراخوان، خام — تا پیامِ گوگل دست‌نخورده دیده شود ──
   var r = ytHttp_('https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true', 'get');
@@ -2482,6 +2505,15 @@ function ytDiagnose_() {
       d.channelOk = true;
       d.channelId = String(items[0].id || '');
       d.channelTitle = String(((items[0].snippet) || {}).title || '');
+      if (!d.slidesOk) {
+        // یوتیوب کار می‌کند، ولی هیچ کاوری ساخته نمی‌شود. سکوت این‌جا یعنی
+        // هر شب یک ویدئوی بی‌کاور و یک خطای بی‌ربط‌به‌نظر‌رسیده.
+        d.cause = 'یوتیوب درست است، ولی اسکوپِ Slides نیست — پس کاورِ قسمت، ' +
+                  'کاورِ پلی‌لیست و بنرِ کانال هیچ‌کدام ساخته نمی‌شوند';
+        d.fix = 'اسکوپِ ' + YT_SLIDES_SCOPE + ' را هم اضافه کنید ' +
+                '(از همین منو، یا دستی در appsscript.json) و یک بار دیگر ' +
+                'اجازه‌ها را تأیید کنید.';
+      }
     } else {
       d.cause = 'این حسابِ گوگل کانالِ یوتیوبی ندارد که موتور ببیند';
       d.fix = 'اگر کانال زیرِ یک «حسابِ برند» (Brand Account) است، اسکریپت باید با ' +
@@ -2592,10 +2624,16 @@ function runYouTubeFix() {
   var L = ['عیب‌یابیِ یوتیوب:', ''];
   L.push('سرویسِ یوتیوب در پروژه: ' + (ytSvc_() ? 'فعال ✅' : 'فعال نیست ❌'));
   L.push('اسکوپِ یوتیوب در توکن: ' + (d.scopeOk ? 'هست ✅' : 'نیست ❌'));
+  L.push('اسکوپِ Slides (برای کاور): ' + (d.slidesOk ? 'هست ✅' : 'نیست ❌'));
   L.push('پاسخِ خودِ یوتیوب: HTTP ' + d.code + (d.apiOk ? ' ✅' : ' ❌'));
   if (d.channelOk) L.push('کانال: «' + d.channelTitle + '» ✅');
+  if ((d.missing || []).length) {
+    L.push('');
+    L.push('اسکوپ‌هایی که نیستند:');
+    for (var mi = 0; mi < d.missing.length; mi++) L.push('   • ' + d.missing[mi]);
+  }
   L.push('');
-  if (d.channelOk) {
+  if (d.channelOk && d.slidesOk) {
     L.push('همه‌چیز درست است. «شناسنامهٔ کانال» را بزنید.');
   } else {
     L.push('علت: ' + (d.cause || 'نامعلوم'));
@@ -2603,7 +2641,7 @@ function runYouTubeFix() {
     if (d.raw) { L.push(''); L.push('پاسخِ خامِ گوگل:'); L.push(d.raw); }
   }
 
-  if (!d.channelOk && !d.scopeOk && ui) {
+  if ((!d.channelOk || !d.slidesOk) && (d.missing || []).length && ui) {
     var ans = ui.alert('عیب‌یابیِ یوتیوب',
       L.join('\n') + '\n\n──────\nهمین حالا اسکوپ‌های یوتیوب به appsscript.json ' +
       'اضافه شوند؟ (کدِ موتور دست نمی‌خورد؛ فقط فهرستِ اجازه‌ها.)',

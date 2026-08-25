@@ -724,8 +724,17 @@ console.log('=== ۲۸) و اگر علتش اجازه بود، همان‌جا د
   /* و سه اسکوپِ لازم، نه بیشتر: youtubepartner اسکوپِ حساسی است که تأییدِ
      جداگانه می‌خواهد و هیچ‌کدام از کارهای ما لازمش ندارد. */
   ok('۲۸.۶ فقط اسکوپ‌های لازم خواسته می‌شوند',
-     YT_SCOPES.length === 3 && YT_SCOPES.join(' ').indexOf('youtubepartner') === -1,
+     YT_API_SCOPES.length === 3 && YT_SCOPES.join(' ').indexOf('youtubepartner') === -1,
      YT_SCOPES.join(' '));
+  /* اسکوپِ Slides اسمش یوتیوب نیست ولی *برای همین قابلیت* لازم است: کاورِ
+     قسمت و پلی‌لیست و بنر همه با Slides ساخته می‌شوند. جا انداختنش یعنی
+     کاربر دو بار تأیید کند — یک بار برای یوتیوب، و بعد که به خطای کاور خورد،
+     یک بار دیگر. */
+  ok('۲۸.۷ و اسکوپِ Slides هم، چون کاور بی آن ساخته نمی‌شود',
+     YT_SCOPES.indexOf(YT_SLIDES_SCOPE) !== -1, YT_SLIDES_SCOPE);
+  ok('۲۸.۸ کاور واقعاً با Slides ساخته می‌شود — پس این اسکوپ خیالی نیست',
+     fs.readFileSync('src/27_YouTube.gs', 'utf8').indexOf('SlidesApp.create') !== -1 ||
+     fs.readFileSync('src/27_YouTube.gs', 'utf8').indexOf('SlidesApp.openById') !== -1);
 }
 
 console.log('=== ۲۹) قسمتِ دوفایلی باید یک ویدئوی واحد شود (۶٫۱) ===');
@@ -835,7 +844,8 @@ console.log('=== ۳۱) نوشتن در پروژه: همان شکلی که API م
   };
   const r = ytAddScopes_();
   ok('۳۱.۱ نوشتن انجام می‌شود', r.ok === true, r.why || '');
-  ok('۳۱.۲ هر سه اسکوپ افزوده می‌شوند', r.added.length === 3, String(r.added.length));
+  ok('۳۱.۲ هر چهار اسکوپِ لازم افزوده می‌شوند — یک تأیید، نه دو تا',
+     r.added.length === YT_SCOPES.length, String(r.added.length));
   ok('۳۱.۳ فقط سه فیلد پس فرستاده می‌شود',
      sent.every(f => Object.keys(f).sort().join(',') === 'name,source,type'),
      JSON.stringify(Object.keys(sent[0]).sort()));
@@ -875,6 +885,51 @@ console.log('=== ۳۱) نوشتن در پروژه: همان شکلی که API م
   const r3 = ytAddScopes_();
   ok('۳۱.۱۰ و خطا متنِ خودِ گوگل را می‌آورد',
      r3.ok === false && r3.why.indexOf('Invalid JSON payload') !== -1, r3.why);
+}
+
+console.log('=== ۳۲) اسکوپِ گم‌شده باید نام برده شود، نه شمرده (۶٫۳) ===');
+{
+  /* کاربر فهرست را دستی اضافه کرد و سه اسکوپِ یوتیوب را گذاشت — ولی
+     `presentations` را نه، چون اسمش یوتیوب نیست. بی این هشدار، یک تأییدِ
+     دیگر لازم می‌شد. */
+  const scoped = (list) => {
+    global.__STUB = function (url) {
+      if (url.indexOf('tokeninfo') !== -1) return { code: 200, json: { scope: list.join(' ') } };
+      if (url.indexOf('youtube/v3/channels') !== -1) {
+        return { code: 200, json: { items: [{ id: 'UCx', snippet: { title: 'کانال' } }] } };
+      }
+      return { code: 200, json: {} };
+    };
+    return ytDiagnose_();
+  };
+  const all = scoped(YT_SCOPES);
+  ok('۳۲.۱ با همهٔ اسکوپ‌ها، هیچ‌چیز کم نیست',
+     all.scopeOk && all.slidesOk && all.missing.length === 0 && all.channelOk,
+     JSON.stringify(all.missing));
+
+  const noSlides = scoped(YT_API_SCOPES);
+  ok('۳۲.۲ نبودِ Slides جدا تشخیص داده می‌شود',
+     noSlides.scopeOk === true && noSlides.slidesOk === false);
+  ok('۳۲.۳ و با نام گفته می‌شود، نه با شمار',
+     noSlides.missing.length === 1 && noSlides.missing[0] === YT_SLIDES_SCOPE,
+     noSlides.missing.join('، '));
+  /* و این حالتِ خطرناکی است: یوتیوب کار می‌کند، پس از بیرون سالم به‌نظر
+     می‌رسد — ولی هر ویدئو بی‌کاور می‌رود. */
+  ok('۳۲.۴ «کانال درست است» کافی نیست وقتی کاور ساخته نمی‌شود',
+     noSlides.channelOk === true && noSlides.cause.indexOf('کاور') !== -1, noSlides.cause);
+  ok('۳۲.۵ و چاره‌اش خودِ اسکوپ را نام می‌برد',
+     noSlides.fix.indexOf('presentations') !== -1);
+
+  const none = scoped(['https://www.googleapis.com/auth/spreadsheets']);
+  ok('۳۲.۶ بی هیچ اسکوپی، هر چهارتا نام برده می‌شوند',
+     none.missing.length === 4, none.missing.length + ' تا');
+  ok('۳۲.۷ و scopeOk دروغ نمی‌گوید', none.scopeOk === false);
+
+  /* یک اسکوپِ یوتیوب از سه‌تا کافی نیست — نسخهٔ اول با «هر کدام بود، درست
+     است» می‌سنجید. */
+  const partial = scoped([YT_API_SCOPES[0], YT_SLIDES_SCOPE]);
+  ok('۳۲.۸ یک اسکوپ از سه، «درست است» شمرده نمی‌شود',
+     partial.scopeOk === false && partial.missing.length === 2, partial.missing.join('، '));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
