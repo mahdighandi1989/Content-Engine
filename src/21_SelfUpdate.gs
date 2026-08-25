@@ -732,19 +732,41 @@ function selfUpdateDaily() {
     } catch (eYb) { logLine_('کاوشِ قسمت‌های گذشته برای یوتیوب نشد: ' + eYb.message); }
     /* برداشتِ ویدئوهای آماده **پیش از** آپلود: ویدئویی که امشب رسیده باید
        همین امشب منتشر شود، نه فردا شب. */
+    /* ══ بودجه از واقعیت گرفته می‌شود، نه از عدد ثابت (۶٫۷) ══
+     * `nightHas_(60000)` یعنی «دستِ‌کم یک دقیقه مانده» — و بعد یک کارِ
+     * ۱۵۰ثانیه‌ای شروع می‌شد. گوگل اجرا را در شش دقیقه **بی هیچ خطایی**
+     * می‌کشد، پس نتیجه‌اش یک شبِ نیمه‌کاره بود که هیچ‌جا ثبت نمی‌شد. حالا هر
+     * گام سهمِ خودش را از آنچه *واقعاً* مانده می‌گیرد. */
+    var ytLeft = function () { return Math.max(0, nightLeft_()); };
     try {
-      var yc = ytRenderCollect_(Number(CFG.YT_COLLECT_MS) || 120000);
+      var yc = ytRenderCollect_(Math.min(Number(CFG.YT_COLLECT_MS) || 120000,
+                                         Math.max(20000, ytLeft() - 90000)));
       if (yc.got) logLine_('یوتیوب: ' + yc.got + ' ویدئوی آماده از ریپو برداشته شد.');
     } catch (eYc0) { logLine_('برداشتِ ویدئوهای آماده نشد: ' + eYc0.message); }
     try {
-      var yr = ytRunDue_(Number(CFG.YT_MAX_PER_RUN) || 2, Number(CFG.YT_MS) || 150000);
+      var yr = ytRunDue_(Number(CFG.YT_MAX_PER_RUN) || 2,
+                         Math.min(Number(CFG.YT_MS) || 150000,
+                                  Math.max(20000, ytLeft() - 60000)));
       if (yr.tried || yr.waiting) {
         logLine_('یوتیوبِ شبانه: ' + yr.done + ' منتشر شد، ' + yr.waiting +
                  ' منتظرِ ویدئو، ' + yr.left + ' در صف.');
       }
     } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
-    try { ytPlaylistSync_(45000); } catch (eYp) {}
-    try { ytChannelSync_(false); } catch (eYc) {}
+    try { if (ytLeft() > 40000) ytPlaylistSync_(Math.min(45000, ytLeft() - 25000)); } catch (eYp) {}
+    try { if (ytLeft() > 35000) ytChannelSync_(false); } catch (eYc) {}
+    /* بازخورد: چه دیده شد، چه پسند خورد، چه کامنتی آمد. هر ~۲۰ ساعت، و
+       آخرِ صف چون هیچ چیزی به آن وابسته نیست — ولی نتیجه‌اش فردا در
+       پرامپتِ عنوانِ قسمتِ بعدی می‌نشیند. */
+    try {
+      if (CFG.YT_STATS !== false && ytStatsDue_() && ytLeft() > 30000) {
+        var ystat = ytStatsRun_(Math.min(Number(CFG.YT_STATS_MS) || 60000,
+                                         Math.max(15000, ytLeft() - 15000)));
+        if (ystat.videos) {
+          logLine_('بازخوردِ یوتیوب: ' + ystat.videos + ' ویدئو، ' +
+                   ystat.newViews + ' نمایشِ تازه، ' + ystat.comments + ' کامنتِ تازه.');
+        }
+      }
+    } catch (eYst) { logLine_('بازخوردِ یوتیوب گرفته نشد: ' + eYst.message); }
     /* و آخر از همه، اشتراک‌های موقت پس گرفته می‌شوند — بعد از آپلود، تا
        ویدئویی که همین اجرا منتشر شد صوتش را زیرِ پا از دست ندهد. */
     try {

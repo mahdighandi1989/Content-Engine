@@ -37,6 +37,11 @@ global.__STUB = function (url, body) {
     hashtags: ['فلسفه'] }) }] } }] } };
 };
 
+/* استابِ پایه، تا بندهایی که به دنیای تمیز نیاز دارند بتوانند برگردند به
+   آن. چند بند استابِ محلی‌شان را رها می‌کنند و بندِ بعدی در دنیای آن‌ها
+   می‌دود — که یعنی شکستش چیزی دربارهٔ خودش نمی‌گوید. */
+const BASE_STUB = global.__STUB;
+
 let pass = 0;
 const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
   if (!c) throw new Error('FAILED: ' + n); pass++; };
@@ -947,6 +952,10 @@ console.log('=== ۳۳) نشانیِ روشن‌کردنِ API باید بیرو�
     'https://console.developers.google.com/apis/api/youtube.googleapis.com/overview' +
     '?project=711710970959 then retry. If you enabled this API recently, wait a few ' +
     'minutes for the action to propagate to our systems and retry.", "status": "PERMISSION_DENIED" } }';
+  /* استابِ محلی باید محلی بماند. رهاکردنش یعنی بندهای بعدی در دنیایی
+     می‌دوند که این بند ساخته — و آن‌وقت شکستشان چیزی دربارهٔ خودشان
+     نمی‌گوید. یک بار همین شد. */
+  const stub33 = global.__STUB;
   global.__STUB = function (url) {
     if (url.indexOf('tokeninfo') !== -1) return { code: 200, json: { scope: YT_SCOPES.join(' ') } };
     if (url.indexOf('youtube/v3/channels') !== -1) return { code: 403, text: real };
@@ -966,10 +975,12 @@ console.log('=== ۳۳) نشانیِ روشن‌کردنِ API باید بیرو�
   /* گوگل خودش می‌گوید چند دقیقه طول می‌کشد. نگفتنش یعنی کاربر بلافاصله
      دوباره می‌زند، همان را می‌بیند، و فکر می‌کند کار نکرده. */
   ok('۳۳.۷ و می‌گوید که اثرش فوری نیست', d.fix.indexOf('صبر') !== -1);
+  global.__STUB = stub33;
 }
 
 console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫۵) ===');
 {
+  global.__STUB = BASE_STUB;
   const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
 
   /* ── الف) واترمارک: ۴۰۰ گرفت چون بدنهٔ متادیتا نداشت ──
@@ -1003,17 +1014,36 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
   /* ── ب) بنر: راهِ داخلی اول، سرویسِ ابری بعد ──
      کاورِ قسمت‌ها با SlidesApp داخلی ساخته می‌شود و هیچ سرویسِ ابری‌ای
      نمی‌خواهد؛ فقط بنر (که صفحهٔ بزرگ‌تر لازم دارد) سراغِ REST می‌رود. */
-  const bn = src27.slice(src27.indexOf('function ytBannerCard_'),
-                         src27.indexOf('function ytBannerSet_'));
-  ok('۳۴.۴ اول راهِ داخلی امتحان می‌شود',
-     bn.indexOf('SlidesApp.create') < bn.indexOf('slides.googleapis.com'),
-     'داخلی در ' + bn.indexOf('SlidesApp.create') + '، REST در ' + bn.indexOf('slides.googleapis.com'));
-  ok('۳۴.۵ و فقط وقتی خروجی‌اش کوچک بود سراغِ REST می‌رود',
-     bn.indexOf('pz.w >= 2048') !== -1);
-  ok('۳۴.۶ و اگر آن هم بسته بود، نشانیِ روشن‌کردنش را می‌دهد',
-     bn.indexOf('ytApiOff_(') !== -1 && bn.indexOf('enableUrl') !== -1);
-  ok('۳۴.۷ و می‌گوید کاورِ قسمت‌ها بی این هم کار می‌کند — تا نگرانیِ بی‌جا نسازد',
-     bn.indexOf('کاورِ قسمت‌ها بی این هم') !== -1);
+  /* از ۶٫۷ بنر و کاور هر دو از `ytPresCreate_` می‌گذرند — یک تعریف، نه دو
+     قرینه که یکی‌شان درست شود. سنجه رفتاری است: تابع دوانده می‌شود. */
+  const okP = ytPresCreate_('کارتِ آزمون', 12192000, 6858000);
+  ok('۳۴.۴ اندازهٔ دقیق از REST گرفته می‌شود',
+     okP.exact === true && !!okP.id, JSON.stringify(okP));
+  const bnSrc = src27.slice(src27.indexOf('function ytBannerCard_'),
+                            src27.indexOf('function ytBannerSet_'));
+  const cvSrc = src27.slice(src27.indexOf('function ytCoverCard_'),
+                            src27.indexOf('function ytRenderName_'));
+  ok('۳۴.۵ و هر دو — بنر و کاور — از همان یک تعریف می‌گذرند',
+     bnSrc.indexOf('ytPresCreate_(') !== -1 && cvSrc.indexOf('ytPresCreate_(') !== -1 &&
+     cvSrc.indexOf('SlidesApp.create') === -1);
+  /* سرویسِ بسته: هر دو باید بفهمند، ولی تصمیمشان یکی نیست. */
+  const stubP = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('slides.googleapis') !== -1) {
+      return { code: 403, text: 'Google Slides API has not been used in project ' +
+        '711710970959 before or it is disabled. Enable it by visiting ' +
+        'https://console.developers.google.com/apis/api/slides.googleapis.com/overview' +
+        '?project=711710970959 then retry.' };
+    }
+    return stubP(url, body);
+  };
+  const offP = ytPresCreate_('کارتِ آزمون', 24384000, 13716000);
+  ok('۳۴.۶ و اگر بسته بود، نشانیِ روشن‌کردنش داده می‌شود',
+     offP.exact === false && offP.enableUrl.indexOf('slides.googleapis.com') !== -1, offP.why);
+  const bnOff = ytBannerCard_();
+  ok('۳۴.۷ بنر با اندازهٔ تقریبی ادامه نمی‌دهد — یوتیوب نمی‌پذیردش',
+     !!bnOff.why && bnOff.why.indexOf('کاورِ قسمت‌ها بی این هم') !== -1, bnOff.why);
+  global.__STUB = stubP;
 
   /* ── پ) سیاهه باید وضعِ پس از کار را بگوید ──
      «توضیحِ کانال ⬜ خالی — پر شد (۰ نویسه)» هم‌زمان دو چیزِ متناقض می‌گفت. */
@@ -1042,6 +1072,7 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
 
 console.log('=== ۳۵) مسیرِ داده: صوت بیرون، ویدئو برمی‌گردد (۶٫۶) ===');
 {
+  global.__STUB = BASE_STUB;
   const root = global.__ROOT_FOLDER;
   const nm = CFG.YT_RENDER_FILE || '_YT-RENDER.json';
   const kill = root.getFilesByName(nm); while (kill.hasNext()) kill.next().setTrashed(true);
@@ -1172,6 +1203,130 @@ console.log('=== ۳۵) مسیرِ داده: صوت بیرون، ویدئو بر�
   CFG.YT_QUEUE_ID = '';
   ok('۳۵.۲۱ و اگر شناسه‌ای تنظیم نشده باشد، هشدارِ الکی نمی‌دهد', ytQueueIdOk_().ok === true);
   CFG.YT_QUEUE_ID = qWas;
+}
+
+console.log('=== ۳۶) هیچ‌چیز منتظرِ آدم نماند (۶٫۷) ===');
+{
+  global.__STUB = BASE_STUB;
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const src21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const src08 = fs.readFileSync('src/08_Health.gs', 'utf8');
+
+  /* ── الف) گرسنگیِ صف ──
+     «منتظرِ ویدئو» هم یک تلاش شمرده می‌شد؛ با سقفِ دوتایی، دو ردیفِ اولِ
+     بی‌ویدئو کلِ صف را قفل می‌کردند. */
+  const rd = src27.slice(src27.indexOf('function ytRunDue_'),
+                         src27.indexOf('function ytTick_'));
+  const waitIdx = rd.indexOf('if (r.waiting)');
+  const triedIdx = rd.indexOf('out.tried++', waitIdx);
+  ok('۳۶.۱ «منتظرِ ویدئو» دیگر سهمیهٔ تلاش را نمی‌خورد',
+     waitIdx !== -1 && triedIdx > waitIdx, 'waiting@' + waitIdx + ' tried@' + triedIdx);
+  ok('۳۶.۲ ولی پویش هم بی‌سقف نیست — صفِ ۲۶۴تایی نباید کلِ شب را بخورد',
+     rd.indexOf('scanCap') !== -1);
+
+  /* ── ب) بودجه از واقعیت، نه از عددِ ثابت ──
+     nightHas_(60000) یعنی «یک دقیقه مانده»، و بعد کاری ۱۵۰ثانیه‌ای شروع
+     می‌شد؛ گوگل اجرا را در شش دقیقه بی هیچ خطایی می‌کشد. */
+  const yb = src21.slice(src21.indexOf("nightHas_(60000, 'انتشار در یوتیوب')"),
+                         src21.indexOf('سنجهٔ محتوا: عکسِ قسمت‌های امروز'));
+  ok('۳۶.۳ بودجهٔ هر گام از آنچه واقعاً مانده گرفته می‌شود',
+     yb.indexOf('ytLeft()') !== -1 && yb.indexOf('Math.min(Number(CFG.YT_MS)') !== -1);
+  ok('۳۶.۴ و گام‌های بعدی هم پشتِ همان نگهبان‌اند',
+     yb.indexOf('if (ytLeft() > 40000)') !== -1 && yb.indexOf('if (ytLeft() > 35000)') !== -1);
+
+  /* ── پ) دورِ دومِ روز: راه‌اندازیِ سرد و سه‌حلقه‌بودنِ زنجیره ── */
+  ok('۳۶.۵ تیکِ ۱۰ صبح وجود دارد و هر دو کار را می‌کند',
+     typeof ytTick_ === 'function' &&
+     src27.slice(src27.indexOf('function ytTick_'),
+                 src27.indexOf('function ytStatsDue_'))
+          .indexOf('ytRenderCollect_') !== -1);
+  ok('۳۶.۶ و از وارسیِ سلامت صدا زده می‌شود — پس هیچ دکمه‌ای لازم نیست',
+     src08.indexOf('ytTick_(90000)') !== -1);
+  /* ترتیب مهم است: تیک پیش از گزارش، وگرنه ایمیلِ امروز وضعِ دیروز را می‌گوید. */
+  ok('۳۶.۷ و پیش از ytHealth_ می‌دود، نه بعدش',
+     src08.indexOf('ytTick_(90000)') < src08.indexOf('ytHealth_(problems, notes)'));
+  const tick = ytTick_(30000);
+  ok('۳۶.۸ و بی سرویس هم نمی‌ترکد', tick && typeof tick.collected === 'number');
+}
+
+console.log('=== ۳۷) بازخورد: ثبت، و مهم‌تر از آن، اثر (۶٫۷) ===');
+{
+  global.__STUB = BASE_STUB;
+  const hub = getHub_();
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+
+  /* ── نیمهٔ اول: ثبت ── */
+  const st = ytStatsStatus_();
+  ok('۳۷.۱ بی هیچ آماری هم یک جملهٔ فارسی می‌دهد، نه خطا',
+     typeof st.line === 'string' && st.line.length > 5, st.line);
+
+  // تبِ بازخورد را با دادهٔ واقعی پر می‌کنیم و می‌پرسیم چه فهمید
+  const sh = ensureTab_(hub, CFG.YTS_TAB, YTS_HEADERS);
+  const mk = (id, title, views, perDay) =>
+    [nowStr_(), 'special', '1', 'م', id, title, views, 10, 2, 5, 10, perDay, 'u'];
+  appendBlock_(sh, [
+    mk('V1', 'سه شرطِ معرفت', 900, 90), mk('V2', 'تقسیمات علم حصولی', 100, 10),
+    mk('V3', 'مراتب علم حضوری', 800, 80), mk('V4', 'بررسی اقسام مفاهیم', 120, 12),
+    mk('V5', 'معرفت‌شناسی عام', 700, 70), mk('V6', 'مراتب خطاناپذیری', 130, 13)],
+    YTS_HEADERS.length);
+
+  const st2 = ytStatsStatus_();
+  ok('۳۷.۲ آمار خوانده و جمع می‌شود',
+     st2.videos === 6 && st2.views === 900 + 100 + 800 + 120 + 700 + 130, JSON.stringify(st2));
+  ok('۳۷.۳ و پرمخاطب‌ترین با «نمایش در روز» انتخاب می‌شود، نه با نمایشِ خام',
+     st2.best === 'سه شرطِ معرفت', st2.best);
+
+  /* ── نیمهٔ دوم: اثر. این مهم‌ترین سنجهٔ این بند است. ── */
+  const learn = ytLearn_(hub);
+  ok('۳۷.۴ الگو از دادهٔ واقعی ساخته می‌شود', learn.n === 6 && !!learn.text);
+  ok('۳۷.۵ و هر دو سرِ طیف را نشان می‌دهد — نه فقط برنده‌ها',
+     learn.text.indexOf('سه شرطِ معرفت') !== -1 &&
+     learn.text.indexOf('تقسیمات علم حصولی') !== -1);
+  ok('۳۷.۶ و مقایسه با «نمایش در روز» است، وگرنه مدل یاد می‌گیرد قدیمی‌بودن خوب است',
+     learn.text.indexOf('نمایش در روز') !== -1);
+  ok('۳۷.۷ و صریح می‌گوید عنوانِ گمراه‌کننده ممنوع است',
+     learn.text.indexOf('گمراه‌کننده') !== -1);
+  /* و این خطِ آخر است که «ثبت» را به «اثر» تبدیل می‌کند: اگر برداشته شود،
+     کلِ این بخش یک جدولِ تماشایی می‌شود — همان سرنوشتی که musicProbe_ و
+     auditSnap_ پیدا کردند. */
+  const pr = ytMetaPrompt_({ showName: 'ب', epNum: '۱', title: 'ت', duration: '۱۰:۰۰',
+                             headings: ['الف'], seriesName: '', cat: '' });
+  ok('۳۷.۸ و واقعاً داخلِ پرامپتِ عنوان می‌نشیند — نه در یک جدولِ تماشایی',
+     pr.indexOf('سه شرطِ معرفت') !== -1 && pr.indexOf('نمایش در روز') !== -1);
+
+  /* زیرِ آستانه، «الگو» فقط نویز است. */
+  const minWas = CFG.YT_LEARN_MIN; CFG.YT_LEARN_MIN = 99;
+  ok('۳۷.۹ با نمونهٔ کم، هیچ الگویی به مدل داده نمی‌شود', ytLearn_(hub).text === '');
+  CFG.YT_LEARN_MIN = minWas;
+
+  /* ── کامنت و آمار از خودِ API ── */
+  const stubF = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('youtube/v3/videos') !== -1) {
+      return { code: 200, json: { items: [
+        { id: 'VID1', statistics: { viewCount: '250', likeCount: '9', commentCount: '2' },
+          snippet: { title: 'عنوانِ واقعی', publishedAt: '2026-08-15T00:00:00Z' } }] } };
+    }
+    if (url.indexOf('commentThreads') !== -1) {
+      return { code: 200, json: { items: [
+        { id: 'C1', snippet: { topLevelComment: { snippet: {
+          authorDisplayName: 'کاربر', textOriginal: 'خیلی خوب بود',
+          likeCount: 3, publishedAt: '2026-08-20T00:00:00Z' } } } }] } };
+    }
+    return stubF(url, body);
+  };
+  const fetched = ytStatsFetch_(['VID1']);
+  ok('۳۷.۱۰ آمار از خودِ یوتیوب خوانده می‌شود',
+     fetched.VID1 && fetched.VID1.views === 250 && fetched.VID1.likes === 9,
+     JSON.stringify(fetched));
+  const cm = ytCommentsFetch_('VID1', 5);
+  ok('۳۷.۱۱ و کامنت‌ها هم — با متن و نویسنده',
+     cm.length === 1 && cm[0].text === 'خیلی خوب بود' && cm[0].author === 'کاربر');
+  /* search.list صد واحد می‌گیرد و هیچ‌جا لازم نیست: فهرستِ ویدئوهای ما در
+     تب است و یک خواندنِ شیت کافی است. */
+  ok('۳۷.۱۲ و هیچ‌جا search.list صدا زده نمی‌شود',
+     src27.indexOf('youtube/v3/search') === -1 && src27.indexOf('Search.list') === -1);
+  global.__STUB = stubF;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

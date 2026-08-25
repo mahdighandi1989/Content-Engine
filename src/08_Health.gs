@@ -987,6 +987,17 @@ function healthCheck() {
      مهم‌ترین بندش «منتظرِ ساختِ ویدئو» است: اگر کسی MP4 نسازد هیچ‌چیز منتشر
      نمی‌شود و از بیرون شبیهِ خاموشی است — همان شکلِ خرابی که بانکِ موسیقی
      را هفته‌ها خالی نگه داشت. */
+  /* ══ دورِ دومِ روزِ یوتیوب — پیش از گزارش، نه بعدش (۶٫۷) ══
+   * تیک باید *قبل* از `ytHealth_` بدود، وگرنه ایمیلِ امروز وضعِ پیش از کارِ
+   * امروز را می‌گوید — همان اشتباهی که در سیاههٔ شناسنامهٔ کانال کردیم و
+   * «⬜ خالی — پر شد» بیرون داد. */
+  try {
+    var ytT = ytTick_(90000);
+    if (ytT.collected || ytT.published) {
+      notes.push('یوتیوب (دورِ ۱۰ صبح): ' + faDigitsOut_(String(ytT.collected)) +
+                 ' ویدئو برداشته شد، ' + faDigitsOut_(String(ytT.published)) + ' منتشر شد.');
+    }
+  } catch (eYk) { notes.push('دورِ دومِ یوتیوب اجرا نشد: ' + eYk.message); }
   try { ytHealth_(problems, notes); } catch (eYt) {}
     if (st.special && st.special.active) {
       notes.push('درس‌نامه: مجموعهٔ «' + st.special.active.name + '» در حال تولید — ' +

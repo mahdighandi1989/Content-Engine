@@ -240,6 +240,16 @@ function ytMetaPrompt_(ctx) {
   }
   if (ctx.hook) { L.push(''); L.push('آغازِ خودِ قسمت (عیناً): ' + auditCut_(ctx.hook, 700)); }
   if (ctx.summary) { L.push(''); L.push('خلاصهٔ داخلی: ' + auditCut_(ctx.summary, 700)); }
+
+  /* ══ این هفت خط، تمامِ تفاوتِ «ثبت» و «اثر» است (۶٫۷) ══
+   * بی آن، تبِ بازخورد یک جدولِ تماشایی است و بس — دقیقاً همان سرنوشتی که
+   * `musicProbe_` و `auditSnap_` پیدا کردند: تحلیلی که نوشته شد و هیچ
+   * تصمیمی بر مبنایش گرفته نشد. اگر روزی این بند برداشته شود، کلِ بخشِ
+   * ۱۳‑ب بی‌معنا می‌شود. */
+  var learn = null;
+  try { learn = ytLearn_(); } catch (eL) {}
+  if (learn && learn.text) { L.push(''); L.push(learn.text); }
+
   L.push('');
   L.push('چه بنویس:');
   L.push('• title — عنوانِ یوتیوب. حداکثر ' + (CFG.YT_TITLE_MAX || 100) + ' نویسه. ' +
@@ -485,6 +495,47 @@ function ytCoverFolder_() {
  * کارتِ ۱۶:۹. برمی‌گرداند {blob, fileId} یا null.
  * @param {{title, showName, seriesName, epLabel, cat}} c
  */
+/**
+ * یک ارائهٔ تازه با **اندازهٔ صفحهٔ دقیق**.
+ *
+ * ══ چرا لازم است، و چرا یک تابع و نه دو ══
+ * خروجیِ PNG گوگل از اندازهٔ خودِ صفحه می‌آید (۹۶ نقطه بر اینچ). `SlidesApp`
+ * داخلی اندازهٔ صفحه را نمی‌گذارد، پس هرچه با آن ساخته شود ۹۶۰×۵۴۰ درمی‌آید —
+ * که یوتیوب می‌پذیردش (کفش ۶۴۰ است) ولی متن نرم و بی‌کیفیت می‌شود. اندازهٔ
+ * دقیق فقط از REST برمی‌آید.
+ *
+ * بنر از ۶٫۵ همین کار را می‌کرد و کاور نمی‌کرد — یعنی دوباره همان «قرینه‌ای
+ * که یک‌بار درست شد» که این ریپو بارها گرفتارش شده. حالا یک تعریف است و هر
+ * دو از آن می‌گذرند.
+ *
+ * و اگر REST نشد، کار **نمی‌ایستد**: با اندازهٔ پیش‌فرض ساخته می‌شود و
+ * `exact:false` برمی‌گردد تا هر که لازم دارد خودش تصمیم بگیرد. یک کاورِ کمی
+ * نرم بهتر از هیچ کاور است؛ ولی یک بنرِ کوچک را یوتیوب اصلاً نمی‌پذیرد، و
+ * آن‌جا تصمیم فرق می‌کند.
+ */
+function ytPresCreate_(title, wEmu, hEmu) {
+  var out = { id: '', exact: false, why: '', enableUrl: '' };
+  var mk = null;
+  try {
+    mk = ytHttp_('https://slides.googleapis.com/v1/presentations', 'post',
+      JSON.stringify({ title: String(title || 'کارت'),
+        pageSize: { width: { magnitude: wEmu, unit: 'EMU' },
+                    height: { magnitude: hEmu, unit: 'EMU' } } }));
+  } catch (e) { mk = null; }
+  if (mk && mk.code === 200 && mk.json && mk.json.presentationId) {
+    out.id = mk.json.presentationId; out.exact = true;
+    return out;
+  }
+  var off = ytApiOff_((mk && mk.text) || '');
+  out.enableUrl = off.url || '';
+  out.why = off.off
+    ? (off.api || 'Google Slides API') + ' در پروژهٔ ابری روشن نیست' +
+      (off.url ? ' — ' + off.url : '')
+    : 'ساختِ ارائه با اندازهٔ دقیق نشد' + (mk ? ' (' + mk.code + ')' : '');
+  try { out.id = SlidesApp.create(String(title || 'کارت')).getId(); } catch (e2) {}
+  return out;
+}
+
 function ytCoverCard_(c) {
   var pres = null;
   try {
@@ -498,7 +549,12 @@ function ytCoverCard_(c) {
     }
     var pal = ytPalette_(c.cat || c.seriesName || c.showName);
     var name = ytCoverName_(c).replace(/\.png$/, '');
-    pres = SlidesApp.create(name);
+    /* ۱۲۸۰×۷۲۰ در ۹۶ نقطه بر اینچ = ۱۳٫۳۳×۷٫۵ اینچ. یوتیوب همین را توصیه
+       می‌کند و کارتِ ۹۶۰×۵۴۰ باید بالا کشیده شود — یعنی متنِ نرم. */
+    var mkP = ytPresCreate_(name, 12192000, 6858000);
+    if (!mkP.id) { logLine_('کاورِ یوتیوب ساخته نشد: ' + mkP.why); return null; }
+    if (!mkP.exact) logLine_('کاورِ یوتیوب با اندازهٔ پیش‌فرض ساخته شد — ' + mkP.why);
+    pres = SlidesApp.openById(mkP.id);
     var slide = pres.getSlides()[0];
     try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
     catch (eEl) {}
@@ -546,6 +602,17 @@ function ytCoverCard_(c) {
     var id = pres.getId();
     var blob = ytSlideExport_(id, slide.getObjectId(), ytCoverName_(c));
     if (!blob) return null;
+    /* اندازه سنجیده می‌شود، نه فرض. خروجیِ اسلایدز ابعادش را اعلام نمی‌کند و
+       تنها راهِ دانستن، خواندنِ سرآیندِ خودِ PNG است — همان `ytPngSize_` که
+       برای بنر نوشته شد. یک کاورِ کوچک، ویدئو را زمین نمی‌زند؛ ولی باید
+       دیده شود، وگرنه ماه‌ها کسی نمی‌فهمد چرا متن‌ها نرم‌اند. */
+    try {
+      var cz = ytPngSize_(blob);
+      if (cz && cz.w && cz.w < 1280) {
+        logLine_('کاورِ «' + ytCoverName_(c) + '» ' + cz.w + '×' + cz.h +
+                 ' درآمد، نه ۱۲۸۰×۷۲۰ — یوتیوب می‌پذیردش ولی متن نرم می‌شود.');
+      }
+    } catch (eSz) {}
     // فایلِ اسلاید و PNG هر دو می‌مانند — اگر کاوری بد درآمد باید دید چه بوده
     var f = null;
     try {
@@ -1822,17 +1889,30 @@ function ytRunDue_(maxItems, budgetMs) {
      مرتب‌سازیِ ارزان همه‌شان را سرِ جای درست می‌آورد. */
   var list = ytDueOrder_(ytDueList_());
 
-  for (var i = 0; i < list.length && out.tried < cap; i++) {
+  /* ══ گرسنگی‌ای که سقف می‌ساخت (۶٫۷) ══
+   * «منتظرِ ویدئو» هم یک تلاش شمرده می‌شد. با سقفِ دو تا در شب، اگر دو ردیفِ
+   * اولِ صف ویدئو نداشتند، بقیهٔ صف **هیچ‌وقت** آزموده نمی‌شد — و اگر رندرِ
+   * قسمتِ اول هرگز موفق نمی‌شد، همهٔ قسمت‌های بعدی تا ابد پشتش می‌ماندند.
+   * ترتیبِ انتشار هم چیزی را نجات نمی‌داد، چون جای هر ویدئو در پلی‌لیست از
+   * `ytWantPos_` حساب می‌شود نه از ترتیبِ آپلود؛ پس ماندنِ پشتِ یک ردیفِ
+   * گیرکرده هیچ سودی نداشت و فقط صف را قفل می‌کرد.
+   * حالا سقف فقط **آپلودِ واقعی** را می‌شمارد. برای اینکه صفِ ۲۶۴تایی هم کلِ
+   * شب را نخورد، یک سقفِ جداگانهٔ پویش هست که ارزان‌تر است و بودجه هم
+   * همچنان بالای سرِ حلقه ایستاده. */
+  var scanCap = Math.max(cap, Math.min(list.length, cap * 8));
+  var scanned = 0;
+  for (var i = 0; i < list.length && out.tried < cap && scanned < scanCap; i++) {
     // دستِ‌کم یکی، حتی اگر بودجه تنگ است — وگرنه در شبِ شلوغ هیچ‌وقت
     // نوبتِ یوتیوب نمی‌رسد و صف تا ابد می‌ماند.
-    if (out.tried && new Date().getTime() - t0 > budget) break;
+    if (scanned && new Date().getTime() - t0 > budget) break;
     var it = list[i];
-    out.tried++;
+    scanned++;
     var r;
     try { r = ytUploadOne_(it, hub, pub); }
     catch (e) { r = { ok: false, why: 'خطا: ' + e.message }; }
-    if (r.quota) { out.quota = true; out.tried--; break; }
+    if (r.quota) { out.quota = true; break; }
     if (r.waiting) { out.waiting++; out.notes.push(it.key + ': ' + r.why); continue; }
+    out.tried++;
     if (r.ok || r.videoId) {
       ytDueDrop_(it.key);
       if (r.ok) out.done++; else { out.failed++; out.notes.push(it.key + ': ' + r.why); }
@@ -1848,6 +1928,46 @@ function ytRunDue_(maxItems, budgetMs) {
   return out;
 }
 
+/**
+ * دورِ دومِ روز — همان کارِ شبانه، کوچک‌تر، ساعتِ ۱۰.
+ *
+ * ══ چرا لازم شد ══
+ * دو دلیل، و دومی از اولی مهم‌تر است.
+ *
+ * ۱) **راه‌اندازیِ سرد.** نصبِ کد ۰۲:۳۰ انجام می‌شود ولی همان اجرا با کدِ
+ *    *قبلی* ادامه می‌یابد؛ پس هر قابلیتِ تازه‌ای که فقط در کارِ شبانه صدا
+ *    زده شود، شبِ اولش اجرا نمی‌شود. برای ۶٫۶ معنایش این بود که کاربر باید
+ *    دکمه را دستی می‌زد — و «سیستم منتظرِ آدم بماند» دقیقاً همان چیزی است
+ *    که نباید باشد.
+ *
+ * ۲) **زنجیره سه حلقه دارد و هر حلقه یک نوبت لازم دارد:** موتور اجازه
+ *    می‌دهد → اکشن می‌سازد → موتور برمی‌دارد. با یک نوبت در شبانه‌روز، هر
+ *    قسمت سه شب طول می‌کشد. با دو نوبت، یک روز.
+ *
+ * ارزان است و باید بماند: بی ویدئوی آماده و بی صفِ باز، تقریباً هیچ‌کاری
+ * نمی‌کند. سقفش هم کوچک است تا وارسیِ سلامت را عقب نیندازد.
+ */
+function ytTick_(budgetMs) {
+  var out = { collected: 0, published: 0, waiting: 0, why: '' };
+  if (CFG.YT_ENABLED === false) { out.why = 'خاموش'; return out; }
+  var t0 = new Date().getTime();
+  var budget = Math.max(20000, Number(budgetMs) || 90000);
+  var left = function () { return budget - (new Date().getTime() - t0); };
+
+  try {
+    var c = ytRenderCollect_(Math.max(15000, left() - 40000));
+    out.collected = c.got;
+  } catch (e) { out.why = 'برداشت: ' + String(e.message).slice(0, 60); }
+
+  if (left() > 25000) {
+    try {
+      var r = ytRunDue_(1, Math.max(20000, left() - 10000));
+      out.published = r.done; out.waiting = r.waiting;
+    } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
+  }
+  return out;
+}
+
 /* ─────────────────── ۱۳) دیده‌شدن ───────────────────
  *
  * «من هیچ‌وقت نمی‌روم توی شیت و تب‌ها را نگاه کنم.» — پس هرچه این بخش
@@ -1857,7 +1977,12 @@ function ytRunDue_(maxItems, budgetMs) {
 function ytStatus_() {
   var out = { enabled: CFG.YT_ENABLED !== false, service: !!ytSvc_(), why: ytOffWhy_(),
               published: 0, unlisted: 0, failed: 0, due: 0, waitingRender: 0,
-              renderOldestDays: 0, playlists: 0, quota: null, last: null, line: '' };
+              renderOldestDays: 0, playlists: 0, quota: null, last: null, line: '',
+              feedback: null };
+  /* بازخورد داخلِ همین شیء می‌نشیند تا در `_STATUS.json` باشد — تنها فایلی
+     که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در یک تب باشد، برای ناظر
+     وجود ندارد. */
+  try { out.feedback = ytStatsStatus_(); } catch (eFb0) {}
   try {
     var hub = getHub_();
     var pub = ytPublished_(hub);
@@ -1926,6 +2051,17 @@ function ytHealth_(problems, notes) {
   /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
      شبیهِ «کار می‌کند» به‌نظر می‌رسد و هیچ ویدئویی هم بالا نمی‌رود. پس
      همان‌جا علتش پرسیده و نوشته می‌شود. */
+  /* بازخورد هر روز گفته می‌شود، حتی وقتی خبری نیست — «صاحبش هیچ‌وقت شیت را
+     باز نمی‌کند»، پس چیزی که فقط در یک تب زندگی کند، وجود ندارد. */
+  try {
+    var fb = ytStatsStatus_();
+    if (fb && fb.line) notes.push(fb.line);
+    if (fb && fb.newComments7d) {
+      notes.push('کامنت‌های تازه در تبِ «' + (CFG.YTC_TAB2 || 'کامنت‌های یوتیوب') +
+                 '» ثبت شده‌اند — پاسخ‌دادنشان کارِ شماست، موتور جواب نمی‌دهد.');
+    }
+  } catch (eFb) {}
+
   if (st.service && st.channel && !st.channel.at && ytTodoDue_()) {
     var dg = null;
     try { dg = ytDiagnose_(); } catch (eDg) {}
@@ -1995,6 +2131,335 @@ function ytHealth_(problems, notes) {
     }
   }
   return st;
+}
+
+/* ─────────────── ۱۳‑ب) بازخورد: آنچه یوتیوب دربارهٔ ما می‌داند (۶٫۷) ───────────────
+ *
+ * خواستهٔ صریح: «با همین کلیدِ یوتیوب بازخوردها و ویوهای ویدیوها و کامنت‌ها
+ * … گرفته بشه و در گزارش‌ها بیاد و ثبت بشه و مدل‌ها به این بازخوردها نگاه
+ * کنن و الگو بگیرن.»
+ *
+ * ══ و این بخش عمداً دو نیمه دارد ══
+ * نیمهٔ اول **ثبت** است: چند بار دیده شد، چند پسند، چه کامنتی آمد. نیمهٔ دوم
+ * **اثر** است: همان عددها به پرامپتِ عنوان و کپشنِ قسمتِ بعدی برمی‌گردند.
+ *
+ * نیمهٔ دوم مهم‌تر است و همان چیزی است که این ریپو پنج بار در آن لغزیده:
+ * تحلیلی نوشته شد و هرگز به تصمیمی وصل نشد. `musicProbe_` سکوت را می‌سنجید
+ * و هیچ‌کس بر مبنایش چیزی رد نمی‌کرد؛ `auditSnap_` انتساب را می‌خواند و
+ * داوری‌اش به جایی نمی‌رسید. پس این‌جا از روزِ اول، `ytLearn_` **درونِ همان
+ * پرامپتی** می‌نشیند که عنوان می‌سازد. اگر روزی آن یک خط برداشته شود، این
+ * بخش به یک جدولِ تماشایی تبدیل می‌شود و بس.
+ *
+ * ══ چرا هزینه‌اش ناچیز است ══
+ * `videos.list` یک واحد برای هر پنجاه ویدئو می‌گیرد و `commentThreads.list`
+ * یک واحد برای هر ویدئو. `search.list` (صد واحد) هیچ‌جا لازم نیست: فهرستِ
+ * ویدئوهای ما در تبِ انتشار است و یک خواندنِ شیت کافی است.
+ */
+
+/** آیا نوبتِ یک دورِ آمار رسیده؟ */
+function ytStatsDue_() {
+  var everyH = Math.max(1, Number(CFG.YT_STATS_EVERY_H) || 20);
+  var at = '';
+  try { at = String(props_().getProperty(PK.YT_STATS) || ''); } catch (e) {}
+  if (!at) return true;
+  var t = parseWhen_(at);
+  if (isNaN(t)) return true;
+  return (new Date().getTime() - t) / 3600000 >= everyH;
+}
+
+/** آمارِ چند ویدئو، پنجاه‌تا پنجاه‌تا. */
+function ytStatsFetch_(ids) {
+  var out = Object.create(null);
+  for (var i = 0; i < ids.length; i += 50) {
+    var batch = ids.slice(i, i + 50);
+    if (!ytQuotaTake_(YT_COST.videosList, false)) break;
+    var r = ytHttp_('https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=' +
+                    encodeURIComponent(batch.join(',')));
+    if (r.code !== 200 || !r.json || !r.json.items) continue;
+    for (var j = 0; j < r.json.items.length; j++) {
+      var it = r.json.items[j], st = it.statistics || {}, sn = it.snippet || {};
+      out[String(it.id)] = {
+        views: Number(st.viewCount || 0), likes: Number(st.likeCount || 0),
+        comments: Number(st.commentCount || 0),
+        title: String(sn.title || ''), at: String(sn.publishedAt || '')
+      };
+    }
+  }
+  return out;
+}
+
+/** کامنت‌های تازهٔ یک ویدئو — تازه‌ترین اول. */
+function ytCommentsFetch_(videoId, max) {
+  var out = [];
+  if (!ytQuotaTake_(YT_COST.videosList, false)) return out;
+  var n = Math.max(1, Math.min(50, Number(max) || 8));
+  var r = ytHttp_('https://www.googleapis.com/youtube/v3/commentThreads' +
+                  '?part=snippet&order=time&maxResults=' + n +
+                  '&videoId=' + encodeURIComponent(String(videoId)));
+  /* کامنت بسته باشد یا ویدئو کامنت نداشته باشد، ۴۰۳/۴۰۴ می‌دهد — که خطا
+     نیست، یک واقعیت است. خطا کردنش یعنی هر شب یک هشدارِ بی‌معنا. */
+  if (r.code !== 200 || !r.json || !r.json.items) return out;
+  for (var i = 0; i < r.json.items.length; i++) {
+    var top = (((r.json.items[i].snippet || {}).topLevelComment || {}).snippet) || {};
+    out.push({ id: String(r.json.items[i].id || ''),
+               author: String(top.authorDisplayName || ''),
+               text: String(top.textOriginal || top.textDisplay || '').slice(0, 500),
+               likes: Number(top.likeCount || 0),
+               at: String(top.publishedAt || '') });
+  }
+  return out;
+}
+
+var YTS_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'شناسهٔ ویدئو', 'عنوان',
+                   'نمایش', 'پسند', 'کامنت', 'نمایشِ تازه', 'روز از انتشار',
+                   'نمایش در روز', 'لینک'];
+var YTC_COMMENT_HEADERS = ['تاریخ', 'شناسهٔ ویدئو', 'قسمت', 'نویسنده', 'متن',
+                           'پسند', 'زمانِ کامنت', 'لینک'];
+
+/** حافظهٔ دورِ قبل — برای اینکه «نمایشِ تازه» معنا داشته باشد. */
+function ytStatsPrev_(hub) {
+  var map = Object.create(null);
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
+    if (!sh || sh.getLastRow() < 2) return map;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues();
+    // آخرین ردیفِ هر ویدئو برنده است؛ ترتیبِ افزودن از بالا به پایین است
+    for (var i = 0; i < v.length; i++) {
+      var id = String(v[i][4] || '');
+      if (id) map[id] = { views: Number(v[i][6] || 0), at: String(v[i][0] || '') };
+    }
+  } catch (e) {}
+  return map;
+}
+
+/** شناسه‌های کامنتی که قبلاً ثبت شده‌اند — تا هر شب تکرار نشوند. */
+function ytCommentSeen_(hub) {
+  var seen = Object.create(null);
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.YTC_TAB2 || 'کامنت‌های یوتیوب');
+    if (!sh || sh.getLastRow() < 2) return seen;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YTC_COMMENT_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      // شناسهٔ کامنت در لینک است؛ کلید را از ویدئو+زمان+نویسنده می‌سازیم تا
+      // به شکلِ لینک وابسته نباشد
+      seen[String(v[i][1] || '') + '|' + String(v[i][6] || '') + '|' +
+           String(v[i][3] || '')] = 1;
+    }
+  } catch (e) {}
+  return seen;
+}
+
+/**
+ * یک دورِ کاملِ بازخورد.
+ *
+ * ترتیبش عمدی است: اول آمار (ارزان، یک واحد برای پنجاه ویدئو و همیشه
+ * جواب می‌دهد)، بعد کامنت‌ها (یک واحد برای هر ویدئو). اگر بودجه یا سهمیه
+ * وسطِ کار تمام شود، آمار ثبت شده و فقط کامنت‌ها عقب می‌افتند — نه برعکس.
+ */
+function ytStatsRun_(budgetMs) {
+  var out = { videos: 0, comments: 0, newViews: 0, why: '' };
+  if (CFG.YT_STATS === false) { out.why = 'خاموش'; return out; }
+  if (!ytOn_()) { out.why = ytOffWhy_(); return out; }
+  var t0 = new Date().getTime();
+  var budget = Math.max(15000, Number(budgetMs) || 60000);
+
+  var hub = getHub_();
+  var pub = ytPublished_(hub);
+  var rows = [];
+  for (var k in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
+    if (!pub[k].videoId) continue;
+    rows.push({ key: k, show: k.split(':')[0], ep: k.split(':')[1],
+                id: pub[k].videoId, url: pub[k].url, series: pub[k].series || '' });
+  }
+  if (!rows.length) { out.why = 'هنوز ویدئویی منتشر نشده'; return out; }
+
+  var cap = Math.max(1, Number(CFG.YT_STATS_MAX) || 40);
+  if (rows.length > cap) rows = rows.slice(-cap);      // تازه‌ترها مهم‌ترند
+
+  var ids = rows.map(function (r) { return r.id; });
+  var stats = ytStatsFetch_(ids);
+  var prev = ytStatsPrev_(hub);
+  var now = new Date().getTime();
+
+  var block = [];
+  for (var i = 0; i < rows.length; i++) {
+    var s = stats[rows[i].id];
+    if (!s) continue;
+    var days = 0;
+    var pt = Date.parse(s.at);
+    if (!isNaN(pt)) days = Math.max(1, Math.round((now - pt) / 86400000));
+    var was = prev[rows[i].id] ? prev[rows[i].id].views : 0;
+    var delta = Math.max(0, s.views - was);
+    out.newViews += delta;
+    block.push([nowStr_(), rows[i].show, rows[i].ep, rows[i].series, rows[i].id,
+                s.title, s.views, s.likes, s.comments, delta, days,
+                days ? Math.round((s.views / days) * 10) / 10 : s.views,
+                rows[i].url]);
+    out.videos++;
+  }
+  if (block.length) {
+    try {
+      appendBlock_(ensureTab_(hub, CFG.YTS_TAB || 'بازخوردِ یوتیوب', YTS_HEADERS),
+                   block, YTS_HEADERS.length);
+    }
+    catch (eW) { out.why = 'ثبتِ آمار نشد: ' + String(eW.message).slice(0, 60); }
+  }
+
+  /* ── کامنت‌ها ── */
+  var seen = ytCommentSeen_(hub), cBlock = [];
+  for (var c = 0; c < rows.length; c++) {
+    if (new Date().getTime() - t0 > budget) break;
+    var st2 = stats[rows[c].id];
+    if (!st2 || !st2.comments) continue;              // ویدئوی بی‌کامنت، فراخوان لازم ندارد
+    var list = ytCommentsFetch_(rows[c].id, Number(CFG.YT_COMMENTS_MAX) || 8);
+    for (var m = 0; m < list.length; m++) {
+      var key = rows[c].id + '|' + list[m].at + '|' + list[m].author;
+      if (seen[key]) continue;
+      seen[key] = 1;
+      cBlock.push([nowStr_(), rows[c].id, rows[c].ep, list[m].author, list[m].text,
+                   list[m].likes, list[m].at,
+                   'https://www.youtube.com/watch?v=' + rows[c].id +
+                   '&lc=' + encodeURIComponent(list[m].id)]);
+      out.comments++;
+    }
+  }
+  if (cBlock.length) {
+    try {
+      appendBlock_(ensureTab_(hub, CFG.YTC_TAB2 || 'کامنت‌های یوتیوب', YTC_COMMENT_HEADERS),
+                   cBlock, YTC_COMMENT_HEADERS.length);
+    } catch (eC2) { out.why += (out.why ? ' · ' : '') + 'ثبتِ کامنت نشد'; }
+  }
+
+  try { props_().setProperty(PK.YT_STATS, nowStr_()); } catch (eP) {}
+  return out;
+}
+
+/**
+ * **اثر** — همان نیمه‌ای که اگر نباشد، بقیه فقط یک جدول است.
+ *
+ * از تبِ بازخورد، پرکارترین و کم‌کارترین عنوان‌ها را با «نمایش در روز»
+ * می‌گیرد و به‌صورتِ چند خطِ فشرده برمی‌گرداند تا داخلِ پرامپتِ عنوان و کپشن
+ * بنشیند. مقایسه با «نمایش در روز» است نه با نمایشِ خام، وگرنه قسمتِ قدیمی
+ * همیشه برنده است و مدل یاد می‌گیرد که «قدیمی بودن» خوب است.
+ *
+ * زیرِ `YT_LEARN_MIN` ویدئو هیچ‌چیز برنمی‌گرداند: با سه نمونه، «الگو» فقط
+ * نویز است و مدل را به سمتِ تصادف می‌بَرد.
+ */
+function ytLearn_(hub) {
+  var out = { n: 0, text: '' };
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
+    if (!sh || sh.getLastRow() < 2) return out;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues();
+    var last = Object.create(null);
+    for (var i = 0; i < v.length; i++) {
+      var id = String(v[i][4] || '');
+      if (!id) continue;
+      last[id] = { title: String(v[i][5] || ''), views: Number(v[i][6] || 0),
+                   likes: Number(v[i][7] || 0), perDay: Number(v[i][11] || 0) };
+    }
+    var arr = [];
+    for (var k in last) {
+      if (!Object.prototype.hasOwnProperty.call(last, k)) continue;
+      if (!last[k].title) continue;
+      arr.push(last[k]);
+    }
+    var min = Math.max(3, Number(CFG.YT_LEARN_MIN) || 6);
+    if (arr.length < min) return out;
+    arr.sort(function (a, b) { return b.perDay - a.perDay; });
+    var top = arr.slice(0, 3), bot = arr.slice(-3);
+    var L = ['از بازخوردِ واقعیِ کانال (نمایش در روز، نه نمایشِ خام):'];
+    L.push('— بیشترین دیده‌شدن:');
+    for (var t = 0; t < top.length; t++) {
+      L.push('   • «' + top[t].title + '» — ' + top[t].perDay + ' نمایش در روز');
+    }
+    L.push('— کمترین دیده‌شدن:');
+    for (var b = 0; b < bot.length; b++) {
+      L.push('   • «' + bot[b].title + '» — ' + bot[b].perDay + ' نمایش در روز');
+    }
+    L.push('از الگوی گروهِ اول استفاده کن و از گروهِ دوم فاصله بگیر — ولی هرگز ' +
+           'عنوانی نساز که محتوای این قسمت را بد توصیف کند. عنوانِ گمراه‌کننده ' +
+           'یک بار کلیک می‌گیرد و برای همیشه اعتماد را می‌بَرد.');
+    out.n = arr.length;
+    out.text = L.join('\n');
+  } catch (e) {}
+  return out;
+}
+
+/** خلاصهٔ بازخورد برای `_STATUS.json` و ایمیلِ روزانه. */
+function ytStatsStatus_() {
+  var out = { videos: 0, views: 0, likes: 0, comments: 0, newComments7d: 0,
+              best: '', line: '' };
+  try {
+    var sh = getHub_().getSheetByName(CFG.YTS_TAB || 'بازخوردِ یوتیوب');
+    if (!sh || sh.getLastRow() < 2) { out.line = 'بازخوردِ یوتیوب: هنوز آماری نیست.'; return out; }
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YTS_HEADERS.length).getValues();
+    var last = Object.create(null);
+    for (var i = 0; i < v.length; i++) {
+      var id = String(v[i][4] || '');
+      if (id) last[id] = v[i];
+    }
+    var bestPd = -1;
+    for (var k in last) {
+      if (!Object.prototype.hasOwnProperty.call(last, k)) continue;
+      out.videos++;
+      out.views += Number(last[k][6] || 0);
+      out.likes += Number(last[k][7] || 0);
+      out.comments += Number(last[k][8] || 0);
+      var pd = Number(last[k][11] || 0);
+      if (pd > bestPd) { bestPd = pd; out.best = String(last[k][5] || ''); }
+    }
+    var cs = getHub_().getSheetByName(CFG.YTC_TAB2 || 'کامنت‌های یوتیوب');
+    if (cs && cs.getLastRow() > 1) {
+      var cv = cs.getRange(2, 1, cs.getLastRow() - 1, 1).getValues();
+      var now = new Date().getTime();
+      for (var c = 0; c < cv.length; c++) {
+        var t = parseWhen_(String(cv[c][0] || ''));
+        if (!isNaN(t) && (now - t) / 86400000 <= 7) out.newComments7d++;
+      }
+    }
+    out.line = 'بازخوردِ یوتیوب: ' + faDigitsOut_(String(out.videos)) + ' ویدئو · ' +
+               faDigitsOut_(String(out.views)) + ' نمایش · ' +
+               faDigitsOut_(String(out.likes)) + ' پسند · ' +
+               faDigitsOut_(String(out.comments)) + ' کامنت' +
+               (out.newComments7d ? ' (' + faDigitsOut_(String(out.newComments7d)) +
+                                    ' کامنتِ تازه در هفت روز)' : '') +
+               (out.best ? ' · پرمخاطب‌ترین: «' + out.best + '»' : '');
+  } catch (e) { out.line = 'بازخوردِ یوتیوب خوانده نشد: ' + e.message; }
+  return out;
+}
+
+/**
+ * دکمهٔ دستیِ بازخورد — «همین حالا ببین چه خبر است».
+ * کارِ شبانه خودش هر ~۲۰ ساعت این را می‌کند؛ این دکمه فقط نوبت را جلو
+ * می‌اندازد و چیزی را که خودکار نیست، خودکار نمی‌کند.
+ */
+function runYouTubeStats() {
+  var ui = ui_();
+  if (!ytOn_()) {
+    var w = ytOffWhy_();
+    if (ui) ui.alert('بازخوردِ یوتیوب', w, ui.ButtonSet.OK); else console.log(w);
+    return { ok: false, why: w };
+  }
+  var r = ytStatsRun_(180000);
+  var st = ytStatsStatus_();
+  var L = ['بازخوردِ یوتیوب:'];
+  L.push('• ویدئوی خوانده‌شده: ' + faDigitsOut_(String(r.videos)));
+  L.push('• نمایشِ تازه از دورِ قبل: ' + faDigitsOut_(String(r.newViews)));
+  L.push('• کامنتِ تازه: ' + faDigitsOut_(String(r.comments)));
+  if (r.why) L.push('• ' + r.why);
+  L.push('');
+  L.push(st.line);
+  var learn = ytLearn_();
+  L.push('');
+  L.push(learn.text
+    ? 'این الگو از حالا در نوشتنِ عنوانِ قسمت‌های تازه استفاده می‌شود.'
+    : 'برای الگوگرفتن هنوز نمونه کم است (دستِ‌کم ' +
+      faDigitsOut_(String(CFG.YT_LEARN_MIN || 6)) + ' ویدئو لازم است).');
+  var m = L.join('\n');
+  if (ui) ui.alert('بازخوردِ یوتیوب', m, ui.ButtonSet.OK); else console.log(m);
+  return r;
 }
 
 /* ─────────────────── ۱۴) منو ─────────────────── */
@@ -2291,44 +2756,23 @@ function ytBannerCard_() {
   var pres = null;
   try {
     var pal = ytPalette_(String(CFG.SHOW_NAME || 'x'));
-    /* ══ دو راه، و ترتیبشان عمدی است ══
-     * صفحهٔ بزرگ فقط از راهِ REST ساخته می‌شود (SlidesApp اندازهٔ صفحه را
-     * نمی‌پذیرد) — ولی آن REST یک سرویسِ ابریِ جداست که باید در پروژهٔ Cloud
-     * روشن باشد. کاورِ قسمت‌ها این مشکل را ندارد چون با `SlidesApp` داخلی
-     * ساخته می‌شود و هیچ سرویسِ ابری‌ای نمی‌خواهد.
+    /* ══ یک تعریف، نه دو (۶٫۷) ══
+     * صفحهٔ بزرگ فقط از راهِ REST ساخته می‌شود — `SlidesApp` اندازهٔ صفحه را
+     * نمی‌پذیرد. ۶٫۵ این را فقط برای بنر حل کرد و کاور با اندازهٔ پیش‌فرض
+     * ماند؛ همان «قرینه‌ای که یک بار درست شد» که این ریپو بارها گرفتارش شده.
+     * حالا هر دو از `ytPresCreate_` می‌گذرند.
      *
-     * پس اول راهِ داخلی امتحان می‌شود: اگر خروجی‌اش به حدِ یوتیوب برسد،
-     * کاربر هیچ کاری لازم ندارد. فقط اگر کوچک بود سراغِ REST می‌رویم، و
-     * اگر آن هم بسته بود، نشانیِ روشن‌کردنش را می‌دهیم.
-     * یک قدمِ کمتر برای کاربر، همیشه بهتر از یک راهنماییِ دقیق‌تر است. */
-    var presId = '';
-    try {
-      var tryIn = SlidesApp.create('بنرِ کانال — ' + String(CFG.SHOW_NAME || ''));
-      var tSlide = tryIn.getSlides()[0];
-      tryIn.saveAndClose();
-      var probe = ytSlideExport_(tryIn.getId(), tSlide.getObjectId(), 'probe.png');
-      var pz = probe ? ytPngSize_(probe) : null;
-      if (pz && pz.w >= 2048 && pz.h >= 1152) presId = tryIn.getId();
-      else { try { DriveApp.getFileById(tryIn.getId()).setTrashed(true); } catch (eT2) {} }
-    } catch (eIn) {}
-
-    if (!presId) {
-      var mk = ytHttp_('https://slides.googleapis.com/v1/presentations', 'post',
-        JSON.stringify({ title: 'بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
-          pageSize: { width: { magnitude: 24384000, unit: 'EMU' },
-                      height: { magnitude: 13716000, unit: 'EMU' } } }));
-      if (mk.code !== 200 || !mk.json || !mk.json.presentationId) {
-        var offB = ytApiOff_(mk.text || '');
-        if (offB.off) {
-          return { why: (offB.api || 'Google Slides API') + ' در پروژهٔ ابری روشن نیست' +
-                        (offB.url ? ' — ' + offB.url : '') +
-                        ' (کاورِ قسمت‌ها بی این هم ساخته می‌شود؛ فقط بنر لازمش دارد)',
-                   enableUrl: offB.url };
-        }
-        return { why: 'ساختِ اسلایدِ بنر نشد (' + mk.code + ')' };
-      }
-      presId = mk.json.presentationId;
+     * و تفاوتِ تصمیم این‌جاست: کاورِ کوچک زشت است ولی کار می‌کند، بنرِ کوچک
+     * را یوتیوب اصلاً **نمی‌پذیرد**. پس بنر با اندازهٔ تقریبی ادامه نمی‌دهد
+     * و به‌جایش نشانیِ روشن‌کردنِ سرویس را می‌دهد. */
+    var mkB = ytPresCreate_('بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
+                            24384000, 13716000);
+    if (!mkB.exact) {
+      try { if (mkB.id) DriveApp.getFileById(mkB.id).setTrashed(true); } catch (eTb) {}
+      return { why: mkB.why + ' (کاورِ قسمت‌ها بی این هم ساخته می‌شود؛ فقط بنر لازمش دارد)',
+               enableUrl: mkB.enableUrl };
     }
+    var presId = mkB.id;
     pres = SlidesApp.openById(presId);
     var slide = pres.getSlides()[0];
     try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
