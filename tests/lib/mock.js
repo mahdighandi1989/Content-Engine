@@ -325,7 +325,8 @@ global.UrlFetchApp = {
     let body = {};
     if (typeof opt.payload === 'string') { try { body = JSON.parse(opt.payload); } catch (e) { body = {}; } }
     else if (opt.payload && typeof opt.payload === 'object') body = opt.payload;   // multipart
-    global.__FETCHES.push({ url, method: opt.method || 'get', body });
+    global.__FETCHES.push({ url, method: opt.method || 'get', body,
+                            contentType: opt.contentType || '', payload: opt.payload });
     const r = global.__STUB(url, body);
     // پاسخ می‌تواند json بدهد یا متنِ خام (برای شبیه‌سازیِ خطاهای واقعیِ API)
     const txt = (r && typeof r.text === 'string') ? r.text : JSON.stringify(r && r.json);

@@ -694,8 +694,14 @@ console.log('=== ۲۷) عیب‌یابی: از خودِ گوگل می‌پرسد
                            src27.indexOf('function ytAddScopes_'));
   ok('۲۷.۵ نبودِ اسکوپ، چارهٔ خودش را می‌گوید',
      body.indexOf('افزودنِ اجازهٔ یوتیوب') !== -1);
+  /* تشخیصِ «این API خاموش است» از ۶٫۴ در ytApiOff_ زندگی می‌کند — یک تعریف
+     برای یوتیوب و Slides و هر سرویسی که فردا اضافه شود. */
   ok('۲۷.۶ خاموش‌بودنِ API در پروژهٔ ابری هم',
-     body.indexOf('SERVICE_DISABLED') !== -1 && body.indexOf('Enable') !== -1);
+     body.indexOf('ytApiOff_(') !== -1 && body.indexOf('Enable') !== -1);
+  ok('۲۷.۶-ب و تشخیصش یک تعریفِ مشترک دارد',
+     src27.indexOf('function ytApiOff_') !== -1 &&
+     (src27.match(/ytApiOff_\(/g) || []).length >= 2,
+     String((src27.match(/ytApiOff_\(/g) || []).length) + ' فراخوان');
   ok('۲۷.۷ و حسابِ برند هم (کانالی که زیرِ حسابِ دیگری است)',
      body.indexOf('Brand Account') !== -1);
   ok('۲۷.۸ سهمیه با نبودِ دسترسی قاطی نمی‌شود',
@@ -960,6 +966,78 @@ console.log('=== ۳۳) نشانیِ روشن‌کردنِ API باید بیرو�
   /* گوگل خودش می‌گوید چند دقیقه طول می‌کشد. نگفتنش یعنی کاربر بلافاصله
      دوباره می‌زند، همان را می‌بیند، و فکر می‌کند کار نکرده. */
   ok('۳۳.۷ و می‌گوید که اثرش فوری نیست', d.fix.indexOf('صبر') !== -1);
+}
+
+console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫۵) ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+
+  /* ── الف) واترمارک: ۴۰۰ گرفت چون بدنهٔ متادیتا نداشت ──
+     `watermarks.set` متدِ آپلود **با متادیتا**ست: بدنه منبعِ InvideoBranding
+     است و تصویر بخشِ دوم. تصویرِ تنها یعنی ۴۰۰. */
+  /* رفتاری، نه متنی: تابع را می‌دوانیم و به **بایت‌هایی که واقعاً رفتند**
+     نگاه می‌کنیم. جست‌وجوی متنِ کد اینجا دروغ می‌گوید — توضیحِ همین باگ در
+     خودِ کد نوشته شده و کلمهٔ `uploadType=media` را در خود دارد. */
+  global.YouTube = { Videos: {}, Thumbnails: {}, Channels: {}, Playlists: {},
+                     PlaylistItems: {}, ChannelSections: {} };
+  const wmWas = global.__FETCHES.length;
+  const r34 = ytWatermarkSet_({ id: 'UCxx', snippet: { thumbnails: {
+    high: { url: 'https://yt3.example/AV34.png' } } } });
+  const wmSet = global.__FETCHES.slice(wmWas)
+    .filter(f => f.url.indexOf('watermarks/set') !== -1)[0];
+  ok('۳۴.۱ واترمارک با متادیتا فرستاده می‌شود، نه تصویرِ تنها',
+     !!wmSet && wmSet.url.indexOf('uploadType=multipart') !== -1 &&
+     wmSet.url.indexOf('uploadType=media') === -1 &&
+     wmSet.contentType.indexOf('multipart/related') === 0,
+     String(r34) + ' | ' + (wmSet ? wmSet.url + ' | ' + wmSet.contentType : 'هیچ'));
+  const wmBody = wmSet ? Buffer.from(wmSet.payload).toString('binary') : '';
+  ok('۳۴.۲ و بدنه‌اش InvideoBranding است — نه فقط تصویر',
+     wmBody.indexOf('cornerPosition') !== -1 &&
+     wmBody.indexOf('application/json') !== -1, wmBody.slice(0, 120));
+  delete global.YouTube;
+  const wm = src27.slice(src27.indexOf('function ytWatermarkSet_'),
+                         src27.indexOf('function ytTrailerSet_'));
+  ok('۳۴.۳ و خطا پیامِ خودِ گوگل را می‌آورد، نه فقط شماره',
+     wm.indexOf('error || {}).message') !== -1 || wm.indexOf('.error || {}).message') !== -1);
+
+  /* ── ب) بنر: راهِ داخلی اول، سرویسِ ابری بعد ──
+     کاورِ قسمت‌ها با SlidesApp داخلی ساخته می‌شود و هیچ سرویسِ ابری‌ای
+     نمی‌خواهد؛ فقط بنر (که صفحهٔ بزرگ‌تر لازم دارد) سراغِ REST می‌رود. */
+  const bn = src27.slice(src27.indexOf('function ytBannerCard_'),
+                         src27.indexOf('function ytBannerSet_'));
+  ok('۳۴.۴ اول راهِ داخلی امتحان می‌شود',
+     bn.indexOf('SlidesApp.create') < bn.indexOf('slides.googleapis.com'),
+     'داخلی در ' + bn.indexOf('SlidesApp.create') + '، REST در ' + bn.indexOf('slides.googleapis.com'));
+  ok('۳۴.۵ و فقط وقتی خروجی‌اش کوچک بود سراغِ REST می‌رود',
+     bn.indexOf('pz.w >= 2048') !== -1);
+  ok('۳۴.۶ و اگر آن هم بسته بود، نشانیِ روشن‌کردنش را می‌دهد',
+     bn.indexOf('ytApiOff_(') !== -1 && bn.indexOf('enableUrl') !== -1);
+  ok('۳۴.۷ و می‌گوید کاورِ قسمت‌ها بی این هم کار می‌کند — تا نگرانیِ بی‌جا نسازد',
+     bn.indexOf('کاورِ قسمت‌ها بی این هم') !== -1);
+
+  /* ── پ) سیاهه باید وضعِ پس از کار را بگوید ──
+     «توضیحِ کانال ⬜ خالی — پر شد (۰ نویسه)» هم‌زمان دو چیزِ متناقض می‌گفت. */
+  const cs = src27.slice(src27.indexOf('function ytChannelSync_'),
+                         src27.indexOf('function ytChannelStale_'));
+  ok('۳۴.۸ پس از اقدام، وضع دوباره خوانده می‌شود',
+     cs.indexOf('var again = ytChannelInfo_()') !== -1);
+  ok('۳۴.۹ و ردیف‌ها با وضعِ تازه به‌روز می‌شوند — نه با وضعِ پیش از کار',
+     cs.indexOf('rows[h].ok = nf.ok') !== -1);
+  ok('۳۴.۱۰ ولی فقط وقتی واقعاً کاری شده — وگرنه یک خواندنِ سهمیه‌خورِ بی‌دلیل',
+     cs.indexOf('if (out.did.length)') !== -1);
+
+  /* ── و تشخیصِ «API خاموش است» برای هر سرویسی کار کند، نه فقط یوتیوب ── */
+  const slides = ytApiOff_('Google Slides API has not been used in project 711710970959 ' +
+    'before or it is disabled. Enable it by visiting ' +
+    'https://console.developers.google.com/apis/api/slides.googleapis.com/overview' +
+    '?project=711710970959 then retry.');
+  ok('۳۴.۱۱ Slides هم تشخیص داده می‌شود، نه فقط یوتیوب', slides.off === true);
+  ok('۳۴.۱۲ و نامِ خودِ سرویس بیرون کشیده می‌شود',
+     slides.api.indexOf('Slides') !== -1, slides.api);
+  ok('۳۴.۱۳ با نشانی و شمارهٔ پروژه',
+     slides.url.indexOf('slides.googleapis.com') !== -1 && slides.project === '711710970959');
+  ok('۳۴.۱۴ و متنِ سالم را «خاموش» نمی‌خواند',
+     ytApiOff_('{"items":[]}').off === false);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

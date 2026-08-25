@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.4
+ *  موتور محتوا و پادکست — نسخهٔ 6.5
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -812,7 +812,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.4',
+  CODE_VERSION: '6.5',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -30638,16 +30638,45 @@ function ytBannerCard_() {
   var pres = null;
   try {
     var pal = ytPalette_(String(CFG.SHOW_NAME || 'x'));
-    /* صفحهٔ بزرگ از راهِ REST ساخته می‌شود، چون SlidesApp اندازهٔ صفحه را
-       نمی‌پذیرد و صفحهٔ پیش‌فرض خروجی‌اش برای بنر کوچک است. */
-    var mk = ytHttp_('https://slides.googleapis.com/v1/presentations', 'post',
-      JSON.stringify({ title: 'بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
-        pageSize: { width: { magnitude: 24384000, unit: 'EMU' },
-                    height: { magnitude: 13716000, unit: 'EMU' } } }));
-    if (mk.code !== 200 || !mk.json || !mk.json.presentationId) {
-      return { why: 'ساختِ اسلایدِ بنر نشد (' + mk.code + ')' };
+    /* ══ دو راه، و ترتیبشان عمدی است ══
+     * صفحهٔ بزرگ فقط از راهِ REST ساخته می‌شود (SlidesApp اندازهٔ صفحه را
+     * نمی‌پذیرد) — ولی آن REST یک سرویسِ ابریِ جداست که باید در پروژهٔ Cloud
+     * روشن باشد. کاورِ قسمت‌ها این مشکل را ندارد چون با `SlidesApp` داخلی
+     * ساخته می‌شود و هیچ سرویسِ ابری‌ای نمی‌خواهد.
+     *
+     * پس اول راهِ داخلی امتحان می‌شود: اگر خروجی‌اش به حدِ یوتیوب برسد،
+     * کاربر هیچ کاری لازم ندارد. فقط اگر کوچک بود سراغِ REST می‌رویم، و
+     * اگر آن هم بسته بود، نشانیِ روشن‌کردنش را می‌دهیم.
+     * یک قدمِ کمتر برای کاربر، همیشه بهتر از یک راهنماییِ دقیق‌تر است. */
+    var presId = '';
+    try {
+      var tryIn = SlidesApp.create('بنرِ کانال — ' + String(CFG.SHOW_NAME || ''));
+      var tSlide = tryIn.getSlides()[0];
+      tryIn.saveAndClose();
+      var probe = ytSlideExport_(tryIn.getId(), tSlide.getObjectId(), 'probe.png');
+      var pz = probe ? ytPngSize_(probe) : null;
+      if (pz && pz.w >= 2048 && pz.h >= 1152) presId = tryIn.getId();
+      else { try { DriveApp.getFileById(tryIn.getId()).setTrashed(true); } catch (eT2) {} }
+    } catch (eIn) {}
+
+    if (!presId) {
+      var mk = ytHttp_('https://slides.googleapis.com/v1/presentations', 'post',
+        JSON.stringify({ title: 'بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
+          pageSize: { width: { magnitude: 24384000, unit: 'EMU' },
+                      height: { magnitude: 13716000, unit: 'EMU' } } }));
+      if (mk.code !== 200 || !mk.json || !mk.json.presentationId) {
+        var offB = ytApiOff_(mk.text || '');
+        if (offB.off) {
+          return { why: (offB.api || 'Google Slides API') + ' در پروژهٔ ابری روشن نیست' +
+                        (offB.url ? ' — ' + offB.url : '') +
+                        ' (کاورِ قسمت‌ها بی این هم ساخته می‌شود؛ فقط بنر لازمش دارد)',
+                   enableUrl: offB.url };
+        }
+        return { why: 'ساختِ اسلایدِ بنر نشد (' + mk.code + ')' };
+      }
+      presId = mk.json.presentationId;
     }
-    pres = SlidesApp.openById(mk.json.presentationId);
+    pres = SlidesApp.openById(presId);
     var slide = pres.getSlides()[0];
     try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
     catch (eEl) {}
@@ -30677,7 +30706,7 @@ function ytBannerCard_() {
           y + safeH * 0.62, safeH * 0.3, 20, pal.fg, false);
     }
     pres.saveAndClose();
-    var blob = ytSlideExport_(mk.json.presentationId, slide.getObjectId(), 'بنرِ کانال.png');
+    var blob = ytSlideExport_(presId, slide.getObjectId(), 'بنرِ کانال.png');
     if (!blob) return { why: 'خروجیِ PNGِ بنر نشد' };
     var size = ytPngSize_(blob);
     if (!size) return { why: 'ابعادِ PNGِ بنر خوانده نشد' };
@@ -30686,7 +30715,7 @@ function ytBannerCard_() {
       return { why: 'بنر کوچک درآمد: ' + size.w + '×' + size.h +
                     ' در برابرِ حداقلِ ۲۰۴۸×۱۱۵۲ که یوتیوب می‌خواهد' };
     }
-    try { DriveApp.getFileById(mk.json.presentationId).moveTo(ytCoverFolder_()); } catch (eM) {}
+    try { DriveApp.getFileById(presId).moveTo(ytCoverFolder_()); } catch (eM) {}
     return { blob: blob, size: size };
   } catch (e) {
     try { if (pres) pres.saveAndClose(); } catch (eS) {}
@@ -30737,10 +30766,31 @@ function ytWatermarkSet_(info) {
   var mime = '';
   try { mime = String(blob.getContentType && blob.getContentType() || ''); } catch (eM) {}
   if (!mime) mime = /\.jpe?g(\?|$)/i.test(url) ? 'image/jpeg' : 'image/png';
+
+  /* ══ چرا multipart و نه فقط تصویر (باگِ ۶٫۴) ══
+   * `watermarks.set` یک متدِ آپلود **با متادیتا**ست: بدنه‌اش منبعِ
+   * InvideoBranding است (جای واترمارک و زمانش) و تصویر بخشِ دوم. فرستادنِ
+   * تصویرِ تنها با uploadType=media همان ۴۰۰ی است که گرفتیم — و پیامش هم
+   * چیزی نمی‌گفت، چون کدِ ما فقط شماره را نشان می‌داد. */
+  var branding = { position: { type: 'corner', cornerPosition: 'bottomRight' } };
+  var boundary = '----ytwm' + String(info.id).replace(/[^A-Za-z0-9]/g, '').slice(-10);
+  var head = '--' + boundary + '\r\n' +
+             'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+             JSON.stringify(branding) +
+             '\r\n--' + boundary + '\r\n' +
+             'Content-Type: ' + mime + '\r\n\r\n';
+  var tail = '\r\n--' + boundary + '--\r\n';
+  var bytes = Utilities.newBlob(head).getBytes()
+                .concat(blob.getBytes())
+                .concat(Utilities.newBlob(tail).getBytes());
   var up = ytHttp_('https://www.googleapis.com/upload/youtube/v3/watermarks/set' +
-                   '?uploadType=media&channelId=' + encodeURIComponent(String(info.id)),
-                   'post', blob.getBytes(), mime);
-  return (up.code === 200 || up.code === 204) ? 'نشست' : 'نشد (' + up.code + ')';
+                   '?uploadType=multipart&channelId=' + encodeURIComponent(String(info.id)),
+                   'post', bytes, 'multipart/related; boundary=' + boundary);
+  if (up.code === 200 || up.code === 204) return 'نشست';
+  // شمارهٔ کد به‌تنهایی چیزی نمی‌گوید — پیامِ خودِ گوگل را بیاور
+  var why = '';
+  try { why = String((((up.json || {}).error || {}).message) || ''); } catch (eW) {}
+  return 'نشد (' + up.code + ')' + (why ? ': ' + why.slice(0, 120) : '');
 }
 
 /**
@@ -30981,6 +31031,27 @@ function ytChannelSync_(force) {
     } else { rows[t].did = 'دارد'; }
   }
 
+  /* ══ سیاهه باید وضعِ *پس از* کار را نشان بدهد ══
+   * ردیف‌ها پیش از اقدام خوانده شده‌اند، پس «توضیحِ کانال ⬜ خالی — پر شد
+   * (۰ نویسه)» هم‌زمان دو چیزِ متناقض می‌گفت: تیکِ خالی و عددِ صفر از
+   * *قبل* بودند و «پر شد» از *بعد*. یک بار دیگر خوانده می‌شود تا آنچه
+   * نوشته می‌شود همان چیزی باشد که الان هست. */
+  if (out.did.length) {
+    try {
+      var again = ytChannelInfo_();
+      if (again.info) {
+        var fresh = ytChannelCheck_(again.info), fmap = Object.create(null);
+        for (var g = 0; g < fresh.length; g++) fmap[fresh[g].key] = fresh[g];
+        for (var h = 0; h < rows.length; h++) {
+          var nf = fmap[rows[h].key];
+          if (!nf) continue;
+          rows[h].ok = nf.ok;
+          if (nf.note) rows[h].note = nf.note;
+        }
+      }
+    } catch (eRe) {}
+  }
+
   ytChannelLog_(hub, rows);
   try {
     props_().setProperty('YT_CHANNEL_SIG', sig);
@@ -31109,6 +31180,28 @@ var YT_SLIDES_SCOPE = 'https://www.googleapis.com/auth/presentations';
 
 var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE]);
 
+/**
+ * «این API در پروژهٔ ابری روشن نیست» — یک تشخیص، هر تعداد سرویس.
+ *
+ * یوتیوب، Slides، و هر سرویسِ دیگری که فردا اضافه شود، همگی همین ۴۰۳ را
+ * می‌دهند و همگی نشانیِ دقیقِ صفحهٔ روشن‌کردن را در متنِ خودشان دارند.
+ * بیرون کشیدنِ آن نشانی یعنی کاربر یک قدم دارد، نه ده دقیقه گشتن.
+ */
+function ytApiOff_(text) {
+  var t = String(text || '');
+  if (!/has not been used in project|SERVICE_DISABLED|it is disabled/i.test(t)) {
+    return { off: false };
+  }
+  var url = '', proj = '', api = '';
+  var mu = t.match(/https:\/\/console\.[a-z.]*google\.com\/[^\s"',]+/);
+  if (mu) url = mu[0];
+  var mp = t.match(/project[= ]([0-9]{6,})/);
+  if (mp) proj = mp[1];
+  var ma = t.match(/([A-Za-z0-9 .]+API[ a-z0-9]*) has not been used/);
+  if (ma) api = ma[1].trim();
+  return { off: true, url: url, project: proj, api: api };
+}
+
 function ytDiagnose_() {
   var d = { scopeOk: false, apiOk: false, channelOk: false, code: 0,
             raw: '', cause: '', fix: '', scopes: [], channelId: '', channelTitle: '' };
@@ -31177,23 +31270,14 @@ function ytDiagnose_() {
             'و بعد یک بار اجازه‌ها را تأیید کنید.';
     return d;
   }
-  if (/has not been used in project|is disabled|SERVICE_DISABLED/i.test(msg + ' ' + d.raw)) {
-    d.cause = 'YouTube Data API در پروژهٔ ابریِ این اسکریپت روشن نیست';
-    /* گوگل در همان پیام نشانیِ دقیقِ صفحهٔ روشن‌کردن را می‌دهد — با شمارهٔ
-       پروژه در آن. بیرون کشیدنش یعنی کاربر لازم نیست لای دیوارِ JSON
-       دنبالش بگردد. یک نشانیِ آماده، یک قدم؛ یک پیامِ خام، ده دقیقه گشتن. */
-    var url = '', proj = '';
-    try {
-      var mu = (msg + ' ' + d.raw).match(/https:\/\/console\.[a-z.]*google\.com\/[^\s"',]+/);
-      if (mu) url = mu[0];
-      var mp = (msg + ' ' + d.raw).match(/project[= ]([0-9]{6,})/);
-      if (mp) proj = mp[1];
-    } catch (eU) {}
-    d.enableUrl = url;
-    d.project = proj;
-    d.fix = 'در پروژهٔ Google Cloud' + (proj ? ' شمارهٔ ' + proj : '') +
-            ' که به این اسکریپت وصل است، YouTube Data API v3 را Enable کنید' +
-            (url ? ':\n' + url : '.') +
+  var off = ytApiOff_(msg + ' ' + d.raw);
+  if (off.off) {
+    d.cause = (off.api || 'YouTube Data API') + ' در پروژهٔ ابریِ این اسکریپت روشن نیست';
+    d.enableUrl = off.url;
+    d.project = off.project;
+    d.fix = 'در پروژهٔ Google Cloud' + (off.project ? ' شمارهٔ ' + off.project : '') +
+            ' که به این اسکریپت وصل است، ' + (off.api || 'YouTube Data API v3') +
+            ' را Enable کنید' + (off.url ? ':\n' + off.url : '.') +
             '\nبعد از Enable، گوگل خودش می‌گوید چند دقیقه طول می‌کشد تا اثر ' +
             'کند — پس اگر بلافاصله دوباره زدید و همین را گفت، دو-سه دقیقه صبر ' +
             'کنید و باز بزنید.';
