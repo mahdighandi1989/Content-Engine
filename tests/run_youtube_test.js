@@ -1134,14 +1134,43 @@ console.log('=== ۳۵) مسیرِ داده: صوت بیرون، ویدئو بر�
   ok('۳۵.۱۵ اشتراکِ کهنه پس گرفته می‌شود، حتی اگر ویدئو هرگز نیامده باشد',
      swept >= 1 && w3.getSharingAccess() === 'PRIVATE');
 
+  /* ── ردیفی که پیش از ۶٫۶ ثبت شده: نه نشانی دارد نه اجازه ──
+     و چون تکراری است، از مسیرِ ytRenderAsk_ هرگز رد نمی‌شود. بی مهاجرت،
+     همان شش قسمتِ امشب تا ابد در صف می‌مانند. */
+  const wOld = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'کهنه.wav'));
+  const cOld = root.createFile(Utilities.newBlob('PNG', 'image/png', 'کاورِ کهنه.png'));
+  DriveApp.__register('EPF37', 'قسمت ۳۷');
+  {
+    const dd = ytRenderRead_();
+    dd.items.push({ key: 'special:37', show: 'special', ep: '37', title: 'ت',
+      folderId: 'EPF37', audio: [{ id: wOld.getId(), name: 'کهنه.wav' }],
+      coverFileId: cOld.getId(), outName: 'ق۳۷.mp4', at: nowStr_(), status: 'در انتظار' });
+    ytRenderSave_(dd);
+  }
+  ok('۳۵.۱۶ ردیفِ پیش از ۶٫۶ بسته و بی‌نشانی است',
+     wOld.getSharingAccess() === 'PRIVATE');
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) return { code: 200, text: '{"items":{}}' };
+    return stubWas(url);
+  };
+  ytRenderCollect_(60000);
+  const r37 = ytRenderRead_().items.filter(x => x.key === 'special:37')[0] || {};
+  ok('۳۵.۱۷ برداشت اول تازه‌اش می‌کند — نشانی می‌گیرد',
+     /usercontent/.test(((r37.audio || [])[0] || {}).url || '') &&
+     /usercontent/.test(r37.coverUrl || ''));
+  ok('۳۵.۱۸ و اجازهٔ موقت هم', wOld.getSharingAccess() === 'ANYONE_WITH_LINK' &&
+     cOld.getSharingAccess() === 'ANYONE_WITH_LINK' && r37.shared === true);
+  /* یک مهاجرتِ آرایشی نباید هر شب همه را از نو مُهر بزند. */
+  ok('۳۵.۱۹ ولی بارِ دوم چیزی نمی‌نویسد', ytRenderRefresh_() === 0);
+
   global.__STUB = stubWas;
 
   /* شناسهٔ صف: اگر عوض شود، اکشن بی‌صدا صفِ کهنه را می‌خواند. */
   const qWas = CFG.YT_QUEUE_ID;
   CFG.YT_QUEUE_ID = 'یک-شناسهٔ-دیگر';
-  ok('۳۵.۱۶ عوض‌شدنِ شناسهٔ صف گرفته می‌شود', ytQueueIdOk_().ok === false);
+  ok('۳۵.۲۰ عوض‌شدنِ شناسهٔ صف گرفته می‌شود', ytQueueIdOk_().ok === false);
   CFG.YT_QUEUE_ID = '';
-  ok('۳۵.۱۷ و اگر شناسه‌ای تنظیم نشده باشد، هشدارِ الکی نمی‌دهد', ytQueueIdOk_().ok === true);
+  ok('۳۵.۲۱ و اگر شناسه‌ای تنظیم نشده باشد، هشدارِ الکی نمی‌دهد', ytQueueIdOk_().ok === true);
   CFG.YT_QUEUE_ID = qWas;
 }
 

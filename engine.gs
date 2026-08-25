@@ -29536,6 +29536,37 @@ function ytQueueIdOk_() {
   return { ok: want === got, want: want, got: got };
 }
 
+/**
+ * ردیف‌هایی که پیش از ۶٫۶ ثبت شده‌اند، نشانی و اجازه ندارند.
+ *
+ * ══ همان درسِ ۵٫۹۵، دوباره ══
+ * «تمیزکردنِ ورودی، آنچه را قبلاً نوشته شده درست نمی‌کند.» `ytRenderAsk_` از
+ * حالا هر ردیفِ تازه را باز می‌کند و نشانی می‌دهد — ولی شش درخواستِ امشب
+ * قبلاً ثبت شده‌اند و **تکراری‌اند**، پس هرگز از آن مسیر رد نمی‌شوند. بی این
+ * تابع، آن شش قسمت تا ابد در صف می‌مانند و اکشن هیچ‌وقت نمی‌تواند بگیردشان:
+ * دقیقاً همان بن‌بستی که این نسخه برای شکستنش نوشته شد.
+ *
+ * فقط ردیفِ «در انتظار» را دست می‌زند، و فقط وقتی چیزی کم است — یک مهاجرتِ
+ * آرایشی نباید هر شب همهٔ فایل‌ها را از نو مُهر بزند.
+ */
+function ytRenderRefresh_() {
+  var d = ytRenderRead_(), n = 0, changed = false;
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'در انتظار') continue;
+    var au = it.audio || [], need = !it.shared;
+    for (var a = 0; a < au.length; a++) if (!au[a].url) need = true;
+    if (!need) continue;
+    for (var b = 0; b < au.length; b++) au[b].url = ytDlUrl_(au[b].id);
+    if (it.coverFileId) it.coverUrl = ytDlUrl_(it.coverFileId);
+    it.shared = ytRenderShare_(it, true) > 0;
+    it.sharedAt = nowStr_();
+    changed = true; n++;
+  }
+  if (changed) ytRenderSave_(d);
+  return n;
+}
+
 /** نقشهٔ ویدئوهای ساخته‌شده، از raw گیت‌هاب. */
 function ytRenderMap_() {
   try {
@@ -29602,6 +29633,20 @@ function ytRenderCollect_(budgetMs) {
     if (String(d.items[p].status || '') === 'در انتظار') pend.push(d.items[p]);
   }
   if (!pend.length) return out;
+  /* اول اجازه و نشانی، بعد برداشت: ردیفی که بسته است اکشن نمی‌تواند بسازدش،
+     و بی ساخته‌شدن هرگز به نقشه نمی‌رسد. */
+  try {
+    var fixed = ytRenderRefresh_();
+    if (fixed) {
+      logLine_('یوتیوب: ' + fixed + ' درخواستِ رندر نشانی و اجازهٔ موقت گرفت.');
+      d = ytRenderRead_(); pend = [];
+      for (var q = 0; q < d.items.length; q++) {
+        if (String(d.items[q].status || '') === 'در انتظار') pend.push(d.items[q]);
+      }
+    }
+  } catch (eRf) { logLine_('تازه‌سازیِ درخواست‌های رندر نشد: ' + eRf.message); }
+  /* و خودِ صف هم باید خواندنی بماند — اکشن راهِ دیگری برای دیدنش ندارد. */
+  try { ytQueueShare_(); } catch (eQs) {}
   var map = ytRenderMap_();
   if (!map) { out.why = 'نقشهٔ ویدئوها خوانده نشد'; return out; }
 
