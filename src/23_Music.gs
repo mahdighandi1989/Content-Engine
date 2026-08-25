@@ -1285,6 +1285,23 @@ function musicStatus_() {
     out.target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
     out.thin = musicThinSlots_();
   } catch (e3) {}
+  /* ══ افکت هم باید دیده شود (یافتهٔ بازِ ناظر، ۵٫۹۶) ══
+   * بندِ ۴-د دستورِ نظارت می‌پرسد «چند افکت در بانک هست و هدف چند است؟» و
+   * جوابش هیچ‌جا نبود: `musicCoverage_` از اول می‌شمردش، ولی آن شمار فقط
+   * داخلِ خودِ آن تابع می‌ماند و به `_STATUS.json` نمی‌رسید. ناظر جای دیگری
+   * برای دیدن ندارد، پس آن بند عملاً اجرا نمی‌شد — و صاحبِ برنامه هم که
+   * چند بار پرسیده «چرا افکتی نشنیدم»، هیچ عددی نداشت که ببیند.
+   *
+   * همان الگوی همیشگی: تحلیل نوشته شده بود و به تصمیمی وصل نبود. */
+  try {
+    var cov = musicCoverage_();
+    out.sfx = Number(cov.sfx) || 0;
+    out.sfxTarget = Number(cov.sfxTarget) || 0;
+    out.sfxEnabled = CFG.MUSIC_SFX_ENABLED !== false;
+    out.sfxPerEpisode = Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0);
+  } catch (e4) {
+    out.sfx = null; out.sfxTarget = null;
+  }
   return out;
 }
 

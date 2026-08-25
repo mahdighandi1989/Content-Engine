@@ -8450,6 +8450,22 @@ function healthCheck() {
                    sb.join(' · ') + ' — هدف ' + mus.target + ' در هر جایگاه). ' +
                    'موتور شبانه خودش دنبالِ قطعهٔ تازه می‌گردد.');
       }
+      /* ══ «تا الانم که افکتی باز نشنیدم» ══
+       * چند بار پرسیده شد و هر بار جوابش در کد بود ولی هیچ‌جا نوشته نمی‌شد:
+       * بانک هیچ فایلِ «افکت»ی ندارد، پس هیچ افکتی هم پخش نمی‌شود. این
+       * خرابی نیست — نبودِ مواد است — ولی سکوتِ دربارهٔ آن یعنی صاحبِ برنامه
+       * هر شب منتظرِ چیزی است که ممکن نیست بیاید.
+       * از ۵٫۹۶ musicStatus_ شمارش را دارد (یافتهٔ بازِ ناظر). */
+      if (mus.sfxEnabled && mus.sfx !== null && mus.sfx !== undefined) {
+        if (!mus.sfx) {
+          notes.push('افکتِ صوتی هنوز هیچ فایلی در بانک ندارد (هدف ' +
+                     (mus.sfxTarget || 0) + '), پس در هیچ قسمتی افکت پخش نمی‌شود. ' +
+                     'موتور شبانه دنبالشان می‌گردد؛ تا وقتی فایلی نیاید، سکوت درست است.');
+        } else if (mus.sfxTarget && mus.sfx < mus.sfxTarget) {
+          notes.push('افکتِ صوتی: ' + mus.sfx + ' فایل در بانک (هدف ' + mus.sfxTarget +
+                     ') — حداکثر ' + mus.sfxPerEpisode + ' افکت در هر قسمت.');
+        }
+      }
     }
   } catch (eMu) {}
 
@@ -23377,6 +23393,23 @@ function musicStatus_() {
     out.target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
     out.thin = musicThinSlots_();
   } catch (e3) {}
+  /* ══ افکت هم باید دیده شود (یافتهٔ بازِ ناظر، ۵٫۹۶) ══
+   * بندِ ۴-د دستورِ نظارت می‌پرسد «چند افکت در بانک هست و هدف چند است؟» و
+   * جوابش هیچ‌جا نبود: `musicCoverage_` از اول می‌شمردش، ولی آن شمار فقط
+   * داخلِ خودِ آن تابع می‌ماند و به `_STATUS.json` نمی‌رسید. ناظر جای دیگری
+   * برای دیدن ندارد، پس آن بند عملاً اجرا نمی‌شد — و صاحبِ برنامه هم که
+   * چند بار پرسیده «چرا افکتی نشنیدم»، هیچ عددی نداشت که ببیند.
+   *
+   * همان الگوی همیشگی: تحلیل نوشته شده بود و به تصمیمی وصل نبود. */
+  try {
+    var cov = musicCoverage_();
+    out.sfx = Number(cov.sfx) || 0;
+    out.sfxTarget = Number(cov.sfxTarget) || 0;
+    out.sfxEnabled = CFG.MUSIC_SFX_ENABLED !== false;
+    out.sfxPerEpisode = Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0);
+  } catch (e4) {
+    out.sfx = null; out.sfxTarget = null;
+  }
   return out;
 }
 

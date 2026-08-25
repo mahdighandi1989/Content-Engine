@@ -2434,4 +2434,28 @@ console.log('\n=== ۳۸) گزارشی که خوانده نشود، باید دی
      rp.indexOf("replace(/[0-9]+/g, '#')") !== -1);
 }
 
+console.log('\n=== ۳۹) «تا الانم که افکتی باز نشنیدم» — عددش باید جایی باشد (۵٫۹۶) ===');
+{
+  /* یافتهٔ بازِ ناظر، کلمه‌به‌کلمه: «کلیدِ music در _STATUS.json فیلدهای
+   * sfx/sfxTarget ندارد — بندِ ۴-د دستورِ نظارت قابل اجرا نیست».
+   * musicCoverage_ از اول می‌شمردشان، ولی شمار داخلِ خودِ آن تابع می‌ماند.
+   * ناظر جای دیگری برای دیدن ندارد، پس آن بند عملاً اجرا نمی‌شد. */
+  const hub = new Spread('هاب۳۹');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const st = musicStatus_();
+  ok('۳۹.۱ شمارِ افکت در وضعیت هست', st.sfx !== undefined && st.sfx !== null,
+     JSON.stringify({ sfx: st.sfx, target: st.sfxTarget }));
+  ok('۳۹.۲ و هدفش هم', st.sfxTarget !== undefined && st.sfxTarget !== null);
+  ok('۳۹.۳ و سقفِ هر قسمت هم', st.sfxPerEpisode >= 0);
+
+  /* و بانکِ خالیِ افکت باید هر روز در یادداشت‌های سلامت بیاید — وگرنه
+     صاحبِ برنامه هر شب منتظرِ چیزی است که ممکن نیست بیاید. */
+  const h = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۳۹.۴ بانکِ خالیِ افکت در یادداشت‌های روزانه گفته می‌شود',
+     h.indexOf('افکتِ صوتی هنوز هیچ فایلی') !== -1);
+  ok('۳۹.۵ و خرابی حساب نمی‌شود، یادداشت است',
+     h.indexOf("notes.push('افکتِ صوتی هنوز هیچ فایلی") !== -1);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
