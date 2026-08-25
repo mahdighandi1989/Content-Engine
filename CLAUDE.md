@@ -502,6 +502,26 @@ its items, because the desired order is computed from the registry and only the
 differences are sent. The playlist URL lands in the «پلی‌لیست یوتیوب» column so it
 is visible where the series is, the same rule the handout column follows.
 
+**The channel's own identity has a boundary that must be stated, not discovered.**
+`brandingSettings` (description, keywords), `channelBanners`, `watermarks`,
+`unsubscribedTrailer` and `channelSections` are all writable, so the engine keeps
+them. The profile picture, the channel links and the contact email are **not
+reachable from the Data API at all**. Without that line written down, the monitor
+reports them as unfinished work every single day — a warning for something that
+cannot change is the warning people stop reading. They are logged as «کارِ شما»
+and reminded weekly instead.
+
+Two rules protect the owner's own channel, which carries 117 videos that are not
+ours: home-tab sections are **only ever added**, never deleted or reordered, and
+stay under YouTube's twelve; and the trailer is set only when it is empty. Filling
+a blank is help, overwriting a person's choice is not.
+
+The banner exposes a general trap: Google Slides' PNG export does not announce its
+pixel size, and YouTube rejects a banner under 2048×1152. Guessing means a rejected
+upload every night with an error that names nothing. `ytPngSize_` reads the IHDR
+header — twelve bytes, an exact answer — and a too-small banner is never sent, with
+the real numbers in the reason.
+
 **Quota is taken before it is spent**, in two separate buckets (uploads, units) —
 both close with a bare 403 that names neither. `search.list` costs 100 units and is
 never used anywhere in the section: what we published is in the sheet, and the

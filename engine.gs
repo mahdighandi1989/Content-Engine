@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 5.98
+ *  موتور محتوا و پادکست — نسخهٔ 5.99
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -420,8 +420,11 @@ var CFG = {
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
-  YT_CHANNEL: true,                     // نگه‌داشتنِ توضیح و بنرِ کانال
-  YT_BANNER_EVERY_DAYS: 30,             // بنر هر ماه یک بار تازه می‌شود، نه هر شب
+  YT_CHANNEL: true,                     // نگه‌داشتنِ شناسنامهٔ کانال
+  YTC_TAB: 'شناسنامهٔ کانال یوتیوب',
+  YT_WATERMARK: true,                   // واترمارک = خودِ عکسِ پروفایلِ کانال
+  YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
+  YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
@@ -809,7 +812,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.98',
+  CODE_VERSION: '5.99',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -6363,6 +6366,7 @@ function onOpen() {
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
       .addItem('▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست', 'runYouTubePublish')
       .addItem('🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)', 'runYouTubeRedo')
+      .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')
       .addItem('سامان‌دهیِ پوشهٔ قسمت‌ها', 'runOrganizeFolders')
@@ -29038,6 +29042,52 @@ function ytDescBuild_(meta, ctx, chapters) {
  * تصویرش را می‌گیریم. فایلِ اسلاید پاک نمی‌شود — در زیرپوشهٔ «کاورهای یوتیوب»
  * می‌ماند تا اگر کاوری بد درآمد، بشود دید چه بوده.
  */
+/**
+ * یک اسلاید → یک PNG. تنها راهِ رستر کردنِ تصویر در Apps Script.
+ * مشترکِ کاورِ قسمت، کاورِ پلی‌لیست و بنرِ کانال — سه جا، یک تعریف.
+ */
+function ytSlideExport_(presId, pageId, name) {
+  var url = 'https://docs.google.com/presentation/d/' + encodeURIComponent(presId) +
+            '/export/png?id=' + encodeURIComponent(presId) +
+            '&pageid=' + encodeURIComponent(pageId);
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      logLine_('خروجیِ PNG نشد (کدِ ' + res.getResponseCode() + ') برای «' + name + '».');
+      return null;
+    }
+    return res.getBlob().setName(name);
+  } catch (e) {
+    logLine_('خروجیِ PNG نشد: ' + e.message);
+    return null;
+  }
+}
+
+/**
+ * ابعادِ واقعیِ یک PNG، از سرآیندِ خودش (IHDR).
+ *
+ * ══ چرا لازم است ══
+ * یوتیوب برای بنر دست‌کم ۲۰۴۸×۱۱۵۲ می‌خواهد و اگر کوچک‌تر بفرستی ردش می‌کند.
+ * ولی خروجیِ PNGِ گوگل اسلاید اندازه‌اش را از پیش اعلام نمی‌کند. حدس‌زدن
+ * یعنی هر شب یک آپلودِ ردشده و یک خطای بی‌توضیح. دوازده بایتِ اولِ فایل
+ * جواب را دقیق می‌دهد، پس می‌پرسیم — و اگر کوچک بود، اصلاً نمی‌فرستیم و
+ * علتش را می‌نویسیم.
+ */
+function ytPngSize_(blob) {
+  try {
+    var b = blob.getBytes();
+    if (b.length < 24) return null;
+    var u = function (i) { return b[i] & 0xFF; };          // بایت‌ها در Apps Script علامت‌دارند
+    var w = (u(16) << 24) | (u(17) << 16) | (u(18) << 8) | u(19);
+    var h = (u(20) << 24) | (u(21) << 16) | (u(22) << 8) | u(23);
+    if (!(w > 0 && h > 0)) return null;
+    return { w: w, h: h };
+  } catch (e) { return null; }
+}
+
 /** نامِ ثابتِ کاورِ هر قسمت — پلِ میانِ «ساختن» و «دوباره پیدا کردن». */
 function ytCoverName_(c) {
   return 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '') + '.png';
@@ -29139,19 +29189,8 @@ function ytCoverCard_(c) {
 
     pres.saveAndClose();
     var id = pres.getId();
-    // تصویر را از خودِ گوگل می‌گیریم — Apps Script راهی برای رستر کردن ندارد
-    var url = 'https://docs.google.com/presentation/d/' + encodeURIComponent(id) +
-              '/export/png?id=' + encodeURIComponent(id) +
-              '&pageid=' + encodeURIComponent(slide.getObjectId());
-    var res = UrlFetchApp.fetch(url, {
-      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-      muteHttpExceptions: true
-    });
-    if (res.getResponseCode() !== 200) {
-      logLine_('کاورِ یوتیوب ساخته نشد (خروجیِ PNG کدِ ' + res.getResponseCode() + ').');
-      return null;
-    }
-    var blob = res.getBlob().setName(ytCoverName_(c));
+    var blob = ytSlideExport_(id, slide.getObjectId(), ytCoverName_(c));
+    if (!blob) return null;
     // فایلِ اسلاید و PNG هر دو می‌مانند — اگر کاوری بد درآمد باید دید چه بوده
     var f = null;
     try {
@@ -30125,6 +30164,7 @@ function ytStatus_() {
     out.playlists = n;
   } catch (e4) {}
   try { out.quota = ytQuota_(); } catch (e5) {}
+  try { out.channel = ytChannelState_(); } catch (e6) { out.channel = null; }
   out.line = ytLine_(out);
   return out;
 }
@@ -30185,6 +30225,22 @@ function ytHealth_(problems, notes) {
   if (st.quota && st.quota.blocked) {
     notes.push('سهمیهٔ یوتیوب امروز پر شد (' + st.quota.blocked +
                ')؛ کارِ باقی‌مانده فردا ادامه می‌یابد.');
+  }
+
+  /* شناسنامهٔ کانال. کارهای دستی **هفته‌ای یک بار** یادآوری می‌شوند، نه هر
+     روز: چیزی که فقط با دستِ آدم عوض می‌شود و امروز عوض نشده، فردا هم عوض
+     نمی‌شود — و هشداری که هر روز برای یک چیزِ ثابت فیره کند، همان هشداری
+     است که آدم یاد می‌گیرد نبیند. */
+  if (st.channel) {
+    notes.push(st.channel.line);
+    if (st.channel.todo && st.channel.todo.length && ytTodoDue_()) {
+      problems.push('در شناسنامهٔ کانالِ یوتیوب ' +
+                    faDigitsOut_(String(st.channel.todo.length)) +
+                    ' جای خالی هست که فقط از studio.youtube.com پر می‌شود: ' +
+                    st.channel.todo.join('، ') + '. موتور از راهِ API به این‌ها ' +
+                    'دسترسی ندارد؛ بقیهٔ شناسنامه خودکار نگه داشته می‌شود.');
+      try { props_().setProperty('YT_TODO_AT', nowStr_()); } catch (eT) {}
+    }
   }
   return st;
 }
@@ -30407,43 +30463,246 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo) {
   return 'نشد (' + r.code + ')';
 }
 
-/**
- * شناسنامهٔ کانال: توضیح، کلیدواژه، و بنر.
- * فقط وقتی می‌نویسد که چیزی عوض شده باشد — اثرانگشت نگه داشته می‌شود، چون
- * `channels.update` پنجاه واحد سهمیه دارد و شبی که هیچ‌چیز عوض نشده نباید
- * خرج شود.
+/* ═══════════════ شناسنامهٔ کانال ═══════════════
+ *
+ * صفحهٔ «Channel customization» هفت‌هشت جای پرکردنی دارد و همه‌شان یک‌جور
+ * نیستند. مرزِ واقعی این است — و باید نوشته شود، وگرنه هر بار کسی دنبالِ
+ * کاری می‌گردد که اصلاً از این راه شدنی نیست:
+ *
+ *   موتور خودش انجام می‌دهد:  توضیح · کلیدواژه · بنر · واترمارک ·
+ *                              تریلر (فقط اگر خالی باشد) · بخش‌های صفحهٔ خانه
+ *   فقط دستِ آدم:            عکسِ پروفایل · لینک‌ها · ایمیلِ تماس · نام و هندل
+ *
+ * آن دستهٔ دوم «کارِ انجام‌نشده» نیست؛ **کارِ انجام‌نشدنی از این راه** است.
+ * پس به‌جای اینکه هر شب در ایرادها تکرار شود، در یک سیاههٔ روشن می‌نشیند و
+ * هفته‌ای یک بار یادآوری می‌شود — هشداری که هر روز برای چیزی که تغییر
+ * نمی‌کند فیره کند، همان هشداری است که آدم یاد می‌گیرد نبیند.
  */
-function ytChannelSync_(force) {
-  var out = { ok: false, changed: [], why: '' };
-  if (!ytOn_() || CFG.YT_CHANNEL === false) { out.why = 'خاموش'; return out; }
-  var yt = ytSvc_();
-  var chId = '', cur = null;
+
+/** یک خواندن از کانال — همهٔ چیزی که وارسی لازم دارد. */
+function ytChannelInfo_() {
+  var yt = ytSvc_(); if (!yt) return null;
+  if (!ytQuotaTake_(YT_COST.videosList, false)) return null;
   try {
-    if (!ytQuotaTake_(YT_COST.videosList, false)) { out.why = 'سهمیه'; return out; }
-    var me = yt.Channels.list('id,brandingSettings', { mine: true });
-    if (!me || !me.items || !me.items.length) { out.why = 'کانالی پیدا نشد'; return out; }
-    chId = String(me.items[0].id);
-    cur = me.items[0].brandingSettings || {};
-  } catch (e) { out.why = 'کانال خوانده نشد: ' + String(e.message).slice(0, 120); return out; }
-
-  var desc = ytScrub_(ytChannelDesc_()).slice(0, 990);
-  var kw = ytChannelKeywords_();
-  var sig = desc + '|' + kw;
-  var was = '';
-  try { was = String(props_().getProperty('YT_CHANNEL_SIG') || ''); } catch (e2) {}
-  if (sig === was && !force) { out.ok = true; out.why = 'تازه است'; return out; }
-
-  if (ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
-    try {
-      var ch = (cur.channel || {});
-      yt.Channels.update({ id: chId, brandingSettings: {
-        channel: { title: ch.title, description: desc, keywords: kw,
-                   defaultLanguage: CFG.YT_LANG || 'fa' } } }, 'brandingSettings');
-      out.changed.push('توضیح و کلیدواژه');
-      try { props_().setProperty('YT_CHANNEL_SIG', sig); } catch (e3) {}
-    } catch (eU) { out.why = 'به‌روزرسانیِ کانال نشد: ' + String(eU.message).slice(0, 150); }
+    var r = yt.Channels.list('id,snippet,brandingSettings,contentDetails,statistics',
+                             { mine: true });
+    if (!r || !r.items || !r.items.length) return null;
+    return r.items[0];
+  } catch (e) {
+    logLine_('کانالِ یوتیوب خوانده نشد: ' + e.message);
+    return null;
   }
-  out.ok = out.changed.length > 0 || out.why === 'تازه است';
+}
+
+/**
+ * سیاههٔ شناسنامه: هر قلم، وضعش، و اینکه کارِ کیست.
+ * `by` یکی از «موتور» یا «آدم» است — و همین یک حرف، تفاوتِ «هنوز نکرده‌ایم»
+ * با «از این راه نمی‌شود» را نگه می‌دارد.
+ */
+function ytChannelCheck_(info) {
+  var out = [];
+  var bs = (info && info.brandingSettings) || {};
+  var ch = bs.channel || {}, img = bs.image || {};
+  var sn = (info && info.snippet) || {};
+  var add = function (key, label, by, ok, note) {
+    out.push({ key: key, label: label, by: by, ok: !!ok, note: String(note || '') });
+  };
+  add('title', 'نامِ کانال', 'آدم', !!sn.title, sn.title || '');
+  add('description', 'توضیحِ کانال', 'موتور', !!String(ch.description || '').trim(),
+      String(ch.description || '').length + ' نویسه');
+  add('keywords', 'کلیدواژه‌ها', 'موتور', !!String(ch.keywords || '').trim(), '');
+  add('banner', 'بنرِ کانال', 'موتور', !!String(img.bannerExternalUrl || '').trim(), '');
+  add('trailer', 'تریلرِ کانال (برای بازدیدکنندهٔ تازه)', 'موتور',
+      !!String(ch.unsubscribedTrailer || '').trim(), '');
+  add('watermark', 'واترمارکِ ویدئو', 'موتور', null,
+      'وضعش از راهِ API خوانده نمی‌شود؛ موتور هر بار می‌نشاندش');
+  add('sections', 'بخش‌های صفحهٔ خانه', 'موتور', null, '');
+  // این سه، از راهِ API شدنی نیستند. نوشتنشان به‌عنوان «ایراد» غلط است.
+  add('picture', 'عکسِ پروفایل', 'آدم', !!((sn.thumbnails || {}).high || {}).url,
+      'یوتیوب راهی در API برایش نگذاشته');
+  add('links', 'لینک‌های کانال', 'آدم', null, 'از راهِ API شدنی نیست');
+  add('email', 'ایمیلِ تماس', 'آدم', null, 'از راهِ API شدنی نیست');
+  return out;
+}
+
+/** بنرِ کانال — ۲۵۶۰×۱۴۴۰ خواسته می‌شود، ۲۰۴۸×۱۱۵۲ حداقلِ خودِ یوتیوب است. */
+function ytBannerCard_() {
+  var pres = null;
+  try {
+    var pal = ytPalette_(String(CFG.SHOW_NAME || 'x'));
+    /* صفحهٔ بزرگ از راهِ REST ساخته می‌شود، چون SlidesApp اندازهٔ صفحه را
+       نمی‌پذیرد و صفحهٔ پیش‌فرض خروجی‌اش برای بنر کوچک است. */
+    var mk = ytHttp_('https://slides.googleapis.com/v1/presentations', 'post',
+      JSON.stringify({ title: 'بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
+        pageSize: { width: { magnitude: 24384000, unit: 'EMU' },
+                    height: { magnitude: 13716000, unit: 'EMU' } } }));
+    if (mk.code !== 200 || !mk.json || !mk.json.presentationId) {
+      return { why: 'ساختِ اسلایدِ بنر نشد (' + mk.code + ')' };
+    }
+    pres = SlidesApp.openById(mk.json.presentationId);
+    var slide = pres.getSlides()[0];
+    try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
+    catch (eEl) {}
+    var W = pres.getPageWidth(), H = pres.getPageHeight();
+    var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
+    bg.getFill().setSolidFill(pal.bg); bg.getBorder().setTransparent();
+    var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H * 0.86, W, H * 0.04);
+    bar.getFill().setSolidFill(pal.ac); bar.getBorder().setTransparent();
+
+    /* متن در **ناحیهٔ امنِ** وسط می‌نشیند: یوتیوب همین بنر را روی تلویزیون
+       کامل و روی موبایل فقط وسطش را نشان می‌دهد (۱۵۴۶×۴۲۳ در مرکز). هرچه
+       بیرونِ آن باشد روی گوشی دیده نمی‌شود. */
+    var safeW = W * 0.604, safeH = H * 0.294;
+    var x = (W - safeW) / 2, y = (H - safeH) / 2;
+    var put = function (t, top, h, size, color, bold) {
+      var box = slide.insertTextBox(String(t || ''), x, top, safeW, h);
+      box.getText().getTextStyle().setFontSize(size).setForegroundColor(color).setBold(!!bold);
+      try {
+        box.getText().getParagraphStyle()
+           .setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+      } catch (eA) {}
+    };
+    put(String(CFG.SHOW_NAME || ''), y, safeH * 0.34, 40, pal.fg, true);
+    put(String(CFG.TAGLINE || ''), y + safeH * 0.34, safeH * 0.24, 22, pal.ac, false);
+    if (CFG.SPECIAL_ENABLED) {
+      put(String(CFG.SPECIAL_SHOW_NAME || '') + '  ·  ' + String(CFG.SPECIAL_TAGLINE || ''),
+          y + safeH * 0.62, safeH * 0.3, 20, pal.fg, false);
+    }
+    pres.saveAndClose();
+    var blob = ytSlideExport_(mk.json.presentationId, slide.getObjectId(), 'بنرِ کانال.png');
+    if (!blob) return { why: 'خروجیِ PNGِ بنر نشد' };
+    var size = ytPngSize_(blob);
+    if (!size) return { why: 'ابعادِ PNGِ بنر خوانده نشد' };
+    if (size.w < 2048 || size.h < 1152) {
+      // نفرستادن بهتر از فرستادن و ردشدن است — و علتش باید عدد داشته باشد
+      return { why: 'بنر کوچک درآمد: ' + size.w + '×' + size.h +
+                    ' در برابرِ حداقلِ ۲۰۴۸×۱۱۵۲ که یوتیوب می‌خواهد' };
+    }
+    try { DriveApp.getFileById(mk.json.presentationId).moveTo(ytCoverFolder_()); } catch (eM) {}
+    return { blob: blob, size: size };
+  } catch (e) {
+    try { if (pres) pres.saveAndClose(); } catch (eS) {}
+    return { why: 'بنر ساخته نشد: ' + String(e.message).slice(0, 140) };
+  }
+}
+
+/** بنر را می‌نشاند: اول آپلود، بعد نشانی‌اش در شناسنامهٔ کانال. */
+function ytBannerSet_(chId) {
+  var made = ytBannerCard_();
+  if (!made || !made.blob) return made && made.why ? made.why : 'نشد';
+  if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
+  var up = ytHttp_('https://www.googleapis.com/upload/youtube/v3/channelBanners/insert' +
+                   '?uploadType=media', 'post', made.blob.getBytes(), 'image/png');
+  if (up.code !== 200 || !up.json || !up.json.url) {
+    return 'آپلودِ بنر نشد (' + up.code + ')';
+  }
+  if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return 'سهمیه';
+  try {
+    ytSvc_().Channels.update({ id: chId, brandingSettings: {
+      image: { bannerExternalUrl: String(up.json.url) } } }, 'brandingSettings');
+    return 'نشست (' + made.size.w + '×' + made.size.h + ')';
+  } catch (e) { return 'ثبتِ بنر نشد: ' + String(e.message).slice(0, 100); }
+}
+
+/**
+ * واترمارک: **خودِ عکسِ پروفایلِ کانال**، نه یک طرحِ تازه.
+ * عکسِ پروفایل را آدم انتخاب کرده و نشانِ کانال است؛ ساختنِ یک نشانِ دومِ
+ * ماشینی برای گوشهٔ ویدئو یعنی دو هویت برای یک کانال.
+ */
+function ytWatermarkSet_(info) {
+  // عکسِ پروفایل، از بزرگ‌ترین اندازه‌ای که کانال دارد
+  var url = '';
+  try {
+    var th = (((info || {}).snippet || {}).thumbnails) || {};
+    url = String((th.high || th.medium || th['default'] || {}).url || '');
+  } catch (e) { url = ''; }
+  if (!url) return 'عکسِ پروفایل خوانده نشد';
+  var blob = null;
+  try {
+    var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) return 'عکسِ پروفایل گرفته نشد (' + r.getResponseCode() + ')';
+    blob = r.getBlob().setName('watermark.png');
+  } catch (e2) { return 'عکسِ پروفایل گرفته نشد: ' + String(e2.message).slice(0, 80); }
+  if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
+  // نوعِ فایل از خودِ بلاب، و اگر نگفت از پسوندِ نشانی؛ برچسبِ غلط یعنی ردِ
+  // فراخوان، و «image/png» زدن روی یک JPEG دقیقاً همان است.
+  var mime = '';
+  try { mime = String(blob.getContentType && blob.getContentType() || ''); } catch (eM) {}
+  if (!mime) mime = /\.jpe?g(\?|$)/i.test(url) ? 'image/jpeg' : 'image/png';
+  var up = ytHttp_('https://www.googleapis.com/upload/youtube/v3/watermarks/set' +
+                   '?uploadType=media&channelId=' + encodeURIComponent(String(info.id)),
+                   'post', blob.getBytes(), mime);
+  return (up.code === 200 || up.code === 204) ? 'نشست' : 'نشد (' + up.code + ')';
+}
+
+/**
+ * تریلر — **فقط اگر خالی باشد**.
+ * پرکردنِ یک جای خالی کمک است؛ عوض‌کردنِ انتخابِ آدم نیست. کانال ۱۱۷ ویدئوی
+ * دیگر هم دارد و ممکن است صاحبش عمداً چیزی را تریلر کرده باشد.
+ */
+function ytTrailerSet_(info, hub) {
+  var cur = '';
+  try { cur = String(((info.brandingSettings || {}).channel || {}).unsubscribedTrailer || ''); }
+  catch (e) {}
+  if (cur) return 'دست‌نخورده (خودتان انتخاب کرده‌اید)';
+  var pub = ytPublished_(hub), best = null, bestEp = -1;
+  for (var k in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
+    if (!pub[k].videoId) continue;
+    var ep = Number(String(k).split(':')[1]) || 0;
+    if (ep > bestEp) { bestEp = ep; best = pub[k]; }
+  }
+  if (!best) return 'هنوز ویدئویی از ما منتشر نشده';
+  if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return 'سهمیه';
+  try {
+    ytSvc_().Channels.update({ id: info.id, brandingSettings: {
+      channel: { unsubscribedTrailer: best.videoId } } }, 'brandingSettings');
+    return 'گذاشته شد: ' + auditCut_(best.title || best.videoId, 40);
+  } catch (e2) { return 'نشد: ' + String(e2.message).slice(0, 100); }
+}
+
+/**
+ * بخش‌های صفحهٔ خانه — **فقط افزودن**، هرگز حذف و هرگز جابه‌جایی.
+ * این کانال ۱۱۷ ویدئوی دیگر دارد و چیدمانِ خانه‌اش مالِ صاحبش است. یک
+ * همگام‌سازیِ شبانه که بخشی را بردارد، کارِ آدم را خراب کرده — و آن را
+ * نمی‌شود «فردا بهتر» کرد.
+ */
+function ytSectionsSync_(chId) {
+  var yt = ytSvc_(); if (!yt) return { added: 0, why: 'سرویس نیست' };
+  var out = { added: 0, have: 0, why: '' };
+  var have = [], list = null;
+  if (!ytQuotaTake_(YT_COST.itemsList, false)) { out.why = 'سهمیه'; return out; }
+  try { list = yt.ChannelSections.list('id,snippet,contentDetails', { mine: true }); }
+  catch (e) { out.why = 'بخش‌ها خوانده نشدند: ' + String(e.message).slice(0, 90); return out; }
+  var items = (list && list.items) || [];
+  out.have = items.length;
+  for (var i = 0; i < items.length; i++) {
+    var cd = items[i].contentDetails || {};
+    for (var p = 0; p < (cd.playlists || []).length; p++) have.push(String(cd.playlists[p]));
+  }
+  // سقفِ خودِ یوتیوب دوازده بخش است؛ زیرش می‌مانیم تا جا برای صاحبِ کانال بماند
+  var room = Math.max(0, 10 - items.length);
+  if (!room) { out.why = 'جای خالی در صفحهٔ خانه نمانده'; return out; }
+
+  var map = ytPlMap_(), want = [];
+  for (var k in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+    var id = String((map[k] || {}).id || '');
+    if (!id || have.indexOf(id) !== -1) continue;
+    want.push({ id: id, title: String(map[k].title || '') });
+  }
+  for (var w = 0; w < want.length && out.added < room; w++) {
+    if (!ytQuotaTake_(YT_COST.playlistsInsert, false)) break;
+    try {
+      yt.ChannelSections.insert({
+        snippet: { type: 'singlePlaylist', style: 'horizontalRow',
+                   position: items.length + out.added,
+                   title: auditCut_(want[w].title, 90) },
+        contentDetails: { playlists: [want[w].id] }
+      }, 'snippet,contentDetails');
+      out.added++;
+    } catch (e2) { out.why = String(e2.message).slice(0, 100); break; }
+  }
   return out;
 }
 
@@ -30500,4 +30759,187 @@ function runYouTubeRedo() {
     '\n\nویدئو دوباره آپلود نشد، پس بازدید و لینکش دست‌نخورده است.',
     ui.ButtonSet.OK);
   return out;
+}
+
+/* ─────────────── ۱۷) گرداننده و سیاههٔ شناسنامهٔ کانال ─────────────── */
+
+var YTC_HEADERS = ['تاریخ', 'قلم', 'کارِ کیست', 'وضع', 'اقدامِ این اجرا', 'شرح'];
+
+function ytChannelLog_(hub, rows) {
+  if (!rows || !rows.length) return false;
+  try {
+    var sh = ensureTab_(hub || getHub_(), CFG.YTC_TAB || 'شناسنامهٔ کانال یوتیوب', YTC_HEADERS);
+    var block = [];
+    for (var i = 0; i < rows.length; i++) {
+      block.push([nowStr_(), String(rows[i].label || ''), String(rows[i].by || ''),
+                  rows[i].ok === null ? '—' : (rows[i].ok ? 'پر' : 'خالی'),
+                  String(rows[i].did || ''), String(rows[i].note || '')]);
+    }
+    appendBlock_(sh, block, YTC_HEADERS.length);
+    return true;
+  } catch (e) { logLine_('سیاههٔ شناسنامهٔ کانال نوشته نشد: ' + e.message); return false; }
+}
+
+/**
+ * یک دورِ کاملِ شناسنامه: می‌خواند، آنچه کارِ خودش است را انجام می‌دهد،
+ * و همه‌چیز را ثبت می‌کند.
+ *
+ * `force` از دکمهٔ منو می‌آید و اثرانگشت را نادیده می‌گیرد. بی آن، شبی که
+ * هیچ‌چیز عوض نشده هیچ فراخوانی نمی‌رود — سهمیه‌ای که بی‌دلیل خرج شود،
+ * آپلودِ فردا را می‌خواباند.
+ */
+function ytChannelSync_(force) {
+  var out = { ok: false, ran: false, did: [], todo: [], why: '', rows: [] };
+  if (!ytOn_() || CFG.YT_CHANNEL === false) { out.why = ytOffWhy_() || 'خاموش'; return out; }
+  var hub = getHub_();
+  var info = ytChannelInfo_();
+  if (!info) { out.why = 'کانال خوانده نشد'; return out; }
+  out.channelId = String(info.id || '');
+  out.title = String((info.snippet || {}).title || '');
+
+  var rows = ytChannelCheck_(info);
+  var byKey = Object.create(null);
+  for (var r = 0; r < rows.length; r++) byKey[rows[r].key] = rows[r];
+
+  var desc = ytScrub_(ytChannelDesc_()).slice(0, 990);
+  var kw = ytChannelKeywords_();
+  var sig = [desc, kw, String(((info.brandingSettings || {}).image || {}).bannerExternalUrl || ''),
+             String(((info.brandingSettings || {}).channel || {}).unsubscribedTrailer || '')].join('|');
+  var was = '';
+  try { was = String(props_().getProperty('YT_CHANNEL_SIG') || ''); } catch (e) {}
+  var stale = ytChannelStale_();
+  if (sig === was && !force && !stale) {
+    out.ok = true; out.why = 'تازه است';
+    out.rows = rows;
+    return out;
+  }
+  out.ran = true;
+
+  // ── ۱) توضیح و کلیدواژه ──
+  var curDesc = String(((info.brandingSettings || {}).channel || {}).description || '');
+  if (curDesc !== desc && ytQuotaTake_(YT_COST.playlistsUpdate, false)) {
+    try {
+      ytSvc_().Channels.update({ id: info.id, brandingSettings: {
+        channel: { description: desc, keywords: kw,
+                   defaultLanguage: CFG.YT_LANG || 'fa' } } }, 'brandingSettings');
+      byKey.description.did = curDesc ? 'به‌روز شد' : 'پر شد';
+      byKey.keywords.did = 'به‌روز شد';
+      out.did.push('توضیح و کلیدواژه');
+    } catch (e2) { byKey.description.did = 'نشد: ' + String(e2.message).slice(0, 90); }
+  } else { byKey.description.did = 'دست‌نخورده'; }
+
+  // ── ۲) بنر — فقط وقتی نیست ──
+  if (!byKey.banner.ok) {
+    var b = ytBannerSet_(info.id);
+    byKey.banner.did = b;
+    if (String(b).indexOf('نشست') === 0) out.did.push('بنر');
+  } else { byKey.banner.did = 'دارد'; }
+
+  // ── ۳) واترمارک ──
+  if (CFG.YT_WATERMARK !== false) {
+    var wm = ytWatermarkSet_(info);
+    byKey.watermark.did = wm;
+    if (wm === 'نشست') out.did.push('واترمارک');
+  } else { byKey.watermark.did = 'خاموش'; }
+
+  // ── ۴) تریلر — فقط اگر خالی باشد ──
+  var tr = ytTrailerSet_(info, hub);
+  byKey.trailer.did = tr;
+  if (String(tr).indexOf('گذاشته شد') === 0) out.did.push('تریلر');
+
+  // ── ۵) بخش‌های صفحهٔ خانه ──
+  var sec = ytSectionsSync_(info.id);
+  byKey.sections.did = sec.added ? (sec.added + ' بخش افزوده شد')
+                                 : (sec.why || 'چیزی برای افزودن نبود');
+  byKey.sections.note = 'الان ' + faDigitsOut_(String(sec.have || 0)) + ' بخش دارد';
+  if (sec.added) out.did.push(sec.added + ' بخشِ صفحهٔ خانه');
+
+  // ── ۶) آنچه فقط دستِ آدم است ──
+  for (var t = 0; t < rows.length; t++) {
+    if (rows[t].by !== 'آدم') continue;
+    if (rows[t].ok === false || rows[t].ok === null) {
+      rows[t].did = 'کارِ شما';
+      if (rows[t].key !== 'title') out.todo.push(rows[t].label);
+    } else { rows[t].did = 'دارد'; }
+  }
+
+  ytChannelLog_(hub, rows);
+  try {
+    props_().setProperty('YT_CHANNEL_SIG', sig);
+    props_().setProperty('YT_CHANNEL_AT', nowStr_());
+  } catch (e3) {}
+  out.rows = rows; out.ok = true;
+  logLine_('شناسنامهٔ کانال: ' + (out.did.length ? out.did.join('، ') : 'چیزی عوض نشد') +
+           (out.todo.length ? ' · کارِ شما: ' + out.todo.join('، ') : '') + '.');
+  return out;
+}
+
+/** هر چند روز یک بار، حتی اگر هیچ‌چیز عوض نشده باشد — چون یوتیوب هم عوض می‌شود. */
+function ytChannelStale_() {
+  var at = '';
+  try { at = String(props_().getProperty('YT_CHANNEL_AT') || ''); } catch (e) {}
+  if (!at) return true;
+  var t = parseWhen_(at);
+  if (isNaN(t)) return true;
+  var days = (new Date().getTime() - t) / 86400000;
+  return days >= Math.max(1, Number(CFG.YT_CHANNEL_EVERY_DAYS) || 7);
+}
+
+/** آخرین وضعِ شناسنامه، برای وضعیت و ناظر — از تب، با یک خواندن. */
+function ytChannelState_() {
+  var out = { at: '', filled: 0, empty: 0, todo: [], line: '' };
+  try {
+    var sh = getHub_().getSheetByName(CFG.YTC_TAB || 'شناسنامهٔ کانال یوتیوب');
+    if (!sh || sh.getLastRow() < 2) { out.line = 'شناسنامهٔ کانال: هنوز وارسی نشده.'; return out; }
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YTC_HEADERS.length).getValues();
+    var last = Object.create(null);
+    for (var i = 0; i < v.length; i++) last[String(v[i][1])] = v[i];   // آخرین ردیفِ هر قلم
+    for (var k in last) {
+      if (!Object.prototype.hasOwnProperty.call(last, k)) continue;
+      var row = last[k];
+      out.at = String(row[0]);
+      if (String(row[3]) === 'پر') out.filled++;
+      else if (String(row[3]) === 'خالی') {
+        out.empty++;
+        if (String(row[2]) === 'آدم') out.todo.push(k);
+      }
+    }
+  } catch (e) {}
+  out.line = 'شناسنامهٔ کانال: پرشده ' + faDigitsOut_(String(out.filled)) +
+             (out.empty ? ' · خالی ' + faDigitsOut_(String(out.empty)) : '') +
+             (out.todo.length ? ' · کارِ شما: ' + out.todo.join('، ') : ' · چیزی از شما نمی‌خواهد') + '.';
+  return out;
+}
+
+/** نوبتِ یادآوریِ کارهای دستی رسیده؟ */
+function ytTodoDue_() {
+  var at = '';
+  try { at = String(props_().getProperty('YT_TODO_AT') || ''); } catch (e) {}
+  if (!at) return true;
+  var t = parseWhen_(at);
+  if (isNaN(t)) return true;
+  return (new Date().getTime() - t) / 86400000 >= Math.max(1, Number(CFG.YT_TODO_EVERY_DAYS) || 7);
+}
+
+/** منو: شناسنامهٔ کانال را همین حالا وارسی و تکمیل کن. */
+function runYouTubeChannel() {
+  var ui = ui_();
+  var r = ytChannelSync_(true);
+  var L = ['شناسنامهٔ کانالِ یوتیوب:'];
+  if (r.title) L.push('کانال: «' + r.title + '»');
+  L.push('');
+  for (var i = 0; i < (r.rows || []).length; i++) {
+    var x = r.rows[i];
+    L.push((x.ok === true ? '✅ ' : (x.ok === false ? '⬜ ' : '• ')) + x.label +
+           ' — ' + (x.did || '') + (x.note ? ' (' + x.note + ')' : ''));
+  }
+  if (r.todo && r.todo.length) {
+    L.push('');
+    L.push('این‌ها از راهِ API شدنی نیستند و فقط از studio.youtube.com انجام می‌شوند:');
+    for (var t = 0; t < r.todo.length; t++) L.push('   • ' + r.todo[t]);
+  }
+  if (r.why) { L.push(''); L.push(r.why); }
+  var m = L.join('\n');
+  if (ui) ui.alert('شناسنامهٔ کانال', m, ui.ButtonSet.OK); else console.log(m);
+  return r;
 }

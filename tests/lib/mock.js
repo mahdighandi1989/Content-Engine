@@ -23,6 +23,10 @@ global.Utilities = {
       setName(n) { this._name = n; return this; },
       getBytes() { return Array.from(this._data); },
       getDataAsString() { return this._data.toString('utf8'); },
+      // Blobِ واقعیِ Apps Script این را دارد؛ نبودنش در ماک یعنی کدی که
+      // درست از آن استفاده می‌کند، در آزمون می‌شکند و در واقعیت نه.
+      getContentType() { return this._mime; },
+      setContentType(m) { this._mime = m; return this; },
       copyBlob() { return global.Utilities.newBlob(Array.from(this._data), this._mime, this._name); }
     };
   },

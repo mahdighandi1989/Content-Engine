@@ -336,8 +336,11 @@ var CFG = {
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
-  YT_CHANNEL: true,                     // نگه‌داشتنِ توضیح و بنرِ کانال
-  YT_BANNER_EVERY_DAYS: 30,             // بنر هر ماه یک بار تازه می‌شود، نه هر شب
+  YT_CHANNEL: true,                     // نگه‌داشتنِ شناسنامهٔ کانال
+  YTC_TAB: 'شناسنامهٔ کانال یوتیوب',
+  YT_WATERMARK: true,                   // واترمارک = خودِ عکسِ پروفایلِ کانال
+  YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
+  YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
@@ -725,7 +728,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '5.98',
+  CODE_VERSION: '5.99',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

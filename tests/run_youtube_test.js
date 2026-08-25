@@ -20,6 +20,12 @@ global.__PROPS['GEMINI_API_KEY'] = 'TEST';
    ذخیره می‌شود، آیا اجرای دوم دوباره نمی‌پرسد، آیا ویرایشِ دستی خوانده می‌شود. */
 let __askCount = 0;
 global.__STUB = function (url, body) {
+  if (url.indexOf('yt3.example') !== -1) return { code: 200, text: 'PNGDATA' };
+  // فقط سرِ راهِ خودِ یوتیوب، نه هر چیزی که googleapis دارد — وگرنه فراخوانِ
+  // مدل هم همین‌جا بلعیده می‌شود (که یک بار شد).
+  if (url.indexOf('youtube/v3') !== -1 || url.indexOf('slides.googleapis') !== -1) {
+    return { code: 200, json: { url: 'https://banner', presentationId: 'PRES1' } };
+  }
   if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
     { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] }] } };
   __askCount++;
@@ -456,6 +462,177 @@ console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کان
   ok('۱۹.۵ و توضیحِ کانال هیچ نشتیِ خصوصی ندارد',
      ytLeaks_(ytChannelDesc_()).length === 0);
   ok('۱۹.۶ کارِ شبانه شناسنامهٔ کانال را هم نگه می‌دارد',
+     fs.readFileSync('src/21_SelfUpdate.gs', 'utf8').indexOf('ytChannelSync_(') !== -1);
+}
+
+console.log('=== ۲۰) شناسنامهٔ کانال: مرزِ «می‌شود» و «نمی‌شود» (۵٫۹۹) ===');
+{
+  /* صفحهٔ Channel customization هفت‌هشت جای پرکردنی دارد و همه‌شان یک‌جور
+     نیستند. اگر این مرز در کد نباشد، ناظر هر روز چیزی را «انجام‌نشده»
+     گزارش می‌کند که اصلاً از این راه شدنی نیست. */
+  const info = { id: 'UCxx', snippet: { title: 'رد پای حقیقت',
+                   thumbnails: { high: { url: 'https://yt3.example/pic.png' } } },
+                 brandingSettings: { channel: { description: '', keywords: '' },
+                                     image: {} } };
+  const rows = ytChannelCheck_(info);
+  const by = {}; rows.forEach(r => by[r.key] = r);
+  ok('۲۰.۱ توضیح کارِ موتور است', by.description.by === 'موتور');
+  ok('۲۰.۲ بنر هم', by.banner.by === 'موتور');
+  ok('۲۰.۳ واترمارک و تریلر و بخش‌ها هم',
+     by.watermark.by === 'موتور' && by.trailer.by === 'موتور' && by.sections.by === 'موتور');
+  ok('۲۰.۴ ولی عکسِ پروفایل کارِ آدم است', by.picture.by === 'آدم', by.picture.note);
+  ok('۲۰.۵ و لینک‌ها و ایمیلِ تماس هم',
+     by.links.by === 'آدم' && by.email.by === 'آدم');
+  ok('۲۰.۶ و صریح می‌گوید چرا، نه اینکه فقط نکند',
+     by.links.note.indexOf('API') !== -1, by.links.note);
+  ok('۲۰.۷ خالی‌بودنِ توضیح تشخیص داده می‌شود', by.description.ok === false);
+  ok('۲۰.۸ و پرشدنِ عکسِ پروفایل هم', by.picture.ok === true);
+
+  const info2 = JSON.parse(JSON.stringify(info));
+  info2.brandingSettings.channel.description = 'یک توضیح';
+  info2.brandingSettings.image.bannerExternalUrl = 'https://yt3.example/banner';
+  const rows2 = ytChannelCheck_(info2);
+  const by2 = {}; rows2.forEach(r => by2[r.key] = r);
+  ok('۲۰.۹ توضیحِ پرشده «پر» شمرده می‌شود', by2.description.ok === true);
+  ok('۲۰.۱۰ بنرِ موجود هم', by2.banner.ok === true);
+}
+
+console.log('=== ۲۱) بنر: اندازه‌اش سنجیده می‌شود، حدس زده نمی‌شود ===');
+{
+  /* یوتیوب بنرِ کوچک‌تر از ۲۰۴۸×۱۱۵۲ را رد می‌کند. خروجیِ PNGِ اسلاید
+     اندازه‌اش را از پیش اعلام نمی‌کند، پس از سرآیندِ خودِ فایل خوانده
+     می‌شود — دوازده بایت، جوابِ قطعی. */
+  const mk = (w, h) => {
+    const b = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13,
+               0x49, 0x48, 0x44, 0x52,
+               (w >>> 24) & 255, (w >>> 16) & 255, (w >>> 8) & 255, w & 255,
+               (h >>> 24) & 255, (h >>> 16) & 255, (h >>> 8) & 255, h & 255];
+    // بایت‌ها در Apps Script علامت‌دارند؛ ماک هم همان را شبیه‌سازی می‌کند
+    return { getBytes: () => b.map(x => (x > 127 ? x - 256 : x)) };
+  };
+  const a = ytPngSize_(mk(2560, 1440));
+  ok('۲۱.۱ ابعاد از سرآیندِ PNG خوانده می‌شود',
+     a && a.w === 2560 && a.h === 1440, JSON.stringify(a));
+  const b = ytPngSize_(mk(1600, 900));
+  ok('۲۱.۲ و اندازهٔ کوچک هم درست خوانده می‌شود', b.w === 1600 && b.h === 900);
+  ok('۲۱.۳ بایتِ علامت‌دار درست باز می‌شود (۲۰۴۸ = 0x0800)',
+     ytPngSize_(mk(2048, 1152)).w === 2048);
+  ok('۲۱.۴ فایلِ ناقص چیزی برنمی‌گرداند',
+     ytPngSize_({ getBytes: () => [1, 2, 3] }) === null);
+  /* و کد واقعاً بر پایهٔ همین تصمیم می‌گیرد — تحلیلی که به گیت وصل نشود،
+     همان الگویی است که این ریپو پنج بار از آن ضربه خورده. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۲۱.۵ و بنرِ کوچک اصلاً فرستاده نمی‌شود',
+     src27.indexOf('size.w < 2048 || size.h < 1152') !== -1);
+  ok('۲۱.۶ با عددِ واقعی در پیام، نه یک «نشد»',
+     src27.indexOf("size.w + '×' + size.h") !== -1);
+}
+
+console.log('=== ۲۲) چیدمانِ خانه: فقط افزودن، هرگز حذف ===');
+{
+  /* این کانال ۱۱۷ ویدئوی دیگر دارد و چیدمانِ خانه‌اش مالِ صاحبش است.
+     همگام‌سازیِ شبانه‌ای که بخشی را بردارد، کارِ آدم را خراب کرده. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const body = src27.slice(src27.indexOf('function ytSectionsSync_'),
+                           src27.indexOf('function ytChannelLog_'));
+  ok('۲۲.۱ هیچ‌جا بخشی حذف نمی‌شود', body.indexOf('ChannelSections.delete') === -1);
+  ok('۲۲.۲ و هیچ بخشی جابه‌جا نمی‌شود', body.indexOf('ChannelSections.update') === -1);
+  ok('۲۲.۳ بخشِ تازه بعد از بخش‌های موجود می‌نشیند',
+     body.indexOf('position: items.length + out.added') !== -1);
+  ok('۲۲.۴ و جا برای صاحبِ کانال می‌ماند (زیرِ سقفِ دوازده‌تاییِ یوتیوب)',
+     body.indexOf('10 - items.length') !== -1);
+  ok('۲۲.۵ پلی‌لیستی که قبلاً بخشی دارد، دوباره افزوده نمی‌شود',
+     body.indexOf('have.indexOf(id) !== -1') !== -1);
+}
+
+console.log('=== ۲۳) تریلر و واترمارک: انتخابِ آدم دست نمی‌خورد ===');
+{
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const tr = src27.slice(src27.indexOf('function ytTrailerSet_'),
+                         src27.indexOf('function ytSectionsSync_'));
+  ok('۲۳.۱ تریلر فقط وقتی گذاشته می‌شود که خالی باشد',
+     tr.indexOf("if (cur) return 'دست‌نخورده") !== -1);
+  ok('۲۳.۲ و تازه‌ترین قسمتِ خودمان انتخاب می‌شود، نه ویدئوی دیگری از کانال',
+     tr.indexOf('ytPublished_(hub)') !== -1);
+  const wm = src27.slice(src27.indexOf('function ytWatermarkSet_'),
+                         src27.indexOf('function ytTrailerSet_'));
+  /* رفتاری سنجیده می‌شود، نه متنِ کد: تابع را می‌دوانیم و می‌بینیم واقعاً
+     چه چیزی را گرفت و کجا فرستاد. */
+  global.YouTube = { Videos: {}, Thumbnails: {}, Channels: {}, Playlists: {},
+                     PlaylistItems: {}, ChannelSections: {} };
+  const fetchWas = global.__FETCHES.length;
+  const r23 = ytWatermarkSet_({ id: 'UCxx', snippet: { thumbnails: {
+    high: { url: 'https://yt3.example/AVATAR.png' } } } });
+  const urls = global.__FETCHES.slice(fetchWas).map(f => f.url);
+  ok('۲۳.۳ واترمارک خودِ عکسِ پروفایلِ کانال است، نه طرحی تازه',
+     urls.some(u => u.indexOf('AVATAR.png') !== -1), urls.join(' | ').slice(0, 90));
+  ok('۲۳.۴ و به watermarks/set فرستاده می‌شود',
+     urls.some(u => u.indexOf('watermarks/set') !== -1), String(r23));
+  const r23b = ytWatermarkSet_({ id: 'UCxx', snippet: { thumbnails: {
+    medium: { url: 'https://yt3.example/SMALL.png' } } } });
+  ok('۲۳.۵ اگر عکسِ بزرگ نبود، کوچک‌تر برداشته می‌شود',
+     global.__FETCHES.some(f => f.url.indexOf('SMALL.png') !== -1), String(r23b));
+  ok('۲۳.۶ و بی عکسِ پروفایل، صریح می‌گوید چرا',
+     ytWatermarkSet_({ id: 'UCxx', snippet: {} }).indexOf('خوانده نشد') !== -1);
+  delete global.YouTube;
+}
+
+console.log('=== ۲۴) یادآوریِ کارهای دستی: هفتگی، نه هر روز ===');
+{
+  /* «هشداری که هر روز برای چیزی که تغییر نمی‌کند فیره کند، همان هشداری
+     است که آدم یاد می‌گیرد نبیند.» */
+  delete global.__PROPS['YT_TODO_AT'];
+  ok('۲۴.۱ بارِ اول یادآوری می‌شود', ytTodoDue_() === true);
+  global.__PROPS['YT_TODO_AT'] = nowStr_();
+  ok('۲۴.۲ ولی فردایش نه', ytTodoDue_() === false);
+  const old = new Date(Date.now() - 9 * 86400000);
+  global.__PROPS['YT_TODO_AT'] = Utilities.formatDate(old, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  ok('۲۴.۳ و بعد از یک هفته دوباره', ytTodoDue_() === true);
+  delete global.__PROPS['YT_TODO_AT'];
+
+  /* وارسیِ کامل هم دوره‌ای است: یوتیوب خودش هم عوض می‌شود، پس «چیزی از
+     سمتِ ما عوض نشده» دلیلِ ندیدن نیست. */
+  delete global.__PROPS['YT_CHANNEL_AT'];
+  ok('۲۴.۴ وارسیِ کامل بارِ اول انجام می‌شود', ytChannelStale_() === true);
+  global.__PROPS['YT_CHANNEL_AT'] = nowStr_();
+  ok('۲۴.۵ و بعدش تا یک هفته نه', ytChannelStale_() === false);
+  delete global.__PROPS['YT_CHANNEL_AT'];
+}
+
+console.log('=== ۲۵) سیاهه و دیده‌شدن ===');
+{
+  const hub = new Spread('هاب-کانال');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  ytChannelLog_(hub, [
+    { label: 'توضیحِ کانال', by: 'موتور', ok: true, did: 'پر شد', note: '' },
+    { label: 'عکسِ پروفایل', by: 'آدم', ok: false, did: 'کارِ شما', note: 'از راهِ API شدنی نیست' },
+    { label: 'لینک‌های کانال', by: 'آدم', ok: false, did: 'کارِ شما', note: '' }
+  ]);
+  const st = ytChannelState_();
+  ok('۲۵.۱ پرشده‌ها شمرده می‌شوند', st.filled === 1, String(st.filled));
+  ok('۲۵.۲ خالی‌ها هم', st.empty === 2, String(st.empty));
+  ok('۲۵.۳ و «کارِ شما» جدا می‌شود',
+     st.todo.length === 2 && st.todo.indexOf('عکسِ پروفایل') !== -1, st.todo.join('، '));
+  ok('۲۵.۴ خطِ فارسیِ آماده ساخته می‌شود',
+     st.line.indexOf('شناسنامهٔ کانال') === 0, st.line);
+  ok('۲۵.۵ و با رقم شروع نمی‌شود (متنِ راست‌به‌چپ)', !/^[۰-۹0-9]/.test(st.line));
+
+  /* هر قلم فقط **آخرین** وضعش شمرده می‌شود، نه همهٔ تاریخچه‌اش — وگرنه
+     چیزی که دیروز پر شد، امروز هم «خالی» شمرده می‌شود. */
+  ytChannelLog_(hub, [{ label: 'عکسِ پروفایل', by: 'آدم', ok: true, did: 'دارد', note: '' }]);
+  const st2 = ytChannelState_();
+  ok('۲۵.۶ آخرین وضع برنده است، نه تاریخچه',
+     st2.filled === 2 && st2.empty === 1, JSON.stringify({ f: st2.filled, e: st2.empty }));
+
+  const src = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۲۵.۷ در _STATUS.json می‌نشیند', src.indexOf('out.channel = ytChannelState_()') !== -1);
+  ok('۲۵.۸ و در سلامتِ روزانه',
+     src.indexOf('notes.push(st.channel.line)') !== -1);
+  ok('۲۵.۹ گزینهٔ منو هست و تابعش وجود دارد',
+     fs.readFileSync('src/05_Setup.gs', 'utf8').indexOf("'runYouTubeChannel'") !== -1 &&
+     typeof runYouTubeChannel === 'function');
+  ok('۲۵.۱۰ و کارِ شبانه صدایش می‌زند',
      fs.readFileSync('src/21_SelfUpdate.gs', 'utf8').indexOf('ytChannelSync_(') !== -1);
 }
 
