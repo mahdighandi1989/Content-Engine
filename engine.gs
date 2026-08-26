@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.14
+ *  موتور محتوا و پادکست — نسخهٔ 6.15
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -853,7 +853,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.14',
+  CODE_VERSION: '6.15',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3292,6 +3292,9 @@ function buildChunks_(ep, cat, epNum) {
       var cast = ensureCast_(ep, ENRICH_SHOW_VARIETY, epNum, cat);
       assignSegmentVoices_(segs, cast, cat);
       ep.__cast.note = castNote_(cast, segs);
+      /* سهمِ زمانیِ هر گوینده همین‌جا ثبت می‌شود: `segs` بعد از
+         صداگذاری از بین می‌رود و یوتیوب فردا فقط پروندهٔ قسمت را دارد. */
+      try { castSpansRecord_(ep, segs); } catch (eSp) {}
       logLine_('نقش‌گزینیِ قسمت: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ گویندگان انجام نشد: ' + eC.message); }
   }
@@ -5863,6 +5866,9 @@ function renderAudioStep_() {
       audioLinks.push({ name: st.files[f].name, url: st.files[f].url });
     }
     var dur = mmss_(secondsOf_(totalBytes));
+    /* مدت به‌ثانیه روی خودِ قسمت می‌نشیند: بازهٔ زمانیِ گویندگان بی آن حساب
+       نمی‌شود، و این تنها جایی است که مدت واقعاً معلوم است. */
+    try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {
@@ -14353,6 +14359,9 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       var cast = ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, catHint || '');
       assignSegmentVoices_(segs, cast, catHint || '');
       ep.__cast.note = castNote_(cast, segs);
+      /* سهمِ زمانیِ هر گوینده همین‌جا ثبت می‌شود: `segs` بعد از
+         صداگذاری از بین می‌رود و یوتیوب فردا فقط پروندهٔ قسمت را دارد. */
+      try { castSpansRecord_(ep, segs); } catch (eSp) {}
       logLine_('نقش‌گزینیِ درس‌نامه: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eC.message); }
   }
@@ -14677,6 +14686,8 @@ function renderSpecialAudioStep_() {
       audioLinks.push({ name: st.files[f].name, url: st.files[f].url });
     }
     var dur = mmss_(secondsOf_(totalBytes));
+    // قرینهٔ همان خط در برنامهٔ ترکیبی — بی این، درس‌نامه بازهٔ گوینده نمی‌گیرد
+    try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }
@@ -18730,6 +18741,19 @@ function extSourcesHtml_(ep) {
   if (ep && ep.__cast && ep.__cast.note) {
     h.push('<p style="color:#555">' + esc_(ep.__cast.note) + '</p>');
   }
+  /* و بازهٔ زمانیِ هر گوینده، اگر مدتِ قسمت معلوم باشد. همان چیزی که در
+     کپشنِ یوتیوب می‌رود — یک خواسته، یک محاسبه، هر جا که لازم است. */
+  try {
+    var tl = castTimeline_(((ep || {}).__cast || {}).spans || [],
+                           Number((ep || {}).__durationSec) || 0,
+                           Number(CFG.MUSIC_INTRO_SEC) || 0);
+    var cLines = castLines_(tl);
+    if (cLines.length) {
+      h.push('<ul style="color:#555;font-size:13px">');
+      for (var cv = 0; cv < cLines.length; cv++) h.push('<li>' + esc_(cLines[cv]) + '</li>');
+      h.push('</ul>');
+    }
+  } catch (eCl) {}
   if (list.length) {
     h.push('<table><tr><th>بخش</th><th>نوع</th><th>منبع</th><th>ناشر</th>' +
            '<th>تاریخ</th><th>نقلِ مستقیم</th></tr>');
@@ -19485,6 +19509,112 @@ function styleForRegister_(reg) {
   if (has('اجتماعی')) L.push('لحن دوستانه و نزدیک، مثل گفت‌وگوی رو در رو.');
   if (!L.length) L.push('لحن رسا و متعادل.');
   return L.join(' ');
+}
+
+/* ══════════ سهمِ زمانیِ هر گوینده — «کدام صدا چقدر حرف زد» (۶٫۱۵) ══════════
+ *
+ * خواستهٔ صریح: «اسمِ گویندهٔ آن قسمت و بازهٔ زمانی‌ای که صحبت کرده را بنویسد،
+ * تا بعداً بتوانم قابلیتِ هر کدام را بهتر بسنجم.»
+ *
+ * ══ چرا اندازه‌گیری نمی‌شود و تخمین زده می‌شود ══
+ * زمانِ *واقعیِ* شروع و پایانِ هر گوینده فقط در حلقهٔ صداگذاری معلوم است، و
+ * آن حلقه تنها جایی از این ریپوست که بی‌دلیل نباید دست بخورد (از شش‌دقیقه
+ * می‌گذرد، از سر گرفته می‌شود، و هر تغییرش می‌تواند قسمت را نصفه بگذارد).
+ * فصل‌های یوتیوب از ۵٫۹۷ با همین تخمین ساخته می‌شوند — سهمِ نویسه‌ها، مقیاس‌شده
+ * به مدتِ اندازه‌گیری‌شدهٔ فایل. سهمِ گویندگان **از همان مدل** می‌آید تا این دو
+ * با هم بخوانند؛ دو تخمینِ متفاوت در یک کپشن، بدتر از یک تخمین است.
+ *
+ * ══ و چرا در پروندهٔ قسمت ذخیره می‌شود ══
+ * صدای هر بخش در `segs` تعیین می‌شود و `segs` بعد از صداگذاری از بین می‌رود؛
+ * یوتیوب فردا فقط `_episode.json` را دارد. پس همان‌جا که نقش‌گزینی انجام
+ * می‌شود، سهمِ نویسه‌ها هم ثبت می‌شود — یک آرایهٔ کوچک، نه کلِ متن.
+ */
+function castSpansRecord_(ep, segs) {
+  if (!ep || !segs || !segs.length) return;
+  var spans = [];
+  for (var i = 0; i < segs.length; i++) {
+    var v = String(segs[i].voice || '');
+    var t = String(segs[i].text || segs[i].narration || '');
+    var n = t.length;
+    if (!n) continue;
+    if (spans.length && spans[spans.length - 1].voice === v) {
+      spans[spans.length - 1].chars += n;       // بازهٔ پیوسته، نه دو بازهٔ چسبیده
+    } else {
+      spans.push({ voice: v, chars: n });
+    }
+  }
+  if (!ep.__cast) ep.__cast = {};
+  ep.__cast.spans = spans;
+}
+
+/** ثانیه → «۰۳:۱۲» با رقمِ فارسی. */
+function castClock_(sec) {
+  var s = Math.max(0, Math.round(Number(sec) || 0));
+  var m = Math.floor(s / 60), r = s % 60;
+  if (m >= 60) {
+    var h = Math.floor(m / 60);
+    return faDigitsOut_(String(h) + ':' + ('0' + (m % 60)).slice(-2) +
+                        ':' + ('0' + r).slice(-2));
+  }
+  return faDigitsOut_(('0' + m).slice(-2) + ':' + ('0' + r).slice(-2));
+}
+
+/**
+ * بازه‌های زمانیِ هر گوینده، مقیاس‌شده به مدتِ واقعیِ فایل.
+ *
+ * `introSec` همان مقدارِ فصل‌هاست: آنچه پیش از اولین کلمهٔ گفتار می‌آید
+ * (موسیقیِ آغاز). بی آن، همهٔ بازه‌ها به اندازهٔ همان موسیقی جلو می‌افتند.
+ */
+function castTimeline_(spans, totalSec, introSec) {
+  var out = [];
+  var sp = spans || [], total = Number(totalSec) || 0;
+  if (!sp.length || total < 30) return out;
+  var sum = 0;
+  for (var i = 0; i < sp.length; i++) sum += Number(sp[i].chars) || 0;
+  if (!sum) return out;
+
+  var lead = Math.max(0, Number(introSec) || 0);
+  var body = Math.max(1, total - lead);
+  var acc = lead, by = Object.create(null), order = [];
+  for (var j = 0; j < sp.length; j++) {
+    var v = String(sp[j].voice || '') || 'گویندهٔ اصلی';
+    var dur = ((Number(sp[j].chars) || 0) / sum) * body;
+    var from = acc, to = acc + dur;
+    acc = to;
+    if (dur < 5) continue;              // بازهٔ زیرِ پنج ثانیه، خواندنش سخت‌تر از سودش است
+    if (!Object.prototype.hasOwnProperty.call(by, v)) {
+      by[v] = { voice: v, ranges: [], sec: 0 }; order.push(v);
+    }
+    by[v].ranges.push([Math.round(from), Math.round(to)]);
+    by[v].sec += dur;
+  }
+  for (var k = 0; k < order.length; k++) {
+    var rec = by[order[k]];
+    rec.sec = Math.round(rec.sec);
+    rec.pct = Math.round((rec.sec / total) * 100);
+    out.push(rec);
+  }
+  return out;
+}
+
+/**
+ * خطهای فارسیِ آمادهٔ نمایش.
+ *
+ * هر خط با واژه شروع می‌شود نه با رقم: در متنِ راست‌به‌چپ، رقمی که اولِ خط
+ * بیاید به انتهای خط پرتاب می‌شود — درسی که این ریپو بارها گرفته.
+ */
+function castLines_(timeline) {
+  var L = [];
+  for (var i = 0; i < (timeline || []).length; i++) {
+    var t = timeline[i], parts = [];
+    for (var j = 0; j < t.ranges.length && j < 6; j++) {
+      parts.push(castClock_(t.ranges[j][0]) + '–' + castClock_(t.ranges[j][1]));
+    }
+    if (t.ranges.length > 6) parts.push('…');
+    L.push('گویندهٔ ' + t.voice + ' — ' + parts.join(' · ') +
+           ' (مجموعاً ' + castClock_(t.sec) + '، ' + faDigitsOut_(String(t.pct)) + '٪)');
+  }
+  return L;
 }
 
 /** خلاصهٔ نقش‌گزینی برای پیوست و ایمیل. */
@@ -29378,6 +29508,16 @@ function ytDescBuild_(meta, ctx, chapters) {
     L.push('');
   }
 
+  /* گویندگان و سهمِ زمانی‌شان — خواستهٔ صریحِ صاحبِ برنامه، تا بتواند بعداً
+     قابلیتِ هر صدا را بسنجد. از همان مدلِ زمانیِ فصل‌ها می‌آید، پس این دو
+     هرگز با هم اختلاف نمی‌گویند. */
+  var cl = (ctx && ctx.castLines) || [];
+  if (cl.length) {
+    L.push('گویندگانِ این قسمت:');
+    for (var v = 0; v < cl.length; v++) L.push(ytScrub_(String(cl[v])));
+    L.push('');
+  }
+
   // منابعِ وب — نه لینکِ درایو. عنوان و ناشر هم می‌آید، چون لینکِ تنها در
   // کپشن چیزی به بیننده نمی‌گوید.
   var src = ctx.sources || [];
@@ -30247,6 +30387,15 @@ function ytPlPlace_(plId, videoId, wantPos, existing) {
  * این تب در عینِ حال **حافظهٔ انتشار** هم هست: «کدام قسمت قبلاً رفته؟» از
  * همین‌جا خوانده می‌شود، نه از جست‌وجوی یوتیوب (که صد واحد سهمیه می‌خورد).
  */
+/** خلاصهٔ یک‌خطیِ سهمِ گویندگان، برای ستونِ تب: «آرش ۵۹٪ · نگار ۳۹٪». */
+function castShare_(timeline) {
+  var p = [];
+  for (var i = 0; i < (timeline || []).length; i++) {
+    p.push(String(timeline[i].voice) + ' ' + faDigitsOut_(String(timeline[i].pct)) + '٪');
+  }
+  return p.join(' · ');
+}
+
 var YT_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'عنوانِ یوتیوب',
                   'شناسهٔ ویدئو', 'لینک', 'وضعیت انتشار', 'پلی‌لیست',
                   'جای در پلی‌لیست', 'کاور', 'فصل‌ها', 'برچسب‌ها',
@@ -30254,10 +30403,14 @@ var YT_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'ع�
                   // شکلِ صوتِ منبع: «کامل» یا «یکجا ×۲». قسمتِ دوفایلی باید
                   // در یک ویدئو بیاید و این ستون تنها جایی است که می‌شود
                   // دید واقعاً چند تکه چسبانده شده.
-                  'صوتِ منبع', 'مدت'];
+                  'صوتِ منبع', 'مدت',
+                  // سهمِ زمانیِ هر گوینده — تا بشود در طولِ زمان سنجید کدام
+                  // صدا با کدام بازخورد همراه بوده. یک ستون، نه یک تبِ تازه:
+                  // کنارِ نمایش و پسندِ همان قسمت معنا دارد، جدا از آن نه.
+                  'گویندگان'];
 var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
            PL: 9, POS: 10, THUMB: 11, CHAPS: 12, TAGS: 13, DESC: 14,
-           LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19 };
+           LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19, CAST: 20 };
 
 function ytLog_(hub, row) {
   try {
@@ -30271,7 +30424,8 @@ function ytLog_(hub, row) {
                        String(row.tags || 0), String(row.descChars || 0),
                        String(row.leak || ''), String(row.result || ''),
                        String(row.note || ''), String(row.audioKind || ''),
-                       String(row.duration || '')]], YT_HEADERS.length);
+                       String(row.duration || ''),
+                       String(row.cast || '')]], YT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ انتشارِ یوتیوب نوشته نشد: ' + e.message); return false; }
 }
@@ -30600,10 +30754,15 @@ function ytPlan_(folder, ctx, redo) {
   }
   var mm = ytMetaModel_(ctx);
   if (!mm) return null;
-  var chapters = ytChapters_(ctx.sections || [], ctx.totalSec,
-                             Number(CFG.MUSIC_INTRO_SEC) || 0);
+  var intro = Number(CFG.MUSIC_INTRO_SEC) || 0;
+  var chapters = ytChapters_(ctx.sections || [], ctx.totalSec, intro);
+  try {
+    ctx.castTimeline = castTimeline_(ctx.castSpans || [], ctx.totalSec, intro);
+    ctx.castLines = castLines_(ctx.castTimeline);
+  } catch (eCt) { ctx.castTimeline = []; ctx.castLines = []; }
   var plan = {
     at: nowStr_(), show: ctx.show, ep: String(ctx.epRaw || ''),
+    cast: ctx.castTimeline || [],
     title: ytTitleBuild_(mm, ctx),
     description: ytDescBuild_(mm, ctx, chapters),
     tags: ytTags_(mm, ctx),
@@ -30651,6 +30810,8 @@ function ytUploadOne_(item, hub, pub) {
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
+              // سهمِ نویسهٔ هر گوینده، همان‌طور که موقعِ نقش‌گزینی ثبت شد
+              castSpans: ((ep.__cast || {}).spans) || [],
               sections: ep.sections || [], totalSec: totalSec };
   var plan = ytPlan_(folder, ctx, false);
   if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
@@ -30783,6 +30944,7 @@ function ytUploadOne_(item, hub, pub) {
   ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,
                 videoId: vid, url: url, privacy: privacy, playlist: plName,
                 audioKind: aud.kind, duration: ytTime_(totalSec),
+                cast: castShare_((plan && plan.cast) || ctx.castTimeline || []),
                 position: plPos, thumb: thumb, chapters: chapters.length,
                 tags: tags.length, descChars: desc.length,
                 leak: leaks.length ? leaks.map(function (x) { return x.kind; }).join('، ') : '',

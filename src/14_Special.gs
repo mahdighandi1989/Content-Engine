@@ -1659,6 +1659,9 @@ function buildSpecialChunks_(ep, epNum, catHint) {
       var cast = ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, catHint || '');
       assignSegmentVoices_(segs, cast, catHint || '');
       ep.__cast.note = castNote_(cast, segs);
+      /* سهمِ زمانیِ هر گوینده همین‌جا ثبت می‌شود: `segs` بعد از
+         صداگذاری از بین می‌رود و یوتیوب فردا فقط پروندهٔ قسمت را دارد. */
+      try { castSpansRecord_(ep, segs); } catch (eSp) {}
       logLine_('نقش‌گزینیِ درس‌نامه: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eC.message); }
   }
@@ -1983,6 +1986,8 @@ function renderSpecialAudioStep_() {
       audioLinks.push({ name: st.files[f].name, url: st.files[f].url });
     }
     var dur = mmss_(secondsOf_(totalBytes));
+    // قرینهٔ همان خط در برنامهٔ ترکیبی — بی این، درس‌نامه بازهٔ گوینده نمی‌گیرد
+    try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }

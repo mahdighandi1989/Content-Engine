@@ -389,6 +389,16 @@ function ytDescBuild_(meta, ctx, chapters) {
     L.push('');
   }
 
+  /* گویندگان و سهمِ زمانی‌شان — خواستهٔ صریحِ صاحبِ برنامه، تا بتواند بعداً
+     قابلیتِ هر صدا را بسنجد. از همان مدلِ زمانیِ فصل‌ها می‌آید، پس این دو
+     هرگز با هم اختلاف نمی‌گویند. */
+  var cl = (ctx && ctx.castLines) || [];
+  if (cl.length) {
+    L.push('گویندگانِ این قسمت:');
+    for (var v = 0; v < cl.length; v++) L.push(ytScrub_(String(cl[v])));
+    L.push('');
+  }
+
   // منابعِ وب — نه لینکِ درایو. عنوان و ناشر هم می‌آید، چون لینکِ تنها در
   // کپشن چیزی به بیننده نمی‌گوید.
   var src = ctx.sources || [];
@@ -1258,6 +1268,15 @@ function ytPlPlace_(plId, videoId, wantPos, existing) {
  * این تب در عینِ حال **حافظهٔ انتشار** هم هست: «کدام قسمت قبلاً رفته؟» از
  * همین‌جا خوانده می‌شود، نه از جست‌وجوی یوتیوب (که صد واحد سهمیه می‌خورد).
  */
+/** خلاصهٔ یک‌خطیِ سهمِ گویندگان، برای ستونِ تب: «آرش ۵۹٪ · نگار ۳۹٪». */
+function castShare_(timeline) {
+  var p = [];
+  for (var i = 0; i < (timeline || []).length; i++) {
+    p.push(String(timeline[i].voice) + ' ' + faDigitsOut_(String(timeline[i].pct)) + '٪');
+  }
+  return p.join(' · ');
+}
+
 var YT_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'عنوانِ یوتیوب',
                   'شناسهٔ ویدئو', 'لینک', 'وضعیت انتشار', 'پلی‌لیست',
                   'جای در پلی‌لیست', 'کاور', 'فصل‌ها', 'برچسب‌ها',
@@ -1265,10 +1284,14 @@ var YT_HEADERS = ['تاریخ', 'برنامه', 'قسمت', 'مجموعه', 'ع�
                   // شکلِ صوتِ منبع: «کامل» یا «یکجا ×۲». قسمتِ دوفایلی باید
                   // در یک ویدئو بیاید و این ستون تنها جایی است که می‌شود
                   // دید واقعاً چند تکه چسبانده شده.
-                  'صوتِ منبع', 'مدت'];
+                  'صوتِ منبع', 'مدت',
+                  // سهمِ زمانیِ هر گوینده — تا بشود در طولِ زمان سنجید کدام
+                  // صدا با کدام بازخورد همراه بوده. یک ستون، نه یک تبِ تازه:
+                  // کنارِ نمایش و پسندِ همان قسمت معنا دارد، جدا از آن نه.
+                  'گویندگان'];
 var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
            PL: 9, POS: 10, THUMB: 11, CHAPS: 12, TAGS: 13, DESC: 14,
-           LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19 };
+           LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19, CAST: 20 };
 
 function ytLog_(hub, row) {
   try {
@@ -1282,7 +1305,8 @@ function ytLog_(hub, row) {
                        String(row.tags || 0), String(row.descChars || 0),
                        String(row.leak || ''), String(row.result || ''),
                        String(row.note || ''), String(row.audioKind || ''),
-                       String(row.duration || '')]], YT_HEADERS.length);
+                       String(row.duration || ''),
+                       String(row.cast || '')]], YT_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ انتشارِ یوتیوب نوشته نشد: ' + e.message); return false; }
 }
@@ -1611,10 +1635,15 @@ function ytPlan_(folder, ctx, redo) {
   }
   var mm = ytMetaModel_(ctx);
   if (!mm) return null;
-  var chapters = ytChapters_(ctx.sections || [], ctx.totalSec,
-                             Number(CFG.MUSIC_INTRO_SEC) || 0);
+  var intro = Number(CFG.MUSIC_INTRO_SEC) || 0;
+  var chapters = ytChapters_(ctx.sections || [], ctx.totalSec, intro);
+  try {
+    ctx.castTimeline = castTimeline_(ctx.castSpans || [], ctx.totalSec, intro);
+    ctx.castLines = castLines_(ctx.castTimeline);
+  } catch (eCt) { ctx.castTimeline = []; ctx.castLines = []; }
   var plan = {
     at: nowStr_(), show: ctx.show, ep: String(ctx.epRaw || ''),
+    cast: ctx.castTimeline || [],
     title: ytTitleBuild_(mm, ctx),
     description: ytDescBuild_(mm, ctx, chapters),
     tags: ytTags_(mm, ctx),
@@ -1662,6 +1691,8 @@ function ytUploadOne_(item, hub, pub) {
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
+              // سهمِ نویسهٔ هر گوینده، همان‌طور که موقعِ نقش‌گزینی ثبت شد
+              castSpans: ((ep.__cast || {}).spans) || [],
               sections: ep.sections || [], totalSec: totalSec };
   var plan = ytPlan_(folder, ctx, false);
   if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
@@ -1794,6 +1825,7 @@ function ytUploadOne_(item, hub, pub) {
   ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,
                 videoId: vid, url: url, privacy: privacy, playlist: plName,
                 audioKind: aud.kind, duration: ytTime_(totalSec),
+                cast: castShare_((plan && plan.cast) || ctx.castTimeline || []),
                 position: plPos, thumb: thumb, chapters: chapters.length,
                 tags: tags.length, descChars: desc.length,
                 leak: leaks.length ? leaks.map(function (x) { return x.kind; }).join('، ') : '',

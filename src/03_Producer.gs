@@ -1203,6 +1203,9 @@ function buildChunks_(ep, cat, epNum) {
       var cast = ensureCast_(ep, ENRICH_SHOW_VARIETY, epNum, cat);
       assignSegmentVoices_(segs, cast, cat);
       ep.__cast.note = castNote_(cast, segs);
+      /* سهمِ زمانیِ هر گوینده همین‌جا ثبت می‌شود: `segs` بعد از
+         صداگذاری از بین می‌رود و یوتیوب فردا فقط پروندهٔ قسمت را دارد. */
+      try { castSpansRecord_(ep, segs); } catch (eSp) {}
       logLine_('نقش‌گزینیِ قسمت: ' + ep.__cast.note);
     } catch (eC) { logLine_('نقش‌گزینیِ گویندگان انجام نشد: ' + eC.message); }
   }
@@ -3774,6 +3777,9 @@ function renderAudioStep_() {
       audioLinks.push({ name: st.files[f].name, url: st.files[f].url });
     }
     var dur = mmss_(secondsOf_(totalBytes));
+    /* مدت به‌ثانیه روی خودِ قسمت می‌نشیند: بازهٔ زمانیِ گویندگان بی آن حساب
+       نمی‌شود، و این تنها جایی است که مدت واقعاً معلوم است. */
+    try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {

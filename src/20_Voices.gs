@@ -389,6 +389,112 @@ function styleForRegister_(reg) {
   return L.join(' ');
 }
 
+/* ══════════ سهمِ زمانیِ هر گوینده — «کدام صدا چقدر حرف زد» (۶٫۱۵) ══════════
+ *
+ * خواستهٔ صریح: «اسمِ گویندهٔ آن قسمت و بازهٔ زمانی‌ای که صحبت کرده را بنویسد،
+ * تا بعداً بتوانم قابلیتِ هر کدام را بهتر بسنجم.»
+ *
+ * ══ چرا اندازه‌گیری نمی‌شود و تخمین زده می‌شود ══
+ * زمانِ *واقعیِ* شروع و پایانِ هر گوینده فقط در حلقهٔ صداگذاری معلوم است، و
+ * آن حلقه تنها جایی از این ریپوست که بی‌دلیل نباید دست بخورد (از شش‌دقیقه
+ * می‌گذرد، از سر گرفته می‌شود، و هر تغییرش می‌تواند قسمت را نصفه بگذارد).
+ * فصل‌های یوتیوب از ۵٫۹۷ با همین تخمین ساخته می‌شوند — سهمِ نویسه‌ها، مقیاس‌شده
+ * به مدتِ اندازه‌گیری‌شدهٔ فایل. سهمِ گویندگان **از همان مدل** می‌آید تا این دو
+ * با هم بخوانند؛ دو تخمینِ متفاوت در یک کپشن، بدتر از یک تخمین است.
+ *
+ * ══ و چرا در پروندهٔ قسمت ذخیره می‌شود ══
+ * صدای هر بخش در `segs` تعیین می‌شود و `segs` بعد از صداگذاری از بین می‌رود؛
+ * یوتیوب فردا فقط `_episode.json` را دارد. پس همان‌جا که نقش‌گزینی انجام
+ * می‌شود، سهمِ نویسه‌ها هم ثبت می‌شود — یک آرایهٔ کوچک، نه کلِ متن.
+ */
+function castSpansRecord_(ep, segs) {
+  if (!ep || !segs || !segs.length) return;
+  var spans = [];
+  for (var i = 0; i < segs.length; i++) {
+    var v = String(segs[i].voice || '');
+    var t = String(segs[i].text || segs[i].narration || '');
+    var n = t.length;
+    if (!n) continue;
+    if (spans.length && spans[spans.length - 1].voice === v) {
+      spans[spans.length - 1].chars += n;       // بازهٔ پیوسته، نه دو بازهٔ چسبیده
+    } else {
+      spans.push({ voice: v, chars: n });
+    }
+  }
+  if (!ep.__cast) ep.__cast = {};
+  ep.__cast.spans = spans;
+}
+
+/** ثانیه → «۰۳:۱۲» با رقمِ فارسی. */
+function castClock_(sec) {
+  var s = Math.max(0, Math.round(Number(sec) || 0));
+  var m = Math.floor(s / 60), r = s % 60;
+  if (m >= 60) {
+    var h = Math.floor(m / 60);
+    return faDigitsOut_(String(h) + ':' + ('0' + (m % 60)).slice(-2) +
+                        ':' + ('0' + r).slice(-2));
+  }
+  return faDigitsOut_(('0' + m).slice(-2) + ':' + ('0' + r).slice(-2));
+}
+
+/**
+ * بازه‌های زمانیِ هر گوینده، مقیاس‌شده به مدتِ واقعیِ فایل.
+ *
+ * `introSec` همان مقدارِ فصل‌هاست: آنچه پیش از اولین کلمهٔ گفتار می‌آید
+ * (موسیقیِ آغاز). بی آن، همهٔ بازه‌ها به اندازهٔ همان موسیقی جلو می‌افتند.
+ */
+function castTimeline_(spans, totalSec, introSec) {
+  var out = [];
+  var sp = spans || [], total = Number(totalSec) || 0;
+  if (!sp.length || total < 30) return out;
+  var sum = 0;
+  for (var i = 0; i < sp.length; i++) sum += Number(sp[i].chars) || 0;
+  if (!sum) return out;
+
+  var lead = Math.max(0, Number(introSec) || 0);
+  var body = Math.max(1, total - lead);
+  var acc = lead, by = Object.create(null), order = [];
+  for (var j = 0; j < sp.length; j++) {
+    var v = String(sp[j].voice || '') || 'گویندهٔ اصلی';
+    var dur = ((Number(sp[j].chars) || 0) / sum) * body;
+    var from = acc, to = acc + dur;
+    acc = to;
+    if (dur < 5) continue;              // بازهٔ زیرِ پنج ثانیه، خواندنش سخت‌تر از سودش است
+    if (!Object.prototype.hasOwnProperty.call(by, v)) {
+      by[v] = { voice: v, ranges: [], sec: 0 }; order.push(v);
+    }
+    by[v].ranges.push([Math.round(from), Math.round(to)]);
+    by[v].sec += dur;
+  }
+  for (var k = 0; k < order.length; k++) {
+    var rec = by[order[k]];
+    rec.sec = Math.round(rec.sec);
+    rec.pct = Math.round((rec.sec / total) * 100);
+    out.push(rec);
+  }
+  return out;
+}
+
+/**
+ * خطهای فارسیِ آمادهٔ نمایش.
+ *
+ * هر خط با واژه شروع می‌شود نه با رقم: در متنِ راست‌به‌چپ، رقمی که اولِ خط
+ * بیاید به انتهای خط پرتاب می‌شود — درسی که این ریپو بارها گرفته.
+ */
+function castLines_(timeline) {
+  var L = [];
+  for (var i = 0; i < (timeline || []).length; i++) {
+    var t = timeline[i], parts = [];
+    for (var j = 0; j < t.ranges.length && j < 6; j++) {
+      parts.push(castClock_(t.ranges[j][0]) + '–' + castClock_(t.ranges[j][1]));
+    }
+    if (t.ranges.length > 6) parts.push('…');
+    L.push('گویندهٔ ' + t.voice + ' — ' + parts.join(' · ') +
+           ' (مجموعاً ' + castClock_(t.sec) + '، ' + faDigitsOut_(String(t.pct)) + '٪)');
+  }
+  return L;
+}
+
 /** خلاصهٔ نقش‌گزینی برای پیوست و ایمیل. */
 function castNote_(cast, segs) {
   if (!cast) return '';

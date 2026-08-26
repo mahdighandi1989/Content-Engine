@@ -524,6 +524,19 @@ function extSourcesHtml_(ep) {
   if (ep && ep.__cast && ep.__cast.note) {
     h.push('<p style="color:#555">' + esc_(ep.__cast.note) + '</p>');
   }
+  /* و بازهٔ زمانیِ هر گوینده، اگر مدتِ قسمت معلوم باشد. همان چیزی که در
+     کپشنِ یوتیوب می‌رود — یک خواسته، یک محاسبه، هر جا که لازم است. */
+  try {
+    var tl = castTimeline_(((ep || {}).__cast || {}).spans || [],
+                           Number((ep || {}).__durationSec) || 0,
+                           Number(CFG.MUSIC_INTRO_SEC) || 0);
+    var cLines = castLines_(tl);
+    if (cLines.length) {
+      h.push('<ul style="color:#555;font-size:13px">');
+      for (var cv = 0; cv < cLines.length; cv++) h.push('<li>' + esc_(cLines[cv]) + '</li>');
+      h.push('</ul>');
+    }
+  } catch (eCl) {}
   if (list.length) {
     h.push('<table><tr><th>بخش</th><th>نوع</th><th>منبع</th><th>ناشر</th>' +
            '<th>تاریخ</th><th>نقلِ مستقیم</th></tr>');

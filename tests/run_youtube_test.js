@@ -1537,4 +1537,54 @@ console.log('=== ۴۲) پادکست هم کاور و ثبت لازم دارد (�
      src27.indexOf('out.noCover =') !== -1 && src27.indexOf('out.noPodcast =') !== -1);
 }
 
+console.log('=== ۴۳) سهمِ زمانیِ هر گوینده (۶٫۱۵) ===');
+{
+  global.__STUB = BASE_STUB;
+  const spans = [{ voice: 'آرش', chars: 500 }, { voice: 'نگار', chars: 400 },
+                 { voice: 'آرش', chars: 100 }];
+  const tl = castTimeline_(spans, 900, 12);
+  ok('۴۳.۱ هر گوینده یک ردیف دارد، نه هر بخش', tl.length === 2, JSON.stringify(tl.map(x => x.voice)));
+  ok('۴۳.۲ و بازه‌های جدا از هم نگه داشته می‌شوند',
+     tl[0].ranges.length === 2 && tl[1].ranges.length === 1);
+  /* بازه‌ها باید پشتِ‌هم باشند و از موسیقیِ آغاز شروع شوند، نه از صفر. */
+  ok('۴۳.۳ از پایانِ موسیقیِ آغاز شروع می‌شود', tl[0].ranges[0][0] === 12, tl[0].ranges[0][0]);
+  ok('۴۳.۴ و تا انتهای فایل ادامه می‌یابد', tl[0].ranges[1][1] === 900, tl[0].ranges[1][1]);
+  ok('۴۳.۵ مجموعِ سهم‌ها از کلِ مدت نمی‌گذرد', tl[0].sec + tl[1].sec <= 900);
+  /* درصد باید با سهمِ نویسه بخواند: ۶۰۰ از ۱۰۰۰ نویسه. */
+  ok('۴۳.۶ درصد با سهمِ واقعیِ متن می‌خواند', tl[0].pct >= 57 && tl[0].pct <= 61, tl[0].pct);
+
+  /* در متنِ راست‌به‌چپ، رقمی که اولِ خط بیاید به انتهای خط پرتاب می‌شود. */
+  const lines = castLines_(tl);
+  ok('۴۳.۷ هر خط با واژه شروع می‌شود، نه با رقم',
+     lines.every(l => /^[؀-ۿ]/.test(l)), lines[0]);
+  ok('۴۳.۸ و نامِ گوینده و بازه و مجموع را دارد',
+     lines[0].indexOf('آرش') !== -1 && lines[0].indexOf('–') !== -1 &&
+     lines[0].indexOf('مجموعاً') !== -1, lines[0]);
+
+  /* ثبت: بخش‌های پشتِ‌همِ یک گوینده یک بازه‌اند، نه دو بازهٔ چسبیده. */
+  const ep = {};
+  castSpansRecord_(ep, [{ voice: 'آ', text: 'x'.repeat(10) },
+                        { voice: 'آ', text: 'y'.repeat(20) },
+                        { voice: 'ب', text: 'z'.repeat(30) }]);
+  ok('۴۳.۹ بخش‌های پیوستهٔ یک گوینده یکی می‌شوند',
+     ep.__cast.spans.length === 2 && ep.__cast.spans[0].chars === 30,
+     JSON.stringify(ep.__cast.spans));
+
+  /* و در کپشن می‌نشیند — وگرنه همهٔ این‌ها یک محاسبهٔ بی‌مصرف است. */
+  const d = ytDescBuild_({ hookLine: 'ق', summary: 'خ', bullets: [] },
+                         { castLines: lines, showName: 'درس‌نامه' },
+                         [{ at: 0, title: 'شروع' }]);
+  ok('۴۳.۱۰ و واقعاً در کپشن می‌آید',
+     d.indexOf('گویندگانِ این قسمت:') !== -1 && d.indexOf('آرش') !== -1);
+  /* همان مدلِ زمانیِ فصل‌ها — دو تخمینِ متفاوت در یک کپشن بدتر از یکی است. */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۴۳.۱۱ از همان مدلِ زمانیِ فصل‌ها می‌آید',
+     src27.indexOf('ytChapters_(ctx.sections || [], ctx.totalSec, intro)') !== -1 &&
+     src27.indexOf('castTimeline_(ctx.castSpans || [], ctx.totalSec, intro)') !== -1);
+  /* و در تب ثبت می‌شود، وگرنه «بعداً بسنجم» ممکن نیست. */
+  ok('۴۳.۱۲ و در تبِ انتشار ستونِ خودش را دارد',
+     YT_HEADERS[YU.CAST - 1] === 'گویندگان' && castShare_(tl).indexOf('٪') !== -1,
+     castShare_(tl));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
