@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.8
+ *  موتور محتوا و پادکست — نسخهٔ 6.9
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -841,7 +841,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.8',
+  CODE_VERSION: '6.9',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -30123,6 +30123,34 @@ function ytEpNumOf_(folderName) {
 }
 
 /**
+ * پوشهٔ یک برنامه — **بی ساختن**.
+ *
+ * ══ باگی که ۲۰ قسمت را نامرئی کرده بود (۶٫۹) ══
+ * `ytBackfill_` و `ytFolderOf_` پوشهٔ «از همه جا از همه رنگ» را با
+ * `CFG.SHOW_NAME` می‌جستند — که **نامِ نمایشیِ برنامه** است، نه نامِ پوشه.
+ * نامِ پوشه `CFG.VARIETY_FOLDER` است: «پادکست — از همه جا از همه رنگ». و
+ * `showFolder_` اگر پیدا نکند **می‌سازد**؛ پس اولین اجرای انتشار یک پوشهٔ
+ * خالیِ تازه در ریشهٔ OUTPUT ساخت، صفرتا قسمت در آن دید، و هیچ خطایی نداد.
+ * نتیجه: هر ۲۰ قسمتِ گذشتهٔ آن برنامه هرگز به صفِ یوتیوب نرفتند، و از بیرون
+ * همه‌چیز سالم به‌نظر می‌رسید.
+ *
+ * دو درسِ همیشگیِ این ریپو، هر دو در یک باگ:
+ * • **خواندنی که می‌سازد، خواندن نیست.** یک تابعِ جست‌وجو که در نبودِ هدف
+ *   هدف را می‌سازد، «پیدا نشد» را به «خالی بود» تبدیل می‌کند — و آن دو
+ *   زمین تا آسمان فرق دارند.
+ * • **قرینه‌ای که یک بار درست شود.** همان اشتباه در دو تابع بود؛ پس چاره
+ *   یک تعریفِ مشترک است، نه دو اصلاحِ جدا.
+ */
+function ytShowFolder_(name) {
+  try {
+    var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFoldersByName(String(name));
+    if (it.hasNext()) return it.next();
+  } catch (e) {}
+  logLine_('یوتیوب: پوشهٔ برنامهٔ «' + name + '» در OUTPUT پیدا نشد.');
+  return null;
+}
+
+/**
  * کاوشِ قسمت‌های گذشته: هر پوشه‌ای که ساخته شده ولی هنوز منتشر نشده، به صف.
  * مکان‌نما دارد چون دو برنامه ده‌ها پوشه دارند و یک اجرا جا نمی‌دهدشان.
  */
@@ -30145,11 +30173,13 @@ function ytBackfill_(maxWalk) {
      در نتیجه نام و ترتیبِ پلی‌لیست — از آن می‌آید. */
   var walk = [];
   try {
-    var vf = showFolder_(CFG.SHOW_NAME);
-    var it = vf.getFolders();
-    while (it.hasNext()) {
-      var f1 = it.next();
-      walk.push({ show: ENRICH_SHOW_VARIETY, folder: f1, series: '', seriesKey: '' });
+    var vf = ytShowFolder_(CFG.VARIETY_FOLDER);
+    if (vf) {
+      var it = vf.getFolders();
+      while (it.hasNext()) {
+        var f1 = it.next();
+        walk.push({ show: ENRICH_SHOW_VARIETY, folder: f1, series: '', seriesKey: '' });
+      }
     }
   } catch (e1) { logLine_('کاوشِ پوشهٔ «' + CFG.SHOW_NAME + '» نشد: ' + e1.message); }
 
@@ -31364,7 +31394,9 @@ function ytFolderOf_(show, ep, seriesName) {
   var want = String(ep);
   try {
     if (String(show) !== ENRICH_SHOW_SPECIAL) {
-      var it = showFolder_(CFG.SHOW_NAME).getFolders();
+      var vfo = ytShowFolder_(CFG.VARIETY_FOLDER);
+      if (!vfo) return null;
+      var it = vfo.getFolders();
       while (it.hasNext()) { var f = it.next(); if (ytEpNumOf_(f.getName()) === want) return f; }
       return null;
     }

@@ -1373,4 +1373,46 @@ console.log('=== ۳۸) حسابداریِ سهمیه: آپلود ۱۶۰۰ واح
      'شبانه ' + CFG.YT_MAX_PER_RUN + ' + تیک ۱ در برابرِ ' + ytDrain_(1).perDay);
 }
 
+console.log('=== ۳۹) نامِ نمایشیِ برنامه، نامِ پوشه نیست (۶٫۹) ===');
+{
+  global.__STUB = BASE_STUB;
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+
+  /* ══ باگی که ۲۰ قسمت را نامرئی کرد ══
+     پوشهٔ برنامه با CFG.SHOW_NAME جست‌وجو می‌شد («از همه جا از همه رنگ»)
+     ولی نامِ واقعیِ پوشه CFG.VARIETY_FOLDER است («پادکست — از همه جا از
+     همه رنگ»). و showFolder_ اگر پیدا نکند **می‌سازد** — پس یک پوشهٔ خالی
+     ساخته شد، صفر قسمت در آن دیده شد، و هیچ خطایی نیامد. */
+  ok('۳۹.۱ این دو واقعاً یکی نیستند — پس اشتباهشان بی‌صدا بود',
+     String(CFG.SHOW_NAME) !== String(CFG.VARIETY_FOLDER),
+     CFG.SHOW_NAME + ' ≠ ' + CFG.VARIETY_FOLDER);
+
+  /* مرز، نه وصله: هیچ‌جای بخشِ ۲۷ نباید از تابعِ «پیدا کن وگرنه بساز»
+     استفاده کند. یک اصلاحِ موردی، تابعِ بعدی را نجات نمی‌دهد. */
+  ok('۳۹.۲ بخشِ ۲۷ دیگر از showFolder_ (که می‌سازد) استفاده نمی‌کند',
+     src27.indexOf('showFolder_(') === src27.indexOf('ytShowFolder_(') - 2 ||
+     !/[^t]showFolder_\(/.test(src27),
+     'اولین نمونه: ' + JSON.stringify(
+       (src27.match(/.{0,30}[^t]showFolder_\([^)]*\)/) || ['—'])[0]));
+  ok('۳۹.۳ و پوشه را با نامِ پوشه می‌جوید، نه با نامِ نمایشی',
+     src27.indexOf('ytShowFolder_(CFG.VARIETY_FOLDER)') !== -1 &&
+     src27.indexOf('showFolder_(CFG.SHOW_NAME)') === -1);
+
+  /* و خودِ جست‌وجو نباید چیزی بسازد. رفتاری سنجیده می‌شود: پوشه‌ای که
+     نیست را می‌خواهیم و بعد می‌شماریم در ریشه چند پوشه هست. */
+  const root = global.__ROOT_FOLDER;
+  const countFolders = () => { let n = 0; const it = root.getFolders();
+                               while (it.hasNext()) { it.next(); n++; } return n; };
+  const before = countFolders();
+  const miss = ytShowFolder_('پوشه‌ای که وجود ندارد ۳۹');
+  ok('۳۹.۴ پوشهٔ نبوده null می‌دهد، نه یک پوشهٔ تازه', miss === null);
+  ok('۳۹.۵ و چیزی در ریشه ساخته نمی‌شود — «پیدا نشد» با «خالی بود» یکی نیست',
+     countFolders() === before, before + ' → ' + countFolders());
+
+  /* و پوشهٔ موجود باید پیدا شود، وگرنه سنجهٔ بالا با یک تابعِ همیشه‌null هم سبز است. */
+  root.createFolder(String(CFG.VARIETY_FOLDER));
+  const hit = ytShowFolder_(CFG.VARIETY_FOLDER);
+  ok('۳۹.۶ ولی پوشهٔ موجود پیدا می‌شود', !!hit && hit.getName() === String(CFG.VARIETY_FOLDER));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
