@@ -485,7 +485,10 @@ function ytPngSize_(blob) {
 
 /** نامِ ثابتِ کاورِ هر قسمت — پلِ میانِ «ساختن» و «دوباره پیدا کردن». */
 function ytCoverName_(c) {
-  return 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '') + '.png';
+  /* کاورِ مربع نامِ جدا دارد، وگرنه کاورِ ۱۶:۹ی همان مجموعه از حافظه
+     برداشته می‌شود و پادکست باز هم کاورِ غلط می‌گیرد — یک اشتباهِ بی‌صدا. */
+  return 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '') +
+         (c.square ? ' — مربع' : '') + '.png';
 }
 
 /** کاوری که قبلاً ساخته شده، اگر هست. */
@@ -580,8 +583,13 @@ function ytCoverCard_(c) {
     var pal = ytPalette_(c.cat || c.seriesName || c.showName);
     var name = ytCoverName_(c).replace(/\.png$/, '');
     /* ۱۲۸۰×۷۲۰ در ۹۶ نقطه بر اینچ = ۱۳٫۳۳×۷٫۵ اینچ. یوتیوب همین را توصیه
-       می‌کند و کارتِ ۹۶۰×۵۴۰ باید بالا کشیده شود — یعنی متنِ نرم. */
-    var mkP = ytPresCreate_(name, 12192000, 6858000);
+       می‌کند و کارتِ ۹۶۰×۵۴۰ باید بالا کشیده شود — یعنی متنِ نرم.
+       ولی **کاورِ پادکست ۱:۱ می‌خواهد، نه ۱۶:۹** (۱۲۸۰×۱۲۸۰). یوتیوب برای
+       پلی‌لیستی که پادکست شده صریح همین را می‌گوید، و ۱۶:۹ آن‌جا بریده
+       می‌شود. چون چیدمانِ کارت نسبی است (همه‌چیز کسری از W و H)، همان کد با
+       صفحهٔ مربع هم درست درمی‌آید. */
+    var mkP = c.square ? ytPresCreate_(name, 12192000, 12192000)
+                       : ytPresCreate_(name, 12192000, 6858000);
     if (!mkP.id) { logLine_('کاورِ یوتیوب ساخته نشد: ' + mkP.why); return null; }
     if (!mkP.exact) logLine_('کاورِ یوتیوب با اندازهٔ پیش‌فرض ساخته شد — ' + mkP.why);
     pres = SlidesApp.openById(mkP.id);
@@ -1868,6 +1876,22 @@ function ytPlaylistSync_(budgetMs) {
   var t0 = new Date().getTime();
   var budget = Math.max(15000, Number(budgetMs) || 60000);
   var hub = getHub_();
+
+  /* ── برنامهٔ ترکیبی: یک پلی‌لیست، و تا ۶٫۱۳ هیچ‌وقت از این‌جا رد نمی‌شد ──
+   * پلی‌لیستش در مسیرِ آپلود ساخته می‌شود و رجیستری هم ندارد، پس حلقهٔ
+   * پایین (که رجیستریِ مجموعه‌ها را می‌پیماید) هرگز به آن نمی‌رسید: نه کاور
+   * می‌گرفت، نه پادکست می‌شد. حالا اول از همه، و با همان تعریفِ مشترک. */
+  try {
+    var vKey = ytPlKey_(ENRICH_SHOW_VARIETY, '', '');
+    var vMap = ytPlMap_(), vRec = vMap[vKey] || {};
+    if (vRec.id) {
+      out.checked++;
+      ytPlDress_(vRec.id, vRec.title, String(CFG.SHOW_NAME || ''),
+                 String(CFG.SHOW_NAME || ''), String(CFG.SHOW_NAME || ''),
+                 false, out, vKey);
+    }
+  } catch (eV) { logLine_('پلی‌لیستِ برنامهٔ ترکیبی رسیدگی نشد: ' + eV.message); }
+
   var reg;
   try { reg = readSeriesReg_(hub); } catch (e) { return out; }
 
@@ -1929,30 +1953,9 @@ function ytPlaylistSync_(budgetMs) {
      * نه «همین حالا ساختیمش؟» بلکه **«کاور دارد یا نه؟»** — که در نقشه
      * نگه داشته می‌شود. این خودش پلی‌لیست‌های موجود را هم درمان می‌کند و
      * هر شب هم چیزی نمی‌فرستد. */
-    var pmap = ytPlMap_(), prec = pmap[pk] || {};
     var renamed = !!(titleWas && titleWas !== pl.title);
-    /* پادکست‌کردن یک بار بس است و به کاور ربطی ندارد، پس پرچمِ خودش را
-       دارد — وگرنه شکستِ یکی، دیگری را هم هر شب دوباره می‌فرستاد. */
-    if (!prec.podcast && CFG.YT_PODCAST !== false) {
-      var pc = ytPlPodcast_(pl.id, pl.title || name);
-      if (pc === 'نشست') {
-        prec.podcast = nowStr_(); pmap[pk] = prec; ytPlMapSave_(pmap);
-        out.podcasts = (out.podcasts || 0) + 1;
-      } else if (pc.indexOf('سهمیه') === -1) {
-        logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
-      }
-    }
-    if (!prec.cover || renamed) {
-      var cv = ytPlaylistCover_(pl.id, name, CFG.SPECIAL_SHOW_NAME || '',
-                                String(rec.vals[SC.CAT - 1] || name), renamed);
-      if (cv === 'نشست') {
-        out.covers++;
-        prec.cover = nowStr_(); pmap[pk] = prec; ytPlMapSave_(pmap);
-      } else if (cv && cv.indexOf('سهمیه') === -1) {
-        out.coverFails.push(name + ': ' + cv);
-        try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
-      }
-    }
+    ytPlDress_(pl.id, pl.title, name, CFG.SPECIAL_SHOW_NAME || '',
+               String(rec.vals[SC.CAT - 1] || name), renamed, out, pk);
   }
   try { props_().setProperty(PK.YT_PLSIG, sigStr); } catch (e5) {}
   if (out.made || out.renamed) {
@@ -2086,6 +2089,22 @@ function ytStatus_() {
      که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در یک تب باشد، برای ناظر
      وجود ندارد. */
   try { out.feedback = ytStatsStatus_(); } catch (eFb0) {}
+  /* پلی‌لیست‌ها با وضعِ کاور و پادکستشان در `_STATUS.json` می‌نشینند — تنها
+     فایلی که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در Properties باشد،
+     برای ناظر وجود ندارد. */
+  try {
+    var pmapS = ytPlMap_(), pls = [];
+    for (var pkS in pmapS) {
+      if (!Object.prototype.hasOwnProperty.call(pmapS, pkS)) continue;
+      var rS = pmapS[pkS] || {};
+      if (!rS.id) continue;
+      pls.push({ key: pkS, title: String(rS.title || ''), url: ytPlUrl_(rS.id),
+                 cover: !!rS.cover, podcast: !!rS.podcast });
+    }
+    out.playlistList = pls;
+    out.noCover = pls.filter(function (x) { return !x.cover; }).length;
+    out.noPodcast = pls.filter(function (x) { return !x.podcast; }).length;
+  } catch (ePl) {}
   try {
     var hub = getHub_();
     var pub = ytPublished_(hub);
@@ -2132,7 +2151,13 @@ function ytLine_(st) {
            (st.renderOldestDays ? ' (قدیمی‌ترین ' + faDigitsOut_(String(st.renderOldestDays)) + ' روز)' : ''));
   }
   if (st.failed) L.push('رهاشده ' + faDigitsOut_(String(st.failed)));
-  if (st.playlists) L.push('پلی‌لیست ' + faDigitsOut_(String(st.playlists)));
+  if (st.playlists) {
+    /* پلی‌لیستِ بی‌کاور یا بی‌پادکست از بیرون سالم به‌نظر می‌رسد — پس عدد
+       باید گفته شود، نه فقط شمارِ پلی‌لیست‌ها. */
+    L.push('پلی‌لیست ' + faDigitsOut_(String(st.playlists)) +
+           (st.noCover ? ' (' + faDigitsOut_(String(st.noCover)) + ' بی‌کاور)' : '') +
+           (st.noPodcast ? ' (' + faDigitsOut_(String(st.noPodcast)) + ' پادکست‌نشده)' : ''));
+  }
   /* تخمینِ تخلیه، چون سقفش را یوتیوب گذاشته نه ما — و صاحبِ ۲۶۴ قسمتِ گذشته
      حق دارد بداند چند روز طول می‌کشد، به‌جای اینکه هر روز بپرسد چرا تمام
      نشد. */
@@ -2218,6 +2243,13 @@ function ytHealth_(problems, notes) {
                   ' مورد عمومی نشده‌اند — یعنی در کپشنشان چیزی از جنسِ خصوصی ' +
                   'پیدا شده. تا اصلاحِ ytScrub_ عمومی نمی‌شوند.');
   }
+  /* پادکست‌نشدن یک بار اتفاق است (سهمیه، شبکه)؛ چند شبِ پیاپی یعنی چیزی
+     ساختاری اشکال دارد و باید دیده شود. */
+  if (st.noPodcast && st.playlists && ytTodoDue_()) {
+    problems.push('‏' + faDigitsOut_(String(st.noPodcast)) + ' پلی‌لیست هنوز پادکست نشده‌اند — ' +
+      'تا پادکست نشوند نه در تبِ Podcasts می‌آیند نه در YouTube Music.');
+  }
+
   /* ══ تحلیلی که به تصمیمی وصل نشده بود — نمونهٔ هفتم (۶٫۱۲) ══
    * `coverFails` از ۵٫۹۷ جمع می‌شد و **هیچ‌جا خوانده نمی‌شد**. یعنی اگر
    * کاورِ پلی‌لیست هر شب شکست می‌خورد، هیچ‌کس نمی‌فهمید. */
@@ -2808,6 +2840,45 @@ function ytPlPodcast_(plId, title) {
   return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 120) : '');
 }
 
+/**
+ * کاور و پادکست‌کردنِ یک پلی‌لیست — **یک تعریف برای هر دو برنامه**.
+ *
+ * ══ شکافی که تا ۶٫۱۳ باز بود ══
+ * `ytPlaylistSync_` فقط رجیستریِ مجموعه‌ها را می‌پیمود، یعنی فقط درس‌نامه.
+ * پلی‌لیستِ «از همه جا از همه رنگ» در مسیرِ **آپلود** ساخته می‌شد
+ * (`ytPlFor_`) و بعد هیچ‌وقت از این‌جا رد نمی‌شد: نه کاور می‌گرفت، نه پادکست
+ * می‌شد، و هیچ‌جا ثبت نمی‌شد. از بیرون فقط یک پلی‌لیستِ بی‌کاور دیده می‌شد و
+ * هیچ خطایی هم نبود.
+ *
+ * دو برنامه با دو چیدمانِ متفاوتِ داده (یکی رجیستری دارد، دیگری ندارد) به دو
+ * حلقهٔ متفاوت رسیده بودند — و همان‌جا یکی از دو حلقه ناقص ماند. کارِ مشترک
+ * حالا یک جاست.
+ */
+function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
+  var pmap = ytPlMap_(), prec = pmap[key] || {};
+  if (!prec.podcast && CFG.YT_PODCAST !== false) {
+    var pc = ytPlPodcast_(plId, plTitle || name);
+    if (pc === 'نشست') {
+      prec.podcast = nowStr_(); pmap[key] = prec; ytPlMapSave_(pmap);
+      out.podcasts = (out.podcasts || 0) + 1;
+    } else if (pc.indexOf('سهمیه') === -1) {
+      logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
+    }
+  }
+  if (!prec.cover || renamed) {
+    var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker);
+    if (cv === 'نشست') {
+      out.covers++;
+      prec = (ytPlMap_()[key] || prec);
+      prec.cover = nowStr_();
+      var m2 = ytPlMap_(); m2[key] = prec; ytPlMapSave_(m2);
+    } else if (cv && cv.indexOf('سهمیه') === -1) {
+      out.coverFails.push(name + ': ' + cv);
+      try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
+    }
+  }
+}
+
 /** شکستِ کاورِ پلی‌لیست، تا سلامتِ فردا هم ببیندش (نه فقط لاگِ همین اجرا). */
 function ytPlCoverFailSave_(list) {
   try {
@@ -2823,11 +2894,13 @@ function ytPlCoverFails_() {
 }
 
 /** کاورِ پلی‌لیست: همان کارت، ولی با نامِ مجموعه به‌جای عنوانِ قسمت. */
-function ytPlaylistCover_(plId, title, kicker, cat, redo) {
+function ytPlaylistCover_(plId, title, kicker, cat, redo, showName) {
   if (!plId) return '';
   var cover = ytCoverCard_({ coverTitle: title, kicker: kicker,
-                             showName: CFG.SPECIAL_SHOW_NAME || '',
-                             epLabel: 'مجموعه', cat: cat || title, redo: !!redo });
+                             showName: showName || CFG.SPECIAL_SHOW_NAME || '',
+                             epLabel: 'مجموعه', cat: cat || title, redo: !!redo,
+                             // پلی‌لیستِ ما پادکست هم می‌شود، و پادکست ۱:۱ می‌خواهد
+                             square: CFG.YT_PODCAST !== false });
   if (!cover || !cover.blob) return 'کاور ساخته نشد';
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
 

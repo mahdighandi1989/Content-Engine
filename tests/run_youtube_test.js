@@ -464,8 +464,8 @@ console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کان
      برقرار نمی‌شد چون پلی‌لیست در مسیرِ آپلود زاده می‌شود و وقتی نوبتِ
      همگام‌سازی می‌رسد دیگر «تازه» نیست — پس کاور هرگز گذاشته نشد و سنجه
      هر بار سبز بود. سنجه‌ای که شکلِ کد را بسنجد، می‌تواند باگ را نگه دارد. */
-  const plc = src27.slice(src27.indexOf('var pmap = ytPlMap_(), prec'),
-                          src27.indexOf('try { props_().setProperty(PK.YT_PLSIG'));
+  const plc = src27.slice(src27.indexOf('function ytPlDress_'),
+                          src27.indexOf('function ytPlCoverFailSave_'));
   ok('۱۹.۲ سؤال «کاور دارد یا نه» است، نه «همین حالا ساختیمش»',
      plc.indexOf('!prec.cover') !== -1 &&
      src27.indexOf('if (!had || (titleWas && titleWas !== pl.title))') === -1);
@@ -1498,6 +1498,43 @@ console.log('=== ۴۱) تبِ پادکست شدنی است، تبِ پست نه 
      cs.indexOf('!undone') !== -1 && cs.indexOf("!== 'موتور'") !== -1);
   ok('۴۱.۹ و کارِ آدم در این شمارش نمی‌آید — وگرنه هر شب بی‌دلیل می‌دود',
      cs.indexOf('continue;   // کارِ آدم، کارِ ما نیست') !== -1);
+}
+
+console.log('=== ۴۲) پادکست هم کاور و ثبت لازم دارد (۶٫۱۴) ===');
+{
+  global.__STUB = BASE_STUB;
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+
+  /* ── کاورِ پادکست ۱:۱ است، نه ۱۶:۹ ──
+     یوتیوب برای پلی‌لیستی که پادکست شده صریح مربع می‌خواهد (۱۲۸۰×۱۲۸۰)؛
+     ۱۶:۹ آن‌جا بریده می‌شود. */
+  ok('۴۲.۱ کاورِ پلی‌لیست مربع خواسته می‌شود',
+     src27.indexOf('square: CFG.YT_PODCAST !== false') !== -1);
+  ok('۴۲.۲ و صفحهٔ مربع واقعاً ساخته می‌شود',
+     src27.indexOf('ytPresCreate_(name, 12192000, 12192000)') !== -1);
+  /* و نامش جداست، وگرنه کاورِ ۱۶:۹ی همان مجموعه از حافظه برداشته می‌شود و
+     پادکست باز هم کاورِ غلط می‌گیرد — یک اشتباهِ بی‌صدا. */
+  const n169 = ytCoverName_({ epLabel: 'مجموعه', showName: 'درس‌نامه' });
+  const nSq = ytCoverName_({ epLabel: 'مجموعه', showName: 'درس‌نامه', square: true });
+  ok('۴۲.۳ و حافظه‌شان قاطی نمی‌شود', n169 !== nSq && nSq.indexOf('مربع') !== -1, nSq);
+
+  /* ── برنامهٔ ترکیبی هم باید از همان مسیر رد شود ── */
+  const syncAt = src27.indexOf('function ytPlaylistSync_');
+  const sync = src27.slice(syncAt, src27.indexOf('\nfunction ', syncAt + 10));
+  ok('۴۲.۴ پلی‌لیستِ «از همه جا از همه رنگ» هم رسیدگی می‌شود',
+     sync.indexOf('ytPlKey_(ENRICH_SHOW_VARIETY') !== -1 &&
+     sync.indexOf('ytPlDress_(vRec.id') !== -1);
+  /* یک تعریف برای هر دو — نه دو حلقه که یکی‌شان ناقص بماند. */
+  ok('۴۲.۵ و هر دو از یک تعریفِ مشترک می‌گذرند',
+     (sync.match(/ytPlDress_\(/g) || []).length === 2);
+  /* پلی‌لیستی که هنوز ساخته نشده، نباید الکی ساخته شود: کارِ آپلود است. */
+  ok('۴۲.۶ ولی پلی‌لیستِ نساخته این‌جا ساخته نمی‌شود',
+     sync.indexOf('if (vRec.id) {') !== -1);
+
+  /* ── و همه‌چیز باید جایی ثبت شود که ناظر می‌خواند ── */
+  ok('۴۲.۷ وضعِ کاور و پادکستِ هر پلی‌لیست در _STATUS.json می‌نشیند',
+     src27.indexOf('out.playlistList = pls') !== -1 &&
+     src27.indexOf('out.noCover =') !== -1 && src27.indexOf('out.noPodcast =') !== -1);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
