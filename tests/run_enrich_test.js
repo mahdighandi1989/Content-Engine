@@ -201,11 +201,12 @@ console.log('\n=== 2. پاسخِ درست: ادغام، اعلامِ بیرون�
   let st = JSON.parse(global.__PROPS['PENDING_EPISODE'] || '{}');
   ok('2.1 بعد از ادغام، مرحله به «متنِ صوتی» رفت (اعراب‌گذاری پیش از صدا)',
      st.phase === 'speak', st.phase);
-  for (let sp = 0; sp < 4 && st.phase === 'speak'; sp++) {
+  // از ۶٫۲۰ زنجیره یک حلقه بیشتر دارد: speak → speak2 (بازبینی) → audio.
+  for (let sp = 0; sp < 8 && /^speak/.test(st.phase || ''); sp++) {
     un2x = quiet(); produceEpisodeContinue(); un2x();
     st = JSON.parse(global.__PROPS['PENDING_EPISODE'] || '{}');
   }
-  ok('2.1-ب بعد از اعراب‌گذاری، مرحله به صدا رفت', st.phase === 'audio', st.phase);
+  ok('2.1-ب بعد از اعراب‌گذاری و بازبینی، مرحله به صدا رفت', st.phase === 'audio', st.phase);
 
   // the merged text must be on disk, not just in memory
   const fid = st.folderId;
@@ -396,7 +397,7 @@ console.log('\n=== 6. درس‌نامه هم همین مسیر را می‌رو�
   un = quiet(); produceSpecialContinue(); un();
   let st2 = JSON.parse(global.__PROPS['SPECIAL_PENDING'] || '{}');
   ok('6.3 ادغام شد و به «متنِ صوتی» رفت', st2.phase === 'speak', st2.phase);
-  for (let sp2 = 0; sp2 < 4 && st2.phase === 'speak'; sp2++) {
+  for (let sp2 = 0; sp2 < 8 && /^speak/.test(st2.phase || ''); sp2++) {
     un = quiet(); produceSpecialContinue(); un();
     st2 = JSON.parse(global.__PROPS['SPECIAL_PENDING'] || '{}');
   }
@@ -493,7 +494,7 @@ console.log('\n=== 10. غنی‌سازیِ زود، ساعتِ رسیدنِ پا
   let st = JSON.parse(global.__PROPS['PENDING_EPISODE']);
   ok('10.1 مرحله به «متنِ صوتی» رفت', st.phase === 'speak', st.phase);
   st = JSON.parse(global.__PROPS['PENDING_EPISODE']);
-  for (let sp3 = 0; sp3 < 4 && st.phase === 'speak'; sp3++) {
+  for (let sp3 = 0; sp3 < 8 && /^speak/.test(st.phase || ''); sp3++) {
     un = quiet(); produceEpisodeContinue(); un();
     st = JSON.parse(global.__PROPS['PENDING_EPISODE']);
   }

@@ -584,7 +584,12 @@ function ttsCue_(sectionStyle, text) {
   if (style) cue += '، ' + style;
   // متنِ بی‌اعراب یک یادآورِ کوتاهِ تلفظ می‌گیرد؛ متنِ اعراب‌دار نه — آن‌جا
   // خودِ متن راهنمای تلفظ است.
-  if (!speakVowelledOk_(text, text) && CFG.TTS_PRON_HINT) cue += '. ' + CFG.TTS_PRON_HINT;
+  if (!speakVowelledOk_(text, text)) {
+    if (CFG.TTS_PRON_HINT) cue += '. ' + CFG.TTS_PRON_HINT;
+  } else if (CFG.TTS_FLOW_HINT) {
+    // و برعکسش: متنِ پُرنشانه همان جایی است که مدل واژه‌به‌واژه می‌خوانَد.
+    cue += '. ' + CFG.TTS_FLOW_HINT;
+  }
   cue = cue.replace(/\s+/g, ' ').trim();
   if (cue.length > cap) {
     cue = cue.slice(0, cap);
@@ -955,9 +960,108 @@ function speakCmp_(t) {
     .trim();
 }
 
+/**
+ * پوستهٔ «استخوان»: همان speakCmp_ ولی بی نشانه‌های *عبارت‌بندی*.
+ *
+ * ══ چرا این دومی لازم شد ══
+ * کاربر خواست متنِ صوتی «فقط اعراب‌گذاری نباشد، بلکه با نشانه‌گذاری‌ها و
+ * سایر موارد به مدل حالی کند» — یعنی ویرگول و سه‌نقطه و خط‌تیره برای
+ * عبارت‌بندی. ولی speakCmp_ نشانه‌ها را نگه می‌دارد، پس هر ویرگولی که مدل
+ * می‌افزود verifySpeak_ را می‌شکست و آن بخش با متنِ *بی‌اعراب* خوانده می‌شد.
+ * یعنی خواستهٔ «بهتر بخوان» نتیجه‌اش «بدتر بخوان» بود، بی هیچ خطایی.
+ *
+ * پس مقایسه دو لایه شد. نقطه و علامتِ تعجب و پرسش عمداً بیرونِ فهرستِ
+ * برداشتنی‌اند: مرزِ جمله معنا دارد و مدل حق ندارد جمله‌ها را به هم بدوزد یا
+ * بشکند. رقم و حرف هم که سرِ جایشان می‌مانند — این هنوز همان وارسیِ
+ * «واژه‌به‌واژه» است، فقط دربارهٔ ویرگول سخت‌گیری نمی‌کند.
+ */
+function speakBone_(t) {
+  // نشانه با «فاصله» جایگزین می‌شود، نه با هیچ. speakCmp_ فاصلهٔ دو طرفِ
+  // نشانه را می‌خورد («بایستیم، و» ← «بایستیم،و»)، پس برداشتنِ خودِ نشانه
+  // دو واژه را به هم می‌چسباند و متنِ ویرگول‌دار دیگر با متنِ بی‌ویرگول
+  // یکی نمی‌شود — یعنی دقیقاً همان چیزی که این پوسته برای حلش ساخته شد.
+  return speakCmp_(t).replace(/[،؛:—–…]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** فقط حرف و رقم — برای سنجشِ «این جایگزین همان واژه است یا واژهٔ دیگری؟» */
+function speakLetters_(t) {
+  return speakCmp_(t).replace(/[^ء-يٮ-ۿ0-9A-Za-z]/g, '');
+}
+
 function verifySpeak_(plain, vowelled) {
   if (!vowelled) return false;
-  return speakCmp_(plain) === speakCmp_(vowelled);
+  if (speakCmp_(plain) === speakCmp_(vowelled)) return true;
+  // لایهٔ دوم فقط وقتی باز است که نشانه‌گذاریِ آوایی روشن باشد؛ خاموشش که
+  // کنی، دقیقاً همان سخت‌گیریِ پیشین برمی‌گردد.
+  if (CFG.SPEAK_MARKS === false) return false;
+  return speakBone_(plain) === speakBone_(vowelled);
+}
+
+// ------------------------------------------------- دام‌های تلفظ (فهرستِ یکجا)
+
+/**
+ * ══ چرا فهرست، و چرا در کد ══
+ * گزارشِ کاربر یک واژه بود — «بایستیم» که «با» خوانده شد — ولی خواستش صریح
+ * بود: «این یه نمونه‌ست … تعمیم بدی به بسیاری موارد دیگر». یک واژه را می‌شود
+ * در تبِ تلفظ نوشت؛ یک *دسته* را باید به کسی که اعراب می‌گذارد یاد داد.
+ *
+ * این فهرست دو مصرف دارد و باید یک نسخه بماند: پرامپتِ نوشتن و پرامپتِ
+ * بازبینی. دو نسخه یعنی روزی یکی جلو می‌افتد و آن‌یکی بی‌صدا کهنه می‌شود —
+ * شکلی که این ریپو بارها دیده.
+ *
+ * ابزارِ کار سه‌تاست، به ترتیبِ زور:
+ *   ۱) اعراب — «مِلَل»، «قَدر».
+ *   ۲) نیم‌فاصله — پیوندِ حرف را می‌شکند بی آنکه واژه عوض شود. کلیدِ حلِ
+ *      «بایستیم»: «بِ‌ایستیم» دیگر «با» ندارد که خوانده شود.
+ *   ۳) نشانه‌گذاری — ویرگول و سه‌نقطه و خط‌تیره، برای عبارت‌بندی.
+ * هر سه از سدِ وارسی رد می‌شوند (نیم‌فاصله و نشانه در speakCmp_/speakBone_
+ * برداشته می‌شوند)، پس هیچ‌کدام به قیمتِ افتادنِ کلِ اعراب تمام نمی‌شود.
+ */
+var SPEAK_TRAPS = [
+  'پیشوندِ فعل + ستاکِ الف‌آغاز. «بایستیم/بایستد/بایستیم/نایستاد/میایستد» را ' +
+  'مدل «با» می‌خواند، چون ب به الف چسبیده. اعرابِ پیشوند را بگذار و بلافاصله ' +
+  'نیم‌فاصله بیاور: «بِ‌ایستیم»، «بِ‌ایستد»، «نَ‌ایستاد»، «می‌ایستد». همین ' +
+  'قاعده برای بـ+افتادن («بِ‌افتد»)، بـ+انداختن، بـ+آوردن، بـ+آمدن، ' +
+  'بـ+آموختن و هر ستاکی که با ا/آ/ای آغاز می‌شود.',
+
+  'هم‌نگاشت‌ها. یک املا، چند خوانش: «کرم/کِرم/کَرَم»، «مرد/مَرد/مُرد»، ' +
+  '«سرد/سَرد/سُرد»، «گل/گُل/گِل»، «ملک/مَلِک/مُلک/مِلک»، «شکر/شِکَر/شُکر»، ' +
+  '«بره/بَره/بُرِه»، «کشت/کِشت/کُشت»، «رشته/رِشته»، «نظر/نَظَر»، «قدر/قَدر». ' +
+  'اینجا اعراب واجب است، نه اختیاری — بی آن مدل باید حدس بزند.',
+
+  'کسرهٔ اضافه در همهٔ ترکیب‌های اضافی و وصفی. «کتابِ من»، «راهِ درست»، ' +
+  '«خانهٔ بزرگ». افتادنش، معنا و آهنگِ جمله هر دو را می‌شکند.',
+
+  'واوِ عطف که /o/ خوانده می‌شود نه /va/: «آب و هوا»، «شب و روز»، ' +
+  '«خوب و بد». ضمه‌اش را بگذار — «وُ» — تا پیوسته و کوتاه ادا شود.',
+
+  'نیم‌فاصله‌های واجب: «می‌رود» نه «میرود»، «نمی‌شود» نه «نمیشود»، ' +
+  '«کتاب‌ها» نه «کتابها»، «آن‌ها»، «به‌جای». چسبیدنشان تلفظ را می‌شکند.',
+
+  'تشدید. «مُحَمَّد»، «اَوَّل»، «حَتّی»، «مُعَلِّم». بی تشدید حرف یک بار ' +
+  'خوانده می‌شود و واژه واژهٔ دیگری می‌شود.',
+
+  'همزه و الفِ میانی: «مسئله/مَسئَله»، «مؤثر»، «رأی»، «جزئی». و «هٔ» را ' +
+  'هرگز به «ه» ساده نکن — کسرهٔ اضافه با آن می‌رود.',
+
+  'وامواژه و نامِ خاص: «اُکسیژِن»، «اِنرژی»، «اِسرائیل»، «ژِنِو». مدل ' +
+  'اینها را با آهنگِ عربی می‌خواند مگر اعرابشان بگذاری.',
+
+  'عبارت‌بندی — و این همان چیزی است که با اعراب درست نمی‌شود. اگر جمله بلند ' +
+  'است و مدل واژه‌به‌واژه می‌خوانَدش، با ویرگول گروه‌بندی‌اش کن؛ برای مکثِ ' +
+  'بلندتر یا جملهٔ ناتمام «…»؛ برای جملهٔ معترضه «—» دو طرفش. ویرگول را ' +
+  'آنجا بگذار که نفس گرفته می‌شود، نه هر چند واژه یک‌بار.',
+
+  'تکیهٔ واژه نسبت به واژهٔ بعد. جایی که دو واژه یک واحدِ آهنگی‌اند ' +
+  '(«همینْ حالا»، «هیچ‌کس»، «به‌هیچ‌وجه») نباید بینشان مکث بیفتد؛ اگر خطرِ ' +
+  'مکث هست، با نیم‌فاصله به هم ببندشان.'
+];
+
+/** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
+function speakTrapText_() {
+  var L = [];
+  for (var i = 0; i < SPEAK_TRAPS.length; i++) L.push('- ' + SPEAK_TRAPS[i]);
+  return L.join('\n');
 }
 
 /** امضای یک متن، برای اینکه نسخهٔ صوتی به متنِ عوض‌شده نچسبد. */
@@ -1002,23 +1106,273 @@ function speakPieces_(text, cap) {
  * می‌شود؛ اگر مدل واژه‌ای را عوض کرده باشد، جواب دور انداخته می‌شود.
  */
 function vowelizePiece_(piece) {
+  var marks = CFG.SPEAK_MARKS !== false;
   var prompt =
-    'متنِ فارسیِ زیر را «عیناً» برگردان و فقط اعراب‌گذاریِ کامل کن: فتحه، کسره، ' +
-    'ضمه، سکون و تشدید را بر پایهٔ تلفظِ فارسیِ معیارِ ایران (لهجهٔ تهرانی) روی حروف بگذار. ' +
-    'کسرهٔ اضافه را در همهٔ ترکیب‌های اضافی و وصفی بگذار. ' +
-    'هیچ واژه‌ای را اضافه، کم، جابه‌جا یا اصلاح نکن؛ نشانه‌گذاری و فاصله‌ها همان بمانند. ' +
-    'خروجی فقط خودِ متنِ اعراب‌دار در فیلد v.\n\n' + piece;
+    'کارِ تو: اعراب‌گذاریِ کامل و نشانه‌گذاریِ آواییِ این متن.\n' +
+    'این متن قرار است به یک مدلِ گفتارساز داده شود تا با صدای بلند خوانده شود. ' +
+    'باید طوری علامت‌گذاری‌اش کنی که هیچ واژه‌ای غلط خوانده نشود ' +
+    'و جمله‌ها روان و عبارت‌به‌عبارت خوانده شوند — نه واژه‌به‌واژه.\n' +
+    'ابزارهایت:\n' +
+    '۱) اعراب: فتحه، کسره، ضمه، سکون و تشدید بر پایهٔ تلفظِ فارسیِ معیارِ ایران ' +
+    '(لهجهٔ تهرانی). روی *همهٔ* حروف، نه فقط واژه‌های سخت.\n' +
+    '۲) نیم‌فاصله: هم آنجا که املا واجبش می‌کند، هم آنجا که چسبیدنِ دو حرف باعثِ ' +
+    'خوانشِ غلط می‌شود.\n' +
+    (marks
+      ? '۳) نشانه‌گذاری برای عبارت‌بندی: می‌توانی «،» و «…» و «—» و «:» بیفزایی یا ' +
+        'برداری تا مکث‌ها سرِ جای درست بیفتد.\n'
+      : '۳) نشانه‌گذاری را دست نزن.\n') +
+    'دام‌هایی که باید بگردی و ببندی:\n' + speakTrapText_() + '\n' +
+    'قاعدهٔ سخت: هیچ واژه‌ای را اضافه، کم، جابه‌جا یا اصلاح نکن. ' +
+    'هیچ عدد یا نامی را عوض نکن. ' +
+    (marks ? 'مرزِ جمله‌ها را هم دست نزن: نقطه و علامتِ پرسش و تعجب همان‌جا بمانند. '
+           : 'فاصله‌ها و نشانه‌ها همان بمانند. ') +
+    'خروجی فقط خودِ متنِ علامت‌گذاری‌شده در فیلد v.\n\n' + piece;
   try {
     var r = geminiText_(prompt, SPEAK_SCHEMA, 8192);
     var v = r && r.v ? String(r.v) : '';
     if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
-    r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب.',
+    r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
     v = r && r.v ? String(r.v) : '';
     if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
   } catch (e) {}
   return '';
+}
+
+// --------------------------------------------------- بازبینیِ دومِ متنِ صوتی
+
+/**
+ * ══ چرا یک پاسِ دوم، و چرا «دقایقی بعد» ══
+ * خواستهٔ کاربر عیناً: «بعد از یک بار نوشته حتماً دقایقی بعدش مجدد بررسی بشه
+ * ببینه درست نوشته شده همه چیز تا اگر لازم شد اصلاح بشه … این بررسی مجدد
+ * خیلی مهمه». و دلیلِ فنی‌اش از خودِ خواسته هم قوی‌تر است:
+ *
+ * تا ۶٫۱۹ هیچ سدی معنایی نبود. verifySpeak_ می‌گوید «همان واژه‌هاست»،
+ * speakVowelledOk_ می‌گوید «نشانه کم نیست». هیچ‌کدام نمی‌گویند «نشانه‌ها
+ * درست‌اند». «بایستیم» با فتحه روی ب از هر دو رد می‌شود — و در گوش «با» است.
+ *
+ * نوشتن و بازبینی دو فراخوانِ جدا با دو کارِ جدایند: اولی می‌نویسد، دومی
+ * *قضاوت* می‌کند. یک فراخوان که هم بنویسد هم قضاوت کند، جوابِ خودش را
+ * تأیید می‌کند — و همان است که سه نسخه پیاپی «درست شد» گفت و نشده بود.
+ */
+var SPEAK_REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    v: { type: 'string' },      // متنِ اصلاح‌شده (کاملِ همان تکه)
+    n: { type: 'string' },      // چند مورد اصلاح شد
+    note: { type: 'string' },   // یک سطر: چه چیزی غلط بود
+    hard: { type: 'string' }    // «واژه => املای آوایی» در سطرهای جدا
+  },
+  required: ['v']
+};
+
+/**
+ * بازبینیِ یک تکه. برمی‌گرداند { t, n, note, hard } یا null (بی‌تغییر/ناموفق).
+ * متنِ ساده هم داده می‌شود، چون بازبین باید بتواند بگوید «این اعراب با آن
+ * واژه نمی‌خوانَد» — با دیدنِ فقط نسخهٔ اعراب‌دار، غلط را طبیعی می‌بیند.
+ */
+function speakReviewPiece_(plain, vowelled) {
+  var prompt =
+    'کارِ تو: بازبینیِ نشانه‌گذاریِ متنِ صوتی.\n' +
+    'دو متن می‌بینی: «اصل» و «علامت‌گذاری‌شده». دومی قرار است به یک گفتارساز ' +
+    'داده شود. کارِ تو نوشتنِ دوباره نیست — *بازبینی* است: بگرد دنبالِ جایی که ' +
+    'علامت‌گذاری غلط است یا نیست و باید باشد، و همان‌جا را درست کن.\n\n' +
+    'مخصوصاً این دام‌ها را وارسی کن:\n' + speakTrapText_() + '\n\n' +
+    'همچنین: هر جا که با اعرابِ درست هم باز خوانشِ غلط محتمل است، در فیلد hard ' +
+    'سطری به شکلِ «واژه => املای آوایی» بنویس (مثال: «بایستیم => بِ‌ایستیم»). ' +
+    'حروفِ املای آوایی باید همان حروفِ واژه باشد؛ فقط اعراب و فاصله و ' +
+    'نیم‌فاصله فرق کند.\n\n' +
+    'قاعدهٔ سخت: واژه‌ها و عددها و مرزِ جمله‌ها عوض نمی‌شوند. اگر چیزی برای ' +
+    'اصلاح نبود، همان متنِ علامت‌گذاری‌شده را بی‌تغییر در v برگردان و n را «۰» بگذار.\n\n' +
+    '── اصل ──\n' + plain + '\n\n── علامت‌گذاری‌شده ──\n' + vowelled;
+  try {
+    var r = geminiText_(prompt, SPEAK_REVIEW_SCHEMA, 8192);
+    if (!r) return null;
+    var v = r.v ? String(r.v) : '';
+    if (!v) return null;
+    // همان دو سدِ همیشگی روی خروجیِ بازبین هم — بازبین هم یک مدل است.
+    if (!verifySpeak_(plain, v) || !speakVowelledOk_(plain, v)) return null;
+    var changed = speakCmp_(v) !== speakCmp_(vowelled) || v !== vowelled;
+    return { t: v, changed: changed, n: String(r.n || ''),
+             note: String(r.note || ''), hard: String(r.hard || '') };
+  } catch (e) { return null; }
+}
+
+/** بازبینیِ یک متنِ کامل، تکه‌تکه. برمی‌گرداند { t, fixed, notes, hard }. */
+function speakReviewText_(plain, vowelled) {
+  var pp = speakPieces_(plain, 1500);
+  var vp = speakPieces_(vowelled, 1500);
+  // اگر تکه‌بندیِ دو متن هم‌تراز نشد (نشانه‌گذاری طولِ تکه‌ها را جابه‌جا
+  // می‌کند)، یکجا بازبینی می‌شود. یک تکهٔ بلندتر بهتر از جفت‌شدنِ غلطِ
+  // «تکهٔ ۲ِ اصل» با «تکهٔ ۳ِ اعراب‌دار» است.
+  if (pp.length !== vp.length) { pp = [plain]; vp = [vowelled]; }
+  var out = [], fixed = 0, notes = [], hard = [];
+  for (var i = 0; i < pp.length; i++) {
+    var r = speakReviewPiece_(pp[i], vp[i]);
+    if (!r) { out.push(vp[i]); continue; }
+    out.push(r.t);
+    if (r.changed) {
+      fixed++;
+      if (r.note) notes.push(r.note.replace(/\s+/g, ' ').trim().slice(0, 160));
+    }
+    if (r.hard) hard.push(r.hard);
+  }
+  return { t: out.join(' '), fixed: fixed, notes: notes, hard: hard.join('\n') };
+}
+
+/**
+ * «واژه => املای آوایی» را به سطرهای امن تبدیل می‌کند.
+ *
+ * تنها سدِ اینجا این است: حروفِ جایگزین باید *دقیقاً* حروفِ واژه باشد. تبِ
+ * تلفظ پس از وارسی اعمال می‌شود — یعنی هرچه اینجا برود، دیگر هیچ سدی
+ * ندارد و برای همیشه روی هر قسمت می‌نشیند. یک سطرِ غلطِ خودکار بدتر از
+ * نبودنِ سطر است، پس جایگزینی که *واژهٔ دیگری* باشد رد می‌شود.
+ */
+function speakHardRows_(hard, cap) {
+  var lines = String(hard || '').split(/[\n\r]+/);
+  var out = [], seen = {};
+  for (var i = 0; i < lines.length && out.length < cap; i++) {
+    var m = lines[i].split(/=>|<=|→|—>/);
+    if (m.length < 2) continue;
+    var a = m[0].replace(/^[\s«"'\-•*]+|[\s»"']+$/g, '').trim();
+    var b = m[1].replace(/^[\s«"'\-•*]+|[\s»"']+$/g, '').trim();
+    if (!a || !b || a === b) continue;
+    if (a.length > 40 || b.length > 60) continue;
+    if (speakLetters_(a) !== speakLetters_(b)) continue;   // ← سدِ اصلی
+    if (!speakLetters_(a)) continue;
+    if (seen[a]) continue;
+    seen[a] = 1;
+    out.push([a, b]);
+  }
+  return out;
+}
+
+/**
+ * افزودنِ سطرهای آموخته به تبِ «تلفظ» — فقط افزودن.
+ *
+ * سطرِ آدمی هرگز بازنویسی نمی‌شود و واژه‌ای که از قبل هست دوباره نوشته
+ * نمی‌شود؛ همان قاعده‌ای که اسکنِ موسیقی دربارهٔ ستون‌های سلیقهٔ کاربر دارد.
+ * ستونِ چهارم می‌گوید این سطر را آدم ننوشته — «حدس» و «تصمیم» نباید یک شکل
+ * دیده شوند.
+ */
+function speakLearn_(rows, epLabel) {
+  if (!rows || !rows.length || CFG.SPEAK_LEARN === false) return 0;
+  try {
+    var sh = getHub_().getSheetByName(CFG.TAB_PRON);
+    if (!sh) return 0;
+    var have = {}, last = sh.getLastRow();
+    if (last > 1) {
+      var cur = sh.getRange(2, 1, last - 1, 1).getValues();
+      for (var i = 0; i < cur.length; i++) {
+        var k = pronStrip_(String(cur[i][0] || '').trim()).text;
+        if (k) have[k] = 1;
+      }
+    }
+    var add = [];
+    for (var j = 0; j < rows.length; j++) {
+      var key = pronStrip_(rows[j][0]).text;
+      if (!key || have[key]) continue;
+      have[key] = 1;
+      add.push([rows[j][0], rows[j][1], 'بله',
+                'خودکار — بازبینیِ ' + epLabel + ' — ' + nowStr_()]);
+    }
+    if (!add.length) return 0;
+    if (!String(sh.getRange(1, 4).getValue() || '').trim()) {
+      sh.getRange(1, 4).setValue('منبعِ سطر');
+    }
+    sh.getRange(sh.getLastRow() + 1, 1, add.length, 4).setValues(add);
+    _pronCache = null;                 // ← وگرنه همین قسمت از آموخته‌اش بی‌بهره می‌ماند
+    return add.length;
+  } catch (e) {
+    logLine_('افزودنِ واژه‌های آموخته به تبِ تلفظ ناموفق: ' + e.message);
+    return 0;
+  }
+}
+
+/**
+ * مرحلهٔ بازبینی: روی بخش‌هایی که متنِ اعراب‌دار گرفته‌اند، یک بار و فقط یک بار.
+ * `r:1` روی هر بخش می‌نشیند تا اجرای بعدی دوباره‌کاری نکند.
+ */
+function speakReview_(ep, segs, deadline, persist, epLabel) {
+  if (CFG.SPEAK_REVIEW === false || CFG.TASHKIL_ENABLED === false) {
+    return { done: true, seen: 0, fixed: 0, learned: 0 };
+  }
+  var seen = 0, fixed = 0, notes = [], hardAll = [], touched = 0;
+  var cap = Number(CFG.SPEAK_REVIEW_MAX) || 14;
+  for (var i = 0; i < segs.length && seen < cap; i++) {
+    var plain = speakSanitize_(String(segs[i].text || ''));
+    if (!plain.trim()) continue;
+    var e = ep.__speakSegs && ep.__speakSegs[i];
+    if (!e || !e.t || e.h !== speakHash_(plain)) continue;   // بی‌اعراب یا کهنه
+    if (e.r) continue;                                        // بازبینی‌شده
+    if (touched > 0 && new Date().getTime() > deadline - 40000) {
+      try { persist(); } catch (eP) {}
+      return { done: false, seen: seen, fixed: fixed, learned: 0 };
+    }
+    touched++; seen++;
+    var r = speakReviewText_(plain, e.t);
+    if (r && r.t) {
+      e.t = r.t;
+      if (r.fixed) { fixed += r.fixed; notes = notes.concat(r.notes); }
+      if (r.hard) hardAll.push(r.hard);
+    }
+    e.r = 1;
+    try { persist(); } catch (eP2) {}
+  }
+  var learned = speakLearn_(speakHardRows_(hardAll.join('\n'),
+                                           Number(CFG.SPEAK_LEARN_MAX) || 6), epLabel);
+  speakRevLog_(epLabel, seen, fixed, learned, notes);
+  return { done: true, seen: seen, fixed: fixed, learned: learned, notes: notes };
+}
+
+/**
+ * کارنامهٔ بازبینی — ده قسمتِ آخر.
+ *
+ * بی این، «بازبینی اجرا شد و ایرادی نبود» از «بازبینی هرگز اجرا نشد» قابلِ
+ * تشخیص نبود. این ریپو هفت بار همین شکل را دیده: تحلیلی نوشته شد و هیچ
+ * تصمیمی به آن وصل نشد. اینجا تصمیمْ هشدارِ speakReviewStatus_ است.
+ */
+function speakRevLog_(epLabel, seen, fixed, learned, notes) {
+  try {
+    var raw = props_().getProperty(PK.SPEAK_REV);
+    var L = raw ? JSON.parse(raw) : [];
+    if (!(L instanceof Array)) L = [];
+    L.unshift({ at: new Date().toISOString(), ep: String(epLabel || ''),
+                seen: seen, fixed: fixed, learned: learned,
+                why: (notes || []).slice(0, 3) });
+    props_().setProperty(PK.SPEAK_REV, JSON.stringify(L.slice(0, 10)));
+  } catch (e) {}
+}
+
+/** یک سطرِ فارسیِ آماده دربارهٔ بازبینی — هر روز، حتی وقتی همه‌چیز خوب است. */
+function speakReviewStatus_() {
+  var out = { line: '', ok: true, runs: 0, fixed: 0, learned: 0 };
+  try {
+    var raw = props_().getProperty(PK.SPEAK_REV);
+    var L = raw ? JSON.parse(raw) : [];
+    if (!(L instanceof Array) || !L.length) {
+      out.line = 'بازبینیِ متنِ صوتی: هنوز هیچ قسمتی بازبینی نشده.';
+      return out;
+    }
+    var seen = 0;
+    for (var i = 0; i < L.length; i++) {
+      out.runs++; seen += Number(L[i].seen) || 0;
+      out.fixed += Number(L[i].fixed) || 0;
+      out.learned += Number(L[i].learned) || 0;
+    }
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    out.line = 'بازبینیِ متنِ صوتی: ' + fa(out.runs) + ' قسمتِ اخیر، ' + fa(seen) +
+               ' بخش وارسی شد، ' + fa(out.fixed) + ' مورد اصلاح' +
+               (out.learned ? '، ' + fa(out.learned) + ' واژه به تبِ تلفظ افزوده شد' : '') + '.';
+    // «هیچ‌وقت هیچ ایرادی پیدا نمی‌کند» یعنی یا بازبین کار نمی‌کند یا سدِ
+    // وارسی همیشه جوابش را دور می‌ریزد. هر دو خرابی‌اند، فقط بی‌صدا.
+    if (out.runs >= 5 && out.fixed === 0) {
+      out.ok = false;
+      out.line += ' هیچ اصلاحی در پنج قسمتِ اخیر ثبت نشده — بازبینی احتمالاً بی‌اثر است.';
+    }
+  } catch (e) {}
+  return out;
 }
 
 /** اعراب‌گذاریِ یک متنِ کامل (چندجمله‌ای)، تکه‌تکه و با وارسی. '' یعنی نشد. */
@@ -1150,12 +1504,13 @@ function writeSpeakFile_(folder, baseName, ep, segs) {
 
 /** آمارِ مرحلهٔ متنِ صوتی برای سیاهه. */
 function speakStats_(ep, segs) {
-  var ok = 0, plain = 0;
+  var ok = 0, plain = 0, rev = 0;
   for (var i = 0; i < segs.length; i++) {
     var e = ep.__speakSegs && ep.__speakSegs[i];
-    if (e && e.t) ok++; else plain++;
+    if (e && e.t) { ok++; if (e.r) rev++; } else plain++;
   }
-  return ok + ' بخش اعراب‌دار' + (plain ? '، ' + plain + ' بخش با متنِ ساده' : '');
+  return ok + ' بخش اعراب‌دار' + (plain ? '، ' + plain + ' بخش با متنِ ساده' : '') +
+         (rev ? '، ' + rev + ' بخش بازبینی‌شده' : '');
 }
 
 // ------------------------------------------------- بخش‌بندی با لحنِ متناسب
@@ -3662,11 +4017,39 @@ function renderAudioStep_() {
       writeSpeakFile_(folder, baseName, ep, segsSpk);
       meta.ep = ep;
       try { writeEpisodeJson_(folder, meta); } catch (eWs) {}
+      // نوشتن تمام شد؛ حالا فاصله، بعد بازبینی. فاصله تزئینی نیست: نوشتن و
+      // قضاوت باید دو فراخوانِ جدا باشند، وگرنه مدل جوابِ خودش را تأیید
+      // می‌کند — و دقیقاً همین شکل بود که سه نسخه پیاپی «درست شد» گفت.
+      st.phase = (CFG.SPEAK_REVIEW === false) ? 'audio' : 'speak2';
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+      scheduleContinue_(st.phase === 'speak2'
+                        ? Math.max(60, (Number(CFG.SPEAK_REVIEW_MIN) || 3) * 60) * 1000
+                        : 45 * 1000);
+      logLine_('قسمت ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSpk) + '.');
+      return { ok: true, episode: epNum, pending: true, spoke: true };
+    }
+
+    // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
+    if (st.phase === 'speak2') {
+      var segsRev = episodeSegments_(ep, cat);
+      var rv = speakReview_(ep, segsRev, deadline, function () {
+        meta.ep = ep; writeEpisodeJson_(folder, meta);
+      }, CFG.SHOW_NAME + ' ' + epNum);
+      if (!rv.done) {
+        scheduleContinue_(45 * 1000);
+        logLine_('قسمت ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
+        return { ok: true, episode: epNum, pending: true, reviewing: true };
+      }
+      writeSpeakFile_(folder, baseName, ep, segsRev);
+      meta.ep = ep;
+      try { writeEpisodeJson_(folder, meta); } catch (eWr) {}
       st.phase = 'audio';
       props_().setProperty(PK.PENDING, JSON.stringify(st));
       scheduleContinue_(45 * 1000);
-      logLine_('قسمت ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSpk) + '.');
-      return { ok: true, episode: epNum, pending: true, spoke: true };
+      logLine_('قسمت ' + epNum + ': بازبینیِ متنِ صوتی تمام شد — ' + rv.seen +
+               ' بخش وارسی، ' + rv.fixed + ' اصلاح' +
+               (rv.learned ? '، ' + rv.learned + ' واژه به تبِ تلفظ' : '') + '.');
+      return { ok: true, episode: epNum, pending: true, reviewed: true };
     }
 
     // ── دروازهٔ «نه پیش از ساعتِ مقرر» ──

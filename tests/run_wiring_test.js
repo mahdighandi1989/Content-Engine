@@ -95,11 +95,20 @@ console.log('=== ۴) هیچ بارگذاری از بخشی جا نمانده ب�
   ok('۴.۱ tools/build.js همهٔ بخش‌ها را می‌سازد',
      missingBuild.length === 0, missingBuild.join(', '));
 
-  const TESTS = fs.readdirSync('tests').filter(f => /^run_.*\.js$/.test(f)).sort();
+  /* پوشهٔ lib هم شمرده می‌شود.
+     تا ۶٫۲۰ فقط tests/run_*.js گشته می‌شد، و tests/lib/probe_r4_lib.js —
+     که شش سشنِ آزمون از آن متن را می‌گیرند — از ۲۳ تا ۲۸ خبر نداشت. یعنی
+     همان نگهبانی که برای «بارکنندهٔ بی‌خبر از یک بخش» ساخته شده بود، جایی
+     را نمی‌دید که آن اتفاق افتاده بود. نگهبانی که یک در را نمی‌بیند، همان
+     در را باز می‌گذارد. */
+  const TESTS = fs.readdirSync('tests').filter(f => /^run_.*\.js$/.test(f)).sort()
+    .map(f => 'tests/' + f)
+    .concat(fs.readdirSync('tests/lib').filter(f => /\.js$/.test(f)).sort()
+              .map(f => 'tests/lib/' + f));
   const bad = [];
   for (const t of TESTS) {
-    const txt = fs.readFileSync('tests/' + t, 'utf8');
-    if (t === 'run_wiring_test.js') continue;                       // خودِ همین فایل
+    const txt = fs.readFileSync(t, 'utf8');
+    if (/run_wiring_test\.js$/.test(t)) continue;                   // خودِ همین فایل
     // فقط آزمونی که بخش‌ها را با فهرستِ دستی از src/ می‌خواند. آن‌هایی که
     // engine.gs را eval می‌کنند یا readdirSync می‌زنند، خودبه‌خود کامل‌اند.
     if (!/readFileSync\((DIR|'src\/')\s*\+/.test(txt)) continue;

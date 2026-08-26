@@ -1899,11 +1899,37 @@ function renderSpecialAudioStep_() {
       writeSpeakFile_(folder, baseName, ep, segsSp);
       meta.ep = ep;
       try { writeSpecialJson_(folder, meta); } catch (eWs) {}
+      // فاصله، بعد بازبینی — همان ترتیبِ برنامهٔ متنوع (توضیح در speakReview_).
+      st.phase = (CFG.SPEAK_REVIEW === false) ? 'audio' : 'speak2';
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+      scheduleSpecialContinue_(st.phase === 'speak2'
+                               ? Math.max(60, (Number(CFG.SPEAK_REVIEW_MIN) || 3) * 60) * 1000
+                               : 45 * 1000);
+      logLine_('درس‌نامه ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSp) + '.');
+      return { ok: true, episode: epNum, pending: true, spoke: true };
+    }
+
+    // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
+    if (st.phase === 'speak2') {
+      var segsRv = specialSegments_(ep, meta.seriesCat || meta.cat || '');
+      var rvS = speakReview_(ep, segsRv, deadline, function () {
+        meta.ep = ep; writeSpecialJson_(folder, meta);
+      }, CFG.SPECIAL_SHOW_NAME + ' ' + epNum);
+      if (!rvS.done) {
+        scheduleSpecialContinue_(45 * 1000);
+        logLine_('درس‌نامه ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
+        return { ok: true, episode: epNum, pending: true, reviewing: true };
+      }
+      writeSpeakFile_(folder, baseName, ep, segsRv);
+      meta.ep = ep;
+      try { writeSpecialJson_(folder, meta); } catch (eWr) {}
       st.phase = 'audio';
       props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       scheduleSpecialContinue_(45 * 1000);
-      logLine_('درس‌نامه ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSp) + '.');
-      return { ok: true, episode: epNum, pending: true, spoke: true };
+      logLine_('درس‌نامه ' + epNum + ': بازبینیِ متنِ صوتی تمام شد — ' + rvS.seen +
+               ' بخش وارسی، ' + rvS.fixed + ' اصلاح' +
+               (rvS.learned ? '، ' + rvS.learned + ' واژه به تبِ تلفظ' : '') + '.');
+      return { ok: true, episode: epNum, pending: true, reviewed: true };
     }
 
     // ── دروازهٔ «نه پیش از ساعتِ مقرر» ──

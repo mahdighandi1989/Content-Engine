@@ -46,6 +46,11 @@ global.__STUB=function(url,body){
   if(t.indexOf('اعراب‌گذاریِ کامل')!==-1&&t.indexOf('فیلد v')!==-1){
     const piece=t.split('\n\n').slice(1).join('\n\n').replace(/\n\nیادآوری:[\s\S]*$/,'');
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({v:piece.replace(/([\u0622-\u064A\u066E-\u06D5])/g,'$1َ')})}]}}]}};}
+  // ۶٫۲۰: بازبینیِ متنِ صوتی هم یک فراخوانِ متنی است و بی این شاخه، جای
+  // پرامپتِ نویسنده را می‌گرفت — همان تلهٔ اعراب‌گذاری، بارِ سوم.
+  if(t.indexOf('بازبینیِ نشانه‌گذاریِ متنِ صوتی')!==-1){
+    const vv=t.split('── علامت‌گذاری‌شده ──\n')[1]||'';
+    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({v:vv,n:'۰'})}]}}]}};}
   // پرسشِ «این متن چه صدایی می‌خواهد؟» (۵٫۷۵) نباید در فهرستِ پرامپتِ
   // نویسنده بنشیند — همان تلهٔ اعراب‌گذاری، این بار برای افکت.
   if(t.indexOf('آیا جایی در آن هست که یک **صدای کوتاه**')!==-1){

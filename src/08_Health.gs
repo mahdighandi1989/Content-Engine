@@ -455,6 +455,7 @@ function writeStatus_(hub, note) {
     // حلقهٔ بستهٔ گزارش ← اقدام: چه چیزی باز است و چه چیزی اعمال شده
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
+    speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -1200,6 +1201,14 @@ function healthCheck() {
     var sqL = sqStatus_();
     if (sqL && sqL.line) notes.push(sqL.line);
   } catch (eSq2) {}
+  /* بازبینیِ متنِ صوتی هم هر روز یک خط دارد. «هیچ ایرادی پیدا نشد» و «اصلاً
+     اجرا نشد» در سکوت یک شکل‌اند؛ سطرِ روزانه تنها چیزی است که از هم جدایشان
+     می‌کند. و اگر بازبینی پنج قسمت پیاپی هیچ نگیرد، از یادداشت به مشکل
+     ارتقا می‌یابد — چون خودِ بازبینی آن‌وقت خراب است. */
+  try {
+    var spR = speakReviewStatus_();
+    if (spR && spR.line) { if (spR.ok) notes.push(spR.line); else problems.push(spR.line); }
+  } catch (eSr) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
