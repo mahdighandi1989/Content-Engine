@@ -1596,4 +1596,85 @@ console.log('=== ۴۳) سهمِ زمانیِ هر گوینده (۶٫۱۵) ===');
      castShare_(tl));
 }
 
+console.log('=== ۴۴) خلاصهٔ لینک‌ها: ایمیل و تلگرام (۶٫۱۹) ===');
+{
+  global.__STUB = BASE_STUB;
+  const hubD = new Spread('hub', 'HUBDG');
+  global.__SS['HUBDG'] = hubD;
+  const hubWas = global.__PROPS[PK.HUB_ID];
+  global.__PROPS[PK.HUB_ID] = 'HUBDG';
+  const sh = ensureTab_(getHub_(), CFG.YT_TAB, YT_HEADERS);
+  const mk = (show, ep, ser, title, vid) => {
+    const r = new Array(YT_HEADERS.length).fill('');
+    r[YU.AT - 1] = nowStr_(); r[YU.SHOW - 1] = show; r[YU.EP - 1] = ep;
+    r[YU.SERIES - 1] = ser; r[YU.TITLE - 1] = title; r[YU.VID - 1] = vid;
+    r[YU.URL - 1] = 'https://youtu.be/' + vid; r[YU.TAGS - 1] = 'فلسفه، معرفت شناسی';
+    r[YU.DUR - 1] = '۱۵:۱۰'; r[YU.CAST - 1] = 'آرش ۵۹٪'; return r;
+  };
+  appendBlock_(sh, [mk('special', '2', 'مجموعهٔ الف', 'دومی', 'V2'),
+                    mk('special', '1', 'مجموعهٔ الف', 'اولی', 'V1'),
+                    mk('variety', '20', '', 'ترکیبی', 'V20'),
+                    // ردیفِ بی‌شناسه = هنوز منتشر نشده، نباید در خلاصه بیاید
+                    mk('variety', '21', '', 'ناموفق', '')], YT_HEADERS.length);
+  global.__PROPS[PK.YT_PL] = JSON.stringify({
+    'series:m': { id: 'PL1', title: 'مجموعهٔ الف — درس‌نامه', podcast: 'x', cover: 'y' },
+    'show:variety': { id: 'PL2', title: 'از همه جا از همه رنگ' } });
+
+  const d = ytDigest_(48);
+  ok('۴۴.۱ فقط ویدئوهای واقعاً منتشرشده می‌آیند', d.n === 3, String(d.n));
+  /* تفکیک پیش از فهرست: یک فهرستِ درهم همان‌قدر بی‌مصرف است که هیچ لینکی. */
+  ok('۴۴.۲ و به تفکیکِ برنامه گروه می‌شوند', d.shows.length === 2);
+  const sp = d.shows.filter(x => x.show === 'special')[0];
+  ok('۴۴.۳ ترتیب از شمارهٔ قسمت است، نه از ترتیبِ ثبت',
+     sp.items[0].ep === '1' && sp.items[1].ep === '2',
+     sp.items.map(x => x.ep).join(','));
+
+  /* هشتگ از برچسب‌های خودِ همان ویدئو، نه از یک فهرستِ ثابت. */
+  const tags = ytDigestTags_('درس‌نامه', sp.items[0]);
+  ok('۴۴.۴ هشتگِ برنامه اول می‌آید — تا دو برنامه از هم جدا جست‌وجو شوند',
+     tags[0] === '#درس_نامه', tags.join(' '));
+  ok('۴۴.۵ و برچسب‌های خودِ قسمت هم', tags.indexOf('#فلسفه') !== -1, tags.join(' '));
+  ok('۴۴.۶ و فاصله به زیرخط تبدیل می‌شود، وگرنه هشتگ می‌شکند',
+     ytHashOf_('معرفت شناسی') === '#معرفت_شناسی', ytHashOf_('معرفت شناسی'));
+  ok('۴۴.۷ و چیزی که هشتگ نمی‌شود، هشتگِ خالی نمی‌سازد', ytHashOf_('  ---  ') === '');
+  ok('۴۴.۸ و تکراری‌ها یک بار می‌آیند',
+     ytDigestTags_('فلسفه', { tags: 'فلسفه، فلسفه' }).length === 1);
+
+  const html = ytDigestHtml_(d), tg = ytDigestTg_(d);
+  ok('۴۴.۹ ایمیل لینکِ واقعی دارد، نه فقط نام',
+     html.indexOf('href="https://youtu.be/V1"') !== -1);
+  ok('۴۴.۱۰ و تلگرام هم', tg.indexOf('https://youtu.be/V1') !== -1);
+  ok('۴۴.۱۱ پلی‌لیست‌ها جدا می‌آیند — دسترسیِ همیشگی‌اند، نه خبرِ امروز',
+     tg.indexOf('پلی‌لیست‌ها و پادکست‌ها') !== -1 && tg.indexOf('PL1') !== -1);
+  ok('۴۴.۱۲ و وضعِ پادکست و کاورشان هم گفته می‌شود',
+     html.indexOf('پادکست ✓') !== -1 && html.indexOf('هنوز پادکست نشده') !== -1);
+  ok('۴۴.۱۳ گویندگان هم می‌آیند — همان چیزی که قرار بود بشود سنجید',
+     tg.indexOf('آرش ۵۹٪') !== -1);
+
+  /* روزی که ویدئویی منتشر نشده، هیچ پیامی نمی‌رود: پلی‌لیست‌ها دسترسی‌اند
+     نه خبر، و فرستادنِ هر روزشان همان پیامی است که آدم یاد می‌گیرد نخواند. */
+  /* تبِ خالی، نه پنجرهٔ کوچک و نه هابِ دیگر: `ytDigest_` عمداً کفِ
+     یک‌ساعته دارد (پس «پنجرهٔ صفر» شدنی نیست) و `getHub_` هاب را کش
+     می‌کند (پس عوض‌کردنِ شناسه وسطِ اجرا کاری نمی‌کند — همان‌طور که در
+     واقعیت هم نمی‌کند). تنها شبیه‌سازیِ صادقانه این است که واقعاً ویدئویی
+     منتشر نشده باشد. */
+  delete global.__PROPS[PK.YT_DIGEST];
+  const rowsWas = sh._d.slice();
+  sh._d.length = 1;                       // فقط سرستون‌ها
+  const noneRes = ytDigestSend_();
+  ok('۴۴.۱۴ بی ویدئوی تازه، تلگرام چیزی نمی‌فرستد',
+     noneRes.sent === false && noneRes.why.indexOf('تازه‌ای نبود') !== -1,
+     JSON.stringify(noneRes));
+  for (let z = 1; z < rowsWas.length; z++) sh._d.push(rowsWas[z]);
+  /* و دو بار در روز هم نمی‌فرستد. */
+  global.__PROPS[PK.YT_DIGEST] = nowStr_();
+  ok('۴۴.۱۵ و دو بار در روز نمی‌رود',
+     ytDigestSend_().why.indexOf('امروز') !== -1);
+
+  const h8 = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۴۴.۱۶ و بلوکِ لینک‌ها جدا از ایرادهاست، نه لای آن‌ها',
+     h8.indexOf('ytDigestHtml_(') > h8.indexOf('mailQueueHtml_(queued)'));
+  global.__PROPS[PK.HUB_ID] = hubWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

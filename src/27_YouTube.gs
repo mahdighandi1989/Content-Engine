@@ -2639,6 +2639,210 @@ function ytStatsStatus_() {
   return out;
 }
 
+/* ─────────── ۱۳‑پ) خلاصهٔ لینک‌ها — ایمیل و تلگرام (۶٫۱۹) ───────────
+ *
+ * خواسته: «لینکِ ویدئوها و پلی‌لیست‌ها مرتب و دقیق با اسم‌گذاری فرستاده شود
+ * و هشتگ‌گذاری دقیق باشد، تا هم بشود فهمید چه کارهایی شده و هم دسترسی
+ * داشت — با رعایتِ تفکیک.»
+ *
+ * ══ دو چیز که شکلِ این بلوک را تعیین کرده‌اند ══
+ *
+ * ۱) **تفکیک، پیش از فهرست.** یک فهرستِ درهمِ بیست لینک، همان‌قدر
+ *    بی‌مصرف است که هیچ لینکی. پس دو سطح: اول برنامه («درس‌نامه» /
+ *    «از همه جا از همه رنگ»)، و داخلِ درس‌نامه، مجموعه. پلی‌لیست‌ها جدا،
+ *    چون دسترسیِ همیشگی‌اند نه خبرِ امروز.
+ *
+ * ۲) **هشتگ از خودِ همان ویدئو، نه از یک فهرستِ ثابت.** برچسب‌های هر قسمت
+ *    را مدل موقعِ ساختِ کپشن نوشته و در ستونِ «برچسب‌ها»ی همین تب نشسته‌اند.
+ *    ساختنِ دوبارهٔ آن‌ها یعنی دو نسخهٔ متفاوت از یک چیز — و همان اختلاف
+ *    که این ریپو بارها از آن ضربه خورده. فقط برچسبِ برنامه اضافه می‌شود،
+ *    چون در تلگرام باید بشود دو برنامه را از هم جدا جست‌وجو کرد.
+ */
+
+/** هشتگِ سالم از یک عبارتِ فارسی/انگلیسی. */
+function ytHashOf_(s) {
+  var t = String(s || '').trim().replace(/^#/, '');
+  if (!t) return '';
+  t = t.replace(/[\s‌]+/g, '_').replace(/[^0-9A-Za-z؀-ۿ_]/g, '');
+  if (!t || /^_+$/.test(t)) return '';
+  return '#' + t.slice(0, 40);
+}
+
+/**
+ * ویدئوهای منتشرشده در N ساعتِ گذشته + پلی‌لیست‌ها.
+ * فقط یک خواندنِ شیت — نه یک فراخوانِ یوتیوب. آنچه منتشر کرده‌ایم در تب
+ * است و سهمیه برای کارِ فردا لازم است.
+ */
+function ytDigest_(hours) {
+  var out = { shows: [], playlists: [], n: 0, since: '' };
+  var back = Math.max(1, Number(hours) || 26);
+  var cut = new Date().getTime() - back * 3600000;
+  out.since = Utilities.formatDate(new Date(cut), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+
+  try {
+    var sh = getHub_().getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
+    if (sh && sh.getLastRow() > 1) {
+      var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
+      var byShow = Object.create(null), order = [];
+      for (var i = 0; i < v.length; i++) {
+        var vid = String(v[i][YU.VID - 1] || '');
+        if (!vid) continue;
+        var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
+        if (isNaN(t) || t < cut) continue;
+        var show = String(v[i][YU.SHOW - 1] || '');
+        var nm = (show === ENRICH_SHOW_SPECIAL) ? (CFG.SPECIAL_SHOW_NAME || show)
+                                                : (CFG.SHOW_NAME || show);
+        if (!byShow[show]) { byShow[show] = { show: show, name: nm, items: [] }; order.push(show); }
+        byShow[show].items.push({
+          ep: String(v[i][YU.EP - 1] || ''),
+          series: String(v[i][YU.SERIES - 1] || ''),
+          title: String(v[i][YU.TITLE - 1] || ''),
+          url: String(v[i][YU.URL - 1] || ''),
+          privacy: String(v[i][YU.PRIV - 1] || ''),
+          cast: String(v[i][YU.CAST - 1] || ''),
+          dur: String(v[i][YU.DUR - 1] || ''),
+          tags: String(v[i][YU.TAGS - 1] || '')
+        });
+        out.n++;
+      }
+      for (var k = 0; k < order.length; k++) {
+        var g = byShow[order[k]];
+        /* ترتیب از شمارهٔ قسمت، نه از ترتیبِ ثبت: آپلود می‌تواند به‌هم
+           بخورد و فهرستی که با ترتیبِ تصادفی بیاید، خوانده نمی‌شود. */
+        g.items.sort(function (a, b) {
+          var s1 = String(a.series || ''), s2 = String(b.series || '');
+          if (s1 !== s2) return s1 < s2 ? -1 : 1;
+          return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+        });
+        out.shows.push(g);
+      }
+    }
+  } catch (e) { logLine_('خلاصهٔ لینک‌های یوتیوب ساخته نشد: ' + e.message); }
+
+  try {
+    var pm = ytPlMap_();
+    for (var pk in pm) {
+      if (!Object.prototype.hasOwnProperty.call(pm, pk)) continue;
+      var r = pm[pk] || {};
+      if (!r.id) continue;
+      out.playlists.push({ title: String(r.title || pk), url: ytPlUrl_(r.id),
+                           podcast: !!r.podcast, cover: !!r.cover });
+    }
+    out.playlists.sort(function (a, b) { return a.title < b.title ? -1 : 1; });
+  } catch (e2) {}
+  return out;
+}
+
+/** هشتگ‌های یک قسمت: برچسب‌های خودش + نامِ برنامه، بی تکرار. */
+function ytDigestTags_(showName, item) {
+  var out = [], seen = Object.create(null);
+  var push = function (x) {
+    var h = ytHashOf_(x);
+    if (!h || seen[h]) return;
+    seen[h] = 1; out.push(h);
+  };
+  push(showName);
+  if (item && item.series) push(item.series);
+  var raw = String((item && item.tags) || '').split(/[،,]/);
+  for (var i = 0; i < raw.length && out.length < 8; i++) push(raw[i]);
+  return out;
+}
+
+/** بلوکِ HTML برای ایمیلِ روزانه. */
+function ytDigestHtml_(d) {
+  if (!d || (!d.n && !d.playlists.length)) return '';
+  var h = ['<h3>منتشرشده در یوتیوب</h3>'];
+  if (!d.n) h.push('<p style="color:#666">در این بازه ویدئوی تازه‌ای منتشر نشد.</p>');
+  for (var s = 0; s < d.shows.length; s++) {
+    var g = d.shows[s];
+    h.push('<p style="margin:8px 0 2px"><b>' + esc_(g.name) + '</b> — ' +
+           faDigitsOut_(String(g.items.length)) + ' ویدئو</p><ul style="margin:0">');
+    for (var i = 0; i < g.items.length; i++) {
+      var it = g.items[i];
+      h.push('<li><a href="' + esc_(it.url) + '">' +
+             (it.series ? esc_(it.series) + ' · ' : '') +
+             'قسمت ' + esc_(faDigitsOut_(String(it.ep))) + ' — ' + esc_(it.title) + '</a>' +
+             (it.dur ? ' <span style="color:#666">(' + esc_(it.dur) + ')</span>' : '') +
+             (it.cast ? '<br><span style="color:#666;font-size:12px">گویندگان: ' +
+                        esc_(it.cast) + '</span>' : '') +
+             '<br><span style="color:#888;font-size:12px">' +
+             esc_(ytDigestTags_(g.name, it).join(' ')) + '</span></li>');
+    }
+    h.push('</ul>');
+  }
+  if (d.playlists.length) {
+    h.push('<p style="margin:8px 0 2px"><b>پلی‌لیست‌ها و پادکست‌ها</b></p><ul style="margin:0">');
+    for (var p = 0; p < d.playlists.length; p++) {
+      var pl = d.playlists[p];
+      h.push('<li><a href="' + esc_(pl.url) + '">' + esc_(pl.title) + '</a>' +
+             ' <span style="color:#666;font-size:12px">' +
+             (pl.podcast ? 'پادکست ✓' : 'هنوز پادکست نشده') + ' · ' +
+             (pl.cover ? 'کاور ✓' : 'بی‌کاور') + '</span></li>');
+    }
+    h.push('</ul>');
+  }
+  return h.join('');
+}
+
+/** همان خلاصه، برای تلگرام. */
+function ytDigestTg_(d) {
+  if (!d || (!d.n && !d.playlists.length)) return '';
+  var L = ['📺 <b>یوتیوب — کارنامهٔ امروز</b>'];
+  for (var s = 0; s < d.shows.length; s++) {
+    var g = d.shows[s];
+    L.push('');
+    L.push('<b>' + tgEsc_(g.name) + '</b> — ' + faDigitsOut_(String(g.items.length)) + ' ویدئو');
+    for (var i = 0; i < g.items.length; i++) {
+      var it = g.items[i];
+      L.push('• <a href="' + tgEsc_(it.url) + '">' +
+             (it.series ? tgEsc_(it.series) + ' · ' : '') +
+             'قسمت ' + tgEsc_(faDigitsOut_(String(it.ep))) + ' — ' + tgEsc_(it.title) + '</a>' +
+             (it.dur ? '  ⏱ ' + tgEsc_(it.dur) : ''));
+      if (it.cast) L.push('   🎙 ' + tgEsc_(it.cast));
+      L.push('   ' + tgEsc_(ytDigestTags_(g.name, it).join(' ')));
+    }
+  }
+  if (d.playlists.length) {
+    L.push('');
+    L.push('<b>پلی‌لیست‌ها و پادکست‌ها</b>');
+    for (var p = 0; p < d.playlists.length; p++) {
+      var pl = d.playlists[p];
+      L.push('• <a href="' + tgEsc_(pl.url) + '">' + tgEsc_(pl.title) + '</a>' +
+             (pl.podcast ? '  🎙' : '') + (pl.cover ? '  🖼' : ''));
+    }
+  }
+  return L.join('\n');
+}
+
+/**
+ * فرستادنِ خلاصه به تلگرام — یک بار در روز.
+ *
+ * روزی که هیچ ویدئویی منتشر نشده، **هیچ پیامی نمی‌رود**. پلی‌لیست‌ها
+ * دسترسیِ همیشگی‌اند نه خبر؛ فرستادنِ هر روزشان همان پیامی است که آدم یاد
+ * می‌گیرد نخواند.
+ */
+function ytDigestSend_() {
+  var out = { sent: false, n: 0, why: '' };
+  if (CFG.YT_DIGEST === false) { out.why = 'خاموش'; return out; }
+  var at = '';
+  try { at = String(props_().getProperty(PK.YT_DIGEST) || ''); } catch (e) {}
+  if (at) {
+    var t = parseWhen_(at);
+    if (!isNaN(t) && (new Date().getTime() - t) / 3600000 < 20) {
+      out.why = 'امروز فرستاده شده'; return out;
+    }
+  }
+  var d = ytDigest_(Number(CFG.YT_DIGEST_HOURS) || 26);
+  out.n = d.n;
+  if (!d.n) { out.why = 'ویدئوی تازه‌ای نبود'; return out; }
+  try {
+    var txt = ytDigestTg_(d);
+    if (txt && tgEnabled_()) { tgSend_(txt); out.sent = true; }
+  } catch (e2) { out.why = String(e2.message).slice(0, 80); }
+  try { props_().setProperty(PK.YT_DIGEST, nowStr_()); } catch (e3) {}
+  return out;
+}
+
 /**
  * دکمهٔ دستیِ بازخورد — «همین حالا ببین چه خبر است».
  * کارِ شبانه خودش هر ~۲۰ ساعت این را می‌کند؛ این دکمه فقط نوبت را جلو

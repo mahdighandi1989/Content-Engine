@@ -386,6 +386,10 @@ var CFG = {
   YT_STATS_EVERY_H: 20,                 // فاصلهٔ دورها
   YT_STATS_MS: 60000,
   YT_LEARN_MIN: 6,                      // زیرِ این، «الگو» فقط نویز است
+
+  /* خلاصهٔ لینک‌ها (۶٫۱۹): روزی که ویدئویی منتشر نشده، هیچ پیامی نمی‌رود. */
+  YT_DIGEST: true,
+  YT_DIGEST_HOURS: 26,
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
@@ -784,7 +788,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.18',
+  CODE_VERSION: '6.19',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1068,6 +1072,7 @@ var PK = {
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',         // آخرین دورِ آمار و کامنت
   YT_PLCF: 'YT_PL_COVER_FAILS',    // کاورهای پلی‌لیست که نشستند نه
+  YT_DIGEST: 'YT_DIGEST_AT',       // آخرین خلاصهٔ لینک‌ها
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
   MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت

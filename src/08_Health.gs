@@ -1201,6 +1201,12 @@ function healthCheck() {
     if (sqL && sqL.line) notes.push(sqL.line);
   } catch (eSq2) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
+  /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
+  try {
+    var dgT = ytDigestSend_();
+    if (dgT.sent) notes.push('کارنامهٔ یوتیوب به تلگرام رفت (' +
+                             faDigitsOut_(String(dgT.n)) + ' ویدئو).');
+  } catch (eDs) {}
     if (st.special && st.special.active) {
       notes.push('درس‌نامه: مجموعهٔ «' + st.special.active.name + '» در حال تولید — ' +
                  'قسمت ' + st.special.active.curPart + '، قطعهٔ ' + st.special.active.curChunk +
@@ -1248,6 +1254,13 @@ function healthCheck() {
       html.push('</ul>');
     }
     html.push(mailQueueHtml_(queued));
+    /* لینک‌ها نه ایرادند نه یادداشت — دسترسی‌اند. پس بخشِ خودشان را دارند،
+       بعد از خبرها و پیش از وضعیت: کسی که فقط می‌خواهد ببیند امروز چه
+       منتشر شده، نباید از لای ایرادها ردش کند. */
+    try {
+      var dg = ytDigestHtml_(ytDigest_(Number(CFG.YT_DIGEST_HOURS) || 26));
+      if (dg) html.push(dg);
+    } catch (eDg) {}
     if (notes.length) {
       html.push('<h3>وضعیت</h3><ul>');
       for (var w = 0; w < notes.length; w++) html.push('<li>' + esc_(notes[w]) + '</li>');
