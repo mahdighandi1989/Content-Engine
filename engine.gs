@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.12
+ *  موتور محتوا و پادکست — نسخهٔ 6.13
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -464,6 +464,9 @@ var CFG = {
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
+  /* تبِ Podcasts کانال از همین پر می‌شود: status.podcastStatus روی پلی‌لیست.
+     (تبِ Posts هیچ منبعی در API ندارد و کارِ آدم است.) */
+  YT_PODCAST: true,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
   YT_TRY_MAX: 3,                        // پس از این، آن قسمت رها می‌شود
@@ -850,7 +853,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.12',
+  CODE_VERSION: '6.13',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -30917,6 +30920,17 @@ function ytPlaylistSync_(budgetMs) {
      * هر شب هم چیزی نمی‌فرستد. */
     var pmap = ytPlMap_(), prec = pmap[pk] || {};
     var renamed = !!(titleWas && titleWas !== pl.title);
+    /* پادکست‌کردن یک بار بس است و به کاور ربطی ندارد، پس پرچمِ خودش را
+       دارد — وگرنه شکستِ یکی، دیگری را هم هر شب دوباره می‌فرستاد. */
+    if (!prec.podcast && CFG.YT_PODCAST !== false) {
+      var pc = ytPlPodcast_(pl.id, pl.title || name);
+      if (pc === 'نشست') {
+        prec.podcast = nowStr_(); pmap[pk] = prec; ytPlMapSave_(pmap);
+        out.podcasts = (out.podcasts || 0) + 1;
+      } else if (pc.indexOf('سهمیه') === -1) {
+        logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
+      }
+    }
     if (!prec.cover || renamed) {
       var cv = ytPlaylistCover_(pl.id, name, CFG.SPECIAL_SHOW_NAME || '',
                                 String(rec.vals[SC.CAT - 1] || name), renamed);
@@ -31750,6 +31764,39 @@ function ytHttp_(url, method, payload, mime) {
   return { code: code, text: txt, json: json };
 }
 
+/**
+ * پلی‌لیست را «پادکست» می‌کند — تبِ Podcasts کانال از همین پر می‌شود.
+ *
+ * ══ چرا این کار شدنی است و پُست نه ══
+ * تبِ Podcasts از راهِ API کنترل می‌شود: `status.podcastStatus = "enabled"`
+ * روی خودِ پلی‌لیست. ولی تبِ Posts (پستِ انجمن) **هیچ منبعی در
+ * YouTube Data API v3 ندارد** — نه خواندن، نه نوشتن. آن یکی تا امروز فقط
+ * از استودیو یا اپِ موبایل انجام می‌شود، و باید همان‌جا به‌عنوان «کارِ شما»
+ * ثبت شود نه اینکه هر شب به‌عنوان ایراد گزارش شود.
+ *
+ * ══ و چرا با REST، جدا از ساختِ پلی‌لیست ══
+ * ساختِ پلی‌لیست روی مسیرِ بحرانیِ انتشار است. اگر `podcastStatus` را داخلِ
+ * همان فراخوان بگذاریم و سرویسِ پیشرفتهٔ Apps Script این فیلد را نشناسد،
+ * **ساختِ پلی‌لیست** می‌شکند و انتشار می‌ایستد — برای یک قابلیتِ جانبی.
+ * پس جدا، بعد از ساخت، و شکستش فقط لاگ می‌شود.
+ *
+ * یک بار برای هر پلی‌لیست: نتیجه در همان نقشه‌ای می‌نشیند که کاور در آن است.
+ */
+function ytPlPodcast_(plId, title) {
+  if (!plId) return 'شناسه ندارد';
+  if (CFG.YT_PODCAST === false) return 'خاموش';
+  if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return 'سهمیه';
+  var body = { id: String(plId),
+               snippet: { title: ytScrub_(String(title || '')).slice(0, 150) },
+               status: { privacyStatus: 'public', podcastStatus: 'enabled' } };
+  var r = ytHttp_('https://www.googleapis.com/youtube/v3/playlists?part=snippet%2Cstatus',
+                  'put', JSON.stringify(body));
+  if (r.code === 200) return 'نشست';
+  var why = '';
+  try { why = String((((r.json || {}).error || {}).message) || ''); } catch (e) {}
+  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 120) : '');
+}
+
 /** شکستِ کاورِ پلی‌لیست، تا سلامتِ فردا هم ببیندش (نه فقط لاگِ همین اجرا). */
 function ytPlCoverFailSave_(list) {
   try {
@@ -31859,7 +31906,24 @@ function ytChannelCheck_(info) {
   add('watermark', 'واترمارکِ ویدئو', 'موتور', null,
       'وضعش از راهِ API خوانده نمی‌شود؛ موتور هر بار می‌نشاندش');
   add('sections', 'بخش‌های صفحهٔ خانه', 'موتور', null, '');
-  // این سه، از راهِ API شدنی نیستند. نوشتنشان به‌عنوان «ایراد» غلط است.
+  /* تبِ پادکست — کارِ موتور است و از ۶٫۱۳ خودکار می‌شود. وضعش از نقشهٔ
+     پلی‌لیست‌ها خوانده می‌شود، نه از یوتیوب: یک خواندنِ رایگان در برابرِ
+     یک فراخوانِ سهمیه‌خور. */
+  var pcN = 0;
+  try {
+    var pm = ytPlMap_();
+    for (var pk2 in pm) {
+      if (!Object.prototype.hasOwnProperty.call(pm, pk2)) continue;
+      if (pm[pk2] && pm[pk2].podcast) pcN++;
+    }
+  } catch (ePc) {}
+  add('podcast', 'تبِ پادکست', 'موتور', pcN > 0,
+      pcN ? faDigitsOut_(String(pcN)) + ' پلی‌لیست پادکست شده' : 'با اولین پلی‌لیست انجام می‌شود');
+
+  // این چهار، از راهِ API شدنی نیستند. نوشتنشان به‌عنوان «ایراد» غلط است.
+  add('posts', 'پستِ انجمن (تبِ Posts)', 'آدم', null,
+      'YouTube Data API v3 هیچ منبعی برای پستِ انجمن ندارد — نه خواندن نه نوشتن؛ ' +
+      'فقط از استودیو یا اپِ موبایل');
   add('picture', 'عکسِ پروفایل', 'آدم', !!((sn.thumbnails || {}).high || {}).url,
       'یوتیوب راهی در API برایش نگذاشته');
   add('links', 'لینک‌های کانال', 'آدم', null, 'از راهِ API شدنی نیست');
@@ -32189,7 +32253,21 @@ function ytChannelSync_(force) {
   var was = '';
   try { was = String(props_().getProperty('YT_CHANNEL_SIG') || ''); } catch (e) {}
   var stale = ytChannelStale_();
-  if (sig === was && !force && !stale) {
+  /* ══ نگهبانی که شکست را «سلامت» می‌خواند (۶٫۱۳) ══
+   * `sig` **وضعِ فعلی** را امضا می‌کند. اگر بنر نشسته باشد، بنر خالی می‌مانَد
+   * و امضا هم عوض نمی‌شود — پس دفعهٔ بعد «تازه است» گفته می‌شود و تا یک
+   * هفته دیگر هیچ تلاشی نمی‌شود. یعنی وقتی Slides روشن شد و بنر *می‌توانست*
+   * ساخته شود، هفت روز چیزی اتفاق نمی‌افتاد.
+   *
+   * «چیزی عوض نشده» و «شکست خوردیم و به همین دلیل چیزی عوض نشده» دو چیزِ
+   * کاملاً متفاوت‌اند، و امضا نمی‌تواند از هم جدایشان کند. پس نگهبانِ تازگی
+   * فقط وقتی حق دارد جلو را بگیرد که **کارِ موتور تمام شده باشد**. */
+  var undone = 0;
+  for (var u = 0; u < rows.length; u++) {
+    if (String(rows[u].owner || '') !== 'موتور') continue;   // کارِ آدم، کارِ ما نیست
+    if (rows[u].ok === false) undone++;
+  }
+  if (sig === was && !force && !stale && !undone) {
     out.ok = true; out.why = 'تازه است';
     out.rows = rows;
     return out;

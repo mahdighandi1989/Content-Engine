@@ -380,6 +380,9 @@ var CFG = {
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
+  /* تبِ Podcasts کانال از همین پر می‌شود: status.podcastStatus روی پلی‌لیست.
+     (تبِ Posts هیچ منبعی در API ندارد و کارِ آدم است.) */
+  YT_PODCAST: true,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
   YT_TRY_MAX: 3,                        // پس از این، آن قسمت رها می‌شود
@@ -766,7 +769,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.12',
+  CODE_VERSION: '6.13',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

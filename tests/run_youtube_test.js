@@ -1454,4 +1454,50 @@ console.log('=== ۴۰) دو نوبت در روز، نه یک نوبت (۶٫۱۲)
   ok('۴۰.۵ و بی سرویس هم نمی‌ترکد', t && typeof t.queued === 'number');
 }
 
+console.log('=== ۴۱) تبِ پادکست شدنی است، تبِ پست نه (۶٫۱۳) ===');
+{
+  global.__STUB = BASE_STUB;
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+
+  /* ── پادکست: از راهِ API ممکن است ── */
+  const stubW = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('youtube/v3/playlists?part') !== -1) return { code: 200, json: { id: 'PL9' } };
+    return stubW(url, body);
+  };
+  const was = global.__FETCHES.length;
+  const r = ytPlPodcast_('PL9', 'مجموعهٔ آزمون');
+  const f = global.__FETCHES.slice(was).filter(x => x.url.indexOf('playlists?part') !== -1)[0];
+  ok('۴۱.۱ پلی‌لیست با podcastStatus پادکست می‌شود', r === 'نشست' && !!f, r);
+  ok('۴۱.۲ و فیلدش واقعاً در بدنه می‌رود',
+     f && f.body.status && f.body.status.podcastStatus === 'enabled',
+     f ? JSON.stringify(f.body.status) : '—');
+  ok('۴۱.۳ و با PUT، یعنی playlists.update', f && f.method === 'put', f && f.method);
+
+  /* ══ چرا جدا از ساختِ پلی‌لیست ══
+     ساختِ پلی‌لیست روی مسیرِ بحرانیِ انتشار است؛ اگر فیلدِ ناشناخته آن را
+     بشکند، انتشار برای یک قابلیتِ جانبی می‌ایستد. */
+  const ens = src27.slice(src27.indexOf('function ytPlEnsure_'),
+                          src27.indexOf('function ytPlUrl_'));
+  ok('۴۱.۴ ولی ساختِ پلی‌لیست دست‌نخورده می‌مانَد — مسیرِ بحرانیِ انتشار',
+     ens.indexOf('podcastStatus') === -1);
+  ok('۴۱.۵ و یک بار بس است، با پرچمِ خودش نه پرچمِ کاور',
+     src27.indexOf('!prec.podcast') !== -1 && src27.indexOf('prec.podcast = nowStr_()') !== -1);
+  global.__STUB = stubW;
+
+  /* ── پست: هیچ منبعی در API ندارد ── */
+  ok('۴۱.۶ پستِ انجمن به‌عنوان «کارِ آدم» ثبت می‌شود، نه ایرادِ هر شبه',
+     src27.indexOf("add('posts'") !== -1 && src27.indexOf("'پستِ انجمن (تبِ Posts)', 'آدم'") !== -1);
+  ok('۴۱.۷ و علتش صریح نوشته شده — وگرنه هر بار دنبالش می‌گردند',
+     src27.indexOf('هیچ منبعی برای پستِ انجمن ندارد') !== -1);
+
+  /* ── و نگهبانی که شکست را «سلامت» می‌خواند ── */
+  const cs = src27.slice(src27.indexOf('var stale = ytChannelStale_()'),
+                         src27.indexOf('out.ran = true'));
+  ok('۴۱.۸ تازگی وقتی کارِ موتور ناتمام است جلو را نمی‌گیرد',
+     cs.indexOf('!undone') !== -1 && cs.indexOf("!== 'موتور'") !== -1);
+  ok('۴۱.۹ و کارِ آدم در این شمارش نمی‌آید — وگرنه هر شب بی‌دلیل می‌دود',
+     cs.indexOf('continue;   // کارِ آدم، کارِ ما نیست') !== -1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
