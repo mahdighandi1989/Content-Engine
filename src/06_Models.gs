@@ -72,6 +72,8 @@ function resolveModels_(force) {
   }
 
   var chosen = { text: '', tts: '', at: new Date().getTime(), textAll: [], ttsAll: [] };
+  var bad = [];
+  try { bad = modelBadList_(); } catch (eB) {}
   try {
     var models = listModels_();
     var texts = [], ttss = [];
@@ -84,6 +86,9 @@ function resolveModels_(force) {
 
       if (id.toLowerCase().indexOf('tts') !== -1) { ttss.push(id); continue; }
       if (isBlocked_(id)) continue;
+      // مدلی که داوری ردش کرده دوباره انتخاب نمی‌شود، وگرنه هر هفته همان
+      // تعویضِ بد تکرار می‌شود و داوری بی‌فایده است
+      if (bad.indexOf(id) !== -1) continue;
       texts.push(id);
     }
     var byScore = function (a, b) { return modelScore_(b) - modelScore_(a); };
@@ -115,6 +120,11 @@ function resolveModels_(force) {
   try { prev = raw ? JSON.parse(raw) : null; } catch (e2) {}
   if (!prev || prev.text !== chosen.text || prev.tts !== chosen.tts) {
     logLine_('مدل‌ها به‌روز شد — متن: ' + chosen.text + ' · صوت: ' + chosen.tts);
+    // تعویضِ مدلِ متنی خبر است، نه یک خطِ سیاهه — و پایه‌اش همین‌جا ثبت
+    // می‌شود، پیش از آنکه مدلِ تازه اثری بگذارد
+    if (prev && prev.text && prev.text !== chosen.text) {
+      try { modelSwapNote_(prev.text, chosen.text); } catch (eSw) {}
+    }
   }
   props_().setProperty(PK.MODELS, JSON.stringify(chosen));
   return chosen;
@@ -163,6 +173,147 @@ function isQuotaError_(msg) {
   var s = String(msg || '').toLowerCase();
   return s.indexOf('429') !== -1 || s.indexOf('resource_exhausted') !== -1 ||
          s.indexOf('quota') !== -1 || s.indexOf('rate limit') !== -1;
+}
+
+/* ══════════ داوریِ تعویضِ مدل — «نکند بدترش کرده باشیم؟» (۶٫۱۶) ══════════
+ *
+ * ══ آنچه از پیش بود و آنچه نبود ══
+ * موتور هر `MODEL_REFRESH_DAYS` روز فهرستِ مدل‌ها را دوباره می‌گیرد و
+ * بالاترین را برمی‌دارد؛ «مدل حذف شده» را هم از متنِ خطا می‌شناسد
+ * (`isModelGoneError_`) و همان‌جا فهرست را تازه می‌کند. پس **پیداکردنِ مدلِ
+ * بهتر و کنارگذاشتنِ مدلِ مرده از قبل کار می‌کرد.**
+ *
+ * آنچه نبود، چیزی است که بخشِ ۲۲ سال‌هاست برای *کدِ تحلیلگرها* دارد و برای
+ * *مدل* نداشت: **داوریِ بعد از تغییر.** مدل عوض می‌شد، یک خط در سیاههٔ
+ * داخلی می‌نشست، و هیچ‌کس نمی‌پرسید بهتر شد یا بدتر. در حالی که مدلِ متنی
+ * روی **هر جملهٔ هر قسمت** اثر می‌گذارد — پرخطرترین تغییرِ ممکن در این موتور،
+ * و تنها تغییری که هیچ داوری‌ای نداشت.
+ *
+ * ══ سه قاعده که از `srcVerdict_` وام گرفته شده‌اند ══
+ * ۱) **پایه پیش از تغییر گرفته می‌شود، نه بعدش.** بی پایه، «بد است» یعنی
+ *    هیچ؛ همان اشتباهی که ۵٫۲x در تحلیلگرها کرد.
+ * ۲) **دو پرسشِ جدا:** «بهتر شد؟» و «بدتر شد؟» — و فقط دومی برگشت می‌دهد.
+ *    مدلی که خیلی بهتر نشده، دلیلِ برگشت نیست.
+ * ۳) **نمونهٔ کم یعنی سکوت، نه رأی.** داوری روی دو قسمت، تصادف است. اگر
+ *    شواهد کم باشد صریح گفته می‌شود «برای داوری کافی نبود» و پنجره تمدید
+ *    می‌شود — نه اینکه یک عددِ بی‌پشتوانه به اسمِ حکم بیرون بیاید.
+ */
+
+/** پروندهٔ آخرین تعویضِ مدل. */
+function modelSwapRead_() {
+  try {
+    var j = JSON.parse(props_().getProperty(PK.MODEL_SWAP) || 'null');
+    return (j && j.to) ? j : null;
+  } catch (e) { return null; }
+}
+function modelSwapSave_(s) {
+  try { props_().setProperty(PK.MODEL_SWAP, JSON.stringify(s)); } catch (e) {}
+}
+
+/** مدل‌هایی که داوری ردشان کرده — تا فهرست دوباره همان را انتخاب نکند. */
+function modelBadList_() {
+  try {
+    var a = JSON.parse(props_().getProperty(PK.MODEL_BAD) || '[]');
+    return Object.prototype.toString.call(a) === '[object Array]' ? a : [];
+  } catch (e) { return []; }
+}
+function modelBadAdd_(id) {
+  var l = modelBadList_();
+  if (l.indexOf(String(id)) === -1) l.push(String(id));
+  try { props_().setProperty(PK.MODEL_BAD, JSON.stringify(l.slice(-8))); } catch (e) {}
+}
+
+/**
+ * سنجهٔ کیفیت در همین لحظه — همان دو عددی که موتور از پیش دارد.
+ *
+ * عمداً چیز تازه‌ای اندازه نمی‌گیرد: سنجه‌ای که فقط برای داوری ساخته شود،
+ * خودش یک متغیرِ تازه است و آن‌وقت معلوم نیست تغییرِ عدد از مدل است یا از
+ * سنجه. `badNights` از سنجهٔ محتوا می‌آید و `errors` از خطاهای منبع.
+ */
+function modelQuality_() {
+  var out = { badNights: 0, errors24h: 0, ok: false };
+  try {
+    var a = auditStatus_();
+    /* ══ داوری با ورودیِ خالی، رأی می‌دهد نه شهادت ══
+     * `badNights` وقتی خوانده نشود `undefined` است و `Number(undefined)||0`
+     * می‌شود صفر — یعنی «هیچ شبِ بدی نبود»، که با «نتوانستیم بشماریم» زمین
+     * تا آسمان فرق دارد. اگر عدد واقعاً عدد نبود، سنجه **معتبر نیست** و
+     * داوری باید سکوت کند. همان درسی که ۵٫۹۶ دربارهٔ داورِ محتوا داد. */
+    if (typeof a.badNights === 'number' && isFinite(a.badNights)) {
+      out.badNights = a.badNights;
+      out.ok = true;
+    }
+  } catch (e) {}
+  try {
+    var st = srcErrorSummary_(getHub_(), 5);
+    out.errors24h = Number(st.last24h) || 0;
+  } catch (e2) {}
+  return out;
+}
+
+/** مدل عوض شد: خبرش برود و پایه‌اش ثبت شود. */
+function modelSwapNote_(from, to) {
+  if (!to || String(from) === String(to)) return false;
+  var rec = { from: String(from || '—'), to: String(to), at: nowStr_(),
+              base: modelQuality_(), judged: false };
+  modelSwapSave_(rec);
+  /* یک خط در سیاههٔ داخلی کافی نیست: مدلِ متنی روی هر جملهٔ هر قسمت اثر
+     می‌گذارد و صاحبِ برنامه حق دارد بداند موتورش مغزش عوض شده. */
+  try {
+    mailQueue_('model', 'مدلِ متنی عوض شد — ' + rec.to,
+      'از «' + rec.from + '» به «' + rec.to + '». این پرخطرترین تغییرِ ممکن در ' +
+      'موتور است، چون روی هر جملهٔ هر قسمت اثر می‌گذارد. پایهٔ کیفیت پیش از ' +
+      'تعویض ثبت شد و ' + faDigitsOut_(String(Math.max(6, Number(CFG.MODEL_VERDICT_HOURS) || 48))) +
+      ' ساعت دیگر داوری می‌شود؛ اگر بدتر شده باشد، خودکار برمی‌گردد.');
+  } catch (e) {}
+  return true;
+}
+
+/**
+ * داوری: بهتر شد، بدتر شد، یا هنوز معلوم نیست.
+ *
+ * برگشت فقط برای «بدتر». مدلی که تفاوتی نداشته، دلیلِ برگشت نیست —
+ * برگرداندنش یعنی نوسانِ بی‌پایان میانِ دو مدل.
+ */
+function modelVerdict_() {
+  var out = { ran: false, verdict: '', why: '' };
+  var rec = modelSwapRead_();
+  if (!rec || rec.judged) return out;
+  var hrs = Math.max(6, Number(CFG.MODEL_VERDICT_HOURS) || 48);
+  var t = parseWhen_(String(rec.at || ''));
+  if (isNaN(t) || (new Date().getTime() - t) / 3600000 < hrs) return out;
+
+  out.ran = true;
+  var now = modelQuality_(), base = rec.base || {};
+  if (!now.ok || !base.ok) {
+    out.verdict = 'نامعلوم';
+    out.why = 'سنجهٔ کیفیت در دسترس نبود';
+    rec.judged = true; modelSwapSave_(rec);
+    return out;
+  }
+
+  var worseAudit = (now.badNights - (Number(base.badNights) || 0)) >= 2;
+  var worseErr = (Number(base.errors24h) || 0) > 0 &&
+                 now.errors24h >= (Number(base.errors24h) || 0) * 2 + 3;
+  rec.judged = true; rec.at2 = nowStr_(); rec.after = now;
+
+  if (worseAudit || worseErr) {
+    out.verdict = 'بدتر';
+    out.why = (worseAudit ? 'شب‌های بدِ سنجهٔ محتوا از ' + base.badNights + ' به ' +
+                            now.badNights + ' رسید' : '') +
+              (worseAudit && worseErr ? ' و ' : '') +
+              (worseErr ? 'خطاهای ۲۴ ساعت از ' + base.errors24h + ' به ' +
+                          now.errors24h + ' رسید' : '');
+    modelBadAdd_(rec.to);
+    try { resolveModels_(true); } catch (eR) {}
+    modelSwapSave_(rec);
+    return out;
+  }
+  out.verdict = (now.badNights < (Number(base.badNights) || 0)) ? 'بهتر' : 'بی‌تفاوت';
+  out.why = 'شب‌های بد: ' + base.badNights + ' → ' + now.badNights +
+            ' · خطاهای ۲۴ ساعت: ' + base.errors24h + ' → ' + now.errors24h;
+  modelSwapSave_(rec);
+  return out;
 }
 
 /** گزارش خوانا از وضعیت مدل‌ها برای منوی «نمایش وضعیت» */

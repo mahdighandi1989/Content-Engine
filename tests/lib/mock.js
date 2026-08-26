@@ -277,7 +277,11 @@ global.PropertiesService = {
     return {
       getProperty: k => (k in global.__PROPS ? global.__PROPS[k] : null),
       setProperty: (k, v) => { global.__PROPS[k] = String(v); },
-      deleteProperty: k => { delete global.__PROPS[k]; }
+      deleteProperty: k => { delete global.__PROPS[k]; },
+      // نبودنش یعنی هر کدی که با getProperties کلیدها را می‌پیماید — مثلِ
+      // شمارشِ شب‌های بدِ سنجهٔ محتوا — در آزمون بی‌صدا هیچ‌چیز پیدا نمی‌کرد
+      // و هرگز واقعاً آزموده نشد.
+      getProperties: () => Object.assign({}, global.__PROPS)
     };
   }
 };

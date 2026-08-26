@@ -140,6 +140,9 @@ var CFG = {
   //   'stable'  = فقط نسخه‌های پایدار — پایداری بیشتر، کیفیت کمی کمتر
   // در هر دو حالت اگر مدلی بازنشسته شود، جانشینش خودکار انتخاب می‌شود.
   MODEL_POLICY: 'highest',
+  /* داوریِ تعویضِ مدل (۶٫۱۶): مدلِ متنی روی هر جملهٔ هر قسمت اثر می‌گذارد —
+     پرخطرترین تغییرِ ممکن، و تا ۶٫۱۵ تنها تغییری که هیچ داوری‌ای نداشت. */
+  MODEL_VERDICT_HOURS: 48,
 
   // ---- هویتِ دو برنامه ----
   // برنامهٔ روزانهٔ متنوع: از تلفیقِ کلیپ و صدا و عکس و سند ساخته می‌شود.
@@ -769,7 +772,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.15',
+  CODE_VERSION: '6.16',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -987,6 +990,8 @@ var PK = {
   TTS_MODE: 'TTS_API_MODE',     // 'generateContent' یا 'interactions' — خودکار تشخیص داده می‌شود
   MODELS: 'MODELS_CACHE',       // بهترین مدل‌های شناسایی‌شده + زمان بررسی
   DEMOTED_UNTIL: 'MODEL_DEMOTED_UNTIL',
+  MODEL_SWAP: 'MODEL_SWAP_REC',   // آخرین تعویضِ مدل + پایهٔ کیفیتش
+  MODEL_BAD: 'MODEL_BAD_LIST',    // مدل‌هایی که داوری ردشان کرده
   TG_TOKEN: 'TELEGRAM_BOT_TOKEN',
   TG_CHAT: 'TELEGRAM_CHAT_ID',
   CODE_SEEN: 'CODE_VERSION_SEEN',  // آخرین نسخهٔ کدی که هشدارش داده شده

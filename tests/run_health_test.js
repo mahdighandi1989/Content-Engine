@@ -178,4 +178,58 @@ console.log('=== ۱۲) دیده‌بان: کی ناظر را می‌پاید (۶
     src08.indexOf('CFG.REPEAT_ALERT') !== -1);
 }
 
+console.log('=== ۱۳) داوریِ تعویضِ مدل (۶٫۱۶) ===');
+{
+  const T = (name, cond, extra) => {
+    if (!cond) throw new Error(name + (extra ? ' — ' + extra : ''));
+    console.log('  ✅ ' + name);
+  };
+
+  /* ══ چرا این لازم بود ══
+     کشفِ مدلِ بهتر و کنارگذاشتنِ مدلِ مرده از قبل کار می‌کرد. آنچه نبود،
+     چیزی است که بخشِ ۲۲ برای کدِ تحلیلگرها دارد و برای مدل نداشت: داوریِ
+     بعد از تغییر. مدلِ متنی روی هر جملهٔ هر قسمت اثر می‌گذارد. */
+  delete global.__PROPS[PK.MODEL_SWAP];
+  delete global.__PROPS[PK.MODEL_BAD];
+  T('۱۳.۱ تعویضِ مدل ثبت و خبر می‌شود', modelSwapNote_('قدیمی', 'تازه') === true);
+  T('۱۳.۲ و پایه پیش از تغییر گرفته می‌شود، نه بعدش',
+    !!(modelSwapRead_() || {}).base);
+  T('۱۳.۳ تعویضِ الکی (همان مدل) خبر نمی‌سازد',
+    modelSwapNote_('یکی', 'یکی') === false);
+
+  /* پیش از رسیدنِ مهلت، هیچ رأیی داده نمی‌شود. */
+  T('۱۳.۴ زودتر از مهلت داوری نمی‌کند', modelVerdict_().ran === false);
+
+  /* حالا پنجره را باز می‌کنیم و پایه را بد جلوه می‌دهیم تا «بدتر» دربیاید. */
+  const rec = modelSwapRead_();
+  rec.at = '1400/01/01 00:00';
+  rec.base = { badNights: 0, errors24h: 0, ok: true };
+  global.__PROPS[PK.MODEL_SWAP] = JSON.stringify(rec);
+  global.__PROPS[PK.AUDIT_BAD + '_special'] = '5';
+  const v = modelVerdict_();
+  T('۱۳.۵ بدترشدن تشخیص داده می‌شود', v.ran === true && v.verdict === 'بدتر', v.verdict);
+  T('۱۳.۶ و علتش با عدد گفته می‌شود، نه یک جملهٔ کلی',
+    v.why.indexOf('۵') !== -1 || /\d/.test(v.why), v.why);
+  /* و مهم‌تر از رأی: مدلِ بد نباید هفتهٔ بعد دوباره انتخاب شود، وگرنه
+     داوری فقط یک گزارشِ تکراری است. */
+  T('۱۳.۷ مدلِ بد به فهرستِ ردشده‌ها می‌رود',
+    modelBadList_().indexOf('تازه') !== -1, JSON.stringify(modelBadList_()));
+  T('۱۳.۸ و دو بار داوری نمی‌شود', modelVerdict_().ran === false);
+
+  /* «بی‌تفاوت» نباید برگشت بدهد — وگرنه نوسانِ بی‌پایان میانِ دو مدل. */
+  delete global.__PROPS[PK.MODEL_BAD];
+  delete global.__PROPS[PK.AUDIT_BAD + '_special'];
+  modelSwapNote_('الف', 'ب');
+  const r2 = modelSwapRead_(); r2.at = '1400/01/01 00:00';
+  r2.base = { badNights: 3, errors24h: 0, ok: true };
+  global.__PROPS[PK.MODEL_SWAP] = JSON.stringify(r2);
+  const v2 = modelVerdict_();
+  T('۱۳.۹ مدلی که بدتر نشده برگشت نمی‌خورد',
+    v2.verdict !== 'بدتر' && modelBadList_().indexOf('ب') === -1, v2.verdict);
+
+  const src21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  T('۱۳.۱۰ و داوری واقعاً در کارِ شبانه صدا زده می‌شود',
+    src21.indexOf('modelVerdict_()') !== -1);
+}
+
 console.log('\n✅ آزمون سلامت گذشت.');
