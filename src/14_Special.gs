@@ -1888,6 +1888,14 @@ function renderSpecialAudioStep_() {
     var baseName = CFG.SPECIAL_SHOW_NAME + ' — ' + String(meta.seriesName).slice(0, 40) +
                    ' — قسمت ' + ('000' + epNum).slice(-3) + ' — ' + String(ep.title || '').slice(0, 40);
 
+    // مرحلهٔ ناشناخته → صداگذاری. داستانش کنارِ SPEAK_PHASES_ آمده.
+    if (st.phase && SPEAK_PHASES_.indexOf(st.phase) === -1) {
+      logLine_('درس‌نامه ' + epNum + ': مرحلهٔ ناشناختهٔ «' + st.phase +
+               '» (احتمالاً از نسخهٔ جلوتر)؛ مستقیم به صداگذاری می‌رود.');
+      st.phase = 'audio';
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+    }
+
     // ── مرحلهٔ «انتظارِ غنی‌سازی» ──
     if (st.phase === 'enrich') {
       var g = enrichGate_(st, ENRICH_SHOW_SPECIAL, ep, epNum);

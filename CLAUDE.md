@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 27 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 31 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 27 numbered sections — the source of truth for the code
+src/                 31 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 36 run_*.js suites
+tests/               the 42 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
@@ -549,6 +549,106 @@ stock imagery: the channel is meant to earn, and every borrowed image is a licen
 question. Custom thumbnails need a verified channel — if `thumbnails.set` fails the
 row records why instead of failing silently.
 
+## The spoken text: markup, and a mandatory second look (section 3, 6.20)
+
+Every episode has two texts — the readable one (email, doc) and the **spoken**
+one, which is the readable text with pronunciation markup. Marking up means
+three tools, not one: **diacritics**, **ZWNJ**, and **phrasing punctuation**.
+
+The owner heard «بایستیم» read as if it began with «با». It does not — it is
+بـ + ایستادن, so the prefix takes a kasra and the alef starts its own syllable.
+The fix that works is the **ZWNJ**: «بِ‌ایستیم» has no «با» left to read.
+`SPEAK_TRAPS` is the ten-item catalogue of this class, in one copy, feeding both
+the writer prompt and the reviewer prompt — two copies means one silently goes
+stale.
+
+**Every gate that existed was structural, never semantic.** `verifySpeak_` proves
+the same words are present; `speakVowelledOk_` proves enough diacritic density.
+Neither says the diacritics are *right*, so «بَایستیم» passed both. That is the
+whole reason for the `speak2` phase: minutes after writing, the marked-up text is
+put beside the original and reviewed. Writing and judging are deliberately two
+separate calls — one call that both writes and judges confirms its own answer,
+and that is exactly the shape that let three versions in a row declare the cue
+bug fixed while it was not.
+
+**`speakBone_` is the second comparison shell** and the reason markup is possible
+at all. `speakCmp_` keeps punctuation, so until 6.20 every comma the model added
+broke verification and that section was read **without diacritics** — the request
+"read it better" produced "read it worse", silently. Bone ignores `،؛:—–…` but
+keeps `.!؟`, letters and digits: sentence boundaries are never the model's to
+move. And bone replaces marks with a **space**, not with nothing — `speakCmp_`
+eats the spaces around punctuation, so deleting a comma would otherwise fuse two
+words.
+
+A word that stays wrong even with correct diacritics goes into the «تلفظ» tab and
+stays fixed forever — append only, never overwriting a human row, and only when
+the replacement's *letters* are identical. That tab is applied **after**
+verification, so whatever gets in has no gate left behind it.
+
+## Contemporizing درس‌نامه — "that other person" (section 29)
+
+A second voice — never the lead — comes in a few times per lesson and says the
+same thing colloquially, with one or two concrete present-day examples. Where it
+comes in is **analysed per episode** (the owner asked for exactly that), which is
+why it is its own call after enrichment rather than a field in the writer prompt:
+the writer does not yet know which section came out heavy.
+
+It sits **before `speak`**, so its text goes through diacritics and the 6.20
+review like any other segment — no new code needed for that, because it is a
+segment.
+
+Before or after a section, never inside one: splitting a `narration` would break
+`secIndex`, `sourceIds`, the handout and the content audit, all of which depend
+on it being whole. With five or six sections, "after §2 and after §4" *is*
+interleaving.
+
+**"Someone other than that narrator" is a constraint, not a preference.** The
+explain segment is excluded from the lead-share redistribution loop; had it been
+inside, the loop that returns the longest sections to the lead would one day take
+it back and the whole feature would vanish silently.
+
+Its share is `EXPLAIN_PCT` (13, the owner's own number) of the lesson text, and
+`specialWriteCap_` reserves it up front while `explainBudget_` is the second guard
+on the one-file ceiling — 5.96 again, applied in advance this time.
+
+## The big recap episode — once per series (section 30)
+
+Its input is **the series' handout**, not seventeen episode folders:
+`_HANDOUT.json` already is every concept of every past lesson, chapter-organised
+and stripped of radio phrasing, and it is refreshed nightly.
+
+It builds no new production path. It writes `ep`, makes the folder and the row,
+and hands `PK.SP_PENDING` over at phase `speak`; from there the ordinary درس‌نامه
+machine does diacritics, review, casting, music, merge, email, Telegram and the
+YouTube debt. Its playlist position is right for free — section 27 computes
+position from the episode number, and the recap takes the next one, so it lands
+at the end, which is where a recap belongs. **No special-case positioning code,
+because special-case code is what gets forgotten next.**
+
+A recap adds no chapter to the handout, and that filter lives in
+`handoutSeriesEpisodes_` — the single place the handout counts episodes — not at
+each counter. Without it the recap would stay "not yet entered" forever, be
+re-queued nightly, and after `HANDOUT_TRY_MAX` be logged as abandoned: a
+permanent warning for work that was never meant to happen.
+
+`recapCast_` had a bug worth remembering: it read `ep.__cast.mates`, a key that is
+never stored — `ensureCast_` derives mates from `all.slice(1)` when it returns.
+So it silently returned `false` and the whole recap would have been read in the
+usual voice. **A test that only asserted "lead is defined" passed anyway.** The
+suite now builds the exact stored shape, not a convenient one.
+
+## A phase name the running code doesn't know goes forward, never in place (6.22)
+
+The phase chain grows most versions (`speak2` in 6.20, `explain` in 6.21). If the
+code goes **backwards** — automatic rollback and the rollback button are both
+real — an episode saved mid-flight under a newer name matches no branch, the
+function returns undefined, and `resumeStalled_` merely re-schedules it: an
+endless, errorless loop whose only symptom is a podcast that never arrives.
+`SPEAK_PHASES_` is the single list both shows read, and an unknown name is sent
+straight to `audio`. `run_speak_test.js` ۱۲.۲ extracts every phase name from the
+source and fails if one is missing from the list, so the next phase someone adds
+is caught here.
+
 ## Production calendar (section 25)
 The owner's only way to stop a show used to be deleting its trigger — manual,
 and easy to forget to undo. The «تقویمِ تولید» tab in the hub now holds one row
@@ -675,6 +775,34 @@ if the API rejects the new shape, the chunk is built **with no cue at all**.
 `TTS_CUE_MODE:'off'` is the structurally safe setting — and it now actually
 means never (any unknown value used to mean "always cue", the opposite of its
 name).
+
+## A guard that cannot see one door leaves that door open (6.20)
+
+`run_wiring_test.js` ۴٫۲ exists for exactly one failure shape: a test loader that
+doesn't know about a section, so every call into it raises a ReferenceError the
+surrounding try/catch swallows while the suite stays green. It scanned
+`tests/run_*.js` — and `tests/lib/probe_r4_lib.js`, which six suites take their
+source from, stopped at section 22. Sections 23–28 had been invisible to those
+six for months, in the one place the guard was built to look at. It now scans
+`tests/lib/` too.
+
+## A wrong reading is not always an invented one (6.21)
+
+Rule ۸-چ bans unfounded interpretation — motives, feelings, causes not in the
+source. It did not catch the real report: a scary story (an old woman asks a girl
+for her taxi seat; the girl gives it up, takes another car, that car crashes and
+everyone dies, and then it turns out there was no old woman) read aloud as "social
+help" and closed with a few lines of advice. **Nothing was invented there. The
+meaning was flattened.** Rule ۸-خ covers that: read the item to the end before
+deciding what it is; a twist ending *is* the item; never staple a moral on.
+
+The owner's own guess about the root cause got its own rule: the category is a
+filing label, not a reading lens (۸-ذ), and the new `misfiled` field lets the
+writer — the only party that reads every item in full — report the mismatch in the
+call it is already making. It only ever **reports**: moving a row between tabs is
+a delete and an insert, and the standing rule is that prior analyses are never
+damaged. The finding is keyed on the *category*, not the episode, so a repeated
+mistake shows as a repeat instead of a fresh row every night.
 
 ## Dead code is the failure mode here
 Three real bugs in this repo were all the same shape: a function written,
