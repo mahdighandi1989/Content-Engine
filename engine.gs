@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.7
+ *  موتور محتوا و پادکست — نسخهٔ 6.8
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -410,7 +410,11 @@ var CFG = {
   YT_TITLE_MAX: 100,                    // سقفِ خودِ یوتیوب
   YT_DESC_MAX: 5000,                    // سقفِ خودِ یوتیوب
   YT_TAGS_CHARS: 460,                   // سقفِ واقعی ۵۰۰ است؛ حاشیه می‌گذاریم
-  YT_MAX_PER_RUN: 2,                    // آپلود در هر اجرای شبانه
+  /* سه در شب + یکی در دورِ ۱۰ صبح = چهار در روز. سقفِ واقعی پنج است
+     (۹۰۰۰ واحد ÷ ~۱۷۵۰ برای هر قسمت)، و آن یکیِ باقی‌مانده برای پلی‌لیست و
+     کاور و بازخورد کنار گذاشته می‌شود — سهمیه‌ای که وسطِ کار تمام شود، بدتر
+     از سهمیه‌ای است که از اول کم برداشته شده باشد. */
+  YT_MAX_PER_RUN: 3,                    // آپلود در هر اجرای شبانه
   YT_MANUAL_MAX: 6,                     // آپلود در هر فشردنِ دکمه
   YT_MS: 150000,                        // بودجهٔ زمانیِ هر اجرا
   YT_BACKFILL_WALK: 12,                 // پوشهٔ قسمت در هر کاوشِ گذشته
@@ -837,7 +841,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.7',
+  CODE_VERSION: '6.8',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -28767,9 +28771,39 @@ function ytOffWhy_() {
  * می‌پرسیم. `search.list` (صد واحد) عمداً هیچ‌جای این بخش به کار نرفته —
  * فهرستِ ما در تب است، نه در جست‌وجوی یوتیوب.
  */
-var YT_COST = { videosUpdate: 50, videosList: 1, playlistsInsert: 50,
-                playlistsUpdate: 50, playlistsList: 1, itemsInsert: 50,
-                itemsUpdate: 50, itemsList: 1, itemsDelete: 50, thumbSet: 50 };
+/* ══ هزینهٔ واقعیِ هر فراخوان، به واحدِ سهمیهٔ یوتیوب ══
+ * `videosInsert` از همه گران‌تر است و **۱۶۰۰** واحد می‌گیرد — نه صفر، که تا
+ * ۶٫۷ این‌طور حساب می‌شد. اثرش این بود: سطلِ آپلود (۹۰ تا در روز) شمرده
+ * می‌شد ولی سطلِ واحدها هرگز از بابتِ آپلود کم نمی‌شد، پس موتور فکر می‌کرد
+ * نود آپلود در روز ممکن است در حالی که سقفِ واقعی **پنج** تاست
+ * (۹۰۰۰ ÷ ۱۷۵۰ برای هر قسمت، با کاور و پلی‌لیست). ششمی ۴۰۳ می‌گرفت که
+ * علتش را نمی‌گوید، «ناموفق» ثبت می‌شد، و پس از `YT_TRY_MAX` تلاش آن قسمت
+ * **برای همیشه رها** می‌شد. یعنی یک اشتباهِ حسابداری، قسمت گم می‌کرد. */
+var YT_COST = { videosInsert: 1600, videosUpdate: 50, videosList: 1,
+                playlistsInsert: 50, playlistsUpdate: 50, playlistsList: 1,
+                itemsInsert: 50, itemsUpdate: 50, itemsList: 1, itemsDelete: 50,
+                thumbSet: 50 };
+
+/** هر قسمتِ منتشرشده تقریباً چند واحد می‌خورد (آپلود + کاور + پلی‌لیست + عمومی‌کردن). */
+function ytUnitsPerEpisode_() {
+  return YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.itemsInsert +
+         YT_COST.videosUpdate;
+}
+
+/**
+ * با سهمیهٔ امروز، چند قسمتِ دیگر می‌شود منتشر کرد — و صف چند روز طول می‌کشد.
+ *
+ * این عدد باید **دیده شود**، نه اینکه فقط در کد باشد: صاحبِ برنامه ۲۶۴ قسمتِ
+ * گذشته دارد و حق دارد بداند تخلیه‌شان هفته‌ها طول می‌کشد. سقفش را هم ما
+ * نگذاشته‌ایم؛ یوتیوب گذاشته.
+ */
+function ytDrain_(dueCount) {
+  var per = ytUnitsPerEpisode_();
+  var capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+  var perDay = Math.max(1, Math.floor(capU / per));
+  var n = Math.max(0, Number(dueCount) || 0);
+  return { perDay: perDay, days: n ? Math.ceil(n / perDay) : 0, units: per };
+}
 
 function ytQuota_() {
   var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
@@ -30362,7 +30396,7 @@ function ytUploadOne_(item, hub, pub) {
   var leaks = ytLeaks_(title + '\n' + desc + '\n' + tags.join(' '));
 
   // ── آپلود، اول unlisted ──
-  if (!ytQuotaTake_(0, true)) {
+  if (!ytQuotaTake_(YT_COST.videosInsert, true)) {
     res.why = 'سهمیهٔ آپلودِ امروز تمام شد؛ فردا ادامه می‌یابد';
     res.quota = true;
     return res;
@@ -30748,6 +30782,16 @@ function ytLine_(st) {
   }
   if (st.failed) L.push('رهاشده ' + faDigitsOut_(String(st.failed)));
   if (st.playlists) L.push('پلی‌لیست ' + faDigitsOut_(String(st.playlists)));
+  /* تخمینِ تخلیه، چون سقفش را یوتیوب گذاشته نه ما — و صاحبِ ۲۶۴ قسمتِ گذشته
+     حق دارد بداند چند روز طول می‌کشد، به‌جای اینکه هر روز بپرسد چرا تمام
+     نشد. */
+  if (st.due || st.waitingRender) {
+    var dr = ytDrain_((st.due || 0) + (st.waitingRender || 0));
+    if (dr.days > 1) {
+      L.push('با سقفِ سهمیهٔ یوتیوب روزی ' + faDigitsOut_(String(dr.perDay)) +
+             ' قسمت، یعنی حدودِ ' + faDigitsOut_(String(dr.days)) + ' روز');
+    }
+  }
   var s = L.join(' · ') + '.';
   if (st.last && st.last.url) s += ' آخرین: «' + auditCut_(st.last.title, 45) + '».';
   return s;

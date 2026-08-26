@@ -1329,4 +1329,48 @@ console.log('=== ۳۷) بازخورد: ثبت، و مهم‌تر از آن، ا�
   global.__STUB = stubF;
 }
 
+console.log('=== ۳۸) حسابداریِ سهمیه: آپلود ۱۶۰۰ واحد است، نه صفر (۶٫۸) ===');
+{
+  global.__STUB = BASE_STUB;
+  /* ══ باگی که می‌توانست قسمت گم کند ══
+     تا ۶٫۷ آپلود صفر واحد برداشت می‌کرد؛ سطلِ آپلود (۹۰) شمرده می‌شد ولی
+     سطلِ واحدها هرگز از بابتِ آپلود کم نمی‌شد. پس موتور فکر می‌کرد نود
+     آپلود در روز ممکن است در حالی که سقفِ واقعی پنج تاست. ششمی ۴۰۳ی
+     می‌گرفت که علتش را نمی‌گوید، «ناموفق» ثبت می‌شد، و پس از YT_TRY_MAX
+     تلاش آن قسمت برای همیشه رها می‌شد. */
+  ok('۳۸.۱ هزینهٔ آپلود واقعی است', YT_COST.videosInsert === 1600);
+  ok('۳۸.۲ و مجموعِ هر قسمت هم شمرده می‌شود', ytUnitsPerEpisode_() === 1750);
+
+  const uWas = CFG.YT_QUOTA_UNITS, upWas = CFG.YT_QUOTA_UPLOADS;
+  CFG.YT_QUOTA_UNITS = 9000; CFG.YT_QUOTA_UPLOADS = 90;
+  delete global.__PROPS[PK.YT_QUOTA];
+  let n = 0;
+  while (ytQuotaTake_(YT_COST.videosInsert, true)) n++;
+  ok('۳۸.۳ سقفِ واقعی پنج آپلود در روز است، نه نود', n === 5, 'شد ' + n);
+  /* و سطلِ آپلود نباید تنها نگهبان باشد — همان چیزی که نبودش این باگ را ساخت. */
+  ok('۳۸.۴ و سدِ متوقف‌کننده «واحد» است، نه «آپلود»',
+     ytQuota_().blocked === 'واحد', ytQuota_().blocked);
+  CFG.YT_QUOTA_UNITS = uWas; CFG.YT_QUOTA_UPLOADS = upWas;
+  delete global.__PROPS[PK.YT_QUOTA];
+
+  /* و این عدد باید دیده شود، نه فقط در کد باشد. */
+  const dr = ytDrain_(264);
+  ok('۳۸.۵ تخمینِ تخلیهٔ صف حساب می‌شود', dr.perDay === 5 && dr.days === 53,
+     JSON.stringify(dr));
+  const line = ytLine_({ enabled: true, service: true, published: 2, due: 14,
+                         waitingRender: 0, unlisted: 0, failed: 0, playlists: 1 });
+  ok('۳۸.۶ و در همان جملهٔ روزانه‌ای می‌آید که صاحبِ برنامه می‌خواند',
+     line.indexOf('روز') !== -1 && line.indexOf('سهمیهٔ یوتیوب') !== -1, line);
+  /* یک قسمتی صف، هشدارِ «چند روز طول می‌کشد» لازم ندارد. */
+  const short = ytLine_({ enabled: true, service: true, published: 9, due: 1,
+                          waitingRender: 0, unlisted: 0, failed: 0, playlists: 1 });
+  ok('۳۸.۷ ولی برای صفِ یک‌قسمتی هشدارِ بی‌جا نمی‌دهد',
+     short.indexOf('سهمیهٔ یوتیوب') === -1, short);
+
+  /* چهار در روز خرج می‌شود و یکی برای پلی‌لیست و کاور و بازخورد می‌مانَد. */
+  ok('۳۸.۸ سقفِ شبانه + دورِ ۱۰ صبح از سقفِ واقعی نمی‌گذرد',
+     (Number(CFG.YT_MAX_PER_RUN) || 2) + 1 < ytDrain_(1).perDay + 1,
+     'شبانه ' + CFG.YT_MAX_PER_RUN + ' + تیک ۱ در برابرِ ' + ytDrain_(1).perDay);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
