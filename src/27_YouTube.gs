@@ -2136,7 +2136,7 @@ function ytHealth_(problems, notes) {
     var dg = null;
     try { dg = ytDiagnose_(); } catch (eDg) {}
     if (dg && !dg.channelOk) {
-      problems.push('یوتیوب وصل است ولی کانال خوانده نمی‌شود — ' +
+      problems.push(HY_ + 'یوتیوب وصل است ولی کانال خوانده نمی‌شود — ' +
                     (dg.cause || 'علت نامعلوم') +
                     (dg.fix ? '. چاره: ' + dg.fix : '') +
                     ' (منو ← «عیب‌یابی و رفعِ دسترسیِ یوتیوب»)');
@@ -2192,7 +2192,7 @@ function ytHealth_(problems, notes) {
   if (st.channel) {
     notes.push(st.channel.line);
     if (st.channel.todo && st.channel.todo.length && ytTodoDue_()) {
-      problems.push('در شناسنامهٔ کانالِ یوتیوب ' +
+      problems.push(HY_ + 'در شناسنامهٔ کانالِ یوتیوب ' +
                     faDigitsOut_(String(st.channel.todo.length)) +
                     ' جای خالی هست که فقط از studio.youtube.com پر می‌شود: ' +
                     st.channel.todo.join('، ') + '. موتور از راهِ API به این‌ها ' +

@@ -601,6 +601,183 @@ function mailQueueClear_() {
   try { props_().deleteProperty(PK.MAIL_QUEUE); } catch (e) {}
 }
 
+/* ══════════ «کارِ شما» یا «خودش حل می‌شود» (۶٫۱۱) ══════════
+ *
+ * ایمیلِ ۲۶ اوت سیزده ایراد داشت و **دو تایش** کارِ صاحبِ برنامه بود؛ بقیه
+ * یا خودِ موتور حلشان می‌کرد یا اصلاً ربطی به او نداشت (شیت‌های راکدِ
+ * سامانه‌های دیگرش). وقتی سیزده مورد پشتِ سرِ هم فهرست شوند، آن دو تا گم
+ * می‌شوند — و او گفت «وقتِ دیدن ندارم». فهرستی که همه‌چیز را یک‌جور نشان
+ * دهد، خواندنش را غیرممکن می‌کند، نه آسان.
+ *
+ * پس هر ایراد یکی از دو جاست، و **پیش‌فرض «کارِ موتور» است**: چیزی «کارِ
+ * شما» می‌شود که کسی صریح علامتش زده باشد. برعکسش — پیش‌فرضِ «کارِ شما» —
+ * یعنی هر ایرادِ تازه‌ای که کسی یادش برود علامت بزند، بی‌خود سرِ او خراب
+ * می‌شود؛ و همان چیزی است که این ایمیل را نخواندنی می‌کند.
+ *
+ * علامت یک نویسهٔ نامرئی نیست: یک پیشوندِ صریح که پیش از نمایش برداشته
+ * می‌شود. نامرئی‌بودن یعنی روزی کسی متن را کپی می‌کند و علامت بی‌صدا گم
+ * می‌شود.
+ */
+var HY_ = '⟨شما⟩ ';
+
+/** ایرادها را به دو دستهٔ «کارِ شما» و «کارِ موتور» جدا می‌کند. */
+function healthSplit_(problems) {
+  var out = { yours: [], mine: [] };
+  for (var i = 0; i < (problems || []).length; i++) {
+    var t = String(problems[i] || '');
+    if (t.indexOf(HY_) === 0) out.yours.push(t.slice(HY_.length));
+    else out.mine.push(t);
+  }
+  return out;
+}
+
+/* ══════════ دیده‌بانِ کارگرهای بیرونی — «کی ناظر را می‌پاید؟» (۶٫۱۱) ══════════
+ *
+ * خواستهٔ صریحِ صاحبِ برنامه: «می‌خوام مطمئن بشم واقعاً همه‌چیز خودکار تحتِ
+ * نظارت قرار می‌گیره … من وقتِ دیدن ندارم.»
+ *
+ * و جوابِ صادقانه تا ۶٫۱۰ این بود: **نه، کاملاً نه.** موتور خودش را
+ * می‌پایید، ولی سه کارگر بیرون از آن کار می‌کنند و هیچ‌کدام دیده‌بان
+ * نداشتند:
+ *
+ *   • **ناظرِ روزانه** (Cowork، ۱۲:۰۰) — گزارش می‌سازد و نسخهٔ کد می‌دهد
+ *   • **تسکِ غنی‌سازی** (هر ساعت) — متن را کامل می‌کند
+ *   • **اکشنِ رندر** (GitHub، هر ساعت) — ویدئو می‌سازد
+ *
+ * اگر هرکدامشان از کار می‌افتاد — سهمیه تمام می‌شد، دسترسی می‌پرید، یا
+ * خطایی می‌خورد — موتور همچنان «همه‌چیز درست است» می‌گفت. `lastReportAt`
+ * از مدت‌ها پیش حساب می‌شد و **هیچ‌جا خوانده نمی‌شد**: باز هم همان الگوی
+ * آشنای این ریپو، تحلیلی که به تصمیمی وصل نشده.
+ *
+ * دقیقاً همان شکلِ خرابی‌ای که بانکِ موسیقی را هفته‌ها خالی نگه داشت: یک
+ * طرف کاری را نمی‌کرد و هیچ‌کس نپرسید چرا.
+ *
+ * سه ضربان، سه آستانهٔ جدا — چون هر کارگر ریتمِ خودش را دارد و یک آستانهٔ
+ * مشترک یا برای یکی زود است یا برای دیگری دیر.
+ */
+function watchdogHeartbeats_(st) {
+  var out = [], now = new Date().getTime();
+
+  /* ── ۱) ناظرِ روزانه ── */
+  var rAt = '';
+  try { rAt = String(((st || {}).reports || {}).lastReportAt || ''); } catch (e) {}
+  out.push({ key: 'monitor', name: 'ناظرِ روزانه',
+             what: 'گزارشِ روزانه و ساختِ نسخهٔ کد',
+             at: rAt, days: whDays_(rAt, now),
+             maxDays: Math.max(1, Number(CFG.WD_MONITOR_DAYS) || 2),
+             fix: 'روتینِ «نظارت روزانه» در Cowork را باز کنید و ببینید چرا نمی‌دود.' });
+
+  /* ── ۲) تسکِ غنی‌سازی ── */
+  var eAt = '';
+  try { eAt = whNewestEnrich_(); } catch (e2) {}
+  out.push({ key: 'enrich', name: 'تسکِ غنی‌سازی',
+             what: 'کامل‌کردنِ متنِ قسمت‌ها با جست‌وجوی وب',
+             at: eAt, days: whDays_(eAt, now),
+             maxDays: Math.max(1, Number(CFG.WD_ENRICH_DAYS) || 2),
+             fix: 'روتینِ «غنی‌سازی اینترنتی پادکست‌ها» در Cowork را وارسی کنید.' });
+
+  /* ── ۳) اکشنِ رندر ──
+   * این یکی ضربانِ زمانی ندارد، **کارِ انجام‌نشده** دارد: ردیفی که اجازه و
+   * نشانی گرفته ولی کلیدش در `docs/renders.json` نیست، یعنی اکشن آن را
+   * ندیده یا نتوانسته بسازد. این دقیق‌تر از «چند ساعت است چیزی ننوشته»
+   * است — اکشنی که کاری ندارد هم چیزی نمی‌نویسد، و آن ایراد نیست. */
+  var rd = null;
+  try { rd = whRenderLag_(); } catch (e3) {}
+  if (rd) out.push(rd);
+
+  return out;
+}
+
+/** چند روز از یک زمانِ فارسی/ISO گذشته؛ نامعلوم یعنی -۱. */
+function whDays_(at, now) {
+  var t = parseWhen_(String(at || ''));
+  if (isNaN(t)) return -1;
+  return Math.floor(((now || new Date().getTime()) - t) / 86400000);
+}
+
+/** تازه‌ترین پاسخِ غنی‌سازی در ریشهٔ OUTPUT. */
+function whNewestEnrich_() {
+  var newest = 0;
+  try {
+    var it = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID).getFiles();
+    while (it.hasNext()) {
+      var f = it.next(), n = String(f.getName());
+      if (n.indexOf('_ENRICH-') !== 0 || n.indexOf('_ENRICH-REQ-') === 0) continue;
+      var t = f.getLastUpdated().getTime();
+      if (t > newest) newest = t;
+    }
+  } catch (e) {}
+  return newest ? Utilities.formatDate(new Date(newest), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm') : '';
+}
+
+/** ردیف‌هایی که اجازه گرفته‌اند ولی اکشن نساخته‌شان. */
+function whRenderLag_() {
+  var d = null;
+  try { d = ytRenderRead_(); } catch (e) { return null; }
+  var map = null;
+  try { map = ytRenderMap_(); } catch (e2) { map = null; }
+  var now = new Date().getTime(), lag = 0, oldest = 0;
+  for (var i = 0; i < ((d && d.items) || []).length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'در انتظار') continue;
+    if (!it.shared) continue;                       // هنوز اجازه نگرفته؛ نوبتِ اکشن نیست
+    if (map && map[it.key] && map[it.key].url) continue;   // ساخته شده
+    var t = parseWhen_(String(it.sharedAt || it.at || ''));
+    if (isNaN(t)) continue;
+    var hrs = (now - t) / 3600000;
+    lag++;
+    if (hrs > oldest) oldest = hrs;
+  }
+  if (!lag) return null;
+  return { key: 'render', name: 'اکشنِ رندرِ ویدئو',
+           what: 'ساختِ MP4 از صوت و کاور',
+           at: '', days: Math.floor(oldest / 24), hours: Math.round(oldest), n: lag,
+           maxDays: Math.max(1, Number(CFG.WD_RENDER_DAYS) || 1),
+           notMade: !map,
+           fix: 'صفحهٔ Actions ریپو را باز کنید و متنِ خطای آخرین اجرا را ببینید: ' +
+                'github.com/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO + '/actions' };
+}
+
+/**
+ * دیده‌بان: هر کارگرِ خوابیده یک ایرادِ صریح می‌شود، با نام و با چاره.
+ *
+ * و آنچه **گفته نمی‌شود** هم مهم است: کارگری که سرِ وقت کار کرده هیچ ایرادی
+ * نمی‌سازد و فقط یک خطِ یادداشت می‌گیرد. اگر سلامتِ روزانه هر روز سه خط
+ * «فلانی سالم است» بنویسد، همان سه خط را آدم دیگر نمی‌خواند.
+ */
+function watchdog_(st, problems, notes) {
+  var hb = [];
+  try { hb = watchdogHeartbeats_(st); } catch (e) { return []; }
+  var late = [];
+  for (var i = 0; i < hb.length; i++) {
+    var w = hb[i];
+    if (w.key === 'render') {
+      if (w.days >= w.maxDays || (w.notMade && w.hours >= 6)) {
+        problems.push(HY_ + 'اکشنِ رندرِ ویدئو کار نمی‌کند: ' +
+          faDigitsOut_(String(w.n)) + ' قسمت اجازه و نشانی گرفته‌اند ولی ساخته نشده‌اند' +
+          (w.hours ? ' (قدیمی‌ترین ' + faDigitsOut_(String(w.hours)) + ' ساعت)' : '') +
+          '. ' + w.fix);
+        late.push(w.key);
+      }
+      continue;
+    }
+    if (w.days < 0) {
+      /* هیچ نشانی از کارِ این کارگر نیست. اگر تازه راه افتاده باشد این
+         طبیعی است، پس فقط یادداشت — ولی ساکت هم نمی‌مانَد. */
+      notes.push(w.name + ': هنوز هیچ نشانی از کارش نیست.');
+      continue;
+    }
+    if (w.days >= w.maxDays) {
+      problems.push(HY_ + w.name + ' ' + faDigitsOut_(String(w.days)) +
+        ' روز است کاری نکرده (' + w.what + '؛ آخرین بار ' + w.at + '). ' + w.fix);
+      late.push(w.key);
+    } else {
+      notes.push(w.name + ': آخرین بار ' + w.at + '.');
+    }
+  }
+  return late;
+}
+
 /** خبرهای صف‌شده، به HTML. */
 function mailQueueHtml_(q) {
   if (!q || !q.length) return '';
@@ -948,9 +1125,26 @@ function healthCheck() {
                  '» هست که در قسمت بعدی اعمال می‌شود.');
     }
     if (rp.repeated) {
-      notes.push(rp.repeated + ' مورد بیش از یک بار در گزارش‌ها تکرار شده — یعنی اقدامِ ' +
-                 'قبلی جواب نداده.');
+      /* ══ حلقه‌ای که بسته نمی‌شود (۶٫۱۱) ══
+       * «۳۲ مورد بیش از یک بار تکرار شده» یک *یادداشت* بود، پس هرگز بالا
+       * نمی‌آمد و ماه‌ها همان‌جا می‌ماند. ولی معنایش دقیقاً این است که
+       * اقدامِ قبلی جواب نداده — یعنی حلقهٔ گزارش←اقدام باز است. یک
+       * تکرار اتفاق است؛ ده تا یعنی سازوکار کار نمی‌کند. */
+      var repCap = Math.max(3, Number(CFG.REPEAT_ALERT) || 10);
+      if (rp.repeated >= repCap) {
+        problems.push('‏' + rp.repeated + ' یافته بیش از یک بار در گزارش‌ها تکرار شده — ' +
+          'یعنی اقدامِ قبلی جواب نداده و حلقهٔ گزارش←اقدام بسته نمی‌شود. ' +
+          'ناظر باید به‌جای ثبتِ دوبارهٔ همان‌ها، علتِ نبستنشان را پیدا کند.');
+      } else {
+        notes.push(rp.repeated + ' مورد بیش از یک بار در گزارش‌ها تکرار شده — یعنی اقدامِ ' +
+                   'قبلی جواب نداده.');
+      }
     }
+  }
+
+  // ۳-پ) دیده‌بانِ کارگرهای بیرونی — کی ناظر را می‌پاید
+  try { watchdog_(st, problems, notes); } catch (eWd) {
+    problems.push('دیده‌بانِ کارگرهای بیرونی اجرا نشد: ' + eWd.message);
   }
 
   // ۳-الف) قطعه‌هایی که هیچ‌وقت کامل نشدند
@@ -1026,13 +1220,23 @@ function healthCheck() {
   var queued = mailQueueRead_();
   if (problems.length || queued.length) {
     var bad = problems.length;
+    var sp = healthSplit_(problems);
     var html = ['<div style="font-family:Tahoma;direction:rtl;text-align:right;line-height:2">'];
-    html.push(bad
-      ? '<h2 style="color:#b45309">⚠️ موتور محتوا — ' + bad + ' ایراد</h2>'
-      : '<h2 style="color:#166534">✅ موتور محتوا — همه‌چیز درست است</h2>');
-    if (bad) {
-      html.push('<ul>');
-      for (var q = 0; q < problems.length; q++) html.push('<li>' + esc_(problems[q]) + '</li>');
+    /* تیتر فقط از روی «کارِ شما» ساخته می‌شود. اگر کاری از او برنمی‌آید،
+       ایمیل باید همان بالا و در یک نگاه همین را بگوید — وگرنه باید تا ته
+       خوانده شود تا معلوم شود لازم نبود خوانده شود. */
+    html.push(sp.yours.length
+      ? '<h2 style="color:#b45309">⚠️ موتور محتوا — ' +
+        faDigitsOut_(String(sp.yours.length)) + ' مورد کارِ شماست</h2>'
+      : '<h2 style="color:#166534">✅ موتور محتوا — کاری از شما لازم نیست</h2>');
+    if (sp.yours.length) {
+      html.push('<h3 style="color:#b45309">کارِ شما</h3><ul>');
+      for (var y = 0; y < sp.yours.length; y++) html.push('<li>' + esc_(sp.yours[y]) + '</li>');
+      html.push('</ul>');
+    }
+    if (sp.mine.length) {
+      html.push('<h3 style="color:#666">در دستِ موتور و ناظر — لازم نیست کاری بکنید</h3><ul>');
+      for (var q = 0; q < sp.mine.length; q++) html.push('<li>' + esc_(sp.mine[q]) + '</li>');
       html.push('</ul>');
     }
     html.push(mailQueueHtml_(queued));
@@ -1046,16 +1250,20 @@ function healthCheck() {
               '<a href="' + esc_(st.hubUrl) + '">CONTENT-HUB</a></p></div>');
     try {
       MailApp.sendEmail({ to: CFG.EMAIL_TO,
-                          subject: (bad ? '⚠️ موتور محتوا: ' + bad + ' ایراد'
-                                        : '✅ موتور محتوا — گزارشِ روزانه') +
-                                   (queued.length ? ' · ' + queued.length + ' خبر' : ''),
+                          subject: (sp.yours.length
+                                      ? '⚠️ موتور محتوا: ' + sp.yours.length + ' مورد کارِ شماست'
+                                      : '✅ موتور محتوا — کاری از شما لازم نیست') +
+                                   (sp.mine.length ? ' · ' + sp.mine.length + ' در دستِ موتور' : ''),
                           htmlBody: html.join(''), name: 'موتور محتوای آرشیو' });
       mailQueueClear_();
     } catch (e) { logLine_('ارسال ایمیلِ روزانه ناموفق: ' + e.message); }
   }
 
-  var msg = (problems.length ? '⚠️ ' + problems.length + ' ایراد:\n• ' + problems.join('\n• ')
-                             : '✅ همه‌چیز درست است.') +
+  var spU = healthSplit_(problems);
+  var msg = (problems.length
+               ? (spU.yours.length ? '⚠️ کارِ شما:\n• ' + spU.yours.join('\n• ') + '\n\n' : '') +
+                 (spU.mine.length ? 'در دستِ موتور:\n• ' + spU.mine.join('\n• ') : '')
+               : '✅ همه‌چیز درست است.') +
             (notes.length ? '\n\n' + notes.join('\n') : '');
   var ui = ui_(); if (ui) ui.alert('وارسی سلامت', msg, ui.ButtonSet.OK); else console.log(msg);
   return { problems: problems, notes: notes };

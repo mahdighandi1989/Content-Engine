@@ -501,7 +501,10 @@ function sourceProblems_(hub, report, errs) {
           daysWords_(f.daysSinceLast) + ' است ردیف تازه‌ای نیامده' +
           (rhythm ? '، در حالی که ' + rhythm : '') + '. (آخرین ردیف: ' + (f.lastAt || '—') + ')';
       }
-      if (f.verdict === 'راکد') problems.push(line); else notes.push(line);
+      /* شیت‌های منبع سامانه‌های *دیگرِ* صاحبِ برنامه‌اند؛ موتور فقط می‌خوانَدشان
+         و هیچ کاری از دستش برنمی‌آید. پس اگر یکی راکد شد، خبرش کارِ اوست —
+         و صریح علامت می‌خورد تا در فهرستِ «در دستِ موتور» گم نشود. */
+      if (f.verdict === 'راکد') problems.push(HY_ + line); else notes.push(line);
     }
     if (f.behind > CFG.ALERT_SYNC_BEHIND) {
       problems.push('خواندن «' + f.source + ' › ' + f.tab + '» ' + f.behind + ' ردیف عقب است.');
