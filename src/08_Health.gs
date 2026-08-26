@@ -457,6 +457,7 @@ function writeStatus_(hub, note) {
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
+    recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -1216,6 +1217,10 @@ function healthCheck() {
     var exS = explainStatus_();
     if (exS && exS.line) { if (exS.ok) notes.push(exS.line); else problems.push(exS.line); }
   } catch (eEx) {}
+  try {
+    var rcS = recapStatus_();
+    if (rcS && rcS.line) notes.push(rcS.line);
+  } catch (eRc2) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

@@ -40,6 +40,7 @@ function onOpen() {
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')
+      .addItem('📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده', 'runRecapNow')
       .addItem('🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب', 'runYouTubeFix')
       .addSeparator()
       .addItem('🗄️ پشتیبان‌گیری از شیت‌ها همین حالا', 'runBackupNow')
