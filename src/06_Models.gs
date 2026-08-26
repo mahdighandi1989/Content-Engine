@@ -110,6 +110,10 @@ function resolveModels_(force) {
     chosen.policy = CFG.MODEL_POLICY;
   } catch (e) {
     logLine_('انتخاب خودکار مدل ناموفق بود، از پیش‌فرض استفاده می‌شود: ' + e.message);
+    /* نشانه‌گذاری لازم است: `textAll` در این حالت «آنچه روی حساب هست» نیست،
+       «آنچه حدس زده‌ایم» است. هر کسی که بخواهد مدلی را با این فهرست بسنجد
+       (مثلِ نظارتِ کیفیِ بخشِ ۲۸) باید بداند که این شهادت نیست. */
+    chosen.fallback = true;
     chosen.text = CFG.FALLBACK_TEXT_MODEL;
     chosen.tts = CFG.FALLBACK_TTS_MODEL;
     chosen.textAll = [CFG.FALLBACK_TEXT_MODEL];

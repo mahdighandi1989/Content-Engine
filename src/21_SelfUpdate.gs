@@ -788,6 +788,20 @@ function selfUpdateDaily() {
     } catch (eYs) { logLine_('پس‌گرفتنِ اشتراکِ موقت نشد: ' + eYs.message); }
   }
 
+  /* نظارتِ کیفیِ استخراج — هفتگی و پشتِ نگهبانِ زمانِ خودش. آخرِ صف است چون
+     هیچ چیزی به آن وابسته نیست و هفته‌ای یک بار می‌دود؛ ولی چون `sqDue_`
+     نوبت را نگه می‌دارد، شبی که وقت نرسد فردا شب جبران می‌شود. */
+  if (CFG.SQ_ENABLED !== false && nightHas_(40000, 'کیفیتِ استخراج')) {
+    try {
+      var sq = sqRun_(Math.min(Number(CFG.SQ_MS) || 120000,
+                               Math.max(20000, nightLeft_() - 20000)));
+      if (sq.ran) {
+        logLine_('کیفیتِ استخراج: ' + sq.ran + ' تحلیلگر بررسی شد، ' +
+                 sq.findings + ' یافته ثبت شد.');
+      }
+    } catch (eSq) { logLine_('نظارتِ کیفیِ استخراج نشد: ' + eSq.message); }
+  }
+
   // سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود.
   if (nightHas_(45000, 'سنجهٔ محتوا')) {
     try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }

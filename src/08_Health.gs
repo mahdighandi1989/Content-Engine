@@ -454,6 +454,7 @@ function writeStatus_(hub, note) {
     sourceErrors: srcErr,
     // حلقهٔ بستهٔ گزارش ← اقدام: چه چیزی باز است و چه چیزی اعمال شده
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
+    srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -1193,6 +1194,12 @@ function healthCheck() {
                  ' ویدئو برداشته شد، ' + faDigitsOut_(String(ytT.published)) + ' منتشر شد.');
     }
   } catch (eYk) { notes.push('دورِ دومِ یوتیوب اجرا نشد: ' + eYk.message); }
+  /* کیفیتِ استخراج هر روز یک خط می‌گیرد، حتی وقتی دوری اجرا نشده — چون
+     «هفته‌هاست اجرا نشده» خودش خبر است، و سکوت را نمی‌شود از سلامت تشخیص داد. */
+  try {
+    var sqL = sqStatus_();
+    if (sqL && sqL.line) notes.push(sqL.line);
+  } catch (eSq2) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
     if (st.special && st.special.active) {
       notes.push('درس‌نامه: مجموعهٔ «' + st.special.active.name + '» در حال تولید — ' +
