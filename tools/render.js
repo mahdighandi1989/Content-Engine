@@ -129,7 +129,45 @@ function uploadAsset(rel, file, name) {
 
 /* ── ffmpeg ─────────────────────────────────────────────────────────────── */
 
-function ff(args) { execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y'].concat(args),
+/**
+ * مسیرِ واقعیِ ffmpeg.
+ *
+ * ══ باگی که اولین رندرِ واقعی نشان داد (۲۶ اوت) ══
+ * `ubuntu-latest` دیگر ffmpeg ندارد — هشت قسمت با
+ * `spawnSync ffmpeg ENOENT` رد شدند. و مرحلهٔ وارسیِ خودِ اکشن **سبز شد**،
+ * چون `ffmpeg -version | head -1` کدِ خروجیِ `head` را می‌دهد نه `ffmpeg` را.
+ * یک وارسی که نمی‌تواند شکست بخورد، وارسی نیست — همان درسی که این ریپو
+ * بارها گرفته.
+ *
+ * پس مسیر این‌جا **پیدا** می‌شود، نه فرض: اول PATH، بعد باینریِ استاتیکِ
+ * `imageio-ffmpeg` از PyPI (که در همین محیط آزموده شده و در چند ثانیه
+ * می‌آید). اگر هیچ‌کدام نبود، کار می‌ترکد — بی ffmpeg هیچ ویدئویی ساخته
+ * نمی‌شود و یک اجرای سبزِ بی‌محصول بدترین حالت است.
+ */
+let FFMPEG = '';
+function ffmpegExe() {
+  if (FFMPEG) return FFMPEG;
+  try {
+    execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+    FFMPEG = 'ffmpeg';
+    return FFMPEG;
+  } catch (e) { /* روی PATH نیست */ }
+  try {
+    execFileSync('python3', ['-m', 'pip', 'install', '--quiet', 'imageio-ffmpeg'],
+                 { stdio: 'inherit' });
+    FFMPEG = execFileSync('python3',
+      ['-c', 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())'],
+      { encoding: 'utf8' }).trim();
+    execFileSync(FFMPEG, ['-version'], { stdio: 'ignore' });
+    log('ffmpeg از PyPI آورده شد: ' + FFMPEG);
+    return FFMPEG;
+  } catch (e2) {
+    throw new Error('ffmpeg پیدا نشد و از PyPI هم نیامد: ' +
+                    String(e2.message).split('\n')[0]);
+  }
+}
+
+function ff(args) { execFileSync(ffmpegExe(), ['-hide_banner', '-loglevel', 'error', '-y'].concat(args),
                                  { stdio: 'inherit' }); }
 
 /**
@@ -255,8 +293,18 @@ function main() {
   }
 
   if (made) writeMap(map);
-  log('ساخته شد: ' + made);
+  log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش');
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
+
+  /* ══ یک اجرای سبزِ بی‌محصول، بدترین حالت است ══
+   * وقتی کاری برای انجام بود و **هیچ‌کدام** نشد، ایراد از یک قسمتِ خراب
+   * نیست؛ از کلِ محیط است (همان ENOENTِ ffmpeg). آن باید قرمز شود تا دیده
+   * شود. ولی یک قسمتِ خرابِ تنها نباید هفته‌ها اکشن را قرمز نگه دارد —
+   * هشدارِ همیشه‌قرمز همان هشداری است که آدم یاد می‌گیرد نبیند. */
+  if (todo.length && made === 0) {
+    log('هیچ ویدئویی ساخته نشد در حالی که ' + todo.length + ' تا در صف بود.');
+    process.exitCode = 1;
+  }
 }
 
 main();

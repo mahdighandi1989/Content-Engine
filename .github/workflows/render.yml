@@ -32,8 +32,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: نسخهٔ ffmpeg
-        run: ffmpeg -version | head -1
+      # ubuntu-latest دیگر ffmpeg ندارد. باینریِ استاتیکِ PyPI در چند ثانیه
+      # می‌آید و به sudo هم نیازی ندارد.
+      - name: ffmpeg
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet imageio-ffmpeg
+          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          # بدون pipefail، «ffmpeg -version | head -1» کدِ خروجیِ head را
+          # می‌دهد و نبودِ ffmpeg سبز رد می‌شود. یک بار همین شد.
+          "$FF" -version | head -1
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: ساختِ ویدئوها
         env:
