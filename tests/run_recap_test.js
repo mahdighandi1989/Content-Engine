@@ -73,7 +73,8 @@ console.log('=== ۱) انتخابِ مجموعه: کف، یک‌بار، و در
 {
   delete global.__PROPS[PK.RECAP_DONE];
   const reg = readSeriesReg_(hub);
-  let p = recapPick_(hub, reg, '');
+  const first = (r) => { const a = recapCandidates_(hub, r, ''); return a.length ? a[0] : null; };
+  let p = first(reg);
   ok('۱.۱ مجموعه‌ای با نُه قسمت انتخاب می‌شود', p && p.name === 'معرفت‌شناسی', p && p.name);
   ok('۱.۲ و شمارِ قسمت‌هایش از تب خوانده می‌شود', p.made === 9, String(p.made));
 
@@ -81,16 +82,16 @@ console.log('=== ۱) انتخابِ مجموعه: کف، یک‌بار، و در
      سه چهار درس هنوز چیزی برای مرورِ بزرگ نیست. */
   const keep = CFG.RECAP_MIN_PARTS;
   CFG.RECAP_MIN_PARTS = 20;
-  ok('۱.۳ زیرِ کف، هیچ', recapPick_(hub, reg, '') === null);
+  ok('۱.۳ زیرِ کف، هیچ', first(reg) === null);
   CFG.RECAP_MIN_PARTS = keep;
 
   recapMarkDone_('kEp', 12);
   ok('۱.۴ مجموعه‌ای که مرور گرفته، دوباره انتخاب نمی‌شود',
-     recapPick_(hub, reg, '') === null);
+     first(reg) === null);
   /* ولی «یک‌بار‌مصرفِ بی‌درِ بازگشت» شکلی است که این ریپو مدام به آن می‌خورَد
      (۵٫۹۵). اگر مرور بد در بیاید یا مجموعه ده درسِ دیگر بگیرد، باید بشود. */
   ok('۱.۵ ولی درِ بازگشت هست', recapReopen_('kEp') === true &&
-     recapPick_(hub, reg, '') !== null);
+     first(reg) !== null);
   ok('۱.۶ و بازکردنِ چیزی که بسته نیست، دروغ نمی‌گوید',
      recapReopen_('نیست') === false);
 }
@@ -286,6 +287,36 @@ console.log('=== ۸) دو قسمت هم‌زمان، هرگز ===');
   ok('۸.۳ خاموشیِ صریح یعنی کارِ شبانه هم کاری نمی‌کند',
      recapNightly_().reason === 'off');
   CFG.RECAP_ENABLED = keep;
+}
+
+console.log('=== ۹) مجموعهٔ بی‌جزوه صف را نمی‌بندد ===');
+{
+  /* ══ چرا این سنجه هست ══
+   * نسخهٔ اول فقط «بهترین» نامزد را برمی‌گرداند و اگر آن یکی جزوه نداشت
+   * همان‌جا می‌ایستاد. یعنی یک مجموعهٔ بی‌جزوه با بیشترین قسمت، صف را برای
+   * همیشه می‌بست: هر شب همان انتخاب می‌شد، هر شب «جزوه ندارد» می‌گرفت، و
+   * مجموعه‌ای که آماده بود هرگز نوبت نمی‌گرفت — بی هیچ خطایی. */
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.SP_PENDING];
+  const big = global.__ROOT_FOLDER.createFolder('۰۲ — مجموعهٔ بی‌جزوه');
+  setSeries('kNoBook', 'بی‌جزوه', big.getId());
+  addParts('بی‌جزوه', 30);                       // از «معرفت‌شناسی» پرقسمت‌تر
+  const reg = readSeriesReg_(hub);
+  const cands = recapCandidates_(hub, reg, '');
+  ok('۹.۱ نامزدها مرتب‌اند و بی‌جزوه اولِ صف است',
+     cands.length >= 2 && cands[0].name === 'بی‌جزوه', cands.map(c => c.name).join(','));
+
+  global.__PROPS[PK.SP_EP_NUM] = '40';
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ title: 'مرور', hook: 'ه.',
+      sections: [{ heading: 'ی', narration: 'م'.repeat(900) }], outro: 'پ.' }) }] } }] } });
+  const un = quiet();
+  const r = runRecapEpisode({});
+  un();
+  ok('۹.۲ ولی مروری که ساخته می‌شود مالِ مجموعهٔ آماده است',
+     r.ok === true && r.series === 'معرفت‌شناسی', JSON.stringify(r));
+  ok('۹.۳ و مجموعهٔ بی‌جزوه علامتِ «انجام شد» نمی‌خورد',
+     !recapDone_()['kNoBook']);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

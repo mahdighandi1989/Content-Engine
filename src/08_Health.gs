@@ -458,6 +458,7 @@ function writeStatus_(hub, note) {
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
+    models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -1221,6 +1222,12 @@ function healthCheck() {
     var rcS = recapStatus_();
     if (rcS && rcS.line) notes.push(rcS.line);
   } catch (eRc2) {}
+  /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
+     خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
+  try {
+    var mdS = modelStatus_();
+    if (mdS && mdS.line) { if (mdS.ok) notes.push(mdS.line); else problems.push(mdS.line); }
+  } catch (eMd) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

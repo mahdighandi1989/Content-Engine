@@ -1312,6 +1312,35 @@ function ytLog_(hub, row) {
 }
 
 /**
+ * نامِ برنامه را به **کلیدِ داخلی** برمی‌گرداند.
+ *
+ * ══ چرا لازم شد ══
+ * `ytLog_` در ستونِ «برنامه» نامِ *نمایشی* را می‌نویسد («درس‌نامه»)، ولی
+ * همهٔ مصرف‌کننده‌های داخلی با کلید کار می‌کنند («special»). این دو هرگز
+ * با هم برابر نمی‌شدند و نتیجه‌اش دو خرابیِ بی‌صدا بود:
+ *
+ *   • `ytPublished_` نگاشتی می‌ساخت که هیچ جست‌وجویی به آن نمی‌خورد، پس
+ *     قسمتی که **قبلاً منتشر شده بود** دوباره به صف می‌رفت و دوباره آپلود
+ *     می‌شد — ویدئوی تکراری روی کانال، بی هیچ خطایی.
+ *   • و شمارندهٔ «تسلیم» هرگز فعال نمی‌شد، پس قسمتی که همیشه شکست می‌خورد
+ *     هر شب دوباره امتحان می‌شد: ۱۶۰۰ واحد سهمیه در هر تلاش.
+ *
+ * تبدیل در **خواندن** انجام می‌شود نه در نوشتن، چون ستون را آدم هم
+ * می‌خواند و «درس‌نامه» برایش معنا دارد و «special» نه. و هر دو شکل
+ * پذیرفته می‌شوند تا ردیف‌های قدیمی و تازه یکجا کار کنند.
+ */
+function ytShowKey_(v) {
+  var s = String(v === undefined || v === null ? '' : v).trim();
+  if (s === ENRICH_SHOW_SPECIAL || s === String(CFG.SPECIAL_SHOW_NAME || '\u0000')) {
+    return ENRICH_SHOW_SPECIAL;
+  }
+  if (s === ENRICH_SHOW_VARIETY || s === String(CFG.SHOW_NAME || '\u0000')) {
+    return ENRICH_SHOW_VARIETY;
+  }
+  return s;
+}
+
+/**
  * چه چیزی قبلاً منتشر شده — نگاشتِ «show:ep» به آخرین حالش.
  * از تب خوانده می‌شود، با **یک** خواندن. جست‌وجوی یوتیوب صد واحد سهمیه دارد
  * و اصلاً لازم نیست: خودمان می‌دانیم چه فرستاده‌ایم.
@@ -1323,7 +1352,7 @@ function ytPublished_(hub) {
     if (!sh || sh.getLastRow() < 2) return map;
     var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
     for (var i = 0; i < v.length; i++) {
-      var k = String(v[i][YU.SHOW - 1] || '') + ':' + String(v[i][YU.EP - 1] || '');
+      var k = ytShowKey_(v[i][YU.SHOW - 1]) + ':' + String(v[i][YU.EP - 1] || '');
       if (k === ':') continue;
       var cur = map[k] || { tries: 0, videoId: '', url: '', privacy: '', at: '',
                             result: '', series: '' };
@@ -1347,7 +1376,9 @@ function ytPublished_(hub) {
 
 /** قسمتی که چند بار پشتِ‌هم شکست خورده، دیگر به صف برنمی‌گردد. */
 function ytGaveUp_(pub, show, ep) {
-  var r = pub[String(show) + ':' + String(ep)];
+  // نامِ برنامه از هر دو شکل پذیرفته می‌شود. مرزی که هر فراخوان باید
+  // یادش باشد، همان مرزی است که فردا یکی یادش می‌رود.
+  var r = pub[ytShowKey_(show) + ':' + String(ep)];
   if (!r || r.videoId) return false;
   return r.tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3);
 }
@@ -2689,7 +2720,7 @@ function ytDigest_(hours) {
         if (!vid) continue;
         var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
         if (isNaN(t) || t < cut) continue;
-        var show = String(v[i][YU.SHOW - 1] || '');
+        var show = ytShowKey_(v[i][YU.SHOW - 1]);
         var nm = (show === ENRICH_SHOW_SPECIAL) ? (CFG.SPECIAL_SHOW_NAME || show)
                                                 : (CFG.SHOW_NAME || show);
         if (!byShow[show]) { byShow[show] = { show: show, name: nm, items: [] }; order.push(show); }

@@ -107,13 +107,21 @@ function recapPartsMap_(hub) {
 }
 
 /**
- * مجموعه‌ای که مرور می‌خواهد: به‌قدرِ کافی درس دارد و هنوز مرور نگرفته.
- * برمی‌گرداند { rec, name, made } یا null.
+ * مجموعه‌هایی که مرور می‌خواهند: به‌قدرِ کافی درس دارند و هنوز مرور نگرفته‌اند —
+ * از پرقسمت‌ترین به کم‌قسمت‌ترین.
+ *
+ * ══ چرا فهرست، نه یک نامزد ══
+ * نسخهٔ اول فقط بهترین را برمی‌گرداند و `runRecapEpisode` اگر آن یکی
+ * جزوه نداشت، همان‌جا می‌ایستاد. یعنی **یک مجموعهٔ بی‌جزوه با بیشترین
+ * قسمت، صف را برای همیشه می‌بست**: هر شب همان انتخاب می‌شد، هر شب
+ * «جزوه ندارد» می‌گرفت، و مجموعه‌ای که آماده بود هرگز نوبت نمی‌گرفت —
+ * بی هیچ خطایی، فقط یک سطر در سیاهه. همان شکلِ گرسنگی که `ytRunDue_`
+ * یک بار داشت.
  */
-function recapPick_(hub, reg, forceKey) {
+function recapCandidates_(hub, reg, forceKey) {
   var done = recapDone_();
   var min = Number(CFG.RECAP_MIN_PARTS) || 8;
-  var best = null;
+  var out = [];
   var made0 = recapPartsMap_(hub);          // ← یک خواندن، پیش از حلقه
   for (var i = 0; i < (reg.rows || []).length; i++) {
     var rec = reg.rows[i];
@@ -124,9 +132,10 @@ function recapPick_(hub, reg, forceKey) {
     var made = made0[name] || 0;
     if (!forceKey && made < min) continue;
     if (!made) continue;                       // مروری که چیزی برای مرور ندارد
-    if (!best || made > best.made) best = { rec: rec, name: name, made: made };
+    out.push({ rec: rec, name: name, made: made });
   }
-  return best;
+  out.sort(function (a, b) { return b.made - a.made; });
+  return out;
 }
 
 /* همهٔ فیلدها رشته‌اند — قاعدهٔ شمای این ریپو. */
@@ -306,23 +315,28 @@ function runRecapEpisode(opt) {
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
   if (opt.key && opt.force) recapReopen_(opt.key);
-  var pick = recapPick_(hub, reg, opt.key || '');
-  if (!pick) return { ok: false, reason: 'none' };
-
-  var folderOf = null;
-  try { folderOf = seriesFolder_(reg, pick.rec); }
-  catch (eF) { return { ok: false, reason: 'folder', why: eF.message }; }
-
-  var book = null;
-  try { book = handoutRead_(folderOf, { seriesKey: pick.rec.key, seriesName: pick.name }); }
-  catch (eB) { book = null; }
-  var nCh = (book && book.chapters) ? book.chapters.length : 0;
-  if (!nCh) {
+  /* نامزدها به ترتیب امتحان می‌شوند، نه فقط اولی: مجموعه‌ای که جزوه ندارد
+     نباید صف را برای بقیه ببندد. */
+  var cands = recapCandidates_(hub, reg, opt.key || '');
+  if (!cands.length) return { ok: false, reason: 'none' };
+  var pick = null, folderOf = null, book = null, nCh = 0, noBook = [];
+  for (var ci = 0; ci < cands.length; ci++) {
+    var c = cands[ci], fo = null;
+    try { fo = seriesFolder_(reg, c.rec); } catch (eF) { continue; }
+    var bk = null;
+    try { bk = handoutRead_(fo, { seriesKey: c.rec.key, seriesName: c.name }); }
+    catch (eB) { bk = null; }
+    var n = (bk && bk.chapters) ? bk.chapters.length : 0;
+    if (!n) { noBook.push(c.name); continue; }
+    pick = c; folderOf = fo; book = bk; nCh = n;
+    break;
+  }
+  if (noBook.length) {
     /* جزوه هنوز ساخته نشده. این *خودش* یک ایراد است و نه سکوت: جزوه هر شب
        ساخته می‌شود و مجموعه‌ای با هشت درسِ تولیدشده باید کتاب داشته باشد. */
-    logLine_('مرورِ بزرگ: مجموعهٔ «' + pick.name + '» هنوز جزوه ندارد؛ ساخته نشد.');
-    return { ok: false, reason: 'no-handout', series: pick.name };
+    logLine_('مرورِ بزرگ: این مجموعه‌ها جزوه ندارند و رد شدند — ' + noBook.join('، ') + '.');
   }
+  if (!pick) return { ok: false, reason: 'no-handout', series: noBook.join('، ') };
 
   var ep = recapWrite_(book, pick.name);
   if (!ep) return { ok: false, reason: 'write', series: pick.name };

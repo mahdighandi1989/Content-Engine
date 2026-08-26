@@ -338,3 +338,53 @@ function refreshModels() {
   var ui = ui_(); if (ui) ui.alert('مدل‌ها', msg, ui.ButtonSet.OK); else console.log(msg);
   return m;
 }
+
+/**
+ * یک سطرِ فارسیِ آماده دربارهٔ مدل — هر روز، حتی وقتی هیچ خبری نیست.
+ *
+ * ══ چرا لازم شد ══
+ * سازوکارِ تعویض و داوریِ مدل از ۶٫۱۷ کار می‌کند، ولی **تنها وقتی حرف
+ * می‌زد که خبرِ بدی بود**: تعویض یک یادداشت صف می‌کرد و داوریِ «بدتر» یک
+ * ایمیل. یعنی هر روزِ سالم، سکوتِ کامل — و صاحبِ برنامه صریح گفته
+ * «وقتِ دیدن ندارم؛ می‌خوام خیالم راحت باشه». در این ریپو سکوت را
+ * نمی‌شود از مرگ تشخیص داد، و هر زیرسامانهٔ دیگری سطرِ روزانه‌اش را دارد؛
+ * مدل تنها یکی بود که نداشت.
+ *
+ * سه چیز را می‌گوید، چون هر سه پرسشِ واقعیِ کاربر بودند: الان روی چه
+ * مدلی می‌رود، تعویضِ اخیر چه شد، و آیا مدلی به فهرستِ ردشده‌ها رفته.
+ */
+function modelStatus_() {
+  var out = { line: '', ok: true, text: '', tts: '' };
+  try {
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    /* مدل‌های انتخاب‌شده زیرِ یک کلید و به‌صورت JSON می‌نشینند (PK.MODELS)،
+       نه دو کلیدِ جدا. خواندنِ کلیدی که وجود ندارد، دقیقاً همان اشتباهی
+       است که `recapCast_` در ۶٫۲۲ کرد: بی‌صدا خالی برمی‌گردد. */
+    var cur = null;
+    try { cur = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e0) { cur = null; }
+    out.text = String((cur && cur.text) || '') || 'انتخاب‌نشده';
+    out.tts = String((cur && cur.tts) || '') || 'انتخاب‌نشده';
+    var L = ['مدل‌ها: متن ' + out.text + ' · صوت ' + out.tts +
+             (cur && cur.fallback ? ' (از فهرستِ پیش‌فرض — فهرستِ زندهٔ گوگل خوانده نشد)' : '')];
+    var rec = modelSwapRead_();
+    if (rec && rec.to) {
+      if (rec.judged) {
+        L.push('آخرین تعویض (' + String(rec.from || '—') + ' ← ' + String(rec.to) +
+               ') داوری شد: ' + String(rec.verdict || '—') + '.');
+      } else {
+        L.push('تعویضِ ' + String(rec.to) + ' هنوز داوری نشده — داوری ' +
+               fa(Math.max(6, Number(CFG.MODEL_VERDICT_HOURS) || 48)) + ' ساعت پس از تعویض.');
+      }
+    }
+    var bad = modelBadList_();
+    if (bad.length) L.push(fa(bad.length) + ' مدل به فهرستِ ردشده‌ها رفته: ' + bad.join('، ') + '.');
+    /* «انتخاب‌نشده» یعنی resolveModels_ هرگز موفق نشده و موتور روی
+       پیش‌فرضِ کور می‌رود — این خبر است، نه یادداشت. */
+    if (!cur || !cur.text) {
+      out.ok = false;
+      L.push('مدلِ متن هرگز انتخاب نشده؛ موتور روی پیش‌فرضِ کور می‌رود.');
+    }
+    out.line = L.join(' ');
+  } catch (e) {}
+  return out;
+}

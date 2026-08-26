@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.24
+ *  موتور محتوا و پادکست — نسخهٔ 6.25
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -923,7 +923,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.24',
+  CODE_VERSION: '6.25',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -8076,6 +8076,56 @@ function refreshModels() {
   return m;
 }
 
+/**
+ * یک سطرِ فارسیِ آماده دربارهٔ مدل — هر روز، حتی وقتی هیچ خبری نیست.
+ *
+ * ══ چرا لازم شد ══
+ * سازوکارِ تعویض و داوریِ مدل از ۶٫۱۷ کار می‌کند، ولی **تنها وقتی حرف
+ * می‌زد که خبرِ بدی بود**: تعویض یک یادداشت صف می‌کرد و داوریِ «بدتر» یک
+ * ایمیل. یعنی هر روزِ سالم، سکوتِ کامل — و صاحبِ برنامه صریح گفته
+ * «وقتِ دیدن ندارم؛ می‌خوام خیالم راحت باشه». در این ریپو سکوت را
+ * نمی‌شود از مرگ تشخیص داد، و هر زیرسامانهٔ دیگری سطرِ روزانه‌اش را دارد؛
+ * مدل تنها یکی بود که نداشت.
+ *
+ * سه چیز را می‌گوید، چون هر سه پرسشِ واقعیِ کاربر بودند: الان روی چه
+ * مدلی می‌رود، تعویضِ اخیر چه شد، و آیا مدلی به فهرستِ ردشده‌ها رفته.
+ */
+function modelStatus_() {
+  var out = { line: '', ok: true, text: '', tts: '' };
+  try {
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    /* مدل‌های انتخاب‌شده زیرِ یک کلید و به‌صورت JSON می‌نشینند (PK.MODELS)،
+       نه دو کلیدِ جدا. خواندنِ کلیدی که وجود ندارد، دقیقاً همان اشتباهی
+       است که `recapCast_` در ۶٫۲۲ کرد: بی‌صدا خالی برمی‌گردد. */
+    var cur = null;
+    try { cur = JSON.parse(props_().getProperty(PK.MODELS) || 'null'); } catch (e0) { cur = null; }
+    out.text = String((cur && cur.text) || '') || 'انتخاب‌نشده';
+    out.tts = String((cur && cur.tts) || '') || 'انتخاب‌نشده';
+    var L = ['مدل‌ها: متن ' + out.text + ' · صوت ' + out.tts +
+             (cur && cur.fallback ? ' (از فهرستِ پیش‌فرض — فهرستِ زندهٔ گوگل خوانده نشد)' : '')];
+    var rec = modelSwapRead_();
+    if (rec && rec.to) {
+      if (rec.judged) {
+        L.push('آخرین تعویض (' + String(rec.from || '—') + ' ← ' + String(rec.to) +
+               ') داوری شد: ' + String(rec.verdict || '—') + '.');
+      } else {
+        L.push('تعویضِ ' + String(rec.to) + ' هنوز داوری نشده — داوری ' +
+               fa(Math.max(6, Number(CFG.MODEL_VERDICT_HOURS) || 48)) + ' ساعت پس از تعویض.');
+      }
+    }
+    var bad = modelBadList_();
+    if (bad.length) L.push(fa(bad.length) + ' مدل به فهرستِ ردشده‌ها رفته: ' + bad.join('، ') + '.');
+    /* «انتخاب‌نشده» یعنی resolveModels_ هرگز موفق نشده و موتور روی
+       پیش‌فرضِ کور می‌رود — این خبر است، نه یادداشت. */
+    if (!cur || !cur.text) {
+      out.ok = false;
+      L.push('مدلِ متن هرگز انتخاب نشده؛ موتور روی پیش‌فرضِ کور می‌رود.');
+    }
+    out.line = L.join(' ');
+  } catch (e) {}
+  return out;
+}
+
 /* ═══════════════════════════ 07_Telegram.gs ═══════════════════════════ */
 
 /**
@@ -9042,6 +9092,7 @@ function writeStatus_(hub, note) {
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
+    models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -9805,6 +9856,12 @@ function healthCheck() {
     var rcS = recapStatus_();
     if (rcS && rcS.line) notes.push(rcS.line);
   } catch (eRc2) {}
+  /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
+     خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
+  try {
+    var mdS = modelStatus_();
+    if (mdS && mdS.line) { if (mdS.ok) notes.push(mdS.line); else problems.push(mdS.line); }
+  } catch (eMd) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
@@ -31531,6 +31588,35 @@ function ytLog_(hub, row) {
 }
 
 /**
+ * نامِ برنامه را به **کلیدِ داخلی** برمی‌گرداند.
+ *
+ * ══ چرا لازم شد ══
+ * `ytLog_` در ستونِ «برنامه» نامِ *نمایشی* را می‌نویسد («درس‌نامه»)، ولی
+ * همهٔ مصرف‌کننده‌های داخلی با کلید کار می‌کنند («special»). این دو هرگز
+ * با هم برابر نمی‌شدند و نتیجه‌اش دو خرابیِ بی‌صدا بود:
+ *
+ *   • `ytPublished_` نگاشتی می‌ساخت که هیچ جست‌وجویی به آن نمی‌خورد، پس
+ *     قسمتی که **قبلاً منتشر شده بود** دوباره به صف می‌رفت و دوباره آپلود
+ *     می‌شد — ویدئوی تکراری روی کانال، بی هیچ خطایی.
+ *   • و شمارندهٔ «تسلیم» هرگز فعال نمی‌شد، پس قسمتی که همیشه شکست می‌خورد
+ *     هر شب دوباره امتحان می‌شد: ۱۶۰۰ واحد سهمیه در هر تلاش.
+ *
+ * تبدیل در **خواندن** انجام می‌شود نه در نوشتن، چون ستون را آدم هم
+ * می‌خواند و «درس‌نامه» برایش معنا دارد و «special» نه. و هر دو شکل
+ * پذیرفته می‌شوند تا ردیف‌های قدیمی و تازه یکجا کار کنند.
+ */
+function ytShowKey_(v) {
+  var s = String(v === undefined || v === null ? '' : v).trim();
+  if (s === ENRICH_SHOW_SPECIAL || s === String(CFG.SPECIAL_SHOW_NAME || '\u0000')) {
+    return ENRICH_SHOW_SPECIAL;
+  }
+  if (s === ENRICH_SHOW_VARIETY || s === String(CFG.SHOW_NAME || '\u0000')) {
+    return ENRICH_SHOW_VARIETY;
+  }
+  return s;
+}
+
+/**
  * چه چیزی قبلاً منتشر شده — نگاشتِ «show:ep» به آخرین حالش.
  * از تب خوانده می‌شود، با **یک** خواندن. جست‌وجوی یوتیوب صد واحد سهمیه دارد
  * و اصلاً لازم نیست: خودمان می‌دانیم چه فرستاده‌ایم.
@@ -31542,7 +31628,7 @@ function ytPublished_(hub) {
     if (!sh || sh.getLastRow() < 2) return map;
     var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
     for (var i = 0; i < v.length; i++) {
-      var k = String(v[i][YU.SHOW - 1] || '') + ':' + String(v[i][YU.EP - 1] || '');
+      var k = ytShowKey_(v[i][YU.SHOW - 1]) + ':' + String(v[i][YU.EP - 1] || '');
       if (k === ':') continue;
       var cur = map[k] || { tries: 0, videoId: '', url: '', privacy: '', at: '',
                             result: '', series: '' };
@@ -31566,7 +31652,9 @@ function ytPublished_(hub) {
 
 /** قسمتی که چند بار پشتِ‌هم شکست خورده، دیگر به صف برنمی‌گردد. */
 function ytGaveUp_(pub, show, ep) {
-  var r = pub[String(show) + ':' + String(ep)];
+  // نامِ برنامه از هر دو شکل پذیرفته می‌شود. مرزی که هر فراخوان باید
+  // یادش باشد، همان مرزی است که فردا یکی یادش می‌رود.
+  var r = pub[ytShowKey_(show) + ':' + String(ep)];
   if (!r || r.videoId) return false;
   return r.tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3);
 }
@@ -32908,7 +32996,7 @@ function ytDigest_(hours) {
         if (!vid) continue;
         var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
         if (isNaN(t) || t < cut) continue;
-        var show = String(v[i][YU.SHOW - 1] || '');
+        var show = ytShowKey_(v[i][YU.SHOW - 1]);
         var nm = (show === ENRICH_SHOW_SPECIAL) ? (CFG.SPECIAL_SHOW_NAME || show)
                                                 : (CFG.SHOW_NAME || show);
         if (!byShow[show]) { byShow[show] = { show: show, name: nm, items: [] }; order.push(show); }
@@ -35256,13 +35344,21 @@ function recapPartsMap_(hub) {
 }
 
 /**
- * مجموعه‌ای که مرور می‌خواهد: به‌قدرِ کافی درس دارد و هنوز مرور نگرفته.
- * برمی‌گرداند { rec, name, made } یا null.
+ * مجموعه‌هایی که مرور می‌خواهند: به‌قدرِ کافی درس دارند و هنوز مرور نگرفته‌اند —
+ * از پرقسمت‌ترین به کم‌قسمت‌ترین.
+ *
+ * ══ چرا فهرست، نه یک نامزد ══
+ * نسخهٔ اول فقط بهترین را برمی‌گرداند و `runRecapEpisode` اگر آن یکی
+ * جزوه نداشت، همان‌جا می‌ایستاد. یعنی **یک مجموعهٔ بی‌جزوه با بیشترین
+ * قسمت، صف را برای همیشه می‌بست**: هر شب همان انتخاب می‌شد، هر شب
+ * «جزوه ندارد» می‌گرفت، و مجموعه‌ای که آماده بود هرگز نوبت نمی‌گرفت —
+ * بی هیچ خطایی، فقط یک سطر در سیاهه. همان شکلِ گرسنگی که `ytRunDue_`
+ * یک بار داشت.
  */
-function recapPick_(hub, reg, forceKey) {
+function recapCandidates_(hub, reg, forceKey) {
   var done = recapDone_();
   var min = Number(CFG.RECAP_MIN_PARTS) || 8;
-  var best = null;
+  var out = [];
   var made0 = recapPartsMap_(hub);          // ← یک خواندن، پیش از حلقه
   for (var i = 0; i < (reg.rows || []).length; i++) {
     var rec = reg.rows[i];
@@ -35273,9 +35369,10 @@ function recapPick_(hub, reg, forceKey) {
     var made = made0[name] || 0;
     if (!forceKey && made < min) continue;
     if (!made) continue;                       // مروری که چیزی برای مرور ندارد
-    if (!best || made > best.made) best = { rec: rec, name: name, made: made };
+    out.push({ rec: rec, name: name, made: made });
   }
-  return best;
+  out.sort(function (a, b) { return b.made - a.made; });
+  return out;
 }
 
 /* همهٔ فیلدها رشته‌اند — قاعدهٔ شمای این ریپو. */
@@ -35455,23 +35552,28 @@ function runRecapEpisode(opt) {
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
   if (opt.key && opt.force) recapReopen_(opt.key);
-  var pick = recapPick_(hub, reg, opt.key || '');
-  if (!pick) return { ok: false, reason: 'none' };
-
-  var folderOf = null;
-  try { folderOf = seriesFolder_(reg, pick.rec); }
-  catch (eF) { return { ok: false, reason: 'folder', why: eF.message }; }
-
-  var book = null;
-  try { book = handoutRead_(folderOf, { seriesKey: pick.rec.key, seriesName: pick.name }); }
-  catch (eB) { book = null; }
-  var nCh = (book && book.chapters) ? book.chapters.length : 0;
-  if (!nCh) {
+  /* نامزدها به ترتیب امتحان می‌شوند، نه فقط اولی: مجموعه‌ای که جزوه ندارد
+     نباید صف را برای بقیه ببندد. */
+  var cands = recapCandidates_(hub, reg, opt.key || '');
+  if (!cands.length) return { ok: false, reason: 'none' };
+  var pick = null, folderOf = null, book = null, nCh = 0, noBook = [];
+  for (var ci = 0; ci < cands.length; ci++) {
+    var c = cands[ci], fo = null;
+    try { fo = seriesFolder_(reg, c.rec); } catch (eF) { continue; }
+    var bk = null;
+    try { bk = handoutRead_(fo, { seriesKey: c.rec.key, seriesName: c.name }); }
+    catch (eB) { bk = null; }
+    var n = (bk && bk.chapters) ? bk.chapters.length : 0;
+    if (!n) { noBook.push(c.name); continue; }
+    pick = c; folderOf = fo; book = bk; nCh = n;
+    break;
+  }
+  if (noBook.length) {
     /* جزوه هنوز ساخته نشده. این *خودش* یک ایراد است و نه سکوت: جزوه هر شب
        ساخته می‌شود و مجموعه‌ای با هشت درسِ تولیدشده باید کتاب داشته باشد. */
-    logLine_('مرورِ بزرگ: مجموعهٔ «' + pick.name + '» هنوز جزوه ندارد؛ ساخته نشد.');
-    return { ok: false, reason: 'no-handout', series: pick.name };
+    logLine_('مرورِ بزرگ: این مجموعه‌ها جزوه ندارند و رد شدند — ' + noBook.join('، ') + '.');
   }
+  if (!pick) return { ok: false, reason: 'no-handout', series: noBook.join('، ') };
 
   var ep = recapWrite_(book, pick.name);
   if (!ep) return { ok: false, reason: 'write', series: pick.name };
