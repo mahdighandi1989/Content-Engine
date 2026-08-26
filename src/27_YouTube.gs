@@ -1918,14 +1918,29 @@ function ytPlaylistSync_(budgetMs) {
         out.linked++;
       } catch (e4) {}
     }
-    /* کاورِ پلی‌لیست فقط برای پلی‌لیستِ **تازه** یا آنی که نامش عوض شده —
-       نه هر شب. یک تصویرِ ثابت که هر شب دوباره فرستاده شود، فقط سهمیه
-       می‌خورد. */
-    if (!had || (titleWas && titleWas !== pl.title)) {
+    /* ══ کاورِ پلی‌لیست هرگز گذاشته نمی‌شد (۶٫۱۲) ══
+     * شرطِ قبلی «تازه‌ساخته یا تغییرِ نام» بود — درست به‌نظر می‌رسید و در
+     * عمل هیچ‌وقت برقرار نمی‌شد: پلی‌لیست تقریباً همیشه **در مسیرِ آپلود**
+     * زاده می‌شود (`ytPlFor_` داخلِ `ytUploadOne_`)، و وقتی نوبتِ این تابع
+     * می‌رسد دیگر «تازه» نیست. پس یوتیوب کاورِ ویدئوی اول را نشان می‌داد —
+     * که عنوانِ یک قسمت است روی یک مجموعه.
+     *
+     * چاره این نیست که شرط را کمی جابه‌جا کنیم؛ این است که سؤال عوض شود:
+     * نه «همین حالا ساختیمش؟» بلکه **«کاور دارد یا نه؟»** — که در نقشه
+     * نگه داشته می‌شود. این خودش پلی‌لیست‌های موجود را هم درمان می‌کند و
+     * هر شب هم چیزی نمی‌فرستد. */
+    var pmap = ytPlMap_(), prec = pmap[pk] || {};
+    var renamed = !!(titleWas && titleWas !== pl.title);
+    if (!prec.cover || renamed) {
       var cv = ytPlaylistCover_(pl.id, name, CFG.SPECIAL_SHOW_NAME || '',
-                                String(rec.vals[SC.CAT - 1] || name), !had ? false : true);
-      if (cv === 'نشست') out.covers++;
-      else if (cv && cv.indexOf('نشد') === 0) out.coverFails.push(name + ': ' + cv);
+                                String(rec.vals[SC.CAT - 1] || name), renamed);
+      if (cv === 'نشست') {
+        out.covers++;
+        prec.cover = nowStr_(); pmap[pk] = prec; ytPlMapSave_(pmap);
+      } else if (cv && cv.indexOf('سهمیه') === -1) {
+        out.coverFails.push(name + ': ' + cv);
+        try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
+      }
     }
   }
   try { props_().setProperty(PK.YT_PLSIG, sigStr); } catch (e5) {}
@@ -2008,22 +2023,39 @@ function ytRunDue_(maxItems, budgetMs) {
  * نمی‌کند. سقفش هم کوچک است تا وارسیِ سلامت را عقب نیندازد.
  */
 function ytTick_(budgetMs) {
-  var out = { collected: 0, published: 0, waiting: 0, why: '' };
+  var out = { collected: 0, published: 0, waiting: 0, queued: 0, why: '' };
   if (CFG.YT_ENABLED === false) { out.why = 'خاموش'; return out; }
   var t0 = new Date().getTime();
   var budget = Math.max(20000, Number(budgetMs) || 90000);
   var left = function () { return budget - (new Date().getTime() - t0); };
 
+  /* ══ چرا کاوشِ گذشته هم این‌جاست (۶٫۱۲) ══
+   * تا ۶٫۱۱ کاوشِ قسمت‌های گذشته فقط در کارِ شبانه بود. یعنی وقتی ۶٫۹ باگِ
+   * نامِ پوشه را بست، بیست قسمتِ «از همه جا از همه رنگ» باید تا ۰۲:۳۰ منتظر
+   * می‌ماندند — نصفِ روز، برای کاری که ارزان است و مکان‌نما دارد. حالا دو
+   * نوبت در روز، مثلِ بقیهٔ زنجیره. */
+  try {
+    var b = ytBackfill_(Number(CFG.YT_BACKFILL_WALK) || 12);
+    out.queued = b.queued;
+  } catch (eB) { out.why = 'کاوش: ' + String(eB.message).slice(0, 60); }
+
   try {
     var c = ytRenderCollect_(Math.max(15000, left() - 40000));
     out.collected = c.got;
-  } catch (e) { out.why = 'برداشت: ' + String(e.message).slice(0, 60); }
+  } catch (e) { out.why += (out.why ? ' · ' : '') + 'برداشت: ' + String(e.message).slice(0, 60); }
 
   if (left() > 25000) {
     try {
-      var r = ytRunDue_(1, Math.max(20000, left() - 10000));
+      var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
+  }
+  /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. این‌جا
+     دومین شانسش است — و چون `ytStatsDue_` هر ~۲۰ ساعت یک بار اجازه می‌دهد،
+     دو نوبت در روز یعنی «حتماً یک بار»، نه «دو بار». */
+  if (left() > 12000) {
+    try { if (ytStatsDue_()) ytStatsRun_(Math.max(10000, left() - 4000)); }
+    catch (e3) { out.why += (out.why ? ' · ' : '') + 'بازخورد: ' + String(e3.message).slice(0, 60); }
   }
   return out;
 }
@@ -2175,6 +2207,18 @@ function ytHealth_(problems, notes) {
                   ' مورد عمومی نشده‌اند — یعنی در کپشنشان چیزی از جنسِ خصوصی ' +
                   'پیدا شده. تا اصلاحِ ytScrub_ عمومی نمی‌شوند.');
   }
+  /* ══ تحلیلی که به تصمیمی وصل نشده بود — نمونهٔ هفتم (۶٫۱۲) ══
+   * `coverFails` از ۵٫۹۷ جمع می‌شد و **هیچ‌جا خوانده نمی‌شد**. یعنی اگر
+   * کاورِ پلی‌لیست هر شب شکست می‌خورد، هیچ‌کس نمی‌فهمید. */
+  try {
+    var pf = ytPlCoverFails_();
+    if (pf.length) {
+      problems.push('کاورِ پلی‌لیست برای ' + faDigitsOut_(String(pf.length)) +
+        ' مجموعه گذاشته نشد: ' + pf.slice(0, 3).join(' · ') +
+        '. یوتیوب به‌جایش کاورِ ویدئوی اول را نشان می‌دهد.');
+    }
+  } catch (ePf) {}
+
   if (st.failed) {
     problems.push('انتشار در یوتیوب برای ' + faDigitsOut_(String(st.failed)) +
                   ' قسمت پس از چند تلاش رها شد — تبِ «' +
@@ -2718,6 +2762,20 @@ function ytHttp_(url, method, payload, mime) {
   var json = null;
   try { json = JSON.parse(txt); } catch (e2) {}
   return { code: code, text: txt, json: json };
+}
+
+/** شکستِ کاورِ پلی‌لیست، تا سلامتِ فردا هم ببیندش (نه فقط لاگِ همین اجرا). */
+function ytPlCoverFailSave_(list) {
+  try {
+    props_().setProperty(PK.YT_PLCF,
+      JSON.stringify((list || []).slice(0, 6)));
+  } catch (e) {}
+}
+function ytPlCoverFails_() {
+  try {
+    var a = JSON.parse(props_().getProperty(PK.YT_PLCF) || '[]');
+    return Object.prototype.toString.call(a) === '[object Array]' ? a : [];
+  } catch (e) { return []; }
 }
 
 /** کاورِ پلی‌لیست: همان کارت، ولی با نامِ مجموعه به‌جای عنوانِ قسمت. */

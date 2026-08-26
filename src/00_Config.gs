@@ -766,7 +766,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.11',
+  CODE_VERSION: '6.12',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1045,6 +1045,7 @@ var PK = {
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
   YT_PL: 'YT_PLAYLIST_MAP',        // نگاشتِ کلیدِ مجموعه → شناسهٔ پلی‌لیست
   YT_STATS: 'YT_STATS_AT',         // آخرین دورِ آمار و کامنت
+  YT_PLCF: 'YT_PL_COVER_FAILS',    // کاورهای پلی‌لیست که نشستند نه
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
   MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت

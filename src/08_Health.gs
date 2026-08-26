@@ -1187,8 +1187,9 @@ function healthCheck() {
    * «⬜ خالی — پر شد» بیرون داد. */
   try {
     var ytT = ytTick_(90000);
-    if (ytT.collected || ytT.published) {
-      notes.push('یوتیوب (دورِ ۱۰ صبح): ' + faDigitsOut_(String(ytT.collected)) +
+    if (ytT.collected || ytT.published || ytT.queued) {
+      notes.push('یوتیوب (دورِ ۱۰ صبح): ' + faDigitsOut_(String(ytT.queued)) +
+                 ' قسمت به صف رفت، ' + faDigitsOut_(String(ytT.collected)) +
                  ' ویدئو برداشته شد، ' + faDigitsOut_(String(ytT.published)) + ' منتشر شد.');
     }
   } catch (eYk) { notes.push('دورِ دومِ یوتیوب اجرا نشد: ' + eYk.message); }

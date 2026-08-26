@@ -458,8 +458,24 @@ console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کان
   const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
   ok('۱۹.۱ کاورِ پلی‌لیست از playlistImages می‌رود',
      src27.indexOf('playlistImages') !== -1);
-  ok('۱۹.۲ و فقط برای پلی‌لیستِ تازه یا تغییرِ نام، نه هر شب',
-     src27.indexOf('if (!had || (titleWas && titleWas !== pl.title))') !== -1);
+  /* ══ سنجه‌ای که باگ را قفل کرده بود (۶٫۱۲) ══
+     نسخهٔ قبلیِ همین سنجه، **عینِ شرطِ خراب** را می‌سنجید:
+     `if (!had || (titleWas && titleWas !== pl.title))`. آن شرط هیچ‌وقت
+     برقرار نمی‌شد چون پلی‌لیست در مسیرِ آپلود زاده می‌شود و وقتی نوبتِ
+     همگام‌سازی می‌رسد دیگر «تازه» نیست — پس کاور هرگز گذاشته نشد و سنجه
+     هر بار سبز بود. سنجه‌ای که شکلِ کد را بسنجد، می‌تواند باگ را نگه دارد. */
+  const plc = src27.slice(src27.indexOf('var pmap = ytPlMap_(), prec'),
+                          src27.indexOf('try { props_().setProperty(PK.YT_PLSIG'));
+  ok('۱۹.۲ سؤال «کاور دارد یا نه» است، نه «همین حالا ساختیمش»',
+     plc.indexOf('!prec.cover') !== -1 &&
+     src27.indexOf('if (!had || (titleWas && titleWas !== pl.title))') === -1);
+  ok('۱۹.۲-ب و پس از نشستن، در نقشه ثبت می‌شود تا هر شب دوباره نرود',
+     plc.indexOf('prec.cover = nowStr_()') !== -1);
+  ok('۱۹.۲-پ و شکستش گزارش می‌شود — از ۵٫۹۷ جمع می‌شد و خوانده نمی‌شد',
+     src27.indexOf('ytPlCoverFails_()') !== -1 &&
+     src27.indexOf('کاورِ ویدئوی اول را نشان می‌دهد') !== -1);
+  ok('۱۹.۲-ت ولی «سهمیه» شکست شمرده نمی‌شود — فردا خودش دوباره می‌رود',
+     plc.indexOf("cv.indexOf('سهمیه') === -1") !== -1);
   ok('۱۹.۳ توضیح و کلیدواژهٔ کانال از پیکربندی ساخته می‌شوند',
      ytChannelDesc_().indexOf(String(CFG.SHOW_NAME)) !== -1);
   ok('۱۹.۴ کلیدواژه‌ها از سقفِ یوتیوب نمی‌گذرند',
@@ -1413,6 +1429,29 @@ console.log('=== ۳۹) نامِ نمایشیِ برنامه، نامِ پوشه 
   root.createFolder(String(CFG.VARIETY_FOLDER));
   const hit = ytShowFolder_(CFG.VARIETY_FOLDER);
   ok('۳۹.۶ ولی پوشهٔ موجود پیدا می‌شود', !!hit && hit.getName() === String(CFG.VARIETY_FOLDER));
+}
+
+console.log('=== ۴۰) دو نوبت در روز، نه یک نوبت (۶٫۱۲) ===');
+{
+  global.__STUB = BASE_STUB;
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const tick = src27.slice(src27.indexOf('function ytTick_'),
+                           src27.indexOf('function ytStatsDue_'));
+  /* وقتی ۶٫۹ باگِ نامِ پوشه را بست، بیست قسمت باید تا ۰۲:۳۰ منتظر می‌ماندند
+     — نصفِ روز، برای کاری که ارزان است و مکان‌نما دارد. */
+  ok('۴۰.۱ کاوشِ قسمت‌های گذشته در دورِ ۱۰ صبح هم انجام می‌شود',
+     tick.indexOf('ytBackfill_(') !== -1);
+  ok('۴۰.۲ و ترتیبش درست است: اول به صف، بعد برداشت، بعد انتشار',
+     tick.indexOf('ytBackfill_(') < tick.indexOf('ytRenderCollect_(') &&
+     tick.indexOf('ytRenderCollect_(') < tick.indexOf('ytRunDue_('));
+  /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. */
+  ok('۴۰.۳ بازخورد دومین شانسش را در دورِ ۱۰ صبح می‌گیرد',
+     tick.indexOf('ytStatsDue_()') !== -1 && tick.indexOf('ytStatsRun_(') !== -1);
+  /* ولی نه دو بار در روز: ytStatsDue_ خودش هر ~۲۰ ساعت یک بار اجازه می‌دهد. */
+  ok('۴۰.۴ و دو نوبت یعنی «حتماً یک بار»، نه «دو بار»',
+     tick.indexOf('if (ytStatsDue_())') !== -1);
+  const t = ytTick_(30000);
+  ok('۴۰.۵ و بی سرویس هم نمی‌ترکد', t && typeof t.queued === 'number');
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
