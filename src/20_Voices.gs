@@ -300,6 +300,31 @@ function assignSegmentVoices_(segs, cast, cat) {
     var isEdge = s.kind === 'hook' || s.kind === 'outro' || s.kind === 'goal';
     if (isEdge) { s.voice = cast.lead; prev = s.voice; leadShare++; continue; }
 
+    /* ── توضیح‌دهندهٔ عصری‌سازی (۶٫۲۱) ──
+     * خواستهٔ کاربر با یک قید آمد که همهٔ منطقِ زیر را کنار می‌گذارد:
+     * «یه نفر **غیر از اون گوینده**». پس این قطعه نه امتیازدهی می‌شود، نه
+     * در بازتوزیعِ سهمِ گویندهٔ اصلی شرکت می‌کند — اگر می‌کرد، همان حلقهٔ
+     * پایین که بلندترین بخش‌ها را به اصلی برمی‌گرداند، روزی توضیح‌دهنده را
+     * هم پس می‌گرفت و کلِ قابلیت بی‌صدا از بین می‌رفت.
+     *
+     * و «گاهی هم باید تغییر کنه»: نوبت از شمارهٔ قسمت می‌آید، پس در طولِ یک
+     * مجموعه بین همراه‌ها می‌چرخد و در یک قسمت ثابت می‌مانَد.
+     */
+    if (s.kind === 'explain') {
+      var mates = cast.mates || [];
+      if (mates.length) {
+        var slot = Number(s.explainSlot);
+        if (!isFinite(slot) || slot < 0) slot = 0;
+        s.voice = mates[slot % mates.length];
+      } else {
+        // تنها یک صدا در دسترس است. متن ارزشِ خودش را دارد، پس نگه داشته
+        // می‌شود — ولی این را باید دید، نه اینکه بی‌صدا شبیهِ کارِ درست باشد.
+        s.voice = cast.lead;
+      }
+      prev = s.voice;
+      continue;
+    }
+
     var reg = voiceRegister_(cat, s.tone, s.text);
     var best = cast.lead, bestS = -1;
     for (var c = 0; c < cast.all.length; c++) {

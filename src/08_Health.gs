@@ -456,6 +456,7 @@ function writeStatus_(hub, note) {
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
+    explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
     bank: indexSnapshot_(hub),
@@ -1209,6 +1210,12 @@ function healthCheck() {
     var spR = speakReviewStatus_();
     if (spR && spR.line) { if (spR.ok) notes.push(spR.line); else problems.push(spR.line); }
   } catch (eSr) {}
+  /* و عصری‌سازی — به همان دلیل و با همان قاعده. قابلیتی که خودش را بی‌صدا
+     خاموش کند، همان است که بانکِ موسیقی را هفته‌ها خالی نگه داشت. */
+  try {
+    var exS = explainStatus_();
+    if (exS && exS.line) { if (exS.ok) notes.push(exS.line); else problems.push(exS.line); }
+  } catch (eEx) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

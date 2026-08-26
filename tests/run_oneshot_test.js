@@ -2316,10 +2316,17 @@ console.log('\n=== ۳۶) سقفی که مرحلهٔ بعد رویش اضافه �
   /* ذخیره باید به‌اندازهٔ نیازِ *معمول* باشد، نه به‌اندازهٔ سقفِ مطلقِ
      غنی‌سازی: با ۲۵٪ ذخیره، هر درس یک‌چهارم کوتاه‌تر می‌شد حتی شبی که هیچ
      غنی‌سازی‌ای نرسیده. */
+  /* از ۶٫۲۱ دو مصرف‌کننده پس از نگارش اضافه می‌کنند، نه یکی: غنی‌سازی، و
+     توضیح‌دهندهٔ عصری‌سازی. پس مرزِ درست جمعِ *سقفِ مطلقِ هر دو*ست — همان
+     قصدِ اولیه («ذخیره به‌اندازهٔ نیازِ معمول، نه سقفِ مطلق») با شمارشِ
+     درستِ مصرف‌کننده‌ها. اگر روزی یکی از این دو خاموش شود، سهمش هم کنار
+     گذاشته نمی‌شود و این سنجه همچنان درست می‌مانَد. */
   const reserved = fileCap - writeCap;
-  ok('۳۶.۳ ذخیره از سقفِ مطلقِ غنی‌سازی کمتر است',
-     reserved < Math.round(writeCap * (CFG.ENRICH_MAX_TOTAL_PCT / 100)),
-     reserved + ' < ' + Math.round(writeCap * (CFG.ENRICH_MAX_TOTAL_PCT / 100)));
+  const maxAfter = Number(CFG.ENRICH_MAX_TOTAL_PCT) +
+                   (CFG.EXPLAIN_ENABLED === false ? 0 : Number(CFG.EXPLAIN_PCT));
+  ok('۳۶.۳ ذخیره از سقفِ مطلقِ آنچه بعداً اضافه می‌شود کمتر است',
+     reserved < Math.round(writeCap * (maxAfter / 100)),
+     reserved + ' < ' + Math.round(writeCap * (maxAfter / 100)));
 
   // ── و مرزِ سخت: هرچه بیاید، جمع از سقفِ فایل نمی‌گذرد ──
   const mk = (n) => ({ sections: [{ heading: 'ب', narration: 'م'.repeat(n) }] });

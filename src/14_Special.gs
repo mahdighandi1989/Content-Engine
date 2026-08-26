@@ -62,9 +62,20 @@ function specialFileCap_() { return oneFileMaxChars_(); }
  */
 function specialWriteCap_() {
   var cap = specialFileCap_();
-  if (CFG.ENRICH_ENABLED === false) return cap;
-  var pct = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
-  if (!isFinite(pct) || pct <= 0) return cap;
+  var pct = 0;
+  if (CFG.ENRICH_ENABLED !== false) {
+    var pe = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
+    if (isFinite(pe) && pe > 0) pct += pe;
+  }
+  /* ۶٫۲۱: توضیح‌دهندهٔ عصری‌سازی هم *پس از* نوشتن اضافه می‌شود، پس سهمش هم
+     باید از پیش کنار برود — وگرنه همان اتفاقِ ۵٫۹۶ دوباره می‌افتد، این بار
+     با ۱۳٪ به‌جای ۲۵٪. و اگر خاموش باشد چیزی کنار نمی‌رود: رزروِ بی‌مصرف
+     یعنی هر درس بی‌دلیل کوتاه‌تر. */
+  if (CFG.EXPLAIN_ENABLED !== false) {
+    var px = Number(CFG.EXPLAIN_PCT);
+    if (isFinite(px) && px > 0) pct += px;
+  }
+  if (pct <= 0) return cap;
   return Math.floor(cap / (1 + pct / 100));
 }
 
@@ -1632,14 +1643,29 @@ function specialSegments_(ep, catHint) {
   var gt = goalSpeech_(ep);
   if (gt) segs.push({ text: gt, kind: 'goal', tone: '',
     style: base + ' این بخشِ «چرا این درس» است: شمرده، با تأکید، و کمی آهسته‌تر.' });
+  /* بخشِ ۲۹ پایین‌تر از اینجاست، پس فراخوانش در try/catch — همان قاعدهٔ
+     ۲۱→۲۲: هویستِ فایلِ سرهم‌شده این را می‌پوشاند ولی بارگذارِ جزئیِ
+     آزمون‌ها نه، و درس‌نامه نباید به‌خاطرِ یک ReferenceError زمین بخورد. */
+  var spotsAt = function (i, at) {
+    try { return explainSpotsFor_(ep, i, at); } catch (eX) { return []; }
+  };
   for (var i = 0; i < (ep.sections || []).length; i++) {
     var s = ep.sections[i];
     var t = (s.heading ? s.heading + '. ' : '') + (s.narration || '');
     if (!t.trim()) continue;
     var regS = voiceRegister_(catHint, s.tone, t);
+    // «آن یک نفرِ دیگر» — پیش از بخش، اگر تحلیلِ جایگاه گفته باشد ابتدا.
+    var pre = spotsAt(i, 'before');
+    for (var p0 = 0; p0 < pre.length; p0++) {
+      try { segs.push(explainSeg_(ep, pre[p0])); } catch (eS0) {}
+    }
     segs.push({ text: t, kind: 'body', tone: String(s.tone || ''), secIndex: i,
                 heading: String(s.heading || ''),
                 style: base + (s.tone ? ' ' + s.tone : '') + ' ' + styleForRegister_(regS) });
+    var post = spotsAt(i, 'after');
+    for (var p1 = 0; p1 < post.length; p1++) {
+      try { segs.push(explainSeg_(ep, post[p1])); } catch (eS1) {}
+    }
   }
   if (ep.outro) segs.push({ text: ep.outro, kind: 'outro', tone: '',
     style: base + ' این پایانِ برنامه است: جمع‌بندی‌کننده و آرام.' });
@@ -1872,10 +1898,34 @@ function renderSpecialAudioStep_() {
       meta.ep = ep;
       try { writeSpecialJson_(folder, meta); }
       catch (eW) { logLine_('ذخیرهٔ متنِ غنی‌شدهٔ درس‌نامه ناموفق: ' + eW.message); }
-      st.phase = 'speak';
+      st.phase = 'explain';
       props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       scheduleSpecialContinue_(45 * 1000);
       return { ok: true, episode: epNum, pending: true, enriched: !!g.applied };
+    }
+
+    // ── مرحلهٔ «عصری‌سازی»: آن یک نفرِ دیگر (بخشِ ۲۹) ──
+    // پس از غنی‌سازی، تا متنِ نهایی را ببیند؛ و پیش از اعراب‌گذاری، تا متنش
+    // هم اعراب بگیرد و هم بازبینی شود — خواستهٔ صریحِ کاربر.
+    if (st.phase === 'explain') {
+      var xr = { ok: false, n: 0, chars: 0, why: 'بخشِ ۲۹ در دسترس نبود' };
+      try {
+        if (explainOn_(ENRICH_SHOW_SPECIAL)) {
+          xr = explainPlan_(ep, epNum, meta.seriesName || '');
+        } else {
+          xr = { ok: false, n: 0, chars: 0, why: 'خاموش است' };
+        }
+      } catch (eX) { xr = { ok: false, n: 0, chars: 0, why: eX.message }; }
+      try { explainLog_(epNum, xr.n, xr.chars, xr.why); } catch (eXl) {}
+      meta.ep = ep;
+      try { writeSpecialJson_(folder, meta); } catch (eXw) {}
+      st.phase = 'speak';
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+      scheduleSpecialContinue_(45 * 1000);
+      logLine_('درس‌نامه ' + epNum + ': عصری‌سازی — ' +
+               (xr.n ? xr.n + ' جای توضیح‌دهنده (' + xr.chars + ' نویسه)' :
+                       'بی توضیح‌دهنده' + (xr.why ? ' (' + xr.why + ')' : '')) + '.');
+      return { ok: true, episode: epNum, pending: true, explained: xr.n };
     }
 
     // ── مرحلهٔ «متنِ صوتی» — اعراب‌گذاریِ کامل پیش از صدا (توضیح در speakStep_) ──

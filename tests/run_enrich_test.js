@@ -396,7 +396,11 @@ console.log('\n=== 6. درس‌نامه هم همین مسیر را می‌رو�
   ] });
   un = quiet(); produceSpecialContinue(); un();
   let st2 = JSON.parse(global.__PROPS['SPECIAL_PENDING'] || '{}');
-  ok('6.3 ادغام شد و به «متنِ صوتی» رفت', st2.phase === 'speak', st2.phase);
+  // از ۶٫۲۱ درس‌نامه یک مرحلهٔ «عصری‌سازی» هم بینِ غنی‌سازی و متنِ صوتی دارد.
+  ok('6.3 ادغام شد و به «عصری‌سازی» رفت', st2.phase === 'explain', st2.phase);
+  un = quiet(); produceSpecialContinue(); un();
+  st2 = JSON.parse(global.__PROPS['SPECIAL_PENDING'] || '{}');
+  ok('6.3-الف و بعدش به متنِ صوتی', st2.phase === 'speak', st2.phase);
   for (let sp2 = 0; sp2 < 8 && /^speak/.test(st2.phase || ''); sp2++) {
     un = quiet(); produceSpecialContinue(); un();
     st2 = JSON.parse(global.__PROPS['SPECIAL_PENDING'] || '{}');
