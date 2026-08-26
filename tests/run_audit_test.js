@@ -259,4 +259,32 @@ console.log('=== ۹) اِسنادِ معتبر به refs نباید «شکسته
      /auditSnap_\(ENRICH_SHOW_VARIETY[\s\S]{0,700}items\.concat\(refs\), fid\);/.test(p3b));
 }
 
+console.log('=== ۱۰) درس‌نامه «آموزش» است، نه «گزارش» (۶٫۱۰) ===');
+{
+  /* ══ چرا این معیار جدا شد ══
+     قسمت ۱۵ درس‌نامه هر شش بخشش هم «فراتر از خام» بود هم «پیوندِ ساختگی» —
+     و یافته هر شب به قسمتِ بعد دستور می‌داد چیزی اضافه نکند، یعنی بازخوردی
+     که درس را بدتر می‌کرد. صددرصد غلط‌بودنِ یک قسمت تقریباً همیشه یعنی
+     معیار غلط است، نه متن. */
+  const srcA = fs.readFileSync('src/24_ContentAudit.gs', 'utf8');
+  const body = srcA.slice(srcA.indexOf('var isLesson ='),
+                          srcA.indexOf("blocks.join('\\n\\n')"));
+  ok('۹.۱ معیار به برنامه وابسته است، نه یکی برای هر دو',
+     body.indexOf('isLesson ?') !== -1);
+  ok('۹.۲ و درس‌نامه با ENRICH_SHOW_SPECIAL تشخیص داده می‌شود، نه با نام',
+     srcA.indexOf('String(snap.show) === ENRICH_SHOW_SPECIAL') !== -1);
+  /* آنچه معلم می‌کند نباید ایراد شمرده شود. */
+  const lesson = body.slice(body.indexOf('isLesson ?'), body.indexOf('] : ['));
+  ok('۹.۳ توضیح و مثال و ساده‌کردن «وفادار» شمرده می‌شوند',
+     lesson.indexOf('مثال') !== -1 && lesson.indexOf('وفادارند') !== -1);
+  ok('۹.۴ ولی ادعای بی‌ریشه همچنان «فراتر» است — سنجه از بین نرفته',
+     lesson.indexOf('ریشه ندارد') !== -1);
+  ok('۹.۵ و جمله‌های ربطِ آموزشی «ساختگی» شمرده نمی‌شوند',
+     lesson.indexOf('کارِ معلم‌اند') !== -1);
+  /* و معیارِ برنامهٔ ترکیبی دست‌نخورده مانده — یک اصلاح نباید دیگری را ببرد. */
+  const variety = body.slice(body.indexOf('] : ['));
+  ok('۹.۶ معیارِ «از همه جا از همه رنگ» دست‌نخورده است',
+     variety.indexOf('یک کلیپ، یک عکس، یک سند') !== -1);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
