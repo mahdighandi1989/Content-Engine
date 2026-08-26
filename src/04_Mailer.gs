@@ -301,11 +301,29 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   h.push('<h2>متن قسمت</h2>');
   if (ep.hook) h.push('<p><i>' + esc_(ep.hook) + '</i></p>');
   if (ep.recap) h.push('<div class="audio"><b>مرورِ قسمت‌های قبل:</b> ' + esc_(ep.recap) + '</div>');
+  /* متنِ «آن یک نفرِ دیگر» (عصری‌سازی، بخشِ ۲۹) هم باید در سند باشد.
+     شنونده حدودِ سیزده درصد از چیزی را می‌شنود که تا ۶٫۲۳ در سند نبود —
+     و سندی که با صدا نخوانَد، همان سندی است که آدم دیگر به آن رجوع
+     نمی‌کند. بخشِ ۲۹ پایین‌تر است، پس فراخوان در try. */
+  var xSpots = function (i, at) {
+    try { return explainSpotsFor_(ep, i, at); } catch (eX) { return []; }
+  };
+  var xHtml = function (list) {
+    for (var q = 0; q < list.length; q++) {
+      h.push('<div style="border-right:3px solid #b58900;background:#fdf6e3;' +
+             'padding:8px 12px;margin:10px 0;border-radius:4px">' +
+             '<div style="font-size:12px;color:#8a7220;margin-bottom:4px">' +
+             'به زبانِ ساده — با صدای گویندهٔ دوم</div>' +
+             '<p style="margin:0">' + esc_(String(list[q].text || '')) + '</p></div>');
+    }
+  };
   for (var s = 0; s < (ep.sections || []).length; s++) {
     var sec = ep.sections[s];
     h.push('<h2>' + esc_(sec.heading || '') + '</h2>');
+    xHtml(xSpots(s, 'before'));
     var paras = String(sec.narration || '').split(/\n+/);
     for (var p = 0; p < paras.length; p++) if (paras[p].trim()) h.push('<p>' + esc_(paras[p]) + '</p>');
+    xHtml(xSpots(s, 'after'));
     var refs = [];
     if (sec.chunkNos && sec.chunkNos.length) refs.push('قطعهٔ ' + sec.chunkNos.join('، '));
     if (sec.enrichIds && sec.enrichIds.length) refs.push('مکمل: ' + sec.enrichIds.join('، '));

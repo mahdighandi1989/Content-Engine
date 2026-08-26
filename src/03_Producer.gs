@@ -1082,12 +1082,10 @@ function speakHash_(t) {
   return h.toString(36) + ':' + s.length;
 }
 
-/** بریدنِ متن به تکه‌های جمله‌مرزِ حداکثر n نویسه‌ای، برای اعراب‌گذاریِ تکه‌تکه. */
-function speakPieces_(text, cap) {
+/** جمله‌های یک متن، بر پایهٔ نشانه‌های پایانِ جمله. یک نسخه، دو مصرف. */
+function speakSentences_(text) {
   var t = String(text || '').replace(/\s+/g, ' ').trim();
   if (!t) return [];
-  if (t.length <= cap) return [t];
-  var out = [], cur = '';
   var parts = [], buf = '';
   for (var i = 0; i < t.length; i++) {
     buf += t.charAt(i);
@@ -1095,6 +1093,16 @@ function speakPieces_(text, cap) {
         (i + 1 >= t.length || t.charAt(i + 1) === ' ')) { parts.push(buf.trim()); buf = ''; }
   }
   if (buf.trim()) parts.push(buf.trim());
+  return parts;
+}
+
+/** بریدنِ متن به تکه‌های جمله‌مرزِ حداکثر n نویسه‌ای، برای اعراب‌گذاریِ تکه‌تکه. */
+function speakPieces_(text, cap) {
+  var t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!t) return [];
+  if (t.length <= cap) return [t];
+  var out = [], cur = '';
+  var parts = speakSentences_(t);
   for (var j = 0; j < parts.length; j++) {
     var s = parts[j];
     if (!s) continue;
@@ -1210,14 +1218,43 @@ function speakReviewPiece_(plain, vowelled) {
   } catch (e) { return null; }
 }
 
+/**
+ * جفت‌کردنِ متنِ ساده و متنِ علامت‌گذاری‌شده، جمله‌به‌جمله.
+ *
+ * ══ چرا بریدنِ جداگانه جواب نمی‌داد ══
+ * نسخهٔ اول هر متن را جداگانه با speakPieces_ می‌بُرید و اگر شمارِ تکه‌ها
+ * یکی نبود، کلِ متن را یکجا می‌فرستاد. اندازه‌گیریِ واقعی نشان داد اعراب
+ * متن را **۱٫۷۵ برابر** می‌کند، پس شمارِ تکه‌ها تقریباً *هرگز* یکی
+ * نمی‌شد: مسیرِ تکه‌تکه کدِ مرده بود و هر بازبینی یکجا می‌رفت — درست همان
+ * شکلی که این ریپو هفت بار دیده («تحلیلی نوشته شد و به تصمیمی وصل نشد»)،
+ * این بار در کدِ تازهٔ خودم.
+ *
+ * جمله مرزِ مشترکِ دو متن است: speakBone_ نقطه و پرسش و تعجب را نگه
+ * می‌دارد و verifySpeak_ هنگام ذخیرهٔ متن همین را تضمین کرده. پس شمارِ
+ * جمله‌ها یکی است و جفت‌کردن روی همان انجام می‌شود؛ گروه‌بندی هم بر پایهٔ
+ * طولِ نسخهٔ *اعراب‌دار* است، چون همان است که باید در خروجیِ مدل جا شود.
+ */
+function speakPair_(plain, vowelled, cap) {
+  var ps = speakSentences_(plain), vs = speakSentences_(vowelled);
+  // شمارِ جمله‌ها که نخواند، یعنی فرضِ بالا برقرار نیست — یکجا، و صادقانه.
+  if (!ps.length || ps.length !== vs.length) return [[plain, vowelled]];
+  var out = [], curP = '', curV = '';
+  for (var i = 0; i < ps.length; i++) {
+    if (curV && (curV.length + vs[i].length + 1) > cap) {
+      out.push([curP, curV]); curP = ''; curV = '';
+    }
+    curP = curP ? curP + ' ' + ps[i] : ps[i];
+    curV = curV ? curV + ' ' + vs[i] : vs[i];
+  }
+  if (curV) out.push([curP, curV]);
+  return out;
+}
+
 /** بازبینیِ یک متنِ کامل، تکه‌تکه. برمی‌گرداند { t, fixed, notes, hard }. */
 function speakReviewText_(plain, vowelled) {
-  var pp = speakPieces_(plain, 1500);
-  var vp = speakPieces_(vowelled, 1500);
-  // اگر تکه‌بندیِ دو متن هم‌تراز نشد (نشانه‌گذاری طولِ تکه‌ها را جابه‌جا
-  // می‌کند)، یکجا بازبینی می‌شود. یک تکهٔ بلندتر بهتر از جفت‌شدنِ غلطِ
-  // «تکهٔ ۲ِ اصل» با «تکهٔ ۳ِ اعراب‌دار» است.
-  if (pp.length !== vp.length) { pp = [plain]; vp = [vowelled]; }
+  var pairs = speakPair_(plain, vowelled, 2200);
+  var pp = [], vp = [];
+  for (var k = 0; k < pairs.length; k++) { pp.push(pairs[k][0]); vp.push(pairs[k][1]); }
   var out = [], fixed = 0, notes = [], hard = [];
   for (var i = 0; i < pp.length; i++) {
     var r = speakReviewPiece_(pp[i], vp[i]);
@@ -1250,8 +1287,28 @@ function speakHardRows_(hard, cap) {
     var b = m[1].replace(/^[\s«"'\-•*]+|[\s»"']+$/g, '').trim();
     if (!a || !b || a === b) continue;
     if (a.length > 40 || b.length > 60) continue;
-    if (speakLetters_(a) !== speakLetters_(b)) continue;   // ← سدِ اصلی
+    if (speakLetters_(a) !== speakLetters_(b)) continue;   // همان واژه، نه واژهٔ دیگر
     if (!speakLetters_(a)) continue;
+    /* ══ سدِ دوم، و مهم‌ترینِ این تابع: تفاوت باید *ساختاری* باشد ══
+     *
+     * تبِ تلفظ **پس از** وارسی اعمال می‌شود و جهانی و همیشگی است: هرچه
+     * اینجا برود، در هر قسمتِ آینده روی هر جمله‌ای می‌نشیند و هیچ سدی
+     * پشتش نیست. پس سطری که تفاوتش «فقط اعراب» باشد دو عیب دارد:
+     *
+     *   • بی‌مصرف است — لایهٔ اعراب‌گذاری همان کار را با دیدنِ *جمله*
+     *     انجام می‌دهد، و درست‌تر.
+     *   • خطرناک است — «مرد => مَرد» درست به‌نظر می‌رسد و «پدربزرگم پارسال
+     *     مُرد» را برای همیشه «مَرد» می‌خوانَد. همین‌طور «کرم»، «گل»،
+     *     «ملک»، «شکر». هم‌نگاشت را باید در جمله حل کرد، نه در جدول.
+     *
+     * آنچه اعراب *نمی‌تواند* حل کند، همان چیزی است که این سطرها برایش‌اند:
+     * چسبیدنِ حروف («بایستیم» ← «بِ‌ایستیم»). یعنی جایگزینِ درست همیشه یک
+     * نیم‌فاصله یا فاصلهٔ تازه دارد. اگر ندارد، اینجا جایش نیست.
+     * (سطرِ دستیِ آدم از این سد رد نمی‌شود؛ فقط سطرِ خودکار.) */
+    if (stripTashkil_(a) === stripTashkil_(b)) continue;
+    // و واژهٔ کوتاه، واژهٔ پرکاربرد است: «را»، «گل»، «بد». خطرِ یک سطرِ
+    // جهانی روی آن‌ها بیش از سودش است، و این دسته همیشه فعل است و بلند.
+    if (speakLetters_(a).length < 4) continue;
     if (seen[a]) continue;
     seen[a] = 1;
     out.push([a, b]);
@@ -1482,6 +1539,55 @@ function speakStep_(ep, segs, deadline, persist) {
     try { persist(); } catch (eP2) {}
   }
   return { done: true, did: did, failed: failed };
+}
+
+/**
+ * ══ رانشِ شمارِ تکه‌ها بینِ دو اجرا ══
+ *
+ * `renderAudioStep_` روی مرزِ شش‌دقیقه‌ای از سر گرفته می‌شود و هر بار
+ * `buildChunks_` را از نو می‌سازد — ولی `synthesizeStep_` از `chunkIdx`ی
+ * ادامه می‌دهد که در برابرِ آرایهٔ *قبلی* گرفته شده. اگر آرایه یک تکه کم یا
+ * زیاد شود، هر تکه یک خانه می‌لغزد: تکه‌هایی جا می‌افتند و تکه‌هایی دوباره
+ * خوانده می‌شوند. **هیچ خطایی نمی‌دهد و فقط شنیده می‌شود.**
+ *
+ * این ریپو یک بار این را با `musicWrap_` دیده و با کش‌کردنِ نقشه حلش کرده؛
+ * عصری‌سازی هم از همان روز کش‌شده آمد. ولی هیچ‌وقت *سنجه‌ای* نداشت — و
+ * راه‌های تازه‌ای هست که آرایه را عوض می‌کند: بازگشتِ کد به نسخه‌ای که
+ * بخشِ ۲۹ را ندارد، پر شدنِ بانکِ موسیقی وسطِ قسمت، عوض‌شدنِ یک تنظیم.
+ *
+ * درمان همان کاری است که کد از قبل برای «اجرای کشته‌شده» می‌کند: از صفر
+ * شروع کن. تکه‌های نیمه‌کاره را همان پاک‌سازیِ موجود می‌بَرد، چون شرطش
+ * (`chunkIdx===0 && !files.length`) پس از این بازنشانی برقرار می‌شود.
+ * بهایش چند فراخوانِ گفتارسازیِ دوباره است؛ بهای ندادنش، قسمتی است که
+ * وسطش جمله جا افتاده و کسی هم نمی‌فهمد چرا.
+ */
+function chunkDriftReset_(st, chunks, label) {
+  var was = Number(st.chunkTotal);
+  var now = (chunks || []).length;
+  if (!isFinite(was) || !was || was === now || !(Number(st.chunkIdx) > 0)) {
+    st.chunkTotal = now;
+    return false;
+  }
+  logLine_(label + ': شمارِ تکه‌های صوتی از ' + was + ' به ' + now +
+           ' تغییر کرد وسطِ صداگذاری؛ برای جلوگیری از جابه‌جاییِ تکه‌ها، صدا از نو ساخته می‌شود.');
+  try {
+    logSelfFinding_(getHub_(), {
+      priority: 'جدی', category: 'صداگذاری', key: 'chunk-drift',
+      title: 'شمارِ تکه‌های صوتی وسطِ صداگذاری عوض شد — ' + label,
+      detail: 'پیش از از سرگیری ' + was + ' تکه بود و پس از آن ' + now +
+              '. اگر بی‌اعتنا ادامه می‌داد، هر تکه یک خانه می‌لغزید: جمله‌هایی ' +
+              'جا می‌افتاد و جمله‌هایی دوباره خوانده می‌شد، بی هیچ خطایی.',
+      instruction: 'هر چیزی که در buildChunks_/buildSpecialChunks_ سهم دارد باید ' +
+                   'بینِ دو اجرا ثابت بماند — نقشه‌اش یک بار حساب و در پروندهٔ ' +
+                   'قسمت ذخیره شود، نه اینکه هر بار از نو پرسیده شود.',
+      owner: ROWNER_CODE
+    });
+  } catch (e) {}
+  st.chunkIdx = 0;
+  st.partNo = 1;
+  st.files = [];
+  st.chunkTotal = now;
+  return true;
 }
 
 /** متنِ صوتیِ یک بخش: اعراب‌دارِ وارسی‌شده اگر هست، وگرنه همان متنِ ساده. */
@@ -4194,6 +4300,12 @@ function renderAudioStep_() {
     // اگر «هرچه غیر از deliver» بگذاریم، مرحلهٔ merge دوباره وارد بلوک صدا می‌شود
     // و بی‌پایان خودش را زمان‌بندی می‌کند.
     if (!st.phase || st.phase === 'audio') {
+      // جدول «تلفظ» اعمال می‌شود و هر تکه لحنِ بخشِ خودش را با خود می‌برد.
+      // ساختِ تکه‌ها پیش از پاک‌سازی آمد تا رانشِ شمارِ تکه‌ها — که ممکن است
+      // خودش پاک‌سازی را لازم کند — پیش از آن سنجیده شود.
+      var chunks = buildChunks_(ep, cat, epNum);
+      chunkDriftReset_(st, chunks, 'قسمت ' + epNum);
+
       // شروعِ از صفر با پوشه‌ای که فایل صوتی دارد یعنی اجرای قبلی وسط کار کشته شده
       // و بخش‌هایش بی‌صاحب مانده‌اند؛ پاکشان کن تا نام‌ها تکراری نشوند.
       if (st.chunkIdx === 0 && (!st.files || !st.files.length)) {
@@ -4211,8 +4323,6 @@ function renderAudioStep_() {
         } catch (eClean) {}
       }
 
-      // جدول «تلفظ» اعمال می‌شود و هر تکه لحنِ بخشِ خودش را با خود می‌برد
-      var chunks = buildChunks_(ep, cat, epNum);
       var baseFiles = st.files.slice();
       var saveProgress = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files);

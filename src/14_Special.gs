@@ -2003,6 +2003,11 @@ function renderSpecialAudioStep_() {
     }
 
     if (!st.phase || st.phase === 'audio') {
+      /* ساختِ تکه‌ها پیش از پاک‌سازی — چون رانشِ شمارِ تکه‌ها خودش ممکن است
+         پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
+      var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
+      chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
+
       if (st.chunkIdx === 0 && (!st.files || !st.files.length)) {
         try {
           var stale = folder.getFiles(), removed = 0;
@@ -2017,7 +2022,6 @@ function renderSpecialAudioStep_() {
           if (removed) logLine_('درس‌نامه: ' + removed + ' فایل صوتیِ بی‌صاحب پاک شد.');
         } catch (eC) {}
       }
-      var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
       var baseFiles = st.files.slice();
       var save = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files); st.chunkIdx = nextChunk; st.partNo = nextPart;

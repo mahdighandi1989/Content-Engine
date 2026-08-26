@@ -79,16 +79,31 @@ function recapReopen_(seriesKey) {
   } catch (e) { return false; }
 }
 
-/** چند قسمتِ درس‌نامه از این مجموعه واقعاً تولید شده؟ از تبِ قسمت‌ها. */
-function recapPartsMade_(hub, seriesName) {
+/**
+ * چند قسمتِ درس‌نامه از هر مجموعه تولید شده — **یک خواندن برای همه**.
+ *
+ * ══ چرا نگاشت، نه تابعی که نامِ یک مجموعه را بگیرد ══
+ * نسخهٔ اول `recapPartsMade_(hub, name)` بود و `recapPick_` آن را برای
+ * *هر* ردیفِ رجیستری صدا می‌زد. رجیستری ۲۶۴ ردیف دارد، یعنی ۲۶۴ بار
+ * خواندنِ همان ستون از همان تب — در Node هشت میلی‌ثانیه، در Apps Script
+ * هر کدام یک رفت‌وبرگشت به سرورِ شیت. ده‌ها ثانیه، هر شب، فقط برای
+ * تصمیمی که تقریباً همیشه «کاری نیست» است.
+ * همان درسی که تختهٔ جزوه در ۵٫۸۷ گرفت: یک خواندن برای ۲۶۴ مجموعه، نه
+ * ۲۶۴ رفت‌وبرگشت.
+ */
+function recapPartsMap_(hub) {
+  var map = Object.create(null);
   try {
     var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
-    if (!sh || sh.getLastRow() < 2) return 0;
+    if (!sh || sh.getLastRow() < 2) return map;
     var v = sh.getRange(2, XC.SERIES, sh.getLastRow() - 1, 1).getValues();
-    var n = 0, want = String(seriesName || '').trim();
-    for (var i = 0; i < v.length; i++) if (String(v[i][0] || '').trim() === want) n++;
-    return n;
-  } catch (e) { return 0; }
+    for (var i = 0; i < v.length; i++) {
+      var nm = String(v[i][0] || '').trim();
+      if (!nm) continue;
+      map[nm] = (map[nm] || 0) + 1;
+    }
+  } catch (e) {}
+  return map;
 }
 
 /**
@@ -99,13 +114,14 @@ function recapPick_(hub, reg, forceKey) {
   var done = recapDone_();
   var min = Number(CFG.RECAP_MIN_PARTS) || 8;
   var best = null;
+  var made0 = recapPartsMap_(hub);          // ← یک خواندن، پیش از حلقه
   for (var i = 0; i < (reg.rows || []).length; i++) {
     var rec = reg.rows[i];
     var key = String(rec.key || '');
     var name = String(rec.vals[SC.NAME - 1] || key);
     if (forceKey) { if (key !== String(forceKey)) continue; }
     else if (done[key]) continue;
-    var made = recapPartsMade_(hub, name);
+    var made = made0[name] || 0;
     if (!forceKey && made < min) continue;
     if (!made) continue;                       // مروری که چیزی برای مرور ندارد
     if (!best || made > best.made) best = { rec: rec, name: name, made: made };
