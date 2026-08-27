@@ -108,6 +108,35 @@ function ensureAllTabs_(ss) {
 function ensurePronTab_(ss) {
   var existed = !!ss.getSheetByName(CFG.TAB_PRON);
   var sh = ensureTab_(ss, CFG.TAB_PRON, PRON_HEADERS);
+  /* ══ سطرهای پایه به تبِ *موجود* هم می‌رسند (۶٫۲۶) ══
+   * تا اینجا PRON_SEED فقط هنگام **ساختِ** تب نوشته می‌شد. یعنی هر واژه‌ای
+   * که بعداً به فهرستِ پایه اضافه شود، به کسی که تبش را از قبل دارد هرگز
+   * نمی‌رسد — و آن دقیقاً همان کسی است که موتور برایش کار می‌کند.
+   * همان درسِ ۵٫۹۵: تمیزکردنِ ورودی، آنچه از قبل نوشته شده را درست نمی‌کند.
+   * فقط افزودن، و هرگز بازنویسیِ سطرِ آدمی. */
+  if (existed) {
+    try {
+      var have = Object.create(null), last = sh.getLastRow();
+      if (last > 1) {
+        var cur = sh.getRange(2, 1, last - 1, 1).getValues();
+        for (var c = 0; c < cur.length; c++) {
+          var k = String(cur[c][0] || '').replace(/[\u064B-\u065F\u0670\u200C]/g, '').trim();
+          if (k) have[k] = 1;
+        }
+      }
+      var add = [];
+      for (var q = 0; q < PRON_SEED.length; q++) {
+        var w = String(PRON_SEED[q][0] || '').trim();
+        if (!w || w.charAt(0) === '—') continue;
+        if (have[w.replace(/[\u064B-\u065F\u0670\u200C]/g, '')]) continue;
+        add.push([PRON_SEED[q][0], PRON_SEED[q][1], PRON_SEED[q][2]]);
+      }
+      if (add.length) {
+        sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+        logLine_('تبِ تلفظ: ' + add.length + ' واژهٔ پایهٔ تازه افزوده شد.');
+      }
+    } catch (eSeed) { /* نبودِ این مهاجرت نباید همگام‌سازی را بشکند */ }
+  }
   if (!existed) {
     sh.getRange(2, 1, PRON_SEED.length, 3).setValues(PRON_SEED);
     sh.getRange(PRON_SEED.length + 3, 1).setValue(
