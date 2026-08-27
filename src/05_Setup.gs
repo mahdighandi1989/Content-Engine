@@ -470,6 +470,14 @@ function runScanSeries() {
   var L = ['مجموعه‌های شناسایی‌شده: ' + reg.rows.length];
   if (r && r.added !== undefined) L.push('تازه در این اسکن: ' + r.added +
                                          ' · بازگشایی: ' + (r.reopened || 0));
+  /* اصلاح‌ها را همین‌جا می‌گوییم، چون همین دکمه است که آدم پس از یک تغییرِ
+     شیت می‌زند و می‌خواهد بداند چه چیزی سرِ جایش رفت. */
+  if (r && (r.seqFixed || r.moved || r.nameFixed)) {
+    L.push('اصلاح شد: ' + (r.seqFixed || 0) + ' شمارهٔ قسمت · ' +
+           (r.nameFixed || 0) + ' نام · ' + (r.moved || 0) + ' قسمت به مجموعهٔ دیگر رفت');
+  } else if (r && r.added !== undefined) {
+    L.push('اصلاحی لازم نشد — ترتیب و نامِ همهٔ قسمت‌ها همان بود که باید.');
+  }
   if (r && r.error) L.push('خطا: ' + r.error);
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {

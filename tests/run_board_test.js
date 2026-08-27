@@ -839,4 +839,59 @@ console.log('\n=== اصلاحِ بعدیِ شمارهٔ قسمت ===');
   ok('و نامِ قسمت را', /SP\.NAME/.test(cond));
 }
 
+/* ══ و تکلیفِ مجموعه‌هایی که همین حالا در شیت هستند (۶٫۳۴) ══
+   پرسشِ صاحبِ برنامه: «تکلیفِ مجموعه‌های فعلی چی می‌شه؟ اینها رو الان درست
+   تشخیص می‌ده؟» — اصلاح‌های ۶٫۳۴ در مسیرِ *اسکن*اند، و اسکن هر بار همه‌چیز
+   را از نو از شیتِ منبع می‌سازد. پس ردیفی که کدِ قدیمی خراب نوشته، با اسکنِ
+   بعدی خودش ترمیم می‌شود — این سنجه همان را ثابت می‌کند، روی دادهٔ *نوشته‌شده*
+   نه دادهٔ تازه. */
+console.log('\n=== ترمیمِ دادهٔ قدیمی با یک اسکنِ دوباره ===');
+{
+  let un = quiet(); scanSeries(true); un();
+  const p0 = readSeriesParts_(hub);
+  // یک قسمتِ واقعیِ همین فیکسچر را برمی‌داریم و مثلِ کدِ قدیمی خرابش می‌کنیم
+  const victim = p0.rows.find(r => Number(r.vals[SP.SEQ - 1]) > 0 &&
+                                   String(r.vals[SP.NAME - 1] || '').length > 3);
+  ok('برای این سنجه، یک قسمتِ سالم در دست است', !!victim,
+     victim && (victim.vals[SP.KEY - 1] + ' / seq=' + victim.vals[SP.SEQ - 1]));
+  const goodKey = String(victim.vals[SP.KEY - 1]);
+  const goodSeq = Number(victim.vals[SP.SEQ - 1]);
+  const goodName = String(victim.vals[SP.NAME - 1]);
+  const doneTo = victim.vals[SP.DONE_TO - 1];
+
+  const w = victim.vals.slice();
+  w[SP.SEQ - 1] = 0;                       // شمارهٔ گم‌شده (کدِ قدیمی)
+  w[SP.NAME - 1] = 'بی‌نام ' + victim.fileId;
+  w[SP.KEY - 1] = 'بی نام ' + victim.fileId;   // مجموعهٔ تک‌قسمتیِ جعلی
+  p0.sheet.getRange(victim.row, 1, 1, SPART_HEADERS.length).setValues([w]);
+
+  const mid = readSeriesParts_(hub);
+  ok('دادهٔ خراب واقعاً نشسته', Number(mid.byFile[victim.fileId].vals[SP.SEQ - 1]) === 0 &&
+     String(mid.byFile[victim.fileId].vals[SP.KEY - 1]).indexOf('بی نام') === 0);
+
+  un = quiet(); const rFix = scanSeries(true); un();
+  const fx = readSeriesParts_(hub).byFile[victim.fileId];
+  /* و اصلاحِ بی‌صدا اصلاح نیست: اسکن باید بگوید چه چیزی را سرِ جایش برد،
+     وگرنه قسمتی که فکر می‌کردی ساخته شده، بی‌خبر جای دیگری می‌رود. */
+  ok('اسکن گزارش می‌دهد چه چیزی را اصلاح کرد',
+     rFix && rFix.seqFixed >= 1 && rFix.moved >= 1,
+     'seqFixed=' + (rFix && rFix.seqFixed) + ' moved=' + (rFix && rFix.moved) +
+     ' nameFixed=' + (rFix && rFix.nameFixed));
+  ok('و نمونه‌اش را برای پیگیری نگه می‌دارد',
+     !!global.__PROPS[PK.SERIES_FIX] &&
+     JSON.parse(global.__PROPS[PK.SERIES_FIX]).movedEx.length >= 1,
+     String(global.__PROPS[PK.SERIES_FIX] || '').slice(0, 130));
+  ok('اسکنِ دوباره شمارهٔ قسمت را برمی‌گرداند',
+     Number(fx.vals[SP.SEQ - 1]) === goodSeq, fx.vals[SP.SEQ - 1] + ' (باید ' + goodSeq + ')');
+  ok('و نامِ اصلی را', String(fx.vals[SP.NAME - 1]) === goodName, String(fx.vals[SP.NAME - 1]));
+  ok('و قسمت را به مجموعهٔ خودش برمی‌گرداند',
+     String(fx.vals[SP.KEY - 1]) === goodKey, fx.vals[SP.KEY - 1]);
+  /* و مهم‌تر از همه: مکان‌نمای «تا کجا خوانده شده» روی ردیفِ همان فایل است،
+     پس با جابه‌جاییِ کلید هم گم نمی‌شود. اگر گم می‌شد، ترمیم خودش یک درس را
+     دوباره تولید می‌کرد. */
+  ok('و پیشرفتِ تولید (تا کجا خوانده شده) گم نمی‌شود',
+     String(fx.vals[SP.DONE_TO - 1]) === String(doneTo),
+     'قبل=' + doneTo + ' بعد=' + fx.vals[SP.DONE_TO - 1]);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');

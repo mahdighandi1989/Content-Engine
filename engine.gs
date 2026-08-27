@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.34
+ *  موتور محتوا و پادکست — نسخهٔ 6.35
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -974,7 +974,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.34',
+  CODE_VERSION: '6.35',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1233,6 +1233,7 @@ var PK = {
   SP_PENDING: 'SPECIAL_PENDING',    // صداگذاریِ نیمه‌تمامِ قسمت تخصصی
   SP_SERIES: 'SPECIAL_CURRENT_SERIES', // مجموعه‌ای که الان رویش کار می‌شود
   SERIES_SCAN_AT: 'SERIES_SCANNED_AT', // آخرین اسکنِ رجیستری مجموعه‌ها
+  SERIES_FIX: 'SERIES_LAST_FIX',       // آخرین اصلاحِ ترتیب/نام/جابه‌جایی در اسکن
   SERIES_FAIL_AT: 'SERIES_SCAN_FAIL_AT', // آخرین اسکنی که هیچ منبعی باز نشد
   JUDGE_AT: 'SERIES_JUDGED_AT',        // آخرین دورِ داوریِ محتوایی
   JUDGE_NOAI: 'JUDGE_NO_MODEL_UNTIL',  // تا این لحظه سراغِ مدلِ داوری نمی‌رویم
@@ -8091,6 +8092,14 @@ function runScanSeries() {
   var L = ['مجموعه‌های شناسایی‌شده: ' + reg.rows.length];
   if (r && r.added !== undefined) L.push('تازه در این اسکن: ' + r.added +
                                          ' · بازگشایی: ' + (r.reopened || 0));
+  /* اصلاح‌ها را همین‌جا می‌گوییم، چون همین دکمه است که آدم پس از یک تغییرِ
+     شیت می‌زند و می‌خواهد بداند چه چیزی سرِ جایش رفت. */
+  if (r && (r.seqFixed || r.moved || r.nameFixed)) {
+    L.push('اصلاح شد: ' + (r.seqFixed || 0) + ' شمارهٔ قسمت · ' +
+           (r.nameFixed || 0) + ' نام · ' + (r.moved || 0) + ' قسمت به مجموعهٔ دیگر رفت');
+  } else if (r && r.added !== undefined) {
+    L.push('اصلاحی لازم نشد — ترتیب و نامِ همهٔ قسمت‌ها همان بود که باید.');
+  }
   if (r && r.error) L.push('خطا: ' + r.error);
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {
@@ -13741,7 +13750,10 @@ function scanSeries(force) {
   // بودجه می‌خواهد و در تولید انجام می‌شود؛ ولی مرتب‌سازیِ درونِ دسته ارزان است.
   if (res.added || res.reopened) { try { rankWithinCategories_(hub, readSeriesReg_(hub)); } catch (eRk) {} }
   logLine_('مجموعه‌های آموزشی: ' + tabsRead + ' تب خوانده شد، ' + scanned + ' فایلِ آموزشی، ' +
-           res.series + ' مجموعه (' + res.added + ' تازه، ' + res.reopened + ' بازگشایی).');
+           res.series + ' مجموعه (' + res.added + ' تازه، ' + res.reopened + ' بازگشایی' +
+           ((res.seqFixed || res.moved)
+              ? '، ' + (res.seqFixed || 0) + ' شمارهٔ اصلاح‌شده، ' +
+                (res.moved || 0) + ' قسمتِ جابه‌جا' : '') + ').');
   return res;
 }
 
@@ -13749,6 +13761,7 @@ function scanSeries(force) {
 function writeSeriesRegistry_(hub, reg, parts, found) {
   var now = nowStr_();
   var addedSeries = [], addedParts = [], reopened = 0, nSeries = 0;
+  var seqFixed = 0, nameFixed = 0, moved = 0, seqEx = [], movedEx = [];
   var rejected = [], retired = 0;
 
   for (var key in found) {
@@ -13846,6 +13859,27 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
                       (Number(w[SP.SEQ - 1]) || 0) !== (Number(f.seq) || 0) ||
                       String(w[SP.NAME - 1] || '') !== String(f.name || '');
         if (changed) {
+          /* ══ اصلاحِ بی‌صدا، اصلاح نیست (۶٫۳۴) ══
+           * وقتی یک قسمت شماره‌اش عوض می‌شود یا از مجموعه‌ای به مجموعهٔ دیگر
+           * می‌رود، ترتیبِ تولید عوض شده — و صاحبِ برنامه باید بداند، چون
+           * ممکن است قسمتی که فکر می‌کرد ساخته شده، حالا جای دیگری باشد.
+           * اسکن تا اینجا فقط «چند تازه، چند بازگشایی» می‌گفت. */
+          var oldKey = String(w[SP.KEY - 1] || '');
+          if (oldKey && oldKey !== key) {
+            moved++;
+            if (movedEx.length < 4) {
+              movedEx.push(String(w[SP.NAME - 1] || f.fileId) + ': «' + oldKey +
+                           '» ← «' + key + '»');
+            }
+          }
+          if ((Number(w[SP.SEQ - 1]) || 0) !== (Number(f.seq) || 0)) {
+            seqFixed++;
+            if (seqEx.length < 4) {
+              seqEx.push(String(f.name || f.fileId) + ': ' +
+                         (Number(w[SP.SEQ - 1]) || 0) + ' ← ' + (Number(f.seq) || 0));
+            }
+          }
+          if (String(w[SP.NAME - 1] || '') !== String(f.name || '')) nameFixed++;
           w[SP.KEY - 1] = key;
           w[SP.NAME - 1] = f.name; w[SP.SEQ - 1] = f.seq; w[SP.TAB - 1] = f.tab;
           w[SP.SRC - 1] = f.srcTitle;
@@ -13939,8 +13973,23 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
              (retired ? ' و ' + retired + ' ردیفِ قدیمی از فهرست بیرون رفت' : '') +
              (rejected.length ? ' — نمونه: ' + rejected.slice(0, 4).join(' ، ') : '') + '.');
   }
+  /* اصلاح‌ها هم در سیاهه می‌آیند، نه فقط در شمارنده: «کدام قسمت از کجا به
+     کجا رفت» تنها چیزی است که بعداً می‌شود دنبالش را گرفت. */
+  if (seqFixed || moved || nameFixed) {
+    logLine_('مجموعه‌ها — اصلاحِ ترتیب: ' + seqFixed + ' شمارهٔ قسمت، ' +
+             nameFixed + ' نام، ' + moved + ' جابه‌جاییِ مجموعه' +
+             (seqEx.length ? ' · شماره: ' + seqEx.join(' ، ') : '') +
+             (movedEx.length ? ' · جابه‌جا: ' + movedEx.join(' ، ') : '') + '.');
+    try {
+      props_().setProperty(PK.SERIES_FIX, JSON.stringify({
+        at: nowStr_(), seq: seqFixed, name: nameFixed, moved: moved,
+        seqEx: seqEx, movedEx: movedEx
+      }));
+    } catch (eFx) {}
+  }
   return { series: nSeries, added: addedSeries.length, addedParts: addedParts.length,
-           reopened: reopened, rejected: rejected.length, retired: retired };
+           reopened: reopened, rejected: rejected.length, retired: retired,
+           seqFixed: seqFixed, nameFixed: nameFixed, moved: moved };
 }
 
 function appendBlock_(sh, rows, width) {

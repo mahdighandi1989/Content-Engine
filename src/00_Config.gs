@@ -890,7 +890,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.34',
+  CODE_VERSION: '6.35',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1149,6 +1149,7 @@ var PK = {
   SP_PENDING: 'SPECIAL_PENDING',    // صداگذاریِ نیمه‌تمامِ قسمت تخصصی
   SP_SERIES: 'SPECIAL_CURRENT_SERIES', // مجموعه‌ای که الان رویش کار می‌شود
   SERIES_SCAN_AT: 'SERIES_SCANNED_AT', // آخرین اسکنِ رجیستری مجموعه‌ها
+  SERIES_FIX: 'SERIES_LAST_FIX',       // آخرین اصلاحِ ترتیب/نام/جابه‌جایی در اسکن
   SERIES_FAIL_AT: 'SERIES_SCAN_FAIL_AT', // آخرین اسکنی که هیچ منبعی باز نشد
   JUDGE_AT: 'SERIES_JUDGED_AT',        // آخرین دورِ داوریِ محتوایی
   JUDGE_NOAI: 'JUDGE_NO_MODEL_UNTIL',  // تا این لحظه سراغِ مدلِ داوری نمی‌رویم
