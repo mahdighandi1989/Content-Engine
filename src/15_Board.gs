@@ -961,10 +961,18 @@ function recapCell_(x) {
            (r.ripe ? '' : '<br>زیرِ کفِ ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
                           ' درس؛ از پیش تیک نخورده، ولی می‌توانید بزنید') + '</div>';
   } else {
+    /* «چند فصل گفته شد از چند» — نه «چند فصل در دست بود». تا ۶٫۳۲ اینجا
+       عددِ کلِ فصل‌های جزوه می‌نشست و ادعای پوششِ کامل می‌کرد؛ ناظر متنِ
+       قسمت ۱۹ را خواند و دید سه فصل هیچ ردی در آن ندارند. */
     body = '<div><span class="bdg b-done">قسمت ' + faNum_(Number(r.done.ep) || 0) + '</span></div>' +
            '<div class="sub">تا درسِ ' + faNum_(r.covered) +
-           (r.done.ch ? ' · ' + faNum_(Number(r.done.ch)) + ' فصل' : '') +
+           (r.chAll ? ' · ' + faNum_(r.chOk) + ' فصل از ' + faNum_(r.chAll) : '') +
            (r.done.at ? '<br>' + bEsc_(String(r.done.at)) : '') + '</div>' +
+           (r.chGap ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.chGap) +
+                      ' فصل ردی در متنِ مرور ندارد' +
+                      ((r.done.miss || []).length ? '<br>' +
+                        bEsc_((r.done.miss || []).slice(0, 2).join('، ')) : '') +
+                      '</div>' : '') +
            (r.behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.behind) +
                        ' درسِ تازه پس از آن</div>' : '');
   }

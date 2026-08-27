@@ -871,6 +871,8 @@ var CFG = {
   AUDIT_ENABLED: true,
   AUDIT_FOLDER: 'بایگانی — سنجهٔ محتوا',
   AUDIT_MAX_PER_RUN: 3,             // سقفِ قسمت در هر دور (مهلتِ شش‌دقیقه‌ای)
+  // صفی که این‌قدر روز کوتاه‌تر نشود، یعنی داوری اصلاً نوبت نمی‌گیرد.
+  AUDIT_STUCK_DAYS: 2,
   AUDIT_BODY_MAX: 1200,             // سقفِ نویسهٔ هر متنِ خام در عکس
   AUDIT_NARR_MAX: 4000,             // سقفِ نویسهٔ روایتِ هر بخش در عکس
   AUDIT_KEEP_DAYS: 45,
@@ -888,7 +890,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.32',
+  CODE_VERSION: '6.33',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1210,6 +1212,7 @@ var PK = {
   AUDIT_DONE: 'AUDIT_DONE_IDS',
   AUDIT_LAST: 'AUDIT_LAST_RESULT',  // خلاصهٔ آخرین داوری، برای _STATUS.json
   AUDIT_BAD: 'AUDIT_BAD_NIGHTS',    // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  AUDIT_QSEEN: 'AUDIT_QUEUE_SEEN',  // بلندترین صفِ داوری و از کِی
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',

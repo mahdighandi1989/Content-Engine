@@ -1174,6 +1174,15 @@ function produceSpecialEpisode(opt) {
     // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
     // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
     try {
+      /* ══ مرورِ بزرگ داوریِ اِسناد نمی‌شود (۶٫۳۳) ══
+       * مرور از قطعه‌های خام نوشته نمی‌شود؛ ورودی‌اش جزوهٔ مجموعه است. پس
+       * `chunkNos` و `enrichIds`ش خالی‌اند — و این تصمیم است، نه نقص.
+       * داوری‌اش یعنی اِسنادِ صفر درصد، و شمارندهٔ `audit-attrib-low` که
+       * *با درس‌های عادی مشترک است* یک قدم بالا می‌رود. تا ۶٫۳۰ مرور کمیاب
+       * بود و این کمتر دیده می‌شد؛ از ۶٫۳۰ صفِ مرور می‌تواند چند شبِ پیاپی
+       * مرور بسازد و آن‌وقت یافتهٔ «جدی»ِ دروغی ساخته می‌شود که نگارش را
+       * متهم می‌کند و دستوری می‌دهد که ربطی به مشکل ندارد.
+       * همان مرزی که جزوه دارد (`handoutSeriesEpisodes_`)، اینجا هم. */
       /* ══ اِسناد را باید *ترجمه* کرد، نه فرض (باگِ ۲۵ اوت) ══
        * `auditSnap_` اِسنادِ هر بخش را از `sourceIds` می‌خواند — قراردادی که
        * «از همه جا از همه رنگ» رعایتش می‌کند. درس‌نامه اصلاً `sourceIds`
@@ -1208,13 +1217,18 @@ function produceSpecialEpisode(opt) {
         snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
                         sourceIds: sids });
       }
-      auditSnap_(ENRICH_SHOW_SPECIAL,
-                 { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
-                   title: ep.title, category: seriesName,
-                   targetMin: specialTargetMin_() },
-                 { hook: ep.hook, outro: ep.outro, connection: ep.recap,
-                   sections: snapSecs },
-                 fakeItems, fid);
+      if (meta && meta.recap) {
+        logLine_('مرورِ بزرگ داوریِ اِسناد نمی‌شود — ورودی‌اش جزوهٔ مجموعه است، ' +
+                 'نه قطعهٔ خام.');
+      } else {
+        auditSnap_(ENRICH_SHOW_SPECIAL,
+                   { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
+                     title: ep.title, category: seriesName,
+                     targetMin: specialTargetMin_() },
+                   { hook: ep.hook, outro: ep.outro, connection: ep.recap,
+                     sections: snapSecs },
+                   fakeItems, fid);
+      }
     } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
 
     // ── وارسیِ افشای مکمل ──

@@ -521,4 +521,100 @@ console.log('\n=== ۱۶) صف در سطرِ روزانه دیده می‌شود 
   delete global.__PROPS[PK.RECAP_Q];
 }
 
+console.log('\n=== ۱۷) پوشش اندازه‌گیری می‌شود، ادعا نمی‌شود ===');
+{
+  /* ══ گزارشِ ناظر، ۲۷ اوت ══
+   * «۱۱ بخشِ مرور روی ۱۲ فصل می‌نشیند و دقیقاً همان دو فصلی که ساعاتی پیش
+   * از مرور به جزوه اضافه شده بودند در آن نیامده‌اند. با این‌همه، فیلدِ
+   * ثبت‌شده می‌گوید هر ۱۵ فصل پوشش دارد.»
+   * درست بود: `nCh` شمارِ فصل‌های *در دست* بود، نه فصل‌های *گفته‌شده*. */
+  const bk = { chapters: [
+    { id: 'c1', title: 'تعریفِ معرفت', sections: [{ id: 's1', title: 'باور صادق' }] },
+    { id: 'c2', title: 'علمِ حضوری و حصولی', sections: [{ id: 's2', title: 'تمایز' }] },
+    { id: 'c3', title: 'پلورالیسمِ دینی', sections: [{ id: 's3', title: 'تعددِ قرائت‌ها' }] }
+  ] };
+  const epFull = { hook: 'ببین، معرفت یعنی باور صادق.', outro: 'تمام.', sections: [
+    { heading: 'یک', narration: 'دربارهٔ تعریفِ معرفت حرف زدیم و باور صادق را دیدیم.' },
+    { heading: 'دو', narration: 'حالا علمِ حضوری در برابرِ حصولی، با مثالِ درد.' },
+    { heading: 'سه', narration: 'و پلورالیسمِ دینی و تعددِ قرائت‌ها.' }] };
+  let c = recapCoverage_(epFull, bk);
+  ok('۱۷.۱ متنی که هر سه فصل را می‌گوید، ۳ از ۳', c.n === 3 && c.total === 3 && !c.missed.length,
+     JSON.stringify(c));
+
+  /* و همان متن، بی دو بخشِ آخر — دقیقاً شکلِ قسمت ۱۹. */
+  const epGap = { hook: epFull.hook, outro: 'تمام.', sections: epFull.sections.slice(0, 2) };
+  c = recapCoverage_(epGap, bk);
+  ok('۱۷.۲ فصلی که هیچ ردی ندارد، پوشش‌داده شمرده نمی‌شود',
+     c.n === 2 && c.total === 3 && c.missed.length === 1, JSON.stringify(c));
+  ok('۱۷.۳ و اسمش گفته می‌شود، نه فقط شمارش',
+     c.missed[0].indexOf('پلورالیسم') !== -1, c.missed[0]);
+
+  /* ══ و عمداً محافظه‌کار ══
+     فصلی که فقط *یکی* از واژه‌های شاخصش آمده، «آمده» شمرده می‌شود. هشداری
+     که برای فصلِ بازگوشدهٔ به‌زبانِ‌دیگر بلند شود، همان هشداری است که
+     خوانده نمی‌شود. */
+  const epThin = { hook: '', outro: '', sections: [
+    { heading: '', narration: 'یک جمله دربارهٔ قرائت‌ها.' }] };
+  c = recapCoverage_(epThin, { chapters: [bk.chapters[2]] });
+  ok('۱۷.۴ یک واژهٔ شاخص هم کافی است (سنجه محافظه‌کار است)',
+     c.n === 1 && !c.missed.length, JSON.stringify(c));
+
+  /* فصلِ بی‌عنوان قابلِ داوری نیست — «نمی‌دانم» را «نشده» گزارش نمی‌کنیم. */
+  c = recapCoverage_({ sections: [] }, { chapters: [{ title: '', sections: [] }] });
+  ok('۱۷.۵ فصلِ بی‌واژهٔ شاخص، «نیامده» اعلام نمی‌شود', c.n === 1 && !c.missed.length);
+  ok('۱۷.۶ جزوهٔ خالی هم خطا نمی‌دهد', recapCoverage_({}, {}).total === 0);
+  ok('۱۷.۷ و اعراب مانعِ تطبیق نیست',
+     recapCoverage_({ sections: [{ narration: 'پُلورالیسمِ دینی' }] },
+                    { chapters: [bk.chapters[2]] }).n === 1);
+
+  /* سیاههٔ فصل‌ها واقعاً به پرامپت می‌رود — «همه» یک صفت است، سیاهه یک سنجه. */
+  const pr = recapPrompt_(bk, 'م', 5000);
+  ok('۱۷.۸ عنوانِ هر سه فصل در پرامپت هست',
+     bk.chapters.every(x => pr.indexOf(x.title) !== -1));
+}
+
+console.log('\n=== ۱۸) عددِ ثبت‌شده و ستونِ تخته هم همان اندازه‌گیری است ===');
+{
+  delete global.__PROPS[PK.RECAP_DONE];
+  recapMarkDone_('kEp', 21, 18, 12, 15, ['پلورالیسمِ دینی', 'تعددِ قرائت‌ها']);
+  const d = recapDone_()['kEp'];
+  ok('۱۸.۱ هر دو عدد ثبت می‌شوند', d.ch === 12 && d.chAll === 15, JSON.stringify(d));
+  const reg = readSeriesReg_(hub);
+  const m = recapBoardMap_(hub, reg)['kEp'];
+  ok('۱۸.۲ نقشهٔ تخته فاصله را می‌شناسد', m.chOk === 12 && m.chAll === 15 && m.chGap === 3);
+  const cell = recapCell_({ key: 'kEp', recap: m });
+  ok('۱۸.۳ خانه «۱۲ فصل از ۱۵» می‌گوید، نه «۱۵ فصل»',
+     cell.indexOf('فصل از') !== -1 && cell.indexOf('ردی در متنِ مرور ندارد') !== -1,
+     cell.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 120));
+  ok('۱۸.۴ و نامِ فصلِ نیامده را هم می‌آورد', cell.indexOf('پلورالیسم') !== -1);
+  /* و همان در ایمیل و تلگرام. */
+  const meta = { recap: true, recapChapters: 12, recapChaptersAll: 15, recapParts: 18 };
+  ok('۱۸.۵ جدولِ پوشش هم ادعای کامل نمی‌کند',
+     coverRangeText_(meta, meta).indexOf('12 فصل از 15') !== -1 &&
+     coverRangeText_(meta, meta).indexOf('نیامده') !== -1, coverRangeText_(meta, meta));
+  /* پروندهٔ قدیمی که chAll ندارد، نباید «۳ فصل نیامده» بسازد. */
+  delete global.__PROPS[PK.RECAP_DONE];
+  recapMarkDone_('kEp', 21, 18, 15);
+  const m2 = recapBoardMap_(hub, reg)['kEp'];
+  ok('۱۸.۶ پروندهٔ پیش از ۶٫۳۳ فاصلهٔ ساختگی نمی‌سازد', m2.chGap === 0 && m2.chAll === 15);
+  delete global.__PROPS[PK.RECAP_DONE];
+}
+
+console.log('\n=== ۱۹) مرور داوریِ اِسناد نمی‌شود ===');
+{
+  /* ══ خطری که ۶٫۳۰ خودش ساخت ══
+   * مرور از قطعهٔ خام نوشته نمی‌شود، پس `chunkNos`ش خالی است و اِسنادش صفر
+   * درصد. شمارندهٔ `audit-attrib-low` **با درس‌های عادی مشترک است**؛ تا
+   * وقتی مرور کمیاب بود این کمتر دیده می‌شد، ولی از ۶٫۳۰ صف می‌تواند چند
+   * شبِ پیاپی مرور بسازد — و آن‌وقت یافتهٔ «جدی»ِ دروغی ساخته می‌شود که
+   * نگارش را متهم می‌کند. «هشداری که دو موضوع در یک شمارنده شریک باشند،
+   * هشدارِ هیچ‌کدام نیست» — همان جمله در CLAUDE.md. */
+  const src = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const i = src.indexOf('auditSnap_(ENRICH_SHOW_SPECIAL');
+  ok('۱۹.۱ فراخوانِ عکسِ محتوا پشتِ شرطِ «مرور نیست» است',
+     i > 0 && src.lastIndexOf('meta && meta.recap', i) > src.lastIndexOf('var snapSecs', i));
+  ok('۱۹.۲ و علتش در سیاهه نوشته می‌شود، نه در سکوت',
+     src.indexOf('مرورِ بزرگ داوریِ اِسناد نمی‌شود') !== -1);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

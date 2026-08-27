@@ -62,11 +62,13 @@ function recapDone_() {
  * «ساخته/نساخته» بگوید — و مجموعه‌ای که بعد از مرورش ده درسِ دیگر گرفته،
  * از مجموعه‌ای که همین دیروز مرور شده جدا نمی‌شد.
  */
-function recapMarkDone_(seriesKey, epNum, parts, chapters) {
+function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed) {
   try {
     var o = recapDone_();
     o[String(seriesKey)] = { at: nowStr_(), ep: Number(epNum) || 0,
-                             parts: Number(parts) || 0, ch: Number(chapters) || 0 };
+                             parts: Number(parts) || 0, ch: Number(chapters) || 0,
+                             chAll: Number(chaptersAll) || Number(chapters) || 0,
+                             miss: (missed || []).slice(0, 4) };
     props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
   } catch (e) {}
 }
@@ -213,6 +215,20 @@ function recapBookText_(book, cap) {
   return L.join('\n');
 }
 
+/** سیاههٔ عنوانِ فصل‌ها برای پرامپت — «همه» یک صفت است، سیاهه یک سنجه. */
+function recapChecklist_(book) {
+  var chs = (book && book.chapters) || [];
+  if (!chs.length) return '';
+  var L = ['۶) **این فهرست را تیک بزن.** هر عنوانِ زیر باید دستِ‌کم یک بار',
+           '   به‌روشنی در متن گفته شود — با همان واژه‌ها، تا شنونده بداند',
+           '   دربارهٔ کدام درس حرف می‌زنی. اگر فصلی کوچک است، یک جمله بس است؛',
+           '   ولی هیچ‌کدام نباید غایب باشد:'];
+  for (var i = 0; i < chs.length; i++) {
+    L.push('   ' + (i + 1) + '. ' + String((chs[i] && chs[i].title) || ''));
+  }
+  return L.join('\n');
+}
+
 function recapPrompt_(book, seriesName, capChars) {
   var L = [
     'کارِ تو: نوشتنِ یک قسمتِ «مرورِ بزرگ» برای یک پادکستِ آموزشی.',
@@ -248,6 +264,13 @@ function recapPrompt_(book, seriesName, capChars) {
     '',
     '۵) در hook بگو این قسمت چیست («یه مرورِ بزرگ از همهٔ چیزهایی که تا حالا',
     '   گفتیم، این‌بار خیلی ساده») و در outro جمع‌بندی کن.',
+    '',
+    /* ══ سیاههٔ فصل‌ها، در انتها و صریح (۶٫۳۳) ══
+       بندِ ۱ از اول می‌گفت «همهٔ مفاهیمِ مهم را پوشش بده» — و مدل در قسمت ۱۹
+       سه فصل را نگفت، از جمله هر دو فصلی که تازه اضافه شده بودند. «همه» یک
+       صفت است؛ سیاههٔ نام‌دار یک سنجه. و چون کد پس از نوشتن همین سیاهه را
+       مکانیکی می‌سنجد، این دیگر خواهشِ بی‌پیگیری نیست. */
+    recapChecklist_(book),
     '',
     'مرزها:',
     '- **از محتوای درس عدول نکن.** حکمی که در جزوه نیست نده، مفهومی که درس',
@@ -292,6 +315,91 @@ function recapWrite_(book, seriesName) {
                        chunkNos: [], enrichIds: [] });
   }
   return ep.sections.length ? ep : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * پوششِ واقعی — نه پوششِ ادعایی (۶٫۳۳)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ══ گزارشِ ناظر، ۲۷ اوت ══
+ * «متنِ کاملِ مرور را خواندم و با فهرستِ ۱۵ فصلِ جزوه سنجیدم: ۱۱ بخشِ مرور
+ * روی ۱۲ فصل می‌نشیند و دقیقاً همان دو فصلی که ساعاتی پیش از مرور به جزوه
+ * اضافه شده بودند در آن نیامده‌اند. با این‌همه، فیلدِ ثبت‌شده می‌گوید هر ۱۵
+ * فصل پوشش دارد.»
+ *
+ * درست بود. `recapMarkDone_` و متای قسمت هر دو `book.chapters.length` را
+ * ثبت می‌کردند — یعنی **چند فصل در دست بود**، نه **چند فصل گفته شد**. و
+ * ۶٫۳۰ همان عدد را به ستونِ تخته هم برد، پس ادعای اشتباه یک نمایشگرِ تازه
+ * هم گرفت.
+ *
+ * ── چرا ردیابیِ واژه‌ای، و نه پرسیدن از مدل ──
+ * مدلی که خودش نوشته و خودش بگوید «همه را پوشش دادم»، جوابِ خودش را تأیید
+ * می‌کند — همان شکلی که سه نسخه پیاپی باگِ نشانهٔ گفتار را «رفع‌شده» اعلام
+ * کرد. پس سنجه مکانیکی است و **عمداً محافظه‌کار**: فصلی «نیامده» شمرده
+ * می‌شود فقط وقتی *هیچ‌کدام* از واژه‌های شاخصش هیچ‌جای متنِ مرور نباشد.
+ * یعنی این عدد کفِ پوشش است، نه اندازهٔ دقیقش — و هشداری که فقط با شهادتِ
+ * قاطع بلند شود، هشداری است که خوانده می‌شود.
+ */
+function recapTerms_(ch) {
+  var out = [], seen = Object.create(null);
+  var stop = { 'است': 1, 'های': 1, 'برای': 1, 'یعنی': 1, 'چیست': 1, 'چگونه': 1,
+               'کدام': 1, 'همان': 1, 'اینکه': 1, 'درباره': 1, 'دربارهٔ': 1 };
+  var push = function (t) {
+    var raw = String(t || '');
+    try { raw = txNorm(stripTashkil_(raw)); } catch (e) { raw = raw.toLowerCase(); }
+    var parts = raw.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ').split(/\s+/);
+    for (var i = 0; i < parts.length; i++) {
+      var w = parts[i];
+      if (w.length < 4 || stop[w] || seen[w]) continue;
+      seen[w] = 1; out.push(w);
+    }
+  };
+  push(ch && ch.title);
+  var S = (ch && ch.sections) || [];
+  for (var j = 0; j < S.length; j++) push(S[j] && S[j].title);
+  return out;
+}
+
+/** متنِ کاملِ مرور، یک‌دست‌شده — همان پوسته‌ای که واژه‌ها با آن سنجیده می‌شوند. */
+function recapFlat_(ep) {
+  var L = [String((ep && ep.hook) || ''), String((ep && ep.outro) || ''),
+           String((ep && ep.summary) || '')];
+  var S = (ep && ep.sections) || [];
+  for (var i = 0; i < S.length; i++) {
+    L.push(String((S[i] && S[i].heading) || ''));
+    L.push(String((S[i] && S[i].narration) || ''));
+  }
+  var t = L.join(' ');
+  try { t = txNorm(stripTashkil_(t)); } catch (e) { t = t.toLowerCase(); }
+  return t.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+}
+
+/**
+ * کدام فصل‌های جزوه ردی در متنِ مرور دارند؟
+ * برمی‌گرداند: { n, total, pct, missed:[عنوان‌ها] }
+ */
+function recapCoverage_(ep, book) {
+  var out = { n: 0, total: 0, pct: 100, missed: [] };
+  try {
+    var chs = (book && book.chapters) || [];
+    out.total = chs.length;
+    if (!out.total) return out;
+    var flat = recapFlat_(ep);
+    for (var i = 0; i < chs.length; i++) {
+      var terms = recapTerms_(chs[i]);
+      // فصلی که هیچ واژهٔ شاخصی ندارد، قابلِ داوری نیست — پس پوشش‌داده
+      // حساب می‌شود. «نمی‌دانم» را نباید «نشده» گزارش کرد.
+      if (!terms.length) { out.n++; continue; }
+      var hit = false;
+      for (var k = 0; k < terms.length && !hit; k++) {
+        if (flat.indexOf(terms[k]) !== -1) hit = true;
+      }
+      if (hit) out.n++;
+      else out.missed.push(String((chs[i] && chs[i].title) || ('فصل ' + (i + 1))));
+    }
+    out.pct = out.total ? Math.round(out.n * 100 / out.total) : 100;
+  } catch (e) {}
+  return out;
 }
 
 /**
@@ -373,6 +481,14 @@ function runRecapEpisode(opt) {
     if (cut && cut.ep) ep = cut.ep;
   } catch (eC) {}
 
+  /* پوشش پس از فشرده‌سازی سنجیده می‌شود، نه پیش از آن: چیزی که بریده شده
+     دیگر گفته نمی‌شود، و پوششی که متنِ بریده‌نشده را بسنجد باز هم ادعاست. */
+  var cov = recapCoverage_(ep, book);
+  if (cov.missed.length) {
+    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' فصل از ' + cov.total +
+             ' ردی در متن دارند؛ بی‌رد: ' + cov.missed.slice(0, 4).join('، ') + '.');
+  }
+
   var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
   props_().setProperty(PK.SP_EP_NUM, String(epNum));
 
@@ -396,7 +512,13 @@ function runRecapEpisode(opt) {
     orders: [], epNum: epNum, date: todayWords_(),
     // این نشان دو کار می‌کند: جزوه فصلی از مرور نمی‌سازد، و گزارش‌ها
     // می‌دانند این قسمت درسِ تازه‌ای پیش نبرده.
-    recap: true, recapChapters: nCh, recapParts: pick.made
+    /* ══ «چند فصل گفته شد»، نه «چند فصل در دست بود» (۶٫۳۳) ══
+       تا ۶٫۳۲ اینجا `nCh` می‌نشست — شمارِ کلِ فصل‌های جزوه. ناظر متنِ قسمت
+       ۱۹ را خواند و دید ۱۲ فصل از ۱۵ پوشش دارد، در حالی که پرونده ۱۵
+       ادعا می‌کرد. عددی که ادعا باشد نه اندازه‌گیری، در ایمیل و تخته و
+       گزارشِ ناظر سه بار تکرار می‌شود و هر سه بار غلط است. */
+    recap: true, recapChapters: cov.n, recapChaptersAll: cov.total,
+    recapMissed: cov.missed.slice(0, 6), recapParts: pick.made
   };
   writeSpecialJson_(folder, meta);
 
@@ -405,7 +527,7 @@ function runRecapEpisode(opt) {
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
                 RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
-                'از جزوهٔ مجموعه — ' + nCh + ' فصل',
+                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total,
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
 
@@ -413,11 +535,12 @@ function runRecapEpisode(opt) {
     epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),
     chunkIdx: 0, partNo: 1, files: [], phase: 'speak'
   }));
-  recapMarkDone_(pick.rec.key, epNum, pick.made, nCh);
-  recapLog_(pick.name, epNum, ep.sections.length, nCh);
+  recapMarkDone_(pick.rec.key, epNum, pick.made, cov.n, cov.total, cov.missed);
+  recapLog_(pick.name, epNum, ep.sections.length, cov.n);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
-           ep.sections.length + ' بخش از ' + nCh + ' فصل)؛ صداگذاری در اجرای بعد.');
+           ep.sections.length + ' بخش، ' + cov.n + ' فصل از ' + cov.total +
+           ')؛ صداگذاری در اجرای بعد.');
   return { ok: true, episode: epNum, series: pick.name,
            title: ep.title, sections: ep.sections.length, pending: true };
 }
@@ -556,8 +679,12 @@ function recapBoardMap_(hub, reg) {
       var m = Number(made[name]) || 0;
       var d = done[key] || null;
       var covered = d ? (Number(d.parts) || 0) : 0;
+      var chOk = d ? (Number(d.ch) || 0) : 0;
+      var chAll = d ? (Number(d.chAll) || chOk) : 0;
       out[key] = {
         name: name, made: m, done: d, covered: covered,
+        chOk: chOk, chAll: chAll,
+        chGap: Math.max(0, chAll - chOk),
         behind: Math.max(0, m - covered),
         queued: qs[key] || 0,
         eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»

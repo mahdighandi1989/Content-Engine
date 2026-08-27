@@ -457,6 +457,7 @@ function writeStatus_(hub, note) {
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
+    auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
@@ -1225,6 +1226,14 @@ function healthCheck() {
     var skS = speakSkipStatus_();
     if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
   } catch (eSk2) {}
+  /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
+     بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
+     داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
+     آدمی بود که گزارش را خواند. */
+  try {
+    var aqS = auditQueueStatus_(hub);
+    if (aqS && aqS.line) { if (aqS.ok) notes.push(aqS.line); else problems.push(aqS.line); }
+  } catch (eAq) {}
   /* و سقفِ «یک فایل»، با عددی که از خروجیِ واقعی آمده. تا وقتی این عدد
      حدسی بود، هر بار که قسمت دو فایل می‌شد جای دیگری را دنبالِ مقصر
      می‌گشتیم. */

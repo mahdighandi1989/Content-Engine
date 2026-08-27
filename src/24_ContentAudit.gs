@@ -520,6 +520,75 @@ function auditFindings_(hub, snap, det, tal, judged) {
 /* ────────────────────────────── ۶) گرداننده ──────────────────────────── */
 
 /** عکس‌هایی که هنوز داوری نشده‌اند. کلید، شناسهٔ فایل است نه نامش. */
+/**
+ * ══ صفی که رشد می‌کند و هیچ‌کس نمی‌پرسد (۶٫۳۳) ══
+ *
+ * از ۲۵ اوت صفِ داوری به‌جای کم‌شدن از ۴ به ۶ رسیده بود، و سه شب هیچ
+ * اتفاقی نیفتاد. موتور خودش خبر نداشت: `auditRun_` وقتی از بودجهٔ شبانه جا
+ * می‌ماند اصلاً **اجرا نمی‌شود**، پس هر هشداری که داخلش باشد هم اجرا
+ * نمی‌شود. تنها کسی که فهمید، آدمی بود که گزارشِ ناظر را خواند.
+ *
+ * پس این سنجه جای دیگری زندگی می‌کند: `healthCheck` ساعتِ ۱۰، که بودجهٔ
+ * شبانه گرسنه‌اش نمی‌کند. و مثلِ بقیهٔ سطرها **هر روز** هست، حتی وقتی صف
+ * خالی است — سکوت را نمی‌شود از مرگ تشخیص داد.
+ *
+ * «رشد» با «بلند» یکی نیست: صفِ شش‌تایی که دارد کم می‌شود سالم است. پس
+ * بلندترین صفی که دیده شده و تاریخش نگه داشته می‌شود، و هر بار که صف
+ * کوتاه‌تر شد، شمارنده صفر می‌گیرد.
+ */
+function auditQueueStatus_(hub) {
+  var out = { line: '', ok: true, n: 0, days: 0 };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var n = 0;
+    try { n = auditPending_().length; } catch (eP) { return out; }
+    out.n = n;
+
+    var prev = null;
+    try { prev = JSON.parse(props_().getProperty(PK.AUDIT_QSEEN) || 'null'); } catch (eJ) {}
+    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+    if (!prev || !prev.since || n < (Number(prev.n) || 0)) {
+      prev = { n: n, since: today };                       // کوتاه‌تر شد یا اولین بار
+    } else if (n > (Number(prev.n) || 0)) {
+      prev = { n: n, since: prev.since || today };          // بلندتر شد، ولی از همان روز
+    }
+    try { props_().setProperty(PK.AUDIT_QSEEN, JSON.stringify(prev)); } catch (eS) {}
+
+    var days = 0;
+    try {
+      var t0 = Date.parse(String(prev.since) + 'T00:00:00Z');
+      var t1 = Date.parse(today + 'T00:00:00Z');
+      if (!isNaN(t0) && !isNaN(t1)) days = Math.round((t1 - t0) / 86400000);
+    } catch (eD) {}
+    out.days = days;
+
+    if (!n) { out.line = 'سنجهٔ محتوا: صفِ داوری خالی است.'; return out; }
+    out.line = 'سنجهٔ محتوا: ' + fa(n) + ' قسمت در صفِ داوری' +
+               (days ? '؛ ' + fa(days) + ' روز است کوتاه‌تر نشده' : '') + '.';
+    var lim = Math.max(1, Number(CFG.AUDIT_STUCK_DAYS) || 2);
+    if (days >= lim) {
+      out.ok = false;
+      out.line += ' یعنی داوری اصلاً نوبت نمی‌گیرد.';
+      if (hub) {
+        try {
+          logSelfFinding_(hub, {
+            priority: 'جدی', category: 'سنجهٔ محتوا', key: 'audit-queue-stuck',
+            title: 'صفِ داوریِ محتوا ' + days + ' روز است کوتاه نشده (' + n + ' قسمت)',
+            detail: 'صف هر روز دو تا رشد می‌کند (یک قسمت از هر برنامه). ' +
+                    'صفی که کوتاه نمی‌شود یعنی `auditRun_` در کارِ شبانه ' +
+                    'نوبت نمی‌گیرد یا خطا می‌دهد.',
+            instruction: 'ترتیبِ کارِ شبانه را ببین: سنجهٔ محتوا باید جلوتر از ' +
+                         'کارهای اختیاری باشد. و سیاههٔ شب را برای سطرِ ' +
+                         '«وقت نرسید: سنجهٔ محتوا» بگرد.',
+            owner: ROWNER_CODE, episode: 0
+          });
+        } catch (eF) {}
+      }
+    }
+  } catch (e) {}
+  return out;
+}
+
 function auditPending_() {
   var out = [], done = {};
   try {

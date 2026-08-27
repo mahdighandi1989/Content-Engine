@@ -287,4 +287,39 @@ console.log('=== ۱۰) درس‌نامه «آموزش» است، نه «گزار
      variety.indexOf('یک کلیپ، یک عکس، یک سند') !== -1);
 }
 
+console.log('\n=== صفِ داوری که رشد می‌کند، باید خودش حرف بزند ===');
+{
+  /* ══ گزارشِ ۲۷ اوت ══
+   * «صفِ داوری از ۲۵ اوت گیر کرده بود — به‌جای کم‌شدن از ۴ به ۶ رسیده بود.»
+   * سه شب، و موتور یک کلمه نگفت. علتش ساختاری بود: وقتی بودجهٔ شبانه تمام
+   * شود `auditRun_` **اصلاً اجرا نمی‌شود**، پس هر هشداری که داخلش باشد هم
+   * اجرا نمی‌شود. تنها کسی که فهمید، آدمی بود که گزارش را خواند.
+   * پس سنجه در `healthCheck` زندگی می‌کند، نه در کارِ شبانه. */
+  delete global.__PROPS[PK.AUDIT_QSEEN];
+  const q0 = auditQueueStatus_(null);
+  ok('صفِ داوری هر روز یک سطر دارد — حتی وقتی ایرادی نیست', !!q0.line && q0.ok === true, q0.line);
+
+  // صفی می‌سازیم و «امروز» را جلو می‌بریم
+  global.__PROPS[PK.AUDIT_QSEEN] = JSON.stringify({ n: 99, since: '2026-08-25' });
+  const q1 = auditQueueStatus_(null);
+  ok('صفی که کوتاه نشده، شمارِ روز را می‌گوید', q1.days >= 0, q1.line);
+
+  /* و «بلند» با «گیرکرده» یکی نیست: صفی که کوتاه می‌شود سالم است، هرچقدر
+     هم بلند باشد — وگرنه هر شبِ پرکار یک هشدارِ دروغ می‌ساخت. */
+  global.__PROPS[PK.AUDIT_QSEEN] = JSON.stringify({ n: 999, since: '2026-08-01' });
+  const q2 = auditQueueStatus_(null);
+  ok('صفی که کوتاه‌تر شده، شمارنده‌اش صفر می‌گیرد', q2.ok === true && q2.days === 0,
+     JSON.stringify(q2));
+  delete global.__PROPS[PK.AUDIT_QSEEN];
+
+  /* و ترتیبِ کارِ شبانه: داوری باید جلوتر از کارهای «امشب نشد، فردا» باشد. */
+  const nightly = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const iAudit = nightly.indexOf("nightHas_(45000, 'سنجهٔ محتوا')");
+  const iMusic = nightly.indexOf("nightHas_(90000, 'گشتن و آوردنِ موسیقی')");
+  const iRecap = nightly.indexOf("nightHas_(60000, 'قسمتِ مرورِ بزرگ')");
+  ok('سنجهٔ محتوا پیش از گشتنِ موسیقی می‌آید', iAudit > 0 && iAudit < iMusic,
+     iAudit + ' < ' + iMusic);
+  ok('و پیش از مرورِ بزرگ', iAudit < iRecap);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

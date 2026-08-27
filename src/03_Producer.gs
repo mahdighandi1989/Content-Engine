@@ -1035,8 +1035,12 @@ function coverShortText_(meta) {
 function coverRangeText_(meta, cx) {
   if (meta && meta.recap) {
     var ch = Number(meta.recapChapters) || 0, pr = Number(meta.recapParts) || 0;
+    var all = Number(meta.recapChaptersAll) || ch;
     if (!ch && !pr) return 'همهٔ درس‌های تولیدشدهٔ این مجموعه';
-    return 'همهٔ ' + pr + ' درسِ تولیدشده، در ' + ch + ' فصلِ جزوه';
+    /* «از» می‌آید چون عدد اندازه‌گیری‌شده است، نه ادعا: فصلی که هیچ واژهٔ
+       شاخصش در متنِ مرور نباشد، پوشش‌داده شمرده نمی‌شود (۶٫۳۳). */
+    return pr + ' درسِ تولیدشده · ' + ch + ' فصل از ' + all + ' فصلِ جزوه' +
+           (all > ch ? ' (' + (all - ch) + ' فصل نیامده)' : '');
   }
   return cx.fromNo + ' تا ' + cx.toNo + ' از ' + cx.totalChunks;
 }

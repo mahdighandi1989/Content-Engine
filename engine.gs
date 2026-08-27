@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.32
+ *  موتور محتوا و پادکست — نسخهٔ 6.33
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -955,6 +955,8 @@ var CFG = {
   AUDIT_ENABLED: true,
   AUDIT_FOLDER: 'بایگانی — سنجهٔ محتوا',
   AUDIT_MAX_PER_RUN: 3,             // سقفِ قسمت در هر دور (مهلتِ شش‌دقیقه‌ای)
+  // صفی که این‌قدر روز کوتاه‌تر نشود، یعنی داوری اصلاً نوبت نمی‌گیرد.
+  AUDIT_STUCK_DAYS: 2,
   AUDIT_BODY_MAX: 1200,             // سقفِ نویسهٔ هر متنِ خام در عکس
   AUDIT_NARR_MAX: 4000,             // سقفِ نویسهٔ روایتِ هر بخش در عکس
   AUDIT_KEEP_DAYS: 45,
@@ -972,7 +974,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.32',
+  CODE_VERSION: '6.33',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1294,6 +1296,7 @@ var PK = {
   AUDIT_DONE: 'AUDIT_DONE_IDS',
   AUDIT_LAST: 'AUDIT_LAST_RESULT',  // خلاصهٔ آخرین داوری، برای _STATUS.json
   AUDIT_BAD: 'AUDIT_BAD_NIGHTS',    // شمارِ شب‌های پیاپیِ بدِ اِسناد
+  AUDIT_QSEEN: 'AUDIT_QUEUE_SEEN',  // بلندترین صفِ داوری و از کِی
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
@@ -3305,8 +3308,12 @@ function coverShortText_(meta) {
 function coverRangeText_(meta, cx) {
   if (meta && meta.recap) {
     var ch = Number(meta.recapChapters) || 0, pr = Number(meta.recapParts) || 0;
+    var all = Number(meta.recapChaptersAll) || ch;
     if (!ch && !pr) return 'همهٔ درس‌های تولیدشدهٔ این مجموعه';
-    return 'همهٔ ' + pr + ' درسِ تولیدشده، در ' + ch + ' فصلِ جزوه';
+    /* «از» می‌آید چون عدد اندازه‌گیری‌شده است، نه ادعا: فصلی که هیچ واژهٔ
+       شاخصش در متنِ مرور نباشد، پوشش‌داده شمرده نمی‌شود (۶٫۳۳). */
+    return pr + ' درسِ تولیدشده · ' + ch + ' فصل از ' + all + ' فصلِ جزوه' +
+           (all > ch ? ' (' + (all - ch) + ' فصل نیامده)' : '');
   }
   return cx.fromNo + ' تا ' + cx.toNo + ' از ' + cx.totalChunks;
 }
@@ -9609,6 +9616,7 @@ function writeStatus_(hub, note) {
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
+    auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
@@ -10377,6 +10385,14 @@ function healthCheck() {
     var skS = speakSkipStatus_();
     if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
   } catch (eSk2) {}
+  /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
+     بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
+     داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
+     آدمی بود که گزارش را خواند. */
+  try {
+    var aqS = auditQueueStatus_(hub);
+    if (aqS && aqS.line) { if (aqS.ok) notes.push(aqS.line); else problems.push(aqS.line); }
+  } catch (eAq) {}
   /* و سقفِ «یک فایل»، با عددی که از خروجیِ واقعی آمده. تا وقتی این عدد
      حدسی بود، هر بار که قسمت دو فایل می‌شد جای دیگری را دنبالِ مقصر
      می‌گشتیم. */
@@ -15384,6 +15400,15 @@ function produceSpecialEpisode(opt) {
     // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
     // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
     try {
+      /* ══ مرورِ بزرگ داوریِ اِسناد نمی‌شود (۶٫۳۳) ══
+       * مرور از قطعه‌های خام نوشته نمی‌شود؛ ورودی‌اش جزوهٔ مجموعه است. پس
+       * `chunkNos` و `enrichIds`ش خالی‌اند — و این تصمیم است، نه نقص.
+       * داوری‌اش یعنی اِسنادِ صفر درصد، و شمارندهٔ `audit-attrib-low` که
+       * *با درس‌های عادی مشترک است* یک قدم بالا می‌رود. تا ۶٫۳۰ مرور کمیاب
+       * بود و این کمتر دیده می‌شد؛ از ۶٫۳۰ صفِ مرور می‌تواند چند شبِ پیاپی
+       * مرور بسازد و آن‌وقت یافتهٔ «جدی»ِ دروغی ساخته می‌شود که نگارش را
+       * متهم می‌کند و دستوری می‌دهد که ربطی به مشکل ندارد.
+       * همان مرزی که جزوه دارد (`handoutSeriesEpisodes_`)، اینجا هم. */
       /* ══ اِسناد را باید *ترجمه* کرد، نه فرض (باگِ ۲۵ اوت) ══
        * `auditSnap_` اِسنادِ هر بخش را از `sourceIds` می‌خواند — قراردادی که
        * «از همه جا از همه رنگ» رعایتش می‌کند. درس‌نامه اصلاً `sourceIds`
@@ -15418,13 +15443,18 @@ function produceSpecialEpisode(opt) {
         snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
                         sourceIds: sids });
       }
-      auditSnap_(ENRICH_SHOW_SPECIAL,
-                 { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
-                   title: ep.title, category: seriesName,
-                   targetMin: specialTargetMin_() },
-                 { hook: ep.hook, outro: ep.outro, connection: ep.recap,
-                   sections: snapSecs },
-                 fakeItems, fid);
+      if (meta && meta.recap) {
+        logLine_('مرورِ بزرگ داوریِ اِسناد نمی‌شود — ورودی‌اش جزوهٔ مجموعه است، ' +
+                 'نه قطعهٔ خام.');
+      } else {
+        auditSnap_(ENRICH_SHOW_SPECIAL,
+                   { showName: CFG.SPECIAL_SHOW_NAME, episode: epNum,
+                     title: ep.title, category: seriesName,
+                     targetMin: specialTargetMin_() },
+                   { hook: ep.hook, outro: ep.outro, connection: ep.recap,
+                     sections: snapSecs },
+                   fakeItems, fid);
+      }
     } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
 
     // ── وارسیِ افشای مکمل ──
@@ -17397,10 +17427,18 @@ function recapCell_(x) {
            (r.ripe ? '' : '<br>زیرِ کفِ ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
                           ' درس؛ از پیش تیک نخورده، ولی می‌توانید بزنید') + '</div>';
   } else {
+    /* «چند فصل گفته شد از چند» — نه «چند فصل در دست بود». تا ۶٫۳۲ اینجا
+       عددِ کلِ فصل‌های جزوه می‌نشست و ادعای پوششِ کامل می‌کرد؛ ناظر متنِ
+       قسمت ۱۹ را خواند و دید سه فصل هیچ ردی در آن ندارند. */
     body = '<div><span class="bdg b-done">قسمت ' + faNum_(Number(r.done.ep) || 0) + '</span></div>' +
            '<div class="sub">تا درسِ ' + faNum_(r.covered) +
-           (r.done.ch ? ' · ' + faNum_(Number(r.done.ch)) + ' فصل' : '') +
+           (r.chAll ? ' · ' + faNum_(r.chOk) + ' فصل از ' + faNum_(r.chAll) : '') +
            (r.done.at ? '<br>' + bEsc_(String(r.done.at)) : '') + '</div>' +
+           (r.chGap ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.chGap) +
+                      ' فصل ردی در متنِ مرور ندارد' +
+                      ((r.done.miss || []).length ? '<br>' +
+                        bEsc_((r.done.miss || []).slice(0, 2).join('، ')) : '') +
+                      '</div>' : '') +
            (r.behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.behind) +
                        ' درسِ تازه پس از آن</div>' : '');
   }
@@ -22333,6 +22371,21 @@ function selfUpdateDaily() {
   // ردهای ناحقِ نسخه‌های پیش — یک بار، پیش از گشتن، تا همان شب آورده شوند
   try { musicUnblock_(); } catch (eUB) {}
 
+  /* ══ سنجهٔ محتوا، پیش از کارهای اختیاری (۶٫۳۳) ══
+     ۶٫۳۲ این بند را از پشتِ «مرورِ بزرگ» جلو آورد و درست بود، ولی کافی
+     نبود: هنوز پشتِ گشتنِ موسیقی (۹۰ ثانیه)، پویش و بازبینیِ شنیداریِ بانک
+     (۷۵ ثانیه) و انتشارِ یوتیوب می‌نشست. صفِ داوری هر روز دو تا رشد می‌کند
+     و از ۲۵ اوت از ۴ به ۶ رسیده بود — یعنی سه شبِ پیاپی اصلاً نرسید.
+
+     قاعده‌اش ساده است و در CLAUDE.md هم هست: **کاری که صفش هر روز رشد
+     می‌کند، جلوتر از کاری می‌آید که خودش می‌گوید «امشب نشد، فردا».**
+     پرکردنِ بانکِ موسیقی و بازشنیدنش دقیقاً از آن جنس‌اند؛ داوریِ قسمتِ
+     امشب نیست. هزینه‌اش هم کران دارد: `AUDIT_MAX_PER_RUN` سه قسمت. */
+  if (nightHas_(45000, 'سنجهٔ محتوا')) {
+    try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
+    try { auditPrune_(); } catch (eCP) {}
+  }
+
   if (nightHas_(90000, 'گشتن و آوردنِ موسیقی')) {
     try {
       var miss = musicThinSlots_();
@@ -22490,18 +22543,6 @@ function selfUpdateDaily() {
                  sq.findings + ' یافته ثبت شد.');
       }
     } catch (eSq) { logLine_('نظارتِ کیفیِ استخراج نشد: ' + eSq.message); }
-  }
-
-  /* سنجهٔ محتوا: عکسِ قسمت‌های امروز فردا داوری می‌شود — و این «فردا» همیشه
-     امشب است، چون هر دو برنامه هر شب قسمتِ تازه می‌سازند. تا ۶٫۳۰ این بند
-     پشتِ «مرورِ بزرگ» نشسته بود، درست خلافِ قاعده‌ای که خودِ مرورِ بزرگ
-     اعلام می‌کرد: «کارِ هرشبه جلوتر از کارِ کمیاب». نتیجه این بود که در هر
-     شبِ پرمشغله (از جمله شبی که مرور واقعاً ساخته می‌شد) سنجهٔ محتوا اصلاً
-     اجرا نمی‌شد و صفِ داوری روزها همان‌جا می‌ماند — دقیقاً همان الگویی که
-     ۵٫۶۸ برای «گشتنِ موسیقی جلوتر از نصبِ کد» بست. */
-  if (nightHas_(45000, 'سنجهٔ محتوا')) {
-    try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
-    try { auditPrune_(); } catch (eCP) {}
   }
 
   /* قسمتِ مرورِ بزرگ (۶٫۲۲، فراخوانِ رو به جلو ۲۱ ← ۳۰، پس در try).
@@ -28588,6 +28629,75 @@ function auditFindings_(hub, snap, det, tal, judged) {
 /* ────────────────────────────── ۶) گرداننده ──────────────────────────── */
 
 /** عکس‌هایی که هنوز داوری نشده‌اند. کلید، شناسهٔ فایل است نه نامش. */
+/**
+ * ══ صفی که رشد می‌کند و هیچ‌کس نمی‌پرسد (۶٫۳۳) ══
+ *
+ * از ۲۵ اوت صفِ داوری به‌جای کم‌شدن از ۴ به ۶ رسیده بود، و سه شب هیچ
+ * اتفاقی نیفتاد. موتور خودش خبر نداشت: `auditRun_` وقتی از بودجهٔ شبانه جا
+ * می‌ماند اصلاً **اجرا نمی‌شود**، پس هر هشداری که داخلش باشد هم اجرا
+ * نمی‌شود. تنها کسی که فهمید، آدمی بود که گزارشِ ناظر را خواند.
+ *
+ * پس این سنجه جای دیگری زندگی می‌کند: `healthCheck` ساعتِ ۱۰، که بودجهٔ
+ * شبانه گرسنه‌اش نمی‌کند. و مثلِ بقیهٔ سطرها **هر روز** هست، حتی وقتی صف
+ * خالی است — سکوت را نمی‌شود از مرگ تشخیص داد.
+ *
+ * «رشد» با «بلند» یکی نیست: صفِ شش‌تایی که دارد کم می‌شود سالم است. پس
+ * بلندترین صفی که دیده شده و تاریخش نگه داشته می‌شود، و هر بار که صف
+ * کوتاه‌تر شد، شمارنده صفر می‌گیرد.
+ */
+function auditQueueStatus_(hub) {
+  var out = { line: '', ok: true, n: 0, days: 0 };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var n = 0;
+    try { n = auditPending_().length; } catch (eP) { return out; }
+    out.n = n;
+
+    var prev = null;
+    try { prev = JSON.parse(props_().getProperty(PK.AUDIT_QSEEN) || 'null'); } catch (eJ) {}
+    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+    if (!prev || !prev.since || n < (Number(prev.n) || 0)) {
+      prev = { n: n, since: today };                       // کوتاه‌تر شد یا اولین بار
+    } else if (n > (Number(prev.n) || 0)) {
+      prev = { n: n, since: prev.since || today };          // بلندتر شد، ولی از همان روز
+    }
+    try { props_().setProperty(PK.AUDIT_QSEEN, JSON.stringify(prev)); } catch (eS) {}
+
+    var days = 0;
+    try {
+      var t0 = Date.parse(String(prev.since) + 'T00:00:00Z');
+      var t1 = Date.parse(today + 'T00:00:00Z');
+      if (!isNaN(t0) && !isNaN(t1)) days = Math.round((t1 - t0) / 86400000);
+    } catch (eD) {}
+    out.days = days;
+
+    if (!n) { out.line = 'سنجهٔ محتوا: صفِ داوری خالی است.'; return out; }
+    out.line = 'سنجهٔ محتوا: ' + fa(n) + ' قسمت در صفِ داوری' +
+               (days ? '؛ ' + fa(days) + ' روز است کوتاه‌تر نشده' : '') + '.';
+    var lim = Math.max(1, Number(CFG.AUDIT_STUCK_DAYS) || 2);
+    if (days >= lim) {
+      out.ok = false;
+      out.line += ' یعنی داوری اصلاً نوبت نمی‌گیرد.';
+      if (hub) {
+        try {
+          logSelfFinding_(hub, {
+            priority: 'جدی', category: 'سنجهٔ محتوا', key: 'audit-queue-stuck',
+            title: 'صفِ داوریِ محتوا ' + days + ' روز است کوتاه نشده (' + n + ' قسمت)',
+            detail: 'صف هر روز دو تا رشد می‌کند (یک قسمت از هر برنامه). ' +
+                    'صفی که کوتاه نمی‌شود یعنی `auditRun_` در کارِ شبانه ' +
+                    'نوبت نمی‌گیرد یا خطا می‌دهد.',
+            instruction: 'ترتیبِ کارِ شبانه را ببین: سنجهٔ محتوا باید جلوتر از ' +
+                         'کارهای اختیاری باشد. و سیاههٔ شب را برای سطرِ ' +
+                         '«وقت نرسید: سنجهٔ محتوا» بگرد.',
+            owner: ROWNER_CODE, episode: 0
+          });
+        } catch (eF) {}
+      }
+    }
+  } catch (e) {}
+  return out;
+}
+
 function auditPending_() {
   var out = [], done = {};
   try {
@@ -36295,11 +36405,13 @@ function recapDone_() {
  * «ساخته/نساخته» بگوید — و مجموعه‌ای که بعد از مرورش ده درسِ دیگر گرفته،
  * از مجموعه‌ای که همین دیروز مرور شده جدا نمی‌شد.
  */
-function recapMarkDone_(seriesKey, epNum, parts, chapters) {
+function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed) {
   try {
     var o = recapDone_();
     o[String(seriesKey)] = { at: nowStr_(), ep: Number(epNum) || 0,
-                             parts: Number(parts) || 0, ch: Number(chapters) || 0 };
+                             parts: Number(parts) || 0, ch: Number(chapters) || 0,
+                             chAll: Number(chaptersAll) || Number(chapters) || 0,
+                             miss: (missed || []).slice(0, 4) };
     props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
   } catch (e) {}
 }
@@ -36446,6 +36558,20 @@ function recapBookText_(book, cap) {
   return L.join('\n');
 }
 
+/** سیاههٔ عنوانِ فصل‌ها برای پرامپت — «همه» یک صفت است، سیاهه یک سنجه. */
+function recapChecklist_(book) {
+  var chs = (book && book.chapters) || [];
+  if (!chs.length) return '';
+  var L = ['۶) **این فهرست را تیک بزن.** هر عنوانِ زیر باید دستِ‌کم یک بار',
+           '   به‌روشنی در متن گفته شود — با همان واژه‌ها، تا شنونده بداند',
+           '   دربارهٔ کدام درس حرف می‌زنی. اگر فصلی کوچک است، یک جمله بس است؛',
+           '   ولی هیچ‌کدام نباید غایب باشد:'];
+  for (var i = 0; i < chs.length; i++) {
+    L.push('   ' + (i + 1) + '. ' + String((chs[i] && chs[i].title) || ''));
+  }
+  return L.join('\n');
+}
+
 function recapPrompt_(book, seriesName, capChars) {
   var L = [
     'کارِ تو: نوشتنِ یک قسمتِ «مرورِ بزرگ» برای یک پادکستِ آموزشی.',
@@ -36481,6 +36607,13 @@ function recapPrompt_(book, seriesName, capChars) {
     '',
     '۵) در hook بگو این قسمت چیست («یه مرورِ بزرگ از همهٔ چیزهایی که تا حالا',
     '   گفتیم، این‌بار خیلی ساده») و در outro جمع‌بندی کن.',
+    '',
+    /* ══ سیاههٔ فصل‌ها، در انتها و صریح (۶٫۳۳) ══
+       بندِ ۱ از اول می‌گفت «همهٔ مفاهیمِ مهم را پوشش بده» — و مدل در قسمت ۱۹
+       سه فصل را نگفت، از جمله هر دو فصلی که تازه اضافه شده بودند. «همه» یک
+       صفت است؛ سیاههٔ نام‌دار یک سنجه. و چون کد پس از نوشتن همین سیاهه را
+       مکانیکی می‌سنجد، این دیگر خواهشِ بی‌پیگیری نیست. */
+    recapChecklist_(book),
     '',
     'مرزها:',
     '- **از محتوای درس عدول نکن.** حکمی که در جزوه نیست نده، مفهومی که درس',
@@ -36525,6 +36658,91 @@ function recapWrite_(book, seriesName) {
                        chunkNos: [], enrichIds: [] });
   }
   return ep.sections.length ? ep : null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * پوششِ واقعی — نه پوششِ ادعایی (۶٫۳۳)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ══ گزارشِ ناظر، ۲۷ اوت ══
+ * «متنِ کاملِ مرور را خواندم و با فهرستِ ۱۵ فصلِ جزوه سنجیدم: ۱۱ بخشِ مرور
+ * روی ۱۲ فصل می‌نشیند و دقیقاً همان دو فصلی که ساعاتی پیش از مرور به جزوه
+ * اضافه شده بودند در آن نیامده‌اند. با این‌همه، فیلدِ ثبت‌شده می‌گوید هر ۱۵
+ * فصل پوشش دارد.»
+ *
+ * درست بود. `recapMarkDone_` و متای قسمت هر دو `book.chapters.length` را
+ * ثبت می‌کردند — یعنی **چند فصل در دست بود**، نه **چند فصل گفته شد**. و
+ * ۶٫۳۰ همان عدد را به ستونِ تخته هم برد، پس ادعای اشتباه یک نمایشگرِ تازه
+ * هم گرفت.
+ *
+ * ── چرا ردیابیِ واژه‌ای، و نه پرسیدن از مدل ──
+ * مدلی که خودش نوشته و خودش بگوید «همه را پوشش دادم»، جوابِ خودش را تأیید
+ * می‌کند — همان شکلی که سه نسخه پیاپی باگِ نشانهٔ گفتار را «رفع‌شده» اعلام
+ * کرد. پس سنجه مکانیکی است و **عمداً محافظه‌کار**: فصلی «نیامده» شمرده
+ * می‌شود فقط وقتی *هیچ‌کدام* از واژه‌های شاخصش هیچ‌جای متنِ مرور نباشد.
+ * یعنی این عدد کفِ پوشش است، نه اندازهٔ دقیقش — و هشداری که فقط با شهادتِ
+ * قاطع بلند شود، هشداری است که خوانده می‌شود.
+ */
+function recapTerms_(ch) {
+  var out = [], seen = Object.create(null);
+  var stop = { 'است': 1, 'های': 1, 'برای': 1, 'یعنی': 1, 'چیست': 1, 'چگونه': 1,
+               'کدام': 1, 'همان': 1, 'اینکه': 1, 'درباره': 1, 'دربارهٔ': 1 };
+  var push = function (t) {
+    var raw = String(t || '');
+    try { raw = txNorm(stripTashkil_(raw)); } catch (e) { raw = raw.toLowerCase(); }
+    var parts = raw.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ').split(/\s+/);
+    for (var i = 0; i < parts.length; i++) {
+      var w = parts[i];
+      if (w.length < 4 || stop[w] || seen[w]) continue;
+      seen[w] = 1; out.push(w);
+    }
+  };
+  push(ch && ch.title);
+  var S = (ch && ch.sections) || [];
+  for (var j = 0; j < S.length; j++) push(S[j] && S[j].title);
+  return out;
+}
+
+/** متنِ کاملِ مرور، یک‌دست‌شده — همان پوسته‌ای که واژه‌ها با آن سنجیده می‌شوند. */
+function recapFlat_(ep) {
+  var L = [String((ep && ep.hook) || ''), String((ep && ep.outro) || ''),
+           String((ep && ep.summary) || '')];
+  var S = (ep && ep.sections) || [];
+  for (var i = 0; i < S.length; i++) {
+    L.push(String((S[i] && S[i].heading) || ''));
+    L.push(String((S[i] && S[i].narration) || ''));
+  }
+  var t = L.join(' ');
+  try { t = txNorm(stripTashkil_(t)); } catch (e) { t = t.toLowerCase(); }
+  return t.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+}
+
+/**
+ * کدام فصل‌های جزوه ردی در متنِ مرور دارند؟
+ * برمی‌گرداند: { n, total, pct, missed:[عنوان‌ها] }
+ */
+function recapCoverage_(ep, book) {
+  var out = { n: 0, total: 0, pct: 100, missed: [] };
+  try {
+    var chs = (book && book.chapters) || [];
+    out.total = chs.length;
+    if (!out.total) return out;
+    var flat = recapFlat_(ep);
+    for (var i = 0; i < chs.length; i++) {
+      var terms = recapTerms_(chs[i]);
+      // فصلی که هیچ واژهٔ شاخصی ندارد، قابلِ داوری نیست — پس پوشش‌داده
+      // حساب می‌شود. «نمی‌دانم» را نباید «نشده» گزارش کرد.
+      if (!terms.length) { out.n++; continue; }
+      var hit = false;
+      for (var k = 0; k < terms.length && !hit; k++) {
+        if (flat.indexOf(terms[k]) !== -1) hit = true;
+      }
+      if (hit) out.n++;
+      else out.missed.push(String((chs[i] && chs[i].title) || ('فصل ' + (i + 1))));
+    }
+    out.pct = out.total ? Math.round(out.n * 100 / out.total) : 100;
+  } catch (e) {}
+  return out;
 }
 
 /**
@@ -36606,6 +36824,14 @@ function runRecapEpisode(opt) {
     if (cut && cut.ep) ep = cut.ep;
   } catch (eC) {}
 
+  /* پوشش پس از فشرده‌سازی سنجیده می‌شود، نه پیش از آن: چیزی که بریده شده
+     دیگر گفته نمی‌شود، و پوششی که متنِ بریده‌نشده را بسنجد باز هم ادعاست. */
+  var cov = recapCoverage_(ep, book);
+  if (cov.missed.length) {
+    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' فصل از ' + cov.total +
+             ' ردی در متن دارند؛ بی‌رد: ' + cov.missed.slice(0, 4).join('، ') + '.');
+  }
+
   var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
   props_().setProperty(PK.SP_EP_NUM, String(epNum));
 
@@ -36629,7 +36855,13 @@ function runRecapEpisode(opt) {
     orders: [], epNum: epNum, date: todayWords_(),
     // این نشان دو کار می‌کند: جزوه فصلی از مرور نمی‌سازد، و گزارش‌ها
     // می‌دانند این قسمت درسِ تازه‌ای پیش نبرده.
-    recap: true, recapChapters: nCh, recapParts: pick.made
+    /* ══ «چند فصل گفته شد»، نه «چند فصل در دست بود» (۶٫۳۳) ══
+       تا ۶٫۳۲ اینجا `nCh` می‌نشست — شمارِ کلِ فصل‌های جزوه. ناظر متنِ قسمت
+       ۱۹ را خواند و دید ۱۲ فصل از ۱۵ پوشش دارد، در حالی که پرونده ۱۵
+       ادعا می‌کرد. عددی که ادعا باشد نه اندازه‌گیری، در ایمیل و تخته و
+       گزارشِ ناظر سه بار تکرار می‌شود و هر سه بار غلط است. */
+    recap: true, recapChapters: cov.n, recapChaptersAll: cov.total,
+    recapMissed: cov.missed.slice(0, 6), recapParts: pick.made
   };
   writeSpecialJson_(folder, meta);
 
@@ -36638,7 +36870,7 @@ function runRecapEpisode(opt) {
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
                 RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
-                'از جزوهٔ مجموعه — ' + nCh + ' فصل',
+                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total,
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
 
@@ -36646,11 +36878,12 @@ function runRecapEpisode(opt) {
     epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),
     chunkIdx: 0, partNo: 1, files: [], phase: 'speak'
   }));
-  recapMarkDone_(pick.rec.key, epNum, pick.made, nCh);
-  recapLog_(pick.name, epNum, ep.sections.length, nCh);
+  recapMarkDone_(pick.rec.key, epNum, pick.made, cov.n, cov.total, cov.missed);
+  recapLog_(pick.name, epNum, ep.sections.length, cov.n);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
-           ep.sections.length + ' بخش از ' + nCh + ' فصل)؛ صداگذاری در اجرای بعد.');
+           ep.sections.length + ' بخش، ' + cov.n + ' فصل از ' + cov.total +
+           ')؛ صداگذاری در اجرای بعد.');
   return { ok: true, episode: epNum, series: pick.name,
            title: ep.title, sections: ep.sections.length, pending: true };
 }
@@ -36789,8 +37022,12 @@ function recapBoardMap_(hub, reg) {
       var m = Number(made[name]) || 0;
       var d = done[key] || null;
       var covered = d ? (Number(d.parts) || 0) : 0;
+      var chOk = d ? (Number(d.ch) || 0) : 0;
+      var chAll = d ? (Number(d.chAll) || chOk) : 0;
       out[key] = {
         name: name, made: m, done: d, covered: covered,
+        chOk: chOk, chAll: chAll,
+        chGap: Math.max(0, chAll - chOk),
         behind: Math.max(0, m - covered),
         queued: qs[key] || 0,
         eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»
