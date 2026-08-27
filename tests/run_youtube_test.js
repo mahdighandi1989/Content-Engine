@@ -206,6 +206,64 @@ console.log('=== ۹) درخواستِ رندر: چون موتور نمی‌تو�
   ok('۹.۸ ولی تاریخچه پاک نمی‌شود', ytRenderRead_().items.length === 1);
 }
 
+const quiet = () => { const o = console.log; console.log = () => {}; return () => { console.log = o; }; };
+console.log('=== ۹.۵) صف پر است و هیچ‌چیز نمی‌رود ===');
+{
+  /* ══ حالتی که هیچ نگهبانی نداشت، و کاربر با آن روبه‌رو شد ══
+   * ویدئوها ساخته شده بودند، صف پر بود، و شب‌ها هیچ‌چیز منتشر نمی‌شد.
+   * «منتظرِ ویدئو» نه ردیفی در تب می‌سازد، نه سطری در ایمیل، نه هشداری —
+   * پس از بیرون دقیقاً شبیهِ «کاری نبود» به‌نظر می‌رسید و صاحبِ برنامه فقط
+   * می‌دید هیچ ویدئویی نیامده، بی آنکه جایی نوشته باشد چرا.
+   * «بیکار» و «گیرکرده» دو چیزند: صفِ خالی بیکار است، صفِ پر گیر کرده. */
+  const hub = new Spread('هاب-گیر');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HUB_ID] = CFG.HUB_ID || 'HUB';
+  ensureTab_(hub, CFG.REPORT_TAB, REPORT_HEADERS);
+  delete global.__PROPS[PK.YT_LASTPUB];
+  delete global.__PROPS[PK.YT_DUE];
+
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: 1, series: 'م', title: 'ت',
+                videoId: 'V1', url: 'https://youtu.be/V1', privacy: 'public',
+                result: 'منتشر شد' });
+  const sh = hub.getSheetByName(CFG.YT_TAB);
+  const back = new Date(new Date().getTime() - 3 * 86400000);
+  sh.getRange(2, YU.AT, 1, 1)
+    .setValues([[Utilities.formatDate(back, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm')]]);
+  ok('۹.۵-الف روزهای بی‌انتشار از خودِ تب خوانده می‌شود',
+     ytPubIdleDays_(hub) === 3, String(ytPubIdleDays_(hub)));
+
+  for (let e = 2; e <= 8; e++) ytDueAdd_(ENRICH_SHOW_SPECIAL, e, 'F' + e, 'م', 'kM');
+  ytRunNote_({ done: 0, waiting: 7, failed: 0, left: 7, quota: false,
+               notes: ['special:2: ویدئو هنوز نرسیده'] });
+
+  const problems = [], notes = [];
+  const un = quiet();
+  try { ytHealth_(problems, notes); } catch (e) {}
+  un();
+  const hit = problems.filter(p => p.indexOf('گیر کرده') !== -1);
+  ok('۹.۵-ب صفِ پر با انتشارِ متوقف، مشکل می‌سازد نه سکوت',
+     hit.length === 1, problems.join(' | ').slice(0, 120));
+  /* و مهم‌تر از خودِ هشدار: باید **علت** را بگوید. هشداری که فقط بگوید
+     «کار نمی‌کند» صاحبِ برنامه را همان‌جا می‌گذارد که بود. */
+  ok('۹.۵-پ و علتِ آخرین دور را نقل می‌کند',
+     hit[0].indexOf('ویدئو هنوز نرسیده') !== -1, hit[0]);
+  const rows = hub.getSheetByName(CFG.REPORT_TAB)._d.slice(1);
+  ok('۹.۵-ت و یافتهٔ «جدی» به صفِ کد می‌رود',
+     rows.length === 1 && rows[0][3] === 'جدی' &&
+     String(rows[0][8]).indexOf('کد') !== -1, JSON.stringify(rows[0] && rows[0][5]));
+
+  /* ولی صفِ خالی بیکار است، نه گیرکرده — و هشدارِ دروغ، هشدارهای واقعی را
+     هم بی‌اثر می‌کند. */
+  delete global.__PROPS[PK.YT_DUE];
+  const p2 = [], n2 = [];
+  const un2 = quiet();
+  try { ytHealth_(p2, n2); } catch (e) {}
+  un2();
+  ok('۹.۵-ث ولی صفِ خالی هیچ هشداری نمی‌سازد',
+     p2.filter(x => x.indexOf('گیر کرده') !== -1).length === 0);
+}
+
 console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه از جست‌وجوی یوتیوب ===');
 {
   /* `search.list` صد واحد سهمیه دارد و اصلاً لازم نیست: خودمان می‌دانیم چه

@@ -2067,7 +2067,8 @@ function ytRunDue_(maxItems, budgetMs) {
     out.tried++;
     if (r.ok || r.videoId) {
       ytDueDrop_(it.key);
-      if (r.ok) out.done++; else { out.failed++; out.notes.push(it.key + ': ' + r.why); }
+      if (r.ok) { out.done++; ytPubStamp_(); }
+      else { out.failed++; out.notes.push(it.key + ': ' + r.why); }
     } else {
       out.failed++;
       out.notes.push(it.key + ': ' + r.why);
@@ -2077,7 +2078,65 @@ function ytRunDue_(maxItems, budgetMs) {
     }
   }
   out.left = ytDueList_().length;
+  /* کارنامهٔ همین دور ذخیره می‌شود تا وارسیِ سلامت بتواند **علت** را بگوید.
+     تا ۶٫۲۶ «منتظرِ ویدئو» فقط در سیاهه می‌نشست: نه ردیفی در تب می‌ساخت، نه
+     سطری در ایمیل، نه هشداری. صاحبِ برنامه فقط می‌دید هیچ ویدئویی نیامده و
+     هیچ‌جا ننوشته بود چرا. */
+  try { ytRunNote_(out); } catch (eRn) {}
   return out;
+}
+
+/** مهرِ آخرین انتشارِ موفق — تنها راهِ فهمیدنِ «چند روز است هیچ‌چیز نرفته». */
+function ytPubStamp_() {
+  try { props_().setProperty(PK.YT_LASTPUB, new Date().toISOString()); } catch (e) {}
+}
+
+/** کارنامهٔ آخرین دورِ صف: چند تا رفت، چند تا منتظر، و چرا. */
+function ytRunNote_(out) {
+  props_().setProperty(PK.YT_LASTRUN, JSON.stringify({
+    at: new Date().toISOString(),
+    done: Number(out.done) || 0, waiting: Number(out.waiting) || 0,
+    failed: Number(out.failed) || 0, left: Number(out.left) || 0,
+    quota: !!out.quota, notes: (out.notes || []).slice(0, 4)
+  }));
+}
+
+function ytLastRun_() {
+  try {
+    var j = JSON.parse(props_().getProperty(PK.YT_LASTRUN) || 'null');
+    return (j && typeof j === 'object') ? j : null;
+  } catch (e) { return null; }
+}
+
+/**
+ * چند روز است هیچ ویدئویی منتشر نشده؟ -1 یعنی هرگز مهری نخورده.
+ *
+ * مهر از ۶٫۲۶ زده می‌شود، پس برای موتوری که قبلاً کار می‌کرده اولین بار
+ * «هرگز» می‌دهد. همان اولین انتشارِ بعدی درستش می‌کند، و تا آن‌وقت هم
+ * تبِ انتشار خودش تاریخِ آخرین ردیف را دارد — پس این تابع اول سراغِ تب
+ * می‌رود و فقط اگر آن هم چیزی نداشت، «هرگز» می‌گوید.
+ */
+function ytPubIdleDays_(hub) {
+  var ms = 0;
+  try {
+    var raw = props_().getProperty(PK.YT_LASTPUB);
+    if (raw) ms = new Date(raw).getTime();
+  } catch (e) {}
+  if (!ms) {
+    try {
+      var sh = (hub || getHub_()).getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
+      if (sh && sh.getLastRow() > 1) {
+        var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
+        for (var i = 0; i < v.length; i++) {
+          if (!String(v[i][YU.VID - 1] || '').trim()) continue;   // فقط ردیفِ موفق
+          var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
+          if (!isNaN(t) && t > ms) ms = t;
+        }
+      }
+    } catch (e2) {}
+  }
+  if (!ms) return -1;
+  return Math.floor((new Date().getTime() - ms) / 86400000);
 }
 
 /**
@@ -2299,6 +2358,41 @@ function ytHealth_(problems, notes) {
      ویدئو کارِ طرفِ دیگر است. اگر این بند پشتِ «سرویس وصل است؟» می‌ماند،
      قطع‌شدنِ سرویس انبوهِ درخواست‌های بی‌جواب را هم نامرئی می‌کرد — یعنی
      دو خرابی، با یک سکوت. */
+  /* ══ صف پر است و هیچ‌چیز نمی‌رود (۶٫۲۶) ══
+   * حالتی که هیچ نگهبانی نداشت و کاربر با آن روبه‌رو شد: ویدئوها ساخته
+   * شده بودند، صف پر بود، و شب‌ها هیچ‌چیز منتشر نمی‌شد. «منتظرِ ویدئو»
+   * نه ردیفی در تب می‌سازد، نه سطری در ایمیل، نه هشداری — پس از بیرون
+   * دقیقاً شبیهِ «کاری نبود» به‌نظر می‌رسید.
+   * «بیکار» و «گیرکرده» دو چیزند: صفِ خالی بیکار است، صفِ پر گیر کرده. */
+  try {
+    var idle = ytPubIdleDays_(null);
+    var stallD = Math.max(1, Number(CFG.YT_STALL_DAYS) || 2);
+    var lr = ytLastRun_();
+    if (st.due > 0 && idle >= stallD) {
+      var why = (lr && lr.notes && lr.notes.length)
+        ? ' علت‌هایی که آخرین دور گفت: ' + lr.notes.join(' · ')
+        : ' آخرین دورِ صف هیچ علتی ثبت نکرده.';
+      problems.push('یوتیوب گیر کرده: ' + faDigitsOut_(String(st.due)) +
+                    ' قسمت در صف است ولی ' + faDigitsOut_(String(idle)) +
+                    ' روز است هیچ ویدئویی منتشر نشده' +
+                    (lr && lr.quota ? ' (سهمیهٔ یوتیوب تمام شده بود)' : '') + '.' + why);
+      try {
+        logSelfFinding_(getHub_(), {
+          priority: 'جدی', category: 'یوتیوب', key: 'yt-stalled',
+          title: 'صفِ یوتیوب پر است و ' + idle + ' روز هیچ انتشاری نبوده',
+          detail: 'در صف: ' + st.due + ' · آخرین دور: ' +
+                  (lr ? ('منتشر ' + lr.done + '، منتظر ' + lr.waiting +
+                         '، ناموفق ' + lr.failed) : 'ثبت نشده') +
+                  (lr && lr.notes ? ' — ' + lr.notes.join(' · ') : ''),
+          instruction: 'اگر همهٔ ردیف‌ها «منتظرِ ویدئو»اند، حلقهٔ برداشتِ ویدئو ' +
+                       '(ytRenderCollect_) کار نمی‌کند: نقشه، اجازهٔ فایل، یا ' +
+                       'دانلود. اگر سهمیه تمام شده، سقفِ روزانه را پایین بیاور.',
+          owner: ROWNER_CODE
+        });
+      } catch (eF) {}
+    }
+  } catch (eStall) {}
+
   var days = Math.max(1, Number(CFG.YT_STUCK_DAYS) || 3);
   if (st.waitingRender && st.renderOldestDays >= days) {
     problems.push('ساختِ ویدئو ' + faDigitsOut_(String(st.renderOldestDays)) +

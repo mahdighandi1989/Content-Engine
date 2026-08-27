@@ -439,6 +439,8 @@ var CFG = {
   YT_LEARN_MIN: 6,                      // زیرِ این، «الگو» فقط نویز است
 
   /* خلاصهٔ لینک‌ها (۶٫۱۹): روزی که ویدئویی منتشر نشده، هیچ پیامی نمی‌رود. */
+  // چند روز بی هیچ انتشاری، در حالی که صف خالی نیست = گیر کرده، نه بیکار.
+  YT_STALL_DAYS: 2,
   YT_DIGEST: true,
   YT_DIGEST_HOURS: 26,
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
@@ -839,7 +841,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.26',
+  CODE_VERSION: '6.27',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1084,6 +1086,8 @@ var PK = {
   EXPLAIN: 'EXPLAIN_LOG',         // کارنامهٔ عصری‌سازیِ درس‌نامه
   RECAP_DONE: 'RECAP_DONE',       // کدام مجموعه‌ها مرورِ بزرگ گرفته‌اند
   RECAP_LOG: 'RECAP_LOG',         // کارنامهٔ مرورهای ساخته‌شده
+  YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
+  YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
   TG_TOKEN: 'TELEGRAM_BOT_TOKEN',
   TG_CHAT: 'TELEGRAM_CHAT_ID',
   CODE_SEEN: 'CODE_VERSION_SEEN',  // آخرین نسخهٔ کدی که هشدارش داده شده
