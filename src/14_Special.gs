@@ -1924,6 +1924,16 @@ function renderSpecialAudioStep_() {
           xr = { ok: false, n: 0, chars: 0, why: 'خاموش است' };
         }
       } catch (eX) { xr = { ok: false, n: 0, chars: 0, why: eX.message }; }
+      /* و بازبینیِ محتوایی — خواستهٔ صریحِ کاربر: «متنش … دوباره قبل از
+         تولید بررسی بشه». در ۶٫۲۱ فقط از بازبینیِ *تلفظ* رد می‌شد، که
+         دربارهٔ اعراب حرف می‌زند نه دربارهٔ معنا. */
+      var xv = { kept: xr.n, dropped: 0, notes: [] };
+      try { if (xr.ok) xv = explainReview_(ep); } catch (eXv) {}
+      if (xv.dropped) {
+        xr.n = xv.kept;
+        logLine_('درس‌نامه ' + epNum + ': بازبینیِ عصری‌سازی ' + xv.dropped +
+                 ' توضیح را انداخت — ' + xv.notes.join(' · '));
+      }
       try { explainLog_(epNum, xr.n, xr.chars, xr.why); } catch (eXl) {}
       meta.ep = ep;
       try { writeSpecialJson_(folder, meta); } catch (eXw) {}

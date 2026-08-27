@@ -40,10 +40,18 @@ const SEC = (n, reps) => ({ heading: 'بخشِ ' + n,
                     tone: 'آموزشی' });
 const mkEp = (k, reps) => ({ title: 'درسِ آزمایشی',
                              sections: Array.from({ length: k }, (_, i) => SEC(i, reps)) });
+/* طولِ نمونه‌ها عمداً واقعی است: از ۶٫۲۸ کفِ پذیرش EXPLAIN_MIN_CHARS است،
+   چون توضیحی که یکی دو مثالِ ملموس داشته باشد زیر آن نمی‌شود — و کفِ ۸۰
+   نویسهٔ قبلی یعنی یک جملهٔ تعارفی هم می‌گذشت، که کاربر همان را شنید. */
 const TXT = n => ('ببین، ساده‌اش این است که ' + n + '. فرض کن گوشی‌ات را برداشته‌ای و ' +
-                  'یک پیام در گروه می‌فرستی؛ همان اتفاق اینجا هم می‌افتد. ').repeat(2);
+                  'یک پیام در گروه می‌فرستی؛ همان اتفاق اینجا هم می‌افتد. ').repeat(3);
+/* نمونهٔ جمع‌وجورترِ بالای کف — برای بلوکی که می‌خواهد **سقفِ تعداد** را
+   بسنجد نه سقفِ سهم. */
 const TXTS = n => 'ببین، ساده‌اش این است که ' + n + '. فرض کن گوشی‌ات را برداشته‌ای و ' +
-                  'یک پیام در گروه می‌فرستی؛ همان است.';
+                  'یک پیام در گروه می‌فرستی؛ همان اتفاق اینجا هم می‌افتد و تو ' +
+                  'بی آنکه فکر کنی جوابش را می‌دهی. حالا همین را بگذار کنارِ ' +
+                  'صفِ نانوایی: آنجا هم بی حساب‌وکتاب نوبت را می‌شناسی و کسی ' +
+                  'برایت قانون ننوشته. همین است، نه چیزِ پیچیده‌تری.';
 
 console.log('=== ۱) فقط درس‌نامه، و فقط وقتی روشن است ===');
 {
@@ -118,7 +126,7 @@ console.log('=== ۳) نقشه: پیشنهادِ مدل با سه سد ===');
   /* هشت بخش، هشت پیشنهادِ کوتاه — یعنی سهمِ نویسه‌ای جا دارد و تنها چیزی که
      جلو را می‌گیرد سقفِ *تعداد* است. اگر متن‌ها بلند بودند، این سنجه ممکن
      بود به‌خاطرِ سهم بگذرد و ادعای خودش را ثابت نکند. */
-  ep = mkEp(8, 6);
+  ep = mkEp(8, 12);
   mk(Array.from({ length: 8 }, (_, i) => ({ section: String(i), at: 'انتها', text: TXTS(i) })));
   r = explainPlan_(ep, 5, 'م');
   let sum0 = 0;
@@ -174,7 +182,7 @@ console.log('=== ۴) بریدن روی مرزِ جمله ===');
 
 console.log('=== ۵) قطعه‌ها سرِ جای درست در فهرستِ بخش‌ها می‌نشینند ===');
 {
-  const ep = mkEp(3);
+  const ep = mkEp(3, 30);
   global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
     text: JSON.stringify({ spots: [
       { section: '0', at: 'انتها', text: TXT('الف') },
@@ -192,7 +200,7 @@ console.log('=== ۵) قطعه‌ها سرِ جای درست در فهرستِ ب
      segs[kinds.indexOf('explain:0')].style.indexOf('خودمانی') !== -1);
 
   /* و بی نقشه، فهرست دقیقاً همان چیزی است که پیش از ۶٫۲۱ بود. */
-  const plain = specialSegments_(mkEp(3), 'علمی و آموزشی');
+  const plain = specialSegments_(mkEp(3, 30), 'علمی و آموزشی');
   ok('۵.۵ بی نقشه، هیچ قطعهٔ تازه‌ای اضافه نمی‌شود',
      plain.every(s => s.kind !== 'explain'));
 }
@@ -332,6 +340,76 @@ console.log('=== ۱۰) آیتمِ بددسته → یافته، نه جابه‌
   ok('۱۰.۵ ردیف مالِ موتور است، نه صفِ تغییرِ کد',
      rows()[0][8] === ROWNER_ENGINE && rows()[0][9] !== RST.NEEDS_CODE,
      JSON.stringify(rows()[0][8]) + ' / ' + JSON.stringify(rows()[0][9]));
+}
+
+console.log('=== ۱۱) بازبینیِ محتوایی — «دوباره قبل از تولید بررسی بشه» ===');
+{
+  /* ══ چرا این بلوک هست ══
+   * خواستهٔ صریح: «این هم متنش باید دقیق تنظیم بشه و **دوباره قبل از تولید
+   * بررسی بشه**.» در ۶٫۲۱ این را جا انداختم — متنِ توضیح‌دهنده فقط از
+   * بازبینیِ *تلفظ* رد می‌شد، که دربارهٔ اعراب حرف می‌زند نه معنا. هیچ سدی
+   * نمی‌پرسید «این اصلاً چیزی را توضیح می‌دهد؟»، و صاحبِ برنامه در قسمتِ
+   * واقعی شنید: «یکی‌اش خیلی بی‌معنی بود… بی‌ربط حرف زده.» */
+  const ep = mkEp(3, 30);
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ spots: [
+      { section: '0', at: 'انتها', text: TXT('الف') },
+      { section: '2', at: 'انتها', text: TXT('ب') }] }) }] } }] } });
+  explainPlan_(ep, 4, 'م');
+  ok('۱۱.۱ دو توضیح ساخته شد', ep.__explain.spots.length === 2);
+
+  const judge = v => { global.__STUB = () => ({ code: 200, json: { candidates: [{ content: {
+    parts: [{ text: JSON.stringify({ verdicts: v }) }] } }] } }); };
+
+  judge([{ section: '0', keep: 'بله', why: 'خوب است' },
+         { section: '2', keep: 'خیر', why: 'بی‌ربط و بی‌مثال' }]);
+  const r = explainReview_(ep);
+  ok('۱۱.۲ توضیحِ بی‌ربط انداخته می‌شود', r.dropped === 1 && r.kept === 1, JSON.stringify(r));
+  ok('۱۱.۳ و همان که ماند، درست همان است که داور نگه داشت',
+     ep.__explain.spots.length === 1 && Number(ep.__explain.spots[0].section) === 0);
+  ok('۱۱.۴ و علتش ثبت می‌شود', r.notes.join(' ').indexOf('بی‌ربط') !== -1, r.notes.join(' '));
+
+  /* ══ پیش‌فرض نگه‌داشتن است، نه انداختن ══
+   * داوری که در دسترس نباشد نباید کلِ عصری‌سازی را خاموش کند — همان قاعدهٔ
+   * «مدلِ غایب، تأییدِ خاموش نیست» ولی در جهتِ درست: اینجا نبودِ داور
+   * دلیلِ انداختن نیست، چون متن از سدهای دیگر رد شده. */
+  const ep2 = mkEp(3, 30);
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ spots: [{ section: '1', at: 'انتها', text: TXT('پ') }] }) }] } }] } });
+  explainPlan_(ep2, 4, 'م');
+  global.__STUB = () => { throw new Error('down'); };
+  ok('۱۱.۵ داورِ از دسترس خارج، توضیح را نمی‌اندازد',
+     explainReview_(ep2).kept === 1 && ep2.__explain.spots.length === 1);
+
+  const ep3 = mkEp(3, 30);
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ spots: [{ section: '1', at: 'انتها', text: TXT('ت') }] }) }] } }] } });
+  explainPlan_(ep3, 4, 'م');
+  judge([{ section: '1', keep: 'شاید', why: '' }]);
+  ok('۱۱.۶ و جوابِ نامفهومِ داور هم یعنی نگه‌دار',
+     explainReview_(ep3).dropped === 0);
+}
+
+console.log('=== ۱۲) کفِ طول: تیکهٔ بریده از نبودنش بدتر است ===');
+{
+  /* صاحبِ برنامه شنید: «یکی دو تیکه دیدم که خیلی کوتاه بود». علتش این بود
+     که وقتی متنِ درس نزدیکِ سقفِ «یک فایل» می‌نشیند سهم فرو می‌ریزد، و کفِ
+     ۸۰ نویسهٔ قبلی اجازه می‌داد تیکه‌های بریده هم بمانند. */
+  ok('۱۲.۱ کف واقعی است، نه یک جملهٔ تعارفی', Number(CFG.EXPLAIN_MIN_CHARS) >= 250);
+  const tight = { sections: [{ heading: 'ب',
+    narration: 'م'.repeat(specialFileCap_() - 300) }] };
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ spots: [{ section: '0', at: 'انتها', text: TXT('ث') }] }) }] } }] } });
+  const rr = explainPlan_(tight, 4, 'م');
+  ok('۱۲.۲ سهمی که به کف نمی‌رسد یعنی هیچ توضیحی، نه توضیحِ بریده',
+     rr.ok === false && !tight.__explain, rr.why);
+  /* و وقتی سهم حتی به کفِ *یک* توضیح هم نمی‌رسد، صریح گفته می‌شود —
+     نه اینکه در سکوت هیچ توضیحی نسازد. */
+  const none = { sections: [{ heading: 'ب',
+    narration: 'م'.repeat(specialFileCap_() - 100) }] };
+  const r2 = explainPlan_(none, 4, 'م');
+  ok('۱۲.۳ و اگر سهم به کفِ یک توضیح هم نرسد، علتش صریح است',
+     r2.ok === false && /کافی نبود/.test(r2.why), r2.why);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -201,7 +201,6 @@ function explainPlan_(ep, epNum, seriesName) {
   var secs = (ep && ep.sections) || [];
   if (!secs.length) { out.why = 'بخشی نیست'; return out; }
   var budget = explainBudget_(ep);
-  if (budget < 200) { out.why = 'سهمِ نویسه‌ای برای توضیح نماند'; return out; }
 
   var sig = '';
   try { sig = speakHash_(specialNarration_(ep)); } catch (e) { sig = String(secs.length); }
@@ -210,8 +209,13 @@ function explainPlan_(ep, epNum, seriesName) {
     return out;
   }
 
+  var min = Math.max(80, Number(CFG.EXPLAIN_MIN_CHARS) || 260);
+  /* شمارِ جاها به سهم بسته است، نه فقط به شمارِ بخش‌ها: سهمی که سه تیکهٔ
+     کامل را برنمی‌دارد، باید دو تا یا یکی بخواهد — نه سه تای بریده. */
   var want = Math.max(1, Math.min(Number(CFG.EXPLAIN_MAX_SPOTS) || 3,
-                                  Math.ceil(secs.length / 2)));
+                                  Math.ceil(secs.length / 2),
+                                  Math.floor(budget / min)));
+  if (budget < min) { out.why = 'سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود'; return out; }
   var r = null;
   try {
     r = geminiText_(explainPrompt_(ep, seriesName, budget, want), EXPLAIN_SCHEMA, 8192);
@@ -232,11 +236,17 @@ function explainPlan_(ep, epNum, seriesName) {
     var key = no + ':' + at;
     if (used[key]) continue;
     var txt = String(sp.text || '').replace(/[ \t]+/g, ' ').trim();
-    if (txt.length < 80) continue;                    // یک جملهٔ تعارفی، توضیح نیست
+    /* ══ کف، و چرا بریدن تا زیرِ کف ممنوع است ══
+     * گزارشِ صاحبِ برنامه: «یکی دو تیکه دیدم که خیلی کوتاه بود، و یکی‌اش
+     * اصلاً بی‌معنی بود». علتش همین‌جا بود: کف ۸۰ نویسه بود — یعنی یک
+     * جملهٔ تعارفی هم می‌گذشت — و وقتی متنِ درس نزدیکِ سقفِ «یک فایل»
+     * می‌نشست، سهم به چند ده نویسه فرو می‌ریخت و تیکه‌ها بریده می‌شدند.
+     * توضیحی که نصفه بریده شود، از نبودنش بدتر است: شنونده حرفی می‌شنود
+     * که به جایی نمی‌رسد. */
+    if (txt.length < min) continue;
     if (total + txt.length > budget) {
-      var room = budget - total;
-      if (room < 200) break;                          // ته‌ماندهٔ بی‌مصرف
-      txt = explainTrim_(txt, room);
+      txt = explainTrim_(txt, budget - total);
+      if (txt.length < min) break;      // جای سالم نمانده — بقیه را نمی‌بُریم
     }
     if (!txt) continue;
     used[key] = 1;
@@ -304,6 +314,128 @@ function explainSeg_(ep, spot) {
            'را با زبانِ ساده تعریف می‌کند. کمی سریع‌تر و سبک‌تر از بدنهٔ درس، ' +
            'بی لحنِ معلم‌وار. روی خودِ مثال کمی مکث کن.'
   };
+}
+
+
+/* ══════════════ بازبینیِ محتواییِ توضیح‌دهنده (۶٫۲۸) ══════════════
+ *
+ * خواستهٔ صریحِ صاحبِ برنامه: «این هم متنش باید دقیق توسط جایی تنظیم بشه و
+ * **دوباره قبل از تولید بررسی بشه**.» در ۶٫۲۱ این را جا انداختم — متنِ
+ * توضیح‌دهنده فقط از مسیرِ بازبینیِ *تلفظ* رد می‌شد، که دربارهٔ اعراب حرف
+ * می‌زند نه دربارهٔ معنا. هیچ سدی نمی‌پرسید «این اصلاً چیزی را توضیح
+ * می‌دهد؟»
+ *
+ * و نتیجه‌اش را کاربر شنید: «یکی‌اش خیلی بی‌معنی بود، نتونسته بود بفهمونه
+ * چیه، فکر می‌کنم بی‌ربط حرف زده.»
+ *
+ * سه پرسش، و هر سه از خودِ خواسته آمده‌اند:
+ *   • به همین بخش ربط دارد؟ (نه به بخشِ دیگر، نه کلی‌گویی)
+ *   • مثالِ ملموسِ امروزی دارد؟ («مهم‌ترین بخشِ کارت» در پرامپت)
+ *   • از درس عدول نکرده؟ («نه اینکه از محتوای اصلی عدول کنه»)
+ *
+ * داور عمداً فراخوانِ جداست، نه فیلدی در همان پاسخ: نویسنده‌ای که خودش
+ * نمرهٔ خودش را بدهد، جوابِ خودش را تأیید می‌کند — همان شکلی که در این
+ * ریپو سه نسخه پیاپی «درست شد» گفت و نشده بود.
+ *
+ * و **پیش‌فرض نگه‌داشتن است، نه انداختن**: اگر داور در دسترس نباشد یا
+ * جوابِ نامفهوم بدهد، تیکه می‌مانَد. یک توضیحِ متوسط بهتر از سکوت است؛
+ * ولی توضیحی که داور صریحاً «بی‌ربط» بخوانَد، می‌رود.
+ */
+var EXPLAIN_JUDGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          section: { type: 'string' },
+          keep: { type: 'string' },      // «بله» / «خیر»
+          why: { type: 'string' }
+        },
+        required: ['section', 'keep']
+      }
+    }
+  },
+  required: ['verdicts']
+};
+
+function explainJudgePrompt_(ep, spots) {
+  var secs = (ep && ep.sections) || [];
+  var L = [
+    'کارِ تو: بازبینیِ محتواییِ چند «توضیحِ ساده».',
+    '',
+    'در یک پادکستِ آموزشی، بعد یا قبل از هر بخشِ درس، یک نفرِ دوم می‌آید و',
+    'همان مفهوم را خودمانی و با مثالِ امروزی دوباره می‌گوید. متن‌های زیر',
+    'نوشته شده‌اند و می‌خواهیم پیش از ضبط بسنجیم‌شان.',
+    '',
+    'برای هر کدام سه چیز را بپرس:',
+    '۱) **به همین بخش ربط دارد؟** اگر کلی‌گویی است، یا دربارهٔ چیزِ دیگری',
+    '   حرف می‌زند، یا فقط متنِ بخش را با واژه‌های دیگر تکرار می‌کند —',
+    '   جوابْ «خیر».',
+    '۲) **مثالِ ملموسِ امروزی دارد؟** چیزی که شنونده در زندگیِ روزمره دیده.',
+    '   «فرض کنید فیلسوفی…» مثالِ ملموس نیست. بی مثال، جوابْ «خیر».',
+    '۳) **از درس عدول کرده؟** حکمی که در بخش نیست، یا مثالی که نتیجه‌اش',
+    '   خلافِ حرفِ بخش است — جوابْ «خیر».',
+    '',
+    'سخت‌گیر باش ولی منصف: توضیحِ ساده و کوتاهی که کارش را می‌کند «بله» است.',
+    'فقط چیزی را «خیر» بده که واقعاً بی‌ربط، بی‌مثال، یا خلافِ درس باشد.',
+    ''
+  ];
+  for (var i = 0; i < spots.length; i++) {
+    var no = Number(spots[i].section);
+    var sec = secs[no] || {};
+    var body = String(sec.narration || '').replace(/\s+/g, ' ').trim();
+    L.push('───────── بخشِ ' + no + ' — «' + String(sec.heading || '') + '»');
+    L.push('متنِ بخش: ' + (body.length > 1200 ? body.slice(0, 1200) + ' …' : body));
+    L.push('توضیحِ نوشته‌شده: ' + String(spots[i].text || ''));
+    L.push('');
+  }
+  L.push('در verdicts برای هر بخش، section همان شماره، keep برابرِ «بله» یا');
+  L.push('«خیر»، و why یک جمله که چرا.');
+  return L.join('\n');
+}
+
+/**
+ * تیکه‌های رد‌شده را می‌اندازد. برمی‌گرداند { kept, dropped, notes }.
+ * پیش‌فرض نگه‌داشتن است — «خیر» باید صریح باشد.
+ */
+function explainReview_(ep) {
+  var out = { kept: 0, dropped: 0, notes: [] };
+  var spots = (ep && ep.__explain && ep.__explain.spots) || [];
+  if (!spots.length || CFG.EXPLAIN_REVIEW === false) { out.kept = spots.length; return out; }
+  var r = null;
+  try { r = geminiText_(explainJudgePrompt_(ep, spots), EXPLAIN_JUDGE_SCHEMA, 4096); }
+  catch (e) { out.kept = spots.length; out.notes.push('داور در دسترس نبود'); return out; }
+  if (!r || !(r.verdicts instanceof Array) || !r.verdicts.length) {
+    out.kept = spots.length; out.notes.push('داور جوابی نداد');
+    return out;
+  }
+  var bad = Object.create(null);
+  for (var i = 0; i < r.verdicts.length; i++) {
+    var v = r.verdicts[i] || {};
+    var no = explainSecNo_(v.section);
+    var keep = String(v.keep || '').trim();
+    // فقط «خیر»ِ صریح می‌اندازد. هر چیزِ دیگر — از جمله جوابِ نامفهوم —
+    // یعنی نگه‌دار: پیش‌فرضِ این داور «نگه‌داشتن» است.
+    if (no >= 0 && (keep === 'خیر' || keep.toLowerCase() === 'no')) {
+      bad[no] = String(v.why || '').replace(/\s+/g, ' ').slice(0, 140) || 'بی‌ربط';
+    }
+  }
+  var keptList = [];
+  for (var j = 0; j < spots.length; j++) {
+    var n = Number(spots[j].section);
+    if (bad[n] !== undefined) {
+      out.dropped++;
+      out.notes.push('بخشِ ' + n + ': ' + bad[n]);
+      continue;
+    }
+    keptList.push(spots[j]);
+  }
+  ep.__explain.spots = keptList;
+  ep.__explain.judged = new Date().toISOString();
+  out.kept = keptList.length;
+  return out;
 }
 
 /** کارنامه — همان الگوی speakReviewStatus_، و به همان دلیل. */
