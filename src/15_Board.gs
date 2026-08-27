@@ -46,6 +46,10 @@ function seriesBoardData_(hub) {
   var hoMap = Object.create(null), hoDue = Object.create(null);
   try { hoMap = handoutBoardMap_(hub); } catch (eH) {}
   try { hoDue = handoutDueByKey_(); } catch (eH2) {}
+  /* و مرورِ بزرگ — بخشِ ۳۰، باز هم جلوتر، باز هم try/catch. رجیستری همین‌جا
+     خوانده شده، پس دوباره خوانده نمی‌شود. */
+  var rcMap = Object.create(null);
+  try { rcMap = recapBoardMap_(hub, reg); } catch (eR) {}
 
   var rows = [];
   for (var i = 0; i < reg.rows.length; i++) {
@@ -120,6 +124,7 @@ function seriesBoardData_(hub) {
       // حالِ جزوه — از تبِ «کاربردِ جزوه»، یک خواندن برای کلِ تخته
       handout: hoMap[key] || null,
       handoutDue: hoDue[key] || 0,
+      recap: rcMap[key] || null,
       hasWork: (function () {
         if (st === SST.SKIPPED) return false;
         for (var w = 0; w < partRows.length; w++) {
@@ -487,6 +492,7 @@ function seriesBoardHtml_(d) {
   // این فقط سطحِ نمایش است. پس اگر این پنل بشکند، تولید نمی‌شکند.
   H.push(calPanelHtml_());
   H.push(handoutPanelHtml_(d));
+  H.push(recapPanelHtml_(d));
 
   // ── جست‌وجو — خواستهٔ صریح: این فهرست باید «حتماً» قابلِ جست‌وجو باشد ──
   H.push('<div class="card" style="position:sticky;top:0;z-index:5">' +
@@ -598,7 +604,7 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th></th></tr>');
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
       var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
@@ -632,6 +638,7 @@ function seriesBoardHtml_(d) {
              (x.lastEpAt ? '<div class="sub">' + bEsc_(x.lastEpAt) + '</div>' : '') + '</td>');
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
+      H.push(recapCell_(x));
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -654,7 +661,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="8"><table style="font-size:11px">');
+               '<td colspan="9"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -747,6 +754,23 @@ function seriesBoardHtml_(d) {
          'busy();say("ساختِ جزوه… این کار چند ده ثانیه طول می‌کشد",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiHandoutSeries(k);}');
+  /* مرورِ بزرگ: تیک‌ها از خودِ جدول جمع می‌شوند، پس هیچ حالتِ دومی نگه داشته
+     نمی‌شود که با جدول ناهم‌خوان شود. `rcDefault` همان قاعدهٔ سرور است — و
+     عمداً از `data-*`ِ خودِ تیک می‌آید، نه از یک کپیِ جداگانه در جاوااسکریپت. */
+  H.push('function rcBoxes(){return [].slice.call(' +
+         'document.querySelectorAll("input.rcChk"));}');
+  H.push('function recapNone(){rcBoxes().forEach(function(b){if(!b.disabled)b.checked=false;});' +
+         'document.getElementById("rcMsg").textContent="همهٔ تیک‌ها برداشته شد.";}');
+  H.push('function recapDefault(){rcBoxes().forEach(function(b){' +
+         'if(!b.disabled)b.checked=(b.dataset.def==="1");});' +
+         'document.getElementById("rcMsg").textContent="تیکِ پیش‌فرض برگشت.";}');
+  H.push('function recapRun(b){var k=rcBoxes().filter(function(x){' +
+         'return x.checked&&!x.disabled;}).map(function(x){return x.dataset.key;});' +
+         'if(!k.length){document.getElementById("rcMsg").textContent=' +
+         '"هیچ مجموعه‌ای تیک نخورده.";return;}' +
+         'busy();say("ساختِ مرور… نوشتنِ متن چند ده ثانیه طول می‌کشد",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiRecapQueue(k);}');
   H.push('function handoutAll(){busy();' +
          'say("واردکردنِ قسمت‌های گذشته و ساختِ جزوه‌ها… چند لحظه صبر کنید",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -881,6 +905,108 @@ function handoutCell_(x) {
     (due ? '<div class="sub">' + faNum_(due) + ' در صف</div>' : '') +
     '<div><button style="margin-top:4px" data-key="' + bEsc_(x.key) + '" ' +
     'onclick="handoutSeries(this)">به‌روزرسانیِ جزوه</button></div></td>';
+}
+
+/**
+ * ══ ستونِ «مرورِ بزرگ» — و تیکی که پیش‌فرضش را خودش می‌داند (۶٫۳۰) ══
+ *
+ * خواستهٔ صاحبِ برنامه، عیناً: «ببینم برای هر مجموعه مرورش تا کجا تولید شده
+ * … و به‌صورت پیش‌فرض هم خودش انتخاب کرده باشه که اون‌هایی که مرور نشدن تیک
+ * خورده باشه (البته در صورتی که پادکستش قبلاً تولید شده باشه) ولی خودمم
+ * بتونم تیک بقیه رو بزنم.»
+ *
+ * پس سه حالت، و هر سه باید از هم دیده شوند:
+ *   • هیچ درسی ساخته نشده  → تیکِ خاموش و **غیرفعال**. مرورِ چیزی که وجود
+ *     ندارد یک قسمتِ خالی است، و تیکی که کار نکند بدتر از تیکِ نبودن است،
+ *     پس دلیلش هم روی خودِ خانه نوشته می‌شود.
+ *   • ساخته ولی مرور نشده  → **تیک‌خورده، پیش‌فرض**. این همان چیزی است که
+ *     صاحبِ برنامه معمولاً می‌خواهد؛ کاری که «معمولاً درست است» نباید هر بار
+ *     دستی انتخاب شود.
+ *   • مرور شده             → تیکِ خاموش، ولی **قابلِ زدن** — با نوشتنِ اینکه
+ *     تا کدام درس پوشش داده و چند درس از آن موقع اضافه شده. ۵٫۹۵: گیتی که
+ *     آدم نتواند بازش کند، همان شکلی است که این ریپو مدام به آن می‌خورد.
+ */
+function recapCell_(x) {
+  var r = x && x.recap;
+  var key = bEsc_(x.key);
+  if (!r || !r.made) {
+    return '<td class="sub"><label style="opacity:.5"><input type="checkbox" ' +
+           'class="rcChk" data-key="' + key + '" disabled> مرور</label>' +
+           '<div class="sub">هنوز قسمتی ساخته نشده</div></td>';
+  }
+  /* ══ پیش‌فرض: «مرور نشده» **و** به کفِ خودکار رسیده ══
+   * خواسته این بود که «اون‌هایی که مرور نشدن تیک خورده باشه، در صورتی که
+   * پادکستش قبلاً تولید شده باشه». تحتِ‌اللفظی یعنی هر مجموعه با یک درس هم
+   * تیک بخورد — ولی ۲۶۴ مجموعه هست و فشردنِ دکمه آن‌وقت ده‌ها مرورِ
+   * تک‌درسی سفارش می‌داد: هرکدام یک فراخوانِ مدل و یک قسمت در پلی‌لیست.
+   * پس پیش‌فرض کفِ خودِ موتور (RECAP_MIN_PARTS) را هم رعایت می‌کند، و
+   * مجموعهٔ زیرِ کف **همچنان تیک‌زدنی است** — فقط از پیش تیک نخورده، و
+   * دلیلش روی همان خانه نوشته شده. تصمیم دستِ آدم می‌ماند؛ چیزی که عوض
+   * می‌شود فقط «حدسِ اولیه» است.
+   *
+   * `data-def` همان پیش‌فرضِ سرور است، روی خودِ تیک. دکمهٔ «بازگرداندنِ تیکِ
+   * پیش‌فرض» از همین می‌خواند — نه از یک کپیِ دوم در جاوااسکریپت، که همان
+   * الگویی است که در این ریپو همیشه یکی‌اش کهنه می‌شود. */
+  var on = !r.done && r.ripe;
+  var chk = '<label><input type="checkbox" class="rcChk" data-key="' + key + '"' +
+            ' data-def="' + (on ? '1' : '0') + '"' + (on ? ' checked' : '') + '> ' +
+            (r.done ? 'دوباره بساز' : 'بساز') + '</label>';
+  var body;
+  if (!r.done) {
+    body = '<div class="sub">ساخته نشده — ' + faNum_(r.made) + ' درس آماده' +
+           (r.ripe ? '' : '<br>زیرِ کفِ ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
+                          ' درس؛ از پیش تیک نخورده، ولی می‌توانید بزنید') + '</div>';
+  } else {
+    body = '<div><span class="bdg b-done">قسمت ' + faNum_(Number(r.done.ep) || 0) + '</span></div>' +
+           '<div class="sub">تا درسِ ' + faNum_(r.covered) +
+           (r.done.ch ? ' · ' + faNum_(Number(r.done.ch)) + ' فصل' : '') +
+           (r.done.at ? '<br>' + bEsc_(String(r.done.at)) : '') + '</div>' +
+           (r.behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.behind) +
+                       ' درسِ تازه پس از آن</div>' : '');
+  }
+  return '<td>' + body +
+         (r.queued ? '<div class="sub" style="color:#166534">در صف (' +
+                     faNum_(r.queued) + ')</div>' : '') +
+         '<div style="margin-top:4px">' + chk + '</div></td>';
+}
+
+/** جعبهٔ بالای تخته برای مرور: خلاصه + دکمه‌ای که تیک‌ها را می‌فرستد. */
+function recapPanelHtml_(d) {
+  var rows = [];
+  var gs = (d && d.groups) || [];
+  for (var g = 0; g < gs.length; g++) rows = rows.concat(gs[g].series || []);
+  var ready = 0, made = 0, behind = 0, queued = 0, none = 0, def = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i].recap;
+    if (!r || !r.made) continue;
+    ready++;
+    if (r.queued) queued++;
+    if (!r.done && r.ripe) def++;
+    if (r.done) { made++; if (r.behind) behind++; } else none++;
+  }
+  if (!ready) return '';
+  return '<h2><span>مرورِ بزرگ</span>' +
+    '<span class="sub">یک قسمتِ جمع‌بندی برای هر مجموعه، با صدای همان یک نفر</span></h2>' +
+    '<div class="card"><div class="sub" style="margin-bottom:8px">' +
+    'ورودیِ مرور، جزوهٔ همان مجموعه است. تیک‌ها یک <b>سفارش</b> می‌سازند: اولی ' +
+    'همین حالا نوشته می‌شود و بقیه شب‌به‌شب پشتِ سرش می‌آیند — چون هر بار فقط ' +
+    'یک درس‌نامه می‌تواند در حالِ صداگذاری باشد. ' +
+    'از پیش، مجموعه‌هایی تیک خورده‌اند که مرور نگرفته‌اند و دستِ‌کم ' +
+    faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) + ' درسِ ساخته‌شده دارند. ' +
+    'مجموعهٔ زیرِ این کف، و مجموعه‌ای که قبلاً مرور گرفته، تیکشان خاموش است ' +
+    'ولی می‌توانید خودتان بزنید — تصمیم دستِ شماست، این فقط حدسِ اولیه است.</div>' +
+    '<div><b>' + faNum_(made) + '</b> مجموعه مرور دارد · ' +
+    '<b>' + faNum_(none) + '</b> هنوز نه · ' +
+    '<b>' + faNum_(def) + '</b> از پیش تیک خورده' +
+    (behind ? ' · <span style="color:#8a6d1f">' + faNum_(behind) +
+              ' مرورِ عقب‌افتاده (درسِ تازه پس از مرور)</span>' : '') +
+    (queued ? ' · <span style="color:#166534">' + faNum_(queued) + ' در صف</span>' : '') +
+    '</div>' +
+    '<div style="margin-top:8px">' +
+    '<button onclick="recapRun(this)">ساختِ مرور برای مجموعه‌های تیک‌خورده</button> ' +
+    '<button onclick="recapNone()">برداشتنِ همهٔ تیک‌ها</button> ' +
+    '<button onclick="recapDefault()">بازگرداندنِ تیکِ پیش‌فرض</button></div>' +
+    '<div class="sub" id="rcMsg" style="margin-top:6px"></div></div>';
 }
 
 /** جعبهٔ بالای تخته: حالِ کلیِ جزوه‌ها و یک دکمه برای همه. */
@@ -1041,6 +1167,36 @@ function uiHandoutSeries(key) {
     // «انجام شد.» می‌گوید و همهٔ جزئیات را دور می‌ریزد.
     return { ok: true, message: msg };
   } catch (e) { return { ok: false, message: 'جزوه ساخته نشد: ' + e.message }; }
+}
+
+/* ── دکمه‌های مرورِ بزرگ ──
+   همان مرزِ همیشگی: کارِ واقعی در بخشِ ۳۰ است و آنجا سنجه دارد؛ اینجا فقط
+   پوسته است، تا پنجرهٔ شکسته ساختِ مرور را نشکند. */
+function uiRecapQueue(keys) {
+  try {
+    var q = recapQueueSet_(keys || [], getHub_());
+    if (!q.n) {
+      return { ok: false, message: 'هیچ مجموعهٔ معتبری تیک نخورده بود ' +
+        '(مجموعه‌ای که هنوز قسمتی از آن ساخته نشده، مرور نمی‌گیرد).' };
+    }
+    var r = recapRunNext_();
+    var head = 'مرورِ بزرگ: ' + faDigitsOut_(String(q.n)) + ' مجموعه سفارش داده شد';
+    if (r && r.ok) {
+      return { ok: true, message: head + '. «' + r.series + '» همین حالا نوشته شد ' +
+        '(قسمت ' + faDigitsOut_(String(r.episode)) + '، ' +
+        faDigitsOut_(String(r.sections)) + ' بخش) و صداگذاری‌اش در اجرای بعد شروع می‌شود' +
+        (r.queueLeft ? '؛ ' + faDigitsOut_(String(r.queueLeft)) +
+                       ' مجموعه در صف ماند و شب‌به‌شب ساخته می‌شوند' : '') + '.' };
+    }
+    var why = {
+      busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ صف سرِ جایش می‌ماند و کارِ شبانه ادامه می‌دهد.',
+      'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده — ورودیِ مرور همان جزوه است.',
+      write: 'مدل متنی برنگرداند؛ کارِ شبانه دوباره امتحان می‌کند.',
+      none: 'مجموعهٔ معتبری پیدا نشد.',
+      off: 'قابلیت خاموش است (RECAP_ENABLED).'
+    }[r && r.reason] || String((r && r.reason) || 'نامعلوم');
+    return { ok: true, message: head + '، ولی همین حالا شروع نشد — ' + why };
+  } catch (e) { return { ok: false, message: 'سفارشِ مرور ثبت نشد: ' + e.message }; }
 }
 
 function uiHandoutAll() {

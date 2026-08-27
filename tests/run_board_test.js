@@ -662,4 +662,36 @@ ok('فاصلهٔ اضافه در کلیدِ قسمت نادیده گرفته م�
    (pAfter.byKey[pr0.key] || []).some(x => x.row === pr0.row));
 un = quiet(); shPart.getRange(pr0.row, SP.KEY, 1, 1).setValues([[pr0.key]]); un();
 
+/* ══ ستونِ «مرورِ بزرگ» — و دامی که ستونِ تازه همیشه دارد (۶٫۳۰) ══
+   افزودنِ یک <th> بدون <td>ِ متناظر هیچ خطایی نمی‌دهد: مرورگر جدول را
+   کج می‌کشد و همه‌چیز از ستونِ بعد یک خانه می‌لغزد. و colspanِ ردیفِ
+   جزئیات هم باید همان‌قدر رشد کند. هیچ‌کدام را چشم در یک پنجرهٔ شلوغ
+   نمی‌گیرد، پس شمرده می‌شوند. */
+console.log('\n=== ستونِ مرورِ بزرگ در تخته ===');
+{
+  const hR = seriesBoardHtml_(seriesBoardData_(hub));
+  const head = (hR.match(/<tr><th>اولویت<\/th>[\s\S]*?<\/tr>/) || [''])[0];
+  const nTh = (head.match(/<th>/g) || []).length;
+  ok('سرستونِ «مرورِ بزرگ» هست', head.indexOf('<th>مرورِ بزرگ</th>') !== -1, head);
+
+  /* شمارِ خانه‌های یک ردیفِ مجموعه باید با شمارِ سرستون‌ها یکی باشد. */
+  const rowM = hR.match(/<tr class="srow[^"]*"[\s\S]*?<\/tr>/);
+  const nTd = rowM ? (rowM[0].match(/<td/g) || []).length : 0;
+  ok('شمارِ خانه‌های ردیف با شمارِ سرستون‌ها می‌خواند',
+     nTd === nTh, nTd + ' خانه در برابرِ ' + nTh + ' سرستون');
+
+  const cs = hR.match(/colspan="(\d+)"><table style="font-size:11px"/);
+  ok('colspanِ ردیفِ جزئیات هم به‌اندازهٔ ستون‌های باقی‌مانده است',
+     cs && Number(cs[1]) === nTh - 1, cs ? cs[1] : 'نبود');
+
+  ok('هر مجموعه یک تیکِ مرور دارد',
+     (hR.match(/class="rcChk"/g) || []).length === (hR.match(/onclick="pinSeries\(/g) || []).length,
+     (hR.match(/class="rcChk"/g) || []).length + ' تیک');
+  ok('جعبهٔ بالای تخته هم آمده و دکمه‌اش سروری است',
+     hR.indexOf('uiRecapQueue') !== -1 && hR.indexOf('recapDefault') !== -1);
+  /* و «بازگرداندنِ تیکِ پیش‌فرض» باید چیزی برای خواندن داشته باشد. */
+  ok('پیش‌فرضِ سرور روی خودِ تیک نوشته شده',
+     /class="rcChk"[^>]*data-def="[01]"/.test(hR));
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');

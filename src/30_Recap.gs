@@ -54,10 +54,19 @@ function recapDone_() {
   } catch (e) { return {}; }
 }
 
-function recapMarkDone_(seriesKey, epNum) {
+/**
+ * «یک بار» تنها نصفِ خبر است؛ نصفِ دیگر **تا کجا**.
+ *
+ * خواستهٔ صریحِ صاحبِ برنامه: «ببینم برای هر مجموعه مرورش تا کجا تولید شده».
+ * تا ۶٫۲۹ فقط تاریخ و شمارهٔ قسمت ذخیره می‌شد، پس تخته فقط می‌توانست
+ * «ساخته/نساخته» بگوید — و مجموعه‌ای که بعد از مرورش ده درسِ دیگر گرفته،
+ * از مجموعه‌ای که همین دیروز مرور شده جدا نمی‌شد.
+ */
+function recapMarkDone_(seriesKey, epNum, parts, chapters) {
   try {
     var o = recapDone_();
-    o[String(seriesKey)] = { at: nowStr_(), ep: Number(epNum) || 0 };
+    o[String(seriesKey)] = { at: nowStr_(), ep: Number(epNum) || 0,
+                             parts: Number(parts) || 0, ch: Number(chapters) || 0 };
     props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
   } catch (e) {}
 }
@@ -91,15 +100,34 @@ function recapReopen_(seriesKey) {
  * همان درسی که تختهٔ جزوه در ۵٫۸۷ گرفت: یک خواندن برای ۲۶۴ مجموعه، نه
  * ۲۶۴ رفت‌وبرگشت.
  */
+/**
+ * نشانِ ردیفِ مرور در تبِ درس‌نامه — **یک نسخه، دو مصرف**: هم نوشته می‌شود،
+ * هم خوانده. دو رشتهٔ جدا یعنی روزی یکی عوض می‌شود و آن‌یکی بی‌صدا کهنه.
+ */
+var RECAP_ROW_MARK = 'مرورِ همهٔ درس‌ها';
+
+/**
+ * چند درسِ *واقعی* از هر مجموعه ساخته شده.
+ *
+ * ══ و چرا ردیفِ خودِ مرور باید کنار برود (۶٫۳۰) ══
+ * مرور هم یک ردیف در همین تب می‌گذارد. تا وقتی این تابع فقط ردیف می‌شمرد،
+ * مجموعه‌ای که ۱۸ درس داشت و مرور گرفت، ۱۹ نشان می‌داد — یعنی تخته برای
+ * همیشه می‌گفت «یک درس عقب است» و دکمهٔ مرورش هر شب دوباره تیک می‌خورد.
+ * دقیقاً همان چیزی که `handoutSeriesEpisodes_` در بخشِ ۲۶ برایش فیلتر دارد:
+ * «مرور درسِ تازه نیست». هشداری که هرگز نمی‌تواند رفع شود، هشدار نیست.
+ */
 function recapPartsMap_(hub) {
   var map = Object.create(null);
   try {
     var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
     if (!sh || sh.getLastRow() < 2) return map;
-    var v = sh.getRange(2, XC.SERIES, sh.getLastRow() - 1, 1).getValues();
+    var w = XC.PARTS - XC.SERIES + 1;
+    var v = sh.getRange(2, XC.SERIES, sh.getLastRow() - 1, w).getValues();
     for (var i = 0; i < v.length; i++) {
       var nm = String(v[i][0] || '').trim();
       if (!nm) continue;
+      var cov = String(v[i][XC.PARTS - XC.SERIES] || '');
+      if (cov.indexOf(RECAP_ROW_MARK) !== -1) continue;   // ردیفِ خودِ مرور
       map[nm] = (map[nm] || 0) + 1;
     }
   } catch (e) {}
@@ -360,7 +388,7 @@ function runRecapEpisode(opt) {
 
   var meta = {
     ep: ep, seriesKey: pick.rec.key, seriesName: pick.name,
-    partFile: '', partName: 'مرورِ همهٔ درس‌ها', partSeq: 0,
+    partFile: '', partName: RECAP_ROW_MARK, partSeq: 0,
     covers: [], fromNo: 0, toNo: 0, totalChunks: 0, more: false,
     chunkNos: [], enrich: [], enrichOffered: 0,
     seriesCat: seriesCatOf_(pick.rec.vals),
@@ -376,7 +404,7 @@ function runRecapEpisode(opt) {
   var tags = [];
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
-                'مرورِ همهٔ درس‌ها (' + pick.made + ' قسمت)',
+                RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
                 'از جزوهٔ مجموعه — ' + nCh + ' فصل',
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
@@ -385,7 +413,7 @@ function runRecapEpisode(opt) {
     epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),
     chunkIdx: 0, partNo: 1, files: [], phase: 'speak'
   }));
-  recapMarkDone_(pick.rec.key, epNum);
+  recapMarkDone_(pick.rec.key, epNum, pick.made, nCh);
   recapLog_(pick.name, epNum, ep.sections.length, nCh);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
@@ -412,9 +440,143 @@ function recapLog_(seriesName, epNum, secs, chapters) {
  * دو مرورِ یک‌شبه یعنی دو قسمتِ درس‌نامه در یک روز، که برنامهٔ شنونده را
  * به هم می‌ریزد؛ و صف هم جایی نمی‌رود.
  */
+/* ═══════════════════════════════════════════════════════════════════
+ * صفِ مرور — انتخابِ آدم، نه فقط انتخابِ موتور (۶٫۳۰)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * خواستهٔ صاحبِ برنامه: «بتونم انتخاب کنم از درس‌هایی که قبلاً مرور داشتن هم
+ * باز مرور تولید بشه یا نه، و به‌صورت پیش‌فرض هم خودش انتخاب کرده باشه که
+ * اون‌هایی که مرور نشدن تیک خورده باشه (البته در صورتی که پادکستش قبلاً
+ * تولید شده باشه) ولی خودمم بتونم تیک بقیه رو بزنم.»
+ *
+ * چرا **صف** و نه «همه را همین حالا بساز»: هر مرور یک فراخوانِ مدل است و
+ * `PK.SP_PENDING` یک کلید بیشتر نیست — دو درس‌نامهٔ هم‌زمان یعنی یکی
+ * نیمه‌کاره رها می‌شود. پس تیک‌ها یک *سفارش* می‌سازند: اولی همان لحظه
+ * شروع می‌شود و بقیه شب‌به‌شب پشتِ سرش می‌آیند.
+ *
+ * و صف حافظه دارد: مجموعه‌ای که سه شب پیاپی نشود (مثلاً جزوه‌اش ساخته
+ * نشده) کنار گذاشته می‌شود با علتِ نوشته‌شده — وگرنه یک سفارشِ نشدنی صف را
+ * برای بقیه می‌بندد، همان گرسنگی‌ای که `recapCandidates_` یک بار داشت.
+ */
+function recapQueue_() {
+  try {
+    var raw = props_().getProperty(PK.RECAP_Q);
+    var L = raw ? JSON.parse(raw) : [];
+    return (L instanceof Array) ? L : [];
+  } catch (e) { return []; }
+}
+
+function recapQueueSave_(list) {
+  try {
+    props_().setProperty(PK.RECAP_Q, JSON.stringify((list || []).slice(0, 40)));
+    return true;
+  } catch (e) { return false; }
+}
+
+/**
+ * تیک‌های تخته را به صف تبدیل می‌کند. **جایگزین می‌کند، نه اضافه** — تخته
+ * حالِ کاملِ انتخاب را می‌فرستد، پس برداشتنِ تیک باید واقعاً برداشتن باشد.
+ *
+ * مجموعه‌ای که هیچ درسِ تولیدشده‌ای ندارد پذیرفته نمی‌شود، هر چه تیک بخورد:
+ * مرورِ چیزی که وجود ندارد، یک قسمتِ خالی است.
+ */
+function recapQueueSet_(keys, hub) {
+  var map = {};
+  try { map = recapBoardMap_(hub || getHub_()); } catch (e) { map = {}; }
+  var out = [], seen = Object.create(null), skipped = [];
+  for (var i = 0; i < (keys || []).length; i++) {
+    var k = String(keys[i] || '').trim();
+    if (!k || seen[k]) continue;
+    seen[k] = true;
+    var m = map[k];
+    if (!m || !m.made) { skipped.push(k); continue; }
+    out.push({ key: k, name: m.name, made: m.made,
+               redo: !!(m.done && m.done.at), at: nowStr_(), tries: 0, why: '' });
+  }
+  // پرقسمت‌ترین اول — همان ترتیبی که recapCandidates_ خودش می‌گیرد.
+  out.sort(function (a, b) { return b.made - a.made; });
+  recapQueueSave_(out);
+  return { n: out.length, skipped: skipped.length, list: out };
+}
+
+/**
+ * یک سفارش از صف را اجرا می‌کند. هم دکمه از این استفاده می‌کند هم کارِ شبانه،
+ * چون دو مسیرِ جدا یعنی یکی از آن‌دو روزی رفتارِ دیگری پیدا می‌کند.
+ */
+function recapRunNext_() {
+  /* «خالی» پیش از «مشغول» پرسیده می‌شود: صفِ خالیِ یک شبِ شلوغ، «مشغول»
+     نیست — هیچ سفارشی نبوده. و `recapNightly_` دقیقاً بر همین تمایز تکیه
+     می‌کند تا بفهمد باید سراغِ انتخابِ خودکار برود یا نه. */
+  var q = recapQueue_();
+  if (!q.length) return { ok: false, reason: 'empty' };
+  if (props_().getProperty(PK.SP_PENDING)) return { ok: false, reason: 'busy' };
+  var head = q[0] || {};
+  var r;
+  try { r = runRecapEpisode({ key: head.key, force: true }); }
+  catch (e) { r = { ok: false, reason: 'error', why: e.message }; }
+
+  if (r.ok) { recapQueueSave_(q.slice(1)); r.queueLeft = q.length - 1; return r; }
+  if (r.reason === 'busy') { r.queueLeft = q.length; return r; }
+
+  head.tries = (Number(head.tries) || 0) + 1;
+  head.why = String(r.reason || '');
+  var max = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
+  if (head.tries >= max) {
+    recapQueueSave_(q.slice(1));
+    logLine_('مرورِ «' + (head.name || head.key) + '» بعد از ' + head.tries +
+             ' تلاش کنار گذاشته شد (' + head.why + ').');
+    r.dropped = true;
+  } else {
+    q[0] = head; recapQueueSave_(q);
+  }
+  r.queueLeft = recapQueue_().length;
+  return r;
+}
+
+/**
+ * حالِ مرورِ هر مجموعه، برای تختهٔ «مجموعه‌های آموزشی و پیشرفت».
+ *
+ * یک خواندنِ تبِ درس‌نامه برای همهٔ مجموعه‌ها — نه یکی به‌ازای هر مجموعه.
+ * همان قاعده‌ای که در ۶٫۲۲ `recapPick_` را از ۲۶۴ خواندن به یکی رساند.
+ */
+function recapBoardMap_(hub, reg) {
+  var out = Object.create(null);
+  try {
+    hub = hub || getHub_();
+    reg = reg || readSeriesReg_(hub);
+    var made = recapPartsMap_(hub);
+    var done = recapDone_();
+    var q = recapQueue_(), qs = Object.create(null);
+    for (var j = 0; j < q.length; j++) qs[String(q[j].key)] = j + 1;
+    var min = Number(CFG.RECAP_MIN_PARTS) || 8;
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var key = String(rec.key || '');
+      var name = String(rec.vals[SC.NAME - 1] || key);
+      var m = Number(made[name]) || 0;
+      var d = done[key] || null;
+      var covered = d ? (Number(d.parts) || 0) : 0;
+      out[key] = {
+        name: name, made: m, done: d, covered: covered,
+        behind: Math.max(0, m - covered),
+        queued: qs[key] || 0,
+        eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»
+        ripe: m >= min                // به کفِ خودکار هم رسیده
+      };
+    }
+  } catch (e) {}
+  return out;
+}
+
 function recapNightly_() {
   if (CFG.RECAP_ENABLED === false) return { ok: false, reason: 'off' };
   if (props_().getProperty(PK.SP_PENDING)) return { ok: false, reason: 'busy' };
+  /* سفارشِ آدم بر انتخابِ موتور مقدم است. اگر برعکس بود، شبی که موتور خودش
+     نامزدی داشت، تیکِ دیشبِ صاحبِ برنامه یک شب دیگر عقب می‌افتاد — و او
+     دلیلش را هیچ‌جا نمی‌دید. */
+  var q;
+  try { q = recapRunNext_(); } catch (eQ) { q = { ok: false, reason: 'error' }; }
+  if (q && q.reason !== 'empty') return q;
   var r;
   try { r = runRecapEpisode({}); } catch (e) { return { ok: false, reason: 'error', why: e.message }; }
   return r;
@@ -428,7 +590,11 @@ function recapNightly_() {
  */
 function runRecapNow() {
   var ui = ui_();
-  var r = runRecapEpisode({ force: true });
+  /* صف مقدم است — همان ترتیبی که کارِ شبانه دارد. دکمه‌ای که صفِ سفارش را
+     نادیده بگیرد یعنی دو رفتار برای یک کار، و روزی یکی‌شان عوض می‌شود. */
+  var r = null;
+  try { r = recapRunNext_(); } catch (eQ) { r = null; }
+  if (!r || r.reason === 'empty') r = runRecapEpisode({ force: true });
   var L = ['قسمتِ مرورِ بزرگ:'];
   if (r.ok) {
     L.push('• مجموعه: ' + r.series);
@@ -459,19 +625,34 @@ function runRecapNow() {
 
 /** یک سطرِ فارسیِ آماده برای ایمیلِ روزانه. */
 function recapStatus_() {
-  var out = { line: '', ok: true, n: 0 };
+  var out = { line: '', ok: true, n: 0, queued: 0 };
   try {
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
     var done = recapDone_(), keys = [];
     for (var k in done) if (Object.prototype.hasOwnProperty.call(done, k)) keys.push(k);
     out.n = keys.length;
-    if (!keys.length) { out.line = 'مرورِ بزرگ: هنوز برای هیچ مجموعه‌ای ساخته نشده.'; return out; }
+    if (!keys.length) {
+      var q0 = [];
+      try { q0 = recapQueue_(); } catch (eQ0) { q0 = []; }
+      out.queued = q0.length;
+      out.line = 'مرورِ بزرگ: هنوز برای هیچ مجموعه‌ای ساخته نشده' +
+                 (q0.length ? '؛ ' + fa(q0.length) + ' مجموعه در صف است («' +
+                              String(q0[0].name || q0[0].key) + '» بعدی است)' : '') + '.';
+      return out;
+    }
     var raw = props_().getProperty(PK.RECAP_LOG);
     var L = raw ? JSON.parse(raw) : [];
     var last = (L instanceof Array && L.length) ? L[0] : null;
+    /* صف هم باید در همان سطر باشد: چیزی که فقط در Properties بماند دیده
+       نمی‌شود، و صاحبِ برنامه شیت باز نمی‌کند (قاعدهٔ ۵٫۹۰). */
+    var q = [];
+    try { q = recapQueue_(); } catch (eQ) { q = []; }
+    out.queued = q.length;
     out.line = 'مرورِ بزرگ: برای ' + fa(keys.length) + ' مجموعه ساخته شده' +
                (last ? ' — آخری «' + last.series + '»، قسمت ' + fa(last.ep) +
-                       ' با ' + fa(last.secs) + ' بخش' : '') + '.';
+                       ' با ' + fa(last.secs) + ' بخش' : '') +
+               (q.length ? '؛ ' + fa(q.length) + ' مجموعه در صف («' +
+                           String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.';
   } catch (e) {}
   return out;
 }

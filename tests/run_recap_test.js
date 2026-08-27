@@ -341,4 +341,184 @@ console.log('\n=== ۱۰) جدولِ پوشش برای مرور، سه صفر ن�
      coverShortText_(norm) === 'قسمت 3 — قطعهٔ 4 تا 9 از 22', coverShortText_(norm));
 }
 
+console.log('\n=== ۱۱) ردیفِ خودِ مرور، درس حساب نمی‌شود ===');
+{
+  /* ══ چرا این سنجه هست ══
+   * مرور هم یک ردیف در تبِ درس‌نامه می‌گذارد. اگر شمارنده آن را هم بشمرد،
+   * مجموعه‌ای که ۹ درس داشت و مرور گرفت، ۱۰ نشان می‌دهد — یعنی تخته برای
+   * همیشه می‌گوید «یک درس عقب است» و تیکش هر شب دوباره می‌خورد. همان
+   * فیلتری که بخشِ ۲۶ برای جزوه دارد. */
+  const before = recapPartsMap_(hub)['معرفت‌شناسی'];
+  const sp = ensureTab_(hub, CFG.SPECIAL_TAB, SPECIAL_HEADERS);
+  const r = new Array(SPECIAL_HEADERS.length).fill('');
+  r[0] = 99; r[XC.SERIES - 1] = 'معرفت‌شناسی';
+  r[XC.PARTS - 1] = RECAP_ROW_MARK + ' (9 قسمت)';
+  sp.getRange(sp.getLastRow() + 1, 1, 1, SPECIAL_HEADERS.length).setValues([r]);
+  ok('۱۱.۱ ردیفِ مرور به شمارِ درس‌ها اضافه نمی‌شود',
+     recapPartsMap_(hub)['معرفت‌شناسی'] === before,
+     before + ' → ' + recapPartsMap_(hub)['معرفت‌شناسی']);
+  /* و نشان یک نسخه بیشتر ندارد: همان رشته‌ای که نوشته می‌شود، خوانده می‌شود. */
+  ok('۱۱.۲ نشانِ ردیف یک نسخه دارد',
+     fs.readFileSync('src/30_Recap.gs', 'utf8')
+       .split('مرورِ همهٔ درس‌ها').length - 1 === 1);
+}
+
+console.log('\n=== ۱۲) تخته: «تا کجا مرور شده» و تیکِ پیش‌فرض ===');
+{
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_Q];
+  setSeries('kNew', 'مجموعهٔ تازه', sf.getId());     // بی هیچ قسمتی
+  const reg = readSeriesReg_(hub);
+
+  let m = recapBoardMap_(hub, reg);
+  ok('۱۲.۱ مجموعهٔ بی‌قسمت واجدِ شرایط نیست',
+     m['kNew'] && m['kNew'].made === 0 && m['kNew'].eligible === false);
+  ok('۱۲.۲ مجموعهٔ باقسمت هست و هنوز مرور ندارد',
+     m['kEp'].eligible === true && !m['kEp'].done && m['kEp'].covered === 0);
+
+  /* «تا کجا» نصفِ دیگرِ خبر است: تا ۶٫۲۹ فقط تاریخ ذخیره می‌شد. */
+  recapMarkDone_('kEp', 12, 9, 2);
+  addParts('معرفت‌شناسی', 3);                        // سه درسِ تازه پس از مرور
+  m = recapBoardMap_(hub, reg);
+  ok('۱۲.۳ پوششِ مرور ثبت شده', m['kEp'].covered === 9, String(m['kEp'].covered));
+  ok('۱۲.۴ و «سه درسِ تازه پس از آن» حساب می‌شود',
+     m['kEp'].behind === 3, String(m['kEp'].behind));
+
+  // ── تیکِ پیش‌فرض: سه حالت، و هر سه باید از هم دیده شوند ──
+  const cellDone = recapCell_({ key: 'kEp', recap: m['kEp'] });
+  const cellNone = recapCell_({ key: 'kNew', recap: m['kNew'] });
+  delete global.__PROPS[PK.RECAP_DONE];
+  const mFresh = recapBoardMap_(hub, reg);
+  const cellReady = recapCell_({ key: 'kEp', recap: mFresh['kEp'] });
+
+  ok('۱۲.۵ رسیده به کف و مرورنشده → پیش‌فرض تیک‌خورده',
+     cellReady.indexOf('checked') !== -1 && cellReady.indexOf('data-def="1"') !== -1);
+  /* ولی «یک درس ساخته شده» پیش‌فرضِ تیک نمی‌گیرد: ۲۶۴ مجموعه هست و فشردنِ
+     دکمه آن‌وقت ده‌ها مرورِ تک‌درسی سفارش می‌داد. تیکش خاموش است ولی
+     **غیرفعال نیست** — تصمیم دستِ آدم می‌ماند. */
+  const keepMin = CFG.RECAP_MIN_PARTS; CFG.RECAP_MIN_PARTS = 99;
+  const cellThin = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  CFG.RECAP_MIN_PARTS = keepMin;
+  ok('۱۲.۵-ب زیرِ کف: تیکِ خاموش ولی زدنی، با دلیلِ نوشته‌شده',
+     cellThin.indexOf('checked') === -1 && cellThin.indexOf('disabled') === -1 &&
+     cellThin.indexOf('data-def="0"') !== -1 && cellThin.indexOf('زیرِ کفِ') !== -1);
+  ok('۱۲.۶ مرورشده → تیکِ خاموش، ولی زدنی',
+     cellDone.indexOf('checked') === -1 && cellDone.indexOf('disabled') === -1 &&
+     cellDone.indexOf('data-def="0"') !== -1);
+  ok('۱۲.۷ بی‌قسمت → تیکِ غیرفعال، با دلیلِ نوشته‌شده',
+     cellNone.indexOf('disabled') !== -1 &&
+     cellNone.indexOf('هنوز قسمتی ساخته نشده') !== -1);
+  ok('۱۲.۸ و خانهٔ مرورشده می‌گوید تا کجا',
+     cellDone.indexOf('تا درسِ') !== -1 && cellDone.indexOf('قسمت ') !== -1, cellDone.slice(0, 90));
+}
+
+console.log('\n=== ۱۳) صف: سفارشِ آدم، و چیزی که نباید سفارش بگیرد ===');
+{
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_DONE];
+  const un = quiet();
+  let q = recapQueueSet_(['kEp', 'kNew', 'kEp'], hub);
+  un();
+  ok('۱۳.۱ مجموعهٔ بی‌قسمت پذیرفته نمی‌شود', q.n === 1 && q.skipped === 1,
+     JSON.stringify(q.list.map(x => x.key)));
+  ok('۱۳.۲ و تکراری دوبار وارد نمی‌شود', recapQueue_().length === 1);
+  /* **جایگزین می‌کند، نه اضافه** — تخته حالِ کاملِ تیک‌ها را می‌فرستد، پس
+     برداشتنِ تیک باید واقعاً برداشتن باشد. */
+  recapQueueSet_([], hub);
+  ok('۱۳.۳ فرستادنِ فهرستِ خالی یعنی صف خالی می‌شود', recapQueue_().length === 0);
+  ok('۱۳.۴ صفِ خالی، «empty» می‌گوید نه شکست',
+     recapRunNext_().reason === 'empty');
+}
+
+console.log('\n=== ۱۴) اجرا از صف: مقدم بر انتخابِ موتور، و بی گرسنگی ===');
+{
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.SP_PENDING];
+  global.__PROPS[PK.SP_EP_NUM] = '30';
+  recapQueueSet_(['kEp'], hub);
+
+  /* درس‌نامه‌ای در جریان = صف دست‌نخورده می‌ماند. اگر اینجا سفارش را
+     می‌انداختیم، تیکِ کاربر بی‌صدا گم می‌شد. */
+  global.__PROPS[PK.SP_PENDING] = '{}';
+  ok('۱۴.۱ وقتی درس‌نامه‌ای در جریان است، صف دست نمی‌خورد',
+     recapRunNext_().reason === 'busy' && recapQueue_().length === 1);
+  delete global.__PROPS[PK.SP_PENDING];
+
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ title: 'مرور', hook: 'ه.',
+      sections: [{ heading: 'ی', narration: 'م'.repeat(900) }], outro: 'پ.' }) }] } }] } });
+  const un = quiet();
+  const r = recapRunNext_();
+  un();
+  ok('۱۴.۲ سفارش اجرا شد', r.ok === true && r.series === 'معرفت‌شناسی', JSON.stringify(r));
+  ok('۱۴.۳ و از صف برداشته شد', recapQueue_().length === 0);
+
+  /* سفارشی که نشود، صف را برای بقیه نمی‌بندد — همان گرسنگی‌ای که
+     recapCandidates_ یک بار داشت. */
+  delete global.__PROPS[PK.SP_PENDING];
+  delete global.__PROPS[PK.RECAP_Q];
+  setSeries('kNoBk', 'بی‌جزوهٔ صف', global.__ROOT_FOLDER.createFolder('۰۲ — بی‌جزوهٔ صف').getId());
+  addParts('بی‌جزوهٔ صف', 9);
+  recapQueueSet_(['kNoBk'], hub);
+  const un2 = quiet();
+  let last = null;
+  for (let i = 0; i < (CFG.RECAP_TRY_MAX || 3); i++) {
+    delete global.__PROPS[PK.SP_PENDING];
+    last = recapRunNext_();
+  }
+  un2();
+  ok('۱۴.۴ سفارشِ نشدنی بعد از سقفِ تلاش کنار می‌رود',
+     recapQueue_().length === 0 && last && last.dropped === true, JSON.stringify(last));
+
+  /* و کارِ شبانه صف را مقدم می‌داند. اگر برعکس بود، تیکِ دیشبِ صاحبِ برنامه
+     یک شب دیگر عقب می‌افتاد و دلیلش را هیچ‌جا نمی‌دید. */
+  delete global.__PROPS[PK.SP_PENDING];
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_Q];
+  recapQueueSet_(['kEp'], hub);
+  const un3 = quiet();
+  const n = recapNightly_();
+  un3();
+  ok('۱۴.۵ کارِ شبانه اول صف را خالی می‌کند',
+     n.ok === true && n.series === 'معرفت‌شناسی' && recapQueue_().length === 0,
+     JSON.stringify(n));
+}
+
+console.log('\n=== ۱۵) دکمهٔ تخته، سرتاسری ===');
+{
+  delete global.__PROPS[PK.SP_PENDING];
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_Q];
+  const un = quiet();
+  const r = uiRecapQueue(['kEp']);
+  un();
+  ok('۱۵.۱ پاسخ قالبِ {ok,message} دارد',
+     r && r.ok === true && typeof r.message === 'string', JSON.stringify(r).slice(0, 90));
+  ok('۱۵.۲ و می‌گوید کدام مجموعه همین حالا نوشته شد',
+     r.message.indexOf('معرفت‌شناسی') !== -1, r.message);
+  const un2 = quiet();
+  const r0 = uiRecapQueue([]);
+  un2();
+  ok('۱۵.۳ تیکِ خالی، پیامِ روشن می‌دهد نه سکوت',
+     r0.ok === false && r0.message.indexOf('تیک نخورده') !== -1, r0.message);
+}
+
+console.log('\n=== ۱۶) صف در سطرِ روزانه دیده می‌شود ===');
+{
+  /* ۵٫۹۰: «صاحبِ برنامه هیچ‌وقت شیت باز نمی‌کند، پس چیزی نباید فقط در یک
+     شیت (یا اینجا: فقط در Properties) زندگی کند.» سفارشی که ثبت شود و در
+     گزارشِ روزانه نیاید، از نظرِ او ثبت نشده. */
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_DONE];
+  ok('۱۶.۱ بی صف و بی مرور، سطر همان چیزِ همیشگی است',
+     recapStatus_().line.indexOf('هنوز برای هیچ') !== -1, recapStatus_().line);
+  const un = quiet(); recapQueueSet_(['kEp'], hub); un();
+  const st = recapStatus_();
+  ok('۱۶.۲ صف در همان سطر می‌آید و می‌گوید بعدی کیست',
+     st.queued === 1 && st.line.indexOf('در صف') !== -1 &&
+     st.line.indexOf('معرفت‌شناسی') !== -1, st.line);
+  delete global.__PROPS[PK.RECAP_Q];
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
