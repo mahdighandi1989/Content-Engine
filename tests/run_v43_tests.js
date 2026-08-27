@@ -726,15 +726,27 @@ console.log('\n=== ۲۷) نصیحت‌گری و سقفِ یک فایل ===');
   }
 
   const cap = oneFileMaxChars_();
-  ok('سقفِ یک فایل از سقفِ ادغام حساب می‌شود', cap > 8000 && cap < 12000, cap + ' نویسه');
-  ok('هدفِ ۱۰ دقیقه زیرِ سقف جا می‌شود', Math.round(CFG.TARGET_MINUTES * 150 * 5.5) < cap,
-     Math.round(CFG.TARGET_MINUTES * 150 * 5.5) + ' در برابرِ ' + cap);
+  /* ══ از بازهٔ حدسی به خودِ خاصیت (۶٫۲۹) ══
+     این سنجه قبلاً می‌گفت «بین ۸۰۰۰ و ۱۲۰۰۰» — عددهایی که از همان ثابتِ
+     غلطِ ۱۳٫۷ درآمده بودند. یعنی سنجه‌ای که سقف را با فرضِ خودش می‌سنجید و
+     هرگز نمی‌پرسید «آیا این‌قدر متن واقعاً در یک فایل جا می‌شود؟».
+     حالا خودِ خاصیت سنجیده می‌شود. */
+  ok('سقفِ یک فایل واقعاً در سقفِ ادغام جا می‌شود',
+     cap > 3000 && speechSeconds_('x'.repeat(cap)) * (CFG.SAMPLE_RATE * 2) <= CFG.MERGE_MAX_BYTES,
+     cap + ' نویسه ≈ ' + speechSeconds_('x'.repeat(cap)) + ' ثانیه');
+  /* و هدفِ *مؤثرِ* برنامهٔ متنوع باید زیرِ همان سقف بنشیند. تا ۶٫۲۸ هدفِ اسمیِ
+     ۱۰ دقیقه مستقیم به پرامپت می‌رفت و قسمت ۲۱ (۱۲:۴۹) دو فایل شد. */
+  ok('هدفِ مؤثرِ برنامهٔ متنوع زیرِ سقف جا می‌شود',
+     Math.round(varietyTargetMin_() * speechCps_() * 60) <= cap,
+     Math.round(varietyTargetMin_() * speechCps_() * 60) + ' در برابرِ ' + cap);
   const before = CFG.MERGE_MAX_BYTES;
   CFG.MERGE_MAX_BYTES = before * 2;
   ok('اگر سقفِ ادغام عوض شود، این هم خودبه‌خود عوض می‌شود', oneFileMaxChars_() > cap);
   CFG.MERGE_MAX_BYTES = before;
-  ok('تخمینِ زمان معقول است', Math.abs(speechSeconds_('x'.repeat(1370)) - 100) <= 2,
-     speechSeconds_('x'.repeat(1370)) + ' ثانیه');
+  /* و تخمینِ زمان از همان نرخ می‌آید — نه از یک عددِ کپی‌شده. */
+  ok('تخمینِ زمان از همان نرخِ گفتار می‌آید',
+     Math.abs(speechSeconds_('x'.repeat(Math.round(speechCps_() * 100))) - 100) <= 2,
+     speechSeconds_('x'.repeat(Math.round(speechCps_() * 100))) + ' ثانیه');
 
   /* انتظارِ «یک فایل» برای هر برنامه فرق دارد.
      «از همه جا از همه رنگ» هدفش ۱۰ دقیقه است و باید جا شود. «درس‌نامه» هدفش

@@ -269,9 +269,10 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   for (var cq = 0; cq < cvs.length; cq++) {
     var cx = cvs[cq];
     h.push('<tr><td>' + (cq === 0 ? esc_(meta.seriesName) : '↳') + '</td>' +
-           '<td>' + esc_('قسمت ' + cx.partSeq + ' — ' + cx.partName) + '</td>' +
-           '<td>' + esc_(cx.fromNo + ' تا ' + cx.toNo + ' از ' + cx.totalChunks) + '</td>' +
-           '<td>' + (cx.more ? 'بله، ادامه در قسمت بعد' : 'خیر، این قسمتِ درس تمام شد') +
+           '<td>' + esc_(coverPartText_(meta, cx)) + '</td>' +
+           '<td>' + esc_(coverRangeText_(meta, cx)) + '</td>' +
+           '<td>' + (meta.recap ? 'خیر، این پایانِ مجموعه است'
+                                : (cx.more ? 'بله، ادامه در قسمت بعد' : 'خیر، این قسمتِ درس تمام شد')) +
            '</td></tr>');
   }
   h.push('</table>');

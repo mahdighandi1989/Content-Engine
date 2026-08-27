@@ -23,8 +23,11 @@ const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d 
 console.log('=== ۱) پرامپتِ درس‌نامه با سقفِ خودش نمی‌جنگد ===');
 {
   const cap = specialMaxChars_();
-  const askedWords = Math.round(specialTargetMin_() * 150);
-  const askedChars = askedWords * 5.5;
+  /* از ۶٫۲۹ «۱۵۰ واژه در دقیقه» یک ثابتِ مستقل نیست: هم سقف و هم پرامپت از
+     نرخِ گفتارِ اندازه‌گیری‌شده می‌آیند. اگر این سنجه ثابتِ خودش را داشته
+     باشد، دقیقاً همان تناقضی را می‌سازد که برای گرفتنش نوشته شده. */
+  const askedWords = Math.round(specialTargetMin_() * speechWpm_());
+  const askedChars = Math.round(specialTargetMin_() * speechCps_() * 60);
   ok('۱.۱ هدفِ مؤثر از سقفِ یک فایل بیرون نمی‌زند',
      askedChars <= cap * 1.05, askedChars + ' نویسه در برابرِ سقفِ ' + cap);
   ok('۱.۲ و هدف با روشن‌بودنِ «یک فایل» پایین آمده',

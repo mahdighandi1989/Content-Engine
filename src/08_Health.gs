@@ -456,6 +456,8 @@ function writeStatus_(hub, note) {
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
+    speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
+    speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
@@ -1003,10 +1005,14 @@ function healthCheck() {
       problems.push('قسمت ' + ep.number + ' در ' + epa.files +
                     ' فایلِ صوتی فرستاده شد، نه یکی — متن از سقفِ یک فایل بلندتر شده.');
     }
-    var overP = epTooLong_(ep.duration, CFG.TARGET_MINUTES);
+    // با هدفِ *مؤثر* سنجیده می‌شود، نه با هدفِ اسمی — وگرنه وارسی همان
+    // عددی را معیار می‌گیرد که خودِ پرامپت دیگر دنبالش نیست (درسِ ۵٫۹۰).
+    var effMin = (function () { try { return varietyTargetMin_(); }
+                                catch (e) { return CFG.TARGET_MINUTES; } })();
+    var overP = epTooLong_(ep.duration, effMin);
     if (overP) {
       problems.push('قسمت ' + ep.number + ' ' + ep.duration + ' شد در برابرِ هدفِ ' +
-                    CFG.TARGET_MINUTES + ' دقیقه (' + overP + '٪ بلندتر).');
+                    effMin + ' دقیقه (' + overP + '٪ بلندتر).');
     }
   }
 
@@ -1212,6 +1218,20 @@ function healthCheck() {
     var spR = speakReviewStatus_();
     if (spR && spR.line) { if (spR.ok) notes.push(spR.line); else problems.push(spR.line); }
   } catch (eSr) {}
+  /* و «چند بخش اصلاً اعراب نگرفت». تا ۶٫۲۸ این عدد فقط روی پروندهٔ قسمت
+     می‌نشست و هیچ‌جا خوانده نمی‌شد؛ قسمتی با ۶۲٪ بخشِ بی‌اعراب منتشر شد و
+     تنها کسی که فهمید شنونده بود. */
+  try {
+    var skS = speakSkipStatus_();
+    if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
+  } catch (eSk2) {}
+  /* و سقفِ «یک فایل»، با عددی که از خروجیِ واقعی آمده. تا وقتی این عدد
+     حدسی بود، هر بار که قسمت دو فایل می‌شد جای دیگری را دنبالِ مقصر
+     می‌گشتیم. */
+  try {
+    var scS = speechCalibStatus_();
+    if (scS && scS.line) notes.push(scS.line);
+  } catch (eSc2) {}
   /* و عصری‌سازی — به همان دلیل و با همان قاعده. قابلیتی که خودش را بی‌صدا
      خاموش کند، همان است که بانکِ موسیقی را هفته‌ها خالی نگه داشت. */
   try {

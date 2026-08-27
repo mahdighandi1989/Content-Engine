@@ -1293,6 +1293,47 @@ var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
            PL: 9, POS: 10, THUMB: 11, CHAPS: 12, TAGS: 13, DESC: 14,
            LEAK: 15, RESULT: 16, NOTE: 17, AUDIO: 18, DUR: 19, CAST: 20 };
 
+/**
+ * ══ «Sat Dec 30 1899 14:41:00 GMT+0341» (۶٫۲۹) ══
+ * ستونِ «تاریخ» در تبِ انتشار گاهی به‌شکلِ «ساعت» ذخیره می‌شود؛ آن‌وقت شیت
+ * مقدارِ برگشتی را یک Date با مبدأِ ۱۸۹۹ می‌دهد و `String(...)` همان را
+ * عیناً در ایمیل چاپ می‌کند. صاحبِ برنامه این را در کارنامهٔ روزانه دید.
+ *
+ * ولی چاپِ بد کوچک‌ترین بخشِ ماجرا بود: `ytDigest_` همان مقدار را
+ * `parseWhen_` می‌کرد، ۱۸۹۹ می‌گرفت، و ردیف را «قدیمی‌تر از پنجره» حساب
+ * می‌کرد. یعنی ویدئویی که همین امروز منتشر شده بود، **از کارنامه غایب
+ * می‌شد** — و کارنامه‌ای که چیزی را جا بیندازد، بدتر از نبودنش است.
+ *
+ * پس تاریخِ ناخوانا نه چاپ می‌شود نه بی‌صدا کنار گذاشته: شمرده می‌شود و
+ * گفته می‌شود. خودِ سلول‌های قدیمی دست نمی‌خورند — بازنویسیِ دادهٔ ثبت‌شده
+ * برای زیباترشدنِ یک گزارش، معامله‌ای است که این ریپو نمی‌کند.
+ */
+function ytWhen_(v) {
+  var out = { ms: NaN, text: '', undated: false };
+  try {
+    if (v instanceof Date) {
+      if (v.getFullYear() < 1990) {
+        out.undated = true;
+        out.text = Utilities.formatDate(v, CFG.TIMEZONE, 'HH:mm') + ' (بی‌تاریخ)';
+        return out;
+      }
+      out.ms = v.getTime();
+      out.text = Utilities.formatDate(v, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+      return out;
+    }
+    var s = String(v === null || v === undefined ? '' : v).trim();
+    if (!s) return out;
+    var t = parseWhen_(s);
+    if (!isNaN(t) && new Date(t).getFullYear() < 1990) {
+      out.undated = true;
+      out.text = Utilities.formatDate(new Date(t), CFG.TIMEZONE, 'HH:mm') + ' (بی‌تاریخ)';
+      return out;
+    }
+    out.ms = t; out.text = s;
+  } catch (e) {}
+  return out;
+}
+
 function ytLog_(hub, row) {
   try {
     var sh = ensureTab_(hub || getHub_(), CFG.YT_TAB || 'انتشار در یوتیوب', YT_HEADERS);
@@ -1357,7 +1398,7 @@ function ytPublished_(hub) {
       var cur = map[k] || { tries: 0, videoId: '', url: '', privacy: '', at: '',
                             result: '', series: '' };
       cur.tries++;
-      cur.at = String(v[i][YU.AT - 1] || '');
+      cur.at = ytWhen_(v[i][YU.AT - 1]).text;
       cur.result = String(v[i][YU.RESULT - 1] || '');
       cur.series = String(v[i][YU.SERIES - 1] || '') || cur.series || '';
       var vid = String(v[i][YU.VID - 1] || '');
@@ -2129,7 +2170,7 @@ function ytPubIdleDays_(hub) {
         var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
         for (var i = 0; i < v.length; i++) {
           if (!String(v[i][YU.VID - 1] || '').trim()) continue;   // فقط ردیفِ موفق
-          var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
+          var t = ytWhen_(v[i][YU.AT - 1]).ms;
           if (!isNaN(t) && t > ms) ms = t;
         }
       }
@@ -2260,7 +2301,7 @@ function ytStatus_() {
     var sh = hub.getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
     if (sh && sh.getLastRow() > 1) {
       var v = sh.getRange(sh.getLastRow(), 1, 1, YT_HEADERS.length).getValues()[0];
-      out.last = { at: String(v[YU.AT - 1]), title: String(v[YU.TITLE - 1]),
+      out.last = { at: ytWhen_(v[YU.AT - 1]).text, title: String(v[YU.TITLE - 1]),
                    url: String(v[YU.URL - 1]), result: String(v[YU.RESULT - 1]),
                    privacy: String(v[YU.PRIV - 1]) };
     }
@@ -2799,7 +2840,7 @@ function ytHashOf_(s) {
  * است و سهمیه برای کارِ فردا لازم است.
  */
 function ytDigest_(hours) {
-  var out = { shows: [], playlists: [], n: 0, since: '' };
+  var out = { shows: [], playlists: [], n: 0, since: '', undated: 0 };
   var back = Math.max(1, Number(hours) || 26);
   var cut = new Date().getTime() - back * 3600000;
   out.since = Utilities.formatDate(new Date(cut), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
@@ -2812,8 +2853,9 @@ function ytDigest_(hours) {
       for (var i = 0; i < v.length; i++) {
         var vid = String(v[i][YU.VID - 1] || '');
         if (!vid) continue;
-        var t = parseWhen_(String(v[i][YU.AT - 1] || ''));
-        if (isNaN(t) || t < cut) continue;
+        var w = ytWhen_(v[i][YU.AT - 1]);
+        if (w.undated) { out.undated++; continue; }
+        if (isNaN(w.ms) || w.ms < cut) continue;
         var show = ytShowKey_(v[i][YU.SHOW - 1]);
         var nm = (show === ENRICH_SHOW_SPECIAL) ? (CFG.SPECIAL_SHOW_NAME || show)
                                                 : (CFG.SHOW_NAME || show);
@@ -2878,6 +2920,12 @@ function ytDigestHtml_(d) {
   if (!d || (!d.n && !d.playlists.length)) return '';
   var h = ['<h3>منتشرشده در یوتیوب</h3>'];
   if (!d.n) h.push('<p style="color:#666">در این بازه ویدئوی تازه‌ای منتشر نشد.</p>');
+  /* ردیفی که تاریخش خوانده نشد، نه چاپ می‌شود نه در سکوت می‌افتد. */
+  if (d.undated) {
+    h.push('<p style="color:#a33">' + faDigitsOut_(String(d.undated)) +
+           ' ردیف در تبِ انتشار تاریخِ کامل ندارد (سلولش «ساعت» ذخیره شده) و ' +
+           'در این کارنامه نیامده است.</p>');
+  }
   for (var s = 0; s < d.shows.length; s++) {
     var g = d.shows[s];
     h.push('<p style="margin:8px 0 2px"><b>' + esc_(g.name) + '</b> — ' +
@@ -2913,6 +2961,10 @@ function ytDigestHtml_(d) {
 function ytDigestTg_(d) {
   if (!d || (!d.n && !d.playlists.length)) return '';
   var L = ['📺 <b>یوتیوب — کارنامهٔ امروز</b>'];
+  if (d.undated) {
+    L.push('⚠️ ' + faDigitsOut_(String(d.undated)) +
+           ' ردیف تاریخِ کامل ندارد و در این کارنامه نیامده.');
+  }
   for (var s = 0; s < d.shows.length; s++) {
     var g = d.shows[s];
     L.push('');

@@ -368,9 +368,9 @@ function specialPlainText_(meta) {
   var L = [];
   L.push(CFG.SPECIAL_SHOW_NAME + ' — قسمت ' + meta.epNum);
   L.push('مجموعه: ' + meta.seriesName);
-  L.push('پوشش: قسمت ' + meta.partSeq + ' (' + meta.partName + ') — قطعهٔ ' +
-         meta.fromNo + ' تا ' + meta.toNo + ' از ' + meta.totalChunks);
-  L.push(meta.more ? 'ادامه دارد.' : 'این قسمتِ درس تمام شد.');
+  L.push('پوشش: ' + coverShortText_(meta));
+  L.push(meta.recap ? 'این مرورِ پایانیِ مجموعه است.'
+                    : (meta.more ? 'ادامه دارد.' : 'این قسمتِ درس تمام شد.'));
   L.push('');
   if (ep.goal) {
     L.push('— هدف و انتظار —');
@@ -413,8 +413,7 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
     var head = '📚 <b>' + tgEsc_(CFG.SPECIAL_SHOW_NAME) + ' — قسمت ' + meta.epNum + '</b>\n' +
                '<b>' + tgEsc_(ep.title || '') + '</b>\n' +
                '🎓 مجموعهٔ «' + tgEsc_(meta.seriesName) + '»\n' +
-               '📖 ' + tgEsc_('قسمت ' + meta.partSeq + ' — قطعهٔ ' + meta.fromNo + ' تا ' +
-                              meta.toNo + ' از ' + meta.totalChunks) + '\n' +
+               '📖 ' + tgEsc_(coverShortText_(meta)) + '\n' +
                '⏱ ' + tgEsc_(dur) +
                (meta.enrich && meta.enrich.length
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +

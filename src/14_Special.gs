@@ -29,7 +29,9 @@
  * بزند و متن همان بماند.
  */
 function specialMaxChars_() {
-  var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * 150 * 5.5 * 1.1);
+  // نویسه در دقیقه از همان نرخِ گفتار می‌آید، نه از «۱۵۰ واژه × ۵٫۵».
+  var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) *
+                            speechCps_() * 60 * 1.1);
   if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, specialWriteCap_());
   return byTarget;
 }
@@ -99,8 +101,7 @@ function specialWriteCap_() {
 function specialTargetMin_() {
   var base = Number(CFG.SPECIAL_TARGET_MINUTES) || 15;
   if (CFG.SPECIAL_ONE_FILE !== true) return base;
-  var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
-  var oneFileMin = specialMaxChars_() / cps / 60;
+  var oneFileMin = specialMaxChars_() / speechCps_() / 60;
   return Math.max(1, Math.round(Math.min(base, oneFileMin) * 10) / 10);
 }
 
@@ -669,7 +670,7 @@ function buildSpecialPrompt_(ctx) {
   L.push('• کسرهٔ اضافه را در ترکیب‌های اضافی با «ـِ» بنویس تا گوینده درست بخواند.');
   L.push('• هیچ جمله‌ای بیش از ' + CFG.MAX_SENTENCE_WORDS + ' واژه نباشد.');
   L.push('• نویسه‌های عربی (ي، ك، ة) به کار نبر؛ معادل فارسی بنویس.');
-  L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(specialTargetMin_() * 150) +
+  L.push('• طولِ مجموعِ متن باید حدود ' + Math.round(specialTargetMin_() * speechWpm_()) +
          ' واژه باشد (' + specialTargetMin_() + ' دقیقه گفتار).');
   // سقفِ سخت لازم است چون هدفِ واژه‌ای را مدل مرتب رد می‌کند، و متنِ بلندتر یعنی
   // هم فایلِ سنگین‌تر، هم جای بیشتر برای پُرکردن و حرفِ اضافه.
@@ -1353,7 +1354,7 @@ function produceSpecialEpisode(opt) {
     }
 
     var narrChars = specialNarration_(ep).length;
-    var wantChars = Math.round(specialTargetMin_() * 150 * 6);
+    var wantChars = Math.round(specialTargetMin_() * speechCps_() * 60 * 1.09);
     var thin = narrChars < wantChars * (CFG.SPECIAL_MIN_OUTPUT_RATIO || 0.4);
 
     // تا کدام نقطهٔ جریان اجازهٔ پیشرفت داریم؟
@@ -1420,7 +1421,7 @@ function produceSpecialEpisode(opt) {
             detail: 'قسمت ' + epNum + ': ' + narrChars + ' نویسه در برابر هدفِ حدود ' +
                     wantChars + '. مکان‌نما فقط تا قطعهٔ ' + (upTo + 1) + ' از ' +
                     stream.length + ' جلو رفت.',
-            instruction: 'متن هر قسمت باید حدود ' + Math.round(specialTargetMin_() * 150) +
+            instruction: 'متن هر قسمت باید حدود ' + Math.round(specialTargetMin_() * speechWpm_()) +
                          ' واژه باشد و همهٔ قطعه‌های داده‌شده را پوشش بدهد؛ کوتاه ننویس.',
             owner: 'موتور', episode: epNum
           });
@@ -2086,6 +2087,10 @@ function renderSpecialAudioStep_() {
     var dur = mmss_(secondsOf_(totalBytes));
     // قرینهٔ همان خط در برنامهٔ ترکیبی — بی این، درس‌نامه بازهٔ گوینده نمی‌گیرد
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
+    // قرینهٔ کالیبراسیونِ برنامهٔ متنوع — هر دو برنامه یک سقف دارند، پس هر دو
+    // باید به همان اندازه‌گیری غذا بدهند (۶٫۲۹).
+    try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
+    try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }

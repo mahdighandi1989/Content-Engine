@@ -999,12 +999,114 @@ function speakBone_(t) {
   // نشانه را می‌خورد («بایستیم، و» ← «بایستیم،و»)، پس برداشتنِ خودِ نشانه
   // دو واژه را به هم می‌چسباند و متنِ ویرگول‌دار دیگر با متنِ بی‌ویرگول
   // یکی نمی‌شود — یعنی دقیقاً همان چیزی که این پوسته برای حلش ساخته شد.
-  return speakCmp_(t).replace(/[،؛:—–…]/g, ' ').replace(/\s+/g, ' ').trim();
+  // و فاصله‌ای که کنارِ نیم‌فاصله بنشیند هم برداشته می‌شود: «واژه، نیم‌فاصله»
+  // پس از حذفِ ویرگول یک فاصله جا می‌گذارد و آن فاصله متنِ اصل را — که فقط
+  // نیم‌فاصله داشت — ناهمسان می‌کند.
+  return speakCmp_(t).replace(/[،؛:—–…]/g, ' ').replace(/\s+/g, ' ')
+    .replace(/\s*\u200C\s*/g, '\u200C').trim();
 }
 
 /** فقط حرف و رقم — برای سنجشِ «این جایگزین همان واژه است یا واژهٔ دیگری؟» */
 function speakLetters_(t) {
   return speakCmp_(t).replace(/[^ء-يٮ-ۿ0-9A-Za-z]/g, '');
+}
+
+/** آیا این نویسه «معنادار» است — حرف یا رقم؟ (اعراب و نشانه و فاصله نه) */
+/**
+ * ══ «قطعه‌ها ۰ تا ۰ از ۰» (۶٫۲۹) ══
+ * قسمتِ «مرورِ بزرگ» از هیچ قطعه‌ای ساخته نمی‌شود — ورودی‌اش جزوهٔ مجموعه
+ * است. پس جدولِ پوشش، که برای درسِ عادی نوشته شده بود، سه صفر نشان می‌داد و
+ * صاحبِ برنامه پرسید «نمی‌دانم تا کدام قسمت پوشش داده». جوابش در همان پرونده
+ * بود (`recapChapters`, `recapParts`) و فقط جایی برای گفتنش نداشت.
+ * یک خانهٔ خالی بهتر از سه صفر است، ولی جوابِ درست از هر دو بهتر.
+ */
+function coverPartText_(meta, cx) {
+  if (meta && meta.recap) return 'مرورِ بزرگ — پایانِ مجموعه';
+  return 'قسمت ' + cx.partSeq + ' — ' + cx.partName;
+}
+
+/** همان چیز، در یک خط — برای تلگرام و متنِ ساده. */
+function coverShortText_(meta) {
+  if (meta && meta.recap) return 'مرورِ بزرگ — ' + coverRangeText_(meta, meta);
+  return 'قسمت ' + meta.partSeq + ' — قطعهٔ ' + meta.fromNo + ' تا ' +
+         meta.toNo + ' از ' + meta.totalChunks;
+}
+
+function coverRangeText_(meta, cx) {
+  if (meta && meta.recap) {
+    var ch = Number(meta.recapChapters) || 0, pr = Number(meta.recapParts) || 0;
+    if (!ch && !pr) return 'همهٔ درس‌های تولیدشدهٔ این مجموعه';
+    return 'همهٔ ' + pr + ' درسِ تولیدشده، در ' + ch + ' فصلِ جزوه';
+  }
+  return cx.fromNo + ' تا ' + cx.toNo + ' از ' + cx.totalChunks;
+}
+
+function speakSigCh_(ch) {
+  return /[\u0621-\u064A\u066E-\u06D3\u06D5\u06E5\u06E6\u06EE-\u06FF0-9A-Za-z]/.test(ch);
+}
+
+/**
+ * ══ نیم‌فاصله را *تعمیر* می‌کنیم، نه اینکه بخش را دور بیندازیم (۶٫۲۹) ══
+ *
+ * ۶٫۲۰ از مدل نیم‌فاصله خواست و مدل آن را وسطِ واژه‌های سالم هم گذاشت
+ * («مد‌رسه»)؛ چون speakCmp_ نیم‌فاصله را نامرئی می‌گرفت، هیچ سدی نفهمید.
+ * ۶٫۲۶ نیم‌فاصله را در مقایسه *دیدنی* کرد — و در همان حال پرامپت هنوز
+ * می‌گفت «با نیم‌فاصله به هم ببندشان». نتیجه‌اش را در قسمت ۱۹ اندازه گرفتیم:
+ * از ۱۳ بخش، ۸ تا `skip:true` شدند و `__speakFails` روی ۱۸ ایستاد — یعنی
+ * ۶۲٪ از قسمت **بی هیچ اعرابی** خوانده شد. دو نسخهٔ پیاپی، هر دو با نیتِ
+ * «تلفظ بهتر»، تلفظ را بدتر کردند.
+ *
+ * ریشهٔ هر دو یکی است: سدی که برای *یک* عیبِ قابلِ تعمیر، *کلِ* کار را ردّ
+ * می‌کند. نیم‌فاصله جزوِ املای واژه است و املا دستِ مدل نیست — پس به‌جای ردّ،
+ * الگوی نیم‌فاصلهٔ متنِ اصل روی خروجیِ مدل نشانده می‌شود: هر نیم‌فاصله‌ای که
+ * مدل افزوده برداشته می‌شود و هر کدام که در اصل بوده سرِ جایش برمی‌گردد.
+ * اعراب و نشانه‌گذاری — که *باید* دستِ مدل باشند — دست‌نخورده می‌مانند.
+ *
+ * هم‌ترازی روی نویسه‌های معنادار (حرف و رقم) انجام می‌شود. اگر هم‌ترازی
+ * بشکند یعنی مدل واژه‌ای را عوض کرده؛ آن دیگر کارِ این تابع نیست و متن
+ * دست‌نخورده به سدِ وارسی سپرده می‌شود تا خودش ردّش کند.
+ */
+function speakZwnjFix_(plain, vowelled) {
+  var Z = '\u200C';
+  var p = String(plain || ''), v = String(vowelled || '');
+  if (!v) return v;
+  if (p.indexOf(Z) === -1 && v.indexOf(Z) === -1) return v;
+
+  // نقشهٔ اصل: برای هر نویسهٔ معنادار، جداکنندهٔ پیش از آن ('z' | ' ' | '')
+  var sig = [], sep = '';
+  for (var a = 0; a < p.length; a++) {
+    var ca = p.charAt(a);
+    if (speakSigCh_(ca)) { sig.push({ c: ca, s: sep }); sep = ''; }
+    else if (ca === Z) sep = 'z';
+    else if (/\s/.test(ca)) { if (sep !== 'z') sep = ' '; }
+  }
+  if (!sig.length) return v;
+
+  var out = [], k = 0;
+  for (var b = 0; b < v.length; b++) {
+    var cb = v.charAt(b);
+    if (cb === Z) continue;                       // هر نیم‌فاصلهٔ مدل برداشته می‌شود
+    if (!speakSigCh_(cb)) { out.push(cb); continue; }
+    if (k >= sig.length || sig[k].c !== cb) return vowelled;   // هم‌ترازی شکست
+    var want = sig[k].s;
+    if (want === 'z') {
+      while (out.length && /\s/.test(out[out.length - 1])) out.pop();
+      out.push(Z);
+    } else if (want === ' ') {
+      var has = false;
+      for (var t = out.length - 1; t >= 0; t--) {
+        if (speakSigCh_(out[t])) break;
+        if (/\s/.test(out[t])) { has = true; break; }
+      }
+      if (!has && out.length) out.push(' ');
+    } else {
+      // اصل هیچ جداکننده‌ای نداشت — فاصله‌ای که مدل وسطِ واژه انداخته می‌رود
+      while (out.length && /\s/.test(out[out.length - 1])) out.pop();
+    }
+    out.push(cb); k++;
+  }
+  if (k !== sig.length) return vowelled;          // چیزی از اصل جا مانده
+  return out.join('');
 }
 
 function verifySpeak_(plain, vowelled) {
@@ -1028,13 +1130,19 @@ function verifySpeak_(plain, vowelled) {
  * بازبینی. دو نسخه یعنی روزی یکی جلو می‌افتد و آن‌یکی بی‌صدا کهنه می‌شود —
  * شکلی که این ریپو بارها دیده.
  *
- * ابزارِ کار سه‌تاست، به ترتیبِ زور:
- *   ۱) اعراب — «مِلَل»، «قَدر».
- *   ۲) نیم‌فاصله — پیوندِ حرف را می‌شکند بی آنکه واژه عوض شود. کلیدِ حلِ
- *      «بایستیم»: «بِ‌ایستیم» دیگر «با» ندارد که خوانده شود.
- *   ۳) نشانه‌گذاری — ویرگول و سه‌نقطه و خط‌تیره، برای عبارت‌بندی.
- * هر سه از سدِ وارسی رد می‌شوند (نیم‌فاصله و نشانه در speakCmp_/speakBone_
- * برداشته می‌شوند)، پس هیچ‌کدام به قیمتِ افتادنِ کلِ اعراب تمام نمی‌شود.
+ * ══ ابزارِ مدل دو تاست، نه سه تا (اصلاحِ ۶٫۲۹) ══
+ *   ۱) اعراب — «مِلَل»، «قَدر». آزاد؛ در مقایسه برداشته می‌شود.
+ *   ۲) نشانه‌گذاریِ عبارت‌بندی — «،» «…» «—» «:». آزاد وقتی SPEAK_MARKS
+ *      روشن است؛ speakBone_ آن‌ها را می‌بیند و نادیده می‌گیرد. مرزِ جمله
+ *      (نقطه و پرسش و تعجب) هرگز آزاد نیست.
+ *   ۳) نیم‌فاصله — **دستِ مدل نیست.** جزوِ املای واژه است.
+ *
+ * این سه‌گانه تا ۶٫۲۸ می‌گفت «هر سه از سدِ وارسی رد می‌شوند» و از ۶٫۲۶ دیگر
+ * درست نبود: speakCmp_ نیم‌فاصله را می‌بیند. یک جملهٔ راهنما که از حقیقتش
+ * جا مانده باشد، بدتر از نبودنش است — سه بخش از این فهرست هنوز به مدل
+ * نیم‌فاصله یاد می‌داد در حالی که هر نیم‌فاصله بخش را از دور خارج می‌کرد.
+ * «بایستیم» حالا از راهِ درستش حل می‌شود: کسرهٔ پیشوند در اعراب، و ردیفِ
+ * ثابت در تبِ «تلفظ» که *پس از* وارسی اعمال می‌شود.
  */
 var SPEAK_TRAPS = [
   'پیشوندِ فعل + ستاکِ الف‌آغاز. «بایستیم» (از ایستادن) را مدل «با» می‌خواند، ' +
@@ -1071,8 +1179,10 @@ var SPEAK_TRAPS = [
   'آنجا بگذار که نفس گرفته می‌شود، نه هر چند واژه یک‌بار.',
 
   'تکیهٔ واژه نسبت به واژهٔ بعد. جایی که دو واژه یک واحدِ آهنگی‌اند ' +
-  '(«همینْ حالا»، «هیچ‌کس»، «به‌هیچ‌وجه») نباید بینشان مکث بیفتد؛ اگر خطرِ ' +
-  'مکث هست، با نیم‌فاصله به هم ببندشان.'
+  '(«همینْ حالا»، «هیچ‌کس»، «به‌هیچ‌وجه») نباید بینشان مکث بیفتد. ' +
+  'ابزارت اینجا سکون و کسرهٔ پیوند است، **نه نیم‌فاصله**: نیم‌فاصله املای ' +
+  'واژه است و املا را عوض نمی‌کنی. ویرگول را هم بینشان نگذار — ویرگول ' +
+  'دقیقاً همان مکثی را می‌سازد که نمی‌خواهی.'
 ];
 
 /** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
@@ -1156,12 +1266,14 @@ function vowelizePiece_(piece) {
     'خروجی فقط خودِ متنِ علامت‌گذاری‌شده در فیلد v.\n\n' + piece;
   try {
     var r = geminiText_(prompt, SPEAK_SCHEMA, 8192);
-    var v = r && r.v ? String(r.v) : '';
+    // تعمیرِ نیم‌فاصله *پیش از* سد، نه بعدش: عیبی که قابلِ تعمیر است نباید
+    // به قیمتِ افتادنِ کلِ اعرابِ این بخش تمام شود (۶٫۲۹).
+    var v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
     if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
-    v = r && r.v ? String(r.v) : '';
+    v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
     if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
   } catch (e) {}
   return '';
@@ -1206,7 +1318,9 @@ function speakReviewPiece_(plain, vowelled) {
     'داده شود. کارِ تو نوشتنِ دوباره نیست — *بازبینی* است: بگرد دنبالِ جایی که ' +
     'علامت‌گذاری غلط است یا نیست و باید باشد، و همان‌جا را درست کن.\n\n' +
     'مخصوصاً این دام‌ها را وارسی کن:\n' + speakTrapText_() + '\n\n' +
-    'واژه‌ها، فاصله‌ها و نیم‌فاصله‌ها را دست نزن — فقط اعراب. ' +
+    'واژه‌ها، فاصله‌ها و نیم‌فاصله‌ها را دست نزن — نیم‌فاصله املای واژه است و ' +
+    'اگر تغییرش بدهی تعمیر می‌شود، پس بی‌فایده است. ابزارِ تو اعراب است و ' +
+    '(اگر لازم بود) ویرگول و سه‌نقطه و خط‌تیره برای عبارت‌بندی. ' +
     'همچنین: هر جا که با اعرابِ درست هم باز خوانشِ غلط محتمل است، در فیلد hard ' +
     'سطری به شکلِ «واژه => املای آوایی» بنویس (مثال: «بایستیم => بِ‌ایستیم»). ' +
     'حروفِ املای آوایی باید همان حروفِ واژه باشد؛ فقط اعراب و فاصله و ' +
@@ -1217,7 +1331,7 @@ function speakReviewPiece_(plain, vowelled) {
   try {
     var r = geminiText_(prompt, SPEAK_REVIEW_SCHEMA, 8192);
     if (!r) return null;
-    var v = r.v ? String(r.v) : '';
+    var v = speakZwnjFix_(plain, r.v ? String(r.v) : '');
     if (!v) return null;
     // همان دو سدِ همیشگی روی خروجیِ بازبین هم — بازبین هم یک مدل است.
     if (!verifySpeak_(plain, v) || !speakVowelledOk_(plain, v)) return null;
@@ -1423,6 +1537,106 @@ function speakRevLog_(epLabel, seen, fixed, learned, notes) {
 }
 
 /** یک سطرِ فارسیِ آماده دربارهٔ بازبینی — هر روز، حتی وقتی همه‌چیز خوب است. */
+/**
+ * ══ «چند بخش بی‌اعراب خوانده شد» را کسی نمی‌پرسید (۶٫۲۹) ══
+ *
+ * `__speakFails` از همان اول روی پرونده نوشته می‌شد و `skip:true` روی هر
+ * بخشی که دو بار شکست خورده بود. هر دو درست کار می‌کردند و هیچ‌کدام به هیچ
+ * تصمیمی وصل نبودند: نه خطی در ایمیل، نه یافته‌ای در صف، نه حتی یک سطر در
+ * سیاهه. قسمت ۱۹ با ۶۲٪ بخشِ بی‌اعراب منتشر شد و تنها کسی که فهمید، شنونده
+ * بود — که همان صاحبِ برنامه است.
+ *
+ * این هشتمین بار در این ریپوست که تحلیلی نوشته شده و به تصمیمی وصل نشده.
+ * پس اینجا سه کار می‌شود: ثبت در کارنامه، یک خط در گزارشِ روزانه (حتی وقتی
+ * همه‌چیز خوب است)، و یافتهٔ «جدی» وقتی نسبت از یک سومِ بخش‌ها بگذرد.
+ *
+ * چرا یک سوم و نه «هر شکستی»: یک بخشِ شکست‌خورده در قسمتی که مدل یک بار
+ * قطع شده طبیعی است و هشدارِ هر شب همان هشداری است که خوانده نمی‌شود.
+ */
+function speakSkipRecord_(ep, label, hub, epNum) {
+  try {
+    var S = (ep && ep.__speakSegs) || [];
+    var total = 0, skipped = 0;
+    for (var i = 0; i < S.length; i++) {
+      if (!S[i] || !S[i].h) continue;
+      total++;
+      if (!S[i].t) skipped++;          // skip:true یا تلاشِ ناتمام — هر دو بی‌اعراب خوانده شدند
+    }
+    if (!total) return null;
+    var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
+                l: String(label || ''), n: total, s: skipped,
+                f: Number(ep && ep.__speakFails) || 0 };
+    var raw = props_().getProperty(PK.SPEAK_SKIP);
+    var L = [];
+    try { L = raw ? JSON.parse(raw) : []; } catch (eJ) { L = []; }
+    if (!(L instanceof Array)) L = [];
+    L.push(rec);
+    while (L.length > 10) L.shift();
+    props_().setProperty(PK.SPEAK_SKIP, JSON.stringify(L));
+
+    if (skipped) {
+      logLine_(label + ': ' + skipped + ' بخش از ' + total + ' بی‌اعراب خوانده شد.');
+    }
+    /* ══ کدام شکست «ایرادِ کد» است و کدام نیست ══
+     * شکستِ *همهٔ* بخش‌ها یعنی اعراب‌گذار اصلاً در دسترس نبوده (سهمیه، قطعی،
+     * مدارشکنِ خودِ speakStep_). آن مشکلِ دسترسی است و صاحبِ هشدارش
+     * `modelStatus_` است، نه صفِ کد.
+     * شکستِ *بخشی* داستانِ دیگری است و دقیقاً همان چیزی که ۶٫۲۶ ساخت: مدل
+     * کار می‌کند، چند بخش می‌گیرد و چند بخش را سد دور می‌ریزد. این ایرادِ
+     * کد است و باید در صفِ کد بنشیند.
+     * هشداری که برای هر دو حالت یک صدا داشته باشد، همان هشداری است که
+     * خوانده نمی‌شود. */
+    if (hub && skipped && skipped < total && skipped * 3 > total) {
+      logSelfFinding_(hub, {
+        priority: 'جدی', category: 'تلفظ', key: 'speak-skipped',
+        title: 'بخشِ بزرگی از قسمت بی‌اعراب خوانده شد',
+        detail: label + ': ' + skipped + ' بخش از ' + total +
+                ' اعراب نگرفت (' + rec.f + ' شکستِ اعراب‌گذاری). ' +
+                'یعنی آن بخش‌ها با متنِ خام به گفتارساز رفتند.',
+        instruction: 'علتِ ردّ شدنِ خروجیِ اعراب‌گذار را پیدا کن: یا پرامپت چیزی ' +
+                     'می‌خواهد که سدِ وارسی نمی‌پذیرد، یا مدل در دسترس نیست. ' +
+                     'وارسی نباید برای عیبی که تعمیرپذیر است کلِ بخش را دور بیندازد.',
+        owner: 'کد', episode: epNum || 0
+      });
+    }
+    return rec;
+  } catch (e) { return null; }
+}
+
+/** خطِ روزانهٔ «چند بخش بی‌اعراب رفت» — حتی وقتی صفر است. */
+function speakSkipStatus_() {
+  var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0 };
+  try {
+    var raw = props_().getProperty(PK.SPEAK_SKIP);
+    var L = raw ? JSON.parse(raw) : [];
+    if (!(L instanceof Array) || !L.length) {
+      out.line = 'اعراب‌گذاری: هنوز هیچ قسمتی ثبت نشده.';
+      return out;
+    }
+    for (var i = 0; i < L.length; i++) {
+      out.eps++; out.segs += Number(L[i].n) || 0; out.skipped += Number(L[i].s) || 0;
+    }
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
+    out.line = 'اعراب‌گذاری: در ' + fa(out.eps) + ' قسمتِ اخیر، ' + fa(out.skipped) +
+               ' بخش از ' + fa(out.segs) + ' بی‌اعراب خوانده شد (' + fa(pct) + '٪).';
+    // همان مرزِ speakSkipRecord_: «هیچ بخشی نگرفت» مسئلهٔ دسترسی است،
+    // «بعضی گرفتند و بعضی نه» مسئلهٔ سد است. سه قسمتِ پیاپیِ کاملاً بی‌اعراب
+    // دیگر بی‌صدا نمی‌ماند، ولی یکی دو تا هنوز یادداشت است نه هشدار.
+    var okSegs = out.segs - out.skipped;
+    if (pct >= 20 && okSegs > 0) {
+      out.ok = false;
+      out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد.';
+    } else if (!okSegs && out.eps >= 3) {
+      out.ok = false;
+      out.line += ' هیچ بخشی اعراب نگرفت — اعراب‌گذار در دسترس نبوده است.';
+    } else if (!okSegs) {
+      out.line += ' (اعراب‌گذار در این قسمت‌ها در دسترس نبوده)';
+    }
+  } catch (e) {}
+  return out;
+}
+
 function speakReviewStatus_() {
   var out = { line: '', ok: true, runs: 0, fixed: 0, learned: 0 };
   try {
@@ -3205,9 +3419,171 @@ function misfiledReport_(hub, ep, epNum, cat, items) {
  * حدس نیست: از سقفِ ادغام (که خودش از حافظهٔ Apps Script آمده) و نرخِ گفتار
  * حساب می‌شود. اگر روزی سقفِ ادغام عوض شود، این هم خودبه‌خود عوض می‌شود.
  */
+/**
+ * ══ سقف را دیگر حدس نمی‌زنیم؛ اندازه می‌گیریم (۶٫۲۹) ══
+ *
+ * `oneFileMaxChars_` تنها از `SPEECH_CHARS_PER_SEC` می‌آمد — عددی که از یک
+ * حسابِ سرانگشتی (۱۵۰ واژه در دقیقه × ۵٫۵ نویسه) درآمده بود و هرگز با
+ * خروجیِ واقعی سنجیده نشد. اندازه‌گیریِ قسمت ۱۹ درس‌نامه: ۷٬۲۹۷ نویسهٔ گفتنی
+ * → ۳۶٬۱۶۱٬۶۰۴ بایت صدا. یعنی ۴۹۵۵ بایت بر نویسه، در حالی که سقفِ ۸۸۹۸
+ * نویسه‌ای یعنی فرضِ ۴۰۴۶ — ۲۲٪ خوش‌بینانه. قسمت ۳٫۴ ثانیه از سقفِ ادغام رد
+ * شد و دو فایل شد.
+ *
+ * سه نسخه پیاپی این را از سمتِ *متن* بستند (فشرده‌سازی، رزروِ غنی‌سازی، رزروِ
+ * عصری‌سازی) و هر سه درست کار کردند — چون خطا در متن نبود، در واحدِ تبدیل
+ * بود. هر سه سقف را با همان ضریبِ غلط حساب می‌کردند.
+ *
+ * حالا واحدِ تبدیل از خروجیِ خودِ قسمت‌ها می‌آید: بایتِ نهاییِ صدا تقسیم بر
+ * نویسهٔ متنِ گفتنی. **بایت، نه ثانیه** — چون چیزی که سقف دارد بایت است، و
+ * این تعریف موسیقی و مکث و هر چیز دیگری را که در فایل می‌نشیند خودبه‌خود
+ * درون خودش دارد. میانه گرفته می‌شود نه میانگین: یک قسمتِ ناقص نباید سقفِ
+ * فردا را جابه‌جا کند.
+ */
+function speechCalibList_() {
+  try {
+    var raw = props_().getProperty(PK.SPEECH_CAL);
+    var L = raw ? JSON.parse(raw) : [];
+    return (L instanceof Array) ? L : [];
+  } catch (e) { return []; }
+}
+
+/** شمارِ نویسه‌های *گفتنیِ* یک قسمت — همان چیزی که سقف رویش اعمال می‌شود. */
+function speechChars_(ep) {
+  var n = 0;
+  // مرجعِ اول: امضای بخش‌های صوتی. `speakHash_` طولِ پوستهٔ مقایسه را در خودِ
+  // امضا می‌نویسد، و آن آرایه دقیقاً همان چیزی است که خوانده شد — با
+  // عصری‌سازی و هر چیزی که بعد از نوشتن اضافه شده.
+  var S = (ep && ep.__speakSegs) || [];
+  for (var i = 0; i < S.length; i++) {
+    var h = S[i] && S[i].h ? String(S[i].h) : '';
+    var k = h.lastIndexOf(':');
+    if (k > 0) { var x = Number(h.slice(k + 1)); if (isFinite(x) && x > 0) n += x; }
+  }
+  if (n > 0) return n;
+  // مرجعِ دوم (اعراب‌گذاری خاموش یا قسمتِ قدیمی): خودِ متن.
+  var add = function (t) { n += String(t || '').length; };
+  add(ep && ep.hook); add(ep && ep.intro); add(ep && ep.recap); add(ep && ep.outro);
+  var Sec = (ep && ep.sections) || [];
+  for (var j = 0; j < Sec.length; j++) {
+    add(Sec[j] && Sec[j].narration); add(Sec[j] && Sec[j].text);
+  }
+  return n;
+}
+
+/** بایتِ صدا به ازای هر نویسه — اندازه‌گیری‌شده، یا ۰ اگر هنوز نمی‌دانیم. */
+function speechBpc_() {
+  if (CFG.SPEECH_CALIB === false) return 0;
+  var L = speechCalibList_(), v = [];
+  for (var i = 0; i < L.length; i++) {
+    var x = Number(L[i] && L[i].bpc);
+    if (isFinite(x) && x >= (Number(CFG.SPEECH_BPC_MIN) || 2000) &&
+        x <= (Number(CFG.SPEECH_BPC_MAX) || 9000)) v.push(x);
+  }
+  if (v.length < (Number(CFG.SPEECH_CALIB_MIN) || 2)) return 0;
+  v.sort(function (a, b) { return a - b; });
+  var m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+
+/** نرخِ گفتار به نویسه بر ثانیه — اندازه‌گیری‌شده، وگرنه دانهٔ CFG. */
+function speechCps_() {
+  var bpc = speechBpc_();
+  if (bpc > 0) return (((Number(CFG.SAMPLE_RATE) || 24000) * 2) / bpc);
+  return Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
+}
+
+/**
+ * و همان نرخ، به **واژه بر دقیقه** — چون پرامپت با واژه حرف می‌زند.
+ *
+ * ══ چرا این هم باید از یک جا بیاید (۶٫۲۹) ══
+ * شش جا در این کد `دقیقه × ۱۵۰` می‌نوشتند و سقف‌ها `نویسه ÷ نرخ`. تا وقتی
+ * نرخ ۱۳٫۷ بود این دو تصادفاً یکی درمی‌آمدند (۱۳٫۷ × ۶۰ ≈ ۱۵۰ × ۵٫۵) و
+ * هیچ‌کس نفهمید که دو ثابتِ مستقل‌اند. با اصلاحِ نرخ، همان تناقضِ ۵٫۹۰
+ * دوباره سر باز کرد: پرامپت ۷٬۱۷۷ نویسه می‌خواست و سقفِ خودش ۵٬۲۴۷ بود.
+ * «۱۵۰ واژه در دقیقه» فرضِ گویندهٔ انسانی است، نه اندازه‌گیریِ این گفتارساز.
+ */
+function speechWpm_() {
+  var cw = Number(CFG.CHARS_PER_WORD) || 5.5;
+  return Math.max(60, Math.round(speechCps_() * 60 / cw));
+}
+
+/**
+ * هدفِ *مؤثرِ* «از همه جا از همه رنگ»، به دقیقه — قرینهٔ specialTargetMin_.
+ *
+ * قسمت ۲۱ این برنامه ۱۲:۴۹ درآمد در برابرِ هدفِ ۱۰ دقیقه و در دو فایل رفت.
+ * علتش همان بود: پرامپت ۸٬۲۵۰ نویسه می‌خواست («۱۰ دقیقه × ۱۵۰ واژه») در
+ * حالی که یک فایل کمتر از آن جا می‌دهد. برنامهٔ تخصصی از ۵٫۹۰ این نگهبان را
+ * داشت و برنامهٔ متنوع نداشت — قرینهٔ نصفه، همان الگویی که ۵٫۹۵ هم دیدیم.
+ */
+function varietyTargetMin_() {
+  var base = Number(CFG.TARGET_MINUTES) || 10;
+  var oneFileMin = oneFileMaxChars_() / speechCps_() / 60;
+  return Math.max(1, Math.round(Math.min(base, oneFileMin) * 10) / 10);
+}
+
+/**
+ * ثبتِ اندازه‌گیریِ یک قسمت. بعد از ادغام صدا صدا زده می‌شود، جایی که هم
+ * بایتِ واقعی در دست است هم متن.
+ *
+ * هرگز خطا بالا نمی‌دهد و هرگز مسیرِ انتشار را نگه نمی‌دارد: کالیبراسیون
+ * آسایشِ فرداست، نه شرطِ امروز.
+ */
+function speechCalibRecord_(ep, bytes, label) {
+  try {
+    if (CFG.SPEECH_CALIB === false) return null;
+    var chars = speechChars_(ep), b = Number(bytes) || 0;
+    // قسمتِ خیلی کوتاه یا نیمه‌کاره نمونهٔ معتبری نیست.
+    if (!(chars > 1500) || !(b > 1000000)) return null;
+    var bpc = b / chars;
+    if (!isFinite(bpc) || bpc < (Number(CFG.SPEECH_BPC_MIN) || 2000) ||
+        bpc > (Number(CFG.SPEECH_BPC_MAX) || 9000)) {
+      logLine_('کالیبراسیونِ گفتار رد شد (' + label + '): ' +
+               Math.round(bpc) + ' بایت بر نویسه، بیرون از بازهٔ معقول.');
+      return null;
+    }
+    var L = speechCalibList_();
+    L.push({ at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
+             l: String(label || ''), c: chars, b: b, bpc: Math.round(bpc) });
+    var keep = Number(CFG.SPEECH_CALIB_KEEP) || 8;
+    while (L.length > keep) L.shift();
+    props_().setProperty(PK.SPEECH_CAL, JSON.stringify(L));
+    return { chars: chars, bytes: b, bpc: Math.round(bpc) };
+  } catch (e) { return null; }
+}
+
+/** خطِ روزانهٔ کالیبراسیون — چون چیزی که فقط در Properties بماند دیده نمی‌شود. */
+function speechCalibStatus_() {
+  var out = { line: '', ok: true, bpc: 0, samples: 0, chars: 0 };
+  try {
+    var L = speechCalibList_();
+    out.samples = L.length;
+    out.bpc = Math.round(speechBpc_());
+    out.chars = oneFileMaxChars_();
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    if (!out.bpc) {
+      out.line = 'سقفِ یک فایل: ' + fa(out.chars) + ' نویسه — هنوز از فرمولِ تخمینی، ' +
+                 fa(out.samples) + ' اندازه‌گیری ثبت شده.';
+      return out;
+    }
+    out.line = 'سقفِ یک فایل: ' + fa(out.chars) + ' نویسه، از اندازه‌گیریِ ' +
+               fa(out.samples) + ' قسمتِ اخیر (' + fa(out.bpc) + ' بایت بر نویسه).';
+  } catch (e) {}
+  return out;
+}
+
 function oneFileMaxChars_() {
+  var capB = Number(CFG.MERGE_MAX_BYTES) || 33000000;
+  // ── مسیرِ اندازه‌گیری‌شده ──
+  // بایت بر نویسه از خروجیِ واقعیِ قسمت‌های اخیر می‌آید و موسیقی و مکث را
+  // درونِ خودش دارد، پس هیچ کسرِ جداگانه‌ای لازم نیست.
+  var bpc = speechBpc_();
+  if (bpc > 0) {
+    var mg = Number(CFG.ONE_FILE_MARGIN);
+    if (!isFinite(mg) || mg <= 0 || mg > 1) mg = 0.94;
+    return Math.max(600, Math.floor(capB * mg / bpc));
+  }
   var bytesPerSec = (Number(CFG.SAMPLE_RATE) || 24000) * 2;      // ۱۶ بیت، تک‌کاناله
-  var seconds = (Number(CFG.MERGE_MAX_BYTES) || 33000000) / bytesPerSec;
+  var seconds = capB / bytesPerSec;
   // جای موسیقی صریح کنار گذاشته می‌شود.
   //
   // تا پیش از این، سقف فقط از روی گفتار حساب می‌شد و موسیقی روی آن سوار
@@ -3215,7 +3591,7 @@ function oneFileMaxChars_() {
   // برمی‌آمد. ولی «اتفاقاً جا می‌شود» تضمین نیست: کافی بود طولِ آغاز یا فاصلهٔ
   // میانه‌ها عوض شود تا قسمت بی‌صدا دو تکه شود، و دلیلش هم پیدا نبود.
   seconds -= musicBudgetSec_();
-  var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;
+  var cps = Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7;   // دانه، نه اندازه‌گیری
   // ۸٪ حاشیه برای مکث‌ها و نفس‌ها، که در نویسه نمی‌آیند ولی وقت می‌گیرند
   return Math.floor(Math.max(seconds, 60) * cps * 0.92);
 }
@@ -3242,7 +3618,9 @@ function musicBudgetSec_() {
 /** تخمینِ ثانیهٔ گفتار برای یک متن. */
 function speechSeconds_(text) {
   var n = String(text || '').length;
-  return Math.round(n / (Number(CFG.SPEECH_CHARS_PER_SEC) || 13.7));
+  // همان واحدِ تبدیلِ اندازه‌گیری‌شده، وگرنه تخمینِ دقیقه‌ها هم به همان اندازهٔ
+  // سقف خوش‌بین می‌ماند و هر گزارشی «کوتاه‌تر از واقع» می‌شود.
+  return Math.round(n / speechCps_());
 }
 
 /**
@@ -3542,7 +3920,8 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
     return out.join('\n');
   }
 
-  var words = Math.round(CFG.TARGET_MINUTES * 150);
+  var targetMin = varietyTargetMin_();
+  var words = Math.round(targetMin * speechWpm_());
   var capChars = oneFileMaxChars_();
   var L = [
     'تو نویسندهٔ برنامهٔ رادیوییِ فارسیِ «' + CFG.SHOW_NAME + '» هستی — ' + CFG.SHOW_TAGLINE + '.',
@@ -3722,7 +4101,7 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
     'طول: ' + CFG.SECTIONS_TARGET + ' بخش، و هر بخش دست‌کم ' +
       Math.round(words / CFG.SECTIONS_TARGET) + ' کلمه.',
     'مجموع کلمات narration به‌علاوهٔ hook و outro باید دست‌کم ' + Math.round(words * 0.92) +
-      ' و حدود ' + words + ' کلمه باشد (برای حدود ' + CFG.TARGET_MINUTES + ' دقیقه صدا).',
+      ' و حدود ' + words + ' کلمه باشد (برای حدود ' + targetMin + ' دقیقه صدا).',
     'سقفِ سخت: مجموعِ همهٔ روایت‌ها از ' + capChars + ' نویسه بیشتر نشود. این سقف سلیقه ' +
     'نیست — بالاتر از آن، صدا در یک فایل جا نمی‌شود و قسمت دو تکه می‌شود. ' +
     'کوتاه‌تر از سقف مشکلی ندارد؛ بلندتر یعنی قسمت خراب شده است.',
@@ -3957,7 +4336,7 @@ function produceEpisode(opt) {
                  // picked.title نامِ «دسته» است، نه عنوانِ قسمت — همان‌طور که
                  // ستونِ چهارمِ تبِ پادکست‌ها هم همین را می‌گیرد.
                  { showName: CFG.SHOW_NAME, episode: epNum, title: ep.title,
-                   category: picked.title, targetMin: CFG.TARGET_MINUTES },
+                   category: picked.title, targetMin: varietyTargetMin_() },
                  { hook: ep.hook, outro: ep.outro, connection: connection,
                    sections: ep.sections },
                  items.concat(refs), fid);
@@ -4406,6 +4785,10 @@ function renderAudioStep_() {
     /* مدت به‌ثانیه روی خودِ قسمت می‌نشیند: بازهٔ زمانیِ گویندگان بی آن حساب
        نمی‌شود، و این تنها جایی است که مدت واقعاً معلوم است. */
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
+    /* اینجا — و فقط اینجا — هم بایتِ واقعیِ صدا در دست است هم متنِ گفته‌شده.
+       سقفِ «یک فایل» فردا از همین اندازه‌گیری می‌آید (۶٫۲۹). */
+    try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
+    try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {

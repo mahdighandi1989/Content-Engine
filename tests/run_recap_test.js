@@ -319,4 +319,26 @@ console.log('=== ۹) مجموعهٔ بی‌جزوه صف را نمی‌بندد 
      !recapDone_()['kNoBook']);
 }
 
+console.log('\n=== ۱۰) جدولِ پوشش برای مرور، سه صفر نمی‌گوید ===');
+{
+  /* ══ گزارشِ واقعیِ صاحبِ برنامه (۲۷ اوت) ══
+   * «نمی‌دونم تا کدوم قسمت پوشش داده.» ایمیلِ قسمت ۱۹ نوشته بود
+   * «قسمت ۰ — مرورِ همهٔ درس‌ها · قطعه‌ها ۰ تا ۰ از ۰» — چون مرور از هیچ
+   * قطعه‌ای ساخته نمی‌شود و جدولِ پوشش برای درسِ عادی نوشته شده بود.
+   * جوابش همان‌جا در پرونده بود (recapChapters / recapParts). */
+  const meta = { recap: true, recapChapters: 15, recapParts: 18,
+                 partSeq: 0, partName: '', fromNo: 0, toNo: 0, totalChunks: 0 };
+  const rng = coverRangeText_(meta, meta);
+  ok('۱۰.۱ بازهٔ پوشش، شمارِ درس و فصل را می‌گوید',
+     rng.indexOf('18') !== -1 && rng.indexOf('15') !== -1, rng);
+  ok('۱۰.۲ و سه صفرِ بی‌معنی در آن نیست', rng.indexOf('0 تا 0') === -1, rng);
+  ok('۱۰.۳ خطِ یک‌سطری هم همین را می‌گوید',
+     coverShortText_(meta).indexOf('مرورِ بزرگ') === 0, coverShortText_(meta));
+  /* و درسِ عادی باید دقیقاً همان چیزِ قبلی بماند — این تغییر فقط دربارهٔ مرور
+     است و نباید شکلِ گزارشِ روزانهٔ درس‌نامه را جابه‌جا کند. */
+  const norm = { partSeq: 3, partName: 'فصلِ سوم', fromNo: 4, toNo: 9, totalChunks: 22 };
+  ok('۱۰.۴ درسِ عادی دست‌نخورده',
+     coverShortText_(norm) === 'قسمت 3 — قطعهٔ 4 تا 9 از 22', coverShortText_(norm));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
