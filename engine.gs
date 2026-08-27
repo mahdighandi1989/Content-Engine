@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.30
+ *  موتور محتوا و پادکست — نسخهٔ 6.31
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -972,7 +972,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.30',
+  CODE_VERSION: '6.31',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3469,14 +3469,30 @@ function speakHash_(t) {
   return h.toString(36) + ':' + s.length;
 }
 
-/** جمله‌های یک متن، بر پایهٔ نشانه‌های پایانِ جمله. یک نسخه، دو مصرف. */
+/**
+ * جمله‌های یک متن، بر پایهٔ نشانه‌های پایانِ جمله. یک نسخه، چند مصرف.
+ *
+ * ══ «…» مرزِ جمله نیست (اصلاحِ ۶٫۳۰) ══
+ * `speakBone_` سه‌نقطه را جزوِ نشانه‌های *عبارت‌بندی* می‌داند و در مقایسه
+ * برمی‌داردش — یعنی مدل حق دارد اضافه‌اش کند. و پرامپت هم صریح یادش می‌دهد:
+ * «برای مکثِ بلندتر یا جملهٔ ناتمام «…»».
+ *
+ * ولی این تابع سه‌نقطه را مرزِ جمله می‌شمرد. نتیجه‌اش تا ۶٫۲۹: هر متنی که
+ * مدل در آن یک «…» می‌گذاشت، در نسخهٔ علامت‌دار یک جملهٔ بیشتر داشت،
+ * `speakPair_` شمارها را ناهم‌خوان می‌دید و کلِ متن را **یکجا** به بازبین
+ * می‌داد. یعنی همان مسیرِ جمله‌به‌جملهٔ تازه‌ساخته، دوباره مرده — و بی هیچ
+ * خطایی، چون سقوط به «یکجا» یک رفتارِ مجازِ اعلام‌شده است.
+ *
+ * دو تعریف از «مرزِ جمله» در یک فایل یعنی روزی یکی‌شان بی‌صدا برنده می‌شود.
+ * تعریف یکی است: `.!؟?` مرز است، `،؛:—–…` عبارت‌بندی.
+ */
 function speakSentences_(text) {
   var t = String(text || '').replace(/\s+/g, ' ').trim();
   if (!t) return [];
   var parts = [], buf = '';
   for (var i = 0; i < t.length; i++) {
     buf += t.charAt(i);
-    if ('.!؟?…'.indexOf(t.charAt(i)) !== -1 &&
+    if ('.!؟?'.indexOf(t.charAt(i)) !== -1 &&
         (i + 1 >= t.length || t.charAt(i + 1) === ' ')) { parts.push(buf.trim()); buf = ''; }
   }
   if (buf.trim()) parts.push(buf.trim());
@@ -5717,26 +5733,37 @@ function speechCalibList_() {
   } catch (e) { return []; }
 }
 
-/** شمارِ نویسه‌های *گفتنیِ* یک قسمت — همان چیزی که سقف رویش اعمال می‌شود. */
+/**
+ * شمارِ نویسه‌های *گفتنیِ* یک قسمت — و **به همان واحدی که سقف با آن می‌سنجد**.
+ *
+ * ══ چرا نه از روی امضای بخش‌های صوتی ══
+ * نسخهٔ اول این تابع طول را از `ep.__speakSegs[i].h` می‌خواند، چون آن آرایه
+ * «دقیقاً همان چیزی است که خوانده شد». درست بود و به همین دلیل هم غلط بود:
+ * آن عدد طولِ *پوستهٔ مقایسه* است (`speakCmp_`)، که فاصله‌های دو طرفِ نشانه
+ * را می‌خورد. یعنی همان متن، در آن واحد کوتاه‌تر شمرده می‌شود — و اندازه‌گیریِ
+ * «بایت بر نویسه» بزرگ‌تر درمی‌آید، پس سقف کوچک‌تر از آنچه باید.
+ *
+ * اندازه‌گیری روی نمونهٔ پرنشانه: خام ۶۲۳، از امضا ۴۶۵ — ۲۵٪ اختلاف. روی
+ * نثرِ عادی کمتر است، ولی «کمتر» تضمین نیست و به تراکمِ ویرگولِ هر قسمت بند
+ * است. سقفی که به چیزی بی‌ربط بند باشد، همان سقفِ حدسی است با ظاهرِ دیگر.
+ *
+ * پس شمارش دقیقاً از همان‌جایی می‌آید که `specialCondense_` و
+ * `explainBudget_` و `fidelityCheck_` می‌شمرند: **متنِ خامِ خودِ قسمت** —
+ * به‌علاوهٔ تیکه‌های عصری‌سازی، که پس از نوشتن اضافه می‌شوند ولی خوانده
+ * می‌شوند و باید در سقف بیایند.
+ */
 function speechChars_(ep) {
   var n = 0;
-  // مرجعِ اول: امضای بخش‌های صوتی. `speakHash_` طولِ پوستهٔ مقایسه را در خودِ
-  // امضا می‌نویسد، و آن آرایه دقیقاً همان چیزی است که خوانده شد — با
-  // عصری‌سازی و هر چیزی که بعد از نوشتن اضافه شده.
-  var S = (ep && ep.__speakSegs) || [];
-  for (var i = 0; i < S.length; i++) {
-    var h = S[i] && S[i].h ? String(S[i].h) : '';
-    var k = h.lastIndexOf(':');
-    if (k > 0) { var x = Number(h.slice(k + 1)); if (isFinite(x) && x > 0) n += x; }
-  }
-  if (n > 0) return n;
-  // مرجعِ دوم (اعراب‌گذاری خاموش یا قسمتِ قدیمی): خودِ متن.
   var add = function (t) { n += String(t || '').length; };
   add(ep && ep.hook); add(ep && ep.intro); add(ep && ep.recap); add(ep && ep.outro);
-  var Sec = (ep && ep.sections) || [];
-  for (var j = 0; j < Sec.length; j++) {
-    add(Sec[j] && Sec[j].narration); add(Sec[j] && Sec[j].text);
+  // «هدف و انتظار» فقط در درس‌نامه گفته می‌شود؛ بخشِ ۱۴ جلوتر است، پس try.
+  try { add(goalSpeech_(ep)); } catch (eG) {}
+  var S = (ep && ep.sections) || [];
+  for (var i = 0; i < S.length; i++) {
+    add(S[i] && S[i].heading); add(S[i] && S[i].narration);
   }
+  var X = (ep && ep.__explain && ep.__explain.spots) || [];
+  for (var j = 0; j < X.length; j++) add(X[j] && X[j].text);
   return n;
 }
 
@@ -17166,17 +17193,21 @@ function seriesBoardHtml_(d) {
   /* مرورِ بزرگ: تیک‌ها از خودِ جدول جمع می‌شوند، پس هیچ حالتِ دومی نگه داشته
      نمی‌شود که با جدول ناهم‌خوان شود. `rcDefault` همان قاعدهٔ سرور است — و
      عمداً از `data-*`ِ خودِ تیک می‌آید، نه از یک کپیِ جداگانه در جاوااسکریپت. */
+  /* `rcSay` و نه `getElementById(...).textContent` مستقیم: جعبهٔ مرور وقتی
+     هیچ مجموعه‌ای قسمت نداشته باشد اصلاً رندر نمی‌شود، و آن‌وقت این سطرها
+     روی `null` می‌افتادند. استثنا در دیالوگِ Apps Script هیچ‌جا دیده نمی‌شود —
+     دکمه فقط بی‌صدا کاری نمی‌کند، همان بدترین شکلِ خرابی در این پنجره. */
+  H.push('function rcSay(t){var e=document.getElementById("rcMsg");if(e)e.textContent=t;}');
   H.push('function rcBoxes(){return [].slice.call(' +
          'document.querySelectorAll("input.rcChk"));}');
   H.push('function recapNone(){rcBoxes().forEach(function(b){if(!b.disabled)b.checked=false;});' +
-         'document.getElementById("rcMsg").textContent="همهٔ تیک‌ها برداشته شد.";}');
+         'rcSay("همهٔ تیک‌ها برداشته شد.");}');
   H.push('function recapDefault(){rcBoxes().forEach(function(b){' +
          'if(!b.disabled)b.checked=(b.dataset.def==="1");});' +
-         'document.getElementById("rcMsg").textContent="تیکِ پیش‌فرض برگشت.";}');
+         'rcSay("تیکِ پیش‌فرض برگشت.");}');
   H.push('function recapRun(b){var k=rcBoxes().filter(function(x){' +
          'return x.checked&&!x.disabled;}).map(function(x){return x.dataset.key;});' +
-         'if(!k.length){document.getElementById("rcMsg").textContent=' +
-         '"هیچ مجموعه‌ای تیک نخورده.";return;}' +
+         'if(!k.length){rcSay("هیچ مجموعه‌ای تیک نخورده.");return;}' +
          'busy();say("ساختِ مرور… نوشتنِ متن چند ده ثانیه طول می‌کشد",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiRecapQueue(k);}');

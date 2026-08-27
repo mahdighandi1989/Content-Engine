@@ -757,17 +757,21 @@ function seriesBoardHtml_(d) {
   /* مرورِ بزرگ: تیک‌ها از خودِ جدول جمع می‌شوند، پس هیچ حالتِ دومی نگه داشته
      نمی‌شود که با جدول ناهم‌خوان شود. `rcDefault` همان قاعدهٔ سرور است — و
      عمداً از `data-*`ِ خودِ تیک می‌آید، نه از یک کپیِ جداگانه در جاوااسکریپت. */
+  /* `rcSay` و نه `getElementById(...).textContent` مستقیم: جعبهٔ مرور وقتی
+     هیچ مجموعه‌ای قسمت نداشته باشد اصلاً رندر نمی‌شود، و آن‌وقت این سطرها
+     روی `null` می‌افتادند. استثنا در دیالوگِ Apps Script هیچ‌جا دیده نمی‌شود —
+     دکمه فقط بی‌صدا کاری نمی‌کند، همان بدترین شکلِ خرابی در این پنجره. */
+  H.push('function rcSay(t){var e=document.getElementById("rcMsg");if(e)e.textContent=t;}');
   H.push('function rcBoxes(){return [].slice.call(' +
          'document.querySelectorAll("input.rcChk"));}');
   H.push('function recapNone(){rcBoxes().forEach(function(b){if(!b.disabled)b.checked=false;});' +
-         'document.getElementById("rcMsg").textContent="همهٔ تیک‌ها برداشته شد.";}');
+         'rcSay("همهٔ تیک‌ها برداشته شد.");}');
   H.push('function recapDefault(){rcBoxes().forEach(function(b){' +
          'if(!b.disabled)b.checked=(b.dataset.def==="1");});' +
-         'document.getElementById("rcMsg").textContent="تیکِ پیش‌فرض برگشت.";}');
+         'rcSay("تیکِ پیش‌فرض برگشت.");}');
   H.push('function recapRun(b){var k=rcBoxes().filter(function(x){' +
          'return x.checked&&!x.disabled;}).map(function(x){return x.dataset.key;});' +
-         'if(!k.length){document.getElementById("rcMsg").textContent=' +
-         '"هیچ مجموعه‌ای تیک نخورده.";return;}' +
+         'if(!k.length){rcSay("هیچ مجموعه‌ای تیک نخورده.");return;}' +
          'busy();say("ساختِ مرور… نوشتنِ متن چند ده ثانیه طول می‌کشد",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiRecapQueue(k);}');
