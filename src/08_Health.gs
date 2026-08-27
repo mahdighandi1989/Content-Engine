@@ -458,6 +458,7 @@ function writeStatus_(hub, note) {
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
+    seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
@@ -1234,6 +1235,13 @@ function healthCheck() {
     var aqS = auditQueueStatus_(hub);
     if (aqS && aqS.line) { if (aqS.ok) notes.push(aqS.line); else problems.push(aqS.line); }
   } catch (eAq) {}
+  /* ترتیبِ قسمت‌های هر مجموعه. تا ۶٫۳۳ هیچ‌کس نمی‌پرسید ترتیب اصلاً معنا
+     دارد یا نه: دو قسمت با یک شماره، یا هیچ‌کدام بی‌شماره، بی‌صدا به ترتیبِ
+     ردیفِ شیت می‌افتاد — یعنی ترتیبِ پردازش، نه ترتیبِ درس. */
+  try {
+    var soS = seriesOrderStatus_(hub);
+    if (soS && soS.line) { if (soS.ok) notes.push(soS.line); else problems.push(soS.line); }
+  } catch (eSo) {}
   /* و سقفِ «یک فایل»، با عددی که از خروجیِ واقعی آمده. تا وقتی این عدد
      حدسی بود، هر بار که قسمت دو فایل می‌شد جای دیگری را دنبالِ مقصر
      می‌گشتیم. */

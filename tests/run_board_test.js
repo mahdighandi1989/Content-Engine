@@ -694,4 +694,149 @@ console.log('\n=== ستونِ مرورِ بزرگ در تخته ===');
      /class="rcChk"[^>]*data-def="[01]"/.test(hR));
 }
 
+/* ══ ترتیبِ قسمت‌ها — نگرانیِ صریحِ صاحبِ برنامه (۶٫۳۴) ══
+   «قسمت‌ها نامرتب باشن، یا قسمتی بعد از چند قسمتِ بعدش اومده باشه، یا در
+   ردیف‌های مجموعهٔ دیگه اشتباهی ثبت شده باشه… که اشتباهی محتوای قسمت‌های
+   قبل‌تر نیاد در تولیداتِ بعدتر.» */
+console.log('\n=== وارسیِ ترتیبِ قسمت‌ها ===');
+{
+  const sp = ensureTab_(hub, CFG.SERIES_PART_TAB, SPART_HEADERS);
+  const reg0 = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const addSeries = (key, name) => {
+    const r = new Array(SERIES_HEADERS.length).fill('');
+    r[SC.KEY - 1] = key; r[SC.NAME - 1] = name; r[SC.STATUS - 1] = SST.ACTIVE;
+    reg0.getRange(reg0.getLastRow() + 1, 1, 1, SERIES_HEADERS.length).setValues([r]);
+  };
+  const addPart = (key, fid, name, seq) => {
+    const r = new Array(SPART_HEADERS.length).fill('');
+    r[SP.KEY - 1] = key; r[SP.FILE - 1] = fid; r[SP.NAME - 1] = name;
+    r[SP.SEQ - 1] = seq; r[SP.CHUNKS - 1] = 5;
+    sp.getRange(sp.getLastRow() + 1, 1, 1, SPART_HEADERS.length).setValues([r]);
+  };
+
+  // ۱) ترتیبِ سالم، ولی ردیف‌ها در شیت نامرتب — این **ایراد نیست**
+  addSeries('ordok', 'دورهٔ مرتب');
+  addPart('ordok', 'a3', 'dore_03.mp4', 3);
+  addPart('ordok', 'a1', 'dore_01.mp4', 1);
+  addPart('ordok', 'a2', 'dore_02.mp4', 2);
+  const parts1 = readSeriesParts_(hub);
+  ok('ردیفِ نامرتبِ شیت، به ترتیبِ شمارهٔ قسمت خوانده می‌شود',
+     parts1.byKey['ordok'].map(x => Number(x.vals[SP.SEQ - 1])).join(',') === '1,2,3',
+     parts1.byKey['ordok'].map(x => x.vals[SP.SEQ - 1]).join(','));
+  let r = seriesOrderCheck_(hub, null, parts1);
+  ok('و «نامرتب در شیت» به‌تنهایی هشدار نمی‌سازد',
+     !r.series.some(x => x.key === 'ordok'), JSON.stringify(r.series.map(x => x.key)));
+
+  // ۲) دو قسمت با یک شماره — ترتیب واقعاً مبهم است
+  addSeries('orddup', 'دورهٔ تکراری');
+  addPart('orddup', 'b1', 'dars_01.mp4', 1);
+  addPart('orddup', 'b2', 'dars_02.mp4', 2);
+  addPart('orddup', 'b3', 'dars_02b.mp4', 2);
+  r = seriesOrderCheck_(hub);
+  const dup = r.series.find(x => x.key === 'orddup');
+  ok('شمارهٔ تکراری گرفته می‌شود و «جدی» است',
+     dup && dup.dup.indexOf(2) !== -1 && dup.severe === true, JSON.stringify(dup));
+
+  // ۳) هیچ قسمتی شماره ندارد — ترتیب از ردیفِ شیت می‌آید، یعنی ترتیبِ پردازش
+  addSeries('ordflat', 'دورهٔ بی‌شماره');
+  addPart('ordflat', 'c1', 'jalase_avval.mp4', 0);
+  addPart('ordflat', 'c2', 'jalase_dovom.mp4', 0);
+  r = seriesOrderCheck_(hub);
+  const flat = r.series.find(x => x.key === 'ordflat');
+  ok('«هیچ شماره‌ای نیست» گرفته می‌شود و «جدی» است',
+     flat && flat.flat === true && flat.severe === true, JSON.stringify(flat));
+  /* و صفر «شمارهٔ تکراری» نیست: یک واقعیت نباید دو بار و یک بارش با نامِ
+     غلط گزارش شود. */
+  ok('و صفر به‌عنوان شمارهٔ تکراری گزارش نمی‌شود', flat.dup.length === 0,
+     JSON.stringify(flat.dup));
+
+  // ۴) قسمتی که نامش به مجموعهٔ دیگری اشاره می‌کند
+  addSeries('ordalien', 'Polya HowToSolveIt');
+  addPart('ordalien', 'd1', 'polya_01.mp4', 1);
+  addPart('ordalien', 'd2', 'polya_02.mp4', 2);
+  addPart('ordalien', 'd3', 'astrology_homayoon_05.mp4', 3);
+  r = seriesOrderCheck_(hub);
+  const al = r.series.find(x => x.key === 'ordalien');
+  ok('قسمتی با نامِ مجموعهٔ دیگر گزارش می‌شود',
+     al && al.alien.length === 1 && al.alien[0].stem.indexOf('astrology') !== -1,
+     JSON.stringify(al && al.alien));
+  ok('ولی «جدی» نیست — نام شهادتِ قطعی نیست', al && al.severe === false);
+
+  // ۵) جای خالی وسطِ شماره‌ها
+  addSeries('ordgap', 'دورهٔ ناقص');
+  ['e1', 'e2', 'e4'].forEach((f, i) => addPart('ordgap', f, 'g_0' + f.slice(1) + '.mp4',
+                                               [1, 2, 4][i]));
+  r = seriesOrderCheck_(hub);
+  const gp = r.series.find(x => x.key === 'ordgap');
+  ok('جای خالیِ شماره گزارش می‌شود، ولی یادداشت است نه هشدار',
+     gp && gp.gaps.indexOf(3) !== -1 && gp.severe === false, JSON.stringify(gp && gp.gaps));
+
+  // ۶) سطرِ روزانه و یافته
+  const st = seriesOrderStatus_(hub);
+  ok('سطرِ روزانه ساخته می‌شود و مشکل‌دار است', !!st.line && st.ok === false, st.line.slice(0, 150));
+  const rep = hub.getSheetByName(CFG.REPORT_TAB);
+  const seen = (rep && rep.getLastRow() > 1)
+    ? rep.getRange(1, 1, rep.getLastRow(), REPORT_HEADERS.length).getValues()
+         .filter(x => String(x.join(' ')).indexOf('ترتیبِ قسمت‌های') !== -1) : [];
+  ok('و یافته فقط برای مجموعهٔ زنده ساخته می‌شود — یکی در هر دور',
+     seen.length === 1, seen.length + ' ردیف');
+
+  // ۷) و روی تخته، چسبیده به همان مجموعه
+  const hOrd = seriesBoardHtml_(seriesBoardData_(hub));
+  ok('هشدارِ ترتیب کنارِ نامِ مجموعه در تخته می‌آید',
+     hOrd.indexOf('⚠ ترتیب:') !== -1);
+  ok('و رتبهٔ اولویت را خراب نکرده (کلیدِ order دست‌نخورده)',
+     seriesBoardData_(hub).groups.every(g => g.series.every(y => y.order >= 1)));
+}
+
+/* ══ نامِ اصلی در برابرِ نامِ تغییرکرده (۶٫۳۴) ══
+   «به خودِ اسمِ اصلیِ فایل توجه داره؟ … حتی همون اسمی هم که تغییر می‌کنه
+   نباید اسمِ قبلی رو حذف کرده باشه و ترتیب رو به هم بزنه.» */
+console.log('\n=== نامِ اصلی، و ستونی که خالی مانده ===');
+{
+  const H = ['Timestamp', 'File_ID', 'File_Name', 'New_Name', 'Drive_Link', 'Is_Chunk',
+             'Chunk_Number', 'Chunk_Total', 'Series_ID', 'Series_Name', 'Episode_Seq'];
+  const c = seriesColsOf_(H);
+  ok('ستونِ نام روی File_Name می‌نشیند، نه New_Name',
+     c.name === H.indexOf('File_Name') && c.name2 === H.indexOf('New_Name'),
+     'name=' + c.name + ' name2=' + c.name2);
+
+  const sp2 = new Spread('srcOrd');
+  const t = sp2.insertSheet('T');
+  t.getRange(1, 1, 1, H.length).setValues([H]);
+  const row = (id, orig, neu, ch) => ['2026-01-01', id, orig, neu, '', 'بله', ch, 2, '', '', ''];
+  t.getRange(2, 1, 6, H.length).setValues([
+    row('f1', 'dore_01.mp4', 'درس ۱', 1),
+    row('f1', 'dore_01.mp4', 'درس ۱', 2),
+    row('f2', '',            'dore_02.mp4', 1),   // ← نامِ اصلی خالی
+    row('f2', '',            'dore_02.mp4', 2),
+    row('f3', '',            'dore_03.mp4', 1),   // ← ردیفِ اول بی‌نامِ اصلی…
+    row('f3', 'dore_03.mp4', 'درس ۳',      2)     // …ولی ردیفِ دوم دارد
+  ]);
+  const files = scanTabFiles_(t, 'T', H);
+  /* بی این جایگزینی، فایلِ دوم «بی‌نام f2» می‌شد — یعنی **مجموعهٔ
+     تک‌قسمتیِ خودش** — و بی‌صدا از دوره‌اش بیرون می‌افتاد. */
+  ok('نامِ اصلیِ خالی، از ستونِ نامِ تازه جبران می‌شود',
+     files['f2'] && files['f2'].name === 'dore_02.mp4', files['f2'] && files['f2'].name);
+  ok('و همان مجموعه‌ای می‌شود که فایلِ اول در آن است',
+     seriesKeyFromStem_(parseSeriesName_(files['f1'].name).name) ===
+     seriesKeyFromStem_(parseSeriesName_(files['f2'].name).name));
+  ok('و شمارهٔ قسمتش هم درست درمی‌آید',
+     parseSeriesName_(files['f2'].name).seq === 2);
+  /* و نامِ اصلیِ *هر ردیفی* بر نامِ تازه مقدم است — حتی اگر ردیفِ اول نداشته
+     باشدش. وگرنه یک بک‌فیلِ ناقص کلِ فایل را به نامِ تازه‌اش می‌انداخت. */
+  ok('نامِ اصلی هر جای فایل که باشد، برنده است',
+     files['f3'] && files['f3'].name === 'dore_03.mp4', files['f3'] && files['f3'].name);
+}
+
+/* ══ شمارهٔ قسمتی که بعداً پر می‌شود، باید جا بیفتد (۶٫۳۴) ══ */
+console.log('\n=== اصلاحِ بعدیِ شمارهٔ قسمت ===');
+{
+  const body = fs.readFileSync('src/13_Series.gs', 'utf8');
+  const i = body.indexOf('var changed = Number(w[SP.CHUNKS');
+  const cond = body.slice(i, body.indexOf(';', i));
+  ok('شرطِ «تغییر کرد» شمارهٔ قسمت را می‌سنجد', /SP\.SEQ/.test(cond));
+  ok('و نامِ قسمت را', /SP\.NAME/.test(cond));
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');

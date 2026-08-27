@@ -50,6 +50,15 @@ function seriesBoardData_(hub) {
      خوانده شده، پس دوباره خوانده نمی‌شود. */
   var rcMap = Object.create(null);
   try { rcMap = recapBoardMap_(hub, reg); } catch (eR) {}
+  /* وارسیِ ترتیب — همان‌جایی که مجموعه انتخاب می‌شود. هشداری که در ایمیل
+     بماند و کنارِ دکمهٔ «کار روی این» نباشد، سرِ بزنگاه دیده نمی‌شود. */
+  var ordMap = Object.create(null);
+  try {
+    var ordAll = seriesOrderCheck_(hub, reg, parts);
+    for (var oi = 0; oi < (ordAll.series || []).length; oi++) {
+      ordMap[ordAll.series[oi].key] = ordAll.series[oi];
+    }
+  } catch (eO) {}
 
   var rows = [];
   for (var i = 0; i < reg.rows.length; i++) {
@@ -125,6 +134,10 @@ function seriesBoardData_(hub) {
       handout: hoMap[key] || null,
       handoutDue: hoDue[key] || 0,
       recap: rcMap[key] || null,
+      /* `orderWarn` و نه `order`: ردیفِ تخته از قبل کلیدِ `order` دارد —
+         رتبهٔ اولویت، یک عدد. نشستنِ یک شیء رویش هیچ خطایی نمی‌داد و فقط
+         مرتب‌سازیِ تخته را بی‌صدا خراب می‌کرد. */
+      orderWarn: ordMap[key] || null,
       hasWork: (function () {
         if (st === SST.SKIPPED) return false;
         for (var w = 0; w < partRows.length; w++) {
@@ -626,6 +639,7 @@ function seriesBoardHtml_(d) {
              // شرحِ یک‌خطیِ محتوا: برای فایل‌هایی که از نامشان چیزی فهمیده نمی‌شود
              (x.about ? '<div class="abt">' + bEsc_(x.about) + '</div>'
                       : (x.topic ? '<div class="sub">' + bEsc_(x.topic) + '</div>' : '')) +
+             orderWarnHtml_(x.orderWarn) +
              '</td>');
       H.push('<td class="lvl">' + bEsc_(x.level || '—') + '</td>');
       H.push('<td>' + faNum_(x.donePartsN) + '/' + faNum_(x.parts) + '</td>');
@@ -1019,6 +1033,31 @@ function recapPanelHtml_(d) {
     '<button onclick="recapNone()">برداشتنِ همهٔ تیک‌ها</button> ' +
     '<button onclick="recapDefault()">بازگرداندنِ تیکِ پیش‌فرض</button></div>' +
     '<div class="sub" id="rcMsg" style="margin-top:6px"></div></div>';
+}
+
+/**
+ * هشدارِ ترتیب، چسبیده به نامِ همان مجموعه.
+ *
+ * ══ چرا اینجا و نه فقط در ایمیل ══
+ * لحظه‌ای که این هشدار به کار می‌آید، لحظه‌ای است که آدم دارد مجموعه‌ای را
+ * برای تولید انتخاب می‌کند. همان قاعدهٔ ۵٫۶۱ (تقویم) و ۵٫۸۷ (جزوه): کنترل و
+ * خبر، کنارِ کاری که به آن مربوط‌اند.
+ */
+function orderWarnHtml_(o) {
+  if (!o) return '';
+  var w = [];
+  if (o.flat) w.push('هیچ قسمتی شمارهٔ قسمت ندارد — ترتیب از ردیفِ شیت می‌آید');
+  if (o.dup && o.dup.length) w.push('شمارهٔ تکراری: ' + o.dup.map(faNum_).join('، '));
+  if (o.gaps && o.gaps.length) w.push('جای خالی: ' + o.gaps.map(faNum_).join('، '));
+  if (o.unnamed) w.push(faNum_(o.unnamed) + ' قسمتِ بی‌نام');
+  if (o.alien && o.alien.length) {
+    w.push(faNum_(o.alien.length) + ' قسمت با نامِ مجموعهٔ دیگر («' +
+           bEsc_(String(o.alien[0].stem || '')) + '»)');
+  }
+  if (!w.length) return '';
+  var col = o.severe ? '#8a1f1f' : '#8a6d1f';
+  return '<div class="sub" style="color:' + col + ';margin-top:3px">' +
+         (o.severe ? '⚠ ترتیب: ' : 'ترتیب: ') + bEsc_(w.join(' · ')) + '</div>';
 }
 
 /** جعبهٔ بالای تخته: حالِ کلیِ جزوه‌ها و یک دکمه برای همه. */

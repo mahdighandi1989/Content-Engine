@@ -173,7 +173,22 @@ function seriesColsOf_(headers) {
   };
   return {
     fileId:  f([['File_ID'], ['File ID'], ['شناسه فایل']], -1),
-    name:    f([['File_Name'], ['نام اصلی فایل'], ['New_Name'], ['نام جدید فایل']], -1),
+    /* ══ نامِ اصلی و نامِ تغییرکرده، دو ستونِ جدا (۶٫۳۴) ══
+     * خواستهٔ صریحِ صاحبِ برنامه: «به خودِ اسمِ اصلیِ فایل توجه داره؟ همون که
+     * در یه ستون هست، نه اسمی که بعداً تغییر می‌کنه… حتی همون اسمی هم که
+     * تغییر می‌کنه نباید اسمِ قبلی رو حذف کرده باشه و ترتیب رو به هم بزنه.»
+     *
+     * تا ۶٫۳۳ این یک ستونِ واحد بود: اولین سرستونی که پیدا می‌شد. `File_Name`
+     * معمولاً اول است، پس معمولاً درست کار می‌کرد — ولی وقتی سلولِ
+     * `File_Name` یک ردیف **خالی** بود، نامِ آن فایل خالی می‌ماند حتی اگر
+     * `New_Name` پر بود. اندازه‌گیری‌شده: فایلی با `File_Name` خالی به
+     * «بی‌نام f2» تبدیل می‌شد، یعنی **مجموعهٔ تک‌قسمتیِ خودش** — از دورهٔ
+     * واقعی‌اش بیرون می‌افتاد و هیچ خطایی هم نمی‌داد.
+     *
+     * پس دو ستون جدا نگه داشته می‌شوند و اولویت صریح است: اصلی، و تازه فقط
+     * وقتی اصلی چیزی ندارد. */
+    name:    f([['File_Name'], ['نام اصلی فایل']], -1),
+    name2:   f([['New_Name'], ['نام جدید فایل']], -1),
     isChunk: f([['Is_Chunk'], ['آیا قطعه است']], -1),
     chunkNo: f([['Chunk_Number'], ['شماره قطعه']], -1),
     total:   f([['Total_Chunks'], ['Chunk_Total'], ['تعداد کل قطعات']], -1),
@@ -202,7 +217,7 @@ function scanTabFiles_(sh, tabName, headers) {
 
   // فقط ستون‌های لازم خوانده می‌شوند، نه کل تب — تبِ درسی ۵۷ ستون دارد و
   // خواندنِ کاملش برای هزاران ردیف از سقفِ حافظه رد می‌شود.
-  var need = [c.fileId, c.name, c.isChunk, c.chunkNo, c.total, c.link, c.date,
+  var need = [c.fileId, c.name, c.name2, c.isChunk, c.chunkNo, c.total, c.link, c.date,
               c.seriesId, c.seriesName, c.episodeSeq].filter(function (x) { return x >= 0; });
   var lo = Math.min.apply(null, need), hi = Math.max.apply(null, need);
   var vals = sh.getRange(2, lo + 1, last - 1, hi - lo + 1).getValues();
@@ -212,19 +227,28 @@ function scanTabFiles_(sh, tabName, headers) {
   for (var i = 0; i < vals.length; i++) {
     var fid = String(at(vals[i], c.fileId) || '').trim();
     if (!fid) continue;
-    var nm = String(at(vals[i], c.name) || '').trim();
+    // نامِ اصلی؛ و اگر این سلول خالی بود، نامِ تازه. `renamed` نگه داشته
+    // می‌شود تا وارسیِ ترتیب بتواند بگوید کدام فایل نامِ اصلی ندارد.
+    var nmOrig = String(at(vals[i], c.name) || '').trim();
+    var nmNew = c.name2 >= 0 ? String(at(vals[i], c.name2) || '').trim() : '';
+    var nm = nmOrig || nmNew;
     var no = parseInt(faDigits_(String(at(vals[i], c.chunkNo) || '')), 10);
     var tot = parseInt(faDigits_(String(at(vals[i], c.total) || '')), 10);
     var f = files[fid];
     if (!f) {
-      f = files[fid] = { fileId: fid, name: nm, link: String(at(vals[i], c.link) || ''),
+      f = files[fid] = { fileId: fid, name: nm, renamed: !nmOrig && !!nmNew,
+                         link: String(at(vals[i], c.link) || ''),
                          tab: tabName, chunks: [], total: 0, rollupRow: 0,
                          seriesId: String(at(vals[i], c.seriesId) || '').trim(),
                          seriesName: String(at(vals[i], c.seriesName) || '').trim(),
                          episodeSeq: parseInt(faDigits_(String(at(vals[i], c.episodeSeq) || '')), 10),
                          firstAt: String(at(vals[i], c.date) || '') };
     }
-    if (!f.name && nm) f.name = nm;
+    /* نامِ اصلیِ *هر ردیف* برنده است: فایلی که در یک ردیف نامِ اصلی دارد و
+       در ردیفِ دیگر ندارد، باید نامِ اصلی‌اش را نگه دارد. وگرنه یک ردیفِ
+       بک‌فیلِ ناقص می‌توانست کلِ فایل را به نامِ تازه‌اش بیندازد. */
+    if (nmOrig && (!f.name || f.renamed)) { f.name = nmOrig; f.renamed = false; }
+    else if (!f.name && nm) f.name = nm;
     if (!f.link) f.link = String(at(vals[i], c.link) || '');
     // این ستون‌ها را خطِ لوله ممکن است بعداً پر کند، پس فقط ردیفِ اولِ فایل
     // را نگاه نمی‌کنیم — وگرنه یک بک‌فیلِ نیمه‌تمام، یک دوره را دو تکه می‌کرد.
@@ -288,6 +312,184 @@ function readSeriesReg_(hub) {
     out.rows.push(rec);
     out.byKey[key] = rec;
   }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * وارسیِ ترتیبِ قسمت‌ها (۶٫۳۴)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ══ نگرانیِ صاحبِ برنامه، عیناً ══
+ * «وقتی یه مجموعه رو برای آنالیز و استخراج انتخاب می‌کنم که در شیتِ اون
+ * مجموعه قسمت‌ها نامرتب قرار گرفته باشه، یا قسمتی بعد از چند قسمتِ بعدش
+ * اومده باشه، یا در ردیف‌های مجموعهٔ دیگه اشتباهی ثبت شده باشه — دقیق
+ * تشخیص می‌ده؟ … که اشتباهی محتوای قسمت‌های قبل‌تر نیاد در تولیداتِ بعدتر.»
+ *
+ * ── چه چیزی از قبل درست بود ──
+ * ردیف‌های پراکندهٔ یک فایل با `File_ID` جمع می‌شوند، هر جای تب که باشند.
+ * قطعه‌های داخلِ یک فایل با `Chunk_Number` مرتب می‌شوند، نه با ترتیبِ ردیف.
+ * قسمت‌های یک مجموعه با `Episode_Seq` مرتب می‌شوند. تا اینجا سالم.
+ *
+ * ── و چه چیزی نبود ──
+ * **هیچ‌کس نمی‌پرسید ترتیب اصلاً معنا دارد یا نه.** اگر دو قسمت شمارهٔ یکسان
+ * بگیرند، یا هیچ‌کدام شماره نگیرند (`Episode_Seq` خالی و نامِ فایل بی‌الگو)،
+ * مرتب‌سازی بی‌صدا به **ترتیبِ ردیفِ شیت** برمی‌گردد — یعنی ترتیبِ *پردازش*،
+ * نه ترتیبِ *درس*. و مکان‌نمای «تا کجا خوانده شده» روی همان ترتیب جلو می‌رود.
+ * نتیجه‌اش دقیقاً همان چیزی است که او می‌ترسد، و هیچ خطایی نمی‌دهد.
+ *
+ * این سنجه فقط **گزارش** می‌کند و هرگز تولید را متوقف نمی‌کند: پادکستِ
+ * نساخته بدتر از پادکستِ بدترتیب است، و تشخیص هم قطعی نیست.
+ */
+function seriesOrderCheck_(hub, reg, parts) {
+  var out = { series: [], bad: 0, notes: 0, checked: 0 };
+  try {
+    hub = hub || getHub_();
+    reg = reg || readSeriesReg_(hub);
+    parts = parts || readSeriesParts_(hub);
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i], key = String(rec.key || '');
+      var list = parts.byKey[key] || [];
+      if (list.length < 1) continue;
+      out.checked++;
+      var st = String(rec.vals[SC.STATUS - 1] || '');
+      var live = st !== SST.DONE && st !== SST.SKIPPED;
+      var name = String(rec.vals[SC.NAME - 1] || key);
+
+      var seqs = [], byS = Object.create(null), dup = [], unnamed = 0, alien = [];
+      var stems = [];
+      var maxS = 0, withSeq = 0;
+      for (var j = 0; j < list.length; j++) {
+        var pn = String(list[j].vals[SP.NAME - 1] || '').trim();
+        var sq = Number(list[j].vals[SP.SEQ - 1]) || 0;
+        if (!pn || pn.indexOf('بی‌نام') === 0) unnamed++;
+        if (sq > 0) { withSeq++; if (sq > maxS) maxS = sq; }
+        seqs.push(sq);
+        /* صفر یعنی «شماره ندارد»، نه «شمارهٔ تکراری». بی این شرط، مجموعه‌ای
+           که هیچ قسمتش شماره نداشت هم «شمارهٔ تکراری ۰» گزارش می‌شد —
+           یعنی یک واقعیت، دو بار و یک بارش با نامِ غلط. */
+        if (sq > 0) {
+          if (byS[sq]) { if (dup.indexOf(sq) === -1) dup.push(sq); } else byS[sq] = 1;
+        }
+        /* «در ردیف‌های مجموعهٔ دیگر ثبت شده» — سنجه‌اش **خودِ همسایه‌هاست**،
+           نه کلیدِ مجموعه.
+
+           نسخهٔ اول ریشهٔ نامِ فایل را با کلیدِ رجیستری می‌سنجید. برای
+           مجموعه‌ای که کلیدش از نامِ فایل آمده درست کار می‌کرد — و برای
+           مجموعه‌ای که کلیدش از ستونِ `Series_Name` آمده (که خطِ لوله پر
+           می‌کند و مرجعِ معتبرتری است) **هر** قسمت را بیگانه اعلام می‌کرد.
+           هشداری که برای یک قرارداد نام‌گذاریِ سالم هر شب بلند شود، همان
+           هشداری است که خوانده نمی‌شود.
+
+           چیزی که واقعاً پرسیده شده این است: «یک فایل اشتباهی این‌جا ثبت
+           شده؟» یعنی فایلی که شبیهِ *برادرهایش* نیست. پس ریشه‌ها جمع
+           می‌شوند و اقلیت گزارش می‌شود. */
+        if (pn) {
+          try {
+            var pp = parseSeriesName_(pn);
+            var st2 = (pp && pp.multi) ? seriesKeyFromStem_(pp.name) : '';
+            stems.push({ name: pn, stem: st2, label: (pp && pp.name) || '' });
+          } catch (eP) { stems.push({ name: pn, stem: '', label: '' }); }
+        }
+      }
+
+      /* اکثریت در برابرِ اقلیت — و فقط وقتی اکثریتی واقعاً هست. با دو قسمت،
+         «اقلیت» بی‌معناست. */
+      var tally = Object.create(null), best = '', bestN = 0, named = 0;
+      for (var t = 0; t < stems.length; t++) {
+        if (!stems[t].stem) continue;
+        named++;
+        tally[stems[t].stem] = (tally[stems[t].stem] || 0) + 1;
+        if (tally[stems[t].stem] > bestN) { bestN = tally[stems[t].stem]; best = stems[t].stem; }
+      }
+      if (named >= 3 && bestN > named / 2) {
+        for (var t2 = 0; t2 < stems.length; t2++) {
+          if (stems[t2].stem && stems[t2].stem !== best) {
+            alien.push({ name: stems[t2].name, stem: stems[t2].label || stems[t2].stem });
+          }
+        }
+      }
+
+      /* «تخت» یعنی بیش از یک قسمت و هیچ شماره‌ای — مرتب‌سازی آن‌وقت به
+         ترتیبِ ردیفِ شیت می‌افتد، یعنی ترتیبِ پردازش. */
+      var flat = list.length > 1 && withSeq === 0;
+      var gaps = [];
+      if (withSeq && maxS >= list.length) {
+        for (var g = 1; g <= maxS; g++) if (!byS[g]) gaps.push(g);
+      }
+      if (!dup.length && !flat && !gaps.length && !unnamed && !alien.length) continue;
+
+      var item = { key: key, name: name, n: list.length, live: live,
+                   dup: dup, flat: flat, gaps: gaps.slice(0, 8),
+                   unnamed: unnamed, alien: alien.slice(0, 4) };
+      item.severe = !!(dup.length || flat);
+      out.series.push(item);
+      if (item.severe) out.bad++; else out.notes++;
+    }
+    out.series.sort(function (a, b) {
+      return (b.severe - a.severe) || (b.live - a.live) || (b.n - a.n);
+    });
+  } catch (e) {}
+  return out;
+}
+
+/** یک سطرِ فارسیِ آماده — و یافته، فقط برای مجموعه‌ای که هنوز کار دارد. */
+function seriesOrderStatus_(hub) {
+  var out = { line: '', ok: true, bad: 0, notes: 0, worst: '' };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var r = seriesOrderCheck_(hub);
+    out.bad = r.bad; out.notes = r.notes;
+    if (!r.checked) { out.line = 'ترتیبِ قسمت‌ها: هنوز مجموعه‌ای با قسمت ثبت نشده.'; return out; }
+    if (!r.series.length) {
+      out.line = 'ترتیبِ قسمت‌ها: ' + fa(r.checked) + ' مجموعه وارسی شد، همه مرتب.';
+      return out;
+    }
+    var bits = [];
+    for (var i = 0; i < r.series.length && i < 3; i++) {
+      var x = r.series[i], w = [];
+      if (x.dup.length) w.push('شمارهٔ تکراری ' + x.dup.map(fa).join('،'));
+      if (x.flat) w.push('هیچ قسمتی شماره ندارد');
+      if (x.gaps.length) w.push('جای خالی ' + x.gaps.map(fa).join('،'));
+      if (x.unnamed) w.push(fa(x.unnamed) + ' قسمتِ بی‌نام');
+      if (x.alien.length) w.push(fa(x.alien.length) + ' قسمت با نامِ مجموعهٔ دیگر');
+      bits.push('«' + x.name + '»: ' + w.join(' · '));
+    }
+    out.worst = bits[0] || '';
+    out.line = 'ترتیبِ قسمت‌ها: ' + fa(r.checked) + ' مجموعه وارسی شد، ' +
+               (r.bad ? fa(r.bad) + ' مشکوک' : 'بی مشکلِ جدی') +
+               (r.notes ? ' و ' + fa(r.notes) + ' با یادداشت' : '') + ' — ' +
+               bits.join(' | ') +
+               (r.series.length > 3 ? ' …' : '') + '.';
+    if (r.bad) out.ok = false;
+
+    /* یافته فقط برای مجموعه‌ای که **هنوز کار دارد**: ترتیبِ غلط در مجموعه‌ای
+       که تمام شده، دیگر چیزی را خراب نمی‌کند و هشدارش فقط نویز است. */
+    for (var k = 0; k < r.series.length; k++) {
+      var y = r.series[k];
+      if (!y.severe || !y.live || !hub) continue;
+      try {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'ترتیبِ قسمت‌ها', key: 'series-order-' + y.key,
+          title: 'ترتیبِ قسمت‌های «' + y.name + '» قابلِ اعتماد نیست',
+          detail: (y.flat ? 'هیچ‌کدام از ' + y.n + ' قسمت شمارهٔ قسمت ندارند، پس ' +
+                            'ترتیبشان از ردیفِ شیت می‌آید — یعنی ترتیبِ پردازش، ' +
+                            'نه ترتیبِ درس. '
+                          : '') +
+                  (y.dup.length ? 'شمارهٔ ' + y.dup.join('، ') + ' بیش از یک بار ' +
+                                  'به کار رفته. ' : '') +
+                  (y.alien.length ? y.alien.length + ' قسمت نامی دارد که به مجموعهٔ ' +
+                                    'دیگری اشاره می‌کند (' + y.alien[0].stem + '). ' : '') +
+                  'این مجموعه هنوز در نوبتِ تولید است، پس ترتیبِ غلط یعنی ' +
+                  'محتوای یک درس در قسمتِ درسِ دیگر.',
+          instruction: 'ستونِ Episode_Seq همان تب را ببین: خالی یا تکراری است؟ ' +
+                       'اگر خطِ لوله آن را پر نمی‌کند، نامِ فایل‌ها باید الگوی ' +
+                       'شماره‌دار داشته باشد. موتور خودش ترتیب را حدس نمی‌زند.',
+          owner: 'کاربر', episode: 0
+        });
+      } catch (eF) {}
+      break;                                   // یک یافته در هر دور، نه سیل
+    }
+  } catch (e) {}
   return out;
 }
 
@@ -542,11 +744,20 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
         // نامِ تب و منبع هم باید در شرطِ تغییر باشند. اگر تبی در شیت منبع
         // تغییرِ نام بدهد، ردیفِ قسمت به تبِ مرده اشاره می‌کرد و اسکنِ دوباره
         // هم درستش نمی‌کرد — یعنی آن مجموعه برای همیشه غیرقابل‌خواندن می‌شد.
+        /* ══ شماره و نام هم باید در شرط باشند (۶٫۳۴) ══
+         * `Episode_Seq` را خطِ لوله *بعداً* پر می‌کند — همین فایل دو جای
+         * دیگر همین را می‌گوید. ولی شرطِ «تغییر کرد» فقط قطعه و ردیف و کلید
+         * و تب را می‌سنجید، پس شماره‌ای که بعداً پر یا اصلاح می‌شد **هیچ‌وقت**
+         * به ردیفِ قسمت نمی‌رسید و ترتیب برای همیشه غلط می‌ماند. و ترتیبِ
+         * غلط دقیقاً همان چیزی است که صاحبِ برنامه از آن می‌ترسید: محتوای
+         * قسمتِ قبل، در تولیدِ قسمتِ بعد. */
         var changed = Number(w[SP.CHUNKS - 1]) !== f.chunks.length ||
                       String(w[SP.ROWS - 1]) !== packed ||
                       String(w[SP.KEY - 1]) !== key ||
                       String(w[SP.TAB - 1]) !== f.tab ||
-                      String(w[SP.SRC - 1]) !== f.srcTitle;
+                      String(w[SP.SRC - 1]) !== f.srcTitle ||
+                      (Number(w[SP.SEQ - 1]) || 0) !== (Number(f.seq) || 0) ||
+                      String(w[SP.NAME - 1] || '') !== String(f.name || '');
         if (changed) {
           w[SP.KEY - 1] = key;
           w[SP.NAME - 1] = f.name; w[SP.SEQ - 1] = f.seq; w[SP.TAB - 1] = f.tab;
