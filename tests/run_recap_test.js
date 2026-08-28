@@ -838,21 +838,51 @@ console.log('\n=== ۲۲) خانهٔ تخته: سه گزینه، و «نمی‌د
      cellDone.indexOf('value="since"') !== -1 &&
      cellDone.indexOf('بعد از درسِ') !== -1, cellDone.replace(/<[^>]*>/g, ' ').slice(0, 160));
 
-  /* ══ پرونده‌های پیش از ۶٫۳۰: «نامعلوم»، نه «تا درسِ ۰» ══
-   * تخته `covered` را صفر می‌گرفت و بعد `behind = made − 0` — پس برای
-   * مجموعه‌ای که همین دیشب مرور گرفته بود می‌نوشت «تا درسِ ۰ · ۱۹ درسِ
-   * تازه پس از آن». عددی که ساختگی است بدتر از نبودنِ عدد است، چون
-   * خوانده می‌شود و باور می‌شود. */
+  /* ══ پرونده‌های کهنه: «نامعلوم» جوابِ آخر نبود (۶٫۴۱) ══
+   * ۶٫۳۹ فهمید که «تا درسِ ۰ · ۱۹ درسِ تازه پس از آن» عددِ ساختگی است و
+   * «نامعلوم» گذاشت. صاحبِ برنامه پرسید: «چرا نوشته نامعلوم؟ مگه جایی ثبت
+   * نشده؟» — و حق داشت: **ثبت شده بود، فقط نه در آن فیلد.** شمارهٔ قسمتِ
+   * خودِ مرور هست، و شماره‌ها سراسری و صعودی‌اند؛ مروری که پیش از ۶٫۳۹
+   * ساخته شده دامنه نداشته، پس به‌اجبار کلِ آن‌چه آن روز بود را گفته.
+   *
+   * و بهای آن «نامعلوم» پنهان بود: گزینهٔ «فقط درس‌های پس از مرورِ قبلی»
+   * برای تنها مجموعه‌ای که مرور داشت نمایش داده نمی‌شد — یعنی همان دامنه‌ای
+   * که او از اول خواسته بود، دست‌نیافتنی مانده بود. */
+  const nums = (recapEpsMap_(hub)['معرفت‌شناسی'] || []).map(x => x.n);
+  const top = nums.filter(n => n < 19).sort((a, b) => b - a)[0];
   global.__PROPS[PK.RECAP_DONE] = JSON.stringify({ kEp: { at: '۱۴۰۴/۰۶/۰۵', ep: 19 } });
   const mOld = recapBoardMap_(hub, reg)['kEp'];
-  ok('۲۲.۵ پروندهٔ کهنه «نامعلوم» است، نه صفر',
-     mOld.unknown === true && mOld.behind === 0, JSON.stringify({u: mOld.unknown, b: mOld.behind}));
+  ok('۲۲.۵ مرزِ پروندهٔ کهنه از شمارهٔ قسمتش درمی‌آید',
+     mOld.unknown === false && mOld.upto === top && mOld.uptoFrom === 'برآورد',
+     JSON.stringify({ u: mOld.upto, from: mOld.uptoFrom, top: top }));
   const cellOld = recapCell_({ key: 'kEp', recap: mOld });
-  ok('۲۲.۶ و خانه هم همان را می‌نویسد، نه «تا درسِ ۰»',
-     cellOld.indexOf('نامعلوم') !== -1 && cellOld.indexOf('تا درسِ ۰') === -1,
-     cellOld.replace(/<[^>]*>/g, ' ').slice(0, 120));
-  ok('۲۲.۷ و برای پروندهٔ کهنه گزینهٔ «پس از مرورِ قبلی» ادعا نمی‌شود',
-     cellOld.indexOf('value="since"') === -1);
+  ok('۲۲.۶ و خانه می‌گوید برآورد است، نه اینکه ثبت شده بوده',
+     cellOld.indexOf('تا درسِ ' + faNum_(top)) !== -1 &&
+     cellOld.indexOf('از شمارهٔ قسمتش حساب شد') !== -1 &&
+     cellOld.indexOf('تا درسِ ۰') === -1,
+     cellOld.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 120));
+  ok('۲۲.۷ و حالا گزینهٔ «پس از مرورِ قبلی» در دسترس است',
+     cellOld.indexOf('value="since"') !== -1 &&
+     cellOld.indexOf('بعد از درسِ ' + faNum_(top)) !== -1);
+
+  /* ولی برآورد در برابرِ عددِ ثبت‌شده می‌بازد. اگر پرونده گفته آن مرور ۹ درس
+     را پوشش داده و برآورد ۱۱ درس زیرِ مرز می‌شمرد، استنتاج غلط است و باید
+     کنار برود — نه اینکه عددِ ضبط‌شده را نقض کند. */
+  global.__PROPS[PK.RECAP_DONE] = JSON.stringify({
+    kEp: { at: '۱۴۰۴/۰۶/۰۵', ep: 19, parts: 2 } });
+  const mConf = recapBoardMap_(hub, reg)['kEp'];
+  ok('۲۲.۸ برآوردی که با عددِ ثبت‌شده نخواند، پذیرفته نمی‌شود',
+     mConf.upto === 0 && mConf.covered === 2 && mConf.uptoFrom === '',
+     JSON.stringify({ u: mConf.upto, c: mConf.covered, f: mConf.uptoFrom }));
+
+  /* و پس از یک مرورِ «انتخابی»، «پس از مرورِ قبلی» نمی‌آید: اگر درس‌های ۳ و
+     ۹ مرور شده باشند، «پس از ۹» درس‌های ۴ تا ۸ را بی‌صدا می‌اندازد. */
+  global.__PROPS[PK.RECAP_DONE] = JSON.stringify({
+    kEp: { at: '۱۴۰۴/۰۶/۰۵', ep: 19, mode: 'pick', eps: [3, 9], upto: 9, parts: 9 } });
+  const cellPick = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  ok('۲۲.۹ پس از مرورِ انتخابی، «پس از مرورِ قبلی» پیشنهاد نمی‌شود',
+     cellPick.indexOf('value="since"') === -1 &&
+     cellPick.indexOf('درس‌های انتخابی') !== -1);
   delete global.__PROPS[PK.RECAP_DONE];
 }
 
@@ -941,6 +971,47 @@ console.log('\n=== ۲۳) خودِ دکمه واقعاً تیک‌ها را جم�
   nodes[1].value = 'pick'; api.rcModeChange(nodes[1]);
   ok('۲۳.۸ فهرستِ درس‌ها فقط در حالتِ «انتخابی» باز می‌شود',
      hidden && nodes[2].style.display === '');
+}
+
+console.log('\n=== ۲۴) «اگر هیچ نکنم چه می‌شود؟» — جواب روی همان ردیف ===');
+{
+  /* ══ گزارشِ صاحبِ برنامه ══
+   * «خب الان رو چی بزنم؟ خودکار ساخته می‌شه یا اگر بخوام جلوتر انجام بشه
+   *  مثلاً الان چی کار کنم؟ … آیا همین‌جوری می‌افته رو دورِ انجامِ خودکار تا
+   *  زمانی که تیکش بردارم؟»
+   *
+   * جعبهٔ بالای تخته سازوکارِ صف را توضیح می‌داد، ولی جوابِ سؤالی که آدم
+   * جلوی یک ردیفِ مشخص دارد آنجا نبود. و جواب برای دو حالت **متضاد** است:
+   * مجموعه‌ای که هنوز مرور نگرفته خودش شبانه نوبت می‌گیرد، ولی مجموعه‌ای که
+   * یک بار گرفته هرگز دوباره خودکار نمی‌گیرد — `recapCandidates_` با
+   * `done[key]` ردش می‌کند. بدونِ این جمله، آدم منتظرِ چیزی می‌ماند که قرار
+   * نیست بیاید. */
+  const reg = readSeriesReg_(hub);
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_Q];
+  const cellNew = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  ok('۲۴.۱ مرورنشده و رسیده به کف: «خودش شبانه نوبت می‌گیرد»',
+     cellNew.indexOf('خودش شبانه نوبت می‌گیرد') !== -1);
+
+  recapMarkDone_('kEp', 50, 9, 2, 3, [], { mode: 'all', eps: [], upto: 9 });
+  const cellDone2 = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  ok('۲۴.۲ مرورشده: «خودکار دیگر سراغش نمی‌رود»',
+     cellDone2.indexOf('خودکار دیگر سراغش نمی‌رود') !== -1);
+  /* و این ادعا با رفتارِ واقعیِ انتخابِ خودکار سنجیده می‌شود، نه با خواندنِ
+     دوبارهٔ همان جمله — وگرنه روزی یکی از آن دو عوض می‌شود و آن‌یکی می‌ماند. */
+  ok('۲۴.۳ و انتخابِ خودکار واقعاً ردش می‌کند',
+     recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp').length === 0);
+  delete global.__PROPS[PK.RECAP_DONE];
+  ok('۲۴.۴ ولی با برداشتنِ پرونده دوباره نامزد می‌شود (درِ بازگشت)',
+     recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp').length === 1);
+
+  /* «تکرار نمی‌شود» هم باید نوشته باشد، نه از رفتار استنباط شود. */
+  const panel = recapPanelHtml_(seriesBoardData_());
+  ok('۲۴.۵ جعبه صریح می‌گوید تکرار نمی‌شود',
+     panel.indexOf('تکرار نمی‌شود') !== -1 &&
+     panel.indexOf('تیک‌ها ذخیره نمی‌شوند') !== -1);
+  ok('۲۴.۶ و دکمه می‌گوید «همین حالا»',
+     panel.indexOf('همین حالا بساز') !== -1);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
