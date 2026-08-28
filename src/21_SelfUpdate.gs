@@ -820,6 +820,12 @@ function selfUpdateDaily() {
   /* قسمتِ مرورِ بزرگ (۶٫۲۲، فراخوانِ رو به جلو ۲۱ ← ۳۰، پس در try).
      پشتِ یک بودجهٔ بزرگ: کارِ کمیابی است (یک بار برای هر مجموعه) و هیچ‌چیز
      به آن وابسته نیست، پس اگر امشب جا نشد فردا شب هست. */
+  /* داوریِ کیفیتِ ارجاع (۶٫۴۶) — سبک است (دو فراخوان) ولی مثلِ هر کارِ
+     اختیاری پشتِ نگهبانِ بودجه، طبقِ قاعدهٔ ۵٫۶۸. */
+  if (CFG.BRIDGE_AUDIT !== false && nightHas_(40000, 'داوریِ ارجاع‌ها')) {
+    try { bridgeAuditRun_(Number(CFG.BRIDGE_AUDIT_MAX) || 2); }
+    catch (eBa) { logLine_('داوریِ ارجاع‌ها نشد: ' + eBa.message); }
+  }
   if (CFG.RECAP_ENABLED !== false && nightHas_(60000, 'قسمتِ مرورِ بزرگ')) {
     try {
       var rc = recapNightly_();

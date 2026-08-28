@@ -463,6 +463,7 @@ function writeStatus_(hub, note) {
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
     bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
+    bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -1331,6 +1332,10 @@ function healthCheck() {
     var bxS = bridgeStatus_(hub);
     if (bxS && bxS.line) notes.push(bxS.line);
   } catch (eBx2) {}
+  try {
+    var baS = bridgeAuditStatus_(hub);
+    if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
+  } catch (eBa2) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
   if (healthHas_(6000, 'مدل‌ها', skipped)) try {

@@ -1380,6 +1380,11 @@ function produceSpecialEpisode(opt) {
        سؤالی که فردا می‌پرسی «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
     try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || []); }
     catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
+    /* و عکسی برای داوریِ شبانه — داوری اینجا انجام نمی‌شود چون تولید بودجهٔ
+       شش‌دقیقه‌ای دارد و یک فراخوانِ مدلِ دیگر در مسیرِ بحرانی همان چیزی است
+       که ۵٫۶۸ از نصبِ کد یاد گرفت. */
+    try { bridgeSnap_(epNum, seriesName, ctx.__bridgesUsed || [], ep); }
+    catch (eBs) { logLine_('عکسِ داوریِ ارجاع نشد: ' + eBs.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}

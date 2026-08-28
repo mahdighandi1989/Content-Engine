@@ -431,8 +431,11 @@ console.log('\n=== ۱۲) کدِ مرده نماند، و فراخوانِ رو �
   const s31 = fs.readFileSync('src/31_Bridge.gs', 'utf8');
   ok('۱۲.۱ نگاشتِ بی‌مصرفِ عنوان‌ها حذف شد',
      s31.indexOf('heads[String(secs[h])]') === -1);
+  /* پارامترِ سوم از ۶٫۴۶ `strictKeys` است، نه `ctx`: سخت‌گیریِ خودکار در
+     همان سد اعمال می‌شود، نه در شاخه‌ای جدا که روزی فراموش شود. */
   ok('۱۲.۲ و bridgeTrim_ دیگر ctx نمی‌گیرد',
-     /function bridgeTrim_\(links, names\)/.test(s31));
+     /function bridgeTrim_\(links, names(, strictKeys)?\)/.test(s31) &&
+     s31.indexOf('ctx.headings') === -1);
 
   /* قاعدهٔ ۲۱→۲۲: بخشی که رو به جلو صدا زده می‌شود باید در try/catch باشد،
      وگرنه بارگذارِ جزئی با ReferenceError کلِ تخته را می‌خواباند. */
@@ -451,6 +454,103 @@ console.log('\n=== ۱۲) کدِ مرده نماند، و فراخوانِ رو �
   const nTd = (firstRow.match(/<td/g) || []).length;
   const nTh = ((html.match(/<tr><th>اولویت[\s\S]*?<\/tr>/) || [''])[0].match(/<th/g) || []).length;
   ok('۱۲.۶ شمارِ خانه‌ها با سرستون‌ها می‌خواند', nTd === nTh, nTd + ' / ' + nTh);
+}
+
+console.log('\n=== ۱۳) حلقهٔ داوریِ کیفیت، بی آنکه کسی چیزی بفرستد (۶٫۴۶) ===');
+{
+  /* ══ خواستهٔ صاحبِ برنامه ══
+   * «بدونِ اینکه من بخوام چیزی بفرستم، همین ارجاع‌دادن‌ها ثبت بشه و اون
+   *  مطالبی که ارجاع شده همگی دیده و بررسی بشه … تعیینِ کیفیت بشه، و اگر
+   *  لازم شد خودکار برای اصلاحاتش کاری انجام بشه … و بعدش هم پیگیری بشه.»
+   *
+   * ۶٫۴۴ فقط می‌پرسید «آیا در متن آمد؟» — سنجهٔ حضور، نه کیفیت. یعنی ارجاعی
+   * که نامِ مجموعه را می‌گفت ولی حرفی به آن نسبت می‌داد که در کتابش **نیست**،
+   * بی هیچ اعتراضی رد می‌شد. و آن دقیقاً همان چیزی است که «حرفه‌ای بودن رو
+   * زیرِ سؤال» می‌برد. */
+  delete global.__PROPS[PK.BRIDGE_DONE];
+  delete global.__PROPS[PK.BRIDGE_STRICT];
+  const reg = readSeriesReg_(hub);
+  const links = [{ seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', kind: 'ابزارِ سنجش',
+                   claim: 'ملاکِ صدق', relation: 'r', atHeading: 'الف',
+                   say: 'س'.repeat(60), strength: 'متوسط' }];
+  const ep = { sections: [{ heading: 'الف',
+    narration: 'در معرفت‌شناسی گفتیم صدق چطور سنجیده می‌شود. '.repeat(6) }] };
+
+  ok('۱۳.۱ عکسِ داوری در تولید نوشته می‌شود',
+     bridgeSnap_(51, 'خداشناسی', links, ep) === true);
+  ok('۱۳.۲ و در صفِ داوری می‌نشیند', bridgePending_().length === 1);
+  /* داوری در مسیرِ تولید انجام نمی‌شود: بودجهٔ شش‌دقیقه‌ای، قاعدهٔ ۵٫۶۸. */
+  const s14b = fs.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۱۳.۳ تولید فقط عکس می‌گیرد، داوری نمی‌کند',
+     s14b.indexOf('bridgeSnap_(epNum') !== -1 && s14b.indexOf('bridgeAuditOne_') === -1);
+
+  // ── داوریِ بد: نسبتِ دروغ به کتاب ──
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ verdicts: [{ series: 'معرفت‌شناسی', faithful: 'خیر',
+      depth: 'سطحی', backbone: 'حفظ شد', natural: 'طبیعی',
+      why: 'چنین حرفی در آن کتاب نیست.' }] }) }] } }] } });
+  let un = quiet();
+  const r1 = bridgeAuditRun_(2);
+  un();
+  ok('۱۳.۴ داوری انجام شد و ایراد را گرفت',
+     r1.done === 1 && r1.n === 1 && r1.bad === 1, JSON.stringify(r1));
+  const at = hub.getSheetByName(CFG.BRIDGE_AUDIT_TAB);
+  ok('۱۳.۵ و در تبِ داوری ثبت شد', at && at.getLastRow() === 2);
+  ok('۱۳.۶ عکسِ داوری‌شده دوباره داوری نمی‌شود', bridgePending_().length === 0);
+
+  /* یافته با کلیدی که جفتِ مجموعه‌ها را دارد — تا تکرارش تکرار شمرده شود،
+     نه ردیفِ تازهٔ هر شب. و مالکش «کد» است، پس در صفِ NEEDS_CODE می‌نشیند
+     و سشنِ ناظر نسخهٔ بعد را از رویش می‌سازد: همان «پیگیری» که او خواست. */
+  const rt = hub.getSheetByName(CFG.REPORT_TAB || 'گزارش‌های نظارت');
+  const rtxt = rt ? rt.getRange(1, 1, rt.getLastRow(), rt.getLastColumn())
+                      .getValues().map(r => r.join(' ')).join('\n') : '';
+  ok('۱۳.۷ یافتهٔ «وفاداری» ثبت شد و مالکش کد است',
+     rtxt.indexOf('bridge-unfaithful-kEp') !== -1 && rtxt.indexOf('کد') !== -1);
+
+  // ── اصلاحِ خودکار: بارِ دوم، سخت‌گیری روشن می‌شود ──
+  bridgeSnap_(52, 'خداشناسی', links, ep);
+  un = quiet(); bridgeAuditRun_(2); un();
+  const st = bridgeStrict_();
+  ok('۱۳.۸ پس از دو داوریِ بد، سخت‌گیریِ خودکار روشن شد',
+     st['kEp'] && st['kEp'].on === true, JSON.stringify(st));
+  /* و همان سخت‌گیری در همان سدِ کد اعمال می‌شود: از این پس ارجاعِ «متوسط»
+     رد نمی‌شود. */
+  const names = { kEp: 'معرفت‌شناسی' };
+  const mid = [{ seriesKey: 'kEp', kind: 'ابزارِ سنجش', claim: 'c', relation: 'r',
+                 atHeading: 'h', say: 'س'.repeat(60), strength: 'متوسط' }];
+  ok('۱۳.۹ و ارجاعِ «متوسط» از آن مجموعه دیگر رد نمی‌شود',
+     bridgeTrim_(mid, names, st).length === 0);
+  ok('۱۳.۹-ب ولی «قوی» هنوز می‌گذرد',
+     bridgeTrim_([Object.assign({}, mid[0], { strength: 'قوی' })], names, st).length === 1);
+  /* و درِ بازگشت: یک داوریِ خوب قفل را برمی‌دارد. گیتی که باز نشود، همان
+     شکلی است که این ریپو مدام به آن می‌خورَد. */
+  bridgeStrictBump_('kEp', false);
+  ok('۱۳.۱۰ یک داوریِ خوب قفل را برمی‌دارد',
+     bridgeStrict_()['kEp'].on === false);
+
+  /* و همه‌جا ثبت: سطرِ روزانه و _STATUS.json — چون او شیت باز نمی‌کند. */
+  const bs = bridgeAuditStatus_(hub);
+  ok('۱۳.۱۱ سطرِ روزانه ساخته می‌شود و ایراد را می‌گوید',
+     bs.line.indexOf('داوریِ ارجاع‌ها') === 0 && bs.n === 2 && bs.bad === 2, bs.line);
+  const s08b = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۱۳.۱۲ و در ایمیل و _STATUS.json می‌نشیند',
+     s08b.indexOf('bridgeAuditStatus_(hub)') !== -1 &&
+     s08b.indexOf('bridgeAudit: (function') !== -1);
+  const s21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۱۳.۱۳ کارِ شبانه پشتِ نگهبانِ بودجه صدایش می‌زند',
+     /nightHas_\(\d+, 'داوریِ ارجاع‌ها'\)/.test(s21) && s21.indexOf('bridgeAuditRun_') !== -1);
+
+  /* ══ داوری با ورودیِ خالی، حکم می‌دهد نه شهادت (درسِ ۵٫۹۶) ══
+     اگر کتابِ مرجع خوانده نشود، مدل اصلاً صدا زده نمی‌شود. */
+  let called = 0;
+  global.__STUB = () => { called++; return { code: 200, json: {} }; };
+  const un3 = quiet();
+  const bad = bridgeAuditOne_(hub, { getName: () => '_BRIDGE-099.json',
+    getBlob: () => ({ getDataAsString: () => JSON.stringify({ epNum: 99,
+      seriesName: 'خ', links: [{ seriesKey: 'nope', seriesName: 'ن' }], text: 'x' }) }) }, reg);
+  un3();
+  ok('۱۳.۱۴ بی کتابِ مرجع، مدل اصلاً صدا زده نمی‌شود',
+     called === 0 && bad.ok === false, bad.why);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

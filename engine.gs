@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.45
+ *  موتور محتوا و پادکست — نسخهٔ 6.46
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -982,6 +982,12 @@ var CFG = {
   BRIDGE_MAX_LINKS: 3,         // چند ارجاع در یک قسمت — بیشتر یعنی لوث‌شدن
   BRIDGE_CORPUS_CHARS: 14000,  // سهمِ هر مجموعهٔ مرجع در پرامپت
   BRIDGE_TAB: 'ارجاع‌های میان‌مجموعه‌ای',
+  /* ── داوریِ کیفیتِ ارجاع (۶٫۴۶) ── ثبتِ ارجاع بدونِ داوری‌اش، همان
+     «تحلیلی که به تصمیمی وصل نشد» است — هفتمین بارِ همان شکل. */
+  BRIDGE_AUDIT: true,
+  BRIDGE_AUDIT_MAX: 2,        // چند قسمت در هر شب داوری شود
+  BRIDGE_BAD_STRICT: 2,       // پس از چند داوریِ بد، سخت‌گیریِ خودکار روشن شود
+  BRIDGE_AUDIT_TAB: 'داوریِ ارجاع‌ها',
   ENRICH_KEEP_DAYS: 10,             // پرونده‌های دستِ‌به‌دستِ کهنه پاک می‌شوند
 
   // ------------------------------------------- دیدبانِ محتوا (بخش ۲۴)
@@ -1017,7 +1023,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.45',
+  CODE_VERSION: '6.46',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1271,6 +1277,8 @@ var PK = {
   EXPLAIN: 'EXPLAIN_LOG',         // کارنامهٔ عصری‌سازیِ درس‌نامه
   RECAP_DONE: 'RECAP_DONE',       // کدام مجموعه‌ها مرورِ بزرگ گرفته‌اند
   RECAP_LOG: 'RECAP_LOG',         // کارنامهٔ مرورهای ساخته‌شده
+  BRIDGE_DONE: 'BRIDGE_AUDIT_DONE',   // عکس‌های داوری‌شدهٔ ارجاع
+  BRIDGE_STRICT: 'BRIDGE_STRICT_KEYS', // مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
@@ -9708,6 +9716,7 @@ function writeStatus_(hub, note) {
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
     bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
+    bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -10576,6 +10585,10 @@ function healthCheck() {
     var bxS = bridgeStatus_(hub);
     if (bxS && bxS.line) notes.push(bxS.line);
   } catch (eBx2) {}
+  try {
+    var baS = bridgeAuditStatus_(hub);
+    if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
+  } catch (eBa2) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
   if (healthHas_(6000, 'مدل‌ها', skipped)) try {
@@ -16077,6 +16090,11 @@ function produceSpecialEpisode(opt) {
        سؤالی که فردا می‌پرسی «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
     try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || []); }
     catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
+    /* و عکسی برای داوریِ شبانه — داوری اینجا انجام نمی‌شود چون تولید بودجهٔ
+       شش‌دقیقه‌ای دارد و یک فراخوانِ مدلِ دیگر در مسیرِ بحرانی همان چیزی است
+       که ۵٫۶۸ از نصبِ کد یاد گرفت. */
+    try { bridgeSnap_(epNum, seriesName, ctx.__bridgesUsed || [], ep); }
+    catch (eBs) { logLine_('عکسِ داوریِ ارجاع نشد: ' + eBs.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}
@@ -23456,6 +23474,12 @@ function selfUpdateDaily() {
   /* قسمتِ مرورِ بزرگ (۶٫۲۲، فراخوانِ رو به جلو ۲۱ ← ۳۰، پس در try).
      پشتِ یک بودجهٔ بزرگ: کارِ کمیابی است (یک بار برای هر مجموعه) و هیچ‌چیز
      به آن وابسته نیست، پس اگر امشب جا نشد فردا شب هست. */
+  /* داوریِ کیفیتِ ارجاع (۶٫۴۶) — سبک است (دو فراخوان) ولی مثلِ هر کارِ
+     اختیاری پشتِ نگهبانِ بودجه، طبقِ قاعدهٔ ۵٫۶۸. */
+  if (CFG.BRIDGE_AUDIT !== false && nightHas_(40000, 'داوریِ ارجاع‌ها')) {
+    try { bridgeAuditRun_(Number(CFG.BRIDGE_AUDIT_MAX) || 2); }
+    catch (eBa) { logLine_('داوریِ ارجاع‌ها نشد: ' + eBa.message); }
+  }
   if (CFG.RECAP_ENABLED !== false && nightHas_(60000, 'قسمتِ مرورِ بزرگ')) {
     try {
       var rc = recapNightly_();
@@ -38854,7 +38878,7 @@ function bridgePlan_(ctx, corpus) {
   if (!r) return null;
   var names = Object.create(null);
   for (var i = 0; i < corpus.length; i++) names[corpus[i].key] = corpus[i].name;
-  return { links: bridgeTrim_(r.links, names),
+  return { links: bridgeTrim_(r.links, names, bridgeStrict_()),
            none: String(r.none || ''),
            series: corpus.map(function (c) { return c.key; }) };
 }
@@ -38867,9 +38891,14 @@ function bridgePlan_(ctx, corpus) {
  * (اختراعِ دستهٔ تازه)، و ارجاعِ «ضعیف» که خودِ پرامپت گفته بود نده.
  * «سقفی که فقط در پرامپت گفته شده، سقف نیست.»
  */
-function bridgeTrim_(links, names) {
+function bridgeTrim_(links, names, strictKeys) {
   var out = [];
   var max = Math.max(1, Number(CFG.BRIDGE_MAX_LINKS) || 3);
+  /* سخت‌گیریِ خودکار (۶٫۴۶): مجموعه‌ای که داوری دو بار ارجاعش را بد دانسته،
+     از این پس فقط ارجاعِ «قوی» می‌گیرد. این همان «اصلاحِ خودکار»ی است که
+     خودِ موتور می‌تواند انجام دهد — و در همان سدی اعمال می‌شود که بقیهٔ
+     مرزها، نه در یک شاخهٔ جدا که روزی فراموش شود. */
+  var strict = strictKeys || {};
   /* ══ اینجا عنوانِ بخش‌ها سنجیده **نمی‌شود** — و این عمدی است ══
    * نسخهٔ اول یک نگاشتِ عنوان می‌ساخت تا `atHeading` را با بخش‌های واقعیِ
    * درس بسنجد، و هرگز نخواندش: کدِ مرده، همان شکلی که این ریپو مدام به آن
@@ -38885,6 +38914,8 @@ function bridgeTrim_(links, names) {
     if (!names[key]) continue;                                  // شناسهٔ ساختگی
     if (!BRIDGE_KINDS[String(x.kind || '')]) continue;          // نسبتِ اختراعی
     if (String(x.strength || '') === 'ضعیف') continue;          // خودش گفته بود نده
+    var st = strict[key];
+    if (st && st.on && String(x.strength || '') !== 'قوی') continue;
     var say = String(x.say || '').trim();
     if (say.length < 40) continue;                              // اشارهٔ بی‌محتوا
     /* یک مجموعه، یک ارجاع در هر قسمت. دو ارجاع به یک کتاب در یک قسمتِ
@@ -39105,6 +39136,340 @@ function bridgeStatus_(hub) {
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
     out.line = 'ارجاعِ میان‌مجموعه‌ای: ' + fa(out.n) + ' ارجاع در ' + fa(out.series) +
                ' مجموعه ثبت شده.';
+  } catch (e) {}
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * داوریِ کیفیتِ ارجاع — حلقه‌ای که خودش می‌بندد (۶٫۴۶)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * خواستهٔ صاحبِ برنامه: «بدونِ اینکه من بخوام چیزی بفرستم، همین ارجاع‌دادن‌ها
+ * در گزارش‌ها ثبت بشه و اون مطالبی که ارجاع شده همگی دیده و بررسی بشه توسط
+ * مدل‌ها یا ناظر، و تعیینِ کیفیت بشه، و اگر لازم شد خودکار برای اصلاحاتش
+ * کاری انجام بشه … و این بعدش هم پیگیری بشه و همه‌جا ثبت بشه.»
+ *
+ * ۶٫۴۴ فقط یک سؤال را می‌پرسید: «آیا ارجاع در متن آمد؟» — یک سنجهٔ حضور،
+ * نه کیفیت. یعنی ارجاعی که نامِ مجموعه را می‌گفت ولی حرفی به آن نسبت می‌داد
+ * که در آن کتاب **نیست**، بی هیچ اعتراضی رد می‌شد. و آن، دقیقاً همان چیزی
+ * است که «حرفه‌ای بودن رو زیرِ سؤال» می‌برد.
+ *
+ * ── سه سؤالی که پرسیده می‌شود، و چرا این سه ─────────────────────────
+ * **۱) وفاداری:** حرفی که به آن مجموعه نسبت داده شده، واقعاً در کتابش هست؟
+ *    منبعِ حقیقت جزوهٔ همان مجموعه است — همان ورودی‌ای که ارجاع از آن ساخته
+ *    شد. نسبتِ دروغ به یک درسِ خودمان، بدترین شکلِ بی‌اعتباری است.
+ * **۲) عمق:** نسبت واقعی است یا سطحی («هر دو دربارهٔ خدا حرف زده‌اند»)؟
+ * **۳) ستون‌فقرات:** متن قاطی شده؟ شنونده هنوز می‌فهمد پادکستِ کدام مجموعه
+ *    را گوش می‌دهد؟
+ *
+ * ── و اصلاحِ خودکار ──────────────────────────────────────────────────
+ * دو تا داوریِ بد برای یک مجموعه، `bridgeStrictOn_` را روشن می‌کند: از آن
+ * پس فقط ارجاعِ «قوی» از `bridgeTrim_` رد می‌شود. این کاری است که موتور
+ * **خودش** می‌تواند بکند و همان‌جا هم می‌کند. آنچه از دستش خارج است —
+ * عوض‌کردنِ پرامپت یا کد — به‌شکلِ یافتهٔ «کد» در صفِ `NEEDS_CODE` می‌نشیند
+ * تا سشنِ ناظر نسخهٔ بعد را از رویش بسازد. دو نوع اصلاح، دو مسیر، و هیچ‌کدام
+ * منتظرِ آدم نمی‌مانَد.
+ */
+
+var BRIDGE_AUDIT_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          series: { type: 'string' },
+          faithful: { type: 'string' },   // «بله» | «خیر» | «نامعلوم»
+          depth: { type: 'string' },      // «عمیق» | «متوسط» | «سطحی»
+          backbone: { type: 'string' },   // «حفظ شد» | «قاطی شد»
+          natural: { type: 'string' },    // «طبیعی» | «چسبانده»
+          why: { type: 'string' }
+        },
+        required: ['series', 'faithful', 'depth', 'backbone', 'why']
+      }
+    }
+  },
+  required: ['verdicts']
+};
+
+/** نامِ عکسِ داوری — همان الگوی `auditSnapName_`. */
+function bridgeSnapName_(epNum) {
+  return '_BRIDGE-' + ('000' + epNum).slice(-3) + '.json';
+}
+
+/**
+ * عکسِ ارجاع‌های یک قسمت، برای داوریِ شبانه.
+ * چرا شبانه و نه همان‌جا: تولید بودجهٔ شش‌دقیقه‌ای دارد و یک فراخوانِ مدلِ
+ * دیگر در مسیرِ بحرانی، همان چیزی است که ۵٫۶۸ از نصبِ کد یاد گرفت.
+ */
+function bridgeSnap_(epNum, seriesName, links, ep) {
+  if (CFG.BRIDGE_AUDIT === false || !links || !links.length) return false;
+  try {
+    var txt = '';
+    try { txt = specialNarration_(ep); } catch (e) { txt = ''; }
+    auditPutJson_(bridgeSnapName_(epNum), {
+      at: nowStr_(), epNum: Number(epNum) || 0, seriesName: String(seriesName || ''),
+      links: links.map(function (b) {
+        return { seriesKey: b.seriesKey, seriesName: b.seriesName, kind: b.kind,
+                 claim: b.claim, relation: b.relation, atHeading: b.atHeading };
+      }),
+      text: String(txt).slice(0, 24000)
+    });
+    return true;
+  } catch (e) { logLine_('عکسِ داوریِ ارجاع نوشته نشد: ' + e.message); return false; }
+}
+
+/** عکس‌هایی که هنوز داوری نشده‌اند — قدیمی‌ها اول. */
+function bridgePending_() {
+  var out = [], done = Object.create(null);
+  try {
+    var raw = props_().getProperty(PK.BRIDGE_DONE) || '';
+    var arr = raw ? raw.split('|') : [];
+    for (var d = 0; d < arr.length; d++) if (arr[d]) done[arr[d]] = 1;
+  } catch (e0) {}
+  try {
+    var it = auditFolder_().getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (String(f.getName()).indexOf('_BRIDGE-') !== 0) continue;
+      if (done[String(f.getId())]) continue;
+      out.push(f);
+    }
+  } catch (e) {}
+  out.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
+  return out;
+}
+
+function bridgeMarkDone_(file) {
+  try {
+    var raw = props_().getProperty(PK.BRIDGE_DONE) || '';
+    var arr = raw ? raw.split('|') : [];
+    arr.push(String(file.getId()));
+    if (arr.length > 60) arr = arr.slice(arr.length - 60);
+    props_().setProperty(PK.BRIDGE_DONE, arr.join('|'));
+  } catch (e) {}
+}
+
+/** مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند. */
+function bridgeStrict_() {
+  try {
+    var o = JSON.parse(props_().getProperty(PK.BRIDGE_STRICT) || '{}');
+    return (o && typeof o === 'object') ? o : {};
+  } catch (e) { return {}; }
+}
+
+/**
+ * اصلاحِ خودکار: شمارندهٔ بدِ یک مجموعه را بالا می‌برد و در سقف، سخت‌گیری
+ * را روشن می‌کند. **درِ بازگشت دارد** — یک داوریِ خوب شمارنده را صفر می‌کند
+ * و قفل را برمی‌دارد؛ گیتی که آدم و ماشین هیچ‌کدام نتوانند بازش کنند، همان
+ * شکلی است که این ریپو مدام به آن می‌خورَد.
+ */
+function bridgeStrictBump_(seriesKey, bad) {
+  try {
+    var o = bridgeStrict_();
+    var k = String(seriesKey || '');
+    if (!k) return false;
+    var rec = o[k] || { bad: 0, on: false, at: '' };
+    if (bad) {
+      rec.bad = (Number(rec.bad) || 0) + 1;
+      if (rec.bad >= Math.max(1, Number(CFG.BRIDGE_BAD_STRICT) || 2) && !rec.on) {
+        rec.on = true; rec.at = nowStr_();
+        logLine_('ارجاع: سخت‌گیریِ خودکار برای «' + k + '» روشن شد — از این پس فقط ارجاعِ «قوی».');
+      }
+    } else {
+      if (rec.on) logLine_('ارجاع: سخت‌گیریِ خودکار برای «' + k + '» برداشته شد.');
+      rec.bad = 0; rec.on = false;
+    }
+    o[k] = rec;
+    props_().setProperty(PK.BRIDGE_STRICT, JSON.stringify(o));
+    return !!rec.on;
+  } catch (e) { return false; }
+}
+
+function bridgeAuditPrompt_(snap, books) {
+  var L = ['کارِ تو: **داوریِ کیفیتِ ارجاع‌های میان‌مجموعه‌ای** در یک قسمتِ پادکست.',
+           '',
+           'یک درسِ پادکست از مجموعهٔ «' + String(snap.seriesName || '') + '» ساخته شده و',
+           'در آن به یک یا چند مجموعهٔ درسیِ دیگر ارجاع داده شده. تو باید بگویی آن',
+           'ارجاع‌ها **درست و ارزشمند** بوده‌اند یا نه.',
+           '',
+           '── متنِ گفته‌شدهٔ قسمت ──',
+           String(snap.text || '').slice(0, 16000),
+           ''];
+  for (var i = 0; i < books.length; i++) {
+    L.push('── کتابِ مرجع: «' + books[i].name + '» (منبعِ حقیقت) ──');
+    L.push(books[i].text);
+    L.push('');
+  }
+  L.push('── ارجاع‌هایی که ادعا شده داده شده ──');
+  for (var j = 0; j < (snap.links || []).length; j++) {
+    var b = snap.links[j];
+    L.push('• به «' + b.seriesName + '» — نسبت: ' + b.kind);
+    L.push('  ادعا شده آنجا گفته: ' + b.claim);
+    L.push('  و نسبتش با این درس: ' + b.relation);
+  }
+  L.push('');
+  L.push('برای **هر** ارجاع سه چیز را جدا داوری کن:');
+  L.push('');
+  /* وفاداری اول می‌آید چون تنها موردی است که می‌تواند اعتبارِ برنامه را از
+     بین ببرد: نسبتِ دروغ به درسِ خودمان. */
+  L.push('۱) `faithful` — آنچه به آن مجموعه نسبت داده شده، **واقعاً در کتابش**');
+  L.push('   هست؟ کتابِ مرجع بالا آمده؛ همان منبعِ حقیقت است. «بله» فقط وقتی');
+  L.push('   که بتوانی جایش را در کتاب نشان بدهی. اگر حرفی به آن نسبت داده');
+  L.push('   شده که در کتاب نیست — حتی اگر حرفِ درستی باشد — «خیر».');
+  L.push('');
+  L.push('۲) `depth` — نسبت واقعی است یا سطحی؟ «سطحی» یعنی چیزی جز');
+  L.push('   «هر دو دربارهٔ یک موضوع حرف زده‌اند» نمی‌گوید. «عمیق» یعنی نبودنش،');
+  L.push('   فهمِ شنونده را کم می‌کرد.');
+  L.push('');
+  L.push('۳) `backbone` — آیا مجموعهٔ «' + String(snap.seriesName || '') + '» ستون‌فقرات');
+  L.push('   مانده؟ «قاطی شد» یعنی متن جوری رفته که شنونده دیگر نمی‌داند');
+  L.push('   پادکستِ کدام مجموعه را گوش می‌دهد، یا بحثِ آن مجموعه اینجا باز شده.');
+  L.push('');
+  L.push('و `natural`: «طبیعی» اگر در دلِ حرف نشسته، «چسبانده» اگر تکه‌ای');
+  L.push('وصله‌شده به نظر می‌رسد.');
+  L.push('');
+  L.push('در `why` در یک جمله بگو چرا. سخت‌گیر باش: این داوری برای بهترشدن است،');
+  L.push('نه برای تأیید. اگر ارجاعی اصلاً در متن پیدا نکردی، `faithful` را');
+  L.push('«نامعلوم» بگذار و در `why` بنویس که پیدایش نکردی.');
+  return L.join('\n');
+}
+
+var BRIDGE_AUDIT_HEADERS = ['زمان', 'قسمت', 'مجموعهٔ درس', 'مجموعهٔ مرجع',
+                            'وفاداری', 'عمق', 'ستون‌فقرات', 'طبیعی؟', 'داوری', 'اقدام'];
+
+/**
+ * داوریِ یک عکس. برمی‌گرداند {ok, n, bad, rows}.
+ * اگر کتابِ مرجع خوانده نشود، **مدل اصلاً صدا زده نمی‌شود**: «داوری با ورودیِ
+ * خالی، حکم می‌دهد نه شهادت» — درسِ ۵٫۹۶، که یک بار هر بخش را «پیوندِ ساختگی»
+ * اعلام کرد چون منبعی جلویش نبود.
+ */
+function bridgeAuditOne_(hub, file, reg) {
+  var out = { ok: false, n: 0, bad: 0, why: '' };
+  var snap = null;
+  try { snap = auditReadJson_(file); } catch (e) { snap = null; }
+  if (!snap || !(snap.links || []).length) { out.why = 'عکسِ خالی'; return out; }
+  var keys = snap.links.map(function (b) { return b.seriesKey; });
+  var books = bridgeCorpus_(reg, keys);
+  if (!books.length) { out.why = 'کتابِ مرجع خوانده نشد؛ داوری انجام نشد'; return out; }
+
+  var r = null;
+  try { r = geminiText_(bridgeAuditPrompt_(snap, books), BRIDGE_AUDIT_SCHEMA, 20000); }
+  catch (e) { out.why = 'مدل جواب نداد: ' + e.message; return out; }
+  if (!r || !(r.verdicts instanceof Array) || !r.verdicts.length) {
+    out.why = 'داوری برنگشت'; return out;
+  }
+
+  var sh = ensureTab_(hub, CFG.BRIDGE_AUDIT_TAB || 'داوریِ ارجاع‌ها', BRIDGE_AUDIT_HEADERS);
+  var block = [];
+  for (var i = 0; i < r.verdicts.length; i++) {
+    var v = r.verdicts[i] || {};
+    var name = String(v.series || '');
+    var link = null;
+    for (var k = 0; k < snap.links.length; k++) {
+      if (snap.links[k].seriesName === name || snap.links[k].seriesKey === name) {
+        link = snap.links[k]; break;
+      }
+    }
+    if (!link) continue;                       // داوریِ مجموعه‌ای که ارجاعش نبود
+    var faithful = String(v.faithful || '');
+    var depth = String(v.depth || '');
+    var backbone = String(v.backbone || '');
+    var bad = (faithful === 'خیر') || (backbone === 'قاطی شد') || (depth === 'سطحی');
+    var act = bad ? (bridgeStrictBump_(link.seriesKey, true)
+                       ? 'سخت‌گیریِ خودکار روشن شد' : 'شمارندهٔ بد بالا رفت')
+                  : (bridgeStrictBump_(link.seriesKey, false) ? '' : 'بی‌اشکال');
+    if (bad) out.bad++;
+    out.n++;
+    block.push([nowStr_(), String(snap.epNum || ''), String(snap.seriesName || ''),
+                link.seriesName, faithful, depth, backbone,
+                String(v.natural || ''), String(v.why || '').slice(0, 300), act]);
+
+    /* یافته‌ها به‌تفکیکِ نوعِ ایراد، و کلید شاملِ جفتِ مجموعه‌ها — تا تکرارِ
+       همان ایراد بین همان دو مجموعه، تکرار شمرده شود نه ردیفِ تازهٔ هر شب. */
+    if (faithful === 'خیر') {
+      try {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'محتوا',
+          key: 'bridge-unfaithful-' + String(link.seriesKey || ''),
+          title: 'ارجاع حرفی را به یک مجموعه نسبت داد که در کتابش نیست',
+          detail: 'قسمت ' + snap.epNum + ' («' + snap.seriesName + '») به «' +
+                  link.seriesName + '»: ' + String(v.why || '').slice(0, 200),
+          instruction: 'پرامپتِ کشفِ نسبت (bridgePrompt_، بخشِ ۳۱) باید صریح‌تر ' +
+                       'بگوید ادعا فقط از متنِ همان کتاب بیاید. سخت‌گیریِ خودکار ' +
+                       'برای این مجموعه روشن شد.',
+          owner: 'کد'
+        });
+      } catch (e1) {}
+    } else if (backbone === 'قاطی شد') {
+      try {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'محتوا',
+          key: 'bridge-blended-' + String(link.seriesKey || ''),
+          title: 'ارجاع، ستون‌فقراتِ مجموعهٔ اصلی را به هم زد',
+          detail: 'قسمت ' + snap.epNum + ': ' + String(v.why || '').slice(0, 200),
+          instruction: 'بلوکِ bridgeBlock_ مرز را می‌گوید؛ اگر تکرار شد، ' +
+                       'سقفِ BRIDGE_MAX_LINKS یا جای بلوک در پرامپت باید عوض شود.',
+          owner: 'کد'
+        });
+      } catch (e2) {}
+    }
+  }
+  if (block.length) appendBlock_(sh, block, BRIDGE_AUDIT_HEADERS.length);
+  out.ok = true;
+  return out;
+}
+
+/** یک دورِ داوری — از کارِ شبانه، پشتِ نگهبانِ بودجه. */
+function bridgeAuditRun_(maxN) {
+  var res = { done: 0, n: 0, bad: 0 };
+  if (CFG.BRIDGE_AUDIT === false) return res;
+  var cap = Number(maxN) > 0 ? Number(maxN) : (Number(CFG.BRIDGE_AUDIT_MAX) || 2);
+  var files = bridgePending_();
+  if (!files.length) return res;
+  var hub = getHub_(), reg = readSeriesReg_(hub);
+  for (var i = 0; i < files.length && res.done < cap; i++) {
+    var one = { ok: false };
+    try { one = bridgeAuditOne_(hub, files[i], reg); }
+    catch (e) { logLine_('داوریِ ارجاع نشد: ' + e.message); }
+    /* عکسی که داوری‌اش نشد، «انجام‌شده» علامت نمی‌خورد — وگرنه یک خطای
+       گذرا برای همیشه از داوری بیرونش می‌گذاشت. */
+    if (one.ok) {
+      bridgeMarkDone_(files[i]);
+      res.done++; res.n += one.n; res.bad += one.bad;
+    } else if (one.why === 'عکسِ خالی') {
+      bridgeMarkDone_(files[i]);        // این یکی هرگز داوری‌شدنی نیست
+    }
+  }
+  if (res.done) {
+    logLine_('داوریِ ارجاع: ' + res.done + ' قسمت، ' + res.n + ' ارجاع، ' +
+             res.bad + ' ایراد.');
+  }
+  return res;
+}
+
+/** سطرِ روزانه — قاعدهٔ ۵٫۹۰. */
+function bridgeAuditStatus_(hub) {
+  var out = { n: 0, bad: 0, pending: 0, strict: 0, line: '' };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    try { out.pending = bridgePending_().length; } catch (eP) {}
+    var st = bridgeStrict_();
+    for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k) && st[k] && st[k].on) out.strict++;
+    var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_AUDIT_TAB || 'داوریِ ارجاع‌ها');
+    if (sh && sh.getLastRow() > 1) {
+      var v = sh.getRange(2, 5, sh.getLastRow() - 1, 3).getValues();
+      for (var i = 0; i < v.length; i++) {
+        out.n++;
+        if (String(v[i][0]) === 'خیر' || String(v[i][2]) === 'قاطی شد' ||
+            String(v[i][1]) === 'سطحی') out.bad++;
+      }
+    }
+    out.line = 'داوریِ ارجاع‌ها: ' + fa(out.n) + ' ارجاع داوری شده' +
+               (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' : ' · بی‌ایراد') +
+               (out.pending ? ' · ' + fa(out.pending) + ' در صف' : '') +
+               (out.strict ? ' · ' + fa(out.strict) + ' مجموعه سخت‌گیریِ خودکار گرفته' : '') + '.';
   } catch (e) {}
   return out;
 }
