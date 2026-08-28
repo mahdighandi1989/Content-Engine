@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.46
+ *  موتور محتوا و پادکست — نسخهٔ 6.47
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -850,7 +850,21 @@ var CFG = {
   // ---- پادکست تخصصیِ مجموعه‌های آموزشی ----
   // فقط شیت‌هایی که فایل‌های بلندِ آموزشی دارند برای «مجموعه» اسکن می‌شوند.
   // دو شیت اولِ کلیپ‌کوتاه و عکس این‌جا جایی ندارند.
-  SERIES_SOURCES: ['general', 'trading', 'resvid'],
+  /* ══ فهرستی که دو شیتِ کاملِ منبع را نامرئی کرده بود (۶٫۴۷) ══
+   * گزارشِ صاحبِ برنامه: «همهٔ شیت‌های منبع رو نمی‌بینه… همهٔ تب‌هاشون رو
+   * نمی‌بینه… قبلاً همه‌شون رو معرفی کردم.» و درست بود:
+   * `SOURCES` پنج شیت داشت و این فهرست سه‌تا. `scanSeries` با
+   * `indexOf(src.key) === -1` بقیه را رد می‌کرد — یعنی «RESULT (ویدیو)» با
+   * ده هزار ردیف و «RESULT-PHOTO» با سی‌وشش هزار ردیف **هرگز** برای مجموعه‌ها
+   * خوانده نمی‌شدند. هر چند بار هم اسکن زده می‌شد فرقی نمی‌کرد، و هیچ‌جا هم
+   * گفته نمی‌شد که دو شیت اصلاً نگاه نشده‌اند.
+   *
+   * صافیِ درست جای دیگری است و از قبل هم بود: داوریِ محتوایی (`isCourse`)
+   * که با خواندنِ متنِ واقعی تصمیم می‌گیرد چه چیزی درس است. صافیِ دومی در
+   * سطحِ *شیت*، فقط چیزی را حذف می‌کرد که داور هرگز نمی‌دیدش.
+   *
+   * خالی یعنی «همه». فهرستِ صریح هنوز ممکن است، ولی دیگر پیش‌فرض نیست. */
+  SERIES_SOURCES: [],
   SPECIAL_ENABLED: true,
   SPECIAL_HOUR: 8,                  // ساعت تولید روزانه به وقت دبی
   SPECIAL_TARGET_MINUTES: 15,       // طول هدف هر قسمت
@@ -1023,7 +1037,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.46',
+  CODE_VERSION: '6.47',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1279,6 +1293,7 @@ var PK = {
   RECAP_LOG: 'RECAP_LOG',         // کارنامهٔ مرورهای ساخته‌شده
   BRIDGE_DONE: 'BRIDGE_AUDIT_DONE',   // عکس‌های داوری‌شدهٔ ارجاع
   BRIDGE_STRICT: 'BRIDGE_STRICT_KEYS', // مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند
+  SERIES_INV: 'SERIES_SOURCE_INVENTORY', // صورت‌برداریِ آخرین اسکنِ منبع‌ها
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
@@ -8186,6 +8201,22 @@ function runScanSeries() {
     L.push('اصلاحی لازم نشد — ترتیب و نامِ همهٔ قسمت‌ها همان بود که باید.');
   }
   if (r && r.error) L.push('خطا: ' + r.error);
+  /* ══ «تعدادِ شیت‌های منبع و تب‌ها رو باید اول دقیق چک کنه» (۶٫۴۷) ══
+     تا ۶٫۴۶ این دکمه فقط می‌گفت چند مجموعه پیدا شد — نه اینکه اصلاً کجاها
+     را نگاه کرده. پس دو شیتِ کاملِ نادیده‌گرفته‌شده هیچ‌وقت دیده نشدند. */
+  if (r && r.inventory && r.inventory.length) {
+    L.push('');
+    L.push('شیت‌های منبع (' + r.inventory.length + '):');
+    for (var q = 0; q < r.inventory.length; q++) {
+      var iv = r.inventory[q];
+      L.push('  • ' + iv.src + ' — ' +
+             (iv.why ? '⚠ ' + iv.why
+                     : iv.read + ' تب از ' + iv.tabs + ' خوانده شد'));
+    }
+  }
+  if (r && r.unknownTabs && r.unknownTabs.length) {
+    L.push('⚠ تبِ فایل‌دار ولی ناشناخته: ' + r.unknownTabs.slice(0, 5).join('، '));
+  }
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {
     var v = reg.rows[i].vals;
@@ -9717,6 +9748,7 @@ function writeStatus_(hub, note) {
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
     bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
     bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
+    seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -10585,6 +10617,10 @@ function healthCheck() {
     var bxS = bridgeStatus_(hub);
     if (bxS && bxS.line) notes.push(bxS.line);
   } catch (eBx2) {}
+  try {
+    var ivS = seriesInvStatus_();
+    if (ivS && ivS.line) { if (ivS.missed) problems.push(ivS.line); else notes.push(ivS.line); }
+  } catch (eIv) {}
   try {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
@@ -13703,6 +13739,26 @@ function seriesOrderCheck_(hub, reg, parts) {
 }
 
 /** یک سطرِ فارسیِ آماده — و یافته، فقط برای مجموعه‌ای که هنوز کار دارد. */
+/** صورت‌برداریِ آخرین اسکن، برای سطرِ روزانه — قاعدهٔ ۵٫۹۰. */
+function seriesInvStatus_() {
+  var out = { n: 0, tabs: 0, read: 0, missed: 0, line: '' };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var inv = JSON.parse(props_().getProperty(PK.SERIES_INV) || '[]');
+    if (!(inv instanceof Array) || !inv.length) {
+      out.line = 'منبع‌های مجموعه‌ها: هنوز اسکنی ثبت نشده.'; return out;
+    }
+    for (var i = 0; i < inv.length; i++) {
+      out.n++; out.tabs += Number(inv[i].tabs) || 0; out.read += Number(inv[i].read) || 0;
+      if (inv[i].skipped) out.missed++;
+    }
+    out.line = 'منبع‌های مجموعه‌ها: ' + fa(out.n) + ' شیت · ' + fa(out.read) +
+               ' تب از ' + fa(out.tabs) + ' خوانده شد' +
+               (out.missed ? ' · ⚠ ' + fa(out.missed) + ' شیت اصلاً خوانده نشد' : '') + '.';
+  } catch (e) {}
+  return out;
+}
+
 function seriesOrderStatus_(hub) {
   var out = { line: '', ok: true, bad: 0, notes: 0, worst: '' };
   try {
@@ -13839,20 +13895,31 @@ function scanSeries(force) {
 
   var reg = readSeriesReg_(hub), parts = readSeriesParts_(hub);
   var found = Object.create(null);   // key → { name, kind, src, tab, parts: {fileId: fileRec} }
-  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0, unknownTabs = [];
+  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0, unknownTabs = [], inv = [];
 
   for (var s = 0; s < CFG.SOURCES.length; s++) {
     var src = CFG.SOURCES[s];
-    if (CFG.SERIES_SOURCES.indexOf(src.key) === -1) continue;
+    /* فهرستِ خالی یعنی «همهٔ منبع‌ها» (۶٫۴۷). فهرستِ صریح هنوز کار می‌کند،
+       ولی هر شیتی که کنار گذاشته شود **نوشته** می‌شود — دو شیتِ کامل که
+       بی‌صدا نادیده گرفته می‌شدند، همین‌جا شروع شد. */
+    var allow = (CFG.SERIES_SOURCES || []);
+    if (allow.length && allow.indexOf(src.key) === -1) {
+      inv.push({ src: src.title, tabs: 0, read: 0, skipped: true,
+                 why: 'در فهرستِ SERIES_SOURCES نیست' });
+      continue;
+    }
     var ss;
     srcTried++;
     try { ss = SpreadsheetApp.openById(src.id); }
     catch (e) {
       srcFail++;
+      inv.push({ src: src.title, tabs: 0, read: 0, why: 'باز نشد: ' + e.message });
       logLine_('مجموعه‌ها: شیت «' + src.title + '» باز نشد: ' + e.message);
       continue;
     }
     var tabs = ss.getSheets();
+    var invOne = { src: src.title, tabs: tabs.length, read: 0, why: '' };
+    inv.push(invOne);
     for (var t = 0; t < tabs.length; t++) {
       var sh = tabs[t], tabName = sh.getName();
       if (sh.getLastRow() < 2 || sh.getLastColumn() < 2) continue;
@@ -13874,8 +13941,13 @@ function scanSeries(force) {
            *
            * تبِ واقعاً جانبی هم هست (خروجیِ ترکیبی، بی `File_ID`) و آن باید
            * ساکت رد شود. مرز همین است: `File_ID` دارد یا نه. */
+          /* شیتِ legacy امضای دیگری دارد و این **از پیش دانسته** است، نه
+             اشتباه: گزارش‌کردنش یعنی هشدار برای چیزی که طراحی‌اش همین است —
+             و هشداری که برای هیچ بلند شود، همان است که آدم یاد می‌گیرد
+             نبیند. فقط تبِ ناشناخته در منبعِ `auto` واقعاً خبر است. */
           try {
-            if (srcHas_(hdrSet_(headers), 'File_ID') || srcHas_(hdrSet_(headers), 'File ID')) {
+            if (String(src.schema || '').indexOf('legacy') !== 0 &&
+                (srcHas_(hdrSet_(headers), 'File_ID') || srcHas_(hdrSet_(headers), 'File ID'))) {
               unknownTabs.push(src.title + ' › ' + tabName);
             }
           } catch (eU) {}
@@ -13885,7 +13957,7 @@ function scanSeries(force) {
       } catch (eT) {
         logLine_('مجموعه‌ها: تب «' + tabName + '» خوانده نشد: ' + eT.message); continue;
       }
-      tabsRead++;
+      tabsRead++; invOne.read++;
       for (var fid in files) {
         if (!Object.prototype.hasOwnProperty.call(files, fid)) continue;
         var f = files[fid];
@@ -13942,6 +14014,34 @@ function scanSeries(force) {
      «کد» است: یا امضای تازه‌ای باید به `srcDetect_` اضافه شود، یا ستونی در
      آن تب کم است — و هیچ‌کدام را نمی‌شود فهمید وقتی هیچ‌جا نوشته نمی‌شود. */
   res.unknownTabs = unknownTabs;
+  /* ══ صورت‌برداریِ صریح: چند شیت، چند تب، چندتا خوانده شد (۶٫۴۷) ══
+     «تعدادِ شیت‌های منبع و تب‌ها رو باید اول دقیق چک کنه.» تا امروز هیچ
+     عددی از این جنس هیچ‌جا نبود، پس نبودنِ دو شیتِ کامل هم دیده نمی‌شد. */
+  res.inventory = inv;
+  res.sourcesSeen = inv.length;
+  /* شیتی که اصلاً نگاه نشده، یافته است نه یادداشت: دو شیتِ کامل ماه‌ها
+     نامرئی بودند و هیچ‌جا گفته نمی‌شد. */
+  /* فقط شیتی که **از روی پیکربندی** کنار گذاشته شده، نه شیتی که باز نشد:
+     نشدنِ باز شدن یک خطای گذراست و مسیرِ گزارشِ خودش را دارد (`srcFail`).
+     یافته‌ای که برای یک قطعیِ شبکه فیر کند، همان هشداری است که آدم یاد
+     می‌گیرد نبیند. */
+  var missed = inv.filter(function (x) { return !!x.skipped; });
+  if (missed.length) {
+    try {
+      logSelfFinding_(hub, {
+        priority: 'جدی', category: 'منابع', key: 'src-sheet-skipped',
+        title: 'شیتِ منبعی برای مجموعه‌ها اصلاً خوانده نشد',
+        detail: missed.map(function (x) { return x.src + ' — ' + x.why; }).join(' | '),
+        instruction: 'اگر عمدی است، در CFG.SERIES_SOURCES بماند؛ اگر نه، آن ' +
+                     'فهرست را خالی کن تا همهٔ منبع‌ها اسکن شوند (بخشِ ۱۳).',
+        owner: 'کد'
+      });
+    } catch (eMs) {}
+  }
+  props_().setProperty(PK.SERIES_INV, JSON.stringify(inv.slice(0, 12)));
+  logLine_('مجموعه‌ها — صورت‌برداریِ منبع‌ها: ' + inv.map(function (x) {
+    return x.src + ' (' + (x.why ? x.why : x.read + ' از ' + x.tabs + ' تب') + ')';
+  }).join(' · '));
   if (unknownTabs.length) {
     logLine_('مجموعه‌ها: ' + unknownTabs.length + ' تب فایل دارد ولی نوعش شناخته نشد — ' +
              unknownTabs.slice(0, 4).join('، ') + '.');

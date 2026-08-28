@@ -483,6 +483,22 @@ function runScanSeries() {
     L.push('اصلاحی لازم نشد — ترتیب و نامِ همهٔ قسمت‌ها همان بود که باید.');
   }
   if (r && r.error) L.push('خطا: ' + r.error);
+  /* ══ «تعدادِ شیت‌های منبع و تب‌ها رو باید اول دقیق چک کنه» (۶٫۴۷) ══
+     تا ۶٫۴۶ این دکمه فقط می‌گفت چند مجموعه پیدا شد — نه اینکه اصلاً کجاها
+     را نگاه کرده. پس دو شیتِ کاملِ نادیده‌گرفته‌شده هیچ‌وقت دیده نشدند. */
+  if (r && r.inventory && r.inventory.length) {
+    L.push('');
+    L.push('شیت‌های منبع (' + r.inventory.length + '):');
+    for (var q = 0; q < r.inventory.length; q++) {
+      var iv = r.inventory[q];
+      L.push('  • ' + iv.src + ' — ' +
+             (iv.why ? '⚠ ' + iv.why
+                     : iv.read + ' تب از ' + iv.tabs + ' خوانده شد'));
+    }
+  }
+  if (r && r.unknownTabs && r.unknownTabs.length) {
+    L.push('⚠ تبِ فایل‌دار ولی ناشناخته: ' + r.unknownTabs.slice(0, 5).join('، '));
+  }
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {
     var v = reg.rows[i].vals;

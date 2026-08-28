@@ -71,6 +71,17 @@ installTriggers();
 let r=produceEpisode(); let d=0;
 while(global.__PROPS['PENDING_EPISODE']&&d++<80) produceEpisodeContinue();
 global.__MAIL.length=0;
+/* این سناریو دربارهٔ «سکوت یعنی سلامت» است، نه دربارهٔ یافته‌های از پیش
+   موجود. از ۶٫۴۷ که همهٔ شیت‌های منبع اسکن می‌شوند، خودِ فیکسچر یک یافتهٔ
+   بی‌ربط (src-tab-unknown) می‌سازد و آن، این سنجه را — که موضوعش چیزِ
+   دیگری است — به سنجهٔ آن یافته تبدیل می‌کرد. */
+(function () {
+  const rt = hub.getSheetByName(CFG.REPORT_TAB || 'گزارش‌های نظارت');
+  if (rt && rt.getLastRow() > 1) {
+    const n = rt.getLastRow() - 1, w = REPORT_HEADERS.length;
+    rt.getRange(2, 1, n, w).setValues(Array.from({ length: n }, () => new Array(w).fill('')));
+  }
+})();
 h=healthCheck();
 console.log('  ایرادها:',h.problems.length, h.problems.length?('→ '+h.problems.join(' | ').slice(0,160)):'هیچ');
 console.log('  ایمیل هشدار:',global.__MAIL.length, global.__MAIL.length===0?'✅ سکوت یعنی سلامت':'❌');

@@ -145,16 +145,21 @@ console.log('  برداشت:', JSON.stringify(ing));
 rows().forEach(r => console.log('     ' + String(r[RC.ID-1]).padEnd(24) +
   String(r[RC.PRI-1]).padEnd(7) + String(r[RC.CAT-1]).padEnd(14) +
   String(r[RC.OWNER-1]).padEnd(20) + r[RC.STATUS-1]));
+/* فقط ردیف‌های همین گزارش شمرده می‌شوند، نه هر چیزی که در تب باشد: از ۶٫۴۷
+   که همهٔ شیت‌های منبع اسکن می‌شوند، خودِ فیکسچر هم ممکن است یافتهٔ دیگری
+   (مثلاً src-tab-unknown) بسازد. سنجه‌ای که کلِ تب را بشمرد، با هر یافتهٔ
+   بی‌ربطِ تازه می‌شکند بی آنکه چیزی خراب شده باشد. */
+const myRows = () => rows().filter(r => String(r[RC.ID-1]).indexOf('RPT-') === 0);
 ok('هر پنج مورد در ردیف جدا ثبت شد، به‌علاوهٔ سطرِ سرجمع',
-   rows().length === 6, rows().length + ' ردیف');
+   myRows().length === 6, myRows().length + ' ردیف از ' + rows().length);
 ok('سرجمعِ گزارش هم ردیف خودش را دارد', (() => {
-  const r = rows()[0];
+  const r = myRows()[0];
   return String(r[RC.TITLE-1]).indexOf('سرجمعِ گزارش') === 0 &&
          String(r[RC.DETAIL-1]).indexOf('۵ ایراد') !== -1 &&
          String(r[RC.AT-1]) === '2026-08-10 12:35';
 })());
 ok('هر محتوا زیر ستون خودش نشست', (() => {
-  const r = rows()[1];
+  const r = myRows()[1];
   return String(r[RC.AT-1]) === '2026-08-10 12:35' &&
          String(r[RC.PRI-1]) === 'جدی' &&
          String(r[RC.CAT-1]) === 'پرامپت روایت' &&
@@ -164,8 +169,8 @@ ok('هر محتوا زیر ستون خودش نشست', (() => {
          String(r[RC.LOGGED-1]).length >= 10;
 })());
 ok('مورد نیازمند کد به کوورک واگذار شد و وضعیتش درست است',
-   rows().filter(r => r[RC.OWNER-1] === ROWNER_CODE &&
-                      r[RC.STATUS-1] === RST.NEEDS_CODE).length === 1);
+   myRows().filter(r => r[RC.OWNER-1] === ROWNER_CODE &&
+                        r[RC.STATUS-1] === RST.NEEDS_CODE).length === 1);
 ok('فایل گزارش علامت خورد تا دوباره برداشته نشود',
    pendingReportFiles_().length === 0);
 
@@ -173,8 +178,11 @@ ok('فایل گزارش علامت خورد تا دوباره برداشته ن�
 console.log('\n=== ب) هشدار تلگرامِ «کد باید عوض شود» ===');
 console.log('  پیام‌های تلگرام:', TG.length);
 TG.forEach(m => console.log('     ' + String(m).replace(/\n/g, ' ⏎ ').slice(0, 120)));
-ok('برای موردِ نیازمند کد، تلگرام رفت', TG.length === 1 &&
-   TG[0].indexOf('کد موتور باید تعویض شود') !== -1);
+/* پیامِ همین گزارش سنجیده می‌شود، نه هر پیامی که در نخ باشد: از ۶٫۴۷ که
+   همهٔ شیت‌های منبع اسکن می‌شوند، خودِ فیکسچر ممکن است یافتهٔ کدِ دیگری هم
+   بسازد و پیامِ خودش را بفرستد. */
+const tgCode = TG.filter(m => String(m).indexOf('کد موتور باید تعویض شود') !== -1);
+ok('برای موردِ نیازمند کد، تلگرام رفت', tgCode.length >= 1, TG.length + ' پیام');
 /* این سنجه تا ۵٫۹۲ متنی را تثبیت می‌کرد که از دورانِ پیش از ۵٫۱۲ مانده بود:
    «فایل را از Cowork بردارید و Code.gs را پاک کنید». هشتاد نسخه است که کد
    خودش از گیت‌هاب نصب می‌شود. دستوری که غلط باشد از دستورِ نبوده بدتر است —
