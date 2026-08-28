@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.41
+ *  موتور محتوا و پادکست — نسخهٔ 6.42
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -987,7 +987,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.41',
+  CODE_VERSION: '6.42',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -34056,7 +34056,7 @@ function ytStatus_() {
   var out = { enabled: CFG.YT_ENABLED !== false, service: !!ytSvc_(), why: ytOffWhy_(),
               published: 0, unlisted: 0, failed: 0, due: 0, waitingRender: 0,
               renderOldestDays: 0, playlists: 0, quota: null, last: null, line: '',
-              feedback: null };
+              plWhy: [], feedback: null };
   /* بازخورد داخلِ همین شیء می‌نشیند تا در `_STATUS.json` باشد — تنها فایلی
      که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در یک تب باشد، برای ناظر
      وجود ندارد. */
@@ -34071,11 +34071,22 @@ function ytStatus_() {
       var rS = pmapS[pkS] || {};
       if (!rS.id) continue;
       pls.push({ key: pkS, title: String(rS.title || ''), url: ytPlUrl_(rS.id),
-                 cover: !!rS.cover, podcast: !!rS.podcast });
+                 cover: !!rS.cover, podcast: !!rS.podcast,
+                 coverWhy: String(rS.coverWhy || ''), podWhy: String(rS.podWhy || '') });
     }
     out.playlistList = pls;
     out.noCover = pls.filter(function (x) { return !x.cover; }).length;
     out.noPodcast = pls.filter(function (x) { return !x.podcast; }).length;
+    /* ══ عدد بی علت، هفته‌ها تکرار می‌شود و کسی نمی‌داند چرا (۶٫۴۲) ══
+     * «پلی‌لیست ۱ (۱ بی‌کاور) (۱ پادکست‌نشده)» هر روز رفت و هیچ‌جا نگفت
+     * چرا — چون تنها جایی که علت را می‌دانست (`ytPlDress_`) آن را فقط وقتی
+     * ثبت می‌کرد که علت «سهمیه» **نباشد**. و سهمیه محتمل‌ترین علت است:
+     * هر آپلود ۱۶۰۰ واحد می‌برد و کاورِ پلی‌لیست ته صف است. یعنی
+     * محتمل‌ترین علت، تنها علتی بود که هرگز نوشته نمی‌شد. */
+    for (var w = 0; w < pls.length; w++) {
+      if (!pls[w].cover && pls[w].coverWhy) out.plWhy.push('کاور: ' + pls[w].coverWhy);
+      if (!pls[w].podcast && pls[w].podWhy) out.plWhy.push('پادکست: ' + pls[w].podWhy);
+    }
   } catch (ePl) {}
   try {
     var hub = getHub_();
@@ -34128,7 +34139,8 @@ function ytLine_(st) {
        باید گفته شود، نه فقط شمارِ پلی‌لیست‌ها. */
     L.push('پلی‌لیست ' + faDigitsOut_(String(st.playlists)) +
            (st.noCover ? ' (' + faDigitsOut_(String(st.noCover)) + ' بی‌کاور)' : '') +
-           (st.noPodcast ? ' (' + faDigitsOut_(String(st.noPodcast)) + ' پادکست‌نشده)' : ''));
+           (st.noPodcast ? ' (' + faDigitsOut_(String(st.noPodcast)) + ' پادکست‌نشده)' : '') +
+           ((st.plWhy || []).length ? ' — ' + st.plWhy.slice(0, 2).join(' · ') : ''));
   }
   /* تخمینِ تخلیه، چون سقفش را یوتیوب گذاشته نه ما — و صاحبِ ۲۶۴ قسمتِ گذشته
      حق دارد بداند چند روز طول می‌کشد، به‌جای اینکه هر روز بپرسد چرا تمام
@@ -35077,14 +35089,29 @@ function ytPlPodcast_(plId, title) {
  * حالا یک جاست.
  */
 function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
+  /* علت روی خودِ رکوردِ پلی‌لیست می‌نشیند، حتی وقتی «سهمیه» است (۶٫۴۲).
+     تا اینجا سهمیه از هر دو ثبت مستثنا بود — و چون کاور و پادکست ته صفِ
+     سهمیه‌اند، همان محتمل‌ترین علت تنها علتی بود که هرگز نوشته نمی‌شد.
+     «سهمیه» ایراد نیست (فردا خودش می‌آید) پس در `coverFails` نمی‌رود؛ ولی
+     باید *دیده* شود، وگرنه عدد بی‌علت هفته‌ها تکرار می‌شود. */
+  var mark = function (field, why) {
+    try {
+      var m = ytPlMap_(), rec = m[key] || {};
+      rec[field] = String(why || '').slice(0, 80);
+      m[key] = rec; ytPlMapSave_(m);
+    } catch (eM) {}
+  };
   var pmap = ytPlMap_(), prec = pmap[key] || {};
   if (!prec.podcast && CFG.YT_PODCAST !== false) {
     var pc = ytPlPodcast_(plId, plTitle || name);
     if (pc === 'نشست') {
-      prec.podcast = nowStr_(); pmap[key] = prec; ytPlMapSave_(pmap);
+      prec.podcast = nowStr_(); prec.podWhy = ''; pmap[key] = prec; ytPlMapSave_(pmap);
       out.podcasts = (out.podcasts || 0) + 1;
-    } else if (pc.indexOf('سهمیه') === -1) {
-      logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
+    } else {
+      mark('podWhy', pc);
+      if (pc.indexOf('سهمیه') === -1) {
+        logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
+      }
     }
   }
   if (!prec.cover || renamed) {
@@ -35092,11 +35119,14 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     if (cv === 'نشست') {
       out.covers++;
       prec = (ytPlMap_()[key] || prec);
-      prec.cover = nowStr_();
+      prec.cover = nowStr_(); prec.coverWhy = '';
       var m2 = ytPlMap_(); m2[key] = prec; ytPlMapSave_(m2);
-    } else if (cv && cv.indexOf('سهمیه') === -1) {
-      out.coverFails.push(name + ': ' + cv);
-      try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
+    } else if (cv) {
+      mark('coverWhy', cv);
+      if (cv.indexOf('سهمیه') === -1) {
+        out.coverFails.push(name + ': ' + cv);
+        try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
+      }
     }
   }
 }
@@ -35199,8 +35229,20 @@ function ytChannelCheck_(info) {
   var bs = (info && info.brandingSettings) || {};
   var ch = bs.channel || {}, img = bs.image || {};
   var sn = (info && info.snippet) || {};
+  /* ══ `!!ok` نیتِ خودِ این تابع را دور می‌ریخت (۶٫۴۲) ══
+   * پنج قلم عمداً `null` می‌گیرند: از راهِ API نه خوانده می‌شوند نه نوشتنشان
+   * قابلِ تأیید است. کامنتِ پایین‌تر صریح می‌گوید «نوشتنشان به‌عنوان ایراد
+   * غلط است» و متنِ سرِ همین بخش هم همین را می‌گوید — ولی `!!null` می‌شود
+   * `false`، و `false` یعنی «خالی». پس هر پنج‌تا هر بار ایراد شمرده شدند،
+   * شاخهٔ `ok === null ? '—'` در `ytChannelLog_` **هرگز اجرا نشد**، و
+   * «کارِ شما: لینک‌های کانال، ایمیلِ تماس» هفته‌به‌هفته برای کاری رفت که از
+   * این راه شدنی نیست. عددِ «خالی ۸» هم پنج واحد باد داشت.
+   * یک تحلیل که نوشته شد و یک عملگر بی‌صدا دورش ریخت — همان شکلی که این
+   * ریپو مدام به آن می‌خورَد. */
   var add = function (key, label, by, ok, note) {
-    out.push({ key: key, label: label, by: by, ok: !!ok, note: String(note || '') });
+    out.push({ key: key, label: label, by: by,
+               ok: (ok === null || ok === undefined) ? null : !!ok,
+               note: String(note || '') });
   };
   add('title', 'نامِ کانال', 'آدم', !!sn.title, sn.title || '');
   add('description', 'توضیحِ کانال', 'موتور', !!String(ch.description || '').trim(),
@@ -35673,7 +35715,7 @@ function ytChannelStale_() {
 
 /** آخرین وضعِ شناسنامه، برای وضعیت و ناظر — از تب، با یک خواندن. */
 function ytChannelState_() {
-  var out = { at: '', filled: 0, empty: 0, todo: [], line: '' };
+  var out = { at: '', filled: 0, empty: 0, unknown: 0, todo: [], why: [], line: '' };
   try {
     var sh = getHub_().getSheetByName(CFG.YTC_TAB || 'شناسنامهٔ کانال یوتیوب');
     if (!sh || sh.getLastRow() < 2) { out.line = 'شناسنامهٔ کانال: هنوز وارسی نشده.'; return out; }
@@ -35685,14 +35727,30 @@ function ytChannelState_() {
       var row = last[k];
       out.at = String(row[0]);
       if (String(row[3]) === 'پر') out.filled++;
+      else if (String(row[3]) === '—') out.unknown++;
       else if (String(row[3]) === 'خالی') {
         out.empty++;
         if (String(row[2]) === 'آدم') out.todo.push(k);
+        else {
+          /* ══ علت در تب می‌مانْد، و او تب باز نمی‌کند (۶٫۴۲) ══
+           * ستونِ «اقدامِ این اجرا» از اول علتِ دقیق را داشت — «بنر کوچک بود
+           * ۱۶۰۰×۹۰۰»، «آپلودِ بنر نشد (۴۰۳)» — ولی سطرِ روزانه فقط
+           * می‌شمرد. پس هفته‌ها «خالی ۸» رفت و هیچ‌کس نفهمید بنر چرا نیامد،
+           * تا خودش پرسید. قاعدهٔ ۵٫۹۰: چیزی که فقط در یک شیت باشد، از نظرِ
+           * او وجود ندارد. */
+          var did = String(row[4] || '').trim();
+          if (did && did !== 'دست‌نخورده' && did.indexOf('کارِ شما') !== 0) {
+            out.why.push(k + ': ' + did.slice(0, 70));
+          }
+        }
       }
     }
   } catch (e) {}
   out.line = 'شناسنامهٔ کانال: پرشده ' + faDigitsOut_(String(out.filled)) +
              (out.empty ? ' · خالی ' + faDigitsOut_(String(out.empty)) : '') +
+             (out.why.length ? ' (' + out.why.slice(0, 3).join(' · ') + ')' : '') +
+             (out.unknown ? ' · ' + faDigitsOut_(String(out.unknown)) +
+                            ' قلم از راهِ API خوانده نمی‌شود' : '') +
              (out.todo.length ? ' · کارِ شما: ' + out.todo.join('، ') : ' · چیزی از شما نمی‌خواهد') + '.';
   return out;
 }

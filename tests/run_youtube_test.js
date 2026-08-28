@@ -1844,4 +1844,135 @@ console.log('\n=== ۴۶) یوتیوب زمان‌بندیِ خودش را دار
      (body.match(/newTrigger\(/g) || []).length + ' فراخوانِ newTrigger');
 }
 
+console.log('\n=== ۴۷) آنچه از راهِ API شدنی نیست، «ایراد» شمرده نمی‌شود ===');
+{
+  /* ══ گزارشِ صاحبِ برنامه، ۲۸ اوت ══
+   * «یادته قبلاً دربارهٔ بنر و کاور صحبت کرده بودیم؟ اونا چی شد برای یوتیوب؟»
+   *
+   * و در ایمیلِ روزانهٔ خودش، دو روزِ پیاپی: «شناسنامهٔ کانال: پرشده ۲ ·
+   * **خالی ۸** · کارِ شما: لینک‌های کانال، ایمیلِ تماس.»
+   *
+   * ولی متنِ سرِ همین بخش صریح می‌گوید: «آن دستهٔ دوم کارِ انجام‌نشده نیست؛
+   * کارِ انجام‌نشدنی از این راه است»، و کامنتِ بالای همان چهار فراخوان
+   * می‌گوید «نوشتنشان به‌عنوان ایراد غلط است». پنج قلم عمداً `null`
+   * می‌گیرند — و `add` می‌نوشت `ok: !!ok`.
+   *
+   * `!!null === false`، و `false` یعنی «خالی». نتیجه: شاخهٔ
+   * `ok === null ? '—'` در `ytChannelLog_` **هرگز اجرا نشد**، عددِ «خالی»
+   * پنج واحد باد داشت، و «کارِ شما» هفته‌به‌هفته برای کاری رفت که یوتیوب
+   * راهی برایش نگذاشته. یک تصمیمِ نوشته‌شده که یک عملگرِ دو نویسه‌ای بی‌صدا
+   * دورش ریخت — همان شکلی که این ریپو مدام به آن می‌خورَد. */
+  const info = { id: 'UCxx', snippet: { title: 'رد پای حقیقت',
+                   thumbnails: { high: { url: 'https://yt3.example/pic.png' } } },
+                 brandingSettings: { channel: { description: '', keywords: '' },
+                                     image: {} } };
+  const rows = ytChannelCheck_(info);
+  const by = {}; rows.forEach(r => by[r.key] = r);
+
+  ok('۴۷.۱ لینک‌ها و ایمیل «نامعلوم»اند، نه «خالی»',
+     by.links.ok === null && by.email.ok === null,
+     JSON.stringify({ l: by.links.ok, e: by.email.ok }));
+  ok('۴۷.۲ پستِ انجمن هم', by.posts.ok === null);
+  ok('۴۷.۳ و واترمارک و بخش‌های خانه — وضعشان از API خوانده نمی‌شود',
+     by.watermark.ok === null && by.sections.ok === null);
+  /* ولی آنچه واقعاً خوانده می‌شود، هنوز دقیقاً true/false است: این اصلاح
+     نباید سنجه‌های واقعی را هم «نامعلوم» کند. */
+  ok('۴۷.۴ ولی توضیحِ خالی هنوز false است، نه null', by.description.ok === false);
+  ok('۴۷.۵ و عکسِ پروفایلِ موجود هنوز true', by.picture.ok === true);
+
+  const hub2 = new Spread('هاب-مرز');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub2 };
+  global.getHub_ = () => hub2;
+  ytChannelLog_(hub2, rows.map(r => Object.assign({ did: '', note: '' }, r)));
+  const sh = hub2.getSheetByName(CFG.YTC_TAB || 'شناسنامهٔ کانال یوتیوب');
+  const vals = sh.getRange(2, 1, sh.getLastRow() - 1, YTC_HEADERS.length).getValues();
+  const cell = (label) => (vals.filter(v => String(v[1]) === label).pop() || [])[3];
+  ok('۴۷.۶ و در سیاهه «—» می‌نشیند، نه «خالی»',
+     cell('لینک‌های کانال') === '—' && cell('ایمیلِ تماس') === '—',
+     JSON.stringify([cell('لینک‌های کانال'), cell('ایمیلِ تماس')]));
+  ok('۴۷.۷ شاخهٔ «—» تا امروز مردهٔ کامل بود — حالا زنده است',
+     vals.filter(v => String(v[3]) === '—').length === 5,
+     String(vals.filter(v => String(v[3]) === '—').length));
+
+  /* سنجه روی *رابطه* است نه روی عددِ ثابت: «خالی» دقیقاً همان‌قدر است که
+     واقعاً false بوده، و پنج قلمِ نخواندنی جدا شمرده می‌شوند. عددِ ثابت
+     فردا با اضافه‌شدنِ یک قلمِ تازه می‌شکست بی آنکه چیزی خراب شده باشد. */
+  const st = ytChannelState_();
+  ok('۴۷.۸ شمارِ «خالی» دیگر باد ندارد',
+     st.empty === rows.filter(r => r.ok === false).length &&
+     st.unknown === rows.filter(r => r.ok === null).length &&
+     st.filled + st.empty + st.unknown === rows.length,
+     JSON.stringify({ filled: st.filled, empty: st.empty, unknown: st.unknown,
+                      rows: rows.length }));
+  ok('۴۷.۸-ب و هیچ قلمِ نخواندنی در «کارِ شما» نمی‌آید',
+     st.todo.indexOf('لینک‌های کانال') === -1 &&
+     st.todo.indexOf('ایمیلِ تماس') === -1, st.todo.join('، '));
+  ok('۴۷.۹ و سطرِ روزانه می‌گوید چند قلم اصلاً خواندنی نیست',
+     st.line.indexOf('از راهِ API خوانده نمی‌شود') !== -1, st.line);
+}
+
+console.log('\n=== ۴۸) عددِ بی‌علت: بنر و کاور باید *بگویند* چرا نیامدند ===');
+{
+  /* «شناسنامهٔ کانال: خالی ۸» و «پلی‌لیست ۱ (۱ بی‌کاور) (۱ پادکست‌نشده)»
+   * هفته‌ها هر روز رفتند و هیچ‌کدام نگفتند **چرا** — تا خودش پرسید «اونا
+   * چی شد؟». علتِ بنر از اول در ستونِ «اقدامِ این اجرا» بود و علتِ کاور در
+   * `ytPlDress_` — ولی اولی فقط در یک تب می‌مانْد (قاعدهٔ ۵٫۹۰: او تب باز
+   * نمی‌کند) و دومی وقتی علت «سهمیه» بود اصلاً ثبت نمی‌شد.
+   *
+   * و سهمیه محتمل‌ترین علت است: هر آپلود ۱۶۰۰ واحد می‌برد و کاورِ پلی‌لیست
+   * ته صف است. یعنی محتمل‌ترین علت، تنها علتی بود که هرگز نوشته نمی‌شد. */
+  const hub3 = new Spread('هاب-علت');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub3 };
+  global.getHub_ = () => hub3;
+  ytChannelLog_(hub3, [
+    { label: 'بنرِ کانال', by: 'موتور', ok: false,
+      did: 'بنر کوچک بود: ۱۶۰۰×۹۰۰', note: '' },
+    { label: 'توضیحِ کانال', by: 'موتور', ok: true, did: 'پر شد', note: '' },
+    { label: 'لینک‌های کانال', by: 'آدم', ok: null, did: 'کارِ شما', note: '' }
+  ]);
+  const st3 = ytChannelState_();
+  ok('۴۸.۱ علتِ خالی‌بودنِ بنر به سطرِ روزانه می‌رسد',
+     st3.line.indexOf('۱۶۰۰×۹۰۰') !== -1, st3.line);
+  ok('۴۸.۲ ولی «کارِ شما» علت حساب نمی‌شود (علت نیست، تقسیمِ کار است)',
+     st3.why.join(' ').indexOf('کارِ شما') === -1, JSON.stringify(st3.why));
+
+  // ── کاورِ پلی‌لیست: «سهمیه» هم ثبت می‌شود ──
+  const keepPod = global.ytPlPodcast_, keepCov = global.ytPlaylistCover_;
+  const keepMap = global.__PROPS[PK.YT_PLMAP];
+  global.ytPlMapSave_({ kX: { id: 'PL1', title: 'مجموعهٔ آزمون' } });
+  global.ytPlPodcast_ = () => 'سهمیه';
+  global.ytPlaylistCover_ = () => 'سهمیه';
+  const out = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PL1', 'مجموعهٔ آزمون', 'مجموعهٔ آزمون', '', '', false, out, 'kX');
+  const rec = ytPlMap_()['kX'] || {};
+  ok('۴۸.۳ علتِ «سهمیه» روی خودِ رکورد ثبت می‌شود',
+     rec.coverWhy === 'سهمیه' && rec.podWhy === 'سهمیه', JSON.stringify(rec));
+  /* ولی سهمیه **ایراد** نیست — فردا خودش می‌آید. پس در فهرستِ شکست‌ها
+     نمی‌رود، وگرنه یک هشدارِ روزانه برای چیزی که خودش حل می‌شود. */
+  ok('۴۸.۴ ولی ایراد شمرده نمی‌شود — فردا خودش می‌آید',
+     out.coverFails.length === 0);
+
+  /* سرویس در این نقطه از سوئیت خاموش شده (سنجه‌های پیشین)، و `ytLine_`
+     آن‌وقت فقط علتِ خاموشی را می‌گوید. اینجا سؤال دربارهٔ خطِ خاموشی نیست،
+     دربارهٔ کنارِ هم آمدنِ عدد و علت است — پس سرویس موقتاً روشن می‌شود. */
+  const keepSvc = global.ytSvc_, keepWhy = global.ytOffWhy_;
+  global.ytSvc_ = () => ({}); global.ytOffWhy_ = () => '';
+  const st4 = ytStatus_();
+  global.ytSvc_ = keepSvc; global.ytOffWhy_ = keepWhy;
+  ok('۴۸.۵ و سطرِ یوتیوب علت را کنارِ عدد می‌آورد',
+     st4.line.indexOf('بی‌کاور') !== -1 && st4.line.indexOf('سهمیه') !== -1,
+     st4.line.slice(0, 200));
+
+  global.ytPlaylistCover_ = () => 'نشست';
+  ytPlDress_('PL1', 'مجموعهٔ آزمون', 'مجموعهٔ آزمون', '', '', false,
+             { covers: 0, coverFails: [], podcasts: 0 }, 'kX');
+  ok('۴۸.۶ و وقتی نشست، علتِ کهنه پاک می‌شود',
+     !(ytPlMap_()['kX'] || {}).coverWhy && !!(ytPlMap_()['kX'] || {}).cover,
+     JSON.stringify(ytPlMap_()['kX']));
+
+  global.ytPlPodcast_ = keepPod; global.ytPlaylistCover_ = keepCov;
+  if (keepMap === undefined) delete global.__PROPS[PK.YT_PLMAP];
+  else global.__PROPS[PK.YT_PLMAP] = keepMap;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
