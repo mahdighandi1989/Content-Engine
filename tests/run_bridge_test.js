@@ -313,8 +313,10 @@ console.log('\n=== ۹) نویسندهٔ درس بلوک را می‌گیرد، �
      s14.indexOf('if (ctx.bridgeBlock)') < s14.indexOf("L.push('══ ساختار خروجی ══')"));
   ok('۹.۳ فراخوانِ رو به جلو در try/catch است (بارگذارِ جزئی نباید تولید را بخواباند)',
      /try \{[\s\S]{0,900}bridgeFor_\(/.test(s14));
-  ok('۹.۴ و ارجاع‌ها در پروندهٔ قسمت ثبت می‌شوند',
-     s14.indexOf('bridges: (ctx.__bridges || [])') !== -1 &&
+  /* و آنچه در پروندهٔ قسمت می‌نشیند، ارجاعِ **سنجیده‌شده** است نه نقشه —
+     تفصیلش در بلوکِ ۱۱. */
+  ok('۹.۴ و ارجاع‌های سنجیده‌شده در پروندهٔ قسمت ثبت می‌شوند',
+     s14.indexOf('bridges: (ctx.__bridgesUsed || [])') !== -1 &&
      s14.indexOf('bridgeLog_(hub, epNum, seriesName') !== -1);
 
   const s15 = fs.readFileSync('src/15_Board.gs', 'utf8');
@@ -367,6 +369,88 @@ console.log('\n=== ۱۰) خاموشی و بی‌ارجاع بودن، خرابی
                          { seriesName: 'خ', partName: 'x', digest: 'y', headings: [] });
   un2();
   ok('۱۰.۳ شکستِ مدل هم قسمت را نمی‌خواباند', bad.block === '' && bad.links.length === 0);
+}
+
+console.log('\n=== ۱۱) ثبت پس از سنجشِ متنِ واقعی، نه پس از نقشه ===');
+{
+  /* ══ باگی که بازبینیِ دقیق پیدایش کرد ══
+   * نقشهٔ ارجاع یک *درخواست* است؛ نویسنده می‌تواند نادیده‌اش بگیرد. تا پیش
+   * از این، همان نقشه ثبت می‌شد — پس سیاهه، پروندهٔ قسمت، جزوه و مرورِ بزرگ
+   * هر چهار می‌گفتند به «معرفت‌شناسی» ارجاع داده شد، در حالی که در صوت یک
+   * کلمه‌اش هم نبود. و چون جزوه و مرور از همین سیاهه می‌خوانند، آن ادعای
+   * غلط وارد محتوای بعدی هم می‌شد.
+   * «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد.» */
+  const links = [{ seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', kind: 'ابزارِ سنجش',
+                   claim: 'ملاکِ صدق', chapter: '', relation: 'r',
+                   atHeading: 'اثباتِ واجب', say: 'ب'.repeat(60), strength: 'قوی' }];
+
+  const ignored = { title: 'اثباتِ واجب', sections: [{ heading: 'اثباتِ واجب',
+    narration: 'در این درس دربارهٔ برهانِ وجوب و امکان حرف می‌زنیم و بس. '.repeat(8) }] };
+  const v1 = bridgeVerify_(ignored, links);
+  ok('۱۱.۱ ارجاعی که در متن نیامده، «نیامده» شمرده می‌شود',
+     v1.used.length === 0 && v1.missed.length === 1, JSON.stringify(v1.missed.length));
+
+  const applied = { title: 'اثباتِ واجب', sections: [{ heading: 'اثباتِ واجب',
+    narration: 'یادت هست در معرفت‌شناسی گفتیم صدقِ گزاره را چطور می‌سنجیم؟ ' +
+               'همان ملاک دقیقاً همین‌جا به کار می‌آید. '.repeat(4) }] };
+  const v2 = bridgeVerify_(applied, links);
+  ok('۱۱.۲ و ارجاعی که آمده، «آمده»', v2.used.length === 1 && v2.missed.length === 0);
+
+  /* سنجه محافظه‌کار است — همان قاعدهٔ recapCoverage_: نامی که هیچ واژهٔ
+     شاخصی ندارد قابلِ داوری نیست، و «نمی‌دانم» را نباید «نیامده» گزارش کرد. */
+  const noTerms = [Object.assign({}, links[0], { seriesName: 'الف ب' })];
+  ok('۱۱.۳ نامِ بی‌واژهٔ شاخص «نیامده» اعلام نمی‌شود',
+     bridgeVerify_(ignored, noTerms).missed.length === 0);
+  ok('۱۱.۴ اعراب و نیم‌فاصله مانعِ تطبیق نیست',
+     bridgeVerify_({ sections: [{ heading: 'ب', narration: 'در مَعرفت شناسی گفتیم…' }] },
+                   links).used.length === 1);
+
+  /* و مسیرِ تولید باید *سنجیده* را ثبت کند، نه نقشه را. */
+  const s14 = fs.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۱۱.۵ تولید، سنجیده را ثبت می‌کند نه نقشه را',
+     s14.indexOf('bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed') !== -1 &&
+     s14.indexOf('bridgeLog_(hub, epNum, seriesName, ctx.__bridges ||') === -1);
+  ok('۱۱.۶ و سنجش پیش از نوشتنِ پروندهٔ قسمت انجام می‌شود',
+     s14.indexOf('bridgeVerify_(ep, ctx.__bridges') < s14.indexOf('bridges: (ctx.__bridgesUsed'));
+  ok('۱۱.۷ نیامده‌ها هم ثبت می‌شوند، نه اینکه بی‌صدا بیفتند',
+     s14.indexOf('bridgesMissed:') !== -1);
+  /* همه‌شان نیامدن یعنی بلوک اصلاً خوانده نشده — ایرادِ ساختاری، با کلیدِ
+     ثابت تا تکرارش تکرار شمرده شود. */
+  ok('۱۱.۸ و اگر هیچ‌کدام نیامد، یافته ثبت می‌شود',
+     s14.indexOf("key: 'bridge-ignored'") !== -1);
+  /* اگر خودِ سنجش شکست، ادعای نسنجیده ثبت نمی‌شود. */
+  ok('۱۱.۹ شکستِ سنجش یعنی ثبتِ خالی، نه ثبتِ نسنجیده',
+     /catch \(eBv\) \{[\s\S]{0,200}__bridgesUsed = \[\]/.test(s14));
+}
+
+console.log('\n=== ۱۲) کدِ مرده نماند، و فراخوانِ رو به جلو محافظت شد ===');
+{
+  /* `bridgeTrim_` یک نگاشتِ عنوان می‌ساخت و هرگز نمی‌خواندش. حذفش صرفاً
+     تمیزکاری نبود: نبودنش می‌گوید نقشه **پیش از** نوشتن ساخته می‌شود، پس
+     هنوز بخشی وجود ندارد که با آن سنجیده شود. */
+  const s31 = fs.readFileSync('src/31_Bridge.gs', 'utf8');
+  ok('۱۲.۱ نگاشتِ بی‌مصرفِ عنوان‌ها حذف شد',
+     s31.indexOf('heads[String(secs[h])]') === -1);
+  ok('۱۲.۲ و bridgeTrim_ دیگر ctx نمی‌گیرد',
+     /function bridgeTrim_\(links, names\)/.test(s31));
+
+  /* قاعدهٔ ۲۱→۲۲: بخشی که رو به جلو صدا زده می‌شود باید در try/catch باشد،
+     وگرنه بارگذارِ جزئی با ReferenceError کلِ تخته را می‌خواباند. */
+  const s15 = fs.readFileSync('src/15_Board.gs', 'utf8');
+  ok('۱۲.۳ فراخوانِ bridgeCell_ در try/catch است',
+     /try \{ H\.push\(bridgeCell_\(x, d\)\); \}/.test(s15));
+
+  /* و تخته واقعاً با ستونِ تازه رندر می‌شود — نه فقط در نظر. */
+  const d = seriesBoardData_(hub);
+  const html = seriesBoardHtml_(d);
+  ok('۱۲.۴ تخته با ستونِ تازه رندر می‌شود', html.length > 1000 &&
+     html.indexOf('مجموعه‌های مرجع') !== -1);
+  ok('۱۲.۵ و تیکِ مرجع در آن هست', html.indexOf('class="bxChk"') !== -1);
+  /* شمارِ خانه‌های هر ردیف با شمارِ سرستون‌ها بخواند — وگرنه جدول می‌شکند. */
+  const firstRow = (html.match(/<tr class="[^"]*srow"[\s\S]*?<\/tr>/) || [''])[0];
+  const nTd = (firstRow.match(/<td/g) || []).length;
+  const nTh = ((html.match(/<tr><th>اولویت[\s\S]*?<\/tr>/) || [''])[0].match(/<th/g) || []).length;
+  ok('۱۲.۶ شمارِ خانه‌ها با سرستون‌ها می‌خواند', nTd === nTh, nTd + ' / ' + nTh);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -277,7 +277,7 @@ function bridgePlan_(ctx, corpus) {
   if (!r) return null;
   var names = Object.create(null);
   for (var i = 0; i < corpus.length; i++) names[corpus[i].key] = corpus[i].name;
-  return { links: bridgeTrim_(r.links, names, ctx),
+  return { links: bridgeTrim_(r.links, names),
            none: String(r.none || ''),
            series: corpus.map(function (c) { return c.key; }) };
 }
@@ -290,12 +290,17 @@ function bridgePlan_(ctx, corpus) {
  * (اختراعِ دستهٔ تازه)، و ارجاعِ «ضعیف» که خودِ پرامپت گفته بود نده.
  * «سقفی که فقط در پرامپت گفته شده، سقف نیست.»
  */
-function bridgeTrim_(links, names, ctx) {
+function bridgeTrim_(links, names) {
   var out = [];
   var max = Math.max(1, Number(CFG.BRIDGE_MAX_LINKS) || 3);
-  var heads = Object.create(null);
-  var secs = (ctx && ctx.headings) || [];
-  for (var h = 0; h < secs.length; h++) heads[String(secs[h])] = 1;
+  /* ══ اینجا عنوانِ بخش‌ها سنجیده **نمی‌شود** — و این عمدی است ══
+   * نسخهٔ اول یک نگاشتِ عنوان می‌ساخت تا `atHeading` را با بخش‌های واقعیِ
+   * درس بسنجد، و هرگز نخواندش: کدِ مرده، همان شکلی که این ریپو مدام به آن
+   * می‌خورَد. ولی حذفش صرفاً تمیزکاری نیست — نبودنش یک واقعیتِ ساختاری را
+   * می‌گوید: نقشهٔ ارجاع **پیش از** نوشتنِ درس ساخته می‌شود، پس هنوز هیچ
+   * بخشی وجود ندارد که با آن سنجیده شود. `atHeading` یک *نشانیِ موضوعی*
+   * است برای نویسنده، نه یک شناسه. سنجشِ واقعی جای دیگری است و پس از
+   * نوشتن انجام می‌شود: `bridgeVerify_`. */
   var seen = Object.create(null);
   for (var i = 0; i < (links || []).length && out.length < max; i++) {
     var x = links[i] || {};
@@ -349,6 +354,61 @@ function bridgeBlock_(plan, seriesName) {
   L.push('• نامِ آن مجموعه را صریح بگو — ارجاعِ بی‌نام، ارجاع نیست.');
   L.push('• ارجاع باید در دلِ حرف بنشیند، نه به‌شکلِ یک تکهٔ چسبانده‌شده.');
   return L.join('\n');
+}
+
+/**
+ * آیا ارجاع واقعاً در متنِ نوشته‌شده آمد؟
+ *
+ * ══ باگی که این را لازم کرد ══
+ * تا پیش از این، `bridgeLog_` **نقشه** را ثبت می‌کرد، نه آنچه واقعاً گفته
+ * شد. یعنی اگر نویسنده بلوکِ ارجاع را نادیده می‌گرفت — که مدل‌ها گاهی
+ * می‌گیرند — سیاهه، پروندهٔ قسمت، جزوه و مرورِ بزرگ هر چهار می‌گفتند به
+ * «معرفت‌شناسی» ارجاع داده شد، در حالی که در صوت یک کلمه‌اش هم نبود. و
+ * چون جزوه و مرور از همین سیاهه می‌خوانند، آن ادعای غلط **وارد محتوای
+ * بعدی** هم می‌شد.
+ *
+ * این دقیقاً همان شکلی است که این ریپو بارها خورده: «تحلیل نوشته شد و به
+ * هیچ تصمیمی وصل نشد»، و «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد».
+ *
+ * سنجه عمداً **محافظه‌کار** است — همان قاعدهٔ `recapCoverage_`: ارجاع
+ * «نیامده» شمرده می‌شود فقط وقتی *هیچ‌کدام* از واژه‌های شاخصِ نامِ آن مجموعه
+ * هیچ‌جای متن نباشد. کفِ حضور را می‌سنجد، نه کیفیتش را؛ و هشداری که فقط با
+ * شهادتِ قاطع بلند شود، هشداری است که خوانده می‌شود.
+ */
+function bridgeVerify_(ep, links) {
+  var out = { used: [], missed: [] };
+  if (!links || !links.length) return out;
+  var flat = '';
+  try { flat = specialNarration_(ep); } catch (e) { flat = ''; }
+  try { flat = txNorm(stripTashkil_(flat)); } catch (e2) { flat = String(flat).toLowerCase(); }
+  flat = flat.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+  for (var i = 0; i < links.length; i++) {
+    var terms = bridgeTerms_(links[i].seriesName);
+    // نامی که هیچ واژهٔ شاخصی ندارد، قابلِ داوری نیست: «نمی‌دانم» را نباید
+    // «نیامده» گزارش کرد.
+    if (!terms.length) { out.used.push(links[i]); continue; }
+    var hit = false;
+    for (var k = 0; k < terms.length && !hit; k++) {
+      if (flat.indexOf(terms[k]) !== -1) hit = true;
+    }
+    if (hit) out.used.push(links[i]); else out.missed.push(links[i]);
+  }
+  return out;
+}
+
+/** واژه‌های شاخصِ نامِ یک مجموعه — همان شکلی که `recapTerms_` دارد. */
+function bridgeTerms_(name) {
+  var out = [], seen = Object.create(null);
+  var stop = { 'است': 1, 'های': 1, 'برای': 1, 'مجموعه': 1, 'دوره': 1, 'استاد': 1 };
+  var raw = String(name || '');
+  try { raw = txNorm(stripTashkil_(raw)); } catch (e) { raw = raw.toLowerCase(); }
+  var parts = raw.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ').split(/\s+/);
+  for (var i = 0; i < parts.length; i++) {
+    var w = parts[i];
+    if (w.length < 4 || stop[w] || seen[w]) continue;
+    seen[w] = 1; out.push(w);
+  }
+  return out;
 }
 
 /**

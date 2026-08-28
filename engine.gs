@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.43
+ *  موتور محتوا و پادکست — نسخهٔ 6.44
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -392,18 +392,22 @@ var CFG = {
   /* ۱۳ ← ۲۰ (۶٫۴۳): «اون توضیحاتِ خودمونی و ساده و عصری‌سازی بینِ هر درس
      هم از این حالتِ خیلی مسخره و کوتاه و بی‌معنی در بیاد، خیلی بهتر بشه و
      ملموس‌تر.» با سقفِ ۱۰٫۸ دقیقه، ۱۳٪ یعنی چند جمله؛ حالا که سقف ۱۵ دقیقه
-     است، جا هست. `EXPLAIN_MIN_CHARS` کفِ هر جایگاه است — سهمِ کل که پخش
-     شود روی چهار جا، باز هم می‌تواند هر کدام دو جمله در بیاید. */
+     است، جا هست. */
   EXPLAIN_PCT: 20,
-  EXPLAIN_MIN_CHARS: 700,
   // سه جا در یک قسمت. توضیح‌دهنده‌ای که همه‌جا باشد دیگر توضیح‌دهنده نیست،
   // گویندهٔ دوم است و درس را دو برابر می‌کند.
   EXPLAIN_MAX_SPOTS: 3,
-  // کفِ طولِ یک تیکه. توضیحی که یکی دو مثالِ ملموس دارد زیر این نمی‌شود؛
-  // ۸۰ نویسهٔ اول یعنی یک جملهٔ تعارفی هم قبول می‌شد و همان شنیده شد.
-  // و اگر سهم حتی برای *یکی* کافی نباشد، هیچ — یک تیکهٔ خوب بهتر از سه
-  // تیکهٔ بریده است، و تیکهٔ بریده از نبودنش بدتر.
-  EXPLAIN_MIN_CHARS: 260,
+  /* کفِ طولِ یک تیکه. توضیحی که یکی دو مثالِ ملموس دارد زیر این نمی‌شود؛
+     ۸۰ نویسهٔ اول یعنی یک جملهٔ تعارفی هم قبول می‌شد و همان شنیده شد.
+     و اگر سهم حتی برای *یکی* کافی نباشد، هیچ — یک تیکهٔ خوب بهتر از سه
+     تیکهٔ بریده است، و تیکهٔ بریده از نبودنش بدتر.
+
+     ۲۶۰ ← ۵۰۰ (۶٫۴۳): «از این حالتِ خیلی مسخره و کوتاه در بیاد.» ۲۶۰ نویسه
+     دو جمله است — همان چیزی که او شنید و مسخره خواندش. با بودجهٔ ۲۰٪ از یک
+     درسِ پانزده‌دقیقه‌ای (حدودِ ۱۵۰۰ نویسه)، کفِ ۵۰۰ یعنی **سه جایگاهِ
+     پُر** به‌جای پنج تیکهٔ نازک. عدد از حساب آمده، نه از حدس: با ۷۰۰ فقط
+     دو جا می‌ماند و «لا‌به‌لای هر درس» بی‌معنا می‌شد. */
+  EXPLAIN_MIN_CHARS: 500,
   // بازبینیِ محتوایی: «واقعاً توضیح می‌دهد؟ مثالِ ملموس دارد؟ به همین بخش
   // ربط دارد؟» — خواستهٔ صریحِ کاربر بود و در ۶٫۲۱ جا افتاد.
   EXPLAIN_REVIEW: true,
@@ -1013,7 +1017,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.43',
+  CODE_VERSION: '6.44',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -16006,6 +16010,43 @@ function produceSpecialEpisode(opt) {
     try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(rec.vals)); }
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
+    /* ══ ثبت، پس از سنجشِ متنِ واقعی — نه پس از نقشه ══
+     * نقشهٔ ارجاع یک *درخواست* است؛ نویسنده می‌تواند نادیده‌اش بگیرد. اگر
+     * نقشه ثبت شود، سیاهه و پروندهٔ قسمت و جزوه و مرور هر چهار ادعا می‌کنند
+     * ارجاعی داده شده که در صوت نیست — و چون جزوه و مرور از همین سیاهه
+     * می‌خوانند، آن ادعای غلط وارد محتوای بعدی هم می‌شود.
+     * «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد» — این همان جاست. */
+    try {
+      var bv = bridgeVerify_(ep, ctx.__bridges || []);
+      ctx.__bridgesUsed = bv.used;
+      ctx.__bridgesMissed = bv.missed;
+      if (bv.missed.length) {
+        logLine_('ارجاع: ' + bv.missed.length + ' ارجاع در متنِ نهایی نیامد (' +
+                 bv.missed.map(function (b) { return b.seriesName; }).join('، ') + ').');
+      }
+      /* یک ارجاعِ نیامده تصمیمِ ویراستاریِ نویسنده است؛ **همه‌شان نیامدن**
+         یعنی بلوکِ ارجاع اصلاً خوانده نشده — و آن یک ایرادِ ساختاری است.
+         کلید ثابت است تا تکرارش تکرار شمرده شود، نه ردیفِ تازهٔ هر شب. */
+      if ((ctx.__bridges || []).length && !bv.used.length) {
+        try {
+          logSelfFinding_(hub, {
+            priority: 'متوسط', category: 'محتوا', key: 'bridge-ignored',
+            title: 'بلوکِ ارجاعِ میان‌مجموعه‌ای در متن اعمال نشد',
+            detail: 'مجموعهٔ «' + seriesName + '» قسمت ' + epNum + ': ' +
+                    (ctx.__bridges || []).length + ' ارجاع تأیید شده بود ولی ' +
+                    'هیچ‌کدام در متنِ نوشته‌شده نیامد.',
+            instruction: 'بلوکِ bridgeBlock_ در پرامپتِ بخشِ ۱۴ را ببین — ' +
+                         'یا جایش در پرامپت، یا صراحتِ دستور باید عوض شود.',
+            owner: 'کد'
+          });
+        } catch (eBf) {}
+      }
+    } catch (eBv) {
+      // سنجش نشد؟ نقشه ثبت نمی‌شود. ادعای نسنجیده بدتر از نبودِ ثبت است.
+      ctx.__bridgesUsed = []; ctx.__bridgesMissed = [];
+      logLine_('سنجشِ ارجاع انجام نشد: ' + eBv.message);
+    }
+
     writeSpecialJson_(folder, {
       ep: ep, seriesKey: seriesKey, seriesName: seriesName,
       partFile: String(partRec.vals[SP.FILE - 1]), partName: ctx.partName, partSeq: ctx.partSeq,
@@ -16022,16 +16063,19 @@ function produceSpecialEpisode(opt) {
       /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
          در جایی ثبتِ دقیق و کامل بشه». سیاهه تاریخچه است، این پرونده حالِ
          همین قسمت — و ناظر و یوتیوب هر دو از همین می‌خوانند. */
-      bridges: (ctx.__bridges || []).map(function (b) {
+      bridges: (ctx.__bridgesUsed || []).map(function (b) {
         return { series: b.seriesName, kind: b.kind, at: b.atHeading,
                  claim: b.claim, relation: b.relation };
+      }),
+      bridgesMissed: (ctx.__bridgesMissed || []).map(function (b) {
+        return b.seriesName + ' (' + b.kind + ')';
       }),
       bridgeNone: String(ctx.__bridgeNone || '')
     });
 
-    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاع — سؤالی که فردا می‌پرسی
-       «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
-    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridges || []); }
+    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاعی که **واقعاً گفته شد** —
+       سؤالی که فردا می‌پرسی «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
+    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || []); }
     catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
@@ -17652,7 +17696,11 @@ function seriesBoardHtml_(d) {
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
-      H.push(bridgeCell_(x, d));
+      /* فراخوانِ رو به جلو (۱۵ → ۳۱) در try/catch — قاعدهٔ ۲۱→۲۲ این ریپو.
+         بارگذارِ جزئی یا بخشی که بالا نیامده باشد نباید کلِ تخته را بخواباند؛
+         یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
+      try { H.push(bridgeCell_(x, d)); }
+      catch (eBc) { H.push('<td class="sub">—</td>'); }
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -37032,7 +37080,7 @@ function explainPrompt_(ep, seriesName, budget, want) {
     'اندازه: مجموعِ متنِ همهٔ جاها روی هم حداکثر ' + budget + ' نویسه. از این',
     'بیشتر بنویسی، خودِ موتور از ته می‌بُرد و ممکن است وسطِ جمله قطع شود.',
     '',
-    '**و کفِ هر جا ' + (Number(CFG.EXPLAIN_MIN_CHARS) || 700) + ' نویسه است.** دو جملهٔ',
+    '**و کفِ هر جا ' + (Number(CFG.EXPLAIN_MIN_CHARS) || 500) + ' نویسه است.** دو جملهٔ',
     'کوتاه توضیح نیست، تکرارِ همان حرف است با واژه‌های دیگر. هر جا باید این',
     'چهار تا را داشته باشد: (الف) همان مفهوم به زبانِ ساده، (ب) یک مثالِ',
     'امروزی و کاملاً مشخص — نه «مثلاً در زندگیِ روزمره»، بلکه یک صحنهٔ واقعی',
@@ -38770,7 +38818,7 @@ function bridgePlan_(ctx, corpus) {
   if (!r) return null;
   var names = Object.create(null);
   for (var i = 0; i < corpus.length; i++) names[corpus[i].key] = corpus[i].name;
-  return { links: bridgeTrim_(r.links, names, ctx),
+  return { links: bridgeTrim_(r.links, names),
            none: String(r.none || ''),
            series: corpus.map(function (c) { return c.key; }) };
 }
@@ -38783,12 +38831,17 @@ function bridgePlan_(ctx, corpus) {
  * (اختراعِ دستهٔ تازه)، و ارجاعِ «ضعیف» که خودِ پرامپت گفته بود نده.
  * «سقفی که فقط در پرامپت گفته شده، سقف نیست.»
  */
-function bridgeTrim_(links, names, ctx) {
+function bridgeTrim_(links, names) {
   var out = [];
   var max = Math.max(1, Number(CFG.BRIDGE_MAX_LINKS) || 3);
-  var heads = Object.create(null);
-  var secs = (ctx && ctx.headings) || [];
-  for (var h = 0; h < secs.length; h++) heads[String(secs[h])] = 1;
+  /* ══ اینجا عنوانِ بخش‌ها سنجیده **نمی‌شود** — و این عمدی است ══
+   * نسخهٔ اول یک نگاشتِ عنوان می‌ساخت تا `atHeading` را با بخش‌های واقعیِ
+   * درس بسنجد، و هرگز نخواندش: کدِ مرده، همان شکلی که این ریپو مدام به آن
+   * می‌خورَد. ولی حذفش صرفاً تمیزکاری نیست — نبودنش یک واقعیتِ ساختاری را
+   * می‌گوید: نقشهٔ ارجاع **پیش از** نوشتنِ درس ساخته می‌شود، پس هنوز هیچ
+   * بخشی وجود ندارد که با آن سنجیده شود. `atHeading` یک *نشانیِ موضوعی*
+   * است برای نویسنده، نه یک شناسه. سنجشِ واقعی جای دیگری است و پس از
+   * نوشتن انجام می‌شود: `bridgeVerify_`. */
   var seen = Object.create(null);
   for (var i = 0; i < (links || []).length && out.length < max; i++) {
     var x = links[i] || {};
@@ -38842,6 +38895,61 @@ function bridgeBlock_(plan, seriesName) {
   L.push('• نامِ آن مجموعه را صریح بگو — ارجاعِ بی‌نام، ارجاع نیست.');
   L.push('• ارجاع باید در دلِ حرف بنشیند، نه به‌شکلِ یک تکهٔ چسبانده‌شده.');
   return L.join('\n');
+}
+
+/**
+ * آیا ارجاع واقعاً در متنِ نوشته‌شده آمد؟
+ *
+ * ══ باگی که این را لازم کرد ══
+ * تا پیش از این، `bridgeLog_` **نقشه** را ثبت می‌کرد، نه آنچه واقعاً گفته
+ * شد. یعنی اگر نویسنده بلوکِ ارجاع را نادیده می‌گرفت — که مدل‌ها گاهی
+ * می‌گیرند — سیاهه، پروندهٔ قسمت، جزوه و مرورِ بزرگ هر چهار می‌گفتند به
+ * «معرفت‌شناسی» ارجاع داده شد، در حالی که در صوت یک کلمه‌اش هم نبود. و
+ * چون جزوه و مرور از همین سیاهه می‌خوانند، آن ادعای غلط **وارد محتوای
+ * بعدی** هم می‌شد.
+ *
+ * این دقیقاً همان شکلی است که این ریپو بارها خورده: «تحلیل نوشته شد و به
+ * هیچ تصمیمی وصل نشد»، و «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد».
+ *
+ * سنجه عمداً **محافظه‌کار** است — همان قاعدهٔ `recapCoverage_`: ارجاع
+ * «نیامده» شمرده می‌شود فقط وقتی *هیچ‌کدام* از واژه‌های شاخصِ نامِ آن مجموعه
+ * هیچ‌جای متن نباشد. کفِ حضور را می‌سنجد، نه کیفیتش را؛ و هشداری که فقط با
+ * شهادتِ قاطع بلند شود، هشداری است که خوانده می‌شود.
+ */
+function bridgeVerify_(ep, links) {
+  var out = { used: [], missed: [] };
+  if (!links || !links.length) return out;
+  var flat = '';
+  try { flat = specialNarration_(ep); } catch (e) { flat = ''; }
+  try { flat = txNorm(stripTashkil_(flat)); } catch (e2) { flat = String(flat).toLowerCase(); }
+  flat = flat.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+  for (var i = 0; i < links.length; i++) {
+    var terms = bridgeTerms_(links[i].seriesName);
+    // نامی که هیچ واژهٔ شاخصی ندارد، قابلِ داوری نیست: «نمی‌دانم» را نباید
+    // «نیامده» گزارش کرد.
+    if (!terms.length) { out.used.push(links[i]); continue; }
+    var hit = false;
+    for (var k = 0; k < terms.length && !hit; k++) {
+      if (flat.indexOf(terms[k]) !== -1) hit = true;
+    }
+    if (hit) out.used.push(links[i]); else out.missed.push(links[i]);
+  }
+  return out;
+}
+
+/** واژه‌های شاخصِ نامِ یک مجموعه — همان شکلی که `recapTerms_` دارد. */
+function bridgeTerms_(name) {
+  var out = [], seen = Object.create(null);
+  var stop = { 'است': 1, 'های': 1, 'برای': 1, 'مجموعه': 1, 'دوره': 1, 'استاد': 1 };
+  var raw = String(name || '');
+  try { raw = txNorm(stripTashkil_(raw)); } catch (e) { raw = raw.toLowerCase(); }
+  var parts = raw.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ').split(/\s+/);
+  for (var i = 0; i < parts.length; i++) {
+    var w = parts[i];
+    if (w.length < 4 || stop[w] || seen[w]) continue;
+    seen[w] = 1; out.push(w);
+  }
+  return out;
 }
 
 /**

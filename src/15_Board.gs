@@ -666,7 +666,11 @@ function seriesBoardHtml_(d) {
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
-      H.push(bridgeCell_(x, d));
+      /* فراخوانِ رو به جلو (۱۵ → ۳۱) در try/catch — قاعدهٔ ۲۱→۲۲ این ریپو.
+         بارگذارِ جزئی یا بخشی که بالا نیامده باشد نباید کلِ تخته را بخواباند؛
+         یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
+      try { H.push(bridgeCell_(x, d)); }
+      catch (eBc) { H.push('<td class="sub">—</td>'); }
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +

@@ -1313,6 +1313,43 @@ function produceSpecialEpisode(opt) {
     try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(rec.vals)); }
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
 
+    /* ══ ثبت، پس از سنجشِ متنِ واقعی — نه پس از نقشه ══
+     * نقشهٔ ارجاع یک *درخواست* است؛ نویسنده می‌تواند نادیده‌اش بگیرد. اگر
+     * نقشه ثبت شود، سیاهه و پروندهٔ قسمت و جزوه و مرور هر چهار ادعا می‌کنند
+     * ارجاعی داده شده که در صوت نیست — و چون جزوه و مرور از همین سیاهه
+     * می‌خوانند، آن ادعای غلط وارد محتوای بعدی هم می‌شود.
+     * «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد» — این همان جاست. */
+    try {
+      var bv = bridgeVerify_(ep, ctx.__bridges || []);
+      ctx.__bridgesUsed = bv.used;
+      ctx.__bridgesMissed = bv.missed;
+      if (bv.missed.length) {
+        logLine_('ارجاع: ' + bv.missed.length + ' ارجاع در متنِ نهایی نیامد (' +
+                 bv.missed.map(function (b) { return b.seriesName; }).join('، ') + ').');
+      }
+      /* یک ارجاعِ نیامده تصمیمِ ویراستاریِ نویسنده است؛ **همه‌شان نیامدن**
+         یعنی بلوکِ ارجاع اصلاً خوانده نشده — و آن یک ایرادِ ساختاری است.
+         کلید ثابت است تا تکرارش تکرار شمرده شود، نه ردیفِ تازهٔ هر شب. */
+      if ((ctx.__bridges || []).length && !bv.used.length) {
+        try {
+          logSelfFinding_(hub, {
+            priority: 'متوسط', category: 'محتوا', key: 'bridge-ignored',
+            title: 'بلوکِ ارجاعِ میان‌مجموعه‌ای در متن اعمال نشد',
+            detail: 'مجموعهٔ «' + seriesName + '» قسمت ' + epNum + ': ' +
+                    (ctx.__bridges || []).length + ' ارجاع تأیید شده بود ولی ' +
+                    'هیچ‌کدام در متنِ نوشته‌شده نیامد.',
+            instruction: 'بلوکِ bridgeBlock_ در پرامپتِ بخشِ ۱۴ را ببین — ' +
+                         'یا جایش در پرامپت، یا صراحتِ دستور باید عوض شود.',
+            owner: 'کد'
+          });
+        } catch (eBf) {}
+      }
+    } catch (eBv) {
+      // سنجش نشد؟ نقشه ثبت نمی‌شود. ادعای نسنجیده بدتر از نبودِ ثبت است.
+      ctx.__bridgesUsed = []; ctx.__bridgesMissed = [];
+      logLine_('سنجشِ ارجاع انجام نشد: ' + eBv.message);
+    }
+
     writeSpecialJson_(folder, {
       ep: ep, seriesKey: seriesKey, seriesName: seriesName,
       partFile: String(partRec.vals[SP.FILE - 1]), partName: ctx.partName, partSeq: ctx.partSeq,
@@ -1329,16 +1366,19 @@ function produceSpecialEpisode(opt) {
       /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
          در جایی ثبتِ دقیق و کامل بشه». سیاهه تاریخچه است، این پرونده حالِ
          همین قسمت — و ناظر و یوتیوب هر دو از همین می‌خوانند. */
-      bridges: (ctx.__bridges || []).map(function (b) {
+      bridges: (ctx.__bridgesUsed || []).map(function (b) {
         return { series: b.seriesName, kind: b.kind, at: b.atHeading,
                  claim: b.claim, relation: b.relation };
+      }),
+      bridgesMissed: (ctx.__bridgesMissed || []).map(function (b) {
+        return b.seriesName + ' (' + b.kind + ')';
       }),
       bridgeNone: String(ctx.__bridgeNone || '')
     });
 
-    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاع — سؤالی که فردا می‌پرسی
-       «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
-    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridges || []); }
+    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاعی که **واقعاً گفته شد** —
+       سؤالی که فردا می‌پرسی «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
+    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || []); }
     catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع

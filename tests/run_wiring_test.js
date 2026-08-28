@@ -177,4 +177,50 @@ console.log('=== \u06f5) \u062f\u06a9\u0645\u0647\u200c\u0627\u06cc \u06a9\u0647
 }
 
 
+console.log('\n══ ۷) کلیدِ تکراری در CFG — خطایی که هیچ خطایی نمی‌دهد ══');
+{
+  /* ══ باگی که این را لازم کرد (۶٫۴۴) ══
+   * ۶٫۴۳ خواست `EXPLAIN_MIN_CHARS` را از ۲۶۰ به بالا ببرد و کلیدِ تازه‌ای
+   * کنارِ `EXPLAIN_PCT` گذاشت — بی آنکه بداند همان کلید صد سطر پایین‌تر هم
+   * هست. در جاوااسکریپت **آخری برنده است**، پس مقدارِ تازه بی‌صدا مرده بود:
+   * نه خطایی، نه هشداری، و آزمون‌ها هم سبز. فقط وقتی عددِ واقعی را با اجرا
+   * حساب کردیم معلوم شد کف هنوز ۲۶۰ است.
+   *
+   * `CFG` بیش از هزار سطر است؛ چنین چیزی با چشم پیدا نمی‌شود. و همین شکل
+   * برای هر نگاشتِ دیگری هم صادق است، پس همه‌شان سنجیده می‌شوند. */
+  const cfgSrc = fs.readFileSync('src/00_Config.gs', 'utf8');
+  const dups = [];
+  const blocks = cfgSrc.match(/^var [A-Z_0-9]+ = \{[\s\S]*?^\};/gm) || [];
+  for (const b of blocks) {
+    const name = (b.match(/^var ([A-Z_0-9]+)/) || [])[1];
+    // فقط کلیدهای سطحِ اول: خطِ کم‌تورفتگیِ دو فاصله‌ای
+    const keys = (b.match(/^  ([A-Za-z_][A-Za-z_0-9]*)\s*:/gm) || [])
+      .map(k => k.trim().replace(/:$/, ''));
+    const seen = Object.create(null);
+    for (const k of keys) {
+      if (seen[k]) dups.push(name + '.' + k);
+      seen[k] = 1;
+    }
+  }
+  ok('۷.۱ هیچ کلیدی در نگاشت‌های پیکربندی دوبار تعریف نشده',
+     dups.length === 0, dups.join(', '));
+
+  /* و همان تله در فهرستِ سرستون‌ها: سرستونِ تکراری یعنی دو ستون با یک نام،
+     و `findAny_` همیشه اولی را برمی‌دارد — نوشتن در دومی بی‌اثر می‌شود. */
+  const hdrDups = [];
+  for (const nm of ['SERIES_HEADERS', 'SPECIAL_HEADERS', 'SPART_HEADERS',
+                    'YTC_HEADERS', 'BRIDGE_HEADERS']) {
+    let list = null;
+    try { list = eval(nm); } catch (e) { continue; }
+    if (!Array.isArray(list)) continue;
+    const seen = Object.create(null);
+    for (const h of list) {
+      const k = String(h).trim();
+      if (seen[k]) hdrDups.push(nm + ' :: ' + k);
+      seen[k] = 1;
+    }
+  }
+  ok('۷.۲ و هیچ سرستونی دوبار نیامده', hdrDups.length === 0, hdrDups.join(', '));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
