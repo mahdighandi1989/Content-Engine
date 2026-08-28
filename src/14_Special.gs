@@ -117,10 +117,18 @@ function specialWriteCap_() {
  * این را CFG هم از اول نوشته بود؛ چیزی که نبود، اعمالش در همه‌جا بود.
  */
 function specialTargetMin_() {
-  var base = Number(CFG.SPECIAL_TARGET_MINUTES) || 15;
-  if (CFG.SPECIAL_ONE_FILE !== true) return base;
-  var oneFileMin = specialMaxChars_() / speechCps_() / 60;
-  return Math.max(1, Math.round(Math.min(base, oneFileMin) * 10) / 10);
+  /* ══ همان تناقض، این بار در حالتِ دو فایل (۶٫۵۳) ══
+   * با خاموش‌بودنِ «یک فایل» این تابع عددِ خامِ پیکربندی را برمی‌گرداند
+   * (۱۵)، در حالی که `specialMaxChars_` رزروِ غنی‌سازی و عصری‌سازی را کم
+   * کرده و سقفِ واقعیِ نوشتن ۱۱٫۴ دقیقه بود. پس پرامپت «۱۵ دقیقه بنویس»
+   * می‌گفت و سقف چیزِ دیگری — دقیقاً همان شکلِ باگی که ۵٫۹۱ برایش
+   * `specialTargetMin_` را ساخت، فقط در شاخهٔ دیگر. مدل وسطِ دو عدد را
+   * می‌گیرد و قسمت کوتاه در می‌آید.
+   *
+   * حالا هدف **همیشه** از خودِ سقف حساب می‌شود: یک عدد، یک معنا. برای
+   * اینکه قسمتِ تمام‌شده به هدفِ پیکربندی برسد، عددِ پیکربندی بالا رفت. */
+  var byCap = specialMaxChars_() / speechCps_() / 60;
+  return Math.max(1, Math.round(byCap * 10) / 10);
 }
 
 function colsAll_(headers, names) {

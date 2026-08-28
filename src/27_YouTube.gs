@@ -1520,15 +1520,41 @@ function ytDueAdd_(show, ep, folderId, seriesKey, seriesName) {
  * خودِ آپلود است، نه برای درستیِ پلی‌لیست: دو نگهبانِ مستقل برای یک خواسته.
  */
 function ytDueOrder_(list) {
-  var l = (list || []).slice();
-  l.sort(function (a, b) {
-    var sa = String(a.show || ''), sb = String(b.show || '');
-    if (sa !== sb) return sa < sb ? -1 : 1;
-    var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return (Number(a.ep) || 0) - (Number(b.ep) || 0);
-  });
-  return l;
+  /* ══ یک برنامه، برنامهٔ دیگر را قحطی می‌داد (۶٫۵۳) ══
+   * مرتب‌سازی اول بر نامِ برنامه بود، و `'special' < 'variety'` است. یعنی
+   * **هر** قسمتِ درس‌نامه پیش از **هر** قسمتِ «از همه جا از همه رنگ»
+   * می‌نشست. با سقفِ سه آپلود در شب و ده‌ها قسمتِ درس‌نامه در صف، نوبت
+   * هرگز به برنامهٔ دوم نمی‌رسید — و هیچ خطایی هم نمی‌داد: صف مرتب بود،
+   * فقط همیشه از یک سر خورده می‌شد.
+   *
+   * ترتیبِ **درونِ** هر برنامه دست‌نخورده می‌ماند (مجموعه، بعد شمارهٔ قسمت)،
+   * چون جای ویدیو در پلی‌لیست به آن بند است. فقط برنامه‌ها یکی‌درمیان
+   * می‌شوند. سهمِ ثابت ندادیم: اگر یکی خالی شود، دیگری همهٔ سقف را می‌گیرد. */
+  var by = Object.create(null), shows = [];
+  var l = (list || []);
+  for (var i = 0; i < l.length; i++) {
+    var sh = String(l[i].show || '');
+    if (!by[sh]) { by[sh] = []; shows.push(sh); }
+    by[sh].push(l[i]);
+  }
+  shows.sort();
+  for (var g = 0; g < shows.length; g++) {
+    by[shows[g]].sort(function (a, b) {
+      var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+    });
+  }
+  var out = [], idx = 0, more = true;
+  while (more) {
+    more = false;
+    for (var j = 0; j < shows.length; j++) {
+      var arr = by[shows[j]];
+      if (idx < arr.length) { out.push(arr[idx]); more = true; }
+    }
+    idx++;
+  }
+  return out;
 }
 
 /**

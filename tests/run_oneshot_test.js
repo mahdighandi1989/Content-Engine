@@ -44,9 +44,18 @@ console.log('=== ۱) پرامپتِ درس‌نامه با سقفِ خودش ن�
        specialTargetMin_() <= CFG.SPECIAL_TARGET_MINUTES,
        specialTargetMin_() + ' ≤ ' + CFG.SPECIAL_TARGET_MINUTES);
   } else {
-    ok('۱.۱ با خاموش‌بودنِ «یک فایل»، هدف همان عددِ اعلام‌شده است',
-       specialTargetMin_() === Number(CFG.SPECIAL_TARGET_MINUTES),
-       specialTargetMin_() + ' = ' + CFG.SPECIAL_TARGET_MINUTES);
+    /* ══ ۶٫۵۳ ══ این آزمون تا امروز خودِ باگ را تثبیت می‌کرد: می‌گفت هدف
+       باید عددِ خامِ پیکربندی باشد، در حالی که سقفِ نوشتن رزروِ غنی‌سازی و
+       عصری‌سازی را کم کرده بود. پس پرامپت «۱۵ دقیقه» می‌گفت و سقف ۱۱٫۴ —
+       و قسمت کوتاه در می‌آمد. قرارداد این است: هدف **همیشه** همان سقف
+       است، در هر دو حالت. یک عدد، یک معنا. */
+    ok('۱.۱ هدفِ اعلام‌شده به مدل، دقیقاً همان سقفِ نوشتن است',
+       Math.abs(specialTargetMin_() - specialMaxChars_() / speechCps_() / 60) < 0.11,
+       specialTargetMin_() + ' در برابرِ ' +
+       (specialMaxChars_() / speechCps_() / 60).toFixed(1));
+    ok('۱.۱-ب و از هدفِ پیکربندی بیشتر نیست (رزرو کم می‌شود، اضافه نمی‌کند)',
+       specialTargetMin_() <= Number(CFG.SPECIAL_TARGET_MINUTES),
+       specialTargetMin_() + ' ≤ ' + CFG.SPECIAL_TARGET_MINUTES);
     /* و همان‌جا که سقفِ یک فایل دیگر شرط نیست، غنی‌سازی و عصری‌سازی هم نباید
        پشتِ آن خفه شوند — وگرنه قیدی که برداشته شده، از راهِ دیگری برمی‌گردد. */
     ok('۱.۲ و سقفِ یک فایل دیگر بودجهٔ عصری‌سازی را نمی‌بندد',
@@ -61,12 +70,17 @@ console.log('=== ۱) پرامپتِ درس‌نامه با سقفِ خودش ن�
   ok('۱.۴ وارسیِ سلامت هم با هدفِ مؤثر می‌سنجد',
      /specialTargetMin_\(\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
 
-  // و اگر «یک فایل» خاموش شود، هدف به همان ۱۵ برمی‌گردد
+  /* و با خاموش‌شدنِ «یک فایل»، سقفِ فایل از معادله بیرون می‌رود ولی رزرو
+     نه — پس هدف بالا می‌رود و هنوز همان سقفِ نوشتن است (۶٫۵۳). */
   const keep = CFG.SPECIAL_ONE_FILE;
   CFG.SPECIAL_ONE_FILE = false;
-  ok('۱.۵ با خاموش‌بودنِ «یک فایل» هدف همان ۱۵ دقیقه است',
-     specialTargetMin_() === CFG.SPECIAL_TARGET_MINUTES, String(specialTargetMin_()));
+  const offT = specialTargetMin_();
+  CFG.SPECIAL_ONE_FILE = true;
+  const onT = specialTargetMin_();
   CFG.SPECIAL_ONE_FILE = keep;
+  ok('۱.۵ خاموش‌بودنِ «یک فایل» هدف را بالا می‌برد، نه پایین',
+     offT >= onT && offT <= Number(CFG.SPECIAL_TARGET_MINUTES),
+     offT + ' در برابرِ ' + onT + ' (سقفِ پیکربندی ' + CFG.SPECIAL_TARGET_MINUTES + ')');
 }
 
 console.log('=== ۲) و اگر مدل باز هم بلند نوشت، کد کوتاهش می‌کند ===');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.52
+ *  موتور محتوا و پادکست — نسخهٔ 6.53
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -867,7 +867,11 @@ var CFG = {
   SERIES_SOURCES: [],
   SPECIAL_ENABLED: true,
   SPECIAL_HOUR: 8,                  // ساعت تولید روزانه به وقت دبی
-  SPECIAL_TARGET_MINUTES: 15,       // طول هدف هر قسمت
+  /* طولِ هدفِ قسمتِ **تمام‌شده**. رزروِ غنی‌سازی و عصری‌سازی از همین کم
+     می‌شود، پس متنِ نوشته‌شده حدودِ ۱۵ دقیقه در می‌آید. از ۶٫۵۳ که دو فایل
+     پذیرفته است («مشکلی با دو تا صوت ندارم؛ حقِ مطلب باید ادا بشه»)، این
+     عدد از ۱۵ به ۲۰ رفت تا خودِ درس کوتاه نشود. */
+  SPECIAL_TARGET_MINUTES: 20,
   // بودجهٔ متنِ خامِ درس در هر قسمت. پانزده دقیقه گفتار ≈ ۲۲۰۰ واژه ≈ ۱۳٬۰۰۰ نویسه
   // خروجی؛ برای نوشتنِ وفادار و بدون فشرده‌سازیِ بی‌جا، حدود سه برابرش متنِ ورودی
   // لازم است. این عدد سقفِ متنِ قطعه‌هایی است که در یک قسمت پوشش داده می‌شوند.
@@ -996,7 +1000,7 @@ var CFG = {
   /* ── ارجاعِ میان‌مجموعه‌ای (بخشِ ۳۱، ۶٫۴۳) ── */
   BRIDGE_ENABLED: true,
   BRIDGE_MAX_SERIES: 4,        // بیش از این، پرامپت از ورودیِ خودِ درس بزرگ‌تر می‌شود
-  BRIDGE_MAX_LINKS: 3,         // چند ارجاع در یک قسمت — بیشتر یعنی لوث‌شدن
+  BRIDGE_MAX_LINKS: 4,         // چند ارجاع در یک قسمت — بیشتر یعنی لوث‌شدن
   BRIDGE_CORPUS_CHARS: 14000,  // سهمِ هر مجموعهٔ مرجع در پرامپت
   BRIDGE_TAB: 'ارجاع‌های میان‌مجموعه‌ای',
   /* ── داوریِ کیفیتِ ارجاع (۶٫۴۶) ── ثبتِ ارجاع بدونِ داوری‌اش، همان
@@ -1040,7 +1044,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.52',
+  CODE_VERSION: '6.53',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -15065,10 +15069,18 @@ function specialWriteCap_() {
  * این را CFG هم از اول نوشته بود؛ چیزی که نبود، اعمالش در همه‌جا بود.
  */
 function specialTargetMin_() {
-  var base = Number(CFG.SPECIAL_TARGET_MINUTES) || 15;
-  if (CFG.SPECIAL_ONE_FILE !== true) return base;
-  var oneFileMin = specialMaxChars_() / speechCps_() / 60;
-  return Math.max(1, Math.round(Math.min(base, oneFileMin) * 10) / 10);
+  /* ══ همان تناقض، این بار در حالتِ دو فایل (۶٫۵۳) ══
+   * با خاموش‌بودنِ «یک فایل» این تابع عددِ خامِ پیکربندی را برمی‌گرداند
+   * (۱۵)، در حالی که `specialMaxChars_` رزروِ غنی‌سازی و عصری‌سازی را کم
+   * کرده و سقفِ واقعیِ نوشتن ۱۱٫۴ دقیقه بود. پس پرامپت «۱۵ دقیقه بنویس»
+   * می‌گفت و سقف چیزِ دیگری — دقیقاً همان شکلِ باگی که ۵٫۹۱ برایش
+   * `specialTargetMin_` را ساخت، فقط در شاخهٔ دیگر. مدل وسطِ دو عدد را
+   * می‌گیرد و قسمت کوتاه در می‌آید.
+   *
+   * حالا هدف **همیشه** از خودِ سقف حساب می‌شود: یک عدد، یک معنا. برای
+   * اینکه قسمتِ تمام‌شده به هدفِ پیکربندی برسد، عددِ پیکربندی بالا رفت. */
+  var byCap = specialMaxChars_() / speechCps_() / 60;
+  return Math.max(1, Math.round(byCap * 10) / 10);
 }
 
 function colsAll_(headers, names) {
@@ -34015,15 +34027,41 @@ function ytDueAdd_(show, ep, folderId, seriesKey, seriesName) {
  * خودِ آپلود است، نه برای درستیِ پلی‌لیست: دو نگهبانِ مستقل برای یک خواسته.
  */
 function ytDueOrder_(list) {
-  var l = (list || []).slice();
-  l.sort(function (a, b) {
-    var sa = String(a.show || ''), sb = String(b.show || '');
-    if (sa !== sb) return sa < sb ? -1 : 1;
-    var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return (Number(a.ep) || 0) - (Number(b.ep) || 0);
-  });
-  return l;
+  /* ══ یک برنامه، برنامهٔ دیگر را قحطی می‌داد (۶٫۵۳) ══
+   * مرتب‌سازی اول بر نامِ برنامه بود، و `'special' < 'variety'` است. یعنی
+   * **هر** قسمتِ درس‌نامه پیش از **هر** قسمتِ «از همه جا از همه رنگ»
+   * می‌نشست. با سقفِ سه آپلود در شب و ده‌ها قسمتِ درس‌نامه در صف، نوبت
+   * هرگز به برنامهٔ دوم نمی‌رسید — و هیچ خطایی هم نمی‌داد: صف مرتب بود،
+   * فقط همیشه از یک سر خورده می‌شد.
+   *
+   * ترتیبِ **درونِ** هر برنامه دست‌نخورده می‌ماند (مجموعه، بعد شمارهٔ قسمت)،
+   * چون جای ویدیو در پلی‌لیست به آن بند است. فقط برنامه‌ها یکی‌درمیان
+   * می‌شوند. سهمِ ثابت ندادیم: اگر یکی خالی شود، دیگری همهٔ سقف را می‌گیرد. */
+  var by = Object.create(null), shows = [];
+  var l = (list || []);
+  for (var i = 0; i < l.length; i++) {
+    var sh = String(l[i].show || '');
+    if (!by[sh]) { by[sh] = []; shows.push(sh); }
+    by[sh].push(l[i]);
+  }
+  shows.sort();
+  for (var g = 0; g < shows.length; g++) {
+    by[shows[g]].sort(function (a, b) {
+      var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
+      if (ka !== kb) return ka < kb ? -1 : 1;
+      return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+    });
+  }
+  var out = [], idx = 0, more = true;
+  while (more) {
+    more = false;
+    for (var j = 0; j < shows.length; j++) {
+      var arr = by[shows[j]];
+      if (idx < arr.length) { out.push(arr[idx]); more = true; }
+    }
+    idx++;
+  }
+  return out;
 }
 
 /**
