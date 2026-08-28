@@ -927,8 +927,19 @@ console.log('\n=== ۱۷) جست‌وجو هر دو فهرست را می‌بین
     rg.getRange(rg.getLastRow() + 1, 1, 1, SERIES_HEADERS.length).setValues([r]);
   };
   mkRow('kLive', 'یک مجموعهٔ عادی', true);
-  mkRow('kBook', 'Epistemology: A Contemporary Introduction', false);
+  mkRow('kBook', '892', false);        // ← نامِ بی‌ربط، مثلِ رجیستریِ واقعی
 
+  /* و مهم‌تر: نامِ **مجموعه** عمداً چیزِ بی‌ربطی است و عنوانِ کتاب فقط در
+     نامِ فایلش هست — دقیقاً مثلِ «۸۹۲» و «۱۵۴۳۷» در رجیستریِ واقعی. اگر
+     متنِ جست‌وجو نامِ فایل‌ها را نداشته باشد، هیچ‌وقت پیدا نمی‌شود. */
+  (function () {
+    const sp = ensureTab_(hb, CFG.SERIES_PART_TAB, SPART_HEADERS);
+    const r = new Array(SPART_HEADERS.length).fill('');
+    r[SP.KEY - 1] = 'kBook'; r[SP.SEQ - 1] = 1;
+    r[SP.NAME - 1] = 'Epistemology: A Contemporary Introduction.pdf';
+    r[SP.FILE - 1] = 'fBook'; r[SP.CHUNKS - 1] = 86;
+    sp.getRange(sp.getLastRow() + 1, 1, 1, SPART_HEADERS.length).setValues([r]);
+  })();
   const bd = seriesBoardData_(hb);
   ok('۱۷.۱ کتاب واقعاً کنار گذاشته شده (نه گم‌شده)',
      bd.excluded.length === 1 && bd.excluded[0].key === 'kBook');
@@ -945,6 +956,18 @@ console.log('\n=== ۱۷) جست‌وجو هر دو فهرست را می‌بین
   const qs = api.nrm('Epistemology A Contemporary').split(' ');
   const hitEx = exRows.filter(x => qs.every(t => api.nrm(x).indexOf(t) !== -1));
   ok('۱۷.۳ و عبارتِ خودِ کاربر پیدایش می‌کند', hitEx.length === 1);
+  /* ══ و همین سنجه بود که ۶٫۴۵ را ناکافی گذاشت ══
+     آنجا نامِ مجموعه خودش «Epistemology…» بود، پس تطبیق می‌خورد و شکافِ
+     واقعی دیده نشد. حالا نامِ مجموعه بی‌ربط است و تنها راهِ پیداشدن، نامِ
+     فایل است — همان حالتی که در رجیستریِ واقعی رخ داده. */
+  ok('۱۷.۳-ب و پیدا شدنش از نامِ **فایل** می‌آید، نه نامِ مجموعه',
+     bd.excluded[0].name.indexOf('Epistemology') === -1,
+     bd.excluded[0].name);
+  /* هر دو جدول باید یک قاعده داشته باشند: دو متنِ جست‌وجو با دو قاعده،
+     همان الگویی است که این ریپو مدام به آن می‌خورَد. */
+  ok('۱۷.۳-پ متنِ جست‌وجوی هر دو جدول از یک تابع می‌آید',
+     (fs.readFileSync('src/15_Board.gs', 'utf8').match(/= seriesHay_\(/g) || []).length === 2 &&
+     typeof seriesHay_ === 'function');
 
   ok('۱۷.۴ جعبهٔ کنارگذاشته‌ها شناسه دارد تا بشود پنهانش کرد',
      h.indexOf('id="excBox"') !== -1);

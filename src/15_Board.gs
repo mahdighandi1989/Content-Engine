@@ -635,8 +635,7 @@ function seriesBoardHtml_(d) {
       var x = grp.series[i];
       var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
       // متنِ جست‌وجو: نام، موضوع، شرح، دسته، زیر‌دسته و نامِ همهٔ درس‌ها
-      var hay = [x.name, x.topic, x.about, grp.cat, x.msub, x.level, x.key]
-        .concat(x.partRows.map(function (pr) { return pr.name; })).join(' ');
+      var hay = seriesHay_(x, grp.cat);
       H.push('<tr class="' + clsName + '" data-hay="' + bEsc_(hay) + '">');
       H.push('<td>' +
              (x.morder !== null
@@ -740,7 +739,16 @@ function seriesBoardHtml_(d) {
        * ندانسته بودش. آدم نتیجه می‌گرفت «سینک نشده» و دنبالِ باگی می‌گشت که
        * وجود نداشت — در حالی که دکمهٔ «آموزشی است» همان‌جا کنارش بود و فقط
        * پیدا نمی‌شد. */
-      var exHay = [ex.name, ex.about, ex.why, ex.key].join(' ');
+      /* ══ اشتباهی که ۶٫۴۵ خودش ساخت (۶٫۴۹) ══
+       * ردیفِ زنده متنِ جست‌وجویش **نامِ همهٔ فایل‌هایش** را هم دارد
+       * (`partRows`), ولی ردیفِ کنارگذاشته را با فقط چهار فیلد نوشتم. پس
+       * مجموعه‌ای که نامش از نامِ فایل در نیامده — و در این رجیستری کم
+       * نیستند: «۸۹۲»، «۱۵۴۳۷»، «help» — با نامِ فایلش پیدا نمی‌شد.
+       * یعنی همان کتابی که آدم با عنوانش می‌گردد، دقیقاً در همان جدولی
+       * پنهان می‌مانْد که ۶٫۴۵ ادعا کرد قابلِ جست‌وجویش کرده.
+       * دو متنِ جست‌وجو با دو قاعده، همان الگویی است که این ریپو مدام به آن
+       * می‌خورَد — پس حالا هر دو از یک تابع می‌آیند. */
+      var exHay = seriesHay_(ex);
       H.push('<tr class="exc" data-hay="' + bEsc_(exHay) + '">');
       H.push('<td><b>' + bEsc_(ex.name) + '</b>' +
              (ex.manual === SMAN.NO ? ' <span class="bdg b-man">نظرِ شما</span>' : '') +
@@ -1053,6 +1061,18 @@ function handoutCell_(x) {
  *     تا کدام درس پوشش داده و چند درس از آن موقع اضافه شده. ۵٫۹۵: گیتی که
  *     آدم نتواند بازش کند، همان شکلی است که این ریپو مدام به آن می‌خورد.
  */
+/**
+ * متنِ جست‌وجوی یک مجموعه — **یک تعریف برای هر دو جدول** (۶٫۴۹).
+ * نامِ فایل‌ها مهم‌ترین بخشش است: نامِ مجموعه اغلب از فایل در نمی‌آید، و
+ * آدم با عنوانِ فایل می‌گردد نه با کلیدِ رجیستری.
+ */
+function seriesHay_(x, cat) {
+  var L = [x.name, x.topic, x.about, cat || x.cat, x.msub, x.level, x.key, x.why];
+  var pr = x.partRows || [];
+  for (var i = 0; i < pr.length; i++) L.push(pr[i].name, pr[i].file);
+  return L.filter(function (t) { return t; }).join(' ');
+}
+
 function recapCell_(x) {
   var r = x && x.recap;
   var key = bEsc_(x.key);
