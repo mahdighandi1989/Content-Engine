@@ -48,11 +48,18 @@ function setSeries(key, name, folderId) {
   row[SC.CAT - 1] = 'علمی و آموزشی';
   reg.getRange(reg.getLastRow() + 1, 1, 1, SERIES_HEADERS.length).setValues([row]);
 }
+/* شماره‌ها **ادامه** پیدا می‌کنند، از یک شروع نمی‌شوند: در شیتِ واقعی هر
+   درس یک ردیف با شمارهٔ یکتا دارد، و فیکسچری که دو بار ۱..۳ بنویسد چیزی را
+   می‌سنجد که هرگز پیش نمی‌آید — و از ۶٫۴۰ که `recapEpsMap_` تکراری را کنار
+   می‌گذارد، همان فیکسچر بی‌جهت شکست می‌خورد. */
+const __partNo = Object.create(null);
 function addParts(name, n) {
   const sp = ensureTab_(hub, CFG.SPECIAL_TAB, SPECIAL_HEADERS);
   for (let i = 0; i < n; i++) {
     const r = new Array(SPECIAL_HEADERS.length).fill('');
-    r[0] = i + 1; r[XC.SERIES - 1] = name;
+    __partNo[name] = (__partNo[name] || 0) + 1;
+    r[0] = __partNo[name]; r[XC.SERIES - 1] = name;
+    r[XC.TITLE - 1] = 'درسِ ' + __partNo[name];
     sp.getRange(sp.getLastRow() + 1, 1, 1, SPECIAL_HEADERS.length).setValues([r]);
   }
 }
@@ -583,15 +590,30 @@ console.log('\n=== ۱۸) عددِ ثبت‌شده و ستونِ تخته هم ه
   const m = recapBoardMap_(hub, reg)['kEp'];
   ok('۱۸.۲ نقشهٔ تخته فاصله را می‌شناسد', m.chOk === 12 && m.chAll === 15 && m.chGap === 3);
   const cell = recapCell_({ key: 'kEp', recap: m });
-  ok('۱۸.۳ خانه «۱۲ فصل از ۱۵» می‌گوید، نه «۱۵ فصل»',
-     cell.indexOf('فصل از') !== -1 && cell.indexOf('ردی در متنِ مرور ندارد') !== -1,
+  /* ══ و بی واژهٔ «جزوه» (۶٫۴۰) ══
+   * صاحبِ برنامه: «چه ربطی به جزوه داشت؟ مرور برای تولیدِ پادکسته.» جزوه
+   * فقط انبارِ متنِ درس‌های گذشته است؛ اسمِ انبار به کارِ کسی که یک قسمتِ
+   * پادکست می‌خواهد نمی‌آید و فقط یک مفهومِ تازه برای فهمیدن اضافه می‌کند. */
+  ok('۱۸.۳ خانه «۱۲ مبحث از ۱۵» می‌گوید، نه «۱۵ مبحث»',
+     cell.indexOf('مبحث از') !== -1 && cell.indexOf('ردی در متنِ مرور ندارد') !== -1,
      cell.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 120));
-  ok('۱۸.۴ و نامِ فصلِ نیامده را هم می‌آورد', cell.indexOf('پلورالیسم') !== -1);
+  ok('۱۸.۳-ب و واژهٔ «جزوه»/«فصل» در آن خانه نیست',
+     cell.indexOf('جزوه') === -1 && cell.indexOf('فصل') === -1);
+  ok('۱۸.۴ و نامِ مبحثِ نیامده را هم می‌آورد', cell.indexOf('پلورالیسم') !== -1);
   /* و همان در ایمیل و تلگرام. */
   const meta = { recap: true, recapChapters: 12, recapChaptersAll: 15, recapParts: 18 };
   ok('۱۸.۵ جدولِ پوشش هم ادعای کامل نمی‌کند',
-     coverRangeText_(meta, meta).indexOf('12 فصل از 15') !== -1 &&
+     coverRangeText_(meta, meta).indexOf('12 مبحث از 15') !== -1 &&
      coverRangeText_(meta, meta).indexOf('نیامده') !== -1, coverRangeText_(meta, meta));
+  /* و دامنه در همان سطری که کاربر در ایمیل و تلگرام می‌بیند می‌آید — چون
+     همان‌جاست که می‌پرسد «این مرور روی چه چیزی بود؟» */
+  const metaP = { recap: true, recapChapters: 2, recapChaptersAll: 2, recapParts: 18,
+                  recapMode: 'pick', recapScope: 'فقط درس‌های ۱، ۴' };
+  ok('۱۸.۵-ب و دامنه را هم می‌گوید وقتی کلِ مجموعه نبوده',
+     coverRangeText_(metaP, metaP).indexOf('دامنه: فقط درس‌های ۱، ۴') !== -1,
+     coverRangeText_(metaP, metaP));
+  ok('۱۸.۵-پ ولی برای مرورِ کامل، دامنه‌ای نمی‌چسباند',
+     coverRangeText_(meta, meta).indexOf('دامنه') === -1);
   /* پروندهٔ قدیمی که chAll ندارد، نباید «۳ فصل نیامده» بسازد. */
   delete global.__PROPS[PK.RECAP_DONE];
   recapMarkDone_('kEp', 21, 18, 15);
@@ -713,11 +735,18 @@ console.log('\n=== ۲۱) دامنه از تخته تا پرونده، بی جا�
      نمی‌داند چه چیزی اصلاً وجود دارد، و آدم شماره‌ای می‌نویسد که هیچ درسی
      ندارد و مرورِ خالی می‌گیرد بی آنکه بفهمد چرا. */
   const eps = recapEpsMap_(hub)['معرفت‌شناسی'] || [];
-  ok('۲۱.۱ شماره‌های درس خوانده می‌شوند، نه فقط شمارشان',
-     eps.length > 0 && eps.indexOf(1) !== -1 && eps.indexOf(99) === -1,
-     JSON.stringify(eps.slice(0, 14)));
+  const nums = eps.map(x => x.n);
+  ok('۲۱.۱ شماره و عنوانِ هر درس خوانده می‌شود، نه فقط شمارش',
+     eps.length > 0 && nums.indexOf(1) !== -1 && nums.indexOf(99) === -1 &&
+     typeof eps[0].title === 'string' && eps[0].title !== '',
+     JSON.stringify(eps.slice(0, 4)));
   ok('۲۱.۲ و شمارش دقیقاً از همان می‌آید',
      recapPartsMap_(hub)['معرفت‌شناسی'] === eps.length);
+  /* یک درس، یک تیک: ردیفِ تکراری دو تیکِ هم‌شماره می‌ساخت و آدم نمی‌فهمید
+     کدام‌یک را زده. */
+  ok('۲۱.۲-ب شماره‌ها بی‌تکرار و مرتب‌اند',
+     nums.slice().sort((a, b) => a - b).join(',') === nums.join(',') &&
+     new Set(nums).size === nums.length, JSON.stringify(nums));
 
   delete global.__PROPS[PK.RECAP_Q];
   delete global.__PROPS[PK.RECAP_DONE];
@@ -785,9 +814,22 @@ console.log('\n=== ۲۲) خانهٔ تخته: سه گزینه، و «نمی‌د
      cellFresh.indexOf('value="all"') !== -1 &&
      cellFresh.indexOf('value="pick"') !== -1 &&
      cellFresh.indexOf('value="since"') === -1);
-  ok('۲۲.۲ و شماره‌های موجود را نشان می‌دهد',
-     cellFresh.indexOf('درس‌های موجود') !== -1);
-  ok('۲۲.۳ جعبهٔ شماره‌ها پیش‌فرض پنهان است',
+  /* ══ تیک، نه تایپ (۶٫۴۰) ══
+   * صاحبِ برنامه: «چرا تایپ کنم؟ مگه نمی‌شه درس‌ها رو بتونم تیک بزنم؟»
+   * شمارهٔ درس چیزی نیست که کسی از حفظ بداند، و فهرستش همین حالا در دستِ
+   * کد است — خواستنش از آدم یعنی ابزار کارِ خودش را به او سپرده. */
+  ok('۲۲.۲ درس‌ها تیک‌خورند، نه جعبهٔ متن',
+     cellFresh.indexOf('class="rcEp"') !== -1 &&
+     cellFresh.indexOf('class="rcEps"') === -1 &&
+     cellFresh.indexOf('type="text"') === -1);
+  ok('۲۲.۲-ب و هر تیک شماره و عنوانِ همان درس را دارد',
+     cellFresh.indexOf('درسِ ۱ — درسِ 1') !== -1 ||
+     /درسِ ۱ — /.test(cellFresh.replace(/<[^>]*>/g, '')),
+     cellFresh.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').slice(0, 160));
+  ok('۲۲.۲-پ و دکمهٔ «همه»/«هیچ» دارد — بیست تیک زدن هم یک تایپِ دیگر است',
+     cellFresh.indexOf('rcEpsAll(this,1)') !== -1 &&
+     cellFresh.indexOf('rcEpsAll(this,0)') !== -1);
+  ok('۲۲.۳ فهرستِ درس‌ها پیش‌فرض پنهان است',
      cellFresh.indexOf('rcEpsBox') !== -1 && cellFresh.indexOf('display:none') !== -1);
 
   recapMarkDone_('kEp', 50, 9, 2, 3, [], { mode: 'all', eps: [], upto: 9 });
@@ -812,6 +854,93 @@ console.log('\n=== ۲۲) خانهٔ تخته: سه گزینه، و «نمی‌د
   ok('۲۲.۷ و برای پروندهٔ کهنه گزینهٔ «پس از مرورِ قبلی» ادعا نمی‌شود',
      cellOld.indexOf('value="since"') === -1);
   delete global.__PROPS[PK.RECAP_DONE];
+}
+
+console.log('\n=== ۲۳) خودِ دکمه واقعاً تیک‌ها را جمع می‌کند ===');
+{
+  /* ══ چرا این سنجه هست ══
+   * «دکمه‌ای که بی‌صدا کاری نمی‌کند، بدترین شکلِ خرابی در این پنجره است»
+   * (۵٫۶۱). `run_wiring_test.js` ۵٫۲ فقط ثابت می‌کند تابعِ سمتِ سرور وجود
+   * دارد؛ درباره‌ی جاوااسکریپتِ خودِ پنجره چیزی نمی‌گوید. یک غلطِ املایی در
+   * `rcEpsPicked` هیچ خطایی نمی‌دهد و هیچ آزمونی را نمی‌شکند — فقط دامنه
+   * خالی می‌رود و مرور روی کلِ مجموعه ساخته می‌شود. پس اسکریپتِ واقعیِ
+   * رندرشده اجرا می‌شود، نه بازنویسی‌اش. */
+  const html = seriesBoardHtml_(seriesBoardData_());
+  const blocks = (html.match(/<script>([\s\S]*?)<\/script>/g) || [])
+    .map(b => b.replace(/^<script>/, '').replace(/<\/script>$/, ''));
+  ok('۲۳.۱ تختهٔ واقعی اسکریپت دارد', blocks.length > 0);
+
+  // ── یک DOM کوچک، فقط همان چیزهایی که این توابع لمس می‌کنند ──
+  const mk = (tag, cls, key, extra) =>
+    Object.assign({ tagName: tag, className: cls, dataset: { key: key },
+                    checked: false, value: '', style: {} }, extra || {});
+  const nodes = [
+    mk('INPUT', 'rcChk', 'kEp', { checked: true, dataset: { key: 'kEp', def: '1' } }),
+    mk('SELECT', 'rcMode', 'kEp', { value: 'pick' }),
+    mk('DIV', 'rcEpsBox', 'kEp'),
+    mk('INPUT', 'rcEp', 'kEp', { value: '3' }),
+    mk('INPUT', 'rcEp', 'kEp', { value: '7' }),
+    mk('INPUT', 'rcEp', 'kEp', { value: '9' }),
+    mk('INPUT', 'rcEp', 'kOther', { value: '2' })
+  ];
+  /* گزینشگری که نمی‌شناسیم، آرایهٔ خالی می‌دهد — نه استثنا. توابعِ دیگرِ
+     همان اسکریپت (مثلاً `busy`) هم روی همین DOM اجرا می‌شوند و شکستنِ آن‌ها
+     چیزی دربارهٔ مرور ثابت نمی‌کند. */
+  const pick = (sel) => {
+    const m = String(sel).match(/^(\w+)\.(\w+)$/);
+    if (!m) return [];
+    return nodes.filter(n => n.tagName === m[1].toUpperCase() && n.className === m[2]);
+  };
+  let sent = null;
+  const msgEl = { textContent: '' };
+  const said = () => String(msgEl.textContent || '');
+  const spare = Object.create(null);
+  const doc = { querySelectorAll: pick,
+                getElementById: (id) => (id === 'rcMsg' ? msgEl
+                  : (spare[id] || (spare[id] = { textContent: '', innerHTML: '',
+                                                 style: {}, disabled: false }))) };
+  const goog = { script: { run: {
+    withSuccessHandler() { return this; }, withFailureHandler() { return this; },
+    uiRecapQueue(k, sc) { sent = { keys: k, scopes: sc }; } } } };
+  const api = new Function('document', 'google', 'busy', 'say', 'done', 'fail',
+    blocks[blocks.length - 1] +
+    ';return {rcScopes:rcScopes,rcEpsAll:rcEpsAll,rcEpsPicked:rcEpsPicked,' +
+    'rcModeChange:rcModeChange,recapRun:recapRun,rcSay:rcSay};'
+  )(doc, goog, () => {}, () => {}, () => {}, () => {});
+  global.window = global.window || { scrollTo: () => {} };
+
+  nodes[3].checked = true; nodes[5].checked = true;   // درسِ ۳ و ۹
+  ok('۲۳.۲ تیکِ درس‌ها واقعاً جمع می‌شود',
+     api.rcEpsPicked('kEp').join(',') === '3,9', JSON.stringify(api.rcEpsPicked('kEp')));
+  ok('۲۳.۳ و تیکِ مجموعهٔ دیگر با آن قاتی نمی‌شود',
+     api.rcEpsPicked('kOther').length === 0);
+
+  api.rcEpsAll({ dataset: { key: 'kEp' } }, 1);
+  ok('۲۳.۴ دکمهٔ «همه» همهٔ درس‌های همان مجموعه را می‌زند',
+     api.rcEpsPicked('kEp').join(',') === '3,7,9' && !nodes[6].checked);
+  api.rcEpsAll({ dataset: { key: 'kEp' } }, 0);
+  ok('۲۳.۵ و «هیچ» برشان می‌دارد', api.rcEpsPicked('kEp').length === 0);
+
+  /* «انتخابی» بی هیچ تیکی نباید بی‌صدا به «همه» تبدیل شود — باید همان‌جا
+     بگوید چه چیزی کم است، وگرنه آدم دکمه را می‌زند و مرورِ کلِ مجموعه
+     می‌گیرد بی آنکه بفهمد چرا. */
+  api.recapRun({});
+  ok('۲۳.۶ «انتخابی» بی تیک، نمی‌رود و علتش را می‌گوید',
+     sent === null && said().indexOf('تیک بخورد') !== -1, said());
+
+  nodes[4].checked = true;                              // درسِ ۷
+  api.recapRun({});
+  ok('۲۳.۷ و با تیک، دامنه واقعاً به سرور می‌رسد',
+     sent && sent.keys.join(',') === 'kEp' &&
+     sent.scopes.kEp.mode === 'pick' && sent.scopes.kEp.eps.join(',') === '7',
+     JSON.stringify(sent));
+
+  // و فهرست فقط در حالتِ «انتخابی» باز می‌شود.
+  nodes[1].value = 'all'; api.rcModeChange(nodes[1]);
+  const hidden = nodes[2].style.display === 'none';
+  nodes[1].value = 'pick'; api.rcModeChange(nodes[1]);
+  ok('۲۳.۸ فهرستِ درس‌ها فقط در حالتِ «انتخابی» باز می‌شود',
+     hidden && nodes[2].style.display === '');
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

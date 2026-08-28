@@ -127,14 +127,17 @@ var RECAP_ROW_MARK = 'مرورِ همهٔ درس‌ها';
  * «مرور درسِ تازه نیست». هشداری که هرگز نمی‌تواند رفع شود، هشدار نیست.
  */
 /**
- * نامِ مجموعه ← **شماره‌های درسِ** تولیدشده‌اش (نه فقط شمارشان).
+ * نامِ مجموعه ← **درس‌های تولیدشده‌اش**: `[{n, title}]`، مرتب و بی‌تکرار.
  *
- * ══ چرا شماره، و نه عدد (۶٫۳۹) ══
- * تا ۶٫۳۸ فقط «چند تا» لازم بود، چون مرور همیشه کلِ جزوه را می‌گرفت. حالا
- * که صاحبِ برنامه می‌تواند بگوید «فقط درس‌های ۱۲ و ۱۴ و ۱۷»، جعبهٔ انتخاب
- * باید بداند اصلاً کدام شماره‌ها وجود دارند — وگرنه آدم شماره‌ای می‌نویسد
- * که هیچ درسی ندارد و مرور خالی درمی‌آید بی آنکه بفهمد چرا.
- * همان یک خواندنِ تب، همان یک صافیِ ردیفِ مرور.
+ * ══ چرا شماره و عنوان، نه فقط یک شمارش (۶٫۳۹ → ۶٫۴۰) ══
+ * تا ۶٫۳۸ فقط «چند تا» لازم بود، چون مرور همیشه کلِ مجموعه را می‌گرفت.
+ * از ۶٫۳۹ می‌شود گفت «فقط این درس‌ها»، و آنجا اول فقط شماره برمی‌گشت و
+ * آدم باید شماره‌ها را **تایپ** می‌کرد. صاحبِ برنامه بلافاصله گفت: «چرا
+ * تایپ کنم؟ مگه نمی‌شه درس‌ها رو تیک بزنم؟» — و راست می‌گفت: شمارهٔ درس
+ * چیزی نیست که آدم از حفظ بداند، و تایپ‌کردنش یعنی ابزار از او می‌خواهد
+ * چیزی را به یاد بیاورد که خودش می‌داند.
+ * عنوان از همان ستونِ همان خواندن می‌آید (`XC.TITLE` داخلِ بازهٔ خوانده‌شده
+ * است)، پس تیک‌زدن هیچ رفت‌وبرگشتِ تازه‌ای به شیت اضافه نمی‌کند.
  */
 function recapEpsMap_(hub) {
   var map = Object.create(null);
@@ -142,17 +145,24 @@ function recapEpsMap_(hub) {
     var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
     if (!sh || sh.getLastRow() < 2) return map;
     var v = sh.getRange(2, XC.NUM, sh.getLastRow() - 1, XC.PARTS).getValues();
+    var seen = Object.create(null);
     for (var i = 0; i < v.length; i++) {
       var nm = String(v[i][XC.SERIES - 1] || '').trim();
       if (!nm) continue;
       var cov = String(v[i][XC.PARTS - 1] || '');
       if (cov.indexOf(RECAP_ROW_MARK) !== -1) continue;   // ردیفِ خودِ مرور
-      if (!map[nm]) map[nm] = [];
       var no = Number(v[i][XC.NUM - 1]) || 0;
-      if (no > 0) map[nm].push(no);
+      if (no <= 0) continue;
+      // یک درس، یک ردیف — ولی تکرار اگر پیش بیاید، دو تیکِ هم‌شماره می‌سازد
+      // و آدم نمی‌فهمد کدام‌یک را زده.
+      var sig = nm + '\u0000' + no;
+      if (seen[sig]) continue;
+      seen[sig] = 1;
+      if (!map[nm]) map[nm] = [];
+      map[nm].push({ n: no, title: String(v[i][XC.TITLE - 1] || '') });
     }
     for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) {
-      map[k].sort(function (a, b) { return a - b; });
+      map[k].sort(function (a, b) { return a.n - b.n; });
     }
   } catch (e) {}
   return map;
@@ -253,6 +263,9 @@ var RECAP_MODES = {
 /** «۳، ۵، ۷-۹» → [3,5,7,8,9]. رقمِ فارسی هم می‌فهمد. */
 function recapParseEps_(text) {
   var out = [], seen = Object.create(null);
+  // تخته از ۶٫۴۰ آرایهٔ عدد می‌فرستد (تیک)، نه رشته (تایپ). هر دو باید
+  // بخورد: مسیرِ دوم هنوز از منو و از آزمون‌ها استفاده می‌شود.
+  if (text instanceof Array) text = text.join(',');
   /* «۲ تا ۴» با فاصله نوشته می‌شود — آدم همان‌طور می‌نویسد که حرف می‌زند.
      پس بازه پیش از تکه‌کردن یک‌دست می‌شود، وگرنه split آن را سه تکه می‌کرد
      و «تا» بی‌صدا دور می‌ریخت: بازه به دو عدد فرو می‌ریخت و وسطش گم می‌شد. */
@@ -720,7 +733,7 @@ function runRecapEpisode(opt) {
      دیگر گفته نمی‌شود، و پوششی که متنِ بریده‌نشده را بسنجد باز هم ادعاست. */
   var cov = recapCoverage_(ep, book);
   if (cov.missed.length) {
-    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' فصل از ' + cov.total +
+    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' مبحث از ' + cov.total +
              ' ردی در متن دارند؛ بی‌رد: ' + cov.missed.slice(0, 4).join('، ') + '.');
   }
 
@@ -767,7 +780,7 @@ function runRecapEpisode(opt) {
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
                 RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
-                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total +
+                'مرورِ درس‌های پیشین — ' + cov.n + ' مبحث از ' + cov.total +
                 (scope.mode === 'all' ? '' : ' — دامنه: ' + scope.label),
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
@@ -782,7 +795,7 @@ function runRecapEpisode(opt) {
   recapLog_(pick.name, epNum, ep.sections.length, cov.n);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
-           ep.sections.length + ' بخش، ' + cov.n + ' فصل از ' + cov.total +
+           ep.sections.length + ' بخش، ' + cov.n + ' مبحث از ' + cov.total +
            '، دامنه: ' + scope.label + ')؛ صداگذاری در اجرای بعد.');
   return { ok: true, episode: epNum, series: pick.name, title: ep.title,
            sections: ep.sections.length, pending: true,
@@ -937,7 +950,9 @@ function recapBoardMap_(hub, reg) {
       var key = String(rec.key || '');
       var name = String(rec.vals[SC.NAME - 1] || key);
       var m = Number(made[name]) || 0;
-      var eps = epsAll[name] || [];
+      var lessons = epsAll[name] || [];
+      var eps = [];
+      for (var e0 = 0; e0 < lessons.length; e0++) eps.push(lessons[e0].n);
       var d = done[key] || null;
       var covered = d ? (Number(d.parts) || 0) : 0;
       var chOk = d ? (Number(d.ch) || 0) : 0;
@@ -961,7 +976,7 @@ function recapBoardMap_(hub, reg) {
         }
       }
       out[key] = {
-        name: name, made: m, eps: eps, done: d, covered: covered,
+        name: name, made: m, eps: eps, lessons: lessons, done: d, covered: covered,
         chOk: chOk, chAll: chAll, mode: mode, upto: upto, unknown: unknown,
         chGap: Math.max(0, chAll - chOk),
         behind: behind,
@@ -1016,10 +1031,11 @@ function runRecapNow() {
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ بعد از تمام‌شدنش دوباره بزنید.',
       none: 'هیچ مجموعه‌ای هنوز به کفِ ' + faDigitsOut_(String(CFG.RECAP_MIN_PARTS || 8)) +
             ' قسمتِ تولیدشده نرسیده.',
-      'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده؛ ورودیِ مرور همان جزوه است.',
+      'no-handout': 'متنِ جمع‌شدهٔ درس‌های آن مجموعه هنوز آماده نیست؛ هر شب ' +
+                    'خودش ساخته می‌شود، فردا دوباره امتحان کنید.',
       write: 'مدل متنی برنگرداند.',
-      'scope-empty': 'دامنه‌ای که خواسته شده هیچ درسی از جزوهٔ این مجموعه را ' +
-                     'در بر نگرفت' + (r.scope ? ' (' + r.scope + ')' : '') + '.',
+      'scope-empty': 'درس‌هایی که انتخاب شده‌اند هیچ متنی برای مرور ندارند' +
+                     (r.scope ? ' (' + r.scope + ')' : '') + '.',
       folder: 'پوشهٔ مجموعه پیدا نشد.'
     }[r.reason] || String(r.reason || 'نامعلوم');
     L.push('• ساخته نشد — ' + why);

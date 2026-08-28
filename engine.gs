@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.39
+ *  موتور محتوا و پادکست — نسخهٔ 6.40
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -411,6 +411,11 @@ var CFG = {
   RECAP_MIN_PARTS: 8,
   // سفارشی که نشود، صف را برای بقیه نمی‌بندد.
   RECAP_TRY_MAX: 3,
+
+  /* سقفِ تیک‌های درس در جعبهٔ دامنهٔ مرور (۶٫۴۰). تخته ۲۶۴ ردیف دارد و
+     این فهرست برای هر مجموعه‌ای که درسی ساخته رندر می‌شود؛ بریده‌شدنش در
+     خودِ جعبه نوشته می‌شود، چون درسی که دیده نشود انگار وجود ندارد. */
+  RECAP_PICK_MAX: 60,
 
   TTS_CHUNK_CHARS: 1100,       // حداکثر طول هر تکه متن ارسالی به TTS
   // وقتی که باید برای «یک تکهٔ صوتیِ دیگر» کنار گذاشته شود.
@@ -982,7 +987,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.39',
+  CODE_VERSION: '6.40',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3322,8 +3327,15 @@ function coverRangeText_(meta, cx) {
     if (!ch && !pr) return 'همهٔ درس‌های تولیدشدهٔ این مجموعه';
     /* «از» می‌آید چون عدد اندازه‌گیری‌شده است، نه ادعا: فصلی که هیچ واژهٔ
        شاخصش در متنِ مرور نباشد، پوشش‌داده شمرده نمی‌شود (۶٫۳۳). */
-    return pr + ' درسِ تولیدشده · ' + ch + ' فصل از ' + all + ' فصلِ جزوه' +
-           (all > ch ? ' (' + (all - ch) + ' فصل نیامده)' : '');
+    /* ══ واژهٔ «جزوه» از اینجا برداشته شد (۶٫۴۰) ══
+       صاحبِ برنامه: «چه ربطی به جزوه داشت؟ مرور برای تولیدِ پادکسته.»
+       حق داشت: جزوه فقط انبارِ متنِ درس‌های گذشته است — جایی که مرور از آن
+       می‌خوانَد — و اسمِ انبار به کارِ کسی نمی‌آید که یک قسمتِ پادکست
+       می‌خواهد. «مبحث» همان اندازه‌گیری است، بی واژه‌ای که توضیحِ تازه بخواهد. */
+    var sc = String(meta.recapScope || '');
+    return pr + ' درسِ تولیدشده · ' + ch + ' مبحث از ' + all +
+           (all > ch ? ' (' + (all - ch) + ' مبحث نیامده)' : '') +
+           (meta.recapMode && meta.recapMode !== 'all' && sc ? ' · دامنه: ' + sc : '');
   }
   return cx.fromNo + ' تا ' + cx.toNo + ' از ' + cx.totalChunks;
 }
@@ -17248,6 +17260,12 @@ var BOARD_CSS =
   '.abt{font-size:11px;color:#cbd5e1;margin-top:2px;line-height:1.6}' +
   '.exc{opacity:.85}.exc td{background:#241f1f}' +
   '.lvl{font-size:10px;color:#5a6478}' +
+  /* فهرستِ درس‌ها برای انتخابِ دامنهٔ مرور (۶٫۴۰): جعبه‌ای که خودش می‌پیچد،
+     چون یک مجموعه می‌تواند بیست درس داشته باشد و خانهٔ جدول باریک است. */
+  '.rcLes{display:block;font-size:11px;line-height:1.7;white-space:nowrap;' +
+  'overflow:hidden;text-overflow:ellipsis}' +
+  '.rcEpsBox{max-height:150px;overflow-y:auto;border:1px solid #dfe5f2;' +
+  'border-radius:6px;padding:4px 6px;background:#fafbff}' +
   'button{font-family:inherit;font-size:11px;border:1px solid #2e5cb8;background:#fff;' +
   'color:#2e5cb8;border-radius:7px;padding:4px 10px;cursor:pointer}' +
   'button:hover{background:#eef2fb}button[disabled]{opacity:.45;cursor:default}' +
@@ -17622,6 +17640,8 @@ function seriesBoardHtml_(d) {
   H.push('function recapDefault(){rcBoxes().forEach(function(b){' +
          'if(!b.disabled)b.checked=(b.dataset.def==="1");});' +
          'rcModes().forEach(function(s){s.value="all";rcModeChange(s);});' +
+         '[].slice.call(document.querySelectorAll("input.rcEp")).forEach(function(x){' +
+         'x.checked=false;});' +
          'rcSay("تیکِ پیش‌فرض برگشت — دامنهٔ همه هم.");}');
   /* ── دامنه (۶٫۳۹) ──────────────────────────────────────────────────
      جعبهٔ شماره‌ها فقط در حالتِ «انتخابی» دیده می‌شود. جعبه‌ای که همیشه باز
@@ -17634,18 +17654,27 @@ function seriesBoardHtml_(d) {
   H.push('function rcModeChange(s){var k=s.dataset.key;' +
          '[].slice.call(document.querySelectorAll("div.rcEpsBox")).forEach(function(x){' +
          'if(x.dataset.key===k)x.style.display=(s.value==="pick")?"":"none";});}');
+  /* درس‌ها تیک می‌خورند، تایپ نمی‌شوند (۶٫۴۰): «چرا تایپ کنم؟ مگه نمی‌شه
+     درس‌ها رو بتونم تیک بزنم؟». پس اینجا هیچ رشته‌ای تجزیه نمی‌شود — آرایهٔ
+     عددها مستقیم می‌رود. و «همه/هیچ» هست چون بیست تیک زدن هم یک تایپِ دیگر
+     است. */
+  H.push('function rcEpsAll(b,on){var k=b.dataset.key;' +
+         '[].slice.call(document.querySelectorAll("input.rcEp")).forEach(function(x){' +
+         'if(x.dataset.key===k)x.checked=!!on;});}');
+  H.push('function rcEpsPicked(k){var o=[];' +
+         '[].slice.call(document.querySelectorAll("input.rcEp")).forEach(function(x){' +
+         'if(x.dataset.key===k&&x.checked)o.push(Number(x.value));});return o;}');
   H.push('function rcScopes(){var m={};' +
-         'rcModes().forEach(function(s){m[s.dataset.key]={mode:s.value,eps:""};});' +
-         '[].slice.call(document.querySelectorAll("input.rcEps")).forEach(function(i){' +
-         'if(m[i.dataset.key])m[i.dataset.key].eps=i.value;});return m;}');
+         'rcModes().forEach(function(s){var k=s.dataset.key;' +
+         'm[k]={mode:s.value,eps:rcEpsPicked(k)};});return m;}');
   H.push('function recapRun(b){var k=rcBoxes().filter(function(x){' +
          'return x.checked&&!x.disabled;}).map(function(x){return x.dataset.key;});' +
          'if(!k.length){rcSay("هیچ مجموعه‌ای تیک نخورده.");return;}' +
          'var sc=rcScopes(),bad=[];' +
          'k.forEach(function(x){var o=sc[x];' +
-         'if(o&&o.mode==="pick"&&!String(o.eps||"").replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g,""))bad.push(x);});' +
-         'if(bad.length){rcSay("برای «فقط درس‌هایی که می‌نویسم» باید شماره‌ی درس‌ها را ' +
-         'بنویسید — هنوز ' + '"+bad.length+"' + ' مجموعه خالی است.");return;}' +
+         'if(o&&o.mode==="pick"&&!(o.eps&&o.eps.length))bad.push(x);});' +
+         'if(bad.length){rcSay("برای «فقط درس‌هایی که تیک می‌زنم» باید دستِ‌کم یک درس ' +
+         'تیک بخورد — هنوز ' + '"+bad.length+"' + ' مجموعه خالی است.");return;}' +
          'busy();say("ساختِ مرور… نوشتنِ متن چند ده ثانیه طول می‌کشد",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiRecapQueue(k,sc);}');
@@ -17848,10 +17877,10 @@ function recapCell_(x) {
     } else upto = 'تا درسِ ' + faNum_(r.upto || r.covered);
     body = '<div><span class="bdg b-done">قسمت ' + faNum_(Number(r.done.ep) || 0) + '</span></div>' +
            '<div class="sub">' + upto +
-           (r.chAll ? ' · ' + faNum_(r.chOk) + ' فصل از ' + faNum_(r.chAll) : '') +
+           (r.chAll ? ' · ' + faNum_(r.chOk) + ' مبحث از ' + faNum_(r.chAll) : '') +
            (r.done.at ? '<br>' + bEsc_(String(r.done.at)) : '') + '</div>' +
            (r.chGap ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.chGap) +
-                      ' فصل ردی در متنِ مرور ندارد' +
+                      ' مبحث ردی در متنِ مرور ندارد' +
                       ((r.done.miss || []).length ? '<br>' +
                         bEsc_((r.done.miss || []).slice(0, 2).join('، ')) : '') +
                       '</div>' : '') +
@@ -17865,46 +17894,69 @@ function recapCell_(x) {
 }
 
 /**
- * سه انتخابِ دامنه، روی خودِ خانه (۶٫۳۹).
+ * سه انتخابِ دامنه، روی خودِ خانه (۶٫۳۹) — و درس‌ها **تیک می‌خورند**، نه
+ * تایپ (۶٫۴۰).
  *
- * ══ گزارشِ صاحبِ برنامه ══
- * «می‌خوام خودم انتخاب کنم رو کدوم درس‌ها باشه؛ یا همهٔ درس‌ها از ابتدا، یا
- *  صرفاً درس‌های انتخاب‌شده، یا صرفاً درس‌های بعد از آخرین مرور. ولی این
- *  نمی‌فهمم چی می‌گه، خیلی گیج‌کننده‌ست.»
+ * ══ گزارشِ صاحبِ برنامه، دو بار ══
+ * (۱) «می‌خوام خودم انتخاب کنم رو کدوم درس‌ها باشه؛ یا همهٔ درس‌ها از ابتدا،
+ *     یا صرفاً درس‌های انتخاب‌شده، یا صرفاً درس‌های بعد از آخرین مرور. ولی
+ *     این نمی‌فهمم چی می‌گه، خیلی گیج‌کننده‌ست.»
+ * (۲) «بعد چرا تایپ کنم؟ مگه نمی‌شه جوری باشه درس‌ها رو بتونم تیک بزنم که
+ *     مرورش تولید کنه؟»
  *
- * تا ۶٫۳۸ تیک فقط می‌گفت «بساز» و رفتار همیشه یکی بود: کلِ جزوه. آدم سه
- * خواسته داشت و ابزار یکی — پس هرچه در آن خانه نوشته می‌شد توضیحِ چیزی بود
- * که او نخواسته بود. سه خواسته، سه گزینه.
+ * تا ۶٫۳۸ تیک فقط می‌گفت «بساز» و رفتار همیشه یکی بود. ۶٫۳۹ سه دامنه ساخت
+ * ولی برای «انتخابی» یک جعبهٔ متن گذاشت — یعنی از آدم می‌خواست شمارهٔ درس‌ها
+ * را از حفظ بنویسد. **شمارهٔ درس چیزی نیست که کسی به یاد داشته باشد**، و
+ * ابزاری که یادآوریِ آن را به گردنِ آدم بیندازد، کارِ خودش را به او سپرده:
+ * فهرستِ درس‌ها همین حالا در دستِ کد است، از همان یک خواندنِ تب.
+ *
+ * پس فهرستِ درس‌ها با شماره و عنوان تیک‌خور است، با دو دکمهٔ «همه/هیچ» —
+ * چون بیست تیک زدن هم خودش یک تایپِ دیگر است.
  *
  * **گزینه‌ها روی خودِ ردیفِ مجموعه‌اند، نه در جعبهٔ بالا** — همان قاعدهٔ ۵٫۶۱
- * و ۵٫۸۷: کنترل، کنارِ کاری که به آن مربوط است. یک انتخابِ سراسری در بالا
- * یعنی هر ۲۶۴ مجموعه یک دامنه بگیرند، که دقیقاً همان چیزی است که او از آن
- * گله داشت.
+ * و ۵٫۸۷: کنترل، کنارِ کاری که به آن مربوط است.
  *
  * «پس از آخرین مرور» فقط وقتی نشان داده می‌شود که مروری بوده باشد —
  * گزینه‌ای که معنایش خالی است، خودش یک گیجیِ تازه است.
  */
 function recapScopePick_(r, key) {
-  var av = (r.eps || []);
+  var L = (r.lessons || []);
   var opts = ['<option value="all">همهٔ درس‌ها از ابتدا</option>'];
   if (r.done && !r.unknown && r.mode !== 'pick') {
     opts.push('<option value="since">فقط درس‌های پس از مرورِ قبلی' +
               (r.upto ? ' (بعد از درسِ ' + faNum_(r.upto) + ')' : '') + '</option>');
   }
-  opts.push('<option value="pick">فقط درس‌هایی که می‌نویسم</option>');
-  var hint = av.length
-    ? 'درس‌های موجود: ' + bEsc_(av.slice(0, 12).map(faNum_).join('، ')) +
-      (av.length > 12 ? ' …' : '')
-    : '';
+  opts.push('<option value="pick">فقط درس‌هایی که تیک می‌زنم</option>');
+
+  /* سقف روی شمارِ تیک‌ها هست چون تخته ۲۶۴ ردیف دارد و این جعبه برای هر
+     مجموعه‌ای که درسی ساخته رندر می‌شود. ولی بریدنِ بی‌اعلام یعنی درسی که
+     دیده نمی‌شود انگار وجود ندارد — پس بریده‌شدن **نوشته** می‌شود. */
+  var cap = Math.max(10, Number(CFG.RECAP_PICK_MAX) || 60);
+  var items = [];
+  for (var i = 0; i < L.length && i < cap; i++) {
+    var t = String(L[i].title || '');
+    if (t.length > 46) t = t.slice(0, 46) + '…';
+    // مقدارِ تیک عددِ خام است (سرور با آن کار می‌کند)؛ رقمِ فارسی فقط
+    // چیزی است که آدم می‌خوانَد.
+    items.push('<label class="rcLes"><input type="checkbox" class="rcEp" data-key="' + key +
+               '" value="' + Number(L[i].n) + '"> درسِ ' + faNum_(L[i].n) +
+               (t ? ' — ' + bEsc_(t) : '') + '</label>');
+  }
+  var list = items.length
+    ? ('<div style="margin-bottom:3px">' +
+       '<button type="button" data-key="' + key + '" onclick="rcEpsAll(this,1)">همه</button> ' +
+       '<button type="button" data-key="' + key + '" onclick="rcEpsAll(this,0)">هیچ</button>' +
+       '</div>' + items.join('') +
+       (L.length > cap ? '<div class="sub">و ' + faNum_(L.length - cap) +
+                         ' درسِ دیگر که در این فهرست جا نشد</div>' : ''))
+    : '<div class="sub">درسی برای انتخاب نیست</div>';
+
   return '<div class="sub" style="margin-top:4px">' +
          '<select class="rcMode" data-key="' + key + '" ' +
          'onchange="rcModeChange(this)" style="max-width:100%">' +
          opts.join('') + '</select>' +
          '<div class="rcEpsBox" data-key="' + key + '" style="display:none;margin-top:3px">' +
-         '<input type="text" class="rcEps" data-key="' + key + '" ' +
-         'placeholder="مثلاً ۱۲، ۱۴، ۱۷-۱۹" style="width:100%">' +
-         (hint ? '<div class="sub">' + hint + '</div>' : '') +
-         '</div></div>';
+         list + '</div></div>';
 }
 
 /** جعبهٔ بالای تخته برای مرور: خلاصه + دکمه‌ای که تیک‌ها را می‌فرستد. */
@@ -17937,9 +17989,8 @@ function recapPanelHtml_(d) {
     '• <b>همهٔ درس‌ها از ابتدا</b> — کلِ مجموعه، از درسِ یک.<br>' +
     '• <b>فقط درس‌های پس از مرورِ قبلی</b> — فقط درس‌هایی که بعد از آخرین ' +
     'مرورِ همین مجموعه اضافه شده‌اند (اگر قبلاً مرور نگرفته، این گزینه نمی‌آید).<br>' +
-    '• <b>فقط درس‌هایی که می‌نویسم</b> — شماره‌ی درس‌ها را خودتان می‌نویسید، ' +
-    'مثلاً <span dir="ltr">۱۲، ۱۴، ۱۷-۱۹</span>. شماره‌های موجود زیرِ همان ' +
-    'جعبه نوشته شده‌اند.</div>' +
+    '• <b>فقط درس‌هایی که تیک می‌زنم</b> — فهرستِ درس‌های همان مجموعه باز ' +
+    'می‌شود و هرکدام را خواستید تیک می‌زنید (با دکمهٔ «همه»/«هیچ»).</div>' +
     'تیک‌ها یک <b>سفارش</b> می‌سازند: اولی همین حالا نوشته می‌شود و بقیه ' +
     'شب‌به‌شب پشتِ سرش — چون هر بار فقط یک درس‌نامه می‌تواند در حالِ صداگذاری باشد. ' +
     'تیکِ پیش‌فرض روی مجموعه‌هایی است که مرور نگرفته‌اند و دستِ‌کم ' +
@@ -18161,8 +18212,7 @@ function uiRecapQueue(keys, scopes) {
     if (!q.n) {
       return { ok: false, message: 'هیچ مجموعهٔ معتبری تیک نخورده بود ' +
         '(مجموعه‌ای که هنوز قسمتی از آن ساخته نشده مرور نمی‌گیرد؛ و «فقط ' +
-        'درس‌هایی که می‌نویسم» بدونِ شماره‌ای که واقعاً درس داشته باشد، ' +
-        'سفارشِ خالی است).' };
+        'درس‌هایی که تیک می‌زنم» بدونِ حتی یک درسِ تیک‌خورده، سفارشِ خالی است).' };
     }
     var r = recapRunNext_();
     var head = 'مرورِ بزرگ: ' + faDigitsOut_(String(q.n)) + ' مجموعه سفارش داده شد';
@@ -18177,9 +18227,10 @@ function uiRecapQueue(keys, scopes) {
     }
     var why = {
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ صف سرِ جایش می‌ماند و کارِ شبانه ادامه می‌دهد.',
-      'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده — ورودیِ مرور همان جزوه است.',
+      'no-handout': 'متنِ جمع‌شدهٔ درس‌های آن مجموعه هنوز آماده نیست؛ هر شب خودش ' +
+                    'ساخته می‌شود، فردا دوباره امتحان کنید.',
       write: 'مدل متنی برنگرداند؛ کارِ شبانه دوباره امتحان می‌کند.',
-      'scope-empty': 'دامنه‌ای که خواستید هیچ درسی از جزوهٔ آن مجموعه را در بر نگرفت.',
+      'scope-empty': 'درس‌هایی که تیک زدید هیچ متنی برای مرور ندارند.',
       none: 'مجموعهٔ معتبری پیدا نشد.',
       off: 'قابلیت خاموش است (RECAP_ENABLED).'
     }[r && r.reason] || String((r && r.reason) || 'نامعلوم');
@@ -37068,14 +37119,17 @@ var RECAP_ROW_MARK = 'مرورِ همهٔ درس‌ها';
  * «مرور درسِ تازه نیست». هشداری که هرگز نمی‌تواند رفع شود، هشدار نیست.
  */
 /**
- * نامِ مجموعه ← **شماره‌های درسِ** تولیدشده‌اش (نه فقط شمارشان).
+ * نامِ مجموعه ← **درس‌های تولیدشده‌اش**: `[{n, title}]`، مرتب و بی‌تکرار.
  *
- * ══ چرا شماره، و نه عدد (۶٫۳۹) ══
- * تا ۶٫۳۸ فقط «چند تا» لازم بود، چون مرور همیشه کلِ جزوه را می‌گرفت. حالا
- * که صاحبِ برنامه می‌تواند بگوید «فقط درس‌های ۱۲ و ۱۴ و ۱۷»، جعبهٔ انتخاب
- * باید بداند اصلاً کدام شماره‌ها وجود دارند — وگرنه آدم شماره‌ای می‌نویسد
- * که هیچ درسی ندارد و مرور خالی درمی‌آید بی آنکه بفهمد چرا.
- * همان یک خواندنِ تب، همان یک صافیِ ردیفِ مرور.
+ * ══ چرا شماره و عنوان، نه فقط یک شمارش (۶٫۳۹ → ۶٫۴۰) ══
+ * تا ۶٫۳۸ فقط «چند تا» لازم بود، چون مرور همیشه کلِ مجموعه را می‌گرفت.
+ * از ۶٫۳۹ می‌شود گفت «فقط این درس‌ها»، و آنجا اول فقط شماره برمی‌گشت و
+ * آدم باید شماره‌ها را **تایپ** می‌کرد. صاحبِ برنامه بلافاصله گفت: «چرا
+ * تایپ کنم؟ مگه نمی‌شه درس‌ها رو تیک بزنم؟» — و راست می‌گفت: شمارهٔ درس
+ * چیزی نیست که آدم از حفظ بداند، و تایپ‌کردنش یعنی ابزار از او می‌خواهد
+ * چیزی را به یاد بیاورد که خودش می‌داند.
+ * عنوان از همان ستونِ همان خواندن می‌آید (`XC.TITLE` داخلِ بازهٔ خوانده‌شده
+ * است)، پس تیک‌زدن هیچ رفت‌وبرگشتِ تازه‌ای به شیت اضافه نمی‌کند.
  */
 function recapEpsMap_(hub) {
   var map = Object.create(null);
@@ -37083,17 +37137,24 @@ function recapEpsMap_(hub) {
     var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
     if (!sh || sh.getLastRow() < 2) return map;
     var v = sh.getRange(2, XC.NUM, sh.getLastRow() - 1, XC.PARTS).getValues();
+    var seen = Object.create(null);
     for (var i = 0; i < v.length; i++) {
       var nm = String(v[i][XC.SERIES - 1] || '').trim();
       if (!nm) continue;
       var cov = String(v[i][XC.PARTS - 1] || '');
       if (cov.indexOf(RECAP_ROW_MARK) !== -1) continue;   // ردیفِ خودِ مرور
-      if (!map[nm]) map[nm] = [];
       var no = Number(v[i][XC.NUM - 1]) || 0;
-      if (no > 0) map[nm].push(no);
+      if (no <= 0) continue;
+      // یک درس، یک ردیف — ولی تکرار اگر پیش بیاید، دو تیکِ هم‌شماره می‌سازد
+      // و آدم نمی‌فهمد کدام‌یک را زده.
+      var sig = nm + '\u0000' + no;
+      if (seen[sig]) continue;
+      seen[sig] = 1;
+      if (!map[nm]) map[nm] = [];
+      map[nm].push({ n: no, title: String(v[i][XC.TITLE - 1] || '') });
     }
     for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) {
-      map[k].sort(function (a, b) { return a - b; });
+      map[k].sort(function (a, b) { return a.n - b.n; });
     }
   } catch (e) {}
   return map;
@@ -37194,6 +37255,9 @@ var RECAP_MODES = {
 /** «۳، ۵، ۷-۹» → [3,5,7,8,9]. رقمِ فارسی هم می‌فهمد. */
 function recapParseEps_(text) {
   var out = [], seen = Object.create(null);
+  // تخته از ۶٫۴۰ آرایهٔ عدد می‌فرستد (تیک)، نه رشته (تایپ). هر دو باید
+  // بخورد: مسیرِ دوم هنوز از منو و از آزمون‌ها استفاده می‌شود.
+  if (text instanceof Array) text = text.join(',');
   /* «۲ تا ۴» با فاصله نوشته می‌شود — آدم همان‌طور می‌نویسد که حرف می‌زند.
      پس بازه پیش از تکه‌کردن یک‌دست می‌شود، وگرنه split آن را سه تکه می‌کرد
      و «تا» بی‌صدا دور می‌ریخت: بازه به دو عدد فرو می‌ریخت و وسطش گم می‌شد. */
@@ -37661,7 +37725,7 @@ function runRecapEpisode(opt) {
      دیگر گفته نمی‌شود، و پوششی که متنِ بریده‌نشده را بسنجد باز هم ادعاست. */
   var cov = recapCoverage_(ep, book);
   if (cov.missed.length) {
-    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' فصل از ' + cov.total +
+    logLine_('مرورِ «' + pick.name + '»: ' + cov.n + ' مبحث از ' + cov.total +
              ' ردی در متن دارند؛ بی‌رد: ' + cov.missed.slice(0, 4).join('، ') + '.');
   }
 
@@ -37708,7 +37772,7 @@ function runRecapEpisode(opt) {
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
                 RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
-                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total +
+                'مرورِ درس‌های پیشین — ' + cov.n + ' مبحث از ' + cov.total +
                 (scope.mode === 'all' ? '' : ' — دامنه: ' + scope.label),
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
@@ -37723,7 +37787,7 @@ function runRecapEpisode(opt) {
   recapLog_(pick.name, epNum, ep.sections.length, cov.n);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
-           ep.sections.length + ' بخش، ' + cov.n + ' فصل از ' + cov.total +
+           ep.sections.length + ' بخش، ' + cov.n + ' مبحث از ' + cov.total +
            '، دامنه: ' + scope.label + ')؛ صداگذاری در اجرای بعد.');
   return { ok: true, episode: epNum, series: pick.name, title: ep.title,
            sections: ep.sections.length, pending: true,
@@ -37878,7 +37942,9 @@ function recapBoardMap_(hub, reg) {
       var key = String(rec.key || '');
       var name = String(rec.vals[SC.NAME - 1] || key);
       var m = Number(made[name]) || 0;
-      var eps = epsAll[name] || [];
+      var lessons = epsAll[name] || [];
+      var eps = [];
+      for (var e0 = 0; e0 < lessons.length; e0++) eps.push(lessons[e0].n);
       var d = done[key] || null;
       var covered = d ? (Number(d.parts) || 0) : 0;
       var chOk = d ? (Number(d.ch) || 0) : 0;
@@ -37902,7 +37968,7 @@ function recapBoardMap_(hub, reg) {
         }
       }
       out[key] = {
-        name: name, made: m, eps: eps, done: d, covered: covered,
+        name: name, made: m, eps: eps, lessons: lessons, done: d, covered: covered,
         chOk: chOk, chAll: chAll, mode: mode, upto: upto, unknown: unknown,
         chGap: Math.max(0, chAll - chOk),
         behind: behind,
@@ -37957,10 +38023,11 @@ function runRecapNow() {
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ بعد از تمام‌شدنش دوباره بزنید.',
       none: 'هیچ مجموعه‌ای هنوز به کفِ ' + faDigitsOut_(String(CFG.RECAP_MIN_PARTS || 8)) +
             ' قسمتِ تولیدشده نرسیده.',
-      'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده؛ ورودیِ مرور همان جزوه است.',
+      'no-handout': 'متنِ جمع‌شدهٔ درس‌های آن مجموعه هنوز آماده نیست؛ هر شب ' +
+                    'خودش ساخته می‌شود، فردا دوباره امتحان کنید.',
       write: 'مدل متنی برنگرداند.',
-      'scope-empty': 'دامنه‌ای که خواسته شده هیچ درسی از جزوهٔ این مجموعه را ' +
-                     'در بر نگرفت' + (r.scope ? ' (' + r.scope + ')' : '') + '.',
+      'scope-empty': 'درس‌هایی که انتخاب شده‌اند هیچ متنی برای مرور ندارند' +
+                     (r.scope ? ' (' + r.scope + ')' : '') + '.',
       folder: 'پوشهٔ مجموعه پیدا نشد.'
     }[r.reason] || String(r.reason || 'نامعلوم');
     L.push('• ساخته نشد — ' + why);
