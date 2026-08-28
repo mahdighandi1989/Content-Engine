@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.35
+ *  موتور محتوا و پادکست — نسخهٔ 6.36
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -974,7 +974,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.35',
+  CODE_VERSION: '6.36',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3851,10 +3851,16 @@ function speakSkipRecord_(ep, label, hub, epNum) {
   try {
     var S = (ep && ep.__speakSegs) || [];
     var total = 0, skipped = 0;
+    var examples = [];
     for (var i = 0; i < S.length; i++) {
       if (!S[i] || !S[i].h) continue;
       total++;
-      if (!S[i].t) skipped++;          // skip:true یا تلاشِ ناتمام — هر دو بی‌اعراب خوانده شدند
+      if (!S[i].t) {                   // skip:true یا تلاشِ ناتمام — هر دو بی‌اعراب خوانده شدند
+        skipped++;
+        if (S[i].skip && S[i].p && examples.length < 3) {
+          examples.push((S[i].lbl ? S[i].lbl + ': ' : '') + S[i].p);
+        }
+      }
     }
     if (!total) return null;
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
@@ -3886,7 +3892,9 @@ function speakSkipRecord_(ep, label, hub, epNum) {
         title: 'بخشِ بزرگی از قسمت بی‌اعراب خوانده شد',
         detail: label + ': ' + skipped + ' بخش از ' + total +
                 ' اعراب نگرفت (' + rec.f + ' شکستِ اعراب‌گذاری). ' +
-                'یعنی آن بخش‌ها با متنِ خام به گفتارساز رفتند.',
+                'یعنی آن بخش‌ها با متنِ خام به گفتارساز رفتند.' +
+                (examples.length ? ' نمونهٔ متنی که سد دو بار دور ریخت: «' +
+                 examples.join('» · «') + '»' : ''),
         instruction: 'علتِ ردّ شدنِ خروجیِ اعراب‌گذار را پیدا کن: یا پرامپت چیزی ' +
                      'می‌خواهد که سدِ وارسی نمی‌پذیرد، یا مدل در دسترس نیست. ' +
                      'وارسی نباید برای عیبی که تعمیرپذیر است کلِ بخش را دور بیندازد.',
@@ -4032,8 +4040,15 @@ function speakStep_(ep, segs, deadline, persist) {
     else {
       // دو بارِ پیاپی شکست یعنی بس است؛ این بخش با متنِ ساده خوانده می‌شود
       var tries = (have && have.h === h ? Number(have.tries) || 0 : 0) + 1;
-      if (tries >= 2) ep.__speakSegs[i] = { h: h, skip: true };
-      else ep.__speakSegs[i] = { h: h, tries: tries };
+      if (tries >= 2) {
+        // نمونهٔ متنِ ردشده را نگه می‌داریم تا یافتهٔ speak-skipped برای اولین‌بار
+        // بگوید *کدام* بخش و *چه متنی* — بی این، «سدِ وارسی رد کرد» فقط ادعا بود.
+        var lbl = segs[i].kind === 'body' ? String(segs[i].heading || '')
+                 : (segs[i].kind === 'hook' ? 'قلاب' : 'ختم');
+        ep.__speakSegs[i] = { h: h, skip: true, lbl: lbl, p: plain.slice(0, 160) };
+      } else {
+        ep.__speakSegs[i] = { h: h, tries: tries };
+      }
       failed++;
       // ── مدارشکن ──
       // سه شکست بی حتی یک موفقیت یعنی مدلِ اعراب‌گذاری الان در دسترس نیست
