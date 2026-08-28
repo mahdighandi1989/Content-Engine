@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.36
+ *  موتور محتوا و پادکست — نسخهٔ 6.37
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -541,7 +541,12 @@ var CFG = {
   YT_MS: 150000,                        // بودجهٔ زمانیِ هر اجرا
   YT_BACKFILL_WALK: 12,                 // پوشهٔ قسمت در هر کاوشِ گذشته
   YT_RENDER_FILE: '_YT-RENDER.json',
-  YT_RENDER_MAX: 8,                     // بیش از این، درخواستِ رندر انباشته نشود
+  YT_RENDER_MAX: 8,                     // بیش از این، درخواستِ رندرِ *ساخته‌نشده* انباشته نشود
+  // ── نوبتِ مستقلِ یوتیوب (۶٫۳۷) ──
+  // صفِ انتشار هر روز دو تا رشد می‌کند؛ کاری با این آهنگ نمی‌تواند مهمانِ
+  // اجرای شبانه یا وارسیِ سلامت بماند. هر چند ساعت، با بودجهٔ خودش.
+  YT_TICK_HOURS: 2,
+  YT_TICK_MS: 240000,
   YT_VIDEO_MARK: 'ویدئو',               // نامِ فایلِ MP4 در پوشهٔ قسمت
   /* ── رندرِ بیرونی (۶٫۶) ──
      موتور ویدئو نمی‌سازد و هیچ سشنِ ابری‌ای هم به فایل‌های درایو دسترسیِ
@@ -974,7 +979,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.36',
+  CODE_VERSION: '6.37',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -7753,67 +7758,62 @@ function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
   ensureMenuTrigger_();
-  // همگام‌سازی هر ۲ ساعت: محتوای تازهٔ شیت‌ها را برمی‌دارد
-  ScriptApp.newTrigger('syncCatalog').timeBased().everyHours(2).create();
-  // آماده‌سازیِ متن، چند ساعت پیش از انتشار: در این فاصله Cowork متن را با
-  // جست‌وجوی وب غنی می‌کند و بعد صدا ساخته می‌شود.
-  if (CFG.ENRICH_ENABLED !== false) {
-    ScriptApp.newTrigger('prepareEpisode').timeBased()
-      .atHour(CFG.PREPARE_HOUR || 4).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-    if (CFG.SPECIAL_ENABLED) {
-      ScriptApp.newTrigger('prepareSpecialEpisode').timeBased()
-        .atHour(CFG.PREPARE_SPECIAL_HOUR || 5).nearMinute(0).everyDays(1)
-        .inTimezone(CFG.TIMEZONE).create();
-    }
-  }
-  // تولید قسمت روزانهٔ «از همه جا از همه رنگ»، ساعت ۷ صبح به وقت دبی
-  ScriptApp.newTrigger('produceEpisode').timeBased().atHour(CFG.EPISODE_HOUR || 7)
-    .nearMinute(0).everyDays(1).inTimezone(CFG.TIMEZONE).create();
-  // تولید قسمت روزانهٔ «درس‌نامه»، یک ساعت بعد — دو تولیدِ سنگین هم‌زمان
-  // اجرا نمی‌شوند و قفلِ اسکریپت به هم برخورد نمی‌کند.
-  if (CFG.SPECIAL_ENABLED) {
-    ScriptApp.newTrigger('produceSpecialEpisode').timeBased()
-      .atHour(clampHour_(CFG.SPECIAL_HOUR, 8)).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-  }
-  // وارسی سلامت، سه ساعت بعد از زمان تولید، تا اگر قسمت نیامد خبردار شوید
-  ScriptApp.newTrigger('healthCheck').timeBased().atHour(10).nearMinute(0)
-    .everyDays(1).inTimezone(CFG.TIMEZONE).create();
-  // بررسیِ شبانهٔ کدِ تازه — پیش از پشتیبان، تا نسخهٔ نصب‌شده هم در پشتیبانِ همان شب بیاید
-  if (CFG.AUTOUPDATE_ENABLED !== false) {
-    ScriptApp.newTrigger('selfUpdateDaily').timeBased()
-      .atHour(clampHour_(CFG.UPDATE_HOUR, 2)).nearMinute(30).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-  }
-  // پشتیبانِ شبانهٔ شیت‌ها — پیش از شروعِ کارِ روز، وقتی هیچ تولیدی در جریان نیست
-  if (CFG.BACKUP_ENABLED) {
-    ScriptApp.newTrigger('backupDaily').timeBased()
-      .atHour(CFG.BACKUP_HOUR).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-    // از این لحظه انتظارِ پشتیبانِ شبانه داریم. وارسیِ سلامت بر پایهٔ همین
-    // زمان قضاوت می‌کند، وگرنه همان دقیقهٔ نصب هشدارِ «پشتیبان نگرفته‌ای» می‌داد.
-    if (!props_().getProperty(PK.BACKUP_SINCE)) {
-      props_().setProperty(PK.BACKUP_SINCE, nowStr_());
+
+  /* ══ یک فهرست، دو مصرف — این بار واقعاً (۶٫۳۷) ══
+   * ۵٫۹۵ `wantedTriggers_()` را ساخت تا «چه چیزی باید نصب باشد» یک نسخه
+   * داشته باشد، و `removeTriggers` و `trigNames_` را به آن وصل کرد. ولی
+   * **سازنده** دست‌نویس ماند: یازده فراخوانِ `newTrigger` پشتِ سرِ هم.
+   * یعنی همان بیماری، نصفه‌درمان‌شده — و امروز خودش را نشان داد: زمان‌بندیِ
+   * تازهٔ یوتیوب به فهرست اضافه شد و سازنده نمی‌ساختش، پس `trigNames_` تا
+   * ابد می‌گفت «یکی گم است» و هیچ‌کس نمی‌ساختش.
+   * حالا سازنده هم از همان فهرست می‌سازد. زمان‌بندیِ ویژگیِ بعدی خودبه‌خود
+   * نصب می‌شود. */
+  var want = wantedTriggers_(), made = [];
+  for (var i = 0; i < want.length; i++) {
+    var w = want[i];
+    try {
+      var b = ScriptApp.newTrigger(w.fn).timeBased();
+      if (w.kind === 'hours') {
+        b.everyHours(Math.max(1, Number(w.every) || 1)).create();
+        made.push('• ' + trigLabel_(w.fn) + ': هر ' +
+                  faDigitsOut_(String(Math.max(1, Number(w.every) || 1))) + ' ساعت');
+      } else {
+        var hr = Math.max(0, Math.min(23, Number(w.hour) || 0));
+        var mn = Math.max(0, Math.min(59, Number(w.minute) || 0));
+        b.atHour(hr).nearMinute(mn).everyDays(1).inTimezone(CFG.TIMEZONE).create();
+        made.push('• ' + trigLabel_(w.fn) + ': هر روز ساعت ' + faDigitsOut_(String(hr)) +
+                  (mn ? ':' + faDigitsOut_(('0' + mn).slice(-2)) : '') + ' (دبی)');
+      }
+    } catch (e) {
+      logLine_('زمان‌بندیِ «' + w.fn + '» ساخته نشد: ' + e.message);
     }
   }
 
-  var msg = 'زمان‌بندی نصب شد:\n• همگام‌سازی: هر ۲ ساعت\n' +
-            (CFG.ENRICH_ENABLED !== false
-               ? '• آماده‌سازیِ متن (برای غنی‌سازیِ اینترنتی): ساعت ' +
-                 (CFG.PREPARE_HOUR || 4) + ' و ' + (CFG.PREPARE_SPECIAL_HOUR || 5) + '\n' : '') +
-            (CFG.BACKUP_ENABLED
-               ? '• پشتیبانِ شیت‌ها: هر شب ساعت ' + CFG.BACKUP_HOUR + ' (دبی)، ' +
-                 CFG.BACKUP_KEEP + ' نسخهٔ آخر نگه داشته می‌شود\n' : '') +
-            (CFG.AUTOUPDATE_ENABLED !== false
-               ? '• نصبِ خودکارِ کدِ تازه: هر شب ساعت ' + clampHour_(CFG.UPDATE_HOUR, 2) +
-                 ':۳۰ (اگر ناظر کدِ تازه گذاشته باشد)\n' : '') +
-            '• «از همه جا از همه رنگ»: هر روز ساعت ۷ صبح (دبی)\n' +
-            (CFG.SPECIAL_ENABLED
-               ? '• «درس‌نامه» (تخصصی): هر روز ساعت ' + CFG.SPECIAL_HOUR + ' صبح (دبی)\n' : '') +
-            '• وارسی سلامت: هر روز ساعت ۱۰ صبح\n• منوی شیت: فعال';
-  logLine_('زمان‌بندی نصب شد.');
+  if (CFG.BACKUP_ENABLED && !props_().getProperty(PK.BACKUP_SINCE)) {
+    // از این لحظه انتظارِ پشتیبانِ شبانه داریم. وارسیِ سلامت بر پایهٔ همین
+    // زمان قضاوت می‌کند، وگرنه همان دقیقهٔ نصب هشدارِ «پشتیبان نگرفته‌ای» می‌داد.
+    props_().setProperty(PK.BACKUP_SINCE, nowStr_());
+  }
+
+  var msg = 'زمان‌بندی نصب شد:\n' + made.join('\n') + '\n• منوی شیت: فعال';
+  logLine_('زمان‌بندی نصب شد (' + made.length + ' مورد).');
   var ui = ui_(); if (ui) ui.alert(msg); else console.log(msg);
+}
+
+/** نامِ خواندنیِ هر زمان‌بندی، برای پیامِ نصب. یک نگاشت، نه یازده رشتهٔ پراکنده. */
+function trigLabel_(fn) {
+  var m = {
+    syncCatalog: 'همگام‌سازی',
+    prepareEpisode: 'آماده‌سازیِ متنِ «از همه جا از همه رنگ»',
+    prepareSpecialEpisode: 'آماده‌سازیِ متنِ «درس‌نامه»',
+    produceEpisode: '«از همه جا از همه رنگ»',
+    produceSpecialEpisode: '«درس‌نامه» (تخصصی)',
+    healthCheck: 'وارسی سلامت',
+    backupDaily: 'پشتیبانِ شیت‌ها',
+    selfUpdateDaily: 'نصبِ خودکارِ کدِ تازه',
+    ytPublishTick: 'انتشار در یوتیوب'
+  };
+  return Object.prototype.hasOwnProperty.call(m, fn) ? m[fn] : fn;
 }
 
 /**
@@ -7857,7 +7857,16 @@ function wantedTriggers_() {
     want.push({ fn: 'backupDaily', kind: 'daily', hour: CFG.BACKUP_HOUR });
   }
   if (CFG.AUTOUPDATE_ENABLED !== false) {
-    want.push({ fn: 'selfUpdateDaily', kind: 'daily', hour: clampHour_(CFG.UPDATE_HOUR, 2) });
+    want.push({ fn: 'selfUpdateDaily', kind: 'daily',
+                hour: clampHour_(CFG.UPDATE_HOUR, 2), minute: 30 });
+  }
+  /* یوتیوب زمان‌بندیِ خودش را دارد (۶٫۳۷). تا اینجا دو نوبت داشت و هر دو
+     مهمانِ اجرای کسِ دیگری بودند — کارِ شبانه (هشتمین بند، پشتِ موسیقی و
+     جزوه) و وارسیِ سلامت. روزی که هر دو گرسنه ماندند، صف رشد کرد و هیچ
+     ویدئویی بالا نرفت، و از بیرون شبیهِ «کاری نبود» به نظر رسید. */
+  if (CFG.YT_ENABLED !== false) {
+    want.push({ fn: 'ytPublishTick', kind: 'hours',
+                every: Math.max(1, Number(CFG.YT_TICK_HOURS) || 2) });
   }
   return want;
 }
@@ -32246,8 +32255,27 @@ function ytRenderAsk_(item) {
   for (var i = 0; i < d.items.length; i++) {
     if (String(d.items[i].key) === key) return false;      // قبلاً خواسته شده
   }
+  /* ══ سقفی که خودش صف را قفل می‌کرد (۶٫۳۷) ══
+   * این سقف برای «درخواستِ رندرِ انباشته» گذاشته شده بود — ولی چیزی که
+   * می‌شمرد ردیف‌های «در انتظار» بود، و ردیف تا وقتی ویدئواش **برداشته**
+   * نشود در انتظار می‌مانَد.
+   *
+   * پس وقتی برداشت شکست، هشت ردیفِ ساخته‌شده‌ولی‌برنداشته سقف را پر کردند و
+   * از آن لحظه **هیچ درخواستِ تازه‌ای نوشته نشد**. اکشنِ گیت‌هاب هر ساعت
+   * سبز می‌شد و می‌گفت «صف: ۸ ردیف، ۰ تای ساخته‌نشده» — یعنی از بیرون
+   * همه‌چیز سالم بود، در حالی که صفِ انتشار هفده تا شده بود و دو روز هیچ
+   * ویدئویی بالا نرفت.
+   *
+   * «منتظرِ ساخت» و «منتظرِ برداشت» دو چیزند. سقف فقط باید اولی را بشمرد. */
   var cap = Math.max(1, Number(CFG.YT_RENDER_MAX) || 8);
-  var pend = d.items.filter(function (x) { return String(x.status || '') === 'در انتظار'; });
+  var map = null;
+  map = ytRenderMapCached_();
+  var pend = d.items.filter(function (x) {
+    if (String(x.status || '') !== 'در انتظار') return false;
+    // ساخته شده و فقط منتظرِ برداشت است — این دیگر «درخواستِ بی‌جواب» نیست.
+    if (map && map[String(x.key)] && map[String(x.key)].url) return false;
+    return true;
+  });
   if (pend.length >= cap) return false;
   var row = { key: key, show: item.show, ep: String(item.ep),
               title: String(item.title || ''), folderId: String(item.folderId || ''),
@@ -32439,6 +32467,15 @@ function ytRenderRefresh_() {
 }
 
 /** نقشهٔ ویدئوهای ساخته‌شده، از raw گیت‌هاب. */
+/* نقشهٔ ویدئوها یک بار در هر اجرا خوانده می‌شود: چند بار خواندنش در یک دور
+   هم کند است هم می‌تواند وسطِ کار عوض شود و دو تصمیمِ ناهمخوان بسازد. */
+var _ytMapMemo = null;
+function ytRenderMapCached_() {
+  if (_ytMapMemo !== null) return _ytMapMemo;
+  try { _ytMapMemo = ytRenderMap_(); } catch (e) { _ytMapMemo = null; }
+  return _ytMapMemo;
+}
+
 function ytRenderMap_() {
   try {
     var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
@@ -32518,8 +32555,22 @@ function ytRenderCollect_(budgetMs) {
   } catch (eRf) { logLine_('تازه‌سازیِ درخواست‌های رندر نشد: ' + eRf.message); }
   /* و خودِ صف هم باید خواندنی بماند — اکشن راهِ دیگری برای دیدنش ندارد. */
   try { ytQueueShare_(); } catch (eQs) {}
-  var map = ytRenderMap_();
-  if (!map) { out.why = 'نقشهٔ ویدئوها خوانده نشد'; return out; }
+  /* برداشت **همیشه** نقشهٔ تازه می‌خواند، نه نسخهٔ کش‌شده: مصرف‌کننده باید
+     تازه‌ترین حالت را ببیند. کش فقط برای `ytRenderAsk_` است که ممکن است در
+     یک حلقه ده‌ها بار پرسیده شود. */
+  var map = null;
+  try { map = ytRenderMap_(); } catch (eMp) { map = null; }
+  _ytMapMemo = map;                       // و همان تازه، کشِ همین اجرا می‌شود
+  /* ══ شکستِ بی‌صدا در قلبِ زنجیره (۶٫۳۷) ══
+   * اگر نقشه خوانده نشود، این تابع در سکوت برمی‌گشت: فراخوانش فقط
+   * `if (yc.got)` را لاگ می‌کرد، پس «صفر برداشت» از «نتوانستم بخوانم»
+   * جدا نمی‌شد. دو روز هیچ ویدئویی برداشته نشد و هیچ سطری نگفت چرا. */
+  if (!map) {
+    out.why = 'نقشهٔ ویدئوها (docs/renders.json) خوانده نشد';
+    logLine_('یوتیوب: ' + out.why + ' — ' + pend.length +
+             ' درخواست منتظر مانده و هیچ‌کدام برداشته نشد.');
+    return out;
+  }
 
   var cap = Math.max(1, Number(CFG.YT_COLLECT_MAX) || 3);
   var t0 = new Date().getTime();
@@ -32537,7 +32588,14 @@ function ytRenderCollect_(budgetMs) {
       logLine_('ویدئوی «' + pend[i].key + '» رسید و در پوشهٔ قسمت نشست.');
     } else {
       logLine_('ویدئوی «' + pend[i].key + '» برداشته نشد: ' + r.why);
+      if (!out.why) out.why = pend[i].key + ': ' + r.why;
     }
+  }
+  /* «هیچ‌کدام آماده نبود» هم خبر است، نه سکوت. */
+  if (!out.got && !out.tried && pend.length) {
+    out.why = out.why || (pend.length + ' درخواست منتظر است ولی هیچ‌کدام هنوز ' +
+                          'در نقشهٔ ویدئوها نیست');
+    logLine_('یوتیوب: ' + out.why + '.');
   }
   return out;
 }
@@ -33625,6 +33683,45 @@ function ytPubIdleDays_(hub) {
  * ارزان است و باید بماند: بی ویدئوی آماده و بی صفِ باز، تقریباً هیچ‌کاری
  * نمی‌کند. سقفش هم کوچک است تا وارسیِ سلامت را عقب نیندازد.
  */
+/**
+ * ══ یوتیوب دیگر مسافرِ اجرای کسِ دیگری نیست (۶٫۳۷) ══
+ *
+ * گزارشِ صاحبِ برنامه: «باز تو یوتیوب هیچ اتفاقی نیفتاد با اینکه یک روزِ
+ * کامل گذشت.» و راست می‌گفت — صف از ۱۵ به ۱۷ رفت و منتشرشده روی ۲ ماند.
+ *
+ * دو نوبتِ روزانه داشت و هر دو **مهمانِ اجرای کسِ دیگری** بودند:
+ *   • کارِ شبانه — هشتمین بند، پشتِ گشتنِ موسیقی و بازشنیدنِ بانک و جزوه.
+ *     بودجهٔ کلِ شب ۲۷۰ ثانیه است؛ وقتی نوبتش می‌رسد چند ده ثانیه مانده و
+ *     آپلودِ یک ویدئوی ۱۴ مگابایتی در آن جا نمی‌شود.
+ *   • وارسیِ سلامتِ ۱۰ صبح — و آن اجرا همان روز اصلاً به آخر نرسید
+ *     (`health.checkedAt` مالِ دیروز بود). یعنی هر دو شانس در یک روز رفت.
+ *
+ * کاری که صفش هر روز دو تا رشد می‌کند، نمی‌تواند مهمانِ صفِ کسِ دیگری
+ * بماند. این تابع زمان‌بندیِ خودش را دارد: کوچک، کران‌دار، و بی‌رقیب.
+ * دو نوبتِ قبلی سرِ جایشان می‌مانند — سه در برای یک کار، نه یکی کمتر.
+ */
+function ytPublishTick() {
+  var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
+  try {
+    if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
+    var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));
+    out.collected = r.collected; out.published = r.published;
+    out.queued = r.queued; out.waiting = r.waiting; out.why = r.why || '';
+    /* سطرِ سیاهه فقط وقتی چیزی شد یا چیزی نشد و علتی هست — نه هر دو ساعت
+       یک سطرِ «هیچ». */
+    if (r.collected || r.published || r.queued) {
+      logLine_('یوتیوبِ دوره‌ای: ' + r.queued + ' به صف، ' + r.collected +
+               ' ویدئو برداشته شد، ' + r.published + ' منتشر شد.');
+    } else if (r.why) {
+      logLine_('یوتیوبِ دوره‌ای: کاری انجام نشد — ' + r.why);
+    }
+  } catch (e) {
+    out.ok = false; out.why = e.message;
+    logLine_('یوتیوبِ دوره‌ای اجرا نشد: ' + e.message);
+  }
+  return out;
+}
+
 function ytTick_(budgetMs) {
   var out = { collected: 0, published: 0, waiting: 0, queued: 0, why: '' };
   if (CFG.YT_ENABLED === false) { out.why = 'خاموش'; return out; }

@@ -116,67 +116,62 @@ function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
   ensureMenuTrigger_();
-  // همگام‌سازی هر ۲ ساعت: محتوای تازهٔ شیت‌ها را برمی‌دارد
-  ScriptApp.newTrigger('syncCatalog').timeBased().everyHours(2).create();
-  // آماده‌سازیِ متن، چند ساعت پیش از انتشار: در این فاصله Cowork متن را با
-  // جست‌وجوی وب غنی می‌کند و بعد صدا ساخته می‌شود.
-  if (CFG.ENRICH_ENABLED !== false) {
-    ScriptApp.newTrigger('prepareEpisode').timeBased()
-      .atHour(CFG.PREPARE_HOUR || 4).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-    if (CFG.SPECIAL_ENABLED) {
-      ScriptApp.newTrigger('prepareSpecialEpisode').timeBased()
-        .atHour(CFG.PREPARE_SPECIAL_HOUR || 5).nearMinute(0).everyDays(1)
-        .inTimezone(CFG.TIMEZONE).create();
-    }
-  }
-  // تولید قسمت روزانهٔ «از همه جا از همه رنگ»، ساعت ۷ صبح به وقت دبی
-  ScriptApp.newTrigger('produceEpisode').timeBased().atHour(CFG.EPISODE_HOUR || 7)
-    .nearMinute(0).everyDays(1).inTimezone(CFG.TIMEZONE).create();
-  // تولید قسمت روزانهٔ «درس‌نامه»، یک ساعت بعد — دو تولیدِ سنگین هم‌زمان
-  // اجرا نمی‌شوند و قفلِ اسکریپت به هم برخورد نمی‌کند.
-  if (CFG.SPECIAL_ENABLED) {
-    ScriptApp.newTrigger('produceSpecialEpisode').timeBased()
-      .atHour(clampHour_(CFG.SPECIAL_HOUR, 8)).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-  }
-  // وارسی سلامت، سه ساعت بعد از زمان تولید، تا اگر قسمت نیامد خبردار شوید
-  ScriptApp.newTrigger('healthCheck').timeBased().atHour(10).nearMinute(0)
-    .everyDays(1).inTimezone(CFG.TIMEZONE).create();
-  // بررسیِ شبانهٔ کدِ تازه — پیش از پشتیبان، تا نسخهٔ نصب‌شده هم در پشتیبانِ همان شب بیاید
-  if (CFG.AUTOUPDATE_ENABLED !== false) {
-    ScriptApp.newTrigger('selfUpdateDaily').timeBased()
-      .atHour(clampHour_(CFG.UPDATE_HOUR, 2)).nearMinute(30).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-  }
-  // پشتیبانِ شبانهٔ شیت‌ها — پیش از شروعِ کارِ روز، وقتی هیچ تولیدی در جریان نیست
-  if (CFG.BACKUP_ENABLED) {
-    ScriptApp.newTrigger('backupDaily').timeBased()
-      .atHour(CFG.BACKUP_HOUR).nearMinute(0).everyDays(1)
-      .inTimezone(CFG.TIMEZONE).create();
-    // از این لحظه انتظارِ پشتیبانِ شبانه داریم. وارسیِ سلامت بر پایهٔ همین
-    // زمان قضاوت می‌کند، وگرنه همان دقیقهٔ نصب هشدارِ «پشتیبان نگرفته‌ای» می‌داد.
-    if (!props_().getProperty(PK.BACKUP_SINCE)) {
-      props_().setProperty(PK.BACKUP_SINCE, nowStr_());
+
+  /* ══ یک فهرست، دو مصرف — این بار واقعاً (۶٫۳۷) ══
+   * ۵٫۹۵ `wantedTriggers_()` را ساخت تا «چه چیزی باید نصب باشد» یک نسخه
+   * داشته باشد، و `removeTriggers` و `trigNames_` را به آن وصل کرد. ولی
+   * **سازنده** دست‌نویس ماند: یازده فراخوانِ `newTrigger` پشتِ سرِ هم.
+   * یعنی همان بیماری، نصفه‌درمان‌شده — و امروز خودش را نشان داد: زمان‌بندیِ
+   * تازهٔ یوتیوب به فهرست اضافه شد و سازنده نمی‌ساختش، پس `trigNames_` تا
+   * ابد می‌گفت «یکی گم است» و هیچ‌کس نمی‌ساختش.
+   * حالا سازنده هم از همان فهرست می‌سازد. زمان‌بندیِ ویژگیِ بعدی خودبه‌خود
+   * نصب می‌شود. */
+  var want = wantedTriggers_(), made = [];
+  for (var i = 0; i < want.length; i++) {
+    var w = want[i];
+    try {
+      var b = ScriptApp.newTrigger(w.fn).timeBased();
+      if (w.kind === 'hours') {
+        b.everyHours(Math.max(1, Number(w.every) || 1)).create();
+        made.push('• ' + trigLabel_(w.fn) + ': هر ' +
+                  faDigitsOut_(String(Math.max(1, Number(w.every) || 1))) + ' ساعت');
+      } else {
+        var hr = Math.max(0, Math.min(23, Number(w.hour) || 0));
+        var mn = Math.max(0, Math.min(59, Number(w.minute) || 0));
+        b.atHour(hr).nearMinute(mn).everyDays(1).inTimezone(CFG.TIMEZONE).create();
+        made.push('• ' + trigLabel_(w.fn) + ': هر روز ساعت ' + faDigitsOut_(String(hr)) +
+                  (mn ? ':' + faDigitsOut_(('0' + mn).slice(-2)) : '') + ' (دبی)');
+      }
+    } catch (e) {
+      logLine_('زمان‌بندیِ «' + w.fn + '» ساخته نشد: ' + e.message);
     }
   }
 
-  var msg = 'زمان‌بندی نصب شد:\n• همگام‌سازی: هر ۲ ساعت\n' +
-            (CFG.ENRICH_ENABLED !== false
-               ? '• آماده‌سازیِ متن (برای غنی‌سازیِ اینترنتی): ساعت ' +
-                 (CFG.PREPARE_HOUR || 4) + ' و ' + (CFG.PREPARE_SPECIAL_HOUR || 5) + '\n' : '') +
-            (CFG.BACKUP_ENABLED
-               ? '• پشتیبانِ شیت‌ها: هر شب ساعت ' + CFG.BACKUP_HOUR + ' (دبی)، ' +
-                 CFG.BACKUP_KEEP + ' نسخهٔ آخر نگه داشته می‌شود\n' : '') +
-            (CFG.AUTOUPDATE_ENABLED !== false
-               ? '• نصبِ خودکارِ کدِ تازه: هر شب ساعت ' + clampHour_(CFG.UPDATE_HOUR, 2) +
-                 ':۳۰ (اگر ناظر کدِ تازه گذاشته باشد)\n' : '') +
-            '• «از همه جا از همه رنگ»: هر روز ساعت ۷ صبح (دبی)\n' +
-            (CFG.SPECIAL_ENABLED
-               ? '• «درس‌نامه» (تخصصی): هر روز ساعت ' + CFG.SPECIAL_HOUR + ' صبح (دبی)\n' : '') +
-            '• وارسی سلامت: هر روز ساعت ۱۰ صبح\n• منوی شیت: فعال';
-  logLine_('زمان‌بندی نصب شد.');
+  if (CFG.BACKUP_ENABLED && !props_().getProperty(PK.BACKUP_SINCE)) {
+    // از این لحظه انتظارِ پشتیبانِ شبانه داریم. وارسیِ سلامت بر پایهٔ همین
+    // زمان قضاوت می‌کند، وگرنه همان دقیقهٔ نصب هشدارِ «پشتیبان نگرفته‌ای» می‌داد.
+    props_().setProperty(PK.BACKUP_SINCE, nowStr_());
+  }
+
+  var msg = 'زمان‌بندی نصب شد:\n' + made.join('\n') + '\n• منوی شیت: فعال';
+  logLine_('زمان‌بندی نصب شد (' + made.length + ' مورد).');
   var ui = ui_(); if (ui) ui.alert(msg); else console.log(msg);
+}
+
+/** نامِ خواندنیِ هر زمان‌بندی، برای پیامِ نصب. یک نگاشت، نه یازده رشتهٔ پراکنده. */
+function trigLabel_(fn) {
+  var m = {
+    syncCatalog: 'همگام‌سازی',
+    prepareEpisode: 'آماده‌سازیِ متنِ «از همه جا از همه رنگ»',
+    prepareSpecialEpisode: 'آماده‌سازیِ متنِ «درس‌نامه»',
+    produceEpisode: '«از همه جا از همه رنگ»',
+    produceSpecialEpisode: '«درس‌نامه» (تخصصی)',
+    healthCheck: 'وارسی سلامت',
+    backupDaily: 'پشتیبانِ شیت‌ها',
+    selfUpdateDaily: 'نصبِ خودکارِ کدِ تازه',
+    ytPublishTick: 'انتشار در یوتیوب'
+  };
+  return Object.prototype.hasOwnProperty.call(m, fn) ? m[fn] : fn;
 }
 
 /**
@@ -220,7 +215,16 @@ function wantedTriggers_() {
     want.push({ fn: 'backupDaily', kind: 'daily', hour: CFG.BACKUP_HOUR });
   }
   if (CFG.AUTOUPDATE_ENABLED !== false) {
-    want.push({ fn: 'selfUpdateDaily', kind: 'daily', hour: clampHour_(CFG.UPDATE_HOUR, 2) });
+    want.push({ fn: 'selfUpdateDaily', kind: 'daily',
+                hour: clampHour_(CFG.UPDATE_HOUR, 2), minute: 30 });
+  }
+  /* یوتیوب زمان‌بندیِ خودش را دارد (۶٫۳۷). تا اینجا دو نوبت داشت و هر دو
+     مهمانِ اجرای کسِ دیگری بودند — کارِ شبانه (هشتمین بند، پشتِ موسیقی و
+     جزوه) و وارسیِ سلامت. روزی که هر دو گرسنه ماندند، صف رشد کرد و هیچ
+     ویدئویی بالا نرفت، و از بیرون شبیهِ «کاری نبود» به نظر رسید. */
+  if (CFG.YT_ENABLED !== false) {
+    want.push({ fn: 'ytPublishTick', kind: 'hours',
+                every: Math.max(1, Number(CFG.YT_TICK_HOURS) || 2) });
   }
   return want;
 }

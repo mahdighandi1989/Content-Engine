@@ -820,8 +820,27 @@ function ytRenderAsk_(item) {
   for (var i = 0; i < d.items.length; i++) {
     if (String(d.items[i].key) === key) return false;      // قبلاً خواسته شده
   }
+  /* ══ سقفی که خودش صف را قفل می‌کرد (۶٫۳۷) ══
+   * این سقف برای «درخواستِ رندرِ انباشته» گذاشته شده بود — ولی چیزی که
+   * می‌شمرد ردیف‌های «در انتظار» بود، و ردیف تا وقتی ویدئواش **برداشته**
+   * نشود در انتظار می‌مانَد.
+   *
+   * پس وقتی برداشت شکست، هشت ردیفِ ساخته‌شده‌ولی‌برنداشته سقف را پر کردند و
+   * از آن لحظه **هیچ درخواستِ تازه‌ای نوشته نشد**. اکشنِ گیت‌هاب هر ساعت
+   * سبز می‌شد و می‌گفت «صف: ۸ ردیف، ۰ تای ساخته‌نشده» — یعنی از بیرون
+   * همه‌چیز سالم بود، در حالی که صفِ انتشار هفده تا شده بود و دو روز هیچ
+   * ویدئویی بالا نرفت.
+   *
+   * «منتظرِ ساخت» و «منتظرِ برداشت» دو چیزند. سقف فقط باید اولی را بشمرد. */
   var cap = Math.max(1, Number(CFG.YT_RENDER_MAX) || 8);
-  var pend = d.items.filter(function (x) { return String(x.status || '') === 'در انتظار'; });
+  var map = null;
+  map = ytRenderMapCached_();
+  var pend = d.items.filter(function (x) {
+    if (String(x.status || '') !== 'در انتظار') return false;
+    // ساخته شده و فقط منتظرِ برداشت است — این دیگر «درخواستِ بی‌جواب» نیست.
+    if (map && map[String(x.key)] && map[String(x.key)].url) return false;
+    return true;
+  });
   if (pend.length >= cap) return false;
   var row = { key: key, show: item.show, ep: String(item.ep),
               title: String(item.title || ''), folderId: String(item.folderId || ''),
@@ -1013,6 +1032,15 @@ function ytRenderRefresh_() {
 }
 
 /** نقشهٔ ویدئوهای ساخته‌شده، از raw گیت‌هاب. */
+/* نقشهٔ ویدئوها یک بار در هر اجرا خوانده می‌شود: چند بار خواندنش در یک دور
+   هم کند است هم می‌تواند وسطِ کار عوض شود و دو تصمیمِ ناهمخوان بسازد. */
+var _ytMapMemo = null;
+function ytRenderMapCached_() {
+  if (_ytMapMemo !== null) return _ytMapMemo;
+  try { _ytMapMemo = ytRenderMap_(); } catch (e) { _ytMapMemo = null; }
+  return _ytMapMemo;
+}
+
 function ytRenderMap_() {
   try {
     var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
@@ -1092,8 +1120,22 @@ function ytRenderCollect_(budgetMs) {
   } catch (eRf) { logLine_('تازه‌سازیِ درخواست‌های رندر نشد: ' + eRf.message); }
   /* و خودِ صف هم باید خواندنی بماند — اکشن راهِ دیگری برای دیدنش ندارد. */
   try { ytQueueShare_(); } catch (eQs) {}
-  var map = ytRenderMap_();
-  if (!map) { out.why = 'نقشهٔ ویدئوها خوانده نشد'; return out; }
+  /* برداشت **همیشه** نقشهٔ تازه می‌خواند، نه نسخهٔ کش‌شده: مصرف‌کننده باید
+     تازه‌ترین حالت را ببیند. کش فقط برای `ytRenderAsk_` است که ممکن است در
+     یک حلقه ده‌ها بار پرسیده شود. */
+  var map = null;
+  try { map = ytRenderMap_(); } catch (eMp) { map = null; }
+  _ytMapMemo = map;                       // و همان تازه، کشِ همین اجرا می‌شود
+  /* ══ شکستِ بی‌صدا در قلبِ زنجیره (۶٫۳۷) ══
+   * اگر نقشه خوانده نشود، این تابع در سکوت برمی‌گشت: فراخوانش فقط
+   * `if (yc.got)` را لاگ می‌کرد، پس «صفر برداشت» از «نتوانستم بخوانم»
+   * جدا نمی‌شد. دو روز هیچ ویدئویی برداشته نشد و هیچ سطری نگفت چرا. */
+  if (!map) {
+    out.why = 'نقشهٔ ویدئوها (docs/renders.json) خوانده نشد';
+    logLine_('یوتیوب: ' + out.why + ' — ' + pend.length +
+             ' درخواست منتظر مانده و هیچ‌کدام برداشته نشد.');
+    return out;
+  }
 
   var cap = Math.max(1, Number(CFG.YT_COLLECT_MAX) || 3);
   var t0 = new Date().getTime();
@@ -1111,7 +1153,14 @@ function ytRenderCollect_(budgetMs) {
       logLine_('ویدئوی «' + pend[i].key + '» رسید و در پوشهٔ قسمت نشست.');
     } else {
       logLine_('ویدئوی «' + pend[i].key + '» برداشته نشد: ' + r.why);
+      if (!out.why) out.why = pend[i].key + ': ' + r.why;
     }
+  }
+  /* «هیچ‌کدام آماده نبود» هم خبر است، نه سکوت. */
+  if (!out.got && !out.tried && pend.length) {
+    out.why = out.why || (pend.length + ' درخواست منتظر است ولی هیچ‌کدام هنوز ' +
+                          'در نقشهٔ ویدئوها نیست');
+    logLine_('یوتیوب: ' + out.why + '.');
   }
   return out;
 }
@@ -2199,6 +2248,45 @@ function ytPubIdleDays_(hub) {
  * ارزان است و باید بماند: بی ویدئوی آماده و بی صفِ باز، تقریباً هیچ‌کاری
  * نمی‌کند. سقفش هم کوچک است تا وارسیِ سلامت را عقب نیندازد.
  */
+/**
+ * ══ یوتیوب دیگر مسافرِ اجرای کسِ دیگری نیست (۶٫۳۷) ══
+ *
+ * گزارشِ صاحبِ برنامه: «باز تو یوتیوب هیچ اتفاقی نیفتاد با اینکه یک روزِ
+ * کامل گذشت.» و راست می‌گفت — صف از ۱۵ به ۱۷ رفت و منتشرشده روی ۲ ماند.
+ *
+ * دو نوبتِ روزانه داشت و هر دو **مهمانِ اجرای کسِ دیگری** بودند:
+ *   • کارِ شبانه — هشتمین بند، پشتِ گشتنِ موسیقی و بازشنیدنِ بانک و جزوه.
+ *     بودجهٔ کلِ شب ۲۷۰ ثانیه است؛ وقتی نوبتش می‌رسد چند ده ثانیه مانده و
+ *     آپلودِ یک ویدئوی ۱۴ مگابایتی در آن جا نمی‌شود.
+ *   • وارسیِ سلامتِ ۱۰ صبح — و آن اجرا همان روز اصلاً به آخر نرسید
+ *     (`health.checkedAt` مالِ دیروز بود). یعنی هر دو شانس در یک روز رفت.
+ *
+ * کاری که صفش هر روز دو تا رشد می‌کند، نمی‌تواند مهمانِ صفِ کسِ دیگری
+ * بماند. این تابع زمان‌بندیِ خودش را دارد: کوچک، کران‌دار، و بی‌رقیب.
+ * دو نوبتِ قبلی سرِ جایشان می‌مانند — سه در برای یک کار، نه یکی کمتر.
+ */
+function ytPublishTick() {
+  var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
+  try {
+    if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
+    var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));
+    out.collected = r.collected; out.published = r.published;
+    out.queued = r.queued; out.waiting = r.waiting; out.why = r.why || '';
+    /* سطرِ سیاهه فقط وقتی چیزی شد یا چیزی نشد و علتی هست — نه هر دو ساعت
+       یک سطرِ «هیچ». */
+    if (r.collected || r.published || r.queued) {
+      logLine_('یوتیوبِ دوره‌ای: ' + r.queued + ' به صف، ' + r.collected +
+               ' ویدئو برداشته شد، ' + r.published + ' منتشر شد.');
+    } else if (r.why) {
+      logLine_('یوتیوبِ دوره‌ای: کاری انجام نشد — ' + r.why);
+    }
+  } catch (e) {
+    out.ok = false; out.why = e.message;
+    logLine_('یوتیوبِ دوره‌ای اجرا نشد: ' + e.message);
+  }
+  return out;
+}
+
 function ytTick_(budgetMs) {
   var out = { collected: 0, published: 0, waiting: 0, queued: 0, why: '' };
   if (CFG.YT_ENABLED === false) { out.why = 'خاموش'; return out; }

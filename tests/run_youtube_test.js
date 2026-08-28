@@ -1752,4 +1752,93 @@ console.log('=== ۴۴) خلاصهٔ لینک‌ها: ایمیل و تلگرام 
   global.__PROPS[PK.HUB_ID] = hubWas;
 }
 
+/* ══ صفی که خودش را قفل کرد — گزارشِ ۲۸ اوت (۶٫۳۷) ══
+   «باز تو یوتیوب هیچ اتفاقی نیفتاد با اینکه یک روزِ کامل گذشت.»
+   سیاههٔ اکشنِ گیت‌هاب همان روز: «صف: 8 ردیف، 0 تای ساخته‌نشده» — یعنی هر
+   هشت ویدئو ساخته شده بود و صف دو روز تکان نخورده بود، در حالی که صفِ
+   انتشارِ موتور از ۱۵ به ۱۷ رفت. */
+console.log('\n=== ۴۵) سقفِ درخواستِ رندر، صف را قفل نمی‌کند ===');
+{
+  const root = global.__ROOT_FOLDER;
+  const stubWas0 = global.__STUB;
+  // هشت ردیفِ «در انتظار» که همه‌شان ساخته شده‌اند و فقط برداشته نشده‌اند
+  const items = {};
+  for (let i = 1; i <= 8; i++) {
+    DriveApp.__register('LOCKF' + i, 'قسمت ' + i);
+    const w = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav',
+                                                'c' + i + '.wav'));
+    ytRenderAsk_({ show: 'special', ep: 'L' + i, title: 'ت', folderId: 'LOCKF' + i,
+      audio: [{ id: w.getId(), name: 'کامل.wav' }], coverFileId: '', outName: 'x.mp4' });
+    items['special:L' + i] = { url: 'https://github.test/x/' + i + '.mp4' };
+  }
+  const pend0 = ytRenderPending_().n;
+  ok('۴۵.۱ هشت درخواستِ «در انتظار» ثبت شد', pend0 >= 8, String(pend0));
+
+  // نقشه می‌گوید هر هشت‌تا ساخته شده‌اند
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) {
+      return { code: 200, text: JSON.stringify({ items: items }) };
+    }
+    return stubWas0 ? stubWas0(url) : { code: 404, text: '' };
+  };
+  _ytMapMemo = null;
+
+  DriveApp.__register('LOCKF9', 'قسمت ۹');
+  const w9 = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'c9.wav'));
+  const added = ytRenderAsk_({ show: 'special', ep: 'L9', title: 'ت', folderId: 'LOCKF9',
+    audio: [{ id: w9.getId(), name: 'کامل.wav' }], coverFileId: '', outName: 'x.mp4' });
+  /* تا ۶٫۳۶ اینجا false برمی‌گشت: سقف ردیف‌های «در انتظار» را می‌شمرد و
+     ردیفی که فقط منتظرِ *برداشت* است هم «در انتظار» است. یعنی یک برداشتِ
+     شکسته، نوشتنِ هر درخواستِ تازه‌ای را برای همیشه می‌بست. */
+  ok('۴۵.۲ ردیفی که ساخته شده، سقفِ درخواست را پر نمی‌کند', added === true);
+
+  // و اگر واقعاً هشت‌تا ساخته‌نشده باشند، سقف باید ببندد
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) return { code: 200, text: '{"items":{}}' };
+    return stubWas0 ? stubWas0(url) : { code: 404, text: '' };
+  };
+  _ytMapMemo = null;
+  DriveApp.__register('LOCKF10', 'قسمت ۱۰');
+  const w10 = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'c10.wav'));
+  ok('۴۵.۳ ولی وقتی هیچ‌کدام ساخته نشده، سقف واقعاً می‌بندد',
+     ytRenderAsk_({ show: 'special', ep: 'L10', title: 'ت', folderId: 'LOCKF10',
+       audio: [{ id: w10.getId(), name: 'کامل.wav' }], coverFileId: '',
+       outName: 'x.mp4' }) === false);
+
+  /* و شکستِ خواندنِ نقشه دیگر بی‌صدا نیست: دو روز هیچ ویدئویی برداشته نشد و
+     هیچ سطری نگفت چرا، چون فراخوان فقط `if (yc.got)` را لاگ می‌کرد. */
+  global.__STUB = function (url) {
+    if (url.indexOf('renders.json') !== -1) return { code: 500, text: 'boom' };
+    return stubWas0 ? stubWas0(url) : { code: 404, text: '' };
+  };
+  _ytMapMemo = null;
+  const c = ytRenderCollect_(30000);
+  ok('۴۵.۴ نخواندنِ نقشه، علتِ نوشته‌شده دارد',
+     c.got === 0 && String(c.why || '').indexOf('نقشهٔ ویدئوها') !== -1, c.why);
+  global.__STUB = stubWas0;
+  _ytMapMemo = null;
+}
+
+console.log('\n=== ۴۶) یوتیوب زمان‌بندیِ خودش را دارد ===');
+{
+  /* تا ۶٫۳۶ دو نوبت داشت و هر دو مهمانِ اجرای کسِ دیگری بودند: کارِ شبانه
+     (هشتمین بند، پشتِ موسیقی و جزوه، از بودجهٔ ۲۷۰ثانیه‌ای) و وارسیِ سلامت.
+     روزی که هر دو گرسنه ماندند، صف رشد کرد و هیچ ویدئویی بالا نرفت. */
+  const want = wantedTriggers_().map(w => w.fn);
+  ok('۴۶.۱ زمان‌بندیِ مستقلِ انتشار در فهرست هست',
+     want.indexOf('ytPublishTick') !== -1, want.join(','));
+  ok('۴۶.۲ و ساعتی است، نه روزانه',
+     wantedTriggers_().find(w => w.fn === 'ytPublishTick').kind === 'hours');
+  ok('۴۶.۳ و خودِ تابع وجود دارد', typeof ytPublishTick === 'function');
+  /* و سازنده هم از همان فهرست می‌سازد — وگرنه فهرست می‌گوید «باید باشد» و
+     هیچ‌کس نمی‌سازدش، که بدتر از نبودنش است. */
+  const src37 = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const body = src37.slice(src37.indexOf('function installTriggers()'),
+                           src37.indexOf('function trigLabel_'));
+  ok('۴۶.۴ نصب‌کننده از همان فهرست می‌سازد، نه از فهرستِ دست‌نویس',
+     body.indexOf('wantedTriggers_()') !== -1 &&
+     (body.match(/newTrigger\(/g) || []).length === 1,
+     (body.match(/newTrigger\(/g) || []).length + ' فراخوانِ newTrigger');
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

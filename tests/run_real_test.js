@@ -236,9 +236,11 @@ console.log('\n=== ۳) پادکست تخصصی بی‌تریگر مانده بو
   })());
   // بارِ دوم چیزی نصب نمی‌شود
   const before = made.length;
+  /* فهرست از خودِ `wantedTriggers_()` ساخته می‌شود، نه دست‌نویس: نمونه‌ای که
+     نامِ زمان‌بندی‌ها را کپی کند، روزی که یکی اضافه شود بی‌صدا کهنه می‌شود —
+     همان بیماری‌ای که ۵٫۹۵ و ۶٫۳۷ در خودِ کد بستند. */
   global.ScriptApp.getProjectTriggers = () =>
-    ['onOpen','syncCatalog','produceEpisode','healthCheck','produceSpecialEpisode',
-     'backupDaily','prepareEpisode','prepareSpecialEpisode','selfUpdateDaily']
+    ['onOpen'].concat(wantedTriggers_().map(w => w.fn))
       .map(f => ({ getHandlerFunction: () => f }));
   un = quiet(); ensureScheduledTriggers_(); un();
   ok('اجرای دوباره تریگرِ تکراری نمی‌سازد', made.length === before, made.length + '');
