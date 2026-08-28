@@ -801,9 +801,66 @@ function mailQueueHtml_(q) {
   return h.join('');
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * بودجه و ردِ پا برای وارسیِ سلامت (۶٫۳۸)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ══ دو روز پیاپی، ۱۰ صبح، هیچ ══
+ * `health.checkedAt` دو روز مالِ *دیروز* ماند در حالی که تریگرش سرِ جایش
+ * بود و یکی بیشتر هم نبود. یعنی اجرا شروع می‌شد و به آخر نمی‌رسید. و چون
+ * مُهر و ایمیل هر دو در انتهای تابع‌اند، هر بار **همه‌چیز** با هم می‌رفت:
+ * ایمیلِ روزانه، هشدارِ گیرکردنِ یوتیوب، سطرِ صفِ داوری، دورِ ۱۰ صبحِ انتشار.
+ * از بیرون شبیهِ «امروز خبری نبود» به نظر می‌رسید.
+ *
+ * علتِ محتمل، و صادقانه بگویم: دو سنجهٔ سنگینی که خودم در ۶٫۳۳ و ۶٫۳۴ به
+ * همین تابع اضافه کردم — وارسیِ ترتیبِ ۲۶۳ مجموعه و شمارشِ صفِ داوری — هر
+ * دو **دو بار** حساب می‌شدند: یک بار درونِ `writeStatus_` (که سرِ همین تابع
+ * صدا زده می‌شود) و یک بار در بدنه. اولین روزِ خرابی هم دقیقاً اولین روزی
+ * بود که آن دو زنده شدند.
+ *
+ * ولی «محتمل» کافی نیست، و حدس‌زدن دقیقاً همان کاری است که این ریپو بارها
+ * از آن ضربه خورده. پس دو چیز با هم: بودجه (تا کارِ اختیاری، کارِ واجب را
+ * نکشد) و ردِ پا (تا دفعهٔ بعد خودش بگوید کجا ایستاد، نه اینکه دوباره حدس
+ * بزنیم).
+ */
+var _healthT0 = 0, _healthStep = '';
+
+function healthStart_() {
+  _healthT0 = new Date().getTime();
+  _healthStep = 'شروع';
+  try { props_().setProperty(PK.HEALTH_STEP, 'شروع @ ' + nowStr_()); } catch (e) {}
+}
+
+/** ردِ پا: کجاییم. اگر اجرا کشته شود، همین آخرین مقدار می‌مانَد. */
+function healthStep_(name) {
+  _healthStep = String(name || '');
+  try {
+    props_().setProperty(PK.HEALTH_STEP, _healthStep + ' @ ' +
+      Math.round((new Date().getTime() - _healthT0) / 1000) + 'ث');
+  } catch (e) {}
+}
+
+function healthLeft_() {
+  if (!_healthT0) healthStart_();
+  var budget = Math.max(60000, Number(CFG.HEALTH_BUDGET_MS) || 280000);
+  return budget - (new Date().getTime() - _healthT0);
+}
+
+/**
+ * آیا برای کارِ اختیاری وقت هست؟ نبودش **گفته می‌شود**، نه در سکوت.
+ * سطرِ روزانه‌ای که بی‌صدا جا بیفتد، از نبودنش بدتر است: خواننده فکر می‌کند
+ * آن زیرسامانه ساکت و سالم است.
+ */
+function healthHas_(needMs, what, skipped) {
+  if (healthLeft_() >= needMs) { healthStep_(what); return true; }
+  if (skipped) skipped.push(what);
+  return false;
+}
+
 function healthCheck() {
+  healthStart_();
   var hub = getHub_();
-  var problems = [], notes = [];
+  var problems = [], notes = [], skipped = [];
   var now = new Date().getTime();
 
   // نوشتنِ فایل وضعیت نباید بتواند خودِ وارسی را بکشد. اگر درایو یک لحظه
@@ -1199,16 +1256,24 @@ function healthCheck() {
    * امروز را می‌گوید — همان اشتباهی که در سیاههٔ شناسنامهٔ کانال کردیم و
    * «⬜ خالی — پر شد» بیرون داد. */
   try {
-    var ytT = ytTick_(90000);
+    /* بودجه از آنچه واقعاً مانده گرفته می‌شود، نه از عددِ ثابت. و از ۶٫۳۷
+       انتشار نوبتِ مستقلِ خودش را دارد، پس این دور «شانسِ دوم» است نه
+       تنها شانس — اگر وقت نبود، هیچ چیزی از دست نمی‌رود. */
+    var ytBudget = Math.min(90000, healthLeft_() - 120000);
+    if (ytBudget < 25000) { skipped.push('دورِ ۱۰ صبحِ یوتیوب'); throw { __skip: 1 }; }
+    healthStep_('یوتیوب');
+    var ytT = ytTick_(ytBudget);
     if (ytT.collected || ytT.published || ytT.queued) {
       notes.push('یوتیوب (دورِ ۱۰ صبح): ' + faDigitsOut_(String(ytT.queued)) +
                  ' قسمت به صف رفت، ' + faDigitsOut_(String(ytT.collected)) +
                  ' ویدئو برداشته شد، ' + faDigitsOut_(String(ytT.published)) + ' منتشر شد.');
     }
-  } catch (eYk) { notes.push('دورِ دومِ یوتیوب اجرا نشد: ' + eYk.message); }
+  } catch (eYk) {
+    if (!eYk || !eYk.__skip) notes.push('دورِ دومِ یوتیوب اجرا نشد: ' + eYk.message);
+  }
   /* کیفیتِ استخراج هر روز یک خط می‌گیرد، حتی وقتی دوری اجرا نشده — چون
      «هفته‌هاست اجرا نشده» خودش خبر است، و سکوت را نمی‌شود از سلامت تشخیص داد. */
-  try {
+  if (healthHas_(8000, 'کیفیتِ استخراج', skipped)) try {
     var sqL = sqStatus_();
     if (sqL && sqL.line) notes.push(sqL.line);
   } catch (eSq2) {}
@@ -1216,14 +1281,14 @@ function healthCheck() {
      اجرا نشد» در سکوت یک شکل‌اند؛ سطرِ روزانه تنها چیزی است که از هم جدایشان
      می‌کند. و اگر بازبینی پنج قسمت پیاپی هیچ نگیرد، از یادداشت به مشکل
      ارتقا می‌یابد — چون خودِ بازبینی آن‌وقت خراب است. */
-  try {
+  if (healthHas_(6000, 'بازبینیِ متنِ صوتی', skipped)) try {
     var spR = speakReviewStatus_();
     if (spR && spR.line) { if (spR.ok) notes.push(spR.line); else problems.push(spR.line); }
   } catch (eSr) {}
   /* و «چند بخش اصلاً اعراب نگرفت». تا ۶٫۲۸ این عدد فقط روی پروندهٔ قسمت
      می‌نشست و هیچ‌جا خوانده نمی‌شد؛ قسمتی با ۶۲٪ بخشِ بی‌اعراب منتشر شد و
      تنها کسی که فهمید شنونده بود. */
-  try {
+  if (healthHas_(6000, 'اعراب‌گذاری', skipped)) try {
     var skS = speakSkipStatus_();
     if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
   } catch (eSk2) {}
@@ -1231,14 +1296,14 @@ function healthCheck() {
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
      آدمی بود که گزارش را خواند. */
-  try {
+  if (healthHas_(20000, 'صفِ داوریِ محتوا', skipped)) try {
     var aqS = auditQueueStatus_(hub);
     if (aqS && aqS.line) { if (aqS.ok) notes.push(aqS.line); else problems.push(aqS.line); }
   } catch (eAq) {}
   /* ترتیبِ قسمت‌های هر مجموعه. تا ۶٫۳۳ هیچ‌کس نمی‌پرسید ترتیب اصلاً معنا
      دارد یا نه: دو قسمت با یک شماره، یا هیچ‌کدام بی‌شماره، بی‌صدا به ترتیبِ
      ردیفِ شیت می‌افتاد — یعنی ترتیبِ پردازش، نه ترتیبِ درس. */
-  try {
+  if (healthHas_(30000, 'ترتیبِ قسمت‌ها', skipped)) try {
     var soS = seriesOrderStatus_(hub);
     if (soS && soS.line) { if (soS.ok) notes.push(soS.line); else problems.push(soS.line); }
   } catch (eSo) {}
@@ -1251,7 +1316,7 @@ function healthCheck() {
   } catch (eSc2) {}
   /* و عصری‌سازی — به همان دلیل و با همان قاعده. قابلیتی که خودش را بی‌صدا
      خاموش کند، همان است که بانکِ موسیقی را هفته‌ها خالی نگه داشت. */
-  try {
+  if (healthHas_(6000, 'عصری‌سازی', skipped)) try {
     var exS = explainStatus_();
     if (exS && exS.line) { if (exS.ok) notes.push(exS.line); else problems.push(exS.line); }
   } catch (eEx) {}
@@ -1261,7 +1326,7 @@ function healthCheck() {
   } catch (eRc2) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
-  try {
+  if (healthHas_(6000, 'مدل‌ها', skipped)) try {
     var mdS = modelStatus_();
     if (mdS && mdS.line) { if (mdS.ok) notes.push(mdS.line); else problems.push(mdS.line); }
   } catch (eMd) {}
@@ -1287,8 +1352,20 @@ function healthCheck() {
                   'می‌توانید MIN_PRIORITY را پایین‌تر بیاورید.');
   }
 
+  healthStep_('جمع‌بندی');
+  /* کارِ جامانده **گفته می‌شود**. سطرِ روزانه‌ای که بی‌صدا نیاید، خواننده را
+     به این نتیجه می‌رساند که آن زیرسامانه ساکت و سالم است — و همان است که
+     دو روز هیچ‌کس نفهمید وارسی اصلاً تمام نشده. */
+  if (skipped.length) {
+    problems.push('وارسیِ سلامت وقت کم آورد و این بخش‌ها امروز اجرا نشدند: ' +
+                  skipped.join('، ') + '. (کلِ اجرا ' +
+                  Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه)');
+  }
   saveHealthSnapshot_(problems, notes);
-  logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست'));
+  try { props_().setProperty(PK.HEALTH_STEP, 'تمام @ ' + nowStr_()); } catch (eHs) {}
+  logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست') +
+           ' — ' + Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه' +
+           (skipped.length ? '، ' + skipped.length + ' بخش جا ماند' : '') + '.');
 
   /* ── یک ایمیل در روز ──
    * پیش از ۵٫۹۱ این ایمیل فقط وقتی می‌رفت که ایرادی بود، و خبرهای روزمره

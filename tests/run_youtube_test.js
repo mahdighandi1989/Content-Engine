@@ -1326,8 +1326,11 @@ console.log('=== ۳۶) هیچ‌چیز منتظرِ آدم نماند (۶٫۷) =
      src27.slice(src27.indexOf('function ytTick_'),
                  src27.indexOf('function ytStatsDue_'))
           .indexOf('ytRenderCollect_') !== -1);
+  /* از ۶٫۳۸ بودجه‌اش عددِ ثابت نیست: از آنچه واقعاً از وارسیِ سلامت مانده
+     گرفته می‌شود، تا کارِ اختیاری، مُهر و ایمیلِ آخرِ تابع را نکشد. */
   ok('۳۶.۶ و از وارسیِ سلامت صدا زده می‌شود — پس هیچ دکمه‌ای لازم نیست',
-     src08.indexOf('ytTick_(90000)') !== -1);
+     src08.indexOf('ytTick_(ytBudget)') !== -1 &&
+     src08.indexOf('healthLeft_()') !== -1);
   /* ترتیب مهم است: تیک پیش از گزارش، وگرنه ایمیلِ امروز وضعِ دیروز را می‌گوید. */
   ok('۳۶.۷ و پیش از ytHealth_ می‌دود، نه بعدش',
      src08.indexOf('ytTick_(90000)') < src08.indexOf('ytHealth_(problems, notes)'));

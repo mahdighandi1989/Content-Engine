@@ -232,4 +232,62 @@ console.log('=== ۱۳) داوریِ تعویضِ مدل (۶٫۱۶) ===');
     src21.indexOf('modelVerdict_()') !== -1);
 }
 
+console.log('\n=== وارسیِ سلامت: بودجه و ردِ پا ===');
+{
+  const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); };
+  /* ══ دو روز پیاپی، ۱۰ صبح، هیچ (۶٫۳۸) ══
+   * `health.checkedAt` دو روز مالِ *دیروز* ماند در حالی که تریگرش سرِ جایش
+   * بود. یعنی اجرا شروع می‌شد و به آخر نمی‌رسید — و چون مُهر و ایمیل هر دو
+   * در انتهای تابع‌اند، هر بار همه‌چیز با هم می‌رفت: ایمیلِ روزانه، هشدارِ
+   * گیرکردنِ یوتیوب، سطرِ صفِ داوری، دورِ ۱۰ صبحِ انتشار. */
+  const src = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('ردِ پا ثبت می‌شود — اجرای کشته‌شده باید بگوید کجا ایستاد',
+     src.indexOf('function healthStep_') !== -1 &&
+     src.indexOf("props_().setProperty(PK.HEALTH_STEP") !== -1);
+  ok('و کارِ اختیاری پشتِ نگهبانِ زمان است',
+     (src.match(/healthHas_\(/g) || []).length >= 6,
+     (src.match(/healthHas_\(/g) || []).length + ' مورد');
+  /* و نگهبان باید *پیش از* مُهر و ایمیل باشد، وگرنه بی‌فایده است. */
+  /* `indexOf` تعریفِ تابع را پیدا می‌کند نه فراخوانش — و تعریف بالاتر از
+     همه‌چیز است. مقایسه باید با *فراخوانِ* پایانی باشد. */
+  const iGuard = src.lastIndexOf('healthHas_(');
+  const iStamp = src.lastIndexOf('saveHealthSnapshot_(problems, notes)');
+  ok('نگهبان‌ها پیش از مُهرِ پایانی‌اند', iGuard > 0 && iGuard < iStamp,
+     iGuard + ' < ' + iStamp);
+
+  /* و کارِ جامانده گفته می‌شود. سطری که بی‌صدا نیاید، خواننده را به این
+     نتیجه می‌رساند که آن زیرسامانه ساکت و سالم است. */
+  ok('بخشِ جامانده در ایرادها اعلام می‌شود',
+     src.indexOf('وارسیِ سلامت وقت کم آورد') !== -1);
+
+  // و در اجرای واقعی، با بودجهٔ عادی، هیچ چیزی جا نمی‌مانَد
+  delete global.__PROPS[PK.HEALTH_STEP];
+  const h2 = healthCheck();
+  ok('با بودجهٔ عادی هیچ بخشی جا نمی‌مانَد',
+     !h2.problems.some(x => String(x).indexOf('وقت کم آورد') !== -1),
+     h2.problems.filter(x => String(x).indexOf('وقت کم') !== -1)[0] || 'هیچ');
+  ok('و ردِ پا «تمام» را ثبت می‌کند',
+     String(global.__PROPS[PK.HEALTH_STEP] || '').indexOf('تمام') === 0,
+     String(global.__PROPS[PK.HEALTH_STEP] || ''));
+
+  /* و با بودجهٔ تنگ، کارِ اختیاری می‌رود ولی مُهر و ایمیل می‌مانند — همان
+     چیزی که دو روز از دست رفت. */
+  const keepB = CFG.HEALTH_BUDGET_MS;
+  CFG.HEALTH_BUDGET_MS = 60000;
+  const t0 = Date.now();
+  const realNow = Date.now;
+  Date.now = () => realNow() + 300000;      // انگار پنج دقیقه گذشته
+  global.__PROPS[PK.HEALTH_STEP] = '';
+  const h3 = healthCheck();
+  Date.now = realNow;
+  CFG.HEALTH_BUDGET_MS = keepB;
+  ok('با وقتِ کم، بخش‌های اختیاری اعلام می‌شوند نه اینکه بی‌صدا بیفتند',
+     h3.problems.some(x => String(x).indexOf('وقت کم آورد') !== -1),
+     h3.problems.filter(x => String(x).indexOf('وقت کم') !== -1)[0] || 'هیچ');
+  ok('ولی مُهرِ پایانی باز هم زده می‌شود',
+     String(global.__PROPS[PK.HEALTH_STEP] || '').indexOf('تمام') === 0,
+     String(global.__PROPS[PK.HEALTH_STEP] || ''));
+}
+
 console.log('\n✅ آزمون سلامت گذشت.');
