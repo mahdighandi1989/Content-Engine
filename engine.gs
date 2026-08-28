@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.49
+ *  موتور محتوا و پادکست — نسخهٔ 6.50
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -890,6 +890,9 @@ var CFG = {
   // فایلِ «تنها» (بی قسمتِ دوم) باید واقعاً بلند باشد تا دوره حساب شود؛ وگرنه
   // هر کلیپِ چندقطعه‌ای یک «مجموعه» می‌شد و فهرست از دستِ آدم خارج می‌شد.
   SERIES_MIN_SOLO_CHUNKS: 8,
+  // چند گروهِ ردشده در تخته نشان داده شود. سقف دارد چون آرشیوِ واقعی هزاران
+  // کلیپِ کوتاه دارد و اندازهٔ Property محدود است.
+  SERIES_REJ_KEEP: 250,
 
   // ---- داوریِ محتوایی مجموعه‌ها (نسخهٔ ۵٫۲) ----
   // تشخیصِ «آموزشی بودن» و دسته و سطح، از خواندنِ متنِ واقعیِ قطعه‌ها می‌آید.
@@ -1037,7 +1040,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.49',
+  CODE_VERSION: '6.50',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1294,6 +1297,7 @@ var PK = {
   BRIDGE_DONE: 'BRIDGE_AUDIT_DONE',   // عکس‌های داوری‌شدهٔ ارجاع
   BRIDGE_STRICT: 'BRIDGE_STRICT_KEYS', // مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند
   SERIES_INV: 'SERIES_SOURCE_INVENTORY', // صورت‌برداریِ آخرین اسکنِ منبع‌ها
+  SERIES_REJECTED: 'SERIES_REJECTED_LAST', // گروه‌هایی که اسکنِ آخر «دوره» ندانستشان
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
@@ -8224,6 +8228,21 @@ function runScanSeries() {
   if (r && r.unknownTabs && r.unknownTabs.length) {
     L.push('⚠ تبِ فایل‌دار ولی ناشناخته: ' + r.unknownTabs.slice(0, 5).join('، '));
   }
+  /* ══ آنچه رد شد، همین‌جا و با نام (۶٫۵۰) ══
+     این دکمه تا امروز فقط می‌گفت «۲۶۴ مجموعه، ۰ تازه» — و فایلی که صافی
+     ردش کرده بود در هیچ خطی نمی‌آمد. یعنی جوابِ «فایلم کجاست؟» در همان
+     پنجره‌ای که برای همین سؤال باز می‌شود، نبود. */
+  try {
+    var rjL = seriesRejected_();
+    if (rjL && rjL.total) {
+      L.push('');
+      L.push('وارد فهرست نشد (' + rjL.total + ') — نامشان در تختهٔ مجموعه‌ها هم هست:');
+      for (var rz = 0; rz < rjL.rows.length && rz < 10; rz++) {
+        L.push('  ✗ ' + rjL.rows[rz].name + ' — ' + rjL.rows[rz].why);
+      }
+      if (rjL.total > 10) L.push('  … و ' + (rjL.total - 10) + ' تای دیگر');
+    }
+  } catch (eRz) {}
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {
     var v = reg.rows[i].vals;
@@ -9756,6 +9775,7 @@ function writeStatus_(hub, note) {
     bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
     bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
+    seriesRejected: (function () { try { return seriesRejected_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -10628,6 +10648,12 @@ function healthCheck() {
     var ivS = seriesInvStatus_();
     if (ivS && ivS.line) { if (ivS.missed) problems.push(ivS.line); else notes.push(ivS.line); }
   } catch (eIv) {}
+  /* «فایلم را گذاشتم، چرا نیست؟» — سؤالی که شش بار پرسیده شد و پاسخش فقط در
+     سیاههٔ داخلی بود. یک سطرِ روزانه، حتی وقتی همه‌چیز عادی است. */
+  try {
+    var rjS = seriesRejected_();
+    if (rjS && rjS.line) notes.push(rjS.line);
+  } catch (eRj2) {}
   try {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
@@ -13427,7 +13453,34 @@ var SERIES_JUNK_PAT = new RegExp(
   'whatsapp|telegram|instagram|screen[ _-]?record|screenshot|' +
   'voice[ _-]?\\d|rec[ _-]?\\d|new[ _-]?recording|untitled|بدون[ _-]?نام|' +
   'video[ _-]?\\d{3,}|img[ _-]?\\d{3,}|vid[ _-]?\\d{3,}|' +
-  'copy[ _-]?of|final[ _-]?cut|export|render|output|temp|tmp', 'i');
+  'copy[ _-]?of|final[ _-]?cut', 'i');
+
+/*
+ * واژه‌های عامِ خروجیِ نرم‌افزار — و درسی که شش بار تکرارش کردیم (۶٫۵۰).
+ *
+ * این پنج واژه تا امروز داخلِ همان الگوی بالا بودند، **بی مرزِ واژه**. یعنی
+ * `temp` وسطِ «Con·temp·orary» می‌افتاد، و کتابِ
+ * «Audi (2011) Epistemology A Contemporary Introduction …» — که صاحبِ برنامه
+ * شش بار پرسید چرا پیدا نمی‌شود — «نامِ ماشینی» تشخیص داده شد و اصلاً وارد
+ * رجیستری نشد. `render` هم «Surrender» را می‌گرفت، `temp` هم «Template» و
+ * «Attempt» و «Contemplation» را، و `output` هم «Input Output Analysis» را.
+ * صافی‌ای که عنوانِ سالمِ آکادمیک را دور می‌ریزد، بدتر از نبودنِ صافی است.
+ *
+ * دو تغییر با هم، چون هیچ‌کدام به‌تنهایی کافی نیست:
+ *   • مرزِ واژه، تا «Contemporary» دیگر `temp` نباشد؛
+ *   • و حتی واژهٔ کامل هم فقط وقتی «ماشینی» معنا می‌دهد که نام، عنوانِ
+ *     چندواژه‌ای نباشد — «export final» نامِ خروجیِ یک نرم‌افزار است،
+ *     «Export Management in Emerging Markets» یک کتاب.
+ */
+var SERIES_JUNK_WORD_PAT = /\b(?:export|render|output|temp|tmp)\b/i;
+
+/** آیا این یک عنوانِ آدمیزاد است؟ سه واژهٔ سه‌حرفی به بالا، یعنی جمله نه نامِ فایل. */
+function seriesTitleLike_(name) {
+  var w = String(name || '').split(/[^A-Za-z\u0600-\u06FF]+/);
+  var n = 0;
+  for (var i = 0; i < w.length; i++) if (w[i].length >= 3) n++;
+  return n >= 3;
+}
 
 function seriesNameLooksReal_(name) {
   var raw = String(name || '').trim();
@@ -13443,6 +13496,7 @@ function seriesNameLooksReal_(name) {
   if (/[0-9a-fA-F]{16,}/.test(n)) return false;
   // نامِ ابزارها و ضبط‌های خودکار
   if (SERIES_JUNK_PAT.test(n)) return false;
+  if (SERIES_JUNK_WORD_PAT.test(n) && !seriesTitleLike_(n)) return false;
   // «360p»، «1080x1920»، «mp4_2» و مانند این‌ها، اگر کلِ نام همین باشد
   if (/^[\s\d._x-]*(?:p|px|fps|kbps|mb|kb)?[\s\d._x-]*$/i.test(n)) return false;
   return true;
@@ -13762,6 +13816,37 @@ function seriesInvStatus_() {
     out.line = 'منبع‌های مجموعه‌ها: ' + fa(out.n) + ' شیت · ' + fa(out.read) +
                ' تب از ' + fa(out.tabs) + ' خوانده شد' +
                (out.missed ? ' · ⚠ ' + fa(out.missed) + ' شیت اصلاً خوانده نشد' : '') + '.';
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * چیزهایی که اسکنِ آخر «دوره» ندانستشان — با دلیل.
+ *
+ * این تابع جوابِ سؤالی است که شش بار پرسیده شد و هیچ‌جا جواب نداشت: «فایلش
+ * را گذاشتم، چرا در فهرست نیست؟» تا ۶٫۵۰ تنها پاسخ، خواندنِ سیاههٔ داخلی بود
+ * — و صاحبِ برنامه شیت باز نمی‌کند (قاعدهٔ ۵٫۹۰). حالا در تخته می‌آید و
+ * جست‌وجوی همان تخته پیدایش می‌کند.
+ */
+function seriesRejected_() {
+  var out = { at: '', total: 0, rows: [], line: '' };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var j = JSON.parse(props_().getProperty(PK.SERIES_REJECTED) || 'null');
+    if (!j || !(j.rows instanceof Array)) return out;
+    out.at = String(j.at || ''); out.total = Number(j.total) || 0; out.rows = j.rows;
+    if (!out.total) return out;
+    var why = {};
+    for (var i = 0; i < out.rows.length; i++) {
+      var w = String(out.rows[i].why || '؟').replace(/\s*\(.*$/, '');
+      why[w] = (why[w] || 0) + 1;
+    }
+    var bits = [];
+    for (var k in why) if (Object.prototype.hasOwnProperty.call(why, k)) {
+      bits.push(k + ' ' + fa(why[k]));
+    }
+    out.line = 'وارد فهرستِ مجموعه‌ها نشد: ' + fa(out.total) + ' گروه (' +
+               bits.join(' · ') + ') — در تختهٔ مجموعه‌ها با نام و دلیلشان دیده می‌شوند.';
   } catch (e) {}
   return out;
 }
@@ -14112,7 +14197,24 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
     if (!g.qualifies) continue;
     // صافیِ ساختاری: نامِ ماشینی و فایلِ تکِ کوتاه هرگز «دوره» نیستند.
     var qq = seriesQualifies_(g);
-    if (!qq.ok) { rejected.push(g.name + ' (' + qq.why + ')'); continue; }
+    if (!qq.ok) {
+      /* ══ چیزی که رد می‌شود، باید جایی دیده شود (۶٫۵۰) ══
+       * تا امروز گروهِ ردشده فقط یک خط در سیاههٔ داخلی می‌شد (آن هم چهار
+       * نمونه) و **هیچ ردیفی در هیچ جدولی** نمی‌ساخت. یعنی کتابی که صافی
+       * اشتباه ردش کرده بود، نه در فهرستِ زنده بود نه در «آموزشی تشخیص داده
+       * نشد» — و صاحبِ برنامه شش بار پرسید «چرا پیدا نمی‌شود؟» و هیچ‌جا
+       * نمی‌شد جواب را دید. اصلاحِ خودِ صافی کافی نیست: صافیِ بعدی هم روزی
+       * اشتباه می‌کند. پس نامِ ردشده و **دلیلش** ثبت می‌شود و در تخته می‌آید.
+       * رجیستری جایش نیست — کلیپ‌های کوتاهِ دو شیتِ بزرگ صدها ردیف می‌شوند
+       * و انتخابِ تولید را شلوغ می‌کنند. */
+      var rjFile = '';
+      try {
+        var rjIds = Object.keys(g.files);
+        if (rjIds.length) rjFile = String(g.files[rjIds[0]].name || '');
+      } catch (eRf) {}
+      rejected.push({ name: g.name, why: qq.why, src: g.src, tab: g.tab, file: rjFile });
+      continue;
+    }
     nSeries++;
     var fileIds = Object.keys(g.files);
     var nChunks = 0;
@@ -14311,7 +14413,8 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
   if (rejected.length || retired) {
     logLine_('صافیِ مجموعه‌ها: ' + rejected.length + ' گروه وارد فهرست نشد' +
              (retired ? ' و ' + retired + ' ردیفِ قدیمی از فهرست بیرون رفت' : '') +
-             (rejected.length ? ' — نمونه: ' + rejected.slice(0, 4).join(' ، ') : '') + '.');
+             (rejected.length ? ' — نمونه: ' + rejected.slice(0, 4).map(function (r) {
+                return r.name + ' (' + r.why + ')'; }).join(' ، ') : '') + '.');
   }
   /* اصلاح‌ها هم در سیاهه می‌آیند، نه فقط در شمارنده: «کدام قسمت از کجا به
      کجا رفت» تنها چیزی است که بعداً می‌شود دنبالش را گرفت. */
@@ -14327,6 +14430,16 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
       }));
     } catch (eFx) {}
   }
+  /* فهرستِ ردشده‌ها یک عکسِ لحظه‌ایِ همین اسکن است، نه انباشت: اگر صافی
+     اصلاح شود، ردیف باید همان اسکنِ بعد ناپدید شود. سقف دارد چون آرشیوِ
+     واقعی هزاران کلیپِ کوتاه دارد و اندازهٔ Property محدود است. */
+  try {
+    rejected.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    props_().setProperty(PK.SERIES_REJECTED, JSON.stringify({
+      at: now, total: rejected.length, rows: rejected.slice(0, CFG.SERIES_REJ_KEEP || 250)
+    }));
+  } catch (eRj) {}
+
   return { series: nSeries, added: addedSeries.length, addedParts: addedParts.length,
            reopened: reopened, rejected: rejected.length, retired: retired,
            seqFixed: seqFixed, nameFixed: nameFixed, moved: moved };
@@ -17458,6 +17571,7 @@ function seriesBoardData_(hub) {
     groups: groups, totals: tot, pin: pinShow,
     bridgeOptions: bxOpts,
     excluded: excluded, judge: jsum,
+    rejected: (function () { try { return seriesRejected_(); } catch (eRj) { return null; } })(),
     judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
     current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
                          cat: String(current.vals[SC.CAT - 1] || MISC_TITLE),
@@ -17586,6 +17700,7 @@ var BOARD_CSS =
   '.b-re{background:#b45309}.b-skip{background:#9ca3af}.b-man{background:#7c3aed}' +
   '.abt{font-size:11px;color:#cbd5e1;margin-top:2px;line-height:1.6}' +
   '.exc{opacity:.85}.exc td{background:#241f1f}' +
+  '.rej{opacity:.85}.rej td{background:#1f2124}' +
   '.lvl{font-size:10px;color:#5a6478}' +
   /* فهرستِ درس‌ها برای انتخابِ دامنهٔ مرور (۶٫۴۰): جعبه‌ای که خودش می‌پیچد،
      چون یک مجموعه می‌تواند بیست درس داشته باشد و خانهٔ جدول باریک است. */
@@ -17941,6 +18056,43 @@ function seriesBoardHtml_(d) {
     H.push('</div>');
   }
 
+  /* ══ سومین جدول: «اصلاً وارد فهرست نشد» (۶٫۵۰) ══
+   * دو جدولِ بالا فقط ردیف‌های **رجیستری** را نشان می‌دهند. گروهی که صافیِ
+   * ساختاری ردش کرده، هیچ ردیفی در رجیستری ندارد — پس در هیچ‌کدام نیست.
+   * این دقیقاً همان چاله‌ای بود که کتابِ «Epistemology A Contemporary …» شش
+   * بار در آن گم شد: نه پیدا می‌شد، نه هیچ‌جا نوشته بود چرا نیست. */
+  if (d.rejected && d.rejected.total) {
+    var rj = d.rejected;
+    H.push('<div id="rejBox">');
+    H.push('<h2><span>اصلاً وارد فهرست نشد ' +
+           '<span class="bdg b-skip">' + faNum_(rj.total) + '</span></span>' +
+           '<span class="sub">صافیِ ساختاری، پیش از هر داوری</span></h2>');
+    H.push('<div class="card"><div class="sub" style="margin-bottom:8px">' +
+           'این‌ها در شیت‌های منبع هستند ولی <b>ردیفی در رجیستری ندارند</b>: نامشان ' +
+           'ماشینی به‌نظر رسیده یا آن‌قدر کوتاه‌اند که «دوره» حساب نمی‌شوند. ' +
+           'اگر عنوانِ درستی این‌جا می‌بینید، صافی اشتباه کرده — همان را گزارش کنید ' +
+           'تا در نسخهٔ بعدی اصلاح شود.' +
+           (rj.at ? ' آخرین اسکن: ' + bEsc_(rj.at) + '.' : '') +
+           (rj.total > rj.rows.length
+              ? ' (' + faNum_(rj.rows.length) + ' تای اول نشان داده شده)' : '') +
+           '</div>');
+    H.push('<table><tr><th>نام</th><th>چرا نه</th><th>فایل</th><th>کجا</th></tr>');
+    for (var rq = 0; rq < rj.rows.length; rq++) {
+      var rr = rj.rows[rq];
+      var rHay = [rr.name, rr.file, rr.why, rr.src, rr.tab]
+                   .filter(function (t) { return t; }).join(' ');
+      H.push('<tr class="rej" data-hay="' + bEsc_(rHay) + '">');
+      H.push('<td><b>' + bEsc_(String(rr.name || '—')) + '</b></td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.why || '—')) + '</td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.file || '—')) + '</td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.src || '')) +
+             (rr.tab ? ' › ' + bEsc_(String(rr.tab)) : '') + '</td>');
+      H.push('</tr>');
+    }
+    H.push('</table></div>');
+    H.push('</div>');
+  }
+
   H.push('<div class="card sub">' +
          'ترتیب هر دسته از «برنامهٔ درسی» می‌آید: مقدماتی‌ترین مجموعه اولویت ۱ می‌گیرد و ' +
          'موتور به همان ترتیب جلو می‌رود. تا یک مجموعه تمام نشود سراغ بعدی نمی‌رود. ' +
@@ -18129,15 +18281,23 @@ function seriesBoardHtml_(d) {
          'var hit=!qs.length||hay1(r,qs);r.style.display=hit?"":"none";if(hit)xn++;});' +
          'var xb=document.getElementById("excBox");' +
          'if(xb)xb.style.display=(!qs.length||xn)?"":"none";' +
+         /* جدولِ سوم هم همین‌جا، نه در یک تابعِ دوم: دو مسیرِ جست‌وجو یعنی
+            یکی‌شان روزی از قلم می‌افتد — همان اشتباهی که ۶٫۴۵ کرد. */
+         'var rn=0,rtot=0;' +
+         'document.querySelectorAll("tr.rej").forEach(function(r){rtot++;' +
+         'var hit=!qs.length||hay1(r,qs);r.style.display=hit?"":"none";if(hit)rn++;});' +
+         'var rb=document.getElementById("rejBox");' +
+         'if(rb)rb.style.display=(!qs.length||rn)?"":"none";' +
          'var qn=document.getElementById("qn");' +
          'if(!q){qn.innerHTML="";return;}' +
          'var msg="نمایش "+n+" از "+tot+" مجموعه";' +
          'if(xtot)msg+=" · "+xn+" از "+xtot+" کنارگذاشته";' +
+         'if(rtot)msg+=" · "+rn+" از "+rtot+" واردنشده";' +
          /* و اگر هیچ‌جا نبود، به‌جای یک صفرِ خشک بگو کجاها را گشتیم و چه
             چیزی ممکن است علتش باشد — از جمله وقتِ آخرین اسکن، که سؤالِ
             خودِ اوست: «آیا ربطی به اسکنِ ۱۲ ساعته داره؟» */
-         'if(!n&&!xn){msg+="<div class=\'sub\' style=\'color:#8a6d1f;margin-top:4px\'>' +
-         'هر دو فهرست گشته شد و چیزی پیدا نشد. دو علتِ محتمل: (۱) هنوز اسکن ' +
+         'if(!n&&!xn&&!rn){msg+="<div class=\'sub\' style=\'color:#8a6d1f;margin-top:4px\'>' +
+         'هر سه فهرست گشته شد و چیزی پیدا نشد. دو علتِ محتمل: (۱) هنوز اسکن ' +
          'نشده — آخرین اسکن: ' + bEsc_(String((d && d.scannedAt) || '—')) + '، و اسکن هر ' +
          faNum_(12) + ' ساعت است؛ دکمهٔ «اسکنِ مجموعه‌ها» همین حالا اجرایش می‌کند. ' +
          '(۲) نامِ ثبت‌شده با آنچه نوشتید فرق دارد — با یک واژهٔ کوتاه‌تر امتحان کنید.' +

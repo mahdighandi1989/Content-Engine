@@ -980,9 +980,39 @@ console.log('\n=== ۱۷) جست‌وجو هر دو فهرست را می‌بین
      h.indexOf('کنارگذاشته') !== -1);
   /* و وقتی هیچ‌جا نبود، به‌جای یک صفرِ خشک، علت‌های محتمل و وقتِ آخرین اسکن
      گفته می‌شود — سؤالِ خودِ او: «آیا ربطی به اسکنِ ۱۲ ساعته داره؟» */
-  ok('۱۷.۷ و نبودن در هر دو، علتش را می‌گوید نه فقط صفر را',
-     h.indexOf('هر دو فهرست گشته شد') !== -1 &&
+  ok('۱۷.۷ و نبودن در هر سه، علتش را می‌گوید نه فقط صفر را',
+     h.indexOf('هر سه فهرست گشته شد') !== -1 &&
      h.indexOf('آخرین اسکن') !== -1);
+}
+
+/* ══ ۱۷.۸ جدولِ سوم: «اصلاً وارد فهرست نشد» (۶٫۵۰) ══
+   دو جدولِ اول فقط ردیف‌های رجیستری‌اند. گروهی که صافیِ ساختاری ردش کرده
+   هیچ ردیفی در رجیستری ندارد — پس در هیچ‌کدام نیست و شش بار «پیدا نشد»
+   گزارش شد. این جدول تنها جایی است که چنین چیزی دیده می‌شود، پس باید هم
+   رندر شود و هم در همان جست‌وجو بیفتد. */
+{
+  props_().setProperty(PK.SERIES_REJECTED, JSON.stringify({
+    at: '1405/06/06 12:00', total: 2,
+    rows: [{ name: 'Audi (2011) Epistemology A Contemporary Introduction',
+             why: 'نامِ ماشینی', src: 'General-Processor', tab: 'Document Analysis',
+             file: 'Audi (2011) Epistemology A Contemporary Introduction.pdf' },
+           { name: 'kelip kutah', why: 'فایلِ تکِ کوتاه (۵ قطعه)',
+             src: 'Trading-Processor', tab: 'Video Analysis', file: 'kelip kutah.mp4' }]
+  }));
+  const un8 = quiet(); const h8 = uiBoardHtml(); un8();
+  ok('۱۷.۸ جدولِ «اصلاً وارد فهرست نشد» رندر می‌شود',
+     h8.indexOf('rejBox') !== -1 && h8.indexOf('اصلاً وارد فهرست نشد') !== -1);
+  ok('۱۷.۸ نام و دلیل هر دو نوشته می‌شوند',
+     h8.indexOf('Epistemology A Contemporary') !== -1 &&
+     h8.indexOf('نامِ ماشینی') !== -1);
+  /* متنِ جست‌وجوی این جدول هم باید نامِ فایل را داشته باشد — همان اشتباهی
+     که ۶٫۴۵ در جدولِ کنارگذاشته‌ها کرد و ۶٫۴۹ اصلاحش کرد. */
+  ok('۱۷.۸ متنِ جست‌وجو نامِ فایل را هم دارد',
+     /data-hay="[^"]*kelip kutah\.mp4/.test(h8), 'data-hay بدونِ نامِ فایل');
+  ok('۱۷.۸ و جست‌وجو این جدول را هم می‌گردد',
+     h8.indexOf('querySelectorAll("tr.rej")') !== -1 &&
+     h8.indexOf('واردنشده') !== -1);
+  props_().deleteProperty(PK.SERIES_REJECTED);
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');

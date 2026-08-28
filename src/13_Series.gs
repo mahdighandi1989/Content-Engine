@@ -114,7 +114,34 @@ var SERIES_JUNK_PAT = new RegExp(
   'whatsapp|telegram|instagram|screen[ _-]?record|screenshot|' +
   'voice[ _-]?\\d|rec[ _-]?\\d|new[ _-]?recording|untitled|بدون[ _-]?نام|' +
   'video[ _-]?\\d{3,}|img[ _-]?\\d{3,}|vid[ _-]?\\d{3,}|' +
-  'copy[ _-]?of|final[ _-]?cut|export|render|output|temp|tmp', 'i');
+  'copy[ _-]?of|final[ _-]?cut', 'i');
+
+/*
+ * واژه‌های عامِ خروجیِ نرم‌افزار — و درسی که شش بار تکرارش کردیم (۶٫۵۰).
+ *
+ * این پنج واژه تا امروز داخلِ همان الگوی بالا بودند، **بی مرزِ واژه**. یعنی
+ * `temp` وسطِ «Con·temp·orary» می‌افتاد، و کتابِ
+ * «Audi (2011) Epistemology A Contemporary Introduction …» — که صاحبِ برنامه
+ * شش بار پرسید چرا پیدا نمی‌شود — «نامِ ماشینی» تشخیص داده شد و اصلاً وارد
+ * رجیستری نشد. `render` هم «Surrender» را می‌گرفت، `temp` هم «Template» و
+ * «Attempt» و «Contemplation» را، و `output` هم «Input Output Analysis» را.
+ * صافی‌ای که عنوانِ سالمِ آکادمیک را دور می‌ریزد، بدتر از نبودنِ صافی است.
+ *
+ * دو تغییر با هم، چون هیچ‌کدام به‌تنهایی کافی نیست:
+ *   • مرزِ واژه، تا «Contemporary» دیگر `temp` نباشد؛
+ *   • و حتی واژهٔ کامل هم فقط وقتی «ماشینی» معنا می‌دهد که نام، عنوانِ
+ *     چندواژه‌ای نباشد — «export final» نامِ خروجیِ یک نرم‌افزار است،
+ *     «Export Management in Emerging Markets» یک کتاب.
+ */
+var SERIES_JUNK_WORD_PAT = /\b(?:export|render|output|temp|tmp)\b/i;
+
+/** آیا این یک عنوانِ آدمیزاد است؟ سه واژهٔ سه‌حرفی به بالا، یعنی جمله نه نامِ فایل. */
+function seriesTitleLike_(name) {
+  var w = String(name || '').split(/[^A-Za-z\u0600-\u06FF]+/);
+  var n = 0;
+  for (var i = 0; i < w.length; i++) if (w[i].length >= 3) n++;
+  return n >= 3;
+}
 
 function seriesNameLooksReal_(name) {
   var raw = String(name || '').trim();
@@ -130,6 +157,7 @@ function seriesNameLooksReal_(name) {
   if (/[0-9a-fA-F]{16,}/.test(n)) return false;
   // نامِ ابزارها و ضبط‌های خودکار
   if (SERIES_JUNK_PAT.test(n)) return false;
+  if (SERIES_JUNK_WORD_PAT.test(n) && !seriesTitleLike_(n)) return false;
   // «360p»، «1080x1920»، «mp4_2» و مانند این‌ها، اگر کلِ نام همین باشد
   if (/^[\s\d._x-]*(?:p|px|fps|kbps|mb|kb)?[\s\d._x-]*$/i.test(n)) return false;
   return true;
@@ -449,6 +477,37 @@ function seriesInvStatus_() {
     out.line = 'منبع‌های مجموعه‌ها: ' + fa(out.n) + ' شیت · ' + fa(out.read) +
                ' تب از ' + fa(out.tabs) + ' خوانده شد' +
                (out.missed ? ' · ⚠ ' + fa(out.missed) + ' شیت اصلاً خوانده نشد' : '') + '.';
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * چیزهایی که اسکنِ آخر «دوره» ندانستشان — با دلیل.
+ *
+ * این تابع جوابِ سؤالی است که شش بار پرسیده شد و هیچ‌جا جواب نداشت: «فایلش
+ * را گذاشتم، چرا در فهرست نیست؟» تا ۶٫۵۰ تنها پاسخ، خواندنِ سیاههٔ داخلی بود
+ * — و صاحبِ برنامه شیت باز نمی‌کند (قاعدهٔ ۵٫۹۰). حالا در تخته می‌آید و
+ * جست‌وجوی همان تخته پیدایش می‌کند.
+ */
+function seriesRejected_() {
+  var out = { at: '', total: 0, rows: [], line: '' };
+  try {
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var j = JSON.parse(props_().getProperty(PK.SERIES_REJECTED) || 'null');
+    if (!j || !(j.rows instanceof Array)) return out;
+    out.at = String(j.at || ''); out.total = Number(j.total) || 0; out.rows = j.rows;
+    if (!out.total) return out;
+    var why = {};
+    for (var i = 0; i < out.rows.length; i++) {
+      var w = String(out.rows[i].why || '؟').replace(/\s*\(.*$/, '');
+      why[w] = (why[w] || 0) + 1;
+    }
+    var bits = [];
+    for (var k in why) if (Object.prototype.hasOwnProperty.call(why, k)) {
+      bits.push(k + ' ' + fa(why[k]));
+    }
+    out.line = 'وارد فهرستِ مجموعه‌ها نشد: ' + fa(out.total) + ' گروه (' +
+               bits.join(' · ') + ') — در تختهٔ مجموعه‌ها با نام و دلیلشان دیده می‌شوند.';
   } catch (e) {}
   return out;
 }
@@ -799,7 +858,24 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
     if (!g.qualifies) continue;
     // صافیِ ساختاری: نامِ ماشینی و فایلِ تکِ کوتاه هرگز «دوره» نیستند.
     var qq = seriesQualifies_(g);
-    if (!qq.ok) { rejected.push(g.name + ' (' + qq.why + ')'); continue; }
+    if (!qq.ok) {
+      /* ══ چیزی که رد می‌شود، باید جایی دیده شود (۶٫۵۰) ══
+       * تا امروز گروهِ ردشده فقط یک خط در سیاههٔ داخلی می‌شد (آن هم چهار
+       * نمونه) و **هیچ ردیفی در هیچ جدولی** نمی‌ساخت. یعنی کتابی که صافی
+       * اشتباه ردش کرده بود، نه در فهرستِ زنده بود نه در «آموزشی تشخیص داده
+       * نشد» — و صاحبِ برنامه شش بار پرسید «چرا پیدا نمی‌شود؟» و هیچ‌جا
+       * نمی‌شد جواب را دید. اصلاحِ خودِ صافی کافی نیست: صافیِ بعدی هم روزی
+       * اشتباه می‌کند. پس نامِ ردشده و **دلیلش** ثبت می‌شود و در تخته می‌آید.
+       * رجیستری جایش نیست — کلیپ‌های کوتاهِ دو شیتِ بزرگ صدها ردیف می‌شوند
+       * و انتخابِ تولید را شلوغ می‌کنند. */
+      var rjFile = '';
+      try {
+        var rjIds = Object.keys(g.files);
+        if (rjIds.length) rjFile = String(g.files[rjIds[0]].name || '');
+      } catch (eRf) {}
+      rejected.push({ name: g.name, why: qq.why, src: g.src, tab: g.tab, file: rjFile });
+      continue;
+    }
     nSeries++;
     var fileIds = Object.keys(g.files);
     var nChunks = 0;
@@ -998,7 +1074,8 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
   if (rejected.length || retired) {
     logLine_('صافیِ مجموعه‌ها: ' + rejected.length + ' گروه وارد فهرست نشد' +
              (retired ? ' و ' + retired + ' ردیفِ قدیمی از فهرست بیرون رفت' : '') +
-             (rejected.length ? ' — نمونه: ' + rejected.slice(0, 4).join(' ، ') : '') + '.');
+             (rejected.length ? ' — نمونه: ' + rejected.slice(0, 4).map(function (r) {
+                return r.name + ' (' + r.why + ')'; }).join(' ، ') : '') + '.');
   }
   /* اصلاح‌ها هم در سیاهه می‌آیند، نه فقط در شمارنده: «کدام قسمت از کجا به
      کجا رفت» تنها چیزی است که بعداً می‌شود دنبالش را گرفت. */
@@ -1014,6 +1091,16 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
       }));
     } catch (eFx) {}
   }
+  /* فهرستِ ردشده‌ها یک عکسِ لحظه‌ایِ همین اسکن است، نه انباشت: اگر صافی
+     اصلاح شود، ردیف باید همان اسکنِ بعد ناپدید شود. سقف دارد چون آرشیوِ
+     واقعی هزاران کلیپِ کوتاه دارد و اندازهٔ Property محدود است. */
+  try {
+    rejected.sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    props_().setProperty(PK.SERIES_REJECTED, JSON.stringify({
+      at: now, total: rejected.length, rows: rejected.slice(0, CFG.SERIES_REJ_KEEP || 250)
+    }));
+  } catch (eRj) {}
+
   return { series: nSeries, added: addedSeries.length, addedParts: addedParts.length,
            reopened: reopened, rejected: rejected.length, retired: retired,
            seqFixed: seqFixed, nameFixed: nameFixed, moved: moved };

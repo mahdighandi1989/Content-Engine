@@ -506,6 +506,21 @@ function runScanSeries() {
   if (r && r.unknownTabs && r.unknownTabs.length) {
     L.push('⚠ تبِ فایل‌دار ولی ناشناخته: ' + r.unknownTabs.slice(0, 5).join('، '));
   }
+  /* ══ آنچه رد شد، همین‌جا و با نام (۶٫۵۰) ══
+     این دکمه تا امروز فقط می‌گفت «۲۶۴ مجموعه، ۰ تازه» — و فایلی که صافی
+     ردش کرده بود در هیچ خطی نمی‌آمد. یعنی جوابِ «فایلم کجاست؟» در همان
+     پنجره‌ای که برای همین سؤال باز می‌شود، نبود. */
+  try {
+    var rjL = seriesRejected_();
+    if (rjL && rjL.total) {
+      L.push('');
+      L.push('وارد فهرست نشد (' + rjL.total + ') — نامشان در تختهٔ مجموعه‌ها هم هست:');
+      for (var rz = 0; rz < rjL.rows.length && rz < 10; rz++) {
+        L.push('  ✗ ' + rjL.rows[rz].name + ' — ' + rjL.rows[rz].why);
+      }
+      if (rjL.total > 10) L.push('  … و ' + (rjL.total - 10) + ' تای دیگر');
+    }
+  } catch (eRz) {}
   L.push('');
   for (var i = 0; i < reg.rows.length && i < 20; i++) {
     var v = reg.rows[i].vals;

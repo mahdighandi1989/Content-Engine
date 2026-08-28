@@ -465,6 +465,7 @@ function writeStatus_(hub, note) {
     bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
     bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
+    seriesRejected: (function () { try { return seriesRejected_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -1337,6 +1338,12 @@ function healthCheck() {
     var ivS = seriesInvStatus_();
     if (ivS && ivS.line) { if (ivS.missed) problems.push(ivS.line); else notes.push(ivS.line); }
   } catch (eIv) {}
+  /* «فایلم را گذاشتم، چرا نیست؟» — سؤالی که شش بار پرسیده شد و پاسخش فقط در
+     سیاههٔ داخلی بود. یک سطرِ روزانه، حتی وقتی همه‌چیز عادی است. */
+  try {
+    var rjS = seriesRejected_();
+    if (rjS && rjS.line) notes.push(rjS.line);
+  } catch (eRj2) {}
   try {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }

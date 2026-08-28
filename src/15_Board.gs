@@ -286,6 +286,7 @@ function seriesBoardData_(hub) {
     groups: groups, totals: tot, pin: pinShow,
     bridgeOptions: bxOpts,
     excluded: excluded, judge: jsum,
+    rejected: (function () { try { return seriesRejected_(); } catch (eRj) { return null; } })(),
     judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
     current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
                          cat: String(current.vals[SC.CAT - 1] || MISC_TITLE),
@@ -414,6 +415,7 @@ var BOARD_CSS =
   '.b-re{background:#b45309}.b-skip{background:#9ca3af}.b-man{background:#7c3aed}' +
   '.abt{font-size:11px;color:#cbd5e1;margin-top:2px;line-height:1.6}' +
   '.exc{opacity:.85}.exc td{background:#241f1f}' +
+  '.rej{opacity:.85}.rej td{background:#1f2124}' +
   '.lvl{font-size:10px;color:#5a6478}' +
   /* فهرستِ درس‌ها برای انتخابِ دامنهٔ مرور (۶٫۴۰): جعبه‌ای که خودش می‌پیچد،
      چون یک مجموعه می‌تواند بیست درس داشته باشد و خانهٔ جدول باریک است. */
@@ -769,6 +771,43 @@ function seriesBoardHtml_(d) {
     H.push('</div>');
   }
 
+  /* ══ سومین جدول: «اصلاً وارد فهرست نشد» (۶٫۵۰) ══
+   * دو جدولِ بالا فقط ردیف‌های **رجیستری** را نشان می‌دهند. گروهی که صافیِ
+   * ساختاری ردش کرده، هیچ ردیفی در رجیستری ندارد — پس در هیچ‌کدام نیست.
+   * این دقیقاً همان چاله‌ای بود که کتابِ «Epistemology A Contemporary …» شش
+   * بار در آن گم شد: نه پیدا می‌شد، نه هیچ‌جا نوشته بود چرا نیست. */
+  if (d.rejected && d.rejected.total) {
+    var rj = d.rejected;
+    H.push('<div id="rejBox">');
+    H.push('<h2><span>اصلاً وارد فهرست نشد ' +
+           '<span class="bdg b-skip">' + faNum_(rj.total) + '</span></span>' +
+           '<span class="sub">صافیِ ساختاری، پیش از هر داوری</span></h2>');
+    H.push('<div class="card"><div class="sub" style="margin-bottom:8px">' +
+           'این‌ها در شیت‌های منبع هستند ولی <b>ردیفی در رجیستری ندارند</b>: نامشان ' +
+           'ماشینی به‌نظر رسیده یا آن‌قدر کوتاه‌اند که «دوره» حساب نمی‌شوند. ' +
+           'اگر عنوانِ درستی این‌جا می‌بینید، صافی اشتباه کرده — همان را گزارش کنید ' +
+           'تا در نسخهٔ بعدی اصلاح شود.' +
+           (rj.at ? ' آخرین اسکن: ' + bEsc_(rj.at) + '.' : '') +
+           (rj.total > rj.rows.length
+              ? ' (' + faNum_(rj.rows.length) + ' تای اول نشان داده شده)' : '') +
+           '</div>');
+    H.push('<table><tr><th>نام</th><th>چرا نه</th><th>فایل</th><th>کجا</th></tr>');
+    for (var rq = 0; rq < rj.rows.length; rq++) {
+      var rr = rj.rows[rq];
+      var rHay = [rr.name, rr.file, rr.why, rr.src, rr.tab]
+                   .filter(function (t) { return t; }).join(' ');
+      H.push('<tr class="rej" data-hay="' + bEsc_(rHay) + '">');
+      H.push('<td><b>' + bEsc_(String(rr.name || '—')) + '</b></td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.why || '—')) + '</td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.file || '—')) + '</td>');
+      H.push('<td class="sub">' + bEsc_(String(rr.src || '')) +
+             (rr.tab ? ' › ' + bEsc_(String(rr.tab)) : '') + '</td>');
+      H.push('</tr>');
+    }
+    H.push('</table></div>');
+    H.push('</div>');
+  }
+
   H.push('<div class="card sub">' +
          'ترتیب هر دسته از «برنامهٔ درسی» می‌آید: مقدماتی‌ترین مجموعه اولویت ۱ می‌گیرد و ' +
          'موتور به همان ترتیب جلو می‌رود. تا یک مجموعه تمام نشود سراغ بعدی نمی‌رود. ' +
@@ -957,15 +996,23 @@ function seriesBoardHtml_(d) {
          'var hit=!qs.length||hay1(r,qs);r.style.display=hit?"":"none";if(hit)xn++;});' +
          'var xb=document.getElementById("excBox");' +
          'if(xb)xb.style.display=(!qs.length||xn)?"":"none";' +
+         /* جدولِ سوم هم همین‌جا، نه در یک تابعِ دوم: دو مسیرِ جست‌وجو یعنی
+            یکی‌شان روزی از قلم می‌افتد — همان اشتباهی که ۶٫۴۵ کرد. */
+         'var rn=0,rtot=0;' +
+         'document.querySelectorAll("tr.rej").forEach(function(r){rtot++;' +
+         'var hit=!qs.length||hay1(r,qs);r.style.display=hit?"":"none";if(hit)rn++;});' +
+         'var rb=document.getElementById("rejBox");' +
+         'if(rb)rb.style.display=(!qs.length||rn)?"":"none";' +
          'var qn=document.getElementById("qn");' +
          'if(!q){qn.innerHTML="";return;}' +
          'var msg="نمایش "+n+" از "+tot+" مجموعه";' +
          'if(xtot)msg+=" · "+xn+" از "+xtot+" کنارگذاشته";' +
+         'if(rtot)msg+=" · "+rn+" از "+rtot+" واردنشده";' +
          /* و اگر هیچ‌جا نبود، به‌جای یک صفرِ خشک بگو کجاها را گشتیم و چه
             چیزی ممکن است علتش باشد — از جمله وقتِ آخرین اسکن، که سؤالِ
             خودِ اوست: «آیا ربطی به اسکنِ ۱۲ ساعته داره؟» */
-         'if(!n&&!xn){msg+="<div class=\'sub\' style=\'color:#8a6d1f;margin-top:4px\'>' +
-         'هر دو فهرست گشته شد و چیزی پیدا نشد. دو علتِ محتمل: (۱) هنوز اسکن ' +
+         'if(!n&&!xn&&!rn){msg+="<div class=\'sub\' style=\'color:#8a6d1f;margin-top:4px\'>' +
+         'هر سه فهرست گشته شد و چیزی پیدا نشد. دو علتِ محتمل: (۱) هنوز اسکن ' +
          'نشده — آخرین اسکن: ' + bEsc_(String((d && d.scannedAt) || '—')) + '، و اسکن هر ' +
          faNum_(12) + ' ساعت است؛ دکمهٔ «اسکنِ مجموعه‌ها» همین حالا اجرایش می‌کند. ' +
          '(۲) نامِ ثبت‌شده با آنچه نوشتید فرق دارد — با یک واژهٔ کوتاه‌تر امتحان کنید.' +

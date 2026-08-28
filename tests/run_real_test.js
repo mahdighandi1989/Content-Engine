@@ -60,6 +60,11 @@ add('R1', '01_MabaniTahlilBazar_Ostad.mp4', 14);
 add('R2', '02_MabaniTahlilBazar_Ostad.mp4', 14);
 add('R3', 'Marefat Shenasi Mojtaba Mesbah.m4a', 26);   // تکِ بلند = دورهٔ واقعی
 add('R4', '01_RavanshenasiPul_Doktor.mp4', 9);
+/* ══ کتابی که شش بار «پیدا نشد» (۶٫۵۰) ══
+   نامِ واقعیِ فایلی که صاحبِ برنامه گذاشته بود. صافیِ «نامِ ماشینی» دنبالِ
+   `temp` می‌گشت بی مرزِ واژه، و آن را وسطِ «Con·temp·orary» پیدا می‌کرد —
+   پس کتاب نه فقط رد می‌شد، بلکه **هیچ ردیفی در هیچ جدولی** نمی‌ساخت. */
+add('B1', 'Audi (2011) Epistemology A Contemporary Introduction to the Theory of Knowledge.pdf', 81);
 
 function mkSheet(id, tabs) {
   const ss = new Spread('s', id);
@@ -151,16 +156,47 @@ ok('نام‌های عددیِ محض («1»، «4»، «892») مجموعه ن�
    reg.rows.map(r => r.key).join(','));
 ok('نامِ ابزارِ تبدیل صدا مجموعه نشد',
    reg.rows.every(r => r.key.indexOf('converter') === -1));
+/* هگز را **پیوسته** می‌سنجیم، نه پس از پاک‌کردنِ بقیهٔ نویسه‌ها — دقیقاً
+   همان قاعده‌ای که خودِ seriesNameLooksReal_ دارد. با پاک‌کردن، هر عنوانِ
+   انگلیسیِ بلند («Epistemology A Contemporary Introduction …») هم یک
+   «شناسهٔ ماشینی» می‌شد و این آزمون سرِ چیزِ درست می‌افتاد. */
 ok('شناسهٔ هگزادسیمالِ بلند مجموعه نشد',
-   reg.rows.every(r => !/[0-9a-f]{16,}/i.test(r.key.replace(/[^0-9a-f]/gi, ''))));
+   reg.rows.every(r => !/[0-9a-f]{16,}/i.test(r.key)) && !reg.byKey['0efef642ff0f41a77938c9c7b1dc282712648307 360p']);
 ok('نامِ خودکارِ واتس‌اپ/تلگرام مجموعه نشد',
    reg.rows.every(r => !/whatsapp|video 2026/i.test(r.key)));
 ok('فایلِ تکِ کوتاه (۵ قطعه) مجموعه نشد', !reg.byKey['kelip kutah']);
 ok('ولی دورهٔ دوقسمتیِ واقعی ثبت شد', !!reg.byKey['mabanitahlilbazar ostad']);
 ok('و فایلِ تکِ بلند (۲۶ قطعه) هم ثبت شد', !!reg.byKey['marefat shenasi mojtaba mesbah']);
 ok('و دورهٔ نه‌قطعه‌ای هم ثبت شد', !!reg.byKey['ravanshenasipul doktor']);
-ok('فهرست کوچک و قابلِ خواندن ماند', reg.rows.length === 3,
-   reg.rows.length + ' مجموعه به‌جای 12');
+/* ══ ۱-ح) کتابِ چهارصدصفحه‌ای با عنوانِ آکادمیک (۶٫۵۰) ══
+   این یک آزمونِ نامْ نیست؛ کلِ مسیرِ اسکن است: ردیف‌های شیت → گروه‌بندی →
+   صافیِ ساختاری → ردیفِ رجیستری. اگر صافی دوباره تنگ شود، همین‌جا می‌افتد. */
+ok('۱-ح کتابِ «Epistemology A Contemporary …» وارد فهرست شد',
+   !!reg.byKey['audi 2011 epistemology a contemporary introduction to the theory of knowledge'],
+   reg.rows.map(r => r.key).join(' | '));
+ok('۱-ح واژهٔ عام فقط با مرزِ واژه و در نامِ کوتاه، «ماشینی» است', (() => {
+  const yes = ['Epistemology A Contemporary Introduction', 'The Surrender Experiment',
+               'Export Management in Emerging Markets', 'Input Output Analysis in Economics',
+               'Template Design Patterns for Backend'];
+  const no  = ['temp', 'export final', 'tmp 2', 'render 01', 'output'];
+  return yes.every(n => seriesNameLooksReal_(n)) && no.every(n => !seriesNameLooksReal_(n));
+})());
+ok('فهرست کوچک و قابلِ خواندن ماند', reg.rows.length === 4,
+   reg.rows.length + ' مجموعه به‌جای 13');
+/* ══ و آنچه رد شد باید دیده شود (۶٫۵۰) ══
+   اصلاحِ صافی کافی نیست: صافیِ بعدی هم روزی اشتباه می‌کند. تا امروز گروهِ
+   ردشده هیچ‌جا ثبت نمی‌شد، پس سؤالِ «فایلم کجاست؟» جوابی نداشت. */
+{
+  const rj = seriesRejected_();
+  ok('۱-خ گروه‌های ردشده با نام و دلیل ثبت شدند', rj.total >= 5 && rj.rows.length >= 5,
+     rj.total + ' گروه');
+  ok('۱-خ هر ردیف دلیلِ خودش را دارد',
+     rj.rows.every(r => r.name && r.why), JSON.stringify(rj.rows[0] || {}));
+  ok('۱-خ فایلِ تکِ کوتاه هم با نامِ فایلش قابلِ پیدا کردن است',
+     rj.rows.some(r => /kelip kutah/i.test(String(r.name) + ' ' + String(r.file))));
+  ok('۱-خ یک سطرِ فارسیِ آماده برای گزارشِ روزانه دارد',
+     rj.line.indexOf('وارد فهرستِ مجموعه‌ها نشد') === 0, rj.line);
+}
 
 // ════════════ ۲) قالبِ خروجی: مدل رد می‌کند، موتور تسلیم نمی‌شود ════════════
 console.log('\n=== ۲) مدل قالبِ integer/boolean را رد می‌کند؛ داوری باید باز هم انجام شود ===');
@@ -265,7 +301,11 @@ console.log('  وضعیت:', JSON.stringify({ series: st.special.series,
   cats: (st.special.byCategory||[]).map(c => c.cat + ':' + c.pct + '٪'),
   curation: st.curation && { c: st.curation.course, n: st.curation.notCourse,
                              u: st.curation.unjudged } }));
-ok('فایل وضعیت هم فهرستِ تمیز را گزارش می‌کند', st.special.series === 3);
+ok('فایل وضعیت هم فهرستِ تمیز را گزارش می‌کند', st.special.series === 4,
+   String(st.special.series));
+ok('و ردشده‌ها هم در فایلِ وضعیت هستند، نه فقط در سیاههٔ داخلی',
+   !!(st.seriesRejected && st.seriesRejected.total >= 5),
+   JSON.stringify(st.seriesRejected && st.seriesRejected.total));
 ok('و همهٔ مجموعه‌ها دسته دارند (نه همه در «متفرقه»)',
    (st.special.byCategory || []).every(c => c.series > 0) &&
    !((st.special.byCategory || []).length === 1 &&
