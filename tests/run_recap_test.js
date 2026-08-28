@@ -617,4 +617,201 @@ console.log('\n=== ۱۹) مرور داوریِ اِسناد نمی‌شود ==='
      src.indexOf('مرورِ بزرگ داوریِ اِسناد نمی‌شود') !== -1);
 }
 
+console.log('\n=== ۲۰) دامنهٔ مرور: سه انتخاب، نه یک رفتارِ ثابت ===');
+{
+  /* ══ گزارشِ صاحبِ برنامه، ۲۸ اوت ══
+   * «دیشب یه بار مرور انجام شد روی چند درس. یکی دو تا درسم بعدش اضافه شد.
+   *  الان می‌خوام مرور بزنم و می‌خوام خودم انتخاب کنم رو کدوم درس‌ها باشه:
+   *  یا همهٔ درس‌ها دوباره از ابتدا، یا صرفاً درس‌های انتخاب‌شده، یا صرفاً
+   *  درس‌های بعد از آخرین مرور. ولی این نمی‌فهمم چی می‌گه، خیلی گیج‌کننده‌ست.»
+   *
+   * سه خواسته بود و ابزار یکی: تیک فقط می‌گفت «بساز» و همیشه کلِ جزوه را
+   * می‌گرفت. `addedIn` از اولِ بخشِ ۲۶ روی هر فصل و هر بخش هست، پس دامنه
+   * یک صافی است — نه سازوکارِ تازه، فقط اجازهٔ گفتنِ چیزی که داده‌اش بود. */
+  const B = { seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', refs: [], episodes: [], chapters: [
+    { id: 'c1', title: 'مبانی', addedIn: '1', sections: [
+      { id: 's1', title: 'تعریفِ معرفت', body: 'الف. '.repeat(30), addedIn: '1' },
+      { id: 's2', title: 'باور و صدق', body: 'ب. '.repeat(30), addedIn: '4' }] },
+    { id: 'c2', title: 'انواعِ علم', addedIn: '7', sections: [
+      { id: 's3', title: 'حضوری و حصولی', body: 'ج. '.repeat(30), addedIn: '7' }] },
+    { id: 'c3', title: 'پلورالیسم', addedIn: '11', sections: [
+      { id: 's4', title: 'کثرت‌گرایی', body: 'د. '.repeat(30), addedIn: '11' }] }
+  ] };
+
+  ok('۲۰.۱ «۳، ۵، ۷-۹» به شماره‌ها باز می‌شود',
+     recapParseEps_('۳، ۵، ۷-۹').join(',') === '3,5,7,8,9', recapParseEps_('۳، ۵، ۷-۹').join(','));
+  ok('۲۰.۲ تکراری و بی‌ترتیب هم درست می‌شود',
+     recapParseEps_('12, 4, 12').join(',') === '4,12');
+  ok('۲۰.۳ «تا» هم مثلِ خط‌تیره فهمیده می‌شود',
+     recapParseEps_('۲ تا ۴').join(',') === '2,3,4');
+
+  const all = recapScopeBook_(B, 'all', {});
+  ok('۲۰.۴ «همه» کتاب را دست نمی‌زند و «تا کجا» را می‌داند',
+     all.n === 3 && all.book === B && all.upto === 11, JSON.stringify({n: all.n, u: all.upto}));
+
+  const since = recapScopeBook_(B, 'since', { after: 7 });
+  ok('۲۰.۵ «پس از درسِ ۷» فقط فصلِ تازه را می‌آورد',
+     since.n === 1 && since.book.chapters[0].id === 'c3',
+     JSON.stringify(since.book.chapters.map(c => c.id)));
+  ok('۲۰.۶ و برچسبش می‌گوید از کجا',
+     since.label.indexOf('پس از درسِ') !== -1, since.label);
+  ok('۲۰.۷ «پس از» بی مرورِ قبلی، همان «همه» است',
+     recapScopeBook_(B, 'since', { after: 0 }).n === 3);
+
+  const pick = recapScopeBook_(B, 'pick', { eps: [1, 11] });
+  ok('۲۰.۸ «انتخابی» دقیقاً همان درس‌ها را می‌آورد',
+     pick.n === 2 && pick.book.chapters[0].id === 'c1' && pick.book.chapters[1].id === 'c3',
+     JSON.stringify(pick.book.chapters.map(c => c.id)));
+  /* صافی روی **بخش** است نه فقط فصل: فصلِ «مبانی» دو بخش دارد که یکی از
+     درسِ ۱ آمده و یکی از درسِ ۴. اگر صافی فصلی بود، انتخابِ درسِ ۱ متنِ
+     درسِ ۴ را هم با خودش می‌آورد — یعنی «فقط این درس» دروغ می‌شد. */
+  ok('۲۰.۹ و بخش‌به‌بخش می‌بُرد، نه فصل‌به‌فصل',
+     pick.book.chapters[0].sections.length === 1 &&
+     pick.book.chapters[0].sections[0].id === 's1');
+  ok('۲۰.۱۰ انتخابِ خالی یعنی دامنهٔ خالی، نه «همه»',
+     recapScopeBook_(B, 'pick', { eps: [] }).n === 0);
+  ok('۲۰.۱۱ شماره‌ای که درس ندارد، مرورِ خالی می‌سازد نه مرورِ کامل',
+     recapScopeBook_(B, 'pick', { eps: [99] }).n === 0);
+
+  /* ══ کتابِ اصلی هرگز خراب نمی‌شود ══
+   * جزوه حافظهٔ مجموعه است. اگر بریدن روی خودِ شیء انجام می‌شد، یک مرورِ
+   * «فقط درسِ ۱» می‌توانست فصل‌های دیگر را از جزوه پاک کند — و جزوه
+   * append-only است دقیقاً برای اینکه چنین چیزی نشود. */
+  ok('۲۰.۱۲ کتابِ اصلی دست‌نخورده می‌مانَد',
+     B.chapters.length === 3 && B.chapters[0].sections.length === 2);
+
+  ok('۲۰.۱۳ شماره‌های ناموجود کنار گذاشته می‌شوند',
+     recapEpsClean_([3, 4, 5], [3, 5]).join(',') === '3,5');
+  ok('۲۰.۱۴ ولی وقتی فهرستِ موجود نداریم، چیزی حذف نمی‌شود',
+     recapEpsClean_([3, 4, 5], []).join(',') === '3,4,5');
+
+  /* ══ دامنه باید در خودِ پرامپت گفته شود ══
+   * مدلی که چهار فصل می‌بیند ولی به او گفته‌ایم «همهٔ چیزهایی که تا حالا
+   * گفتیم»، در قلاب ادعای مرورِ کامل می‌کند. ادعا و اندازه باید یکی باشند —
+   * همان قاعدهٔ ۶٫۳۳ برای پوششِ فصل‌ها. */
+  const pAll = recapPrompt_(B, 'معرفت‌شناسی', 9000, all);
+  const pPick = recapPrompt_(pick.book, 'معرفت‌شناسی', 9000, pick);
+  ok('۲۰.۱۵ پرامپتِ «همه» همان جملهٔ همیشگی را دارد',
+     pAll.indexOf('یه مرورِ بزرگ از همهٔ چیزهایی') !== -1 &&
+     pAll.indexOf('فقط بخشی از مجموعه') === -1);
+  ok('۲۰.۱۶ پرامپتِ دامنه‌دار، دامنه را می‌گوید',
+     pPick.indexOf('فقط بخشی از مجموعه') !== -1 &&
+     pPick.indexOf(pick.label) !== -1);
+  /* دستورِ قلاب هم عوض می‌شود، نه فقط یک هشدارِ اضافه: اگر جملهٔ «یه مرورِ
+     بزرگ از همهٔ چیزهایی که تا حالا گفتیم» سرِ جایش بماند، پرامپت هم‌زمان
+     دو چیزِ متضاد می‌خواهد و مدل معمولاً صریح‌ترین را برمی‌دارد. */
+  ok('۲۰.۱۷ و ادعای «همه» را از دهانِ مدل برمی‌دارد',
+     pPick.indexOf('یه مرورِ بزرگ از همهٔ چیزهایی') === -1 &&
+     pPick.indexOf('**نگو** «همهٔ چیزهایی که تا حالا گفتیم»') !== -1);
+  ok('۲۰.۱۸ سیاههٔ فصل‌ها هم فقط فصل‌های دامنه است',
+     pPick.indexOf('پلورالیسم') !== -1 && pPick.indexOf('انواعِ علم') === -1);
+}
+
+console.log('\n=== ۲۱) دامنه از تخته تا پرونده، بی جاافتادگی ===');
+{
+  /* شماره‌های درس از همان یک خواندنِ تب می‌آیند — جعبهٔ انتخاب بی آن‌ها
+     نمی‌داند چه چیزی اصلاً وجود دارد، و آدم شماره‌ای می‌نویسد که هیچ درسی
+     ندارد و مرورِ خالی می‌گیرد بی آنکه بفهمد چرا. */
+  const eps = recapEpsMap_(hub)['معرفت‌شناسی'] || [];
+  ok('۲۱.۱ شماره‌های درس خوانده می‌شوند، نه فقط شمارشان',
+     eps.length > 0 && eps.indexOf(1) !== -1 && eps.indexOf(99) === -1,
+     JSON.stringify(eps.slice(0, 14)));
+  ok('۲۱.۲ و شمارش دقیقاً از همان می‌آید',
+     recapPartsMap_(hub)['معرفت‌شناسی'] === eps.length);
+
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.SP_PENDING];
+  const un0 = quiet();
+  let q = recapQueueSet_(['kEp'], hub, { kEp: { mode: 'pick', eps: [1, 4] } });
+  un0();
+  ok('۲۱.۳ دامنه روی خودِ سفارش می‌نشیند',
+     q.list[0].mode === 'pick' && q.list[0].eps.join(',') === '1,4',
+     JSON.stringify(q.list[0]));
+  /* سفارشِ «انتخابی» بدونِ شماره، سفارشِ هیچ است. ساختنش یعنی یک قسمتِ
+     خالی در پلی‌لیست — و آن، برخلافِ یک قسمتِ دیرشده، برنمی‌گردد. */
+  const un1 = quiet();
+  q = recapQueueSet_(['kEp'], hub, { kEp: { mode: 'pick', eps: [] } });
+  un1();
+  ok('۲۱.۴ «انتخابی» بی شماره، سفارش نمی‌شود', q.n === 0 && q.skipped === 1);
+
+  // ── سرتاسری: تیک → صف → قسمت → پرونده ──
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.SP_PENDING];
+  global.__PROPS[PK.SP_EP_NUM] = '40';
+  const bk = { seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', refs: [], episodes: [], chapters: [
+    { id: 'c1', title: 'مبانی', addedIn: '1', sections: [
+      { id: 's1', title: 'تعریفِ معرفت', body: 'الف. '.repeat(30), addedIn: '1' }] },
+    { id: 'c2', title: 'پلورالیسم', addedIn: '9', sections: [
+      { id: 's2', title: 'کثرت‌گرایی', body: 'ب. '.repeat(30), addedIn: '9' }] }
+  ] };
+  /* همان پرونده را عوض می‌کنیم، نه یک پروندهٔ دومِ هم‌نام: `handoutRead_`
+     با getFilesByName می‌خواند و آن قول نمی‌دهد کدام‌یک را برگرداند — دقیقاً
+     همان `dups`ی که outLayoutCheck_ در ریشهٔ OUTPUT گزارش می‌کند. */
+  const itB = sf.getFilesByName(handoutJsonName_());
+  if (itB.hasNext()) itB.next().setContent(JSON.stringify(bk));
+  else sf.createFile(Utilities.newBlob(JSON.stringify(bk), 'application/json', handoutJsonName_()));
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
+    text: JSON.stringify({ title: 'مرورِ مبانی', hook: 'ه.',
+      sections: [{ heading: 'تعریفِ معرفت', narration: 'تعریفِ معرفت. '.repeat(60) }],
+      outro: 'پ.' }) }] } }] } });
+  const un2 = quiet();
+  const r = uiRecapQueue(['kEp'], { kEp: { mode: 'pick', eps: '۱' } });
+  un2();
+  ok('۲۱.۵ دکمه با دامنه کار می‌کند و دامنه را می‌گوید',
+     r.ok === true && r.message.indexOf('دامنه') !== -1, r.message);
+
+  const done = recapDone_()['kEp'];
+  ok('۲۱.۶ پروندهٔ «تا کجا» دامنه را هم نگه می‌دارد',
+     done && done.mode === 'pick' && (done.eps || []).join(',') === '1' && done.upto === 1,
+     JSON.stringify(done));
+
+  /* و تخته دیگر «تا درسِ ۱۹» نمی‌گوید وقتی فقط درسِ ۱ مرور شده. */
+  const reg2 = readSeriesReg_(hub);
+  const cell = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg2)['kEp'] });
+  ok('۲۱.۷ خانهٔ تخته «درس‌های انتخابی» را می‌گوید، نه «تا درسِ N»',
+     cell.indexOf('درس‌های انتخابی') !== -1 && cell.indexOf('تا درسِ') === -1,
+     cell.replace(/<[^>]*>/g, ' ').slice(0, 120));
+}
+
+console.log('\n=== ۲۲) خانهٔ تخته: سه گزینه، و «نمی‌دانم» که صفر گزارش نمی‌شود ===');
+{
+  const reg = readSeriesReg_(hub);
+  delete global.__PROPS[PK.RECAP_DONE];
+  const fresh = recapBoardMap_(hub, reg)['kEp'];
+  const cellFresh = recapCell_({ key: 'kEp', recap: fresh });
+  ok('۲۲.۱ مجموعهٔ مرورنشده دو گزینه دارد، نه سه',
+     cellFresh.indexOf('value="all"') !== -1 &&
+     cellFresh.indexOf('value="pick"') !== -1 &&
+     cellFresh.indexOf('value="since"') === -1);
+  ok('۲۲.۲ و شماره‌های موجود را نشان می‌دهد',
+     cellFresh.indexOf('درس‌های موجود') !== -1);
+  ok('۲۲.۳ جعبهٔ شماره‌ها پیش‌فرض پنهان است',
+     cellFresh.indexOf('rcEpsBox') !== -1 && cellFresh.indexOf('display:none') !== -1);
+
+  recapMarkDone_('kEp', 50, 9, 2, 3, [], { mode: 'all', eps: [], upto: 9 });
+  const cellDone = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  ok('۲۲.۴ مجموعهٔ مرورشده گزینهٔ «پس از مرورِ قبلی» هم می‌گیرد',
+     cellDone.indexOf('value="since"') !== -1 &&
+     cellDone.indexOf('بعد از درسِ') !== -1, cellDone.replace(/<[^>]*>/g, ' ').slice(0, 160));
+
+  /* ══ پرونده‌های پیش از ۶٫۳۰: «نامعلوم»، نه «تا درسِ ۰» ══
+   * تخته `covered` را صفر می‌گرفت و بعد `behind = made − 0` — پس برای
+   * مجموعه‌ای که همین دیشب مرور گرفته بود می‌نوشت «تا درسِ ۰ · ۱۹ درسِ
+   * تازه پس از آن». عددی که ساختگی است بدتر از نبودنِ عدد است، چون
+   * خوانده می‌شود و باور می‌شود. */
+  global.__PROPS[PK.RECAP_DONE] = JSON.stringify({ kEp: { at: '۱۴۰۴/۰۶/۰۵', ep: 19 } });
+  const mOld = recapBoardMap_(hub, reg)['kEp'];
+  ok('۲۲.۵ پروندهٔ کهنه «نامعلوم» است، نه صفر',
+     mOld.unknown === true && mOld.behind === 0, JSON.stringify({u: mOld.unknown, b: mOld.behind}));
+  const cellOld = recapCell_({ key: 'kEp', recap: mOld });
+  ok('۲۲.۶ و خانه هم همان را می‌نویسد، نه «تا درسِ ۰»',
+     cellOld.indexOf('نامعلوم') !== -1 && cellOld.indexOf('تا درسِ ۰') === -1,
+     cellOld.replace(/<[^>]*>/g, ' ').slice(0, 120));
+  ok('۲۲.۷ و برای پروندهٔ کهنه گزینهٔ «پس از مرورِ قبلی» ادعا نمی‌شود',
+     cellOld.indexOf('value="since"') === -1);
+  delete global.__PROPS[PK.RECAP_DONE];
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

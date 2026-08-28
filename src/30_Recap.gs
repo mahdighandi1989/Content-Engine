@@ -62,13 +62,21 @@ function recapDone_() {
  * «ساخته/نساخته» بگوید — و مجموعه‌ای که بعد از مرورش ده درسِ دیگر گرفته،
  * از مجموعه‌ای که همین دیروز مرور شده جدا نمی‌شد.
  */
-function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed) {
+function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed, scope) {
   try {
     var o = recapDone_();
+    var sc = scope || {};
     o[String(seriesKey)] = { at: nowStr_(), ep: Number(epNum) || 0,
                              parts: Number(parts) || 0, ch: Number(chapters) || 0,
                              chAll: Number(chaptersAll) || Number(chapters) || 0,
-                             miss: (missed || []).slice(0, 4) };
+                             miss: (missed || []).slice(0, 4),
+                             /* ══ دامنه هم بخشی از «تا کجا» است (۶٫۳۹) ══
+                                مروری که فقط درس‌های ۳ و ۵ را گفته، «تا درسِ ۱۹»
+                                نیست. بدونِ این کلید، تخته فردا همان ادعای غلطی
+                                را می‌کرد که ۶٫۳۳ برای پوششِ فصل‌ها رفعش کرد. */
+                             mode: String(sc.mode || 'all'),
+                             eps: (sc.eps || []).slice(0, 60),
+                             upto: Number(sc.upto) || 0 };
     props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
   } catch (e) {}
 }
@@ -118,21 +126,46 @@ var RECAP_ROW_MARK = 'مرورِ همهٔ درس‌ها';
  * دقیقاً همان چیزی که `handoutSeriesEpisodes_` در بخشِ ۲۶ برایش فیلتر دارد:
  * «مرور درسِ تازه نیست». هشداری که هرگز نمی‌تواند رفع شود، هشدار نیست.
  */
-function recapPartsMap_(hub) {
+/**
+ * نامِ مجموعه ← **شماره‌های درسِ** تولیدشده‌اش (نه فقط شمارشان).
+ *
+ * ══ چرا شماره، و نه عدد (۶٫۳۹) ══
+ * تا ۶٫۳۸ فقط «چند تا» لازم بود، چون مرور همیشه کلِ جزوه را می‌گرفت. حالا
+ * که صاحبِ برنامه می‌تواند بگوید «فقط درس‌های ۱۲ و ۱۴ و ۱۷»، جعبهٔ انتخاب
+ * باید بداند اصلاً کدام شماره‌ها وجود دارند — وگرنه آدم شماره‌ای می‌نویسد
+ * که هیچ درسی ندارد و مرور خالی درمی‌آید بی آنکه بفهمد چرا.
+ * همان یک خواندنِ تب، همان یک صافیِ ردیفِ مرور.
+ */
+function recapEpsMap_(hub) {
   var map = Object.create(null);
   try {
     var sh = hub.getSheetByName(CFG.SPECIAL_TAB);
     if (!sh || sh.getLastRow() < 2) return map;
-    var w = XC.PARTS - XC.SERIES + 1;
-    var v = sh.getRange(2, XC.SERIES, sh.getLastRow() - 1, w).getValues();
+    var v = sh.getRange(2, XC.NUM, sh.getLastRow() - 1, XC.PARTS).getValues();
     for (var i = 0; i < v.length; i++) {
-      var nm = String(v[i][0] || '').trim();
+      var nm = String(v[i][XC.SERIES - 1] || '').trim();
       if (!nm) continue;
-      var cov = String(v[i][XC.PARTS - XC.SERIES] || '');
+      var cov = String(v[i][XC.PARTS - 1] || '');
       if (cov.indexOf(RECAP_ROW_MARK) !== -1) continue;   // ردیفِ خودِ مرور
-      map[nm] = (map[nm] || 0) + 1;
+      if (!map[nm]) map[nm] = [];
+      var no = Number(v[i][XC.NUM - 1]) || 0;
+      if (no > 0) map[nm].push(no);
+    }
+    for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) {
+      map[k].sort(function (a, b) { return a - b; });
     }
   } catch (e) {}
+  return map;
+}
+
+/**
+ * همان نگاشت، شمرده. `epsMap` را بگیر تا تب دو بار خوانده نشود — قاعدهٔ
+ * «یک خواندن برای ۲۶۴ مجموعه» با دو خواندنِ کل هم نقض می‌شود.
+ */
+function recapPartsMap_(hub, epsMap) {
+  var map = Object.create(null);
+  var m = epsMap || recapEpsMap_(hub);
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) map[k] = m[k].length;
   return map;
 }
 
@@ -193,6 +226,163 @@ var RECAP_SCHEMA = {
 };
 
 /** فشردهٔ کتاب برای پرامپت — عنوانِ فصل‌ها و متنِ بخش‌ها، تا سقف. */
+/* ═══════════════════════════════════════════════════════════════════
+ * دامنهٔ مرور — سه انتخاب، نه یک رفتارِ ثابت (۶٫۳۹)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ══ گزارشِ صاحبِ برنامه ══
+ * «دیشب یه بار مرور انجام شد روی چند درس. یکی دو تا درسم بعدش اضافه شد.
+ *  الان می‌خوام مرور بزنم و می‌خوام خودم انتخاب کنم روی کدوم درس‌ها باشه:
+ *  یا همهٔ درس‌ها دوباره از ابتدا، یا صرفاً درس‌های انتخاب‌شده، یا صرفاً
+ *  درس‌های بعد از آخرین مرور. ولی این نمی‌فهمم چی می‌گه، خیلی گیج‌کننده‌ست.»
+ *
+ * حق داشت. تا ۶٫۳۸ فقط **یک** رفتار وجود داشت — «کلِ جزوه» — و تیکِ تخته
+ * فقط می‌گفت «برای این مجموعه بساز». سه خواسته‌ای که او دارد، سه چیزِ
+ * متفاوت‌اند و هیچ‌کدام قابلِ بیان نبودند.
+ *
+ * هر فصل و هر بخشِ جزوه `addedIn` دارد: شمارهٔ درسی که آن را ساخته. پس
+ * دامنه یک صافیِ ساده روی همان است — نه سازوکارِ تازه‌ای، فقط اجازهٔ گفتنِ
+ * چیزی که داده‌اش از اول بود.
+ */
+var RECAP_MODES = {
+  all:  'همهٔ درس‌ها از ابتدا',
+  since: 'فقط درس‌های پس از آخرین مرور',
+  pick: 'فقط درس‌هایی که انتخاب می‌کنم'
+};
+
+/** «۳، ۵، ۷-۹» → [3,5,7,8,9]. رقمِ فارسی هم می‌فهمد. */
+function recapParseEps_(text) {
+  var out = [], seen = Object.create(null);
+  /* «۲ تا ۴» با فاصله نوشته می‌شود — آدم همان‌طور می‌نویسد که حرف می‌زند.
+     پس بازه پیش از تکه‌کردن یک‌دست می‌شود، وگرنه split آن را سه تکه می‌کرد
+     و «تا» بی‌صدا دور می‌ریخت: بازه به دو عدد فرو می‌ریخت و وسطش گم می‌شد. */
+  var t = faDigits_(String(text || '')).replace(/[،؛]/g, ',')
+            .replace(/(\d)\s*(?:تا|الی|-|–|—)\s*(\d)/g, '$1-$2');
+  var parts = t.split(/[,\s]+/);
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i].trim();
+    if (!p) continue;
+    var m = p.match(/^(\d{1,4})-(\d{1,4})$/);
+    if (m) {
+      var a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+      if (a > b) { var tmp = a; a = b; b = tmp; }
+      for (var k = a; k <= b && k - a < 500; k++) if (!seen[k]) { seen[k] = 1; out.push(k); }
+      continue;
+    }
+    var n = parseInt(p, 10);
+    if (isFinite(n) && n > 0 && !seen[n]) { seen[n] = 1; out.push(n); }
+  }
+  out.sort(function (x, y) { return x - y; });
+  return out;
+}
+
+/**
+ * شماره‌های خواسته‌شده را به شماره‌هایی که *واقعاً درس دارند* محدود می‌کند.
+ *
+ * آدم «۳ تا ۹» می‌نویسد و مجموعه فقط ۳ و ۵ و ۷ را دارد. اگر ۴ و ۶ و ۸ هم
+ * بروند جلو، چیزی خراب نمی‌شود — ولی پیامِ «۷ درس انتخاب شد» دروغ است و
+ * فردا کسی نمی‌فهمد چرا مرور کوتاه‌تر از انتظار درآمد.
+ * وقتی فهرستِ موجود در دست نیست (تبِ خوانده‌نشده)، چیزی حذف نمی‌شود:
+ * «نمی‌دانم» نباید «نیست» گزارش شود.
+ */
+function recapEpsClean_(eps, available) {
+  var want = (eps instanceof Array) ? eps : recapParseEps_(eps);
+  var out = [], seen = Object.create(null);
+  var have = null;
+  if (available instanceof Array && available.length) {
+    have = Object.create(null);
+    for (var a = 0; a < available.length; a++) have[Number(available[a])] = 1;
+  }
+  for (var i = 0; i < want.length; i++) {
+    var n = Number(want[i]) || 0;
+    if (n <= 0 || seen[n]) continue;
+    if (have && !have[n]) continue;
+    seen[n] = 1; out.push(n);
+  }
+  out.sort(function (x, y) { return x - y; });
+  return out;
+}
+
+/**
+ * جزوه را به دامنهٔ خواسته‌شده می‌بُرد.
+ *
+ * برمی‌گرداند `{ book, label, eps, n }` — و `n` شمارِ فصل‌هایی است که ماند.
+ * صفر یعنی دامنه خالی است و مرور ساخته نمی‌شود: مرورِ هیچ، یک قسمتِ خالی
+ * است و بدتر از نساختنش.
+ *
+ * **بریدن هرگز داده را خراب نمی‌کند**: کتابِ اصلی دست‌نخورده می‌مانَد و
+ * این تابع یک نسخهٔ تازه می‌سازد. جزوه حافظهٔ مجموعه است، نه ورودیِ یک‌بارمصرف.
+ */
+function recapScopeBook_(book, mode, opt) {
+  opt = opt || {};
+  var chs = (book && book.chapters) || [];
+  var out = { book: book, label: RECAP_MODES.all, eps: [], n: chs.length,
+              mode: 'all', upto: recapUpto_(chs) };
+  if (!chs.length) { out.n = 0; return out; }
+
+  var wanted = null;                       // null یعنی «همه»
+  if (mode === 'pick') {
+    wanted = {};
+    var eps = (opt.eps || []).slice();
+    for (var i = 0; i < eps.length; i++) wanted[Number(eps[i])] = 1;
+    out.eps = eps;
+    out.mode = 'pick';
+    out.label = 'فقط درس‌های ' + eps.map(function (x) { return faDigitsOut_(String(x)); }).join('، ');
+    if (!eps.length) { out.n = 0; return out; }
+  } else if (mode === 'since') {
+    var after = Number(opt.after) || 0;
+    out.mode = 'since';
+    out.label = after ? ('فقط درس‌های پس از درسِ ' + faDigitsOut_(String(after)))
+                      : RECAP_MODES.all;
+    if (after > 0) {
+      wanted = function (n) { return n > after; };
+    }
+  }
+  if (wanted === null) return out;
+
+  var keep = function (n) {
+    var v = Number(n) || 0;
+    /* فصلی که `addedIn` ندارد (جزوهٔ قدیمی) در دامنهٔ «پس از» می‌مانَد و در
+       دامنهٔ «انتخابی» نمی‌مانَد. در هر دو، جهتِ خطا به‌سمتِ *نگفتن* نیست:
+       آنجا که نمی‌دانیم، در «همه» می‌ماند و در «انتخابِ صریح» نمی‌آید. */
+    if (!v) return typeof wanted === 'function';
+    return (typeof wanted === 'function') ? wanted(v) : !!wanted[v];
+  };
+
+  var kept = [];
+  for (var c = 0; c < chs.length; c++) {
+    var ch = chs[c], secs = ch.sections || [], ks = [];
+    for (var t2 = 0; t2 < secs.length; t2++) if (keep(secs[t2].addedIn)) ks.push(secs[t2]);
+    // فصلی که خودش در دامنه است ولی هیچ بخشش نمانده، باز هم می‌آید (عنوانش
+    // بی‌بخش بی‌معناست، پس بخش‌هایش را نگه می‌داریم).
+    if (!ks.length && keep(ch.addedIn)) ks = secs.slice();
+    if (!ks.length) continue;
+    kept.push({ id: ch.id, title: ch.title, intro: ch.intro,
+                addedIn: ch.addedIn, sections: ks });
+  }
+  out.book = { seriesKey: book.seriesKey, seriesName: book.seriesName,
+               chapters: kept, refs: book.refs || [], episodes: book.episodes || [] };
+  out.n = kept.length;
+  out.upto = recapUpto_(kept);
+  return out;
+}
+
+/** بالاترین شماره‌درسی که در این فصل‌ها هست — «تا کجا» را همین می‌گوید. */
+function recapUpto_(chapters) {
+  var top = 0;
+  var chs = chapters || [];
+  for (var c = 0; c < chs.length; c++) {
+    var v = Number(chs[c].addedIn) || 0;
+    if (v > top) top = v;
+    var secs = chs[c].sections || [];
+    for (var s = 0; s < secs.length; s++) {
+      var w = Number(secs[s].addedIn) || 0;
+      if (w > top) top = w;
+    }
+  }
+  return top;
+}
+
 function recapBookText_(book, cap) {
   var L = [], used = 0;
   var chs = (book && book.chapters) || [];
@@ -229,7 +419,24 @@ function recapChecklist_(book) {
   return L.join('\n');
 }
 
-function recapPrompt_(book, seriesName, capChars) {
+/**
+ * ══ دامنه باید در خودِ پرامپت گفته شود (۶٫۳۹) ══
+ * بریدنِ کتاب کافی نیست: مدلی که فقط چهار فصل می‌بیند ولی به آن گفته‌ایم
+ * «همهٔ چیزهایی که تا حالا گفتیم»، در قلاب و جمع‌بندی ادعای مرورِ کامل
+ * می‌کند — و شنونده می‌شنود «هرچه گفتیم» در حالی که سه‌چهارمش نیامده.
+ * همان قاعدهٔ ۶٫۳۳: ادعا و اندازه باید یکی باشند.
+ */
+function recapPrompt_(book, seriesName, capChars, scope) {
+  var sc = scope || {};
+  var partial = sc.mode && sc.mode !== 'all';
+  var scopeLines = partial
+    ? ['⚠ **این مرور فقط بخشی از مجموعه است: ' + String(sc.label || '') + '.**',
+       '   جزوه‌ای که پایین آمده، همین بخش است و بس. پس:',
+       '   • در قلاب و جمع‌بندی **نگو** «همهٔ چیزهایی که تا حالا گفتیم»؛ بگو',
+       '     این مرور روی همین درس‌هاست.',
+       '   • به درسی که پایین نیامده اشاره نکن، حتی گذرا.',
+       '']
+    : [];
   var L = [
     'کارِ تو: نوشتنِ یک قسمتِ «مرورِ بزرگ» برای یک پادکستِ آموزشی.',
     '',
@@ -241,6 +448,8 @@ function recapPrompt_(book, seriesName, capChars) {
     'پس این قسمت را **یک نفر** می‌گوید — نه مدرس، بلکه همان دوستی که بلد است و',
     'ساده حرف می‌زند. کلِ قسمت با لحنِ او نوشته می‌شود.',
     '',
+    ''
+  ].concat(scopeLines).concat([
     '── آنچه تا حالا درس داده شده (جزوهٔ همین مجموعه) ──',
     recapBookText_(book, 42000),
     '',
@@ -262,8 +471,11 @@ function recapPrompt_(book, seriesName, capChars) {
     '۴) **ترتیب، از ساده به سخت** — نه به ترتیبِ فصل‌های کتاب. چیزی که برای',
     '   فهمیدنِ بقیه لازم است، اول بیاید.',
     '',
-    '۵) در hook بگو این قسمت چیست («یه مرورِ بزرگ از همهٔ چیزهایی که تا حالا',
-    '   گفتیم، این‌بار خیلی ساده») و در outro جمع‌بندی کن.',
+    partial
+      ? '۵) در hook بگو این قسمت چیست — یک مرور روی همین درس‌ها («' +
+        String(sc.label || '') + '»)، این‌بار خیلی ساده — و در outro جمع‌بندی کن.'
+      : '۵) در hook بگو این قسمت چیست («یه مرورِ بزرگ از همهٔ چیزهایی که تا حالا\n' +
+        '   گفتیم، این‌بار خیلی ساده») و در outro جمع‌بندی کن.',
     '',
     /* ══ سیاههٔ فصل‌ها، در انتها و صریح (۶٫۳۳) ══
        بندِ ۱ از اول می‌گفت «همهٔ مفاهیمِ مهم را پوشش بده» — و مدل در قسمت ۱۹
@@ -281,7 +493,7 @@ function recapPrompt_(book, seriesName, capChars) {
     '',
     'طولِ مجموعِ متنِ گفتنی (hook + بخش‌ها + outro) حدودِ ' + capChars + ' نویسه —',
     'نه بیشتر. این سقف در کد اعمال می‌شود؛ بلندتر بنویسی، بریده می‌شود.'
-  ];
+  ]);
   return L.join('\n');
 }
 
@@ -290,11 +502,11 @@ function recapPrompt_(book, seriesName, capChars) {
  * سقف همان سقفِ «یک فایل» است — بی رزروِ غنی‌سازی و عصری‌سازی، چون هیچ‌کدام
  * روی این قسمت اجرا نمی‌شوند و رزروِ بی‌مصرف یعنی مرورِ بی‌دلیل کوتاه‌تر.
  */
-function recapWrite_(book, seriesName) {
+function recapWrite_(book, seriesName, scope) {
   var cap = 0;
   try { cap = specialFileCap_(); } catch (e) { cap = 9000; }
   var r = null;
-  try { r = geminiText_(recapPrompt_(book, seriesName, cap), RECAP_SCHEMA, 60000); }
+  try { r = geminiText_(recapPrompt_(book, seriesName, cap, scope), RECAP_SCHEMA, 60000); }
   catch (e) { logLine_('مرورِ بزرگ نوشته نشد: ' + e.message); return null; }
   if (!r || !(r.sections instanceof Array) || !r.sections.length) return null;
   var ep = {
@@ -436,7 +648,9 @@ function recapCast_(ep) {
 /**
  * قسمتِ مرورِ بزرگ را می‌سازد و به صفِ صداگذاری می‌دهد.
  *
- * @param {{key:string, force:boolean}=} opt  key: مجموعهٔ مشخص · force: حتی اگر قبلاً ساخته شده
+ * @param {{key:string, force:boolean, mode:string, eps:Array}=} opt
+ *   key: مجموعهٔ مشخص · force: حتی اگر قبلاً ساخته شده ·
+ *   mode: `all` | `since` | `pick` · eps: شماره‌درس‌ها (فقط در `pick`)
  */
 function runRecapEpisode(opt) {
   opt = opt || {};
@@ -450,12 +664,17 @@ function runRecapEpisode(opt) {
   }
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
+  /* پروندهٔ مرورِ قبلی **پیش از** بازکردنِ قفل خوانده می‌شود: دامنهٔ «پس از
+     آخرین مرور» دقیقاً از همین می‌آید، و `recapReopen_` پاکش می‌کند. اگر
+     ترتیب برعکس بود، `since` همیشه به «همه» فرو می‌افتاد — بی هیچ خطایی و
+     دقیقاً در جایی که آدم صریحاً چیزِ دیگری خواسته. */
+  var prevDone = recapDone_()[String(opt.key || '')] || null;
   if (opt.key && opt.force) recapReopen_(opt.key);
   /* نامزدها به ترتیب امتحان می‌شوند، نه فقط اولی: مجموعه‌ای که جزوه ندارد
      نباید صف را برای بقیه ببندد. */
   var cands = recapCandidates_(hub, reg, opt.key || '');
   if (!cands.length) return { ok: false, reason: 'none' };
-  var pick = null, folderOf = null, book = null, nCh = 0, noBook = [];
+  var pick = null, folderOf = null, book = null, noBook = [];
   for (var ci = 0; ci < cands.length; ci++) {
     var c = cands[ci], fo = null;
     try { fo = seriesFolder_(reg, c.rec); } catch (eF) { continue; }
@@ -464,7 +683,7 @@ function runRecapEpisode(opt) {
     catch (eB) { bk = null; }
     var n = (bk && bk.chapters) ? bk.chapters.length : 0;
     if (!n) { noBook.push(c.name); continue; }
-    pick = c; folderOf = fo; book = bk; nCh = n;
+    pick = c; folderOf = fo; book = bk;
     break;
   }
   if (noBook.length) {
@@ -474,7 +693,23 @@ function runRecapEpisode(opt) {
   }
   if (!pick) return { ok: false, reason: 'no-handout', series: noBook.join('، ') };
 
-  var ep = recapWrite_(book, pick.name);
+  /* ── دامنه ──────────────────────────────────────────────────────────
+     «پس از آخرین مرور» یعنی درس‌هایی که شماره‌شان از شمارهٔ قسمتِ آن مرور
+     بالاتر است. شماره‌ها سراسری و صعودی‌اند، پس این یک مقایسهٔ ساده است و
+     نه سازوکارِ تازه. اگر مرورِ قبلی‌ای نبوده، `after` صفر می‌شود و دامنه
+     خودبه‌خود «همه» — که همان چیزِ درست است، نه یک خطا. */
+  var after = prevDone ? (Number(prevDone.upto) || Number(prevDone.ep) || 0) : 0;
+  var scope = recapScopeBook_(book, String(opt.mode || 'all'),
+                              { eps: opt.eps || [], after: after });
+  if (!scope.n) {
+    logLine_('مرورِ «' + pick.name + '» ساخته نشد: دامنهٔ خواسته‌شده (' +
+             scope.label + ') هیچ درسی از جزوه را در بر نگرفت.');
+    return { ok: false, reason: 'scope-empty', series: pick.name, scope: scope.label };
+  }
+  var bookAll = book;
+  book = scope.book;
+
+  var ep = recapWrite_(book, pick.name, scope);
   if (!ep) return { ok: false, reason: 'write', series: pick.name };
   try {
     var cut = specialCondense_(ep, specialFileCap_(), 0);
@@ -518,7 +753,12 @@ function runRecapEpisode(opt) {
        ادعا می‌کرد. عددی که ادعا باشد نه اندازه‌گیری، در ایمیل و تخته و
        گزارشِ ناظر سه بار تکرار می‌شود و هر سه بار غلط است. */
     recap: true, recapChapters: cov.n, recapChaptersAll: cov.total,
-    recapMissed: cov.missed.slice(0, 6), recapParts: pick.made
+    recapMissed: cov.missed.slice(0, 6), recapParts: pick.made,
+    /* دامنه در خودِ پروندهٔ قسمت هم می‌ماند: ایمیل، تخته و ناظر همه از
+       همین می‌خوانند، و سه کپیِ جدا یعنی روزی یکی کهنه می‌شود. */
+    recapMode: scope.mode, recapScope: scope.label,
+    recapEps: (scope.eps || []).slice(0, 60), recapUpto: scope.upto || 0,
+    recapChaptersBook: (bookAll.chapters || []).length
   };
   writeSpecialJson_(folder, meta);
 
@@ -527,7 +767,8 @@ function runRecapEpisode(opt) {
   try { tags = specialTags_(ep, pick.name, 0, epNum); } catch (eT) { tags = []; }
   sp.appendRow([epNum, nowStr_(), pick.name, String(ep.title || ''),
                 RECAP_ROW_MARK + ' (' + pick.made + ' قسمت)',
-                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total,
+                'از جزوهٔ مجموعه — ' + cov.n + ' فصل از ' + cov.total +
+                (scope.mode === 'all' ? '' : ' — دامنه: ' + scope.label),
                 '—', '', '', 'در حال ساخت صدا', '', tags.join(' '),
                 '', 'خیر — این قسمت مرور است، نه درسِ تازه', '']);
 
@@ -535,14 +776,17 @@ function runRecapEpisode(opt) {
     epNum: epNum, folderId: folder.getId(), row: sp.getLastRow(),
     chunkIdx: 0, partNo: 1, files: [], phase: 'speak'
   }));
-  recapMarkDone_(pick.rec.key, epNum, pick.made, cov.n, cov.total, cov.missed);
+  recapMarkDone_(pick.rec.key, epNum, pick.made, cov.n, cov.total, cov.missed,
+                 { mode: scope.mode, eps: scope.eps,
+                   upto: scope.upto || (prevDone ? Number(prevDone.upto) || 0 : 0) });
   recapLog_(pick.name, epNum, ep.sections.length, cov.n);
   scheduleSpecialContinue_(45 * 1000);
   logLine_('مرورِ بزرگِ «' + pick.name + '» نوشته شد (قسمت ' + epNum + '، ' +
            ep.sections.length + ' بخش، ' + cov.n + ' فصل از ' + cov.total +
-           ')؛ صداگذاری در اجرای بعد.');
-  return { ok: true, episode: epNum, series: pick.name,
-           title: ep.title, sections: ep.sections.length, pending: true };
+           '، دامنه: ' + scope.label + ')؛ صداگذاری در اجرای بعد.');
+  return { ok: true, episode: epNum, series: pick.name, title: ep.title,
+           sections: ep.sections.length, pending: true,
+           mode: scope.mode, scope: scope.label };
 }
 
 /** کارنامه — همان الگوی بقیه، و به همان دلیل. */
@@ -603,9 +847,10 @@ function recapQueueSave_(list) {
  * مجموعه‌ای که هیچ درسِ تولیدشده‌ای ندارد پذیرفته نمی‌شود، هر چه تیک بخورد:
  * مرورِ چیزی که وجود ندارد، یک قسمتِ خالی است.
  */
-function recapQueueSet_(keys, hub) {
+function recapQueueSet_(keys, hub, scopes) {
   var map = {};
   try { map = recapBoardMap_(hub || getHub_()); } catch (e) { map = {}; }
+  var sc = scopes || {};
   var out = [], seen = Object.create(null), skipped = [];
   for (var i = 0; i < (keys || []).length; i++) {
     var k = String(keys[i] || '').trim();
@@ -613,7 +858,18 @@ function recapQueueSet_(keys, hub) {
     seen[k] = true;
     var m = map[k];
     if (!m || !m.made) { skipped.push(k); continue; }
-    out.push({ key: k, name: m.name, made: m.made,
+    /* دامنه روی خودِ سفارش می‌نشیند، نه در یک کلیدِ کنارِ صف. سفارشی که
+       فردا شب اجرا می‌شود باید همان چیزی را بسازد که امشب خواسته شده —
+       و «انتخابِ کاربر جای دیگری ذخیره شود» همان شکلی است که یک بار
+       ترتیبِ صف را از خودِ صف جدا کرد. */
+    var one = sc[k] || {};
+    var mode = String(one.mode || 'all');
+    if (mode !== 'since' && mode !== 'pick') mode = 'all';
+    var eps = (mode === 'pick') ? recapEpsClean_(one.eps, m.eps) : [];
+    // «انتخابی» بدون هیچ شماره‌ای، سفارشِ هیچ است — و مرورِ هیچ یک قسمتِ
+    // خالی. به‌جای ساختنِ آن، همان‌جا کنار گذاشته می‌شود با علتِ روشن.
+    if (mode === 'pick' && !eps.length) { skipped.push(k); continue; }
+    out.push({ key: k, name: m.name, made: m.made, mode: mode, eps: eps,
                redo: !!(m.done && m.done.at), at: nowStr_(), tries: 0, why: '' });
   }
   // پرقسمت‌ترین اول — همان ترتیبی که recapCandidates_ خودش می‌گیرد.
@@ -635,7 +891,10 @@ function recapRunNext_() {
   if (props_().getProperty(PK.SP_PENDING)) return { ok: false, reason: 'busy' };
   var head = q[0] || {};
   var r;
-  try { r = runRecapEpisode({ key: head.key, force: true }); }
+  try {
+    r = runRecapEpisode({ key: head.key, force: true,
+                          mode: head.mode || 'all', eps: head.eps || [] });
+  }
   catch (e) { r = { ok: false, reason: 'error', why: e.message }; }
 
   if (r.ok) { recapQueueSave_(q.slice(1)); r.queueLeft = q.length - 1; return r; }
@@ -667,7 +926,8 @@ function recapBoardMap_(hub, reg) {
   try {
     hub = hub || getHub_();
     reg = reg || readSeriesReg_(hub);
-    var made = recapPartsMap_(hub);
+    var epsAll = recapEpsMap_(hub);
+    var made = recapPartsMap_(hub, epsAll);   // همان یک خواندن
     var done = recapDone_();
     var q = recapQueue_(), qs = Object.create(null);
     for (var j = 0; j < q.length; j++) qs[String(q[j].key)] = j + 1;
@@ -677,15 +937,34 @@ function recapBoardMap_(hub, reg) {
       var key = String(rec.key || '');
       var name = String(rec.vals[SC.NAME - 1] || key);
       var m = Number(made[name]) || 0;
+      var eps = epsAll[name] || [];
       var d = done[key] || null;
       var covered = d ? (Number(d.parts) || 0) : 0;
       var chOk = d ? (Number(d.ch) || 0) : 0;
       var chAll = d ? (Number(d.chAll) || chOk) : 0;
+      var mode = d ? String(d.mode || '') : '';
+      var upto = d ? (Number(d.upto) || 0) : 0;
+      /* ══ «نمی‌دانم» را «صفر» گزارش نکن (۶٫۳۹) ══
+       * پرونده‌های پیش از ۶٫۳۰ فیلدِ `parts` ندارند. تخته `covered` را صفر
+       * می‌گرفت و بعد `behind = made − 0` حساب می‌کرد، پس برای مجموعه‌ای
+       * که همین دیشب مرور گرفته بود می‌نوشت «تا درسِ ۰ · ۱۹ درسِ تازه پس
+       * از آن». عددی که ساختگی است، بدتر از نبودنِ عدد است — چون خوانده
+       * می‌شود و باور می‌شود. */
+      var unknown = !!d && !covered && !upto;
+      var behind = 0;
+      if (d && !unknown) {
+        // با شمارهٔ درس دقیق است؛ بدونِ آن، تفاضلِ شمارش تقریبِ قدیمی.
+        if (upto) {
+          for (var e2 = 0; e2 < eps.length; e2++) if (eps[e2] > upto) behind++;
+        } else if (mode !== 'pick') {
+          behind = Math.max(0, m - covered);
+        }
+      }
       out[key] = {
-        name: name, made: m, done: d, covered: covered,
-        chOk: chOk, chAll: chAll,
+        name: name, made: m, eps: eps, done: d, covered: covered,
+        chOk: chOk, chAll: chAll, mode: mode, upto: upto, unknown: unknown,
         chGap: Math.max(0, chAll - chOk),
-        behind: Math.max(0, m - covered),
+        behind: behind,
         queued: qs[key] || 0,
         eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»
         ripe: m >= min                // به کفِ خودکار هم رسیده
@@ -727,6 +1006,7 @@ function runRecapNow() {
     L.push('• مجموعه: ' + r.series);
     L.push('• قسمت ' + faDigitsOut_(String(r.episode)) + ' — «' + r.title + '»');
     L.push('• ' + faDigitsOut_(String(r.sections)) + ' بخش نوشته شد.');
+    if (r.scope) L.push('• دامنه: ' + r.scope);
     L.push('');
     L.push('صداگذاری در اجرای بعد شروع می‌شود؛ متن مثلِ هر قسمتِ دیگر ' +
            'اعراب‌گذاری و بازبینی می‌شود و شبانه به یوتیوب می‌رود.');
@@ -738,6 +1018,8 @@ function runRecapNow() {
             ' قسمتِ تولیدشده نرسیده.',
       'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده؛ ورودیِ مرور همان جزوه است.',
       write: 'مدل متنی برنگرداند.',
+      'scope-empty': 'دامنه‌ای که خواسته شده هیچ درسی از جزوهٔ این مجموعه را ' +
+                     'در بر نگرفت' + (r.scope ? ' (' + r.scope + ')' : '') + '.',
       folder: 'پوشهٔ مجموعه پیدا نشد.'
     }[r.reason] || String(r.reason || 'نامعلوم');
     L.push('• ساخته نشد — ' + why);

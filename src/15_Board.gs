@@ -782,13 +782,34 @@ function seriesBoardHtml_(d) {
          'rcSay("همهٔ تیک‌ها برداشته شد.");}');
   H.push('function recapDefault(){rcBoxes().forEach(function(b){' +
          'if(!b.disabled)b.checked=(b.dataset.def==="1");});' +
-         'rcSay("تیکِ پیش‌فرض برگشت.");}');
+         'rcModes().forEach(function(s){s.value="all";rcModeChange(s);});' +
+         'rcSay("تیکِ پیش‌فرض برگشت — دامنهٔ همه هم.");}');
+  /* ── دامنه (۶٫۳۹) ──────────────────────────────────────────────────
+     جعبهٔ شماره‌ها فقط در حالتِ «انتخابی» دیده می‌شود. جعبه‌ای که همیشه باز
+     باشد، در حالتی که کاری نمی‌کند هم پر می‌شود — و آدم بعداً باور می‌کند
+     چیزی که نوشته اثر داشته. `data-key` مقایسه می‌شود و در selector نمی‌رود:
+     کلیدِ مجموعه می‌تواند هر نویسه‌ای داشته باشد و یک querySelector شکسته
+     در این پنجره هیچ خطایی نشان نمی‌دهد، فقط بی‌صدا کار نمی‌کند. */
+  H.push('function rcModes(){return [].slice.call(' +
+         'document.querySelectorAll("select.rcMode"));}');
+  H.push('function rcModeChange(s){var k=s.dataset.key;' +
+         '[].slice.call(document.querySelectorAll("div.rcEpsBox")).forEach(function(x){' +
+         'if(x.dataset.key===k)x.style.display=(s.value==="pick")?"":"none";});}');
+  H.push('function rcScopes(){var m={};' +
+         'rcModes().forEach(function(s){m[s.dataset.key]={mode:s.value,eps:""};});' +
+         '[].slice.call(document.querySelectorAll("input.rcEps")).forEach(function(i){' +
+         'if(m[i.dataset.key])m[i.dataset.key].eps=i.value;});return m;}');
   H.push('function recapRun(b){var k=rcBoxes().filter(function(x){' +
          'return x.checked&&!x.disabled;}).map(function(x){return x.dataset.key;});' +
          'if(!k.length){rcSay("هیچ مجموعه‌ای تیک نخورده.");return;}' +
+         'var sc=rcScopes(),bad=[];' +
+         'k.forEach(function(x){var o=sc[x];' +
+         'if(o&&o.mode==="pick"&&!String(o.eps||"").replace(/[^0-9\u0660-\u0669\u06F0-\u06F9]/g,""))bad.push(x);});' +
+         'if(bad.length){rcSay("برای «فقط درس‌هایی که می‌نویسم» باید شماره‌ی درس‌ها را ' +
+         'بنویسید — هنوز ' + '"+bad.length+"' + ' مجموعه خالی است.");return;}' +
          'busy();say("ساختِ مرور… نوشتنِ متن چند ده ثانیه طول می‌کشد",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
-         '.uiRecapQueue(k);}');
+         '.uiRecapQueue(k,sc);}');
   H.push('function handoutAll(){busy();' +
          'say("واردکردنِ قسمت‌های گذشته و ساختِ جزوه‌ها… چند لحظه صبر کنید",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -978,8 +999,16 @@ function recapCell_(x) {
     /* «چند فصل گفته شد از چند» — نه «چند فصل در دست بود». تا ۶٫۳۲ اینجا
        عددِ کلِ فصل‌های جزوه می‌نشست و ادعای پوششِ کامل می‌کرد؛ ناظر متنِ
        قسمت ۱۹ را خواند و دید سه فصل هیچ ردی در آن ندارند. */
+    /* ══ پرونده‌های کهنه: «نامعلوم» بنویس، نه «تا درسِ ۰» (۶٫۳۹) ══ */
+    var upto;
+    if (r.unknown) upto = 'تا کجا: نامعلوم (مرورِ پیش از این نسخه)';
+    else if (r.mode === 'pick') {
+      upto = 'دامنه: درس‌های انتخابی' +
+             (((r.done.eps || []).length) ? ' (' +
+                bEsc_((r.done.eps || []).slice(0, 8).map(faNum_).join('، ')) + ')' : '');
+    } else upto = 'تا درسِ ' + faNum_(r.upto || r.covered);
     body = '<div><span class="bdg b-done">قسمت ' + faNum_(Number(r.done.ep) || 0) + '</span></div>' +
-           '<div class="sub">تا درسِ ' + faNum_(r.covered) +
+           '<div class="sub">' + upto +
            (r.chAll ? ' · ' + faNum_(r.chOk) + ' فصل از ' + faNum_(r.chAll) : '') +
            (r.done.at ? '<br>' + bEsc_(String(r.done.at)) : '') + '</div>' +
            (r.chGap ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.chGap) +
@@ -990,10 +1019,53 @@ function recapCell_(x) {
            (r.behind ? '<div class="sub" style="color:#8a6d1f">' + faNum_(r.behind) +
                        ' درسِ تازه پس از آن</div>' : '');
   }
-  return '<td>' + body +
+  return '<td>' + body + recapScopePick_(r, key) +
          (r.queued ? '<div class="sub" style="color:#166534">در صف (' +
                      faNum_(r.queued) + ')</div>' : '') +
          '<div style="margin-top:4px">' + chk + '</div></td>';
+}
+
+/**
+ * سه انتخابِ دامنه، روی خودِ خانه (۶٫۳۹).
+ *
+ * ══ گزارشِ صاحبِ برنامه ══
+ * «می‌خوام خودم انتخاب کنم رو کدوم درس‌ها باشه؛ یا همهٔ درس‌ها از ابتدا، یا
+ *  صرفاً درس‌های انتخاب‌شده، یا صرفاً درس‌های بعد از آخرین مرور. ولی این
+ *  نمی‌فهمم چی می‌گه، خیلی گیج‌کننده‌ست.»
+ *
+ * تا ۶٫۳۸ تیک فقط می‌گفت «بساز» و رفتار همیشه یکی بود: کلِ جزوه. آدم سه
+ * خواسته داشت و ابزار یکی — پس هرچه در آن خانه نوشته می‌شد توضیحِ چیزی بود
+ * که او نخواسته بود. سه خواسته، سه گزینه.
+ *
+ * **گزینه‌ها روی خودِ ردیفِ مجموعه‌اند، نه در جعبهٔ بالا** — همان قاعدهٔ ۵٫۶۱
+ * و ۵٫۸۷: کنترل، کنارِ کاری که به آن مربوط است. یک انتخابِ سراسری در بالا
+ * یعنی هر ۲۶۴ مجموعه یک دامنه بگیرند، که دقیقاً همان چیزی است که او از آن
+ * گله داشت.
+ *
+ * «پس از آخرین مرور» فقط وقتی نشان داده می‌شود که مروری بوده باشد —
+ * گزینه‌ای که معنایش خالی است، خودش یک گیجیِ تازه است.
+ */
+function recapScopePick_(r, key) {
+  var av = (r.eps || []);
+  var opts = ['<option value="all">همهٔ درس‌ها از ابتدا</option>'];
+  if (r.done && !r.unknown && r.mode !== 'pick') {
+    opts.push('<option value="since">فقط درس‌های پس از مرورِ قبلی' +
+              (r.upto ? ' (بعد از درسِ ' + faNum_(r.upto) + ')' : '') + '</option>');
+  }
+  opts.push('<option value="pick">فقط درس‌هایی که می‌نویسم</option>');
+  var hint = av.length
+    ? 'درس‌های موجود: ' + bEsc_(av.slice(0, 12).map(faNum_).join('، ')) +
+      (av.length > 12 ? ' …' : '')
+    : '';
+  return '<div class="sub" style="margin-top:4px">' +
+         '<select class="rcMode" data-key="' + key + '" ' +
+         'onchange="rcModeChange(this)" style="max-width:100%">' +
+         opts.join('') + '</select>' +
+         '<div class="rcEpsBox" data-key="' + key + '" style="display:none;margin-top:3px">' +
+         '<input type="text" class="rcEps" data-key="' + key + '" ' +
+         'placeholder="مثلاً ۱۲، ۱۴، ۱۷-۱۹" style="width:100%">' +
+         (hint ? '<div class="sub">' + hint + '</div>' : '') +
+         '</div></div>';
 }
 
 /** جعبهٔ بالای تخته برای مرور: خلاصه + دکمه‌ای که تیک‌ها را می‌فرستد. */
@@ -1011,16 +1083,29 @@ function recapPanelHtml_(d) {
     if (r.done) { made++; if (r.behind) behind++; } else none++;
   }
   if (!ready) return '';
+  /* ══ چرا این متن کوتاه شد (۶٫۳۹) ══
+   * متنِ پیشین چهار پاراگراف بود دربارهٔ سازوکارِ صف و کفِ خودکار — یعنی
+   * دربارهٔ کارِ *موتور*. صاحبِ برنامه گفت «نمی‌فهمم چی می‌گه، خیلی
+   * گیج‌کننده‌ست»، و حق داشت: او دنبالِ پاسخِ «چه‌کار کنم» بود و متن پاسخِ
+   * «چطور کار می‌کند» می‌داد. حالا سه جمله: چه‌کار کن، سه گزینه چیستند،
+   * و چرا فقط اولی همین حالا ساخته می‌شود. */
   return '<h2><span>مرورِ بزرگ</span>' +
     '<span class="sub">یک قسمتِ جمع‌بندی برای هر مجموعه، با صدای همان یک نفر</span></h2>' +
     '<div class="card"><div class="sub" style="margin-bottom:8px">' +
-    'ورودیِ مرور، جزوهٔ همان مجموعه است. تیک‌ها یک <b>سفارش</b> می‌سازند: اولی ' +
-    'همین حالا نوشته می‌شود و بقیه شب‌به‌شب پشتِ سرش می‌آیند — چون هر بار فقط ' +
-    'یک درس‌نامه می‌تواند در حالِ صداگذاری باشد. ' +
-    'از پیش، مجموعه‌هایی تیک خورده‌اند که مرور نگرفته‌اند و دستِ‌کم ' +
-    faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) + ' درسِ ساخته‌شده دارند. ' +
-    'مجموعهٔ زیرِ این کف، و مجموعه‌ای که قبلاً مرور گرفته، تیکشان خاموش است ' +
-    'ولی می‌توانید خودتان بزنید — تصمیم دستِ شماست، این فقط حدسِ اولیه است.</div>' +
+    '<b>چه‌کار کنید:</b> مجموعه‌ها را تیک بزنید و برای هرکدام جلوی همان ردیف ' +
+    'انتخاب کنید مرور روی کدام درس‌ها باشد. سه گزینه هست:' +
+    '<div style="margin:4px 0 4px 0">' +
+    '• <b>همهٔ درس‌ها از ابتدا</b> — کلِ مجموعه، از درسِ یک.<br>' +
+    '• <b>فقط درس‌های پس از مرورِ قبلی</b> — فقط درس‌هایی که بعد از آخرین ' +
+    'مرورِ همین مجموعه اضافه شده‌اند (اگر قبلاً مرور نگرفته، این گزینه نمی‌آید).<br>' +
+    '• <b>فقط درس‌هایی که می‌نویسم</b> — شماره‌ی درس‌ها را خودتان می‌نویسید، ' +
+    'مثلاً <span dir="ltr">۱۲، ۱۴، ۱۷-۱۹</span>. شماره‌های موجود زیرِ همان ' +
+    'جعبه نوشته شده‌اند.</div>' +
+    'تیک‌ها یک <b>سفارش</b> می‌سازند: اولی همین حالا نوشته می‌شود و بقیه ' +
+    'شب‌به‌شب پشتِ سرش — چون هر بار فقط یک درس‌نامه می‌تواند در حالِ صداگذاری باشد. ' +
+    'تیکِ پیش‌فرض روی مجموعه‌هایی است که مرور نگرفته‌اند و دستِ‌کم ' +
+    faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) + ' درس دارند؛ بقیه را خودتان ' +
+    'می‌توانید بزنید.</div>' +
     '<div><b>' + faNum_(made) + '</b> مجموعه مرور دارد · ' +
     '<b>' + faNum_(none) + '</b> هنوز نه · ' +
     '<b>' + faNum_(def) + '</b> از پیش تیک خورده' +
@@ -1223,19 +1308,31 @@ function uiHandoutSeries(key) {
 /* ── دکمه‌های مرورِ بزرگ ──
    همان مرزِ همیشگی: کارِ واقعی در بخشِ ۳۰ است و آنجا سنجه دارد؛ اینجا فقط
    پوسته است، تا پنجرهٔ شکسته ساختِ مرور را نشکند. */
-function uiRecapQueue(keys) {
+function uiRecapQueue(keys, scopes) {
   try {
-    var q = recapQueueSet_(keys || [], getHub_());
+    /* رشته‌ای که آدم تایپ کرده، همین‌جا به عدد تبدیل می‌شود — و با فهرستِ
+       درس‌های موجود سنجیده. تجزیه در بخشِ ۳۰ است چون سنجه‌اش آنجاست؛ اینجا
+       فقط شکلِ ورودی درست می‌شود. */
+    var sc = {}, raw = scopes || {};
+    for (var k in raw) if (Object.prototype.hasOwnProperty.call(raw, k)) {
+      var o = raw[k] || {};
+      sc[k] = { mode: String(o.mode || 'all'), eps: recapParseEps_(o.eps || '') };
+    }
+    var q = recapQueueSet_(keys || [], getHub_(), sc);
     if (!q.n) {
       return { ok: false, message: 'هیچ مجموعهٔ معتبری تیک نخورده بود ' +
-        '(مجموعه‌ای که هنوز قسمتی از آن ساخته نشده، مرور نمی‌گیرد).' };
+        '(مجموعه‌ای که هنوز قسمتی از آن ساخته نشده مرور نمی‌گیرد؛ و «فقط ' +
+        'درس‌هایی که می‌نویسم» بدونِ شماره‌ای که واقعاً درس داشته باشد، ' +
+        'سفارشِ خالی است).' };
     }
     var r = recapRunNext_();
     var head = 'مرورِ بزرگ: ' + faDigitsOut_(String(q.n)) + ' مجموعه سفارش داده شد';
     if (r && r.ok) {
       return { ok: true, message: head + '. «' + r.series + '» همین حالا نوشته شد ' +
         '(قسمت ' + faDigitsOut_(String(r.episode)) + '، ' +
-        faDigitsOut_(String(r.sections)) + ' بخش) و صداگذاری‌اش در اجرای بعد شروع می‌شود' +
+        faDigitsOut_(String(r.sections)) + ' بخش' +
+        (r.scope ? '، دامنه: ' + r.scope : '') +
+        ') و صداگذاری‌اش در اجرای بعد شروع می‌شود' +
         (r.queueLeft ? '؛ ' + faDigitsOut_(String(r.queueLeft)) +
                        ' مجموعه در صف ماند و شب‌به‌شب ساخته می‌شوند' : '') + '.' };
     }
@@ -1243,6 +1340,7 @@ function uiRecapQueue(keys) {
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ صف سرِ جایش می‌ماند و کارِ شبانه ادامه می‌دهد.',
       'no-handout': 'جزوهٔ آن مجموعه هنوز ساخته نشده — ورودیِ مرور همان جزوه است.',
       write: 'مدل متنی برنگرداند؛ کارِ شبانه دوباره امتحان می‌کند.',
+      'scope-empty': 'دامنه‌ای که خواستید هیچ درسی از جزوهٔ آن مجموعه را در بر نگرفت.',
       none: 'مجموعهٔ معتبری پیدا نشد.',
       off: 'قابلیت خاموش است (RECAP_ENABLED).'
     }[r && r.reason] || String((r && r.reason) || 'نامعلوم');
