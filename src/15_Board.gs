@@ -406,18 +406,34 @@ var BOARD_CSS =
   '.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:4px}' +
   'h2{font-size:14px;color:#1f3864;margin:16px 0 6px;padding-bottom:5px;' +
   'border-bottom:2px solid #e8eefc;display:flex;justify-content:space-between;align-items:center}' +
-  /* ══ چرا ظاهرِ تخته به‌هم می‌ریخت (۶٫۵۱) ══
-   * جدولِ اصلی یازده ستون دارد و عنوان‌های انگلیسیِ بلند («Audi (2011)
-   * Epistemology A Contemporary Introduction …») نمی‌شکستند، پس جدول از
-   * پهنای پنجره می‌زد بیرون و **بدنهٔ صفحه** افقی اسکرول می‌شد. نوارِ
-   * جست‌وجو `position:sticky` است: عنصرِ چسبان وقتی بدنه افقی می‌لغزد،
-   * سرِ جای اولش می‌ماند و روی جدول می‌افتد — همان چیزی که در تصویر
-   * دیده می‌شود. درمان، پهن‌کردنِ پنجره نیست؛ این است که جدول داخلِ
-   * جعبهٔ خودش بلغزد و بدنه هرگز افقی اسکرول نشود. */
+  /* ══ ظاهرِ تخته: دو اشتباه، پشتِ سرِ هم (۶٫۵۱ و ۶٫۵۲) ══
+   *
+   * ۶٫۵۱ درست تشخیص داد که بدنهٔ صفحه افقی می‌لغزید و نوارِ جست‌وجوی
+   * `position:sticky` روی جدول می‌افتاد — و جدول را داخلِ جعبهٔ لغزانِ
+   * خودش گذاشت. ولی همراهش `overflow-wrap:anywhere` هم گذاشت، و آن یکی
+   * فاجعه بود: با `width:100%` جدول به عرضِ ظرف چسبیده است، و «هرجا
+   * می‌توانی بشکن» به مرورگر می‌گوید کمینهٔ عرضِ هر ستون **یک نویسه**
+   * است. پس یازده ستون تا یک حرف فشرده شدند و «Epistemology» عمودی،
+   * حرف‌به‌حرف، زیرِ هم چیده شد. دکمه‌ها هم همین‌طور.
+   *
+   * درسِ درست: در جدولی که داخلِ جعبهٔ لغزان است، **کف عرض** لازم است،
+   * نه اجازهٔ شکستن. `min-width` به ستون‌ها جا می‌دهد و اگر کم آمد جعبه
+   * می‌لغزد؛ فقط ستونِ نام حق دارد واژهٔ بلند را بشکند، آن هم با کفِ
+   * عرضِ خودش، و دکمه و نشان هرگز نمی‌شکنند. */
   '.tw{overflow-x:auto;max-width:100%}' +
-  'table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}' +
-  'td,th{overflow-wrap:anywhere;word-break:break-word}' +
-  '.nm{max-width:280px}' +
+  'table{width:100%;border-collapse:collapse;font-size:12px}' +
+  '.tw>table{min-width:1180px}' +
+  '.nm{min-width:200px;max-width:224px;overflow-wrap:break-word}' +
+  '.bxc{min-width:150px;max-width:175px}.rcc{min-width:140px;max-width:168px}' +
+  /* ستونِ دکمه‌ها آخرین ستون است، یعنی در چیدمانِ راست‌به‌چپ سمتِ **چپ** —
+     و وقتی جدول از جعبه پهن‌تر شود، اولین چیزی که از دید بیرون می‌رود
+     همان است: دکمه‌ها. در نمایشگرِ کوچک این حتمی است. پس چسبیده می‌ماند.
+     رنگِ پس‌زمینه لازم است وگرنه ردیف از زیرش رد می‌شود. */
+  '.act{min-width:150px;position:sticky;left:0;background:#fff;z-index:2;' +
+  'box-shadow:6px 0 6px -6px rgba(20,30,60,.18)}' +
+  'tr.now .act{background:#eaf6ec}tr.pinned .act{background:#fff6e5}' +
+  '.rcc select,.rcc input{max-width:150px;box-sizing:border-box}' +
+  'button,.bdg{white-space:nowrap}' +
   'th{background:#eef2fb;color:#1f3864;padding:6px 8px;text-align:right;font-weight:normal;' +
   'font-size:11px}' +
   'td{border-bottom:1px solid #eef0f5;padding:6px 8px;vertical-align:middle}' +
@@ -683,7 +699,7 @@ function seriesBoardHtml_(d) {
              '</td>');
       H.push('<td class="lvl">' + bEsc_(x.level || '—') + '</td>');
       H.push('<td>' + faNum_(x.donePartsN) + '/' + faNum_(x.parts) + '</td>');
-      H.push('<td>' + barSvg_(x.pct, 110, x.isCurrent ? '#166534' : '#2e5cb8') +
+      H.push('<td>' + barSvg_(x.pct, 84, x.isCurrent ? '#166534' : '#2e5cb8') +
              '<div class="sub">' + faNum_(x.pct) + '٪ — ' + faNum_(Math.round(x.doneChunks)) + ' از ' +
              faNum_(x.chunks) + ' قطعه</div></td>');
       H.push('<td>' + (x.status === SST.ACTIVE && !x.hasWork
@@ -698,7 +714,7 @@ function seriesBoardHtml_(d) {
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
       try { H.push(bridgeCell_(x, d)); }
       catch (eBc) { H.push('<td class="sub">—</td>'); }
-      H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
+      H.push('<td class="act"><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
              (x.isPinned || x.hasWork ? '' :
@@ -1150,9 +1166,9 @@ function recapCell_(x) {
   var r = x && x.recap;
   var key = bEsc_(x.key);
   if (!r || !r.made) {
-    return '<td class="sub"><label style="opacity:.5"><input type="checkbox" ' +
+    return '<td class="sub rcc"><label style="opacity:.5"><input type="checkbox" ' +
            'class="rcChk" data-key="' + key + '" disabled> مرور</label>' +
-           '<div class="sub">هنوز قسمتی ساخته نشده</div></td>';
+           '<div class="sub">قسمتی ساخته نشده</div></td>';
   }
   /* ══ پیش‌فرض: «مرور نشده» **و** به کفِ خودکار رسیده ══
    * خواسته این بود که «اون‌هایی که مرور نشدن تیک خورده باشه، در صورتی که
@@ -1224,7 +1240,7 @@ function recapCell_(x) {
   } else {
     idle = '<div class="sub">خودکار دیگر سراغش نمی‌رود — فقط با تیک و دکمه</div>';
   }
-  return '<td>' + body + idle + recapScopePick_(r, key) +
+  return '<td class="rcc">' + body + idle + recapScopePick_(r, key) +
          '<div style="margin-top:4px">' + chk + '</div></td>';
 }
 
@@ -1334,7 +1350,7 @@ function bridgeCell_(x, d) {
                ' <span class="sub">(' + faNum_(opts[i].made) + ')</span></label>');
   }
   if (!items.length) {
-    return '<td class="sub">هنوز مجموعه‌ای با درسِ ساخته‌شده نیست</td>';
+    return '<td class="sub bxc">مرجعی در دسترس نیست</td>';
   }
   /* «۱ مرجع» نمی‌گوید کدام — و پرسش دقیقاً همین بود. نامِ ثبت‌شده‌ها
      همین‌جا نوشته می‌شود، پیش از باز کردنِ جعبهٔ تیک‌ها. */
@@ -1347,7 +1363,7 @@ function bridgeCell_(x, d) {
        '<div class="sub" style="margin-top:3px">' +
        bEsc_(onNames.join(' · ').slice(0, 120)) + '</div>')
     : '<span class="sub">بدونِ مرجع</span>';
-  return '<td>' + head +
+  return '<td class="bxc">' + head +
          '<div class="rcEpsBox" style="margin-top:4px">' + items.join('') + '</div>' +
          '<div style="margin-top:4px">' +
          '<button data-key="' + key + '" onclick="bxSave(this)">ثبتِ مرجع‌ها</button></div>' +
@@ -1547,7 +1563,10 @@ function showSeriesBoard() {
   var ui = ui_();
   var html = uiBoardHtml();
   if (!ui) { console.log(html.slice(0, 400)); return html; }
-  var out = HtmlService.createHtmlOutput(html).setWidth(1000).setHeight(680);
+  /* پهنای پنجره: یازده ستون در ۱۰۰۰ پیکسل جا نمی‌شود و ستونِ دکمه‌ها
+     می‌بُرید. گوگل خودش تا پهنای مرورگر می‌بُرَدش، پس عددِ بزرگ‌تر بی‌خطر
+     است و در نمایشگرِ کوچک همان جعبهٔ لغزان کار را تمام می‌کند. */
+  var out = HtmlService.createHtmlOutput(html).setWidth(1280).setHeight(720);
   ui.showModalDialog(out, 'مجموعه‌های آموزشی و پیشرفت تولید');
 }
 

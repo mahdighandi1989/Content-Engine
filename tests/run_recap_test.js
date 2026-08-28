@@ -414,7 +414,7 @@ console.log('\n=== ۱۲) تخته: «تا کجا مرور شده» و تیکِ �
      cellDone.indexOf('data-def="0"') !== -1);
   ok('۱۲.۷ بی‌قسمت → تیکِ غیرفعال، با دلیلِ نوشته‌شده',
      cellNone.indexOf('disabled') !== -1 &&
-     cellNone.indexOf('هنوز قسمتی ساخته نشده') !== -1);
+     cellNone.indexOf('قسمتی ساخته نشده') !== -1);
   ok('۱۲.۸ و خانهٔ مرورشده می‌گوید تا کجا',
      cellDone.indexOf('تا درسِ') !== -1 && cellDone.indexOf('قسمت ') !== -1, cellDone.slice(0, 90));
 }
