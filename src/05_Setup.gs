@@ -494,6 +494,13 @@ function runScanSeries() {
       L.push('  • ' + iv.src + ' — ' +
              (iv.why ? '⚠ ' + iv.why
                      : iv.read + ' تب از ' + iv.tabs + ' خوانده شد'));
+      /* و **کدام** تب‌ها — وگرنه «۲ از ۱۰» شبیهِ خرابی به نظر می‌رسد در حالی
+         که شش‌تایشان باید رد شوند و بعضی خالی‌اند. */
+      for (var t2 = 0; t2 < (iv.detail || []).length; t2++) {
+        var dt = iv.detail[t2];
+        L.push('      ' + (dt.why ? '–' : '✓') + ' ' + dt.tab +
+               ' (' + dt.rows + ' ردیف)' + (dt.why ? ' — ' + dt.why : ''));
+      }
     }
   }
   if (r && r.unknownTabs && r.unknownTabs.length) {

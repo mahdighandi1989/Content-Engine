@@ -612,16 +612,31 @@ function scanSeries(force) {
       continue;
     }
     var tabs = ss.getSheets();
-    var invOne = { src: src.title, tabs: tabs.length, read: 0, why: '' };
+    var invOne = { src: src.title, tabs: tabs.length, read: 0, why: '', detail: [] };
     inv.push(invOne);
     for (var t = 0; t < tabs.length; t++) {
       var sh = tabs[t], tabName = sh.getName();
-      if (sh.getLastRow() < 2 || sh.getLastColumn() < 2) continue;
+      /* ══ چرا «۲ تب از ۱۰» (۶٫۴۸) ══
+       * صاحبِ برنامه این عدد را دید و نتیجه گرفت تب‌ها شناسایی نشده‌اند — و
+       * حق داشت که شک کند، چون عدد بی‌علت بود. واقعیت: از ده تب، شش‌تا
+       * خروجیِ ترکیبی‌اند (`Source_Files`) و **باید** رد شوند، و بعضی تب‌های
+       * محتوایی هم خالی‌اند. هر سه حالت درست‌اند؛ چیزی که غلط بود، نگفتنشان
+       * بود. حالا نامِ هر تب با شمارِ ردیف و علتِ رد شدنش نوشته می‌شود. */
+      if (sh.getLastRow() < 2 || sh.getLastColumn() < 2) {
+        invOne.detail.push({ tab: tabName, rows: Math.max(0, sh.getLastRow() - 1),
+                             why: 'خالی است' });
+        continue;
+      }
       var kind, files, headers;
       try {
         headers = sh.getRange(1, 1, 1, Math.min(sh.getLastColumn(), 80)).getValues()[0];
         kind = srcDetect_(headers);
         if (!kind || !kind.kind) {
+          var whyTab = 'نوعش شناخته نشد';
+          try {
+            if (srcHas_(hdrSet_(headers), 'Source_Files')) whyTab = 'خروجیِ ترکیبی (رد می‌شود)';
+          } catch (eW) {}
+          invOne.detail.push({ tab: tabName, rows: sh.getLastRow() - 1, why: whyTab });
           /* ══ تبی که بی‌صدا ناپدید می‌شد (۶٫۴۳) ══
            * گزارشِ صاحبِ برنامه: «در یکی از شیت‌های منبع یک سند یا کتاب را
            * محتوایش را استخراج کردم و اصلاً سینک نکرده و پیدا نکرده!!»
@@ -652,6 +667,8 @@ function scanSeries(force) {
         logLine_('مجموعه‌ها: تب «' + tabName + '» خوانده نشد: ' + eT.message); continue;
       }
       tabsRead++; invOne.read++;
+      invOne.detail.push({ tab: tabName, rows: sh.getLastRow() - 1,
+                           why: '', kind: kind.kind });
       for (var fid in files) {
         if (!Object.prototype.hasOwnProperty.call(files, fid)) continue;
         var f = files[fid];

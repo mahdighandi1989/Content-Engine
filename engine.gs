@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.47
+ *  موتور محتوا و پادکست — نسخهٔ 6.48
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1037,7 +1037,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.47',
+  CODE_VERSION: '6.48',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -8212,6 +8212,13 @@ function runScanSeries() {
       L.push('  • ' + iv.src + ' — ' +
              (iv.why ? '⚠ ' + iv.why
                      : iv.read + ' تب از ' + iv.tabs + ' خوانده شد'));
+      /* و **کدام** تب‌ها — وگرنه «۲ از ۱۰» شبیهِ خرابی به نظر می‌رسد در حالی
+         که شش‌تایشان باید رد شوند و بعضی خالی‌اند. */
+      for (var t2 = 0; t2 < (iv.detail || []).length; t2++) {
+        var dt = iv.detail[t2];
+        L.push('      ' + (dt.why ? '–' : '✓') + ' ' + dt.tab +
+               ' (' + dt.rows + ' ردیف)' + (dt.why ? ' — ' + dt.why : ''));
+      }
     }
   }
   if (r && r.unknownTabs && r.unknownTabs.length) {
@@ -13918,16 +13925,31 @@ function scanSeries(force) {
       continue;
     }
     var tabs = ss.getSheets();
-    var invOne = { src: src.title, tabs: tabs.length, read: 0, why: '' };
+    var invOne = { src: src.title, tabs: tabs.length, read: 0, why: '', detail: [] };
     inv.push(invOne);
     for (var t = 0; t < tabs.length; t++) {
       var sh = tabs[t], tabName = sh.getName();
-      if (sh.getLastRow() < 2 || sh.getLastColumn() < 2) continue;
+      /* ══ چرا «۲ تب از ۱۰» (۶٫۴۸) ══
+       * صاحبِ برنامه این عدد را دید و نتیجه گرفت تب‌ها شناسایی نشده‌اند — و
+       * حق داشت که شک کند، چون عدد بی‌علت بود. واقعیت: از ده تب، شش‌تا
+       * خروجیِ ترکیبی‌اند (`Source_Files`) و **باید** رد شوند، و بعضی تب‌های
+       * محتوایی هم خالی‌اند. هر سه حالت درست‌اند؛ چیزی که غلط بود، نگفتنشان
+       * بود. حالا نامِ هر تب با شمارِ ردیف و علتِ رد شدنش نوشته می‌شود. */
+      if (sh.getLastRow() < 2 || sh.getLastColumn() < 2) {
+        invOne.detail.push({ tab: tabName, rows: Math.max(0, sh.getLastRow() - 1),
+                             why: 'خالی است' });
+        continue;
+      }
       var kind, files, headers;
       try {
         headers = sh.getRange(1, 1, 1, Math.min(sh.getLastColumn(), 80)).getValues()[0];
         kind = srcDetect_(headers);
         if (!kind || !kind.kind) {
+          var whyTab = 'نوعش شناخته نشد';
+          try {
+            if (srcHas_(hdrSet_(headers), 'Source_Files')) whyTab = 'خروجیِ ترکیبی (رد می‌شود)';
+          } catch (eW) {}
+          invOne.detail.push({ tab: tabName, rows: sh.getLastRow() - 1, why: whyTab });
           /* ══ تبی که بی‌صدا ناپدید می‌شد (۶٫۴۳) ══
            * گزارشِ صاحبِ برنامه: «در یکی از شیت‌های منبع یک سند یا کتاب را
            * محتوایش را استخراج کردم و اصلاً سینک نکرده و پیدا نکرده!!»
@@ -13958,6 +13980,8 @@ function scanSeries(force) {
         logLine_('مجموعه‌ها: تب «' + tabName + '» خوانده نشد: ' + eT.message); continue;
       }
       tabsRead++; invOne.read++;
+      invOne.detail.push({ tab: tabName, rows: sh.getLastRow() - 1,
+                           why: '', kind: kind.kind });
       for (var fid in files) {
         if (!Object.prototype.hasOwnProperty.call(files, fid)) continue;
         var f = files[fid];
