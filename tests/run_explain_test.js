@@ -22,7 +22,7 @@ const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04
   '10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs','14_Special.gs',
   '15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs',
   '21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs',
-  '26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs'];
+  '26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs'];
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync(DIR + f, 'utf8');
 (0, eval)(src);
 
@@ -87,7 +87,12 @@ console.log('=== ۲) سهمِ نویسه‌ای: ۱۳٪، ولی هرگز بیر
   const ep = mkEp(4);
   const base = specialNarration_(ep).length;
   const b = explainBudget_(ep);
-  ok('۲.۱ سهم ۱۳٪ِ متنِ درس است', b === Math.round(base * 13 / 100), b + ' از ' + base);
+  /* سهم از خودِ CFG خوانده می‌شود، نه از عددِ ثابت: ۶٫۴۳ آن را ۱۳ ← ۲۰ برد
+     («از این حالتِ خیلی مسخره و کوتاه در بیاد») و سنجه‌ای که عدد را در خودش
+     تکرار کند، هر بار با تغییرِ یک تنظیم می‌شکند بی آنکه چیزی خراب شده باشد. */
+  ok('۲.۱ سهمِ اعلام‌شدهٔ متنِ درس است',
+     b === Math.round(base * Number(CFG.EXPLAIN_PCT) / 100),
+     b + ' از ' + base + ' (' + CFG.EXPLAIN_PCT + '٪)');
 
   /* ۵٫۹۶ دوباره: «سقفی که مرحلهٔ بعد بتواند رویش اضافه کند، سقف نیست.»
      عصری‌سازی همان مرحلهٔ بعد است، پس نگهبانِ دومش همین‌جاست. */
@@ -96,12 +101,32 @@ console.log('=== ۲) سهمِ نویسه‌ای: ۱۳٪، ولی هرگز بیر
      این سنجه را شکننده می‌کرد. */
   const big = { sections: [{ heading: 'ب', narration: 'م'.repeat(specialFileCap_() - 50) }] };
   const room = Math.max(0, specialFileCap_() - specialNarration_(big).length);
-  ok('۲.۲ ولی وقتی متن سرِ سقفِ فایل است، سهم به اندازهٔ جای باقی‌مانده می‌شود',
-     room > 0 && room < 100 && explainBudget_(big) === room,
-     explainBudget_(big) + ' = ' + room);
+  /* ولی این نگهبان **فقط وقتی «یک فایل» خواسته شده** معنا دارد. از ۶٫۴۳ که
+     دو فایل مجاز است (خواستهٔ صریحِ صاحبِ برنامه)، اعمالش یعنی عصری‌سازی را
+     بی‌دلیل خفه کنیم — قیدی که برداشته شده نباید از راهِ دیگری برگردد.
+     پس سنجه هر دو حالت را می‌سنجد، نه اینکه یکی‌شان را نادیده بگیرد. */
+  if (CFG.SPECIAL_ONE_FILE === true) {
+    ok('۲.۲ وقتی «یک فایل» خواسته شده و متن سرِ سقف است، سهم به جای باقی‌مانده می‌رسد',
+       room > 0 && room < 100 && explainBudget_(big) === room,
+       explainBudget_(big) + ' = ' + room);
+  } else {
+    ok('۲.۲ با خاموش‌بودنِ «یک فایل»، سقفِ فایل سهمِ عصری‌سازی را نمی‌بندد',
+       explainBudget_(big) > room,
+       explainBudget_(big) + ' > جای یک فایل (' + room + ')');
+  }
   const over = { sections: [{ heading: 'ب', narration: 'م'.repeat(specialFileCap_() + 500) }] };
-  ok('۲.۳ و اگر جایی نمانده، صفر — نه اینکه از سقف بزند بیرون',
-     explainBudget_(over) === 0, String(explainBudget_(over)));
+  if (CFG.SPECIAL_ONE_FILE === true) {
+    ok('۲.۳ و اگر جایی نمانده، صفر — نه اینکه از سقف بزند بیرون',
+       explainBudget_(over) === 0, String(explainBudget_(over)));
+  } else {
+    /* با خاموش‌بودنِ «یک فایل»، «جا نمانده» بی‌معناست — قسمت در دو فایل
+       می‌رود. ولی سهم هنوز باید نسبتِ اعلام‌شده باشد، نه بی‌کران: قیدی که
+       برداشته می‌شود نباید سقفِ نسبت را هم با خودش ببرد. */
+    ok('۲.۳ با خاموش‌بودنِ «یک فایل»، سهم همان نسبتِ اعلام‌شده می‌مانَد',
+       explainBudget_(over) ===
+         Math.round(specialNarration_(over).length * Number(CFG.EXPLAIN_PCT) / 100),
+       String(explainBudget_(over)));
+  }
 
   /* و سهمش باید از پیش کنار گذاشته شده باشد، وگرنه هیچ‌وقت جا نیست. */
   ok('۲.۴ سقفِ نگارش هم سهمِ عصری‌سازی را کنار می‌گذارد',
@@ -429,8 +454,18 @@ console.log('=== ۱۲) کفِ طول: تیکهٔ بریده از نبودنش ب
      که وقتی متنِ درس نزدیکِ سقفِ «یک فایل» می‌نشیند سهم فرو می‌ریزد، و کفِ
      ۸۰ نویسهٔ قبلی اجازه می‌داد تیکه‌های بریده هم بمانند. */
   ok('۱۲.۱ کف واقعی است، نه یک جملهٔ تعارفی', Number(CFG.EXPLAIN_MIN_CHARS) >= 250);
-  const tight = { sections: [{ heading: 'ب',
-    narration: 'م'.repeat(specialFileCap_() - 300) }] };
+  /* ══ نمونه از **درسِ کوتاه** ساخته می‌شود، نه از فشارِ سقفِ یک فایل (۶٫۴۳) ══
+   * تا ۶٫۴۲ این بلوک درسی می‌ساخت که تا لبِ سقفِ «یک فایل» پر باشد، تا سهم
+   * فرو بریزد. با خاموش‌شدنِ آن کلید (خواستهٔ صاحبِ برنامه) آن راه دیگر سهم
+   * را کم نمی‌کند و سنجه شکست — در حالی که قاعده‌ای که می‌سنجید هنوز درست
+   * است: **سهمی که به کف نرسد یعنی هیچ توضیحی، نه توضیحِ بریده.**
+   * یک درسِ کوتاه همان وضع را می‌سازد و به هیچ کلیدی بند نیست. */
+  const shortLen = Math.floor(Number(CFG.EXPLAIN_MIN_CHARS) * 100 /
+                              Number(CFG.EXPLAIN_PCT)) - 200;
+  const tight = { sections: [{ heading: 'ب', narration: 'م'.repeat(Math.max(200, shortLen)) }] };
+  ok('۱۲.۱-ب و نمونه واقعاً زیرِ کف است',
+     explainBudget_(tight) < Number(CFG.EXPLAIN_MIN_CHARS),
+     explainBudget_(tight) + ' < ' + CFG.EXPLAIN_MIN_CHARS);
   global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [{
     text: JSON.stringify({ spots: [{ section: '0', at: 'انتها', text: TXT('ث') }] }) }] } }] } });
   const rr = explainPlan_(tight, 4, 'م');
@@ -438,11 +473,8 @@ console.log('=== ۱۲) کفِ طول: تیکهٔ بریده از نبودنش ب
      rr.ok === false && !tight.__explain, rr.why);
   /* و وقتی سهم حتی به کفِ *یک* توضیح هم نمی‌رسد، صریح گفته می‌شود —
      نه اینکه در سکوت هیچ توضیحی نسازد. */
-  const none = { sections: [{ heading: 'ب',
-    narration: 'م'.repeat(specialFileCap_() - 100) }] };
-  const r2 = explainPlan_(none, 4, 'م');
   ok('۱۲.۳ و اگر سهم به کفِ یک توضیح هم نرسد، علتش صریح است',
-     r2.ok === false && /کافی نبود/.test(r2.why), r2.why);
+     rr.ok === false && /کافی نبود/.test(rr.why), rr.why);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

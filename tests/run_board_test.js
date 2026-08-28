@@ -13,7 +13,7 @@ const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
                '10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs',
-               '14_Special.gs','15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs','21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs','26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs'];
+               '14_Special.gs','15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs','21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs','26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs'];
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync(DIR + f, 'utf8');
 (0, eval)(src);
 
@@ -594,7 +594,13 @@ const bdSk = seriesBoardData_(hub);
 const sSk = bdSk.groups.reduce((a,g)=>a.concat(g.series),[]).find(x => x.key === 'tostring');
 ok('در تخته «کارِ ناتمام» حساب نمی‌شود', sSk && sSk.hasWork === false, String(sSk && sSk.status));
 const hSk = seriesBoardHtml_(bdSk);
-ok('و دکمه‌اش خاموش است', (hSk.match(/<button [^>]*data-key="tostring"[^>]*>/) || [''])[0]
+/* دکمهٔ **سنجاق** را با نامِ خودش هدف می‌گیریم، نه «اولین دکمه‌ای که این
+   data-key را دارد»: از ۶٫۴۳ هر ردیف دکمهٔ «ثبتِ مرجع‌ها» هم دارد و آن
+   عمداً روشن است (انتخابِ مرجع یک تنظیم است، نه تولید). سنجه‌ای که به
+   ترتیبِ دکمه‌ها بند باشد، با هر دکمهٔ تازه می‌شکند بی آنکه چیزی خراب شده
+   باشد — و بدتر، ممکن است سبز بماند در حالی که دکمهٔ درست باز است. */
+ok('و دکمه‌اش خاموش است',
+   (hSk.match(/<button [^>]*data-key="tostring"[^>]*onclick="pinSeries\(this\)"[^>]*>/) || [''])[0]
    .indexOf('disabled') !== -1);
 un = quiet(); const pSk = uiPinSeries('tostring', 'pin'); un();
 ok('سرور هم انتخابش را رد می‌کند', pSk.ok === false && seriesPin_() === null,

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.42
+ *  موتور محتوا و پادکست — نسخهٔ 6.43
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -389,7 +389,13 @@ var CFG = {
   // ۱۳ عددِ خودِ صاحبِ برنامه است: «شاید لازم باشه سهمیهٔ ۱۳ درصد … افزایش
   // پیدا کنه». روی *متنِ درس* حساب می‌شود نه روی سقفِ فایل — درسِ کوتاه
   // توضیحِ کوتاه می‌خواهد.
-  EXPLAIN_PCT: 13,
+  /* ۱۳ ← ۲۰ (۶٫۴۳): «اون توضیحاتِ خودمونی و ساده و عصری‌سازی بینِ هر درس
+     هم از این حالتِ خیلی مسخره و کوتاه و بی‌معنی در بیاد، خیلی بهتر بشه و
+     ملموس‌تر.» با سقفِ ۱۰٫۸ دقیقه، ۱۳٪ یعنی چند جمله؛ حالا که سقف ۱۵ دقیقه
+     است، جا هست. `EXPLAIN_MIN_CHARS` کفِ هر جایگاه است — سهمِ کل که پخش
+     شود روی چهار جا، باز هم می‌تواند هر کدام دو جمله در بیاید. */
+  EXPLAIN_PCT: 20,
+  EXPLAIN_MIN_CHARS: 700,
   // سه جا در یک قسمت. توضیح‌دهنده‌ای که همه‌جا باشد دیگر توضیح‌دهنده نیست،
   // گویندهٔ دوم است و درس را دو برابر می‌کند.
   EXPLAIN_MAX_SPOTS: 3,
@@ -807,7 +813,20 @@ var CFG = {
   // صاحبِ برنامه صریح گفت درس‌نامه هم باید یک فایل باشد. با روشن‌بودنش سقفِ
   // نویسهٔ درس‌نامه خودبه‌خود به اندازهٔ یک فایل می‌آید (specialMaxChars_)، پس
   // درس کوتاه‌تر می‌شود و در یک فایل جا می‌گیرد.
-  SPECIAL_ONE_FILE: true,
+  /* ══ «یک فایل» دیگر خواستهٔ اول نیست (۶٫۴۳) ══
+   * خواستهٔ صریحِ صاحبِ برنامه: «دغدغه‌ام در خصوصِ یک صوت شدنِ هر پادکست را
+   * الان می‌توانم تجدیدنظر کنم، چون تو ناچار شدی سقفِ محتوا را کوتاه کنی…
+   * سقفِ هر صوتِ درس‌نامه را بگذار حداقل روی ۱۵ دقیقه و اگر در دو فایل شد
+   * مشکلی ندارد، چون در یوتیوب پادکست را در یک قسمت می‌بینم.»
+   *
+   * و علتش درست است: از ۶٫۴۳ هر درس می‌تواند به مجموعه‌های دیگر ارجاع بدهد.
+   * متنِ درس + ارجاع‌ها + عصری‌سازی + غنی‌سازی در سقفِ ۱۰٫۸ دقیقه یعنی هر
+   * چهارتا نصفه — و نصفه‌بودنِ چهار چیز بدتر از دو فایل شدنِ یک قسمت است.
+   *
+   * خاموش‌کردنش خودبه‌خود قیدها را برمی‌دارد: `specialMaxChars_` به هدفِ
+   * ۱۵ دقیقه برمی‌گردد، و بندِ «یک فایل» در `applyEnrichment_` و
+   * `explainBudget_` هر دو پشتِ همین کلیدند. */
+  SPECIAL_ONE_FILE: false,
 
 
   // ---- فایل‌های تکه‌تکه‌شده ----
@@ -952,6 +971,13 @@ var CFG = {
      نرسیده. پس «آنچه معمولاً لازم است» کنار گذاشته می‌شود و «آنچه هرگز
      نباید از آن بگذرد» در applyEnrichment_ سختگیرانه اعمال. */
   SPECIAL_ENRICH_RESERVE_PCT: 12,
+
+  /* ── ارجاعِ میان‌مجموعه‌ای (بخشِ ۳۱، ۶٫۴۳) ── */
+  BRIDGE_ENABLED: true,
+  BRIDGE_MAX_SERIES: 4,        // بیش از این، پرامپت از ورودیِ خودِ درس بزرگ‌تر می‌شود
+  BRIDGE_MAX_LINKS: 3,         // چند ارجاع در یک قسمت — بیشتر یعنی لوث‌شدن
+  BRIDGE_CORPUS_CHARS: 14000,  // سهمِ هر مجموعهٔ مرجع در پرامپت
+  BRIDGE_TAB: 'ارجاع‌های میان‌مجموعه‌ای',
   ENRICH_KEEP_DAYS: 10,             // پرونده‌های دستِ‌به‌دستِ کهنه پاک می‌شوند
 
   // ------------------------------------------- دیدبانِ محتوا (بخش ۲۴)
@@ -987,7 +1013,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.42',
+  CODE_VERSION: '6.43',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1166,14 +1192,21 @@ var SERIES_HEADERS = [
   // ── پلی‌لیستِ یوتیوب (۵٫۹۷) ── لینکِ پلی‌لیستِ همین مجموعه در یوتیوب.
   // هرچه در ستون‌های «شمارهٔ دستی» و «نام مجموعه» عوض شود، در همین
   // پلی‌لیست هم اثر می‌گذارد: عنوان و ترتیبِ ویدئوها از همین‌جا می‌آید.
-  'پلی‌لیست یوتیوب'
+  'پلی‌لیست یوتیوب',
+  /* ══ مجموعه‌های مرجع (۶٫۴۳) ══
+     کلیدِ مجموعه‌هایی که هنگام تولیدِ این مجموعه باید به آن‌ها ارجاع داده
+     شود، با «،» جدا. ستونِ «مجموعه‌های مرتبط» (۱۹) چیزِ دیگری است: آن را
+     داوریِ خودکار پر می‌کند و فقط نمایشی است. این یکی انتخابِ صریحِ آدم
+     است و رفتارِ تولید را عوض می‌کند — دو معنا در یک ستون یعنی روزی یکی
+     دیگری را پاک می‌کند. */
+  'مجموعه‌های مرجع'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
            EPISODES: 14, LAST_EP_AT: 15, FIRST_SEEN: 16, UPDATED: 17,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
-           MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33 };
+           MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -9670,6 +9703,7 @@ function writeStatus_(hub, note) {
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
+    bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -10532,6 +10566,12 @@ function healthCheck() {
     var rcS = recapStatus_();
     if (rcS && rcS.line) notes.push(rcS.line);
   } catch (eRc2) {}
+  /* ارجاعِ میان‌مجموعه‌ای (۶٫۴۳) — قاعدهٔ ۵٫۹۰: صاحبِ برنامه شیت باز نمی‌کند،
+     پس سیاههٔ ارجاع‌ها اگر فقط در تب بماند، از نظرِ او وجود ندارد. */
+  try {
+    var bxS = bridgeStatus_(hub);
+    if (bxS && bxS.line) notes.push(bxS.line);
+  } catch (eBx2) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
   if (healthHas_(6000, 'مدل‌ها', skipped)) try {
@@ -13782,7 +13822,7 @@ function scanSeries(force) {
 
   var reg = readSeriesReg_(hub), parts = readSeriesParts_(hub);
   var found = Object.create(null);   // key → { name, kind, src, tab, parts: {fileId: fileRec} }
-  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0;
+  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0, unknownTabs = [];
 
   for (var s = 0; s < CFG.SOURCES.length; s++) {
     var src = CFG.SOURCES[s];
@@ -13803,7 +13843,27 @@ function scanSeries(force) {
       try {
         headers = sh.getRange(1, 1, 1, Math.min(sh.getLastColumn(), 80)).getValues()[0];
         kind = srcDetect_(headers);
-        if (!kind || !kind.kind) continue;               // تبِ جانبی، نه محتوایی
+        if (!kind || !kind.kind) {
+          /* ══ تبی که بی‌صدا ناپدید می‌شد (۶٫۴۳) ══
+           * گزارشِ صاحبِ برنامه: «در یکی از شیت‌های منبع یک سند یا کتاب را
+           * محتوایش را استخراج کردم و اصلاً سینک نکرده و پیدا نکرده!!»
+           *
+           * `srcDetect_` امضاهای مشخصی می‌شناسد (`Document_Info`،
+           * `Full_Text_Extraction`، `Visual_Analysis`، …). تبی که ستونِ
+           * `File_ID` دارد — یعنی آشکارا فایل در آن ثبت شده — ولی هیچ‌کدام
+           * از آن امضاها را ندارد، تا امروز با یک `continue` رد می‌شد:
+           * **بی هیچ سطری در سیاهه، بی هیچ عددی، بی هیچ نشانی.** از بیرون
+           * از «تبِ جانبی» فرقی نداشت.
+           *
+           * تبِ واقعاً جانبی هم هست (خروجیِ ترکیبی، بی `File_ID`) و آن باید
+           * ساکت رد شود. مرز همین است: `File_ID` دارد یا نه. */
+          try {
+            if (srcHas_(hdrSet_(headers), 'File_ID') || srcHas_(hdrSet_(headers), 'File ID')) {
+              unknownTabs.push(src.title + ' › ' + tabName);
+            }
+          } catch (eU) {}
+          continue;
+        }
         files = scanTabFiles_(sh, tabName, headers);
       } catch (eT) {
         logLine_('مجموعه‌ها: تب «' + tabName + '» خوانده نشد: ' + eT.message); continue;
@@ -13861,6 +13921,28 @@ function scanSeries(force) {
     return res;
   }
   if (srcFail) res.sourcesFailed = srcFail;
+  /* و اگر تبی فایل داشت ولی نوعش شناخته نشد، این یافته است نه سکوت. مالکش
+     «کد» است: یا امضای تازه‌ای باید به `srcDetect_` اضافه شود، یا ستونی در
+     آن تب کم است — و هیچ‌کدام را نمی‌شود فهمید وقتی هیچ‌جا نوشته نمی‌شود. */
+  res.unknownTabs = unknownTabs;
+  if (unknownTabs.length) {
+    logLine_('مجموعه‌ها: ' + unknownTabs.length + ' تب فایل دارد ولی نوعش شناخته نشد — ' +
+             unknownTabs.slice(0, 4).join('، ') + '.');
+    try {
+      logSelfFinding_(hub, {
+        priority: 'جدی', category: 'منابع', key: 'src-tab-unknown',
+        title: 'تبی در شیتِ منبع فایل دارد ولی خوانده نمی‌شود',
+        detail: unknownTabs.slice(0, 6).join(' | ') +
+                ' — ستونِ File_ID دارند ولی هیچ‌کدام از امضاهای srcDetect_ ' +
+                '(Document_Info، Full_Text_Extraction، Visual_Analysis، ' +
+                'Speaker_Diarization، Image_Basic_Info) در سرستون‌هایشان نیست.',
+        instruction: 'سرستون‌های آن تب را ببین و امضایش را به srcDetect_ ' +
+                     '(بخشِ ۱۰) اضافه کن، یا اگر تبِ جانبی است ستونِ ' +
+                     'Source_Files را در آن بگذار تا عمداً رد شود.',
+        owner: 'کد'
+      });
+    } catch (eUf) {}
+  }
   props_().deleteProperty(PK.SERIES_FAIL_AT);
   props_().setProperty(PK.SERIES_SCAN_AT, nowStr_());
   // مجموعهٔ تازه باید همان لحظه در جایگاهِ درستِ خودش بنشیند. داوریِ محتوایی‌اش
@@ -14643,8 +14725,37 @@ function specialMaxChars_() {
   // نویسه در دقیقه از همان نرخِ گفتار می‌آید، نه از «۱۵۰ واژه × ۵٫۵».
   var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) *
                             speechCps_() * 60 * 1.1);
-  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, specialWriteCap_());
-  return byTarget;
+  /* ══ «هدف» یعنی طولِ قسمتِ *تمام‌شده* (۶٫۴۳) ══
+   * تا ۶٫۴۲ رزروِ مرحله‌های بعدی فقط وقتی اعمال می‌شد که «یک فایل» روشن
+   * باشد. با خاموش‌شدنش، هدفِ ۱۵ دقیقه به مدل داده می‌شد و بعد غنی‌سازی و
+   * عصری‌سازی تا ۴۵٪ رویش اضافه می‌کردند: قسمتِ «پانزده‌دقیقه‌ای» بیست‌ودو
+   * دقیقه در می‌آمد. عددی که هیچ‌وقت طولِ واقعیِ چیزی نیست، هدف نیست.
+   *
+   * پس رزرو همیشه اعمال می‌شود و «یک فایل» فقط یک سقفِ *اضافه* است — دقیقاً
+   * همان تفکیکی که ۵٫۹۱ خواست: یک منبعِ حقیقت، نه دو رفتار. */
+  var reserved = specialReserve_(byTarget);
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(reserved, specialWriteCap_());
+  return reserved;
+}
+
+/**
+ * سهمی که مرحله‌های *پس از نگارش* برمی‌دارند، از یک سقفِ داده‌شده کنار
+ * گذاشته می‌شود. **یک تعریف، دو مصرف** (`specialMaxChars_` و
+ * `specialWriteCap_`) — دو کپی از همین حساب یعنی روزی یکی از آن دو
+ * مصرف‌کننده‌ای را که تازه اضافه شده نمی‌بیند، که همان باگِ ۵٫۹۶ است.
+ */
+function specialReserve_(cap) {
+  var pct = 0;
+  if (CFG.ENRICH_ENABLED !== false) {
+    var pe = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
+    if (isFinite(pe) && pe > 0) pct += pe;
+  }
+  if (CFG.EXPLAIN_ENABLED !== false) {
+    var px = Number(CFG.EXPLAIN_PCT);
+    if (isFinite(px) && px > 0) pct += px;
+  }
+  if (pct <= 0) return cap;
+  return Math.floor(cap / (1 + pct / 100));
 }
 
 /**
@@ -14674,22 +14785,11 @@ function specialFileCap_() { return oneFileMaxChars_(); }
  * الگویی است که این ریپو بارها از آن ضربه خورده).
  */
 function specialWriteCap_() {
-  var cap = specialFileCap_();
-  var pct = 0;
-  if (CFG.ENRICH_ENABLED !== false) {
-    var pe = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
-    if (isFinite(pe) && pe > 0) pct += pe;
-  }
   /* ۶٫۲۱: توضیح‌دهندهٔ عصری‌سازی هم *پس از* نوشتن اضافه می‌شود، پس سهمش هم
-     باید از پیش کنار برود — وگرنه همان اتفاقِ ۵٫۹۶ دوباره می‌افتد، این بار
-     با ۱۳٪ به‌جای ۲۵٪. و اگر خاموش باشد چیزی کنار نمی‌رود: رزروِ بی‌مصرف
-     یعنی هر درس بی‌دلیل کوتاه‌تر. */
-  if (CFG.EXPLAIN_ENABLED !== false) {
-    var px = Number(CFG.EXPLAIN_PCT);
-    if (isFinite(px) && px > 0) pct += px;
-  }
-  if (pct <= 0) return cap;
-  return Math.floor(cap / (1 + pct / 100));
+     باید از پیش کنار برود — وگرنه همان اتفاقِ ۵٫۹۶ دوباره می‌افتد. و اگر
+     خاموش باشد چیزی کنار نمی‌رود: رزروِ بی‌مصرف یعنی هر درس بی‌دلیل کوتاه‌تر.
+     خودِ حساب در `specialReserve_` است — یک نسخه، دو مصرف. */
+  return specialReserve_(specialFileCap_());
 }
 
 /**
@@ -15256,6 +15356,9 @@ function buildSpecialPrompt_(ctx) {
     L.push('');
   }
 
+  /* پیش از «ساختار خروجی»: نویسنده باید نسبت‌ها را بداند وقتی دارد بخش‌ها
+     را می‌چیند، نه بعد از آنکه ساختار را بست. */
+  if (ctx.bridgeBlock) { L.push(ctx.bridgeBlock); L.push(''); }
   L.push('══ ساختار خروجی ══');
   L.push('• title: عنوانِ این قسمت. نامِ مجموعه در آن نیاید (خودش جداگانه می‌آید).');
   L.push('• hook: آغازِ برنامه. با نامِ برنامه شروع کن: «' + CFG.SPECIAL_SHOW_NAME + '»، ' +
@@ -15700,6 +15803,25 @@ function produceSpecialEpisode(opt) {
                 enrich: enrich, when: when, orders: orders,
                 recapText: recapTextOf_(rec) };
 
+    /* ══ ارجاعِ میان‌مجموعه‌ای (بخشِ ۳۱، ۶٫۴۳) ══
+     * پیش از نوشتن، چون نویسنده باید بداند کجا ارجاع می‌نشیند. فراخوانِ رو
+     * به جلو است (۱۴ → ۳۱)، پس در try/catch — بارگذارهای جزئیِ tests/ ممکن
+     * است بخشِ ۳۱ را نداشته باشند و آن‌وقت ReferenceError کلِ تولید را
+     * می‌خواباند برای قابلیتی که فقط یک افزوده است.
+     *
+     * `digest` خلاصهٔ متنِ خام است، نه کلش: کاشفِ نسبت باید بداند این درس
+     * دربارهٔ چیست، و برای آن چند هزار نویسه بس است — کلِ متن یعنی دو برابر
+     * هزینه برای جوابی که فرق نمی‌کند. */
+    try {
+      var digest = allText.replace(/\s+/g, ' ').slice(0, 12000);
+      var bctx = { seriesName: seriesName, partName: ctx.partName,
+                   digest: digest, headings: [] };
+      var br = bridgeFor_(hub, reg, rec, bctx);
+      ctx.bridgeBlock = br.block;
+      ctx.__bridges = br.links;
+      ctx.__bridgeNone = br.none;
+    } catch (eBr) { logLine_('ارجاع رد شد: ' + eBr.message); }
+
     var prompt = buildSpecialPrompt_(ctx);
     var ep = geminiText_(prompt, SPECIAL_SCHEMA, 40960);
     if (!ep || !ep.sections || !ep.sections.length) throw new Error('متن درس‌نامه بدون بخش برگشت.');
@@ -15896,8 +16018,21 @@ function produceSpecialEpisode(opt) {
       // دستهٔ مجموعه، تا نقش‌گزینیِ گویندگان بداند این درس از چه جنسی است
       seriesCat: seriesCatOf_(rec.vals),
       level: String(rec.vals[SC.LEVEL - 1] || ''),
-      orders: orders, epNum: epNum, date: when
+      orders: orders, epNum: epNum, date: when,
+      /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
+         در جایی ثبتِ دقیق و کامل بشه». سیاهه تاریخچه است، این پرونده حالِ
+         همین قسمت — و ناظر و یوتیوب هر دو از همین می‌خوانند. */
+      bridges: (ctx.__bridges || []).map(function (b) {
+        return { series: b.seriesName, kind: b.kind, at: b.atHeading,
+                 claim: b.claim, relation: b.relation };
+      }),
+      bridgeNone: String(ctx.__bridgeNone || '')
     });
+
+    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاع — سؤالی که فردا می‌پرسی
+       «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
+    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridges || []); }
+    catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}
@@ -16901,6 +17036,10 @@ function seriesBoardData_(hub) {
      خوانده شده، پس دوباره خوانده نمی‌شود. */
   var rcMap = Object.create(null);
   try { rcMap = recapBoardMap_(hub, reg); } catch (eR) {}
+  /* یک خواندن برای هر ۲۶۴ ردیف، نه یکی به‌ازای هر مجموعه — همان قاعده‌ای که
+     ۵٫۸۷ و ۶٫۲۲ گذاشتند و ۶٫۴۰ دوباره رعایتش کرد. */
+  var bxOpts = [];
+  try { bxOpts = bridgeCandidates_(hub, reg); } catch (eB) { bxOpts = []; }
   /* وارسیِ ترتیب — همان‌جایی که مجموعه انتخاب می‌شود. هشداری که در ایمیل
      بماند و کنارِ دکمهٔ «کار روی این» نباشد، سرِ بزنگاه دیده نمی‌شود. */
   var ordMap = Object.create(null);
@@ -16963,6 +17102,7 @@ function seriesBoardData_(hub) {
       lastEpAt: String(v[SC.LAST_EP_AT - 1] || ''),
       note: String(v[SC.NOTE - 1] || ''),
       related: String(v[SC.RELATED - 1] || ''),
+      xref: String(v[SC.XREF - 1] || ''),
       isCurrent: key === curKey,
       isPinned: !!(pin && pin.kind === 'series' && pin.value === key),
       // ── داوریِ محتوایی ──
@@ -17130,6 +17270,7 @@ function seriesBoardData_(hub) {
 
   return {
     groups: groups, totals: tot, pin: pinShow,
+    bridgeOptions: bxOpts,
     excluded: excluded, judge: jsum,
     judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
     current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
@@ -17474,7 +17615,8 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th>مرورِ بزرگ</th><th></th></tr>');
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th>مجموعه‌های مرجع</th>' +
+           '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
       var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
@@ -17510,6 +17652,7 @@ function seriesBoardHtml_(d) {
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
+      H.push(bridgeCell_(x, d));
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -17532,7 +17675,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="9"><table style="font-size:11px">');
+               '<td colspan="10"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -17649,6 +17792,16 @@ function seriesBoardHtml_(d) {
      چیزی که نوشته اثر داشته. `data-key` مقایسه می‌شود و در selector نمی‌رود:
      کلیدِ مجموعه می‌تواند هر نویسه‌ای داشته باشد و یک querySelector شکسته
      در این پنجره هیچ خطایی نشان نمی‌دهد، فقط بی‌صدا کار نمی‌کند. */
+  /* ══ ارجاعِ میان‌مجموعه‌ای (۶٫۴۳) ══
+     تیک‌ها *همان لحظه* ثبت می‌شوند، نه با دکمهٔ سراسری: انتخابِ مرجع تنظیمِ
+     ماندگارِ یک مجموعه است، نه یک سفارشِ یک‌بارمصرف — و تنظیمی که با بستنِ
+     پنجره از دست برود، همان شکلی است که آدم بعداً باور می‌کند ثبت شده. */
+  H.push('function bxSave(b){var k=b.dataset.key,v=[];' +
+         '[].slice.call(document.querySelectorAll("input.bxChk")).forEach(function(x){' +
+         'if(x.dataset.key===k&&x.checked)v.push(x.value);});' +
+         'busy();say("ثبتِ مجموعه‌های مرجع…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiBridgeSave(k,v);}');
   H.push('function rcModes(){return [].slice.call(' +
          'document.querySelectorAll("select.rcMode"));}');
   H.push('function rcModeChange(s){var k=s.dataset.key;' +
@@ -17728,12 +17881,25 @@ function seriesBoardHtml_(d) {
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiClearManual(b.dataset.key);}');
   // ── جست‌وجو ──
-  H.push('function doSearch(){var q=(document.getElementById("q").value||"")' +
-         '.trim().replace(/\\u200c/g," ").toLowerCase();' +
+  /* ══ جست‌وجویی که عنوانِ واقعی را پیدا نمی‌کرد (۶٫۴۳) ══
+   * صاحبِ برنامه بخشی از نامِ یک کتاب را جست‌وجو کرد و «نمایش ۰ از ۲۱۳»
+   * گرفت — و نتیجه گرفت که اصلاً سینک نشده. ولی تطبیق یک `indexOf`ِ خام بود:
+   * «Epistemology A Contemporary» با «Epistemology: A Contemporary
+   * Introduction» **هیچ‌وقت** نمی‌خواند، چون یک دونقطه وسطش است. آدم عنوان
+   * را از حافظه و بی نقطه‌گذاری می‌نویسد؛ ابزار باید همان را بفهمد.
+   *
+   * حالا هر دو طرف نقطه‌گذاری‌شان برداشته می‌شود و پرسش به واژه‌ها تکه
+   * می‌شود: **همهٔ** واژه‌ها باید باشند، به هر ترتیبی. عبارتِ دقیق هنوز کار
+   * می‌کند (یک واژه هم یک واژه است) و ترتیب دیگر شرط نیست. */
+  H.push('function nrm(t){return String(t||"").replace(/[\\u200c\\u200f\\u200e]/g," ")' +
+         '.replace(/[\\u064b-\\u0652]/g,"").replace(/[يى]/g,"ی").replace(/ك/g,"ک")' +
+         '.replace(/[^0-9a-z\\u0600-\\u06ff]+/gi," ").replace(/\\s+/g," ").trim().toLowerCase();}');
+  H.push('function doSearch(){var q=nrm(document.getElementById("q").value);' +
+         'var qs=q?q.split(" "):[];' +
          'var rows=document.querySelectorAll("tr.srow");var n=0,tot=0;' +
          'rows.forEach(function(r){tot++;' +
-         'var hay=(r.dataset.hay||"").replace(/\\u200c/g," ").toLowerCase();' +
-         'var hit=!q||hay.indexOf(q)!==-1;' +
+         'var hay=nrm(r.dataset.hay||"");' +
+         'var hit=true;for(var i=0;i<qs.length;i++){if(hay.indexOf(qs[i])===-1){hit=false;break;}}' +
          'r.style.display=hit?"":"none";if(hit)n++;' +
          'var d=r.nextElementSibling;' +
          'if(d&&d.classList.contains("sdetail"))d.style.display=hit?"":"none";});' +
@@ -17986,6 +18152,53 @@ function recapScopePick_(r, key) {
          list + '</div></div>';
 }
 
+/**
+ * خانهٔ «مجموعه‌های مرجع» — انتخابِ آدم، روی همان ردیف (۶٫۴۳).
+ *
+ * ══ خواستهٔ صاحبِ برنامه ══
+ * «می‌خوام برای هر مجموعه انتخاب کنم که مجموعه‌های قبلی که تولیدات و جزوه
+ *  براشون انجام شده رو از لیستی انتخاب کنم … که یه ارتباطِ معناییِ بده با
+ *  مجموعهٔ فعلی.»
+ *
+ * چرا اینجا و نه در یک پنجرهٔ جدا: همان قاعدهٔ ۵٫۶۱ و ۵٫۸۷ و ۶٫۳۹ — کنترل،
+ * کنارِ کاری که به آن مربوط است. و چرا تیک و نه تایپِ کلید: همان درسِ ۶٫۴۰،
+ * «کلیدِ مجموعه چیزی نیست که آدم از حفظ بداند».
+ *
+ * فهرست فقط مجموعه‌هایی را می‌آورد که **درسِ ساخته‌شده دارند** — چون ورودیِ
+ * ارجاع جزوهٔ آن‌هاست و مجموعهٔ بی‌درس جزوه‌ای ندارد که از آن ارجاع در بیاید.
+ * تیکی که هیچ اثری نداشته باشد، بدتر از نبودنِ تیک است.
+ */
+function bridgeCell_(x, d) {
+  var key = bEsc_(x.key);
+  var cur = Object.create(null);
+  var curList = String(x.xref || '').replace(/[،؛]/g, ',').split(/[,\n]+/);
+  for (var c = 0; c < curList.length; c++) {
+    var ck = curList[c].trim(); if (ck) cur[ck] = 1;
+  }
+  var opts = (d && d.bridgeOptions) || [];
+  var items = [], nOn = 0;
+  for (var i = 0; i < opts.length; i++) {
+    if (String(opts[i].key) === String(x.key)) continue;   // خودش مرجعِ خودش نیست
+    var on = !!cur[String(opts[i].key)];
+    if (on) nOn++;
+    items.push('<label class="rcLes"><input type="checkbox" class="bxChk" data-key="' + key +
+               '" value="' + bEsc_(String(opts[i].key)) + '"' + (on ? ' checked' : '') +
+               '> ' + bEsc_(String(opts[i].name).slice(0, 44)) +
+               ' <span class="sub">(' + faNum_(opts[i].made) + ')</span></label>');
+  }
+  if (!items.length) {
+    return '<td class="sub">هنوز مجموعه‌ای با درسِ ساخته‌شده نیست</td>';
+  }
+  var head = nOn
+    ? '<span class="bdg b-act">' + faNum_(nOn) + ' مرجع</span>'
+    : '<span class="sub">بدونِ مرجع</span>';
+  return '<td>' + head +
+         '<div class="rcEpsBox" style="margin-top:4px">' + items.join('') + '</div>' +
+         '<div style="margin-top:4px">' +
+         '<button data-key="' + key + '" onclick="bxSave(this)">ثبتِ مرجع‌ها</button></div>' +
+         '</td>';
+}
+
 /** جعبهٔ بالای تخته برای مرور: خلاصه + دکمه‌ای که تیک‌ها را می‌فرستد. */
 function recapPanelHtml_(d) {
   var rows = [];
@@ -18234,6 +18447,20 @@ function uiHandoutSeries(key) {
 /* ── دکمه‌های مرورِ بزرگ ──
    همان مرزِ همیشگی: کارِ واقعی در بخشِ ۳۰ است و آنجا سنجه دارد؛ اینجا فقط
    پوسته است، تا پنجرهٔ شکسته ساختِ مرور را نشکند. */
+/* ── دکمهٔ «ثبتِ مرجع‌ها» ──
+   همان مرزِ همیشگی: کارِ واقعی و سنجه‌اش در بخشِ ۳۱ است؛ اینجا فقط پوسته. */
+function uiBridgeSave(key, keys) {
+  try {
+    var r = bridgeSave_(getHub_(), key, keys || []);
+    if (!r.ok) return { ok: false, message: 'ثبت نشد: ' + (r.why || 'نامعلوم') };
+    return { ok: true, message: r.n
+      ? ('ثبت شد: ' + faDigitsOut_(String(r.n)) + ' مجموعهٔ مرجع. از قسمتِ بعدی، ' +
+         'هرجا نسبتِ واقعی‌ای باشد به آن‌ها ارجاع داده می‌شود — و اگر نبود، ' +
+         'ارجاعِ ساختگی ساخته نمی‌شود.')
+      : 'همهٔ مرجع‌ها برداشته شد؛ این مجموعه از این پس بی‌ارجاع تولید می‌شود.' };
+  } catch (e) { return { ok: false, message: 'ثبتِ مرجع‌ها نشد: ' + e.message }; }
+}
+
 function uiRecapQueue(keys, scopes) {
   try {
     /* رشته‌ای که آدم تایپ کرده، همین‌جا به عدد تبدیل می‌شود — و با فهرستِ
@@ -30083,6 +30310,13 @@ function handoutOutline_(book) {
 
 function handoutPrompt_(book, secs, meta) {
   var L = [];
+  /* ══ ارجاع‌های میان‌مجموعه‌ای هم جزوِ درس‌اند (۶٫۴۳) ══
+     «باید در خودِ مرور و حتی جزوه همگی مورد استفاده و ثبت قرار بگیره، چون
+     در واقع جزوِ خودِ محتوا شده.» جزوه‌ای که ارجاع را بیندازد، چیزی را حذف
+     کرده که در همان درس گفته شده — و جزوه قرار است حافظهٔ مجموعه باشد. */
+  var __bx = '';
+  try { __bx = bridgeRecapBlock_(bridgeOfSeries_(getHub_(), meta.seriesName, 12)); }
+  catch (eBx) { __bx = ''; }
   L.push('تو ویراستارِ یک **جزوهٔ آموزشیِ فارسی** هستی — نه نویسندهٔ پادکست.');
   L.push('جزوه‌ای که مثلِ یک کتابِ درسی خوانده شود: بی مقدمه‌چینیِ رادیویی،');
   L.push('بی خطاب به شنونده، با تعریف و استدلال و مثال و گام‌های عملی.');
@@ -30128,6 +30362,12 @@ function handoutPrompt_(book, secs, meta) {
   L.push('  • اگر جای مناسبی برای intoChapter یا amend نبود، خالی بگذار —');
   L.push('    این جوابِ درستی است و بیشترِ درس‌ها همین‌اند. جاسازیِ بی‌مورد،');
   L.push('    جزوه را از هم می‌پاشد.');
+  if (__bx) {
+    L.push('');
+    L.push(__bx);
+    L.push('اگر یکی از این ارجاع‌ها به همین درس مربوط است، در متنِ همان بخش');
+    L.push('بیاورش — با نامِ آن مجموعه و نسبتش، در یکی دو جمله.');
+  }
   return L.join('\n');
 }
 
@@ -36710,8 +36950,13 @@ function explainBudget_(ep) {
    * می‌کند. specialWriteCap_ سهمش را از پیش کنار می‌گذارد، ولی مرزِ سختِ
    * «یک فایل» باید نگهبانِ دومِ خودش را هم اینجا داشته باشد — یک مرز با
    * یک نگهبان همان الگویی است که این ریپو بارها از آن ضربه خورده. */
+  /* ولی این نگهبان فقط وقتی معنا دارد که «یک فایل» خواسته شده باشد. از
+     ۶٫۴۳ که دو فایل مجاز است، اعمالش یعنی عصری‌سازی را بی‌دلیل خفه کنیم —
+     همان قیدی که خودِ صاحبِ برنامه برداشت. */
   var room = want;
-  try { room = Math.max(0, specialFileCap_() - base); } catch (e2) { room = want; }
+  if (CFG.SPECIAL_ONE_FILE === true) {
+    try { room = Math.max(0, specialFileCap_() - base); } catch (e2) { room = want; }
+  }
   return Math.max(0, Math.min(want, room));
 }
 
@@ -36778,8 +37023,25 @@ function explainPrompt_(ep, seriesName, budget, want) {
     '- خودت را معرفی نکن و از گویندهٔ اصلی حرف نزن. صدایت خودش فرق دارد.',
     '- هیچ لینک، شناسهٔ فایل یا واژهٔ لاتین ننویس.',
     '',
-    'سقفِ مجموعِ متنِ همهٔ جاها روی هم: ' + budget + ' نویسه. از این بیشتر بنویسی،',
-    'خودِ موتور از ته می‌بُرد و ممکن است وسطِ جمله قطع شود.',
+    /* ══ «از این حالتِ خیلی مسخره و کوتاه و بی‌معنی در بیاد» (۶٫۴۳) ══
+       گزارشِ صاحبِ برنامه. علتش ساختاری بود، نه لحنی: با سقفِ ۱۰٫۸ دقیقه و
+       سهمِ ۱۳٪، بودجهٔ هر جایگاه چند صد نویسه می‌شد — یعنی دو جمله، که
+       واقعاً «مسخره» است. حالا سقف ۱۵ دقیقه و سهم ۲۰٪ است، ولی **کف هم
+       باید گفته شود**: مدلی که فقط سقف بشنود، همیشه خیلی زیرِ سقف می‌نویسد.
+       این همان درسِ «سقفی که فقط در پرامپت گفته شود» است، از سمتِ دیگرش. */
+    'اندازه: مجموعِ متنِ همهٔ جاها روی هم حداکثر ' + budget + ' نویسه. از این',
+    'بیشتر بنویسی، خودِ موتور از ته می‌بُرد و ممکن است وسطِ جمله قطع شود.',
+    '',
+    '**و کفِ هر جا ' + (Number(CFG.EXPLAIN_MIN_CHARS) || 700) + ' نویسه است.** دو جملهٔ',
+    'کوتاه توضیح نیست، تکرارِ همان حرف است با واژه‌های دیگر. هر جا باید این',
+    'چهار تا را داشته باشد: (الف) همان مفهوم به زبانِ ساده، (ب) یک مثالِ',
+    'امروزی و کاملاً مشخص — نه «مثلاً در زندگیِ روزمره»، بلکه یک صحنهٔ واقعی',
+    'با جزئیات، (پ) چرا آن مثال دقیقاً همین مفهوم است و کجایش فرق دارد، و',
+    '(ت) یک جمله که می‌گوید این به چه دردِ شنونده می‌خورد.',
+    '',
+    'اگر برای جایی نمی‌توانی هر چهار تا را بنویسی، آن جا را **حذف کن** و',
+    'سهمش را به جای دیگری بده. سه جایِ پر از یک جایِ خالی و پنج جایِ نصفه',
+    'بهتر است.',
     '',
     'در فیلد section شمارهٔ بخش (همان عددی که بالا آمده)، در at «ابتدا» یا',
     '«انتها»، در why یک جمله که چرا همین‌جا، و در text خودِ حرف.'
@@ -37525,7 +37787,7 @@ function recapChecklist_(book) {
  * می‌کند — و شنونده می‌شنود «هرچه گفتیم» در حالی که سه‌چهارمش نیامده.
  * همان قاعدهٔ ۶٫۳۳: ادعا و اندازه باید یکی باشند.
  */
-function recapPrompt_(book, seriesName, capChars, scope) {
+function recapPrompt_(book, seriesName, capChars, scope, bridges) {
   var sc = scope || {};
   var partial = sc.mode && sc.mode !== 'all';
   var scopeLines = partial
@@ -37567,6 +37829,20 @@ function recapPrompt_(book, seriesName, capChars, scope) {
     '۳) **لحن، گفتاری و خودمانی.** «ببین»، «فرض کن»، «یعنی چی؟»، «حالا این به',
     '   چه دردی می‌خوره؟». جملهٔ کوتاه. هر اصطلاحِ تخصصی را یا باز کن یا نگو.',
     '',
+    /* ══ «الان خوب نیست واقعاً» (۶٫۴۳) ══
+       گزارشِ خودش دربارهٔ مرورهای فعلی. علتِ ساختاری‌اش هم روشن بود: سقفِ
+       ۱۰٫۸ دقیقه یعنی پانزده فصل در پانزده جملهٔ تلگرافی. حالا سقف ۱۵ دقیقه
+       است، پس **می‌شود** خواست که هر مفهوم واقعاً باز شود. و «باز شود» باید
+       تعریفِ عملیاتی داشته باشد، وگرنه دوباره فهرست می‌شود. */
+    '۳-ب) **هیچ مفهومی را فهرست‌وار رد نکن.** برای هر مفهومِ مهم این سه را',
+    '   داشته باش: یک جمله که می‌گوید چیست، یک مثالِ امروزی و ملموس، و یک جمله',
+    '   که می‌گوید به چه درد می‌خورد. «فلان‌چیز یعنی فلان» و رد شدن، همان',
+    '   فهرستی است که شنونده از آن چیزی یاد نمی‌گیرد.',
+    '',
+    '۳-پ) **امروزی حرف بزن.** مثال‌ها از همین امسال و همین زندگی: گوشی،',
+    '   شبکه‌های اجتماعی، خریدِ اینترنتی، هوشِ مصنوعی، اجاره‌خانه، ترافیک،',
+    '   دعوای خانوادگی، خبرِ جعلی. نه مثالِ کتابی، نه «فرض کنید فیلسوفی».',
+    '',
     '۴) **ترتیب، از ساده به سخت** — نه به ترتیبِ فصل‌های کتاب. چیزی که برای',
     '   فهمیدنِ بقیه لازم است، اول بیاید.',
     '',
@@ -37593,6 +37869,12 @@ function recapPrompt_(book, seriesName, capChars, scope) {
     'طولِ مجموعِ متنِ گفتنی (hook + بخش‌ها + outro) حدودِ ' + capChars + ' نویسه —',
     'نه بیشتر. این سقف در کد اعمال می‌شود؛ بلندتر بنویسی، بریده می‌شود.'
   ]);
+  /* ══ ارجاع‌ها جزوِ خودِ محتوا شده‌اند (۶٫۴۳) ══
+     خواستهٔ صریحِ او: «اگر آن مجموعه ارجاعاتی داشته برای تولیدِ پادکست‌هاش،
+     قاعدتاً باید این در خودِ مرور و حتی جزوه همگی مورد استفاده و ثبت قرار
+     بگیره و بحث بشه، چون در واقع جزوِ خودِ محتوا شده.» مروری که آن‌ها را
+     بیندازد، همان چیزی را حذف کرده که شنونده در قسمت‌ها شنیده بود. */
+  if (bridges) { L.push(''); L.push(bridges); }
   return L.join('\n');
 }
 
@@ -37605,7 +37887,12 @@ function recapWrite_(book, seriesName, scope) {
   var cap = 0;
   try { cap = specialFileCap_(); } catch (e) { cap = 9000; }
   var r = null;
-  try { r = geminiText_(recapPrompt_(book, seriesName, cap, scope), RECAP_SCHEMA, 60000); }
+  var bridges = '';
+  try {
+    var bl = bridgeOfSeries_(getHub_(), seriesName, 24);
+    bridges = bridgeRecapBlock_(bl);
+  } catch (eB) { bridges = ''; }
+  try { r = geminiText_(recapPrompt_(book, seriesName, cap, scope, bridges), RECAP_SCHEMA, 60000); }
   catch (e) { logLine_('مرورِ بزرگ نوشته نشد: ' + e.message); return null; }
   if (!r || !(r.sections instanceof Array) || !r.sections.length) return null;
   var ep = {
@@ -38198,6 +38485,482 @@ function recapStatus_() {
                        ' با ' + fa(last.secs) + ' بخش' : '') +
                (q.length ? '؛ ' + fa(q.length) + ' مجموعه در صف («' +
                            String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.';
+  } catch (e) {}
+  return out;
+}
+
+/* ═══════════════════════════ 31_Bridge.gs ═══════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * ۳۱) ارجاعِ میان‌مجموعه‌ای — مجموعهٔ فعلی ستون‌فقرات می‌مانَد
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * خواستهٔ صاحبِ برنامه، عیناً:
+ *
+ *   «می‌خوام برای هر مجموعه انتخاب کنم که مجموعه‌های قبلی که تولیدات و جزوه
+ *    براشون انجام شده رو از لیستی انتخاب کنم … بتونه یه ارتباط معنایی بده
+ *    با مجموعهٔ فعلی. یعنی مجموعهٔ فعلی باید به‌عنوانِ ستون‌فقرات و بیسِ کار
+ *    باقی بمونه و اصلاً نباید متنش با اون متن‌ها قاطی بشه و باید یه نفر که
+ *    گوش می‌ده بفهمه داره پادکستِ اون مجموعه رو گوش می‌ده — ولی در ضمنِ این،
+ *    اگر مجموعه‌هایی انتخاب شده بودن، باید حتماً در جاهایی که لازمه بهشون
+ *    ارجاع داده بشه و رابطشون رو بگه.»
+ *
+ * ── چهار تصمیم، و دلیلِ هرکدام ─────────────────────────────────────────
+ *
+ * **۱) ورودیِ ارجاع، جزوهٔ آن مجموعه است — نه قسمت‌هایش، نه درسِ متناظرش.**
+ * تأکیدِ صریحِ او: «این نباشه که برای درسِ یکِ مجموعهٔ انتخاب‌شده لزوماً به
+ * درسِ یکِ مجموعهٔ مرجع هدایت بشه، بلکه باید به همهٔ محتوا مراجعه بشه.»
+ * `_HANDOUT.json` دقیقاً همین است: همهٔ مفاهیمِ همهٔ درس‌های آن مجموعه،
+ * فصل‌بندی‌شده و پاک‌شده از لحنِ رادیویی — و هر شب تازه می‌شود. پس «همهٔ
+ * محتوا» یک خواندنِ پرونده است، نه هفده پوشه؛ و ترتیبِ درس‌ها هیچ نقشی در
+ * انتخابِ محلِ ارجاع ندارد، چون کلِ کتاب یک‌جا جلوی مدل است.
+ *
+ * **۲) کشفِ رابطه، یک فراخوانِ جداست — پیش از نوشتنِ درس.**
+ * اگر همین را داخلِ پرامپتِ نویسنده می‌گذاشتیم، مدل هم‌زمان باید درس را
+ * می‌نوشت و رابطه را کشف می‌کرد؛ و کاری که هم‌زمان با کارِ دیگری انجام شود،
+ * همان کاری است که سرسری می‌شود. همان دلیلی که `speak2` و `explain` را
+ * فراخوانِ جدا کرد. اینجا مدل **فقط** یک سؤال دارد: این درس و آن کتاب چه
+ * نسبتی دارند؟
+ *
+ * **۳) نسبت، لزوماً هم‌موضوعی نیست — و این مهم‌ترین بندِ کلِ بخش است.**
+ * مثالِ خودش: «مجموعهٔ معرفت‌شناسی را برای مجموعهٔ خداشناسی انتخاب کردم…
+ * در طرحِ ولایت معرفت‌شناسی مقدم بر خداشناسی است، حتماً علتی داشته… شاید
+ * گزاره‌های موجود در خداشناسی نیازمندِ این باشند که به‌وسیلهٔ معرفت‌شناسی
+ * ارزیابی بشن و صدق و کذبشان از طریقِ اون تأیید بشه. این مثال را زدم که
+ * ارتباط را لزوماً بر اساسِ این پیدا نکنی که هر دو دربارهٔ یک چیز حرف زدن.»
+ *
+ * پس فهرستِ نسبت‌ها صریح است و «هم‌موضوعی» فقط یکی از هفت‌تاست — و عمداً
+ * آخرین. اگر تنها چیزی که مدل پیدا می‌کند «هر دو دربارهٔ خداست» باشد، آن
+ * ارجاع ارزشِ گفتن ندارد.
+ *
+ * **۴) مرزِ ستون‌فقرات در کد است، نه در خواهش.**
+ * `BRIDGE_MAX_LINKS` سقفِ شمارِ ارجاع در یک قسمت است و `bridgeTrim_` آن را
+ * اعمال می‌کند؛ پرامپتِ نویسنده ارجاع‌ها را به‌عنوان **حاشیه** می‌گیرد، نه
+ * منبع؛ و هیچ ارجاعی جای بخشی از درس را نمی‌گیرد. «تعدادِ ارجاع را کم بنویس»
+ * یک خواهش است و مدل روزی نادیده‌اش می‌گیرد — قاعدهٔ همیشگیِ این ریپو:
+ * سقفی که فقط در پرامپت گفته شده، سقف نیست.
+ *
+ * ── و یک نه ───────────────────────────────────────────────────────────
+ * وقتی رابطهٔ واقعی‌ای نیست، هیچ ارجاعی ساخته نمی‌شود. ارجاعِ زورکی دقیقاً
+ * همان چیزی است که او از آن ترسید: «بدونِ لوث شدن و بی‌معنی شدن و جوری که
+ * حرفه‌ای بودن رو زیرِ سؤال نبره.» یک قسمتِ بی‌ارجاع سالم است؛ یک قسمت با
+ * ارجاعِ ساختگی نیست.
+ */
+
+/** نسبت‌هایی که مدل مجاز است اعلام کند — و «هم‌موضوعی» عمداً آخر است. */
+var BRIDGE_KINDS = {
+  'پیش‌نیاز': 'آن مجموعه مقدمهٔ فهمِ این است؛ بی آن، این حرف روی هوا می‌مانَد.',
+  'ابزارِ سنجش': 'آن مجموعه ابزاری می‌دهد که با آن می‌شود صدق و کذبِ گزارهٔ این درس را سنجید.',
+  'روش': 'آن مجموعه روشِ کار را می‌دهد و این درس آن روش را روی موضوعِ خودش اجرا می‌کند.',
+  'تکمیل': 'آن مجموعه همین بحث را از جای دیگری کامل می‌کند.',
+  'تنش': 'آن مجموعه چیزی می‌گوید که با این درس می‌سازد یا نمی‌سازد، و همین اختلاف خودش آموزنده است.',
+  'کاربرد': 'این درس نشان می‌دهد آنچه آنجا آموخته شد به چه کار می‌آید.',
+  'هم‌موضوع': 'هر دو دربارهٔ یک چیز حرف می‌زنند — ضعیف‌ترین نسبت؛ فقط وقتی چیزِ تازه‌ای اضافه کند.'
+};
+
+/* همهٔ فیلدها رشته‌اند — قاعدهٔ شمای این ریپو. */
+var BRIDGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    links: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          seriesKey: { type: 'string' },   // کدام مجموعهٔ مرجع
+          kind: { type: 'string' },        // یکی از BRIDGE_KINDS
+          claim: { type: 'string' },       // آن مجموعه دقیقاً چه گفته
+          chapter: { type: 'string' },     // کدام فصلِ آن کتاب
+          relation: { type: 'string' },    // نسبتش با این درس، در یک جمله
+          atHeading: { type: 'string' },   // عنوانِ بخشی از این درس که ارجاع آنجا بنشیند
+          say: { type: 'string' },         // متنِ پیشنهادیِ گفتاری، دو تا چهار جمله
+          strength: { type: 'string' }     // «قوی» | «متوسط» | «ضعیف»
+        },
+        required: ['seriesKey', 'kind', 'claim', 'relation', 'atHeading', 'say']
+      }
+    },
+    none: { type: 'string' }               // اگر هیچ نسبتِ واقعی‌ای نبود، علتش
+  },
+  required: ['links']
+};
+
+/** کلیدهای مجموعه‌های مرجعِ یک ردیفِ رجیستری. */
+function bridgeKeys_(rec) {
+  var raw = '';
+  try { raw = String((rec && rec.vals && rec.vals[SC.XREF - 1]) || ''); } catch (e) { raw = ''; }
+  var out = [], seen = Object.create(null);
+  var parts = raw.replace(/[،؛]/g, ',').split(/[,\n]+/);
+  for (var i = 0; i < parts.length; i++) {
+    var k = parts[i].trim();
+    if (!k || seen[k]) continue;
+    seen[k] = 1; out.push(k);
+  }
+  return out.slice(0, Math.max(1, Number(CFG.BRIDGE_MAX_SERIES) || 4));
+}
+
+/**
+ * انتخابِ آدم را می‌نویسد. **مجموعه هرگز خودش را مرجعِ خودش نمی‌گیرد** —
+ * وگرنه کتابِ خودش دو بار در پرامپت می‌آمد و مدل به «قبلاً گفتیم» ارجاع
+ * می‌داد که در همین قسمت گفته می‌شود.
+ */
+function bridgeSave_(hub, key, keys) {
+  var reg = readSeriesReg_(hub || getHub_());
+  var rec = reg.byKey[String(key)];
+  if (!rec) return { ok: false, why: 'مجموعه پیدا نشد' };
+  var clean = [], seen = Object.create(null);
+  for (var i = 0; i < (keys || []).length; i++) {
+    var k = String(keys[i] || '').trim();
+    if (!k || k === String(key) || seen[k] || !reg.byKey[k]) continue;
+    seen[k] = 1; clean.push(k);
+  }
+  clean = clean.slice(0, Math.max(1, Number(CFG.BRIDGE_MAX_SERIES) || 4));
+  var sh = ensureTab_(hub || getHub_(), CFG.SERIES_TAB, SERIES_HEADERS);
+  sh.getRange(rec.row, SC.XREF, 1, 1).setValues([[clean.join('، ')]]);
+  return { ok: true, n: clean.length, keys: clean };
+}
+
+/**
+ * مجموعه‌هایی که *می‌شود* به آن‌ها ارجاع داد.
+ *
+ * شرط: جزوه دارند. خواستهٔ او «مجموعه‌های قبلی که تولیدات و جزوه براشون
+ * انجام شده» بود، و جزوه دقیقاً همان چیزی است که این بخش می‌خواند — پس
+ * مجموعه‌ای بی‌جزوه در فهرست آمدن یعنی تیکی که هیچ اثری ندارد.
+ * یک خواندنِ تبِ درس‌نامه برای همه، نه یکی به‌ازای هر مجموعه (قاعدهٔ ۵٫۸۷).
+ */
+function bridgeCandidates_(hub, reg) {
+  var out = [];
+  try {
+    hub = hub || getHub_();
+    reg = reg || readSeriesReg_(hub);
+    var made = {};
+    try { made = recapPartsMap_(hub); } catch (eM) { made = {}; }
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var name = String(rec.vals[SC.NAME - 1] || rec.key);
+      var n = Number(made[name]) || 0;
+      if (!n) continue;                       // هنوز درسی از آن ساخته نشده
+      out.push({ key: String(rec.key), name: name, made: n,
+                 cat: String(rec.vals[SC.CAT - 1] || '') });
+    }
+    out.sort(function (a, b) { return b.made - a.made; });
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * کتابِ هر مجموعهٔ مرجع، فشرده برای پرامپت.
+ *
+ * عنوانِ فصل‌ها و بخش‌ها و «نکتهٔ کلیدی»ِ هر بخش — نه متنِ کاملشان. آنچه
+ * برای *کشفِ نسبت* لازم است، نقشهٔ مفاهیم است نه متنِ درس؛ و متنِ کاملِ چهار
+ * کتاب پرامپت را از خودِ درس بزرگ‌تر می‌کرد، که یعنی درس در حاشیه می‌رفت.
+ */
+function bridgeCorpus_(reg, keys) {
+  var out = [];
+  var cap = Math.max(2000, Number(CFG.BRIDGE_CORPUS_CHARS) || 14000);
+  for (var i = 0; i < (keys || []).length; i++) {
+    var rec = reg.byKey[String(keys[i])];
+    if (!rec) continue;
+    var name = String(rec.vals[SC.NAME - 1] || rec.key);
+    var book = null;
+    try { book = handoutRead_(seriesFolder_(reg, rec), { seriesKey: rec.key, seriesName: name }); }
+    catch (eB) { book = null; }
+    var chs = (book && book.chapters) || [];
+    if (!chs.length) continue;                // جزوه ندارد: چیزی برای ارجاع نیست
+    var L = [], used = 0;
+    for (var c = 0; c < chs.length; c++) {
+      var head = '— فصل: ' + String(chs[c].title || '');
+      L.push(head); used += head.length;
+      var secs = chs[c].sections || [];
+      for (var t = 0; t < secs.length; t++) {
+        var tk = String(secs[t].takeaway || '').replace(/\s+/g, ' ').trim();
+        if (!tk) tk = String(secs[t].body || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+        var line = '   • ' + String(secs[t].title || '') + (tk ? ' — ' + tk : '');
+        if (used + line.length > cap) { L.push('   … (ادامهٔ کتاب جا نشد)'); break; }
+        L.push(line); used += line.length;
+      }
+      if (used > cap) break;
+    }
+    out.push({ key: String(rec.key), name: name, chapters: chs.length, text: L.join('\n') });
+  }
+  return out;
+}
+
+function bridgePrompt_(ctx, corpus) {
+  var L = [
+    'کارِ تو: کشفِ **نسبت** میان یک درسِ در حالِ نوشته‌شدن و یک یا چند مجموعهٔ',
+    'درسیِ دیگر که پیش‌تر تدریس شده‌اند. تو درس را نمی‌نویسی؛ فقط می‌گویی کجا و',
+    'چرا باید به آن مجموعه‌ها ارجاع داده شود.',
+    '',
+    '── درسی که دارد نوشته می‌شود ──',
+    'مجموعه: «' + String(ctx.seriesName || '') + '»',
+    'موضوعِ این قسمت: ' + String(ctx.partName || ''),
+    '',
+    'متنِ خامِ این قسمت (خلاصه):',
+    String(ctx.digest || '').slice(0, 12000),
+    ''
+  ];
+  for (var i = 0; i < corpus.length; i++) {
+    L.push('── مجموعهٔ مرجع ' + (i + 1) + ' — شناسه: ' + corpus[i].key + ' ──');
+    L.push('نام: «' + corpus[i].name + '»');
+    L.push(corpus[i].text);
+    L.push('');
+  }
+  L.push('── نسبت‌های مجاز ──');
+  for (var k in BRIDGE_KINDS) {
+    if (Object.prototype.hasOwnProperty.call(BRIDGE_KINDS, k)) {
+      L.push('• ' + k + ': ' + BRIDGE_KINDS[k]);
+    }
+  }
+  L.push('');
+  L.push('── قاعده‌ها ──');
+  L.push('');
+  /* ══ مهم‌ترین بندِ کلِ این پرامپت ══
+     خواستهٔ صریحِ او: ارتباط را «لزوماً بر اساسِ این پیدا نکن که هر دو دربارهٔ
+     یک چیز حرف زدن». مثالِ خودش را عیناً می‌آوریم، چون یک مثالِ واقعی از ده
+     سطر توضیح بیشتر کار می‌کند — و چون همان مثال نشان می‌دهد که نسبت می‌تواند
+     **ساختاری** باشد، بی آنکه حتی یک سرفصل مشترک باشد. */
+  L.push('۱) **نسبت لزوماً هم‌موضوعی نیست، و این مهم‌ترین نکته است.** دنبالِ این');
+  L.push('   نگرد که هر دو دربارهٔ یک چیز حرف زده‌اند. نسبت می‌تواند کاملاً');
+  L.push('   ساختاری باشد، بی آنکه حتی یک سرفصلِ مشترک وجود داشته باشد.');
+  L.push('');
+  L.push('   مثالِ واقعی: در یک برنامهٔ درسی، «معرفت‌شناسی» عمداً پیش از');
+  L.push('   «خداشناسی» گذاشته شده. هیچ سرفصلی مشترک نیست. ولی نسبت هست و');
+  L.push('   قوی است: گزاره‌های خداشناسی گزاره‌هایی‌اند که باید صدق و کذبشان');
+  L.push('   سنجیده شود، و ابزارِ آن سنجش را معرفت‌شناسی داده. پس نسبتش');
+  L.push('   «ابزارِ سنجش» و «پیش‌نیاز» است، نه «هم‌موضوع».');
+  L.push('');
+  L.push('   اگر ترتیبی میان دو مجموعه هست، بپرس **چرا آن ترتیب انتخاب شده** —');
+  L.push('   جواب معمولاً همان نسبت است.');
+  L.push('');
+  L.push('۲) **به کلِ آن کتاب نگاه کن، نه به درسِ متناظر.** ربطی ندارد که این');
+  L.push('   قسمت چندمین درسِ مجموعه است؛ ممکن است نسبتش با فصلِ آخرِ آن کتاب');
+  L.push('   باشد. همهٔ فصل‌ها جلوی توست، همه را بخوان.');
+  L.push('');
+  L.push('۳) **مجموعهٔ فعلی ستون‌فقرات است.** ارجاع یک اشارهٔ کوتاه در حاشیه است،');
+  L.push('   نه یک بخشِ تازه. شنونده باید تا آخر بداند دارد پادکستِ «' +
+         String(ctx.seriesName || '') + '» را گوش می‌دهد. هرگز پیشنهاد نده که');
+  L.push('   بحثِ آن مجموعه اینجا باز شود.');
+  L.push('');
+  L.push('۴) `atHeading` باید **عنوانِ یکی از بخش‌های همین درس** باشد؛ جایی که');
+  L.push('   ارجاع در آن طبیعی می‌نشیند. اگر جای طبیعی‌ای نیست، آن ارجاع را نده.');
+  L.push('');
+  L.push('۵) `say` دو تا چهار جملهٔ **گفتاری** است، به همان لحنِ پادکست: نامِ آن');
+  L.push('   مجموعه را بگو، بگو آنجا چه گفته شد، و نسبتش با همین لحظه را روشن');
+  L.push('   کن. نه فهرست، نه ارجاعِ کتابی، نه «همان‌طور که می‌دانید».');
+  L.push('   هیچ واژهٔ لاتین و هیچ رقمِ عددی ننویس.');
+  L.push('');
+  L.push('۶) **حداکثر ' + (Number(CFG.BRIDGE_MAX_LINKS) || 3) + ' ارجاع.** کمتر بهتر است.');
+  L.push('   ارجاعی که نسبتش «ضعیف» است اصلاً نده — یک قسمتِ بی‌ارجاع سالم است،');
+  L.push('   یک قسمت با ارجاعِ ساختگی نیست.');
+  L.push('');
+  L.push('۷) اگر هیچ نسبتِ واقعی‌ای پیدا نکردی، `links` را خالی بگذار و در `none`');
+  L.push('   یک جمله بنویس که چرا. این جوابِ درستی است، نه شکست.');
+  return L.join('\n');
+}
+
+/**
+ * نسبت‌ها را کشف می‌کند. برمی‌گرداند `{links, none, series}` یا null.
+ * هرگز پرتاب نمی‌کند: ارجاع یک **افزوده** است و نبودش نباید قسمت را بخواباند.
+ */
+function bridgePlan_(ctx, corpus) {
+  if (!corpus || !corpus.length) return null;
+  var r = null;
+  try { r = geminiText_(bridgePrompt_(ctx, corpus), BRIDGE_SCHEMA, 30000); }
+  catch (e) { logLine_('ارجاعِ میان‌مجموعه‌ای ساخته نشد: ' + e.message); return null; }
+  if (!r) return null;
+  var names = Object.create(null);
+  for (var i = 0; i < corpus.length; i++) names[corpus[i].key] = corpus[i].name;
+  return { links: bridgeTrim_(r.links, names, ctx),
+           none: String(r.none || ''),
+           series: corpus.map(function (c) { return c.key; }) };
+}
+
+/**
+ * سقف و پاکسازی — **در کد، نه در پرامپت**.
+ *
+ * سه چیز اینجا حذف می‌شود و هر سه یک بار دیده شده‌اند در این ریپو:
+ * شناسه‌ای که در فهرستِ مرجع‌ها نیست (توهّمِ مدل)، نسبتی خارج از فهرست
+ * (اختراعِ دستهٔ تازه)، و ارجاعِ «ضعیف» که خودِ پرامپت گفته بود نده.
+ * «سقفی که فقط در پرامپت گفته شده، سقف نیست.»
+ */
+function bridgeTrim_(links, names, ctx) {
+  var out = [];
+  var max = Math.max(1, Number(CFG.BRIDGE_MAX_LINKS) || 3);
+  var heads = Object.create(null);
+  var secs = (ctx && ctx.headings) || [];
+  for (var h = 0; h < secs.length; h++) heads[String(secs[h])] = 1;
+  var seen = Object.create(null);
+  for (var i = 0; i < (links || []).length && out.length < max; i++) {
+    var x = links[i] || {};
+    var key = String(x.seriesKey || '').trim();
+    if (!names[key]) continue;                                  // شناسهٔ ساختگی
+    if (!BRIDGE_KINDS[String(x.kind || '')]) continue;          // نسبتِ اختراعی
+    if (String(x.strength || '') === 'ضعیف') continue;          // خودش گفته بود نده
+    var say = String(x.say || '').trim();
+    if (say.length < 40) continue;                              // اشارهٔ بی‌محتوا
+    /* یک مجموعه، یک ارجاع در هر قسمت. دو ارجاع به یک کتاب در یک قسمتِ
+       چهارده‌دقیقه‌ای دقیقاً همان «لوث شدن»ی است که او از آن ترسید. */
+    if (seen[key]) continue;
+    seen[key] = 1;
+    out.push({ seriesKey: key, seriesName: names[key],
+               kind: String(x.kind || ''), claim: String(x.claim || '').slice(0, 400),
+               chapter: String(x.chapter || '').slice(0, 160),
+               relation: String(x.relation || '').slice(0, 400),
+               atHeading: String(x.atHeading || '').slice(0, 160),
+               say: say.slice(0, 900),
+               strength: String(x.strength || 'متوسط') });
+  }
+  return out;
+}
+
+/** بلوکی که به پرامپتِ نویسندهٔ درس اضافه می‌شود. */
+function bridgeBlock_(plan, seriesName) {
+  var links = (plan && plan.links) || [];
+  if (!links.length) return '';
+  var L = ['══ ارجاع به مجموعه‌های پیشین ══',
+           'این نسبت‌ها از پیش کشف و تأیید شده‌اند. هرکدام را **در همان بخشی که',
+           'گفته شده** بیاور، با متنِ خودت و به لحنِ همین برنامه:',
+           ''];
+  for (var i = 0; i < links.length; i++) {
+    var b = links[i];
+    L.push('• در بخشِ «' + b.atHeading + '» — نسبت: ' + b.kind);
+    L.push('  مجموعهٔ «' + b.seriesName + '»' + (b.chapter ? ' (فصلِ ' + b.chapter + ')' : '') +
+           ' گفته: ' + b.claim);
+    L.push('  نسبتش با اینجا: ' + b.relation);
+    L.push('  پیشنهادِ گفتاری: ' + b.say);
+    L.push('');
+  }
+  /* ══ مرزِ ستون‌فقرات، دوباره و اینجا ══
+     همان جمله در پرامپتِ کشف هم هست. تکرارش عمدی است: آنجا به مدلی گفته شد
+     که *پیشنهاد* می‌دهد، اینجا به مدلی که *می‌نویسد*. کسی که می‌نویسد
+     پرامپتِ قبلی را ندیده. */
+  L.push('و این مرز را نشکن:');
+  L.push('• مجموعهٔ «' + String(seriesName || '') + '» ستون‌فقرات است. ارجاع یک اشارهٔ');
+  L.push('  کوتاه است، نه یک بخشِ تازه. شنونده باید تا آخر بداند دارد پادکستِ');
+  L.push('  همین مجموعه را گوش می‌دهد.');
+  L.push('• بحثِ آن مجموعه را اینجا باز نکن و درسش را از نو نده.');
+  L.push('• نامِ آن مجموعه را صریح بگو — ارجاعِ بی‌نام، ارجاع نیست.');
+  L.push('• ارجاع باید در دلِ حرف بنشیند، نه به‌شکلِ یک تکهٔ چسبانده‌شده.');
+  return L.join('\n');
+}
+
+/**
+ * ثبتِ ارجاع‌ها — «حتماً باید این ارجاعات در جایی ثبتِ دقیق و کامل بشه».
+ * یک ردیف برای هر ارجاع، هر بار — چون سؤالی که فردا می‌پرسی «کِی و کجا» است،
+ * و فقط تاریخچه جوابش را دارد.
+ */
+function bridgeLog_(hub, epNum, seriesName, links) {
+  if (!links || !links.length) return false;
+  try {
+    var sh = ensureTab_(hub || getHub_(), CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای',
+                        BRIDGE_HEADERS);
+    var block = [];
+    for (var i = 0; i < links.length; i++) {
+      var b = links[i];
+      block.push([nowStr_(), String(epNum || ''), String(seriesName || ''),
+                  b.seriesName, b.kind, b.atHeading, b.claim, b.relation, b.say]);
+    }
+    appendBlock_(sh, block, BRIDGE_HEADERS.length);
+    return true;
+  } catch (e) { logLine_('سیاههٔ ارجاع‌ها نوشته نشد: ' + e.message); return false; }
+}
+
+var BRIDGE_HEADERS = ['زمان', 'قسمت', 'مجموعهٔ درس', 'مجموعهٔ مرجع', 'نسبت',
+                      'در بخشِ', 'آن مجموعه چه گفته', 'نسبتش با این درس', 'متنِ گفته‌شده'];
+
+/**
+ * همهٔ کار در یک فراخوان، برای مسیرِ تولید.
+ * برمی‌گرداند `{block, links, none}` — و در بدترین حالت `{block:''}`، یعنی
+ * قسمت مثلِ همیشه ساخته می‌شود.
+ */
+function bridgeFor_(hub, reg, rec, ctx) {
+  var out = { block: '', links: [], none: '' };
+  if (CFG.BRIDGE_ENABLED === false) return out;
+  try {
+    var keys = bridgeKeys_(rec);
+    if (!keys.length) return out;
+    var corpus = bridgeCorpus_(reg, keys);
+    if (!corpus.length) {
+      logLine_('ارجاع: مجموعه‌های انتخاب‌شده جزوه ندارند، پس ارجاعی ساخته نشد.');
+      out.none = 'مجموعه‌های انتخاب‌شده هنوز جزوه ندارند';
+      return out;
+    }
+    var plan = bridgePlan_(ctx, corpus);
+    if (!plan) return out;
+    out.links = plan.links; out.none = plan.none;
+    out.block = bridgeBlock_(plan, ctx.seriesName);
+    if (plan.links.length) {
+      logLine_('ارجاع: ' + plan.links.length + ' ارجاع به ' +
+               plan.links.map(function (b) { return '«' + b.seriesName + '» (' + b.kind + ')'; })
+                 .join('، ') + '.');
+    } else if (plan.none) {
+      logLine_('ارجاع: نسبتِ قابلِ‌گفتنی پیدا نشد — ' + plan.none);
+    }
+  } catch (e) { logLine_('ارجاعِ میان‌مجموعه‌ای رد شد: ' + e.message); }
+  return out;
+}
+
+/**
+ * ارجاع‌های یک مجموعه، برای جزوه و مرورِ بزرگ.
+ *
+ * خواستهٔ صریحِ او: «اگر آن مجموعه ارجاعاتی داشته برای تولیدِ پادکست‌هاش،
+ * قاعدتاً باید این در خودِ مرور و حتی جزوه همگی مورد استفاده و ثبت قرار
+ * بگیره و بحث بشه، چون در واقع جزوِ خودِ محتوا شده.»
+ *
+ * پس منبع همان سیاهه است، نه یک کپیِ دوم: چیزی که در دو جا نگه داشته شود،
+ * روزی یکی‌اش کهنه می‌شود.
+ */
+function bridgeOfSeries_(hub, seriesName, cap) {
+  var out = [];
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای');
+    if (!sh || sh.getLastRow() < 2) return out;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, BRIDGE_HEADERS.length).getValues();
+    var seen = Object.create(null);
+    for (var i = 0; i < v.length; i++) {
+      if (String(v[i][2] || '') !== String(seriesName || '')) continue;
+      var sig = String(v[i][3]) + '|' + String(v[i][4]) + '|' + String(v[i][6]).slice(0, 60);
+      if (seen[sig]) continue;                 // همان نسبت در چند قسمت: یک بار بس است
+      seen[sig] = 1;
+      out.push({ ep: String(v[i][1] || ''), refSeries: String(v[i][3] || ''),
+                 kind: String(v[i][4] || ''), at: String(v[i][5] || ''),
+                 claim: String(v[i][6] || ''), relation: String(v[i][7] || '') });
+    }
+  } catch (e) {}
+  return out.slice(0, Math.max(1, Number(cap) || 24));
+}
+
+/** متنِ همان ارجاع‌ها برای پرامپتِ جزوه و مرور. */
+function bridgeRecapBlock_(list) {
+  if (!list || !list.length) return '';
+  var L = ['── ارجاع‌هایی که در درس‌های این مجموعه به مجموعه‌های دیگر داده شده ──',
+           'این‌ها جزوِ محتوای همین مجموعه‌اند و باید در متن بیایند، نه اینکه',
+           'حذف شوند:'];
+  for (var i = 0; i < list.length; i++) {
+    L.push('• «' + list[i].refSeries + '» (' + list[i].kind + '): ' +
+           list[i].claim + (list[i].relation ? ' — ' + list[i].relation : ''));
+  }
+  return L.join('\n');
+}
+
+/** یک سطرِ فارسیِ آماده برای ایمیلِ روزانه — قاعدهٔ ۵٫۹۰. */
+function bridgeStatus_(hub) {
+  var out = { n: 0, series: 0, line: '' };
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای');
+    if (!sh || sh.getLastRow() < 2) {
+      out.line = 'ارجاعِ میان‌مجموعه‌ای: هنوز ارجاعی ساخته نشده' +
+                 (CFG.BRIDGE_ENABLED === false ? ' (خاموش است)' :
+                  '؛ در تختهٔ مجموعه‌ها برای هر مجموعه می‌توانید مرجع انتخاب کنید') + '.';
+      return out;
+    }
+    var v = sh.getRange(2, 3, sh.getLastRow() - 1, 2).getValues();
+    var s = Object.create(null);
+    for (var i = 0; i < v.length; i++) { out.n++; s[String(v[i][0])] = 1; }
+    for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) out.series++;
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+    out.line = 'ارجاعِ میان‌مجموعه‌ای: ' + fa(out.n) + ' ارجاع در ' + fa(out.series) +
+               ' مجموعه ثبت شده.';
   } catch (e) {}
   return out;
 }

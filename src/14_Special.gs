@@ -32,8 +32,37 @@ function specialMaxChars_() {
   // نویسه در دقیقه از همان نرخِ گفتار می‌آید، نه از «۱۵۰ واژه × ۵٫۵».
   var byTarget = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) *
                             speechCps_() * 60 * 1.1);
-  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(byTarget, specialWriteCap_());
-  return byTarget;
+  /* ══ «هدف» یعنی طولِ قسمتِ *تمام‌شده* (۶٫۴۳) ══
+   * تا ۶٫۴۲ رزروِ مرحله‌های بعدی فقط وقتی اعمال می‌شد که «یک فایل» روشن
+   * باشد. با خاموش‌شدنش، هدفِ ۱۵ دقیقه به مدل داده می‌شد و بعد غنی‌سازی و
+   * عصری‌سازی تا ۴۵٪ رویش اضافه می‌کردند: قسمتِ «پانزده‌دقیقه‌ای» بیست‌ودو
+   * دقیقه در می‌آمد. عددی که هیچ‌وقت طولِ واقعیِ چیزی نیست، هدف نیست.
+   *
+   * پس رزرو همیشه اعمال می‌شود و «یک فایل» فقط یک سقفِ *اضافه* است — دقیقاً
+   * همان تفکیکی که ۵٫۹۱ خواست: یک منبعِ حقیقت، نه دو رفتار. */
+  var reserved = specialReserve_(byTarget);
+  if (CFG.SPECIAL_ONE_FILE === true) return Math.min(reserved, specialWriteCap_());
+  return reserved;
+}
+
+/**
+ * سهمی که مرحله‌های *پس از نگارش* برمی‌دارند، از یک سقفِ داده‌شده کنار
+ * گذاشته می‌شود. **یک تعریف، دو مصرف** (`specialMaxChars_` و
+ * `specialWriteCap_`) — دو کپی از همین حساب یعنی روزی یکی از آن دو
+ * مصرف‌کننده‌ای را که تازه اضافه شده نمی‌بیند، که همان باگِ ۵٫۹۶ است.
+ */
+function specialReserve_(cap) {
+  var pct = 0;
+  if (CFG.ENRICH_ENABLED !== false) {
+    var pe = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
+    if (isFinite(pe) && pe > 0) pct += pe;
+  }
+  if (CFG.EXPLAIN_ENABLED !== false) {
+    var px = Number(CFG.EXPLAIN_PCT);
+    if (isFinite(px) && px > 0) pct += px;
+  }
+  if (pct <= 0) return cap;
+  return Math.floor(cap / (1 + pct / 100));
 }
 
 /**
@@ -63,22 +92,11 @@ function specialFileCap_() { return oneFileMaxChars_(); }
  * الگویی است که این ریپو بارها از آن ضربه خورده).
  */
 function specialWriteCap_() {
-  var cap = specialFileCap_();
-  var pct = 0;
-  if (CFG.ENRICH_ENABLED !== false) {
-    var pe = Number(CFG.SPECIAL_ENRICH_RESERVE_PCT);
-    if (isFinite(pe) && pe > 0) pct += pe;
-  }
   /* ۶٫۲۱: توضیح‌دهندهٔ عصری‌سازی هم *پس از* نوشتن اضافه می‌شود، پس سهمش هم
-     باید از پیش کنار برود — وگرنه همان اتفاقِ ۵٫۹۶ دوباره می‌افتد، این بار
-     با ۱۳٪ به‌جای ۲۵٪. و اگر خاموش باشد چیزی کنار نمی‌رود: رزروِ بی‌مصرف
-     یعنی هر درس بی‌دلیل کوتاه‌تر. */
-  if (CFG.EXPLAIN_ENABLED !== false) {
-    var px = Number(CFG.EXPLAIN_PCT);
-    if (isFinite(px) && px > 0) pct += px;
-  }
-  if (pct <= 0) return cap;
-  return Math.floor(cap / (1 + pct / 100));
+     باید از پیش کنار برود — وگرنه همان اتفاقِ ۵٫۹۶ دوباره می‌افتد. و اگر
+     خاموش باشد چیزی کنار نمی‌رود: رزروِ بی‌مصرف یعنی هر درس بی‌دلیل کوتاه‌تر.
+     خودِ حساب در `specialReserve_` است — یک نسخه، دو مصرف. */
+  return specialReserve_(specialFileCap_());
 }
 
 /**
@@ -645,6 +663,9 @@ function buildSpecialPrompt_(ctx) {
     L.push('');
   }
 
+  /* پیش از «ساختار خروجی»: نویسنده باید نسبت‌ها را بداند وقتی دارد بخش‌ها
+     را می‌چیند، نه بعد از آنکه ساختار را بست. */
+  if (ctx.bridgeBlock) { L.push(ctx.bridgeBlock); L.push(''); }
   L.push('══ ساختار خروجی ══');
   L.push('• title: عنوانِ این قسمت. نامِ مجموعه در آن نیاید (خودش جداگانه می‌آید).');
   L.push('• hook: آغازِ برنامه. با نامِ برنامه شروع کن: «' + CFG.SPECIAL_SHOW_NAME + '»، ' +
@@ -1089,6 +1110,25 @@ function produceSpecialEpisode(opt) {
                 enrich: enrich, when: when, orders: orders,
                 recapText: recapTextOf_(rec) };
 
+    /* ══ ارجاعِ میان‌مجموعه‌ای (بخشِ ۳۱، ۶٫۴۳) ══
+     * پیش از نوشتن، چون نویسنده باید بداند کجا ارجاع می‌نشیند. فراخوانِ رو
+     * به جلو است (۱۴ → ۳۱)، پس در try/catch — بارگذارهای جزئیِ tests/ ممکن
+     * است بخشِ ۳۱ را نداشته باشند و آن‌وقت ReferenceError کلِ تولید را
+     * می‌خواباند برای قابلیتی که فقط یک افزوده است.
+     *
+     * `digest` خلاصهٔ متنِ خام است، نه کلش: کاشفِ نسبت باید بداند این درس
+     * دربارهٔ چیست، و برای آن چند هزار نویسه بس است — کلِ متن یعنی دو برابر
+     * هزینه برای جوابی که فرق نمی‌کند. */
+    try {
+      var digest = allText.replace(/\s+/g, ' ').slice(0, 12000);
+      var bctx = { seriesName: seriesName, partName: ctx.partName,
+                   digest: digest, headings: [] };
+      var br = bridgeFor_(hub, reg, rec, bctx);
+      ctx.bridgeBlock = br.block;
+      ctx.__bridges = br.links;
+      ctx.__bridgeNone = br.none;
+    } catch (eBr) { logLine_('ارجاع رد شد: ' + eBr.message); }
+
     var prompt = buildSpecialPrompt_(ctx);
     var ep = geminiText_(prompt, SPECIAL_SCHEMA, 40960);
     if (!ep || !ep.sections || !ep.sections.length) throw new Error('متن درس‌نامه بدون بخش برگشت.');
@@ -1285,8 +1325,21 @@ function produceSpecialEpisode(opt) {
       // دستهٔ مجموعه، تا نقش‌گزینیِ گویندگان بداند این درس از چه جنسی است
       seriesCat: seriesCatOf_(rec.vals),
       level: String(rec.vals[SC.LEVEL - 1] || ''),
-      orders: orders, epNum: epNum, date: when
+      orders: orders, epNum: epNum, date: when,
+      /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
+         در جایی ثبتِ دقیق و کامل بشه». سیاهه تاریخچه است، این پرونده حالِ
+         همین قسمت — و ناظر و یوتیوب هر دو از همین می‌خوانند. */
+      bridges: (ctx.__bridges || []).map(function (b) {
+        return { series: b.seriesName, kind: b.kind, at: b.atHeading,
+                 claim: b.claim, relation: b.relation };
+      }),
+      bridgeNone: String(ctx.__bridgeNone || '')
     });
+
+    /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاع — سؤالی که فردا می‌پرسی
+       «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
+    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridges || []); }
+    catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
 
     // نشانه‌گذاریِ جداگانه — ستونِ درس‌نامه، نه ستونِ برنامهٔ متنوع
     try { markSpecialUsed_(hub, usedEnrich, epNum); } catch (eM) {}

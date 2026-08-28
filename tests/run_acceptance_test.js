@@ -81,7 +81,17 @@ console.log('══ ۴) یک فایلِ صوتی — هر دو برنامه ═�
   ok('سقفِ نویسه برای «از همه جا» ('+a+')', a>0);
   ok('سقفِ نویسه برای «درس‌نامه» ('+b+')', b>0);
   ok('ONE_FILE_STRICT روشن', CFG.ONE_FILE_STRICT===true);
-  ok('SPECIAL_ONE_FILE روشن', CFG.SPECIAL_ONE_FILE===true);
+  /* ══ «یک فایل» دیگر خواستهٔ اول نیست (۶٫۴۳) ══
+     صاحبِ برنامه صریح برش داشت: «سقفِ هر صوتِ درس‌نامه را بگذار حداقل روی
+     ۱۵ دقیقه و اگر در دو فایل شد مشکلی ندارد.» پس سنجه از «روشن باشد» به
+     «هرچه هست، بقیهٔ کد با آن بخواند» تغییر می‌کند — همان چیزی که ۵٫۹۱
+     یاد داد: دو تنظیم که باید با هم حرکت کنند. */
+  ok('«یک فایل» برای درس‌نامه خاموش است (خواستهٔ ۶٫۴۳)', CFG.SPECIAL_ONE_FILE===false);
+  ok('و هدفِ درس‌نامه دستِ‌کم ۱۵ دقیقه است',
+     specialTargetMin_() >= 15, String(specialTargetMin_()));
+  ok('و سقفِ نویسه از همان هدف می‌آید، نه از سقفِ یک فایل',
+     b > oneFileMaxChars_() || CFG.SPECIAL_ONE_FILE===true,
+     b + ' در برابر ' + oneFileMaxChars_());
   const sp14 = fs.readFileSync('src/14_Special.gs','utf8');
   ok('درس‌نامه هم «یک فایل» را وارسی می‌کند', /expectOneFile:\s*CFG\.SPECIAL_ONE_FILE/.test(sp14));
   ok('بودجهٔ موسیقی از سقف کم می‌شود', /musicBudgetSec_/.test(fs.readFileSync('src/03_Producer.gs','utf8')));

@@ -50,6 +50,10 @@ function seriesBoardData_(hub) {
      خوانده شده، پس دوباره خوانده نمی‌شود. */
   var rcMap = Object.create(null);
   try { rcMap = recapBoardMap_(hub, reg); } catch (eR) {}
+  /* یک خواندن برای هر ۲۶۴ ردیف، نه یکی به‌ازای هر مجموعه — همان قاعده‌ای که
+     ۵٫۸۷ و ۶٫۲۲ گذاشتند و ۶٫۴۰ دوباره رعایتش کرد. */
+  var bxOpts = [];
+  try { bxOpts = bridgeCandidates_(hub, reg); } catch (eB) { bxOpts = []; }
   /* وارسیِ ترتیب — همان‌جایی که مجموعه انتخاب می‌شود. هشداری که در ایمیل
      بماند و کنارِ دکمهٔ «کار روی این» نباشد، سرِ بزنگاه دیده نمی‌شود. */
   var ordMap = Object.create(null);
@@ -112,6 +116,7 @@ function seriesBoardData_(hub) {
       lastEpAt: String(v[SC.LAST_EP_AT - 1] || ''),
       note: String(v[SC.NOTE - 1] || ''),
       related: String(v[SC.RELATED - 1] || ''),
+      xref: String(v[SC.XREF - 1] || ''),
       isCurrent: key === curKey,
       isPinned: !!(pin && pin.kind === 'series' && pin.value === key),
       // ── داوریِ محتوایی ──
@@ -279,6 +284,7 @@ function seriesBoardData_(hub) {
 
   return {
     groups: groups, totals: tot, pin: pinShow,
+    bridgeOptions: bxOpts,
     excluded: excluded, judge: jsum,
     judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
     current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
@@ -623,7 +629,8 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th>مرورِ بزرگ</th><th></th></tr>');
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th>مجموعه‌های مرجع</th>' +
+           '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
       var clsName = (x.isPinned ? 'pinned ' : (x.isCurrent ? 'now ' : '')) + 'srow';
@@ -659,6 +666,7 @@ function seriesBoardHtml_(d) {
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
+      H.push(bridgeCell_(x, d));
       H.push('<td><button ' + (x.isPinned ? 'class="pin" ' : '') +
              'data-key="' + bEsc_(x.key) + '" ' +
              'data-act="' + (x.isPinned ? 'unpin' : 'pin') + '" ' +
@@ -681,7 +689,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="9"><table style="font-size:11px">');
+               '<td colspan="10"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -798,6 +806,16 @@ function seriesBoardHtml_(d) {
      چیزی که نوشته اثر داشته. `data-key` مقایسه می‌شود و در selector نمی‌رود:
      کلیدِ مجموعه می‌تواند هر نویسه‌ای داشته باشد و یک querySelector شکسته
      در این پنجره هیچ خطایی نشان نمی‌دهد، فقط بی‌صدا کار نمی‌کند. */
+  /* ══ ارجاعِ میان‌مجموعه‌ای (۶٫۴۳) ══
+     تیک‌ها *همان لحظه* ثبت می‌شوند، نه با دکمهٔ سراسری: انتخابِ مرجع تنظیمِ
+     ماندگارِ یک مجموعه است، نه یک سفارشِ یک‌بارمصرف — و تنظیمی که با بستنِ
+     پنجره از دست برود، همان شکلی است که آدم بعداً باور می‌کند ثبت شده. */
+  H.push('function bxSave(b){var k=b.dataset.key,v=[];' +
+         '[].slice.call(document.querySelectorAll("input.bxChk")).forEach(function(x){' +
+         'if(x.dataset.key===k&&x.checked)v.push(x.value);});' +
+         'busy();say("ثبتِ مجموعه‌های مرجع…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiBridgeSave(k,v);}');
   H.push('function rcModes(){return [].slice.call(' +
          'document.querySelectorAll("select.rcMode"));}');
   H.push('function rcModeChange(s){var k=s.dataset.key;' +
@@ -877,12 +895,25 @@ function seriesBoardHtml_(d) {
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiClearManual(b.dataset.key);}');
   // ── جست‌وجو ──
-  H.push('function doSearch(){var q=(document.getElementById("q").value||"")' +
-         '.trim().replace(/\\u200c/g," ").toLowerCase();' +
+  /* ══ جست‌وجویی که عنوانِ واقعی را پیدا نمی‌کرد (۶٫۴۳) ══
+   * صاحبِ برنامه بخشی از نامِ یک کتاب را جست‌وجو کرد و «نمایش ۰ از ۲۱۳»
+   * گرفت — و نتیجه گرفت که اصلاً سینک نشده. ولی تطبیق یک `indexOf`ِ خام بود:
+   * «Epistemology A Contemporary» با «Epistemology: A Contemporary
+   * Introduction» **هیچ‌وقت** نمی‌خواند، چون یک دونقطه وسطش است. آدم عنوان
+   * را از حافظه و بی نقطه‌گذاری می‌نویسد؛ ابزار باید همان را بفهمد.
+   *
+   * حالا هر دو طرف نقطه‌گذاری‌شان برداشته می‌شود و پرسش به واژه‌ها تکه
+   * می‌شود: **همهٔ** واژه‌ها باید باشند، به هر ترتیبی. عبارتِ دقیق هنوز کار
+   * می‌کند (یک واژه هم یک واژه است) و ترتیب دیگر شرط نیست. */
+  H.push('function nrm(t){return String(t||"").replace(/[\\u200c\\u200f\\u200e]/g," ")' +
+         '.replace(/[\\u064b-\\u0652]/g,"").replace(/[يى]/g,"ی").replace(/ك/g,"ک")' +
+         '.replace(/[^0-9a-z\\u0600-\\u06ff]+/gi," ").replace(/\\s+/g," ").trim().toLowerCase();}');
+  H.push('function doSearch(){var q=nrm(document.getElementById("q").value);' +
+         'var qs=q?q.split(" "):[];' +
          'var rows=document.querySelectorAll("tr.srow");var n=0,tot=0;' +
          'rows.forEach(function(r){tot++;' +
-         'var hay=(r.dataset.hay||"").replace(/\\u200c/g," ").toLowerCase();' +
-         'var hit=!q||hay.indexOf(q)!==-1;' +
+         'var hay=nrm(r.dataset.hay||"");' +
+         'var hit=true;for(var i=0;i<qs.length;i++){if(hay.indexOf(qs[i])===-1){hit=false;break;}}' +
          'r.style.display=hit?"":"none";if(hit)n++;' +
          'var d=r.nextElementSibling;' +
          'if(d&&d.classList.contains("sdetail"))d.style.display=hit?"":"none";});' +
@@ -1135,6 +1166,53 @@ function recapScopePick_(r, key) {
          list + '</div></div>';
 }
 
+/**
+ * خانهٔ «مجموعه‌های مرجع» — انتخابِ آدم، روی همان ردیف (۶٫۴۳).
+ *
+ * ══ خواستهٔ صاحبِ برنامه ══
+ * «می‌خوام برای هر مجموعه انتخاب کنم که مجموعه‌های قبلی که تولیدات و جزوه
+ *  براشون انجام شده رو از لیستی انتخاب کنم … که یه ارتباطِ معناییِ بده با
+ *  مجموعهٔ فعلی.»
+ *
+ * چرا اینجا و نه در یک پنجرهٔ جدا: همان قاعدهٔ ۵٫۶۱ و ۵٫۸۷ و ۶٫۳۹ — کنترل،
+ * کنارِ کاری که به آن مربوط است. و چرا تیک و نه تایپِ کلید: همان درسِ ۶٫۴۰،
+ * «کلیدِ مجموعه چیزی نیست که آدم از حفظ بداند».
+ *
+ * فهرست فقط مجموعه‌هایی را می‌آورد که **درسِ ساخته‌شده دارند** — چون ورودیِ
+ * ارجاع جزوهٔ آن‌هاست و مجموعهٔ بی‌درس جزوه‌ای ندارد که از آن ارجاع در بیاید.
+ * تیکی که هیچ اثری نداشته باشد، بدتر از نبودنِ تیک است.
+ */
+function bridgeCell_(x, d) {
+  var key = bEsc_(x.key);
+  var cur = Object.create(null);
+  var curList = String(x.xref || '').replace(/[،؛]/g, ',').split(/[,\n]+/);
+  for (var c = 0; c < curList.length; c++) {
+    var ck = curList[c].trim(); if (ck) cur[ck] = 1;
+  }
+  var opts = (d && d.bridgeOptions) || [];
+  var items = [], nOn = 0;
+  for (var i = 0; i < opts.length; i++) {
+    if (String(opts[i].key) === String(x.key)) continue;   // خودش مرجعِ خودش نیست
+    var on = !!cur[String(opts[i].key)];
+    if (on) nOn++;
+    items.push('<label class="rcLes"><input type="checkbox" class="bxChk" data-key="' + key +
+               '" value="' + bEsc_(String(opts[i].key)) + '"' + (on ? ' checked' : '') +
+               '> ' + bEsc_(String(opts[i].name).slice(0, 44)) +
+               ' <span class="sub">(' + faNum_(opts[i].made) + ')</span></label>');
+  }
+  if (!items.length) {
+    return '<td class="sub">هنوز مجموعه‌ای با درسِ ساخته‌شده نیست</td>';
+  }
+  var head = nOn
+    ? '<span class="bdg b-act">' + faNum_(nOn) + ' مرجع</span>'
+    : '<span class="sub">بدونِ مرجع</span>';
+  return '<td>' + head +
+         '<div class="rcEpsBox" style="margin-top:4px">' + items.join('') + '</div>' +
+         '<div style="margin-top:4px">' +
+         '<button data-key="' + key + '" onclick="bxSave(this)">ثبتِ مرجع‌ها</button></div>' +
+         '</td>';
+}
+
 /** جعبهٔ بالای تخته برای مرور: خلاصه + دکمه‌ای که تیک‌ها را می‌فرستد. */
 function recapPanelHtml_(d) {
   var rows = [];
@@ -1383,6 +1461,20 @@ function uiHandoutSeries(key) {
 /* ── دکمه‌های مرورِ بزرگ ──
    همان مرزِ همیشگی: کارِ واقعی در بخشِ ۳۰ است و آنجا سنجه دارد؛ اینجا فقط
    پوسته است، تا پنجرهٔ شکسته ساختِ مرور را نشکند. */
+/* ── دکمهٔ «ثبتِ مرجع‌ها» ──
+   همان مرزِ همیشگی: کارِ واقعی و سنجه‌اش در بخشِ ۳۱ است؛ اینجا فقط پوسته. */
+function uiBridgeSave(key, keys) {
+  try {
+    var r = bridgeSave_(getHub_(), key, keys || []);
+    if (!r.ok) return { ok: false, message: 'ثبت نشد: ' + (r.why || 'نامعلوم') };
+    return { ok: true, message: r.n
+      ? ('ثبت شد: ' + faDigitsOut_(String(r.n)) + ' مجموعهٔ مرجع. از قسمتِ بعدی، ' +
+         'هرجا نسبتِ واقعی‌ای باشد به آن‌ها ارجاع داده می‌شود — و اگر نبود، ' +
+         'ارجاعِ ساختگی ساخته نمی‌شود.')
+      : 'همهٔ مرجع‌ها برداشته شد؛ این مجموعه از این پس بی‌ارجاع تولید می‌شود.' };
+  } catch (e) { return { ok: false, message: 'ثبتِ مرجع‌ها نشد: ' + e.message }; }
+}
+
 function uiRecapQueue(keys, scopes) {
   try {
     /* رشته‌ای که آدم تایپ کرده، همین‌جا به عدد تبدیل می‌شود — و با فهرستِ

@@ -462,6 +462,7 @@ function writeStatus_(hub, note) {
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
+    bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -1324,6 +1325,12 @@ function healthCheck() {
     var rcS = recapStatus_();
     if (rcS && rcS.line) notes.push(rcS.line);
   } catch (eRc2) {}
+  /* ارجاعِ میان‌مجموعه‌ای (۶٫۴۳) — قاعدهٔ ۵٫۹۰: صاحبِ برنامه شیت باز نمی‌کند،
+     پس سیاههٔ ارجاع‌ها اگر فقط در تب بماند، از نظرِ او وجود ندارد. */
+  try {
+    var bxS = bridgeStatus_(hub);
+    if (bxS && bxS.line) notes.push(bxS.line);
+  } catch (eBx2) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
   if (healthHas_(6000, 'مدل‌ها', skipped)) try {

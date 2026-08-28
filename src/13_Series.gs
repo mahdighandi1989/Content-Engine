@@ -569,7 +569,7 @@ function scanSeries(force) {
 
   var reg = readSeriesReg_(hub), parts = readSeriesParts_(hub);
   var found = Object.create(null);   // key → { name, kind, src, tab, parts: {fileId: fileRec} }
-  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0;
+  var scanned = 0, tabsRead = 0, srcFail = 0, srcTried = 0, unknownTabs = [];
 
   for (var s = 0; s < CFG.SOURCES.length; s++) {
     var src = CFG.SOURCES[s];
@@ -590,7 +590,27 @@ function scanSeries(force) {
       try {
         headers = sh.getRange(1, 1, 1, Math.min(sh.getLastColumn(), 80)).getValues()[0];
         kind = srcDetect_(headers);
-        if (!kind || !kind.kind) continue;               // تبِ جانبی، نه محتوایی
+        if (!kind || !kind.kind) {
+          /* ══ تبی که بی‌صدا ناپدید می‌شد (۶٫۴۳) ══
+           * گزارشِ صاحبِ برنامه: «در یکی از شیت‌های منبع یک سند یا کتاب را
+           * محتوایش را استخراج کردم و اصلاً سینک نکرده و پیدا نکرده!!»
+           *
+           * `srcDetect_` امضاهای مشخصی می‌شناسد (`Document_Info`،
+           * `Full_Text_Extraction`، `Visual_Analysis`، …). تبی که ستونِ
+           * `File_ID` دارد — یعنی آشکارا فایل در آن ثبت شده — ولی هیچ‌کدام
+           * از آن امضاها را ندارد، تا امروز با یک `continue` رد می‌شد:
+           * **بی هیچ سطری در سیاهه، بی هیچ عددی، بی هیچ نشانی.** از بیرون
+           * از «تبِ جانبی» فرقی نداشت.
+           *
+           * تبِ واقعاً جانبی هم هست (خروجیِ ترکیبی، بی `File_ID`) و آن باید
+           * ساکت رد شود. مرز همین است: `File_ID` دارد یا نه. */
+          try {
+            if (srcHas_(hdrSet_(headers), 'File_ID') || srcHas_(hdrSet_(headers), 'File ID')) {
+              unknownTabs.push(src.title + ' › ' + tabName);
+            }
+          } catch (eU) {}
+          continue;
+        }
         files = scanTabFiles_(sh, tabName, headers);
       } catch (eT) {
         logLine_('مجموعه‌ها: تب «' + tabName + '» خوانده نشد: ' + eT.message); continue;
@@ -648,6 +668,28 @@ function scanSeries(force) {
     return res;
   }
   if (srcFail) res.sourcesFailed = srcFail;
+  /* و اگر تبی فایل داشت ولی نوعش شناخته نشد، این یافته است نه سکوت. مالکش
+     «کد» است: یا امضای تازه‌ای باید به `srcDetect_` اضافه شود، یا ستونی در
+     آن تب کم است — و هیچ‌کدام را نمی‌شود فهمید وقتی هیچ‌جا نوشته نمی‌شود. */
+  res.unknownTabs = unknownTabs;
+  if (unknownTabs.length) {
+    logLine_('مجموعه‌ها: ' + unknownTabs.length + ' تب فایل دارد ولی نوعش شناخته نشد — ' +
+             unknownTabs.slice(0, 4).join('، ') + '.');
+    try {
+      logSelfFinding_(hub, {
+        priority: 'جدی', category: 'منابع', key: 'src-tab-unknown',
+        title: 'تبی در شیتِ منبع فایل دارد ولی خوانده نمی‌شود',
+        detail: unknownTabs.slice(0, 6).join(' | ') +
+                ' — ستونِ File_ID دارند ولی هیچ‌کدام از امضاهای srcDetect_ ' +
+                '(Document_Info، Full_Text_Extraction، Visual_Analysis، ' +
+                'Speaker_Diarization، Image_Basic_Info) در سرستون‌هایشان نیست.',
+        instruction: 'سرستون‌های آن تب را ببین و امضایش را به srcDetect_ ' +
+                     '(بخشِ ۱۰) اضافه کن، یا اگر تبِ جانبی است ستونِ ' +
+                     'Source_Files را در آن بگذار تا عمداً رد شود.',
+        owner: 'کد'
+      });
+    } catch (eUf) {}
+  }
   props_().deleteProperty(PK.SERIES_FAIL_AT);
   props_().setProperty(PK.SERIES_SCAN_AT, nowStr_());
   // مجموعهٔ تازه باید همان لحظه در جایگاهِ درستِ خودش بنشیند. داوریِ محتوایی‌اش

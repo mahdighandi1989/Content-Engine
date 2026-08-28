@@ -10,7 +10,7 @@ Persian podcasts — «از همه جا از همه رنگ» (variety, published
 writing audio/text/status to a Drive OUTPUT folder.
 
 The deployed engine is ONE file, `engine.gs` **at the repo root**, assembled from
-the 31 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
+the 32 section files in `src/` by `tools/build.js`. `CODE_VERSION` lives near the
 top of `src/00_Config.gs`.
 
 ## Absolute rules (never violate)
@@ -25,9 +25,9 @@ top of `src/00_Config.gs`.
 ## Repo layout
 ```
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
-src/                 31 numbered sections — the source of truth for the code
+src/                 32 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 42 run_*.js suites
+tests/               the 43 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
@@ -648,6 +648,54 @@ endless, errorless loop whose only symptom is a podcast that never arrives.
 straight to `audio`. `run_speak_test.js` ۱۲.۲ extracts every phase name from the
 source and fails if one is missing from the list, so the next phase someone adds
 is caught here.
+
+## Cross-series references — the current series stays the backbone (section 31)
+
+The owner's ask: «برای هر مجموعه انتخاب کنم که مجموعه‌های قبلی … از لیستی انتخاب
+کنم … یه ارتباطِ معنایی بده با مجموعهٔ فعلی. مجموعهٔ فعلی باید ستون‌فقرات باقی
+بمونه و اصلاً نباید متنش با اون متن‌ها قاطی بشه.»
+
+A «مجموعه‌های مرجع» column (`SC.XREF`) holds the keys the owner ticked on the
+board. At production time `bridgeFor_` reads each referenced series' **whole
+handout** and asks the model, in a **separate call before writing**, what the
+relationship is.
+
+**The input is the whole book, never the matching lesson.** His words: «این نباشه
+که برای درسِ یکِ مجموعهٔ انتخاب‌شده لزوماً به درسِ یکِ مجموعهٔ مرجع هدایت بشه.»
+`_HANDOUT.json` already is every concept of every lesson, so "all the content" is
+one file read — and lesson order plays no part in choosing where a reference lands.
+
+**The relationship is usually not topical, and that is the whole point.** His own
+example is quoted verbatim in the prompt: epistemology is placed before theology
+on purpose; no heading is shared, yet theology's propositions need the tool
+epistemology supplies to judge them true or false. Seven kinds are defined and
+`هم‌موضوع` is deliberately **last** — if all the model finds is "both are about
+God", that reference is not worth making.
+
+**The backbone boundary is in code, not in a request.** `bridgeTrim_` drops a
+hallucinated series id, an invented kind, a `ضعیف` link, an empty gesture, and a
+second link to the same book; it enforces `BRIDGE_MAX_LINKS`. And the boundary is
+stated **twice** — once to the model that proposes, once to the model that writes,
+because the writer never saw the first prompt and is the one who could blend the
+texts.
+
+**No real relationship means no reference.** «بدونِ لوث شدن … جوری که حرفه‌ای بودن
+رو زیرِ سؤال نبره.» An episode without references is healthy; one with a fabricated
+reference is not.
+
+Recorded in three places, and the handout and the recap both read from the same
+log — «چون در واقع جزوِ خودِ محتوا شده». One source, never a second copy.
+
+## Two settings that must move together — and one that moved (6.43)
+`SPECIAL_ONE_FILE` is now **false**, by the owner's explicit decision: «سقفِ هر
+صوتِ درس‌نامه را بگذار حداقل روی ۱۵ دقیقه و اگر در دو فایل شد مشکلی ندارد.» With
+references, contemporizing and enrichment all landing after the writer, a 10.8-minute
+ceiling made all four of them half-finished.
+
+But «هدف» must mean the length of the **finished** episode. `specialReserve_` is the
+single definition of what the later stages take, and it is applied in *both* modes —
+before 6.43 it only applied when one-file was on, so a "fifteen-minute" target came
+out at twenty-two. A number that is never the real length of anything is not a target.
 
 ## Production calendar (section 25)
 The owner's only way to stop a show used to be deleting its trigger — manual,
