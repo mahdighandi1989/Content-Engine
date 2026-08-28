@@ -714,6 +714,7 @@ function seriesBoardHtml_(d) {
 
   // ── بخشِ «آموزشی تشخیص داده نشد» ──
   if (d.excluded && d.excluded.length) {
+    H.push('<div id="excBox">');
     H.push('<h2><span>آموزشی تشخیص داده نشد ' +
            '<span class="bdg b-skip">' + faNum_(d.excluded.length) + '</span></span>' +
            '<span class="sub">در «' + bEsc_(CFG.SHOW_NAME) + '» استفاده می‌شوند</span></h2>');
@@ -728,7 +729,19 @@ function seriesBoardHtml_(d) {
            '<th>قسمت</th><th></th></tr>');
     for (var xx = 0; xx < d.excluded.length; xx++) {
       var ex = d.excluded[xx];
-      H.push('<tr class="exc">');
+      /* ══ چیزی که هست ولی پیدا نمی‌شد (۶٫۴۵) ══
+       * صاحبِ برنامه بخشی از نامِ یک کتاب را جست‌وجو کرد و «نمایش ۰ از ۲۱۳»
+       * گرفت — دو بار، حتی پس از اصلاحِ تطبیق در ۶٫۴۳. علت جای دیگری بود:
+       * رجیستری ۲۶۳ ردیف دارد و تخته ۲۱۳ تا را «زنده» نشان می‌دهد؛ ۵۰ تای
+       * دیگر در جدولِ «آموزشی تشخیص داده نشد» پایینِ صفحه‌اند — و آن ردیف‌ها
+       * نه کلاسِ `srow` داشتند نه `data-hay`. یعنی `doSearch` اصلاً نمی‌دیدشان.
+       *
+       * و این بدترین شکل بود: کتاب **در سامانه بود**، فقط داوری آموزشی
+       * ندانسته بودش. آدم نتیجه می‌گرفت «سینک نشده» و دنبالِ باگی می‌گشت که
+       * وجود نداشت — در حالی که دکمهٔ «آموزشی است» همان‌جا کنارش بود و فقط
+       * پیدا نمی‌شد. */
+      var exHay = [ex.name, ex.about, ex.why, ex.key].join(' ');
+      H.push('<tr class="exc" data-hay="' + bEsc_(exHay) + '">');
       H.push('<td><b>' + bEsc_(ex.name) + '</b>' +
              (ex.manual === SMAN.NO ? ' <span class="bdg b-man">نظرِ شما</span>' : '') +
              (ex.about ? '<div class="abt">' + bEsc_(ex.about) + '</div>' : '') + '</td>');
@@ -745,6 +758,7 @@ function seriesBoardHtml_(d) {
       H.push('</tr>');
     }
     H.push('</table></div>');
+    H.push('</div>');
   }
 
   H.push('<div class="card sub">' +
@@ -912,12 +926,17 @@ function seriesBoardHtml_(d) {
   H.push('function nrm(t){return String(t||"").replace(/[\\u200c\\u200f\\u200e]/g," ")' +
          '.replace(/[\\u064b-\\u0652]/g,"").replace(/[يى]/g,"ی").replace(/ك/g,"ک")' +
          '.replace(/[^0-9a-z\\u0600-\\u06ff]+/gi," ").replace(/\\s+/g," ").trim().toLowerCase();}');
+  H.push('function hay1(r,qs){var h=nrm(r.dataset.hay||"");' +
+         'for(var i=0;i<qs.length;i++){if(h.indexOf(qs[i])===-1)return false;}return true;}');
+  /* ══ جست‌وجو باید **هر دو** جدول را ببیند (۶٫۴۵) ══
+     جدولِ «آموزشی تشخیص داده نشد» ۵۰ ردیف دارد و تا امروز اصلاً گشته
+     نمی‌شد. نتیجه: چیزی که در سامانه بود «پیدا نشد» گزارش می‌شد و آدم
+     دنبالِ باگِ سینک می‌گشت. و شمارنده هم فقط ۲۱۳ را می‌شمرد، پس خودش هم
+     نمی‌گفت که جای دیگری هم هست. */
   H.push('function doSearch(){var q=nrm(document.getElementById("q").value);' +
          'var qs=q?q.split(" "):[];' +
          'var rows=document.querySelectorAll("tr.srow");var n=0,tot=0;' +
-         'rows.forEach(function(r){tot++;' +
-         'var hay=nrm(r.dataset.hay||"");' +
-         'var hit=true;for(var i=0;i<qs.length;i++){if(hay.indexOf(qs[i])===-1){hit=false;break;}}' +
+         'rows.forEach(function(r){tot++;var hit=!qs.length||hay1(r,qs);' +
          'r.style.display=hit?"":"none";if(hit)n++;' +
          'var d=r.nextElementSibling;' +
          'if(d&&d.classList.contains("sdetail"))d.style.display=hit?"":"none";});' +
@@ -925,8 +944,25 @@ function seriesBoardHtml_(d) {
          'var any=false;g.querySelectorAll("tr.srow").forEach(function(r){' +
          'if(r.style.display!=="none")any=true;});' +
          'g.style.display=any?"":"none";});' +
+         'var xn=0,xtot=0;' +
+         'document.querySelectorAll("tr.exc").forEach(function(r){xtot++;' +
+         'var hit=!qs.length||hay1(r,qs);r.style.display=hit?"":"none";if(hit)xn++;});' +
+         'var xb=document.getElementById("excBox");' +
+         'if(xb)xb.style.display=(!qs.length||xn)?"":"none";' +
          'var qn=document.getElementById("qn");' +
-         'qn.textContent=q?("نمایش "+n+" از "+tot+" مجموعه"):"";}');
+         'if(!q){qn.innerHTML="";return;}' +
+         'var msg="نمایش "+n+" از "+tot+" مجموعه";' +
+         'if(xtot)msg+=" · "+xn+" از "+xtot+" کنارگذاشته";' +
+         /* و اگر هیچ‌جا نبود، به‌جای یک صفرِ خشک بگو کجاها را گشتیم و چه
+            چیزی ممکن است علتش باشد — از جمله وقتِ آخرین اسکن، که سؤالِ
+            خودِ اوست: «آیا ربطی به اسکنِ ۱۲ ساعته داره؟» */
+         'if(!n&&!xn){msg+="<div class=\'sub\' style=\'color:#8a6d1f;margin-top:4px\'>' +
+         'هر دو فهرست گشته شد و چیزی پیدا نشد. دو علتِ محتمل: (۱) هنوز اسکن ' +
+         'نشده — آخرین اسکن: ' + bEsc_(String((d && d.scannedAt) || '—')) + '، و اسکن هر ' +
+         faNum_(12) + ' ساعت است؛ دکمهٔ «اسکنِ مجموعه‌ها» همین حالا اجرایش می‌کند. ' +
+         '(۲) نامِ ثبت‌شده با آنچه نوشتید فرق دارد — با یک واژهٔ کوتاه‌تر امتحان کنید.' +
+         '</div>";}' +
+         'qn.innerHTML=msg;}');
   // ── تقویم ──
   H.push('function calSave(b){var box=document.getElementById(b.dataset.box);' +
          'var key=box.dataset.key;' +

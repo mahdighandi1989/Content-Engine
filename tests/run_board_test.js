@@ -900,4 +900,66 @@ console.log('\n=== ترمیمِ دادهٔ قدیمی با یک اسکنِ دو�
      'قبل=' + doneTo + ' بعد=' + fx.vals[SP.DONE_TO - 1]);
 }
 
+console.log('\n=== ۱۷) جست‌وجو هر دو فهرست را می‌بیند (۶٫۴۵) ===');
+{
+  /* ══ گزارشِ صاحبِ برنامه، دو بار ══
+   * بخشی از نامِ یک کتاب را جست‌وجو کرد و «نمایش ۰ از ۲۱۳ مجموعه» گرفت —
+   * حتی پس از اصلاحِ تطبیقِ نویسه‌ای در ۶٫۴۳. علت جای دیگری بود و عددها
+   * خودشان می‌گفتند: ناظر «۲۶۳ مجموعه وارسی شد» نوشته بود و تخته ۲۱۳ نشان
+   * می‌داد. آن ۵۰ تای دیگر در جدولِ «آموزشی تشخیص داده نشد» بودند، و آن
+   * ردیف‌ها نه کلاسِ `srow` داشتند نه `data-hay` — پس `doSearch` اصلاً
+   * نمی‌دیدشان.
+   *
+   * بدترین شکلش این بود که کتاب **در سامانه بود**؛ فقط داوری آموزشی
+   * ندانسته بودش. آدم نتیجه می‌گرفت «سینک نشده» و دنبالِ باگی می‌گشت که
+   * وجود نداشت — در حالی که دکمهٔ «آموزشی است» همان‌جا کنارِ همان ردیف بود. */
+  const hb = new Spread('هاب-جست‌وجو');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hb };
+  global.getHub_ = () => hb;
+  const rg = ensureTab_(hb, CFG.SERIES_TAB, SERIES_HEADERS);
+  const mkRow = (key, name, course) => {
+    const r = new Array(SERIES_HEADERS.length).fill('');
+    r[SC.KEY - 1] = key; r[SC.NAME - 1] = name; r[SC.STATUS - 1] = SST.NEW;
+    r[SC.CAT - 1] = 'علمی و آموزشی'; r[SC.PARTS - 1] = 3; r[SC.CHUNKS - 1] = 30;
+    r[SC.IS_COURSE - 1] = course ? SJ.YES : SJ.NO;
+    r[SC.CSCORE - 1] = course ? 80 : 20;
+    r[SC.WHY - 1] = 'کتاب است، نه درسِ منظم';
+    rg.getRange(rg.getLastRow() + 1, 1, 1, SERIES_HEADERS.length).setValues([r]);
+  };
+  mkRow('kLive', 'یک مجموعهٔ عادی', true);
+  mkRow('kBook', 'Epistemology: A Contemporary Introduction', false);
+
+  const bd = seriesBoardData_(hb);
+  ok('۱۷.۱ کتاب واقعاً کنار گذاشته شده (نه گم‌شده)',
+     bd.excluded.length === 1 && bd.excluded[0].key === 'kBook');
+
+  const h = seriesBoardHtml_(bd);
+  const exRows = [...h.matchAll(/<tr class="exc"[^>]*data-hay="([^"]*)"/g)].map(m2 => m2[1]);
+  ok('۱۷.۲ ردیفِ کنارگذاشته حالا متنِ جست‌وجو دارد', exRows.length === 1, String(exRows.length));
+
+  const blocks = (h.match(/<script>([\s\S]*?)<\/script>/g) || [])
+    .map(b => b.replace(/^<script>/, '').replace(/<\/script>$/, ''));
+  const api = new Function('document', blocks[blocks.length - 1] + ';return {nrm:nrm};')(
+    { querySelectorAll: () => [], getElementById: () => ({ value: '' }) });
+  /* همان عبارتی که او تایپ کرد — با نقطه‌گذاریِ متفاوت از عنوانِ واقعی. */
+  const qs = api.nrm('Epistemology A Contemporary').split(' ');
+  const hitEx = exRows.filter(x => qs.every(t => api.nrm(x).indexOf(t) !== -1));
+  ok('۱۷.۳ و عبارتِ خودِ کاربر پیدایش می‌کند', hitEx.length === 1);
+
+  ok('۱۷.۴ جعبهٔ کنارگذاشته‌ها شناسه دارد تا بشود پنهانش کرد',
+     h.indexOf('id="excBox"') !== -1);
+  ok('۱۷.۵ و doSearch هر دو جدول را می‌گردد',
+     h.indexOf('querySelectorAll("tr.exc")') !== -1 &&
+     h.indexOf('querySelectorAll("tr.srow")') !== -1);
+  /* شمارنده باید **هر دو** را بگوید، وگرنه خودش هم پنهان می‌کند که جای
+     دیگری هم هست — همان چیزی که آدم را به «سینک نشده» رساند. */
+  ok('۱۷.۶ شمارنده هر دو فهرست را گزارش می‌کند',
+     h.indexOf('کنارگذاشته') !== -1);
+  /* و وقتی هیچ‌جا نبود، به‌جای یک صفرِ خشک، علت‌های محتمل و وقتِ آخرین اسکن
+     گفته می‌شود — سؤالِ خودِ او: «آیا ربطی به اسکنِ ۱۲ ساعته داره؟» */
+  ok('۱۷.۷ و نبودن در هر دو، علتش را می‌گوید نه فقط صفر را',
+     h.indexOf('هر دو فهرست گشته شد') !== -1 &&
+     h.indexOf('آخرین اسکن') !== -1);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');
