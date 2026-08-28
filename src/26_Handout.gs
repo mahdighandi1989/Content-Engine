@@ -849,7 +849,10 @@ function handoutUpdate_(folder, meta, hub) {
 
   book.seriesKey = book.seriesKey || String(meta.seriesKey || '');
   book.seriesName = book.seriesName || String(meta.seriesName || '');
-  book.cat = book.cat || String(meta.seriesCat || '');
+  /* `||` یعنی «فقط یک بار، برای همیشه» — و دستهٔ مجموعه عوض می‌شود
+     (۶٫۵۱). جلدِ جزوه دستهٔ قدیمی را تا ابد نگه می‌داشت. مقدارِ تازه اگر
+     هست، می‌نشیند؛ خالی هرگز روی پرِ قبلی نمی‌نشیند. */
+  book.cat = String(meta.seriesCat || '') || book.cat || '';
   book.level = book.level || String(meta.level || '');
   if (book.tried && book.tried[epNum]) delete book.tried[epNum];   // موفق شد؛ سابقه پاک
   book.episodes.push({ n: epNum, title: String(ep.title || ''), at: nowStr_(),

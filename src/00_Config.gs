@@ -956,7 +956,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.50',
+  CODE_VERSION: '6.51',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1214,6 +1214,7 @@ var PK = {
   BRIDGE_STRICT: 'BRIDGE_STRICT_KEYS', // مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند
   SERIES_INV: 'SERIES_SOURCE_INVENTORY', // صورت‌برداریِ آخرین اسکنِ منبع‌ها
   SERIES_REJECTED: 'SERIES_REJECTED_LAST', // گروه‌هایی که اسکنِ آخر «دوره» ندانستشان
+  BOARD_LAST: 'BOARD_LAST_ACTION',     // آخرین کاری که از تختهٔ مجموعه‌ها انجام شد
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب

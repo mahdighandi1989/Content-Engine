@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.50
+ *  موتور محتوا و پادکست — نسخهٔ 6.51
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1040,7 +1040,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.50',
+  CODE_VERSION: '6.51',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1298,6 +1298,7 @@ var PK = {
   BRIDGE_STRICT: 'BRIDGE_STRICT_KEYS', // مجموعه‌هایی که سخت‌گیریِ خودکار گرفته‌اند
   SERIES_INV: 'SERIES_SOURCE_INVENTORY', // صورت‌برداریِ آخرین اسکنِ منبع‌ها
   SERIES_REJECTED: 'SERIES_REJECTED_LAST', // گروه‌هایی که اسکنِ آخر «دوره» ندانستشان
+  BOARD_LAST: 'BOARD_LAST_ACTION',     // آخرین کاری که از تختهٔ مجموعه‌ها انجام شد
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
@@ -17572,6 +17573,7 @@ function seriesBoardData_(hub) {
     bridgeOptions: bxOpts,
     excluded: excluded, judge: jsum,
     rejected: (function () { try { return seriesRejected_(); } catch (eRj) { return null; } })(),
+    receipt: (function () { try { return boardReceiptRead_(); } catch (eRc) { return null; } })(),
     judgedAt: String(props_().getProperty(PK.JUDGE_AT) || ''),
     current: current ? { key: curKey, name: String(current.vals[SC.NAME - 1] || curKey),
                          cat: String(current.vals[SC.CAT - 1] || MISC_TITLE),
@@ -17690,7 +17692,18 @@ var BOARD_CSS =
   '.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:4px}' +
   'h2{font-size:14px;color:#1f3864;margin:16px 0 6px;padding-bottom:5px;' +
   'border-bottom:2px solid #e8eefc;display:flex;justify-content:space-between;align-items:center}' +
-  'table{width:100%;border-collapse:collapse;font-size:12px}' +
+  /* ══ چرا ظاهرِ تخته به‌هم می‌ریخت (۶٫۵۱) ══
+   * جدولِ اصلی یازده ستون دارد و عنوان‌های انگلیسیِ بلند («Audi (2011)
+   * Epistemology A Contemporary Introduction …») نمی‌شکستند، پس جدول از
+   * پهنای پنجره می‌زد بیرون و **بدنهٔ صفحه** افقی اسکرول می‌شد. نوارِ
+   * جست‌وجو `position:sticky` است: عنصرِ چسبان وقتی بدنه افقی می‌لغزد،
+   * سرِ جای اولش می‌ماند و روی جدول می‌افتد — همان چیزی که در تصویر
+   * دیده می‌شود. درمان، پهن‌کردنِ پنجره نیست؛ این است که جدول داخلِ
+   * جعبهٔ خودش بلغزد و بدنه هرگز افقی اسکرول نشود. */
+  '.tw{overflow-x:auto;max-width:100%}' +
+  'table{width:100%;border-collapse:collapse;font-size:12px;table-layout:auto}' +
+  'td,th{overflow-wrap:anywhere;word-break:break-word}' +
+  '.nm{max-width:280px}' +
   'th{background:#eef2fb;color:#1f3864;padding:6px 8px;text-align:right;font-weight:normal;' +
   'font-size:11px}' +
   'td{border-bottom:1px solid #eef0f5;padding:6px 8px;vertical-align:middle}' +
@@ -17760,6 +17773,20 @@ function seriesBoardHtml_(d) {
   H.push('<style>' + BOARD_CSS + '</style></head><body>');
   H.push('<script>var MO_CATS=' + jsonScript_(catList) + ';</script>');
   H.push('<div id="msg"></div>');
+
+  /* رسیدِ آخرین کار — بالای صفحه، با ساعتش. این تنها چیزی است که پس از
+     بازخوانیِ خودکارِ صفحه باقی می‌ماند. */
+  if (d.receipt) {
+    var rc = d.receipt;
+    H.push('<div class="card" style="border-right:4px solid ' +
+           (rc.ok ? '#166534' : '#b91c1c') + '">' +
+           '<b>' + (rc.ok ? '✓ ' : '⚠ ') + bEsc_(String(rc.title)) + '</b>' +
+           '<span class="sub"> — ' + bEsc_(String(rc.at || '')) + '</span>');
+    for (var rl = 0; rl < (rc.lines || []).length; rl++) {
+      H.push('<div class="sub" style="margin-top:3px">• ' + bEsc_(String(rc.lines[rl])) + '</div>');
+    }
+    H.push('</div>');
+  }
 
   // ── فرمِ تنظیمِ دستی (یکجا؛ جای سه پنجرهٔ پشتِ‌هم) ──
   H.push(
@@ -17914,7 +17941,7 @@ function seriesBoardHtml_(d) {
            'onclick="pinCat(this)">' +
            (grp.pinned ? 'انتخاب‌شده — کلیک برای برداشتن' : 'کار روی این دسته') +
            '</button></div>');
-    H.push('<table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
+    H.push('<div class="tw"><table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
            '<th>جزوه</th><th>مرورِ بزرگ</th><th>مجموعه‌های مرجع</th>' +
            '<th></th></tr>');
@@ -17928,7 +17955,7 @@ function seriesBoardHtml_(d) {
              (x.morder !== null
                 ? faNum_(x.morder) + ' <span class="bdg b-man">دستی</span>'
                 : (x.order >= 999 ? '—' : faNum_(x.order))) + '</td>');
-      H.push('<td><b>' + bEsc_(x.name) + '</b>' +
+      H.push('<td class="nm"><b>' + bEsc_(x.name) + '</b>' +
              (x.isCurrent ? ' ◀ <span class="sub">همین حالا</span>' : '') +
              (x.manual === SMAN.YES ? ' <span class="bdg b-man">نظرِ شما</span>' : '') +
              (x.locked ? ' <span class="bdg b-man">🔒 تنظیمِ دستی — داوریِ خودکار بی‌اثر</span>' : '') +
@@ -17994,7 +18021,7 @@ function seriesBoardHtml_(d) {
         H.push('</table></td></tr>');
       }
     }
-    H.push('</table></div>');
+    H.push('</table></div></div>');
     H.push('</div>');   // .grp — مرزِ جست‌وجو
   }
 
@@ -18011,7 +18038,7 @@ function seriesBoardHtml_(d) {
            bEsc_(CFG.SHOW_NAME) + '» عیناً استفاده می‌شوند. اگر با داوری موافق نیستید، ' +
            'دکمهٔ «آموزشی است» را بزنید تا از این پس در فهرستِ درس‌نامه بیاید.' +
            '</div>');
-    H.push('<table><tr><th>مجموعه</th><th>چه چیزی است</th><th>امتیاز</th>' +
+    H.push('<div class="tw"><table><tr><th>مجموعه</th><th>چه چیزی است</th><th>امتیاز</th>' +
            '<th>قسمت</th><th></th></tr>');
     for (var xx = 0; xx < d.excluded.length; xx++) {
       var ex = d.excluded[xx];
@@ -18052,7 +18079,7 @@ function seriesBoardHtml_(d) {
              '</td>');
       H.push('</tr>');
     }
-    H.push('</table></div>');
+    H.push('</table></div></div>');
     H.push('</div>');
   }
 
@@ -18076,7 +18103,7 @@ function seriesBoardHtml_(d) {
            (rj.total > rj.rows.length
               ? ' (' + faNum_(rj.rows.length) + ' تای اول نشان داده شده)' : '') +
            '</div>');
-    H.push('<table><tr><th>نام</th><th>چرا نه</th><th>فایل</th><th>کجا</th></tr>');
+    H.push('<div class="tw"><table><tr><th>نام</th><th>چرا نه</th><th>فایل</th><th>کجا</th></tr>');
     for (var rq = 0; rq < rj.rows.length; rq++) {
       var rr = rj.rows[rq];
       var rHay = [rr.name, rr.file, rr.why, rr.src, rr.tab]
@@ -18089,7 +18116,7 @@ function seriesBoardHtml_(d) {
              (rr.tab ? ' › ' + bEsc_(String(rr.tab)) : '') + '</td>');
       H.push('</tr>');
     }
-    H.push('</table></div>');
+    H.push('</table></div></div>');
     H.push('</div>');
   }
 
@@ -18595,8 +18622,16 @@ function bridgeCell_(x, d) {
   if (!items.length) {
     return '<td class="sub">هنوز مجموعه‌ای با درسِ ساخته‌شده نیست</td>';
   }
+  /* «۱ مرجع» نمی‌گوید کدام — و پرسش دقیقاً همین بود. نامِ ثبت‌شده‌ها
+     همین‌جا نوشته می‌شود، پیش از باز کردنِ جعبهٔ تیک‌ها. */
+  var onNames = [];
+  for (var i2 = 0; i2 < opts.length; i2++) {
+    if (cur[String(opts[i2].key)]) onNames.push(String(opts[i2].name));
+  }
   var head = nOn
-    ? '<span class="bdg b-act">' + faNum_(nOn) + ' مرجع</span>'
+    ? ('<span class="bdg b-act">' + faNum_(nOn) + ' مرجع</span>' +
+       '<div class="sub" style="margin-top:3px">' +
+       bEsc_(onNames.join(' · ').slice(0, 120)) + '</div>')
     : '<span class="sub">بدونِ مرجع</span>';
   return '<td>' + head +
          '<div class="rcEpsBox" style="margin-top:4px">' + items.join('') + '</div>' +
@@ -18855,16 +18890,75 @@ function uiHandoutSeries(key) {
    پوسته است، تا پنجرهٔ شکسته ساختِ مرور را نشکند. */
 /* ── دکمهٔ «ثبتِ مرجع‌ها» ──
    همان مرزِ همیشگی: کارِ واقعی و سنجه‌اش در بخشِ ۳۱ است؛ اینجا فقط پوسته. */
+/*
+ * ══ «نمی‌دانم ثبت شد یا نه» (۶٫۵۱) ══
+ *
+ * هر دکمهٔ این تخته پیامِ خودش را برمی‌گرداند، و `done()` هفتصد میلی‌ثانیه
+ * بعد کلِ صفحه را از نو می‌نویسد. یعنی جمله‌ای که می‌گوید «ثبت شد» پیش از
+ * خوانده‌شدن پاک می‌شود — و تنها راهِ اطمینان، باز کردنِ شیت است، همان کاری
+ * که صاحبِ برنامه نمی‌کند (قاعدهٔ ۵٫۹۰). پس نتیجهٔ هر کار در Property
+ * می‌نشیند و بالای تختهٔ بازخوانی‌شده، با ساعتش، دیده می‌شود.
+ *
+ * نکته: **ناکامی هم ثبت می‌شود.** رسیدی که فقط موفقیت را نشان دهد،
+ * سکوت را از شکست جدا نمی‌کند.
+ */
+function boardReceipt_(ok, title, lines) {
+  try {
+    props_().setProperty(PK.BOARD_LAST, JSON.stringify({
+      at: nowStr_(), ok: !!ok, title: String(title || ''),
+      lines: (lines || []).slice(0, 12).map(function (t) { return String(t); })
+    }));
+  } catch (e) {}
+}
+
+/** رسیدِ آخرین کار، برای نشان‌دادن بالای تخته. */
+function boardReceiptRead_() {
+  try {
+    var j = JSON.parse(props_().getProperty(PK.BOARD_LAST) || 'null');
+    if (j && j.title) return j;
+  } catch (e) {}
+  return null;
+}
+
 function uiBridgeSave(key, keys) {
   try {
-    var r = bridgeSave_(getHub_(), key, keys || []);
-    if (!r.ok) return { ok: false, message: 'ثبت نشد: ' + (r.why || 'نامعلوم') };
+    var hubB = getHub_();
+    var r = bridgeSave_(hubB, key, keys || []);
+    if (!r.ok) {
+      boardReceipt_(false, 'ثبتِ مرجع‌ها انجام نشد', [String(r.why || 'نامعلوم')]);
+      return { ok: false, message: 'ثبت نشد: ' + (r.why || 'نامعلوم') };
+    }
+    /* نامِ آنچه ثبت شد، نه فقط شمارش. «۱ مرجع» نمی‌گوید کدام — و پرسشِ
+       صاحبِ برنامه دقیقاً همین بود: «مطمئن نیستم درست ثبت شده». */
+    var nmB = '', savedB = [];
+    try {
+      var regB = readSeriesReg_(hubB);
+      if (regB.byKey[String(key)]) {
+        nmB = String(regB.byKey[String(key)].vals[SC.NAME - 1] || key);
+        var savedKeys = bridgeKeys_(regB.byKey[String(key)]);
+        for (var iB = 0; iB < savedKeys.length; iB++) {
+          savedB.push(regB.byKey[savedKeys[iB]]
+            ? String(regB.byKey[savedKeys[iB]].vals[SC.NAME - 1] || savedKeys[iB])
+            : savedKeys[iB]);
+        }
+      }
+    } catch (eNm) {}
+    boardReceipt_(true, 'مرجع‌های «' + (nmB || key) + '» ثبت شد',
+      savedB.length
+        ? savedB.map(function (t) { return '✓ ' + t; }).concat(
+            ['هر قسمتِ این مجموعه، پیش از نوشته‌شدن، کلِ جزوهٔ هر کدام از این ' +
+             'مجموعه‌ها را می‌خواند — نه درسِ هم‌شماره‌اش — و فقط جایی ارجاع ' +
+             'می‌دهد که نسبتِ واقعی باشد.'])
+        : ['هیچ مرجعی نماند؛ این مجموعه از این پس بی‌ارجاع تولید می‌شود.']);
     return { ok: true, message: r.n
       ? ('ثبت شد: ' + faDigitsOut_(String(r.n)) + ' مجموعهٔ مرجع. از قسمتِ بعدی، ' +
          'هرجا نسبتِ واقعی‌ای باشد به آن‌ها ارجاع داده می‌شود — و اگر نبود، ' +
          'ارجاعِ ساختگی ساخته نمی‌شود.')
       : 'همهٔ مرجع‌ها برداشته شد؛ این مجموعه از این پس بی‌ارجاع تولید می‌شود.' };
-  } catch (e) { return { ok: false, message: 'ثبتِ مرجع‌ها نشد: ' + e.message }; }
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ مرجع‌ها نشد', [e.message]);
+    return { ok: false, message: 'ثبتِ مرجع‌ها نشد: ' + e.message };
+  }
 }
 
 function uiRecapQueue(keys, scopes) {
@@ -19097,6 +19191,13 @@ function uiSetManual(key, numStr, cat, sub) {
   try { fixed = applyManualSeriesPast_(reg, rec); }
   catch (eP) { fixed = ['اصلاحِ گذشته ناقص ماند: ' + eP.message]; }
 
+  /* رسیدِ ماندگار: پیامِ بازگشتی ۷۰۰ میلی‌ثانیه بعد با بازخوانیِ صفحه پاک
+     می‌شود، و صاحبِ برنامه دو بار این کار را کرد و مطمئن نشد انجام شده. */
+  boardReceipt_(true, 'تنظیمِ دستیِ «' + nm + '» ثبت شد',
+    [(num ? 'شمارهٔ ' + num : 'بی‌شماره') +
+     (c ? ' · دستهٔ «' + c + '»' : ' · بی‌دسته') + (su ? ' / «' + su + '»' : '')]
+    .concat(fixed.length ? fixed : ['در درایو چیزی برای تغییر نبود (پوشهٔ این ' +
+                                    'مجموعه هنوز ساخته نشده یا از پیش سرِ جایش بود).']));
   logLine_('تنظیمِ دستیِ مجموعهٔ «' + nm + '»: ' +
            (num ? 'شماره ' + num : 'بی‌شماره') +
            (c ? '، دسته «' + c + '»' : '') + (su ? '، زیر‌دسته «' + su + '»' : '') +
@@ -19190,6 +19291,25 @@ function applyManualSeriesPast_(reg, rec) {
     }
     if (patched) out.push('دستهٔ ' + patched + ' قسمتِ قبلی در پروندهٔ وضعیتشان به‌روز شد');
   } catch (eJ) {}
+
+  /* ══ جزوه هم دسته دارد، و تا امروز کهنه می‌ماند (۶٫۵۱) ══
+   * `_HANDOUT.json` دستهٔ مجموعه را نگه می‌دارد و صفحهٔ اولِ جزوه چاپش می‌کند
+   * (`handoutHtml_`). `handoutUpdate_` آن را با `||` می‌گذارد، یعنی فقط یک
+   * بار و برای همیشه. پس کتابِ یک مجموعه پس از تغییرِ دسته، تا ابد دستهٔ
+   * قبلی را روی جلدش داشت. خواستهٔ صریح این بود که تغییر «تا جزئی‌ترین
+   * ارکانش» اثر بگذارد. */
+  try {
+    var itH = folder.getFilesByName('_HANDOUT.json');
+    if (itH.hasNext()) {
+      var fH = itH.next();
+      var bk = JSON.parse(fH.getBlob().getDataAsString());
+      if (bk && String(bk.cat || '') !== cat) {
+        bk.cat = cat;
+        fH.setContent(JSON.stringify(bk));
+        out.push('دستهٔ جزوهٔ این مجموعه هم به‌روز شد');
+      }
+    }
+  } catch (eH2) {}
   return out;
 }
 
@@ -31289,7 +31409,10 @@ function handoutUpdate_(folder, meta, hub) {
 
   book.seriesKey = book.seriesKey || String(meta.seriesKey || '');
   book.seriesName = book.seriesName || String(meta.seriesName || '');
-  book.cat = book.cat || String(meta.seriesCat || '');
+  /* `||` یعنی «فقط یک بار، برای همیشه» — و دستهٔ مجموعه عوض می‌شود
+     (۶٫۵۱). جلدِ جزوه دستهٔ قدیمی را تا ابد نگه می‌داشت. مقدارِ تازه اگر
+     هست، می‌نشیند؛ خالی هرگز روی پرِ قبلی نمی‌نشیند. */
+  book.cat = String(meta.seriesCat || '') || book.cat || '';
   book.level = book.level || String(meta.level || '');
   if (book.tried && book.tried[epNum]) delete book.tried[epNum];   // موفق شد؛ سابقه پاک
   book.episodes.push({ n: epNum, title: String(ep.title || ''), at: nowStr_(),
@@ -34161,7 +34284,7 @@ function ytUploadOne_(item, hub, pub) {
   var ctx = { show: item.show, epRaw: item.ep,
               showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
-              title: String(ep.title || ''), cat: String(meta.cat || ''),
+              title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
@@ -35580,7 +35703,7 @@ function ytRedoOne_(show, ep, opt) {
               tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
-              cat: String(meta.cat || ''), duration: ytTime_(audSec),
+              cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
               totalSec: audSec };

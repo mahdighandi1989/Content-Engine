@@ -276,6 +276,8 @@ console.log('\n=== ۳-ب. uiSetManual: ثبت + قفل + تغییرنامِ پو
   const showF = root.createFolder(CFG.SPECIAL_FOLDER);
   const serF = showF.createFolder('09 — دورهٔ ایکس');
   const epF = serF.createFolder('20260810 — قسمتِ قدیمی');
+  const hoF = serF.createFile(Utilities.newBlob(
+    JSON.stringify({ cat: 'قدیم', chapters: [] }), 'application/json', '_HANDOUT.json'));
   epF.createFile(Utilities.newBlob(JSON.stringify({ seriesKey: 'dore x', seriesCat: 'قدیم' }),
                  'application/json', '_special.json'));
   // ثبتِ شناسهٔ پوشه در رجیستری
@@ -306,6 +308,13 @@ console.log('\n=== ۳-ب. uiSetManual: ثبت + قفل + تغییرنامِ پو
      parF.getParents().next().getName());
   ok('3.14ت قسمتِ قبلی هنوز داخلِ همان پوشهٔ مجموعه است (جابه‌جایی، محتوا را گم نکرد)',
      serF.getFoldersByName('20260810 — قسمتِ قدیمی').hasNext());
+  /* ══ ۶٫۵۱ — جزوه هم دسته دارد و تا امروز کهنه می‌ماند ══
+     `_HANDOUT.json` دستهٔ مجموعه را روی جلدِ جزوه چاپ می‌کند. تغییرِ دسته
+     تا امروز به آن نمی‌رسید، پس کتاب تا ابد دستهٔ قبلی را نشان می‌داد —
+     درست همان «جزئی‌ترین ارکان» که خواسته شده بود. */
+  ok('3.14ح دستهٔ جزوهٔ همان مجموعه هم به‌روز شد',
+     JSON.parse(hoF.getBlob().getDataAsString()).cat === 'دستهٔ نو',
+     JSON.parse(hoF.getBlob().getDataAsString()).cat);
   // اجرای دوباره با همان دسته: نه خطا، نه جابه‌جاییِ تکراری (idempotent)
   const unAg = quiet();
   const rAgain = uiSetManual('dore x', '۱', 'دستهٔ نو', 'زیرِ نو');

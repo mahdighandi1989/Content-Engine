@@ -1808,7 +1808,7 @@ function ytUploadOne_(item, hub, pub) {
   var ctx = { show: item.show, epRaw: item.ep,
               showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
-              title: String(ep.title || ''), cat: String(meta.cat || ''),
+              title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
               sources: (ep.__extSources || []),
@@ -3227,7 +3227,7 @@ function ytRedoOne_(show, ep, opt) {
               tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
-              cat: String(meta.cat || ''), duration: ytTime_(audSec),
+              cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
               totalSec: audSec };

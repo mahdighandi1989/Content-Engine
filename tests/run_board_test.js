@@ -1015,4 +1015,46 @@ console.log('\n=== ۱۷) جست‌وجو هر دو فهرست را می‌بین
   props_().deleteProperty(PK.SERIES_REJECTED);
 }
 
+/* ══ ۱۸) ظاهر و «آیا ثبت شد؟» (۶٫۵۱) ══ */
+console.log('\n=== ۱۸) ظاهرِ تخته و رسیدِ ماندگارِ هر کار ===');
+{
+  const un = quiet(); const h = uiBoardHtml(); un();
+  /* جدولِ یازده‌ستونی با عنوان‌های انگلیسیِ بلند، بدنهٔ صفحه را افقی اسکرول
+     می‌کرد و نوارِ جست‌وجوی sticky روی جدول می‌افتاد. جدول باید داخلِ جعبهٔ
+     خودش بلغزد. */
+  ok('۱۸.۱ هر جدول داخلِ جعبهٔ لغزانِ خودش است',
+     (h.match(/<div class="tw"><table/g) || []).length >= 1 &&
+     h.indexOf('.tw{overflow-x:auto') !== -1);
+  ok('۱۸.۱-ب هر جعبهٔ لغزان بسته هم شده است',
+     (h.match(/<div class="tw"><table/g) || []).length ===
+     (h.match(/<\/table><\/div><\/div>/g) || []).length,
+     'باز و بسته نابرابر');
+  ok('۱۸.۱-پ نامِ بلند می‌شکند، ستون را پهن نمی‌کند',
+     h.indexOf('overflow-wrap:anywhere') !== -1 && h.indexOf('class="nm"') !== -1);
+  /* و رسید: پیامِ بازگشتی ۷۰۰ms بعد با بازخوانیِ صفحه پاک می‌شود، پس تنها
+     شاهدِ «انجام شد» باید در خودِ صفحهٔ تازه باشد. */
+  const before = uiBoardHtml();
+  ok('۱۸.۲ بی هیچ کاری، رسیدی نشان داده نمی‌شود',
+     before.indexOf('تنظیمِ دستیِ') === -1 || !boardReceiptRead_());
+  const k18 = Object.keys(readSeriesReg_(getHub_()).byKey)[0];
+  const un2 = quiet(); uiSetManual(k18, '۲', 'دستهٔ آزمایشی', ''); un2();
+  const rc = boardReceiptRead_();
+  ok('۱۸.۳ رسیدِ تنظیمِ دستی ثبت شد و ساعت دارد',
+     !!rc && rc.ok === true && rc.title.indexOf('تنظیمِ دستی') !== -1 && !!rc.at,
+     JSON.stringify(rc).slice(0, 160));
+  ok('۱۸.۳-ب و می‌گوید دقیقاً چه چیزی ثبت شد',
+     (rc.lines || []).join(' ').indexOf('دستهٔ آزمایشی') !== -1,
+     (rc.lines || []).join(' | '));
+  const un3 = quiet(); const h18 = uiBoardHtml(); un3();
+  ok('۱۸.۴ و در صفحهٔ بازخوانی‌شده دیده می‌شود (چیزی که پیام نمی‌ماند)',
+     h18.indexOf('دستهٔ آزمایشی') !== -1 && h18.indexOf('✓ ') !== -1);
+  /* ناکامی هم رسید می‌گیرد: رسیدی که فقط موفقیت را نشان دهد، سکوت را از
+     شکست جدا نمی‌کند. */
+  const un4 = quiet(); uiBridgeSave('کلیدی که نیست', ['x']); un4();
+  const rc2 = boardReceiptRead_();
+  ok('۱۸.۵ ناکامی هم رسید می‌گیرد، نه سکوت',
+     !!rc2 && rc2.ok === false, JSON.stringify(rc2).slice(0, 140));
+  props_().deleteProperty(PK.BOARD_LAST);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ تخته و انتخاب دستی گذشت.');
