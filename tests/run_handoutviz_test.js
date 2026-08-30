@@ -103,19 +103,16 @@ console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، ره�
   r = handoutVizFill_(book, 5);
   ok('۴.۲ پس از ' + CFG.HANDOUT_TRY_MAX + ' تلاش، فصل رها می‌شود (فراخوانِ تازه نمی‌رود)',
      calls === before && r.gaveUp === 2, 'calls=' + calls + ' gaveUp=' + r.gaveUp);
-  // مدل بیدار شد ولی فصل رهاست — تا امضا عوض شود
-  give = { intro: { kind: 'نقشهٔ ذهنی', title: 'پیش‌نما',
-                    items: [{ label: 'م', to: 'ch1' }, { label: 'ت', to: 's1' }, { label: 'گ', to: 's2' }] },
-           recap: { kind: 'روندنما', items: [{ label: 'الف', to: 's1' }, { label: 'ب', to: 's2' }] },
-           secs: [{ at: 's1', kind: 'تقابل',
-                    items: [{ label: 'حس', group: 'حس' }, { label: 'عقل', group: 'عقل' }] },
-                  { at: 'ناموجود', kind: 'کارت‌ها', items: [{ label: 'آ' }, { label: 'ب' }] }] };
+  // مدل بیدار شد ولی فصل رهاست — تا امضا عوض شود (قراردادِ تک‌نمودار، ۶٫۶۵)
+  give = { kind: 'نقشهٔ ذهنی', title: 'پیش‌نما',
+           items: [{ label: 'م', to: 'ch1' }, { label: 'ت', to: 's1' }, { label: 'گ', to: 's2' }] };
   book.chapters[0].sections[0].adds = [{ body: 'تکمیل از درسِ بعد' }];   // امضا عوض شد
   r = handoutVizFill_(book, 5);
   ok('۴.۳ امضای تازه سابقهٔ رهاکردن را صفر می‌کند و فصل پر می‌شود',
      book.chapters[0].viz && !!book.chapters[0].viz.intro, JSON.stringify(r));
-  ok('۴.۴ نمودارِ میان‌بخشی با شناسهٔ ساختگی نمی‌نشیند',
-     book.chapters[0].viz.secs.length === 1 && book.chapters[0].viz.secs[0].at === 's1');
+  ok('۴.۴ هر فصل دو نمودار می‌گیرد — آماده‌سازی و مرور، دو فراخوانِ جدا',
+     !!book.chapters[0].viz.recap,
+     JSON.stringify(book.chapters[0].viz.recap || null).slice(0, 60));
   const c2 = calls;
   r = handoutVizFill_(book, 5);
   ok('۴.۵ فصلِ هم‌امضا دیگر فراخوان نمی‌گیرد (مجانی)', calls === c2 && r.calls === 0);
@@ -126,9 +123,12 @@ console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، ره�
   const iCh2 = html.indexOf('id="ch2"');
   ok('۴.۶ آماده‌سازی پیش از بخش‌ها، مرور پس از آن‌ها و پیش از فصلِ بعد',
      iIntro !== -1 && iRecap !== -1 && iIntro < iRecap && iRecap < iCh2);
+  book.chapters[0].viz.secs = [{ at: 's1', kind: 'تقابل',
+    items: [{ label: 'حس', group: 'حس' }, { label: 'عقل', group: 'عقل' }] }];
+  const html2 = handoutHtml_(book);
   ok('۴.۷ نمودارِ میان‌بخشی تهِ همان بخش است',
-     html.indexOf('hvz-cmp') > html.indexOf('id="s1"') &&
-     html.indexOf('hvz-cmp') < html.indexOf('id="s2"'));
+     html2.indexOf('hvz-cmp') > html2.indexOf('id="s1"') &&
+     html2.indexOf('hvz-cmp') < html2.indexOf('id="s2"'));
 }
 
 console.log('\n=== ۵) جاروی شبانه: مکان‌نما، نوشتنِ فقط هنگامِ ساخت ===');
@@ -226,16 +226,17 @@ console.log('\n=== ۶ب) پاسخِ آمده ولی بی‌نمودار، علت
   };
   const book2 = mkBook();
   const un2 = quiet(); handoutVizFill_(book2, 5); un2();
-  ok('۶ب.۲ نمودارِ تکیِ بی‌پوشش دور ریخته نمی‌شود — مرور حساب می‌شود',
-     !!(book2.chapters[0].viz && book2.chapters[0].viz.recap) &&
+  ok('۶ب.۲ تک‌نمودار مسیرِ اصلی است — آماده‌سازی و مرور هر دو پر می‌شوند',
+     !!(book2.chapters[0].viz && book2.chapters[0].viz.intro &&
+        book2.chapters[0].viz.recap) &&
      book2.chapters[0].viz.recap.items.length === 2);
-  ok('۶ب.۳ و پرامپت قراردادِ JSON را با مثال در خودش دارد (بی‌اسکیما هم بماند)',
+  ok('۶ب.۳ و پرامپت قراردادِ تک‌نمودار را با مثال در خودش دارد',
      (function () {
        let seen = '';
        global.geminiText_ = function (pr) { seen = pr; return null; };
        const un3 = quiet(); handoutVizFill_(mkBook(), 1); un3();
-       return seen.indexOf('"intro"') !== -1 && seen.indexOf('"secs"') !== -1 &&
-              seen.indexOf('کلیدِ دیگری اختراع نکن') !== -1;
+       return seen.indexOf('{"kind":"نقشهٔ ذهنی"') !== -1 &&
+              seen.indexOf('**یک** نمودار') !== -1;
      })());
 }
 

@@ -1209,66 +1209,27 @@ var HVIZ_KINDS = {
 
 /* اسکیما عمداً تمام‌لفظی است، به همان سبکِ HANDOUT_SCHEMA که هر شب کار
    می‌کند — بدونِ شیءِ مشترک بینِ شاخه‌ها. و هیچ فیلدی جز رشته (قاعدهٔ ریپو). */
+/* یک فراخوان، یک نمودار (۶٫۶۵). قالبِ سه‌تکه (intro+recap+secs) در عمل
+   شکست خورد: چهار رسیدِ پیاپیِ صاحبِ برنامه نشان داد مدل تکهٔ اول را کامل
+   می‌سازد ({"kind":"نقشهٔ ذهنی","title":…}) و بقیه هیچ‌وقت سالم نمی‌رسد.
+   قراردادِ کوچک، کلاسِ خطا را حذف می‌کند — نه فقط احتمالش را. */
 var HVIZ_SCHEMA = {
   type: 'object',
   properties: {
-    intro: {
-      type: 'object',
-      properties: {
-        kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
-        items: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              label: { type: 'string' }, detail: { type: 'string' },
-              to: { type: 'string' }, group: { type: 'string' }
-            },
-            required: ['label']
-          }
-        }
-      }
-    },
-    recap: {
-      type: 'object',
-      properties: {
-        kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
-        items: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              label: { type: 'string' }, detail: { type: 'string' },
-              to: { type: 'string' }, group: { type: 'string' }
-            },
-            required: ['label']
-          }
-        }
-      }
-    },
-    secs: {
+    kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+    items: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          at: { type: 'string' },
-          kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
-          items: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                label: { type: 'string' }, detail: { type: 'string' },
-                to: { type: 'string' }, group: { type: 'string' }
-              },
-              required: ['label']
-            }
-          }
+          label: { type: 'string' }, detail: { type: 'string' },
+          to: { type: 'string' }, group: { type: 'string' }
         },
-        required: ['at', 'items']
+        required: ['label']
       }
     }
-  }
+  },
+  required: ['kind', 'items']
 };
 
 /* آخرین علتِ شکستِ مدل در نمودارسازی — برای پیامِ دکمه و وضعیت. */
@@ -1413,40 +1374,31 @@ function hvizBookMap_(book) {
                      items: items }, '');
 }
 
-/** پرامپت + فراخوان برای یک فصل. null یعنی مدل چیزی نداد. */
-function hvizModel_(book, cc) {
+/** یک نمودار برای یک فصل — which: 'intro' یا 'recap'. null یعنی نشد. */
+function hvizModelOne_(book, cc, which) {
   var ids = ['«' + cc.id + '» (خودِ فصل)'];
+  var role = which === 'intro'
+    ? 'نمودارِ «آماده‌سازی» برای آغازِ این فصل: خواننده پیش از خواندن، نقشهٔ ' +
+      'ذهنیِ راه را بگیرد — مفهومِ مرکزی و شاخه‌ها، یا مسیرِ استدلال.'
+    : 'نمودارِ «مرور» برای پایانِ این فصل: آنچه خواند در یک نگاه جمع شود. ' +
+      'نوع را از جنسِ محتوا بگیر — استدلالِ ترتیبی «روندنما»، تقسیم‌بندی ' +
+      '«سلسله‌مراتب»، دو مفهومِ روبه‌رو «تقابل».';
   var L = [
-    'تو طراحِ نمودارهای یک جزوهٔ آموزشیِ فارسی هستی. برای فصلِ زیر تصمیم بگیر',
-    'کجا نمودار لازم است و از چه نوعی — و محتوایش را از خودِ متنِ فصل دربیاور،',
-    'نه از عنوان‌ها. نمودارِ تزئینی که فقط عنوان‌ها را کپی کند، بدتر از نبودن است.',
+    'تو طراحِ نمودارهای یک جزوهٔ آموزشیِ فارسی هستی. برای فصلِ زیر **یک** نمودار',
+    'بساز. محتوایش را از خودِ متنِ فصل دربیاور، نه از عنوان‌ها — نمودارِ تزئینی',
+    'که فقط عنوان‌ها را کپی کند، بدتر از نبودن است.',
     '',
-    'انواعِ مجاز و جای درستِ هرکدام:',
-    '• «نقشهٔ ذهنی» — مفهومِ مرکزی و شاخه‌هایش؛ برای آماده‌سازیِ ذهن در آغازِ',
-    '  فصل یا جمع‌بندیِ کل در پایان. گرهٔ اول مرکز است.',
-    '• «روندنما» — وقتی ترتیب مهم است: استدلالِ قدم‌به‌قدم، فرایند، «اول این،',
-    '  بعد آن». به ترتیبِ گفتن بچین.',
-    '• «چرخه» — رابطهٔ حلقوی و بازخوردی؛ جایی که آخر به اول برمی‌گردد.',
-    '• «سلسله‌مراتب» — تقسیم‌بندی و رده‌ها؛ group نامِ هر سطح است، از بالا به پایین.',
-    '• «تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون است.',
-    '• «کارت‌ها» — چند نکتهٔ هم‌وزن، بی‌ترتیب و بی‌سلسله.',
+    role,
     '',
-    'چه بساز:',
-    '۱) intro — نمودارِ آماده‌سازی برای آغازِ فصل: خواننده پیش از خواندن،',
-    '   نقشهٔ راهِ ذهنی بگیرد.',
-    '۲) recap — نمودارِ مرور برای پایانِ فصل: آنچه خواند، در یک نگاه جمع شود.',
-    '   نوعش را از جنسِ محتوا بگیر — مرورِ یک استدلالِ ترتیبی «روندنما»ست،',
-    '   مرورِ یک تقسیم‌بندی «سلسله‌مراتب».',
-    '۳) secs — فقط برای بخش‌هایی که واقعاً سنگین‌اند (تمایزِ چندشاخه، فرایند،',
-    '   تقابل) یکی بساز و در فیلدِ at شناسهٔ همان بخش را بگذار. بخشِ ساده',
-    '   نمودار نمی‌خواهد؛ صفر تا دو تا کافی است.',
+    'انواعِ مجاز برای kind:',
+    '«نقشهٔ ذهنی» (گرهٔ اول مرکز است) · «روندنما» (ترتیب مهم است) ·',
+    '«چرخه» (آخر به اول برمی‌گردد) · «سلسله‌مراتب» (group نامِ هر سطح) ·',
+    '«تقابل» (group نامِ هر ستون) · «کارت‌ها» (نکته‌های هم‌وزن).',
     '',
     'قاعده‌های سخت:',
-    '• هر گره فیلدِ to دارد: شناسهٔ بخش یا فصلی از همین فهرست که آن حرف',
-    '  آن‌جاست — با کلیک روی گره، خواننده به همان‌جا می‌رود. فقط از این',
-    '  شناسه‌ها؛ شناسهٔ ساختگی لینکِ مرده می‌سازد و دور انداخته می‌شود.',
-    '• label حداکثر پنج‌شش واژه؛ detail یک جملهٔ کوتاه یا خالی.',
-    '• بین ۳ تا ۸ گره در هر نمودار.',
+    '• بین ۳ تا ۸ گره. label حداکثر پنج‌شش واژه؛ detail یک جملهٔ کوتاه یا خالی.',
+    '• هر گره فیلدِ to دارد: شناسهٔ بخش یا فصلی از فهرستِ پایین که آن حرف',
+    '  آن‌جاست — کلیک روی گره خواننده را همان‌جا می‌برد. شناسهٔ ساختگی ممنوع.',
     '',
     '── فصل ──',
     'عنوان: ' + handoutTitleClean_(String(cc.title || '')),
@@ -1458,73 +1410,39 @@ function hvizModel_(book, cc) {
     L.push('');
     L.push('بخش ' + sc.id + ' — ' + String(sc.title || ''));
     if (sc.takeaway) L.push('چکیده: ' + String(sc.takeaway).slice(0, 200));
-    L.push(String(sc.body || '').slice(0, 700));
+    L.push(String(sc.body || '').slice(0, 600));
   }
   L.push('');
   L.push('شناسه‌های مجاز برای to: ' + ids.join('، '));
-  /* ══ قراردادِ خروجی داخلِ خودِ پرامپت (۶٫۶۲) ══
-     این حساب یک بار responseSchema را برای مدلِ متن رد کرده و موتور —
-     به‌درستی — آن حافظه را نگه می‌دارد و از آن پس همهٔ فراخوان‌ها بی‌اسکیما
-     می‌روند. پرامپت‌های قدیمی (جزوه، اعراب) شکلِ دقیقِ JSON را در متنِ
-     خودشان می‌گویند و برای همین بی‌اسکیما هم جواب می‌گیرند؛ این یکی
-     نمی‌گفت — مدل جوابِ هم‌شکلِ سلیقهٔ خودش را می‌داد و پاک‌سازی همه را
-     دور می‌ریخت: «مدل به ۶ درخواست جواب نداد» در حالی که جواب داده بود. */
   L.push('');
   L.push('خروجی فقط یک شیءِ JSON با دقیقاً همین کلیدها، بی هیچ متنِ دیگری:');
-  L.push('{"intro":{"kind":"نقشهٔ ذهنی","title":"…","note":"…",' +
-         '"items":[{"label":"…","detail":"…","to":"' + cc.id + '","group":""}]},' +
-         '"recap":{"kind":"روندنما","title":"…","note":"",' +
-         '"items":[{"label":"…","detail":"…","to":"…","group":""}]},' +
-         '"secs":[{"at":"شناسهٔ بخش","kind":"تقابل","title":"…","note":"",' +
-         '"items":[{"label":"…","detail":"…","to":"…","group":"نامِ ستون"}]}]}');
-  L.push('secs می‌تواند [] باشد. کلیدِ دیگری اختراع نکن؛ نامِ کلیدها فارسی نشود.');
+  L.push('{"kind":"نقشهٔ ذهنی","title":"…","note":"…",' +
+         '"items":[{"label":"…","detail":"…","to":"' + cc.id + '","group":""}]}');
   var r = null;
-  /* ══ «کلیدهای پاسخ: intro، __repaired» (۶٫۶۳) ══
-     رسیدِ تخته خودش گفت: مدل دقیقاً شکلِ خواسته را می‌سازد ولی پاسخ وسطِ
-     راه بریده می‌شود — __repaired مُهرِ ترمیمِ JSONِ ناقص است و از سه
-     نمودار فقط لاشهٔ intro می‌ماند. سقفِ ۸۱۹۲ برای «فکر + سه نمودارِ
-     فارسی» کم بود؛ نویسندهٔ درس‌نامه با همین مدل ۴۰۹۶۰ می‌گیرد. */
-  try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 24576); }
+  try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 16384); }
   catch (e) {
-    /* ══ شکستِ بی‌صدا، دشمنِ شمارهٔ یکِ این ریپو (۶٫۶۱) ══
-       صاحبِ برنامه دکمه زد، شش فراخوان بی‌جواب ماند، و هیچ‌جا ننوشت چرا —
-       نه در سیاهه، نه در پیامِ دکمه. تشخیصِ از راهِ دور غیرممکن شد. علت
-       حالا هم در سیاهه می‌نشیند هم به فراخواننده برمی‌گردد. */
     HVIZ_WHY_ = String(e.message || e).slice(0, 200);
     try { logLine_('نمودارِ فصلِ «' + handoutTitleClean_(String(cc.title || '')).slice(0, 50) +
                    '» از مدل نیامد: ' + HVIZ_WHY_); } catch (eL) {}
     return null;
   }
   if (!r) return null;
+  // پاسخِ پوشش‌دار (عادتِ قالبِ قبلی) هم پذیرفته می‌شود
+  if (!r.items && (r.intro || r.recap)) r = r.intro || r.recap;
   var idsOk = hvizIds_(book);
   idsOk[String(cc.id)] = 1;
-  /* مدارا با پاسخِ بی‌اسکیما: نمودارِ تکی که بی‌پوشش برگشته، مرور حساب
-     می‌شود — بهتر از دورریختنِ جوابِ سالم به جرمِ نداشتنِ پوشش. */
-  if (!r.intro && !r.recap && !r.secs && r.items) r = { recap: r };
-  var out = { intro: hvizClean_(r.intro, idsOk), recap: hvizClean_(r.recap, idsOk), secs: [] };
-  var seen = Object.create(null);
-  for (var q = 0; q < (r.secs || []).length && out.secs.length < 2; q++) {
-    var at = String((r.secs[q] || {}).at || '').trim();
-    if (!at || !idsOk[at] || seen[at]) continue;   // نمودارِ میان‌بخشیِ بی‌مقصد، جایی برای نشستن ندارد
-    var d = hvizClean_(r.secs[q], idsOk);
-    if (!d) continue;
-    d.at = at; seen[at] = 1; out.secs.push(d);
-  }
-  if (!out.intro && !out.recap && !out.secs.length) {
-    /* جوابی که آمد و چیزی از آن نماند، باید بگوید چه شکلی بود — وگرنه از
-       بیرون با «مدل جواب نداد» یکی دیده می‌شود، و شد (۶٫۶۲). */
-    var ks = [];
-    try { for (var kk in r) if (ks.length < 6) ks.push(kk); } catch (eK) {}
+  var d = hvizClean_(r, idsOk);
+  if (!d) {
     var snip = '';
-    try { snip = JSON.stringify(r.intro || r.recap || r).slice(0, 160); } catch (eSn) {}
-    HVIZ_WHY_ = r.__repaired
+    try { snip = JSON.stringify(r).slice(0, 160); } catch (eSn) {}
+    HVIZ_WHY_ = r && r.__repaired
       ? 'پاسخِ مدل از سقفِ توکن بریده شد و چیزِ سالمی نماند'
       : 'پاسخ آمد ولی نمودارِ معتبری نداشت — نمونهٔ پاسخ: ' + snip;
     try { logLine_('نمودارِ فصلِ «' + handoutTitleClean_(String(cc.title || '')).slice(0, 50) +
                    '»: ' + HVIZ_WHY_); } catch (eL2) {}
     return null;
   }
-  return out;
+  return d;
 }
 
 /**
@@ -1541,27 +1459,44 @@ function handoutVizFill_(book, maxCalls) {
   for (var c = 0; c < (book.chapters || []).length; c++) {
     var cc = book.chapters[c];
     var sig = hvizSig_(cc);
-    if (cc.viz && cc.viz.sig === sig) continue;
+    var v = (cc.viz && cc.viz.sig === sig) ? cc.viz : null;
+    if (v && v.intro && v.recap) continue;
     var tried = cc.vizTried || {};
     if (String(tried.sig) === sig && Number(tried.n || 0) >= (Number(CFG.HANDOUT_TRY_MAX) || 4)) {
       out.gaveUp++; continue;
     }
     if (out.calls >= cap) { out.pending++; continue; }
-    out.calls++;
-    var v = hvizModel_(book, cc);
-    if (v) {
-      cc.viz = { sig: sig, at: nowStr_(), intro: v.intro, recap: v.recap, secs: v.secs };
+    if (!v) v = { sig: sig, at: nowStr_(), intro: null, recap: null, secs: [] };
+    var madeHere = false, failedHere = false;
+    if (!v.intro && out.calls < cap) {
+      out.calls++;
+      var d1 = hvizModelOne_(book, cc, 'intro');
+      if (d1) { v.intro = d1; madeHere = true; } else failedHere = true;
+    }
+    /* وقتی همین حالا intro شکست خورد، recap را در همین دور نمی‌سوزانیم —
+       مدلِ خواب دو برابر بودجه نخورد. دورِ بعد از همان‌جا ادامه می‌دهد. */
+    if (!v.recap && !failedHere && out.calls < cap) {
+      out.calls++;
+      var d2 = hvizModelOne_(book, cc, 'recap');
+      if (d2) { v.recap = d2; madeHere = true; } else failedHere = true;
+    }
+    if (madeHere) {
+      cc.viz = v;
       delete cc.vizTried;
       out.made++;
-    } else {
+    }
+    if (failedHere) {
       cc.vizTried = { sig: sig, n: Number(tried.sig === sig ? tried.n || 0 : 0) + 1, at: nowStr_() };
       out.triedChanged++;
       out.pending++;
       if (!out.why && HVIZ_WHY_) out.why = HVIZ_WHY_;
+    } else if (!v.intro || !v.recap) {
+      out.pending++;                       // بودجه ته کشید، نه شکست
     }
   }
   return out;
 }
+
 
 /**
  * جبرانِ گذشته — «برای درس‌های قبلی هم حتماً باید انجام بشه». جاروی شبانه
