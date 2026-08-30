@@ -1178,6 +1178,9 @@ function handoutOneSeries_(key, maxItems) {
     } catch (eRm) {}
     if (vzr.made || vizReset || rmChanged) {
       try {
+        /* مُهرِ جلد هم بالا برود — «به‌روزرسانی: دو روز پیش» روی جزوه‌ای که
+           همین حالا نمودار گرفت، دروغِ کوچکی است که اعتماد را می‌خورد (۶٫۶۷). */
+        if (vzr.made || rmChanged) book.updatedAt = nowStr_();
         handoutWrite_(sf, book);
         if (vzr.made || rmChanged) handoutRender_(sf, book);
       } catch (eVw) { out.notes.push('نوشتنِ جزوه: ' + eVw.message); }

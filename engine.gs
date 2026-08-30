@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.66
+ *  موتور محتوا و پادکست — نسخهٔ 6.67
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1058,7 +1058,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.66',
+  CODE_VERSION: '6.67',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31882,6 +31882,9 @@ function handoutOneSeries_(key, maxItems) {
     } catch (eRm) {}
     if (vzr.made || vizReset || rmChanged) {
       try {
+        /* مُهرِ جلد هم بالا برود — «به‌روزرسانی: دو روز پیش» روی جزوه‌ای که
+           همین حالا نمودار گرفت، دروغِ کوچکی است که اعتماد را می‌خورد (۶٫۶۷). */
+        if (vzr.made || rmChanged) book.updatedAt = nowStr_();
         handoutWrite_(sf, book);
         if (vzr.made || rmChanged) handoutRender_(sf, book);
       } catch (eVw) { out.notes.push('نوشتنِ جزوه: ' + eVw.message); }
