@@ -404,29 +404,50 @@ function bridgeBlock_(plan, seriesName) {
 function bridgeVerify_(ep, links) {
   var out = { used: [], missed: [] };
   if (!links || !links.length) return out;
-  var flat = '';
-  try { flat = specialNarration_(ep); } catch (e) { flat = ''; }
-  try { flat = txNorm(stripTashkil_(flat)); } catch (e2) { flat = String(flat).toLowerCase(); }
-  flat = flat.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+  var rawText = '';
+  try { rawText = specialNarration_(ep); } catch (e) { rawText = ''; }
+  var norm = function (t) {
+    try { t = txNorm(stripTashkil_(String(t || ''))); }
+    catch (e2) { t = String(t || '').toLowerCase(); }
+    return t.replace(/[^\u0621-\u06FFa-z0-9]+/g, ' ');
+  };
+  /* ══ عمق را جمله می‌سنجد، نه پنجرهٔ متن (۶٫۵۶) ══
+   * نسخهٔ ۶٫۵۵ یک پنجرهٔ ±۲۰۰ نویسه‌ای دورِ نام می‌گرفت — و روایت متنِ
+   * پیوسته است، پس آن پنجره تقریباً همیشه پُر بود و thin تقریباً هرگز true
+   * نمی‌شد: سنجه‌ای که همیشه «قبول» بدهد، همان «تحلیلِ وصل‌نشده به تصمیم»
+   * است، فقط این بار از روزِ اول. آنچه معنا دارد این است: جمله‌هایی که
+   * نامِ مرجع در آن‌هاست + جملهٔ پیروِ هرکدام (ارجاعِ واقعی از جملهٔ
+   * نام‌بردن سرریز می‌کند) روی هم چقدرند. هم‌پوشانیِ جمله‌های پیاپی عمداً
+   * دوباره شمرده می‌شود — سنجه محافظه‌کار می‌مانَد و «گذرا»ی دروغین
+   * نمی‌سازد. */
+  var sents = [], nsents = [];
+  try { sents = speakSentences_(rawText); } catch (e3) { sents = [String(rawText)]; }
+  if (!sents.length) sents = [String(rawText)];
+  for (var q = 0; q < sents.length; q++) nsents.push(norm(sents[q]));
   for (var i = 0; i < links.length; i++) {
     var terms = bridgeTerms_(links[i].seriesName);
     // نامی که هیچ واژهٔ شاخصی ندارد، قابلِ داوری نیست: «نمی‌دانم» را نباید
     // «نیامده» گزارش کرد.
     if (!terms.length) { out.used.push(links[i]); continue; }
-    var hit = false, at = -1;
-    for (var k = 0; k < terms.length && !hit; k++) {
-      at = flat.indexOf(terms[k]);
-      if (at !== -1) hit = true;
+    var hit = false, said = 0;
+    for (var sx = 0; sx < nsents.length; sx++) {
+      var has = false;
+      for (var k = 0; k < terms.length && !has; k++) {
+        if (nsents[sx].indexOf(terms[k]) !== -1) has = true;
+      }
+      if (!has) continue;
+      hit = true;
+      /* جمله + دو پیرو: ارجاعِ خوش‌ساخت نام را یک بار، اولِ بند می‌گوید و
+         بقیهٔ بند بی‌نام ادامه می‌یابد — با یک پیرو، دقیقاً همان جریمه
+         می‌شد. سوگیری عمداً به سمتِ «نگفتنِ thin» است: thinِ دروغین
+         اعتمادِ به نشانه را می‌بَرد، thinِ ازقلم‌افتاده را داوریِ شبانهٔ
+         مدل می‌گیرد. */
+      said += sents[sx].length;
+      if (sx + 1 < sents.length) said += sents[sx + 1].length;
+      if (sx + 2 < sents.length) said += sents[sx + 2].length;
     }
     if (hit) {
-      /* عمق هم سنجیده می‌شود، نه فقط حضور (۶٫۵۵): پنجرهٔ ۴۰۰ نویسه‌ایِ
-         اطرافِ نام باید دستِ‌کم BRIDGE_MIN_SAY نویسهٔ پیوسته حرف داشته
-         باشد؛ کمتر یعنی همان «اشارهٔ گذرا»یی که گزارش شد. نشانه‌گذاری
-         می‌شود و می‌رود در پرونده و داوریِ شبانه — حذف نمی‌شود، چون
-         گفته شده و انکارِ گفته دروغ است. */
-      var lo = Math.max(0, at - 200);
-      var win = flat.slice(lo, at + 200).trim();
-      links[i].thin = win.length < (Number(CFG.BRIDGE_MIN_SAY) || 240);
+      links[i].thin = said < (Number(CFG.BRIDGE_MIN_SAY) || 240);
       out.used.push(links[i]);
     } else out.missed.push(links[i]);
   }

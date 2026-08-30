@@ -3300,6 +3300,7 @@ function ytRedoOne_(show, ep, opt) {
               tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
+              lesson: (Number(meta.lesson) || 0) ? faDigitsOut_(String(meta.lesson)) : '',
               cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
@@ -3328,7 +3329,12 @@ function ytRedoOne_(show, ep, opt) {
     var cover = ytCoverCard_({ title: String(epo.title || ''),
                                coverTitle: plan.coverTitle, kicker: plan.coverKicker,
                                showName: showName, seriesName: ctx.seriesName,
-                               epLabel: 'قسمت ' + faDigitsOut_(String(ep)),
+                               /* بازسازی هم همان برچسبِ مسیرِ آپلود را می‌گیرد
+                                  (۶٫۵۶) — دو مسیر با دو برچسب یعنی کاورِ
+                                  بازسازی‌شده به شکلِ قدیم برمی‌گشت. */
+                               epLabel: (Number(meta.lesson) || 0)
+                                 ? 'درس ' + faDigitsOut_(String(meta.lesson))
+                                 : 'قسمت ' + faDigitsOut_(String(ep)),
                                cat: String(meta.cat || ctx.seriesName || ''),
                                redo: opt.recover !== false });
     if (cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
