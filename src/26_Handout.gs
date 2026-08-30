@@ -1378,7 +1378,7 @@ function hvizModel_(book, cc) {
  * هر شب بودجه نسوزاند — امضای تازه، سابقهٔ تلاش را صفر می‌کند.
  */
 function handoutVizFill_(book, maxCalls) {
-  var out = { calls: 0, made: 0, pending: 0, gaveUp: 0 };
+  var out = { calls: 0, made: 0, pending: 0, gaveUp: 0, triedChanged: 0 };
   if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
   var cap = Math.max(0, Number(maxCalls) || 0);
   for (var c = 0; c < (book.chapters || []).length; c++) {
@@ -1398,6 +1398,7 @@ function handoutVizFill_(book, maxCalls) {
       out.made++;
     } else {
       cc.vizTried = { sig: sig, n: Number(tried.sig === sig ? tried.n || 0 : 0) + 1, at: nowStr_() };
+      out.triedChanged++;
       out.pending++;
     }
   }
@@ -1435,40 +1436,97 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     var book = handoutRead_(sf, null);
     var r = handoutVizFill_(book, cap - out.calls);
     out.calls += r.calls; out.pending += r.pending;
-    if (r.made) {
-      out.made += r.made; out.series++;
-      book.updatedAt = nowStr_();
-      try { handoutWrite_(sf, book); handoutRender_(sf, book); } catch (eW) {
+    out.gaveUp = (out.gaveUp || 0) + (r.gaveUp || 0);
+    /* ══ شمارشِ تلاش باید بنویسد، حتی وقتی چیزی ساخته نشد (۶٫۵۸) ══
+       نسخهٔ اول فقط هنگامِ ساخت می‌نوشت — پس شبِ بعد کتاب با سابقهٔ صفر
+       خوانده می‌شد و «رهاکردن پس از N تلاش» عملاً هرگز رخ نمی‌داد: همان
+       بودجه‌سوزیِ بی‌پایانی که قرار بود جلویش گرفته شود، فقط پنهان‌تر.
+       آزمونِ ۶٫۶ همین را گرفت. رندر همچنان فقط هنگامِ ساخت — فایلِ جزوه
+       نباید برای یک شمارندهٔ درونی از نو مُهرِ تاریخ بخورد. */
+    if (r.made || r.triedChanged) {
+      if (r.made) { out.made += r.made; out.series++; book.updatedAt = nowStr_(); }
+      try {
+        handoutWrite_(sf, book);
+        if (r.made) handoutRender_(sf, book);
+      } catch (eW) {
         logLine_('نوشتنِ نمودارهای «' + (book.seriesName || rec.key) + '» ناموفق: ' + eW.message);
       }
     }
   }
   try { props_().setProperty(PK.HVIZ_CUR, String(i >= reg.rows.length ? 0 : i)); } catch (e2) {}
   if (i >= reg.rows.length) out.wrapped = true;
+  /* تاریخچه، نه فقط عکسِ آخرین دور: سؤالی که وقتی چیزی می‌ایستد می‌پرسی
+     «از کِی؟» است، و عکسِ تکی جوابش را ندارد — همان درسِ تبِ «کاربردِ
+     جزوه»، این‌جا ارزان‌تر: ده دورِ آخر در همان Property. */
   try {
-    props_().setProperty(PK.HVIZ_LAST, JSON.stringify({
-      at: nowStr_(), made: out.made, series: out.series,
-      pending: out.pending, wrapped: out.wrapped
-    }));
+    var hist = [];
+    try { hist = JSON.parse(props_().getProperty(PK.HVIZ_LAST) || '[]'); } catch (eH) { hist = []; }
+    if (!(hist instanceof Array)) hist = [];
+    hist.push({ at: nowStr_(), made: out.made, series: out.series,
+                pending: out.pending, gaveUp: out.gaveUp || 0,
+                wrapped: out.wrapped, cur: i, total: reg.rows.length });
+    while (hist.length > 10) hist.shift();
+    props_().setProperty(PK.HVIZ_LAST, JSON.stringify(hist));
   } catch (e3) {}
+  /* ══ گیرکردن، یافته می‌شود نه فقط سطرِ ایمیل (۶٫۵۸) ══
+     سه دورِ پیاپی «در نوبت هست ولی هیچ‌چیز ساخته نشد» یعنی جارو یا مدل
+     واقعاً ایستاده — یک شب می‌تواند قطعیِ مدل باشد و چیزی نمی‌گوییم
+     (هشداری که برای یک شبِ بد بیاید، همان هشداری است که خوانده نمی‌شود).
+     سطرِ سلامت فردا جایگزین می‌شود؛ یافته در صفِ NEEDS_CODE می‌مانَد تا
+     نسخه‌ای ببنددش — همان مسیرِ handout-stuck. */
+  try {
+    if (out.pending > 0 && out.made === 0) {
+      var bad = (Number(props_().getProperty(PK.HVIZ_BAD)) || 0) + 1;
+      props_().setProperty(PK.HVIZ_BAD, String(bad));
+      if (bad >= 3) {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'جزوه', key: 'handout-viz-stuck',
+          title: 'نمودارهای جزوه ' + bad + ' دورِ پیاپی هیچ فصلی نساخته',
+          detail: out.pending + ' فصل در نوبت است و دورِ آخر هیچ‌کدام پر نشد. ' +
+                  'یا مدل چند شب در دسترس نیست، یا بودجهٔ جارو همیشه ته می‌کشد.',
+          instruction: 'PK.HVIZ_LAST (ده دورِ آخر) را ببین: اگر calls صفر است بودجه/ترتیبِ ' +
+                       'شبانه را بررسی کن؛ اگر calls هست و made صفر، hvizModel_ و پاسخ‌های مدل را.',
+          owner: 'کد'
+        });
+      }
+    } else {
+      props_().deleteProperty(PK.HVIZ_BAD);
+    }
+  } catch (eSt) {}
   if (out.made) {
     logLine_('نمودارهای جزوه: ' + out.made + ' فصل در ' + out.series + ' مجموعه پر شد' +
-             (out.pending ? '، ' + out.pending + ' در نوبت' : '') + '.');
+             (out.pending ? '، ' + out.pending + ' در نوبت' : '') +
+             (out.gaveUp ? '، ' + out.gaveUp + ' رهاشده' : '') + '.');
   }
   return out;
 }
 
 /** سطرِ روزانه — قاعدهٔ ۵٫۹۰: حتی وقتی همه‌چیز آرام است. */
 function hvizStatus_() {
-  var out = { line: '', at: '', made: 0, pending: 0 };
+  var out = { line: '', at: '', made: 0, pending: 0, gaveUp: 0, ok: true, bad: 0 };
   try {
-    var j = JSON.parse(props_().getProperty(PK.HVIZ_LAST) || 'null');
-    if (!j) { out.line = 'نمودارهای جزوه: هنوز دوری اجرا نشده.'; return out; }
+    var hist = JSON.parse(props_().getProperty(PK.HVIZ_LAST) || '[]');
+    if (!(hist instanceof Array) || !hist.length) {
+      out.line = 'نمودارهای جزوه: هنوز دوری اجرا نشده.'; return out;
+    }
+    var j = hist[hist.length - 1];
     var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
-    out.at = String(j.at || ''); out.made = Number(j.made) || 0; out.pending = Number(j.pending) || 0;
+    out.at = String(j.at || ''); out.made = Number(j.made) || 0;
+    out.pending = Number(j.pending) || 0; out.gaveUp = Number(j.gaveUp) || 0;
+    out.bad = Number(props_().getProperty(PK.HVIZ_BAD)) || 0;
+    var madeAll = 0;
+    for (var h = 0; h < hist.length; h++) madeAll += Number(hist[h].made) || 0;
     out.line = 'نمودارهای جزوه: دورِ آخر ' + fa(out.made) + ' فصل پر شد' +
-               (out.pending ? '، ' + fa(out.pending) + ' فصل در نوبت' : '، چیزی در نوبت نیست') +
-               ' (' + out.at + ').';
+               (out.pending ? '، ' + fa(out.pending) + ' در نوبت' : '، چیزی در نوبت نیست') +
+               (out.gaveUp ? '، ' + fa(out.gaveUp) + ' رهاشده (دکمهٔ جزوهٔ همان مجموعه بازش می‌کند)' : '') +
+               ' · ' + fa(hist.length) + ' دورِ اخیر روی هم ' + fa(madeAll) + ' فصل' +
+               ' · مکان‌نما ' + fa(j.cur || 0) + ' از ' + fa(j.total || 0) + '.';
+    /* سه دورِ پیاپیِ بی‌ساخت با نوبتِ پر → سطر به «ایرادها» می‌رود، و یافته
+       جداگانه در صف است. یک دورِ بد چیزی نمی‌گوید. */
+    if (out.bad >= 3) {
+      out.ok = false;
+      out.line += ' ⚠ ' + fa(out.bad) + ' دورِ پیاپی هیچ فصلی ساخته نشده — یافتهٔ handout-viz-stuck در صف است.';
+    }
   } catch (e) {}
   return out;
 }

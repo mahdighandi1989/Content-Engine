@@ -156,4 +156,62 @@ console.log('\n=== ۵) جاروی شبانه: مکان‌نما، نوشتنِ �
   ok('۵.۳ دورِ دوم چیزی نمی‌سازد (همه هم‌امضا)', r2.made === 0, JSON.stringify(r2));
 }
 
+console.log('\n=== ۶) ثبت، پیگیری، هشدار — نه فقط یک سطرِ فراموش‌شونده ===');
+{
+  // مجموعهٔ تازه با کتابِ بی‌نمودار + مدلِ خواب
+  global.geminiText_ = function () { return null; };
+  const hub = getHub_();
+  const sh = hub.getSheetByName(CFG.SERIES_TAB);
+  const root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const f3 = root.createFolder('سری۳');
+  f3.createFile(Utilities.newBlob(JSON.stringify(mkBook()), 'application/json', handoutJsonName_()));
+  const v = []; while (v.length < SERIES_HEADERS.length) v.push('');
+  v[SC.KEY - 1] = 'k3'; v[SC.NAME - 1] = 'سری۳'; v[SC.STATUS - 1] = SST.NEW;
+  v[SC.FOLDER - 1] = f3.getId();
+  sh.appendRow(v);
+  const un = quiet();
+  handoutVizSweep_(10, 60000);   // دورِ ۱: نوبت پر، هیچ ساخته نشد
+  handoutVizSweep_(10, 60000);   // دورِ ۲
+  const st2 = hvizStatus_();
+  handoutVizSweep_(10, 60000);   // دورِ ۳ → یافته
+  un();
+  ok('۶.۱ تاریخچه نگه داشته می‌شود، نه فقط عکسِ آخر — «از کِی؟» جواب دارد',
+     JSON.parse(props_().getProperty(PK.HVIZ_LAST)).length >= 4);
+  ok('۶.۲ دو دورِ بد هنوز هشدار نیست (یک شبِ بد می‌تواند قطعیِ مدل باشد)',
+     st2.ok === true && Number(props_().getProperty(PK.HVIZ_BAD)) >= 2, st2.line);
+  const st3 = hvizStatus_();
+  ok('۶.۳ سهمین دورِ پیاپی: سطرِ سلامت به «ایرادها» می‌رود',
+     st3.ok === false && st3.line.indexOf('handout-viz-stuck') !== -1, st3.line);
+  const rp = hub.getSheetByName(CFG.REPORT_TAB);
+  const rows = rp ? rp.getRange(1, 1, rp.getLastRow(), rp.getLastColumn()).getValues() : [];
+  ok('۶.۴ و یافتهٔ ماندگار در صفِ گزارش‌هاست — سطرِ ایمیل فردا جایگزین می‌شود، یافته نه',
+     rows.some(r => r.join(' ').indexOf('handout-viz-stuck') !== -1));
+  // دورِ موفق، شمارنده را صفر می‌کند
+  global.geminiText_ = function () {
+    return { recap: { kind: 'کارت‌ها', items: [{ label: 'آ' }, { label: 'ب' }] } };
+  };
+  for (const cc of JSON.parse(f3.getFilesByName(handoutJsonName_()).next().getBlob().getDataAsString()).chapters) {}
+  const un3 = quiet();
+  // دورِ چهارمِ خواب: تلاش‌های سری۳ به سقف می‌رسند و فصل‌هایش «رهاشده» می‌شوند
+  global.geminiText_ = function () { return null; };
+  handoutVizSweep_(10, 60000);
+  global.geminiText_ = function () {
+    return { recap: { kind: 'کارت‌ها', items: [{ label: 'آ' }, { label: 'ب' }] } };
+  };
+  // و یک کتابِ چهارم که دورِ سازنده چیزی برای ساختن داشته باشد:
+  const f4 = root.createFolder('سری۴');
+  f4.createFile(Utilities.newBlob(JSON.stringify(mkBook()), 'application/json', handoutJsonName_()));
+  const v4 = []; while (v4.length < SERIES_HEADERS.length) v4.push('');
+  v4[SC.KEY - 1] = 'k4'; v4[SC.NAME - 1] = 'سری۴'; v4[SC.STATUS - 1] = SST.NEW;
+  v4[SC.FOLDER - 1] = f4.getId();
+  sh.appendRow(v4);
+  handoutVizSweep_(20, 60000);
+  un3();
+  ok('۶.۵ دورِ سازنده شمارندهٔ گیر را صفر می‌کند',
+     !props_().getProperty(PK.HVIZ_BAD) && hvizStatus_().ok === true, hvizStatus_().line);
+  ok('۶.۶ فصل‌های رهاشده در سطرِ روزانه با درِ بازشدنشان می‌آیند',
+     hvizStatus_().line.indexOf('رهاشده') !== -1 &&
+     hvizStatus_().line.indexOf('دکمهٔ جزوه') !== -1, hvizStatus_().line);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ نمودارهای جزوه گذشت.');

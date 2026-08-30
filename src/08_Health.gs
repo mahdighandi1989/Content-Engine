@@ -1347,7 +1347,7 @@ function healthCheck() {
   } catch (eRj2) {}
   try {
     var hvS = hvizStatus_();
-    if (hvS && hvS.line) notes.push(hvS.line);
+    if (hvS && hvS.line) { if (hvS.ok === false) problems.push(hvS.line); else notes.push(hvS.line); }
   } catch (eHv) {}
   try {
     var baS = bridgeAuditStatus_(hub);

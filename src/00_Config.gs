@@ -974,7 +974,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.57',
+  CODE_VERSION: '6.58',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1234,7 +1234,8 @@ var PK = {
   SERIES_REJECTED: 'SERIES_REJECTED_LAST', // گروه‌هایی که اسکنِ آخر «دوره» ندانستشان
   BOARD_LAST: 'BOARD_LAST_ACTION',     // آخرین کاری که از تختهٔ مجموعه‌ها انجام شد
   HVIZ_CUR: 'HANDOUT_VIZ_CURSOR',      // مکان‌نمای جاروی نمودارهای جزوه
-  HVIZ_LAST: 'HANDOUT_VIZ_LAST',       // نتیجهٔ آخرین دورِ جارو
+  HVIZ_LAST: 'HANDOUT_VIZ_LAST',       // ده دورِ آخرِ جارو — «از کِی؟» فقط از تاریخچه درمی‌آید
+  HVIZ_BAD: 'HANDOUT_VIZ_BAD_ROUNDS',  // شمارِ دورهای پیاپیِ بی‌ساخت با نوبتِ پر
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
