@@ -78,10 +78,27 @@ console.log('\n=== ۳) هر شش نوع رندر می‌شوند و لینک‌�
        h.indexOf('hvz') !== -1 && h.indexOf('href="#s1"') !== -1 &&
        h.indexOf('href="#s2"') !== -1, h.slice(0, 60));
   }
+  /* ۶٫۶۶ — «چند نمونه‌ای که رسم شده بود شبیه هم بودن»: هر نوع باید شکلِ
+     ساختاریِ خودش را داشته باشد، نه فقط برچسبش را. */
   const flow = hvizHtml_({ kind: 'روندنما', items: [{ label: 'آ' }, { label: 'ب' }] }, '');
-  ok('۳.۷ روندنما بینِ گام‌ها فلش دارد', flow.indexOf('hvz-ar') !== -1);
-  const cyc = hvizHtml_({ kind: 'چرخه', items: [{ label: 'آ' }, { label: 'ب' }] }, '');
-  ok('۳.۸ چرخه نشانِ بازگشت به آغاز دارد', cyc.indexOf('hvz-loop') !== -1);
+  ok('۳.۷ روندنما گامِ شماره‌دار و فلش دارد',
+     flow.indexOf('hvz-ar') !== -1 && flow.indexOf('hvz-no') !== -1);
+  const cyc = hvizHtml_({ kind: 'چرخه', items: [{ label: 'آ' }, { label: 'ب' }, { label: 'ج' }] }, '');
+  ok('۳.۸ چرخه چیدمانِ دایره‌ایِ واقعی دارد (مختصاتِ محاسبه‌شده)',
+     cyc.indexOf('hvz-orbit') !== -1 && /right:\d+(\.\d+)?%/.test(cyc) &&
+     cyc.indexOf('hvz-hub') !== -1);
+  const pyr = hvizHtml_({ kind: 'سلسله‌مراتب', items: [
+    { label: 'آ', group: 'سطح ۱' }, { label: 'ب', group: 'سطح ۲' }] }, '');
+  ok('۳.۹ سلسله‌مراتب هرمِ پهن‌شونده است (عرضِ سطرها متفاوت)',
+     pyr.indexOf('hvz-pyr') !== -1 && /width:46%/.test(pyr) && /width:100%/.test(pyr));
+  const cm = hvizHtml_({ kind: 'نقشهٔ مفهومی', items: [
+    { label: 'مرکز' }, { label: 'گره', detail: 'پیش‌نیازِ', to: 's1' }] }, '');
+  ok('۳.۱۰ نقشهٔ مفهومی یالِ برچسب‌دار دارد',
+     cm.indexOf('hvz-rel') !== -1 && cm.indexOf('پیش‌نیازِ') !== -1);
+  ok('۳.۱۱ مترادف‌ها به نوعِ درست می‌رسند («دیاگرام فرآیند»، «لایه‌ای»، «ماتریس مقایسه»)',
+     hvizKindOf_('دیاگرام فرآیند') === 'روندنما' &&
+     hvizKindOf_('لایه‌ای') === 'سلسله‌مراتب' &&
+     hvizKindOf_('ماتریس مقایسه') === 'تقابل');
 }
 
 console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، رهاکردن ===');
@@ -96,7 +113,7 @@ console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، ره�
   // مدلِ خواب: بی‌خطا، بی‌نمودار
   let r = handoutVizFill_(book, 5);
   ok('۴.۱ مدلِ خواب: فراخوان رفت، نموداری نیامد، خطایی نه',
-     r.calls === 2 && r.made === 0 && !book.chapters[0].viz);
+     r.calls === 2 && r.made === 0 && !book.chapters[0].viz, 'calls=' + r.calls);
   // تا سقفِ تلاش، بعد رها
   handoutVizFill_(book, 5); handoutVizFill_(book, 5); handoutVizFill_(book, 5);
   const before = calls;
@@ -110,9 +127,19 @@ console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، ره�
   r = handoutVizFill_(book, 5);
   ok('۴.۳ امضای تازه سابقهٔ رهاکردن را صفر می‌کند و فصل پر می‌شود',
      book.chapters[0].viz && !!book.chapters[0].viz.intro, JSON.stringify(r));
-  ok('۴.۴ هر فصل دو نمودار می‌گیرد — آماده‌سازی و مرور، دو فراخوانِ جدا',
-     !!book.chapters[0].viz.recap,
+  ok('۴.۴ هر فصل آماده‌سازی و مرور می‌گیرد و میان‌بخشی هم پرسیده می‌شود',
+     !!book.chapters[0].viz.recap && book.chapters[0].viz.secDone === true,
      JSON.stringify(book.chapters[0].viz.recap || null).slice(0, 60));
+  ok('۴.۴-ب پرامپتِ مرور، نوعِ آماده‌سازی را می‌گوید تا هم‌شکل نشوند',
+     (function () {
+       let seen = [];
+       global.geminiText_ = function (pr) { seen.push(pr);
+         return { kind: 'کارت‌ها', items: [{ label: 'آ' }, { label: 'ب' }] }; };
+       const bx = mkBook();
+       const unX = quiet(); handoutVizFill_(bx, 9); unX();
+       return seen.some(x => x.indexOf('نوعِ دیگری') !== -1 &&
+                             x.indexOf('کارت‌ها') !== -1);
+     })());
   const c2 = calls;
   r = handoutVizFill_(book, 5);
   ok('۴.۵ فصلِ هم‌امضا دیگر فراخوان نمی‌گیرد (مجانی)', calls === c2 && r.calls === 0);

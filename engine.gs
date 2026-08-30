@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.65
+ *  موتور محتوا و پادکست — نسخهٔ 6.66
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -631,8 +631,8 @@ var CFG = {
      کلیک‌پذیری را. سقف‌ها روی فراخوانِ مدل‌اند — تنها کارِ گران. */
   HANDOUT_VIZ_ENABLED: true,
   HANDOUT_VIZ_PER_RUN: 2,          // هنگامِ ورودِ هر درسِ تازه
-  HANDOUT_VIZ_SWEEP: 8,            // جاروی شبانهٔ جبرانِ گذشته (هر فصل دو فراخوان)
-  HANDOUT_VIZ_MANUAL: 8,           // با دکمهٔ دستیِ هر مجموعه (هر فصل دو فراخوان)
+  HANDOUT_VIZ_SWEEP: 9,            // جاروی شبانهٔ جبرانِ گذشته (هر فصل تا سه فراخوان)
+  HANDOUT_VIZ_MANUAL: 9,           // با دکمهٔ دستیِ هر مجموعه (هر فصل تا سه فراخوان)
   // دکمهٔ دستی: کارِ اصلیِ آن اجراست و شش دقیقه در اختیار دارد. سقفِ
   // محافظه‌کارِ دو تا یعنی برای پانزده درسِ عقب‌مانده هشت بار فشردن.
   // سقفِ شمارش فقط نگهبانِ فرار است؛ آنچه واقعاً کران می‌گذارد زمان است.
@@ -1058,7 +1058,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.65',
+  CODE_VERSION: '6.66',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31271,34 +31271,68 @@ var HANDOUT_CSS_ = [
   '.bar{height:7px;background:#0d2b49}.bar i{display:block;height:7px;background:#7ec4ff}',
   '.bd{padding:26px 40px 40px}',
   '.toc{background:#f6f8fc;border:1px solid #dfe6f2;border-radius:12px;padding:20px 24px;margin:0 0 30px}',
-  /* نمودارها (۶٫۵۷): چیدمانِ HTML، کلیک‌پذیر، چاپ‌شو */
+  /* نمودارها (۶٫۵۷، بازطراحیِ ۶٫۶۶): هر نوع، شکلِ خودش */
   '.hvz{background:#f9fafd;border:1px solid #dfe6f2;border-radius:12px;padding:16px 18px;margin:18px 0}',
   '.hvz-h{margin-bottom:12px;font-size:14px}.hvz-h b{margin-right:8px}',
-  '.hvz-k{display:inline-block;background:#123a63;color:#fff;border-radius:20px;padding:2px 12px;font-size:11px}',
+  '.hvz-k{display:inline-block;color:#fff;border-radius:20px;padding:2px 12px;font-size:11px}',
+  '.hvk-mm{background:#123a63}.hvk-cm{background:#5b21b6}.hvk-flow{background:#166534}',
+  '.hvk-cyc{background:#9a3412}.hvk-hier{background:#a16207}.hvk-cmp{background:#9f1239}',
+  '.hvk-cards{background:#334155}',
   '.hvz-b{display:inline-block;background:#e8effc;color:#123a63;border-radius:20px;padding:2px 10px;font-size:11px;margin-right:6px}',
   '.hvz-n,.hvz-ctr{display:block;background:#fff;border:1.5px solid #b9c8e2;border-radius:10px;',
   'padding:8px 12px;text-decoration:none;color:#17202e;font-size:13px;line-height:1.8}',
   'a.hvz-n:hover,a.hvz-ctr:hover{border-color:#2e6fb8;box-shadow:0 1px 6px rgba(46,111,184,.25)}',
-  'a.hvz-n b,a.hvz-ctr b{color:#123a63}',
+  'a.hvz-n b{color:#123a63}',
+  /* گرهٔ مرکزیِ لینک‌دار: عنوانِ سفید روی سرمه‌ای — قاعدهٔ عمومیِ آبی رویش
+     می‌نشست و عنوان نامرئی می‌شد؛ در رندرِ واقعی دیده شد (۶٫۶۶). */
+  'a.hvz-ctr b,.hvz-ctr b{color:#fff}',
   '.hvz-n span,.hvz-ctr span{display:block;font-size:11.5px;color:#65718a;margin-top:2px}',
-  '.hvz-c{text-align:center;margin-bottom:12px}',
-  '.hvz-ctr{display:inline-block;background:#123a63;border-color:#123a63}',
+  '.hvz-c{text-align:center;margin-bottom:0}',
+  '.hvz-ctr{display:inline-block;background:#123a63;border-color:#123a63;border-radius:22px;padding:9px 22px}',
   '.hvz-ctr b{color:#fff}.hvz-ctr span{color:#bcd3ef}',
-  '.hvz-br{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}',
-  '.hvz-br .hvz-n{position:relative}',
-  '.hvz-fl{max-width:460px;margin:0 auto}',
-  '.hvz-ar{text-align:center;color:#2e6fb8;font-size:18px;line-height:1.2}',
-  '.hvz-ring{display:flex;flex-wrap:wrap;align-items:center;gap:8px}',
-  '.hvz-ring .hvz-n{flex:1;min-width:130px}',
-  '.hvz-ar2,.hvz-loop{color:#2e6fb8;font-size:18px}',
-  '.hvz-loop{border:1.5px dashed #b9c8e2;border-radius:50%;padding:4px 9px}',
-  '.hvz-lvls .hvz-lvl{margin-bottom:10px}',
-  '.hvz-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}',
-  '.hvz-g{font-size:12px;color:#7a5a12;background:#fdf6e3;display:inline-block;',
-  'border-radius:6px;padding:1px 10px;margin-bottom:6px}',
-  '.hvz-gi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}',
-  '.hvz-cols .hvz-gi{grid-template-columns:1fr}',
+  /* نقشهٔ ذهنی: درختِ متصل */
+  '.hvz-tree{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px;',
+  'border-top:2px solid #9db5d8;margin-top:14px;padding-top:14px;position:relative}',
+  '.hvz-twig{position:relative;padding-top:0;margin-bottom:10px}',
+  '.hvz-twig:before{content:"";position:absolute;top:-14px;right:50%;width:2px;height:14px;background:#9db5d8}',
+  /* نقشهٔ مفهومی: یال‌های برچسب‌دار */
+  '.hvz-cm .hvz-ctr{background:#5b21b6;border-color:#5b21b6}',
+  '.hvz-edge{display:flex;align-items:center;gap:10px;margin:10px 0 0}',
+  '.hvz-rel{flex:0 0 auto;background:#f3e8ff;color:#5b21b6;border-radius:14px;',
+  'padding:2px 12px;font-size:11.5px;border:1px dashed #c4b5fd}',
+  '.hvz-edge .hvz-n{flex:1}',
+  /* روندنما: گامِ شماره‌دار */
+  '.hvz-fl{max-width:480px;margin:0 auto}',
+  '.hvz-ar{text-align:center;color:#166534;font-size:20px;line-height:1.1}',
+  '.hvz-step{display:flex;align-items:center;gap:10px}',
+  '.hvz-no{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#166534;color:#fff;',
+  'display:flex;align-items:center;justify-content:center;font-size:13px}',
+  '.hvz-step .hvz-n{flex:1;border-color:#a7d3b4}',
+  /* چرخه: مدارِ واقعی */
+  '.hvz-orbit{position:relative;border:2px dashed #f2c9ae;border-radius:50%;margin:14px 8%;',
+  'min-height:240px}',
+  '.hvz-hub{position:absolute;right:50%;top:50%;transform:translate(50%,-50%);font-size:30px;color:#9a3412}',
+  '.hvz-sat{position:absolute;transform:translate(50%,-50%);width:34%;min-width:130px}',
+  '.hvz-sat .hvz-n{border-color:#f2c9ae;box-shadow:0 1px 4px rgba(154,52,18,.12)}',
+  /* سلسله‌مراتب: هرم */
+  '.hvz-pyr{display:flex;flex-direction:column;align-items:center;gap:8px}',
+  '.hvz-lvl{border-radius:10px;padding:8px 12px 10px}',
+  '.hvl-0{background:#fdf2d0}.hvl-1{background:#fbe6b8}.hvl-2{background:#f8d99e}',
+  '.hvl-3{background:#f5cc85}.hvl-4{background:#f2bf6d}',
+  '.hvz-g{font-size:12px;color:#7a5a12;margin-bottom:6px;text-align:center;font-weight:bold}',
+  '.hvz-gi{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}',
+  /* تقابل: دو ستونِ رودررو */
+  '.hvz-vs{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}',
+  '.hvz-vsb{align-self:center;background:#9f1239;color:#fff;border-radius:16px;',
+  'padding:3px 12px;font-size:11.5px;flex:0 0 auto}',
+  '.hvz-col{flex:1;min-width:170px;border-radius:10px;padding:10px}',
+  '.hvc-0{background:#eef6ff;border:1px solid #bcd6f2}.hvc-1{background:#fff1f2;border:1px solid #f3c2ca}',
+  '.hvz-colh{font-weight:bold;font-size:13px;margin-bottom:8px;text-align:center}',
+  '.hvz-col .hvz-n{margin-bottom:8px}',
+  /* کارت‌ها */
   '.hvz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}',
+  '.hvz-card{position:relative;padding-top:12px}',
+  '.hvz-card .hvz-no{position:absolute;top:0;right:12px;background:#334155;z-index:1}',
   '.hvz-note{font-size:12px;color:#65718a;margin-top:10px}',
   '.toc h2{margin:0 0 12px;border:0;padding:0}',
   '.toc ol{margin:0;padding-right:22px}',
@@ -31907,9 +31941,27 @@ function handoutOneSeries_(key, maxItems) {
  */
 
 var HVIZ_KINDS = {
-  'نقشهٔ ذهنی': 1, 'روندنما': 1, 'چرخه': 1, 'سلسله‌مراتب': 1,
-  'تقابل': 1, 'کارت‌ها': 1
+  'نقشهٔ ذهنی': 1, 'نقشهٔ مفهومی': 1, 'روندنما': 1, 'چرخه': 1,
+  'سلسله‌مراتب': 1, 'تقابل': 1, 'کارت‌ها': 1
 };
+
+/* مترادف‌ها — مدل و آدم هر دو با این نام‌ها هم حرف می‌زنند (تصویرِ نمونهٔ
+   صاحبِ برنامه: «لایه‌ای/هرمی»، «دیاگرام فرآیند»، «ماتریس مقایسه»…). */
+function hvizKindOf_(k) {
+  var n = String(k || '').replace(/[\u0654\u200c\s]/g, '');
+  var map = {
+    'نقشهذهنی': 'نقشهٔ ذهنی', 'مایندمپ': 'نقشهٔ ذهنی',
+    'نقشهمفهومی': 'نقشهٔ مفهومی',
+    'روندنما': 'روندنما', 'فلوچارت': 'روندنما', 'دیاگرامفرایند': 'روندنما',
+    'دیاگرامفرآیند': 'روندنما', 'فرایند': 'روندنما',
+    'چرخه': 'چرخه', 'مدار': 'چرخه',
+    'سلسلهمراتب': 'سلسله‌مراتب', 'هرمی': 'سلسله‌مراتب', 'لایهای': 'سلسله‌مراتب',
+    'هرم': 'سلسله‌مراتب',
+    'تقابل': 'تقابل', 'ماتریسمقایسه': 'تقابل', 'مقایسه': 'تقابل',
+    'کارتها': 'کارت‌ها', 'اینفوگرافیک': 'کارت‌ها'
+  };
+  return map[n] || (HVIZ_KINDS[String(k || '').trim()] ? String(k).trim() : '');
+}
 
 /* اسکیما عمداً تمام‌لفظی است، به همان سبکِ HANDOUT_SCHEMA که هر شب کار
    می‌کند — بدونِ شیءِ مشترک بینِ شاخه‌ها. و هیچ فیلدی جز رشته (قاعدهٔ ریپو). */
@@ -31921,6 +31973,7 @@ var HVIZ_SCHEMA = {
   type: 'object',
   properties: {
     kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+    at: { type: 'string' },
     items: {
       type: 'array',
       items: {
@@ -31941,7 +31994,10 @@ var HVIZ_WHY_ = '';
 
 /** امضای ساختاریِ فصل — تکمیل/بخشِ تازه یعنی نمودارِ کهنه، و باید از نو. */
 function hvizSig_(cc) {
-  var bits = [String(cc.id), String(cc.title)];
+  /* پیشوندِ نسخه: عوض‌کردنش یعنی «همه از نو». ۶٫۶۶ عمداً بالا برد — ۳۱
+     نمودارِ ساخته‌شده ۲۱تایش نقشهٔ ذهنی بود و همه هم‌شکل؛ نگه‌داشتنشان
+     یعنی تثبیتِ همان یکنواختی‌ای که صاحبِ برنامه گزارش کرد. */
+  var bits = ['v2', String(cc.id), String(cc.title)];
   for (var i = 0; i < (cc.sections || []).length; i++) {
     var sc = cc.sections[i];
     bits.push(String(sc.id), String(sc.title),
@@ -31978,8 +32034,7 @@ function hvizClean_(d, idsOk) {
     }
   }
   if (!d || !((d.items || []).length)) return null;
-  var kind = String(d.kind || '').trim();
-  if (!HVIZ_KINDS[kind]) kind = 'کارت‌ها';
+  var kind = hvizKindOf_(d.kind) || 'کارت‌ها';
   var items = [];
   for (var i = 0; i < d.items.length && items.length < 10; i++) {
     var it = d.items[i] || {};
@@ -32003,56 +32058,109 @@ function hvizNode_(it, cls) {
   return '<div class="' + cls + '">' + inner + '</div>';
 }
 
-/** رندرِ یک نمودار. هر نوع، چیدمانِ خودش؛ کلیک‌پذیری در همه یکی. */
+/**
+ * رندرِ یک نمودار — هر نوع، «شکلِ» خودش، نه فقط برچسبِ خودش (۶٫۶۶).
+ * گزارشِ صاحبِ برنامه: «چند نمونه‌ای هم که رسم شده بود شبیه هم بودن». راست
+ * می‌گفت — همه جعبه در شبکه بودند. حالا: نقشهٔ ذهنی درختِ متصل است، چرخه
+ * چیدمانِ دایره‌ایِ واقعی (مختصات را کد حساب می‌کند، N معلوم است)، سلسله‌مراتب
+ * هرمِ پهن‌شونده، روندنما گام‌های شماره‌دارِ فلش‌دار، تقابل دو ستونِ رودررو،
+ * نقشهٔ مفهومی یال‌های برچسب‌دار، و کارت‌ها کارتِ شماره‌دار.
+ */
 function hvizHtml_(d, badge) {
   if (!d || !(d.items || []).length) return '';
-  var h = ['<div class="hvz hvz-' + ({
-    'نقشهٔ ذهنی': 'mm', 'روندنما': 'flow', 'چرخه': 'cyc',
+  var cls = {
+    'نقشهٔ ذهنی': 'mm', 'نقشهٔ مفهومی': 'cm', 'روندنما': 'flow', 'چرخه': 'cyc',
     'سلسله‌مراتب': 'hier', 'تقابل': 'cmp', 'کارت‌ها': 'cards'
-  }[d.kind] || 'cards') + '">'];
-  h.push('<div class="hvz-h"><span class="hvz-k">' + esc_(d.kind) + '</span>' +
+  }[d.kind] || 'cards';
+  var h = ['<div class="hvz hvz-' + cls + '">'];
+  h.push('<div class="hvz-h"><span class="hvz-k hvk-' + cls + '">' + esc_(d.kind) + '</span>' +
          (badge ? '<span class="hvz-b">' + esc_(badge) + '</span>' : '') +
          (d.title ? '<b>' + esc_(d.title) + '</b>' : '') + '</div>');
   var items = d.items;
-  if (d.kind === 'نقشهٔ ذهنی') {
-    // گرهٔ اول مرکز است؛ بقیه شاخه‌های دورش
+  if (cls === 'mm') {
+    // درخت: مرکز بالا، شاخه‌ها با خطِ اتصالِ واقعی
     h.push('<div class="hvz-c">' + hvizNode_(items[0], 'hvz-ctr') + '</div>');
-    h.push('<div class="hvz-br">');
-    for (var i = 1; i < items.length; i++) h.push(hvizNode_(items[i], 'hvz-n'));
+    h.push('<div class="hvz-tree">');
+    for (var i = 1; i < items.length; i++) {
+      h.push('<div class="hvz-twig">' + hvizNode_(items[i], 'hvz-n') + '</div>');
+    }
     h.push('</div>');
-  } else if (d.kind === 'روندنما') {
+  } else if (cls === 'cm') {
+    // نقشهٔ مفهومی: مرکز + یال‌های برچسب‌دار — detail برچسبِ رابطه است
+    h.push('<div class="hvz-c">' + hvizNode_({ label: items[0].label, to: items[0].to },
+                                             'hvz-ctr') + '</div>');
+    for (var m = 1; m < items.length; m++) {
+      h.push('<div class="hvz-edge"><span class="hvz-rel">' +
+             esc_(items[m].detail || 'مرتبط است با') + ' ⟵</span>' +
+             hvizNode_({ label: items[m].label, to: items[m].to, group: items[m].group },
+                       'hvz-n') + '</div>');
+    }
+  } else if (cls === 'flow') {
     h.push('<div class="hvz-fl">');
     for (var f = 0; f < items.length; f++) {
       if (f) h.push('<div class="hvz-ar">↓</div>');
-      h.push(hvizNode_(items[f], 'hvz-n hvz-st'));
+      h.push('<div class="hvz-step"><span class="hvz-no">' + faDigitsOut_(String(f + 1)) +
+             '</span>' + hvizNode_(items[f], 'hvz-n hvz-st') + '</div>');
     }
     h.push('</div>');
-  } else if (d.kind === 'چرخه') {
-    h.push('<div class="hvz-ring">');
-    for (var c = 0; c < items.length; c++) {
-      if (c) h.push('<span class="hvz-ar2">←</span>');
-      h.push(hvizNode_(items[c], 'hvz-n'));
+  } else if (cls === 'cyc') {
+    // دایرهٔ واقعی: مختصات سمتِ سرور — N معلوم است، حساب مجانی است
+    var n = items.length;
+    var H = Math.max(260, 90 * Math.ceil(n / 2));
+    h.push('<div class="hvz-orbit" style="height:' + H + 'px">');
+    h.push('<span class="hvz-hub">⟳</span>');
+    for (var c2 = 0; c2 < n; c2++) {
+      var ang = (2 * Math.PI * c2) / n - Math.PI / 2;
+      var x = 50 + 38 * Math.sin(ang + Math.PI / 2) * 0;  // جای‌گذاری با cos/sin واقعی
+      x = 50 + 38 * Math.cos(ang);
+      var y = 50 + 38 * Math.sin(ang);
+      h.push('<div class="hvz-sat" style="right:' + x.toFixed(1) + '%;top:' +
+             y.toFixed(1) + '%">' + hvizNode_(items[c2], 'hvz-n') + '</div>');
     }
-    h.push('<span class="hvz-loop" title="و دوباره از آغاز">↺</span>');
     h.push('</div>');
-  } else if (d.kind === 'سلسله‌مراتب' || d.kind === 'تقابل') {
-    // گروه‌ها به ترتیبِ نخستین دیدار — سطرهای هرم یا ستون‌های تقابل
+  } else if (cls === 'hier') {
+    // هرم: سطرها از بالا باریک به پایین پهن، هر سطح رنگِ خودش
     var groups = [], byG = Object.create(null);
     for (var g = 0; g < items.length; g++) {
       var gk = items[g].group || '—';
       if (!byG[gk]) { byG[gk] = []; groups.push(gk); }
       byG[gk].push(items[g]);
     }
-    h.push('<div class="' + (d.kind === 'تقابل' ? 'hvz-cols' : 'hvz-lvls') + '">');
+    h.push('<div class="hvz-pyr">');
     for (var gg = 0; gg < groups.length; gg++) {
-      h.push('<div class="hvz-lvl"><div class="hvz-g">' + esc_(groups[gg]) + '</div><div class="hvz-gi">');
-      for (var q = 0; q < byG[groups[gg]].length; q++) h.push(hvizNode_(byG[groups[gg]][q], 'hvz-n'));
+      var w = Math.min(100, 46 + gg * Math.floor(54 / Math.max(1, groups.length - 1) || 1));
+      h.push('<div class="hvz-lvl hvl-' + (gg % 5) + '" style="width:' + w + '%">' +
+             '<div class="hvz-g">' + esc_(groups[gg]) + '</div><div class="hvz-gi">');
+      for (var q = 0; q < byG[groups[gg]].length; q++) {
+        h.push(hvizNode_(byG[groups[gg]][q], 'hvz-n'));
+      }
       h.push('</div></div>');
+    }
+    h.push('</div>');
+  } else if (cls === 'cmp') {
+    var gsC = [], byC = Object.create(null);
+    for (var t = 0; t < items.length; t++) {
+      var ck = items[t].group || '—';
+      if (!byC[ck]) { byC[ck] = []; gsC.push(ck); }
+      byC[ck].push(items[t]);
+    }
+    h.push('<div class="hvz-vs">');
+    for (var v = 0; v < gsC.length; v++) {
+      if (v) h.push('<div class="hvz-vsb">در برابرِ</div>');
+      h.push('<div class="hvz-col hvc-' + (v % 2) + '"><div class="hvz-colh">' +
+             esc_(gsC[v]) + '</div>');
+      for (var q2 = 0; q2 < byC[gsC[v]].length; q2++) {
+        h.push(hvizNode_(byC[gsC[v]][q2], 'hvz-n'));
+      }
+      h.push('</div>');
     }
     h.push('</div>');
   } else {
     h.push('<div class="hvz-grid">');
-    for (var k = 0; k < items.length; k++) h.push(hvizNode_(items[k], 'hvz-n'));
+    for (var k = 0; k < items.length; k++) {
+      h.push('<div class="hvz-card"><span class="hvz-no">' + faDigitsOut_(String(k + 1)) +
+             '</span>' + hvizNode_(items[k], 'hvz-n') + '</div>');
+    }
     h.push('</div>');
   }
   if (d.note) h.push('<div class="hvz-note">' + esc_(d.note) + '</div>');
@@ -32079,14 +32187,21 @@ function hvizBookMap_(book) {
 }
 
 /** یک نمودار برای یک فصل — which: 'intro' یا 'recap'. null یعنی نشد. */
-function hvizModelOne_(book, cc, which) {
+function hvizModelOne_(book, cc, which, avoidKind) {
   var ids = ['«' + cc.id + '» (خودِ فصل)'];
   var role = which === 'intro'
     ? 'نمودارِ «آماده‌سازی» برای آغازِ این فصل: خواننده پیش از خواندن، نقشهٔ ' +
-      'ذهنیِ راه را بگیرد — مفهومِ مرکزی و شاخه‌ها، یا مسیرِ استدلال.'
-    : 'نمودارِ «مرور» برای پایانِ این فصل: آنچه خواند در یک نگاه جمع شود. ' +
-      'نوع را از جنسِ محتوا بگیر — استدلالِ ترتیبی «روندنما»، تقسیم‌بندی ' +
-      '«سلسله‌مراتب»، دو مفهومِ روبه‌رو «تقابل».';
+      'راه را بگیرد.'
+    : which === 'sec'
+    ? 'یکی از بخش‌های این فصل واقعاً سنگین است — تمایزِ چندشاخه، فرایند، ' +
+      'تقابل، چرخهٔ بازخوردی. **همان یک بخش** را انتخاب کن، شناسه‌اش را در ' +
+      'فیلدِ at بگذار، و نموداری بساز که فهمِ همان بخش را باز کند. اگر ' +
+      'هیچ بخشی واقعاً نمودارِ میانی نمی‌خواهد، {"kind":"هیچ","items":[]} برگردان — ' +
+      'نمودارِ زوری بدتر از نبودنش است.'
+    : 'نمودارِ «مرور» برای پایانِ این فصل: آنچه خواند در یک نگاه جمع شود.' +
+      (avoidKind ? ' آماده‌سازیِ همین فصل «' + avoidKind + '» شده؛ برای مرور ' +
+                   '**نوعِ دیگری** انتخاب کن مگر محتوا واقعاً جز آن اجازه ندهد — ' +
+                   'دو نمودارِ هم‌شکل در یک فصل، یکی‌شان زائد است.' : '');
   var L = [
     'تو طراحِ نمودارهای یک جزوهٔ آموزشیِ فارسی هستی. برای فصلِ زیر **یک** نمودار',
     'بساز. محتوایش را از خودِ متنِ فصل دربیاور، نه از عنوان‌ها — نمودارِ تزئینی',
@@ -32094,10 +32209,15 @@ function hvizModelOne_(book, cc, which) {
     '',
     role,
     '',
-    'انواعِ مجاز برای kind:',
-    '«نقشهٔ ذهنی» (گرهٔ اول مرکز است) · «روندنما» (ترتیب مهم است) ·',
-    '«چرخه» (آخر به اول برمی‌گردد) · «سلسله‌مراتب» (group نامِ هر سطح) ·',
-    '«تقابل» (group نامِ هر ستون) · «کارت‌ها» (نکته‌های هم‌وزن).',
+    'انواعِ مجاز برای kind — **نوع را از ساختارِ واقعیِ محتوا بگیر، نه از عادت**:',
+    '«روندنما» — هرجا ترتیب و مرحله هست: استدلالِ قدم‌به‌قدم، فرایند.',
+    '«چرخه» — رابطهٔ بازخوردی که آخرش به اول برمی‌گردد.',
+    '«سلسله‌مراتب» — تقسیم‌بندی و رده‌ها؛ group نامِ هر سطح، از بالا به پایین.',
+    '«تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون.',
+    '«نقشهٔ مفهومی» — گرهٔ اول مرکز؛ detailِ هر گرهٔ دیگر «برچسبِ رابطه» با آن',
+    '  است («ابزارِ سنجشِ», «پیش‌نیازِ», «نقض می‌کندِ»…).',
+    '«نقشهٔ ذهنی» — مرکز و شاخه‌ها؛ **فقط وقتی هیچ‌کدام از بالا نمی‌نشیند.**',
+    '«کارت‌ها» — نکته‌های هم‌وزنِ بی‌ساختار؛ آخرین چاره.',
     '',
     'قاعده‌های سخت:',
     '• بین ۳ تا ۸ گره. label حداکثر پنج‌شش واژه؛ detail یک جملهٔ کوتاه یا خالی.',
@@ -32133,9 +32253,21 @@ function hvizModelOne_(book, cc, which) {
   if (!r) return null;
   // پاسخِ پوشش‌دار (عادتِ قالبِ قبلی) هم پذیرفته می‌شود
   if (!r.items && (r.intro || r.recap)) r = r.intro || r.recap;
+  if (which === 'sec' && String(hvizKindOf_(r.kind) || r.kind || '').indexOf('هیچ') !== -1) {
+    return 'هیچ';                       // تصمیمِ معتبر: این فصل نمودارِ میانی نمی‌خواهد
+  }
   var idsOk = hvizIds_(book);
   idsOk[String(cc.id)] = 1;
   var d = hvizClean_(r, idsOk);
+  if (d && which === 'sec') {
+    var at = String(r.at || '').trim();
+    var okSec = false;
+    for (var sx = 0; sx < (cc.sections || []).length; sx++) {
+      if (String(cc.sections[sx].id) === at) okSec = true;
+    }
+    if (!okSec) return 'هیچ';           // بخشِ ساختگی — نمودار جایی برای نشستن ندارد
+    d.at = at;
+  }
   if (!d) {
     var snip = '';
     try { snip = JSON.stringify(r).slice(0, 160); } catch (eSn) {}
@@ -32164,7 +32296,7 @@ function handoutVizFill_(book, maxCalls) {
     var cc = book.chapters[c];
     var sig = hvizSig_(cc);
     var v = (cc.viz && cc.viz.sig === sig) ? cc.viz : null;
-    if (v && v.intro && v.recap) continue;
+    if (v && v.intro && v.recap && v.secDone) continue;
     var tried = cc.vizTried || {};
     if (String(tried.sig) === sig && Number(tried.n || 0) >= (Number(CFG.HANDOUT_TRY_MAX) || 4)) {
       out.gaveUp++; continue;
@@ -32177,12 +32309,25 @@ function handoutVizFill_(book, maxCalls) {
       var d1 = hvizModelOne_(book, cc, 'intro');
       if (d1) { v.intro = d1; madeHere = true; } else failedHere = true;
     }
-    /* وقتی همین حالا intro شکست خورد، recap را در همین دور نمی‌سوزانیم —
-       مدلِ خواب دو برابر بودجه نخورد. دورِ بعد از همان‌جا ادامه می‌دهد. */
+    /* وقتی همین حالا intro شکست خورد، بقیه را در همین دور نمی‌سوزانیم —
+       مدلِ خواب چند برابر بودجه نخورد. دورِ بعد از همان‌جا ادامه می‌دهد. */
     if (!v.recap && !failedHere && out.calls < cap) {
       out.calls++;
-      var d2 = hvizModelOne_(book, cc, 'recap');
+      var d2 = hvizModelOne_(book, cc, 'recap',
+                             v.intro ? String(v.intro.kind || '') : '');
       if (d2) { v.recap = d2; madeHere = true; } else failedHere = true;
+    }
+    /* میان‌بخشی: یک فراخوان، و «هیچ» هم جوابِ معتبر است — فصلِ ساده
+       نمودارِ زوری نمی‌گیرد و دیگر هم پرسیده نمی‌شود. فقط فصلِ چندبخشی. */
+    if (!v.secDone && !failedHere && out.calls < cap &&
+        (cc.sections || []).length >= 2) {
+      out.calls++;
+      var d3 = hvizModelOne_(book, cc, 'sec');
+      if (d3 === 'هیچ') { v.secDone = true; madeHere = true; }
+      else if (d3) { v.secs = [d3]; v.secDone = true; madeHere = true; }
+      else failedHere = true;
+    } else if ((cc.sections || []).length < 2 && !v.secDone) {
+      v.secDone = true;
     }
     if (madeHere) {
       cc.viz = v;
@@ -32194,7 +32339,7 @@ function handoutVizFill_(book, maxCalls) {
       out.triedChanged++;
       out.pending++;
       if (!out.why && HVIZ_WHY_) out.why = HVIZ_WHY_;
-    } else if (!v.intro || !v.recap) {
+    } else if (!v.intro || !v.recap || !v.secDone) {
       out.pending++;                       // بودجه ته کشید، نه شکست
     }
   }
