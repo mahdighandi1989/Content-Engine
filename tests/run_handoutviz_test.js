@@ -214,4 +214,49 @@ console.log('\n=== ۶) ثبت، پیگیری، هشدار — نه فقط یک �
      hvizStatus_().line.indexOf('دکمهٔ جزوه') !== -1, hvizStatus_().line);
 }
 
+console.log('\n=== ۷) نقشهٔ راهِ جزوهٔ تمام‌شده (۶٫۶۰) ===');
+{
+  /* عددِ ۷٪ که برای همیشه ماند: meta.progress از SC.CUR_CHUNK پر می‌شد —
+     قطعهٔ جاریِ قسمتِ جاری، نه پیشرفتِ کل. */
+  global.geminiText_ = function () { return null; };
+  const hub = getHub_();
+  const ps = ensureTab_(hub, CFG.SERIES_PART_TAB, SPART_HEADERS);
+  const mkPart = (key, file, chunks, doneTo) => {
+    const v = []; while (v.length < SPART_HEADERS.length) v.push('');
+    v[SP.KEY - 1] = key; v[SP.FILE - 1] = file; v[SP.CHUNKS - 1] = chunks;
+    v[SP.DONE_TO - 1] = doneTo; ps.appendRow(v);
+  };
+  mkPart('kd', 'f1', 100, 100);
+  mkPart('kd', 'f2', 106, 106);
+  const pr = handoutProgressOf_(hub, 'kd');
+  ok('۷.۱ پیشرفتِ واقعی جمعِ «تا کجا»ی همهٔ قسمت‌هاست', pr.done === 206 && pr.total === 206,
+     JSON.stringify(pr));
+  ok('۷.۲ و قسمتِ تمام‌شده بیش از خودش نمی‌شمرد',
+     (mkPart('kd2', 'g', 50, 90), handoutProgressOf_(hub, 'kd2').done === 50));
+  // مجموعهٔ تمام‌شده با کتابِ نقشهٔ‌راهِ کهنه — جاروی شبانه باید تازه‌اش کند
+  const root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const fd = root.createFolder('تمام‌شده');
+  const bk = mkBook();
+  bk.roadmap = { intro: 'م', stages: [{ title: 'آ', outcome: 'ب', state: 'در جریان' },
+                                       { title: 'پ', outcome: 'ت', state: 'پیشِ رو' }],
+                 progress: { done: '15', total: '206', pct: '7' } };
+  // فصل‌هایش را از پیش نموداردار می‌کنیم تا فقط اثرِ نقشهٔ راه سنجیده شود
+  for (const cc of bk.chapters) cc.viz = { sig: hvizSig_(cc), at: 'x' };
+  fd.createFile(Utilities.newBlob(JSON.stringify(bk), 'application/json', handoutJsonName_()));
+  const sh7 = hub.getSheetByName(CFG.SERIES_TAB);
+  const v7 = []; while (v7.length < SERIES_HEADERS.length) v7.push('');
+  v7[SC.KEY - 1] = 'kd'; v7[SC.NAME - 1] = 'تمام‌شده'; v7[SC.STATUS - 1] = SST.DONE;
+  v7[SC.FOLDER - 1] = fd.getId();
+  sh7.appendRow(v7);
+  const un7 = quiet(); handoutVizSweep_(10, 60000); un7();
+  const bk2 = JSON.parse(fd.getFilesByName(handoutJsonName_()).next().getBlob().getDataAsString());
+  ok('۷.۳ جارو نقشهٔ راهِ کتابِ تمام‌شده را ۱۰۰٪ کرد',
+     bk2.roadmap.progress.pct === '100', JSON.stringify(bk2.roadmap.progress));
+  ok('۷.۴ و همهٔ مرحله‌ها «انجام‌شده» شدند',
+     bk2.roadmap.stages.every(x => x.state === 'انجام‌شده'),
+     bk2.roadmap.stages.map(x => x.state).join('،'));
+  const html7 = fd.getFilesByName(handoutHtmlName_(bk2.seriesName)).hasNext();
+  ok('۷.۵ و جزوهٔ تازه رندر شد (فقط برای نقشهٔ راه هم رندر لازم است)', html7);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ نمودارهای جزوه گذشت.');

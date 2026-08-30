@@ -512,6 +512,32 @@ function handoutApply_(book, patch, meta, refNos) {
  * و نقشهٔ راهی که یک مرحلهٔ تمام‌شده را «پیشِ رو» نشان بدهد، بدتر از نداشتنش
  * است، چون خواننده به آن اعتماد می‌کند.
  */
+/**
+ * پیشرفتِ واقعیِ یک مجموعه — جمعِ «تا کجا خوانده شده»ی همهٔ قسمت‌ها.
+ *
+ * ══ عددی که دو روز ۷٪ ماند در حالی که مجموعه تمام شده بود (۶٫۶۰) ══
+ * meta.progress از SC.CUR_CHUNK پر می‌شد — «قطعهٔ جاری در قسمتِ جاری»، نه
+ * پیشرفتِ کل. درسِ اول روی قطعهٔ ۱۵ بود، پس نقشهٔ راهِ جزوه تا ابد
+ * «۱۵ از ۲۰۶ (۷٪)» گفت و مرحله‌ها «پیشِ رو» ماندند — حتی پس از پایانِ
+ * مجموعه. صاحبِ برنامه خودش دید و فرستاد. مقیاسِ درست جمعِ SP.DONE_TO
+ * است، سرِ جمعِ قطعه‌های هر قسمت بریده تا قسمتِ تمام‌شده بیش از خودش
+ * نشمرد.
+ */
+function handoutProgressOf_(hub, seriesKey, partsOpt) {
+  var out = { done: 0, total: 0 };
+  try {
+    var parts = partsOpt || readSeriesParts_(hub || getHub_());
+    var list = (parts.byKey && parts.byKey[String(seriesKey)]) || [];
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i].vals;
+      var ch = Number(v[SP.CHUNKS - 1]) || 0;
+      out.total += ch;
+      out.done += Math.min(ch, Number(v[SP.DONE_TO - 1]) || 0);
+    }
+  } catch (e) {}
+  return out;
+}
+
 function handoutRoadmapState_(book, prog) {
   var stages = (book.roadmap && book.roadmap.stages) || [];
   if (!stages.length) return book;
@@ -1094,11 +1120,32 @@ function handoutOneSeries_(key, maxItems) {
     for (var vc = 0; vc < (book.chapters || []).length; vc++) {
       if (book.chapters[vc].vizTried) { delete book.chapters[vc].vizTried; vizReset++; }
     }
-    var vzr = { made: 0 };
-    try { vzr = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_MANUAL) || 6); } catch (eVb) {}
+    var vzr = { made: 0, calls: 0, pending: 0 };
+    try { vzr = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_MANUAL) || 6); }
+    catch (eVb) { out.notes.push('نمودارها: ' + eVb.message); }
     out.viz = vzr.made;
-    if (vzr.made || vizReset) {
-      try { handoutWrite_(sf, book); if (vzr.made) handoutRender_(sf, book); } catch (eVw) {}
+    /* شکستِ بی‌صدا همان چیزی است که «دکمه زدم و هیچ نشد» می‌سازد (۶٫۶۰):
+       فراخوان رفته و جواب نیامده باید در پیامِ همان دکمه گفته شود. */
+    if (vzr.calls && !vzr.made) {
+      out.notes.push('نمودار: مدل به ' + vzr.calls + ' درخواست جواب نداد — بعداً دوباره بزنید' +
+                     (vzr.pending ? ' (' + vzr.pending + ' فصل در نوبت ماند)' : ''));
+    }
+    /* و نقشهٔ راه از پیشرفتِ واقعی — مجموعهٔ تمام‌شده باید ۱۰۰٪ و همهٔ
+       مرحله‌هایش «انجام‌شده» دیده شود، نه عددِ روزِ اول. */
+    var rmWas = '';
+    try { rmWas = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR0) {}
+    var rmChanged = false;
+    try {
+      handoutRoadmapState_(book, handoutProgressOf_(hub, k));
+      rmChanged = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas;
+      if (rmChanged) out.notes.push('نقشهٔ راه به‌روز شد (' +
+        String((book.roadmap.progress || {}).pct || '؟') + '٪)');
+    } catch (eRm) {}
+    if (vzr.made || vizReset || rmChanged) {
+      try {
+        handoutWrite_(sf, book);
+        if (vzr.made || rmChanged) handoutRender_(sf, book);
+      } catch (eVw) { out.notes.push('نوشتنِ جزوه: ' + eVw.message); }
     }
     /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
        شد». دکمه‌ای که آدم می‌زند باید همیشه کارش را بکند؛ اگر یک بار جارو
@@ -1422,6 +1469,8 @@ function handoutVizSweep_(maxCalls, budgetMs) {
   var cur = 0;
   try { cur = Number(props_().getProperty(PK.HVIZ_CUR) || 0) || 0; } catch (e) {}
   if (cur >= reg.rows.length) { cur = 0; out.wrapped = true; }
+  var partsAll = null;
+  try { partsAll = readSeriesParts_(hub); } catch (ePt) {}
   var i = cur;
   while (out.calls < cap && i < reg.rows.length) {
     if (new Date().getTime() - t0 > budget) break;
@@ -1443,11 +1492,20 @@ function handoutVizSweep_(maxCalls, budgetMs) {
        بودجه‌سوزیِ بی‌پایانی که قرار بود جلویش گرفته شود، فقط پنهان‌تر.
        آزمونِ ۶٫۶ همین را گرفت. رندر همچنان فقط هنگامِ ساخت — فایلِ جزوه
        نباید برای یک شمارندهٔ درونی از نو مُهرِ تاریخ بخورد. */
-    if (r.made || r.triedChanged) {
+    /* همان‌جا نقشهٔ راه هم با پیشرفتِ واقعی تازه می‌شود — جزوهٔ مجموعهٔ
+       تمام‌شده هیچ مسیرِ دیگری به به‌روزرسانی ندارد (درسِ تازه‌ای نمی‌آید). */
+    var rmWas2 = '';
+    try { rmWas2 = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR1) {}
+    var rmCh2 = false;
+    try {
+      handoutRoadmapState_(book, handoutProgressOf_(hub, String(rec.key), partsAll));
+      rmCh2 = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas2;
+    } catch (eR2) {}
+    if (r.made || r.triedChanged || rmCh2) {
       if (r.made) { out.made += r.made; out.series++; book.updatedAt = nowStr_(); }
       try {
         handoutWrite_(sf, book);
-        if (r.made) handoutRender_(sf, book);
+        if (r.made || rmCh2) handoutRender_(sf, book);
       } catch (eW) {
         logLine_('نوشتنِ نمودارهای «' + (book.seriesName || rec.key) + '» ناموفق: ' + eW.message);
       }
@@ -1701,8 +1759,10 @@ function handoutRunDue_(maxItems, budgetMs) {
         meta.seriesKey = key;
         meta.seriesName = meta.seriesName || String(rec.vals[SC.NAME - 1] || '');
         meta.level = meta.level || String(rec.vals[SC.LEVEL - 1] || '');
-        meta.progress = { done: Number(rec.vals[SC.CUR_CHUNK - 1]) || 0,
-                          total: Number(rec.vals[SC.CHUNKS - 1]) || 0 };
+        meta.progress = handoutProgressOf_(hub, key);
+        if (!meta.progress.total) {
+          meta.progress.total = Number(rec.vals[SC.CHUNKS - 1]) || 0;
+        }
         // شمارِ واقعیِ قسمت‌ها — همین‌جا از پیمایشِ پوشه در دست است
         var madeN = 0;
         for (var mk2 in eps) if (Object.prototype.hasOwnProperty.call(eps, mk2)) madeN++;
