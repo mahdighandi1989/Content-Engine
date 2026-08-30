@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.53
+ *  موتور محتوا و پادکست — نسخهٔ 6.54
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -606,6 +606,10 @@ var CFG = {
   /* تبِ Podcasts کانال از همین پر می‌شود: status.podcastStatus روی پلی‌لیست.
      (تبِ Posts هیچ منبعی در API ندارد و کارِ آدم است.) */
   YT_PODCAST: true,
+  /* شکستِ پایدارِ کاور/پادکستِ پلی‌لیست (حالِ کانال، نه کد): پس از این چند
+     تلاش، فقط هفته‌ای یک بار دوباره امتحان می‌شود (۶٫۵۴). */
+  YT_PL_TRY_MAX: 4,
+  YT_PL_RETRY_DAYS: 7,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
   YT_TRY_MAX: 3,                        // پس از این، آن قسمت رها می‌شود
@@ -1044,7 +1048,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.53',
+  CODE_VERSION: '6.54',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3625,6 +3629,19 @@ function speakPieces_(text, cap) {
  * قاعدهٔ سختِ پرامپت: «هیچ چیزی جز افزودنِ اعراب». نتیجه همین‌جا وارسی
  * می‌شود؛ اگر مدل واژه‌ای را عوض کرده باشد، جواب دور انداخته می‌شود.
  */
+/* آخرین علتِ ردِ اعراب — برای اینکه «۵۰٪ رد شد» بشود «کدام سد رد کرد».
+   ایمیلِ ۲۹–۳۰ اوت دو روزِ پیاپی گفت «سدِ وارسی دارد کارِ اعراب‌گذار را دور
+   می‌ریزد» و هیچ‌کس — نه ناظر، نه ما — نمی‌توانست بگوید کدام سد: مدل جواب
+   نمی‌دهد؟ واژه عوض می‌کند؟ اعراب کم می‌گذارد؟ عددِ بی‌تشخیص، اقدام‌پذیر
+   نیست؛ همین نبودِ تشخیص بود که آن هشدار را دو روز بی‌جواب گذاشت. */
+var VOWEL_LAST_WHY_ = '';
+function vowelWhyOf_(piece, v) {
+  if (!v || !String(v).trim()) return 'مدل جواب نداد';
+  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان';
+  if (!speakVowelledOk_(piece, v)) return 'اعرابِ ناکافی';
+  return '';
+}
+
 function vowelizePiece_(piece) {
   var marks = CFG.SPEAK_MARKS !== false;
   var prompt =
@@ -3653,13 +3670,15 @@ function vowelizePiece_(piece) {
     // تعمیرِ نیم‌فاصله *پیش از* سد، نه بعدش: عیبی که قابلِ تعمیر است نباید
     // به قیمتِ افتادنِ کلِ اعرابِ این بخش تمام شود (۶٫۲۹).
     var v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
-    if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
+    VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
+    if (!VOWEL_LAST_WHY_) return v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
     v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
-    if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
-  } catch (e) {}
+    VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
+    if (!VOWEL_LAST_WHY_) return v;
+  } catch (e) { if (!VOWEL_LAST_WHY_) VOWEL_LAST_WHY_ = 'خطا: ' + String(e.message || e).slice(0, 60); }
   return '';
 }
 
@@ -3953,8 +3972,12 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       }
     }
     if (!total) return null;
+    var why = {};
+    for (var w = 0; w < S.length; w++) {
+      if (S[w] && S[w].skip && S[w].why) why[S[w].why] = (why[S[w].why] || 0) + 1;
+    }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
-                l: String(label || ''), n: total, s: skipped,
+                l: String(label || ''), n: total, s: skipped, w: why,
                 f: Number(ep && ep.__speakFails) || 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
@@ -4005,8 +4028,13 @@ function speakSkipStatus_() {
       out.line = 'اعراب‌گذاری: هنوز هیچ قسمتی ثبت نشده.';
       return out;
     }
+    var whyAll = {};
     for (var i = 0; i < L.length; i++) {
       out.eps++; out.segs += Number(L[i].n) || 0; out.skipped += Number(L[i].s) || 0;
+      var w0 = L[i].w || {};
+      for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
+        whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
+      }
     }
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
@@ -4018,7 +4046,13 @@ function speakSkipStatus_() {
     var okSegs = out.segs - out.skipped;
     if (pct >= 20 && okSegs > 0) {
       out.ok = false;
-      out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد.';
+      /* «کدام سد» را هم بگو — عددِ بی‌تشخیص دو روز بی‌جواب ماند. */
+      var wb = [];
+      for (var kw in whyAll) if (Object.prototype.hasOwnProperty.call(whyAll, kw)) {
+        wb.push(kw + ' ' + fa(whyAll[kw]));
+      }
+      out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد' +
+                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') + '.';
     } else if (!okSegs && out.eps >= 3) {
       out.ok = false;
       out.line += ' هیچ بخشی اعراب نگرفت — اعراب‌گذار در دسترس نبوده است.';
@@ -4135,7 +4169,8 @@ function speakStep_(ep, segs, deadline, persist) {
         // بگوید *کدام* بخش و *چه متنی* — بی این، «سدِ وارسی رد کرد» فقط ادعا بود.
         var lbl = segs[i].kind === 'body' ? String(segs[i].heading || '')
                  : (segs[i].kind === 'hook' ? 'قلاب' : 'ختم');
-        ep.__speakSegs[i] = { h: h, skip: true, lbl: lbl, p: plain.slice(0, 160) };
+        ep.__speakSegs[i] = { h: h, skip: true, lbl: lbl, p: plain.slice(0, 160),
+                              why: VOWEL_LAST_WHY_ || '' };
       } else {
         ep.__speakSegs[i] = { h: h, tries: tries };
       }
@@ -33864,6 +33899,19 @@ var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
  * گفته می‌شود. خودِ سلول‌های قدیمی دست نمی‌خورند — بازنویسیِ دادهٔ ثبت‌شده
  * برای زیباترشدنِ یک گزارش، معامله‌ای است که این ریپو نمی‌کند.
  */
+/* همان بیماریِ ۶٫۲۹، این بار در ستونِ «مدت» (۶٫۵۴): «13:55» در سلول، شیت
+   را به Date با مبدأ ۱۸۹۹ می‌برد و String(...) همان
+   «Sat Dec 30 1899 13:55:00 GMT+0341» را در کارنامهٔ ایمیل چاپ می‌کرد —
+   کنارِ هر ویدئو. سلول دست نمی‌خورد؛ فقط همان متنِ دیوارساعتی برمی‌گردد. */
+function ytDurText_(v) {
+  if (v instanceof Date) {
+    try {
+      return Utilities.formatDate(v, CFG.TIMEZONE, 'H:mm:ss').replace(/:00$/, '');
+    } catch (e) { return ''; }
+  }
+  return String(v === null || v === undefined ? '' : v);
+}
+
 function ytWhen_(v) {
   var out = { ms: NaN, text: '', undated: false };
   try {
@@ -34644,6 +34692,9 @@ function ytPlaylistSync_(budgetMs) {
                String(rec.vals[SC.CAT - 1] || name), renamed, out, pk);
   }
   try { props_().setProperty(PK.YT_PLSIG, sigStr); } catch (e5) {}
+  /* عکسِ همین دور، حتی خالی — وگرنه شکستِ دیشب پس از سقف‌خوردنِ تلاش‌ها تا
+     ابد در سلامت می‌مانْد، چون دیگر هیچ تلاشی نبود که بازنویسی‌اش کند (۶٫۵۴). */
+  try { ytPlCoverFailSave_(out.coverFails); } catch (eCf2) {}
   if (out.made || out.renamed) {
     logLine_('پلی‌لیستِ یوتیوب: ' + out.made + ' تازه، ' + out.renamed + ' نامش عوض شد.');
   }
@@ -35111,6 +35162,23 @@ function ytHealth_(problems, notes) {
         ' مجموعه گذاشته نشد: ' + pf.slice(0, 3).join(' · ') +
         '. یوتیوب به‌جایش کاورِ ویدئوی اول را نشان می‌دهد.');
     }
+    /* شکستِ سقف‌خورده دیگر «در دستِ موتور» نیست — موتور هر کاری می‌توانست
+       کرد و هفته‌ای یک بار هم باز امتحان می‌کند. علتِ محتمل حالِ کانال است
+       و بازکردنش فقط از دستِ مالک برمی‌آید (۶٫۵۴). */
+    var mCap = ytPlMap_(), capped = 0;
+    for (var ck in mCap) if (Object.prototype.hasOwnProperty.call(mCap, ck)) {
+      var rc = mCap[ck] || {};
+      if ((Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4) ||
+          (Number(rc.podTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4)) capped++;
+    }
+    if (capped) {
+      problems.push(HY_ + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
+        ' پلی‌لیست پس از چند شب تلاش هنوز از سمتِ یوتیوب رد می‌شود ' +
+        '(playlistImages: 500 · podcastStatus: Precondition check failed). ' +
+        'این معمولاً یعنی «قابلیت‌های پیشرفته» روی کانال باز نیست — در ' +
+        'youtube.com/features هویت را تأیید کنید؛ موتور خودش هفته‌ای یک بار ' +
+        'دوباره امتحان می‌کند و به‌محضِ بازشدن جا می‌اندازد.');
+    }
   } catch (ePf) {}
 
   if (st.failed) {
@@ -35500,7 +35568,7 @@ function ytDigest_(hours) {
           url: String(v[i][YU.URL - 1] || ''),
           privacy: String(v[i][YU.PRIV - 1] || ''),
           cast: String(v[i][YU.CAST - 1] || ''),
-          dur: String(v[i][YU.DUR - 1] || ''),
+          dur: ytDurText_(v[i][YU.DUR - 1]),
           tags: String(v[i][YU.TAGS - 1] || '')
         });
         out.n++;
@@ -35926,38 +35994,61 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
      سهمیه‌اند، همان محتمل‌ترین علت تنها علتی بود که هرگز نوشته نمی‌شد.
      «سهمیه» ایراد نیست (فردا خودش می‌آید) پس در `coverFails` نمی‌رود؛ ولی
      باید *دیده* شود، وگرنه عدد بی‌علت هفته‌ها تکرار می‌شود. */
-  var mark = function (field, why) {
+  /* ══ شکستی که هر شب عیناً تکرار می‌شود، بامعناترین نوعِ «کارِ شما»ست (۶٫۵۴) ══
+   * کاورِ پلی‌لیست دو روزِ پیاپی «نشد (500)» داد و پادکست‌کردن
+   * «نشد (400): Precondition check failed» — هر شب، همان خطا، همان پلی‌لیست.
+   * این دو هر دو به حالِ خودِ کانال بندند (playlistImages و podcastStatus
+   * روی کانالی که قابلیت‌های پیشرفته‌اش باز نشده همین‌ها را برمی‌گردانند) و
+   * کد با تکرارِ شبانه فقط سهمیه می‌سوزاند و ایمیل را پر می‌کند — «هشداری که
+   * برای چیزی که عوض نمی‌شود می‌آید، هشداری است که خوانده نمی‌شود».
+   * پس: چند تلاشِ اول شبانه؛ از آن به بعد هفته‌ای یک بار، تا اگر مالک قابلیت
+   * را باز کرد خودش جا بیفتد؛ و در این میان یک سطرِ «کارِ شما» علت را می‌گوید. */
+  var giveUp = function (rec, f) {
+    var tries = Number(rec[f + 'Tries']) || 0;
+    if (tries < (CFG.YT_PL_TRY_MAX || 4)) return false;
+    var last = parseWhen_(String(rec[f + 'LastTry'] || ''));
+    if (isNaN(last)) return false;
+    return (new Date().getTime() - last) <
+           (CFG.YT_PL_RETRY_DAYS || 7) * 86400000;
+  };
+  var bump = function (field, f, why) {
     try {
       var m = ytPlMap_(), rec = m[key] || {};
       rec[field] = String(why || '').slice(0, 80);
+      if (String(why || '').indexOf('سهمیه') === -1) {
+        rec[f + 'Tries'] = (Number(rec[f + 'Tries']) || 0) + 1;
+        rec[f + 'LastTry'] = nowStr_();
+      }
       m[key] = rec; ytPlMapSave_(m);
     } catch (eM) {}
   };
   var pmap = ytPlMap_(), prec = pmap[key] || {};
-  if (!prec.podcast && CFG.YT_PODCAST !== false) {
+  if (!prec.podcast && CFG.YT_PODCAST !== false && !giveUp(prec, 'pod')) {
     var pc = ytPlPodcast_(plId, plTitle || name);
     if (pc === 'نشست') {
-      prec.podcast = nowStr_(); prec.podWhy = ''; pmap[key] = prec; ytPlMapSave_(pmap);
+      prec.podcast = nowStr_(); prec.podWhy = '';
+      prec.podTries = 0; prec.podLastTry = '';
+      pmap[key] = prec; ytPlMapSave_(pmap);
       out.podcasts = (out.podcasts || 0) + 1;
     } else {
-      mark('podWhy', pc);
+      bump('podWhy', 'pod', pc);
       if (pc.indexOf('سهمیه') === -1) {
         logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
       }
     }
   }
-  if (!prec.cover || renamed) {
+  if ((!prec.cover || renamed) && !giveUp(prec, 'cover')) {
     var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker);
     if (cv === 'نشست') {
       out.covers++;
       prec = (ytPlMap_()[key] || prec);
       prec.cover = nowStr_(); prec.coverWhy = '';
+      prec.coverTries = 0; prec.coverLastTry = '';
       var m2 = ytPlMap_(); m2[key] = prec; ytPlMapSave_(m2);
     } else if (cv) {
-      mark('coverWhy', cv);
+      bump('coverWhy', 'cover', cv);
       if (cv.indexOf('سهمیه') === -1) {
         out.coverFails.push(name + ': ' + cv);
-        try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
       }
     }
   }

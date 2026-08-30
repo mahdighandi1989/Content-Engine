@@ -1268,6 +1268,19 @@ function speakPieces_(text, cap) {
  * قاعدهٔ سختِ پرامپت: «هیچ چیزی جز افزودنِ اعراب». نتیجه همین‌جا وارسی
  * می‌شود؛ اگر مدل واژه‌ای را عوض کرده باشد، جواب دور انداخته می‌شود.
  */
+/* آخرین علتِ ردِ اعراب — برای اینکه «۵۰٪ رد شد» بشود «کدام سد رد کرد».
+   ایمیلِ ۲۹–۳۰ اوت دو روزِ پیاپی گفت «سدِ وارسی دارد کارِ اعراب‌گذار را دور
+   می‌ریزد» و هیچ‌کس — نه ناظر، نه ما — نمی‌توانست بگوید کدام سد: مدل جواب
+   نمی‌دهد؟ واژه عوض می‌کند؟ اعراب کم می‌گذارد؟ عددِ بی‌تشخیص، اقدام‌پذیر
+   نیست؛ همین نبودِ تشخیص بود که آن هشدار را دو روز بی‌جواب گذاشت. */
+var VOWEL_LAST_WHY_ = '';
+function vowelWhyOf_(piece, v) {
+  if (!v || !String(v).trim()) return 'مدل جواب نداد';
+  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان';
+  if (!speakVowelledOk_(piece, v)) return 'اعرابِ ناکافی';
+  return '';
+}
+
 function vowelizePiece_(piece) {
   var marks = CFG.SPEAK_MARKS !== false;
   var prompt =
@@ -1296,13 +1309,15 @@ function vowelizePiece_(piece) {
     // تعمیرِ نیم‌فاصله *پیش از* سد، نه بعدش: عیبی که قابلِ تعمیر است نباید
     // به قیمتِ افتادنِ کلِ اعرابِ این بخش تمام شود (۶٫۲۹).
     var v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
-    if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
+    VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
+    if (!VOWEL_LAST_WHY_) return v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
     v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
-    if (verifySpeak_(piece, v) && speakVowelledOk_(piece, v)) return v;
-  } catch (e) {}
+    VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
+    if (!VOWEL_LAST_WHY_) return v;
+  } catch (e) { if (!VOWEL_LAST_WHY_) VOWEL_LAST_WHY_ = 'خطا: ' + String(e.message || e).slice(0, 60); }
   return '';
 }
 
@@ -1596,8 +1611,12 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       }
     }
     if (!total) return null;
+    var why = {};
+    for (var w = 0; w < S.length; w++) {
+      if (S[w] && S[w].skip && S[w].why) why[S[w].why] = (why[S[w].why] || 0) + 1;
+    }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
-                l: String(label || ''), n: total, s: skipped,
+                l: String(label || ''), n: total, s: skipped, w: why,
                 f: Number(ep && ep.__speakFails) || 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
@@ -1648,8 +1667,13 @@ function speakSkipStatus_() {
       out.line = 'اعراب‌گذاری: هنوز هیچ قسمتی ثبت نشده.';
       return out;
     }
+    var whyAll = {};
     for (var i = 0; i < L.length; i++) {
       out.eps++; out.segs += Number(L[i].n) || 0; out.skipped += Number(L[i].s) || 0;
+      var w0 = L[i].w || {};
+      for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
+        whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
+      }
     }
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
@@ -1661,7 +1685,13 @@ function speakSkipStatus_() {
     var okSegs = out.segs - out.skipped;
     if (pct >= 20 && okSegs > 0) {
       out.ok = false;
-      out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد.';
+      /* «کدام سد» را هم بگو — عددِ بی‌تشخیص دو روز بی‌جواب ماند. */
+      var wb = [];
+      for (var kw in whyAll) if (Object.prototype.hasOwnProperty.call(whyAll, kw)) {
+        wb.push(kw + ' ' + fa(whyAll[kw]));
+      }
+      out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد' +
+                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') + '.';
     } else if (!okSegs && out.eps >= 3) {
       out.ok = false;
       out.line += ' هیچ بخشی اعراب نگرفت — اعراب‌گذار در دسترس نبوده است.';
@@ -1778,7 +1808,8 @@ function speakStep_(ep, segs, deadline, persist) {
         // بگوید *کدام* بخش و *چه متنی* — بی این، «سدِ وارسی رد کرد» فقط ادعا بود.
         var lbl = segs[i].kind === 'body' ? String(segs[i].heading || '')
                  : (segs[i].kind === 'hook' ? 'قلاب' : 'ختم');
-        ep.__speakSegs[i] = { h: h, skip: true, lbl: lbl, p: plain.slice(0, 160) };
+        ep.__speakSegs[i] = { h: h, skip: true, lbl: lbl, p: plain.slice(0, 160),
+                              why: VOWEL_LAST_WHY_ || '' };
       } else {
         ep.__speakSegs[i] = { h: h, tries: tries };
       }

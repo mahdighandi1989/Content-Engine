@@ -1357,6 +1357,19 @@ var YU = { AT: 1, SHOW: 2, EP: 3, SERIES: 4, TITLE: 5, VID: 6, URL: 7, PRIV: 8,
  * گفته می‌شود. خودِ سلول‌های قدیمی دست نمی‌خورند — بازنویسیِ دادهٔ ثبت‌شده
  * برای زیباترشدنِ یک گزارش، معامله‌ای است که این ریپو نمی‌کند.
  */
+/* همان بیماریِ ۶٫۲۹، این بار در ستونِ «مدت» (۶٫۵۴): «13:55» در سلول، شیت
+   را به Date با مبدأ ۱۸۹۹ می‌برد و String(...) همان
+   «Sat Dec 30 1899 13:55:00 GMT+0341» را در کارنامهٔ ایمیل چاپ می‌کرد —
+   کنارِ هر ویدئو. سلول دست نمی‌خورد؛ فقط همان متنِ دیوارساعتی برمی‌گردد. */
+function ytDurText_(v) {
+  if (v instanceof Date) {
+    try {
+      return Utilities.formatDate(v, CFG.TIMEZONE, 'H:mm:ss').replace(/:00$/, '');
+    } catch (e) { return ''; }
+  }
+  return String(v === null || v === undefined ? '' : v);
+}
+
 function ytWhen_(v) {
   var out = { ms: NaN, text: '', undated: false };
   try {
@@ -2137,6 +2150,9 @@ function ytPlaylistSync_(budgetMs) {
                String(rec.vals[SC.CAT - 1] || name), renamed, out, pk);
   }
   try { props_().setProperty(PK.YT_PLSIG, sigStr); } catch (e5) {}
+  /* عکسِ همین دور، حتی خالی — وگرنه شکستِ دیشب پس از سقف‌خوردنِ تلاش‌ها تا
+     ابد در سلامت می‌مانْد، چون دیگر هیچ تلاشی نبود که بازنویسی‌اش کند (۶٫۵۴). */
+  try { ytPlCoverFailSave_(out.coverFails); } catch (eCf2) {}
   if (out.made || out.renamed) {
     logLine_('پلی‌لیستِ یوتیوب: ' + out.made + ' تازه، ' + out.renamed + ' نامش عوض شد.');
   }
@@ -2604,6 +2620,23 @@ function ytHealth_(problems, notes) {
         ' مجموعه گذاشته نشد: ' + pf.slice(0, 3).join(' · ') +
         '. یوتیوب به‌جایش کاورِ ویدئوی اول را نشان می‌دهد.');
     }
+    /* شکستِ سقف‌خورده دیگر «در دستِ موتور» نیست — موتور هر کاری می‌توانست
+       کرد و هفته‌ای یک بار هم باز امتحان می‌کند. علتِ محتمل حالِ کانال است
+       و بازکردنش فقط از دستِ مالک برمی‌آید (۶٫۵۴). */
+    var mCap = ytPlMap_(), capped = 0;
+    for (var ck in mCap) if (Object.prototype.hasOwnProperty.call(mCap, ck)) {
+      var rc = mCap[ck] || {};
+      if ((Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4) ||
+          (Number(rc.podTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4)) capped++;
+    }
+    if (capped) {
+      problems.push(HY_ + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
+        ' پلی‌لیست پس از چند شب تلاش هنوز از سمتِ یوتیوب رد می‌شود ' +
+        '(playlistImages: 500 · podcastStatus: Precondition check failed). ' +
+        'این معمولاً یعنی «قابلیت‌های پیشرفته» روی کانال باز نیست — در ' +
+        'youtube.com/features هویت را تأیید کنید؛ موتور خودش هفته‌ای یک بار ' +
+        'دوباره امتحان می‌کند و به‌محضِ بازشدن جا می‌اندازد.');
+    }
   } catch (ePf) {}
 
   if (st.failed) {
@@ -2993,7 +3026,7 @@ function ytDigest_(hours) {
           url: String(v[i][YU.URL - 1] || ''),
           privacy: String(v[i][YU.PRIV - 1] || ''),
           cast: String(v[i][YU.CAST - 1] || ''),
-          dur: String(v[i][YU.DUR - 1] || ''),
+          dur: ytDurText_(v[i][YU.DUR - 1]),
           tags: String(v[i][YU.TAGS - 1] || '')
         });
         out.n++;
@@ -3419,38 +3452,61 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
      سهمیه‌اند، همان محتمل‌ترین علت تنها علتی بود که هرگز نوشته نمی‌شد.
      «سهمیه» ایراد نیست (فردا خودش می‌آید) پس در `coverFails` نمی‌رود؛ ولی
      باید *دیده* شود، وگرنه عدد بی‌علت هفته‌ها تکرار می‌شود. */
-  var mark = function (field, why) {
+  /* ══ شکستی که هر شب عیناً تکرار می‌شود، بامعناترین نوعِ «کارِ شما»ست (۶٫۵۴) ══
+   * کاورِ پلی‌لیست دو روزِ پیاپی «نشد (500)» داد و پادکست‌کردن
+   * «نشد (400): Precondition check failed» — هر شب، همان خطا، همان پلی‌لیست.
+   * این دو هر دو به حالِ خودِ کانال بندند (playlistImages و podcastStatus
+   * روی کانالی که قابلیت‌های پیشرفته‌اش باز نشده همین‌ها را برمی‌گردانند) و
+   * کد با تکرارِ شبانه فقط سهمیه می‌سوزاند و ایمیل را پر می‌کند — «هشداری که
+   * برای چیزی که عوض نمی‌شود می‌آید، هشداری است که خوانده نمی‌شود».
+   * پس: چند تلاشِ اول شبانه؛ از آن به بعد هفته‌ای یک بار، تا اگر مالک قابلیت
+   * را باز کرد خودش جا بیفتد؛ و در این میان یک سطرِ «کارِ شما» علت را می‌گوید. */
+  var giveUp = function (rec, f) {
+    var tries = Number(rec[f + 'Tries']) || 0;
+    if (tries < (CFG.YT_PL_TRY_MAX || 4)) return false;
+    var last = parseWhen_(String(rec[f + 'LastTry'] || ''));
+    if (isNaN(last)) return false;
+    return (new Date().getTime() - last) <
+           (CFG.YT_PL_RETRY_DAYS || 7) * 86400000;
+  };
+  var bump = function (field, f, why) {
     try {
       var m = ytPlMap_(), rec = m[key] || {};
       rec[field] = String(why || '').slice(0, 80);
+      if (String(why || '').indexOf('سهمیه') === -1) {
+        rec[f + 'Tries'] = (Number(rec[f + 'Tries']) || 0) + 1;
+        rec[f + 'LastTry'] = nowStr_();
+      }
       m[key] = rec; ytPlMapSave_(m);
     } catch (eM) {}
   };
   var pmap = ytPlMap_(), prec = pmap[key] || {};
-  if (!prec.podcast && CFG.YT_PODCAST !== false) {
+  if (!prec.podcast && CFG.YT_PODCAST !== false && !giveUp(prec, 'pod')) {
     var pc = ytPlPodcast_(plId, plTitle || name);
     if (pc === 'نشست') {
-      prec.podcast = nowStr_(); prec.podWhy = ''; pmap[key] = prec; ytPlMapSave_(pmap);
+      prec.podcast = nowStr_(); prec.podWhy = '';
+      prec.podTries = 0; prec.podLastTry = '';
+      pmap[key] = prec; ytPlMapSave_(pmap);
       out.podcasts = (out.podcasts || 0) + 1;
     } else {
-      mark('podWhy', pc);
+      bump('podWhy', 'pod', pc);
       if (pc.indexOf('سهمیه') === -1) {
         logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
       }
     }
   }
-  if (!prec.cover || renamed) {
+  if ((!prec.cover || renamed) && !giveUp(prec, 'cover')) {
     var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker);
     if (cv === 'نشست') {
       out.covers++;
       prec = (ytPlMap_()[key] || prec);
       prec.cover = nowStr_(); prec.coverWhy = '';
+      prec.coverTries = 0; prec.coverLastTry = '';
       var m2 = ytPlMap_(); m2[key] = prec; ytPlMapSave_(m2);
     } else if (cv) {
-      mark('coverWhy', cv);
+      bump('coverWhy', 'cover', cv);
       if (cv.indexOf('سهمیه') === -1) {
         out.coverFails.push(name + ': ' + cv);
-        try { ytPlCoverFailSave_(out.coverFails); } catch (eCf) {}
       }
     }
   }
