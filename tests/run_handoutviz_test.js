@@ -339,19 +339,36 @@ console.log('\n=== ۸) وِن — گونهٔ تازه، با شکلِ واقعی
   ] }, idsOk);
   ok('۸.۲ وِنِ دوناحیه‌ای پذیرفته می‌شود', dV && dV.kind === 'وِن');
   const hV = hvizHtml_(dV, '');
-  ok('۸.۳ رندرش سه ناحیه دارد و عدسیِ مشترک وسط است',
-     hV.indexOf('hvn-a') !== -1 && hV.indexOf('hvn-ab') !== -1 &&
-     hV.indexOf('hvn-b') !== -1 &&
-     hV.indexOf('hvn-a') < hV.indexOf('hvn-ab') &&
-     hV.indexOf('hvn-ab') < hV.indexOf('hvn-b'));
+  ok('۸.۳ رندر، دایره‌های واقعی است: دو دایرهٔ تزئینی + سه ناحیهٔ متن، به ترتیب',
+     hV.indexOf('hvz-vd2') !== -1 &&
+     hV.indexOf('hvca') !== -1 && hV.indexOf('hvcb') !== -1 &&
+     hV.indexOf('hvz-za') !== -1 && hV.indexOf('hvz-zm') !== -1 &&
+     hV.indexOf('hvz-zb') !== -1 &&
+     hV.indexOf('hvz-za') < hV.indexOf('hvz-zm') &&
+     hV.indexOf('hvz-zm') < hV.indexOf('hvz-zb'));
+  ok('۸.۳-ب و نامِ هر دایره برچسبِ بیرونی دارد — مثلِ مرجعِ صاحبِ برنامه',
+     hV.indexOf('hvn-tag hvt-a') !== -1 && hV.indexOf('hvn-tag hvt-b') !== -1);
   ok('۸.۴ گره‌هایش کلیک‌شو به لنگرِ واقعی‌اند',
      hV.indexOf('href="#s1"') !== -1 && hV.indexOf('href="#s2"') !== -1);
   ok('۸.۵ وِنِ تک‌ناحیه، وِن نیست — به کارت‌ها می‌افتد',
      hvizClean_({ kind: 'وِن', items: [{ label: 'آ' }, { label: 'ب' }] },
                 idsOk).kind === 'کارت‌ها');
-  ok('۸.۶ و CSSِ هر سه ناحیه در برگِ سبک هست',
-     HANDOUT_CSS_.indexOf('.hvn-a{') !== -1 && HANDOUT_CSS_.indexOf('.hvn-ab{') !== -1 &&
-     HANDOUT_CSS_.indexOf('.hvk-venn') !== -1);
+  ok('۸.۵-ب سه دایره هم کشیده می‌شود؛ بیش از سه، صادقانه نیست و تقابل می‌شود',
+     (function () {
+       const it = (g) => ({ label: 'x', group: g });
+       const d3 = hvizClean_({ kind: 'وِن', items: [it('الف'), it('ب'), it('ج'),
+                                                    it('مشترک')] }, idsOk);
+       const h3 = hvizHtml_(d3, '');
+       const d4 = hvizClean_({ kind: 'وِن', items: [it('الف'), it('ب'), it('ج'),
+                                                    it('د')] }, idsOk);
+       return d3.kind === 'وِن' && h3.indexOf('hvz-vd3') !== -1 &&
+              h3.indexOf('hvcc') !== -1 && h3.indexOf('hvz-zc') !== -1 &&
+              d4.kind === 'تقابل';
+     })());
+  ok('۸.۶ و CSSِ دایره‌ها و ناحیه‌ها در برگِ سبک هست',
+     HANDOUT_CSS_.indexOf('.hvca{') !== -1 && HANDOUT_CSS_.indexOf('.hvz-vd2 .hvz-zm{') !== -1 &&
+     HANDOUT_CSS_.indexOf('.hvk-venn') !== -1 &&
+     HANDOUT_CSS_.indexOf('aspect-ratio:1;border-radius:50%') !== -1);
   ok('۸.۷ پرامپت وِن را با جای کاربردش معرفی می‌کند',
      (function () {
        let seen = '';

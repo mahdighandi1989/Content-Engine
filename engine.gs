@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.72
+ *  موتور محتوا و پادکست — نسخهٔ 6.73
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1083,7 +1083,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.72',
+  CODE_VERSION: '6.73',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31447,22 +31447,52 @@ var HANDOUT_CSS_ = [
   '.hvc-0{background:#eef6ff;border:1px solid #bcd6f2}.hvc-1{background:#fff1f2;border:1px solid #f3c2ca}',
   '.hvz-colh{font-weight:bold;font-size:13px;margin-bottom:8px;text-align:center}',
   '.hvz-col .hvz-n{margin-bottom:8px}',
-  /* وِن: دو دایرهٔ هم‌پوشان؛ عدسیِ میانی (مشترک) برجسته‌تر و رویِ هر دو.
-     سه ناحیه همیشه در یک سطرند (wrap عدسی را از دایره‌ها جدا می‌کرد و
-     دیگر وِنی در کار نبود — در رندرِ واقعی دیده شد)؛ هم‌پوشانیِ عدسی با
-     padding از سمتِ عدسی جبران می‌شود تا هیچ گرهی زیرش پنهان نماند. */
-  '.hvz-vd{display:flex;align-items:stretch;padding:6px 14px}',
-  '.hvz-vn{flex:1 1 0;min-width:0;padding:14px 12px;display:flex;',
-  'flex-direction:column;gap:8px}',
-  '.hvn-a{background:rgba(14,116,144,.07);border:2px solid #0e7490;',
-  'border-radius:14px 60px 60px 14px;padding-left:28px}',
-  '.hvn-b{background:rgba(159,18,57,.06);border:2px solid #9f1239;',
-  'border-radius:60px 14px 14px 60px;padding-right:28px}',
-  '.hvn-ab{background:linear-gradient(135deg,rgba(14,116,144,.10),rgba(159,18,57,.10));',
-  'border:2px dashed #5b21b6;border-radius:50% / 22%;margin:10px -14px;',
-  'position:relative;z-index:1;flex-grow:1.2;box-shadow:0 1px 8px rgba(91,33,182,.14)}',
-  '.hvn-ab .hvz-colh{color:#5b21b6}',
-  '.hvn-a .hvz-colh{color:#0e7490}.hvn-b .hvz-colh{color:#9f1239}',
+  /* وِن: دایره‌های واقعیِ هم‌پوشان — دایره‌ها لایهٔ تزئینیِ مطلق، متنِ
+     ناحیه‌ها لایهٔ جدا (نه بریده می‌شود نه پنهان)، برچسبِ نامِ هر دایره
+     بیرونش. aspect-ratio دایره را دایره نگه می‌دارد، در هر عرضی. */
+  '.hvz-vd{position:relative;margin:8px 0}',
+  '.hvz-vd2{aspect-ratio:1.5;min-height:330px}',
+  '.hvz-vd3{aspect-ratio:1.15;min-height:420px}',
+  '.hvn-c{position:absolute;aspect-ratio:1;border-radius:50%;border:2.5px solid}',
+  '.hvz-vd2 .hvn-c{top:40px;bottom:3%}',
+  '.hvca{border-color:#2563eb;background:rgba(37,99,235,.10)}',
+  '.hvcb{border-color:#be123c;background:rgba(190,18,60,.09)}',
+  '.hvcc{border-color:#166534;background:rgba(22,101,52,.09)}',
+  '.hvz-vd2 .hvca{right:3%}.hvz-vd2 .hvcb{left:3%}',
+  '.hvz-vd3 .hvn-c{height:54%}',
+  '.hvz-vd3 .hvca{top:40px;right:7%}.hvz-vd3 .hvcb{top:40px;left:7%}',
+  '.hvz-vd3 .hvcc{bottom:2%;right:50%;transform:translateX(50%)}',
+  '.hvn-tag{position:absolute;top:0;z-index:2;color:#fff;border-radius:9px;',
+  'padding:5px 15px;font-weight:bold;font-size:13px;box-shadow:0 2px 6px rgba(18,28,55,.25)}',
+  '.hvt-a{right:0;background:#1e40af}.hvt-b{left:0;background:#9f1239}',
+  '.hvt-c{top:auto;bottom:0;right:50%;transform:translateX(50%);background:#166534}',
+  '.hvn-z{position:absolute;display:flex;flex-direction:column;gap:5px;',
+  'text-align:center;z-index:1;align-items:center;justify-content:center}',
+  '.hvz-vd2 .hvz-za{right:6%;width:27%;top:44px;bottom:3%}',
+  '.hvz-vd2 .hvz-zb{left:6%;width:27%;top:44px;bottom:3%}',
+  '.hvz-vd2 .hvz-zm{right:39.5%;width:21%;top:44px;bottom:3%}',
+  '.hvz-vd3 .hvz-za{right:9%;width:24%;top:14%;height:32%}',
+  '.hvz-vd3 .hvz-zb{left:9%;width:24%;top:14%;height:32%}',
+  '.hvz-vd3 .hvz-zc{right:38%;width:24%;bottom:6%;height:26%}',
+  '.hvz-vd3 .hvz-zm{right:38%;width:24%;top:42%;height:18%}',
+  /* داخلِ دایره، گره‌ها جعبهٔ سفید نمی‌گیرند — فهرستِ سادهٔ کلیک‌شو، مثلِ مرجع */
+  '.hvn-z .hvz-n{background:transparent;border:0;padding:0 2px;font-size:12.5px;line-height:1.75}',
+  '.hvn-z .hvz-n b:before{content:"• "}',
+  '.hvn-z a.hvz-n:hover{box-shadow:none;text-decoration:underline}',
+  '.hvn-z .hvz-n span{font-size:11px}',
+  '.hvn-zt{font-size:11.5px;color:#5b21b6}',
+  '.hvz-zm .hvz-n b{color:#4c1d95}',
+  /* باریک: هندسهٔ مطلق جا ندارد — ناحیه‌ها پشتِ سرِ هم، هر یک با قابِ رنگیِ خودش */
+  '@media (max-width:560px){',
+  '.hvz-vd,.hvz-vd2,.hvz-vd3{aspect-ratio:auto;min-height:0}',
+  '.hvn-c{display:none}',
+  '.hvn-tag{position:static;display:inline-block;margin:4px 4px 8px;transform:none}',
+  '.hvn-z{position:static;width:auto;height:auto;border-radius:14px;padding:12px;margin:8px 0}',
+  '.hvz-za{border:2px solid #2563eb;background:rgba(37,99,235,.07)}',
+  '.hvz-zb{border:2px solid #be123c;background:rgba(190,18,60,.06)}',
+  '.hvz-zc{border:2px solid #166534;background:rgba(22,101,52,.06)}',
+  '.hvz-zm{border:2px dashed #5b21b6;background:rgba(91,33,182,.06)}',
+  '}',
   /* کارت‌ها */
   '.hvz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}',
   '.hvz-card{position:relative;padding-top:12px}',
@@ -32260,13 +32290,18 @@ function hvizClean_(d, idsOk) {
   if (items.length < 2) return null;      // نمودارِ تک‌گره، نمودار نیست
   if (kind === 'وِن') {
     // وِن یعنی دستِ‌کم دو ناحیه (دو دایره، یا دایره + مشترک). وِنِ
-    // تک‌ناحیه فقط یک فهرست است — همان کارت‌ها، با ادعای بیشتر.
-    var zn = Object.create(null), znN = 0;
+    // تک‌ناحیه فقط یک فهرست است — همان کارت‌ها، با ادعای بیشتر. و بیش از
+    // سه دایره را نمی‌شود صادقانه کشید — ستون‌های تقابل همان را بهتر می‌گویند.
+    var zn = Object.create(null), znN = 0, znSide = 0;
     for (var zv = 0; zv < items.length; zv++) {
       var zg = items[zv].group || 'مشترک';
-      if (!zn[zg]) { zn[zg] = 1; znN++; }
+      if (!zn[zg]) {
+        zn[zg] = 1; znN++;
+        if (!/مشترک|هر ?دو|هم[‌ ]?پوشان/.test(zg)) znSide++;
+      }
     }
     if (znN < 2) kind = 'کارت‌ها';
+    else if (znSide > 3) kind = 'تقابل';
   }
   return { kind: kind, title: String(d.title || '').trim().slice(0, 90),
            note: String(d.note || '').trim().slice(0, 200), items: items };
@@ -32378,9 +32413,12 @@ function hvizHtml_(d, badge) {
     }
     h.push('</div>');
   } else if (cls === 'venn') {
-    /* وِن: دو دایرهٔ هم‌پوشان — ناحیهٔ مشترک خودِ حرف است، پس عدسیِ وسط
-       برجسته‌تر از دو کناره رندر می‌شود. group نامِ هر دایره است و
-       «مشترک»/«هر دو» ناحیهٔ میانی. */
+    /* وِن: دایره‌های واقعیِ هم‌پوشان — «یه چیز مثل اینه» با دو اسکرین‌شاتِ
+       مرجعِ صاحبِ برنامه. دایره‌ها <i>های تزئینیِ مطلق‌اند و متنِ ناحیه‌ها
+       لایهٔ جدا، تا نه بریده شوند نه زیرِ هم پنهان. group نامِ هر دایره
+       است و «مشترک»/«هر دو» ناحیهٔ هم‌پوشانی؛ دو یا سه دایره.
+       («hvz-vd» نه «hvz-venn» — بیرونی‌ترین div خودش hvz-venn است و
+       هم‌نامی، چیدمان را به کلِ جعبه می‌زد؛ در رندرِ واقعی دیده شد.) */
     var zsV = [], byV = Object.create(null);
     for (var w1 = 0; w1 < items.length; w1++) {
       var zk = items[w1].group || 'مشترک';
@@ -32392,21 +32430,30 @@ function hvizHtml_(d, badge) {
     for (var w2 = 0; w2 < zsV.length; w2++) {
       (isMid(zsV[w2]) ? midV : sidesV).push(zsV[w2]);
     }
-    // چیدمانِ دیداری: دایرهٔ اول، عدسی(ها)، دایرهٔ دوم به بعد.
-    var orderV = [];
-    if (sidesV.length) orderV.push({ g: sidesV[0], c: 'hvn-a' });
-    for (var w3 = 0; w3 < midV.length; w3++) orderV.push({ g: midV[w3], c: 'hvn-ab' });
-    for (var w4 = 1; w4 < sidesV.length; w4++) orderV.push({ g: sidesV[w4], c: 'hvn-b' });
-    // «hvz-vd» نه «hvz-venn» — بیرونی‌ترین div خودش hvz-venn است (نشانگرِ
-    // گونه) و هم‌نامی، flex را به کلِ جعبه می‌زد؛ در رندرِ واقعی دیده شد.
-    h.push('<div class="hvz-vd">');
-    for (var w5 = 0; w5 < orderV.length; w5++) {
-      h.push('<div class="hvz-vn ' + orderV[w5].c + '"><div class="hvz-colh">' +
-             esc_(orderV[w5].g) + '</div>');
-      var zi = byV[orderV[w5].g];
-      for (var w6 = 0; w6 < zi.length; w6++) h.push(hvizNode_(zi[w6], 'hvz-n'));
-      h.push('</div>');
+    var three = sidesV.length >= 3;
+    h.push('<div class="hvz-vd ' + (three ? 'hvz-vd3' : 'hvz-vd2') + '">');
+    // برچسبِ نامِ هر دایره، بیرونِ دایره — مثلِ مرجع
+    var tagC = ['hvt-a', 'hvt-b', 'hvt-c'];
+    for (var w3 = 0; w3 < sidesV.length && w3 < 3; w3++) {
+      h.push('<span class="hvn-tag ' + tagC[w3] + '">' + esc_(sidesV[w3]) + '</span>');
     }
+    h.push('<i class="hvn-c hvca"></i><i class="hvn-c hvcb"></i>' +
+           (three ? '<i class="hvn-c hvcc"></i>' : ''));
+    var zoneV = function (kls, name, items2, showName) {
+      h.push('<div class="hvn-z ' + kls + '">' +
+             (showName ? '<b class="hvn-zt">' + esc_(name) + '</b>' : ''));
+      for (var w6 = 0; w6 < items2.length; w6++) h.push(hvizNode_(items2[w6], 'hvz-n'));
+      h.push('</div>');
+    };
+    if (sidesV[0]) zoneV('hvz-za', sidesV[0], byV[sidesV[0]], false);
+    if (midV.length) {
+      // چند نامِ «مشترک»‌گونه، یک ناحیهٔ میانی — دو لایهٔ مطلق روی هم می‌افتاد.
+      var midItems = [];
+      for (var w7 = 0; w7 < midV.length; w7++) midItems = midItems.concat(byV[midV[w7]]);
+      zoneV('hvz-zm', midV[0], midItems, true);
+    }
+    if (sidesV[1]) zoneV('hvz-zb', sidesV[1], byV[sidesV[1]], false);
+    if (three && sidesV[2]) zoneV('hvz-zc', sidesV[2], byV[sidesV[2]], false);
     h.push('</div>');
   } else {
     h.push('<div class="hvz-grid">');
@@ -32498,8 +32545,8 @@ function hvizModelOne_(book, cc, which, avoidKind) {
     'انواعِ مجاز برای kind — **نوع را از ساختارِ واقعیِ محتوا بگیر، نه از عادت**:',
     '«روندنما» — هرجا ترتیب و مرحله هست: استدلالِ قدم‌به‌قدم، فرایند.',
     '«چرخه» — رابطهٔ بازخوردی یا مدار که آخرش به اول برمی‌گردد.',
-    '«وِن» — دو مفهوم که هم وجهِ مشترک دارند هم وجهِ اختصاصی: group نامِ هر',
-    '  دایره، و group «مشترک» برای ناحیهٔ هم‌پوشانی. برای تعریفِ چندجزئی',
+    '«وِن» — دو یا سه مفهوم که هم وجهِ مشترک دارند هم وجهِ اختصاصی: group نامِ',
+    '  هر دایره، و group «مشترک» برای ناحیهٔ هم‌پوشانی. برای تعریفِ چندجزئی',
     '  (مثل باورِ صادقِ موجه)، شرطِ لازم/کافی، و مقایسه‌ای که اشتراکش مهم است.',
     '«سلسله‌مراتب» — تقسیم‌بندی و رده‌ها؛ group نامِ هر سطح، از بالا به پایین.',
     '«تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون. اگر وجهِ',
