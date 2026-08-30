@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.60
+ *  موتور محتوا و پادکست — نسخهٔ 6.61
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1058,7 +1058,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.60',
+  CODE_VERSION: '6.61',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31831,7 +31831,8 @@ function handoutOneSeries_(key, maxItems) {
     /* شکستِ بی‌صدا همان چیزی است که «دکمه زدم و هیچ نشد» می‌سازد (۶٫۶۰):
        فراخوان رفته و جواب نیامده باید در پیامِ همان دکمه گفته شود. */
     if (vzr.calls && !vzr.made) {
-      out.notes.push('نمودار: مدل به ' + vzr.calls + ' درخواست جواب نداد — بعداً دوباره بزنید' +
+      out.notes.push('نمودار: مدل به ' + vzr.calls + ' درخواست جواب نداد' +
+                     (vzr.why ? ' — علت: ' + vzr.why : ' — بعداً دوباره بزنید') +
                      (vzr.pending ? ' (' + vzr.pending + ' فصل در نوبت ماند)' : ''));
     }
     /* و نقشهٔ راه از پیشرفتِ واقعی — مجموعهٔ تمام‌شده باید ۱۰۰٪ و همهٔ
@@ -31910,25 +31911,72 @@ var HVIZ_KINDS = {
   'تقابل': 1, 'کارت‌ها': 1
 };
 
-var HVIZ_DIAG_PROPS = {
-  kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
-  items: { type: 'array', items: { type: 'object', properties: {
-    label: { type: 'string' }, detail: { type: 'string' },
-    to: { type: 'string' }, group: { type: 'string' }
-  }, required: ['label'] } }
-};
+/* اسکیما عمداً تمام‌لفظی است، به همان سبکِ HANDOUT_SCHEMA که هر شب کار
+   می‌کند — بدونِ شیءِ مشترک بینِ شاخه‌ها. و هیچ فیلدی جز رشته (قاعدهٔ ریپو). */
 var HVIZ_SCHEMA = {
   type: 'object',
   properties: {
-    intro: { type: 'object', properties: HVIZ_DIAG_PROPS },
-    recap: { type: 'object', properties: HVIZ_DIAG_PROPS },
-    secs: { type: 'array', items: { type: 'object', properties: {
-      at: { type: 'string' },
-      kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
-      items: HVIZ_DIAG_PROPS.items
-    } } }
+    intro: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' }, detail: { type: 'string' },
+              to: { type: 'string' }, group: { type: 'string' }
+            },
+            required: ['label']
+          }
+        }
+      }
+    },
+    recap: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' }, detail: { type: 'string' },
+              to: { type: 'string' }, group: { type: 'string' }
+            },
+            required: ['label']
+          }
+        }
+      }
+    },
+    secs: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          at: { type: 'string' },
+          kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string' }, detail: { type: 'string' },
+                to: { type: 'string' }, group: { type: 'string' }
+              },
+              required: ['label']
+            }
+          }
+        },
+        required: ['at', 'items']
+      }
+    }
   }
 };
+
+/* آخرین علتِ شکستِ مدل در نمودارسازی — برای پیامِ دکمه و وضعیت. */
+var HVIZ_WHY_ = '';
 
 /** امضای ساختاریِ فصل — تکمیل/بخشِ تازه یعنی نمودارِ کهنه، و باید از نو. */
 function hvizSig_(cc) {
@@ -32105,7 +32153,17 @@ function hvizModel_(book, cc) {
   L.push('');
   L.push('شناسه‌های مجاز برای to: ' + ids.join('، '));
   var r = null;
-  try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 8192); } catch (e) { r = null; }
+  try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 8192); }
+  catch (e) {
+    /* ══ شکستِ بی‌صدا، دشمنِ شمارهٔ یکِ این ریپو (۶٫۶۱) ══
+       صاحبِ برنامه دکمه زد، شش فراخوان بی‌جواب ماند، و هیچ‌جا ننوشت چرا —
+       نه در سیاهه، نه در پیامِ دکمه. تشخیصِ از راهِ دور غیرممکن شد. علت
+       حالا هم در سیاهه می‌نشیند هم به فراخواننده برمی‌گردد. */
+    HVIZ_WHY_ = String(e.message || e).slice(0, 200);
+    try { logLine_('نمودارِ فصلِ «' + handoutTitleClean_(String(cc.title || '')).slice(0, 50) +
+                   '» از مدل نیامد: ' + HVIZ_WHY_); } catch (eL) {}
+    return null;
+  }
   if (!r) return null;
   var idsOk = hvizIds_(book);
   idsOk[String(cc.id)] = 1;
@@ -32129,7 +32187,8 @@ function hvizModel_(book, cc) {
  * هر شب بودجه نسوزاند — امضای تازه، سابقهٔ تلاش را صفر می‌کند.
  */
 function handoutVizFill_(book, maxCalls) {
-  var out = { calls: 0, made: 0, pending: 0, gaveUp: 0, triedChanged: 0 };
+  var out = { calls: 0, made: 0, pending: 0, gaveUp: 0, triedChanged: 0, why: '' };
+  HVIZ_WHY_ = '';
   if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
   var cap = Math.max(0, Number(maxCalls) || 0);
   for (var c = 0; c < (book.chapters || []).length; c++) {
@@ -32151,6 +32210,7 @@ function handoutVizFill_(book, maxCalls) {
       cc.vizTried = { sig: sig, n: Number(tried.sig === sig ? tried.n || 0 : 0) + 1, at: nowStr_() };
       out.triedChanged++;
       out.pending++;
+      if (!out.why && HVIZ_WHY_) out.why = HVIZ_WHY_;
     }
   }
   return out;
