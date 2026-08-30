@@ -466,6 +466,7 @@ function writeStatus_(hub, note) {
     bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
     seriesRejected: (function () { try { return seriesRejected_(); } catch (e) { return null; } })(),
+    handoutViz: (function () { try { return hvizStatus_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -1344,6 +1345,10 @@ function healthCheck() {
     var rjS = seriesRejected_();
     if (rjS && rjS.line) notes.push(rjS.line);
   } catch (eRj2) {}
+  try {
+    var hvS = hvizStatus_();
+    if (hvS && hvS.line) notes.push(hvS.line);
+  } catch (eHv) {}
   try {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }

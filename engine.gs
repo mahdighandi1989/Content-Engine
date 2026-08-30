@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.56
+ *  موتور محتوا و پادکست — نسخهٔ 6.57
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -627,6 +627,12 @@ var CFG = {
   HANDOUT_JSON: '_HANDOUT.json',   // مدلِ ساختاریِ کتاب، کنارِ خودِ جزوه
   HANDOUT_MAX_PER_RUN: 2,          // چند مجموعه در هر اجرا — هر کدام یک فراخوانِ مدل
   HANDOUT_MIN_MS: 90000,           // اگر کمتر از این وقت مانده، بگذار برای شب
+  /* نمودارهای جزوه (۶٫۵۷): مدل جای و نوعِ نمودار را تشخیص می‌دهد، کد رندر و
+     کلیک‌پذیری را. سقف‌ها روی فراخوانِ مدل‌اند — تنها کارِ گران. */
+  HANDOUT_VIZ_ENABLED: true,
+  HANDOUT_VIZ_PER_RUN: 2,          // هنگامِ ورودِ هر درسِ تازه
+  HANDOUT_VIZ_SWEEP: 6,            // جاروی شبانهٔ جبرانِ گذشته
+  HANDOUT_VIZ_MANUAL: 6,           // با دکمهٔ دستیِ هر مجموعه
   // دکمهٔ دستی: کارِ اصلیِ آن اجراست و شش دقیقه در اختیار دارد. سقفِ
   // محافظه‌کارِ دو تا یعنی برای پانزده درسِ عقب‌مانده هشت بار فشردن.
   // سقفِ شمارش فقط نگهبانِ فرار است؛ آنچه واقعاً کران می‌گذارد زمان است.
@@ -1052,7 +1058,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.56',
+  CODE_VERSION: '6.57',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1311,6 +1317,8 @@ var PK = {
   SERIES_INV: 'SERIES_SOURCE_INVENTORY', // صورت‌برداریِ آخرین اسکنِ منبع‌ها
   SERIES_REJECTED: 'SERIES_REJECTED_LAST', // گروه‌هایی که اسکنِ آخر «دوره» ندانستشان
   BOARD_LAST: 'BOARD_LAST_ACTION',     // آخرین کاری که از تختهٔ مجموعه‌ها انجام شد
+  HVIZ_CUR: 'HANDOUT_VIZ_CURSOR',      // مکان‌نمای جاروی نمودارهای جزوه
+  HVIZ_LAST: 'HANDOUT_VIZ_LAST',       // نتیجهٔ آخرین دورِ جارو
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
@@ -9863,6 +9871,7 @@ function writeStatus_(hub, note) {
     bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
     seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
     seriesRejected: (function () { try { return seriesRejected_(); } catch (e) { return null; } })(),
+    handoutViz: (function () { try { return hvizStatus_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
     chunks: chunkBacklog_(hub),
@@ -10741,6 +10750,10 @@ function healthCheck() {
     var rjS = seriesRejected_();
     if (rjS && rjS.line) notes.push(rjS.line);
   } catch (eRj2) {}
+  try {
+    var hvS = hvizStatus_();
+    if (hvS && hvS.line) notes.push(hvS.line);
+  } catch (eHv) {}
   try {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
@@ -23921,6 +23934,12 @@ function selfUpdateDaily() {
        بارِ همیشگی نیست؛ ولی تا تمام نشده هر شب چند مجموعه جلو می‌رود.
        آخرِ بلوک است تا اگر بودجه ته کشید، چیزی که واقعاً درس وارد می‌کند
        قربانیِ یک اصلاحِ آرایشی نشود. */
+    /* جبرانِ نمودار برای درس‌های قبلی — خواستهٔ صریح: «برای درس‌های قبلی هم
+       حتماً باید این انجام بشه». مکان‌نما دارد و هر شب چند فراخوان. */
+    if (nightHas_(60000, 'نمودارهای جزوه')) {
+      try { handoutVizSweep_(Number(CFG.HANDOUT_VIZ_SWEEP) || 6, 120000); }
+      catch (eVz) { logLine_('جاروی نمودارهای جزوه ناموفق: ' + eVz.message); }
+    }
     if (nightHas_(30000, 'مرتب‌سازیِ عنوانِ فصل‌های جزوه')) {
       try {
         var rt = handoutRetitle_(12, 45000);
@@ -31221,6 +31240,35 @@ var HANDOUT_CSS_ = [
   '.bar{height:7px;background:#0d2b49}.bar i{display:block;height:7px;background:#7ec4ff}',
   '.bd{padding:26px 40px 40px}',
   '.toc{background:#f6f8fc;border:1px solid #dfe6f2;border-radius:12px;padding:20px 24px;margin:0 0 30px}',
+  /* نمودارها (۶٫۵۷): چیدمانِ HTML، کلیک‌پذیر، چاپ‌شو */
+  '.hvz{background:#f9fafd;border:1px solid #dfe6f2;border-radius:12px;padding:16px 18px;margin:18px 0}',
+  '.hvz-h{margin-bottom:12px;font-size:14px}.hvz-h b{margin-right:8px}',
+  '.hvz-k{display:inline-block;background:#123a63;color:#fff;border-radius:20px;padding:2px 12px;font-size:11px}',
+  '.hvz-b{display:inline-block;background:#e8effc;color:#123a63;border-radius:20px;padding:2px 10px;font-size:11px;margin-right:6px}',
+  '.hvz-n,.hvz-ctr{display:block;background:#fff;border:1.5px solid #b9c8e2;border-radius:10px;',
+  'padding:8px 12px;text-decoration:none;color:#17202e;font-size:13px;line-height:1.8}',
+  'a.hvz-n:hover,a.hvz-ctr:hover{border-color:#2e6fb8;box-shadow:0 1px 6px rgba(46,111,184,.25)}',
+  'a.hvz-n b,a.hvz-ctr b{color:#123a63}',
+  '.hvz-n span,.hvz-ctr span{display:block;font-size:11.5px;color:#65718a;margin-top:2px}',
+  '.hvz-c{text-align:center;margin-bottom:12px}',
+  '.hvz-ctr{display:inline-block;background:#123a63;border-color:#123a63}',
+  '.hvz-ctr b{color:#fff}.hvz-ctr span{color:#bcd3ef}',
+  '.hvz-br{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}',
+  '.hvz-br .hvz-n{position:relative}',
+  '.hvz-fl{max-width:460px;margin:0 auto}',
+  '.hvz-ar{text-align:center;color:#2e6fb8;font-size:18px;line-height:1.2}',
+  '.hvz-ring{display:flex;flex-wrap:wrap;align-items:center;gap:8px}',
+  '.hvz-ring .hvz-n{flex:1;min-width:130px}',
+  '.hvz-ar2,.hvz-loop{color:#2e6fb8;font-size:18px}',
+  '.hvz-loop{border:1.5px dashed #b9c8e2;border-radius:50%;padding:4px 9px}',
+  '.hvz-lvls .hvz-lvl{margin-bottom:10px}',
+  '.hvz-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}',
+  '.hvz-g{font-size:12px;color:#7a5a12;background:#fdf6e3;display:inline-block;',
+  'border-radius:6px;padding:1px 10px;margin-bottom:6px}',
+  '.hvz-gi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}',
+  '.hvz-cols .hvz-gi{grid-template-columns:1fr}',
+  '.hvz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}',
+  '.hvz-note{font-size:12px;color:#65718a;margin-top:10px}',
   '.toc h2{margin:0 0 12px;border:0;padding:0}',
   '.toc ol{margin:0;padding-right:22px}',
   '.toc ol ol{padding-right:18px;margin:4px 0 10px}',
@@ -31338,6 +31386,9 @@ function handoutHtml_(book) {
     h.push('</div>');
   }
 
+  // ── نقشهٔ کلِ کتاب — کلیک‌شو، بی‌مدل ──
+  try { h.push(hvizBookMap_(book)); } catch (eVm) {}
+
   // ── فصل‌ها ──
   for (var ci = 0; ci < book.chapters.length; ci++) {
     var cc = book.chapters[ci];
@@ -31345,6 +31396,10 @@ function handoutHtml_(book) {
     h.push('<h2 id="' + cc.id + '">' + esc_(faDigitsOut_(String(ci + 1))) + '. ' +
            esc_(cc.title) + '</h2>');
     if (cc.intro) h.push('<p>' + esc_(cc.intro) + '</p>');
+    var vz = cc.viz || {};
+    var vzBySec = Object.create(null);
+    for (var vv = 0; vv < (vz.secs || []).length; vv++) vzBySec[String(vz.secs[vv].at)] = vz.secs[vv];
+    if (vz.intro) { try { h.push(hvizHtml_(vz.intro, 'پیش از خواندنِ فصل')); } catch (eVi) {} }
     for (var si = 0; si < (cc.sections || []).length; si++) {
       var sec = cc.sections[si];
       h.push('<h3 id="' + sec.id + '">' + esc_(sec.title) + '</h3>');
@@ -31373,7 +31428,12 @@ function handoutHtml_(book) {
                '<a href="#' + esc_(sec.backTo) + '">فصلِ مرتبط</a>' +
                (sec.why ? ' — ' + esc_(sec.why) : '') + '</p>');
       }
+      if (vzBySec[String(sec.id)]) {
+        try { h.push(hvizHtml_(vzBySec[String(sec.id)], '')); } catch (eVs) {}
+      }
     }
+    // ── مرورِ فصل در یک نگاه — پیش از پانوشت ──
+    if (vz.recap) { try { h.push(hvizHtml_(vz.recap, 'مرورِ فصل')); } catch (eVr) {} }
     // ── پانوشتِ همین فصل، مثلِ زیرِ صفحه در کتاب ──
     var fnos = [];
     for (var k in used) if (Object.prototype.hasOwnProperty.call(used, k)) fnos.push(k);
@@ -31546,6 +31606,13 @@ function handoutUpdate_(folder, meta, hub) {
   var fixedT = handoutRetitleBook_(book);
   if (fixedT) logLine_('جزوهٔ «' + book.seriesName + '»: ' + fixedT + ' عنوانِ فصلِ کهنه مرتب شد.');
 
+  /* نمودارها همین‌جا، پیش از رندر — فصلی که این درس ساخت یا تکمیل کرد،
+     امضایش عوض شده و از نو نمودار می‌گیرد. سقفِ کوچک، چون این مسیر داخلِ
+     شبِ شلوغ است؛ باقی را جاروی شبانه جبران می‌کند. */
+  try {
+    var vzf = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_PER_RUN) || 2);
+    if (vzf.made) out.viz = vzf.made;
+  } catch (eVz) {}
   handoutWrite_(folder, book);
   var file = handoutRender_(folder, book);
   out.ok = true; out.stats = st; out.url = file.getUrl();
@@ -31720,6 +31787,18 @@ function handoutOneSeries_(key, maxItems) {
       if (reset) book.tried = {};
     }
     out.reset = reset;
+    /* دکمهٔ آدم، سدِ نمودار را هم باز می‌کند — همان قاعده. و همین‌جا تا
+       سقفِ دستی پر می‌شود، تا «جبرانِ گذشته» منتظرِ نوبتِ جاروی شبانه نماند. */
+    var vizReset = 0;
+    for (var vc = 0; vc < (book.chapters || []).length; vc++) {
+      if (book.chapters[vc].vizTried) { delete book.chapters[vc].vizTried; vizReset++; }
+    }
+    var vzr = { made: 0 };
+    try { vzr = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_MANUAL) || 6); } catch (eVb) {}
+    out.viz = vzr.made;
+    if (vzr.made || vizReset) {
+      try { handoutWrite_(sf, book); if (vzr.made) handoutRender_(sf, book); } catch (eVw) {}
+    }
     /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
        شد». دکمه‌ای که آدم می‌زند باید همیشه کارش را بکند؛ اگر یک بار جارو
        رد شده و چیزی جا مانده، این دومین در است. */
@@ -31745,6 +31824,351 @@ function handoutOneSeries_(key, maxItems) {
                          Number(CFG.HANDOUT_MANUAL_MS) || 210000);
   out.done = r.done; out.notes = out.notes.concat(r.notes); out.ranOut = r.ranOut;
   out.left = (handoutDueByKey_()[k] || 0);
+  return out;
+}
+
+
+/* ═══════════════════ نمودارهای جزوه (۶٫۵۷) ═══════════════════
+ *
+ * خواستهٔ صریح: «داخل جزوهٔ هر درسنامه … در ابتدای و انتهای هر فصل و هر
+ * قسمتی که لازم شد، از نمودارها مثل نقشهٔ ذهنی و فلوچارت و حالتِ مدارمانند
+ * و اینفوگرافیک استفاده بشه و مدل تشخیص بده هرکدوم کجا کاربرد داره … و با
+ * کلیک روی هر قسمت از نمودار هدایت بشه به سمتِ اون مطلب. برای درس‌های قبلی
+ * هم حتماً جبران بشه.»
+ *
+ * تقسیمِ کار همان قاعدهٔ همیشگی است — مدل پیشنهاد می‌دهد، کد تصمیم می‌گیرد:
+ *   • مدل: کدام فصل چه نموداری می‌خواهد، از چه نوعی، با چه گره‌هایی، و هر
+ *     گره به کدام بخش اشاره دارد. این کارِ فهمِ محتواست و فقط از او برمی‌آید.
+ *   • کد: رندر، اعتبارِ شناسه‌ها (گرهِ با شناسهٔ ساختگی لینکِ مرده نمی‌سازد؛
+ *     متنش می‌ماند و لینکش می‌افتد)، سقفِ تعداد، و نقشهٔ کلِ کتاب که اصلاً
+ *     مدل نمی‌خواهد — فصل‌ها معلوم‌اند.
+ *
+ * چرا HTML/CSS و نه SVG: متنِ فارسیِ راست‌به‌چپِ چندخطی در SVG باید دستی
+ * شکسته و اندازه‌گیری شود و همان‌جا می‌شکند که مهم است (عنوانِ بلند). در
+ * HTML شکستنِ خط، کلیک، چاپ و بزرگ‌نمایی همه بومی‌اند. «نمودار» بودن از
+ * چیدمان می‌آید، نه از تگِ svg.
+ *
+ * و درسِ همیشگیِ این ریپو: نمودارِ ساخته‌شده باید *وصل* باشد — هر گره
+ * href به لنگرِ همان بخش در همین فایل، همان لنگرهایی که فهرستِ کلیک‌شو
+ * از روزِ اول داشت.
+ */
+
+var HVIZ_KINDS = {
+  'نقشهٔ ذهنی': 1, 'روندنما': 1, 'چرخه': 1, 'سلسله‌مراتب': 1,
+  'تقابل': 1, 'کارت‌ها': 1
+};
+
+var HVIZ_DIAG_PROPS = {
+  kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+  items: { type: 'array', items: { type: 'object', properties: {
+    label: { type: 'string' }, detail: { type: 'string' },
+    to: { type: 'string' }, group: { type: 'string' }
+  }, required: ['label'] } }
+};
+var HVIZ_SCHEMA = {
+  type: 'object',
+  properties: {
+    intro: { type: 'object', properties: HVIZ_DIAG_PROPS },
+    recap: { type: 'object', properties: HVIZ_DIAG_PROPS },
+    secs: { type: 'array', items: { type: 'object', properties: {
+      at: { type: 'string' },
+      kind: { type: 'string' }, title: { type: 'string' }, note: { type: 'string' },
+      items: HVIZ_DIAG_PROPS.items
+    } } }
+  }
+};
+
+/** امضای ساختاریِ فصل — تکمیل/بخشِ تازه یعنی نمودارِ کهنه، و باید از نو. */
+function hvizSig_(cc) {
+  var bits = [String(cc.id), String(cc.title)];
+  for (var i = 0; i < (cc.sections || []).length; i++) {
+    var sc = cc.sections[i];
+    bits.push(String(sc.id), String(sc.title),
+              String((sc.body || '').length), String((sc.adds || []).length));
+  }
+  try { return speakHash_(bits.join('|')); } catch (e) { return bits.join('|').slice(0, 120); }
+}
+
+/** شناسه‌های قابلِ اشاره در کتاب — لنگرهای واقعیِ HTML. */
+function hvizIds_(book) {
+  var ok = Object.create(null);
+  for (var c = 0; c < (book.chapters || []).length; c++) {
+    var cc = book.chapters[c];
+    ok[String(cc.id)] = 1;
+    for (var s = 0; s < (cc.sections || []).length; s++) ok[String(cc.sections[s].id)] = 1;
+  }
+  return ok;
+}
+
+/** پاک‌سازیِ پیشنهادِ مدل: نوعِ ناشناخته، گرهٔ بی‌متن، شناسهٔ ساختگی. */
+function hvizClean_(d, idsOk) {
+  if (!d || !((d.items || []).length)) return null;
+  var kind = String(d.kind || '').trim();
+  if (!HVIZ_KINDS[kind]) kind = 'کارت‌ها';
+  var items = [];
+  for (var i = 0; i < d.items.length && items.length < 10; i++) {
+    var it = d.items[i] || {};
+    var label = String(it.label || '').trim().slice(0, 60);
+    if (!label) continue;
+    var to = String(it.to || '').trim();
+    if (to && !idsOk[to]) to = '';        // شناسهٔ ساختگی → گره می‌ماند، لینک می‌افتد
+    items.push({ label: label, detail: String(it.detail || '').trim().slice(0, 140),
+                 to: to, group: String(it.group || '').trim().slice(0, 40) });
+  }
+  if (items.length < 2) return null;      // نمودارِ تک‌گره، نمودار نیست
+  return { kind: kind, title: String(d.title || '').trim().slice(0, 90),
+           note: String(d.note || '').trim().slice(0, 200), items: items };
+}
+
+/** یک گره — با لینک اگر مقصدِ واقعی دارد. */
+function hvizNode_(it, cls) {
+  var inner = '<b>' + esc_(it.label) + '</b>' +
+              (it.detail ? '<span>' + esc_(it.detail) + '</span>' : '');
+  if (it.to) return '<a class="' + cls + '" href="#' + esc_(it.to) + '">' + inner + '</a>';
+  return '<div class="' + cls + '">' + inner + '</div>';
+}
+
+/** رندرِ یک نمودار. هر نوع، چیدمانِ خودش؛ کلیک‌پذیری در همه یکی. */
+function hvizHtml_(d, badge) {
+  if (!d || !(d.items || []).length) return '';
+  var h = ['<div class="hvz hvz-' + ({
+    'نقشهٔ ذهنی': 'mm', 'روندنما': 'flow', 'چرخه': 'cyc',
+    'سلسله‌مراتب': 'hier', 'تقابل': 'cmp', 'کارت‌ها': 'cards'
+  }[d.kind] || 'cards') + '">'];
+  h.push('<div class="hvz-h"><span class="hvz-k">' + esc_(d.kind) + '</span>' +
+         (badge ? '<span class="hvz-b">' + esc_(badge) + '</span>' : '') +
+         (d.title ? '<b>' + esc_(d.title) + '</b>' : '') + '</div>');
+  var items = d.items;
+  if (d.kind === 'نقشهٔ ذهنی') {
+    // گرهٔ اول مرکز است؛ بقیه شاخه‌های دورش
+    h.push('<div class="hvz-c">' + hvizNode_(items[0], 'hvz-ctr') + '</div>');
+    h.push('<div class="hvz-br">');
+    for (var i = 1; i < items.length; i++) h.push(hvizNode_(items[i], 'hvz-n'));
+    h.push('</div>');
+  } else if (d.kind === 'روندنما') {
+    h.push('<div class="hvz-fl">');
+    for (var f = 0; f < items.length; f++) {
+      if (f) h.push('<div class="hvz-ar">↓</div>');
+      h.push(hvizNode_(items[f], 'hvz-n hvz-st'));
+    }
+    h.push('</div>');
+  } else if (d.kind === 'چرخه') {
+    h.push('<div class="hvz-ring">');
+    for (var c = 0; c < items.length; c++) {
+      if (c) h.push('<span class="hvz-ar2">←</span>');
+      h.push(hvizNode_(items[c], 'hvz-n'));
+    }
+    h.push('<span class="hvz-loop" title="و دوباره از آغاز">↺</span>');
+    h.push('</div>');
+  } else if (d.kind === 'سلسله‌مراتب' || d.kind === 'تقابل') {
+    // گروه‌ها به ترتیبِ نخستین دیدار — سطرهای هرم یا ستون‌های تقابل
+    var groups = [], byG = Object.create(null);
+    for (var g = 0; g < items.length; g++) {
+      var gk = items[g].group || '—';
+      if (!byG[gk]) { byG[gk] = []; groups.push(gk); }
+      byG[gk].push(items[g]);
+    }
+    h.push('<div class="' + (d.kind === 'تقابل' ? 'hvz-cols' : 'hvz-lvls') + '">');
+    for (var gg = 0; gg < groups.length; gg++) {
+      h.push('<div class="hvz-lvl"><div class="hvz-g">' + esc_(groups[gg]) + '</div><div class="hvz-gi">');
+      for (var q = 0; q < byG[groups[gg]].length; q++) h.push(hvizNode_(byG[groups[gg]][q], 'hvz-n'));
+      h.push('</div></div>');
+    }
+    h.push('</div>');
+  } else {
+    h.push('<div class="hvz-grid">');
+    for (var k = 0; k < items.length; k++) h.push(hvizNode_(items[k], 'hvz-n'));
+    h.push('</div>');
+  }
+  if (d.note) h.push('<div class="hvz-note">' + esc_(d.note) + '</div>');
+  h.push('</div>');
+  return h.join('');
+}
+
+/**
+ * نقشهٔ کلِ کتاب — بی‌مدل، همیشه، مجانی. فصل‌ها معلوم‌اند؛ برای «روی چه
+ * کلیک کنم تا کجا بروم» هیچ فهمی لازم نیست، فقط صداقتِ ساختار.
+ */
+function hvizBookMap_(book) {
+  var chs = book.chapters || [];
+  if (chs.length < 2) return '';
+  var items = [{ label: String(book.seriesName || 'این کتاب'), detail: '', to: '', group: '' }];
+  for (var i = 0; i < chs.length && items.length < 10; i++) {
+    items.push({ label: handoutTitleClean_(String(chs[i].title || '')).slice(0, 60),
+                 detail: faDigitsOut_(String((chs[i].sections || []).length)) + ' بخش',
+                 to: String(chs[i].id), group: '' });
+  }
+  return hvizHtml_({ kind: 'نقشهٔ ذهنی', title: 'نقشهٔ کتاب در یک نگاه',
+                     note: 'روی هر شاخه کلیک کنید تا به همان فصل بروید.',
+                     items: items }, '');
+}
+
+/** پرامپت + فراخوان برای یک فصل. null یعنی مدل چیزی نداد. */
+function hvizModel_(book, cc) {
+  var ids = ['«' + cc.id + '» (خودِ فصل)'];
+  var L = [
+    'تو طراحِ نمودارهای یک جزوهٔ آموزشیِ فارسی هستی. برای فصلِ زیر تصمیم بگیر',
+    'کجا نمودار لازم است و از چه نوعی — و محتوایش را از خودِ متنِ فصل دربیاور،',
+    'نه از عنوان‌ها. نمودارِ تزئینی که فقط عنوان‌ها را کپی کند، بدتر از نبودن است.',
+    '',
+    'انواعِ مجاز و جای درستِ هرکدام:',
+    '• «نقشهٔ ذهنی» — مفهومِ مرکزی و شاخه‌هایش؛ برای آماده‌سازیِ ذهن در آغازِ',
+    '  فصل یا جمع‌بندیِ کل در پایان. گرهٔ اول مرکز است.',
+    '• «روندنما» — وقتی ترتیب مهم است: استدلالِ قدم‌به‌قدم، فرایند، «اول این،',
+    '  بعد آن». به ترتیبِ گفتن بچین.',
+    '• «چرخه» — رابطهٔ حلقوی و بازخوردی؛ جایی که آخر به اول برمی‌گردد.',
+    '• «سلسله‌مراتب» — تقسیم‌بندی و رده‌ها؛ group نامِ هر سطح است، از بالا به پایین.',
+    '• «تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون است.',
+    '• «کارت‌ها» — چند نکتهٔ هم‌وزن، بی‌ترتیب و بی‌سلسله.',
+    '',
+    'چه بساز:',
+    '۱) intro — نمودارِ آماده‌سازی برای آغازِ فصل: خواننده پیش از خواندن،',
+    '   نقشهٔ راهِ ذهنی بگیرد.',
+    '۲) recap — نمودارِ مرور برای پایانِ فصل: آنچه خواند، در یک نگاه جمع شود.',
+    '   نوعش را از جنسِ محتوا بگیر — مرورِ یک استدلالِ ترتیبی «روندنما»ست،',
+    '   مرورِ یک تقسیم‌بندی «سلسله‌مراتب».',
+    '۳) secs — فقط برای بخش‌هایی که واقعاً سنگین‌اند (تمایزِ چندشاخه، فرایند،',
+    '   تقابل) یکی بساز و در فیلدِ at شناسهٔ همان بخش را بگذار. بخشِ ساده',
+    '   نمودار نمی‌خواهد؛ صفر تا دو تا کافی است.',
+    '',
+    'قاعده‌های سخت:',
+    '• هر گره فیلدِ to دارد: شناسهٔ بخش یا فصلی از همین فهرست که آن حرف',
+    '  آن‌جاست — با کلیک روی گره، خواننده به همان‌جا می‌رود. فقط از این',
+    '  شناسه‌ها؛ شناسهٔ ساختگی لینکِ مرده می‌سازد و دور انداخته می‌شود.',
+    '• label حداکثر پنج‌شش واژه؛ detail یک جملهٔ کوتاه یا خالی.',
+    '• بین ۳ تا ۸ گره در هر نمودار.',
+    '',
+    '── فصل ──',
+    'عنوان: ' + handoutTitleClean_(String(cc.title || '')),
+    (cc.intro ? 'درآمد: ' + String(cc.intro).slice(0, 300) : '')
+  ];
+  for (var i = 0; i < (cc.sections || []).length; i++) {
+    var sc = cc.sections[i];
+    ids.push('«' + sc.id + '» (' + String(sc.title || '').slice(0, 50) + ')');
+    L.push('');
+    L.push('بخش ' + sc.id + ' — ' + String(sc.title || ''));
+    if (sc.takeaway) L.push('چکیده: ' + String(sc.takeaway).slice(0, 200));
+    L.push(String(sc.body || '').slice(0, 700));
+  }
+  L.push('');
+  L.push('شناسه‌های مجاز برای to: ' + ids.join('، '));
+  var r = null;
+  try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 8192); } catch (e) { r = null; }
+  if (!r) return null;
+  var idsOk = hvizIds_(book);
+  idsOk[String(cc.id)] = 1;
+  var out = { intro: hvizClean_(r.intro, idsOk), recap: hvizClean_(r.recap, idsOk), secs: [] };
+  var seen = Object.create(null);
+  for (var q = 0; q < (r.secs || []).length && out.secs.length < 2; q++) {
+    var at = String((r.secs[q] || {}).at || '').trim();
+    if (!at || !idsOk[at] || seen[at]) continue;   // نمودارِ میان‌بخشیِ بی‌مقصد، جایی برای نشستن ندارد
+    var d = hvizClean_(r.secs[q], idsOk);
+    if (!d) continue;
+    d.at = at; seen[at] = 1; out.secs.push(d);
+  }
+  if (!out.intro && !out.recap && !out.secs.length) return null;
+  return out;
+}
+
+/**
+ * پرکردنِ نمودارهای کتاب — تا سقفِ maxCalls فراخوان در این نوبت.
+ * فصلِ دارای نمودارِ هم‌امضا رد می‌شود (مجانی)؛ فصلِ تغییرکرده از نو ساخته
+ * می‌شود؛ و شکست با همان قاعدهٔ HANDOUT_TRY_MAX رها می‌شود تا مدلِ خواب،
+ * هر شب بودجه نسوزاند — امضای تازه، سابقهٔ تلاش را صفر می‌کند.
+ */
+function handoutVizFill_(book, maxCalls) {
+  var out = { calls: 0, made: 0, pending: 0, gaveUp: 0 };
+  if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
+  var cap = Math.max(0, Number(maxCalls) || 0);
+  for (var c = 0; c < (book.chapters || []).length; c++) {
+    var cc = book.chapters[c];
+    var sig = hvizSig_(cc);
+    if (cc.viz && cc.viz.sig === sig) continue;
+    var tried = cc.vizTried || {};
+    if (String(tried.sig) === sig && Number(tried.n || 0) >= (Number(CFG.HANDOUT_TRY_MAX) || 4)) {
+      out.gaveUp++; continue;
+    }
+    if (out.calls >= cap) { out.pending++; continue; }
+    out.calls++;
+    var v = hvizModel_(book, cc);
+    if (v) {
+      cc.viz = { sig: sig, at: nowStr_(), intro: v.intro, recap: v.recap, secs: v.secs };
+      delete cc.vizTried;
+      out.made++;
+    } else {
+      cc.vizTried = { sig: sig, n: Number(tried.sig === sig ? tried.n || 0 : 0) + 1, at: nowStr_() };
+      out.pending++;
+    }
+  }
+  return out;
+}
+
+/**
+ * جبرانِ گذشته — «برای درس‌های قبلی هم حتماً باید انجام بشه». جاروی شبانه
+ * با مکان‌نما روی رجیستری (همان الگوی handoutBackfill_)، سقف روی فراخوانِ
+ * مدل — تنها کارِ گران — و نوشتن فقط وقتی چیزی ساخته شد.
+ */
+function handoutVizSweep_(maxCalls, budgetMs) {
+  var out = { walked: 0, calls: 0, made: 0, series: 0, pending: 0, wrapped: false };
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_VIZ_ENABLED === false) return out;
+  var cap = Math.max(1, Number(maxCalls) || Number(CFG.HANDOUT_VIZ_SWEEP) || 6);
+  var t0 = new Date().getTime();
+  var budget = Math.max(30000, Number(budgetMs) || 120000);
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  if (!reg.rows.length) return out;
+  var cur = 0;
+  try { cur = Number(props_().getProperty(PK.HVIZ_CUR) || 0) || 0; } catch (e) {}
+  if (cur >= reg.rows.length) { cur = 0; out.wrapped = true; }
+  var i = cur;
+  while (out.calls < cap && i < reg.rows.length) {
+    if (new Date().getTime() - t0 > budget) break;
+    var rec = reg.rows[i]; i++;
+    var fid = String(rec.vals[SC.FOLDER - 1] || '');
+    if (!fid) continue;
+    var sf = null;
+    try { sf = DriveApp.getFolderById(fid); } catch (eF) { continue; }
+    var it = sf.getFilesByName(handoutJsonName_());
+    if (!it.hasNext()) continue;              // هنوز جزوه‌ای ندارد؛ کارِ backfillِ خودِ جزوه است
+    out.walked++;
+    var book = handoutRead_(sf, null);
+    var r = handoutVizFill_(book, cap - out.calls);
+    out.calls += r.calls; out.pending += r.pending;
+    if (r.made) {
+      out.made += r.made; out.series++;
+      book.updatedAt = nowStr_();
+      try { handoutWrite_(sf, book); handoutRender_(sf, book); } catch (eW) {
+        logLine_('نوشتنِ نمودارهای «' + (book.seriesName || rec.key) + '» ناموفق: ' + eW.message);
+      }
+    }
+  }
+  try { props_().setProperty(PK.HVIZ_CUR, String(i >= reg.rows.length ? 0 : i)); } catch (e2) {}
+  if (i >= reg.rows.length) out.wrapped = true;
+  try {
+    props_().setProperty(PK.HVIZ_LAST, JSON.stringify({
+      at: nowStr_(), made: out.made, series: out.series,
+      pending: out.pending, wrapped: out.wrapped
+    }));
+  } catch (e3) {}
+  if (out.made) {
+    logLine_('نمودارهای جزوه: ' + out.made + ' فصل در ' + out.series + ' مجموعه پر شد' +
+             (out.pending ? '، ' + out.pending + ' در نوبت' : '') + '.');
+  }
+  return out;
+}
+
+/** سطرِ روزانه — قاعدهٔ ۵٫۹۰: حتی وقتی همه‌چیز آرام است. */
+function hvizStatus_() {
+  var out = { line: '', at: '', made: 0, pending: 0 };
+  try {
+    var j = JSON.parse(props_().getProperty(PK.HVIZ_LAST) || 'null');
+    if (!j) { out.line = 'نمودارهای جزوه: هنوز دوری اجرا نشده.'; return out; }
+    var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    out.at = String(j.at || ''); out.made = Number(j.made) || 0; out.pending = Number(j.pending) || 0;
+    out.line = 'نمودارهای جزوه: دورِ آخر ' + fa(out.made) + ' فصل پر شد' +
+               (out.pending ? '، ' + fa(out.pending) + ' فصل در نوبت' : '، چیزی در نوبت نیست') +
+               ' (' + out.at + ').';
+  } catch (e) {}
   return out;
 }
 
