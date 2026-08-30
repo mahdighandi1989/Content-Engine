@@ -1570,4 +1570,86 @@ console.log('=== ۲۴) جاروی یک‌بارهٔ عنوانِ فصل‌ها �
      fin.chapters[fin.chapters.length - 1].title);
 }
 
+console.log('=== ۲۵) کپیِ کهنه از رجیستری، خودش را ترمیم می‌کند (۶٫۷۱) ===');
+{
+  /* ماجرای واقعی: دستهٔ «معرفت‌شناسی» در رجیستری عوض شد، پوشه‌ها جابه‌جا
+     شدند، ولی جلدِ جزوه «مذهبی و معنوی» ماند — وصلهٔ ۶٫۵۱ فقط در لحظهٔ
+     تغییر می‌دوید و آن لحظه نسخهٔ حاملش نصب نبود. مجموعهٔ تمام‌شده هم
+     دیگر درسِ تازه نمی‌گیرد، پس هیچ مسیرِ جبرانی نبود. */
+  const hub = new Spread('هاب۲۵');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+
+  const sf = global.__ROOT_FOLDER.createFolder('۲۵ — معرفت‌شناسی');
+  const book = { seriesKey: 'k25', seriesName: 'معرفت‌شناسی', cat: 'مذهبی و معنوی',
+                 level: 'مقدماتی', createdAt: nowStr_(), updatedAt: '', revision: 19,
+                 roadmap: { intro: '', stages: [], note: '' },
+                 chapters: [], refs: [],
+                 episodes: [{ n: '1', title: 'د۱', at: nowStr_() }] };
+  handoutWrite_(sf, book);
+  handoutRender_(sf, book);
+
+  const r = new Array(SERIES_HEADERS.length).fill('');
+  r[SC.KEY - 1] = 'k25'; r[SC.NAME - 1] = 'معرفت‌شناسی';
+  r[SC.CAT - 1] = 'فلسفی و اعتقادی'; r[SC.LEVEL - 1] = 'مقدماتی';
+  r[SC.FOLDER - 1] = sf.getId();
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([r]);
+  const rec = readSeriesReg_(hub).byKey['k25'];
+
+  // ── خودِ تعریف ──
+  const b1 = JSON.parse(JSON.stringify(book));
+  ok('۲۵.۱ دستهٔ کهنه با ردیفِ رجیستری تازه می‌شود',
+     handoutFacts_(b1, rec, sf) === true && b1.cat === 'فلسفی و اعتقادی', b1.cat);
+  ok('۲۵.۲ و بارِ دوم هیچ تغییری نمی‌گوید — بازنویسیِ بی‌دلیل ممنوع',
+     handoutFacts_(b1, rec, sf) === false);
+  ok('۲۵.۳ دستهٔ دستیِ صاحبِ برنامه مقدم است — همان قاعدهٔ seriesCatOf_',
+     (function () {
+       const v = rec.vals.slice(); v[SC.MCAT - 1] = 'دستهٔ دستی';
+       const b = { cat: 'فلسفی و اعتقادی' };
+       return handoutFacts_(b, { vals: v }, null) === true && b.cat === 'دستهٔ دستی';
+     })());
+
+  // ── جاروی شبانه، تنها مسیرِ مجموعهٔ تمام‌شده — بی هیچ نمودار و درسِ تازه ──
+  delete global.__PROPS[PK.HVIZ_CUR];
+  delete global.__PROPS[PK.HVIZ_BAD];
+  const sw = handoutVizSweep_(3, 60000);
+  const onDisk = JSON.parse(sf.getFilesByName(handoutJsonName_()).next()
+                              .getBlob().getDataAsString());
+  ok('۲۵.۴ جارو، بی‌آنکه نموداری بسازد، دسته را روی دیسک ترمیم کرد',
+     onDisk.cat === 'فلسفی و اعتقادی', onDisk.cat + ' (walked=' + sw.walked + ')');
+  const html = sf.getFilesByName(handoutHtmlName_('معرفت‌شناسی')).next()
+                 .getBlob().getDataAsString();
+  ok('۲۵.۵ و جلدِ HTML هم از نو ساخته شد — دستهٔ تازه رویش است',
+     html.indexOf('فلسفی و اعتقادی') !== -1 && html.indexOf('مذهبی و معنوی') === -1);
+  ok('۲۵.۶ ولی مُهرِ «به‌روزرسانی» دست نخورد — ترمیمِ واقعیت، درسِ تازه نیست',
+     onDisk.updatedAt === '', JSON.stringify(onDisk.updatedAt));
+
+  // ── تغییرِ نام: همان فایل تغییرنام می‌گیرد، فایلِ دومی ساخته نمی‌شود ──
+  const r2 = rec.vals.slice(); r2[SC.NAME - 1] = 'معرفت‌شناسی — ویراستِ نو';
+  const b1b = JSON.parse(sf.getFilesByName(handoutJsonName_()).next()
+                           .getBlob().getDataAsString());
+  ok('۲۵.۷ نامِ تازه می‌نشیند', handoutFacts_(b1b, { vals: r2 }, sf) === true &&
+     b1b.seriesName === 'معرفت‌شناسی — ویراستِ نو');
+  ok('۲۵.۸ فایلِ HTML همان است، فقط با نامِ تازه — لینکِ تخته زنده می‌ماند',
+     sf.getFilesByName(handoutHtmlName_('معرفت‌شناسی — ویراستِ نو')).hasNext() &&
+     !sf.getFilesByName(handoutHtmlName_('معرفت‌شناسی')).hasNext());
+
+  // ── مسیرِ درسِ تازه: رجیستری بر کپیِ پروندهٔ قسمت هم می‌چربد ──
+  const p26 = fs.readFileSync('src/26_Handout.gs', 'utf8');
+  ok('۲۵.۹ به‌روزرسانیِ درس، ردیفِ رجیستری را می‌گیرد و بعد از metaی قسمت اعمالش می‌کند',
+     /handoutUpdate_\(sf, meta, hub, rec\)/.test(p26) &&
+     /if \(rec\) \{ try \{ handoutFacts_\(book, rec, folder\); \} catch \(eFx\) \{\} \}/.test(p26));
+  ok('۲۵.۱۰ و دکمهٔ مجموعه هم همین در را دارد',
+     /fx = handoutFacts_\(book, rec, sf\);/.test(p26) &&
+     /مشخصاتِ جلد \(دسته\/سطح\/نام\) از رجیستری تازه شد/.test(p26));
+
+  // ── و لحظهٔ تغییر در تخته: JSON + جلد، هر دو، و شکستش بلند ──
+  const p15 = fs.readFileSync('src/15_Board.gs', 'utf8');
+  ok('۲۵.۱۱ تغییرِ دسته در تخته همان لحظه جلد را هم از نو می‌سازد',
+     /handoutRender_\(folder, bk\)/.test(p15));
+  ok('۲۵.۱۲ و شکستِ به‌روزرسانیِ جزوه دیگر بی‌صدا نیست — در رسیدِ دکمه می‌آید',
+     /به‌روزرسانیِ جزوه نشد: /.test(p15));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

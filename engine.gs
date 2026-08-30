@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.70
+ *  موتور محتوا و پادکست — نسخهٔ 6.71
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1076,7 +1076,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.70',
+  CODE_VERSION: '6.71',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -19491,10 +19491,20 @@ function applyManualSeriesPast_(reg, rec) {
       if (bk && String(bk.cat || '') !== cat) {
         bk.cat = cat;
         fH.setContent(JSON.stringify(bk));
-        out.push('دستهٔ جزوهٔ این مجموعه هم به‌روز شد');
+        /* و همان لحظه HTML هم از نو — وصلهٔ ۶٫۵۱ فقط JSON را عوض می‌کرد و
+           جلدی که آدم باز می‌کند تا رندرِ بعدی (که برای مجموعهٔ تمام‌شده
+           می‌توانست هرگز نیاید) دستهٔ قبلی را نشان می‌داد. بخشِ ۲۶
+           پایین‌تر است، پس داخلِ try — بارگذارِ جزئی نباید تخته را بشکند. */
+        var did = 'دستهٔ جزوهٔ این مجموعه هم به‌روز شد';
+        try { handoutRender_(folder, bk); did += ' و جلدش از نو ساخته شد'; }
+        catch (eRr) { did += '؛ ولی بازسازیِ جلد نشد: ' + eRr.message; }
+        out.push(did);
       }
     }
-  } catch (eH2) {}
+  } catch (eH2) {
+    /* شکستِ بی‌صدا همین‌جا دو روز جلدِ کهنه ساخت — رسیدِ دکمه باید بگوید. */
+    out.push('به‌روزرسانیِ جزوه نشد: ' + eH2.message);
+  }
   return out;
 }
 
@@ -31662,13 +31672,52 @@ function handoutRender_(folder, book) {
   return folder.createFile(blob);
 }
 
+/* ══ واقعیت‌های رجیستری، هر بار از نو (۶٫۷۱) ══
+ *
+ * دسته، سطح و نامِ مجموعه مالِ رجیستری‌اند؛ کتابِ جزوه فقط کپی‌شان را
+ * دارد. ۶٫۵۱ آن کپی را «در لحظهٔ تغییر» وصله می‌زد — یک‌باره و بی‌صدا. و
+ * دقیقاً همان‌طور که یک‌باره‌ها می‌میرند، مُرد: دستهٔ «معرفت‌شناسی» وقتی
+ * عوض شد که نسخهٔ حاملِ وصله هنوز نصب نبود، پوشه‌ها جابه‌جا شدند و جلدِ
+ * جزوه تا دو روز بعد «مذهبی و معنوی» ماند — و هیچ مسیرِ جبرانی نبود،
+ * چون مجموعهٔ تمام‌شده دیگر درسِ تازه نمی‌گیرد.
+ *
+ * پس قاعده: هر جا کتاب با ردیفِ رجیستری در یک دست است، کپی با اصل سنجیده
+ * و تازه می‌شود — به‌روزرسانیِ درس، جاروی شبانهٔ نمودارها، و دکمهٔ خودِ
+ * مجموعه. کپی‌ای که هر شب خودش را با اصل می‌سنجد، کهنه نمی‌ماند؛ اصلاح
+ * فقط در «لحظهٔ تغییر» یعنی اصلاح فقط وقتی که بخت یار باشد.
+ *
+ * نام یک قدمِ بیشتر می‌خواهد: فایلِ HTML به نامِ مجموعه است، پس اول همان
+ * فایلِ موجود تغییرنام می‌گیرد — شناسه‌اش می‌ماند و لینکِ ثبت‌شده در تختهٔ
+ * مجموعه‌ها زنده می‌ماند؛ ساختنِ فایلِ دوم یعنی دو جزوه برای یک مجموعه،
+ * همان dupای که outLayoutCheck_ برای ریشه گزارش می‌کند.
+ */
+function handoutFacts_(book, rec, folder) {
+  if (!book || !rec || !rec.vals) return false;
+  var changed = false;
+  var cat = seriesCatOf_(rec.vals);
+  if (cat && String(book.cat || '') !== cat) { book.cat = cat; changed = true; }
+  var lvl = String(rec.vals[SC.LEVEL - 1] || '').trim();
+  if (lvl && String(book.level || '') !== lvl) { book.level = lvl; changed = true; }
+  var nm = String(rec.vals[SC.NAME - 1] || '').trim();
+  if (nm && String(book.seriesName || '') !== nm) {
+    if (book.seriesName && folder) {
+      try {
+        var itO = folder.getFilesByName(handoutHtmlName_(book.seriesName));
+        if (itO.hasNext()) itO.next().setName(handoutHtmlName_(nm));
+      } catch (eN) {}
+    }
+    book.seriesName = nm; changed = true;
+  }
+  return changed;
+}
+
 /* ───────────────────────── به‌روزرسانیِ یک مجموعه ───────────────────────── */
 
 /**
  * جزوهٔ یک مجموعه را با یک قسمتِ تازه به‌روز می‌کند.
  * @return {{ok:boolean, why:string, stats:object, url:string}}
  */
-function handoutUpdate_(folder, meta, hub) {
+function handoutUpdate_(folder, meta, hub, rec) {
   var out = { ok: false, why: '', stats: null, url: '' };
   if (CFG.HANDOUT_ENABLED === false) { out.why = 'خاموش'; return out; }
   var ep = (meta && meta.ep) || {};
@@ -31760,6 +31809,9 @@ function handoutUpdate_(folder, meta, hub) {
      هست، می‌نشیند؛ خالی هرگز روی پرِ قبلی نمی‌نشیند. */
   book.cat = String(meta.seriesCat || '') || book.cat || '';
   book.level = book.level || String(meta.level || '');
+  /* و روی همهٔ این‌ها، خودِ رجیستری — چون meta از پروندهٔ قسمت می‌آید که
+     خودش یک کپی است و می‌تواند مثلِ کتاب کهنه مانده باشد (۶٫۷۱). */
+  if (rec) { try { handoutFacts_(book, rec, folder); } catch (eFx) {} }
   if (book.tried && book.tried[epNum]) delete book.tried[epNum];   // موفق شد؛ سابقه پاک
   book.episodes.push({ n: epNum, title: String(ep.title || ''), at: nowStr_(),
                        chapters: String(st.chapters), sections: String(st.sections),
@@ -31940,6 +31992,13 @@ function handoutOneSeries_(key, maxItems) {
     var sf = seriesFolder_(reg, rec);
     var eps = handoutSeriesEpisodes_(sf);
     var book = handoutRead_(sf, null);
+    /* دکمهٔ آدم همیشه واقعیت‌های رجیستری را هم تازه می‌کند — همان دری که
+       برای سابقهٔ تلاش و عنوان‌ها باز است، برای دسته/سطح/نام هم باز باشد. */
+    var fx = false;
+    try {
+      fx = handoutFacts_(book, rec, sf);
+      if (fx) out.notes.push('مشخصاتِ جلد (دسته/سطح/نام) از رجیستری تازه شد');
+    } catch (eFx) { out.notes.push('تازه‌سازیِ مشخصاتِ جلد نشد: ' + eFx.message); }
     /* دستِ آدم، سابقهٔ تلاش را پاک می‌کند.
        رهاکردن برای این است که موتور هر شب بی‌فایده تلاش نکند — نه اینکه
        درس برای همیشه دفن شود. کسی که پس از یک اصلاح دکمه را می‌زند،
@@ -31981,13 +32040,13 @@ function handoutOneSeries_(key, maxItems) {
       if (rmChanged) out.notes.push('نقشهٔ راه به‌روز شد (' +
         String((book.roadmap.progress || {}).pct || '؟') + '٪)');
     } catch (eRm) {}
-    if (vzr.made || vizReset || rmChanged) {
+    if (vzr.made || vizReset || rmChanged || fx) {
       try {
         /* مُهرِ جلد هم بالا برود — «به‌روزرسانی: دو روز پیش» روی جزوه‌ای که
            همین حالا نمودار گرفت، دروغِ کوچکی است که اعتماد را می‌خورد (۶٫۶۷). */
         if (vzr.made || rmChanged) book.updatedAt = nowStr_();
         handoutWrite_(sf, book);
-        if (vzr.made || rmChanged) handoutRender_(sf, book);
+        if (vzr.made || rmChanged || fx) handoutRender_(sf, book);
       } catch (eVw) { out.notes.push('نوشتنِ جزوه: ' + eVw.message); }
     }
     /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
@@ -32482,6 +32541,10 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     if (!it.hasNext()) continue;              // هنوز جزوه‌ای ندارد؛ کارِ backfillِ خودِ جزوه است
     out.walked++;
     var book = handoutRead_(sf, null);
+    /* واقعیت‌های رجیستری همین‌جا تازه می‌شوند — جارو تنها مسیری است که هر
+       مجموعه، تمام‌شده یا نه، هر چند شب یک بار از زیرِ دستش رد می‌شود. */
+    var fx = false;
+    try { fx = handoutFacts_(book, rec, sf); } catch (eFx) {}
     var r = handoutVizFill_(book, cap - out.calls);
     out.calls += r.calls; out.pending += r.pending;
     out.gaveUp = (out.gaveUp || 0) + (r.gaveUp || 0);
@@ -32500,11 +32563,11 @@ function handoutVizSweep_(maxCalls, budgetMs) {
       handoutRoadmapState_(book, handoutProgressOf_(hub, String(rec.key), partsAll));
       rmCh2 = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas2;
     } catch (eR2) {}
-    if (r.made || r.triedChanged || rmCh2) {
+    if (r.made || r.triedChanged || rmCh2 || fx) {
       if (r.made) { out.made += r.made; out.series++; book.updatedAt = nowStr_(); }
       try {
         handoutWrite_(sf, book);
-        if (r.made || rmCh2) handoutRender_(sf, book);
+        if (r.made || rmCh2 || fx) handoutRender_(sf, book);
       } catch (eW) {
         logLine_('نوشتنِ نمودارهای «' + (book.seriesName || rec.key) + '» ناموفق: ' + eW.message);
       }
@@ -32766,7 +32829,7 @@ function handoutRunDue_(maxItems, budgetMs) {
         var madeN = 0;
         for (var mk2 in eps) if (Object.prototype.hasOwnProperty.call(eps, mk2)) madeN++;
         meta.producedCount = madeN;
-        var u = handoutUpdate_(sf, meta, hub);
+        var u = handoutUpdate_(sf, meta, hub, rec);
         if (u.ok) {
           res.done++;
           try {
