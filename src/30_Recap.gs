@@ -554,7 +554,7 @@ function recapCap_() {
   return Math.max(byTarget, 9000);
 }
 
-function recapWrite_(book, seriesName, scope) {
+function recapWrite_(book, seriesName, scope, freshBlock) {
   var cap = 0;
   try { cap = recapCap_(); } catch (e) { cap = 12000; }
   var r = null;
@@ -563,6 +563,9 @@ function recapWrite_(book, seriesName, scope) {
     var bl = bridgeOfSeries_(getHub_(), seriesName, 24);
     bridges = bridgeRecapBlock_(bl);
   } catch (eB) { bridges = ''; }
+  /* دو بلوکِ جدا با دو نقش: تاریخچهٔ ارجاع‌های گفته‌شدهٔ درس‌ها (از سیاهه)
+     و نسبت‌های تازهٔ خودِ مرور (کشفِ همین لحظه، با قراردادِ کاملِ درس‌ها). */
+  if (freshBlock) bridges = (bridges ? bridges + '\n\n' : '') + freshBlock;
   try { r = geminiText_(recapPrompt_(book, seriesName, cap, scope, bridges), RECAP_SCHEMA, 60000); }
   catch (e) { logLine_('مرورِ بزرگ نوشته نشد: ' + e.message); return null; }
   if (!r || !(r.sections instanceof Array) || !r.sections.length) return null;
@@ -766,10 +769,30 @@ function runRecapEpisode(opt) {
   var bookAll = book;
   book = scope.book;
 
-  var ep = recapWrite_(book, pick.name, scope);
+  /* ══ ارجاعِ تازه برای خودِ مرور (۶٫۶۹) ══
+     خواستهٔ صریح: تیکِ مرجع برای مرورِ مجموعهٔ تمام‌شده هم معنا داشته
+     باشد. هیچ منطقِ تازه‌ای ساخته نمی‌شود — عینِ چهار قطعهٔ مسیرِ درس‌ها:
+     همان کشف (bridgeFor_: کلِ جزوهٔ مرجع، هفت نسبت، هم‌موضوع آخر)، همان
+     صافی (bridgeTrim_: ضعیف/ساختگی/تکراری بیرون)، همان قراردادِ نوشتن
+     (bridgeBlock_: بندِ کاملِ چهارجزئی + مرزِ ستون‌فقرات)، و همان سنجشِ
+     پس از نوشتن. ارجاعِ گفته‌نشده ثبت نمی‌شود — سیاهه فقط گفته‌ها را دارد،
+     پس تناقضی با «مرور از سیاهه می‌خواند» پیش نمی‌آید: آن بلوکْ تاریخچهٔ
+     درس‌هاست، این یکی نسبتِ خودِ مرور. */
+  var fresh = { links: [], block: '', none: '' };
+  try {
+    fresh = bridgeFor_(hub, reg, pick.rec, {
+      seriesName: pick.name, partName: 'مرورِ بزرگِ کلِ مجموعه',
+      digest: recapBookText_(book, 12000), headings: []
+    });
+  } catch (eBf) { logLine_('کشفِ ارجاعِ مرور رد شد: ' + eBf.message); }
+
+  var ep = recapWrite_(book, pick.name, scope, fresh.block);
   if (!ep) return { ok: false, reason: 'write', series: pick.name };
   try {
-    var cut = specialCondense_(ep, specialFileCap_(), 0);
+    /* ۶٫۶۹: تا این خط، مرورِ بلندنوشته دوباره به سقفِ *یک فایل* فشرده
+       می‌شد — یعنی اصلاحِ ۶٫۶۸ (سقفِ کاملِ نوشتن) همین‌جا خنثی می‌شد.
+       همان قاعدهٔ همیشگی: سقفی که یک مرحله بعد کوچک شود، سقف نیست. */
+    var cut = specialCondense_(ep, recapCap_(), 0);
     if (cut && cut.ep) ep = cut.ep;
   } catch (eC) {}
 
@@ -794,6 +817,23 @@ function runRecapEpisode(opt) {
     recapCast_(ep);
   } catch (eCast) { logLine_('نقش‌گزینیِ مرور انجام نشد: ' + eCast.message); }
 
+  /* گفته‌شدنِ ارجاع سنجیده می‌شود، بعد ثبت — عینِ درس‌ها. نقشه ثبت نمی‌شود. */
+  var bUsed = [], bMissed = [];
+  try {
+    if (fresh.links.length) {
+      var bv = bridgeVerify_(ep, fresh.links);
+      bUsed = bv.used; bMissed = bv.missed;
+      if (bUsed.length) {
+        try { bridgeLog_(hub, epNum, pick.name, bUsed); } catch (eL1) {}
+        try { bridgeSnap_(epNum, pick.name, bUsed, ep); } catch (eL2) {}
+      }
+      if (fresh.links.length && !bUsed.length) {
+        logLine_('مرورِ ' + epNum + ': هیچ‌کدام از ' + fresh.links.length +
+                 ' ارجاعِ تأییدشده در متن نیامد.');
+      }
+    }
+  } catch (eBv) { bUsed = []; bMissed = []; }
+
   var meta = {
     ep: ep, seriesKey: pick.rec.key, seriesName: pick.name,
     partFile: '', partName: RECAP_ROW_MARK, partSeq: 0,
@@ -815,7 +855,15 @@ function runRecapEpisode(opt) {
        همین می‌خوانند، و سه کپیِ جدا یعنی روزی یکی کهنه می‌شود. */
     recapMode: scope.mode, recapScope: scope.label,
     recapEps: (scope.eps || []).slice(0, 60), recapUpto: scope.upto || 0,
-    recapChaptersBook: (bookAll.chapters || []).length
+    recapChaptersBook: (bookAll.chapters || []).length,
+    bridges: bUsed.map(function (b) {
+      return { series: b.seriesName, kind: b.kind, at: b.atHeading,
+               claim: b.claim, relation: b.relation, thin: !!b.thin };
+    }),
+    bridgesMissed: bMissed.map(function (b) {
+      return b.seriesName + ' (' + b.kind + ')';
+    }),
+    bridgeNone: String(fresh.none || '')
   };
   writeSpecialJson_(folder, meta);
 

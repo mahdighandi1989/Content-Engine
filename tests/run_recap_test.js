@@ -1016,6 +1016,77 @@ console.log('\n=== ۲۴) «اگر هیچ نکنم چه می‌شود؟» — ج�
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 
+/* ══ ۱۵) ارجاعِ تازه در خودِ مرور (۶٫۶۹) ══
+   تیکِ مرجع باید برای مرورِ مجموعهٔ تمام‌شده هم معنا داشته باشد — با عینِ
+   چهار قطعهٔ مسیرِ درس‌ها: کشف، صافی، قراردادِ بندِ کامل، سنجشِ پس از
+   نوشتن. نقشه ثبت نمی‌شود؛ فقط گفته‌شده. */
+console.log('\n=== ۱۵) ارجاعِ تازه در خودِ مرور ===');
+{
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.SP_PENDING];
+  global.__PROPS[PK.SP_EP_NUM] = '50';
+  // مجموعهٔ مرجع، با جزوه
+  const refF = global.__ROOT_FOLDER.createFolder('۰۹ — مرجع آئودی');
+  setSeries('kRef', 'معرفت‌شناسی آئودی', refF.getId());
+  refF.createFile(Utilities.newBlob(JSON.stringify({
+    seriesName: 'معرفت‌شناسی آئودی', revision: 1, refs: [], episodes: [{ n: '40' }],
+    chapters: [{ id: 'c1', title: 'معیارِ توجیه', sections: [
+      { id: 'x1', title: 'چرا معیار', body: 'بی معیارِ توجیه، ادعا از حدس جدا نمی‌شود.' }] }]
+  }), 'application/json', handoutJsonName_()));
+  // تیکِ مرجع روی مجموعهٔ اصلی
+  {
+    const rg = readSeriesReg_(hub);
+    const rc = rg.byKey['kEp'];
+    rc.vals[SC.XREF - 1] = 'kRef';
+    rg.sheet.getRange(rc.row, SC.XREF, 1, 1).setValue('kRef');
+  }
+  recapQueueSet_(['kEp'], hub);
+  const keepGem = global.geminiText_;
+  const prompts = [];
+  global.geminiText_ = function (prompt) {
+    prompts.push(String(prompt));
+    if (String(prompt).indexOf('کشفِ **نسبت**') !== -1) {
+      return { links: [{ seriesKey: 'kRef', kind: 'پیش‌نیاز', atHeading: 'معیارِ توجیه',
+        claim: 'بی معیارِ توجیه ادعا از حدس جدا نمی‌شود',
+        relation: 'ابزارِ سنجشِ همهٔ ادعاهای این مرور را می‌دهد',
+        say: 'یادت هست در معرفت‌شناسی آئودی معیارِ توجیه را ساختیم؟ همان معیار این‌جا ادعاها را می‌سنجد.',
+        strength: 'قوی' }], none: '' };
+    }
+    return { title: 'مرورِ بزرگ', hook: 'ه.', outro: 'پ.', summary: 'خ',
+      sections: [{ heading: 'جمع‌بندی', narration:
+        'یادت هست در مجموعهٔ معرفت‌شناسی آئودی معیارِ توجیه را ساختیم؟ ' +
+        'آن معیار دقیقاً همین‌جا به کار می‌آید و ادعاهای این مرور را می‌سنجد. ' +
+        'پس آن مجموعه پیش‌نیازِ باورپذیریِ همین حرف‌هاست. ' +
+        'حالا برویم سراغِ خودِ مفاهیم. ' + 'م'.repeat(700) }] };
+  };
+  const un15 = quiet();
+  const r15 = recapRunNext_();
+  un15();
+  global.geminiText_ = keepGem;
+  ok('۱۵.۱ مرور با مرجعِ تیک‌خورده ساخته شد', r15.ok === true, JSON.stringify(r15).slice(0, 120));
+  ok('۱۵.۲ کشف با همان پرامپتِ درس‌ها انجام شد (کلِ جزوهٔ مرجع، نسبت‌ها)',
+     prompts.some(x => x.indexOf('کشفِ **نسبت**') !== -1 &&
+                       x.indexOf('معیارِ توجیه') !== -1));
+  ok('۱۵.۳ پرامپتِ نوشتن قراردادِ بندِ کامل و مرزِ ستون‌فقرات را دارد',
+     prompts.some(x => x.indexOf('هر ارجاع یک بندِ کاملِ سه تا پنج جمله‌ای') !== -1 &&
+                       x.indexOf('ستون‌فقرات است') !== -1));
+  // سیاهه: فقط ارجاعِ گفته‌شده
+  const bt = hub.getSheetByName(CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای');
+  const rows15 = bt ? bt.getRange(1, 1, bt.getLastRow(), bt.getLastColumn()).getValues() : [];
+  ok('۱۵.۴ ارجاعِ گفته‌شده در سیاهه ثبت شد',
+     rows15.some(rr => rr.join(' ').indexOf('معرفت‌شناسی آئودی') !== -1 &&
+                       rr.join(' ').indexOf('51') !== -1));
+  // پروندهٔ قسمت
+  const fo15 = DriveApp.getFolderById(
+    JSON.parse(global.__PROPS[PK.SP_PENDING]).folderId);
+  const meta15 = JSON.parse(fo15.getFilesByName('_special.json').next().getBlob().getDataAsString());
+  ok('۱۵.۵ پروندهٔ مرور ارجاع را با جزئیات دارد و گذرا نیست',
+     meta15.bridges.length === 1 && meta15.bridges[0].series === 'معرفت‌شناسی آئودی' &&
+     meta15.bridges[0].kind === 'پیش‌نیاز' && meta15.bridges[0].thin === false,
+     JSON.stringify(meta15.bridges));
+  delete global.__PROPS[PK.SP_PENDING];
+}
+
 /* ══ ۶٫۶۸ — سقفِ مرور، هدفِ کامل است نه یک فایل ══ */
 console.log('\n=== سقفِ متنِ مرورِ بزرگ ===');
 {
