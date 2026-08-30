@@ -1015,3 +1015,15 @@ console.log('\n=== ۲۴) «اگر هیچ نکنم چه می‌شود؟» — ج�
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
+
+/* ══ ۶٫۶۸ — سقفِ مرور، هدفِ کامل است نه یک فایل ══ */
+console.log('\n=== سقفِ متنِ مرورِ بزرگ ===');
+{
+  const full = Math.round((Number(CFG.SPECIAL_TARGET_MINUTES) || 15) * speechCps_() * 60 * 1.1);
+  ok('سقفِ مرور از هدفِ کاملِ پیکربندی می‌آید، نه از سقفِ یک فایل',
+     recapCap_() === Math.max(full, 9000) && recapCap_() > specialFileCap_(),
+     recapCap_() + ' در برابرِ یک‌فایلِ ' + specialFileCap_());
+  /* و رزروِ درس‌ها (غنی‌سازی/عصری‌سازی) رویش اثر ندارد — در مسیرِ مرور نیستند */
+  ok('و از سقفِ نوشتنِ درس (که رزرو خورده) بلندتر است',
+     recapCap_() > specialMaxChars_(), recapCap_() + ' > ' + specialMaxChars_());
+}
