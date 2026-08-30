@@ -2037,6 +2037,12 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
      gMusic[kRise] > 0.2 && gMusic[kRise] < 0.6, gMusic[kRise].toFixed(2));
   ok('۳۲.۶ و در پایانِ ناحیه به صفر می‌رسد', gMusic[SR - 1] < 0.01,
      gMusic[SR - 1].toFixed(3));
+  /* ۶٫۷۰: «یهو قطع نشه؛ با شیبِ ملایم‌تری محو بشه.» cos ساده در لحظهٔ
+     رسیدن به صفر شیبِ تند دارد (در t=۰٫۹ هنوز ~۰٫۰۸ بود و با همان سرعت
+     می‌کوبید به صفر)؛ شیبِ S همان‌جا زیر ۰٫۰۳ است و با شیبِ صفر می‌نشیند.
+     این تنها سنجه‌ای است که S را از cosِ ساده جدا می‌کند. */
+  ok('۳۲.۶-ب و فرودش S است، نه cosِ ساده — لحظهٔ خاموشی شنیده نمی‌شود',
+     gMusic[Math.floor(SR * 0.9)] < 0.03, gMusic[Math.floor(SR * 0.9)].toFixed(3));
 
   /* ۳) چالهٔ وسط. با شیبِ **خطی** در نقطهٔ میانی هر دو روی ۰٫۵ می‌نشینند و
    *    توانِ کل (مجموعِ مجذورها) به ۰٫۵ می‌افتد — افتی که گوش آن را «یک
@@ -2114,7 +2120,8 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
   // وصل‌بودن به مسیرِ واقعی
   const p03b = fs.readFileSync('src/03_Producer.gs', 'utf8');
   ok('۳۲.۱۷ در حلقهٔ صداگذاری صدا زده می‌شود، با اعلامِ اینکه کدام طرف موسیقی است',
-     /pcmXfade_\(buf\[buf\.length - 1\], b64, xs, !curMusic\)/.test(p03b));
+     /pcmXfade_\(buf\[buf\.length - 1\], b64, xs, !curMusic, xm\)/.test(p03b) &&
+     /var xm = curMusic \? String\(\(chunks\[i\] && chunks\[i\]\.xmode\) \|\| ''\) : ''/.test(p03b));
   ok('۳۲.۱۸ فقط سرِ مرزِ موسیقی↔گفتار، نه میانِ دو تکهٔ گفتار',
      /prevMusic !== curMusic/.test(p03b));
   ok('۳۲.۱۹ و طولِ تلفیق از تکه‌ای می‌آید که واقعاً در بافر نشست',
@@ -2134,7 +2141,7 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
     const realPlan = global.musicPlanModel_, realUsed = global.musicMarkUsed_;
     const seen = [];
     global.musicClip_ = (id, o) => { seen.push({ id: id, fi: o.fadeIn, fo: o.fadeOut,
-                                                 len: o.lenSec }); return 'PCM-' + id; };
+                                                 len: o.lenSec, bed: o.bedIn }); return 'PCM-' + id; };
     global.musicBank_ = () => ([
       { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' },
       { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' }
@@ -2161,6 +2168,23 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
     ok('۳۲.۲۵ میانه هر دو سرش کوتاه است — هر دو لبه‌اش تلفیق می‌شود',
        mid.length > 0 && mid.every((x) => x.fi <= 0.25 && x.fo <= 0.25),
        mid.map((x) => x.fi + '/' + x.fo).join(' '));
+    /* ── بسترِ پایانی (۶٫۷۰) — «از چند ثانیه قبل از آخرین جمله‌ها» ── */
+    ok('۳۲.۲۵-ب سرِ قطعهٔ پایان بستر است: شیب در خودِ قطعه، محوِ ورود صفر',
+       outro.fi === 0 && !!outro.bed &&
+       outro.bed.under === Number(CFG.MUSIC_OUTRO_UNDER_SEC) &&
+       outro.bed.rise === Number(CFG.MUSIC_OUTRO_RISE_SEC) &&
+       outro.bed.bed === Number(CFG.MUSIC_OUTRO_BED),
+       JSON.stringify(outro.bed || null));
+    ok('۳۲.۲۵-پ و بقیهٔ جایگاه‌ها بستر نمی‌گیرند — بستر فقط مالِ پایان است',
+       seen.slice(0, seen.length - 1).every((x) => !x.bed));
+    const mus = r.chunks.filter((c) => c && c.pcm);
+    const oc = mus[mus.length - 1];
+    ok('۳۲.۲۵-ت تکهٔ پایان حالتش را اعلام می‌کند و هم‌پوشانی‌اش زیرِ گفتار می‌رود',
+       !!oc && oc.xmode === 'outro' &&
+       oc.xfade === Number(CFG.MUSIC_OUTRO_UNDER_SEC),
+       oc ? (String(oc.xmode) + '/' + oc.xfade) : 'نیست');
+    ok('۳۲.۲۵-ث و آغاز و میانه حالتِ بستر ندارند',
+       mus.slice(0, mus.length - 1).every((c) => !c.xmode));
     global.musicClip_ = realClip; global.musicBank_ = realBank;
     global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realUsed;
     delete global.__PROPS[PK.MUSIC_PLAN];
@@ -2174,6 +2198,32 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
   ok('۳۲.۲۷ و افکت طولِ کوتاه‌ترِ خودش را دارد',
      /xfade: Number\(CFG\.MUSIC_SFX_XFADE_SEC\)/.test(p23n) &&
      Number(CFG.MUSIC_SFX_XFADE_SEC) < Number(CFG.MUSIC_XFADE_BRIDGE_SEC));
+
+  /* ── بسترِ پایانی: شکلِ گذر در حالتِ outro (۶٫۷۰) ──
+     موسیقی شیبش را در خودِ قطعه دارد (musicBedIn_)، پس تلفیق نباید
+     دوباره شیب بدهد — وگرنه همان «ضربِ دو شیب» ۵٫۸۴ برمی‌گردد. و
+     آخرین جمله‌ها حقِ محو شدن ندارند؛ فقط دنباله‌شان نرم می‌نشیند. */
+  const curveO = (aB64, bB64) => {
+    const m = pcmXfade_(aB64, bB64, 1, false, 'outro');
+    const t = samplesOf(m[0]);
+    return t.slice(t.length - SR).map((v) => v / 10000);
+  };
+  const gTalkO = curveO(one, zero);
+  const gMusO = curveO(zero, one);
+  ok('۳۲.۲۸ در بستر، آخرین جمله‌ها تا نزدیکِ انتها دست‌نخورده‌اند',
+     gTalkO[0] > 0.99 && gTalkO[Math.floor(SR * 0.7)] > 0.99,
+     gTalkO[Math.floor(SR * 0.7)].toFixed(2));
+  ok('۳۲.۲۸-ب و فقط دنباله، آن هم با شیبِ S، می‌نشیند',
+     gTalkO[SR - 1] < 0.05, gTalkO[SR - 1].toFixed(3));
+  ok('۳۲.۲۹ و موسیقی همان‌طور که هست می‌گذرد — شیبش در خودِ قطعه است',
+     gMusO[0] > 0.99 && gMusO[Math.floor(SR * 0.5)] > 0.99 && gMusO[SR - 1] > 0.99,
+     gMusO[Math.floor(SR * 0.5)].toFixed(2));
+  ok('۳۲.۳۰ و عددها با هم می‌خوانند: بستر + اوج، در قطعهٔ پایان جا می‌شود',
+     Number(CFG.MUSIC_OUTRO_UNDER_SEC) + Number(CFG.MUSIC_OUTRO_RISE_SEC) <
+       Number(CFG.MUSIC_OUTRO_SEC) &&
+     Number(CFG.MUSIC_OUTRO_BED) > 0.1 && Number(CFG.MUSIC_OUTRO_BED) < 0.7,
+     CFG.MUSIC_OUTRO_UNDER_SEC + '+' + CFG.MUSIC_OUTRO_RISE_SEC + ' < ' +
+     CFG.MUSIC_OUTRO_SEC);
 }
 
 console.log('=== ۳۳) سدی که هیچ‌وقت باز نمی‌شد ===');

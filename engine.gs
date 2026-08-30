@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.69
+ *  موتور محتوا و پادکست — نسخهٔ 6.70
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -745,7 +745,7 @@ var CFG = {
      علت داشت: شروعِ دیرهنگامِ بی‌وارسی که قطعه را می‌بُرید، محوی که کلِ
      قطعهٔ کوتاه را می‌خورد، و همین عددها که برای رادیو کوچک بودند. */
   MUSIC_INTRO_SEC: 14,          // طولِ موسیقیِ آغاز
-  MUSIC_OUTRO_SEC: 16,         // طولِ موسیقیِ پایان
+  MUSIC_OUTRO_SEC: 20,         // طولِ موسیقیِ پایان (بسترِ زیرِ گفتار هم جزئش است)
   MUSIC_BRIDGE_SEC: 7,         // طولِ قطعهٔ میانه
   MUSIC_BRIDGE_EVERY: 4,            // (کهنه — از ۵٫۵۰ جای موسیقی از مرزِ بخش‌ها می‌آید)
   MUSIC_BRIDGE_MAX: 4,              // حداکثر قطعهٔ میانه در یک قسمت
@@ -755,7 +755,7 @@ var CFG = {
   // قطعه پخش می‌شد. عدد را بالا ببرید تا موسیقی کمتر شود.
   MUSIC_BRIDGE_EVERY_SECTIONS: 2,
        // هر چند تکه یک میانه؛ صفر یعنی هیچ
-  MUSIC_FADE_SEC: 2,           // محوِ نرمِ ابتدا و انتهای هر قطعه
+  MUSIC_FADE_SEC: 3,           // محوِ نرمِ ابتدا و انتهای هر قطعه (شیبِ S از ۶٫۷۰)
   /* ── تلفیقِ لبه‌ها (۵٫۸۰) ──
      تکه‌ها پشتِ سرِ هم چسبانده می‌شدند: موسیقی تمام، بعد گوینده. صاحبِ
      برنامه: «یهو اون قطع شه و این شروع بشه… باید ثانیه‌های آخرِ موسیقی و
@@ -781,9 +781,24 @@ var CFG = {
         می‌رود — این همان کاری است که در رادیو می‌کنند، و برعکسش نه.
      ۴) اگر یکی از دو طرف کوتاه بود، تلفیق بی‌صدا لغو می‌شد و همان‌جا
         بُرشِ خشک می‌ماند. حالا کوتاه می‌شود، نه لغو. */
-  MUSIC_XFADE_EDGE_SEC: 2.4,   // آغاز و پایانِ قسمت — جایی که وقت هست
-  MUSIC_XFADE_BRIDGE_SEC: 1.4, // میانه کوتاه‌تر است؛ ۲.۴ کلش را می‌خورد
+  /* ── و آنچه ۵٫۸۴ هم نداشت (۶٫۷۰) ──
+     صاحبِ برنامه، بعدِ شنیدنِ قسمت‌های موسیقی‌دار: «فید شدنش باید
+     حرفه‌ای‌تر بشه و یهو قطع نشه؛ با شیبِ ملایم‌تری محو بشه — هم شروع،
+     هم میانه‌ها. و پایان: از چند ثانیه قبل از آخرین جمله‌ها موسیقی با
+     شیبِ ملایم شروع بشه و بعدش کم‌کم زیاد بشه.» سه چیز عوض شد:
+     ۱) همهٔ شیب‌ها S شدند (xfRc_) — cos ساده در لحظهٔ صفر شیبِ تند دارد و
+        لحظهٔ خاموشی «شنیده» می‌شود؛ S در هر دو سر شیبِ صفر دارد.
+     ۲) هم‌پوشانی‌ها بلندتر شدند — شیبِ ملایم بی زمانِ کافی ممکن نیست.
+     ۳) پایانِ قسمت «بستر» شد: موسیقی از MUSIC_OUTRO_UNDER_SEC ثانیه قبل از
+        تمام‌شدنِ گفتار، کم‌صدا (MUSIC_OUTRO_BED) زیرش می‌نشیند و بعد از
+        رفتنِ صدا در MUSIC_OUTRO_RISE_SEC ثانیه اوج می‌گیرد. شیبش در خودِ
+        قطعه است (musicBedIn_)، نه در تلفیق — درسِ ۵٫۸۴ دربارهٔ ضربِ دو شیب. */
+  MUSIC_XFADE_EDGE_SEC: 3.5,   // آغاز و پایانِ قسمت — جایی که وقت هست
+  MUSIC_XFADE_BRIDGE_SEC: 2,   // میانه کوتاه‌تر است؛ ۳٫۵ کلش را می‌خورد
   MUSIC_XFADE_MIN_SEC: 0.15,   // کمتر از این، تلفیق نیست؛ تلنگر است
+  MUSIC_OUTRO_UNDER_SEC: 6,    // بسترِ پایانی: چند ثانیه زیرِ آخرین جمله‌ها
+  MUSIC_OUTRO_RISE_SEC: 3,     // بعد از رفتنِ گفتار، در چند ثانیه اوج بگیرد
+  MUSIC_OUTRO_BED: 0.35,       // بلندیِ بستر زیرِ گفتار (نسبت به بلندیِ کامل)
   MUSIC_DUCK_FLOOR: 0.55,      // بلندیِ گوینده در لحظهٔ ورود (نه صفر)
   MUSIC_DUCK_RISE: 0.35,       // در چند درصدِ گذر به بلندیِ کامل می‌رسد
   MUSIC_DUCK_UNDER: 0.5,       // موسیقی زیرِ صدای گوینده تا این ضریب
@@ -1061,7 +1076,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.69',
+  CODE_VERSION: '6.70',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -4599,11 +4614,23 @@ function rd16_(b, i) {
 
    و جمع، نرم فشرده می‌شود نه بریده: دو صدای هم‌زمان می‌توانند از سقفِ
    ۱۶بیتی رد شوند، و بریدنِ خشک صدای خش می‌دهد.
+
+   ۶٫۷۰ شکلِ شیب را یک پله جلوتر برد: cos/sinِ هم‌توان در لحظهٔ رسیدن به
+   صفر شیبِ تند دارند و همان لحظه «شنیده» می‌شود — صاحبِ برنامه: «یهو قطع
+   نشه؛ با شیبِ ملایم‌تری محو بشه.» حالا همهٔ شیب‌ها S هستند (xfRc_؛ در هر
+   دو سر شیبِ صفر). چون گوینده در این گذرها هیچ‌وقت به صفر نمی‌رسد (کف و
+   hold سرِ جای‌شان‌اند)، توانِ گذر همچنان جایی نمی‌افتد — سنجهٔ ۳۲٫۷ همین
+   را روی خودِ نمونه‌ها می‌سنجد. و «outro» حالتِ چهارم است: بسترِ پایانی،
+   که موسیقی‌اش شیب را در خودِ قطعه دارد و گفتارش فقط دنباله‌اش می‌نشیند.
 */
 
-/** شیبِ هم‌توان، بی نیاز به Math.cos برای هر نمونه (ارزان‌تر و دقیق). */
-function xfCos_(t) { return Math.cos(t * Math.PI / 2); }
-function xfSin_(t) { return Math.sin(t * Math.PI / 2); }
+/* ── شیبِ S (۶٫۷۰) ──
+   صاحبِ برنامه، بعدِ چند قسمتِ واقعاً موسیقی‌دار: «فید شدنش باید حرفه‌ای‌تر
+   بشه و یهو قطع نشه؛ با شیبِ ملایم‌تری محو بشه.» و حق داشت: cos ساده در
+   لحظهٔ رسیدن به صفر شیبِ تند دارد (−π/2)، پس لحظهٔ خاموشی «شنیده» می‌شود —
+   قطع، نه محو. کسینوسیِ بالابرده در **هر دو سرش** شیبِ صفر دارد: نه ورودش
+   تلنگر می‌زند، نه فرودش. این همان S-curve میزهای تدوین است. */
+function xfRc_(t) { return (1 - Math.cos(t * Math.PI)) / 2; }
 
 /** فشردنِ نرمِ بالای زانو — به‌جای بریدنِ خشک در ±۳۲۷۶۷. */
 function pcmSoft_(v) {
@@ -4624,10 +4651,14 @@ function pcmSoft_(v) {
  * @param {number} secs     طولِ خواسته‌شدهٔ هم‌پوشانی
  * @param {boolean} prevIsMusic  کدام طرف موسیقی است — شکلِ گذر را همین
  *                               تعیین می‌کند، نه فقط طولش
+ * @param {string=} mode  «outro» یعنی بسترِ پایانی (۶٫۷۰): موسیقی شیبش را
+ *                        در خودِ قطعه دارد (bedIn) و اینجا فقط زیرِ
+ *                        آخرین جمله‌ها می‌نشیند — دوباره شیب‌دادن همان
+ *                        «ضربِ دو شیب» ۵٫۸۴ است.
  * @return {Array|null} [تکهٔ اولِ تازه، تکهٔ دومِ تازه]، یا null اگر حتی
  *                      کوتاه‌ترین هم‌پوشانی هم جا نشد
  */
-function pcmXfade_(prevB64, nextB64, secs, prevIsMusic) {
+function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
   var sr = CFG.SAMPLE_RATE || 24000;
   if (!prevB64 || !nextB64) return null;
 
@@ -4658,20 +4689,31 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic) {
   var under = Number(CFG.MUSIC_DUCK_UNDER); if (!(under >= 0)) under = 0.5;
   var hold = Number(CFG.MUSIC_XFADE_HOLD); if (!(hold >= 0 && hold < 1)) hold = 0.5;
 
+  // بسترِ پایانی: دنبالهٔ گفتار فقط در همین چند نمونهٔ آخر نرم می‌نشیند —
+  // جمله‌های پایانی حقِ محو شدن ندارند، آن‌ها خودِ حرفِ آخرند.
+  var tailN = (mode === 'outro')
+      ? Math.max(1, Math.min(Math.floor(sr * 1.2), Math.floor(cnt / 4))) : 0;
+
   var out = [];
   for (var k = 0; k < cnt; k++) {
     var i2 = k * 2, t = k / cnt, ga, gb;
-    if (prevIsMusic === false) {
-      // گفتار → موسیقی: حرف تا `hold` دست‌نخورده، بعد می‌رود؛ موسیقی زیرش
-      // بالا می‌آید و پس از رفتنِ حرف به بلندیِ کامل می‌رسد.
+    if (mode === 'outro' && prevIsMusic === false) {
+      // بسترِ پایانی (۶٫۷۰): موسیقی از پیش در خودِ قطعه شکل گرفته (bedIn)
+      // و همین‌طور که هست زیرِ آخرین جمله‌ها می‌نشیند؛ گفتار تا نزدیکِ
+      // انتها دست‌نخورده می‌مانَد و فقط دنباله‌اش با شیبِ S فرود می‌آید.
+      ga = k < cnt - tailN ? 1 : xfRc_((cnt - k) / tailN);
+      gb = 1;
+    } else if (prevIsMusic === false) {
+      // گفتار → موسیقی: حرف تا `hold` دست‌نخورده، بعد با شیبِ S می‌رود؛
+      // موسیقی زیرش با شیبِ S بالا می‌آید و پس از رفتنِ حرف کامل می‌شود.
       var u = t <= hold ? 0 : (t - hold) / (1 - hold);
-      ga = t <= hold ? 1 : xfCos_(u);
-      gb = xfSin_(t) * (under + (1 - under) * u);
+      ga = t <= hold ? 1 : xfRc_(1 - u);
+      gb = xfRc_(t) * (under + (1 - under) * u);
     } else {
-      // موسیقی → گفتار: موسیقی هم‌توان می‌افتد و زیرِ صدا می‌رود؛ گوینده از
-      // کف وارد می‌شود، نه از صفر.
+      // موسیقی → گفتار: موسیقی می‌افتد و زیرِ صدا می‌رود — فرودش شیبِ S
+      // است تا لحظهٔ خاموشی شنیده نشود؛ گوینده از کف وارد می‌شود، نه از صفر.
       var r = rise > 0 ? Math.min(1, t / rise) : 1;
-      ga = xfCos_(t) * (1 - (1 - under) * r);
+      ga = xfRc_(1 - t) * (1 - (1 - under) * r);
       gb = floorG + (1 - floorG) * r;
     }
     var v = pcmSoft_(rd16_(a, i2) * ga + rd16_(b, i2) * gb);
@@ -4810,8 +4852,10 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
       try {
         // شکلِ گذر به این بستگی دارد که کدام طرف موسیقی است — گفتار
-        // هرگز مثل موسیقی محو نمی‌شود.
-        var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic);
+        // هرگز مثل موسیقی محو نمی‌شود. تکهٔ موسیقی می‌تواند حالتِ خودش را
+        // اعلام کند (xmode='outro' → بسترِ پایانی زیرِ آخرین جمله‌ها).
+        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : '';
+        var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic, xm);
         if (mix) {
           bufChars += mix[0].length - buf[buf.length - 1].length;
           buf[buf.length - 1] = mix[0];
@@ -26217,7 +26261,10 @@ function musicSamples_(b, info, startSec, lenSec) {
   return out;
 }
 
-/** بلندی و محوِ نرمِ ابتدا و انتها، روی خودِ نمونه‌ها. */
+/** بلندی و محوِ نرمِ ابتدا و انتها، روی خودِ نمونه‌ها.
+    از ۶٫۷۰ محو شیبِ S دارد (xfRc_ در بخشِ ۳)، نه خطی: شیبِ خطی در لحظهٔ
+    رسیدن به سکوت هنوز با سرعتِ کامل پایین می‌رود و گوش آن را «قطع»
+    می‌شنود؛ S در هر دو سر شیبِ صفر دارد — فرودِ نرم، نه سقوط. */
 function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
   var g = (Number(gain) >= 0) ? Number(gain) : 1;
   var sr = CFG.SAMPLE_RATE || 24000;
@@ -26226,9 +26273,43 @@ function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
   var n = samples.length;
   for (var i = 0; i < n; i++) {
     var m = g;
-    if (fi && i < fi) m *= i / fi;
-    if (fo && i >= n - fo) m *= (n - i) / fo;
+    if (fi && i < fi) m *= xfRc_(i / fi);
+    if (fo && i >= n - fo) m *= xfRc_((n - i) / fo);
     var v = Math.round(samples[i] * m);
+    samples[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
+  }
+  return samples;
+}
+
+/* ── بسترِ پایانی (۶٫۷۰) ──
+   خواستهٔ صاحبِ برنامه، کلمه‌به‌کلمه: «زمانی که می‌خواد تموم بشه، از چند
+   ثانیه قبل از اینکه گوینده آخرین جملات رو بگه موسیقی شروع به پخش کنه با
+   شیبِ ملایم و بعدش کم‌کم زیاد بشه.»
+   پس سرِ قطعهٔ پایان دو مرحله دارد: `underSec` ثانیهٔ اول از سکوت تا سطحِ
+   «بستر» (bed) بالا می‌آید — این همان تکه‌ای است که زیرِ جمله‌های آخر
+   می‌نشیند — و بعد در `riseSec` ثانیه از بستر تا بلندیِ کامل اوج می‌گیرد.
+   هر دو با شیبِ S.
+
+   شکل **در خودِ قطعه** است، نه در تلفیق — درسِ ۵٫۸۴: دو جا که یک ناحیه را
+   شکل بدهند، حاصلْ ضربِ دو شیب است و موسیقی زودتر از آنچه باید می‌میرد.
+   و همین باعث می‌شود اگر تلفیق اصلاً جا نشد (تکهٔ گفتارِ کوتاه)، باز هم
+   ورودِ موسیقی نرم باشد: شیب همراهِ خودِ قطعه است. */
+function musicBedIn_(samples, underSec, riseSec, bed) {
+  var sr = CFG.SAMPLE_RATE || 24000, n = samples.length;
+  var b = Number(bed); if (!(b > 0 && b < 1)) b = 0.35;
+  var un = Math.max(0, Math.floor((Number(underSec) || 0) * sr));
+  var rn = Math.max(0, Math.floor((Number(riseSec) || 0) * sr));
+  // قطعهٔ کوتاه: سرِ بستر نباید کلِ قطعه را بخورد — هر دو سهم با هم کوچک
+  // می‌شوند تا دستِ‌کم ۳۰٪ از قطعه با بلندیِ کامل بماند.
+  var cap = Math.floor(n * 0.7);
+  if (un + rn > cap && un + rn > 0) {
+    var sc = cap / (un + rn);
+    un = Math.floor(un * sc); rn = Math.floor(rn * sc);
+  }
+  for (var i = 0; i < un + rn && i < n; i++) {
+    var g = (i < un) ? b * xfRc_(un ? i / un : 1)
+                     : b + (1 - b) * xfRc_(rn ? (i - un) / rn : 1);
+    var v = Math.round(samples[i] * g);
     samples[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
   }
   return samples;
@@ -26261,6 +26342,9 @@ function musicClip_(fileId, opt) {
     var s = musicSamples_(b, info, opt.startSec || 0, len);
     if (!s.length) return '';
     musicShape_(s, opt.gain, opt.fadeIn, opt.fadeOut);
+    // بسترِ پایانی روی سرِ قطعه — بعد از بلندی و محو، که فقط پوششِ حجمی است
+    // روی ناحیه‌ای که محوِ ورود نگرفته (fadeIn آن حالت صفر است).
+    if (opt.bedIn) musicBedIn_(s, opt.bedIn.under, opt.bedIn.rise, opt.bedIn.bed);
     return musicB64_(s);
   } catch (e) {
     logLine_('قطعهٔ موسیقی خوانده نشد (' + fileId + '): ' + e.message);
@@ -27102,13 +27186,21 @@ function musicWrap_(chunks, hub, opt) {
     if (!b) return '';
     opts = opts || {};
     var len = Math.min(secs, b.sec || secs);
-    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود.
-    var fi = (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
+    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود؛
+    // «bed» یعنی بسترِ پایانی — شیب در خودِ قطعه است (musicBedIn_)، پس
+    // محوِ ورود صفر می‌مانَد وگرنه دو شیب در هم ضرب می‌شوند.
+    var fi = (opts.inEdge === 'bed') ? 0
+           : (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
     var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : softFade(len);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
-      fadeIn: fi, fadeOut: fo
+      fadeIn: fi, fadeOut: fo,
+      bedIn: (opts.inEdge === 'bed')
+          ? { under: Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 6,
+              rise: Number(CFG.MUSIC_OUTRO_RISE_SEC) || 3,
+              bed: Number(CFG.MUSIC_OUTRO_BED) || 0.35 }
+          : null
     });
   };
 
@@ -27196,11 +27288,17 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
-    // آغازش از گفتار می‌آید → تلفیق؛ پایانش آخرین صدای قسمت است → محوِ کامل.
+    /* پایانِ قسمت از ۶٫۷۰ «بستر» است، نه تلفیقِ معمولی: موسیقی از
+       MUSIC_OUTRO_UNDER_SEC ثانیه قبل از تمام‌شدنِ آخرین جمله‌ها، نرم و
+       کم‌صدا زیرِ گفتار شروع می‌شود و بعد از رفتنِ صدا کم‌کم اوج می‌گیرد.
+       شیبش در خودِ قطعه است (bedIn) و xmode به تلفیق می‌گوید که دوباره
+       شیب ندهد؛ پایانش آخرین صدای قسمت است → محوِ کامل. */
+    var underS = Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 0;
     var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10,
-                    { inEdge: 'xf', outEdge: 'soft' });
+                    { inEdge: underS > 0 ? 'bed' : 'xf', outEdge: 'soft' });
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
-                         xfade: xfEdgeSec_() });
+                         xfade: underS > 0 ? underS : xfEdgeSec_(),
+                         xmode: underS > 0 ? 'outro' : '' });
               picks.push(pickOf_(outro, 'پایان')); }
   }
 

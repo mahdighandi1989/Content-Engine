@@ -158,7 +158,10 @@ function musicSamples_(b, info, startSec, lenSec) {
   return out;
 }
 
-/** بلندی و محوِ نرمِ ابتدا و انتها، روی خودِ نمونه‌ها. */
+/** بلندی و محوِ نرمِ ابتدا و انتها، روی خودِ نمونه‌ها.
+    از ۶٫۷۰ محو شیبِ S دارد (xfRc_ در بخشِ ۳)، نه خطی: شیبِ خطی در لحظهٔ
+    رسیدن به سکوت هنوز با سرعتِ کامل پایین می‌رود و گوش آن را «قطع»
+    می‌شنود؛ S در هر دو سر شیبِ صفر دارد — فرودِ نرم، نه سقوط. */
 function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
   var g = (Number(gain) >= 0) ? Number(gain) : 1;
   var sr = CFG.SAMPLE_RATE || 24000;
@@ -167,9 +170,43 @@ function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
   var n = samples.length;
   for (var i = 0; i < n; i++) {
     var m = g;
-    if (fi && i < fi) m *= i / fi;
-    if (fo && i >= n - fo) m *= (n - i) / fo;
+    if (fi && i < fi) m *= xfRc_(i / fi);
+    if (fo && i >= n - fo) m *= xfRc_((n - i) / fo);
     var v = Math.round(samples[i] * m);
+    samples[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
+  }
+  return samples;
+}
+
+/* ── بسترِ پایانی (۶٫۷۰) ──
+   خواستهٔ صاحبِ برنامه، کلمه‌به‌کلمه: «زمانی که می‌خواد تموم بشه، از چند
+   ثانیه قبل از اینکه گوینده آخرین جملات رو بگه موسیقی شروع به پخش کنه با
+   شیبِ ملایم و بعدش کم‌کم زیاد بشه.»
+   پس سرِ قطعهٔ پایان دو مرحله دارد: `underSec` ثانیهٔ اول از سکوت تا سطحِ
+   «بستر» (bed) بالا می‌آید — این همان تکه‌ای است که زیرِ جمله‌های آخر
+   می‌نشیند — و بعد در `riseSec` ثانیه از بستر تا بلندیِ کامل اوج می‌گیرد.
+   هر دو با شیبِ S.
+
+   شکل **در خودِ قطعه** است، نه در تلفیق — درسِ ۵٫۸۴: دو جا که یک ناحیه را
+   شکل بدهند، حاصلْ ضربِ دو شیب است و موسیقی زودتر از آنچه باید می‌میرد.
+   و همین باعث می‌شود اگر تلفیق اصلاً جا نشد (تکهٔ گفتارِ کوتاه)، باز هم
+   ورودِ موسیقی نرم باشد: شیب همراهِ خودِ قطعه است. */
+function musicBedIn_(samples, underSec, riseSec, bed) {
+  var sr = CFG.SAMPLE_RATE || 24000, n = samples.length;
+  var b = Number(bed); if (!(b > 0 && b < 1)) b = 0.35;
+  var un = Math.max(0, Math.floor((Number(underSec) || 0) * sr));
+  var rn = Math.max(0, Math.floor((Number(riseSec) || 0) * sr));
+  // قطعهٔ کوتاه: سرِ بستر نباید کلِ قطعه را بخورد — هر دو سهم با هم کوچک
+  // می‌شوند تا دستِ‌کم ۳۰٪ از قطعه با بلندیِ کامل بماند.
+  var cap = Math.floor(n * 0.7);
+  if (un + rn > cap && un + rn > 0) {
+    var sc = cap / (un + rn);
+    un = Math.floor(un * sc); rn = Math.floor(rn * sc);
+  }
+  for (var i = 0; i < un + rn && i < n; i++) {
+    var g = (i < un) ? b * xfRc_(un ? i / un : 1)
+                     : b + (1 - b) * xfRc_(rn ? (i - un) / rn : 1);
+    var v = Math.round(samples[i] * g);
     samples[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
   }
   return samples;
@@ -202,6 +239,9 @@ function musicClip_(fileId, opt) {
     var s = musicSamples_(b, info, opt.startSec || 0, len);
     if (!s.length) return '';
     musicShape_(s, opt.gain, opt.fadeIn, opt.fadeOut);
+    // بسترِ پایانی روی سرِ قطعه — بعد از بلندی و محو، که فقط پوششِ حجمی است
+    // روی ناحیه‌ای که محوِ ورود نگرفته (fadeIn آن حالت صفر است).
+    if (opt.bedIn) musicBedIn_(s, opt.bedIn.under, opt.bedIn.rise, opt.bedIn.bed);
     return musicB64_(s);
   } catch (e) {
     logLine_('قطعهٔ موسیقی خوانده نشد (' + fileId + '): ' + e.message);
@@ -1043,13 +1083,21 @@ function musicWrap_(chunks, hub, opt) {
     if (!b) return '';
     opts = opts || {};
     var len = Math.min(secs, b.sec || secs);
-    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود.
-    var fi = (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
+    // «xf» یعنی این لبه را تلفیق می‌پوشاند؛ «soft» یعنی خودش باید محو شود؛
+    // «bed» یعنی بسترِ پایانی — شیب در خودِ قطعه است (musicBedIn_)، پس
+    // محوِ ورود صفر می‌مانَد وگرنه دو شیب در هم ضرب می‌شوند.
+    var fi = (opts.inEdge === 'bed') ? 0
+           : (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
     var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : softFade(len);
     return musicClip_(b.id, {
       startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
-      fadeIn: fi, fadeOut: fo
+      fadeIn: fi, fadeOut: fo,
+      bedIn: (opts.inEdge === 'bed')
+          ? { under: Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 6,
+              rise: Number(CFG.MUSIC_OUTRO_RISE_SEC) || 3,
+              bed: Number(CFG.MUSIC_OUTRO_BED) || 0.35 }
+          : null
     });
   };
 
@@ -1137,11 +1185,17 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro) {
-    // آغازش از گفتار می‌آید → تلفیق؛ پایانش آخرین صدای قسمت است → محوِ کامل.
+    /* پایانِ قسمت از ۶٫۷۰ «بستر» است، نه تلفیقِ معمولی: موسیقی از
+       MUSIC_OUTRO_UNDER_SEC ثانیه قبل از تمام‌شدنِ آخرین جمله‌ها، نرم و
+       کم‌صدا زیرِ گفتار شروع می‌شود و بعد از رفتنِ صدا کم‌کم اوج می‌گیرد.
+       شیبش در خودِ قطعه است (bedIn) و xmode به تلفیق می‌گوید که دوباره
+       شیب ندهد؛ پایانش آخرین صدای قسمت است → محوِ کامل. */
+    var underS = Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 0;
     var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10,
-                    { inEdge: 'xf', outEdge: 'soft' });
+                    { inEdge: underS > 0 ? 'bed' : 'xf', outEdge: 'soft' });
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
-                         xfade: xfEdgeSec_() });
+                         xfade: underS > 0 ? underS : xfEdgeSec_(),
+                         xmode: underS > 0 ? 'outro' : '' });
               picks.push(pickOf_(outro, 'پایان')); }
   }
 

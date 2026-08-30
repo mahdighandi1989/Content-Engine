@@ -2222,11 +2222,23 @@ function rd16_(b, i) {
 
    و جمع، نرم فشرده می‌شود نه بریده: دو صدای هم‌زمان می‌توانند از سقفِ
    ۱۶بیتی رد شوند، و بریدنِ خشک صدای خش می‌دهد.
+
+   ۶٫۷۰ شکلِ شیب را یک پله جلوتر برد: cos/sinِ هم‌توان در لحظهٔ رسیدن به
+   صفر شیبِ تند دارند و همان لحظه «شنیده» می‌شود — صاحبِ برنامه: «یهو قطع
+   نشه؛ با شیبِ ملایم‌تری محو بشه.» حالا همهٔ شیب‌ها S هستند (xfRc_؛ در هر
+   دو سر شیبِ صفر). چون گوینده در این گذرها هیچ‌وقت به صفر نمی‌رسد (کف و
+   hold سرِ جای‌شان‌اند)، توانِ گذر همچنان جایی نمی‌افتد — سنجهٔ ۳۲٫۷ همین
+   را روی خودِ نمونه‌ها می‌سنجد. و «outro» حالتِ چهارم است: بسترِ پایانی،
+   که موسیقی‌اش شیب را در خودِ قطعه دارد و گفتارش فقط دنباله‌اش می‌نشیند.
 */
 
-/** شیبِ هم‌توان، بی نیاز به Math.cos برای هر نمونه (ارزان‌تر و دقیق). */
-function xfCos_(t) { return Math.cos(t * Math.PI / 2); }
-function xfSin_(t) { return Math.sin(t * Math.PI / 2); }
+/* ── شیبِ S (۶٫۷۰) ──
+   صاحبِ برنامه، بعدِ چند قسمتِ واقعاً موسیقی‌دار: «فید شدنش باید حرفه‌ای‌تر
+   بشه و یهو قطع نشه؛ با شیبِ ملایم‌تری محو بشه.» و حق داشت: cos ساده در
+   لحظهٔ رسیدن به صفر شیبِ تند دارد (−π/2)، پس لحظهٔ خاموشی «شنیده» می‌شود —
+   قطع، نه محو. کسینوسیِ بالابرده در **هر دو سرش** شیبِ صفر دارد: نه ورودش
+   تلنگر می‌زند، نه فرودش. این همان S-curve میزهای تدوین است. */
+function xfRc_(t) { return (1 - Math.cos(t * Math.PI)) / 2; }
 
 /** فشردنِ نرمِ بالای زانو — به‌جای بریدنِ خشک در ±۳۲۷۶۷. */
 function pcmSoft_(v) {
@@ -2247,10 +2259,14 @@ function pcmSoft_(v) {
  * @param {number} secs     طولِ خواسته‌شدهٔ هم‌پوشانی
  * @param {boolean} prevIsMusic  کدام طرف موسیقی است — شکلِ گذر را همین
  *                               تعیین می‌کند، نه فقط طولش
+ * @param {string=} mode  «outro» یعنی بسترِ پایانی (۶٫۷۰): موسیقی شیبش را
+ *                        در خودِ قطعه دارد (bedIn) و اینجا فقط زیرِ
+ *                        آخرین جمله‌ها می‌نشیند — دوباره شیب‌دادن همان
+ *                        «ضربِ دو شیب» ۵٫۸۴ است.
  * @return {Array|null} [تکهٔ اولِ تازه، تکهٔ دومِ تازه]، یا null اگر حتی
  *                      کوتاه‌ترین هم‌پوشانی هم جا نشد
  */
-function pcmXfade_(prevB64, nextB64, secs, prevIsMusic) {
+function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
   var sr = CFG.SAMPLE_RATE || 24000;
   if (!prevB64 || !nextB64) return null;
 
@@ -2281,20 +2297,31 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic) {
   var under = Number(CFG.MUSIC_DUCK_UNDER); if (!(under >= 0)) under = 0.5;
   var hold = Number(CFG.MUSIC_XFADE_HOLD); if (!(hold >= 0 && hold < 1)) hold = 0.5;
 
+  // بسترِ پایانی: دنبالهٔ گفتار فقط در همین چند نمونهٔ آخر نرم می‌نشیند —
+  // جمله‌های پایانی حقِ محو شدن ندارند، آن‌ها خودِ حرفِ آخرند.
+  var tailN = (mode === 'outro')
+      ? Math.max(1, Math.min(Math.floor(sr * 1.2), Math.floor(cnt / 4))) : 0;
+
   var out = [];
   for (var k = 0; k < cnt; k++) {
     var i2 = k * 2, t = k / cnt, ga, gb;
-    if (prevIsMusic === false) {
-      // گفتار → موسیقی: حرف تا `hold` دست‌نخورده، بعد می‌رود؛ موسیقی زیرش
-      // بالا می‌آید و پس از رفتنِ حرف به بلندیِ کامل می‌رسد.
+    if (mode === 'outro' && prevIsMusic === false) {
+      // بسترِ پایانی (۶٫۷۰): موسیقی از پیش در خودِ قطعه شکل گرفته (bedIn)
+      // و همین‌طور که هست زیرِ آخرین جمله‌ها می‌نشیند؛ گفتار تا نزدیکِ
+      // انتها دست‌نخورده می‌مانَد و فقط دنباله‌اش با شیبِ S فرود می‌آید.
+      ga = k < cnt - tailN ? 1 : xfRc_((cnt - k) / tailN);
+      gb = 1;
+    } else if (prevIsMusic === false) {
+      // گفتار → موسیقی: حرف تا `hold` دست‌نخورده، بعد با شیبِ S می‌رود؛
+      // موسیقی زیرش با شیبِ S بالا می‌آید و پس از رفتنِ حرف کامل می‌شود.
       var u = t <= hold ? 0 : (t - hold) / (1 - hold);
-      ga = t <= hold ? 1 : xfCos_(u);
-      gb = xfSin_(t) * (under + (1 - under) * u);
+      ga = t <= hold ? 1 : xfRc_(1 - u);
+      gb = xfRc_(t) * (under + (1 - under) * u);
     } else {
-      // موسیقی → گفتار: موسیقی هم‌توان می‌افتد و زیرِ صدا می‌رود؛ گوینده از
-      // کف وارد می‌شود، نه از صفر.
+      // موسیقی → گفتار: موسیقی می‌افتد و زیرِ صدا می‌رود — فرودش شیبِ S
+      // است تا لحظهٔ خاموشی شنیده نشود؛ گوینده از کف وارد می‌شود، نه از صفر.
       var r = rise > 0 ? Math.min(1, t / rise) : 1;
-      ga = xfCos_(t) * (1 - (1 - under) * r);
+      ga = xfRc_(1 - t) * (1 - (1 - under) * r);
       gb = floorG + (1 - floorG) * r;
     }
     var v = pcmSoft_(rd16_(a, i2) * ga + rd16_(b, i2) * gb);
@@ -2433,8 +2460,10 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       if (!(xs > 0)) xs = Number(CFG.MUSIC_XFADE_SEC) || 0;
       try {
         // شکلِ گذر به این بستگی دارد که کدام طرف موسیقی است — گفتار
-        // هرگز مثل موسیقی محو نمی‌شود.
-        var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic);
+        // هرگز مثل موسیقی محو نمی‌شود. تکهٔ موسیقی می‌تواند حالتِ خودش را
+        // اعلام کند (xmode='outro' → بسترِ پایانی زیرِ آخرین جمله‌ها).
+        var xm = curMusic ? String((chunks[i] && chunks[i].xmode) || '') : '';
+        var mix = pcmXfade_(buf[buf.length - 1], b64, xs, !curMusic, xm);
         if (mix) {
           bufChars += mix[0].length - buf[buf.length - 1].length;
           buf[buf.length - 1] = mix[0];
