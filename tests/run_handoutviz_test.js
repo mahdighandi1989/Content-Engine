@@ -214,6 +214,31 @@ console.log('\n=== ۶) ثبت، پیگیری، هشدار — نه فقط یک �
      hvizStatus_().line.indexOf('دکمهٔ جزوه') !== -1, hvizStatus_().line);
 }
 
+console.log('\n=== ۶ب) پاسخِ آمده ولی بی‌نمودار، علتش را می‌گوید (۶٫۶۲) ===');
+{
+  const book = mkBook();
+  global.geminiText_ = function () { return { blah: 1, chart: [] }; };
+  const un = quiet(); const r = handoutVizFill_(book, 2); un();
+  ok('۶ب.۱ پاسخِ بدشکل «مدل جواب نداد» گزارش نمی‌شود؛ شکلش گفته می‌شود',
+     r.why.indexOf('نمودارِ معتبری نداشت') !== -1 && r.why.indexOf('blah') !== -1, r.why);
+  global.geminiText_ = function () {
+    return { kind: 'کارت‌ها', items: [{ label: 'آ', to: 's1' }, { label: 'ب' }] };
+  };
+  const book2 = mkBook();
+  const un2 = quiet(); handoutVizFill_(book2, 5); un2();
+  ok('۶ب.۲ نمودارِ تکیِ بی‌پوشش دور ریخته نمی‌شود — مرور حساب می‌شود',
+     !!(book2.chapters[0].viz && book2.chapters[0].viz.recap) &&
+     book2.chapters[0].viz.recap.items.length === 2);
+  ok('۶ب.۳ و پرامپت قراردادِ JSON را با مثال در خودش دارد (بی‌اسکیما هم بماند)',
+     (function () {
+       let seen = '';
+       global.geminiText_ = function (pr) { seen = pr; return null; };
+       const un3 = quiet(); handoutVizFill_(mkBook(), 1); un3();
+       return seen.indexOf('"intro"') !== -1 && seen.indexOf('"secs"') !== -1 &&
+              seen.indexOf('کلیدِ دیگری اختراع نکن') !== -1;
+     })());
+}
+
 console.log('\n=== ۷) نقشهٔ راهِ جزوهٔ تمام‌شده (۶٫۶۰) ===');
 {
   /* عددِ ۷٪ که برای همیشه ماند: meta.progress از SC.CUR_CHUNK پر می‌شد —

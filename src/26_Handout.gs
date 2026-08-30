@@ -1448,6 +1448,22 @@ function hvizModel_(book, cc) {
   }
   L.push('');
   L.push('شناسه‌های مجاز برای to: ' + ids.join('، '));
+  /* ══ قراردادِ خروجی داخلِ خودِ پرامپت (۶٫۶۲) ══
+     این حساب یک بار responseSchema را برای مدلِ متن رد کرده و موتور —
+     به‌درستی — آن حافظه را نگه می‌دارد و از آن پس همهٔ فراخوان‌ها بی‌اسکیما
+     می‌روند. پرامپت‌های قدیمی (جزوه، اعراب) شکلِ دقیقِ JSON را در متنِ
+     خودشان می‌گویند و برای همین بی‌اسکیما هم جواب می‌گیرند؛ این یکی
+     نمی‌گفت — مدل جوابِ هم‌شکلِ سلیقهٔ خودش را می‌داد و پاک‌سازی همه را
+     دور می‌ریخت: «مدل به ۶ درخواست جواب نداد» در حالی که جواب داده بود. */
+  L.push('');
+  L.push('خروجی فقط یک شیءِ JSON با دقیقاً همین کلیدها، بی هیچ متنِ دیگری:');
+  L.push('{"intro":{"kind":"نقشهٔ ذهنی","title":"…","note":"…",' +
+         '"items":[{"label":"…","detail":"…","to":"' + cc.id + '","group":""}]},' +
+         '"recap":{"kind":"روندنما","title":"…","note":"",' +
+         '"items":[{"label":"…","detail":"…","to":"…","group":""}]},' +
+         '"secs":[{"at":"شناسهٔ بخش","kind":"تقابل","title":"…","note":"",' +
+         '"items":[{"label":"…","detail":"…","to":"…","group":"نامِ ستون"}]}]}');
+  L.push('secs می‌تواند [] باشد. کلیدِ دیگری اختراع نکن؛ نامِ کلیدها فارسی نشود.');
   var r = null;
   try { r = geminiText_(L.join('\n'), HVIZ_SCHEMA, 8192); }
   catch (e) {
@@ -1463,6 +1479,9 @@ function hvizModel_(book, cc) {
   if (!r) return null;
   var idsOk = hvizIds_(book);
   idsOk[String(cc.id)] = 1;
+  /* مدارا با پاسخِ بی‌اسکیما: نمودارِ تکی که بی‌پوشش برگشته، مرور حساب
+     می‌شود — بهتر از دورریختنِ جوابِ سالم به جرمِ نداشتنِ پوشش. */
+  if (!r.intro && !r.recap && !r.secs && r.items) r = { recap: r };
   var out = { intro: hvizClean_(r.intro, idsOk), recap: hvizClean_(r.recap, idsOk), secs: [] };
   var seen = Object.create(null);
   for (var q = 0; q < (r.secs || []).length && out.secs.length < 2; q++) {
@@ -1472,7 +1491,17 @@ function hvizModel_(book, cc) {
     if (!d) continue;
     d.at = at; seen[at] = 1; out.secs.push(d);
   }
-  if (!out.intro && !out.recap && !out.secs.length) return null;
+  if (!out.intro && !out.recap && !out.secs.length) {
+    /* جوابی که آمد و چیزی از آن نماند، باید بگوید چه شکلی بود — وگرنه از
+       بیرون با «مدل جواب نداد» یکی دیده می‌شود، و شد (۶٫۶۲). */
+    var ks = [];
+    try { for (var kk in r) if (ks.length < 6) ks.push(kk); } catch (eK) {}
+    HVIZ_WHY_ = 'پاسخ آمد ولی نمودارِ معتبری نداشت (کلیدهای پاسخ: ' +
+                (ks.join('، ') || 'هیچ') + ')';
+    try { logLine_('نمودارِ فصلِ «' + handoutTitleClean_(String(cc.title || '')).slice(0, 50) +
+                   '»: ' + HVIZ_WHY_); } catch (eL2) {}
+    return null;
+  }
   return out;
 }
 
