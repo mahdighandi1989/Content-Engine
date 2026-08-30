@@ -239,6 +239,20 @@ console.log('\n=== ۶ب) پاسخِ آمده ولی بی‌نمودار، علت
      })());
 }
 
+console.log('\n=== ۶پ) بدشکلی‌های رایجِ مدل تحمل می‌شوند (۶٫۶۴) ===');
+{
+  const idsOk = hvizIds_(mkBook());
+  const asStr = hvizClean_(JSON.stringify({ kind: 'کارت‌ها',
+    items: [{ label: 'آ', to: 's1' }, { label: 'ب' }] }), idsOk);
+  ok('۶پ.۱ نمودارِ رشته‌شده باز می‌شود', !!asStr && asStr.items.length === 2);
+  const strItems = hvizClean_({ kind: 'روندنما', items: ['گامِ یک', 'گامِ دو', 'گامِ سه'] }, idsOk);
+  ok('۶پ.۲ آرایهٔ رشته‌ای، گره می‌شود', !!strItems && strItems.items[0].label === 'گامِ یک');
+  global.geminiText_ = function () { return { intro: { kind: 'x' } }; };
+  const un = quiet(); const r = handoutVizFill_(mkBook(), 1); un();
+  ok('۶پ.۳ علتِ رد، نمونهٔ خودِ پاسخ را نشان می‌دهد',
+     r.why.indexOf('نمونهٔ پاسخ') !== -1 && r.why.indexOf('kind') !== -1, r.why);
+}
+
 console.log('\n=== ۷) نقشهٔ راهِ جزوهٔ تمام‌شده (۶٫۶۰) ===');
 {
   /* عددِ ۷٪ که برای همیشه ماند: meta.progress از SC.CUR_CHUNK پر می‌شد —

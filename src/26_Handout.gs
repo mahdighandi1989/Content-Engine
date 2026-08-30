@@ -1298,6 +1298,20 @@ function hvizIds_(book) {
 
 /** پاک‌سازیِ پیشنهادِ مدل: نوعِ ناشناخته، گرهٔ بی‌متن، شناسهٔ ساختگی. */
 function hvizClean_(d, idsOk) {
+  /* ══ مدارا با دو بدشکلیِ رایجِ مدل (۶٫۶۴) ══
+     رسیدِ ۶٫۶۳: پاسخ سالم می‌رسد، فقط intro دارد، و همان هم از پاک‌سازی
+     رد نمی‌شود. دو شکلِ شناخته که مدل‌ها به آن می‌لغزند: کلِ نمودار به‌صورت
+     «رشتهٔ JSON» به‌جای شیء؛ و items به‌صورت آرایهٔ رشته به‌جای آرایهٔ شیء.
+     محتوای درست به جرمِ پوسته‌اش دور نمی‌رود. */
+  if (typeof d === 'string') { try { d = JSON.parse(d); } catch (eS) { return null; } }
+  if (d && d.items && typeof d.items === 'string') {
+    try { d.items = JSON.parse(d.items); } catch (eI) {}
+  }
+  if (d && Object.prototype.toString.call(d.items) === '[object Array]') {
+    for (var z = 0; z < d.items.length; z++) {
+      if (typeof d.items[z] === 'string') d.items[z] = { label: d.items[z] };
+    }
+  }
   if (!d || !((d.items || []).length)) return null;
   var kind = String(d.kind || '').trim();
   if (!HVIZ_KINDS[kind]) kind = 'کارت‌ها';
@@ -1501,10 +1515,11 @@ function hvizModel_(book, cc) {
        بیرون با «مدل جواب نداد» یکی دیده می‌شود، و شد (۶٫۶۲). */
     var ks = [];
     try { for (var kk in r) if (ks.length < 6) ks.push(kk); } catch (eK) {}
+    var snip = '';
+    try { snip = JSON.stringify(r.intro || r.recap || r).slice(0, 160); } catch (eSn) {}
     HVIZ_WHY_ = r.__repaired
       ? 'پاسخِ مدل از سقفِ توکن بریده شد و چیزِ سالمی نماند'
-      : 'پاسخ آمد ولی نمودارِ معتبری نداشت (کلیدهای پاسخ: ' +
-        (ks.join('، ') || 'هیچ') + ')';
+      : 'پاسخ آمد ولی نمودارِ معتبری نداشت — نمونهٔ پاسخ: ' + snip;
     try { logLine_('نمودارِ فصلِ «' + handoutTitleClean_(String(cc.title || '')).slice(0, 50) +
                    '»: ' + HVIZ_WHY_); } catch (eL2) {}
     return null;
