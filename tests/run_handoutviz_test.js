@@ -137,8 +137,7 @@ console.log('\n=== ۴) پر کردن: امضا، سقفِ فراخوان، ره�
          return { kind: 'کارت‌ها', items: [{ label: 'آ' }, { label: 'ب' }] }; };
        const bx = mkBook();
        const unX = quiet(); handoutVizFill_(bx, 9); unX();
-       return seen.some(x => x.indexOf('نوعِ دیگری') !== -1 &&
-                             x.indexOf('کارت‌ها') !== -1);
+       return seen.some(x => x.indexOf('از نوعِ «کارت‌ها» استفاده نکن') !== -1);
      })());
   const c2 = calls;
   r = handoutVizFill_(book, 5);
@@ -324,6 +323,139 @@ console.log('\n=== ۷) نقشهٔ راهِ جزوهٔ تمام‌شده (۶٫۶�
      bk2.roadmap.stages.map(x => x.state).join('،'));
   const html7 = fd.getFilesByName(handoutHtmlName_(bk2.seriesName)).hasNext();
   ok('۷.۵ و جزوهٔ تازه رندر شد (فقط برای نقشهٔ راه هم رندر لازم است)', html7);
+}
+
+console.log('\n=== ۸) وِن — گونهٔ تازه، با شکلِ واقعیِ خودش (۶٫۷۲) ===');
+{
+  ok('۸.۱ مترادف‌ها به «وِن» می‌رسند',
+     hvizKindOf_('وِن') === 'وِن' && hvizKindOf_('ون') === 'وِن' &&
+     hvizKindOf_('Venn') === 'وِن' && hvizKindOf_('ون دیاگرام') === 'وِن' &&
+     hvizKindOf_('هم‌پوشانی') === 'وِن');
+  const idsOk = hvizIds_(mkBook());
+  const dV = hvizClean_({ kind: 'وِن', title: 'معرفت', items: [
+    { label: 'باور', group: 'ذهن', to: 's1' },
+    { label: 'صدق', group: 'جهان', to: 's2' },
+    { label: 'باورِ صادقِ موجه', group: 'مشترک', to: 's1' }
+  ] }, idsOk);
+  ok('۸.۲ وِنِ دوناحیه‌ای پذیرفته می‌شود', dV && dV.kind === 'وِن');
+  const hV = hvizHtml_(dV, '');
+  ok('۸.۳ رندرش سه ناحیه دارد و عدسیِ مشترک وسط است',
+     hV.indexOf('hvn-a') !== -1 && hV.indexOf('hvn-ab') !== -1 &&
+     hV.indexOf('hvn-b') !== -1 &&
+     hV.indexOf('hvn-a') < hV.indexOf('hvn-ab') &&
+     hV.indexOf('hvn-ab') < hV.indexOf('hvn-b'));
+  ok('۸.۴ گره‌هایش کلیک‌شو به لنگرِ واقعی‌اند',
+     hV.indexOf('href="#s1"') !== -1 && hV.indexOf('href="#s2"') !== -1);
+  ok('۸.۵ وِنِ تک‌ناحیه، وِن نیست — به کارت‌ها می‌افتد',
+     hvizClean_({ kind: 'وِن', items: [{ label: 'آ' }, { label: 'ب' }] },
+                idsOk).kind === 'کارت‌ها');
+  ok('۸.۶ و CSSِ هر سه ناحیه در برگِ سبک هست',
+     HANDOUT_CSS_.indexOf('.hvn-a{') !== -1 && HANDOUT_CSS_.indexOf('.hvn-ab{') !== -1 &&
+     HANDOUT_CSS_.indexOf('.hvk-venn') !== -1);
+  ok('۸.۷ پرامپت وِن را با جای کاربردش معرفی می‌کند',
+     (function () {
+       let seen = '';
+       global.geminiText_ = function (pr) { seen = pr;
+         return { kind: 'وِن', items: [{ label: 'آ', group: 'یک' }, { label: 'ب', group: 'مشترک' }] }; };
+       const un = quiet(); handoutVizFill_(mkBook(), 1); un();
+       return seen.indexOf('«وِن»') !== -1 && seen.indexOf('باورِ صادقِ موجه') !== -1;
+     })());
+}
+
+console.log('\n=== ۹) ترازِ گونه‌ها و بازتنوع (۶٫۷۲) ===');
+{
+  /* دادهٔ واقعی که این را لازم کرد: از ۵۳ نمودارِ جزوهٔ «معرفت‌شناسی»،
+     ۲۰ سلسله‌مراتب + ۱۸ تقابل = ۷۲٪؛ روندنما ۴، چرخه ۲، وِن صفر. */
+  const mkMono = () => {
+    const b = mkBook();
+    // شش فصل، همه با نمودارِ هم‌گونه — یکنواختیِ واقعی
+    b.chapters = [];
+    for (let i = 0; i < 6; i++) {
+      b.chapters.push({ id: 'c' + i, title: 'فصل ' + i,
+        sections: [{ id: 'cs' + i, title: 'ب', body: 'متن. '.repeat(30), refs: [], adds: [] }],
+        viz: { sig: hvizSig_({ id: 'c' + i, title: 'فصل ' + i, sections: [] }),
+               intro: { kind: 'سلسله‌مراتب', items: [{ label: 'آ' }, { label: 'ب' }] },
+               recap: { kind: 'سلسله‌مراتب', items: [{ label: 'آ' }, { label: 'ب' }] },
+               secDone: true, secs: [] } });
+    }
+    return b;
+  };
+
+  const cs = hvizCensus_(mkMono());
+  ok('۹.۱ سرشماری درست می‌شمارد', cs.total === 12 && cs.by['سلسله‌مراتب'] === 12,
+     JSON.stringify(cs.by));
+
+  // ── تراز به پرامپت می‌رسد ──
+  let seenP = '';
+  global.geminiText_ = function (pr) { seenP = pr;
+    return { kind: 'روندنما', items: [{ label: 'آ' }, { label: 'ب' }] }; };
+  const bMono = mkMono();
+  bMono.chapters.push({ id: 'c9', title: 'فصلِ تازه',
+    sections: [{ id: 'cs9', title: 'ب', body: 'متن. '.repeat(30), refs: [], adds: [] }] });
+  const un1 = quiet(); handoutVizFill_(bMono, 1); un1();
+  ok('۹.۲ پرامپتِ فصلِ تازه ترازِ کلِ کتاب را می‌گوید',
+     seenP.indexOf('ترازِ گونه‌ها در کلِ این جزوه') !== -1 &&
+     seenP.indexOf('سلسله‌مراتب ۱۲') !== -1);
+  ok('۹.۳ و گونهٔ چیره را با نام می‌گوید که جز در ناگزیری نرود',
+     seenP.indexOf('سهمِ بزرگی') !== -1);
+  ok('۹.۴ و گونه‌های هنوز نیامده را پیش می‌کشد — وِن و روندنما جایشان همین‌جاست',
+     seenP.indexOf('هنوز هیچ‌جا نیامده‌اند') !== -1 && seenP.indexOf('«وِن»') !== -1);
+
+  // ── بازتنوع: فقط جای چیرگی، جوابِ هم‌گونه پذیرفته نمی‌شود ──
+  let asked = 0;
+  global.geminiText_ = function (pr) { asked++;
+    return { kind: 'روندنما', items: [{ label: 'گام', to: '' }, { label: 'گامِ دو' }] }; };
+  const b2 = mkMono();
+  const un2 = quiet(); const dv = hvizDiversify_(b2, 2); un2();
+  ok('۹.۵ گونهٔ چیره شناخته و تا سقفِ داده‌شده از نو پرسیده می‌شود',
+     dv.dominant === 'سلسله‌مراتب' && dv.calls === 2 && dv.redone === 2,
+     JSON.stringify(dv));
+  ok('۹.۶ جایگزین واقعاً در کتاب نشست و گونه‌اش فرق دارد',
+     b2.chapters.filter(c => c.viz && c.viz.recap &&
+                             c.viz.recap.kind === 'روندنما').length === 2);
+  global.geminiText_ = function () {
+    return { kind: 'سلسله‌مراتب', items: [{ label: 'آ' }, { label: 'ب' }] }; };
+  const b3 = mkMono();
+  const un3 = quiet(); const dv2 = hvizDiversify_(b3, 2); un3();
+  ok('۹.۷ جوابِ هم‌گونه پذیرفته نمی‌شود — نمودارِ قبلی می‌مانَد و تلاش شمرده می‌شود',
+     dv2.redone === 0 &&
+     b3.chapters[0].viz.recap.kind === 'سلسله‌مراتب' &&
+     Number(b3.chapters[0].viz.divTried.n) === 1, JSON.stringify(dv2));
+  const un3b = quiet(); hvizDiversify_(b3, 2); hvizDiversify_(b3, 2); un3b();
+  const exhausted = b3.chapters.every(c => Number((c.viz.divTried || {}).n || 0) >= 2 ||
+                                           !c.viz.divTried);
+  ok('۹.۸ و پس از سقفِ تلاش، آن فصل دیگر برای تنوع پرسیده نمی‌شود',
+     (function () { let n = 0;
+       global.geminiText_ = function () { n++;
+         return { kind: 'سلسله‌مراتب', items: [{ label: 'آ' }, { label: 'ب' }] }; };
+       const unq = quiet(); const d4 = hvizDiversify_(b3, 9); unq();
+       // شش فصل × سقفِ ۲ تلاش = ۱۲؛ چهار بارِ قبلی رفته، پس اینجا ۸ می‌ماند
+       return d4.calls <= 8 && exhausted !== undefined;
+     })());
+
+  const bBal = mkMono();
+  bBal.chapters.forEach((c, i) => {
+    if (i % 2) { c.viz.intro.kind = 'روندنما'; c.viz.recap.kind = 'وِن'; }
+    else { c.viz.recap.kind = 'تقابل'; }
+  });
+  const dv3 = hvizDiversify_(bBal, 2);
+  ok('۹.۹ کتابِ متوازن اصلاً پرسیده نمی‌شود — دروازه خودش بسته می‌شود',
+     dv3.calls === 0 && dv3.share < 0.5, JSON.stringify(dv3));
+  ok('۹.۱۰ و کتابِ کم‌نمودار هم نه — یکنواختیِ سه‌تایی معنا ندارد',
+     hvizDiversify_({ chapters: [{ id: 'a', title: 't', sections: [],
+       viz: { intro: { kind: 'تقابل', items: [] }, recap: null, secDone: true, secs: [] } }] },
+       2).calls === 0);
+
+  // ── سیم‌کشی: جارو و دکمه هر دو بازتنوع را صدا می‌زنند ──
+  const p26v = fs.readFileSync('src/26_Handout.gs', 'utf8');
+  ok('۹.۱۱ جاروی شبانه با ته‌ماندهٔ بودجه بازتنوع می‌کند و ساخته‌ها را رندر',
+     /dv = hvizDiversify_\(book, Math\.min\(2, cap - out\.calls\)\)/.test(p26v) &&
+     /r\.made \|\| rmCh2 \|\| fx \|\| dv\.redone/.test(p26v));
+  ok('۹.۱۲ دکمهٔ مجموعه هم — و رسیدش ترازِ گونه‌ها را می‌گوید',
+     /dvb = hvizDiversify_\(book, 4\)/.test(p26v) &&
+     /گونه‌های این جزوه اکنون: /.test(p26v));
+  ok('۹.۱۳ نمودارِ میانی گونه‌های همین فصل را در avoid می‌گیرد',
+     /avSec\.join\('» و «'\)/.test(p26v));
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ نمودارهای جزوه گذشت.');

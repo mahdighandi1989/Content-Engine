@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.71
+ *  موتور محتوا و پادکست — نسخهٔ 6.72
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -633,6 +633,13 @@ var CFG = {
   HANDOUT_VIZ_PER_RUN: 2,          // هنگامِ ورودِ هر درسِ تازه
   HANDOUT_VIZ_SWEEP: 9,            // جاروی شبانهٔ جبرانِ گذشته (هر فصل تا سه فراخوان)
   HANDOUT_VIZ_MANUAL: 9,           // با دکمهٔ دستیِ هر مجموعه (هر فصل تا سه فراخوان)
+  /* ── بازتنوعِ گونه‌ها (۶٫۷۲) ──
+     دادهٔ واقعی: از ۵۳ نمودارِ یک جزوه، ۳۸ تا فقط دو گونه بود. جایی که
+     گونهٔ چیره از این سهم گذشت، چندتا از همان‌ها با «گونهٔ دیگر» از نو
+     پرسیده می‌شوند؛ جوابِ هم‌گونه پذیرفته نمی‌شود و نمودارِ قبلی می‌مانَد. */
+  HANDOUT_VIZ_DIV_MIN: 6,          // کمتر از این نمودار، «یکنواختی» معنا ندارد
+  HANDOUT_VIZ_DIV_SHARE: 0.5,      // سهمِ گونهٔ چیره که از آن بالاتر بازتنوع می‌خواهد
+  HANDOUT_VIZ_DIV_TRY: 2,          // هر فصل حداکثر این‌قدر برای تنوع از نو پرسیده می‌شود
   // دکمهٔ دستی: کارِ اصلیِ آن اجراست و شش دقیقه در اختیار دارد. سقفِ
   // محافظه‌کارِ دو تا یعنی برای پانزده درسِ عقب‌مانده هشت بار فشردن.
   // سقفِ شمارش فقط نگهبانِ فرار است؛ آنچه واقعاً کران می‌گذارد زمان است.
@@ -1076,7 +1083,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.71',
+  CODE_VERSION: '6.72',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -31388,7 +31395,7 @@ var HANDOUT_CSS_ = [
   '.hvz-k{display:inline-block;color:#fff;border-radius:20px;padding:2px 12px;font-size:11px}',
   '.hvk-mm{background:#123a63}.hvk-cm{background:#5b21b6}.hvk-flow{background:#166534}',
   '.hvk-cyc{background:#9a3412}.hvk-hier{background:#a16207}.hvk-cmp{background:#9f1239}',
-  '.hvk-cards{background:#334155}',
+  '.hvk-cards{background:#334155}.hvk-venn{background:#0e7490}',
   '.hvz-b{display:inline-block;background:#e8effc;color:#123a63;border-radius:20px;padding:2px 10px;font-size:11px;margin-right:6px}',
   '.hvz-n,.hvz-ctr{display:block;background:#fff;border:1.5px solid #b9c8e2;border-radius:10px;',
   'padding:8px 12px;text-decoration:none;color:#17202e;font-size:13px;line-height:1.8}',
@@ -31440,6 +31447,22 @@ var HANDOUT_CSS_ = [
   '.hvc-0{background:#eef6ff;border:1px solid #bcd6f2}.hvc-1{background:#fff1f2;border:1px solid #f3c2ca}',
   '.hvz-colh{font-weight:bold;font-size:13px;margin-bottom:8px;text-align:center}',
   '.hvz-col .hvz-n{margin-bottom:8px}',
+  /* وِن: دو دایرهٔ هم‌پوشان؛ عدسیِ میانی (مشترک) برجسته‌تر و رویِ هر دو.
+     سه ناحیه همیشه در یک سطرند (wrap عدسی را از دایره‌ها جدا می‌کرد و
+     دیگر وِنی در کار نبود — در رندرِ واقعی دیده شد)؛ هم‌پوشانیِ عدسی با
+     padding از سمتِ عدسی جبران می‌شود تا هیچ گرهی زیرش پنهان نماند. */
+  '.hvz-vd{display:flex;align-items:stretch;padding:6px 14px}',
+  '.hvz-vn{flex:1 1 0;min-width:0;padding:14px 12px;display:flex;',
+  'flex-direction:column;gap:8px}',
+  '.hvn-a{background:rgba(14,116,144,.07);border:2px solid #0e7490;',
+  'border-radius:14px 60px 60px 14px;padding-left:28px}',
+  '.hvn-b{background:rgba(159,18,57,.06);border:2px solid #9f1239;',
+  'border-radius:60px 14px 14px 60px;padding-right:28px}',
+  '.hvn-ab{background:linear-gradient(135deg,rgba(14,116,144,.10),rgba(159,18,57,.10));',
+  'border:2px dashed #5b21b6;border-radius:50% / 22%;margin:10px -14px;',
+  'position:relative;z-index:1;flex-grow:1.2;box-shadow:0 1px 8px rgba(91,33,182,.14)}',
+  '.hvn-ab .hvz-colh{color:#5b21b6}',
+  '.hvn-a .hvz-colh{color:#0e7490}.hvn-b .hvz-colh{color:#9f1239}',
   /* کارت‌ها */
   '.hvz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}',
   '.hvz-card{position:relative;padding-top:12px}',
@@ -32022,6 +32045,30 @@ function handoutOneSeries_(key, maxItems) {
     try { vzr = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_MANUAL) || 6); }
     catch (eVb) { out.notes.push('نمودارها: ' + eVb.message); }
     out.viz = vzr.made;
+    /* بازتنوع، همین‌جا و با دستِ آدم — و رسیدش می‌گوید ترازِ گونه‌ها بعدش
+       چه شد، تا لازم نباشد کسی جزوه را باز کند و بشمارد. */
+    var dvb = { calls: 0, redone: 0, dominant: '', share: 0 };
+    if (!vzr.pending) {
+      try { dvb = hvizDiversify_(book, 4); } catch (eDvb) {}
+      if (dvb.redone) {
+        out.notes.push('بازتنوع: ' + faDigitsOut_(String(dvb.redone)) +
+                       ' نمودارِ تکراری («' + dvb.dominant + '») با گونهٔ تازه از نو ساخته شد');
+      } else if (dvb.calls) {
+        out.notes.push('بازتنوع: مدل برای «' + dvb.dominant + '» جایگزینی نداد؛ نمودارهای قبلی ماندند');
+      }
+    }
+    try {
+      var csb = hvizCensus_(book);
+      if (csb.total) {
+        var csbL = [];
+        for (var ckb in csb.by) {
+          if (Object.prototype.hasOwnProperty.call(csb.by, ckb)) {
+            csbL.push(ckb + ' ' + faDigitsOut_(String(csb.by[ckb])));
+          }
+        }
+        out.notes.push('گونه‌های این جزوه اکنون: ' + csbL.join('، '));
+      }
+    } catch (eCsb) {}
     /* شکستِ بی‌صدا همان چیزی است که «دکمه زدم و هیچ نشد» می‌سازد (۶٫۶۰):
        فراخوان رفته و جواب نیامده باید در پیامِ همان دکمه گفته شود. */
     if (vzr.calls && !vzr.made) {
@@ -32040,13 +32087,13 @@ function handoutOneSeries_(key, maxItems) {
       if (rmChanged) out.notes.push('نقشهٔ راه به‌روز شد (' +
         String((book.roadmap.progress || {}).pct || '؟') + '٪)');
     } catch (eRm) {}
-    if (vzr.made || vizReset || rmChanged || fx) {
+    if (vzr.made || vizReset || rmChanged || fx || dvb.redone || dvb.calls) {
       try {
         /* مُهرِ جلد هم بالا برود — «به‌روزرسانی: دو روز پیش» روی جزوه‌ای که
            همین حالا نمودار گرفت، دروغِ کوچکی است که اعتماد را می‌خورد (۶٫۶۷). */
-        if (vzr.made || rmChanged) book.updatedAt = nowStr_();
+        if (vzr.made || rmChanged || dvb.redone) book.updatedAt = nowStr_();
         handoutWrite_(sf, book);
-        if (vzr.made || rmChanged || fx) handoutRender_(sf, book);
+        if (vzr.made || rmChanged || fx || dvb.redone) handoutRender_(sf, book);
       } catch (eVw) { out.notes.push('نوشتنِ جزوه: ' + eVw.message); }
     }
     /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
@@ -32105,13 +32152,13 @@ function handoutOneSeries_(key, maxItems) {
 
 var HVIZ_KINDS = {
   'نقشهٔ ذهنی': 1, 'نقشهٔ مفهومی': 1, 'روندنما': 1, 'چرخه': 1,
-  'سلسله‌مراتب': 1, 'تقابل': 1, 'کارت‌ها': 1
+  'سلسله‌مراتب': 1, 'تقابل': 1, 'کارت‌ها': 1, 'وِن': 1
 };
 
 /* مترادف‌ها — مدل و آدم هر دو با این نام‌ها هم حرف می‌زنند (تصویرِ نمونهٔ
    صاحبِ برنامه: «لایه‌ای/هرمی»، «دیاگرام فرآیند»، «ماتریس مقایسه»…). */
 function hvizKindOf_(k) {
-  var n = String(k || '').replace(/[\u0654\u200c\s]/g, '');
+  var n = String(k || '').replace(/[\u0650\u0654\u200c\s]/g, '').toLowerCase();
   var map = {
     'نقشهذهنی': 'نقشهٔ ذهنی', 'مایندمپ': 'نقشهٔ ذهنی',
     'نقشهمفهومی': 'نقشهٔ مفهومی',
@@ -32121,6 +32168,8 @@ function hvizKindOf_(k) {
     'سلسلهمراتب': 'سلسله‌مراتب', 'هرمی': 'سلسله‌مراتب', 'لایهای': 'سلسله‌مراتب',
     'هرم': 'سلسله‌مراتب',
     'تقابل': 'تقابل', 'ماتریسمقایسه': 'تقابل', 'مقایسه': 'تقابل',
+    'ون': 'وِن', 'وندیاگرام': 'وِن', 'دیاگرامون': 'وِن',
+    'venn': 'وِن', 'venndiagram': 'وِن', 'همپوشانی': 'وِن',
     'کارتها': 'کارت‌ها', 'اینفوگرافیک': 'کارت‌ها'
   };
   return map[n] || (HVIZ_KINDS[String(k || '').trim()] ? String(k).trim() : '');
@@ -32209,6 +32258,16 @@ function hvizClean_(d, idsOk) {
                  to: to, group: String(it.group || '').trim().slice(0, 40) });
   }
   if (items.length < 2) return null;      // نمودارِ تک‌گره، نمودار نیست
+  if (kind === 'وِن') {
+    // وِن یعنی دستِ‌کم دو ناحیه (دو دایره، یا دایره + مشترک). وِنِ
+    // تک‌ناحیه فقط یک فهرست است — همان کارت‌ها، با ادعای بیشتر.
+    var zn = Object.create(null), znN = 0;
+    for (var zv = 0; zv < items.length; zv++) {
+      var zg = items[zv].group || 'مشترک';
+      if (!zn[zg]) { zn[zg] = 1; znN++; }
+    }
+    if (znN < 2) kind = 'کارت‌ها';
+  }
   return { kind: kind, title: String(d.title || '').trim().slice(0, 90),
            note: String(d.note || '').trim().slice(0, 200), items: items };
 }
@@ -32233,7 +32292,7 @@ function hvizHtml_(d, badge) {
   if (!d || !(d.items || []).length) return '';
   var cls = {
     'نقشهٔ ذهنی': 'mm', 'نقشهٔ مفهومی': 'cm', 'روندنما': 'flow', 'چرخه': 'cyc',
-    'سلسله‌مراتب': 'hier', 'تقابل': 'cmp', 'کارت‌ها': 'cards'
+    'سلسله‌مراتب': 'hier', 'تقابل': 'cmp', 'کارت‌ها': 'cards', 'وِن': 'venn'
   }[d.kind] || 'cards';
   var h = ['<div class="hvz hvz-' + cls + '">'];
   h.push('<div class="hvz-h"><span class="hvz-k hvk-' + cls + '">' + esc_(d.kind) + '</span>' +
@@ -32318,6 +32377,37 @@ function hvizHtml_(d, badge) {
       h.push('</div>');
     }
     h.push('</div>');
+  } else if (cls === 'venn') {
+    /* وِن: دو دایرهٔ هم‌پوشان — ناحیهٔ مشترک خودِ حرف است، پس عدسیِ وسط
+       برجسته‌تر از دو کناره رندر می‌شود. group نامِ هر دایره است و
+       «مشترک»/«هر دو» ناحیهٔ میانی. */
+    var zsV = [], byV = Object.create(null);
+    for (var w1 = 0; w1 < items.length; w1++) {
+      var zk = items[w1].group || 'مشترک';
+      if (!byV[zk]) { byV[zk] = []; zsV.push(zk); }
+      byV[zk].push(items[w1]);
+    }
+    var isMid = function (g) { return /مشترک|هر ?دو|هم[‌ ]?پوشان/.test(String(g)); };
+    var sidesV = [], midV = [];
+    for (var w2 = 0; w2 < zsV.length; w2++) {
+      (isMid(zsV[w2]) ? midV : sidesV).push(zsV[w2]);
+    }
+    // چیدمانِ دیداری: دایرهٔ اول، عدسی(ها)، دایرهٔ دوم به بعد.
+    var orderV = [];
+    if (sidesV.length) orderV.push({ g: sidesV[0], c: 'hvn-a' });
+    for (var w3 = 0; w3 < midV.length; w3++) orderV.push({ g: midV[w3], c: 'hvn-ab' });
+    for (var w4 = 1; w4 < sidesV.length; w4++) orderV.push({ g: sidesV[w4], c: 'hvn-b' });
+    // «hvz-vd» نه «hvz-venn» — بیرونی‌ترین div خودش hvz-venn است (نشانگرِ
+    // گونه) و هم‌نامی، flex را به کلِ جعبه می‌زد؛ در رندرِ واقعی دیده شد.
+    h.push('<div class="hvz-vd">');
+    for (var w5 = 0; w5 < orderV.length; w5++) {
+      h.push('<div class="hvz-vn ' + orderV[w5].c + '"><div class="hvz-colh">' +
+             esc_(orderV[w5].g) + '</div>');
+      var zi = byV[orderV[w5].g];
+      for (var w6 = 0; w6 < zi.length; w6++) h.push(hvizNode_(zi[w6], 'hvz-n'));
+      h.push('</div>');
+    }
+    h.push('</div>');
   } else {
     h.push('<div class="hvz-grid">');
     for (var k = 0; k < items.length; k++) {
@@ -32349,7 +32439,10 @@ function hvizBookMap_(book) {
                      items: items }, '');
 }
 
-/** یک نمودار برای یک فصل — which: 'intro' یا 'recap'. null یعنی نشد. */
+/**
+ * یک نمودار برای یک فصل — which: 'intro' یا 'recap' یا 'sec'. null یعنی نشد.
+ * avoidKind: گونه(هایی) که در این جایگاه از پیش هست و تکرارش زائد است.
+ */
 function hvizModelOne_(book, cc, which, avoidKind) {
   var ids = ['«' + cc.id + '» (خودِ فصل)'];
   var role = which === 'intro'
@@ -32361,10 +32454,40 @@ function hvizModelOne_(book, cc, which, avoidKind) {
       'فیلدِ at بگذار، و نموداری بساز که فهمِ همان بخش را باز کند. اگر ' +
       'هیچ بخشی واقعاً نمودارِ میانی نمی‌خواهد، {"kind":"هیچ","items":[]} برگردان — ' +
       'نمودارِ زوری بدتر از نبودنش است.'
-    : 'نمودارِ «مرور» برای پایانِ این فصل: آنچه خواند در یک نگاه جمع شود.' +
-      (avoidKind ? ' آماده‌سازیِ همین فصل «' + avoidKind + '» شده؛ برای مرور ' +
-                   '**نوعِ دیگری** انتخاب کن مگر محتوا واقعاً جز آن اجازه ندهد — ' +
-                   'دو نمودارِ هم‌شکل در یک فصل، یکی‌شان زائد است.' : '');
+    : 'نمودارِ «مرور» برای پایانِ این فصل: آنچه خواند در یک نگاه جمع شود.';
+  if (avoidKind) {
+    role += ' از نوعِ «' + avoidKind + '» استفاده نکن مگر محتوا واقعاً جز آن ' +
+            'اجازه ندهد — این نوع در این‌جا از پیش هست و تکرارش زائد است.';
+  }
+  /* ── ترازِ گونه‌ها در کلِ کتاب (۶٫۷۲) ──
+     avoidKind فقط داخلِ یک فصل را می‌دید؛ نتیجه در دادهٔ واقعی: از ۵۳
+     نمودارِ یک جزوه ۳۸ تا فقط دو گونه بود (سلسله‌مراتب/تقابل) و روندنما ۴.
+     فصل‌به‌فصل همان جفتِ راحت تکرار می‌شد چون هیچ‌کس تصویرِ کل را به مدل
+     نمی‌داد. مدل همچنان پیشنهاد می‌دهد و کد تصمیم می‌گیرد — این فقط
+     دیدِ کتاب‌سطحی است، نه دستور. */
+  var csL = '';
+  try {
+    var cs = hvizCensus_(book);
+    if (cs.total >= 4) {
+      var seenK = [], underK = [], domK = '', domN = 0;
+      for (var ck in HVIZ_KINDS) {
+        if (!Object.prototype.hasOwnProperty.call(HVIZ_KINDS, ck)) continue;
+        var cn = cs.by[ck] || 0;
+        if (cn) seenK.push(ck + ' ' + faDigitsOut_(String(cn)));
+        else if (ck !== 'کارت‌ها' && ck !== 'نقشهٔ ذهنی') underK.push(ck);
+        if (cn > domN) { domN = cn; domK = ck; }
+      }
+      csL = 'ترازِ گونه‌ها در کلِ این جزوه تاکنون: ' + seenK.join('، ') + '.';
+      if (underK.length) {
+        csL += ' گونه‌های «' + underK.join('»، «') + '» هنوز هیچ‌جا نیامده‌اند — ' +
+               'اگر محتوای این فصل با یکی از آن‌ها هم به‌خوبی بیان می‌شود، همان را ' +
+               'انتخاب کن؛ کتابی که همهٔ نمودارهایش یک شکل است، عملاً نمودار ندارد.';
+      }
+      if (domK && domN / cs.total >= 0.4) {
+        csL += ' «' + domK + '» همین حالا سهمِ بزرگی از کتاب دارد؛ جز در ناگزیری سراغش نرو.';
+      }
+    }
+  } catch (eCs) {}
   var L = [
     'تو طراحِ نمودارهای یک جزوهٔ آموزشیِ فارسی هستی. برای فصلِ زیر **یک** نمودار',
     'بساز. محتوایش را از خودِ متنِ فصل دربیاور، نه از عنوان‌ها — نمودارِ تزئینی',
@@ -32374,13 +32497,18 @@ function hvizModelOne_(book, cc, which, avoidKind) {
     '',
     'انواعِ مجاز برای kind — **نوع را از ساختارِ واقعیِ محتوا بگیر، نه از عادت**:',
     '«روندنما» — هرجا ترتیب و مرحله هست: استدلالِ قدم‌به‌قدم، فرایند.',
-    '«چرخه» — رابطهٔ بازخوردی که آخرش به اول برمی‌گردد.',
+    '«چرخه» — رابطهٔ بازخوردی یا مدار که آخرش به اول برمی‌گردد.',
+    '«وِن» — دو مفهوم که هم وجهِ مشترک دارند هم وجهِ اختصاصی: group نامِ هر',
+    '  دایره، و group «مشترک» برای ناحیهٔ هم‌پوشانی. برای تعریفِ چندجزئی',
+    '  (مثل باورِ صادقِ موجه)، شرطِ لازم/کافی، و مقایسه‌ای که اشتراکش مهم است.',
     '«سلسله‌مراتب» — تقسیم‌بندی و رده‌ها؛ group نامِ هر سطح، از بالا به پایین.',
-    '«تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون.',
+    '«تقابل» — دو (یا سه) مفهومِ روبه‌رو؛ group نامِ هر ستون. اگر وجهِ',
+    '  مشترکشان هم مهم است، «وِن» را به‌جایش بردار.',
     '«نقشهٔ مفهومی» — گرهٔ اول مرکز؛ detailِ هر گرهٔ دیگر «برچسبِ رابطه» با آن',
     '  است («ابزارِ سنجشِ», «پیش‌نیازِ», «نقض می‌کندِ»…).',
     '«نقشهٔ ذهنی» — مرکز و شاخه‌ها؛ **فقط وقتی هیچ‌کدام از بالا نمی‌نشیند.**',
     '«کارت‌ها» — نکته‌های هم‌وزنِ بی‌ساختار؛ آخرین چاره.',
+    csL,
     '',
     'قاعده‌های سخت:',
     '• بین ۳ تا ۸ گره. label حداکثر پنج‌شش واژه؛ detail یک جملهٔ کوتاه یا خالی.',
@@ -32444,6 +32572,79 @@ function hvizModelOne_(book, cc, which, avoidKind) {
   return d;
 }
 
+/** سرشماریِ گونه‌ها در کلِ کتاب — ورودیِ تنوع، هم برای پرامپت هم برای بازتنوع. */
+function hvizCensus_(book) {
+  var by = Object.create(null), total = 0;
+  var add = function (d) {
+    if (d && d.kind) { by[d.kind] = (by[d.kind] || 0) + 1; total++; }
+  };
+  for (var c = 0; c < (book.chapters || []).length; c++) {
+    var v = book.chapters[c].viz || {};
+    add(v.intro); add(v.recap);
+    for (var s = 0; s < (v.secs || []).length; s++) add(v.secs[s]);
+  }
+  return { by: by, total: total };
+}
+
+/**
+ * بازتنوع (۶٫۷۲) — فقط جایی که یکنواختی واقعاً هست، و خودمحدودشونده.
+ *
+ * چرا نه «همه از نو» (پیشوندِ امضا): بیشترِ نمودارها محتواشان درست است؛
+ * مشکل فقط یک‌شکلی است. بازساختنِ همه یعنی صدها فراخوانِ مدل برای چیزی که
+ * خراب نیست. پس فقط وقتی گونهٔ چیره از HANDOUT_VIZ_DIV_SHARE بیشتر شد،
+ * چندتا از همان نمودارهای گونهٔ چیره از نو پرسیده می‌شوند — با ترازِ کتاب
+ * در پرامپت و همان گونه در avoid. جوابِ هم‌گونه پذیرفته نمی‌شود و نمودارِ
+ * قبلی سرِ جایش می‌مانَد: تنوع هرگز نمودارِ سالم را با هیچ عوض نمی‌کند.
+ * سهم که زیرِ آستانه رفت، دروازه خودش بسته می‌شود؛ هر فصل هم بیش از
+ * HANDOUT_VIZ_DIV_TRY بار برای تنوع پرسیده نمی‌شود — مدلی که اصرار دارد،
+ * شاید حق دارد.
+ */
+function hvizDiversify_(book, maxCalls) {
+  var out = { calls: 0, redone: 0, dominant: '', share: 0 };
+  if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
+  var cap = Math.max(0, Number(maxCalls) || 0);
+  if (!cap) return out;
+  var cs = hvizCensus_(book);
+  if (cs.total < (Number(CFG.HANDOUT_VIZ_DIV_MIN) || 6)) return out;
+  var domK = '', domN = 0;
+  for (var k in cs.by) if (cs.by[k] > domN) { domN = cs.by[k]; domK = k; }
+  out.dominant = domK; out.share = cs.total ? domN / cs.total : 0;
+  if (out.share < (Number(CFG.HANDOUT_VIZ_DIV_SHARE) || 0.5)) return out;
+  var tryMax = Number(CFG.HANDOUT_VIZ_DIV_TRY) || 2;
+
+  /* نامزدها: فصل‌هایی که جایگاهِ آغاز یا مرورشان گونهٔ چیره است؛ اول
+     فصل‌هایی که هر دو جایگاهشان چیره است — زائدترین‌ها. */
+  var cands = [];
+  for (var c2 = 0; c2 < (book.chapters || []).length; c2++) {
+    var cc = book.chapters[c2], v2 = cc.viz || {};
+    if (Number((v2.divTried || {}).n || 0) >= tryMax) continue;
+    var nDom = 0;
+    if (v2.intro && v2.intro.kind === domK) nDom++;
+    if (v2.recap && v2.recap.kind === domK) nDom++;
+    if (nDom) cands.push({ cc: cc, v: v2, nDom: nDom });
+  }
+  cands.sort(function (a, b) { return b.nDom - a.nDom; });
+
+  for (var i = 0; i < cands.length && out.calls < cap; i++) {
+    var cd = cands[i];
+    var slot = (cd.v.recap && cd.v.recap.kind === domK) ? 'recap' : 'intro';
+    out.calls++;
+    var d = hvizModelOne_(book, cd.cc, slot, domK);
+    var kindNew = (d && d !== 'هیچ') ? String(d.kind || '') : '';
+    if (kindNew && kindNew !== domK) {
+      cd.v[slot] = d;
+      delete cd.v.divTried;
+      cd.cc.viz = cd.v;
+      out.redone++;
+    } else {
+      // جوابِ هم‌گونه یا هیچ: نمودارِ قبلی می‌مانَد؛ فقط شمارِ تلاش بالا می‌رود.
+      cd.v.divTried = { n: Number((cd.v.divTried || {}).n || 0) + 1, at: nowStr_() };
+      cd.cc.viz = cd.v;
+    }
+  }
+  return out;
+}
+
 /**
  * پرکردنِ نمودارهای کتاب — تا سقفِ maxCalls فراخوان در این نوبت.
  * فصلِ دارای نمودارِ هم‌امضا رد می‌شود (مجانی)؛ فصلِ تغییرکرده از نو ساخته
@@ -32485,7 +32686,11 @@ function handoutVizFill_(book, maxCalls) {
     if (!v.secDone && !failedHere && out.calls < cap &&
         (cc.sections || []).length >= 2) {
       out.calls++;
-      var d3 = hvizModelOne_(book, cc, 'sec');
+      // گونه‌های همین فصل تا اینجا — نمودارِ میانی نباید سومینِ همان شکل باشد.
+      var avSec = [];
+      if (v.intro && v.intro.kind) avSec.push(v.intro.kind);
+      if (v.recap && v.recap.kind && avSec.indexOf(v.recap.kind) === -1) avSec.push(v.recap.kind);
+      var d3 = hvizModelOne_(book, cc, 'sec', avSec.join('» و «'));
       if (d3 === 'هیچ') { v.secDone = true; madeHere = true; }
       else if (d3) { v.secs = [d3]; v.secDone = true; madeHere = true; }
       else failedHere = true;
@@ -32548,6 +32753,14 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     var r = handoutVizFill_(book, cap - out.calls);
     out.calls += r.calls; out.pending += r.pending;
     out.gaveUp = (out.gaveUp || 0) + (r.gaveUp || 0);
+    /* بازتنوع، با ته‌ماندهٔ بودجه — کتابِ کامل ولی یک‌شکل، از همین‌جا کم‌کم
+       رنگارنگ می‌شود؛ دو فراخوان در هر مجموعه، و فقط تا وقتی چیرگی هست. */
+    var dv = { calls: 0, redone: 0 };
+    if (out.calls < cap && !r.pending) {
+      try { dv = hvizDiversify_(book, Math.min(2, cap - out.calls)); } catch (eDv) {}
+      out.calls += dv.calls;
+      out.redone = (out.redone || 0) + dv.redone;
+    }
     /* ══ شمارشِ تلاش باید بنویسد، حتی وقتی چیزی ساخته نشد (۶٫۵۸) ══
        نسخهٔ اول فقط هنگامِ ساخت می‌نوشت — پس شبِ بعد کتاب با سابقهٔ صفر
        خوانده می‌شد و «رهاکردن پس از N تلاش» عملاً هرگز رخ نمی‌داد: همان
@@ -32563,11 +32776,13 @@ function handoutVizSweep_(maxCalls, budgetMs) {
       handoutRoadmapState_(book, handoutProgressOf_(hub, String(rec.key), partsAll));
       rmCh2 = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas2;
     } catch (eR2) {}
-    if (r.made || r.triedChanged || rmCh2 || fx) {
-      if (r.made) { out.made += r.made; out.series++; book.updatedAt = nowStr_(); }
+    if (r.made || r.triedChanged || rmCh2 || fx || dv.redone || dv.calls) {
+      if (r.made || dv.redone) {
+        out.made += r.made; out.series++; book.updatedAt = nowStr_();
+      }
       try {
         handoutWrite_(sf, book);
-        if (r.made || rmCh2 || fx) handoutRender_(sf, book);
+        if (r.made || rmCh2 || fx || dv.redone) handoutRender_(sf, book);
       } catch (eW) {
         logLine_('نوشتنِ نمودارهای «' + (book.seriesName || rec.key) + '» ناموفق: ' + eW.message);
       }
@@ -32584,6 +32799,7 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     if (!(hist instanceof Array)) hist = [];
     hist.push({ at: nowStr_(), made: out.made, series: out.series,
                 pending: out.pending, gaveUp: out.gaveUp || 0,
+                redone: out.redone || 0,
                 wrapped: out.wrapped, cur: i, total: reg.rows.length });
     while (hist.length > 10) hist.shift();
     props_().setProperty(PK.HVIZ_LAST, JSON.stringify(hist));
