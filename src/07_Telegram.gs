@@ -366,7 +366,7 @@ function testTelegram() {
 function specialPlainText_(meta) {
   var ep = meta.ep || {};
   var L = [];
-  L.push(CFG.SPECIAL_SHOW_NAME + ' — قسمت ' + meta.epNum);
+  L.push(CFG.SPECIAL_SHOW_NAME + ' — ' + epLessonTag_(meta.epNum, meta.lesson));
   L.push('مجموعه: ' + meta.seriesName);
   L.push('پوشش: ' + coverShortText_(meta));
   L.push(meta.recap ? 'این مرورِ پایانیِ مجموعه است.'
@@ -410,7 +410,8 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
   var sent = 0, failed = 0, notes = [];
 
   try {
-    var head = '📚 <b>' + tgEsc_(CFG.SPECIAL_SHOW_NAME) + ' — قسمت ' + meta.epNum + '</b>\n' +
+    var head = '📚 <b>' + tgEsc_(CFG.SPECIAL_SHOW_NAME) + ' — ' +
+               tgEsc_(epLessonTag_(meta.epNum, meta.lesson)) + '</b>\n' +
                '<b>' + tgEsc_(ep.title || '') + '</b>\n' +
                '🎓 مجموعهٔ «' + tgEsc_(meta.seriesName) + '»\n' +
                '📖 ' + tgEsc_(coverShortText_(meta)) + '\n' +

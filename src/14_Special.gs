@@ -1086,6 +1086,13 @@ function produceSpecialEpisode(opt) {
     }
 
     var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
+    /* ══ شمارهٔ درس، جدا از شمارهٔ سراسری (۶٫۵۵) ══
+     * شمارهٔ قسمت سراسری است و باید بماند — گزارش‌ها و مکان‌نما به آن بندند.
+     * ولی درسِ اولِ یک مجموعهٔ تازه «قسمت ۲۲» خوانده می‌شد، چون مجموعهٔ
+     * قبلی ۲۱ قسمت رفته بود. شمارهٔ درس = جای این قسمت در همین مجموعه،
+     * پیش از افزودنِ خودش: تعدادِ قسمت‌های ثبت‌شده + ۱. در انتشار هر دو
+     * می‌آیند: «قسمت ۲۲ — درس ۱» (انتخابِ صریحِ صاحبِ برنامه). */
+    var lessonNo = epNumsOf_(rec.vals[SC.EPISODES - 1]).length + 1;
     var totalChars = 0;
     for (var tc = 0; tc < covers.length; tc++) totalChars += covers[tc].seg.chars;
     logLine_('درس‌نامه ' + epNum + ': «' + seriesName + '» — ' +
@@ -1370,13 +1377,13 @@ function produceSpecialEpisode(opt) {
       // دستهٔ مجموعه، تا نقش‌گزینیِ گویندگان بداند این درس از چه جنسی است
       seriesCat: seriesCatOf_(rec.vals),
       level: String(rec.vals[SC.LEVEL - 1] || ''),
-      orders: orders, epNum: epNum, date: when,
+      orders: orders, epNum: epNum, lesson: lessonNo, date: when,
       /* ارجاع‌ها در پروندهٔ خودِ قسمت هم می‌نشینند: «حتماً باید این ارجاعات
          در جایی ثبتِ دقیق و کامل بشه». سیاهه تاریخچه است، این پرونده حالِ
          همین قسمت — و ناظر و یوتیوب هر دو از همین می‌خوانند. */
       bridges: (ctx.__bridgesUsed || []).map(function (b) {
         return { series: b.seriesName, kind: b.kind, at: b.atHeading,
-                 claim: b.claim, relation: b.relation };
+                 claim: b.claim, relation: b.relation, thin: !!b.thin };
       }),
       bridgesMissed: (ctx.__bridgesMissed || []).map(function (b) {
         return b.seriesName + ' (' + b.kind + ')';

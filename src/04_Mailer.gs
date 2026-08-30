@@ -255,7 +255,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   h.push('<div class="wrap"><div class="hd">');
   h.push('<div style="opacity:.75;font-size:13px">' + esc_(CFG.SPECIAL_SHOW_NAME) + ' — ' +
          esc_(CFG.SPECIAL_TAGLINE) + '</div>');
-  h.push('<h1>قسمت ' + meta.epNum + ' — ' + esc_(ep.title || '') + '</h1>');
+  h.push('<h1>' + epLessonTag_(meta.epNum, meta.lesson) + ' — ' + esc_(ep.title || '') + '</h1>');
   h.push('<div style="opacity:.85">مجموعهٔ «' + esc_(meta.seriesName) + '» · ' +
          esc_(dur) + ' · ' + esc_(nowStr_()) + '</div>');
   h.push('</div><div class="bd">');
@@ -373,7 +373,8 @@ function sendSpecialEmail_(meta, audioLinks, docBlob, dur, folder, tags) {
     ].join('');
     MailApp.sendEmail({
       to: CFG.EMAIL_TO,
-      subject: '📚 ' + CFG.SPECIAL_SHOW_NAME + ' ' + meta.epNum + ' — ' +
+      subject: '📚 ' + CFG.SPECIAL_SHOW_NAME + ' ' + meta.epNum +
+               (Number(meta.lesson) > 0 ? ' — درس ' + meta.lesson : '') + ' — ' +
                String(meta.seriesName).slice(0, 40) + ' — ' + String(ep.title || '').slice(0, 60),
       htmlBody: html.replace('<div class="wrap">', intro + '<div class="wrap">'),
       attachments: [docBlob.copyBlob().setName('درس‌نامه-' + meta.epNum + '.html')],
@@ -384,4 +385,17 @@ function sendSpecialEmail_(meta, audioLinks, docBlob, dur, folder, tags) {
     logLine_('خطای ارسال ایمیل درس‌نامه: ' + e.message);
     return false;
   }
+}
+
+/**
+ * برچسبِ قسمتِ درس‌نامه در انتشار (۶٫۵۵) — یک تعریف، هر جا که چاپ می‌شود.
+ * شمارهٔ سراسری ادامه دارد (گزارش‌ها و مکان‌نما به آن بندند) و شمارهٔ درسِ
+ * همین مجموعه کنارش می‌آید: «قسمت ۲۲ — درس ۱». قسمتِ بی‌درس (نسخه‌های
+ * قدیمی، مرورِ بزرگ) همان شکلِ قبل را می‌گیرد — نبودِ شماره دروغ نمی‌شود.
+ */
+function epLessonTag_(epNum, lesson) {
+  var t = 'قسمت ' + epNum;
+  var n = Number(lesson) || 0;
+  if (n > 0) t += ' — درس ' + n;
+  return t;
 }

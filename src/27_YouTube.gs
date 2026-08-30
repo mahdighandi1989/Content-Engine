@@ -260,6 +260,12 @@ function ytMetaPrompt_(ctx) {
   L.push('برنامه: «' + ctx.showName + '»' + (ctx.tagline ? ' — ' + ctx.tagline : ''));
   if (ctx.seriesName) L.push('مجموعه: «' + ctx.seriesName + '»');
   L.push('شمارهٔ قسمت: ' + ctx.epNum);
+  if (ctx.lesson) {
+    L.push('شمارهٔ این درس در مجموعه‌اش: ' + ctx.lesson +
+           ' — اگر در عنوان شماره می‌آوری، **همین** را بیاور («درس ' + ctx.lesson +
+           '»)، نه شمارهٔ سراسریِ قسمت را: درسِ اولِ یک مجموعهٔ تازه نباید ' +
+           '«درس ۲۲» خوانده شود.');
+  }
   L.push('عنوانِ داخلیِ قسمت: ' + ctx.title);
   if (ctx.cat) L.push('دستهٔ محتوا: ' + ctx.cat);
   L.push('مدت: ' + ctx.duration);
@@ -1832,7 +1838,14 @@ function ytUploadOne_(item, hub, pub) {
   var isSpecial = String(item.show) === ENRICH_SHOW_SPECIAL;
   var showName = isSpecial ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
   var seriesName = String(meta.seriesName || item.series || '');
-  var epLabel = 'قسمت ' + faDigitsOut_(String(item.ep));
+  /* شمارهٔ درسِ همین مجموعه، از پروندهٔ قسمت — انتشار هر دو را می‌گوید:
+     سراسری ادامه دارد، «درس N» کنارش (۶٫۵۵). کاور فقط «درس N» می‌گیرد،
+     چون در اندازهٔ بندانگشتی جای دو شماره نیست و آنچه معنا دارد جای درس
+     در مجموعه است. */
+  var lessonNo = Number(meta.lesson) || 0;
+  var epLabel = 'قسمت ' + faDigitsOut_(String(item.ep)) +
+                (lessonNo ? ' — درس ' + faDigitsOut_(String(lessonNo)) : '');
+  var coverEpLabel = lessonNo ? 'درس ' + faDigitsOut_(String(lessonNo)) : epLabel;
 
   var aud = ytAudioParts_(folder);
   if (aud.why) { res.why = aud.why; return res; }
@@ -1847,6 +1860,7 @@ function ytUploadOne_(item, hub, pub) {
   var ctx = { show: item.show, epRaw: item.ep,
               showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
+              lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
               title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
@@ -1863,7 +1877,7 @@ function ytUploadOne_(item, hub, pub) {
     cover = ytCoverCard_({ title: String(ep.title || ''),
                            coverTitle: plan.coverTitle, kicker: plan.coverKicker,
                            showName: showName, seriesName: seriesName,
-                           epLabel: epLabel, cat: String(meta.cat || seriesName || '') });
+                           epLabel: coverEpLabel, cat: String(meta.cat || seriesName || '') });
   } catch (eC) {}
 
   // ── ویدئو رسیده؟ ──

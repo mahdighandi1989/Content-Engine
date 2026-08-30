@@ -191,7 +191,7 @@ console.log('=== ۳) نقشه: پیشنهادِ مدل با سه سد ===');
      نمی‌داند هنوز هست یا نه. پس اینجا سهم موقتاً باز می‌شود تا فقط شمار
      بماند — همان چیزی که این بلوک ادعایش را دارد. */
   const keepPct = CFG.EXPLAIN_PCT;
-  CFG.EXPLAIN_PCT = 40;
+  CFG.EXPLAIN_PCT = 70;   // ۶٫۵۵: سهمِ واقعی ۲۵ شد؛ برای بازماندنِ سهم عددِ بزرگ‌تر لازم است
   ep = mkEp(8, 8);
   mk(Array.from({ length: 8 }, (_, i) => ({ section: String(i), at: 'انتها', text: TXTS(i) })));
   r = explainPlan_(ep, 5, 'م');
