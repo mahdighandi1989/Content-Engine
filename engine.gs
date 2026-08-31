@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.75
+ *  موتور محتوا و پادکست — نسخهٔ 6.76
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -371,7 +371,7 @@ var CFG = {
   // ردّ می‌کرد. نتیجه در قسمتِ واقعی: از ۱۳ بخشِ «مرورِ بزرگ»، ۸ بخش
   // (۶۲٪) **بی هیچ اعرابی** خوانده شد و `__speakFails` روی ۱۸ ایستاد.
   // یعنی سدی که برای بهترکردنِ تلفظ گذاشته شده بود، تلفظ را از همیشه بدتر کرد.
-  // حالا نیم‌فاصله *تعمیر* می‌شود نه ردّ (speakZwnjFix_)، پس نشانه‌گذاریِ
+  // حالا نیم‌فاصله و شکلِ حرف *تعمیر* می‌شوند نه ردّ (speakGraft_)، پس نشانه‌گذاریِ
   // آوایی — که خواستهٔ صریحِ صاحبِ برنامه بود — دوباره باز است.
   SPEAK_MARKS: true,
 
@@ -1089,7 +1089,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.75',
+  CODE_VERSION: '6.76',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3369,6 +3369,14 @@ function speakCmp_(t) {
   // ولی «۱۴۰۰» و «۱۹۷۹» هرگز.
   s = s.replace(/[\u06F0-\u06F9]/g, function (d) { return String(d.charCodeAt(0) - 0x6F0); });
   s = s.replace(/[\u0660-\u0669]/g, function (d) { return String(d.charCodeAt(0) - 0x660); });
+  /* «همان حرف با کدِ دیگر» تفاوت نیست (۶٫۷۶) — ی/ي، ک/ك، ه/ة یکی‌اند و
+     کشیده آرایشِ چاپی است. speakGraft_ حرفِ اصل را برمی‌گرداند، ولی سد هم
+     باید خودش این را بداند: مرزی که یک نگهبان داشته باشد، مرزی است که
+     نگهبانِ بعدی فراموشش می‌کند. */
+  s = s.replace(/[\u064A\u0649\u06CD]/g, '\u06CC')
+       .replace(/[\u0643\u06AA]/g, '\u06A9')
+       .replace(/\u0629/g, '\u0647')
+       .replace(/\u0640/g, '');
   /* ══ نیم‌فاصله دیگر نامرئی نیست (۶٫۲۶) ══
    * تا ۶٫۲۵ کلِ بازهٔ U+200B..U+200F برداشته می‌شد و نیم‌فاصله (U+200C) هم
    * تویش بود. یعنی مدل می‌توانست **وسطِ هر واژه‌ای** نیم‌فاصله بگذارد و
@@ -3462,7 +3470,33 @@ function speakSigCh_(ch) {
 }
 
 /**
- * ══ نیم‌فاصله را *تعمیر* می‌کنیم، نه اینکه بخش را دور بیندازیم (۶٫۲۹) ══
+ * شکلِ متعارفِ یک حرف — «همان حرف، نوشته‌شده با کدِ دیگر» (۶٫۷۶).
+ *
+ * ══ چرا لازم شد ══
+ * `speakSkip` سه هفته `ok:false` بود: در ده قسمتِ اخیر ۴۲ بخش از ۸۸ (۴۸٪)
+ * بی‌اعراب خوانده شد و علتِ همه‌شان یک چیز: «واژه‌ها ناهم‌خوان». ولی
+ * نیم‌فاصله از ۶٫۲۹ تعمیر می‌شود، پس آن نبود. آنچه می‌مانَد، حرف است — و
+ * یک اعراب‌گذار که با ابزارِ عربی کار می‌کند، طبیعی‌ترین کارِ ممکن را
+ * می‌کند: «ی» را «ي» می‌نویسد، «ک» را «ك»، و لای واژه کشیده (ـ) می‌گذارد.
+ * هیچ‌کدام واژه را عوض نمی‌کنند؛ هر کدام کلِ بخش را می‌انداختند.
+ *
+ * این‌ها را «تفاوت» شمردن یعنی همان اشتباهِ ۶٫۲۹ در لباسِ تازه: سدی که برای
+ * عیبی که خودش تعمیرکردنی است، کلِ کار را دور می‌ریزد. پس مثل نیم‌فاصله،
+ * حرفِ اصل جای حرفِ مدل می‌نشیند و اعراب — که کارِ مدل است — می‌مانَد.
+ */
+function speakCanon_(ch) {
+  switch (ch) {
+    case 'ي': case 'ى': case 'ۍ': return 'ی';  // ي ى ۍ → ی
+    case 'ك': return 'ک';                                 // ك → ک
+    case 'ة': return 'ه';                                 // ة → ه
+    case 'ڪ': return 'ک';                                 // ڪ → ک
+    default: return ch;
+  }
+}
+
+/**
+ * ══ نیم‌فاصله و شکلِ حرف را *تعمیر* می‌کنیم، نه اینکه بخش را دور بیندازیم ══
+ * (۶٫۲۹ برای نیم‌فاصله، ۶٫۷۶ برای شکلِ حرف و کشیده)
  *
  * ۶٫۲۰ از مدل نیم‌فاصله خواست و مدل آن را وسطِ واژه‌های سالم هم گذاشت
  * («مد‌رسه»)؛ چون speakCmp_ نیم‌فاصله را نامرئی می‌گرفت، هیچ سدی نفهمید.
@@ -3482,11 +3516,10 @@ function speakSigCh_(ch) {
  * بشکند یعنی مدل واژه‌ای را عوض کرده؛ آن دیگر کارِ این تابع نیست و متن
  * دست‌نخورده به سدِ وارسی سپرده می‌شود تا خودش ردّش کند.
  */
-function speakZwnjFix_(plain, vowelled) {
-  var Z = '\u200C';
+function speakGraft_(plain, vowelled) {
+  var Z = '\u200C', TAT = '\u0640';
   var p = String(plain || ''), v = String(vowelled || '');
   if (!v) return v;
-  if (p.indexOf(Z) === -1 && v.indexOf(Z) === -1) return v;
 
   // نقشهٔ اصل: برای هر نویسهٔ معنادار، جداکنندهٔ پیش از آن ('z' | ' ' | '')
   var sig = [], sep = '';
@@ -3502,8 +3535,12 @@ function speakZwnjFix_(plain, vowelled) {
   for (var b = 0; b < v.length; b++) {
     var cb = v.charAt(b);
     if (cb === Z) continue;                       // هر نیم‌فاصلهٔ مدل برداشته می‌شود
+    if (cb === TAT) continue;                     // کشیده آرایش است، نه حرف
     if (!speakSigCh_(cb)) { out.push(cb); continue; }
-    if (k >= sig.length || sig[k].c !== cb) return vowelled;   // هم‌ترازی شکست
+    // هم‌ترازی روی شکلِ متعارف؛ آنچه نوشته می‌شود، حرفِ *اصل* است.
+    if (k >= sig.length ||
+        speakCanon_(sig[k].c) !== speakCanon_(cb)) return vowelled;   // هم‌ترازی شکست
+    cb = sig[k].c;
     var want = sig[k].s;
     if (want === 'z') {
       while (out.length && /\s/.test(out[out.length - 1])) out.pop();
@@ -3702,9 +3739,34 @@ function speakPieces_(text, cap) {
 var VOWEL_LAST_WHY_ = '';
 function vowelWhyOf_(piece, v) {
   if (!v || !String(v).trim()) return 'مدل جواب نداد';
-  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان';
+  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان' + speakDiff_(piece, v);
   if (!speakVowelledOk_(piece, v)) return 'اعرابِ ناکافی';
   return '';
+}
+
+/**
+ * نخستین واژه‌ای که فرق کرده — کوتاه، برای نوشتن کنارِ علتِ رد (۶٫۷۶).
+ *
+ * ══ چرا این پیش از هر اصلاحِ دیگری لازم بود ══
+ * سه هفته «۴۸٪ بخش‌ها بی‌اعراب» گزارش می‌شد و علت همیشه یک جمله بود:
+ * «واژه‌ها ناهم‌خوان». کدام واژه؟ هیچ‌جا نوشته نمی‌شد. پس تشخیص فقط از راهِ
+ * حدس ممکن بود، و حدس همان چیزی است که این ریپو بارها بابتش نسخه سوزانده.
+ * حالا هر رد، شاهدِ خودش را با خود می‌آورد — همان درسِ حلقهٔ نمودارها (۶٫۶۵).
+ */
+function speakDiff_(plain, vowelled) {
+  try {
+    var A = speakBone_(plain).split(' ');
+    var B = speakBone_(vowelled).split(' ');
+    for (var i = 0; i < Math.max(A.length, B.length); i++) {
+      if (A[i] === B[i]) continue;
+      var a = A[i] === undefined ? '—' : A[i];
+      var b = B[i] === undefined ? '—' : B[i];
+      return ' («' + a.slice(0, 24) + '» ← «' + b.slice(0, 24) + '»' +
+             (A.length !== B.length
+               ? '، ' + A.length + '↔' + B.length + ' واژه' : '') + ')';
+    }
+    return A.length === B.length ? ' (فقط نشانه‌گذاری)' : '';
+  } catch (e) { return ''; }
 }
 
 function vowelizePiece_(piece) {
@@ -3722,6 +3784,9 @@ function vowelizePiece_(piece) {
     '۲) و بس. نیم‌فاصله‌ها را **همان‌طور که هست** بگذار و باش: نه یکی اضافه کن، ' +
     'نه یکی کم. نیم‌فاصلهٔ نابه‌جا وسطِ یک واژه، آن واژه را دوتکه می‌کند و ' +
     'بدتر از نبودِ اعراب است.\n' +
+    // پیشگیری، در کنارِ تعمیرِ speakGraft_: عادتِ ابزارهای عربی همین است.
+    '۲-ب) حرف‌ها را فارسی بنویس: «ی» و «ک» (نه «ي» و «ك»)، «ه» (نه «ة»)، ' +
+    'و هیچ کشیده‌ای (ـ) لای واژه نگذار.\n' +
     (marks
       ? '۳) نشانه‌گذاری برای عبارت‌بندی: می‌توانی «،» و «…» و «—» و «:» بیفزایی یا ' +
         'برداری تا مکث‌ها سرِ جای درست بیفتد.\n'
@@ -3736,13 +3801,13 @@ function vowelizePiece_(piece) {
     var r = geminiText_(prompt, SPEAK_SCHEMA, 8192);
     // تعمیرِ نیم‌فاصله *پیش از* سد، نه بعدش: عیبی که قابلِ تعمیر است نباید
     // به قیمتِ افتادنِ کلِ اعرابِ این بخش تمام شود (۶٫۲۹).
-    var v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
+    var v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
-    v = speakZwnjFix_(piece, r && r.v ? String(r.v) : '');
+    v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
   } catch (e) { if (!VOWEL_LAST_WHY_) VOWEL_LAST_WHY_ = 'خطا: ' + String(e.message || e).slice(0, 60); }
@@ -3806,7 +3871,7 @@ function speakReviewPiece_(plain, vowelled) {
   try {
     var r = geminiText_(prompt, SPEAK_REVIEW_SCHEMA, 8192);
     if (!r) return null;
-    var v = speakZwnjFix_(plain, r.v ? String(r.v) : '');
+    var v = speakGraft_(plain, r.v ? String(r.v) : '');
     if (!v) return null;
     // همان دو سدِ همیشگی روی خروجیِ بازبین هم — بازبین هم یک مدل است.
     if (!verifySpeak_(plain, v) || !speakVowelledOk_(plain, v)) return null;
@@ -4046,7 +4111,13 @@ function speakSkipRecord_(ep, label, hub, epNum) {
     if (!total) return null;
     var why = {};
     for (var w = 0; w < S.length; w++) {
-      if (S[w] && S[w].skip && S[w].why) why[S[w].why] = (why[S[w].why] || 0) + 1;
+      /* شاهدِ هر رد (واژهٔ ناهم‌خوان) در خودِ `why` هست و باید بماند، ولی
+         شمارش باید روی *نوعِ* علت باشد؛ وگرنه هر رد یک خانهٔ تازه می‌سازد و
+         سطرِ «علتِ ردها» به فهرستی از یکان‌ها بدل می‌شود (۶٫۷۶). */
+      if (S[w] && S[w].skip && S[w].why) {
+        var kw = String(S[w].why).split(' (')[0];
+        why[kw] = (why[kw] || 0) + 1;
+      }
     }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why,

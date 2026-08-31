@@ -114,7 +114,7 @@ console.log('=== ۳) اعراب و نشانه آزادند؛ نیم‌فاصله
   CFG.SPEAK_MARKS = keep;
 }
 
-console.log('=== ۳الف) تعمیرِ نیم‌فاصله: عیبِ تعمیرپذیر نباید کلِ بخش را بیندازد ===');
+console.log('=== ۳الف) تعمیرِ املا (نیم‌فاصله و شکلِ حرف): عیبِ تعمیرپذیر نباید کلِ بخش را بیندازد ===');
 {
   const Z = '\u200C';
   /* ══ اندازه‌گیریِ واقعی که این را لازم کرد ══
@@ -130,25 +130,25 @@ console.log('=== ۳الف) تعمیرِ نیم‌فاصله: عیبِ تعمیر
   const badZ  = V('ما بای' + Z + 'د همین‌جا بایستیم و نگاه کنیم.');
   ok('۳الف.۱ نیم‌فاصلهٔ نابه‌جای مدل برداشته می‌شود',
      bare(badZ).indexOf('بای' + Z + 'د') !== -1 &&
-     bare(speakZwnjFix_(plain, badZ)).indexOf('بای' + Z + 'د') === -1);
+     bare(speakGraft_(plain, badZ)).indexOf('بای' + Z + 'د') === -1);
   ok('۳الف.۲ و بخش دیگر ردّ نمی‌شود — یعنی اعرابش را نگه می‌دارد',
-     verifySpeak_(plain, speakZwnjFix_(plain, badZ)));
+     verifySpeak_(plain, speakGraft_(plain, badZ)));
   ok('۳الف.۳ اعرابِ همان متن دست‌نخورده می‌مانَد',
-     stripTashkil_(speakZwnjFix_(plain, badZ)) !== speakZwnjFix_(plain, badZ));
+     stripTashkil_(speakGraft_(plain, badZ)) !== speakGraft_(plain, badZ));
 
   /* نیم‌فاصلهٔ خودِ متن (اینجا «همین‌جا») باید سرِ جایش برگردد، حتی اگر مدل
      برش دارد — وگرنه تعمیر یک‌طرفه است و واژه دوتکه می‌شود. */
   const dropped = V('ما باید همین جا بایستیم و نگاه کنیم.');
   ok('۳الف.۴ نیم‌فاصلهٔ برداشته‌شده هم برمی‌گردد',
-     bare(speakZwnjFix_(plain, dropped)).indexOf('همین' + Z + 'جا') !== -1,
-     JSON.stringify(speakZwnjFix_(plain, dropped)));
+     bare(speakGraft_(plain, dropped)).indexOf('همین' + Z + 'جا') !== -1,
+     JSON.stringify(speakGraft_(plain, dropped)));
   ok('۳الف.۵ و آن هم از سد رد می‌شود',
-     verifySpeak_(plain, speakZwnjFix_(plain, dropped)));
+     verifySpeak_(plain, speakGraft_(plain, dropped)));
 
   /* ویرگولِ افزودهٔ مدل نباید قربانیِ تعمیر شود: دو ابزارِ مجاز و یک ابزارِ
      ممنوع، و تعمیر فقط سراغِ ممنوع می‌رود. */
   const both = V('ما باید همین‌جا بایستیم، و نگ' + Z + 'اه کنیم.');
-  const fixed = speakZwnjFix_(plain, both);
+  const fixed = speakGraft_(plain, both);
   ok('۳الف.۶ ویرگولِ مجاز می‌ماند و نیم‌فاصلهٔ نامجاز می‌رود',
      bare(both).indexOf('نگ' + Z + 'اه') !== -1 &&
      fixed.indexOf('،') !== -1 && bare(fixed).indexOf('نگ' + Z + 'اه') === -1,
@@ -160,13 +160,48 @@ console.log('=== ۳الف) تعمیرِ نیم‌فاصله: عیبِ تعمیر
      «درست» کند، سد را دور می‌زند. */
   const wrongWord = V('ما باید همین‌جا بنشینیم و نگاه کنیم.');
   ok('۳الف.۸ واژهٔ عوض‌شده تعمیر نمی‌شود',
-     speakZwnjFix_(plain, wrongWord) === wrongWord);
-  ok('۳الف.۹ و همچنان ردّ می‌شود', !verifySpeak_(plain, speakZwnjFix_(plain, wrongWord)));
+     speakGraft_(plain, wrongWord) === wrongWord);
+  ok('۳الف.۹ و همچنان ردّ می‌شود', !verifySpeak_(plain, speakGraft_(plain, wrongWord)));
 
   /* استخوان هم باید فاصلهٔ کنارِ نیم‌فاصله را ببلعد، وگرنه ویرگولی که کنارِ
      یک ترکیبِ نیم‌فاصله‌دار بنشیند دوباره همه‌چیز را می‌شکند. */
   ok('۳الف.۱۰ استخوان: ویرگولِ چسبیده به نیم‌فاصله متن را ناهمسان نمی‌کند',
      speakBone_('همین' + Z + 'جا') === speakBone_('همین،' + Z + 'جا'));
+
+  /* ══ و آنچه ۶٫۷۶ پیدا کرد ══
+   * `speakSkip` سه هفته `ok:false` بود: ۴۲ بخش از ۸۸ (۴۸٪) بی‌اعراب، و علتِ
+   * همه «واژه‌ها ناهم‌خوان». نیم‌فاصله که از ۶٫۲۹ تعمیر می‌شد، پس حرف مانده
+   * بود: اعراب‌گذاری که با ابزارِ عربی کار می‌کند «ي» و «ك» می‌نویسد و لای
+   * واژه کشیده می‌گذارد. هیچ‌کدام واژه را عوض نمی‌کنند؛ هر کدام کلِ بخش را
+   * می‌انداختند. */
+  const arabic = V('ما بايد همين‌جا بايستيم و نگاه كنيم.');
+  ok('۳الف.۱۱ «ي» و «ك»ِ عربی، تفاوتِ واژه نیستند — سد دیگر ردشان نمی‌کند',
+     verifySpeak_(plain, arabic));
+  const gA = speakGraft_(plain, arabic);
+  ok('۳الف.۱۲ و آنچه به گفتارساز می‌رود حرفِ *فارسیِ اصل* است، نه عربیِ مدل',
+     gA.indexOf('ي') === -1 && gA.indexOf('ك') === -1 &&
+     bare(gA).indexOf('بایستیم') !== -1, JSON.stringify(bare(gA)));
+  ok('۳الف.۱۳ و اعرابِ مدل روی همان حرف‌ها می‌مانَد', stripTashkil_(gA) !== gA);
+  const tat = V('ما بايد همين‌جا باـيستيم و نگاه كنيم.');
+  ok('۳الف.۱۴ کشیدهٔ چاپی هم آرایش است، نه حرف',
+     verifySpeak_(plain, speakGraft_(plain, tat)) &&
+     speakGraft_(plain, tat).indexOf('\u0640') === -1);
+  ok('۳الف.۱۵ ولی واژهٔ عوض‌شده با حرفِ عربی هم پنهان نمی‌شود',
+     !verifySpeak_(plain, speakGraft_(plain, V('ما بايد همين‌جا بنشينيم و نگاه كنيم.'))));
+
+  /* و هر رد باید شاهدِ خودش را بیاورد: سه هفته «واژه‌ها ناهم‌خوان» گفته شد و
+     هیچ‌وقت *کدام واژه* — پس تشخیص فقط با حدس ممکن بود. */
+  const why = vowelWhyOf_(plain, V('ما باید همین‌جا بنشینیم و نگاه کنیم.'));
+  ok('۳الف.۱۶ علتِ رد، واژهٔ ناهم‌خوان را نام می‌برد',
+     /واژه‌ها ناهم‌خوان/.test(why) && /بایستیم/.test(why) && /بنشینیم/.test(why), why);
+  ok('۳الف.۱۷ و کم‌وزیادشدنِ شمارِ واژه‌ها هم گفته می‌شود',
+     /واژه\)/.test(vowelWhyOf_(plain, V('ما باید همین‌جا بایستیم و نگاه کنیم و برویم.'))),
+     vowelWhyOf_(plain, V('ما باید همین‌جا بایستیم و نگاه کنیم و برویم.')));
+  const p03s = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۳الف.۱۸ ولی شمارشِ علت‌ها روی *نوع* است، نه روی شاهد',
+     /var kw = String\(S\[w\]\.why\)\.split\(' \('\)\[0\];/.test(p03s));
+  ok('۳الف.۱۹ و پرامپت هم پیشگیرانه حرفِ فارسی می‌خواهد',
+     /حرف‌ها را فارسی بنویس/.test(p03s) && /هیچ کشیده‌ای/.test(p03s));
 }
 
 console.log('=== ۴) فهرستِ دام‌ها یک نسخه دارد و در هر دو پرامپت هست ===');
