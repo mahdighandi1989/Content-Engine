@@ -703,8 +703,17 @@ function buildSpecialPrompt_(ctx) {
          ' واژه باشد (' + specialTargetMin_() + ' دقیقه گفتار).');
   // سقفِ سخت لازم است چون هدفِ واژه‌ای را مدل مرتب رد می‌کند، و متنِ بلندتر یعنی
   // هم فایلِ سنگین‌تر، هم جای بیشتر برای پُرکردن و حرفِ اضافه.
-  L.push('• سقفِ سخت: از ' + specialMaxChars_() + ' نویسه بیشتر نشود. کوتاه‌تر ایرادی ' +
-         'ندارد؛ بلندتر یعنی درس کِش آمده است.');
+  //
+  // ۶٫۷۵: خطِ قبلی «کوتاه‌تر ایرادی ندارد» می‌گفت — یعنی صریحاً اجازهٔ
+  // کوتاه‌نویسی. قسمتِ ۲۵ با همین اجازه ۴۶٪ هدف درآمد. سقف و کف هر دو باید
+  // گفته شوند، و هر دو در کد هم نگهبان دارند (specialCondense_/specialExpand_).
+  L.push('• سقفِ سخت: از ' + specialMaxChars_() + ' نویسه بیشتر نشود — بلندتر یعنی ' +
+         'درس کِش آمده است.');
+  L.push('• کفِ سخت: از ' + Math.round(specialMaxChars_() *
+           ((Number(CFG.SPECIAL_FLOOR_RATIO) > 0 ? Number(CFG.SPECIAL_FLOOR_RATIO) : 0.75))) +
+         ' نویسه کمتر نشود. کوتاه‌تر یعنی منبع را فشرده گفته‌ای: مفهوم‌ها نام ' +
+         'برده شده‌اند ولی باز نشده‌اند. هر تعریف، مثال، تمایز و گامِ استدلالی که ' +
+         'در قطعه‌ها هست باید در متن هم باشد — مگر منبع واقعاً بیش از این نداشته باشد.');
   L.push('• پیوندِ میان بخش‌ها را با عبارت‌های کلیشه‌ای نساز. اگر پیوندی نیست، ساده رد شو.');
   return L.join('\n');
 }
@@ -1161,6 +1170,14 @@ function produceSpecialEpisode(opt) {
     if (!ep.sections.length) throw new Error('متن درس‌نامه بدون بخشِ کامل برگشت.');
     try { delete ep.__repaired; } catch (eD) {}
 
+    /* و قرینه‌اش: متنی که خیلی کوتاه‌تر از هدف است، یک بار با همان منبع
+       عمیق‌تر نوشته می‌شود. کف هم مثل سقف باید در کد باشد نه در پرامپت. */
+    var xpd = { tried: false, from: 0, to: 0, why: '' };
+    try {
+      xpd = specialExpand_(ep, stream, specialMaxChars_(), epNum);
+      ep = xpd.ep;
+    } catch (eXp) { logLine_('عمیق‌ترنویسیِ درس‌نامه رد شد: ' + eXp.message); }
+
     // «یک فایل» باید در کد تضمین شود، نه در یک جملهٔ پرامپت که مدل ردش می‌کند.
     if (CFG.SPECIAL_ONE_FILE === true) {
       try {
@@ -1482,7 +1499,13 @@ function produceSpecialEpisode(opt) {
 
     var narrChars = specialNarration_(ep).length;
     var wantChars = Math.round(specialTargetMin_() * speechCps_() * 60 * 1.09);
-    var thin = narrChars < wantChars * (CFG.SPECIAL_MIN_OUTPUT_RATIO || 0.4);
+    /* ۶٫۷۵: نسبت ۰٫۴ بود و قسمتِ ۷:۴۸ (۴۶٪ هدف) بی‌صدا از زیرش رد شد —
+       هشداری که برای نصفِ هدف هم نمی‌زند، هشدار نیست. حالا همان کفی که
+       specialExpand_ رویش کار می‌کند: اگر تلاشِ عمیق‌ترنویسی هم بالا
+       نیاوردش، همان‌جا گزارش می‌شود. */
+    var thinR = Number(CFG.SPECIAL_MIN_OUTPUT_RATIO);
+    if (!(thinR > 0 && thinR < 1)) thinR = 0.7;
+    var thin = narrChars < wantChars * thinR;
 
     // تا کدام نقطهٔ جریان اجازهٔ پیشرفت داریم؟
     // فقط تا آخرین قطعهٔ «پیوسته‌ای» که واقعاً روایت شد. هیچ استثنایی — نه حتی
@@ -1546,7 +1569,14 @@ function produceSpecialEpisode(opt) {
             priority: 'جدی', category: 'پرامپت درس‌نامه', key: 'sp-thin-episode',
             title: 'متن درس‌نامه خیلی کوتاه‌تر از هدف بود',
             detail: 'قسمت ' + epNum + ': ' + narrChars + ' نویسه در برابر هدفِ حدود ' +
-                    wantChars + '. مکان‌نما فقط تا قطعهٔ ' + (upTo + 1) + ' از ' +
+                    wantChars + ' (' + Math.round(narrChars / (wantChars || 1) * 100) + '٪). ' +
+                    /* «تلاش شد یا نه، و چرا نشد» باید همین‌جا باشد: بی این،
+                       یافته می‌گوید کوتاه است و نمی‌گوید سدِ دوم هم رد شد. */
+                    (xpd && xpd.tried
+                      ? ('عمیق‌ترنویسی هم انجام شد و نتیجه نداد' +
+                         (xpd.why ? ' — ' + xpd.why : '') + '. ')
+                      : ('عمیق‌ترنویسی اجرا نشد' + (xpd && xpd.why ? ' — ' + xpd.why : '') + '. ')) +
+                    'مکان‌نما فقط تا قطعهٔ ' + (upTo + 1) + ' از ' +
                     stream.length + ' جلو رفت.',
             instruction: 'متن هر قسمت باید حدود ' + Math.round(specialTargetMin_() * speechWpm_()) +
                          ' واژه باشد و همهٔ قطعه‌های داده‌شده را پوشش بدهد؛ کوتاه ننویس.',
@@ -1951,6 +1981,133 @@ function specialCondense_(ep, capChars, epNum) {
   logLine_('درس‌نامه ' + epNum + ': متن از ' + have + ' به ' + now + ' نویسه فشرده شد' +
            (now <= capChars ? ' — در یک فایل جا می‌شود.' : ' — هنوز از سقف بالاتر است.'));
   return { ep: merged, over: Math.max(0, now - capChars), tried: true };
+}
+
+/**
+ * قرینهٔ فشرده‌سازی: متنی که خیلی کوتاه‌تر از هدف درآمده، **یک بار** با همان
+ * قطعه‌های منبع عمیق‌تر نوشته می‌شود (۶٫۷۵).
+ *
+ * ══ چرا لازم شد ══
+ * قسمتِ ۲۵ (۳۱ اوت) ۷:۴۸ شد در برابرِ هدفِ ۱۶ دقیقه‌ای. علت نه کمبودِ مواد
+ * بود و نه خرابیِ مسیر: مدل ۴۲٬۰۰۰ نویسه منبع گرفت — کلِ بودجه، و توقفش هم
+ * از سرِ تمام‌شدنِ بودجه بود نه تمام‌شدنِ متن — و ۴٬۳۰۰ نویسه نوشت. ده صفحه
+ * کتاب در هفت دقیقه، و مکان‌نما از روی هر سه تکه رد شد؛ یعنی آن ده صفحه
+ * دیگر برنمی‌گردد.
+ *
+ * دو چیز اجازه‌اش را داده بودند، و هر دو همان الگوی همیشگیِ این ریپوست:
+ *   • **کفی که فقط در پرامپت گفته شود، کف نیست.** بدتر: خطِ «سقفِ سخت …
+ *     کوتاه‌تر ایرادی ندارد» صراحتاً اجازهٔ کوتاه‌نویسی می‌داد.
+ *   • **هشداری که آن‌قدر پایین کالیبره شده که نمی‌تواند بزند.** سدِ
+ *     `sp-thin-episode` زیرِ ۴۰٪ هدف می‌زد و این قسمت ۴۶٪ بود: بی‌صدا گذشت.
+ *
+ * و چرا «کِش‌دادن» نیست: خواسته این است که از **خودِ منبع** عمیق‌تر گفته
+ * شود — تعریف‌ها، مثال‌ها و استدلال‌هایی که در متن هست و در روایت نیامده.
+ * پس منبع دوباره داده می‌شود، افزودنِ چیزِ بیرونِ منبع صریحاً ممنوع است، و
+ * وارسیِ وفاداریِ همیشگی (که بعد از این اجرا می‌شود) نگهبانِ دوم است.
+ * اگر منبع واقعاً بیش از این نداشت، متنِ اصلی می‌ماند — یک درسِ کوتاهِ راست
+ * از یک درسِ بلندِ پُرشده بهتر است.
+ */
+function specialExpand_(ep, stream, capChars, epNum) {
+  var out = { ep: ep, tried: false, from: 0, to: 0, why: '' };
+  var have = specialNarration_(ep).length;
+  out.from = have;
+  out.to = have;
+  if (!(capChars > 0)) { out.why = 'سقفی در کار نیست'; return out; }
+  var ratio = Number(CFG.SPECIAL_FLOOR_RATIO);
+  if (!(ratio > 0 && ratio < 1)) ratio = 0.75;
+  var floor = Math.round(capChars * ratio);
+  if (have >= floor) return out;                       // به‌اندازه هست
+  var srcChars = 0;
+  for (var s0 = 0; s0 < (stream || []).length; s0++) {
+    srcChars += String(stream[s0].text || '').length;
+  }
+  /* منبعِ کم‌مایه حق دارد درسِ کوتاه بدهد. فقط وقتی می‌پرسیم که منبع
+     دستِ‌کم دو برابرِ کمبود، متنِ نگفته دارد. */
+  if (srcChars < (floor - have) * 2) {
+    out.why = 'منبع بیش از این نداشت (' + srcChars + ' نویسه)';
+    return out;
+  }
+  out.tried = true;
+  var need = Math.round(capChars * 0.9);
+  logLine_('درس‌نامه ' + epNum + ': متن ' + have + ' نویسه است و کفِ هدف ' + floor +
+           '؛ یک‌بار عمیق‌ترنویسی خواسته شد.');
+
+  var L = [
+    'این متنِ یک قسمتِ درس‌نامهٔ فارسی است و ' + have + ' نویسه دارد،',
+    'ولی باید حدود ' + need + ' نویسه باشد. متنِ فعلی، منبعِ زیر را خیلی',
+    'فشرده گفته: مفهوم‌ها نام برده شده‌اند ولی باز نشده‌اند.',
+    '',
+    'کارِ تو: **همین متن را عمیق‌تر بنویس**، نه بلندتر.',
+    '',
+    'قواعدِ سخت:',
+    '۱) تعدادِ بخش‌ها و ترتیب و عنوان‌هایشان دقیقاً همان می‌مانَد.',
+    '۲) هرچه اضافه می‌شود باید **در متنِ منبعِ پایین** باشد: تعریفِ دقیق‌تر،',
+    '   مثالی که در منبع آمده و تو نگفتی، گامِ استدلالی که جا افتاده،',
+    '   تمایزی که منبع می‌گذارد و روایت رد شده. چیزی از بیرونِ منبع نیفزا.',
+    '۳) پُرکننده ممنوع: بازگویی، مقدمه‌چینی، «همان‌طور که گفتیم»، تعریف و',
+    '   تمجید از موضوع، و جمله‌ای که اگر برداری چیزی کم نمی‌شود.',
+    '۴) هیچ جمله‌ای را که هست حذف نکن مگر برای بهترگفتنِ همان حرف.',
+    '۵) همان قواعدِ نگارشی: بی رقم، بی لاتین، بی مارک‌داون، جمله‌های کوتاه.',
+    '',
+    '── متنِ فعلی (JSON) ──',
+    JSON.stringify({ hook: ep.hook || '', recap: ep.recap || '', outro: ep.outro || '',
+                     sections: (ep.sections || []).map(function (x) {
+                       return { heading: x.heading || '', narration: x.narration || '' }; }) }),
+    '',
+    '── متنِ منبع ──'
+  ];
+  for (var i = 0; i < (stream || []).length; i++) {
+    L.push('[قطعهٔ ' + (i + 1) + ']');
+    L.push(String(stream[i].text || ''));
+  }
+
+  var res = null;
+  try { res = geminiText_(L.join('\n'), SPECIAL_SCHEMA, 40960); }
+  catch (e) {
+    out.why = 'مدل جواب نداد: ' + e.message;
+    logLine_('عمیق‌ترنویسیِ درس‌نامه انجام نشد: ' + e.message);
+    return out;
+  }
+  var okShape = !!(res && res.sections &&
+                   res.sections.length === (ep.sections || []).length);
+  if (okShape) {
+    for (var k = 0; k < res.sections.length; k++) {
+      if (!String((res.sections[k] || {}).narration || '').trim()) { okShape = false; break; }
+    }
+  }
+  if (!okShape) {
+    out.why = 'نسخهٔ تازه بخشی کم داشت';
+    logLine_('عمیق‌ترنویسی بخشی کم داشت؛ متنِ اصلی نگه داشته شد.');
+    return out;
+  }
+
+  var merged = {};
+  for (var kk in ep) if (Object.prototype.hasOwnProperty.call(ep, kk)) merged[kk] = ep[kk];
+  merged.hook = res.hook || ep.hook;
+  merged.recap = res.recap || ep.recap;
+  merged.outro = res.outro || ep.outro;
+  merged.sections = ep.sections.map(function (sec, i) {
+    var n = {};
+    for (var k2 in sec) if (Object.prototype.hasOwnProperty.call(sec, k2)) n[k2] = sec[k2];
+    n.narration = res.sections[i].narration;
+    return n;
+  });
+  var now = specialNarration_(merged).length;
+  /* بلندتر نشد؟ همان می‌مانَد. و بالاتر از سقف هم نمی‌رود — وگرنه این
+     تابع سقفی را می‌شکند که تابعِ قرینه‌اش برای رعایتش ساخته شده. */
+  if (now <= have) {
+    out.why = 'نسخهٔ تازه بلندتر نشد';
+    logLine_('عمیق‌ترنویسی بلندتر نشد؛ متنِ اصلی نگه داشته شد.');
+    return out;
+  }
+  if (now > capChars) {
+    out.why = 'نسخهٔ تازه از سقف گذشت (' + now + ')';
+    logLine_('عمیق‌ترنویسی از سقف گذشت؛ متنِ اصلی نگه داشته شد.');
+    return out;
+  }
+  out.ep = merged; out.to = now;
+  logLine_('درس‌نامه ' + epNum + ': متن از ' + have + ' به ' + now + ' نویسه عمیق‌تر شد.');
+  return out;
 }
 
 /** متنِ گفتاریِ کلِ یک قسمتِ درس‌نامه — برای تشخیصِ سرشتِ کلی. */

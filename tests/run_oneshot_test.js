@@ -129,6 +129,83 @@ console.log('=== ۲) و اگر مدل باز هم بلند نوشت، کد کو�
   global.geminiText_ = realG;
 }
 
+console.log('=== ۲ب) و اگر خیلی کوتاه نوشت، کد یک بار عمیق‌ترش می‌کند (۶٫۷۵) ===');
+{
+  /* قسمتِ ۲۵ (۳۱ اوت): ۷:۴۸ در برابرِ هدفِ ۱۶ دقیقه‌ای. نه موادی کم بود
+     (۴۲٬۰۰۰ نویسه منبع، توقف از سرِ بودجه) و نه مسیر خراب بود — پرامپت
+     صریح گفته بود «کوتاه‌تر ایرادی ندارد» و هشدار زیرِ ۴۰٪ کالیبره بود،
+     پس ۴۶٪ بی‌صدا گذشت. کف هم مثل سقف باید در کد نگهبان داشته باشد. */
+  const cap = 4000;
+  const short = 'یک جملهٔ کوتاه. ';
+  const mkS = () => ({ hook: 'قلاب.', recap: '', outro: 'پایان.',
+    sections: [{ heading: 'الف', narration: short.repeat(20) },
+               { heading: 'ب', narration: short.repeat(20) }] });
+  // منبعِ پرمایه: خیلی بیشتر از کمبود
+  const stream = [{ text: 'متنِ منبع با جزئیاتِ فراوان. '.repeat(400) }];
+  const realG2 = global.geminiText_;
+  let asked2 = null;
+
+  global.geminiText_ = (p) => { asked2 = p;
+    return { hook: 'قلاب.', outro: 'پایان.',
+             sections: [{ heading: 'الف', narration: 'الف؛ ' + short.repeat(90) },
+                        { heading: 'ب', narration: 'ب؛ ' + short.repeat(90) }] }; };
+  let x = specialExpand_(mkS(), stream, cap, 1);
+  ok('۲ب.۱ متنِ خیلی کوتاه یک بار عمیق‌تر نوشته می‌شود',
+     x.tried === true && x.to > x.from, x.from + ' → ' + x.to);
+  ok('۲ب.۲ و نتیجه از سقف نمی‌گذرد — کف، سقف را نمی‌شکند',
+     specialNarration_(x.ep).length <= cap, specialNarration_(x.ep).length + ' ≤ ' + cap);
+  ok('۲ب.۳ خودِ منبع به مدل داده می‌شود، نه فقط «بلندتر بنویس»',
+     /متنِ منبع/.test(asked2) && asked2.indexOf('متنِ منبع با جزئیاتِ فراوان') !== -1);
+  ok('۲ب.۴ و صریح ممنوع می‌کند که از بیرونِ منبع چیزی بیفزاید',
+     /چیزی از بیرونِ منبع نیفزا/.test(asked2) && /پُرکننده ممنوع/.test(asked2));
+  ok('۲ب.۵ تعدادِ بخش‌ها ثابت می‌مانَد', x.ep.sections.length === 2);
+
+  // متنی که به‌اندازه هست، هیچ فراخوانی نمی‌سازد
+  asked2 = null; global.geminiText_ = () => { asked2 = 'CALLED'; return null; };
+  const okEp = { hook: '', recap: '', outro: '',
+                 sections: [{ heading: 'الف', narration: 'x'.repeat(cap) }] };
+  ok('۲ب.۶ متنی که بالای کف است هزینه‌ای نمی‌سازد',
+     specialExpand_(okEp, stream, cap, 1).tried === false && asked2 === null);
+
+  // منبعِ کم‌مایه حق دارد درسِ کوتاه بدهد — و علتش نوشته می‌شود
+  const thinSrc = [{ text: 'کم.' }];
+  const r2 = specialExpand_(mkS(), thinSrc, cap, 1);
+  ok('۲ب.۷ منبعِ کم‌مایه پُر نمی‌شود و علت ثبت می‌شود',
+     r2.tried === false && /منبع بیش از این نداشت/.test(r2.why), r2.why);
+
+  // نسخه‌ای که بخش کم دارد یا بلندتر نشده، پذیرفته نمی‌شود
+  global.geminiText_ = () => ({ hook: 'ق.', outro: 'پ.',
+    sections: [{ heading: 'الف', narration: 'تنها.' }] });
+  ok('۲ب.۸ نسخهٔ ناقص رد می‌شود و متنِ اصلی می‌مانَد',
+     specialExpand_(mkS(), stream, cap, 1).ep.sections.length === 2);
+  global.geminiText_ = () => ({ hook: 'ق.', outro: 'پ.',
+    sections: [{ heading: 'الف', narration: 'ریز.' }, { heading: 'ب', narration: 'ریز.' }] });
+  const r3 = specialExpand_(mkS(), stream, cap, 1);
+  ok('۲ب.۹ نسخه‌ای که بلندتر نشد هم رد می‌شود',
+     r3.to === r3.from && /بلندتر نشد/.test(r3.why));
+  global.geminiText_ = () => { throw new Error('boom'); };
+  ok('۲ب.۱۰ ترکیدنِ مدل قسمت را نمی‌کشد',
+     specialExpand_(mkS(), stream, cap, 1).ep.sections.length === 2);
+  global.geminiText_ = realG2;
+
+  // و وصل‌بودن به مسیرِ واقعی + کالیبراسیونِ هشدار
+  const fsS = require('fs');
+  const p14 = fsS.readFileSync('src/14_Special.gs', 'utf8');
+  ok('۲ب.۱۱ در مسیرِ تولید، پیش از فشرده‌سازی صدا زده می‌شود',
+     /xpd = specialExpand_\(ep, stream, specialMaxChars_\(\), epNum\)/.test(p14) &&
+     p14.indexOf('specialExpand_(ep, stream') < p14.indexOf('specialCondense_(ep, specialMaxChars_()'));
+  // در *خطِ پرامپت* (نه در کامنتِ تاریخچه) دیگر اجازه‌ای نیست
+  ok('۲ب.۱۲ پرامپت دیگر اجازهٔ کوتاه‌نویسی نمی‌دهد و کف را می‌گوید',
+     !/L\.push\([^\n]*کوتاه‌تر ایرادی ندارد/.test(p14) && /L\.push\('• کفِ سخت: از /.test(p14));
+  ok('۲ب.۱۳ آستانهٔ یافته آن‌قدر بالاست که برای ۴۶٪ هدف بزند',
+     Number(CFG.SPECIAL_MIN_OUTPUT_RATIO) > 0.46 &&
+     Number(CFG.SPECIAL_MIN_OUTPUT_RATIO) <= Number(CFG.SPECIAL_FLOOR_RATIO),
+     CFG.SPECIAL_MIN_OUTPUT_RATIO + ' / ' + CFG.SPECIAL_FLOOR_RATIO);
+  ok('۲ب.۱۴ و یافته می‌گوید عمیق‌ترنویسی هم تلاش شد یا نه',
+     /عمیق‌ترنویسی هم انجام شد و نتیجه نداد/.test(p14) &&
+     /عمیق‌ترنویسی اجرا نشد/.test(p14));
+}
+
 console.log('=== ۳) آرزوی موسیقی تکراری نمی‌شود ===');
 {
   const F = () => DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
