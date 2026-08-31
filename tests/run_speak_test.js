@@ -681,6 +681,26 @@ console.log('=== ۱۷) «چند بخش بی‌اعراب رفت» دیگر بی�
   ok('۱۷.۴ ولی «هیچ‌کدام نگرفت» در یک قسمت، ایرادِ کد نیست',
      speakSkipStatus_().ok === true);
   delete global.__PROPS[PK.SPEAK_SKIP];
+
+  /* ══ درصد می‌گوید «بد است»، شاهد می‌گوید «چه چیزی» (۶٫۷۷) ══
+   * خطِ «۴۸٪ بی‌اعراب» سه هفته در ایمیل بود و هیچ‌کس نتوانست کاری بکند،
+   * چون نمی‌گفت کدام واژه سد را شکسته. حالا یک نمونهٔ واقعی همراهش است. */
+  const ev = { __speakFails: 9, __speakSegs: [] };
+  for (let k = 0; k < 10; k++) {
+    ev.__speakSegs.push(k < 4 ? { h: 'c' + k + ':500', t: 'v' }
+      : { h: 'c' + k + ':500', skip: true,
+          why: 'واژه‌ها ناهم‌خوان («بایستیم» ← «بنشینیم»)' });
+  }
+  const rec2 = speakSkipRecord_(ev, 'درس‌نامه ۲۵', null, 25);
+  ok('۱۷.۵ کارنامه یک شاهدِ واقعی هم نگه می‌دارد',
+     rec2 && /بایستیم/.test(String(rec2.ex || '')), rec2 && rec2.ex);
+  ok('۱۷.۶ ولی شمارشِ علت‌ها روی نوع می‌مانَد، نه روی شاهد',
+     rec2 && Object.keys(rec2.w).length === 1 &&
+     rec2.w['واژه‌ها ناهم‌خوان'] === 6, JSON.stringify(rec2 && rec2.w));
+  const st2 = speakSkipStatus_();
+  ok('۱۷.۷ و خطِ روزانه همان نمونه را نشان می‌دهد',
+     st2.ok === false && /نمونه: /.test(st2.line) && /بایستیم/.test(st2.line), st2.line);
+  delete global.__PROPS[PK.SPEAK_SKIP];
 }
 
 console.log('=== ۱۸) «مرزِ جمله» یک تعریف دارد، نه دو تا ===');

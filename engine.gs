@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.76
+ *  موتور محتوا و پادکست — نسخهٔ 6.77
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1089,7 +1089,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.76',
+  CODE_VERSION: '6.77',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -4119,8 +4119,17 @@ function speakSkipRecord_(ep, label, hub, epNum) {
         why[kw] = (why[kw] || 0) + 1;
       }
     }
+    /* یک شاهدِ واقعی هم با خودِ کارنامه می‌ماند (۶٫۷۷): درصد می‌گوید «بد
+       است» و شاهد می‌گوید «چه چیزی». بی دومی، خطِ روزانه سه هفته خوانده شد
+       و هیچ‌کس نتوانست کاری بکند. */
+    var ev = '';
+    for (var v2 = 0; v2 < S.length && !ev; v2++) {
+      if (S[v2] && S[v2].skip && S[v2].why && S[v2].why.indexOf(' (') !== -1) {
+        ev = String(S[v2].why).slice(S[v2].why.indexOf(' (') + 1).slice(0, 80);
+      }
+    }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
-                l: String(label || ''), n: total, s: skipped, w: why,
+                l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
                 f: Number(ep && ep.__speakFails) || 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
@@ -4194,8 +4203,14 @@ function speakSkipStatus_() {
       for (var kw in whyAll) if (Object.prototype.hasOwnProperty.call(whyAll, kw)) {
         wb.push(kw + ' ' + fa(whyAll[kw]));
       }
+      // و یک نمونهٔ واقعیِ تازه، تا «۴۸٪» به چیزی اقدام‌پذیر بدل شود
+      var exOne = '';
+      for (var e2 = L.length - 1; e2 >= 0 && !exOne; e2--) {
+        if (L[e2] && L[e2].ex) exOne = String(L[e2].ex);
+      }
       out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد' +
-                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') + '.';
+                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') +
+                  (exOne ? ' نمونه: ' + exOne : '') + '.';
     } else if (!okSegs && out.eps >= 3) {
       out.ok = false;
       out.line += ' هیچ بخشی اعراب نگرفت — اعراب‌گذار در دسترس نبوده است.';
@@ -39275,6 +39290,23 @@ function explainPrompt_(ep, seriesName, budget, want) {
  * عوض می‌کند و توضیحِ ساخته‌شده روی متنِ قبلی می‌تواند به بخشی اشاره کند که
  * دیگر آن نیست.
  */
+/**
+ * علتِ «سهم کافی نبود»، با عددهایش (۶٫۷۷).
+ *
+ * علتی که عدد نداشته باشد اقدام‌پذیر نیست: خواننده باید بفهمد این خاموشیِ
+ * خودکار از **کوتاهیِ خودِ درس** آمده، نه از خرابیِ عصری‌سازی. و چون همین
+ * جمله در ایمیلِ روزانه چاپ می‌شود، رقمش هم فارسی است.
+ * (قسمتِ ۲۵: سهم ۷۵۶ در برابرِ کفِ ۹۰۰، چون متن ۳٬۰۲۵ نویسه بود.)
+ */
+function explainSkipWhy_(budget, min, baseN) {
+  var faN = function (x) {
+    try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); }
+  };
+  return 'سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود (سهم ' + faN(budget) +
+         ' در برابرِ کفِ ' + faN(min) + '؛ متنِ درس ' + faN(baseN) +
+         ' نویسه — یعنی خودِ درس کوتاه بوده)';
+}
+
 function explainPlan_(ep, epNum, seriesName) {
   var out = { ok: false, n: 0, chars: 0, why: '' };
   var secs = (ep && ep.sections) || [];
@@ -39294,7 +39326,12 @@ function explainPlan_(ep, epNum, seriesName) {
   var want = Math.max(1, Math.min(Number(CFG.EXPLAIN_MAX_SPOTS) || 3,
                                   Math.ceil(secs.length / 2),
                                   Math.floor(budget / min)));
-  if (budget < min) { out.why = 'سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود'; return out; }
+  if (budget < min) {
+    var baseN = 0;
+    try { baseN = specialNarration_(ep).length; } catch (eB) {}
+    out.why = explainSkipWhy_(budget, min, baseN);
+    return out;
+  }
   var r = null;
   try {
     r = geminiText_(explainPrompt_(ep, seriesName, budget, want), EXPLAIN_SCHEMA, 8192);
@@ -39553,6 +39590,23 @@ function explainStatus_() {
     }
     out.line = 'عصری‌سازیِ درس‌نامه: ' + fa(out.runs) + ' قسمتِ اخیر، ' + fa(out.spots) +
                ' جای توضیح‌دهنده (' + fa(chars) + ' نویسه).';
+    /* ══ «چرا امروز نشد» تا امروز فقط بعد از پنج شبِ خشک گفته می‌شد (۶٫۷۷) ══
+     * علتِ هر قسمت از همان اول در PK.EXPLAIN نوشته می‌شد و هیچ‌جا خوانده
+     * نمی‌شد مگر در آن حالتِ نادر. پس قسمتِ ۲۵ بی عصری‌سازی رفت و تنها
+     * جوابِ «چرا» — «سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود» — جایی
+     * ماند که صاحبِ برنامه هرگز نگاهش نمی‌کند. همان قاعدهٔ ۵٫۹۰: چیزی که
+     * فقط در یک انبار بماند، از نظرِ او وجود ندارد.
+     * حالا خطِ روزانه **آخرین قسمت** را هم می‌گوید — چه گرفته باشد چه نه. */
+    var last = L[0] || null;
+    if (last) {
+      var nLast = Number(last.n) || 0;
+      out.last = { ep: String(last.ep || ''), n: nLast,
+                   chars: Number(last.chars) || 0, why: String(last.why || '') };
+      out.line += nLast
+        ? ' آخرین قسمت (' + fa(out.last.ep) + '): ' + fa(nLast) + ' توضیح‌دهنده.'
+        : ' آخرین قسمت (' + fa(out.last.ep) + '): هیچ توضیح‌دهنده‌ای نگرفت' +
+          (out.last.why ? ' — ' + out.last.why : '') + '.';
+    }
     if (out.runs >= 5 && dry >= 5) {
       out.ok = false;
       out.line = 'عصری‌سازیِ درس‌نامه: پنج قسمتِ پیاپی هیچ توضیح‌دهنده‌ای نگرفت' +

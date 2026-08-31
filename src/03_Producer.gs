@@ -1714,8 +1714,17 @@ function speakSkipRecord_(ep, label, hub, epNum) {
         why[kw] = (why[kw] || 0) + 1;
       }
     }
+    /* یک شاهدِ واقعی هم با خودِ کارنامه می‌ماند (۶٫۷۷): درصد می‌گوید «بد
+       است» و شاهد می‌گوید «چه چیزی». بی دومی، خطِ روزانه سه هفته خوانده شد
+       و هیچ‌کس نتوانست کاری بکند. */
+    var ev = '';
+    for (var v2 = 0; v2 < S.length && !ev; v2++) {
+      if (S[v2] && S[v2].skip && S[v2].why && S[v2].why.indexOf(' (') !== -1) {
+        ev = String(S[v2].why).slice(S[v2].why.indexOf(' (') + 1).slice(0, 80);
+      }
+    }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
-                l: String(label || ''), n: total, s: skipped, w: why,
+                l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
                 f: Number(ep && ep.__speakFails) || 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
@@ -1789,8 +1798,14 @@ function speakSkipStatus_() {
       for (var kw in whyAll) if (Object.prototype.hasOwnProperty.call(whyAll, kw)) {
         wb.push(kw + ' ' + fa(whyAll[kw]));
       }
+      // و یک نمونهٔ واقعیِ تازه، تا «۴۸٪» به چیزی اقدام‌پذیر بدل شود
+      var exOne = '';
+      for (var e2 = L.length - 1; e2 >= 0 && !exOne; e2--) {
+        if (L[e2] && L[e2].ex) exOne = String(L[e2].ex);
+      }
       out.line += ' این نسبت بالاست — سدِ وارسی دارد کارِ اعراب‌گذار را دور می‌ریزد' +
-                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') + '.';
+                  (wb.length ? ' (علتِ ردها: ' + wb.join(' · ') + ')' : '') +
+                  (exOne ? ' نمونه: ' + exOne : '') + '.';
     } else if (!okSegs && out.eps >= 3) {
       out.ok = false;
       out.line += ' هیچ بخشی اعراب نگرفت — اعراب‌گذار در دسترس نبوده است.';

@@ -220,6 +220,23 @@ function explainPrompt_(ep, seriesName, budget, want) {
  * عوض می‌کند و توضیحِ ساخته‌شده روی متنِ قبلی می‌تواند به بخشی اشاره کند که
  * دیگر آن نیست.
  */
+/**
+ * علتِ «سهم کافی نبود»، با عددهایش (۶٫۷۷).
+ *
+ * علتی که عدد نداشته باشد اقدام‌پذیر نیست: خواننده باید بفهمد این خاموشیِ
+ * خودکار از **کوتاهیِ خودِ درس** آمده، نه از خرابیِ عصری‌سازی. و چون همین
+ * جمله در ایمیلِ روزانه چاپ می‌شود، رقمش هم فارسی است.
+ * (قسمتِ ۲۵: سهم ۷۵۶ در برابرِ کفِ ۹۰۰، چون متن ۳٬۰۲۵ نویسه بود.)
+ */
+function explainSkipWhy_(budget, min, baseN) {
+  var faN = function (x) {
+    try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); }
+  };
+  return 'سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود (سهم ' + faN(budget) +
+         ' در برابرِ کفِ ' + faN(min) + '؛ متنِ درس ' + faN(baseN) +
+         ' نویسه — یعنی خودِ درس کوتاه بوده)';
+}
+
 function explainPlan_(ep, epNum, seriesName) {
   var out = { ok: false, n: 0, chars: 0, why: '' };
   var secs = (ep && ep.sections) || [];
@@ -239,7 +256,12 @@ function explainPlan_(ep, epNum, seriesName) {
   var want = Math.max(1, Math.min(Number(CFG.EXPLAIN_MAX_SPOTS) || 3,
                                   Math.ceil(secs.length / 2),
                                   Math.floor(budget / min)));
-  if (budget < min) { out.why = 'سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود'; return out; }
+  if (budget < min) {
+    var baseN = 0;
+    try { baseN = specialNarration_(ep).length; } catch (eB) {}
+    out.why = explainSkipWhy_(budget, min, baseN);
+    return out;
+  }
   var r = null;
   try {
     r = geminiText_(explainPrompt_(ep, seriesName, budget, want), EXPLAIN_SCHEMA, 8192);
@@ -498,6 +520,23 @@ function explainStatus_() {
     }
     out.line = 'عصری‌سازیِ درس‌نامه: ' + fa(out.runs) + ' قسمتِ اخیر، ' + fa(out.spots) +
                ' جای توضیح‌دهنده (' + fa(chars) + ' نویسه).';
+    /* ══ «چرا امروز نشد» تا امروز فقط بعد از پنج شبِ خشک گفته می‌شد (۶٫۷۷) ══
+     * علتِ هر قسمت از همان اول در PK.EXPLAIN نوشته می‌شد و هیچ‌جا خوانده
+     * نمی‌شد مگر در آن حالتِ نادر. پس قسمتِ ۲۵ بی عصری‌سازی رفت و تنها
+     * جوابِ «چرا» — «سهمِ نویسه‌ای حتی برای یک توضیح کافی نبود» — جایی
+     * ماند که صاحبِ برنامه هرگز نگاهش نمی‌کند. همان قاعدهٔ ۵٫۹۰: چیزی که
+     * فقط در یک انبار بماند، از نظرِ او وجود ندارد.
+     * حالا خطِ روزانه **آخرین قسمت** را هم می‌گوید — چه گرفته باشد چه نه. */
+    var last = L[0] || null;
+    if (last) {
+      var nLast = Number(last.n) || 0;
+      out.last = { ep: String(last.ep || ''), n: nLast,
+                   chars: Number(last.chars) || 0, why: String(last.why || '') };
+      out.line += nLast
+        ? ' آخرین قسمت (' + fa(out.last.ep) + '): ' + fa(nLast) + ' توضیح‌دهنده.'
+        : ' آخرین قسمت (' + fa(out.last.ep) + '): هیچ توضیح‌دهنده‌ای نگرفت' +
+          (out.last.why ? ' — ' + out.last.why : '') + '.';
+    }
     if (out.runs >= 5 && dry >= 5) {
       out.ok = false;
       out.line = 'عصری‌سازیِ درس‌نامه: پنج قسمتِ پیاپی هیچ توضیح‌دهنده‌ای نگرفت' +
