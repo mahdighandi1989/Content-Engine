@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.77
+ *  موتور محتوا و پادکست — نسخهٔ 6.78
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1089,7 +1089,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.77',
+  CODE_VERSION: '6.78',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3562,13 +3562,41 @@ function speakGraft_(plain, vowelled) {
   return out.join('');
 }
 
+/**
+ * ══ کسرهٔ اضافه‌ای که *افزوده* شده، تغییرِ متن نیست — مگر متنِ خام خودش
+ * قبلاً همزه داشته باشد (۶٫۷۸) ══
+ *
+ * سه هفته `speakSkip` روی ۴۸-۴۹٪ ایستاد و علتِ غالب همیشه یک چیز بود:
+ * «واژه‌ها ناهم‌خوان»، با نمونه‌هایی از جنسِ «پنج‌گانه» ← «پنج‌گانهٔ». این
+ * دقیقاً همان چیزی است که SPEAK_TRAPS به مدل دستور می‌دهد: «کسرهٔ اضافه در
+ * همهٔ ترکیب‌های اضافی و وصفی» را بگذارد. متنِ خامِ نوشته‌شده — مثلِ تقریباً
+ * هر نثرِ فارسی — این کسره را هرگز از پیش نمی‌نویسد؛ نوشتنش کارِ
+ * اعراب‌گذار است، نه تغییرِ واژه. سدِ وارسی داشت دقیقاً همان کاری را که از
+ * مدل خواسته بودیم، رد می‌کرد.
+ *
+ * ولی `stripTashkil_` عمداً همزهٔ رویِ «ه» (۰٦٥٤) را نگه می‌دارد، چون
+ * SPEAK_TRAPS خودش هم می‌گوید «هٔ را هرگز به ه ساده نکن» — یعنی اگر متنِ
+ * خام از پیش «هٔ» داشته، افتادنش هنوز افتِ متن است. پس بخشش فقط یک‌طرفه
+ * است: وقتی متنِ خام هرگز از این همزه استفاده نکرده، وجودش در نسخهٔ
+ * اعراب‌دار نادیده گرفته می‌شود؛ همان لحظه که متنِ خام خودش یک «هٔ» دارد،
+ * سخت‌گیریِ کامل برمی‌گردد.
+ */
+function speakEzafePrep_(plain, vowelled) {
+  if (/ٔ/.test(String(plain || ''))) {
+    return { p: String(plain || ''), v: String(vowelled || '') };
+  }
+  return { p: String(plain || '').replace(/ٔ/g, ''),
+           v: String(vowelled || '').replace(/ٔ/g, '') };
+}
+
 function verifySpeak_(plain, vowelled) {
   if (!vowelled) return false;
-  if (speakCmp_(plain) === speakCmp_(vowelled)) return true;
+  var ez = speakEzafePrep_(plain, vowelled);
+  if (speakCmp_(ez.p) === speakCmp_(ez.v)) return true;
   // لایهٔ دوم فقط وقتی باز است که نشانه‌گذاریِ آوایی روشن باشد؛ خاموشش که
   // کنی، دقیقاً همان سخت‌گیریِ پیشین برمی‌گردد.
   if (CFG.SPEAK_MARKS === false) return false;
-  return speakBone_(plain) === speakBone_(vowelled);
+  return speakBone_(ez.p) === speakBone_(ez.v);
 }
 
 // ------------------------------------------------- دام‌های تلفظ (فهرستِ یکجا)
@@ -3755,8 +3783,9 @@ function vowelWhyOf_(piece, v) {
  */
 function speakDiff_(plain, vowelled) {
   try {
-    var A = speakBone_(plain).split(' ');
-    var B = speakBone_(vowelled).split(' ');
+    var ez = speakEzafePrep_(plain, vowelled);
+    var A = speakBone_(ez.p).split(' ');
+    var B = speakBone_(ez.v).split(' ');
     for (var i = 0; i < Math.max(A.length, B.length); i++) {
       if (A[i] === B[i]) continue;
       var a = A[i] === undefined ? '—' : A[i];
