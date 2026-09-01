@@ -83,6 +83,7 @@ function handoutRead_(folder, meta) {
         if (!b.roadmap) b.roadmap = { intro: '', stages: [], note: '' };
         if (!b.refs) b.refs = [];
         if (!b.episodes) b.episodes = [];
+        if (!b.bridges) b.bridges = [];      // ۶٫۸۲
         return b;
       }
     }
@@ -287,7 +288,8 @@ function handoutPrompt_(book, secs, meta) {
      در واقع جزوِ خودِ محتوا شده.» جزوه‌ای که ارجاع را بیندازد، چیزی را حذف
      کرده که در همان درس گفته شده — و جزوه قرار است حافظهٔ مجموعه باشد. */
   var __bx = '';
-  try { __bx = bridgeRecapBlock_(bridgeOfSeries_(getHub_(), meta.seriesName, 12)); }
+  try { __bx = bridgeRecapBlock_(bridgeOfSeries_(getHub_(), meta.seriesName, 12,
+                                                meta.seriesKey)); }
   catch (eBx) { __bx = ''; }
   L.push('تو ویراستارِ یک **جزوهٔ آموزشیِ فارسی** هستی — نه نویسندهٔ پادکست.');
   L.push('جزوه‌ای که مثلِ یک کتابِ درسی خوانده شود: بی مقدمه‌چینیِ رادیویی،');
@@ -774,6 +776,9 @@ function handoutHtml_(book) {
     }
     h.push('</li>');
   }
+  if ((book.bridges || []).length) {
+    h.push('<li><a href="#xref">ارجاع به مجموعه‌های دیگر</a></li>');
+  }
   if (book.refs.length) h.push('<li><a href="#refs">کتاب‌نامه</a></li>');
   h.push('</ol></div>');
 
@@ -873,6 +878,28 @@ function handoutHtml_(book) {
     }
   }
 
+  /* ── ارجاع به مجموعه‌های دیگر (۶٫۸۲) ──
+     نه پانوشتِ منبع‌اند و نه کتاب‌نامه: این‌ها نسبت‌هایی‌اند که در درس‌های
+     همین مجموعه با مجموعه‌های دیگر گفته شده، و چون گفته شده‌اند جزوِ
+     محتوایند. سیاهه فقط ارجاعِ **گفته‌شده** را دارد (`bridgeVerify_` پیش از
+     ثبت می‌سنجد)، پس این جدول ادعا نیست؛ گزارشِ چیزی است که شنونده شنیده. */
+  if ((book.bridges || []).length) {
+    h.push('<h2 id="xref">ارجاع به مجموعه‌های دیگر</h2>');
+    h.push('<p class="tk">نسبت‌هایی که در درس‌های این مجموعه با مجموعه‌های ' +
+           'دیگر گفته شده است.</p>');
+    h.push('<table><tr><th>درس</th><th>مجموعهٔ مرجع</th><th>نسبت</th>' +
+           '<th>آن مجموعه چه گفته</th><th>نسبتش با این درس</th></tr>');
+    for (var x = 0; x < book.bridges.length; x++) {
+      var X = book.bridges[x];
+      h.push('<tr><td>' + esc_(faDigitsOut_(String(X.ep || ''))) + '</td>' +
+             '<td>' + esc_(X.refSeries || '') + '</td>' +
+             '<td>' + esc_(X.kind || '') + '</td>' +
+             '<td>' + esc_(X.claim || '') + '</td>' +
+             '<td>' + esc_(X.relation || '') + '</td></tr>');
+    }
+    h.push('</table>');
+  }
+
   // ── کتاب‌نامه ──
   if (book.refs.length) {
     h.push('<h2 id="refs">کتاب‌نامه</h2>');
@@ -948,6 +975,27 @@ function handoutFacts_(book, rec, folder) {
     }
     book.seriesName = nm; changed = true;
   }
+  /* ══ ارجاع‌ها هم یکی از همان واقعیت‌ها هستند (۶٫۸۲) ══
+     خواستهٔ ۶٫۴۳ عیناً این بود: «باید در خودِ مرور و حتی جزوه همگی مورد
+     استفاده و **ثبت** قرار بگیره، چون در واقع جزوِ خودِ محتوا شده.» تا
+     امروز فقط نیمهٔ اولش شده بود: سیاهه به پرامپتِ جزوه می‌رفت و از مدل
+     خواسته می‌شد نگهشان دارد. یعنی ثبتِ ارجاع به این بسته بود که مدل در
+     متنِ فصل بیاوردش — و قاعدهٔ همیشگیِ همین ریپو می‌گوید چیزی که فقط در
+     پرامپت خواسته شده، تضمین نیست. حالا خودِ سیاهه در کتاب می‌نشیند و در
+     HTML بخشِ خودش را دارد: چه مدل در متن آورده باشدشان چه نیاورده، در
+     جزوه هستند. اینجاست چون این تابع از هر چهار در گذر می‌کند (درسِ تازه،
+     جاروی شبانه، دکمهٔ مجموعه) — یک‌باره‌ها در همین ریپو می‌میرند. */
+  try {
+    var bl = bridgeOfSeries_(getHub_(), book.seriesName || nm,
+                             Number(CFG.HANDOUT_BRIDGE_MAX) || 40,
+                             book.seriesKey || String(rec.key || ''));
+    var sig = bl.map(function (x) {
+      return x.ep + '|' + x.refSeries + '|' + x.kind + '|' + String(x.claim).slice(0, 60);
+    }).join('§');
+    if (sig !== String(book.bridgeSig || '')) {
+      book.bridges = bl; book.bridgeSig = sig; changed = true;
+    }
+  } catch (eBr) {}
   return changed;
 }
 

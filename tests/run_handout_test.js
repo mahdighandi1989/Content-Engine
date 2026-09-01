@@ -1652,4 +1652,60 @@ console.log('=== ۲۵) کپیِ کهنه از رجیستری، خودش را ت�
      /به‌روزرسانیِ جزوه نشد: /.test(p15));
 }
 
+console.log('=== ۲۶) ارجاع‌ها در خودِ جزوه ثبت می‌شوند، نه فقط در پرامپت (۶٫۸۲) ===');
+{
+  /* خواستهٔ ۶٫۴۳ عیناً: «باید در خودِ مرور و حتی جزوه همگی مورد استفاده و
+     **ثبت** قرار بگیره، چون در واقع جزوِ خودِ محتوا شده.» تا امروز فقط
+     نیمهٔ اولش بود: سیاهه به پرامپتِ جزوه می‌رفت و از مدل خواسته می‌شد
+     نگهشان دارد — یعنی ثبتْ گروِ اطاعتِ مدل بود. قاعدهٔ ثابتِ این ریپو:
+     چیزی که فقط در پرامپت خواسته شده، تضمین نیست. */
+  const hub = new Spread('هاب۲۶');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sf = global.__ROOT_FOLDER.createFolder('۲۶ — خداشناسی');
+  const r = new Array(SERIES_HEADERS.length).fill('');
+  r[SC.KEY - 1] = 'k26'; r[SC.NAME - 1] = 'خداشناسی';
+  r[SC.CAT - 1] = 'فلسفی و اعتقادی'; r[SC.FOLDER - 1] = sf.getId();
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([r]);
+  const rec = readSeriesReg_(hub).byKey['k26'];
+
+  bridgeLog_(hub, 5, 'خداشناسی', [{
+    seriesKey: 'k99', seriesName: 'معرفت‌شناسی', kind: 'ابزارِ سنجش',
+    claim: 'ملاکِ صدق آنجا داده شد', relation: 'گزاره‌های این درس با آن سنجیده می‌شوند',
+    atHeading: 'اثباتِ واجب', say: 'متنِ گفته‌شده' }], 'k26');
+
+  const book = { seriesKey: 'k26', seriesName: 'خداشناسی', cat: 'فلسفی و اعتقادی',
+                 level: '', createdAt: nowStr_(), updatedAt: '', revision: 3,
+                 roadmap: { intro: '', stages: [], note: '' },
+                 chapters: [{ id: 'c1', title: 'مبانی', sections: [
+                   { id: 's1', title: 'واجب', body: 'متن.', takeaway: 'چکیده' }] }],
+                 refs: [], episodes: [{ n: '5', title: 'د۵', at: nowStr_() }] };
+  ok('۲۶.۱ ارجاع‌های سیاهه در کتاب می‌نشینند',
+     handoutFacts_(book, rec, sf) === true && (book.bridges || []).length === 1 &&
+     book.bridges[0].refSeries === 'معرفت‌شناسی',
+     JSON.stringify(book.bridges));
+  ok('۲۶.۲ و بارِ دوم چیزی عوض نمی‌شود — کتاب بی‌دلیل بازنویسی نمی‌شود',
+     handoutFacts_(book, rec, sf) === false);
+
+  const html = handoutHtml_(book);
+  ok('۲۶.۳ در HTML بخشِ خودش را دارد',
+     html.indexOf('id="xref"') !== -1 &&
+     html.indexOf('ارجاع به مجموعه‌های دیگر') !== -1);
+  ok('۲۶.۴ با نامِ مرجع و نسبت و ادعا — نه فقط یک اشاره',
+     html.indexOf('معرفت‌شناسی') !== -1 && html.indexOf('ابزارِ سنجش') !== -1 &&
+     html.indexOf('ملاکِ صدق آنجا داده شد') !== -1);
+  ok('۲۶.۵ و در فهرستِ بالای جزوه هم لینک دارد', html.indexOf('#xref') !== -1);
+  /* کتابی که ارجاعی ندارد نباید جدولِ خالی بگیرد — همان قاعدهٔ کتاب‌نامه. */
+  ok('۲۶.۶ بی‌ارجاع، بی‌جدول',
+     handoutHtml_({ seriesName: 'خ', chapters: [], refs: [], episodes: [],
+                    roadmap: {}, bridges: [] }).indexOf('id="xref"') === -1);
+  /* و نیمهٔ اولِ ۶٫۴۳ سرِ جایش می‌مانَد: پرامپت هم هنوز می‌بیندشان. */
+  const pr = handoutPrompt_(book, [{ heading: 'ب', narration: 'متن' }],
+                            { seriesName: 'خداشناسی', seriesKey: 'k26', epNum: 6,
+                              epTitle: 'د۶' });
+  ok('۲۶.۷ پرامپتِ جزوه هم همچنان ارجاع‌ها را دارد',
+     pr.indexOf('ارجاع‌هایی که در درس‌های این مجموعه') !== -1);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

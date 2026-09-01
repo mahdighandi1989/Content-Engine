@@ -1412,7 +1412,7 @@ function produceSpecialEpisode(opt) {
 
     /* و در سیاههٔ مشترک، یک ردیف برای هر ارجاعی که **واقعاً گفته شد** —
        سؤالی که فردا می‌پرسی «کِی و کجا» است و فقط تاریخچه جوابش را دارد. */
-    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || []); }
+    try { bridgeLog_(hub, epNum, seriesName, ctx.__bridgesUsed || [], seriesKey); }
     catch (eBl) { logLine_('سیاههٔ ارجاع نوشته نشد: ' + eBl.message); }
     /* و عکسی برای داوریِ شبانه — داوری اینجا انجام نمی‌شود چون تولید بودجهٔ
        شش‌دقیقه‌ای دارد و یک فراخوانِ مدلِ دیگر در مسیرِ بحرانی همان چیزی است

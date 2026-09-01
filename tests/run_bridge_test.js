@@ -686,4 +686,84 @@ console.log('\n=== ۱۴) دو مرحله: اول کلِ کتاب، بعد متن
      /var digest = bridgeDigest_\(allText, 12000\);/.test(sp14));
 }
 
+console.log('=== ۱۵) قولِ «کلِ کتاب دیده می‌شود» نباید به اندازهٔ کتاب وابسته باشد (۶٫۸۲) ===');
+{
+  /* ۶٫۸۱ گفت پیش‌آهنگ اسکلتِ **کلِ** کتاب را می‌بیند. `bridgeCorpus_` وقتی از
+     سقف می‌گذشت `break` می‌زد — یعنی همان قول، برای کتابِ بزرگ، بی‌صدا
+     می‌شکست. روی جزوهٔ واقعیِ معرفت‌شناسی (۷۲ بخش) اسکلت ۱۵٬۸۵۶ نویسه بود،
+     زیرِ سقفِ ۲۰٬۰۰۰؛ یعنی امروز درست کار می‌کرد و حدودِ درسِ ۲۴ خراب
+     می‌شد. قولی که به بختِ اندازهٔ داده وابسته باشد، قول نیست. */
+  const many = { seriesKey: 'kBig', seriesName: 'کتابِ بزرگ', refs: [], episodes: [],
+                 chapters: [] };
+  for (let i = 1; i <= 40; i++) {
+    many.chapters.push({ id: 'C' + i, title: 'فصلِ ' + i, addedIn: String(i), sections: [
+      { id: 'SEC' + i, title: 'بخشِ شمارهٔ ' + i, body: 'متن. '.repeat(50),
+        takeaway: ('چکیدهٔ بخشِ ' + i + '؛ ').repeat(20), addedIn: String(i) }] });
+  }
+  const fBig = addSeries('kBig', 'کتابِ بزرگ', '۰۴ — بزرگ');
+  putBook(fBig, many);
+  const reg = readSeriesReg_(hub);
+  const cp = bridgeCorpus_(reg, ['kBig']);
+  ok('۱۵.۱ کتاب خوانده شد', cp.length === 1 && cp[0].sections === 40);
+  let all = true;
+  for (let i = 1; i <= 40; i++) {
+    if (cp[0].text.indexOf('[SEC' + i + ']') === -1) all = false;
+  }
+  ok('۱۵.۲ شناسهٔ هر ۴۰ بخش در فهرست هست — هیچ‌کدام نیفتاد', all);
+  ok('۱۵.۳ و آخرین فصل — که همیشه اولین قربانیِ بریدنِ ته بود — هست',
+     cp[0].text.indexOf('فصلِ 40') !== -1 && cp[0].text.indexOf('[SEC40]') !== -1);
+  ok('۱۵.۴ نشانهٔ «جا نشد» دیگر وجود ندارد', cp[0].text.indexOf('جا نشد') === -1);
+  ok('۱۵.۵ و سقف رعایت شده — چکیده کوتاه شد، نه فهرست',
+     cp[0].text.length <= (CFG.BRIDGE_CORPUS_CHARS + 200), String(cp[0].text.length));
+  /* و وقتی چکیده‌ها آن‌قدر کوچک می‌شوند که بی‌فایده‌اند، اصلاً نمی‌آیند و
+     ضعیف‌شدن **گفته** می‌شود — قابلیتی که بی‌صدا خاموش شود، همان بانکِ
+     موسیقی است. */
+  const huge = { seriesKey: 'kHuge', seriesName: 'کتابِ عظیم', refs: [], episodes: [],
+                 chapters: [] };
+  for (let i = 1; i <= 400; i++) {
+    huge.chapters.push({ id: 'H' + i, title: 'فصلِ ' + i, addedIn: String(i), sections: [
+      { id: 'HS' + i, title: 'بخشِ ' + i, body: 'x', takeaway: 'چکیده', addedIn: String(i) }] });
+  }
+  putBook(addSeries('kHuge', 'کتابِ عظیم', '۰۵ — عظیم'), huge);
+  const cp2 = bridgeCorpus_(readSeriesReg_(hub), ['kHuge']);
+  let all2 = true;
+  for (let i = 1; i <= 400; i++) if (cp2[0].text.indexOf('[HS' + i + ']') === -1) all2 = false;
+  ok('۱۵.۶ حتی در کتابِ ۴۰۰بخشی هم هر بخش نام برده می‌شود', all2);
+  ok('۱۵.۷ و «تنگ‌شدن» علامت می‌خورد تا بی‌صدا نماند', cp2[0].tight === true);
+}
+
+console.log('=== ۱۶) سیاههٔ ارجاع باید تغییرِ نامِ مجموعه را تاب بیاورد (۶٫۸۲) ===');
+{
+  /* تختهٔ مجموعه‌ها برای همین هست که نام عوض شود. سیاهه نام را ثبت می‌کرد و
+     جزوه و مرور با نامِ امروزی دنبالش می‌گشتند: لحظهٔ تغییرِ نام، همهٔ
+     ارجاع‌های گذشته از دیدِ هر دو ناپدید می‌شدند — بی خطا، بی ردیفِ خالی.
+     همان تلهٔ ۶٫۷۱ در جای تازه. */
+  const link = { seriesKey: 'kEp', seriesName: 'معرفت‌شناسی', kind: 'پیش‌نیاز',
+                 claim: 'ادعای مرجع', relation: 'نسبتش', atHeading: 'سرفصل',
+                 say: 'متنِ گفته‌شده' };
+  ok('۱۶.۱ سیاهه با کلید نوشته می‌شود',
+     bridgeLog_(hub, 7, 'خداشناسی', [link], 'kGod') === true);
+  ok('۱۶.۲ ستونِ کلید در سرستون‌ها هست',
+     BRIDGE_HEADERS[BRIDGE_HEADERS.length - 1] === 'کلیدِ مجموعه');
+  const has = (l, c) => l.some((x) => x.claim === c);
+  ok('۱۶.۳ با نامِ امروز پیدا می‌شود',
+     has(bridgeOfSeries_(hub, 'خداشناسی', 24, 'kGod'), 'ادعای مرجع'));
+  /* و این سنجهٔ اصلی است: نام عوض شد، ردیف هنوز پیداست. */
+  ok('۱۶.۴ و پس از تغییرِ نامِ مجموعه هم — چون کلید عوض نمی‌شود',
+     has(bridgeOfSeries_(hub, 'خداشناسیِ تطبیقی', 24, 'kGod'), 'ادعای مرجع'));
+  ok('۱۶.۵ ولی ردیفِ کلیددارِ یک مجموعه به مجموعهٔ دیگر نمی‌رود',
+     !has(bridgeOfSeries_(hub, 'خداشناسی', 24, 'kEp'), 'ادعای مرجع'));
+  /* ردیف‌های پیش از ۶٫۸۲ کلید ندارند؛ آن‌ها باید هنوز با نام پیدا شوند،
+     وگرنه همین اصلاح خودش تاریخچه را می‌بلعد — و «تحلیل‌های قبلی هرگز
+     خراب نشوند» قاعدهٔ ثابتِ این ریپوست. */
+  const sh = hub.getSheetByName(CFG.BRIDGE_TAB);
+  sh.getRange(sh.getLastRow() + 1, 1, 1, 9).setValues([[
+    nowStr_(), '3', 'خداشناسی', 'معرفت‌شناسی', 'روش', 'سرفصلِ کهنه',
+    'ادعای کهنه', 'نسبتِ کهنه', 'گفتهٔ کهنه']]);
+  const both = bridgeOfSeries_(hub, 'خداشناسی', 24, 'kGod');
+  ok('۱۶.۶ ردیفِ بی‌کلیدِ قدیمی با نام هنوز خوانده می‌شود — کنارِ کلیددار',
+     has(both, 'ادعای کهنه') && has(both, 'ادعای مرجع'),
+     JSON.stringify(both.map((x) => x.claim)));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

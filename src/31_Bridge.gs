@@ -166,6 +166,25 @@ function bridgeCandidates_(hub, reg) {
  * عنوانِ فصل‌ها و بخش‌ها و «نکتهٔ کلیدی»ِ هر بخش — نه متنِ کاملشان. آنچه
  * برای *کشفِ نسبت* لازم است، نقشهٔ مفاهیم است نه متنِ درس؛ و متنِ کاملِ چهار
  * کتاب پرامپت را از خودِ درس بزرگ‌تر می‌کرد، که یعنی درس در حاشیه می‌رفت.
+ *
+ * ══ سقف چکیده را کوتاه می‌کند، بخش را حذف نمی‌کند (۶٫۸۲) ══
+ *
+ * ۶٫۸۱ قول داد «پیش‌آهنگ اسکلتِ **کلِ** کتاب را می‌بیند» — و این تابع
+ * می‌توانست همان قول را بی‌صدا بشکند: وقتی مجموعِ خط‌ها از سقف می‌گذشت،
+ * `break` می‌زد و بقیهٔ کتاب با یک خطِ «ادامهٔ کتاب جا نشد» می‌رفت. یعنی
+ * فصل‌های آخر — که تازه‌ترین درس‌هایند و هنوز هیچ ارجاعی نگرفته‌اند —
+ * اولین قربانی بودند.
+ *
+ * اندازه‌گیری روی جزوهٔ واقعیِ «معرفت‌شناسی» (۱۵ فصل، ۷۲ بخش): اسکلت
+ * ۱۵٬۸۵۶ نویسه بود، زیرِ سقفِ ۲۰٬۰۰۰. یعنی امروز کامل دیده می‌شد — ولی
+ * با همان آهنگِ رشد، حدودِ درسِ ۲۴ از سقف می‌گذشت و از آن شب به بعد
+ * کتاب ناقص می‌رفت، بی هیچ خطایی. قولی که به بختِ اندازهٔ داده وابسته
+ * باشد، قول نیست.
+ *
+ * پس ترتیب برعکس شد: اول طولِ ثابت (عنوانِ فصل‌ها و عنوانِ بخش‌ها) شمرده
+ * می‌شود، بعد باقیِ سقف میانِ بخش‌ها **مساوی** پخش می‌شود و سهمِ هر چکیده
+ * از همان درمی‌آید. چکیدهٔ کوتاه‌تر، کشف را ضعیف‌تر می‌کند؛ بخشِ ندیده،
+ * کشف را برای آن بخش **ناممکن** می‌کند. اولی درجه دارد، دومی صفر است.
  */
 function bridgeCorpus_(reg, keys) {
   var out = [];
@@ -179,30 +198,46 @@ function bridgeCorpus_(reg, keys) {
     catch (eB) { book = null; }
     var chs = (book && book.chapters) || [];
     if (!chs.length) continue;                // جزوه ندارد: چیزی برای ارجاع نیست
-    var L = [], used = 0;
+
+    /* گامِ یکم — اسکلتِ کامل و طولِ ثابتش. هیچ بخشی اینجا حذف نمی‌شود. */
+    var stub = [], take = [], fixed = 0, nSec = 0;
     for (var c = 0; c < chs.length; c++) {
       var head = '— فصل: ' + String(chs[c].title || '');
-      L.push(head); used += head.length;
+      stub.push(head); take.push(null); fixed += head.length + 1;
       var secs = chs[c].sections || [];
       for (var t = 0; t < secs.length; t++) {
-        var tk = String(secs[t].takeaway || '').replace(/\s+/g, ' ').trim();
-        if (!tk) tk = String(secs[t].body || '').replace(/\s+/g, ' ').trim().slice(0, 180);
         /* شناسهٔ بخش در خطِ فهرست می‌آید (۶٫۸۱): پیش‌آهنگ باید بتواند بگوید
            «این بخش را کامل بخوان»، و بی شناسه هیچ راهی برای نام‌بردنش نیست. */
-        var line = '   • [' + String(secs[t].id || '') + '] ' +
-                   String(secs[t].title || '') + (tk ? ' — ' + tk : '');
-        if (used + line.length > cap) { L.push('   … (ادامهٔ کتاب جا نشد)'); break; }
-        L.push(line); used += line.length;
+        var line = '   • [' + String(secs[t].id || '') + '] ' + String(secs[t].title || '');
+        var tk = String(secs[t].takeaway || '').replace(/\s+/g, ' ').trim();
+        if (!tk) tk = String(secs[t].body || '').replace(/\s+/g, ' ').trim();
+        stub.push(line); take.push(tk); fixed += line.length + 1; nSec++;
       }
-      if (used > cap) break;
+    }
+
+    /* گامِ دوم — سهمِ برابرِ هر چکیده از آنچه از سقف مانده. */
+    var per = nSec ? Math.floor((cap - fixed) / nSec) - 4 : 0;   // « — » و «…»
+    if (per > BRIDGE_TAKE_MAX) per = BRIDGE_TAKE_MAX;
+    var tight = per < BRIDGE_TAKE_MIN;         // چکیده‌ها افتادند، ولی عنوان‌ها همه هستند
+    var over = fixed > cap;                    // حتی عنوان‌ها هم از سقف بلندترند
+    var L = [];
+    for (var q = 0; q < stub.length; q++) {
+      var tq = take[q];
+      if (tq === null || tight || !tq) { L.push(stub[q]); continue; }
+      L.push(stub[q] + ' — ' + (tq.length > per ? tq.slice(0, per) + '…' : tq));
     }
     /* خودِ کتاب هم برمی‌گردد تا مرحلهٔ ژرف دوباره از درایو نخواندش — یک
        خواندن برای دو مصرف. */
-    out.push({ key: String(rec.key), name: name, chapters: chs.length,
-               text: L.join('\n'), book: book });
+    out.push({ key: String(rec.key), name: name, chapters: chs.length, sections: nSec,
+               text: L.join('\n'), book: book, tight: tight, over: over });
   }
   return out;
 }
+
+/* سهمِ چکیدهٔ هر بخش در فهرستِ مرجع: بیش از این چیزی اضافه نمی‌کند، کمتر از
+   آن آن‌قدر بریده است که به‌جای کمک، گمراه می‌کند — پس اصلاً نمی‌آید. */
+var BRIDGE_TAKE_MAX = 180;
+var BRIDGE_TAKE_MIN = 24;
 
 /**
  * خلاصهٔ درسِ در حالِ نوشته‌شدن — از **سراسرِ** متن، نه از سرش (۶٫۸۱).
@@ -687,7 +722,7 @@ function bridgeTerms_(name) {
  * یک ردیف برای هر ارجاع، هر بار — چون سؤالی که فردا می‌پرسی «کِی و کجا» است،
  * و فقط تاریخچه جوابش را دارد.
  */
-function bridgeLog_(hub, epNum, seriesName, links) {
+function bridgeLog_(hub, epNum, seriesName, links, seriesKey) {
   if (!links || !links.length) return false;
   try {
     var sh = ensureTab_(hub || getHub_(), CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای',
@@ -696,15 +731,25 @@ function bridgeLog_(hub, epNum, seriesName, links) {
     for (var i = 0; i < links.length; i++) {
       var b = links[i];
       block.push([nowStr_(), String(epNum || ''), String(seriesName || ''),
-                  b.seriesName, b.kind, b.atHeading, b.claim, b.relation, b.say]);
+                  b.seriesName, b.kind, b.atHeading, b.claim, b.relation, b.say,
+                  String(seriesKey || '')]);
     }
     appendBlock_(sh, block, BRIDGE_HEADERS.length);
     return true;
   } catch (e) { logLine_('سیاههٔ ارجاع‌ها نوشته نشد: ' + e.message); return false; }
 }
 
+/* ══ ستونِ «کلیدِ مجموعه» ته سیاهه (۶٫۸۲) ══
+   سیاهه نامِ مجموعه را ثبت می‌کرد و جزوه و مرورِ بزرگ با نامِ **امروزیِ**
+   رجیستری دنبالش می‌گشتند. تختهٔ مجموعه‌ها برای همین هست که نام عوض شود —
+   و لحظه‌ای که عوض شود، همهٔ ارجاع‌های گذشتهٔ آن مجموعه از دیدِ جزوه و مرور
+   ناپدید می‌شدند: بی خطا، بی ردیفِ خالی، فقط یک بخشِ «ارجاع‌ها» که دیگر
+   نیست. همان تلهٔ ۶٫۷۱ در جای تازه. کلید عوض نمی‌شود؛ نام کارش همین است.
+   ستون **ته** فهرست اضافه شد تا ردیف‌های نوشته‌شده دست نخورند، و ردیفِ
+   بی‌کلید (هرچه پیش از امروز نوشته شده) همچنان با نام پیدا می‌شود. */
 var BRIDGE_HEADERS = ['زمان', 'قسمت', 'مجموعهٔ درس', 'مجموعهٔ مرجع', 'نسبت',
-                      'در بخشِ', 'آن مجموعه چه گفته', 'نسبتش با این درس', 'متنِ گفته‌شده'];
+                      'در بخشِ', 'آن مجموعه چه گفته', 'نسبتش با این درس', 'متنِ گفته‌شده',
+                      'کلیدِ مجموعه'];
 
 /**
  * همهٔ کار در یک فراخوان، برای مسیرِ تولید.
@@ -718,6 +763,19 @@ function bridgeFor_(hub, reg, rec, ctx) {
     var keys = bridgeKeys_(rec);
     if (!keys.length) return out;
     var corpus = bridgeCorpus_(reg, keys);
+    /* فهرستی که مجبور شده چکیده‌ها را بیندازد، هنوز همهٔ بخش‌ها را نام
+       می‌بَرد ولی ضعیف‌تر است — و ضعیف‌شدنِ بی‌صدای یک قابلیت همان چیزی است
+       که بانکِ موسیقی را هفته‌ها خالی نگه داشت. پس گفته می‌شود. */
+    for (var cz = 0; cz < corpus.length; cz++) {
+      if (corpus[cz].over) {
+        logLine_('ارجاع: فهرستِ «' + corpus[cz].name + '» (' + corpus[cz].sections +
+                 ' بخش) حتی بی چکیده از BRIDGE_CORPUS_CHARS بلندتر است؛ ' +
+                 'همهٔ بخش‌ها فرستاده شد ولی سقف باید بالا برود.');
+      } else if (corpus[cz].tight) {
+        logLine_('ارجاع: فهرستِ «' + corpus[cz].name + '» (' + corpus[cz].sections +
+                 ' بخش) بی چکیده فرستاده شد — همهٔ بخش‌ها هستند، ولی فقط با عنوان.');
+      }
+    }
     if (!corpus.length) {
       logLine_('ارجاع: مجموعه‌های انتخاب‌شده جزوه ندارند، پس ارجاعی ساخته نشد.');
       out.none = 'مجموعه‌های انتخاب‌شده هنوز جزوه ندارند';
@@ -748,15 +806,21 @@ function bridgeFor_(hub, reg, rec, ctx) {
  * پس منبع همان سیاهه است، نه یک کپیِ دوم: چیزی که در دو جا نگه داشته شود،
  * روزی یکی‌اش کهنه می‌شود.
  */
-function bridgeOfSeries_(hub, seriesName, cap) {
+function bridgeOfSeries_(hub, seriesName, cap, seriesKey) {
   var out = [];
+  var want = String(seriesKey || '');
   try {
     var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای');
     if (!sh || sh.getLastRow() < 2) return out;
     var v = sh.getRange(2, 1, sh.getLastRow() - 1, BRIDGE_HEADERS.length).getValues();
     var seen = Object.create(null);
     for (var i = 0; i < v.length; i++) {
-      if (String(v[i][2] || '') !== String(seriesName || '')) continue;
+      /* کلید اگر هر دو طرف داشته باشندش حرفِ آخر را می‌زند؛ وگرنه نام —
+         که برای ردیف‌های پیش از ۶٫۸۲ تنها چیزی است که هست. */
+      var rk = String(v[i][9] || '');
+      var hit = (want && rk) ? (rk === want)
+                             : (String(v[i][2] || '') === String(seriesName || ''));
+      if (!hit) continue;
       var sig = String(v[i][3]) + '|' + String(v[i][4]) + '|' + String(v[i][6]).slice(0, 60);
       if (seen[sig]) continue;                 // همان نسبت در چند قسمت: یک بار بس است
       seen[sig] = 1;

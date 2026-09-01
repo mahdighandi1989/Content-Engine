@@ -396,27 +396,58 @@ function recapUpto_(chapters) {
   return top;
 }
 
+/**
+ * کتابِ مجموعه، فشرده برای پرامپت — و **همیشه کامل** (۶٫۸۲).
+ *
+ * ══ نیمهٔ ۶٫۸۱ که به مرور نرسید ══
+ * ۶٫۸۱ برای درس‌ها ثابت کرد که بریدنِ سرِ متن یعنی کشفِ نسبت فقط ربعِ اولِ
+ * درس را می‌بیند، و `bridgeDigest_` را گذاشت. مرورِ بزرگ همان `bridgeFor_`
+ * را صدا می‌زند — پس پیش‌آهنگ و خواندنِ ژرفِ کتابِ *مرجع* را رایگان به ارث
+ * برد — ولی خلاصهٔ خودِ مجموعه را از همین‌جا می‌گرفت، و اینجا هنوز
+ * «هرچه اول آمد» بود.
+ *
+ * اندازه‌گیری روی جزوهٔ واقعیِ «معرفت‌شناسی» (۱۵ فصل، ۷۲ بخش، ۴۷٬۷۲۵ نویسه):
+ * با سقفِ ۱۲٬۰۰۰ (خلاصهٔ کشفِ ارجاع) فقط ۲۰ بخش می‌رسید و متن سرِ **فصلِ
+ * هفتم از پانزده** قطع می‌شد؛ با سقفِ ۴۲٬۰۰۰ (پرامپتِ خودِ نویسنده) ۶۳ بخش
+ * می‌رسید و فصلِ پانزدهم هرگز نمی‌آمد — در حالی که `recapChecklist_` نامِ
+ * هر پانزده فصل را می‌دهد و می‌گوید «هیچ‌کدام نباید غایب باشد». مدل مأمور
+ * می‌شد فصلی را مرور کند که متنش را ندیده بود.
+ *
+ * کامنتِ خودِ این تابع از اول می‌گفت «هر بخش سهمِ برابر می‌گیرد، نه هرچه
+ * اول آمد» — نوشته بود و کد نکرده بود. حالا می‌کند: اول طولِ ثابت (عنوان‌ها)
+ * شمرده می‌شود، بعد باقیِ سقف مساوی میانِ بخش‌ها پخش می‌شود. هیچ فصلی حذف
+ * نمی‌شود؛ فقط تنهٔ هر بخش کوتاه‌تر می‌شود.
+ */
 function recapBookText_(book, cap) {
-  var L = [], used = 0;
   var chs = (book && book.chapters) || [];
+  var lim = Math.max(2000, Number(cap) || 12000);
+  var stub = [], body = [], fixed = 0, nSec = 0;
   for (var c = 0; c < chs.length; c++) {
     var head = '── فصلِ ' + (c + 1) + ': ' + String(chs[c].title || '');
-    L.push(head); used += head.length;
+    stub.push(head); body.push(null); fixed += head.length + 1;
     var secs = chs[c].sections || [];
     for (var s = 0; s < secs.length; s++) {
-      var t = String(secs[s].title || '');
-      var b = String(secs[s].body || '').replace(/\s+/g, ' ').trim();
-      // هر بخش سهمِ برابر می‌گیرد، نه «هرچه اول آمد». وگرنه فصل‌های اولِ
-      // کتاب کلِ جا را می‌خوردند و درس‌های تازه — که همان‌هایی‌اند که هنوز
-      // جا نیفتاده‌اند — اصلاً به پرامپت نمی‌رسیدند.
-      if (b.length > 700) b = b.slice(0, 700) + ' …';
-      var line = '• ' + t + (b ? ' — ' + b : '');
-      if (used + line.length > cap) { L.push('… (ادامهٔ کتاب جا نشد)'); return L.join('\n'); }
-      L.push(line); used += line.length;
+      var line = '• ' + String(secs[s].title || '');
+      stub.push(line);
+      body.push(String(secs[s].body || '').replace(/\s+/g, ' ').trim());
+      fixed += line.length + 1; nSec++;
     }
+  }
+  var per = nSec ? Math.floor((lim - fixed) / nSec) - 5 : 0;   // « — » و « …»
+  if (per > RECAP_BODY_MAX) per = RECAP_BODY_MAX;
+  var L = [];
+  for (var q = 0; q < stub.length; q++) {
+    var bq = body[q];
+    if (bq === null || !bq || per < RECAP_BODY_MIN) { L.push(stub[q]); continue; }
+    L.push(stub[q] + ' — ' + (bq.length > per ? bq.slice(0, per) + ' …' : bq));
   }
   return L.join('\n');
 }
+
+/* سهمِ تنهٔ هر بخش: بیش از این چیزی اضافه نمی‌کند؛ کمتر از آن بریده‌تر از
+   آن است که کمک کند، پس عنوان به‌تنهایی می‌رود. */
+var RECAP_BODY_MAX = 700;
+var RECAP_BODY_MIN = 40;
 
 /** سیاههٔ عنوانِ فصل‌ها برای پرامپت — «همه» یک صفت است، سیاهه یک سنجه. */
 function recapChecklist_(book) {
@@ -560,7 +591,7 @@ function recapWrite_(book, seriesName, scope, freshBlock) {
   var r = null;
   var bridges = '';
   try {
-    var bl = bridgeOfSeries_(getHub_(), seriesName, 24);
+    var bl = bridgeOfSeries_(getHub_(), seriesName, 24, (book && book.seriesKey) || '');
     bridges = bridgeRecapBlock_(bl);
   } catch (eB) { bridges = ''; }
   /* دو بلوکِ جدا با دو نقش: تاریخچهٔ ارجاع‌های گفته‌شدهٔ درس‌ها (از سیاهه)
@@ -824,7 +855,7 @@ function runRecapEpisode(opt) {
       var bv = bridgeVerify_(ep, fresh.links);
       bUsed = bv.used; bMissed = bv.missed;
       if (bUsed.length) {
-        try { bridgeLog_(hub, epNum, pick.name, bUsed); } catch (eL1) {}
+        try { bridgeLog_(hub, epNum, pick.name, bUsed, pick.rec && pick.rec.key); } catch (eL1) {}
         try { bridgeSnap_(epNum, pick.name, bUsed, ep); } catch (eL2) {}
       }
       if (fresh.links.length && !bUsed.length) {
