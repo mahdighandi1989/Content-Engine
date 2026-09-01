@@ -577,10 +577,15 @@ function ytPresCreate_(title, wEmu, hEmu) {
   }
   var off = ytApiOff_((mk && mk.text) || '');
   out.enableUrl = off.url || '';
-  out.why = off.off
+  out.why = off.scope
+    ? (off.fix || 'اسکوپِ Slides نیست')
+    : off.off
     ? (off.api || 'Google Slides API') + ' در پروژهٔ ابری روشن نیست' +
       (off.url ? ' — ' + off.url : '')
-    : 'ساختِ ارائه با اندازهٔ دقیق نشد' + (mk ? ' (' + mk.code + ')' : '');
+    /* و اگر باز هم نشناختیم، دستِ‌کم متنِ خودِ گوگل را بگو — «(۴۰۳)»ِ خالی
+       همان چیزی است که ناظر را هم بلاتکلیف گذاشت. */
+    : 'ساختِ ارائه با اندازهٔ دقیق نشد' + (mk ? ' (' + mk.code + ')' : '') +
+      (mk && mk.text ? ' — ' + String(mk.text).replace(/\s+/g, ' ').slice(0, 120) : '');
   try { out.id = SlidesApp.create(String(title || 'کارت')).getId(); } catch (e2) {}
   return out;
 }
@@ -4243,8 +4248,24 @@ var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE]);
  * می‌دهند و همگی نشانیِ دقیقِ صفحهٔ روشن‌کردن را در متنِ خودشان دارند.
  * بیرون کشیدنِ آن نشانی یعنی کاربر یک قدم دارد، نه ده دقیقه گشتن.
  */
+/* ══ «(۴۰۳)» علت نیست (۶٫۸۰) ══
+ * گزارشِ ۱ سپتامبر: «ساختِ اسلایدِ بنر نشد (403)» — و ناظر هم نتوانست
+ * تصمیم بگیرد، فقط گذاشتش برای نشستِ بعد. ولی ۴۰۳ دو علتِ کاملاً متفاوت
+ * دارد با دو چارهٔ کاملاً متفاوت:
+ *   • SERVICE_DISABLED → سرویس در پروژهٔ ابری روشن نیست (یک کلیک در کنسول)
+ *   • ACCESS_TOKEN_SCOPE_INSUFFICIENT → توکنِ اسکریپت اسکوپِ Slides ندارد؛
+ *     نصبِ خودکار `appsscript.json` را دست نمی‌زند، پس این را **کد درست
+ *     نمی‌کند** و باید یک بار با دست اجازه داده شود.
+ * عددِ بی‌تشخیص، اقدام‌پذیر نیست — همان درسی که امروز دو بار دیگر هم گرفتیم. */
 function ytApiOff_(text) {
   var t = String(text || '');
+  if (/ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficient authentication scopes|insufficientPermissions/i
+      .test(t)) {
+    return { off: true, scope: true, url: '', project: '', api: 'Google Slides',
+             fix: 'اسکوپِ Slides در پروژهٔ اسکریپت نیست. منوی «عیب‌یابی و رفعِ ' +
+                  'دسترسیِ یوتیوب» را یک بار اجرا کنید و اجازه بدهید؛ نصبِ ' +
+                  'خودکارِ کد اسکوپ‌ها را عوض نمی‌کند.' };
+  }
   if (!/has not been used in project|SERVICE_DISABLED|it is disabled/i.test(t)) {
     return { off: false };
   }

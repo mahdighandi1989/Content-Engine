@@ -727,10 +727,33 @@ function nowHour_() {
 }
 
 /** خلاصهٔ وضعیتِ غنی‌سازی برای فایل وضعیت و ناظرِ روزانه. */
+/* ══ دو ساعت، دو معنا، یک نام (۶٫۸۰) ══
+ * گزارشِ ۱ سپتامبر دو عددِ ناسازگار کنارِ هم گذاشت: «آخرین اجرا امروز ۰۸:۴۳»
+ * و «۲ روز است کاری نکرده». هیچ‌کدام غلط نبودند؛ **دو چیزِ متفاوت را
+ * می‌شمردند**:
+ *   • `PK.ENRICH_AT` وقتی مُهر می‌خورد که *موتور* قسمتی را منتشر کند که
+ *     منبعِ بیرونی داشته — یعنی کارِ خودِ موتور، در لحظهٔ انتشار. آن منبع
+ *     می‌تواند از پاسخی باشد که تسک روزها پیش نوشته.
+ *   • دیده‌بان تازه‌ترین *پاسخِ* تسک را در پوشهٔ OUTPUT می‌بیند — یعنی کارِ
+ *     خودِ تسک.
+ * اسمِ «آخرین اجرا» روی اولی، تناقض می‌سازد. حالا هر دو با نامِ خودشان
+ * می‌آیند و «آخرین پاسخِ تسک» از همان یک تعریفِ دیده‌بان (`whNewestEnrich_`)
+ * خوانده می‌شود — دو کپی از یک حقیقت، همان چیزی است که این ریپو بارها
+ * بابتش نسخه سوزانده. */
 function enrichStatus_() {
+  var answerAt = '';
+  try { answerAt = whNewestEnrich_(); } catch (eA) {}
   var out = { enabled: CFG.ENRICH_ENABLED !== false, waitMin: CFG.ENRICH_WAIT_MIN || 90,
               maxOutsidePct: CFG.ENRICH_MAX_OUTSIDE_PCT || 15,
-              pending: [], lastAt: String(props_().getProperty(PK.ENRICH_AT) || '') };
+              pending: [],
+              // کارِ تسک: تازه‌ترین پاسخی که نوشته
+              lastAnswerAt: answerAt,
+              // کارِ موتور: آخرین قسمتی که با منبعِ بیرونی منتشر شد
+              lastUsedAt: String(props_().getProperty(PK.ENRICH_AT) || ''),
+              /* `lastAt` برای سازگاری می‌مانَد، ولی از این پس همان ساعتِ
+                 تسک است — چون هر جا «آخرین غنی‌سازی» خوانده می‌شود،
+                 منظور کارِ تسک بوده، نه لحظهٔ انتشارِ موتور. */
+              lastAt: answerAt };
   try {
     var folder = outFolder_();
     var it = folder.getFiles();
@@ -808,6 +831,10 @@ function showEnrichStatus() {
   } else {
     L.push('هیچ درخواستِ بی‌پاسخی نمانده.');
   }
+  /* دو ساعت، با نامِ خودشان — تا کسی دوباره آن‌ها را یک چیز نخواند (۶٫۸۰). */
+  L.push('');
+  L.push('آخرین پاسخِ تسک: ' + (st.lastAnswerAt || '—') +
+         '  ·  آخرین قسمتی که با منبعِ بیرونی منتشر شد: ' + (st.lastUsedAt || '—'));
   var pend = props_().getProperty(PK.PENDING) ? CFG.SHOW_NAME : '';
   var pendSp = props_().getProperty(PK.SP_PENDING) ? CFG.SPECIAL_SHOW_NAME : '';
   if (pend || pendSp) {

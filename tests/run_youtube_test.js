@@ -1171,6 +1171,26 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
      slides.url.indexOf('slides.googleapis.com') !== -1 && slides.project === '711710970959');
   ok('۳۴.۱۴ و متنِ سالم را «خاموش» نمی‌خواند',
      ytApiOff_('{"items":[]}').off === false);
+
+  /* ══ «(۴۰۳)» علت نیست (۶٫۸۰) ══
+   * گزارشِ ۱ سپتامبر: «ساختِ اسلایدِ بنر نشد (403)» — و ناظر هم نتوانست
+   * تصمیم بگیرد، فقط گذاشتش برای نشستِ بعد. ۴۰۳ دو علتِ متفاوت دارد با دو
+   * چارهٔ متفاوت، و یکی‌شان اصلاً با کد درست نمی‌شود. */
+  const scope = ytApiOff_('{"error":{"code":403,"status":"PERMISSION_DENIED",' +
+    '"message":"Request had insufficient authentication scopes.",' +
+    '"details":[{"reason":"ACCESS_TOKEN_SCOPE_INSUFFICIENT"}]}}');
+  ok('۳۴.۱۵ کمبودِ اسکوپ از «سرویسِ خاموش» جدا تشخیص داده می‌شود',
+     scope.off === true && scope.scope === true);
+  ok('۳۴.۱۶ و چاره‌اش را می‌گوید — و می‌گوید که نصبِ خودکار حلش نمی‌کند',
+     /عیب‌یابی و رفعِ دسترسیِ یوتیوب/.test(scope.fix) &&
+     /اسکوپ‌ها را عوض نمی‌کند/.test(scope.fix), scope.fix);
+  ok('۳۴.۱۷ و سرویسِ خاموش همچنان همان مسیرِ خودش را دارد',
+     slides.scope !== true && slides.off === true);
+  const s27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۳۴.۱۸ ساختِ ارائه هم علتِ اسکوپ را جدا می‌گوید',
+     /out\.why = off\.scope/.test(s27));
+  ok('۳۴.۱۹ و ۴۰۳ِ ناشناخته دستِ‌کم متنِ خودِ گوگل را با خود می‌آورد',
+     /mk && mk\.text \? ' — ' \+ String\(mk\.text\)/.test(s27));
 }
 
 console.log('=== ۳۵) مسیرِ داده: صوت بیرون، ویدئو برمی‌گردد (۶٫۶) ===');

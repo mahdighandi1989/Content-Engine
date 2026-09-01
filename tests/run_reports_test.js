@@ -403,4 +403,31 @@ ok('ولی نسخهٔ فارسیِ بالاتر همچنان باز می‌ما�
 ok('رقمِ لاتین مثل قبل کار می‌کند',
    codeRowTargetVer_(mkCodeRow('CODE-5.10', 'x (5.8 ← 5.10)')) === '5.10');
 
+console.log('=== دو ساعتِ غنی‌سازی، دو نام (۶٫۸۰) ===');
+{
+  /* گزارشِ ناظر در ۱ سپتامبر دو عددِ ناسازگار کنارِ هم گذاشت: «آخرین اجرا
+     امروز ۰۸:۴۳» و «۲ روز است کاری نکرده». هیچ‌کدام غلط نبود — دو چیزِ
+     متفاوت را می‌شمردند و یک نام داشتند. ناظر هم نتوانست تصمیم بگیرد و
+     فقط علامتش زد. */
+  const root = global.__ROOT_FOLDER;
+  const keep = global.__PROPS[PK.ENRICH_AT];
+  global.__PROPS[PK.ENRICH_AT] = '2026-09-01 08:43';   // موتور امروز منتشر کرد
+  // ولی تازه‌ترین پاسخِ تسک، دو روز پیش نوشته شده
+  root.createFile(Utilities.newBlob('{}', 'application/json', '_ENRICH-special-26.json'));
+  const st = enrichStatus_();
+  ok('دو ساعت با نامِ خودشان بیرون می‌آیند',
+     typeof st.lastAnswerAt === 'string' && typeof st.lastUsedAt === 'string' &&
+     st.lastUsedAt === '2026-09-01 08:43', JSON.stringify({ a: st.lastAnswerAt, u: st.lastUsedAt }));
+  ok('و «آخرین غنی‌سازی» از این پس یعنی کارِ تسک، نه لحظهٔ انتشارِ موتور',
+     st.lastAt === st.lastAnswerAt && st.lastAt !== st.lastUsedAt,
+     st.lastAt + ' ≠ ' + st.lastUsedAt);
+  const s19 = fs.readFileSync('src/19_Enrich.gs', 'utf8');
+  ok('و ساعتِ تسک از همان یک تعریفِ دیده‌بان می‌آید — نه کپیِ دوم',
+     /answerAt = whNewestEnrich_\(\)/.test(s19));
+  ok('و پنجرهٔ منو هر دو را با نامِ خودشان نشان می‌دهد',
+     /آخرین پاسخِ تسک: /.test(s19) && /با منبعِ بیرونی منتشر شد: /.test(s19));
+  if (keep === undefined) delete global.__PROPS[PK.ENRICH_AT];
+  else global.__PROPS[PK.ENRICH_AT] = keep;
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

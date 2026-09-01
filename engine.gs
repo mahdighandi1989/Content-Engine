@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.79
+ *  موتور محتوا و پادکست — نسخهٔ 6.80
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1089,7 +1089,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.79',
+  CODE_VERSION: '6.80',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -22670,10 +22670,33 @@ function nowHour_() {
 }
 
 /** خلاصهٔ وضعیتِ غنی‌سازی برای فایل وضعیت و ناظرِ روزانه. */
+/* ══ دو ساعت، دو معنا، یک نام (۶٫۸۰) ══
+ * گزارشِ ۱ سپتامبر دو عددِ ناسازگار کنارِ هم گذاشت: «آخرین اجرا امروز ۰۸:۴۳»
+ * و «۲ روز است کاری نکرده». هیچ‌کدام غلط نبودند؛ **دو چیزِ متفاوت را
+ * می‌شمردند**:
+ *   • `PK.ENRICH_AT` وقتی مُهر می‌خورد که *موتور* قسمتی را منتشر کند که
+ *     منبعِ بیرونی داشته — یعنی کارِ خودِ موتور، در لحظهٔ انتشار. آن منبع
+ *     می‌تواند از پاسخی باشد که تسک روزها پیش نوشته.
+ *   • دیده‌بان تازه‌ترین *پاسخِ* تسک را در پوشهٔ OUTPUT می‌بیند — یعنی کارِ
+ *     خودِ تسک.
+ * اسمِ «آخرین اجرا» روی اولی، تناقض می‌سازد. حالا هر دو با نامِ خودشان
+ * می‌آیند و «آخرین پاسخِ تسک» از همان یک تعریفِ دیده‌بان (`whNewestEnrich_`)
+ * خوانده می‌شود — دو کپی از یک حقیقت، همان چیزی است که این ریپو بارها
+ * بابتش نسخه سوزانده. */
 function enrichStatus_() {
+  var answerAt = '';
+  try { answerAt = whNewestEnrich_(); } catch (eA) {}
   var out = { enabled: CFG.ENRICH_ENABLED !== false, waitMin: CFG.ENRICH_WAIT_MIN || 90,
               maxOutsidePct: CFG.ENRICH_MAX_OUTSIDE_PCT || 15,
-              pending: [], lastAt: String(props_().getProperty(PK.ENRICH_AT) || '') };
+              pending: [],
+              // کارِ تسک: تازه‌ترین پاسخی که نوشته
+              lastAnswerAt: answerAt,
+              // کارِ موتور: آخرین قسمتی که با منبعِ بیرونی منتشر شد
+              lastUsedAt: String(props_().getProperty(PK.ENRICH_AT) || ''),
+              /* `lastAt` برای سازگاری می‌مانَد، ولی از این پس همان ساعتِ
+                 تسک است — چون هر جا «آخرین غنی‌سازی» خوانده می‌شود،
+                 منظور کارِ تسک بوده، نه لحظهٔ انتشارِ موتور. */
+              lastAt: answerAt };
   try {
     var folder = outFolder_();
     var it = folder.getFiles();
@@ -22751,6 +22774,10 @@ function showEnrichStatus() {
   } else {
     L.push('هیچ درخواستِ بی‌پاسخی نمانده.');
   }
+  /* دو ساعت، با نامِ خودشان — تا کسی دوباره آن‌ها را یک چیز نخواند (۶٫۸۰). */
+  L.push('');
+  L.push('آخرین پاسخِ تسک: ' + (st.lastAnswerAt || '—') +
+         '  ·  آخرین قسمتی که با منبعِ بیرونی منتشر شد: ' + (st.lastUsedAt || '—'));
   var pend = props_().getProperty(PK.PENDING) ? CFG.SHOW_NAME : '';
   var pendSp = props_().getProperty(PK.SP_PENDING) ? CFG.SPECIAL_SHOW_NAME : '';
   if (pend || pendSp) {
@@ -34754,10 +34781,15 @@ function ytPresCreate_(title, wEmu, hEmu) {
   }
   var off = ytApiOff_((mk && mk.text) || '');
   out.enableUrl = off.url || '';
-  out.why = off.off
+  out.why = off.scope
+    ? (off.fix || 'اسکوپِ Slides نیست')
+    : off.off
     ? (off.api || 'Google Slides API') + ' در پروژهٔ ابری روشن نیست' +
       (off.url ? ' — ' + off.url : '')
-    : 'ساختِ ارائه با اندازهٔ دقیق نشد' + (mk ? ' (' + mk.code + ')' : '');
+    /* و اگر باز هم نشناختیم، دستِ‌کم متنِ خودِ گوگل را بگو — «(۴۰۳)»ِ خالی
+       همان چیزی است که ناظر را هم بلاتکلیف گذاشت. */
+    : 'ساختِ ارائه با اندازهٔ دقیق نشد' + (mk ? ' (' + mk.code + ')' : '') +
+      (mk && mk.text ? ' — ' + String(mk.text).replace(/\s+/g, ' ').slice(0, 120) : '');
   try { out.id = SlidesApp.create(String(title || 'کارت')).getId(); } catch (e2) {}
   return out;
 }
@@ -38420,8 +38452,24 @@ var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE]);
  * می‌دهند و همگی نشانیِ دقیقِ صفحهٔ روشن‌کردن را در متنِ خودشان دارند.
  * بیرون کشیدنِ آن نشانی یعنی کاربر یک قدم دارد، نه ده دقیقه گشتن.
  */
+/* ══ «(۴۰۳)» علت نیست (۶٫۸۰) ══
+ * گزارشِ ۱ سپتامبر: «ساختِ اسلایدِ بنر نشد (403)» — و ناظر هم نتوانست
+ * تصمیم بگیرد، فقط گذاشتش برای نشستِ بعد. ولی ۴۰۳ دو علتِ کاملاً متفاوت
+ * دارد با دو چارهٔ کاملاً متفاوت:
+ *   • SERVICE_DISABLED → سرویس در پروژهٔ ابری روشن نیست (یک کلیک در کنسول)
+ *   • ACCESS_TOKEN_SCOPE_INSUFFICIENT → توکنِ اسکریپت اسکوپِ Slides ندارد؛
+ *     نصبِ خودکار `appsscript.json` را دست نمی‌زند، پس این را **کد درست
+ *     نمی‌کند** و باید یک بار با دست اجازه داده شود.
+ * عددِ بی‌تشخیص، اقدام‌پذیر نیست — همان درسی که امروز دو بار دیگر هم گرفتیم. */
 function ytApiOff_(text) {
   var t = String(text || '');
+  if (/ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficient authentication scopes|insufficientPermissions/i
+      .test(t)) {
+    return { off: true, scope: true, url: '', project: '', api: 'Google Slides',
+             fix: 'اسکوپِ Slides در پروژهٔ اسکریپت نیست. منوی «عیب‌یابی و رفعِ ' +
+                  'دسترسیِ یوتیوب» را یک بار اجرا کنید و اجازه بدهید؛ نصبِ ' +
+                  'خودکارِ کد اسکوپ‌ها را عوض نمی‌کند.' };
+  }
   if (!/has not been used in project|SERVICE_DISABLED|it is disabled/i.test(t)) {
     return { off: false };
   }
