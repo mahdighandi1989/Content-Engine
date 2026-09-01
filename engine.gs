@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.78
+ *  موتور محتوا و پادکست — نسخهٔ 6.79
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1089,7 +1089,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.78',
+  CODE_VERSION: '6.79',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -13652,6 +13652,17 @@ var SERIES_PATTERNS = [
   { re: /^(.*?)[\s._-]*(?:قسمت|جلسه|درس|بخش|فصل|part|episode|ep|session|lesson|lect|lecture|lec|vol|chapter)[\s._\-#]*(\d{1,3})[\s._-]*(.*)$/i,
     stem: function (m) { return (m[1] + ' ' + m[3]).trim(); },
     seq: function (m) { return parseInt(m[2], 10); } },
+  /* دو شمارهٔ پیاپی در پایان: «45Years_In_WallStreet- 16- 05» (۶٫۷۸).
+     خطِ لولهٔ منبع، کتابِ بلند را دوسطحی نام می‌گذارد: «<نام>- <بخش>- <فایل>».
+     تا امروز فقط *یک* شمارهٔ پایانی برداشته می‌شد، پس شمارهٔ بخش داخلِ نامِ
+     مجموعه می‌ماند و یک کتاب به شانزده «مجموعهٔ» جدا تکه می‌شد: «… ۱»، «… ۲»…
+     هیچ‌کدام هم آن کتاب نبودند، و صاحبِ برنامه در تخته دنبالِ نامِ واقعی
+     می‌گشت و پیدا نمی‌کرد. شمارهٔ ترکیبی همان ترفندِ S01E02 است: بخش×۱۰۰۰
+     به‌علاوهٔ فایل، تا ترتیبِ درونِ کتاب هم درست بماند. */
+  { re: /^(.+?)[\s._\-–]+(\d{1,3})[\s._\-–]+(\d{1,3})$/,
+    stem: function (m) { return m[1]; },
+    max: 99999,
+    seq: function (m) { return parseInt(m[2], 10) * 1000 + parseInt(m[3], 10); } },
   // پسوندِ عددی: «دورهٔ گن 04»
   { re: /^(.+?)[\s._\-–]+(\d{1,3})$/,
     stem: function (m) { return m[1]; }, seq: function (m) { return parseInt(m[2], 10); } }
@@ -13803,6 +13814,32 @@ function seriesQualifies_(g) {
     return { ok: false, why: 'فایلِ تکِ کوتاه (' + maxChunks + ' قطعه)' };
   }
   return { ok: true };
+}
+
+/**
+ * آیا آنچه در ستونِ «نامِ مجموعه»ی شیت نشسته، واقعاً یک نام است؟ (۶٫۷۸)
+ *
+ * ══ چیزی که در دادهٔ واقعی پیدا شد ══
+ * کتابِ «45Years In WallStreet» دوازده ساعت پس از ورود، در تخته پیدا نمی‌شد.
+ * سیاههٔ ردشده‌ها نشان داد چرا: نامِ گروهش نه «45Years In WallStreet» بود و نه
+ * حتی نامِ فایل، بلکه **خودِ خروجیِ JSONِ تحلیلگر** —
+ * `{"Importance Score 1 to 10": 7, "Summary": "…"}` — و چون هر ردیف کلیدهای
+ * متفاوتی داشت، هر فایل یک «مجموعهٔ» جدا شد و همه به‌عنوانِ «فایلِ تکِ کوتاه»
+ * افتادند.
+ *
+ * ریشه: کد به ستونِ Series_Name **بی‌قید** اعتماد می‌کرد. ولی آن ستون را یک
+ * خطِ لولهٔ بیرونی پر می‌کند، و خطِ لولهٔ بیرونی روزی چیزِ دیگری در آن
+ * می‌ریزد. همان قاعدهٔ همیشگیِ این ریپو: بیرون پیشنهاد می‌دهد، کد تصمیم
+ * می‌گیرد. نامی که JSON باشد، خیلی بلند باشد، یا حرفِ آدمیزاد نداشته باشد،
+ * نامِ مجموعه نیست — و آن‌وقت نامِ فایل، که همیشه بوده، جوابِ درست است.
+ */
+function seriesColNameOk_(v) {
+  var s = String(v || '').trim();
+  if (!s) return false;
+  if (s.length > 120) return false;               // نامِ دوره این‌قدر بلند نیست
+  if (/^[\[{]/.test(s)) return false;             // JSON
+  if (/"\s*:/.test(s)) return false;              // «کلید»: — بقایای JSON
+  return seriesNameLooksReal_(s);
 }
 
 /** ستون‌های لازم برای گروه‌بندی. از نگاشتِ خودکارِ 10_Sources استفاده می‌کند. */
@@ -14089,9 +14126,40 @@ function seriesInvStatus_() {
       out.n++; out.tabs += Number(inv[i].tabs) || 0; out.read += Number(inv[i].read) || 0;
       if (inv[i].skipped) out.missed++;
     }
+    /* ══ عددی که نمی‌گوید «کدام‌ها» (۶٫۷۸) ══
+     * «۹ تب از ۲۴ خوانده شد» سه ماه در ایمیل بود و هر بار همان شک را
+     * می‌ساخت: «نکند تب‌ها را نمی‌شناسد؟» علتِ رد شدنِ *هر* تب از ۶٫۴۸ در
+     * `detail` نوشته می‌شد و هیچ‌وقت خوانده نمی‌شد. عددِ بی‌نام نه صاحبِ
+     * برنامه را آرام می‌کند نه ناظر را به کار می‌اندازد.
+     * پس نامِ تب‌های خوانده‌نشده با علتشان می‌آید — و «خالی» و «خروجیِ
+     * ترکیبی» که رد شدنشان درست است، از «نوعش شناخته نشد» که ممکن است
+     * اشتباه باشد، جدا شمرده می‌شود. */
+    var byWhy = {}, unknown = [];
+    for (var d = 0; d < inv.length; d++) {
+      var det = (inv[d] && inv[d].detail) || [];
+      for (var q = 0; q < det.length; q++) {
+        var w = String(det[q].why || '');
+        if (!w) continue;                                   // خوانده شد
+        byWhy[w] = (byWhy[w] || 0) + 1;
+        if (w.indexOf('شناخته نشد') !== -1) {
+          unknown.push(String(inv[d].src || '') + ' › ' + String(det[q].tab || ''));
+        }
+      }
+    }
+    var whyBits = [];
+    for (var k in byWhy) if (Object.prototype.hasOwnProperty.call(byWhy, k)) {
+      whyBits.push(k + ' ' + fa(byWhy[k]));
+    }
+    out.unknown = unknown;
     out.line = 'منبع‌های مجموعه‌ها: ' + fa(out.n) + ' شیت · ' + fa(out.read) +
                ' تب از ' + fa(out.tabs) + ' خوانده شد' +
+               (whyBits.length ? ' (بقیه: ' + whyBits.join(' · ') + ')' : '') +
+               (unknown.length ? ' ⚠ نوعش شناخته نشد: ' + unknown.slice(0, 4).join('، ') : '') +
                (out.missed ? ' · ⚠ ' + fa(out.missed) + ' شیت اصلاً خوانده نشد' : '') + '.';
+    /* و عمداً «مسئله» علامت نمی‌خورد: تبِ ناشناخته از ۶٫۴۳ یافتهٔ خودش را
+       دارد (src-tab-unknown) و در صفِ کد می‌نشیند. دو هشدار برای یک چیز،
+       همان است که «سکوت یعنی سلامت» را بی‌معنا می‌کند — آزمونِ سلامت هم
+       همین را گرفت. این‌جا فقط *نام* اضافه شد، نه یک زنگِ دوم. */
   } catch (e) {}
   return out;
 }
@@ -14349,11 +14417,11 @@ function scanSeries(force) {
         scanned++;
 
         var nm, seq;
-        if (f.seriesName) {                       // خودِ شیت گفته این کدام دوره است
+        if (seriesColNameOk_(f.seriesName)) {     // خودِ شیت گفته این کدام دوره است
           nm = seriesStem_(f.seriesName);
           seq = isFinite(f.episodeSeq) && f.episodeSeq > 0 ? f.episodeSeq
                                                            : parseSeriesName_(f.name).seq;
-        } else if (f.seriesId) {
+        } else if (f.seriesId && seriesColNameOk_(f.seriesId)) {
           nm = seriesStem_(f.seriesId);
           seq = isFinite(f.episodeSeq) && f.episodeSeq > 0 ? f.episodeSeq : 1;
         } else {
@@ -14661,6 +14729,16 @@ function writeSeriesRegistry_(hub, reg, parts, found) {
       if (!seriesNameLooksReal_(nmNow)) bad = 'نامِ ماشینی';
       else if (partsNow <= 1 && chunksNow < (CFG.SERIES_MIN_SOLO_CHUNKS || 8)) {
         bad = 'فایلِ تکِ کوتاه (' + chunksNow + ' قطعه)';
+      } else {
+        /* ردیف‌هایی که تکه‌های یک مجموعهٔ واحد بودند و حالا در آن ادغام
+           شده‌اند (۶٫۷۸). بی این، اصلاحِ نام‌گذاریِ دوسطحی یک کتاب را درست
+           می‌سازد و شانزده «مجموعهٔ» قدیمی را هم سرِ جایشان می‌گذارد: همان
+           محتوا دو بار در نوبتِ تولید. همان سه نگهبانِ بالا این‌جا هم
+           برقرارند — ردیفی که قسمت ساخته یا دستی تنظیم شده، دست نمی‌خورد. */
+        var mSplit = String(regNow.rows[rr].key || '').match(/^(.+?) (\d{1,3})$/);
+        if (mSplit && found && Object.prototype.hasOwnProperty.call(found, mSplit[1])) {
+          bad = 'در «' + String(found[mSplit[1]].name || mSplit[1]) + '» ادغام شد';
+        }
       }
       if (!bad) continue;
       rv[SC.STATUS - 1] = SST.SKIPPED;

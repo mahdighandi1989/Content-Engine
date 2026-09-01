@@ -249,6 +249,87 @@ ok('کتابِ بی‌شماره، مجموعهٔ تک‌قسمتی است',
    parseSeriesName_('Polya_How-to-solve-it.pdf').seq === 1 &&
    parseSeriesName_('Polya_How-to-solve-it.pdf').multi === false);
 
+/* ══ نام‌گذاریِ دوسطحیِ خطِ لولهٔ منبع (۶٫۷۸) ══
+ * «45Years_In_WallStreet- 16- 05» یعنی بخشِ ۱۶، فایلِ ۵ از یک کتاب. تا امروز
+ * فقط شمارهٔ آخر برداشته می‌شد، پس «۱۶» داخلِ نامِ مجموعه می‌ماند و یک کتاب
+ * به شانزده «مجموعهٔ» جدا تکه می‌شد — و در تختهٔ مجموعه‌ها هیچ‌کدامشان آن
+ * کتاب نبود. صاحبِ برنامه دوازده ساعت دنبالش گشت و پیدا نکرد. */
+ok('۱.۷ نامِ دوسطحی یک مجموعه است، نه شانزده تا',
+   parseSeriesName_('45Years_In_WallStreet- 1- 01.mp3').name === '45Years In WallStreet' &&
+   parseSeriesName_('45Years_In_WallStreet- 16- 05.mp3').name === '45Years In WallStreet',
+   parseSeriesName_('45Years_In_WallStreet- 16- 05.mp3').name);
+ok('۱.۸ و ترتیبِ درونِ کتاب حفظ می‌شود (بخش×۱۰۰۰ + فایل)',
+   parseSeriesName_('45Years_In_WallStreet- 1- 01.mp3').seq === 1001 &&
+   parseSeriesName_('45Years_In_WallStreet- 16- 05.mp3').seq === 16005 &&
+   parseSeriesName_('45Years_In_WallStreet- 2- 01.mp3').seq >
+   parseSeriesName_('45Years_In_WallStreet- 1- 03.mp3').seq);
+ok('۱.۹ ولی یک شمارهٔ پایانیِ تنها همچنان همان است',
+   parseSeriesName_('دورهٔ گن 04.mp4').seq === 4 &&
+   parseSeriesName_('معرفت شناسی- 12.mp3').name === 'معرفت شناسی');
+ok('۱.۱۰ و عددِ چهاررقمی (سال) بخش شمرده نمی‌شود',
+   parseSeriesName_('تحلیل بازار 1404 05.mp3').name === 'تحلیل بازار 1404');
+
+/* ══ ستونِ Series_Nameِ شیت، بی‌قید باور نمی‌شود (۶٫۷۸) ══
+ * در دادهٔ واقعی، آن ستون برای فایل‌های «45Years» خروجیِ JSONِ تحلیلگر را
+ * داشت — `{"Importance Score 1 to 10": 7, "Summary": …}` — و چون هر ردیف
+ * کلیدهای متفاوتی داشت، هر فایل یک «مجموعهٔ» جدا شد و همه «فایلِ تکِ کوتاه»
+ * افتادند. کد به یک ستونِ پرشده توسطِ خطِ لولهٔ بیرونی بی‌قید اعتماد کرده
+ * بود؛ بیرون پیشنهاد می‌دهد، کد تصمیم می‌گیرد. */
+ok('۱.۱۱ JSONِ تحلیلگر نامِ مجموعه نیست',
+   seriesColNameOk_('{"Importance Score 1 to 10": 7, "Summary": "متن"}') === false &&
+   seriesColNameOk_('{"Summary Text": "…"}') === false);
+ok('۱.۱۲ ولی نامِ واقعیِ همان ستون همچنان محترم است',
+   seriesColNameOk_('45Years In WallStreet') === true &&
+   seriesColNameOk_('معرفت شناسی مجتبی مصباح') === true);
+ok('۱.۱۳ و نامِ ماشینی/خالی/خیلی‌بلند هم رد می‌شود',
+   seriesColNameOk_('') === false && seriesColNameOk_('12') === false &&
+   seriesColNameOk_('x'.repeat(200)) === false);
+{
+  const p13 = fs.readFileSync('src/13_Series.gs', 'utf8');
+  ok('۱.۱۴ و مسیرِ گروه‌بندی واقعاً از همین نگهبان رد می‌شود',
+     /if \(seriesColNameOk_\(f\.seriesName\)\)/.test(p13) &&
+     /f\.seriesId && seriesColNameOk_\(f\.seriesId\)/.test(p13));
+  ok('۱.۱۵ ردیف‌های تکه‌شدهٔ قبلی در مجموعهٔ درست ادغام می‌شوند',
+     /ادغام شد/.test(p13) && /mSplit\[1\]/.test(p13));
+}
+
+/* ══ «۹ تب از ۲۴» بی نامِ آن ۱۵ تا، سه ماه فقط شک ساخت (۶٫۷۸) ══
+ * علتِ رد شدنِ هر تب از ۶٫۴۸ ثبت می‌شد و هیچ‌وقت خوانده نمی‌شد. عددِ بی‌نام
+ * نه صاحبِ برنامه را آرام می‌کند نه ناظر را به کار می‌اندازد. */
+{
+  const keepInv = global.__PROPS[PK.SERIES_INV];
+  global.__PROPS[PK.SERIES_INV] = JSON.stringify([
+    { src: 'Trading-Processor', tabs: 6, read: 3, detail: [
+      { tab: 'Audio Analysis', rows: 264, why: '' },
+      { tab: 'Video Analysis', rows: 2551, why: '' },
+      { tab: 'Image Analysis', rows: 1, why: '' },
+      { tab: 'Chart History', rows: 0, why: 'خالی است' },
+      { tab: 'Exam History', rows: 40, why: 'نوعش شناخته نشد' },
+      { tab: 'Code History', rows: 12, why: 'خروجیِ ترکیبی (رد می‌شود)' } ] }
+  ]);
+  const iv = seriesInvStatus_();
+  ok('۱.۱۶ خطِ روزانه علتِ تب‌های خوانده‌نشده را می‌شمارد',
+     /خالی است ۱/.test(iv.line) && /خروجیِ ترکیبی/.test(iv.line), iv.line);
+  ok('۱.۱۷ و تبِ ناشناخته را با نام می‌گوید — ممکن است محتوا در آن باشد',
+     /Trading-Processor › Exam History/.test(iv.line) &&
+     iv.unknown.length === 1, JSON.stringify(iv.unknown));
+  /* ولی زنگِ دومی نمی‌زند: تبِ ناشناخته از ۶٫۴۳ یافتهٔ خودش را دارد و در صفِ
+     کد می‌نشیند. دو هشدار برای یک چیز، «سکوت یعنی سلامت» را بی‌معنا می‌کند —
+     آزمونِ سلامت هم دقیقاً همین را گرفت. */
+  ok('۱.۱۸ ولی زنگِ دومی نمی‌زند — یافتهٔ src-tab-unknown از قبل هست',
+     iv.ok !== false);
+  const s13 = fs.readFileSync('src/13_Series.gs', 'utf8');
+  ok('۱.۱۹ و علتش نوشته شده تا کسی دوباره ارتقایش ندهد',
+     /دو هشدار برای یک چیز/.test(s13));
+  global.__PROPS[PK.SERIES_INV] = JSON.stringify([
+    { src: 'X', tabs: 2, read: 2, detail: [
+      { tab: 'A', rows: 5, why: '' }, { tab: 'B', rows: 5, why: '' } ] } ]);
+  ok('۱.۲۰ و وقتی همهٔ تب‌ها خوانده شده‌اند، خط تمیز می‌مانَد',
+     seriesInvStatus_().line.indexOf('بقیه:') === -1, seriesInvStatus_().line);
+  if (keepInv === undefined) delete global.__PROPS[PK.SERIES_INV];
+  else global.__PROPS[PK.SERIES_INV] = keepInv;
+}
+
 // ══════════════════════════════════ ۲) اسکن و رجیستری ═════════════════════
 console.log('\n=== ۲) اسکنِ مجموعه‌ها از شیت‌های درهم‌ریخته ===');
 un = quiet(); const scan = scanSeries(true); un();
