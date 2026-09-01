@@ -1144,7 +1144,9 @@ function produceSpecialEpisode(opt) {
      * دربارهٔ چیست، و برای آن چند هزار نویسه بس است — کلِ متن یعنی دو برابر
      * هزینه برای جوابی که فرق نمی‌کند. */
     try {
-      var digest = allText.replace(/\s+/g, ' ').slice(0, 12000);
+      /* از سراسرِ متن، نه از سرش (۶٫۸۱): با برشِ سرِ متن، نسبت‌هایی که با
+         نیمهٔ دومِ درس داشتند هرگز پیدا نمی‌شدند. */
+      var digest = bridgeDigest_(allText, 12000);
       var bctx = { seriesName: seriesName, partName: ctx.partName,
                    digest: digest, headings: [] };
       var br = bridgeFor_(hub, reg, rec, bctx);
