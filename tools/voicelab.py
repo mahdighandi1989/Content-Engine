@@ -223,6 +223,26 @@ def main():
         if r.returncode != 0:
             rep["error"] = "نصبِ %s ناموفق بود" % ", ".join(meta["pip"])
         else:
+            # ══ نامِ نقطهٔ ورود را حدس زده‌ام؛ پس واقعیتش را چاپ کن ══
+            # اگر حدسم غلط باشد، این چند خط تفاوتِ «اجرا شکست خورد» با
+            # «اجرا شکست خورد و نامِ درست این است» را می‌سازد — و اجرای
+            # بعدی را از یک حدسِ دیگر بی‌نیاز می‌کند.
+            for pkg in meta["pip"]:
+                q = sh([sys.executable, "-m", "pip", "show", "-f", pkg],
+                       capture_output=True)
+                txt = (q.stdout or b"").decode("utf-8", "replace")
+                tops, bins = set(), set()
+                for ln in txt.splitlines():
+                    ln = ln.strip()
+                    if ln.endswith(".py") and "/" in ln:
+                        tops.add(ln.split("/")[0])
+                    if ln.startswith("../../../bin/"):
+                        bins.add(ln.rsplit("/", 1)[-1])
+                rep.setdefault("packages", {})[pkg] = {
+                    "modules": sorted(m for m in tops if not m.startswith(("_", "."))) [:12],
+                    "commands": sorted(bins)[:12],
+                }
+            print("بسته‌ها:", json.dumps(rep.get("packages", {}), ensure_ascii=False), flush=True)
             # ── اجرا ──
             t1 = time.time()
             try:

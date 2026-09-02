@@ -93,11 +93,16 @@ jobs:
           fi
 
       - name: اجرای آزمایش
+        env:
+          LAB_TEXT: ${{ inputs.text }}
         run: |
           set -euo pipefail
+          # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
+          # جمله کدِ ۱ می‌دهد و پوسته همان‌جا می‌میرد. یعنی اجرا بدونِ src
+          # (که حالتِ عادیِ موتورهای TTS است) پیش از شروع شکست می‌خورد.
           ARGS=(--engine "${{ inputs.engine }}" --ref ref.input --out voicelab-out)
-          [ -f src.input ] && ARGS+=(--src src.input)
-          [ -n "${{ inputs.text }}" ] && ARGS+=(--text "${{ inputs.text }}")
+          if [ -f src.input ]; then ARGS+=(--src src.input); fi
+          if [ -n "${LAB_TEXT}" ]; then ARGS+=(--text "${LAB_TEXT}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══
