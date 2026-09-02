@@ -109,7 +109,26 @@ def sh(cmd, **kw):
 
 
 def ffmpeg():
-    """همان ترفندِ tools/render.js: باینریِ استاتیک از PyPI، بی نیاز به sudo."""
+    """
+    مسیرِ ffmpeg — اول از خودِ سیستم، بعد از PyPI.
+
+    ══ اجرای #۴، و شکلِ آشنای اشتباه ══
+    اجرای #۳ نشان داد torchcodec به کتابخانه‌های اشتراکیِ ffmpeg نیاز دارد،
+    پس در گردش‌کار از `imageio-ffmpeg` (باینریِ استاتیک) به `apt` رفتم. و
+    همان‌جا خطِ نصبِ imageio-ffmpeg را برداشتم — در حالی که این تابع هنوز
+    از آن می‌پرسید. نتیجه: هر پنج کار با
+    `ModuleNotFoundError: No module named 'imageio_ffmpeg'` افتادند، پیش از
+    آنکه هیچ مدلی امتحان شود.
+
+    درسش همان درسِ همیشگیِ این ریپوست، این بار روی خودم: **وقتی سازوکاری
+    را عوض می‌کنی، دنبالِ هر چیزی بگرد که به سازوکارِ قبلی وابسته بود.**
+    حالا هیچ‌کدام تنها راه نیست: اگر `ffmpeg` روی PATH باشد همان، وگرنه
+    باینریِ PyPI. هر دو محیط کار می‌کند.
+    """
+    import shutil
+    p = shutil.which("ffmpeg")
+    if p:
+        return p
     import imageio_ffmpeg
     return imageio_ffmpeg.get_ffmpeg_exe()
 
