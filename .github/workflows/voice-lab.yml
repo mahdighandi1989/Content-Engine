@@ -38,6 +38,19 @@ on:
         required: false
         default: ''
         type: string
+      # وقتی کارِ scan چک‌پوینتِ فارسیِ f5 را پیدا کرد، شناسه‌اش را اینجا
+      # بگذارید — بی هیچ تغییرِ کد. مثال:
+      #   hf://<کاربر>/<مخزن>/model_last.safetensors
+      f5_ckpt:
+        description: 'چک‌پوینتِ سفارشیِ f5 (hf://… یا خالی)'
+        required: false
+        default: ''
+        type: string
+      f5_vocab:
+        description: 'واژگانِ سفارشیِ f5 (hf://… یا خالی)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -178,6 +191,8 @@ jobs:
       - name: اجرای آزمایش
         env:
           LAB_TEXT: ${{ inputs.text }}
+          F5_CKPT: ${{ inputs.f5_ckpt }}
+          F5_VOCAB: ${{ inputs.f5_vocab }}
         run: |
           set -euo pipefail
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
@@ -186,6 +201,8 @@ jobs:
           ARGS=(--engine "${{ matrix.engine }}" --ref ref.input --out voicelab-out)
           if [ -f src.input ]; then ARGS+=(--src src.input); fi
           if [ -n "${LAB_TEXT}" ]; then ARGS+=(--text "${LAB_TEXT}"); fi
+          if [ -n "${F5_CKPT}" ];  then ARGS+=(--f5-ckpt  "${F5_CKPT}");  fi
+          if [ -n "${F5_VOCAB}" ]; then ARGS+=(--f5-vocab "${F5_VOCAB}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══

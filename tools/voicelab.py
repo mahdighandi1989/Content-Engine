@@ -282,10 +282,35 @@ def run_chatterbox(ref, src, text, out):
 
 
 def run_f5(ref, src, text, out):
+    """
+    ══ چرا این موتور تنها امیدِ واقعیِ باقی‌مانده است ══
+
+    پنج اجرا ثابت کرد هیچ چک‌پوینتِ پایه‌ای فارسی نمی‌داند. ولی از خودِ
+    کدِ f5 (`infer_cli.py`) این را خواندم:
+
+        elif ckpt_file.startswith("hf://"):
+            ckpt_file = str(cached_path(ckpt_file))
+
+    یعنی می‌شود چک‌پوینتِ **دیگری** به آن داد، مستقیم از Hugging Face، با
+    دو آرگومان و بی هیچ تغییرِ دیگری. مدل‌های آماده‌اش (F5TTS_Base،
+    F5TTS_v1_Base، E2TTS_Base) همه انگلیسی/چینی‌اند — ولی اگر کسی f5 را
+    روی فارسی تنظیمِ دقیق کرده باشد، آن‌وقت **هم فارسی داریم هم کلونِ
+    صدا**، که هیچ‌کدام از موتورهای دیگر با هم ندارند.
+
+    آیا چنین چیزی هست؟ کارِ `scan` جوابش را می‌دهد. این تابع فقط در را
+    باز نگه می‌دارد تا آن جواب، یک کلیک با شنیدن فاصله داشته باشد.
+    """
     dst = os.path.join(out, "f5.wav")
-    r = sh(["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
-            "--gen_text", text, "--output_dir", out, "--output_file", "f5.wav"],
-           capture_output=True)
+    cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
+           "--gen_text", text, "--output_dir", out, "--output_file", "f5.wav"]
+    ck = str(OPT.get("f5_ckpt") or "").strip()
+    vo = str(OPT.get("f5_vocab") or "").strip()
+    if ck:
+        cmd += ["--ckpt_file", ck]
+        print("چک‌پوینتِ سفارشی:", ck, flush=True)
+    if vo:
+        cmd += ["--vocab_file", vo]
+    r = sh(cmd, capture_output=True)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).decode("utf-8", "replace")[-1500:])
     return dst
@@ -336,6 +361,10 @@ def run_chatterboxvc(ref, src, text, out):
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts}
 
+# تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
+# RUNNERها یکی است و نباید برای یک موتور عوض شود.
+OPT = {}
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -347,13 +376,20 @@ def main():
     ap.add_argument("--ref-seconds", type=int, default=20)
     # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
     ap.add_argument("--src-seconds", type=int, default=12)
+    # چک‌پوینتِ سفارشیِ f5 — «hf://کاربر/مخزن/فایل» یا مسیرِ محلی
+    ap.add_argument("--f5-ckpt", default="")
+    ap.add_argument("--f5-vocab", default="")
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
+    OPT["f5_ckpt"] = a.f5_ckpt
+    OPT["f5_vocab"] = a.f5_vocab
     meta = ENGINES[a.engine]
     rep = {"engine": a.engine, "at": time.strftime("%Y-%m-%d %H:%M"),
            "family": meta["family"], "code_license": meta["code_license"],
            "persian_note": meta["persian"], "ok": False}
+    if a.engine == "f5" and (a.f5_ckpt or a.f5_vocab):
+        rep["custom_checkpoint"] = {"ckpt": a.f5_ckpt, "vocab": a.f5_vocab}
 
     # ── آماده‌سازیِ نمونه ──
     ref = to_wav(a.ref, os.path.join(a.out, "reference.wav"), seconds=a.ref_seconds)
