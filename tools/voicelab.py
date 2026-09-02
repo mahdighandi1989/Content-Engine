@@ -372,11 +372,34 @@ def run_f5(ref, src, text, out):
         ("plain", noTash, "بی اعراب، با نیم‌فاصله"),
         ("bare", noTash.replace("\u200c", " "), "بی اعراب، بی نیم‌فاصله"),
     ]
+    """
+    ══ دو مظنونِ تازه، هیچ‌کدام تقصیرِ چک‌پوینت (اجرای #۸) ══
+
+    اجرای #۸ گفت `tashkil` بهترین است — یعنی این مدل اعراب را می‌فهمد و
+    زنجیرهٔ اعراب‌گذاریِ ما برایش هم سرمایه است، نه نویز. ولی هنوز چند واژه
+    خیلی بد خوانده می‌شد. از خودِ کدِ f5 دو علتِ ساختاری درآمد:
+
+    ۱) `ref_text = transcribe(ref_audio)` — وقتی متنِ مرجع خالی باشد، f5
+       خودش نمونه را با ASR پیاده می‌کند. اگر آن پیاده‌سازیِ فارسی غلط
+       باشد، مدل یک جفتِ **غلطِ متن↔صدا** می‌گیرد و همان غلط را در تلفظ
+       بازتولید می‌کند. تا امروز همیشه خالی فرستاده‌ایم.
+
+    ۲) «Audio is over 12s, clipping short» — نمونهٔ بیست‌ثانیه‌ایِ ما به
+       دوازده ثانیه بریده می‌شود، و جای برش دستِ ما نیست. اگر وسطِ واژه
+       بیفتد، همان جفتِ متن↔صدا باز هم خراب می‌شود.
+
+    پس دو اهرم: متنِ مرجع را **بدهیم**، و نمونه را خودمان زیرِ دوازده
+    ثانیه ببریم تا برشِ کور پیش نیاید. و `nfe_step` هم برای کیفیت.
+    """
+    rt = str(OPT.get("f5_ref_text") or "").strip()
+    nfe = str(OPT.get("f5_nfe") or "").strip()
     made, notes = None, []
     for name, txt, why in variants:
         fn = "f5-%s.wav" % name
-        cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
+        cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", rt,
                "--gen_text", txt, "--output_dir", out, "--output_file", fn]
+        if nfe:
+            cmd += ["--nfe_step", nfe]
         if ck:
             cmd += ["--ckpt_file", ck]
         if vo:
@@ -454,17 +477,25 @@ def main():
     ap.add_argument("--src", default="", help="صوتِ فارسیِ Gemini (برای تبدیلِ صدا)")
     ap.add_argument("--text", default=DEFAULT_TEXT)
     ap.add_argument("--out", default="voicelab-out")
-    ap.add_argument("--ref-seconds", type=int, default=20)
+    # ۱۰ نه ۲۰: خودِ f5 هرچه بیش از ۱۲ ثانیه باشد را می‌بُرد و جای برش
+    # دستِ ما نیست. بهتر است خودمان تمیز ببُریم تا وسطِ واژه نیفتد.
+    ap.add_argument("--ref-seconds", type=int, default=10)
     # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
     ap.add_argument("--src-seconds", type=int, default=12)
     # چک‌پوینتِ سفارشیِ f5 — «hf://کاربر/مخزن/فایل» یا مسیرِ محلی
     ap.add_argument("--f5-ckpt", default="")
     ap.add_argument("--f5-vocab", default="")
+    # متنِ دقیقِ نمونهٔ مرجع. خالی یعنی f5 خودش با ASR پیاده‌اش کند — و
+    # پیاده‌سازیِ غلط، تلفظِ غلط می‌سازد.
+    ap.add_argument("--f5-ref-text", default="")
+    ap.add_argument("--f5-nfe", default="")
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
     OPT["f5_ckpt"] = a.f5_ckpt
     OPT["f5_vocab"] = a.f5_vocab
+    OPT["f5_ref_text"] = a.f5_ref_text
+    OPT["f5_nfe"] = a.f5_nfe
     meta = ENGINES[a.engine]
     rep = {"engine": a.engine, "at": time.strftime("%Y-%m-%d %H:%M"),
            "family": meta["family"], "code_license": meta["code_license"],
@@ -533,6 +564,9 @@ def main():
                 rep["resolved"] = OPT["resolved"]
             if OPT.get("variants"):
                 rep["variants"] = OPT["variants"]
+            if a.engine == "f5":
+                rep["ref_text_given"] = bool(a.f5_ref_text)
+                rep["nfe_step"] = a.f5_nfe or "(پیش‌فرض)"
             # ══ عددی که تصمیمِ *تولید* را می‌گیرد، نه کیفیت ══
             # seedvc در اجرای #۳ تبدیل را انجام داد — ۱۵۶۶ ثانیه برای ۱۲
             # ثانیه صوت. یعنی یک قسمتِ نوزده‌دقیقه‌ای روی همین ماشین از

@@ -51,6 +51,21 @@ on:
         required: false
         default: ''
         type: string
+      f5_ref_text:
+        description: 'متنِ دقیقِ نمونهٔ صدا — خالی یعنی f5 خودش حدس بزند (علتِ احتمالیِ تلفظِ غلط)'
+        required: false
+        default: ''
+        type: string
+      ref_seconds:
+        description: 'چند ثانیه از نمونه (زیرِ ۱۲ بماند؛ f5 بیشترش را خودش می‌بُرد)'
+        required: false
+        default: '10'
+        type: string
+      f5_nfe:
+        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر'
+        required: false
+        default: ''
+        type: string
       mirror_repo:
         description: 'نسخهٔ پشتیبان از یک مخزنِ Hugging Face (شناسه، یا خالی)'
         required: false
@@ -128,6 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -143,6 +159,23 @@ jobs:
           du -sh "mirror/$REPO" >> "$GITHUB_STEP_SUMMARY"
           find mirror -type f -printf '%s\t%p\n' | sort -rn | head -30 \
             >> "$GITHUB_STEP_SUMMARY"
+      # ══ چرا ۵٫۴ گیگ، و چرا لازم نیست ══
+      # `model_last.pt` یک چک‌پوینتِ **کاملِ آموزش** است: وزن‌ها + حالتِ
+      # بهینه‌ساز + گرادیان‌ها. برای *استفاده* فقط وزن‌های EMA لازم است، که
+      # کسری از آن است. نسخهٔ لاغر هم ساخته می‌شود تا در درایو جا بگیرد.
+      # ══ چرا ۵٫۴ گیگ، و چرا لازم نیست ══
+      # `model_last.pt` یک چک‌پوینتِ **کاملِ آموزش** است: وزن‌ها + حالتِ
+      # بهینه‌ساز + شمارندهٔ گام. برای *استفاده* فقط وزن‌های EMA لازم است،
+      # که کسری از آن است.
+      - name: نسخهٔ لاغر (فقط وزن‌ها)
+        env:
+          REPO: ${{ inputs.mirror_repo }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          python3 tools/slim_ckpt.py "mirror/$REPO/model_last.pt"
+          du -sh "mirror/$REPO" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4
         with:
           name: mirror
@@ -238,6 +271,9 @@ jobs:
           LAB_TEXT: ${{ inputs.text }}
           F5_CKPT: ${{ inputs.f5_ckpt }}
           F5_VOCAB: ${{ inputs.f5_vocab }}
+          F5_REF_TEXT: ${{ inputs.f5_ref_text }}
+          F5_NFE: ${{ inputs.f5_nfe }}
+          REF_SECONDS: ${{ inputs.ref_seconds }}
         run: |
           set -euo pipefail
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
@@ -248,6 +284,9 @@ jobs:
           if [ -n "${LAB_TEXT}" ]; then ARGS+=(--text "${LAB_TEXT}"); fi
           if [ -n "${F5_CKPT}" ];  then ARGS+=(--f5-ckpt  "${F5_CKPT}");  fi
           if [ -n "${F5_VOCAB}" ]; then ARGS+=(--f5-vocab "${F5_VOCAB}"); fi
+          if [ -n "${F5_REF_TEXT}" ]; then ARGS+=(--f5-ref-text "${F5_REF_TEXT}"); fi
+          if [ -n "${F5_NFE}" ];      then ARGS+=(--f5-nfe "${F5_NFE}"); fi
+          if [ -n "${REF_SECONDS}" ]; then ARGS+=(--ref-seconds "${REF_SECONDS}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══
