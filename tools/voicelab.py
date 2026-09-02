@@ -264,8 +264,21 @@ def run_seedvc(ref, src, text, out):
            capture_output=True)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).decode("utf-8", "replace")[-1500:])
-    made = [f for f in os.listdir(out) if f.endswith(".wav") and f != os.path.basename(dst)]
-    return dst if os.path.exists(dst) else (os.path.join(out, made[0]) if made else None)
+    # ══ ورودی را به‌جای خروجی گزارش کردم (اجرای #۶) ══
+    # اینجا «هر wavی جز dst» را خروجی می‌گرفتم، و پوشه سه wav داشت:
+    # reference و source-gemini که خودم ساخته بودمشان، و خروجیِ واقعی.
+    # `os.listdir` ترتیب قول نمی‌دهد، پس source-gemini انتخاب شد و گزارش
+    # گفت «خروجی: source-gemini.wav» — یعنی سنجهٔ سرعت روی ورودی حساب شد.
+    # قاعده‌اش همان قاعدهٔ همیشگی است: خروجی را با **نامش** بشناس، نه با
+    # «هرچه ماند».
+    known = {"reference.wav", "source-gemini.wav", os.path.basename(dst)}
+    made = sorted(f for f in os.listdir(out)
+                  if f.endswith(".wav") and f not in known)
+    if os.path.exists(dst):
+        return dst
+    if made:
+        return os.path.join(out, made[0])
+    raise RuntimeError("موتور تمام شد ولی هیچ فایلِ تازه‌ای نساخت")
 
 
 def run_chatterbox(ref, src, text, out):
@@ -279,6 +292,42 @@ def run_chatterbox(ref, src, text, out):
     dst = os.path.join(out, "chatterbox.wav")
     torchaudio.save(dst, wav, m.sr)
     return dst
+
+
+def f5Resolve_(ckpt, vocab):
+    """
+    شناسهٔ مخزن → نشانیِ دقیقِ فایل.
+
+    اسکنِ اجرای #۶ نشان داد `Lumos675/F5_TTS_Persian` وجود دارد. ولی برای
+    دادنش به f5 باید نامِ **فایلِ** داخلش را دانست، و آن یک رفت‌وبرگشتِ
+    دیگر با صاحبِ برنامه بود. شبکهٔ این ماشین باز است، پس خودش می‌پرسد:
+    کافی است «Lumos675/F5_TTS_Persian» نوشته شود.
+
+    اگر نشانیِ کامل (`hf://…`) داده شود، دست نمی‌خورد.
+    """
+    if not ckpt or ckpt.startswith("hf://") or "/" not in ckpt or ckpt.count("/") > 1:
+        return ckpt, vocab
+    import json as _j, urllib.request
+    url = "https://huggingface.co/api/models/" + ckpt
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "voicelab"})
+        with urllib.request.urlopen(req, timeout=45) as r:
+            info = _j.loads(r.read().decode("utf-8"))
+    except Exception as e:
+        print("فهرستِ فایل‌های مخزن گرفته نشد: %s" % str(e)[:200], flush=True)
+        return ckpt, vocab
+    files = [x.get("rfilename", "") for x in (info.get("siblings") or [])]
+    print("فایل‌های مخزن:", files[:40], flush=True)
+    # وزن‌ها: safetensors بر pt مقدم است؛ در هر دو، تازه‌ترین/بزرگ‌ترین گام.
+    weights = [f for f in files if f.endswith((".safetensors", ".pt"))]
+    weights.sort(key=lambda f: (f.endswith(".safetensors"), f))
+    got = "hf://%s/%s" % (ckpt, weights[-1]) if weights else ckpt
+    if not vocab:
+        vocs = [f for f in files if f.endswith(".txt") and "vocab" in f.lower()]
+        if vocs:
+            vocab = "hf://%s/%s" % (ckpt, vocs[0])
+    print("چک‌پوینت:", got, "| واژگان:", vocab or "(پیش‌فرض)", flush=True)
+    return got, vocab
 
 
 def run_f5(ref, src, text, out):
@@ -303,8 +352,8 @@ def run_f5(ref, src, text, out):
     dst = os.path.join(out, "f5.wav")
     cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
            "--gen_text", text, "--output_dir", out, "--output_file", "f5.wav"]
-    ck = str(OPT.get("f5_ckpt") or "").strip()
-    vo = str(OPT.get("f5_vocab") or "").strip()
+    ck, vo = f5Resolve_(str(OPT.get("f5_ckpt") or "").strip(),
+                        str(OPT.get("f5_vocab") or "").strip())
     if ck:
         cmd += ["--ckpt_file", ck]
         print("چک‌پوینتِ سفارشی:", ck, flush=True)

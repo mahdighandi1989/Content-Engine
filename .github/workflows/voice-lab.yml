@@ -42,7 +42,7 @@ on:
       # بگذارید — بی هیچ تغییرِ کد. مثال:
       #   hf://<کاربر>/<مخزن>/model_last.safetensors
       f5_ckpt:
-        description: 'چک‌پوینتِ سفارشیِ f5 (hf://… یا خالی)'
+        description: 'چک‌پوینتِ f5 — شناسهٔ مخزن بس است، مثل Lumos675/F5_TTS_Persian'
         required: false
         default: ''
         type: string
@@ -76,7 +76,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$ENGINE" = "all" ]; then
-            echo 'engines=["chatterboxvc","seedvc","chatterbox","f5","xtts"]' >> "$GITHUB_OUTPUT"
+            # اسکنِ اجرای #۶ و عددهای سرعت، دو موتور را از دور خارج کردند:
+            #  • xtts — نه فارسی دارد نه وزنِ تجاری
+            #  • seedvc — ۱۲۵ برابرِ بلادرنگ، یعنی ۴۰ ساعت برای یک قسمت
+            # هنوز با انتخابِ صریح اجرا می‌شوند؛ فقط در «همه» نمی‌آیند.
+            echo 'engines=["f5","chatterboxvc","chatterbox"]' >> "$GITHUB_OUTPUT"
           else
             echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
           fi
