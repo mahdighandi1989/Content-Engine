@@ -68,6 +68,30 @@ jobs:
             echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
           fi
 
+  # ══ «آیا اصلاً مدلی برای فارسی هست؟» ══
+  # پس از پنج اجرا قطعی شد که هیچ چک‌پوینتِ **پایه‌ای** فارسی نمی‌داند. ولی
+  # f5-tts آرگومانِ --ckpt_file دارد: می‌شود چک‌پوینتِ دیگری به آن داد. اگر
+  # کسی f5 را روی فارسی تنظیمِ دقیق کرده باشد، هم فارسی داریم هم کلونِ صدا.
+  # جوابِ «نمی‌دانم» را نباید حدس زد وقتی می‌شود پرسید — و شبکهٔ این ماشین
+  # باز است. چند ثانیه، بی هیچ دانلودی.
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: نقشهٔ مدل‌های فارسی
+        run: python3 tools/voicescan.py | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voicescan
+          path: voicescan.json
+          retention-days: 7
+          if-no-files-found: warn
+
   lab:
     needs: plan
     runs-on: ubuntu-latest
