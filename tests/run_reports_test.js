@@ -430,4 +430,78 @@ console.log('=== دو ساعتِ غنی‌سازی، دو نام (۶٫۸۰) ==='
   else global.__PROPS[PK.ENRICH_AT] = keep;
 }
 
+console.log('=== درِ خروجِ خودکار برای ردیفِ کهنه (۶٫۸۶) ===');
+{
+  /* وضعیتِ واقعیِ ۲ سپتامبر: «۶۵ دستورِ بازِ بازبینی» و «۶۸ یافته بیش از یک
+     بار تکرار شده» — و ناظر در ایمیل از صاحبِ برنامه خواست سه ردیفِ ۱۰ اوت
+     را دستی «نادیده گرفته شد» بزند، چون تنها درِ خروجِ دیگر همان بود.
+     علتِ ساختاری: ردیفِ بی‌کد فقط با تزریق در پرامپت بسته می‌شود و تزریق
+     سقفِ ۱۲ دارد؛ ردیفِ سیزدهم به بعد هرگز نوبت نمی‌گیرد. */
+  const sh = ensureTab_(hub, CFG.REPORT_TAB, REPORT_HEADERS);
+  const old = (d) => { const t = new Date(Date.now() - d * 86400000);
+    const p = (n) => String(n).padStart(2, '0');
+    return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' 10:00'; };
+  const mkRow = (id, ageDays, owner, instr, status) => {
+    const r = new Array(REPORT_HEADERS.length).fill('');
+    r[RC.ID - 1] = id; r[RC.AT - 1] = old(ageDays); r[RC.LOGGED - 1] = old(ageDays);
+    r[RC.PRI - 1] = 'متوسط'; r[RC.TITLE - 1] = 'عنوانِ ' + id;
+    r[RC.INSTR - 1] = instr; r[RC.OWNER - 1] = owner;
+    r[RC.STATUS - 1] = status; r[RC.SEEN - 1] = 1; r[RC.LAST_SEEN - 1] = old(ageDays);
+    r[RC.FP - 1] = 'fp-' + id;
+    sh.getRange(sh.getLastRow() + 1, 1, 1, REPORT_HEADERS.length).setValues([r]);
+    return sh.getLastRow();
+  };
+  const rOld  = mkRow('OLD',   40, ROWNER_ENGINE, 'این را رعایت کن', RST.NEW);
+  const rNew  = mkRow('FRESH',  3, ROWNER_ENGINE, 'این را رعایت کن', RST.NEW);
+  const rCode = mkRow('CODE',  40, ROWNER_CODE,   'کد عوض شود',      RST.NEEDS_CODE);
+  const rInfo = mkRow('INFO',  40, ROWNER_ENGINE, '',                RST.NEW);
+
+  const res = reportStale_(hub, 21);
+  ok('ردیفِ ۴۰روزهٔ دیده‌نشده خودکار بسته می‌شود', res.closed === 1, JSON.stringify(res));
+  ok('و علتش روی خودِ ردیف نوشته می‌شود',
+     String(sh.getRange(rOld, RC.STATUS).getValue()) === RST.CLOSED &&
+     /کهنه/.test(String(sh.getRange(rOld, RC.DONE).getValue())),
+     String(sh.getRange(rOld, RC.DONE).getValue()));
+  ok('ردیفِ تازه دست نمی‌خورد',
+     String(sh.getRange(rNew, RC.STATUS).getValue()) === RST.NEW);
+  /* ۵٫۹۳: ردیفِ کد صفِ ساختِ نسخهٔ بعد است. بستنش با گذرِ زمان عیناً همان
+     اشتباهی است که آنجا اصلاح شد — «نسخه هر چیزی را حل کرده». */
+  ok('ردیفِ «نیازمند تعویض کد» هرگز با گذرِ زمان بسته نمی‌شود',
+     String(sh.getRange(rCode, RC.STATUS).getValue()) === RST.NEEDS_CODE);
+  ok('ردیفِ اطلاعاتیِ بی‌دستور هم نه',
+     String(sh.getRange(rInfo, RC.STATUS).getValue()) === RST.NEW);
+
+  /* ══ مهم‌ترین بند: بستن باید بازگشت‌پذیر باشد ══
+     رفت‌وبرگشتِ واقعی، نه ردیفِ دست‌ساز — چون اثرِ انگشت را خودِ کد می‌سازد و
+     ردیفی که با اثرِ انگشتِ ساختگی بسته شود، هرگز همان ردیف شناخته نمی‌شود
+     و سنجه روی شاخهٔ پوچ سبز می‌مانَد. */
+  const fresh = { priority: 'متوسط', category: 'محتوا', key: 'stale-roundtrip',
+                  title: 'نشانه‌ای که برمی‌گردد', detail: 'شرح',
+                  instruction: 'این قاعده را رعایت کن', owner: ROWNER_ENGINE };
+  logSelfFinding_(hub, fresh);
+  const rowN = sh.getLastRow();
+  ok('رفت‌وبرگشت: ردیف با مسیرِ واقعی ساخته شد',
+     String(sh.getRange(rowN, RC.TITLE).getValue()) === fresh.title);
+  // عقب‌بردنِ «آخرین تکرار» — تنها چیزی که reportStale_ به آن نگاه می‌کند
+  sh.getRange(rowN, RC.AT).setValue(old(40));
+  sh.getRange(rowN, RC.LAST_SEEN).setValue(old(40));
+  reportStale_(hub, 21);
+  ok('و پس از ۴۰ روز بی‌تکرار بسته شد',
+     String(sh.getRange(rowN, RC.STATUS).getValue()) === RST.CLOSED);
+  const before = sh.getLastRow();
+  logSelfFinding_(hub, fresh);            // همان نشانه، دوباره دیده شد
+  ok('و با دیدنِ دوبارهٔ همان نشانه، **همان ردیف** باز می‌شود — نه ردیفِ تازه',
+     sh.getLastRow() === before &&
+     String(sh.getRange(rowN, RC.STATUS).getValue()).indexOf('تکرار') !== -1,
+     'rows=' + before + '→' + sh.getLastRow() +
+     ' status=' + String(sh.getRange(rowN, RC.STATUS).getValue()));
+
+  /* و جمله‌ای که کارِ نکرده را انجام‌شده نشان می‌داد. */
+  const sum = reportSummary_(hub);
+  ok('خلاصه می‌گوید چند تا از صف واقعاً تزریق می‌شود',
+     sum.injectable === Math.min(sum.open, CFG.MAX_OPEN_INSTRUCTIONS) &&
+     sum.waiting === Math.max(0, sum.open - sum.injectable),
+     'open=' + sum.open + ' injectable=' + sum.injectable + ' waiting=' + sum.waiting);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

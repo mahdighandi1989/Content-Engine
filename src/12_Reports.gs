@@ -998,9 +998,68 @@ function codeRowSatisfied_(vals) {
   return verCmp_(want, CFG.CODE_VERSION) <= 0;
 }
 
+/**
+ * ══ صفی که فقط با دستِ صاحبِ برنامه خالی می‌شد (۶٫۸۶) ══
+ *
+ * دو عددِ ۲ سپتامبر: «۶۵ دستورِ بازِ بازبینی» و «۶۸ یافته بیش از یک بار
+ * تکرار شده». و در همان ایمیل، ناظر از صاحبِ برنامه خواست سه ردیفِ ۱۰ اوت
+ * را دستی «نادیده گرفته شد» بزند — «تنها راهی که برای همیشه خاموششان
+ * می‌کند». خواستهٔ صریحِ او دقیقاً خلافِ این است: «این ایمیل‌ها باید صرفاً
+ * جهتِ اطلاعِ من باشد؛ ناظر خودش باید همه‌چیز را ببیند و خودکار اصلاح کند.»
+ *
+ * علتِ ساختاریِ صف: ردیفِ بی‌کد فقط وقتی بسته می‌شود که در پرامپتِ یک قسمت
+ * **تزریق** شود و آن قسمت منتشر گردد. تزریق سقف دارد (`MAX_OPEN_INSTRUCTIONS`
+ * = ۱۲). پس ردیفِ سیزدهم به بعد هرگز نوبت نمی‌گیرد، هرگز بسته نمی‌شود، و
+ * صف فقط بالا می‌رود. تنها درِ خروجِ دیگر، دستِ آدم بود.
+ *
+ * درِ خودکار: ردیفی که `REPORT_STALE_DAYS` روز است **دوباره دیده نشده**،
+ * بسته می‌شود. این دربارهٔ نشانه است، نه دربارهٔ نسخه — و همان تفاوتی است که
+ * ۵٫۹۳ را لازم کرد: آنجا ردیف‌ها با *نصبِ یک نسخه* بسته می‌شدند («نسخه هر
+ * چیزی را حل کرده») که ادعایی بی‌پشتوانه بود؛ اینجا شهادت این است که نشانه
+ * سه هفته در هیچ قسمتی دیده نشده.
+ *
+ * و مثلِ هر بستنِ دیگری در این تب، بازگشت‌پذیر است: `reportRow_` ردیفِ
+ * «بسته شد» را با دیدنِ دوبارهٔ همان اثرِ انگشت باز می‌کند. پس بدترین حالت
+ * این است که فردا برگردد — نه اینکه چیزی گم شود.
+ */
+function reportStale_(hub, days) {
+  var out = { closed: 0, kept: 0 };
+  var lim = Math.max(7, Number(days || CFG.REPORT_STALE_DAYS) || 21);
+  try {
+    var st = loadReportRows_(hub || getHub_());
+    var sh = st.sheet;
+    var cut = new Date().getTime() - lim * 86400000;
+    for (var i = 0; i < st.rows.length; i++) {
+      var r = st.rows[i], v = r.vals, s = String(v[RC.STATUS - 1]);
+      /* فقط ردیفِ بازِ بی‌کد. ردیفِ «نیازمند تعویض کد» صفِ ساختِ نسخهٔ بعد
+         است و بستنش با گذرِ زمان، عیناً همان اشتباهِ ۵٫۹۳ می‌شود. */
+      if (s !== RST.NEW && s.indexOf('تکرار') === -1) continue;
+      if (String(v[RC.OWNER - 1]) === ROWNER_CODE) continue;
+      if (!String(v[RC.INSTR - 1] || '').trim()) continue;   // ردیفِ اطلاعاتی
+      var last = String(v[RC.LAST_SEEN - 1] || v[RC.AT - 1] || '');
+      var t = 0;
+      try { t = new Date(last.replace(' ', 'T')).getTime(); } catch (eD) { t = 0; }
+      if (!t || t > cut) { out.kept++; continue; }
+      try {
+        sh.getRange(r.row, RC.STATUS).setValue(RST.CLOSED);
+        sh.getRange(r.row, RC.DONE).setValue(
+          'کهنه — ' + lim + ' روز دیده نشد؛ با تکرارِ دوباره خودش باز می‌شود');
+        sh.getRange(r.row, RC.DONE_AT).setValue(nowStr_());
+        out.closed++;
+      } catch (eW) {}
+    }
+    if (out.closed) {
+      logLine_('گزارش‌ها: ' + out.closed + ' ردیفِ کهنه (بیش از ' + lim +
+               ' روز دیده‌نشده) بسته شد؛ تکرار دوباره بازشان می‌کند.');
+    }
+  } catch (e) { logLine_('هرسِ ردیف‌های کهنه نشد: ' + e.message); }
+  return out;
+}
+
 /** خلاصهٔ تب گزارش‌ها برای فایل وضعیت و برای ناظر روزانه. */
 function reportSummary_(hub) {
   var out = { total: 0, open: 0, info: 0, applied: 0, needsCode: 0, repeated: 0,
+              injectable: 0, waiting: 0,
               openItems: [], codeItems: [], lastReportAt: '' };
   try {
     var st = loadReportRows_(hub);
@@ -1034,6 +1093,13 @@ function reportSummary_(hub) {
                            cat: String(v[RC.CAT - 1]), title: String(v[RC.TITLE - 1]),
                            seen: Number(v[RC.SEEN - 1]) || 1 });
     }
+    /* ══ چند تای این صف واقعاً به قسمتِ بعد می‌رسد ══
+       سطرِ سلامت می‌گفت «۶۵ دستورِ باز … که در قسمتِ بعدی اعمال می‌شود» و
+       این ساده غلط بود: سقفِ تزریق ۱۲ است. جمله‌ای که کارِ نکرده را
+       انجام‌شده نشان دهد، بدتر از نبودنش است — همان قاعدهٔ «دستورهایی که
+       از حقیقتشان جا مانده‌اند». */
+    out.injectable = Math.min(out.open, Number(CFG.MAX_OPEN_INSTRUCTIONS) || 12);
+    out.waiting = Math.max(0, out.open - out.injectable);
   } catch (e) {}
   return out;
 }
