@@ -47,6 +47,23 @@ DEFAULT_TEXT = (
 )
 
 ENGINES = {
+    # ══ چرا این اول آمد (اجرای #۲) ══
+    # اجرای دوم دو چیز را با هم ثابت کرد: Chatterbox رنگِ صدای مرجع را از
+    # ۲۰ ثانیه **گرفت** («نزدیک به صدای رضوی»)، ولی واژه‌ها بی‌معنا بودند.
+    # علتش را از داخلِ خودِ بسته درآوردم: `SUPPORTED_LANGUAGES` بیست‌وسه
+    # زبان دارد و فارسی در آن **نیست** (عربی و عبری و ترکی هست).
+    # یعنی نیمهٔ سختِ کار — گرفتنِ صدا — جواب داده و فقط نیمهٔ زبان مانده.
+    # و همان بسته کلاسِ `ChatterboxVC` را دارد: تبدیلِ صدا. واژه‌ها را از
+    # صوتِ مبدأ می‌گیرد (خروجیِ Gemini، فارسیِ درست) و فقط رنگِ صدا را عوض
+    # می‌کند. پس مسئلهٔ زبان اصلاً پیش نمی‌آید.
+    "chatterboxvc": {
+        "family": "تبدیلِ صدا (رنگِ صدا عوض می‌شود، واژه‌ها نه)",
+        "pip": ["chatterbox-tts"],
+        "code_license": "MIT",
+        "needs_src": True,
+        "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
+        "note": "خروجی واترمارکِ نامحسوسِ Perth می‌گیرد (داخلِ خودِ کتابخانه)",
+    },
     "seedvc": {
         "family": "تبدیلِ صدا (رنگِ صدا عوض می‌شود، واژه‌ها نه)",
         "pip": ["seed-vc"],
@@ -70,7 +87,10 @@ ENGINES = {
     },
     "xtts": {
         "family": "TTS با کلونینگ",
-        "pip": ["coqui-tts"],
+        # اجرای #۲: «Coqui TTS requires PyTorch … but they were not found».
+        # coqui-tts عمداً تورچ را وابستگیِ خودش نمی‌گذارد (نسخه‌اش به
+        # سخت‌افزار بستگی دارد)، پس باید صریح نصب شود.
+        "pip": ["torch", "torchaudio", "coqui-tts"],
         "code_license": "MPL-2.0 (کد) · وزن‌ها: CPML — **غیرتجاری**",
         "needs_src": False,
         "persian": "فارسی در فهرستِ رسمیِ ۱۷ زبانِ XTTS-v2 **نیست**",
@@ -114,11 +134,29 @@ def to_wav(src, dst, seconds=None, rate=24000):
 
 
 def probe(path):
-    """چند ثانیه است و چند هرتز — عدد، نه حدس."""
-    import wave
-    with wave.open(path, "rb") as w:
-        return {"seconds": round(w.getnframes() / float(w.getframerate()), 2),
-                "rate": w.getframerate(), "channels": w.getnchannels()}
+    """
+    چند ثانیه است و چند هرتز — عدد، نه حدس.
+
+    اجرای #۲: chatterbox صوتِ سالم ساخت و همین تابع با «unknown format: 3»
+    ترکید، چون `wave`ی پایتون WAVِ ممیزشناور (قالبِ ۳) را نمی‌خواند. یعنی
+    سنجه‌ای که برای *گزارش* نوشته شده بود، خودش را جای *نتیجه* جا زد و یک
+    موفقیت را خطا نشان داد. هر دو قالب خوانده می‌شود، و اگر باز هم نشد،
+    «نمی‌دانم» برمی‌گردد نه استثنا.
+    """
+    try:
+        import soundfile as sf
+        i = sf.info(path)
+        return {"seconds": round(i.duration, 2), "rate": i.samplerate,
+                "channels": i.channels, "format": i.subtype}
+    except Exception:
+        pass
+    try:
+        import wave
+        with wave.open(path, "rb") as w:
+            return {"seconds": round(w.getnframes() / float(w.getframerate()), 2),
+                    "rate": w.getframerate(), "channels": w.getnchannels()}
+    except Exception as e:
+        return {"unknown": str(e)[:120]}
 
 
 # ───────────────────────── موتورها ─────────────────────────
@@ -187,9 +225,12 @@ def run_seedvc(ref, src, text, out):
         raise RuntimeError("این موتور به یک صوتِ مبدأ نیاز دارد (خروجیِ Gemini). "
                            "src_id را در ورودیِ اکشن بدهید.")
     dst = os.path.join(out, "seedvc.wav")
+    # اجرای #۲ سرِ پنجاه دقیقه کشته شد. روی CPU، سی قدمِ انتشار برای ۱۷
+    # ثانیه صوت گران است — و این خودش خبرِ مهمی برای *تولید* است، نه فقط
+    # برای آزمایش. با ده قدم می‌شود فهمید مسئله محاسبه است یا دانلودِ مدل.
     r = sh([sys.executable, "-m", "seed_vc.inference",
             "--source", src, "--target", ref, "--output", out,
-            "--diffusion-steps", "30", "--f0-condition", "False"],
+            "--diffusion-steps", "10", "--f0-condition", "False"],
            capture_output=True)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).decode("utf-8", "replace")[-1500:])
@@ -243,8 +284,27 @@ def run_xtts(ref, src, text, out):
     return made
 
 
-RUNNERS = {"seedvc": run_seedvc, "chatterbox": run_chatterbox,
-           "f5": run_f5, "xtts": run_xtts}
+def run_chatterboxvc(ref, src, text, out):
+    """
+    تبدیلِ صدا با همان بسته‌ای که در اجرای #۲ نصبش ۱۱۰ ثانیه طول کشید و
+    صدای مرجع را درست گرفت. متن اینجا اصلاً به کار نمی‌رود — و همین نکته‌اش
+    است: واژه‌ها از `src` می‌آیند، که خروجیِ فارسیِ خودِ موتور است.
+    """
+    if not src:
+        raise RuntimeError("این موتور به صوتِ مبدأ نیاز دارد (خروجیِ Gemini).")
+    import torch, torchaudio
+    from chatterbox.vc import ChatterboxVC
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    print("device:", dev, flush=True)
+    m = ChatterboxVC.from_pretrained(device=dev)
+    wav = m.generate(src, target_voice_path=ref)
+    dst = os.path.join(out, "chatterboxvc.wav")
+    torchaudio.save(dst, wav, m.sr)
+    return dst
+
+
+RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
+           "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts}
 
 
 def main():
@@ -255,6 +315,8 @@ def main():
     ap.add_argument("--text", default=DEFAULT_TEXT)
     ap.add_argument("--out", default="voicelab-out")
     ap.add_argument("--ref-seconds", type=int, default=20)
+    # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
+    ap.add_argument("--src-seconds", type=int, default=12)
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
@@ -268,7 +330,8 @@ def main():
     rep["reference"] = probe(ref)
     src = ""
     if a.src:
-        src = to_wav(a.src, os.path.join(a.out, "source-gemini.wav"))
+        src = to_wav(a.src, os.path.join(a.out, "source-gemini.wav"),
+                     seconds=a.src_seconds)
         rep["source"] = probe(src)
     if meta["needs_src"] and not src:
         rep["error"] = "این موتور به صوتِ مبدأ نیاز دارد و داده نشد."

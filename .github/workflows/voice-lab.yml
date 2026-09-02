@@ -19,11 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       engine:
-        description: 'کدام موتور (all = هر چهار تا، موازی)'
+        description: 'کدام موتور (all = همه، موازی · chatterboxvc = بهترین شانس)'
         required: true
         default: all
         type: choice
-        options: [all, seedvc, chatterbox, f5, xtts]
+        options: [all, chatterboxvc, seedvc, chatterbox, f5, xtts]
       ref_id:
         description: 'شناسهٔ فایلِ درایو — نمونهٔ صدای گوینده'
         required: true
@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$ENGINE" = "all" ]; then
-            echo 'engines=["seedvc","chatterbox","f5","xtts"]' >> "$GITHUB_OUTPUT"
+            echo 'engines=["chatterboxvc","seedvc","chatterbox","f5","xtts"]' >> "$GITHUB_OUTPUT"
           else
             echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -87,12 +87,21 @@ jobs:
 
       # ubuntu-latest دیگر ffmpeg ندارد. باینریِ استاتیکِ PyPI در چند ثانیه
       # می‌آید و به sudo هم نیازی ندارد. (همان راهِ tools/render.js)
+      # ══ اجرای #۲: f5 با «ffmpeg was not found» افتاد ══
+      # باگ مالِ من بود: باینری را نصب کردم ولی دو خطِ آخرِ نسخهٔ
+      # tools/render.js را — که آن را روی PATH می‌گذارد — نیاوردم. اسکریپتِ
+      # خودم مسیرِ باینری را از خودِ کتابخانه می‌گیرد و کار می‌کرد، ولی
+      # کتابخانه‌های دیگر (transformers، librosa) `ffmpeg`ِ خالی را صدا
+      # می‌زنند. نصب‌بودن با در‌دسترس‌بودن یکی نیست.
       - name: ffmpeg
         run: |
           set -euo pipefail
           python3 -m pip install --quiet imageio-ffmpeg
           FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
           "$FF" -version | head -1
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: گرفتنِ فایل‌ها از درایو
         env:
