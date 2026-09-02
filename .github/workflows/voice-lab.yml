@@ -1,0 +1,130 @@
+# آزمایشگاهِ صدا — گامِ صفرِ «شبیه‌سازیِ صدا»
+#
+# چرا اینجا و نه در خودِ موتور: Apps Script نه پایتون دارد، نه GPU، نه
+# مهلتِ کافی — و مهم‌تر از همه، `ttsPayloads_` فقط یک **نامِ** صدا به Gemini
+# می‌فرستد و هیچ فیلدی برای نمونهٔ صوتی ندارد. پس اگر قرار است صدای کسی
+# ساخته شود، مدلِ دیگری باید بسازدش. اینجا همان ماشینی است که رندرِ ویدئو
+# روی آن اجرا می‌شود: شبکهٔ باز، پایتون، و پنجاه دقیقه وقت.
+#
+# این گردش‌کار **دستی** است و هیچ زمان‌بندی ندارد: یک آزمایش است، نه یک
+# قابلیت. تا وقتی جوابش را نشنویم، یک خط از موتور دست نمی‌خورد.
+#
+# ── پیش از اجرا ──
+# هر دو فایلِ درایو باید موقتاً «هرکس با لینک: بیننده» باشند — همان کاری که
+# مسیرِ رندرِ ویدئو هر ساعت خودکار می‌کند. بعد از اجرا اشتراک را پس بگیرید.
+
+name: voice-lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: 'کدام موتور (seedvc = تبدیلِ صدا، امیدوارکننده‌ترین)'
+        required: true
+        default: seedvc
+        type: choice
+        options: [seedvc, chatterbox, f5, xtts]
+      ref_id:
+        description: 'شناسهٔ فایلِ درایو — نمونهٔ صدای گوینده'
+        required: true
+        type: string
+      src_id:
+        description: 'شناسهٔ فایلِ درایو — یک wavِ فارسیِ Gemini (فقط برای seedvc)'
+        required: false
+        default: ''
+        type: string
+      text:
+        description: 'متنِ آزمون (خالی = جملهٔ اعراب‌دارِ پیش‌فرض)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: voice-lab
+  cancel-in-progress: false
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ubuntu-latest دیگر ffmpeg ندارد. باینریِ استاتیکِ PyPI در چند ثانیه
+      # می‌آید و به sudo هم نیازی ندارد. (همان راهِ tools/render.js)
+      - name: ffmpeg
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet imageio-ffmpeg
+          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          "$FF" -version | head -1
+
+      - name: گرفتنِ فایل‌ها از درایو
+        env:
+          REF_ID: ${{ inputs.ref_id }}
+          SRC_ID: ${{ inputs.src_id }}
+        run: |
+          set -euo pipefail
+          dl () {  # همان نشانیِ آزموده در tools/render.js
+            curl -sSL --fail-with-body -o "$2" \
+              "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t"
+          }
+          dl "$REF_ID" ref.input
+          # فایلی که خصوصی مانده باشد، HTML برمی‌گرداند نه صوت. این را همان
+          # اول می‌گیریم تا خطا در نصبِ مدل گم نشود.
+          if file ref.input | grep -qi 'html\|ascii'; then
+            echo "::error::فایلِ نمونه خصوصی است. در درایو «هرکس با لینک: بیننده» کنید."
+            head -c 300 ref.input; exit 1
+          fi
+          ls -l ref.input
+          if [ -n "${SRC_ID}" ]; then
+            dl "$SRC_ID" src.input
+            if file src.input | grep -qi 'html\|ascii'; then
+              echo "::error::فایلِ مبدأ خصوصی است."; exit 1
+            fi
+            ls -l src.input
+          fi
+
+      - name: اجرای آزمایش
+        run: |
+          set -euo pipefail
+          ARGS=(--engine "${{ inputs.engine }}" --ref ref.input --out voicelab-out)
+          [ -f src.input ] && ARGS+=(--src src.input)
+          [ -n "${{ inputs.text }}" ] && ARGS+=(--text "${{ inputs.text }}")
+          python3 tools/voicelab.py "${ARGS[@]}"
+
+      # ══ خروجی روی Release نمی‌رود، و این عمدی است ══
+      # این ریپو عمومی است و خروجیِ این آزمایش، صدای کلون‌شدهٔ یک شخصِ
+      # حقیقی است. یک Releaseِ عمومی یعنی آن صدا برای همیشه روی اینترنت
+      # قابلِ دانلود است — و لینکی که عمومی شد، «فردا بهترش می‌کنیم» ندارد.
+      # پس فقط artifact، با کوتاه‌ترین نگه‌داری. (اگر ریپو عمومی بماند،
+      # artifact هم تا یک روز برای بیننده‌های ریپو در دسترس است؛ برای
+      # نمونهٔ کوتاهِ آزمایشی پذیرفتنی است، برای بیشتر از آن نه.)
+      - name: بایگانیِ خروجی
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicelab-${{ inputs.engine }}
+          path: voicelab-out/
+          retention-days: 1
+          if-no-files-found: warn
+
+      # گزارشِ متنی — بی هیچ صدایی — در سیاههٔ اجرا، تا بشود بی دانلود خواند.
+      - name: چکیده در سیاهه
+        if: always()
+        run: |
+          set -euo pipefail
+          for f in voicelab-out/report-*.json; do
+            [ -e "$f" ] || continue
+            echo "### $(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$f" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
