@@ -1259,7 +1259,7 @@ function bridgeAuditOne_(hub, file, reg) {
 
 /** یک دورِ داوری — از کارِ شبانه، پشتِ نگهبانِ بودجه. */
 function bridgeAuditRun_(maxN) {
-  var res = { done: 0, n: 0, bad: 0 };
+  var res = { done: 0, n: 0, bad: 0, why: [] };
   if (CFG.BRIDGE_AUDIT === false) return res;
   var cap = Number(maxN) > 0 ? Number(maxN) : (Number(CFG.BRIDGE_AUDIT_MAX) || 2);
   var files = bridgePending_();
@@ -1268,7 +1268,7 @@ function bridgeAuditRun_(maxN) {
   for (var i = 0; i < files.length && res.done < cap; i++) {
     var one = { ok: false };
     try { one = bridgeAuditOne_(hub, files[i], reg); }
-    catch (e) { logLine_('داوریِ ارجاع نشد: ' + e.message); }
+    catch (e) { one = { ok: false, why: 'استثنا: ' + e.message }; }
     /* عکسی که داوری‌اش نشد، «انجام‌شده» علامت نمی‌خورد — وگرنه یک خطای
        گذرا برای همیشه از داوری بیرونش می‌گذاشت. */
     if (one.ok) {
@@ -1276,19 +1276,60 @@ function bridgeAuditRun_(maxN) {
       res.done++; res.n += one.n; res.bad += one.bad;
     } else if (one.why === 'عکسِ خالی') {
       bridgeMarkDone_(files[i]);        // این یکی هرگز داوری‌شدنی نیست
+    } else {
+      /* ══ علتِ نداوری تا امروز دور ریخته می‌شد (۶٫۸۴) ══
+         `bridgeAuditOne_` همیشه `why` برمی‌گرداند و اینجا هیچ‌کس نمی‌خواندش.
+         نتیجه: شش عکس در صف، صفر داوری، و هیچ جمله‌ای در هیچ سیاهه‌ای که
+         بگوید چرا. عکسی که داوری نمی‌شود هر شب دوباره تلاش می‌شود و هر شب
+         دوباره بی‌صدا شکست می‌خورد. */
+      res.why.push(String(files[i].getName()) + ': ' + String(one.why || 'نامعلوم'));
     }
   }
   if (res.done) {
     logLine_('داوریِ ارجاع: ' + res.done + ' قسمت، ' + res.n + ' ارجاع، ' +
              res.bad + ' ایراد.');
   }
+  if (res.why.length) {
+    logLine_('داوریِ ارجاع، ناموفق برای ' + res.why.length + ' عکس — ' +
+             res.why.slice(0, 3).join(' · '));
+  }
+
+  /* ══ و صفی که پر می‌شود و هیچ‌وقت خالی نمی‌شود، خودش یافته است ══
+     یک شبِ بد می‌تواند قطعیِ شبکه باشد؛ چند شبِ پیاپی یعنی داور اصلاً کار
+     نمی‌کند. و این مهم است چون داوری تنها چیزی است که می‌سنجد ارجاع
+     **درست** بوده یا نه — بی آن، فقط می‌دانیم ارجاعی گفته شده. */
+  var badN = 0;
+  try { badN = Number(props_().getProperty(PK.BRIDGE_AUD_BAD) || '0') || 0; } catch (e0) {}
+  if (files.length && !res.done) {
+    badN++;
+    try { props_().setProperty(PK.BRIDGE_AUD_BAD, String(badN)); } catch (e1) {}
+    if (badN >= (Number(CFG.BRIDGE_AUD_IDLE_NIGHTS) || 3)) {
+      try {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'کد', key: 'bridge-audit-idle',
+          title: 'داوریِ کیفیتِ ارجاع‌ها اجرا نمی‌شود',
+          detail: badN + ' شبِ پیاپی هیچ عکسی داوری نشد، با ' + files.length +
+                  ' عکس در صف. آخرین علت‌ها: ' + res.why.slice(0, 3).join(' · '),
+          instruction: 'داوری تنها سنجهٔ **درستیِ** ارجاع است؛ بی آن فقط ' +
+                       'می‌دانیم ارجاعی گفته شده، نه اینکه نسبتش راست بوده. ' +
+                       'bridgeAuditOne_ (بخشِ ۳۱) و نگهبانِ بودجهٔ nightHas_ ' +
+                       'در کارِ شبانه را ببین.',
+          owner: 'کد'
+        });
+      } catch (e2) {}
+    }
+  } else if (res.done && badN) {
+    try { props_().deleteProperty(PK.BRIDGE_AUD_BAD); } catch (e3) {}
+  }
   return res;
 }
 
 /** سطرِ روزانه — قاعدهٔ ۵٫۹۰. */
 function bridgeAuditStatus_(hub) {
-  var out = { n: 0, bad: 0, pending: 0, strict: 0, line: '' };
+  var out = { n: 0, bad: 0, pending: 0, strict: 0, idleNights: 0, line: '' };
   try {
+    try { out.idleNights = Number(props_().getProperty(PK.BRIDGE_AUD_BAD) || '0') || 0; }
+    catch (eI) { out.idleNights = 0; }
     var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
     try { out.pending = bridgePending_().length; } catch (eP) {}
     var st = bridgeStrict_();
@@ -1302,10 +1343,19 @@ function bridgeAuditStatus_(hub) {
             String(v[i][1]) === 'سطحی') out.bad++;
       }
     }
+    /* ══ «۰ داوری‌شده · ۶ در صف» یک جمله بود که کسی نمی‌خواندش (۶٫۸۴) ══
+       صفی که پر می‌شود و هرگز خالی نمی‌شود، همان‌قدر خبر است که یک ایراد.
+       پس وقتی هیچ داوری‌ای نشده و صف پر است، جمله خودش می‌گوید چه معنایی
+       دارد — نه دو عدد که خواننده باید کنارِ هم بگذاردشان. */
     out.line = 'داوریِ ارجاع‌ها: ' + fa(out.n) + ' ارجاع داوری شده' +
                (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' : ' · بی‌ایراد') +
                (out.pending ? ' · ' + fa(out.pending) + ' در صف' : '') +
                (out.strict ? ' · ' + fa(out.strict) + ' مجموعه سخت‌گیریِ خودکار گرفته' : '') + '.';
+    if (!out.n && out.pending) {
+      out.line += ' هیچ ارجاعی تا امروز داوری نشده' +
+                  (out.idleNights ? ' (' + fa(out.idleNights) + ' شبِ پیاپی)' : '') +
+                  ' — یعنی هنوز نمی‌دانیم نسبت‌های گفته‌شده درست بوده‌اند یا نه.';
+    }
   } catch (e) {}
   return out;
 }

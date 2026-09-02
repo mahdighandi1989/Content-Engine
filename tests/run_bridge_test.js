@@ -857,4 +857,43 @@ console.log('=== ۱۷) سنجشِ گفته‌شدن باید به همان بخ�
      bridgeVerify_(ep, [mk('')]).used.length === 1);
 }
 
+console.log('=== ۱۸) داوری‌ای که هرگز اجرا نشد باید خودش را لو بدهد (۶٫۸۴) ===');
+{
+  /* وضعیتِ واقعیِ ۲ سپتامبر: `bridgeAudit = {n:0, bad:0, pending:6}` — شش عکس
+     در صف، صفر داوری، از ۶٫۴۶ تا امروز. و هیچ جمله‌ای در هیچ سیاهه‌ای که
+     بگوید چرا، چون `bridgeAuditRun_` مقدارِ `why` را دور می‌ریخت. این مهم
+     است چون داوری **تنها** سنجهٔ درستیِ ارجاع است: بی آن فقط می‌دانیم
+     ارجاعی گفته شده، نه اینکه نسبتش راست بوده. */
+  delete global.__PROPS[PK.BRIDGE_AUD_BAD];
+  const sh = ensureTab_(hub, CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای', BRIDGE_HEADERS);
+  // عکسی که هرگز داوری‌شدنی نیست: مجموعهٔ مرجعش در رجیستری نیست
+  auditPutJson_(bridgeSnapName_(91), {
+    at: nowStr_(), epNum: 91, seriesName: 'خداشناسی',
+    links: [{ seriesKey: 'kGHOST', seriesName: 'مجموعهٔ ناموجود', kind: 'روش',
+              claim: 'الف', relation: 'ب', atHeading: 'ج' }],
+    text: 'متنی که هیچ نامی ندارد.'
+  });
+  let r = null;
+  for (let night = 1; night <= 3; night++) r = bridgeAuditRun_(2);
+  ok('۱۸.۱ عکسِ داوری‌نشده در صف می‌مانَد، «انجام‌شده» نمی‌خورد', r.done === 0);
+  ok('۱۸.۲ و علتش دیگر دور ریخته نمی‌شود',
+     r.why.length >= 1 && /کتابِ مرجع خوانده نشد/.test(r.why[0]), JSON.stringify(r.why));
+  const found = String(global.__PROPS[PK.BRIDGE_AUD_BAD] || '0');
+  ok('۱۸.۳ شب‌های بی‌داوری شمرده می‌شوند', Number(found) >= 3, found);
+  /* یک شبِ بد قطعیِ شبکه است؛ سه شبِ پیاپی یعنی داور کار نمی‌کند. */
+  const rows = hub.getSheetByName(CFG.REPORT_TAB || 'گزارش‌های نظارت');
+  let hasFinding = false;
+  if (rows && rows.getLastRow() > 1) {
+    const v = rows.getRange(2, 1, rows.getLastRow() - 1, rows.getLastColumn()).getValues();
+    hasFinding = v.some((row) => row.join(' ').indexOf('داوریِ کیفیتِ ارجاع‌ها اجرا نمی‌شود') !== -1);
+  }
+  ok('۱۸.۴ پس از سه شب، یافتهٔ کد ثبت می‌شود', hasFinding);
+  /* و سطرِ روزانه باید معنایش را بگوید، نه دو عدد که خواننده کنارِ هم بگذارد.
+     هابِ تازه، چون هابِ این سوئیت از بخش‌های پیشین ردیفِ داوری دارد. */
+  const st = bridgeAuditStatus_(new Spread('هاب۱۸'));
+  ok('۱۸.۵ سطرِ روزانه صریح می‌گوید هنوز هیچ نسبتی سنجیده نشده',
+     st.n === 0 && st.pending >= 1 &&
+     st.line.indexOf('هیچ ارجاعی تا امروز داوری نشده') !== -1, st.line);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
