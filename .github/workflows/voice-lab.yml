@@ -19,11 +19,11 @@ on:
   workflow_dispatch:
     inputs:
       engine:
-        description: 'کدام موتور (seedvc = تبدیلِ صدا، امیدوارکننده‌ترین)'
+        description: 'کدام موتور (all = هر چهار تا، موازی)'
         required: true
-        default: seedvc
+        default: all
         type: choice
-        options: [seedvc, chatterbox, f5, xtts]
+        options: [all, seedvc, chatterbox, f5, xtts]
       ref_id:
         description: 'شناسهٔ فایلِ درایو — نمونهٔ صدای گوینده'
         required: true
@@ -47,9 +47,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ══ چرا دو کار و نه یکی ══
+  # اجرای اول ۲م۴۷ث طول کشید. وقتی هر آزمایش این‌قدر ارزان است، «یکی‌یکی
+  # امتحان کن و هر بار برگرد» گران‌ترین بخشِ کار می‌شود — وقتِ آدم، نه وقتِ
+  # ماشین. با ماتریس، یک دکمه هر چهار جواب را می‌دهد و هر کدام رانرِ خودش
+  # و پنجاه دقیقهٔ خودش را دارد.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      engines: ${{ steps.pick.outputs.engines }}
+    steps:
+      - id: pick
+        env:
+          ENGINE: ${{ inputs.engine }}
+        run: |
+          set -euo pipefail
+          if [ "$ENGINE" = "all" ]; then
+            echo 'engines=["seedvc","chatterbox","f5","xtts"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
+          fi
+
   lab:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    strategy:
+      # شکستِ یکی نباید بقیه را لغو کند — شکستِ هر موتور خودش یک جوابِ
+      # جداست، نه خرابیِ آزمایش.
+      fail-fast: false
+      matrix:
+        engine: ${{ fromJSON(needs.plan.outputs.engines) }}
     steps:
       - uses: actions/checkout@v5
 
@@ -100,7 +128,7 @@ jobs:
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
           # جمله کدِ ۱ می‌دهد و پوسته همان‌جا می‌میرد. یعنی اجرا بدونِ src
           # (که حالتِ عادیِ موتورهای TTS است) پیش از شروع شکست می‌خورد.
-          ARGS=(--engine "${{ inputs.engine }}" --ref ref.input --out voicelab-out)
+          ARGS=(--engine "${{ matrix.engine }}" --ref ref.input --out voicelab-out)
           if [ -f src.input ]; then ARGS+=(--src src.input); fi
           if [ -n "${LAB_TEXT}" ]; then ARGS+=(--text "${LAB_TEXT}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
@@ -116,7 +144,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voicelab-${{ inputs.engine }}
+          name: voicelab-${{ matrix.engine }}
           path: voicelab-out/
           retention-days: 1
           if-no-files-found: warn

@@ -124,6 +124,63 @@ def probe(path):
 # ───────────────────────── موتورها ─────────────────────────
 # هر کدام یا فایل می‌سازد یا استثنا می‌دهد. هیچ‌کدام «تقریباً موفق» ندارد.
 
+def patch_bigvgan():
+    """
+    ══ وصلهٔ امضای کهنه در bigvganِ بسته‌بندی‌شده (اجرای #۱) ══
+
+    اجرای اول اینجا شکست خورد:
+
+        TypeError: BigVGAN._from_pretrained() missing 2 required
+        keyword-only arguments: 'proxies' and 'resume_download'
+
+    یعنی `huggingface_hub` دیگر این دو را به `_from_pretrained` پاس
+    نمی‌دهد، ولی نسخهٔ bigvganی که داخلِ seed-vc بسته‌بندی شده هنوز
+    بی‌مقدار‌پیش‌فرض می‌خواهدشان.
+
+    **پین‌کردنِ نسخه چاره نیست**: خودِ `seed-vc 0.4.3` صریح
+    `huggingface-hub>=0.28.1` را لازم دارد، پس پایین‌بردنش یعنی جنگیدن با
+    وابستگی‌ها و شکستنِ جای دیگر. راهِ درست، وصله‌زدنِ همان یک امضاست:
+    دو پارامتر مقدارِ پیش‌فرض می‌گیرند و هرچه هم پاس داده نشود، کار می‌کند.
+
+    وصله در گزارش ثبت می‌شود — وصله‌ای که بی‌صدا بزنیم، فردا کسی نمی‌داند
+    چرا کد با بالادست فرق دارد.
+    """
+    import re
+    info = {"patched": False, "files": []}
+    try:
+        import seed_vc
+    except Exception as e:
+        info["error"] = "seed_vc وارد نشد: %s" % e
+        return info
+    base = os.path.dirname(seed_vc.__file__)
+    for root, _dirs, files in os.walk(base):
+        for fn in files:
+            if not fn.endswith(".py"):
+                continue
+            fp = os.path.join(root, fn)
+            try:
+                txt = open(fp, encoding="utf-8").read()
+            except Exception:
+                continue
+            if "_from_pretrained" not in txt or "proxies" not in txt:
+                continue
+            new_txt = txt
+            # فقط داخلِ امضا، و فقط همان دو نامی که خطا شکایتشان را کرد.
+            new_txt = re.sub(r"(\n\s*)proxies(\s*:\s*[^,\n=]+)?(\s*),",
+                             lambda m: "%sproxies%s = None%s," %
+                                       (m.group(1), m.group(2) or "", m.group(3)),
+                             new_txt)
+            new_txt = re.sub(r"(\n\s*)resume_download(\s*:\s*[^,\n=]+)?(\s*),",
+                             lambda m: "%sresume_download%s = False%s," %
+                                       (m.group(1), m.group(2) or "", m.group(3)),
+                             new_txt)
+            if new_txt != txt:
+                open(fp, "w", encoding="utf-8").write(new_txt)
+                info["patched"] = True
+                info["files"].append(os.path.relpath(fp, base))
+    return info
+
+
 def run_seedvc(ref, src, text, out):
     """تبدیلِ صدا: صوتِ Gemini + نمونهٔ گوینده → همان واژه‌ها با رنگِ صدای او."""
     if not src:
@@ -244,6 +301,9 @@ def main():
                 }
             print("بسته‌ها:", json.dumps(rep.get("packages", {}), ensure_ascii=False), flush=True)
             # ── اجرا ──
+            if a.engine == "seedvc":
+                rep["patch"] = patch_bigvgan()
+                print("وصله:", json.dumps(rep["patch"], ensure_ascii=False), flush=True)
             t1 = time.time()
             try:
                 made = RUNNERS[a.engine](ref, src, a.text, a.out)
