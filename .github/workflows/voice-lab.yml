@@ -87,21 +87,29 @@ jobs:
 
       # ubuntu-latest دیگر ffmpeg ندارد. باینریِ استاتیکِ PyPI در چند ثانیه
       # می‌آید و به sudo هم نیازی ندارد. (همان راهِ tools/render.js)
-      # ══ اجرای #۲: f5 با «ffmpeg was not found» افتاد ══
-      # باگ مالِ من بود: باینری را نصب کردم ولی دو خطِ آخرِ نسخهٔ
-      # tools/render.js را — که آن را روی PATH می‌گذارد — نیاوردم. اسکریپتِ
-      # خودم مسیرِ باینری را از خودِ کتابخانه می‌گیرد و کار می‌کرد، ولی
-      # کتابخانه‌های دیگر (transformers، librosa) `ffmpeg`ِ خالی را صدا
-      # می‌زنند. نصب‌بودن با در‌دسترس‌بودن یکی نیست.
+      # ══ یک علتِ ریشه‌ای، دو شکستِ ظاهراً بی‌ربط (اجرای #۳) ══
+      #
+      # f5 افتاد با: «libavutil.so.56: cannot open shared object file»
+      # seedvc تبدیل را ۲۶ دقیقه انجام داد و سرِ **ذخیره** افتاد با:
+      #         «TorchCodec is required for save_with_torchcodec»
+      #
+      # هر دو یک چیزند: torchaudio تازه، خواندن و نوشتنِ صوت را به
+      # `torchcodec` سپرده و torchcodec به **کتابخانه‌های اشتراکیِ** ffmpeg
+      # نیاز دارد (libavutil و…)، نه به یک باینری. باینریِ استاتیکِ
+      # imageio-ffmpeg — که در tools/render.js بس بود چون آنجا فقط
+      # فرمانِ ffmpeg صدا زده می‌شود — اینجا بس نیست.
+      #
+      # پس این‌بار از خودِ سیستم: هم باینری روی PATH می‌آید، هم libها.
+      # چند ده ثانیه گران‌تر است و دو موتور را با هم باز می‌کند.
       - name: ffmpeg
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet imageio-ffmpeg
-          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
-          "$FF" -version | head -1
-          mkdir -p "$HOME/.local/bin"
-          ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -1
+          # هرچند apt نصبش کرد، مسیرِ libها را هم می‌گوییم تا torchcodec
+          # مطمئن پیدایشان کند.
+          echo "LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: گرفتنِ فایل‌ها از درایو
         env:
@@ -109,10 +117,24 @@ jobs:
           SRC_ID: ${{ inputs.src_id }}
         run: |
           set -euo pipefail
-          dl () {  # همان نشانیِ آزموده در tools/render.js
-            curl -sSL --fail-with-body -o "$2" \
-              "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t"
+          # اجرای #۳: کارِ chatterboxvc با کدِ ۲۲ افتاد — یعنی خطای HTTP در
+          # همین curl، و پوشهٔ خروجی اصلاً ساخته نشد. چهار کارِ دیگر همان
+          # لحظه همان دو فایل را می‌گرفتند: درایو یکی را پس زد. موازی‌کردن
+          # را خودم آوردم، پس تلاشِ دوباره هم کارِ من است.
+          dl () {
+            for i in 1 2 3 4 5; do
+              if curl -sSL --fail-with-body -o "$2" \
+                   "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t"; then
+                return 0
+              fi
+              echo "دانلود نشد (تلاشِ $i) — کمی صبر."
+              sleep $((i * 7))
+            done
+            echo "::error::پس از پنج تلاش، فایل $1 از درایو نیامد."
+            return 1
           }
+          # و کمی پخش‌کردنِ شروع، تا پنج کار هم‌زمان به درایو نزنند.
+          sleep $(( (RANDOM % 20) ))
           dl "$REF_ID" ref.input
           # فایلی که خصوصی مانده باشد، HTML برمی‌گرداند نه صوت. این را همان
           # اول می‌گیریم تا خطا در نصبِ مدل گم نشود.

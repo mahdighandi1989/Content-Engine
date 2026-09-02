@@ -90,7 +90,11 @@ ENGINES = {
         # اجرای #۲: «Coqui TTS requires PyTorch … but they were not found».
         # coqui-tts عمداً تورچ را وابستگیِ خودش نمی‌گذارد (نسخه‌اش به
         # سخت‌افزار بستگی دارد)، پس باید صریح نصب شود.
-        "pip": ["torch", "torchaudio", "coqui-tts"],
+        # اجرای #۳: «cannot import name 'isin_mps_friendly' from
+        # transformers.pytorch_utils» — coqui-tts با transformersِ تازه
+        # نمی‌سازد. سقف می‌گذاریم. (این موتور کم‌ارزش‌ترین است چون وزن‌هایش
+        # غیرتجاری‌اند؛ فقط برای کامل‌شدنِ تصویر می‌ماند.)
+        "pip": ["torch", "torchaudio", "transformers<4.50", "coqui-tts"],
         "code_license": "MPL-2.0 (کد) · وزن‌ها: CPML — **غیرتجاری**",
         "needs_src": False,
         "persian": "فارسی در فهرستِ رسمیِ ۱۷ زبانِ XTTS-v2 **نیست**",
@@ -379,6 +383,19 @@ def main():
                 rep["error"] = str(e)[:2000]
                 rep["traceback"] = traceback.format_exc()[-1500:]
             rep["run_seconds"] = round(time.time() - t1)
+            # ══ عددی که تصمیمِ *تولید* را می‌گیرد، نه کیفیت ══
+            # seedvc در اجرای #۳ تبدیل را انجام داد — ۱۵۶۶ ثانیه برای ۱۲
+            # ثانیه صوت. یعنی یک قسمتِ نوزده‌دقیقه‌ای روی همین ماشین از
+            # چهل ساعت می‌گذرد. کیفیتِ عالی هم این را نجات نمی‌دهد، پس
+            # این نسبت باید در گزارش باشد نه در ذهن.
+            try:
+                sec = float((rep.get("output_info") or {}).get("seconds") or 0)
+                if sec > 0:
+                    rep["realtime_factor"] = round(rep["run_seconds"] / sec, 1)
+                    rep["episode_hours_19min"] = round(
+                        rep["realtime_factor"] * 19 * 60 / 3600.0, 1)
+            except Exception:
+                pass
 
     with open(os.path.join(a.out, "report-%s.json" % a.engine), "w", encoding="utf-8") as f:
         json.dump(rep, f, ensure_ascii=False, indent=1)
