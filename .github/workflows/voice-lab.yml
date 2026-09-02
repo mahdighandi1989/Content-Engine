@@ -51,6 +51,11 @@ on:
         required: false
         default: ''
         type: string
+      mirror_repo:
+        description: 'نسخهٔ پشتیبان از یک مخزنِ Hugging Face (شناسه، یا خالی)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -108,6 +113,42 @@ jobs:
           path: voicescan.json
           retention-days: 7
           if-no-files-found: warn
+
+  # ══ «اگر صاحبِ مخزن خصوصی‌اش کند چه؟» ══
+  # سؤالِ درستی است و جوابش «امیدواریم نکند» نیست. مخزنِ
+  # Lumos675/F5_TTS_Persian صفر دانلود و صفر لایک دارد — یعنی یک نفر، یک
+  # روز، بی هیچ تعهدی. اگر فردا برداشته شود و ما نسخه‌ای نداشته باشیم،
+  # همهٔ این کار از دست می‌رود.
+  #
+  # پس یک بار برمی‌داریمش. خروجی به‌عنوان artifact می‌آید و شما در درایوِ
+  # خودتان نگهش می‌دارید — نه در این ریپو، که عمومی است و وزنِ مدلِ کسِ
+  # دیگری در آن جایی ندارد.
+  mirror:
+    if: inputs.mirror_repo != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: برداشتنِ نسخه
+        env:
+          REPO: ${{ inputs.mirror_repo }}
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "huggingface_hub[cli]"
+          mkdir -p mirror
+          hf download "$REPO" --local-dir "mirror/$REPO"
+          echo "### نسخهٔ پشتیبانِ \`$REPO\`" >> "$GITHUB_STEP_SUMMARY"
+          du -sh "mirror/$REPO" >> "$GITHUB_STEP_SUMMARY"
+          find mirror -type f -printf '%s\t%p\n' | sort -rn | head -30 \
+            >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mirror
+          path: mirror/
+          retention-days: 5
+          if-no-files-found: error
 
   lab:
     needs: plan

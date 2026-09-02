@@ -349,20 +349,52 @@ def run_f5(ref, src, text, out):
     آیا چنین چیزی هست؟ کارِ `scan` جوابش را می‌دهد. این تابع فقط در را
     باز نگه می‌دارد تا آن جواب، یک کلیک با شنیدن فاصله داشته باشد.
     """
-    dst = os.path.join(out, "f5.wav")
-    cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
-           "--gen_text", text, "--output_dir", out, "--output_file", "f5.wav"]
     ck, vo = f5Resolve_(str(OPT.get("f5_ckpt") or "").strip(),
                         str(OPT.get("f5_vocab") or "").strip())
-    if ck:
-        cmd += ["--ckpt_file", ck]
-        print("چک‌پوینتِ سفارشی:", ck, flush=True)
-    if vo:
-        cmd += ["--vocab_file", vo]
-    r = sh(cmd, capture_output=True)
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr or r.stdout).decode("utf-8", "replace")[-1500:])
-    return dst
+    OPT["resolved"] = {"ckpt": ck, "vocab": vo}
+
+    # ══ سه متن، یک اجرا — چون سؤال «ضعفِ مخزن است یا اعرابِ ما؟» است ══
+    #
+    # خروجیِ اجرای #۷ صدای رضوی را داشت ولی واژه‌ها را غلط تلفظ می‌کرد. دو
+    # توضیحِ ممکن دارد و هر دو باورکردنی‌اند:
+    #   الف) خودِ چک‌پوینت ضعیف است؛
+    #   ب) ما متنِ **اعراب‌دار** دادیم و آن مدل روی متنِ بی‌اعراب تربیت شده،
+    #      پس هر اعراب برایش نویسه‌ای ناشناخته است — یعنی اعرابِ ما، که
+    #      برای Gemini کمک است، برای این مدل نویز باشد.
+    #
+    # حدس‌زدن میانِ این دو بی‌معناست وقتی می‌شود هر دو را شنید. پس یک اجرا و
+    # سه فایل. نیم‌فاصله جدا سنجیده می‌شود چون نویسهٔ ساختاریِ فارسی است نه
+    # اعراب، و ممکن است یکی کمک کند و دیگری نه.
+    TASHKIL = "".join(chr(c) for c in list(range(0x064B, 0x0653)) + [0x0670, 0x0640])
+    noTash = "".join(ch for ch in text if ch not in TASHKIL)
+    variants = [
+        ("tashkil", text, "همان‌طور که موتور می‌سازد — با اعراب"),
+        ("plain", noTash, "بی اعراب، با نیم‌فاصله"),
+        ("bare", noTash.replace("\u200c", " "), "بی اعراب، بی نیم‌فاصله"),
+    ]
+    made, notes = None, []
+    for name, txt, why in variants:
+        fn = "f5-%s.wav" % name
+        cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", "",
+               "--gen_text", txt, "--output_dir", out, "--output_file", fn]
+        if ck:
+            cmd += ["--ckpt_file", ck]
+        if vo:
+            cmd += ["--vocab_file", vo]
+        print("\n=== %s — %s ===\n%s\n" % (name, why, txt[:160]), flush=True)
+        r = sh(cmd, capture_output=True)
+        path = os.path.join(out, fn)
+        if r.returncode == 0 and os.path.exists(path):
+            notes.append({"name": name, "why": why, "chars": len(txt), "ok": True})
+            made = made or path
+        else:
+            notes.append({"name": name, "why": why, "ok": False,
+                          "error": (r.stderr or r.stdout).decode("utf-8", "replace")[-400:]})
+    OPT["variants"] = notes
+    if not made:
+        raise RuntimeError("هیچ‌کدام از سه حالت خروجی نداد: " +
+                           json.dumps(notes, ensure_ascii=False)[:1200])
+    return made
 
 
 def run_xtts(ref, src, text, out):
@@ -494,6 +526,13 @@ def main():
                 rep["error"] = str(e)[:2000]
                 rep["traceback"] = traceback.format_exc()[-1500:]
             rep["run_seconds"] = round(time.time() - t1)
+            # ورودیِ خام را ثبت می‌کردم؛ آنچه واقعاً به مدل رفت چیزِ دیگری
+            # است (شناسهٔ مخزن به نشانیِ فایل حل می‌شود). گزارشی که ورودی
+            # را جای اجرا بگذارد، همان اشتباهِ اجرای #۶ است.
+            if OPT.get("resolved"):
+                rep["resolved"] = OPT["resolved"]
+            if OPT.get("variants"):
+                rep["variants"] = OPT["variants"]
             # ══ عددی که تصمیمِ *تولید* را می‌گیرد، نه کیفیت ══
             # seedvc در اجرای #۳ تبدیل را انجام داد — ۱۵۶۶ ثانیه برای ۱۲
             # ثانیه صوت. یعنی یک قسمتِ نوزده‌دقیقه‌ای روی همین ماشین از
