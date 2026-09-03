@@ -138,6 +138,23 @@ def main():
         # فایلِ نمونه‌های مخزن، اگر باشد: قالبِ ورودیِ واقعی را از دستِ اول
         # می‌گوید. برای KiaBush یک `examples/metadata.json` هست و ما به‌جای
         # خواندنش، الفبای ورودی‌اش را حدس زدیم.
+        # ══ پیش از هر «میرور کنیم و بهترش کنیم»، پروانه را بخوان ══
+        # `NOTICE.md` و `RELEASE_STATUS.md` در آن مخزن تصادفی نیستند؛ نویسنده‌ای
+        # که در شناسنامهٔ نمونه‌هایش نوشته «unofficial … not affiliated with or
+        # endorsed by the speaker»، احتمالاً شرطی هم گذاشته. تصمیمِ «نسخه
+        # برداریم و رویش کار کنیم» بی خواندنِ این‌ها، تصمیم نیست — حدس است.
+        for lic in ("NOTICE.md", "RELEASE_STATUS.md", "LICENSE", "README.md"):
+            if not any(f["path"] == lic for f in row["files"]):
+                continue
+            try:
+                u = "https://huggingface.co/%s/resolve/main/%s" % (repo, lic)
+                rq = urllib.request.Request(u, headers={"User-Agent": "content-engine-voicelab"})
+                with urllib.request.urlopen(rq, timeout=45) as rr:
+                    body = rr.read().decode("utf-8", "replace")[:2500]
+                row.setdefault("terms", {})[lic] = body
+                print("**`%s`**\n\n```\n%s\n```\n" % (lic, body))
+            except Exception as e:
+                print("(`%s` خوانده نشد: %s)\n" % (lic, str(e)[:120]))
         meta = [f["path"] for f in row["files"]
                 if f["path"].endswith(".json") and "example" in f["path"].lower()]
         for mp in meta[:1]:
