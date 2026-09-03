@@ -23,7 +23,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, chatterboxvc, seedvc, chatterbox, f5, xtts]
+        options: [all, chatterboxvc, seedvc, chatterbox, f5, xtts, فقط-اسکن]
       ref_id:
         description: 'شناسهٔ فایلِ درایو — نمونهٔ صدای گوینده'
         required: true
@@ -101,7 +101,13 @@ jobs:
           ENGINE: ${{ inputs.engine }}
         run: |
           set -euo pipefail
-          if [ "$ENGINE" = "all" ]; then
+          # ══ چرا «فقط اسکن» یک گزینه شد ══
+          # کارِ scan یک دقیقه است و کارِ سنگین یک ساعت. وقتی سؤال «آیا این
+          # مخزن اصلاً فایلِ به‌دردبخوری دارد؟» است، یک ساعت صبرکردن برای
+          # جوابی که یک فهرست می‌دهد، همان اشتباهِ اجرای #۹ است با شکلِ دیگر.
+          if [ "$ENGINE" = "فقط-اسکن" ]; then
+            echo 'engines=[]' >> "$GITHUB_OUTPUT"
+          elif [ "$ENGINE" = "all" ]; then
             # اسکنِ اجرای #۶ و عددهای سرعت، دو موتور را از دور خارج کردند:
             #  • xtts — نه فارسی دارد نه وزنِ تجاری
             #  • seedvc — ۱۲۵ برابرِ بلادرنگ، یعنی ۴۰ ساعت برای یک قسمت
