@@ -661,10 +661,20 @@ def vocabAudit_(vocab, texts):
         out["error"] = str(e)[:200]
         out["source"] = src
         return out
-    # همان‌طور که f5 می‌خوانَد: هر سطر یک نویسه، و `char[:-1]` یعنی فقط
-    # نویسهٔ پایانِ سطر کنار می‌رود.
-    lines = raw.split("\n")
-    chars = set(ln for ln in lines)
+    # ══ پایانِ سطر: تلهٔ کوچکی که یک حکمِ بزرگ ساخت (اجرای #۱۴) ══
+    # این تابع فایل را از شبکه می‌گیرد و خام رمزگشایی می‌کند، پس اگر فایل
+    # CRLF باشد هر مدخل «x\r» می‌شود و هیچ نویسه‌ای پیدا نمی‌شود — گزارش
+    # می‌گوید «۱۰۰٪ ناشناخته» و آن حکم دربارهٔ خودِ مدل خوانده می‌شود، نه
+    # دربارهٔ خوانندهٔ من. خودِ f5 فایل را در حالتِ متنی باز می‌کند و پایتون
+    # همان‌جا CRLF را به LF تبدیل می‌کند، پس این ایراد فقط مالِ اینجاست.
+    lines = raw.splitlines()
+    chars = set(lines)
+    # و اگر مدخل‌ها تک‌نویسه نباشند، اصلاً «نویسه‌به‌نویسه» سنجیدن بی‌معناست.
+    lens = {}
+    for ln in lines[:4000]:
+        lens[len(ln)] = lens.get(len(ln), 0) + 1
+    out["entry_lengths"] = dict(sorted(lens.items())[:6])
+    out["sample"] = [repr(x) for x in lines[:40]]
     out["ok"] = True
     out["size"] = len(lines)
     out["source"] = src

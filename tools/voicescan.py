@@ -131,6 +131,20 @@ def main():
         if row.get("error"):
             print("خطا: %s\n" % row["error"])
             continue
+        # فایلِ نمونه‌های مخزن، اگر باشد: قالبِ ورودیِ واقعی را از دستِ اول
+        # می‌گوید. برای KiaBush یک `examples/metadata.json` هست و ما به‌جای
+        # خواندنش، الفبای ورودی‌اش را حدس زدیم.
+        meta = [f["path"] for f in row["files"]
+                if f["path"].endswith(".json") and "example" in f["path"].lower()]
+        for mp in meta[:1]:
+            try:
+                u = "https://huggingface.co/%s/resolve/main/%s" % (repo, urllib.parse.quote(mp))
+                rq = urllib.request.Request(u, headers={"User-Agent": "content-engine-voicelab"})
+                with urllib.request.urlopen(rq, timeout=45) as rr:
+                    row["examples"] = rr.read().decode("utf-8", "replace")[:1200]
+                print("**`%s`**\n\n```json\n%s\n```\n" % (mp, row["examples"]))
+            except Exception as e:
+                print("(`%s` خوانده نشد: %s)\n" % (mp, str(e)[:120]))
         big = sorted(row["files"], key=lambda x: -x["mb"])[:10]
         print("| فایل | مگابایت |")
         print("|---|---:|")
@@ -168,6 +182,13 @@ def main():
                       % (k, v["count"], v["pct"], "، ".join(v["chars"][:12])))
             if not (aud.get("missing") or {}):
                 print("- هیچ نویسهٔ ناشناخته‌ای نیست.")
+        # ══ آنچه واقعاً در واژگان هست ══
+        # «۱۰۰٪ ناشناخته» دو معنی دارد و تا وقتی خودِ مدخل‌ها را نبینیم
+        # نمی‌شود گفت کدام: یا مدل الفبای دیگری می‌خواهد، یا خوانندهٔ ما
+        # فایل را غلط می‌خوانَد. اجرای #۱۴ همین ابهام را ساخت.
+        if aud.get("sample"):
+            print("- طولِ مدخل‌ها: `%s`" % aud.get("entry_lengths"))
+            print("- چهل مدخلِ اول: `%s`" % " ".join(aud["sample"]))
         print("")
 
     with open("voicescan.json", "w", encoding="utf-8") as f:

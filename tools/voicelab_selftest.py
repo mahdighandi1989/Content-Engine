@@ -81,6 +81,16 @@ def main():
     eq(V.vocabAudit_("", {"x": txt})["ok"], False,
        "بی واژگانِ سفارشی، جواب «نمی‌دانم» است نه «خوب است»")
 
+    crlf = os.path.join(d, "v_crlf.txt")
+    with io.open(crlf, "w", encoding="utf-8", newline="") as f:
+        f.write("\r\n".join([" "] + [c for c in base if c != " "] +
+                             list(V.TASHKIL_)) + "\r\n")
+    cr = V.vocabAudit_(crlf, {"با اعراب": txt})
+    eq(cr["missing"], {},
+       "واژگانِ CRLF هم درست خوانده می‌شود — وگرنه «۱۰۰٪ ناشناخته» می‌گفت")
+    eq(max(cr["entry_lengths"]) <= 1, True,
+       "و طولِ مدخل‌ها گزارش می‌شود تا «تک‌نویسه است؟» حدس نباشد")
+
     # ══ گزارشی که فقط در پایان نوشته شود، وقتی لازم است وجود ندارد ══
     # اجرای #۹ سرِ سقفِ زمان لغو شد و همان دو عددی که کلِ اجرا برای دیدنشان
     # بود، هرگز نوشته نشدند.
