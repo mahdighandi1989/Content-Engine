@@ -37,6 +37,9 @@ voicelab.py — آزمایشگاهِ صدا. گامِ صفرِ «شبیه‌سا
 
 import argparse, io, json, os, re, shutil, subprocess, sys, time, traceback
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fa2latin
+
 # متنِ آزمون: یک جملهٔ واقعیِ اعراب‌دار از خودِ زنجیرهٔ ما. اعراب عمدی است —
 # سدِ `speak`/`speak2` موتور همین را تولید می‌کند و ورودیِ واقعیِ هر موتورِ
 # صدا همین خواهد بود، نه متنِ بی‌اعراب.
@@ -494,7 +497,7 @@ def saveRep_():
     if not isinstance(rep, dict) or not out:
         return
     for k in ("resolved", "variants", "ref_cut", "ref_used", "vocab_audit",
-              "speed_fit", "ref_text_source", "ref_text_final"):
+              "speed_fit", "ref_text_source", "ref_text_final", "alphabet_note"):
         if OPT.get(k) is not None:
             rep[k] = OPT[k]
     if OPT.get("heard") is not None:
@@ -606,6 +609,14 @@ def run_f5(ref, src, text, out):
         h = OPT.get("heard") or ""
         rt = h if h and not h.startswith("رونویس") else ""
         OPT["ref_text_source"] = "رونویسِ خودکار (صریحاً پاس داده شد)"
+    # ══ متنِ مرجع باید هم‌الفبای متنِ تولید باشد ══
+    # f5 هر دو را در **یک** رشته به مدل می‌دهد (`[ref_text + gen_text]`).
+    # یک نیمه فارسی و نیمهٔ دیگر لاتین یعنی مدل وسطِ کار الفبا عوض
+    # می‌کند — که هیچ‌جا در آموزشش ندیده.
+    alp = str(OPT.get("alphabet") or "fa")
+    if alp != "fa" and rt:
+        rt = fa2latin.convert(rt, alp)
+        OPT["ref_text_source"] += " · برگردانده به %s" % alp
     OPT["ref_text_final"] = rt
     saveRep_()
 
@@ -743,6 +754,13 @@ def main():
     # پیاده‌سازیِ غلط، تلفظِ غلط می‌سازد.
     ap.add_argument("--f5-ref-text", default="")
     ap.add_argument("--f5-nfe", default="")
+    # ══ ایدهٔ صاحبِ برنامه: الفبا را عوض کن، نه مدل را ══
+    # «برای مدل‌هایی که فارسی نمی‌فهمند ولی انگلیسی می‌فهمند، فارسی را
+    # فینگلیش بنویسیم — و برای تلفظ از نشانه‌گذاریِ دیکشنری‌ها.»
+    # این را نمی‌شود با استدلال جواب داد، چون سؤالش «چطور به گوش می‌آید»
+    # است. پس یک پرچم، و همان مسیرِ موجود.
+    ap.add_argument("--alphabet", default="fa",
+                    choices=["fa"] + sorted(fa2latin.MODES))
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
@@ -750,6 +768,17 @@ def main():
     OPT["f5_vocab"] = a.f5_vocab
     OPT["f5_ref_text"] = a.f5_ref_text
     OPT["f5_nfe"] = a.f5_nfe
+    OPT["alphabet"] = a.alphabet
+    # برگردان اینجا انجام می‌شود، نه در run_f5: این آزمایشِ **متن** است، نه
+    # آزمایشِ f5. Chatterbox و XTTS هم انگلیسی می‌دانند و فارسی نه — یعنی
+    # دقیقاً همان مدل‌هایی که این ایده برایشان طرح شده.
+    if a.alphabet != "fa":
+        cov = fa2latin.coverage(a.text)
+        a.text = fa2latin.convert(a.text, a.alphabet)
+        OPT["alphabet_note"] = {"mode": a.alphabet, "coverage": cov,
+                                "sent": a.text[:400]}
+        print("متن به %s برگردانده شد:\n%s\n" % (a.alphabet, a.text[:300]),
+              flush=True)
     meta = ENGINES[a.engine]
     rep = {"engine": a.engine, "at": time.strftime("%Y-%m-%d %H:%M"),
            "family": meta["family"], "code_license": meta["code_license"],

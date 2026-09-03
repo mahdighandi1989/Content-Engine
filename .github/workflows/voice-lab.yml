@@ -67,6 +67,20 @@ on:
         required: false
         default: '30'
         type: string
+      # ══ «فارسی را فینگلیش بنویسیم؟» — ایدهٔ موازیِ صاحبِ برنامه ══
+      # این فقط به‌خاطرِ زنجیرهٔ اعرابِ خودِ موتور شدنی است: «کرم» بی‌اعراب
+      # سه واژه است، و هیچ برنامه‌ای نمی‌تواند بی‌اعراب فارسی را به لاتین
+      # برگردانَد. متنِ مرحلهٔ `speak` اعراب دارد، پس برگردان قطعی است.
+      #   finglish = رومی‌نویسیِ متعارف   ·  respell = املای انگلیسی (dictionary)
+      #   ipa      = برای مدل‌هایی که ورودی‌شان IPA است
+      # برای finglish/respell چک‌پوینت را **خالی** بگذارید (پایهٔ انگلیسی)؛
+      # برای ipa، KiaBush/Persian-IPA-to-Speech-F5.
+      alphabet:
+        description: 'الفبای متن (fa = همان فارسی · finglish/respell = برای مدلِ انگلیسی · ipa)'
+        required: false
+        default: fa
+        type: choice
+        options: [fa, finglish, respell, ipa]
       f5_nfe:
         description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر (سقفِ زمان حالا ۱۵۰ دقیقه است)'
         required: false
@@ -136,6 +150,10 @@ jobs:
       # این دو ثانیه طول می‌کشد و همان دو شکل را جلوتر می‌گیرد.
       - name: خودآزمونِ منطقِ آزمایشگاه
         run: python3 tools/voicelab_selftest.py | tee -a "$GITHUB_STEP_SUMMARY"
+      # جدولِ واژه‌های شناخته‌شدهٔ برگردانِ آوایی. یک قاعدهٔ تازه می‌تواند
+      # قاعدهٔ پیشین را بشکند — «و» را که درست کنی «ی» خراب می‌شود.
+      - name: خودآزمونِ برگردانِ فارسی به لاتین
+        run: python3 tools/fa2latin_test.py | tee -a "$GITHUB_STEP_SUMMARY"
       - name: نقشهٔ مدل‌های فارسی و ممیزیِ واژگان
         env:
           F5_CKPT: ${{ inputs.f5_ckpt }}
@@ -302,6 +320,7 @@ jobs:
           F5_REF_TEXT: ${{ inputs.f5_ref_text }}
           F5_NFE: ${{ inputs.f5_nfe }}
           REF_SECONDS: ${{ inputs.ref_seconds }}
+          ALPHABET: ${{ inputs.alphabet }}
         run: |
           set -euo pipefail
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
@@ -315,6 +334,7 @@ jobs:
           if [ -n "${F5_REF_TEXT}" ]; then ARGS+=(--f5-ref-text "${F5_REF_TEXT}"); fi
           if [ -n "${F5_NFE}" ];      then ARGS+=(--f5-nfe "${F5_NFE}"); fi
           if [ -n "${REF_SECONDS}" ]; then ARGS+=(--ref-seconds "${REF_SECONDS}"); fi
+          if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══
