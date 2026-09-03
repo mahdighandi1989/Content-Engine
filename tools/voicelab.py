@@ -826,7 +826,18 @@ def main():
             # چهل ساعت می‌گذرد. کیفیتِ عالی هم این را نجات نمی‌دهد، پس
             # این نسبت باید در گزارش باشد نه در ذهن.
             try:
-                sec = float((rep.get("output_info") or {}).get("seconds") or 0)
+                # ══ عدد را روی همهٔ چیزی که ساخته شد بشمار، نه یکی ══
+                # اجرای #۱۰ «۲۱۰ برابرِ بلادرنگ» گزارش کرد و ۶۷ ساعت برای یک
+                # قسمت. ولی آن اجرا **دو** فایل ساخت و کلِ زمان به حسابِ
+                # اولی نوشته شد. عددِ درست ۹۴ است. گزارشی که هزینهٔ دو کار را
+                # به یکی ببندد، همان اشتباهِ «ورودی را خروجی گزارش کردن» است
+                # با لباسِ دیگر — و این عدد است که تصمیمِ تولید را می‌گیرد.
+                sec = 0.0
+                for v in (OPT.get("variants") or []):
+                    sec += float(((v or {}).get("info") or {}).get("seconds") or 0)
+                if not sec:
+                    sec = float((rep.get("output_info") or {}).get("seconds") or 0)
+                rep["generated_seconds_total"] = round(sec, 2)
                 if sec > 0:
                     rep["realtime_factor"] = round(rep["run_seconds"] / sec, 1)
                     rep["episode_hours_19min"] = round(

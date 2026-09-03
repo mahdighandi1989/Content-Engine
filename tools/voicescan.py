@@ -45,6 +45,33 @@ QUERIES = [
 ]
 
 
+# ══ نامزدهایی که اسکنِ اجرای #۱۰ رو کرد ══
+#
+# آن اسکن دو چیز نشان داد که قبلاً نداشتیم:
+#  • یک Chatterboxِ **فارسی** — و Chatterbox در اجرای #۲ رنگِ صدای رضوی را
+#    از بیست ثانیه گرفته بود و تنها چیزی که کم داشت زبان بود.
+#  • یک F5ِ فارسی که ورودی‌اش **IPA** است — یعنی تلفظ دیگر حدس نیست.
+#
+# ولی «هست» با «می‌شود استفاده کرد» یکی نیست: یک مخزنِ gguf شاید فقط برای
+# اجراکنندهٔ دیگری باشد، و یک F5ِ IPA بی vocab.txt به درد نمی‌خورد. فهرستِ
+# فایل‌ها این را در چند ثانیه می‌گوید — بی دانلود، بی حدس، بی یک اجرای
+# چهل‌دقیقه‌ایِ دیگر.
+CANDIDATES = [
+    "mazrba/Chatterbox-TTS-Persian-gguf",
+    "KiaBush/Persian-IPA-to-Speech-F5",
+    "KEYHAN-A/aava-tts-persian-3b",
+    "nimaaaAI/MOSS-TTS-Nano-Persian",
+    "alikhabazian/Xtts_persian_v2",
+]
+
+
+def tree(repo):
+    url = "https://huggingface.co/api/models/%s/tree/main" % repo
+    req = urllib.request.Request(url, headers={"User-Agent": "content-engine-voicelab"})
+    with urllib.request.urlopen(req, timeout=45) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
 def ask(params):
     q = dict(params)
     q.update({"sort": "downloads", "direction": "-1", "limit": "12"})
@@ -87,6 +114,30 @@ def main():
             print("| `%s` | %s | %s | %s |" %
                   (m["id"], m["downloads"], m["likes"], m["pipeline"]))
         print("")
+    print("## فایل‌های نامزدها — «هست» با «می‌شود استفاده کرد» یکی نیست\n")
+    out["candidates"] = []
+    for repo in CANDIDATES:
+        row = {"id": repo, "files": []}
+        try:
+            for f in tree(repo):
+                if f.get("type") != "file":
+                    continue
+                row["files"].append({"path": f.get("path"),
+                                     "mb": round((f.get("size") or 0) / 1048576.0, 1)})
+        except Exception as e:
+            row["error"] = str(e)[:160]
+        out["candidates"].append(row)
+        print("### `%s`" % repo)
+        if row.get("error"):
+            print("خطا: %s\n" % row["error"])
+            continue
+        big = sorted(row["files"], key=lambda x: -x["mb"])[:10]
+        print("| فایل | مگابایت |")
+        print("|---|---:|")
+        for f in big:
+            print("| `%s` | %s |" % (f["path"], f["mb"]))
+        print("")
+
     # ══ سؤالی که ارزانِ چند ثانیه است و جوابش کلِ کیفیت را توضیح می‌دهد ══
     #
     # `vocab_char_map.get(c, 0)` و `assert vocab_char_map[" "] == 0`: در f5
