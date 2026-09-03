@@ -887,9 +887,24 @@ console.log('=== ۱۲) موتور بگوید به کدام قطعه مطمئن �
 
   global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'موسیقی' }] } }] });
   const heardOk = musicAccept_(bytes, info, 'Loop');
+  // از ۶٫۸۸ جوابِ درشتِ «موسیقی» به «آهنگ» نگاشته می‌شود: موسیقیِ
+  // ملودی‌دار، همانی که می‌شود با آن برنامه را باز کرد.
   ok('۱۲.۱ وقتی مدل می‌شنود، حکم قطعی علامت می‌خورد',
-     heardOk.ok === true && heardOk.sure === true && heardOk.heard === 'موسیقی',
+     heardOk.ok === true && heardOk.sure === true && heardOk.heard === 'آهنگ',
      JSON.stringify(heardOk));
+
+  /* ── و «موسیقی» دیگر یک چیز نیست (۶٫۸۸) ──
+   * دو شبِ پیاپی درس‌نامه با یک درونِ گرانولار باز شد. هیچ سدی نشکسته
+   * بود: آن فایل موسیقی است. تنها سؤالی که پرسیده می‌شد «موسیقی یا
+   * گفتار؟» بود و هیچ‌کس نپرسید «این می‌تواند شروع باشد؟» */
+  global.geminiFetch_ = () => ({ candidates: [{ content: { parts: [{ text: 'زمینه' }] } }] });
+  const droneAcc = musicAccept_(bytes, info, 'Drone');
+  ok('۱۲.۱-ب زمینه هم موسیقی است و وارد بانک می‌شود',
+     droneAcc.ok === true && droneAcc.sure === true && droneAcc.heard === 'زمینه',
+     JSON.stringify(droneAcc));
+  ok('۱۲.۱-پ ولی ستونِ تأیید می‌گوید برای شروع/پایان نیست',
+     /نه شروع، نه پایان/.test(musicHeardTxt_({ heard: 'زمینه' })),
+     musicHeardTxt_({ heard: 'زمینه' }));
 
   global.geminiFetch_ = () => { throw new Error('بی‌پاسخ'); };
   const guessed = musicAccept_(bytes, info, 'Loop');
@@ -1897,8 +1912,20 @@ console.log('=== ۲۸) بازبینیِ شنیداری خودکار شد ===');
   ok('۲۸.۴ و می‌شود خاموشش کرد', /CFG\.MUSIC_REHEAR !== false/.test(p21b));
 
   ok('۲۸.۵ فهرست به «هنوز داوری ندارد» باریک می‌شود',
-     /!heardSays_\(row\.heard, 'موسیقی'\) && !heardSays_\(row\.heard, 'جلوه'\)/
+     /if \(heardSays_\(row\.heard, 'جلوه'\)\) return false;/.test(p23j) &&
+     /heardSays_\(row\.heard, 'آهنگ'\) \|\| heardSays_\(row\.heard, 'زمینه'\)/
        .test(p23j));
+  /* ══ و داوریِ کهنه هم «نامعلوم» است (۶٫۸۸) ══
+     تا ۶٫۸۷ جوابِ مدل فقط «موسیقی/جلوه/گفتار» بود، و «موسیقی» به سؤالی که
+     حالا می‌پرسیم — «این می‌تواند برنامه را باز کند؟» — جواب نمی‌دهد. بی
+     این، «زمزمهٔ آکوستیک» تا ابد ✅ می‌مانْد و هر شب یک قسمت را باز می‌کرد. */
+  ok('۲۸.۵-ب ردیفی که با واژهٔ درشتِ قدیمی مهر خورده، دوباره در صف می‌نشیند',
+     heardSays_('✅ مدل شنید: موسیقی', 'آهنگ') === false &&
+     heardSays_('✅ مدل شنید: موسیقی', 'زمینه') === false &&
+     heardSays_('✅ مدل شنید: موسیقی', 'جلوه') === false);
+  ok('۲۸.۵-پ ولی داوریِ تازه دوباره پرسیده نمی‌شود',
+     heardSays_(musicHeardTxt_({ heard: 'آهنگ' }), 'آهنگ') === true &&
+     heardSays_(musicHeardTxt_({ heard: 'زمینه' }), 'زمینه') === true);
   ok('۲۸.۶ و افکت‌ها اولِ صف‌اند — تنها نوعی که «❓» جلوی پخشش را می‌گیرد',
      /=== 'افکت'\) \? 0 : 1\)/.test(p23j));
   ok('۲۸.۷ دکمهٔ دستی همچنان پویشِ کامل می‌کند',
@@ -1907,7 +1934,7 @@ console.log('=== ۲۸) بازبینیِ شنیداری خودکار شد ===');
   // فیلترِ «نامعلوم» واقعاً همان‌هایی را می‌گیرد که باید
   ok('۲۸.۸ تأییدشده دوباره پرسیده نمی‌شود',
      heardSays_(musicHeardTxt_({ heard: 'جلوه' }), 'جلوه') === true &&
-     heardSays_(musicHeardTxt_({ heard: 'موسیقی' }), 'موسیقی') === true);
+     heardSays_(musicHeardTxt_({ heard: 'آهنگ' }), 'آهنگ') === true);
   ok('۲۸.۹ ولی «❓» و خالی دوباره پرسیده می‌شوند',
      heardSays_(musicHeardTxt_({ verdict: 'مدل نشنید' }), 'جلوه') === false &&
      heardSays_('', 'جلوه') === false);

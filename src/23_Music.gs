@@ -481,6 +481,8 @@ function musicScan_(hub) {
  */
 function musicHeardTxt_(meta) {
   var h = String((meta && meta.heard) || '');
+  if (h === 'آهنگ') return '✅ مدل شنید: آهنگ (ملودی‌دار)';
+  if (h === 'زمینه') return '✅ مدل شنید: زمینهٔ کشیده — نه شروع، نه پایان';
   if (h === 'موسیقی') return '✅ مدل شنید: موسیقی';
   if (h === 'جلوه') return '✅ مدل شنید: جلوهٔ صوتی';
   var v = String((meta && meta.verdict) || '');
@@ -496,6 +498,24 @@ function musicHeardTxt_(meta) {
  *    تأییدِ فایلی است که مدل نتوانسته قضاوتش کند.
  * «❓» یعنی نامعلوم، و نامعلوم تأیید نیست: پیش‌فرض ردّ است.
  */
+/**
+ * آیا این ردیف می‌تواند **لبهٔ** برنامه را بگیرد — شروع یا پایان؟
+ *
+ * «زمینه» موسیقی است و در بانک می‌مانَد، ولی برنامه را باز نمی‌کند. این را
+ * در کد می‌گذاریم نه در برچسب، چون برچسب را همان برچسب‌زنِ خودکاری نوشته
+ * که هرگز صدا را نشنیده — و دو شب پیاپی «شروع» را به یک درونِ گرانولار داد.
+ *
+ * استثنا فقط آدم است: اگر یادداشتِ ردیف دستِ آدم خورده باشد، انتخابِ او
+ * می‌مانَد. قاعدهٔ همیشگیِ این بخش: سلیقهٔ کاربر پاک نمی‌شود.
+ */
+function heardCanEdge_(cell, note) {
+  if (heardSays_(cell, 'زمینه')) {
+    var nt = String(note || '').trim();
+    return !!(nt && nt.indexOf('خودکار') !== 0);
+  }
+  return true;
+}
+
 function heardSays_(cell, word) {
   var t = String(cell || '').trim();
   if (!t || t.charAt(0) === '❓') return false;
@@ -837,6 +857,7 @@ function musicBank_(hub) {
       gain: (Number(v[i][MC.GAIN - 1]) > 0 ? Number(v[i][MC.GAIN - 1]) : 1),
       used: Number(v[i][MC.USED - 1]) || 0,
       heard: String(v[i][MC.HEARD - 1] || ''),
+      note: String(v[i][MC.NOTE - 1] || ''),
       lastAt: String(v[i][MC.LAST - 1] || '')
     });
   }
@@ -859,6 +880,14 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     // «موسیقیِ میانه» پخش شود.
     if (String(b.kind || '') === 'افکت') continue;
     if (b.slots && b.slots.indexOf(slot) === -1) continue;
+    /* ── زمینه، هرگز شروع یا پایان (۶٫۸۸) ──
+     * دو شبِ پیاپی موسیقیِ آغازِ درس‌نامه یک درونِ گرانولار بود؛ صاحبِ
+     * برنامه شنید «یکی دارد آرام زمزمه می‌کند»، و فردا «سوتِ زودپز».
+     * هیچ سدی نشکسته بود: آن فایل‌ها واقعاً موسیقی‌اند. جایگاهشان را
+     * `musicAutoTag_` از روی **نامِ فایل** حدس زده بود — تابعی که هرگز
+     * صدا را نمی‌شنود — و پیش‌فرضش «شروع، پایان» بود.
+     * سد اینجاست، نه در برچسب: برچسب را همان حدس‌زن می‌نویسد. */
+    if ((slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
     if (!b.sec) continue;
     /* ── کفِ طول ──
      * ۲۴ اوت فایلی سه‌ثانیه‌ای با نامِ «freemusicarchive public domain» وارد
@@ -1491,19 +1520,28 @@ function musicAutoTag_(hub) {
     if (!v[i][MC.ID - 1] || fmt.indexOf('ناسازگار') !== -1 || fmt.indexOf('نیست') !== -1) continue;
     if (String(v[i][MC.MOOD - 1] || '').trim()) continue;      // آدم گفته — دست نزن
     need.push({ row: i + 2, id: String(v[i][MC.ID - 1]),
-                name: String(v[i][MC.NAME - 1] || ''), sec: Number(v[i][MC.SEC - 1]) || 0 });
+                name: String(v[i][MC.NAME - 1] || ''), sec: Number(v[i][MC.SEC - 1]) || 0,
+                heard: String(v[i][MC.HEARD - 1] || '') });
   }
   if (!need.length) return { tagged: 0 };
 
+  /* ── آنچه شنیده شده، مهم‌تر از نامِ فایل است ──
+   * این تابع صدا را نمی‌شنود و نمی‌تواند بشنود؛ فقط نام و مدت دارد. ولی
+   * ستونِ «تأییدِ شنیداری» را کسی پر کرده که **شنیده**. تا ۶٫۸۷ این تابع
+   * آن ستون را اصلاً نمی‌خواند — و به یک درونِ گرانولار جایگاهِ «شروع» داد.
+   */
   var lines = need.map(function (n) {
-    return '• شناسه ' + n.id + ' | نام فایل: «' + n.name + '» | مدت: ' + n.sec + ' ثانیه';
+    return '• شناسه ' + n.id + ' | نام فایل: «' + n.name + '» | مدت: ' + n.sec + ' ثانیه' +
+           (n.heard ? ' | شنیده شده: ' + n.heard : '');
   });
   var prompt = [
     'تو سرپرستِ موسیقیِ یک برنامهٔ رادیوییِ فارسی هستی.',
     'برای هر قطعهٔ زیر، از روی نامِ فایل و مدتش حدس بزن:',
     '  mood: دو تا چهار واژهٔ فارسی برای حال‌وهوا (مثل «آرام، امیدوار» یا «کوبنده، خبری»).',
     '  slots: از میانِ «شروع»، «پایان»، «میانه» — با کاما. قطعهٔ کوتاه‌تر از ۱۵ ثانیه',
-    '         معمولاً «میانه» است؛ قطعهٔ بلند برای «شروع» و «پایان».',
+    '         معمولاً «میانه» است؛ قطعهٔ بلندِ **ملودی‌دار** برای «شروع» و «پایان».',
+    '         اگر در سطرش نوشته «زمینه»، یعنی صدایی کشیده و بی‌ملودی است:',
+    '         فقط «میانه» بده، هرگز «شروع» یا «پایان». برنامه با درون باز نمی‌شود.',
     '  gain: عددی بین ۰٫۳ تا ۱ — قطعهٔ پرهیاهو عددِ کمتر بگیرد.',
     'اگر نامِ فایل چیزی نمی‌گوید، حال‌وهوای خنثی بده؛ از خودت داستان نساز.',
     '', lines.join('\n')
@@ -1524,8 +1562,15 @@ function musicAutoTag_(hub) {
     if (!it) continue;
     var gain = Number(it.gain);
     if (!(gain > 0 && gain <= 1)) gain = 0.8;
+    /* ── پیش‌فرض «شروع، پایان» بود؛ یعنی بدترین پیش‌فرضِ ممکن ──
+     * وقتی مدل چیزی نگفت، قطعه‌ای که هیچ‌کس نمی‌داند چیست، **بازکنندهٔ
+     * برنامه** می‌شد. همان قاعدهٔ همیشگیِ این بخش، که اینجا جا افتاده بود:
+     * شک یعنی نه. جایگاهِ ناشناخته «میانه» است — بی‌ضررترین جا.
+     * و اگر مدل شنیده باشد «زمینه»، حدسِ برچسب‌زن اصلاً وزنی ندارد. */
+    var slots = String(it.slots || '').trim() || 'میانه';
+    if (heardSays_(need[q].heard, 'زمینه')) slots = 'میانه';
     sh.getRange(need[q].row, MC.MOOD).setValue(String(it.mood || '').slice(0, 80));
-    sh.getRange(need[q].row, MC.SLOTS).setValue(String(it.slots || 'شروع، پایان').slice(0, 60));
+    sh.getRange(need[q].row, MC.SLOTS).setValue(slots.slice(0, 60));
     sh.getRange(need[q].row, MC.GAIN).setValue(gain);
     sh.getRange(need[q].row, MC.NOTE).setValue('خودکار — می‌توانید عوضش کنید');
     n++;
@@ -2299,9 +2344,15 @@ function musicApiJson_(url) {
  */
 /* واژه‌های انگلیسیِ پیش‌فرض، اگر نه آرزویی ثبت شده باشد و نه مدل در دسترس
  * باشد. عمداً کوتاه و بی‌طرف — این «هیچ ترجیحی نداریم» است، نه یک سلیقه. */
+/* ══ ما خودمان درون سفارش داده بودیم (۶٫۸۸) ══
+   واژهٔ `ambient` در جست‌وجوی «شروع» بود و `drone` در نگاشتِ حال‌وهوای
+   معنوی. در مجموعه‌های netlabels این دقیقاً همان چیزی را می‌آورد که
+   می‌خواهد: بافت‌های کشیدهٔ بی‌ملودی. بعد سدِ پذیرش می‌پرسید «موسیقی است؟»
+   و جوابش بله بود، چون هست.
+   یعنی زنجیره خراب نبود؛ ما چیزی را سفارش داده بودیم که نمی‌خواستیم. */
 var MUSIC_TERMS_FALLBACK = {
-  'شروع': 'instrumental OR ambient OR piano',
-  'پایان': 'ambient OR calm OR instrumental',
+  'شروع': 'instrumental OR melodic OR piano OR theme',
+  'پایان': 'instrumental OR melodic OR acoustic OR calm',
   'میانه': 'loop OR interlude OR short'
 };
 
@@ -2311,7 +2362,7 @@ var MUSIC_TERMS_FALLBACK = {
 var MUSIC_MOOD_HINTS = [
   ['طنز|سرگرم|شاد|کمدی', 'upbeat OR playful OR light'],
   ['آموزش|شمرده|درس|علمی|فلسف', 'calm OR minimal OR contemplative'],
-  ['مذهب|معنوی|عرفان', 'meditative OR ambient OR drone'],
+  ['مذهب|معنوی|عرفان', 'meditative OR choral OR harp'],
   ['خبر|سیاس|هشدار', 'tense OR serious OR cinematic'],
   ['نوستالژ|احساس|غم', 'melancholic OR nostalgic OR piano'],
   ['اجتماع|سبک زندگی|روزمره', 'warm OR acoustic OR mellow'],
@@ -2363,6 +2414,10 @@ function musicSeekTerms_(slot) {
         '\n\nسه تا پنج واژهٔ انگلیسیِ جست‌وجو بده که در آرشیوِ موسیقیِ آزاد،' +
         ' قطعهٔ سازیِ متناسب با این حال‌وهوا را پیدا کند. فقط صفتِ حال‌وهوا و نامِ ساز' +
         ' و سبک — نه نامِ خواننده، نه واژه‌ای که به گفتار بخورد (مثل talk یا intro).' +
+        (slot === 'میانه' ? '' :
+         ' قطعه باید **ملودی یا ضرب** داشته باشد؛ واژه‌هایی مثل drone، ambient،' +
+         ' noise، texture و field recording نده — آن‌ها صدای کشیدهٔ بی‌ملودی' +
+         ' می‌آورند که برنامه را نمی‌شود با آن باز کرد.') +
         ' با OR جدا کن. فقط همان رشته را برگردان.',
         { type: 'object', properties: { terms: { type: 'string' } }, required: ['terms'] },
         256);
@@ -2370,6 +2425,8 @@ function musicSeekTerms_(slot) {
       // «intro/talk/…» حتی اگر مدل بدهد پذیرفته نمی‌شود — همان واژه‌ای که
       // ۵٫۵۶ را به مناظرهٔ آقای برنز رساند.
       t = t.replace(/\b(intro|talk|speech|remarks|lecture|interview|podcast|opening)\b/gi, '')
+           .replace(slot === 'میانه' ? /(?!)/ :
+                    /\b(drone|ambient|noise|texture|soundscape|field[- ]?recording|granular)\b/gi, '')
            .replace(/\s*OR\s*OR\s*/gi, ' OR ').replace(/^\s*OR\s*|\s*OR\s*$/gi, '').trim();
       if (t.length > 3 && /^[\x20-\x7E]+$/.test(t)) return t;
     } catch (e) {}
@@ -2394,8 +2451,14 @@ function musicSeekQuery_(slot, terms) {
    */
   var t = String(terms || '').trim() || MUSIC_TERMS_FALLBACK[slot] ||
           MUSIC_TERMS_FALLBACK['شروع'];
+  /* ── و آنچه نمی‌خواهیم، صریح گفته می‌شود (۶٫۸۸) ──
+   * `netlabels` انبارِ موسیقیِ آزاد است و بخشِ بزرگی از آن drone و
+   * experimental. برای «میانه» اشکالی ندارد؛ برای شروع و پایان، همان
+   * چیزی است که دو شب پیاپی قسمت را با زمزمهٔ کشیده باز کرد. */
+  var no = (slot === 'میانه') ? '' :
+    ' AND NOT (drone OR ambient OR noise OR soundscape OR "field recording" OR granular)';
   return 'collection:(netlabels OR audio_music) AND format:(WAVE) AND ' +
-         'licenseurl:(*creativecommons* OR *publicdomain*) AND (' + t + ')';
+         'licenseurl:(*creativecommons* OR *publicdomain*) AND (' + t + ')' + no;
 }
 
 /**
@@ -2885,7 +2948,17 @@ function musicRecheck_(hub, opt) {
     todo = todo.filter(function (f2) {
       var row = known[f2.getId()];
       if (!row) return true;                       // هنوز در تب ننشسته
-      return !heardSays_(row.heard, 'موسیقی') && !heardSays_(row.heard, 'جلوه');
+      /* ══ داوریِ کهنه هم «نامعلوم» است (۶٫۸۸) ══
+         تا ۶٫۸۷ جوابِ مدل فقط «موسیقی/جلوه/گفتار» بود، و «موسیقی» به
+         سؤالی که حالا می‌پرسیم — «این می‌تواند برنامه را باز کند؟» —
+         جواب نمی‌دهد. پس هر ردیفی که با آن واژهٔ درشت مهر خورده، دوباره
+         در صف می‌نشیند و همین سازوکارِ موجود (سقفِ شبانه و بودجهٔ زمان)
+         بانکِ فعلی را کم‌کم بازداوری می‌کند.
+         بی این، «زمزمهٔ آکوستیک» تا ابد ✅ می‌مانْد و هر شب یک قسمت را
+         باز می‌کرد. */
+      if (heardSays_(row.heard, 'جلوه')) return false;
+      if (heardSays_(row.heard, 'آهنگ') || heardSays_(row.heard, 'زمینه')) return false;
+      return true;
     });
     // افکت‌ها اول: تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد
     todo.sort(function (a, c) {
@@ -3537,8 +3610,11 @@ function musicListen_(b, info, name) {
               textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
     var payload = { contents: [{ role: 'user', parts: [
       { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست پخش شود.\n\n' +
-              'فقط یکی از این چهار واژه را برگردان، بی هیچ توضیحی:\n' +
-              '«موسیقی» — اگر ساز یا آهنگ است.\n' +
+              'فقط یکی از این پنج واژه را برگردان، بی هیچ توضیحی:\n' +
+              '«آهنگ» — موسیقی با ملودی یا ضرب: چیزی که بشود آن را زمزمه کرد و ' +
+              'بشود با آن یک برنامه را شروع یا تمام کرد.\n' +
+              '«زمینه» — صدای کشیده و بی‌ملودی: drone، بافت، پد، غرّشِ یکنواخت، ' +
+              'گرانولار. موسیقی هست ولی نه شروع دارد نه ملودی؛ فقط زیرِ حرف می‌نشیند.\n' +
               '«جلوه» — اگر صدای محیط یا شیء است: باران، شهر، در، قدم، پرنده، زنگ.\n' +
               '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
               '«نامعلوم» — اگر مطمئن نیستی.' },
@@ -3549,7 +3625,16 @@ function musicListen_(b, info, name) {
     var t = String(extractText_(j) || '');
     if (t.indexOf('گفتار') !== -1) return 'گفتار';
     if (t.indexOf('جلوه') !== -1) return 'جلوه';
-    if (t.indexOf('موسیقی') !== -1) return 'موسیقی';
+    /* ══ چرا «موسیقی» دو تا شد (۶٫۸۸) ══
+       دو شبِ پیاپی، موسیقیِ آغازِ درس‌نامه یک درونِ گرانولار بود: صاحبِ
+       برنامه شنید «یک نفر دارد آرام زمزمه می‌کند» و فردایش «سوتِ زودپز».
+       هیچ سدی نشکسته بود — آن فایل‌ها **واقعاً موسیقی‌اند** و همهٔ
+       سنجه‌ها را می‌گذرانند. مشکل این بود که تنها سؤالی که تا امروز
+       پرسیده می‌شد «موسیقی است یا گفتار؟» بود، و هیچ‌کس نپرسید «این
+       می‌تواند یک برنامه را **شروع** کند؟» */
+    if (t.indexOf('زمینه') !== -1) return 'زمینه';
+    if (t.indexOf('آهنگ') !== -1) return 'آهنگ';
+    if (t.indexOf('موسیقی') !== -1) return 'آهنگ';
     /* «نتوانست» تا ۵٫۸۰ بی‌صدا برمی‌گشت، و چون همین «نتوانست» جلوی پخشِ
        هر افکتی را می‌گرفت، مهم‌ترین شکستِ این زنجیره نامرئی‌ترینش بود.
        جوابِ خامِ مدل نوشته می‌شود تا دفعهٔ بعد بشود فهمید چرا. */
@@ -3588,13 +3673,16 @@ function musicAccept_(b, info, name, kind) {
     return { ok: false, sure: true, heard: 'گفتار',
              why: 'مدل گوش داد و گفت گفتار است' };
   }
-  if (heard === 'موسیقی') {
+  if (heard === 'آهنگ' || heard === 'زمینه') {
     if (wantSfx) {
-      return { ok: false, sure: true, heard: 'موسیقی',
+      return { ok: false, sure: true, heard: heard,
                why: 'موسیقی است، نه جلوهٔ صوتی — جای این در بانکِ افکت نیست' };
     }
-    return { ok: true, sure: true, heard: 'موسیقی',
-             why: 'مدل تأیید کرد موسیقی است' };
+    // هر دو وارد بانک می‌شوند. تفاوتشان در **جایگاه** است، نه در پذیرش:
+    // یک زمینه می‌تواند زیرِ یک پل بنشیند، ولی نباید برنامه را باز کند.
+    return { ok: true, sure: true, heard: heard,
+             why: heard === 'آهنگ' ? 'مدل تأیید کرد آهنگ است'
+                                   : 'مدل شنید: زمینهٔ کشیده، بی ملودی — برای شروع/پایان نه' };
   }
   if (heard === 'جلوه') {
     if (!wantSfx) {
