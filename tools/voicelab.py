@@ -90,7 +90,10 @@ ENGINES = {
     },
     "f5": {
         "family": "TTS با کلونینگ",
-        "pip": ["f5-tts"],
+        # بستهٔ دومی برای مسیرِ IPA: راهِ رسمیِ خودِ سازندهٔ چک‌پوینت.
+        # `f5-tts==1.1.22` را خودش پین می‌کند — که همان نسخه‌ای است که
+        # تا امروز با آن کار کرده‌ایم، پس تکرارپذیری هم بالا می‌رود.
+        "pip": ["f5-tts", "persian-ipa-to-speech-f5"],
         "code_license": "MIT (کد)",
         "needs_src": False,
         "persian": "چک‌پوینتِ پایه انگلیسی/چینی است؛ فارسی باید سنجیده شود",
@@ -790,6 +793,117 @@ def saveRep_():
         print("گزارش ذخیره نشد: %s" % str(e)[:200], flush=True)
 
 
+
+def f5ipaRun_(ref, rt, text, out):
+    """
+    مسیرِ IPA — با بستهٔ **خودِ سازندهٔ مدل**، نه با CLIِ عمومیِ f5.
+
+    ══ چرا این تابع نوشته شد: یک اندازه‌گیری، نه یک حدس ══
+
+    اجرای #۱۷ اولین «خیلی بهتر شده بود» را داد و همان‌جا «باز نواقصی هم
+    داشت» را هم. علتش را در بستهٔ رسمیِ همان مدل پیدا کردم
+    (`persian-ipa-to-speech-f5`): آنجا `convert_char_to_pinyin` را عمداً
+    با تابعِ همانی جایگزین می‌کنند، با یادداشتِ «Preserve IPA».
+
+    ما از CLI استفاده می‌کردیم، که آن تابع را همیشه اجرا می‌کند. نتیجه‌اش
+    را روی متنِ آزمونِ خودمان اندازه گرفتم:
+
+        فرستادیم:  … bæɾɾæsiːje mæʔɾefætʃenɒːsiːje ʔedɾɒːk …
+        مدل گرفت:  … bæɾɾæ siː je mæʔɾ efætʃ enɒː siː je ʔ edɾɒːk …
+
+        ۱۳ فاصله → ۲۷ فاصله. چهارده مرزِ واژهٔ ساختگی در یک جملهٔ ۱۱۶
+        نویسه‌ای. یک واژه سه واژه خوانده می‌شود.
+
+    و مهم است که این فقط برای الفبای لاتین/IPA رخ می‌دهد: همان تابع روی
+    متنِ **فارسی** هیچ کاری نمی‌کند (۱۳ فاصله → ۱۳). پس همهٔ اجراهای
+    فارسی‌مان سالم بودند و فقط مسیرِ IPA خراب بود — که دقیقاً همان مسیری
+    است که بهترین نتیجه را داده بود.
+
+    بستهٔ رسمی دو چیزِ دیگر هم می‌کند که CLI نمی‌کند:
+      • هر نویسهٔ IPA را **پیش از تولید** با واژگانِ مدل می‌سنجد و اگر
+        نبود همان‌جا خطا می‌دهد. بیست‌وپنج دقیقه محاسبه برای فهمیدنِ
+        اینکه یک نویسه ناشناخته بوده، گران‌ترین راهِ ممکن است.
+      • به متنِ مرجع فقط یک فاصله می‌افزاید، نه «. » — که کارِ f5 است.
+
+    ══ و متغیرِ دوم: برگردانِ من در برابرِ G2Pِ خودشان ══
+    `fa2latin` را من نوشتم و در برابرِ دو نمونهٔ منتشرشدهٔ خودشان ۶۱٪ و
+    ۸۸٪ هم‌پوشانیِ واژه داشت. یعنی تا چهل درصدِ واژه‌ها ممکن است فرق کند.
+    خودشان `KiaBush/persian-text-to-ipa-byt5` را دارند — مدلی که برای
+    همین کار آموزش دیده. پس هر دو اجرا می‌شوند و کنارِ هم می‌آیند: این
+    تنها راهِ فهمیدنِ اینکه نقصِ باقی‌مانده از برگردان است یا از مدل.
+    """
+    from persian_ipa_to_speech_f5 import PersianIPAToSpeechF5
+
+    ck = str(OPT.get("f5_ckpt") or "").strip()
+    repo = ck if ck and "/" in ck and not ck.endswith((".safetensors", ".pt")) \
+        else "KiaBush/Persian-IPA-to-Speech-F5"
+    nfe = str(OPT.get("f5_nfe") or "").strip()
+    nfe = int(nfe) if nfe.isdigit() else 32
+
+    print("مسیرِ رسمیِ IPA — مخزن: %s" % repo, flush=True)
+    tts = PersianIPAToSpeechF5(model_id=repo, device="cpu")
+
+    # ── دو نسخه از همان متن، از دو مسیرِ برگردان ──
+    faText = OPT.get("text_fa") or ""
+    faRef = OPT.get("ref_text_fa") or ""
+    runs = [("raw", text, rt, "برگردانِ fa2latin — همان که اجرای #۱۷ کرد")]
+    if faText and faRef:
+        try:
+            from persian_ipa_to_speech_f5 import PersianTextToIPA
+            g = PersianTextToIPA(device="cpu")
+            gText, gRef = g.convert(faText), g.convert(faRef)
+            OPT["g2p_compare"] = {
+                "mine_gen": text, "official_gen": gText,
+                "mine_ref": rt, "official_ref": gRef,
+                "same": gText == text,
+            }
+            saveRep_()
+            print("G2Pِ رسمی:\n  %s" % gText[:300], flush=True)
+            if gText != text:
+                runs.append(("g2p", gText, gRef, "G2Pِ آموزش‌دیدهٔ خودِ مدل"))
+            else:
+                OPT["one_run_why"] = ("اجرای دوم نیامد: برگردانِ من و G2Pِ رسمی "
+                                      "نویسه‌به‌نویسه یکی شد.")
+        except Exception as eg:
+            OPT["g2p_error"] = str(eg)[:500]
+            print("G2Pِ رسمی نشد: %s" % str(eg)[:300], flush=True)
+            saveRep_()
+    else:
+        OPT["g2p_error"] = "متنِ فارسیِ اصلی در دسترس نبود (متن یا مرجع)."
+
+    made, variants = None, []
+    for name, gen, rref, why in runs:
+        dst = os.path.join(out, "f5ipa-%s.wav" % name)
+        t1 = time.time()
+        try:
+            tts.synthesize(gen, reference_audio=ref, reference_ipa=rref,
+                           output=dst, nfe_step=nfe, seed=42, verbose=True)
+            took = round(time.time() - t1)
+            info = probe(dst)
+            sec = float(info.get("seconds") or 0)
+            variants.append({
+                "name": name, "why": why, "file": os.path.basename(dst),
+                "ipa_sent": gen[:400], "ref_ipa": rref[:200],
+                "info": info, "seconds_taken": took,
+                "realtime_factor": (round(took / sec, 1) if sec else None),
+            })
+            made = made or dst
+            print("%s: %ss صوت در %ss" % (name, info.get("seconds"), took), flush=True)
+        except Exception as e:
+            # ══ خطای واژگان اینجا **مفید** است، نه شکست ══
+            # بسته پیش از تولید می‌سنجد، پس این پیام نامِ دقیقِ نویسه‌ای
+            # را می‌دهد که برگردانِ من ساخته و مدل نمی‌شناسد — چیزی که با
+            # CLI فقط به‌شکلِ صدای بد شنیده می‌شد.
+            variants.append({"name": name, "why": why, "error": str(e)[:600],
+                             "ipa_sent": gen[:400]})
+            print("%s شکست خورد: %s" % (name, str(e)[:400]), flush=True)
+        OPT["variants"] = variants
+        saveRep_()
+
+    if not made:
+        raise RuntimeError("هیچ‌کدام از اجراهای IPA خروجی نداد")
+    return made
+
 def run_f5(ref, src, text, out):
     """
     ══ چرا این موتور تنها امیدِ واقعیِ باقی‌مانده است ══
@@ -911,6 +1025,7 @@ def run_f5(ref, src, text, out):
     # می‌کند — که هیچ‌جا در آموزشش ندیده.
     alp = str(OPT.get("alphabet") or "fa")
     if alp != "fa" and rt:
+        OPT["ref_text_fa"] = rt
         rt = fa2latin.convert(rt, alp)
         OPT["ref_text_source"] += " · برگردانده به %s" % alp
     OPT["ref_text_final"] = rt
@@ -933,6 +1048,14 @@ def run_f5(ref, src, text, out):
                         "why": "اعراب در واژگان هست" if tashOk else
                                "اعراب در واژگان نیست؛ بی‌اعراب فرستاده شد"}
     saveRep_()
+
+    # ── ۳٫۵. الفبای لاتین؟ پس CLI نه ──
+    # ══ چرا این انشعاب اینجاست و نه یک موتورِ جدا ══
+    # همان مدل، همان وزن‌ها، همان نمونهٔ صدا — فقط راهِ رسیدنِ متن به مدل
+    # فرق می‌کند. اگر موتورِ جدایی می‌ساختم، مقایسه با اجراهای پیشین
+    # می‌شکست و هر دو گزارش شکلِ متفاوتی می‌گرفت.
+    if alp == "ipa":
+        return f5ipaRun_(ref, rt, text, out)
 
     # ── ۴. دو اجرا: تشخیص، و شاهد ──
     # شاهد همان چیزی است که اجرای #۹ کرد (متنِ اعراب‌دار، سرعتِ ۱). بدونِ
@@ -1356,6 +1479,11 @@ def main():
     # دقیقاً همان مدل‌هایی که این ایده برایشان طرح شده.
     if a.alphabet != "fa":
         cov = fa2latin.coverage(a.text)
+        # ══ اصل را نگه دار ══
+        # برگردانِ من یک حدس است؛ خودِ مدل G2Pِ آموزش‌دیدهٔ خودش را دارد
+        # (`KiaBush/persian-text-to-ipa-byt5`) و ورودیِ آن **فارسی** است.
+        # اگر اینجا اصل را دور بیندازم، دیگر نمی‌شود آن دو را سنجید.
+        OPT["text_fa"] = a.text
         a.text = fa2latin.convert(a.text, a.alphabet)
         OPT["alphabet_note"] = {"mode": a.alphabet, "coverage": cov,
                                 "sent": a.text[:400]}

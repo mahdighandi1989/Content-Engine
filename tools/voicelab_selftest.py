@@ -471,6 +471,68 @@ def main():
     for name in named:
         eq(name in V.ENGINES, True, "«همه» موتورِ موجود صدا می‌زند: %s" % name)
 
+    # ══ ۱۰ — مسیرِ IPA هرگز از CLI نمی‌گذرد ══
+    # اندازه‌گیریِ قطعی روی متنِ آزمونِ خودمان: `convert_char_to_pinyin`
+    # که CLI همیشه اجرا می‌کند، IPA را از ۱۳ فاصله به ۲۷ فاصله می‌بَرد —
+    # «bæɾɾæsiːje» می‌شود «bæɾɾæ siː je». روی متنِ **فارسی** هیچ کاری
+    # نمی‌کند (۱۳ → ۱۳)، پس فقط همان مسیری خراب بود که بهترین نتیجه را
+    # داده بود. بستهٔ رسمیِ خودِ سازنده آن تابع را کنار می‌گذارد.
+    # این آزمون قراردادِ اصلاح را نگه می‌دارد: با الفبای ipa، هیچ فرمانی
+    # به f5-tts_infer-cli نمی‌رود.
+    print("۱۰ — مسیرِ IPA از بستهٔ رسمی می‌گذرد، نه CLI")
+    w3 = tempfile.mkdtemp()
+    synths, cmds = [], []
+
+    class FakeTTS(object):
+        def __init__(self, model_id=None, device=None):
+            self.model_id = model_id
+
+        def synthesize(self, ipa, reference_audio=None, reference_ipa=None,
+                       output=None, **kw):
+            synths.append({"ipa": ipa, "ref": reference_ipa, "out": str(output)})
+            wav(str(output), 6.0)
+            return output
+
+    class FakeG2P(object):
+        def __init__(self, device=None):
+            pass
+
+        def convert(self, t, **kw):
+            return "ɡ2pː " + t[:20]
+
+    pk = types.ModuleType("persian_ipa_to_speech_f5")
+    pk.PersianIPAToSpeechF5 = FakeTTS
+    pk.PersianTextToIPA = FakeG2P
+    sys.modules["persian_ipa_to_speech_f5"] = pk
+
+    realSh3, realCut3 = V.sh, V.cutAtPause_
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 10.0), 10.0, 5)
+    V.sh = lambda cmd, **kw: (cmds.append(cmd), R())[-1]
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "f5"}; V.OPT["_out"] = w3
+        V.OPT["alphabet"] = "ipa"
+        V.OPT["f5_ckpt"] = "KiaBush/Persian-IPA-to-Speech-F5"
+        V.OPT["f5_vocab"] = ""; V.OPT["f5_nfe"] = "32"
+        V.OPT["f5_ref_text"] = "متنِ مرجع"
+        V.OPT["text_fa"] = txt
+        made3 = V.run_f5(wav(os.path.join(w3, "r.wav"), 30.0), "",
+                         "dæɾ bæɾɾæsiːje mæʔɾefætʃenɒːsiː", w3)
+        rep4 = json.load(io.open(os.path.join(w3, "report-f5.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.sh, V.cutAtPause_ = realSh3, realCut3
+
+    eq([c for c in cmds if c and str(c[0]).endswith("f5-tts_infer-cli")], [],
+       "هیچ فرمانی به CLI نرفت — وگرنه IPA دوباره تکه‌تکه می‌شد")
+    eq(len(synths), 2, "دو اجرا: برگردانِ من، و G2Pِ رسمی")
+    eq(synths[0]["ipa"].startswith("dæɾ"), True, "اولی همان برگردانِ ماست")
+    eq(synths[1]["ipa"].startswith("ɡ2pː"), True, "دومی از G2Pِ خودِ مدل آمد")
+    eq(rep4["g2p_compare"]["same"], False,
+       "و تفاوتِ دو برگردان ثبت می‌شود — تنها راهِ فهمیدنِ اینکه نقص از کدام است")
+    eq(os.path.basename(made3), "f5ipa-raw.wav", "خروجیِ برگشتی درست است")
+    V.OPT.clear()
+
     print("\nهمه گذشت.")
     return 0
 
