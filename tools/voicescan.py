@@ -25,6 +25,7 @@ import json, os, sys, urllib.parse, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import voicelab as V
+import fa2latin
 
 API = "https://huggingface.co/api/models"
 
@@ -66,7 +67,10 @@ CANDIDATES = [
 
 
 def tree(repo):
-    url = "https://huggingface.co/api/models/%s/tree/main" % repo
+    # `recursive=true` لازم است: بی آن، `examples/` فقط یک مدخلِ «پوشه»
+    # است و فایل‌های داخلش اصلاً دیده نمی‌شوند — و ما دقیقاً دنبالِ
+    # `examples/metadata.json` بودیم و گزارش گفت «نیست».
+    url = "https://huggingface.co/api/models/%s/tree/main?recursive=true" % repo
     req = urllib.request.Request(url, headers={"User-Agent": "content-engine-voicelab"})
     with urllib.request.urlopen(req, timeout=45) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -162,12 +166,26 @@ def main():
     #
     # و اینجا انجام می‌شود نه در کارِ سنگین، چون این کار همیشه تمام می‌شود:
     # اجرای #۹ سرِ سقفِ زمان لغو شد و هیچ تشخیصی به دست نیامد.
+    # ══ واژگانِ **هر** نامزدی که vocab.txt دارد ══
+    # تا اجرای #۱۵ فقط چک‌پوینتی سنجیده می‌شد که در فرم نوشته شده بود. یعنی
+    # ارزان‌ترین و قطعی‌ترین سنجهٔ این ابزار، به یاد ماندنِ یک خانهٔ فرم بند
+    # بود — و آن اجرا با خانهٔ خالی رفت و هیچ ممیزی‌ای نشد.
+    txt = os.environ.get("LAB_TEXT") or V.DEFAULT_TEXT
+    todo = []
     ck = (os.environ.get("F5_CKPT") or "").strip()
     if ck:
-        got, vo = V.f5Resolve_(ck, (os.environ.get("F5_VOCAB") or "").strip())
-        txt = os.environ.get("LAB_TEXT") or V.DEFAULT_TEXT
-        aud = V.vocabAudit_(vo, {"با اعراب": txt, "بی اعراب": V.noTash_(txt)})
-        out["vocab_audit"] = {"ckpt": got, "vocab": vo, "audit": aud}
+        todo.append(ck)
+    for row in out.get("candidates", []):
+        rid = row.get("id")
+        if rid and rid not in todo and any(
+                f["path"].endswith("vocab.txt") for f in row.get("files", [])):
+            todo.append(rid)
+    out["vocab_audit"] = []
+    for ck in todo:
+        got, vo = V.f5Resolve_(ck, "")
+        aud = V.vocabAudit_(vo, {"با اعراب": txt, "بی اعراب": V.noTash_(txt),
+                                 "IPA": fa2latin.convert(txt, "ipa")})
+        out["vocab_audit"].append({"ckpt": got, "vocab": vo, "audit": aud})
         print("## واژگانِ `%s`\n" % ck)
         if not aud.get("ok"):
             print("خوانده نشد: %s\n" % (aud.get("error") or aud.get("note") or "—"))
