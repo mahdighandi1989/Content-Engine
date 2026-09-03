@@ -166,6 +166,153 @@ def to_wav(src, dst, seconds=None, rate=24000):
     return dst
 
 
+def frames_(path, win=0.02):
+    """قاب‌بندیِ RMS. audioop اگر بود (سریع، C)، وگرنه پایتونِ خالص."""
+    import wave, array, math
+    w = wave.open(path, "rb")
+    rate, n = w.getframerate(), w.getnframes()
+    raw = w.readframes(n)
+    w.close()
+    N = int(rate * win) * 2          # ۲ بایت بر نمونه
+    out = []
+    try:
+        import audioop
+        for i in range(0, len(raw) - N, N):
+            out.append(audioop.rms(raw[i:i + N], 2))
+    except Exception:
+        a = array.array("h"); a.frombytes(raw)
+        M = N // 2
+        for i in range(0, len(a) - M, M):
+            t = 0
+            for x in a[i:i + M]:
+                t += x * x
+            out.append(math.sqrt(t / M))
+    return out, win, rate, n / float(rate)
+
+
+def refScore_(path):
+    """
+    یک نمونهٔ صدا چقدر برای کلونینگ خوب است — و کجایش.
+
+    ══ چرا سنجیدن، نه شنیدن ══
+    سه فایل رسید و سؤال «کدام؟» است. من نمی‌توانم بشنوم و صاحبِ برنامه
+    هم نمی‌داند مدل به چه حساس است. ولی سه چیزی که تعیین‌کننده‌اند، عدد
+    دارند:
+
+    ۱) **کفِ سکوت.** در گفتارِ تمیز، مکث‌ها به سکوتِ واقعی می‌رسند. اگر
+       زیرِ صدا موسیقی یا فضاسازی باشد، کف هرگز پایین نمی‌آید. مدل آن
+       بستر را هم بخشی از «صدای گوینده» می‌گیرد و در خروجی بازتولیدش
+       می‌کند — یعنی یک نمونهٔ موزیک‌دار، هر قسمت را آلوده می‌کند. این
+       تنها معیارِ **ردکننده** است، نه ترجیحی.
+
+    ۲) **مکث‌ها.** `cutAtPause_` باید جایی برای بریدن داشته باشد، و خودِ
+       f5 هم نمونه را سرِ سکوت می‌شکند. پنجره‌ای بی هیچ مکث، یعنی برشِ
+       کور.
+
+    ۳) **پیوستگیِ تراز.** اگر بلندیِ صدا در پنجره بالا و پایین بپرد
+       (تدوین، دو راوی، جلوه)، مدل میانگینِ چیزی را می‌گیرد که وجود ندارد.
+
+    خروجی: بهترین پنجرهٔ سی‌ثانیه‌ای و نمرهٔ آن، با دلیل — تا انتخاب قابلِ
+    بازبینی باشد، نه یک عددِ سربسته.
+    """
+    import math
+    rms, win, rate, dur = frames_(path)
+    if not rms:
+        return {"error": "قاب‌بندی نشد", "score": -99}
+    db = [20 * math.log10((v or 1e-9) / 32768.0) for v in rms]
+    peak = max(db)
+    quiet = sorted(db)[:max(1, len(db) // 10)]
+    floor = sum(quiet) / len(quiet) - peak      # کفِ سکوت نسبت به بلندترین
+    thr = peak - 32
+
+    def window(a, b):
+        seg = db[a:b]
+        voiced = [d > thr for d in seg]
+        if not voiced:
+            return None
+        pauses, run = [], 0
+        for v in voiced:
+            if not v:
+                run += 1
+            else:
+                if run:
+                    pauses.append(run * win)
+                run = 0
+        if run:
+            pauses.append(run * win)
+        good = [p for p in pauses if 0.35 <= p <= 2.0]
+        dead = [p for p in pauses if p > 2.5]
+        lv = [d for d, v in zip(seg, voiced) if v]
+        spread = (max(lv) - min(lv)) if lv else 99
+        frac = sum(voiced) / float(len(voiced))
+        sc = 0.0
+        sc += min(len(good), 8) * 3.0                     # مکثِ قابلِ برش
+        sc -= len(dead) * 6.0                             # سکوتِ مرده
+        sc -= abs(frac - 0.66) * 40.0                     # نه پُرگو، نه خالی
+        sc -= max(0.0, spread - 24.0) * 0.8               # ترازِ ناپیوسته
+        return {"score": round(sc, 1), "speech_pct": round(100 * frac),
+                "pauses": len(good), "dead": len(dead),
+                "level_spread_db": round(spread, 1)}
+
+    W = int(30.0 / win)
+    best, bestAt = None, 0.0
+    step = int(5.0 / win)
+    for a in range(0, max(1, len(db) - W), step):
+        r = window(a, a + W)
+        if r and (best is None or r["score"] > best["score"]):
+            best, bestAt = r, a * win
+    if best is None:
+        best, bestAt = window(0, len(db)) or {"score": -99}, 0.0
+    # کفِ سکوت به کلِ فایل مربوط است، نه به پنجره: موسیقیِ زمینه همه‌جا هست.
+    best["floor_db"] = round(floor, 1)
+    best["at_second"] = round(bestAt, 1)
+    best["duration"] = round(dur, 1)
+    best["rate"] = rate
+    if floor > -34:
+        best["score"] -= 40
+        best["reject"] = ("کفِ سکوت %.0f دسی‌بل است — یعنی زیرِ گفتار چیزی "
+                          "هست (موسیقی/فضاسازی). مدل آن را هم صدای گوینده "
+                          "می‌گیرد." % floor)
+    return best
+
+
+def refAudition_(paths, out, seconds):
+    """
+    از میانِ نمونه‌ها یکی را انتخاب کن، و از داخلش بهترین پنجره را.
+
+    یک نمونه هم که باشد، همین مسیر می‌رود — چون «کجای فایل» به‌اندازهٔ
+    «کدام فایل» مهم است و تا امروز همیشه از ثانیهٔ صفر برمی‌داشتیم، که
+    هیچ دلیلی نداشت جز اینکه اولین جا بود.
+    """
+    rows = []
+    for i, src in enumerate(paths):
+        full = os.path.join(out, "cand%d.wav" % (i + 1))
+        try:
+            to_wav(src, full)
+            r = refScore_(full)
+        except Exception as e:
+            r = {"error": str(e)[:200], "score": -99}
+        r["file"] = os.path.basename(src)
+        r["_full"] = full
+        rows.append(r)
+        print("نمونهٔ %d (%s): %s" % (i + 1, r["file"],
+              json.dumps({k: v for k, v in r.items() if not k.startswith("_")},
+                         ensure_ascii=False)), flush=True)
+    rows.sort(key=lambda x: -x.get("score", -99))
+    win = rows[0]
+    dst = os.path.join(out, "reference.wav")
+    f = ffmpeg()
+    r = sh([f, "-y", "-ss", "%.2f" % win.get("at_second", 0), "-i", win["_full"],
+            "-t", str(seconds), "-c", "copy", dst], capture_output=True)
+    if r.returncode != 0:
+        to_wav(win["_full"], dst, seconds=seconds)
+    for x in rows:
+        x.pop("_full", None)
+    OPT["audition"] = {"chosen": win.get("file"), "at_second": win.get("at_second"),
+                       "all": rows}
+    return dst
+
+
 def cutAtPause_(src, dst, max_sec=11.5, min_sec=4.0):
     """
     برشِ نمونه سرِ یک **مکث**، زیرِ سقفِ دوازده‌ثانیه‌ایِ f5.
@@ -497,7 +644,8 @@ def saveRep_():
     if not isinstance(rep, dict) or not out:
         return
     for k in ("resolved", "variants", "ref_cut", "ref_used", "vocab_audit",
-              "speed_fit", "ref_text_source", "ref_text_final", "alphabet_note"):
+              "speed_fit", "ref_text_source", "ref_text_final", "alphabet_note",
+              "audition"):
         if OPT.get(k) is not None:
             rep[k] = OPT[k]
     if OPT.get("heard") is not None:
@@ -737,7 +885,11 @@ OPT = {}
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--engine", required=True, choices=sorted(ENGINES))
-    ap.add_argument("--ref", required=True, help="نمونهٔ صدای گوینده")
+    # ══ چند نمونه، نه یکی ══
+    # سه فایل رسید و «کدام؟» سؤالی است که با شنیدن جواب داده نمی‌شود وقتی
+    # معیارها عددی‌اند. پس همه را بده؛ خودش می‌سنجد و انتخاب می‌کند.
+    ap.add_argument("--ref", required=True, action="append",
+                    help="نمونهٔ صدای گوینده (چند بار قابلِ تکرار)")
     ap.add_argument("--src", default="", help="صوتِ فارسیِ Gemini (برای تبدیلِ صدا)")
     ap.add_argument("--text", default=DEFAULT_TEXT)
     ap.add_argument("--out", default="voicelab-out")
@@ -790,7 +942,7 @@ def main():
     saveRep_()
 
     # ── آماده‌سازیِ نمونه ──
-    ref = to_wav(a.ref, os.path.join(a.out, "reference.wav"), seconds=a.ref_seconds)
+    ref = refAudition_(a.ref, a.out, a.ref_seconds)
     rep["reference"] = probe(ref)
     src = ""
     if a.src:

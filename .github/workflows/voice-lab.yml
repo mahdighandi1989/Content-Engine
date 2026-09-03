@@ -24,8 +24,13 @@ on:
         default: all
         type: choice
         options: [all, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+      # ══ چند نمونه با کاما ══
+      # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
+      # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ
+      # تراز. همه را بدهید؛ آزمایشگاه می‌سنجد، بهترین را و **بهترین
+      # پنجرهٔ داخلش** را برمی‌دارد، و دلیلش را در گزارش می‌نویسد.
       ref_id:
-        description: 'شناسهٔ فایلِ درایو — نمونهٔ صدای گوینده'
+        description: 'شناسهٔ فایلِ درایو — یک یا چند نمونهٔ صدا، با کاما'
         required: true
         type: string
       src_id:
@@ -296,14 +301,25 @@ jobs:
           }
           # و کمی پخش‌کردنِ شروع، تا پنج کار هم‌زمان به درایو نزنند.
           sleep $(( (RANDOM % 20) ))
-          dl "$REF_ID" ref.input
-          # فایلی که خصوصی مانده باشد، HTML برمی‌گرداند نه صوت. این را همان
-          # اول می‌گیریم تا خطا در نصبِ مدل گم نشود.
-          if file ref.input | grep -qi 'html\|ascii'; then
-            echo "::error::فایلِ نمونه خصوصی است. در درایو «هرکس با لینک: بیننده» کنید."
-            head -c 300 ref.input; exit 1
-          fi
-          ls -l ref.input
+          # بدونِ لوله: `while` در لولهٔ پوسته زیرْپوسته است و exitاش به
+          # اینجا نمی‌رسد — یعنی نمونهٔ دومِ خصوصی بی سروصدا رد می‌شد و
+          # اجرا با فایلِ کم جلو می‌رفت.
+          i=0
+          IFS=','
+          for id in $REF_ID; do
+            id="$(echo "$id" | tr -d '[:space:]')"
+            if [ -z "$id" ]; then continue; fi
+            i=$((i + 1))
+            dl "$id" "ref$i.input"
+            # فایلی که خصوصی مانده باشد، HTML برمی‌گرداند نه صوت. این را همان
+            # اول می‌گیریم تا خطا در نصبِ مدل گم نشود.
+            if file "ref$i.input" | grep -qi 'html\|ascii'; then
+              echo "::error::فایلِ $id خصوصی است. در درایو «هرکس با لینک: بیننده» کنید."
+              head -c 300 "ref$i.input"; exit 1
+            fi
+            ls -l "ref$i.input"
+          done
+          unset IFS
           if [ -n "${SRC_ID}" ]; then
             dl "$SRC_ID" src.input
             if file src.input | grep -qi 'html\|ascii'; then
@@ -326,7 +342,10 @@ jobs:
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
           # جمله کدِ ۱ می‌دهد و پوسته همان‌جا می‌میرد. یعنی اجرا بدونِ src
           # (که حالتِ عادیِ موتورهای TTS است) پیش از شروع شکست می‌خورد.
-          ARGS=(--engine "${{ matrix.engine }}" --ref ref.input --out voicelab-out)
+          ARGS=(--engine "${{ matrix.engine }}" --out voicelab-out)
+          for f in ref1.input ref2.input ref3.input ref4.input ref5.input; do
+            if [ -f "$f" ]; then ARGS+=(--ref "$f"); fi
+          done
           if [ -f src.input ]; then ARGS+=(--src src.input); fi
           if [ -n "${LAB_TEXT}" ]; then ARGS+=(--text "${LAB_TEXT}"); fi
           if [ -n "${F5_CKPT}" ];  then ARGS+=(--f5-ckpt  "${F5_CKPT}");  fi

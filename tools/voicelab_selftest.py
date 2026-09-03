@@ -165,6 +165,41 @@ def main():
        "بودجهٔ پیش‌بینی‌شده ثبت می‌شود تا با طولِ واقعی سنجیده شود")
     V.OPT.clear()
 
+    # ══ انتخابِ نمونه: تنها معیارِ ردکننده باید واقعاً رد کند ══
+    # موسیقیِ زیرِ گفتار در نمونه، در **هر** قسمتِ تولیدشده بازتولید
+    # می‌شود. یک نمونهٔ خوش‌آهنگِ موزیک‌دار بدترین انتخابِ ممکن است، و
+    # گوش آن را «باکیفیت» می‌شنود.
+    print("۶ — سنجشِ نمونهٔ صدا")
+    import wave as _w, struct as _s, math as _m
+    d2 = tempfile.mkdtemp()
+
+    def synth(path, bed=0.0, rate=24000, sec=30.0):
+        """گفتارِ ساختگی: بلوک‌های صدا با مکث میانشان، به‌اضافهٔ بسترِ دلخواه."""
+        n = int(rate * sec)
+        out = []
+        for i in range(n):
+            t = i / float(rate)
+            on = (t % 2.2) < 1.6                      # ۱٫۶ ثانیه حرف، ۰٫۶ مکث
+            v = 0.0
+            if on:
+                v += 0.30 * _m.sin(2 * _m.pi * 180 * t) * (1 + 0.5 * _m.sin(2 * _m.pi * 7 * t))
+            v += bed * _m.sin(2 * _m.pi * 220 * t)
+            out.append(max(-32767, min(32767, int(v * 32767))))
+        f = _w.open(path, "wb")
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(rate)
+        f.writeframes(_s.pack("<%dh" % n, *out)); f.close()
+        return path
+
+    clean = V.refScore_(synth(os.path.join(d2, "clean.wav")))
+    beded = V.refScore_(synth(os.path.join(d2, "bed.wav"), bed=0.05))
+    eq(clean["floor_db"] < -40, True,
+       "گفتارِ تمیز: کفِ سکوت پایین است (%.0f dB)" % clean["floor_db"])
+    eq("reject" in clean, False, "و رد نمی‌شود")
+    eq("reject" in beded, True,
+       "نمونهٔ موزیک‌دار رد می‌شود (کف %.0f dB)" % beded["floor_db"])
+    eq(clean["score"] > beded["score"], True, "و نمرهٔ تمیز بالاتر است")
+    eq(clean["pauses"] > 0, True, "مکث‌های قابلِ برش شمرده می‌شوند")
+
     print("\nهمه گذشت.")
     return 0
 
