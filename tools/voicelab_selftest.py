@@ -163,6 +163,24 @@ def main():
 
     eq(os.path.basename(made), "f5-fit.wav", "خروجیِ برگشتی همان فایلِ اصلاح‌شده است")
     eq(len(seen), 2, "دو اجرا: تشخیص و شاهد")
+
+    # ══ و وقتی شاهد با تشخیص یکی است، دو بار اجرا نمی‌شود ══
+    # `is not` هویت را می‌سنجد نه مقدار را: در حالتِ ipa دو رشتهٔ برابر ولی
+    # جدا ساخته می‌شد و شاهدی اجرا می‌شد که هیچ متغیری را نمی‌سنجید —
+    # ۲۵ دقیقه محاسبه، و دو فایل که تفاوتشان فقط تصادفِ نمونه‌برداری بود.
+    seen2 = []
+    V.sh = lambda cmd, **kw: (seen2.append(cmd), wav(os.path.join(
+        cmd[cmd.index("--output_dir") + 1], cmd[cmd.index("--output_file") + 1]), 5.0), R())[-1]
+    V.OPT.clear()
+    V.OPT["_rep"] = {"engine": "f5"}; V.OPT["_out"] = w
+    V.OPT["f5_ckpt"] = "hf://kasi/mokhzan/model.safetensors"
+    V.OPT["f5_vocab"] = yes; V.OPT["f5_ref_text"] = "متن مرجع"; V.OPT["f5_nfe"] = "32"
+    V.run_f5(ref, "", V.noTash_(txt), w)      # متنی که بی‌اعرابش خودش است
+    # فقط فراخوانِ خودِ f5 شمرده می‌شود؛ برشِ نمونه هم `sh` صدا می‌زند.
+    gen2 = [c for c in seen2 if c and str(c[0]).endswith("f5-tts_infer-cli")]
+    eq(len(gen2), 1, "یک اجرا، چون شاهد با تشخیص مو‌به‌مو یکی می‌شد")
+    eq("one_run_why" in V.OPT, True, "و دلیلش در گزارش نوشته می‌شود")
+
     eq(seen[0][seen[0].index("--speed") + 1], "1.244",
        "بودجهٔ زمان با نسبتِ اعراب اصلاح می‌شود")
     eq(seen[1][seen[1].index("--speed") + 1], "1.000", "و شاهد دست‌نخورده می‌مانَد")

@@ -739,7 +739,7 @@ def saveRep_():
         return
     for k in ("resolved", "variants", "ref_cut", "ref_used", "vocab_audit",
               "speed_fit", "ref_text_source", "ref_text_final", "alphabet_note",
-              "audition", "ref_text_warning"):
+              "audition", "ref_text_warning", "one_run_why"):
         if OPT.get(k) is not None:
             rep[k] = OPT[k]
     if OPT.get("heard") is not None:
@@ -899,9 +899,21 @@ def run_f5(ref, src, text, out):
     # ── ۴. دو اجرا: تشخیص، و شاهد ──
     # شاهد همان چیزی است که اجرای #۹ کرد (متنِ اعراب‌دار، سرعتِ ۱). بدونِ
     # شاهد، «بهتر شد» فقط یک احساس است.
-    runs = [(("fit"), sendText, fit, "متن و بودجهٔ زمانِ اصلاح‌شده")]
-    if sendText is not text or abs(fit - 1.0) > 0.02:
+    # ══ `is` هویت را می‌سنجد، نه مقدار را (اجرای #۱۷) ══
+    # در حالتِ ipa، متن پیش از رسیدن به اینجا به IPA برگردانده شده و
+    # `noTash_` روی IPA چیزی عوض نمی‌کند — پس دو رشته **برابر**اند ولی دو
+    # شیء جدا. شرطِ `is not` این را «فرق دارند» خواند و شاهدی ساخت که
+    # واژه‌به‌واژه و سرعت‌به‌سرعت همان اجرای اول بود: ۲۵ دقیقه محاسبه برای
+    # چیزی که هیچ متغیری را نمی‌سنجید.
+    # و بدتر از هدررفتِ وقت: صاحبِ برنامه دو فایل شنید و یکی را بهتر یافت،
+    # در حالی که تفاوتشان فقط تصادفِ نمونه‌برداری بود — یعنی آزمایش داشت
+    # به یک نتیجهٔ کاذب هدایت می‌شد.
+    runs = [("fit", sendText, fit, "متن و بودجهٔ زمانِ اصلاح‌شده")]
+    if sendText != text or abs(fit - 1.0) > 0.02:
         runs.append(("asis", text, 1.0, "همان که اجرای پیشین کرد — شاهد"))
+    else:
+        OPT["one_run_why"] = ("شاهد اجرا نشد: با این تنظیم، متن و سرعتِ شاهد "
+                              "دقیقاً همان اجرای اول می‌شد.")
     made, notes = None, []
     for name, txt, spd, why in runs:
         fn = "f5-%s.wav" % name
