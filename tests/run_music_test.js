@@ -551,4 +551,60 @@ console.log('=== ۱۲) موسیقیِ میانه سرِ مرزِ بخش‌ها،
   if (listed) throw new Error('sidecar catalogued as a broken track');
 }
 
+// ۶٫۸۷ — WAVِ اعشاری (IEEE float) دیگر رد نمی‌شود، درست خوانده می‌شود
+console.log('\n=== ۱۳. WAVِ اعشاری (IEEE float) ===');
+{
+  function floatBytesLE_(v) {
+    const buf = new ArrayBuffer(4);
+    new DataView(buf).setFloat32(0, v, true);
+    return Array.from(new Uint8Array(buf)).map(x => x > 127 ? x - 256 : x);
+  }
+  function mkWavFloat(rate, ch, seconds, sampleAt) {
+    const frames = Math.floor(rate * seconds);
+    const bps = 4, dataLen = frames * ch * bps;
+    const b = [];
+    const str = s => { for (const c of s) b.push(c.charCodeAt(0)); };
+    const u32 = v => b.push(v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255);
+    const u16 = v => b.push(v & 255, (v >>> 8) & 255);
+    str('RIFF'); u32(36 + dataLen); str('WAVE');
+    str('fmt '); u32(16); u16(3); u16(ch); u32(rate);   // فرمتِ ۳ = اعشاریِ IEEE
+    u32(rate * ch * bps); u16(ch * bps); u16(32);
+    str('data'); u32(dataLen);
+    for (let f = 0; f < frames; f++) {
+      for (let c = 0; c < ch; c++) b.push(...floatBytesLE_(sampleAt(f, c)));
+    }
+    return b;
+  }
+
+  const info = wavInfo_(mkWavFloat(44100, 1, 0.1, () => 0.5));
+  ok('۱۳.۱ فرمت و عمق درست خوانده شد', info.format === 3 && info.bits === 32);
+  ok('۱۳.۲ اعشاری شناخته می‌شود', wavIsFloat32_(info) === true);
+  ok('۱۳.۳ PCMِ صحیح حساب نمی‌شود', wavIsPcm_(info) === false);
+  ok('۱۳.۴ ولی خواندنی است', wavReadable_(info) === true);
+
+  const w = mkWavFloat(44100, 1, 1, () => 0.5);
+  const s = musicSamples_(w, wavInfo_(w), 0, 1);
+  const mid = s[Math.floor(s.length / 2)];
+  ok('۱۳.۵ نمونهٔ ۰٫۵ به مقیاسِ PCM رسید (≈۱۶۳۸۴)', Math.abs(mid - 16384) < 50, mid + '');
+
+  const wNeg = mkWavFloat(44100, 1, 1, () => -1);
+  const sNeg = musicSamples_(wNeg, wavInfo_(wNeg), 0, 1);
+  const midNeg = sNeg[Math.floor(sNeg.length / 2)];
+  ok('۱۳.۶ نمونهٔ ‎-۱ به ‎-۳۲۷۶۷ رسید', Math.abs(midNeg - (-32767)) < 5, midNeg + '');
+
+  // موجِ سینوسیِ اعشاری، مثلِ خروجیِ واقعیِ یک DAW یا archive.org
+  const wSine = mkWavFloat(44100, 1, 2, f => Math.sin(2 * Math.PI * 440 * f / 44100) * 0.6);
+  const infoS = wavInfo_(wSine);
+  const pr = musicProbe_(wSine, infoS);
+  ok('۱۳.۷ سنجه روی فایلِ اعشاری هم کار می‌کند', !!pr && pr.rms > 0, JSON.stringify(pr));
+  const vd = musicVerdict_(pr, infoS);
+  ok('۱۳.۸ فایلِ اعشاریِ سالم دیگر رد نمی‌شود (باگِ ۹ نامزدِ رد‌شده)', vd.ok === true, JSON.stringify(vd));
+
+  // فرمتِ واقعاً ناشناخته (نه ۱، نه ۳/۳۲) هنوز درست رد می‌شود
+  const wBad = mkWav(44100, 1, 16, 0.1, () => 100);
+  wBad[20] = 7; // فرمت را به یک عددِ ناشناخته دستکاری کن
+  const infoBad = wavInfo_(wBad);
+  ok('۱۳.۹ فرمتِ واقعاً ناشناخته هنوز رد می‌شود', wavReadable_(infoBad) === false, infoBad.format + '');
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

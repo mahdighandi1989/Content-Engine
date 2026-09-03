@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.86
+ *  موتور محتوا و پادکست — نسخهٔ 6.87
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1116,7 +1116,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.86',
+  CODE_VERSION: '6.87',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -26739,15 +26739,51 @@ function wavInfo_(b) {
  * WAVE_FORMAT_EXTENSIBLE (۶۵۵۳۴) هم PCM است ولی عددش ۱ نیست. هر فایلِ
  * ۲۴بیتی یا چندکاناله‌ای که از یک DAW بیرون بیاید معمولاً همین است.
  *
- * و قالبِ ۳ (اعشاریِ IEEE) عمداً رد می‌شود: نمونه‌هایش عدد صحیح نیستند و
- * musicSamples_ آن‌ها را نویز می‌خوانَد — یعنی رد کردنش درست است، ولی
- * پیامش باید راست باشد نه «PCM نیست».
+ * قالبِ ۳ (اعشاریِ IEEE) اینجا PCM حساب نمی‌شود — نمونه‌هایش عدد صحیح
+ * نیستند و رمزگشاییِ متفاوتی می‌خواهد. آن رمزگشایی در `ieee754F32_` است؛
+ * `wavReadable_` هر دو را قبول می‌کند.
  */
 function wavIsPcm_(info) {
   if (!info) return false;
   if (info.format === 1) return true;
   if (info.format === 65534) return !info.sub || info.sub === 1;
   return false;
+}
+
+/**
+ * قالبِ ۳ — اعشاریِ IEEE، معمولاً ۳۲بیتی. خروجیِ استانداردِ بیشترِ DAWها و
+ * سایت‌های آرشیوِ صدا، و تا ۶٫۸۷ بی هیچ راهی برای خواندن رد می‌شد.
+ *
+ * ══ چرا رد کردنش اشتباه بود ══
+ * `musicSamples_` نمونه‌ها را همیشه به‌عنوانِ عددِ صحیح می‌خواند؛ روی
+ * بایت‌های اعشاری همان خواندن نویزِ خالص تولید می‌کرد — پس رد کردن در آن
+ * لحظه درست بود. ولی نویزخوانی تنها راهِ ممکن نبود: IEEE 754 یک رمزگشاییِ
+ * دقیق و شناخته‌شده دارد (`ieee754F32_`) که نمونه را به بازهٔ ‎-۱ تا ۱
+ * برمی‌گرداند و از آنجا به مقیاسِ PCMِ ۱۶بیتی ضرب می‌شود — همان کاری که
+ * برای ۸/۲۴/۳۲بیتیِ صحیح از قبل انجام می‌شد. دهها نامزدِ سالم (بیشترشان
+ * از archive.org) فقط به همین دلیل رد می‌شدند.
+ */
+function wavIsFloat32_(info) {
+  return !!info && info.format === 3 && info.bits === 32;
+}
+
+/** آیا موتور می‌تواند نمونه‌های این فایل را بخواند — صحیح یا اعشاری؟ */
+function wavReadable_(info) {
+  return wavIsPcm_(info) || wavIsFloat32_(info);
+}
+
+/**
+ * رمزگشاییِ یک عددِ اعشاریِ IEEE 754 تک‌دقتی (۳۲ بیت، little-endian) از
+ * چهار بایتِ بی‌علامت. بدونِ TypedArray — همسو با بقیهٔ این بخش که همه‌جا
+ * با شیفت و ماسکِ دستی کار می‌کند.
+ */
+function ieee754F32_(b0, b1, b2, b3) {
+  var sign = (b3 & 0x80) ? -1 : 1;
+  var exp = ((b3 & 0x7F) << 1) | (b2 >>> 7);
+  var mant = ((b2 & 0x7F) << 16) | (b1 << 8) | b0;
+  if (exp === 0) return mant ? sign * mant * Math.pow(2, -149) : sign * 0;
+  if (exp === 255) return mant ? NaN : sign * Infinity;
+  return sign * (1 + mant / 8388608) * Math.pow(2, exp - 127);
 }
 
 /** آیا این فایل همان قالبی است که موتور با آن کار می‌کند؟ */
@@ -26780,12 +26816,19 @@ function musicSamples_(b, info, startSec, lenSec) {
   if (Number(lenSec) > 0 && from + want > total) from = Math.max(0, total - want);
   want = Math.min(want, total - from);
 
+  var isFloat = wavIsFloat32_(info);
   var rd = function (fr, c) {
     var i = info.dataAt + (fr * frameB) + (c * bps);
     // بایت‌های Apps Script علامت‌دارند. اگر بایتِ بالا پیش از جابه‌جایی ماسک
     // نشود، هر نمونهٔ منفی عددی بی‌معنا می‌شود — و چون خطایی نمی‌دهد، فقط در
     // گوش شنیده می‌شود. آزمونِ ۵.۱ همین را گرفت.
     var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
+    if (isFloat) {
+      // نمونهٔ اعشاری در بازهٔ ‎-۱ تا ۱ است؛ به مقیاسِ PCMِ ۱۶بیتی می‌رسانیم
+      // تا با خروجیِ بقیهٔ قالب‌ها یکی باشد.
+      var fv = ieee754F32_(u(i), u(i + 1), u(i + 2), u(i + 3));
+      return isFinite(fv) ? fv * 32767 : 0;
+    }
     if (info.bits === 16) {
       var v = u(i) | (u(i + 1) << 8);
       return (v & 0x8000) ? v - 65536 : v;
@@ -26889,7 +26932,7 @@ function musicClip_(fileId, opt) {
   try {
     var b = DriveApp.getFileById(fileId).getBlob().getBytes();
     var info = wavInfo_(b);
-    if (!wavIsPcm_(info)) return '';
+    if (!wavReadable_(info)) return '';
     var cap = Number(CFG.MUSIC_MAX_CLIP_SEC) || 45;
     var len = Math.min(Number(opt.lenSec) || cap, cap);
     var s = musicSamples_(b, info, opt.startSec || 0, len);
@@ -29955,14 +29998,19 @@ function sfxSecRange_(bounds, posOf, total, secIdx) {
  * قطعه. برای قضاوتِ سلامت کافی است و از مهلتِ اجرا هم نمی‌گذرد.
  */
 function musicProbe_(b, info) {
-  if (!wavIsPcm_(info)) return null;
+  if (!wavReadable_(info)) return null;
   var bps = info.bits / 8, ch = info.channels, frameB = bps * ch;
   var total = Math.floor(info.dataLen / frameB);
   if (total < 100) return null;
 
+  var isFloat = wavIsFloat32_(info);
   var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
   var rd = function (fr) {
     var i = info.dataAt + fr * frameB;
+    if (isFloat) {
+      var fv = ieee754F32_(u(i), u(i + 1), u(i + 2), u(i + 3));
+      return isFinite(fv) ? fv * 32767 : 0;
+    }
     if (info.bits === 8) return (u(i) - 128) * 256;
     var v = u(i + bps - 2) | (u(i + bps - 1) << 8);
     return (v & 0x8000) ? v - 65536 : v;
@@ -30013,11 +30061,8 @@ function musicProbe_(b, info) {
  */
 function musicVerdict_(pr, info) {
   if (!pr) {
-    if (info && Number(info.format) === 3) {
-      return { ok: false, why: 'WAVِ اعشاری (IEEE float) است؛ موتور PCMِ صحیح می‌خواند' };
-    }
-    if (info && !wavIsPcm_(info)) {
-      return { ok: false, why: 'قالبِ ' + info.format + ' — PCM نیست' };
+    if (info && !wavReadable_(info)) {
+      return { ok: false, why: 'قالبِ ' + info.format + ' — نه PCM، نه اعشاریِ IEEE' };
     }
     return { ok: false, why: 'خوانده نشد یا خیلی کوتاه است' };
   }

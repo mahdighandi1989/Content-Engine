@@ -1930,11 +1930,15 @@ console.log('=== ۲۹) دو ردِّ ناحقِ دیشب، از دادهٔ وا�
      wavIsPcm_({ format: 65534, sub: 1 }) === true);
   ok('۲۹.۳ ولی EXTENSIBLEِ اعشاری نه',
      wavIsPcm_({ format: 65534, sub: 3 }) === false);
-  ok('۲۹.۴ و اعشاریِ IEEE رد می‌شود — نمونه‌هایش صحیح نیستند',
-     wavIsPcm_({ format: 3 }) === false);
-  ok('۲۹.۵ و دلیلِ ردش راست نوشته می‌شود، نه «PCM نیست»',
-     /اعشاری \(IEEE float\)/.test(musicVerdict_(null, { format: 3 }).why),
-     musicVerdict_(null, { format: 3 }).why);
+  // از ۶٫۸۷: اعشاریِ IEEE دیگر «PCمِ صحیح» نیست ولی جداگانه خواندنی است —
+  // ieee754F32_ نمونه‌ها را رمزگشایی می‌کند (run_music_test.js §۱۳).
+  ok('۲۹.۴ اعشاریِ IEEE «PCمِ صحیح» نیست، ولی خواندنی است',
+     wavIsPcm_({ format: 3, bits: 32 }) === false &&
+     wavIsFloat32_({ format: 3, bits: 32 }) === true &&
+     wavReadable_({ format: 3, bits: 32 }) === true);
+  ok('۲۹.۵ و قالبِ واقعاً ناشناخته هنوز با علتِ راست رد می‌شود',
+     /قالبِ 2/.test(musicVerdict_(null, { format: 2 }).why),
+     musicVerdict_(null, { format: 2 }).why);
   // کامنت نباید شمرده شود — نخستین نگارشِ این سنجه، توضیحِ خودِ همین
   // اصلاح را «کدِ باقی‌مانده» دید.
   ok('۲۹.۶ هر سه جای کد از همین یک سنجه می‌پرسند',
