@@ -290,14 +290,20 @@ jobs:
           # همین curl، و پوشهٔ خروجی اصلاً ساخته نشد. چهار کارِ دیگر همان
           # لحظه همان دو فایل را می‌گرفتند: درایو یکی را پس زد. موازی‌کردن
           # را خودم آوردم، پس تلاشِ دوباره هم کارِ من است.
+          # ══ متغیرِ حلقه در پوسته سراسری است (اجرای #۱۲) ══
+          # این تابع `i` را می‌شمرد و حلقهٔ صداکننده هم `i` را. تابع که
+          # برمی‌گشت، شمارندهٔ بیرونی روی ۱ نشسته بود، پس نمونهٔ دوم و سوم
+          # و چهارم همه روی `ref2.input` نوشتند و آخری برنده شد: از چهار
+          # نمونه، دو تا رسید — بی هیچ خطایی، فقط دو ردیف در گزارش به‌جای
+          # چهار. پوسته دامنهٔ محلی ندارد مگر بخواهی.
           dl () {
-            for i in 1 2 3 4 5; do
+            for try in 1 2 3 4 5; do
               if curl -sSL --fail-with-body --max-time 600 -o "$2" \
                    "https://drive.usercontent.google.com/download?id=$1&export=download&confirm=t"; then
                 return 0
               fi
-              echo "دانلود نشد (تلاشِ $i) — کمی صبر."
-              sleep $((i * 7))
+              echo "دانلود نشد (تلاشِ $try) — کمی صبر."
+              sleep $((try * 7))
             done
             echo "::error::پس از پنج تلاش، فایل $1 از درایو نیامد."
             return 1
@@ -307,22 +313,29 @@ jobs:
           # بدونِ لوله: `while` در لولهٔ پوسته زیرْپوسته است و exitاش به
           # اینجا نمی‌رسد — یعنی نمونهٔ دومِ خصوصی بی سروصدا رد می‌شد و
           # اجرا با فایلِ کم جلو می‌رفت.
-          i=0
+          nref=0
           IFS=','
           for id in $REF_ID; do
             id="$(echo "$id" | tr -d '[:space:]')"
             if [ -z "$id" ]; then continue; fi
-            i=$((i + 1))
-            dl "$id" "ref$i.input"
+            nref=$((nref + 1))
+            dl "$id" "ref$nref.input"
             # فایلی که خصوصی مانده باشد، HTML برمی‌گرداند نه صوت. این را همان
             # اول می‌گیریم تا خطا در نصبِ مدل گم نشود.
-            if file "ref$i.input" | grep -qi 'html\|ascii'; then
+            if file "ref$nref.input" | grep -qi 'html\|ascii'; then
               echo "::error::فایلِ $id خصوصی است. در درایو «هرکس با لینک: بیننده» کنید."
-              head -c 300 "ref$i.input"; exit 1
+              head -c 300 "ref$nref.input"; exit 1
             fi
-            ls -l "ref$i.input"
+            ls -l "ref$nref.input"
           done
           unset IFS
+          # و شمرده می‌شود: «چند تا خواستی، چند تا رسید». اجرای #۱۲ چهار
+          # شناسه گرفت و دو فایل ساخت و هیچ‌جا اعلام نشد.
+          echo "نمونه‌های خواسته‌شده: $nref · فایل‌های ساخته‌شده: $(ls ref*.input 2>/dev/null | wc -l)"
+          if [ "$nref" -ne "$(ls ref*.input 2>/dev/null | wc -l)" ]; then
+            echo "::error::شمارِ نمونه‌ها نمی‌خوانَد — یکی از دانلودها روی دیگری نوشته."
+            exit 1
+          fi
           if [ -n "${SRC_ID}" ]; then
             dl "$SRC_ID" src.input
             if file src.input | grep -qi 'html\|ascii'; then
