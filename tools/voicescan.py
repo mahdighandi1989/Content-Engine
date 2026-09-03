@@ -58,6 +58,14 @@ QUERIES = [
 # فایل‌ها این را در چند ثانیه می‌گوید — بی دانلود، بی حدس، بی یک اجرای
 # چهل‌دقیقه‌ایِ دیگر.
 CANDIDATES = [
+    # ══ سرنخی که از READMEِ نامزدِ اول درآمد (اجرای #۱۸) ══
+    # `mazrba/...-gguf` فقط برای اجراکنندهٔ CrispASR است و بستهٔ پایتونیِ
+    # Chatterbox نمی‌خواندش — پس رهایش کرده بودیم. ولی README خودش
+    # می‌گوید از کجا آمده: `Thomcles/Chatterbox-TTS-Persian-Farsi`. آن
+    # یکی قالبِ عادی دارد، و Chatterbox در اجرای #۲ رنگِ صدای رضوی را از
+    # بیست ثانیه گرفته بود. یعنی دری که بسته اعلام کرده بودم، بسته نبود؛
+    # فقط از پنجرهٔ درستش نگاه نکرده بودم.
+    "Thomcles/Chatterbox-TTS-Persian-Farsi",
     "mazrba/Chatterbox-TTS-Persian-gguf",
     "KiaBush/Persian-IPA-to-Speech-F5",
     "KEYHAN-A/aava-tts-persian-3b",
