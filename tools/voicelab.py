@@ -393,6 +393,24 @@ def run_f5(ref, src, text, out):
     """
     rt = str(OPT.get("f5_ref_text") or "").strip()
     nfe = str(OPT.get("f5_nfe") or "").strip()
+
+    # ══ به‌جای دو حدس، یک شهادت ══
+    # متنِ مرجع را صاحبِ برنامه از روی گوشش می‌نویسد و من هم نمی‌توانم
+    # بسنجمش. ولی خودِ f5 یک رونویسِ خودکار دارد — همانی که تا امروز
+    # بی‌آنکه ببینیمش استفاده می‌شد. حالا **همیشه** اجرا و چاپ می‌شود،
+    # حتی وقتی متنِ دستی داده شده. مقایسهٔ آن دو، بحث را تمام می‌کند:
+    # اگر رونویس تمیز باشد، مشکل هرگز متنِ مرجع نبوده؛ اگر بی‌ربط باشد،
+    # همین بوده و متنِ دستی راهِ درست است.
+    try:
+        from f5_tts.infer.utils_infer import transcribe
+        heard = str(transcribe(ref) or "").strip()
+        OPT["heard"] = heard
+        print("\n── آنچه رونویسِ خودکار از نمونه شنید ──\n%s\n" % heard[:400], flush=True)
+        if rt:
+            print("── و آنچه شما دادید ──\n%s\n" % rt[:400], flush=True)
+    except Exception as e:
+        OPT["heard"] = "رونویس انجام نشد: %s" % str(e)[:200]
+        print(OPT["heard"], flush=True)
     made, notes = None, []
     for name, txt, why in variants:
         fn = "f5-%s.wav" % name
@@ -566,6 +584,9 @@ def main():
                 rep["variants"] = OPT["variants"]
             if a.engine == "f5":
                 rep["ref_text_given"] = bool(a.f5_ref_text)
+                rep["ref_text_heard"] = OPT.get("heard", "")
+                if a.f5_ref_text:
+                    rep["ref_text_used"] = a.f5_ref_text
                 rep["nfe_step"] = a.f5_nfe or "(پیش‌فرض)"
             # ══ عددی که تصمیمِ *تولید* را می‌گیرد، نه کیفیت ══
             # seedvc در اجرای #۳ تبدیل را انجام داد — ۱۵۶۶ ثانیه برای ۱۲
