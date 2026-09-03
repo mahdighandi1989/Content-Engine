@@ -324,7 +324,7 @@ def coverage(text):
         # «بَرخوردار» — که کاملاً درست است — خوشهٔ سه‌تایی شمرده می‌شود و
         # هشدار برای چیزِ سالم بلند می‌شود؛ همان هشداری که آدم یاد می‌گیرد
         # نادیده بگیرد.
-        for d in ("kh", "sh", "ch", "zh"):
+        for d in ("kh", "sh", "ch", "zh", "gh"):
             core = core.replace(d, "K")
         core = "".join(c for c in core if c.isalpha() or c == "â")
         run = 0
