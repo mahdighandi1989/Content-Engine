@@ -35,7 +35,7 @@ voicelab.py — آزمایشگاهِ صدا. گامِ صفرِ «شبیه‌سا
 گزارش می‌آورد.
 """
 
-import argparse, json, os, re, subprocess, sys, time, traceback
+import argparse, io, json, os, re, shutil, subprocess, sys, time, traceback
 
 # متنِ آزمون: یک جملهٔ واقعیِ اعراب‌دار از خودِ زنجیرهٔ ما. اعراب عمدی است —
 # سدِ `speak`/`speak2` موتور همین را تولید می‌کند و ورودیِ واقعیِ هر موتورِ
@@ -372,6 +372,141 @@ def f5Resolve_(ckpt, vocab):
     return got, vocab
 
 
+# نویسه‌های اعراب — یک تعریف، چون سه جا لازم می‌شود و دو تعریف یعنی یکی
+# روزی کهنه می‌شود.
+TASHKIL_ = "".join(chr(c) for c in list(range(0x064B, 0x0653)) + [0x0670, 0x0640])
+
+
+def noTash_(t):
+    return "".join(ch for ch in (t or "") if ch not in TASHKIL_)
+
+
+def vocabAudit_(vocab, texts):
+    """
+    آیا واژگانِ این چک‌پوینت، نویسه‌های متنِ ما را **دارد**؟
+
+    ══ چرا این سؤال، سؤالِ درجه‌یک است ══
+
+    از خودِ کدِ f5 (`model/utils.py`):
+
+        vocab_char_map.get(c, 0)
+        assert vocab_char_map[" "] == 0, "0 is used for unknown char"
+
+    یعنی هر نویسهٔ ناشناخته **فاصله** می‌شود — نه حذف، نه نویسهٔ خاص:
+    فاصله. اگر اعراب در واژگان نباشد، «دَر» به «د ر» تبدیل می‌شود و مدل
+    به‌جای یک واژه، دو حرفِ جدا می‌بیند. آن‌وقت رنگِ صدا (که از صوتِ مرجع
+    می‌آید) درست می‌مانَد و **واژه‌ها خراب** می‌شوند — که دقیقاً همان چیزی
+    است که شنیده شد.
+
+    این را نمی‌شود حدس زد و نمی‌شود از روی کیفیتِ خروجی فهمید. یک فایلِ
+    متنیِ چندکیلوبایتی جواب را قطعی می‌دهد.
+    """
+    out = {"vocab": vocab or "(پیش‌فرض — انگلیسی/چینی)"}
+    if not vocab:
+        # واژگانِ پیش‌فرضِ f5 روی Emilia ZH-EN ساخته شده و اصلاً حرفِ فارسی
+        # ندارد؛ گفتنش بهتر از دانلودِ بی‌فایده است.
+        out["ok"] = False
+        out["note"] = "واژگانِ سفارشی داده نشده — پیش‌فرضِ f5 حرفِ فارسی ندارد."
+        return out
+    src = vocab
+    if vocab.startswith("hf://"):
+        pr = vocab[5:].split("/")
+        if len(pr) >= 3:
+            src = "https://huggingface.co/%s/%s/resolve/main/%s" % (
+                pr[0], pr[1], "/".join(pr[2:]))
+    try:
+        if src.startswith("http"):
+            import urllib.request
+            req = urllib.request.Request(src, headers={"User-Agent": "voicelab"})
+            with urllib.request.urlopen(req, timeout=90) as r:
+                raw = r.read().decode("utf-8", "replace")
+        else:
+            raw = io.open(src, encoding="utf-8").read()
+    except Exception as e:
+        out["ok"] = False
+        out["error"] = str(e)[:200]
+        out["source"] = src
+        return out
+    # همان‌طور که f5 می‌خوانَد: هر سطر یک نویسه، و `char[:-1]` یعنی فقط
+    # نویسهٔ پایانِ سطر کنار می‌رود.
+    lines = raw.split("\n")
+    chars = set(ln for ln in lines)
+    out["ok"] = True
+    out["size"] = len(lines)
+    out["source"] = src
+    miss = {}
+    for name, t in (texts or {}).items():
+        bad = sorted(set(c for c in (t or "") if c not in chars))
+        if bad:
+            miss[name] = {
+                "chars": ["U+%04X %s" % (ord(c), c) for c in bad][:30],
+                "count": sum(1 for c in (t or "") if c not in chars),
+                "pct": round(100.0 * sum(1 for c in (t or "") if c not in chars)
+                             / max(1, len(t or "")), 1),
+            }
+    out["missing"] = miss
+    out["tashkil_in_vocab"] = {"U+%04X" % ord(c): (c in chars) for c in TASHKIL_}
+    out["tashkil_supported"] = all(out["tashkil_in_vocab"].values())
+    out["zwnj_in_vocab"] = ("\u200c" in chars)
+    return out
+
+
+def f5SpeedFit_(refText, genText):
+    """
+    اصلاحِ **بودجهٔ زمانِ** تولید — عددی که مستقیم از فرمولِ خودِ f5 درمی‌آید.
+
+    `infer_batch_process` طولِ خروجی را این‌طور می‌سازد:
+
+        ref_text_len = len(ref_text.encode("utf-8"))
+        gen_text_len = len(gen_text.encode("utf-8"))
+        duration = ref_audio_len + int(ref_audio_len / ref_text_len
+                                       * gen_text_len / local_speed)
+
+    یعنی «چند ثانیه حرف بزن» را از نسبتِ **بایت‌ها** حساب می‌کند. متنِ ما
+    اعراب دارد و متنِ مرجع (رونویسِ ویسپر) ندارد — و هر اعراب دو بایت است.
+    برای متنِ آزمونِ ما این نسبت ۱٫۲۴ است: مدل ۲۴٪ زمانِ بیشتر از آنچه
+    واژه‌ها لازم دارند می‌گیرد و ناچار است پُرش کند — کِش‌دادن، مکث‌های
+    نابه‌جا، و گاهی هجای اضافه.
+
+    و اندازه‌گیریِ خروجیِ اجرای #۹ همین را نشان داد: نمونهٔ رضوی ۶۴٪ گفتار
+    بود و خروجیِ ما ۷۷٪ — یعنی پیوسته‌تر و کِش‌دارتر، نه شبیه‌تر.
+
+    پس `--speed` را دقیقاً به همان نسبت بالا می‌بریم تا بودجه با واژه‌ها
+    بخوانَد. اگر متنِ مرجع هم اعراب داشته باشد، این عدد خودبه‌خود ۱ می‌شود.
+    """
+    def b(t):
+        return len((t or "").encode("utf-8"))
+    a = b(genText) / float(max(1, b(noTash_(genText))))
+    c = b(noTash_(refText)) / float(max(1, b(refText)))
+    return round(a * c, 3)
+
+
+def saveRep_():
+    """
+    گزارش را **همین حالا** روی دیسک بنویس، نه در پایان.
+
+    اجرای #۹ سرِ پنجاه دقیقه لغو شد و چون گزارش فقط در پایان نوشته می‌شد،
+    دو چیزی که کلِ آن اجرا برای دیدنشان بود — جای برشِ نمونه و آنچه
+    رونویس شنید — هرگز دیده نشدند. تشخیصی که فقط در صورتِ موفقیت به دست
+    بیاید، دقیقاً وقتی نیست که لازمش داری.
+    """
+    rep, out = OPT.get("_rep"), OPT.get("_out")
+    if not isinstance(rep, dict) or not out:
+        return
+    for k in ("resolved", "variants", "ref_cut", "ref_used", "vocab_audit",
+              "speed_fit", "ref_text_source", "ref_text_final"):
+        if OPT.get(k) is not None:
+            rep[k] = OPT[k]
+    if OPT.get("heard") is not None:
+        rep["ref_text_heard"] = OPT["heard"]
+    try:
+        with io.open(os.path.join(out, "report-%s.json" % rep.get("engine", "x")),
+                     "w", encoding="utf-8") as f:
+            f.write(json.dumps(rep, ensure_ascii=False, indent=1))
+    except Exception as e:
+        print("گزارش ذخیره نشد: %s" % str(e)[:200], flush=True)
+
+
 def run_f5(ref, src, text, out):
     """
     ══ چرا این موتور تنها امیدِ واقعیِ باقی‌مانده است ══
@@ -394,96 +529,146 @@ def run_f5(ref, src, text, out):
     ck, vo = f5Resolve_(str(OPT.get("f5_ckpt") or "").strip(),
                         str(OPT.get("f5_vocab") or "").strip())
     OPT["resolved"] = {"ckpt": ck, "vocab": vo}
+    nfe = str(OPT.get("f5_nfe") or "").strip()
 
-    # ══ سه متن، یک اجرا — چون سؤال «ضعفِ مخزن است یا اعرابِ ما؟» است ══
-    #
-    # خروجیِ اجرای #۷ صدای رضوی را داشت ولی واژه‌ها را غلط تلفظ می‌کرد. دو
-    # توضیحِ ممکن دارد و هر دو باورکردنی‌اند:
-    #   الف) خودِ چک‌پوینت ضعیف است؛
-    #   ب) ما متنِ **اعراب‌دار** دادیم و آن مدل روی متنِ بی‌اعراب تربیت شده،
-    #      پس هر اعراب برایش نویسه‌ای ناشناخته است — یعنی اعرابِ ما، که
-    #      برای Gemini کمک است، برای این مدل نویز باشد.
-    #
-    # حدس‌زدن میانِ این دو بی‌معناست وقتی می‌شود هر دو را شنید. پس یک اجرا و
-    # سه فایل. نیم‌فاصله جدا سنجیده می‌شود چون نویسهٔ ساختاریِ فارسی است نه
-    # اعراب، و ممکن است یکی کمک کند و دیگری نه.
-    TASHKIL = "".join(chr(c) for c in list(range(0x064B, 0x0653)) + [0x0670, 0x0640])
-    noTash = "".join(ch for ch in text if ch not in TASHKIL)
-    variants = [
-        ("tashkil", text, "همان‌طور که موتور می‌سازد — با اعراب"),
-        ("plain", noTash, "بی اعراب، با نیم‌فاصله"),
-        ("bare", noTash.replace("\u200c", " "), "بی اعراب، بی نیم‌فاصله"),
-    ]
     """
-    ══ دو مظنونِ تازه، هیچ‌کدام تقصیرِ چک‌پوینت (اجرای #۸) ══
+    ══ سه علتِ ساختاری، همه از خودِ کدِ f5 — نه حدس (پس از اجرای #۹) ══
 
-    اجرای #۸ گفت `tashkil` بهترین است — یعنی این مدل اعراب را می‌فهمد و
-    زنجیرهٔ اعراب‌گذاریِ ما برایش هم سرمایه است، نه نویز. ولی هنوز چند واژه
-    خیلی بد خوانده می‌شد. از خودِ کدِ f5 دو علتِ ساختاری درآمد:
+    اجرای #۹ لغو شد ولی خروجی‌اش شنیده شد و حکم روشن بود: «صدا مثل همونه
+    ولی کلمات به شدت بد میخونه و اعراب و لحن اصلاً خوب نیست.» یعنی نیمهٔ
+    سختِ کار — گرفتنِ رنگِ صدا — جواب داده و چیزی در **متن** خراب است.
+    منبعِ f5 را خواندم؛ سه چیز پیدا شد که هر سه همین را می‌سازند:
 
-    ۱) `ref_text = transcribe(ref_audio)` — وقتی متنِ مرجع خالی باشد، f5
-       خودش نمونه را با ASR پیاده می‌کند. اگر آن پیاده‌سازیِ فارسی غلط
-       باشد، مدل یک جفتِ **غلطِ متن↔صدا** می‌گیرد و همان غلط را در تلفظ
-       بازتولید می‌کند. تا امروز همیشه خالی فرستاده‌ایم.
+    ۱) **نویسهٔ ناشناخته، فاصله می‌شود.** `vocab_char_map.get(c, 0)` و
+       `assert vocab_char_map[" "] == 0`. اگر اعراب در واژگانِ این
+       چک‌پوینت نباشد، «دَر» می‌شود «د ر»: مدل واژه نمی‌بیند، حرفِ جدا
+       می‌بیند. `vocabAudit_` این را با یک فایلِ متنی قطعی می‌کند.
 
-    ۲) «Audio is over 12s, clipping short» — نمونهٔ بیست‌ثانیه‌ایِ ما به
-       دوازده ثانیه بریده می‌شود، و جای برش دستِ ما نیست. اگر وسطِ واژه
-       بیفتد، همان جفتِ متن↔صدا باز هم خراب می‌شود.
+    ۲) **بودجهٔ زمان از نسبتِ بایت‌ها می‌آید.** متنِ ما اعراب دارد و
+       رونویسِ مرجع ندارد، پس بودجه ۲۴٪ بیش از نیازِ واژه‌هاست و مدل
+       ناچار است پُرش کند. `f5SpeedFit_` همان نسبت را از `--speed` پس
+       می‌گیرد. اندازه‌گیریِ خروجیِ #۹ همین را تأیید کرد: ۷۷٪ گفتار در
+       برابرِ ۶۴٪ در نمونهٔ رضوی.
 
-    پس دو اهرم: متنِ مرجع را **بدهیم**، و نمونه را خودمان زیرِ دوازده
-    ثانیه ببریم تا برشِ کور پیش نیاید. و `nfe_step` هم برای کیفیت.
+    ۳) **خودِ f5 نمونه را دوباره می‌بُرد** — `split_on_silence` با
+       `keep_silence=1000` و شرطِ «اگر با تکهٔ بعدی از ۱۲ ثانیه گذشت،
+       بایست». برشِ تمیزِ ۱۰٫۹ ثانیه‌ایِ ما می‌تواند همان‌جا به ~۶ ثانیه
+       آب برود، بی هیچ خطایی. آن‌وقت متنِ مرجع دو برابرِ صوتِ مرجع است و
+       بودجه نصف می‌شود. پس این مرحله را **خودمان** اجرا می‌کنیم، فایلش
+       را نگه می‌داریم (`reference-used.wav`) و رونویس را از **همان**
+       می‌گیریم — تا متن و صوتِ مرجع هرگز از هم نیفتند.
     """
-    # نمونه را خودمان سرِ مکث و زیرِ سقفِ f5 می‌بُریم، تا f5 لازم نباشد
-    # دوباره ببُرد و متنِ مرجعِ دستی دقیقاً به همین تکه بخورَد.
+    # ── ۱. برشِ سرِ مکث (کارِ ما) ──
     try:
         ref, cutSec, nSil = cutAtPause_(ref, os.path.join(out, "reference-cut.wav"))
         OPT["ref_cut"] = {"seconds": round(cutSec, 2), "silences_found": nSil}
     except Exception as eC:
         print("برشِ سرِ مکث نشد؛ با همان نمونه ادامه: %s" % str(eC)[:200], flush=True)
+    saveRep_()
 
+    # ── ۲. همان آماده‌سازی‌ای که f5 خودش می‌کند، ولی جلوی چشم ──
     rt = str(OPT.get("f5_ref_text") or "").strip()
-    nfe = str(OPT.get("f5_nfe") or "").strip()
-
-    # ══ به‌جای دو حدس، یک شهادت ══
-    # متنِ مرجع را صاحبِ برنامه از روی گوشش می‌نویسد و من هم نمی‌توانم
-    # بسنجمش. ولی خودِ f5 یک رونویسِ خودکار دارد — همانی که تا امروز
-    # بی‌آنکه ببینیمش استفاده می‌شد. حالا **همیشه** اجرا و چاپ می‌شود،
-    # حتی وقتی متنِ دستی داده شده. مقایسهٔ آن دو، بحث را تمام می‌کند:
-    # اگر رونویس تمیز باشد، مشکل هرگز متنِ مرجع نبوده؛ اگر بی‌ربط باشد،
-    # همین بوده و متنِ دستی راهِ درست است.
     try:
-        from f5_tts.infer.utils_infer import transcribe
-        heard = str(transcribe(ref) or "").strip()
+        from f5_tts.infer.utils_infer import preprocess_ref_audio_text, transcribe
+        # متنِ ساختگی می‌دهیم تا این فراخوان فقط **صوت** را ببُرد و
+        # رونویس را خودمان با زبانِ صریح بگیریم.
+        used, _ = preprocess_ref_audio_text(ref, "…")
+        keep = os.path.join(out, "reference-used.wav")
+        try:
+            shutil.copyfile(used, keep)
+            used = keep
+        except Exception:
+            pass
+        info = probe(used)
+        OPT["ref_used"] = {"file": os.path.basename(used), "info": info}
+        cut = float((OPT.get("ref_cut") or {}).get("seconds") or 0)
+        sec = float((info or {}).get("seconds") or 0)
+        if cut and sec and sec < cut - 1.0:
+            OPT["ref_used"]["warning"] = (
+                "f5 نمونه را از %.2f به %.2f ثانیه کوتاه کرد — متنِ مرجع "
+                "باید فقط همین تکه باشد." % (cut, sec))
+            print("::warning::" + OPT["ref_used"]["warning"], flush=True)
+        ref = used
+        saveRep_()
+        # زبان را صریح می‌گوییم: ویسپر بی‌راهنما فارسی را گاهی عربی یا
+        # اردو تشخیص می‌دهد و آن‌وقت متنِ مرجع اصلاً زبانِ دیگری است.
+        heard = str(transcribe(ref, language="fa") or "").strip()
         OPT["heard"] = heard
-        print("\n── آنچه رونویسِ خودکار از نمونه شنید ──\n%s\n" % heard[:400], flush=True)
-        if rt:
-            print("── و آنچه شما دادید ──\n%s\n" % rt[:400], flush=True)
+        print("\n── آنچه رونویس از نمونهٔ به‌کاررفته شنید ──\n%s\n"
+              % heard[:400], flush=True)
     except Exception as e:
-        OPT["heard"] = "رونویس انجام نشد: %s" % str(e)[:200]
+        OPT["heard"] = "رونویس/آماده‌سازی انجام نشد: %s" % str(e)[:300]
         print(OPT["heard"], flush=True)
+    if rt:
+        OPT["ref_text_source"] = "دستیِ شما"
+        print("── و آنچه شما دادید ──\n%s\n" % rt[:400], flush=True)
+    else:
+        h = OPT.get("heard") or ""
+        rt = h if h and not h.startswith("رونویس") else ""
+        OPT["ref_text_source"] = "رونویسِ خودکار (صریحاً پاس داده شد)"
+    OPT["ref_text_final"] = rt
+    saveRep_()
+
+    # ── ۳. واژگان: آیا اعرابِ ما اصلاً نویسهٔ شناخته‌شده است؟ ──
+    noTash = noTash_(text)
+    aud = vocabAudit_(vo, {"با اعراب": text, "بی اعراب": noTash, "متنِ مرجع": rt})
+    OPT["vocab_audit"] = aud
+    print("واژگان:", json.dumps(aud, ensure_ascii=False)[:900], flush=True)
+    saveRep_()
+
+    # اگر واژگان خوانده شد و اعراب در آن نبود، فرستادنِ اعراب یعنی
+    # فاصله‌پاشیدن وسطِ واژه‌ها. اگر خوانده نشد، رفتارِ پیشین می‌مانَد —
+    # «نمی‌دانم» نباید تصمیمِ تازه بسازد.
+    tashOk = (not aud.get("ok")) or aud.get("tashkil_supported")
+    sendText = text if tashOk else noTash
+    fit = f5SpeedFit_(rt, sendText) if rt else 1.0
+    OPT["speed_fit"] = {"speed": fit, "text": "با اعراب" if sendText is text else "بی اعراب",
+                        "why": "اعراب در واژگان هست" if tashOk else
+                               "اعراب در واژگان نیست؛ بی‌اعراب فرستاده شد"}
+    saveRep_()
+
+    # ── ۴. دو اجرا: تشخیص، و شاهد ──
+    # شاهد همان چیزی است که اجرای #۹ کرد (متنِ اعراب‌دار، سرعتِ ۱). بدونِ
+    # شاهد، «بهتر شد» فقط یک احساس است.
+    runs = [(("fit"), sendText, fit, "متن و بودجهٔ زمانِ اصلاح‌شده")]
+    if sendText is not text or abs(fit - 1.0) > 0.02:
+        runs.append(("asis", text, 1.0, "همان که اجرای پیشین کرد — شاهد"))
     made, notes = None, []
-    for name, txt, why in variants:
+    for name, txt, spd, why in runs:
         fn = "f5-%s.wav" % name
         cmd = ["f5-tts_infer-cli", "--ref_audio", ref, "--ref_text", rt,
-               "--gen_text", txt, "--output_dir", out, "--output_file", fn]
+               "--gen_text", txt, "--output_dir", out, "--output_file", fn,
+               "--speed", "%.3f" % spd]
         if nfe:
             cmd += ["--nfe_step", nfe]
         if ck:
             cmd += ["--ckpt_file", ck]
         if vo:
             cmd += ["--vocab_file", vo]
-        print("\n=== %s — %s ===\n%s\n" % (name, why, txt[:160]), flush=True)
+        # بودجه‌ای که فرمولِ f5 می‌دهد — تا بشود با طولِ واقعیِ خروجی سنجید.
+        refSec = float(((OPT.get("ref_used") or {}).get("info") or {}).get("seconds") or 0)
+        want = 0.0
+        if refSec and rt:
+            want = refSec * len(txt.encode("utf-8")) / float(
+                max(1, len(rt.encode("utf-8")))) / spd
+        print("\n=== %s — %s (سرعت %.3f) ===\n%s\n"
+              % (name, why, spd, txt[:160]), flush=True)
         r = sh(cmd, capture_output=True)
         path = os.path.join(out, fn)
+        row = {"name": name, "why": why, "speed": spd, "chars": len(txt),
+               "expected_seconds": round(want, 2)}
         if r.returncode == 0 and os.path.exists(path):
-            notes.append({"name": name, "why": why, "chars": len(txt), "ok": True})
+            row["ok"] = True
+            row["info"] = probe(path)
             made = made or path
         else:
-            notes.append({"name": name, "why": why, "ok": False,
-                          "error": (r.stderr or r.stdout).decode("utf-8", "replace")[-400:]})
-    OPT["variants"] = notes
+            row["ok"] = False
+            row["error"] = (r.stderr or r.stdout).decode("utf-8", "replace")[-500:]
+        notes.append(row)
+        OPT["variants"] = notes
+        saveRep_()
     if not made:
-        raise RuntimeError("هیچ‌کدام از سه حالت خروجی نداد: " +
+        raise RuntimeError("هیچ اجرایی خروجی نداد: " +
                            json.dumps(notes, ensure_ascii=False)[:1200])
     return made
 
@@ -571,6 +756,9 @@ def main():
            "persian_note": meta["persian"], "ok": False}
     if a.engine == "f5" and (a.f5_ckpt or a.f5_vocab):
         rep["custom_checkpoint"] = {"ckpt": a.f5_ckpt, "vocab": a.f5_vocab}
+    # از این لحظه، هر گامِ مهم گزارش را روی دیسک می‌نویسد — نه فقط پایان.
+    OPT["_rep"], OPT["_out"] = rep, a.out
+    saveRep_()
 
     # ── آماده‌سازیِ نمونه ──
     ref = to_wav(a.ref, os.path.join(a.out, "reference.wav"), seconds=a.ref_seconds)
@@ -629,18 +817,9 @@ def main():
             # ورودیِ خام را ثبت می‌کردم؛ آنچه واقعاً به مدل رفت چیزِ دیگری
             # است (شناسهٔ مخزن به نشانیِ فایل حل می‌شود). گزارشی که ورودی
             # را جای اجرا بگذارد، همان اشتباهِ اجرای #۶ است.
-            if OPT.get("resolved"):
-                rep["resolved"] = OPT["resolved"]
-            if OPT.get("variants"):
-                rep["variants"] = OPT["variants"]
             if a.engine == "f5":
                 rep["ref_text_given"] = bool(a.f5_ref_text)
-                rep["ref_text_heard"] = OPT.get("heard", "")
-                if OPT.get("ref_cut"):
-                    rep["ref_cut"] = OPT["ref_cut"]
-                if a.f5_ref_text:
-                    rep["ref_text_used"] = a.f5_ref_text
-                rep["nfe_step"] = a.f5_nfe or "(پیش‌فرض)"
+                rep["nfe_step"] = a.f5_nfe or "(پیش‌فرض ۳۲)"
             # ══ عددی که تصمیمِ *تولید* را می‌گیرد، نه کیفیت ══
             # seedvc در اجرای #۳ تبدیل را انجام داد — ۱۵۶۶ ثانیه برای ۱۲
             # ثانیه صوت. یعنی یک قسمتِ نوزده‌دقیقه‌ای روی همین ماشین از
@@ -655,8 +834,7 @@ def main():
             except Exception:
                 pass
 
-    with open(os.path.join(a.out, "report-%s.json" % a.engine), "w", encoding="utf-8") as f:
-        json.dump(rep, f, ensure_ascii=False, indent=1)
+    saveRep_()
     print("\n=== گزارش ===")
     print(json.dumps(rep, ensure_ascii=False, indent=1))
     # شکستِ یک موتور، شکستِ آزمایش نیست: خودِ خبر همان چیزی است که می‌خواستیم.

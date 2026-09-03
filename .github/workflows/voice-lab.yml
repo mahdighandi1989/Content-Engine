@@ -51,8 +51,12 @@ on:
         required: false
         default: ''
         type: string
+      # از اجرای #۱۰ خالی‌گذاشتن هم امن است: رونویس را خودمان با زبانِ
+      # صریحِ فارسی می‌گیریم و **همان** را به f5 پاس می‌دهیم، از روی همان
+      # فایلی که واقعاً به مدل می‌رود (reference-used.wav). ولی اگر خودتان
+      # بنویسیدش، حتماً بهتر است.
       f5_ref_text:
-        description: 'متنِ دقیقِ نمونهٔ صدا — خالی یعنی f5 خودش حدس بزند (علتِ احتمالیِ تلفظِ غلط)'
+        description: 'متنِ دقیقِ نمونهٔ صدا (از روی reference-used.wav) — خالی یعنی رونویسِ خودکارِ فارسی'
         required: false
         default: ''
         type: string
@@ -64,7 +68,7 @@ on:
         default: '30'
         type: string
       f5_nfe:
-        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر'
+        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر (سقفِ زمان حالا ۱۵۰ دقیقه است)'
         required: false
         default: ''
         type: string
@@ -121,7 +125,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: نقشهٔ مدل‌های فارسی
+      # ══ پیش از هر کارِ سنگین، کدِ خودم را بسنج ══
+      # اجرای #۴ و #۶ هر دو باگِ خودم بودند و چهل دقیقه بعد پیدا شدند.
+      # این دو ثانیه طول می‌کشد و همان دو شکل را جلوتر می‌گیرد.
+      - name: خودآزمونِ منطقِ آزمایشگاه
+        run: python3 tools/voicelab_selftest.py | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: نقشهٔ مدل‌های فارسی و ممیزیِ واژگان
+        env:
+          F5_CKPT: ${{ inputs.f5_ckpt }}
+          F5_VOCAB: ${{ inputs.f5_vocab }}
+          LAB_TEXT: ${{ inputs.text }}
         run: python3 tools/voicescan.py | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -188,7 +201,14 @@ jobs:
   lab:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    # ══ چرا ۵۰ شد ۱۵۰ ══
+    # اجرای #۹ سرِ پنجاه دقیقه لغو شد و هیچ تشخیصی به دست نیامد. آن عدد
+    # را از گردش‌کارِ رندرِ ویدئو کپی کرده بودم، جایی که هر ساعت اجرا
+    # می‌شود و کوتاه‌ماندن معنا دارد. این یکی **دستی** است و ماهی چند بار.
+    # ریپو عمومی است، پس دقیقهٔ رانر رایگان است و سقفِ خودِ گیت‌هاب شش
+    # ساعت. یعنی آن پنجاه دقیقه هیچ‌چیز را صرفه‌جویی نمی‌کرد و فقط
+    # آزمایش‌ها را نصفه می‌گذاشت.
+    timeout-minutes: 150
     strategy:
       # شکستِ یکی نباید بقیه را لغو کند — شکستِ هر موتور خودش یک جوابِ
       # جداست، نه خرابیِ آزمایش.

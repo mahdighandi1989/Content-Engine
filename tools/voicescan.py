@@ -21,7 +21,10 @@ voicescan.py — «آیا اصلاً مدلی برای فارسی هست؟»
 هیچ مدلی دانلود نمی‌شود — فقط فهرست. چند ثانیه طول می‌کشد.
 """
 
-import json, sys, urllib.parse, urllib.request
+import json, os, sys, urllib.parse, urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import voicelab as V
 
 API = "https://huggingface.co/api/models"
 
@@ -33,6 +36,12 @@ QUERIES = [
     ("XTTS روی فارسی؟",                 {"search": "xtts persian"}),
     ("هر مدلِ گفتارِ فارسی",            {"search": "persian tts"}),
     ("تبدیلِ صدا (زبان‌مستقل)",         {"search": "voice conversion rvc"}),
+    # ══ «اگر صاحبِ مخزن خصوصی‌اش کند چه؟» — سؤالِ خودِ صاحبِ برنامه ══
+    # جوابِ درست «نسخهٔ پشتیبان می‌گیریم» است، ولی نیمهٔ دومش این است که
+    # بدانیم اصلاً بدیلی هست یا نه. سه واژهٔ دیگر، چند ثانیه، هر بار.
+    ("f5 — نامِ دیگرِ فارسی",           {"search": "f5-tts farsi"}),
+    ("هر چه f5 و fine-tune",            {"search": "f5-tts finetune"}),
+    ("گفتارِ فارسی، هر معماری",         {"filter": "text-to-speech", "search": "persian"}),
 ]
 
 
@@ -78,6 +87,38 @@ def main():
             print("| `%s` | %s | %s | %s |" %
                   (m["id"], m["downloads"], m["likes"], m["pipeline"]))
         print("")
+    # ══ سؤالی که ارزانِ چند ثانیه است و جوابش کلِ کیفیت را توضیح می‌دهد ══
+    #
+    # `vocab_char_map.get(c, 0)` و `assert vocab_char_map[" "] == 0`: در f5
+    # هر نویسهٔ ناشناخته **فاصله** می‌شود. اگر اعرابِ ما در واژگانِ این
+    # چک‌پوینت نباشد، «دَر» به «د ر» بدل می‌شود — صدا سالم می‌مانَد و
+    # واژه‌ها می‌پاشند، دقیقاً همان چیزی که شنیده شد. این را نمی‌شود از
+    # روی خروجی فهمید، ولی یک فایلِ متنیِ کوچک قطعی‌اش می‌کند.
+    #
+    # و اینجا انجام می‌شود نه در کارِ سنگین، چون این کار همیشه تمام می‌شود:
+    # اجرای #۹ سرِ سقفِ زمان لغو شد و هیچ تشخیصی به دست نیامد.
+    ck = (os.environ.get("F5_CKPT") or "").strip()
+    if ck:
+        got, vo = V.f5Resolve_(ck, (os.environ.get("F5_VOCAB") or "").strip())
+        txt = os.environ.get("LAB_TEXT") or V.DEFAULT_TEXT
+        aud = V.vocabAudit_(vo, {"با اعراب": txt, "بی اعراب": V.noTash_(txt)})
+        out["vocab_audit"] = {"ckpt": got, "vocab": vo, "audit": aud}
+        print("## واژگانِ `%s`\n" % ck)
+        if not aud.get("ok"):
+            print("خوانده نشد: %s\n" % (aud.get("error") or aud.get("note") or "—"))
+        else:
+            print("- اندازه: **%s** نویسه" % aud.get("size"))
+            print("- اعراب در واژگان هست؟ **%s**" %
+                  ("بله" if aud.get("tashkil_supported") else "**نه**"))
+            print("- نیم‌فاصله هست؟ **%s**" %
+                  ("بله" if aud.get("zwnj_in_vocab") else "نه"))
+            for k, v in (aud.get("missing") or {}).items():
+                print("- در متنِ «%s»: %s نویسهٔ ناشناخته (%s٪) → همه **فاصله** می‌شوند: %s"
+                      % (k, v["count"], v["pct"], "، ".join(v["chars"][:12])))
+            if not (aud.get("missing") or {}):
+                print("- هیچ نویسهٔ ناشناخته‌ای نیست.")
+        print("")
+
     with open("voicescan.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     return 0
