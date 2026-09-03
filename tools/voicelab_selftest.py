@@ -16,7 +16,8 @@ voicelab_selftest.py — منطقِ خالصِ آزمایشگاه، بی هیچ 
 اجرایش می‌کند.
 """
 
-import io, json, os, sys, tempfile
+import io
+import re, json, os, sys, tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import voicelab as V
@@ -32,6 +33,40 @@ def near(got, want, tol, what):
     if abs(got - want) > tol:
         raise AssertionError("%s: %r ≉ %r" % (what, got, want))
     print("  ✓ %s (%.3f)" % (what, got))
+
+
+def _stubOmni():
+    """
+    بدل‌های omnivoice/torch/soundfile — یک بار، برای دو بخش.
+
+    وزن‌های بدل عمداً ساده‌اند (هر نویسه ۱، نیم‌فاصله هم ۱): چیزی که
+    اینجا سنجیده می‌شود «آیا نیم‌فاصله از هر دو متن برداشته می‌شود و
+    درصدش درست حساب می‌شود» است، نه عددهای جدولِ واقعی.
+    """
+    import types as _t
+    ZW = "\u200c"
+
+    class _Est(object):
+        def calculate_total_weight(self, t):
+            return float(len(t))
+
+        def estimate_duration(self, g, r, f, **kw):
+            return float(len(g)) * 2
+
+    dur = _t.ModuleType("omnivoice.utils.duration")
+    dur.RuleDurationEstimator = _Est
+    mods = {
+        "omnivoice": _t.ModuleType("omnivoice"),
+        "omnivoice.utils": _t.ModuleType("omnivoice.utils"),
+        "omnivoice.utils.duration": dur,
+        "huggingface_hub": _t.ModuleType("huggingface_hub"),
+        "soundfile": _t.ModuleType("soundfile"),
+        "torch": _t.ModuleType("torch"),
+    }
+    mods["torch"].float32 = "fp32"
+    for n, m in mods.items():
+        sys.modules.setdefault(n, m)
+    return ZW
 
 
 def main():
@@ -256,6 +291,185 @@ def main():
     eq(h["window_floor_db"] < -40, True,
        "و کفِ همان پنجره پاک است (%.0f dB)" % h["window_floor_db"])
     eq("reject" in h, False, "پس فایل رد نمی‌شود — جای پاکش پیدا شد")
+
+    # ══ ۷ — بودجهٔ زمانِ OmniVoice، و جایی که برای فارسی غلط می‌زند ══
+    # این همان سنجه‌ای است که در f5 **بعد** از دو اجرای تلف‌شده نوشته شد.
+    # اینجا پیش از اولین اجرا نوشته می‌شود، و دو چیزِ متضاد را می‌گوید:
+    # اعراب رایگان‌اند (که در f5 نبودند)، ولی نیم‌فاصله — که اصلاً صدا
+    # ندارد — گران حساب می‌شود.
+    print("۷ — بودجهٔ زمانِ OmniVoice")
+    # ══ چرا اینجا بدل و نه بستهٔ واقعی ══
+    # این خودآزمون در کارِ **اسکن** می‌دود، که هیچ بستهٔ سنگینی نصب
+    # نمی‌کند. اگر به omnivoice وابسته‌اش کنم، همه‌جا رد می‌شود — و
+    # آزمونی که همه‌جا رد شود، آزمون نیست. پس منطقِ *خودم* اینجا سنجیده
+    # می‌شود، و عددهای واقعیِ جدول (اعراب ۰٫۰ · نیم‌فاصله ۲٫۲) از خودِ
+    # بستهٔ ۰٫۲٫۱ خوانده شده‌اند و در هر گزارشِ اجرا چاپ می‌شوند.
+    _stubOmni()
+    aud = V.durAudit_("متنِ مرجع.", txt, 250)
+    eq(aud["zwnj_in_text"], txt.count(V.ZWNJ_),
+       "نیم‌فاصله‌های متن شمرده می‌شوند (%d تا)" % aud["zwnj_in_text"])
+    eq(aud["frames_zwnj_free"] < aud["frames_default"], True,
+       "بودجهٔ اصلاح‌شده کوتاه‌تر از پیش‌فرض است — نیم‌فاصله صدا ندارد")
+    eq(aud["overestimate_pct"] > 0, True,
+       "و مقدارش گزارش می‌شود (%.1f٪)" % aud["overestimate_pct"])
+    z = V.durAudit_("متنِ مرجع.", txt.replace(V.ZWNJ_, ""), 250)
+    eq(z["overestimate_pct"], 0.0,
+       "متنِ بی نیم‌فاصله اصلاحی نمی‌خواهد — سنجه بی‌جهت هشدار نمی‌دهد")
+
+    # ══ ۸ — مسیرِ کاملِ omnivoice روی بدل‌ها ══
+    # همان دلیلِ بخشِ ۵: خطاهای اجرای #۴ و #۶ هیچ‌کدام به مدل ربط نداشتند.
+    # اینجا سه چیز سنجیده می‌شود که فقط با دواندنِ مسیر پیدا می‌شوند:
+    # ارزان اول اجرا می‌شود، بودجه اجرای گران را می‌گیرد، و نسبتِ سرعت
+    # برای **هر** اجرا جدا نوشته می‌شود.
+    print("۸ — مسیرِ کاملِ omnivoice روی بدل‌ها")
+    w2 = tempfile.mkdtemp()
+    calls = []
+    _stubOmni()
+
+    class FakePrompt(object):
+        def __init__(self):
+            class T(object):
+                shape = (8, 250)
+            self.ref_audio_tokens = T()
+            self.ref_text = "متنِ مرجعِ بدلی."
+
+    class FakeTok(object):
+        unk_token_id = 3
+
+        def __call__(self, t, add_special_tokens=False):
+            class O(object):
+                pass
+            o = O(); o.input_ids = list(range(10, 10 + len(t) // 2))
+            return o
+
+        def decode(self, ids):
+            return txt
+
+    class FakeCfg(object):
+        frame_rate = 25.0
+
+    class FakeAT(object):
+        config = FakeCfg()
+
+    class FakeModel(object):
+        sampling_rate = 24000
+
+        def __init__(self):
+            self.text_tokenizer = FakeTok()
+            self.audio_tokenizer = FakeAT()
+
+        def parameters(self):
+            return []
+
+        def load_asr_model(self):
+            pass
+
+        def transcribe(self, a):
+            return "متنِ مرجعِ بدلی"
+
+        def create_voice_clone_prompt(self, ref_audio=None, ref_text=None):
+            return FakePrompt()
+
+        def generate(self, **kw):
+            calls.append(kw)
+            import numpy as _np
+            return [_np.zeros(24000 * 5, dtype="float32")]
+
+    sys.modules["omnivoice"].OmniVoice = types.SimpleNamespace(
+        from_pretrained=lambda p, **kw: FakeModel())
+    sys.modules["huggingface_hub"].snapshot_download = lambda r, **kw: w2
+    sys.modules["soundfile"].write = lambda p, a, sr: wav(p, 5.0)
+    io.open(os.path.join(w2, "README.md"), "w", encoding="utf-8").write(
+        "---\nlicense: apache-2.0\n---\nکارتِ مدلِ بدلی\n")
+
+    realCut2 = V.cutAtPause_
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 9.0), 9.0, 4)
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "omnivoice"}; V.OPT["_out"] = w2
+        V.OPT["f5_nfe"] = "32"
+        V.OPT["ref_text"] = "متنِ مرجعِ بدلی"
+        made2 = V.run_omnivoice(wav(os.path.join(w2, "r.wav"), 30.0), "", txt, w2)
+        rep2 = json.load(io.open(os.path.join(w2, "report-omnivoice.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.cutAtPause_ = realCut2
+
+    eq(os.path.basename(made2), "omnivoice_fast.wav",
+       "خروجیِ برگشتی همان اجرای ارزان است — که اول انجام می‌شود")
+    eq([c["num_step"] for c in calls], [16, 32],
+       "ارزان اول، گران دوم — تا سقفِ زمان خروجی را نبلعد")
+    eq(rep2["model_facts"]["weights_license"], "apache-2.0",
+       "پروانهٔ وزن‌ها از کارتِ مدل خوانده می‌شود، نه از پروانهٔ کد")
+    eq(all(v.get("realtime_factor") is not None for v in rep2["variants"]), True,
+       "نسبتِ سرعت برای هر اجرا جدا نوشته می‌شود، نه یکی برای همه")
+    eq(rep2["vocab_audit"]["unknown_tokens"], 0, "ممیزیِ واژگان اجرا می‌شود")
+    eq(calls[0]["language"], "fa", "زبان صریحاً fa فرستاده می‌شود")
+    eq(calls[0]["duration"] > 0, True, "و بودجهٔ زمانِ اصلاح‌شده پاس داده می‌شود")
+    eq(rep2["ref_text_source"].startswith("دست‌نویس"), True,
+       "متنِ دست‌نویس استفاده می‌شود وقتی داده شده")
+
+    # ══ و سدِ بودجه باید واقعاً ببندد ══
+    # این سد به‌خاطرِ اجرای #۱۱ هست: صد و پنجاه دقیقه خرج شد و هیچ فایلی
+    # نماند. سدی که آزموده نشود، همان شکلی است که این ریپو بارها خورده —
+    # کدی که نوشته و شرح داده شده و هرگز اجرا نشده.
+    import time as _time
+    calls2 = []
+
+    class SlowModel(FakeModel):
+        def generate(self, **kw):
+            calls2.append(kw)
+            _time.sleep(1.1)
+            import numpy as _np
+            return [_np.zeros(24000 * 5, dtype="float32")]
+
+    sys.modules["omnivoice"].OmniVoice = types.SimpleNamespace(
+        from_pretrained=lambda p, **kw: SlowModel())
+    realBudget = V.OMNI_BUDGET_SEC
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 9.0), 9.0, 4)
+    try:
+        V.OMNI_BUDGET_SEC = 1
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "omnivoice"}; V.OPT["_out"] = w2
+        V.OPT["f5_nfe"] = "32"; V.OPT["ref_text"] = "متنِ مرجعِ بدلی"
+        V.run_omnivoice(wav(os.path.join(w2, "r.wav"), 30.0), "", txt, w2)
+        rep3 = json.load(io.open(os.path.join(w2, "report-omnivoice.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.OMNI_BUDGET_SEC = realBudget
+        V.cutAtPause_ = realCut2
+    eq([c["num_step"] for c in calls2], [16],
+       "وقتی برآوردِ اجرای گران از بودجه بگذرد، اجرا نمی‌شود")
+    eq("skipped" in rep3["variants"][1], True,
+       "و دلیلش در گزارش می‌آید — نه اینکه بی‌صدا غیب شود")
+    V.OPT.clear()
+
+    # ══ ۹ — سه فهرست که باید با هم بخوانند ══
+    # `removeTriggers` در خودِ موتور ده نامِ دست‌نویس داشت و سه زمان‌بندیِ
+    # تازه را جا گذاشت — یک سال بی‌صدا. اینجا همان شکل سه‌جاست: تعریفِ
+    # موتور، اجراکننده‌اش، و گزینهٔ فرم. هر کدام بدونِ دیگری یعنی
+    # «انتخاب می‌شود و هیچ نمی‌کند» یا «هست و از فرم نمی‌شود صدایش کرد».
+    print("۹ — هم‌خوانیِ فهرستِ موتورها")
+    eq(sorted(V.ENGINES), sorted(V.RUNNERS),
+       "هر موتور هم تعریف دارد هم اجراکننده")
+    wf = io.open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), ".github", "workflows", "voice-lab.yml"),
+        encoding="utf-8").read()
+    m = re.search(r"options: \[([^\]]+)\]", wf)
+    opts = set(x.strip() for x in m.group(1).split(",")) if m else set()
+    eq(sorted(set(V.ENGINES) - opts), [],
+       "هر موتور از فرم قابلِ انتخاب است")
+    eq(sorted(opts - set(V.ENGINES) - {"all", "scan-only"}), [],
+       "و هیچ گزینهٔ فرمی به هیچ‌جا اشاره نمی‌کند")
+    # ══ و اینجا `search` غلط بود ══
+    # اولین `engines=…`ی که در فایل می‌آید `[]` است (گزینهٔ scan-only).
+    # با `search` حلقه روی فهرستِ خالی می‌چرخید و آزمون **بی هیچ سنجشی**
+    # سبز می‌شد. دقیقاً همان چیزی که این بخش برای گرفتنش نوشته شده.
+    plans = [json.loads(x) for x in re.findall(r"engines=(\[[^\]]*\])' >>", wf)]
+    named = [n for p_ in plans for n in p_]
+    eq(len(named) > 0, True, "فهرستِ «همه» در گردش‌کار پیدا شد (%d نام)" % len(named))
+    for name in named:
+        eq(name in V.ENGINES, True, "«همه» موتورِ موجود صدا می‌زند: %s" % name)
 
     print("\nهمه گذشت.")
     return 0

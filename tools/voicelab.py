@@ -95,6 +95,30 @@ ENGINES = {
         "needs_src": False,
         "persian": "چک‌پوینتِ پایه انگلیسی/چینی است؛ فارسی باید سنجیده شود",
     },
+    # ══ چرا این آخر آمد، و چرا شاید اول باشد (پس از اجرای #۱۸) ══
+    # نویسندهٔ MOSS-TTS-Nano — همان مدلی که داشتم برایش موتور می‌ساختم —
+    # در «محدودیت‌های شناخته‌شده»ی مخزنِ خودش نوشته است: «برای فارسیِ
+    # بلند، مدلِ بزرگِ غیرِخودبازگشتی مثلِ OmniVoice یک متنِ کامل را در
+    # یک فراخوان می‌سازد و ابزارِ بهتری است». وقتی سازندهٔ یک مدل دربارهٔ
+    # کارِ خودش این را بنویسد، حرفش را باید جدی گرفت.
+    #
+    # چهار چیز را از **خودِ بستهٔ ۰٫۲٫۱** خواندم، نه از کارتِ مدل:
+    #   • واژه‌سازِ واقعیِ HF — تلهٔ «نویسهٔ ناشناخته → فاصله»ی f5 اینجا نیست
+    #   • اعراب در بودجهٔ زمان وزنِ **صفر** دارند (`"mark": 0.0`)
+    #   • تکه‌کردنِ متنِ بلند داخلِ خودش است (بالای ۳۰ ثانیه → تکه‌های ۱۵ثانیه‌ای)
+    #   • با ref_text دادن، صوتِ مرجع **بریده نمی‌شود**
+    # و فارسی: ۳۶۶ ساعت، رتبهٔ ۴۶ از ۶۴۶ زبان.
+    #
+    # آنچه هنوز نمی‌دانیم و فقط اجرا می‌گوید: سرعت روی CPU. عددهای مخزن
+    # همه روی H100 است و ماشینِ ما GPU ندارد. همان سؤالی که seedvc را
+    # (۱۲۵ برابرِ بلادرنگ) از دور خارج کرد.
+    "omnivoice": {
+        "family": "TTS با کلونینگ (مدلِ انتشاریِ غیرِخودبازگشتی)",
+        "pip": ["omnivoice"],
+        "code_license": "Apache-2.0 (کد) · وزن‌ها: از کارتِ مدل خوانده و گزارش می‌شود",
+        "needs_src": False,
+        "persian": "فارسی در ۶۴۶ زبانش هست — ۳۶۶ ساعت، رتبهٔ ۴۶",
+    },
     "xtts": {
         "family": "TTS با کلونینگ",
         # اجرای #۲: «Coqui TTS requires PyTorch … but they were not found».
@@ -116,6 +140,10 @@ ENGINES = {
 # سی‌ثانیه‌ایِ خوب بیش از کافی است، و سقف را از «هرچه باشد» درمی‌آورد.
 SURVEY_SEC = 600
 SURVEY_TIMEOUT = 240
+
+# بودجهٔ یک اجرای OmniVoice. سقفِ خودِ کار ۱۰۰ دقیقه است؛ این عدد نصفِ آن
+# است تا برای بارگذاری، رونویس و بایگانیِ خروجی جا بماند.
+OMNI_BUDGET_SEC = 2700
 
 
 def sh(cmd, timeout=None, **kw):
@@ -725,6 +753,12 @@ def f5SpeedFit_(refText, genText):
     return round(a * c, 3)
 
 
+# نام‌هایی که ورودیِ اجرا هستند نه یافتهٔ آن — این‌ها جای دیگری در گزارش
+# می‌آیند و تکرارشان فقط شلوغی است.
+REP_SKIP_ = {"f5_ckpt", "f5_vocab", "f5_ref_text", "f5_nfe", "alphabet",
+             "ref_text", "omni_model"}
+
+
 def saveRep_():
     """
     گزارش را **همین حالا** روی دیسک بنویس، نه در پایان.
@@ -737,13 +771,17 @@ def saveRep_():
     rep, out = OPT.get("_rep"), OPT.get("_out")
     if not isinstance(rep, dict) or not out:
         return
-    for k in ("resolved", "variants", "ref_cut", "ref_used", "vocab_audit",
-              "speed_fit", "ref_text_source", "ref_text_final", "alphabet_note",
-              "audition", "ref_text_warning", "one_run_why"):
-        if OPT.get(k) is not None:
-            rep[k] = OPT[k]
-    if OPT.get("heard") is not None:
-        rep["ref_text_heard"] = OPT["heard"]
+    # ══ فهرستِ دستیِ «چه چیزی گزارش شود» کهنه می‌شود ══
+    # این حلقه سیزده نامِ دست‌نویس داشت. هر یافتهٔ تازه‌ای که موتورِ بعدی
+    # پیدا می‌کرد، تا وقتی نامش به آن فهرست اضافه نمی‌شد، **بی‌صدا** از
+    # گزارش می‌افتاد — نه خطایی، نه جای خالی‌ای. همان شکلی که در خودِ موتور
+    # `removeTriggers` داشت و سه زمان‌بندی را جا گذاشت.
+    # پس وارونه‌اش می‌کنیم: هرچه در OPT هست گزارش می‌شود، مگر آنچه صریحاً
+    # درونی است. یافتهٔ تازه به‌طورِ پیش‌فرض دیده می‌شود، نه به‌شرطِ یادآوری.
+    for k, v in OPT.items():
+        if k.startswith("_") or k in REP_SKIP_ or v is None:
+            continue
+        rep["ref_text_heard" if k == "heard" else k] = v
     try:
         with io.open(os.path.join(out, "report-%s.json" % rep.get("engine", "x")),
                      "w", encoding="utf-8") as f:
@@ -996,8 +1034,269 @@ def run_chatterboxvc(ref, src, text, out):
     return dst
 
 
+
+# ZWNJ (نیم‌فاصله) — نویسه‌ای که دیده نمی‌شود و خوانده هم نمی‌شود.
+ZWNJ_ = "‌"
+
+
+def durAudit_(refText, genText, refFrames):
+    """
+    بودجهٔ زمانِ OmniVoice را بسنج — و جایی که برای فارسی غلط می‌زند.
+
+    ══ چرا این تابع پیش از هر اجرایی نوشته شد ══
+    در f5 بودجهٔ زمان از `len(utf8)` می‌آمد، و هر اعراب دو بایت است. یعنی
+    متنِ اعراب‌دارِ ما ۲۷٪ بلندتر برآورد می‌شد و مدل ناچار بود کِش بدهد.
+    آن را بعد از دو اجرای تلف‌شده فهمیدم. اینجا **پیش از** اجرا سنجیدمش،
+    از روی خودِ `RuleDurationEstimator`:
+
+      • اعراب وزنِ **صفر** دارند («mark»: 0.0). یعنی آن اشکال اینجا نیست.
+      • ولی ZWNJ در بازهٔ کدیِ «kana» می‌افتد و وزنِ **۲٫۲** می‌گیرد —
+        بیشتر از یک حرفِ فارسیِ کامل (۱٫۵)، برای نویسه‌ای که اصلاً صدا
+        ندارد. در یک بندِ واقعیِ درس‌نامه این یعنی ~۵٫۶٪ برآوردِ اضافه.
+
+    پس عدد را خودمان درست حساب می‌کنیم و با `duration=` به مدل می‌دهیم.
+    گزارش هر دو را می‌آورد تا «چقدر فرق کرد» حدس نباشد.
+    """
+    from omnivoice.utils.duration import RuleDurationEstimator
+    e = RuleDurationEstimator()
+    w = e.calculate_total_weight
+    raw = e.estimate_duration(genText, refText, refFrames)
+    fixed = e.estimate_duration(genText.replace(ZWNJ_, ""),
+                                refText.replace(ZWNJ_, ""), refFrames)
+    return {
+        "zwnj_in_text": genText.count(ZWNJ_),
+        "zwnj_weight": w(ZWNJ_),
+        "tashkil_weight": w("َ"),
+        "frames_default": round(raw, 1),
+        "frames_zwnj_free": round(fixed, 1),
+        "overestimate_pct": (round(100 * (raw / fixed - 1), 1) if fixed else None),
+    }
+
+
+def tokAudit_(tok, text):
+    """
+    ممیزیِ واژگان — همان کاری که برای f5 کردیم، برای یک واژه‌سازِ واقعی.
+
+    ══ چرا این سنجه و نه ایمانِ به «چندزبانه» ══
+    f5 واژگانش یک فایلِ متنیِ تک‌نویسه‌ای بود و `vocab_char_map.get(c, 0)`
+    هر نویسهٔ ناشناخته را به **فاصله** بدل می‌کرد — یعنی متنِ فارسی بی هیچ
+    خطایی به سکوت تبدیل می‌شد. اینجا واژه‌ساز از خودِ HF می‌آید، پس این
+    شکلِ خرابی نباید ممکن باشد. «نباید» را می‌سنجیم.
+
+    سه عدد: نویسهٔ ناشناخته (باید صفر باشد)، رفت‌وبرگشتِ بی‌تلفات، و
+    نسبتِ توکن به نویسه (که هزینهٔ فارسی را در برابرِ انگلیسی نشان می‌دهد).
+    """
+    ids = tok(text, add_special_tokens=False).input_ids
+    back = tok.decode(ids)
+    unk = getattr(tok, "unk_token_id", None)
+    return {
+        "tokens": len(ids),
+        "chars": len(text),
+        "tokens_per_char": round(len(ids) / max(1, len(text)), 3),
+        "unknown_tokens": (sum(1 for i in ids if i == unk) if unk is not None else 0),
+        "roundtrip_ok": back.replace(" ", "") == text.replace(" ", ""),
+        "roundtrip_sample": back[:200],
+    }
+
+
+def run_omnivoice(ref, src, text, out):
+    """
+    ══ چرا این موتور، بعد از اینکه f5 بالاخره «خیلی بهتر» شد ══
+
+    مسیرِ MOSS-TTS-Nano را می‌ساختم که README خودش جلویم را گرفت. سه چیز
+    را نویسنده‌اش دربارهٔ مدلِ خودش نوشته بود: «سقفِ عملیِ هر گفته حدودِ
+    پنج ثانیه است»، «خروجی از نظرِ حس تخت است»، و در پایان — دربارهٔ کارِ
+    خودش — «برای فارسیِ بلند، مدلِ بزرگِ غیرِخودبازگشتی مثلِ OmniVoice
+    ابزارِ بهتری است». پادکستِ ما نوزده دقیقه است، نه پنج ثانیه.
+
+    پس OmniVoice را از **خودِ بسته‌اش** خواندم، نه از تبلیغش. چهار چیز که
+    آن را از f5 جدا می‌کند و هر چهار از کد درآمده‌اند، نه از ادعا:
+
+      ۱. واژه‌سازش `AutoTokenizer` است، نه فهرستِ تک‌نویسه‌ایِ دست‌ساز. آن
+         تلهٔ «نویسهٔ ناشناخته → فاصله» که فارسی را بی‌صدا خراب می‌کرد،
+         اینجا ساختاراً وجود ندارد. با این حال `tokAudit_` می‌سنجدش.
+      ۲. بودجهٔ زمان از وزنِ آوایی می‌آید، و اعراب وزنِ **صفر** دارند.
+         همان چیزی که در f5 دو اجرا خرجش شد، اینجا از پیش درست است.
+      ۳. تکه‌کردنِ متنِ بلند **داخلِ خودش** است: هر چه برآوردش از ۳۰ ثانیه
+         بگذرد به تکه‌های ۱۵ ثانیه‌ای می‌شکند و همه را با همان یک مرجع
+         می‌خوانَد. یعنی یک قسمتِ کامل یک فراخوان است.
+      ۴. اگر `ref_text` را **ما** بدهیم، صوتِ مرجع را نمی‌بُرد. f5 در هر
+         حال به ۱۲ ثانیه می‌بُرید و همین بود که متنِ دست‌نویسِ صاحبِ برنامه
+         را با صوت ناهم‌خوان می‌کرد.
+
+    و فارسی در فهرستِ زبان‌هایش هست: ۳۶۶ ساعت، رتبهٔ ۴۶ از ۶۴۶ زبان.
+    پروانهٔ کد Apache-2.0 است؛ پروانهٔ **وزن‌ها** را همین اجرا از کارتِ
+    مدل می‌خوانَد و در گزارش می‌آورد — چون KiaBush دقیقاً همین‌جا
+    غیرتجاری از آب درآمد.
+    """
+    import numpy as np
+    import torch
+    import soundfile as sf
+    from omnivoice import OmniVoice
+
+    repo = OPT.get("omni_model") or "k2-fsa/OmniVoice"
+    steps = OPT.get("f5_nfe")
+    steps = int(steps) if str(steps or "").strip().isdigit() else 32
+
+    # ── ۱. مدل: مسیرش را جدا حل کن تا کارتِ مدل خوانده شود ──
+    # پروانهٔ وزن‌ها در کارتِ مدل است، نه در LICENSEِ گیت‌هاب. این تفاوت
+    # همان چیزی است که XTTS و KiaBush را از دور خارج کرد.
+    from huggingface_hub import snapshot_download
+    t0 = time.time()
+    path = repo if os.path.isdir(repo) else snapshot_download(repo)
+    facts = {"repo": repo, "download_seconds": round(time.time() - t0)}
+    card = os.path.join(path, "README.md")
+    if os.path.exists(card):
+        head = io.open(card, encoding="utf-8", errors="replace").read()[:1500]
+        facts["model_card_head"] = head[:900]
+        m = re.search(r"^license:\s*(.+)$", head, re.M)
+        facts["weights_license"] = (m.group(1).strip() if m else "در کارتِ مدل نیامد")
+    OPT["model_facts"] = facts
+    saveRep_()
+    print("پروانهٔ وزن‌ها:", facts.get("weights_license"), flush=True)
+
+    print("بارگذاری روی CPU (fp32) …", flush=True)
+    model = OmniVoice.from_pretrained(path, device_map="cpu", dtype=torch.float32)
+    facts["params_millions"] = round(
+        sum(p.numel() for p in model.parameters()) / 1e6, 1)
+    facts["sampling_rate"] = int(model.sampling_rate)
+    facts["frame_rate"] = float(model.audio_tokenizer.config.frame_rate)
+    facts["load_seconds"] = round(time.time() - t0)
+    OPT["model_facts"] = facts
+    saveRep_()
+    print("مدل:", json.dumps(facts, ensure_ascii=False)[:400], flush=True)
+
+    # ── ۲. ممیزیِ واژگان، پیش از هر تولیدی ──
+    OPT["vocab_audit"] = tokAudit_(model.text_tokenizer, text)
+    saveRep_()
+    print("واژگان:", json.dumps(OPT["vocab_audit"], ensure_ascii=False), flush=True)
+
+    # ── ۳. نمونهٔ مرجع ──
+    # ۳ تا ۱۰ ثانیه توصیهٔ خودِ بسته است (بلندتر: کندتر و بدتر). برش سرِ
+    # مکث انجام می‌شود، همان تابعی که f5 از آن استفاده می‌کند.
+    cut = os.path.join(out, "omni-ref-cut.wav")
+    cutAtPause_(ref, cut, max_sec=10.0, min_sec=4.0)
+    OPT["ref_cut"] = probe(cut)
+    saveRep_()
+
+    given = (OPT.get("ref_text") or "").strip()
+    if given:
+        # ══ متنِ دست‌نویس فقط وقتی درست است که با **همین** برش بخواند ══
+        # چون ref_text را ما می‌دهیم، بسته صوت را نمی‌بُرد — پس ناهم‌خوانی
+        # را چیزی نمی‌گیرد جز خودمان. رونویس هم گرفته می‌شود، نه برای
+        # استفاده، برای **مقایسه**؛ ناهم‌خوانی در گزارش می‌آید.
+        OPT["ref_text_source"] = "دست‌نویسِ صاحبِ برنامه"
+        refText = given
+    else:
+        OPT["ref_text_source"] = "رونویسِ خودکار (Whisper) از روی همین برش"
+        refText = None
+    try:
+        model.load_asr_model()
+        heard = model.transcribe(cut)
+        OPT["heard"] = heard
+        if given:
+            gw, hw = len(given.split()), len(heard.split())
+            if hw and abs(gw - hw) > max(3, 0.35 * hw):
+                OPT["ref_text_warning"] = (
+                    "متنِ داده‌شده %d واژه دارد و آنچه از این برش شنیده شد %d — "
+                    "احتمالاً متن برای برشِ دیگری نوشته شده." % (gw, hw))
+        if refText is None:
+            refText = heard
+    except Exception as e:
+        OPT["asr_error"] = str(e)[:400]
+        if refText is None:
+            raise RuntimeError("رونویس نشد و متنِ مرجع هم داده نشده: %s" % str(e)[:200])
+    OPT["ref_text_final"] = refText
+    saveRep_()
+    print("متنِ مرجع:", refText[:200], flush=True)
+
+    prompt = model.create_voice_clone_prompt(ref_audio=cut, ref_text=refText)
+    refFrames = int(prompt.ref_audio_tokens.shape[-1])
+    OPT["ref_used"] = {"frames": refFrames,
+                       "seconds": round(refFrames / facts["frame_rate"], 2),
+                       "ref_text_after_punct": prompt.ref_text[:200]}
+    saveRep_()
+
+    # ── ۴. بودجهٔ زمان ──
+    OPT["speed_fit"] = durAudit_(prompt.ref_text, text, refFrames)
+    saveRep_()
+    print("بودجهٔ زمان:", json.dumps(OPT["speed_fit"], ensure_ascii=False), flush=True)
+    fixSec = OPT["speed_fit"]["frames_zwnj_free"] / facts["frame_rate"]
+
+    # ── ۵. اجراها ──
+    # ══ دو اجرا، و هر کدام سؤالِ خودش ══
+    # اجرای #۱۷ یک «شاهد» ساخت که با اجرای آزمون **یکسان** بود، ۲۵ دقیقه
+    # خرج کرد و مقایسه‌ای دروغین به دست داد. پس هر اجرا اینجا سؤالِ جدا
+    # دارد: اولی «چقدر خوب می‌خواند»، دومی «ارزانش چقدر بد است» — و
+    # عددِ سرعت است که تصمیمِ تولید را می‌گیرد، نه کیفیت.
+    # ══ ارزان اول، و گران فقط اگر جا باشد ══
+    # اجرای #۱۱ صد و پنجاه دقیقه را کامل خرج کرد و **هیچ** خروجی نداشت.
+    # درسش این بود که سقفِ کار مهلتِ هیچ کاری نیست. اینجا همان درس به
+    # ترتیبِ اجراها بدل شده: نسخهٔ ارزان اول می‌آید، پس اگر بعدی از بودجه
+    # بگذرد دستِ‌کم یک صوت شنیدنی داریم — و از روی زمانِ واقعیِ همان
+    # اجرای اول، زمانِ دومی **برآورد** می‌شود، نه امید.
+    runs = [("fast", 16, "نصفِ گام‌ها — پرسشِ هزینه، نه کیفیت")]
+    if steps > 16:
+        runs.append(("full", steps, "کیفیتِ کامل — %d گام" % steps))
+    else:
+        OPT["one_run_why"] = "اجرای دوم نیامد: گام‌ها از پیش ۱۶ یا کمتر بود."
+
+    made, variants, lastRt = None, [], None
+    for name, ns, why in runs:
+        if lastRt is not None:
+            projected = lastRt * ns / 16.0
+            if projected > OMNI_BUDGET_SEC:
+                variants.append({"name": name, "num_step": ns, "why": why,
+                                 "skipped": "برآوردِ %ds از بودجهٔ %ds گذشت — "
+                                            "اجرا نشد تا خروجیِ موجود از دست نرود."
+                                            % (round(projected), OMNI_BUDGET_SEC)})
+                OPT["variants"] = variants
+                saveRep_()
+                print("%s اجرا نشد: برآوردِ %d ثانیه." % (name, projected), flush=True)
+                continue
+        dst = os.path.join(out, "omnivoice_%s.wav" % name)
+        t1 = time.time()
+        try:
+            audio = model.generate(
+                text=text,
+                language="fa",
+                voice_clone_prompt=prompt,
+                duration=fixSec,
+                num_step=ns,
+            )
+            sf.write(dst, audio[0], model.sampling_rate)
+            took = round(time.time() - t1)
+            info = probe(dst)
+            # ══ نسبتِ سرعت برای **هر** اجرا، نه یکی برای همه ══
+            # اجرای #۱۰ زمانِ دو خروجی را به حسابِ یکی نوشت و عدد را دو
+            # برابر گزارش کرد. عددِ سرِ جمع همان اشتباه است وقتی دو اجرا
+            # عمداً تنظیمِ متفاوت دارند.
+            sec = float(info.get("seconds") or 0)
+            variants.append({
+                "name": name, "num_step": ns, "why": why, "file": os.path.basename(dst),
+                "info": info, "seconds_taken": took,
+                "realtime_factor": (round(took / sec, 1) if sec else None),
+                "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
+                                        if sec else None),
+            })
+            made = made or dst
+            lastRt = took
+            print("%s: %ss صوت در %ss" % (name, info.get("seconds"), took), flush=True)
+        except Exception as e:
+            variants.append({"name": name, "num_step": ns, "why": why,
+                             "error": str(e)[:600]})
+            print("%s شکست خورد: %s" % (name, str(e)[:300]), flush=True)
+        OPT["variants"] = variants
+        saveRep_()
+
+    if not made:
+        raise RuntimeError("هیچ‌کدام از اجراها خروجی نداد")
+    return made
+
+
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
-           "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts}
+           "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts,
+           "omnivoice": run_omnivoice}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
 # RUNNERها یکی است و نباید برای یک موتور عوض شود.
@@ -1026,8 +1325,14 @@ def main():
     ap.add_argument("--f5-vocab", default="")
     # متنِ دقیقِ نمونهٔ مرجع. خالی یعنی f5 خودش با ASR پیاده‌اش کند — و
     # پیاده‌سازیِ غلط، تلفظِ غلط می‌سازد.
-    ap.add_argument("--f5-ref-text", default="")
-    ap.add_argument("--f5-nfe", default="")
+    # نامِ f5 روی این دو مانده چون خانه‌های فرم همین نام را دارند؛ ولی
+    # هر دو مفهومِ عمومی‌اند (متنِ مرجع · گام‌های کیفیت) و OmniVoice هم
+    # همان‌ها را می‌خوانَد. نامِ عمومی به‌عنوانِ مترادف اضافه شد تا فرم
+    # دست‌نخورده بماند و کد دروغ نگوید.
+    ap.add_argument("--f5-ref-text", "--ref-text", dest="f5_ref_text", default="")
+    ap.add_argument("--f5-nfe", "--steps", dest="f5_nfe", default="")
+    # مخزنِ OmniVoice — خالی یعنی k2-fsa/OmniVoice
+    ap.add_argument("--omni-model", default="")
     # ══ ایدهٔ صاحبِ برنامه: الفبا را عوض کن، نه مدل را ══
     # «برای مدل‌هایی که فارسی نمی‌فهمند ولی انگلیسی می‌فهمند، فارسی را
     # فینگلیش بنویسیم — و برای تلفظ از نشانه‌گذاریِ دیکشنری‌ها.»
@@ -1041,6 +1346,9 @@ def main():
     OPT["f5_ckpt"] = a.f5_ckpt
     OPT["f5_vocab"] = a.f5_vocab
     OPT["f5_ref_text"] = a.f5_ref_text
+    # نامِ عمومی، چون دو موتور می‌خوانندش
+    OPT["ref_text"] = a.f5_ref_text
+    OPT["omni_model"] = a.omni_model
     OPT["f5_nfe"] = a.f5_nfe
     OPT["alphabet"] = a.alphabet
     # برگردان اینجا انجام می‌شود، نه در run_f5: این آزمایشِ **متن** است، نه

@@ -23,7 +23,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+        options: [all, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
       # ══ چند نمونه با کاما ══
       # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
       # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ
@@ -67,7 +67,7 @@ on:
       # فایلی که واقعاً به مدل می‌رود (reference-used.wav). ولی اگر خودتان
       # بنویسیدش، حتماً بهتر است.
       f5_ref_text:
-        description: 'متنِ دقیقِ نمونهٔ صدا (از روی reference-used.wav) — خالی یعنی رونویسِ خودکارِ فارسی'
+        description: 'متنِ دقیقِ نمونهٔ صدا — خالی یعنی رونویسِ خودکار (f5 و omnivoice هر دو می‌خوانندش)'
         required: false
         default: ''
         type: string
@@ -93,7 +93,7 @@ on:
         type: choice
         options: [fa, finglish, respell, ipa]
       f5_nfe:
-        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر (سقفِ زمانِ کار ۱۰۰ دقیقه)'
+        description: 'گام‌های کیفیت — خالی=۳۲ · f5: nfe · omnivoice: num_step (سقفِ زمانِ کار ۱۰۰ دقیقه)'
         required: false
         default: ''
         type: string
@@ -142,7 +142,10 @@ jobs:
             #  • xtts — نه فارسی دارد نه وزنِ تجاری
             #  • seedvc — ۱۲۵ برابرِ بلادرنگ، یعنی ۴۰ ساعت برای یک قسمت
             # هنوز با انتخابِ صریح اجرا می‌شوند؛ فقط در «همه» نمی‌آیند.
-            echo 'engines=["f5","chatterboxvc","chatterbox"]' >> "$GITHUB_OUTPUT"
+            # omnivoice پس از اجرای #۱۸ اضافه شد و **اولِ** فهرست است: هر
+            # موتور رانرِ خودش را دارد، پس افزودنش به «همه» یک دقیقه هم به
+            # زمانِ انتظار اضافه نمی‌کند.
+            echo 'engines=["omnivoice","f5","chatterboxvc","chatterbox"]' >> "$GITHUB_OUTPUT"
           else
             echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
           fi
