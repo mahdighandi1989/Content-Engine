@@ -87,7 +87,7 @@ on:
         type: choice
         options: [fa, finglish, respell, ipa]
       f5_nfe:
-        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر (سقفِ زمان حالا ۱۵۰ دقیقه است)'
+        description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر (سقفِ زمانِ کار ۱۰۰ دقیقه)'
         required: false
         default: ''
         type: string
