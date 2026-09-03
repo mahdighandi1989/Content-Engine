@@ -112,10 +112,31 @@ ENGINES = {
 }
 
 
-def sh(cmd, **kw):
-    """اجرای فرمان با خروجیِ زنده — تا در سیاههٔ اکشن دیده شود."""
+# چقدر از هر نمونه بررسی شود، و مهلتش. ده دقیقه برای پیداکردنِ یک پنجرهٔ
+# سی‌ثانیه‌ایِ خوب بیش از کافی است، و سقف را از «هرچه باشد» درمی‌آورد.
+SURVEY_SEC = 600
+SURVEY_TIMEOUT = 240
+
+
+def sh(cmd, timeout=None, **kw):
+    """
+    اجرای فرمان با خروجیِ زنده — تا در سیاههٔ اکشن دیده شود.
+
+    ══ چرا مهلت (اجرای #۱۱) ══
+    یک فراخوانِ ffmpeg دو ساعت و نیم روی **یک** فایل ماند و کلِ کار سرِ
+    سقفِ زمان لغو شد. فرمانی که مهلت ندارد، سقفِ زمانِ کلِ کار را مهلتِ
+    خودش می‌کند — و آن‌وقت هزینهٔ یک ورودیِ بدقلق، کلِ آزمایش است.
+    """
     print("$ " + " ".join(cmd), flush=True)
-    return subprocess.run(cmd, check=False, **kw)
+    try:
+        return subprocess.run(cmd, check=False, timeout=timeout, **kw)
+    except subprocess.TimeoutExpired:
+        class _T(object):
+            returncode = 124
+            stdout = b""
+            stderr = ("مهلتِ %ss تمام شد" % timeout).encode("utf-8")
+        print("مهلت تمام شد (%ss): %s" % (timeout, cmd[0]), flush=True)
+        return _T()
 
 
 def ffmpeg():
@@ -153,14 +174,14 @@ def to_wav(src, dst, seconds=None, rate=24000):
     کیفیتِ نمونه‌برداری را خراب می‌کند.
     """
     f = ffmpeg()
-    cmd = [f, "-y", "-i", src, "-ac", "1", "-ar", str(rate),
+    cmd = [f, "-y", "-nostdin", "-i", src, "-ac", "1", "-ar", str(rate),
            "-af", "silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,"
                   "areverse,silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,areverse,"
                   "loudnorm=I=-18:TP=-2"]
     if seconds:
         cmd += ["-t", str(seconds)]
     cmd += [dst]
-    r = sh(cmd, capture_output=True)
+    r = sh(cmd, capture_output=True, timeout=SURVEY_TIMEOUT)
     if r.returncode != 0:
         raise RuntimeError("ffmpeg: " + r.stderr.decode("utf-8", "replace")[-800:])
     return dst
@@ -188,6 +209,28 @@ def frames_(path, win=0.02):
                 t += x * x
             out.append(math.sqrt(t / M))
     return out, win, rate, n / float(rate)
+
+
+def srcInfo_(path):
+    """
+    این فایل چقدر است و چه قالبی دارد — **پیش** از هر پردازشی.
+
+    اجرای #۱۱ روی یک فایل دو ساعت و نیم ماند و در گزارش هیچ نشانی از
+    اینکه آن فایل چه بود نمانده. طولِ ورودی ارزان‌ترین عددِ ممکن است و
+    گران‌ترین تصمیم را روشن می‌کند.
+    """
+    r = sh([ffmpeg(), "-hide_banner", "-nostdin", "-i", path], capture_output=True,
+           timeout=60)
+    log = (r.stderr or b"").decode("utf-8", "replace")
+    out = {"raw": ""}
+    m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", log)
+    if m:
+        out["seconds"] = round(int(m.group(1)) * 3600 + int(m.group(2)) * 60
+                               + float(m.group(3)), 1)
+    m = re.search(r"Audio:\s*([^\n]+)", log)
+    if m:
+        out["raw"] = m.group(1).strip()[:120]
+    return out
 
 
 def refScore_(path):
@@ -230,6 +273,15 @@ def refScore_(path):
         voiced = [d > thr for d in seg]
         if not voiced:
             return None
+        # ══ کفِ سکوت باید مالِ همین پنجره باشد، نه کلِ فایل ══
+        # آزمونِ محلی این را لو داد: فایلی که ده دقیقه‌اش موسیقی دارد و سه
+        # دقیقه‌اش پاک است، روی کلِ فایل کفِ پاک نشان می‌دهد (چون
+        # ساکت‌ترین قاب‌ها از همان تکهٔ پاک می‌آیند) و بعد پنجره‌ای از
+        # وسطِ موسیقی انتخاب می‌شود. سنجه‌ای که در سطحِ تصمیم حساب نشود،
+        # تصمیم را نمی‌سازد — همان اشتباهی که در این ریپو بارها تکرار
+        # شده: تحلیل نوشته می‌شود و به دروازه وصل نمی‌شود.
+        q = sorted(seg)[:max(1, len(seg) // 10)]
+        wf = sum(q) / len(q) - peak
         pauses, run = [], 0
         for v in voiced:
             if not v:
@@ -250,9 +302,12 @@ def refScore_(path):
         sc -= len(dead) * 6.0                             # سکوتِ مرده
         sc -= abs(frac - 0.66) * 40.0                     # نه پُرگو، نه خالی
         sc -= max(0.0, spread - 24.0) * 0.8               # ترازِ ناپیوسته
+        if wf > -34:
+            sc -= 40
         return {"score": round(sc, 1), "speech_pct": round(100 * frac),
                 "pauses": len(good), "dead": len(dead),
-                "level_spread_db": round(spread, 1)}
+                "level_spread_db": round(spread, 1),
+                "window_floor_db": round(wf, 1)}
 
     W = int(30.0 / win)
     best, bestAt = None, 0.0
@@ -263,16 +318,18 @@ def refScore_(path):
             best, bestAt = r, a * win
     if best is None:
         best, bestAt = window(0, len(db)) or {"score": -99}, 0.0
-    # کفِ سکوت به کلِ فایل مربوط است، نه به پنجره: موسیقیِ زمینه همه‌جا هست.
+    # کفِ کلِ فایل هم می‌مانَد — ولی فقط به‌عنوان زمینه، نه تصمیم. اگر کفِ
+    # پنجره پاک باشد و کفِ فایل نه، یعنی همین‌جا را درست پیدا کرده‌ایم.
     best["floor_db"] = round(floor, 1)
     best["at_second"] = round(bestAt, 1)
     best["duration"] = round(dur, 1)
     best["rate"] = rate
-    if floor > -34:
-        best["score"] -= 40
-        best["reject"] = ("کفِ سکوت %.0f دسی‌بل است — یعنی زیرِ گفتار چیزی "
-                          "هست (موسیقی/فضاسازی). مدل آن را هم صدای گوینده "
-                          "می‌گیرد." % floor)
+    wf = best.get("window_floor_db", floor)
+    if wf > -34:
+        best["reject"] = ("کفِ سکوتِ بهترین پنجره %.0f دسی‌بل است — یعنی زیرِ "
+                          "گفتار چیزی هست (موسیقی/فضاسازی) و جای پاکی در این "
+                          "فایل پیدا نشد. مدل آن بستر را هم صدای گوینده "
+                          "می‌گیرد و در هر قسمت بازتولیدش می‌کند." % wf)
     return best
 
 
@@ -285,13 +342,34 @@ def refAudition_(paths, out, seconds):
     هیچ دلیلی نداشت جز اینکه اولین جا بود.
     """
     rows = []
+    f = ffmpeg()
     for i, src in enumerate(paths):
         full = os.path.join(out, "cand%d.wav" % (i + 1))
         try:
-            to_wav(src, full)
+            info = srcInfo_(src)
+            print("نمونهٔ %d: %s" % (i + 1, json.dumps(info, ensure_ascii=False)),
+                  flush=True)
+            # ══ چرا اینجا زنجیرهٔ نرمال‌سازی اجرا **نمی‌شود** (اجرای #۱۱) ══
+            # `to_wav` برای آماده‌کردنِ نمونهٔ نهایی است: silenceremove،
+            # دو `areverse` و loudnorm. و `areverse` کلِ جریان را در حافظه
+            # نگه می‌دارد. من آن را روی **کلِ** فایل‌های خام صدا زدم؛ روی یک
+            # فایلِ بلند، دو ساعت و نیم دوید و ۱۴۲ ثانیه صوت نوشت.
+            #
+            # برای *سنجیدن* هیچ‌کدامِ اینها لازم نیست — فقط ترازِ خام لازم
+            # است. پس اینجا تبدیلِ ساده، و نرمال‌سازی فقط روی همان سی
+            # ثانیه‌ای که انتخاب می‌شود.
+            r = sh([f, "-y", "-nostdin", "-t", str(SURVEY_SEC), "-i", src,
+                    "-ac", "1", "-ar", "24000", full],
+                   capture_output=True, timeout=SURVEY_TIMEOUT)
+            if r.returncode != 0 or not os.path.exists(full):
+                raise RuntimeError((r.stderr or b"").decode("utf-8", "replace")[-300:])
             r = refScore_(full)
+            r["source"] = info
+            if info.get("seconds", 0) > SURVEY_SEC:
+                r["surveyed"] = ("فقط %d ثانیهٔ اولِ این فایل بررسی شد (طولش %s)"
+                                 % (SURVEY_SEC, info.get("seconds")))
         except Exception as e:
-            r = {"error": str(e)[:200], "score": -99}
+            r = {"error": str(e)[:300], "score": -99}
         r["file"] = os.path.basename(src)
         r["_full"] = full
         rows.append(r)
@@ -301,11 +379,17 @@ def refAudition_(paths, out, seconds):
     rows.sort(key=lambda x: -x.get("score", -99))
     win = rows[0]
     dst = os.path.join(out, "reference.wav")
-    f = ffmpeg()
-    r = sh([f, "-y", "-ss", "%.2f" % win.get("at_second", 0), "-i", win["_full"],
-            "-t", str(seconds), "-c", "copy", dst], capture_output=True)
-    if r.returncode != 0:
-        to_wav(win["_full"], dst, seconds=seconds)
+    cut = os.path.join(out, "chosen-window.wav")
+    r = sh([f, "-y", "-nostdin", "-ss", "%.2f" % win.get("at_second", 0),
+            "-i", win["_full"], "-t", str(seconds), "-c", "copy", cut],
+           capture_output=True, timeout=120)
+    # نرمال‌سازیِ سنگین حالا روی یک فایلِ سی‌ثانیه‌ای می‌نشیند، نه روی
+    # کلِ ضبط — همان جایی که از اول برایش نوشته شده بود.
+    try:
+        to_wav(cut if r.returncode == 0 else win["_full"], dst, seconds=seconds)
+    except Exception as e:
+        print("نرمال‌سازی نشد؛ با برشِ خام ادامه: %s" % str(e)[:200], flush=True)
+        shutil.copyfile(cut if r.returncode == 0 else win["_full"], dst)
     for x in rows:
         x.pop("_full", None)
     OPT["audition"] = {"chosen": win.get("file"), "at_second": win.get("at_second"),
@@ -336,9 +420,9 @@ def cutAtPause_(src, dst, max_sec=11.5, min_sec=4.0):
     ببُرد، پس متنِ مرجعی که دستی داده شود دقیقاً به همین تکه می‌خورَد.
     """
     f = ffmpeg()
-    r = sh([f, "-hide_banner", "-i", src, "-af",
+    r = sh([f, "-hide_banner", "-nostdin", "-i", src, "-af",
             "silencedetect=noise=-38dB:d=0.22", "-f", "null", "-"],
-           capture_output=True)
+           capture_output=True, timeout=120)
     log = (r.stderr or b"").decode("utf-8", "replace")
     starts = []
     for m in re.finditer(r"silence_start:\s*([0-9.]+)", log):
@@ -346,8 +430,8 @@ def cutAtPause_(src, dst, max_sec=11.5, min_sec=4.0):
         except ValueError: pass
     good = [t for t in starts if min_sec <= t <= max_sec]
     cut = max(good) if good else max_sec
-    r2 = sh([f, "-y", "-i", src, "-t", "%.3f" % cut, "-c", "copy", dst],
-            capture_output=True)
+    r2 = sh([f, "-y", "-nostdin", "-i", src, "-t", "%.3f" % cut, "-c", "copy", dst],
+            capture_output=True, timeout=120)
     if r2.returncode != 0:
         raise RuntimeError("برش نشد: " + r2.stderr.decode("utf-8", "replace")[-400:])
     print("برشِ نمونه: %.2f ثانیه (%s)" %

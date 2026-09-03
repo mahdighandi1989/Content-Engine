@@ -200,6 +200,30 @@ def main():
     eq(clean["score"] > beded["score"], True, "و نمرهٔ تمیز بالاتر است")
     eq(clean["pauses"] > 0, True, "مکث‌های قابلِ برش شمرده می‌شوند")
 
+    # ══ و کفِ سکوت باید در سطحِ **پنجره** تصمیم بسازد ══
+    # فایلی که نیمی‌اش موسیقی دارد و نیمی پاک است: کفِ کلِ فایل پاک
+    # درمی‌آید (ساکت‌ترین قاب‌ها از تکهٔ پاک می‌آیند) و اگر تصمیم از روی
+    # آن گرفته شود، پنجره‌ای از وسطِ موسیقی انتخاب می‌شود.
+    def half(path, rate=24000, sec=120.0):
+        n = int(rate * sec); out = []
+        for i in range(n):
+            t = i / float(rate)
+            on = (t % 2.2) < 1.6
+            bed = 0.06 if t < sec / 2 else 0.0      # نیمهٔ اول موزیک‌دار
+            v = (0.30 * _m.sin(2 * _m.pi * 180 * t) if on else 0.0)
+            v += bed * _m.sin(2 * _m.pi * 220 * t)
+            out.append(max(-32767, min(32767, int(v * 32767))))
+        f = _w.open(path, "wb"); f.setnchannels(1); f.setsampwidth(2)
+        f.setframerate(rate); f.writeframes(_s.pack("<%dh" % n, *out)); f.close()
+        return path
+
+    h = V.refScore_(half(os.path.join(d2, "half.wav")))
+    eq(h["at_second"] >= 55, True,
+       "پنجره از نیمهٔ پاک انتخاب می‌شود (ثانیهٔ %s)" % h["at_second"])
+    eq(h["window_floor_db"] < -40, True,
+       "و کفِ همان پنجره پاک است (%.0f dB)" % h["window_floor_db"])
+    eq("reject" in h, False, "پس فایل رد نمی‌شود — جای پاکش پیدا شد")
+
     print("\nهمه گذشت.")
     return 0
 
