@@ -1371,6 +1371,62 @@ function speakPieces_(text, cap) {
   return out;
 }
 
+var SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
+
+/**
+ * ══ یک واژهٔ خراب نباید هشتاد‌وهفت واژهٔ سالم را با خود ببرد (۶٫۸۹) ══
+ *
+ * این پنجمین حمله به یک عددِ واحد است: «۴۲٪ بخش‌ها بی‌اعراب خوانده شد».
+ * ۶٫۲۹ نیم‌فاصله را بخشید، ۶٫۷۶ شکلِ حرف را، ۶٫۷۸ و ۶٫۸۵ دو رسمِ کسرهٔ
+ * اضافه را. هر چهار تا درست بودند و عدد از ۴۸٪ به ۴۲٪ آمد و ایستاد.
+ *
+ * چون هر چهار تا یک سؤال می‌پرسیدند: «آیا این تفاوت واقعی است؟» و این بار
+ * جواب **بله** است. نمونهٔ گزارشِ امروز را محلی بازتولید کردم و همان
+ * رشته درآمد: («می‌خورد.ابهام» ← «می‌خرد.ابهام»). مدل یک «و» را انداخته.
+ * ردکردنش درست است.
+ *
+ * غلط، *اندازهٔ* ردکردن است. آن بخش هشتادوهشت واژه دارد و یکی‌شان خراب
+ * است؛ ما هر هشتادوهشت را بی‌اعراب می‌خوانیم. آزمونِ محلی: چهار جمله، فقط
+ * چهارمی خراب — کلِ بخش رد می‌شود، در حالی که سه جملهٔ اول جداگانه از
+ * همین سد رد می‌شوند.
+ *
+ * پس همان اصلی که speakGraft_ از ۶٫۲۹ دارد — «تعمیر کن، دور نریز» — یک
+ * پله بالاتر: جملهٔ خراب متنِ خام می‌مانَد، بقیه اعرابشان را نگه می‌دارند.
+ *
+ * سه مرزِ سخت:
+ *  • مرزِ جمله دستِ مدل نیست. اگر شمارِ جمله‌ها یکی نباشد، هم‌ترازی
+ *    نامعلوم است و نامعلوم یعنی نه — دست‌نخورده برمی‌گردد.
+ *  • خروجی هرگز از ورودی تهی‌تر نمی‌شود: اگر هیچ جمله‌ای نجات نیافت، ''
+ *    برمی‌گردد و مسیرِ فعلی همان کارِ قبلی را می‌کند.
+ *  • غلظتِ اعراب همچنان روی کلِ تکه سنجیده می‌شود، نه جمله‌به‌جمله: روی
+ *    یک جملهٔ پنج‌واژه‌ای آن سنجه نویز است، نه سنجه.
+ */
+function speakSalvage_(piece, vowelled) {
+  /* جفت‌سازی از `speakPair_` می‌آید، نه از یک بریدنِ تازه. اولین کاری که
+     اینجا کردم همین بود — یک `speakSentences_` دومِ خودم نوشتم — و کامنتِ
+     بالای همان تابع دقیقاً همین را ممنوع کرده بود: «دو تعریف از مرزِ جمله
+     در یک فایل یعنی روزی یکی‌شان بی‌صدا برنده می‌شود.» بدتر: تعریفِ من در
+     فایل پایین‌تر بود، پس مسیرِ بازبینیِ speak2 هم بی هیچ خطایی عوض می‌شد.
+     `cap: 1` یعنی هر جمله یک جفت، و شمارِ ناهم‌خوان را هم خودش با
+     برگرداندنِ یک جفتِ «یکجا» اعلام می‌کند. */
+  var pairs = speakPair_(piece, vowelled, 1);
+  if (pairs.length < 2) return '';
+  var out = [], kept = 0, dropped = 0;
+  for (var i = 0; i < pairs.length; i++) {
+    var g = speakGraft_(pairs[i][0], pairs[i][1]);
+    if (g && verifySpeak_(pairs[i][0], g)) { out.push(g); kept++; }
+    else { out.push(pairs[i][0]); dropped++; }
+  }
+  if (!kept) return '';
+  var joined = out.join(' ');
+  // سدِ غلظت سرِ جای خودش می‌مانَد؛ فقط دیگر همه‌یا‌هیچ نیست.
+  if (!speakVowelledOk_(piece, joined)) return '';
+  SPEAK_SALVAGE_.pieces++;
+  SPEAK_SALVAGE_.kept += kept;
+  SPEAK_SALVAGE_.dropped += dropped;
+  return joined;
+}
+
 /**
  * اعراب‌گذاریِ یک تکه با مدل. برمی‌گرداند متنِ اعراب‌دار یا '' (شکست).
  * قاعدهٔ سختِ پرامپت: «هیچ چیزی جز افزودنِ اعراب». نتیجه همین‌جا وارسی
@@ -1450,12 +1506,22 @@ function vowelizePiece_(piece) {
     var v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
+    // جوابِ اول نگه داشته می‌شود: اگر تلاشِ دوم هم رد شد، شاید جمله‌های
+    // سالمِ همین یکی بیشتر باشند. دور انداختنش هزینه‌ای ندارد جز یک متغیر.
+    var v1 = v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
     v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
+    // هر دو تلاش رد شد. پیش از دورانداختنِ کلِ تکه، جمله‌به‌جمله نجات:
+    // آنچه سالم است می‌مانَد، خرابْ خام خوانده می‌شود.
+    var sv = speakSalvage_(piece, v) || speakSalvage_(piece, v1);
+    if (sv) {
+      VOWEL_LAST_WHY_ = '';
+      return sv;
+    }
   } catch (e) { if (!VOWEL_LAST_WHY_) VOWEL_LAST_WHY_ = 'خطا: ' + String(e.message || e).slice(0, 60); }
   return '';
 }
@@ -1774,9 +1840,16 @@ function speakSkipRecord_(ep, label, hub, epNum) {
         ev = String(S[v2].why).slice(S[v2].why.indexOf(' (') + 1).slice(0, 80);
       }
     }
+    /* نجاتِ جمله‌ای هم ثبت می‌شود (۶٫۸۹). بی این، اثرِ اصلاح نامرئی است:
+       درصدِ «بی‌اعراب» پایین می‌آید و هیچ‌کس نمی‌داند از کجا — و اگر روزی
+       بالا برود، نمی‌شود گفت نجات از کار افتاده یا مدل بدتر شده. */
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
+                sv: Number(SPEAK_SALVAGE_.pieces) || 0,
+                sk: Number(SPEAK_SALVAGE_.kept) || 0,
+                sd: Number(SPEAK_SALVAGE_.dropped) || 0,
                 f: Number(ep && ep.__speakFails) || 0 };
+    SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
     try { L = raw ? JSON.parse(raw) : []; } catch (eJ) { L = []; }
@@ -1818,7 +1891,8 @@ function speakSkipRecord_(ep, label, hub, epNum) {
 
 /** خطِ روزانهٔ «چند بخش بی‌اعراب رفت» — حتی وقتی صفر است. */
 function speakSkipStatus_() {
-  var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0 };
+  var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0,
+              saved: 0, savedSents: 0, rawSents: 0 };
   try {
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = raw ? JSON.parse(raw) : [];
@@ -1829,6 +1903,9 @@ function speakSkipStatus_() {
     var whyAll = {};
     for (var i = 0; i < L.length; i++) {
       out.eps++; out.segs += Number(L[i].n) || 0; out.skipped += Number(L[i].s) || 0;
+      out.saved += Number(L[i].sv) || 0;
+      out.savedSents += Number(L[i].sk) || 0;
+      out.rawSents += Number(L[i].sd) || 0;
       var w0 = L[i].w || {};
       for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
         whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
@@ -1838,6 +1915,12 @@ function speakSkipStatus_() {
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
     out.line = 'اعراب‌گذاری: در ' + fa(out.eps) + ' قسمتِ اخیر، ' + fa(out.skipped) +
                ' بخش از ' + fa(out.segs) + ' بی‌اعراب خوانده شد (' + fa(pct) + '٪).';
+    /* و آنچه *نجات یافت* — چون همین‌جا بود که سه هفته نامرئی ماند: عدد
+       می‌گفت چند بخش افتاد و هیچ‌جا نمی‌گفت چند تا نزدیک بود بیفتد و نیفتاد. */
+    if (out.saved) {
+      out.line += ' ' + fa(out.saved) + ' بخش جمله‌به‌جمله نجات یافت (' +
+                  fa(out.savedSents) + ' جمله با اعراب، ' + fa(out.rawSents) + ' جمله خام).';
+    }
     // همان مرزِ speakSkipRecord_: «هیچ بخشی نگرفت» مسئلهٔ دسترسی است،
     // «بعضی گرفتند و بعضی نه» مسئلهٔ سد است. سه قسمتِ پیاپیِ کاملاً بی‌اعراب
     // دیگر بی‌صدا نمی‌ماند، ولی یکی دو تا هنوز یادداشت است نه هشدار.

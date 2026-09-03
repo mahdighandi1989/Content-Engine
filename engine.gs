@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.88
+ *  موتور محتوا و پادکست — نسخهٔ 6.89
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -734,6 +734,13 @@ var CFG = {
   // شب نوبتش می‌رسد — به‌جای اینکه اجرا وسطِ کار بی‌صدا کشته شود و هرچه
   // بعد از آن بود (از جمله نصبِ کد) اصلاً اجرا نشود.
   NIGHT_BUDGET_MS: 270000,
+  /* ══ چند شب گرسنگی، تا کاری «نوبت‌دار» شود (۶٫۸۹) ══
+     بلوک‌های سنگینِ شبانه به ترتیبِ اهمیت‌اند و آخری‌ها با بودجهٔ ۲۷۰
+     ثانیه‌ای هرگز نوبت نمی‌گیرند. `bridgeAuditRun_` یازدهمی بود و در
+     گزارشِ ۳ سپتامبر: «هیچ ارجاعی تا امروز داوری نشده». */
+  NIGHT_STARVE_NIGHTS: 3,
+  // سهمی که برای کارِ گرسنه کنار گذاشته می‌شود، حداکثر چه کسری از بودجه
+  NIGHT_RESERVE_PCT: 25,
   // بودجهٔ وارسیِ سلامت. گوگل در شش دقیقه بی‌خطا می‌کشد؛ این عدد جا
   // می‌گذارد تا مُهر و ایمیل — که در انتهای تابع‌اند — همیشه برسند.
   HEALTH_BUDGET_MS: 280000,
@@ -1116,7 +1123,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.88',
+  CODE_VERSION: '6.89',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1371,6 +1378,7 @@ var PK = {
   // نشد» قابلِ تشخیص نبود؛ و این ریپو هفت بار همین شکل را دیده است.
   SPEAK_REV: 'SPEAK_REVIEW_LOG',
   SPEAK_SKIP: 'SPEAK_SKIP_LOG',   // چند بخش از هر قسمت بی‌اعراب خوانده شد
+  NIGHT_STARVE: 'NIGHT_STARVE',   // کدام کارِ شبانه چند شب پیاپی نوبت نگرفت
   SPEECH_CAL: 'SPEECH_CALIBRATION', // بایتِ صدا به ازای هر نویسهٔ متن — اندازه‌گیری‌شده
   EXPLAIN: 'EXPLAIN_LOG',         // کارنامهٔ عصری‌سازیِ درس‌نامه
   RECAP_DONE: 'RECAP_DONE',       // کدام مجموعه‌ها مرورِ بزرگ گرفته‌اند
@@ -3809,6 +3817,62 @@ function speakPieces_(text, cap) {
   return out;
 }
 
+var SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
+
+/**
+ * ══ یک واژهٔ خراب نباید هشتاد‌وهفت واژهٔ سالم را با خود ببرد (۶٫۸۹) ══
+ *
+ * این پنجمین حمله به یک عددِ واحد است: «۴۲٪ بخش‌ها بی‌اعراب خوانده شد».
+ * ۶٫۲۹ نیم‌فاصله را بخشید، ۶٫۷۶ شکلِ حرف را، ۶٫۷۸ و ۶٫۸۵ دو رسمِ کسرهٔ
+ * اضافه را. هر چهار تا درست بودند و عدد از ۴۸٪ به ۴۲٪ آمد و ایستاد.
+ *
+ * چون هر چهار تا یک سؤال می‌پرسیدند: «آیا این تفاوت واقعی است؟» و این بار
+ * جواب **بله** است. نمونهٔ گزارشِ امروز را محلی بازتولید کردم و همان
+ * رشته درآمد: («می‌خورد.ابهام» ← «می‌خرد.ابهام»). مدل یک «و» را انداخته.
+ * ردکردنش درست است.
+ *
+ * غلط، *اندازهٔ* ردکردن است. آن بخش هشتادوهشت واژه دارد و یکی‌شان خراب
+ * است؛ ما هر هشتادوهشت را بی‌اعراب می‌خوانیم. آزمونِ محلی: چهار جمله، فقط
+ * چهارمی خراب — کلِ بخش رد می‌شود، در حالی که سه جملهٔ اول جداگانه از
+ * همین سد رد می‌شوند.
+ *
+ * پس همان اصلی که speakGraft_ از ۶٫۲۹ دارد — «تعمیر کن، دور نریز» — یک
+ * پله بالاتر: جملهٔ خراب متنِ خام می‌مانَد، بقیه اعرابشان را نگه می‌دارند.
+ *
+ * سه مرزِ سخت:
+ *  • مرزِ جمله دستِ مدل نیست. اگر شمارِ جمله‌ها یکی نباشد، هم‌ترازی
+ *    نامعلوم است و نامعلوم یعنی نه — دست‌نخورده برمی‌گردد.
+ *  • خروجی هرگز از ورودی تهی‌تر نمی‌شود: اگر هیچ جمله‌ای نجات نیافت، ''
+ *    برمی‌گردد و مسیرِ فعلی همان کارِ قبلی را می‌کند.
+ *  • غلظتِ اعراب همچنان روی کلِ تکه سنجیده می‌شود، نه جمله‌به‌جمله: روی
+ *    یک جملهٔ پنج‌واژه‌ای آن سنجه نویز است، نه سنجه.
+ */
+function speakSalvage_(piece, vowelled) {
+  /* جفت‌سازی از `speakPair_` می‌آید، نه از یک بریدنِ تازه. اولین کاری که
+     اینجا کردم همین بود — یک `speakSentences_` دومِ خودم نوشتم — و کامنتِ
+     بالای همان تابع دقیقاً همین را ممنوع کرده بود: «دو تعریف از مرزِ جمله
+     در یک فایل یعنی روزی یکی‌شان بی‌صدا برنده می‌شود.» بدتر: تعریفِ من در
+     فایل پایین‌تر بود، پس مسیرِ بازبینیِ speak2 هم بی هیچ خطایی عوض می‌شد.
+     `cap: 1` یعنی هر جمله یک جفت، و شمارِ ناهم‌خوان را هم خودش با
+     برگرداندنِ یک جفتِ «یکجا» اعلام می‌کند. */
+  var pairs = speakPair_(piece, vowelled, 1);
+  if (pairs.length < 2) return '';
+  var out = [], kept = 0, dropped = 0;
+  for (var i = 0; i < pairs.length; i++) {
+    var g = speakGraft_(pairs[i][0], pairs[i][1]);
+    if (g && verifySpeak_(pairs[i][0], g)) { out.push(g); kept++; }
+    else { out.push(pairs[i][0]); dropped++; }
+  }
+  if (!kept) return '';
+  var joined = out.join(' ');
+  // سدِ غلظت سرِ جای خودش می‌مانَد؛ فقط دیگر همه‌یا‌هیچ نیست.
+  if (!speakVowelledOk_(piece, joined)) return '';
+  SPEAK_SALVAGE_.pieces++;
+  SPEAK_SALVAGE_.kept += kept;
+  SPEAK_SALVAGE_.dropped += dropped;
+  return joined;
+}
+
 /**
  * اعراب‌گذاریِ یک تکه با مدل. برمی‌گرداند متنِ اعراب‌دار یا '' (شکست).
  * قاعدهٔ سختِ پرامپت: «هیچ چیزی جز افزودنِ اعراب». نتیجه همین‌جا وارسی
@@ -3888,12 +3952,22 @@ function vowelizePiece_(piece) {
     var v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
+    // جوابِ اول نگه داشته می‌شود: اگر تلاشِ دوم هم رد شد، شاید جمله‌های
+    // سالمِ همین یکی بیشتر باشند. دور انداختنش هزینه‌ای ندارد جز یک متغیر.
+    var v1 = v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
                     SPEAK_SCHEMA, 8192);
     v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
+    // هر دو تلاش رد شد. پیش از دورانداختنِ کلِ تکه، جمله‌به‌جمله نجات:
+    // آنچه سالم است می‌مانَد، خرابْ خام خوانده می‌شود.
+    var sv = speakSalvage_(piece, v) || speakSalvage_(piece, v1);
+    if (sv) {
+      VOWEL_LAST_WHY_ = '';
+      return sv;
+    }
   } catch (e) { if (!VOWEL_LAST_WHY_) VOWEL_LAST_WHY_ = 'خطا: ' + String(e.message || e).slice(0, 60); }
   return '';
 }
@@ -4212,9 +4286,16 @@ function speakSkipRecord_(ep, label, hub, epNum) {
         ev = String(S[v2].why).slice(S[v2].why.indexOf(' (') + 1).slice(0, 80);
       }
     }
+    /* نجاتِ جمله‌ای هم ثبت می‌شود (۶٫۸۹). بی این، اثرِ اصلاح نامرئی است:
+       درصدِ «بی‌اعراب» پایین می‌آید و هیچ‌کس نمی‌داند از کجا — و اگر روزی
+       بالا برود، نمی‌شود گفت نجات از کار افتاده یا مدل بدتر شده. */
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
+                sv: Number(SPEAK_SALVAGE_.pieces) || 0,
+                sk: Number(SPEAK_SALVAGE_.kept) || 0,
+                sd: Number(SPEAK_SALVAGE_.dropped) || 0,
                 f: Number(ep && ep.__speakFails) || 0 };
+    SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
     try { L = raw ? JSON.parse(raw) : []; } catch (eJ) { L = []; }
@@ -4256,7 +4337,8 @@ function speakSkipRecord_(ep, label, hub, epNum) {
 
 /** خطِ روزانهٔ «چند بخش بی‌اعراب رفت» — حتی وقتی صفر است. */
 function speakSkipStatus_() {
-  var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0 };
+  var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0,
+              saved: 0, savedSents: 0, rawSents: 0 };
   try {
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = raw ? JSON.parse(raw) : [];
@@ -4267,6 +4349,9 @@ function speakSkipStatus_() {
     var whyAll = {};
     for (var i = 0; i < L.length; i++) {
       out.eps++; out.segs += Number(L[i].n) || 0; out.skipped += Number(L[i].s) || 0;
+      out.saved += Number(L[i].sv) || 0;
+      out.savedSents += Number(L[i].sk) || 0;
+      out.rawSents += Number(L[i].sd) || 0;
       var w0 = L[i].w || {};
       for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
         whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
@@ -4276,6 +4361,12 @@ function speakSkipStatus_() {
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
     out.line = 'اعراب‌گذاری: در ' + fa(out.eps) + ' قسمتِ اخیر، ' + fa(out.skipped) +
                ' بخش از ' + fa(out.segs) + ' بی‌اعراب خوانده شد (' + fa(pct) + '٪).';
+    /* و آنچه *نجات یافت* — چون همین‌جا بود که سه هفته نامرئی ماند: عدد
+       می‌گفت چند بخش افتاد و هیچ‌جا نمی‌گفت چند تا نزدیک بود بیفتد و نیفتاد. */
+    if (out.saved) {
+      out.line += ' ' + fa(out.saved) + ' بخش جمله‌به‌جمله نجات یافت (' +
+                  fa(out.savedSents) + ' جمله با اعراب، ' + fa(out.rawSents) + ' جمله خام).';
+    }
     // همان مرزِ speakSkipRecord_: «هیچ بخشی نگرفت» مسئلهٔ دسترسی است،
     // «بعضی گرفتند و بعضی نه» مسئلهٔ سد است. سه قسمتِ پیاپیِ کاملاً بی‌اعراب
     // دیگر بی‌صدا نمی‌ماند، ولی یکی دو تا هنوز یادداشت است نه هشدار.
@@ -10093,6 +10184,7 @@ function writeStatus_(hub, note) {
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
+    nightStarve: (function () { try { return nightStarveStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -10949,6 +11041,16 @@ function healthCheck() {
     var skS = speakSkipStatus_();
     if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
   } catch (eSk2) {}
+  /* ══ کدام کارِ شبانه نوبت نمی‌گیرد (۶٫۸۹) ══
+     «۰ ارجاع داوری شده · ۷ در صف · هیچ ارجاعی تا امروز داوری نشده» تنها
+     نشانهٔ موجود بود، و آن را باید کسی در یک تبِ دیگر می‌دید. علتش هم در
+     همین ایمیل نبود: `bridgeAuditRun_` یازدهمین بلوکِ سنگینِ شبانه است و
+     با بودجهٔ ۲۷۰ ثانیه‌ای هرگز نوبتش نمی‌رسید. گرسنگی باید همان‌جا اعلام
+     شود که بقیهٔ سلامت اعلام می‌شود، وگرنه هفته‌ها بی‌صدا می‌مانَد. */
+  if (healthHas_(4000, 'نوبتِ کارهای شبانه', skipped)) try {
+    var nsS = nightStarveStatus_();
+    if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
+  } catch (eNs) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
@@ -24389,13 +24491,113 @@ function nightLeft_() {
   return budget - (new Date().getTime() - _nightT0);
 }
 
-/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ می‌شود. */
+/* ══ صف، نه فقط اولویت (۶٫۸۹) ══
+
+   بلوک‌های سنگینِ شبانه به ترتیبِ اهمیت‌اند و هرکدام پشتِ `nightHas_`
+   می‌نشیند. این تا وقتی درست است که بودجه به همه برسد؛ نمی‌رسد. بودجه
+   ۲۷۰ ثانیه است و `bridgeAuditRun_` یازدهمین بلوک — یعنی نه «گاهی جا
+   می‌مانَد»، بلکه **هرگز نوبت نمی‌گیرد**. گزارشِ ۳ سپتامبر همین را با
+   عدد گفت: «۰ ارجاع داوری شده · ۷ در صف · هیچ ارجاعی تا امروز داوری
+   نشده.»
+
+   جوابِ غلط این است که آن یکی را ببریم بالاتر: آن‌وقت هرچه پایین‌تر از
+   او بماند گرسنه می‌شود و ما فقط جای گرسنگی را عوض کرده‌ایم. همین شکل
+   در ۵٫۸۸ برای پویشِ جزوه‌ها پیش آمد و جوابش آنجا هم «بالاتر ببر» نبود:
+   پنجرهٔ چرخان با مکان‌نما.
+
+   پس ترتیب دست نمی‌خورَد و به‌جایش **گرسنگی شمرده می‌شود**: کاری که چند
+   شب پیاپی نوبت نگرفت، شبِ بعد سهمش از بودجه کنار گذاشته می‌شود و
+   بلوک‌های جلوتر باید همان‌قدر زودتر بایستند. یعنی نوبتش سرِ جای خودش
+   در ترتیب می‌رسد، بی آنکه اهمیتِ چیزی عوض شود.
+
+   و شمارش در `_STATUS.json` دیده می‌شود، چون همین نامرئی‌بودن بود که
+   گذاشت یک قابلیت هفته‌ها بی‌صدا اجرا نشود. */
+var NIGHT_RESERVE_ = null;
+
+function nightStarve_() {
+  try { return JSON.parse(props_().getProperty(PK.NIGHT_STARVE) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function nightStarveSave_(m) {
+  try { props_().setProperty(PK.NIGHT_STARVE, JSON.stringify(m)); } catch (e) {}
+}
+
+/**
+ * گرسنه‌ترین کار را برای امشب نوبت‌دار کن — یکی، نه همه.
+ *
+ * چند رزرو هم‌زمان یعنی بودجه‌ای که برای هیچ‌کدام کافی نیست: همان بن‌بست
+ * با نامِ تازه. و سقفِ رزرو کسری از بودجه است تا یک کارِ گرسنه نتواند
+ * نصبِ کد و خانه‌داری را از پا بیندازد.
+ */
+function nightReserve_() {
+  var m = nightStarve_(), need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
+  var cap = Math.round((Number(CFG.NIGHT_BUDGET_MS) || 270000) *
+                       (Number(CFG.NIGHT_RESERVE_PCT) || 25) / 100);
+  var best = null;
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
+    var r = m[k] || {};
+    if ((Number(r.n) || 0) < need) continue;
+    if (!best || (Number(r.n) || 0) > (Number(best.n) || 0)) {
+      best = { what: k, n: Number(r.n) || 0, ms: Math.min(Number(r.ms) || 0, cap) };
+    }
+  }
+  NIGHT_RESERVE_ = best;
+  if (best) {
+    logLine_('کارِ شبانه: «' + best.what + '» ' + best.n +
+             ' شب نوبت نگرفته — امشب ' + Math.round(best.ms / 1000) +
+             ' ثانیه برایش کنار گذاشته شد.');
+  }
+  return best;
+}
+
+/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ و شمرده می‌شود. */
 function nightHas_(needMs, what) {
+  var m = nightStarve_();
+  // سهمِ کارِ گرسنه از دستِ بقیه کنار گذاشته می‌شود — نه از دستِ خودش.
+  var res = (NIGHT_RESERVE_ && NIGHT_RESERVE_.what !== what)
+    ? (Number(NIGHT_RESERVE_.ms) || 0) : 0;
   var left = nightLeft_();
-  if (left >= needMs) return true;
+  if (left >= needMs + res) {
+    if (m[what]) { delete m[what]; nightStarveSave_(m); }
+    return true;
+  }
+  var r = m[what] || { n: 0, ms: needMs };
+  r.n = (Number(r.n) || 0) + 1;
+  r.ms = Math.max(Number(r.ms) || 0, needMs);
+  r.at = nowStr_();
+  m[what] = r;
+  nightStarveSave_(m);
   logLine_('کارِ شبانه: «' + what + '» امشب اجرا نشد — وقت نمانده (' +
-           Math.round(left / 1000) + ' ثانیه). فردا شب دوباره.');
+           Math.round(left / 1000) + ' ثانیه، ' + r.n + ' شبِ پیاپی). فردا شب دوباره.');
   return false;
+}
+
+/**
+ * خطِ وضعیت: کدام کار چند شب است نوبت نمی‌گیرد.
+ *
+ * بی این، «هیچ ارجاعی تا امروز داوری نشده» تنها نشانهٔ موجود بود — و آن
+ * را باید کسی در یک تبِ دیگر می‌دید. گرسنگی باید همان‌جا اعلام شود که
+ * بقیهٔ سلامت اعلام می‌شود.
+ */
+function nightStarveStatus_() {
+  var m = nightStarve_(), rows = [];
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
+    rows.push({ what: k, nights: Number(m[k].n) || 0 });
+  }
+  rows.sort(function (a, b) { return b.nights - a.nights; });
+  var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
+  var bad = rows.filter(function (r) { return r.nights >= need; });
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  return {
+    rows: rows,
+    ok: !bad.length,
+    line: rows.length
+      ? ('کارِ شبانه: ' + rows.slice(0, 4).map(function (r) {
+          return r.what + ' (' + fa(r.nights) + ' شب)';
+        }).join(' · ') + (bad.length ? ' — نوبت‌دار شد.' : ''))
+      : 'کارِ شبانه: همهٔ کارها نوبت گرفتند.'
+  };
 }
 
 /**
@@ -24458,6 +24660,9 @@ function selfUpdateDaily() {
   // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
   // ردهای ناحقِ نسخه‌های پیش — یک بار، پیش از گشتن، تا همان شب آورده شوند
   try { musicUnblock_(); } catch (eUB) {}
+
+  // نوبتِ امشب برای گرسنه‌ترین کار، پیش از نخستین بلوکِ سنگین.
+  try { nightReserve_(); } catch (eNR) {}
 
   /* ══ سنجهٔ محتوا، پیش از کارهای اختیاری (۶٫۳۳) ══
      ۶٫۳۲ این بند را از پشتِ «مرورِ بزرگ» جلو آورد و درست بود، ولی کافی
@@ -28041,6 +28246,13 @@ function musicRemember_(mw, epLabel) {
       at: nowStr_(), episode: String(epLabel || ''),
       mood: String((mw && mw.mood) || ''),
       tracks: ((mw && mw.picks) || []).map(function (p) { return p.name; }),
+      /* ══ کدامشان لبهٔ برنامه را گرفتند (۶٫۸۹) ══
+         داوریِ غلط روی قطعه‌ای که کسی پخشش نمی‌کند هزینه‌ای ندارد؛ روی
+         موسیقیِ آغازِ قسمتِ امشب، هر شنونده‌ای می‌شنود. پس صفِ بازشنیدن
+         باید از همین‌ها شروع شود، نه از ترتیبِ دلخواهِ پوشه. */
+      edges: ((mw && mw.picks) || []).filter(function (p) {
+        return p && (p.slot === 'شروع' || p.slot === 'پایان');
+      }).map(function (p) { return p.name; }),
       missing: (mw && mw.missing) || []
     }));
   } catch (e) {}
@@ -29616,12 +29828,23 @@ function musicRecheck_(hub, opt) {
       if (heardSays_(row.heard, 'آهنگ') || heardSays_(row.heard, 'زمینه')) return false;
       return true;
     });
-    // افکت‌ها اول: تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد
-    todo.sort(function (a, c) {
-      var ra = known[a.getId()], rc = known[c.getId()];
-      return ((ra && String(ra.kind || '') === 'افکت') ? 0 : 1) -
-             ((rc && String(rc.kind || '') === 'افکت') ? 0 : 1);
-    });
+    /* ترتیبِ صف = هزینهٔ اشتباه، نه ترتیبِ پوشه.
+       ۱) قطعه‌هایی که همین اخیراً **لبهٔ** یک قسمت را گرفتند — غلط‌بودنشان
+          را هر شنونده‌ای می‌شنود، و «زمزمهٔ آکوستیک» دو شبِ پیاپی همین بود.
+       ۲) افکت‌ها — تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد.
+       ۳) بقیه. */
+    var edge = {};
+    try {
+      var lp2 = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null');
+      var eg = (lp2 && lp2.edges) || [];
+      for (var e0 = 0; e0 < eg.length; e0++) edge[String(eg[e0])] = true;
+    } catch (eE) {}
+    var rank = function (f3) {
+      if (edge[f3.getName()]) return 0;
+      var rr = known[f3.getId()];
+      return (rr && String(rr.kind || '') === 'افکت') ? 1 : 2;
+    };
+    todo.sort(function (a, c) { return rank(a) - rank(c); });
   }
   var capN = Math.max(0, Number(opt.cap) || 0);
   if (capN && todo.length > capN) {

@@ -1385,6 +1385,13 @@ function musicRemember_(mw, epLabel) {
       at: nowStr_(), episode: String(epLabel || ''),
       mood: String((mw && mw.mood) || ''),
       tracks: ((mw && mw.picks) || []).map(function (p) { return p.name; }),
+      /* ══ کدامشان لبهٔ برنامه را گرفتند (۶٫۸۹) ══
+         داوریِ غلط روی قطعه‌ای که کسی پخشش نمی‌کند هزینه‌ای ندارد؛ روی
+         موسیقیِ آغازِ قسمتِ امشب، هر شنونده‌ای می‌شنود. پس صفِ بازشنیدن
+         باید از همین‌ها شروع شود، نه از ترتیبِ دلخواهِ پوشه. */
+      edges: ((mw && mw.picks) || []).filter(function (p) {
+        return p && (p.slot === 'شروع' || p.slot === 'پایان');
+      }).map(function (p) { return p.name; }),
       missing: (mw && mw.missing) || []
     }));
   } catch (e) {}
@@ -2960,12 +2967,23 @@ function musicRecheck_(hub, opt) {
       if (heardSays_(row.heard, 'آهنگ') || heardSays_(row.heard, 'زمینه')) return false;
       return true;
     });
-    // افکت‌ها اول: تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد
-    todo.sort(function (a, c) {
-      var ra = known[a.getId()], rc = known[c.getId()];
-      return ((ra && String(ra.kind || '') === 'افکت') ? 0 : 1) -
-             ((rc && String(rc.kind || '') === 'افکت') ? 0 : 1);
-    });
+    /* ترتیبِ صف = هزینهٔ اشتباه، نه ترتیبِ پوشه.
+       ۱) قطعه‌هایی که همین اخیراً **لبهٔ** یک قسمت را گرفتند — غلط‌بودنشان
+          را هر شنونده‌ای می‌شنود، و «زمزمهٔ آکوستیک» دو شبِ پیاپی همین بود.
+       ۲) افکت‌ها — تنها نوعی که نبودِ تأیید جلوی پخششان را می‌گیرد.
+       ۳) بقیه. */
+    var edge = {};
+    try {
+      var lp2 = JSON.parse(props_().getProperty(PK.MUSIC_LAST) || 'null');
+      var eg = (lp2 && lp2.edges) || [];
+      for (var e0 = 0; e0 < eg.length; e0++) edge[String(eg[e0])] = true;
+    } catch (eE) {}
+    var rank = function (f3) {
+      if (edge[f3.getName()]) return 0;
+      var rr = known[f3.getId()];
+      return (rr && String(rr.kind || '') === 'افکت') ? 1 : 2;
+    };
+    todo.sort(function (a, c) { return rank(a) - rank(c); });
   }
   var capN = Math.max(0, Number(opt.cap) || 0);
   if (capN && todo.length > capN) {

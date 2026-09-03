@@ -577,13 +577,113 @@ function nightLeft_() {
   return budget - (new Date().getTime() - _nightT0);
 }
 
-/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ می‌شود. */
+/* ══ صف، نه فقط اولویت (۶٫۸۹) ══
+
+   بلوک‌های سنگینِ شبانه به ترتیبِ اهمیت‌اند و هرکدام پشتِ `nightHas_`
+   می‌نشیند. این تا وقتی درست است که بودجه به همه برسد؛ نمی‌رسد. بودجه
+   ۲۷۰ ثانیه است و `bridgeAuditRun_` یازدهمین بلوک — یعنی نه «گاهی جا
+   می‌مانَد»، بلکه **هرگز نوبت نمی‌گیرد**. گزارشِ ۳ سپتامبر همین را با
+   عدد گفت: «۰ ارجاع داوری شده · ۷ در صف · هیچ ارجاعی تا امروز داوری
+   نشده.»
+
+   جوابِ غلط این است که آن یکی را ببریم بالاتر: آن‌وقت هرچه پایین‌تر از
+   او بماند گرسنه می‌شود و ما فقط جای گرسنگی را عوض کرده‌ایم. همین شکل
+   در ۵٫۸۸ برای پویشِ جزوه‌ها پیش آمد و جوابش آنجا هم «بالاتر ببر» نبود:
+   پنجرهٔ چرخان با مکان‌نما.
+
+   پس ترتیب دست نمی‌خورَد و به‌جایش **گرسنگی شمرده می‌شود**: کاری که چند
+   شب پیاپی نوبت نگرفت، شبِ بعد سهمش از بودجه کنار گذاشته می‌شود و
+   بلوک‌های جلوتر باید همان‌قدر زودتر بایستند. یعنی نوبتش سرِ جای خودش
+   در ترتیب می‌رسد، بی آنکه اهمیتِ چیزی عوض شود.
+
+   و شمارش در `_STATUS.json` دیده می‌شود، چون همین نامرئی‌بودن بود که
+   گذاشت یک قابلیت هفته‌ها بی‌صدا اجرا نشود. */
+var NIGHT_RESERVE_ = null;
+
+function nightStarve_() {
+  try { return JSON.parse(props_().getProperty(PK.NIGHT_STARVE) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function nightStarveSave_(m) {
+  try { props_().setProperty(PK.NIGHT_STARVE, JSON.stringify(m)); } catch (e) {}
+}
+
+/**
+ * گرسنه‌ترین کار را برای امشب نوبت‌دار کن — یکی، نه همه.
+ *
+ * چند رزرو هم‌زمان یعنی بودجه‌ای که برای هیچ‌کدام کافی نیست: همان بن‌بست
+ * با نامِ تازه. و سقفِ رزرو کسری از بودجه است تا یک کارِ گرسنه نتواند
+ * نصبِ کد و خانه‌داری را از پا بیندازد.
+ */
+function nightReserve_() {
+  var m = nightStarve_(), need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
+  var cap = Math.round((Number(CFG.NIGHT_BUDGET_MS) || 270000) *
+                       (Number(CFG.NIGHT_RESERVE_PCT) || 25) / 100);
+  var best = null;
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
+    var r = m[k] || {};
+    if ((Number(r.n) || 0) < need) continue;
+    if (!best || (Number(r.n) || 0) > (Number(best.n) || 0)) {
+      best = { what: k, n: Number(r.n) || 0, ms: Math.min(Number(r.ms) || 0, cap) };
+    }
+  }
+  NIGHT_RESERVE_ = best;
+  if (best) {
+    logLine_('کارِ شبانه: «' + best.what + '» ' + best.n +
+             ' شب نوبت نگرفته — امشب ' + Math.round(best.ms / 1000) +
+             ' ثانیه برایش کنار گذاشته شد.');
+  }
+  return best;
+}
+
+/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ و شمرده می‌شود. */
 function nightHas_(needMs, what) {
+  var m = nightStarve_();
+  // سهمِ کارِ گرسنه از دستِ بقیه کنار گذاشته می‌شود — نه از دستِ خودش.
+  var res = (NIGHT_RESERVE_ && NIGHT_RESERVE_.what !== what)
+    ? (Number(NIGHT_RESERVE_.ms) || 0) : 0;
   var left = nightLeft_();
-  if (left >= needMs) return true;
+  if (left >= needMs + res) {
+    if (m[what]) { delete m[what]; nightStarveSave_(m); }
+    return true;
+  }
+  var r = m[what] || { n: 0, ms: needMs };
+  r.n = (Number(r.n) || 0) + 1;
+  r.ms = Math.max(Number(r.ms) || 0, needMs);
+  r.at = nowStr_();
+  m[what] = r;
+  nightStarveSave_(m);
   logLine_('کارِ شبانه: «' + what + '» امشب اجرا نشد — وقت نمانده (' +
-           Math.round(left / 1000) + ' ثانیه). فردا شب دوباره.');
+           Math.round(left / 1000) + ' ثانیه، ' + r.n + ' شبِ پیاپی). فردا شب دوباره.');
   return false;
+}
+
+/**
+ * خطِ وضعیت: کدام کار چند شب است نوبت نمی‌گیرد.
+ *
+ * بی این، «هیچ ارجاعی تا امروز داوری نشده» تنها نشانهٔ موجود بود — و آن
+ * را باید کسی در یک تبِ دیگر می‌دید. گرسنگی باید همان‌جا اعلام شود که
+ * بقیهٔ سلامت اعلام می‌شود.
+ */
+function nightStarveStatus_() {
+  var m = nightStarve_(), rows = [];
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
+    rows.push({ what: k, nights: Number(m[k].n) || 0 });
+  }
+  rows.sort(function (a, b) { return b.nights - a.nights; });
+  var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
+  var bad = rows.filter(function (r) { return r.nights >= need; });
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  return {
+    rows: rows,
+    ok: !bad.length,
+    line: rows.length
+      ? ('کارِ شبانه: ' + rows.slice(0, 4).map(function (r) {
+          return r.what + ' (' + fa(r.nights) + ' شب)';
+        }).join(' · ') + (bad.length ? ' — نوبت‌دار شد.' : ''))
+      : 'کارِ شبانه: همهٔ کارها نوبت گرفتند.'
+  };
 }
 
 /**
@@ -646,6 +746,9 @@ function selfUpdateDaily() {
   // برعکسش یعنی هر فایل یک شب دیر وارد بانک می‌شود.
   // ردهای ناحقِ نسخه‌های پیش — یک بار، پیش از گشتن، تا همان شب آورده شوند
   try { musicUnblock_(); } catch (eUB) {}
+
+  // نوبتِ امشب برای گرسنه‌ترین کار، پیش از نخستین بلوکِ سنگین.
+  try { nightReserve_(); } catch (eNR) {}
 
   /* ══ سنجهٔ محتوا، پیش از کارهای اختیاری (۶٫۳۳) ══
      ۶٫۳۲ این بند را از پشتِ «مرورِ بزرگ» جلو آورد و درست بود، ولی کافی

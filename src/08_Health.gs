@@ -457,6 +457,7 @@ function writeStatus_(hub, note) {
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
+    nightStarve: (function () { try { return nightStarveStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -1313,6 +1314,16 @@ function healthCheck() {
     var skS = speakSkipStatus_();
     if (skS && skS.line) { if (skS.ok) notes.push(skS.line); else problems.push(skS.line); }
   } catch (eSk2) {}
+  /* ══ کدام کارِ شبانه نوبت نمی‌گیرد (۶٫۸۹) ══
+     «۰ ارجاع داوری شده · ۷ در صف · هیچ ارجاعی تا امروز داوری نشده» تنها
+     نشانهٔ موجود بود، و آن را باید کسی در یک تبِ دیگر می‌دید. علتش هم در
+     همین ایمیل نبود: `bridgeAuditRun_` یازدهمین بلوکِ سنگینِ شبانه است و
+     با بودجهٔ ۲۷۰ ثانیه‌ای هرگز نوبتش نمی‌رسید. گرسنگی باید همان‌جا اعلام
+     شود که بقیهٔ سلامت اعلام می‌شود، وگرنه هفته‌ها بی‌صدا می‌مانَد. */
+  if (healthHas_(4000, 'نوبتِ کارهای شبانه', skipped)) try {
+    var nsS = nightStarveStatus_();
+    if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
+  } catch (eNs) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
