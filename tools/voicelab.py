@@ -35,7 +35,7 @@ voicelab.py — آزمایشگاهِ صدا. گامِ صفرِ «شبیه‌سا
 گزارش می‌آورد.
 """
 
-import argparse, json, os, subprocess, sys, time, traceback
+import argparse, json, os, re, subprocess, sys, time, traceback
 
 # متنِ آزمون: یک جملهٔ واقعیِ اعراب‌دار از خودِ زنجیرهٔ ما. اعراب عمدی است —
 # سدِ `speak`/`speak2` موتور همین را تولید می‌کند و ورودیِ واقعیِ هر موتورِ
@@ -161,6 +161,48 @@ def to_wav(src, dst, seconds=None, rate=24000):
     if r.returncode != 0:
         raise RuntimeError("ffmpeg: " + r.stderr.decode("utf-8", "replace")[-800:])
     return dst
+
+
+def cutAtPause_(src, dst, max_sec=11.5, min_sec=4.0):
+    """
+    برشِ نمونه سرِ یک **مکث**، زیرِ سقفِ دوازده‌ثانیه‌ایِ f5.
+
+    ══ چرا (سؤالِ صاحبِ برنامه: «می‌شود ۱۸ ثانیه؟») ══
+    نه — و دلیلش سلیقهٔ من نیست، در خودِ کدِ f5 است:
+
+        if len(aseg) > 12000:
+            aseg = aseg[:12000]
+
+    هرچه بدهیم، بیش از دوازده ثانیه‌اش را خودش می‌بُرد. ولی نکتهٔ مهم‌تر
+    این است که *چطور* می‌بُرد: اول با `split_on_silence` دنبالِ مکث
+    می‌گردد و سرِ یک پاسِ طبیعی می‌بُرد، نه وسطِ واژه.
+
+    یعنی برشِ ده‌ثانیه‌ایِ من — که کورکورانه سرِ ثانیهٔ ده قیچی می‌کرد — از
+    کارِ خودِ f5 **بدتر** بود. آن را «بهبود» نامیده بودم.
+
+    و خواستهٔ او هم درست است: ده ثانیه برای شنیدنِ رنگِ یک صدا کم است.
+    پس تا نزدیکِ سقف می‌رویم و سرِ آخرین مکثِ پیش از آن می‌بُریم — هم
+    بلندترین نمونهٔ ممکن، هم برشِ تمیز، و هم f5 دیگر لازم نیست خودش
+    ببُرد، پس متنِ مرجعی که دستی داده شود دقیقاً به همین تکه می‌خورَد.
+    """
+    f = ffmpeg()
+    r = sh([f, "-hide_banner", "-i", src, "-af",
+            "silencedetect=noise=-38dB:d=0.22", "-f", "null", "-"],
+           capture_output=True)
+    log = (r.stderr or b"").decode("utf-8", "replace")
+    starts = []
+    for m in re.finditer(r"silence_start:\s*([0-9.]+)", log):
+        try: starts.append(float(m.group(1)))
+        except ValueError: pass
+    good = [t for t in starts if min_sec <= t <= max_sec]
+    cut = max(good) if good else max_sec
+    r2 = sh([f, "-y", "-i", src, "-t", "%.3f" % cut, "-c", "copy", dst],
+            capture_output=True)
+    if r2.returncode != 0:
+        raise RuntimeError("برش نشد: " + r2.stderr.decode("utf-8", "replace")[-400:])
+    print("برشِ نمونه: %.2f ثانیه (%s)" %
+          (cut, "سرِ مکث" if good else "سکوتی پیدا نشد؛ سرِ سقف"), flush=True)
+    return dst, cut, len(starts)
 
 
 def probe(path):
@@ -391,6 +433,14 @@ def run_f5(ref, src, text, out):
     پس دو اهرم: متنِ مرجع را **بدهیم**، و نمونه را خودمان زیرِ دوازده
     ثانیه ببریم تا برشِ کور پیش نیاید. و `nfe_step` هم برای کیفیت.
     """
+    # نمونه را خودمان سرِ مکث و زیرِ سقفِ f5 می‌بُریم، تا f5 لازم نباشد
+    # دوباره ببُرد و متنِ مرجعِ دستی دقیقاً به همین تکه بخورَد.
+    try:
+        ref, cutSec, nSil = cutAtPause_(ref, os.path.join(out, "reference-cut.wav"))
+        OPT["ref_cut"] = {"seconds": round(cutSec, 2), "silences_found": nSil}
+    except Exception as eC:
+        print("برشِ سرِ مکث نشد؛ با همان نمونه ادامه: %s" % str(eC)[:200], flush=True)
+
     rt = str(OPT.get("f5_ref_text") or "").strip()
     nfe = str(OPT.get("f5_nfe") or "").strip()
 
@@ -495,9 +545,10 @@ def main():
     ap.add_argument("--src", default="", help="صوتِ فارسیِ Gemini (برای تبدیلِ صدا)")
     ap.add_argument("--text", default=DEFAULT_TEXT)
     ap.add_argument("--out", default="voicelab-out")
-    # ۱۰ نه ۲۰: خودِ f5 هرچه بیش از ۱۲ ثانیه باشد را می‌بُرد و جای برش
-    # دستِ ما نیست. بهتر است خودمان تمیز ببُریم تا وسطِ واژه نیفتد.
-    ap.add_argument("--ref-seconds", type=int, default=10)
+    # این «چقدر مواد بده» است، نه «چقدر استفاده کن»: برشِ نهایی را
+    # cutAtPause_ سرِ یک مکث و زیرِ سقفِ دوازده‌ثانیه‌ایِ f5 انجام می‌دهد.
+    # هرچه سخاوتمندتر، انتخابِ مکث بهتر.
+    ap.add_argument("--ref-seconds", type=int, default=30)
     # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
     ap.add_argument("--src-seconds", type=int, default=12)
     # چک‌پوینتِ سفارشیِ f5 — «hf://کاربر/مخزن/فایل» یا مسیرِ محلی
@@ -585,6 +636,8 @@ def main():
             if a.engine == "f5":
                 rep["ref_text_given"] = bool(a.f5_ref_text)
                 rep["ref_text_heard"] = OPT.get("heard", "")
+                if OPT.get("ref_cut"):
+                    rep["ref_cut"] = OPT["ref_cut"]
                 if a.f5_ref_text:
                     rep["ref_text_used"] = a.f5_ref_text
                 rep["nfe_step"] = a.f5_nfe or "(پیش‌فرض)"

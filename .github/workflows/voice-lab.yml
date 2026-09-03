@@ -56,10 +56,12 @@ on:
         required: false
         default: ''
         type: string
+      # از ۳۰ ثانیه، خودِ f5 سرِ نزدیک‌ترین مکث زیرِ ۱۲ ثانیه می‌بُرد
+      # (cutAtPause_). پس این عدد «چقدر مواد بده»، نه «چقدر استفاده کن».
       ref_seconds:
-        description: 'چند ثانیه از نمونه (زیرِ ۱۲ بماند؛ f5 بیشترش را خودش می‌بُرد)'
+        description: 'چند ثانیه از نمونه برداشته شود (برشِ نهایی خودکار سرِ مکث، زیرِ ۱۲ ثانیه)'
         required: false
-        default: '10'
+        default: '30'
         type: string
       f5_nfe:
         description: 'گام‌های کیفیتِ f5 — خالی=۳۲ · ۶۴ بهتر و کندتر'
