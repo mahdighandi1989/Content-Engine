@@ -1986,8 +1986,29 @@ function handoutVizFill_(book, maxCalls) {
   HVIZ_WHY_ = '';
   if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
   var cap = Math.max(0, Number(maxCalls) || 0);
-  for (var c = 0; c < (book.chapters || []).length; c++) {
-    var cc = book.chapters[c];
+  /* ══ مکان‌نمای فصل — وگرنه فصلِ اول همهٔ سهم را می‌خورَد (۶٫۹۰) ══
+   *
+   * این حلقه همیشه از فصلِ صفر شروع می‌کرد و سقفش دو فراخوان است. یعنی تا
+   * وقتی فصلِ اول کامل نشده، هیچ فراخوانی به فصلِ دوم نمی‌رسد — و کامل‌شدن
+   * یعنی intro و recap و میان‌بخشی، که با دو فراخوان در هر درس بارها طول
+   * می‌کشد. جزوهٔ «Audi (2011)» امروز دقیقاً همین را نشان داد:
+   *
+   *     فصل ۱ → ۳ نمودار · فصل ۲ → ۱ · فصل ۳ و ۴ و ۵ → **صفر**
+   *
+   * سه فصلِ آخر ساختارا دست‌نیافتنی بودند، نه «هنوز نوبتشان نشده». همان
+   * شکلی که امروز دو بار دیگر هم دیدیم (داوریِ ارجاع‌ها، و کارِ شبانه):
+   * کاری که سرِ فهرست است بودجه را می‌خورَد و دُم هرگز اجرا نمی‌شود.
+   *
+   * مکان‌نما در خودِ کتاب می‌نشیند، پس با `_HANDOUT.json` ذخیره می‌شود و
+   * هر اجرا از جایی ادامه می‌دهد که اجرای پیش رسید. */
+  var chs = book.chapters || [];
+  var nCh = chs.length;
+  var start = Number(book.vizCur) || 0;
+  if (!(start >= 0 && start < nCh)) start = 0;
+  var lastTouched = -1;
+  for (var k = 0; k < nCh; k++) {
+    var c = (start + k) % nCh;
+    var cc = chs[c];
     var sig = hvizSig_(cc);
     var v = (cc.viz && cc.viz.sig === sig) ? cc.viz : null;
     if (v && v.intro && v.recap && v.secDone) continue;
@@ -2027,6 +2048,7 @@ function handoutVizFill_(book, maxCalls) {
     } else if ((cc.sections || []).length < 2 && !v.secDone) {
       v.secDone = true;
     }
+    if (madeHere || failedHere) lastTouched = c;
     if (madeHere) {
       cc.viz = v;
       delete cc.vizTried;
@@ -2041,6 +2063,60 @@ function handoutVizFill_(book, maxCalls) {
       out.pending++;                       // بودجه ته کشید، نه شکست
     }
   }
+  /* نوبتِ بعدی از فصلِ بعد از آخرین فصلی که سهمی گرفت. اگر هیچ فراخوانی
+     انجام نشد، مکان‌نما دست نمی‌خورَد — چرخاندنِ بی‌کار یعنی از دست‌دادنِ
+     جایی که واقعاً کار مانده. */
+  if (nCh && lastTouched >= 0) book.vizCur = (lastTouched + 1) % nCh;
+  try { hvizCoverNote_(book); } catch (eCv) {}
+  return out;
+}
+
+/**
+ * پوشش را ثبت کن: این کتاب چند فصل از چند، نمودار دارد.
+ *
+ * ══ چرا این عدد نبود و باید می‌بود (۶٫۹۰) ══
+ * سطرِ روزانه فقط کارِ **جارو** را گزارش می‌کرد — چند فصل پر شد، چند در
+ * نوبت، مکان‌نما کجاست. هیچ‌کدام به سؤالی که صاحبِ برنامه واقعاً می‌پرسد
+ * جواب نمی‌دهند: «جزوه‌ام نمودار دارد یا نه؟» او خودش باز کرد و دید سه
+ * فصلِ آخر خالی‌اند، در حالی که همان روز گزارش دربارهٔ نمودارها چیزی جز
+ * یک جملهٔ خنثی نگفته بود.
+ *
+ * جای ثبتش همین‌جاست چون این تابع تنها جایی است که کتاب را در دست دارد،
+ * و هر دو مسیر — درسِ تازه و جاروی شبانه — از آن می‌گذرند.
+ */
+function hvizCoverNote_(book) {
+  var chs = book.chapters || [], done = 0;
+  for (var i = 0; i < chs.length; i++) {
+    var v = chs[i].viz;
+    if (v && v.intro && v.recap && v.secDone) done++;
+  }
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.HVIZ_COVER) || '{}') || {}; } catch (e) {}
+  m[String(book.seriesKey || book.seriesName || '?')] =
+    { n: chs.length, d: done, at: nowStr_() };
+  // فهرست را کران‌دار نگه دار: قدیمی‌ترین‌ها می‌روند.
+  var keys = [];
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) keys.push(k);
+  if (keys.length > 60) {
+    keys.sort(function (a, b) { return String(m[a].at).localeCompare(String(m[b].at)); });
+    for (var d0 = 0; d0 < keys.length - 60; d0++) delete m[keys[d0]];
+  }
+  try { props_().setProperty(PK.HVIZ_COVER, JSON.stringify(m)); } catch (e2) {}
+}
+
+/** پوششِ نمودار روی همهٔ کتاب‌هایی که دیده شده‌اند. */
+function hvizCover_() {
+  var out = { series: 0, chapters: 0, done: 0, worst: '', worstPct: 101 };
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.HVIZ_COVER) || '{}') || {}; } catch (e) { return out; }
+  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
+    var r = m[k] || {}, nn = Number(r.n) || 0, dd = Number(r.d) || 0;
+    if (!nn) continue;
+    out.series++; out.chapters += nn; out.done += dd;
+    var pc = Math.round(dd * 100 / nn);
+    if (pc < out.worstPct) { out.worstPct = pc; out.worst = k; }
+  }
+  if (out.worstPct > 100) out.worstPct = 0;
   return out;
 }
 
@@ -2169,11 +2245,35 @@ function handoutVizSweep_(maxCalls, budgetMs) {
 
 /** سطرِ روزانه — قاعدهٔ ۵٫۹۰: حتی وقتی همه‌چیز آرام است. */
 function hvizStatus_() {
-  var out = { line: '', at: '', made: 0, pending: 0, gaveUp: 0, ok: true, bad: 0 };
+  var out = { line: '', at: '', made: 0, pending: 0, gaveUp: 0, ok: true, bad: 0,
+              cover: null };
   try {
+    var cov = hvizCover_();
+    var faC = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+    var covTxt = cov.series
+      ? (' · پوشش: ' + faC(cov.done) + ' از ' + faC(cov.chapters) + ' فصل در ' +
+         faC(cov.series) + ' مجموعه نمودار دارد' +
+         (cov.worst && cov.worstPct < 100
+           ? ' (کم‌ترین: «' + auditCut_(String(cov.worst), 28) + '» ' + faC(cov.worstPct) + '٪)' : ''))
+      : '';
+    out.cover = cov;
     var hist = JSON.parse(props_().getProperty(PK.HVIZ_LAST) || '[]');
     if (!(hist instanceof Array) || !hist.length) {
-      out.line = 'نمودارهای جزوه: هنوز دوری اجرا نشده.'; return out;
+      /* ══ «هرگز اجرا نشده» یادداشت نیست، ایراد است (۶٫۹۰) ══
+         این جمله روزها در گزارش نشست و ناظر هم کنارش نوشت «اطلاعاتی، ایراد
+         نیست». قابلیتی که از روزِ نصبش یک بار هم اجرا نشده، تعریفِ ایراد
+         است — و سکوتِ آن گران‌تر از هر هشدارِ اضافه‌ای است. */
+      /* ولی نه روی نصبِ تازه: وقتی هنوز هیچ کتابی دیده نشده، «اجرا نشده»
+         خبر نیست. هشدار وقتی معنا دارد که جزوه دارد کار می‌کند — یعنی
+         فصل‌هایی هست — و با این حال دورِ نمودار یک بار هم نرسیده. */
+      if (cov.chapters >= (Number(CFG.HANDOUT_VIZ_COVER_MIN_CH) || 8)) {
+        out.ok = false;
+        out.line = 'نمودارهای جزوه: **هیچ دوری تا امروز اجرا نشده** — کارِ شبانه‌اش ' +
+                   'هرگز نوبت نگرفته است.' + covTxt;
+      } else {
+        out.line = 'نمودارهای جزوه: هنوز دوری اجرا نشده.' + covTxt;
+      }
+      return out;
     }
     var j = hist[hist.length - 1];
     var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
@@ -2186,7 +2286,17 @@ function hvizStatus_() {
                (out.pending ? '، ' + fa(out.pending) + ' در نوبت' : '، چیزی در نوبت نیست') +
                (out.gaveUp ? '، ' + fa(out.gaveUp) + ' رهاشده (دکمهٔ جزوهٔ همان مجموعه بازش می‌کند)' : '') +
                ' · ' + fa(hist.length) + ' دورِ اخیر روی هم ' + fa(madeAll) + ' فصل' +
-               ' · مکان‌نما ' + fa(j.cur || 0) + ' از ' + fa(j.total || 0) + '.';
+               ' · مکان‌نما ' + fa(j.cur || 0) + ' از ' + fa(j.total || 0) + '.' + covTxt;
+    /* و پوششِ پایین خودش ایراد است، حتی وقتی جارو مرتب کار می‌کند: عددِ
+       «دورِ آخر ۲ فصل پر شد» می‌تواند سال‌ها درست باشد و جزوه همچنان
+       نیمه‌خالی بمانَد. سؤالِ صاحبِ برنامه این است، نه آن. */
+    /* کفِ نمونه، وگرنه همان هشدارِ بی‌جاست که آدم یاد می‌گیرد نادیده بگیرد:
+       روی دو فصلِ تازه‌دیده، «۰٪» چیزی نمی‌گوید. */
+    if (cov.chapters >= (Number(CFG.HANDOUT_VIZ_COVER_MIN_CH) || 8) &&
+        cov.done * 100 / cov.chapters < (Number(CFG.HANDOUT_VIZ_COVER_MIN) || 60)) {
+      out.ok = false;
+      out.line += ' ⚠ پوششِ نمودار کمتر از حدِ انتظار است.';
+    }
     /* سه دورِ پیاپیِ بی‌ساخت با نوبتِ پر → سطر به «ایرادها» می‌رود، و یافته
        جداگانه در صف است. یک دورِ بد چیزی نمی‌گوید. */
     if (out.bad >= 3) {

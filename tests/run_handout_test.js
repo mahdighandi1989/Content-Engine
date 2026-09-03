@@ -1708,4 +1708,70 @@ console.log('=== ۲۶) ارجاع‌ها در خودِ جزوه ثبت می‌ش
      pr.indexOf('ارجاع‌هایی که در درس‌های این مجموعه') !== -1);
 }
 
+console.log('=== نمودار: فصلِ اول همهٔ سهم را نخورَد (۶٫۹۰) ===');
+{
+  /* ══ آنچه صاحبِ برنامه در جزوهٔ واقعی دید ══
+   *     فصل ۱ → ۳ نمودار · فصل ۲ → ۱ · فصل‌های ۳ و ۴ و ۵ → صفر
+   * حلقه همیشه از فصلِ صفر شروع می‌کرد و سقفش دو فراخوان است، پس تا فصلِ
+   * اول کامل نشود هیچ فراخوانی به فصلِ سوم نمی‌رسد. سه فصلِ آخر
+   * **ساختارا** دست‌نیافتنی بودند، نه «هنوز نوبتشان نشده» — سومین نمونهٔ
+   * همین شکل در یک روز (داوریِ ارجاع‌ها، کارِ شبانه، و این). */
+  const mk = () => {
+    const b = { seriesKey: 'S', seriesName: 'س', chapters: [] };
+    for (let i = 0; i < 5; i++) {
+      b.chapters.push({ id: 'c' + i, title: 'فصل ' + (i + 1),
+                        sections: [{ id: 's1' }, { id: 's2' }] });
+    }
+    return b;
+  };
+  const real = global.hvizModelOne_;
+  global.hvizModelOne_ = () => ({ kind: 'جریان', title: 'ت', nodes: [] });
+
+  const book = mk();
+  for (let r = 0; r < 6; r++) handoutVizFill_(book, 2);
+  const got = book.chapters.map(c => !!c.viz);
+  ok('۱ پس از چند اجرا، همهٔ فصل‌ها نوبت می‌گیرند',
+     got.every(Boolean), got.map((x, i) => (i + 1) + (x ? '✓' : '✗')).join(' '));
+
+  /* مکان‌نما در خودِ کتاب می‌نشیند تا با `_HANDOUT.json` ذخیره شود — وگرنه
+     هر اجرا از نو از صفر شروع می‌کرد و اصلاحی در کار نبود. */
+  ok('۲ مکان‌نما در کتاب ذخیره می‌شود، نه در حافظهٔ اجرا',
+     typeof book.vizCur === 'number', String(book.vizCur));
+
+  const idle = mk();
+  global.hvizModelOne_ = () => null;          // مدل جواب نمی‌دهد
+  handoutVizFill_(idle, 0);                   // و سقف صفر است
+  ok('۳ اجرایی که هیچ فراخوانی نکرد، مکان‌نما را نمی‌چرخانَد',
+     idle.vizCur === undefined, String(idle.vizCur));
+  global.hvizModelOne_ = real;
+
+  /* ══ و عددی که صاحبِ برنامه واقعاً می‌پرسد ══
+     سطرِ روزانه فقط کارِ جارو را می‌گفت: «دورِ آخر ۲ فصل پر شد». آن عدد
+     می‌تواند سال‌ها درست باشد و جزوه نیمه‌خالی بماند. */
+  const cov = hvizCover_();
+  ok('۴ پوشش ثبت و جمع می‌شود — «چند فصل از چند»',
+     cov.series >= 1 && cov.chapters >= 5, JSON.stringify(cov));
+
+  const st = hvizStatus_();
+  ok('۵ و در سطرِ روزانه دیده می‌شود', /پوشش:/.test(st.line), st.line);
+
+  /* «هرگز اجرا نشده» یادداشت نیست، ایراد است. این جمله روزها در گزارش
+     نشست و ناظر کنارش نوشت «اطلاعاتی، ایراد نیست». */
+  const P = global.__PROPS;
+  const keep = P[PK.HVIZ_LAST];
+  delete P[PK.HVIZ_LAST];
+  const never = hvizStatus_();
+  ok('۶ «هیچ دوری اجرا نشده» به ایرادها می‌رود، نه یادداشت‌ها',
+     never.ok === false && /هیچ دوری تا امروز اجرا نشده/.test(never.line), never.line);
+  if (keep === undefined) delete P[PK.HVIZ_LAST]; else P[PK.HVIZ_LAST] = keep;
+
+  /* و نگهبانِ زمانشان دیگر تودرتو نیست: شبی که بلوکِ جزوه جا نمی‌شد،
+     نگهبانِ نمودار اصلاً سنجیده نمی‌شد — پس نه اجرا می‌شد، نه گرسنگی‌اش
+     شمرده می‌شد. */
+  const p21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۷ جاروی نمودار نگهبانِ زمانِ خودش را دارد، هم‌ترازِ بقیه',
+     /^  if \(CFG\.HANDOUT_ENABLED !== false && nightHas_\(60000, 'نمودارهای جزوه'\)\)/m
+       .test(p21), 'تودرتو مانده');
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');
