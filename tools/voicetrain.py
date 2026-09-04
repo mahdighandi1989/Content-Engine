@@ -177,8 +177,16 @@ def main():
     pip_(P.TRAIN_DEPS + D.DS_DEPS + ["gdown"])
 
     # ── وزن‌های پایه ──
-    if not os.path.exists(os.path.join(root, "assets", "hubert_base",
-                                       "pytorch_model.bin")):
+    # ══ «دارایی‌ها هستند» یعنی هر دوتاشان ══
+    # آخرین فرمانِ این دسته `mute.zip` را در `logs` باز می‌کند، و
+    # `preTrain_` بدونِ آن ردیف‌های mute را ندارد. اگر شرطِ پرش فقط
+    # وزن‌ها را ببیند، اجرایی که کشش نیمه‌کاره مانده این قدم را رد
+    # می‌کند و کمبود سه قدم بعد و با نامی دیگر ظاهر می‌شود.
+    have = (os.path.exists(os.path.join(root, "assets", "hubert_base",
+                                        "pytorch_model.bin"))
+            and os.path.isdir(os.path.join(root, "logs", "mute",
+                                           "0_gt_wavs")))
+    if not have:
         say_("وزن‌های پایه")
         hf = shutil.which("hf") or shutil.which("huggingface-cli") or "hf"
         for cmd in P.assetCmds_(py=sys.executable, sr=SR, hf=hf):

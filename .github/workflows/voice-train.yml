@@ -66,6 +66,14 @@ jobs:
                       /opt/ghc /usr/local/share/boost || true
           df -h /
 
+      - name: ffmpeg
+        # ══ ubuntu-latest دیگر ffmpeg ندارد ══
+        # `dsprep.ffmpeg()` اول باینریِ سیستم را می‌خواهد. بستهٔ
+        # `imageio-ffmpeg` هم نصب می‌شود (فهرستِ خودِ ماژول)، ولی وقتی
+        # باینریِ واقعی روی PATH باشد هر مسیرِ دیگری هم که روزی به آن
+        # نیاز پیدا کند کار می‌کند — نه فقط مسیری که امروز می‌شناسیم.
+        run: sudo apt-get install -y -qq ffmpeg && ffmpeg -version | head -1
+
       - name: کارِ اجرای پیشین را برگردان
         id: cache
         uses: actions/cache/restore@v4

@@ -1764,6 +1764,47 @@ def main():
     eq("concurrency" in wf, True,
        "دو اجرای همزمان نداریم — دو کش که همدیگر را خراب کنند")
 
+    # ── ۳۰ ─────────────────────────────────────────────────────────────
+    # اولین اجرای واقعی روی رانرِ گیت‌هاب با `ModuleNotFoundError:
+    # imageio_ffmpeg` ایستاد. آن import یک **راهِ گریز** بود — «اول
+    # باینریِ سیستم، بعد از PyPI» — و در هیچ فهرستِ وابستگی نبود. روی
+    # Colab و Kaggle هر دو از پیش هستند، پس سه ماه هیچ‌وقت اجرا نشد و
+    # هیچ‌چیز نشان نداد که نمی‌تواند اجرا شود.
+    #
+    # همان شکلِ همیشگیِ این مخزن: کدی که نوشته و توضیح داده شده و
+    # هرگز نمی‌توانسته کار کند. اینجا با خودِ سورس بسته می‌شود، نه با
+    # فهرستی که کسی باید یادش بیفتد به‌روزش کند.
+    print("۳۰ — هرچه dsprep import می‌کند، در فهرستِ وابستگی‌هاش هست")
+    import ast as _a3
+    dsSrc = io.open(os.path.join(os.path.dirname(os.path.abspath(
+        __file__)), "dsprep.py"), encoding="utf-8").read()
+    tree3 = _a3.parse(dsSrc)
+    mods = set()
+    for n in _a3.walk(tree3):
+        if isinstance(n, _a3.Import):
+            mods |= set(a.name.split(".")[0] for a in n.names)
+        elif isinstance(n, _a3.ImportFrom) and n.module and n.level == 0:
+            mods.add(n.module.split(".")[0])
+    mods -= set(getattr(sys, "stdlib_module_names", ()))
+
+    # ══ تنها معافیت، با دلیل ══
+    # torch را هیچ‌کدام از سه سکو از ما نمی‌خواهد: Colab و Kaggle آن را
+    # از پیش و جفت‌شده با CUDAِ خودشان دارند، و رانر نسخهٔ CPU را جدا
+    # نصب می‌کند. گذاشتنش در DS_DEPS یعنی روی دو سکو دوباره‌نصبی که
+    # بهترین حالت وقت می‌برد و بدترین حالت CUDA را می‌شکند.
+    OWNED = {"torch"}
+    import dsprep as D3
+    have = set()
+    for spec in D3.DS_DEPS:
+        nm = spec.split(">")[0].split("<")[0].split("=")[0].strip()
+        have.add(nm.replace("-", "_").lower())
+    missing = sorted(m for m in mods
+                     if m.lower() not in have and m not in OWNED)
+    eq(missing, [],
+       "هیچ importِ بی‌وابستگی نمانده (DS_DEPS: %s)" % ", ".join(D3.DS_DEPS))
+    eq("imageio_ffmpeg" in mods and "imageio_ffmpeg" in have, True,
+       "و همان یکی که رانر را زمین زد، حالا هست")
+
     print("\nهمه گذشت.")
     return 0
 
