@@ -661,6 +661,123 @@ def main():
        "و گزارشِ هرکدام جدا ثبت می‌شود")
     V.OPT.clear()
 
+    # ══ ۱۵ — مسیرِ کاملِ moss روی بدل‌ها ══
+    # هر موتورِ تازه‌ای که ساختم، اولین خطایش ربطی به مدل نداشت: نامِ
+    # نقطهٔ ورود، ترتیبِ اجراها، فایلی که ساخته نشد. اینجا هم همان.
+    # و یک چیزِ مخصوصِ این موتور: اثباتِ اینکه وصلهٔ فارسی **اثر گذاشت**.
+    print("۱۵ — مسیرِ کاملِ moss روی بدل‌ها")
+    w5 = tempfile.mkdtemp()
+    gens = []
+
+    class FakeParam(object):
+        def __init__(self, v):
+            self.v = v
+
+        def numel(self):
+            return 100
+
+        def detach(self):
+            return self
+
+        def float(self):
+            return self
+
+        def abs(self):
+            return self
+
+        def sum(self):
+            return self
+
+        def item(self):
+            return self.v
+
+    class FakeMoss(object):
+        vals = [1.0]
+
+        def eval(self):
+            return self
+
+        def parameters(self):
+            return [FakeParam(v) for v in self.vals]
+
+    class FakeInf(object):
+        def __init__(self, *a, **kw):
+            pass
+
+        def generate(self, text=None, **kw):
+            gens.append(text[0])
+            return [[[1, 2, 3]]]
+
+    class FakeCodec(object):
+        def eval(self):
+            return self
+
+        def decode(self, t, **kw):
+            # شکلِ واقعی: dec["audio"][0].cpu().detach()
+            leaf = types.SimpleNamespace()
+            leaf.cpu = lambda: leaf
+            leaf.detach = lambda: leaf
+            return {"audio": [leaf]}
+
+    mm = types.ModuleType("mossttsrealtime.modeling_mossttsrealtime")
+    mm.MossTTSRealtime = types.SimpleNamespace(
+        from_pretrained=lambda *a, **kw: FakeMoss())
+    inm = types.ModuleType("inferencer")
+    inm.MossTTSRealtimeInference = FakeInf
+    pf = types.ModuleType("peft")
+    # وصله وزن را عوض می‌کند — همان چیزی که mossFinger_ باید ببیند
+    pf.PeftModel = types.SimpleNamespace(
+        from_pretrained=lambda m, i, **kw: type("L", (FakeMoss,),
+                                               {"vals": [2.0]})())
+    tr = types.ModuleType("transformers")
+    tr.AutoTokenizer = types.SimpleNamespace(from_pretrained=lambda *a, **kw: None)
+    tr.AutoModel = types.SimpleNamespace(from_pretrained=lambda *a, **kw: FakeCodec())
+    ta = types.ModuleType("torchaudio")
+    ta.save = lambda p_, a_, sr: wav(p_, 7.0)
+    tch = sys.modules.get("torch") or types.ModuleType("torch")
+    tch.tensor = lambda x: types.SimpleNamespace(permute=lambda *a: x)
+    for n, m in (("mossttsrealtime", types.ModuleType("mossttsrealtime")),
+                 ("mossttsrealtime.modeling_mossttsrealtime", mm),
+                 ("inferencer", inm), ("peft", pf), ("transformers", tr),
+                 ("torchaudio", ta), ("torch", tch)):
+        sys.modules[n] = m
+
+    realSh5 = V.sh
+    V.sh = lambda cmd, **kw: (os.makedirs(cmd[-1], exist_ok=True), R())[-1]
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 11.5), 11.5, 4)
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "moss"}; V.OPT["_out"] = w5
+        made5 = V.run_moss(wav(os.path.join(w5, "r.wav"), 30.0), "", txt, w5)
+        rep6 = json.load(io.open(os.path.join(w5, "report-moss.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.sh, V.cutAtPause_ = realSh5, realCut2
+
+    eq(os.path.basename(made5), "moss_tashkil.wav", "خروجیِ برگشتی درست است")
+    eq(gens, [txt, V.noTash_(txt)], "دو اجرا: اعراب‌دار و بی‌اعراب")
+    eq(rep6["model_facts"]["lora"]["changed"], True,
+       "و اثباتِ اینکه وصلهٔ فارسی وزن‌ها را واقعاً عوض کرد")
+    eq("lora_warning" in rep6, False, "پس هشدارِ بی‌جا نمی‌دهد")
+    V.OPT.clear()
+
+    # و وقتی وصله هیچ وزنی را عوض نکند، همان‌جا هشدار می‌دهد — وگرنه
+    # «فارسیِ بد» را به حسابِ وصله‌ای می‌گذاشتیم که اصلاً اجرا نشده.
+    pf.PeftModel = types.SimpleNamespace(from_pretrained=lambda m, i, **kw: FakeMoss())
+    V.sh = lambda cmd, **kw: (os.makedirs(cmd[-1], exist_ok=True), R())[-1]
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 11.5), 11.5, 4)
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "moss"}; V.OPT["_out"] = tempfile.mkdtemp()
+        V.run_moss(wav(os.path.join(w5, "r2.wav"), 30.0), "", txt, V.OPT["_out"])
+        rep7 = json.load(io.open(os.path.join(V.OPT["_out"], "report-moss.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.sh, V.cutAtPause_ = realSh5, realCut2
+    eq("lora_warning" in rep7, True,
+       "وصله‌ای که هیچ وزنی را عوض نکند، هشدار می‌گیرد")
+    V.OPT.clear()
+
     print("\nهمه گذشت.")
     return 0
 

@@ -122,6 +122,23 @@ ENGINES = {
         "needs_src": False,
         "persian": "فارسی در ۶۴۶ زبانش هست — ۳۶۶ ساعت، رتبهٔ ۴۶",
     },
+    # ══ گزینهٔ دومِ صاحبِ برنامه، پس از اجراهای #۲۰ و #۲۱ ══
+    # f5 درست می‌خوانَد ولی بی‌روح؛ OmniVoice رنگِ صدا را عالی می‌گیرد ولی
+    # غلط می‌خوانَد. این تنها نامزدی است که در کارتِ خودش **لحن** را هدف
+    # اعلام کرده — «pronunciation، ezafe voicing و conversational
+    # register» — و روی GPTInformal-Persian آموزش دیده که پیکرهٔ گفتارِ
+    # محاوره است، نه جمله‌خوانی.
+    # و هر دو نیمه‌اش Apache-2.0 است: برخلافِ KiaBush و Thomcles که هر دو
+    # غیرتجاری‌اند، این یکی برای کانالی که قرار است درآمد داشته باشد بسته
+    # نیست.
+    "moss": {
+        "family": "TTS با کلونینگ (خودبازگشتی، ۱٫۷ میلیارد پارامتر)",
+        # کدش روی PyPI نیست — در خودِ اجرا از گیت‌هاب کلون می‌شود.
+        "pip": ["torch", "torchaudio", "transformers", "peft", "accelerate"],
+        "code_license": "Apache-2.0 (پایه و وصله، هر دو)",
+        "needs_src": False,
+        "persian": "وصلهٔ فارسیِ اختصاصی روی MOSS-TTS-Realtime",
+    },
     "xtts": {
         "family": "TTS با کلونینگ",
         # اجرای #۲: «Coqui TTS requires PyTorch … but they were not found».
@@ -1513,9 +1530,187 @@ def run_omnivoice(ref, src, text, out):
     return made
 
 
+
+MOSS_REPO_ = "https://github.com/OpenMOSS/MOSS-TTS"
+MOSS_BASE_ = "OpenMOSS-Team/MOSS-TTS-Realtime"
+MOSS_CODEC_ = "OpenMOSS-Team/MOSS-Audio-Tokenizer"
+MOSS_LORA_ = "hamidfzm/MOSS-TTS-Realtime-Persian-lora"
+
+
+def mossFinger_(model):
+    """
+    اثرِ انگشتِ وزن‌ها — برای اثباتِ اینکه LoRA واقعاً نشست.
+
+    ══ چرا این چند خط لازم است ══
+    `PeftModel.from_pretrained` وقتی `target_modules` با معماری نخوانَد
+    می‌تواند بی هیچ خطایی هیچ لایه‌ای را وصل نکند. آن‌وقت خروجی، خروجیِ
+    **مدلِ پایه** است — و نویسندهٔ همین LoRA نوشته که فارسیِ پایه
+    «recognizably Persian نیست». یعنی می‌شنیدیم «فارسیِ بد» و آن را به
+    حسابِ LoRA می‌گذاشتیم، در حالی که LoRA اصلاً اجرا نشده بود.
+    یک اجرای شاهد این را می‌گیرد ولی بیست دقیقه می‌برد؛ این مقایسه رایگان
+    است و همان را ثابت می‌کند.
+    """
+    import torch
+    tot = 0.0
+    n = 0
+    for p in model.parameters():
+        if n >= 40:
+            break
+        tot += float(p.detach().float().abs().sum().item())
+        n += 1
+    return round(tot, 3)
+
+
+def run_moss(ref, src, text, out):
+    """
+    MOSS-TTS-Realtime + وصلهٔ فارسیِ `hamidfzm` — گزینهٔ دومِ صاحبِ برنامه.
+
+    ══ چرا این، بعد از دو موتوری که هرکدام نیمی از کار را کردند ══
+    f5 درست می‌خوانَد ولی بی‌روح؛ OmniVoice رنگِ صدا را عالی می‌گیرد ولی
+    غلط می‌خوانَد. این تنها نامزدی است که در کارتِ خودش **لحن** را هدف
+    اعلام کرده: «pronunciation، ezafe voicing و conversational register»
+    — و روی `GPTInformal-Persian` آموزش دیده که پیکرهٔ گفتارِ محاوره است،
+    نه جمله‌خوانیِ Common Voice.
+
+    و پروانه‌اش Apache-2.0 است، هم پایه هم وصله. یعنی برخلافِ KiaBush
+    (غیرتجاری) و Thomcles (غیرتجاری)، برای کانالی که قرار است درآمد
+    داشته باشد بسته نیست.
+
+    ══ سه چیزی که این موتور را از دو تای دیگر متفاوت می‌کند ══
+      ۱. کدش روی PyPI نیست؛ در مخزنِ گیت‌هابِ OpenMOSS است. پس کلون
+         می‌شود و `sys.path` دستی تنظیم می‌شود.
+      ۲. سه بارِ جدا از Hugging Face می‌آید: مدلِ پایه، کُدِک صوت، و
+         وصلهٔ فارسی.
+      ۳. روی CPU باید `eager` و `float32` باشد. نمونهٔ خودِ کارتِ مدل
+         `torch_dtype=torch.bfloat16` را حتی در شاخهٔ CPU هم می‌فرستد
+         (متغیرِ `dtype` را حساب می‌کند و به کار نمی‌برد) — روی CPU این
+         یا کند است یا می‌شکند.
+    """
+    import torch, torchaudio
+    from transformers import AutoTokenizer, AutoModel
+
+    # ── ۱. کد ──
+    repo = os.path.join(out, "MOSS-TTS")
+    if not os.path.isdir(repo):
+        r = sh(["git", "clone", "--depth", "1", MOSS_REPO_, repo],
+               capture_output=True, timeout=600)
+        if r.returncode != 0:
+            raise RuntimeError("کلونِ مخزنِ MOSS نشد: %s"
+                               % (r.stderr or b"").decode("utf-8", "replace")[-400:])
+    sys.path.insert(0, os.path.join(repo, "moss_tts_realtime"))
+    from mossttsrealtime.modeling_mossttsrealtime import MossTTSRealtime
+    from inferencer import MossTTSRealtimeInference
+
+    facts = {"repo": MOSS_REPO_, "base": MOSS_BASE_, "lora": MOSS_LORA_}
+    OPT["model_facts"] = facts
+    saveRep_()
+
+    # ── ۲. وزن‌ها ──
+    print("بارگذاری روی CPU (eager · fp32) …", flush=True)
+    t0 = time.time()
+    model = MossTTSRealtime.from_pretrained(
+        MOSS_BASE_, attn_implementation="eager", torch_dtype=torch.float32).eval()
+    tok = AutoTokenizer.from_pretrained(MOSS_BASE_)
+    codec = AutoModel.from_pretrained(MOSS_CODEC_, trust_remote_code=True).eval()
+    facts["params_millions"] = round(
+        sum(p.numel() for p in model.parameters()) / 1e6, 1)
+    facts["load_seconds"] = round(time.time() - t0)
+
+    # ── ۳. وصلهٔ فارسی، و اثباتِ اینکه نشست ──
+    before = mossFinger_(model)
+    try:
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, MOSS_LORA_).eval()
+        after = mossFinger_(model)
+        facts["lora"] = {"id": MOSS_LORA_, "weights_before": before,
+                         "weights_after": after, "changed": before != after}
+        if before == after:
+            # ══ «نصب شد» با «اثر گذاشت» یکی نیست ══
+            OPT["lora_warning"] = (
+                "وصلهٔ فارسی بارگذاری شد ولی هیچ وزنی عوض نشد — یعنی "
+                "target_modulesاش با این معماری نخوانده و خروجی، خروجیِ "
+                "مدلِ پایه است. فارسیِ پایه به گفتهٔ خودِ نویسنده «فارسی "
+                "شناخته‌نشدنی» است، پس هر بدیِ خروجی را به حسابِ وصله "
+                "نگذارید.")
+            print("::warning::" + OPT["lora_warning"], flush=True)
+    except Exception as e:
+        facts["lora_error"] = str(e)[:500]
+        print("وصلهٔ فارسی نشست نکرد: %s" % str(e)[:300], flush=True)
+    OPT["model_facts"] = facts
+    saveRep_()
+    print("مدل:", json.dumps(facts, ensure_ascii=False)[:400], flush=True)
+
+    inf = MossTTSRealtimeInference(model, tok, max_length=5000, codec=codec,
+                                   codec_sample_rate=24000,
+                                   codec_encode_kwargs={"chunk_duration": 8})
+
+    # ── ۴. نمونهٔ مرجع ──
+    # کارتِ وصله ۱۰ تا ۳۰ ثانیه می‌خواهد؛ برشِ یازده‌ونیم‌ثانیه‌ایِ ما در
+    # همان بازه است و **همانی** است که دو موتورِ دیگر گرفتند. تفاوتِ
+    # خروجی باید تفاوتِ موتور باشد، نه تفاوتِ مرجع.
+    cut = os.path.join(out, "moss-ref-cut.wav")
+    cutAtPause_(ref, cut)
+    OPT["ref_cut"] = probe(cut)
+    saveRep_()
+
+    # ── ۵. دو اجرا: با اعراب و بی اعراب ──
+    # همان پرسشِ OmniVoice، و به همان دلیل: مرحلهٔ `speak` متنِ اعراب‌دار
+    # بیرون می‌دهد، ولی این وصله ادعا می‌کند «هیچ front-endِ آوایی لازم
+    # نیست» — یعنی روی متنِ **عادی** آموزش دیده. کدام بهتر است، فقط با
+    # شنیدن معلوم می‌شود.
+    plain = noTash_(text)
+    runs = [("tashkil", text, "متنِ اعراب‌دار — همان که موتور تولید می‌کند")]
+    if plain != text:
+        runs.append(("plain", plain, "بی اعراب — همان شکلی که وصله رویش آموزش دیده"))
+    else:
+        OPT["one_run_why"] = "اجرای دوم نیامد: متن اعراب نداشت."
+
+    made, variants, tAll, last = None, [], time.time(), None
+    for name, gen, why in runs:
+        if last is not None and (time.time() - tAll) + last > OMNI_BUDGET_SEC:
+            variants.append({"name": name, "why": why,
+                             "skipped": "گذشته + برآوردِ بعدی از بودجهٔ %ds گذشت."
+                                        % OMNI_BUDGET_SEC})
+            OPT["variants"] = variants
+            saveRep_()
+            continue
+        dst = os.path.join(out, "moss_%s.wav" % name)
+        t1 = time.time()
+        try:
+            res = inf.generate(text=[gen], reference_audio_path=[cut],
+                               temperature=0.8, top_p=0.6, top_k=30,
+                               repetition_penalty=1.1, repetition_window=50,
+                               device="cpu")
+            toks = torch.tensor(res[0])
+            dec = codec.decode(toks.permute(1, 0), chunk_duration=8)
+            torchaudio.save(dst, dec["audio"][0].cpu().detach(), 24000)
+            took = round(time.time() - t1)
+            info = probe(dst)
+            sec = float(info.get("seconds") or 0)
+            variants.append({
+                "name": name, "why": why, "file": os.path.basename(dst),
+                "sent": gen[:300], "info": info, "seconds_taken": took,
+                "realtime_factor": (round(took / sec, 1) if sec else None),
+                "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
+                                        if sec else None)})
+            made, last = (made or dst), took
+            print("%s: %ss صوت در %ss" % (name, info.get("seconds"), took), flush=True)
+        except Exception as e:
+            variants.append({"name": name, "why": why, "sent": gen[:300],
+                             "error": str(e)[:600]})
+            print("%s شکست خورد: %s" % (name, str(e)[:400]), flush=True)
+        OPT["variants"] = variants
+        saveRep_()
+
+    if not made:
+        raise RuntimeError("هیچ‌کدام از اجراهای MOSS خروجی نداد")
+    return made
+
+
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts,
-           "omnivoice": run_omnivoice}
+           "omnivoice": run_omnivoice,
+           "moss": run_moss}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
 # RUNNERها یکی است و نباید برای یک موتور عوض شود.
