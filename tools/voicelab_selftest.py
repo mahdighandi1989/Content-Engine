@@ -795,6 +795,25 @@ def main():
             and not any("torchcodec" in p_ for p_ in v["pip"])]
     eq(miss, [], "هیچ موتوری torchaudio بی torchcodec ندارد")
 
+    # ══ ۱۷ — پینِ مخزن خوانده می‌شود، نه به یاد آورده ══
+    # سه سدِ پیاپیِ MOSS هر سه محیطی بودند و هیچ‌کدام ربطی به فارسی
+    # نداشت. آخری «create_causal_mask() got an unexpected keyword
+    # argument» بود — پیامی که نمی‌گوید «نسخه‌ات غلط است». مخزن پینش را
+    # در pyproject نوشته بود و من کارتِ مدل را برای API خوانده بودم و
+    # pyproject را نه.
+    print("۱۷ — پینِ مخزن با نصبِ واقعی سنجیده می‌شود")
+    d4 = tempfile.mkdtemp()
+    io.open(os.path.join(d4, "pyproject.toml"), "w", encoding="utf-8").write(
+        'dependencies = [\n  "transformers==5.0.0",\n  "numpy==0.0.1",\n'
+        '  "torch>=2.4",\n]\n')
+    pins = V.mossPins_(d4)
+    eq(sorted(pins["pinned"]), ["numpy", "transformers"],
+       "فقط پینِ دقیق (==) شمرده می‌شود، نه >= ")
+    eq("numpy" in pins["mismatch"], True,
+       "و اختلافِ نسخه گزارش می‌شود، نه اینکه خطای رمزی بدهد")
+    eq(V.mossPins_(tempfile.mkdtemp()).get("note") is not None, True,
+       "و نبودِ pyproject خودش خطا نمی‌سازد")
+
     print("\nهمه گذشت.")
     return 0
 

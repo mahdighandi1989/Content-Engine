@@ -143,7 +143,14 @@ ENGINES = {
         # دانستنی که در یک ردیف نوشته شود و در ردیفِ بعدی نباشد، دانسته
         # نیست. آزمونِ ۱۶ حالا این را قاعده می‌کند: هر موتوری که
         # torchaudio دارد، torchcodec هم باید داشته باشد.
-        "pip": ["torch", "torchaudio", "torchcodec", "transformers",
+        # ══ transformers **دقیقاً** ۵٫۰٫۰ ══
+        # سدِ سوم: «create_causal_mask() got an unexpected keyword argument
+        # 'input_embeds'». امضای آن تابع در نسخه‌های بعدیِ transformers عوض
+        # شده. و این را باید از اول می‌دانستم: `pyproject.toml` خودِ مخزن
+        # `transformers==5.0.0` را پین کرده و READMEشان صریح می‌گوید
+        # «محیطِ ایزوله با Transformers 5.0.0». من کارتِ مدل را برای API
+        # خواندم و pyproject را برای وابستگی‌ها **نخواندم**.
+        "pip": ["torch", "torchaudio", "torchcodec", "transformers==5.0.0",
                 "peft", "accelerate"],
         "code_license": "Apache-2.0 (پایه و وصله، هر دو)",
         "needs_src": False,
@@ -1550,6 +1557,44 @@ MOSS_CODEC_ = "OpenMOSS-Team/MOSS-Audio-Tokenizer"
 MOSS_LORA_ = "hamidfzm/MOSS-TTS-Realtime-Persian-lora"
 
 
+
+def mossPins_(repo):
+    """
+    آنچه مخزن پین کرده، در برابرِ آنچه واقعاً نصب است.
+
+    ══ چرا این تابع بعد از سه شکست نوشته شد ══
+    torchcodec نبود · نوعِ عددی یکی نبود · نسخهٔ transformers یکی نبود.
+    هیچ‌کدام ربطی به فارسی نداشت و هیچ‌کدام پیامِ روشنی نداد — آخری
+    «create_causal_mask() got an unexpected keyword argument» بود، که
+    نمی‌گوید «نسخه‌ات غلط است».
+    کدی که از یک مخزنِ گیت می‌آید (نه از PyPI) وابستگی‌هایش را در
+    `pyproject.toml` خودش نوشته. پس خوانده می‌شود، نه به یاد آورده.
+    """
+    import re as _re
+    out = {"pinned": {}, "installed": {}, "mismatch": {}}
+    path = os.path.join(repo, "pyproject.toml")
+    if not os.path.exists(path):
+        out["note"] = "pyproject.toml در مخزن نبود"
+        return out
+    txt = io.open(path, encoding="utf-8", errors="replace").read()
+    for m in _re.finditer(r'"([A-Za-z0-9_.\-]+)\s*==\s*([0-9][^"]*)"', txt):
+        out["pinned"][m.group(1).lower()] = m.group(2).strip()
+    try:
+        from importlib import metadata as _md
+        for name in out["pinned"]:
+            try:
+                out["installed"][name] = _md.version(name)
+            except Exception:
+                out["installed"][name] = "(نصب نیست)"
+    except Exception as e:
+        out["note"] = str(e)[:200]
+        return out
+    for name, want in out["pinned"].items():
+        got = out["installed"].get(name)
+        if got and got != "(نصب نیست)" and got != want:
+            out["mismatch"][name] = {"مخزن می‌خواهد": want, "نصب است": got}
+    return out
+
 def mossFinger_(model):
     """
     اثرِ انگشتِ وزن‌ها — برای اثباتِ اینکه LoRA واقعاً نشست.
@@ -1610,6 +1655,18 @@ def run_moss(ref, src, text, out):
         if r.returncode != 0:
             raise RuntimeError("کلونِ مخزنِ MOSS نشد: %s"
                                % (r.stderr or b"").decode("utf-8", "replace")[-400:])
+    # ══ پین‌های خودِ مخزن را با آنچه نصب شده بسنج ══
+    # سه سدِ پیاپی و هر سه از محیط بود، نه از فارسی. آخری‌اش
+    # (`create_causal_mask`) خطایی داد که هیچ نمی‌گفت مشکل از نسخه است.
+    # مخزن `pyproject.toml` دارد و پین‌هایش را همان‌جا نوشته؛ پس به‌جای
+    # اینکه یادم بماند بخوانمش، اجرا خودش می‌خوانَد و اختلاف را گزارش
+    # می‌کند. خطای رمزی به دادهٔ خوانا بدل می‌شود.
+    OPT["pins"] = mossPins_(repo)
+    saveRep_()
+    if OPT["pins"].get("mismatch"):
+        print("::warning::نسخه‌های ناهم‌خوان با پینِ مخزن: %s"
+              % json.dumps(OPT["pins"]["mismatch"], ensure_ascii=False), flush=True)
+
     sys.path.insert(0, os.path.join(repo, "moss_tts_realtime"))
     from mossttsrealtime.modeling_mossttsrealtime import MossTTSRealtime
     from inferencer import MossTTSRealtimeInference
