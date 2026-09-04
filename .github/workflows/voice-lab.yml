@@ -23,7 +23,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+        options: [all, openvoice, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
       # ══ چند نمونه با کاما ══
       # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
       # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ
@@ -145,7 +145,7 @@ jobs:
             # omnivoice پس از اجرای #۱۸ اضافه شد و **اولِ** فهرست است: هر
             # موتور رانرِ خودش را دارد، پس افزودنش به «همه» یک دقیقه هم به
             # زمانِ انتظار اضافه نمی‌کند.
-            echo 'engines=["moss","omnivoice","f5","chatterboxvc","chatterbox"]' >> "$GITHUB_OUTPUT"
+            echo 'engines=["openvoice","moss","omnivoice","f5","chatterboxvc"]' >> "$GITHUB_OUTPUT"
           else
             echo "engines=[\"$ENGINE\"]" >> "$GITHUB_OUTPUT"
           fi

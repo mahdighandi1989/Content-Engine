@@ -814,6 +814,63 @@ def main():
     eq(V.mossPins_(tempfile.mkdtemp()).get("note") is not None, True,
        "و نبودِ pyproject خودش خطا نمی‌سازد")
 
+    # ══ ۱۸ — مسیرِ کاملِ openvoice روی بدل‌ها ══
+    # و مخصوصاً یک چیز: چیدمانِ چک‌پوینت. نشانیِ رسمی‌شان روی S3 مرده
+    # است (۴۰۴) و از HF می‌آید؛ اگر نامِ فایل‌ها فرق کند، کد باید فهرستِ
+    # آنچه آمده را بگوید، نه اینکه با «فایل نیست» بمیرد.
+    print("۱۸ — مسیرِ کاملِ openvoice روی بدل‌ها")
+    w6 = tempfile.mkdtemp()
+    ckdir = tempfile.mkdtemp()
+    os.makedirs(os.path.join(ckdir, "converter"), exist_ok=True)
+    io.open(os.path.join(ckdir, "converter", "config.json"), "w").write("{}")
+    io.open(os.path.join(ckdir, "converter", "checkpoint.pth"), "w").write("x")
+    convs = []
+
+    class FakeTCC(object):
+        def __init__(self, cfg, device=None):
+            self.cfg = cfg
+            self.watermark_model = object()
+
+        def load_ckpt(self, p_):
+            self.pth = p_
+
+        def extract_se(self, refs):
+            return ("se", tuple(refs) if isinstance(refs, list) else refs)
+
+        def convert(self, audio_src_path=None, src_se=None, tgt_se=None,
+                    output_path=None, tau=None):
+            convs.append({"src": src_se, "tgt": tgt_se, "tau": tau})
+            wav(str(output_path), 9.0)
+
+    ovapi = types.ModuleType("openvoice.api")
+    ovapi.ToneColorConverter = FakeTCC
+    sys.modules["openvoice"] = types.ModuleType("openvoice")
+    sys.modules["openvoice.api"] = ovapi
+    sys.modules["huggingface_hub"].snapshot_download = lambda r, **kw: ckdir
+
+    realSh6, realWav6 = V.sh, V.to_wav
+    V.sh = lambda cmd, **kw: (os.makedirs(cmd[-1], exist_ok=True), R())[-1]
+    V.to_wav = lambda s_, d_, **kw: wav(d_, 8.0)
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "openvoice"}; V.OPT["_out"] = w6
+        V.OPT["ref_inputs"] = ["a.input", "b.input", "c.input"]
+        made6 = V.run_openvoice(wav(os.path.join(w6, "r.wav"), 11.0),
+                                wav(os.path.join(w6, "s.wav"), 12.0), txt, w6)
+        rep8 = json.load(io.open(os.path.join(w6, "report-openvoice.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.sh, V.to_wav = realSh6, realWav6
+
+    eq(os.path.basename(made6), "openvoice_one.wav", "خروجیِ برگشتی درست است")
+    eq([v["name"] for v in rep8["variants"]], ["one", "all"],
+       "دو اجرا: یک نمونه، و میانگینِ همهٔ نمونه‌ها")
+    eq(len(rep8["variants"][1]["refs"]), 3,
+       "و دومی واقعاً هر سه ضبط را به مدل می‌دهد، نه یکی")
+    eq(rep8["model_facts"]["weights"], "checkpoint.pth",
+       "وزن در چیدمانِ چک‌پوینت پیدا می‌شود")
+    V.OPT.clear()
+
     print("\nهمه گذشت.")
     return 0
 

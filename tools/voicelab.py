@@ -156,6 +156,26 @@ ENGINES = {
         "needs_src": False,
         "persian": "وصلهٔ فارسیِ اختصاصی روی MOSS-TTS-Realtime",
     },
+    # ══ پس از دو دادهٔ روشن از ChatterboxVC ══
+    # مبدأ زن → «کمی شبیه»؛ مبدأ مرد → «زیر ۴۰٪». پس مشکل جنسیت نبود،
+    # خودِ آن مدل ضعیف است. و OmniVoice با همان یک نمونه رنگِ رضوی را
+    # «خیلی خیلی خوب» درآورد — یعنی نمونه خوب است و ایراد در انتقال.
+    # معماریِ OpenVoice دقیقاً برای همین ساخته شده: رنگِ صدا را از بقیه
+    # جدا می‌کند و فقط همان را عوض می‌کند.
+    # پروانه MIT، و README صریح: «Free for both commercial and research
+    # use» — برخلافِ KiaBush و Thomcles که غیرتجاری‌اند.
+    "openvoice": {
+        "family": "تبدیلِ صدا (رنگِ صدا عوض می‌شود، واژه‌ها نه)",
+        # `setup.py`شان numpy==1.22 و gradio==3.48 را پین کرده که هیچ‌کدام
+        # برای ToneColorConverter لازم نیست. کد کلون می‌شود و فقط
+        # وابستگی‌های واقعی نصب — همان الگوی MOSS.
+        "pip": ["torch", "torchaudio", "torchcodec", "librosa", "soundfile",
+                "unidecode", "inflect", "eng_to_ipa", "pypinyin", "cn2an",
+                "jieba", "langid", "huggingface_hub"],
+        "code_license": "MIT (کد و وزن‌ها، صریحاً تجاری‌مجاز)",
+        "needs_src": True,
+        "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
+    },
     "xtts": {
         "family": "TTS با کلونینگ",
         # اجرای #۲: «Coqui TTS requires PyTorch … but they were not found».
@@ -1789,10 +1809,155 @@ def run_moss(ref, src, text, out):
     return made
 
 
+
+OV_REPO_ = "https://github.com/myshell-ai/OpenVoice"
+OV_CKPT_ = "myshell-ai/OpenVoiceV2"
+
+
+def run_openvoice(ref, src, text, out):
+    """
+    OpenVoice v2 — تبدیلِ صدا، این‌بار با مدلی که کارش فقط همین است.
+
+    ══ چرا این، بعد از ChatterboxVC ══
+    دو داده داریم و هر دو یک چیز می‌گویند:
+      • مبدأ زن  → «فقط کمی شبیه رضوی»
+      • مبدأ مرد → «زیر ۴۰٪»
+    یعنی فرضیهٔ «تبدیلِ زن به مرد سخت است» رد شد؛ خودِ ChatterboxVC ضعیف
+    است. و شاهدِ قاطعش این است که OmniVoice با **همان یک نمونهٔ صوتی**
+    رنگِ رضوی را «خیلی خیلی خوب» درآورد — پس نمونه‌مان خوب است و ایراد
+    در انتقال است، نه در ورودی.
+
+    OpenVoice معماری‌اش دقیقاً برای همین است: `ToneColorConverter` رنگِ
+    صدا را از بقیهٔ چیزها جدا می‌کند و فقط همان را عوض می‌کند. لحن و
+    واژه‌ها اصلاً بازتولید نمی‌شوند.
+
+    ══ سه چیزی که از خودِ مخزنشان درآمد، نه از حدس ══
+      ۱. پروانه MIT است و README صریح می‌گوید «Free for both commercial
+         and research use» — برخلافِ KiaBush و Thomcles که هر دو
+         غیرتجاری‌اند، و برخلافِ OmniVoice که پروانهٔ وزنش هنوز روشن نیست.
+      ۲. `setup.py`شان `numpy==1.22.0` و `gradio==3.48.0` را پین کرده —
+         نصبِ کاملش روی پایتونِ ۳٫۱۱ یا می‌شکند یا ساعت‌ها کامپایل می‌کند.
+         ولی `ToneColorConverter` هیچ‌کدام را لازم ندارد. پس مثلِ MOSS
+         کلون می‌شود و فقط وابستگی‌های واقعی‌اش نصب می‌شوند.
+      ۳. نشانیِ چک‌پوینت در سندشان (S3) **مرده است — ۴۰۴**. از Hugging
+         Face می‌آید، و چون چیدمانش ممکن است فرق کند، کد فایل‌ها را
+         **می‌گردد** و اگر پیدا نکرد فهرستِ آنچه آمده را گزارش می‌کند —
+         نه اینکه با خطای «فایل نیست» بمیرد.
+
+    ══ و یک اهرمِ کیفیت که فقط این موتور دارد ══
+    `extract_se` یک **فهرست** می‌گیرد و بردارهای گوینده را میانگین
+    می‌گیرد. f5 و OmniVoice هر کدام روی یک برش شرط می‌شوند؛ اینجا هر
+    چهار ضبطِ رضوی می‌تواند با هم بردارِ هدف را بسازد. پس همین را
+    می‌سنجیم: یک نمونه در برابرِ همه.
+    """
+    import numpy as np
+    import torch
+
+    if not src:
+        raise RuntimeError("این موتور به صوتِ مبدأ نیاز دارد (خروجیِ Gemini).")
+
+    # ── ۱. کد ──
+    repo = os.path.join(out, "OpenVoice")
+    if not os.path.isdir(repo):
+        r = sh(["git", "clone", "--depth", "1", OV_REPO_, repo],
+               capture_output=True, timeout=600)
+        if r.returncode != 0:
+            raise RuntimeError("کلونِ OpenVoice نشد: %s"
+                               % (r.stderr or b"").decode("utf-8", "replace")[-400:])
+    sys.path.insert(0, repo)
+    from openvoice.api import ToneColorConverter
+
+    # ── ۲. چک‌پوینت ──
+    from huggingface_hub import snapshot_download
+    t0 = time.time()
+    ck = snapshot_download(OV_CKPT_, allow_patterns=["converter/*"])
+    cfg = pth = None
+    found = []
+    for root, _dirs, files in os.walk(ck):
+        for f in files:
+            found.append(os.path.relpath(os.path.join(root, f), ck))
+            if f.endswith(".json") and cfg is None:
+                cfg = os.path.join(root, f)
+            if f.endswith((".pth", ".ckpt", ".safetensors")) and pth is None:
+                pth = os.path.join(root, f)
+    facts = {"repo": OV_REPO_, "ckpt_repo": OV_CKPT_,
+             "files": sorted(found)[:20],
+             "download_seconds": round(time.time() - t0)}
+    OPT["model_facts"] = facts
+    saveRep_()
+    if not cfg or not pth:
+        raise RuntimeError("در چک‌پوینت config یا وزن پیدا نشد. آنچه آمد: %s"
+                           % ", ".join(sorted(found)[:20]))
+    facts["config"] = os.path.basename(cfg)
+    facts["weights"] = os.path.basename(pth)
+
+    # ══ واترمارک خاموش ══
+    # `enable_watermark=True` بستهٔ `wavmark` را می‌خواهد و یک واترمارکِ
+    # دومِ نامحسوس روی صوت می‌گذارد. برای آزمایش هیچ‌کدام لازم نیست، و یک
+    # وابستگیِ کمتر یعنی یک جای شکستِ کمتر.
+    tcc = ToneColorConverter(cfg, device="cpu")
+    tcc.watermark_model = None
+    tcc.load_ckpt(pth)
+    facts["load_seconds"] = round(time.time() - t0)
+    OPT["model_facts"] = facts
+    saveRep_()
+    print("مدل:", json.dumps(facts, ensure_ascii=False)[:400], flush=True)
+
+    # ── ۳. بردارِ گویندهٔ مبدأ (جمینای) ──
+    srcSe = tcc.extract_se(src)
+
+    # ── ۴. دو بردارِ هدف: یک نمونه، و همهٔ نمونه‌ها ──
+    allRefs = []
+    for i, p in enumerate(OPT.get("ref_inputs") or []):
+        try:
+            allRefs.append(to_wav(p, os.path.join(out, "ovref%d.wav" % (i + 1))))
+        except Exception as e:
+            print("نمونهٔ %d آماده نشد: %s" % (i + 1, str(e)[:200]), flush=True)
+    runs = [("one", [ref], "همان یک برشِ انتخاب‌شده — مثلِ موتورهای دیگر")]
+    if len(allRefs) > 1:
+        runs.append(("all", allRefs,
+                     "میانگینِ بردارِ گوینده روی هر %d ضبط — اهرمی که فقط "
+                     "این موتور دارد" % len(allRefs)))
+    else:
+        OPT["one_run_why"] = ("اجرای دوم نیامد: فقط یک نمونهٔ صدا داده شده "
+                              "بود، پس میانگین با همان یکی فرق نمی‌کرد.")
+
+    made, variants = None, []
+    for name, refs, why in runs:
+        dst = os.path.join(out, "openvoice_%s.wav" % name)
+        t1 = time.time()
+        try:
+            tgtSe = tcc.extract_se(refs)
+            tcc.convert(audio_src_path=src, src_se=srcSe, tgt_se=tgtSe,
+                        output_path=dst, tau=0.3)
+            took = round(time.time() - t1)
+            info = probe(dst)
+            sec = float(info.get("seconds") or 0)
+            variants.append({
+                "name": name, "why": why, "file": os.path.basename(dst),
+                "refs": [os.path.basename(x) for x in refs],
+                "info": info, "seconds_taken": took,
+                "realtime_factor": (round(took / sec, 1) if sec else None),
+                "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
+                                        if sec else None)})
+            made = made or dst
+            print("%s: %ss صوت در %ss" % (name, info.get("seconds"), took), flush=True)
+        except Exception as e:
+            variants.append({"name": name, "why": why, "error": str(e)[:600]})
+            print("%s شکست خورد: %s" % (name, str(e)[:400]), flush=True)
+        OPT["variants"] = variants
+        saveRep_()
+
+    if not made:
+        raise RuntimeError("هیچ‌کدام از اجراهای OpenVoice خروجی نداد")
+    return made
+
+
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts,
            "omnivoice": run_omnivoice,
-           "moss": run_moss}
+           "moss": run_moss,
+           "openvoice": run_openvoice}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
 # RUNNERها یکی است و نباید برای یک موتور عوض شود.
@@ -1873,6 +2038,12 @@ def main():
     saveRep_()
 
     # ── آماده‌سازیِ نمونه ──
+    # ══ چرا فهرستِ خام هم نگه داشته می‌شود ══
+    # `refAudition_` یکی را برمی‌دارد، که برای f5 و OmniVoice درست است
+    # (هر دو روی یک برش شرط می‌شوند). ولی OpenVoice بردارِ گوینده را روی
+    # **چند** ضبط میانگین می‌گیرد؛ برای آن، دور انداختنِ سه ضبطِ دیگر
+    # دور انداختنِ کیفیت است.
+    OPT["ref_inputs"] = list(a.ref)
     ref = refAudition_(a.ref, a.out, a.ref_seconds)
     rep["reference"] = probe(ref)
     src = ""
