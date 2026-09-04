@@ -994,6 +994,42 @@ def main():
     eq("a/b" in txt and "c/d" in txt, True, "هر دو نامزد در جدول‌اند")
     eq("None" in txt, False, "هیچ ستونی None نیست")
 
+    # ── ۲۱ ─────────────────────────────────────────────────────────────
+    # چهار شناسهٔ درایو داده شد، سه مرجع به مدل رسید، و گزارش هیچ نگفت.
+    # خطا فقط چاپ شده بود — و چاپ در لاگی که کسی تا آخر نمی‌خواندش
+    # یعنی نگفتن. عدد باید در گزارش باشد، هم وقتی کم است هم وقتی درست
+    # است؛ وگرنه نبودنِ هشدار را نمی‌شود از نگاه‌نکردن تشخیص داد.
+    print("۲۱ — کم‌رسیدنِ مرجع‌ها در گزارش ثبت می‌شود")
+    d6 = tempfile.mkdtemp()
+    realWav8 = V.to_wav
+
+    def _picky(src_, dst_, **kw):
+        if "bad" in str(src_):
+            raise RuntimeError("۴۰۴")
+        return wav(dst_, 8.0)
+
+    V.to_wav = _picky
+    try:
+        V.OPT.clear(); V.OPT["_rep"] = {"engine": "t"}; V.OPT["_out"] = d6
+        got = V.refsPrepare_(["ok1", "bad2", "ok3"], d6, "p")
+        eq(len(got), 2, "فقط مرجع‌های سالم برمی‌گردند")
+        rp = V.OPT["ref_prepare"]
+        eq((rp["asked"], rp["ready"]), (3, 2), "خواسته و رسیده هر دو ثبت‌اند")
+        eq(rp["failed"][0]["index"], 2, "کدام یکی نرسید هم ثبت است")
+        eq("warning" in rp, True, "و هشدار داده می‌شود")
+        eq("ref_prepare" in json.loads(io.open(
+            os.path.join(d6, "report-t.json"), encoding="utf-8").read()), True,
+            "و در فایلِ گزارش نشسته، نه فقط در لاگ")
+
+        # و وقتی همه سالم‌اند: عدد هست، هشدار نیست
+        V.OPT.clear(); V.OPT["_rep"] = {"engine": "t"}; V.OPT["_out"] = d6
+        V.refsPrepare_(["ok1", "ok2"], d6, "q")
+        rp2 = V.OPT["ref_prepare"]
+        eq((rp2["asked"], rp2["ready"]), (2, 2), "شمارش در حالتِ سالم هم هست")
+        eq("warning" in rp2, False, "ولی هشدارِ بی‌جا نمی‌دهد")
+    finally:
+        V.to_wav = realWav8
+
     print("\nهمه گذشت.")
     return 0
 

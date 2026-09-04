@@ -1931,6 +1931,40 @@ def refClean_(src, out, tag, floorMax=-45.0, speechMin=55):
                  "seconds": round(probe(dst).get("seconds") or 0, 1),
                  "scored": scored[:12]}
 
+
+def refsPrepare_(paths, out, prefix):
+    """هر ورودیِ مرجع را به wav تبدیل می‌کند و **می‌شمارد**.
+
+    ══ چرا شمردنش مهم است ══
+    در اجرای اوپن‌وویس چهار شناسهٔ درایو داده شد و سه مرجع به مدل رسید.
+    خطا چاپ شده بود و در گزارش هیچ نبود — یعنی همان شکلی که در تمامِ
+    این ریپو دنبالش می‌گردیم: کاری که کمتر از خواسته انجام شده و
+    خودش را موفق نشان می‌دهد. «شنیدم، ۷۰٪ شبیه بود» با سه مرجع و با
+    چهار مرجع دو چیزِ متفاوت است، و بدونِ این عدد نمی‌شود فهمید کدام.
+
+    گزارش همیشه نوشته می‌شود، حتی وقتی همه سالم‌اند: نبودنِ هشدار باید
+    یعنی «سنجیده شد و درست بود»، نه «کسی نگاه نکرد».
+    """
+    ready, failed = [], []
+    for i, p in enumerate(paths):
+        try:
+            ready.append(to_wav(p, os.path.join(out, "%s%d.wav" % (prefix, i + 1))))
+        except Exception as e:
+            failed.append({"index": i + 1, "input": str(p)[:120],
+                           "error": str(e)[:200]})
+            print("نمونهٔ %d آماده نشد: %s" % (i + 1, str(e)[:200]), flush=True)
+    rep = {"asked": len(paths), "ready": len(ready)}
+    if failed:
+        rep["failed"] = failed
+        rep["warning"] = ("از %d نمونه فقط %d به مدل رسید — نتیجه با آنچه "
+                          "خواسته شده بود سنجیده نمی‌شود."
+                          % (len(paths), len(ready)))
+        print("هشدار: " + rep["warning"], flush=True)
+    OPT["ref_prepare"] = rep
+    saveRep_()
+    return ready
+
+
 def run_openvoice(ref, src, text, out):
     """
     OpenVoice v2 — تبدیلِ صدا، این‌بار با مدلی که کارش فقط همین است.
@@ -2044,12 +2078,7 @@ def run_openvoice(ref, src, text, out):
     srcSe = tcc.extract_se(src)
 
     # ── ۴. دو بردارِ هدف: یک نمونه، و همهٔ نمونه‌ها ──
-    allRefs = []
-    for i, p in enumerate(OPT.get("ref_inputs") or []):
-        try:
-            allRefs.append(to_wav(p, os.path.join(out, "ovref%d.wav" % (i + 1))))
-        except Exception as e:
-            print("نمونهٔ %d آماده نشد: %s" % (i + 1, str(e)[:200]), flush=True)
+    allRefs = refsPrepare_(OPT.get("ref_inputs") or [], out, "ovref")
     # ══ متغیرِ تازه: `tau` ══
     # «همه» از «یکی» بهتر بود، پس آن پرسش بسته شد و همیشه همهٔ ضبط‌ها
     # می‌روند. متغیرِ بعدی از خودِ کدشان درآمد:
