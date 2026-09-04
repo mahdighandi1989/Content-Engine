@@ -1471,6 +1471,54 @@ def main():
     finally:
         (D.dsDecode_, D.dsSpeech_, D.dsWriteCuts_, D.dsJoin_) = realD
 
+    # ── ۲۷ ─────────────────────────────────────────────────────────────
+    # نوت‌بوکِ Colab روی هیچ ماشینی از ما اجرا نمی‌شود — روی ماشینِ گوگل
+    # و با دستِ کاربر. یعنی تنها چیزی که می‌تواند خرابی‌اش را پیش از او
+    # بگیرد همین بخش است.
+    print("۲۷ — نوت‌بوکِ Colab")
+    import ast as _a2
+    nbPath = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "tools", "rvc_colab.ipynb")
+    nb = json.loads(io.open(nbPath, encoding="utf-8").read())
+    codes = [c for c in nb["cells"] if c["cell_type"] == "code"]
+    eq(len(codes) >= 8, True, "نوت‌بوک %d سلولِ کد دارد" % len(codes))
+
+    bad = []
+    for i, c in enumerate(codes):
+        try:
+            _a2.parse("".join(c["source"]))
+        except SyntaxError as e:
+            bad.append("%d: %s" % (i, str(e)[:60]))
+    eq(bad, [], "همهٔ سلول‌های کد نحواً درست‌اند")
+
+    allSrc = "\n".join("".join(c["source"]) for c in codes)
+
+    # ══ منطق باید از مخزن بیاید، نه کپی داخلِ نوت‌بوک ══
+    # اگر کسی روزی برای «ساده‌تر شدن» تابعی را داخلِ نوت‌بوک کپی کند،
+    # از همان روز آنچه کاربر آموزش می‌دهد با آنچه ما داوری کرده‌ایم فرق
+    # می‌کند — و هیچ‌چیز نشانش نمی‌دهد.
+    eq("raw.githubusercontent.com" in allSrc, True,
+       "ماژول‌ها از گیت‌هاب raw گرفته می‌شوند")
+    for mod in ("rvcpipe.py", "dsprep.py"):
+        eq(mod in allSrc, True, "%s گرفته می‌شود" % mod)
+    for fn in ("def steps(", "def buildDataset_(", "def preTrain_("):
+        eq(fn in allSrc, False, "نسخهٔ کپی‌شدهٔ «%s» در نوت‌بوک نیست" % fn)
+
+    # ══ دو پیش‌نیازی که اجرای دودی ثابت کرد لازم‌اند ══
+    for call in ("P.preLog_(", "P.preTrain_("):
+        eq(call in allSrc, True, "%s صدا زده می‌شود" % call)
+
+    # ══ و مهم‌ترین: آموزش روی GPU ══
+    # بی این، Colab روی CPU آموزش می‌دهد — بی هیچ خطایی، فقط بیست برابر
+    # کندتر. کاربر ساعت‌ها منتظر می‌مانَد و علتش را نمی‌فهمد.
+    eq("gpus='0'" in allSrc or 'gpus="0"' in allSrc, True,
+       "آموزش با GPU خوانده می‌شود، نه CPU")
+    eq("nvidia-smi" in allSrc, True, "و نبودنِ کارت پیش از هر کاری گرفته می‌شود")
+
+    # خروجی باید **دیده** شود، نه فرض. همان درسی که اجرای #۴۱ داد.
+    eq("P.outputs(" in allSrc and "os.path.exists" in allSrc, True,
+       "وجودِ فایلِ مدل پیش از اعلامِ پایان سنجیده می‌شود")
+
     print("\nهمه گذشت.")
     return 0
 
