@@ -140,7 +140,8 @@ def env(root, base=None):
 
 
 def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
-          save_every=50, version="v2", gpus="", n_p=2, batch=8, py="python"):
+          save_every=50, version="v2", gpus="", n_p=2, batch=8, py="python",
+          latest=0):
     """
     پنج قدمِ آموزش، به ترتیب، با آرگومان‌های دقیق.
 
@@ -200,7 +201,11 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
     train = [py, "-m", "train.train", "-e", exp, "-sr", sr, "-f0", "1",
              "-bs", str(batch), "-te", str(epochs), "-se", str(save_every),
              "-pg", pre % ("G", sr), "-pd", pre % ("D", sr),
-             "-l", "0", "-c", "0", "-sw", "1", "-v", version]
+             # ══ `-l 1` یعنی فقط آخرین چک‌پوینت نگه داشته شود ══
+             # وقتی پوشهٔ کار روی درایو باشد (تا اجرا بتواند از سرگرفته
+             # شود)، نگه‌داشتنِ همهٔ چک‌پوینت‌ها یعنی چند گیگابایت نوشتن
+             # روی درایو. برای از سرگیری فقط آخری لازم است.
+             "-l", str(int(latest)), "-c", "0", "-sw", "1", "-v", version]
     # روی CPU پرچمِ `-g` اصلاً نباید بیاید — webui.py هم دو شاخهٔ جدا
     # دارد و بی‌GPU آن را حذف می‌کند، نه اینکه تهی بفرستد.
     if gpus:
