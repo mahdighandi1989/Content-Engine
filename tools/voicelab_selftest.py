@@ -1041,16 +1041,29 @@ def main():
     eq(sorted(got), ["extract_f0", "extract_feature", "preprocess",
                      "train", "train_index"], "هر پنج قدم هست")
 
+    # ══ هیچ قدمی با مسیرِ فایل اجرا نمی‌شود ══
+    # اجرای #۳۷ اینجا افتاد: `python train/preprocess.py` پوشهٔ
+    # `<root>/train` را اولِ sys.path می‌گذارد، و آنجا `train.py` هست که
+    # بستهٔ `train/` را سایه می‌اندازد. `-m` تنها شکلی است که کار می‌کند.
+    for name_, cmd_ in got.items():
+        eq(cmd_[1], "-m", "%s با -m اجرا می‌شود" % name_)
+        eq([a for a in cmd_ if a.endswith(".py")], [],
+           "%s هیچ مسیرِ فایلی ندارد" % name_)
+
+    def arg(cmd_, i):
+        """آرگومانِ i-ام پس از نامِ ماژول — نه شمارهٔ ثابت در فهرست."""
+        return cmd_[cmd_.index("-m") + 2 + i]
+
     # دامِ ۱: preprocess مسیرِ کامل می‌گیرد، train فقط نام. جابه‌جا شدنشان
     # پوشه‌ای می‌سازد که قدمِ بعدی پیدا نمی‌کند، بی خطای روشن.
-    eq(got["preprocess"][5], "/root/logs/ex", "preprocess مسیرِ کامل می‌گیرد")
+    eq(arg(got["preprocess"], 3), "/root/logs/ex", "preprocess مسیرِ کامل می‌گیرد")
     eq(got["train"][got["train"].index("-e") + 1], "ex",
        "ولی train فقط نامِ تجربه را")
 
     # دامِ ۲: شاخهٔ CPU در extract_hubert_feature با شمارشِ argv انتخاب
     # می‌شود (`len(sys.argv) == 7`). یکی کم یا زیاد، به شاخهٔ GPU می‌افتد
     # و آرگومان‌ها را غلط می‌خوانَد.
-    eq(len(got["extract_feature"]) - 1, 7,
+    eq(len(got["extract_feature"]) - got["extract_feature"].index("-m") - 1, 7,
        "extract_hubert_feature دقیقاً ۷ آرگومان دارد (شاخهٔ CPU)")
 
     # دامِ ۳: بی `-sw 1` ساعت‌ها آموزش انجام می‌شود و مدلِ قابلِ‌استفاده
@@ -1062,11 +1075,11 @@ def main():
     eq("-g" in got["train"], False, "بی‌GPU پرچمِ -g اصلاً نمی‌آید")
     onGpu = dict(P.steps("ex", "/ds", "/root", gpus="0"))["train"]
     eq(onGpu[onGpu.index("-g") + 1], "0", "و با GPU می‌آید")
-    eq(dict(P.steps("ex", "/ds", "/root", gpus="0"))["extract_feature"][2],
+    eq(arg(dict(P.steps("ex", "/ds", "/root", gpus="0"))["extract_feature"], 0),
        "cuda", "و استخراجِ ویژگی هم روی cuda می‌رود")
 
     # نرخِ نمونه به هرتز تبدیل می‌شود، نه «40k» خام.
-    eq(got["preprocess"][3], "40000", "نرخِ نمونه به هرتز داده می‌شود")
+    eq(arg(got["preprocess"], 1), "40000", "نرخِ نمونه به هرتز داده می‌شود")
     eq(got["train"][got["train"].index("-sr") + 1], "40k",
        "ولی train همان «40k» را می‌خواهد")
 
@@ -1099,11 +1112,13 @@ def main():
     def _sh9(cmd, timeout=None, **kw):
         seen.append({"cmd": list(cmd), "cwd": kw.get("cwd"),
                      "env": kw.get("env")})
-        j = " ".join(cmd)
         root9 = kw.get("cwd") or ""
-        if "train/train.py" in j:
+        mod = cmd[cmd.index("-m") + 1] if "-m" in cmd else ""
+        # برابری، نه «شامل بودن»: «train.train_index» رشتهٔ
+        # «train.train» را در خود دارد.
+        if mod == "train.train":
             _mk(os.path.join(root9, "assets", "weights", "smoke.pth"))
-        if "train_index.py" in j:
+        if mod == "train.train_index":
             _mk(os.path.join(root9, "assets", "indices", "smoke.index"))
         return R()
 
@@ -1123,20 +1138,20 @@ def main():
         got = V.run_rvcsmoke(None, None, None, d7)
         eq(os.path.basename(got), "smoke.pth", "مدل برگردانده می‌شود، نه صوت")
 
+        # `pip` و `zipfile` هم با `-m` اجرا می‌شوند، پس صرفِ وجودِ `-m`
+        # کافی نیست: قدم‌های آموزش با پیشوندِ ماژولشان شناخته می‌شوند.
+        def _mod(c):
+            return c[c.index("-m") + 1] if "-m" in c else ""
+
         names = [c["cmd"] for c in seen]
-        joined = [" ".join(c) for c in names]
-        order = [i for i, j in enumerate(joined)
-                 if "train/preprocess.py" in j or "extract_f0.py" in j
-                 or "extract_hubert_feature.py" in j or "train/train.py" in j
-                 or "train_index.py" in j]
-        eq(order, sorted(order), "پنج قدم به ترتیب اجرا شدند")
-        eq(len([j for j in joined if "train/" in j or "extract" in j]), 5,
-           "و دقیقاً پنج‌تا بودند")
+        mods = [_mod(c) for c in names if _mod(c).startswith("train.")]
+        eq(mods, ["train.preprocess", "train.dataset.extract_f0",
+                  "train.dataset.extract_hubert_feature", "train.train",
+                  "train.train_index"], "پنج قدم، به ترتیب و با نامِ ماژول")
 
         # مهم‌ترین دو چیز: از ریشهٔ مخزن اجرا می‌شوند، و PYTHONPATH دارند.
         # بی دومی، قدمِ اول با ModuleNotFoundError می‌میرد.
-        five = [c for c in seen if "train/" in " ".join(c["cmd"])
-                or "extract" in " ".join(c["cmd"])]
+        five = [c for c in seen if _mod(c["cmd"]).startswith("train.")]
         rootDir = os.path.join(V.OPT["rvc"]["work_dir"], "rvc")
         eq(sorted(set(c["cwd"] for c in five)), [rootDir],
            "هر پنج قدم از ریشهٔ مخزن اجرا می‌شوند")
@@ -1187,7 +1202,7 @@ def main():
         stdout = stderr = b""
 
     msg = _run(lambda cmd, timeout=None, **kw:
-               (_Bad() if "extract_f0.py" in " ".join(cmd) else R()), "f0")
+               (_Bad() if "train.dataset.extract_f0" in cmd else R()), "f0")
     eq(msg is not None and "extract_f0" in msg, True,
        "قدمی که کدِ ناصفر بدهد، اجرا را متوقف می‌کند و نامش در خطاست")
     eq("No module named" in (msg or ""), True,

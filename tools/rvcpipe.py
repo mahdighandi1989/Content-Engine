@@ -137,12 +137,31 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
 
     `exp` نامِ تجربه است (مثلاً "razavi") و `root` ریشهٔ مخزنِ RVC.
 
-    ══ دامی که اینجا هست ══
-    `preprocess.py` مسیرِ **کاملِ** `<root>/logs/<exp>` را می‌گیرد، ولی
-    `train.py` فقط **نامِ** `<exp>` را. اگر جابه‌جا بدهی، پوشه‌ای مثلِ
+    ══ دامِ ۱: مسیرِ کامل در برابرِ نام ══
+    `preprocess` مسیرِ **کاملِ** `<root>/logs/<exp>` را می‌گیرد، ولی
+    `train` فقط **نامِ** `<exp>` را. اگر جابه‌جا بدهی، پوشه‌ای مثلِ
     `logs/<root>/logs/<exp>` ساخته می‌شود و قدمِ بعدی چیزی پیدا نمی‌کند
     — بی خطای روشن. خودِ webui.py هم همین تفکیک را دارد
     (`exp_dir` در برابرِ `exp_dir1`)؛ از آنجا خوانده شده.
+
+    ══ دامِ ۲: چرا `-m` و نه مسیرِ فایل (اجرای #۳۷) ══
+    اجرای #۳۷ اینجا افتاد:
+
+        train/preprocess.py → from train.dataset.slicer2 import Slicer
+          → train/train.py → from train import utils
+        ImportError: cannot import name 'utils' from partially
+                     initialized module 'train' (circular import)
+
+    «حلقهٔ دوّار» تشخیصِ پایتون است، نه علت. علت این است که با
+    `python train/preprocess.py`، پوشهٔ `<root>/train` اولِ `sys.path`
+    می‌نشیند — و در آن پوشه فایلی به نامِ `train.py` هست. پس نامِ `train`
+    به آن **فایل** حل می‌شود، نه به **بستهٔ** `<root>/train/`. یعنی
+    `PYTHONPATH` لازم بود ولی کافی نبود؛ خودش هم نمی‌توانست کافی باشد،
+    چون مسئله چیزی است که پایتون **جلوترش** می‌گذارد.
+
+    `python -m train.preprocess` هر دو را با هم حل می‌کند: پوشهٔ جاری
+    (ریشه) روی مسیر می‌آید و پوشهٔ اسکریپت نمی‌آید، پس سایه‌ای نمی‌مانَد.
+    `sys.argv` هم دست‌نخورده است، پس ترتیبِ آرگومان‌ها همان است.
     """
     logdir = "%s/logs/%s" % (root, exp)
     pre = "assets/" + PRETRAINED
@@ -150,12 +169,12 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
 
     # ۱) برش و نرمال‌سازی. آخری `per` است (طولِ هر برش به ثانیه).
     out.append(("preprocess", [
-        py, "train/preprocess.py", dataset_dir, sr.replace("k", "000"),
+        py, "-m", "train.preprocess", dataset_dir, sr.replace("k", "000"),
         str(n_p), logdir, "False", "3.0"]))
 
     # ۲) زیروبمی. شکلِ CPU: mode exp_dir n_p f0method
     out.append(("extract_f0", [
-        py, "train/dataset/extract_f0.py", "cpu", logdir, str(n_p), f0method]))
+        py, "-m", "train.dataset.extract_f0", "cpu", logdir, str(n_p), f0method]))
 
     # ۳) ویژگی‌های hubert. شکلِ CPU دقیقاً ۶ آرگومان بعد از نامِ اسکریپت
     #    است (`len(sys.argv) == 7`): device n_part i_part exp_dir version
@@ -163,13 +182,13 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
     #    می‌خوانَد.
     dev = "cuda" if gpus else "cpu"
     out.append(("extract_feature", [
-        py, "train/dataset/extract_hubert_feature.py", dev, "1", "0",
+        py, "-m", "train.dataset.extract_hubert_feature", dev, "1", "0",
         logdir, version, "False"]))
 
     # ۴) آموزش. `-sw 1` مهم است: بدونش فقط چک‌پوینت‌های بزرگِ G_*.pth
     #    می‌مانَد و مدلِ کوچکِ قابلِ‌استفاده در assets/weights ساخته
     #    نمی‌شود — یعنی ساعت‌ها آموزش، و هیچ فایلی که بشود به کار برد.
-    train = [py, "train/train.py", "-e", exp, "-sr", sr, "-f0", "1",
+    train = [py, "-m", "train.train", "-e", exp, "-sr", sr, "-f0", "1",
              "-bs", str(batch), "-te", str(epochs), "-se", str(save_every),
              "-pg", pre % ("G", sr), "-pd", pre % ("D", sr),
              "-l", "0", "-c", "0", "-sw", "1", "-v", version]
@@ -181,7 +200,7 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
 
     # ۵) ایندکسِ بازیابی (همان «Retrieval» در نامِ RVC).
     out.append(("train_index", [
-        py, "train/train_index.py", exp, version, "assets/indices",
+        py, "-m", "train.train_index", exp, version, "assets/indices",
         str(n_p), "auto"]))
     return out
 
