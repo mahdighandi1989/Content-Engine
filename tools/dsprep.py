@@ -61,7 +61,14 @@ DS_SAMPLE_SEC = 45     # طولِ هر نمونهٔ شنیداری
 # «زیر ۵۰- دسی‌بل») روی یکی درست کار می‌کند و روی دیگری نه. هر دو نسبت
 # به سطحِ گفتارِ **همان تکه** سنجیده می‌شوند.
 DS_GAP_REL_DB = -30.0    # مکثی که از گفتار کمتر از این پایین‌تر باشد: چیزی پخش است
-DS_FLOOR_REL_DB = -22.0  # کفِ داخلِ گفتار هم که بالا بماند: بسترِ موسیقی
+DS_FLOOR_REL_DB = -28.0  # کفِ داخلِ گفتار هم که بالا بماند: بسترِ موسیقی
+# ══ چرا از ۲۲- به ۲۸- سفت شد، و چرا این کافی نبود ══
+# کاربر در تکه‌های نگه‌داشته موسیقیِ زیرِ روایت شنید (ثانیهٔ ۲۵ تا ۳۴).
+# سفت‌کردنِ آستانه نیمی از جواب است؛ نیمِ مهم‌ترش این بود که این سنجه
+# روی **کلِ یک دستهٔ پیوسته** اعمال می‌شد. دسته‌ای یک‌دقیقه‌ای که فقط نُه
+# ثانیه‌اش بستر دارد، در صدکِ پنجمِ کلِ دسته گم می‌شود و دست‌نخورده قبول
+# می‌شود. حالا هر **تکه** جدا سنجیده می‌شود، پس همان نُه ثانیه می‌افتد و
+# بقیهٔ دسته می‌مانَد.
 
 
 def dbOf_(x):
@@ -192,6 +199,17 @@ def dsCap_(a, b):
     return [(a + i * step, a + (i + 1) * step) for i in range(n)]
 
 
+def dsSegOk_(y, rate, a, b, speechDb):
+    """آیا این **تکه** بسترِ موسیقی دارد؟ (نسبت به سطحِ گفتارِ فایل)
+
+    برمی‌گرداند (سالم؟، اختلافِ کف بر حسبِ دسی‌بل) — عدد هم برمی‌گردد تا
+    گزارش بتواند توزیعش را نشان دهد. آستانه‌ای که فقط حکمش دیده شود و
+    عددش نه، آستانه‌ای است که هیچ‌وقت نمی‌شود درست تنظیمش کرد.
+    """
+    rel = dsFloorDb_(y, rate, a, b) - speechDb
+    return rel <= DS_FLOOR_REL_DB, round(rel, 1)
+
+
 def dsSegments_(runs):
     """هر دسته را به تکه‌های ۳ تا ۱۰ ثانیه‌ای ببُر، ترجیحاً سرِ مکث‌ها."""
     spans = []
@@ -296,7 +314,16 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
         speechDb = lv[len(lv) // 2]
         gaps = dsGaps_(y, sr, speech, total)
         keep, drop = dsRuns_(y, sr, speech, gaps, speechDb)
-        segs = dsSegments_(keep)
+        # ── دروازهٔ بستر، این‌بار روی تک‌تکِ تکه‌ها ──
+        segs, segRel = [], []
+        for a_, b_ in dsSegments_(keep):
+            ok, rel = dsSegOk_(y, sr, a_, b_, speechDb)
+            segRel.append(rel)
+            if ok:
+                segs.append((a_, b_))
+            else:
+                drop.append({"start": round(a_, 2), "end": round(b_, 2),
+                             "why": "بسترِ موسیقی (تکه)", "floor_rel_db": rel})
         row.update({
             "speech_seconds": round(sum(b - a for a, b in speech), 1),
             "speech_db": round(speechDb, 1),
@@ -304,6 +331,10 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
             # توزیع را هم می‌دهیم، نه فقط حکم را: اگر آستانه بد باشد،
             # از روی همین عددها معلوم می‌شود، نه با حدس.
             "gap_rel_db": sorted(round(g["db"] - speechDb, 1) for g in gaps)[:40],
+            # توزیعِ کفِ **همهٔ** تکه‌ها — نگه‌داشته و ردشده با هم. آستانهٔ
+            # بعدی از روی این عددها تنظیم می‌شود، نه با حدس.
+            "seg_floor_rel_db": sorted(segRel),
+            "seg_floor_cut": DS_FLOOR_REL_DB,
             "dropped": drop[:20],
             "dropped_count": len(drop),
             "segments": len(segs),
