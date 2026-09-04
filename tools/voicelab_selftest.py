@@ -1114,6 +1114,21 @@ def main():
                      "env": kw.get("env")})
         root9 = kw.get("cwd") or ""
         mod = cmd[cmd.index("-m") + 1] if "-m" in cmd else ""
+        # بدل‌ها همان چیزهایی را می‌سازند که قدم‌های واقعی می‌سازند، تا
+        # `preTrain_` روی فایل‌سیستمِ واقعی سنجیده شود نه با بدلِ دیگر.
+        ex = os.path.join(root9, "logs", "smoke")
+        mu = os.path.join(root9, "logs", "mute")
+        if mod == "train.preprocess":
+            _mk(os.path.join(root9, "configs", "v1", "40k.json"))
+            for base in (ex, mu):
+                _mk(os.path.join(base, "0_gt_wavs", "a.wav"))
+        if mod == "train.dataset.extract_f0":
+            for base in (ex, mu):
+                _mk(os.path.join(base, "2a_f0", "a.wav.npy"))
+                _mk(os.path.join(base, "2b-f0nsf", "a.wav.npy"))
+        if mod == "train.dataset.extract_hubert_feature":
+            for base in (ex, mu):
+                _mk(os.path.join(base, "3_feature768", "a.npy"))
         # برابری، نه «شامل بودن»: «train.train_index» رشتهٔ
         # «train.train» را در خود دارد.
         if mod == "train.train":
@@ -1164,6 +1179,21 @@ def main():
         # نامِ فرمانِ hf حدس زده نمی‌شود.
         eq(V.OPT["rvc"]["hf_bin"], "hf", "فرمانِ hf از PATH پیدا می‌شود")
         eq(len(V.OPT["rvc_steps"]), 5, "پنج قدم گزارش شدند")
+
+        # ── آماده‌سازیِ پیش از آموزش، روی فایل‌سیستمِ واقعی ──
+        pt = V.OPT["rvc"]["pre_train"]
+        eq(pt["config"], "v1/40k.json",
+           "برای ۴۰k پیکربندی از v1 برداشته می‌شود، نه v2")
+        eq((pt["from_dataset"], pt["from_mute"]), (1, 1),
+           "فهرست هم از دیتاست ردیف دارد هم از سکوت")
+        fl = io.open(os.path.join(rootDir, "logs", "smoke", "filelist.txt"),
+                     encoding="utf-8").read().splitlines()
+        eq(len(fl), 2, "دو ردیف نوشته شد")
+        eq(all(len(ln.split("|")) == 5 for ln in fl), True,
+           "هر ردیف پنج ستون دارد (چهار مسیر و شمارهٔ گوینده)")
+        # نامِ فایل‌ها حدس زده نمی‌شود؛ از روی دیسک خوانده می‌شود.
+        eq(all("a.wav.npy" in ln for ln in fl), True,
+           "نامِ واقعیِ فایلِ f0 در ردیف آمده، نه الگوی حدسی")
     finally:
         V.sh, V.to_wav, V.probe = realSh9, realWav9, realProbe9
         V.shTail_ = realTail9
@@ -1177,6 +1207,17 @@ def main():
         V.sh = shFn
 
         def _t(cmd, tailLines=40, **kw):
+            # همان پیش‌نیازهایی که قدم‌های واقعی می‌سازند، وگرنه اجرا سرِ
+            # سدِ دیگری می‌ایستد و این آزمون چیزی را که هدفش بود نمی‌سنجد.
+            r9 = kw.get("cwd") or ""
+            m9 = cmd[cmd.index("-m") + 1] if "-m" in cmd else ""
+            if m9 == "train.preprocess":
+                _mk(os.path.join(r9, "configs", "v1", "40k.json"))
+                for base in ("smoke", "mute"):
+                    _mk(os.path.join(r9, "logs", base, "0_gt_wavs", "a.wav"))
+                    _mk(os.path.join(r9, "logs", base, "2a_f0", "a.wav.npy"))
+                    _mk(os.path.join(r9, "logs", base, "2b-f0nsf", "a.wav.npy"))
+                    _mk(os.path.join(r9, "logs", base, "3_feature768", "a.npy"))
             r_ = shFn(cmd, **kw)
             return ("ModuleNotFoundError: No module named 'x'"
                     if r_.returncode else ""), r_.returncode
@@ -1237,6 +1278,82 @@ def main():
     eq(V.errGist_("just a line\nlast line"), "last line",
        "بی نشانه، آخرین خط برمی‌گردد")
     eq(V.errGist_(""), "خروجی‌ای نبود", "و خروجیِ تهی هم پیامِ خودش را دارد")
+
+    # ── ۲۵ ─────────────────────────────────────────────────────────────
+    # منطقِ جداکردنِ موسیقی با صدای **ساختگی** سنجیده می‌شود، نه با بدل:
+    # اینجا می‌شود دقیقاً دانست کجا گفتار است و کجا موسیقی، پس جواب را
+    # می‌شود با واقعیت سنجید نه با انتظارِ خودم.
+    print("۲۵ — جداکردنِ موسیقی از روایت")
+    import numpy as _np
+
+    SR = V.VAD_SR
+
+    def _sig(parts):
+        """parts: فهرستِ (ثانیه، دامنه). نویز = گفتار، دامنهٔ صفر = سکوت."""
+        rng = _np.random.RandomState(7)
+        out = []
+        for sec, amp in parts:
+            n = int(sec * SR)
+            out.append(rng.randn(n).astype("float32") * amp if amp else
+                       _np.zeros(n, dtype="float32"))
+        return _np.concatenate(out)
+
+    eq(V.dbOf_(_np.zeros(100, dtype="float32")), -120.0, "سکوت ۱۲۰- است")
+    eq(round(V.dbOf_(_np.ones(100, dtype="float32")), 1), 0.0,
+       "دامنهٔ یک، صفر دسی‌بل است")
+
+    # ── سرِ فایل و تهِ فایل هم فاصله‌اند؛ تیزر دقیقاً همان‌جاست ──
+    y = _sig([(2.0, 0.0), (3.0, 0.2), (1.0, 0.0)])
+    gaps = V.dsGaps_(y, SR, [(2.0, 5.0)], 6.0)
+    eq([(g["start"], g["end"]) for g in gaps], [(0.0, 2.0), (5.0, 6.0)],
+       "فاصلهٔ ابتدا و انتها هر دو دیده می‌شوند")
+
+    # ── دروازهٔ ۱: مکثی که بلند بماند، دسته را می‌شکند ──
+    # «گفتار» اینجا باید مکث‌های ریز داشته باشد وگرنه دروازهٔ دوم — به
+    # درستی — همان را بسترِ موسیقی می‌بیند. اولین بار همین شد و آزمون
+    # درست ایراد گرفت: نویزِ یکسره گفتار نیست.
+    def _talk(sec, amp=0.2):
+        return [(0.4, amp), (0.1, 0.0)] * int(sec / 0.5)
+
+    # گفتار ۰٫۲ ، مکثِ «موسیقی‌دار» ۰٫۱ (یعنی ۶ دسی‌بل پایین‌تر، نه ۳۰)
+    y2 = _sig(_talk(3.0) + [(2.0, 0.1)] + _talk(3.0))
+    sp2 = [(0.0, 3.0), (5.0, 8.0)]
+    g2 = V.dsGaps_(y2, SR, sp2, 8.0)
+    keep2, drop2 = V.dsRuns_(y2, SR, sp2, g2, V.dbOf_(y2[:int(3 * SR)]))
+    eq(len(keep2), 2, "مکثِ بلند دسته را به دو نیم می‌کند")
+    eq(any("موسیقی" in d["why"] for d in drop2), True, "و خودش دور ریخته می‌شود")
+
+    # و همان با مکثِ **ساکت** یک دسته می‌مانَد
+    y3 = _sig(_talk(3.0) + [(2.0, 0.0)] + _talk(3.0))
+    g3 = V.dsGaps_(y3, SR, sp2, 8.0)
+    keep3, _ = V.dsRuns_(y3, SR, sp2, g3, V.dbOf_(y3[:int(3 * SR)]))
+    eq(len(keep3), 1, "ولی مکثِ ساکت نمی‌شکندش")
+
+    # ── دروازهٔ ۲: بستری که VAD نمی‌بیند ──
+    # اینجا هیچ مکثی نیست که سنجیده شود — صدا یکسره است. تنها نشانه این
+    # است که کفِ داخلِ گفتار هم پایین نمی‌آید.
+    solid = _sig([(6.0, 0.2)])                      # بی هیچ مکثِ ریز
+    withPauses = _sig([(0.4, 0.2), (0.1, 0.0)] * 12)  # گفتارِ واقعی
+    fl1 = V.dsFloorDb_(solid, SR, 0.0, 6.0) - V.dbOf_(solid)
+    fl2 = V.dsFloorDb_(withPauses, SR, 0.0, 6.0) - V.dbOf_(withPauses)
+    eq(fl1 > V.DS_FLOOR_REL_DB, True,
+       "صدای یکسره کفِ بالا دارد (%.1f دسی‌بل)" % fl1)
+    eq(fl2 < V.DS_FLOOR_REL_DB, True,
+       "و گفتارِ مکث‌دار کفِ پایین (%.1f دسی‌بل)" % fl2)
+    k4, d4 = V.dsRuns_(solid, SR, [(0.0, 6.0)], [], V.dbOf_(solid))
+    eq((len(k4), len(d4)), (0, 1), "پس دستهٔ یکسره دور ریخته می‌شود")
+    eq("بستر" in d4[0]["why"], True, "با همان دلیل: بسترِ موسیقی")
+
+    # ── تکه‌بندی ──
+    segs = V.dsSegments_([[(0.0, 4.0), (4.5, 9.0), (9.5, 20.0)]])
+    eq(all(V.DS_SEG_MIN <= b - a <= V.DS_SEG_MAX + 0.01 for a, b in segs), True,
+       "هر تکه بینِ ۳ تا ۱۰ ثانیه است: %s" % [round(b - a, 1) for a, b in segs])
+    eq(V.dsSegments_([[(0.0, 1.0)]]), [], "و تکهٔ کوتاه‌تر از سه ثانیه نمی‌مانَد")
+
+    # ── نمونه باید نماینده باشد، نه n تای اول ──
+    eq(V.dsPick_(list(range(100)), 4), [0, 25, 50, 75],
+       "نمونه از سراسرِ فهرست برداشته می‌شود")
+    eq(V.dsPick_([1, 2], 5), [1, 2], "و کمتر از خواسته، همان که هست")
 
     print("\nهمه گذشت.")
     return 0

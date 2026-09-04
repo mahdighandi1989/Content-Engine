@@ -62,6 +62,8 @@ TRAIN_DEPS = [
 # CUDAِ همان ماشین جفت شده‌اند. نصبِ دوباره‌شان بهترین حالت اتلافِ وقت
 # است و بدترین حالت شکستنِ CUDA.
 
+import io
+
 RVC_REPO = "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI"
 HF_WEIGHTS = "lj1995/VoiceConversionWebUI"
 
@@ -203,6 +205,102 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
         py, "-m", "train.train_index", exp, version, "assets/indices",
         str(n_p), "auto"]))
     return out
+
+
+
+# ══ کارهایی که خودِ اسکریپت‌ها انجام نمی‌دهند ══
+# WebUI پیش از هر قدم چیزهایی می‌سازد که اسکریپت‌ها فرض می‌کنند هست.
+# اجرای #۳۸ دقیقاً همین‌جا افتاد:
+#     FileNotFoundError: .../logs/smoke/preprocess.log
+# اسکریپت لاگ را **باز** می‌کند ولی پوشه و فایلش را نمی‌سازد.
+LOG_FILES = ("preprocess.log", "extract_f0_feature.log", "train_index.log",
+             "train.log")
+
+
+def preLog_(root, exp):
+    """پوشهٔ تجربه و فایل‌های لاگِ خالی — پیش از هر قدمی."""
+    import os as _os
+    d = _os.path.join(root, "logs", exp)
+    _os.makedirs(d, exist_ok=True)
+    for nm in LOG_FILES:
+        f = _os.path.join(d, nm)
+        if not _os.path.exists(f):
+            io.open(f, "w", encoding="utf-8").close()
+    return d
+
+
+def _stems(d):
+    """نگاشتِ نامِ پایه به نامِ واقعیِ فایل.
+
+    الگوی نام‌گذاری را حدس نمی‌زنیم (`x.npy`؟ `x.wav.npy`؟) — از روی
+    آنچه واقعاً روی دیسک هست ساخته می‌شود. هم دقیق‌تر است، هم اگر آن‌ها
+    فردا نام‌گذاری را عوض کنند نمی‌شکند.
+    """
+    import os as _os
+    out = {}
+    if not _os.path.isdir(d):
+        return out
+    for fn in sorted(_os.listdir(d)):
+        out.setdefault(fn.split(".")[0], fn)
+    return out
+
+
+def preTrain_(root, exp, sr="40k", version="v2", spk=0):
+    """`config.json` و `filelist.txt` — پس از استخراج، پیش از آموزش.
+
+    ══ دو نکته که از خودِ webui.py خوانده شد ══
+    ۱. برای نرخِ ۴۰k پیکربندی از پوشهٔ **v1** برداشته می‌شود، حتی وقتی
+       نسخهٔ مدل v2 است. شرطشان صریح است و اگر برعکسش کنی، آموزش با
+       ابعادِ ناجور شروع می‌شود.
+    ۲. به فهرست، ردیف‌های «سکوت» از `logs/mute` اضافه می‌شود. همان‌هایی
+       که از `mute.zip` آمدند — و اگر آن دانلود جا بیفتد، اینجا معلوم
+       می‌شود نه وسطِ آموزش.
+    """
+    import json as _json
+    import os as _os
+    import random as _random
+    import shutil as _shutil
+
+    d = _os.path.join(root, "logs", exp)
+    cfgDir = "v1" if (version == "v1" or sr == "40k") else "v2"
+    srcCfg = _os.path.join(root, "configs", cfgDir, "%s.json" % sr)
+    if not _os.path.exists(srcCfg):
+        raise RuntimeError("پیکربندی پیدا نشد: %s" % srcCfg)
+    dstCfg = _os.path.join(d, "config.json")
+    if not _os.path.exists(dstCfg):
+        _shutil.copyfile(srcCfg, dstCfg)
+
+    feaDim = "3_feature256" if version == "v1" else "3_feature768"
+    dirs = [_os.path.join(d, "0_gt_wavs"), _os.path.join(d, feaDim),
+            _os.path.join(d, "2a_f0"), _os.path.join(d, "2b-f0nsf")]
+    maps = [_stems(x) for x in dirs]
+    names = set(maps[0])
+    for m in maps[1:]:
+        names &= set(m)
+
+    lines = []
+    for nm in sorted(names):
+        lines.append("|".join(
+            [_os.path.join(dirs[i], maps[i][nm]) for i in range(4)]
+            + [str(spk)]))
+
+    mute = _os.path.join(root, "logs", "mute")
+    mdirs = [_os.path.join(mute, "0_gt_wavs"), _os.path.join(mute, feaDim),
+             _os.path.join(mute, "2a_f0"), _os.path.join(mute, "2b-f0nsf")]
+    mmaps = [_stems(x) for x in mdirs]
+    mnames = set(mmaps[0])
+    for m in mmaps[1:]:
+        mnames &= set(m)
+    for nm in sorted(mnames):
+        lines.append("|".join(
+            [_os.path.join(mdirs[i], mmaps[i][nm]) for i in range(4)]
+            + [str(spk)]))
+
+    _random.shuffle(lines)
+    with io.open(_os.path.join(d, "filelist.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return {"config": cfgDir + "/%s.json" % sr, "rows": len(lines),
+            "from_dataset": len(names), "from_mute": len(mnames)}
 
 
 def outputs(exp, root):
