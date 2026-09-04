@@ -533,6 +533,56 @@ def main():
     eq(os.path.basename(made3), "f5ipa-raw.wav", "خروجیِ برگشتی درست است")
     V.OPT.clear()
 
+    # ══ ۱۱ — هشدارِ متنِ مرجعِ بی‌اعراب واقعاً بلند می‌شود ══
+    # `coverage` از اول وجود داشت و فقط روی متنِ **تولید** اجرا می‌شد؛
+    # متنِ مرجع — که f5 آن را در همان رشته به مدل می‌دهد — هرگز سنجیده
+    # نشد. و اولین نسخهٔ خودِ این هشدار به کلیدِ `dry` نگاه می‌کرد که
+    # وجود ندارد، پس هیچ‌وقت بلند نمی‌شد. آزمون هر دو را می‌بندد.
+    print("۱۱ — متنِ مرجعِ بی‌اعراب هشدار می‌گیرد")
+    bare = ("کلنجار می رفت و عرق میریخت تا مغز استخوانش خسته بود اما حس "
+            "میکرد ماهی هم خسته شده و دارد کم کم بالا می آید")
+    vow = ("کَلَنجار می رَفت وَ عَرَق میریخت تا مَغزِ اُستُخوانَش خَستِه بود "
+           "اَمّا حِس میکَرد ماهی هَم خَستِه شُدِه وَ دارَد کَم کَم بالا می آیَد")
+    import fa2latin as F
+    eq(F.coverage(vow)["vowelless_count"], 0,
+       "متنِ اعراب‌دار هیچ خوشهٔ همخوانی نمی‌سازد")
+    eq(F.coverage(bare)["vowelless_count"] > 5, True,
+       "و بی‌اعرابش می‌سازد (%d واژه)" % F.coverage(bare)["vowelless_count"])
+
+    w4 = tempfile.mkdtemp()
+    synths4 = []
+
+    class FakeTTS4(object):
+        def __init__(self, model_id=None, device=None):
+            pass
+
+        def synthesize(self, ipa, reference_audio=None, reference_ipa=None,
+                       output=None, **kw):
+            synths4.append(reference_ipa)
+            wav(str(output), 6.0)
+            return output
+
+    sys.modules["persian_ipa_to_speech_f5"].PersianIPAToSpeechF5 = FakeTTS4
+    realCut4 = V.cutAtPause_
+    V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 10.0), 10.0, 5)
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "f5"}; V.OPT["_out"] = w4
+        V.OPT["alphabet"] = "ipa"; V.OPT["f5_nfe"] = "32"
+        V.OPT["f5_ckpt"] = "KiaBush/Persian-IPA-to-Speech-F5"; V.OPT["f5_vocab"] = ""
+        V.OPT["f5_ref_text"] = bare
+        V.OPT["text_fa"] = vow
+        V.run_f5(wav(os.path.join(w4, "r.wav"), 30.0), "", "dæɾ bæɾɾæsiː", w4)
+        rep5 = json.load(io.open(os.path.join(w4, "report-f5.json"),
+                                 encoding="utf-8"))
+    finally:
+        V.cutAtPause_ = realCut4
+    eq("ref_text_warning" in rep5, True,
+       "متنِ مرجعِ بی‌اعراب در گزارش هشدار می‌گیرد — نه اینکه بی‌صدا بد خوانده شود")
+    eq(rep5["ref_coverage"]["vowelless_count"] > 5, True,
+       "و شمارِ واژه‌های خراب ثبت می‌شود")
+    V.OPT.clear()
+
     print("\nهمه گذشت.")
     return 0
 
