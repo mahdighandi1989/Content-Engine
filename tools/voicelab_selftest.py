@@ -1495,6 +1495,12 @@ def main():
         eq(min(rep8["speaker_sims"]) < D.DS_SPK_MIN, True,
            "کمینهٔ شباهت زیرِ آستانه است (یعنی واقعاً غریبه‌ای بود)")
 
+        # خطِ خلاصه: تصمیم به این بسته است، پس باید یک‌جا و کامل باشد.
+        eq(isinstance(rep8.get("line"), str) and len(rep8["line"]) > 20, True,
+           "خطِ خلاصه ساخته می‌شود: %s" % rep8.get("line", "")[:70])
+        for must in ("تکه", "دقیقه", "شباهت", "رد"):
+            eq(must in rep8["line"], True, "و «%s» در آن هست" % must)
+
         eq(sorted(rep8["thresholds"]), ["floor_rel_db", "gap_rel_db",
                                         "speaker_min"],
            "آستانه‌ها در گزارش می‌آیند — تا اگر بد بودند دیده شوند")

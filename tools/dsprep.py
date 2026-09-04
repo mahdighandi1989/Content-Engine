@@ -458,7 +458,24 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
                 pl["src"], [(d["start"], d["end"]) for d in dsPick_(drop, 3)],
                 tmp, "drop%d_" % (k + 1), limit=20.0)
 
+    # ══ یک خطِ خلاصه، چون گزارشِ کامل خوانده نمی‌شود ══
+    # این گزارش صدها خط است و عددهای تعیین‌کننده وسطش گم می‌شوند. سه بار
+    # مجبور شدم لاگ را با پنجره‌های بزرگ‌تر بکاوم تا `kept_seconds` را
+    # پیدا کنم. همان درسِ جدولِ پروانه‌ها: چیزی که تصمیم به آن بسته است
+    # باید **آخرِ** خروجی باشد، در یک خط.
+    why = {}
+    for f_ in files:
+        for d_ in (f_.get("dropped") or []):
+            why[d_["why"]] = why.get(d_["why"], 0) + 1
+    sims_ = sorted(simAll)
     rep = {"files": files, "segments": len(segAll),
+           "line": ("%d تکه · %.1f دقیقه صدای تمیز · کمینهٔ شباهتِ گوینده %s "
+                    "(آستانه %s) · رد: %s"
+                    % (len(segAll), (kept / 60.0),
+                       ("%.3f" % sims_[0]) if sims_ else "—", DS_SPK_MIN,
+                       "، ".join("%s %d" % (k, v) for k, v in
+                                 sorted(why.items(), key=lambda x: -x[1]))
+                       or "هیچ")),
            "kept_seconds": round(kept, 1), "capped": kept >= totalMax,
            "speaker_sims": sorted(simAll)[:60],
            "speaker_cut": DS_SPK_MIN,

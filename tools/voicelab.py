@@ -2450,6 +2450,8 @@ def run_dataset(ref, src, text, out):
     rep["samples"] = heard
     OPT["dataset"] = rep
     saveRep_()
+    # خطِ خلاصه در انتهای لاگ، جایی که واقعاً خوانده می‌شود.
+    print("\n== خلاصه ==\n" + rep.get("line", ""), flush=True)
     if not segs:
         raise RuntimeError("هیچ تکه‌ای نماند — آستانه‌ها یا ورودی را ببین")
     return (rep.get("samples") and
