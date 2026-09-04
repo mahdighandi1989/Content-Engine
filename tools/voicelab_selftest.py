@@ -664,6 +664,12 @@ def main():
     eq(r1 != r2, True, "دو فایلِ جدا ساخته می‌شود (%s / %s)"
        % (os.path.basename(r1), os.path.basename(r2)))
     eq(os.path.exists(r1) and os.path.exists(r2), True, "و هر دو سرِ جایشان‌اند")
+    # ══ نامزدها نباید در پوشهٔ خروجی بمانند ══
+    # اجرای #۴۲: چهار ضبطِ نیم‌ساعته، و بایگانی ۹۸ مگابایت شد چون هر
+    # نامزد تا ده دقیقه صوتِ خام در `out` می‌نشست. آن‌ها میانی‌اند.
+    leftovers = [x for x in os.listdir(d3) if "-cand" in x]
+    eq(leftovers, [], "هیچ فایلِ نامزدی در پوشهٔ خروجی نمی‌مانَد")
+
     eq("source-gemini_audition" in V.OPT, True,
        "و گزارشِ هرکدام جدا ثبت می‌شود")
     V.OPT.clear()

@@ -544,8 +544,14 @@ def refAudition_(paths, out, seconds, tag="reference"):
     """
     rows = []
     f = ffmpeg()
+    # ══ نامزدها میانی‌اند، پس در پوشهٔ خروجی نمی‌نشینند ══
+    # هر نامزد تا ده دقیقه صوتِ خام است. با کلیپ‌های کوتاه بی‌ضرر بود، ولی
+    # اجرای #۴۲ چهار ضبطِ نیم‌ساعته گرفت و بایگانی ۹۸ مگابایت شد — برای
+    # فایل‌هایی که محصول نیستند و کسی برنمی‌داردشان. محصول دو تاست:
+    # `<tag>.wav` و `<tag>-chosen-window.wav`. بقیه موقت‌اند.
+    mid = tempfile.mkdtemp(prefix="audition-")
     for i, src in enumerate(paths):
-        full = os.path.join(out, "%s-cand%d.wav" % (tag, i + 1))
+        full = os.path.join(mid, "%s-cand%d.wav" % (tag, i + 1))
         try:
             info = srcInfo_(src)
             print("نمونهٔ %d: %s" % (i + 1, json.dumps(info, ensure_ascii=False)),
