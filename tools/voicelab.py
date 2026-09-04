@@ -40,6 +40,18 @@ import argparse, io, json, math, os, re, shutil, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fa2latin
 
+# ══ آماده‌سازیِ دیتاست ══
+# منطقش در `dsprep.py` است، نه اینجا: همان کد در نوت‌بوکِ Colab هم
+# اجرا می‌شود و دو نسخه از یک متن، همان شکستی است که این ریپو بارها
+# خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
+from dsprep import *                                        # noqa: F401,F403
+from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
+                    DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
+                    dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
+                    dsFloorDb_, dsCap_, dsRuns_, dsSegments_,
+                    dsWriteCuts_, dsJoin_, dsPick_, buildDataset_,
+                    DS_TOTAL_MAX, DS_DEPS, DS_SPK_MIN, dsSegOk_)
+
 # متنِ آزمون: یک جملهٔ واقعیِ اعراب‌دار از خودِ زنجیرهٔ ما. اعراب عمدی است —
 # سدِ `speak`/`speak2` موتور همین را تولید می‌کند و ورودیِ واقعیِ هر موتورِ
 # صدا همین خواهد بود، نه متنِ بی‌اعراب.
@@ -104,7 +116,9 @@ ENGINES = {
     # شنیدنی**: آنچه نگه داشته و آنچه دور ریخته.
     "dataset": {
         "family": "آماده‌سازیِ دیتاست (خروجی تکه‌های صوتی و دو نمونهٔ داوری)",
-        "pip": ["silero-vad", "soundfile", "numpy<2"],
+        # فهرست از `dsprep` می‌آید، همان که نوت‌بوک هم نصبش می‌کند —
+        # وگرنه روزی یکی‌شان بسته‌ای اضافه می‌کند و آن‌یکی نه.
+        "pip": list(DS_DEPS),
         "code_license": "MIT (silero-vad — از LICENSE مخزنشان)",
         "needs_src": False,
         "persian": "زبان‌مستقل — هیچ متنی خوانده نمی‌شود",
@@ -2391,18 +2405,6 @@ def run_rvcsmoke(ref, src, text, out):
         raise RuntimeError("ایندکسِ بازیابی ساخته نشد")
     return model
 
-
-# ══ آماده‌سازیِ دیتاست ══
-# منطقش در `dsprep.py` است، نه اینجا: همان کد در نوت‌بوکِ Colab هم
-# اجرا می‌شود و دو نسخه از یک متن، همان شکستی است که این ریپو بارها
-# خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
-from dsprep import *                                        # noqa: F401,F403
-from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
-                    DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
-                    dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
-                    dsFloorDb_, dsCap_, dsRuns_, dsSegments_,
-                    dsWriteCuts_, dsJoin_, dsPick_, buildDataset_,
-                    DS_TOTAL_MAX)
 
 
 

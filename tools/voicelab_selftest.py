@@ -1453,6 +1453,20 @@ def main():
     D.dsSpeech_ = lambda y_, sr_, m_: ([] if "quiet" in str(seen8) and False
                                        else [(0.0, 20.0), (25.0, 50.0)])
     D.dsWriteCuts_ = _cuts
+    # ══ دروازهٔ گوینده، بی نیاز به خودِ مدل ══
+    # منطقش تماماً numpy است: مرکزِ خوشهٔ غالب و شباهت به آن. پس بردارها
+    # را خودمان می‌سازیم — اکثریت در یک جهت، دو تا در جهتِ دیگر — و
+    # می‌سنجیم که همان دو تا بیفتند.
+    realEnc = (D.dsEncoder_, D.dsEmbed_)
+    D.dsEncoder_ = lambda tmp_: object()
+
+    def _emb(enc_, y_, sr_, spans_):
+        import numpy as _n
+        me = _n.array([1.0, 0.0, 0.0])
+        other = _n.array([0.0, 1.0, 0.0])
+        return [other if k % 5 == 4 else me for k in range(len(spans_))]
+
+    D.dsEmbed_ = _emb
     D.dsJoin_ = lambda parts_, dst_: (io.open(dst_, "w",
                                               encoding="utf-8").write("x"), dst_)[1]
     try:
@@ -1473,7 +1487,16 @@ def main():
         eq(rep8["files"][0]["seg_floor_cut"] == D.DS_FLOOR_REL_DB, True,
            "و آستانهٔ به‌کاررفته کنارش می‌آید")
 
-        eq(sorted(rep8["thresholds"]), ["floor_rel_db", "gap_rel_db"],
+        # ── دروازهٔ گوینده ──
+        eq("گویندهٔ دیگر" in json.dumps(rep8["files"], ensure_ascii=False), True,
+           "تکه‌های گویندهٔ غریبه با همان دلیل کنار گذاشته می‌شوند")
+        eq(rep8["speaker_cut"] == D.DS_SPK_MIN, True, "آستانهٔ گوینده گزارش می‌شود")
+        eq(len(rep8["speaker_sims"]) > 0, True, "و توزیعِ شباهت‌ها هم")
+        eq(min(rep8["speaker_sims"]) < D.DS_SPK_MIN, True,
+           "کمینهٔ شباهت زیرِ آستانه است (یعنی واقعاً غریبه‌ای بود)")
+
+        eq(sorted(rep8["thresholds"]), ["floor_rel_db", "gap_rel_db",
+                                        "speaker_min"],
            "آستانه‌ها در گزارش می‌آیند — تا اگر بد بودند دیده شوند")
         eq([x for x in os.listdir(segDir) if x.startswith("seg")] != [], True,
            "تکه‌ها در پوشهٔ خودشان‌اند، نه کنارِ نمونه‌ها")
@@ -1492,6 +1515,7 @@ def main():
            "فایلِ بی‌گفتار با دلیل ثبت می‌شود، نه بی‌صدا کنار گذاشته")
     finally:
         (D.dsDecode_, D.dsSpeech_, D.dsWriteCuts_, D.dsJoin_) = realD
+        (D.dsEncoder_, D.dsEmbed_) = realEnc
 
     # ── ۲۷ ─────────────────────────────────────────────────────────────
     # نوت‌بوکِ Colab روی هیچ ماشینی از ما اجرا نمی‌شود — روی ماشینِ گوگل
@@ -1540,6 +1564,32 @@ def main():
     # خروجی باید **دیده** شود، نه فرض. همان درسی که اجرای #۴۱ داد.
     eq("P.outputs(" in allSrc and "os.path.exists" in allSrc, True,
        "وجودِ فایلِ مدل پیش از اعلامِ پایان سنجیده می‌شود")
+
+    # ── ۲۸ ─────────────────────────────────────────────────────────────
+    # مرکزِ خوشه باید روی **اکثریت** بنشیند، نه بینِ دو گروه. اگر
+    # میانگینِ ساده بگیریم، چند تکهٔ غریبه مرکز را به سمتِ خودشان
+    # می‌کشند و آن‌وقت هم خودشان قبول می‌شوند هم بخشی از تکه‌های درست رد.
+    print("۲۸ — مرکزِ خوشهٔ گوینده روی اکثریت می‌نشیند")
+    import numpy as _np2
+    import dsprep as D2
+    me = _np2.array([1.0, 0.0, 0.0])
+    other = _np2.array([0.0, 1.0, 0.0])
+    embs = [me] * 12 + [other] * 3
+    c = D2.dsCentroid_(embs)
+    sims = D2.dsSpeakerSims_(embs, c)
+    eq(round(sims[0], 2) >= 0.99, True,
+       "تکه‌های اکثریت شباهتِ نزدیک به یک دارند (%.2f)" % sims[0])
+    eq(sims[-1] < D2.DS_SPK_MIN, True,
+       "و غریبه‌ها زیرِ آستانه می‌افتند (%.2f)" % sims[-1])
+
+    # و اگر همه یکی باشند، هیچ‌کس نباید بیفتد
+    same = D2.dsSpeakerSims_([me] * 8, D2.dsCentroid_([me] * 8))
+    eq(min(same) >= 0.99, True, "وقتی همه یک گوینده‌اند، هیچ‌کس نمی‌افتد")
+
+    # ورودیِ تهی نباید بترکاند
+    eq(D2.dsCentroid_([]), None, "فهرستِ تهی مرکز ندارد، و خطا هم نمی‌دهد")
+    eq(D2.dsSpeakerSims_([me], None), [1.0],
+       "و بی مرکز، همه قبول‌اند نه همه رد — دروازه‌ای که مدلش نیامده باید باز باشد")
 
     print("\nهمه گذشت.")
     return 0

@@ -256,6 +256,83 @@ def dsJoin_(parts, dst):
     return dst if r.returncode == 0 and os.path.exists(dst) else None
 
 
+# ══ دروازهٔ سوم: گویندهٔ درست ══
+# بازخوردِ کاربر: در تکه‌های نگه‌داشته، تیزرِ برنامه با صدای یک زن و یک
+# مردِ دیگر آمده بود. VAD می‌گوید «اینجا گفتار هست» و **نمی‌گوید گفتارِ
+# چه کسی** — و دو دروازهٔ قبلی هر دو دربارهٔ موسیقی‌اند، نه دربارهٔ هویت.
+# آموزش روی صدای شخصِ دیگر مدل را خراب می‌کند و بعدش جدا نمی‌شود.
+#
+# مرجعی هم لازم نیست: در ضبط‌های خودِ گوینده، **اکثریت خودِ اوست**. پس
+# مرکزِ خوشهٔ غالب را پیدا می‌کنیم و هرچه از آن دور بود می‌افتد.
+DS_SPK_MODEL = "speechbrain/spkrec-ecapa-voxceleb"   # apache-2.0 (اسکنِ #۴۶)
+DS_SPK_MIN = 0.55        # کفِ شباهتِ کسینوسی به مرکزِ خوشه
+DS_SPK_TRIM = 3          # چند بار مرکز را با کنارگذاشتنِ دورافتاده‌ها بازمی‌سازیم
+
+# وابستگی‌های همین فیلتر — یک فهرست، که هم آزمایشگاه می‌خوانَد هم نوت‌بوک.
+DS_DEPS = ["silero-vad", "soundfile", "numpy<2", "speechbrain>=1.0,<2"]
+
+
+def dsEncoder_(tmp):
+    """مدلِ بردارِ گوینده. یک بار بار می‌شود، نه به‌ازای هر تکه."""
+    from speechbrain.inference import EncoderClassifier
+    return EncoderClassifier.from_hparams(
+        source=DS_SPK_MODEL, savedir=os.path.join(tmp, "spk"),
+        run_opts={"device": "cpu"})
+
+
+def dsEmbed_(enc, y, rate, spans):
+    """بردارِ هر تکه، از همان آرایهٔ ۱۶ کیلوهرتزیِ VAD.
+
+    عمداً از فایل خوانده نمی‌شود: آن آرایه همین حالا در حافظه هست و
+    نرخش هم دقیقاً همانی است که این مدل می‌خواهد. هر خواندنِ دوباره،
+    هم کُند است هم یک جای دیگر برای ناهماهنگ شدن.
+    """
+    import numpy as np
+    import torch
+    out = []
+    for a, b in spans:
+        seg = dsSlice_(y, rate, a, b)
+        with torch.no_grad():
+            e = enc.encode_batch(torch.from_numpy(
+                np.asarray(seg, dtype="float32"))[None, :])
+        v = e.squeeze().detach().cpu().numpy().astype("float64")
+        n = float(np.linalg.norm(v))
+        out.append(v / n if n > 0 else v)
+    return out
+
+
+def dsCentroid_(embs, trim=DS_SPK_TRIM):
+    """مرکزِ خوشهٔ غالب — با کنار گذاشتنِ پی‌درپیِ دورافتاده‌ها.
+
+    میانگینِ ساده را چند تکهٔ غریبه به سمتِ خودشان می‌کشند. پس میانگین
+    گرفته می‌شود، دورترین‌ها کنار می‌روند، و دوباره میانگین — تا مرکز
+    روی اکثریت بنشیند نه بینِ دو گروه.
+    """
+    import numpy as np
+    if not embs:
+        return None
+    m = np.mean(np.asarray(embs), axis=0)
+    for _ in range(max(0, trim)):
+        m = m / (np.linalg.norm(m) or 1.0)
+        sim = np.asarray([float(np.dot(e, m)) for e in embs])
+        if len(sim) < 4:
+            break
+        cut = float(np.percentile(sim, 25))
+        keep = [e for e, sv in zip(embs, sim) if sv >= cut]
+        if not keep:
+            break
+        m = np.mean(np.asarray(keep), axis=0)
+    return m / (np.linalg.norm(m) or 1.0)
+
+
+def dsSpeakerSims_(embs, centroid):
+    """شباهتِ هر تکه به مرکز — عدد، تا گزارش بتواند توزیعش را بدهد."""
+    import numpy as np
+    if centroid is None:
+        return [1.0] * len(embs)
+    return [round(float(np.dot(e, centroid)), 3) for e in embs]
+
+
 DS_TOTAL_MAX = 2400.0   # چهل دقیقه؛ بیشتر از این بازدهِ RVC کم می‌شود
 
 
@@ -278,7 +355,7 @@ def dsPick_(items, n):
 
 
 def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
-                  onFile=None):
+                  onFile=None, speaker=True):
     """از ضبط‌های بلند، تکه‌های تمیزِ آموزش بساز — و شواهدش را هم.
 
     ══ چرا اینجا و نه در آزمایشگاه ══
@@ -287,16 +364,22 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
     جا نوشته شود، روزی یکی‌شان عوض می‌شود و آنچه داوری شده با آنچه
     آموزش می‌بیند یکی نخواهد بود — و هیچ‌چیز این را نشان نمی‌دهد.
 
-    برمی‌گرداند: (فهرستِ تکه‌ها، گزارش). `sampleDir` اگر داده شود، دو
-    فایلِ شنیدنی هم ساخته می‌شود: نگه‌داشته‌ها و دورریخته‌ها.
+    ══ چرا دو مرحله ══
+    دروازهٔ گوینده مرجع ندارد؛ مرکزِ خوشهٔ غالب را از **همهٔ** تکه‌ها
+    می‌سازد. اگر هر فایل جدا سنجیده شود، فایلی که بیشترش تیزر است
+    مرکزِ خودش را روی تیزر می‌گذارد و همان را قبول می‌کند. پس اول همهٔ
+    فایل‌ها تحلیل می‌شوند، بعد مرکز ساخته می‌شود، و بعد نوشتن.
+
+    برمی‌گرداند: (فهرستِ تکه‌ها، گزارش).
     """
     from silero_vad import load_silero_vad
 
     model = load_silero_vad()
     tmp = tempfile.mkdtemp(prefix="ds-")
-    files, segAll, keepDemo, dropDemo = [], [], [], []
-    kept = 0.0
+    enc = dsEncoder_(tmp) if speaker else None
+    files, plans, embAll = [], [], []
 
+    # ── مرحلهٔ ۱: تحلیل ──
     for i, sp in enumerate(paths):
         y, sr = dsDecode_(sp, os.path.join(tmp, "v%d.wav" % i), VAD_SR)
         total = len(y) / float(sr)
@@ -314,7 +397,8 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
         speechDb = lv[len(lv) // 2]
         gaps = dsGaps_(y, sr, speech, total)
         keep, drop = dsRuns_(y, sr, speech, gaps, speechDb)
-        # ── دروازهٔ بستر، این‌بار روی تک‌تکِ تکه‌ها ──
+
+        # ── دروازهٔ بستر، روی تک‌تکِ تکه‌ها ──
         segs, segRel = [], []
         for a_, b_ in dsSegments_(keep):
             ok, rel = dsSegOk_(y, sr, a_, b_, speechDb)
@@ -324,19 +408,19 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
             else:
                 drop.append({"start": round(a_, 2), "end": round(b_, 2),
                              "why": "بسترِ موسیقی (تکه)", "floor_rel_db": rel})
+
+        embs = dsEmbed_(enc, y, sr, segs) if enc else []
+        embAll += embs
+        plans.append({"src": sp, "segs": segs, "embs": embs, "drop": drop})
         row.update({
             "speech_seconds": round(sum(b - a for a, b in speech), 1),
             "speech_db": round(speechDb, 1),
             "gaps": len(gaps),
-            # توزیع را هم می‌دهیم، نه فقط حکم را: اگر آستانه بد باشد،
+            # توزیع‌ها را هم می‌دهیم، نه فقط حکم را: اگر آستانه بد باشد،
             # از روی همین عددها معلوم می‌شود، نه با حدس.
             "gap_rel_db": sorted(round(g["db"] - speechDb, 1) for g in gaps)[:40],
-            # توزیعِ کفِ **همهٔ** تکه‌ها — نگه‌داشته و ردشده با هم. آستانهٔ
-            # بعدی از روی این عددها تنظیم می‌شود، نه با حدس.
             "seg_floor_rel_db": sorted(segRel),
             "seg_floor_cut": DS_FLOOR_REL_DB,
-            "dropped": drop[:20],
-            "dropped_count": len(drop),
             "segments": len(segs),
             "segment_seconds": round(sum(b - a for a, b in segs), 1),
         })
@@ -344,20 +428,44 @@ def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
         if onFile:
             onFile(files)
 
+    # ── مرکزِ خوشهٔ غالب، از همهٔ فایل‌ها ──
+    centroid = dsCentroid_(embAll) if embAll else None
+
+    # ── مرحلهٔ ۲: دروازهٔ گوینده و نوشتن ──
+    segAll, keepDemo, dropDemo, kept, simAll = [], [], [], 0.0, []
+    for k, pl in enumerate(plans):
+        sims = dsSpeakerSims_(pl["embs"], centroid) if centroid is not None \
+            else [1.0] * len(pl["segs"])
+        simAll += sims
+        good, drop = [], pl["drop"]
+        for (a_, b_), sv in zip(pl["segs"], sims):
+            if sv >= DS_SPK_MIN:
+                good.append((a_, b_))
+            else:
+                drop.append({"start": round(a_, 2), "end": round(b_, 2),
+                             "why": "گویندهٔ دیگر", "speaker_sim": sv})
         room = max(0.0, totalMax - kept)
-        made = dsWriteCuts_(sp, segs, segDir, "seg%d_" % (i + 1), limit=room)
-        kept += sum(b - a for a, b in segs[:len(made)])
+        made = dsWriteCuts_(pl["src"], good, segDir, "seg%d_" % (k + 1),
+                            limit=room)
+        kept += sum(b - a for a, b in good[:len(made)])
         segAll += made
+        files[k]["dropped"] = drop[:20]
+        files[k]["dropped_count"] = len(drop)
+        files[k]["kept_after_speaker"] = len(good)
         if sampleDir:
             keepDemo += dsPick_(made, 3)
             dropDemo += dsWriteCuts_(
-                sp, [(d["start"], d["end"]) for d in dsPick_(drop, 3)],
-                tmp, "drop%d_" % (i + 1), limit=20.0)
+                pl["src"], [(d["start"], d["end"]) for d in dsPick_(drop, 3)],
+                tmp, "drop%d_" % (k + 1), limit=20.0)
 
     rep = {"files": files, "segments": len(segAll),
            "kept_seconds": round(kept, 1), "capped": kept >= totalMax,
+           "speaker_sims": sorted(simAll)[:60],
+           "speaker_cut": DS_SPK_MIN,
+           "speaker_model": DS_SPK_MODEL if centroid is not None else None,
            "thresholds": {"gap_rel_db": DS_GAP_REL_DB,
-                          "floor_rel_db": DS_FLOOR_REL_DB}}
+                          "floor_rel_db": DS_FLOOR_REL_DB,
+                          "speaker_min": DS_SPK_MIN}}
     if sampleDir:
         # ══ شواهدِ شنیدنی ══
         # این ریپو یک درسِ گران دارد: سه نسخه پشتِ هم باگی «رفع‌شده»
