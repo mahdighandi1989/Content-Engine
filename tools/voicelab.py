@@ -1319,10 +1319,22 @@ def run_omnivoice(ref, src, text, out):
     print("واژگان:", json.dumps(OPT["vocab_audit"], ensure_ascii=False), flush=True)
 
     # ── ۳. نمونهٔ مرجع ──
-    # ۳ تا ۱۰ ثانیه توصیهٔ خودِ بسته است (بلندتر: کندتر و بدتر). برش سرِ
-    # مکث انجام می‌شود، همان تابعی که f5 از آن استفاده می‌کند.
+    # ══ چرا همان برشِ f5 و نه سقفِ ۱۰ ثانیه‌ایِ توصیه‌شده ══
+    # بسته ۳ تا ۱۰ ثانیه را توصیه می‌کند. اول همان را گذاشتم — و بعد دیدم
+    # چه چیزی می‌شکند: متنِ مرجعِ دست‌نویسِ صاحبِ برنامه برای برشِ ۱۱٫۵۷
+    # ثانیه‌ایِ f5 نوشته شده. با سقفِ ده ثانیه، چند واژهٔ آخرِ آن متن هیچ
+    # صدایی پشتش ندارد — همان ناهم‌خوانیِ متن و صوت که سه اجرا خرجش شد.
+    #
+    # و سودِ دوم مهم‌تر است: با برشِ یکسان، دو موتور **یک** مرجع و **یک**
+    # متن دارند، پس تفاوتِ خروجی واقعاً تفاوتِ موتور است. مقایسه‌ای که
+    # دو متغیر داشته باشد، جواب نمی‌دهد.
+    # ۱۱٫۵ کمی بالای توصیه است، نه نزدیکِ سقفِ هشدارِ بسته (۲۰). این در
+    # گزارش نوشته می‌شود تا اگر کلونِ صدا ضعیف بود، فرضیهٔ بعدی باشد.
     cut = os.path.join(out, "omni-ref-cut.wav")
-    cutAtPause_(ref, cut, max_sec=10.0, min_sec=4.0)
+    cutAtPause_(ref, cut)
+    OPT["ref_cut_note"] = ("برش با همان تنظیمِ f5 (سقف ۱۱٫۵ ثانیه) تا متنِ "
+                           "مرجعِ دست‌نویس برای هر دو موتور معتبر بماند؛ "
+                           "توصیهٔ خودِ بسته ۳ تا ۱۰ ثانیه است.")
     OPT["ref_cut"] = probe(cut)
     saveRep_()
 
@@ -1382,34 +1394,56 @@ def run_omnivoice(ref, src, text, out):
     # ترتیبِ اجراها بدل شده: نسخهٔ ارزان اول می‌آید، پس اگر بعدی از بودجه
     # بگذرد دستِ‌کم یک صوت شنیدنی داریم — و از روی زمانِ واقعیِ همان
     # اجرای اول، زمانِ دومی **برآورد** می‌شود، نه امید.
-    runs = [("fast", 16, "نصفِ گام‌ها — پرسشِ هزینه، نه کیفیت")]
-    if steps > 16:
-        runs.append(("full", steps, "کیفیتِ کامل — %d گام" % steps))
+    # ══ متغیرِ دوم: اعراب، نه گام‌ها ══
+    # اول «۱۶ گام در برابرِ ۳۲» گذاشته بودم، برای سنجشِ هزینه. ولی هزینه
+    # با گام تقریباً خطی است — نسبتِ سرعتِ یک اجرا، هزینهٔ نصفِ گام‌ها را
+    # هم می‌گوید. یک اجرای بیست‌دقیقه‌ای برای عددی که از حساب درمی‌آید،
+    # همان اشتباهِ «شاهدی که با آزمون یکی است» در اجرای #۱۷ است.
+    #
+    # سؤالی که حساب جوابش را نمی‌دهد این است: مرحلهٔ `speak` موتور متنِ
+    # **اعراب‌دار** بیرون می‌دهد و ورودیِ واقعیِ ما همان است. بودجهٔ زمانِ
+    # OmniVoice اعراب را صفر می‌شمارد (سنجیدمش) — ولی واژه‌سازش چیزِ
+    # دیگری است، و فارسیِ کاملاً اعراب‌دار در هیچ پیکرهٔ آموزشیِ بزرگی
+    # فراوان نیست. اگر اعراب خروجی را بدتر کند، باید بی‌اعراب بفرستیم و
+    # این را فقط با شنیدنِ هر دو می‌شود فهمید.
+    plain = noTash_(text)
+    runs = [("tashkil", text, "متنِ اعراب‌دار — همان که موتور تولید می‌کند")]
+    if plain != text:
+        runs.append(("plain", plain, "همان متن، بی اعراب — آیا بهتر می‌خوانَد؟"))
     else:
-        OPT["one_run_why"] = "اجرای دوم نیامد: گام‌ها از پیش ۱۶ یا کمتر بود."
+        OPT["one_run_why"] = "اجرای دوم نیامد: متن اصلاً اعراب نداشت."
 
+    # ══ بودجه برای کلِ کار است، نه برای هر فراخوان ══
+    # نسخهٔ اول می‌پرسید «آیا اجرای بعدی از بودجه بیشتر است؟». غلط بود:
+    # اگر اولی چهل دقیقه برده باشد و بودجه چهل‌وپنج، دومی «۴۰ < ۴۵» را
+    # می‌گذراند و مجموع می‌شود هشتاد — یعنی همان مرگِ اجرای #۱۱ با یک
+    # حسابِ آرام‌کننده. پرسشِ درست «گذشته + برآوردِ بعدی» است.
     made, variants, lastRt = None, [], None
-    for name, ns, why in runs:
+    tAll = time.time()
+    for name, gen, why in runs:
         if lastRt is not None:
-            projected = lastRt * ns / 16.0
-            if projected > OMNI_BUDGET_SEC:
-                variants.append({"name": name, "num_step": ns, "why": why,
-                                 "skipped": "برآوردِ %ds از بودجهٔ %ds گذشت — "
-                                            "اجرا نشد تا خروجیِ موجود از دست نرود."
-                                            % (round(projected), OMNI_BUDGET_SEC)})
+            spent = time.time() - tAll
+            if spent + lastRt > OMNI_BUDGET_SEC:
+                variants.append({"name": name, "why": why,
+                                 "skipped": "تا اینجا %ds رفته و اجرای بعدی ~%ds "
+                                            "می‌بَرد؛ بودجه %ds است — اجرا نشد تا "
+                                            "خروجیِ موجود از دست نرود."
+                                            % (round(spent), round(lastRt),
+                                               OMNI_BUDGET_SEC)})
                 OPT["variants"] = variants
                 saveRep_()
-                print("%s اجرا نشد: برآوردِ %d ثانیه." % (name, projected), flush=True)
+                print("%s اجرا نشد: %ds رفته + ~%ds > %ds."
+                      % (name, spent, lastRt, OMNI_BUDGET_SEC), flush=True)
                 continue
         dst = os.path.join(out, "omnivoice_%s.wav" % name)
         t1 = time.time()
         try:
             audio = model.generate(
-                text=text,
+                text=gen,
                 language="fa",
                 voice_clone_prompt=prompt,
                 duration=fixSec,
-                num_step=ns,
+                num_step=steps,
             )
             sf.write(dst, audio[0], model.sampling_rate)
             took = round(time.time() - t1)
@@ -1420,7 +1454,8 @@ def run_omnivoice(ref, src, text, out):
             # عمداً تنظیمِ متفاوت دارند.
             sec = float(info.get("seconds") or 0)
             variants.append({
-                "name": name, "num_step": ns, "why": why, "file": os.path.basename(dst),
+                "name": name, "num_step": steps, "why": why,
+                "file": os.path.basename(dst), "sent": gen[:300],
                 "info": info, "seconds_taken": took,
                 "realtime_factor": (round(took / sec, 1) if sec else None),
                 "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
@@ -1430,8 +1465,8 @@ def run_omnivoice(ref, src, text, out):
             lastRt = took
             print("%s: %ss صوت در %ss" % (name, info.get("seconds"), took), flush=True)
         except Exception as e:
-            variants.append({"name": name, "num_step": ns, "why": why,
-                             "error": str(e)[:600]})
+            variants.append({"name": name, "num_step": steps, "why": why,
+                             "sent": gen[:300], "error": str(e)[:600]})
             print("%s شکست خورد: %s" % (name, str(e)[:300]), flush=True)
         OPT["variants"] = variants
         saveRep_()

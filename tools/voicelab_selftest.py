@@ -395,10 +395,11 @@ def main():
     finally:
         V.cutAtPause_ = realCut2
 
-    eq(os.path.basename(made2), "omnivoice_fast.wav",
-       "خروجیِ برگشتی همان اجرای ارزان است — که اول انجام می‌شود")
-    eq([c["num_step"] for c in calls], [16, 32],
-       "ارزان اول، گران دوم — تا سقفِ زمان خروجی را نبلعد")
+    eq(os.path.basename(made2), "omnivoice_tashkil.wav",
+       "خروجیِ برگشتی همان متنِ اعراب‌دار است — ورودیِ واقعیِ موتور")
+    eq([c["text"] for c in calls], [txt, V.noTash_(txt)],
+       "دو اجرا: اعراب‌دار و بی‌اعراب — سؤالی که حساب جوابش را نمی‌دهد")
+    eq(calls[0]["num_step"], 32, "و هر دو با همان گام، تا فقط یک متغیر عوض شود")
     eq(rep2["model_facts"]["weights_license"], "apache-2.0",
        "پروانهٔ وزن‌ها از کارتِ مدل خوانده می‌شود، نه از پروانهٔ کد")
     eq(all(v.get("realtime_factor") is not None for v in rep2["variants"]), True,
@@ -428,7 +429,7 @@ def main():
     realBudget = V.OMNI_BUDGET_SEC
     V.cutAtPause_ = lambda src, dst, **kw: (wav(dst, 9.0), 9.0, 4)
     try:
-        V.OMNI_BUDGET_SEC = 1
+        V.OMNI_BUDGET_SEC = 1   # اولی ~۱٫۱ ثانیه می‌بَرد، پس گذشته+برآورد از یک می‌گذرد
         V.OPT.clear()
         V.OPT["_rep"] = {"engine": "omnivoice"}; V.OPT["_out"] = w2
         V.OPT["f5_nfe"] = "32"; V.OPT["ref_text"] = "متنِ مرجعِ بدلی"
@@ -438,8 +439,8 @@ def main():
     finally:
         V.OMNI_BUDGET_SEC = realBudget
         V.cutAtPause_ = realCut2
-    eq([c["num_step"] for c in calls2], [16],
-       "وقتی برآوردِ اجرای گران از بودجه بگذرد، اجرا نمی‌شود")
+    eq(len(calls2), 1,
+       "وقتی برآوردِ اجرای دوم از بودجه بگذرد، اجرا نمی‌شود")
     eq("skipped" in rep3["variants"][1], True,
        "و دلیلش در گزارش می‌آید — نه اینکه بی‌صدا غیب شود")
     V.OPT.clear()
