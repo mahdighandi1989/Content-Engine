@@ -778,6 +778,17 @@ def main():
        "وصله‌ای که هیچ وزنی را عوض نکند، هشدار می‌گیرد")
     V.OPT.clear()
 
+    # ══ ۱۶ — هر موتوری که torchaudio دارد، torchcodec هم می‌خواهد ══
+    # سه بار: اجرای #۳ (f5 و seedvc، یک علت و دو شکستِ ظاهراً بی‌ربط) و
+    # حالا MOSS با همان پیامِ «TorchCodec is required». دانش در ریپو بود —
+    # در ردیفِ seedvc نوشته شده بود — ولی به موتورِ بعدی نرسید.
+    # دانستنی که در یک ردیف باشد و در ردیفِ بعدی نباشد، دانسته نیست.
+    print("۱۶ — وابستگیِ صوتی جا نمی‌مانَد")
+    miss = [k for k, v in V.ENGINES.items()
+            if any("torchaudio" in p_ for p_ in v["pip"])
+            and not any("torchcodec" in p_ for p_ in v["pip"])]
+    eq(miss, [], "هیچ موتوری torchaudio بی torchcodec ندارد")
+
     print("\nهمه گذشت.")
     return 0
 

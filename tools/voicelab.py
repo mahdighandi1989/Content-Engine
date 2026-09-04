@@ -134,7 +134,17 @@ ENGINES = {
     "moss": {
         "family": "TTS با کلونینگ (خودبازگشتی، ۱٫۷ میلیارد پارامتر)",
         # کدش روی PyPI نیست — در خودِ اجرا از گیت‌هاب کلون می‌شود.
-        "pip": ["torch", "torchaudio", "transformers", "peft", "accelerate"],
+        # ══ و `torchcodec` — همان علتی که این ریپو سه بار خورد ══
+        # اجرای #۳: f5 با «libavutil.so.56 نیست» افتاد و seedvc سرِ ذخیره
+        # با «TorchCodec is required». هر دو یک چیز بودند: torchaudioی
+        # تازه خواندن و نوشتنِ صوت را به `torchcodec` سپرده. آن روز فهمیدم،
+        # در ENGINES["seedvc"] نوشتمش، و برای این موتور **از نو فراموش
+        # کردم** — اجرای MOSS با دقیقاً همان پیام افتاد.
+        # دانستنی که در یک ردیف نوشته شود و در ردیفِ بعدی نباشد، دانسته
+        # نیست. آزمونِ ۱۶ حالا این را قاعده می‌کند: هر موتوری که
+        # torchaudio دارد، torchcodec هم باید داشته باشد.
+        "pip": ["torch", "torchaudio", "torchcodec", "transformers",
+                "peft", "accelerate"],
         "code_license": "Apache-2.0 (پایه و وصله، هر دو)",
         "needs_src": False,
         "persian": "وصلهٔ فارسیِ اختصاصی روی MOSS-TTS-Realtime",
@@ -148,7 +158,10 @@ ENGINES = {
         # transformers.pytorch_utils» — coqui-tts با transformersِ تازه
         # نمی‌سازد. سقف می‌گذاریم. (این موتور کم‌ارزش‌ترین است چون وزن‌هایش
         # غیرتجاری‌اند؛ فقط برای کامل‌شدنِ تصویر می‌ماند.)
-        "pip": ["torch", "torchaudio", "transformers<4.50", "coqui-tts"],
+        # torchcodec: همان قاعده‌ای که آزمونِ ۱۶ می‌سنجد. این موتور هنوز
+        # اجرا نشده بود که به این سد بخورد؛ قاعده پیش از شکست گرفتش.
+        "pip": ["torch", "torchaudio", "torchcodec", "transformers<4.50",
+                "coqui-tts"],
         "code_license": "MPL-2.0 (کد) · وزن‌ها: CPML — **غیرتجاری**",
         "needs_src": False,
         "persian": "فارسی در فهرستِ رسمیِ ۱۷ زبانِ XTTS-v2 **نیست**",
