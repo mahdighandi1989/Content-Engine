@@ -1534,69 +1534,80 @@ def main():
     # نوت‌بوکِ Colab روی هیچ ماشینی از ما اجرا نمی‌شود — روی ماشینِ گوگل
     # و با دستِ کاربر. یعنی تنها چیزی که می‌تواند خرابی‌اش را پیش از او
     # بگیرد همین بخش است.
-    print("۲۷ — نوت‌بوکِ Colab")
+    print("۲۷ — نوت‌بوک‌های آموزش")
     import ast as _a2
-    nbPath = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), "tools", "rvc_colab.ipynb")
-    nb = json.loads(io.open(nbPath, encoding="utf-8").read())
-    codes = [c for c in nb["cells"] if c["cell_type"] == "code"]
-    eq(len(codes) >= 8, True, "نوت‌بوک %d سلولِ کد دارد" % len(codes))
+    toolsD = os.path.dirname(os.path.abspath(__file__))
+    # ══ فهرستِ دستی کهنه می‌شود ══
+    # بخشِ ۱۳ همین را یاد داد: هر نوت‌بوکی که در `tools/` باشد سنجیده
+    # می‌شود، نه فهرستی که کسی باید یادش بیفتد به‌روزش کند.
+    books = sorted(f for f in os.listdir(toolsD) if f.endswith(".ipynb"))
+    eq(len(books) >= 1, True, "نوت‌بوک‌ها پیدا شدند: %s" % books)
 
-    bad = []
-    for i, c in enumerate(codes):
-        try:
-            _a2.parse("".join(c["source"]))
-        except SyntaxError as e:
-            bad.append("%d: %s" % (i, str(e)[:60]))
-    eq(bad, [], "همهٔ سلول‌های کد نحواً درست‌اند")
+    for bk in books:
+        nb = json.loads(io.open(os.path.join(toolsD, bk),
+                                encoding="utf-8").read())
+        codes = [c for c in nb["cells"] if c["cell_type"] == "code"]
+        eq(len(codes) >= 8, True, "%s: %d سلولِ کد" % (bk, len(codes)))
 
-    allSrc = "\n".join("".join(c["source"]) for c in codes)
+        bad = []
+        for k, c in enumerate(codes):
+            try:
+                _a2.parse("".join(c["source"]))
+            except SyntaxError as e:
+                bad.append("%d: %s" % (k, str(e)[:60]))
+        eq(bad, [], "%s: همهٔ سلول‌ها نحواً درست‌اند" % bk)
 
-    # ══ منطق باید از مخزن بیاید، نه کپی داخلِ نوت‌بوک ══
-    # اگر کسی روزی برای «ساده‌تر شدن» تابعی را داخلِ نوت‌بوک کپی کند،
-    # از همان روز آنچه کاربر آموزش می‌دهد با آنچه ما داوری کرده‌ایم فرق
-    # می‌کند — و هیچ‌چیز نشانش نمی‌دهد.
-    eq("raw.githubusercontent.com" in allSrc, True,
-       "ماژول‌ها از گیت‌هاب raw گرفته می‌شوند")
-    for mod in ("rvcpipe.py", "dsprep.py"):
-        eq(mod in allSrc, True, "%s گرفته می‌شود" % mod)
-    for fn in ("def steps(", "def buildDataset_(", "def preTrain_("):
-        eq(fn in allSrc, False, "نسخهٔ کپی‌شدهٔ «%s» در نوت‌بوک نیست" % fn)
+        allSrc = "\n".join("".join(c["source"]) for c in codes)
 
-    # ══ دو پیش‌نیازی که اجرای دودی ثابت کرد لازم‌اند ══
-    for call in ("P.preLog_(", "P.preTrain_("):
-        eq(call in allSrc, True, "%s صدا زده می‌شود" % call)
+        # ══ منطق از مخزن، نه کپیِ داخلِ نوت‌بوک ══
+        # اگر روزی کسی برای «ساده‌تر شدن» تابعی را داخلش کپی کند، از
+        # همان روز آنچه کاربر آموزش می‌دهد با آنچه ما داوری کرده‌ایم فرق
+        # می‌کند — و هیچ‌چیز نشانش نمی‌دهد.
+        eq("raw.githubusercontent.com" in allSrc, True,
+           "%s: ماژول‌ها از گیت‌هاب raw" % bk)
+        for mod in ("rvcpipe.py", "dsprep.py"):
+            eq(mod in allSrc, True, "%s: %s گرفته می‌شود" % (bk, mod))
+        for fn in ("def steps(", "def buildDataset_(", "def preTrain_("):
+            eq(fn in allSrc, False, "%s: «%s» کپی نشده" % (bk, fn))
 
-    # ══ و مهم‌ترین: آموزش روی GPU ══
-    # بی این، Colab روی CPU آموزش می‌دهد — بی هیچ خطایی، فقط بیست برابر
-    # کندتر. کاربر ساعت‌ها منتظر می‌مانَد و علتش را نمی‌فهمد.
-    eq("gpus='0'" in allSrc or 'gpus="0"' in allSrc, True,
-       "آموزش با GPU خوانده می‌شود، نه CPU")
-    eq("nvidia-smi" in allSrc, True, "و نبودنِ کارت پیش از هر کاری گرفته می‌شود")
+        for call in ("P.preLog_(", "P.preTrain_("):
+            eq(call in allSrc, True, "%s: %s صدا زده می‌شود" % (bk, call))
 
-    # خروجی باید **دیده** شود، نه فرض. همان درسی که اجرای #۴۱ داد.
-    eq("P.outputs(" in allSrc and "os.path.exists" in allSrc, True,
-       "وجودِ فایلِ مدل پیش از اعلامِ پایان سنجیده می‌شود")
+        # ══ آموزش روی GPU ══
+        # بی این، هر دو سکو روی CPU آموزش می‌دهند — بی هیچ خطایی، فقط
+        # بیست برابر کندتر.
+        eq("gpus='0'" in allSrc or 'gpus="0"' in allSrc, True,
+           "%s: آموزش با GPU" % bk)
+        eq("nvidia-smi" in allSrc, True, "%s: نبودنِ کارت اول گرفته می‌شود" % bk)
+        eq("P.outputs(" in allSrc and "os.path.exists" in allSrc, True,
+           "%s: وجودِ مدل پیش از اعلامِ پایان سنجیده می‌شود" % bk)
+        eq("latest=1" in allSrc, True, "%s: فقط آخرین چک‌پوینت" % bk)
+        for again in ("از پیش انجام شده", "از پیش آماده است"):
+            eq(again in allSrc, True,
+               "%s: کارِ انجام‌شده تکرار نمی‌شود («%s»)" % (bk, again))
 
-    # ══ از سرگرفتنی بودن ══
-    # کاربر وسطِ اجرا قطع شد و گفت «این‌جوری که نمی‌شود». حق داشت: کارِ
-    # یک‌ساعته‌ای که به مرورگرِ باز وابسته باشد و قطعی‌اش یعنی شروع از
-    # صفر، شکننده است. جوابش «دوباره امتحان کن» نیست؛ این است که هر
-    # چیزِ ساخته‌شده روی درایو بنشیند تا اجرای دوباره **ادامه** باشد.
-    idx = [i for i, c in enumerate(codes)
-           if "drive.mount" in "".join(c["source"])]
-    eq(len(idx), 1, "درایو دقیقاً یک بار وصل می‌شود")
-    trainIdx = [i for i, c in enumerate(codes)
-                if "P.preTrain_(" in "".join(c["source"])]
-    eq(idx[0] < trainIdx[0], True,
-       "و **پیش از** آموزش، نه بعدش — وگرنه چیزی برای نجات نمی‌مانَد")
-    eq("os.symlink" in allSrc, True,
-       "پوشهٔ logs با پیوند به درایو می‌رود (مسیرهای RVC نسبی‌اند)")
-    eq("latest=1" in allSrc, True,
-       "و فقط آخرین چک‌پوینت نگه داشته می‌شود، نه چند گیگابایت")
-    for again in ("از پیش انجام شده", "از پیش آماده است"):
-        eq(again in "\n".join("".join(c["source"]) for c in codes), True,
-           "کارِ انجام‌شده دوباره انجام نمی‌شود («%s»)" % again)
+        # ══ آنچه مخصوصِ هر سکوست ══
+        if "colab" in bk:
+            # قطعیِ اتصال نباید کار را از صفر کند: هرچه ساخته می‌شود باید
+            # روی درایو بنشیند، و درایو باید **پیش از** آموزش وصل شود.
+            idx = [k for k, c in enumerate(codes)
+                   if "drive.mount" in "".join(c["source"])]
+            tr = [k for k, c in enumerate(codes)
+                  if "P.preTrain_(" in "".join(c["source"])]
+            eq(len(idx), 1, "%s: درایو یک بار وصل می‌شود" % bk)
+            eq(idx[0] < tr[0], True,
+               "%s: و پیش از آموزش، نه بعدش" % bk)
+            eq("os.symlink" in allSrc, True,
+               "%s: logs با پیوند به درایو می‌رود" % bk)
+        if "kaggle" in bk:
+            # اینترنتِ خاموش پیش‌فرضِ Kaggle است و سه سلول بعد به شکلِ
+            # «دانلود ناموفق» ظاهر می‌شود. همان اول پرسیده می‌شود.
+            eq("Internet" in allSrc, True,
+               "%s: خاموش بودنِ اینترنت اول گرفته می‌شود" % bk)
+            eq("/kaggle/working" in allSrc, True,
+               "%s: خروجی در پوشهٔ خروجیِ Kaggle می‌نشیند" % bk)
+            eq("drive.mount" in allSrc, False,
+               "%s: به درایو وصل نمی‌شود (آنجا نیست)" % bk)
 
     # ── ۲۸ ─────────────────────────────────────────────────────────────
     # مرکزِ خوشه باید روی **اکثریت** بنشیند، نه بینِ دو گروه. اگر
