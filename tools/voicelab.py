@@ -1895,8 +1895,11 @@ def run_openvoice(ref, src, text, out):
     # `enable_watermark=True` بستهٔ `wavmark` را می‌خواهد و یک واترمارکِ
     # دومِ نامحسوس روی صوت می‌گذارد. برای آزمایش هیچ‌کدام لازم نیست، و یک
     # وابستگیِ کمتر یعنی یک جای شکستِ کمتر.
-    tcc = ToneColorConverter(cfg, device="cpu")
-    tcc.watermark_model = None
+    # و **در سازنده** خاموش می‌شود، نه بعدش: `__init__` وقتی این پرچم
+    # روشن باشد همان‌جا `import wavmark` می‌کند. نسخهٔ اولِ من پس از ساخت
+    # `watermark_model = None` می‌گذاشت — کامنت نیت را درست نوشته بود و
+    # کد دیر عمل می‌کرد، پس اجرا با «No module named 'wavmark'» افتاد.
+    tcc = ToneColorConverter(cfg, device="cpu", enable_watermark=False)
     tcc.load_ckpt(pth)
     facts["load_seconds"] = round(time.time() - t0)
     OPT["model_facts"] = facts

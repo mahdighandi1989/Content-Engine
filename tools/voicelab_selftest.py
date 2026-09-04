@@ -827,9 +827,15 @@ def main():
     convs = []
 
     class FakeTCC(object):
-        def __init__(self, cfg, device=None):
+        def __init__(self, cfg, device=None, enable_watermark=True):
+            # ══ چرا این بدل پرچم را می‌سنجد ══
+            # سازندهٔ واقعی وقتی این True باشد همان‌جا `import wavmark`
+            # می‌کند. بدلِ اولِ من پرچم را نادیده می‌گرفت، پس آزمون سبز
+            # ماند و اجرا با «No module named 'wavmark'» افتاد. بدلی که
+            # قرارداد را نسنجد، فقط خودش را می‌سنجد.
+            if enable_watermark:
+                raise ImportError("No module named 'wavmark'")
             self.cfg = cfg
-            self.watermark_model = object()
 
         def load_ckpt(self, p_):
             self.pth = p_
