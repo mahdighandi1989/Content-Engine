@@ -886,11 +886,12 @@ def main():
     finally:
         V.sh, V.to_wav = realSh6, realWav6
 
-    eq(os.path.basename(made6), "openvoice_one.wav", "خروجیِ برگشتی درست است")
-    eq([v["name"] for v in rep8["variants"]], ["one", "all"],
-       "دو اجرا: یک نمونه، و میانگینِ همهٔ نمونه‌ها")
-    eq(len(rep8["variants"][1]["refs"]), 3,
-       "و دومی واقعاً هر سه ضبط را به مدل می‌دهد، نه یکی")
+    eq(os.path.basename(made6), "openvoice_tau30.wav", "خروجیِ برگشتی همان شاهد است")
+    eq([v["name"] for v in rep8["variants"]], ["tau30", "tau05"],
+       "دو اجرا، و متغیرشان tau است")
+    eq([c["tau"] for c in convs], [0.3, 0.05], "و هر دو مقدار واقعاً پاس داده شد")
+    eq(rep8["ref_used"]["count"], 3,
+       "و هر دو از **همهٔ** ضبط‌ها تغذیه می‌شوند — تا فقط یک چیز عوض شود")
     eq(rep8["model_facts"]["weights"], "checkpoint.pth",
        "وزن در چیدمانِ چک‌پوینت پیدا می‌شود")
     V.OPT.clear()

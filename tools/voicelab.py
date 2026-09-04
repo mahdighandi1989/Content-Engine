@@ -1957,29 +1957,36 @@ def run_openvoice(ref, src, text, out):
             allRefs.append(to_wav(p, os.path.join(out, "ovref%d.wav" % (i + 1))))
         except Exception as e:
             print("نمونهٔ %d آماده نشد: %s" % (i + 1, str(e)[:200]), flush=True)
-    runs = [("one", [ref], "همان یک برشِ انتخاب‌شده — مثلِ موتورهای دیگر")]
-    if len(allRefs) > 1:
-        runs.append(("all", allRefs,
-                     "میانگینِ بردارِ گوینده روی هر %d ضبط — اهرمی که فقط "
-                     "این موتور دارد" % len(allRefs)))
-    else:
-        OPT["one_run_why"] = ("اجرای دوم نیامد: فقط یک نمونهٔ صدا داده شده "
-                              "بود، پس میانگین با همان یکی فرق نمی‌کرد.")
+    # ══ متغیرِ تازه: `tau` ══
+    # «همه» از «یکی» بهتر بود، پس آن پرسش بسته شد و همیشه همهٔ ضبط‌ها
+    # می‌روند. متغیرِ بعدی از خودِ کدشان درآمد:
+    #     z, m_q, logs_q, _ = self.enc_q(y, y_lengths, g=g_src, tau=tau)
+    # یعنی `tau` نویزی است که به بازنماییِ **محتوا** تزریق می‌شود
+    # (`z = m + randn·exp(logs)·tau`). پیش‌فرضِ خودِ مدل ۱٫۰ است و بستهٔ
+    # آن‌ها آن را روی ۰٫۳ آورده — پس پایین‌تر بردنش فرضیهٔ طبیعیِ بعدی
+    # است: نویزِ کمتر یعنی تبدیلِ باثبات‌تر و تمیزتر.
+    # مرجع در هر دو اجرا **یکی** است تا فقط همین یک چیز عوض شود.
+    refs = allRefs if len(allRefs) > 1 else [ref]
+    runs = [("tau30", refs, 0.3, "همان تنظیمی که شنیدید — شاهد"),
+            ("tau05", refs, 0.05, "نویزِ کمتر در بازنماییِ محتوا")]
 
     made, variants = None, []
-    for name, refs, why in runs:
+    tgtSe = tcc.extract_se(refs)
+    OPT["ref_used"] = {"count": len(refs),
+                       "files": [os.path.basename(x) for x in refs]}
+    saveRep_()
+    for name, refs_, tau, why in runs:
         dst = os.path.join(out, "openvoice_%s.wav" % name)
         t1 = time.time()
         try:
-            tgtSe = tcc.extract_se(refs)
             tcc.convert(audio_src_path=src, src_se=srcSe, tgt_se=tgtSe,
-                        output_path=dst, tau=0.3)
+                        output_path=dst, tau=tau)
             took = round(time.time() - t1)
             info = probe(dst)
             sec = float(info.get("seconds") or 0)
             variants.append({
                 "name": name, "why": why, "file": os.path.basename(dst),
-                "refs": [os.path.basename(x) for x in refs],
+                "tau": tau,
                 "info": info, "seconds_taken": took,
                 "realtime_factor": (round(took / sec, 1) if sec else None),
                 "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
