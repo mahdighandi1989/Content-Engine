@@ -609,7 +609,16 @@ def main():
     print("۱۳ — دادهٔ محلی مثلِ تابع صدا زده نشده")
     import ast as _ast
     bad = []
-    for fn in ("voicelab.py", "voicescan.py", "fa2latin.py"):
+    # ══ فهرستِ فایل‌ها هم می‌تواند کهنه شود ══
+    # این ریپو یک درسِ ثبت‌شده دارد: گاردی که یک در را نبیند، آن در را
+    # باز می‌گذارد (بخشِ «۴٫۲» در راهنما). پس به‌جای فهرستِ دستی، هر
+    # پایتونِ `tools/` اسکن می‌شود — ماژولِ بعدی که اضافه شود، خودش
+    # پوشش داده می‌شود، بی آنکه کسی یادش بیفتد.
+    toolsDir = os.path.dirname(os.path.abspath(__file__))
+    pyFiles = sorted(f for f in os.listdir(toolsDir) if f.endswith(".py"))
+    eq("dsprep.py" in pyFiles and "rvcpipe.py" in pyFiles, True,
+       "ماژول‌های تازه در دامنهٔ اسکن‌اند (%d فایل)" % len(pyFiles))
+    for fn in pyFiles:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), fn)
         tree = _ast.parse(io.open(path, encoding="utf-8").read())
         for node in _ast.walk(tree):
