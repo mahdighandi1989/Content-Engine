@@ -1210,6 +1210,13 @@ def main():
         eq(V.OPT["rvc"]["hf_bin"], "hf", "فرمانِ hf از PATH پیدا می‌شود")
         eq(len(V.OPT["rvc_steps"]), 5, "پنج قدم گزارش شدند")
 
+        # ══ پوشه‌های اجرا پیش از هر قدمی ساخته می‌شوند ══
+        # اجرای #۴۱: هر پنج قدم کدِ صفر و هیچ مدلی، چون `assets/weights`
+        # نبود و `savee` استثنایش را می‌بلعد. شکستی بی کدِ خطا.
+        for rel in P.RUNTIME_DIRS:
+            eq(os.path.isdir(os.path.join(rootDir, *rel.split("/"))), True,
+               "پوشهٔ %s پیش از اجرا ساخته می‌شود" % rel)
+
         # ── آماده‌سازیِ پیش از آموزش، روی فایل‌سیستمِ واقعی ──
         pt = V.OPT["rvc"]["pre_train"]
         eq(pt["config"], "v1/40k.json",

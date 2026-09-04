@@ -224,9 +224,21 @@ LOG_FILES = ("preprocess.log", "extract_f0_feature.log", "train_index.log",
              "train.log")
 
 
+# پوشه‌هایی که WebUI هنگام بالا آمدن می‌سازد و اسکریپت‌ها فرض می‌کنند
+# هستند. اجرای #۴۱ سرِ همین ایستاد و شکلش آموزنده است: هر پنج قدم کدِ
+# صفر دادند و هیچ مدلی ساخته نشد، چون `savee` در مسیرِ **نسبیِ**
+# `assets/weights/<name>.pth` می‌نویسد و آن پوشه نبود — و خودش استثنا را
+# می‌بلعد و متنِ خطا را به‌عنوانِ **مقدارِ بازگشتی** برمی‌گرداند، که
+# آموزش آن را «موفق» لاگ می‌کند. یعنی شکستی که هیچ کدِ خطایی ندارد.
+RUNTIME_DIRS = ("assets/weights", "assets/indices", "assets/rmvpe",
+                "assets/pretrained", "assets/pretrained_v2")
+
+
 def preLog_(root, exp):
-    """پوشهٔ تجربه و فایل‌های لاگِ خالی — پیش از هر قدمی."""
+    """پوشه‌های اجرا و فایل‌های لاگِ خالی — پیش از هر قدمی."""
     import os as _os
+    for rel in RUNTIME_DIRS:
+        _os.makedirs(_os.path.join(root, *rel.split("/")), exist_ok=True)
     d = _os.path.join(root, "logs", exp)
     _os.makedirs(d, exist_ok=True)
     for nm in LOG_FILES:
