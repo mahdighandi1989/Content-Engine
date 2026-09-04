@@ -584,6 +584,48 @@ def main():
        "و شمارِ واژه‌های خراب ثبت می‌شود")
     V.OPT.clear()
 
+    # ══ ۱۲ — نشانه‌گذاریِ بیرونِ واژگانِ مدل ══
+    # متنِ آزمون فقط «,» و «.» داشت، پس هرگز دیده نشد که متنِ واقعیِ یک
+    # قسمت پر از «—» و «…» است و بستهٔ رسمی برای نویسهٔ ناشناخته **خطا**
+    # می‌دهد. یعنی روزِ اول که متنِ واقعی برود، هیچ صوتی ساخته نمی‌شود.
+    print("۱۲ — نشانه‌های تایپوگرافیک به معادلِ آوایی می‌روند")
+    got = V.ipaSafe_("ʔuː ɡoft — sokuːt… «bæle»")
+    eq("—" in got or "…" in got or "«" in got, False,
+       "خط‌تیره و سه‌نقطه و گیومه رفتند: %r" % got)
+    eq(got.count(","), 1, "خط‌تیره ویرگول شد (مکثِ هم‌اندازه)")
+    eq(got.count("."), 1, "و سه‌نقطه نقطه شد")
+    eq(V.ipaSafe_("dæɾ bæɾ, ʔæst."), "dæɾ bæɾ, ʔæst.",
+       "و متنی که مشکل ندارد دست‌نخورده می‌مانَد")
+
+    # ══ ۱۳ — نامی که داده است و مثلِ تابع صدا زده شده ══
+    # در `voicescan` تابعِ گزارشی به اسمِ `out` نوشتم؛ ولی `out` در همان
+    # تابع یک **دیکشنری** است. پایتون تا لحظهٔ اجرا چیزی نمی‌گوید، و آن
+    # لحظه وسطِ کارِ اسکن است. نه نحو این را می‌گیرد نه هیچ آزمونی که
+    # شبکه لازم داشته باشد. پس خودِ درخت را می‌خوانیم.
+    print("۱۳ — دادهٔ محلی مثلِ تابع صدا زده نشده")
+    import ast as _ast
+    bad = []
+    for fn in ("voicelab.py", "voicescan.py", "fa2latin.py"):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), fn)
+        tree = _ast.parse(io.open(path, encoding="utf-8").read())
+        for node in _ast.walk(tree):
+            if not isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                continue
+            data = set()
+            for st in _ast.walk(node):
+                if isinstance(st, _ast.Assign):
+                    for t in st.targets:
+                        if isinstance(t, _ast.Name) and isinstance(
+                                st.value, (_ast.Dict, _ast.List, _ast.Set,
+                                           _ast.Constant, _ast.DictComp,
+                                           _ast.ListComp)):
+                            data.add(t.id)
+            for st in _ast.walk(node):
+                if (isinstance(st, _ast.Call) and isinstance(st.func, _ast.Name)
+                        and st.func.id in data):
+                    bad.append("%s:%d %s()" % (fn, st.lineno, st.func.id))
+    eq(bad, [], "هیچ نامِ داده‌ای مثلِ تابع صدا زده نشده")
+
     print("\nهمه گذشت.")
     return 0
 

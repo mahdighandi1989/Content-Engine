@@ -102,6 +102,27 @@ CANDIDATES = [
 ]
 
 
+def info(repo):
+    """
+    ══ پروانه را از API بگیر، نه از grepِ README ══
+    گزارشِ اجرای #۲۱ برای k2-fsa/OmniVoice نوشت «پروانهٔ وزن‌ها در کارتِ
+    مدل نیامد» — چون کارتش خطِ `license:` ندارد. ولی Hugging Face پروانه
+    را در فراداده‌اش نگه می‌دارد، جدا از متنِ کارت. و این برای موتوری که
+    الان ارزان‌ترین نامزد است، سؤالِ باز نمی‌مانَد: کانال قرار است درآمد
+    داشته باشد و «نمی‌دانم» همان‌قدر مانع است که «غیرتجاری».
+    """
+    url = "https://huggingface.co/api/models/%s" % repo
+    req = urllib.request.Request(url, headers={"User-Agent": "content-engine-voicelab"})
+    with urllib.request.urlopen(req, timeout=45) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    card = d.get("cardData") or {}
+    return {"license": card.get("license") or "اعلام نشده",
+            "license_name": card.get("license_name"),
+            "base_model": card.get("base_model"),
+            "downloads": d.get("downloads"), "likes": d.get("likes"),
+            "tags": [t for t in (d.get("tags") or []) if t.startswith("license:")]}
+
+
 def tree(repo):
     # `recursive=true` لازم است: بی آن، `examples/` فقط یک مدخلِ «پوشه»
     # است و فایل‌های داخلش اصلاً دیده نمی‌شوند — و ما دقیقاً دنبالِ
@@ -159,6 +180,10 @@ def main():
     for repo in CANDIDATES:
         row = {"id": repo, "files": []}
         try:
+            row["meta"] = info(repo)
+        except Exception as e:
+            row["meta_error"] = str(e)[:200]
+        try:
             for f in tree(repo):
                 if f.get("type") != "file":
                     continue
@@ -168,6 +193,16 @@ def main():
             row["error"] = str(e)[:160]
         out["candidates"].append(row)
         print("### `%s`" % repo)
+        # پروانه پیش از فهرستِ فایل‌ها می‌آید، چون تصمیم را همین می‌گیرد:
+        # مخزنی که وزنش غیرتجاری است، هرچقدر هم فایلِ خوب داشته باشد
+        # برای کانالی که قرار است درآمد داشته باشد بسته است.
+        if row.get("meta"):
+            m = row["meta"]
+            print("**پروانهٔ اعلام‌شده:** `%s` · دانلود: %s · لایک: %s%s\n"
+                  % (m["license"], m["downloads"], m["likes"],
+                     (" · پایه: `%s`" % m["base_model"]) if m.get("base_model") else ""))
+        elif row.get("meta_error"):
+            print("پروانه خوانده نشد: %s\n" % row["meta_error"])
         if row.get("error"):
             print("خطا: %s\n" % row["error"])
             continue
