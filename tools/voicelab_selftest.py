@@ -1030,6 +1030,56 @@ def main():
     finally:
         V.to_wav = realWav8
 
+    # ── ۲۲ ─────────────────────────────────────────────────────────────
+    # زنجیرهٔ RVC روی ماشینِ دیگری اجرا می‌شود، پس اینجا هیچ‌وقت واقعاً
+    # اجرا نمی‌شود — و چیزی که اجرا نمی‌شود، بی‌صدا خراب می‌ماند. این
+    # بخش شکلِ آرگومان‌ها را نگه می‌دارد؛ همان‌هایی که از خودِ سورسِ RVC
+    # خوانده شدند و هر کدام یک دامِ واقعی‌اند.
+    print("۲۲ — شکلِ آرگومان‌های زنجیرهٔ RVC")
+    import rvcpipe as P
+    got = dict((n, c) for n, c in P.steps("ex", "/ds", "/root", n_p=2))
+    eq(sorted(got), ["extract_f0", "extract_feature", "preprocess",
+                     "train", "train_index"], "هر پنج قدم هست")
+
+    # دامِ ۱: preprocess مسیرِ کامل می‌گیرد، train فقط نام. جابه‌جا شدنشان
+    # پوشه‌ای می‌سازد که قدمِ بعدی پیدا نمی‌کند، بی خطای روشن.
+    eq(got["preprocess"][5], "/root/logs/ex", "preprocess مسیرِ کامل می‌گیرد")
+    eq(got["train"][got["train"].index("-e") + 1], "ex",
+       "ولی train فقط نامِ تجربه را")
+
+    # دامِ ۲: شاخهٔ CPU در extract_hubert_feature با شمارشِ argv انتخاب
+    # می‌شود (`len(sys.argv) == 7`). یکی کم یا زیاد، به شاخهٔ GPU می‌افتد
+    # و آرگومان‌ها را غلط می‌خوانَد.
+    eq(len(got["extract_feature"]) - 1, 7,
+       "extract_hubert_feature دقیقاً ۷ آرگومان دارد (شاخهٔ CPU)")
+
+    # دامِ ۳: بی `-sw 1` ساعت‌ها آموزش انجام می‌شود و مدلِ قابلِ‌استفاده
+    # ساخته نمی‌شود — فقط چک‌پوینت‌های بزرگ.
+    eq(got["train"][got["train"].index("-sw") + 1], "1",
+       "پرچمِ ذخیرهٔ مدلِ نهایی روشن است")
+
+    # دامِ ۴: روی CPU پرچمِ -g نباید بیاید.
+    eq("-g" in got["train"], False, "بی‌GPU پرچمِ -g اصلاً نمی‌آید")
+    onGpu = dict(P.steps("ex", "/ds", "/root", gpus="0"))["train"]
+    eq(onGpu[onGpu.index("-g") + 1], "0", "و با GPU می‌آید")
+    eq(dict(P.steps("ex", "/ds", "/root", gpus="0"))["extract_feature"][2],
+       "cuda", "و استخراجِ ویژگی هم روی cuda می‌رود")
+
+    # نرخِ نمونه به هرتز تبدیل می‌شود، نه «40k» خام.
+    eq(got["preprocess"][3], "40000", "نرخِ نمونه به هرتز داده می‌شود")
+    eq(got["train"][got["train"].index("-sr") + 1], "40k",
+       "ولی train همان «40k» را می‌خواهد")
+
+    # و پایه‌های از پیش آموزش‌دیده باید با همان نرخ جفت باشند.
+    tj = " ".join(got["train"])
+    eq("f0G40k.pth" in tj and "f0D40k.pth" in tj, True,
+       "پایهٔ G و D با نرخِ نمونه جفت‌اند")
+
+    # torch در فهرستِ نصب نیست — در Colab هست و نصبِ دوباره CUDA را
+    # می‌شکند.
+    eq([d for d in P.TRAIN_DEPS if d.split(">")[0].split("<")[0].split("=")[0]
+        in ("torch", "torchaudio")], [], "torch در فهرستِ نصب نیست")
+
     print("\nهمه گذشت.")
     return 0
 
