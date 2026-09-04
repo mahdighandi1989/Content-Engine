@@ -149,6 +149,46 @@ def ask(params):
         return json.loads(r.read().decode("utf-8"))
 
 
+
+# پروانه‌هایی که استفادهٔ تجاری را اجازه می‌دهند. فهرست عمداً کوتاه و
+# صریح است: هر چیزِ بیرونِ آن «نامعلوم» می‌شود، نه «احتمالاً آزاد».
+LIC_OK_ = {"mit", "apache-2.0", "bsd-3-clause", "bsd-2-clause", "cc0-1.0",
+           "cc-by-4.0", "unlicense", "isc"}
+LIC_NO_ = {"cc-by-nc-4.0", "cc-by-nc-sa-4.0", "cc-by-nc-nd-4.0",
+           "coqui-public-model-license", "creativeml-openrail-m", "other"}
+
+
+def licVerdict_(lic):
+    """پروانه → یکی از سه حالت. «نامعلوم» جوابِ درستِ چیزی است که
+    نمی‌دانیم؛ حدس‌زدنش همان کاری است که XTTS را یک بار وارد کرد."""
+    k = (lic or "").strip().lower()
+    if not k or k in ("none", "unknown", "—"):
+        return "نامعلوم", "پروانه‌ای اعلام نشده"
+    if k in LIC_OK_:
+        return "آزاد", "تجاری مجاز"
+    if k in LIC_NO_:
+        return "بسته", "تجاری ممنوع یا مبهم"
+    return "نامعلوم", "پروانهٔ ناشناخته — باید خوانده شود"
+
+
+def licSummary_(out):
+    """آخرین چیزی که در لاگ چاپ می‌شود، چون همان چیزی است که آدم
+    دنبالش می‌گردد. لاگِ اکشن فقط از انتها خوانده می‌شود؛ جدولی که
+    وسطِ هزار و ششصد خط باشد، عملاً وجود ندارد."""
+    print("\n\n## خلاصهٔ پروانه‌ها — تصمیم اینجاست\n")
+    print("| مخزن | پروانهٔ اعلام‌شده | حکم | توضیح |")
+    print("|---|---|---|---|")
+    for row in out.get("candidates", []):
+        m = row.get("meta") or {}
+        lic = m.get("license")
+        verdict, why = licVerdict_(lic)
+        if row.get("meta_error") and not m:
+            verdict, why = "نامعلوم", "خوانده نشد: %s" % row["meta_error"][:60]
+        print("| `%s` | %s | **%s** | %s |"
+              % (row.get("id"), ("`%s`" % lic) if lic else "—", verdict, why))
+    print("")
+
+
 def main():
     out = {"at": None, "queries": []}
     import time
@@ -306,6 +346,8 @@ def main():
 
     with open("voicescan.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
+
+    licSummary_(out)
     return 0
 
 

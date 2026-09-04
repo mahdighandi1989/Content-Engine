@@ -922,6 +922,78 @@ def main():
     finally:
         V.sh, V.refScore_, V.probe = realSh7, realScore7, realProbe
 
+    # ── ۲۰ ─────────────────────────────────────────────────────────────
+    # جدولِ خلاصهٔ پروانه‌ها کلیدهای همان ردیفی را می‌خوانَد که خودِ اسکن
+    # می‌سازد. اولین نسخه‌اش `row["repo"]` را خواند — کلیدی که هیچ‌جا
+    # نوشته نمی‌شود — و ستونِ نام برای هر ده نامزد `None` درمی‌آمد بی
+    # هیچ خطایی. همان شکلِ همیشگی: خواننده‌ای که کلیدی می‌خواهد که
+    # نویسنده هرگز ننوشته. اینجا از خودِ سورس پرسیده می‌شود، نه از حافظه.
+    print("۲۰ — خلاصهٔ پروانه‌ها فقط کلیدهای موجود را می‌خوانَد")
+    import ast as _a
+    src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "voicescan.py"), encoding="utf-8").read()
+    tree = _a.parse(src)
+    fns = {n.name: n for n in tree.body
+           if isinstance(n, (_a.FunctionDef, _a.AsyncFunctionDef))}
+    eq(sorted(set(["main", "licSummary_"]) - set(fns)), [],
+       "هر دو تابع در سورس هستند")
+
+    written = set()
+    for st in _a.walk(fns["main"]):
+        # row = {"id": ..., "files": ...}
+        if (isinstance(st, _a.Assign) and len(st.targets) == 1
+                and isinstance(st.targets[0], _a.Name)
+                and st.targets[0].id == "row"
+                and isinstance(st.value, _a.Dict)):
+            for k in st.value.keys:
+                if isinstance(k, _a.Constant):
+                    written.add(k.value)
+        # row["meta"] = ...
+        if isinstance(st, _a.Assign):
+            for t in st.targets:
+                if (isinstance(t, _a.Subscript) and isinstance(t.value, _a.Name)
+                        and t.value.id == "row"
+                        and isinstance(t.slice, _a.Constant)):
+                    written.add(t.slice.value)
+
+    read = set()
+    for st in _a.walk(fns["licSummary_"]):
+        if (isinstance(st, _a.Call) and isinstance(st.func, _a.Attribute)
+                and st.func.attr == "get"
+                and isinstance(st.func.value, _a.Name)
+                and st.func.value.id == "row" and st.args
+                and isinstance(st.args[0], _a.Constant)):
+            read.add(st.args[0].value)
+        if (isinstance(st, _a.Subscript) and isinstance(st.value, _a.Name)
+                and st.value.id == "row"
+                and isinstance(st.slice, _a.Constant)):
+            read.add(st.slice.value)
+    eq(sorted(read - written), [],
+       "هیچ کلیدی خوانده نمی‌شود که اسکن ننوشته باشد (نوشته: %s)"
+       % sorted(written))
+
+    # و حکم‌ها: ناشناخته «نامعلوم» است، نه «آزاد». حدسِ خوش‌بینانه همان
+    # چیزی است که یک بار XTTS را وارد کرد.
+    import voicescan as S
+    eq(S.licVerdict_("mit")[0], "آزاد", "MIT آزاد است")
+    eq(S.licVerdict_("cc-by-nc-4.0")[0], "بسته", "غیرتجاری بسته است")
+    eq(S.licVerdict_("")[0], "نامعلوم", "پروانهٔ نداشته نامعلوم است")
+    eq(S.licVerdict_("some-new-license")[0], "نامعلوم",
+       "پروانهٔ ناشناخته نامعلوم است، نه آزاد")
+    buf = io.StringIO()
+    realOut = sys.stdout
+    sys.stdout = buf
+    try:
+        S.licSummary_({"candidates": [
+            {"id": "a/b", "meta": {"license": "mit"}},
+            {"id": "c/d", "meta_error": "403"},
+        ]})
+    finally:
+        sys.stdout = realOut
+    txt = buf.getvalue()
+    eq("a/b" in txt and "c/d" in txt, True, "هر دو نامزد در جدول‌اند")
+    eq("None" in txt, False, "هیچ ستونی None نیست")
+
     print("\nهمه گذشت.")
     return 0
 
