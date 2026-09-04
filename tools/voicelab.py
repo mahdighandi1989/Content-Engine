@@ -1624,7 +1624,16 @@ def run_moss(ref, src, text, out):
     model = MossTTSRealtime.from_pretrained(
         MOSS_BASE_, attn_implementation="eager", torch_dtype=torch.float32).eval()
     tok = AutoTokenizer.from_pretrained(MOSS_BASE_)
-    codec = AutoModel.from_pretrained(MOSS_CODEC_, trust_remote_code=True).eval()
+    # ══ روی CPU همه‌چیز باید **یک** نوعِ عددی باشد ══
+    # اجرای دوم افتاد با «expected m1 and m2 to have the same dtype, but
+    # got: float != c10::BFloat16». علتش این است که هر تکه نوعِ عددیِ
+    # ذخیره‌شدهٔ خودش را نگه می‌دارد: مدلِ پایه را fp32 خواستم، ولی کُدِک
+    # پیش‌فرضِ خودش را دارد و وصلهٔ LoRA روی یک ۴۰۷۰Ti با bf16 آموزش دیده،
+    # پس bf16 ذخیره شده. CPU ضرب دو نوعِ مختلف را انجام نمی‌دهد.
+    # `torch_dtype` هنگامِ بارگذاری کافی نیست چون peft بعدش می‌آید؛ پس
+    # **پس از** همهٔ سرِهم‌بندی، یک بار صریح fp32 می‌کنیم.
+    codec = AutoModel.from_pretrained(
+        MOSS_CODEC_, trust_remote_code=True, torch_dtype=torch.float32).float().eval()
     facts["params_millions"] = round(
         sum(p.numel() for p in model.parameters()) / 1e6, 1)
     facts["load_seconds"] = round(time.time() - t0)
@@ -1633,7 +1642,10 @@ def run_moss(ref, src, text, out):
     before = mossFinger_(model)
     try:
         from peft import PeftModel
-        model = PeftModel.from_pretrained(model, MOSS_LORA_).eval()
+        model = PeftModel.from_pretrained(model, MOSS_LORA_)
+        # وصله با bf16 آموزش دیده و با همان ذخیره شده؛ اینجا به fp32
+        # می‌آید تا با مدلِ پایه هم‌نوع شود.
+        model = model.float().eval()
         after = mossFinger_(model)
         facts["lora"] = {"id": MOSS_LORA_, "weights_before": before,
                          "weights_after": after, "changed": before != after}

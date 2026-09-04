@@ -697,6 +697,9 @@ def main():
         def eval(self):
             return self
 
+        def float(self):
+            return self
+
         def parameters(self):
             return [FakeParam(v) for v in self.vals]
 
@@ -710,6 +713,9 @@ def main():
 
     class FakeCodec(object):
         def eval(self):
+            return self
+
+        def float(self):
             return self
 
         def decode(self, t, **kw):
