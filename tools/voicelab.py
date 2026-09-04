@@ -364,7 +364,7 @@ def refScore_(path):
     return best
 
 
-def refAudition_(paths, out, seconds):
+def refAudition_(paths, out, seconds, tag="reference"):
     """
     از میانِ نمونه‌ها یکی را انتخاب کن، و از داخلش بهترین پنجره را.
 
@@ -375,7 +375,7 @@ def refAudition_(paths, out, seconds):
     rows = []
     f = ffmpeg()
     for i, src in enumerate(paths):
-        full = os.path.join(out, "cand%d.wav" % (i + 1))
+        full = os.path.join(out, "%s-cand%d.wav" % (tag, i + 1))
         try:
             info = srcInfo_(src)
             print("نمونهٔ %d: %s" % (i + 1, json.dumps(info, ensure_ascii=False)),
@@ -409,8 +409,12 @@ def refAudition_(paths, out, seconds):
                          ensure_ascii=False)), flush=True)
     rows.sort(key=lambda x: -x.get("score", -99))
     win = rows[0]
-    dst = os.path.join(out, "reference.wav")
-    cut = os.path.join(out, "chosen-window.wav")
+    # ══ نامِ خروجی باید از فراخوان بیاید ══
+    # این نام‌ها ثابت بودند. وقتی همین تابع را برای صوتِ **مبدأ** هم صدا
+    # زدم، دومین فراخوان `reference.wav` را — که نمونهٔ صدای انتخاب‌شده بود
+    # — روی خودش می‌نوشت و آزمایش با صوتِ اشتباه جلو می‌رفت، بی هیچ خطایی.
+    dst = os.path.join(out, "%s.wav" % tag)
+    cut = os.path.join(out, "%s-chosen-window.wav" % tag)
     r = sh([f, "-y", "-nostdin", "-ss", "%.2f" % win.get("at_second", 0),
             "-i", win["_full"], "-t", str(seconds), "-c", "copy", cut],
            capture_output=True, timeout=120)
@@ -423,8 +427,8 @@ def refAudition_(paths, out, seconds):
         shutil.copyfile(cut if r.returncode == 0 else win["_full"], dst)
     for x in rows:
         x.pop("_full", None)
-    OPT["audition"] = {"chosen": win.get("file"), "at_second": win.get("at_second"),
-                       "all": rows}
+    OPT["audition" if tag == "reference" else tag + "_audition"] = {
+        "chosen": win.get("file"), "at_second": win.get("at_second"), "all": rows}
     return dst
 
 
@@ -1596,8 +1600,14 @@ def main():
     rep["reference"] = probe(ref)
     src = ""
     if a.src:
-        src = to_wav(a.src, os.path.join(a.out, "source-gemini.wav"),
-                     seconds=a.src_seconds)
+        # ══ صوتِ مبدأ هم از ثانیهٔ صفر برداشته می‌شد ══
+        # قسمت‌های واقعیِ ما با موسیقیِ آغازین شروع می‌شوند. دوازده ثانیهٔ
+        # اولِ یک قسمت یعنی دوازده ثانیه موسیقی — و تبدیلِ صدا رویش هیچ
+        # چیزی دربارهٔ خوانشِ فارسی نمی‌گوید. همان اشتباهِ «کجای فایل» که
+        # برای نمونهٔ مرجع اصلاح شد و اینجا جا مانده بود.
+        # `refAudition_` همین را می‌سنجد: پنجره‌ای با کفِ سکوتِ پایین
+        # (یعنی بی موسیقیِ زیرِ گفتار) و مکث‌های واقعی.
+        src = refAudition_([a.src], a.out, a.src_seconds, tag="source-gemini")
         rep["source"] = probe(src)
     if meta["needs_src"] and not src:
         rep["error"] = "این موتور به صوتِ مبدأ نیاز دارد و داده نشد."

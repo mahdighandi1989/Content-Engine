@@ -231,6 +231,12 @@ def main():
     eq([v["name"] for v in rep["variants"]], ["fit", "asis"], "هر دو در گزارش‌اند")
     eq(rep["variants"][0]["expected_seconds"] > 0, True,
        "بودجهٔ پیش‌بینی‌شده ثبت می‌شود تا با طولِ واقعی سنجیده شود")
+    # ══ بدل‌ها را همین‌جا پس بده ══
+    # بلوکِ بالا `V.sh` را جایگزین کرد و برنگرداند، پس هر بخشِ بعدی که
+    # `sh` صدا بزند بدلِ f5 را می‌گیرد — و خطایش («--output_dir نیست»)
+    # هیچ ربطی به آن بخش ندارد. نشتِ بدل، سخت‌ترین نوعِ خطاست چون در
+    # جای اشتباه ظاهر می‌شود.
+    V.sh, V.cutAtPause_ = realSh, realCut
     V.OPT.clear()
 
     # ══ انتخابِ نمونه: تنها معیارِ ردکننده باید واقعاً رد کند ══
@@ -625,6 +631,35 @@ def main():
                         and st.func.id in data):
                     bad.append("%s:%d %s()" % (fn, st.lineno, st.func.id))
     eq(bad, [], "هیچ نامِ داده‌ای مثلِ تابع صدا زده نشده")
+
+    # ══ ۱۴ — دو انتخابِ نمونه روی هم نمی‌نویسند ══
+    # نام‌های خروجیِ `refAudition_` ثابت بودند (`reference.wav`). وقتی
+    # همین تابع را برای صوتِ **مبدأ** هم صدا زدم، فراخوانِ دوم نمونهٔ
+    # صدای انتخاب‌شده را روی خودش می‌نوشت و آزمایش با صوتِ اشتباه جلو
+    # می‌رفت، بی هیچ خطایی.
+    print("۱۴ — انتخابِ نمونه و انتخابِ مبدأ روی هم نمی‌نویسند")
+    d3 = tempfile.mkdtemp()
+    realSh4, realScore, realWav = V.sh, V.refScore_, V.to_wav
+
+    def shMake(cmd, **kw):
+        wav(cmd[-1], 3.0)          # هر فرمانی فایلِ آخرش را می‌سازد
+        return R()
+
+    V.sh = shMake
+    V.refScore_ = lambda p, **kw: {"score": 1.0, "at_second": 0.0}
+    V.to_wav = lambda src, dst, **kw: wav(dst, 3.0)
+    try:
+        r1 = V.refAudition_([wav(os.path.join(d3, "x.wav"), 30.0)], d3, 5)
+        r2 = V.refAudition_([wav(os.path.join(d3, "y.wav"), 30.0)], d3, 5,
+                            tag="source-gemini")
+    finally:
+        V.sh, V.refScore_, V.to_wav = realSh4, realScore, realWav
+    eq(r1 != r2, True, "دو فایلِ جدا ساخته می‌شود (%s / %s)"
+       % (os.path.basename(r1), os.path.basename(r2)))
+    eq(os.path.exists(r1) and os.path.exists(r2), True, "و هر دو سرِ جایشان‌اند")
+    eq("source-gemini_audition" in V.OPT, True,
+       "و گزارشِ هرکدام جدا ثبت می‌شود")
+    V.OPT.clear()
 
     print("\nهمه گذشت.")
     return 0
