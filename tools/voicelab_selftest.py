@@ -1093,6 +1093,21 @@ def main():
     eq([d for d in P.TRAIN_DEPS if d.split(">")[0].split("<")[0].split("=")[0]
         in ("torch", "torchaudio")], [], "torch در فهرستِ نصب نیست")
 
+    # ══ سقفِ huggingface_hub، و چرا ══
+    # اجرای #۳۹: ارتقای موردیِ این بسته نسخهٔ ۱٫۳۰ را آورد و
+    # `transformers 4.49` که سقفِ `<1.0` دارد سرِ import مُرد — سه قدم
+    # بعدتر. بسته‌ای که برای یک قدم اضافه شود می‌تواند قدمِ دیگری را
+    # بشکند؛ جایش همین یک فهرست است، با سقف.
+    hub = [d for d in P.TRAIN_DEPS if d.startswith("huggingface_hub")]
+    eq(len(hub), 1, "huggingface_hub در فهرست هست")
+    eq("<1.0" in hub[0], True,
+       "و سقفِ زیرِ ۱٫۰ دارد، چون transformers همین را می‌خواهد: %s" % hub[0])
+    # و هیچ‌جای آزمایشگاه ارتقای بی‌سقفش نمی‌کند.
+    src2 = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "voicelab.py"), encoding="utf-8").read()
+    eq('"--upgrade", "huggingface_hub"' in src2, False,
+       "و هیچ‌جا بی‌سقف ارتقا داده نمی‌شود")
+
     # ── ۲۳ ─────────────────────────────────────────────────────────────
     # مسیرِ کاملِ rvcsmoke روی بدل‌ها. این موتور روی رانر ساعت‌ها طول
     # می‌کشد، پس اگر منطقش فقط آنجا سنجیده شود، هر اشتباهِ کوچک یک ساعت

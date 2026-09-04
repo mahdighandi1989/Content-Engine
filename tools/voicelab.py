@@ -2291,8 +2291,10 @@ def run_rvcsmoke(ref, src, text, out):
     # کدام‌یک روی PATH بنشیند به نسخه بستگی دارد. حدس‌زدنش یعنی شکستی که
     # فقط می‌گوید «command not found».
     t0 = time.time()
-    r = sh([sys.executable, "-m", "pip", "install", "--quiet",
-            "--upgrade", "huggingface_hub"], timeout=600)
+    # `huggingface_hub` از همان `TRAIN_DEPS` آمده و پین دارد؛ ارتقای
+    # موردی‌اش همان چیزی بود که transformers را شکست (اجرای #۳۹).
+    # و در نسخه‌های زیرِ ۱٫۰ نامِ فرمان `huggingface-cli` است نه `hf` —
+    # پس همان تشخیصِ دو-نامی که از اول گذاشته بودم اینجا به کار می‌آید.
     hf = shutil.which("hf") or shutil.which("huggingface-cli")
     if not hf:
         raise RuntimeError("فرمانِ hf پیدا نشد (نه hf نه huggingface-cli)")
@@ -2656,7 +2658,12 @@ def run_dataset(ref, src, text, out):
         saveRep_()
 
         room = max(0.0, DS_TOTAL_MAX - kept)
-        made = dsWriteCuts_(sp, segs, out, "seg%d_" % (i + 1), limit=room)
+        # ══ تکه‌ها بیرونِ پوشهٔ خروجی ══
+        # بارِ اول ۳۱۸ تکه داخلِ `out` نشستند و آرتیفکت ۲۴۲ مگابایت شد —
+        # روی ریپویی که عمومی است، و برای چیزی که هیچ‌کس از آنجا
+        # برنمی‌دارد: تکه‌ها در Colab دوباره ساخته می‌شوند. آنچه باید
+        # بایگانی شود فقط دو نمونهٔ داوری و گزارش است.
+        made = dsWriteCuts_(sp, segs, tmp, "seg%d_" % (i + 1), limit=room)
         kept += sum(b - a for a, b in segs[:len(made)])
         segAll += made
         keepDemo += dsPick_(made, 3)

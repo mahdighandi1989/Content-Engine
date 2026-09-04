@@ -49,6 +49,13 @@ TRAIN_DEPS = [
     "faiss-cpu>=1.13.0,<2",          # ساختِ ایندکس
     "scikit-learn>=1.6.0,<2",        # MiniBatchKMeans در train_index
     "transformers>=4.49.0,<4.50",    # HubertModel در infer/hubert.py
+    # ══ و ابزارِ دانلود، که خودش می‌تواند همان را بشکند ══
+    # اجرای #۳۹: برای آوردنِ وزن‌ها `pip install --upgrade huggingface_hub`
+    # زدم، نسخهٔ ۱٫۳۰ آمد، و `transformers 4.49` که سقفِ `<1.0` دارد سرِ
+    # import مُرد. یعنی بسته‌ای که برای قدمِ «دانلود» اضافه شد، قدمِ
+    # «استخراج» را شکست — سه قدم بعدتر و با خطایی که نامِ من در آن نبود.
+    # پس اینجا پین می‌شود، در همان یک فهرست، نه با ارتقای موردی.
+    "huggingface_hub>=0.26.0,<1.0",
     "tensorboard>=2.19.0",           # torch.utils.tensorboard در train.py
     "matplotlib>=3.8.2,<4",          # train/utils.py هنگام لاگ‌گیری
     "einops>=0.8.0,<1",
