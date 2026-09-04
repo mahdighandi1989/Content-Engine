@@ -838,15 +838,22 @@ def main():
     convs = []
 
     class FakeTCC(object):
-        def __init__(self, cfg, device=None, enable_watermark=True):
-            # ══ چرا این بدل پرچم را می‌سنجد ══
-            # سازندهٔ واقعی وقتی این True باشد همان‌جا `import wavmark`
-            # می‌کند. بدلِ اولِ من پرچم را نادیده می‌گرفت، پس آزمون سبز
-            # ماند و اجرا با «No module named 'wavmark'» افتاد. بدلی که
-            # قرارداد را نسنجد، فقط خودش را می‌سنجد.
-            if enable_watermark:
-                raise ImportError("No module named 'wavmark'")
-            self.cfg = cfg
+        # ══ بدل باید **کدِ آن‌ها** را تقلید کند، نه فرضِ من از آن را ══
+        # نسخهٔ اولِ بدل پرچم را نادیده می‌گرفت (پس «wavmark نیست» را
+        # ندید). نسخهٔ دوم پرچم را قبول می‌کرد (پس ندید که سازندهٔ واقعی
+        # همهٔ kwargs را به کلاسِ پایه پاس می‌دهد و آنجا رد می‌شود).
+        # کدِ واقعی این است، و بدل حالا همان است:
+        #     def __init__(self, *args, **kwargs):
+        #         super().__init__(*args, **kwargs)   ← پرچم را نمی‌شناسد
+        #         if kwargs.get('enable_watermark', True): import wavmark
+        def __init__(self, *args, **kwargs):
+            if "enable_watermark" in kwargs:
+                raise TypeError("OpenVoiceBaseClass.__init__() got an "
+                                "unexpected keyword argument 'enable_watermark'")
+            if kwargs.get("enable_watermark", True):
+                __import__("wavmark")
+            self.cfg = args[0] if args else None
+            self.watermark_model = object()
 
         def load_ckpt(self, p_):
             self.pth = p_

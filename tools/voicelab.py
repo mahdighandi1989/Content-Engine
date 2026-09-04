@@ -35,7 +35,7 @@ voicelab.py — آزمایشگاهِ صدا. گامِ صفرِ «شبیه‌سا
 گزارش می‌آورد.
 """
 
-import argparse, io, json, os, re, shutil, subprocess, sys, time, traceback
+import argparse, io, json, os, re, shutil, subprocess, sys, time, traceback, types
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fa2latin
@@ -1919,11 +1919,28 @@ def run_openvoice(ref, src, text, out):
     # `enable_watermark=True` بستهٔ `wavmark` را می‌خواهد و یک واترمارکِ
     # دومِ نامحسوس روی صوت می‌گذارد. برای آزمایش هیچ‌کدام لازم نیست، و یک
     # وابستگیِ کمتر یعنی یک جای شکستِ کمتر.
-    # و **در سازنده** خاموش می‌شود، نه بعدش: `__init__` وقتی این پرچم
-    # روشن باشد همان‌جا `import wavmark` می‌کند. نسخهٔ اولِ من پس از ساخت
-    # `watermark_model = None` می‌گذاشت — کامنت نیت را درست نوشته بود و
-    # کد دیر عمل می‌کرد، پس اجرا با «No module named 'wavmark'» افتاد.
-    tcc = ToneColorConverter(cfg, device="cpu", enable_watermark=False)
+    # ══ واترمارک: دو بار اشتباه کردم، و هر دو بار جوابش در همان دو خط بود ══
+    # کدشان این است:
+    #     def __init__(self, *args, **kwargs):
+    #         super().__init__(*args, **kwargs)
+    #         if kwargs.get('enable_watermark', True):
+    #             import wavmark
+    # بارِ اول پس از ساخت `watermark_model = None` گذاشتم — دیر بود، چون
+    # `import` در خودِ سازنده است. بارِ دوم `enable_watermark=False` را
+    # پاس دادم — ولی همان سازنده **همهٔ** kwargs را به کلاسِ پایه می‌دهد
+    # و آن، این پرچم را نمی‌شناسد. یعنی پرچمی که خودشان می‌خوانند، اصلاً
+    # قابلِ فرستادن نیست: باگِ آن‌هاست، نه انتخابِ ما.
+    #
+    # پس ماژول را پیش از ساخت بدل می‌کنیم و بلافاصله مدل را تهی. نه
+    # دانلودی لازم است نه وابستگی‌ای، و `add_watermark` با مدلِ تهی صوت
+    # را دست‌نخورده برمی‌گرداند.
+    if "wavmark" not in sys.modules:
+        _wm = types.ModuleType("wavmark")
+        _wm.load_model = lambda *a, **kw: types.SimpleNamespace(
+            to=lambda *a2, **k2: None)
+        sys.modules["wavmark"] = _wm
+    tcc = ToneColorConverter(cfg, device="cpu")
+    tcc.watermark_model = None
     tcc.load_ckpt(pth)
     facts["load_seconds"] = round(time.time() - t0)
     OPT["model_facts"] = facts
