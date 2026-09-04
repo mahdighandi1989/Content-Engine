@@ -403,9 +403,7 @@ def main():
 
     eq(os.path.basename(made2), "omnivoice_tashkil.wav",
        "خروجیِ برگشتی همان متنِ اعراب‌دار است — ورودیِ واقعیِ موتور")
-    eq([c["text"] for c in calls], [txt, V.noTash_(txt)],
-       "دو اجرا: اعراب‌دار و بی‌اعراب — سؤالی که حساب جوابش را نمی‌دهد")
-    eq(calls[0]["num_step"], 32, "و هر دو با همان گام، تا فقط یک متغیر عوض شود")
+
     eq(rep2["model_facts"]["weights_license"], "apache-2.0",
        "پروانهٔ وزن‌ها از کارتِ مدل خوانده می‌شود، نه از پروانهٔ کد")
     eq(all(v.get("realtime_factor") is not None for v in rep2["variants"]), True,
@@ -693,6 +691,7 @@ def main():
 
     class FakeMoss(object):
         vals = [1.0]
+        lora = []          # نام‌های پارامترِ LoRA — سنجهٔ درست همین است
 
         def eval(self):
             return self
@@ -702,6 +701,11 @@ def main():
 
         def parameters(self):
             return [FakeParam(v) for v in self.vals]
+
+        def named_parameters(self):
+            out_ = [("llm.layer0.weight", FakeParam(1.0))]
+            out_ += [(n, FakeParam(0.5)) for n in self.lora]
+            return out_
 
     class FakeInf(object):
         def __init__(self, *a, **kw):
@@ -731,10 +735,16 @@ def main():
     inm = types.ModuleType("inferencer")
     inm.MossTTSRealtimeInference = FakeInf
     pf = types.ModuleType("peft")
-    # وصله وزن را عوض می‌کند — همان چیزی که mossFinger_ باید ببیند
+    # ══ چرا سنجه عوض شد ══
+    # نسخهٔ اول قدرمطلقِ چهل پارامترِ **اول** را پیش و پس مقایسه می‌کرد.
+    # ولی PeftModel مدل را می‌پیچد، پس ترتیبِ parameters() عوض می‌شود و
+    # آن عدد تفاوتِ **ترتیب** را نشان می‌داد، نه تفاوتِ وزن. گزارش
+    # «نشست» می‌داد و هیچ چیزی را ثابت نمی‌کرد.
+    # پارامترهای LoRA نام دارند؛ سنجهٔ بی‌ابهام همان است.
     pf.PeftModel = types.SimpleNamespace(
-        from_pretrained=lambda m, i, **kw: type("L", (FakeMoss,),
-                                               {"vals": [2.0]})())
+        from_pretrained=lambda m, i, **kw: type(
+            "L", (FakeMoss,), {"lora": ["llm.layer0.lora_A.weight",
+                                        "llm.layer0.lora_B.weight"]})())
     tr = types.ModuleType("transformers")
     tr.AutoTokenizer = types.SimpleNamespace(from_pretrained=lambda *a, **kw: None)
     tr.AutoModel = types.SimpleNamespace(from_pretrained=lambda *a, **kw: FakeCodec())
@@ -760,10 +770,11 @@ def main():
     finally:
         V.sh, V.cutAtPause_ = realSh5, realCut2
 
-    eq(os.path.basename(made5), "moss_tashkil.wav", "خروجیِ برگشتی درست است")
-    eq(gens, [txt, V.noTash_(txt)], "دو اجرا: اعراب‌دار و بی‌اعراب")
-    eq(rep6["model_facts"]["lora"]["changed"], True,
-       "و اثباتِ اینکه وصلهٔ فارسی وزن‌ها را واقعاً عوض کرد")
+    eq(os.path.basename(made5), "moss_lora.wav", "خروجیِ برگشتی درست است")
+    eq(len(gens), 2, "دو اجرا: با وصله، و شاهدِ بی‌وصله")
+    eq(rep6["model_facts"]["lora"]["attached"], True,
+       "و اثبات از روی **نامِ** پارامترهای LoRA، نه از ترتیبشان")
+    eq(rep6["model_facts"]["lora"]["lora_params"], 2, "هر دو پارامتر دیده شد")
     eq("lora_warning" in rep6, False, "پس هشدارِ بی‌جا نمی‌دهد")
     V.OPT.clear()
 

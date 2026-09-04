@@ -1615,29 +1615,29 @@ def mossPins_(repo):
             out["mismatch"][name] = {"مخزن می‌خواهد": want, "نصب است": got}
     return out
 
-def mossFinger_(model):
+def mossLora_(model):
     """
-    اثرِ انگشتِ وزن‌ها — برای اثباتِ اینکه LoRA واقعاً نشست.
+    آیا وصلهٔ فارسی **واقعاً** روی مدل نشسته؟
 
-    ══ چرا این چند خط لازم است ══
-    `PeftModel.from_pretrained` وقتی `target_modules` با معماری نخوانَد
-    می‌تواند بی هیچ خطایی هیچ لایه‌ای را وصل نکند. آن‌وقت خروجی، خروجیِ
-    **مدلِ پایه** است — و نویسندهٔ همین LoRA نوشته که فارسیِ پایه
-    «recognizably Persian نیست». یعنی می‌شنیدیم «فارسیِ بد» و آن را به
-    حسابِ LoRA می‌گذاشتیم، در حالی که LoRA اصلاً اجرا نشده بود.
-    یک اجرای شاهد این را می‌گیرد ولی بیست دقیقه می‌برد؛ این مقایسه رایگان
-    است و همان را ثابت می‌کند.
+    ══ چرا نسخهٔ اولِ این سنجه بی‌ارزش بود ══
+    اولش قدرمطلقِ چهل پارامترِ **اول** را پیش و پس از وصله جمع می‌زدم و
+    اختلاف را «نشست» می‌خواندم. ولی `PeftModel` مدل را در لایه‌های تازه
+    می‌پیچد، پس ترتیبِ `parameters()` عوض می‌شود — «چهل پارامترِ اول»
+    دیگر همان تانسورها نیستند. عددِ متفاوت، تفاوتِ **ترتیب** را نشان
+    می‌داد نه تفاوتِ وزن را. گزارش «changed: true» داد و هیچ چیزی را
+    ثابت نکرد؛ همان شکلِ «تحلیلی که به تصمیم وصل نیست» با لباسِ بدتر:
+    تحلیلی که اصلاً چیزی را نمی‌سنجد.
+
+    سنجهٔ درست ابهام ندارد: پارامترهای LoRA **نام** دارند.
     """
-    import torch
-    tot = 0.0
-    n = 0
-    for p in model.parameters():
-        if n >= 40:
-            break
-        tot += float(p.detach().float().abs().sum().item())
-        n += 1
-    return round(tot, 3)
-
+    names = [n for n, _ in model.named_parameters() if "lora_" in n.lower()]
+    nz = 0
+    for n, t in model.named_parameters():
+        if "lora_" in n.lower() and float(t.detach().float().abs().sum().item()) > 0:
+            nz += 1
+    return {"lora_params": len(names), "nonzero": nz,
+            "sample": names[:3],
+            "attached": len(names) > 0 and nz > 0}
 
 def run_moss(ref, src, text, out):
     """
@@ -1715,36 +1715,37 @@ def run_moss(ref, src, text, out):
         sum(p.numel() for p in model.parameters()) / 1e6, 1)
     facts["load_seconds"] = round(time.time() - t0)
 
-    # ── ۳. وصلهٔ فارسی، و اثباتِ اینکه نشست ──
-    before = mossFinger_(model)
+    # ── ۳. وصلهٔ فارسی — و مدلِ پایه که نگه داشته می‌شود ──
+    # هر دو لازم‌اند: بی شاهدِ بی‌وصله نمی‌شود گفت خرابی از وصله است یا
+    # از خودِ پایه.
+    base, withLora = model, None
     try:
         from peft import PeftModel
-        model = PeftModel.from_pretrained(model, MOSS_LORA_)
+        withLora = PeftModel.from_pretrained(model, MOSS_LORA_)
         # وصله با bf16 آموزش دیده و با همان ذخیره شده؛ اینجا به fp32
         # می‌آید تا با مدلِ پایه هم‌نوع شود.
-        model = model.float().eval()
-        after = mossFinger_(model)
-        facts["lora"] = {"id": MOSS_LORA_, "weights_before": before,
-                         "weights_after": after, "changed": before != after}
-        if before == after:
-            # ══ «نصب شد» با «اثر گذاشت» یکی نیست ══
+        withLora = withLora.float().eval()
+        facts["lora"] = mossLora_(withLora)
+        facts["lora"]["id"] = MOSS_LORA_
+        if not facts["lora"]["attached"]:
             OPT["lora_warning"] = (
-                "وصلهٔ فارسی بارگذاری شد ولی هیچ وزنی عوض نشد — یعنی "
-                "target_modulesاش با این معماری نخوانده و خروجی، خروجیِ "
-                "مدلِ پایه است. فارسیِ پایه به گفتهٔ خودِ نویسنده «فارسی "
-                "شناخته‌نشدنی» است، پس هر بدیِ خروجی را به حسابِ وصله "
-                "نگذارید.")
+                "وصلهٔ فارسی بارگذاری شد ولی هیچ پارامترِ LoRAیی پیدا نشد "
+                "(یا همه صفرند) — یعنی خروجی، خروجیِ مدلِ پایه است.")
             print("::warning::" + OPT["lora_warning"], flush=True)
     except Exception as e:
         facts["lora_error"] = str(e)[:500]
         print("وصلهٔ فارسی نشست نکرد: %s" % str(e)[:300], flush=True)
+    if withLora is None:
+        withLora = base
+        base = None
     OPT["model_facts"] = facts
     saveRep_()
     print("مدل:", json.dumps(facts, ensure_ascii=False)[:400], flush=True)
 
-    inf = MossTTSRealtimeInference(model, tok, max_length=5000, codec=codec,
-                                   codec_sample_rate=24000,
-                                   codec_encode_kwargs={"chunk_duration": 8})
+    def mkInf_(m):
+        return MossTTSRealtimeInference(m, tok, max_length=5000, codec=codec,
+                                        codec_sample_rate=24000,
+                                        codec_encode_kwargs={"chunk_duration": 8})
 
     # ── ۴. نمونهٔ مرجع ──
     # کارتِ وصله ۱۰ تا ۳۰ ثانیه می‌خواهد؛ برشِ یازده‌ونیم‌ثانیه‌ایِ ما در
@@ -1755,20 +1756,43 @@ def run_moss(ref, src, text, out):
     OPT["ref_cut"] = probe(cut)
     saveRep_()
 
+    # ══ آیا مرجع اصلاً به کدهای صوتی تبدیل شد؟ ══
+    # دو اجرای پیشین صدای **زن** دادند با نمونهٔ مرجعِ مردانه. یعنی یا
+    # مرجع تزریق نشده، یا اثر نکرده. این دو را نمی‌شود با گوش جدا کرد،
+    # ولی با یک عدد می‌شود: کدهای صوتیِ مرجع چه شکلی دارند. اگر تهی یا
+    # تک‌قابی باشند، «پرامپتِ تیمبر» عملاً خالی است.
+    try:
+        _codes = mkInf_(withLora)._encode_reference_audio(cut, device="cpu")
+        OPT["ref_codes"] = {"shape": list(getattr(_codes, "shape", [])),
+                            "frames": (int(_codes.shape[-1])
+                                       if getattr(_codes, "shape", None) else 0)}
+        print("کدهای مرجع:", json.dumps(OPT["ref_codes"], ensure_ascii=False),
+              flush=True)
+    except Exception as e:
+        OPT["ref_codes"] = {"error": str(e)[:300]}
+    saveRep_()
+
     # ── ۵. دو اجرا: با اعراب و بی اعراب ──
     # همان پرسشِ OmniVoice، و به همان دلیل: مرحلهٔ `speak` متنِ اعراب‌دار
     # بیرون می‌دهد، ولی این وصله ادعا می‌کند «هیچ front-endِ آوایی لازم
     # نیست» — یعنی روی متنِ **عادی** آموزش دیده. کدام بهتر است، فقط با
     # شنیدن معلوم می‌شود.
-    plain = noTash_(text)
-    runs = [("tashkil", text, "متنِ اعراب‌دار — همان که موتور تولید می‌کند")]
-    if plain != text:
-        runs.append(("plain", plain, "بی اعراب — همان شکلی که وصله رویش آموزش دیده"))
+    # ══ متغیرِ دوم دیگر اعراب نیست ══
+    # هر دو اجرای پیشین «صدای زن» دادند، با اینکه نمونهٔ مرجع مردانه بود
+    # — یعنی کلونِ صدا اصلاً اعمال نشد و پرسشِ «اعراب یا بی‌اعراب» موضوعیت
+    # ندارد وقتی هیچ‌کدام صدای درست را نمی‌دهد.
+    # پرسشِ درست این است: **وصله** کلونینگ را خراب کرده، یا خودِ مدلِ
+    # پایه هم کلون نمی‌کند؟ این دو، دو کارِ کاملاً متفاوت را لازم دارند،
+    # و فقط یک شاهدِ بی‌وصله جدایشان می‌کند.
+    runs = [("lora", withLora, "با وصلهٔ فارسی")]
+    if base is not None:
+        runs.append(("base", base, "بی وصله — شاهد: آیا خودِ مدلِ پایه کلون می‌کند؟"))
     else:
-        OPT["one_run_why"] = "اجرای دوم نیامد: متن اعراب نداشت."
+        OPT["one_run_why"] = "شاهدِ بی‌وصله ساخته نشد."
 
     made, variants, tAll, last = None, [], time.time(), None
-    for name, gen, why in runs:
+    gen = noTash_(text)
+    for name, mdl, why in runs:
         if last is not None and (time.time() - tAll) + last > OMNI_BUDGET_SEC:
             variants.append({"name": name, "why": why,
                              "skipped": "گذشته + برآوردِ بعدی از بودجهٔ %ds گذشت."
@@ -1779,7 +1803,7 @@ def run_moss(ref, src, text, out):
         dst = os.path.join(out, "moss_%s.wav" % name)
         t1 = time.time()
         try:
-            res = inf.generate(text=[gen], reference_audio_path=[cut],
+            res = mkInf_(mdl).generate(text=[gen], reference_audio_path=[cut],
                                temperature=0.8, top_p=0.6, top_k=30,
                                repetition_penalty=1.1, repetition_window=50,
                                device="cpu")
