@@ -1691,6 +1691,79 @@ def main():
     eq(D2.dsSpeakerSims_([me], None), [1.0],
        "و بی مرکز، همه قبول‌اند نه همه رد — دروازه‌ای که مدلش نیامده باید باز باشد")
 
+    # ── ۲۹ ─────────────────────────────────────────────────────────────
+    # آموزش روی رانرِ گیت‌هاب تکه‌تکه است: هر job تا پنج ساعت کار
+    # می‌کند و بقیه‌اش می‌ماند برای بعد. کلِ این ایده روی دو چیز سوار
+    # است — مهلتی که **خودمان** می‌گذاریم، و کشی که **همیشه** ذخیره
+    # می‌شود. اگر هرکدام بشکند، هیچ خطایی بلند نمی‌شود: هر شش ساعت یک
+    # اجرا از صفر شروع می‌کند و هیچ‌وقت به آخر نمی‌رسد.
+    print("۲۹ — آموزشِ تکه‌تکه روی رانر")
+    import time
+    import voicetrain as VT
+
+    # ── مهلت واقعاً کار می‌کند ──
+    # این تنها راهی است که ما پیش از تبرِ گیت‌هاب برمی‌گردیم. اگر
+    # نگیرد، job کشته می‌شود و کش ذخیره نمی‌شود.
+    t0 = time.time()
+    code, timedout = VT.run_([sys.executable, "-c",
+                              "import time; time.sleep(30)"], budget=1.5)
+    dt = time.time() - t0
+    eq(timedout, True, "قدمِ طولانی با مهلت متوقف شد")
+    eq(code, 124, "و کدِ مهلت برمی‌گردد، نه صفر")
+    eq(dt < 15, True, "و واقعاً برگشت (%.1f ثانیه)" % dt)
+
+    code2, to2 = VT.run_([sys.executable, "-c", "print(1)"], budget=60)
+    eq((code2, to2), (0, False), "قدمِ کوتاه سالم تمام می‌شود")
+
+    # ── پیشرفت از نامِ چک‌پوینت خوانده می‌شود ──
+    w29 = tempfile.mkdtemp()
+    os.makedirs(os.path.join(w29, "logs", VT.VOICE))
+    eq(VT.steps_done_(w29), 0, "بی چک‌پوینت، گامِ صفر")
+    for nm in ("G_2333.pth", "G_11665.pth", "D_11665.pth", "G_x.pth"):
+        io.open(os.path.join(w29, "logs", VT.VOICE, nm), "w").write(u"x")
+    eq(VT.steps_done_(w29), 11665,
+       "تازه‌ترین گام از نام خوانده می‌شود، و نامِ بی‌عدد نمی‌ترکاند")
+
+    # ── آموزش روی CPU است، نه GPU ──
+    # رانر کارتِ گرافیک ندارد. اگر روزی `gpus` پر شود، `extract_feature`
+    # روی cuda می‌رود و با خطایی می‌میرد که ربطش به این تصمیم پیدا نیست.
+    src29 = io.open(os.path.join(os.path.dirname(os.path.abspath(
+        VT.__file__)), "voicetrain.py"), encoding="utf-8").read()
+    eq('gpus=""' in src29, True, "آموزش با CPU خوانده می‌شود")
+    eq("latest=1" in src29, True, "فقط تازه‌ترین چک‌پوینت نگه می‌ماند")
+
+    # ── گردش‌کار ──
+    wf = io.open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(VT.__file__))), ".github", "workflows",
+        "voice-train.yml"), encoding="utf-8").read()
+
+    # ══ مهم‌ترین خطِ کلِ این فایل ══
+    # ذخیرهٔ کش باید `if: always()` باشد. نیمه‌کاره ماندن حالتِ عادیِ
+    # این گردش‌کار است؛ اگر کش فقط در حالتِ موفق ذخیره شود، هیچ اجرایی
+    # از اجرای قبل چیزی تحویل نمی‌گیرد و آموزش هرگز تمام نمی‌شود — بی
+    # اینکه هیچ‌چیز قرمز شود.
+    eq("if: always()" in wf[:wf.index("actions/cache/save")], True,
+       "کش همیشه ذخیره می‌شود، نه فقط وقتی همه‌چیز خوب پیش رفت")
+    eq("restore-keys" in wf, True, "و اجرای بعدی تازه‌ترین کش را برمی‌دارد")
+    keys = [ln.split(":", 1)[1].strip() for ln in wf.splitlines()
+            if ln.strip().startswith("key:")]
+    eq(len(set(keys)), 1, "کلیدِ ذخیره و بازیابی یکی است: %s" % set(keys))
+    eq(all(k.startswith("rvc-razavi-") for k in keys), True,
+       "و پیشوندش با restore-keys جور است")
+
+    # ══ بودجه باید از مهلتِ job کمتر باشد ══
+    # اگر برعکس شود، گیت‌هاب پیش از ما job را می‌کُشد و کش — که تنها
+    # حاملِ ساعت‌ها کار است — ذخیره نمی‌شود.
+    budget = int([ln.split("'")[1] for ln in wf.splitlines()
+                  if "VT_BUDGET_MIN" in ln][0])
+    tmo = int([ln.split(":")[1] for ln in wf.splitlines()
+               if "timeout-minutes" in ln][0])
+    eq(budget < tmo - 30, True,
+       "بودجهٔ کار (%d دقیقه) دستِ‌کم نیم‌ساعت زیرِ مهلتِ job (%d) است"
+       % (budget, tmo))
+    eq("concurrency" in wf, True,
+       "دو اجرای همزمان نداریم — دو کش که همدیگر را خراب کنند")
+
     print("\nهمه گذشت.")
     return 0
 

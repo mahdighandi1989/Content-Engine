@@ -1,0 +1,102 @@
+# آموزشِ صدای رضوی — روی ماشینی که دستِ خودمان است
+#
+# ══ چرا اینجا ══
+# Colab به مرورگرِ بازِ کاربر وابسته بود و اتصالش هر چند دقیقه می‌افتاد.
+# Kaggle چهار بار «Canceled by backend. Exit code: 137» داد، هر بار در
+# نقطهٔ دیگری — بعد از وزن‌ها، سرِ دانلود، سرِ ساختِ دیتاست، وسطِ pip — و
+# هر فرضیه‌ای با عدد رد شد (رم ۰٫۴ تا ۲٫۴ گیگ از ۳۰؛ دیسک همیشه بیش از
+# ۱۹ گیگ آزاد؛ پوشهٔ خروجی در آخرین اجرا یک فایلِ صفرمگابایتی). یعنی
+# هیچ‌کدام را کدِ ما نکُشت.
+#
+# وقتی سکو هیچ شاهدی نمی‌دهد، مسئله «فرضیهٔ بعدی» نیست — مسئله این است
+# که ماشین دستِ تو نیست. اینجا هست.
+#
+# ══ بهایش، صادقانه ══
+# رانر GPU ندارد. آموزش روی CPU همان کار را می‌کند و چند برابر کندتر.
+# ولی چون کسی پایش ننشسته، کندی فقط یعنی «فردا به‌جای امشب»: هر شش
+# ساعت یک job راه می‌افتد، تا پنج ساعت کار می‌کند، و از همان‌جا که
+# ماند ادامه می‌دهد. کاربر هیچ کاری نمی‌کند.
+#
+# ══ پیش‌شرط ══
+# چهار ضبطِ درایو باید «هر کسی با لینک: بیننده» بمانند — رانر با هویتِ
+# هیچ‌کس وارد می‌شود. شناسه‌ها در `tools/voicetrain.py` هستند.
+#
+# ══ نتیجه ══
+# وقتی تمام شد، در تبِ Actions همان اجرا یک artifact به نامِ
+# `voice-razavi` دارد: مدل و ایندکس. همان دو فایلی که موتور می‌خواهد.
+
+name: voice-train
+
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: 'چند دور آموزش (هرچه بیشتر، بهتر و کندتر)'
+        required: false
+        default: '60'
+  schedule:
+    # هر شش ساعت. اگر کار تمام شده باشد، اجرا در چند ثانیه تمام می‌شود.
+    - cron: '17 */6 * * *'
+
+concurrency:
+  # ══ دو job همزمان یعنی دو کش که همدیگر را خراب می‌کنند ══
+  group: voice-train
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: جا باز کن
+        # رانر ۱۴ گیگ دیسک دارد و بخشِ زیادی‌اش صرفِ ابزارهایی است که
+        # ما یکی‌شان را هم به کار نمی‌بریم. ویژگی‌های استخراج‌شده چند
+        # گیگ‌اند؛ «no space left» وسطِ آموزش یعنی یک اجرای هدررفته.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
+                      /opt/ghc /usr/local/share/boost || true
+          df -h /
+
+      - name: کارِ اجرای پیشین را برگردان
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/rvcwork
+          key: rvc-razavi-${{ github.run_id }}
+          restore-keys: rvc-razavi-
+
+      - name: آموزش
+        id: train
+        env:
+          VT_EPOCHS: ${{ github.event.inputs.epochs || '60' }}
+          VT_BUDGET_MIN: '290'
+        run: python tools/voicetrain.py
+
+      - name: کار را برای اجرای بعدی نگه دار
+        # ══ همیشه، حتی وقتی قدم نیمه‌کاره ماند ══
+        # نیمه‌کاره ماندن حالتِ **عادی** این گردش‌کار است، نه خطا. اگر
+        # کش فقط در حالتِ موفق ذخیره شود، هر اجرا از صفر شروع می‌کند و
+        # هیچ‌وقت به آخر نمی‌رسد.
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/rvcwork
+          key: rvc-razavi-${{ github.run_id }}
+
+      - name: نتیجه
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-razavi
+          path: ~/rvcwork/out
+          if-no-files-found: warn
+          retention-days: 30
