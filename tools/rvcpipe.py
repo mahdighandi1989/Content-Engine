@@ -71,8 +71,11 @@ HF_WEIGHTS = "lj1995/VoiceConversionWebUI"
 #   (الگوی include برای hf download، مقصدِ محلی)
 ASSETS = [
     ("hubert_base/*", "assets"),        # رمزگذارِ محتوا (ContentVec)
-    ("pretrained_v2/*", "assets"),      # پایهٔ آموزشِ v2
 ]
+# پایهٔ آموزش: فقط همان جفتی که با نرخِ نمونه می‌خوانَد، نه کلِ پوشه.
+# `pretrained_v2/*` چند گیگابایت است و ما دو فایل از آن لازم داریم؛ در
+# Colab این تفاوتِ چند دقیقه است و روی رانر تفاوتِ موفقیت و مهلت.
+PRETRAINED = "pretrained_v2/f0%s%s.pth"
 ASSET_FILES = [
     ("rmvpe.pt", "assets/rmvpe"),       # استخراجِ زیروبمی
 ]
@@ -82,20 +85,49 @@ ASSET_FILES = [
 ASSET_MUTE = ("mute.zip", ".model-downloads")
 
 
-def assetCmds_(py="python"):
+def assetCmds_(py="python", sr="40k", hf="hf"):
     """دستورهای دانلودِ دارایی‌ها، به ترتیب."""
     cmds = [[py, "-m", "pip", "install", "--upgrade", "huggingface_hub"]]
     for pattern, dest in ASSETS:
-        cmds.append(["hf", "download", HF_WEIGHTS, "--revision", "main",
+        cmds.append([hf, "download", HF_WEIGHTS, "--revision", "main",
                      "--include", pattern, "--local-dir", dest])
+    for side in ("G", "D"):
+        cmds.append([hf, "download", HF_WEIGHTS, PRETRAINED % (side, sr),
+                     "--revision", "main", "--local-dir", "assets"])
     for fname, dest in ASSET_FILES:
-        cmds.append(["hf", "download", HF_WEIGHTS, fname,
+        cmds.append([hf, "download", HF_WEIGHTS, fname,
                      "--revision", "main", "--local-dir", dest])
-    cmds.append(["hf", "download", HF_WEIGHTS, ASSET_MUTE[0],
+    cmds.append([hf, "download", HF_WEIGHTS, ASSET_MUTE[0],
                  "--revision", "main", "--local-dir", ASSET_MUTE[1]])
     cmds.append([py, "-m", "zipfile", "-e",
                  "%s/%s" % (ASSET_MUTE[1], ASSET_MUTE[0]), "logs"])
     return cmds
+
+
+def env(root, base=None):
+    """محیطِ اجرای هر قدم — و اینجا یک دامِ واقعی هست.
+
+    ══ چرا PYTHONPATH لازم است ══
+    هر پنج اسکریپت از ریشهٔ مخزن import می‌کنند (`infer.audio`،
+    `train.dataset.slicer2`، `i18n.i18n`، `tools.progress`). ولی وقتی
+    `python train/preprocess.py` اجرا شود، پایتون **پوشهٔ اسکریپت** را در
+    `sys.path` می‌گذارد، نه پوشهٔ جاری را. یعنی `import infer` پیدا نمی‌شود.
+
+    و هیچ‌کدام از آن پنج اسکریپت `sys.path` را دست نمی‌زند — گشتم:
+    نه `sitecustomize.py` هست، نه `conftest.py`، نه `train/__init__.py`،
+    نه اسکریپتِ راه‌اندازی که متغیر را بگذارد. خودِ `webui.py` هم فقط
+    `cwd` را می‌گذارد و PYTHONPATH را ست نمی‌کند.
+
+    پس بدونِ این خط، قدمِ اول با `ModuleNotFoundError: No module named
+    'infer'` می‌میرد — پیش از آنکه حتی یک فایل خوانده شود. این دقیقاً همان
+    چیزی است که اگر از روی یک آموزشِ اینترنتی می‌رفتیم، وسطِ Colab پیدا
+    می‌شد نه اینجا.
+    """
+    import os as _os
+    e = dict(base if base is not None else _os.environ)
+    old = e.get("PYTHONPATH", "")
+    e["PYTHONPATH"] = root + ((_os.pathsep + old) if old else "")
+    return e
 
 
 def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
@@ -113,7 +145,7 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
     (`exp_dir` در برابرِ `exp_dir1`)؛ از آنجا خوانده شده.
     """
     logdir = "%s/logs/%s" % (root, exp)
-    pre = "assets/pretrained_v2/f0%s" + sr + ".pth"
+    pre = "assets/" + PRETRAINED
     out = []
 
     # ۱) برش و نرمال‌سازی. آخری `per` است (طولِ هر برش به ثانیه).
@@ -139,7 +171,7 @@ def steps(exp, dataset_dir, root, sr="40k", f0method="rmvpe", epochs=200,
     #    نمی‌شود — یعنی ساعت‌ها آموزش، و هیچ فایلی که بشود به کار برد.
     train = [py, "train/train.py", "-e", exp, "-sr", sr, "-f0", "1",
              "-bs", str(batch), "-te", str(epochs), "-se", str(save_every),
-             "-pg", pre % "G", "-pd", pre % "D",
+             "-pg", pre % ("G", sr), "-pd", pre % ("D", sr),
              "-l", "0", "-c", "0", "-sw", "1", "-v", version]
     # روی CPU پرچمِ `-g` اصلاً نباید بیاید — webui.py هم دو شاخهٔ جدا
     # دارد و بی‌GPU آن را حذف می‌کند، نه اینکه تهی بفرستد.

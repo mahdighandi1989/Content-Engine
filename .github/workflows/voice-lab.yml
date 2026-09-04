@@ -23,7 +23,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, openvoice, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+        options: [all, openvoice, rvcsmoke, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
       # ══ چند نمونه با کاما ══
       # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
       # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ

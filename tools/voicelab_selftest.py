@@ -1080,6 +1080,102 @@ def main():
     eq([d for d in P.TRAIN_DEPS if d.split(">")[0].split("<")[0].split("=")[0]
         in ("torch", "torchaudio")], [], "torch در فهرستِ نصب نیست")
 
+    # ── ۲۳ ─────────────────────────────────────────────────────────────
+    # مسیرِ کاملِ rvcsmoke روی بدل‌ها. این موتور روی رانر ساعت‌ها طول
+    # می‌کشد، پس اگر منطقش فقط آنجا سنجیده شود، هر اشتباهِ کوچک یک ساعت
+    # هزینه دارد. اینجا در چند صدم ثانیه سنجیده می‌شود.
+    print("۲۳ — مسیرِ کاملِ rvcsmoke روی بدل‌ها")
+    import shutil as _sh
+    import rvcpipe as P
+    d7 = tempfile.mkdtemp()
+    realSh9, realWav9, realProbe9, realWhich = V.sh, V.to_wav, V.probe, _sh.which
+    seen = []
+
+    def _mk(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        io.open(path, "w", encoding="utf-8").write("x" * 2048)
+
+    def _sh9(cmd, timeout=None, **kw):
+        seen.append({"cmd": list(cmd), "cwd": kw.get("cwd"),
+                     "env": kw.get("env")})
+        j = " ".join(cmd)
+        if "train/train.py" in j:
+            _mk(os.path.join(d7, "rvc", "assets", "weights", "smoke.pth"))
+        if "train_index.py" in j:
+            _mk(os.path.join(d7, "rvc", "assets", "indices", "smoke.index"))
+        return R()
+
+    V.sh = _sh9
+    V.to_wav = lambda s_, d_, **kw: wav(d_, 30.0)
+    V.probe = lambda p_: {"seconds": 30.0}
+    _sh.which = lambda n: "/usr/bin/hf" if n == "hf" else None
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "rvcsmoke"}; V.OPT["_out"] = d7
+        V.OPT["ref_inputs"] = ["a.input", "b.input"]
+        got = V.run_rvcsmoke(None, None, None, d7)
+        eq(os.path.basename(got), "smoke.pth", "مدل برگردانده می‌شود، نه صوت")
+
+        names = [c["cmd"] for c in seen]
+        joined = [" ".join(c) for c in names]
+        order = [i for i, j in enumerate(joined)
+                 if "train/preprocess.py" in j or "extract_f0.py" in j
+                 or "extract_hubert_feature.py" in j or "train/train.py" in j
+                 or "train_index.py" in j]
+        eq(order, sorted(order), "پنج قدم به ترتیب اجرا شدند")
+        eq(len([j for j in joined if "train/" in j or "extract" in j]), 5,
+           "و دقیقاً پنج‌تا بودند")
+
+        # مهم‌ترین دو چیز: از ریشهٔ مخزن اجرا می‌شوند، و PYTHONPATH دارند.
+        # بی دومی، قدمِ اول با ModuleNotFoundError می‌میرد.
+        five = [c for c in seen if "train/" in " ".join(c["cmd"])
+                or "extract" in " ".join(c["cmd"])]
+        eq(sorted(set(c["cwd"] for c in five)),
+           [os.path.join(d7, "rvc")], "هر پنج قدم از ریشهٔ مخزن اجرا می‌شوند")
+        eq(all((c["env"] or {}).get("PYTHONPATH", "").startswith(
+            os.path.join(d7, "rvc")) for c in five), True,
+            "و PYTHONPATH ریشه را دارد")
+
+        # نامِ فرمانِ hf حدس زده نمی‌شود.
+        eq(V.OPT["rvc"]["hf_bin"], "hf", "فرمانِ hf از PATH پیدا می‌شود")
+        eq(len(V.OPT["rvc_steps"]), 5, "پنج قدم گزارش شدند")
+    finally:
+        V.sh, V.to_wav, V.probe = realSh9, realWav9, realProbe9
+        _sh.which = realWhich
+
+    # و دو شکستی که باید **شکست** باشند، نه سکوت.
+    def _run(shFn, tag):
+        d = tempfile.mkdtemp()
+        a, b, c, w = V.sh, V.to_wav, V.probe, _sh.which
+        V.sh = shFn
+        V.to_wav = lambda s_, d_, **kw: wav(d_, 30.0)
+        V.probe = lambda p_: {"seconds": 30.0}
+        _sh.which = lambda n: "/usr/bin/hf" if n == "hf" else None
+        try:
+            V.OPT.clear()
+            V.OPT["_rep"] = {"engine": "rvcsmoke"}; V.OPT["_out"] = d
+            V.OPT["ref_inputs"] = ["a.input"]
+            V.run_rvcsmoke(None, None, None, d)
+            return None
+        except Exception as e:
+            return str(e)
+        finally:
+            V.sh, V.to_wav, V.probe, _sh.which = a, b, c, w
+
+    class _Bad(object):
+        returncode = 1
+        stdout = stderr = b""
+
+    msg = _run(lambda cmd, timeout=None, **kw:
+               (_Bad() if "extract_f0.py" in " ".join(cmd) else R()), "f0")
+    eq(msg is not None and "extract_f0" in msg, True,
+       "قدمی که کدِ ناصفر بدهد، اجرا را متوقف می‌کند و نامش در خطاست")
+
+    # و شکلِ بدترِ شکست: همهٔ قدم‌ها کدِ صفر می‌دهند و هیچ فایلی نیست.
+    msg2 = _run(lambda cmd, timeout=None, **kw: R(), "silent")
+    eq(msg2 is not None and "مدلی" in msg2, True,
+       "کدِ صفر بی فایل، «موفق» حساب نمی‌شود")
+
     print("\nهمه گذشت.")
     return 0
 

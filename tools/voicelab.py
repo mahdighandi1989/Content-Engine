@@ -98,6 +98,28 @@ ENGINES = {
         "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
         "note": "خروجی واترمارکِ نامحسوسِ Perth می‌گیرد (داخلِ خودِ کتابخانه)",
     },
+    # ══ نه یک موتور، یک اثبات ══
+    # این چیزی تولید نمی‌کند که بشنوی. کلِ زنجیرهٔ آموزشِ RVC را روی CPU
+    # یک بار تا آخر می‌بَرد تا وقتی کاربر در Colab دکمه را می‌زند، مسیر
+    # از پیش پیموده شده باشد. خروجی‌اش یک فایلِ مدل است، نه صوت.
+    "rvcsmoke": {
+        "family": "اثباتِ زنجیرهٔ آموزش (خروجی مدل است، نه صوت)",
+        # ══ torchaudio عمداً نیست، و گاردِ ۱۶ همین را پرسید ══
+        # اولش نوشته بودمش. بخشِ ۱۶ِ خودآزما اعتراض کرد («torchaudio بی
+        # torchcodec») و جوابِ آسان این بود که torchcodec هم اضافه کنم.
+        # ولی سؤالِ درست این است که اصلاً لازم است یا نه — و سورس می‌گوید
+        # نه: در `infer/audio.py` واردکردنِ torchaudio داخلِ try/except است
+        # و فقط برای انتخابِ مسیرِ سریعِ **CUDA** وجود دارد، و خودِ
+        # `preprocess.py` پیش از واردکردنش `RVC_AUDIO_FORCE_CPU=1` می‌گذارد
+        # که کلِ آن بلوک را رد می‌کند. پس روی CPU هرگز به کار نمی‌رود.
+        # گاردی که وادارت کند وابستگی را **برداری**، بهتر از گاردی است که
+        # وادارت کند یکی دیگر اضافه کنی.
+        "pip": ["torch"],
+        "code_license": "MIT (کد و وزن‌ها — اسکنِ #۳۵)",
+        "needs_src": False,
+        "persian": "بی‌ربط — اینجا هیچ متنی خوانده نمی‌شود",
+        "note": "دو دوره روی CPU؛ کیفیتش بی‌معنی است و عمداً چنین است",
+    },
     "seedvc": {
         "family": "تبدیلِ صدا (رنگِ صدا عوض می‌شود، واژه‌ها نه)",
         # ══ اجرای #۵: همان خطا، چون اشتباهی را نصفه فهمیدم ══
@@ -235,6 +257,14 @@ SURVEY_TIMEOUT = 240
 # بودجهٔ یک اجرای OmniVoice. سقفِ خودِ کار ۱۰۰ دقیقه است؛ این عدد نصفِ آن
 # است تا برای بارگذاری، رونویس و بایگانیِ خروجی جا بماند.
 OMNI_BUDGET_SEC = 2700
+
+# ══ بودجهٔ اجرای دودیِ RVC ══
+# هدفِ این اعداد کیفیت نیست؛ هدف این است که هر پنج قدم **یک بار** تا آخر
+# برود. دو دوره روی چند دقیقه صدا مدلی می‌سازد که به هیچ درد نمی‌خورد —
+# و دقیقاً همان چیزی است که می‌خواهیم بدانیم ساخته می‌شود یا نه.
+RVC_SMOKE_SECONDS = 90      # از هر ضبط، سقفِ این‌قدر
+RVC_SMOKE_EPOCHS = 2
+RVC_STEP_TIMEOUT = 2400     # هر قدم مهلتِ خودش را دارد (درسِ اجرای #۱۱)
 
 
 def sh(cmd, timeout=None, **kw):
@@ -1932,7 +1962,7 @@ def refClean_(src, out, tag, floorMax=-45.0, speechMin=55):
                  "scored": scored[:12]}
 
 
-def refsPrepare_(paths, out, prefix):
+def refsPrepare_(paths, out, prefix, seconds=None, rate=24000):
     """هر ورودیِ مرجع را به wav تبدیل می‌کند و **می‌شمارد**.
 
     ══ چرا شمردنش مهم است ══
@@ -1948,7 +1978,8 @@ def refsPrepare_(paths, out, prefix):
     ready, failed = [], []
     for i, p in enumerate(paths):
         try:
-            ready.append(to_wav(p, os.path.join(out, "%s%d.wav" % (prefix, i + 1))))
+            ready.append(to_wav(p, os.path.join(out, "%s%d.wav" % (prefix, i + 1)),
+                                seconds=seconds, rate=rate))
         except Exception as e:
             failed.append({"index": i + 1, "input": str(p)[:120],
                            "error": str(e)[:200]})
@@ -2143,11 +2174,141 @@ def run_openvoice(ref, src, text, out):
     return made
 
 
+def run_rvcsmoke(ref, src, text, out):
+    """
+    اجرای دودیِ زنجیرهٔ آموزشِ RVC روی CPU — برای اثبات، نه برای کیفیت.
+
+    ══ چرا این هست ══
+    آموزشِ واقعی روی GPU و در Colab انجام می‌شود، یعنی **دستِ کاربر**.
+    یک شکستِ ساده وسطِ آن، وقتِ او را می‌خورد و اعتمادش را — و او در آن
+    محیط ابزارِ عیب‌یابی ندارد. پس همان زنجیره یک بار اینجا، روی CPU، با
+    چند دقیقه صدا و دو دوره اجرا می‌شود. سرعت و کیفیتش بی‌معنی است؛ چیزی
+    که ثابت می‌کند این است: مسیرها درست‌اند، دارایی‌ها می‌آیند، ترتیبِ
+    آرگومان‌ها درست است، و **فایلِ مدل واقعاً ساخته می‌شود**.
+
+    این تفاوتِ «فکر می‌کنم کار می‌کند» با «یک بار کار کرد» است — همان
+    تفاوتی که در این ریپو سه بار به شکلِ «رفعِ باگی که رفع نشده بود»
+    ظاهر شد.
+
+    ══ چرا CPU اصلاً ممکن است ══
+    از خودِ `train/train.py` خوانده شد: اگر کارتی نباشد `n_gpus` را ۱
+    می‌گذارد، backend را `gloo` می‌کند (نه nccl) و هر تماسِ cuda را پشتِ
+    `torch.cuda.is_available()` گارد کرده. پس هر پنج قدم پوشش داده
+    می‌شود، نه چهارتا.
+    """
+    import shutil
+    import rvcpipe as P
+
+    root = os.path.abspath(os.path.join(out, "rvc"))
+    ds = os.path.abspath(os.path.join(out, "rvcds"))
+    exp, sr = "smoke", "40k"
+    os.makedirs(ds, exist_ok=True)
+    facts = {"repo": P.RVC_REPO, "weights": P.HF_WEIGHTS, "sr": sr,
+             "device": "cpu", "purpose": "اثباتِ مسیر، نه کیفیت"}
+    OPT["rvc"] = facts
+    saveRep_()
+
+    # ── ۱. کد ──
+    t0 = time.time()
+    r = sh(["git", "clone", "--depth", "1", P.RVC_REPO, root], timeout=900)
+    if r.returncode != 0:
+        raise RuntimeError("کلونِ RVC ناموفق بود")
+    facts["clone_seconds"] = round(time.time() - t0)
+
+    # ── ۲. وابستگی‌ها ──
+    # از `rvcpipe.TRAIN_DEPS` — همان فهرستی که نوت‌بوک هم می‌خوانَد، تا
+    # اینجا و آنجا نتوانند از هم جدا بیفتند.
+    t0 = time.time()
+    r = sh([sys.executable, "-m", "pip", "install", "--quiet"] + P.TRAIN_DEPS,
+           timeout=2400)
+    if r.returncode != 0:
+        raise RuntimeError("نصبِ وابستگی‌های آموزش ناموفق بود")
+    facts["deps_seconds"] = round(time.time() - t0)
+    facts["deps"] = P.TRAIN_DEPS
+
+    # ── ۳. دارایی‌ها ──
+    # نامِ فرمانِ huggingface_hub عوض شده (`huggingface-cli` → `hf`) و
+    # کدام‌یک روی PATH بنشیند به نسخه بستگی دارد. حدس‌زدنش یعنی شکستی که
+    # فقط می‌گوید «command not found».
+    t0 = time.time()
+    r = sh([sys.executable, "-m", "pip", "install", "--quiet",
+            "--upgrade", "huggingface_hub"], timeout=600)
+    hf = shutil.which("hf") or shutil.which("huggingface-cli")
+    if not hf:
+        raise RuntimeError("فرمانِ hf پیدا نشد (نه hf نه huggingface-cli)")
+    facts["hf_bin"] = os.path.basename(hf)
+    for cmd in P.assetCmds_(py=sys.executable, sr=sr, hf=hf):
+        if cmd[:3] == [sys.executable, "-m", "pip"]:
+            continue                      # همین بالا انجام شد
+        r = sh(cmd, cwd=root, timeout=2400)
+        if r.returncode != 0:
+            raise RuntimeError("دانلودِ دارایی ناموفق بود: %s" % " ".join(cmd[-3:]))
+    facts["assets_seconds"] = round(time.time() - t0)
+    # آنچه واقعاً روی دیسک نشست — نه آنچه خواسته شد.
+    facts["assets_on_disk"] = dict(
+        (rel, round(os.path.getsize(os.path.join(root, rel)) / 1048576.0, 1))
+        for rel in ("assets/hubert_base/pytorch_model.bin",
+                    "assets/rmvpe/rmvpe.pt",
+                    "assets/" + P.PRETRAINED % ("G", sr),
+                    "assets/" + P.PRETRAINED % ("D", sr))
+        if os.path.exists(os.path.join(root, rel)))
+    facts["mute_ok"] = os.path.isdir(os.path.join(root, "logs", "mute"))
+    saveRep_()
+
+    # ── ۴. دیتاست ──
+    # چند دقیقه بس است: هدف اثباتِ مسیر است. هر ضبط سقفِ خودش را دارد تا
+    # یک فایلِ بلند کلِ بودجه را نخورد.
+    made = refsPrepare_(OPT.get("ref_inputs") or [ref], ds, "seg",
+                        seconds=RVC_SMOKE_SECONDS, rate=40000)
+    if not made:
+        raise RuntimeError("هیچ صوتی برای دیتاست آماده نشد")
+    facts["dataset_files"] = len(made)
+    facts["dataset_seconds"] = sum(
+        (probe(m).get("seconds") or 0) for m in made)
+
+    # ── ۵. پنج قدم ──
+    steps = P.steps(exp, ds, root, sr=sr, f0method="rmvpe",
+                    epochs=RVC_SMOKE_EPOCHS, save_every=1, version="v2",
+                    gpus="", n_p=1, batch=1, py=sys.executable)
+    envv = P.env(root)
+    log = []
+    for name, cmd in steps:
+        t = time.time()
+        r = sh(cmd, cwd=root, env=envv, timeout=RVC_STEP_TIMEOUT)
+        row = {"step": name, "code": r.returncode,
+               "seconds": round(time.time() - t)}
+        log.append(row)
+        OPT["rvc_steps"] = log
+        saveRep_()
+        print("قدمِ %s: کد %s در %ss" % (name, r.returncode, row["seconds"]),
+              flush=True)
+        if r.returncode != 0:
+            raise RuntimeError("قدمِ «%s» شکست خورد (کد %s)" % (name, r.returncode))
+
+    # ── ۶. آیا واقعاً چیزی ساخته شد؟ ──
+    # قدمی که کدِ صفر برگرداند ولی فایلی نساخته باشد، همان شکلِ شکستی است
+    # که این ریپو بیش از همه از آن خورده. پس خروجی **دیده** می‌شود.
+    o = P.outputs(exp, root)
+    model = o["model"]
+    idx = [f for f in os.listdir(o["index_dir"])
+           if f.endswith(".index")] if os.path.isdir(o["index_dir"]) else []
+    facts["model_mb"] = (round(os.path.getsize(model) / 1048576.0, 2)
+                         if os.path.exists(model) else None)
+    facts["index_files"] = idx
+    saveRep_()
+    if not os.path.exists(model):
+        raise RuntimeError("آموزش بی‌خطا تمام شد ولی مدلی در %s نیست" % model)
+    if not idx:
+        raise RuntimeError("ایندکسِ بازیابی ساخته نشد")
+    return model
+
+
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "chatterbox": run_chatterbox, "f5": run_f5, "xtts": run_xtts,
            "omnivoice": run_omnivoice,
            "moss": run_moss,
-           "openvoice": run_openvoice}
+           "openvoice": run_openvoice,
+           "rvcsmoke": run_rvcsmoke}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
 # RUNNERها یکی است و نباید برای یک موتور عوض شود.
