@@ -2401,7 +2401,8 @@ from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
                     DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
                     dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
                     dsFloorDb_, dsCap_, dsRuns_, dsSegments_,
-                    dsWriteCuts_, dsJoin_)
+                    dsWriteCuts_, dsJoin_, dsPick_, buildDataset_,
+                    DS_TOTAL_MAX)
 
 
 
@@ -2419,94 +2420,38 @@ def run_dataset(ref, src, text, out):
     ══ و یک ابزار هر دو را جواب می‌دهد ══
     جایی که گفتار نیست ولی صدا بلند است، یعنی چیزی پخش است. برای حالتِ
     اول این فاصله‌های بینِ جمله‌هاست، برای حالتِ دوم مکث‌های ریزِ بینِ
-    خودِ کلمه‌ها. هر دو نسبت به سطحِ گفتارِ همان فایل سنجیده می‌شوند، پس
-    بلندیِ ضبط بی‌اثر است.
+    خودِ کلمه‌ها. هر دو نسبت به سطحِ گفتارِ همان فایل سنجیده می‌شوند.
 
-    ══ چرا خروجی دو فایلِ شنیدنی هم دارد ══
-    این ریپو یک درسِ گران دارد: سه نسخه پشتِ هم اعلام شد باگِ نشتِ نشانه
-    رفع شده، چون هیچ‌کس هرگز به خروجی گوش نداد. پس این ابزار حکم صادر
-    نمی‌کند؛ شواهدش را می‌دهد — یک نمونه از آنچه نگه داشته و یک نمونه از
-    آنچه دور ریخته، تا با گوش سنجیده شود نه با اعتماد.
+    خودِ منطق در `dsprep.py` است، چون نوت‌بوکِ Colab هم همان را اجرا
+    می‌کند. اینجا فقط گزارش‌نویسیِ آزمایشگاه است.
     """
-    import numpy as np
-    from silero_vad import load_silero_vad
-
     srcs = list(OPT.get("ref_inputs") or ([ref] if ref else []))
     if not srcs:
         raise RuntimeError("هیچ ضبطی داده نشد.")
-    model = load_silero_vad()
-    tmp = tempfile.mkdtemp(prefix="ds-")
-    files, segAll, keepDemo, dropDemo = [], [], [], []
-    kept = 0.0
 
-    for i, sp in enumerate(srcs):
-        y, sr = dsDecode_(sp, os.path.join(tmp, "v%d.wav" % i), VAD_SR)
-        total = len(y) / float(sr)
-        speech = dsSpeech_(y, sr, model)
-        row = {"file": os.path.basename(sp), "seconds": round(total, 1),
-               "speech_parts": len(speech)}
-        if not speech:
-            row["skipped"] = "هیچ گفتاری پیدا نشد"
-            files.append(row)
-            continue
+    # ══ تکه‌ها بیرونِ پوشهٔ خروجی ══
+    # اجرای #۴۰: ۳۱۸ تکه داخلِ `out` نشستند و بایگانی ۲۴۲ مگابایت شد،
+    # روی ریپویی که عمومی است، برای چیزی که کسی از آنجا برنمی‌دارد —
+    # تکه‌ها در Colab دوباره ساخته می‌شوند. محصولِ این اجرا داوری است،
+    # نه دیتاست.
+    segDir = tempfile.mkdtemp(prefix="segs-")
 
-        lv = sorted(dbOf_(dsSlice_(y, sr, a, b)) for a, b in speech)
-        speechDb = lv[len(lv) // 2]
-        gaps = dsGaps_(y, sr, speech, total)
-        keep, drop = dsRuns_(y, sr, speech, gaps, speechDb)
-        segs = dsSegments_(keep)
-
-        row.update({
-            "speech_seconds": round(sum(b - a for a, b in speech), 1),
-            "speech_db": round(speechDb, 1),
-            "gaps": len(gaps),
-            # توزیع را هم می‌دهیم، نه فقط حکم را: اگر آستانه بد باشد،
-            # از روی همین عددها معلوم می‌شود، نه با حدس.
-            "gap_rel_db": sorted(round(g["db"] - speechDb, 1) for g in gaps)[:40],
-            "dropped": drop[:20],
-            "dropped_count": len(drop),
-            "segments": len(segs),
-            "segment_seconds": round(sum(b - a for a, b in segs), 1),
-        })
-        files.append(row)
+    def onFile(files):
         OPT["dataset"] = {"files": files}
         saveRep_()
 
-        room = max(0.0, DS_TOTAL_MAX - kept)
-        # ══ تکه‌ها بیرونِ پوشهٔ خروجی ══
-        # بارِ اول ۳۱۸ تکه داخلِ `out` نشستند و آرتیفکت ۲۴۲ مگابایت شد —
-        # روی ریپویی که عمومی است، و برای چیزی که هیچ‌کس از آنجا
-        # برنمی‌دارد: تکه‌ها در Colab دوباره ساخته می‌شوند. آنچه باید
-        # بایگانی شود فقط دو نمونهٔ داوری و گزارش است.
-        made = dsWriteCuts_(sp, segs, tmp, "seg%d_" % (i + 1), limit=room)
-        kept += sum(b - a for a, b in segs[:len(made)])
-        segAll += made
-        keepDemo += dsPick_(made, 3)
-        dropDemo += dsWriteCuts_(
-            sp, [(d["start"], d["end"]) for d in dsPick_(drop, 3)],
-            tmp, "drop%d_" % (i + 1), limit=20.0)
-
-    # ── شواهدِ شنیدنی ──
+    segs, rep = buildDataset_(srcs, segDir, sampleDir=out, onFile=onFile)
     heard = {}
-    k = dsJoin_(dsPick_(keepDemo, 12), os.path.join(out, "SAMPLE-kept.wav"))
-    d = dsJoin_(dsPick_(dropDemo, 12), os.path.join(out, "SAMPLE-dropped.wav"))
-    if k:
-        heard["kept"] = probe(k)
-    if d:
-        heard["dropped"] = probe(d)
-
-    OPT["dataset"] = {
-        "files": files, "segments": len(segAll),
-        "kept_seconds": round(kept, 1),
-        "capped": kept >= DS_TOTAL_MAX,
-        "samples": heard,
-        "thresholds": {"gap_rel_db": DS_GAP_REL_DB,
-                       "floor_rel_db": DS_FLOOR_REL_DB},
-    }
+    for k, path in (rep.get("samples") or {}).items():
+        if path:
+            heard[k] = probe(path)
+    rep["samples"] = heard
+    OPT["dataset"] = rep
     saveRep_()
-    if not segAll:
+    if not segs:
         raise RuntimeError("هیچ تکه‌ای نماند — آستانه‌ها یا ورودی را ببین")
-    return k or segAll[0]
+    return (rep.get("samples") and
+            os.path.join(out, "SAMPLE-kept.wav")) or segs[0]
 
 
 RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,

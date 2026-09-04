@@ -1392,6 +1392,85 @@ def main():
        "نمونه از سراسرِ فهرست برداشته می‌شود")
     eq(V.dsPick_([1, 2], 5), [1, 2], "و کمتر از خواسته، همان که هست")
 
+    # ── ۲۶ ─────────────────────────────────────────────────────────────
+    # `buildDataset_` مسیری است که **هم** آزمایشگاه اجرا می‌کند **هم**
+    # نوت‌بوکِ Colab. یعنی اگر اینجا خراب باشد، آنچه با گوش داوری شده با
+    # آنچه واقعاً آموزش می‌بیند یکی نیست — و هیچ‌چیز این را نشان نمی‌دهد.
+    print("۲۶ — چیدمانِ ساختِ دیتاست (مسیرِ مشترکِ آزمایشگاه و Colab)")
+    import dsprep as D
+    import types as _ty
+
+    if "silero_vad" not in sys.modules:
+        _sv = _ty.ModuleType("silero_vad")
+        _sv.load_silero_vad = lambda *a, **k: object()
+        _sv.get_speech_timestamps = lambda *a, **k: []
+        sys.modules["silero_vad"] = _sv
+
+    d8 = tempfile.mkdtemp()
+    segDir, sampDir = os.path.join(d8, "segs"), os.path.join(d8, "s")
+    os.makedirs(segDir); os.makedirs(sampDir)
+    realD = (D.dsDecode_, D.dsSpeech_, D.dsWriteCuts_, D.dsJoin_)
+    seen8 = []
+
+    def _cuts(src_, cuts_, out_, prefix_, rate=None, limit=None):
+        made_, got_ = [], 0.0
+        for k, (a_, b_) in enumerate(cuts_):
+            if limit is not None and got_ >= limit:
+                break
+            f_ = os.path.join(out_, "%s%d.wav" % (prefix_, k))
+            io.open(f_, "w", encoding="utf-8").write("x")
+            made_.append(f_)
+            got_ += (b_ - a_)
+        return made_
+
+    # سیگنالِ بدل باید **ساختارِ گفتار** داشته باشد: سکوتِ محض گفتار
+    # نیست و دروازهٔ دوم به‌درستی ردش می‌کند (همان چیزی که بخشِ ۲۵ هم
+    # نشان داد). پس نویزِ تکه‌تکه با مکث‌های ریز.
+    def _speechy(rate_, secs=60.0):
+        import numpy as _n
+        rng_ = _n.random.RandomState(3)
+        one = _n.concatenate([
+            rng_.randn(int(0.4 * rate_)).astype("float32") * 0.2,
+            _n.zeros(int(0.1 * rate_), dtype="float32")])
+        return _n.tile(one, int(secs / 0.5))
+
+    D.dsDecode_ = lambda src_, dst_, rate_: (_speechy(rate_), rate_)
+    D.dsSpeech_ = lambda y_, sr_, m_: ([] if "quiet" in str(seen8) and False
+                                       else [(0.0, 20.0), (25.0, 50.0)])
+    D.dsWriteCuts_ = _cuts
+    D.dsJoin_ = lambda parts_, dst_: (io.open(dst_, "w",
+                                              encoding="utf-8").write("x"), dst_)[1]
+    try:
+        segs8, rep8 = D.buildDataset_(["a.mp3", "b.mp3"], segDir,
+                                      sampleDir=sampDir,
+                                      onFile=lambda f: seen8.append(len(f)))
+        eq(len(rep8["files"]), 2, "هر دو فایل گزارش شدند")
+        eq(seen8, [1, 2], "و گزارش پس از هر فایل به‌روز شد، نه فقط در پایان")
+        eq(segs8 != [], True, "تکه ساخته شد (%d تا)" % len(segs8))
+        eq(sorted(rep8["samples"]), ["dropped", "kept"],
+           "هر دو نمونهٔ شنیدنی ساخته می‌شوند")
+        eq(os.path.isfile(os.path.join(sampDir, "SAMPLE-kept.wav")), True,
+           "و در پوشهٔ نمونه می‌نشینند")
+        eq(sorted(rep8["thresholds"]), ["floor_rel_db", "gap_rel_db"],
+           "آستانه‌ها در گزارش می‌آیند — تا اگر بد بودند دیده شوند")
+        eq([x for x in os.listdir(segDir) if x.startswith("seg")] != [], True,
+           "تکه‌ها در پوشهٔ خودشان‌اند، نه کنارِ نمونه‌ها")
+        eq([x for x in os.listdir(sampDir) if x.startswith("seg")], [],
+           "و پوشهٔ نمونه فقط نمونه دارد")
+
+        # سقفِ مجموع واقعاً می‌بُرد
+        _, rep9 = D.buildDataset_(["a.mp3", "b.mp3"], segDir, totalMax=5.0)
+        eq(rep9["capped"], True, "سقفِ مجموع اعمال می‌شود")
+        eq(rep9["kept_seconds"] >= 5.0, True, "و در گزارش دیده می‌شود")
+
+        # فایلی که هیچ گفتاری ندارد، بی‌صدا رد نمی‌شود
+        D.dsSpeech_ = lambda y_, sr_, m_: []
+        _, rep10 = D.buildDataset_(["c.mp3"], segDir)
+        eq(rep10["files"][0].get("skipped") is not None, True,
+           "فایلِ بی‌گفتار با دلیل ثبت می‌شود، نه بی‌صدا کنار گذاشته")
+    finally:
+        (D.dsDecode_, D.dsSpeech_, D.dsWriteCuts_, D.dsJoin_) = realD
+
     print("\nهمه گذشت.")
     return 0
 

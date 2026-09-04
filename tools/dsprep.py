@@ -248,3 +248,94 @@ def dsPick_(items, n):
     step = len(items) / float(n)
     return [items[int(i * step)] for i in range(n)]
 
+DS_TOTAL_MAX = 2400.0   # چهل دقیقه؛ بیشتر از این بازدهِ RVC کم می‌شود
+
+
+def dsPick_(items, n):
+    """n تا از سراسرِ فهرست، نه n تای اول — نمونه باید نماینده باشد."""
+    if len(items) <= n:
+        return list(items)
+    step = len(items) / float(n)
+    return [items[int(i * step)] for i in range(n)]
+
+
+def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,
+                  onFile=None):
+    """از ضبط‌های بلند، تکه‌های تمیزِ آموزش بساز — و شواهدش را هم.
+
+    ══ چرا اینجا و نه در آزمایشگاه ══
+    این همان چیدمانی است که هم آزمایشگاه اجرا می‌کند (تا با گوش داوری
+    شود) و هم نوت‌بوکِ Colab (تا خوراکِ واقعیِ آموزش را بسازد). اگر دو
+    جا نوشته شود، روزی یکی‌شان عوض می‌شود و آنچه داوری شده با آنچه
+    آموزش می‌بیند یکی نخواهد بود — و هیچ‌چیز این را نشان نمی‌دهد.
+
+    برمی‌گرداند: (فهرستِ تکه‌ها، گزارش). `sampleDir` اگر داده شود، دو
+    فایلِ شنیدنی هم ساخته می‌شود: نگه‌داشته‌ها و دورریخته‌ها.
+    """
+    from silero_vad import load_silero_vad
+
+    model = load_silero_vad()
+    tmp = tempfile.mkdtemp(prefix="ds-")
+    files, segAll, keepDemo, dropDemo = [], [], [], []
+    kept = 0.0
+
+    for i, sp in enumerate(paths):
+        y, sr = dsDecode_(sp, os.path.join(tmp, "v%d.wav" % i), VAD_SR)
+        total = len(y) / float(sr)
+        speech = dsSpeech_(y, sr, model)
+        row = {"file": os.path.basename(sp), "seconds": round(total, 1),
+               "speech_parts": len(speech)}
+        if not speech:
+            row["skipped"] = "هیچ گفتاری پیدا نشد"
+            files.append(row)
+            if onFile:
+                onFile(files)
+            continue
+
+        lv = sorted(dbOf_(dsSlice_(y, sr, a, b)) for a, b in speech)
+        speechDb = lv[len(lv) // 2]
+        gaps = dsGaps_(y, sr, speech, total)
+        keep, drop = dsRuns_(y, sr, speech, gaps, speechDb)
+        segs = dsSegments_(keep)
+        row.update({
+            "speech_seconds": round(sum(b - a for a, b in speech), 1),
+            "speech_db": round(speechDb, 1),
+            "gaps": len(gaps),
+            # توزیع را هم می‌دهیم، نه فقط حکم را: اگر آستانه بد باشد،
+            # از روی همین عددها معلوم می‌شود، نه با حدس.
+            "gap_rel_db": sorted(round(g["db"] - speechDb, 1) for g in gaps)[:40],
+            "dropped": drop[:20],
+            "dropped_count": len(drop),
+            "segments": len(segs),
+            "segment_seconds": round(sum(b - a for a, b in segs), 1),
+        })
+        files.append(row)
+        if onFile:
+            onFile(files)
+
+        room = max(0.0, totalMax - kept)
+        made = dsWriteCuts_(sp, segs, segDir, "seg%d_" % (i + 1), limit=room)
+        kept += sum(b - a for a, b in segs[:len(made)])
+        segAll += made
+        if sampleDir:
+            keepDemo += dsPick_(made, 3)
+            dropDemo += dsWriteCuts_(
+                sp, [(d["start"], d["end"]) for d in dsPick_(drop, 3)],
+                tmp, "drop%d_" % (i + 1), limit=20.0)
+
+    rep = {"files": files, "segments": len(segAll),
+           "kept_seconds": round(kept, 1), "capped": kept >= totalMax,
+           "thresholds": {"gap_rel_db": DS_GAP_REL_DB,
+                          "floor_rel_db": DS_FLOOR_REL_DB}}
+    if sampleDir:
+        # ══ شواهدِ شنیدنی ══
+        # این ریپو یک درسِ گران دارد: سه نسخه پشتِ هم باگی «رفع‌شده»
+        # اعلام شد چون هیچ‌کس به خروجی گوش نداد. پس ابزار حکم صادر
+        # نمی‌کند؛ نمونه‌اش را می‌دهد.
+        rep["samples"] = {
+            "kept": dsJoin_(dsPick_(keepDemo, 12),
+                            os.path.join(sampleDir, "SAMPLE-kept.wav")),
+            "dropped": dsJoin_(dsPick_(dropDemo, 12),
+                               os.path.join(sampleDir, "SAMPLE-dropped.wav")),
+        }
+    return segAll, rep
