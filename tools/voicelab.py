@@ -35,7 +35,7 @@ voicelab.py — آزمایشگاهِ صدا. گامِ صفرِ «شبیه‌سا
 گزارش می‌آورد.
 """
 
-import argparse, io, json, os, re, shutil, subprocess, sys, time, traceback, types
+import argparse, io, json, os, re, shutil, subprocess, sys, tempfile, time, traceback, types
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fa2latin
@@ -286,6 +286,46 @@ def sh(cmd, timeout=None, **kw):
             stderr = ("مهلتِ %ss تمام شد" % timeout).encode("utf-8")
         print("مهلت تمام شد (%ss): %s" % (timeout, cmd[0]), flush=True)
         return _T()
+
+
+def shTail_(cmd, tailLines=40, **kw):
+    """فرمان را اجرا کن، خروجی‌اش را نگه دار، و دُمش را برگردان.
+
+    `sh` خروجی را زنده به لاگ می‌دهد که برای کارِ طولانی خوب است، ولی
+    چیزی برای **گزارش** باقی نمی‌گذارد. اینجا هر دو: در فایل جمع می‌شود،
+    آخرش دُمش هم چاپ می‌شود هم در گزارش می‌نشیند.
+    """
+    print("$ " + " ".join(cmd), flush=True)
+    path = os.path.join(tempfile.mkdtemp(), "out.txt")
+    with io.open(path, "wb") as f:
+        try:
+            r = subprocess.run(cmd, check=False, stdout=f,
+                               stderr=subprocess.STDOUT, **kw)
+            code = r.returncode
+        except subprocess.TimeoutExpired:
+            code = 124
+    txt = io.open(path, encoding="utf-8", errors="replace").read()
+    return "\n".join(txt.splitlines()[-tailLines:]), code
+
+
+# نشانه‌هایی که «علتِ واقعی» را حمل می‌کنند. ترتیب مهم است: آخرین
+# استثنا معمولاً گویاتر از اولی است.
+ERR_MARKS_ = ("Error:", "Exception:", "error:", "No module named",
+              "Traceback (most recent call last)")
+
+
+def errGist_(tail):
+    """از دُمِ خروجی، گویاترین خط را بیرون بکش.
+
+    پیامِ «کد ۱» به کسی نمی‌گوید چه شد. یک خطِ درست — مثلاً
+    `ModuleNotFoundError: No module named 'infer'` — تفاوتِ یک اجرای
+    دیگر با یک اصلاحِ درست است.
+    """
+    lines = [ln.strip() for ln in (tail or "").splitlines() if ln.strip()]
+    for ln in reversed(lines):
+        if any(m in ln for m in ERR_MARKS_):
+            return ln[:300]
+    return lines[-1][:300] if lines else "خروجی‌ای نبود"
 
 
 def ffmpeg():
@@ -2199,12 +2239,20 @@ def run_rvcsmoke(ref, src, text, out):
     import shutil
     import rvcpipe as P
 
-    root = os.path.abspath(os.path.join(out, "rvc"))
-    ds = os.path.abspath(os.path.join(out, "rvcds"))
+    # ══ کارگاه بیرون از پوشهٔ خروجی ══
+    # بارِ اول مخزن را داخلِ `out` کلون کردم و آرتیفکت ۵۵۹ مگابایت و ۳۰۰
+    # فایل شد — یعنی بیست ثانیه آپلودِ چیزی که هیچ‌کس نمی‌خواهدش، روی
+    # ریپویی که عمومی است. آنچه باید بایگانی شود گزارش است، نه کلِ RVC.
+    # و مسیرِ **یکتا**، نه ثابت: `git clone` روی پوشهٔ ناتهی می‌افتد، پس
+    # یک نامِ ثابت یعنی اجرای دوم روی همان ماشین بی‌دلیل شکست می‌خورد.
+    work = tempfile.mkdtemp(prefix="rvcwork-")
+    root = os.path.abspath(os.path.join(work, "rvc"))
+    ds = os.path.abspath(os.path.join(work, "ds"))
     exp, sr = "smoke", "40k"
     os.makedirs(ds, exist_ok=True)
     facts = {"repo": P.RVC_REPO, "weights": P.HF_WEIGHTS, "sr": sr,
-             "device": "cpu", "purpose": "اثباتِ مسیر، نه کیفیت"}
+             "device": "cpu", "purpose": "اثباتِ مسیر، نه کیفیت",
+             "work_dir": work}
     OPT["rvc"] = facts
     saveRep_()
 
@@ -2274,16 +2322,23 @@ def run_rvcsmoke(ref, src, text, out):
     log = []
     for name, cmd in steps:
         t = time.time()
-        r = sh(cmd, cwd=root, env=envv, timeout=RVC_STEP_TIMEOUT)
-        row = {"step": name, "code": r.returncode,
-               "seconds": round(time.time() - t)}
+        # ══ چرا خروجی گرفته می‌شود، نه فقط جاری ══
+        # بارِ اول فقط `code: 1` در گزارش نشست و علت هیچ‌جا نبود جز وسطِ
+        # هزار خط لاگ. یعنی گزارشی که نمی‌شود از آن فهمید چه شد — همان
+        # چیزی که این ریپو یک بخشِ کامل دربارهٔ بدتر بودنش از سکوت دارد.
+        tail, code = shTail_(cmd, cwd=root, env=envv,
+                             timeout=RVC_STEP_TIMEOUT)
+        row = {"step": name, "code": code, "seconds": round(time.time() - t)}
+        if code != 0:
+            row["output_tail"] = tail
         log.append(row)
         OPT["rvc_steps"] = log
         saveRep_()
-        print("قدمِ %s: کد %s در %ss" % (name, r.returncode, row["seconds"]),
-              flush=True)
-        if r.returncode != 0:
-            raise RuntimeError("قدمِ «%s» شکست خورد (کد %s)" % (name, r.returncode))
+        print("قدمِ %s: کد %s در %ss" % (name, code, row["seconds"]), flush=True)
+        if code != 0:
+            print("── آخرین خطوطِ قدمِ «%s» ──\n%s" % (name, tail), flush=True)
+            raise RuntimeError("قدمِ «%s» شکست خورد (کد %s) — %s"
+                               % (name, code, errGist_(tail)))
 
     # ── ۶. آیا واقعاً چیزی ساخته شد؟ ──
     # قدمی که کدِ صفر برگرداند ولی فایلی نساخته باشد، همان شکلِ شکستی است

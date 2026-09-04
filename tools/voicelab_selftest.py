@@ -1089,6 +1089,7 @@ def main():
     import rvcpipe as P
     d7 = tempfile.mkdtemp()
     realSh9, realWav9, realProbe9, realWhich = V.sh, V.to_wav, V.probe, _sh.which
+    realTail9 = V.shTail_
     seen = []
 
     def _mk(path):
@@ -1099,13 +1100,19 @@ def main():
         seen.append({"cmd": list(cmd), "cwd": kw.get("cwd"),
                      "env": kw.get("env")})
         j = " ".join(cmd)
+        root9 = kw.get("cwd") or ""
         if "train/train.py" in j:
-            _mk(os.path.join(d7, "rvc", "assets", "weights", "smoke.pth"))
+            _mk(os.path.join(root9, "assets", "weights", "smoke.pth"))
         if "train_index.py" in j:
-            _mk(os.path.join(d7, "rvc", "assets", "indices", "smoke.index"))
+            _mk(os.path.join(root9, "assets", "indices", "smoke.index"))
         return R()
 
+    def _tail9(cmd, tailLines=40, **kw):
+        _sh9(cmd, **kw)
+        return "", 0
+
     V.sh = _sh9
+    V.shTail_ = _tail9
     V.to_wav = lambda s_, d_, **kw: wav(d_, 30.0)
     V.probe = lambda p_: {"seconds": 30.0}
     _sh.which = lambda n: "/usr/bin/hf" if n == "hf" else None
@@ -1130,24 +1137,36 @@ def main():
         # بی دومی، قدمِ اول با ModuleNotFoundError می‌میرد.
         five = [c for c in seen if "train/" in " ".join(c["cmd"])
                 or "extract" in " ".join(c["cmd"])]
-        eq(sorted(set(c["cwd"] for c in five)),
-           [os.path.join(d7, "rvc")], "هر پنج قدم از ریشهٔ مخزن اجرا می‌شوند")
-        eq(all((c["env"] or {}).get("PYTHONPATH", "").startswith(
-            os.path.join(d7, "rvc")) for c in five), True,
-            "و PYTHONPATH ریشه را دارد")
+        rootDir = os.path.join(V.OPT["rvc"]["work_dir"], "rvc")
+        eq(sorted(set(c["cwd"] for c in five)), [rootDir],
+           "هر پنج قدم از ریشهٔ مخزن اجرا می‌شوند")
+        eq(all((c["env"] or {}).get("PYTHONPATH", "").startswith(rootDir)
+               for c in five), True, "و PYTHONPATH ریشه را دارد")
+        # و کارگاه بیرونِ پوشهٔ خروجی است، وگرنه کلِ RVC بایگانی می‌شود.
+        eq(V.OPT["rvc"]["work_dir"].startswith(os.path.abspath(d7)), False,
+           "کارگاه بیرونِ پوشهٔ خروجی است")
 
         # نامِ فرمانِ hf حدس زده نمی‌شود.
         eq(V.OPT["rvc"]["hf_bin"], "hf", "فرمانِ hf از PATH پیدا می‌شود")
         eq(len(V.OPT["rvc_steps"]), 5, "پنج قدم گزارش شدند")
     finally:
         V.sh, V.to_wav, V.probe = realSh9, realWav9, realProbe9
+        V.shTail_ = realTail9
         _sh.which = realWhich
 
     # و دو شکستی که باید **شکست** باشند، نه سکوت.
     def _run(shFn, tag):
         d = tempfile.mkdtemp()
         a, b, c, w = V.sh, V.to_wav, V.probe, _sh.which
+        tl = V.shTail_
         V.sh = shFn
+
+        def _t(cmd, tailLines=40, **kw):
+            r_ = shFn(cmd, **kw)
+            return ("ModuleNotFoundError: No module named 'x'"
+                    if r_.returncode else ""), r_.returncode
+
+        V.shTail_ = _t
         V.to_wav = lambda s_, d_, **kw: wav(d_, 30.0)
         V.probe = lambda p_: {"seconds": 30.0}
         _sh.which = lambda n: "/usr/bin/hf" if n == "hf" else None
@@ -1161,6 +1180,7 @@ def main():
             return str(e)
         finally:
             V.sh, V.to_wav, V.probe, _sh.which = a, b, c, w
+            V.shTail_ = tl
 
     class _Bad(object):
         returncode = 1
@@ -1170,11 +1190,38 @@ def main():
                (_Bad() if "extract_f0.py" in " ".join(cmd) else R()), "f0")
     eq(msg is not None and "extract_f0" in msg, True,
        "قدمی که کدِ ناصفر بدهد، اجرا را متوقف می‌کند و نامش در خطاست")
+    eq("No module named" in (msg or ""), True,
+       "و علتِ واقعی در خودِ پیام است، نه فقط شمارهٔ کد")
 
     # و شکلِ بدترِ شکست: همهٔ قدم‌ها کدِ صفر می‌دهند و هیچ فایلی نیست.
     msg2 = _run(lambda cmd, timeout=None, **kw: R(), "silent")
     eq(msg2 is not None and "مدلی" in msg2, True,
        "کدِ صفر بی فایل، «موفق» حساب نمی‌شود")
+
+    # ── ۲۴ ─────────────────────────────────────────────────────────────
+    # این دو، ستونِ عیب‌یابیِ کارِ دور هستند. اگر خودشان غلط باشند، هر
+    # اجرای بعدی «کد ۱» می‌دهد و باز هم هیچ.
+    print("۲۴ — گرفتنِ خروجیِ فرمان و بیرون‌کشیدنِ علت")
+    t, c = V.shTail_([sys.executable, "-c", "import nosuchmod_xyz"])
+    eq(c, 1, "کدِ خروج درست برمی‌گردد")
+    eq("No module named" in t, True, "و خروجیِ خطا نگه داشته می‌شود")
+    eq(V.errGist_(t).startswith("ModuleNotFoundError"), True,
+       "و گویاترین خط بیرون کشیده می‌شود: %s" % V.errGist_(t)[:60])
+
+    t2, c2 = V.shTail_([sys.executable, "-c", "print('ok')"])
+    eq((c2, t2.strip()), (0, "ok"), "و اجرای سالم هم خروجی‌اش را می‌دهد")
+
+    # دُم واقعاً دُم است — نه کلِ خروجی.
+    t3, _ = V.shTail_([sys.executable, "-c",
+                       "print('\\n'.join(str(i) for i in range(500)))"],
+                      tailLines=5)
+    eq(t3.splitlines(), ["495", "496", "497", "498", "499"],
+       "فقط آخرین خطوط نگه داشته می‌شود")
+
+    # و وقتی هیچ نشانه‌ای نیست، آخرین خط بهتر از هیچ است.
+    eq(V.errGist_("just a line\nlast line"), "last line",
+       "بی نشانه، آخرین خط برمی‌گردد")
+    eq(V.errGist_(""), "خروجی‌ای نبود", "و خروجیِ تهی هم پیامِ خودش را دارد")
 
     print("\nهمه گذشت.")
     return 0
