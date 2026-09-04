@@ -886,15 +886,41 @@ def main():
     finally:
         V.sh, V.to_wav = realSh6, realWav6
 
-    eq(os.path.basename(made6), "openvoice_tau30.wav", "خروجیِ برگشتی همان شاهد است")
-    eq([v["name"] for v in rep8["variants"]], ["tau30", "tau05"],
-       "دو اجرا، و متغیرشان tau است")
-    eq([c["tau"] for c in convs], [0.3, 0.05], "و هر دو مقدار واقعاً پاس داده شد")
-    eq(rep8["ref_used"]["count"], 3,
-       "و هر دو از **همهٔ** ضبط‌ها تغذیه می‌شوند — تا فقط یک چیز عوض شود")
+    eq(os.path.basename(made6), "openvoice_whole.wav", "خروجیِ برگشتی همان شاهد است")
+    eq([v["name"] for v in rep8["variants"]], ["whole", "clean"],
+       "دو اجرا، و متغیرشان تمیزیِ مرجع است")
+    eq([c["tau"] for c in convs], [0.3, 0.3],
+       "tau در هر دو یکی است — آن پرسش بسته شد")
+    eq(len(rep8["variants"][0]["refs"]), 3, "شاهد از هر سه ضبطِ کامل تغذیه می‌شود")
+    eq("ref_clean" in rep8, True, "و گزارشِ تمیزکاری ثبت می‌شود")
     eq(rep8["model_facts"]["weights"], "checkpoint.pth",
        "وزن در چیدمانِ چک‌پوینت پیدا می‌شود")
     V.OPT.clear()
+
+    # ══ ۱۹ — پالایهٔ مرجع: تصمیم، و قاعدهٔ «هرگز تهی نکن» ══
+    # روی صوتِ واقعی هم آزمودمش (نیمی موزیک‌دار: دو تکهٔ آلوده افتادند و
+    # سه تکهٔ پاک ماندند)، ولی آن به ffmpeg نیاز دارد و کارِ اسکن ندارد.
+    # آنچه اینجا می‌ماند منطقِ تصمیم است — و مهم‌تر از همه این‌که پالایه
+    # نتواند همه‌چیز را بیندازد. پالایه‌ای که می‌تواند ورودی را تهی کند،
+    # اول باید به خودش شک کند.
+    print("۱۹ — پالایهٔ مرجع هرگز تهی برنمی‌گردد")
+    d5 = tempfile.mkdtemp()
+    realSh7, realScore7, realProbe = V.sh, V.refScore_, V.probe
+    V.probe = lambda p_: {"seconds": 150.0}
+    V.sh = lambda cmd, **kw: (wav(cmd[-1], 30.0), R())[-1]
+    try:
+        # هیچ تکه‌ای از سد نمی‌گذرد — باید بهترین بماند، نه هیچ‌کدام
+        V.refScore_ = lambda p_, **kw: {"window_floor_db": -10.0, "speech_pct": 20}
+        dst, log = V.refClean_(wav(os.path.join(d5, "a.wav"), 150.0), d5, "z")
+        eq(log["chunks_kept"], 1,
+           "وقتی هیچ تکه‌ای از سد نگذرد، بهترین می‌مانَد — نه هیچ‌کدام")
+        # و وقتی همه خوب‌اند، همه می‌مانند
+        V.refScore_ = lambda p_, **kw: {"window_floor_db": -60.0, "speech_pct": 70}
+        dst2, log2 = V.refClean_(wav(os.path.join(d5, "b.wav"), 150.0), d5, "y")
+        eq(log2["chunks_kept"], log2["chunks_total"],
+           "و وقتی همه تمیزند، هیچ‌کدام بی‌جهت کنار گذاشته نمی‌شود")
+    finally:
+        V.sh, V.refScore_, V.probe = realSh7, realScore7, realProbe
 
     print("\nهمه گذشت.")
     return 0

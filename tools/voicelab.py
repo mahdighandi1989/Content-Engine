@@ -1838,6 +1838,68 @@ OV_REPO_ = "https://github.com/myshell-ai/OpenVoice"
 OV_CKPT_ = "myshell-ai/OpenVoiceV2"
 
 
+
+def refClean_(src, out, tag, floorMax=-45.0, speechMin=55):
+    """
+    از یک ضبطِ مرجع، فقط تکه‌های تمیزش را نگه دار.
+
+    ══ چرا این، پس از رسیدن به سقفِ ۷۰٪ ══
+    `extract_se` بردارِ گوینده را روی هرچه بدهیم میانگین می‌گیرد. ما
+    فایل‌های **کامل** می‌دادیم — با موسیقیِ آغازین، افکت، و هر تکهٔ
+    نویزی‌ای که در یک ضبطِ کتابِ صوتی هست. آن‌ها هم وارد میانگین می‌شوند
+    و بردار را از صدای خودِ گوینده دور می‌کنند.
+    `refScore_` از اول همین را می‌سنجید — ولی فقط برای **انتخابِ یک
+    پنجره** به کار می‌رفت. اینجا همان سنجه روی همهٔ تکه‌ها اجرا می‌شود و
+    هرچه از سد گذشت می‌ماند. باز همان الگو: تحلیلی که بود و به این تصمیم
+    وصل نشده بود.
+
+    ══ و هرگز تهی برنمی‌گردد ══
+    اگر هیچ تکه‌ای از سد نگذرد، یعنی سد غلط بوده، نه ضبط بی‌فایده. در آن
+    حال بهترین تکه می‌ماند. (همان قاعده‌ای که در خودِ موتور هست: پالایه‌ای
+    که می‌تواند همه‌چیز را بیندازد، اول باید به خودش شک کند.)
+    """
+    f = ffmpeg()
+    info = probe(src)
+    dur = float(info.get("seconds") or 0)
+    if dur < 45:
+        return src, {"file": os.path.basename(src), "kept": "کوتاه‌تر از آن بود که تکه شود"}
+    keep, scored = [], []
+    for i in range(int(dur // 30)):
+        ch = os.path.join(out, "%s-chunk%02d.wav" % (tag, i))
+        r = sh([f, "-y", "-nostdin", "-ss", str(i * 30), "-t", "30",
+                "-i", src, "-ac", "1", "-ar", "24000", ch],
+               capture_output=True, timeout=120)
+        if r.returncode != 0:
+            continue
+        sc = refScore_(ch)
+        scored.append({"at": i * 30, "floor": sc.get("window_floor_db"),
+                       "speech": sc.get("speech_pct")})
+        if (sc.get("window_floor_db") is not None
+                and sc["window_floor_db"] < floorMax
+                and (sc.get("speech_pct") or 0) >= speechMin):
+            keep.append((ch, sc))
+    if not keep and scored:
+        best = max(range(len(scored)),
+                   key=lambda k: (scored[k]["floor"] or -999))
+        ch = os.path.join(out, "%s-chunk%02d.wav" % (tag, best))
+        if os.path.exists(ch):
+            keep = [(ch, scored[best])]
+    if not keep:
+        return src, {"file": os.path.basename(src), "kept": "تکه‌ای ساخته نشد"}
+    lst = os.path.join(out, "%s-list.txt" % tag)
+    with io.open(lst, "w", encoding="utf-8") as fh:
+        for ch, _ in keep:
+            fh.write("file '%s'\n" % os.path.abspath(ch))
+    dst = os.path.join(out, "%s-clean.wav" % tag)
+    r = sh([f, "-y", "-nostdin", "-f", "concat", "-safe", "0", "-i", lst,
+            "-c", "copy", dst], capture_output=True, timeout=180)
+    if r.returncode != 0 or not os.path.exists(dst):
+        return src, {"file": os.path.basename(src), "kept": "چسباندن نشد"}
+    return dst, {"file": os.path.basename(src),
+                 "chunks_total": len(scored), "chunks_kept": len(keep),
+                 "seconds": round(probe(dst).get("seconds") or 0, 1),
+                 "scored": scored[:12]}
+
 def run_openvoice(ref, src, text, out):
     """
     OpenVoice v2 — تبدیلِ صدا، این‌بار با مدلی که کارش فقط همین است.
@@ -1966,19 +2028,36 @@ def run_openvoice(ref, src, text, out):
     # آن‌ها آن را روی ۰٫۳ آورده — پس پایین‌تر بردنش فرضیهٔ طبیعیِ بعدی
     # است: نویزِ کمتر یعنی تبدیلِ باثبات‌تر و تمیزتر.
     # مرجع در هر دو اجرا **یکی** است تا فقط همین یک چیز عوض شود.
+    # ══ `tau` اهرم نبود ══
+    # ۰٫۳ و ۰٫۰۵ خروجیِ تقریباً یکسان دادند («مثل هم بودن»). پس آن پرسش
+    # بسته است و روی پیش‌فرض می‌ماند.
+    #
+    # متغیرِ تازه: **تمیزیِ خودِ مرجع**. تا حالا فایل‌های کامل می‌رفتند،
+    # با موسیقیِ آغازین و هر تکهٔ نویزی. `extract_se` روی همه میانگین
+    # می‌گیرد، پس آن‌ها بردار را از صدای گوینده دور می‌کنند.
     refs = allRefs if len(allRefs) > 1 else [ref]
-    runs = [("tau30", refs, 0.3, "همان تنظیمی که شنیدید — شاهد"),
-            ("tau05", refs, 0.05, "نویزِ کمتر در بازنماییِ محتوا")]
+    cleaned, cleanLog = [], []
+    for i, p in enumerate(refs):
+        try:
+            c, log = refClean_(p, out, "ovclean%d" % (i + 1))
+        except Exception as e:
+            c, log = p, {"file": os.path.basename(p), "error": str(e)[:200]}
+        cleaned.append(c)
+        cleanLog.append(log)
+    OPT["ref_clean"] = cleanLog
+    saveRep_()
+    print("تمیزکاریِ مرجع:", json.dumps(cleanLog, ensure_ascii=False)[:600],
+          flush=True)
+
+    runs = [("whole", refs, 0.3, "ضبط‌های کامل — همان که ۷۰٪ شد (شاهد)"),
+            ("clean", cleaned, 0.3, "فقط تکه‌های تمیزِ همان ضبط‌ها")]
 
     made, variants = None, []
-    tgtSe = tcc.extract_se(refs)
-    OPT["ref_used"] = {"count": len(refs),
-                       "files": [os.path.basename(x) for x in refs]}
-    saveRep_()
     for name, refs_, tau, why in runs:
         dst = os.path.join(out, "openvoice_%s.wav" % name)
         t1 = time.time()
         try:
+            tgtSe = tcc.extract_se(refs_)
             tcc.convert(audio_src_path=src, src_se=srcSe, tgt_se=tgtSe,
                         output_path=dst, tau=tau)
             took = round(time.time() - t1)
@@ -1986,7 +2065,7 @@ def run_openvoice(ref, src, text, out):
             sec = float(info.get("seconds") or 0)
             variants.append({
                 "name": name, "why": why, "file": os.path.basename(dst),
-                "tau": tau,
+                "tau": tau, "refs": [os.path.basename(x) for x in refs_],
                 "info": info, "seconds_taken": took,
                 "realtime_factor": (round(took / sec, 1) if sec else None),
                 "episode_hours_19min": (round(took / sec * 19 * 60 / 3600.0, 1)
