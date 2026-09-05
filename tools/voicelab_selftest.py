@@ -384,6 +384,14 @@ def main():
     sys.modules["omnivoice"].OmniVoice = types.SimpleNamespace(
         from_pretrained=lambda p, **kw: FakeModel())
     sys.modules["huggingface_hub"].snapshot_download = lambda r, **kw: w2
+    # ══ وصله‌ای که برداشته نشود، آزمونِ بعدی را می‌شکند ══
+    # این خط `soundfile.write` را **سراسری** عوض می‌کرد و هیچ‌وقت
+    # برنمی‌گرداند. بخشِ ۳۲ که چند صد خط پایین‌تر اضافه شد، خروجی‌اش
+    # پنج‌ثانیه‌ای درمی‌آمد در حالی که مبدأ چهار ثانیه بود — و آزمونِ
+    # «طول حفظ شد» می‌افتاد، بی آنکه هیچ ربطی به کدِ سنجیده‌شده داشته
+    # باشد. یک وصلهٔ نشت‌کرده، آزمونی می‌سازد که دربارهٔ خودش دروغ
+    # می‌گوید.
+    realSfWrite = sys.modules["soundfile"].write
     sys.modules["soundfile"].write = lambda p, a, sr: wav(p, 5.0)
     io.open(os.path.join(w2, "README.md"), "w", encoding="utf-8").write(
         "---\nlicense: apache-2.0\n---\nکارتِ مدلِ بدلی\n")
@@ -783,6 +791,7 @@ def main():
         rep6 = json.load(io.open(os.path.join(w5, "report-moss.json"),
                                  encoding="utf-8"))
     finally:
+        sys.modules["soundfile"].write = realSfWrite
         V.sh, V.cutAtPause_ = realSh5, realCut2
 
     eq(os.path.basename(made5), "moss_lora.wav", "خروجیِ برگشتی درست است")
@@ -1869,6 +1878,201 @@ def main():
     eq("_newest_(root) <= before" in src31, True,
        "آموزشِ بی چک‌پوینتِ تازه، موفق حساب نمی‌شود")
     eq("filelistCheck_" in src31, True, "و فهرست پیش از آموزش سنجیده می‌شود")
+
+    # ── ۳۲ ─────────────────────────────────────────────────────────────
+    # تکهٔ «تبدیل»: مدلِ آموزش‌دیده را به کار می‌گیرد. سه چیز اینجا
+    # می‌تواند بی سروصدا خراب باشد و هر سه بسته می‌شود.
+    print("۳۲ — تبدیلِ صدا با مدلِ خودمان")
+    import wave as _wv
+    import struct as _st
+
+    def wav32(path, sec=3.0, rate=16000, amp=0):
+        f = _wv.open(path, "wb")
+        f.setnchannels(1); f.setsampwidth(2); f.setframerate(rate)
+        n = int(rate * sec)
+        f.writeframes(_st.pack("<%dh" % n, *([amp] * n)))
+        f.close()
+        return path
+
+    w32 = tempfile.mkdtemp()
+    outd = os.path.join(w32, "out"); os.makedirs(outd)
+    srcw = wav32(os.path.join(w32, "src.wav"), 4.0)
+    refw = wav32(os.path.join(w32, "ref.wav"), 4.0)
+    mdl = os.path.join(w32, "razavi.pth"); io.open(mdl, "w").write(u"x")
+    idx = os.path.join(w32, "razavi.index"); io.open(idx, "w").write(u"x")
+
+    # دارایی‌های سنجیده‌شده را از پیش می‌گذاریم تا دانلود اجرا نشود
+    import rvcpipe as P32
+    ap32 = P32.inferAssetPaths_(os.path.join(outd, "assets"))
+    os.makedirs(ap32["hubert"])
+    os.makedirs(os.path.dirname(ap32["rmvpe"]), exist_ok=True)
+    io.open(ap32["rmvpe"], "w").write(u"x")
+
+    seen = {}
+
+    class FakeLoader(object):
+        def __init__(self, only_cpu=False, hubert_path=None, rmvpe_path=None,
+                     **kw):
+            seen["init"] = {"only_cpu": only_cpu, "hubert": hubert_path,
+                            "rmvpe": rmvpe_path}
+
+        def apply_conf(self, **kw):
+            seen["conf"] = kw
+
+        def generate_from_cache(self, audio_data=None, tag=None, **kw):
+            seen["gen"] = {"audio": audio_data, "tag": tag}
+            import numpy as _np
+            return _np.zeros(int(16000 * 4.0), dtype="float32"), 16000
+
+    fake32 = types.ModuleType("infer_rvc_python")
+    fake32.BaseLoader = FakeLoader
+    sys.modules["infer_rvc_python"] = fake32
+
+    realSim = V.rvcSim_
+    V.rvcSim_ = lambda paths, out: {"src_vs_ref": 0.31, "out_vs_ref": 0.78,
+                                    "gain": 0.47, "moved_toward_target": True}
+    try:
+        V.OPT.clear()
+        V.OPT["_rep"] = {"engine": "rvc"}
+        V.OPT["_out"] = outd
+        V.OPT["rvc_model"] = mdl
+        V.OPT["rvc_index"] = idx
+        made32 = V.run_rvc(refw, srcw, "متنی که خوانده نمی‌شود", outd)
+        rep32 = dict(V.OPT["_rep"])
+    finally:
+        V.rvcSim_ = realSim
+        V.OPT.clear()
+
+    eq(os.path.basename(made32), "rvc.wav", "خروجی ساخته شد")
+    eq(os.path.exists(made32), True, "و روی دیسک هست")
+
+    # ══ ۱: دارایی از منبعِ سنجیده‌شده، نه آینهٔ پیش‌فرضِ بسته ══
+    # اگر مسیر ندهیم، کتابخانه ContentVec و RMVPE را از مخزنی شخصی
+    # می‌گیرد که پروانه‌اش سنجیده نشده. قاعدهٔ کلِ این کار از روزِ اول
+    # این بوده که **پروانهٔ وزن‌ها حاکم است، نه پروانهٔ کد**.
+    eq(seen["init"]["hubert"], ap32["hubert"],
+       "ContentVecِ سنجیده‌شده داده می‌شود")
+    eq(seen["init"]["rmvpe"], ap32["rmvpe"], "RMVPEِ سنجیده‌شده داده می‌شود")
+    eq(seen["init"]["only_cpu"], True, "روی CPU اجرا می‌شود")
+
+    # ══ ۲: واژه‌ها از مبدأ می‌آیند، نه از متن ══
+    # کلِ معماری روی همین بند است. اگر روزی کسی متن را به این موتور
+    # بدهد، یعنی زبان دوباره وارد ماجرا شده — همان چیزی که سه موتورِ
+    # قبلی سرش شکستند.
+    eq(seen["gen"]["audio"], srcw, "ورودی، صوتِ مبدأ است")
+    eq(seen["conf"]["file_model"], mdl, "مدلِ خودمان به کار می‌رود")
+    eq(seen["conf"]["file_index"], idx, "و ایندکسش")
+    eq(seen["conf"]["pitch_algo"], "rmvpe",
+       "همان روشِ زیروبمی که در آموزش هم به کار رفت")
+
+    # ══ ۳: شاهد در گزارش، نه فقط یک فایل ══
+    eq(rep32["rvc"]["length"]["kept"], True,
+       "طول حفظ شد — یعنی واژه‌ها دست‌نخورده‌اند")
+    eq(rep32["rvc"]["speaker"]["moved_toward_target"], True,
+       "و حرکتِ شباهت به سمتِ گوینده ثبت شد")
+
+    # ══ ایندکسِ نبوده باید اعلام شود، نه اینکه بی‌صدا رد شود ══
+    V.OPT.clear()
+    V.OPT["_rep"] = {"engine": "rvc"}; V.OPT["_out"] = outd
+    V.OPT["rvc_model"] = mdl
+    V.OPT["rvc_index"] = os.path.join(w32, "nope.index")
+    V.rvcSim_ = lambda paths, out: {}
+    try:
+        V.run_rvc(refw, srcw, "", outd)
+    finally:
+        V.rvcSim_ = realSim
+        V.OPT.clear()
+    eq(seen["conf"]["file_index"], "",
+       "ایندکسِ نبوده کنار گذاشته می‌شود، نه اینکه مسیرِ بی‌فایل برود")
+
+    # ══ عددی که کاربر می‌خواند، خودش باید سنجیده شده باشد ══
+    # `rvcSim_` تنها چیزی است که به سؤالِ «کار کرد یا نه» جواب می‌دهد
+    # پیش از اینکه کسی گوش کند. با رمزگذارِ بدلی سنجیده می‌شود تا
+    # مدلِ واقعی دانلود نشود — منطقِ کسینوس و «تغییر» همان است.
+    import dsprep as D32
+    import numpy as _np32
+
+    vecs32 = {"ref": [1.0, 0.0, 0.0], "src": [0.2, 0.98, 0.0],
+              "out": [0.9, 0.44, 0.0]}
+    order32 = []
+
+    class FakeEnc(object):
+        def encode_batch(self, t):
+            key = order32.pop(0)
+            v = _np32.array(vecs32[key], dtype="float64")
+            return _T32(v / _np32.linalg.norm(v))
+
+    class _T32(object):
+        def __init__(self, v):
+            self.v = v
+
+        def squeeze(self):
+            return self
+
+        def detach(self):
+            return self
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return self.v
+
+    # `dsEmbed_` دو چیز از torch می‌خواهد و torchِ این آزمون بدلی است.
+    class _NoGrad32(object):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    th32 = sys.modules["torch"]
+    saved32 = (getattr(th32, "no_grad", None), getattr(th32, "from_numpy", None))
+    th32.no_grad = _NoGrad32
+    th32.from_numpy = lambda a: a
+    realEnc32 = D32.dsEncoder_
+    D32.dsEncoder_ = lambda tmp: FakeEnc()
+    try:
+        order32[:] = ["ref", "src", "out"]
+        sim32 = V.rvcSim_({"ref": refw, "src": srcw, "out": made32}, outd)
+    finally:
+        D32.dsEncoder_ = realEnc32
+
+    eq(sim32["out_vs_ref"] > sim32["src_vs_ref"], True,
+       "خروجی به گوینده نزدیک‌تر از مبدأ است (%s > %s)"
+       % (sim32["out_vs_ref"], sim32["src_vs_ref"]))
+    eq(sim32["moved_toward_target"], True, "و «حرکت شد» ثبت می‌شود")
+    eq(round(sim32["gain"], 3),
+       round(sim32["out_vs_ref"] - sim32["src_vs_ref"], 3),
+       "تغییر دقیقاً تفاضلِ همان دو عدد است، نه چیزِ دیگری")
+
+    # و وقتی هیچ اتفاقی نیفتاده — همان حالتی که بی این سنجه شبیهِ
+    # موفقیت به نظر می‌رسد
+    D32.dsEncoder_ = lambda tmp: FakeEnc()
+    try:
+        vecs32["out"] = list(vecs32["src"])
+        order32[:] = ["ref", "src", "out"]
+        flat32 = V.rvcSim_({"ref": refw, "src": srcw, "out": made32}, outd)
+    finally:
+        D32.dsEncoder_ = realEnc32
+        th32.no_grad, th32.from_numpy = saved32
+    eq(flat32["moved_toward_target"], False,
+       "تبدیلی که هیچ نکرده، موفق اعلام نمی‌شود (تغییر %s)" % flat32["gain"])
+
+    # ══ ۴: هر خانهٔ فرم باید واقعاً به جایی برود ══
+    # همان شکلِ خرابی که `run_wiring_test.js ۵.۲` در موتور می‌گیرد:
+    # دکمه‌ای که هست و هیچ نمی‌کند. اینجا خانه‌ای که پر می‌شود و به
+    # هیچ فرمانی نمی‌رسد.
+    wfl = io.open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), ".github", "workflows",
+        "voice-lab.yml"), encoding="utf-8").read()
+    body = wfl.split("jobs:", 1)[1]
+    fields = re.findall(r"^      ([a-z0-9_]+):$", wfl.split("jobs:", 1)[0],
+                        re.M)
+    dead = [f for f in fields if ("inputs.%s" % f) not in body]
+    eq(dead, [], "هیچ خانهٔ فرمی بی‌مصرف نمانده")
+    for need in ("--rvc-model", "--rvc-index"):
+        eq(need in wfl, True, "%s به فرمان می‌رسد" % need)
 
     print("\nهمه گذشت.")
     return 0

@@ -113,6 +113,41 @@ def assetCmds_(py="python", sr="40k", hf="hf"):
     return cmds
 
 
+def inferAssetCmds_(py="python", hf="hf", dest="assets"):
+    """فقط دو دارایی‌ای که **تبدیل** لازم دارد، از همان منبعِ سنجیده‌شده.
+
+    ══ چرا این تابع جداست ══
+    `assetCmds_` پنج چیز می‌آورد، از جمله وزن‌های پایهٔ آموزش که با هم
+    نزدیک نیم گیگابایت‌اند و در تبدیل هیچ کاربردی ندارند.
+
+    ══ و چرا اصلاً دانلود می‌کنیم، وقتی خودِ کتابخانه بلد است ══
+    `infer-rvc-python` اگر مسیری ندهی، همین دو را از آینه‌ای شخصی
+    می‌گیرد (`r3gm/...`). آن آینه پروانه‌اش سنجیده نشده و ما قاعده‌ای
+    داریم که در کلِ این کار نگه داشته شده: **پروانهٔ وزن‌ها حاکم است، نه
+    پروانهٔ کد.** پس همان‌هایی را می‌دهیم که از اول سنجیده‌ایم —
+    ContentVec ‏MIT از `lj1995`، و RMVPE ‏Apache-2.0. کتابخانه هر دو را
+    از مسیرِ محلی می‌پذیرد (`hubert_path` و `rmvpe_path`).
+    """
+    cmds = []
+    for pattern, sub in ASSETS:
+        cmds.append([hf, "download", HF_WEIGHTS, "--revision", "main",
+                     "--include", pattern, "--local-dir", dest])
+    for fname, sub in ASSET_FILES:
+        cmds.append([hf, "download", HF_WEIGHTS, fname, "--revision", "main",
+                     "--local-dir", "%s/%s" % (dest, sub.split("/")[-1])])
+    return cmds
+
+
+def inferAssetPaths_(dest="assets"):
+    """جایی که `inferAssetCmds_` آن دو را می‌گذارد — در یک تعریف با آن."""
+    import os as _os
+    return {
+        "hubert": _os.path.join(dest, "hubert_base"),
+        "rmvpe": _os.path.join(dest, ASSET_FILES[0][1].split("/")[-1],
+                               ASSET_FILES[0][0]),
+    }
+
+
 def env(root, base=None):
     """محیطِ اجرای هر قدم — و اینجا یک دامِ واقعی هست.
 

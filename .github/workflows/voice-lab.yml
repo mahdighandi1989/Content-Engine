@@ -18,12 +18,20 @@ name: voice-lab
 on:
   workflow_dispatch:
     inputs:
+      rvc_model:
+        description: 'مدلِ صدا: لینکِ درایو یا مسیرِ فایلِ .pth (فقط برای engine=rvc)'
+        required: false
+        default: ''
+      rvc_index:
+        description: 'فایلِ .index کنارِ مدل'
+        required: false
+        default: ''
       engine:
         description: 'کدام موتور (scan-only = فقط اسکنِ یک‌دقیقه‌ای، بی کارِ سنگین)'
         required: true
         default: all
         type: choice
-        options: [all, dataset, openvoice, rvcsmoke, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+        options: [rvc, all, dataset, openvoice, rvcsmoke, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
       # ══ چند نمونه با کاما ══
       # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
       # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ
@@ -305,6 +313,8 @@ jobs:
         env:
           REF_ID: ${{ inputs.ref_id }}
           SRC_ID: ${{ inputs.src_id }}
+          RVC_MODEL: ${{ inputs.rvc_model }}
+          RVC_INDEX: ${{ inputs.rvc_index }}
         run: |
           set -euo pipefail
           # اجرای #۳: کارِ chatterboxvc با کدِ ۲۲ افتاد — یعنی خطای HTTP در
@@ -368,6 +378,24 @@ jobs:
             fi
             ls -l src.input
           fi
+          # ══ مدلِ آموزش‌دیده ══
+          # همان `dl` و همان وارسیِ HTML: یک مدلِ خصوصی هم صفحهٔ اجازه
+          # برمی‌گرداند، و آن‌وقت خطا سه قدم بعد و از داخلِ torch بیرون
+          # می‌زند با پیامی که ربطش به «فایل خصوصی است» پیدا نیست.
+          if [ -n "${RVC_MODEL}" ]; then
+            dl "$RVC_MODEL" model.pth
+            if file model.pth | grep -qi 'html\|ascii'; then
+              echo "::error::فایلِ مدل خصوصی است."; exit 1
+            fi
+            ls -l model.pth
+          fi
+          if [ -n "${RVC_INDEX}" ]; then
+            dl "$RVC_INDEX" model.index
+            if file model.index | grep -qi 'html\|ascii'; then
+              echo "::error::فایلِ ایندکس خصوصی است."; exit 1
+            fi
+            ls -l model.index
+          fi
 
       - name: اجرای آزمایش
         env:
@@ -395,6 +423,8 @@ jobs:
           if [ -n "${F5_NFE}" ];      then ARGS+=(--f5-nfe "${F5_NFE}"); fi
           if [ -n "${REF_SECONDS}" ]; then ARGS+=(--ref-seconds "${REF_SECONDS}"); fi
           if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
+          if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
+          if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══

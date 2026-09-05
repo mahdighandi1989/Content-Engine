@@ -110,6 +110,22 @@ ENGINES = {
         "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
         "note": "خروجی واترمارکِ نامحسوسِ Perth می‌گیرد (داخلِ خودِ کتابخانه)",
     },
+    # ══ همان کاری که کلِ این آزمایشگاه برایش بود ══
+    # مدلِ آموزش‌دیدهٔ خودمان را به کار می‌گیرد: واژه‌ها و لحن از خروجیِ
+    # Gemini می‌آیند، رنگِ صدا از مدل. متن خوانده نمی‌شود، پس زبان اصلاً
+    # وارد ماجرا نمی‌شود — همان تفکیکی که در `chatterboxvc` جواب داد،
+    # این بار با گوینده‌ای که خودمان آموزشش دادیم.
+    "rvc": {
+        "family": "تبدیلِ صدا با مدلِ آموزش‌دیدهٔ خودمان",
+        "pip": ["infer-rvc-python>=1.3.1,<2", "soundfile>=0.13.0,<1"],
+        # پروانه‌ها، همان زنجیرهٔ چهارتکه‌ای که از اول سنجیدیم:
+        # کدِ این بسته MIT · وزنِ ما از پایهٔ MIT · ContentVec ‏MIT ·
+        # RMVPE ‏Apache-2.0 · مدلِ سنجشِ گوینده Apache-2.0.
+        "code_license": "MIT (infer-rvc-python — از LICENSE داخلِ بسته)",
+        "needs_src": True,
+        "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
+        "note": "دارایی‌ها از منبعِ سنجیده‌شده گرفته می‌شوند، نه آینهٔ پیش‌فرضِ بسته",
+    },
     # ══ نه موتورِ صدا، آماده‌سازیِ خوراکِ آموزش ══
     # ضبط‌های بلندِ داستان‌خوانی تیزر و میان‌برنامه دارند، و موسیقی در
     # دادهٔ آموزش سم است. خروجی‌اش تکه‌های تمیز است، به‌علاوهٔ **دو فایلِ
@@ -2408,6 +2424,157 @@ def run_rvcsmoke(ref, src, text, out):
 
 
 
+def rvcSim_(paths, out):
+    """شباهتِ گوینده، به‌صورتِ عدد — نه «به نظرم بهتر شد».
+
+    ══ چرا این را می‌سنجیم ══
+    قولِ این موتور یک جمله است: «واژه‌ها همان بمانند، رنگِ صدا عوض
+    شود». نیمهٔ دومش را می‌شود سنجید، و اگر نسنجیم تنها راهِ فهمیدنش
+    گوشِ کاربر است — که وقتش گران‌تر از این چند ثانیه است.
+
+    همان مدلِ گوینده‌ای که دروازهٔ سومِ دیتاست از آن استفاده می‌کند
+    (`speechbrain/spkrec-ecapa-voxceleb`، Apache-2.0). یک تعریف، دو
+    مصرف: آنجا برای کنار گذاشتنِ صدای غریبه، اینجا برای سنجیدنِ اینکه
+    خروجی به رضوی نزدیک شده یا نه.
+
+    عددها کسینوسی‌اند و مطلق نیستند؛ آنچه معنا دارد **تغییر** است:
+    مبدأ کجا بود و خروجی کجا رفت.
+    """
+    import tempfile
+    import dsprep as D
+    tmp = tempfile.mkdtemp(prefix="sim-")
+    enc = D.dsEncoder_(tmp)
+    vecs = {}
+    for k, pth in paths.items():
+        y, sr = D.dsDecode_(pth, os.path.join(tmp, k + ".wav"), D.VAD_SR)
+        secs = len(y) / float(sr)
+        if secs < 1.0:
+            continue
+        vecs[k] = (D.dsEmbed_(enc, y, sr, [(0.0, secs)])[0], round(secs, 2))
+    import numpy as np
+
+    def cos(a, b):
+        return round(float(np.dot(vecs[a][0], vecs[b][0])), 3)
+
+    rep = {"seconds": {k: v[1] for k, v in vecs.items()}}
+    if "ref" in vecs and "out" in vecs:
+        rep["out_vs_ref"] = cos("out", "ref")
+    if "ref" in vecs and "src" in vecs:
+        rep["src_vs_ref"] = cos("src", "ref")
+    if "out_vs_ref" in rep and "src_vs_ref" in rep:
+        rep["gain"] = round(rep["out_vs_ref"] - rep["src_vs_ref"], 3)
+        # ══ آستانه‌ای که ادعا نمی‌کند «خوب شد» ══
+        # فقط می‌گوید حرکتی به سمتِ گوینده انجام شده یا نه. کیفیت را
+        # گوش تعیین می‌کند؛ این عدد فقط جلوی «هیچ اتفاقی نیفتاد» را
+        # می‌گیرد — حالتی که بی این سنجه، شبیهِ موفقیت به نظر می‌رسد.
+        rep["moved_toward_target"] = rep["gain"] > 0.05
+    shutil.rmtree(tmp, ignore_errors=True)
+    return rep
+
+
+def run_rvc(ref, src, text, out):
+    """تبدیلِ صدا با مدلِ آموزش‌دیدهٔ خودمان.
+
+    ══ چه چیزی از کجا می‌آید ══
+    واژه‌ها، لحن، مکث‌ها و اعراب — همه از `src`، یعنی خروجیِ فارسیِ
+    Gemini. رنگِ صدا از مدل. متن اینجا اصلاً خوانده نمی‌شود، و همین
+    نکتهٔ کلِ معماری است: مدل زبان نمی‌داند و لازم هم نیست بداند.
+
+    ══ دارایی‌ها از منبعِ سنجیده‌شده ══
+    اگر مسیر ندهیم، کتابخانه ContentVec و RMVPE را از آینه‌ای شخصی
+    می‌گیرد که پروانه‌اش را نسنجیده‌ایم. `inferAssetPaths_` همان‌هایی
+    را می‌دهد که از اول سنجیدیم.
+    """
+    if not src:
+        raise RuntimeError(
+            "این موتور به صوتِ مبدأ نیاز دارد: --src خروجیِ Gemini")
+    model = OPT.get("rvc_model") or ""
+    if not model or not os.path.exists(model):
+        raise RuntimeError("مدل پیدا نشد — --rvc-model مسیرِ فایلِ .pth")
+    index = OPT.get("rvc_index") or ""
+    if index and not os.path.exists(index):
+        # ══ ایندکسِ نبوده، خطا نیست ══
+        # کتابخانه بی ایندکس هم کار می‌کند (کمی کم‌رنگ‌تر). ولی سکوت
+        # کردن یعنی کاربر فکر می‌کند ایندکس اثر داشته.
+        print("ایندکس پیدا نشد، بی آن ادامه می‌دهیم:", index, flush=True)
+        index = ""
+
+    import rvcpipe as P
+    assets = os.path.join(out, "assets")
+    paths = P.inferAssetPaths_(assets)
+    if not os.path.isdir(paths["hubert"]) or not os.path.exists(paths["rmvpe"]):
+        hf = shutil.which("hf") or shutil.which("huggingface-cli") or "hf"
+        for cmd in P.inferAssetCmds_(hf=hf, dest=assets):
+            cmd[0] = hf
+            r = sh(cmd, timeout=900)
+            if r.returncode:
+                raise RuntimeError("دانلودِ دارایی شکست خورد: %s" % cmd[:3])
+
+    import soundfile as sf
+    from infer_rvc_python import BaseLoader
+
+    vc = BaseLoader(only_cpu=True, hubert_path=paths["hubert"],
+                    rmvpe_path=paths["rmvpe"])
+    conf = {
+        "tag": "voice",
+        "file_model": model,
+        # rmvpe دقیق‌ترینِ روش‌های زیروبم است و همان است که در آموزش
+        # هم به کار رفت — دو روشِ متفاوت یعنی دو تعریفِ متفاوت از گام.
+        "pitch_algo": "rmvpe",
+        "pitch_lvl": int(OPT.get("rvc_pitch") or 0),
+        "file_index": index,
+        "index_influence": float(OPT.get("rvc_index_rate") or 0.66),
+        "respiration_median_filtering": 3,
+        "envelope_ratio": 0.25,
+        # ══ محافظِ همخوان و نفس ══
+        # پایین‌آوردنش صدا را «رضوی‌تر» می‌کند و همخوان‌ها را می‌جَوَد.
+        # روی متنِ فارسیِ اعراب‌دار، جویده شدنِ همخوان یعنی همان چیزی
+        # که کلِ کارِ اعراب‌گذاری برای جلوگیری از آن انجام شد.
+        "consonant_breath_protection": float(OPT.get("rvc_protect") or 0.33),
+        "resample_sr": 0,
+    }
+    print("تنظیمات:", json.dumps(conf, ensure_ascii=False), flush=True)
+    vc.apply_conf(**conf)
+
+    t0 = time.time()
+    audio, sr = vc.generate_from_cache(audio_data=src, tag="voice")
+    took = round(time.time() - t0, 1)
+    dst = os.path.join(out, "rvc.wav")
+    sf.write(dst, audio, sr)
+
+    rep = OPT.get("_rep") or {}
+    rep["rvc"] = {"model": os.path.basename(model),
+                  "index": os.path.basename(index) if index else None,
+                  "conf": {k: v for k, v in conf.items()
+                           if k not in ("file_model", "file_index", "tag")},
+                  "seconds": took, "sample_rate": sr}
+
+    # ══ شاهد، نه ادعا ══
+    # طول باید بماند: تبدیلِ صدا واژه‌ها را عوض نمی‌کند، پس اگر طول
+    # جابه‌جا شود چیزی جز رنگِ صدا هم عوض شده.
+    inSec = probe(src).get("seconds")
+    outSec = probe(dst).get("seconds")
+    rep["rvc"]["length"] = {"src": inSec, "out": outSec}
+    if inSec and outSec:
+        drift = abs(outSec - inSec) / float(inSec)
+        rep["rvc"]["length"]["drift_pct"] = round(100 * drift, 2)
+        rep["rvc"]["length"]["kept"] = drift < 0.02
+    try:
+        rep["rvc"]["speaker"] = rvcSim_(
+            {"ref": ref, "src": src, "out": dst}, out)
+    except Exception as e:
+        # سنجه‌ای که نیامد نباید خروجیِ سالم را دور بیندازد — ولی
+        # نیامدنش هم باید دیده شود.
+        rep["rvc"]["speaker"] = {"error": str(e)[:200]}
+    saveRep_()
+
+    sp = rep["rvc"].get("speaker") or {}
+    print("\nشباهت به رضوی — مبدأ %s → خروجی %s (تغییر %s)"
+          % (sp.get("src_vs_ref"), sp.get("out_vs_ref"), sp.get("gain")),
+          flush=True)
+    return dst
+
+
 def run_dataset(ref, src, text, out):
     """
     از ضبط‌های بلند، دیتاستِ تمیزِ آموزش بساز — و **نشان بده** چه کردی.
@@ -2464,6 +2631,7 @@ RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "moss": run_moss,
            "openvoice": run_openvoice,
            "rvcsmoke": run_rvcsmoke,
+           "rvc": run_rvc,
            "dataset": run_dataset}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
@@ -2506,6 +2674,16 @@ def main():
     # فینگلیش بنویسیم — و برای تلفظ از نشانه‌گذاریِ دیکشنری‌ها.»
     # این را نمی‌شود با استدلال جواب داد، چون سؤالش «چطور به گوش می‌آید»
     # است. پس یک پرچم، و همان مسیرِ موجود.
+    # ══ مدلِ آموزش‌دیده و دسته‌هایش ══
+    # پیش‌فرض‌ها همان‌هایی است که RVC خودش می‌گذارد. تنها چیزی که
+    # عمداً قابلِ تغییر ماند، سه‌تایی است که روی متنِ فارسیِ اعراب‌دار
+    # اثر دارد: گام، اثرِ ایندکس، و محافظِ همخوان.
+    ap.add_argument("--rvc-model", default="", help="فایلِ .pth مدلِ صدا")
+    ap.add_argument("--rvc-index", default="", help="فایلِ .index کنارش")
+    ap.add_argument("--rvc-pitch", default="0", help="جابه‌جاییِ گام (نیم‌پرده)")
+    ap.add_argument("--rvc-index-rate", default="0.66")
+    ap.add_argument("--rvc-protect", default="0.33",
+                    help="محافظِ همخوان و نفس؛ پایین‌تر = رضوی‌تر و جویده‌تر")
     ap.add_argument("--alphabet", default="fa",
                     choices=["fa"] + sorted(fa2latin.MODES))
     a = ap.parse_args()
@@ -2519,6 +2697,11 @@ def main():
     OPT["omni_model"] = a.omni_model
     OPT["f5_nfe"] = a.f5_nfe
     OPT["alphabet"] = a.alphabet
+    OPT["rvc_model"] = a.rvc_model
+    OPT["rvc_index"] = a.rvc_index
+    OPT["rvc_pitch"] = a.rvc_pitch
+    OPT["rvc_index_rate"] = a.rvc_index_rate
+    OPT["rvc_protect"] = a.rvc_protect
     # برگردان اینجا انجام می‌شود، نه در run_f5: این آزمایشِ **متن** است، نه
     # آزمایشِ f5. Chatterbox و XTTS هم انگلیسی می‌دانند و فارسی نه — یعنی
     # دقیقاً همان مدل‌هایی که این ایده برایشان طرح شده.
