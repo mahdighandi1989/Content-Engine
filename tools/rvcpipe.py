@@ -253,20 +253,84 @@ def preLog_(root, exp):
     return d
 
 
-def _stems(d):
-    """نگاشتِ نامِ پایه به نامِ واقعیِ فایل.
+def _stems(d, ext=None):
+    """نگاشتِ نامِ پایه به نامِ واقعیِ فایل، فقط از فایل‌های درست.
 
     الگوی نام‌گذاری را حدس نمی‌زنیم (`x.npy`؟ `x.wav.npy`؟) — از روی
     آنچه واقعاً روی دیسک هست ساخته می‌شود. هم دقیق‌تر است، هم اگر آن‌ها
     فردا نام‌گذاری را عوض کنند نمی‌شکند.
+
+    ══ چرا `ext` لازم شد (اجرای ۳ روی رانر) ══
+    `setdefault` روی فهرستِ مرتب یعنی **هر فایلِ ناخوانده‌ای که زودتر
+    مرتب شود، جای فایلِ درست را می‌گیرد** — و چون فقط یک ردیف عوض
+    می‌شود، شمارشِ ردیف‌ها ثابت می‌ماند. اجرای ۲ و ۳ هر دو گزارش دادند
+    `rows: 541, from_dataset: 541`؛ اجرای ۲ ده دور آموزش داد و اجرای ۳
+    در هشت ثانیه با «File format b'\\x80\\x02\\x8a\\n' not understood»
+    مُرد — که سرآیندِ یک فایلِ `.pth` است، نه WAV.
+
+    یک شمارشِ درست، شاهدِ محتوای درست نیست. حالا هر پوشه فقط
+    پسوندِ خودش را می‌پذیرد.
     """
     import os as _os
     out = {}
     if not _os.path.isdir(d):
         return out
     for fn in sorted(_os.listdir(d)):
+        if ext and not fn.endswith(ext):
+            continue
         out.setdefault(fn.split(".")[0], fn)
     return out
+
+
+# ══ سرآیندِ هر ستون، برای وارسیِ فهرست ══
+# ستونِ اول WAV است و بقیه `.npy`. هر کدام سرآیندِ خودش را دارد و
+# چهار بایت خواندن جواب را قطعی می‌کند.
+FILELIST_MAGIC = (b"RIFF", b"\x93NUM", b"\x93NUM", b"\x93NUM")
+
+
+def filelistCheck_(root, exp, keep=True):
+    """هر ردیفِ فهرست را با سرآیندِ واقعیِ فایل بسنج.
+
+    ══ چرا پیش از آموزش، نه وسطش ══
+    یک ردیفِ خراب پنج ساعت بعد و از عمقِ DataLoaderِ torch بیرون
+    می‌زند، با ردِ خطایی که نامِ فایل در آن نیست. خواندنِ چهار بایت از
+    ۵۴۱ فایل چند ثانیه است و جواب را همین‌جا می‌دهد.
+
+    ردیف‌های خراب حذف می‌شوند نه اینکه کلِ کار بایستد — ولی اگر چیزی
+    نماند، ایستادن درست‌ترین کار است.
+    """
+    import os as _os
+    fp = _os.path.join(root, "logs", exp, "filelist.txt")
+    if not _os.path.exists(fp):
+        return {"rows": 0, "bad": [], "kept": 0}
+    with io.open(fp, encoding="utf-8") as f:
+        rows = [ln for ln in f.read().splitlines() if ln.strip()]
+    good, bad = [], []
+    for ln in rows:
+        cols = ln.split("|")
+        why = ""
+        if len(cols) < 5:
+            why = "ستون کم"
+        else:
+            for i in range(4):
+                try:
+                    with open(cols[i], "rb") as fh:
+                        head = fh.read(4)
+                except (IOError, OSError):
+                    why = "نیست: %s" % cols[i]
+                    break
+                if head != FILELIST_MAGIC[i]:
+                    why = "سرآیندِ ستونِ %d: %r (%s)" % (i + 1, head, cols[i])
+                    break
+        if why:
+            bad.append(why)
+        else:
+            good.append(ln)
+    if keep and bad and good:
+        with io.open(fp, "w", encoding="utf-8") as f:
+            f.write("\n".join(good))
+    return {"rows": len(rows), "bad": bad[:5], "bad_count": len(bad),
+            "kept": len(good)}
 
 
 def preTrain_(root, exp, sr="40k", version="v2", spk=0):
@@ -297,7 +361,8 @@ def preTrain_(root, exp, sr="40k", version="v2", spk=0):
     feaDim = "3_feature256" if version == "v1" else "3_feature768"
     dirs = [_os.path.join(d, "0_gt_wavs"), _os.path.join(d, feaDim),
             _os.path.join(d, "2a_f0"), _os.path.join(d, "2b-f0nsf")]
-    maps = [_stems(x) for x in dirs]
+    exts = [".wav", ".npy", ".npy", ".npy"]
+    maps = [_stems(dirs[i], exts[i]) for i in range(4)]
     names = set(maps[0])
     for m in maps[1:]:
         names &= set(m)
@@ -311,7 +376,7 @@ def preTrain_(root, exp, sr="40k", version="v2", spk=0):
     mute = _os.path.join(root, "logs", "mute")
     mdirs = [_os.path.join(mute, "0_gt_wavs"), _os.path.join(mute, feaDim),
              _os.path.join(mute, "2a_f0"), _os.path.join(mute, "2b-f0nsf")]
-    mmaps = [_stems(x) for x in mdirs]
+    mmaps = [_stems(mdirs[i], exts[i]) for i in range(4)]
     mnames = set(mmaps[0])
     for m in mmaps[1:]:
         mnames &= set(m)

@@ -130,6 +130,17 @@ def steps_done_(root):
     return best
 
 
+def _newest_(root):
+    """تازه‌ترین زمانِ نوشتنِ چک‌پوینت — شاهدِ اینکه آموزش واقعاً جلو رفت."""
+    best = 0.0
+    for p in glob.glob(os.path.join(root, "logs", VOICE, "*.pth")):
+        try:
+            best = max(best, os.path.getmtime(p))
+        except OSError:
+            pass
+    return best
+
+
 def main():
     work = os.environ.get("VT_WORK") or os.path.expanduser("~/rvcwork")
     root = os.environ.get("VT_ROOT") or os.path.join(
@@ -255,7 +266,21 @@ def main():
             say_("فهرستِ آموزش: %s" % info)
             if not info["from_dataset"]:
                 raise SystemExit("فهرست خالی است — استخراج چیزی نساخت")
+            # ══ ردیف‌ها را پیش از پنج ساعت آموزش بسنج ══
+            # اجرای ۳ بعدِ هشت ثانیه از عمقِ DataLoaderِ torch مُرد، با
+            # خطایی که نامِ فایلِ خراب در آن نبود. چهار بایت از هر فایل
+            # چند ثانیه است و جواب را همین‌جا می‌دهد.
+            chk = P.filelistCheck_(root, VOICE)
+            if chk.get("bad_count"):
+                say_("%d ردیفِ خراب کنار گذاشته شد؛ نمونه: %s"
+                     % (chk["bad_count"], " · ".join(chk["bad"])))
+            if chk["kept"] < 50:
+                raise SystemExit(
+                    "فهرست پس از وارسی خالی شد (%d از %d سالم)"
+                    % (chk["kept"], chk["rows"]))
+            say_("فهرستِ سالم: %d ردیف" % chk["kept"])
             say_("آموزش از گامِ %d، هدف %d دور" % (steps_done_(root), EPOCHS))
+            before = _newest_(root)
         if left_() <= 60:
             say_("بودجه تمام شد؛ «%s» به اجرای بعدی می‌ماند" % nm)
             break
@@ -266,6 +291,16 @@ def main():
                             " (مهلت تمام شد)" if timedout else ""))
         if code and not timedout:
             raise SystemExit("قدمِ «%s» شکست خورد (کد %d)" % (nm, code))
+        # ══ کدِ صفر شاهدِ کار نیست ══
+        # `train.py` کارِ اصلی را در یک Process جدا انجام می‌دهد. وقتی
+        # آن بچه می‌میرد، پدر با کدِ **صفر** برمی‌گردد — اجرای ۳ همین‌طور
+        # «موفق» ثبت شد در حالی که هشت ثانیه بعدِ شروع مرده بود. همان
+        # شکلی که این مخزن قبلاً در `savee` دیده بود: خروجیِ موفق، بی
+        # هیچ فایلی. پس شاهد را از دیسک می‌خواهیم، نه از کدِ خروج.
+        if nm == "train" and not timedout and _newest_(root) <= before:
+            raise SystemExit(
+                "آموزش با کدِ صفر برگشت ولی هیچ چک‌پوینتِ تازه‌ای نساخت "
+                "— یعنی داخلش شکست خورده. لاگِ بالا را ببینید.")
         if timedout:
             break
 

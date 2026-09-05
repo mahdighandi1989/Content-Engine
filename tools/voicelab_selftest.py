@@ -1805,6 +1805,71 @@ def main():
     eq("imageio_ffmpeg" in mods and "imageio_ffmpeg" in have, True,
        "و همان یکی که رانر را زمین زد، حالا هست")
 
+    # ── ۳۱ ─────────────────────────────────────────────────────────────
+    # اجرای ۲ روی رانر ده دورِ کامل آموزش داد. اجرای ۳ همان فهرست را
+    # ساخت — `rows: 541, from_dataset: 541`، عددهای یکسان — و هشت
+    # ثانیه بعد از عمقِ DataLoaderِ torch مُرد:
+    #   ValueError: File format b'\x80\x02\x8a\n' not understood
+    # آن چهار بایت سرآیندِ یک فایلِ `.pth` است، نه WAV.
+    #
+    # علت: `_stems` روی فهرستِ مرتب `setdefault` می‌کرد، پس هر فایلِ
+    # ناخوانده‌ای که زودتر مرتب شود جای فایلِ درست را می‌گیرد — و چون
+    # فقط **یک ردیف** عوض می‌شود، شمارش دست‌نخورده می‌ماند. یک شمارشِ
+    # درست، شاهدِ محتوای درست نیست.
+    print("۳۱ — فهرستِ آموزش: نامِ درست، و محتوای درست")
+    import rvcpipe as P31
+    w31 = tempfile.mkdtemp()
+    gt = os.path.join(w31, "0_gt_wavs")
+    os.makedirs(gt)
+    io.open(os.path.join(gt, "0_0.wav"), "w").write(u"x")
+    io.open(os.path.join(gt, "0_0.pth"), "w").write(u"x")   # مزاحمِ زودترمرتب
+
+    eq(P31._stems(gt)["0_0"], "0_0.pth",
+       "بی فیلتر، فایلِ ناخوانده جای فایلِ درست را می‌گیرد (همان باگ)")
+    eq(P31._stems(gt, ".wav")["0_0"], "0_0.wav",
+       "با فیلترِ پسوند، فایلِ درست انتخاب می‌شود")
+    eq(len(P31._stems(gt, ".wav")), 1,
+       "و شمارش هم همان یک است — عددی که قبلاً گول می‌زد")
+
+    # ── وارسیِ فهرست: چهار بایت، پیش از پنج ساعت ──
+    root31 = tempfile.mkdtemp()
+    d31 = os.path.join(root31, "logs", "t")
+    os.makedirs(d31)
+    okw = os.path.join(d31, "ok.wav")
+    open(okw, "wb").write(b"RIFF" + b"\x00" * 40)
+    npys = []
+    for i in range(3):
+        q = os.path.join(d31, "n%d.npy" % i)
+        open(q, "wb").write(b"\x93NUMPY" + b"\x00" * 20)
+        npys.append(q)
+    badw = os.path.join(d31, "bad.wav")
+    open(badw, "wb").write(b"\x80\x02\x8a\n" + b"\x00" * 40)  # همان .pth
+    good = "|".join([okw] + npys + ["0"])
+    bad = "|".join([badw] + npys + ["0"])
+    gone = "|".join([os.path.join(d31, "nope.wav")] + npys + ["0"])
+    io.open(os.path.join(d31, "filelist.txt"), "w", encoding="utf-8").write(
+        "\n".join([good, bad, good, gone]))
+
+    rep31 = P31.filelistCheck_(root31, "t")
+    eq(rep31["rows"], 4, "چهار ردیف خوانده شد")
+    eq(rep31["kept"], 2, "دو ردیفِ سالم ماند")
+    eq(rep31["bad_count"], 2, "و دو ردیفِ خراب گرفته شد")
+    eq(any("\\x80\\x02" in b or "x80" in b for b in rep31["bad"]), True,
+       "دلیلِ خرابی نامِ فایل و سرآیندش را دارد: %s" % rep31["bad"])
+    left = io.open(os.path.join(d31, "filelist.txt"),
+                   encoding="utf-8").read().splitlines()
+    eq(len(left), 2, "و فایل روی دیسک هم پاک‌سازی شد")
+    eq(all(okw in ln for ln in left), True, "فقط ردیف‌های سالم ماندند")
+
+    # ── کدِ صفر شاهدِ کار نیست ──
+    # `train.py` کارِ اصلی را در یک Process جدا می‌کند؛ مرگِ آن بچه با
+    # کدِ صفرِ پدر پوشیده می‌شود. اجرای ۳ دقیقاً همین‌طور «موفق» ثبت شد.
+    src31 = io.open(os.path.join(os.path.dirname(os.path.abspath(
+        __file__)), "voicetrain.py"), encoding="utf-8").read()
+    eq("_newest_(root) <= before" in src31, True,
+       "آموزشِ بی چک‌پوینتِ تازه، موفق حساب نمی‌شود")
+    eq("filelistCheck_" in src31, True, "و فهرست پیش از آموزش سنجیده می‌شود")
+
     print("\nهمه گذشت.")
     return 0
 
