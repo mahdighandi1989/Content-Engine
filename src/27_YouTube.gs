@@ -1863,7 +1863,7 @@ function ytUploadOne_(item, hub, pub) {
     heads.push(String(ep.sections[h].heading || ''));
   }
   var ctx = { show: item.show, epRaw: item.ep,
-              showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
+              showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.SHOW_TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
               lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
               title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
@@ -2028,7 +2028,7 @@ function ytPlFor_(item, seriesName, showName) {
   if (!isSpecial) {
     var t = String(showName || CFG.SHOW_NAME);
     return { id: ytPlEnsure_('show:' + ENRICH_SHOW_VARIETY, t,
-                             String(CFG.TAGLINE || '') +
+                             String(CFG.SHOW_TAGLINE || '') +
                              '\nهمهٔ قسمت‌ها، به ترتیبِ انتشار.'), title: t };
   }
   var key = ytPlKey_(item.show, item.seriesKey, seriesName);
@@ -3302,7 +3302,7 @@ function ytRedoOne_(show, ep, opt) {
   var heads = [];
   for (var h = 0; h < (epo.sections || []).length; h++) heads.push(String(epo.sections[h].heading || ''));
   var ctx = { show: show, epRaw: ep, showName: showName,
-              tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.TAGLINE,
+              tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.SHOW_TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
               lesson: (Number(meta.lesson) || 0) ? faDigitsOut_(String(meta.lesson)) : '',
@@ -3731,7 +3731,7 @@ function ytBannerCard_() {
       } catch (eA) {}
     };
     put(String(CFG.SHOW_NAME || ''), y, safeH * 0.34, 40, pal.fg, true);
-    put(String(CFG.TAGLINE || ''), y + safeH * 0.34, safeH * 0.24, 22, pal.ac, false);
+    put(String(CFG.SHOW_TAGLINE || ''), y + safeH * 0.34, safeH * 0.24, 22, pal.ac, false);
     if (CFG.SPECIAL_ENABLED) {
       put(String(CFG.SPECIAL_SHOW_NAME || '') + '  ·  ' + String(CFG.SPECIAL_TAGLINE || ''),
           y + safeH * 0.62, safeH * 0.3, 20, pal.fg, false);
@@ -3898,7 +3898,7 @@ function ytSectionsSync_(chId) {
 /** توضیحِ کانال — از خودِ پیکربندی، نه دستی. پس با تغییرِ برنامه‌ها تازه می‌شود. */
 function ytChannelDesc_() {
   var L = [];
-  L.push(String(CFG.SHOW_NAME || '') + ' — ' + String(CFG.TAGLINE || ''));
+  L.push(String(CFG.SHOW_NAME || '') + ' — ' + String(CFG.SHOW_TAGLINE || ''));
   if (CFG.SPECIAL_ENABLED) {
     L.push(String(CFG.SPECIAL_SHOW_NAME || '') + ' — ' + String(CFG.SPECIAL_TAGLINE || ''));
   }
