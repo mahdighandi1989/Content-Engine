@@ -42,6 +42,7 @@ stylecard.py — «روحِ خواندن» را از یک ضبط بیرون می
 """
 
 import io
+import re
 import os
 import tempfile
 
@@ -119,6 +120,37 @@ def stylePitch_(y, rate):
     }
 
 
+def stylePitchOf_(y, rate, spans):
+    """زیروبم را فقط روی **گفتار** بسنج، نه روی کلِ فایل.
+
+    ══ چرا، با عدد ══
+    `yin` روی سکوت هم عدد می‌دهد؛ عددی که فیلترِ ۶۰ تا ۳۵۰ هرتز
+    بیرونش نمی‌اندازد چون در همان بازه می‌افتد. و رضوی **نیمی** از
+    وقتش ساکت است — یعنی نیمی از فریم‌هایی که «بازهٔ زیروبمِ او» را
+    می‌ساختند، اصلاً صدای او نبودند.
+
+    اندازه‌گیریِ واقعی روی همان ضبط: بازه با سکوت ۴٫۳ نیم‌پرده،
+    بی سکوت ۶٫۷. و روی صوتِ Gemini که فقط ۱۰٪ ساکت است، ۱۰٫۸ در
+    برابرِ ۹٫۳ — یعنی سکوت هر دو را به هم نزدیک نشان می‌داد و
+    نتیجه‌گیری «رضوی خیلی مهارشده‌تر است» تا حدی ساختهٔ همین خطا بود.
+
+    و مهم‌تر از خودِ عدد: حالت‌ها این را روی بندها حساب می‌کردند و
+    کارتِ اصلی روی کلِ پنجره — دو تعریفِ متفاوت که کنارِ هم در یک
+    جمله چاپ می‌شدند («۹٫۹ در برابرِ ۴٫۳»).
+    """
+    import numpy as np
+    import dsprep as D
+    if not spans:
+        return {}
+    try:
+        cat = np.concatenate([np.asarray(D.dsSlice_(y, rate, a, b),
+                                         dtype="float32")
+                              for a, b in spans])
+    except Exception:
+        return {}
+    return stylePitch_(cat, rate) or {}
+
+
 def styleFall_(y, rate, spans):
     """فرودِ پایانِ هر بند، به نیم‌پرده. منفی یعنی پایین می‌آید."""
     import numpy as np
@@ -146,6 +178,47 @@ def styleFall_(y, rate, spans):
         return {}
     return {"phrase_fall_semitones": round(_pct(falls, 50), 1),
             "phrases_measured": len(falls)}
+
+
+def styleAgg_(talk, gaps, lv, total):
+    """جمع‌بندیِ عددها از مواد — کلِ ضبط باشد یا یک حالت.
+
+    ══ چرا یک تابع و نه دو ══
+    کارتِ حالت اولین بار عددهای خودش را با عددهای کلِ ضبط قاطی کرد و
+    نتیجه‌اش این خط بود: «هر عبارت حدودِ ۷٫۱ ثانیه (گاهی تا ۲٫۹)» —
+    صدکِ ۹۵ کوچک‌تر از میانه، چون یکی مالِ حالت بود و آن‌یکی مالِ کلِ
+    ضبط. عددهایی که با هم خوانده می‌شوند باید از یک جمع‌بندی بیایند.
+    """
+    short = [g for g in gaps if g < PAUSE_SHORT]
+    mid = [g for g in gaps if PAUSE_SHORT <= g < PAUSE_SENT]
+    long_ = [g for g in gaps if g >= PAUSE_SENT]
+    return {
+        "seconds": round(total, 1),
+        "speech_pct": round(100.0 * float(sum(talk)) / max(1e-9, total)),
+        # ── ریتمِ روایت ──
+        "phrase_seconds_median": round(_pct(talk, 50), 2),
+        "phrase_seconds_p95": round(_pct(talk, 95), 2),
+        # «چقدر گاهی می‌کشد» — نمایندهٔ صادقِ کشش، بی ادعای اینکه
+        # می‌داند کدام واژه کشیده شده.
+        "hold_ratio": round(_pct(talk, 95) / max(0.01, _pct(talk, 50)), 2),
+        # ── مکث‌ها ──
+        "pauses_per_minute": round(60.0 * len(gaps) / max(1e-9, total), 1),
+        "pause_short_median": round(_pct(short, 50), 2),
+        "pause_sentence_median": round(_pct(mid, 50), 2),
+        "pause_para_median": round(_pct(long_, 50), 2),
+        "pause_mix_pct": {
+            "short": round(100.0 * len(short) / max(1, len(gaps))),
+            "sentence": round(100.0 * len(mid) / max(1, len(gaps))),
+            "paragraph": round(100.0 * len(long_) / max(1, len(gaps))),
+        },
+        # ── دینامیک ──
+        "level_spread_db": round(_pct(lv, 90) - _pct(lv, 10), 1),
+        # ══ اندازهٔ نمونه، کنارِ خودِ عددها ══
+        # هر عددِ بالا میانه است. بی این دو، یک کارتِ ساخته‌شده از ۷
+        # عبارت دقیقاً مثلِ کارتِ ۲۰۰ عبارت به نظر می‌رسد — و همان است
+        # که اجرای اول را بی‌ارزش کرد بی آنکه چیزی خطا بدهد.
+        "gaps_measured": len(gaps),
+    }
 
 
 def styleMeasure_(path, seconds=STYLE_WINDOW):
@@ -176,40 +249,9 @@ def styleMeasure_(path, seconds=STYLE_WINDOW):
         g = spans[i][0] - spans[i - 1][1]
         if g >= PAUSE_MICRO:
             gaps.append(g)
-    short = [g for g in gaps if g < PAUSE_SHORT]
-    mid = [g for g in gaps if PAUSE_SHORT <= g < PAUSE_SENT]
-    long_ = [g for g in gaps if g >= PAUSE_SENT]
-    spoken = float(sum(talk))
     lv = [D.dbOf_(D.dsSlice_(y, rate, a, b)) for a, b in spans]
-
-    out = {
-        "seconds": round(total, 1),
-        "speech_pct": round(100.0 * spoken / max(1e-9, total)),
-        # ── ریتمِ روایت ──
-        "phrase_seconds_median": round(_pct(talk, 50), 2),
-        "phrase_seconds_p95": round(_pct(talk, 95), 2),
-        # «چقدر گاهی می‌کشد» — نمایندهٔ صادقِ کشش، بی ادعای اینکه
-        # می‌داند کدام واژه کشیده شده.
-        "hold_ratio": round(_pct(talk, 95) / max(0.01, _pct(talk, 50)), 2),
-        # ── مکث‌ها ──
-        "pauses_per_minute": round(60.0 * len(gaps) / max(1e-9, total), 1),
-        "pause_short_median": round(_pct(short, 50), 2),
-        "pause_sentence_median": round(_pct(mid, 50), 2),
-        "pause_para_median": round(_pct(long_, 50), 2),
-        "pause_mix_pct": {
-            "short": round(100.0 * len(short) / max(1, len(gaps))),
-            "sentence": round(100.0 * len(mid) / max(1, len(gaps))),
-            "paragraph": round(100.0 * len(long_) / max(1, len(gaps))),
-        },
-        # ── دینامیک ──
-        "level_spread_db": round(_pct(lv, 90) - _pct(lv, 10), 1),
-        # ══ اندازهٔ نمونه، کنارِ خودِ عددها ══
-        # هر عددِ بالا میانه است. بی این دو، یک کارتِ ساخته‌شده از ۷
-        # عبارت دقیقاً مثلِ کارتِ ۲۰۰ عبارت به نظر می‌رسد — و همان است
-        # که اجرای اول را بی‌ارزش کرد بی آنکه چیزی خطا بدهد.
-        "gaps_measured": len(gaps),
-    }
-    out.update(stylePitch_(y, rate))
+    out = styleAgg_(talk, gaps, lv, total)
+    out.update(stylePitchOf_(y, rate, spans))
     out.update(styleFall_(y, rate, spans))
     return out
 
@@ -383,3 +425,499 @@ def styleCompare_(target, actual):
             off += 1
     return {"fields": rows, "off_count": off,
             "followed": off == 0 and bool(rows)}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# لایهٔ حالت‌ها — یک گوینده یک‌جور نمی‌خوانَد
+# ══════════════════════════════════════════════════════════════════════
+#
+# کارتِ بالا میانهٔ کلِ یک ضبط است، و میانه دقیقاً همان چیزی را پنهان
+# می‌کند که پرسش بود: رضوی جای تعلیق طورِ دیگری می‌خواند تا جای
+# توضیح. صاحبِ برنامه همین را پرسید — «حس‌هایی که در عصبانیت و خنده و
+# شادی و هیجان و ناراحتی» — و خواست جدا از «روح» کارِ موازی نشود.
+#
+# ══ چرا خوشه‌بندیِ خودِ گوینده، و نه یک ردهٔ احساسات ══
+#
+# می‌شد مدلی را روی «عصبانی/شاد/غمگین» آموزش داد و به صدای رضوی داد.
+# سه ایراد دارد و هر سه کشنده‌اند: (۱) آن مدل‌ها روی صدای بازیگرِ
+# انگلیسی‌زبانِ اغراق‌شده آموزش دیده‌اند و روایتِ آرامِ فارسی هیچ‌جای
+# آن نقشه نیست؛ (۲) برچسبی که از بیرون بیاید با آنچه واقعاً در صدا
+# هست جور درنمی‌آید و ما راهی برای رد کردنش نداریم؛ (۳) و مهم‌تر،
+# چیزی که به Gemini می‌دهیم عدد است نه برچسب — پس برچسب حتی لازم
+# نیست.
+#
+# آنچه لازم است این است: **این گوینده چند جورِ متمایز می‌خوانَد، و
+# عددهای هر جور چیست.** آن را از خودِ ضبط‌هایش می‌شود درآورد.
+#
+# ══ و نام‌گذاری کارِ گوش است، نه کارِ کد ══
+#
+# کد می‌تواند بگوید «این خوشه پرمکث‌تر و بم‌تر است». نمی‌تواند بگوید
+# «این حالتِ تعلیق است». پس برای هر حالت یک **نمونهٔ شنیدنی** از
+# نزدیک‌ترین بند به مرکزِ خوشه بیرون می‌آید و نام‌گذاری با آدم است —
+# همان الگوی «شواهدِ شنیدنی، نه حکم» که بخشِ دیتاست دارد.
+
+MODES_WINDOW = 900.0        # مادهٔ خام برای حالت‌ها: ربعِ ساعت، نه چهار دقیقه
+MODE_MIN_SEC = 12.0         # کوتاه‌تر از این، «نسبتِ سکوت» معنا ندارد
+MODE_MAX_SEC = 45.0
+# ══ سکوتِ یک‌ونیم‌ثانیه‌ای مرزِ بخش است، نه نفس ══
+# بی این، بندی که به کفِ دوازده‌ثانیه نرسیده از روی یک مرزِ واقعی
+# رد می‌شود و دو جور خواندن را با هم میانگین می‌گیرد — دقیقاً همان
+# چیزی که این لایه قرار است جدا کند. در آزمونِ دو-گویندهٔ واقعی
+# دیده شد: هشت بند، هر کدام با ~۶ ثانیه از یکی و ~۱۷ ثانیه از
+# آن‌یکی.
+#
+# و عددش از خودِ داده آمده، نه از حدس: میانهٔ مکث‌های بلندِ رضوی در
+# سنجشِ ۲۴۰ ثانیه‌ای **۱٫۵ ثانیه** است. یعنی همین‌جا خودش موضوع را
+# عوض می‌کند. `PAUSE_SENT` (یک ثانیه) مرزِ جمله می‌مانَد و از رویش
+# رد می‌شویم؛ از این یکی نه.
+MODE_HARD_SEC = 1.5
+MODE_MIN_PASSAGES = 12      # کمتر از این، خوشه‌بندی تئاتر است
+MODE_MIN_MEMBERS = 3        # خوشهٔ دو-عضوی حالت نیست، پرت است
+MODE_SIL_MIN = 0.15         # زیرِ این، «حالتی در کار نیست» جوابِ درست است
+MODE_KS = (2, 3, 4)
+
+# ══ چرا این پنج و نه هر چه داریم ══
+# `pauses_per_minute` تقریباً از دو تای اولی درمی‌آید و `hold_ratio` و
+# `phrase_fall_semitones` روی یک بندِ پانزده‌ثانیه‌ای از چهار-پنج عدد
+# میانه می‌گیرند — یعنی نویز. در خوشه‌بندی هر بُعد وزنِ برابر دارد، پس
+# یک بُعدِ نویزی دقیقاً به‌اندازهٔ یک بُعدِ واقعی خوشه‌ها را جابه‌جا
+# می‌کند. هر دو گزارش می‌شوند، ولی در تصمیم نمی‌آیند.
+MODE_KEYS = ("speech_pct", "phrase_seconds_median", "range_semitones",
+             "pitch_rel_semitones", "level_rel_db")
+
+# نامِ فارسیِ هر محور — کارت را آدم می‌خواند، نه کد.
+MODE_FA = {
+    "speech_pct": "درصدِ زمانی که حرف می‌زند",
+    "phrase_seconds_median": "طولِ هر عبارتِ پیوسته (ثانیه)",
+    "pauses_per_minute": "مکث در دقیقه",
+    "range_semitones": "دامنهٔ زیروبم (نیم‌پرده)",
+    "phrase_fall_semitones": "فرودِ پایانِ عبارت (نیم‌پرده)",
+}
+
+# ══ صفتِ تفضیلی ذخیره می‌شود، ساخته نمی‌شود ══
+# چسباندنِ «تر» با نیم‌فاصله به هر واژه‌ای، فارسیِ غلط می‌سازد:
+# «بلند‌تر» و «زیر‌تر» هر دو اشتباه‌اند («بلندتر»، «زیرتر») ولی
+# «پیوسته‌تر» و «آرام‌تر» درست. قاعده‌ای که کد بتواند حدس بزند وجود
+# ندارد؛ پس هر دو سرِ هر محور همان‌طور که خوانده می‌شود نوشته شده.
+# (کمِ محور، زیادِ محور)
+MODE_WORDS = {
+    "speech_pct": ("پرمکث‌تر", "پیوسته‌تر"),
+    "phrase_seconds_median": ("کوتاه‌عبارت‌تر", "بلندعبارت‌تر"),
+    "range_semitones": ("مهارشده‌تر", "پرنوسان‌تر"),
+    "pitch_rel_semitones": ("بم‌تر", "زیرتر"),
+    "level_rel_db": ("آرام‌تر", "بلندتر"),
+}
+
+
+def stylePassages_(spans):
+    """بندها را سرِ مکث‌های بلند ببُر — مرز را خودِ گوینده گذاشته.
+
+    بریدنِ کور هر ۲۰ ثانیه، یک جملهٔ آرام و نیمهٔ یک جملهٔ تند را در
+    یک بند می‌گذارد و میانگینِ چیزی می‌شود که وجود ندارد. مکثِ بلند
+    همان‌جایی است که خودِ او موضوع را عوض می‌کند.
+
+    ══ و مرزِ واقعی بر کفِ طول مقدم است ══
+    نسخهٔ اول فقط وقتی می‌بُرید که بند به دوازده ثانیه رسیده باشد. پس
+    بندی که هنوز کوتاه بود از روی یک سکوتِ بلند **رد می‌شد** و دو
+    طرفش را با هم میانگین می‌گرفت. در آزمون با دو گویندهٔ واقعی دیده
+    شد: یک بند با پنج ثانیه از یکی و هفده ثانیه از آن‌یکی. حالا سکوتِ
+    دوثانیه‌ای همیشه می‌بُرد و تکهٔ کوتاهِ باقی‌مانده **دور ریخته
+    می‌شود**، نه اینکه به بندِ بعدی بچسبد: با ربعِ ساعت ماده، انداختنِ
+    چند تکهٔ کوتاه ارزان است و آلوده کردنِ یک بند نیست.
+    """
+    if not spans:
+        return [], 0.0
+    out, drop = [], 0.0
+
+    def close(a0, b0):
+        if (b0 - a0) >= MODE_MIN_SEC:
+            out.append((a0, b0))
+            return 0.0
+        return max(0.0, b0 - a0)
+
+    start, prev = spans[0][0], spans[0][1]
+    for a, b in spans[1:]:
+        gap = a - prev
+        if gap >= MODE_HARD_SEC or (prev - start) >= MODE_MAX_SEC or \
+                (gap >= PAUSE_SENT and (prev - start) >= MODE_MIN_SEC):
+            drop += close(start, prev)
+            start = a
+        prev = b
+    drop += close(start, prev)
+    return out, round(drop, 1)
+
+
+def styleVec_(y, rate, spans, a, b, base):
+    """بردارِ سبکِ یک بند. `base` عددهای کلِ همان گوینده است.
+
+    زیروبم و بلندی **نسبت به خودِ او** سنجیده می‌شوند، نه مطلق: پرسش
+    این است که در این بند بم‌تر از عادتِ خودش می‌خوانَد یا نه.
+    """
+    import numpy as np
+    import dsprep as D
+    sub = [(max(s, a), min(e, b)) for s, e in spans if e > a and s < b]
+    sub = [(s, e) for s, e in sub if e - s > 0.05]
+    if len(sub) < 3:
+        return None
+    total = float(b - a)
+    talk = [e - s for s, e in sub]
+    gaps = [sub[i][0] - sub[i - 1][1] for i in range(1, len(sub))]
+    gaps = [g for g in gaps if g >= PAUSE_MICRO]
+    p = stylePitchOf_(y, rate, sub)
+    lv = [D.dbOf_(D.dsSlice_(y, rate, s, e)) for s, e in sub]
+    # ══ موادِ خام می‌مانَد، نه فقط میانه‌اش ══
+    # عددهای یک حالت باید از **جمعِ بندهایش** درآیند، نه از میانهٔ
+    # میانه‌ها؛ و بی نگه داشتنِ خودِ فهرست‌ها آن ممکن نیست.
+    raw = {"_talk": talk, "_gaps": gaps, "_lv": lv, "_spans": sub}
+    med = p.get("median_hz") or 0.0
+    bmed = base.get("median_hz") or 0.0
+    v = {
+        "at": round(a, 1), "seconds": round(total, 1),
+        "speech_pct": round(100.0 * sum(talk) / max(1e-9, total)),
+        "phrase_seconds_median": round(_pct(talk, 50), 2),
+        "pauses_per_minute": round(60.0 * len(gaps) / max(1e-9, total), 1),
+        "range_semitones": p.get("range_semitones", 0.0),
+        "pitch_rel_semitones": (round(12 * float(np.log2(med / bmed)), 2)
+                                if med > 0 and bmed > 0 else 0.0),
+        # `or` اینجا نمی‌آید: `_level_med` یک دسی‌بل است و صفر بودنش
+        # مقدارِ معتبری است، نه «نداریم».
+        "level_rel_db": round(_pct(lv, 50) - (
+            base["_level_med"] if base.get("_level_med") is not None
+            else _pct(lv, 50)), 1),
+        "phrases": len(sub),
+    }
+    v.update(styleFall_(y, rate, sub))
+    v.update(raw)
+    return v
+
+
+def _kmeans_(X, k, seed=7, restarts=8):
+    """k-means با بذرِ ثابت.
+
+    ثابت بودن شرط است، نه سلیقه: این مخزن یک بخشِ کامل دارد دربارهٔ
+    چیزی که در هر اجرا از نو ساخته می‌شود و هر بار جوابِ دیگری می‌دهد
+    (`musicWrap_`). کارتِ حالت‌ها اگر هر بار خوشه‌ها را جابه‌جا کند،
+    نامی که آدم رویشان گذاشته بی‌معنا می‌شود.
+    """
+    import numpy as np
+    n = len(X)
+    rng = np.random.RandomState(seed)
+    best = None
+    for _r in range(restarts):
+        idx = [int(rng.randint(n))]
+        for _ in range(k - 1):
+            d = ((X[:, None, :] - X[idx][None, :, :]) ** 2).sum(-1).min(1)
+            s = float(d.sum())
+            if s <= 0:
+                idx.append(int(rng.randint(n)))
+                continue
+            idx.append(int(np.searchsorted(np.cumsum(d / s), rng.rand())))
+        C = X[idx].astype("float64").copy()
+        lab = np.full(n, -1, dtype=int)
+        for _it in range(60):
+            nl = ((X[:, None, :] - C[None, :, :]) ** 2).sum(-1).argmin(1)
+            if (nl == lab).all():
+                break
+            lab = nl
+            for j in range(k):
+                m = lab == j
+                if m.any():
+                    C[j] = X[m].mean(0)
+        inertia = float(((X - C[lab]) ** 2).sum())
+        if best is None or inertia < best[2]:
+            best = (lab.copy(), C.copy(), inertia)
+    return best
+
+
+def _sil_(X, lab):
+    """سیلوئت: خوشه‌ها واقعاً جدا هستند یا ما خط کشیده‌ایم.
+
+    بی این عدد، k-means **همیشه** k خوشه می‌دهد — حتی روی ابری که
+    هیچ ساختاری ندارد. آن‌وقت برای گوینده‌ای که یک‌جور می‌خواند سه
+    «حالت» می‌سازیم و سه دستورِ متفاوت به Gemini می‌دهیم که هیچ‌کدام
+    از صدا نیامده‌اند.
+    """
+    import numpy as np
+    n = len(X)
+    ks = sorted(set(int(x) for x in lab))
+    if len(ks) < 2 or n <= len(ks):
+        return 0.0
+    Dm = np.sqrt(((X[:, None, :] - X[None, :, :]) ** 2).sum(-1))
+    vals = []
+    for i in range(n):
+        own = int(lab[i])
+        same = (lab == own).copy()
+        same[i] = False
+        if not same.any():
+            vals.append(0.0)
+            continue
+        ai = float(Dm[i][same].mean())
+        bi = min(float(Dm[i][lab == j].mean()) for j in ks if j != own)
+        vals.append((bi - ai) / max(ai, bi, 1e-9))
+    return float(np.mean(vals))
+
+
+def modeName_(cenZ, n):
+    """نامِ حالت از دو محوری که بیشترین فاصله را با عادتِ خودِ او دارند.
+
+    `cenZ` مرکزِ خوشه در فضای استانداردشده است، پس هر مؤلفه‌اش خودش
+    «چند انحرافِ معیار از عادتِ این گوینده» است.
+    """
+    z = sorted(((float(cenZ[i]), MODE_KEYS[i])
+                for i in range(len(MODE_KEYS))), key=lambda t: -abs(t[0]))
+    parts = []
+    for val, key in z[:2]:
+        if abs(val) < 0.35:        # این محور چیزی برای گفتن ندارد
+            continue
+        lo, hi = MODE_WORDS[key]
+        parts.append(hi if val > 0 else lo)
+    if not parts:
+        return "حالتِ %d — میانه" % n
+    return "حالتِ %d — %s" % (n, " و ".join(parts))
+
+
+def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None):
+    """چند جورِ متمایزِ خواندن، از خودِ ضبط‌های همان گوینده.
+
+    خروجی همیشه معتبر است، حتی وقتی حالتی پیدا نشود: «یک حالت» جوابِ
+    درستِ گوینده‌ای است که یک‌جور می‌خواند، و بهتر از سه دستورِ ساختگی.
+    """
+    import numpy as np
+    import dsprep as D
+    from silero_vad import load_silero_vad
+
+    tmp = tempfile.mkdtemp(prefix="modes-")
+    y, rate = D.dsDecode_(path, os.path.join(tmp, "v.wav"), D.VAD_SR)
+    total = len(y) / float(rate)
+    # ══ جابه‌جاییِ پنجره باید نگه داشته شود ══
+    # وقتی از وسطِ فایل بریده می‌شود، هر `at` نسبت به همان برش است.
+    # `modeSamples_` ولی از فایلِ **اصلی** می‌بُرد — پس بی این عدد،
+    # نمونهٔ شنیدنیِ هر حالت از جای اشتباه درمی‌آید و کسی نمی‌فهمد،
+    # چون صوتِ سالمی است، فقط مالِ آنجا نیست.
+    offset = 0.0
+    if total > seconds:
+        s0 = int((total - seconds) / 2.0 * rate)
+        offset = s0 / float(rate)
+        y = y[s0:s0 + int(seconds * rate)]
+        total = len(y) / float(rate)
+    spans = D.dsSpeech_(y, rate, load_silero_vad())
+    if not spans:
+        return {"error": "هیچ گفتاری پیدا نشد", "seconds": round(total, 1)}
+
+    base = stylePitchOf_(y, rate, spans)
+    base["_level_med"] = _pct([D.dbOf_(D.dsSlice_(y, rate, a, b))
+                               for a, b in spans], 50)
+    passages, dropped = stylePassages_(spans)
+    vecs = []
+    for a, b in passages:
+        v = styleVec_(y, rate, spans, a, b, base)
+        if v:
+            vecs.append(v)
+
+    # ══ دورریزِ زیاد یعنی این ضبط بندِ بلند ندارد ══
+    # سکوت‌های بلندِ پیاپی، تکه‌های زیرِ کف می‌سازند و همه دور ریخته
+    # می‌شوند. آن‌وقت خوشه‌بندی روی نیمی از ضبط انجام شده و کسی
+    # نمی‌داند — مگر اینکه بگوییم.
+    note = ("%s ثانیه از %s کنار گذاشته شد (تکه‌های زیرِ %d ثانیه)"
+            % (dropped, round(total, 1), int(MODE_MIN_SEC))) \
+        if dropped > 0.25 * total else ""
+    out = {"seconds": round(total, 1), "passages": len(vecs),
+           "window_offset_seconds": round(offset, 1),
+           "dropped_seconds": dropped, "dropped_note": note,
+           "passage_seconds_median": round(_pct(
+               [v["seconds"] for v in vecs], 50), 1) if vecs else 0.0,
+           "vectors": vecs}
+    if len(vecs) < MODE_MIN_PASSAGES:
+        out["modes"] = []
+        out["why"] = ("فقط %d بند به دست آمد؛ برای خوشه‌بندی دستِ‌کم %d "
+                      "لازم است. صدای بیشتری بدهید."
+                      % (len(vecs), MODE_MIN_PASSAGES))
+        return _stripRaw_(out)
+
+    X0 = np.array([[float(v[k]) for k in MODE_KEYS] for v in vecs])
+    mu, sd = X0.mean(0), X0.std(0)
+    # ══ بی این خط، `speech_pct` تنها بُعدِ مؤثر است ══
+    # دامنه‌اش ۰ تا ۱۰۰ است و بقیه چند واحد؛ فاصلهٔ اقلیدسی یعنی
+    # خوشه‌بندی فقط روی نسبتِ سکوت.
+    X = (X0 - mu) / np.where(sd > 1e-9, sd, 1.0)
+
+    tries = []
+    for k in MODE_KS:
+        if len(vecs) < k * MODE_MIN_MEMBERS:
+            continue
+        lab, cen, inertia = _kmeans_(X, k)
+        sizes = [int((lab == j).sum()) for j in range(k)]
+        tries.append({"k": k, "silhouette": round(_sil_(X, lab), 3),
+                      "sizes": sizes, "_lab": lab, "_cen": cen,
+                      "ok": min(sizes) >= MODE_MIN_MEMBERS})
+    out["tried"] = [{kk: t[kk] for kk in ("k", "silhouette", "sizes", "ok")}
+                    for t in tries]
+    good = [t for t in tries if t["ok"] and t["silhouette"] >= MODE_SIL_MIN]
+    if not good:
+        best = max(tries, key=lambda t: t["silhouette"]) if tries else None
+        out["modes"] = []
+        out["why"] = ("هیچ خوشهٔ واقعی‌ای پیدا نشد (بهترین سیلوئت %s، "
+                      "کفِ لازم %s) — یعنی این گوینده در این ضبط تقریباً "
+                      "یک‌جور می‌خوانَد. یک کارت بس است."
+                      % (best["silhouette"] if best else "—", MODE_SIL_MIN))
+        return _stripRaw_(out)
+
+    win = max(good, key=lambda t: t["silhouette"])
+    lab, cen = win["_lab"], win["_cen"]
+    # ══ بی این خط، فایلِ حالت‌ها قابلِ وارسی نیست ══
+    # کلِ ادعای این لایه «این بند در آن حالت افتاد» است. اگر عضویت
+    # نوشته نشود، تنها راهِ بررسیِ درستی‌اش این است که آدم از روی
+    # میانه‌ها حدس بزند — یعنی همان چیزی که قرار بود از حدس دربیاید.
+    for i, v in enumerate(vecs):
+        v["mode"] = int(lab[i]) + 1
+    out["k"] = win["k"]
+    out["silhouette"] = win["silhouette"]
+    modes = []
+    for j in range(win["k"]):
+        members = [i for i in range(len(vecs)) if int(lab[i]) == j]
+        # نمایندهٔ شنیدنی: نزدیک‌ترین بند به مرکزِ خوشه.
+        d = [float(((X[i] - cen[j]) ** 2).sum()) for i in members]
+        rep = members[int(np.argmin(d))]
+        num = modeNumbers_(y, rate, [vecs[i] for i in members])
+        # نسبی‌ها میانهٔ بندهایند (خودشان نسبت به کلِ گوینده تعریف
+        # شده‌اند، پس جمع‌بندیِ دوباره معنا ندارد).
+        for k2 in ("pitch_rel_semitones", "level_rel_db"):
+            vals = [vecs[i].get(k2) for i in members
+                    if vecs[i].get(k2) is not None]
+            if vals:
+                num[k2] = round(_pct(vals, 50), 2)
+        modes.append({
+            "n": j + 1,
+            "name": modeName_(cen[j], j + 1),
+            "passages": len(members),
+            "share_pct": round(100.0 * len(members) / len(vecs)),
+            "numbers": num,
+            "sample": {"at": vecs[rep]["at"],
+                       "seconds": vecs[rep]["seconds"]},
+            "_rep": rep,
+        })
+    modes.sort(key=lambda m: -m["share_pct"])
+    out["modes"] = modes
+
+    # ══ نمونهٔ شنیدنی، وگرنه نام‌گذاری حدس است ══
+    if sampleDir:
+        out["samples"] = modeSamples_(path, modes, sampleDir, name,
+                                      offset)
+    for m in modes:
+        m.pop("_rep", None)
+    return _stripRaw_(out)
+
+
+def _stripRaw_(out):
+    """فهرست‌های خام کارشان تمام شده و در JSON صدها عددند.
+
+    روی **هر** مسیرِ خروج، نه فقط مسیرِ موفق: دو خروجِ زودهنگام هم
+    همین `vectors` را برمی‌گردانند.
+    """
+    for v in (out.get("vectors") or []):
+        for k in ("_talk", "_gaps", "_lv", "_spans"):
+            v.pop(k, None)
+    return out
+
+
+def modeNumbers_(y, rate, members):
+    """عددهای یک حالت — از **جمعِ بندهایش**، با همان جمع‌بندیِ کارتِ اصلی.
+
+    نه میانهٔ میانه‌ها: میانهٔ میانه‌ها صدکِ ۹۵ و نسبتِ مکث‌ها را
+    نمی‌سازد، و کارتی که نصفِ عددهایش از جای دیگری بیاید همان کارتِ
+    ناهم‌خوانی است که یک بار ساختیم.
+    """
+    import numpy as np
+    talk, gaps, lv, spans = [], [], [], []
+    total = 0.0
+    for v in members:
+        talk += v.get("_talk") or []
+        gaps += v.get("_gaps") or []
+        lv += v.get("_lv") or []
+        spans += v.get("_spans") or []
+        total += float(v.get("seconds") or 0)
+    num = styleAgg_(talk, gaps, lv, total)
+    num["phrases_measured"] = len(talk)
+    if spans:
+        num.update(stylePitchOf_(y, rate, spans))
+        num.update(styleFall_(y, rate, spans))
+    return num
+
+
+def modeSamples_(path, modes, outDir, name, offset=0.0):
+    """از فایلِ اصلی (نرخِ خودش) یک برش برای هر حالت بیرون بیاور.
+
+    `offset` جابه‌جاییِ پنجرهٔ تحلیل نسبت به فایل است. بی آن، هر برش
+    از جای دیگری درمی‌آید — صوتِ سالمی که مالِ آن حالت نیست.
+    """
+    import soundfile as sf
+    made, err = [], ""
+    try:
+        if not os.path.isdir(outDir):
+            os.makedirs(outDir)
+        info = sf.info(path)
+        sr = info.samplerate
+    except Exception as e:
+        return {"files": [], "error": str(e)[:200]}
+    for m in modes:
+        # عددی که گزارش می‌شود باید همان عددی باشد که بریده شد —
+        # وگرنه کسی که می‌خواهد همان‌جا را در فایلِ اصلی پیدا کند،
+        # جای دیگری را باز می‌کند.
+        a = round(float(m["sample"]["at"]) + offset, 1)
+        b = a + float(m["sample"]["seconds"])
+        i0 = max(0, int(a * sr))
+        i1 = min(int(info.frames), int(b * sr))
+        if i1 - i0 < sr:
+            continue
+        fn = os.path.join(outDir, "MODE%d-%s.wav" % (m["n"], _slug_(name)))
+        try:
+            # تکه‌ای خوانده می‌شود، نه کلِ فایل: ربعِ ساعت صوت در
+            # ممیزِ دوبل صدها مگابایت است، برای بیست ثانیه برش.
+            seg, _sr = sf.read(path, start=i0, stop=i1, always_2d=False)
+            sf.write(fn, seg, sr)
+            made.append(os.path.basename(fn))
+            m["sample"]["file"] = os.path.basename(fn)
+            m["sample"]["at_in_file"] = a
+        except Exception as e:
+            err = str(e)[:200]
+    return {"files": made, "error": err}
+
+
+def _slug_(s):
+    return re.sub(r"\s+", "-", (s or "").strip()) or "voice"
+
+
+def modeCard_(mode, base, name):
+    """کارتِ یک حالت: همان قالب، به‌علاوهٔ «فرقش با عادتِ خودش چیست»."""
+    # ══ هر عددِ این کارت مالِ همین حالت است ══
+    # نسخهٔ اول عددهای کلِ ضبط را پایه می‌گرفت و چند تا را عوض می‌کرد.
+    # حاصلش این خط بود: «هر عبارت حدودِ ۷٫۱ ثانیه (گاهی تا ۲٫۹)» —
+    # صدکِ ۹۵ کوچک‌تر از میانه. `base` حالا فقط برای **مقایسه** است.
+    own = mode.get("numbers") or {}
+    card = styleCard_(own, "%s — %s" % (name, mode.get("name") or
+                                        "حالتِ %s" % mode.get("n", "?")))
+    lines = [card["instruction"], "", "## این حالت چه فرقی دارد"]
+    for k, (lo, hi) in MODE_WORDS.items():
+        t, a = base.get(k), own.get(k)
+        if t is None or a is None or k in ("pitch_rel_semitones",
+                                           "level_rel_db"):
+            continue
+        if abs(a - t) < max(0.15 * abs(t), 1e-9):
+            continue
+        lines.append("- %s: **%s** در برابرِ %s در حالتِ معمولِ او (%s)"
+                     % (MODE_FA.get(k, k), a, t, hi if a > t else lo))
+    for k in ("pitch_rel_semitones", "level_rel_db"):
+        a = (mode.get("numbers") or {}).get(k)
+        if a is None or abs(a) < 0.5:
+            continue
+        lo, hi = MODE_WORDS[k]
+        unit = "نیم‌پرده" if k == "pitch_rel_semitones" else "دسی‌بل"
+        lines.append("- نسبت به عادتِ خودش **%.1f %s %s** می‌خوانَد."
+                     % (abs(a), unit, hi if a > 0 else lo))
+    lines += ["", "این حالت %d درصدِ ضبط را می‌گیرد (%d بند)."
+              % (mode.get("share_pct", 0), mode.get("passages", 0))]
+    if (mode.get("sample") or {}).get("file"):
+        lines.append("نمونهٔ شنیدنیِ همین حالت: `%s` — بشنوید و نامش را "
+                     "خودتان بگذارید." % mode["sample"]["file"])
+    card["instruction"] = "\n".join(lines)
+    return card

@@ -45,8 +45,9 @@ import fa2latin
 # اجرا می‌شود و دو نسخه از یک متن، همان شکستی است که این ریپو بارها
 # خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
 from dsprep import *                                        # noqa: F401,F403
-from stylecard import (STYLE_DEPS, STYLE_WINDOW, styleMeasure_, styleCard_,
-                       styleCompare_)
+from stylecard import (STYLE_DEPS, STYLE_WINDOW, MODES_WINDOW,
+                       styleMeasure_, styleCard_, styleCompare_,
+                       styleModes_, modeCard_)
 from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
                     DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
                     dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
@@ -149,7 +150,7 @@ ENGINES = {
         "needs_src": False,
         # خروجی متن است، نه صوت · و پنجرهٔ اندازه‌گیری کف دارد
         "text_out": True,
-        "ref_window": int(STYLE_WINDOW),
+        "ref_window": int(MODES_WINDOW),
         "persian": "زبان‌مستقل — هیچ متنی خوانده نمی‌شود",
         "note": "بی کلید و بی مدل: هر جملهٔ دستور از یک عدد آمده",
     },
@@ -2721,7 +2722,13 @@ def run_style(ref, src, text, out):
     name = OPT.get("style_name") or "گوینده"
     rep = OPT.get("_rep") or {}
 
-    m = styleMeasure_(styleRaw_(ref))
+    # ══ کارتِ اصلی و حالت‌ها باید یک پنجره را ببینند ══
+    # `styleMeasure_` پیش‌فرضش ۲۴۰ ثانیه است (کفِ لازم برای یک کارت)،
+    # ولی از وقتی این موتور پنجرهٔ ربعِ ساعت می‌گیرد، کارت روی ۲۴۰
+    # ثانیه از وسط ساخته می‌شد و حالت‌ها روی ۹۰۰ — و بعد کارتِ هر
+    # حالت عددهایش را با همان کارت **مقایسه** می‌کرد. دو اندازه‌گیری
+    # از دو بازهٔ متفاوت، در یک جمله.
+    m = styleMeasure_(styleRaw_(ref), seconds=MODES_WINDOW)
     card = styleCard_(m, name)
     if card.get("error"):
         raise RuntimeError("سبک اندازه‌گیری نشد: %s" % card["error"])
@@ -2738,7 +2745,7 @@ def run_style(ref, src, text, out):
     # دستور اجرا شده و کدام نه — یعنی دفعهٔ بعد چه چیزی را باید
     # محکم‌تر گفت.
     if src:
-        got = styleMeasure_(styleRaw_(src))
+        got = styleMeasure_(styleRaw_(src), seconds=MODES_WINDOW)
         rep["style"]["source_now"] = got
         rep["style"]["gap"] = styleCompare_(m, got)
         io.open(os.path.join(out, "STYLE-gap.json"), "w",
@@ -2754,6 +2761,42 @@ def run_style(ref, src, text, out):
             print("  %-26s هدف %-7s الان %-7s اختلاف %-7s (%s آستانه %s)"
                   % (k, v["target"], v["actual"], v["diff"],
                      "✗" if v["off"] else "✓", v["tolerance"]), flush=True)
+    # ══ لایهٔ حالت‌ها ══
+    # کارتِ بالا میانهٔ کلِ ضبط است، و میانه همان چیزی را پنهان می‌کند
+    # که پرسش بود: یک گوینده جای تعلیق طورِ دیگری می‌خواند تا جای
+    # توضیح. اینجا خودِ ضبط به بند شکسته می‌شود، هر بند بردارِ سبکِ
+    # خودش را می‌گیرد، و خوشه‌ها **از خودِ او** درمی‌آیند — نه از یک
+    # ردهٔ احساساتِ آماده که روی روایتِ آرامِ فارسی هیچ‌جا ندارد.
+    try:
+        md = styleModes_(styleRaw_(ref), name, sampleDir=out)
+    except Exception as e:
+        md = {"error": str(e)[:300]}
+        print("حالت‌ها ساخته نشد: %s" % md["error"], flush=True)
+    # بردارِ هر بند در گزارشِ اصلی نمی‌نشیند (ده‌ها ردیف)؛ فایلِ خودش
+    # را دارد و خلاصه‌اش در گزارش است.
+    io.open(os.path.join(out, "STYLE-%s-modes.json" % re.sub(r"\s+", "-", name)),
+            "w", encoding="utf-8").write(
+        json.dumps(md, ensure_ascii=False, indent=1))
+    rep["style"]["modes"] = {k: v for k, v in md.items() if k != "vectors"}
+    # نامِ `m` همان اندازه‌گیریِ کلِ گوینده است و کارتِ هر حالت رویش
+    # سوار می‌شود — پس متغیرِ حلقه نباید همان نام را بگیرد.
+    for mo in (md.get("modes") or []):
+        mc = modeCard_(mo, m, name)
+        fn = os.path.join(out, "STYLE-%s-%d.md" % (
+            re.sub(r"\s+", "-", name), mo["n"]))
+        io.open(fn, "w", encoding="utf-8").write(mc["instruction"] + "\n")
+        mo["card_file"] = os.path.basename(fn)
+    if md.get("modes"):
+        print("\n%d حالتِ متمایز (سیلوئت %s) از %d بند:"
+              % (len(md["modes"]), md.get("silhouette"), md.get("passages")),
+              flush=True)
+        for m in md["modes"]:
+            print("  %-34s %3d%%  %2d بند  نمونه: %s"
+                  % (m["name"], m["share_pct"], m["passages"],
+                     (m.get("sample") or {}).get("file", "—")), flush=True)
+    elif md.get("why"):
+        print("\nحالتی جدا نشد: %s" % md["why"], flush=True)
+
     saveRep_()
     print("\n" + card["instruction"], flush=True)
     return dst
