@@ -90,13 +90,31 @@ function lastEpisode_(hub) {
  * جایگزین می‌کند؛ بین دو وارسیِ سلامت، آخرین خلاصه باید سرِ جایش بماند.
  */
 function readExistingHealth_() {
+  var health = null;
   try {
     var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var it = folder.getFilesByName(STATUS_FILE);
-    if (!it.hasNext()) return null;
-    var st = JSON.parse(it.next().getBlob().getDataAsString());
-    return st.health || null;
-  } catch (e) { return null; }
+    if (it.hasNext()) {
+      var st = JSON.parse(it.next().getBlob().getDataAsString());
+      health = st.health || null;
+    }
+  } catch (e) {}
+  /* ردِ پای healthCheck (PK.HEALTH_STEP، از ۶٫۳۸) فقط در Properties Service
+     زندگی می‌کرد — جایی که هیچ ناظرِ بیرونی نمی‌تواند بخواندش. وقتی
+     healthCheck پیش از رسیدن به saveHealthSnapshot_ کشته می‌شود (مثلاً
+     شش‌دقیقه‌ایِ Apps Script)، checkedAt چند روز کهنه می‌ماند و «کجا ایستاد»
+     تنها سرنخِ موجود بود، ولی جایی که کسی بیرون از خودِ اسکریپت بتواند
+     بخواندش نداشت. اینجا همان ردِ پا را — زنده، از هر فراخوانِ writeStatus_
+     (نه فقط healthCheck) — به همان کلید می‌چسبانیم تا وقتی healthCheck
+     ناتمام می‌ماند هم دیده شود. */
+  try {
+    var step = props_().getProperty(PK.HEALTH_STEP);
+    if (step) {
+      health = health || {};
+      health.lastStep = step;
+    }
+  } catch (eS) {}
+  return health;
 }
 
 /** نوشتن/به‌روزرسانی فایل وضعیت در OUTPUT */
