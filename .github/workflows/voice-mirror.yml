@@ -101,7 +101,14 @@ jobs:
       - name: قفل را در مخزن نگه دار
         run: |
           set -euo pipefail
-          if git diff --quiet -- tools/mirror_lock.json; then
+          # ══ `git diff` فایلِ ردگیری‌نشده را نمی‌بیند ══
+          # اجرای دوم موفق شد، این مرحله «قفل عوض نشده» گفت و هیچ
+          # نکرد — چون قفل **تازه** بود و هرگز در گیت نبوده، و
+          # `git diff --quiet -- <untracked>` صفر برمی‌گرداند. یعنی
+          # مرحله‌ای که کارش نگه داشتنِ شناسنامه بود، سبز تمام شد و
+          # شناسنامه‌ای نگه نداشت. `git status --porcelain` هم
+          # تغییر را می‌بیند هم فایلِ تازه را.
+          if [ -z "$(git status --porcelain -- tools/mirror_lock.json)" ]; then
             echo "قفل عوض نشده"; exit 0
           fi
           git config user.name  "github-actions[bot]"
