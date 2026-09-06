@@ -2693,6 +2693,76 @@ def main():
        "ورودیِ صوتی در بایگانی نمی‌مانَد (%s)" % made35)
     eq("MODE9-x.wav" in made35, True, "ولی نمونهٔ حالت دست‌نخورده ماند")
 
+    # ── ۳۶ ─────────────────────────────────────────────────────────────
+    # آینهٔ وابستگی‌های بیرونی. مدلِ صدا مالِ ماست، ولی اجرایش به بستهٔ
+    # `infer-rvc-python` (نگه‌داریِ یک نفر) و دو وزن از یک مخزنِ شخصیِ
+    # Hugging Face بند است. اگر پاک شوند، مدل سالم است و اجرا نمی‌شود —
+    # بدترین شکلِ وابستگی، چون تا روزِ حادثه نامرئی است.
+    print("۳۶ — آینه: چه چیزی نگه داشته می‌شود و چطور ثابت می‌شود")
+    import mirror as MR
+
+    # ══ الف: خانوادهٔ سنگین درست تشخیص داده شود ══
+    # `startswith("torch")` هم `torchcrepe` را می‌گرفت — بسته‌ای کوچک و
+    # دقیقاً از همان جنسِ شکننده‌ای که آینه برایش ساخته شده. یک حرفِ
+    # اضافه در یک شرط، و آن بسته بی‌صدا از آینه بیرون می‌مانَد.
+    for nm in ("torch", "torchaudio", "nvidia_cublas_cu12", "triton"):
+        eq(MR.heavy_(nm), True, "«%s» سنگین است و فرستاده نمی‌شود" % nm)
+    for nm in ("torchcrepe", "torchfcpe", "numpy", "faiss-cpu"):
+        eq(MR.heavy_(nm), False, "«%s» در آینه می‌مانَد" % nm)
+
+    # ══ ب: قفل باید خرابی را بگیرد، وگرنه فقط یک فهرست است ══
+    d36 = tempfile.mkdtemp()
+    os.makedirs(os.path.join(d36, "wheels"))
+    for nm, body in (("wheels/a.whl", b"AAA" * 40), ("b.txt", b"B" * 17)):
+        io.open(os.path.join(d36, nm), "wb").write(body)
+    lk36 = {"files": MR.scan_(d36)}
+    eq([f["path"] for f in lk36["files"]], ["b.txt", "wheels/a.whl"],
+       "مسیرها نسبی و مرتب‌اند")
+    eq(all(len(f["sha256"]) == 64 for f in lk36["files"]), True,
+       "و هر کدام اثرانگشت دارند")
+    lp36 = os.path.join(d36, "lock.json")
+    io.open(lp36, "w", encoding="utf-8").write(json.dumps(lk36))
+
+    class _A36(object):
+        pass
+    a36 = _A36(); a36.dir = d36; a36.lock = lp36
+    eq(MR.cmd_verify(a36), 0, "آینهٔ سالم می‌گذرد")
+    # یک بایت
+    fp = os.path.join(d36, "b.txt")
+    io.open(fp, "wb").write(b"B" * 16 + b"C")
+    eq(MR.cmd_verify(a36), 1, "یک بایتِ عوض‌شده گرفته می‌شود")
+    io.open(fp, "wb").write(b"B" * 17)
+    os.remove(os.path.join(d36, "wheels", "a.whl"))
+    eq(MR.cmd_verify(a36), 1, "و فایلِ گم‌شده هم")
+
+    # ══ پ: «main» یک نشانگر است، نه یک قفل ══
+    # قفلی که به شاخه ببندد چیزی را قفل نکرده — فردا جای دیگری را
+    # نشان می‌دهد.
+    mrSrc = io.open(MR.__file__.replace(".pyc", ".py"),
+                    encoding="utf-8").read()
+    eq("def hfRev_" in mrSrc and "repo_info" in mrSrc, True,
+       "شمارهٔ کامیتِ واقعی گرفته می‌شود، نه نامِ شاخه")
+
+    # ══ ت: آینه‌ای که آزموده نشده، آرزوست ══
+    eq("offline_install_ok" in mrSrc and "raise SystemExit" in mrSrc, True,
+       "نصبِ آفلاین آزموده می‌شود و شکستش کار را می‌اندازد")
+    # و پین‌های ناسازگارِ تبدیل/آموزش نباید همدیگر را بشکنند:
+    eq(MR.packWheels_.__code__.co_varnames[0], "dest", "امضا سرِ جایش است")
+    eq("groups" in MR.packWheels_.__code__.co_varnames, True,
+       "چرخ‌ها گروه‌گروه حل می‌شوند، نه یک‌جا")
+
+    # ══ ث: و گردش‌کارش قفل را در گیت نگه می‌دارد ══
+    # artifact نودی روز بیشتر نمی‌مانَد. اگر قفل هم با آن برود، آینهٔ
+    # بی‌شناسنامه داریم: فایل‌هایی که کسی نمی‌داند از کجا آمده‌اند.
+    wfm = io.open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), ".github", "workflows",
+        "voice-mirror.yml"), encoding="utf-8").read()
+    eq("tools/mirror.py verify mirror" in wfm, True,
+       "گردش‌کار آینه را با قفلِ خودش می‌سنجد")
+    eq("git add tools/mirror_lock.json" in wfm, True,
+       "و قفل در مخزن می‌مانَد")
+    eq("contents: write" in wfm, True, "با همان اجازهٔ لازم و نه بیشتر")
+
     print("\nهمه گذشت.")
     return 0
 
