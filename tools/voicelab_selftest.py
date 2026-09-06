@@ -2605,6 +2605,25 @@ def main():
     eq("pitch_rel_semitones" not in SC.MODE_SEP_DECIDES, True,
        "چون زیروبم پشتیبان است، نه داور")
 
+    # ══ ر: نمونه‌ها هم‌اندازه، و مرزِ هر حالت گفته شود ══
+    # اجرای ۵۶ دو نمونه داد، ۱۴٫۸ و ۴۵ ثانیه. کسی که باید پشتِ هم
+    # بشنودشان و فرق را بگوید، نباید یکی سه برابرِ آن‌یکی باشد. و
+    # سیلوئتِ ۰٫۲۳ یعنی این‌ها دو جزیره نیستند، یک طیف‌اند با دو سر —
+    # کارتی که این را نگوید، قاطعیتی نشان می‌دهد که در صدا نیست.
+    eq('min(float(smp.get("seconds", 0.0)), MODE_SAMPLE_SEC)' in scSrc0, True,
+       "طولِ نمونه سقف دارد (%s ثانیه)" % SC.MODE_SAMPLE_SEC)
+    soft = SC.modeCard_(dict(mode35, distinct={
+        "vs": 2, "axis": "phrase_seconds_median", "diff": 0.94,
+        "tolerance": 0.51, "times": 1.84}), razavi33, "رضوی")["instruction"]
+    firm = SC.modeCard_(dict(mode35, distinct={
+        "vs": 2, "axis": "speech_pct", "diff": 33, "tolerance": 12.75,
+        "times": 2.59}), razavi33, "رضوی")["instruction"]
+    eq("مرزِ ملایمی است" in soft, True, "مرزِ ضعیف را ملایم می‌خوانَد")
+    eq("یک طیف‌اند" in soft, True, "و می‌گوید چرا")
+    eq("مرزِ محکمی است" in firm, True, "و مرزِ قوی را محکم")
+    eq("1.8" in soft and "2.6" in firm, True,
+       "و عددِ «چند برابرِ آستانه» در هر دو هست")
+
     # ══ ذ: حالت‌ها از چند ضبط، با مبنای هر ضبط ══
     # تنوعِ لحن بینِ برنامه‌هاست نه لزوماً داخلِ یکی. ولی اگر مبنای
     # بلندی و زیروبم مشترک باشد، خوشه‌ها «ضبطِ ۱ در برابرِ ضبطِ ۳»

@@ -499,6 +499,11 @@ MODE_MIN_PASSAGES = 12      # کمتر از این، خوشه‌بندی تئا�
 MODE_MIN_MEMBERS = 3        # خوشهٔ دو-عضوی حالت نیست، پرت است
 MODE_SIL_MIN = 0.15         # زیرِ این، «حالتی در کار نیست» جوابِ درست است
 MODE_KS = (2, 3, 4)
+# ══ نمونه‌ها باید هم‌اندازه باشند تا مقایسه منصفانه باشد ══
+# اجرای ۵۶ یکی را ۱۴٫۸ ثانیه داد و آن‌یکی را ۴۵ — چون طولِ بندِ
+# نماینده هر چه بود همان بریده می‌شد. کسی که می‌خواهد دو نمونه را
+# پشتِ هم بشنود و فرقشان را بگوید، نباید یکی سه برابرِ آن‌یکی باشد.
+MODE_SAMPLE_SEC = 20.0
 
 # ══ چرا این پنج و نه هر چه داریم ══
 # `pauses_per_minute` تقریباً از دو تای اولی درمی‌آید و `hold_ratio` و
@@ -965,6 +970,19 @@ def styleModes_(sources, name="گوینده", seconds=MODES_WINDOW,
                        "src": vecs[rep].get("file")},
             "_rep": rep,
         })
+    # ══ هر کارت باید بگوید مرزش چقدر محکم است ══
+    # سیلوئتِ ۰٫۲۳ یعنی این‌ها دو جزیره نیستند، یک طیف‌اند با دو سر.
+    # کارتی که این را نگوید، دو حالتِ قاطع نشان می‌دهد که در صدا
+    # قاطع نیستند — و کسی که می‌خواهد نامشان را بگذارد، سرِ کار
+    # می‌ماند.
+    for m in modes:
+        near = [p for p in (win["separation"].get("pairs") or [])
+                if m["n"] in p["pair"]]
+        if near:
+            w = min(near, key=lambda p: p["times"])
+            m["distinct"] = {"vs": [x for x in w["pair"] if x != m["n"]][0],
+                             "axis": w["axis"], "diff": w["diff"],
+                             "tolerance": w["tolerance"], "times": w["times"]}
     modes.sort(key=lambda m: -m["share_pct"])
     out["modes"] = modes
 
@@ -1045,7 +1063,7 @@ def modeSamples_(srcs, modes, outDir, name):
             # وگرنه کسی که می‌خواهد همان‌جا را در فایل پیدا کند، جای
             # دیگری را باز می‌کند.
             a = round(float(smp.get("at", 0.0)) + sc.get("offset", 0.0), 1)
-            b = a + float(smp.get("seconds", 0.0))
+            b = a + min(float(smp.get("seconds", 0.0)), MODE_SAMPLE_SEC)
             i0 = max(0, int(a * sr))
             i1 = min(int(info.frames), int(b * sr))
             if i1 - i0 < sr:
@@ -1096,6 +1114,16 @@ def modeCard_(mode, base, name):
         unit = "نیم‌پرده" if k == "pitch_rel_semitones" else "دسی‌بل"
         lines.append("- نسبت به عادتِ خودش **%.1f %s %s** می‌خوانَد."
                      % (abs(a), unit, hi if a > 0 else lo))
+    dst = mode.get("distinct") or {}
+    if dst:
+        lines += ["", "**چقدر از حالتِ %d جداست:** در «%s» به اندازهٔ %s "
+                  "فرق دارد و آستانهٔ شنیدن %s است — یعنی %.1f برابرِ "
+                  "آستانه. %s"
+                  % (dst["vs"], MODE_FA.get(dst["axis"], dst["axis"]),
+                     dst["diff"], dst["tolerance"], dst["times"],
+                     "مرزِ محکمی است." if dst["times"] >= 2.5 else
+                     "مرزِ ملایمی است؛ این دو یک طیف‌اند با دو سر، نه دو "
+                     "چیزِ جدا.")]
     lines += ["", "این حالت %d درصدِ ضبط را می‌گیرد (%d بند)."
               % (mode.get("share_pct", 0), mode.get("passages", 0))]
     if (mode.get("sample") or {}).get("file"):
