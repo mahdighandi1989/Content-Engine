@@ -2637,6 +2637,37 @@ def main():
     eq('OPT.get("audition_windows")' in srcV, True,
        "و لایهٔ حالت‌ها همه‌شان را می‌گیرد")
 
+    # ══ چ: یک چیز، یک تعریف ══
+    # `dsprep.py` یازده خط را عیناً دو بار داشت — `DS_TOTAL_MAX` و
+    # `dsPick_`. امروز بی‌ضرر بود چون هر دو نسخه یکی بودند، ولی روزی
+    # که کسی یکی را ویرایش کند، آن‌یکی بی‌صدا برنده می‌شود و ویرایش
+    # هیچ اثری ندارد. همان شکلِ `srcJoinJs_`: یک چیز که دو جا تعریف
+    # شود، باگ است — فقط هنوز نه.
+    import ast as _a36, collections as _c36
+    here36 = os.path.dirname(os.path.abspath(__file__))
+    for fn36 in ("dsprep.py", "rvcpipe.py", "stylecard.py", "mirror.py",
+                 "voicelab.py", "voicetrain.py"):
+        tree36 = _a36.parse(io.open(os.path.join(here36, fn36),
+                                    encoding="utf-8").read())
+        nm36 = []
+        for nd in tree36.body:
+            if isinstance(nd, (_a36.FunctionDef, _a36.ClassDef)):
+                nm36.append(nd.name)
+            elif isinstance(nd, _a36.Assign):
+                for tg in nd.targets:
+                    if isinstance(tg, _a36.Name):
+                        nm36.append(tg.id)
+        dup36 = sorted(k for k, v in _c36.Counter(nm36).items() if v > 1)
+        eq(dup36, [], "%s: هیچ نامی دو بار تعریف نشده" % fn36)
+
+    # ══ ح: سقفِ دیتاست باید قابلِ عوض کردن باشد ══
+    # چهل دقیقه از راهنماییِ عمومیِ RVC آمده، نه از آزمونِ ما. تا وقتی
+    # کلِ صدا ۳۹ دقیقه بود اهمیتی نداشت؛ با چند ساعت صدا این عدد
+    # **تصمیم** می‌گیرد، و تصمیمی که نشود سنجیدش فرض است.
+    eq("--ds-max-minutes" in srcV, True, "سقفِ دیتاست از فرمان می‌آید")
+    eq("totalMax=cap" in srcV, True, "و واقعاً به سازندهٔ دیتاست می‌رسد")
+    eq("ds_max_minutes" in wfl, True, "و خانه‌اش در فرم هست")
+
     # ══ ث: هیچ‌کدام از اینها نباید بی‌صدا بی‌مصرف بماند ══
     # قاعدهٔ خودِ این مخزن: سه باگِ واقعی همگی یک شکل داشتند — تابعی
     # نوشته و توضیح‌داده و آزموده، که هیچ‌جا صدا زده نمی‌شد. این

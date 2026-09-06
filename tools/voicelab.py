@@ -2905,7 +2905,16 @@ def run_dataset(ref, src, text, out):
         OPT["dataset"] = {"files": files}
         saveRep_()
 
-    segs, rep = buildDataset_(srcs, segDir, sampleDir=out, onFile=onFile)
+    # ══ سقفِ دیتاست از فرم می‌آید، چون یک حدس است نه یک اندازه ══
+    # چهل دقیقه از راهنماییِ عمومیِ RVC آمده. تا وقتی کلِ صدای موجود
+    # ۳۹ دقیقه بود اهمیتی نداشت؛ حالا که چند ساعت هست، این عدد تصمیم
+    # می‌گیرد — و تصمیمی که نشود عوضش کرد و سنجیدش، فرض است.
+    cap = float(OPT.get("ds_max_minutes") or 0) * 60.0
+    if cap <= 0:
+        cap = DS_TOTAL_MAX
+    print("سقفِ دیتاست: %.0f دقیقه" % (cap / 60.0), flush=True)
+    segs, rep = buildDataset_(srcs, segDir, sampleDir=out, onFile=onFile,
+                              totalMax=cap)
     heard = {}
     for k, path in (rep.get("samples") or {}).items():
         if path:
@@ -2950,6 +2959,8 @@ def main():
     # این «چقدر مواد بده» است، نه «چقدر استفاده کن»: برشِ نهایی را
     # cutAtPause_ سرِ یک مکث و زیرِ سقفِ دوازده‌ثانیه‌ایِ f5 انجام می‌دهد.
     # هرچه سخاوتمندتر، انتخابِ مکث بهتر.
+    # سقفِ دیتاست به دقیقه — خالی یعنی پیش‌فرضِ `dsprep`
+    ap.add_argument("--ds-max-minutes", type=float, default=0)
     ap.add_argument("--ref-seconds", type=int, default=30)
     # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
     ap.add_argument("--src-seconds", type=int, default=12)
@@ -2996,6 +3007,7 @@ def main():
     OPT["omni_model"] = a.omni_model
     OPT["f5_nfe"] = a.f5_nfe
     OPT["alphabet"] = a.alphabet
+    OPT["ds_max_minutes"] = a.ds_max_minutes
     OPT["style_name"] = a.style_name
     OPT["rvc_model"] = a.rvc_model
     OPT["rvc_index"] = a.rvc_index

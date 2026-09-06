@@ -340,7 +340,12 @@ def dsSpeakerSims_(embs, centroid):
     return [round(float(np.dot(e, centroid)), 3) for e in embs]
 
 
-DS_TOTAL_MAX = 2400.0   # چهل دقیقه؛ بیشتر از این بازدهِ RVC کم می‌شود
+# ══ سقفِ دیتاست — یک حدس، نه یک اندازه‌گیری ══
+# چهل دقیقه از راهنماییِ عمومیِ RVC آمده، نه از آزمونِ ما. تا امروز
+# اهمیتی نداشت چون کلِ صدای موجود ۳۹ دقیقه بود؛ حالا که چند ساعت صدا
+# هست، این عدد **تصمیم** می‌گیرد و باید بشود عوضش کرد و سنجیدش.
+# `--ds-max-minutes` در آزمایشگاه همین را بالا می‌برد.
+DS_TOTAL_MAX = 2400.0
 
 
 def dsPick_(items, n):
@@ -350,15 +355,6 @@ def dsPick_(items, n):
     step = len(items) / float(n)
     return [items[int(i * step)] for i in range(n)]
 
-DS_TOTAL_MAX = 2400.0   # چهل دقیقه؛ بیشتر از این بازدهِ RVC کم می‌شود
-
-
-def dsPick_(items, n):
-    """n تا از سراسرِ فهرست، نه n تای اول — نمونه باید نماینده باشد."""
-    if len(items) <= n:
-        return list(items)
-    step = len(items) / float(n)
-    return [items[int(i * step)] for i in range(n)]
 
 
 def buildDataset_(paths, segDir, sampleDir=None, totalMax=DS_TOTAL_MAX,

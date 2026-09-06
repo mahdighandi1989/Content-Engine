@@ -104,6 +104,15 @@ on:
         description: 'چند ثانیه از قسمتِ مبدأ تبدیل شود (کارتِ سبک خودش ۹۰۰ می‌گیرد)'
         required: false
         default: '30'
+      # ══ سقفِ دیتاست: یک حدس بود، حالا یک خانه ══
+      # چهل دقیقه از راهنماییِ عمومیِ RVC آمده، نه از آزمونِ ما. تا وقتی
+      # کلِ صدای موجود ۳۹ دقیقه بود اهمیتی نداشت؛ با چند ساعت صدا، این
+      # عدد تصمیم می‌گیرد و باید بشود سنجیدش.
+      ds_max_minutes:
+        description: 'سقفِ دیتاست به دقیقه (فقط engine=dataset · خالی = ۴۰)'
+        required: false
+        default: ''
+        type: string
       ref_seconds:
         description: 'چند ثانیه از نمونه برداشته شود (برشِ نهایی سرِ مکث؛ کارتِ سبک خودش ۹۰۰ می‌گیرد)'
         required: false
@@ -427,6 +436,7 @@ jobs:
           F5_VOCAB: ${{ inputs.f5_vocab }}
           F5_REF_TEXT: ${{ inputs.f5_ref_text }}
           F5_NFE: ${{ inputs.f5_nfe }}
+          DS_MAX_MINUTES: ${{ inputs.ds_max_minutes }}
           REF_SECONDS: ${{ inputs.ref_seconds }}
           SRC_SECONDS: ${{ inputs.src_seconds }}
           ALPHABET: ${{ inputs.alphabet }}
@@ -449,6 +459,7 @@ jobs:
           if [ -n "${F5_VOCAB}" ]; then ARGS+=(--f5-vocab "${F5_VOCAB}"); fi
           if [ -n "${F5_REF_TEXT}" ]; then ARGS+=(--f5-ref-text "${F5_REF_TEXT}"); fi
           if [ -n "${F5_NFE}" ];      then ARGS+=(--f5-nfe "${F5_NFE}"); fi
+          if [ -n "${DS_MAX_MINUTES}" ]; then ARGS+=(--ds-max-minutes "${DS_MAX_MINUTES}"); fi
           if [ -n "${REF_SECONDS}" ]; then ARGS+=(--ref-seconds "${REF_SECONDS}"); fi
           if [ -n "${SRC_SECONDS}" ]; then ARGS+=(--src-seconds "${SRC_SECONDS}"); fi
           if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
