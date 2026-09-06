@@ -48,7 +48,7 @@ on:
         default: ''
         type: string
       src_id:
-        description: 'شناسهٔ فایلِ درایو — یک wavِ فارسیِ Gemini (فقط برای seedvc)'
+        description: 'شناسهٔ فایلِ درایو — یک wavِ فارسیِ Gemini (برای rvc · chatterboxvc · seedvc)'
         required: false
         default: ''
         type: string
@@ -81,6 +81,10 @@ on:
         type: string
       # از ۳۰ ثانیه، خودِ f5 سرِ نزدیک‌ترین مکث زیرِ ۱۲ ثانیه می‌بُرد
       # (cutAtPause_). پس این عدد «چقدر مواد بده»، نه «چقدر استفاده کن».
+      src_seconds:
+        description: 'چند ثانیه از قسمتِ مبدأ تبدیل شود (پیش‌فرضِ ۱۲ برای داوری کوتاه است)'
+        required: false
+        default: '30'
       ref_seconds:
         description: 'چند ثانیه از نمونه برداشته شود (برشِ نهایی خودکار سرِ مکث، زیرِ ۱۲ ثانیه)'
         required: false
@@ -405,6 +409,7 @@ jobs:
           F5_REF_TEXT: ${{ inputs.f5_ref_text }}
           F5_NFE: ${{ inputs.f5_nfe }}
           REF_SECONDS: ${{ inputs.ref_seconds }}
+          SRC_SECONDS: ${{ inputs.src_seconds }}
           ALPHABET: ${{ inputs.alphabet }}
         run: |
           set -euo pipefail
@@ -422,6 +427,7 @@ jobs:
           if [ -n "${F5_REF_TEXT}" ]; then ARGS+=(--f5-ref-text "${F5_REF_TEXT}"); fi
           if [ -n "${F5_NFE}" ];      then ARGS+=(--f5-nfe "${F5_NFE}"); fi
           if [ -n "${REF_SECONDS}" ]; then ARGS+=(--ref-seconds "${REF_SECONDS}"); fi
+          if [ -n "${SRC_SECONDS}" ]; then ARGS+=(--src-seconds "${SRC_SECONDS}"); fi
           if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
           if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
