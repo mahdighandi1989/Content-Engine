@@ -42,6 +42,7 @@ CPU اجرا می‌شود (backend روی gloo می‌افتد و هر فراخ
 
 import io
 import os
+import re
 import glob
 import json
 import time
@@ -186,18 +187,33 @@ def main():
     # وقتی می‌ایستیم که به آن رسیده باشیم. نبودِ آن فایل یعنی
     # نمی‌دانیم، و «نمی‌دانم» باید به آموزش ختم شود نه به سکوت.
     if os.path.exists(o["model"]):
-        at = 0
+        at, was, sch = 0, False, 0
         try:
             st = json.loads(io.open(os.path.join(out, "state.json"),
                                     encoding="utf-8").read())
             at = int(st.get("epochs_target") or 0)
+            was = bool(st.get("done"))
+            sch = int(st.get("schema") or 0)
         except (IOError, OSError, ValueError, TypeError):
             pass
-        if at >= EPOCHS:
-            say_("مدل از پیش برای %d دور ساخته شده: %s" % (at, o["model"]))
-            return finish_(P, root, out)
-        say_("مدل برای %d دور هست و حالا %d خواسته شده — ادامه می‌دهیم"
-             % (at, EPOCHS))
+        say_("روی دیسک: تا دورِ %d · هدفِ ثبت‌شده %d · تمام‌شده: %s"
+             % (epochsDone_(root), at, "بله" if was else "خیر"))
+        if was and sch < 2:
+            # `done`ِ نسخهٔ پیشین یعنی «فایلی هست»، نه «کار تمام شد».
+            say_("«تمام شد»ِ نسخهٔ پیشین قابلِ اتکا نیست — ادامه می‌دهیم")
+            was = False
+        # ══ «هدف ۲۰۰ بود» یعنی «۲۰۰ خواسته شد»، نه «۲۰۰ شد» ══
+        # `state.json` در **هر** اجرا نوشته می‌شود، از جمله اجرایی که
+        # سرِ بودجه نصفه ماند. پس اولین اجرای ۲۰۰ که مهلتش تمام شود،
+        # هدف را ۲۰۰ ثبت می‌کند — و اجرای بعدی همین‌جا می‌ایستد و
+        # می‌گوید «از پیش برای ۲۰۰ دور ساخته شده». مدل هم واقعاً روی
+        # دیسک هست (از دورِ ۶۰)، پس هیچ‌چیز خطا نمی‌دهد: زنجیره در
+        # حدودِ دورِ ۷۰ برای همیشه سبز می‌ایستد.
+        if was and at >= EPOCHS:
+            say_("مدل از پیش برای %d دور کامل شده: %s" % (at, o["model"]))
+            return finish_(P, root, out, complete=True)
+        say_("مدل هست (هدفِ ثبت‌شده %d، تمام‌شده: %s) و حالا %d خواسته "
+             "شده — ادامه می‌دهیم" % (at, "بله" if was else "خیر", EPOCHS))
 
     # ── وابستگی‌ها ──
     say_("نصبِ وابستگی‌ها")
@@ -271,6 +287,10 @@ def main():
                     save_every=SAVE_EVERY, version="v2", gpus="", n_p=2,
                     batch=BATCH, py=sys.executable, latest=1)
     feat = os.path.join(root, "logs", VOICE, "3_feature768")
+    # هر خروجِ زودهنگام از این حلقه یعنی «تمام نشد». پیش‌فرض «تمام شد»
+    # است و هر `break` آن را برمی‌گرداند — نه برعکس، که یادِ یکی از سه
+    # جا رفتن، سکوت بسازد.
+    broke = False
     for nm, cmd in chain:
         if nm in ("preprocess", "extract_f0", "extract_feature") \
                 and os.path.isdir(feat) and os.listdir(feat):
@@ -278,6 +298,7 @@ def main():
             continue
         if nm == "train_index" and not os.path.exists(o["model"]):
             say_("ایندکس نمی‌سازیم تا آموزش تمام شود")
+            broke = True
             break
         if nm == "train":
             info = P.preTrain_(root, VOICE, sr=SR, version="v2")
@@ -301,6 +322,7 @@ def main():
             before = _newest_(root)
         if left_() <= 60:
             say_("بودجه تمام شد؛ «%s» به اجرای بعدی می‌ماند" % nm)
+            broke = True
             break
         t0 = time.time()
         say_("=== %s ===" % nm)
@@ -320,15 +342,41 @@ def main():
                 "آموزش با کدِ صفر برگشت ولی هیچ چک‌پوینتِ تازه‌ای نساخت "
                 "— یعنی داخلش شکست خورده. لاگِ بالا را ببینید.")
         if timedout:
+            broke = True
             break
 
-    return finish_(P, root, out)
+    return finish_(P, root, out, complete=not broke)
 
 
-def finish_(P, root, out):
-    """چه ساخته شد، و آیا کار تمام است."""
+def epochsDone_(root):
+    """تا کدام دور شاهدِ روی دیسک هست — از عکس‌های `<VOICE>_e<N>`.
+
+    `state.json` را خودمان می‌نویسیم؛ این را آموزش می‌نویسد. وقتی
+    پرسش «واقعاً چقدر جلو رفته‌ایم» است، دومی جواب است.
+    """
+    best = 0
+    try:
+        names = os.listdir(os.path.join(root, "assets", "weights"))
+    except (IOError, OSError):
+        return 0
+    for f in names:
+        m = re.match(r"^%s_e0*(\d+)" % re.escape(VOICE), f)
+        if m and f.endswith(".pth"):
+            best = max(best, int(m.group(1)))
+    return best
+
+
+def finish_(P, root, out, complete=True):
+    """چه ساخته شد، و آیا کار تمام است.
+
+    ══ چرا `complete` و نه فقط «فایل هست» ══
+    فایلِ نهایی از **آموزشِ قبلی** هم می‌تواند مانده باشد. وقتی هدف از
+    ۶۰ به ۲۰۰ رفت، اجرایی که سرِ بودجه نصفه ماند همان فایلِ ۶۰-دوره را
+    می‌دید و خودش را «تمام‌شده» ثبت می‌کرد. «تمام شد» یعنی این اجرا
+    زنجیره را تا آخر برد، نه اینکه چیزی روی دیسک هست.
+    """
     o = P.outputs(VOICE, root)
-    done = os.path.exists(o["model"])
+    done = bool(complete) and os.path.exists(o["model"])
     made = []
     if done:
         made.append(shutil.copy(o["model"], out))
@@ -346,7 +394,13 @@ def finish_(P, root, out):
         for f in sorted(os.listdir(wdir)):
             if f.startswith(VOICE + "_e") and f.endswith(".pth"):
                 made.append(shutil.copy(os.path.join(wdir, f), out))
-    st = {"voice": VOICE, "epochs_target": EPOCHS, "done": done,
+    # ══ چرا `schema` ══
+    # نسخهٔ پیشین `done` را از «فایل هست» می‌ساخت، که پس از بالا رفتنِ
+    # هدف دروغ می‌شد. آن فایل‌های `state.json` در کش زنده‌اند و اجرای
+    # بعدی می‌خواندشان. بی این عدد، کدِ درست به دادهٔ غلط اعتماد
+    # می‌کرد و همان‌جا می‌ایستاد که قرار بود نایستد.
+    st = {"schema": 2, "voice": VOICE, "epochs_target": EPOCHS,
+          "epochs_reached": epochsDone_(root), "done": done,
           "steps": steps_done_(root), "files": [os.path.basename(m)
                                                 for m in made]}
     io.open(os.path.join(out, "state.json"), "w", encoding="utf-8").write(
