@@ -1938,22 +1938,37 @@ def main():
     sys.modules["infer_rvc_python"] = fake32
 
     realSim = V.rvcSim_
-    V.rvcSim_ = lambda paths, out: {"src_vs_ref": 0.31, "out_vs_ref": 0.78,
-                                    "gain": 0.47, "moved_toward_target": True}
+    # هر گام عددِ خودش را می‌گیرد تا انتخابِ «بهترین» واقعاً سنجیده شود
+    sims32 = [{"src_vs_ref": 0.31, "out_vs_ref": 0.44, "gain": 0.13,
+               "moved_toward_target": True},
+              {"src_vs_ref": 0.31, "out_vs_ref": 0.79, "gain": 0.48,
+               "moved_toward_target": True}]
+    V.rvcSim_ = lambda paths, out: sims32.pop(0)
     try:
         V.OPT.clear()
         V.OPT["_rep"] = {"engine": "rvc"}
         V.OPT["_out"] = outd
         V.OPT["rvc_model"] = mdl
         V.OPT["rvc_index"] = idx
+        V.OPT["rvc_pitch"] = "0,-12"
         made32 = V.run_rvc(refw, srcw, "متنی که خوانده نمی‌شود", outd)
         rep32 = dict(V.OPT["_rep"])
     finally:
         V.rvcSim_ = realSim
         V.OPT.clear()
 
-    eq(os.path.basename(made32), "rvc.wav", "خروجی ساخته شد")
-    eq(os.path.exists(made32), True, "و روی دیسک هست")
+    # ══ چند گام، نه یکی ══
+    # RVC زیروبمِ مبدأ را نگه می‌دارد؛ صوتِ Gemini صدای زن است و رضوی
+    # مردی با صدای بم. با گامِ صفر خروجی هرقدر هم بافتِ رضوی را بگیرد،
+    # «صدای رضوی» نمی‌شود — که گزارشِ اولین اجرای واقعی همین بود.
+    eq([r["name"] for r in rep32["rvc"]["variants"]],
+       ["rvc-pitch+0.wav", "rvc-pitch-12.wav"], "برای هر گام یک فایل")
+    eq(all(os.path.exists(os.path.join(outd, r["name"]))
+           for r in rep32["rvc"]["variants"]), True, "و همه روی دیسک‌اند")
+    eq(rep32["rvc"]["best"]["file"], "rvc-pitch-12.wav",
+       "بهترین با عدد انتخاب می‌شود، نه با ترتیب")
+    eq(os.path.basename(made32), "rvc-pitch-12.wav",
+       "و همان به آزمایشگاه برگردانده می‌شود")
 
     # ══ ۱: دارایی از منبعِ سنجیده‌شده، نه آینهٔ پیش‌فرضِ بسته ══
     # اگر مسیر ندهیم، کتابخانه ContentVec و RMVPE را از مخزنی شخصی
@@ -1977,14 +1992,24 @@ def main():
     # ══ ۳: شاهد در گزارش، نه فقط یک فایل ══
     eq(rep32["rvc"]["length"]["kept"], True,
        "طول حفظ شد — یعنی واژه‌ها دست‌نخورده‌اند")
-    eq(rep32["rvc"]["speaker"]["moved_toward_target"], True,
-       "و حرکتِ شباهت به سمتِ گوینده ثبت شد")
+    eq(rep32["rvc"]["variants"][1]["speaker"]["moved_toward_target"], True,
+       "و حرکتِ شباهت برای هر گام جدا ثبت شد")
+
+    # ══ وابستگیِ شاهد هم وابستگی است ══
+    # اولین اجرای واقعی با مدل، این را برگرداند:
+    #   "speaker": {"error": "No module named 'speechbrain'"}
+    # یعنی تنها عددی که به «کار کرد یا نه» جواب می‌داد اصلاً محاسبه
+    # نشد، چون فهرستِ بسته‌ها فقط چیزی را داشت که *تبدیل* لازم دارد.
+    # همان شکلِ `imageio_ffmpeg`، یک فایل آن‌طرف‌تر.
+    eq(any("speechbrain" in x for x in V.ENGINES["rvc"]["pip"]), True,
+       "مدلِ سنجشِ گوینده نصب می‌شود، وگرنه گزارش عدد ندارد")
 
     # ══ ایندکسِ نبوده باید اعلام شود، نه اینکه بی‌صدا رد شود ══
     V.OPT.clear()
     V.OPT["_rep"] = {"engine": "rvc"}; V.OPT["_out"] = outd
     V.OPT["rvc_model"] = mdl
     V.OPT["rvc_index"] = os.path.join(w32, "nope.index")
+    V.OPT["rvc_pitch"] = "0"
     V.rvcSim_ = lambda paths, out: {}
     try:
         V.run_rvc(refw, srcw, "", outd)

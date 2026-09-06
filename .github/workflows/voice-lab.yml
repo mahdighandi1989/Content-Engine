@@ -26,6 +26,10 @@ on:
         description: 'فایلِ .index کنارِ مدل'
         required: false
         default: ''
+      rvc_pitch:
+        description: 'جابه‌جاییِ گام به نیم‌پرده — چند مقدار با کاما. صدای زن به مردِ بم حدود -12'
+        required: false
+        default: '0,-10,-12,-14'
       engine:
         description: 'کدام موتور (scan-only = فقط اسکنِ یک‌دقیقه‌ای، بی کارِ سنگین)'
         required: true
@@ -411,6 +415,7 @@ jobs:
           REF_SECONDS: ${{ inputs.ref_seconds }}
           SRC_SECONDS: ${{ inputs.src_seconds }}
           ALPHABET: ${{ inputs.alphabet }}
+          RVC_PITCH: ${{ inputs.rvc_pitch }}
         run: |
           set -euo pipefail
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
@@ -431,6 +436,7 @@ jobs:
           if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
           if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
+          if [ -n "${RVC_PITCH}" ]; then ARGS+=(--rvc-pitch "${RVC_PITCH}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══

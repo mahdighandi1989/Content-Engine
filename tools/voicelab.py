@@ -117,7 +117,15 @@ ENGINES = {
     # این بار با گوینده‌ای که خودمان آموزشش دادیم.
     "rvc": {
         "family": "تبدیلِ صدا با مدلِ آموزش‌دیدهٔ خودمان",
-        "pip": ["infer-rvc-python>=1.3.1,<2", "soundfile>=0.13.0,<1"],
+        # ══ وابستگیِ **شاهد** هم وابستگی است ══
+        # اولین اجرای واقعی با مدل، `speaker` را این‌طور برگرداند:
+        #   {"error": "No module named 'speechbrain'"}
+        # یعنی تنها عددی که به «کار کرد یا نه» جواب می‌داد اصلاً
+        # محاسبه نشد. فهرستِ بسته‌ها فقط چیزی را داشت که **تبدیل**
+        # لازم دارد، نه چیزی که **گزارش** لازم دارد. دقیقاً همان
+        # اشتباهِ `imageio_ffmpeg` یک فایل آن‌طرف‌تر، سه روز بعد.
+        "pip": (["infer-rvc-python>=1.3.1,<2", "soundfile>=0.13.0,<1"]
+                + list(DS_DEPS)),
         # پروانه‌ها، همان زنجیرهٔ چهارتکه‌ای که از اول سنجیدیم:
         # کدِ این بسته MIT · وزنِ ما از پایهٔ MIT · ContentVec ‏MIT ·
         # RMVPE ‏Apache-2.0 · مدلِ سنجشِ گوینده Apache-2.0.
@@ -2521,7 +2529,7 @@ def run_rvc(ref, src, text, out):
         # rmvpe دقیق‌ترینِ روش‌های زیروبم است و همان است که در آموزش
         # هم به کار رفت — دو روشِ متفاوت یعنی دو تعریفِ متفاوت از گام.
         "pitch_algo": "rmvpe",
-        "pitch_lvl": int(OPT.get("rvc_pitch") or 0),
+        # `pitch_lvl` اینجا نیست: هر گامِ جاروب مقدارِ خودش را می‌گذارد.
         "file_index": index,
         "index_influence": float(OPT.get("rvc_index_rate") or 0.66),
         "respiration_median_filtering": 3,
@@ -2536,18 +2544,67 @@ def run_rvc(ref, src, text, out):
     print("تنظیمات:", json.dumps(conf, ensure_ascii=False), flush=True)
     vc.apply_conf(**conf)
 
-    t0 = time.time()
-    audio, sr = vc.generate_from_cache(audio_data=src, tag="voice")
-    took = round(time.time() - t0, 1)
-    dst = os.path.join(out, "rvc.wav")
-    sf.write(dst, audio, sr)
-
+    # ══ چرا چند گام و نه یکی ══
+    # RVC زیروبمِ **مبدأ** را نگه می‌دارد و فقط `pitch_lvl` نیم‌پرده
+    # جابه‌جایش می‌کند. صوتِ Gemini صدای زن است و رضوی مردی با صدای
+    # بم — فاصله‌شان حدود یک اوکتاو، یعنی ۱۲ نیم‌پرده. با گامِ صفر،
+    # خروجی زیروبمِ زنانه را نگه می‌دارد و هرقدر هم بافتِ رضوی را
+    # بگیرد، «صدای رضوی» نمی‌شود. اولین اجرای واقعی دقیقاً همین بود:
+    # «لحن و خوانش خیلی خوب بود، ولی رنگ صدا نه».
+    #
+    # عددِ درست را نمی‌شود از پیش دانست (به صدای مبدأ بستگی دارد)، و
+    # هر اجرا کمتر از یک دقیقه است. پس به‌جای حدس زدن، چند گام ساخته
+    # می‌شود و **شنونده** انتخاب می‌کند — همان کاری که با دو دورِ
+    # فیلترِ موسیقی شد.
+    steps_ = [t.strip() for t in str(OPT.get("rvc_pitch") or "0").split(",")
+              if t.strip()]
     rep = OPT.get("_rep") or {}
     rep["rvc"] = {"model": os.path.basename(model),
                   "index": os.path.basename(index) if index else None,
                   "conf": {k: v for k, v in conf.items()
-                           if k not in ("file_model", "file_index", "tag")},
-                  "seconds": took, "sample_rate": sr}
+                           if k not in ("file_model", "file_index", "tag",
+                                        "pitch_lvl")},
+                  "pitch_steps": steps_}
+    made_, variants_ = [], []
+    for pv in steps_:
+        conf["pitch_lvl"] = int(pv)
+        vc.apply_conf(**conf)
+        t0 = time.time()
+        audio, sr = vc.generate_from_cache(audio_data=src, tag="voice")
+        took = round(time.time() - t0, 1)
+        nm_ = "rvc-pitch%s.wav" % (pv if pv.startswith("-") else "+" + pv)
+        dst = os.path.join(out, nm_)
+        sf.write(dst, audio, sr)
+        row_ = {"name": nm_, "pitch": int(pv), "seconds": took,
+                "info": probe(dst)}
+        try:
+            row_["speaker"] = rvcSim_({"ref": ref, "src": src, "out": dst}, out)
+        except Exception as e:
+            row_["speaker"] = {"error": str(e)[:200]}
+        variants_.append(row_)
+        made_.append(dst)
+        OPT["variants"] = variants_
+        rep["rvc"]["variants"] = variants_
+        saveRep_()
+        sp_ = row_.get("speaker") or {}
+        print("گامِ %-4s → %s · شباهت %s (مبدأ %s)"
+              % (pv, nm_, sp_.get("out_vs_ref"), sp_.get("src_vs_ref")),
+              flush=True)
+
+    # ══ بهترین را کد انتخاب می‌کند، ولی حکم را گوش می‌دهد ══
+    # «بهترین» اینجا یعنی بالاترین شباهت به گوینده — عددی، نه سلیقه‌ای.
+    # هر چهار فایل در خروجی می‌مانند تا شنونده بتواند مخالفت کند.
+    best_ = None
+    for row_ in variants_:
+        v_ = (row_.get("speaker") or {}).get("out_vs_ref")
+        if v_ is not None and (best_ is None or v_ > best_[0]):
+            best_ = (v_, row_["name"])
+    if best_:
+        rep["rvc"]["best"] = {"file": best_[1], "out_vs_ref": best_[0]}
+    dst = os.path.join(out, best_[1]) if best_ else made_[0]
+    took = sum(r["seconds"] for r in variants_)
+    rep["rvc"]["seconds"] = round(took, 1)
+    rep["rvc"]["sample_rate"] = sr
 
     # ══ شاهد، نه ادعا ══
     # طول باید بماند: تبدیلِ صدا واژه‌ها را عوض نمی‌کند، پس اگر طول
@@ -2559,19 +2616,9 @@ def run_rvc(ref, src, text, out):
         drift = abs(outSec - inSec) / float(inSec)
         rep["rvc"]["length"]["drift_pct"] = round(100 * drift, 2)
         rep["rvc"]["length"]["kept"] = drift < 0.02
-    try:
-        rep["rvc"]["speaker"] = rvcSim_(
-            {"ref": ref, "src": src, "out": dst}, out)
-    except Exception as e:
-        # سنجه‌ای که نیامد نباید خروجیِ سالم را دور بیندازد — ولی
-        # نیامدنش هم باید دیده شود.
-        rep["rvc"]["speaker"] = {"error": str(e)[:200]}
     saveRep_()
-
-    sp = rep["rvc"].get("speaker") or {}
-    print("\nشباهت به رضوی — مبدأ %s → خروجی %s (تغییر %s)"
-          % (sp.get("src_vs_ref"), sp.get("out_vs_ref"), sp.get("gain")),
-          flush=True)
+    print("\nبهترین از نظرِ عدد: %s — ولی هر %d فایل در خروجی هست؛ حکم با گوش."
+          % (best_[1] if best_ else "—", len(made_)), flush=True)
     return dst
 
 
