@@ -333,6 +333,27 @@ STYLE_KEYS = ("speech_pct", "phrase_seconds_median", "pause_short_median",
               "pause_sentence_median", "pauses_per_minute",
               "range_semitones", "phrase_fall_semitones", "hold_ratio")
 
+# ══ نسبت برای همه‌چیز جواب نمی‌دهد ══
+# اولین سنجشِ درست این را نشان داد: فرودِ پایانِ عبارتِ رضوی +۰٫۲
+# نیم‌پرده است (یعنی تقریباً صاف) و جمینای −۲٫۸. اختلاف سه نیم‌پرده
+# است — واقعی، ولی کوچک. نسبت آن را **۱۵۰۰٪** گزارش کرد، چون مخرج
+# نزدیکِ صفر بود. عددی که فقط به‌خاطرِ کوچکیِ هدف بزرگ شده، در هر
+# فهرستِ اولویت بالای همه می‌نشیند و بقیه را می‌پوشاند.
+#
+# پس هر سنجه با واحدِ خودش داوری می‌شود: ثانیه و نیم‌پرده با اختلافِ
+# مطلق (چون «۰٫۳ در برابر ۰٫۴ ثانیه» با «۳ در برابر ۴ ثانیه» یک چیز
+# نیست، هرچند هر دو ۳۳٪‌اند)، و نسبت‌ها و درصدها با نسبت.
+STYLE_TOL = {
+    "speech_pct": ("rel", 0.25),
+    "phrase_seconds_median": ("rel", 0.25),
+    "pauses_per_minute": ("rel", 0.25),
+    "hold_ratio": ("rel", 0.25),
+    "pause_short_median": ("abs", 0.10),      # ثانیه
+    "pause_sentence_median": ("abs", 0.15),   # ثانیه
+    "range_semitones": ("abs", 1.5),          # نیم‌پرده
+    "phrase_fall_semitones": ("abs", 1.0),    # نیم‌پرده
+}
+
 
 def styleCompare_(target, actual):
     """کارتِ هدف در برابرِ آنچه واقعاً خوانده شد."""
@@ -341,12 +362,24 @@ def styleCompare_(target, actual):
         t, a = target.get(k), actual.get(k)
         if t is None or a is None:
             continue
-        d = a - t
-        rel = abs(d) / max(1e-9, abs(t))
-        rows[k] = {"target": t, "actual": a, "diff": round(d, 2),
-                   "off_pct": round(100 * rel)}
-        # ۲۵٪ اختلاف یعنی گوش تفاوت را می‌شنود. کمتر از آن، نویز است.
-        if rel > 0.25:
+        mode, tol = STYLE_TOL.get(k, ("rel", 0.25))
+        # ══ دو عددِ گردشده تفاضلِ گردشده ندارند ══
+        # 0.4 − 0.3 در ممیزِ شناور 0.10000000000000003 است، که از
+        # آستانهٔ ۰٫۱ بزرگ‌تر است. بی این گِرد کردن، سنجه‌ای که دقیقاً
+        # روی آستانه بنشیند بسته به نویزِ ممیز گاهی «اشکال» می‌شود و
+        # گاهی نه — و گزارشی که بین دو اجرا می‌لرزد، خوانده نمی‌شود.
+        d = round(a - t, 4)
+        lim = max(abs(t) * tol if mode == "rel" else tol, 1e-6)
+        # `severity` یعنی «چند برابرِ آستانه»، و تنها عددی است که در
+        # همهٔ واحدها قابلِ مقایسه است — پس ترتیبِ اولویت با اوست.
+        row = {"target": t, "actual": a, "diff": round(d, 2),
+               "unit": mode, "tolerance": round(lim, 2),
+               "severity": round(abs(d) / lim, 2),
+               "off": abs(d) > lim + 1e-9}
+        if mode == "rel":
+            row["off_pct"] = round(100 * abs(d) / max(1e-9, abs(t)))
+        rows[k] = row
+        if row["off"]:
             off += 1
     return {"fields": rows, "off_count": off,
             "followed": off == 0 and bool(rows)}

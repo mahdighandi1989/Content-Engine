@@ -2747,10 +2747,13 @@ def run_style(ref, src, text, out):
         g = rep["style"]["gap"]
         print("\nفاصلهٔ خروجیِ فعلی تا سبکِ هدف: %d از %d سنجه بیش از "
               "۲۵٪ فرق دارد" % (g["off_count"], len(g["fields"])), flush=True)
+        # ترتیب با `severity` است، نه با درصد: یک هدفِ نزدیکِ صفر
+        # (فرودِ پایانِ عبارت) درصدی نجومی می‌سازد و بقیه را می‌پوشاند.
         for k, v in sorted(g["fields"].items(),
-                           key=lambda kv: -kv[1]["off_pct"]):
-            print("  %-26s هدف %-7s الان %-7s (%d%%)"
-                  % (k, v["target"], v["actual"], v["off_pct"]), flush=True)
+                           key=lambda kv: -kv[1]["severity"]):
+            print("  %-26s هدف %-7s الان %-7s اختلاف %-7s (%s آستانه %s)"
+                  % (k, v["target"], v["actual"], v["diff"],
+                     "✗" if v["off"] else "✓", v["tolerance"]), flush=True)
     saveRep_()
     print("\n" + card["instruction"], flush=True)
     return dst

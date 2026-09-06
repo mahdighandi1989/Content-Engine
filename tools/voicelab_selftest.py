@@ -2365,6 +2365,42 @@ def main():
     eq("بیشترِ مکث‌ها را در دلِ جمله" in evenC, False,
        "و برای پخشِ یکنواخت ادعا نمی‌شود")
 
+    # ══ ح: هر واحد با معیارِ خودش ══
+    # عددهای واقعیِ اجرای ۲۴۰ ثانیه‌ای. فرودِ پایانِ عبارتِ رضوی +۰٫۲
+    # نیم‌پرده است و جمینای −۲٫۸: اختلاف سه نیم‌پرده، واقعی ولی کوچک.
+    # نسبت آن را **۱۵۰۰٪** گزارش می‌کرد، چون مخرج نزدیکِ صفر بود — و
+    # در هر فهرستِ اولویت بالای «۵۱٪ در برابر ۸۴٪ سکوت» می‌نشست، که
+    # تفاوتِ واقعیِ این دو خواننده است.
+    R240 = {"speech_pct": 51, "phrase_seconds_median": 1.6,
+            "pause_short_median": 0.3, "pause_sentence_median": 0.6,
+            "pauses_per_minute": 15.2, "range_semitones": 6.8,
+            "phrase_fall_semitones": 0.2, "hold_ratio": 2.5}
+    G240 = {"speech_pct": 84, "phrase_seconds_median": 4.6,
+            "pause_short_median": 0.4, "pause_sentence_median": 0.7,
+            "pauses_per_minute": 8.5, "range_semitones": 11.1,
+            "phrase_fall_semitones": -2.8, "hold_ratio": 2.72}
+    g240 = SC.styleCompare_(R240, G240)
+    fall = g240["fields"]["phrase_fall_semitones"]
+    eq(fall["off"], True, "سه نیم‌پرده اختلافِ فرود، همچنان اشکال است")
+    eq(fall["severity"] < 5, True,
+       "ولی شدتش نجومی نیست (%s برابرِ آستانه، نه ۱۵ برابر)"
+       % fall["severity"])
+    top = max(g240["fields"].items(), key=lambda kv: kv[1]["severity"])[0]
+    eq(top, "phrase_seconds_median",
+       "بالای فهرست، بزرگ‌ترین تفاوتِ واقعی است نه کوچک‌ترین مخرج (%s)"
+       % top)
+    eq(g240["fields"]["pause_sentence_median"]["off"], False,
+       "۰٫۶ در برابر ۰٫۷ ثانیه اشکال شمرده نمی‌شود")
+    eq(g240["fields"]["hold_ratio"]["off"], False,
+       "و کششی که جمینای درست انجام می‌دهد، اشکال شمرده نمی‌شود")
+    eq(g240["off_count"], 5, "پنج سنجه از هشت بیرونِ آستانه (%d)"
+       % g240["off_count"])
+    # و آنچه هست باید همان چیزی باشد که گوش می‌شنود:
+    eq(g240["fields"]["speech_pct"]["off"], True, "نسبتِ سکوت اشکال است")
+    # و سنجه‌ای که دقیقاً روی آستانه بنشیند نباید بین دو اجرا برقصد:
+    eq(g240["fields"]["pause_short_median"]["off"], False,
+       "۰٫۴ منهای ۰٫۳ روی آستانهٔ ۰٫۱ می‌نشیند، نه بیرونش")
+
     print("\nهمه گذشت.")
     return 0
 
