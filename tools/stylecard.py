@@ -414,12 +414,20 @@ def styleCompare_(target, actual):
         lim = max(abs(t) * tol if mode == "rel" else tol, 1e-6)
         # `severity` یعنی «چند برابرِ آستانه»، و تنها عددی است که در
         # همهٔ واحدها قابلِ مقایسه است — پس ترتیبِ اولویت با اوست.
-        row = {"target": t, "actual": a, "diff": round(d, 2),
-               "unit": mode, "tolerance": round(lim, 2),
-               "severity": round(abs(d) / lim, 2),
-               "off": abs(d) > lim + 1e-9}
+        # ══ `bool(...)` اضافه نیست ══
+        # عددهای زیروبم از `np.log2` می‌آیند، پس `np.float64`اند — و
+        # آن در JSON بی‌صدا رد می‌شود چون **زیرکلاسِ `float`** است. ولی
+        # مقایسه‌شان `np.bool_` می‌دهد که زیرکلاسِ `bool` **نیست**، و
+        # کلِ گزارش را سرِ آخرین خط می‌ترکاند. آزمونم این را نگرفت چون
+        # با عددِ پایتونیِ دستی نوشته شده بود، نه با چیزی که واقعاً
+        # ذخیره می‌شود — همان درسِ `recapCast_` در CLAUDE.md.
+        row = {"target": float(t), "actual": float(a),
+               "diff": round(float(d), 2), "unit": mode,
+               "tolerance": round(float(lim), 2),
+               "severity": round(float(abs(d) / lim), 2),
+               "off": bool(abs(d) > lim + 1e-9)}
         if mode == "rel":
-            row["off_pct"] = round(100 * abs(d) / max(1e-9, abs(t)))
+            row["off_pct"] = int(round(100 * abs(d) / max(1e-9, abs(t))))
         rows[k] = row
         if row["off"]:
             off += 1

@@ -1022,6 +1022,33 @@ REP_SKIP_ = {"f5_ckpt", "f5_vocab", "f5_ref_text", "f5_nfe", "alphabet",
              "ref_text", "omni_model"}
 
 
+def jdefault_(o):
+    """چیزی که JSON بلد نیست — به‌جای ترکاندنِ کلِ گزارش.
+
+    ══ چرا دروازه اینجاست و نه سرِ هر مقدار ══
+    `np.float64` زیرکلاسِ `float` است و بی‌صدا رد می‌شود؛ `np.bool_`
+    زیرکلاسِ `bool` **نیست** و آخرین خطِ کار را می‌ترکانَد — یعنی یک
+    مقایسهٔ ساده در عمقِ یک دیکشنری، کلِ اجرای سه‌دقیقه‌ای را با
+    «TypeError» تمام می‌کند و گزارش هم ذخیره نمی‌شود. عددش را همان‌جا
+    درست می‌کنیم، ولی مرزِ ایمن باید جایی باشد که **همهٔ** گزارش‌ها
+    از آن رد می‌شوند، نه در هر تابعی که یادش بماند.
+    """
+    for attr in ("tolist", "item"):
+        fn = getattr(o, attr, None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+    return str(o)
+
+
+def jdump_(obj, **kw):
+    """`json.dumps` این پرونده — همیشه با همان دروازه."""
+    kw.setdefault("ensure_ascii", False)
+    return json.dumps(obj, default=jdefault_, **kw)
+
+
 def saveRep_():
     """
     گزارش را **همین حالا** روی دیسک بنویس، نه در پایان.
@@ -1048,7 +1075,7 @@ def saveRep_():
     try:
         with io.open(os.path.join(out, "report-%s.json" % rep.get("engine", "x")),
                      "w", encoding="utf-8") as f:
-            f.write(json.dumps(rep, ensure_ascii=False, indent=1))
+            f.write(jdump_(rep, indent=1))
     except Exception as e:
         print("گزارش ذخیره نشد: %s" % str(e)[:200], flush=True)
 
@@ -2737,7 +2764,7 @@ def run_style(ref, src, text, out):
     io.open(dst, "w", encoding="utf-8").write(card["instruction"] + "\n")
     io.open(os.path.join(out, "STYLE-%s.json" % re.sub(r"\s+", "-", name)),
             "w", encoding="utf-8").write(
-        json.dumps(card, ensure_ascii=False, indent=1))
+        jdump_(card, indent=1))
 
     # ══ حلقهٔ بسته ══
     # بی این، کارت فقط یک آرزوی دقیق‌تر است. با صوتِ مبدأ، همان
@@ -2750,7 +2777,7 @@ def run_style(ref, src, text, out):
         rep["style"]["gap"] = styleCompare_(m, got)
         io.open(os.path.join(out, "STYLE-gap.json"), "w",
                 encoding="utf-8").write(
-            json.dumps(rep["style"]["gap"], ensure_ascii=False, indent=1))
+            jdump_(rep["style"]["gap"], indent=1))
         g = rep["style"]["gap"]
         print("\nفاصلهٔ خروجیِ فعلی تا سبکِ هدف: %d از %d سنجه بیش از "
               "۲۵٪ فرق دارد" % (g["off_count"], len(g["fields"])), flush=True)
@@ -2776,7 +2803,7 @@ def run_style(ref, src, text, out):
     # را دارد و خلاصه‌اش در گزارش است.
     io.open(os.path.join(out, "STYLE-%s-modes.json" % re.sub(r"\s+", "-", name)),
             "w", encoding="utf-8").write(
-        json.dumps(md, ensure_ascii=False, indent=1))
+        jdump_(md, indent=1))
     rep["style"]["modes"] = {k: v for k, v in md.items() if k != "vectors"}
     # نامِ `m` همان اندازه‌گیریِ کلِ گوینده است و کارتِ هر حالت رویش
     # سوار می‌شود — پس متغیرِ حلقه نباید همان نام را بگیرد.
@@ -3026,11 +3053,11 @@ def main():
                     "modules": sorted(m for m in tops if not m.startswith(("_", "."))) [:12],
                     "commands": sorted(bins)[:12],
                 }
-            print("بسته‌ها:", json.dumps(rep.get("packages", {}), ensure_ascii=False), flush=True)
+            print("بسته‌ها:", jdump_(rep.get("packages", {})), flush=True)
             # ── اجرا ──
             if a.engine == "seedvc":
                 rep["patch"] = patch_bigvgan()
-                print("وصله:", json.dumps(rep["patch"], ensure_ascii=False), flush=True)
+                print("وصله:", jdump_(rep["patch"]), flush=True)
             t1 = time.time()
             try:
                 made = RUNNERS[a.engine](ref, src, a.text, a.out)
@@ -3080,7 +3107,7 @@ def main():
 
     saveRep_()
     print("\n=== گزارش ===")
-    print(json.dumps(rep, ensure_ascii=False, indent=1))
+    print(jdump_(rep, indent=1))
     # شکستِ یک موتور، شکستِ آزمایش نیست: خودِ خبر همان چیزی است که می‌خواستیم.
     return 0
 

@@ -2534,6 +2534,42 @@ def main():
     eq('m["sample"]["at_in_file"] = a' in scSrc0, True,
        "و عددی که گزارش می‌شود همان است که بریده شد")
 
+    # ══ خ: گزارش باید واقعاً JSON بشود — با عددهای **واقعی** ══
+    # اجرای ۵۴ روی رانر سه دقیقه دوید و سرِ آخرین خط ترکید:
+    # «Object of type bool_ is not JSON serializable». علتش یک مقایسه
+    # در `styleCompare_` بود: عددهای زیروبم از `np.log2` می‌آیند، پس
+    # `np.float64`اند — و آن در JSON بی‌صدا رد می‌شود چون **زیرکلاسِ
+    # `float`** است. ولی `a > b` رویشان `np.bool_` می‌دهد که زیرکلاسِ
+    # `bool` **نیست**.
+    #
+    # و بخشِ ۳۴ همین را آزموده بود و نگرفت، چون عددهایش را دستی و
+    # پایتونی نوشته بودم. آزمونی که شکلِ راحت را بسازد نه شکلِ واقعی
+    # را، دقیقاً همان چیزی را از دست می‌دهد که برایش نوشته شده —
+    # همان درسِ `recapCast_`.
+    npR = {"range_semitones": round(12 * _np35.log2(117.2 / 79.0), 1),
+           "phrase_fall_semitones": round(12 * _np35.log2(1.02), 1),
+           "speech_pct": 51, "phrase_seconds_median": 1.6,
+           "pause_short_median": 0.3, "pause_sentence_median": 0.6,
+           "pauses_per_minute": 15.2, "hold_ratio": 2.5}
+    npG = dict(npR, range_semitones=round(12 * _np35.log2(204.4 / 107.9), 1),
+               speech_pct=84)
+    eq(type(npR["range_semitones"]).__name__, "float64",
+       "عددِ زیروبم واقعاً numpy است (شکلِ واقعی، نه راحت)")
+    gnp = SC.styleCompare_(npR, npG)
+    for kk, vv in gnp["fields"].items():
+        eq(type(vv["off"]) is bool, True,
+           "«%s»: پرچمِ اشکال بولِ پایتون است نه numpy" % kk)
+    json.dumps({"gap": gnp})      # همان خطی که روی رانر ترکید
+
+    # و مرزِ ایمن، برای هر چیزی که فردا اضافه شود:
+    eq(V.jdump_({"x": _np35.bool_(True), "y": _np35.int64(3),
+                 "z": _np35.array([1.0, 2.0])}) is not None, True,
+       "دروازهٔ گزارش هر نوعِ numpy را رد می‌کند")
+    eq(json.loads(V.jdump_({"x": _np35.bool_(True)}))["x"], True,
+       "و مقدارش را درست نگه می‌دارد")
+    eq(srcV.count("json.dumps(rep"), 0,
+       "هیچ گزارشی بی دروازه نوشته نمی‌شود")
+
     # ══ ث: هیچ‌کدام از اینها نباید بی‌صدا بی‌مصرف بماند ══
     # قاعدهٔ خودِ این مخزن: سه باگِ واقعی همگی یک شکل داشتند — تابعی
     # نوشته و توضیح‌داده و آزموده، که هیچ‌جا صدا زده نمی‌شد. این
