@@ -127,7 +127,7 @@ def packWeights_(dest):
     return {"repo": P.HF_WEIGHTS, "revision": hfRev_(P.HF_WEIGHTS)}
 
 
-def packWheels_(dest, groups):
+def packWheels_(dest, groups, heavy=None):
     """بستهٔ چرخِ همهٔ وابستگی‌ها — و جدا کردنِ خانوادهٔ سنگین.
 
     ══ چرا گروه‌گروه و نه یک فراخوان ══
@@ -140,7 +140,13 @@ def packWheels_(dest, groups):
     خانوادهٔ سنگین **دانلود می‌شود** (کنارِ آینه، نه داخلش) تا آزمونِ
     نصبِ آفلاین بتواند کامل بودنِ بقیه را ثابت کند.
     """
-    heavy = dest + "-heavy"
+    # ══ «کنارِ آینه» یعنی بیرونِ آن، نه یک پوشه پایین‌تر ══
+    # نسخهٔ اول `dest + "-heavy"` می‌ساخت، و `dest` خودش
+    # `mirror/wheels` بود — پس خانوادهٔ سنگین در `mirror/wheels-heavy`
+    # می‌نشست، یعنی **داخلِ** همان پوشه‌ای که بالا می‌رود. نتیجه:
+    # ۳۶۲۵ مگابایت فرستاده شد که ۲۸۶۱ مگابایتش دقیقاً همان چیزی بود
+    # که نوشته بودیم نمی‌فرستیم. متن درست بود و مسیر غلط.
+    heavy = heavy or (os.path.abspath(dest).rstrip(os.sep) + "-heavy")
     os.makedirs(dest, exist_ok=True)
     os.makedirs(heavy, exist_ok=True)
     for g in groups:
@@ -213,7 +219,11 @@ def cmd_pack(a):
         groups.append(list(P.TRAIN_DEPS))
     lock["packages"] = {"infer": list(INFER_PKGS),
                         "train": list(P.TRAIN_DEPS) if a.train else []}
-    lock["wheels"] = packWheels_(os.path.join(root, "wheels"), groups)
+    # پوشهٔ سنگین **خواهرِ** ریشهٔ آینه است، نه فرزندش: هرچه زیرِ
+    # `root` باشد در بایگانی می‌رود و در قفل می‌نشیند.
+    lock["wheels"] = packWheels_(
+        os.path.join(root, "wheels"), groups,
+        heavy=os.path.abspath(root).rstrip(os.sep) + "-heavy")
 
     print("\n── آزمونِ نصبِ آفلاین ──")
     # ══ آینه‌ای که آزموده نشده، آرزوست ══
@@ -227,6 +237,14 @@ def cmd_pack(a):
 
     lock["files"] = scan_(root)
     lock["total_bytes"] = sum(f["bytes"] for f in lock["files"])
+    # ══ ادعا باید سنجیده شود، نه نوشته ══
+    # «خانوادهٔ سنگین فرستاده نمی‌شود» یک جمله در توضیح بود و یک بار
+    # هم غلط از آب درآمد. حالا شرط است.
+    stray = [f["path"] for f in lock["files"]
+             if heavy_(os.path.basename(f["path"]).split("-")[0])]
+    if stray:
+        raise SystemExit("خانوادهٔ سنگین داخلِ آینه ماند: %s"
+                         % ", ".join(stray[:5]))
     io.open(os.path.join(root, "mirror_lock.json"), "w",
             encoding="utf-8").write(
         json.dumps(lock, ensure_ascii=False, indent=1) + "\n")
