@@ -60,6 +60,9 @@ HEAVY = ("torch", "torchaudio", "torchvision", "nvidia", "triton",
 # (`P.TRAIN_DEPS`) و در `pack --train` می‌آید.
 INFER_PKGS = ["infer-rvc-python>=1.3.1,<2", "soundfile>=0.13.0,<1"]
 
+# اگر روزی بسته‌ای فقط sdist داشته باشد، بی این‌ها ساخته نمی‌شود.
+BUILD_PKGS = ["pip", "setuptools", "wheel"]
+
 
 def sh_(cmd, **kw):
     print("$ " + " ".join(cmd), flush=True)
@@ -143,10 +146,22 @@ def packWheels_(dest, groups):
     for g in groups:
         if not g:
             continue
-        r = sh_([sys.executable, "-m", "pip", "download",
-                 "--dest", dest] + list(g))
+        # ══ `pip wheel` و نه `pip download` ══
+        # اجرای اولِ همین گردش‌کار سرِ همین افتاد: `pyworld` فقط
+        # **sdist** دارد، و نصبِ یک sdist یعنی ساختنش، و ساختن به
+        # وابستگی‌های زمانِ ساخت (`wheel`، `setuptools`، `Cython`)
+        # نیاز دارد که `pip download` هرگز نمی‌آوردشان. یعنی آینه‌ای
+        # داشتیم که روی ماشینِ آفلاین نصب نمی‌شد — و فقط چون آزمونش
+        # را گذاشته بودیم معلوم شد.
+        #
+        # `pip wheel` همان‌جا می‌سازدشان و همه‌چیز به چرخِ باینری
+        # تبدیل می‌شود. هزینه‌اش این است که چرخ‌ها برای **همین
+        # سکو** (cp311/manylinux x86_64) ساخته می‌شوند — همان جایی
+        # که بازیابی هم انجام می‌شود.
+        r = sh_([sys.executable, "-m", "pip", "wheel",
+                 "--wheel-dir", dest] + list(g))
         if r.returncode != 0:
-            raise SystemExit("pip download شکست خورد: " + " ".join(g))
+            raise SystemExit("pip wheel شکست خورد: " + " ".join(g))
     moved = []
     for f in sorted(os.listdir(dest)):
         if heavy_(f.split("-")[0]):
@@ -155,13 +170,31 @@ def packWheels_(dest, groups):
     return {"excluded": moved, "excluded_dir": heavy}
 
 
-def restore_(root, pkgs, extra=None):
+def restore_(root, pkgs, extra=None, py=None):
     """نصب از خودِ آینه، بی اینترنت."""
-    args = [sys.executable, "-m", "pip", "install", "--no-index",
+    args = [py or sys.executable, "-m", "pip", "install", "--no-index",
             "--find-links", os.path.join(root, "wheels")]
     for d in (extra or []):
         args += ["--find-links", d]
     return sh_(args + list(pkgs)).returncode
+
+
+def probeVenv_(root, pkgs, extra=None):
+    """نصبِ آفلاین در یک محیطِ **تازه** — نه در پایتونی که خودمان آلوده‌اش کرده‌ایم.
+
+    ══ سوراخی که نزدیک بود از دستم برود ══
+    نسخهٔ اول در همان پایتونِ کار نصب می‌کرد، جایی که `huggingface_hub`
+    و چند بستهٔ دیگر از قدم‌های قبلی **از پیش نصب بودند**. یعنی اگر
+    یکی از آن‌ها در آینه نمی‌بود، آزمون باز هم سبز می‌شد. آزمونی که
+    محیطش را از قبل آماده کرده باشد، چیزی را ثابت نمی‌کند.
+    """
+    import venv
+    d = tempfile.mkdtemp(prefix="probe-")
+    venv.EnvBuilder(with_pip=True).create(d)
+    py = os.path.join(d, "bin", "python")
+    if not os.path.exists(py):
+        py = os.path.join(d, "Scripts", "python.exe")
+    return restore_(root, pkgs, extra=extra, py=py)
 
 
 def cmd_pack(a):
@@ -175,7 +208,7 @@ def cmd_pack(a):
     lock["weights"] = packWeights_(os.path.join(root, "assets"))
 
     print("\n── چرخ‌ها ──")
-    groups = [list(INFER_PKGS)]
+    groups = [list(INFER_PKGS), list(BUILD_PKGS)]
     if a.train:
         groups.append(list(P.TRAIN_DEPS))
     lock["packages"] = {"infer": list(INFER_PKGS),
@@ -187,8 +220,9 @@ def cmd_pack(a):
     # اینجا معلوم می‌شود بستهٔ چرخ واقعاً بسته است یا نه: نصب بی
     # اینترنت، فقط از همین پوشه (به‌علاوهٔ خانوادهٔ سنگین که عمداً
     # فرستاده نمی‌شود ولی روی PyPI همیشه هست).
-    code = restore_(root, [p.split(">=")[0].split("==")[0] for p in INFER_PKGS],
-                    extra=[lock["wheels"]["excluded_dir"]])
+    code = probeVenv_(root,
+                      [p.split(">=")[0].split("==")[0] for p in INFER_PKGS],
+                      extra=[lock["wheels"]["excluded_dir"]])
     lock["offline_install_ok"] = (code == 0)
 
     lock["files"] = scan_(root)
