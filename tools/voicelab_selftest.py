@@ -2151,7 +2151,8 @@ def main():
                 "hold_ratio": 2.4, "pauses_per_minute": 22.0,
                 "pause_short_median": 0.28, "pause_sentence_median": 0.62,
                 "pause_para_median": 1.3, "level_spread_db": 12.0,
-                "range_semitones": 9.0, "phrase_fall_semitones": -2.6}
+                "range_semitones": 9.0, "phrase_fall_semitones": -2.6,
+                "phrases_measured": 140, "gaps_measured": 190}
     gemini33 = dict(razavi33, speech_pct=90, phrase_seconds_median=5.8,
                     pauses_per_minute=8.0, hold_ratio=1.24)
 
@@ -2191,6 +2192,124 @@ def main():
     # ورودیِ خراب نباید کارتِ بی‌معنا بسازد
     bad33 = SC.styleCard_({"error": "هیچ گفتاری پیدا نشد"}, "x")
     eq(bad33["instruction"], "", "بی اندازه‌گیری، دستوری هم نیست")
+
+    # ── ۳۴ ─────────────────────────────────────────────────────────────
+    # اجرای واقعیِ اولِ کارتِ سبک سالم تمام شد، هیچ خطایی نداد، و
+    # بی‌ارزش بود: از **۳۰ ثانیه** و ۷ عبارت ساخته شده بود، چون خانهٔ
+    # «چند ثانیه» برای نمونهٔ کلونینگ نوشته شده بود نه برای
+    # اندازه‌گیریِ سبک. هیچ‌کدام از این چهار چیز خطا بلند نمی‌کنند —
+    # فقط عددِ غلط می‌دهند، که بدترین شکلِ خرابی در این ریپوست.
+    print("۳۴ — کارتِ سبک: نمونه باید بلند، خام و بی‌سوگیری باشد")
+
+    # ══ الف: پنجرهٔ بلند اجباری است، و فرم نمی‌تواند کوتاهش کند ══
+    eq(V.ENGINES["style"].get("ref_window", 0) >= SC.STYLE_WINDOW, True,
+       "موتورِ سبک پنجرهٔ %d ثانیه‌ای می‌خواهد" % SC.STYLE_WINDOW)
+    srcV = io.open(V.__file__.replace(".pyc", ".py"), encoding="utf-8").read()
+    eq("max(refSec, win_)" in srcV and "max(srcSec, win_)" in srcV, True,
+       "و عددِ فرم را کف می‌زند، نه اینکه به آن تن بدهد")
+    eq(V.ENGINES["style"].get("text_out"), True,
+       "خروجی‌اش متن است، پس WAV پنداشته نمی‌شود")
+
+    # ══ ب: پنجره به همان طولی سنجیده شود که بریده می‌شود ══
+    # فایلی می‌سازیم که نیمهٔ اولش تمیز است و نیمهٔ دومش موسیقیِ
+    # بی‌مکث. با پنجرهٔ سی‌ثانیه‌ایِ ثابت، «بهترین جا» ابتدای فایل
+    # می‌شد و بعد ۱۲۰ ثانیه از همان‌جا بریده می‌شد — یعنی موسیقی
+    # داخلِ برش. حالا اگر پنجره ۱۲۰ باشد، باید همان اول را بدهد ولی
+    # با نمره‌ای که موسیقی را دیده باشد.
+    import math as _m34, wave as _w34, array as _a34
+    d34 = tempfile.mkdtemp()
+    def mk34(path, secs, rate=24000):
+        w = _w34.open(path, "wb"); w.setnchannels(1); w.setsampwidth(2)
+        w.setframerate(rate)
+        a = _a34.array("h")
+        for i in range(int(secs * rate)):
+            t = i / float(rate)
+            # نیمهٔ اول: گفتارِ ساختگی با مکث‌های واقعی (سکوتِ مطلق)
+            # نیمهٔ دوم: موجِ پیوسته و بی‌سکوت — یعنی «موسیقی»
+            if t < secs / 2.0:
+                on = (int(t) % 3) != 2          # دو ثانیه صدا، یک ثانیه سکوت
+                v = 9000 * _m34.sin(2 * _m34.pi * 140 * t) if on else 0
+            else:
+                v = 9000 * _m34.sin(2 * _m34.pi * 300 * t)
+            a.append(int(v))
+        w.writeframes(a.tobytes()); w.close()
+        return path
+    f34 = mk34(os.path.join(d34, "half.wav"), 120.0)
+    r30 = V.refScore_(f34, seconds=30.0)
+    r90 = V.refScore_(f34, seconds=90.0)
+    # با پنجرهٔ ۹۰ ثانیه‌ای، هر جایی که انتخاب شود ناچار موسیقی را
+    # در بر می‌گیرد — پس نمره باید بدتر از پنجرهٔ کوتاه باشد. اگر
+    # طولِ پنجره در نمره اثر نکند، این دو برابرند.
+    eq(r90["score"] < r30["score"], True,
+       "طولِ پنجره در نمره اثر دارد (۳۰→%s، ۹۰→%s)"
+       % (r30["score"], r90["score"]))
+
+    # ══ پ: در حالتِ خنثی، سکوت جریمه نمی‌شود ══
+    # نمرهٔ معمول پنجره‌ای با ۶۶٪ گفتار را می‌خواهد. برای *انتخابِ
+    # نمونه* درست است، ولی وقتی داریم نسبتِ سکوت را **اندازه
+    # می‌گیریم**، همان معیار جواب را از پیش تعیین می‌کند.
+    # دو ضبطِ یکسان جز در نسبتِ سکوت: یکی پرحرف، یکی ساکت‌تر. نمرهٔ
+    # معمول باید پرحرف را بالاتر بنشاند (نمونهٔ کلونینگِ بهتر)، و
+    # نمرهٔ خنثی باید بینشان تفاوتی نگذارد.
+    def mkTalk34(path, secs, onSec, offSec, rate=24000):
+        w = _w34.open(path, "wb"); w.setnchannels(1); w.setsampwidth(2)
+        w.setframerate(rate)
+        a = _a34.array("h")
+        per = onSec + offSec
+        for i in range(int(secs * rate)):
+            t = i / float(rate)
+            on = (t % per) < onSec
+            a.append(int(9000 * _m34.sin(2 * _m34.pi * 140 * t)) if on else 0)
+        w.writeframes(a.tobytes()); w.close()
+        return path
+    talky = mkTalk34(os.path.join(d34, "talky.wav"), 60.0, 2.0, 1.0)   # ۶۶٪
+    quiet34 = mkTalk34(os.path.join(d34, "quiet.wav"), 60.0, 1.0, 1.5)  # ۴۰٪
+    nT = V.refScore_(talky, seconds=30.0)["score"]
+    nQ = V.refScore_(quiet34, seconds=30.0)["score"]
+    eq(nT - nQ > 5.0, True,
+       "نمرهٔ معمول پرحرف را ترجیح می‌دهد (%s در برابر %s)" % (nT, nQ))
+    xT = V.refScore_(talky, seconds=30.0, neutral=True)["score"]
+    xQ = V.refScore_(quiet34, seconds=30.0, neutral=True)["score"]
+    eq(abs(xT - xQ) < 1.0, True,
+       "و خنثی بینشان فرقی نمی‌گذارد (%s در برابر %s)" % (xT, xQ))
+    eq("neutral=neutral_" in srcV, True, "و موتورِ سبک خنثی صدا می‌زند")
+
+    # ══ ت: سنجش روی برشِ خام، نه نرمال‌شده ══
+    # `to_wav` بهرهٔ پویا می‌زند؛ یکی از عددهای کارت «نوسانِ بلندی»
+    # است. سنجیدنش پس از loudnorm یعنی سنجیدنِ کارِ خودمان.
+    base34 = os.path.join(d34, "reference.wav")
+    io.open(base34, "wb").write(b"RIFF" + b"\0" * 4000)
+    eq(V.styleRaw_(base34), base34, "برشِ خام نبود، همان نرمال‌شده")
+    cut34 = os.path.join(d34, "reference-chosen-window.wav")
+    io.open(cut34, "wb").write(b"RIFF" + b"\0" * 4000)
+    eq(V.styleRaw_(base34), cut34, "برشِ خام بود، همان انتخاب می‌شود")
+
+    # ══ ث: کارت باید بگوید از چند عبارت ساخته شده ══
+    thin34 = dict(razavi33, phrases_measured=7, gaps_measured=11,
+                  seconds=29.9)
+    cT = SC.styleCard_(thin34, "رضوی")["instruction"]
+    eq("نمونه کم بود" in cT, True, "کارتِ ۷ عبارتی هشدارِ نمونهٔ کم می‌گیرد")
+    eq("نمونه کم بود" in cR, False, "و کارتِ ۱۴۰ عبارتی نمی‌گیرد")
+
+    # ══ ج: پایانِ عبارت هر دو جهت دارد ══
+    # اندازه‌گیریِ واقعی عکسِ فرضم را گفت: رضوی عبارت را **بالا** تمام
+    # می‌کند (+۱٫۸) و Gemini پایین (−۲٫۳). کارتِ اولی که فقط شاخهٔ
+    # «فرود» را داشت، دربارهٔ گویندهٔ واقعی هیچ نگفت.
+    upC = SC.styleCard_(dict(razavi33, phrase_fall_semitones=1.8),
+                        "رضوی")["instruction"]
+    eq("معلق" in upC, True, "عبارتِ رو به بالا «تعلیق» می‌شود")
+    eq("فرود بیاور" in upC, False, "و دستورِ وارونه نمی‌گیرد")
+    eq("فرود بیاور" in cR, True, "و عبارتِ رو به پایین همچنان «فرود»")
+
+    # ══ چ: جای مکث، نه فقط اندازه‌اش ══
+    mixC = SC.styleCard_(dict(razavi33, pause_mix_pct={
+        "short": 71, "sentence": 29, "paragraph": 0}), "رضوی")["instruction"]
+    eq("در دلِ جمله" in mixC and "71" in mixC, True,
+       "۷۱٪ مکثِ درون‌جمله‌ای در دستور می‌آید")
+    evenC = SC.styleCard_(dict(razavi33, pause_mix_pct={
+        "short": 25, "sentence": 25, "paragraph": 50}), "رضوی")["instruction"]
+    eq("بیشترِ مکث‌ها را در دلِ جمله" in evenC, False,
+       "و برای پخشِ یکنواخت ادعا نمی‌شود")
 
     print("\nهمه گذشت.")
     return 0

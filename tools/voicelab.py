@@ -45,7 +45,8 @@ import fa2latin
 # اجرا می‌شود و دو نسخه از یک متن، همان شکستی است که این ریپو بارها
 # خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
 from dsprep import *                                        # noqa: F401,F403
-from stylecard import STYLE_DEPS, styleMeasure_, styleCard_, styleCompare_
+from stylecard import (STYLE_DEPS, STYLE_WINDOW, styleMeasure_, styleCard_,
+                       styleCompare_)
 from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
                     DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
                     dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
@@ -146,6 +147,9 @@ ENGINES = {
         "pip": list(STYLE_DEPS) + list(DS_DEPS),
         "code_license": "MIT (librosa — BSD/ISC؛ silero-vad — MIT)",
         "needs_src": False,
+        # خروجی متن است، نه صوت · و پنجرهٔ اندازه‌گیری کف دارد
+        "text_out": True,
+        "ref_window": int(STYLE_WINDOW),
         "persian": "زبان‌مستقل — هیچ متنی خوانده نمی‌شود",
         "note": "بی کلید و بی مدل: هر جملهٔ دستور از یک عدد آمده",
     },
@@ -487,9 +491,25 @@ def srcInfo_(path):
     return out
 
 
-def refScore_(path):
+def refScore_(path, seconds=30.0, neutral=False):
     """
     یک نمونهٔ صدا چقدر برای کلونینگ خوب است — و کجایش.
+
+    ══ `seconds`: پنجره را به همان طولی بسنج که می‌بُری ══
+    این عدد ثابت ۳۰ بود، حتی وقتی فراخوان ۲۴۰ ثانیه می‌خواست: بهترین
+    پنجرهٔ **سی‌ثانیه‌ای** پیدا می‌شد و بعد از همان‌جا ۲۴۰ ثانیه بریده
+    می‌شد — یعنی ۲۱۰ ثانیه‌اش هرگز سنجیده نشده بود و می‌توانست وسطش
+    موسیقیِ میان‌برنامه باشد. سنجه‌ای که در طولِ تصمیم حساب نشود،
+    تصمیم را نمی‌سازد.
+
+    ══ `neutral`: برای *اندازه‌گیریِ سبک*، نه انتخابِ نمونه ══
+    نمرهٔ معمول پنجره‌ای را می‌خواهد که ۶۶٪ گفتار باشد و سکوتِ بلند
+    نداشته باشد. برای انتخابِ نمونهٔ کلونینگ درست است. ولی وقتی
+    داریم **سکوت و مکث را اندازه می‌گیریم**، همین نمره ساکت‌ترین
+    پنجره‌ها را کنار می‌گذارد و بعد ما نتیجه را گزارش می‌کنیم: پرسش
+    را با معیارِ انتخاب آلوده کرده‌ایم. در حالتِ خنثی فقط دو چیز
+    می‌مانَد که ربطی به سبک ندارند — موسیقیِ زیرِ گفتار، و ترازِ
+    ناپیوسته (تدوین یا دو راوی).
 
     ══ چرا سنجیدن، نه شنیدن ══
     سه فایل رسید و سؤال «کدام؟» است. من نمی‌توانم بشنوم و صاحبِ برنامه
@@ -552,9 +572,10 @@ def refScore_(path):
         spread = (max(lv) - min(lv)) if lv else 99
         frac = sum(voiced) / float(len(voiced))
         sc = 0.0
-        sc += min(len(good), 8) * 3.0                     # مکثِ قابلِ برش
-        sc -= len(dead) * 6.0                             # سکوتِ مرده
-        sc -= abs(frac - 0.66) * 40.0                     # نه پُرگو، نه خالی
+        if not neutral:
+            sc += min(len(good), 8) * 3.0                 # مکثِ قابلِ برش
+            sc -= len(dead) * 6.0                         # سکوتِ مرده
+            sc -= abs(frac - 0.66) * 40.0                 # نه پُرگو، نه خالی
         sc -= max(0.0, spread - 24.0) * 0.8               # ترازِ ناپیوسته
         if wf > -34:
             sc -= 40
@@ -563,9 +584,9 @@ def refScore_(path):
                 "level_spread_db": round(spread, 1),
                 "window_floor_db": round(wf, 1)}
 
-    W = int(30.0 / win)
+    W = int(max(10.0, float(seconds)) / win)
     best, bestAt = None, 0.0
-    step = int(5.0 / win)
+    step = max(1, int(max(5.0, float(seconds) / 20.0) / win))
     for a in range(0, max(1, len(db) - W), step):
         r = window(a, a + W)
         if r and (best is None or r["score"] > best["score"]):
@@ -587,7 +608,7 @@ def refScore_(path):
     return best
 
 
-def refAudition_(paths, out, seconds, tag="reference"):
+def refAudition_(paths, out, seconds, tag="reference", neutral=False):
     """
     از میانِ نمونه‌ها یکی را انتخاب کن، و از داخلش بهترین پنجره را.
 
@@ -618,16 +639,21 @@ def refAudition_(paths, out, seconds, tag="reference"):
             # برای *سنجیدن* هیچ‌کدامِ اینها لازم نیست — فقط ترازِ خام لازم
             # است. پس اینجا تبدیلِ ساده، و نرمال‌سازی فقط روی همان سی
             # ثانیه‌ای که انتخاب می‌شود.
-            r = sh([f, "-y", "-nostdin", "-t", str(SURVEY_SEC), "-i", src,
+            # ══ پهنهٔ بررسی باید از پنجره بزرگ‌تر باشد ══
+            # ۶۰۰ ثانیه برای پنجرهٔ سی‌ثانیه‌ای زیاد بود؛ برای پنجرهٔ
+            # ۲۴۰ ثانیه‌ای فقط یک‌ونیم جای انتخاب می‌گذارد و «بهترین
+            # پنجره» تقریباً می‌شود «تنها پنجره».
+            survey = max(SURVEY_SEC, int(float(seconds) * 2.5))
+            r = sh([f, "-y", "-nostdin", "-t", str(survey), "-i", src,
                     "-ac", "1", "-ar", "24000", full],
                    capture_output=True, timeout=SURVEY_TIMEOUT)
             if r.returncode != 0 or not os.path.exists(full):
                 raise RuntimeError((r.stderr or b"").decode("utf-8", "replace")[-300:])
-            r = refScore_(full)
+            r = refScore_(full, seconds=seconds, neutral=neutral)
             r["source"] = info
-            if info.get("seconds", 0) > SURVEY_SEC:
+            if info.get("seconds", 0) > survey:
                 r["surveyed"] = ("فقط %d ثانیهٔ اولِ این فایل بررسی شد (طولش %s)"
-                                 % (SURVEY_SEC, info.get("seconds")))
+                                 % (survey, info.get("seconds")))
         except Exception as e:
             r = {"error": str(e)[:300], "score": -99}
         r["file"] = os.path.basename(src)
@@ -2665,6 +2691,24 @@ def run_rvc(ref, src, text, out):
     return dst
 
 
+def styleRaw_(path):
+    """برشِ **خام** را بده، نه نرمال‌شده را — اگر هست.
+
+    ══ چرا این فرق می‌کند ══
+    `to_wav` روی نمونه `loudnorm` می‌زند، و loudnormِ یک‌گذره بهرهٔ
+    **پویا** دارد: بلندی را در طولِ فایل بالا و پایین می‌کند. برای
+    نمونهٔ کلونینگ خوب است. ولی یکی از عددهای همین کارت «نوسانِ
+    بلندی» است — یعنی داشتم چیزی را می‌سنجیدم که خودم چند خط قبل
+    صافش کرده بودم. `<tag>-chosen-window.wav` همان تکه است پیش از
+    نرمال‌سازی (`-c copy`)، پس اگر ساخته شده باشد، مرجعِ درست اوست.
+    """
+    cut = re.sub(r"\.wav$", "-chosen-window.wav", path)
+    if cut != path and os.path.exists(cut) and os.path.getsize(cut) > 1000:
+        print("سنجشِ سبک روی برشِ خام: %s" % os.path.basename(cut), flush=True)
+        return cut
+    return path
+
+
 def run_style(ref, src, text, out):
     """کارتِ سبکِ گوینده — و اگر صوتِ مبدأ بدهی، اجرای دستور را می‌سنجد.
 
@@ -2677,7 +2721,7 @@ def run_style(ref, src, text, out):
     name = OPT.get("style_name") or "گوینده"
     rep = OPT.get("_rep") or {}
 
-    m = styleMeasure_(ref)
+    m = styleMeasure_(styleRaw_(ref))
     card = styleCard_(m, name)
     if card.get("error"):
         raise RuntimeError("سبک اندازه‌گیری نشد: %s" % card["error"])
@@ -2694,7 +2738,7 @@ def run_style(ref, src, text, out):
     # دستور اجرا شده و کدام نه — یعنی دفعهٔ بعد چه چیزی را باید
     # محکم‌تر گفت.
     if src:
-        got = styleMeasure_(src)
+        got = styleMeasure_(styleRaw_(src))
         rep["style"]["source_now"] = got
         rep["style"]["gap"] = styleCompare_(m, got)
         io.open(os.path.join(out, "STYLE-gap.json"), "w",
@@ -2875,7 +2919,25 @@ def main():
     # **چند** ضبط میانگین می‌گیرد؛ برای آن، دور انداختنِ سه ضبطِ دیگر
     # دور انداختنِ کیفیت است.
     OPT["ref_inputs"] = list(a.ref)
-    ref = refAudition_(a.ref, a.out, a.ref_seconds)
+    # ══ کارتِ سبک پنجرهٔ بلند می‌خواهد، و خانهٔ فرم برایش نوشته نشده ══
+    # «چند ثانیه از نمونه برداشته شود» را برای نمونهٔ کلونینگ گذاشته
+    # بودم — سی ثانیه، که برای شنیدنِ رنگِ صدا بس است. اجرای اولِ سبک
+    # همان سی ثانیه را گرفت و کارت را از ۷ عبارت ساخت. پس این موتور
+    # کف دارد، و کف را **می‌گوید** تا کسی فکر نکند عددش را نادیده
+    # گرفته‌ام.
+    win_ = ENGINES[a.engine].get("ref_window") or 0
+    refSec, srcSec = a.ref_seconds, a.src_seconds
+    if win_:
+        neutral_ = True
+        if refSec < win_ or srcSec < win_:
+            print("موتورِ «%s» پنجرهٔ بلند لازم دارد: %d ثانیه به جای %d/%d "
+                  "— میانهٔ چند عبارت، سبک نیست."
+                  % (a.engine, win_, refSec, srcSec), flush=True)
+        refSec, srcSec = max(refSec, win_), max(srcSec, win_)
+        rep["style_window_seconds"] = refSec
+    else:
+        neutral_ = False
+    ref = refAudition_(a.ref, a.out, refSec, neutral=neutral_)
     rep["reference"] = probe(ref)
     src = ""
     if a.src:
@@ -2886,7 +2948,8 @@ def main():
         # برای نمونهٔ مرجع اصلاح شد و اینجا جا مانده بود.
         # `refAudition_` همین را می‌سنجد: پنجره‌ای با کفِ سکوتِ پایین
         # (یعنی بی موسیقیِ زیرِ گفتار) و مکث‌های واقعی.
-        src = refAudition_([a.src], a.out, a.src_seconds, tag="source-gemini")
+        src = refAudition_([a.src], a.out, srcSec, tag="source-gemini",
+                           neutral=neutral_)
         rep["source"] = probe(src)
     if meta["needs_src"] and not src:
         rep["error"] = "این موتور به صوتِ مبدأ نیاز دارد و داده نشد."
@@ -2929,7 +2992,11 @@ def main():
                     raise RuntimeError("موتور بی‌خطا تمام شد ولی فایلی نساخت")
                 rep["ok"] = True
                 rep["output"] = os.path.basename(made)
-                rep["output_info"] = probe(made)
+                # موتورِ سبک متن می‌سازد؛ `probe` رویش «RIFF نیست»
+                # می‌نویسد و گزارشِ سالم، شکسته به نظر می‌رسد.
+                rep["output_info"] = (
+                    {"text_bytes": os.path.getsize(made)}
+                    if ENGINES[a.engine].get("text_out") else probe(made))
             except Exception as e:
                 rep["error"] = str(e)[:2000]
                 rep["traceback"] = traceback.format_exc()[-1500:]
