@@ -17,7 +17,7 @@ voicelab_selftest.py — منطقِ خالصِ آزمایشگاه، بی هیچ 
 """
 
 import io
-import re, json, os, sys, tempfile
+import re, json, os, sys, tempfile, shutil
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import voicelab as V
@@ -1838,15 +1838,47 @@ def main():
     VT.DS_MAX_MIN = capWas + 10
     eq(VT.dsSig_() != sig0, True, "و سقفِ دیتاست هم بخشی از ورودی است")
     VT.DS_MAX_MIN = capWas
+    # و نسخهٔ خودِ اثر هم بخشی از آن است: اجرای ۱۲ مهرِ تازه را روی کارِ
+    # کهنه زد، پس بی این، «جور است» می‌گفت و رفعِ سد هم نجاتش نمی‌داد.
+    verWas = VT.DS_SIG_VER
+    VT.DS_SIG_VER = verWas + 1
+    eq(VT.dsSig_() != sig0, True, "نسخهٔ اثرِ انگشت مهرهای پیشین را باطل می‌کند")
+    VT.DS_SIG_VER = verWas
+    eq(VT.dsSig_() != "fc2fde3718b6fa35", True,
+       "و مهرِ نادرستِ اجرای ۱۲ دیگر جور درنمی‌آید")
 
     # و سقف واقعاً به سازندهٔ دیتاست می‌رسد — نه اینکه تعریف شود و
     # پیش‌فرضِ ۴۰ دقیقه‌ایِ `DS_TOTAL_MAX` سرِ جایش بماند. همان الگوی
     # «تحلیلی که نوشته شد و به تصمیم وصل نشد».
     eq("totalMax=DS_MAX_MIN" in src29, True, "سقف به buildDataset_ می‌رسد")
 
+    # ══ «اثری ثبت نشده» یعنی نمی‌دانیم، نه یعنی جور است (اجرای #۱۲) ══
+    # نسخهٔ اولِ همین سدّ `if sigWas and sigWas != sigNow` بود، پس اولین
+    # اجرای پس از ساختنش — دقیقاً همان اجرایی که کش در آن از ورودیِ
+    # دیگری آمده — از سد رد شد. لاگِ اجرای ۱۲: «دیتاست از پیش آماده
+    # است: 306 تکه» (همان ۳۹ دقیقهٔ قدیمی)، ادامه از چک‌پوینتِ دورِ ۸۵،
+    # و چون ۸۵ > ۳۲ بود RVC یک دور دواند و «تمام شد» گفت. سبز، با مدل،
+    # و هیچ‌کدامش آنچه خواسته شده بود.
+    tmpw = tempfile.mkdtemp()
+    os.makedirs(os.path.join(tmpw, "dataset"))
+    eq(VT.staleWork_(tmpw, "", "sig1"), False,
+       "پوشهٔ خالی چیزی برای بردن ندارد")
+    io.open(os.path.join(tmpw, "dataset", "a.wav"), "w").write("x")
+    eq(VT.staleWork_(tmpw, "", "sig1"), True,
+       "کارِ بی‌اثرِانگشت ناشناخته است و می‌رود")
+    eq(VT.staleWork_(tmpw, "sig1", "sig1"), False,
+       "ولی اثرِ انگشتِ جور، کار را نگه می‌دارد")
+    eq(VT.staleWork_(tmpw, "sig0", "sig1"), True,
+       "و اثرِ انگشتِ ناجور می‌بَردش")
+    os.remove(os.path.join(tmpw, "dataset", "a.wav"))
+    os.makedirs(os.path.join(tmpw, "logs", VT.VOICE))
+    eq(VT.staleWork_(tmpw, "", "sig1"), True,
+       "چک‌پوینتِ بی‌دیتاست هم کارِ روی دیسک است")
+    shutil.rmtree(tmpw, ignore_errors=True)
+
     # و پاک‌سازی پیش از دروازهٔ «از پیش کامل شده» می‌آید، وگرنه همان
     # دروازه اول جواب می‌دهد و پاک‌سازی هیچ‌وقت اجرا نمی‌شود.
-    eq(src29.index("freshStart_(work, out, root") <
+    eq(src29.index("if staleWork_(work, sigWas, sigNow)") <
        src29.index("if os.path.exists(o[\"model\"])"), True,
        "پاک‌سازی پیش از دروازهٔ پرش اجرا می‌شود")
 
