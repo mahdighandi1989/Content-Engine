@@ -54,7 +54,7 @@
    "torchvision-0.29.0-cp311-cp311-manylinux_2_28_x86_64.whl",
    "triton-3.8.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
   ],
-  "excluded_dir": "mirror/wheels-heavy"
+  "excluded_dir": "/home/runner/work/Content-Engine/Content-Engine/mirror-heavy"
  },
  "offline_install_ok": true,
  "files": [
@@ -71,7 +71,7 @@
   {
    "path": "assets/.cache/huggingface/download/hubert_base/config.json.metadata",
    "bytes": 101,
-   "sha256": "ab5f52e3584a19d791f467c1561a820ccf596acdfb34ae7ec94cefe5c6a41df1"
+   "sha256": "12d34ba4d804dd5af1a21f2385b0c98de5394b17300d1ddbacf8e15d3ae3545e"
   },
   {
    "path": "assets/.cache/huggingface/download/hubert_base/preprocessor_config.json.lock",
@@ -80,8 +80,8 @@
   },
   {
    "path": "assets/.cache/huggingface/download/hubert_base/preprocessor_config.json.metadata",
-   "bytes": 100,
-   "sha256": "3325c7ab0947d290b027f667ab169fa3cc8f4805baf3592ea97daee6558e3193"
+   "bytes": 101,
+   "sha256": "7746edb47fbc99d70a39ce9e77823238e51300670b32c3edd10c35e9f16caf12"
   },
   {
    "path": "assets/.cache/huggingface/download/hubert_base/pytorch_model.bin.lock",
@@ -90,8 +90,8 @@
   },
   {
    "path": "assets/.cache/huggingface/download/hubert_base/pytorch_model.bin.metadata",
-   "bytes": 124,
-   "sha256": "41c17252f484ea7859771249438f62acbb3adaf9557039bce710dfa9f520d708"
+   "bytes": 125,
+   "sha256": "c22aea6717430846afb014598cb89ec5ddb6c2cff4b05574c93908964efe6ccb"
   },
   {
    "path": "assets/hubert_base/config.json",
@@ -120,113 +120,13 @@
   },
   {
    "path": "assets/rmvpe/.cache/huggingface/download/rmvpe.pt.metadata",
-   "bytes": 125,
-   "sha256": "2f4397724ff82ea93af83a7414fd0385ca36df24bc01d3b2bf5742a3a2b00b85"
+   "bytes": 124,
+   "sha256": "73cb9af128b71a854e78697388a595e54a487d4647c020edf625dc3a776a8fa7"
   },
   {
    "path": "assets/rmvpe/rmvpe.pt",
    "bytes": 181184272,
    "sha256": "6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_x86_64.whl",
-   "bytes": 423138758,
-   "sha256": "37936a16db8fe4ac1f065c2139360608a543a09275cb1a1af612e08cfa065436"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cuda_cupti-13.0.85-py3-none-manylinux_2_25_x86_64.whl",
-   "bytes": 10715597,
-   "sha256": "4eb01c08e859bf924d222250d2e8f8b8ff6d3db4721288cf35d14252a4d933c8"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cuda_nvrtc-13.0.88-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl",
-   "bytes": 90215200,
-   "sha256": "ad9b6d2ead2435f11cbb6868809d2adeeee302e9bb94bcf0539c7a40d80e8575"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cuda_runtime-13.0.96-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-   "bytes": 2243632,
-   "sha256": "7f82250d7782aa23b6cfe765ecc7db554bd3c2870c43f3d1821f1d18aebf0548"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cudnn_cu13-9.24.0.43-py3-none-manylinux_2_27_x86_64.whl",
-   "bytes": 553099438,
-   "sha256": "71f181cd810e90f9b6023b01186fe82d13d65f0ec098581ee201d39fad769e4b"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cufft-12.0.0.61-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-   "bytes": 214085489,
-   "sha256": "6c44f692dce8fd5ffd3e3df134b6cdb9c2f72d99cf40b62c32dde45eea9ddad3"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cufile-1.15.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-   "bytes": 1223672,
-   "sha256": "08a3ecefae5a01c7f5117351c64f17c7c62efa5fffdbe24fc7d298da19cd0b44"
-  },
-  {
-   "path": "wheels-heavy/nvidia_curand-10.4.0.35-py3-none-manylinux_2_27_x86_64.whl",
-   "bytes": 59544258,
-   "sha256": "1aee33a5da6e1db083fe2b90082def8915f30f3248d5896bcec36a579d941bfc"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cusolver-12.0.4.66-py3-none-manylinux_2_27_x86_64.whl",
-   "bytes": 200941980,
-   "sha256": "0a759da5dea5c0ea10fd307de75cdeb59e7ea4fcb8add0924859b944babf1112"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cusparse-12.6.3.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-   "bytes": 145942937,
-   "sha256": "2b3c89c88d01ee0e477cb7f82ef60a11a4bcd57b6b87c33f789350b59759360b"
-  },
-  {
-   "path": "wheels-heavy/nvidia_cusparselt_cu13-0.8.1-py3-none-manylinux2014_x86_64.whl",
-   "bytes": 170148586,
-   "sha256": "786ce87568c303fadb5afcc7102d454cd3040d75f6f8626f5db460d1871f4dd0"
-  },
-  {
-   "path": "wheels-heavy/nvidia_nccl_cu13-2.30.7-py3-none-manylinux_2_18_x86_64.whl",
-   "bytes": 215965170,
-   "sha256": "cefa7fdb9710efd0f39c5f1be1d61ff6fc9a996c451265bd7fbdcf9455ed4b50"
-  },
-  {
-   "path": "wheels-heavy/nvidia_nvjitlink-13.3.33-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl",
-   "bytes": 40742423,
-   "sha256": "26a6de7fb4c8fdaa7703d3dad720d6d427ddfea5c48a528fd97c11733ad830e5"
-  },
-  {
-   "path": "wheels-heavy/nvidia_nvshmem_cu13-3.4.5-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
-   "bytes": 60412546,
-   "sha256": "290f0a2ee94c9f3687a02502f3b9299a9f9fe826e6d0287ee18482e78d495b80"
-  },
-  {
-   "path": "wheels-heavy/nvidia_nvtx-13.0.85-py3-none-manylinux1_x86_64.manylinux_2_5_x86_64.whl",
-   "bytes": 148047,
-   "sha256": "4936d1d6780fbe68db454f5e72a42ff64d1fd6397df9f363ae786930fd5c1cd4"
-  },
-  {
-   "path": "wheels-heavy/torch-2.14.0-cp311-cp311-manylinux_2_28_x86_64.whl",
-   "bytes": 554583496,
-   "sha256": "8d9e232b6376c62f3090237889fb1cb6887c0ece9f73e6c1052e80fc1481f999"
-  },
-  {
-   "path": "wheels-heavy/torch_einops_utils-0.1.25-py3-none-any.whl",
-   "bytes": 14513,
-   "sha256": "b3c81635daec3c772fa37158ed547698cca5709fbef3baa6601d451c9b255e87"
-  },
-  {
-   "path": "wheels-heavy/torchaudio-2.11.0-cp311-cp311-manylinux_2_28_x86_64.whl",
-   "bytes": 1771930,
-   "sha256": "1a07ec72fd6f26a588c39b5f029e0130d16bb40bc4221635580bf8fb18fcbc80"
-  },
-  {
-   "path": "wheels-heavy/torchvision-0.29.0-cp311-cp311-manylinux_2_28_x86_64.whl",
-   "bytes": 7430717,
-   "sha256": "85fa54bec1f7d9227b5e4e201ed4bac92247ee10fb19148d92f9836e3e91d5c3"
-  },
-  {
-   "path": "wheels-heavy/triton-3.8.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
-   "bytes": 247945226,
-   "sha256": "68988ac85d5e7086baeda0ddc175af9667db7529b3c5e11a5c0601b8bef2200a"
   },
   {
    "path": "wheels/absl_py-2.5.0-py3-none-any.whl",
@@ -570,8 +470,8 @@
   },
   {
    "path": "wheels/pyworld-0.3.4-cp311-cp311-linux_x86_64.whl",
-   "bytes": 1138888,
-   "sha256": "d329896f394d15faf8b689cde719269a561534eaeec33efe6c2817179d11b5fb"
+   "bytes": 1138895,
+   "sha256": "bf92c339ce14febebc2b524aadd8f8742c6af4eb25f69f8dba8054e2b7007aa0"
   },
   {
    "path": "wheels/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
@@ -719,5 +619,5 @@
    "sha256": "3217dcc807155e45db462d7ef2431f5ddda0d7273b700d05a67b271ceb1287ab"
   }
  ],
- "total_bytes": 3801549523
+ "total_bytes": 801235916
 }
