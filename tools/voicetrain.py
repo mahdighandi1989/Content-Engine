@@ -177,9 +177,27 @@ def main():
     import dsprep as D
 
     o = P.outputs(VOICE, root)
+    # ══ «مدل هست» یعنی «برای چند دور هست» ══
+    # وجودِ فایل به‌تنهایی شرطِ درستی نیست: اگر کسی بعداً ۱۲۰ دور
+    # بخواهد، این شرط او را در چند ثانیه با «از پیش ساخته شده»
+    # برمی‌گرداند و هیچ دورِ تازه‌ای آموزش نمی‌بیند — بی هیچ خطایی.
+    # به کاربر گفته شده «ادامه دادن رایگان است»؛ قولی که کد نگه ندارد،
+    # قول نیست. پس هدفِ همان ساخت را از `state.json` می‌خوانیم و فقط
+    # وقتی می‌ایستیم که به آن رسیده باشیم. نبودِ آن فایل یعنی
+    # نمی‌دانیم، و «نمی‌دانم» باید به آموزش ختم شود نه به سکوت.
     if os.path.exists(o["model"]):
-        say_("مدل از پیش ساخته شده: %s" % o["model"])
-        return finish_(P, root, out)
+        at = 0
+        try:
+            st = json.loads(io.open(os.path.join(out, "state.json"),
+                                    encoding="utf-8").read())
+            at = int(st.get("epochs_target") or 0)
+        except (IOError, OSError, ValueError, TypeError):
+            pass
+        if at >= EPOCHS:
+            say_("مدل از پیش برای %d دور ساخته شده: %s" % (at, o["model"]))
+            return finish_(P, root, out)
+        say_("مدل برای %d دور هست و حالا %d خواسته شده — ادامه می‌دهیم"
+             % (at, EPOCHS))
 
     # ── وابستگی‌ها ──
     say_("نصبِ وابستگی‌ها")
