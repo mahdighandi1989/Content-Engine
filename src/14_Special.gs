@@ -1850,6 +1850,14 @@ function specialSegments_(ep, catHint) {
  */
 function buildSpecialChunks_(ep, epNum, catHint) {
   var segs = specialSegments_(ep, catHint);
+  // صدای مهمان (بخشِ ۳۲) — همان تصمیمِ ذخیره‌شده، همان اعمال.
+  try {
+    var perS = personaEnsure_(ep, ENRICH_SHOW_SPECIAL, epNum);
+    if (perS) {
+      logLine_('صدای مهمان روی ' + personaApply_(segs, perS) +
+               ' بخش اعمال شد: ' + perS.name);
+    }
+  } catch (ePr2) { logLine_('صدای مهمان اعمال نشد: ' + ePr2.message); }
   if (CFG.TTS_CAST_ENABLED !== false) {
     try {
       var cast = ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, catHint || '');

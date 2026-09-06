@@ -2212,6 +2212,15 @@ function episodeSegments_(ep, cat) {
 /** بخش‌ها → تکه‌های آمادهٔ ارسال به TTS، با حفظ لحن و گویندهٔ هر بخش */
 function buildChunks_(ep, cat, epNum) {
   var segs = episodeSegments_(ep, cat);
+  // صدای مهمان (بخشِ ۳۲): شیوهٔ خواندن، نه رنگِ صدا. تصمیمش یک بار
+  // گرفته و در پروندهٔ قسمت ذخیره می‌شود تا از سرگیری عوضش نکند.
+  try {
+    var per = personaEnsure_(ep, ENRICH_SHOW_VARIETY, epNum);
+    if (per) {
+      logLine_('صدای مهمان روی ' + personaApply_(segs, per) +
+               ' بخش اعمال شد: ' + per.name);
+    }
+  } catch (ePr) { logLine_('صدای مهمان اعمال نشد: ' + ePr.message); }
   if (CFG.TTS_CAST_ENABLED !== false) {
     try {
       // نقش‌گزینی یک بار انجام می‌شود و در پروندهٔ قسمت می‌مانَد؛ اجراهای بعدیِ

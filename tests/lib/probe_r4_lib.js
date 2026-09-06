@@ -15,7 +15,7 @@ const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04
                // که probe را می‌بارند، هر فراخوان به موسیقی/تقویم/جزوه/یوتیوب
                // را با ReferenceError می‌دیدند و try/catchِ فراخوان قورتش می‌داد.
                '23_Music.gs','24_ContentAudit.gs','25_Calendar.gs','26_Handout.gs',
-               '27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs'];
+               '27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs','32_Persona.gs'];
 let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync(DIR + f, 'utf8');
 (0, eval)(src);
 
