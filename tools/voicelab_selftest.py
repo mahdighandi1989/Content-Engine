@@ -2138,6 +2138,60 @@ def main():
     for need in ("--rvc-model", "--rvc-index"):
         eq(need in wfl, True, "%s به فرمان می‌رسد" % need)
 
+    # ── ۳۳ ─────────────────────────────────────────────────────────────
+    # کارتِ سبک: نیمهٔ دومِ یک گوینده. مدلِ تبدیل رنگِ صدا را می‌دهد و
+    # مکث و کشش از صوتِ مبدأ می‌آید — پس این متن است که به Gemini
+    # می‌گوید چطور بخواند. اگر متن غلط باشد، هیچ خطایی بلند نمی‌شود؛
+    # فقط قسمت بد خوانده می‌شود.
+    print("۳۳ — کارتِ سبک: هر جمله از یک عدد")
+    import stylecard as SC
+
+    razavi33 = {"seconds": 180.0, "speech_pct": 64,
+                "phrase_seconds_median": 2.4, "phrase_seconds_p95": 5.8,
+                "hold_ratio": 2.4, "pauses_per_minute": 22.0,
+                "pause_short_median": 0.28, "pause_sentence_median": 0.62,
+                "pause_para_median": 1.3, "level_spread_db": 12.0,
+                "range_semitones": 9.0, "phrase_fall_semitones": -2.6}
+    gemini33 = dict(razavi33, speech_pct=90, phrase_seconds_median=5.8,
+                    pauses_per_minute=8.0, hold_ratio=1.24)
+
+    cR = SC.styleCard_(razavi33, "رضوی")["instruction"]
+    cG = SC.styleCard_(gemini33, "جمینای")["instruction"]
+
+    # ══ عبارتِ بلند یعنی بی‌نفس، نه آرام ══
+    # نسخهٔ اول طولِ عبارت را نشانهٔ آرامی گرفت و برای صوتی با ۹۰٪ گفتار
+    # و عبارت‌های ۵٫۸ ثانیه‌ای نوشت «بسیار آرام و سنگین» — دقیقاً وارونهٔ
+    # چیزی که در صدا بود. آرامیِ روایت را **سکوت** می‌سازد.
+    eq("کم‌نفس" in cG, True, "۹۰٪ گفتار «کم‌نفس» خوانده می‌شود")
+    eq("پرحرفی نکن" in cG, True, "و هشدارش را می‌گیرد")
+    eq("آرام و روایی" in cR, True, "۶۴٪ گفتار «آرام و روایی» است")
+    eq("کم‌نفس" in cR, False, "و آن هشدار برایش صادر نمی‌شود")
+
+    # هر عددِ تعیین‌کننده باید در متن دیده شود — وگرنه «دستورِ دقیق»
+    # همان توصیفِ کلی است با ظاهرِ بهتر.
+    for want in ("0.28", "0.62", "1.3", "22.0", "64"):
+        eq(want in cR, True, "عددِ %s در دستور آمده" % want)
+
+    eq("کِش" in cR or "نگه دار" in cR, True,
+       "کششِ بلند (نسبتِ %s) در دستور هست" % razavi33["hold_ratio"])
+    eq("فرود" in cR, True, "فرودِ پایانِ عبارت گفته می‌شود")
+
+    # ══ حلقهٔ بسته ══
+    # بی این، کارت فقط یک آرزوی دقیق‌تر است.
+    gap = SC.styleCompare_(razavi33, gemini33)
+    eq(gap["followed"], False, "خروجیِ فعلی سبکِ هدف را رعایت نکرده")
+    eq(gap["fields"]["speech_pct"]["off_pct"] >= 25, True,
+       "و مهم‌ترین تفاوت — نسبتِ سکوت — گرفته می‌شود (%d%%)"
+       % gap["fields"]["speech_pct"]["off_pct"])
+    same = SC.styleCompare_(razavi33, dict(razavi33))
+    eq(same["followed"], True, "و وقتی یکی باشند، «رعایت شد» می‌گوید")
+    eq(SC.styleCompare_({}, {})["followed"], False,
+       "مقایسهٔ تهی «رعایت شد» نیست — نبودِ شاهد، شاهدِ نبودن نیست")
+
+    # ورودیِ خراب نباید کارتِ بی‌معنا بسازد
+    bad33 = SC.styleCard_({"error": "هیچ گفتاری پیدا نشد"}, "x")
+    eq(bad33["instruction"], "", "بی اندازه‌گیری، دستوری هم نیست")
+
     print("\nهمه گذشت.")
     return 0
 

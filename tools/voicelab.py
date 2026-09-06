@@ -45,6 +45,7 @@ import fa2latin
 # اجرا می‌شود و دو نسخه از یک متن، همان شکستی است که این ریپو بارها
 # خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
 from dsprep import *                                        # noqa: F401,F403
+from stylecard import STYLE_DEPS, styleMeasure_, styleCard_, styleCompare_
 from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
                     DS_SAMPLE_SEC, DS_GAP_REL_DB, DS_FLOOR_REL_DB,
                     dbOf_, dsDecode_, dsSpeech_, dsSlice_, dsGaps_,
@@ -133,6 +134,20 @@ ENGINES = {
         "needs_src": True,
         "persian": "زبان‌مستقل — واژه‌ها از صوتِ مبدأ می‌آیند",
         "note": "دارایی‌ها از منبعِ سنجیده‌شده گرفته می‌شوند، نه آینهٔ پیش‌فرضِ بسته",
+    },
+    # ══ نیمهٔ دومِ یک گوینده ══
+    # مدلِ تبدیل رنگِ صدا را می‌دهد و بس؛ مکث و کشش و فرودِ جمله از
+    # صوتِ مبدأ می‌آیند و باید به Gemini گفته شوند. این موتور آن
+    # «گفتن» را از حدس به مشخصات تبدیل می‌کند: از صدای واقعیِ گوینده
+    # عدد درمی‌آورد، دستور را از همان عددها می‌سازد، و اگر خروجیِ
+    # Gemini را هم بدهی، می‌گوید چقدر از دستور اجرا شده.
+    "style": {
+        "family": "کارتِ سبک (خروجی دستور است، نه صوت)",
+        "pip": list(STYLE_DEPS) + list(DS_DEPS),
+        "code_license": "MIT (librosa — BSD/ISC؛ silero-vad — MIT)",
+        "needs_src": False,
+        "persian": "زبان‌مستقل — هیچ متنی خوانده نمی‌شود",
+        "note": "بی کلید و بی مدل: هر جملهٔ دستور از یک عدد آمده",
     },
     # ══ نه موتورِ صدا، آماده‌سازیِ خوراکِ آموزش ══
     # ضبط‌های بلندِ داستان‌خوانی تیزر و میان‌برنامه دارند، و موسیقی در
@@ -2650,6 +2665,53 @@ def run_rvc(ref, src, text, out):
     return dst
 
 
+def run_style(ref, src, text, out):
+    """کارتِ سبکِ گوینده — و اگر صوتِ مبدأ بدهی، اجرای دستور را می‌سنجد.
+
+    ══ چرا خروجی‌اش صوت نیست ══
+    این تنها موتوری است که چیزی برای شنیدن نمی‌سازد. محصولش یک متن
+    است که بعداً به Gemini داده می‌شود. برای همین «خروجی» را همان
+    فایلِ دستور می‌گذاریم — وگرنه گاردِ آزمایشگاه («موتور بی‌خطا تمام
+    شد ولی فایلی نساخت») درست به آن گیر می‌دهد.
+    """
+    name = OPT.get("style_name") or "گوینده"
+    rep = OPT.get("_rep") or {}
+
+    m = styleMeasure_(ref)
+    card = styleCard_(m, name)
+    if card.get("error"):
+        raise RuntimeError("سبک اندازه‌گیری نشد: %s" % card["error"])
+    rep["style"] = {"name": name, "numbers": m}
+    dst = os.path.join(out, "STYLE-%s.md" % re.sub(r"\s+", "-", name))
+    io.open(dst, "w", encoding="utf-8").write(card["instruction"] + "\n")
+    io.open(os.path.join(out, "STYLE-%s.json" % re.sub(r"\s+", "-", name)),
+            "w", encoding="utf-8").write(
+        json.dumps(card, ensure_ascii=False, indent=1))
+
+    # ══ حلقهٔ بسته ══
+    # بی این، کارت فقط یک آرزوی دقیق‌تر است. با صوتِ مبدأ، همان
+    # سنجه‌ها روی خروجیِ Gemini اجرا می‌شود و معلوم می‌شود کدام بندِ
+    # دستور اجرا شده و کدام نه — یعنی دفعهٔ بعد چه چیزی را باید
+    # محکم‌تر گفت.
+    if src:
+        got = styleMeasure_(src)
+        rep["style"]["source_now"] = got
+        rep["style"]["gap"] = styleCompare_(m, got)
+        io.open(os.path.join(out, "STYLE-gap.json"), "w",
+                encoding="utf-8").write(
+            json.dumps(rep["style"]["gap"], ensure_ascii=False, indent=1))
+        g = rep["style"]["gap"]
+        print("\nفاصلهٔ خروجیِ فعلی تا سبکِ هدف: %d از %d سنجه بیش از "
+              "۲۵٪ فرق دارد" % (g["off_count"], len(g["fields"])), flush=True)
+        for k, v in sorted(g["fields"].items(),
+                           key=lambda kv: -kv[1]["off_pct"]):
+            print("  %-26s هدف %-7s الان %-7s (%d%%)"
+                  % (k, v["target"], v["actual"], v["off_pct"]), flush=True)
+    saveRep_()
+    print("\n" + card["instruction"], flush=True)
+    return dst
+
+
 def run_dataset(ref, src, text, out):
     """
     از ضبط‌های بلند، دیتاستِ تمیزِ آموزش بساز — و **نشان بده** چه کردی.
@@ -2707,6 +2769,7 @@ RUNNERS = {"chatterboxvc": run_chatterboxvc, "seedvc": run_seedvc,
            "openvoice": run_openvoice,
            "rvcsmoke": run_rvcsmoke,
            "rvc": run_rvc,
+           "style": run_style,
            "dataset": run_dataset}
 
 # تنظیماتِ اجرا که موتورها می‌خوانند. یک دیکشنریِ ساده، چون امضای
@@ -2753,6 +2816,8 @@ def main():
     # پیش‌فرض‌ها همان‌هایی است که RVC خودش می‌گذارد. تنها چیزی که
     # عمداً قابلِ تغییر ماند، سه‌تایی است که روی متنِ فارسیِ اعراب‌دار
     # اثر دارد: گام، اثرِ ایندکس، و محافظِ همخوان.
+    ap.add_argument("--style-name", default="",
+                    help="نامِ گوینده روی کارتِ سبک")
     ap.add_argument("--rvc-model", default="", help="فایلِ .pth مدلِ صدا")
     ap.add_argument("--rvc-index", default="", help="فایلِ .index کنارش")
     ap.add_argument("--rvc-pitch", default="0", help="جابه‌جاییِ گام (نیم‌پرده)")
@@ -2772,6 +2837,7 @@ def main():
     OPT["omni_model"] = a.omni_model
     OPT["f5_nfe"] = a.f5_nfe
     OPT["alphabet"] = a.alphabet
+    OPT["style_name"] = a.style_name
     OPT["rvc_model"] = a.rvc_model
     OPT["rvc_index"] = a.rvc_index
     OPT["rvc_pitch"] = a.rvc_pitch

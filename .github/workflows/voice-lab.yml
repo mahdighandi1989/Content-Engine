@@ -26,6 +26,10 @@ on:
         description: 'فایلِ .index کنارِ مدل'
         required: false
         default: ''
+      style_name:
+        description: 'نامِ گوینده روی کارتِ سبک (فقط برای engine=style)'
+        required: false
+        default: 'بهروز رضوی'
       rvc_pitch:
         description: 'جابه‌جاییِ گام به نیم‌پرده — چند مقدار با کاما. صدای زن به مردِ بم حدود -12'
         required: false
@@ -43,7 +47,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [rvc, all, dataset, openvoice, rvcsmoke, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
+        options: [rvc, style, all, dataset, openvoice, rvcsmoke, moss, omnivoice, chatterboxvc, seedvc, chatterbox, f5, xtts, scan-only]
       # ══ چند نمونه با کاما ══
       # «کدام نمونه بهتر است؟» با شنیدن جواب داده نمی‌شود وقتی معیارها
       # عددی‌اند: کفِ سکوت (موسیقیِ زمینه)، مکث‌های قابلِ برش، پیوستگیِ
@@ -423,6 +427,7 @@ jobs:
           REF_SECONDS: ${{ inputs.ref_seconds }}
           SRC_SECONDS: ${{ inputs.src_seconds }}
           ALPHABET: ${{ inputs.alphabet }}
+          STYLE_NAME: ${{ inputs.style_name }}
           RVC_PITCH: ${{ inputs.rvc_pitch }}
           RVC_INDEX_RATE: ${{ inputs.rvc_index_rate }}
           RVC_PROTECT: ${{ inputs.rvc_protect }}
@@ -446,6 +451,7 @@ jobs:
           if [ -n "${ALPHABET}" ];    then ARGS+=(--alphabet "${ALPHABET}"); fi
           if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
+          if [ -n "${STYLE_NAME}" ]; then ARGS+=(--style-name "${STYLE_NAME}"); fi
           if [ -n "${RVC_PITCH}" ]; then ARGS+=(--rvc-pitch "${RVC_PITCH}"); fi
           if [ -n "${RVC_INDEX_RATE}" ]; then ARGS+=(--rvc-index-rate "${RVC_INDEX_RATE}"); fi
           if [ -n "${RVC_PROTECT}" ];    then ARGS+=(--rvc-protect "${RVC_PROTECT}"); fi
