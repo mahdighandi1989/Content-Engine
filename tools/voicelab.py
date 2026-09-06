@@ -2556,40 +2556,63 @@ def run_rvc(ref, src, text, out):
     # هر اجرا کمتر از یک دقیقه است. پس به‌جای حدس زدن، چند گام ساخته
     # می‌شود و **شنونده** انتخاب می‌کند — همان کاری که با دو دورِ
     # فیلترِ موسیقی شد.
-    steps_ = [t.strip() for t in str(OPT.get("rvc_pitch") or "0").split(",")
-              if t.strip()]
+    def list_(key, dflt):
+        return [t.strip() for t in str(OPT.get(key) or dflt).split(",")
+                if t.strip()]
+
+    # ══ سه اهرم، و ترتیبشان اهمیت دارد ══
+    # جاروبِ اول نشان داد گام تعیین‌کننده است (۰٫۴۴ → ۰٫۶۹) ولی از
+    # ‎-۱۰ تا ‎-۱۴ روی یک فلات می‌نشیند: کارش را کرده. آنچه می‌ماند دو
+    # چیزِ دیگر است — چقدر به ایندکسِ خودِ گوینده تکیه شود، و چقدر
+    # همخوان و نفسِ مبدأ محافظت شود. دومی مبادله دارد: پایین‌تر یعنی
+    # رضوی‌تر و همخوانِ جویده‌تر، و روی متنِ اعراب‌دار جویده شدنِ
+    # همخوان یعنی خنثی کردنِ کلِ کارِ اعراب‌گذاری.
+    steps_ = list_("rvc_pitch", "0")
+    idxs_ = list_("rvc_index_rate", "0.66")
+    prots_ = list_("rvc_protect", "0.33")
     rep = OPT.get("_rep") or {}
     rep["rvc"] = {"model": os.path.basename(model),
                   "index": os.path.basename(index) if index else None,
                   "conf": {k: v for k, v in conf.items()
                            if k not in ("file_model", "file_index", "tag",
                                         "pitch_lvl")},
-                  "pitch_steps": steps_}
+                  "sweep": {"pitch": steps_, "index_rate": idxs_,
+                            "protect": prots_}}
     made_, variants_ = [], []
     for pv in steps_:
-        conf["pitch_lvl"] = int(pv)
-        vc.apply_conf(**conf)
-        t0 = time.time()
-        audio, sr = vc.generate_from_cache(audio_data=src, tag="voice")
-        took = round(time.time() - t0, 1)
-        nm_ = "rvc-pitch%s.wav" % (pv if pv.startswith("-") else "+" + pv)
-        dst = os.path.join(out, nm_)
-        sf.write(dst, audio, sr)
-        row_ = {"name": nm_, "pitch": int(pv), "seconds": took,
-                "info": probe(dst)}
-        try:
-            row_["speaker"] = rvcSim_({"ref": ref, "src": src, "out": dst}, out)
-        except Exception as e:
-            row_["speaker"] = {"error": str(e)[:200]}
-        variants_.append(row_)
-        made_.append(dst)
-        OPT["variants"] = variants_
-        rep["rvc"]["variants"] = variants_
-        saveRep_()
-        sp_ = row_.get("speaker") or {}
-        print("گامِ %-4s → %s · شباهت %s (مبدأ %s)"
-              % (pv, nm_, sp_.get("out_vs_ref"), sp_.get("src_vs_ref")),
-              flush=True)
+        for iv in idxs_:
+            for qv in prots_:
+                conf["pitch_lvl"] = int(pv)
+                conf["index_influence"] = float(iv)
+                conf["consonant_breath_protection"] = float(qv)
+                vc.apply_conf(**conf)
+                t0 = time.time()
+                audio, sr = vc.generate_from_cache(audio_data=src, tag="voice")
+                took = round(time.time() - t0, 1)
+                # نام باید خودش بگوید کدام ترکیب است — وقتی شش فایل
+                # کنار هم‌اند، «کدام بهتر بود؟» بی نامِ گویا بی‌جواب
+                # می‌مانَد.
+                nm_ = "rvc-p%s-i%02d-pr%02d.wav" % (
+                    pv if pv.startswith("-") else "+" + pv,
+                    round(float(iv) * 100), round(float(qv) * 100))
+                dst = os.path.join(out, nm_)
+                sf.write(dst, audio, sr)
+                row_ = {"name": nm_, "pitch": int(pv),
+                        "index_rate": float(iv), "protect": float(qv),
+                        "seconds": took, "info": probe(dst)}
+                try:
+                    row_["speaker"] = rvcSim_(
+                        {"ref": ref, "src": src, "out": dst}, out)
+                except Exception as e:
+                    row_["speaker"] = {"error": str(e)[:200]}
+                variants_.append(row_)
+                made_.append(dst)
+                OPT["variants"] = variants_
+                rep["rvc"]["variants"] = variants_
+                saveRep_()
+                sp_ = row_.get("speaker") or {}
+                print("گام %-4s · ایندکس %-5s · محافظ %-5s → %s  شباهت %s"
+                      % (pv, iv, qv, nm_, sp_.get("out_vs_ref")), flush=True)
 
     # ══ بهترین را کد انتخاب می‌کند، ولی حکم را گوش می‌دهد ══
     # «بهترین» اینجا یعنی بالاترین شباهت به گوینده — عددی، نه سلیقه‌ای.

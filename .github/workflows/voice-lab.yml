@@ -29,7 +29,15 @@ on:
       rvc_pitch:
         description: 'جابه‌جاییِ گام به نیم‌پرده — چند مقدار با کاما. صدای زن به مردِ بم حدود -12'
         required: false
-        default: '0,-10,-12,-14'
+        default: '-12'
+      rvc_index_rate:
+        description: 'اثرِ ایندکسِ گوینده (۰ تا ۱) — بالاتر یعنی بیشتر به رنگِ خودِ او تکیه کند'
+        required: false
+        default: '0.66,0.85,1.0'
+      rvc_protect:
+        description: 'محافظِ همخوان و نفس (۰ تا ۰٫۵) — پایین‌تر یعنی رضوی‌تر و همخوانِ جویده‌تر'
+        required: false
+        default: '0.33,0.20'
       engine:
         description: 'کدام موتور (scan-only = فقط اسکنِ یک‌دقیقه‌ای، بی کارِ سنگین)'
         required: true
@@ -416,6 +424,8 @@ jobs:
           SRC_SECONDS: ${{ inputs.src_seconds }}
           ALPHABET: ${{ inputs.alphabet }}
           RVC_PITCH: ${{ inputs.rvc_pitch }}
+          RVC_INDEX_RATE: ${{ inputs.rvc_index_rate }}
+          RVC_PROTECT: ${{ inputs.rvc_protect }}
         run: |
           set -euo pipefail
           # با `set -e` نمی‌شود «شرط && کار» نوشت: وقتی شرط نادرست باشد، کلِ
@@ -437,6 +447,8 @@ jobs:
           if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
           if [ -n "${RVC_PITCH}" ]; then ARGS+=(--rvc-pitch "${RVC_PITCH}"); fi
+          if [ -n "${RVC_INDEX_RATE}" ]; then ARGS+=(--rvc-index-rate "${RVC_INDEX_RATE}"); fi
+          if [ -n "${RVC_PROTECT}" ];    then ARGS+=(--rvc-protect "${RVC_PROTECT}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"
 
       # ══ خروجی روی Release نمی‌رود، و این عمدی است ══
