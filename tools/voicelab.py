@@ -681,6 +681,18 @@ def refAudition_(paths, out, seconds, tag="reference", neutral=False):
     except Exception as e:
         print("نرمال‌سازی نشد؛ با برشِ خام ادامه: %s" % str(e)[:200], flush=True)
         shutil.copyfile(cut if r.returncode == 0 else win["_full"], dst)
+    # ══ فقط برندهٔ داوری نگه داشته نمی‌شود ══
+    # `styleModes_` تنوعِ لحن را می‌جوید، و تنوع بینِ **برنامه‌ها**ست
+    # نه لزوماً داخلِ یکی: اجرای اول روی یک ضبط دو خوشه داد که صاحبِ
+    # برنامه شنید و گفت «یکی بودند». پنجرهٔ برگزیدهٔ هر نامزد همان
+    # انتخابِ وارسی‌شده است (بی موسیقی، با تراز پیوسته)، پس همه‌شان
+    # نگه داشته می‌شوند — در پوشهٔ موقت، نه در خروجی، چون فایلِ محصول
+    # نیستند و بایگانی را سنگین می‌کنند.
+    OPT[("audition" if tag == "reference" else tag) + "_windows"] = [
+        {"path": x["_full"], "at": x.get("at_second", 0.0),
+         "file": x.get("file")}
+        for x in rows if x.get("_full") and os.path.exists(x["_full"])
+        and not x.get("error")]
     for x in rows:
         x.pop("_full", None)
     OPT["audition" if tag == "reference" else tag + "_audition"] = {
@@ -2794,8 +2806,15 @@ def run_style(ref, src, text, out):
     # توضیح. اینجا خودِ ضبط به بند شکسته می‌شود، هر بند بردارِ سبکِ
     # خودش را می‌گیرد، و خوشه‌ها **از خودِ او** درمی‌آیند — نه از یک
     # ردهٔ احساساتِ آماده که روی روایتِ آرامِ فارسی هیچ‌جا ندارد.
+    # ══ هر چهار ضبط، نه فقط برندهٔ داوری ══
+    # حالت‌ها را از تنوع پیدا می‌کنیم، و تنوعِ لحن بیشتر بینِ
+    # برنامه‌هاست تا داخلِ یکی. اگر پنجره‌های داوری در دست نبود، همان
+    # مرجعِ برگزیده — که رفتارِ پیشین است، نه شکست.
+    wins = OPT.get("audition_windows") or [{"path": styleRaw_(ref),
+                                            "at": None}]
+    print("لایهٔ حالت‌ها روی %d ضبط" % len(wins), flush=True)
     try:
-        md = styleModes_(styleRaw_(ref), name, sampleDir=out)
+        md = styleModes_(wins, name, sampleDir=out)
     except Exception as e:
         md = {"error": str(e)[:300]}
         print("حالت‌ها ساخته نشد: %s" % md["error"], flush=True)
@@ -2821,8 +2840,31 @@ def run_style(ref, src, text, out):
             print("  %-34s %3d%%  %2d بند  نمونه: %s"
                   % (m["name"], m["share_pct"], m["passages"],
                      (m.get("sample") or {}).get("file", "—")), flush=True)
+        print("  جداییِ ضعیف‌ترین جفت: %s"
+              % (md.get("separation") or {}).get("line", "—"), flush=True)
     elif md.get("why"):
         print("\nحالتی جدا نشد: %s" % md["why"], flush=True)
+
+    # ══ بایگانی نباید صد مگابایت باشد ══
+    # صاحبِ برنامه دو بار گفت. این موتور هیچ صوتی **نمی‌سازد**؛ صوتی
+    # که در پوشه است ورودیِ برش‌خوردهٔ اوست، و ربعِ ساعت WAV یعنی ۴۲
+    # مگابایت برای چیزی که کسی برنمی‌داردش. محصولِ شنیدنی نمونه‌های
+    # حالت‌اند و محصولِ خواندنی کارت‌ها؛ عددهای همان صوت‌ها هم در
+    # گزارش هست. اگر لازم شد، اجرای دوباره دوباره می‌سازدشان.
+    freed = 0
+    for fn in sorted(os.listdir(out)):
+        if not fn.endswith(".wav") or fn.startswith("MODE"):
+            continue
+        try:
+            pth = os.path.join(out, fn)
+            freed += os.path.getsize(pth)
+            os.remove(pth)
+        except OSError:
+            pass
+    if freed:
+        print("ورودی‌های صوتی پاک شدند (%d مگابایت) — محصولِ این موتور "
+              "متن است و نمونه‌های حالت." % round(freed / 1048576.0),
+              flush=True)
 
     saveRep_()
     print("\n" + card["instruction"], flush=True)

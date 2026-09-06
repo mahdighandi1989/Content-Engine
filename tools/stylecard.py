@@ -63,6 +63,14 @@ PAUSE_SENT = 1.0
 # کارت را از ۷ عبارت ساخت. میانهٔ ۷ عدد، سبکِ یک گوینده نیست؛ حالِ
 # او در همان نیم‌دقیقه است. عددها پایین‌اند چون هر یک از این‌ها
 # **میانه**‌اند و میانه با نمونهٔ کم می‌لرزد، نه چون سخت‌گیرم.
+# ══ «زیروبم» یک تعریف دارد، نه دو ══
+# دو جا `yin` صدا زده می‌شود و باید بشود: یکی آرایهٔ کلِ گفتار را
+# می‌خواهد (آمار)، آن‌یکی هر عبارت را جدا (فرودِ پایانش، که نیمهٔ اول
+# و دومش را لازم دارد). ولی **بازه و قابشان** باید یکی باشد، وگرنه
+# «۹٫۹ در برابرِ ۴٫۳» دو چیزِ متفاوت را کنارِ هم می‌گذارد. همان درسِ
+# `srcJoinJs_` در CLAUDE.md: یک چیز که دو جور حساب شود، باگ است.
+YIN = {"fmin": 60, "fmax": 350, "frame_length": 1024}
+
 STYLE_WINDOW = 240.0        # پنجرهٔ پیش‌فرضِ اندازه‌گیری
 STYLE_MIN_PHRASES = 20      # کمتر از این، کارت هشدارِ «نمونه کم» می‌گیرد
 STYLE_MIN_GAPS = 30
@@ -77,23 +85,37 @@ def _pct(xs, q):
     return float(ys[i])
 
 
-def stylePitch_(y, rate):
-    """زیروبم: میانه، بازه، و **فرودِ پایانِ بند**.
+def styleF0_(y, rate, spans=None):
+    """آرایهٔ زیروبمِ گفتار — خامِ فیلترشده، نه خلاصه.
 
-    فرود همان چیزی است که یک روایتِ آرام را از یک خبرخوانی جدا می‌کند:
-    جمله پایین تمام می‌شود. اندازه‌اش تفاوتِ میانهٔ نیمهٔ اول و نیمهٔ
-    دومِ هر بند است، به نیم‌پرده — واحدی که گوش با آن می‌شنود و
-    Gemini هم با آن دستور می‌گیرد.
+    ══ چرا خودِ آرایه نگه داشته می‌شود ══
+    عددهای یک حالت باید از **جمعِ بندهایش** بیاید، و بندهای یک حالت
+    می‌توانند از چند ضبطِ مختلف باشند. اگر فقط خلاصه بماند، جمع‌بندی
+    می‌شود «میانهٔ میانه‌ها»؛ و اگر بخواهیم دوباره از صوت حساب کنیم،
+    باید صوتِ هر چهار ضبط را در حافظه نگه داریم. آرایهٔ f0 هزارم
+    حجمِ صوت است و همان جواب را می‌دهد.
     """
     import numpy as np
     import librosa
+    import dsprep as D
     try:
-        f0 = librosa.yin(np.asarray(y, dtype="float32"), fmin=60, fmax=350,
-                         sr=rate, frame_length=1024)
+        if spans is not None:
+            if not spans:
+                return np.zeros(0)
+            y = np.concatenate([np.asarray(D.dsSlice_(y, rate, a, b),
+                                           dtype="float32")
+                                for a, b in spans])
+        f0 = librosa.yin(np.asarray(y, dtype="float32"), sr=rate, **YIN)
     except Exception:
-        return {}
+        return np.zeros(0)
     f0 = np.asarray(f0, dtype="float64")
-    v = f0[np.isfinite(f0) & (f0 > 60) & (f0 < 350)]
+    return f0[np.isfinite(f0) & (f0 > YIN["fmin"]) & (f0 < YIN["fmax"])]
+
+
+def stylePitchFrom_(v):
+    """خلاصهٔ زیروبم از آرایهٔ f0."""
+    import numpy as np
+    v = np.asarray(v, dtype="float64")
     if len(v) < 20:
         return {}
     med = float(np.median(v))
@@ -103,8 +125,6 @@ def stylePitch_(y, rate):
     # گوینده‌ای ندارد. علتش خطای اوکتاوِ yin است: چند فریمِ پرت روی
     # نصف یا دو برابرِ فرکانسِ واقعی می‌افتند و صدکِ ۱۰ و ۹۰ را با خود
     # می‌برند. صدکِ ۲۵ و ۷۵ همان‌جا می‌ماند.
-    # عددی که در دستور می‌نشیند باید مقاوم باشد، وگرنه دستور دربارهٔ
-    # خطای اندازه‌گیری صادر می‌شود نه دربارهٔ گوینده.
     q1, q3 = _pct(list(v), 25), _pct(list(v), 75)
     return {
         "median_hz": round(med, 1),
@@ -114,8 +134,9 @@ def stylePitch_(y, rate):
         "q3_hz": round(q3, 1),
         # به نیم‌پرده: عددی که بینِ گوینده‌های مختلف قابلِ مقایسه است،
         # برخلافِ هرتز که با جنسیت و سن جابه‌جا می‌شود.
-        "range_semitones": round(12 * np.log2(q3 / q1), 1) if q1 > 0 else 0.0,
-        "range_wide_semitones": (round(12 * np.log2(hi / lo), 1)
+        "range_semitones": round(float(12 * np.log2(q3 / q1)), 1) if q1 > 0
+        else 0.0,
+        "range_wide_semitones": (round(float(12 * np.log2(hi / lo)), 1)
                                  if lo > 0 else 0.0),
     }
 
@@ -133,26 +154,25 @@ def stylePitchOf_(y, rate, spans):
     بی سکوت ۶٫۷. و روی صوتِ Gemini که فقط ۱۰٪ ساکت است، ۱۰٫۸ در
     برابرِ ۹٫۳ — یعنی سکوت هر دو را به هم نزدیک نشان می‌داد و
     نتیجه‌گیری «رضوی خیلی مهارشده‌تر است» تا حدی ساختهٔ همین خطا بود.
-
-    و مهم‌تر از خودِ عدد: حالت‌ها این را روی بندها حساب می‌کردند و
-    کارتِ اصلی روی کلِ پنجره — دو تعریفِ متفاوت که کنارِ هم در یک
-    جمله چاپ می‌شدند («۹٫۹ در برابرِ ۴٫۳»).
     """
-    import numpy as np
-    import dsprep as D
-    if not spans:
-        return {}
-    try:
-        cat = np.concatenate([np.asarray(D.dsSlice_(y, rate, a, b),
-                                         dtype="float32")
-                              for a, b in spans])
-    except Exception:
-        return {}
-    return stylePitch_(cat, rate) or {}
+    return stylePitchFrom_(styleF0_(y, rate, spans))
 
 
 def styleFall_(y, rate, spans):
-    """فرودِ پایانِ هر بند، به نیم‌پرده. منفی یعنی پایین می‌آید."""
+    """خلاصهٔ فرودِ پایانِ بند — یک لایه روی `styleFallVals_`."""
+    falls = styleFallVals_(y, rate, spans)
+    if not falls:
+        return {}
+    return {"phrase_fall_semitones": round(_pct(falls, 50), 1),
+            "phrases_measured": len(falls)}
+
+
+def styleFallVals_(y, rate, spans):
+    """فرودِ پایانِ هر بند، به نیم‌پرده. منفی یعنی پایین می‌آید.
+
+    فهرست برمی‌گردد نه میانه، چون بندهای یک حالت باید **با هم** جمع
+    شوند — و میانهٔ میانه‌ها میانه نیست.
+    """
     import numpy as np
     import librosa
     falls = []
@@ -161,12 +181,11 @@ def styleFall_(y, rate, spans):
             continue
         seg = np.asarray(y[int(a * rate):int(b * rate)], dtype="float32")
         try:
-            f0 = librosa.yin(seg, fmin=60, fmax=350, sr=rate,
-                             frame_length=1024)
+            f0 = librosa.yin(seg, sr=rate, **YIN)
         except Exception:
             continue
         f0 = np.asarray(f0, dtype="float64")
-        ok = np.isfinite(f0) & (f0 > 60) & (f0 < 350)
+        ok = np.isfinite(f0) & (f0 > YIN["fmin"]) & (f0 < YIN["fmax"])
         f0 = f0[ok]
         if len(f0) < 12:
             continue
@@ -174,10 +193,7 @@ def styleFall_(y, rate, spans):
         a1, a2 = float(np.median(f0[:h])), float(np.median(f0[h:]))
         if a1 > 0 and a2 > 0:
             falls.append(12 * float(np.log2(a2 / a1)))
-    if not falls:
-        return {}
-    return {"phrase_fall_semitones": round(_pct(falls, 50), 1),
-            "phrases_measured": len(falls)}
+    return falls
 
 
 def styleAgg_(talk, gaps, lv, total):
@@ -500,6 +516,8 @@ MODE_FA = {
     "pauses_per_minute": "مکث در دقیقه",
     "range_semitones": "دامنهٔ زیروبم (نیم‌پرده)",
     "phrase_fall_semitones": "فرودِ پایانِ عبارت (نیم‌پرده)",
+    "pitch_rel_semitones": "بم‌وزیر نسبت به عادتِ خودش (نیم‌پرده)",
+    "level_rel_db": "بلندی نسبت به عادتِ خودش (دسی‌بل)",
 }
 
 # ══ صفتِ تفضیلی ذخیره می‌شود، ساخته نمی‌شود ══
@@ -515,6 +533,76 @@ MODE_WORDS = {
     "pitch_rel_semitones": ("بم‌تر", "زیرتر"),
     "level_rel_db": ("آرام‌تر", "بلندتر"),
 }
+
+
+# ══ «خوشه‌ای که شنیده نشود، حالت نیست» ══
+# اولین اجرای واقعی دو خوشه داد، سیلوئت ۰٫۲۶، و صاحبِ برنامه هر دو
+# نمونه را شنید و گفت «تقریباً یکی بودند؛ نمی‌شد تشخیص داد در چه
+# حالتی بیان شده». عددها دقیقاً همان را می‌گفتند و من ندیده بودم:
+#
+#   نسبتِ سکوت ۸۲ در برابرِ ۷۵ · طولِ عبارت ۱٫۹ در برابرِ ۱٫۵
+#   دامنهٔ زیروبم ۷٫۶ در برابرِ ۷٫۶ · بلندی ۰٫۱− در برابرِ ۱٫۵
+#
+# تنها تفاوتِ واقعی زیروبمِ میانه بود، ۲٫۹ نیم‌پرده. بعد پنج سنجهٔ
+# دیگر هم روی همان دو نمونه اندازه گرفتم — نرخِ برخورد (تقریبِ هجا)،
+# سرعتِ تغییرِ زیروبم، ZCR، مرکز و تختیِ طیف — و هیچ‌کدام از ۱۴٪
+# جلوتر نرفت. یعنی خوشه یک **رانشِ زیروبم** بود، نه یک حالت.
+#
+# سیلوئت این را نمی‌گیرد: بی‌واحد است و فقط می‌گوید نقطه‌ها دو دسته‌اند،
+# نه اینکه فاصله‌شان به گوش می‌آید یا نه. پس همان آستانه‌هایی که برای
+# «فاصله تا سبکِ هدف» تعریف شده بودند اینجا هم داور می‌شوند.
+#
+# و زیروبمِ **مطلق** به‌تنهایی تصمیم نمی‌گیرد: در یک قصه، بم‌تر یا
+# زیرتر خواندن اغلب یعنی کدام جمله، نه چه حالتی. حالت باید در **نحوهٔ
+# اجرا** فرق کند — سکوت، عبارت‌بندی، دامنه، بلندی.
+MODE_SEP = {
+    "speech_pct": ("rel", 0.25),
+    "phrase_seconds_median": ("rel", 0.25),
+    "range_semitones": ("abs", 1.5),
+    "level_rel_db": ("abs", 3.0),
+    "pitch_rel_semitones": ("abs", 1.5),
+}
+MODE_SEP_DECIDES = ("speech_pct", "phrase_seconds_median",
+                    "range_semitones", "level_rel_db")
+
+
+def modeSep_(cenRaw):
+    """آیا این خوشه‌ها به گوش از هم جدا هستند؟
+
+    هر **جفت** باید دستِ‌کم روی یک محورِ تعیین‌کننده از آستانه‌اش
+    بگذرد. جفتی که نگذرد یعنی همان k زیادی است، نه اینکه آن جفت را
+    نادیده بگیریم.
+    """
+    n = len(cenRaw)
+    worst, pairs = None, []
+    for i in range(n):
+        for j in range(i + 1, n):
+            best = None
+            for ax in MODE_SEP_DECIDES:
+                k = MODE_KEYS.index(ax)
+                d = abs(float(cenRaw[i][k]) - float(cenRaw[j][k]))
+                mode, tol = MODE_SEP[ax]
+                lim = (abs(float(cenRaw[i][k]) + float(cenRaw[j][k])) / 2.0
+                       * tol) if mode == "rel" else tol
+                lim = max(lim, 1e-6)
+                r = {"axis": ax, "diff": round(d, 2),
+                     "tolerance": round(lim, 2), "times": round(d / lim, 2)}
+                if best is None or r["times"] > best["times"]:
+                    best = r
+            best["pair"] = [i + 1, j + 1]
+            best["ok"] = best["times"] > 1.0
+            pairs.append(best)
+            if worst is None or best["times"] < worst["times"]:
+                worst = best
+    if worst is None:
+        return {"ok": False, "line": "خوشه‌ای نیست", "pairs": []}
+    fa = MODE_FA.get(worst["axis"], worst["axis"])
+    return {
+        "ok": all(p["ok"] for p in pairs), "pairs": pairs,
+        "weakest": worst,
+        "line": ("نزدیک‌ترین دو خوشه فقط در «%s» %s فرق دارند و آستانهٔ "
+                 "شنیدن %s است" % (fa, worst["diff"], worst["tolerance"])),
+    }
 
 
 def stylePassages_(spans):
@@ -571,12 +659,20 @@ def styleVec_(y, rate, spans, a, b, base):
     talk = [e - s for s, e in sub]
     gaps = [sub[i][0] - sub[i - 1][1] for i in range(1, len(sub))]
     gaps = [g for g in gaps if g >= PAUSE_MICRO]
-    p = stylePitchOf_(y, rate, sub)
+    f0 = styleF0_(y, rate, sub)
+    p = stylePitchFrom_(f0)
     lv = [D.dbOf_(D.dsSlice_(y, rate, s, e)) for s, e in sub]
     # ══ موادِ خام می‌مانَد، نه فقط میانه‌اش ══
     # عددهای یک حالت باید از **جمعِ بندهایش** درآیند، نه از میانهٔ
     # میانه‌ها؛ و بی نگه داشتنِ خودِ فهرست‌ها آن ممکن نیست.
-    raw = {"_talk": talk, "_gaps": gaps, "_lv": lv, "_spans": sub}
+    # ══ مواد باید از صوت جدا شود، نه به آن وصل ══
+    # بندهای یک حالت می‌توانند از **چهار ضبطِ مختلف** باشند. اگر
+    # جمع‌بندی به `y` نیاز داشته باشد، باید صوتِ هر چهار را تا آخرِ
+    # کار در حافظه نگه داریم. آرایهٔ f0 و فهرستِ فرودها هزارمِ حجمِ
+    # صوت‌اند و همان جواب را می‌دهند.
+    raw = {"_talk": talk, "_gaps": gaps, "_lv": lv,
+           "_f0": [float(x) for x in f0],
+           "_falls": styleFallVals_(y, rate, sub)}
     med = p.get("median_hz") or 0.0
     bmed = base.get("median_hz") or 0.0
     v = {
@@ -594,7 +690,10 @@ def styleVec_(y, rate, spans, a, b, base):
             else _pct(lv, 50)), 1),
         "phrases": len(sub),
     }
-    v.update(styleFall_(y, rate, sub))
+    fl = raw["_falls"]
+    if fl:
+        v["phrase_fall_semitones"] = round(_pct(fl, 50), 1)
+        v["phrases_measured"] = len(fl)
     v.update(raw)
     return v
 
@@ -684,43 +783,91 @@ def modeName_(cenZ, n):
     return "حالتِ %d — %s" % (n, " و ".join(parts))
 
 
-def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None):
-    """چند جورِ متمایزِ خواندن، از خودِ ضبط‌های همان گوینده.
+def styleOneFile_(path, seconds, at=None):
+    """بندهای یک ضبط، با مبنای **خودِ همان ضبط**.
 
-    خروجی همیشه معتبر است، حتی وقتی حالتی پیدا نشود: «یک حالت» جوابِ
-    درستِ گوینده‌ای است که یک‌جور می‌خواند، و بهتر از سه دستورِ ساختگی.
+    ══ چرا مبنا باید per-file باشد ══
+    وقتی بندهای چهار ضبط با هم خوشه‌بندی می‌شوند، بلندی و بم‌وزیرِ
+    مطلق بینِ ضبط‌ها فرق دارد — روزِ ضبط، میکروفن، ترازِ پخش. اگر
+    مبنا مشترک باشد، خوشه‌ها «ضبطِ ۱ در برابرِ ضبطِ ۳» درمی‌آیند و
+    ما اسمش را «حالت» می‌گذاریم. با مبنای خودی، پرسش این می‌شود:
+    «در این بند نسبت به عادتِ خودش در همین ضبط، بم‌تر می‌خوانَد؟»
     """
-    import numpy as np
     import dsprep as D
     from silero_vad import load_silero_vad
-
     tmp = tempfile.mkdtemp(prefix="modes-")
     y, rate = D.dsDecode_(path, os.path.join(tmp, "v.wav"), D.VAD_SR)
     total = len(y) / float(rate)
     # ══ جابه‌جاییِ پنجره باید نگه داشته شود ══
-    # وقتی از وسطِ فایل بریده می‌شود، هر `at` نسبت به همان برش است.
-    # `modeSamples_` ولی از فایلِ **اصلی** می‌بُرد — پس بی این عدد،
-    # نمونهٔ شنیدنیِ هر حالت از جای اشتباه درمی‌آید و کسی نمی‌فهمد،
-    # چون صوتِ سالمی است، فقط مالِ آنجا نیست.
+    # هر `at` نسبت به همین برش است، ولی نمونهٔ شنیدنی از فایلِ
+    # **اصلی** بریده می‌شود — پس بی این عدد، نمونه از جای اشتباه
+    # درمی‌آید و کسی نمی‌فهمد، چون صوتِ سالمی است.
     offset = 0.0
     if total > seconds:
-        s0 = int((total - seconds) / 2.0 * rate)
+        s0 = int((float(at) if at is not None
+                  else (total - seconds) / 2.0) * rate)
+        s0 = max(0, min(s0, len(y) - int(seconds * rate)))
         offset = s0 / float(rate)
         y = y[s0:s0 + int(seconds * rate)]
         total = len(y) / float(rate)
     spans = D.dsSpeech_(y, rate, load_silero_vad())
     if not spans:
-        return {"error": "هیچ گفتاری پیدا نشد", "seconds": round(total, 1)}
-
+        return [], 0.0, offset, round(total, 1)
     base = stylePitchOf_(y, rate, spans)
     base["_level_med"] = _pct([D.dbOf_(D.dsSlice_(y, rate, a, b))
                                for a, b in spans], 50)
     passages, dropped = stylePassages_(spans)
-    vecs = []
+    out = []
     for a, b in passages:
         v = styleVec_(y, rate, spans, a, b, base)
         if v:
-            vecs.append(v)
+            v["file"] = os.path.basename(path)
+            v["at_in_file"] = round(v["at"] + offset, 1)
+            out.append(v)
+    return out, dropped, offset, round(total, 1)
+
+
+def styleModes_(sources, name="گوینده", seconds=MODES_WINDOW,
+                sampleDir=None):
+    """چند جورِ متمایزِ خواندن، از خودِ ضبط‌های همان گوینده.
+
+    `sources` یک مسیر است یا فهرستی از `{"path", "at"}` — چون تنوعِ
+    لحن بینِ **برنامه‌ها**ست، نه لزوماً داخلِ یک برنامه. اولین اجرای
+    واقعی روی یک ضبط دو خوشه داد که صاحبِ برنامه گوش کرد و گفت
+    «یکی بودند»، و عددها هم همان را گفتند.
+
+    خروجی همیشه معتبر است، حتی وقتی حالتی پیدا نشود: «یک حالت» جوابِ
+    درستِ گوینده‌ای است که یک‌جور می‌خواند، و بهتر از سه دستورِ ساختگی.
+    """
+    import numpy as np
+
+    if isinstance(sources, (str, bytes)):
+        sources = [{"path": sources}]
+    srcs = [({"path": x} if isinstance(x, (str, bytes)) else dict(x))
+            for x in (sources or [])]
+    if not srcs:
+        return {"error": "هیچ ضبطی داده نشد", "seconds": 0.0}
+
+    vecs, dropped, total, files = [], 0.0, 0.0, []
+    for sc in srcs:
+        try:
+            vs, dr, off, tot = styleOneFile_(sc["path"], seconds,
+                                             sc.get("at"))
+        except Exception as e:
+            files.append({"file": os.path.basename(sc["path"]),
+                          "error": str(e)[:200]})
+            continue
+        sc["offset"] = off
+        vecs += vs
+        dropped += dr
+        total += tot
+        files.append({"file": os.path.basename(sc["path"]),
+                      "seconds": tot, "passages": len(vs)})
+    if not vecs:
+        return {"error": "هیچ گفتاری پیدا نشد", "seconds": round(total, 1),
+                "files": files}
+    dropped = round(dropped, 1)
+    offset = srcs[0].get("offset", 0.0)
 
     # ══ دورریزِ زیاد یعنی این ضبط بندِ بلند ندارد ══
     # سکوت‌های بلندِ پیاپی، تکه‌های زیرِ کف می‌سازند و همه دور ریخته
@@ -730,7 +877,7 @@ def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None)
             % (dropped, round(total, 1), int(MODE_MIN_SEC))) \
         if dropped > 0.25 * total else ""
     out = {"seconds": round(total, 1), "passages": len(vecs),
-           "window_offset_seconds": round(offset, 1),
+           "files": files, "window_offset_seconds": round(offset, 1),
            "dropped_seconds": dropped, "dropped_note": note,
            "passage_seconds_median": round(_pct(
                [v["seconds"] for v in vecs], 50), 1) if vecs else 0.0,
@@ -755,19 +902,31 @@ def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None)
             continue
         lab, cen, inertia = _kmeans_(X, k)
         sizes = [int((lab == j).sum()) for j in range(k)]
+        # مرکزها را به واحدِ خودشان برگردان تا جدایی به **گوش** سنجیده
+        # شود، نه به نمرهٔ بی‌واحد.
+        sep = modeSep_(cen * np.where(sd > 1e-9, sd, 1.0) + mu)
         tries.append({"k": k, "silhouette": round(_sil_(X, lab), 3),
                       "sizes": sizes, "_lab": lab, "_cen": cen,
+                      "separation": sep,
                       "ok": min(sizes) >= MODE_MIN_MEMBERS})
-    out["tried"] = [{kk: t[kk] for kk in ("k", "silhouette", "sizes", "ok")}
-                    for t in tries]
-    good = [t for t in tries if t["ok"] and t["silhouette"] >= MODE_SIL_MIN]
+    out["tried"] = [{kk: t[kk] for kk in ("k", "silhouette", "sizes", "ok",
+                                          "separation")} for t in tries]
+    good = [t for t in tries if t["ok"] and t["silhouette"] >= MODE_SIL_MIN
+            and t["separation"]["ok"]]
     if not good:
         best = max(tries, key=lambda t: t["silhouette"]) if tries else None
         out["modes"] = []
-        out["why"] = ("هیچ خوشهٔ واقعی‌ای پیدا نشد (بهترین سیلوئت %s، "
-                      "کفِ لازم %s) — یعنی این گوینده در این ضبط تقریباً "
-                      "یک‌جور می‌خوانَد. یک کارت بس است."
-                      % (best["silhouette"] if best else "—", MODE_SIL_MIN))
+        if best and best["silhouette"] >= MODE_SIL_MIN:
+            out["why"] = ("خوشه‌ها از هم جدا شدند (سیلوئت %s) ولی تفاوتشان "
+                          "به گوش نمی‌آید: %s. حالتی که شنیده نشود، حالت "
+                          "نیست — یک کارت بس است."
+                          % (best["silhouette"], best["separation"]["line"]))
+        else:
+            out["why"] = ("هیچ خوشهٔ واقعی‌ای پیدا نشد (بهترین سیلوئت %s، "
+                          "کفِ لازم %s) — یعنی این گوینده در این ضبط‌ها "
+                          "تقریباً یک‌جور می‌خوانَد. یک کارت بس است."
+                          % (best["silhouette"] if best else "—",
+                             MODE_SIL_MIN))
         return _stripRaw_(out)
 
     win = max(good, key=lambda t: t["silhouette"])
@@ -780,13 +939,14 @@ def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None)
         v["mode"] = int(lab[i]) + 1
     out["k"] = win["k"]
     out["silhouette"] = win["silhouette"]
+    out["separation"] = win["separation"]
     modes = []
     for j in range(win["k"]):
         members = [i for i in range(len(vecs)) if int(lab[i]) == j]
         # نمایندهٔ شنیدنی: نزدیک‌ترین بند به مرکزِ خوشه.
         d = [float(((X[i] - cen[j]) ** 2).sum()) for i in members]
         rep = members[int(np.argmin(d))]
-        num = modeNumbers_(y, rate, [vecs[i] for i in members])
+        num = modeNumbers_([vecs[i] for i in members])
         # نسبی‌ها میانهٔ بندهایند (خودشان نسبت به کلِ گوینده تعریف
         # شده‌اند، پس جمع‌بندیِ دوباره معنا ندارد).
         for k2 in ("pitch_rel_semitones", "level_rel_db"):
@@ -801,7 +961,8 @@ def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None)
             "share_pct": round(100.0 * len(members) / len(vecs)),
             "numbers": num,
             "sample": {"at": vecs[rep]["at"],
-                       "seconds": vecs[rep]["seconds"]},
+                       "seconds": vecs[rep]["seconds"],
+                       "src": vecs[rep].get("file")},
             "_rep": rep,
         })
     modes.sort(key=lambda m: -m["share_pct"])
@@ -809,8 +970,7 @@ def styleModes_(path, name="گوینده", seconds=MODES_WINDOW, sampleDir=None)
 
     # ══ نمونهٔ شنیدنی، وگرنه نام‌گذاری حدس است ══
     if sampleDir:
-        out["samples"] = modeSamples_(path, modes, sampleDir, name,
-                                      offset)
+        out["samples"] = modeSamples_(srcs, modes, sampleDir, name)
     for m in modes:
         m.pop("_rep", None)
     return _stripRaw_(out)
@@ -823,69 +983,83 @@ def _stripRaw_(out):
     همین `vectors` را برمی‌گردانند.
     """
     for v in (out.get("vectors") or []):
-        for k in ("_talk", "_gaps", "_lv", "_spans"):
+        for k in ("_talk", "_gaps", "_lv", "_f0", "_falls"):
             v.pop(k, None)
     return out
 
 
-def modeNumbers_(y, rate, members):
+def modeNumbers_(members):
     """عددهای یک حالت — از **جمعِ بندهایش**، با همان جمع‌بندیِ کارتِ اصلی.
 
     نه میانهٔ میانه‌ها: میانهٔ میانه‌ها صدکِ ۹۵ و نسبتِ مکث‌ها را
     نمی‌سازد، و کارتی که نصفِ عددهایش از جای دیگری بیاید همان کارتِ
     ناهم‌خوانی است که یک بار ساختیم.
+
+    و هیچ صوتی لازم ندارد — پس بندهایش می‌توانند از چند ضبط باشند.
     """
-    import numpy as np
-    talk, gaps, lv, spans = [], [], [], []
+    talk, gaps, lv, f0, falls = [], [], [], [], []
     total = 0.0
     for v in members:
         talk += v.get("_talk") or []
         gaps += v.get("_gaps") or []
         lv += v.get("_lv") or []
-        spans += v.get("_spans") or []
+        f0 += v.get("_f0") or []
+        falls += v.get("_falls") or []
         total += float(v.get("seconds") or 0)
     num = styleAgg_(talk, gaps, lv, total)
     num["phrases_measured"] = len(talk)
-    if spans:
-        num.update(stylePitchOf_(y, rate, spans))
-        num.update(styleFall_(y, rate, spans))
+    num.update(stylePitchFrom_(f0))
+    if falls:
+        num["phrase_fall_semitones"] = round(_pct(falls, 50), 1)
+        num["phrases_measured"] = len(falls)
     return num
 
 
-def modeSamples_(path, modes, outDir, name, offset=0.0):
-    """از فایلِ اصلی (نرخِ خودش) یک برش برای هر حالت بیرون بیاور.
+def modeSamples_(srcs, modes, outDir, name):
+    """برای هر حالت، از **همان ضبطی** که نماینده‌اش در آن است برش بردار.
 
-    `offset` جابه‌جاییِ پنجرهٔ تحلیل نسبت به فایل است. بی آن، هر برش
-    از جای دیگری درمی‌آید — صوتِ سالمی که مالِ آن حالت نیست.
+    نمایندهٔ هر حالت می‌تواند از هر کدام از ضبط‌ها باشد؛ بریدن از یک
+    فایلِ ثابت یعنی صوتِ سالمی که مالِ آن حالت نیست — و کسی نمی‌فهمد،
+    چون خطایی در کار نیست. نام‌گذاری با گوش انجام می‌شود، پس نمونهٔ
+    اشتباه یعنی نامِ اشتباه روی همهٔ کارت‌ها.
     """
     import soundfile as sf
     made, err = [], ""
+    byName = {}
+    for sc in srcs:
+        byName[os.path.basename(sc["path"])] = sc
     try:
         if not os.path.isdir(outDir):
             os.makedirs(outDir)
-        info = sf.info(path)
-        sr = info.samplerate
     except Exception as e:
         return {"files": [], "error": str(e)[:200]}
     for m in modes:
-        # عددی که گزارش می‌شود باید همان عددی باشد که بریده شد —
-        # وگرنه کسی که می‌خواهد همان‌جا را در فایلِ اصلی پیدا کند،
-        # جای دیگری را باز می‌کند.
-        a = round(float(m["sample"]["at"]) + offset, 1)
-        b = a + float(m["sample"]["seconds"])
-        i0 = max(0, int(a * sr))
-        i1 = min(int(info.frames), int(b * sr))
-        if i1 - i0 < sr:
+        smp = m.get("sample") or {}
+        sc = byName.get(smp.get("src") or "") or (srcs[0] if srcs else None)
+        if not sc:
             continue
-        fn = os.path.join(outDir, "MODE%d-%s.wav" % (m["n"], _slug_(name)))
         try:
+            info = sf.info(sc["path"])
+            sr = info.samplerate
+            # عددی که گزارش می‌شود باید همان عددی باشد که بریده شد —
+            # وگرنه کسی که می‌خواهد همان‌جا را در فایل پیدا کند، جای
+            # دیگری را باز می‌کند.
+            a = round(float(smp.get("at", 0.0)) + sc.get("offset", 0.0), 1)
+            b = a + float(smp.get("seconds", 0.0))
+            i0 = max(0, int(a * sr))
+            i1 = min(int(info.frames), int(b * sr))
+            if i1 - i0 < sr:
+                continue
+            fn = os.path.join(outDir,
+                              "MODE%d-%s.wav" % (m["n"], _slug_(name)))
             # تکه‌ای خوانده می‌شود، نه کلِ فایل: ربعِ ساعت صوت در
             # ممیزِ دوبل صدها مگابایت است، برای بیست ثانیه برش.
-            seg, _sr = sf.read(path, start=i0, stop=i1, always_2d=False)
+            seg, _sr = sf.read(sc["path"], start=i0, stop=i1,
+                               always_2d=False)
             sf.write(fn, seg, sr)
             made.append(os.path.basename(fn))
-            m["sample"]["file"] = os.path.basename(fn)
-            m["sample"]["at_in_file"] = a
+            smp["file"] = os.path.basename(fn)
+            smp["at_in_file"] = a
         except Exception as e:
             err = str(e)[:200]
     return {"files": made, "error": err}
