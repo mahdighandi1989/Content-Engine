@@ -504,4 +504,64 @@ console.log('=== درِ خروجِ خودکار برای ردیفِ کهنه (۶
      'open=' + sum.open + ' injectable=' + sum.injectable + ' waiting=' + sum.waiting);
 }
 
+/* ══ وارسی‌ای که انجام شد، و وارسی‌ای که انجام نشد (۶٫۹۵) ══
+   تا امروز گزارش فقط `findings` داشت: خروجیِ «وارسی کردم و سالم بود» و
+   خروجیِ «اصلاً وارسی نکردم» **بایتِ یکسان** بود. ۵ و ۶ سپتامبر همین شد —
+   نقشهٔ راهِ جزوهٔ Audi دو فصلِ نوشته‌شده را «پیشِ رو» می‌گفت و هیچ گزارشی
+   دربارهٔ جزوه نبود، بی آنکه بشود فهمید دیده نشده یا سالم دیده شده. */
+console.log('\n══ وارسی‌های روزانهٔ ناظر ══');
+{
+  const hub = new Spread('هابِ وارسی');
+  const P = global.__PROPS;
+  delete P[PK.MON_CHECKS];
+  const day = 86400000;
+  const stamp = (ms) => new Date(Date.now() - ms).toISOString().slice(0, 19).replace('T', ' ');
+
+  const st0 = monChecksStatus_(hub, true);
+  ok('۱ پیش از اولین گزارشِ روزانه، سکوت ایراد نیست',
+     st0.ok === true && /هنوز هیچ گزارشِ روزانه‌ای/.test(st0.line), st0.line);
+
+  // یک گزارشِ روزانه بدونِ `checks` — پنجره باز می‌شود ولی هنوز تازه است
+  monChecksIngest_({ findings: [] }, '_REPORT-20260906.json');
+  const st1 = monChecksStatus_(hub, true);
+  ok('۲ روزِ اولِ پنجره هم هشدار نمی‌دهد', st1.ok === true, st1.line);
+
+  // پنجره را عقب می‌بریم: گزارشِ روزانه چند روز است می‌آید و هیچ وارسی‌ای نه
+  const m = JSON.parse(P[PK.MON_CHECKS]);
+  m.__rep.firstAt = stamp(5 * day);
+  P[PK.MON_CHECKS] = JSON.stringify(m);
+  const st2 = monChecksStatus_(hub, true);
+  ok('۳ حالا سکوت دیده می‌شود و ایراد است',
+     st2.ok === false && st2.silent.length === (CFG.MONITOR_CHECKS || []).length &&
+     /سکوت یعنی نمی‌دانیم/.test(st2.line), st2.line);
+
+  const sh = hub.getSheetByName(CFG.REPORT_TAB || 'گزارش‌های نظارت');
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+  ok('۴ و یافته‌اش شکلِ درستِ فایل را در دستور می‌آورد',
+     v.some((r) => r.join(' ').indexOf('verdict') !== -1),
+     v.map((r) => String(r[RC.TITLE - 1])).join(' | ').slice(0, 200));
+
+  // ناظر گزارش می‌دهد که وارسی را انجام داده — حتی وقتی نتیجه سالم است
+  monChecksIngest_({ checks: (CFG.MONITOR_CHECKS || []).map((c) =>
+    ({ key: c.key, verdict: 'سالم', note: 'دیده شد' })) }, '_REPORT-20260907.json');
+  const st3 = monChecksStatus_(hub, false);
+  ok('۵ «انجام شد و سالم بود» حالا شنیده می‌شود',
+     st3.ok === true && st3.rows.every((r) => r.verdict === 'سالم'), st3.line);
+
+  /* و «نشد» یک جواب است، نه حذفِ ردیف: وارسی‌ای که نشده باید *بگوید* نشده. */
+  monChecksIngest_({ checks: [{ key: 'handout-read', verdict: 'نشد', note: 'وقت نشد' }] },
+                   '_REPORT-20260908.json');
+  const st4 = monChecksStatus_(hub, false);
+  const hr = st4.rows.filter((r) => r.key === 'handout-read')[0];
+  ok('۶ «نشد» ثبت می‌شود و گم نمی‌شود', hr && hr.verdict === 'نشد', JSON.stringify(hr || {}));
+
+  /* گزارشِ ساعتیِ غنی‌سازی پنجره را باز نمی‌کند — وگرنه هر ساعت یک «روز»
+     می‌شد و سنجه بی‌معنا. */
+  delete P[PK.MON_CHECKS];
+  monChecksIngest_({ findings: [] }, '_REPORT-20260906-enrich.json');
+  ok('۷ گزارشِ غیرِ روزانه پنجرهٔ سنجش را باز نمی‌کند',
+     !P[PK.MON_CHECKS] || !(JSON.parse(P[PK.MON_CHECKS]).__rep || {}).firstAt);
+  delete P[PK.MON_CHECKS];
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

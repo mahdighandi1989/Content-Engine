@@ -540,14 +540,84 @@ function handoutProgressOf_(hub, seriesKey, partsOpt) {
   return out;
 }
 
+/* ══ واژه‌های معنادارِ یک عنوان — برای سنجیدنِ دو عنوان با هم (۶٫۹۵) ══
+   ZWNJ با **فاصله** جایگزین می‌شود نه با هیچ، وگرنه «معرفت‌شناسی» یک واژهٔ
+   تازه می‌شود و با «معرفت» جور درنمی‌آید — همان درسِ `speakBone_`. واژه‌های
+   کوتاه («های»، «این»، «که») می‌افتند چون در هر عنوانی هستند و اگر بمانند
+   هر دو عنوانی به هم می‌خورَد. */
+function handoutTitleWords_(t) {
+  var x = String(t || '')
+    .replace(/[\u200c\u200f\u200e]/g, ' ')
+    .replace(/[\u064b-\u0652\u0654\u0670]/g, '')
+    .replace(/[^\u0600-\u06ffA-Za-z]+/g, ' ');
+  var w = x.split(/\s+/), out = {};
+  for (var i = 0; i < w.length; i++) if (w[i].length >= 4) out[w[i]] = 1;
+  return out;
+}
+
+/** چند واژهٔ معنادار میانِ دو عنوان مشترک است. */
+function handoutTitleShare_(a, b) {
+  var A = handoutTitleWords_(a), B = handoutTitleWords_(b), n = 0;
+  for (var k in A) if (Object.prototype.hasOwnProperty.call(A, k) && B[k]) n++;
+  return n;
+}
+
+/**
+ * کدام مرحله‌ها را کتاب **همین حالا** پوشش داده است.
+ *
+ * ══ نقشهٔ راهی که خودِ کتابِ زیرش را تکذیب می‌کرد (۶٫۹۵) ══
+ * وضعیت از نسبتِ «قطعهٔ خوانده‌شده از منبع» می‌آمد، و مرحله‌ها را مدل از
+ * رویِ **کلِ کتابِ منبع** نوشته بود. این دو یک مقیاس نیستند. در جزوهٔ
+ * «Audi» نتیجه‌اش این شد: «۱۳٫۰۲ از ۸۶ (۱۵٪)» ⇒ مرحلهٔ ۱ «در جریان» و
+ * مرحله‌های ۲ و ۳ «پیشِ رو» — در حالی که فصلِ ۶ و فصلِ ۸ همان کتاب دقیقاً
+ * عنوانِ همان دو مرحله را داشتند و هر دو کامل نوشته شده بودند. یعنی
+ * خواننده در بالای صفحه می‌خواند «هنوز به نظریه‌های ادراک نرسیده‌ای» و
+ * چند سطر پایین‌تر فصلِ «نظریه‌های ادراک» را می‌دید.
+ *
+ * قاعدهٔ تازه کمینه و صادق است: **مرحله‌ای که کتاب برایش فصل دارد، هرگز
+ * «پیشِ رو» نیست.** «انجام‌شده» را همچنان فقط مکان‌نما می‌گوید، چون وجودِ
+ * یک فصل به‌معنای تمام‌شدنِ آن مرحله نیست. ادعای کمتر، ولی راست.
+ */
+function handoutStagesCovered_(book) {
+  var stages = (book.roadmap && book.roadmap.stages) || [];
+  var chs = book.chapters || [];
+  var need = Math.max(1, Number(CFG.HANDOUT_STAGE_WORDS) || 2);
+  var hit = [];
+  for (var i = 0; i < stages.length; i++) {
+    hit[i] = false;
+    for (var c = 0; c < chs.length; c++) {
+      if (handoutTitleShare_(stages[i].title, chs[c].title) >= need) { hit[i] = true; break; }
+    }
+  }
+  return hit;
+}
+
+/**
+ * عکسِ چیزی که خواننده از نقشهٔ راه می‌بیند — عدد **و** وضعیتِ مرحله‌ها.
+ *
+ * تا ۶٫۹۵ فقط `progress` مقایسه می‌شد، پس وضعیتی که عوض می‌شد بی آنکه عدد
+ * عوض شود (دقیقاً همان چیزی که سدِ تازه انجام می‌دهد) هرگز باعثِ بازسازیِ
+ * HTML نمی‌شد: اصلاح در فایلِ JSON می‌نشست و در جزوه دیده نمی‌شد.
+ */
+function handoutRoadmapSig_(book) {
+  try {
+    var rm = (book && book.roadmap) || {};
+    return JSON.stringify([rm.progress || null,
+      (rm.stages || []).map(function (x) { return String((x && x.state) || ''); })]);
+  } catch (e) { return ''; }
+}
+
 function handoutRoadmapState_(book, prog) {
   var stages = (book.roadmap && book.roadmap.stages) || [];
   if (!stages.length) return book;
   var total = Math.max(1, stages.length);
   var doneRatio = (Number(prog && prog.done) || 0) / Math.max(1, Number(prog && prog.total) || 1);
   var reached = Math.floor(doneRatio * total);
+  var cov = handoutStagesCovered_(book);
   for (var i = 0; i < stages.length; i++) {
-    stages[i].state = (i < reached) ? 'انجام‌شده' : (i === reached ? 'در جریان' : 'پیشِ رو');
+    stages[i].state = (i < reached) ? 'انجام‌شده'
+                    : (i === reached ? 'در جریان'
+                    : (cov[i] ? 'در جریان' : 'پیشِ رو'));
   }
   book.roadmap.progress = { done: String((prog && prog.done) || 0),
                             total: String((prog && prog.total) || 0),
@@ -895,7 +965,10 @@ function handoutHtml_(book) {
              '<td>' + esc_(X.refSeries || '') + '</td>' +
              '<td>' + esc_(X.kind || '') + '</td>' +
              '<td>' + esc_(X.claim || '') + '</td>' +
-             '<td>' + esc_(X.relation || '') + '</td></tr>');
+             /* خالی یعنی «مدل نسبت را ننوشت» و باید همان‌طور دیده شود؛ تا
+                ۶٫۹۵ اینجا نامِ دسته تکرار می‌شد و ستون همیشه پر به‌نظر
+                می‌رسید — ستونی که همیشه پر است هرگز مشکوک نمی‌شود. */
+             '<td>' + esc_(X.relation || '—') + '</td></tr>');
     }
     h.push('</table>');
   }
@@ -989,8 +1062,11 @@ function handoutFacts_(book, rec, folder) {
     var bl = bridgeOfSeries_(getHub_(), book.seriesName || nm,
                              Number(CFG.HANDOUT_BRIDGE_MAX) || 40,
                              book.seriesKey || String(rec.key || ''));
+    /* `relation` هم در امضاست (۶٫۹۵): بی آن، کتاب‌هایی که ارجاعشان عوض
+       نشده ولی *شرحِ* نسبتشان تصحیح شده، هرگز بازنویسی نمی‌شدند. */
     var sig = bl.map(function (x) {
-      return x.ep + '|' + x.refSeries + '|' + x.kind + '|' + String(x.claim).slice(0, 60);
+      return x.ep + '|' + x.refSeries + '|' + x.kind + '|' +
+             String(x.claim).slice(0, 60) + '|' + String(x.relation || '').slice(0, 40);
     }).join('§');
     if (sig !== String(book.bridgeSig || '')) {
       book.bridges = bl; book.bridgeSig = sig; changed = true;
@@ -1344,11 +1420,11 @@ function handoutOneSeries_(key, maxItems) {
     /* و نقشهٔ راه از پیشرفتِ واقعی — مجموعهٔ تمام‌شده باید ۱۰۰٪ و همهٔ
        مرحله‌هایش «انجام‌شده» دیده شود، نه عددِ روزِ اول. */
     var rmWas = '';
-    try { rmWas = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR0) {}
+    try { rmWas = handoutRoadmapSig_(book); } catch (eR0) {}
     var rmChanged = false;
     try {
       handoutRoadmapState_(book, handoutProgressOf_(hub, k));
-      rmChanged = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas;
+      rmChanged = handoutRoadmapSig_(book) !== rmWas;
       if (rmChanged) out.notes.push('نقشهٔ راه به‌روز شد (' +
         String((book.roadmap.progress || {}).pct || '؟') + '٪)');
     } catch (eRm) {}
@@ -2176,11 +2252,11 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     /* همان‌جا نقشهٔ راه هم با پیشرفتِ واقعی تازه می‌شود — جزوهٔ مجموعهٔ
        تمام‌شده هیچ مسیرِ دیگری به به‌روزرسانی ندارد (درسِ تازه‌ای نمی‌آید). */
     var rmWas2 = '';
-    try { rmWas2 = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR1) {}
+    try { rmWas2 = handoutRoadmapSig_(book); } catch (eR1) {}
     var rmCh2 = false;
     try {
       handoutRoadmapState_(book, handoutProgressOf_(hub, String(rec.key), partsAll));
-      rmCh2 = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas2;
+      rmCh2 = handoutRoadmapSig_(book) !== rmWas2;
     } catch (eR2) {}
     if (r.made || r.triedChanged || rmCh2 || fx || dv.redone || dv.calls) {
       if (r.made || dv.redone) {

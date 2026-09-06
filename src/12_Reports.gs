@@ -418,7 +418,9 @@ function reportRejected_(hub, file, why) {
       instruction: 'شکلِ درست: {"generatedAt":"…","source":"…","findings":[' +
                    '{"priority":"جدی|متوسط|جزئی|زیاد|کم","category":"…","key":"…",' +
                    '"title":"…","detail":"…","instruction":"…","owner":"…"}]} — ' +
-                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است.',
+                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است. ' +
+                   'و کنارش «checks»: [{"key":"…","verdict":"سالم|ایراد|نشد",' +
+                   '"note":"…"}] برای وارسی‌های روزانه.',
       owner: ROWNER_ENGINE
     });
   } catch (e) {}
@@ -449,6 +451,11 @@ function ingestOneReport_(hub, sh, state, file) {
     markReportDone_(file, '.ingested.bad');
     return out;
   }
+
+  try {
+    var nChk = monChecksIngest_(rep, file.getName());
+    if (nChk) logLine_('گزارش نظارت: ' + nChk + ' وارسیِ روزانه ثبت شد.');
+  } catch (eChk) {}
 
   // خطِ سرجمعِ گزارش هم ثبت می‌شود، وگرنه «ثبتِ کاملِ گزارش» ناقص می‌ماند
   var all = findings.slice();
@@ -913,6 +920,150 @@ function markInstructionsApplied_(hub, list, epNum, note) {
              (kept ? '، ' + kept + ' مورد به‌دلیل تکرارِ همان نشانه باز ماند' : '') +
              (skipped ? '، ' + skipped + ' ردیف رد شد' : '') + '.');
   } catch (e) { logLine_('بستنِ دستورهای گزارش ناموفق: ' + e.message); }
+}
+
+
+/* ══ وارسی‌ای که انجام شد، و وارسی‌ای که انجام نشد (۶٫۹۵) ══
+
+   `_REPORT-*.json` فقط `findings` داشت. یعنی تنها راهِ حرف‌زدنِ ناظر
+   «چیزی خراب است» بود. وارسیِ سالم هیچ نمی‌گفت — و وارسیِ **نشده** هم
+   هیچ نمی‌گفت. دو حالتِ کاملاً متفاوت، یک خروجیِ یکسان.
+
+   دادهٔ واقعیِ ۵ و ۶ سپتامبر: دستور می‌گوید «جزوهٔ مجموعه‌ها — هر روز، بی
+   استثنا … خودِ جزوه را باز کن». ناظر در ۵ سپتامبر جزوهٔ «Audi» را واقعاً
+   باز کرد و در گزارشش نوشت که بازش کرده — ولی برای پرسشِ *دیگری* (وجودِ
+   دادهٔ ارجاع)، و دربارهٔ خودِ جزوه هیچ ننوشت. در ۶ سپتامبر نامِ جزوه در
+   گزارش نیست. در هر دو روز، نقشهٔ راهِ همان جزوه دو فصلِ نوشته‌شده را
+   «پیشِ رو» نشان می‌داد و ستونِ «نسبتش با این درس» ستونِ کناری‌اش را
+   تکرار می‌کرد. هیچ‌کدام گزارش نشد و هیچ‌کس هم نمی‌توانست بفهمد که نشده.
+
+   پس گزارش کانالِ دومی می‌گیرد: `checks`. سکوت دیگر ابهام نیست. */
+
+/** آخرین باری که هر وارسیِ روزانه گزارش شده — از Properties. */
+function monChecksLoad_() {
+  try { return JSON.parse(props_().getProperty(PK.MON_CHECKS) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function monChecksSave_(m) {
+  try { props_().setProperty(PK.MON_CHECKS, JSON.stringify(m)); } catch (e) {}
+}
+
+/**
+ * `checks` یک گزارش را ثبت می‌کند. شکلش:
+ *   "checks": [{"key":"handout-read","verdict":"سالم","note":"…"}]
+ *
+ * ثبت‌کردنی است حتی وقتی کلید در فهرستِ اجباری نیست — فهرست می‌گوید چه
+ * چیزی *باید* بیاید، نه چه چیزی مجاز است بیاید.
+ */
+function monChecksIngest_(rep, fileName) {
+  var m = monChecksLoad_(), n = 0, touched = false;
+  /* ══ روزِ اول نباید هشدار بدهد (۶٫۹۵) ══
+     «هرگز گزارش نشده» روی موتوری که هنوز هیچ گزارشِ روزانه‌ای نگرفته، هشدارِ
+     چیزی است که اصلاً فرصتِ رخ‌دادن نداشته — و هشداری که برای هیچ می‌دود،
+     همان است که یاد می‌گیرند نخوانندش. پس زمانِ خودِ گزارش‌های روزانه هم
+     ثبت می‌شود و سکوت فقط نسبت به آن سنجیده می‌شود.
+     نامِ فایل معیارِ «روزانه» است، نه `source`: دستورِ ناظر نامش را دقیقاً
+     `_REPORT-YYYYMMDD.json` تعیین کرده و گزارش‌های دیگر (مثلاً غنی‌سازی)
+     پسوند دارند. */
+  if (/^_REPORT-\d{8}\.json/.test(String(fileName || ''))) {
+    var r = m.__rep || {};
+    if (!r.firstAt) r.firstAt = nowStr_();
+    r.lastAt = nowStr_();
+    m.__rep = r; touched = true;
+  }
+  var arr = (rep && rep.checks) || [];
+  if (Object.prototype.toString.call(arr) !== '[object Array]' || !arr.length) {
+    if (touched) monChecksSave_(m);
+    return 0;
+  }
+  for (var i = 0; i < arr.length; i++) {
+    var c = arr[i] || {};
+    var k = String(c.key || '').trim();
+    if (!k) continue;
+    m[k] = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
+             note: String(c.note || '').slice(0, 300) };
+    n++;
+  }
+  if (n || touched) monChecksSave_(m);
+  return n;
+}
+
+/** چند روز از آخرین گزارشِ این وارسی گذشته — و «هرگز» را از «دیروز» جدا می‌کند. */
+function monCheckDays_(rec) {
+  var at = String((rec && rec.at) || '');
+  if (!at) return null;                       // هرگز گزارش نشده
+  var t = parseWhen_(at);            // عدد برمی‌گردانَد، نه Date (بخشِ ۲)
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.floor((new Date().getTime() - t) / 86400000));
+}
+
+/**
+ * خطِ وضعیت + یافته برای وارسیِ خاموش.
+ *
+ * قاعدهٔ ۵٫۹۰: صاحبِ برنامه شیت باز نمی‌کند، پس این هم باید در همان ایمیل
+ * دیده شود — و **هر روز**، حتی وقتی همه‌چیز گزارش شده. «همه گزارش شد»
+ * خودش خبر است؛ نبودنش از نبودِ مشکل قابلِ تفکیک نیست.
+ */
+function monChecksStatus_(hub, raise) {
+  var want = CFG.MONITOR_CHECKS || [];
+  var m = monChecksLoad_();
+  var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
+  // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
+  var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
+  var rows = [], silent = [];
+  for (var i = 0; i < want.length; i++) {
+    var w = want[i] || {};
+    var d = monCheckDays_(m[w.key]);
+    var r = { key: String(w.key || ''), title: String(w.title || ''),
+              at: String((m[w.key] || {}).at || ''),
+              verdict: String((m[w.key] || {}).verdict || ''),
+              days: (d === null ? -1 : d) };
+    rows.push(r);
+    if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
+    if (d === null || d >= need) silent.push(r);
+  }
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  var line;
+  if (!want.length) line = '';
+  else if (repAge === null) {
+    line = 'وارسی‌های روزانهٔ ناظر: هنوز هیچ گزارشِ روزانه‌ای ثبت نشده، ' +
+           'پس سکوتِ وارسی‌ها هنوز معنایی ندارد.';
+  } else if (repAge < need) {
+    line = 'وارسی‌های روزانهٔ ناظر: پنجرهٔ سنجش هنوز باز نشده ' +
+           '(گزارشِ روزانه ' + (function (n) {
+             try { return faDigitsOut_(String(n)); } catch (x) { return String(n); }
+           })(repAge) + ' روز است می‌آید).';
+  } else if (!silent.length) {
+    line = 'وارسی‌های روزانهٔ ناظر: هر ' + fa(want.length) + ' وارسی گزارش شده.';
+  } else {
+    line = 'وارسی‌های روزانهٔ ناظر: ' + fa(silent.length) + ' از ' + fa(want.length) +
+           ' گزارش نشده — ' + silent.map(function (r) {
+             return '«' + r.title + '» (' + (r.days < 0 ? 'هرگز' : fa(r.days) + ' روز') + ')';
+           }).join(' · ') +
+           '. سکوت یعنی نمی‌دانیم انجام شد و سالم بود یا اصلاً انجام نشد.';
+  }
+  /* یافته فقط از healthCheck (روزی یک بار) ساخته می‌شود، نه از writeStatus_
+     که هر دو ساعت می‌دود: شمارندهٔ «تکرار» سنجهٔ بسته‌نشدنِ حلقه است و اگر
+     روزی دوازده بار بالا برود، دیگر چیزی نمی‌سنجد. همان درسِ ۷۲ یافتهٔ
+     تکراری، این بار پیش از وقوع. */
+  if (silent.length && raise === true) {
+    try {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'متوسط', category: 'وارسیِ ناظر',
+        key: 'monitor-check-silent',
+        title: 'وارسی‌های روزانه‌ای که ناظر گزارش نمی‌کند: ' +
+               silent.map(function (r) { return r.key; }).join('، '),
+        detail: line,
+        instruction: 'در `_REPORT-YYYYMMDD.json` کنارِ `findings` کلیدِ `checks` ' +
+                     'را هم بنویس: [{"key":"…","verdict":"سالم|ایراد|نشد","note":"…"}] ' +
+                     'برای هر وارسیِ روزانه، حتی وقتی نتیجه سالم است. اگر وارسی ' +
+                     'انجام نشد، `verdict:"نشد"` با علتش — نه حذفِ ردیف.',
+        owner: ROWNER_ENGINE
+      });
+    } catch (e) {}
+  }
+  return { rows: rows, silent: silent, ok: !silent.length, line: line };
 }
 
 /** موردی که خودِ موتور پیدا کرده (نه Cowork) را در همان تب ثبت می‌کند. */

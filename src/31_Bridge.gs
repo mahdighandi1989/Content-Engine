@@ -483,6 +483,29 @@ function bridgePrompt_(ctx, corpus, deep) {
   L.push('۴) `atHeading` باید **عنوانِ یکی از بخش‌های همین درس** باشد؛ جایی که');
   L.push('   ارجاع در آن طبیعی می‌نشیند. اگر جای طبیعی‌ای نیست، آن ارجاع را نده.');
   L.push('');
+  /* ══ میدانی که هرگز توضیح داده نشد (۶٫۹۵) ══
+     `relation` از روزِ اول در شِما «الزامی» بود و شرحش فقط در یک **کامنتِ
+     جاوااسکریپت** نوشته شده بود — جایی که مدل هرگز نمی‌بیند. پس مدل یک
+     میدانِ الزامیِ بی‌شرح می‌دید که بلافاصله بعد از `kind` می‌آمد، و همان
+     واژهٔ `kind` را در آن می‌گذاشت. در دادهٔ واقعیِ جزوهٔ «Audi»، هر ۱۴
+     ارجاع `relation` را برابرِ `kind` داشتند («تکمیل»، «تأیید»، «تنش») —
+     یعنی ستونِ «نسبتش با این درس» در جزوه دقیقاً ستونِ «نسبت» را تکرار
+     می‌کرد و کلِ چیزی که صاحبِ برنامه خواسته بود («یه ارتباطِ معنایی بده
+     با مجموعهٔ فعلی») هیچ‌جا ثبت نمی‌شد.
+     این همان الگوی همیشگی است، یک پله عقب‌تر: نه «چیزی که فقط در پرامپت
+     خواسته شده تضمین نیست»، بلکه **چیزی که اصلاً در پرامپت خواسته نشده،
+     خواسته نشده است.** */
+  L.push('۴-ب) `claim` و `relation` دو چیزِ متفاوت‌اند و هیچ‌کدام نامِ نسبت نیست:');
+  L.push('   • `claim` = **آن مجموعه چه گفته** — گزارهٔ آن کتاب، در زبانِ خودش.');
+  L.push('   • `relation` = **نسبتش با همین درس، در یک جملهٔ کامل** — چرا این');
+  L.push('     دو به هم مربوط‌اند و این ارجاع به شنونده چه می‌دهد.');
+  L.push('   `relation` را هرگز برابرِ نامِ نسبت نگذار. «تکمیل» یا «تأیید»');
+  L.push('   جوابِ این میدان نیست؛ آن را در `kind` گفته‌ای.');
+  L.push('   نمونهٔ بد:  relation = «تکمیل»');
+  L.push('   نمونهٔ خوب: relation = «آنجا خطای حسی به قضاوتِ ذهن نسبت داده');
+  L.push('   شده و همین‌جا همان تفکیک، این بار با زبانِ باورِ گزاره‌ای، ادامه');
+  L.push('   پیدا می‌کند.»');
+  L.push('');
   L.push('۵) `say` دو تا چهار جملهٔ **گفتاری** است، به همان لحنِ پادکست: نامِ آن');
   L.push('   مجموعه را بگو، بگو آنجا چه گفته شد، و نسبتش با همین لحظه را روشن');
   L.push('   کن. نه فهرست، نه ارجاعِ کتابی، نه «همان‌طور که می‌دانید».');
@@ -537,6 +560,35 @@ function bridgePlan_(ctx, corpus) {
            none: String(r.none || ''),
            deepRead: deep ? deep.n : 0,
            series: corpus.map(function (c) { return c.key; }) };
+}
+
+/**
+ * `relation` یا یک جمله است یا هیچ — نامِ نسبت جوابِ این میدان نیست.
+ *
+ * سدّ در کد است نه در پرامپت، چون بندِ ۴-ب پرامپت *درخواست* است و این ریپو
+ * بارها دیده که درخواست تضمین نیست. برمی‌گردانَد `''` وقتی مدل به‌جای نسبت
+ * همان دستهٔ نسبت را نوشته یا چیزی کوتاه‌تر از یک جمله داده — و خالی‌بودن
+ * دیده می‌شود (`bridgeRelationGap_`)، در حالی که تکرارِ واژهٔ دسته دیده
+ * نمی‌شد: ستونی که همیشه پر است، هیچ‌وقت مشکوک نیست.
+ */
+function bridgeRelation_(rel, kind) {
+  var r = String(rel == null ? '' : rel).trim();
+  if (!r) return '';
+  var k = String(kind == null ? '' : kind).trim();
+  var bare = r.replace(/[\s\u200c.،؛:!؟\-—–]+/g, '');
+  if (k && bare === k.replace(/[\s\u200c]+/g, '')) return '';   // فقط نامِ دسته
+  if (BRIDGE_KINDS[r]) return '';                                // نامِ دستهٔ دیگری
+  if (bare.length < Math.max(1, Number(CFG.BRIDGE_RELATION_MIN) || 25)) return '';
+  return r.slice(0, 400);
+}
+
+/** چند ارجاع نسبتِ نوشته‌شده ندارند — عددی که باید دیده شود، نه حدس زده. */
+function bridgeRelationGap_(links) {
+  var n = 0;
+  for (var i = 0; i < (links || []).length; i++) {
+    if (!String((links[i] || {}).relation || '').trim()) n++;
+  }
+  return n;
 }
 
 /**
@@ -601,7 +653,7 @@ function bridgeTrim_(links, names, strictKeys) {
     out.push({ seriesKey: key, seriesName: names[key],
                kind: String(x.kind || ''), claim: String(x.claim || '').slice(0, 400),
                chapter: String(x.chapter || '').slice(0, 160),
-               relation: String(x.relation || '').slice(0, 400),
+               relation: bridgeRelation_(x.relation, x.kind),
                atHeading: String(x.atHeading || '').slice(0, 160),
                say: say.slice(0, 900),
                strength: String(x.strength || 'متوسط') });
@@ -898,6 +950,30 @@ function bridgeFor_(hub, reg, rec, ctx) {
       logLine_('ارجاع: ' + plan.links.length + ' ارجاع به ' +
                plan.links.map(function (b) { return '«' + b.seriesName + '» (' + b.kind + ')'; })
                  .join('، ') + '.');
+      /* نسبتِ نوشته‌نشده ارجاع را باطل نمی‌کند — `say` هنوز همان چیزی است که
+         شنونده می‌شنود — ولی ستونِ جزوه و ورودیِ داوری را خالی می‌گذارد. پس
+         گفته می‌شود، یک ردیف برای کلِ پدیده نه یکی برای هر قسمت. */
+      var gapN = bridgeRelationGap_(plan.links);
+      if (gapN) {
+        logLine_('ارجاع: ' + gapN + ' ارجاع از ' + plan.links.length +
+                 ' نسبتِ نوشته‌شده ندارد (مدل به‌جای جمله، نامِ دسته را داده).');
+        try {
+          logSelfFinding_(hub || getHub_(), {
+            priority: 'متوسط', category: 'ارجاعِ میان‌مجموعه‌ای',
+            key: 'bridge-relation-empty',
+            title: 'مدل به‌جای «نسبتش با این درس» نامِ دسته را می‌دهد',
+            detail: 'در این قسمت ' + gapN + ' ارجاع از ' + plan.links.length +
+                    ' میدانِ relation را با یک جمله پر نکرد، پس ستونِ ' +
+                    '«نسبتش با این درس» در جزوه خالی می‌مانَد و داوریِ ' +
+                    'ارجاع‌ها هم چیزی برای سنجیدن ندارد. ارجاع خودش سالم ' +
+                    'است؛ فقط شرحش نیست.',
+            instruction: 'بندِ ۴-ب پرامپتِ کشفِ نسبت (bridgePrompt_، بخشِ ۳۱) ' +
+                         'را با نمونهٔ تازه سخت‌تر کن. اگر باز هم تکرار شد، ' +
+                         'یعنی نمونهٔ بد/خوب کافی نیست.',
+            owner: ROWNER_CODE
+          });
+        } catch (eF) {}
+      }
     } else if (plan.none) {
       logLine_('ارجاع: نسبتِ قابلِ‌گفتنی پیدا نشد — ' + plan.none);
     }
@@ -933,9 +1009,13 @@ function bridgeOfSeries_(hub, seriesName, cap, seriesKey) {
       var sig = String(v[i][3]) + '|' + String(v[i][4]) + '|' + String(v[i][6]).slice(0, 60);
       if (seen[sig]) continue;                 // همان نسبت در چند قسمت: یک بار بس است
       seen[sig] = 1;
+      /* همان سدِ `bridgeTrim_`، این بار روی خواندن — چون سیاهه ردیف‌هایی از
+         پیش از ۶٫۹۵ دارد که relationشان همان نامِ دسته است، و مرزی که فقط
+         سرِ نوشتن باشد، گذشته را همان‌طور نگه می‌دارد. یک تعریف، دو در. */
       out.push({ ep: String(v[i][1] || ''), refSeries: String(v[i][3] || ''),
                  kind: String(v[i][4] || ''), at: String(v[i][5] || ''),
-                 claim: String(v[i][6] || ''), relation: String(v[i][7] || '') });
+                 claim: String(v[i][6] || ''),
+                 relation: bridgeRelation_(v[i][7], v[i][4]) });
     }
   } catch (e) {}
   return out.slice(0, Math.max(1, Number(cap) || 24));

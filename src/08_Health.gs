@@ -472,6 +472,11 @@ function writeStatus_(hub, note) {
     sourceErrors: srcErr,
     // حلقهٔ بستهٔ گزارش ← اقدام: چه چیزی باز است و چه چیزی اعمال شده
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
+    /* کدام وارسیِ روزانهٔ ناظر گزارش شده و کدام نه (۶٫۹۵) — بی این، «انجام
+       شد و سالم بود» از «اصلاً انجام نشد» جدا نمی‌شود. اینجا فقط خوانده
+       می‌شود؛ یافته‌اش در healthCheck ساخته می‌شود تا writeStatus_ که هر دو
+       ساعت می‌دود، هر دو ساعت یک ردیف نسازد. */
+    monChecks: (function () { try { return monChecksStatus_(null, false); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
@@ -1390,6 +1395,12 @@ function healthCheck() {
     var rjS = seriesRejected_();
     if (rjS && rjS.line) notes.push(rjS.line);
   } catch (eRj2) {}
+  /* وارسی‌های روزانهٔ ناظر — هر روز یک سطر، حتی وقتی همه گزارش شده‌اند.
+     این تنها جایی است که «وارسی نشد» می‌تواند دیده شود. */
+  try {
+    var mcS = monChecksStatus_(hub, true);
+    if (mcS && mcS.line) { if (mcS.ok) notes.push(mcS.line); else problems.push(mcS.line); }
+  } catch (eMc) {}
   try {
     var hvS = hvizStatus_();
     if (hvS && hvS.line) { if (hvS.ok === false) problems.push(hvS.line); else notes.push(hvS.line); }

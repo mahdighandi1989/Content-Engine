@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.94
+ *  موتور محتوا و پادکست — نسخهٔ 6.95
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -525,6 +525,27 @@ var CFG = {
   WD_RENDER_DAYS: 1,           // اکشنِ رندر (GitHub، هر ساعت)
   REPEAT_ALERT: 10,            // این‌قدر یافتهٔ تکراری = حلقه بسته نمی‌شود
   HANDOUT_TRY_MAX: 4,          // چند تلاشِ ناموفق تا «رهاشده» شمرده شود
+  /* چند واژهٔ معنادارِ مشترک تا «این فصل همان مرحله است» (۶٫۹۵). دو، چون
+     یکی تصادفی است («شناخت» در هر عنوانِ معرفت‌شناسی هست) و سه، عنوان‌های
+     بازنویسی‌شده را از دست می‌دهد. */
+  HANDOUT_STAGE_WORDS: 2,
+
+  /* ══ وارسی‌هایی که ناظر هر روز باید انجام دهد — و بگوید که انجام داده ══
+     (۶٫۹۵) `_REPORT-*.json` تا امروز فقط `findings` داشت. وارسی‌ای که
+     انجام شد و ایرادی نداشت، هیچ خروجی‌ای نمی‌داد؛ وارسی‌ای که اصلاً انجام
+     نشد هم هیچ خروجی‌ای نمی‌داد. این دو در فایل **بایتِ یکسان** بودند، پس
+     «هر روز، بی استثنا» از هیچ‌جا قابلِ اجرا نبود.
+     جدولِ روزانهٔ ایمیل هم جبرانش نمی‌کرد: ردیفِ جزوه‌اش `handout.line` را
+     نقل می‌کند و آن خط فقط شمارش می‌داند («۲۸ از ۲۹ درس وارد شده» ✅) —
+     در حالی که نقشهٔ راهِ همان جزوه فصلِ نوشته‌شده را «پیشِ رو» می‌گفت.
+     پس فهرست اینجاست و کوتاه: فقط وارسی‌هایی که خودِ دستور «هر روز» خوانده
+     و خروجیِ سالمشان طبیعتاً خالی است. */
+  MONITOR_CHECKS: [
+    { key: 'handout-read', title: 'جزوه‌ای واقعی باز و خوانده شد (§۴٫۷)' },
+    { key: 'reports-queue', title: 'صفِ دستورها و یافته‌های تکراری (§۴٫۸)' },
+    { key: 'podcasts', title: 'دو پادکستِ دیروز (§۲)' }
+  ],
+  MONITOR_CHECK_DAYS: 2,       // چند روز سکوت تا یافته ساخته شود
   HANDOUT_WATCH_MAX: 60,       // سقفِ مجموعه‌های زیرِ نظرِ همیشگی
 
   PROMPT_SYNC: true,
@@ -1071,6 +1092,10 @@ var CFG = {
      یک مجموعهٔ مرجع **یک** بود، هرچه کشف می‌شد. */
   BRIDGE_MAX_LINKS: 6,         // سقفِ شمارِ ارجاع در یک قسمت
   BRIDGE_CORPUS_CHARS: 20000,  // سهمِ هر مجموعهٔ مرجع در *فهرستِ* پرامپت
+  /* کوتاه‌ترین چیزی که هنوز «یک جمله» است. زیرِ این، یعنی مدل نامِ دسته یا
+     یک واژه داده — و ستونِ «نسبتش با این درس» در جزوه باید خالی بمانَد تا
+     دیده شود، نه اینکه با تکرارِ نامِ دسته پر به‌نظر برسد (۶٫۹۵). */
+  BRIDGE_RELATION_MIN: 25,
   /* ── دو مرحله‌ایِ ارجاع (۶٫۸۱) ──
      تا امروز کاشفِ نسبت فقط اسکلتِ کتابِ مرجع را می‌دید (عنوان‌ها + یک خط
      چکیده)، پس نسبت‌هایی مثل «تأیید» و «نقض» — که در تنِ متن‌اند نه در
@@ -1131,7 +1156,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.94',
+  CODE_VERSION: '6.95',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1481,6 +1506,7 @@ var PK = {
   HEALTH_STEP: 'HEALTH_LAST_STEP',  // وارسیِ سلامت کجا رسیده بود — ردِ پا برای اجرای کشته‌شده
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
+  MON_CHECKS: 'MONITOR_CHECKS_SEEN', // آخرین بارِ هر وارسیِ روزانهٔ ناظر (۶٫۹۵)
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
   PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS',
@@ -10217,6 +10243,11 @@ function writeStatus_(hub, note) {
     sourceErrors: srcErr,
     // حلقهٔ بستهٔ گزارش ← اقدام: چه چیزی باز است و چه چیزی اعمال شده
     reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
+    /* کدام وارسیِ روزانهٔ ناظر گزارش شده و کدام نه (۶٫۹۵) — بی این، «انجام
+       شد و سالم بود» از «اصلاً انجام نشد» جدا نمی‌شود. اینجا فقط خوانده
+       می‌شود؛ یافته‌اش در healthCheck ساخته می‌شود تا writeStatus_ که هر دو
+       ساعت می‌دود، هر دو ساعت یک ردیف نسازد. */
+    monChecks: (function () { try { return monChecksStatus_(null, false); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
@@ -11135,6 +11166,12 @@ function healthCheck() {
     var rjS = seriesRejected_();
     if (rjS && rjS.line) notes.push(rjS.line);
   } catch (eRj2) {}
+  /* وارسی‌های روزانهٔ ناظر — هر روز یک سطر، حتی وقتی همه گزارش شده‌اند.
+     این تنها جایی است که «وارسی نشد» می‌تواند دیده شود. */
+  try {
+    var mcS = monChecksStatus_(hub, true);
+    if (mcS && mcS.line) { if (mcS.ok) notes.push(mcS.line); else problems.push(mcS.line); }
+  } catch (eMc) {}
   try {
     var hvS = hvizStatus_();
     if (hvS && hvS.line) { if (hvS.ok === false) problems.push(hvS.line); else notes.push(hvS.line); }
@@ -13184,7 +13221,9 @@ function reportRejected_(hub, file, why) {
       instruction: 'شکلِ درست: {"generatedAt":"…","source":"…","findings":[' +
                    '{"priority":"جدی|متوسط|جزئی|زیاد|کم","category":"…","key":"…",' +
                    '"title":"…","detail":"…","instruction":"…","owner":"…"}]} — ' +
-                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است.',
+                   'کلیدِ findings باید آرایه باشد، حتی وقتی خالی است. ' +
+                   'و کنارش «checks»: [{"key":"…","verdict":"سالم|ایراد|نشد",' +
+                   '"note":"…"}] برای وارسی‌های روزانه.',
       owner: ROWNER_ENGINE
     });
   } catch (e) {}
@@ -13215,6 +13254,11 @@ function ingestOneReport_(hub, sh, state, file) {
     markReportDone_(file, '.ingested.bad');
     return out;
   }
+
+  try {
+    var nChk = monChecksIngest_(rep, file.getName());
+    if (nChk) logLine_('گزارش نظارت: ' + nChk + ' وارسیِ روزانه ثبت شد.');
+  } catch (eChk) {}
 
   // خطِ سرجمعِ گزارش هم ثبت می‌شود، وگرنه «ثبتِ کاملِ گزارش» ناقص می‌ماند
   var all = findings.slice();
@@ -13679,6 +13723,150 @@ function markInstructionsApplied_(hub, list, epNum, note) {
              (kept ? '، ' + kept + ' مورد به‌دلیل تکرارِ همان نشانه باز ماند' : '') +
              (skipped ? '، ' + skipped + ' ردیف رد شد' : '') + '.');
   } catch (e) { logLine_('بستنِ دستورهای گزارش ناموفق: ' + e.message); }
+}
+
+
+/* ══ وارسی‌ای که انجام شد، و وارسی‌ای که انجام نشد (۶٫۹۵) ══
+
+   `_REPORT-*.json` فقط `findings` داشت. یعنی تنها راهِ حرف‌زدنِ ناظر
+   «چیزی خراب است» بود. وارسیِ سالم هیچ نمی‌گفت — و وارسیِ **نشده** هم
+   هیچ نمی‌گفت. دو حالتِ کاملاً متفاوت، یک خروجیِ یکسان.
+
+   دادهٔ واقعیِ ۵ و ۶ سپتامبر: دستور می‌گوید «جزوهٔ مجموعه‌ها — هر روز، بی
+   استثنا … خودِ جزوه را باز کن». ناظر در ۵ سپتامبر جزوهٔ «Audi» را واقعاً
+   باز کرد و در گزارشش نوشت که بازش کرده — ولی برای پرسشِ *دیگری* (وجودِ
+   دادهٔ ارجاع)، و دربارهٔ خودِ جزوه هیچ ننوشت. در ۶ سپتامبر نامِ جزوه در
+   گزارش نیست. در هر دو روز، نقشهٔ راهِ همان جزوه دو فصلِ نوشته‌شده را
+   «پیشِ رو» نشان می‌داد و ستونِ «نسبتش با این درس» ستونِ کناری‌اش را
+   تکرار می‌کرد. هیچ‌کدام گزارش نشد و هیچ‌کس هم نمی‌توانست بفهمد که نشده.
+
+   پس گزارش کانالِ دومی می‌گیرد: `checks`. سکوت دیگر ابهام نیست. */
+
+/** آخرین باری که هر وارسیِ روزانه گزارش شده — از Properties. */
+function monChecksLoad_() {
+  try { return JSON.parse(props_().getProperty(PK.MON_CHECKS) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function monChecksSave_(m) {
+  try { props_().setProperty(PK.MON_CHECKS, JSON.stringify(m)); } catch (e) {}
+}
+
+/**
+ * `checks` یک گزارش را ثبت می‌کند. شکلش:
+ *   "checks": [{"key":"handout-read","verdict":"سالم","note":"…"}]
+ *
+ * ثبت‌کردنی است حتی وقتی کلید در فهرستِ اجباری نیست — فهرست می‌گوید چه
+ * چیزی *باید* بیاید، نه چه چیزی مجاز است بیاید.
+ */
+function monChecksIngest_(rep, fileName) {
+  var m = monChecksLoad_(), n = 0, touched = false;
+  /* ══ روزِ اول نباید هشدار بدهد (۶٫۹۵) ══
+     «هرگز گزارش نشده» روی موتوری که هنوز هیچ گزارشِ روزانه‌ای نگرفته، هشدارِ
+     چیزی است که اصلاً فرصتِ رخ‌دادن نداشته — و هشداری که برای هیچ می‌دود،
+     همان است که یاد می‌گیرند نخوانندش. پس زمانِ خودِ گزارش‌های روزانه هم
+     ثبت می‌شود و سکوت فقط نسبت به آن سنجیده می‌شود.
+     نامِ فایل معیارِ «روزانه» است، نه `source`: دستورِ ناظر نامش را دقیقاً
+     `_REPORT-YYYYMMDD.json` تعیین کرده و گزارش‌های دیگر (مثلاً غنی‌سازی)
+     پسوند دارند. */
+  if (/^_REPORT-\d{8}\.json/.test(String(fileName || ''))) {
+    var r = m.__rep || {};
+    if (!r.firstAt) r.firstAt = nowStr_();
+    r.lastAt = nowStr_();
+    m.__rep = r; touched = true;
+  }
+  var arr = (rep && rep.checks) || [];
+  if (Object.prototype.toString.call(arr) !== '[object Array]' || !arr.length) {
+    if (touched) monChecksSave_(m);
+    return 0;
+  }
+  for (var i = 0; i < arr.length; i++) {
+    var c = arr[i] || {};
+    var k = String(c.key || '').trim();
+    if (!k) continue;
+    m[k] = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
+             note: String(c.note || '').slice(0, 300) };
+    n++;
+  }
+  if (n || touched) monChecksSave_(m);
+  return n;
+}
+
+/** چند روز از آخرین گزارشِ این وارسی گذشته — و «هرگز» را از «دیروز» جدا می‌کند. */
+function monCheckDays_(rec) {
+  var at = String((rec && rec.at) || '');
+  if (!at) return null;                       // هرگز گزارش نشده
+  var t = parseWhen_(at);            // عدد برمی‌گردانَد، نه Date (بخشِ ۲)
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.floor((new Date().getTime() - t) / 86400000));
+}
+
+/**
+ * خطِ وضعیت + یافته برای وارسیِ خاموش.
+ *
+ * قاعدهٔ ۵٫۹۰: صاحبِ برنامه شیت باز نمی‌کند، پس این هم باید در همان ایمیل
+ * دیده شود — و **هر روز**، حتی وقتی همه‌چیز گزارش شده. «همه گزارش شد»
+ * خودش خبر است؛ نبودنش از نبودِ مشکل قابلِ تفکیک نیست.
+ */
+function monChecksStatus_(hub, raise) {
+  var want = CFG.MONITOR_CHECKS || [];
+  var m = monChecksLoad_();
+  var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
+  // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
+  var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
+  var rows = [], silent = [];
+  for (var i = 0; i < want.length; i++) {
+    var w = want[i] || {};
+    var d = monCheckDays_(m[w.key]);
+    var r = { key: String(w.key || ''), title: String(w.title || ''),
+              at: String((m[w.key] || {}).at || ''),
+              verdict: String((m[w.key] || {}).verdict || ''),
+              days: (d === null ? -1 : d) };
+    rows.push(r);
+    if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
+    if (d === null || d >= need) silent.push(r);
+  }
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  var line;
+  if (!want.length) line = '';
+  else if (repAge === null) {
+    line = 'وارسی‌های روزانهٔ ناظر: هنوز هیچ گزارشِ روزانه‌ای ثبت نشده، ' +
+           'پس سکوتِ وارسی‌ها هنوز معنایی ندارد.';
+  } else if (repAge < need) {
+    line = 'وارسی‌های روزانهٔ ناظر: پنجرهٔ سنجش هنوز باز نشده ' +
+           '(گزارشِ روزانه ' + (function (n) {
+             try { return faDigitsOut_(String(n)); } catch (x) { return String(n); }
+           })(repAge) + ' روز است می‌آید).';
+  } else if (!silent.length) {
+    line = 'وارسی‌های روزانهٔ ناظر: هر ' + fa(want.length) + ' وارسی گزارش شده.';
+  } else {
+    line = 'وارسی‌های روزانهٔ ناظر: ' + fa(silent.length) + ' از ' + fa(want.length) +
+           ' گزارش نشده — ' + silent.map(function (r) {
+             return '«' + r.title + '» (' + (r.days < 0 ? 'هرگز' : fa(r.days) + ' روز') + ')';
+           }).join(' · ') +
+           '. سکوت یعنی نمی‌دانیم انجام شد و سالم بود یا اصلاً انجام نشد.';
+  }
+  /* یافته فقط از healthCheck (روزی یک بار) ساخته می‌شود، نه از writeStatus_
+     که هر دو ساعت می‌دود: شمارندهٔ «تکرار» سنجهٔ بسته‌نشدنِ حلقه است و اگر
+     روزی دوازده بار بالا برود، دیگر چیزی نمی‌سنجد. همان درسِ ۷۲ یافتهٔ
+     تکراری، این بار پیش از وقوع. */
+  if (silent.length && raise === true) {
+    try {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'متوسط', category: 'وارسیِ ناظر',
+        key: 'monitor-check-silent',
+        title: 'وارسی‌های روزانه‌ای که ناظر گزارش نمی‌کند: ' +
+               silent.map(function (r) { return r.key; }).join('، '),
+        detail: line,
+        instruction: 'در `_REPORT-YYYYMMDD.json` کنارِ `findings` کلیدِ `checks` ' +
+                     'را هم بنویس: [{"key":"…","verdict":"سالم|ایراد|نشد","note":"…"}] ' +
+                     'برای هر وارسیِ روزانه، حتی وقتی نتیجه سالم است. اگر وارسی ' +
+                     'انجام نشد، `verdict:"نشد"` با علتش — نه حذفِ ردیف.',
+        owner: ROWNER_ENGINE
+      });
+    } catch (e) {}
+  }
+  return { rows: rows, silent: silent, ok: !silent.length, line: line };
 }
 
 /** موردی که خودِ موتور پیدا کرده (نه Cowork) را در همان تب ثبت می‌کند. */
@@ -32329,14 +32517,84 @@ function handoutProgressOf_(hub, seriesKey, partsOpt) {
   return out;
 }
 
+/* ══ واژه‌های معنادارِ یک عنوان — برای سنجیدنِ دو عنوان با هم (۶٫۹۵) ══
+   ZWNJ با **فاصله** جایگزین می‌شود نه با هیچ، وگرنه «معرفت‌شناسی» یک واژهٔ
+   تازه می‌شود و با «معرفت» جور درنمی‌آید — همان درسِ `speakBone_`. واژه‌های
+   کوتاه («های»، «این»، «که») می‌افتند چون در هر عنوانی هستند و اگر بمانند
+   هر دو عنوانی به هم می‌خورَد. */
+function handoutTitleWords_(t) {
+  var x = String(t || '')
+    .replace(/[\u200c\u200f\u200e]/g, ' ')
+    .replace(/[\u064b-\u0652\u0654\u0670]/g, '')
+    .replace(/[^\u0600-\u06ffA-Za-z]+/g, ' ');
+  var w = x.split(/\s+/), out = {};
+  for (var i = 0; i < w.length; i++) if (w[i].length >= 4) out[w[i]] = 1;
+  return out;
+}
+
+/** چند واژهٔ معنادار میانِ دو عنوان مشترک است. */
+function handoutTitleShare_(a, b) {
+  var A = handoutTitleWords_(a), B = handoutTitleWords_(b), n = 0;
+  for (var k in A) if (Object.prototype.hasOwnProperty.call(A, k) && B[k]) n++;
+  return n;
+}
+
+/**
+ * کدام مرحله‌ها را کتاب **همین حالا** پوشش داده است.
+ *
+ * ══ نقشهٔ راهی که خودِ کتابِ زیرش را تکذیب می‌کرد (۶٫۹۵) ══
+ * وضعیت از نسبتِ «قطعهٔ خوانده‌شده از منبع» می‌آمد، و مرحله‌ها را مدل از
+ * رویِ **کلِ کتابِ منبع** نوشته بود. این دو یک مقیاس نیستند. در جزوهٔ
+ * «Audi» نتیجه‌اش این شد: «۱۳٫۰۲ از ۸۶ (۱۵٪)» ⇒ مرحلهٔ ۱ «در جریان» و
+ * مرحله‌های ۲ و ۳ «پیشِ رو» — در حالی که فصلِ ۶ و فصلِ ۸ همان کتاب دقیقاً
+ * عنوانِ همان دو مرحله را داشتند و هر دو کامل نوشته شده بودند. یعنی
+ * خواننده در بالای صفحه می‌خواند «هنوز به نظریه‌های ادراک نرسیده‌ای» و
+ * چند سطر پایین‌تر فصلِ «نظریه‌های ادراک» را می‌دید.
+ *
+ * قاعدهٔ تازه کمینه و صادق است: **مرحله‌ای که کتاب برایش فصل دارد، هرگز
+ * «پیشِ رو» نیست.** «انجام‌شده» را همچنان فقط مکان‌نما می‌گوید، چون وجودِ
+ * یک فصل به‌معنای تمام‌شدنِ آن مرحله نیست. ادعای کمتر، ولی راست.
+ */
+function handoutStagesCovered_(book) {
+  var stages = (book.roadmap && book.roadmap.stages) || [];
+  var chs = book.chapters || [];
+  var need = Math.max(1, Number(CFG.HANDOUT_STAGE_WORDS) || 2);
+  var hit = [];
+  for (var i = 0; i < stages.length; i++) {
+    hit[i] = false;
+    for (var c = 0; c < chs.length; c++) {
+      if (handoutTitleShare_(stages[i].title, chs[c].title) >= need) { hit[i] = true; break; }
+    }
+  }
+  return hit;
+}
+
+/**
+ * عکسِ چیزی که خواننده از نقشهٔ راه می‌بیند — عدد **و** وضعیتِ مرحله‌ها.
+ *
+ * تا ۶٫۹۵ فقط `progress` مقایسه می‌شد، پس وضعیتی که عوض می‌شد بی آنکه عدد
+ * عوض شود (دقیقاً همان چیزی که سدِ تازه انجام می‌دهد) هرگز باعثِ بازسازیِ
+ * HTML نمی‌شد: اصلاح در فایلِ JSON می‌نشست و در جزوه دیده نمی‌شد.
+ */
+function handoutRoadmapSig_(book) {
+  try {
+    var rm = (book && book.roadmap) || {};
+    return JSON.stringify([rm.progress || null,
+      (rm.stages || []).map(function (x) { return String((x && x.state) || ''); })]);
+  } catch (e) { return ''; }
+}
+
 function handoutRoadmapState_(book, prog) {
   var stages = (book.roadmap && book.roadmap.stages) || [];
   if (!stages.length) return book;
   var total = Math.max(1, stages.length);
   var doneRatio = (Number(prog && prog.done) || 0) / Math.max(1, Number(prog && prog.total) || 1);
   var reached = Math.floor(doneRatio * total);
+  var cov = handoutStagesCovered_(book);
   for (var i = 0; i < stages.length; i++) {
-    stages[i].state = (i < reached) ? 'انجام‌شده' : (i === reached ? 'در جریان' : 'پیشِ رو');
+    stages[i].state = (i < reached) ? 'انجام‌شده'
+                    : (i === reached ? 'در جریان'
+                    : (cov[i] ? 'در جریان' : 'پیشِ رو'));
   }
   book.roadmap.progress = { done: String((prog && prog.done) || 0),
                             total: String((prog && prog.total) || 0),
@@ -32684,7 +32942,10 @@ function handoutHtml_(book) {
              '<td>' + esc_(X.refSeries || '') + '</td>' +
              '<td>' + esc_(X.kind || '') + '</td>' +
              '<td>' + esc_(X.claim || '') + '</td>' +
-             '<td>' + esc_(X.relation || '') + '</td></tr>');
+             /* خالی یعنی «مدل نسبت را ننوشت» و باید همان‌طور دیده شود؛ تا
+                ۶٫۹۵ اینجا نامِ دسته تکرار می‌شد و ستون همیشه پر به‌نظر
+                می‌رسید — ستونی که همیشه پر است هرگز مشکوک نمی‌شود. */
+             '<td>' + esc_(X.relation || '—') + '</td></tr>');
     }
     h.push('</table>');
   }
@@ -32778,8 +33039,11 @@ function handoutFacts_(book, rec, folder) {
     var bl = bridgeOfSeries_(getHub_(), book.seriesName || nm,
                              Number(CFG.HANDOUT_BRIDGE_MAX) || 40,
                              book.seriesKey || String(rec.key || ''));
+    /* `relation` هم در امضاست (۶٫۹۵): بی آن، کتاب‌هایی که ارجاعشان عوض
+       نشده ولی *شرحِ* نسبتشان تصحیح شده، هرگز بازنویسی نمی‌شدند. */
     var sig = bl.map(function (x) {
-      return x.ep + '|' + x.refSeries + '|' + x.kind + '|' + String(x.claim).slice(0, 60);
+      return x.ep + '|' + x.refSeries + '|' + x.kind + '|' +
+             String(x.claim).slice(0, 60) + '|' + String(x.relation || '').slice(0, 40);
     }).join('§');
     if (sig !== String(book.bridgeSig || '')) {
       book.bridges = bl; book.bridgeSig = sig; changed = true;
@@ -33133,11 +33397,11 @@ function handoutOneSeries_(key, maxItems) {
     /* و نقشهٔ راه از پیشرفتِ واقعی — مجموعهٔ تمام‌شده باید ۱۰۰٪ و همهٔ
        مرحله‌هایش «انجام‌شده» دیده شود، نه عددِ روزِ اول. */
     var rmWas = '';
-    try { rmWas = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR0) {}
+    try { rmWas = handoutRoadmapSig_(book); } catch (eR0) {}
     var rmChanged = false;
     try {
       handoutRoadmapState_(book, handoutProgressOf_(hub, k));
-      rmChanged = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas;
+      rmChanged = handoutRoadmapSig_(book) !== rmWas;
       if (rmChanged) out.notes.push('نقشهٔ راه به‌روز شد (' +
         String((book.roadmap.progress || {}).pct || '؟') + '٪)');
     } catch (eRm) {}
@@ -33965,11 +34229,11 @@ function handoutVizSweep_(maxCalls, budgetMs) {
     /* همان‌جا نقشهٔ راه هم با پیشرفتِ واقعی تازه می‌شود — جزوهٔ مجموعهٔ
        تمام‌شده هیچ مسیرِ دیگری به به‌روزرسانی ندارد (درسِ تازه‌ای نمی‌آید). */
     var rmWas2 = '';
-    try { rmWas2 = JSON.stringify(book.roadmap && book.roadmap.progress); } catch (eR1) {}
+    try { rmWas2 = handoutRoadmapSig_(book); } catch (eR1) {}
     var rmCh2 = false;
     try {
       handoutRoadmapState_(book, handoutProgressOf_(hub, String(rec.key), partsAll));
-      rmCh2 = JSON.stringify(book.roadmap && book.roadmap.progress) !== rmWas2;
+      rmCh2 = handoutRoadmapSig_(book) !== rmWas2;
     } catch (eR2) {}
     if (r.made || r.triedChanged || rmCh2 || fx || dv.redone || dv.calls) {
       if (r.made || dv.redone) {
@@ -42254,6 +42518,29 @@ function bridgePrompt_(ctx, corpus, deep) {
   L.push('۴) `atHeading` باید **عنوانِ یکی از بخش‌های همین درس** باشد؛ جایی که');
   L.push('   ارجاع در آن طبیعی می‌نشیند. اگر جای طبیعی‌ای نیست، آن ارجاع را نده.');
   L.push('');
+  /* ══ میدانی که هرگز توضیح داده نشد (۶٫۹۵) ══
+     `relation` از روزِ اول در شِما «الزامی» بود و شرحش فقط در یک **کامنتِ
+     جاوااسکریپت** نوشته شده بود — جایی که مدل هرگز نمی‌بیند. پس مدل یک
+     میدانِ الزامیِ بی‌شرح می‌دید که بلافاصله بعد از `kind` می‌آمد، و همان
+     واژهٔ `kind` را در آن می‌گذاشت. در دادهٔ واقعیِ جزوهٔ «Audi»، هر ۱۴
+     ارجاع `relation` را برابرِ `kind` داشتند («تکمیل»، «تأیید»، «تنش») —
+     یعنی ستونِ «نسبتش با این درس» در جزوه دقیقاً ستونِ «نسبت» را تکرار
+     می‌کرد و کلِ چیزی که صاحبِ برنامه خواسته بود («یه ارتباطِ معنایی بده
+     با مجموعهٔ فعلی») هیچ‌جا ثبت نمی‌شد.
+     این همان الگوی همیشگی است، یک پله عقب‌تر: نه «چیزی که فقط در پرامپت
+     خواسته شده تضمین نیست»، بلکه **چیزی که اصلاً در پرامپت خواسته نشده،
+     خواسته نشده است.** */
+  L.push('۴-ب) `claim` و `relation` دو چیزِ متفاوت‌اند و هیچ‌کدام نامِ نسبت نیست:');
+  L.push('   • `claim` = **آن مجموعه چه گفته** — گزارهٔ آن کتاب، در زبانِ خودش.');
+  L.push('   • `relation` = **نسبتش با همین درس، در یک جملهٔ کامل** — چرا این');
+  L.push('     دو به هم مربوط‌اند و این ارجاع به شنونده چه می‌دهد.');
+  L.push('   `relation` را هرگز برابرِ نامِ نسبت نگذار. «تکمیل» یا «تأیید»');
+  L.push('   جوابِ این میدان نیست؛ آن را در `kind` گفته‌ای.');
+  L.push('   نمونهٔ بد:  relation = «تکمیل»');
+  L.push('   نمونهٔ خوب: relation = «آنجا خطای حسی به قضاوتِ ذهن نسبت داده');
+  L.push('   شده و همین‌جا همان تفکیک، این بار با زبانِ باورِ گزاره‌ای، ادامه');
+  L.push('   پیدا می‌کند.»');
+  L.push('');
   L.push('۵) `say` دو تا چهار جملهٔ **گفتاری** است، به همان لحنِ پادکست: نامِ آن');
   L.push('   مجموعه را بگو، بگو آنجا چه گفته شد، و نسبتش با همین لحظه را روشن');
   L.push('   کن. نه فهرست، نه ارجاعِ کتابی، نه «همان‌طور که می‌دانید».');
@@ -42308,6 +42595,35 @@ function bridgePlan_(ctx, corpus) {
            none: String(r.none || ''),
            deepRead: deep ? deep.n : 0,
            series: corpus.map(function (c) { return c.key; }) };
+}
+
+/**
+ * `relation` یا یک جمله است یا هیچ — نامِ نسبت جوابِ این میدان نیست.
+ *
+ * سدّ در کد است نه در پرامپت، چون بندِ ۴-ب پرامپت *درخواست* است و این ریپو
+ * بارها دیده که درخواست تضمین نیست. برمی‌گردانَد `''` وقتی مدل به‌جای نسبت
+ * همان دستهٔ نسبت را نوشته یا چیزی کوتاه‌تر از یک جمله داده — و خالی‌بودن
+ * دیده می‌شود (`bridgeRelationGap_`)، در حالی که تکرارِ واژهٔ دسته دیده
+ * نمی‌شد: ستونی که همیشه پر است، هیچ‌وقت مشکوک نیست.
+ */
+function bridgeRelation_(rel, kind) {
+  var r = String(rel == null ? '' : rel).trim();
+  if (!r) return '';
+  var k = String(kind == null ? '' : kind).trim();
+  var bare = r.replace(/[\s\u200c.،؛:!؟\-—–]+/g, '');
+  if (k && bare === k.replace(/[\s\u200c]+/g, '')) return '';   // فقط نامِ دسته
+  if (BRIDGE_KINDS[r]) return '';                                // نامِ دستهٔ دیگری
+  if (bare.length < Math.max(1, Number(CFG.BRIDGE_RELATION_MIN) || 25)) return '';
+  return r.slice(0, 400);
+}
+
+/** چند ارجاع نسبتِ نوشته‌شده ندارند — عددی که باید دیده شود، نه حدس زده. */
+function bridgeRelationGap_(links) {
+  var n = 0;
+  for (var i = 0; i < (links || []).length; i++) {
+    if (!String((links[i] || {}).relation || '').trim()) n++;
+  }
+  return n;
 }
 
 /**
@@ -42372,7 +42688,7 @@ function bridgeTrim_(links, names, strictKeys) {
     out.push({ seriesKey: key, seriesName: names[key],
                kind: String(x.kind || ''), claim: String(x.claim || '').slice(0, 400),
                chapter: String(x.chapter || '').slice(0, 160),
-               relation: String(x.relation || '').slice(0, 400),
+               relation: bridgeRelation_(x.relation, x.kind),
                atHeading: String(x.atHeading || '').slice(0, 160),
                say: say.slice(0, 900),
                strength: String(x.strength || 'متوسط') });
@@ -42669,6 +42985,30 @@ function bridgeFor_(hub, reg, rec, ctx) {
       logLine_('ارجاع: ' + plan.links.length + ' ارجاع به ' +
                plan.links.map(function (b) { return '«' + b.seriesName + '» (' + b.kind + ')'; })
                  .join('، ') + '.');
+      /* نسبتِ نوشته‌نشده ارجاع را باطل نمی‌کند — `say` هنوز همان چیزی است که
+         شنونده می‌شنود — ولی ستونِ جزوه و ورودیِ داوری را خالی می‌گذارد. پس
+         گفته می‌شود، یک ردیف برای کلِ پدیده نه یکی برای هر قسمت. */
+      var gapN = bridgeRelationGap_(plan.links);
+      if (gapN) {
+        logLine_('ارجاع: ' + gapN + ' ارجاع از ' + plan.links.length +
+                 ' نسبتِ نوشته‌شده ندارد (مدل به‌جای جمله، نامِ دسته را داده).');
+        try {
+          logSelfFinding_(hub || getHub_(), {
+            priority: 'متوسط', category: 'ارجاعِ میان‌مجموعه‌ای',
+            key: 'bridge-relation-empty',
+            title: 'مدل به‌جای «نسبتش با این درس» نامِ دسته را می‌دهد',
+            detail: 'در این قسمت ' + gapN + ' ارجاع از ' + plan.links.length +
+                    ' میدانِ relation را با یک جمله پر نکرد، پس ستونِ ' +
+                    '«نسبتش با این درس» در جزوه خالی می‌مانَد و داوریِ ' +
+                    'ارجاع‌ها هم چیزی برای سنجیدن ندارد. ارجاع خودش سالم ' +
+                    'است؛ فقط شرحش نیست.',
+            instruction: 'بندِ ۴-ب پرامپتِ کشفِ نسبت (bridgePrompt_، بخشِ ۳۱) ' +
+                         'را با نمونهٔ تازه سخت‌تر کن. اگر باز هم تکرار شد، ' +
+                         'یعنی نمونهٔ بد/خوب کافی نیست.',
+            owner: ROWNER_CODE
+          });
+        } catch (eF) {}
+      }
     } else if (plan.none) {
       logLine_('ارجاع: نسبتِ قابلِ‌گفتنی پیدا نشد — ' + plan.none);
     }
@@ -42704,9 +43044,13 @@ function bridgeOfSeries_(hub, seriesName, cap, seriesKey) {
       var sig = String(v[i][3]) + '|' + String(v[i][4]) + '|' + String(v[i][6]).slice(0, 60);
       if (seen[sig]) continue;                 // همان نسبت در چند قسمت: یک بار بس است
       seen[sig] = 1;
+      /* همان سدِ `bridgeTrim_`، این بار روی خواندن — چون سیاهه ردیف‌هایی از
+         پیش از ۶٫۹۵ دارد که relationشان همان نامِ دسته است، و مرزی که فقط
+         سرِ نوشتن باشد، گذشته را همان‌طور نگه می‌دارد. یک تعریف، دو در. */
       out.push({ ep: String(v[i][1] || ''), refSeries: String(v[i][3] || ''),
                  kind: String(v[i][4] || ''), at: String(v[i][5] || ''),
-                 claim: String(v[i][6] || ''), relation: String(v[i][7] || '') });
+                 claim: String(v[i][6] || ''),
+                 relation: bridgeRelation_(v[i][7], v[i][4]) });
     }
   } catch (e) {}
   return out.slice(0, Math.max(1, Number(cap) || 24));
