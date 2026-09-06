@@ -1912,7 +1912,8 @@ def main():
 
     # دارایی‌های سنجیده‌شده را از پیش می‌گذاریم تا دانلود اجرا نشود
     import rvcpipe as P32
-    ap32 = P32.inferAssetPaths_(os.path.join(outd, "assets"))
+    ap32 = P32.inferAssetPaths_(os.path.abspath(outd).rstrip(os.sep)
+                                + "-assets")
     os.makedirs(ap32["hubert"])
     os.makedirs(os.path.dirname(ap32["rmvpe"]), exist_ok=True)
     io.open(ap32["rmvpe"], "w").write(u"x")
@@ -1941,7 +1942,11 @@ def main():
     # هر گام عددِ خودش را می‌گیرد تا انتخابِ «بهترین» واقعاً سنجیده شود
     sims32 = [{"src_vs_ref": 0.31, "out_vs_ref": 0.44, "gain": 0.13,
                "moved_toward_target": True},
+              {"src_vs_ref": 0.31, "out_vs_ref": 0.51, "gain": 0.20,
+               "moved_toward_target": True},
               {"src_vs_ref": 0.31, "out_vs_ref": 0.79, "gain": 0.48,
+               "moved_toward_target": True},
+              {"src_vs_ref": 0.31, "out_vs_ref": 0.72, "gain": 0.41,
                "moved_toward_target": True}]
     V.rvcSim_ = lambda paths, out: sims32.pop(0)
     try:
@@ -1950,7 +1955,15 @@ def main():
         V.OPT["_out"] = outd
         V.OPT["rvc_model"] = mdl
         V.OPT["rvc_index"] = idx
+        # ══ چرا هر سه با کاما ══
+        # بارِ اول فقط گام با کاما آزموده شد و آن دوتای دیگر با یک
+        # مقدار. کد هم دقیقاً همان‌قدر درست بود: روی رانر با
+        #   ValueError: could not convert string to float: '0.66,0.85,1.0'
+        # مُرد. قابلیتی که برای سه چیز نوشته شود و برای یکی آزموده،
+        # برای همان یکی کار می‌کند.
         V.OPT["rvc_pitch"] = "0,-12"
+        V.OPT["rvc_index_rate"] = "0.66,0.85"
+        V.OPT["rvc_protect"] = "0.33"
         made32 = V.run_rvc(refw, srcw, "متنی که خوانده نمی‌شود", outd)
         rep32 = dict(V.OPT["_rep"])
     finally:
@@ -1962,14 +1975,21 @@ def main():
     # مردی با صدای بم. با گامِ صفر خروجی هرقدر هم بافتِ رضوی را بگیرد،
     # «صدای رضوی» نمی‌شود — که گزارشِ اولین اجرای واقعی همین بود.
     eq([r["name"] for r in rep32["rvc"]["variants"]],
-       ["rvc-p+0-i66-pr33.wav", "rvc-p-12-i66-pr33.wav"],
-       "برای هر ترکیب یک فایل، و نام خودش می‌گوید کدام ترکیب است")
+       ["rvc-p+0-i66-pr33.wav", "rvc-p+0-i85-pr33.wav",
+        "rvc-p-12-i66-pr33.wav", "rvc-p-12-i85-pr33.wav"],
+       "برای هر ترکیبِ هر سه اهرم یک فایل، و نام خودش ترکیبش را می‌گوید")
     eq(all(os.path.exists(os.path.join(outd, r["name"]))
            for r in rep32["rvc"]["variants"]), True, "و همه روی دیسک‌اند")
     eq(rep32["rvc"]["best"]["file"], "rvc-p-12-i66-pr33.wav",
        "بهترین با عدد انتخاب می‌شود، نه با ترتیب")
     eq(os.path.basename(made32), "rvc-p-12-i66-pr33.wav",
        "و همان به آزمایشگاه برگردانده می‌شود")
+
+    # ══ دارایی‌ها نباید در خروجی بنشینند ══
+    # ۳۴۰ مگابایت ContentVec و RMVPE داخلِ artifact یعنی کاربر برای
+    # رسیدن به چند فایلِ صوتی، ۳۴۴ مگابایت دانلود می‌کند.
+    eq(os.path.isdir(os.path.join(outd, "assets")), False,
+       "پوشهٔ دارایی‌ها داخلِ خروجی نیست")
 
     # ══ جاروب روی هر سه اهرم، نه فقط گام ══
     # جاروبِ اول ثابت کرد گام تعیین‌کننده است ولی روی فلات می‌نشیند.
@@ -2018,6 +2038,8 @@ def main():
     V.OPT["rvc_model"] = mdl
     V.OPT["rvc_index"] = os.path.join(w32, "nope.index")
     V.OPT["rvc_pitch"] = "0"
+    V.OPT["rvc_index_rate"] = "0.66"
+    V.OPT["rvc_protect"] = "0.33"
     V.rvcSim_ = lambda paths, out: {}
     try:
         V.run_rvc(refw, srcw, "", outd)

@@ -2508,7 +2508,12 @@ def run_rvc(ref, src, text, out):
         index = ""
 
     import rvcpipe as P
-    assets = os.path.join(out, "assets")
+    # ══ دارایی‌ها کنارِ خروجی، نه داخلش ══
+    # `out` همان چیزی است که به‌عنوانِ artifact بالا می‌رود. ContentVec
+    # و RMVPE روی هم ۳۴۰ مگابایت‌اند و داخلِ آن نشستنشان یعنی کاربر هر
+    # بار ۳۴۴ مگابایت دانلود می‌کند تا به چند فایلِ صوتیِ چندمگابایتی
+    # برسد. همان درسِ پوشهٔ خروجیِ Kaggle، این بار در آزمایشگاه.
+    assets = os.path.abspath(out).rstrip(os.sep) + "-assets"
     paths = P.inferAssetPaths_(assets)
     if not os.path.isdir(paths["hubert"]) or not os.path.exists(paths["rmvpe"]):
         hf = shutil.which("hf") or shutil.which("huggingface-cli") or "hf"
@@ -2529,16 +2534,16 @@ def run_rvc(ref, src, text, out):
         # rmvpe دقیق‌ترینِ روش‌های زیروبم است و همان است که در آموزش
         # هم به کار رفت — دو روشِ متفاوت یعنی دو تعریفِ متفاوت از گام.
         "pitch_algo": "rmvpe",
-        # `pitch_lvl` اینجا نیست: هر گامِ جاروب مقدارِ خودش را می‌گذارد.
+        # ══ سه کلیدِ جاروب اینجا نیستند ══
+        # `pitch_lvl`، `index_influence` و `consonant_breath_protection`
+        # را حلقه می‌گذارد. بارِ اول فقط `pitch_lvl` را بیرون بردم و آن
+        # دوتای دیگر با `float()` روی یک رشتهٔ کاماداده مُردند:
+        #   ValueError: could not convert string to float: '0.66,0.85,1.0'
+        # قابلیتی که برای سه چیز نوشته شود و برای یکی آزموده، برای
+        # همان یکی کار می‌کند.
         "file_index": index,
-        "index_influence": float(OPT.get("rvc_index_rate") or 0.66),
         "respiration_median_filtering": 3,
         "envelope_ratio": 0.25,
-        # ══ محافظِ همخوان و نفس ══
-        # پایین‌آوردنش صدا را «رضوی‌تر» می‌کند و همخوان‌ها را می‌جَوَد.
-        # روی متنِ فارسیِ اعراب‌دار، جویده شدنِ همخوان یعنی همان چیزی
-        # که کلِ کارِ اعراب‌گذاری برای جلوگیری از آن انجام شد.
-        "consonant_breath_protection": float(OPT.get("rvc_protect") or 0.33),
         "resample_sr": 0,
     }
     print("تنظیمات:", json.dumps(conf, ensure_ascii=False), flush=True)
