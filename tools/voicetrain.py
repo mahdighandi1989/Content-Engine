@@ -335,6 +335,17 @@ def finish_(P, root, out):
         for f in sorted(os.listdir(o["index_dir"])):
             if f.endswith(".index"):
                 made.append(shutil.copy(os.path.join(o["index_dir"], f), out))
+        # ══ عکس‌های میانِ راه، چون «بیشتر» همیشه «بهتر» نیست ══
+        # از جایی به بعد مدل به‌جای یاد گرفتنِ گوینده، همان ۳۹ دقیقه را
+        # حفظ می‌کند و روی صدای تازه بدتر می‌شود. تنها راهِ فهمیدنِ آن
+        # نقطه مقایسه است، و مقایسه فقط وقتی ممکن است که نسخه‌های میانی
+        # نگه داشته شده باشند. `-sw 1` آن‌ها را می‌سازد؛ اینجا فقط
+        # برداشته می‌شوند — و فقط در اجرای پایانی، تا artifactِ هر شب
+        # سنگین نشود.
+        wdir = os.path.dirname(o["model"])
+        for f in sorted(os.listdir(wdir)):
+            if f.startswith(VOICE + "_e") and f.endswith(".pth"):
+                made.append(shutil.copy(os.path.join(wdir, f), out))
     st = {"voice": VOICE, "epochs_target": EPOCHS, "done": done,
           "steps": steps_done_(root), "files": [os.path.basename(m)
                                                 for m in made]}
