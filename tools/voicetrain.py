@@ -59,17 +59,31 @@ BATCH = int(os.environ.get("VT_BATCH", "8"))
 SAVE_EVERY = int(os.environ.get("VT_SAVE_EVERY", "5"))
 BUDGET = float(os.environ.get("VT_BUDGET_MIN", "290")) * 60.0
 
-# ══ چهار ضبطِ بهروز رضوی ══
+# ══ هشت ضبطِ بهروز رضوی ══
 # پوشهٔ «TEST» در درایو. اشتراکشان باید «هر کسی با لینک» بماند —
 # رانر با هویتِ هیچ‌کس وارد نمی‌شود.
-#   D1736591T18498032(Web).mp3 · D1736592T10213625(Web).mp3
-#   D1736591T18630070(Web).mp3 · D1738956T14935309(Web).mp3
+#
+# چهارتای اول از روزِ اول بودند (۳۹ دقیقه صدای تمیز). چهارتای دوم را
+# صاحبِ برنامه در ۶ سپتامبر گذاشت — ۱۹۴ مگابایت در برابرِ ۲۶ مگابایت.
+# آزمایشگاه (اجرای #۵۷/#۵۸) با همین‌ها ساعت‌ها صدای تمیز درآورد.
 DRIVE_IDS = [
     "1YRI2p7Qv3hh2dcNPMZDmbNUel0XCYWKX",
     "1cBUasKKB2Q5JjLfpZfyjBC7ZNo72KAiD",
     "1izlhA9PRU0VWcmL-Gw7lFaW2LJ3nLUKv",
     "1QdJzUi8sk5LhuUqjHeCi9Kb4UgRYq4P5",
+    "1X5ibTIM7fjEOboiqSHUKWKRVXTv6z789",
+    "1wZ_iHna8iKCwM7qF2owXcCXKWoHVG5AN",
+    "1FKeq6LHZAX1iDU2w9lRCux-V4sscaiu2",
+    "1UW4Ks92VAWtf2ie-tzXP4e4cCw6cjZcD",
 ]
+
+# ══ سقفِ دیتاست باید همان‌جایی تصمیم شود که آزمایشگاه تصمیم می‌گیرد ══
+# تا امروز `buildDataset_` بی سقف صدا زده می‌شد، یعنی پیش‌فرضِ
+# `DS_TOTAL_MAX` (۴۰ دقیقه). با چهار ضبط هیچ‌وقت فعال نمی‌شد و کسی
+# ندیدش؛ با هشت ضبط همین عدد تعیین می‌کرد چقدر از ساعت‌ها صدا استفاده
+# شود — بی آنکه کسی انتخابش کرده باشد. حالا خانهٔ فرمِ آزمایشگاه
+# (`ds_max_minutes`) و این یکی عدد را از یک جا می‌گیرند.
+DS_MAX_MIN = float(os.environ.get("VT_DS_MAX_MIN", "240"))
 
 T0 = time.time()
 
@@ -142,6 +156,63 @@ def _newest_(root):
     return best
 
 
+
+def dsSig_():
+    """اثرِ انگشتِ ورودیِ دیتاست — کدام ضبط‌ها، با چه سقفی."""
+    import hashlib
+    raw = "|".join(sorted(DRIVE_IDS)) + "@" + ("%.1f" % DS_MAX_MIN)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def freshStart_(work, out, root, why):
+    """
+    ══ دادهٔ تازه، «ادامه» نیست ══
+
+    کش (`~/rvcwork`) دیتاست، ویژگی‌های استخراج‌شده، چک‌پوینت‌ها و مدلِ
+    نهایی را نگه می‌دارد و همین است که آموزشِ تکه‌تکه را ممکن می‌کند.
+    ولی همان کش، وقتی ورودی عوض می‌شود، دقیقاً همان چیزی است که مانعِ
+    کار می‌شود — و **بی‌صدا**:
+
+      • `dataset/` اگر خالی نباشد اصلاً دوباره ساخته نمی‌شود، پس هشت
+        ضبطِ تازه دانلود می‌شدند و دیتاستِ ۳۹ دقیقه‌ایِ قدیمی می‌ماند.
+      • چک‌پوینتِ ۲۰۰ دور روی دادهٔ قدیمی است. ادامه دادنش روی دادهٔ
+        تازه «ادامهٔ آموزش» نیست؛ شمارندهٔ دور هم دیگر معنایی ندارد.
+      • و بدتر از هر دو: `state.json` هدفِ ۲۰۰ را ثبت کرده، پس درخواستِ
+        ۳۲ دور در چند ثانیه با «از پیش کامل شده» برمی‌گشت. هیچ خطایی،
+        هیچ آموزشی.
+
+    پس اثرِ انگشتِ ورودی کنارِ کار نگه داشته می‌شود و اختلافش خودش
+    پاک‌سازی را راه می‌اندازد. هیچ آدمی لازم نیست یادش بماند — همان
+    قاعده‌ای که در موتور «فهرستِ دستی» را از کار انداخت.
+
+    وزن‌های **پایه** پاک نمی‌شوند: به ورودی ربطی ندارند و آوردنشان گران
+    است. آنچه می‌رود، هر چیزی است که از دادهٔ قبلی *ساخته* شده.
+    """
+    say_("دادهٔ ورودی عوض شده (%s) — کارِ ساخته‌شده از دادهٔ قبلی کنار "
+         "می‌رود و آموزش از نو شروع می‌شود." % why)
+    import rvcpipe as P
+    o = P.outputs(VOICE, root)
+    gone = []
+    for d in (os.path.join(work, "dataset"), os.path.join(work, "logs", VOICE)):
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+            gone.append(os.path.basename(d))
+    os.makedirs(os.path.join(work, "dataset"), exist_ok=True)
+    for f in (o["model"], os.path.join(out, "state.json")):
+        try:
+            if os.path.exists(f):
+                os.remove(f); gone.append(os.path.basename(f))
+        except OSError:
+            pass
+    for idx in glob.glob(os.path.join(work, "assets", "indices",
+                                      "*%s*" % VOICE)):
+        try:
+            os.remove(idx); gone.append(os.path.basename(idx))
+        except OSError:
+            pass
+    say_("پاک شد: %s" % ("، ".join(gone) if gone else "چیزی نبود"))
+
+
 def main():
     work = os.environ.get("VT_WORK") or os.path.expanduser("~/rvcwork")
     root = os.environ.get("VT_ROOT") or os.path.join(
@@ -150,6 +221,16 @@ def main():
     for d in (work, out, os.path.join(work, "logs"),
               os.path.join(work, "assets"), os.path.join(work, "dataset")):
         os.makedirs(d, exist_ok=True)
+
+    # ══ پیش از هر کاری: آیا ورودی همان است که کارِ روی دیسک از آن آمده؟ ══
+    sigNow, sigFile = dsSig_(), os.path.join(out, "dataset.sig")
+    sigWas = ""
+    try:
+        sigWas = io.open(sigFile, encoding="utf-8").read().strip()
+    except (IOError, OSError):
+        pass
+    say_("اثرِ انگشتِ ورودی: %s%s"
+         % (sigNow, "" if not sigWas else (" (پیشین: %s)" % sigWas)))
 
     # ── کد ──
     if not os.path.isdir(root):
@@ -176,6 +257,15 @@ def main():
 
     import rvcpipe as P
     import dsprep as D
+
+    # ورودی که عوض شده باشد، همین‌جا کارِ کهنه را می‌بَرد — پیش از آنکه
+    # دروازهٔ «از پیش کامل شده» آن را ببیند.
+    if sigWas and sigWas != sigNow:
+        freshStart_(work, out, root, "%s ← %s" % (sigWas, sigNow))
+    try:
+        io.open(sigFile, "w", encoding="utf-8").write(sigNow)
+    except (IOError, OSError):
+        pass
 
     o = P.outputs(VOICE, root)
     # ══ «مدل هست» یعنی «برای چند دور هست» ══
@@ -269,7 +359,7 @@ def main():
                              "«هر کسی با لینک» باشد")
         say_("ساختِ دیتاست از %d ضبط" % len(srcs))
         segs, rep = D.buildDataset_(
-            srcs, ds, sampleDir=out,
+            srcs, ds, sampleDir=out, totalMax=DS_MAX_MIN * 60.0,
             onFile=lambda rows: say_("  %s → %d تکه"
                                      % (rows[-1]["file"][:28],
                                         rows[-1].get("segments", 0))))
