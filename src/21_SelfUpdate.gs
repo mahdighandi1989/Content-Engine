@@ -567,8 +567,15 @@ function outReadmeSync_() {
    کشته‌شدنِ خاموش، صریح می‌گوید چه چیزی این شب اجرا نشد. */
 
 var _nightT0 = 0;
+var _nightSkipTo = null;    // تا رسیدن به این بلوک، رد شو (ادامهٔ همین شب)
+var _nightMore = '';        // این‌جا ایستادیم؛ ادامه لازم است
 
-function nightStart_() { _nightT0 = new Date().getTime(); }
+/* آغازِ یک اجرا: ساعت و **حالتِ همان اجرا** هر دو از نو. اگر `_nightMore`
+   بینِ دو اجرا بمانَد، اجرای بعدی از همان اول خودش را تمام‌شده می‌بیند. */
+function nightStart_() {
+  _nightT0 = new Date().getTime();
+  _nightMore = '';
+}
 
 /** میلی‌ثانیهٔ باقی‌مانده از سهمِ این اجرا. */
 function nightLeft_() {
@@ -598,7 +605,30 @@ function nightLeft_() {
 
    و شمارش در `_STATUS.json` دیده می‌شود، چون همین نامرئی‌بودن بود که
    گذاشت یک قابلیت هفته‌ها بی‌صدا اجرا نشود. */
-var NIGHT_RESERVE_ = null;
+/* ══ یک شب، چند اجرا (۶٫۹۷) ══
+
+   رزروِ ۶٫۸۹ کار می‌کرد و کافی نبود، و عددها می‌گویند چرا. بودجهٔ یک اجرا
+   ۲۷۰ ثانیه است. جمعِ **کف**ِ نگهبان‌های همین تابع ۶۲۰ ثانیه است — بی آنکه
+   حساب کنیم خودِ کار چقدر طول می‌کشد و چقدرش پیش از اولین بلوکِ سنگین
+   خرج می‌شود. یعنی کسری از جنسِ ۲٫۳ برابر، نه از جنسِ «گاهی جا نمی‌شود».
+
+   رزرو شبی **یک** کار را نوبت‌دار می‌کند، با سقفِ ۲۵٪ بودجه. در برابرِ
+   هشت کارِ گرسنه که هر روز کارِ تازه هم به آن‌ها اضافه می‌شود، این یعنی
+   نوبتِ هرکدام هشت شب یک بار — و جزوه‌ای که هر روز یک درسِ تازه می‌گیرد،
+   هر شب عقب‌تر می‌رود. ۷ سپتامبر همین شد: هشت کار گرسنه، پنج‌تا سه‌شبه،
+   و جزوهٔ «Audi» دو روز دست‌نخورده در حالی که فیکسش نصب شده بود.
+
+   جوابِ درست بزرگ‌کردنِ سهم نیست؛ **تمام‌کردنِ کار** است. همان کاری که
+   `renderAudioStep_` سالهاست می‌کند: وقتی بودجه تمام شد، جای توقف را
+   بنویس و یک اجرای دیگر برای یک دقیقهٔ بعد بگذار. کارِ شبانه از یک اجرای
+   شش‌دقیقه‌ای به زنجیره‌ای از اجراها تبدیل می‌شود که تا آخرِ فهرست
+   می‌رود. ترتیب دست نمی‌خورَد و اهمیتِ چیزی عوض نمی‌شود.
+
+   و «گرسنگی» معنایش عوض می‌شود، و این عوض‌شدن خودش یک تصحیح است: پیش از
+   این «امشب نوبت نگرفت» شمرده می‌شد، که هر شب برای نیمی از فهرست راست
+   بود و برای همین چیزی نمی‌گفت. حالا فقط چیزی شمرده می‌شود که **حتی با
+   ادامه‌ها هم** تمام نشد — یعنی واقعاً کارِ زیادی هست، نه اینکه یک اجرا
+   کوتاه است. */
 
 function nightStarve_() {
   try { return JSON.parse(props_().getProperty(PK.NIGHT_STARVE) || '{}') || {}; }
@@ -609,54 +639,118 @@ function nightStarveSave_(m) {
   try { props_().setProperty(PK.NIGHT_STARVE, JSON.stringify(m)); } catch (e) {}
 }
 
-/**
- * گرسنه‌ترین کار را برای امشب نوبت‌دار کن — یکی، نه همه.
- *
- * چند رزرو هم‌زمان یعنی بودجه‌ای که برای هیچ‌کدام کافی نیست: همان بن‌بست
- * با نامِ تازه. و سقفِ رزرو کسری از بودجه است تا یک کارِ گرسنه نتواند
- * نصبِ کد و خانه‌داری را از پا بیندازد.
- */
-function nightReserve_() {
-  var m = nightStarve_(), need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
-  var cap = Math.round((Number(CFG.NIGHT_BUDGET_MS) || 270000) *
-                       (Number(CFG.NIGHT_RESERVE_PCT) || 25) / 100);
-  var best = null;
-  for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
-    var r = m[k] || {};
-    if ((Number(r.n) || 0) < need) continue;
-    if (!best || (Number(r.n) || 0) > (Number(best.n) || 0)) {
-      best = { what: k, n: Number(r.n) || 0, ms: Math.min(Number(r.ms) || 0, cap) };
-    }
-  }
-  NIGHT_RESERVE_ = best;
-  if (best) {
-    logLine_('کارِ شبانه: «' + best.what + '» ' + best.n +
-             ' شب نوبت نگرفته — امشب ' + Math.round(best.ms / 1000) +
-             ' ثانیه برایش کنار گذاشته شد.');
-  }
-  return best;
+/** امروزِ تقویمِ برنامه — مرزِ «همین شب» با «شبِ بعد». */
+function nightDay_() {
+  try { return Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'); }
+  catch (e) { return String(new Date().getTime()); }
 }
 
-/** آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟ نبودش لاگ و شمرده می‌شود. */
+function nightStepLoad_() {
+  try { return JSON.parse(props_().getProperty(PK.NIGHT_STEP) || 'null'); }
+  catch (e) { return null; }
+}
+
+function nightStepSave_(o) {
+  try { props_().setProperty(PK.NIGHT_STEP, JSON.stringify(o)); } catch (e) {}
+}
+
+function nightStepClear_() {
+  try { props_().deleteProperty(PK.NIGHT_STEP); } catch (e) {}
+}
+
+/**
+ * آغازِ یک اجرا — و اینکه اجرای چندمِ امشب است.
+ *
+ * مکان‌نمای روزِ دیگر دور ریخته می‌شود: شبی که نیمه‌کاره مانده و روزش
+ * گذشته، باید از سرِ فهرست شروع شود، نه از وسطِ دیشب.
+ */
+function nightBegin_() {
+  nightStart_();                 // ساعت و حالتِ اجرا
+  var st = nightStepLoad_();
+  if (st && String(st.day || '') !== nightDay_()) { nightStepClear_(); st = null; }
+  _nightSkipTo = st ? String(st.next || '') || null : null;
+  return { first: !_nightSkipTo, runs: st ? (Number(st.runs) || 0) : 0 };
+}
+
+/**
+ * آیا برای کاری که دستِ‌کم needMs می‌خواهد وقت هست؟
+ *
+ * سه حالت، و حالتِ وسط تازه است: بلوکی که در اجرای پیشینِ **همین شب**
+ * انجام شده رد می‌شود، بی آنکه چیزی شمرده یا لاگ شود. اگر آن را گرسنه
+ * می‌شمردیم، هر ادامه برای همهٔ بلوک‌های جلوترش یک شبِ گرسنگیِ دروغ ثبت
+ * می‌کرد.
+ */
 function nightHas_(needMs, what) {
-  var m = nightStarve_();
-  // سهمِ کارِ گرسنه از دستِ بقیه کنار گذاشته می‌شود — نه از دستِ خودش.
-  var res = (NIGHT_RESERVE_ && NIGHT_RESERVE_.what !== what)
-    ? (Number(NIGHT_RESERVE_.ms) || 0) : 0;
-  var left = nightLeft_();
-  if (left >= needMs + res) {
-    if (m[what]) { delete m[what]; nightStarveSave_(m); }
-    return true;
+  if (_nightSkipTo) {
+    if (what !== _nightSkipTo) return false;   // اجرای پیشینِ امشب انجامش داده
+    _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
   }
-  var r = m[what] || { n: 0, ms: needMs };
-  r.n = (Number(r.n) || 0) + 1;
-  r.ms = Math.max(Number(r.ms) || 0, needMs);
-  r.at = nowStr_();
-  m[what] = r;
-  nightStarveSave_(m);
-  logLine_('کارِ شبانه: «' + what + '» امشب اجرا نشد — وقت نمانده (' +
-           Math.round(left / 1000) + ' ثانیه، ' + r.n + ' شبِ پیاپی). فردا شب دوباره.');
+  if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
+  if (nightLeft_() >= needMs) return true;
+  _nightMore = what;                           // نقطهٔ توقف
   return false;
+}
+
+/**
+ * پایانِ یک اجرا: یا فهرست تمام شده، یا ادامه‌ای لازم است.
+ *
+ * سقفِ شمارِ اجراها هست چون حلقه‌ای که خودش خودش را زمان‌بندی کند، اگر
+ * روزی گیر کند، تا ابد می‌دود. و رسیدن به سقف خودش خبر است: یعنی کارِ
+ * یک شب در چند اجرا هم جا نشد.
+ */
+function nightEnd_(runs) {
+  var m = nightStarve_();
+  if (!_nightMore) {
+    nightStepClear_();
+    if (Object.keys(m).length) nightStarveSave_({});
+    logLine_('کارِ شبانه: فهرست تا آخر رفت' +
+             (runs ? ' (' + (runs + 1) + ' اجرا)' : '') + '.');
+    return { done: true, runs: runs + 1 };
+  }
+  var max = Math.max(1, Number(CFG.NIGHT_MAX_RUNS) || 8);
+  if (runs + 1 >= max) {
+    var r = m[_nightMore] || { n: 0 };
+    r.n = (Number(r.n) || 0) + 1;
+    r.at = nowStr_();
+    m[_nightMore] = r;
+    nightStarveSave_(m);
+    nightStepClear_();
+    logLine_('کارِ شبانه: پس از ' + max + ' اجرا هنوز به «' + _nightMore +
+             '» نرسیدیم — امشب همین‌جا بس است (' + r.n + ' شبِ پیاپی).');
+    return { done: false, runs: runs + 1 };
+  }
+  nightStepSave_({ day: nightDay_(), next: _nightMore, runs: runs + 1 });
+  try {
+    clearNightTriggers_();
+    ScriptApp.newTrigger('selfUpdateContinue').timeBased()
+      .after(Math.max(30000, Number(CFG.NIGHT_CONTINUE_MS) || 60000)).create();
+    logLine_('کارِ شبانه: وقت تمام شد سرِ «' + _nightMore +
+             '» — ادامه‌اش تا یک دقیقهٔ دیگر (اجرای ' + (runs + 2) + ').');
+  } catch (eT) {
+    /* اگر ادامه زمان‌بندی نشد، مکان‌نما می‌مانَد ولی امشب کسی برنمی‌گردد.
+       این را باید دید، وگرنه دقیقاً همان سکوتی می‌شود که این نسخه برای
+       رفعش نوشته شده. */
+    nightStepClear_();
+    var q = m[_nightMore] || { n: 0 };
+    q.n = (Number(q.n) || 0) + 1; q.at = nowStr_();
+    m[_nightMore] = q; nightStarveSave_(m);
+    logLine_('کارِ شبانه: ادامه زمان‌بندی نشد (' + eT.message +
+             ') — «' + _nightMore + '» امشب اجرا نشد.');
+  }
+  return { done: false, runs: runs + 1 };
+}
+
+function clearNightTriggers_() {
+  var ts = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < ts.length; i++) {
+    if (ts[i].getHandlerFunction() === 'selfUpdateContinue') ScriptApp.deleteTrigger(ts[i]);
+  }
+}
+
+/** ادامهٔ کارِ شبانه — تریگرِ یک‌بارمصرفِ خودش را اول پاک می‌کند. */
+function selfUpdateContinue() {
+  try { clearNightTriggers_(); } catch (e) {}
+  return selfUpdateDaily();
 }
 
 /**
@@ -675,14 +769,18 @@ function nightStarveStatus_() {
   var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
   var bad = rows.filter(function (r) { return r.nights >= need; });
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  /* از ۶٫۹۷ اینجا فقط چیزی می‌آید که **حتی با ادامه‌های همان شب هم** به آن
+     نرسیدیم. پیش از این «امشب نوبت نگرفت» شمرده می‌شد، که هر شب برای نیمی
+     از فهرست راست بود — و خطی که هر شب چیزی می‌گوید، چیزی نمی‌گوید. */
   return {
     rows: rows,
     ok: !bad.length,
     line: rows.length
-      ? ('کارِ شبانه: ' + rows.slice(0, 4).map(function (r) {
-          return r.what + ' (' + fa(r.nights) + ' شب)';
-        }).join(' · ') + (bad.length ? ' — نوبت‌دار شد.' : ''))
-      : 'کارِ شبانه: همهٔ کارها نوبت گرفتند.'
+      ? ('کارِ شبانه: با همهٔ ادامه‌ها هم به این‌ها نرسید — ' +
+         rows.slice(0, 4).map(function (r) {
+           return r.what + ' (' + fa(r.nights) + ' شب)';
+         }).join(' · '))
+      : 'کارِ شبانه: هر شب فهرست تا آخر می‌رود.'
   };
 }
 
@@ -695,7 +793,13 @@ function nightStarveStatus_() {
  * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
  */
 function selfUpdateDaily() {
-  nightStart_();
+  var night = nightBegin_();
+  if (!night.first) {
+    logLine_('کارِ شبانه: ادامهٔ همین شب (اجرای ' + (night.runs + 1) +
+             ') — از «' + _nightSkipTo + '».');
+  }
+  var installed = { ok: false };
+  if (night.first) {
 
   // ۱) داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب
   // با تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
@@ -704,7 +808,6 @@ function selfUpdateDaily() {
   // ۲) نصبِ کد. تا ۵٫۶۷ این آخرین خطِ تابع بود و هر شب پشتِ سرِ گشتنِ
   // موسیقی و دانلود و پویش و داوریِ محتوا می‌ایستاد — یعنی شبی که آن‌ها
   // طول می‌کشیدند، کدِ تازه اصلاً نصب نمی‌شد و هیچ خطایی هم بلند نمی‌شد.
-  var installed = { ok: false };
   try { installed = selfUpdateStep(false); }
   catch (e) { logLine_('نصبِ خودکارِ کد ناموفق: ' + e.message); }
 
@@ -771,8 +874,7 @@ function selfUpdateDaily() {
   // بانک پر است و امشب فچ/سیک چیزی برای نوشتن ندارند (۶٫۹۶).
   try { musicFeedDedup_(); } catch (eFD) {}
 
-  // نوبتِ امشب برای گرسنه‌ترین کار، پیش از نخستین بلوکِ سنگین.
-  try { nightReserve_(); } catch (eNR) {}
+  }   // ── پایانِ کارهای ارزان؛ این‌ها فقط در نخستین اجرای هر شب می‌دوند ──
 
   /* ══ سنجهٔ محتوا، پیش از کارهای اختیاری (۶٫۳۳) ══
      ۶٫۳۲ این بند را از پشتِ «مرورِ بزرگ» جلو آورد و درست بود، ولی کافی
@@ -982,6 +1084,8 @@ function selfUpdateDaily() {
     } catch (eRc) { logLine_('مرورِ بزرگ اجرا نشد: ' + eRc.message); }
   }
 
+  try { nightEnd_(night.runs); }
+  catch (eNE) { logLine_('پایانِ کارِ شبانه ثبت نشد: ' + eNE.message); }
   return installed;
 }
 

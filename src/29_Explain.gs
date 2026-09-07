@@ -237,6 +237,62 @@ function explainSkipWhy_(budget, min, baseN) {
          ' نویسه — یعنی خودِ درس کوتاه بوده)';
 }
 
+/**
+ * یک دورِ گزینش روی پیشنهادهای مدل — و شمردنِ اینکه چه چیزی چرا افتاد.
+ *
+ * تا ۶٫۹۷ همین حلقه در تنِ `explainPlan_` بود و علتِ افتادن‌ها هیچ‌جا
+ * نمی‌ماند. خروجیِ صفر و خروجیِ «مدل بد نوشت» یک جمله می‌گرفتند.
+ */
+function explainPick_(r, secs, want, min, budget, spots, used, drop) {
+  var total = 0;
+  for (var t = 0; t < spots.length; t++) total += spots[t].text.length;
+  for (var i = 0; i < r.spots.length && spots.length < want; i++) {
+    var sp = r.spots[i] || {};
+    var no = explainSecNo_(sp.section);
+    // شمارهٔ ناموجود = توهمِ مدل. دور انداخته می‌شود، نه اینکه به بخشِ صفر
+    // بچسبد: توضیحی که سرِ جای غلط بنشیند، از نبودنش بدتر است.
+    if (no < 0 || no >= secs.length) { drop.bad++; continue; }
+    var at = explainAt_(sp.at);
+    var key = no + ':' + at;
+    if (used[key]) { drop.dup++; continue; }
+    var txt = String(sp.text || '').replace(/[ \t]+/g, ' ').trim();
+    drop.longest = Math.max(drop.longest, txt.length);
+    /* ══ کف، و چرا بریدن تا زیرِ کف ممنوع است ══
+     * گزارشِ صاحبِ برنامه: «یکی دو تیکه دیدم که خیلی کوتاه بود، و یکی‌اش
+     * اصلاً بی‌معنی بود». توضیحی که نصفه بریده شود از نبودنش بدتر است:
+     * شنونده حرفی می‌شنود که به جایی نمی‌رسد. */
+    if (txt.length < min) { drop.short++; continue; }
+    if (total + txt.length > budget) {
+      txt = explainTrim_(txt, budget - total);
+      if (txt.length < min) break;      // جای سالم نمانده — بقیه را نمی‌بُریم
+    }
+    if (!txt) { drop.short++; continue; }
+    used[key] = 1;
+    total += txt.length;
+    spots.push({ section: no, at: at, text: txt,
+                 why: String(sp.why || '').replace(/\s+/g, ' ').slice(0, 160) });
+  }
+}
+
+/**
+ * چرا هیچ جایی نماند — با عدد، نه با «از سدها رد نشد».
+ *
+ * این خط به `_STATUS.json` و ایمیلِ روزانه می‌رود. جمله‌ای که علت را
+ * نگوید، همان سکوتی است که این نسخه برای رفعش نوشته شده.
+ */
+function explainDropWhy_(drop, min) {
+  if (!drop || !drop.got) return 'مدل جایی پیشنهاد نداد';
+  var bits = [];
+  if (drop.short) {
+    bits.push(drop.short + ' جا کوتاه‌تر از کفِ ' + min + ' نویسه' +
+              (drop.longest ? ' (بلندترین ' + drop.longest + ')' : ''));
+  }
+  if (drop.bad) bits.push(drop.bad + ' جا شمارهٔ بخشِ ناموجود داشت');
+  if (drop.dup) bits.push(drop.dup + ' جا تکراری بود');
+  return 'از ' + drop.got + ' پیشنهاد هیچ‌کدام نماند — ' +
+         (bits.join(' · ') || 'علتش ثبت نشد');
+}
+
 function explainPlan_(ep, epNum, seriesName) {
   var out = { ok: false, n: 0, chars: 0, why: '' };
   var secs = (ep && ep.sections) || [];
@@ -262,45 +318,48 @@ function explainPlan_(ep, epNum, seriesName) {
     out.why = explainSkipWhy_(budget, min, baseN);
     return out;
   }
-  var r = null;
-  try {
-    r = geminiText_(explainPrompt_(ep, seriesName, budget, want), EXPLAIN_SCHEMA, 8192);
-  } catch (e) { out.why = 'مدل در دسترس نبود: ' + e.message; return out; }
-  if (!r || !(r.spots instanceof Array) || !r.spots.length) {
-    out.why = 'مدل جایی پیشنهاد نداد';
-    return out;
-  }
+  /* ══ سدی که ساکت بود، و «بعضی روزا هست بعضی روزا نیست» (۶٫۹۷) ══
+     گزارشِ صاحبِ برنامه: «توضیح ساده میان درس هم گاهی هست و بعضی روزا
+     نیست». علتش قرعه نبود: کفِ هر جا ۹۰۰ نویسه است و مدل‌ها کف را کم
+     می‌زنند. هر پیشنهادِ کوتاه بی‌صدا دور انداخته می‌شد و اگر همه کوتاه
+     بودند، قسمت هیچ توضیح‌دهنده‌ای نمی‌گرفت — با یک خطِ «هیچ پیشنهادی از
+     سدها رد نشد» که نمی‌گفت *چرا*.
 
+     دو چیز عوض شد. یک: علت شمرده می‌شود، پس دفعهٔ بعد کسی لازم نیست کد را
+     بخواند تا بفهمد چه شد. دو: اگر **همه** به‌خاطرِ کوتاهی افتادند، یک بار
+     دیگر پرسیده می‌شود و این بار کمبود با عدد گفته می‌شود. یک فراخوانِ
+     اضافه فقط در شبی که وگرنه خروجی صفر بود. */
+  var drop = { bad: 0, dup: 0, short: 0, longest: 0, got: 0 };
   var spots = [], used = {}, total = 0;
-  for (var i = 0; i < r.spots.length && spots.length < want; i++) {
-    var sp = r.spots[i] || {};
-    var no = explainSecNo_(sp.section);
-    // شمارهٔ ناموجود = توهمِ مدل. دور انداخته می‌شود، نه اینکه به بخشِ صفر
-    // بچسبد: توضیحی که سرِ جای غلط بنشیند، از نبودنش بدتر است.
-    if (no < 0 || no >= secs.length) continue;
-    var at = explainAt_(sp.at);
-    var key = no + ':' + at;
-    if (used[key]) continue;
-    var txt = String(sp.text || '').replace(/[ \t]+/g, ' ').trim();
-    /* ══ کف، و چرا بریدن تا زیرِ کف ممنوع است ══
-     * گزارشِ صاحبِ برنامه: «یکی دو تیکه دیدم که خیلی کوتاه بود، و یکی‌اش
-     * اصلاً بی‌معنی بود». علتش همین‌جا بود: کف ۸۰ نویسه بود — یعنی یک
-     * جملهٔ تعارفی هم می‌گذشت — و وقتی متنِ درس نزدیکِ سقفِ «یک فایل»
-     * می‌نشست، سهم به چند ده نویسه فرو می‌ریخت و تیکه‌ها بریده می‌شدند.
-     * توضیحی که نصفه بریده شود، از نبودنش بدتر است: شنونده حرفی می‌شنود
-     * که به جایی نمی‌رسد. */
-    if (txt.length < min) continue;
-    if (total + txt.length > budget) {
-      txt = explainTrim_(txt, budget - total);
-      if (txt.length < min) break;      // جای سالم نمانده — بقیه را نمی‌بُریم
+  var r = null, tries = 0, more = '';
+  while (tries < 2) {
+    tries++;
+    try {
+      r = geminiText_(explainPrompt_(ep, seriesName, budget, want) + more,
+                      EXPLAIN_SCHEMA, 8192);
+    } catch (e) { out.why = 'مدل در دسترس نبود: ' + e.message; return out; }
+    if (!r || !(r.spots instanceof Array) || !r.spots.length) {
+      out.why = 'مدل جایی پیشنهاد نداد';
+      return out;
     }
-    if (!txt) continue;
-    used[key] = 1;
-    total += txt.length;
-    spots.push({ section: no, at: at, text: txt,
-                 why: String(sp.why || '').replace(/\s+/g, ' ').slice(0, 160) });
+    drop.got += r.spots.length;
+    explainPick_(r, secs, want, min, budget, spots, used, drop);
+    if (spots.length) break;
+    // فقط وقتی دوباره می‌پرسیم که *همه* کوتاه بوده باشند — توهمِ شماره یا
+    // تکرار با پرسیدنِ دوباره درست نمی‌شود.
+    if (drop.short !== r.spots.length || tries >= 2) break;
+    more = '\n\n── یک بار دیگر ──\n' +
+      'پاسخِ پیشینت رد شد: هر ' + r.spots.length + ' جا کوتاه‌تر از کفِ ' +
+      min + ' نویسه بود (بلندترینش ' + drop.longest + ' نویسه). این کف ' +
+      'واقعی است و کد اعمالش می‌کند، نه یک ترجیح. هر جا را با هر چهار ' +
+      'بخشِ خواسته‌شده کامل بنویس؛ اگر برای سه جا نمی‌رسد، **یک** جای ' +
+      'کامل بده — یک جای درست از سه جای بریده بهتر است.';
+    logLine_('عصری‌سازی: هر ' + r.spots.length + ' پیشنهاد کوتاه بود ' +
+             '(بلندترین ' + drop.longest + ' از ' + min + ') — یک بار دیگر پرسیده شد.');
   }
-  if (!spots.length) { out.why = 'هیچ پیشنهادی از سدها رد نشد'; return out; }
+  total = 0;
+  for (var t = 0; t < spots.length; t++) total += spots[t].text.length;
+  if (!spots.length) { out.why = explainDropWhy_(drop, min); return out; }
 
   // ترتیب: بخش، و در یک بخش «ابتدا» پیش از «انتها».
   spots.sort(function (a, b) {
