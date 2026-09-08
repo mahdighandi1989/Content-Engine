@@ -17,7 +17,7 @@ voicelab_selftest.py — منطقِ خالصِ آزمایشگاه، بی هیچ 
 """
 
 import io
-import re, json, os, sys, tempfile, shutil
+import re, json, os, sys, tempfile, shutil, glob
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import voicelab as V
@@ -67,6 +67,26 @@ def _stubOmni():
     for n, m in mods.items():
         sys.modules.setdefault(n, m)
     return ZW
+
+
+def _yamlStrict_(text):
+    """YAML با کلیدِ تکراری = خطا. `yaml.safe_load` این را نمی‌بیند."""
+    import yaml
+
+    class Strict(yaml.SafeLoader):
+        pass
+
+    def nodup(loader, node, deep=False):
+        seen = set()
+        for k, _ in node.value:
+            key = loader.construct_object(k, deep=deep)
+            if key in seen:
+                raise yaml.YAMLError("کلیدِ تکراری: %r" % (key,))
+            seen.add(key)
+        return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+    Strict.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, nodup)
+    return yaml.load(text, Strict)
 
 
 def main():
@@ -3001,6 +3021,24 @@ def main():
        "دو اجرای هم‌زمانِ آموزش ممکن نیست")
     eq("cancel-in-progress: false" in wft, True,
        "و اجرای تازه صف می‌کشد، نه اینکه اجرای در جریان را بکُشد")
+    # ══ و کلیدِ تکراری، که هیچ اعتبارسنجِ معمولی نمی‌بیندش ══
+    # ۸ سپتامبر یک `concurrency:` دوم به همین فایل اضافه شد در حالی که
+    # یکی از قبل بود. `yaml.safe_load` بی‌صدا آخری را برمی‌دارد و سبز
+    # می‌گذرد؛ گیت‌هاب کلِ فایل را نامعتبر می‌کند. نتیجه: هفت ساعت هیچ
+    # اجرایی راه نیفتاد و تنها نشانه‌اش یک اجرای ناموفقِ push بود که
+    # نامش مسیرِ فایل بود، نه `voice-train`.
+    #
+    # ابزاری که خطای تو را نبیند، ابزارِ سنجش نیست. این بارگذارِ سخت‌گیر
+    # همان چیزی است که آن روز نبود.
+    for wfp in sorted(glob.glob(os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), ".github", "workflows", "*.yml"))):
+        try:
+            _yamlStrict_(io.open(wfp, encoding="utf-8").read())
+            ok_ = True
+        except Exception as e:
+            ok_ = str(e)
+        eq(ok_, True, "بی کلیدِ تکراری: " + os.path.basename(wfp))
+
 
     print("\nهمه گذشت.")
     return 0
