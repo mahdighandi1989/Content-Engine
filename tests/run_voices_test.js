@@ -375,4 +375,86 @@ console.log('\n=== 8. نقش‌گزینی وسطِ صداگذاری عوض نم�
 }
 
 
+// ═════════ ۹. «این مدل دستورِ لحن را نمی‌پذیرد» باید شنیده شود ═════════
+/* هفت هفته این خطا هر شب می‌آمد و هیچ‌جا نمی‌ماند:
+ *
+ *     «Developer instruction is not enabled for this model»
+ *
+ * `ttsCueRejected_` دنبالِ systemInstruction / system_instruction /
+ * instructions می‌گشت و هیچ‌کدام در این جمله نیست. پس حکمِ مدل ذخیره
+ * نمی‌شد، هر بخش یک فراخوانِ دورانداختنی می‌داد، و کلِ کارِ ۵٫۵۹ (بردنِ
+ * دستور به systemInstruction) عملاً هرگز اجرا نمی‌شد — بی هیچ نشانه‌ای
+ * جز یک سطر در سیاههٔ چرخشیِ ۲۵ ردیفی.
+ *
+ * این آزمون با **همان جملهٔ واقعیِ سرور** نوشته شده، نه با بازنویسیِ آن. */
+console.log('\n=== ۹. ردِ قالبِ دستورِ لحن ===');
+{
+  const REAL = 'Gemini HTTP 400: { "error": { "code": 400, "message": ' +
+               '"Developer instruction is not enabled for this model", ' +
+               '"status": "INVALID_ARGUMENT" } }';
+  ok('۹.۱ جملهٔ واقعیِ گوگل «ردِ قالبِ دستور» شناخته می‌شود',
+     ttsCueRejected_(REAL) === true, REAL.slice(0, 60));
+  ok('۹.۲ الگوهای قدیمی هم هنوز شناخته می‌شوند',
+     ttsCueRejected_('Unknown name "systemInstruction"') === true &&
+     ttsCueRejected_('invalid system_instruction') === true);
+  /* و تنگ می‌مانَد: نامِ صدای نامعتبر هم ۴۰۰ می‌دهد و اگر آن را «ردِ قالب»
+     بخوانیم، یک اشتباهِ گذرا لحنِ همهٔ قسمت‌ها را برای همیشه خاموش می‌کند —
+     همان چیزی که بندِ ۶ جلویش را می‌گیرد. */
+  ok('۹.۳ خطای نامِ صدا ردِ قالب شمرده نمی‌شود',
+     ttsCueRejected_('Invalid value for voice: Gacrux') === false);
+  ok('۹.۴ خطای نامربوط هم نه',
+     ttsCueRejected_('Resource has been exhausted') === false);
+
+  // و وقتی رد شد: حکم ذخیره می‌شود، تاریخ می‌خورَد، و یافته ثبت می‌شود.
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  const cue0 = ttsCueStatus_();
+  ok('۹.۵ تا وقتی ردی نشده، خط می‌گوید روشن است',
+     cue0.on === true && cue0.ok === true, cue0.line);
+
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  let sawCue = [];
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+      { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: ['generateContent'] }] } };
+    const withCue = !!((body || {}).systemInstruction || (body || {}).instructions);
+    sawCue.push(withCue);
+    if (withCue) return { code: 400, text: JSON.stringify({ error: {
+      code: 400, message: 'Developer instruction is not enabled for this model',
+      status: 'INVALID_ARGUMENT' } }) };
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      inlineData: { data: Buffer.alloc(12000).toString('base64') } }] } }] } };
+  };
+  const un9 = quiet();
+  const b9 = ttsChunk_('متنِ آزمایشی برای گفتارسازی.', 'آرام و همدلانه', CFG.TTS_VOICE);
+  un9();
+  ok('۹.۶ تکه با سقوطِ امن ساخته شد (بی‌لحن، نه بی‌مرز)',
+     !!b9 && b9.length > 100, 'bytes(b64)=' + String(b9).length);
+  ok('۹.۷ حکمِ مدل ذخیره شد — دفعهٔ بعد فراخوانِ دورانداختنی نمی‌دهد',
+     String(global.__PROPS[PK.TTS_CUE_OFF] || '').length > 0,
+     String(global.__PROPS[PK.TTS_CUE_OFF]));
+  ok('۹.۸ و «از کی» ثبت شد — بی تاریخ نمی‌شود گفت چند وقت است خاموش است',
+     String(global.__PROPS[PK.TTS_CUE_OFF_AT] || '').length > 0,
+     String(global.__PROPS[PK.TTS_CUE_OFF_AT]));
+
+  const cue1 = ttsCueStatus_();
+  ok('۹.۹ و خطِ وضعیت هر روز می‌گوید خاموش است (نه فقط یک‌بار در یافته)',
+     cue1.on === false && cue1.ok === false &&
+     cue1.line.indexOf('خاموش') !== -1, cue1.line);
+
+  /* دفعهٔ دوم اصلاً نباید دستور بفرستد — همان «یک بار یاد بگیر، نه سیزده
+     بار»ی که ۵٫۸۴ نوشت و این باگ خنثایش کرده بود. */
+  sawCue = [];
+  const un9b = quiet();
+  ttsChunk_('متنِ دوم.', 'آرام و همدلانه', CFG.TTS_VOICE);
+  un9b();
+  ok('۹.۱۰ تکهٔ بعدی بی‌دستور رفت — بی فراخوانِ ردشده',
+     sawCue.length > 0 && sawCue.every(v => v === false), sawCue.join(','));
+
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  global.__STUB = null;
+}
+
 process.exit(summary('نقش‌گزینیِ گویندگان و تلفظ') ? 1 : 0);

@@ -818,9 +818,89 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
 /** آیا این خطا دربارهٔ خودِ فیلدِ دستور است، یا چیزِ دیگری در همان بسته؟ */
 function ttsCueRejected_(msg) {
   var m = String(msg || '');
-  return m.indexOf('systemInstruction') !== -1 ||
-         m.indexOf('system_instruction') !== -1 ||
-         m.indexOf('instructions') !== -1;
+  if (m.indexOf('systemInstruction') !== -1 ||
+      m.indexOf('system_instruction') !== -1 ||
+      m.indexOf('instructions') !== -1) return true;
+  /* ══ گوگل این را با واژه‌های خودش می‌گوید، و هیچ‌کدام از سه الگوی بالا
+     در آن نیست (۶٫۹۸) ══
+
+     پیامِ واقعیِ سرور، هر شب، در هر قسمت:
+
+         «Developer instruction is not enabled for this model»
+
+     نه `systemInstruction`، نه `system_instruction`، نه `instructions`.
+     پس `ttsCueRejected_` می‌گفت «این خطا دربارهٔ قالبِ دستور نبود»، حکمِ
+     مدل در PK.TTS_CUE_OFF ذخیره نمی‌شد، و همان مسیرِ «یک بار یاد بگیر، نه
+     سیزده بار» که ۵٫۸۴ ساخته بود دوباره سیزده‌باره شد: قسمتِ ۳۳ هفت
+     فراخوانِ دورانداختنی داد، سرِ هر بخش یکی.
+
+     و بدتر از هدررفتِ فراخوان، این است که کلِ کارِ ۵٫۵۹ — بردنِ دستور به
+     `systemInstruction` تا مدل مجبور به حدس نباشد — عملاً هرگز اجرا نشده:
+     این مدل آن قالب را نمی‌پذیرد، پس هر تکه بی‌لحن ساخته می‌شود. هفته‌ها.
+     تنها ردش یک سطر در سیاههٔ چرخشیِ ۲۵ ردیفی بود که نیم‌ساعته پاک می‌شود.
+
+     الگو عمداً تنگ است — «دستورِ توسعه‌دهنده/سامانه» و نه هر جمله‌ای که
+     واژهٔ instruction در آن باشد — چون نامِ صدای نامعتبر هم ۴۰۰ می‌دهد و
+     خاموش‌کردنِ لحن به‌خاطرِ آن، همان اشتباهی است که `run_voices_test.js` ۶
+     جلویش را می‌گیرد. */
+  return /(developer|system)[ _-]?instruction/i.test(m);
+}
+
+/**
+ * حکمِ «این مدل دستورِ لحن را نمی‌پذیرد» — یک یافته، نه فقط یک سطرِ سیاهه.
+ *
+ * قابلیتی که خودش را بی‌صدا خاموش کند، همان است که بانکِ موسیقی را هفته‌ها
+ * خالی نگه داشت. خاموشی درست است (سقوط به سمتِ امن)، ولی باید دیده شود —
+ * و سطرِ سیاهه دیده نمی‌شود. `ttsCueStatus_` هر روز در ایمیلِ سلامت می‌گوید
+ * که خاموش است، و این یافته یک‌بار می‌گوید که چه باید بررسی شود.
+ */
+function ttsCueOffFinding_(model, why) {
+  try {
+    logSelfFinding_(null, {
+      priority: 'جدی', category: 'کد', key: 'tts-cue-unsupported',
+      title: 'مدلِ گفتارساز دستورِ لحن را نمی‌پذیرد؛ لحن خاموش شد',
+      detail: 'مدل «' + model + '» به systemInstruction پاسخِ ۴۰۰ داد: ' +
+              String(why || '').replace(/\s+/g, ' ').slice(0, 180) +
+              ' — از این پس تکه‌ها بی‌لحن ساخته می‌شوند.',
+      instruction: 'خاموشیْ سقوطِ امن است (بی‌لحن، نه بی‌مرز) و نباید به ' +
+                   'چسباندنِ دستور به متن برگردد — آن باگِ خواندنِ دستور با ' +
+                   'صدای بلند است. دو راهِ بازمانده را بررسی کن: (۱) قالبِ ' +
+                   '`interactions` با فیلدِ `instructions` که در ' +
+                   '`ttsPayloads_` ساخته می‌شود ولی در مسیرِ شکست هرگز ' +
+                   'امتحان نمی‌شود، (۲) مدلِ گفتارسازِ دیگری که ' +
+                   'systemInstruction را بپذیرد. تا وقتی هیچ‌کدام جواب ' +
+                   'ندهد، این ردیف را SKIPPED کن تا هر روز تکرار نشود.',
+      owner: 'کد'
+    });
+  } catch (e) {}
+}
+
+/**
+ * وضعیتِ دستورِ لحن — روشن یا خاموش، و برای کدام مدل.
+ *
+ * یافته یک‌بار می‌آید و می‌تواند بسته شود؛ این خط هر روز می‌آید. تفاوتش
+ * همان تفاوتی است که ۵٫۴۸ دربارهٔ بدهیِ پرامپت آموخت: هشداری که یک بار
+ * بگوید و ساکت شود، همان است که ۵٫۴۶ را با پرامپتِ کهنه فرستاد.
+ */
+function ttsCueStatus_() {
+  var out = { on: true, model: '', since: '', ok: true, line: '' };
+  if (String(CFG.TTS_CUE_MODE || '') === 'off') {
+    out.on = false; out.ok = true;
+    out.line = 'دستورِ لحن: با تنظیمِ TTS_CUE_MODE خاموش است (خواسته).';
+    return out;
+  }
+  var off = '';
+  try { off = String(props_().getProperty(PK.TTS_CUE_OFF) || ''); } catch (e) {}
+  if (!off) {
+    out.line = 'دستورِ لحن: روشن — هر بخش با لحنِ خودش خوانده می‌شود.';
+    return out;
+  }
+  try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
+  out.on = false; out.ok = false; out.model = off;
+  out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + off + '» قالبش را نپذیرفت' +
+             (out.since ? ' (از ' + out.since + ')' : '') +
+             '؛ تکه‌ها بی‌لحن ساخته می‌شوند. یافتهٔ tts-cue-unsupported.';
+  return out;
 }
 
 function ttsChunkTry_(text, sectionStyle, voice, withCue) {
@@ -874,8 +954,10 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
               try {
                 if (props_().getProperty(PK.TTS_CUE_OFF) !== model) {
                   props_().setProperty(PK.TTS_CUE_OFF, model);
+                  try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
                   logLine_('قالبِ دستورِ لحن را مدل «' + model + '» نپذیرفت؛ ' +
                            'از این پس تکه‌ها بی‌دستور ساخته می‌شوند.');
+                  ttsCueOffFinding_(model, m);
                 }
               } catch (eP) {}
             } else {

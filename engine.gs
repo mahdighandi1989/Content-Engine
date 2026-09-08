@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 6.97
+ *  موتور محتوا و پادکست — نسخهٔ 6.98
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1160,7 +1160,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '6.97',
+  CODE_VERSION: '6.98',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1500,6 +1500,7 @@ var PK = {
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
   MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
+  TTS_CUE_OFF_AT: 'TTS_CUE_REJECTED_AT',  // از چه تاریخی خاموش است — «از کی» را فقط تاریخ می‌گوید
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
   // نامِ عکس با شمارهٔ قسمت ساخته می‌شود و شمارهٔ قسمتِ دو برنامه می‌تواند
   // یکی باشد.
@@ -3304,9 +3305,89 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
 /** آیا این خطا دربارهٔ خودِ فیلدِ دستور است، یا چیزِ دیگری در همان بسته؟ */
 function ttsCueRejected_(msg) {
   var m = String(msg || '');
-  return m.indexOf('systemInstruction') !== -1 ||
-         m.indexOf('system_instruction') !== -1 ||
-         m.indexOf('instructions') !== -1;
+  if (m.indexOf('systemInstruction') !== -1 ||
+      m.indexOf('system_instruction') !== -1 ||
+      m.indexOf('instructions') !== -1) return true;
+  /* ══ گوگل این را با واژه‌های خودش می‌گوید، و هیچ‌کدام از سه الگوی بالا
+     در آن نیست (۶٫۹۸) ══
+
+     پیامِ واقعیِ سرور، هر شب، در هر قسمت:
+
+         «Developer instruction is not enabled for this model»
+
+     نه `systemInstruction`، نه `system_instruction`، نه `instructions`.
+     پس `ttsCueRejected_` می‌گفت «این خطا دربارهٔ قالبِ دستور نبود»، حکمِ
+     مدل در PK.TTS_CUE_OFF ذخیره نمی‌شد، و همان مسیرِ «یک بار یاد بگیر، نه
+     سیزده بار» که ۵٫۸۴ ساخته بود دوباره سیزده‌باره شد: قسمتِ ۳۳ هفت
+     فراخوانِ دورانداختنی داد، سرِ هر بخش یکی.
+
+     و بدتر از هدررفتِ فراخوان، این است که کلِ کارِ ۵٫۵۹ — بردنِ دستور به
+     `systemInstruction` تا مدل مجبور به حدس نباشد — عملاً هرگز اجرا نشده:
+     این مدل آن قالب را نمی‌پذیرد، پس هر تکه بی‌لحن ساخته می‌شود. هفته‌ها.
+     تنها ردش یک سطر در سیاههٔ چرخشیِ ۲۵ ردیفی بود که نیم‌ساعته پاک می‌شود.
+
+     الگو عمداً تنگ است — «دستورِ توسعه‌دهنده/سامانه» و نه هر جمله‌ای که
+     واژهٔ instruction در آن باشد — چون نامِ صدای نامعتبر هم ۴۰۰ می‌دهد و
+     خاموش‌کردنِ لحن به‌خاطرِ آن، همان اشتباهی است که `run_voices_test.js` ۶
+     جلویش را می‌گیرد. */
+  return /(developer|system)[ _-]?instruction/i.test(m);
+}
+
+/**
+ * حکمِ «این مدل دستورِ لحن را نمی‌پذیرد» — یک یافته، نه فقط یک سطرِ سیاهه.
+ *
+ * قابلیتی که خودش را بی‌صدا خاموش کند، همان است که بانکِ موسیقی را هفته‌ها
+ * خالی نگه داشت. خاموشی درست است (سقوط به سمتِ امن)، ولی باید دیده شود —
+ * و سطرِ سیاهه دیده نمی‌شود. `ttsCueStatus_` هر روز در ایمیلِ سلامت می‌گوید
+ * که خاموش است، و این یافته یک‌بار می‌گوید که چه باید بررسی شود.
+ */
+function ttsCueOffFinding_(model, why) {
+  try {
+    logSelfFinding_(null, {
+      priority: 'جدی', category: 'کد', key: 'tts-cue-unsupported',
+      title: 'مدلِ گفتارساز دستورِ لحن را نمی‌پذیرد؛ لحن خاموش شد',
+      detail: 'مدل «' + model + '» به systemInstruction پاسخِ ۴۰۰ داد: ' +
+              String(why || '').replace(/\s+/g, ' ').slice(0, 180) +
+              ' — از این پس تکه‌ها بی‌لحن ساخته می‌شوند.',
+      instruction: 'خاموشیْ سقوطِ امن است (بی‌لحن، نه بی‌مرز) و نباید به ' +
+                   'چسباندنِ دستور به متن برگردد — آن باگِ خواندنِ دستور با ' +
+                   'صدای بلند است. دو راهِ بازمانده را بررسی کن: (۱) قالبِ ' +
+                   '`interactions` با فیلدِ `instructions` که در ' +
+                   '`ttsPayloads_` ساخته می‌شود ولی در مسیرِ شکست هرگز ' +
+                   'امتحان نمی‌شود، (۲) مدلِ گفتارسازِ دیگری که ' +
+                   'systemInstruction را بپذیرد. تا وقتی هیچ‌کدام جواب ' +
+                   'ندهد، این ردیف را SKIPPED کن تا هر روز تکرار نشود.',
+      owner: 'کد'
+    });
+  } catch (e) {}
+}
+
+/**
+ * وضعیتِ دستورِ لحن — روشن یا خاموش، و برای کدام مدل.
+ *
+ * یافته یک‌بار می‌آید و می‌تواند بسته شود؛ این خط هر روز می‌آید. تفاوتش
+ * همان تفاوتی است که ۵٫۴۸ دربارهٔ بدهیِ پرامپت آموخت: هشداری که یک بار
+ * بگوید و ساکت شود، همان است که ۵٫۴۶ را با پرامپتِ کهنه فرستاد.
+ */
+function ttsCueStatus_() {
+  var out = { on: true, model: '', since: '', ok: true, line: '' };
+  if (String(CFG.TTS_CUE_MODE || '') === 'off') {
+    out.on = false; out.ok = true;
+    out.line = 'دستورِ لحن: با تنظیمِ TTS_CUE_MODE خاموش است (خواسته).';
+    return out;
+  }
+  var off = '';
+  try { off = String(props_().getProperty(PK.TTS_CUE_OFF) || ''); } catch (e) {}
+  if (!off) {
+    out.line = 'دستورِ لحن: روشن — هر بخش با لحنِ خودش خوانده می‌شود.';
+    return out;
+  }
+  try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
+  out.on = false; out.ok = false; out.model = off;
+  out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + off + '» قالبش را نپذیرفت' +
+             (out.since ? ' (از ' + out.since + ')' : '') +
+             '؛ تکه‌ها بی‌لحن ساخته می‌شوند. یافتهٔ tts-cue-unsupported.';
+  return out;
 }
 
 function ttsChunkTry_(text, sectionStyle, voice, withCue) {
@@ -3360,8 +3441,10 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
               try {
                 if (props_().getProperty(PK.TTS_CUE_OFF) !== model) {
                   props_().setProperty(PK.TTS_CUE_OFF, model);
+                  try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
                   logLine_('قالبِ دستورِ لحن را مدل «' + model + '» نپذیرفت؛ ' +
                            'از این پس تکه‌ها بی‌دستور ساخته می‌شوند.');
+                  ttsCueOffFinding_(model, m);
                 }
               } catch (eP) {}
             } else {
@@ -10257,6 +10340,7 @@ function writeStatus_(hub, note) {
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
     nightStarve: (function () { try { return nightStarveStatus_(); } catch (e) { return null; } })(),
+    ttsCue: (function () { try { return ttsCueStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -11120,9 +11204,18 @@ function healthCheck() {
      با بودجهٔ ۲۷۰ ثانیه‌ای هرگز نوبتش نمی‌رسید. گرسنگی باید همان‌جا اعلام
      شود که بقیهٔ سلامت اعلام می‌شود، وگرنه هفته‌ها بی‌صدا می‌مانَد. */
   if (healthHas_(4000, 'نوبتِ کارهای شبانه', skipped)) try {
-    var nsS = nightStarveStatus_();
+    /* `raise` فقط از اینجا true است — نه از `writeStatus_` که هر دو ساعت
+       می‌دود. یافته‌ای که شش بار در روز ثبت شود، شمارندهٔ «تکرار»ش معنایش
+       را از دست می‌دهد؛ همان قاعده‌ای که `monChecksStatus_` دارد. */
+    var nsS = nightStarveStatus_(hub, true);
     if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
   } catch (eNs) {}
+  /* و دستورِ لحن: قابلیتی که خودش را خاموش کرده باشد باید هر روز بگوید
+     خاموش است. یافته‌اش یک‌بار می‌آید و بسته می‌شود؛ این خط نمی‌بندد. */
+  try {
+    var tcS = ttsCueStatus_();
+    if (tcS && tcS.line) { if (tcS.ok) notes.push(tcS.line); else problems.push(tcS.line); }
+  } catch (eTc) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
@@ -24911,7 +25004,7 @@ function selfUpdateContinue() {
  * را باید کسی در یک تبِ دیگر می‌دید. گرسنگی باید همان‌جا اعلام شود که
  * بقیهٔ سلامت اعلام می‌شود.
  */
-function nightStarveStatus_() {
+function nightStarveStatus_(hub, raise) {
   var m = nightStarve_(), rows = [];
   for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
     rows.push({ what: k, nights: Number(m[k].n) || 0 });
@@ -24920,6 +25013,7 @@ function nightStarveStatus_() {
   var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
   var bad = rows.filter(function (r) { return r.nights >= need; });
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  if (raise === true && bad.length) nightStarveFinding_(hub, bad, need);
   /* از ۶٫۹۷ اینجا فقط چیزی می‌آید که **حتی با ادامه‌های همان شب هم** به آن
      نرسیدیم. پیش از این «امشب نوبت نگرفت» شمرده می‌شد، که هر شب برای نیمی
      از فهرست راست بود — و خطی که هر شب چیزی می‌گوید، چیزی نمی‌گوید. */
@@ -24933,6 +25027,60 @@ function nightStarveStatus_() {
          }).join(' · '))
       : 'کارِ شبانه: هر شب فهرست تا آخر می‌رود.'
   };
+}
+
+/* ══ زنگی که داخلِ همان کاری باشد که پایش نمی‌رسد، هرگز به صدا درنمی‌آید ══
+   (۶٫۹۸)
+
+   امروز در `_STATUS.json` این دو جمله کنارِ هم بودند:
+
+       bridgeAudit: «هیچ ارجاعی تا امروز داوری نشده» · idleNights: ۰
+       handoutViz : «هیچ دوری تا امروز اجرا نشده»    · at: ''
+
+   «هیچ‌وقت اجرا نشده» و «شمارندهٔ شب‌های بد صفر است» با هم متناقض به نظر
+   می‌رسند، ولی نیستند: `bridge-audit-idle` **درونِ** `bridgeAuditRun_` صدا
+   زده می‌شود و `handout-viz-stuck` درونِ همان بلوکی که پر نمی‌شود. هر دو
+   پشتِ `nightHas_` نشسته‌اند. یعنی زنگی که می‌گوید «این کار اجرا نمی‌شود»
+   فقط وقتی می‌تواند زنگ بزند که آن کار اجرا شود. هر دو ساختارا
+   دست‌نیافتنی بودند — نه خراب، بلکه بی‌معنا.
+
+   و گرسنگی خودش هیچ یافته‌ای نمی‌ساخت: `nightStarveStatus_` فقط یک جمله
+   در ایمیلِ سلامت می‌گذاشت. قاعدهٔ خودِ این ریپو دربارهٔ جزوه همین را گفته
+   بود و اینجا به کار بسته نشده بود: «یک جمله در ایمیلِ سلامت فردا جایگزین
+   می‌شود، یافته نمی‌شود». چهار شب پیاپی، چهار جمله، و هیچ ردیفی در صفِ
+   `NEEDS_CODE` — یعنی هیچ نسخه‌ای از این خبر ساخته نشد.
+
+   `nightEnd_` تنها ناظری است که **بیرونِ** همهٔ بلوک‌ها می‌ایستد و می‌داند
+   کدام‌شان نوبت نگرفت. پس زنگ اینجاست، نه داخلِ هیچ‌کدام.
+
+   یک یافته برای همهٔ کارهای گرسنه، نه یکی برای هرکدام: علت همیشه یکی است
+   (کارِ شب در بودجه جا نمی‌شود) و نُه ردیف برای یک علت، همان هیاهویی است
+   که آدم یاد می‌گیرد نخوانَد. */
+function nightStarveFinding_(hub, bad, need) {
+  try {
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    var list = bad.map(function (r) {
+      return r.what + ' (' + fa(r.nights) + ' شب)';
+    }).join(' · ');
+    var max = Math.max(1, Number(CFG.NIGHT_MAX_RUNS) || 8);
+    logSelfFinding_(hub, {
+      priority: 'جدی', category: 'کد', key: 'night-starve',
+      title: 'کارهای شبانه‌ای که حتی با ادامه‌ها هم نوبت نمی‌گیرند',
+      detail: fa(bad.length) + ' کار دستِ‌کم ' + fa(need) + ' شبِ پیاپی، با ' +
+              fa(max) + ' اجرای همان شب هم، اجرا نشد: ' + list,
+      instruction: 'این یافته جای آن زنگ‌هایی است که نمی‌توانند به صدا ' +
+                   'درآیند: `bridge-audit-idle` و `handout-viz-stuck` هر ' +
+                   'دو درونِ بلوکی هستند که اجرا نمی‌شود. پس هر قابلیتی که ' +
+                   'در فهرستِ بالاست را مرده فرض کن، نه کُند. یا بودجهٔ ' +
+                   'کارِ شب (NIGHT_BUDGET_MS / NIGHT_MAX_RUNS) کم است، یا ' +
+                   'یکی از بلوک‌های جلوتر بیش از سهمش می‌خورَد، یا این کار ' +
+                   'باید زمان‌بندیِ خودش را داشته باشد. ترتیبِ بلوک‌ها در ' +
+                   '`selfUpdateDaily` (بخشِ ۲۱) و نگهبانِ `nightHas_` را ببین.',
+      owner: 'کد'
+    });
+  } catch (e) {
+    try { logLine_('ثبتِ یافتهٔ گرسنگیِ کارِ شبانه ناموفق: ' + e.message); } catch (e2) {}
+  }
 }
 
 /**

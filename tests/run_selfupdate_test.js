@@ -588,4 +588,73 @@ console.log('\n=== ۱۰. نصب از گیت‌هاب (raw) ===');
   global.logSelfFinding_ = realFind; global.readCodeManifest_ = realMan;
 }
 
+/* ══ ۱۳. گرسنگیِ کارِ شبانه باید **یافته** بسازد، نه فقط یک جمله ══
+ *
+ * در `_STATUS.json` ۸ سپتامبر این دو با هم بودند:
+ *
+ *     bridgeAudit: «هیچ ارجاعی تا امروز داوری نشده» · idleNights: ۰
+ *     nightStarve: داوریِ ارجاع‌ها (۴ شب) · نمودارهای جزوه (۴ شب) · …
+ *
+ * `bridge-audit-idle` **درونِ** `bridgeAuditRun_` صدا زده می‌شود، و آن
+ * بلوک پشتِ `nightHas_` است. یعنی زنگی که می‌گوید «این کار اجرا نمی‌شود»
+ * فقط وقتی می‌تواند زنگ بزند که آن کار اجرا شود — و چون اجرا نمی‌شد،
+ * شمارنده‌اش صفر ماند و هیچ ردیفی به صفِ «نیازمند تعویض کد» نرفت. چهار
+ * شب، چهار جمله در ایمیل، و هیچ نسخه‌ای.
+ *
+ * پس زنگ باید جایی باشد که بیرونِ همهٔ بلوک‌ها بایستد.
+ */
+console.log('\n=== ۱۳. گرسنگیِ کارِ شبانه یافته می‌سازد ===');
+{
+  const realFind13 = global.logSelfFinding_;
+  const sheet13 = [];
+  global.logSelfFinding_ = (h, f) => { sheet13.push(f); return true; };
+  const need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
+
+  // صحنه: دو کار، یکی زیرِ آستانه و یکی روی آن.
+  global.__PROPS[PK.NIGHT_STARVE] = JSON.stringify({
+    'داوریِ ارجاع‌ها': { n: need + 1, at: '2026-09-08 02:40' },
+    'نمودارهای جزوه': { n: need, at: '2026-09-08 02:40' },
+    'گشتن و آوردنِ موسیقی': { n: 1, at: '2026-09-08 02:40' }
+  });
+
+  const un13 = quiet();
+  const quietCall = nightStarveStatus_();          // مسیرِ هر-دو-ساعتِ writeStatus_
+  un13();
+  ok('۱۳.۱ بی `raise` هیچ یافته‌ای ثبت نمی‌شود (هر دو ساعت یک ردیف، فاجعه است)',
+     sheet13.length === 0, 'n=' + sheet13.length);
+  ok('۱۳.۲ ولی خطِ وضعیت همان‌جا هم می‌آید',
+     quietCall.ok === false && quietCall.line.indexOf('داوریِ ارجاع‌ها') !== -1,
+     quietCall.line);
+
+  const un13b = quiet();
+  nightStarveStatus_(hub, true);                   // مسیرِ روزانهٔ healthCheck
+  un13b();
+  ok('۱۳.۳ با `raise` یک یافته ثبت می‌شود', sheet13.length === 1,
+     'n=' + sheet13.length);
+  const f13 = sheet13[0] || {};
+  ok('۱۳.۴ یکی برای همه، نه یکی برای هر کار — علت یکی است',
+     f13.key === 'night-starve', String(f13.key));
+  ok('۱۳.۵ و اسمِ کارهای گرسنه در متنش هست، وگرنه بی‌مصرف است',
+     /داوریِ ارجاع‌ها/.test(f13.detail) && /نمودارهای جزوه/.test(f13.detail),
+     String(f13.detail));
+  ok('۱۳.۶ کارِ زیرِ آستانه در آن نیست — هشداری که برای هیچ بیاید، خوانده نمی‌شود',
+     !/موسیقی/.test(f13.detail), String(f13.detail));
+  ok('۱۳.۷ صاحبش «کد» است، پس به صفِ نیازمند تعویض کد می‌رود',
+     reportRow_({}, f13, 0, 'fp13')[RC.STATUS - 1] === RST.NEEDS_CODE);
+  ok('۱۳.۸ دستورش می‌گوید این کارها را مرده فرض کن، نه کُند',
+     /مرده/.test(f13.instruction), String(f13.instruction).slice(0, 80));
+
+  // و وقتی هیچ‌کس گرسنه نیست، هیچ یافته‌ای هم نیست.
+  sheet13.length = 0;
+  global.__PROPS[PK.NIGHT_STARVE] = JSON.stringify({});
+  const un13c = quiet();
+  const okNow = nightStarveStatus_(hub, true);
+  un13c();
+  ok('۱۳.۹ شبی که فهرست تا آخر رفت، یافته‌ای نمی‌سازد',
+     sheet13.length === 0 && okNow.ok === true, okNow.line);
+
+  delete global.__PROPS[PK.NIGHT_STARVE];
+  global.logSelfFinding_ = realFind13;
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

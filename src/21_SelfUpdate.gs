@@ -760,7 +760,7 @@ function selfUpdateContinue() {
  * را باید کسی در یک تبِ دیگر می‌دید. گرسنگی باید همان‌جا اعلام شود که
  * بقیهٔ سلامت اعلام می‌شود.
  */
-function nightStarveStatus_() {
+function nightStarveStatus_(hub, raise) {
   var m = nightStarve_(), rows = [];
   for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
     rows.push({ what: k, nights: Number(m[k].n) || 0 });
@@ -769,6 +769,7 @@ function nightStarveStatus_() {
   var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
   var bad = rows.filter(function (r) { return r.nights >= need; });
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  if (raise === true && bad.length) nightStarveFinding_(hub, bad, need);
   /* از ۶٫۹۷ اینجا فقط چیزی می‌آید که **حتی با ادامه‌های همان شب هم** به آن
      نرسیدیم. پیش از این «امشب نوبت نگرفت» شمرده می‌شد، که هر شب برای نیمی
      از فهرست راست بود — و خطی که هر شب چیزی می‌گوید، چیزی نمی‌گوید. */
@@ -782,6 +783,60 @@ function nightStarveStatus_() {
          }).join(' · '))
       : 'کارِ شبانه: هر شب فهرست تا آخر می‌رود.'
   };
+}
+
+/* ══ زنگی که داخلِ همان کاری باشد که پایش نمی‌رسد، هرگز به صدا درنمی‌آید ══
+   (۶٫۹۸)
+
+   امروز در `_STATUS.json` این دو جمله کنارِ هم بودند:
+
+       bridgeAudit: «هیچ ارجاعی تا امروز داوری نشده» · idleNights: ۰
+       handoutViz : «هیچ دوری تا امروز اجرا نشده»    · at: ''
+
+   «هیچ‌وقت اجرا نشده» و «شمارندهٔ شب‌های بد صفر است» با هم متناقض به نظر
+   می‌رسند، ولی نیستند: `bridge-audit-idle` **درونِ** `bridgeAuditRun_` صدا
+   زده می‌شود و `handout-viz-stuck` درونِ همان بلوکی که پر نمی‌شود. هر دو
+   پشتِ `nightHas_` نشسته‌اند. یعنی زنگی که می‌گوید «این کار اجرا نمی‌شود»
+   فقط وقتی می‌تواند زنگ بزند که آن کار اجرا شود. هر دو ساختارا
+   دست‌نیافتنی بودند — نه خراب، بلکه بی‌معنا.
+
+   و گرسنگی خودش هیچ یافته‌ای نمی‌ساخت: `nightStarveStatus_` فقط یک جمله
+   در ایمیلِ سلامت می‌گذاشت. قاعدهٔ خودِ این ریپو دربارهٔ جزوه همین را گفته
+   بود و اینجا به کار بسته نشده بود: «یک جمله در ایمیلِ سلامت فردا جایگزین
+   می‌شود، یافته نمی‌شود». چهار شب پیاپی، چهار جمله، و هیچ ردیفی در صفِ
+   `NEEDS_CODE` — یعنی هیچ نسخه‌ای از این خبر ساخته نشد.
+
+   `nightEnd_` تنها ناظری است که **بیرونِ** همهٔ بلوک‌ها می‌ایستد و می‌داند
+   کدام‌شان نوبت نگرفت. پس زنگ اینجاست، نه داخلِ هیچ‌کدام.
+
+   یک یافته برای همهٔ کارهای گرسنه، نه یکی برای هرکدام: علت همیشه یکی است
+   (کارِ شب در بودجه جا نمی‌شود) و نُه ردیف برای یک علت، همان هیاهویی است
+   که آدم یاد می‌گیرد نخوانَد. */
+function nightStarveFinding_(hub, bad, need) {
+  try {
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    var list = bad.map(function (r) {
+      return r.what + ' (' + fa(r.nights) + ' شب)';
+    }).join(' · ');
+    var max = Math.max(1, Number(CFG.NIGHT_MAX_RUNS) || 8);
+    logSelfFinding_(hub, {
+      priority: 'جدی', category: 'کد', key: 'night-starve',
+      title: 'کارهای شبانه‌ای که حتی با ادامه‌ها هم نوبت نمی‌گیرند',
+      detail: fa(bad.length) + ' کار دستِ‌کم ' + fa(need) + ' شبِ پیاپی، با ' +
+              fa(max) + ' اجرای همان شب هم، اجرا نشد: ' + list,
+      instruction: 'این یافته جای آن زنگ‌هایی است که نمی‌توانند به صدا ' +
+                   'درآیند: `bridge-audit-idle` و `handout-viz-stuck` هر ' +
+                   'دو درونِ بلوکی هستند که اجرا نمی‌شود. پس هر قابلیتی که ' +
+                   'در فهرستِ بالاست را مرده فرض کن، نه کُند. یا بودجهٔ ' +
+                   'کارِ شب (NIGHT_BUDGET_MS / NIGHT_MAX_RUNS) کم است، یا ' +
+                   'یکی از بلوک‌های جلوتر بیش از سهمش می‌خورَد، یا این کار ' +
+                   'باید زمان‌بندیِ خودش را داشته باشد. ترتیبِ بلوک‌ها در ' +
+                   '`selfUpdateDaily` (بخشِ ۲۱) و نگهبانِ `nightHas_` را ببین.',
+      owner: 'کد'
+    });
+  } catch (e) {
+    try { logLine_('ثبتِ یافتهٔ گرسنگیِ کارِ شبانه ناموفق: ' + e.message); } catch (e2) {}
+  }
 }
 
 /**

@@ -481,6 +481,7 @@ function writeStatus_(hub, note) {
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
     nightStarve: (function () { try { return nightStarveStatus_(); } catch (e) { return null; } })(),
+    ttsCue: (function () { try { return ttsCueStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -1344,9 +1345,18 @@ function healthCheck() {
      با بودجهٔ ۲۷۰ ثانیه‌ای هرگز نوبتش نمی‌رسید. گرسنگی باید همان‌جا اعلام
      شود که بقیهٔ سلامت اعلام می‌شود، وگرنه هفته‌ها بی‌صدا می‌مانَد. */
   if (healthHas_(4000, 'نوبتِ کارهای شبانه', skipped)) try {
-    var nsS = nightStarveStatus_();
+    /* `raise` فقط از اینجا true است — نه از `writeStatus_` که هر دو ساعت
+       می‌دود. یافته‌ای که شش بار در روز ثبت شود، شمارندهٔ «تکرار»ش معنایش
+       را از دست می‌دهد؛ همان قاعده‌ای که `monChecksStatus_` دارد. */
+    var nsS = nightStarveStatus_(hub, true);
     if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
   } catch (eNs) {}
+  /* و دستورِ لحن: قابلیتی که خودش را خاموش کرده باشد باید هر روز بگوید
+     خاموش است. یافته‌اش یک‌بار می‌آید و بسته می‌شود؛ این خط نمی‌بندد. */
+  try {
+    var tcS = ttsCueStatus_();
+    if (tcS && tcS.line) { if (tcS.ok) notes.push(tcS.line); else problems.push(tcS.line); }
+  } catch (eTc) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید
