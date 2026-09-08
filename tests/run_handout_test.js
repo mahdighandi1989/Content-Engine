@@ -1828,4 +1828,68 @@ console.log('\n=== ۸) نقشهٔ راه نباید کتابِ زیرِ خودش
      handoutRoadmapSig_(book) !== sigA);
 }
 
+console.log('\n=== نمودار: درسِ امروز اولْ نوبت دارد (۷٫۰۰) ===');
+{
+  /* ══ آنچه صاحبِ برنامه ده روز دید ══
+   * «۲ از ۸ فصل نمودار دارد» — و درس‌های تازه هیچ‌کدام. کامنتِ محلِ
+   * فراخوانی می‌گفت «فصلی که این درس ساخت … از نو نمودار می‌گیرد»، ولی
+   * حلقه از مکان‌نمای چرخشی شروع می‌کرد و سقفش دو فراخوان بود: با هشت
+   * فصل، بختِ دیده‌شدنِ فصلِ همین درس یک به چهار بود و کامل‌شدنش سه
+   * فراخوان می‌خواست. وعده در کامنت بود، نه در کد. */
+  const mkB = (n) => {
+    const b = { seriesKey: 'S', seriesName: 'س', chapters: [] };
+    for (let i = 0; i < n; i++) {
+      b.chapters.push({ id: 'c' + i, title: 'فصل ' + (i + 1),
+                        sections: [{ id: 'x1' }, { id: 'x2' }] });
+    }
+    return b;
+  };
+  const realM = global.hvizModelOne_;
+  global.hvizModelOne_ = () => ({ kind: 'جریان', title: 'ت', nodes: [] });
+
+  // هشت فصل، مکان‌نما روی صفر، و درسِ امروز فصلِ آخر را ساخته.
+  const b1 = mkB(8);
+  handoutVizFill_(b1, Number(CFG.HANDOUT_VIZ_PER_RUN), ['c7']);
+  ok('۹.۱ فصلِ همین درس نمودار گرفت، با اینکه مکان‌نما جای دیگری بود',
+     !!(b1.chapters[7].viz && b1.chapters[7].viz.intro),
+     b1.chapters.map((c, i) => i + (c.viz ? '✓' : '✗')).join(' '));
+  ok('۹.۲ و کامل شد — سه فراخوان یعنی intro و recap و میان‌بخشی',
+     !!(b1.chapters[7].viz.intro && b1.chapters[7].viz.recap &&
+        b1.chapters[7].viz.secDone), JSON.stringify(Object.keys(b1.chapters[7].viz)));
+
+  /* و اولویت نباید جبرانِ گذشته را بخورد: مکان‌نما نباید به‌خاطرِ فصلِ
+     اولویت‌دار بپرد، وگرنه فصل‌های عقب‌مانده باز هم نوبت نمی‌گیرند. */
+  ok('۹.۳ مکان‌نما به‌خاطرِ فصلِ اولویت‌دار جلو نمی‌رود',
+     b1.vizCur === undefined || b1.vizCur === 0, String(b1.vizCur));
+
+  // بی اولویت، همان چرخشِ قبلی سرِ جایش است.
+  const b2 = mkB(8);
+  handoutVizFill_(b2, 3);
+  ok('۹.۴ بی فهرستِ اولویت، از مکان‌نما شروع می‌کند (رفتارِ قبلی دست نخورد)',
+     !!(b2.chapters[0].viz && !b2.chapters[7].viz),
+     b2.chapters.map((c, i) => i + (c.viz ? '✓' : '✗')).join(' '));
+
+  // شناسهٔ ناشناخته نباید چیزی را بشکند یا فصلی را از قلم بیندازد.
+  const b3 = mkB(3);
+  handoutVizFill_(b3, 3, ['نیست']);
+  ok('۹.۵ شناسهٔ ناشناخته بی‌اثر است، نه ویرانگر',
+     !!b3.chapters[0].viz, b3.chapters.map(c => (c.viz ? '✓' : '✗')).join(''));
+
+  /* ══ و سرچشمه: `handoutApply_` باید بگوید کدام فصل‌ها را دست زد ══
+     بی این فهرست، اولویت‌دهی داده‌ای ندارد که رویش کار کند. */
+  const bk = { chapters: [{ id: 'ch1', title: 'کهنه', addedIn: '1',
+                            sections: [{ id: 'sec1', title: 'ب', body: 'م', adds: [] }] }],
+               roadmap: {}, episodes: [] };
+  const stA = handoutApply_(bk, {
+    newChapters: [{ title: 'تازه', sections: [{ title: 'ت', body: 'متن' }] }],
+    amend: [{ sectionId: 'sec1', body: 'تکمیل', why: 'چون' }]
+  }, { epNum: '9' }, []);
+  ok('۹.۶ فصلِ تازه در فهرستِ دست‌خورده‌هاست',
+     (stA.touched || []).length === 2, JSON.stringify(stA.touched));
+  ok('۹.۷ و فصلی که فقط تکمیل شد هم — تکمیل هم متن را عوض می‌کند',
+     (stA.touched || []).indexOf('ch1') !== -1, JSON.stringify(stA.touched));
+
+  global.hvizModelOne_ = realM;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

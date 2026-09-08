@@ -428,9 +428,16 @@ function handoutFindSection_(book, id) {
  * @return {{chapters:number, sections:number, amended:number, orphan:number}}
  */
 function handoutApply_(book, patch, meta, refNos) {
-  var st = { chapters: 0, sections: 0, amended: 0, orphan: 0 };
+  var st = { chapters: 0, sections: 0, amended: 0, orphan: 0, touched: [] };
   if (!patch) return st;
   var ep = String(meta.epNum || '');
+  /* کدام فصل‌ها را **همین درس** ساخت یا تکمیل کرد. بی این فهرست،
+     `handoutVizFill_` نمی‌داند تازه‌ترین کار کدام است و به ترتیبِ
+     مکان‌نما می‌چرخد — توضیحش در خودِ آن تابع (۷٫۰۰). */
+  var touch = function (id) {
+    id = String(id || '');
+    if (id && st.touched.indexOf(id) === -1) st.touched.push(id);
+  };
 
   var mkSec = function (x) {
     return { id: handoutNextId_(book, 's'), title: handoutTitleClean_(x.title) || 'بی‌عنوان',
@@ -446,9 +453,11 @@ function handoutApply_(book, patch, meta, refNos) {
       secs.push(mkSec(nc.sections[s]));
     }
     if (!secs.length) continue;
-    book.chapters.push({ id: handoutNextId_(book, 'ch'),
-                         title: handoutTitleClean_(nc.title) || 'فصل',
-                         intro: String(nc.intro || ''), addedIn: ep, sections: secs });
+    var chNew = { id: handoutNextId_(book, 'ch'),
+                  title: handoutTitleClean_(nc.title) || 'فصل',
+                  intro: String(nc.intro || ''), addedIn: ep, sections: secs };
+    book.chapters.push(chNew);
+    touch(chNew.id);
     st.chapters++; st.sections += secs.length;
   }
 
@@ -461,12 +470,15 @@ function handoutApply_(book, patch, meta, refNos) {
     if (ch) {
       sec.backTo = ch.id;
       ch.sections.push(sec);
+      touch(ch.id);
     } else {
       // شناسهٔ ناشناخته: فصلِ خودش را می‌گیرد، نه اینکه دور ریخته شود
       st.orphan++;
-      book.chapters.push({ id: handoutNextId_(book, 'ch'),
-                           title: handoutTitleClean_(ic.title) || ('افزودهٔ درسِ ' + ep),
-                           intro: '', addedIn: ep, sections: [sec] });
+      var chOrp = { id: handoutNextId_(book, 'ch'),
+                    title: handoutTitleClean_(ic.title) || ('افزودهٔ درسِ ' + ep),
+                    intro: '', addedIn: ep, sections: [sec] };
+      book.chapters.push(chOrp);
+      touch(chOrp.id);
       st.chapters++;
     }
     st.sections++;
@@ -481,12 +493,14 @@ function handoutApply_(book, patch, meta, refNos) {
       if (!book.chapters.length) continue;
       var last = book.chapters[book.chapters.length - 1];
       last.sections.push(mkSec({ title: String(am.why || 'تکمیل'), body: am.body }));
+      touch(last.id);
       st.sections++;
       continue;
     }
     hit.sec.adds = hit.sec.adds || [];
     hit.sec.adds.push({ body: String(am.body), why: String(am.why || ''),
                         fromEpisode: ep, refs: (refNos || []).slice(0) });
+    touch(hit.ch.id);
     st.amended++;
   }
 
@@ -1192,7 +1206,8 @@ function handoutUpdate_(folder, meta, hub, rec) {
      امضایش عوض شده و از نو نمودار می‌گیرد. سقفِ کوچک، چون این مسیر داخلِ
      شبِ شلوغ است؛ باقی را جاروی شبانه جبران می‌کند. */
   try {
-    var vzf = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_PER_RUN) || 2);
+    var vzf = handoutVizFill_(book, Number(CFG.HANDOUT_VIZ_PER_RUN) || 3,
+                              st.touched);
     if (vzf.made) out.viz = vzf.made;
   } catch (eVz) {}
   handoutWrite_(folder, book);
@@ -2057,7 +2072,7 @@ function hvizDiversify_(book, maxCalls) {
  * می‌شود؛ و شکست با همان قاعدهٔ HANDOUT_TRY_MAX رها می‌شود تا مدلِ خواب،
  * هر شب بودجه نسوزاند — امضای تازه، سابقهٔ تلاش را صفر می‌کند.
  */
-function handoutVizFill_(book, maxCalls) {
+function handoutVizFill_(book, maxCalls, firstIds) {
   var out = { calls: 0, made: 0, pending: 0, gaveUp: 0, triedChanged: 0, why: '' };
   HVIZ_WHY_ = '';
   if (CFG.HANDOUT_VIZ_ENABLED === false) return out;
@@ -2081,9 +2096,41 @@ function handoutVizFill_(book, maxCalls) {
   var nCh = chs.length;
   var start = Number(book.vizCur) || 0;
   if (!(start >= 0 && start < nCh)) start = 0;
+
+  /* ══ فصلی که همین درس نوشت، اولْ نوبت دارد (۷٫۰۰) ══
+   *
+   * کامنتِ محلِ فراخوانی سالِ پیش نوشته شده بود: «فصلی که این درس ساخت یا
+   * تکمیل کرد، امضایش عوض شده و از نو نمودار می‌گیرد». کد این کار را
+   * نمی‌کرد. حلقه از `book.vizCur` شروع می‌شد — یک مکان‌نمای چرخشی — و
+   * سقفش دو فراخوان بود. با هشت فصل، بختِ اینکه فصلِ همین درس در آن دو
+   * فراخوان دیده شود یک به چهار بود، و کاملْ‌شدنش سه فراخوان می‌خواهد
+   * (intro و recap و میان‌بخشی). یعنی **درسِ تازه تقریباً هیچ‌وقت نمودار
+   * نمی‌گرفت** — و جاروی شبانه که قرار بود جبرانش کند، چهار شب پیاپی
+   * نوبت نگرفته بود.
+   *
+   * حسابش هم جواب نمی‌داد: هر درسِ تازه سه فراخوان کار می‌سازد و این
+   * مسیر دو تا انجام می‌داد. دو کوچک‌تر از سه است، پس صف فقط بلندتر
+   * می‌شد؛ «۲ از ۸ فصل» پس از ده روز، نتیجهٔ همین نابرابری بود، نه بدشانسی.
+   *
+   * `firstIds` از `handoutApply_` می‌آید و می‌گوید همین درس کدام فصل‌ها را
+   * دست زد. آن‌ها اولْ می‌آیند و بقیه به همان ترتیبِ چرخشیِ قبل — پس
+   * جبرانِ گذشته دست نمی‌خورَد و تازه‌ترین کار عقب نمی‌مانَد. */
+  var order = [], seenIx = {}, prioIx = {};
+  for (var f = 0; f < (firstIds || []).length; f++) {
+    for (var g = 0; g < nCh; g++) {
+      if (String(chs[g].id) === String(firstIds[f]) && !seenIx[g]) {
+        order.push(g); seenIx[g] = true; prioIx[g] = true;
+      }
+    }
+  }
+  for (var r = 0; r < nCh; r++) {
+    var ix = (start + r) % nCh;
+    if (!seenIx[ix]) { order.push(ix); seenIx[ix] = true; }
+  }
+
   var lastTouched = -1;
-  for (var k = 0; k < nCh; k++) {
-    var c = (start + k) % nCh;
+  for (var k = 0; k < order.length; k++) {
+    var c = order[k];
     var cc = chs[c];
     var sig = hvizSig_(cc);
     var v = (cc.viz && cc.viz.sig === sig) ? cc.viz : null;
@@ -2142,7 +2189,13 @@ function handoutVizFill_(book, maxCalls) {
   /* نوبتِ بعدی از فصلِ بعد از آخرین فصلی که سهمی گرفت. اگر هیچ فراخوانی
      انجام نشد، مکان‌نما دست نمی‌خورَد — چرخاندنِ بی‌کار یعنی از دست‌دادنِ
      جایی که واقعاً کار مانده. */
-  if (nCh && lastTouched >= 0) book.vizCur = (lastTouched + 1) % nCh;
+  /* مکان‌نما فقط وقتی جلو می‌رود که کارِ **چرخشی** انجام شده باشد. اگر
+     جلو می‌رفت چون فصلِ اولویت‌دارِ همین درس سهم گرفت، چرخش از جای
+     اشتباه ادامه می‌داد و فصل‌های عقب‌مانده باز هم نوبت نمی‌گرفتند — یعنی
+     همان اولویت‌دهی، جبرانِ گذشته را می‌خورد. */
+  if (nCh && lastTouched >= 0 && !prioIx[lastTouched]) {
+    book.vizCur = (lastTouched + 1) % nCh;
+  }
   try { hvizCoverNote_(book); } catch (eCv) {}
   return out;
 }
