@@ -2983,6 +2983,19 @@ def main():
         eq(True, True, "نبودِ train.py هم می‌شکند")
     shutil.rmtree(tmp, ignore_errors=True)
 
+    # ══ کشی که برنگردد، اجرا را بی‌صدا از صفر شروع می‌کند ══
+    # ۸ سپتامبر دو دورِ آموزش (نزدیک پنج ساعت) از دست رفت و تنها نشانه‌اش
+    # این بود که مرحلهٔ برگرداندنِ کش صفر ثانیه طول کشید به‌جای صد ثانیه.
+    # هیچ خطایی، هیچ هشداری. حالا خودِ گردش‌کار می‌گوید.
+    wft = io.open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), ".github", "workflows",
+        "voice-train.yml"), encoding="utf-8").read()
+    eq("cache-matched-key" in wft, True,
+       "گردش‌کار می‌پرسد کش واقعاً برگشت یا نه")
+    eq("::warning title=کش برنگشت::" in wft, True,
+       "و نبودنش را بلند می‌گوید، نه اینکه از طولِ مرحله حدس زده شود")
+    eq("id: cache" in wft, True, "و مرحلهٔ برگرداندن شناسه دارد تا بشود پرسید")
+
     print("\nهمه گذشت.")
     return 0
 
