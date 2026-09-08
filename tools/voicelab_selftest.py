@@ -2942,6 +2942,47 @@ def main():
        "و آن شرطِ کور دیگر نیست")
     eq("contents: write" in wfm, True, "با همان اجازهٔ لازم و نه بیشتر")
 
+    # ══ وصلهٔ از‌سرگیریِ RVC ══
+    # بالادست فرض می‌کند آموزش یک‌نفس تا آخر می‌دود: چک‌پوینت با شمارهٔ
+    # دورِ **تمام‌شده** ذخیره می‌شود و در از‌سرگیری همان عدد نقطهٔ شروع
+    # می‌شود. یعنی هر اجرا دورِ قبلی را دوباره می‌دود. اجرای ۱۷ چهار
+    # ساعت و پنجاه دقیقه دوید و شمارهٔ دور تکان نخورد.
+    #
+    # چیزی که اینجا سنجیده می‌شود شکلِ متنِ بالادست نیست — آن را نمی‌شود
+    # بی‌شبکه سنجید — بلکه این است که وصله **بی‌صدا رد نمی‌شود**: لنگرِ
+    # نبوده باید اجرا را بخوابانَد، نه اینکه چیزی نگوید.
+    import voicetrain as VT
+    tmp = tempfile.mkdtemp()
+    tdir = os.path.join(tmp, "train")
+    os.makedirs(tdir)
+    real = ("        _, _, _, epoch_str = utils.load_checkpoint(x)\n"
+            + VT.RESUME_ANCHOR + "\n"
+            + "    for epoch in range(epoch_str, hps.train.epochs + 1):\n")
+    tp = os.path.join(tdir, "train.py")
+    io.open(tp, "w", encoding="utf-8").write(real)
+    eq(VT.patchResume_(tmp), True, "وصلهٔ از‌سرگیری روی لنگرِ واقعی می‌خورد")
+    got = io.open(tp, encoding="utf-8").read()
+    eq(VT.RESUME_ADD + "\n" + VT.RESUME_ANCHOR in got, True,
+       "و درست پیش از محاسبهٔ گام می‌نشیند (وگرنه گام هم غلط می‌مانَد)")
+    eq(VT.patchResume_(tmp), False, "دوباره‌زدنش دو تا نمی‌کند")
+    eq(got.count("epoch_str += 1"), 1, "یک بار، نه بیشتر")
+    # و بی لنگر: باید بلند بشکند
+    io.open(tp, "w", encoding="utf-8").write("پاک عوض شده\n")
+    try:
+        VT.patchResume_(tmp)
+        eq(True, False, "لنگرِ نبوده باید اجرا را بخوابانَد")
+    except SystemExit as e:
+        eq("از‌سرگیری" in str(e), True,
+           "و علتش را می‌گوید، نه اینکه بی‌صدا رد شود")
+    # و اگر فایل اصلاً نباشد هم همین‌طور
+    os.remove(tp)
+    try:
+        VT.patchResume_(tmp)
+        eq(True, False, "نبودِ train.py هم باید بشکند")
+    except SystemExit:
+        eq(True, True, "نبودِ train.py هم می‌شکند")
+    shutil.rmtree(tmp, ignore_errors=True)
+
     print("\nهمه گذشت.")
     return 0
 

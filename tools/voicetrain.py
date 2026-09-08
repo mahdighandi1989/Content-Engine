@@ -252,6 +252,68 @@ def freshStart_(work, out, root, why):
     say_("پاک شد: %s" % ("، ".join(gone) if gone else "چیزی نبود"))
 
 
+# ══ بالادست فرض می‌کند هیچ‌وقت از سر گرفته نمی‌شود ══
+#
+# `train/train.py` در پایانِ هر دور چنین ذخیره می‌کند:
+#
+#     utils.save_checkpoint(net_g, optim_g, lr, epoch, ".../G_2333333.pth")
+#
+# یعنی عددی که در چک‌پوینت می‌نشیند، **دورِ همین‌الان تمام‌شده** است. و
+# در از‌سرگیری:
+#
+#     _, _, _, epoch_str = utils.load_checkpoint(...)
+#     global_step = (epoch_str - 1) * len(train_loader)
+#     ...
+#     for epoch in range(epoch_str, hps.train.epochs + 1):
+#
+# هیچ‌جا یکی اضافه نمی‌شود. پس اجرایی که دورِ N را تمام کرده، اجرای
+# بعدی **دوباره از دورِ N** شروع می‌کند. برای کسی که یک‌نفس تا آخر
+# می‌دود این هرگز دیده نمی‌شود؛ برای ما که هر اجرا پنج ساعت است و
+# بیشتر از یکی-دو دور در آن جا نمی‌شود، یعنی نصف تا همهٔ کار دور
+# ریخته می‌شود.
+#
+# لاگ‌های واقعی، دو اجرای پیاپی:
+#
+#     اجرای ۱۶: Loaded ... (epoch 1) → دورِ ۱ و ۲ → razavi_e2   (خالص +۱)
+#     اجرای ۱۷: Loaded ... (epoch 2) → دورِ ۲   → razavi_e2   (خالص  ۰)
+#
+# اجرای ۱۷ چهار ساعت و پنجاه دقیقه دوید، سبز تمام شد، و شمارهٔ دور
+# تکان نخورد. با این آهنگ ۳۲ دور هیچ‌وقت نمی‌رسد.
+#
+# ══ چرا وصله، و چرا با شکستِ بلند ══
+# کد از آنِ بالادست است و کلون هر اجرا تازه است، پس تنها جای اصلاح
+# همین‌جاست. و اگر لنگر پیدا نشود، اجرا **می‌ایستد** — چون وصله‌ای که
+# بی‌صدا نخورَد، دقیقاً همان پنج ساعتِ دورریخته را برمی‌گردانَد و کسی
+# نمی‌فهمد. «تعریف شد ولی به تصمیم وصل نشد» بارها در همین مخزن اتفاق
+# افتاده؛ اینجا از پیش جلویش گرفته می‌شود.
+RESUME_ANCHOR = "        global_step = (epoch_str - 1) * len(train_loader)"
+RESUME_ADD = "        epoch_str += 1"
+
+
+def patchResume_(root):
+    """دورِ تمام‌شده دوباره اجرا نشود. برمی‌گردانَد: وصله خورد یا نه."""
+    p = os.path.join(root, "train", "train.py")
+    if not os.path.exists(p):
+        p = os.path.join(root, "infer", "modules", "train", "train.py")
+    if not os.path.exists(p):
+        raise SystemExit("وصلهٔ از‌سرگیری: train.py پیدا نشد — "
+                         "بدونِ آن هر اجرا دورِ پیشین را دوباره می‌دود.")
+    s = io.open(p, encoding="utf-8").read()
+    if RESUME_ADD.strip() in s:
+        say_("وصلهٔ از‌سرگیری لازم نیست — بالادست خودش یکی اضافه می‌کند")
+        return False
+    n = s.count(RESUME_ANCHOR)
+    if n != 1:
+        raise SystemExit(
+            "وصلهٔ از‌سرگیری: لنگر %d بار پیدا شد (انتظار: ۱). بالادست "
+            "عوض شده؛ لنگر را در tools/voicetrain.py به‌روز کن. تا آن "
+            "وقت هر اجرا دورِ پیشین را دوباره می‌دود." % n)
+    io.open(p, "w", encoding="utf-8").write(
+        s.replace(RESUME_ANCHOR, RESUME_ADD + "\n" + RESUME_ANCHOR, 1))
+    say_("وصلهٔ از‌سرگیری خورد — دورِ تمام‌شده دوباره اجرا نمی‌شود")
+    return True
+
+
 def main():
     work = os.environ.get("VT_WORK") or os.path.expanduser("~/rvcwork")
     root = os.environ.get("VT_ROOT") or os.path.join(
@@ -278,6 +340,8 @@ def main():
                         "Retrieval-based-Voice-Conversion-WebUI", root])
         if code:
             raise SystemExit("کلونِ RVC شکست خورد")
+    # هر اجرا، چه کلون تازه باشد چه نه — وگرنه وصله فقط یک بار می‌خورد.
+    patchResume_(root)
     # ══ کارِ ماندگار بیرون از کلون است ══
     # کلون هر اجرا تازه ساخته می‌شود؛ چیزی که باید بماند در `work`
     # است و با پیوند سرِ جایش می‌نشیند. همان کاری که نسخهٔ Colab با
