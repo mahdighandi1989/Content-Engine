@@ -550,14 +550,44 @@ function bridgePlan_(ctx, corpus) {
       }
     } catch (eS) { logLine_('مرحلهٔ ژرفِ ارجاع رد شد: ' + eS.message); deep = null; }
   }
-  var r = null;
-  try { r = geminiText_(bridgePrompt_(ctx, corpus, deep), BRIDGE_SCHEMA, 30000); }
-  catch (e) { logLine_('ارجاعِ میان‌مجموعه‌ای ساخته نشد: ' + e.message); return null; }
-  if (!r) return null;
   var names = Object.create(null);
   for (var i = 0; i < corpus.length; i++) names[corpus[i].key] = corpus[i].name;
-  return { links: bridgeTrim_(r.links, names, bridgeStrict_()),
-           none: String(r.none || ''),
+  var strictKeys = bridgeStrict_();
+
+  /* ══ بندِ ۴-ب پرامپت به تنهایی کافی نبود (۶٫۹۹) ══
+     ۶٫۹۵ فقط خالی‌بودن را *دیدنی* کرد (بندِ ۴-ب + `bridgeRelation_`). دادهٔ
+     واقعیِ جزوهٔ «Audi» نشان داد که روزها بعد — حتی در تازه‌ترین درس‌ها،
+     زیرِ کدِ همین نسخه‌ها — نرخِ خالی‌بودن هنوز ۱۰۰٪ بود: نوشتنِ سخت‌گیرانه‌ترِ
+     یک پرامپتی که مدل همین حالا هم نادیده می‌گیرد، آن را عوض نمی‌کند.
+     الگویی که در بخشِ ۲۹ (عصری‌سازی، ۶٫۹۷) برای همین شکل از نافرمانی جواب
+     داد را همین‌جا هم به کار می‌بریم: وقتی *همهٔ* ارجاع‌ها relationِ خالی
+     برگرداندند، یک بار دیگر می‌پرسیم و این بار مقدارِ رد‌شده را عیناً
+     نشانش می‌دهیم — نه یک بندِ عمومی، بلکه دقیقاً همان اشتباهی که کرد. */
+  var r = null, tries = 0, more = '', links = [];
+  while (tries < 2) {
+    tries++;
+    try { r = geminiText_(bridgePrompt_(ctx, corpus, deep) + more, BRIDGE_SCHEMA, 30000); }
+    catch (e) { logLine_('ارجاعِ میان‌مجموعه‌ای ساخته نشد: ' + e.message); return null; }
+    if (!r) return null;
+    links = bridgeTrim_(r.links, names, strictKeys);
+    if (!links.length) break;
+    var gap = bridgeRelationGap_(links);
+    if (!gap || tries >= 2) break;
+    var bad = (r.links || []).slice(0, links.length).map(function (x) {
+      return String((x || {}).relation || '');
+    }).filter(function (x) { return x; });
+    more = '\n\n── یک بار دیگر ──\n' +
+      'پاسخِ پیشینت رد شد: در ' + gap + ' ارجاع از ' + links.length +
+      ', relation را برابرِ نامِ نسبت گذاشتی' +
+      (bad.length ? (' (نوشتی: «' + bad.slice(0, 3).join('»، «') + '»)') : '') +
+      ' — این دقیقاً همان اشتباهی است که بندِ ۴-ب گفت نکن. برای **همان**' +
+      ' ارجاع‌ها یک relationِ تازه بنویس: یک جملهٔ کامل که می‌گوید این دو' +
+      ' چرا به هم مربوط‌اند، نه نامِ نسبت و نه چیزی کوتاه‌تر از یک جمله.';
+    logLine_('ارجاع: ' + gap + ' relation از ' + links.length +
+             ' فقط نامِ دسته بود — یک بار دیگر پرسیده شد.');
+  }
+  return { links: links,
+           none: String((r && r.none) || ''),
            deepRead: deep ? deep.n : 0,
            series: corpus.map(function (c) { return c.key; }) };
 }

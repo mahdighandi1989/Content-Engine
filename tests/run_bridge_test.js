@@ -923,4 +923,76 @@ console.log('=== ۱۸) داوری‌ای که هرگز اجرا نشد باید 
   ok('۱۹.۷ و خالی‌بودن شمرده می‌شود', bridgeRelationGap_(trimmed) === 1);
 }
 
+/* ══ ۲۰) بندِ ۴-ب به‌تنهایی کافی نبود — یک بار دیگر با نمونهٔ ردشده (۶٫۹۹) ══
+   دادهٔ واقعیِ ۸ سپتامبر: در جزوهٔ «Audi»، حتی تازه‌ترین درس‌ها — زیرِ کدِ
+   همان نسخه‌هایی که بندِ ۴-ب و `bridgeRelation_` را داشتند — باز هم هر
+   ارجاعی relationِ خالی داشت. سختگیرترنویسیِ یک پرامپتی که مدل همین حالا
+   نادیده می‌گیرد، آن را عوض نمی‌کند؛ الگویی که در بخشِ ۲۹ (۶٫۹۷) برای
+   دقیقاً همین شکلِ نافرمانی جواب داد — یک بار دیگر پرسیدن با نمونهٔ ردشدهٔ
+   عینی — همین‌جا هم به کار رفت. */
+console.log('\n══ ۲۰) نسبتِ خالی: یک بار دیگر با نمونهٔ ردشده ══');
+{
+  const reg = readSeriesReg_(hub);
+  const corpus = bridgeCorpus_(reg, ['kEp']);
+  const realG = global.geminiText_;
+
+  // حالتِ ۱: بارِ اول همه خالی، بارِ دوم واقعی — دومی باید بنشیند.
+  let calls = 0, sawFeedback = false;
+  global.geminiText_ = (pr) => {
+    if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;          // پیش‌آهنگ خاموش
+    calls++;
+    if (calls === 1) {
+      return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+                         relation: 'تکمیل', atHeading: 'ب', say: 'م'.repeat(60),
+                         strength: 'قوی' }], none: '' };
+    }
+    sawFeedback = pr.indexOf('یک بار دیگر') !== -1 && pr.indexOf('«تکمیل»') !== -1;
+    const real = 'آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و همین‌جا همان تفکیک ادامه پیدا می‌کند.';
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+                       relation: real, atHeading: 'ب', say: 'م'.repeat(60),
+                       strength: 'قوی' }], none: '' };
+  };
+  const un = quiet();
+  const plan = bridgePlan_({ seriesName: 'خداشناسی', partName: 'x', digest: 'y' }, corpus);
+  un();
+  ok('۲۰.۱ وقتی بارِ اول همه خالی است، یک بارِ دیگر پرسیده می‌شود', calls === 2, calls + '');
+  ok('۲۰.۲ و بازخورد دقیقاً همان مقدارِ ردشده را نشان می‌دهد', sawFeedback);
+  ok('۲۰.۳ و نتیجهٔ دومِ سالم می‌نشیند',
+     plan.links.length === 1 && plan.links[0].relation.indexOf('خطای حسی') !== -1,
+     JSON.stringify(plan.links[0] || {}));
+
+  // حالتِ ۲: بارِ دوم هم باز خالی — نباید حلقه ادامه بدهد، relation خالی می‌مانَد.
+  calls = 0;
+  global.geminiText_ = (pr) => {
+    if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;
+    calls++;
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+                       relation: 'تکمیل', atHeading: 'ب', say: 'م'.repeat(60),
+                       strength: 'قوی' }], none: '' };
+  };
+  const un2 = quiet();
+  const plan2 = bridgePlan_({ seriesName: 'خداشناسی', partName: 'x', digest: 'y' }, corpus);
+  un2();
+  ok('۲۰.۴ دو بار پرسیده می‌شود، نه بی‌نهایت', calls === 2, calls + '');
+  ok('۲۰.۵ و اگر باز هم خالی بود، ارجاع می‌مانَد ولی relation خالی است',
+     plan2.links.length === 1 && plan2.links[0].relation === '');
+
+  // حالتِ ۳: بارِ اول سالم — نباید هیچ فراخوانِ اضافه‌ای برود.
+  calls = 0;
+  global.geminiText_ = (pr) => {
+    if (pr.indexOf('کشفِ نسبت نیست') !== -1) return null;
+    calls++;
+    const real = 'آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و همین‌جا همان تفکیک ادامه پیدا می‌کند.';
+    return { links: [{ seriesKey: 'kEp', kind: 'تکمیل', claim: 'ج', chapter: 'ف',
+                       relation: real, atHeading: 'ب', say: 'م'.repeat(60),
+                       strength: 'قوی' }], none: '' };
+  };
+  const un3 = quiet();
+  const plan3 = bridgePlan_({ seriesName: 'خداشناسی', partName: 'x', digest: 'y' }, corpus);
+  un3();
+  ok('۲۰.۶ وقتی بارِ اول سالم است، فراخوانِ اضافه نمی‌رود', calls === 1, calls + '');
+
+  global.geminiText_ = realG;
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
