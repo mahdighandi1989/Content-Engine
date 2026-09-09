@@ -28,7 +28,7 @@ const STATUS_COLUMN_INDEX = 15;   // اندیس ستون وضعیت در شیت 
 const ANALYSIS_COLUMNS_TO_VERIFY = [5, 6, 7, 8, 9, 10, 11, 12, 13];
 
 const UPLOAD_URL = 'https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart';
-const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
 
 const JSON_SCHEMA = {
   type: 'object',

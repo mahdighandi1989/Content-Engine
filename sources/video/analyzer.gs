@@ -21,8 +21,8 @@ const DELAY_BETWEEN_BATCHES = 600; // ثانیه
 
 const API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 const UPLOAD_URL = 'https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart';
-const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-const MODEL_NAME = 'gemini-2.5-flash';
+const GENERATE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
+const MODEL_NAME = 'gemini-3.8-flash';
 
 // 🔄 ثوابت جدید برای پوشه‌های دسته‌بندی
 const FOLDER_MAPPING = {
