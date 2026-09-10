@@ -457,4 +457,49 @@ console.log('\n=== ۹. ردِ قالبِ دستورِ لحن ===');
   global.__STUB = null;
 }
 
+/* ══ ۹ب. مودِ دیگر دستور را پذیرفت — نباید تسلیم شویم (۷٫۰۲) ══
+ * تا این نسخه، ردِ مودِ اول (generateContent) کافی بود تا کلِ لحن برای آن
+ * مدل خاموش شود — حتی اگر مودِ دوم (`interactions`) همان دستور را
+ * می‌پذیرفت. اینجا فقط `generateContent` را رد می‌کنیم و `interactions`
+ * را می‌پذیریم؛ نتیجه باید صدایی *با* دستور باشد و TTS_CUE_OFF هرگز
+ * نوشته نشود. */
+console.log('\n=== ۹ب. وقتی فقط یک مود دستور را رد می‌کند ===');
+{
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  delete global.__PROPS[PK.TTS_MODE];
+  let seenUrls = [];
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+      { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: ['generateContent'] }] } };
+    const withCue = !!((body || {}).systemInstruction || (body || {}).instructions);
+    const isInteractions = url.indexOf('/v1beta/interactions') !== -1;
+    seenUrls.push(isInteractions ? 'interactions' : 'generateContent');
+    if (withCue && !isInteractions) {
+      return { code: 400, text: JSON.stringify({ error: {
+        code: 400, message: 'Developer instruction is not enabled for this model',
+        status: 'INVALID_ARGUMENT' } }) };
+    }
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      inlineData: { data: Buffer.alloc(12000).toString('base64') } }] } }] } };
+  };
+  const un9c = quiet();
+  const b9c = ttsChunk_('متنِ آزمایشیِ دوم.', 'آرام و همدلانه', CFG.TTS_VOICE);
+  un9c();
+  ok('۹ب.۱ وقتی موردِ دوم دستور را پذیرفت، صدا ساخته شد',
+     !!b9c && b9c.length > 100, 'bytes(b64)=' + String(b9c).length);
+  ok('۹ب.۲ هر دو مود امتحان شدند — تسلیمِ زودهنگام نبود',
+     seenUrls.indexOf('generateContent') !== -1 && seenUrls.indexOf('interactions') !== -1,
+     seenUrls.join(','));
+  ok('۹ب.۳ چون مودِ دوم پذیرفت، حکمِ «مدل نمی‌پذیرد» ثبت نشد',
+     !global.__PROPS[PK.TTS_CUE_OFF], String(global.__PROPS[PK.TTS_CUE_OFF] || ''));
+
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  delete global.__PROPS[PK.TTS_MODE];
+  global.__STUB = null;
+}
+
 process.exit(summary('نقش‌گزینیِ گویندگان و تلفظ') ? 1 : 0);
