@@ -23,6 +23,12 @@ global.__STUB = function (url, body) {
   if (url.indexOf('yt3.example') !== -1) return { code: 200, text: 'PNGDATA' };
   // فقط سرِ راهِ خودِ یوتیوب، نه هر چیزی که googleapis دارد — وگرنه فراخوانِ
   // مدل هم همین‌جا بلعیده می‌شود (که یک بار شد).
+  if (url === 'https://slides.googleapis.com/v1/presentations') {
+    // شبیه‌سازیِ حالتی که فرضاً pageSize واقعاً اعمال می‌شود — تا سنجه‌های
+    // «موفقیتِ عادی» دست‌نخورده بمانند؛ سنجهٔ ۳۴ب جدا حالتِ واقعیِ گوگل
+    // (نادیده‌گرفتنِ pageSize) را می‌سنجد.
+    return { code: 200, json: { presentationId: 'PRES1', pageSize: (body || {}).pageSize } };
+  }
   if (url.indexOf('youtube/v3') !== -1 || url.indexOf('slides.googleapis') !== -1) {
     return { code: 200, json: { url: 'https://banner', presentationId: 'PRES1' } };
   }
@@ -1147,6 +1153,32 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
   ok('۳۴.۷ بنر با اندازهٔ تقریبی ادامه نمی‌دهد — یوتیوب نمی‌پذیردش',
      !!bnOff.why && bnOff.why.indexOf('کاورِ قسمت‌ها بی این هم') !== -1, bnOff.why);
   global.__STUB = stubP;
+
+  /* ── ب-۲) «۲۰۰ موفق» با «اندازه اعمال شد» یکی نیست (۷٫۰۲) ──
+     مستنداتِ خودِ گوگل: presentations.create مقدارِ pageSize را نادیده
+     می‌گیرد و همیشه صفحهٔ ۱۰×۵٫۶۳ اینچ (۹۶۰×۵۴۰) می‌سازد — ولی پاسخ همچنان
+     ۲۰۰ است و presentationId هم دارد. این دقیقاً همان چیزی است که هفته‌ها
+     بنر را با یک نشانِ گمراه‌کننده (`exact:true`) رد کرده بود. */
+  const stubP2 = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url === 'https://slides.googleapis.com/v1/presentations') {
+      // رفتارِ واقعیِ گوگل: ۲۰۰ می‌دهد، ولی pageSize را نادیده می‌گیرد —
+      // صفحه با اندازهٔ پیش‌فرضِ خودش برمی‌گردد، نه آنچه خواسته شده.
+      return { code: 200, json: { presentationId: 'PRES-DEFAULT',
+        pageSize: { width: { magnitude: 9144000, unit: 'EMU' },
+                    height: { magnitude: 5143500, unit: 'EMU' } } } };
+    }
+    return stubP2(url, body);
+  };
+  const realP = ytPresCreate_('کارتِ آزمون', 12192000, 6858000);
+  ok('۳۴ب.۱ ۲۰۰ + presentationId کافی نیست — باید اندازهٔ واقعی هم بخواند',
+     realP.exact === false && !!realP.id, JSON.stringify(realP));
+  ok('۳۴ب.۲ دلیلش روشن است: چه خواسته شد و چه واقعاً ساخته شد',
+     realP.why.indexOf('9144000') !== -1 || realP.why.indexOf('12192000') !== -1, realP.why);
+  const bnReal = ytBannerCard_();
+  ok('۳۴ب.۳ بنر با این تشخیص هم به همان راهِ امنِ «ادامه نمی‌دهد» می‌رود',
+     !!bnReal.why && bnReal.why.indexOf('کاورِ قسمت‌ها بی این هم') !== -1, bnReal.why);
+  global.__STUB = stubP2;
 
   /* ── پ) سیاهه باید وضعِ پس از کار را بگوید ──
      «توضیحِ کانال ⬜ خالی — پر شد (۰ نویسه)» هم‌زمان دو چیزِ متناقض می‌گفت. */
