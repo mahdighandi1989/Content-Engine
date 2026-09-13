@@ -552,6 +552,17 @@ def main():
             broke = True
             break
 
+    # ══ پایه را فقط وقتی بنویس که کامل است ══
+    # این عدد را گردش‌کار می‌خوانَد (`steps.train.outputs.base_ok`) و
+    # کشِ ثابت را فقط با «true» می‌نویسد. اگر این اجرا اصلاً به اینجا
+    # نرسد — خطا، بودجه، هرچه — خروجی نوشته نمی‌شود و شرط تهی می‌مانَد،
+    # یعنی **نمی‌نویسد**. پیش‌فرضِ یک کشِ یک‌بارنوشت باید «نه» باشد.
+    base = baseReady_(root, work)
+    say_("پایهٔ سنگین: %s" % json.dumps(base, ensure_ascii=False))
+    gh0 = os.environ.get("GITHUB_OUTPUT")
+    if gh0:
+        io.open(gh0, "a", encoding="utf-8").write(
+            "base_ok=%s\n" % ("true" if base["ok"] else "false"))
     return finish_(P, root, out, complete=not broke)
 
 
@@ -571,6 +582,44 @@ def epochsDone_(root):
         if m and f.endswith(".pth"):
             best = max(best, int(m.group(1)))
     return best
+
+
+def baseReady_(root, work):
+    """آیا «پایهٔ سنگین» کامل است — همان چیزی که کشِ ثابت نگه می‌دارد.
+
+    ══ چرا سنجیده، نه حدس ══
+    کشِ پایه کلیدش به ورودی بسته است و تا ورودی عوض نشود **یک بار**
+    نوشته می‌شود. همین است که ارزشش را می‌سازد — چیزی که نوشته نمی‌شود،
+    چیزی را از سقفِ ۱۰ گیگ بیرون نمی‌اندازد — و همین است که خطرناکش
+    می‌کند: اگر یک اجرای نیمه‌کاره بنویسدش، هر اجرای بعدی تا ابد پایهٔ
+    ناقص می‌گیرد و دو ساعت‌ونیم را دوباره می‌سوزاند، بی آنکه چیزی قرمز
+    شود. پس پیش از نوشتن باید **شمرده** شود.
+
+    شرط‌ها همان‌هایی‌اند که خودِ زنجیره لازم دارد، نه عددهای حدسی:
+
+      • هر دو وزنِ پایه — `pytorch_model.bin` و `logs/mute`. همان جفتی
+        که بالاتر `have` می‌سنجد؛ یکی بدونِ دیگری یعنی کمبودی که سه قدم
+        بعد و با نامی دیگر ظاهر می‌شود.
+      • دیتاست خالی نباشد.
+      • و برای **هر** تکهٔ ۱۶k یک ویژگی استخراج شده باشد. برابریِ این دو
+        عدد شرطِ واقعیِ «استخراج تمام شد» است. «پوشه خالی نیست» نیست —
+        استخراجی که وسطِ کار با بودجه بمیرد هم پوشهٔ خالی نمی‌گذارد، و
+        آن نیمه دقیقاً همان چیزی است که نباید برای همیشه ذخیره شود.
+    """
+    def n_(*parts):
+        return len(glob.glob(os.path.join(*parts)))
+    st = {
+        "hubert": os.path.exists(os.path.join(
+            root, "assets", "hubert_base", "pytorch_model.bin")),
+        "mute": os.path.isdir(os.path.join(root, "logs", "mute",
+                                           "0_gt_wavs")),
+        "dataset": n_(work, "dataset", "*.wav"),
+        "wav16": n_(root, "logs", VOICE, "1_16k_wavs", "*.wav"),
+        "feat": n_(root, "logs", VOICE, "3_feature768", "*.npy"),
+    }
+    st["ok"] = bool(st["hubert"] and st["mute"] and st["dataset"]
+                    and st["wav16"] and st["feat"] == st["wav16"])
+    return st
 
 
 def finish_(P, root, out, complete=True):
