@@ -415,6 +415,16 @@ function seriesOrderCheck_(hub, reg, parts) {
       var rec = reg.rows[i], key = String(rec.key || '');
       var list = parts.byKey[key] || [];
       if (list.length < 1) continue;
+      /* مجموعه‌ای که قطعاً «آموزشی نیست» هرگز تولید نمی‌شود — وارسیِ ترتیبِ
+         قسمت‌هایش بی‌معناست و فقط یک هشدارِ همیشگی می‌سازد که کسی نمی‌خواندش
+         (نمونهٔ واقعی: «Standard recording»، ۱۴ شبِ پیاپی در صفِ گزارش‌ها).
+         منطقش عیناً همان seriesIsCourse_ است، بی‌آنکه فراخوانش کنیم — این
+         بخش نباید رو به جلو (به بخشِ ۱۶) وابسته شود. */
+      var manIC = String(rec.vals[SC.MANUAL - 1] || '').trim();
+      var jIC = String(rec.vals[SC.IS_COURSE - 1] || '').trim();
+      var isCourseIC = manIC === SMAN.YES ? true : (manIC === SMAN.NO ? false :
+                       (jIC === SJ.YES ? true : (jIC === SJ.NO ? false : null)));
+      if (isCourseIC === false) continue;
       out.checked++;
       var st = String(rec.vals[SC.STATUS - 1] || '');
       var live = st !== SST.DONE && st !== SST.SKIPPED;
