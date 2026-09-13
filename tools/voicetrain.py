@@ -457,6 +457,14 @@ def main():
     if [f for f in os.listdir(ds) if f.endswith(".wav")]:
         say_("دیتاست از پیش آماده است: %d تکه"
              % len([f for f in os.listdir(ds) if f.endswith(".wav")]))
+    elif featsReady_(root):
+        # ══ نبودنش عمدی است، پس دوباره ساختنش خطاست ══
+        # `raw` و `dataset` و `1_16k_wavs` از ۱۳ سپتامبر در کش نیستند:
+        # چند گیگابایتی بودند که فقط ورودیِ استخراج‌اند و آموزش هرگز
+        # نمی‌خواندشان. بی این شاخه، هر اجرا هشت ضبط را دوباره دانلود و
+        # دوباره می‌بُرید — یک ساعت، هر شب، برای فایل‌هایی که همان‌جا
+        # بی‌استفاده می‌مانند.
+        say_("دیتاست لازم نیست — استخراج از پیش کامل است")
     else:
         import gdown
         raw = os.path.join(work, "raw")
@@ -584,6 +592,27 @@ def epochsDone_(root):
     return best
 
 
+def featsReady_(root):
+    """استخراج تمام شده — یعنی دیگر به `raw`, `dataset` و `1_16k_wavs`
+    نیازی نیست.
+
+    ══ چرا این پرسش جداست ══
+    آموزش فهرستش را از **چهار** پوشه می‌سازد (`rvcpipe.preTrain_`):
+    `0_gt_wavs`، `3_feature768`، `2a_f0`، `2b-f0nsf`. ضبط‌های خام،
+    دیتاستِ بریده‌شده و نسخهٔ ۱۶k فقط **ورودیِ ساختِ** همین‌هایند و پس
+    از ساخته‌شدنشان هیچ‌کس نمی‌خواندشان. نگه داشتنشان در کش یعنی
+    گیگابایت‌هایی که هر شب جابه‌جا می‌شوند برای هیچ.
+
+    برابری با `0_gt_wavs` شرط است، نه «پوشه خالی نیست»: استخراجی که
+    وسطِ کار بمیرد پوشهٔ خالی نمی‌گذارد.
+    """
+    d = os.path.join(root, "logs", VOICE)
+    gt = len(glob.glob(os.path.join(d, "0_gt_wavs", "*.wav")))
+    return bool(gt) and all(
+        len(glob.glob(os.path.join(d, sub, "*.npy"))) == gt
+        for sub in ("3_feature768", "2a_f0", "2b-f0nsf"))
+
+
 def baseReady_(root, work):
     """آیا «پایهٔ سنگین» کامل است — همان چیزی که کشِ ثابت نگه می‌دارد.
 
@@ -600,25 +629,30 @@ def baseReady_(root, work):
       • هر دو وزنِ پایه — `pytorch_model.bin` و `logs/mute`. همان جفتی
         که بالاتر `have` می‌سنجد؛ یکی بدونِ دیگری یعنی کمبودی که سه قدم
         بعد و با نامی دیگر ظاهر می‌شود.
-      • دیتاست خالی نباشد.
-      • و برای **هر** تکهٔ ۱۶k یک ویژگی استخراج شده باشد. برابریِ این دو
-        عدد شرطِ واقعیِ «استخراج تمام شد» است. «پوشه خالی نیست» نیست —
-        استخراجی که وسطِ کار با بودجه بمیرد هم پوشهٔ خالی نمی‌گذارد، و
-        آن نیمه دقیقاً همان چیزی است که نباید برای همیشه ذخیره شود.
+      • و استخراج **تمام** شده باشد (`featsReady_`): برای هر تکهٔ
+        `0_gt_wavs` یک ویژگی و دو فایلِ f0. برابریِ این عددها شرطِ واقعیِ
+        «تمام شد» است. «پوشه خالی نیست» نیست — استخراجی که وسطِ کار با
+        بودجه بمیرد هم پوشهٔ خالی نمی‌گذارد، و آن نیمه دقیقاً همان چیزی
+        است که نباید برای همیشه ذخیره شود.
+
+    توجه: اینجا عمداً از `dataset` و `1_16k_wavs` پرسیده نمی‌شود. آن دو
+    از ۱۳ سپتامبر در کش نیستند، و شرطی که چیزِ نبوده را بخواهد هر شب
+    هشدارِ بی‌مورد می‌دهد — همان هشداری که آدم یاد می‌گیرد نخواندش.
     """
     def n_(*parts):
         return len(glob.glob(os.path.join(*parts)))
+    d = os.path.join(root, "logs", VOICE)
     st = {
         "hubert": os.path.exists(os.path.join(
             root, "assets", "hubert_base", "pytorch_model.bin")),
         "mute": os.path.isdir(os.path.join(root, "logs", "mute",
                                            "0_gt_wavs")),
-        "dataset": n_(work, "dataset", "*.wav"),
-        "wav16": n_(root, "logs", VOICE, "1_16k_wavs", "*.wav"),
-        "feat": n_(root, "logs", VOICE, "3_feature768", "*.npy"),
+        "gt": n_(d, "0_gt_wavs", "*.wav"),
+        "feat": n_(d, "3_feature768", "*.npy"),
+        "f0": n_(d, "2a_f0", "*.npy"),
+        "nsf": n_(d, "2b-f0nsf", "*.npy"),
     }
-    st["ok"] = bool(st["hubert"] and st["mute"] and st["dataset"]
-                    and st["wav16"] and st["feat"] == st["wav16"])
+    st["ok"] = bool(st["hubert"] and st["mute"] and featsReady_(root))
     return st
 
 

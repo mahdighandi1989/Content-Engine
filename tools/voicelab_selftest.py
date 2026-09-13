@@ -1762,31 +1762,45 @@ def main():
     rt = tempfile.mkdtemp()
     mk_ = lambda *a: os.makedirs(os.path.join(*a), exist_ok=True)
     put_ = lambda *a: io.open(os.path.join(*a), "w").write(u"x")
+    SUB = ("0_gt_wavs", "3_feature768", "2a_f0", "2b-f0nsf")
     eq(VT.baseReady_(rt, wk)["ok"], False, "پوشهٔ خالی پایه نیست")
 
     mk_(rt, "assets", "hubert_base")
     put_(rt, "assets", "hubert_base", "pytorch_model.bin")
     mk_(rt, "logs", "mute", "0_gt_wavs")
-    mk_(wk, "dataset")
-    put_(wk, "dataset", "a.wav")
-    mk_(rt, "logs", VT.VOICE, "1_16k_wavs")
-    mk_(rt, "logs", VT.VOICE, "3_feature768")
-    for i in (1, 2, 3):
-        put_(rt, "logs", VT.VOICE, "1_16k_wavs", "%d.wav" % i)
-    eq(VT.baseReady_(rt, wk)["ok"], False,
-       "پوشهٔ ویژگیِ خالی هم پایه نیست")
+    for sub in SUB:
+        mk_(rt, "logs", VT.VOICE, sub)
+    for i_ in (1, 2, 3):
+        put_(rt, "logs", VT.VOICE, "0_gt_wavs", "%d.wav" % i_)
+    eq(VT.baseReady_(rt, wk)["ok"], False, "پوشهٔ ویژگیِ خالی هم پایه نیست")
 
     # ══ و نیمه‌کاره هم نیست — همان حالتی که واقعاً پیش می‌آید ══
     # استخراج وقتی سرِ بودجه بمیرد پوشهٔ خالی نمی‌گذارد؛ چند فایل
     # می‌گذارد. شرطِ «پوشه خالی نیست» دقیقاً همین را قبول می‌کرد.
-    for i in (1, 2):
-        put_(rt, "logs", VT.VOICE, "3_feature768", "%d.npy" % i)
+    for i_ in (1, 2):
+        for sub in SUB[1:]:
+            put_(rt, "logs", VT.VOICE, sub, "%d.npy" % i_)
     got = VT.baseReady_(rt, wk)
-    eq((got["ok"], got["feat"], got["wav16"]), (False, 2, 3),
+    eq((got["ok"], got["feat"], got["gt"]), (False, 2, 3),
        "استخراجِ نیمه‌کاره پایه نیست — دو از سه")
 
-    put_(rt, "logs", VT.VOICE, "3_feature768", "3.npy")
+    # ══ و هر سه پوشه، نه فقط ویژگی‌ها ══
+    # فهرستِ آموزش از چهار پوشه ساخته می‌شود (`rvcpipe.preTrain_`)؛ اگر
+    # فقط ویژگی‌ها شمرده شوند، نبودِ f0 تا وسطِ آموزش معلوم نمی‌شود.
+    for sub in SUB[1:]:
+        put_(rt, "logs", VT.VOICE, sub, "3.npy")
     eq(VT.baseReady_(rt, wk)["ok"], True, "و یکی‌به‌یک که شد، پایه است")
+    os.remove(os.path.join(rt, "logs", VT.VOICE, "2a_f0", "3.npy"))
+    eq(VT.baseReady_(rt, wk)["ok"], False, "بی f0ِ کامل هم پایه نیست")
+    put_(rt, "logs", VT.VOICE, "2a_f0", "3.npy")
+
+    # ══ و از `dataset`/`1_16k_wavs` عمداً نمی‌پرسد ══
+    # آن دو (و `raw`) از ۱۳ سپتامبر در کش نیستند: چند گیگ، و فقط ورودیِ
+    # ساختِ ویژگی‌ها. شرطی که چیزِ نبوده را بخواهد هر شب هشدارِ بی‌مورد
+    # می‌دهد — و هشدارِ بی‌مورد همان است که آدم یاد می‌گیرد نخواندش.
+    eq(VT.baseReady_(rt, wk)["ok"], True,
+       "بی دیتاست و بی ۱۶k هم پایه کامل است — آموزش نمی‌خواندشان")
+    eq(VT.featsReady_(rt), True, "و همان پرسش، جدا هم جواب می‌دهد")
 
     # ══ هر دو وزنِ پایه، نه یکی ══
     # `have` در خودِ کد همین جفت را می‌سنجد: بی `logs/mute`، سه قدم بعد
@@ -1867,6 +1881,24 @@ def main():
               str(fam["ckpt"][0]["with"]["path"]).splitlines() if x.strip()]
     eq([x for x in bpaths if ("!" + x) not in apaths], [],
        "هر مسیرِ کشِ سبک، در کشِ سنگین کنار گذاشته شده است")
+
+    # ══ و میان‌بُرها هم بیرون‌اند ══
+    # اجرای ۴۱ اندازه‌ها را داد: پایه ۹٫۰۹ گیگ و چک‌پوینت‌ها ۱٫۲۷ — جمعاً
+    # ۱۰٫۳۶ روی سقفِ ۱۰. یعنی تقسیم انجام شده بود ولی حاشیه‌ای که هدفش
+    # بود نساخته بود. `raw`/`dataset`/`1_16k_wavs` فقط ورودیِ ساختِ
+    # ویژگی‌هایند و آموزش هرگز نمی‌خواندشان. اگر روزی برگردند، کش دوباره
+    # از سقف رد می‌شود بی آنکه چیزی قرمز شود.
+    for mid in ("~/rvcwork/raw", "~/rvcwork/dataset",
+                "~/rvcwork/logs/*/1_16k_wavs"):
+        eq(("!" + mid) in apaths, True,
+           "میان‌بُرِ %s در کشِ سنگین نیست" % mid)
+    # و این بند **نقطهٔ فراخوانی** را می‌سنجد، نه وجودِ تابع را: با
+    # آزمونِ جهش دیدم که «`featsReady_` در فایل هست» حتی وقتی شاخه به
+    # `elif False` عوض شود هم می‌گذرد. تابعی که نوشته و آزموده شده ولی
+    # صدا زده نمی‌شود، همان شکلی است که این مخزن بارها خورده — و اینجا
+    # بهایش روشن است: هر شب هشت ضبط دوباره دانلود و بریده می‌شود.
+    eq("elif featsReady_(root):" in src29, True,
+       "و کد **همان‌جا** می‌داند نبودنشان یعنی «لازم نیست»، نه «دوباره بساز»")
 
     # ══ کشِ یک‌بارنوشت، اگر نیمه‌کاره پر شود، تا ابد نیمه‌کاره است ══
     # پس نوشتنش دو شرط دارد و هر دو لازم‌اند: از قبل نباشد، و این اجرا
