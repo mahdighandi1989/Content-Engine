@@ -472,16 +472,26 @@ def main():
         srcs = []
         for i, fid in enumerate(DRIVE_IDS):
             dst = os.path.join(raw, "in%d" % (i + 1))
-            if not (os.path.exists(dst) and os.path.getsize(dst) > 100000):
-                say_("دانلودِ %d از %d" % (i + 1, len(DRIVE_IDS)))
-                gdown.download(id=fid, output=dst, quiet=True)
             if os.path.exists(dst) and os.path.getsize(dst) > 100000:
                 srcs.append(dst)
-            else:
-                say_("نیامد (اشتراکِ لینک؟): %s" % fid)
-        if not srcs:
-            raise SystemExit("هیچ ضبطی نیامد — اشتراکِ فایل‌ها باید "
-                             "«هر کسی با لینک» باشد")
+                continue
+            say_("دانلودِ %d از %d" % (i + 1, len(DRIVE_IDS)))
+            if gdl_(gdown, fid, dst):
+                srcs.append(dst)
+        # ══ کم آمدنِ یک ضبط خطاست، نه هشدار ══
+        # نسخهٔ پیشین فقط وقتی می‌ایستاد که **هیچ** ضبطی نیاید و در بقیهٔ
+        # حالت‌ها با هرچه آمده بود دیتاست می‌ساخت. آن تحمل خطرناک است:
+        # `dsSig_` اثرِ انگشت را از فهرستِ شناسه‌ها می‌سازد، نه از آنچه
+        # واقعاً دانلود شد. پس یک دیتاستِ هفت‌تایی با امضای هشت‌تایی
+        # ساخته می‌شد، در کشِ پایه می‌نشست، و چون آن کش یک‌بارنوشت است تا
+        # ابد همان می‌مانْد — آموزشی روی داده‌ای که کسی نخواسته بود.
+        if len(srcs) != len(DRIVE_IDS):
+            raise SystemExit(
+                "%d ضبط از %d نیامد. دیتاستِ ناقص ساخته نمی‌شود، چون "
+                "امضایش می‌گوید کامل است. اگر خطا «many accesses» بود، "
+                "سهمیهٔ درایو است و چند ساعت بعد خودش باز می‌شود؛ اگر "
+                "«permission» بود، اشتراکِ آن فایل باید «هر کسی با لینک» "
+                "شود." % (len(DRIVE_IDS) - len(srcs), len(DRIVE_IDS)))
         say_("ساختِ دیتاست از %d ضبط" % len(srcs))
         segs, rep = D.buildDataset_(
             srcs, ds, sampleDir=out, totalMax=DS_MAX_MIN * 60.0,
@@ -595,6 +605,35 @@ def epochsDone_(root):
         if m and f.endswith(".pth"):
             best = max(best, int(m.group(1)))
     return best
+
+
+def gdl_(gdown, fid, dst, tries=3, base=5.0):
+    """دانلود از درایو با تلاشِ دوباره. برمی‌گردانَد: آمد یا نه.
+
+    ══ چرا ══
+    اجرای ۴۶ (۱۴ سپتامبر) روی ضبطِ **هفتم از هشت** افتاد با
+    «Cannot retrieve the public link … or have had many accesses» — یعنی
+    سهمیهٔ دانلودِ گوگل‌درایو، نه خرابیِ لینک؛ شش‌تای قبلی همان لحظه آمده
+    بودند. یک خطای گذرا نباید اجرایی را بکُشد که پنج ساعت کار دارد.
+
+    و `gdown` در این حالت **استثنا پرتاب می‌کند**، نه اینکه None برگردانَد؛
+    حلقهٔ پایین برای حالتِ دوم نوشته شده بود، پس تحملش هرگز اجرا نشد.
+    """
+    last = None
+    for k in range(tries):
+        if k:
+            time.sleep(base * (3 ** (k - 1)))
+            say_("تلاشِ %d از %d برای %s" % (k + 1, tries, fid))
+        try:
+            gdown.download(id=fid, output=dst, quiet=True)
+        except Exception as e:
+            last = e
+            continue
+        if os.path.exists(dst) and os.path.getsize(dst) > 100000:
+            return True
+        last = "فایل ساخته نشد"
+    say_("نیامد پس از %d تلاش: %s (%s)" % (tries, fid, last))
+    return False
 
 
 def featsReady_(root):
