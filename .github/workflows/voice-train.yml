@@ -141,9 +141,20 @@ jobs:
       #        چون فقط همین مقدار می‌چرخد، دو-سه نسل کنارِ هم جا می‌شوند و
       #        نیافتنِ یکی، پایانِ کار نیست.
       #
-      # دستهٔ الف با «هرچه هست، منهای آنچه دستهٔ ب دارد» تعریف شده، نه با
-      # نامِ پوشه‌های ویژگی: نامِ درونیِ RVC می‌تواند عوض شود و آن‌وقت یک
-      # پوشه بی‌صدا از کش بیرون می‌مانْد و هر اجرا دو ساعت‌ونیم می‌سوزاند.
+      # ══ و دستهٔ الف **مثبت** فهرست می‌شود، نه با کنار گذاشتن ══
+      # اولش «هرچه هست، منهای آنچه ب دارد» بود، با این استدلال که نامِ
+      # درونیِ RVC ممکن است عوض شود. استدلال خوب بود؛ فقط کار نمی‌کرد.
+      # عددها در اجرای ۴۵ حکم دادند: کلِ درخت روی دیسک ۱۱ گیگ است و کشِ
+      # «فیلترشدهٔ» پایه ۱۰٫۱۱ گیگِ **فشرده** درآمد. اگر کنارگذاشتن‌ها
+      # گرفته بودند، حداکثر ~۷٫۷ گیگ خام می‌مانْد و فشرده‌اش از آن کمتر —
+      # پس هیچ‌کدام از آن خط‌های `!` هرگز چیزی را کنار نگذاشته بود. کل
+      # ماجرا از روزِ اول یک کشِ تمام-درخت بود با شش خطِ بی‌اثر بالایش.
+      #
+      # پس حالا فقط همان چیزهایی فهرست می‌شوند که `rvcpipe.preTrain_`
+      # واقعاً می‌خواند (چهار پوشه، برای هر دو گویندهٔ `razavi` و `mute`
+      # با یک `*`) به‌علاوهٔ وزن‌های پایه. الگوی مثبت در همین فایل ثابت
+      # شده که کار می‌کند — کشِ چک‌پوینت‌ها با همین شکل هر بار درست
+      # برمی‌گردد. یک سازوکارِ اثبات‌شده بهتر از یک استدلالِ درست است.
 
       # ══ کلیدِ پایه به **ورودی** بسته است، نه به یک عددِ دستی ══
       # `dsSig_()` همان تابعی است که خودِ کد با آن تصمیم می‌گیرد دیتاست
@@ -163,15 +174,13 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/rvcwork
-            !~/rvcwork/logs/*/G_*.pth
-            !~/rvcwork/logs/*/D_*.pth
-            !~/rvcwork/assets/weights
-            !~/rvcwork/assets/indices
-            !~/rvcwork/out
-            !~/rvcwork/raw
-            !~/rvcwork/dataset
-            !~/rvcwork/logs/*/1_16k_wavs
+            ~/rvcwork/logs/*/0_gt_wavs
+            ~/rvcwork/logs/*/3_feature768
+            ~/rvcwork/logs/*/2a_f0
+            ~/rvcwork/logs/*/2b-f0nsf
+            ~/rvcwork/assets/hubert_base
+            ~/rvcwork/assets/pretrained_v2
+            ~/rvcwork/assets/rmvpe
           key: rvc-razavi-base-${{ steps.sig.outputs.sig }}
 
       - name: کارِ اجرای پیشین را برگردان
@@ -308,15 +317,13 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            ~/rvcwork
-            !~/rvcwork/logs/*/G_*.pth
-            !~/rvcwork/logs/*/D_*.pth
-            !~/rvcwork/assets/weights
-            !~/rvcwork/assets/indices
-            !~/rvcwork/out
-            !~/rvcwork/raw
-            !~/rvcwork/dataset
-            !~/rvcwork/logs/*/1_16k_wavs
+            ~/rvcwork/logs/*/0_gt_wavs
+            ~/rvcwork/logs/*/3_feature768
+            ~/rvcwork/logs/*/2a_f0
+            ~/rvcwork/logs/*/2b-f0nsf
+            ~/rvcwork/assets/hubert_base
+            ~/rvcwork/assets/pretrained_v2
+            ~/rvcwork/assets/rmvpe
           key: rvc-razavi-base-${{ steps.sig.outputs.sig }}
 
       - name: کار را برای اجرای بعدی نگه دار
