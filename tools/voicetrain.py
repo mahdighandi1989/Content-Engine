@@ -506,6 +506,10 @@ def main():
     # است و هر `break` آن را برمی‌گرداند — نه برعکس، که یادِ یکی از سه
     # جا رفتن، سکوت بسازد.
     broke = False
+    # آیا این اجرا واقعاً از روی این پایه آموزش داد — شاهدِ ذخیرهٔ کشِ
+    # پایه. پیش‌فرضش «نه» است، چون کشی که یک‌بار نوشته می‌شود باید
+    # پیش‌فرضِ محافظه‌کار داشته باشد.
+    trained = False
     for nm, cmd in chain:
         if nm in ("preprocess", "extract_f0", "extract_feature") \
                 and os.path.isdir(feat) and os.listdir(feat):
@@ -533,6 +537,7 @@ def main():
                     "فهرست پس از وارسی خالی شد (%d از %d سالم)"
                     % (chk["kept"], chk["rows"]))
             say_("فهرستِ سالم: %d ردیف" % chk["kept"])
+            trained = True
             say_("آموزش از گامِ %d، هدف %d دور" % (steps_done_(root), EPOCHS))
             before = _newest_(root)
         if left_() <= 60:
@@ -565,7 +570,7 @@ def main():
     # کشِ ثابت را فقط با «true» می‌نویسد. اگر این اجرا اصلاً به اینجا
     # نرسد — خطا، بودجه، هرچه — خروجی نوشته نمی‌شود و شرط تهی می‌مانَد،
     # یعنی **نمی‌نویسد**. پیش‌فرضِ یک کشِ یک‌بارنوشت باید «نه» باشد.
-    base = baseReady_(root, work)
+    base = baseReady_(root, trained)
     say_("پایهٔ سنگین: %s" % json.dumps(base, ensure_ascii=False))
     gh0 = os.environ.get("GITHUB_OUTPUT")
     if gh0:
@@ -607,13 +612,26 @@ def featsReady_(root):
     وسطِ کار بمیرد پوشهٔ خالی نمی‌گذارد.
     """
     d = os.path.join(root, "logs", VOICE)
-    gt = len(glob.glob(os.path.join(d, "0_gt_wavs", "*.wav")))
-    return bool(gt) and all(
-        len(glob.glob(os.path.join(d, sub, "*.npy"))) == gt
-        for sub in ("3_feature768", "2a_f0", "2b-f0nsf"))
+
+    def n_(sub, pat):
+        return len(glob.glob(os.path.join(d, sub, pat)))
+    gt = n_("0_gt_wavs", "*.wav")
+    # ══ برابری را فقط از جایی بخواه که برقرار است ══
+    # نسخهٔ اول از هر سه پوشه برابری با `0_gt_wavs` می‌خواست. اجرای ۴۳
+    # جواب داد: gt=3879، feat=3879، ولی f0=3878 و nsf=3878 — **یکی**
+    # کم. این خرابی نیست؛ `extract_f0` تکه‌ای را که rmvpe گامِ صدا در آن
+    # پیدا نکند کنار می‌گذارد، و `preTrain_` هم فهرست را از اشتراکِ چهار
+    # پوشه می‌سازد، پس آن یک تکه فقط از آموزش می‌افتد. آموزش همان اجرا
+    # دورِ ۵ را تمام کرد و تا ۹۳٪ِ دورِ ۶ رفت.
+    # بهای آن یک عدد: پایه هرگز ذخیره نمی‌شد و هر اجرا ~۵۲ دقیقه صرفِ
+    # ساختِ دوبارهٔ همان چیز می‌کرد — ۱۸٪ از توانِ هر اجرا، بی هیچ خطایی.
+    # `feat == gt` بماند (هر دو از یک پاسِ preprocess می‌آیند و دقیق‌اند)،
+    # و از f0 فقط «اصلاً اجرا شده» خواسته شود.
+    return bool(gt) and n_("3_feature768", "*.npy") == gt \
+        and n_("2a_f0", "*.npy") > 0 and n_("2b-f0nsf", "*.npy") > 0
 
 
-def baseReady_(root, work):
+def baseReady_(root, trained):
     """آیا «پایهٔ سنگین» کامل است — همان چیزی که کشِ ثابت نگه می‌دارد.
 
     ══ چرا سنجیده، نه حدس ══
@@ -652,7 +670,14 @@ def baseReady_(root, work):
         "f0": n_(d, "2a_f0", "*.npy"),
         "nsf": n_(d, "2b-f0nsf", "*.npy"),
     }
-    st["ok"] = bool(st["hubert"] and st["mute"] and featsReady_(root))
+    # ══ و شاهدِ آخر شمارش نیست، بلکه «آموزش راه افتاد» ══
+    # کشِ پایه یک‌بار نوشته می‌شود و برای همیشه می‌مانَد، پس شرطش باید
+    # محکم‌ترین چیزِ موجود باشد. محکم‌ترین چیز این نیست که چند فایل
+    # شمرده‌ایم؛ این است که `preTrain_` فهرست ساخت، `filelistCheck_` آن
+    # را سالم دید، و آموزش واقعاً از روی همین پایه دور زد. همان دروازه‌ای
+    # که خودِ آموزش از آن رد می‌شود — نه یک بازگوییِ تقریبیِ آن.
+    st["trained"] = bool(trained)
+    st["ok"] = bool(st["hubert"] and st["mute"] and trained)
     return st
 
 

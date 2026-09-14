@@ -276,7 +276,14 @@ jobs:
         if: always() && steps.train.conclusion != 'skipped'
         run: |
           cd ~/rvcwork 2>/dev/null || exit 0
-          du -sh -- * logs/*/ 2>/dev/null | sort -rh | head -20
+          du -sh -- * 2>/dev/null | sort -rh
+          # ══ فراخوانیِ جدا، وگرنه صفر می‌دهد ══
+          # اولش `du -sh -- * logs/*/` بود و زیرپوشه‌های logs اصلاً چاپ
+          # نشدند: du چیزی را که در همان فراخوانی زیرِ یک والدِ شمرده‌شده
+          # آمده، دوباره نمی‌شمارد. و `logs` تنها ۸٫۲ از ۱۱ گیگ است، یعنی
+          # دقیقاً همان چیزی که باید شکسته شود.
+          echo "— داخلِ logs —"
+          du -sh -- logs/*/* 2>/dev/null | sort -rh | head -12
           echo "— جمع —"; du -sh . 2>/dev/null
 
       - name: پایه کامل نشد؟ بلند بگو
