@@ -364,3 +364,24 @@ jobs:
           path: ~/rvcwork/out
           if-no-files-found: warn
           retention-days: 30
+
+      # ══ آخرین خطِ لاگ، عمداً ══
+      # پرسشِ روزمرهٔ این گردش‌کار یکی است: «دورِ چندم؟» — و تا امروز
+      # جوابش وسطِ لاگ بود، پشتِ چند صد خطِ «Sent N of N»ِ بارگذاریِ کش.
+      # APIِ لاگ فقط دُم می‌دهد و آن دُم را همان پیشرفتِ بارگذاری پر
+      # می‌کند، پس هر وارسی چند بار لاگ را می‌کشید تا یک عدد پیدا کند.
+      # یک خط، آخر از همه: عددی که هر روز خوانده می‌شود باید آخرین چیزی
+      # باشد که چشم می‌بیند — همان قاعده‌ای که `finish_` در کد رعایت
+      # می‌کند، اینجا هم رعایت شود.
+      - name: خلاصه
+        if: always()
+        run: |
+          S="$HOME/rvcwork/out/state.json"
+          [ -f "$S" ] || { echo "خلاصه: state.json نیست"; exit 0; }
+          python - "$S" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1], encoding="utf-8"))
+          print("خلاصه: دورِ %s از %s · گامِ %s · تمام‌شده: %s"
+                % (d.get("epochs_reached"), d.get("epochs_target"),
+                   d.get("steps"), d.get("done")))
+          PY
