@@ -1254,6 +1254,80 @@ function produceSpecialEpisode(opt) {
       } catch (eL) {}
     }
 
+    /* ══ ثبت، پس از سنجشِ متنِ واقعی — نه پس از نقشه ══
+     * نقشهٔ ارجاع یک *درخواست* است؛ نویسنده می‌تواند نادیده‌اش بگیرد. اگر
+     * نقشه ثبت شود، سیاهه و پروندهٔ قسمت و جزوه و مرور هر چهار ادعا می‌کنند
+     * ارجاعی داده شده که در صوت نیست — و چون جزوه و مرور از همین سیاهه
+     * می‌خوانند، آن ادعای غلط وارد محتوای بعدی هم می‌شود.
+     * «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد» — این همان جاست.
+     *
+     * از ۷٫۰۷ این سنجش زودتر از اینجا (پیش از عکسِ محتوا) اجرا می‌شود — نه
+     * پس از آن — چون auditSnap_ به ctx.__bridgesUsed نیاز دارد تا ارجاعِ
+     * واقعاً گفته‌شده را به‌عنوانِ منبع بشناسد؛ پایین‌تر ببین. */
+    try {
+      var bv = bridgeVerify_(ep, ctx.__bridges || []);
+      ctx.__bridgesUsed = bv.used;
+      ctx.__bridgesMissed = bv.missed;
+      if (bv.missed.length) {
+        logLine_('ارجاع: ' + bv.missed.length + ' ارجاع در متنِ نهایی نیامد (' +
+                 bv.missed.map(function (b) { return b.seriesName; }).join('، ') + ').');
+      }
+      /* یک ارجاعِ نیامده تصمیمِ ویراستاریِ نویسنده است؛ **همه‌شان نیامدن**
+         یعنی بلوکِ ارجاع اصلاً خوانده نشده — و آن یک ایرادِ ساختاری است.
+         کلید ثابت است تا تکرارش تکرار شمرده شود، نه ردیفِ تازهٔ هر شب. */
+      if ((ctx.__bridges || []).length && !bv.used.length) {
+        try {
+          logSelfFinding_(hub, {
+            priority: 'متوسط', category: 'محتوا', key: 'bridge-ignored',
+            title: 'بلوکِ ارجاعِ میان‌مجموعه‌ای در متن اعمال نشد',
+            detail: 'مجموعهٔ «' + seriesName + '» قسمت ' + epNum + ': ' +
+                    (ctx.__bridges || []).length + ' ارجاع تأیید شده بود ولی ' +
+                    'هیچ‌کدام در متنِ نوشته‌شده نیامد.',
+            instruction: 'بلوکِ bridgeBlock_ در پرامپتِ بخشِ ۱۴ را ببین — ' +
+                         'یا جایش در پرامپت، یا صراحتِ دستور باید عوض شود.',
+            owner: 'کد'
+          });
+        } catch (eBf) {}
+      }
+    } catch (eBv) {
+      // سنجش نشد؟ نقشه ثبت نمی‌شود. ادعای نسنجیده بدتر از نبودِ ثبت است.
+      ctx.__bridgesUsed = []; ctx.__bridgesMissed = [];
+      logLine_('سنجشِ ارجاع انجام نشد: ' + eBv.message);
+    }
+
+    /* ══ ارجاعِ استفاده‌شده، خودش یک منبع است (۷٫۰۷) ══
+     * تا امروز عکسِ محتوا فقط قطعه‌های خامِ همین درس را می‌دید. وقتی نویسنده
+     * از یک ارجاعِ میان‌مجموعه‌ای واقعاً استفاده می‌کرد — دقیقاً همان کاری که
+     * بخشِ ۳۱ برایش ساخته شده — داورِ سنجهٔ محتوا آن مقایسه را با هیچ منبعی
+     * نمی‌دید و «فراتر از خام»/«پیوندِ ساختگی» می‌زد: قسمت ۴۱، «دیدگاه قیدی
+     * دربارهٔ ابژه‌های درون‌نگری‌شده» — مقایسه با معرفت‌شناسیِ مصباح داوری
+     * شد که «هیچ ریشه‌ای در متنِ خام ندارد»، چون آن ریشه در متنِ *این* درس
+     * نبود؛ در جزوهٔ *آن* مجموعه بود، جایی که auditSnap_ اصلاً نگاه نمی‌کرد.
+     * این ادعا را «فراتر» شمردن، بازخوردی به قسمتِ بعد می‌داد که دقیقاً
+     * قابلیتِ بخشِ ۳۱ را کنار بگذارد — همان تناقضی که نسخهٔ ۶٫۱۰ برای پیوندِ
+     * توضیحی/مثال حل کرده بود، اینجا برای ارجاعِ میان‌مجموعه‌ای دوباره.
+     *
+     * هر ارجاعِ *واقعاً گفته‌شده* (ctx.__bridgesUsed) یک شناسهٔ منبع می‌گیرد
+     * و به بخشی که atHeading آن را نشانه گرفته وصل می‌شود؛ نبودِ تطبیقِ
+     * عنوان (ارجاعی که در سنجشِ سراسرِ متن پیدا شده، نه در یک بخشِ خاص) را
+     * محافظه‌کارانه به همهٔ بخش‌ها می‌دهیم — کم‌سنجیدنِ داور از پرگیریِ آن
+     * برای موردی که واقعاً منبع دارد، بی‌ضررتر است. */
+    var bridgeSrcItems = [];
+    var bridgeSecIdx = Object.create(null);
+    for (var bg = 0; bg < (ctx.__bridgesUsed || []).length; bg++) {
+      var blg = ctx.__bridgesUsed[bg];
+      var bid = 'BRIDGE' + bg;
+      bridgeSrcItems.push({
+        id: bid, topic: 'ارجاع به مجموعهٔ «' + (blg.seriesName || '') + '»',
+        msg: '', summary: String(blg.relation || ''),
+        body: 'آن مجموعه گفته: ' + String(blg.claim || '') +
+              (blg.chapter ? ' (فصل: ' + blg.chapter + ')' : '')
+      });
+      var bsi = bridgeSectionIndex_(ep, blg.atHeading);
+      if (bsi === -1) { bridgeSecIdx.__all = (bridgeSecIdx.__all || []).concat([bid]); }
+      else { bridgeSecIdx[bsi] = (bridgeSecIdx[bsi] || []).concat([bid]); }
+    }
+
     // عکسِ محتوا — همان کاری که «از همه جا از همه رنگ» می‌کند، با همان تابع.
     // «دسته»ی درس‌نامه نامِ مجموعه است؛ متنِ خامش قطعه‌های همان درس (fakeItems).
     // فراخوانِ رو به جلو (۱۴ → ۲۴)، پس در try/catch.
@@ -1305,6 +1379,7 @@ function produceSpecialEpisode(opt) {
           var ev3 = String(eid3[ea] || '').trim();
           if (ev3) sids.push(ev3);
         }
+        sids = sids.concat(bridgeSecIdx[sa] || []).concat(bridgeSecIdx.__all || []);
         snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
                         sourceIds: sids });
       }
@@ -1314,7 +1389,7 @@ function produceSpecialEpisode(opt) {
                    targetMin: specialTargetMin_() },
                  { hook: ep.hook, outro: ep.outro, connection: ep.recap,
                    sections: snapSecs },
-                 fakeItems, fid);
+                 fakeItems.concat(bridgeSrcItems), fid);
     } catch (eSn) { logLine_('عکسِ محتوای درس‌نامه گرفته نشد: ' + eSn.message); }
 
     // ── وارسیِ افشای مکمل ──
@@ -1358,43 +1433,6 @@ function produceSpecialEpisode(opt) {
       String(ep.title || '').slice(0, 60));
     try { ensureCast_(ep, ENRICH_SHOW_SPECIAL, epNum, seriesCatOf_(rec.vals)); }
     catch (eCast) { logLine_('نقش‌گزینیِ درس‌نامه انجام نشد: ' + eCast.message); }
-
-    /* ══ ثبت، پس از سنجشِ متنِ واقعی — نه پس از نقشه ══
-     * نقشهٔ ارجاع یک *درخواست* است؛ نویسنده می‌تواند نادیده‌اش بگیرد. اگر
-     * نقشه ثبت شود، سیاهه و پروندهٔ قسمت و جزوه و مرور هر چهار ادعا می‌کنند
-     * ارجاعی داده شده که در صوت نیست — و چون جزوه و مرور از همین سیاهه
-     * می‌خوانند، آن ادعای غلط وارد محتوای بعدی هم می‌شود.
-     * «هیچ‌کس به خروجی گوش نداد؛ فقط ورودی عوض شد» — این همان جاست. */
-    try {
-      var bv = bridgeVerify_(ep, ctx.__bridges || []);
-      ctx.__bridgesUsed = bv.used;
-      ctx.__bridgesMissed = bv.missed;
-      if (bv.missed.length) {
-        logLine_('ارجاع: ' + bv.missed.length + ' ارجاع در متنِ نهایی نیامد (' +
-                 bv.missed.map(function (b) { return b.seriesName; }).join('، ') + ').');
-      }
-      /* یک ارجاعِ نیامده تصمیمِ ویراستاریِ نویسنده است؛ **همه‌شان نیامدن**
-         یعنی بلوکِ ارجاع اصلاً خوانده نشده — و آن یک ایرادِ ساختاری است.
-         کلید ثابت است تا تکرارش تکرار شمرده شود، نه ردیفِ تازهٔ هر شب. */
-      if ((ctx.__bridges || []).length && !bv.used.length) {
-        try {
-          logSelfFinding_(hub, {
-            priority: 'متوسط', category: 'محتوا', key: 'bridge-ignored',
-            title: 'بلوکِ ارجاعِ میان‌مجموعه‌ای در متن اعمال نشد',
-            detail: 'مجموعهٔ «' + seriesName + '» قسمت ' + epNum + ': ' +
-                    (ctx.__bridges || []).length + ' ارجاع تأیید شده بود ولی ' +
-                    'هیچ‌کدام در متنِ نوشته‌شده نیامد.',
-            instruction: 'بلوکِ bridgeBlock_ در پرامپتِ بخشِ ۱۴ را ببین — ' +
-                         'یا جایش در پرامپت، یا صراحتِ دستور باید عوض شود.',
-            owner: 'کد'
-          });
-        } catch (eBf) {}
-      }
-    } catch (eBv) {
-      // سنجش نشد؟ نقشه ثبت نمی‌شود. ادعای نسنجیده بدتر از نبودِ ثبت است.
-      ctx.__bridgesUsed = []; ctx.__bridgesMissed = [];
-      logLine_('سنجشِ ارجاع انجام نشد: ' + eBv.message);
-    }
 
     writeSpecialJson_(folder, {
       ep: ep, seriesKey: seriesKey, seriesName: seriesName,

@@ -772,18 +772,22 @@ function bridgeBlock_(plan, seriesName) {
  * پیدا نشدنِ بخش، «نیامده» نیست: دامنه به کلِ متن برمی‌گردد و سنجه مثلِ
  * پیش محافظه‌کار می‌مانَد.
  */
-function bridgeSectionText_(ep, atHeading) {
+/** کدام بخشِ درس عنوانش با atHeading می‌خوانَد؟ نبود → ۱-. */
+function bridgeSectionIndex_(ep, atHeading) {
   var want = String(atHeading || '').trim().toLowerCase().replace(/\s+/g, ' ');
-  if (!want) return '';
+  if (!want) return -1;
   var secs = (ep && ep.sections) || [];
   for (var i = 0; i < secs.length; i++) {
     var h = String(secs[i].heading || '').trim().toLowerCase().replace(/\s+/g, ' ');
     if (!h) continue;
-    if (h === want || h.indexOf(want) !== -1 || want.indexOf(h) !== -1) {
-      return String(secs[i].narration || '');
-    }
+    if (h === want || h.indexOf(want) !== -1 || want.indexOf(h) !== -1) return i;
   }
-  return '';
+  return -1;
+}
+
+function bridgeSectionText_(ep, atHeading) {
+  var i = bridgeSectionIndex_(ep, atHeading);
+  return i === -1 ? '' : String((ep.sections[i] || {}).narration || '');
 }
 
 function bridgeVerify_(ep, links) {
