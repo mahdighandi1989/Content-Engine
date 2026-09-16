@@ -301,6 +301,15 @@ jobs:
           # دقیقاً همان چیزی که باید شکسته شود.
           echo "— داخلِ logs —"
           du -sh -- logs/*/* 2>/dev/null | sort -rh | head -12
+          # ══ و داخلِ assets، چون آنجا هم چیزی رشد می‌کند ══
+          # نردبانِ `assets/weights/razavi_e<N>.pth` هر دور یک فایل
+          # اضافه می‌کند و تنها بخشِ **رشدکنندهٔ** کشِ چک‌پوینت است. تا
+          # امروز هرگز شکسته نشد، پس اندازه‌اش فقط حدس بود — و دو بار
+          # حدس زدن در همین پرونده غلط از آب درآمد.
+          echo "— داخلِ assets —"
+          du -sh -- assets/* 2>/dev/null | sort -rh | head -8
+          echo "— نردبان —"
+          ls -1 assets/weights/*_e*.pth 2>/dev/null | wc -l
           echo "— جمع —"; du -sh . 2>/dev/null
 
       - name: پایه کامل نشد؟ بلند بگو
