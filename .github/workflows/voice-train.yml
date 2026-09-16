@@ -344,6 +344,49 @@ jobs:
             ~/rvcwork/raw
           key: rvc-razavi-base-${{ steps.sig.outputs.sig }}
 
+      # ══ نردبان: اول بایگانی، بعد کوتاه ══
+      # کشِ چک‌پوینت تنها یک بخشِ رشدکننده دارد —
+      # `assets/weights/<voice>_e<N>.pth`، هر دور یکی. و سقفِ ۱۰ گیگ در
+      # **لحظهٔ ذخیره** سنجیده می‌شود، جایی که نسلِ کهنه و تازه هر دو
+      # هستند: `پایه + ۲×چک‌پوینت`. پس هر گیگِ نردبان دو گیگ از سقف
+      # می‌خورَد، و وقتی رد شد کهنه‌ترین کش می‌رود — یعنی پایه، چون
+      # یک‌بار نوشته می‌شود و هرگز تازه نمی‌شود. اجرای ۵۱ همین بود.
+      #
+      # ولی این عکس‌ها بی‌خود ساخته نشده‌اند: از جایی به بعد مدل به‌جای
+      # یاد گرفتنِ گوینده داده را حفظ می‌کند، و یافتنِ آن نقطه فقط با
+      # مقایسهٔ همین نسخه‌ها ممکن است. پس پاک نمی‌شوند — **جا عوض
+      # می‌کنند**: artifactها از سقفِ کش حساب نمی‌شوند.
+      #
+      # و ترتیب، شرطِ درستیِ کار است. حذف به `outcome == 'success'`ِ
+      # بارگذاری بسته است، چون حذفی که بایگانی‌اش نرفته باشد برنمی‌گردد.
+      # ۹۰ روز نگه‌داری، چون مقایسه پس از **پایانِ** آموزش انجام می‌شود
+      # نه حالا؛ ۳۰ روزِ artifactِ معمولی ممکن است زودتر تمام شود.
+      - name: نردبان را بایگانی کن — پیش از کوتاه کردنش
+        id: ladder
+        if: always() && steps.train.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-razavi-ladder-${{ github.run_number }}
+          path: ~/rvcwork/assets/weights/*_e*.pth
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: و حالا کوتاهش کن — فقط بالاترین می‌مانَد
+        if: always() && steps.train.conclusion != 'skipped' && steps.ladder.outcome == 'success'
+        run: |
+          W="$HOME/rvcwork"
+          echo "— نردبان، پیش —"; du -sh "$W/assets/weights" 2>/dev/null || true
+          python - "$W" <<'PY'
+          import sys
+          sys.path.insert(0, "tools")
+          import voicetrain as V
+          gone = V.ladderPrune_(sys.argv[1])
+          print("نردبان کوتاه شد: %d عکسِ میانی رفت (بایگانی‌شان بالا رفت)"
+                % len(gone))
+          PY
+          echo "— نردبان، پس —"; du -sh "$W/assets/weights" 2>/dev/null || true
+          ls -1 "$W"/assets/weights/*_e*.pth 2>/dev/null || true
+
       - name: کار را برای اجرای بعدی نگه دار
         # ══ همیشه، حتی وقتی قدم نیمه‌کاره ماند ══
         # نیمه‌کاره ماندن حالتِ **عادی** این گردش‌کار است، نه خطا. اگر
