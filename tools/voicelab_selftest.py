@@ -2613,6 +2613,26 @@ def main():
        "فهرستِ نمونه‌ها دستی نوشته نشده")
     eq("ls ref*.input" in cmds, True, "نمونه‌ها از خودِ پوشه خوانده می‌شوند")
 
+    # ══ ۴-ت: موتوری که شکست بخورد، job را قرمز کند ══
+    # اجرای ۶۱ (۱۸ سپتامبر) `engine=style` را روی هشت ضبط دواند، هیچ
+    # کارتی نساخت (`onnxruntime` نبود)، و **سبز** تمام شد. خطا فقط در
+    # فایلِ گزارش نشست. نزدیک بود همان سبز به‌عنوانِ «کارت ساخته شد»
+    # گزارش شود — یعنی دقیقاً «سبز، بی‌خطا، بی‌اثر».
+    vl = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "voicelab.py"), encoding="utf-8").read()
+    tail = vl.split("saveRep_()")[-1]
+    eq('if rep.get("error"):' in tail, True,
+       "پایانِ main وجودِ خطا را می‌سنجد")
+    eq("return 1" in tail, True, "و با خطا کدِ ناصفر برمی‌گردانَد")
+    eq("::error" in tail, True, "و گیت‌هاب را هم خبر می‌کند، نه فقط فایل را")
+    # و وابستگیِ وابستگی: silero-vad در زمانِ import به onnxruntime نیاز
+    # دارد. فهرست درست بود و بالادست عوض شد؛ پس فهرست باید همراهش بیاید.
+    ds = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "dsprep.py"), encoding="utf-8").read()
+    deps = ds.split("DS_DEPS = ", 1)[1].split("]", 1)[0]
+    for need in ("silero-vad", "onnxruntime"):
+        eq(need in deps, True, "%s در فهرستِ وابستگی‌هاست" % need)
+
     # ══ ۴-پ: مدل از artifactِ آموزش — و ترتیبی که کلِ فایده به آن است ══
     # آموزش مدل را artifact می‌کند، ولی از بیرونِ Actions دانلودش ۴۰۳
     # می‌گیرد (blob storage از پشتِ پراکسی). پس تا امروز سنجیدنِ هر مدلِ

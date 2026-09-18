@@ -275,8 +275,13 @@ DS_SPK_TRIM = 3          # چند بار مرکز را با کنارگذاشتن
 # هیچ‌وقت لازم نشد — تا اولین اجرا روی رانرِ گیت‌هاب، که هیچ‌کدام
 # را ندارد و کار با `ModuleNotFoundError` ایستاد. یک fallback که
 # در فهرستِ وابستگی‌ها نباشد، فقط یک جملهٔ امیدوارکننده است.
-DS_DEPS = ["silero-vad", "soundfile", "numpy<2", "speechbrain>=1.0,<2",
-           "imageio-ffmpeg>=0.5,<1"]
+# ══ و وابستگیِ وابستگی هم وابستگی است ══
+# ۱۸ سپتامبر: `silero-vad` تازه‌اش `sequence_vad` را اضافه کرده که در
+# **زمانِ import** ‏`onnxruntime` می‌خواهد. ما هرگز onnx صدا نمی‌زنیم،
+# ولی `from silero_vad import load_silero_vad` بی آن نمی‌شود. یعنی
+# فهرستِ ما درست بود و بالادست زیرِ پایمان عوض شد.
+DS_DEPS = ["silero-vad", "onnxruntime", "soundfile", "numpy<2",
+           "speechbrain>=1.0,<2", "imageio-ffmpeg>=0.5,<1"]
 
 
 def dsEncoder_(tmp):
