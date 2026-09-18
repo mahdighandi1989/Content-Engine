@@ -149,4 +149,29 @@ console.log('=== ۶) دیده‌شدن ===');
   ok('۶.۷ ولی بارِ اول می‌دود', sqDue_() === true);
 }
 
+console.log('=== ۷) دوری که چیزی نسنجید، صفِ هفتگی را مصرف نمی‌کند (۷.۰۹) ===');
+{
+  /* دادهٔ واقعی: از ۹ تا ۱۸ سپتامبر (بیش از یک دورِ هفتگی) تبِ «کیفیتِ
+     استخراج» هیچ ردیفِ تازه‌ای نگرفت، چون یک شکستِ گذرا در خوانْدنِ کدِ
+     زندهٔ تحلیلگرها `PK.SQ_AT` را بی‌قید‌وشرط جلو می‌بُرد. */
+  const hub = new Spread('hub2', 'HUBQ2');
+  global.__SS['HUBQ2'] = hub;
+  const prevGetHub = global.getHub_;
+  global.getHub_ = () => hub;
+
+  delete global.__PROPS[PK.SQ_AT];
+  const prevStub = global.__STUB;
+  global.__STUB = () => ({ code: 500, text: '' });   // هر srcScriptGet_ شکست می‌خورد
+
+  const r1 = sqRun_(60000, true);
+  ok('۷.۱ دوری که کدِ هیچ تحلیلگری را نتوانست بخواند، چیزی نمی‌سنجد',
+     r1.ran === 0, JSON.stringify(r1));
+  ok('۷.۲ و به‌همین‌خاطر PK.SQ_AT به‌روز نمی‌شود — نوبتِ هفتگی نجات پیدا می‌کند',
+     !global.__PROPS[PK.SQ_AT]);
+  ok('۷.۳ پس فردا شب دوباره امتحان می‌کند، نه هفتهٔ بعد', sqDue_() === true);
+
+  global.__STUB = prevStub;
+  global.getHub_ = prevGetHub;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ کیفیتِ استخراج گذشت.');
