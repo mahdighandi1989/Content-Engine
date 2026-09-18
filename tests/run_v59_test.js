@@ -600,4 +600,82 @@ console.log('\n=== ۱۲-ب. نمونهٔ سبک: پرچمِ موقت نمی‌م
      blk.indexOf('CODE_VERSION') === -1);
 }
 
+/* ══ ۱۲-پ) نمونه‌ای که دو فایلِ یکسان بسازد، بدتر از نبودنش است (۷٫۱۱) ══
+
+   ۷٫۱۰ دقیقاً همین‌جا شکست و هیچ سنجه‌ای نگرفتش: `STYLE_PROBE_LINE` بی‌اعراب
+   بود، پس `ttsCue_` شاخهٔ یادآورِ **تلفظ** را می‌گرفت و یادآورِ سبک اصلاً
+   نمی‌نشست. دو فایل بایت‌به‌بایت یکی می‌شدند، تابع «✅ هر دو نمونه ساخته شد»
+   می‌گفت، نشانهٔ «انجام شد» ثبت می‌شد و دیگر تکرار نمی‌شد — و صاحبِ برنامه با
+   شنیدنِ دو فایلِ یکسان نتیجه می‌گرفت «کارت اثری ندارد».
+
+   سنجهٔ قبلی فقط می‌شمرد: `ok===true && made.length===2`. یعنی تابع را اجرا
+   می‌کرد و تأیید می‌کرد خروجی تولید شد، در حالی که کاری که تابع برایش نوشته
+   شده انجام نمی‌شد. سنجهٔ درست یک جمله است: **دو نمونه باید فرق داشته باشند.** */
+console.log('\n=== ۱۲-پ. نمونهٔ سبک: دو فایل باید واقعاً فرق کنند ===');
+{
+  global.__PROPS = {}; global.__SS = {}; global._ssCache = null;
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  global.DriveApp.__register(CFG.OUTPUT_FOLDER_ID, 'OUTPUT');
+  const onWas2 = CFG.SPEAK_STYLE_ON;
+  CFG.SPEAK_STYLE_ON = false;
+
+  ok('۱۲-پ٫۱ متنِ نمونه اعراب‌دار است — وگرنه یادآورِ سبک هرگز نمی‌نشیند',
+     speakVowelledOk_(STYLE_PROBE_LINE, STYLE_PROBE_LINE) === true,
+     'چگالی: ' + ((STYLE_PROBE_LINE.match(/[\u064B-\u0652]/g) || []).length /
+                  (STYLE_PROBE_LINE.match(/[\u0621-\u064A]/g) || []).length).toFixed(3));
+
+  styleProbeSet_(true);  const pOn  = ttsCue_('آرام و روایی', STYLE_PROBE_LINE);
+  styleProbeSet_(false); const pOff = ttsCue_('آرام و روایی', STYLE_PROBE_LINE);
+  ok('۱۲-پ٫۲ و دو دستورِ نمونه واقعاً فرق دارند', pOn !== pOff, pOn.slice(-55));
+  ok('۱۲-پ٫۳ دستورِ «با روح» یادآورِ سنجیده را **کامل** دارد',
+     pOn.indexOf(CFG.SPEAK_STYLE_HINT) !== -1);
+  ok('۱۲-پ٫۴ و هیچ‌کدام دو نقطهٔ پشتِ هم ندارند',
+     pOn.indexOf('..') === -1 && pOff.indexOf('..') === -1);
+
+  /* و سدّ: اگر به هر دلیلی دو دستور یکی درآیند — بی‌اعرابیِ متن، یادآورِ
+     خالی، یا خاموشیِ دستور در `ttsPayloads_` — هیچ فایلی نباید نوشته شود.
+     این‌جا با خالی‌کردنِ یادآور همان حالت ساخته می‌شود. */
+  const hintWas = CFG.SPEAK_STYLE_HINT;
+  CFG.SPEAK_STYLE_HINT = '';
+  const unQ3 = quiet();
+  const rBad = runStyleProbe();
+  unQ3();
+  CFG.SPEAK_STYLE_HINT = hintWas;
+  ok('۱۲-پ٫۵ دو دستورِ یکسان ⇒ هیچ فایلی نوشته نمی‌شود و ok=false',
+     rBad.ok === false && rBad.made.length === 0, JSON.stringify(rBad.made));
+  ok('۱۲-پ٫۶ و دلیلش گفته می‌شود، نه اینکه ✅ بگوید',
+     rBad.error.indexOf('یکی درآمد') !== -1, rBad.error.slice(0, 70));
+  ok('۱۲-پ٫۷ و پرچمِ موقت باز هم نمانده',
+     props_().getProperty(PK.STYLE_PROBE) === null);
+
+  /* و سنجهٔ آخر، که جهشِ «هیچ‌وقت پرچم را روشن نکن» را می‌گیرد: دستوری که
+     در **خودِ اجرا** برای هر نمونه ساخته می‌شود ضبط می‌شود و باید فرق کند.
+     سنجهٔ قبلی فقط دو فایل می‌شمرد، و دو فایلِ یکسان هم دو فایل است. */
+  const seen = [];
+  const realSyn = global.ttsChunkTry_;
+  // در **لحظهٔ صداگذاریِ هر فایل** پرچم را می‌خوانیم، نه جای دیگر: خودآزمونِ
+  // تابع پیش از حلقه اجرا می‌شود و اگر آن را بشماریم، جهشی که حلقه را
+  // خاموش کند از دستمان در می‌رود — همان چیزی که بازبینیِ سوم نشان داد.
+  global.ttsChunkTry_ = function (tx, st, v) { seen.push(styleProbeOn_()); return realSyn(tx, st, v); };
+  const unQ4 = quiet();
+  const rGood = runStyleProbe();
+  unQ4();
+  global.ttsChunkTry_ = realSyn;
+  ok('۱۲-پ٫۸ در اجرای واقعی، یکی با پرچم و یکی بی پرچم صداگذاری شد',
+     rGood.ok === true && seen.length === 2 &&
+     seen.filter(Boolean).length === 1, JSON.stringify(seen));
+
+  /* و کفِ محافظ: یادآوری که در سقف جا نشود، نصفه فرستاده نمی‌شود. */
+  CFG.SPEAK_STYLE_HINT = hintWas + ' ' + hintWas + ' ' + hintWas;
+  CFG.SPEAK_STYLE_ON = true;
+  const tooBig = ttsCue_('گرم', 'بابا بِه خانه آمَد وَ ما را صِدا زَد.');
+  CFG.SPEAK_STYLE_HINT = hintWas;
+  ok('۱۲-پ٫۹ یادآورِ جا‌نشدنی کامل کنار می‌رود، نصفه نمی‌رود',
+     tooBig.indexOf('مکث‌ها را بیشتر') === -1 &&
+     tooBig.length <= CFG.TTS_CUE_MAX + 30, tooBig.slice(-55));
+  ok('۱۲-پ٫۱۰ و لهجه در آن حالت هم سرِ جایش می‌مانَد', /افغانی/.test(tooBig));
+
+  CFG.SPEAK_STYLE_ON = onWas2;
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);
