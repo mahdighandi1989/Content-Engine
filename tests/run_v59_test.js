@@ -772,6 +772,44 @@ console.log('\n=== ۱۲-ت. وعده‌های نمونهٔ سبک، سنجیده
   ok('۱۲-ت٫۱۰ و یادآور در هر سه کامل است',
      cues.every(c => c.indexOf(CFG.SPEAK_STYLE_HINT) !== -1));
 
+  /* ── اشتراکِ موقت: بی آن، کلِ مرحلهٔ بعدی شکست می‌خورد ──
+     آزمایشگاهِ صدا از بیرونِ درایو فایل را با یک آدرسِ عمومی برمی‌دارد؛
+     فایلِ خصوصی آن‌جا به‌جای صوت یک صفحهٔ HTML می‌دهد. صاحبِ برنامه گفت روح
+     را جدا از رنگ نمی‌تواند داوری کند، پس این مرحله اختیاری نیست. */
+  const sub2 = root.getFoldersByName(CFG.VOICE_AUDIT_FOLDER).next();
+  const shared = [];
+  { const it = sub2.getFiles();
+    while (it.hasNext()) { const f = it.next();
+      if (String(f.getName()).indexOf('نمونهٔ سبک') === 0) shared.push(f); } }
+  ok('۱۲-ت٫۱۲ هر دو نمونه «هرکس با لینک» شدند',
+     shared.length === 2 &&
+     shared.every(f => f._share && f._share.access === DriveApp.Access.ANYONE_WITH_LINK),
+     shared.map(f => JSON.stringify(f._share)).join(' · '));
+
+  /* و پس گرفته می‌شود — ولی نه همان شب. مهلت لازم است: بینِ ساختِ شبانه و
+     اجرای آزمایشگاه دستِ‌کم یک روز فاصله است، و اشتراکی که پیش از استفاده
+     بسته شود همان اشتراکی است که انگار هرگز نبود. */
+  const n0 = styleProbeUnshare_();
+  ok('۱۲-ت٫۱۳ فایلِ تازه همان شب اشتراکش پس گرفته نمی‌شود',
+     n0 === 0 && shared.every(f => f._share.access === DriveApp.Access.ANYONE_WITH_LINK),
+     n0 + ' فایل');
+  shared.forEach(f => { f._created =
+    new Date(new Date().getTime() - (Number(CFG.STYLE_PROBE_SHARE_HOURS) + 6) * 3600000); });
+  const n1 = styleProbeUnshare_();
+  ok('۱۲-ت٫۱۴ ولی فایلِ کهنه پس گرفته می‌شود',
+     n1 === 2 && shared.every(f => f._share.access === DriveApp.Access.PRIVATE),
+     n1 + ' فایل');
+
+  /* و دوقلو نداریم: بخشِ ۲۷ همان تعریف را صدا می‌زند، نه نسخهٔ دومِ خودش.
+     «یک دوقلو که یک‌بار درست شود، یک‌بار درست شده است» — و بخشِ ۲۰ هم
+     نمی‌تواند از ۲۷ صدا بزند، که همان وسوسهٔ کپی را می‌ساخت. */
+  const src18 = fs.readFileSync('src/18_Files.gs', 'utf8');
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۲-ت٫۱۵ تعریفِ اشتراک یک‌جاست و بخشِ ۲۷ همان را صدا می‌زند',
+     /function driveShareOn_/.test(src18) &&
+     !/function driveShareOn_/.test(src27) &&
+     /function ytShareOn_\s*\([^)]*\)\s*\{\s*return driveShareOn_/.test(src27));
+
   // ── پرچمِ مهرِ آینده باید مرده حساب شود ──
   CFG.SPEAK_STYLE_ON = false;
   props_().setProperty(PK.STYLE_PROBE, String(new Date().getTime() + 365 * 86400000));

@@ -972,30 +972,17 @@ function ytDlUrl_(fileId) {
          encodeURIComponent(String(fileId || '')) + '&export=download&confirm=t';
 }
 
-/** اشتراکِ «هرکس با لینک: فقط دیدن» — روشن. */
+/* اشتراکِ موقتِ فایل حالا در بخشِ ۱۸ است: `driveShareOn_` / `driveShareOff_`.
+   دلیلش وابستگیِ بخش‌هاست — بخشِ ۲۰ («نمونهٔ روحِ خواندن») هم به همین نیاز
+   دارد و نمی‌تواند از بخشِ ۲۷ صدا بزند. نوشتنِ دوقلوی دوم، همان کاری است که
+   این مخزن بارها تاوانش را داده: «یک دوقلو که یک‌بار درست شود، یک‌بار درست
+   شده است». پس یک تعریف، در پایین‌ترین بخشی که هر دو می‌بینندش. */
 function ytShareOn_(fileId) {
-  if (!fileId) return false;
-  try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return true;
-  } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل برقرار نشد: ' + String(e.message).slice(0, 80));
-    return false;
-  }
+  return driveShareOn_(fileId);
 }
 
-/** و خاموش. */
 function ytShareOff_(fileId) {
-  if (!fileId) return false;
-  try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-    return true;
-  } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
-    return false;
-  }
+  return driveShareOff_(fileId);
 }
 
 /** صوت و کاورِ یک ردیف را با هم باز یا بسته می‌کند. */

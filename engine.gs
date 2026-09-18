@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.12
+ *  موتور محتوا و پادکست — نسخهٔ 7.13
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -355,6 +355,11 @@ var CFG = {
   // نکرده. پنج دقیقه از هر نمونه‌سازی بلندتر است و از فاصلهٔ ۰۲:۳۰ تا
   // ۰۷:۰۰ بسیار کوتاه‌تر.
   STYLE_PROBE_TTL_MIN: 5,
+
+  // و چند ساعت اشتراکِ موقتِ دو فایلِ نمونه باز بماند. آزمایشگاهِ صدا از
+  // بیرونِ درایو برشان می‌دارد، و بینِ ساختِ شبانه و آن اجرا دستِ‌کم یک روز
+  // فاصله است. کمترش یعنی اشتراکی که پیش از استفاده بسته می‌شود.
+  STYLE_PROBE_SHARE_HOURS: 36,
 
   // سقفِ طولِ کلِ سطرِ دستور. اگر لحنِ بخش بلندتر باشد، بریده می‌شود —
   // دستورِ بلند دشمنِ اجراست، نه کمکش.
@@ -1207,7 +1212,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.12',
+  CODE_VERSION: '7.13',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -22776,6 +22781,44 @@ function runOrganizeFolders() {
   return r;
 }
 
+/* ══ اشتراکِ موقتِ یک فایلِ درایو ══
+ *
+ * دو جا لازم است و هر دو یک شکل دارند: مسیرِ رندرِ ویدئو (بخشِ ۲۷) صوت و
+ * جلد را موقتاً «هرکس با لینک» می‌کند تا رندرکننده بتواند برشان دارد و بعد
+ * پس می‌گیرد؛ و نمونهٔ «روحِ خواندن» (بخشِ ۲۰) همان را برای آزمایشگاهِ صدا
+ * لازم دارد، چون آن هم از بیرون با یک آدرسِ عمومی فایل را می‌گیرد.
+ *
+ * این‌جا تعریف می‌شود، در پایین‌ترین بخشی که هر دو می‌بینندش — نه دو نسخه
+ * در دو بخش. بخشِ ۲۰ نمی‌تواند از ۲۷ صدا بزند (وابستگی باید رو به عقب
+ * باشد)، و همین محدودیت بود که وسوسهٔ کپی‌کردن را می‌ساخت.
+ *
+ * هر دو در برابرِ خطا ساکت‌اند و `false` برمی‌گردانند: صدازننده باید جواب
+ * را **ببیند**، چون «اشتراک برقرار نشد» یعنی مرحلهٔ بعدی هم شکست می‌خورد.
+ */
+function driveShareOn_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل برقرار نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}
+
+function driveShareOff_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}
+
 /* ═══════════════════════════ 19_Enrich.gs ═══════════════════════════ */
 
 /**
@@ -24533,6 +24576,16 @@ function runStyleProbe() {
         var old = folder.getFilesByName(plan[i].f);
         while (old.hasNext()) old.next().setTrashed(true);
         var f = folder.createFile(Utilities.newBlob(bytes, 'audio/wav', plan[i].f));
+        /* ══ اشتراکِ موقت، چون داورِ بعدی بیرون از درایو است ══
+         * این دو فایل باید از آزمایشگاهِ صدا (GitHub Actions) با یک آدرسِ
+         * عمومی برداشته شوند تا رنگِ رضوی رویشان سوار شود — صاحبِ برنامه
+         * گفت روح را جدا از رنگ نمی‌تواند داوری کند. بی اشتراک، آن‌جا
+         * به‌جای صوت یک صفحهٔ HTMLِ «اجازه ندارید» می‌رسد.
+         * همان کاری که مسیرِ رندرِ ویدئو هر ساعت می‌کند، با همان تابع.
+         * پس گرفتنش کارِ `styleProbeUnshare_` در کارِ شبانه است. */
+        if (!driveShareOn_(f.getId())) {
+          err += plan[i].f + ': اشتراکِ موقت برقرار نشد (آزمایشگاه نمی‌تواند برش دارد). ';
+        }
         made.push(plan[i].f + ' → ' + f.getUrl());
       } catch (eOne) {
         // قرینه‌اش `runVoiceAudition` برای هر صدا catch جدا دارد و ادامه
@@ -24652,6 +24705,42 @@ function runBlockVoice() {
                              '\nاملای درست را از فهرستِ همان کادر بردارید.' : '') +
            '\n\nاز قسمتِ بعد اعمال می‌شود.', ui.ButtonSet.OK);
   return { ok: true, blocked: good, unknown: unknown };
+}
+
+/* ══ پس گرفتنِ اشتراکِ نمونه‌های سبک ══
+ *
+ * `runStyleProbe` دو فایل را «هرکس با لینک» می‌کند چون آزمایشگاهِ صدا از
+ * بیرونِ درایو برشان می‌دارد. پس گرفتنش نمی‌تواند در همان اجرا باشد: بینِ
+ * ساختِ فایل و برداشتنش دستِ‌کم یک روز فاصله است.
+ *
+ * پس کارِ شبانه این را می‌کند، با یک مهلت. مهلت لازم است چون بی آن، همان
+ * شبی که فایل ساخته شد اشتراکش برداشته می‌شود و آزمایشگاه فردا دستش خالی
+ * می‌مانَد — یعنی درست همان چیزی که اشتراک برایش گذاشته شده بود.
+ *
+ * و «فایلی که پیدا نشد» خطا نیست: قبل از نخستین نمونه‌سازی این پوشه اصلاً
+ * وجود ندارد.
+ */
+function styleProbeUnshare_() {
+  var hours = Number(CFG.STYLE_PROBE_SHARE_HOURS);
+  if (!isFinite(hours) || hours <= 0) hours = 36;
+  var cut = new Date().getTime() - hours * 3600 * 1000;
+  var n = 0;
+  try {
+    var it = outFolder_().getFoldersByName(
+      CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان');
+    if (!it.hasNext()) return 0;
+    var fs = it.next().getFiles();
+    while (fs.hasNext()) {
+      var f = fs.next();
+      if (String(f.getName()).indexOf('نمونهٔ سبک') !== 0) continue;
+      if (f.getDateCreated().getTime() > cut) continue;
+      if (driveShareOff_(f.getId())) n++;
+    }
+    if (n) logLine_('نمونهٔ سبک: اشتراکِ ' + n + ' فایل پس گرفته شد.');
+  } catch (e) {
+    logLine_('نمونهٔ سبک: پس‌گرفتنِ اشتراک نشد — ' + String(e.message).slice(0, 80));
+  }
+  return n;
 }
 
 /* ═══════════════════════════ 21_SelfUpdate.gs ═══════════════════════════ */
@@ -25805,6 +25894,11 @@ function selfUpdateDaily() {
    * با خوابِ فزاینده دارد، و دو نمونه در کار است. بودجه‌ای که از کارِ واقعی
    * کوچک‌تر باشد یعنی کارِ نیمه‌کاره‌ای که وسطش کشته می‌شود.
    */
+  // پس گرفتنِ اشتراکِ نمونه‌های دیروزی — پیش از ساختنِ تازه، و بی سدّ بودجه.
+  // خانه‌داری است نه کارِ سنگین: یک پیمایشِ پوشه. پشتِ `nightHas_` گذاشتنش
+  // یعنی شبی که وقت کم بیاید، فایل‌ها عمومی می‌مانند — و همان شب‌ها شب‌های
+  // شلوغ‌اند، یعنی دقیقاً وقتی که نباید.
+  try { styleProbeUnshare_(); } catch (eSU) {}
   try {
     var spKey = String(CFG.SPEAK_STYLE_HINT || '');
     var spDone = props_().getProperty(PK.STYLE_PROBE_DONE) || '';
@@ -36980,30 +37074,17 @@ function ytDlUrl_(fileId) {
          encodeURIComponent(String(fileId || '')) + '&export=download&confirm=t';
 }
 
-/** اشتراکِ «هرکس با لینک: فقط دیدن» — روشن. */
+/* اشتراکِ موقتِ فایل حالا در بخشِ ۱۸ است: `driveShareOn_` / `driveShareOff_`.
+   دلیلش وابستگیِ بخش‌هاست — بخشِ ۲۰ («نمونهٔ روحِ خواندن») هم به همین نیاز
+   دارد و نمی‌تواند از بخشِ ۲۷ صدا بزند. نوشتنِ دوقلوی دوم، همان کاری است که
+   این مخزن بارها تاوانش را داده: «یک دوقلو که یک‌بار درست شود، یک‌بار درست
+   شده است». پس یک تعریف، در پایین‌ترین بخشی که هر دو می‌بینندش. */
 function ytShareOn_(fileId) {
-  if (!fileId) return false;
-  try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return true;
-  } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل برقرار نشد: ' + String(e.message).slice(0, 80));
-    return false;
-  }
+  return driveShareOn_(fileId);
 }
 
-/** و خاموش. */
 function ytShareOff_(fileId) {
-  if (!fileId) return false;
-  try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-    return true;
-  } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
-    return false;
-  }
+  return driveShareOff_(fileId);
 }
 
 /** صوت و کاورِ یک ردیف را با هم باز یا بسته می‌کند. */

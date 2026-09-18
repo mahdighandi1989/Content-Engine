@@ -338,3 +338,41 @@ function runOrganizeFolders() {
   if (ui) ui.alert('سامان‌دهیِ پوشهٔ قسمت‌ها', m, ui.ButtonSet.OK); else console.log(m);
   return r;
 }
+
+/* ══ اشتراکِ موقتِ یک فایلِ درایو ══
+ *
+ * دو جا لازم است و هر دو یک شکل دارند: مسیرِ رندرِ ویدئو (بخشِ ۲۷) صوت و
+ * جلد را موقتاً «هرکس با لینک» می‌کند تا رندرکننده بتواند برشان دارد و بعد
+ * پس می‌گیرد؛ و نمونهٔ «روحِ خواندن» (بخشِ ۲۰) همان را برای آزمایشگاهِ صدا
+ * لازم دارد، چون آن هم از بیرون با یک آدرسِ عمومی فایل را می‌گیرد.
+ *
+ * این‌جا تعریف می‌شود، در پایین‌ترین بخشی که هر دو می‌بینندش — نه دو نسخه
+ * در دو بخش. بخشِ ۲۰ نمی‌تواند از ۲۷ صدا بزند (وابستگی باید رو به عقب
+ * باشد)، و همین محدودیت بود که وسوسهٔ کپی‌کردن را می‌ساخت.
+ *
+ * هر دو در برابرِ خطا ساکت‌اند و `false` برمی‌گردانند: صدازننده باید جواب
+ * را **ببیند**، چون «اشتراک برقرار نشد» یعنی مرحلهٔ بعدی هم شکست می‌خورد.
+ */
+function driveShareOn_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل برقرار نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}
+
+function driveShareOff_(fileId) {
+  if (!fileId) return false;
+  try {
+    DriveApp.getFileById(String(fileId))
+            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
+    return false;
+  }
+}

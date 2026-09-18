@@ -805,6 +805,16 @@ function runStyleProbe() {
         var old = folder.getFilesByName(plan[i].f);
         while (old.hasNext()) old.next().setTrashed(true);
         var f = folder.createFile(Utilities.newBlob(bytes, 'audio/wav', plan[i].f));
+        /* ══ اشتراکِ موقت، چون داورِ بعدی بیرون از درایو است ══
+         * این دو فایل باید از آزمایشگاهِ صدا (GitHub Actions) با یک آدرسِ
+         * عمومی برداشته شوند تا رنگِ رضوی رویشان سوار شود — صاحبِ برنامه
+         * گفت روح را جدا از رنگ نمی‌تواند داوری کند. بی اشتراک، آن‌جا
+         * به‌جای صوت یک صفحهٔ HTMLِ «اجازه ندارید» می‌رسد.
+         * همان کاری که مسیرِ رندرِ ویدئو هر ساعت می‌کند، با همان تابع.
+         * پس گرفتنش کارِ `styleProbeUnshare_` در کارِ شبانه است. */
+        if (!driveShareOn_(f.getId())) {
+          err += plan[i].f + ': اشتراکِ موقت برقرار نشد (آزمایشگاه نمی‌تواند برش دارد). ';
+        }
         made.push(plan[i].f + ' → ' + f.getUrl());
       } catch (eOne) {
         // قرینه‌اش `runVoiceAudition` برای هر صدا catch جدا دارد و ادامه
@@ -924,4 +934,40 @@ function runBlockVoice() {
                              '\nاملای درست را از فهرستِ همان کادر بردارید.' : '') +
            '\n\nاز قسمتِ بعد اعمال می‌شود.', ui.ButtonSet.OK);
   return { ok: true, blocked: good, unknown: unknown };
+}
+
+/* ══ پس گرفتنِ اشتراکِ نمونه‌های سبک ══
+ *
+ * `runStyleProbe` دو فایل را «هرکس با لینک» می‌کند چون آزمایشگاهِ صدا از
+ * بیرونِ درایو برشان می‌دارد. پس گرفتنش نمی‌تواند در همان اجرا باشد: بینِ
+ * ساختِ فایل و برداشتنش دستِ‌کم یک روز فاصله است.
+ *
+ * پس کارِ شبانه این را می‌کند، با یک مهلت. مهلت لازم است چون بی آن، همان
+ * شبی که فایل ساخته شد اشتراکش برداشته می‌شود و آزمایشگاه فردا دستش خالی
+ * می‌مانَد — یعنی درست همان چیزی که اشتراک برایش گذاشته شده بود.
+ *
+ * و «فایلی که پیدا نشد» خطا نیست: قبل از نخستین نمونه‌سازی این پوشه اصلاً
+ * وجود ندارد.
+ */
+function styleProbeUnshare_() {
+  var hours = Number(CFG.STYLE_PROBE_SHARE_HOURS);
+  if (!isFinite(hours) || hours <= 0) hours = 36;
+  var cut = new Date().getTime() - hours * 3600 * 1000;
+  var n = 0;
+  try {
+    var it = outFolder_().getFoldersByName(
+      CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان');
+    if (!it.hasNext()) return 0;
+    var fs = it.next().getFiles();
+    while (fs.hasNext()) {
+      var f = fs.next();
+      if (String(f.getName()).indexOf('نمونهٔ سبک') !== 0) continue;
+      if (f.getDateCreated().getTime() > cut) continue;
+      if (driveShareOff_(f.getId())) n++;
+    }
+    if (n) logLine_('نمونهٔ سبک: اشتراکِ ' + n + ' فایل پس گرفته شد.');
+  } catch (e) {
+    logLine_('نمونهٔ سبک: پس‌گرفتنِ اشتراک نشد — ' + String(e.message).slice(0, 80));
+  }
+  return n;
 }
