@@ -726,8 +726,14 @@ function runStyleProbe() {
   // زده شود و `renderAudioStep_` در حالِ صداگذاری باشد، نیمی از تکه‌های
   // قسمتِ منتشرشده یادآورِ سبک می‌گیرند و نیمی نه. هر دو مسیرِ تولید
   // (`produceEpisode` و `renderAudioStep_`) همین قفل را می‌گیرند.
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) {
+  // خودِ گرفتنِ قفل هم می‌تواند پرتاب کند؛ از منو یعنی یک دیالوگِ خطای خام.
+  // `src/18_Files.gs` همین را در try گذاشته و این‌جا نگذاشته بود.
+  var lock = null, got = false;
+  try {
+    lock = LockService.getScriptLock();
+    got = lock.tryLock(20000);
+  } catch (eLk) { got = false; }
+  if (!got) {
     var busy = '⚠️ الان اسکریپتِ دیگری در حال اجراست (احتمالاً صداگذاریِ قسمت). ' +
                'چند دقیقهٔ دیگر دوباره بزنید.';
     logLine_('نمونهٔ سبک: قفل آزاد نشد.');
@@ -800,6 +806,11 @@ function runStyleProbe() {
         while (old.hasNext()) old.next().setTrashed(true);
         var f = folder.createFile(Utilities.newBlob(bytes, 'audio/wav', plan[i].f));
         made.push(plan[i].f + ' → ' + f.getUrl());
+      } catch (eOne) {
+        // قرینه‌اش `runVoiceAudition` برای هر صدا catch جدا دارد و ادامه
+        // می‌دهد. کلِ ارزشِ این کار «دو فایل با یک متغیرِ تفاوت» است، پس از
+        // دست دادنِ **شاهد** به‌خاطرِ خطای گذرا در نمونهٔ اول، بی‌دلیل است.
+        err += plan[i].f + ': ' + String((eOne && eOne.message) || eOne).slice(0, 90) + '. ';
       } finally {
         try { styleProbeSet_(false); } catch (eD) {}
       }
@@ -807,7 +818,7 @@ function runStyleProbe() {
   } catch (e) {
     err += String((e && e.message) || e).slice(0, 200);
   } finally {
-    try { lock.releaseLock(); } catch (eL) {}
+    try { if (lock) lock.releaseLock(); } catch (eL) {}
   }
 
   var okAll = made.length === 2;

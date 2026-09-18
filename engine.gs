@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.11
+ *  موتور محتوا و پادکست — نسخهٔ 7.12
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -352,9 +352,9 @@ var CFG = {
   // و پرچمِ موقتی که `runStyleProbe` می‌گذارد، تاریخِ انقضا دارد. Apps Script
   // اجرا را سرِ شش دقیقه بی هیچ خطایی می‌کُشد و `finally` اجرا نمی‌شود؛ بی این
   // عدد، یک اجرای کشته‌شده موتور را تا ابد در حالتی می‌گذاشت که کسی انتخابش
-  // نکرده. پانزده دقیقه از هر نمونه‌سازی بلندتر است و از فاصلهٔ ۰۲:۳۰ تا
+  // نکرده. پنج دقیقه از هر نمونه‌سازی بلندتر است و از فاصلهٔ ۰۲:۳۰ تا
   // ۰۷:۰۰ بسیار کوتاه‌تر.
-  STYLE_PROBE_TTL_MIN: 15,
+  STYLE_PROBE_TTL_MIN: 5,
 
   // سقفِ طولِ کلِ سطرِ دستور. اگر لحنِ بخش بلندتر باشد، بریده می‌شود —
   // دستورِ بلند دشمنِ اجراست، نه کمکش.
@@ -1207,7 +1207,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.11',
+  CODE_VERSION: '7.12',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3125,6 +3125,42 @@ function speakKwIdRe_() {
  * یک سطر، بی هیچ سرِ خط؛ کوتاه‌تر از TTS_CUE_MAX؛ و پایان‌یافته با «:» تا
  * مرزِ دستور و متن برای مدل روشن باشد.
  */
+/**
+ * لحنِ بخش را در جای باقی‌مانده جا بده — از **سر** بینداز، نه از ته.
+ *
+ * ══ چرا این تابع هست ══
+ * بریدنِ سادهٔ ته، در عمل کلِ نظامِ لحن را یک‌دست می‌کرد. لحنِ هر بخش
+ * `base + ' ' + جملهٔ متمایز` ساخته می‌شود (بخشِ ۱۴: «این آغاز برنامه است»،
+ * «این مرورِ قسمت‌های قبل است»، «این پایانِ برنامه است»، و خروجیِ
+ * `styleForRegister_`). یعنی آن‌چه این بخش را از بقیه جدا می‌کند **همیشه در
+ * انتهاست** — و بریدنِ ته دقیقاً همان را می‌خورد. اندازه‌گیریِ واقعی روی یک
+ * درس‌نامه: چهار لحنِ متمایز به **یک** دستور فرو می‌ریخت، و «بی لحنِ
+ * معلم‌وار»ِ بخشِ توضیح‌دهنده (بخشِ ۲۹) — که قید است نه سلیقه — می‌افتاد.
+ *
+ * و برش روی مرزِ واژه می‌افتد. بریدنِ وسطِ واژه در ۶۰ ترکیبِ واقعی ۴۲ بار رخ
+ * می‌داد و چهار بار روی یک نفی تمام می‌شد («بدون هیجان و بدون لحنِ»)، که
+ * همان شکلِ نقصی است که یک نسخه پیش‌تر برای خودِ یادآور بسته شد.
+ */
+function styleFit_(style, room) {
+  var s = String(style || '');
+  if (room <= 0) return '';
+  if (s.length <= room) return s;
+  // اول جمله‌به‌جمله از سر بینداز — پایهٔ مشترک همان اول است.
+  var guard = 0;
+  while (s.length > room && guard++ < 40) {
+    var m = /[.؛]\s+/.exec(s);
+    if (!m) break;
+    s = s.slice(m.index + m[0].length);
+  }
+  // و اگر یک جملهٔ تنها هم بلند بود، از سر ببر و روی مرزِ واژه بنشین.
+  if (s.length > room) {
+    s = s.slice(s.length - room);
+    var sp = s.indexOf(' ');
+    if (sp > 0 && sp < s.length - 1) s = s.slice(sp + 1);
+  }
+  return s.replace(/^[،؛:.\s]+/, '').replace(/[،؛:.\s]+$/, '');
+}
+
 // یک بار در هر اجرا، نه در هر تکه: هشداری که ده بار تکرار شود، سیاهه را
 // پر می‌کند و خودش را بی‌اثر می‌کند.
 var _styleFitWarned = false;
@@ -3149,7 +3185,11 @@ function styleProbeOn_() {
     var t = Number(v);
     if (!isFinite(t) || t <= 0) return false;
     var ttl = (Number(CFG.STYLE_PROBE_TTL_MIN) || 15) * 60 * 1000;
-    return (new Date().getTime() - t) < ttl;
+    // حدِ **پایین** هم لازم است: مهرِ زمانیِ آینده (ساعتِ سرور، یا مقداری که
+    // دستی در Script Properties نشسته) اختلافِ منفی می‌دهد و «منفی < ttl»
+    // یعنی پرچمی که هرگز نمی‌میرد — دقیقاً عکسِ کاری که این تابع برایش هست.
+    var age = new Date().getTime() - t;
+    return age >= 0 && age < ttl;
   } catch (e) { return false; }
 }
 
@@ -3205,8 +3245,8 @@ function ttsCue_(sectionStyle, text) {
   // مخزن بارها تاوانش را داده. پس وقتی سبک روشن است، **لحنِ بخش** کوتاه
   // می‌شود نه یادآور: لحنِ بخش هر قسمت عوض می‌شود، یادآور امضای اوست.
   if (cue.length > cap && deepUsed) {
-    var over = cue.length - cap;
-    var st2 = style.length > over ? style.slice(0, style.length - over) : '';
+    var room = cap - ('با صدای ' + CFG.TTS_STYLE_BASE + '، ' + '. ' + deep).length;
+    var st2 = styleFit_(style, room);
     cue = 'با صدای ' + CFG.TTS_STYLE_BASE + (st2 ? '، ' + st2 : '') +
           '. ' + deep;
     cue = cue.replace(/\s+/g, ' ').trim();
@@ -24414,8 +24454,14 @@ function runStyleProbe() {
   // زده شود و `renderAudioStep_` در حالِ صداگذاری باشد، نیمی از تکه‌های
   // قسمتِ منتشرشده یادآورِ سبک می‌گیرند و نیمی نه. هر دو مسیرِ تولید
   // (`produceEpisode` و `renderAudioStep_`) همین قفل را می‌گیرند.
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) {
+  // خودِ گرفتنِ قفل هم می‌تواند پرتاب کند؛ از منو یعنی یک دیالوگِ خطای خام.
+  // `src/18_Files.gs` همین را در try گذاشته و این‌جا نگذاشته بود.
+  var lock = null, got = false;
+  try {
+    lock = LockService.getScriptLock();
+    got = lock.tryLock(20000);
+  } catch (eLk) { got = false; }
+  if (!got) {
     var busy = '⚠️ الان اسکریپتِ دیگری در حال اجراست (احتمالاً صداگذاریِ قسمت). ' +
                'چند دقیقهٔ دیگر دوباره بزنید.';
     logLine_('نمونهٔ سبک: قفل آزاد نشد.');
@@ -24488,6 +24534,11 @@ function runStyleProbe() {
         while (old.hasNext()) old.next().setTrashed(true);
         var f = folder.createFile(Utilities.newBlob(bytes, 'audio/wav', plan[i].f));
         made.push(plan[i].f + ' → ' + f.getUrl());
+      } catch (eOne) {
+        // قرینه‌اش `runVoiceAudition` برای هر صدا catch جدا دارد و ادامه
+        // می‌دهد. کلِ ارزشِ این کار «دو فایل با یک متغیرِ تفاوت» است، پس از
+        // دست دادنِ **شاهد** به‌خاطرِ خطای گذرا در نمونهٔ اول، بی‌دلیل است.
+        err += plan[i].f + ': ' + String((eOne && eOne.message) || eOne).slice(0, 90) + '. ';
       } finally {
         try { styleProbeSet_(false); } catch (eD) {}
       }
@@ -24495,7 +24546,7 @@ function runStyleProbe() {
   } catch (e) {
     err += String((e && e.message) || e).slice(0, 200);
   } finally {
-    try { lock.releaseLock(); } catch (eL) {}
+    try { if (lock) lock.releaseLock(); } catch (eL) {}
   }
 
   var okAll = made.length === 2;

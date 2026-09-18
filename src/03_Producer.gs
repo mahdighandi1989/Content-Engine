@@ -577,6 +577,42 @@ function speakKwIdRe_() {
  * یک سطر، بی هیچ سرِ خط؛ کوتاه‌تر از TTS_CUE_MAX؛ و پایان‌یافته با «:» تا
  * مرزِ دستور و متن برای مدل روشن باشد.
  */
+/**
+ * لحنِ بخش را در جای باقی‌مانده جا بده — از **سر** بینداز، نه از ته.
+ *
+ * ══ چرا این تابع هست ══
+ * بریدنِ سادهٔ ته، در عمل کلِ نظامِ لحن را یک‌دست می‌کرد. لحنِ هر بخش
+ * `base + ' ' + جملهٔ متمایز` ساخته می‌شود (بخشِ ۱۴: «این آغاز برنامه است»،
+ * «این مرورِ قسمت‌های قبل است»، «این پایانِ برنامه است»، و خروجیِ
+ * `styleForRegister_`). یعنی آن‌چه این بخش را از بقیه جدا می‌کند **همیشه در
+ * انتهاست** — و بریدنِ ته دقیقاً همان را می‌خورد. اندازه‌گیریِ واقعی روی یک
+ * درس‌نامه: چهار لحنِ متمایز به **یک** دستور فرو می‌ریخت، و «بی لحنِ
+ * معلم‌وار»ِ بخشِ توضیح‌دهنده (بخشِ ۲۹) — که قید است نه سلیقه — می‌افتاد.
+ *
+ * و برش روی مرزِ واژه می‌افتد. بریدنِ وسطِ واژه در ۶۰ ترکیبِ واقعی ۴۲ بار رخ
+ * می‌داد و چهار بار روی یک نفی تمام می‌شد («بدون هیجان و بدون لحنِ»)، که
+ * همان شکلِ نقصی است که یک نسخه پیش‌تر برای خودِ یادآور بسته شد.
+ */
+function styleFit_(style, room) {
+  var s = String(style || '');
+  if (room <= 0) return '';
+  if (s.length <= room) return s;
+  // اول جمله‌به‌جمله از سر بینداز — پایهٔ مشترک همان اول است.
+  var guard = 0;
+  while (s.length > room && guard++ < 40) {
+    var m = /[.؛]\s+/.exec(s);
+    if (!m) break;
+    s = s.slice(m.index + m[0].length);
+  }
+  // و اگر یک جملهٔ تنها هم بلند بود، از سر ببر و روی مرزِ واژه بنشین.
+  if (s.length > room) {
+    s = s.slice(s.length - room);
+    var sp = s.indexOf(' ');
+    if (sp > 0 && sp < s.length - 1) s = s.slice(sp + 1);
+  }
+  return s.replace(/^[،؛:.\s]+/, '').replace(/[،؛:.\s]+$/, '');
+}
+
 // یک بار در هر اجرا، نه در هر تکه: هشداری که ده بار تکرار شود، سیاهه را
 // پر می‌کند و خودش را بی‌اثر می‌کند.
 var _styleFitWarned = false;
@@ -601,7 +637,11 @@ function styleProbeOn_() {
     var t = Number(v);
     if (!isFinite(t) || t <= 0) return false;
     var ttl = (Number(CFG.STYLE_PROBE_TTL_MIN) || 15) * 60 * 1000;
-    return (new Date().getTime() - t) < ttl;
+    // حدِ **پایین** هم لازم است: مهرِ زمانیِ آینده (ساعتِ سرور، یا مقداری که
+    // دستی در Script Properties نشسته) اختلافِ منفی می‌دهد و «منفی < ttl»
+    // یعنی پرچمی که هرگز نمی‌میرد — دقیقاً عکسِ کاری که این تابع برایش هست.
+    var age = new Date().getTime() - t;
+    return age >= 0 && age < ttl;
   } catch (e) { return false; }
 }
 
@@ -657,8 +697,8 @@ function ttsCue_(sectionStyle, text) {
   // مخزن بارها تاوانش را داده. پس وقتی سبک روشن است، **لحنِ بخش** کوتاه
   // می‌شود نه یادآور: لحنِ بخش هر قسمت عوض می‌شود، یادآور امضای اوست.
   if (cue.length > cap && deepUsed) {
-    var over = cue.length - cap;
-    var st2 = style.length > over ? style.slice(0, style.length - over) : '';
+    var room = cap - ('با صدای ' + CFG.TTS_STYLE_BASE + '، ' + '. ' + deep).length;
+    var st2 = styleFit_(style, room);
     cue = 'با صدای ' + CFG.TTS_STYLE_BASE + (st2 ? '، ' + st2 : '') +
           '. ' + deep;
     cue = cue.replace(/\s+/g, ' ').trim();

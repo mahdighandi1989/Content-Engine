@@ -440,11 +440,11 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
   ok('با لحنِ بلند هم لهجه سرِ جایش می‌ماند (بریدن از ته است)', /افغانی/.test(cueL),
      cueL.length + ' نویسه');
   ok('و هنوز یک سطرِ زیرِ سقف است',
-     cueL.indexOf('\n') === -1 && cueL.length <= CFG.TTS_CUE_MAX + 30, cueL.length + '');
+     cueL.indexOf('\n') === -1 && cueL.length <= CFG.TTS_CUE_MAX + 25, cueL.length + '');
   ok('و همچنان با نشانهٔ مرزِ متن تمام می‌شود', /فقط این متن را اجرا کن:$/.test(cueL));
 }
 
-/* «روحِ خواندن» (۷٫۰۹) — یادآورِ سنجیده، و سدّی که نباید بشکند.
+/* «روحِ خواندن» (۷٫۱۰–۷٫۱۲) — یادآورِ سنجیده، و سدّی که نباید بشکند.
 
    `tools/stylecard.py` روی هشت ضبطِ واقعی گفت ۶۲٪ مکث‌های او **درونِ** جمله
    است. `TTS_FLOW_HINT` دقیقاً عکسش را می‌خواست («مکث فقط جای نشانه‌ها»). پس
@@ -476,7 +476,7 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
   ok('و یادآورِ قبلی **جایش را می‌دهد**، کنارش نمی‌ماند',
      !/واژه‌به‌واژه/.test(on));
   ok('لهجه همچنان می‌رود', /افغانی/.test(on));
-  ok('و زیرِ سقف است', on.length <= CFG.TTS_CUE_MAX + 30, on.length + ' نویسه');
+  ok('و زیرِ سقف است', on.length <= CFG.TTS_CUE_MAX + 25, on.length + ' نویسه');
 
   /* ── و آن سکوتی که نباید بیفتد ──
      یادآور در انتهای رشته است، پس بریدنِ ساده اول همان را می‌خورَد: یک لحنِ
@@ -490,7 +490,7 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
   ok('با لحنِ بخشِ بسیار بلند هم یادآورِ سنجیده **کامل** زنده می‌مانَد',
      big.indexOf(CFG.SPEAK_STYLE_HINT) !== -1, big.length + ' نویسه');
   ok('و لهجه هم زنده می‌مانَد', /افغانی/.test(big));
-  ok('و باز هم زیرِ سقف', big.length <= CFG.TTS_CUE_MAX + 30, big.length + '');
+  ok('و باز هم زیرِ سقف', big.length <= CFG.TTS_CUE_MAX + 25, big.length + '');
   ok('و با نشانهٔ مرزِ متن تمام می‌شود', /فقط این متن را اجرا کن:$/.test(big));
 
   // ── متنِ بی‌اعراب: اولویت با تلفظ است، نه سبک ──
@@ -598,6 +598,12 @@ console.log('\n=== ۱۲-ب. نمونهٔ سبک: پرچمِ موقت نمی‌م
   ok('۱۲-ب٫۵ نشانهٔ شبانه به متنِ یادآور گره خورده، نه به شمارهٔ نسخه',
      blk.indexOf('CFG.SPEAK_STYLE_HINT') !== -1 &&
      blk.indexOf('CODE_VERSION') === -1);
+  /* و نشانه فقط با **موفقیت** ثبت می‌شود: بی این قید، یک شبِ ناموفق نمونه را
+     تا ابد «انجام‌شده» می‌کرد و دیگر هرگز ساخته نمی‌شد. */
+  ok('۱۲-ب٫۶ و فقط وقتی ثبت می‌شود که نمونه واقعاً ساخته شده باشد',
+     /if\s*\(\s*spR\s*&&\s*spR\.ok\s*\)\s*props_\(\)\.setProperty\(\s*PK\.STYLE_PROBE_DONE/
+       .test(blk.replace(/\s+/g, ' ').replace(/ /g, ' ')) ||
+     /spR && spR\.ok/.test(blk));
 }
 
 /* ══ ۱۲-پ) نمونه‌ای که دو فایلِ یکسان بسازد، بدتر از نبودنش است (۷٫۱۱) ══
@@ -672,10 +678,107 @@ console.log('\n=== ۱۲-پ. نمونهٔ سبک: دو فایل باید واقع
   CFG.SPEAK_STYLE_HINT = hintWas;
   ok('۱۲-پ٫۹ یادآورِ جا‌نشدنی کامل کنار می‌رود، نصفه نمی‌رود',
      tooBig.indexOf('مکث‌ها را بیشتر') === -1 &&
-     tooBig.length <= CFG.TTS_CUE_MAX + 30, tooBig.slice(-55));
+     tooBig.length <= CFG.TTS_CUE_MAX + 25, tooBig.slice(-55));
   ok('۱۲-پ٫۱۰ و لهجه در آن حالت هم سرِ جایش می‌مانَد', /افغانی/.test(tooBig));
 
   CFG.SPEAK_STYLE_ON = onWas2;
+}
+
+/* ══ ۱۲-ت) چهار وعده که تا ۷٫۱۲ هیچ سنجه‌ای نداشتند، و لحنی که می‌افتاد ══
+
+   بازبینیِ خصمانه هر چهار را با جهش آزمود و هر چهار سبز ماندند: برداشتنِ
+   قفل، نادیده‌گرفتنِ جوابِ `mailQueue_`، نوشتن در ریشهٔ OUTPUT، و ثبتِ
+   نشانهٔ شبانه بی‌قیدِ موفقیت. وعده‌ای که سنجه ندارد، یک جمله در کامنت است. */
+console.log('\n=== ۱۲-ت. وعده‌های نمونهٔ سبک، سنجیده ===');
+{
+  global.__PROPS = {}; global.__SS = {}; global._ssCache = null;
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  global.DriveApp.__register(CFG.OUTPUT_FOLDER_ID, 'OUTPUT');
+
+  // ── قفل: مشغول بودن یعنی هیچ کاری، و پرچم دست‌نخورده ──
+  const realLock = global.LockService;
+  global.LockService = { getScriptLock: () => ({ tryLock: () => false, releaseLock: () => {} }) };
+  const unL = quiet(); const rBusy = runStyleProbe(); unL();
+  ok('۱۲-ت٫۱ قفلِ گرفته ⇒ هیچ فایلی، و دلیلِ «busy»',
+     rBusy.ok === false && rBusy.made.length === 0 && rBusy.error === 'busy');
+  ok('۱۲-ت٫۲ و پرچمِ موقت اصلاً گذاشته نشد',
+     props_().getProperty(PK.STYLE_PROBE) === null);
+  // و پرتابِ خودِ قفل هم نباید از تابع بیرون بزند
+  global.LockService = { getScriptLock: () => { throw new Error('lock svc down'); } };
+  let threw = false;
+  const unL2 = quiet();
+  try { runStyleProbe(); } catch (e) { threw = true; }
+  unL2();
+  global.LockService = realLock;
+  ok('۱۲-ت٫۳ پرتابِ سرویسِ قفل از تابع بیرون نمی‌زند', threw === false);
+
+  // ── فایل‌ها در زیرپوشه، نه در ریشهٔ OUTPUT ──
+  const unD = quiet(); const rOk = runStyleProbe(); unD();
+  const root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const names = (fo) => { const it = fo.getFiles(), a = []; while (it.hasNext()) a.push(it.next().getName()); return a; };
+  const rootNames = names(root);
+  const sub = root.getFoldersByName(CFG.VOICE_AUDIT_FOLDER).next();
+  ok('۱۲-ت٫۴ هیچ نمونه‌ای در ریشهٔ OUTPUT ننشست',
+     rootNames.filter(n => n.indexOf('نمونهٔ سبک') === 0).length === 0, rootNames.join(' · '));
+  ok('۱۲-ت٫۵ و هر دو در پوشهٔ داوریِ صداها هستند',
+     rOk.ok === true && names(sub).filter(n => n.indexOf('نمونهٔ سبک') === 0).length === 2,
+     names(sub).join(' · '));
+
+  // ── جوابِ صفِ ایمیل چک می‌شود ──
+  const realMQ = global.mailQueue_;
+  let logged = '';
+  const realLog = global.logLine_;
+  global.mailQueue_ = () => false;
+  global.logLine_ = function (m) { logged += String(m) + '\n'; };
+  const unM = quiet(); runStyleProbe(); unM();
+  global.mailQueue_ = realMQ; global.logLine_ = realLog;
+  ok('۱۲-ت٫۶ صفِ ایمیلِ خراب در سیاهه رد می‌گذارد، نه سکوت',
+     logged.indexOf('صفِ ایمیل نپذیرفت') !== -1, logged.slice(0, 120));
+
+  // ── و لحنِ بخش نباید قربانیِ یادآور شود ──
+  const onWas3 = CFG.SPEAK_STYLE_ON;
+  const base = 'آرام، روشن و معلم‌وار. شمرده و با اطمینان، مثل مدرسی که می‌خواهد ' +
+               'مطلب جا بیفتد. روی تعریف‌ها و اصطلاح‌ها تأکید کن و پیش از هر مفهوم ' +
+               'تازه یک مکث کوتاه بگذار.';
+  const tones = [base + ' این آغاز برنامه است: گرم و دعوت‌کننده.',
+                 base + ' این مرورِ قسمت‌های قبل است: سریع‌تر و سبک‌تر از بدنهٔ درس.',
+                 base + ' این پایانِ برنامه است: جمع‌بندی‌کننده و آرام.'];
+  const vow = 'بابا بِه خانه آمَد وَ ما را صِدا زَد.';
+  CFG.SPEAK_STYLE_ON = true;
+  const cues = tones.map(t => ttsCue_(t, vow));
+  CFG.SPEAK_STYLE_ON = onWas3;
+  ok('۱۲-ت٫۷ سه لحنِ متفاوت، سه دستورِ متفاوت می‌دهند — نه یکی',
+     new Set(cues).size === 3, new Set(cues).size + ' از ۳');
+  ok('۱۲-ت٫۸ و آن‌چه نگه داشته می‌شود **دُمِ متمایز** است، نه پایهٔ مشترک',
+     cues[0].indexOf('دعوت‌کننده') !== -1 && cues[2].indexOf('جمع‌بندی') !== -1,
+     cues[0].slice(-95));
+  /* و برش وسطِ واژه نمی‌افتد. این را روی خودِ `styleFit_` می‌سنجیم نه روی
+     رشتهٔ نهایی: نگارشِ اولِ همین سنجه `indexOf('، ')` می‌گرفت که اولین
+     ویرگولِ **پایهٔ لحن** است نه جداکنندهٔ لحنِ بخش، و نتیجه‌اش یک شکستِ
+     دروغین بود. سنجه‌ای که چیزِ اشتباه را بسنجد، از نبودنش بهتر نیست. */
+  const room = CFG.TTS_CUE_MAX -
+    ('با صدای ' + CFG.TTS_STYLE_BASE + '، ' + '. ' + CFG.SPEAK_STYLE_HINT).length;
+  ok('۱۲-ت٫۹ آن‌چه از لحن می‌مانَد، تکه‌ای دست‌نخورده از خودِ لحن است',
+     tones.every(t => { const f = styleFit_(t, room);
+       return f.length > 0 && f.length <= room && t.indexOf(f) !== -1; }),
+     JSON.stringify(styleFit_(tones[0], room)));
+  // و یک جملهٔ تنهای بلندتر از جا: از سر بریده می‌شود، روی مرزِ واژه
+  const oneLong = 'عددها و مفهوم‌ها را شمرده بگو، بدون هیجان و بدون لحنِ نمایشی، ' +
+                  'و هر اصطلاح را جدا جدا و با تأکیدِ روشن ادا کن تا جا بیفتد';
+  const cut = styleFit_(oneLong, 40);
+  ok('۱۲-ت٫۹ب جملهٔ تنهای بلند هم روی مرزِ واژه بریده می‌شود',
+     cut.length <= 40 && oneLong.indexOf(cut) !== -1 &&
+     oneLong.charAt(oneLong.indexOf(cut) - 1) === ' ', JSON.stringify(cut));
+  ok('۱۲-ت٫۱۰ و یادآور در هر سه کامل است',
+     cues.every(c => c.indexOf(CFG.SPEAK_STYLE_HINT) !== -1));
+
+  // ── پرچمِ مهرِ آینده باید مرده حساب شود ──
+  CFG.SPEAK_STYLE_ON = false;
+  props_().setProperty(PK.STYLE_PROBE, String(new Date().getTime() + 365 * 86400000));
+  ok('۱۲-ت٫۱۱ مهرِ زمانیِ آینده هم یعنی خاموش، نه یعنی همیشه‌روشن',
+     styleProbeOn_() === false);
+  styleProbeSet_(false);
+  CFG.SPEAK_STYLE_ON = onWas3;
 }
 
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);
