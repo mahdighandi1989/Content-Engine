@@ -577,6 +577,35 @@ function speakKwIdRe_() {
  * یک سطر، بی هیچ سرِ خط؛ کوتاه‌تر از TTS_CUE_MAX؛ و پایان‌یافته با «:» تا
  * مرزِ دستور و متن برای مدل روشن باشد.
  */
+/**
+ * پرچمِ موقتِ «نمونهٔ سبک» — با تاریخِ انقضا، نه یک بله/خیر.
+ *
+ * `runStyleProbe` این را می‌گذارد و در `finally` برمی‌دارد. ولی Apps Script
+ * اجرا را سرِ شش دقیقه **بی هیچ خطایی** می‌کُشد و آن `finally` هرگز اجرا
+ * نمی‌شود — یعنی پرچم می‌مانْد و از آن ساعت به بعد هر دو پادکست با سبکی
+ * خوانده می‌شدند که هیچ‌کس روشنش نکرده، و چون `SPEAK_STYLE_ON` هنوز false
+ * است هیچ‌جا هم نوشته نبود چرا. این دقیقاً همان «قابلیتی که خودش را روشن
+ * می‌کند و کسی نمی‌فهمد» است که این مخزن بارها تاوانش را داده.
+ *
+ * پس پرچم خودش می‌میرد: مقدارش زمان است نه «۱»، و کهنه‌تر از
+ * `STYLE_PROBE_TTL_MIN` دقیقه یعنی نبودن. `finally` نظافت است؛ این سدّ است.
+ */
+function styleProbeOn_() {
+  try {
+    var v = props_().getProperty(PK.STYLE_PROBE);
+    if (!v) return false;
+    var t = Number(v);
+    if (!isFinite(t) || t <= 0) return false;
+    var ttl = (Number(CFG.STYLE_PROBE_TTL_MIN) || 15) * 60 * 1000;
+    return (new Date().getTime() - t) < ttl;
+  } catch (e) { return false; }
+}
+
+function styleProbeSet_(on) {
+  if (on) props_().setProperty(PK.STYLE_PROBE, String(new Date().getTime()));
+  else props_().deleteProperty(PK.STYLE_PROBE);
+}
+
 function ttsCue_(sectionStyle, text) {
   var cap = Number(CFG.TTS_CUE_MAX) || 300;
   var style = String(sectionStyle || '').replace(/\s+/g, ' ').trim();
@@ -584,13 +613,48 @@ function ttsCue_(sectionStyle, text) {
   if (style) cue += '، ' + style;
   // متنِ بی‌اعراب یک یادآورِ کوتاهِ تلفظ می‌گیرد؛ متنِ اعراب‌دار نه — آن‌جا
   // خودِ متن راهنمای تلفظ است.
+  // ══ «روحِ خواندن» جای «مکث فقط جای نشانه‌ها» می‌نشیند، نه کنارش ══
+  // داستانِ کامل در 00_Config کنارِ SPEAK_STYLE_HINT است. خلاصه: اندازه‌گیریِ
+  // صدای واقعیِ او می‌گوید ۶۲٪ مکث‌هایش **درونِ** جمله است، و دستورِ فعلی
+  // عکسش را می‌خواهد. دو تا با هم فرستادن، هم بودجه را می‌شکند و هم دو
+  // دستورِ متناقض می‌دهد.
+  var styleOn = false;
+  try { styleOn = !!CFG.SPEAK_STYLE_ON || styleProbeOn_(); } catch (eS) {}
+  var deep = (styleOn && CFG.SPEAK_STYLE_HINT) ? String(CFG.SPEAK_STYLE_HINT) : '';
+  // «سبک روشن است» با «یادآورِ سبک واقعاً در دستور نشست» یکی نیست، و همین
+  // تفاوت یک باگِ جدی می‌ساخت: در شاخهٔ بی‌اعراب عمداً یادآورِ تلفظ انتخاب
+  // می‌شود و `deep` کنار گذاشته می‌شود — ولی بلوکِ بازسازیِ پایین اگر به
+  // «روشن بودن» نگاه کند، همان تصمیم را بی‌صدا لغو می‌کند، یادآورِ تلفظ را
+  // می‌اندازد، و چون نتیجه باز از سقف بلندتر می‌شود بریدنِ ته خودِ یادآورِ
+  // سبک را هم نصفه می‌کند. آن‌وقت چیزی که به مدل می‌رسد این است:
+  // «مکث‌ها را بیشتر درونِ جمله بگذار نه، فقط این متن را اجرا کن:» —
+  // جمله‌ای بریده روی حرفِ نفی، یعنی عکسِ آن‌چه خواسته بودیم. پس نگهبانِ
+  // بازسازی این پرچم است، نه `deep`.
+  var deepUsed = false;
+
   if (!speakVowelledOk_(text, text)) {
     if (CFG.TTS_PRON_HINT) cue += '. ' + CFG.TTS_PRON_HINT;
+  } else if (deep) {
+    cue += '. ' + deep;
+    deepUsed = true;
   } else if (CFG.TTS_FLOW_HINT) {
     // و برعکسش: متنِ پُرنشانه همان جایی است که مدل واژه‌به‌واژه می‌خوانَد.
     cue += '. ' + CFG.TTS_FLOW_HINT;
   }
   cue = cue.replace(/\s+/g, ' ').trim();
+  // ══ بریدن از ته، و چیزی که نباید قربانیِ آن شود ══
+  // یادآور در **انتهای** رشته است، پس بریدنِ ساده اول همان را می‌خورَد —
+  // یعنی یک لحنِ بخشِ بلند می‌توانست دستورِ سنجیده را بی‌صدا حذف کند و
+  // هیچ‌کس نمی‌فهمید. همان شکلِ «قابلیتی که خودش را خاموش می‌کند» که این
+  // مخزن بارها تاوانش را داده. پس وقتی سبک روشن است، **لحنِ بخش** کوتاه
+  // می‌شود نه یادآور: لحنِ بخش هر قسمت عوض می‌شود، یادآور امضای اوست.
+  if (cue.length > cap && deepUsed) {
+    var over = cue.length - cap;
+    var st2 = style.length > over ? style.slice(0, style.length - over) : '';
+    cue = 'با صدای ' + CFG.TTS_STYLE_BASE + (st2 ? '، ' + st2 : '') +
+          '. ' + deep;
+    cue = cue.replace(/\s+/g, ' ').trim();
+  }
   if (cue.length > cap) {
     cue = cue.slice(0, cap);
     var sp = cue.lastIndexOf(' ');

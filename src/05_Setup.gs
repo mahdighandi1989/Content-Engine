@@ -31,6 +31,7 @@ function onOpen() {
       .addItem('🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»', 'runMusicRecheck')
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
+      .addItem('🎚 نمونهٔ روحِ خواندن (با و بی کارت)', 'runStyleProbe')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addSeparator()
       .addItem('📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته', 'runHandoutBuild')
