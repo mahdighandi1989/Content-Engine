@@ -18,8 +18,12 @@ name: voice-lab
 on:
   workflow_dispatch:
     inputs:
+      rvc_run:
+        description: 'شمارهٔ اجرای voice-train که مدلش برداشته شود (مثل 35249963188) — به‌جای پر کردنِ دو خانهٔ زیر'
+        required: false
+        default: ''
       rvc_model:
-        description: 'مدلِ صدا: لینکِ درایو یا مسیرِ فایلِ .pth (فقط برای engine=rvc)'
+        description: 'مدلِ صدا: شناسهٔ فایلِ درایو (فقط برای engine=rvc؛ اگر rvc_run را پر کردی لازم نیست)'
         required: false
         default: ''
       rvc_index:
@@ -341,6 +345,37 @@ jobs:
           # مطمئن پیدایشان کند.
           echo "LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
+      # ══ مدل از artifactِ آموزش، نه از درایو ══
+      # آموزش مدل را به‌صورتِ artifact بیرون می‌دهد، ولی artifact عمر دارد
+      # (مدل ۳۰ روز) و از بیرونِ Actions هم همیشه در دسترس نیست — لینکِ
+      # دانلودش به blob storage می‌رود و از پشتِ پراکسی ۴۰۳ می‌دهد. پس تا
+      # دیروز سنجیدنِ یک مدلِ تازه یعنی یک آدم فایل را دستی بردارد و در
+      # درایو بگذارد؛ و سنجشی که به کارِ دستی بند باشد، همان سنجشی است که
+      # انجام نمی‌شود.
+      # داخلِ Actions اما همان artifact یک فرمان است. `rvc_run` را پر کن و
+      # دو خانهٔ درایو خالی بمانند.
+      - name: مدل از artifactِ آموزش
+        if: inputs.rvc_run != ''
+        env:
+          RUN_ID: ${{ inputs.rvc_run }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n voice-razavi -D vrart
+          # نامِ فایل‌ها را از خودِ پوشه بخوان، نه از یک فهرستِ دستی — همان
+          # درسی که `ref*.input` اینجا داد و `removeTriggers` در موتور.
+          M="$(find vrart -name '*.pth' ! -name '*_e*' | head -1)"
+          [ -n "$M" ] || M="$(find vrart -name '*.pth' | sort -V | tail -1)"
+          I="$(find vrart -name '*.index' | head -1)"
+          if [ -z "$M" ]; then
+            echo "::error::در artifactِ اجرای $RUN_ID هیچ .pth نبود."
+            find vrart -type f | head -20; exit 1
+          fi
+          cp "$M" model.pth
+          [ -n "$I" ] && cp "$I" model.index || echo "::warning::ایندکس در artifact نبود."
+          echo "مدل از artifact: $(basename "$M") · $(stat -c%s model.pth) بایت"
+          ls -l model.pth model.index 2>/dev/null || true
+
       - name: گرفتنِ فایل‌ها از درایو
         env:
           REF_ID: ${{ inputs.ref_id }}
@@ -414,14 +449,14 @@ jobs:
           # همان `dl` و همان وارسیِ HTML: یک مدلِ خصوصی هم صفحهٔ اجازه
           # برمی‌گرداند، و آن‌وقت خطا سه قدم بعد و از داخلِ torch بیرون
           # می‌زند با پیامی که ربطش به «فایل خصوصی است» پیدا نیست.
-          if [ -n "${RVC_MODEL}" ]; then
+          if [ -n "${RVC_MODEL}" ] && [ ! -f model.pth ]; then
             dl "$RVC_MODEL" model.pth
             if file model.pth | grep -qi 'html\|ascii'; then
               echo "::error::فایلِ مدل خصوصی است."; exit 1
             fi
             ls -l model.pth
           fi
-          if [ -n "${RVC_INDEX}" ]; then
+          if [ -n "${RVC_INDEX}" ] && [ ! -f model.index ]; then
             dl "$RVC_INDEX" model.index
             if file model.index | grep -qi 'html\|ascii'; then
               echo "::error::فایلِ ایندکس خصوصی است."; exit 1
