@@ -819,4 +819,75 @@ console.log('\n=== ۱۲-ت. وعده‌های نمونهٔ سبک، سنجیده
   CFG.SPEAK_STYLE_ON = onWas3;
 }
 
+/* ══ ۱۳) «خاموش» نباید یعنی «برای همیشه» (۷٫۱۵) ══
+
+   ۱۹ سپتامبر، دکمهٔ نمونهٔ سبک زده شد و `runStyleProbe` درست امتناع کرد:
+   «دستورِ هر دو نمونه یکی درآمد». علتش نه اعراب بود نه یادآور — از ۹ سپتامبر
+   مدلِ گفتارساز قالبِ دستور را رد کرده بود و موتور حکمش را **برای همیشه**
+   ثبت کرده بود. کامنتِ خودِ کد می‌گفت «تا وقتی مدل عوض نشود دیگر امتحان
+   نمی‌شود». نتیجه: ده روز هر تکهٔ هر دو پادکست بی هیچ دستورِ لحنی خوانده شد،
+   و هیچ‌چیز قرار نبود خودش برش گردانَد.
+
+   و مدلی که رد کرده بود `…-preview` است — یعنی همان چیزی که رفتارش بی عوض
+   شدنِ نامش عوض می‌شود. «یک‌بار یاد بگیر و دیگر نپرس» برای آن یعنی «هرگز». */
+console.log('\n=== ۱۳. حکمِ «دستور را نمی‌پذیرد» تاریخِ انقضا دارد ===');
+{
+  global.__PROPS = {}; global.__SS = {}; global._ssCache = null;
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  const M = 'gemini-x-tts-preview';
+  const days = Number(CFG.TTS_CUE_RETRY_DAYS);
+  ok('۱۳٫۱ پنجرهٔ امتحانِ دوباره تعریف شده و مثبت است', isFinite(days) && days > 0, days + ' روز');
+
+  ok('۱۳٫۲ مدلی که هرگز رد نکرده، خاموش نیست', ttsCueOffNow_(M) === false);
+
+  /* `nowStr_()` آرگومان نمی‌گیرد — همیشه «الان» می‌دهد. نگارشِ اولِ همین
+     سنجه فکر می‌کرد می‌گیرد، پس هر سه مهر روی یک لحظه می‌نشست و سه بند
+     الکی قرمز شدند. مهر را با همان قالبِ `nowStr_` دستی می‌سازیم. */
+  const pad = (n) => (n < 10 ? '0' : '') + n;
+  const stamp = (agoDays) => {
+    const d = new Date(Date.parse(nowStr_().replace(' ', 'T')) - agoDays * 86400000);
+    props_().setProperty(PK.TTS_CUE_OFF, M);
+    props_().setProperty(PK.TTS_CUE_OFF_AT,
+      d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+      ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+  };
+  stamp(0);
+  ok('۱۳٫۳ تازه که رد کرده، خاموش است', ttsCueOffNow_(M) === true);
+  stamp(days + 1);
+  ok('۱۳٫۴ ولی پس از پنجره، دوباره امتحان می‌شود — همان چیزی که ده روز نبود',
+     ttsCueOffNow_(M) === false);
+
+  /* و حکم فقط برای همان مدل است: مدلِ دیگر نباید قربانیِ آن شود. */
+  ok('۱۳٫۵ حکم فقط مالِ همان مدل است', ttsCueOffNow_('gemini-other-tts') === false);
+
+  /* و دستور واقعاً دوباره فرستاده می‌شود — سنجهٔ رفتاری، نه متنی. */
+  const cueOf = (m) => {
+    const p = ttsPayloads_('مَتنِ آزمایشی.', m, 'گرم', 'Kore', true);
+    const si = p.generateContent.body.systemInstruction;
+    return (si && si.parts && si.parts[0] && si.parts[0].text) || '';
+  };
+  stamp(0);
+  ok('۱۳٫۶ در پنجرهٔ خاموشی هیچ دستوری فرستاده نمی‌شود', cueOf(M) === '');
+  stamp(days + 1);
+  ok('۱۳٫۷ و پس از آن دوباره دستور می‌رود', cueOf(M).indexOf('با صدای') === 0,
+     cueOf(M).slice(0, 40));
+
+  /* خطِ روزانه باید فرقِ «خاموش» و «در نوبتِ امتحان» را بگوید — وگرنه
+     خواننده فرض می‌کند هیچ‌وقت، و همان فرض بود که ده روز طول کشید. */
+  const realTM = global.ttsModel_;
+  global.ttsModel_ = () => M;
+  stamp(0);
+  const s1 = ttsCueStatus_();
+  stamp(days + 1);
+  const s2 = ttsCueStatus_();
+  global.ttsModel_ = realTM;
+  ok('۱۳٫۸ خطِ روزانه در خاموشی می‌گوید هر چند روز دوباره امتحان می‌شود',
+     s1.ok === false && s1.line.indexOf('دوباره امتحان') !== -1, s1.line);
+  ok('۱۳٫۹ و در نوبتِ امتحان، دیگر «خاموش» نمی‌گوید',
+     s2.ok === true && s2.line.indexOf('نوبتِ امتحانِ دوباره') !== -1, s2.line);
+
+  props_().deleteProperty(PK.TTS_CUE_OFF);
+  props_().deleteProperty(PK.TTS_CUE_OFF_AT);
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);

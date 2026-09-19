@@ -769,6 +769,32 @@ function ttsCueWanted_(chunks, i) {
  * ساختاری است، نه یک خواهش. و اگر API این قالب را نپذیرد، به «بی‌دستور»
  * برمی‌گردیم — هرگز به چسباندنِ دوباره. لحنِ خنثی بی‌ضرر است؛ خواندنِ دستور نه.
  */
+/**
+ * آیا دستورِ لحن برای این مدل **همین الان** خاموش است؟
+ *
+ * یک تعریف، چون سه جا می‌پرسند (`ttsPayloads_`، `ttsCueStatus_`، و خودِ
+ * حکم‌دهنده) و سه نسخه یعنی سه جا برای واگرا شدن.
+ *
+ * و جواب تاریخ دارد: حکمِ «این مدل نمی‌پذیرد» پس از `TTS_CUE_RETRY_DAYS`
+ * روز منقضی می‌شود تا یک بار دیگر امتحان شود. داستانش کنارِ همان تنظیم در
+ * 00_Config است؛ خلاصه: مدلِ preview رفتارش بی عوض شدنِ نامش عوض می‌شود،
+ * پس «تا وقتی مدل عوض نشود دیگر امتحان نمی‌شود» برایش یعنی «هرگز».
+ */
+function ttsCueOffNow_(model) {
+  if (!model) return false;
+  var off = '';
+  try { off = String(props_().getProperty(PK.TTS_CUE_OFF) || ''); } catch (e) { return false; }
+  if (off !== String(model)) return false;
+  var days = Number(CFG.TTS_CUE_RETRY_DAYS);
+  if (!isFinite(days) || days <= 0) return true;          // صفر یعنی «هرگز دوباره»
+  var at = '';
+  try { at = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
+  var t = at ? Date.parse(at.replace(' ', 'T')) : NaN;
+  if (!isFinite(t)) return true;   // تاریخ نداریم؛ محافظه‌کارانه خاموش بمان
+  var age = new Date().getTime() - t;
+  return age >= 0 && age < days * 86400000;
+}
+
 function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   var model = modelOverride || ttsModel_();
   var vc = voice || CFG.TTS_VOICE;
@@ -777,7 +803,7 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   // (null) برابر می‌شد و دستور برای همه خاموش می‌ماند — سدی که همیشه بسته
   // است، همان اشتباهی است که ۵٫۶۵ کرد.
   var cueOff = false;
-  try { cueOff = !!model && props_().getProperty(PK.TTS_CUE_OFF) === model; } catch (eC) {}
+  try { cueOff = ttsCueOffNow_(model); } catch (eC) {}
   var cue = (withCue === false || cueOff) ? '' : ttsCue_(sectionStyle, text);
 
   var gc = {
@@ -1025,10 +1051,25 @@ function ttsCueStatus_() {
     return out;
   }
   try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
+  // ══ «خاموش» و «منتظرِ امتحانِ دوباره» یکی نیستند ══
+  // خطی که هر روز می‌آید باید بگوید کِی خودش دوباره امتحان می‌کند، وگرنه
+  // خواننده فرض می‌کند هیچ‌وقت — و همان فرض بود که ده روز طول کشید.
+  var live = '';
+  try { live = ttsModel_(); } catch (eM) {}
+  if (live && !ttsCueOffNow_(live)) {
+    out.on = true; out.ok = true; out.model = off;
+    out.line = 'دستورِ لحن: در نوبتِ امتحانِ دوباره — مدلِ «' + off +
+               '» پیشتر نپذیرفته بود' + (out.since ? ' (از ' + out.since + ')' : '') +
+               '؛ تکهٔ بعدی دوباره با دستور فرستاده می‌شود.';
+    return out;
+  }
   out.on = false; out.ok = false; out.model = off;
+  var d = Number(CFG.TTS_CUE_RETRY_DAYS) || 0;
   out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + off + '» قالبش را نپذیرفت' +
              (out.since ? ' (از ' + out.since + ')' : '') +
-             '؛ تکه‌ها بی‌لحن ساخته می‌شوند. یافتهٔ tts-cue-unsupported.';
+             '؛ تکه‌ها بی‌لحن ساخته می‌شوند' +
+             (d > 0 ? '، و هر ' + d + ' روز یک بار دوباره امتحان می‌شود' : '') +
+             '. یافتهٔ tts-cue-unsupported.';
   return out;
 }
 
@@ -1095,13 +1136,23 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                 break;
               }
               try {
-                if (props_().getProperty(PK.TTS_CUE_OFF) !== model) {
-                  props_().setProperty(PK.TTS_CUE_OFF, model);
-                  try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
+                var again = props_().getProperty(PK.TTS_CUE_OFF) === model;
+                props_().setProperty(PK.TTS_CUE_OFF, model);
+                // ══ تاریخ **همیشه** تازه می‌شود، حتی در ردِ دوباره ══
+                // بی این، امتحانِ دوبارهٔ هر چند روز به یک امتحانِ **هر تکه**
+                // تبدیل می‌شد: تاریخ کهنه می‌مانْد، پس هر فراخوان دوباره
+                // دستور می‌فرستاد و دوباره رد می‌شد. یک پنجره که پس از
+                // شکست بسته نشود، پنجره نیست.
+                try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
+                if (!again) {
                   logLine_('قالبِ دستورِ لحن را مدل «' + model + '» در هر دو مسیر ' +
                            '(generateContent و interactions) نپذیرفت؛ از این پس ' +
                            'تکه‌ها بی‌دستور ساخته می‌شوند.');
                   ttsCueOffFinding_(model, m);
+                } else {
+                  logLine_('امتحانِ دوبارهٔ دستورِ لحن: مدل «' + model +
+                           '» باز هم نپذیرفت؛ ' + (Number(CFG.TTS_CUE_RETRY_DAYS) || 0) +
+                           ' روزِ دیگر دوباره امتحان می‌شود.');
                 }
               } catch (eP) {}
             } else {
