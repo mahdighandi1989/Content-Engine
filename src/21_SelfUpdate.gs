@@ -1086,6 +1086,11 @@ function selfUpdateDaily() {
     } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
     try { if (ytLeft() > 40000) ytPlaylistSync_(Math.min(45000, ytLeft() - 25000)); } catch (eYp) {}
     try { if (ytLeft() > 35000) ytChannelSync_(false); } catch (eYc) {}
+    /* ویدئوهایی که به‌خاطرِ نشتی در unlisted مانده‌اند — تنها راهِ دیگرشان
+       دکمهٔ دستیِ منو بود که کسی نمی‌زند (۷٫۱۴). */
+    try {
+      if (ytLeft() > 25000) ytRedoStuckNightly_(Math.min(30000, ytLeft() - 15000));
+    } catch (eYd) { logLine_('دوباره‌سنجیِ ویدئوهای unlisted نشد: ' + eYd.message); }
     /* بازخورد: چه دیده شد، چه پسند خورد، چه کامنتی آمد. هر ~۲۰ ساعت، و
        آخرِ صف چون هیچ چیزی به آن وابسته نیست — ولی نتیجه‌اش فردا در
        پرامپتِ عنوانِ قسمتِ بعدی می‌نشیند. */

@@ -3387,6 +3387,58 @@ function ytRedoOne_(show, ep, opt) {
   return out;
 }
 
+/**
+ * هر شب، ویدئوهایی که به‌خاطرِ نشتی در unlisted مانده‌اند دوباره سنجیده شوند.
+ *
+ * ══ ۷٫۱۴: دری که فقط از داخلِ شیت باز می‌شد ══
+ * `runYouTubeRedo` — تنها راهِ صدا زدنِ `ytRedoOne_` — با `ui_()` شروع می‌شود
+ * و بی رابطِ کاربری فوراً برمی‌گردد؛ یعنی از هیچ تریگرِ زمانی هرگز اجرا
+ * نمی‌شود. نتیجه: قسمتی که نشتی‌اش هرچه بود از `_yt.json` پاک شد — چه با
+ * ویرایشِ دستی، چه چون خودِ متن (کاور/برچسب) در بازسازیِ بعدی عوض شد —
+ * تا ابد در unlisted می‌ماند، چون فقط فشردنِ دکمهٔ منو دوباره می‌سنجدش و آن
+ * دکمه را کسی نمی‌زند. سه ویدئوی واقعی (قسمت‌های ۲۰ و ۲۳ و درسِ ۵) هفته‌ها
+ * unlisted ماندند در حالی که `_yt.json`ِ هرسه‌شان امروز هیچ نشتی‌ای ندارد —
+ * یعنی از هفته‌ها پیش آمادهٔ عمومی‌شدن بودند و هیچ‌کس صدایشان نزد.
+ *
+ * پس `ytRedoOne_` (که خودش هیچ وابستگی‌ای به UI ندارد) از این‌جا هم صدا زده
+ * می‌شود، بی `remodel` — یعنی بی هیچ فراخوانِ مدل، فقط دوباره‌سنجیِ همان
+ * `_yt.json`ی که هست. قدیمی‌ترین‌ها اول، و سقفِ کوچک تا سهمیهٔ آپلود/به‌روزرسانیِ
+ * فردا خالی نماند.
+ */
+function ytRedoStuckNightly_(budgetMs) {
+  var out = { checked: 0, cleared: 0, stillLeak: 0 };
+  if (!ytOn_()) return out;
+  var t0 = new Date().getTime();
+  var budget = Math.max(10000, Number(budgetMs) || 40000);
+  var hub = getHub_();
+  var pub = ytPublished_(hub);
+  var want = CFG.YT_PRIVACY_FINAL || 'public';
+  var stuck = [];
+  for (var k in pub) {
+    var r = pub[k];
+    if (!r.videoId || String(r.privacy || '') === want) continue;
+    var parts = k.split(':');
+    stuck.push({ show: parts[0], ep: parts.slice(1).join(':'), at: String(r.at || '') });
+  }
+  // قدیمی‌ترین اول — همان‌هایی که بیشترین وقت را در unlisted مانده‌اند
+  stuck.sort(function (a, b) { return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0); });
+  var max = Math.max(1, Number(CFG.YT_REDO_MAX_PER_NIGHT) || 3);
+  for (var i = 0; i < stuck.length && i < max; i++) {
+    if (new Date().getTime() - t0 > budget) break;
+    out.checked++;
+    try {
+      var res = ytRedoOne_(stuck[i].show, stuck[i].ep, {});
+      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) out.cleared++;
+      else if (res.why && res.why.indexOf('نشتی') !== -1) out.stillLeak++;
+    } catch (e) {}
+  }
+  if (out.checked) {
+    logLine_('یوتیوب: ' + out.checked + ' ویدئوی در انتظارِ وارسی دوباره سنجیده شد — ' +
+             out.cleared + ' عمومی شد، ' + out.stillLeak + ' هنوز نشتی دارد.');
+  }
+  return out;
+}
+
 /** پوشهٔ یک قسمت، وقتی صف دیگر نشانی‌اش را ندارد. */
 function ytFolderOf_(show, ep, seriesName) {
   var want = String(ep);
