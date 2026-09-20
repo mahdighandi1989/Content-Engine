@@ -984,6 +984,41 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## A cap that stops the scan decides by tab order, not by relevance (7.25)
+
+7.23's search stopped collecting once it had 240 candidates. Tabs are walked in
+`getSheets()` order, so 240 *weak* matches in the first tabs could prevent the
+user's **exact phrase** in the fifteenth tab from ever being read. "Ranked by
+meaning" was true only within an arbitrary prefix of the corpus. A cap should say
+*how many you keep*, not *when you stop*; what stops you is time.
+
+**And trimming mid-collection reintroduces the same bug sideways.** Equal scores
+keep insertion order, and the source spreadsheets are walked last, so a
+tied source result was always the one discarded. Trim once, at the end, after a
+global sort — the working set is bounded by a row budget instead.
+
+**Two of 7.24's own fixes made things worse, and only a second review caught it.**
+Opening the read to all columns was necessary, but it turned the 400-row block
+heuristic into 32,000 cells on sheets whose cells reach 11,000 characters —
+`CFG.SYNC_CHUNK_WIDE` had existed since the beginning for exactly this. And
+raising the `findNext` bound from 4× to 6× enlarged the one loop that had no
+deadline check inside it, on a 62 MB spreadsheet, against a six-minute kill that
+Apps Script does not let you catch. **A fix tested only in the direction you were
+thinking about is half a fix.**
+
+**The first non-empty cell is not a title.** Column 1 of all twenty-two source
+tabs is `Timestamp`, so every source result was headed by a date — for an owner
+whose stated requirement was «نه از حیثِ زمانی بلکه از حیثِ محتوایی». `srcMap_`
+already resolves `Main_Subject` / `General_Executive_Summary` / `Key_Points`
+across all five schemas and `buildAutoRec_` has used it for years; ignoring it was
+the wrong call. (It takes the raw header row — passing `hdrSet_`'s boolean map
+silently resolves every column to −1.)
+
+**The only failure mode here is silence, so it now leaves a trace.** Each search
+writes one line to the existing log: mode, hits, rows read, tabs, zero-scored
+candidates, and whether it stopped early. Closing the dialog used to erase all
+evidence that a search had happened at all.
+
 ## Two layers that disagree resolve it by deleting (7.24)
 
 7.23's search had a deliberately **lenient** finder (a regex that swallows ZWNJ,

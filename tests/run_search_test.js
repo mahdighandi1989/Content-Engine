@@ -182,10 +182,27 @@ ok('۱۰.۲ و چند ردیف نامزد بود', typeof r6.scanned === 'number
 const many = [];
 for (let i = 0; i < 26; i++) many.push(row({ id: 'C' + i, topic: 'سقف‌آزما شمارهٔ ' + i }));
 mkCat('آزمونِ سقف', many);
+/* ══ معنای سقف در ۷٫۲۵ عوض شد، و عمداً ══
+   تا ۷٫۲۴ رسیدن به سقفِ نامزدها پویش را **می‌ایستاند**، و چون تب‌ها به
+   ترتیبِ getSheets پیموده می‌شوند، تطبیق‌های ضعیفِ تب‌های اول می‌توانستند
+   جلوی دیده‌شدنِ عبارتِ دقیقِ کاربر در تبِ آخر را بگیرند. حالا سقف یعنی
+   «چند تا نگه می‌داریم» و ایستادن را بودجهٔ ردیف/زمان تعیین می‌کند. */
+const realRows = CFG.SEARCH_ROWS_MAX;
 const realCap = CFG.SEARCH_CAND_MAX; CFG.SEARCH_CAND_MAX = 20;
 const r10 = srchRun_('سقف‌آزما', { mode: 'ساده', sources: false });
-ok('۱۰.۳ رسیدن به سقف اعلام می‌شود', !!r10.stopped && r10.items.length <= 20,
+/* بودجهٔ ردیف کفِ ۲۰۰ دارد (و باید داشته باشد)، پس آزمون باید بیشتر از کف
+   ردیفِ خورنده بسازد — نه اینکه بودجه را زیرِ کف بگذارد و خیال کند تمام شد. */
+const lots = [];
+for (let i = 0; i < 260; i++) lots.push(row({ id: 'R' + i, topic: 'بودجه‌آزما ' + i }));
+mkCat('آزمونِ بودجه', lots);
+CFG.SEARCH_ROWS_MAX = 200;
+const r10b = srchRun_('بودجه‌آزما', { mode: 'ساده', sources: false });
+CFG.SEARCH_ROWS_MAX = realRows;
+ok('۱۰.۳ بودجهٔ ردیف که تمام شود، اعلام می‌شود', !!r10b.stopped,
    'جست‌وجوی نیمه‌کاره‌ای که خودش را کامل جا بزند، «نیست» می‌گوید به چیزی که هست');
+ok('۱۰.۳-ب سقف دیگر پویش را نمی‌ایستاند، فقط بهترین‌ها را نگه می‌دارد',
+   !r10.stopped && r10.items.length > 0,
+   'باگِ ۷٫۲۴: ۲۴۰ تطبیقِ ضعیف در تب‌های اول می‌توانست جلوی عبارتِ دقیقِ کاربر را بگیرد');
 CFG.SEARCH_CAND_MAX = realCap;
 ok('۱۰.۴ ورودیِ خالی محترمانه رد می‌شود',
    !srchRun_('   ', { mode: 'ساده' }).ok);
@@ -208,6 +225,21 @@ ok('۱۱.۳ srchRun خطا را به پنجره برمی‌گرداند، نه �
      global.getHub_ = g;
      return r && r.ok === false;
    })());
+
+console.log('\n══ ۱۱-ب) عبارتِ دقیق نباید پشتِ انبوهِ تطبیقِ ضعیف گم شود ══');
+/* چهارده تب پر از تطبیقِ ضعیف، و عبارتِ دقیقِ کاربر در تبِ پانزدهم. */
+for (let t = 0; t < 14; t++) {
+  const weak = [];
+  for (let i = 0; i < 25; i++) weak.push(row({ id: 'W' + t + '_' + i, body: 'مذهب و چیزهای دیگر' }));
+  mkCat('ضعیف' + t, weak);
+}
+mkCat('زتبِ آخر', [row({ id: 'EXACT', topic: 'مذهب و فلسفهٔ تحلیلی در دورهٔ معاصر' })]);
+const rCliff = srchRun_('مذهب و فلسفهٔ تحلیلی', { mode: 'ساده', sources: false });
+ok('۱۱-ب.۱ عبارتِ دقیق در نتیجه‌هاست',
+   rCliff.items.some(i => i.id === 'EXACT'),
+   'باگِ ۷٫۲۴: سقف در ترتیبِ تب‌ها مصرف می‌شد، پس تبِ پانزدهم هرگز خوانده نمی‌شد');
+ok('۱۱-ب.۲ و بالاترین است', rCliff.items[0] && rCliff.items[0].id === 'EXACT',
+   rCliff.items.slice(0, 3).map(i => i.id + '/' + i.score).join('، '));
 
 console.log('\n══ ۱۲) یابنده و سنجنده نباید با هم اختلاف داشته باشند (۷٫۲۴) ══');
 /* هر اختلافِ این دو لایه با `if (score <= 0) continue` حل می‌شد — یعنی
@@ -264,16 +296,30 @@ mkCat('پرتکرار', many2);
 const fake2 = SpreadsheetApp.create('SRC-2');
 global.__SS[fake2.getId()] = fake2;
 const f2 = fake2.insertSheet('S');
-f2.appendRow(['نام', 'متن']);
-f2.appendRow(['x.mp4', 'پرتکرارواژه اینجا هم هست']);
+// سرستون‌های واقعیِ منبع، تا نگاشتِ ستون هم سنجیده شود
+f2.appendRow(['Timestamp', 'File_ID', 'Main_Subject', 'General_Executive_Summary']);
+f2.appendRow(['2026-01-01 10:00', '1AbCdEfGhIjKlMnOpQrStUvWxYz01234',
+              'پرتکرارواژه دقیقاً همین است', 'توضیحِ کامل دربارهٔ پرتکرارواژه']);
 const realSrc2 = CFG.SOURCES;
 CFG.SOURCES = [{ key: 't2', id: fake2.getId(), title: 'SRC-2', schema: 'auto' }];
 const realCap2 = CFG.SEARCH_CAND_MAX; CFG.SEARCH_CAND_MAX = 20;
-const r15 = srchRun_('پرتکرارواژه', { mode: 'ساده', sources: true });
-ok('۱۵.۱ منبع باز هم گشته می‌شود',
+const r15 = srchRun_('پرتکرارواژه دقیقاً همین است', { mode: 'ساده', sources: true });
+ok('۱۵.۱ منبع باز هم گشته می‌شود و نتیجهٔ بهترش بالا می‌آید',
    r15.items.some(i => i.where === 'منبع'),
    'باگِ ۷٫۲۳: هر واژه‌ای که بانک را پر می‌کرد، هر پنج شیتِ منبع را کامل رد می‌کرد — ' +
    'و پنجره پیشنهاد می‌داد تیکِ منبع را بردارید، یعنی خاموش‌کردنِ لایه‌ای که گشته نشده بود');
+ok('۱۵.۲ عنوانش از Main_Subject می‌آید، نه از Timestamp',
+   (function () {
+     const it = r15.items.filter(i => i.where === 'منبع')[0];
+     return it && it.title.indexOf('پرتکرارواژه') === 0;
+   })(),
+   'ستونِ اولِ هر ۲۲ تبِ منبع Timestamp است؛ ۷٫۲۴ عنوانِ هر نتیجه را یک تاریخ می‌کرد ' +
+   'در حالی که خواستهٔ صریح «نه از حیثِ زمانی» بود');
+ok('۱۵.۳ لینکش از File_ID ساخته می‌شود',
+   (function () {
+     const it = r15.items.filter(i => i.where === 'منبع')[0];
+     return it && /1AbCdEfGhIjKlMnOpQrStUvWxYz01234/.test(it.link);
+   })());
 CFG.SEARCH_CAND_MAX = realCap2; CFG.SOURCES = realSrc2;
 
 console.log('\n══ ۱۶) شکستِ بی‌صدا ممنوع ══');
