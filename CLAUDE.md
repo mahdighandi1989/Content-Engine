@@ -979,7 +979,13 @@ made to enable parallelism was the thing that doomed the second speaker.
 
 ## Seeing is not the same as being obliged (7.18 / 7.19)
 
-Between 10 and 20 September not one `_ENRICH-REQ-*` was written. Every day
+Between 12 and 20 September not one `_ENRICH-REQ-*` was written — the Drive
+root still holds the last two, `variety-037` and `special-038`, both stamped
+12 September, and `pruneEnrichFiles_` keeps ten days so anything later would
+still be there. (This paragraph said "10 September" until the folder was
+actually looked at on the 20th. The shape of the failure is unchanged; the
+date was two days off, and a date nobody checks is how a story drifts.)
+Every day
 the enrichment task put the answer in its own report — «تا موتور درخواست
 ننویسد، غنی‌سازی کاری ندارد», with the count — and every day the engine's
 own watchdog printed «غنی‌سازی ❌ کارِ شما — روتینِ Cowork را وارسی کنید».
