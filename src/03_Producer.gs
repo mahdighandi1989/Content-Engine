@@ -631,22 +631,34 @@ var _styleFitWarned = false;
  * `STYLE_PROBE_TTL_MIN` دقیقه یعنی نبودن. `finally` نظافت است؛ این سدّ است.
  */
 function styleProbeOn_() {
+  /* ══ سه حالت، نه دو ══
+   * وقتی `SPEAK_STYLE_ON` خاموش بود، «پرچم نیست» و «پرچم خاموش» یکی بودند.
+   * با روشن شدنِ تنظیم (۲۰ سپتامبر، پس از داوریِ گوش) دیگر یکی نیستند:
+   * نمونهٔ **شاهد** باید سبک را صریح خاموش کند، وگرنه هر دو نمونه یکسان
+   * درمی‌آیند و `runStyleProbe` — درست — امتناع می‌کند. یعنی ابزارِ مقایسه
+   * دقیقاً وقتی بی‌اثر می‌شد که قابلیت روشن شده بود.
+   * پس `null` = «چیزی نگفته»، `true` = روشن، `false` = **صریح** خاموش. */
   try {
-    var v = props_().getProperty(PK.STYLE_PROBE);
-    if (!v) return false;
-    var t = Number(v);
-    if (!isFinite(t) || t <= 0) return false;
+    var v = String(props_().getProperty(PK.STYLE_PROBE) || '');
+    if (!v) return null;
+    var forced = v.indexOf('off:') === 0;
+    var t = Number(forced ? v.slice(4) : v);
+    if (!isFinite(t) || t <= 0) return null;
     var ttl = (Number(CFG.STYLE_PROBE_TTL_MIN) || 15) * 60 * 1000;
     // حدِ **پایین** هم لازم است: مهرِ زمانیِ آینده (ساعتِ سرور، یا مقداری که
     // دستی در Script Properties نشسته) اختلافِ منفی می‌دهد و «منفی < ttl»
     // یعنی پرچمی که هرگز نمی‌میرد — دقیقاً عکسِ کاری که این تابع برایش هست.
     var age = new Date().getTime() - t;
-    return age >= 0 && age < ttl;
-  } catch (e) { return false; }
+    if (!(age >= 0 && age < ttl)) return null;
+    return !forced;
+  } catch (e) { return null; }
 }
 
+/** `true` = روشن · `false` = صریح خاموش (نمونهٔ شاهد) · هر چیزِ دیگر = برداشتن. */
 function styleProbeSet_(on) {
-  if (on) props_().setProperty(PK.STYLE_PROBE, String(new Date().getTime()));
+  var now = String(new Date().getTime());
+  if (on === true) props_().setProperty(PK.STYLE_PROBE, now);
+  else if (on === false) props_().setProperty(PK.STYLE_PROBE, 'off:' + now);
   else props_().deleteProperty(PK.STYLE_PROBE);
 }
 
@@ -667,7 +679,10 @@ function ttsCue_(sectionStyle, text) {
   // عکسش را می‌خواهد. دو تا با هم فرستادن، هم بودجه را می‌شکند و هم دو
   // دستورِ متناقض می‌دهد.
   var styleOn = false;
-  try { styleOn = !!CFG.SPEAK_STYLE_ON || styleProbeOn_(); } catch (eS) {}
+  try {
+    var pr = styleProbeOn_();
+    styleOn = (pr === null) ? !!CFG.SPEAK_STYLE_ON : pr;
+  } catch (eS) {}
   var deep = (styleOn && CFG.SPEAK_STYLE_HINT) ? String(CFG.SPEAK_STYLE_HINT) : '';
   // «سبک روشن است» با «یادآورِ سبک واقعاً در دستور نشست» یکی نیست، و همین
   // تفاوت یک باگِ جدی می‌ساخت: در شاخهٔ بی‌اعراب عمداً یادآورِ تلفظ انتخاب

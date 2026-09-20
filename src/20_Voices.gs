@@ -779,7 +779,7 @@ function runStyleProbe() {
         var si = p && p.generateContent && p.generateContent.body &&
                  p.generateContent.body.systemInstruction;
         return (si && si.parts && si.parts[0] && si.parts[0].text) || '';
-      } finally { styleProbeSet_(false); }
+      } finally { styleProbeSet_(null); }
     };
     var cueOn = cueOfProbe_(true), cueOff = cueOfProbe_(false);
     if (cueOn === cueOff) {
@@ -822,7 +822,7 @@ function runStyleProbe() {
         // دست دادنِ **شاهد** به‌خاطرِ خطای گذرا در نمونهٔ اول، بی‌دلیل است.
         err += plan[i].f + ': ' + String((eOne && eOne.message) || eOne).slice(0, 90) + '. ';
       } finally {
-        try { styleProbeSet_(false); } catch (eD) {}
+        try { styleProbeSet_(null); } catch (eD) {}   // برداشتن، نه خاموشِ صریح
       }
     }
   } catch (e) {

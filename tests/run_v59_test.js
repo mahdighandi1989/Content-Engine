@@ -542,14 +542,18 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
   ok('۱۲٫۳ و پرچمِ کهنه (اجرای کشته‌شده) نادیده گرفته می‌شود',
      stale.indexOf(CFG.SPEAK_STYLE_HINT) === -1 && /واژه‌به‌واژه/.test(stale),
      stale.slice(-60));
-  styleProbeSet_(false);
+  styleProbeSet_(null);
   ok('۱۲٫۴ و برداشتنش همه‌چیز را به حالتِ امروز برمی‌گردانَد',
      ttsCue_('گرم', vowelled) === off);
   CFG.SPEAK_STYLE_ON = onWas;
 
   const cfgSrc = fs.readFileSync('src/00_Config.gs', 'utf8');
-  ok('۱۲٫۱ پیش‌فرض در خودِ سرچشمه خاموش است — نه فقط در این اجرا',
-     /^\s*SPEAK_STYLE_ON:\s*false,\s*$/m.test(cfgSrc),
+  /* ۲۰ سپتامبر: صاحبِ برنامه دو نمونهٔ رنگی را شنید و گفت «دومی بهتر بود».
+     پس پرچم روشن شد — و این سنجه از «باید خاموش باشد» به «باید **تصمیمِ
+     گرفته‌شده** باشد» تغییر کرد. عمداً هنوز سنجه‌ای هست: عوض کردنِ این خط
+     باید از همین‌جا هم رد شود تا کسی بی‌تصمیم برش نگردانَد. */
+  ok('۱۲٫۱ تصمیمِ گرفته‌شده در سرچشمه ثبت است (۲۰ سپتامبر: روشن)',
+     /^\s*SPEAK_STYLE_ON:\s*true,\s*$/m.test(cfgSrc),
      (cfgSrc.match(/^\s*SPEAK_STYLE_ON:.*$/m) || ['—'])[0].trim());
 }
 
@@ -631,7 +635,7 @@ console.log('\n=== ۱۲-پ. نمونهٔ سبک: دو فایل باید واقع
                   (STYLE_PROBE_LINE.match(/[\u0621-\u064A]/g) || []).length).toFixed(3));
 
   styleProbeSet_(true);  const pOn  = ttsCue_('آرام و روایی', STYLE_PROBE_LINE);
-  styleProbeSet_(false); const pOff = ttsCue_('آرام و روایی', STYLE_PROBE_LINE);
+  styleProbeSet_(null); const pOff = ttsCue_('آرام و روایی', STYLE_PROBE_LINE);
   ok('۱۲-پ٫۲ و دو دستورِ نمونه واقعاً فرق دارند', pOn !== pOff, pOn.slice(-55));
   ok('۱۲-پ٫۳ دستورِ «با روح» یادآورِ سنجیده را **کامل** دارد',
      pOn.indexOf(CFG.SPEAK_STYLE_HINT) !== -1);
@@ -813,9 +817,11 @@ console.log('\n=== ۱۲-ت. وعده‌های نمونهٔ سبک، سنجیده
   // ── پرچمِ مهرِ آینده باید مرده حساب شود ──
   CFG.SPEAK_STYLE_ON = false;
   props_().setProperty(PK.STYLE_PROBE, String(new Date().getTime() + 365 * 86400000));
-  ok('۱۲-ت٫۱۱ مهرِ زمانیِ آینده هم یعنی خاموش، نه یعنی همیشه‌روشن',
-     styleProbeOn_() === false);
-  styleProbeSet_(false);
+  /* از ۷٫۱۷ سه حالت داریم: `null` یعنی «پرچم چیزی نمی‌گوید، تنظیم تصمیم
+     می‌گیرد». مهرِ آینده باید همین شود — نه «روشن»، و نه «صریح خاموش». */
+  ok('۱۲-ت٫۱۱ مهرِ زمانیِ آینده نادیده گرفته می‌شود (نه روشن، نه خاموشِ صریح)',
+     styleProbeOn_() === null);
+  styleProbeSet_(null);
   CFG.SPEAK_STYLE_ON = onWas3;
 }
 
