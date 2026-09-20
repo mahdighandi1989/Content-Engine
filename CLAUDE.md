@@ -984,6 +984,76 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## The fingerprint the sheet cannot hold (section 35, 7.26)
+
+The owner asked whether smart search looks for *meaning* or only for synonyms.
+It was synonyms: `srchExpand_` widened the words and `srchRank_` reranked
+semantically, but **both ran on what word-matching had already found**. A row
+that says the same thing in entirely different words never reached the model.
+Judgement was semantic; retrieval was not. That gap is what section 35 closes —
+one embedding vector per bank row, and `srchSemantic_` as a *second candidate
+source* beside the lexical one rather than a change to it.
+
+**The vector does not go in the sheet, and that contradicts the request.** He
+asked for the fingerprint "in a new column". Three columns did land in
+`HUB_HEADERS` — the stable id, the content hash and the status — but 1536
+numbers per cell is tens of megabytes of text in a hub that is already 29 MB,
+dragged along by *every* read of the bank. The vectors live in an OUTPUT
+subfolder, in shards. Say this out loud rather than quietly doing something
+else: a request refused silently is the one that gets asked again.
+
+**And nothing is written to the five source sheets — ever.** New source content
+reaches the bank through `syncCatalog` and is fingerprinted there. So the answer
+to "does it notice new content automatically" is yes, and the chain is honest:
+source row → bank row → fingerprint, on the next nightly.
+
+**The date is deliberately absent from the embedded text.** His own words about
+ranking: «نه از حیثِ زمانی بلکه از حیثِ محتوایی». A date inside the vector pulls
+two same-day items together for no reason.
+
+**One call, two representations.** MRL means the first 256 dimensions of the
+returned vector, *renormalized*, are a valid short vector. So search scans a
+small probe index and only the top candidates are rescored with the full vector.
+Two API calls for this would be paying twice for the same thing.
+
+**`embNorm_` runs unconditionally, and that is the point.** Google's API
+normalizes only at 3072; every other dimension must be normalized by hand. A
+conditional branch there means that one day someone changes `EMB_DIM` and
+nothing anywhere says that ranking has stopped working — no error, no empty
+result, just numbers that look like similarity scores and are not.
+
+**The threshold that decides is relative, never absolute.** An absolute cosine
+floor is right for one query and silently returns "nothing found" for the next,
+because the absolute value depends on text length, language, even how many
+structural labels the document text carries. `EMB_SCORE_GAP` cuts relative to
+the best hit. This is the 7.24 shape — a cap that ate the feature — refused in
+advance.
+
+**A row that can never be embedded is abandoned, not pending.** After
+`EMB_TRY_MAX`, `embFailMark_` writes «رهاشده», counted separately. Without it
+`pending` never reaches zero and «~۳ شب تا پایان» sits in the daily report
+forever — 5.88 again.
+
+**`embSelfTest_` is the only check that actually tests anything.** It takes a row
+that already has a fingerprint, sends its own title back as a query, and asks
+whether the row finds itself. Everything else in this section counts. Two
+consecutive failures raise a `ROWNER_CODE` finding; one does not, because a bad
+night must be allowed to stay a bad night. This is the repo's sixth instance of
+"analysis written and never wired to a gate" — answered at the time of writing
+instead of afterwards.
+
+**`embStuckDays_` reads the history tab, never a stamp of its own.** 7.21
+shipped an alarm whose own writer reset it nightly, so it could never fire. The
+test for that alarm passed because the test hand-built a state the running
+engine could not reach.
+
+**A test double that is sparse where production is dense proves nothing.** The
+first `fakeVec` in `run_embed_test.js` lit a few dimensions per word. Truncating
+such a vector to 256 dimensions destroys its signal — so the suite failed and
+blamed the code, while the fault was in the double. Real embeddings are dense
+and MRL depends on exactly that. Same lesson as the RE2/RegExp mock in 7.24,
+one layer over.
+
 ## A cap that stops the scan decides by tab order, not by relevance (7.25)
 
 7.23's search stopped collecting once it had 240 candidates. Tabs are walked in

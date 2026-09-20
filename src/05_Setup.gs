@@ -19,6 +19,8 @@ function onOpen() {
         .addItem('🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی', 'runProduceVarietyEnriched')
         .addItem('🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی', 'runProduceSpecialEnriched'))
       .addItem('🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)', 'runContentSearch')
+      .addItem('🧠 اثر انگشتِ معنایی — ساخت و ادامه', 'runEmbedBuild')
+      .addItem('🧪 خودآزمونِ اثر انگشت', 'runEmbedSelfTest')
       .addItem('📊 مجموعه‌های آموزشی و پیشرفت', 'showSeriesBoard')
       .addItem('اسکن مجموعه‌های آموزشی', 'runScanSeries')
       .addItem('داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)', 'runJudgeSeries')

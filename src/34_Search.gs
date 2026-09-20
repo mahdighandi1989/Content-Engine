@@ -488,7 +488,10 @@ function srchRowLink_(sh, row) {
 function srchCollect_(terms, phrase, opts) {
   opts = opts || {};
   var t0 = Number(opts.since) || new Date().getTime();
-  var budget = Math.max(20000, Number(CFG.SEARCH_BUDGET_MS) || 230000);
+  /* بودجه می‌تواند از بیرون کوچک‌تر شود. لازم شد چون از ۷٫۲۶ یک لایهٔ
+     دوم (بازیابیِ معنایی) هم باید در همین شش دقیقه جا شود، و لایه‌ای که
+     اول می‌دود نباید بتواند همهٔ وقت را بردارد. */
+  var budget = Math.max(20000, Number(opts.budgetMs) || Number(CFG.SEARCH_BUDGET_MS) || 230000);
   var capSheet = Math.max(20, Number(CFG.SEARCH_HITS_PER_SHEET) || 400);
   var capAll = Math.max(20, Number(CFG.SEARCH_CAND_MAX) || 240);
   var rowsMax = Math.max(200, Number(CFG.SEARCH_ROWS_MAX) || 2500);
@@ -623,6 +626,97 @@ function srchCollect_(terms, phrase, opts) {
 
   out.items.sort(function (a, b) { return b.score - a.score; });
   if (out.items.length > capAll) { out.items.length = capAll; out.trimmed = true; }
+  return out;
+}
+
+/* ══════════════ بازیابیِ معنایی (بخشِ ۳۵) ══════════════ */
+
+/**
+ * نامزدهایی که **هیچ واژهٔ مشترکی** با پرس‌وجو ندارند.
+ *
+ * این دقیقاً همان نیمه‌ای است که تا ۷٫۲۵ غایب بود. `srchExpand_` واژه‌ها
+ * را گسترش می‌داد و `srchRank_` نتیجه را معنایی مرتب می‌کرد — ولی هر دو
+ * روی چیزی کار می‌کردند که جست‌وجوی **واژه‌ای** پیدا کرده بود. متنی که
+ * همان حرف را با واژه‌های دیگری زده باشد، هرگز به دستِ مدل نمی‌رسید.
+ *
+ * ══ چرا این‌جا و نه داخلِ srchCollect_ ══
+ * جمع‌آوریِ لغوی بودجه و سقف و نکته‌های خودش را دارد و سال‌هاست آزمون
+ * دارد. بازیابیِ معنایی یک **منبعِ دومِ نامزد** است، نه تغییری در آن —
+ * پس کنارش می‌ایستد و نتیجه‌اش به همان فهرست اضافه می‌شود. خرابیِ یکی
+ * دیگری را زمین نمی‌زند، و اگر ایندکس خالی باشد رفتارِ دیروز عیناً
+ * باقی است.
+ *
+ * فراخوانِ رو به جلو (۳۴ → ۳۵) عمداً پشتِ `typeof` و try/catch است:
+ * بارگذارهای جزئیِ tests/ بخشِ ۳۵ را ندارند و بی این، هر فراخوان یک
+ * ReferenceError می‌شد که try/catchِ بیرونی بی‌صدا می‌بلعید.
+ */
+function srchSemantic_(q, have, deadline) {
+  var out = { ok: false, items: [], added: 0, scanned: 0, shards: 0,
+              shardsAll: 0, stopped: '', note: '', dropped: 0 };
+  if (CFG.EMB_ON === false) { out.note = 'اثر انگشت خاموش است'; return out; }
+  if (typeof embQueryVec_ !== 'function' || typeof embSearch_ !== 'function') {
+    out.note = 'بخشِ اثر انگشت بارگذاری نشده';
+    return out;
+  }
+  var left = deadline - new Date().getTime();
+  if (left < 15000) { out.note = 'وقتی برای بازیابیِ معنایی نماند'; return out; }
+
+  var qv = embQueryVec_(q);
+  if (!qv.ok) { out.note = qv.note || 'بردارِ پرس‌وجو ساخته نشد'; return out; }
+  var sr = embSearch_(qv.vec, { budgetMs: Math.min(left - 8000, 60000) });
+  out.scanned = sr.scanned; out.shards = sr.shards; out.shardsAll = sr.shardsAll;
+  out.stopped = sr.stopped;
+  if (!sr.ok) { out.note = sr.note || 'جست‌وجوی معنایی نتیجه‌ای نداد'; return out; }
+
+  /* آنچه جست‌وجوی لغوی از قبل آورده، دوباره خوانده نمی‌شود — ولی
+     امتیازِ معنایی‌اش روی همان می‌نشیند، چون «هم واژه‌اش هست هم
+     معنایش» قوی‌ترین نشانه است. */
+  var seen = {};
+  for (var h = 0; h < have.length; h++) {
+    if (have[h].where === 'بانک') seen[have[h].tab + '§' + have[h].row] = have[h];
+  }
+
+  var byTab = {}, order = [];
+  for (var i = 0; i < sr.items.length; i++) {
+    var it = sr.items[i];
+    var k = it.tab + '§' + it.row;
+    if (seen[k]) { seen[k].sem = it.score; continue; }
+    if (!byTab[it.tab]) { byTab[it.tab] = []; order.push(it.tab); }
+    byTab[it.tab].push(it);
+  }
+
+  var hub = getHub_();
+  for (var t = 0; t < order.length; t++) {
+    if (new Date().getTime() > deadline) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
+    var sh = hub.getSheetByName(order[t]);
+    if (!sh) continue;
+    var rows = [], map = {};
+    for (var r = 0; r < byTab[order[t]].length; r++) {
+      rows.push(byTab[order[t]][r].row);
+      map[byTab[order[t]][r].row] = byTab[order[t]][r];
+    }
+    rows.sort(function (a, b) { return a - b; });
+    var vals = srchReadRows_(sh, rows, HUB_HEADERS.length);
+    for (var v = 0; v < rows.length; v++) {
+      var row = vals[rows[v]];
+      if (!row) continue;
+      /* ══ شناسه وارسی می‌شود، هر بار ══
+         قطعه شمارهٔ ردیف را نگه می‌دارد و ردیف‌ها در این بانک هرگز حذف
+         نمی‌شوند — ولی «هرگز» یک قرارداد است نه یک قانونِ فیزیکی، و
+         نتیجهٔ یک جابه‌جایی، لینکی است که کاربر را به محتوای دیگری
+         می‌برد. یک مقایسهٔ رشته‌ای ارزان‌تر از آن اشتباه است. */
+      var want = map[rows[v]];
+      var got = String(row[COL.EMB_ID - 1] || '').trim();
+      if (got && want.id && got !== want.id) { out.dropped++; continue; }
+      var item = srchHubItem_(sh, rows[v], row);
+      item.score = 0;
+      item.sem = want.score;
+      item.fit = 'یافتهٔ معنایی';
+      out.items.push(item);
+      out.added++;
+    }
+  }
+  out.ok = true;
   return out;
 }
 
@@ -769,7 +863,8 @@ function srchRun_(query, opts) {
   var q = String(query || '').trim();
   var res = { ok: false, query: q, mode: opts.mode === 'هوشمند' ? 'هوشمند' : 'ساده',
               items: [], terms: [], answer: '', notes: [], scanned: 0, sheets: 0,
-              stopped: '', ms: 0, dropped: 0, read: 0 };
+              stopped: '', ms: 0, dropped: 0, read: 0, semantic: null };
+  var budget = Math.max(60000, Number(CFG.SEARCH_BUDGET_MS) || 230000);
   if (!q) { res.notes.push('چیزی برای جست‌وجو ننوشتید.'); return res; }
   if (CFG.SEARCH_ON === false) { res.notes.push('جست‌وجو خاموش است.'); return res; }
 
@@ -801,16 +896,101 @@ function srchRun_(query, opts) {
   }
   res.terms = terms.slice(0);
 
-  var col = srchCollect_(terms, q, { sources: opts.sources !== false, since: t0 });
+  /* ══ معنا **پیش از** واژه، و با سهمِ تضمین‌شده (۷٫۲۶) ══
+     نه به این دلیل که مهم‌تر است، بلکه به این دلیل که کران‌دار است: یک
+     فراخوانِ بردار و یک پویشِ قطعه‌ها. جست‌وجوی لغوی می‌تواند کلِ بودجه
+     را بخورد و تا ۷٫۲۵ هم می‌خورد؛ اگر معنا بعد از آن می‌آمد، در هر
+     پرس‌وجوی سنگین بی‌صدا اجرا نمی‌شد — یعنی همان قابلیتی که خواسته شده
+     بود، درست در سخت‌ترین پرس‌وجوها غایب می‌بود. */
+  var semItems = [], semOn = false;
+  if (res.mode === 'هوشمند' && CFG.EMB_ON === false) {
+    /* خاموش‌بودن هم یک خبر است و باید در نتیجه دیده شود. `null` یعنی
+       «این حالت اصلاً معنایی ندارد» (جست‌وجوی ساده)، و آن با «هست ولی
+       خاموش است» یکی نیست. */
+    res.semantic = { on: false, added: 0, found: 0, scanned: 0, shards: 0,
+                     shardsAll: 0, note: 'اثر انگشتِ معنایی خاموش است' };
+  }
+  if (res.mode === 'هوشمند' && opts.semantic !== false && CFG.EMB_ON !== false) {
+    var sem = { ok: false, items: [], note: '' };
+    try { sem = srchSemantic_(q, [], t0 + Math.max(20000, Number(CFG.EMB_SEARCH_MS) || 90000) + 10000); }
+    catch (eSm) { sem = { ok: false, items: [], note: eSm.message }; }
+    semOn = !!sem.ok;
+    semItems = sem.items || [];
+    res.semantic = { on: semOn, added: 0, found: semItems.length,
+                     scanned: sem.scanned || 0, shards: sem.shards || 0,
+                     shardsAll: sem.shardsAll || 0, note: sem.note || '' };
+    if (sem.ok) {
+      if (sem.dropped) {
+        res.notes.push(sem.dropped + ' یافتهٔ معنایی کنار رفت چون شناسهٔ ' +
+                       'ردیف با ایندکس نمی‌خواند (ردیف جابه‌جا شده).');
+      }
+      if (sem.stopped) res.notes.push('بازیابیِ معنایی ناتمام ماند: ' + sem.stopped);
+      if (sem.shardsAll && sem.shards < sem.shardsAll) {
+        res.notes.push('از ' + sem.shardsAll + ' قطعهٔ اثر انگشت، ' + sem.shards +
+                       ' تا خوانده شد.');
+      }
+    } else if (sem.note) {
+      res.notes.push('بازیابیِ معنایی انجام نشد (' + sem.note +
+                     ') — فقط واژه‌ها گشته شد.');
+    }
+  }
+  var used = new Date().getTime() - t0;
+  var col = srchCollect_(terms, q, { sources: opts.sources !== false, since: new Date().getTime(),
+                                     budgetMs: Math.max(30000, budget - used) });
   res.scanned = col.scanned; res.sheets = col.sheets; res.stopped = col.stopped;
   res.read = col.read;
   for (var n = 0; n < col.notes.length; n++) res.notes.push(col.notes[n]);
 
+  /* ادغام: آنچه هر دو لایه آورده‌اند یک ردیف است، نه دو تا — و امتیازِ
+     معنایی‌اش روی همان ردیفِ لغوی می‌نشیند، چون «هم واژه‌اش هست هم
+     معنایش» قوی‌ترین نشانه‌ای است که این بخش دارد. */
+  var merged = col.items.slice(0);
+  if (semItems.length) {
+    var pos = {};
+    for (var pi = 0; pi < merged.length; pi++) {
+      if (merged[pi].where === 'بانک') pos[merged[pi].tab + '§' + merged[pi].row] = pi;
+    }
+    var addedN = 0;
+    for (var si = 0; si < semItems.length; si++) {
+      var sk = semItems[si].tab + '§' + semItems[si].row;
+      if (pos[sk] !== undefined) { merged[pos[sk]].sem = semItems[si].sem; continue; }
+      merged.push(semItems[si]);
+      addedN++;
+    }
+    if (res.semantic) res.semantic.added = addedN;
+    if (addedN) {
+      res.notes.push(addedN + ' مورد را جست‌وجوی معنایی آورد — این‌ها هیچ ' +
+                     'واژهٔ مشترکی با متنِ شما نداشتند و با نشانِ ' +
+                     '«یافتهٔ معنایی» می‌آیند.');
+    }
+  }
+
+  /* ══ آمیختنِ دو امتیاز ══
+     امتیازِ لغوی کران ندارد و امتیازِ معنایی کسینوس است؛ جمعِ خامشان
+     یعنی هر کدام که مقیاسِ بزرگ‌تری دارد برنده است. هر دو به [۰,۱]
+     برده می‌شوند و قاعده صریح است: **قوی‌ترین نشانه تعیین‌کننده است، و
+     داشتنِ هر دو نشانه امتیازِ اضافه می‌گیرد** — «هم واژه‌اش هست هم
+     معنایش» محکم‌ترین شاهدی است که این بخش دارد. */
+  var bestLex = 0, bestSem = 0;
+  for (var bi = 0; bi < merged.length; bi++) {
+    bestLex = Math.max(bestLex, merged[bi].score || 0);
+    bestSem = Math.max(bestSem, merged[bi].sem || 0);
+  }
+  /* هر دو نسبت به بهترینِ خودشان مقیاس می‌شوند، نه با یک عددِ ثابت:
+     مقدارِ مطلقِ کسینوس به طول و زبانِ متن بستگی دارد و یک آستانهٔ
+     سفت، روی یک پرس‌وجو درست است و روی دیگری فهرست را خالی می‌کند. */
+  for (var mi = 0; mi < merged.length; mi++) {
+    var ln = bestLex > 0 ? ((merged[mi].score || 0) / bestLex) : 0;
+    var sn = bestSem > 0 ? ((merged[mi].sem || 0) / bestSem) : 0;
+    merged[mi].rank = Math.max(ln, sn) + 0.25 * Math.min(ln, sn);
+  }
+  merged.sort(function (a2, b2) { return (b2.rank || 0) - (a2.rank || 0); });
+
   var top = Math.max(5, Number(CFG.SEARCH_TOP) || 25);
-  var toModel = Math.max(top, Math.min(col.items.length, 120));
-  var picked = col.items.slice(0, toModel);
-  if (res.mode === 'هوشمند' && col.items.length > toModel) {
-    res.notes.push('از ' + col.items.length + ' نامزد، ' + toModel +
+  var toModel = Math.max(top, Math.min(merged.length, 120));
+  var picked = merged.slice(0, toModel);
+  if (res.mode === 'هوشمند' && merged.length > toModel) {
+    res.notes.push('از ' + merged.length + ' نامزد، ' + toModel +
                    ' موردِ پرامتیازتر به مدل داده شد.');
   }
   if (col.trimmed) {
@@ -869,7 +1049,10 @@ function srchRun_(query, opts) {
   try {
     logLine_('جست‌وجو (' + res.mode + '): «' + q.slice(0, 60) + '» → ' +
              res.items.length + ' نتیجه از ' + res.read + ' ردیفِ خوانده‌شده در ' +
-             res.sheets + ' تب' + (res.dropped ? ' · ' + res.dropped + ' بی‌امتیاز' : '') +
+             res.sheets + ' تب' +
+             (res.semantic && res.semantic.on
+               ? ' · معنایی ' + res.semantic.added + ' از ' + res.semantic.scanned : '') +
+             (res.dropped ? ' · ' + res.dropped + ' بی‌امتیاز' : '') +
              (res.stopped ? ' · ناتمام: ' + res.stopped : '') +
              ' · ' + Math.round(res.ms / 1000) + 'ث');
   } catch (eL) {}

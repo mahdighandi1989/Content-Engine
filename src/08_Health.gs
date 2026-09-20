@@ -172,7 +172,12 @@ function outRootFolderNames_() {
     String(CFG.YT_COVER_FOLDER || ''),
     /* پوشهٔ نمونه‌های گوینده. تا ۷٫۲۰ هر شب «ناشناخته» گزارش می‌شد، چون
        صاحبِ برنامه ساخته بودش و کد نمی‌شناختش. حالا خانهٔ رسمیِ بخشِ ۳۳ است. */
-    String(CFG.VOICE_CLONE_FOLDER || '')
+    String(CFG.VOICE_CLONE_FOLDER || ''),
+    /* پوشهٔ بردارهای معنایی (بخشِ ۳۵). قطعه‌ها ده‌ها فایل‌اند و جایشان
+       ریشه نیست — ریشه فقط چیزی را نگه می‌دارد که موتور با نام پیدایش
+       می‌کند. بی این ردیف، همان شبِ اول یک هشدارِ «ناشناخته» می‌ساخت
+       برای پوشه‌ای که خودِ موتور ساخته بود. */
+    String(CFG.EMB_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -542,6 +547,8 @@ function writeStatus_(hub, note) {
     youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
+    // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
+    embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -1471,6 +1478,19 @@ function healthCheck() {
     var viS = vintStatus_(hub);
     if (viS && viS.line) { if (viS.ok === false) problems.push(viS.line); else notes.push(viS.line); }
   } catch (eVi) {}
+  /* ══ اثر انگشتِ معنایی: همان قاعده، از روزِ اول (۷٫۲۶) ══
+     خواستهٔ صریح بود که «در گزارش روزانه بیاید چه تعداد انجام شده و هر
+     روز به‌روز شود». پس سطرش **هر روز** هست — حتی روزی که هیچ ردیفِ
+     تازه‌ای ساخته نشده، چون آن روز هم یک خبر است: «چیزی باقی نمانده» با
+     «کار متوقف شده» از بیرون یک شکل دارند و فقط عدد از هم جدایشان می‌کند. */
+  try {
+    var emS = embStatus_(hub);
+    if (emS && emS.line) {
+      var emBad = (emS.ok === false) || !!emS.stale ||
+                  (emS.stuckDays >= Math.max(1, Number(CFG.EMB_STUCK_DAYS) || 3) && emS.pending > 0);
+      if (emBad) problems.push(emS.line); else notes.push(emS.line);
+    }
+  } catch (eEm) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
