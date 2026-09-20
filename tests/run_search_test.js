@@ -209,4 +209,135 @@ ok('۱۱.۳ srchRun خطا را به پنجره برمی‌گرداند، نه �
      return r && r.ok === false;
    })());
 
+console.log('\n══ ۱۲) یابنده و سنجنده نباید با هم اختلاف داشته باشند (۷٫۲۴) ══');
+/* هر اختلافِ این دو لایه با `if (score <= 0) continue` حل می‌شد — یعنی
+   حذفِ بی‌صدا. کاربر «پیدا نشد» می‌دید برای چیزی که در شیت بود. */
+const Z = String.fromCharCode(0x200c);
+const FF = (o) => Object.assign({ topic: '', msg: '', summary: '', body: '', vibe: '', raw: '' }, o);
+ok('۱۲.۱ عبارتِ سرِ هم، سلولِ نیم‌فاصله‌دار را پیدا می‌کند',
+   srchScore_(FF({ topic: 'می' + Z + 'گوید سلام' }), srchTerms_('میگوید'), 'میگوید') > 0,
+   'کاربر معمولاً «میگوید» تایپ می‌کند و متنِ موتور نیم‌فاصله دارد');
+ok('۱۲.۲ و برعکسش هم',
+   srchScore_(FF({ topic: 'میگوید سلام' }), srchTerms_('می' + Z + 'گوید'), 'می' + Z + 'گوید') > 0);
+ok('۱۲.۳ پاداشِ عبارتِ کامل با یک «؟» از بین نمی‌رود',
+   srchScore_(FF({ summary: 'ترس از ضرر' }), srchTerms_('ترس از ضرر؟'), 'ترس از ضرر؟') >
+   srchScore_(FF({ summary: 'ترس و ضرر' }), srchTerms_('ترس از ضرر؟'), 'ترس از ضرر؟'),
+   'پنجره صریح دعوت می‌کند جمله بنویسید');
+const rZ = srchRun_('زيانگريزي', { mode: 'ساده', sources: false });
+ok('۱۲.۴ و در مسیرِ کامل هم', rZ.items.some(i => i.id === 'V1'),
+   'املای عربی + سرِ هم، هر دو با هم');
+
+console.log('\n══ ۱۳) الگو باید در RE2 هم معتبر باشد، نه فقط در جاوااسکریپت ══');
+/* ماک با RegExpِ جاوااسکریپت کار می‌کند و گوگل‌شیت با RE2. RE2 بک‌اسلش را
+   فقط پیشِ نشانه‌گذاریِ ASCII می‌پذیرد، پس `\؟` آنجا خطاست و اینجا نه —
+   الگوی باطل یعنی استثنا در createTextFinder، یعنی صفر نتیجه، بی هیچ نشانه. */
+const tricky = ['قیمت؟', '«نقل قول»', 'سه… نقطه', 'قیمت (دلار)', 'a.b*c', '؟؟؟',
+                '🙂 خنده', 'ک'.repeat(700), 'x]y[z', '\\'];
+for (const q of tricky) {
+  const pt = srchPattern_(q);
+  const noBadEsc = !/\\[^\x00-\x7F]/.test(pt);
+  const balanced = (pt.match(/\[/g) || []).length === (pt.match(/\]/g) || []).length;
+  let jsOk = true; try { new RegExp(pt, 'u'); } catch (e) { jsOk = false; }
+  ok('۱۳ الگوی ' + JSON.stringify(q.slice(0, 14)) + ' سالم است',
+     noBadEsc && balanced && jsOk,
+     noBadEsc ? (balanced ? '' : 'ردهٔ نویسهٔ نیمه‌باز') : 'بک‌اسلش پیشِ نویسهٔ غیرِASCII');
+}
+ok('۱۳.۱ نشانه‌گذاری مثلِ فاصله رفتار می‌کند',
+   new RegExp(srchPattern_('جنگ، سرد'), 'u').test('جنگ سرد'));
+
+console.log('\n══ ۱۴) ستون‌های بعد از ۲۴ ══');
+const wide = mkCat('تبِ پهن', []);
+(function () {
+  const r = new Array(HUB_HEADERS.length).fill('');
+  r[COL.ID - 1] = 'W1'; r[COL.TOPIC - 1] = 'چیزی';
+  wide.appendRow(r);
+})();
+ok('۱۴.۱ خواندن به ۲۴ ستون محدود نیست',
+   /SEARCH_MAX_COLS/.test(fs.readFileSync('src/34_Search.gs', 'utf8')) &&
+   !/srchReadRows_\(sh, order, 24\)/.test(fs.readFileSync('src/34_Search.gs', 'utf8')),
+   'شیت‌های منبع ۵۷ ستون دارند و تحلیل‌ها در ستون‌های ۲۵ به بعدند');
+
+console.log('\n══ ۱۵) سقفِ بانک نباید شیت‌های منبع را ببلعد ══');
+const many2 = [];
+for (let i = 0; i < 40; i++) many2.push(row({ id: 'M' + i, topic: 'پرتکرارواژه شمارهٔ ' + i }));
+mkCat('پرتکرار', many2);
+const fake2 = SpreadsheetApp.create('SRC-2');
+global.__SS[fake2.getId()] = fake2;
+const f2 = fake2.insertSheet('S');
+f2.appendRow(['نام', 'متن']);
+f2.appendRow(['x.mp4', 'پرتکرارواژه اینجا هم هست']);
+const realSrc2 = CFG.SOURCES;
+CFG.SOURCES = [{ key: 't2', id: fake2.getId(), title: 'SRC-2', schema: 'auto' }];
+const realCap2 = CFG.SEARCH_CAND_MAX; CFG.SEARCH_CAND_MAX = 20;
+const r15 = srchRun_('پرتکرارواژه', { mode: 'ساده', sources: true });
+ok('۱۵.۱ منبع باز هم گشته می‌شود',
+   r15.items.some(i => i.where === 'منبع'),
+   'باگِ ۷٫۲۳: هر واژه‌ای که بانک را پر می‌کرد، هر پنج شیتِ منبع را کامل رد می‌کرد — ' +
+   'و پنجره پیشنهاد می‌داد تیکِ منبع را بردارید، یعنی خاموش‌کردنِ لایه‌ای که گشته نشده بود');
+CFG.SEARCH_CAND_MAX = realCap2; CFG.SOURCES = realSrc2;
+
+console.log('\n══ ۱۶) شکستِ بی‌صدا ممنوع ══');
+const bad = hub.insertSheet('تبِ خراب');
+bad.appendRow(HUB_HEADERS.slice());
+bad.appendRow(row({ id: 'B1', topic: 'زیان‌گریزی پنهان' }));
+bad.createTextFinder = function () { throw new Error('boom'); };
+const r16 = srchRun_('زیان‌گریزی', { mode: 'ساده', sources: false });
+ok('۱۶.۱ تبی که خطا داد گزارش می‌شود',
+   r16.notes.some(n => n.indexOf('تبِ خراب') !== -1),
+   'سکوت یعنی کاربر باور می‌کند همه‌جا گشته شده');
+ok('۱۶.۲ و در شمارشِ «گشته شد» حساب نمی‌شود',
+   r16.sheets < srchHubTabs_(hub).length,
+   'ادعای پوششی که وجود نداشته، از سکوت بدتر است');
+delete bad.createTextFinder;
+
+console.log('\n══ ۱۷) مدل حق دارد کنار بگذارد، نه پنهان کند ══');
+const realGem2 = global.geminiText_;
+global.geminiText_ = function (prompt) {
+  if (prompt.indexOf('عیناً در متنِ آن') !== -1) return JSON.stringify({ terms: [] });
+  return JSON.stringify({ hits: [], answer: 'هیچ‌کدام دقیقاً نمی‌خورد.' });
+};
+const r17 = srchRun_('زیان‌گریزی', { mode: 'هوشمند', sources: false });
+ok('۱۷.۱ وقتی مدل هیچ‌کدام را نپسندید، حرفش گم نمی‌شود',
+   r17.answer.indexOf('نمی‌خورد') !== -1,
+   'پرامپت می‌گوید در answer بنویس چه کم بود — و ۷٫۲۳ دورش می‌ریخت');
+global.geminiText_ = function (prompt) {
+  if (prompt.indexOf('عیناً در متنِ آن') !== -1) return JSON.stringify({ terms: [] });
+  return JSON.stringify({ hits: [{ id: '2', why: 'این', fit: 'نزدیک' }] });
+};
+const r17b = srchRun_('زیان‌گریزی', { mode: 'هوشمند', sources: false });
+ok('۱۷.۲ موردِ پرامتیازی که مدل نگفت، پنهان نمی‌شود',
+   r17b.items.length >= 1 &&
+   (r17b.items.some(i => i.fit === 'مدل کنارش گذاشت') || r17b.notes.length > 0),
+   'کوتاه‌کردنِ فهرست خوب است، پنهان‌کردن نه');
+global.geminiText_ = function (prompt) {
+  if (prompt.indexOf('عیناً در متنِ آن') !== -1) return JSON.stringify({ terms: [] });
+  return JSON.stringify({ hits: [{ id: '-1', why: 'x' }] });
+};
+ok('۱۷.۳ شناسهٔ منفی به موردِ یک تبدیل نمی‌شود',
+   srchRun_('زیان‌گریزی', { mode: 'هوشمند', sources: false })
+     .items.every(i => i.why !== 'x'),
+   'parseInt علامت را می‌خورد و «۱-» می‌شد «۱»');
+global.geminiText_ = realGem2;
+
+console.log('\n══ ۱۸) لینک‌ها در پنجره ══');
+const h18 = srchHtml_();
+ok('۱۸.۱ لینک هم گریز می‌خورد', /esc\(lf\)/.test(h18) && /esc\(ls\)/.test(h18),
+   'ستونِ لینک عیناً از سلولِ شیتِ منبع می‌آید و آن شیت‌ها فراداده‌های بیرونی می‌خورند؛ ' +
+   'و اسکریپتِ این پنجره google.script.run دارد');
+ok('۱۸.۲ فقط http(s) پذیرفته است', /\^https\?/.test(h18) || /https\?/.test(h18));
+ok('۱۸.۳ شناسهٔ فایلِ ساختگی لینک نمی‌سازد',
+   (function () {
+     const it = srchSrcItem_('S', fsh || f2, 2, ['Trading_Session_2024_01_02_final_cut', 'متن']);
+     return !it.link;
+   })(),
+   'لینکِ غلط از نبودِ لینک بدتر است — «همان ردیف در شیت» همیشه درست است');
+
+console.log('\n══ ۱۹) سقفِ واژه‌ها ══');
+const longQ = Array.from({ length: 40 }, (_, i) => 'واژه' + i).join(' ');
+const r19 = srchRun_(longQ, { mode: 'ساده', sources: false });
+ok('۱۹.۱ واژه‌ها بریده می‌شوند و گفته می‌شود',
+   r19.terms.length <= (CFG.SEARCH_TERMS_MAX || 12) &&
+   r19.notes.some(n => n.indexOf('واژهٔ نخست') !== -1),
+   'هر واژه یک پویشِ کاملِ سمتِ سرور در هر تب است');
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

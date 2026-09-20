@@ -138,8 +138,34 @@ console.log('=== \u06f5) \u062f\u06a9\u0645\u0647\u200c\u0627\u06cc \u06a9\u0647
      سروریِ خودش را دارد و هیچ‌کس نگاهشان نمی‌کرد — همان «نگهبانی که یک در
      را نمی‌بیند، آن در را باز می‌گذارد» (۶٫۲۰)، این بار یک لایه بیرون‌تر.
      هر پنجرهٔ تازه‌ای که ساخته شود، نامش همین‌جا اضافه می‌شود. */
-  const PANELS = [['تختهٔ مجموعه‌ها', uiBoardHtml], ['پنجرهٔ جست‌وجو', srchHtml_]];
-  const html = PANELS.map(p => String(p[1]())).join('\n');
+  /* ══ فهرستِ پنجره‌ها از خودِ `src/` درمی‌آید، نه با دست ══
+     نشانهٔ «پنجره» یکی است: `ui.showModalDialog`. برای هر تابعی که آن را
+     صدا می‌زند، سازندهٔ HTMLش را از بدنهٔ همان تابع بیرون می‌کشیم. فهرستِ
+     دست‌نویس همان شکلی است که ۵٫۹۵ بهایش را داد — نگهبانی که برای دیدنِ
+     درِ فراموش‌شده ساخته شده، خودش نباید دری را جا بگذارد. */
+  const BUILDERS = [];
+  for (const m of SRC.matchAll(/\nfunction\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{/g)) {
+    const start = m.index + m[0].length;
+    let depth = 1, i = start;
+    for (; i < SRC.length && depth; i++) {
+      if (SRC[i] === '{') depth++;
+      else if (SRC[i] === '}') depth--;
+    }
+    const body = SRC.slice(start, i);
+    if (body.indexOf('showModalDialog') === -1) continue;
+    // متغیری که به createHtmlOutput داده می‌شود، و بعد سازنده‌اش — نه
+    // نخستین انتسابِ بدنه، که می‌تواند هر چیزِ بی‌ربطی باشد.
+    const v = body.match(/createHtmlOutput\(\s*([A-Za-z0-9_]+)\s*\)/);
+    if (!v) continue;
+    const b = body.match(new RegExp('\\b' + v[1] + '\\s*=\\s*([A-Za-z0-9_]+)\\s*\\(\\s*\\)'));
+    if (b && typeof global[b[1]] === 'function' && BUILDERS.indexOf(b[1]) === -1) {
+      BUILDERS.push(b[1]);
+    }
+  }
+  ok('۵.۰ پنجره‌ها از روی showModalDialog پیدا شدند', BUILDERS.length >= 2,
+     BUILDERS.join(', ') + ' — فهرستِ دست‌نویس بود که ۵٫۹۵ بهایش را داد');
+  const html = BUILDERS.map(fn => { try { return String(global[fn]()); } catch (e) { return ''; } }).join('\n');
+
   // زنجیره را با شمارشِ پرانتز می‌پیماییم، نه با رجکس: آرگومانِ
   // withSuccessHandler خودش یک تابعِ کامل با پرانتزهای تودرتوست و هر رجکسِ
   // ساده‌ای همان را به‌جای تابعِ سرور می‌گیرد.

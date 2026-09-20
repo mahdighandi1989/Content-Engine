@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.23
+ *  موتور محتوا و پادکست — نسخهٔ 7.24
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.23',
+  CODE_VERSION: '7.24',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1384,6 +1384,12 @@ var CFG = {
   SEARCH_SOURCES_DEFAULT: true,
   // سقفِ ردیف‌های نامزد از هر شیت — نگهبانِ واژهٔ خیلی پرتکرار
   SEARCH_HITS_PER_SHEET: 400,
+  /* `createTextFinder` در همهٔ ستون‌ها می‌گردد، پس خواندن هم باید همهٔ
+     ستون‌ها را بردارد. شیت‌های تازهٔ منبع ۵۷ ستون دارند و تحلیل‌ها در
+     ستون‌های ۲۵ به بعدند — نسخهٔ ۷٫۲۳ فقط ۲۴ ستونِ اول را می‌خواند. */
+  SEARCH_MAX_COLS: 80,
+  // سقفِ واژه‌ها: یک بندِ چسبانده‌شده ۴۳ واژه می‌شود، یعنی ۴۳ پویشِ کامل در هر تب
+  SEARCH_TERMS_MAX: 12,
   // سقفِ کلِ نامزدها که متنشان خوانده می‌شود
   SEARCH_CAND_MAX: 240,
   // چند مورد به کاربر نشان داده شود
@@ -46564,12 +46570,18 @@ function runVoiceIntake() {
  *
  * هیچ‌کدام جای دیگری را نمی‌گیرد، پس پیش‌فرض هر دو است.
  *
- * ══ این بخش هیچ‌چیز نمی‌نویسد ══
+ * ══ این بخش خودش هیچ‌چیز نمی‌نویسد — و مرزِ دقیقش این است ══
  *
- * نه در شیت‌های منبع (که فقط‌خواندنی‌اند و باید بمانند)، نه در بانک، نه در
- * درایو. فقط می‌خوانَد. صاحبِ برنامه گفت «فقط بدون خراب کردن» — و امن‌ترین
- * شکلِ آن، قابلیتی است که **راهِ نوشتن ندارد**، نه قابلیتی که مراقبِ نوشتنش
- * هستیم.
+ * در **شیت‌های منبع** هیچ‌چیز نوشته نمی‌شود؛ نه ردیفی، نه نامی، نه قالبی.
+ * این مرزِ مطلقِ پروژه است و اینجا با یک آزمون نگه داشته می‌شود که پس از
+ * یک جست‌وجوی کامل، دست‌نخوردگیِ ردیف را می‌سنجد. در درایو هم چیزی ساخته
+ * یا عوض نمی‌شود.
+ *
+ * ولی یک دقتِ لازم، چون نسخهٔ ۷٫۲۳ اینجا ادعای نادرستی نوشته بود: صدا زدنِ
+ * `getHub_()` مثلِ هر جای دیگرِ موتور می‌تواند تب‌های گم‌شدهٔ بانک را
+ * بسازد یا سرستون‌ها را ترمیم کند. آن **نوشتنِ این بخش نیست**، ولی «هیچ
+ * نوشتنی رخ نمی‌دهد» هم نیست. ادعای نادرستِ امنیت از نداشتنِ ادعا بدتر
+ * است — همان قاعدهٔ «دستورهایی که از حقیقتشان جا مانده‌اند».
  *
  * ══ املای فارسی: جایی که یک جست‌وجوی ساده شکست می‌خورَد ══
  *
@@ -46613,6 +46625,32 @@ function srchNorm_(s) {
   return t.trim().toLowerCase();
 }
 
+/**
+ * شکلِ «فشرده»: بی فاصله و بی نشانه‌گذاری.
+ *
+ * ══ چرا لازم شد (۷٫۲۴) ══
+ * الگوی جست‌وجو عمداً سخاوتمند است و نیم‌فاصله/فاصله را می‌بلعد، ولی امتیاز
+ * با `indexOf` روی متنِ معمولی سنجیده می‌شد. پس «میگوید» (که کاربر سرِ هم
+ * تایپ می‌کند) الگو را می‌خورد ولی امتیازش صفر می‌شد و `score <= 0` بی‌صدا
+ * دورش می‌ریخت: یابنده می‌گفت هست، سنجنده می‌گفت نیست، و کاربر «پیدا نشد»
+ * می‌دید. دو لایه که با هم اختلاف داشته باشند، اختلافشان همیشه به زیانِ
+ * کاربر حل می‌شود.
+ *
+ * نشانه‌گذاری هم حذف می‌شود تا پاداشِ «عبارتِ کامل» با یک «؟» از بین نرود —
+ * و پنجرهٔ گفت‌وگو صریح دعوت می‌کند که جمله بنویسید.
+ */
+function srchTight_(s) {
+  return srchNorm_(s).replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/** آیا این متن آن واژه را دارد؟ هم به شکلِ معمولی، هم فشرده. */
+function srchHas_(hayNorm, hayTight, needle) {
+  if (!needle) return false;
+  if (hayNorm && hayNorm.indexOf(needle) !== -1) return true;
+  var t = srchTight_(needle);
+  return !!(t && hayTight && hayTight.indexOf(t) !== -1);
+}
+
 /** واژه‌های معنادارِ یک عبارت. واژه‌های یک‌نویسه‌ای نوفه‌اند. */
 function srchTerms_(q) {
   var t = srchNorm_(q).replace(/[^\p{L}\p{N}\s]/gu, ' ');
@@ -46649,34 +46687,55 @@ var SRCH_STOP = (function () {
  */
 function srchPattern_(term) {
   var VAR = {
-    'ا': 'اآأإٱ',
-    'ی': 'یيىې',
-    'ک': 'کك',
-    'ه': 'هةۀ',
-    'و': 'وؤ'
+    '\u0627': '\u0627\u0622\u0623\u0625\u0671',
+    '\u06CC': '\u06CC\u064A\u0649\u06D0',
+    '\u06A9': '\u06A9\u0643',
+    '\u0647': '\u0647\u0629\u06C0',
+    '\u0648': '\u0648\u0624'
   };
-  var GAP = '[\\s‌ً-ْٰـ]*';
+  var GAP = '[\\s\u200C\u064B-\u0652\u0670\u0640]*';
   var t = srchNorm_(term);
   if (!t) return '';
-  var out = [];
+  var out = [], gapAfter = false;
+  /* ══ نویسهٔ غیرِلاتین هرگز با بک‌اسلش گریز داده نمی‌شود (۷٫۲۴) ══
+     گوگل‌شیت RE2 دارد و RE2 بک‌اسلش را فقط پیشِ نشانه‌گذاریِ ASCII می‌پذیرد؛
+     `\؟` یا `\«` خطای «invalid escape sequence» می‌دهد. نسخهٔ اول هر
+     نویسهٔ غیرِحرف‌وعدد را گریز می‌داد، پس یک علامتِ سؤالِ فارسی در جملهٔ
+     کاربر کلِ الگو را باطل می‌کرد، `createTextFinder` استثنا می‌داد،
+     `srchFind_` آن را می‌بلعید و `[]` برمی‌گرداند — یعنی «پیدا نشد» برای
+     چیزی که هست، بی هیچ نشانه‌ای. و آزمون نمی‌دیدش چون ماک با RegExpِ
+     جاوااسکریپت کار می‌کند، نه RE2.
+     نشانه‌گذاری اصلاً ارزشِ تطبیق ندارد: مثلِ فاصله رفتار می‌کند. */
   for (var i = 0; i < t.length; i++) {
     var c = t.charAt(i);
-    if (/\s/.test(c)) { out.push(GAP); continue; }
-    if (/[0-9]/.test(c)) {
+    if (/[\p{L}\p{N}]/u.test(c)) {
+      if (gapAfter && out.length) out.push(GAP);
+      gapAfter = false;
       var d = c.charCodeAt(0) - 48;
-      out.push('[' + c + String.fromCharCode(0x06F0 + d) + String.fromCharCode(0x0660 + d) + ']');
-    } else if (VAR[c]) {
-      out.push('[' + VAR[c] + ']');
-    } else if (/[\p{L}\p{N}]/u.test(c)) {
-      out.push(c);
+      if (d >= 0 && d <= 9) {
+        out.push('[' + c + String.fromCharCode(0x06F0 + d) + String.fromCharCode(0x0660 + d) + ']');
+      } else if (VAR[c]) {
+        out.push('[' + VAR[c] + ']');
+      } else {
+        out.push(c);
+      }
+      if (i < t.length - 1) out.push(GAP);
     } else {
-      out.push('\\' + c);                       // نویسهٔ ویژه: بی‌اثر شود
+      // فاصله، نشانه‌گذاری، ایموجی، نشانهٔ جهت — همه یک چیزند: جداکننده
+      gapAfter = true;
     }
-    if (i < t.length - 1 && !/\s/.test(c)) out.push(GAP);
   }
-  var pat = out.join('');
-  // الگوی خیلی بلند هم کند است و هم ریسکِ ردِ RE2 — عبارتِ بلند بریده می‌شود
-  return pat.length > 1800 ? pat.slice(0, 1800) : pat;
+  while (out.length && out[out.length - 1] === GAP) out.pop();
+  /* بریدن سرِ مرزِ همان قطعه‌ها انجام می‌شود و نه وسطِ رشته: بریدنِ کور
+     می‌توانست یک ردهٔ نویسه را نیمه رها کند («missing closing ]») و همان
+     الگوی باطل را بسازد که بالا توضیح داده شد. */
+  var pat = '', cap = 1600;
+  for (var k = 0; k < out.length; k++) {
+    if (pat.length + out[k].length > cap) break;
+    pat += out[k];
+  }
+  while (pat.length && pat.slice(-GAP.length) === GAP) pat = pat.slice(0, -GAP.length);
+  return pat;
 }
 
 /**
@@ -46688,15 +46747,17 @@ function srchPattern_(term) {
  */
 function srchScore_(fields, terms, phrase) {
   var hit = 0, score = 0;
-  var norm = {};
+  var norm = {}, tight = {};
   for (var k in SRCH_W) {
-    if (Object.prototype.hasOwnProperty.call(SRCH_W, k)) norm[k] = srchNorm_(fields[k] || '');
+    if (!Object.prototype.hasOwnProperty.call(SRCH_W, k)) continue;
+    norm[k] = srchNorm_(fields[k] || '');
+    tight[k] = srchTight_(fields[k] || '');
   }
   for (var i = 0; i < terms.length; i++) {
     var best = 0;
     for (var f in SRCH_W) {
       if (!Object.prototype.hasOwnProperty.call(SRCH_W, f)) continue;
-      if (norm[f] && norm[f].indexOf(terms[i]) !== -1 && SRCH_W[f] > best) best = SRCH_W[f];
+      if (SRCH_W[f] > best && srchHas_(norm[f], tight[f], terms[i])) best = SRCH_W[f];
     }
     if (best) { hit++; score += best; }
   }
@@ -46704,11 +46765,13 @@ function srchScore_(fields, terms, phrase) {
   // پوشش وزنِ سنگین دارد: ردیفی که چهار واژه از پنج را دارد باید بالاتر از
   // ردیفی بنشیند که یک واژه را چهار بار تکرار کرده.
   score += (hit / terms.length) * 12;
+  // پاداشِ عبارتِ کامل روی شکلِ فشرده سنجیده می‌شود، وگرنه یک «؟» در انتهای
+  // جملهٔ کاربر آن را برای همیشه دست‌نیافتنی می‌کرد.
   var ph = srchNorm_(phrase || '');
   if (ph && ph.indexOf(' ') !== -1) {
     for (var f2 in SRCH_W) {
       if (!Object.prototype.hasOwnProperty.call(SRCH_W, f2)) continue;
-      if (norm[f2] && norm[f2].indexOf(ph) !== -1) { score += 10; break; }
+      if (srchHas_(norm[f2], tight[f2], ph)) { score += 10; break; }
     }
   }
   return Math.round(score * 10) / 10;
@@ -46751,27 +46814,41 @@ function srchHubTabs_(hub) {
  * ده‌ها هزار نتیجه بدهد و `findAll` همه را یکجا می‌سازد. با `findNext` سقف
  * واقعاً سقف است.
  */
-function srchFind_(sh, pattern, cap, plain) {
-  var rows = {}, n = 0;
+function srchFind_(sh, pattern, cap) {
+  var res = { rows: [], cut: false };
   var tf;
   try {
     tf = sh.createTextFinder(pattern);
-    if (!plain && tf.useRegularExpression) tf.useRegularExpression(true);
+    if (tf.useRegularExpression) tf.useRegularExpression(true);
     if (tf.matchCase) tf.matchCase(false);
     if (tf.matchEntireCell) tf.matchEntireCell(false);
-  } catch (e) { return []; }
+  } catch (e) { res.err = e.message; return res; }
+  var rows = {}, n = 0, first = 0;
   try {
-    for (var i = 0; i < cap * 4; i++) {
+    /* ══ دو نگهبان، و هرکدام دلیلِ خودش را دارد ══
+       سقفِ تکرار: یک واژه می‌تواند در بیستِ ستونِ **یک** ردیف باشد، پس
+       تعدادِ فراخوان با تعدادِ ردیف یکی نیست.
+       و `findNext` در Apps Scriptِ واقعی سرِ ته‌کشیدن **دور می‌زند** و از
+       اول شروع می‌کند. بی تشخیصِ دور، هر واژهٔ کمیاب تا سقف فراخوان
+       می‌سوزاند و هر واژهٔ پرتکرار هم همان. رسیدنِ دوباره به نخستین
+       نتیجه یعنی یک دور کامل زده‌ایم. */
+    for (var i = 0; i < cap * 6; i++) {
       var r = tf.findNext();
       if (!r) break;
-      var row = r.getRow();
-      if (row > 1 && !rows[row]) { rows[row] = 1; n++; if (n >= cap) break; }
+      var row = r.getRow(), col = r.getColumn ? r.getColumn() : 0;
+      var sig = row + ':' + col;
+      if (!first) first = sig;
+      else if (sig === first) break;                 // دور زد
+      if (row > 1 && !rows[row]) {
+        rows[row] = 1; n++;
+        if (n >= cap) { res.cut = true; break; }
+      }
+      if (i === cap * 6 - 1) res.cut = true;         // سقفِ فراخوان
     }
-  } catch (e2) {}
-  var out = [];
-  for (var k in rows) if (Object.prototype.hasOwnProperty.call(rows, k)) out.push(Number(k));
-  out.sort(function (a, b) { return a - b; });
-  return out;
+  } catch (e2) { res.err = e2.message; }
+  for (var k in rows) if (Object.prototype.hasOwnProperty.call(rows, k)) res.rows.push(Number(k));
+  res.rows.sort(function (a, b) { return a - b; });
+  return res;
 }
 
 /**
@@ -46827,21 +46904,35 @@ function srchSrcItem_(srcTitle, sh, row, vals) {
   for (var c = 0; c < vals.length; c++) {
     var v = String(vals[c] == null ? '' : vals[c]).trim();
     if (!v) continue;
-    // شناسهٔ درایو هرجای ردیف که باشد، لینکِ فایل را می‌سازد
-    if (!id && /^[A-Za-z0-9_-]{25,}$/.test(v)) id = v;
+    /* ══ شناسهٔ درایو، سخت‌گیرانه (۷٫۲۴) ══
+       نسخهٔ اول هر واژهٔ ۲۵-نویسه‌ایِ لاتین را شناسهٔ فایل می‌گرفت، پس یک
+       نامِ فایل مثلِ `Trading_Session_2024_01_02_final_cut` یا یک هشِ
+       SHA-1 یا یک UUID دکمهٔ «بازکردنِ فایل» می‌ساخت که به ۴۰۴ می‌رفت.
+       **لینکِ غلط از نبودِ لینک بدتر است** — کنارش «همان ردیف در شیت»
+       هست که همیشه درست است. شناسهٔ واقعیِ درایو ۲۸ تا ۴۴ نویسه است و
+       زیرخط ندارد. */
     if (!id) {
-      var m = v.match(/[-\w]{25,}/);
-      if (m && v.indexOf('drive.google') !== -1) id = m[0];
+      var m = v.match(/(?:\/d\/|id=)([A-Za-z0-9_-]{25,})/);
+      if (m) id = m[1];
+      else if (/^[A-Za-z0-9-]{28,44}$/.test(v) && /[0-9]/.test(v) && /[A-Z]/.test(v)) id = v;
     }
     if (v.length > 2) txt.push(v);
   }
   var joined = txt.join(' — ');
+  /* ══ سنجش روی **کلِ** ردیف (۷٫۲۴) ══
+     نسخهٔ اول فقط ۴۰۰۰ نویسهٔ اول را به سنجنده می‌داد، در حالی که
+     `createTextFinder` کلِ ردیف را دیده بود. یک سلولِ یازده‌هزارنویسه‌ای
+     — که در این شیت‌ها عادی است — یعنی یابنده می‌گفت هست و سنجنده صفر
+     می‌داد و ردیف بی‌صدا حذف می‌شد. نمایش کوتاه می‌مانَد؛ سنجش نه. */
+  var CAP = 40000;
   return {
     where: 'منبع', tab: srcTitle + ' › ' + sh.getName(), row: row, id: id,
     kind: '', date: '', cat: srcTitle,
-    fields: { topic: txt[0] || '', msg: txt[1] || '', summary: joined.slice(0, 1800),
-              body: joined.slice(1800, 4000), vibe: '', raw: '' },
+    fields: { topic: txt[0] || '', msg: txt[1] || '',
+              summary: joined.slice(0, 1800), body: '', vibe: '',
+              raw: joined.slice(1800, CAP) },
     title: (txt[0] || ('ردیف ' + row)).slice(0, 180),
+    show: srchClip_(joined, 420),
     link: id ? driveLink_(id) : '', sheetLink: srchRowLink_(sh, row)
   };
 }
@@ -46883,41 +46974,51 @@ function srchCollect_(terms, phrase, opts) {
   if (whole && pats.length > 1) pats.unshift({ term: '«' + phrase + '»', pat: whole });
   if (!pats.length) return out;
 
-  var take = function (sh, mk, label) {
-    if (out.items.length >= capAll) { out.stopped = 'سقفِ نامزدها'; return false; }
-    if (left() < 12000) { out.stopped = 'بودجهٔ زمان'; return false; }
-    var rows = {}, order = [];
+  var take = function (sh, mk) {
+    if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
+    var rows = {}, order = [], cut = false, err = '';
     for (var q = 0; q < pats.length; q++) {
-      if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; break; }
+      if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; cut = true; break; }
       var got = srchFind_(sh, pats[q].pat, capSheet);
-      for (var r = 0; r < got.length; r++) {
-        if (!rows[got[r]]) { rows[got[r]] = 1; order.push(got[r]); }
+      if (got.err) { err = got.err; continue; }
+      if (got.cut) cut = true;
+      for (var r = 0; r < got.rows.length; r++) {
+        if (!rows[got.rows[r]]) { rows[got.rows[r]] = 1; order.push(got.rows[r]); }
       }
-      if (order.length >= capSheet) break;
+      if (order.length >= capSheet) { cut = true; break; }
+    }
+    if (err) {
+      /* تبی که خطا داد **گشته نشده**. شمردنش در «N تب گشته شد» از سکوت
+         بدتر است: پوششی را ادعا می‌کند که وجود نداشته. */
+      out.notes.push('تبِ «' + sh.getName() + '» گشته نشد: ' + err);
+      return true;
     }
     out.sheets++;
+    if (cut) out.stopped = out.stopped || 'سقفِ نتیجه در یک تب';
     if (!order.length) return true;
     order.sort(function (a, b) { return a - b; });
-    if (order.length > capSheet) order = order.slice(0, capSheet);
-    /* ══ بریده‌شدن باید **همان‌جا** فهمیده شود (۷٫۲۳) ══
-       نسخهٔ اول فقط سرِ تبِ بعدی می‌فهمید به سقف خورده‌ایم؛ پس اگر سقف
-       دقیقاً در آخرین تب پر می‌شد، کاربر هیچ‌وقت نمی‌فهمید جست‌وجو ناقص
-       بوده. و ناقص‌بودنِ اعلام‌نشده یعنی «نیست» گفتن به چیزی که هست. */
-    if (order.length >= capSheet) {
-      out.stopped = out.stopped || 'سقفِ نتیجه در یک تب';
-    }
-    var vals = srchReadRows_(sh, order, 24);
-    var z = 0;
+    if (order.length > capSheet) { order = order.slice(0, capSheet); out.stopped = out.stopped || 'سقفِ نتیجه در یک تب'; }
+    /* ══ همهٔ ستون‌ها، نه بیست‌وچهار تا (۷٫۲۴) ══
+       `createTextFinder` در **همهٔ** ستون‌ها می‌گردد ولی نسخهٔ اول فقط ۲۴
+       ستونِ اول را می‌خواند. شیت‌های تازهٔ منبع ۵۷ ستون دارند و — طبق
+       `tests/fixtures/newsheets.json` که از خودِ همان شیت گرفته شده —
+       تحلیل و نکته‌ها در ستون‌های ۲۵ به بعدند. یعنی دقیقاً همان چیزی که
+       این قابلیت برایش ساخته شد، خوانده نمی‌شد و بی‌صدا امتیازِ صفر
+       می‌گرفت. */
+    var wide = Math.max(1, Math.min(Number(CFG.SEARCH_MAX_COLS) || 80, sh.getLastColumn()));
+    var vals = srchReadRows_(sh, order, wide);
+    var z = 0, missed = 0;
     for (; z < order.length; z++) {
       if (out.items.length >= capAll) { out.stopped = 'سقفِ نامزدها'; break; }
       var v = vals[order[z]];
-      if (!v) continue;
+      if (!v) { missed++; continue; }
       var it = mk(sh, order[z], v);
       it.score = srchScore_(it.fields, terms, phrase);
-      if (it.score <= 0) continue;          // الگو خورده ولی معنایش نه
+      if (it.score <= 0) continue;
       out.items.push(it);
       out.scanned++;
     }
+    if (missed) out.notes.push('در «' + sh.getName() + '» ' + missed + ' ردیف خوانده نشد.');
     if (z < order.length) out.stopped = out.stopped || 'سقفِ نامزدها';
     return true;
   };
@@ -46936,17 +47037,36 @@ function srchCollect_(terms, phrase, opts) {
   } catch (eH) { out.notes.push('بانک خوانده نشد: ' + eH.message); }
 
   // ── شیت‌های منبع ── (فقط خواندن؛ هرگز نوشتن)
-  if (opts.sources !== false && !out.stopped) {
+  /* ══ منبع را نبود سقفِ بانک نباید بخورَد (۷٫۲۴) ══
+     نسخهٔ اول `!out.stopped` را شرط کرده بود، پس هر واژهٔ نه‌چندان کمیابی
+     که بانک را تا سقف پر می‌کرد، **هر پنج شیتِ منبع را کامل رد می‌کرد** —
+     و پنجره همان موقع پیشنهاد می‌داد «تیکِ شیت‌های منبع را بردارید»، یعنی
+     راهنمایی به خاموش‌کردنِ لایه‌ای که اصلاً گشته نشده بود. برای هر عبارتِ
+     معمولی این حالتِ عادی بود، پس «تمام» در عمل دروغ می‌شد.
+     حالا منبع سهمِ رزروشدهٔ خودش را دارد و فقط تمام‌شدنِ **زمان** جلویش را
+     می‌گیرد. */
+  if (opts.sources !== false && left() > 15000) {
+    var share = Math.max(capAll - out.items.length, Math.floor(capAll * 0.4));
+    capAll = out.items.length + share;
+    if (out.stopped === 'سقفِ نامزدها') out.stopped = '';
     var list = CFG.SOURCES || [];
+    // «سقفِ نتیجه در یک تب» نباید بقیهٔ شیت‌ها را قطع کند — فقط تمام‌شدنِ
+    // زمان یا پر شدنِ سهمِ نامزدها ایستاندن دارد.
+    var halt = function () {
+      return left() < 12000 || out.items.length >= capAll;
+    };
     for (var s = 0; s < list.length; s++) {
-      if (out.stopped) break;
+      if (halt()) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
       var src = list[s], ss = null;
       try { ss = SpreadsheetApp.openById(src.id); }
-      catch (eO) { out.notes.push('شیتِ «' + src.title + '» باز نشد.'); continue; }
+      catch (eO) { out.notes.push('شیتِ «' + src.title + '» باز نشد: ' + eO.message); continue; }
       var shs = [];
-      try { shs = ss.getSheets(); } catch (eS) { continue; }
+      // قرینهٔ `openById` بالا یادداشت می‌گذارد؛ این یکی نمی‌گذاشت، و همان
+      // نگذاشتن یعنی یک شیتِ کاملاً نگشته که کسی خبردار نمی‌شود.
+      try { shs = ss.getSheets(); }
+      catch (eS) { out.notes.push('تب‌های «' + src.title + '» خوانده نشد: ' + eS.message); continue; }
       for (var u = 0; u < shs.length; u++) {
-        if (out.stopped) break;
+        if (halt()) { out.stopped = out.stopped || 'سقفِ نامزدها'; break; }
         var sheet = shs[u];
         (function (title) {
           take(sheet, function (sh2, row, vals) { return srchSrcItem_(title, sh2, row, vals); });
@@ -47063,8 +47183,12 @@ function srchRank_(desc, items) {
     var j = (typeof r === 'string') ? JSON.parse(r) : r;
     var hits = (j && j.hits) || [];
     for (var h = 0; h < hits.length; h++) {
-      var n = parseInt(String(hits[h].id).replace(/[^0-9]/g, ''), 10);
-      if (!(n >= 1 && n <= items.length)) continue;         // شناسهٔ ساختگی
+      // رقمِ فارسی از یک پرامپتِ تماماً فارسی کاملاً محتمل است؛ و
+      // `replace(/[^0-9]/g,'')` علامت را هم می‌خورد، پس «۱-» می‌شد «۱».
+      var raw = srchNorm_(String(hits[h].id));
+      var neg = /^\s*-/.test(raw);
+      var n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+      if (neg || !(n >= 1 && n <= items.length)) continue;   // شناسهٔ ساختگی
       if (out.order.indexOf(n - 1) !== -1) continue;
       out.order.push(n - 1);
       out.why[n - 1] = { why: String(hits[h].why || ''), fit: String(hits[h].fit || '') };
@@ -47115,6 +47239,15 @@ function srchRun_(query, opts) {
     }
   }
   if (!terms.length) { res.notes.push('واژهٔ معناداری در متنِ شما نبود.'); return res; }
+  /* هر واژه یک پویشِ کاملِ سمتِ سرور در **هر** تب است. یک بندِ چسبانده‌شده
+     ۴۳ واژه می‌شود، یعنی ۴۳ پویش × ~۱۶ تبِ بانک × هر تبِ پنج شیتِ منبع —
+     و پنجره صریح دعوت می‌کند که جمله بنویسید. بریدن گفته می‌شود. */
+  var tmax = Math.max(3, Number(CFG.SEARCH_TERMS_MAX) || 12);
+  if (terms.length > tmax) {
+    res.notes.push('از ' + terms.length + ' واژه، ' + tmax +
+                   ' واژهٔ نخست گشته شد تا جست‌وجو در وقت بماند.');
+    terms = terms.slice(0, tmax);
+  }
   res.terms = terms.slice(0);
 
   var col = srchCollect_(terms, q, { sources: opts.sources !== false });
@@ -47126,17 +47259,35 @@ function srchRun_(query, opts) {
 
   if (res.mode === 'هوشمند' && picked.length) {
     var rk = srchRank_(q, picked);
+    res.answer = rk.answer;        // حتی وقتی مدل هیچ‌کدام را نپسندید
     if (rk.ok && rk.order.length) {
-      var ordered = [];
+      var ordered = [], used = {};
       for (var o = 0; o < rk.order.length && ordered.length < top; o++) {
         var it = picked[rk.order[o]];
         if (!it) continue;
         var w = rk.why[rk.order[o]] || {};
         it.why = w.why || ''; it.fit = w.fit || '';
-        ordered.push(it);
+        ordered.push(it); used[rk.order[o]] = 1;
+      }
+      /* ══ مدل حق دارد کنار بگذارد، ولی نه بی‌صدا (۷٫۲۴) ══
+         `srchRank_` کلِ فهرست را با انتخابِ مدل جایگزین می‌کرد، پس
+         موردی با امتیازِ لغویِ ۳۷ می‌توانست کاملاً ناپدید شود در حالی که
+         کاربر هیچ‌وقت نمی‌فهمید بوده. کوتاه‌کردنِ فهرست خوب است — پنهان
+         کردنش نه. آنچه مدل نپسندیده ولی امتیازِ لغویِ بالایی دارد، زیرِ
+         بقیه و با نشان می‌آید. */
+      var best = picked.length ? picked[0].score : 0;
+      var extra = 0;
+      for (var x = 0; x < picked.length && ordered.length < top; x++) {
+        if (used[x]) continue;
+        if (best > 0 && picked[x].score < best * 0.5) continue;
+        picked[x].why = ''; picked[x].fit = 'مدل کنارش گذاشت';
+        ordered.push(picked[x]); extra++;
+      }
+      if (extra) {
+        res.notes.push(extra + ' مورد را مدل مرتبط ندانست ولی واژه‌هایشان ' +
+                       'قوی بود؛ با نشانِ «مدل کنارش گذاشت» در انتها آمده‌اند.');
       }
       res.items = ordered;
-      res.answer = rk.answer;
     } else {
       res.items = picked.slice(0, top);
       res.notes.push((rk.note || 'رتبه‌بندیِ معنایی نتیجه‌ای نداد') +
@@ -47204,7 +47355,8 @@ function srchHtml_() {
   H.push('<div class="row">');
   H.push('<button class="p" onclick="go(\'هوشمند\')">🔎 جست‌وجوی هوشمند</button>');
   H.push('<button class="s" onclick="go(\'ساده\')">جست‌وجوی ساده</button>');
-  H.push('<label style="font-size:13px"><input type="checkbox" id="src" checked> ' +
+  H.push('<label style="font-size:13px"><input type="checkbox" id="src"' +
+         (CFG.SEARCH_SOURCES_DEFAULT === false ? '' : ' checked') + '> ' +
          'شیت‌های منبع هم گشته شوند (کامل‌تر، کمی کندتر)</label>');
   H.push('</div>');
   H.push('<div id="out" class="res"></div>');
@@ -47233,10 +47385,20 @@ function srchHtml_() {
   H.push('H.push("<div class=\\"m\\">"+esc(t.where)+" · "+esc(t.tab)+(t.kind?" · "+esc(t.kind):"")+' +
          '(t.date?" · "+esc(t.date):"")+" · امتیاز "+t.score+(t.fit?" · "+esc(t.fit):"")+"</div>");');
   H.push('if(t.why){H.push("<div class=\\"w\\">"+esc(t.why)+"</div>");}');
-  H.push('var x=t.fields&&(t.fields.msg||t.fields.summary||t.fields.body)||"";');
+  H.push('var x=t.show||(t.fields&&(t.fields.msg||t.fields.summary||t.fields.body))||"";');
   H.push('if(x){H.push("<div class=\\"x\\">"+esc(x.slice(0,420))+"</div>");}');
-  H.push('var L=[];if(t.link){L.push("<a href=\\""+t.link+"\\" target=\\"_blank\\">بازکردنِ فایل</a>");}');
-  H.push('if(t.sheetLink){L.push("<a href=\\""+t.sheetLink+"\\" target=\\"_blank\\">همان ردیف در شیت</a>");}');
+    /* ══ دو تنها مقداری که از esc نمی‌گذشتند (۷٫۲۴) ══
+     ستونِ «لینک» در بانک عیناً از سلولِ شیتِ منبع می‌آید، و آن شیت‌ها را
+     تحلیلگرهایی پر می‌کنند که فراداده‌های بیرونی می‌خورند. یعنی یک نقل‌قول
+     در آن سلول می‌توانست از href بیرون بزند و اسکریپت تزریق کند — و
+     اسکریپتِ داخلِ این پنجره `google.script.run` دارد، یعنی به همهٔ
+     توابعِ موتور با اختیارِ خودِ صاحبِ برنامه می‌رسد. حالا هم گریز
+     می‌خورند و هم فقط http(s) پذیرفته است. */
+  H.push('function saf(u){u=String(u==null?"":u);' +
+         'return /^https?:\\/\\//i.test(u)?u:"";}');
+  H.push('var L=[];var lf=saf(t.link),ls=saf(t.sheetLink);');
+  H.push('if(lf){L.push("<a href=\""+esc(lf)+"\" target=\"_blank\" rel=\"noopener noreferrer\">بازکردنِ فایل</a>");}');
+  H.push('if(ls){L.push("<a href=\""+esc(ls)+"\" target=\"_blank\" rel=\"noopener noreferrer\">همان ردیف در شیت</a>");}');
   H.push('if(L.length){H.push("<div class=\\"m\\">"+L.join(" · ")+"</div>");}');
   H.push('H.push("</div>");}');
   H.push('document.getElementById("out").innerHTML=H.join("");}');

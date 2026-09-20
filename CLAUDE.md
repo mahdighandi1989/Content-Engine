@@ -969,9 +969,13 @@ nothing to rerank. The model proposes and the code decides — an id outside the
 candidate set is dropped, because a fabricated id is a link that goes nowhere.
 When the model is unavailable the lexical result still comes back **and says so**.
 
-**This section has no way to write.** Not to the sources, not to the hub, not to
-Drive. The owner asked for "just don't break anything", and the safest form of
-that is a capability that *cannot* write, rather than one we are careful with.
+**It writes nothing to the sources, and the boundary is stated exactly.** No row,
+no name, no format — held by a test that checks a source row is untouched after a
+full search, and nothing is created in Drive either. But 7.23 shipped a wider
+claim than was true: calling `getHub_()` can repair the hub's tabs, as it does
+everywhere else in the engine. That is not this section writing, but it is not
+"nothing is written" either. **A safety claim that is slightly false is worse
+than no claim**, because it is the one nobody re-checks.
 
 **And the honesty rule, which its own test caught.** Every answer reports how many
 tabs were searched, how many rows were candidates, and how long it took — and says
@@ -979,6 +983,44 @@ plainly when a cap or the time budget stopped it. The first version only noticed
 truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
+
+## Two layers that disagree resolve it by deleting (7.24)
+
+7.23's search had a deliberately **lenient** finder (a regex that swallows ZWNJ,
+diacritics and spelling variants) and a strictly **literal** scorer (`indexOf` on
+normalised text, over a 24-column, 4,000-character window). Every disagreement
+between them was resolved by `if (it.score <= 0) continue;` — a silent delete.
+Five separate reproducible paths returned `items: 0, stopped: '', notes: []` for
+content provably in the sheet. In a search feature that is the worst possible
+output: the user concludes the thing does not exist, when only the search failed.
+
+**When two layers decide the same question, they must use the same rule.**
+`srchTight_` now gives the scorer the finder's leniency.
+
+**A mock that is lenient where production is strict proves nothing.** Sheets runs
+RE2; RE2 only allows a backslash before ASCII punctuation, so `\؟` is an invalid
+escape there and valid in JavaScript. A single Persian question mark in the user's
+sentence made `createTextFinder` throw, which `srchFind_` swallowed into `[]`. The
+test mock used JavaScript `RegExp` — and, worse, fell back to a non-`u` RegExp when
+the strict compile failed, which is exactly the class RE2 rejects. **When a test
+double stands in for a different engine, list the ways that engine is stricter and
+assert those properties directly** rather than trusting the double.
+
+**The cap that ate the feature.** `if (opts.sources !== false && !out.stopped)`
+meant any term common enough to fill the hub's candidate cap skipped all five
+source spreadsheets — and the dialog simultaneously advised the user to untick
+sources, i.e. to disable a layer that had never run. For any ordinary query that
+was the normal case, so "all of it" was false in practice. A guard written for one
+resource must not silently gate an unrelated one.
+
+**And a safety claim of mine that was slightly false.** 7.23's docstring said the
+section writes nothing — "not to the sources, not to the hub". Calling `getHub_()`
+can repair hub tabs, as it does everywhere else. Not a rule violation, but a claim
+nobody would re-check. **A safety claim that is slightly false is worse than none.**
+
+The fix for 6.20's blind guard was, in 7.23, a hand-written list of dialogs — the
+5.95 shape offered as the cure for the 6.20 shape. It now derives the list from
+`showModalDialog` call sites in `src/`.
 
 ## An alarm the alarm's own writer resets (7.22)
 
