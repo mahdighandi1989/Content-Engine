@@ -969,4 +969,73 @@ console.log('\n=== ۱۵. قفلِ گرفته: تلاشِ دوباره، و مق�
      /key: 'enrichReq'/.test(src8) && /taskIdle/.test(src8));
 }
 
+/* ══ ۱۶) یافتهٔ «جدی»ِ مالِ موتور که تکرار شود، وارد صفِ کد می‌شود (۷٫۱۹) ══
+
+   ۱۰ تا ۲۰ سپتامبر: تسکِ غنی‌سازی هر روز یافته‌ای «جدی» با مالکِ «موتور»
+   نوشت («موتور از ۱۲ سپتامبر هیچ درخواستی ننوشته»). `reportRow_` مالک را از
+   روی کلمهٔ «کد» تشخیص می‌دهد، و «موتور» آن را ندارد — پس ردیف «تازه» ماند و
+   هرگز وارد صفی نشد که نسخهٔ بعدی از رویش ساخته می‌شود. ده روز دیده شد،
+   نوشته شد، و هیچ‌کس موظف نبود برش دارد.
+
+   دیدن هیچ‌وقت نیمهٔ گم‌شده نبود؛ **موظف‌شدن** بود. */
+console.log('\n=== ۱۶. تکرارِ یافتهٔ جدیِ موتور، تکلیف می‌سازد ===');
+{
+  global.__PROPS = {}; global.__SS = {}; global._ssCache = null;
+  global.DriveApp.__register(CFG.OUTPUT_FOLDER_ID, 'OUTPUT');
+  const hub = getHub_();
+  const sh = ensureTab_(hub, CFG.TAB_REPORTS || 'گزارش‌های نظارت', REPORT_HEADERS);
+
+  const f = { priority: 'جدی', category: 'موتور', key: 'engine-no-enrich-req',
+              title: 'موتور درخواستِ غنی‌سازی نمی‌نویسد',
+              detail: 'د', instruction: 'ک', owner: 'موتور' };
+  const rep = { reportId: 'TASK-1', at: '2026-09-20 06:40' };
+
+  sh.appendRow(reportRow_(rep, f, 0));
+  const row0 = sh.getRange(2, 1, 1, REPORT_HEADERS.length).getValues()[0];
+  ok('۱۶٫۱ بارِ اول مالکش موتور است و وارد صفِ کد نمی‌شود — همان رفتارِ درست',
+     String(row0[RC.OWNER - 1]) !== ROWNER_CODE &&
+     String(row0[RC.STATUS - 1]) !== RST.NEEDS_CODE,
+     row0[RC.OWNER - 1] + ' / ' + row0[RC.STATUS - 1]);
+
+  const prevOf = () => ({ row: 2, vals: sh.getRange(2, 1, 1, REPORT_HEADERS.length).getValues()[0] });
+  const need = Number(CFG.ENGINE_ESCALATE_SEEN);
+  const unq = quiet();
+  let v = '';
+  for (let i = 2; i <= need; i++) {
+    v = touchExisting_(sh, prevOf(), { reportId: 'TASK-1', at: '2026-09-2' + i + ' 06:40' }, f);
+  }
+  unq();
+  const rowN = sh.getRange(2, 1, 1, REPORT_HEADERS.length).getValues()[0];
+  ok('۱۶٫۲ پس از ' + need + ' بار دیدن، به صفِ «نیازمند تعویض کد» می‌رود',
+     String(rowN[RC.OWNER - 1]) === ROWNER_CODE &&
+     String(rowN[RC.STATUS - 1]) === RST.NEEDS_CODE,
+     rowN[RC.OWNER - 1] + ' / ' + rowN[RC.STATUS - 1]);
+  ok('۱۶٫۳ و دلیلِ ارتقا در خودِ ردیف نوشته می‌شود',
+     String(rowN[RC.DONE - 1]).indexOf('ارتقا به صفِ کد') !== -1,
+     String(rowN[RC.DONE - 1]).slice(0, 60));
+  /* نگارشِ اولِ این سنجه «ستونِ تلگرام باید خالی بماند» می‌گفت — غلط بود:
+     ستون پاک می‌شود تا هشدار **لازم** شود، و بلافاصله `alertCodeRows_`
+     می‌فرستدش و دوباره پُرش می‌کند. چیزی که اهمیت دارد رفتنِ هشدار است، نه
+     خالی ماندنِ خانه. */
+  ok('۱۶٫۴ و هشدارِ تازه واقعاً فرستاده می‌شود',
+     String(rowN[RC.TG - 1] || '') !== '', String(rowN[RC.TG - 1] || '(خالی)'));
+
+  /* و یافتهٔ «متوسط» ارتقا نمی‌گیرد — وگرنه صفِ کد پر می‌شود از چیزهایی که
+     موتور خودش در قسمتِ بعد جبرانشان می‌کند، و صفی که همه‌چیز در آن باشد
+     صف نیست. */
+  const g = { priority: 'متوسط', category: 'موتور', key: 'engine-soft',
+              title: 'یک ایرادِ محتوایی', detail: 'د', instruction: 'ک', owner: 'موتور' };
+  sh.appendRow(reportRow_({ reportId: 'TASK-2', at: '2026-09-20 06:40' }, g, 0));
+  const unq2 = quiet();
+  for (let i = 2; i <= need + 2; i++) {
+    touchExisting_(sh, { row: 3, vals: sh.getRange(3, 1, 1, REPORT_HEADERS.length).getValues()[0] },
+                   { reportId: 'TASK-2', at: '2026-09-2' + i + ' 06:40' }, g);
+  }
+  unq2();
+  const soft = sh.getRange(3, 1, 1, REPORT_HEADERS.length).getValues()[0];
+  ok('۱۶٫۵ ولی یافتهٔ «متوسط» هرچقدر تکرار شود ارتقا نمی‌گیرد',
+     String(soft[RC.OWNER - 1]) !== ROWNER_CODE,
+     soft[RC.OWNER - 1] + ' / ' + soft[RC.STATUS - 1]);
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);

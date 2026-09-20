@@ -565,6 +565,38 @@ function touchExisting_(sh, prev, rep, f) {
   if (f.instruction) prev.vals[RC.INSTR - 1] = String(f.instruction).slice(0, 1500);
   if (f.priority) prev.vals[RC.PRI - 1] = String(f.priority);
 
+  /* ══ یافتهٔ «جدی»ِ مالِ موتور که تکرار می‌شود، خودبه‌خود حل نمی‌شود ══
+   *
+   * `reportRow_` مالک را از روی کلمهٔ «کد» تشخیص می‌دهد: هرچه «کد» نداشته
+   * باشد `ROWNER_ENGINE` می‌شود و وضعیتش «تازه» — نه «نیازمند تعویض کد».
+   * برای ایرادهای محتوایی درست است: موتور دستورِ اصلاح را به قسمتِ بعد
+   * تزریق می‌کند و خودش جبران می‌شود.
+   *
+   * ولی ۱۰ تا ۲۰ سپتامبر یک ضدنمونه داد: تسکِ غنی‌سازی هر روز یافته‌ای
+   * «جدی» با مالکِ «موتور» می‌نوشت — «موتور از ۱۲ سپتامبر هیچ درخواستی
+   * ننوشته» — و چون «کد» در مالکش نبود، هرگز وارد صفی نشد که نسخهٔ بعدی از
+   * رویش ساخته می‌شود. ده روز دیده شد، نوشته شد، و هیچ‌کس موظف نبود برش
+   * دارد. دیدن هیچ‌وقت نیمهٔ گم‌شده نبود؛ **موظف‌شدن** بود.
+   *
+   * پس: «جدی» + مالِ موتور + `ENGINE_ESCALATE_SEEN` بار دیده‌شده یعنی
+   * «قسمتِ بعد درستش می‌کند» دیگر ادعای معتبری نیست. یک بار دیدن ارتقا
+   * نمی‌دهد — یک شبِ بد باید بتواند یک شبِ بد بماند. */
+  var escalated = false;
+  if (!isCode && String(prev.vals[RC.STATUS - 1]) !== RST.SKIPPED) {
+    var pri = String(f.priority || prev.vals[RC.PRI - 1] || '');
+    var seenN = Number(prev.vals[RC.SEEN - 1]) || 1;
+    var need = Math.max(2, Number(CFG.ENGINE_ESCALATE_SEEN) || 3);
+    if (pri.indexOf('جدی') !== -1 && seenN >= need) {
+      prev.vals[RC.OWNER - 1] = ROWNER_CODE;
+      prev.vals[RC.STATUS - 1] = RST.NEEDS_CODE;
+      prev.vals[RC.DONE - 1] = 'ارتقا به صفِ کد — ' + seenN +
+                               ' بار دیده شد و خودبه‌خود حل نشد.';
+      prev.vals[RC.TG - 1] = '';      // هشدارِ تازه لازم است
+      isCode = true;
+      escalated = true;
+    }
+  }
+
   var verdict = 'repeat';
   if (!isOpen && (isNaN(doneAt) || isNaN(repAt) || repAt > doneAt)) {
     prev.vals[RC.STATUS - 1] = isCode ? RST.NEEDS_CODE : (RST.NEW + ' (تکرار)');
@@ -574,8 +606,10 @@ function touchExisting_(sh, prev, rep, f) {
     verdict = 'reopen';
   }
   sh.getRange(prev.row, 1, 1, REPORT_HEADERS.length).setValues([prev.vals]);
-  if (verdict === 'reopen') alertCodeRows_(null, prev.row, [prev.vals], sh);
-  return verdict;
+  if (verdict === 'reopen' || escalated) {
+    alertCodeRows_(null, prev.row, [prev.vals], sh);
+  }
+  return escalated && verdict === 'repeat' ? 'escalate' : verdict;
 }
 
 /** تب گزارش‌ها نباید بی‌مرز رشد کند؛ قدیمی‌ترینِ ردیف‌های بسته هرس می‌شوند. */

@@ -870,6 +870,50 @@ real path was never exercised once. `run_wiring_test.js` ۴.۱/۴.۲ now fail if
 `tools/build.js` or any hand-listed loader is missing a file that exists in
 `src/`.
 
+## Seeing is not the same as being obliged (7.18 / 7.19)
+
+Between 10 and 20 September not one `_ENRICH-REQ-*` was written. Every day
+the enrichment task put the answer in its own report — «تا موتور درخواست
+ننویسد، غنی‌سازی کاری ندارد», with the count — and every day the engine's
+own watchdog printed «غنی‌سازی ❌ کارِ شما — روتینِ Cowork را وارسی کنید».
+**Both were on the screen. Neither was read against the other**, and the
+wrong party was blamed for ten days.
+
+Three separate failures stacked, and each one alone was survivable:
+
+- **A busy lock that gave up silently.** `writeEnrichRequest_` is only
+  reachable from `produceEpisode`/`produceSpecialEpisode`, and the gate
+  needs `ENRICH_WAIT_MIN` before publish — so only the 04:00/05:00 *prepare*
+  runs can write one. Those runs took the script lock and, failing to get
+  it, returned. `renderAudioStep_` reschedules in exactly that situation;
+  these two did not. Nobody had noticed the asymmetry until it cost ten days.
+  What tipped it over was 7.01 moving the `_MUSIC-FEED.json` merge inside
+  `syncCatalog` — every two hours, same lock. `busyRetry_` now retries, with
+  its **own** handler name so cleanup can never touch a daily trigger (5.95).
+
+- **One watchdog for two questions.** "Has the task answered?" and "has the
+  engine asked?" are different questions with different owners, and the
+  watchdog only asked the first. Now `enrichReq` asks the second, and while
+  the engine has not asked, the task's silence is not counted as a debt.
+  Someone with nothing to answer is not in arrears.
+
+- **A serious finding that nothing obliged anyone to act on.** `reportRow_`
+  routes by the word «کد» in the owner. Anything else becomes
+  `ROWNER_ENGINE` / «تازه» — correct for content faults, which the engine
+  repairs by injecting a correction into the next episode. But a «جدی»
+  finding owned by «موتور» *about the engine's own machinery* can never be
+  repaired that way, and it sat outside the `NEEDS_CODE` queue that the next
+  version is built from. `touchExisting_` now escalates: «جدی» + engine-owned
+  + seen `ENGINE_ESCALATE_SEEN` times ⇒ `NEEDS_CODE`, with the reason written
+  into the row. One sighting escalates nothing — a bad night must be allowed
+  to stay a bad night — and «متوسط» never escalates, because a queue that
+  holds everything is not a queue.
+
+**The rule to carry forward:** when an external task's report names an owner
+different from our own diagnosis, that contradiction is itself the finding.
+And detection was never the missing half here — *obligation* was. A report
+that is read, filed, and binds no one is the same as no report.
+
 ## A finding is closed by name, never by default (5.93)
 `markCodeRowsInstalled_` used to stamp **every** open `NEEDS_CODE` row as
 installed whenever a manifest shipped without `sourceReportIds` — reasoning that

@@ -307,14 +307,31 @@ un = quiet(); const st = writeStatus_(hub, 'آزمون'); un();
 console.log('  ', JSON.stringify({ open: st.reports.open, info: st.reports.info,
   needsCode: st.reports.needsCode, applied: st.reports.applied,
   repeated: st.reports.repeated, codeVersion: st.codeVersion }));
+/* ۷٫۱۹ این عددها را یک واحد جابه‌جا کرد، و جابه‌جایی خودِ قابلیت است نه
+   عارضه‌اش: `quote-fidelity` یک یافتهٔ «جدی» با مالکِ موتور است که در این
+   سوئیت سه بار گزارش می‌شود. تا دیروز برای همیشه «تازه» می‌ماند — همان
+   حفره‌ای که ۱۰ تا ۲۰ سپتامبر یافتهٔ «موتور درخواستِ غنی‌سازی نمی‌نویسد» را
+   ده روز بی‌صاحب گذاشت. حالا به صفِ کد می‌رود، پس یکی از «باز»ها به
+   «نیازمند تعویض کد» منتقل شده و جمعشان دست‌نخورده مانده. */
 ok('خلاصهٔ گزارش‌ها در فایل وضعیت هست',
-   st.reports && st.reports.open === 3 && st.reports.needsCode === 2,
+   st.reports && st.reports.open === 2 && st.reports.needsCode === 3,
    'باز ' + st.reports.open + ' · اطلاعاتی ' + st.reports.info + ' · کد ' + st.reports.needsCode);
+ok('و جابه‌جایی از ارتقای یک یافتهٔ جدیِ موتور آمده، نه از جای دیگر',
+   rows().some(r => String(r[RC.STATUS-1]) === RST.NEEDS_CODE &&
+                    String(r[RC.DONE-1]).indexOf('ارتقا به صفِ کد') !== -1),
+   rows().filter(r => String(r[RC.DONE-1]).indexOf('ارتقا') !== -1)
+         .map(r => r[RC.ID-1] + ':' + r[RC.SEEN-1]).join(' · ') || '—');
 ok('موردِ صرفاً اطلاعاتی جزو «در انتظار اقدام» شمرده نمی‌شود', st.reports.info === 3,
    'اطلاعاتی ' + st.reports.info);
 ok('نسخهٔ کد در فایل وضعیت هست', st.codeVersion === CFG.CODE_VERSION);
+/* همان جابه‌جاییِ ۷٫۱۹: یکی از «باز»ها به صفِ کد رفت، پس این فهرست هم یکی
+   کمتر است. عدد به `st.reports.open` گره خورده تا اگر روزی این دو از هم
+   واگرا شدند، همین‌جا دیده شود — نه اینکه دو عددِ مستقل هر کدام جدا درست
+   به‌نظر برسند. */
 ok('موارد باز با عنوان در فایل وضعیت آمده',
-   st.reports.openItems.length === 3 && st.reports.openItems[0].title.length > 5);
+   st.reports.openItems.length === st.reports.open &&
+   st.reports.openItems.length === 2 && st.reports.openItems[0].title.length > 5,
+   st.reports.openItems.length + ' در برابرِ open=' + st.reports.open);
 un = quiet(); const hc = healthCheck(); un();
 console.log('  ایرادهای سلامت:');
 hc.problems.forEach(x => console.log('     ⚠ ' + x.slice(0, 110)));
