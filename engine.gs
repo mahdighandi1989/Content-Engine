@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.19
+ *  موتور محتوا و پادکست — نسخهٔ 7.20
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1187,6 +1187,9 @@ var CFG = {
   BRIDGE_AUD_IDLE_NIGHTS: 3,   // پس از چند شبِ بی‌داوری با عکسِ در صف، هشدار
   BRIDGE_DIGEST_WINDOWS: 8,    // خلاصهٔ درس از چند پنجرهٔ هم‌فاصلهٔ سراسرِ متن
   BRIDGE_TAB: 'ارجاع‌های میان‌مجموعه‌ای',
+  /* ۷٫۱۹: چند ردیفِ خالی‌مانده در یک شب دوباره پرسیده شود — سقف روی
+     فراخوانِ مدل، نه روی خواندنِ سیاهه (که ارزان است و کامل انجام می‌شود). */
+  BRIDGE_RELFIX_MAX: 24,
   /* چند ارجاع در خودِ جزوه ثبت شود (۶٫۸۲) — جزوه حافظهٔ مجموعه است، پس
      سخاوتمندتر از پرامپت‌هاست که سقفِ ۱۲ و ۲۴ دارند. */
   HANDOUT_BRIDGE_MAX: 40,
@@ -1254,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.19',
+  CODE_VERSION: '7.20',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -26056,6 +26059,20 @@ function selfUpdateDaily() {
     } catch (eRt) { logLine_('مرتب‌سازیِ عنوانِ فصل‌ها انجام نشد: ' + eRt.message); }
   }
 
+  /* گذشته‌نگرِ نسبت‌های خالی در سیاههٔ ارجاع‌ها (۷٫۱۹) — همان جایگاهِ
+     مرتب‌سازیِ عنوان‌ها: یک اصلاحِ ارزانِ گذشته‌نگر، پیش از کارهای سنگین. */
+  if (CFG.BRIDGE_ENABLED !== false && nightHas_(30000, 'گذشته‌نگرِ نسبتِ ارجاع‌ها')) {
+    try {
+      var bf = bridgeRelationBackfill_(Number(CFG.BRIDGE_RELFIX_MAX) || 24, 8192);
+      if (bf.fixed) {
+        mailQueue_('ارجاع', 'نسبتِ ' + bf.fixed + ' ارجاعِ گذشته پر شد',
+                   bf.fixed + ' ردیف از ' + bf.gap + ' ردیفِ خالیِ دیده‌شده در سیاههٔ ' +
+                   '«ارجاع‌های میان‌مجموعه‌ای» حالا نسبتِ واقعی دارند؛ جزوه‌ها با ' +
+                   'جاروی شبانهٔ خودشان به‌روز می‌شوند.');
+      }
+    } catch (eBf) { logLine_('گذشته‌نگرِ نسبتِ ارجاع‌ها انجام نشد: ' + eBf.message); }
+  }
+
   /* داوریِ تعویضِ مدل — پیش از کارِ سنگین، چون ارزان است و اگر مدلِ تازه
      بدتر بوده، بهتر است همین امشب برگردد نه فردا شب. */
   try {
@@ -43963,6 +43980,129 @@ function bridgeRelationGap_(links) {
     if (!String((links[i] || {}).relation || '').trim()) n++;
   }
   return n;
+}
+
+/* ══ ۷٫۱۹: گذشته‌نگرِ نسبت‌های خالی ══
+   ۶٫۹۵ فقط خالی‌بودن را *دیدنی* کرد — سدّش (`bridgeRelation_`) هم سرِ
+   نوشتنِ ردیفِ تازه است، هم سرِ خواندنِ سیاهه، ولی هیچ‌کدام چیزی به خودِ
+   سیاهه پس نمی‌نویسد. دادهٔ واقعی: ۱۴ ردیفِ درسِ ۲۲ تا ۳۱ در سیاههٔ
+   «Audi» از پیش از ۶٫۹۵ همچنان خالی‌اند، و ناظرِ روزانه همین یک یافته را
+   سه روزِ پیاپی (۱۷، ۱۹ سپتامبر …) تکرار کرده — دقیقاً همان الگوی
+   `handoutRetitleBook_` در بخشِ ۲۶: «پاک‌کردنِ ورودی، آنچه قبلاً نوشته
+   شده را درست نمی‌کند.»
+   برخلافِ آنجا اینجا یک فراخوانِ مدل لازم است — نسبت یک جملهٔ تازه است،
+   نه یک قاعدهٔ رشته‌ای — ولی هرچه برای ساختنِ آن جمله لازم است (نسبت،
+   ادعای مجموعهٔ مرجع، متنِ گفته‌شده) از پیش در همان ردیف نشسته؛ نیازی به
+   بازخوانیِ درسِ اصلی یا فراخوانِ سنگینِ bridgePlan_ نیست.
+   نتیجه فقط در سیاهه می‌نشیند، نه در جزوه: `handoutFacts_` امضایش را از
+   رویِ `relation` هم می‌بندد (۶٫۹۵) و جاروی شبانهٔ نمودارها
+   (`handoutVizSweep_`) هر چند شب یک بار هر مجموعه را از زیرِ آن رد
+   می‌کند و بازمی‌نویسدش — یک نوشتنِ دیگر اینجا یعنی دو جا برای یک حقیقت. */
+var BRIDGE_RELFIX_SCHEMA = {
+  type: 'object',
+  properties: {
+    items: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          relation: { type: 'string' }
+        },
+        required: ['id', 'relation']
+      }
+    }
+  },
+  required: ['items']
+};
+
+function bridgeRelfixPrompt_(rows, more) {
+  var L = [];
+  L.push('برای هر ارجاعِ زیر یک جمله بنویس که می‌گوید «آن مجموعه چه گفته» با');
+  L.push('«این درس» دقیقاً چه نسبتی دارد و چرا به هم مربوط‌اند.');
+  L.push('نمونهٔ بد:  relation = «تکمیل»  (این فقط نامِ نسبت است، نه توضیحش)');
+  L.push('نمونهٔ خوب: relation = «آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و');
+  L.push('           همین‌جا همان تفکیک، این بار با زبانِ باورِ گزاره‌ای، ادامه');
+  L.push('           پیدا می‌کند.»');
+  L.push('حداقل یک جملهٔ کامل بده، نه یک واژه و نه تکرارِ ستونِ «نسبت».');
+  L.push('');
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    L.push('• شناسه ' + r.id + ' — نسبت: ' + r.kind);
+    L.push('  آن مجموعه گفته: ' + r.claim);
+    if (r.say) L.push('  متنِ گفته‌شده در این درس: ' + r.say);
+    L.push('');
+  }
+  return L.join('\n') + (more || '');
+}
+
+function bridgeRelfixAsk_(rows, more, tokenBudget) {
+  var byId = {};
+  try {
+    var r = geminiText_(bridgeRelfixPrompt_(rows, more), BRIDGE_RELFIX_SCHEMA, tokenBudget || 8192);
+    var items = (r && r.items) || [];
+    for (var k = 0; k < items.length; k++) byId[String(items[k].id)] = items[k];
+  } catch (e) { logLine_('گذشته‌نگرِ نسبتِ ارجاع‌ها ناموفق: ' + e.message); }
+  return byId;
+}
+
+/**
+ * گذشته‌نگرِ ستونِ «نسبتش با این درس» برای ردیف‌هایی که خالی مانده‌اند —
+ * پیش از ۶٫۹۵، یا هر بارِ دیگری که مدل نامِ دسته را به‌جای جمله داد.
+ * فقط سیاهه را می‌نویسد؛ جزوه را جاروی شبانهٔ خودش تازه می‌کند (بالا را
+ * ببین). سقف روی فراخوانِ مدل است، نه روی خواندنِ سیاهه — خواندن ارزان
+ * است و هر بار کامل انجام می‌شود.
+ *
+ * @return {{scanned:number, gap:number, fixed:number}}
+ */
+function bridgeRelationBackfill_(maxRows, tokenBudget) {
+  var out = { scanned: 0, gap: 0, fixed: 0 };
+  if (CFG.BRIDGE_ENABLED === false) return out;
+  var hub = getHub_();
+  var sh = hub.getSheetByName(CFG.BRIDGE_TAB || 'ارجاع‌های میان‌مجموعه‌ای');
+  if (!sh || sh.getLastRow() < 2) return out;
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, BRIDGE_HEADERS.length).getValues();
+  out.scanned = v.length;
+
+  var cap = Math.max(1, Number(maxRows) || Number(CFG.BRIDGE_RELFIX_MAX) || 24);
+  var need = [];
+  for (var i = 0; i < v.length && need.length < cap; i++) {
+    var claim = String(v[i][6] || '');
+    var kind = String(v[i][4] || '');
+    if (!claim) continue;                              // ردیفِ ناقص؛ چیزی برای پرسیدن نیست
+    if (bridgeRelation_(v[i][7], kind)) continue;       // نسبتِ واقعی از پیش هست
+    need.push({ row: i + 2, id: String(i + 2), kind: kind, claim: claim,
+                say: String(v[i][8] || '') });
+  }
+  out.gap = need.length;
+  if (!need.length) return out;
+
+  var byId = bridgeRelfixAsk_(need, '', tokenBudget);
+  var stillBad = [];
+  for (var q = 0; q < need.length; q++) {
+    var rel = bridgeRelation_((byId[need[q].id] || {}).relation, need[q].kind);
+    if (rel) need[q].fixed = rel; else stillBad.push(need[q]);
+  }
+  if (stillBad.length) {
+    var more = '\n\n── یک بار دیگر ──\nپاسخِ پیشین برای همین ردیف‌ها یا خالی بود یا نامِ ' +
+      'نسبت را تکرار کرد. یک جملهٔ کاملِ تازه بنویس، نه چیزِ کوتاه‌تر.';
+    var byId2 = bridgeRelfixAsk_(stillBad, more, tokenBudget);
+    for (var s = 0; s < stillBad.length; s++) {
+      var rel2 = bridgeRelation_((byId2[stillBad[s].id] || {}).relation, stillBad[s].kind);
+      if (rel2) stillBad[s].fixed = rel2;
+    }
+  }
+
+  var n = 0;
+  for (var w = 0; w < need.length; w++) {
+    if (!need[w].fixed) continue;
+    try { sh.getRange(need[w].row, 8).setValue(need[w].fixed); n++; } catch (eW) {}
+  }
+  out.fixed = n;
+  if (n) {
+    logLine_('ارجاع: نسبتِ ' + n + ' ردیفِ گذشته پر شد (از ' + out.gap + ' خالیِ دیده‌شده).');
+  }
+  return out;
 }
 
 /**

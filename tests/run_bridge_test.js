@@ -995,4 +995,87 @@ console.log('\n══ ۲۰) نسبتِ خالی: یک بار دیگر با نم�
   global.geminiText_ = realG;
 }
 
+/* ══ ۲۱) گذشته‌نگرِ نسبت‌های خالی (۷٫۱۹) ══
+   دادهٔ واقعی: درس‌های ۲۲ تا ۳۱ در سیاههٔ «Audi» از پیش از ۶٫۹۵ نسبتِ
+   خالی دارند و هیچ مسیری نداشتند که پر شود — همان الگوی
+   handoutRetitleBook_: پاک‌کردنِ ورودی آنچه قبلاً نوشته شده را درست
+   نمی‌کند. bridgeRelationBackfill_ فقط سیاهه را می‌نویسد. */
+console.log('\n══ ۲۱) گذشته‌نگرِ نسبتِ خالی ══');
+{
+  const sh = ensureTab_(hub, CFG.BRIDGE_TAB, BRIDGE_HEADERS);
+  // بخش‌های پیشین هم به همین سیاهه نوشته‌اند؛ سنجه‌های این بخش شمارشی‌اند،
+  // پس صفحه پاک می‌شود — بخش‌های پیش از این دیگر به محتوایش کاری ندارند.
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).clearContent();
+  // ردیفِ ۱: نسبتش برابرِ نامِ دسته — خالی حساب می‌شود.
+  sh.getRange(2, 1, 1, BRIDGE_HEADERS.length).setValues([[
+    'زمان1', '22', 'Audi', 'معرفت شناسی مجتبی مصباح', 'تکمیل', 'بخشِ ۱',
+    'ادعای ۱', 'تکمیل', 'گفته‌شدهٔ ۱', 'kAudi'
+  ]]);
+  // ردیفِ ۲: ستونِ نسبت اصلاً خالی است.
+  sh.getRange(3, 1, 1, BRIDGE_HEADERS.length).setValues([[
+    'زمان2', '23', 'Audi', 'معرفت شناسی مجتبی مصباح', 'تأیید', 'بخشِ ۲',
+    'ادعای ۲', '', 'گفته‌شدهٔ ۲', 'kAudi'
+  ]]);
+  // ردیفِ ۳: نسبتِ واقعی از پیش هست — نباید دست بخورد یا پرسیده شود.
+  const goodRel = 'آنجا خطای حسی به قضاوتِ ذهن نسبت داده شده و همین‌جا همان تفکیک ادامه پیدا می‌کند.';
+  sh.getRange(4, 1, 1, BRIDGE_HEADERS.length).setValues([[
+    'زمان3', '24', 'Audi', 'معرفت شناسی مجتبی مصباح', 'نقض', 'بخشِ ۳',
+    'ادعای ۳', goodRel, 'گفته‌شدهٔ ۳', 'kAudi'
+  ]]);
+  // ردیفِ ۴: claim خالی — چیزی برای پرسیدن نیست، رد می‌شود.
+  sh.getRange(5, 1, 1, BRIDGE_HEADERS.length).setValues([[
+    'زمان4', '25', 'Audi', 'معرفت شناسی مجتبی مصباح', 'کاربرد', 'بخشِ ۴',
+    '', '', '', 'kAudi'
+  ]]);
+
+  const realG = global.geminiText_;
+  let calls = 0, sawRetryFeedback = false;
+  global.geminiText_ = (pr) => {
+    calls++;
+    if (calls === 1) {
+      ok('۲۱.۱ پرامپت هر دو ردیفِ خالی را می‌خواهد',
+         pr.indexOf('شناسه 2') !== -1 && pr.indexOf('شناسه 3') !== -1, pr.slice(0, 80));
+      ok('۲۱.۲ و ردیفِ claim-خالی و ردیفِ نسبت‌دار در آن نیست',
+         pr.indexOf('شناسه 4') === -1 && pr.indexOf('شناسه 5') === -1);
+      // ردیفِ ۲ (شناسه '2') را درست جواب می‌دهیم؛ ردیفِ ۳ (شناسه '3') را باز هم بد.
+      return { items: [
+        { id: '2', relation: 'آنجا سرچشمه‌های پنج‌گانهٔ شناخت را می‌شمارد و همین‌جا یکی از همان‌ها تفصیل داده می‌شود.' },
+        { id: '3', relation: 'تأیید' }
+      ] };
+    }
+    sawRetryFeedback = pr.indexOf('یک بار دیگر') !== -1 && pr.indexOf('شناسه 3') !== -1 &&
+                        pr.indexOf('شناسه 2') === -1;
+    return { items: [{ id: '3', relation: 'اینجا هم دقیقاً همان ساختارِ توجیه را با زبانِ دیگری تکرار می‌کند.' }] };
+  };
+  const un = quiet();
+  const bf = bridgeRelationBackfill_(24, 4096);
+  un();
+  global.geminiText_ = realG;
+
+  ok('۲۱.۳ دو فراخوان رفت: اول و یک بارِ دیگر برایِ ردیفِ بد', calls === 2, calls + '');
+  ok('۲۱.۴ و بازخوردِ بار دوم فقط دربارهٔ ردیفِ همچنان‌بد است', sawRetryFeedback);
+  ok('۲۱.۵ scanned همهٔ ۴ ردیف را دید', bf.scanned === 4, JSON.stringify(bf));
+  ok('۲۱.۶ gap فقط دو ردیفِ واقعاً خالی را شمرد (نه claim-خالی، نه نسبت‌دار)',
+     bf.gap === 2, JSON.stringify(bf));
+  ok('۲۱.۷ هر دو ردیف در نهایت پر شدند', bf.fixed === 2, JSON.stringify(bf));
+
+  const after = sh.getRange(2, 1, 4, BRIDGE_HEADERS.length).getValues();
+  ok('۲۱.۸ ردیفِ ۱ (نامِ دسته) حالا جملهٔ واقعی دارد',
+     after[0][7].indexOf('سرچشمه') !== -1, after[0][7]);
+  ok('۲۱.۹ ردیفِ ۲ (خالیِ محض) پس از یک بارِ دیگر جملهٔ واقعی گرفت',
+     after[1][7].indexOf('توجیه') !== -1, after[1][7]);
+  ok('۲۱.۱۰ ردیفِ ۳ (از پیش پر) دست‌نخورده ماند', after[2][7] === goodRel);
+  ok('۲۱.۱۱ ردیفِ ۴ (بی‌claim) همچنان خالی است', after[3][7] === '');
+
+  // اجرای دوم: چیزی برای پرسیدن نمانده، هیچ فراخوانی نباید برود.
+  let calls2 = 0;
+  global.geminiText_ = () => { calls2++; return { items: [] }; };
+  const un2 = quiet();
+  const bf2 = bridgeRelationBackfill_(24, 4096);
+  un2();
+  global.geminiText_ = realG;
+  ok('۲۱.۱۲ وقتی گذشته‌ای نمانده، فراخوانِ مدل نمی‌رود', calls2 === 0, calls2 + '');
+  ok('۲۱.۱۳ و gap این بار صفر است', bf2.gap === 0, JSON.stringify(bf2));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
