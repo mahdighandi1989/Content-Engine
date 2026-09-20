@@ -18,6 +18,7 @@ function onOpen() {
         .addSeparator()
         .addItem('🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی', 'runProduceVarietyEnriched')
         .addItem('🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی', 'runProduceSpecialEnriched'))
+      .addItem('🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)', 'runContentSearch')
       .addItem('📊 مجموعه‌های آموزشی و پیشرفت', 'showSeriesBoard')
       .addItem('اسکن مجموعه‌های آموزشی', 'runScanSeries')
       .addItem('داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)', 'runJudgeSeries')

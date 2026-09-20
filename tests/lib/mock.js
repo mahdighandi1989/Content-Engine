@@ -52,6 +52,11 @@ global.Utilities = {
 let SHEET_SEQ = 1;
 class Range {
   constructor(sh, r, c, nr, nc) { Object.assign(this, { sh, r, c, nr, nc }); }
+  // TextFinder یک Range برمی‌گرداند و کدِ جست‌وجو از آن فقط شماره‌ردیف
+  // می‌خواهد. نبودنِ این سه، مسیرِ واقعی را در آزمون بی‌صدا از کار می‌انداخت.
+  getRow() { return this.r; }
+  getColumn() { return this.c; }
+  getSheet() { return this.sh; }
   getValues() {
     const out = [];
     for (let i = 0; i < this.nr; i++) {
@@ -106,6 +111,47 @@ class Sheet {
   getMaxColumns() { return this._maxc || (this._maxc = 26); }
   insertColumnsAfter(after, n) { this._maxc = this.getMaxColumns() + n; return this; }
   setColumnWidth() { return this; }
+  getParent() { return this._p || null; }
+  /* ══ چرا TextFinder در ماک هست ══
+     بخشِ ۳۴ روی همین می‌گردد، و دلیلش اندازه است: پنج شیتِ منبع روی هم
+     ~۱۱۲ مگابایت‌اند و `getValues` هرگز از پسشان برنمی‌آید. اگر ماک این را
+     نداشته باشد، هر آزمونِ جست‌وجو یا باید مسیرِ واقعی را دور بزند (که یعنی
+     چیزی را نمی‌سنجد) یا بی‌صدا هیچ نتیجه‌ای نگیرد و سبز بماند — همان
+     «نگهبانی که یک در را نمی‌بیند». */
+  createTextFinder(q) {
+    const sheet = this;
+    let re = null, useRe = false, caseS = false, whole = false;
+    const build = () => {
+      const flags = caseS ? 'g' : 'gi';
+      if (useRe) { try { return new RegExp(q, flags + 'u'); } catch (e) { return new RegExp(q, flags); } }
+      return new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    };
+    let idx = 0, hits = null;
+    const scan = () => {
+      re = build(); hits = [];
+      for (let r = 0; r < sheet._d.length; r++) {
+        const row = sheet._d[r]; if (!row) continue;
+        for (let c = 0; c < row.length; c++) {
+          const v = row[c]; if (v === '' || v == null) continue;
+          const t = String(v);
+          re.lastIndex = 0;
+          const ok = whole ? (caseS ? t === q : t.toLowerCase() === String(q).toLowerCase())
+                           : re.test(t);
+          if (ok) hits.push(new Range(sheet, r + 1, c + 1, 1, 1));
+        }
+      }
+    };
+    const api = {
+      useRegularExpression(v) { useRe = !!v; hits = null; return api; },
+      matchCase(v) { caseS = !!v; hits = null; return api; },
+      matchEntireCell(v) { whole = !!v; hits = null; return api; },
+      ignoreDiacritics() { return api; },
+      matchFormulaText() { return api; },
+      findAll() { if (!hits) scan(); return hits.slice(); },
+      findNext() { if (!hits) { scan(); idx = 0; } return idx < hits.length ? hits[idx++] : null; }
+    };
+    return api;
+  }
 }
 class Spread {
   constructor(name, id) { this._n = name; this._id = id || 'SS' + SHEET_SEQ++; this._s = []; }
@@ -113,7 +159,7 @@ class Spread {
   getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this._id + '/edit'; }
   getSheets() { return this._s; }
   getSheetByName(n) { return this._s.find(s => s._n === n) || null; }
-  insertSheet(n) { const s = new Sheet(n); this._s.push(s); return s; }
+  insertSheet(n) { const s = new Sheet(n); s._p = this; this._s.push(s); return s; }
   deleteSheet(s) { this._s = this._s.filter(x => x !== s); }
   setSpreadsheetTimeZone() {}
 }

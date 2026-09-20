@@ -931,6 +931,55 @@ episode. The bridge is not built, and the owner said «تا نگفتم سمت پ
 A ready model is half the work, and the guide in Drive says so in plain words
 rather than letting the silence imply otherwise.
 
+## Searching 112 MB you are not allowed to read (section 34, 7.23)
+
+The owner wanted to find something he half-remembers — "that clip where the guy
+talked about being afraid of losing money" — across **everything**, both with and
+without AI, ranked by meaning rather than date.
+
+**One measurement decided the whole design.** The 20 September backup gives the
+real sizes: the hub is 29 MB and the five source sheets are ~112 MB together. No
+design built on "read it all and scan" survives Apps Script's six minutes — it
+would either lie or quietly return a partial answer. `createTextFinder` runs
+*inside* Sheets and returns only the addresses of matches, so the data size stops
+mattering and "all of it" is a fact rather than a claim. Only matching rows are
+ever read. **Measure before you architect; the number picks the design.**
+
+**Two layers, both on by default.** The hub is one row per file with topic,
+message, summary, body and the file's own link — what the engine understood. The
+sources are the raw, uncapped text: what the hub truncated at 1,500 characters is
+whole there, which is the only place a single sentence from the middle of a long
+video can be found.
+
+**Persian spelling is where a literal search fails.** The user types «کتابخانه»
+and the sheet holds «كتابخانه» with an Arabic kaf; or ZWNJ against a space; or
+«۱۴۰۴» against «1404»; or this engine's own diacriticised spoken text against an
+undiacriticised query. All four returned "not found" — the worst possible answer,
+because the user concludes the thing does not exist when only the search failed.
+`srchPattern_` compiles the query into a pattern that swallows every one of them.
+
+**Ranking is by content, never by date** — the owner said so explicitly. Where a
+term was found is weighted, coverage beats repetition (four of five terms outranks
+one term four times), and an intact phrase earns a bonus. Date contributes nothing.
+
+**The AI mode is two calls, and the first one is the important one.** Expansion
+comes before ranking: the user says "afraid of losing money" and the text says
+«زیان‌گریزی» or "loss aversion". Without that bridge, a semantic reranker has
+nothing to rerank. The model proposes and the code decides — an id outside the
+candidate set is dropped, because a fabricated id is a link that goes nowhere.
+When the model is unavailable the lexical result still comes back **and says so**.
+
+**This section has no way to write.** Not to the sources, not to the hub, not to
+Drive. The owner asked for "just don't break anything", and the safest form of
+that is a capability that *cannot* write, rather than one we are careful with.
+
+**And the honesty rule, which its own test caught.** Every answer reports how many
+tabs were searched, how many rows were candidates, and how long it took — and says
+plainly when a cap or the time budget stopped it. The first version only noticed
+truncation when it moved on to the *next* tab, so a cap reached on the last tab
+was silent. A partial search that presents itself as complete tells the user "it
+isn't there" about something that is.
+
 ## An alarm the alarm's own writer resets (7.22)
 
 7.21 shipped `voice-intake-stuck` with the right words, the right owner and the
