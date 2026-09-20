@@ -63,14 +63,33 @@ def sh(args, check=False):
     return r
 
 
-def loadState():
+def loadState(strict=True):
+    """حالتِ گویندگان.
+
+    ══ چرا خرابیِ این فایل باید **بایستد** (۷٫۲۲) ══
+    این کش نیست؛ تنها چیزی است که موتور می‌خوانَد. ۷٫۲۱ هر خطایی را
+    می‌بلعید و `{}` برمی‌گرداند، و `saveState` بعدی رویش می‌نوشت —
+    یعنی یک فایلِ نیمه‌نوشته یعنی همهٔ گویندگانِ تمام‌شده از صفر آموزش
+    می‌بینند و همه دوباره «✅ آماده» اعلام می‌شوند، از جمله ردیفِ
+    دستیِ رضوی. نبودنِ فایل عادی است (بارِ اول)؛ **بد بودنش** نه.
+    """
+    if not os.path.exists(STATE):
+        return {"rev": 0, "at": "", "speakers": {}}
     try:
         d = json.load(io.open(STATE, encoding="utf-8"))
-        if isinstance(d, dict) and isinstance(d.get("speakers"), dict):
-            return d
-    except Exception:
-        pass
-    return {"rev": 0, "at": "", "speakers": {}}
+    except Exception as e:
+        if strict:
+            raise SystemExit(
+                "::error title=حالتِ گویندگان خوانده نشد::%s خراب است (%s). "
+                "هیچ کاری انجام نشد تا حالتِ موجود پاک نشود." % (STATE, e))
+        return {"rev": 0, "at": "", "speakers": {}}
+    if not isinstance(d, dict) or not isinstance(d.get("speakers"), dict):
+        if strict:
+            raise SystemExit(
+                "::error title=حالتِ گویندگان شکلِ درستی ندارد::%s باید شیئی با "
+                "کلیدِ speakers (شیء) باشد. هیچ کاری انجام نشد." % STATE)
+        return {"rev": 0, "at": "", "speakers": {}}
+    return d
 
 
 def saveState(d):
@@ -105,10 +124,17 @@ def fetchQueue(fid):
             "می‌کند؛ اگر این پیام ماند، VOICE_QUEUE_ID را وارسی کن.")
         return None
     try:
-        return json.loads(raw.decode("utf-8"))
+        doc = json.loads(raw.decode("utf-8-sig"))
     except Exception as e:
         say("::error::صفِ گویندگان JSON نبود: %s" % e)
         return None
+    # به نوعِ اعلامی اعتماد نکن، به چیزی که واقعاً رسیده نگاه کن — یک
+    # فهرست یا یک عدد از `json.loads` سالم درمی‌آید و بعد `main()` را با
+    # AttributeError می‌کشد.
+    if not isinstance(doc, dict):
+        say("::error::صفِ گویندگان باید یک شیء باشد، %s رسید." % type(doc).__name__)
+        return None
+    return doc
 
 
 def runInfo(run_id):
@@ -199,12 +225,20 @@ def plan(q, st):
         cur["name"] = name
         cur["files"] = len(ids)
 
-        if stage == ST_MEASURE and not measure:
-            measure = key
+        if stage == ST_MEASURE:
+            # ══ «و نه measure» بود، و همان «و» باگ بود (۷٫۲۲) ══
+            # وقتی سهمِ سنجشِ این دور را گویندهٔ دیگری گرفته بود، این یکی
+            # از همین شرط رد می‌شد و مستقیم می‌افتاد توی بلوکِ «گویندهٔ
+            # تازه» — یعنی یک آموزشِ تمام‌شده دور ریخته می‌شد و آموزشی
+            # چندساعته از نو راه می‌افتاد، و در لاگ «پیشرفت» گزارش می‌شد.
+            # در پیش‌فرضِ maxActive=2 سقفِ هم‌زمانی تصادفاً پنهانش می‌کرد.
+            if not measure:
+                measure = key
             continue
 
         if stage == ST_TRAIN:
-            info = runInfo(cur.get("runId") or "")
+            rid_ = str(cur.get("runId") or "")
+            info = None if rid_ in ("", "?") else runInfo(rid_)
             if not info:
                 say("«%s»: اجرای %s پیدا نشد؛ از نو راه می‌افتد." % (name, cur.get("runId")))
                 stage = ""
@@ -221,7 +255,24 @@ def plan(q, st):
             else:
                 stt = artifactState(cur.get("runId"), key,
                                     os.path.join("vi-art", key))
-                if stt and stt.get("done"):
+                if stt is None:
+                    # ══ artifact نرسید ⇒ شکست، نه «ادامه بده» (۷٫۲۲) ══
+                    # ۷٫۲۱ اینجا می‌افتاد توی شاخهٔ «هنوز تمام نشده» و یک
+                    # آموزشِ پنج‌ساعتهٔ تازه راه می‌انداخت — هر شش ساعت، تا
+                    # ابد. و چون هیچ ردیفِ «ناموفق» نوشته نمی‌شد، شمارندهٔ
+                    # موتور بالا نمی‌رفت، پس «رهاشده» **هرگز** ممکن نبود.
+                    # artifact پس از ۳۰ روز منقضی می‌شود، یعنی این مسیر
+                    # محتمل‌ترین مسیرِ شکست است، نه نادرترین.
+                    cur["stage"] = ST_FAIL
+                    cur["note"] = ("artifactِ اجرای %s برداشته نشد "
+                                   "(منقضی شده یا نامش جور نیست)."
+                                   % cur.get("runId"))
+                    sp[key] = cur
+                    changed = True
+                    say("::warning title=artifact نرسید::«%s»: artifactِ اجرای %s "
+                        "برداشته نشد؛ ناموفق ثبت شد." % (name, cur.get("runId")))
+                    continue
+                if stt.get("done"):
                     cur["stage"] = ST_MEASURE
                     cur["epochs"] = stt.get("epochs_reached")
                     cur["note"] = "آموزش تمام شد؛ نوبتِ سنجش."
@@ -261,8 +312,13 @@ def plan(q, st):
         if active >= cap:
             say("«%s»: در نوبت؛ سقفِ هم‌زمانی (%d) پر است." % (name, cap))
             continue
-        fresh = not cur.get("runId")
+        # هرگز دوباره allow_fresh نده وقتی یک بار چیزی راه افتاده — حتی
+        # اگر شناسه‌اش را گم کرده باشیم. کشِ موجود ارزشِ بیشتری دارد از
+        # یک شروعِ تمیز.
+        fresh = not cur.get("runId") and not cur.get("everDispatched")
+        cur["everDispatched"] = True
         rid = dispatch(key, ids, epochs, fresh)
+        cur["fileIds"] = ids          # مرجعِ سنجش از همین برداشته می‌شود
         if rid:
             cur["stage"] = ST_TRAIN
             cur["runId"] = rid
@@ -271,6 +327,22 @@ def plan(q, st):
             changed = True
             active += 1
             say("«%s»: آموزش راه افتاد، اجرای %s." % (name, rid))
+        else:
+            # ══ شناسهٔ اجرا گم شد ⇒ باز هم بنویس (۷٫۲۲) ══
+            # ۷٫۲۱ در این حالت **هیچ‌چیز** نمی‌نوشت و هیچ خطی چاپ نمی‌کرد.
+            # چون `fresh = not cur.get("runId")`، اجرای بعدی دوباره با
+            # `allow_fresh=true` می‌رفت — همان پرچمی که هست تا کسی کارِ
+            # پیشین را دور نریزد. یعنی یک آموزش یتیم می‌شد و یکی از صفر
+            # شروع، با لاگی کاملاً سبز.
+            cur["stage"] = ST_TRAIN
+            cur["runId"] = cur.get("runId") or "?"
+            cur["note"] = ("راه افتاد ولی شناسهٔ اجرا خوانده نشد؛ "
+                           "دورِ بعد وارسی می‌شود.")
+            sp[key] = cur
+            changed = True
+            active += 1
+            say("::warning title=شناسهٔ اجرا گم شد::«%s»: gh اجرا را راه انداخت "
+                "ولی شناسه‌اش خوانده نشد. allow_fresh دیگر فرستاده نمی‌شود." % name)
 
     return changed, measure
 
@@ -302,22 +374,36 @@ def bestSim(lab):
     و آن را همان‌جا که هست باید گفت، نه با یک عددِ ساختگی.
     """
     import glob
-    best = ""
+    best = None
     for p in glob.glob(os.path.join(lab, "**", "*.json"), recursive=True):
         try:
             d = json.load(io.open(p, encoding="utf-8"))
         except Exception:
             continue
         b = (d.get("rvc") or {}).get("best") or {}
-        if b.get("out_vs_ref"):
-            best = str(b["out_vs_ref"])
-    return best
+        v = b.get("out_vs_ref")
+        if v is None:
+            continue
+        try:
+            v = float(v)
+        except Exception:
+            continue
+        # «بهترین» یعنی بیشترین، نه «آخرینی که glob دید» — نامش، توضیحش و
+        # عددی که اعلام می‌شود هر سه بیشترین را وعده می‌دهند.
+        if best is None or v > best:
+            best = v
+    return "" if best is None else ("%.3f" % best)
 
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "--plan"
     if mode == "--runid":
         sys.stdout.write(runIdOf(sys.argv[2]))
+        return 0
+    if mode == "--refid":
+        st = loadState()
+        ids = (st["speakers"].get(sys.argv[2]) or {}).get("fileIds") or []
+        sys.stdout.write(str(ids[0]) if ids else "")
         return 0
     if mode == "--sim":
         sys.stdout.write(bestSim(sys.argv[2] if len(sys.argv) > 2 else "lab"))

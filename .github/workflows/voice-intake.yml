@@ -69,20 +69,45 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add docs/voices.json
           git commit -m "گویندگان: یک گام جلو"
+          # ══ بی abort، تلاشِ دوم اصلاً تلاش نیست ══
+          # rebaseی که تضاد بخورد، درخت را نیمه‌ادغام رها می‌کند و
+          # `git pull` بعدی با «Pulling is not possible because you have
+          # unmerged files» می‌افتد — یعنی سه تلاشِ بعدی برای دلیلی
+          # کاملاً دیگر شکست می‌خورند و پیامِ گمراه‌کننده چاپ می‌شود.
+          # حلقه‌ای که نمی‌تواند دوباره تلاش کند، همان شکلِ `removeTriggers`
+          # است: چیزی که می‌گوید کاری می‌کند و نمی‌کند.
           for i in 1 2 3 4; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" \
-              && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            git rebase --abort 2>/dev/null || true
+            if git pull --rebase origin "${GITHUB_REF_NAME}" \
+               && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
             sleep $((i * 3))
           done
+          git rebase --abort 2>/dev/null || true
+          echo "::error title=ثبت نشد::پس از چهار تلاش، نتیجه در ریپو ثبت نشد."
           exit 1
 
   measure:
     needs: plan
-    if: needs.plan.outputs.measure != ''
+    # ══ `success()` باید صریح نوشته شود ══
+    # هر job که `if:` خودش را دارد، `success()`ِ ضمنی روی `needs` را از
+    # دست می‌دهد. بی این، `plan`ی که سرِ push مرده باشد باز هم اجازه
+    # می‌داد `measure` روی درختِ کهنه بدود.
+    if: success() && needs.plan.outputs.measure != ''
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      # ══ شاخه، نه commitِ راه‌انداز (۷٫۲۲) ══
+      # `checkout` پیش‌فرض `github.sha` را می‌گیرد — یعنی commitی که این
+      # اجرا را راه انداخت، **پیش از** pushِ خودِ `plan`. بعد `measure`
+      # روی همان درختِ کهنه `docs/voices.json` را می‌نوشت و همیشه — نه
+      # گاهی — با کارِ `plan` تضاد می‌گرفت. و «چهار بار با مکث دوباره
+      # امتحان کن» برای تضادی که قطعی است هیچ کاری نمی‌کند.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -131,12 +156,30 @@ jobs:
       # روی همین دو فایل گرفته شد، پس هر گویندهٔ تازه هم با همین‌ها
       # سنجیده می‌شود و عددها با هم قابلِ مقایسه‌اند. ورودیِ متغیر یعنی
       # عددی که با هیچ عددِ دیگری جور نیست.
-      - name: نمونهٔ مبدأ
+      # ══ مرجع، صدای **خودِ همین گوینده** است ══
+      # نسخهٔ اول `--ref` را اصلاً نمی‌فرستاد (که در voicelab اجباری است،
+      # پس هر اجرا قرمز می‌شد) و در کامنتش نوشته بود مرجع را ثابت نگه
+      # می‌داریم تا عددها قابلِ مقایسه باشند. **غلط بود**: `rvcSim_`
+      # کسینوسِ (خروجی، مرجع) است، یعنی مرجع همان هویتی است که سنجیده
+      # می‌شود. سنجیدنِ کلونِ یک گویندهٔ تازه در برابرِ ضبطِ رضوی هیچ
+      # معنایی ندارد. **مبدأ** ثابت می‌ماند (همان صوتِ جمینای)، مرجع نه.
+      - name: مرجع و مبدأ
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEY: ${{ needs.plan.outputs.measure }}
         run: |
           set -euo pipefail
+          REF_ID="$(python3 tools/voiceintake.py --refid "$KEY")"
+          if [ -z "$REF_ID" ]; then
+            echo "::error title=مرجع نیست::برای «$KEY» هیچ فایلِ نمونه‌ای ثبت نشده، پس شباهت با چیزی سنجیده نمی‌شود."
+            exit 1
+          fi
+          python3 -m pip install --quiet gdown
+          python3 -m gdown "$REF_ID" -O ref.wav || \
+            python3 -m gdown --fuzzy "https://drive.google.com/uc?id=$REF_ID" -O ref.wav
           python3 -m gdown "1v4HaKFw7_7sD5pe2UE199iFX69jgh2p0" -O src.wav || \
             python3 -m gdown --fuzzy "https://drive.google.com/uc?id=1v4HaKFw7_7sD5pe2UE199iFX69jgh2p0" -O src.wav
-          ls -la src.wav
+          ls -la ref.wav src.wav
 
       - name: تبدیل و سنجشِ شباهت
         id: sim
@@ -144,18 +187,26 @@ jobs:
           KEY: ${{ needs.plan.outputs.measure }}
         run: |
           set -euo pipefail
-          ARGS=(--engine rvc --src src.wav --out lab --rvc-model model.pth)
-          [ -f model.index ] && ARGS+=(--rvc-index model.index)
+          ARGS=(--engine rvc --ref ref.wav --src src.wav --out lab --rvc-model model.pth)
+          if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
           ARGS+=(--rvc-pitch -12 --rvc-index-rate 1.0 --rvc-protect 0.33)
-          python3 tools/voicelab.py "${ARGS[@]}" || echo "::warning::آزمایشگاه قرمز تمام شد."
+          # ══ خروجی را بلعیدن ممنوع ══
+          # نسخهٔ اول `|| echo "::warning::"` داشت، و چون `cp src.wav …`
+          # بعدش همیشه موفق بود، پوشهٔ نمونه‌ها خالی نمی‌ماند و گوینده
+          # «آماده» ثبت می‌شد — با نمونه‌ای که **صوتِ تبدیل‌نشده** بود و
+          # یک «✅ آماده» به ایمیل و تلگرام. یعنی دقیقاً همان «کسی به
+          # خروجی گوش نداد» که CLAUDE.md یک بخش دربارهٔ آن دارد.
+          python3 tools/voicelab.py "${ARGS[@]}"
           mkdir -p "docs/voice-samples/$KEY"
-          # نمونه‌های شنیداری — موتور همین‌ها را از raw برمی‌دارد و در
-          # درایو می‌گذارد و لینکشان را می‌فرستد.
           n=0
           for f in $(find lab -name 'rvc-*.wav' | sort | head -3); do
             n=$((n+1)); cp "$f" "docs/voice-samples/$KEY/نمونه-$n.wav"
           done
-          cp src.wav "docs/voice-samples/$KEY/پیش-از-تبدیل.wav" 2>/dev/null || true
+          if [ "$n" -eq 0 ]; then
+            echo "::error title=نمونه‌ای ساخته نشد::تبدیل خروجی نداد؛ «آماده» ثبت نمی‌شود."
+            exit 1
+          fi
+          cp src.wav "docs/voice-samples/$KEY/پیش-از-تبدیل.wav"
           S="$(python3 tools/voiceintake.py --sim lab)"
           echo "قدرِ شباهت: ${S:-—}"
           echo "sim=$S" >> "$GITHUB_OUTPUT"
@@ -163,18 +214,34 @@ jobs:
       - name: ثبتِ نتیجه
         env:
           KEY: ${{ needs.plan.outputs.measure }}
+          # از راهِ محیط، نه درج در متنِ فرمان. مقدارش از یک فایلِ JSON
+          # می‌آید که voicelab نوشته؛ درجِ مستقیم یعنی هر چیزی که آنجا
+          # بنشیند در پوسته اجرا می‌شود.
+          SIM: ${{ steps.sim.outputs.sim }}
         run: |
           set -euo pipefail
-          python3 tools/voiceintake.py --record "$KEY" "${{ steps.sim.outputs.sim }}" \
+          python3 tools/voiceintake.py --record "$KEY" "$SIM" \
             "مدل آموزش دید و سنجیده شد."
           git config user.name  "content-engine-voice"
           git config user.email "actions@users.noreply.github.com"
           git add docs/voices.json "docs/voice-samples/$KEY" || true
           git diff --cached --quiet && { echo "چیزی عوض نشد."; exit 0; }
           git commit -m "گویندگان: «$KEY» سنجیده شد"
+          # ══ بی abort، تلاشِ دوم اصلاً تلاش نیست ══
+          # rebaseی که تضاد بخورد، درخت را نیمه‌ادغام رها می‌کند و
+          # `git pull` بعدی با «Pulling is not possible because you have
+          # unmerged files» می‌افتد — یعنی سه تلاشِ بعدی برای دلیلی
+          # کاملاً دیگر شکست می‌خورند و پیامِ گمراه‌کننده چاپ می‌شود.
+          # حلقه‌ای که نمی‌تواند دوباره تلاش کند، همان شکلِ `removeTriggers`
+          # است: چیزی که می‌گوید کاری می‌کند و نمی‌کند.
           for i in 1 2 3 4; do
-            git pull --rebase origin "${GITHUB_REF_NAME}" \
-              && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            git rebase --abort 2>/dev/null || true
+            if git pull --rebase origin "${GITHUB_REF_NAME}" \
+               && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
             sleep $((i * 3))
           done
+          git rebase --abort 2>/dev/null || true
+          echo "::error title=ثبت نشد::پس از چهار تلاش، نتیجه در ریپو ثبت نشد."
           exit 1

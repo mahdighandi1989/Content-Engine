@@ -53,9 +53,14 @@
  *   • **بیشتر، بهتر نیست — ولی خیلی کم، بد است.** ۳۹ دقیقه تا ۲۴۰ دقیقه فقط
  *     ۰٫۰۱۸ شباهت آورد، پس وعدهٔ «هرچه بیشتر بهتر» داده نمی‌شود. ولی زیرِ
  *     `VOICE_MIN_MINUTES` ساعت‌ها پردازش می‌سوزد و چیزی نمی‌دهد، پس هشدار
- *     داده می‌شود — و **سنجشِ واقعیِ دقیقه‌ها کارِ اکشن است**، چون موتور
- *     نمی‌تواند صوت را بخوانَد و عددی که از حجمِ فایل حدس زده شود، عددی
- *     است که هیچ‌وقت طولِ واقعیِ چیزی نیست.
+ *     داده می‌شود. موتور نمی‌تواند صوت را بخوانَد، پس عددش یک **حدس** از
+ *     روی حجم است و هرگز مبنای رد کردن نیست.
+ *     ⚠ و یک وعده که هنوز داده نشده: `minutes` و `segments` را امروز هیچ
+ *     کس نمی‌نویسد — `state.json` فقط `done` و `epochs_reached` دارد. پس
+ *     آن دو خط در اعلام و آن ستون در کارنامه برای گویندگانِ واقعی خالی
+ *     می‌مانند. اینجا نوشته شده تا کسی فکر نکند خراب است؛ نوشتنش کارِ
+ *     `finish_` است، هر وقت لازم شد. یک وعدهٔ نانوشته بهتر از یک وعدهٔ
+ *     دروغ است.
  *   • **درخواستی که بی‌پاسخ بماند، خودش یافته است** — از روزِ اول، نه پس از
  *     هفت هفته سکوت مثلِ بانکِ موسیقی.
  *   • **رهاشده از عقب‌مانده جدا شمرده می‌شود**؛ درسِ جزوه.
@@ -68,8 +73,14 @@ var VINT_ST = {
   READY: 'آماده', THIN: 'دادهٔ کم', FAIL: 'ناموفق', GIVEUP: 'رهاشده'
 };
 
-/** گام‌هایی که یعنی «کار تمام است» — نه دوباره به صف می‌روند، نه عقب‌مانده‌اند. */
-var VINT_DONE = [VINT_ST.READY, VINT_ST.GIVEUP];
+/* گام‌هایی که یعنی «کار تمام است» — نه دوباره به صف می‌روند، نه عقب‌مانده‌اند.
+ *
+ * «دادهٔ کم» از ۷٫۲۲ اینجاست. در ۷٫۲۱ پایانی نبود و هیچ‌وقت هم تلاشی
+ * نمی‌شمرد، پس گوینده‌ای با دادهٔ ناکافی **هر شب تا ابد** دوباره به صف
+ * می‌رفت و هر شب همان جواب را می‌گرفت. همان حلقه‌ای که ۵٫۸۸ برای جزوه
+ * بست: کاری که نمی‌شود انجامش داد، رها می‌شود نه اینکه بی‌پایان تکرار.
+ * برای باز کردنش کافی است صوتِ بیشتری اضافه شود و دکمهٔ منو زده شود. */
+var VINT_DONE = [VINT_ST.READY, VINT_ST.GIVEUP, VINT_ST.THIN];
 
 var VINT_HEADERS = ['زمان', 'کلید', 'نام', 'گام', 'نتیجه', 'فایل‌ها',
                     'دقیقه', 'شباهت', 'اجرا', 'توضیح'];
@@ -113,15 +124,56 @@ function vintArchiveFolder_() {
  * کوبیده می‌شود به یک هشِ کوتاه تا نه کشِ گیت‌هاب بشکند و نه دو گویندهٔ
  * متفاوت یک کلید بگیرند.
  */
+function vintNameNorm_(name) {
+  /* ══ یک نفر، یک املا (۷٫۲۲) ══
+     «بهروز رضوی» با نیم‌فاصله، با ي عربی، با ك عربی، یا با دو فاصله، چهار
+     کلیدِ متفاوت می‌ساخت — یعنی یک نفر چهار بار آموزش می‌دید و چهار بار
+     «✅ گویندهٔ تازه» اعلام می‌شد. همان نرمال‌سازی که `txNorm` و
+     `personaShowOk_` سال‌هاست می‌کنند. */
+  return String(name || '')
+    .replace(/[\u064A\u0649]/g, '\u06CC')   // ي/ى عربی → ی
+    .replace(/\u0643/g, '\u06A9')           // ك عربی → ک
+    .replace(/[\u200c\u200e\u200f\u202a-\u202e\ufeff]/g, ' ')
+    .replace(/[\u064B-\u0652\u0670]/g, '')  // اعراب
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * کلیدِ پایدارِ یک گوینده، از نامش.
+ *
+ * ══ چرا لاتین فقط وقتی که نام **واقعاً** لاتین است (۷٫۲۲) ══
+ *
+ * نسخهٔ اول هر تکهٔ لاتینِ دو-نویسه‌ای را کلید می‌کرد. یعنی «سارا 01» و
+ * «نیما 01» هر دو کلیدِ `01` می‌گرفتند: دو نفر، یک پوشهٔ آموزش، یک مدل که
+ * روی دو صدا آموزش می‌دید — و هیچ‌چیز گزارش نمی‌شد. «مریم (mp3)» و «علی
+ * (mp3)» هم همین‌طور.
+ *
+ * این دقیقاً همان فاجعه‌ای است که `dsSig_` برای جلوگیری‌اش عوض شد، فقط یک
+ * پله بالاتر: آنجا کش را جدا کردیم و اینجا خودِ **هویت** به هم می‌ریخت.
+ * جدا کردنِ کشِ دو نفری که یک کلید دارند، هیچ چیزی را نجات نمی‌دهد.
+ *
+ * پس قاعده سخت شد: اگر نام حتی یک حرفِ غیرِلاتین دارد، کلید از هشِ نامِ
+ * **نرمال‌شده** ساخته می‌شود. تکهٔ لاتین فقط وقتی کلید می‌شود که کلِ نام
+ * لاتین باشد و دستِ‌کم یک حرف داشته باشد — «01» نامِ کسی نیست.
+ */
 function vintSlug_(name) {
-  var t = String(name || '').trim().toLowerCase();
+  var t = vintNameNorm_(name).toLowerCase();
   if (!t) return '';
+  var hash = function (x) {
+    var h = 0;
+    for (var i = 0; i < x.length; i++) { h = ((h << 5) - h + x.charCodeAt(i)) | 0; }
+    return 'spk-' + (h >>> 0).toString(36);
+  };
+  // حتی یک حرفِ غیرِلاتین ⇒ هش. مقایسه روی حرف است نه بر نویسه، تا رقم و
+  // نقطه‌گذاری تصمیم نگیرند.
+  if (/[^\u0000-\u007F]/.test(t)) return hash(t);
   var lat = t.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  // نامِ فارسی هیچ نویسهٔ لاتینی ندارد، پس lat خالی می‌شود.
-  if (lat.length >= 2) return lat.slice(0, 40);
-  var h = 0;
-  for (var i = 0; i < t.length; i++) { h = ((h << 5) - h + t.charCodeAt(i)) | 0; }
-  return 'spk-' + (h >>> 0).toString(36);
+  if (!lat || !/[a-z]/.test(lat)) return hash(t);
+  // نامِ بلند بریده می‌شود ولی هشِ کلِ نام ته‌اش می‌نشیند، وگرنه دو نامِ
+  // لاتین که تا نویسهٔ چهلم یکی‌اند یک کلید می‌گرفتند.
+  if (lat.length > 40) lat = lat.slice(0, 32) + '-' + hash(t).slice(4);
+  return lat;
 }
 
 /** پسوندِ یک نام. */
@@ -175,7 +227,7 @@ function vintScan_() {
   var out = { speakers: [], bad: [], error: '' };
   try {
     var par = vintCloneFolder_();
-    var arcName = String(CFG.VOICE_CLONE_ARCHIVE || '');
+    var arcName = String(CFG.VOICE_CLONE_ARCHIVE || 'بایگانی — نمونه‌های آزمایشی');
     var guide = String(CFG.VOICE_GUIDE_FILE || '');
     var by = {};
     var put = function (name, src, f) {
@@ -286,6 +338,20 @@ function vintState_(hub) {
   var st = {};
   var rows = [];
   try { rows = vintRows_(hub); } catch (e) { return st; }
+  /* ══ ترتیب از ستونِ «زمان» می‌آید، نه از جای ردیف (۷٫۲۲) ══
+     این یک تبِ انسانی است و مرتب‌کردنش کارِ عادیِ هر کسی است. تا ۷٫۲۱
+     آخرین **ردیف** برنده بود، پس یک بار مرتب‌سازی، گامِ همهٔ گویندگان را
+     بی‌صدا عوض می‌کرد — و می‌توانست گوینده‌ای را که وسطِ آموزش است
+     «آماده» نشان بدهد و بایگانی‌اش کند. ستونِ زمان از روزِ اول نوشته
+     می‌شد و خوانده نمی‌شد؛ همان «تحلیلی که به دروازه وصل نشد». */
+  var ordered = rows.slice();
+  for (var oi = 0; oi < ordered.length; oi++) ordered[oi] = { r: ordered[oi], i: oi };
+  ordered.sort(function (a, b) {
+    var ta = vintWhen_(a.r[VC.AT - 1]), tb = vintWhen_(b.r[VC.AT - 1]);
+    if (ta !== tb) return ta - tb;
+    return a.i - b.i;                      // هم‌زمان: ترتیبِ نوشتن
+  });
+  rows = ordered.map(function (x) { return x.r; });
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i], key = String(r[VC.KEY - 1] || '').trim();
     if (!key) continue;
@@ -303,6 +369,52 @@ function vintState_(hub) {
     var nt = String(r[VC.NOTE - 1] || '').trim(); if (nt) s.note = nt;
   }
   return st;
+}
+
+/** زمانِ یک سلول به عدد. نامعلوم = صفر، تا ردیفِ بی‌تاریخ ترتیب را به هم نزند. */
+function vintWhen_(v) {
+  if (v instanceof Date) return v.getTime();
+  var t = 0;
+  try { t = new Date(String(v || '').replace(' ', 'T')).getTime(); } catch (e) {}
+  return isFinite(t) ? t : 0;
+}
+
+/**
+ * گامی که موتور می‌شناسد؟
+ *
+ * ۷٫۲۱ هر رشته‌ای را از `docs/voices.json` می‌پذیرفت. یک `stage` عددی
+ * می‌شد `"7"` و یک شیء می‌شد `"[object Object]"` — هر دو «پایانی نیستند»،
+ * پس آن گوینده تا ابد هر شب دوباره به صف می‌رفت و در شمارشِ «در کار»
+ * می‌ماند، بی هیچ خطایی. گامِ ناشناس حالا **ناموفق** است: می‌شمارد، و
+ * بالاخره به «رهاشده» می‌رسد.
+ */
+function vintStepOk_(step) {
+  for (var k in VINT_ST) {
+    if (Object.prototype.hasOwnProperty.call(VINT_ST, k) && VINT_ST[k] === step) return true;
+  }
+  return false;
+}
+
+/**
+ * این گوینده را دست نزن: نمونه‌هایش هنوز خوراکِ چیزِ دیگری‌اند.
+ *
+ * از خودِ `docs/voices.json` خوانده می‌شود، نه از فهرستی دستی در کد — یک
+ * فهرستِ دست‌نویسِ «چه کسی مهم است» همان چیزی است که کهنه می‌شود
+ * (`removeTriggers` در ۵٫۹۵). یک بار خوانده می‌شود و نه یک بار به ازای
+ * هر گوینده: این تابع از شبکه می‌خوانَد و حلقه‌ها بلند می‌شوند.
+ */
+function vintKeepSet_() {
+  var out = Object.create(null);
+  try {
+    var doc = vintReadResult_();
+    if (!doc || !doc.speakers || typeof doc.speakers !== 'object') return out;
+    for (var k in doc.speakers) {
+      if (!Object.prototype.hasOwnProperty.call(doc.speakers, k)) continue;
+      var r = doc.speakers[k];
+      if (r && (r.preexisting || r.keepShared)) out[k] = 1;
+    }
+  } catch (e) {}
+  return out;
 }
 
 /** گامِ پایانی؟ */
@@ -338,11 +450,19 @@ function vintQueue_(hub, scan, state) {
       var files = [];
       for (var j = 0; j < sp.files.length; j++) {
         var f = sp.files[j];
-        try { driveShareOn_(f.id); } catch (eS) {}
+        /* اشتراکِ از قبل باز را دوباره باز نکن: با ۲۰۰ گوینده این حلقه
+           هر شب ده‌ها هزار نوشتنِ ACL بود، و کارِ شبانه شش دقیقه بیشتر
+           ندارد (قاعدهٔ ۵٫۶۸: هر بلوکِ سنگین جلوی کارهای بعدی را می‌گیرد). */
+        try {
+          var fh = DriveApp.getFileById(f.id);
+          if (String(fh.getSharingAccess()) !== String(DriveApp.Access.ANYONE_WITH_LINK)) {
+            driveShareOn_(f.id);
+          }
+        } catch (eS) { try { driveShareOn_(f.id); } catch (eS2) {} }
         files.push({ id: f.id, name: f.name, bytes: f.bytes });
       }
       q.speakers.push({ key: sp.key, name: sp.name, source: sp.source,
-                        step: step || VINT_ST.SEEN, tries: tries,
+                        step: step || VINT_ST.QUEUED, tries: tries,
                         files: files, bytes: sp.bytes,
                         estMinutes: vintEstMinutes_(sp.bytes) });
     }
@@ -352,7 +472,14 @@ function vintQueue_(hub, scan, state) {
       var it = outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'));
       if (it.hasNext()) driveShareOn_(it.next().getId());
     } catch (eQ) {}
-    props_().setProperty(PK.VINT_QAT, nowStr_());
+    /* ══ اینجا عمداً هیچ مُهرِ زمانی زده نمی‌شود (۷٫۲۲) ══
+       نسخهٔ ۷٫۲۱ همین‌جا `PK.VINT_QAT` را هر شب دوباره مهر می‌زد و
+       `vintStuckDays_` از رویش می‌خواند — یعنی «چند روز است بی‌پاسخ
+       مانده» همیشه صفر بود و زنگی که کلِ این بخش به آن می‌بالید هرگز
+       نمی‌توانست به صدا دربیاید. همان `audit-attrib-low`: هشداری با
+       واژه‌های دقیقاً درست که یک بار هم زنگ نزد.
+       حالا جواب از خودِ تاریخچه می‌آید (`vintStuckDays_`)، که کسی
+       نمی‌تواند ناخواسته تازه‌اش کند. */
   } catch (e) {
     try { logLine_('نوشتنِ صفِ گویندگان ناموفق: ' + e.message); } catch (e2) {}
     q.error = e.message;
@@ -423,7 +550,12 @@ function vintFetchSamples_(key, name, paths) {
     var p = String(paths[i] || '');
     if (!p) continue;
     try {
-      var res = UrlFetchApp.fetch(githubRawUrl_(p),
+      /* مسیرِ نمونه‌ها فارسی است — تنها fetchِ غیرِASCIIِ این مخزن. هر
+         مسیرِ دیگری (`manifest.json`، `engine.gs`، پرامپت‌ها) ASCII است،
+         پس این راه هرگز آزموده نشده بود. هر تکه جدا کدگذاری می‌شود تا
+         «/» سالم بماند. */
+      var enc = p.split('/').map(function (x) { return encodeURIComponent(x); }).join('/');
+      var res = UrlFetchApp.fetch(githubRawUrl_(enc),
                 { muteHttpExceptions: true, followRedirects: true });
       if (res.getResponseCode() !== 200) continue;
       var base = p.replace(/^.*\//, '');
@@ -451,31 +583,79 @@ function vintIngest_(hub) {
   var doc = vintReadResult_();
   if (!doc || typeof doc !== 'object') return out;
   var sp = doc.speakers;
-  if (!sp || typeof sp !== 'object') return out;
+  /* ══ آرایه هم `typeof 'object'` است (۷٫۲۲) ══
+     در ۷٫۲۱ یک `speakers` آرایه‌ای از این دروازه رد می‌شد و اندیس‌هایش
+     («۰»، «۱») گویندهٔ خیالی می‌ساختند — با ردیف در کارنامه و یک
+     «✅ گویندهٔ تازه آماده شد» به ایمیل و تلگرام. یعنی دقیقاً همان خبرِ
+     دروغی که `preexisting` برای جلوگیری‌اش نوشته شد، از درِ دیگر. */
+  if (!sp || typeof sp !== 'object' ||
+      Object.prototype.toString.call(sp) === '[object Array]') {
+    out.error = 'شکلِ speakers درست نیست';
+    try {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'متوسط', category: 'گویندهٔ تازه', key: 'voice-result-shape',
+        title: 'پاسخِ گویندگان شکلِ درستی ندارد',
+        detail: 'در ' + (CFG.VOICE_RESULT_PATH || 'docs/voices.json') +
+                ' کلیدِ speakers باید یک شیء باشد (کلید = کلیدِ گوینده). ' +
+                'تا درست نشود هیچ گوینده‌ای جلو نمی‌رود.',
+        instruction: 'شکلِ درست: {"rev":N,"speakers":{"<کلید>":{"name":"…",' +
+                     '"stage":"آماده|آموزش|سنجش|ناموفق|دادهٔ کم|رهاشده",…}}}',
+        owner: ROWNER_CODE
+      });
+    } catch (eF) {}
+    return out;
+  }
 
   var state = vintState_(hub);
   var told = {};
-  try { told = JSON.parse(props_().getProperty(PK.VINT_TOLD) || '{}') || {}; } catch (e0) {}
+  try {
+    var rawTold = JSON.parse(props_().getProperty(PK.VINT_TOLD) || '{}');
+    /* هر چیزِ درست‌نمایی از `|| {}` رد می‌شد — یک آرایه، یک عدد، یک رشته —
+       و بعد دست‌نخورده دوباره نوشته می‌شد، پس نگهبانِ «یک بار اعلام کن»
+       برای همیشه از کار می‌افتاد و هر شب همان خبر می‌رفت. */
+    if (rawTold && typeof rawTold === 'object' &&
+        Object.prototype.toString.call(rawTold) !== '[object Array]') told = rawTold;
+  } catch (e0) {}
+  var saveTold = function () {
+    try { props_().setProperty(PK.VINT_TOLD, JSON.stringify(told)); } catch (e) {}
+  };
 
   for (var key in sp) {
     if (!Object.prototype.hasOwnProperty.call(sp, key)) continue;
     var r = sp[key] || {};
+    if (typeof r !== 'object') continue;
     out.seen++;
-    var step = String(r.stage || '').trim();
+    var step = String(r.stage == null ? '' : r.stage).trim();
     if (!step) continue;
+    var name = r.name || (state[key] && state[key].name) || key;
+    if (!vintStepOk_(step)) {
+      // گامِ ناشناس = ناموفق، تا بشمارد و بالاخره رها شود
+      step = VINT_ST.FAIL;
+      r = { name: name, note: 'گامِ ناشناس از اکشن: «' +
+            String(r.stage).slice(0, 40) + '»', runId: r.runId || r.run || '' };
+    }
     var cur = state[key] || null;
     var was = cur ? cur.step : '';
     var sameRun = cur && String(cur.run || '') === String(r.runId || r.run || '');
-    if (was === step && sameRun) continue;          // چیزی عوض نشده
+
+    /* ══ «آماده» همیشه خبرِ تازه نیست ══
+       رضوی پیش از وجودِ این بخش و با دست آموزش دید. ردیفش باید ثبت شود
+       (وگرنه هر شب دوباره به صف می‌رود) ولی اعلامش نباید برود. */
+    if (r.preexisting && !told[key]) { told[key] = nowStr_(); saveTold(); }
+
+    if (was === step && sameRun) {
+      /* ══ ردیف هست ولی اعلام نرفته (۷٫۲۲) ══
+         ردیف بی‌درنگ نوشته می‌شود و `told` در ۷٫۲۱ فقط **پس از کلِ حلقه**
+         ذخیره می‌شد. یک اجرای کشته‌شده در شش دقیقه — که در این بخش عادی
+         است، چون وسطش چند دانلود هست — ردیف را می‌گذاشت و `told` را نه،
+         و از فردا همین `continue` تا ابد جلویش را می‌گرفت: گویندهٔ آماده،
+         بی هیچ اعلامی، برای همیشه. دو منبعِ حقیقت برای یک تصمیم. */
+      if (!(step === VINT_ST.READY && !told[key])) continue;
+    }
 
     var tries = cur ? cur.tries : 0;
     if (step === VINT_ST.FAIL && (tries + 1) >= Math.max(1, Number(CFG.VOICE_TRY_MAX) || 3)) {
-      /* ══ رها کردن، صریح ══
-         بی این، کاوشِ شبانه هر شب دوباره به صف می‌آوردش و هر شب دوباره
-         شکست می‌خورد — ساعت‌ها پردازش، هر شب، تا ابد؛ و شکافی که هیچ‌وقت
-         بسته نشود یعنی یافته‌ای که هیچ‌وقت حل نمی‌شود. */
-      vintLog_(hub, { key: key, name: r.name || (cur && cur.name) || key,
-                      step: VINT_ST.GIVEUP, result: VINT_ST.GIVEUP,
+      vintLog_(hub, { key: key, name: name, step: VINT_ST.GIVEUP, result: VINT_ST.GIVEUP,
                       files: Number(r.files || 0), minutes: r.minutes, sim: r.similarity,
                       run: r.runId || r.run || '',
                       note: 'پس از ' + (tries + 1) + ' تلاشِ ناموفق رها شد. ' +
@@ -484,30 +664,38 @@ function vintIngest_(hub) {
       continue;
     }
 
-    vintLog_(hub, { key: key, name: r.name || (cur && cur.name) || key,
-                    step: step, result: (step === VINT_ST.FAIL ? VINT_ST.FAIL : 'ok'),
-                    files: Number(r.files || 0), minutes: r.minutes, sim: r.similarity,
-                    run: r.runId || r.run || '', note: String(r.note || '') });
-    out.moved++;
+    if (!(was === step && sameRun)) {
+      vintLog_(hub, { key: key, name: name,
+                      step: step, result: (step === VINT_ST.FAIL ? VINT_ST.FAIL : 'ok'),
+                      files: Number(r.files || 0), minutes: r.minutes, sim: r.similarity,
+                      run: r.runId || r.run || '', note: String(r.note || '') });
+      out.moved++;
+    }
 
-    /* ══ «آماده» همیشه خبرِ تازه نیست ══
-       رضوی پیش از وجودِ این بخش و با دست آموزش دید. ردیفش باید ثبت شود
-       (وگرنه هر شب دوباره به صف می‌رود) ولی اعلامش نباید برود: یک
-       «✅ گویندهٔ تازه آماده شد» برای کسی که هفتهٔ پیش آماده شده، همان
-       خبرِ دروغی است که آدم یاد می‌گیرد به بقیهٔ خبرها هم شک کند.
-       `preexisting` فقط اعلام را می‌بندد، نه ثبت را. */
-    if (r.preexisting) told[key] = told[key] || nowStr_();
     if (step === VINT_ST.READY && !told[key]) {
-      var nm = r.name || (cur && cur.name) || key;
-      var made = vintFetchSamples_(key, nm, r.samples || []);
-      vintAnnounce_(nm, key, r, made);
-      told[key] = nowStr_();
-      out.ready.push(nm);
+      var made = vintFetchSamples_(key, name, r.samples || []);
+      /* ══ نمونه‌ای که نرسید، فردا دوباره امتحان می‌شود ══
+         مسیرِ نمونه‌ها فارسی است و تنها fetchِ غیرِASCIIِ این مخزن؛ اگر
+         نرسد، اعلامِ «نمونه‌ای نرسید» می‌رفت و `told` مهر می‌خورد و
+         **هرگز** دوباره تلاش نمی‌شد. خواستهٔ صریح «نمونه‌ها رو بفرستی»
+         بی هیچ خطایی زمین می‌ماند. */
+      var wanted = (r.samples || []).length;
+      if (wanted > 0 && made.length === 0) {
+        vintLog_(hub, { key: key, name: name, step: step, result: 'نمونه نرسید',
+                        run: r.runId || r.run || '',
+                        note: 'اعلام عقب افتاد؛ فردا دوباره تلاش می‌شود.' });
+        continue;                       // told مهر نمی‌خورد: فردا دوباره
+      }
+      if (vintAnnounce_(name, key, r, made)) {
+        told[key] = nowStr_();
+        saveTold();                     // بی‌درنگ، نه پس از حلقه
+        out.ready.push(name);
+      }
     }
   }
 
-  try { props_().setProperty(PK.VINT_TOLD, JSON.stringify(told)); } catch (e1) {}
-  props_().setProperty(PK.VINT_RAT, nowStr_());
+  saveTold();
+  if (out.moved > 0) props_().setProperty(PK.VINT_RAT, nowStr_());
   try { props_().setProperty(PK.VINT_RREV, String(doc.rev || '')); } catch (e2) {}
   return out;
 }
@@ -548,9 +736,20 @@ function vintAnnounce_(name, key, r, samples) {
              'نشده — و ساختش به اجازهٔ خودِ شما بسته است.');
 
   var body = lines.join('\n');
-  try { mailQueue_('گویندهٔ تازه', '✅ گویندهٔ تازه آماده شد: ' + name, body); } catch (e) {}
-  try { tgSend_(body); } catch (e2) {}
-  try { logLine_('گویندهٔ تازه آماده شد: ' + name + ' (' + key + ')'); } catch (e3) {}
+  /* ══ صفِ ایمیل را «رسید» فرض نکن (۷٫۲۲) ══
+     CLAUDE.md صریح است: «Callers that treat a queued notice as delivered
+     must check the return value» — چون صفِ خرابِ بی‌صدا یعنی هشدار گم
+     می‌شود، که دقیقاً همان چیزی است که هشدار برایش هست. ۷٫۲۱ مقدارِ
+     برگشتی را دور می‌ریخت و `told` را مهر می‌زد، پس تنها اعلامِ این
+     قابلیت برای همیشه از بین می‌رفت. */
+  var mailed = false, tg = false;
+  try { mailed = (mailQueue_('گویندهٔ تازه', '✅ گویندهٔ تازه آماده شد: ' + name, body) !== false); }
+  catch (e) { mailed = false; }
+  try { tg = (tgSend_(body) !== false); } catch (e2) { tg = false; }
+  try { logLine_('گویندهٔ تازه آماده شد: ' + name + ' (' + key + ') — ' +
+                 'ایمیل: ' + (mailed ? 'صف' : 'نشد') + ' · تلگرام: ' + (tg ? 'رفت' : 'نشد')); } catch (e3) {}
+  // هیچ‌کدام نرفت ⇒ اعلام انجام نشده؛ فردا دوباره.
+  return mailed || tg;
 }
 
 /**
@@ -559,6 +758,14 @@ function vintAnnounce_(name, key, r, samples) {
  * درسِ ۵٫۹۰: صاحبِ برنامه هیچ شیتی را باز نمی‌کند، پس چیزی که فقط در یک
  * شیت زندگی کند دیده نمی‌شود. و سکوت را نمی‌شود از سلامت تشخیص داد.
  */
+function vintCount_(out, step) {
+  if (step === VINT_ST.READY) out.ready++;
+  else if (step === VINT_ST.GIVEUP) out.abandoned++;
+  else if (step === VINT_ST.THIN) out.thin++;
+  else if (!step || step === VINT_ST.SEEN || step === VINT_ST.QUEUED) out.waiting++;
+  else out.working++;              // آموزش، سنجش، ناموفق، و هر چیزِ دیگر
+}
+
 function vintStatus_(hub) {
   var out = { ok: true, speakers: [], ready: 0, working: 0, waiting: 0,
               abandoned: 0, thin: 0, bad: 0, stuckDays: 0, line: '', error: '' };
@@ -566,6 +773,17 @@ function vintStatus_(hub) {
   try {
     var scan = vintScan_();
     out.bad = (scan.bad || []).length;
+    /* ══ «نشد» با «خالی» یکی نیست (۷٫۲۲) ══
+       `vintScan_` خطا را داخل خودش می‌گیرد و `{speakers:[]}` برمی‌گرداند.
+       تا ۷٫۲۱ هیچ‌کس `scan.error` را نمی‌خواند، پس یک قطعیِ درایو دقیقاً
+       شبیهِ «پوشه خالی است» گزارش می‌شد — و بدتر، صف با صفر گوینده
+       بازنویسی می‌شد و اکشن می‌شنید «کسی نیست». */
+    if (scan.error) {
+      out.ok = false; out.error = scan.error;
+      out.line = 'گویندهٔ تازه: پوشه خوانده نشد — ' + scan.error +
+                 '. تا وقتی این درست نشود، «هیچ گوینده‌ای نیست» را باور نکنید.';
+      return out;
+    }
     var state = vintState_(hub);
     var seen = {};
 
@@ -577,11 +795,7 @@ function vintStatus_(hub) {
                           files: sp.files.length, estMinutes: vintEstMinutes_(sp.bytes),
                           minutes: cur ? cur.minutes : '', sim: cur ? cur.sim : '',
                           tries: cur ? cur.tries : 0, at: cur ? cur.at : '' });
-      if (step === VINT_ST.READY) out.ready++;
-      else if (step === VINT_ST.GIVEUP) out.abandoned++;
-      else if (step === VINT_ST.THIN) out.thin++;
-      else if (step === VINT_ST.SEEN || step === VINT_ST.QUEUED) out.waiting++;
-      else out.working++;
+      vintCount_(out, step);
     }
     // گوینده‌ای که در کارنامه هست ولی فایل‌هایش دیگر در پوشه نیستند — آماده
     // بوده و کاربر پوشه‌اش را برداشته. گم نمی‌شود.
@@ -591,24 +805,28 @@ function vintStatus_(hub) {
       out.speakers.push({ key: k, name: s2.name, step: s2.step, files: 0,
                           estMinutes: 0, minutes: s2.minutes, sim: s2.sim,
                           tries: s2.tries, at: s2.at, gone: true });
-      if (s2.step === VINT_ST.READY) out.ready++;
-      else if (s2.step === VINT_ST.GIVEUP) out.abandoned++;
+      /* ══ گویندهٔ «رفته» هم باید در یک سطل بیفتد (۷٫۲۲) ══
+         تا ۷٫۲۱ فقط «آماده» و «رهاشده»ی این شاخه شمرده می‌شدند. پس
+         گوینده‌ای که فایل‌هایش برداشته شده ولی هنوز در «دیده‌شد» گیر
+         کرده، در هیچ سطلی نمی‌افتاد: `waiting + working` صفر می‌شد،
+         دروازهٔ گیرکردن باز نمی‌شد، و سطرِ روزانه **خالی** درمی‌آمد —
+         «گویندهٔ تازه —» و هیچ. خالی‌بودنِ سطر بدترین حالت است: نه خبر
+         است نه هشدار، فقط شبیهِ سلامت است. */
+      vintCount_(out, s2.step);
     }
 
+    /* ══ دو مشکل می‌توانند با هم باشند (۷٫۲۲) ══
+       ۷٫۲۱ اینجا `return` می‌کرد: کلِ سطر با پیامِ شناسه جایگزین می‌شد و
+       — بدتر — `vintStuckDays_` اصلاً حساب نمی‌شد. یعنی جابه‌جا شدنِ
+       فایلِ صف، همان چیزی که گوینده‌ها را زمین می‌گذارد، دروازهٔ
+       «گیرکرده» را هم کور می‌کرد. مشکلِ دوم به سطر **اضافه** می‌شود، نه
+       اینکه جایش را بگیرد. */
     var qi = vintQueueIdOk_();
-    if (!qi.ok) {
-      out.queueId = qi;
-      out.ok = false;
-      out.line = 'گویندهٔ تازه: شناسهٔ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
-                 '» عوض شده — اکشن دنبالِ ' + qi.want + ' می‌گردد ولی فایل حالا ' +
-                 qi.got + ' است. تا به‌روز نشدنِ VOICE_QUEUE_ID، هیچ گوینده‌ای ' +
-                 'آموزش نمی‌بیند.';
-      return out;
-    }
-    out.stuckDays = vintStuckDays_();
+    if (!qi.ok) { out.queueId = qi; out.ok = false; }
+    out.stuckDays = vintStuckDays_(hub);
     var days = Math.max(1, Number(CFG.VOICE_STUCK_DAYS) || 3);
     var stuck = (out.waiting + out.working) > 0 && out.stuckDays >= days;
-    out.ok = !stuck;
+    out.ok = !stuck && !out.queueId;   // یکی سالم‌بودن را باطل می‌کند، هر دو که باشند هم
 
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
     if (!out.speakers.length) {
@@ -623,11 +841,19 @@ function vintStatus_(hub) {
       if (out.thin) bits.push('دادهٔ کم: ' + fa(out.thin));
       if (out.abandoned) bits.push('رهاشده: ' + fa(out.abandoned));
       if (out.bad) bits.push('فایلِ نامربوط: ' + fa(out.bad));
+      // سطرِ خالی نه خبر است نه هشدار — فقط شبیهِ سلامت است.
+      if (!bits.length) bits.push('' + fa(out.speakers.length) + ' گوینده در کارنامه');
       out.line = 'گویندهٔ تازه — ' + bits.join(' · ');
       if (stuck) {
         out.line += ' — و ' + fa(out.stuckDays) + ' روز است هیچ پاسخی از ' +
                     'گردش‌کارِ آموزش نرسیده.';
       }
+    }
+    if (out.queueId) {
+      out.line += ' ⚠️ شناسهٔ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
+                  '» عوض شده — اکشن دنبالِ ' + out.queueId.want + ' می‌گردد ولی ' +
+                  'فایل حالا ' + out.queueId.got + ' است. تا به‌روز نشدنِ ' +
+                  'VOICE_QUEUE_ID هیچ گوینده‌ای آموزش نمی‌بیند.';
     }
   } catch (e) {
     out.error = e.message; out.ok = false;
@@ -636,18 +862,37 @@ function vintStatus_(hub) {
   return out;
 }
 
-/** چند روز است صف نوشته شده و پاسخی نیامده. */
-function vintStuckDays_() {
+/**
+ * چند روز است که یک گویندهٔ ناتمام هیچ حرکتی نکرده.
+ *
+ * ══ چرا از تاریخچه و نه از یک ویژگی (۷٫۲۲) ══
+ *
+ * نسخهٔ ۷٫۲۱ این را از `PK.VINT_QAT` می‌خواند، و `vintQueue_` همان ویژگی
+ * را **هر شب** دوباره مهر می‌زد. یعنی جواب همیشه صفر بود و یافتهٔ
+ * `voice-intake-stuck` ساختاراً نمی‌توانست ثبت شود. آزمونش هم سبز بود،
+ * چون خودش دستی مقدارِ نُه‌روزه می‌نوشت — حالتی که موتورِ در حالِ اجرا
+ * هرگز به آن نمی‌رسد.
+ *
+ * سؤالِ واقعی این است: «کدام گوینده بیشترین مدت است که تکان نخورده؟» و
+ * جوابش در ستونِ «زمان» تبِ کارنامه است — جایی که هیچ‌کس نمی‌تواند
+ * ناخواسته تازه‌اش کند.
+ */
+function vintStuckDays_(hub) {
+  var worst = 0;
   try {
-    var q = props_().getProperty(PK.VINT_QAT) || '';
-    if (!q) return 0;
-    var qd = new Date(q).getTime();
-    if (!isFinite(qd)) return 0;
-    var r = props_().getProperty(PK.VINT_RAT) || '';
-    var rd = r ? new Date(r).getTime() : 0;
-    if (isFinite(rd) && rd >= qd) return 0;
-    return Math.floor((new Date().getTime() - qd) / 86400000);
-  } catch (e) { return 0; }
+    var st = vintState_(hub), now = new Date().getTime();
+    for (var k in st) {
+      if (!Object.prototype.hasOwnProperty.call(st, k)) continue;
+      var s = st[k];
+      if (!s.step || vintIsDone_(s.step)) continue;
+      var t = 0;
+      try { t = new Date(String(s.at || '').replace(' ', 'T')).getTime(); } catch (eT) {}
+      if (!isFinite(t) || t <= 0) continue;
+      var d = Math.floor((now - t) / 86400000);
+      if (d > worst) worst = d;
+    }
+  } catch (e) {}
+  return worst;
 }
 
 /**
@@ -709,12 +954,24 @@ function vintRetire_() {
   try {
     var state = vintState_();
     var scan = vintScan_();
+    if (scan.error) return out;          // «نشد» ≠ «کسی نیست»
     if (!scan.speakers.length) return out;
     var par = vintCloneFolder_(), arc = null;
+    var keep = vintKeepSet_();           // یک بار خوانده می‌شود، نه یک بار به ازای هر گوینده
 
     for (var i = 0; i < scan.speakers.length; i++) {
       var sp = scan.speakers[i], cur = state[sp.key] || null;
       if (!cur || !vintIsDone_(cur.step)) continue;   // هنوز کار دارد
+      /* ══ گویندهٔ «از قبل آماده» دست نمی‌خورد (۷٫۲۲) ══
+         رضوی با `preexisting` در `docs/voices.json` نشسته، و نمونه‌هایش
+         همان هشت ضبطی‌اند که `tools/voicetrain.py` با شناسه برمی‌دارد و
+         `voice-lab.yml` برای هر سنجش دانلود می‌کند — هر دو **ناشناس**،
+         پس هر دو به «هرکس با لینک» نیاز دارند. ۷٫۲۱ شبِ یازدهم پس از
+         نصب اشتراک را پس می‌گرفت و پوشه را بایگانی می‌کرد، و از آن پس
+         هر آموزش و هر سنجش با خطایی که هیچ‌چیز را نام نمی‌برد شکست
+         می‌خورد. CLAUDE.md همین کارها را «معلق» فهرست کرده: دورهای ۲۶ و
+         ۲۹ هنوز سنجیده نشده‌اند. */
+      if (keep[sp.key]) continue;
       var t = 0;
       try { t = new Date(cur.at).getTime(); } catch (eT) {}
       if (!isFinite(t) || t > cut) continue;
@@ -801,11 +1058,13 @@ function vintNightly_(force) {
   var hub = null;
   try { hub = getHub_(); } catch (eH) {}
 
-  try { out.ingest = vintIngest_(hub); } catch (e1) { logLine_('خواندنِ پاسخِ گویندگان ناموفق: ' + e1.message); }
+  try { out.ingest = vintIngest_(hub); }
+  catch (e1) { try { logLine_('خواندنِ پاسخِ گویندگان ناموفق: ' + e1.message); } catch (e1b) {} }
 
   var scan = null, state = null;
   try {
     scan = vintScan_();
+    if (scan.error) throw new Error('پوشه خوانده نشد: ' + scan.error);
     state = vintState_(hub);
     // گویندهٔ تازه‌ای که هنوز هیچ ردیفی ندارد: همان شب ثبت می‌شود، تا
     // «از کِی دیده شد» جوابِ قابلِ وارسی داشته باشد.

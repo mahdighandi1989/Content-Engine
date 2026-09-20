@@ -89,6 +89,14 @@ ok('۴.۴ خودِ فایلِ صف هم اشتراک گرفت',
      const it = outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE));
      return it.hasNext() && it.next().getSharingAccess() === 'ANYONE_WITH_LINK';
    })());
+/* در ماکت شناسهٔ فایل‌ها ساختگی است، پس وارسیِ جابه‌جاییِ شناسه برای هر
+   بخشِ دیگری هم زنگ می‌زند. همان‌جا که فایل ساخته شد، پیکربندی را با آن
+   جور می‌کنیم؛ بخشِ ۹ خودش عمداً خرابش می‌کند. */
+const REAL_QID = CFG.VOICE_QUEUE_ID;
+(function () {
+  const it = outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE));
+  if (it.hasNext()) CFG.VOICE_QUEUE_ID = it.next().getId();
+})();
 const key0 = q1.speakers[0].key;
 vintLog_(hub, { key: key0, name: q1.speakers[0].name, step: VINT_ST.READY, result: 'ok' });
 const q2 = vintQueue_(hub, vintScan_(), vintState_(hub));
@@ -170,11 +178,31 @@ ok('۷.۷ همان پاسخ دوباره اعلام نمی‌شود', sent.lengt
    'هر شب یک اعلامِ تکراری = اعلامی که خوانده نمی‌شود');
 
 console.log('\n══ ۸) درخواستی که بی‌پاسخ بماند، خودش یافته است ══');
-props_().setProperty(PK.VINT_QAT, new Date(Date.now() - 9 * 86400000).toISOString());
-props_().deleteProperty(PK.VINT_RAT);
-ok('۸.۱ روزهای بی‌پاسخ شمرده می‌شود', vintStuckDays_() >= 8);
-props_().setProperty(PK.VINT_RAT, new Date().toISOString());
-ok('۸.۲ پاسخِ تازه‌تر یعنی گیر نکرده', vintStuckDays_() === 0);
+/* ۷٫۲۱ این را از `PK.VINT_QAT` می‌خواند و `vintQueue_` همان را هر شب
+   دوباره مهر می‌زد، پس جواب همیشه صفر بود. آزمونِ قبلی سبز بود چون خودش
+   دستی مقدارِ نُه‌روزه می‌نوشت — حالتی که موتورِ در حالِ اجرا هرگز به آن
+   نمی‌رسد. حالا از تاریخچه خوانده می‌شود و آزمون هم از همان‌جا. */
+const stuckHub = getHub_();
+const ageRow = (days) => {
+  const sh = vintTab_(stuckHub), last = sh.getLastRow();
+  sh.getRange(last, VC.AT).setValue(
+    new Date(Date.now() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19));
+};
+const KS = 'spk-stuck';
+vintLog_(stuckHub, { key: KS, name: 'منتظر', step: VINT_ST.SEEN, result: 'ok' });
+ageRow(9);
+ok('۸.۱ گویندهٔ ۹ روز بی‌حرکت شمرده می‌شود', vintStuckDays_(stuckHub) >= 8);
+ok('۸.۲ و یک دورِ صف آن را صفر نمی‌کند',
+   (function () { vintQueue_(stuckHub, vintScan_(), vintState_(stuckHub));
+                  return vintStuckDays_(stuckHub) >= 8; })(),
+   'باگِ ۷٫۲۱: زنگی که هر شب خودش را از نو کوک می‌کرد');
+ok('۸.۳ و یافته ثبت می‌شود',
+   (function () {
+     const st = vintStatus_(stuckHub);
+     return st.ok === false && vintStuckCheck_(stuckHub, st) === true;
+   })());
+vintLog_(stuckHub, { key: KS, name: 'منتظر', step: VINT_ST.READY, result: 'ok' });
+ok('۸.۴ گامِ پایانی دیگر «گیرکرده» نیست', vintStuckDays_(stuckHub) === 0);
 
 console.log('\n══ ۹) شناسهٔ صف — سکوتی که یک بار در این مخزن گران تمام شد ══');
 const realQ = CFG.VOICE_QUEUE_ID;
@@ -183,6 +211,9 @@ ok('۹.۱ شناسهٔ جابه‌جاشده گرفته می‌شود', vintQueu
 const stq = vintStatus_(hub);
 ok('۹.۲ و در سطرِ روزانه صریح گفته می‌شود',
    stq.ok === false && stq.line.indexOf('شناسهٔ') !== -1);
+ok('۹.۳ ولی سطر را نمی‌بلعد و شمارشِ گیرکردن را کور نمی‌کند',
+   stq.line.indexOf('گویندهٔ تازه —') === 0 && typeof stq.stuckDays === 'number',
+   'باگِ ۷٫۲۱: return زودهنگام، هم سطر را می‌خورد هم دروازهٔ گیرکردن را');
 CFG.VOICE_QUEUE_ID = realQ;
 
 console.log('\n══ ۱۰) سطرِ روزانه — هر روز، حتی وقتی هیچ خبری نیست ══');
@@ -249,6 +280,138 @@ ok('۱۳.۲ و دو نسخهٔ هم‌نام نمی‌مانَد',
 global.UrlFetchApp.fetch = realFetch;
 global.tgSend_ = realTg; global.mailQueue_ = realMq;
 
+console.log('\n══ ۱۶) هویتِ گوینده — دو نفر هرگز یکی نشوند، یک نفر هرگز دو تا ══');
+ok('۱۶.۱ تکهٔ لاتینِ مشترک دو نفر را یکی نمی‌کند',
+   vintSlug_('سارا 01') !== vintSlug_('نیما 01') &&
+   vintSlug_('مریم احمدی (mp3)') !== vintSlug_('علی رضایی (mp3)'),
+   'باگِ ۷٫۲۱: هر دو کلیدِ «01» می‌گرفتند — یک مدل روی دو صدا');
+ok('۱۶.۲ نیم‌فاصله/ي عربی/ك عربی/فاصلهٔ دوتایی یک نفرند',
+   [['بهروز', 'رضوی'].join('\u200c'), 'بهروز رضوي', 'بهروز  رضوی', ' بهروز رضوی ']
+     .every(v => vintSlug_(v) === vintSlug_('بهروز رضوی')),
+   'وگرنه یک نفر چند بار آموزش می‌دید و چند بار ✅ می‌گرفت');
+ok('۱۶.۳ کلیدِ بذرِ رضوی همان می‌مانَد', vintSlug_('بهروز رضوی') === 'spk-19iuegd',
+   'docs/voices.json به همین کلید بسته است');
+ok('۱۶.۴ دو نامِ لاتینِ بلند که تا ۴۰ نویسه یکی‌اند، دو کلیدند',
+   vintSlug_('a'.repeat(45) + 'x') !== vintSlug_('a'.repeat(45) + 'y'));
+ok('۱۶.۵ نامِ لاتین هنوز خوانا می‌مانَد', vintSlug_('Ali Rezaei') === 'ali-rezaei');
+
+console.log('\n══ ۱۷) پاسخِ بدشکل — خبرِ دروغ ممنوع ══');
+const said = [];
+// هر اعلام دو پیام می‌سازد (ایمیل + تلگرام)، پس شمردنِ پیام‌ها شمردنِ
+// اعلام‌ها نیست. عنوانِ ایمیل دقیقاً یکی به ازای هر اعلام است.
+const announces = () => said.filter(t => t.indexOf('✅ گویندهٔ تازه آماده شد:') === 0 &&
+                                         t.indexOf('\n') === -1).length;
+const tgB = global.tgSend_, mqB = global.mailQueue_, ufB = global.UrlFetchApp.fetch;
+global.tgSend_ = t => { said.push(String(t)); return true; };
+global.mailQueue_ = (k, t) => { said.push(String(t)); return true; };
+let doc17 = null;
+global.UrlFetchApp.fetch = url => String(url).indexOf('voices.json') !== -1
+  ? { getResponseCode: () => 200, getContentText: () => JSON.stringify(doc17) }
+  : { getResponseCode: () => 200, getContentText: () => '# g\n' + 'x'.repeat(300),
+      getBlob: () => Utilities.newBlob('RIFF', 'audio/wav', 's.wav') };
+const h17 = getHub_();
+doc17 = { rev: 1, speakers: [{ name: 'phantom', stage: VINT_ST.READY }] };
+const r17 = vintIngest_(h17);
+ok('۱۷.۱ speakers آرایه‌ای رد می‌شود', r17.seen === 0 && !!r17.error,
+   'باگِ ۷٫۲۱: گویندهٔ خیالیِ «۰» ساخته می‌شد و ✅ اعلام می‌شد');
+// یافتهٔ «شکلِ پاسخ غلط است» خودش هشدار دارد و باید داشته باشد؛ آنچه
+// نباید برود، خبرِ دروغِ «گویندهٔ تازه آماده شد» است.
+ok('۱۷.۲ و هیچ «✅ آماده»ی دروغی نمی‌رود',
+   !said.some(t => t.indexOf('گویندهٔ تازه آماده شد') !== -1),
+   'باگِ ۷٫۲۱: اندیسِ آرایه گویندهٔ خیالی می‌ساخت و ✅ اعلام می‌شد');
+doc17 = { rev: 2, speakers: { k1: { name: 'ع', stage: 7 } } };
+vintIngest_(h17);
+ok('۱۷.۳ گامِ ناشناس «ناموفق» می‌شود، نه یک گامِ تازه',
+   vintState_(h17)['k1'].step === VINT_ST.FAIL,
+   'وگرنه «۷» پایانی نبود و تا ابد هر شب دوباره به صف می‌رفت');
+ok('۱۷.۴ و تلاش شمرده می‌شود، پس بالاخره رها می‌شود',
+   (function () {
+     for (let i = 0; i < 4; i++) {
+       doc17 = { rev: 3 + i, speakers: { k1: { name: 'ع', stage: 7, runId: 'r' + i } } };
+       vintIngest_(h17);
+     }
+     return vintState_(h17)['k1'].step === VINT_ST.GIVEUP;
+   })());
+
+console.log('\n══ ۱۸) اعلام — نه دو بار، نه هرگز ══');
+doc17 = { rev: 40, speakers: { k2: { name: 'تازه', stage: VINT_ST.READY, samples: [] } } };
+vintIngest_(h17);
+const n18 = announces();
+ok('۱۸.۱ گویندهٔ تازه اعلام می‌شود', n18 === 1);
+vintIngest_(h17); vintIngest_(h17);
+ok('۱۸.۲ و دوباره نمی‌شود', announces() === n18);
+// ردیف هست ولی told پاک شده — همان چیزی که یک اجرای کشته‌شده می‌سازد
+props_().deleteProperty(PK.VINT_TOLD);
+vintIngest_(h17);
+ok('۱۸.۳ ردیفِ آمادهٔ بی‌اعلام، اعلام می‌شود', announces() === n18 + 1,
+   'باگِ ۷٫۲۱: told پس از حلقه ذخیره می‌شد، پس یک اجرای کشته‌شده ' +
+   'گویندهٔ آماده را برای همیشه بی‌اعلام می‌گذاشت');
+props_().setProperty(PK.VINT_TOLD, '[1,2,3]');
+const n18b = announces();
+vintIngest_(h17); vintIngest_(h17);
+ok('۱۸.۴ told خراب نگهبان را از کار نمی‌اندازد', announces() === n18b + 1,
+   'یک آرایه از `|| {}` رد می‌شد و هر شب همان خبر می‌رفت');
+global.mailQueue_ = () => false; global.tgSend_ = () => { throw new Error('down'); };
+props_().deleteProperty(PK.VINT_TOLD);
+doc17 = { rev: 50, speakers: { k3: { name: 'سوم', stage: VINT_ST.READY, samples: [] } } };
+vintIngest_(h17);
+let told3 = {}; try { told3 = JSON.parse(props_().getProperty(PK.VINT_TOLD) || '{}'); } catch (e) {}
+ok('۱۸.۵ خبری که نرفت، «رفته» علامت نمی‌خورد', !told3['k3'],
+   'CLAUDE.md: صفِ ایمیل را رسیده فرض نکن — run_v43_tests ۱۹');
+global.tgSend_ = tgB; global.mailQueue_ = mqB;
+
+console.log('\n══ ۱۹) قطعیِ درایو ≠ پوشهٔ خالی ══');
+const realScan = global.vintScan_;
+global.vintScan_ = () => ({ speakers: [], bad: [], error: 'Drive rate limit' });
+const st19 = vintStatus_(h17);
+ok('۱۹.۱ خطا در سطرِ روزانه دیده می‌شود',
+   st19.ok === false && st19.line.indexOf('خوانده نشد') !== -1);
+const before19 = (vintReadQueue_() || {}).rev || 0;
+vintNightly_(true);
+ok('۱۹.۲ و صف با «هیچ‌کس نیست» بازنویسی نمی‌شود',
+   ((vintReadQueue_() || {}).rev || 0) === before19,
+   'وگرنه اکشن می‌شنود کسی در نوبت نیست');
+global.vintScan_ = realScan;
+global.UrlFetchApp.fetch = ufB;
+
+console.log('\n══ ۲۰) رضویِ از‌قبل‌آماده بایگانی و بی‌اشتراک نمی‌شود ══');
+/* نمونه‌هایش همان هشت ضبطی‌اند که voicetrain.py و voice-lab.yml ناشناس
+   برمی‌دارند؛ پس گرفتنِ اشتراکشان یعنی هر آموزش و هر سنجش از کار بیفتد. */
+const cfK = vintCloneFolder_();
+const rzFold = cfK.createFolder('بهروز رضوی');
+const rzFile = rzFold.createFile('ضبط ۱.mp3', 'x'.repeat(999), 'audio/mpeg');
+const docsJson = JSON.parse(fs.readFileSync('docs/voices.json', 'utf8'));
+global.UrlFetchApp.fetch = url => String(url).indexOf('voices.json') !== -1
+  ? { getResponseCode: () => 200, getContentText: () => JSON.stringify(docsJson) }
+  : { getResponseCode: () => 404, getContentText: () => '' };
+ok('۲۰.۱ بذر با کلیدی است که پوشه تولید می‌کند',
+   !!docsJson.speakers[vintSlug_('بهروز رضوی')],
+   'کلیدِ ناجور یعنی رضوی گویندهٔ تازه دیده می‌شود و ۲۴۰ دقیقه دوباره آموزش می‌بیند');
+vintQueue_(h17, vintScan_(), vintState_(h17));
+vintIngest_(h17);
+(function () {
+  const sh = vintTab_(h17), last = sh.getLastRow();
+  sh.getRange(last, VC.AT).setValue(
+    new Date(Date.now() - 60 * 86400000).toISOString().replace('T', ' ').slice(0, 19));
+})();
+vintRetire_();
+ok('۲۰.۲ اشتراکش پس گرفته نمی‌شود',
+   DriveApp.getFileById(rzFile.getId()).getSharingAccess() === 'ANYONE_WITH_LINK',
+   'باگِ ۷٫۲۱: شبِ یازدهم پس از نصب، هر آموزش و سنجش خاموش می‌شد');
+ok('۲۰.۳ و پوشه‌اش بایگانی نمی‌شود',
+   vintScan_().speakers.some(x => x.name === 'بهروز رضوی'));
+global.UrlFetchApp.fetch = ufB;
+
+console.log('\n══ ۲۱) ترتیبِ تاریخچه از ستونِ زمان می‌آید، نه از جای ردیف ══');
+const h21 = getHub_(), K21 = 'spk-order';
+const sh21 = vintTab_(h21);
+sh21.appendRow(['2026-09-19 10:00:00', K21, 'ترتیب', VINT_ST.READY, 'ok', 1, '', '', '', '']);
+sh21.appendRow(['2026-09-01 10:00:00', K21, 'ترتیب', VINT_ST.TRAIN, 'ok', 1, '', '', '', '']);
+ok('۲۱.۱ تازه‌ترین زمان برنده است، نه آخرین ردیف',
+   vintState_(h21)[K21].step === VINT_ST.READY,
+   'مرتب‌کردنِ یک تبِ انسانی نباید گامِ همه را عوض کند — و نباید ' +
+   'گوینده‌ای را وسطِ آموزش بایگانی کند');
+
 console.log('\n══ ۱۴) واژه‌ها در دو طرفِ مرز یکی‌اند ══');
 const py = fs.readFileSync('tools/voiceintake.py', 'utf8');
 for (const [k, v] of Object.entries(VINT_ST)) {
@@ -259,7 +422,7 @@ for (const [k, v] of Object.entries(VINT_ST)) {
 console.log('\n══ ۱۵) پیکربندیِ صف با گردش‌کار جور است ══');
 const wf = fs.readFileSync('.github/workflows/voice-intake.yml', 'utf8');
 ok('۱۵.۱ شناسهٔ صف در هر دو جا یکی است',
-   wf.indexOf(String(CFG.VOICE_QUEUE_ID)) !== -1,
+   wf.indexOf(String(REAL_QID)) !== -1,
    'دو شناسهٔ متفاوت = صفی که هیچ‌وقت خوانده نمی‌شود، بی هیچ خطایی');
 const trainWf = fs.readFileSync('.github/workflows/voice-train.yml', 'utf8');
 ok('۱۵.۲ نامِ artifact به گوینده بسته است',

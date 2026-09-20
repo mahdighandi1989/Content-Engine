@@ -931,6 +931,52 @@ episode. The bridge is not built, and the owner said «تا نگفتم سمت پ
 A ready model is half the work, and the guide in Drive says so in plain words
 rather than letting the silence imply otherwise.
 
+## An alarm the alarm's own writer resets (7.22)
+
+7.21 shipped `voice-intake-stuck` with the right words, the right owner and the
+right threshold — and it could never fire. `vintQueue_` stamped `PK.VINT_QAT`
+every nightly run, and `vintStuckDays_` measured from that stamp. The number was
+always zero. Its test passed because the test hand-wrote a nine-day-old stamp,
+**a state the running engine cannot reach**.
+
+This is the fourth time in this file: `sfxAllow_`, `pruneEnrichFiles_`,
+`musicWish_`, `audit-attrib-low` — and now this. The new part worth carrying
+forward is the test-shaped version of it: **when a test has to construct the
+state by hand, ask whether the running system ever produces that state.** If it
+does not, the test is proving something about the test. The stuck count now
+derives from the history tab, which nothing else writes to.
+
+**Two people can also become one.** `vintSlug_` accepted any two-character Latin
+fragment as the key, so «سارا 01» and «نیما 01» both keyed `01` — one training
+folder, one model, two voices, nothing reported. 7.21's own headline was that
+the *cache* must never be shared between speakers; separating the cache of two
+people who share an identity saves nothing. Identity is the layer below the one
+you fixed. And the mirror defect: a ZWNJ or an Arabic ي made one person into
+several.
+
+**And the outside half had no behavioural test at all.** 46 suites were green
+while the measure job could never succeed — `voicelab.py` declares `--ref`
+required and the workflow never passed it; the error was swallowed by `|| echo`,
+a later `cp` always succeeded, so the speaker was recorded «آماده» and announced
+with the **unconverted** audio. The cross-boundary checks were all `indexOf`
+greps, and no blocker changed a string. `run_voicepipe_test.js` now extracts
+voicelab's required arguments from its own source and asserts the workflow
+passes them, and asserts every step importing `voicetrain` carries `VT_VOICE`
+(without it, `VOICE` defaults to `razavi` at import and the ladder prune silently
+removes nothing). That is `run_wiring_test.js` ۴٫۲ one layer out: **a guard that
+cannot see the workflow files leaves those doors open.**
+
+**A reference is not a constant.** The measure step held Razavi's recording fixed
+"so the numbers stay comparable". `rvcSim_` is cos(output, reference) — the
+reference *is* the identity being measured. Hold the source fixed; never the
+reference.
+
+**And a cache budget is repo-wide.** Making the concurrency group per-speaker so
+two people could train at once was correct in isolation and wrong in fact: one
+speaker occupies ~9.5 GB of a 10 GB repo-wide cache, so the second evicts the
+first, fails its resume gate, and is abandoned after three nights. The change
+made to enable parallelism was the thing that doomed the second speaker.
+
 ## Seeing is not the same as being obliged (7.18 / 7.19)
 
 Between 10 and 20 September not one `_ENRICH-REQ-*` was written. Every day
