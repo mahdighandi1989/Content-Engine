@@ -1485,6 +1485,12 @@ function healthCheck() {
      «کار متوقف شده» از بیرون یک شکل دارند و فقط عدد از هم جدایشان می‌کند. */
   try {
     var emS = embStatus_(hub);
+    /* ══ دروازه این‌جا هم زده می‌شود، نه فقط در کارِ شبانه (۷٫۲۷) ══
+       `embGates_` تا ۷٫۲۶ فقط از `embNightly_` صدا زده می‌شد — یعنی
+       شبی که نگهبانِ زمان اجازهٔ اجرای آن بند را نمی‌داد، هشدارِ
+       «گیرکرده» هم زده نمی‌شد. دقیقاً در همان حالتی که هشدار لازم است،
+       خاموش بود. همان شکلِ زنگِ ۷٫۲۲، یک لایه بیرون‌تر. */
+    try { embGates_(hub, emS, null); } catch (eEg) {}
     if (emS && emS.line) {
       var emBad = (emS.ok === false) || !!emS.stale ||
                   (emS.stuckDays >= Math.max(1, Number(CFG.EMB_STUCK_DAYS) || 3) && emS.pending > 0);

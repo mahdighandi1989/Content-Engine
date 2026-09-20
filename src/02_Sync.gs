@@ -331,7 +331,10 @@ function recToRow_(r) {
              رو به جلو در فایلِ سرهم‌شده پنهان می‌مانَد و در هر بارگذارِ
              جزئیِ tests/ به ReferenceError می‌خورد. خالی بودنشان خودش
              پیام دارد: «هنوز نوبتش نشده». */
-          '', '', ''];
+          '', '', '',
+          // و «مشخصات استخراج‌شده» (۷٫۲۷) — این یکی همین‌جا پر می‌شود،
+          // چون ردیفِ خامِ منبع فقط همین یک بار در دست است.
+          String(r.specs || '').slice(0, Math.max(120, Number(CFG.EMB_SPECS_MAX) || 700))];
 }
 
 /**
@@ -452,6 +455,11 @@ function syncCatalog() {
           batch = CFG.SYNC_CHUNK_WIDE;
         }
 
+        /* مجموعهٔ ستون‌هایی که در «مشخصات» تکرار نمی‌شوند — یک بار به
+           ازای هر تب، نه یک بار به ازای هر ردیف (۷٫۲۷). */
+        var specSkip = {};
+        try { specSkip = srcSpecsSkip_(headers, m); } catch (eSk) {}
+
         var ckey = srcCursorKey_(src.key, tabName);
         var cursor = parseInt(props_().getProperty(ckey) || '1', 10);
         if (cursor >= lastRow) continue;
@@ -491,6 +499,8 @@ function syncCatalog() {
                                                 : buildPhotoRec_(vals[r], m);
               } catch (e) { continue; }
               if (!rec.fileId) continue;
+              try { rec.specs = srcSpecsText_(headers, vals[r], specSkip); }
+              catch (eSp1) { rec.specs = ''; }
               // رفتار آزمودهٔ دو شیت اول دست‌نخورده می‌ماند
               if (rec.status && String(rec.status).toUpperCase().indexOf('SUCCESS') === -1) {
                 // srcErrorOf_ ممکن است همین ردیف را شمرده باشد؛ دوباره نشمار
@@ -512,6 +522,13 @@ function syncCatalog() {
 
             try { rec = buildAutoRec_(vals[r], m, kind, src.hint); } catch (e2) { continue; }
             if (!rec.fileId) continue;
+            /* ══ هرچه تحلیلگر استخراج کرده و در ردیفِ بانک جا نشده (۷٫۲۷) ══
+               تا ۷٫۲۶ از ۶۱ ستونِ شیتِ منبع حدودِ پانزده‌تا به بانک می‌رسید.
+               مدت زمان، اشخاص، تحلیل موسیقی، مشخصات فنی، تحلیل بصری —
+               هیچ‌کدام. پس نه در جست‌وجوی بانک بودند و نه در اثر انگشت،
+               و «یادم هست یه کلیپی با فلان مشخصه بود» جواب نمی‌گرفت. */
+            try { rec.specs = srcSpecsText_(headers, vals[r], specSkip); }
+            catch (eSp2) { rec.specs = ''; }
             if (badStatus_(rec.status)) continue;
 
             if (!chunked) { emit(classifyRec_(rec), false); continue; }

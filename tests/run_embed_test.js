@@ -169,7 +169,8 @@ ok('۷.۱ دور انجام شد', r7.ok, JSON.stringify({ made: r7.made, failed
 ok('۷.۲ هر پنج ردیف اثر انگشت گرفتند', r7.made === 5, String(r7.made));
 const v7 = shFin.getRange(2, COL.EMB_ID, 3, 3).getValues();
 ok('۷.۳ شناسه در شیت نشست', /^CE-/.test(String(v7[0][0])), String(v7[0][0]));
-ok('۷.۴ اثرانگشتِ متن هم نشست', /^[0-9a-f]{16}$/.test(String(v7[0][1])), String(v7[0][1]));
+ok('۷.۴ اثرانگشتِ متن و نسخهٔ دستور هم نشست',
+   /^[0-9a-f]{16}·و\d+$/.test(String(v7[0][1])), String(v7[0][1]));
 ok('۷.۵ وضعیت «ثبت‌شده» است', String(v7[0][2]).indexOf(EMB_ST.OK) === 0, String(v7[0][2]));
 ok('۷.۶ شناسه با محاسبهٔ مستقل می‌خواند',
    String(v7[0][0]) === embId_('V1', '2026-01-01'),
@@ -377,6 +378,141 @@ ok('۱۸.۱۰ و بودجهٔ لغوی کران‌دار می‌شود، نه ه
    String(collectOpts && collectOpts.budgetMs));
 globalThis.srchCollect_ = realCollect;
 globalThis.srchSemantic_ = realSem;
+
+console.log('\n══ ۲۰) مشخصاتِ استخراج‌شده — ستون‌هایی که تا ۷٫۲۶ دور ریخته می‌شدند ══');
+/* شیتِ منبعی با همان شکلِ واقعی: چند ستونِ شناخته‌شده و چند ستونِ تحلیلی
+   که `buildAutoRec_` هرگز برنمی‌داشت. */
+const sp = SpreadsheetApp.create('RESULT-SPECS');
+global.__SS[sp.getId()] = sp;
+const ssh = sp.insertSheet('Video Analysis');
+const SPEC_HDR = ['Timestamp', 'File_ID', 'File_Link', 'Duration', 'Persons_Identified',
+                  'Music_Analysis', 'Technical_Specs', 'Farsi_Transcription',
+                  'Vibe_Atmosphere', 'Main_Subject', 'Key_Points',
+                  'General_Executive_Summary', 'Status', 'Narrative_Elements'];
+ssh.appendRow(SPEC_HDR);
+ssh.appendRow(['2026-05-05 10:00:00', 'SPEC1', 'https://drive/x', '12:34',
+               'بهروز رضوی', 'موسیقیِ بی‌کلامِ آرام', '1080p · 48kHz',
+               'متنِ پیاده‌شده', 'آرام و شبانه', 'شبِ بارانی در تهران',
+               'نکتهٔ کلیدی', 'خلاصه', 'SUCCESS', 'روایتِ اول‌شخص']);
+const mSpec = srcMap_(SPEC_HDR);
+const skip = srcSpecsSkip_(SPEC_HDR, mSpec);
+const specTxt = srcSpecsText_(SPEC_HDR, ssh.getRange(2, 1, 1, SPEC_HDR.length).getValues()[0], skip);
+ok('۲۰.۱ مدت زمان وارد مشخصات می‌شود', specTxt.indexOf('12:34') !== -1, specTxt);
+ok('۲۰.۲ اشخاص هم', specTxt.indexOf('بهروز رضوی') !== -1);
+ok('۲۰.۳ تحلیل موسیقی هم', specTxt.indexOf('بی‌کلام') !== -1);
+ok('۲۰.۴ مشخصات فنی هم', specTxt.indexOf('1080p') !== -1);
+ok('۲۰.۵ و ستونِ تازه‌ای که هیچ‌کس نامش را در کد ننوشته',
+   specTxt.indexOf('روایتِ اول‌شخص') !== -1,
+   'فهرستِ سفیدِ دست‌نویس کهنه می‌شود؛ تحلیلگرها ستون اضافه می‌کنند');
+ok('۲۰.۶ سرستون هم می‌آید، نه فقط مقدار', specTxt.indexOf('Duration') !== -1,
+   'عددِ «12:34» بی واژهٔ «مدت» چیزی نمی‌گوید');
+ok('۲۰.۷ ستون‌هایی که از قبل در بانک‌اند تکرار نمی‌شوند',
+   specTxt.indexOf('شبِ بارانی') === -1 && specTxt.indexOf('متنِ پیاده‌شده') === -1);
+ok('۲۰.۸ و دفترداری هم نمی‌آید',
+   specTxt.indexOf('SUCCESS') === -1 && specTxt.indexOf('SPEC1') === -1 &&
+   specTxt.indexOf('https://drive') === -1);
+ok('۲۰.۹ سقفِ کل رعایت می‌شود',
+   specTxt.length <= (Number(CFG.EMB_SPECS_MAX) || 700));
+
+console.log('\n══ ۲۱) جبرانِ گذشته: ردیف‌هایی که پیش از ۷٫۲۷ ساخته شدند ══');
+const savedSrc2 = CFG.SOURCES;
+CFG.SOURCES = [{ key: 'spec', id: sp.getId(), title: 'منبعِ مشخصات', schema: 'auto' }];
+/* ردیفِ بانک همان کلید را دارد ولی ستونِ مشخصاتش خالی است — دقیقاً وضعِ
+   ۱۲ هزار ردیفی که امروز در بانک هستند. */
+const shSpec = mkCat('علمی و آموزشی', [
+  row({ id: 'SPEC1', date: '2026-05-05 10:00:00', topic: 'شبِ بارانی در تهران' })
+]);
+const specRow = shSpec.getLastRow();
+embRunDue_(20, 30000);
+ok('۲۱.۱ اول اثر انگشت می‌گیرد (بی مشخصات)',
+   String(shSpec.getRange(specRow, COL.EMB_ST).getValue()).indexOf(EMB_ST.OK) === 0);
+const bf = embSpecsBackfill_(500, 30000);
+ok('۲۱.۲ جبران ردیف را پیدا کرد', bf.ok && bf.filled === 1, JSON.stringify(bf));
+ok('۲۱.۳ مشخصات در بانک نشست',
+   String(shSpec.getRange(specRow, COL.SPECS).getValue()).indexOf('12:34') !== -1,
+   String(shSpec.getRange(specRow, COL.SPECS).getValue()).slice(0, 80));
+ok('۲۱.۴ و وضعیتِ اثر انگشت پاک شد تا از نو ساخته شود',
+   String(shSpec.getRange(specRow, COL.EMB_ST).getValue()) === '',
+   'مشخصاتی که بردار نبیندش، یک ستونِ پر و یک وعدهٔ نیم‌کاره است');
+embRunDue_(20, 30000);
+ok('۲۱.۵ دوباره ساخته شد',
+   String(shSpec.getRange(specRow, COL.EMB_ST).getValue()).indexOf(EMB_ST.OK) === 0);
+const bf2 = embSpecsBackfill_(500, 30000);
+ok('۲۱.۶ بارِ دوم چیزی نمی‌نویسد', bf2.filled === 0, String(bf2.filled));
+ok('۲۱.۷ و دورِ جبران خودش را تمام‌شده اعلام می‌کند', !!embSpecsDone_(), embSpecsDone_());
+ok('۲۱.۸ در شیتِ منبع چیزی نوشته نشد',
+   ssh.getLastColumn() === SPEC_HDR.length && ssh.getLastRow() === 2);
+/* و مهم‌ترین: مشخصات واقعاً در متنی که به مدل می‌رود هست. */
+EMB_CALLS = [];
+shSpec.getRange(specRow, COL.EMB_ST).setValue('');
+embRunDue_(20, 30000);
+ok('۲۱.۹ مشخصات در متنِ بردار هست',
+   EMB_CALLS.length > 0 &&
+   EMB_CALLS[0].requests.some(r => r.content.parts[0].text.indexOf('12:34') !== -1),
+   'وگرنه ستون پر است و جست‌وجو همان‌قدر کور');
+CFG.SOURCES = savedSrc2;
+
+console.log('\n══ ۲۲) دستورِ تازه یعنی ساختِ دوباره — درسِ ۵٫۹۵ ══');
+/* اگر فردا بفهمیم متنی که به مدل می‌رود ناقص است و درستش کنیم، ردیف‌های
+   قبلی باید از نو ساخته شوند. بی این، تمیزکردنِ ورودی آنچه را از قبل
+   نوشته شده درست نمی‌کند. */
+const doneBefore = embCounts_(hub).done;
+ok('۲۲.۱ نسخهٔ دستور در سلولِ اثر انگشت ثبت شده',
+   embFpVer_(String(shSpec.getRange(specRow, COL.EMB_FP).getValue())) === EMB_TEXT_VER);
+shSpec.getRange(specRow, COL.EMB_FP).setValue('aaaaaaaaaaaaaaaa·و1');
+const c22 = embCounts_(hub);
+ok('۲۲.۲ ردیفِ با دستورِ قدیمی «آماده» شمرده نمی‌شود',
+   c22.done === doneBefore - 1 && c22.oldVer === 1,
+   JSON.stringify({ done: c22.done, old: c22.oldVer }));
+ok('۲۲.۳ و در «مانده» می‌آید، وگرنه «چند شب تا پایان» دروغ می‌گوید',
+   c22.pending >= 1, String(c22.pending));
+EMB_CALLS = [];
+embRunDue_(20, 30000);
+ok('۲۲.۴ خودبه‌خود از نو ساخته شد',
+   embFpVer_(String(shSpec.getRange(specRow, COL.EMB_FP).getValue())) === EMB_TEXT_VER &&
+   EMB_CALLS.length > 0);
+ok('۲۲.۵ و سطرِ روزانه این را می‌گوید، نه اینکه بی‌صدا انجامش بدهد',
+   /دستورِ قدیمی/.test(embStatus_(hub).line) || embCounts_(hub).oldVer === 0,
+   embStatus_(hub).line);
+
+console.log('\n══ ۲۳) دروازه‌ها به کارِ شبانه گره نخورده‌اند ══');
+/* اگر نگهبانِ زمان اجازهٔ اجرای بندِ شبانه را ندهد، دقیقاً همان شبی است
+   که هشدارِ «گیرکرده» لازم است — و تا ۷٫۲۶ همان شب خاموش بود. */
+ok('۲۳.۱ وارسیِ سلامت هم دروازه را می‌زند',
+   /embGates_\(/.test(fs.readFileSync('src/08_Health.gs', 'utf8')),
+   'هشداری که فقط از مسیرِ گرسنه صدا زده شود، در قحطی ساکت است');
+
+console.log('\n══ ۲۴) خودآزمون با بازنویسی — آزمونی که توخالی نباشد ══');
+/* عنوانِ خودِ ردیف داخلِ متنی است که بردارش ساخته شده. پرس‌وجو با آن فقط
+   می‌گوید «ایندکس خراب نیست»، نه «جست‌وجو کار می‌کند»: اگر متنی که به
+   مدل می‌رود سیستماتیک غلط باشد، پرس‌وجو و سند هر دو همان غلط را دارند. */
+let PARA = null;
+const baseStub = global.__STUB;
+global.__STUB = (url, body) => {
+  if (url.indexOf('generateContent') !== -1 && PARA) {
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      text: JSON.stringify(PARA(body)) }] } }] } };
+  }
+  return baseStub(url, body);
+};
+PARA = (body) => {
+  const n = (String(body.contents[0].parts[0].text).match(/^\d+\) /gm) || []).length;
+  return { q: Array.from({ length: n }, (_, i) => 'بازنویسیِ شمارهٔ ' + (i + 1)) };
+};
+const t24 = embSelfTest_(2);
+ok('۲۴.۱ وقتی مدل هست، با بازنویسی آزموده می‌شود', t24.mode === 'بازنویسی', t24.mode);
+PARA = () => ({ q: ['فقط یکی'] });
+const t24b = embSelfTest_(3);
+ok('۲۴.۲ پاسخِ ناجورِ مدل پذیرفته نمی‌شود', t24b.mode === 'عنوان', t24b.mode);
+ok('۲۴.۳ و همین در گزارش گفته می‌شود، نه اینکه بی‌صدا آسان‌تر شود',
+   /بازنویسی نشد/.test(t24b.note), t24b.note,
+   'نبودِ مدل تأییدِ خاموش نیست');
+PARA = null;
+const t24c = embSelfTest_(2);
+ok('۲۴.۴ بی مدل هم آزمون می‌دود، ولی با نشانِ خودش', t24c.mode === 'عنوان');
+ok('۲۴.۵ و حالت در سطرِ روزانه دیده می‌شود',
+   /بازنویسی|عنوان/.test(embStatus_(hub).line) ||
+   !embStatus_(hub).selftest, embStatus_(hub).line);
 
 console.log('\n══ ۱۹) خاموشی ══');
 CFG.EMB_ON = false;

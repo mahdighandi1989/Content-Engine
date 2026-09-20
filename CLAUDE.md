@@ -984,6 +984,64 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## Fifteen columns out of sixty-one (7.27)
+
+Two questions from the owner, each of which exposed a real defect rather than
+needing reassurance.
+
+**"Does the fingerprint see only the extracted content, or the other source
+columns too — vibe, duration, everything the analyzer pulled out?"** The source
+sheets carry up to **61 columns**. `buildAutoRec_` mapped about fifteen. Duration,
+persons identified, music analysis, technical specs, visual and audio analysis,
+narrative elements — none of them ever reached the bank, so they were in neither
+the bank's search nor the fingerprint. Vibe was there; nothing else was.
+
+`srcSpecsText_` takes **everything else, by exclusion rather than by a whitelist**.
+Naming the useful columns one by one is the 5.95 shape: the analyzers add columns
+— several times this year — and every new one would silently stay out. So the rule
+is inverted: take every column that isn't already a bank field and isn't
+bookkeeping (timestamp, id, link, status, chunk counters). The header name travels
+with the value, because «12:34» without «مدت زمان» says nothing, and it is the
+header that makes "a clip about twelve minutes long" findable.
+
+Caps are 120 chars per field, 700 total, and that is a retrieval judgement, not a
+storage one: **breadth beats depth.** Six short clues find a thing; 700 characters
+of one long column finds it once. The cap also keeps a 29 MB hub from doubling.
+
+**"If something has been done wrong, are you sure the automation sees it, fixes
+it, and follows the fix through?"** Partly — and the missing part was serious.
+7.26 never touched a row that already had a fingerprint. So if the embedded text
+turned out to be wrong, fixing it would repair only future rows while twelve
+thousand existing ones stayed wrong forever, with nothing anywhere saying so. The
+exact thing this file already records for handout chapter titles in 5.95:
+*cleaning the input does not fix what is already written.* I built the same shape
+again, one version later.
+
+`EMB_TEXT_VER` is the fix: the recipe version rides in the fingerprint cell
+(`<hash>·و<ver>`), a row built under an older recipe is not counted as done, and
+the existing cursor rebuilds it. Bumping one integer re-embeds the whole bank over
+a few nights. And `runEmbedRebuild` is the door a human can open — 5.95 again: a
+gate nobody can open is not a gate, it is a dead end.
+
+**The alarm was wired only to the path that starves.** `embGates_` was called from
+`embNightly_` alone. The night the time guard skips that block is exactly the night
+"nothing is progressing" needs saying, and on that night nothing was said. The gate
+now also fires from `healthCheck`, which runs on its own schedule. This is the 7.22
+bell one layer further out: it isn't enough that the alarm exists and the threshold
+is right — check what has to succeed for it to ring at all.
+
+**And the self-test was quietly tautological.** It queried with the row's own
+title, which is inside the very text the vector was built from. That detects a
+broken index and nothing else: if the embedded text were systematically wrong — a
+mis-mapped column, a dropped field — the query and the document would carry the
+same error and the test would stay green. It now asks the model to restate the
+title in different words first, which is what the owner actually does. When the
+model is unavailable it falls back to the title **and reports `mode: 'عنوان'`**,
+because a test silently downgrading to its easy variant is worse than a test that
+fails. Its own new assertion caught a real bug on the first run: `geminiText_`
+returns a parsed object, and the extra `JSON.parse` made the paraphrase path
+return null every time — the test would have sat on "model unavailable" forever.
+
 ## The fingerprint the sheet cannot hold (section 35, 7.26)
 
 The owner asked whether smart search looks for *meaning* or only for synonyms.

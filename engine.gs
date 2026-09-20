@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.26
+ *  موتور محتوا و پادکست — نسخهٔ 7.27
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.26',
+  CODE_VERSION: '7.27',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1423,7 +1423,7 @@ var CFG = {
   EMB_PROBE_DIM: 256,
   EMB_BATCH: 64,                // متن در هر فراخوانِ batchEmbedContents
   EMB_MAX_PER_RUN: 1200,        // سقفِ ردیف در هر دور
-  EMB_BUDGET_MS: 150000,
+  EMB_BUDGET_MS: 120000,
   EMB_TEXT_MAX: 6000,           // ~۲۰۰۰ توکن؛ سقفِ خودِ مدل ۲۰۴۸ است
   EMB_SCAN_BLOCK: 2000,         // خواندنِ باریکِ سه ستونِ اثر انگشت
   EMB_SHARD_ROWS: 1500,
@@ -1450,6 +1450,13 @@ var CFG = {
   EMB_SELFTEST_N: 4,
   EMB_SELFTEST_TOP: 10,
   EMB_SELFTEST_MIN: 0.6,
+  /* «مشخصات استخراج‌شده»: سقفِ هر میدان و سقفِ کل. پهنا از عمق مهم‌تر
+     است — شش سرنخِ کوتاه بیشتر از یک ستونِ بلند به پیدا شدن کمک می‌کند،
+     و سقف نگه می‌دارد که هاب دو برابر نشود. */
+  EMB_SPECS_FIELD: 120,
+  EMB_SPECS_MAX: 700,
+  EMB_SPECS_PER_RUN: 4000,      // ردیفِ منبع در هر دورِ جبرانِ گذشته
+  EMB_SPECS_MS: 90000,
   EMB_FOLDER: 'اثر انگشتِ معنایی',
   EMB_INDEX_FILE: '_EMB-INDEX.json',
   MUSIC_WISH_FILE: '_MUSIC-WISH.json'
@@ -1497,13 +1504,18 @@ var HUB_HEADERS = [
   // در هر سلول یعنی ده‌ها مگابایت متن در شیتی که همین حالا ۲۹ مگ است.
   // اینجا فقط شناسه، اثرانگشتِ متن (برای فهمیدنِ تغییر) و وضعیت است؛
   // بردار در پوشهٔ OUTPUT می‌نشیند.
-  'شناسه محتوا', 'اثر انگشت', 'وضعیت اثر انگشت'
+  'شناسه محتوا', 'اثر انگشت', 'وضعیت اثر انگشت',
+  /* هرچه تحلیلگرِ منبع استخراج کرده و در ستون‌های بالا جا نشده (۷٫۲۷):
+     مدت زمان، اشخاص، تحلیل موسیقی، مشخصات فنی، تحلیل بصری و صوتی، عناصر
+     روایی … به‌صورتِ «سرستون: مقدار». فهرستِ ستون‌ها دست‌نویس نیست —
+     هرچه هست می‌آید مگر آنکه از قبل ستونِ بانک باشد یا محتوا نباشد. */
+  'مشخصات استخراج‌شده'
 ];
 var COL = {  // ایندکس ۱-پایه در تب دسته
   ID: 1, KIND: 2, DATE: 3, SUB: 4, TOPIC: 5, MSG: 6, SUMMARY: 7, BODY: 8,
   VIBE: 9, RAW: 10, SCORE: 11, LINK: 12, USED_EP: 13, USED_AT: 14, FLAG: 15,
   REJECT: 16, ADDED: 17, REFS: 18, PARTS: 19, SP_EP: 20, SP_AT: 21,
-  EMB_ID: 22, EMB_FP: 23, EMB_ST: 24
+  EMB_ID: 22, EMB_FP: 23, EMB_ST: 24, SPECS: 25
 };
 
 // چهار نوع محتوا. دو نوع اول از شیت‌های اولیه می‌آیند و دو نوع بعدی از
@@ -1718,6 +1730,8 @@ var PK = {
   EMB_SHARD: 'EMBED_SHARD_SEQ',     // شمارهٔ قطعهٔ بعدی
   EMB_BAD: 'EMBED_SELFTEST_BAD',    // شبِ پیاپیِ خودآزمونِ ضعیف
   EMB_LAST: 'EMBED_LAST_RUN',       // خلاصهٔ آخرین دور، برای _STATUS.json
+  EMB_SPEC: 'EMBED_SPECS_CURSORS',  // مکان‌نمای جبرانِ «مشخصات» در شیت‌های منبع
+  EMB_SPEC_DONE: 'EMBED_SPECS_DONE',// دورِ جبران تمام شد — و در چه تاریخی
   BACKUP_AT: 'BACKUP_LAST_AT',         // آخرین پشتیبان‌گیریِ کامل
   BACKUP_STATE: 'BACKUP_PENDING',      // حالتِ پشتیبان‌گیریِ نیمه‌تمام
   BACKUP_SINCE: 'BACKUP_SCHEDULED_AT', // از کی زمان‌بندیِ پشتیبان فعال است
@@ -2309,7 +2323,10 @@ function recToRow_(r) {
              رو به جلو در فایلِ سرهم‌شده پنهان می‌مانَد و در هر بارگذارِ
              جزئیِ tests/ به ReferenceError می‌خورد. خالی بودنشان خودش
              پیام دارد: «هنوز نوبتش نشده». */
-          '', '', ''];
+          '', '', '',
+          // و «مشخصات استخراج‌شده» (۷٫۲۷) — این یکی همین‌جا پر می‌شود،
+          // چون ردیفِ خامِ منبع فقط همین یک بار در دست است.
+          String(r.specs || '').slice(0, Math.max(120, Number(CFG.EMB_SPECS_MAX) || 700))];
 }
 
 /**
@@ -2430,6 +2447,11 @@ function syncCatalog() {
           batch = CFG.SYNC_CHUNK_WIDE;
         }
 
+        /* مجموعهٔ ستون‌هایی که در «مشخصات» تکرار نمی‌شوند — یک بار به
+           ازای هر تب، نه یک بار به ازای هر ردیف (۷٫۲۷). */
+        var specSkip = {};
+        try { specSkip = srcSpecsSkip_(headers, m); } catch (eSk) {}
+
         var ckey = srcCursorKey_(src.key, tabName);
         var cursor = parseInt(props_().getProperty(ckey) || '1', 10);
         if (cursor >= lastRow) continue;
@@ -2469,6 +2491,8 @@ function syncCatalog() {
                                                 : buildPhotoRec_(vals[r], m);
               } catch (e) { continue; }
               if (!rec.fileId) continue;
+              try { rec.specs = srcSpecsText_(headers, vals[r], specSkip); }
+              catch (eSp1) { rec.specs = ''; }
               // رفتار آزمودهٔ دو شیت اول دست‌نخورده می‌ماند
               if (rec.status && String(rec.status).toUpperCase().indexOf('SUCCESS') === -1) {
                 // srcErrorOf_ ممکن است همین ردیف را شمرده باشد؛ دوباره نشمار
@@ -2490,6 +2514,13 @@ function syncCatalog() {
 
             try { rec = buildAutoRec_(vals[r], m, kind, src.hint); } catch (e2) { continue; }
             if (!rec.fileId) continue;
+            /* ══ هرچه تحلیلگر استخراج کرده و در ردیفِ بانک جا نشده (۷٫۲۷) ══
+               تا ۷٫۲۶ از ۶۱ ستونِ شیتِ منبع حدودِ پانزده‌تا به بانک می‌رسید.
+               مدت زمان، اشخاص، تحلیل موسیقی، مشخصات فنی، تحلیل بصری —
+               هیچ‌کدام. پس نه در جست‌وجوی بانک بودند و نه در اثر انگشت،
+               و «یادم هست یه کلیپی با فلان مشخصه بود» جواب نمی‌گرفت. */
+            try { rec.specs = srcSpecsText_(headers, vals[r], specSkip); }
+            catch (eSp2) { rec.specs = ''; }
             if (badStatus_(rec.status)) continue;
 
             if (!chunked) { emit(classifyRec_(rec), false); continue; }
@@ -8853,6 +8884,7 @@ function onOpen() {
       .addItem('🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)', 'runContentSearch')
       .addItem('🧠 اثر انگشتِ معنایی — ساخت و ادامه', 'runEmbedBuild')
       .addItem('🧪 خودآزمونِ اثر انگشت', 'runEmbedSelfTest')
+      .addItem('♻️ بازسازیِ کاملِ اثر انگشت‌ها', 'runEmbedRebuild')
       .addItem('📊 مجموعه‌های آموزشی و پیشرفت', 'showSeriesBoard')
       .addItem('اسکن مجموعه‌های آموزشی', 'runScanSeries')
       .addItem('داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)', 'runJudgeSeries')
@@ -11911,6 +11943,12 @@ function healthCheck() {
      «کار متوقف شده» از بیرون یک شکل دارند و فقط عدد از هم جدایشان می‌کند. */
   try {
     var emS = embStatus_(hub);
+    /* ══ دروازه این‌جا هم زده می‌شود، نه فقط در کارِ شبانه (۷٫۲۷) ══
+       `embGates_` تا ۷٫۲۶ فقط از `embNightly_` صدا زده می‌شد — یعنی
+       شبی که نگهبانِ زمان اجازهٔ اجرای آن بند را نمی‌داد، هشدارِ
+       «گیرکرده» هم زده نمی‌شد. دقیقاً در همان حالتی که هشدار لازم است،
+       خاموش بود. همان شکلِ زنگِ ۷٫۲۲، یک لایه بیرون‌تر. */
+    try { embGates_(hub, emS, null); } catch (eEg) {}
     if (emS && emS.line) {
       var emBad = (emS.ok === false) || !!emS.stale ||
                   (emS.stuckDays >= Math.max(1, Number(CFG.EMB_STUCK_DAYS) || 3) && emS.pending > 0);
@@ -12549,6 +12587,79 @@ function chunkOf_(row, m) {
   // خراب است؛ آن‌وقت بهتر است بگوییم نمی‌دانیم تا اینکه بر پایه‌اش تصمیم بگیریم.
   if (isNaN(t) || t < 0 || t > 20000) t = 0;
   return { isChunk: yes, isRollup: no_, flag: String(raw).trim(), no: n, total: t };
+}
+
+/* ═══════════ مشخصاتِ استخراج‌شده — ستون‌هایی که تا ۷٫۲۶ دور ریخته می‌شدند ═══════════
+ *
+ * تحلیلگرهای منبع تا **۶۱ ستون** پر می‌کنند: مدت زمان، اشخاص شناسایی‌شده،
+ * تحلیل موسیقی، مشخصات فنی، تحلیل بصری و صوتی، عناصر روایی، بافتِ تاریخی،
+ * ابزارها، نمونه‌ها … و `buildAutoRec_` حدودِ پانزده‌تایشان را برمی‌داشت.
+ * بقیه در شیتِ منبع می‌ماندند و هرگز به بانک نمی‌رسیدند — پس نه در
+ * جست‌وجوی بانک بودند و نه در اثر انگشت.
+ *
+ * ══ چرا فهرستِ سفید نه، بلکه فهرستِ سیاه ══
+ * وسوسه این است که ستون‌های مفید را یکی‌یکی نام ببریم. این مخزن یک بخشِ
+ * کامل دربارهٔ این دارد: «فهرستِ دست‌نویسِ آنچه کد می‌کند، کهنه می‌شود»
+ * (۵٫۹۵). تحلیلگرها ستون اضافه می‌کنند — همین امسال چند بار — و هر ستونِ
+ * تازه بی‌صدا بیرون می‌مانْد. پس برعکس: **هرچه هست برداشته می‌شود، مگر
+ * آنکه یا از قبل در ردیفِ بانک باشد یا اصلاً محتوا نباشد** (زمان‌مُهر،
+ * شناسه، لینک، وضعیت، دفترداریِ قطعه).
+ *
+ * ══ و چرا کوتاه ══
+ * سقفِ هر میدان ۱۲۰ نویسه است و سقفِ کل ۷۰۰. عمدی است: برای پیدا شدن،
+ * **پهنا از عمق مهم‌تر است**. «اشخاص: … · مدت: 12:34 · موسیقی: بی‌کلامِ
+ * آرام · مشخصات فنی: 1080p» شش سرنخ می‌دهد؛ همان ۷۰۰ نویسه از یک ستونِ
+ * بلند، یکی. و سقف نگه می‌دارد که هاب — که همین حالا ۲۹ مگابایت است — دو
+ * برابر نشود.
+ */
+var SPEC_SKIP_NAMES = [
+  'timestamp', 'تاریخ پردازش', 'file_id', 'file id', 'file_name', 'new_name',
+  'نام اصلی فایل', 'نام جدید فایل', 'file_link', 'drive_link', 'لینک دسترسی',
+  'status', 'وضعیت', 'is_chunk', 'آیا قطعه است؟', 'chunk_number', 'شماره قطعه',
+  'total_chunks', 'chunk_total', 'تعداد کل قطعات', 'series_id', 'episode_seq',
+  'image_analysis_ref', 'confidence_level'
+];
+
+/** ایندکس‌هایی که نباید در «مشخصات» تکرار شوند — چون از قبل ستونِ بانک‌اند. */
+function srcSpecsSkip_(headers, m) {
+  var skip = {};
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+    var i = m[k];
+    if (typeof i === 'number' && i >= 0) skip[i] = true;
+  }
+  for (var h = 0; h < headers.length; h++) {
+    var nm = String(headers[h] || '').trim().toLowerCase();
+    for (var s = 0; s < SPEC_SKIP_NAMES.length; s++) {
+      if (nm === SPEC_SKIP_NAMES[s]) { skip[h] = true; break; }
+    }
+  }
+  return skip;
+}
+
+/**
+ * هرچه از این ردیف در ردیفِ بانک جا نشده — به‌صورتِ «سرستون: مقدار».
+ *
+ * سرستون با متن می‌آید چون خودش نصفِ معناست: عددِ «۱۲:۳۴» بی «مدت زمان»
+ * چیزی نمی‌گوید، و همین است که جست‌وجوی «یه کلیپِ حدودِ دوازده‌دقیقه‌ای»
+ * را ممکن می‌کند.
+ */
+function srcSpecsText_(headers, row, skip) {
+  var cap = Math.max(60, Number(CFG.EMB_SPECS_FIELD) || 120);
+  var total = Math.max(120, Number(CFG.EMB_SPECS_MAX) || 700);
+  var out = [], used = 0;
+  for (var i = 0; i < headers.length && i < row.length; i++) {
+    if (skip[i]) continue;
+    var name = String(headers[i] || '').trim();
+    if (!name) continue;
+    var v = flatText_(cell_(row, i), cap);
+    if (!v) continue;
+    var piece = name + ': ' + v;
+    if (used + piece.length + 3 > total) break;
+    out.push(piece);
+    used += piece.length + 3;
+  }
+  return out.join(' · ');
 }
 
 /** ردیف را — قطعه یا جمع‌بندی — به رکورد استاندارد موتور تبدیل می‌کند. */
@@ -26298,7 +26409,7 @@ function selfUpdateDaily() {
      دسته یک فراخوانِ شبکه. مکان‌نما دارد، پس شبی که جا نشود فردا از
      همان‌جا ادامه می‌دهد — و شمارندهٔ گرسنگیِ ۶٫۸۹ می‌بیندش اگر هرگز
      نوبتش نرسد. */
-  if (CFG.EMB_ON !== false && nightHas_(150000, 'اثر انگشتِ معنایی')) {
+  if (CFG.EMB_ON !== false && nightHas_(230000, 'اثر انگشتِ معنایی')) {
     try { embNightly_(); }
     catch (eEm) { logLine_('دورِ اثر انگشتِ معنایی ناموفق: ' + eEm.message); }
   }
@@ -47846,6 +47957,24 @@ function srchHtml_() {
 
 var EMB_VER = 1;
 
+/**
+ * نسخهٔ **دستورِ ساختِ متن** — یعنی `embText_`.
+ *
+ * ══ چرا این عدد لازم شد، و چرا نبودنش یک باگِ واقعی بود ══
+ * ۷٫۲۶ ردیفی را که یک بار اثر انگشت گرفته بود دیگر دست نمی‌زد. یعنی اگر
+ * فردا بفهمیم متنی که به مدل می‌رود ناقص است و درستش کنیم، **دوازده هزار
+ * ردیفِ قبلی برای همیشه با بردارِ غلط می‌ماندند** و هیچ‌چیز نشان نمی‌داد.
+ * دقیقاً همان شکلی که ۵٫۹۵ برای عنوانِ فصل‌های جزوه نوشت: «تمیزکردنِ ورودی
+ * آنچه را از قبل نوشته شده درست نمی‌کند».
+ *
+ * این عدد در ستونِ «اثر انگشت» کنارِ هش می‌نشیند (`<هش>·و<نسخه>`). هر بار
+ * که `embText_` عوض شود این را یکی بالا ببر — و همهٔ ردیف‌ها خودبه‌خود، با
+ * همان مکان‌نمای موجود و هزینهٔ چند شب، از نو ساخته می‌شوند.
+ *
+ * ۲ = افزودنِ «مشخصات استخراج‌شده» (۷٫۲۷).
+ */
+var EMB_TEXT_VER = 2;
+
 var EMB_HEADERS = ['تاریخ', 'گام', 'بررسی‌شده', 'تازه', 'ناموفق',
                    'جمعِ آماده', 'کلِ ردیف‌ها', 'پوشش', 'خودآزمون', 'یادداشت'];
 
@@ -48016,6 +48145,10 @@ function embText_(o) {
   push('متن', o.body);
   push('فضا', o.vibe);
   push('برچسبِ منبع', o.raw);
+  /* هرچه تحلیلگر استخراج کرده و در شش ستونِ بالا جا نشده (۷٫۲۷): مدت
+     زمان، اشخاص، تحلیل موسیقی، مشخصات فنی، تحلیل بصری و صوتی … این همان
+     چیزی است که «یادم هست یه کلیپی با فلان مشخصه بود» را ممکن می‌کند. */
+  push('مشخصات', o.specs);
   var s = parts.join('\n');
   var cap = Math.max(500, Number(CFG.EMB_TEXT_MAX) || 6000);
   return s.length > cap ? s.slice(0, cap) : s;
@@ -48168,6 +48301,15 @@ function embTries_(st) {
   return m ? (Number(m[1]) || 0) : 0;
 }
 
+/** `<هش>·و<نسخهٔ دستور>` — هر دو در یک سلول، چون همیشه با هم خوانده می‌شوند. */
+function embFpCell_(hash) { return String(hash) + '·و' + EMB_TEXT_VER; }
+
+/** نسخهٔ دستوری که این ردیف با آن ساخته شده. نبودش یعنی نسخهٔ ۱. */
+function embFpVer_(cell) {
+  var m = String(cell || '').match(/·و(\d+)\s*$/);
+  return m ? (Number(m[1]) || 0) : 1;
+}
+
 /**
  * ردیف‌هایی از یک تب که اثر انگشت می‌خواهند.
  *
@@ -48175,7 +48317,7 @@ function embTries_(st) {
  * ۱۵۰۰ نویسه دارد، با خواندنِ کامل بودجهٔ یک دور را همان اول می‌خورَد.
  */
 function embScanTab_(sh, from, need, deadline) {
-  var out = { rows: [], cursor: from, done: false, abandoned: 0, ok: 0, failed: 0 };
+  var out = { rows: [], cursor: from, done: false, abandoned: 0, ok: 0, failed: 0, oldVer: 0 };
   var last = sh.getLastRow();
   if (last < 2) { out.done = true; out.cursor = 2; return out; }
   var r = Math.max(2, from || 2);
@@ -48190,7 +48332,16 @@ function embScanTab_(sh, from, need, deadline) {
       var id = String(vals[i][0] || '').trim();
       var st = String(vals[i][2] || '').trim();
       if (st.indexOf(EMB_ST.GIVEUP) === 0) { out.abandoned++; continue; }
-      if (id && st.indexOf(EMB_ST.OK) === 0) { out.ok++; continue; }
+      if (id && st.indexOf(EMB_ST.OK) === 0) {
+        /* ساخته شده — ولی با کدام دستور؟ متنی که به مدل می‌رود در
+           نسخه‌های تازه عوض می‌شود، و رد شدن از روی ردیف‌های قدیمی یعنی
+           نیمی از بانک با یک زبان توصیف شده و نیمِ دیگر با زبانی دیگر. */
+        if (embFpVer_(vals[i][1]) >= EMB_TEXT_VER) { out.ok++; continue; }
+        out.oldVer++;
+        out.rows.push({ row: r + i, tries: 0, why: 'دستورِ تازه' });
+        if (out.rows.length >= need) { out.cursor = r + i + 1; return out; }
+        continue;
+      }
       if (st.indexOf(EMB_ST.FAIL) === 0) {
         out.failed++;
         if (embTries_(st) >= Math.max(1, Number(CFG.EMB_TRY_MAX) || 3)) continue;
@@ -48239,7 +48390,7 @@ function embRowObj_(sh, row, v) {
            fileId: g(COL.ID).trim(), date: g(COL.DATE), kind: g(COL.KIND),
            topic: g(COL.TOPIC), msg: g(COL.MSG), summary: g(COL.SUMMARY),
            body: g(COL.BODY), vibe: g(COL.VIBE), raw: g(COL.RAW),
-           link: g(COL.LINK) };
+           specs: g(COL.SPECS), link: g(COL.LINK) };
 }
 
 /** نوشتنِ سه ستون برای چند ردیف، با کمترین `setValues`. */
@@ -48433,7 +48584,7 @@ function embRunDue_(cap, budgetMs) {
                     title: String(ob.topic || ob.msg || ob.raw || '').slice(0, 140),
                     probe: embPack_(embTrunc_(vec, embProbeDim_())),
                     full: embPack_(vec) });
-        tabStamps[ob.row] = [id, embHash_(ob.text), EMB_ST.OK + ' ' + nowStr_()];
+        tabStamps[ob.row] = [id, embFpCell_(embHash_(ob.text)), EMB_ST.OK + ' ' + nowStr_()];
         out.made++;
         totalNeed--;
       }
@@ -48471,7 +48622,7 @@ function embRunDue_(cap, budgetMs) {
  * هست — و سؤالِ پوشش دربارهٔ دومی است.
  */
 function embCounts_(hub) {
-  var out = { total: 0, done: 0, failed: 0, abandoned: 0, pending: 0,
+  var out = { total: 0, done: 0, failed: 0, abandoned: 0, oldVer: 0, pending: 0,
               pct: 0, at: nowStr_(), tabs: [] };
   try {
     var tabs = embHubTabs_(hub || getHub_());
@@ -48488,7 +48639,10 @@ function embCounts_(hub) {
             out.total++; row.total++;
             var id = String(vals[i][0] || '').trim();
             var st = String(vals[i][2] || '').trim();
-            if (id && st.indexOf(EMB_ST.OK) === 0) { out.done++; row.done++; }
+            if (id && st.indexOf(EMB_ST.OK) === 0) {
+              if (embFpVer_(vals[i][1]) >= EMB_TEXT_VER) { out.done++; row.done++; }
+              else out.oldVer++;
+            }
             else if (st.indexOf(EMB_ST.GIVEUP) === 0) out.abandoned++;
             else if (st.indexOf(EMB_ST.FAIL) === 0) out.failed++;
           }
@@ -48497,9 +48651,185 @@ function embCounts_(hub) {
       out.tabs.push(row);
     }
   } catch (e) { out.error = e.message; }
+  /* ردیفی که با دستورِ قدیمی ساخته شده، «آماده» نیست — کاری مانده. اگر
+     در `pending` نیاید، «چند شب تا پایان» دروغ می‌گوید و بدتر: شمارندهٔ
+     «گیرکرده» هم کور می‌شود، چون شرطش `pending > 0` است. */
   out.pending = Math.max(0, out.total - out.done - out.abandoned);
   out.pct = out.total ? Math.round(out.done / out.total * 100) : 0;
   return out;
+}
+
+// ─────────────────────────────────────────── جبرانِ «مشخصات» برای گذشته
+
+/**
+ * کلیدِ یکتاییِ بانک → (تب، ردیف).
+ *
+ * همان کلیدی که `loadSeen_` می‌سازد (`شناسهٔ فایل|تاریخِ canonical`)، ولی
+ * این‌جا شمارهٔ ردیف هم لازم است. دو ستون خوانده می‌شود، نه کلِ ردیف.
+ */
+function embHubKeyMap_(hub) {
+  var map = {};
+  var tabs = embHubTabs_(hub || getHub_());
+  for (var t = 0; t < tabs.length; t++) {
+    var sh = tabs[t], last = sh.getLastRow();
+    if (last < 2) continue;
+    var vals;
+    try { vals = sh.getRange(2, COL.ID, last - 1, COL.DATE - COL.ID + 1).getValues(); }
+    catch (e) { continue; }
+    for (var j = 0; j < vals.length; j++) {
+      var id = String(vals[j][0] || '').trim();
+      if (!id) continue;
+      var k = id + '|' + canonDate_(vals[j][COL.DATE - COL.ID]);
+      if (!map[k]) map[k] = { tab: sh.getName(), row: j + 2 };
+    }
+  }
+  return map;
+}
+
+/**
+ * ردیف‌هایی که پیش از ۷٫۲۷ ساخته شده‌اند ستونِ «مشخصات» ندارند — و هیچ
+ * راهی نیست که از خودِ بانک پُرشان کرد، چون آن ستون‌ها هرگز به بانک
+ * نرسیدند. پس یک بار باید از روی شیت‌های منبع خوانده شوند.
+ *
+ * ══ سه چیز که این را از یک اسکریپتِ یک‌بارمصرف جدا می‌کند ══
+ *
+ * ۱. **مکان‌نما دارد و خودش را خاموش می‌کند.** ۶۲ هزار ردیفِ منبع در یک
+ *    اجرا جا نمی‌شود؛ هر شب چند هزارتا، و وقتی دور تمام شد در
+ *    `PK.EMB_SPEC_DONE` تاریخ می‌نشیند و دیگر نمی‌دود. ولی این پرچم را
+ *    دکمهٔ منو باز می‌کند — پرچمِ یک‌بارهٔ بی‌در، همان شکلِ خرابی است که
+ *    ۵٫۹۵ نامش را برد.
+ *
+ * ۲. **فقط وقتی چیزی عوض شده می‌نویسد**، و آن‌وقت وضعیتِ اثر انگشتِ همان
+ *    ردیف را هم پاک می‌کند تا دوباره ساخته شود. بی این، مشخصات می‌نشست و
+ *    بردار هرگز آن را نمی‌دید — یعنی یک ستونِ پر و یک وعدهٔ نیم‌کاره.
+ *
+ * ۳. **در شیتِ منبع چیزی نمی‌نویسد.** فقط می‌خواند، مثلِ `syncCatalog`.
+ */
+function embSpecsBackfill_(cap, budgetMs) {
+  var out = { ok: false, scanned: 0, filled: 0, tabs: 0, done: false, notes: [] };
+  var t0 = new Date().getTime();
+  var deadline = t0 + Math.max(15000, budgetMs || Number(CFG.EMB_SPECS_MS) || 120000);
+  cap = Math.max(100, cap || Number(CFG.EMB_SPECS_PER_RUN) || 4000);
+
+  var hub, map;
+  try { hub = getHub_(); map = embHubKeyMap_(hub); }
+  catch (eM) { out.notes.push('نقشهٔ بانک ساخته نشد: ' + eM.message); return out; }
+
+  var cursors = {};
+  try { cursors = JSON.parse(props_().getProperty(PK.EMB_SPEC) || '{}') || {}; } catch (e0) {}
+  var patch = {};          // نامِ تب -> {ردیف: متن}
+  var list = CFG.SOURCES || [];
+  var allDone = true;
+
+  for (var si = 0; si < list.length; si++) {
+    if (new Date().getTime() > deadline || out.scanned >= cap) { allDone = false; break; }
+    var src = list[si], ss = null;
+    try { ss = SpreadsheetApp.openById(src.id); }
+    catch (eO) { out.notes.push('«' + src.title + '» باز نشد: ' + eO.message); allDone = false; continue; }
+    var legacy = (src.schema === 'legacy-video' || src.schema === 'legacy-photo');
+    var tabs = [];
+    try { tabs = legacy ? [ss.getSheets()[0]] : ss.getSheets(); }
+    catch (eT) { out.notes.push('تب‌های «' + src.title + '» خوانده نشد'); allDone = false; continue; }
+
+    for (var ti = 0; ti < tabs.length; ti++) {
+      if (new Date().getTime() > deadline || out.scanned >= cap) { allDone = false; break; }
+      var sh = tabs[ti], last = sh.getLastRow(), wide = sh.getLastColumn();
+      if (last < 2 || wide < 2) continue;
+      var ck = src.key + '|' + sh.getName();
+      var cur = Number(cursors[ck]) || 1;
+      if (cur >= last) continue;
+
+      var headers;
+      try { headers = sh.getRange(1, 1, 1, wide).getValues()[0]; } catch (eH) { continue; }
+      var m;
+      if (src.schema === 'legacy-video') m = videoMap_(headers);
+      else if (src.schema === 'legacy-photo') m = photoMap_(headers);
+      else { if (!srcDetect_(headers)) continue; m = srcMap_(headers); }
+      if (m.fileId === undefined || m.fileId < 0) continue;
+      var skip = srcSpecsSkip_(headers, m);
+      out.tabs++;
+
+      var blk = Math.max(5, Number(CFG.SYNC_CHUNK_WIDE) || 25);
+      while (cur < last && out.scanned < cap) {
+        if (new Date().getTime() > deadline) { allDone = false; break; }
+        var n = Math.min(blk, last - cur);
+        var vals;
+        try { vals = sh.getRange(cur + 1, 1, n, wide).getValues(); }
+        catch (eR) { cur = last; break; }
+        for (var r = 0; r < vals.length; r++) {
+          out.scanned++;
+          var fid = cell_(vals[r], m.fileId).trim();
+          if (!fid) continue;
+          var hit = map[fid + '|' + canonDate_(vals[r][m.date])];
+          if (!hit) continue;
+          var txt = '';
+          try { txt = srcSpecsText_(headers, vals[r], skip); } catch (eS) { txt = ''; }
+          if (!txt) continue;
+          if (!patch[hit.tab]) patch[hit.tab] = {};
+          if (patch[hit.tab][hit.row] === undefined) patch[hit.tab][hit.row] = txt;
+        }
+        cur += n;
+        cursors[ck] = cur;
+      }
+      if (cur < last) allDone = false;
+    }
+  }
+
+  out.filled = embSpecsApply_(hub, patch);
+  try { props_().setProperty(PK.EMB_SPEC, JSON.stringify(cursors)); } catch (eP) {}
+  if (allDone) {
+    out.done = true;
+    try { props_().setProperty(PK.EMB_SPEC_DONE, nowStr_()); } catch (eD) {}
+  }
+  out.ok = true;
+  return out;
+}
+
+/**
+ * نوشتنِ «مشخصات» در بانک — یک خواندن و یک نوشتنِ ستونی به ازای هر تب.
+ *
+ * ردیف‌های هدف پراکنده‌اند، پس نوشتنِ تک‌تک یعنی صدها رفت‌وبرگشت. به‌جایش
+ * کلِ ستون یک بار خوانده می‌شود، خانه‌های لازم عوض می‌شوند و یک بار
+ * نوشته می‌شود — و اگر هیچ خانه‌ای عوض نشده باشد، **اصلاً نوشته
+ * نمی‌شود**. (ستون یک‌جا برمی‌گردد، ولی مقدارِ ردیف‌های دست‌نخورده همان
+ * است که بود؛ چیزی بازنویسی نمی‌شود که کسی جایش گذاشته باشد.)
+ */
+function embSpecsApply_(hub, patch) {
+  var wrote = 0;
+  for (var tab in patch) {
+    if (!Object.prototype.hasOwnProperty.call(patch, tab)) continue;
+    var sh = hub.getSheetByName(tab);
+    if (!sh) continue;
+    var last = sh.getLastRow();
+    if (last < 2) continue;
+    var cur, st;
+    try {
+      cur = sh.getRange(2, COL.SPECS, last - 1, 1).getValues();
+      st = sh.getRange(2, COL.EMB_ST, last - 1, 1).getValues();
+    } catch (e) { continue; }
+    var changed = false;
+    for (var row in patch[tab]) {
+      if (!Object.prototype.hasOwnProperty.call(patch[tab], row)) continue;
+      var i = Number(row) - 2;
+      if (i < 0 || i >= cur.length) continue;
+      if (String(cur[i][0] || '') === String(patch[tab][row])) continue;
+      cur[i][0] = patch[tab][row];
+      /* متنِ بردار عوض شد، پس بردار باید از نو ساخته شود. پاک‌کردنِ
+         وضعیت کافی است: پویشِ شبانه خودش برش می‌دارد. */
+      st[i][0] = '';
+      changed = true; wrote++;
+    }
+    if (!changed) continue;
+    try {
+      sh.getRange(2, COL.SPECS, cur.length, 1).setValues(cur);
+      sh.getRange(2, COL.EMB_ST, st.length, 1).setValues(st);
+    } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
+  }
+  return wrote;
+}
+
+function embSpecsDone_() {
+  try { return String(props_().getProperty(PK.EMB_SPEC_DONE) || ''); } catch (e) { return ''; }
 }
 
 // ─────────────────────────────────────────── جست‌وجوی معنایی
@@ -48614,7 +48944,7 @@ function embSearch_(vec, opts) {
  * به یک دروازه وصل نشود.
  */
 function embSelfTest_(n) {
-  var out = { ok: false, tried: 0, hit: 0, ratio: 0, note: '' };
+  var out = { ok: false, tried: 0, hit: 0, ratio: 0, mode: '', note: '' };
   if (!embOn_()) { out.note = 'خاموش'; return out; }
   var ix = embIndex_();
   if (!ix.shards.length) { out.note = 'ایندکس خالی است'; return out; }
@@ -48634,8 +48964,28 @@ function embSelfTest_(n) {
   }
   if (!picks.length) { out.note = 'نمونه‌ای با عنوان پیدا نشد'; return out; }
 
+  /* ══ چرا بازنویسی، و چرا نبودش آزمون را توخالی می‌کرد ══
+     نسخهٔ اول عنوانِ خودِ ردیف را پرس‌وجو می‌کرد. عنوان **داخلِ همان
+     متنی است که بردارش ساخته شده**، پس آن آزمون فقط می‌گفت «ایندکس
+     خراب نیست» — نه «جست‌وجو کار می‌کند». اگر متنی که به مدل می‌رود
+     سیستماتیک غلط باشد (ستونِ اشتباه، میدانِ جاافتاده)، پرس‌وجو و سند
+     **هر دو** همان غلط را دارند و آزمون سبز می‌ماند.
+
+     بازنویسی این را می‌شکند: مدل همان معنا را با واژه‌های دیگری
+     می‌گوید، و آن دقیقاً کاری است که صاحبِ برنامه می‌کند («توضیح می‌دهم
+     چی یادمه»). یعنی هر شب یک پرس‌وجوی واقعی شبیه‌سازی می‌شود.
+
+     و اگر مدل در دسترس نبود، آزمون به عنوان برمی‌گردد **و همین را
+     می‌گوید** (`mode`). نبودِ مدل تأییدِ خاموش نیست. */
+  var qs = null;
+  try { qs = embParaphrase_(picks.map(function (p) { return p.title; })); }
+  catch (eP) { qs = null; }
+  out.mode = (qs && qs.length === picks.length) ? 'بازنویسی' : 'عنوان';
+  if (out.mode === 'عنوان') out.note = 'بازنویسی نشد؛ آزمون با عنوانِ خودِ ردیف — سخت‌گیریِ کمتر.';
+
   for (var p = 0; p < picks.length; p++) {
-    var q = embQueryVec_(picks[p].title);
+    var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
+    var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
     out.tried++;
     var r = embSearch_(q.vec, { top: topK, budgetMs: 45000 });
@@ -48646,6 +48996,48 @@ function embSelfTest_(n) {
   out.ratio = out.tried ? (out.hit / out.tried) : 0;
   out.ok = out.tried > 0;
   return out;
+}
+
+var EMB_PARA_SCHEMA = {
+  type: 'object',
+  properties: { q: { type: 'array', items: { type: 'string' } } },
+  required: ['q']
+};
+
+/**
+ * همان معنا، با واژه‌های دیگر — به تعدادِ ورودی، به همان ترتیب.
+ *
+ * `null` برمی‌گرداند اگر نشد؛ و فراخوانَنده باید همین را در گزارش
+ * بیاورد، نه اینکه بی‌صدا به آزمونِ آسان‌تر برگردد.
+ */
+function embParaphrase_(titles) {
+  if (!titles || !titles.length) return null;
+  var lines = [];
+  for (var i = 0; i < titles.length; i++) {
+    lines.push((i + 1) + ') ' + String(titles[i]).slice(0, 200));
+  }
+  var prompt =
+    'برای هر عنوان، یک جملهٔ کوتاهِ فارسی بنویس که **همان محتوا** را ' +
+    'توصیف کند ولی تا حدِ ممکن **از واژه‌های خودِ عنوان استفاده نکند** — ' +
+    'مثل کسی که چیزی را نیمه‌یادش هست و دارد توصیفش می‌کند.\n' +
+    'خروجی: {"q": ["...", "..."]} — دقیقاً ' + titles.length + ' جمله، به همان ترتیب.\n\n' +
+    lines.join('\n');
+  var j;
+  /* `geminiText_` شیءِ تجزیه‌شده می‌دهد، نه رشته. این را با یک `JSON.parse`
+     اضافه اشتباه گرفته بودم و تابع بی‌صدا `null` برمی‌گرداند — یعنی
+     خودآزمون برای همیشه به حالتِ آسانِ «عنوان» می‌افتاد و در گزارش هم
+     می‌نوشت «بازنویسی نشد»، که آدم به‌حسابِ در دسترس نبودنِ مدل
+     می‌گذاشت. آزمونِ ۲۴٫۱ همین را گرفت. */
+  try { j = geminiText_(prompt, EMB_PARA_SCHEMA, 2048); }
+  catch (e) { return null; }
+  if (typeof j === 'string') { try { j = JSON.parse(j); } catch (e2) { return null; } }
+  var q = j && j.q;
+  if (Object.prototype.toString.call(q) !== '[object Array]') return null;
+  if (q.length !== titles.length) return null;
+  for (var k = 0; k < q.length; k++) {
+    if (!String(q[k] || '').trim()) return null;
+  }
+  return q;
 }
 
 // ─────────────────────────────────────────── کارنامه و وضعیت
@@ -48731,6 +49123,7 @@ function embStatus_(hub) {
   var out = { ok: true, on: embOn_(), model: String(CFG.EMB_MODEL || ''),
               dim: embDim_(), probeDim: embProbeDim_(),
               total: 0, done: 0, pending: 0, failed: 0, abandoned: 0, pct: 0,
+              oldVer: 0, textVer: EMB_TEXT_VER, specsDone: '',
               shards: 0, stale: '', lastRun: null, selftest: null,
               stuckDays: 0, nightsLeft: 0, at: '', line: '' };
   if (!embOn_()) { out.line = 'اثر انگشتِ معنایی خاموش است.'; return out; }
@@ -48744,7 +49137,10 @@ function embStatus_(hub) {
     if (!c || !Number(c.total)) c = embCounts_(hub);
     out.total = c.total; out.done = c.done; out.pending = c.pending;
     out.failed = c.failed; out.abandoned = c.abandoned; out.pct = c.pct;
+    out.oldVer = Number(c.oldVer) || 0;
     out.at = c.at || '';
+    out.specsDone = embSpecsDone_();
+    out.textVer = EMB_TEXT_VER;
     try { out.lastRun = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e1) {}
     if (out.lastRun && out.lastRun.self) out.selftest = out.lastRun.self;
     out.stuckDays = embStuckDays_(hub);
@@ -48759,8 +49155,13 @@ function embStatus_(hub) {
     }
     if (out.selftest && out.selftest.tried) {
       bits.push('خودآزمون ' + faDigitsOut_(out.selftest.hit) + ' از ' +
-                faDigitsOut_(out.selftest.tried));
+                faDigitsOut_(out.selftest.tried) +
+                (out.selftest.mode ? ' (' + out.selftest.mode + ')' : ''));
     }
+    if (out.oldVer) {
+      bits.push(faDigitsOut_(out.oldVer) + ' با دستورِ قدیمی (از نو ساخته می‌شوند)');
+    }
+    if (!out.specsDone) bits.push('جبرانِ «مشخصات» در جریان');
     if (out.abandoned) bits.push(faDigitsOut_(out.abandoned) + ' رهاشده');
     if (out.failed) bits.push(faDigitsOut_(out.failed) + ' ناموفق');
     if (out.pending) bits.push('~' + faDigitsOut_(out.nightsLeft) + ' شب تا پایان');
@@ -48856,6 +49257,22 @@ function embNightly_(opts) {
   var out = { ok: false, made: 0, failed: 0, self: null, left: 0, notes: [] };
   if (!embOn_()) return out;
   var hub = getHub_();
+
+  /* ══ مشخصات **پیش از** بردار ══
+     ترتیب عمدی است: اگر بردارِ یک ردیف پیش از رسیدنِ مشخصاتش ساخته شود،
+     همان ردیف فردا دوباره ساخته می‌شود — دو بار هزینه برای یک ردیف. و
+     وقتی دورِ جبران تمام شد، این بند خودش کنار می‌رود. */
+  var sp = null;
+  if (opts.specs !== false && !embSpecsDone_()) {
+    try { sp = embSpecsBackfill_(opts.specsCap, opts.specsMs); }
+    catch (eSp) { out.notes.push('جبرانِ مشخصات ناموفق: ' + eSp.message); }
+    if (sp && sp.filled) {
+      out.notes.push('مشخصاتِ ' + sp.filled + ' ردیف از منبع خوانده شد.');
+    }
+    if (sp && sp.done) out.notes.push('جبرانِ «مشخصات» تمام شد.');
+  }
+  out.specs = sp;
+
   var run = embRunDue_(opts.cap, opts.budgetMs);
   out.made = run.made; out.failed = run.failed; out.left = run.left;
   out.notes = run.notes.slice(0);
@@ -48870,12 +49287,14 @@ function embNightly_(opts) {
   try {
     props_().setProperty(PK.EMB_LAST, JSON.stringify(
       { at: nowStr_(), made: run.made, failed: run.failed, left: run.left,
-        self: self ? { tried: self.tried, hit: self.hit, ratio: self.ratio } : null }));
+        self: self ? { tried: self.tried, hit: self.hit, ratio: self.ratio,
+                       mode: self.mode, note: self.note } : null }));
   } catch (eP) {}
 
   embLog_(hub, { step: 'شبانه', scanned: run.scanned, made: run.made,
                  failed: run.failed, done: st.done, total: st.total, pct: st.pct,
-                 self: self && self.tried ? (self.hit + '/' + self.tried) : '',
+                 self: self && self.tried
+                         ? (self.hit + '/' + self.tried + ' · ' + (self.mode || '')) : '',
                  note: out.notes.join(' · ') });
 
   // وضعیت باید **پس از** ثبتِ کارنامه خوانده شود، وگرنه شمارِ «گیرکرده»
@@ -48905,6 +49324,56 @@ function runEmbedBuild() {
            (r.left ? '\n\nباقی‌مانده: ' + faDigitsOut_(r.left) +
                      ' ردیف. هر شب خودکار ادامه می‌یابد؛ این دکمه فقط ' +
                      'سریع‌ترش می‌کند.' : '\n\nچیزی باقی نمانده.'),
+           ui.ButtonSet.OK);
+}
+
+/**
+ * دکمهٔ منو: همه‌چیز را از نو بساز.
+ *
+ * ══ چرا این دکمه باید باشد ══
+ * `embIndexStale_` وقتی مدل یا بُعد عوض شده جلوی ساخت را می‌گیرد — درست
+ * است، چون نیمی از بانک با یک زبان و نیمی با زبانی دیگر بدتر از هیچ است.
+ * ولی دروازه‌ای که آدم نتواند بازش کند، دروازه نیست؛ بن‌بست است. این
+ * همان درِ ۵٫۹۵ است: فهرستِ قطعه‌ها پاک می‌شود، وضعیتِ همهٔ ردیف‌ها خالی
+ * می‌شود، و شب‌های بعد از نو ساخته می‌شوند.
+ *
+ * فایل‌های قطعهٔ قدیمی **پاک نمی‌شوند** — فقط از فهرست بیرون می‌روند.
+ * هیچ‌چیز در این مخزن پاک نمی‌شود.
+ */
+function runEmbedRebuild() {
+  var ui = SpreadsheetApp.getUi();
+  var st = embStatus_();
+  var ans = ui.alert('بازسازیِ کاملِ اثر انگشت‌ها',
+    st.line + '\n\nهمهٔ بردارها از نو ساخته می‌شوند — چند شب طول می‌کشد و ' +
+    'هزینهٔ مدلش دوباره پرداخت می‌شود.\n\nفایل‌های قطعهٔ قدیمی پاک ' +
+    'نمی‌شوند؛ فقط از فهرست بیرون می‌روند.\n\nادامه بدهم؟',
+    ui.ButtonSet.YES_NO);
+  if (ans !== ui.Button.YES) return;
+
+  var hub = getHub_(), rows = 0;
+  try {
+    embIndexSave_({ ver: EMB_VER, model: String(CFG.EMB_MODEL || ''), dim: embDim_(),
+                    probeDim: embProbeDim_(), at: nowStr_(), shards: [], counts: null });
+    var tabs = embHubTabs_(hub);
+    for (var t = 0; t < tabs.length; t++) {
+      var sh = tabs[t], last = sh.getLastRow();
+      if (last < 2) continue;
+      var blank = [];
+      for (var b = 0; b < last - 1; b++) blank.push(['', '']);
+      sh.getRange(2, COL.EMB_FP, blank.length, 2).setValues(blank);
+      rows += blank.length;
+    }
+    props_().deleteProperty(PK.EMB_CUR);
+    props_().deleteProperty(PK.EMB_BAD);
+  } catch (e) {
+    ui.alert('بازسازی ناتمام ماند: ' + e.message);
+    return;
+  }
+  embLog_(hub, { step: 'بازسازیِ دستی', scanned: rows, made: 0, failed: 0,
+                 note: 'فهرستِ قطعه‌ها خالی شد و ' + rows + ' ردیف به صف برگشت' });
+  ui.alert('بازسازیِ اثر انگشت',
+           faDigitsOut_(rows) + ' ردیف به صف برگشت. کارِ شبانه از امشب ' +
+           'می‌سازدشان؛ با دکمهٔ «ساخت و ادامه» سریع‌تر می‌شود.',
            ui.ButtonSet.OK);
 }
 

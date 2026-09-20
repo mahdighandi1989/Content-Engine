@@ -21,6 +21,7 @@ function onOpen() {
       .addItem('🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)', 'runContentSearch')
       .addItem('🧠 اثر انگشتِ معنایی — ساخت و ادامه', 'runEmbedBuild')
       .addItem('🧪 خودآزمونِ اثر انگشت', 'runEmbedSelfTest')
+      .addItem('♻️ بازسازیِ کاملِ اثر انگشت‌ها', 'runEmbedRebuild')
       .addItem('📊 مجموعه‌های آموزشی و پیشرفت', 'showSeriesBoard')
       .addItem('اسکن مجموعه‌های آموزشی', 'runScanSeries')
       .addItem('داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)', 'runJudgeSeries')

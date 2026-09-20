@@ -297,6 +297,79 @@ function chunkOf_(row, m) {
   return { isChunk: yes, isRollup: no_, flag: String(raw).trim(), no: n, total: t };
 }
 
+/* ═══════════ مشخصاتِ استخراج‌شده — ستون‌هایی که تا ۷٫۲۶ دور ریخته می‌شدند ═══════════
+ *
+ * تحلیلگرهای منبع تا **۶۱ ستون** پر می‌کنند: مدت زمان، اشخاص شناسایی‌شده،
+ * تحلیل موسیقی، مشخصات فنی، تحلیل بصری و صوتی، عناصر روایی، بافتِ تاریخی،
+ * ابزارها، نمونه‌ها … و `buildAutoRec_` حدودِ پانزده‌تایشان را برمی‌داشت.
+ * بقیه در شیتِ منبع می‌ماندند و هرگز به بانک نمی‌رسیدند — پس نه در
+ * جست‌وجوی بانک بودند و نه در اثر انگشت.
+ *
+ * ══ چرا فهرستِ سفید نه، بلکه فهرستِ سیاه ══
+ * وسوسه این است که ستون‌های مفید را یکی‌یکی نام ببریم. این مخزن یک بخشِ
+ * کامل دربارهٔ این دارد: «فهرستِ دست‌نویسِ آنچه کد می‌کند، کهنه می‌شود»
+ * (۵٫۹۵). تحلیلگرها ستون اضافه می‌کنند — همین امسال چند بار — و هر ستونِ
+ * تازه بی‌صدا بیرون می‌مانْد. پس برعکس: **هرچه هست برداشته می‌شود، مگر
+ * آنکه یا از قبل در ردیفِ بانک باشد یا اصلاً محتوا نباشد** (زمان‌مُهر،
+ * شناسه، لینک، وضعیت، دفترداریِ قطعه).
+ *
+ * ══ و چرا کوتاه ══
+ * سقفِ هر میدان ۱۲۰ نویسه است و سقفِ کل ۷۰۰. عمدی است: برای پیدا شدن،
+ * **پهنا از عمق مهم‌تر است**. «اشخاص: … · مدت: 12:34 · موسیقی: بی‌کلامِ
+ * آرام · مشخصات فنی: 1080p» شش سرنخ می‌دهد؛ همان ۷۰۰ نویسه از یک ستونِ
+ * بلند، یکی. و سقف نگه می‌دارد که هاب — که همین حالا ۲۹ مگابایت است — دو
+ * برابر نشود.
+ */
+var SPEC_SKIP_NAMES = [
+  'timestamp', 'تاریخ پردازش', 'file_id', 'file id', 'file_name', 'new_name',
+  'نام اصلی فایل', 'نام جدید فایل', 'file_link', 'drive_link', 'لینک دسترسی',
+  'status', 'وضعیت', 'is_chunk', 'آیا قطعه است؟', 'chunk_number', 'شماره قطعه',
+  'total_chunks', 'chunk_total', 'تعداد کل قطعات', 'series_id', 'episode_seq',
+  'image_analysis_ref', 'confidence_level'
+];
+
+/** ایندکس‌هایی که نباید در «مشخصات» تکرار شوند — چون از قبل ستونِ بانک‌اند. */
+function srcSpecsSkip_(headers, m) {
+  var skip = {};
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+    var i = m[k];
+    if (typeof i === 'number' && i >= 0) skip[i] = true;
+  }
+  for (var h = 0; h < headers.length; h++) {
+    var nm = String(headers[h] || '').trim().toLowerCase();
+    for (var s = 0; s < SPEC_SKIP_NAMES.length; s++) {
+      if (nm === SPEC_SKIP_NAMES[s]) { skip[h] = true; break; }
+    }
+  }
+  return skip;
+}
+
+/**
+ * هرچه از این ردیف در ردیفِ بانک جا نشده — به‌صورتِ «سرستون: مقدار».
+ *
+ * سرستون با متن می‌آید چون خودش نصفِ معناست: عددِ «۱۲:۳۴» بی «مدت زمان»
+ * چیزی نمی‌گوید، و همین است که جست‌وجوی «یه کلیپِ حدودِ دوازده‌دقیقه‌ای»
+ * را ممکن می‌کند.
+ */
+function srcSpecsText_(headers, row, skip) {
+  var cap = Math.max(60, Number(CFG.EMB_SPECS_FIELD) || 120);
+  var total = Math.max(120, Number(CFG.EMB_SPECS_MAX) || 700);
+  var out = [], used = 0;
+  for (var i = 0; i < headers.length && i < row.length; i++) {
+    if (skip[i]) continue;
+    var name = String(headers[i] || '').trim();
+    if (!name) continue;
+    var v = flatText_(cell_(row, i), cap);
+    if (!v) continue;
+    var piece = name + ': ' + v;
+    if (used + piece.length + 3 > total) break;
+    out.push(piece);
+    used += piece.length + 3;
+  }
+  return out.join(' · ');
+}
+
 /** ردیف را — قطعه یا جمع‌بندی — به رکورد استاندارد موتور تبدیل می‌کند. */
 function buildAutoRec_(row, m, kind, hint) {
   var c = m.content >= 0 ? jparse_(cell_(row, m.content)) : {};
