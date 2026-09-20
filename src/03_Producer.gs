@@ -4799,6 +4799,69 @@ function episodeNarration_(ep) {
  * مرحلهٔ ۱: انتخاب محتوا، نگارش متن، ثبت در شیت. سریع است و در یک اجرا تمام می‌شود.
  * سپس ساخت صدا شروع می‌شود و اگر وقت کم بیاید، خودکار ادامه پیدا می‌کند.
  */
+/**
+ * قفل گرفته بود — دوباره امتحان کن، تسلیم نشو.
+ *
+ * ══ چرا این تابع هست ══
+ * `produceEpisode` و `produceSpecialEpisode` تا امروز روی قفلِ گرفته یک سطر
+ * سیاهه می‌نوشتند و برمی‌گشتند. `renderAudioStep_` در همان حالت دوباره
+ * زمان‌بندی می‌کند؛ آن دو نه — و هیچ‌کس متوجهِ تفاوت نشده بود.
+ *
+ * هزینه‌اش از ۱۰ سپتامبر پرداخت شد: ۷٫۰۱ ادغامِ `_MUSIC-FEED.json` را داخلِ
+ * `syncCatalog` (هر ۲ ساعت، همان قفل) گذاشت، اجرای ساعتِ ۴ پشتِ آن ماند، و
+ * چون **درخواستِ غنی‌سازی فقط در همان اجرا نوشته می‌شود**، هشت روز هیچ
+ * درخواستی نوشته نشد. قسمت‌ها ساخته شدند، پس هیچ‌چیز قرمز نشد.
+ *
+ * تریگرِ تلاشِ دوباره نامِ **جدا** دارد و پیش از هر چیز خودش را پاک می‌کند،
+ * تا با تریگرهای روزانه اشتباه گرفته نشود و روی هم تلنبار نشود. شمارنده
+ * روزانه است: یک برخوردِ گذرا را جبران می‌کند، یک خرابیِ پایدار را به حلقهٔ
+ * بی‌پایان تبدیل نمی‌کند.
+ */
+function busyRetry_(fnName) {
+  var mins = Math.max(2, Number(CFG.BUSY_RETRY_MIN) || 7);
+  var max = Math.max(0, Number(CFG.BUSY_RETRY_MAX) || 3);
+  if (!max) return false;
+  var today = String(nowStr_()).slice(0, 10);
+  var key = PK.BUSY_RETRY + ':' + fnName;
+  var n = 0;
+  try {
+    var parts = String(props_().getProperty(key) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eR) {}
+  if (n >= max) {
+    logLine_('تولید: قفل ' + n + ' بار پیاپی گرفته بود؛ امروز دیگر تلاش نمی‌شود (' +
+             fnName + ').');
+    return false;
+  }
+  try {
+    clearRetryTriggers_(fnName);
+    ScriptApp.newTrigger(fnName).timeBased().after(mins * 60 * 1000).create();
+    props_().setProperty(key, today + '|' + (n + 1));
+    logLine_('تولید: قفل گرفته بود؛ ' + mins + ' دقیقهٔ دیگر دوباره (تلاشِ ' +
+             (n + 1) + ' از ' + max + ').');
+    return true;
+  } catch (eT) {
+    logLine_('تولید: تلاشِ دوباره زمان‌بندی نشد — ' + String(eT.message).slice(0, 80));
+    return false;
+  }
+}
+
+/** فقط تریگرهای همین نامِ یک‌باره؛ هرگز تریگرِ روزانهٔ تولید. */
+function clearRetryTriggers_(fnName) {
+  var ts = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < ts.length; i++) {
+    try {
+      if (ts[i].getHandlerFunction() === fnName) ScriptApp.deleteTrigger(ts[i]);
+    } catch (e) {}
+  }
+}
+
+/** نامِ جدا، تا پاک کردنش هرگز به تریگرِ روزانه نخورد. */
+function produceEpisodeRetry() {
+  try { clearRetryTriggers_('produceEpisodeRetry'); } catch (e) {}
+  return produceEpisode();
+}
+
 function produceEpisode(opt) {
   opt = opt || {};
   // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
@@ -4814,8 +4877,9 @@ function produceEpisode(opt) {
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
-    logLine_('تولید: اسکریپت دیگری در حال اجراست (احتمالاً همگام‌سازی)؛ فعلاً رد شد.');
-    return { ok: false, reason: 'busy' };
+    logLine_('تولید: اسکریپت دیگری در حال اجراست (احتمالاً همگام‌سازی).');
+    var again = busyRetry_('produceEpisodeRetry');
+    return { ok: false, reason: 'busy', retry: again };
   }
   var tStart = new Date().getTime();
   try {

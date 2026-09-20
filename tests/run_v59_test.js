@@ -915,4 +915,58 @@ console.log('\n=== ۱۴. شناسهٔ ردیفِ گزارش یکتاست ===');
      reportRow_({ reportId: 'ENG-X', at: '2026-09-18 08:00' }, f, 2)[0] === 'ENG-X#3');
 }
 
+/* ══ ۱۵) درخواستِ غنی‌سازی: قفل نباید بی‌صدا یک روز را ببرد (۷٫۱۸) ══
+
+   از ۱۰ تا ۲۰ سپتامبر هیچ `_ENRICH-REQ-*` نوشته نشد. خودِ تسکِ Cowork
+   نوشته بود «تا موتور درخواست ننویسد، غنی‌سازی کاری ندارد» — و راست
+   می‌گفت. ریشه: ۷٫۰۱ ادغامِ `_MUSIC-FEED.json` را داخلِ `syncCatalog` (هر
+   ۲ ساعت، قفلِ مشترک) گذاشت؛ اجرای ساعتِ ۴ پشتِ آن قفل ماند و **بی‌صدا
+   تسلیم شد** — و درخواست فقط در همان اجرا نوشته می‌شود.
+
+   و نگهبان مقصر را اشتباه نشان می‌داد: «روتینِ Cowork را وارسی کنید». */
+console.log('\n=== ۱۵. قفلِ گرفته: تلاشِ دوباره، و مقصرِ درست ===');
+{
+  global.__PROPS = {}; global.__SS = {}; global._ssCache = null;
+  ok('۱۵٫۱ تلاشِ دوباره در روز سقف دارد (نه حلقهٔ بی‌پایان)',
+     Number(CFG.BUSY_RETRY_MAX) > 0 && Number(CFG.BUSY_RETRY_MIN) >= 2,
+     CFG.BUSY_RETRY_MAX + ' بار، هر ' + CFG.BUSY_RETRY_MIN + ' دقیقه');
+
+  const made = [];
+  const realNew = global.ScriptApp.newTrigger;
+  global.ScriptApp.newTrigger = function (fn) {
+    made.push(fn);
+    return { timeBased: () => ({ after: () => ({ create: () => {} }) }) };
+  };
+  const un = quiet();
+  const a = busyRetry_('produceEpisodeRetry');
+  un();
+  ok('۱۵٫۲ قفل که گرفته باشد، دوباره زمان‌بندی می‌شود — نه تسلیم',
+     a === true && made.indexOf('produceEpisodeRetry') !== -1, made.join(','));
+
+  // و سقف واقعاً می‌بندد
+  const unq = quiet();
+  let last = true;
+  for (let i = 0; i < Number(CFG.BUSY_RETRY_MAX) + 2; i++) last = busyRetry_('produceEpisodeRetry');
+  unq();
+  global.ScriptApp.newTrigger = realNew;
+  ok('۱۵٫۳ و پس از سقفِ روزانه دیگر تلاش نمی‌کند', last === false);
+
+  /* نامِ تریگرِ تلاش باید **جدا** باشد: پاک کردنش هرگز نباید به تریگرِ
+     روزانهٔ تولید بخورد. این سنجه همان مرز را می‌بندد. */
+  const src3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۱۵٫۴ تلاشِ دوباره نامِ جدا دارد، نه نامِ تریگرِ روزانه',
+     /function produceEpisodeRetry\(\)/.test(src3) &&
+     /clearRetryTriggers_\('produceEpisodeRetry'\)/.test(src3));
+
+  /* و مهرِ «موتور پرسید» جدا از مهرِ «تسک پاسخ داد» ثبت می‌شود. */
+  const src19 = fs.readFileSync('src/19_Enrich.gs', 'utf8');
+  ok('۱۵٫۵ نوشتنِ درخواست، زمانِ خودش را مهر می‌زند',
+     /PK\.ENRICH_REQ_AT/.test(src19));
+
+  /* نگهبان: تا موتور نپرسیده، سکوتِ تسک بدهی نیست. */
+  const src8 = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('۱۵٫۶ نگهبانِ طرفِ موتور هست، و تسک بی‌جا متهم نمی‌شود',
+     /key: 'enrichReq'/.test(src8) && /taskIdle/.test(src8));
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);

@@ -709,11 +709,40 @@ function watchdogHeartbeats_(st) {
   /* ── ۲) تسکِ غنی‌سازی ── */
   var eAt = '';
   try { eAt = whNewestEnrich_(); } catch (e2) {}
+  /* ══ دو سؤالِ متفاوت، نه یکی ══
+   * «تسک پاسخ نداده» و «موتور نپرسیده» دو چیزند، و از ۱۰ تا ۲۰ سپتامبر
+   * همین یکی‌گرفتن هشت روز مقصرِ اشتباه نشان داد: نگهبان می‌گفت روتینِ
+   * Cowork را وارسی کنید، در حالی که روتین هر روز می‌دوید و گزارش می‌نوشت —
+   * موتور از ۱۰ سپتامبر هیچ **درخواستی** ننوشته بود، چون اجرای ساعتِ ۴ پشتِ
+   * قفلِ `syncCatalog` مانده و بی‌صدا تسلیم شده بود.
+   *
+   * پس اول از موتور می‌پرسیم. و تا وقتی موتور نپرسیده، سکوتِ تسک ایراد
+   * نیست: کسی که چیزی برای پاسخ ندارد، بدهکار نیست. */
+  var reqAt = '';
+  try { reqAt = String(props_().getProperty(PK.ENRICH_REQ_AT) || ''); } catch (e2a) {}
+  var reqDays = whDays_(reqAt, now);
+  if (CFG.ENRICH_ENABLED !== false) {
+    out.push({ key: 'enrichReq', name: 'درخواستِ غنی‌سازی (کارِ موتور)',
+               what: 'نوشتنِ _ENRICH-REQ-* پیش از صداگذاری',
+               at: reqAt, days: reqDays,
+               maxDays: Math.max(1, Number(CFG.ENRICH_REQ_STALE_DAYS) || 2),
+               fix: 'اجرای «آماده‌سازیِ متن» (ساعت ' + (CFG.PREPARE_HOUR || 4) +
+                    ') نرسیده یا پشتِ قفل مانده — سیاهه را برای «اسکریپت دیگری ' +
+                    'در حال اجراست» ببینید. تا موتور نپرسد، غنی‌سازی کاری ندارد.' });
+  }
+
+  var eDays = whDays_(eAt, now);
+  var taskIdle = isFinite(reqDays) && isFinite(eDays) && reqDays >= eDays;
   out.push({ key: 'enrich', name: 'تسکِ غنی‌سازی',
              what: 'کامل‌کردنِ متنِ قسمت‌ها با جست‌وجوی وب',
-             at: eAt, days: whDays_(eAt, now),
-             maxDays: Math.max(1, Number(CFG.WD_ENRICH_DAYS) || 2),
-             fix: 'روتینِ «غنی‌سازی اینترنتی پادکست‌ها» در Cowork را وارسی کنید.' });
+             at: eAt, days: eDays,
+             // موتور که نپرسیده باشد، سکوتِ تسک بدهی نیست — سقف را برمی‌داریم
+             // تا زنگی که برای هیچ می‌زند، زنگی نباشد که کسی جدی‌اش نمی‌گیرد.
+             maxDays: taskIdle ? Number.POSITIVE_INFINITY
+                               : Math.max(1, Number(CFG.WD_ENRICH_DAYS) || 2),
+             fix: taskIdle
+               ? 'چیزی برای پاسخ نبوده — ردیفِ «درخواستِ غنی‌سازی» را ببینید.'
+               : 'روتینِ «غنی‌سازی اینترنتی پادکست‌ها» در Cowork را وارسی کنید.' });
 
   /* ── ۳) اکشنِ رندر ──
    * این یکی ضربانِ زمانی ندارد، **کارِ انجام‌نشده** دارد: ردیفی که اجازه و

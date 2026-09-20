@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.17
+ *  موتور محتوا و پادکست — نسخهٔ 7.18
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1198,6 +1198,24 @@ var CFG = {
   BRIDGE_AUDIT_TAB: 'داوریِ ارجاع‌ها',
   ENRICH_KEEP_DAYS: 10,             // پرونده‌های دستِ‌به‌دستِ کهنه پاک می‌شوند
 
+  // ══ قفل که گرفته بود، تسلیم نشو ══
+  //
+  // `produceEpisode` و `produceSpecialEpisode` قفلِ اسکریپت می‌گیرند و اگر
+  // نگیرند **بی‌صدا برمی‌گردند**. `renderAudioStep_` در همین حالت دوباره
+  // زمان‌بندی می‌کند؛ این دو نه. تا ۹ سپتامبر بی‌ضرر بود.
+  //
+  // آن روز ۷٫۰۱ ادغامِ `_MUSIC-FEED.json` را داخلِ `syncCatalog` گذاشت — کاری
+  // که **هر ۲ ساعت** می‌دود و همان قفل را می‌گیرد، و حالا یک فایلِ ۱۲۰قلمی را
+  // هر بار از نو می‌نویسد. از ۱۰ سپتامبر اجرای ساعتِ ۴ («آماده‌سازیِ متن»)
+  // پشتِ آن قفل ماند و تسلیم شد.
+  //
+  // و چون **درخواستِ غنی‌سازی فقط در همان اجرا نوشته می‌شود**، هشت روز هیچ
+  // درخواستی نوشته نشد. قسمت‌ها ساخته شدند، پس هیچ‌چیز قرمز نشد — و نگهبانِ
+  // موجود، تسکِ Cowork را مقصر نشان می‌داد، که سالم بود.
+  BUSY_RETRY_MIN: 7,                // چند دقیقه بعد دوباره امتحان کن
+  BUSY_RETRY_MAX: 3,                // و حداکثر چند بار در روز
+  ENRICH_REQ_STALE_DAYS: 2,         // چند روز بی‌درخواست یعنی ایراد
+
   // ------------------------------------------- دیدبانِ محتوا (بخش ۲۴)
   // پاسِ وفاداریِ زمانِ تولید واژه‌ای است: نقل‌قولِ بی‌پشتوانه و جملهٔ بلند را
   // می‌گیرد، ولی نمی‌تواند بگوید «این عکس اصلاً به این بخش نمی‌خورد» یا
@@ -1231,7 +1249,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.17',
+  CODE_VERSION: '7.18',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1518,6 +1536,10 @@ var PK = {
   JUDGE_AT: 'SERIES_JUDGED_AT',        // آخرین دورِ داوریِ محتوایی
   JUDGE_NOAI: 'JUDGE_NO_MODEL_UNTIL',  // تا این لحظه سراغِ مدلِ داوری نمی‌رویم
   ENRICH_AT: 'ENRICH_LAST_AT',         // آخرین غنی‌سازیِ موفق
+  // آخرین باری که **موتور درخواست نوشت** — جدا از «آخرین باری که تسک پاسخ
+  // داد». هشت روز این دو یکی گرفته شدند و مقصر اشتباه معرفی شد.
+  ENRICH_REQ_AT: 'ENRICH_REQ_LAST_AT',
+  BUSY_RETRY: 'PRODUCE_BUSY_RETRY',    // شمارندهٔ تلاشِ دوبارهٔ روزانه
   ENRICH_FORCE: 'ENRICH_FORCE_ONCE',   // یک بار: منتظرِ غنی‌سازی بمان، بی توجه به ساعت
   VOICE_LAST: 'VOICE_LAST_LEAD',       // گویندهٔ اصلیِ دفعهٔ قبلِ هر برنامه
   VOICE_BLOCK: 'VOICE_BLOCKED',        // صداهایی که کاربر کنار گذاشته
@@ -7371,6 +7393,69 @@ function episodeNarration_(ep) {
  * مرحلهٔ ۱: انتخاب محتوا، نگارش متن، ثبت در شیت. سریع است و در یک اجرا تمام می‌شود.
  * سپس ساخت صدا شروع می‌شود و اگر وقت کم بیاید، خودکار ادامه پیدا می‌کند.
  */
+/**
+ * قفل گرفته بود — دوباره امتحان کن، تسلیم نشو.
+ *
+ * ══ چرا این تابع هست ══
+ * `produceEpisode` و `produceSpecialEpisode` تا امروز روی قفلِ گرفته یک سطر
+ * سیاهه می‌نوشتند و برمی‌گشتند. `renderAudioStep_` در همان حالت دوباره
+ * زمان‌بندی می‌کند؛ آن دو نه — و هیچ‌کس متوجهِ تفاوت نشده بود.
+ *
+ * هزینه‌اش از ۱۰ سپتامبر پرداخت شد: ۷٫۰۱ ادغامِ `_MUSIC-FEED.json` را داخلِ
+ * `syncCatalog` (هر ۲ ساعت، همان قفل) گذاشت، اجرای ساعتِ ۴ پشتِ آن ماند، و
+ * چون **درخواستِ غنی‌سازی فقط در همان اجرا نوشته می‌شود**، هشت روز هیچ
+ * درخواستی نوشته نشد. قسمت‌ها ساخته شدند، پس هیچ‌چیز قرمز نشد.
+ *
+ * تریگرِ تلاشِ دوباره نامِ **جدا** دارد و پیش از هر چیز خودش را پاک می‌کند،
+ * تا با تریگرهای روزانه اشتباه گرفته نشود و روی هم تلنبار نشود. شمارنده
+ * روزانه است: یک برخوردِ گذرا را جبران می‌کند، یک خرابیِ پایدار را به حلقهٔ
+ * بی‌پایان تبدیل نمی‌کند.
+ */
+function busyRetry_(fnName) {
+  var mins = Math.max(2, Number(CFG.BUSY_RETRY_MIN) || 7);
+  var max = Math.max(0, Number(CFG.BUSY_RETRY_MAX) || 3);
+  if (!max) return false;
+  var today = String(nowStr_()).slice(0, 10);
+  var key = PK.BUSY_RETRY + ':' + fnName;
+  var n = 0;
+  try {
+    var parts = String(props_().getProperty(key) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eR) {}
+  if (n >= max) {
+    logLine_('تولید: قفل ' + n + ' بار پیاپی گرفته بود؛ امروز دیگر تلاش نمی‌شود (' +
+             fnName + ').');
+    return false;
+  }
+  try {
+    clearRetryTriggers_(fnName);
+    ScriptApp.newTrigger(fnName).timeBased().after(mins * 60 * 1000).create();
+    props_().setProperty(key, today + '|' + (n + 1));
+    logLine_('تولید: قفل گرفته بود؛ ' + mins + ' دقیقهٔ دیگر دوباره (تلاشِ ' +
+             (n + 1) + ' از ' + max + ').');
+    return true;
+  } catch (eT) {
+    logLine_('تولید: تلاشِ دوباره زمان‌بندی نشد — ' + String(eT.message).slice(0, 80));
+    return false;
+  }
+}
+
+/** فقط تریگرهای همین نامِ یک‌باره؛ هرگز تریگرِ روزانهٔ تولید. */
+function clearRetryTriggers_(fnName) {
+  var ts = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < ts.length; i++) {
+    try {
+      if (ts[i].getHandlerFunction() === fnName) ScriptApp.deleteTrigger(ts[i]);
+    } catch (e) {}
+  }
+}
+
+/** نامِ جدا، تا پاک کردنش هرگز به تریگرِ روزانه نخورد. */
+function produceEpisodeRetry() {
+  try { clearRetryTriggers_('produceEpisodeRetry'); } catch (e) {}
+  return produceEpisode();
+}
+
 function produceEpisode(opt) {
   opt = opt || {};
   // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
@@ -7386,8 +7471,9 @@ function produceEpisode(opt) {
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
-    logLine_('تولید: اسکریپت دیگری در حال اجراست (احتمالاً همگام‌سازی)؛ فعلاً رد شد.');
-    return { ok: false, reason: 'busy' };
+    logLine_('تولید: اسکریپت دیگری در حال اجراست (احتمالاً همگام‌سازی).');
+    var again = busyRetry_('produceEpisodeRetry');
+    return { ok: false, reason: 'busy', retry: again };
   }
   var tStart = new Date().getTime();
   try {
@@ -10864,11 +10950,40 @@ function watchdogHeartbeats_(st) {
   /* ── ۲) تسکِ غنی‌سازی ── */
   var eAt = '';
   try { eAt = whNewestEnrich_(); } catch (e2) {}
+  /* ══ دو سؤالِ متفاوت، نه یکی ══
+   * «تسک پاسخ نداده» و «موتور نپرسیده» دو چیزند، و از ۱۰ تا ۲۰ سپتامبر
+   * همین یکی‌گرفتن هشت روز مقصرِ اشتباه نشان داد: نگهبان می‌گفت روتینِ
+   * Cowork را وارسی کنید، در حالی که روتین هر روز می‌دوید و گزارش می‌نوشت —
+   * موتور از ۱۰ سپتامبر هیچ **درخواستی** ننوشته بود، چون اجرای ساعتِ ۴ پشتِ
+   * قفلِ `syncCatalog` مانده و بی‌صدا تسلیم شده بود.
+   *
+   * پس اول از موتور می‌پرسیم. و تا وقتی موتور نپرسیده، سکوتِ تسک ایراد
+   * نیست: کسی که چیزی برای پاسخ ندارد، بدهکار نیست. */
+  var reqAt = '';
+  try { reqAt = String(props_().getProperty(PK.ENRICH_REQ_AT) || ''); } catch (e2a) {}
+  var reqDays = whDays_(reqAt, now);
+  if (CFG.ENRICH_ENABLED !== false) {
+    out.push({ key: 'enrichReq', name: 'درخواستِ غنی‌سازی (کارِ موتور)',
+               what: 'نوشتنِ _ENRICH-REQ-* پیش از صداگذاری',
+               at: reqAt, days: reqDays,
+               maxDays: Math.max(1, Number(CFG.ENRICH_REQ_STALE_DAYS) || 2),
+               fix: 'اجرای «آماده‌سازیِ متن» (ساعت ' + (CFG.PREPARE_HOUR || 4) +
+                    ') نرسیده یا پشتِ قفل مانده — سیاهه را برای «اسکریپت دیگری ' +
+                    'در حال اجراست» ببینید. تا موتور نپرسد، غنی‌سازی کاری ندارد.' });
+  }
+
+  var eDays = whDays_(eAt, now);
+  var taskIdle = isFinite(reqDays) && isFinite(eDays) && reqDays >= eDays;
   out.push({ key: 'enrich', name: 'تسکِ غنی‌سازی',
              what: 'کامل‌کردنِ متنِ قسمت‌ها با جست‌وجوی وب',
-             at: eAt, days: whDays_(eAt, now),
-             maxDays: Math.max(1, Number(CFG.WD_ENRICH_DAYS) || 2),
-             fix: 'روتینِ «غنی‌سازی اینترنتی پادکست‌ها» در Cowork را وارسی کنید.' });
+             at: eAt, days: eDays,
+             // موتور که نپرسیده باشد، سکوتِ تسک بدهی نیست — سقف را برمی‌داریم
+             // تا زنگی که برای هیچ می‌زند، زنگی نباشد که کسی جدی‌اش نمی‌گیرد.
+             maxDays: taskIdle ? Number.POSITIVE_INFINITY
+                               : Math.max(1, Number(CFG.WD_ENRICH_DAYS) || 2),
+             fix: taskIdle
+               ? 'چیزی برای پاسخ نبوده — ردیفِ «درخواستِ غنی‌سازی» را ببینید.'
+               : 'روتینِ «غنی‌سازی اینترنتی پادکست‌ها» در Cowork را وارسی کنید.' });
 
   /* ── ۳) اکشنِ رندر ──
    * این یکی ضربانِ زمانی ندارد، **کارِ انجام‌نشده** دارد: ردیفی که اجازه و
@@ -16989,8 +17104,10 @@ function produceSpecialEpisode(opt) {
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
-    logLine_('درس‌نامه: اسکریپت دیگری در حال اجراست؛ فعلاً رد شد.');
-    return { ok: false, reason: 'busy' };
+    logLine_('درس‌نامه: اسکریپت دیگری در حال اجراست.');
+    // قرینهٔ «از ۱۰ سپتامبر» در بخشِ ۳: تسلیمِ بی‌صدا، هشت روز غنی‌سازی را بُرد.
+    var againSp = busyRetry_('produceSpecialEpisodeRetry');
+    return { ok: false, reason: 'busy', retry: againSp };
   }
   var tStart = new Date().getTime();
   try {
@@ -18749,6 +18866,12 @@ function renderSpecialAudioStep_() {
   } finally {
     try { lock.releaseLock(); } catch (e) {}
   }
+}
+
+/** نامِ جدا برای تلاشِ دوباره — داستانش کنارِ `busyRetry_` در بخشِ ۳ است. */
+function produceSpecialEpisodeRetry() {
+  try { clearRetryTriggers_('produceSpecialEpisodeRetry'); } catch (e) {}
+  return produceSpecialEpisode();
 }
 
 /* ═══════════════════════════ 15_Board.gs ═══════════════════════════ */
@@ -23180,6 +23303,11 @@ function writeEnrichRequest_(show, epNum, ep, items, extra) {
   if (extra) { for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) req[k] = extra[k]; }
   try {
     putOutJson_(enrichReqName_(show, epNum), req);
+    /* مهرِ «موتور **پرسید**» — جدا از مهرِ «تسک **پاسخ داد**».
+       هشت روز این دو یکی گرفته شدند: نگهبان سکوتِ تسک را می‌دید و مقصر
+       معرفی‌اش می‌کرد، در حالی که تسک سالم بود و چیزی برای پاسخ نداشت.
+       دو سؤالِ متفاوت، دو مهرِ متفاوت. */
+    try { props_().setProperty(PK.ENRICH_REQ_AT, nowStr_()); } catch (eStamp) {}
     logLine_('درخواستِ غنی‌سازیِ «' + enrichShowName_(show) + '» قسمت ' + epNum +
              ' گذاشته شد (مهلت تا ' + req.deadline + ').');
     return true;

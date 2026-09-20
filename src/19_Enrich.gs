@@ -255,6 +255,11 @@ function writeEnrichRequest_(show, epNum, ep, items, extra) {
   if (extra) { for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) req[k] = extra[k]; }
   try {
     putOutJson_(enrichReqName_(show, epNum), req);
+    /* مهرِ «موتور **پرسید**» — جدا از مهرِ «تسک **پاسخ داد**».
+       هشت روز این دو یکی گرفته شدند: نگهبان سکوتِ تسک را می‌دید و مقصر
+       معرفی‌اش می‌کرد، در حالی که تسک سالم بود و چیزی برای پاسخ نداشت.
+       دو سؤالِ متفاوت، دو مهرِ متفاوت. */
+    try { props_().setProperty(PK.ENRICH_REQ_AT, nowStr_()); } catch (eStamp) {}
     logLine_('درخواستِ غنی‌سازیِ «' + enrichShowName_(show) + '» قسمت ' + epNum +
              ' گذاشته شد (مهلت تا ' + req.deadline + ').');
     return true;

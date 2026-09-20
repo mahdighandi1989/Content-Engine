@@ -804,8 +804,10 @@ function produceSpecialEpisode(opt) {
   }
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
-    logLine_('درس‌نامه: اسکریپت دیگری در حال اجراست؛ فعلاً رد شد.');
-    return { ok: false, reason: 'busy' };
+    logLine_('درس‌نامه: اسکریپت دیگری در حال اجراست.');
+    // قرینهٔ «از ۱۰ سپتامبر» در بخشِ ۳: تسلیمِ بی‌صدا، هشت روز غنی‌سازی را بُرد.
+    var againSp = busyRetry_('produceSpecialEpisodeRetry');
+    return { ok: false, reason: 'busy', retry: againSp };
   }
   var tStart = new Date().getTime();
   try {
@@ -2564,4 +2566,10 @@ function renderSpecialAudioStep_() {
   } finally {
     try { lock.releaseLock(); } catch (e) {}
   }
+}
+
+/** نامِ جدا برای تلاشِ دوباره — داستانش کنارِ `busyRetry_` در بخشِ ۳ است. */
+function produceSpecialEpisodeRetry() {
+  try { clearRetryTriggers_('produceSpecialEpisodeRetry'); } catch (e) {}
+  return produceSpecialEpisode();
 }
