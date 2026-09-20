@@ -22,6 +22,10 @@ on:
         description: 'شمارهٔ اجرای voice-train که مدلش برداشته شود (مثل 35249963188) — به‌جای پر کردنِ دو خانهٔ زیر'
         required: false
         default: ''
+      rvc_voice:
+        description: 'کلیدِ گویندهٔ همان اجرا — نامِ artifact از آن ساخته می‌شود (voice-<کلید>). خالی = razavi.'
+        required: false
+        default: 'razavi'
       rvc_model:
         description: 'مدلِ صدا: شناسهٔ فایلِ درایو (فقط برای engine=rvc؛ اگر rvc_run را پر کردی لازم نیست)'
         required: false
@@ -359,9 +363,15 @@ jobs:
         env:
           RUN_ID: ${{ inputs.rvc_run }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RVC_VOICE: ${{ inputs.rvc_voice || 'razavi' }}
         run: |
           set -euo pipefail
-          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n voice-razavi -D vrart
+          # ══ نامِ artifact دیگر ثابت نیست (۷٫۲۱) ══
+          # تا ۷٫۲۰ اینجا `voice-razavi` نوشته بود. وقتی voice-train
+          # چندگوینده شد و نامِ artifactش به `voice-<کلید>` رفت، این خط
+          # برای هر گویندهٔ تازه شکست می‌خورد — همان «قرینه‌ای که یک بار
+          # درست شد»: باگ را در یک طرف می‌بینی و طرفِ دیگر جا می‌مانَد.
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n "voice-$RVC_VOICE" -D vrart
           # نامِ فایل‌ها را از خودِ پوشه بخوان، نه از یک فهرستِ دستی — همان
           # درسی که `ref*.input` اینجا داد و `removeTriggers` در موتور.
           M="$(find vrart -name '*.pth' ! -name '*_e*' | head -1)"

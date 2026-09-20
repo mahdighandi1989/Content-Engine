@@ -33,6 +33,7 @@ function onOpen() {
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('🎚 نمونهٔ روحِ خواندن (با و بی کارت)', 'runStyleProbe')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
+      .addItem('🎤 گویندهٔ تازه — وارسیِ پوشه و صف', 'runVoiceIntake')
       .addSeparator()
       .addItem('📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته', 'runHandoutBuild')
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')

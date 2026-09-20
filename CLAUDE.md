@@ -870,6 +870,67 @@ real path was never exercised once. `run_wiring_test.js` ۴.۱/۴.۲ now fail if
 `tools/build.js` or any hand-listed loader is missing a file that exists in
 `src/`.
 
+## A new speaker is a folder, not a code change (section 33, 7.21)
+
+The owner asked: «آیا تو درایو فولدری هست که صدای نمونهٔ جدید بذارم و اسم گوینده
+رو روش بذارم و تو در بررسی‌های روزانه بری چک کنی و خودکار روش کار کنی و وقتی
+تموم شد اعلام کنی و نمونه‌ها رو بفرستی؟»
+
+**The folder already existed. He made it on 2 September.** For eighteen nights
+the engine reported «voice cloning» in `outLayout.strays` as an unknown folder,
+and every night it was dismissed as «کارِ شما — کم‌اهمیت». Nobody asked *why a
+folder called "voice cloning" was sitting in a repo that has a voice-cloning
+model*. A stray with a meaningful name is not litter; it is **an intention that
+never reached the code**. That rule is now §۴٫۹٫۳ of the monitor prompt, stated
+beyond voices: repeating a label is not analysis.
+
+**The engine decides; the Action works.** Apps Script has no ffmpeg, no GPU and
+six minutes. So this is the `_YT-RENDER.json` boundary again: `vintScan_` reads
+the folder, `_VOICE-QUEUE.json` carries the work out (public-shared, because the
+runner arrives as nobody), `voice-intake.yml` runs the chain, and the answer
+comes back through `docs/voices.json` — which the engine already knows how to
+read, because that is how `engine.gs` arrives every night.
+
+**The single most dangerous line in this version is in `dsSig_`.** Until 7.20
+`tools/voicetrain.py` held eight Razavi Drive ids by hand, so the production line
+was single-speaker by construction. Making it read `VT_VOICE`/`VT_FILE_IDS` is the
+easy half. The half that matters: **the speaker key had to enter the dataset
+fingerprint** (`DS_SIG_VER` 2→3). Without it, Razavi's cached dataset counts as
+"present" for a new speaker, `buildDataset_` never runs, and the second person's
+model trains on the first person's voice — with no error anywhere. That is
+exactly the shape `freshStart_` was written for («دادهٔ تازه، ادامه نیست»), only
+this time between two people instead of two datasets.
+
+**`VOICE` is the one definition of "which speaker".** It already named the logs
+folder and the weight files. A second «speaker» variable was drafted and deleted:
+two names for one thing means that one day the fingerprint belongs to one person
+and the weights directory to another, and nothing shows it.
+
+**And the twin got fixed with it.** `voice-lab.yml` had `-n voice-razavi` written
+flat. The moment `voice-train` produced `voice-<key>`, that line broke for every
+new speaker. Fixed in the same change — a symmetry fixed once is fixed once.
+
+**Every lesson in this file was applied in advance, not after the loss:**
+a request unanswered for `VOICE_STUCK_DAYS` is itself a `NEEDS_CODE` finding (the
+music bank took seven weeks to learn that); `رهاشده` is counted separately from
+`عقب‌مانده` (5.88); the queue's file id is pinned *and* watched (`vintQueueIdOk_`,
+the `YT_QUEUE_ID` trap); an unusable file is reported by name, never silently
+skipped («قالب ناسازگار»); sharing is revoked *before* archiving, because the
+scan cannot see an archived folder and the share would leak forever; nothing is
+ever deleted; and `voiceIntake.line` is present every single day, including the
+days when there is nothing to say.
+
+**`preexisting` exists for one sentence that would have been a lie.** Razavi was
+trained by hand, weeks ago. Seeding him as «آماده» is necessary (otherwise the
+nightly re-queues him forever), but announcing «✅ گویندهٔ تازه آماده شد» for him
+would be a false headline — and one false headline is how the true ones stop
+being read.
+
+**What this section deliberately does not do:** it never puts a voice on an
+episode. The bridge is not built, and the owner said «تا نگفتم سمت پل فعلاً نرو».
+A ready model is half the work, and the guide in Drive says so in plain words
+rather than letting the silence imply otherwise.
+
 ## Seeing is not the same as being obliged (7.18 / 7.19)
 
 Between 10 and 20 September not one `_ENRICH-REQ-*` was written. Every day

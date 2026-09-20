@@ -154,7 +154,11 @@ function outRootFilePatterns_() {
     { re: /^_PROMPT-[^/]*\.md$/, what: 'پرامپتِ تسک' },
     // شناسنامهٔ آهنگ‌های پیشین: جای تازه‌اش پوشهٔ بانک است، ولی آنچه از
     // قبل در ریشه مانده هم شناخته است — سرگردان نیست.
-    { re: /^_MUSIC-META-[^/]*\.json$/, what: 'شناسنامهٔ آهنگ (جای قدیم)' }
+    { re: /^_MUSIC-META-[^/]*\.json$/, what: 'شناسنامهٔ آهنگ (جای قدیم)' },
+    // صفِ گویندگان. مثلِ _YT-RENDER.json باید در ریشه و دقیقاً یکی باشد —
+    // اکشن با هویتِ هیچ‌کس می‌خوانَدش و راهی برای گشتن در زیرپوشه ندارد.
+    { re: new RegExp('^' + rxQuote_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json')) + '$'),
+      what: 'صفِ آموزشِ گویندگان — موتور می‌نویسد، اکشن برمی‌دارد' }
   ];
 }
 
@@ -165,7 +169,10 @@ function outRootFolderNames_() {
     String(CFG.CODE_FOLDER || ''), String(CFG.MUSIC_FOLDER || ''),
     String(CFG.REPORT_ARCHIVE_FOLDER || ''), String(CFG.VOICE_AUDIT_FOLDER || ''),
     String(CFG.AUDIT_FOLDER || ''), String(CFG.PROMPT_ARCHIVE_FOLDER || ''),
-    String(CFG.YT_COVER_FOLDER || '')
+    String(CFG.YT_COVER_FOLDER || ''),
+    /* پوشهٔ نمونه‌های گوینده. تا ۷٫۲۰ هر شب «ناشناخته» گزارش می‌شد، چون
+       صاحبِ برنامه ساخته بودش و کد نمی‌شناختش. حالا خانهٔ رسمیِ بخشِ ۳۳ است. */
+    String(CFG.VOICE_CLONE_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -533,6 +540,8 @@ function writeStatus_(hub, note) {
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
     handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
     youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
+    // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
+    voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -1454,6 +1463,14 @@ function healthCheck() {
     var mdS = modelStatus_();
     if (mdS && mdS.line) { if (mdS.ok) notes.push(mdS.line); else problems.push(mdS.line); }
   } catch (eMd) {}
+  /* ══ گویندهٔ تازه: هر روز یک سطر، حتی وقتی هیچ نمونه‌ای نیست (۷٫۲۱) ══
+     صاحبِ برنامه هیچ شیتی را باز نمی‌کند و خودش خواست که «در گزارش روزانه
+     روندش و عملکردش و ایرادات ثبت بشه و دیده بشه». سطری که فقط وقتی خبرِ
+     بد هست بیاید، سکوتش از سلامت تشخیص داده نمی‌شود. */
+  try {
+    var viS = vintStatus_(hub);
+    if (viS && viS.line) { if (viS.ok === false) problems.push(viS.line); else notes.push(viS.line); }
+  } catch (eVi) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

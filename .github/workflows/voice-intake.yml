@@ -1,0 +1,180 @@
+# پذیرشِ گویندهٔ تازه — نیمهٔ بیرونیِ بخشِ ۳۳
+#
+# ══ تقسیمِ کار ══
+# موتور پوشهٔ «voice cloning» را می‌خوانَد و `_VOICE-QUEUE.json` را در
+# درایو می‌نویسد. این گردش‌کار آن صف را برمی‌دارد، برای هر گوینده یک
+# گام جلو می‌رود، و حالت را در `docs/voices.json` می‌نویسد — جایی که
+# موتور با gitHub raw می‌خوانَدش، همان راهی که `engine.gs` هر شب از آن
+# می‌آید. هیچ رمزی جز `GITHUB_TOKEN` لازم نیست: فایل‌های صوتی را موتور
+# موقتاً «هرکس با لینک» می‌کند و بعد اشتراکشان را پس می‌گیرد.
+#
+# ══ چرا دو job ══
+# `plan` ارزان است (چند فراخوانِ API) و باید هر شش ساعت بدود. `measure`
+# گران است (دانلودِ مدل، تبدیل، مدلِ گوینده) و فقط وقتی لازم است که
+# گوینده‌ای واقعاً به گامِ سنجش رسیده باشد. یکی‌کردنشان یعنی هر اجرا
+# نیم‌ساعت طول بکشد تا در ۹۵٪ مواقع هیچ کاری نکند.
+#
+# ══ و کاری که اینجا انجام **نمی‌شود** ══
+# هیچ صدایی روی هیچ قسمتی نمی‌نشیند. «پلِ رنگِ صدا» کارِ این نیست.
+
+name: voice-intake
+
+on:
+  schedule:
+    # هر شش ساعت، دقیقهٔ ۵۰ — بعد از کارِ شبانهٔ موتور (۰۲:۳۰ دبی) و دور
+    # از رندرِ ویدئو (دقیقهٔ ۴۰) و غنی‌سازی (دقیقهٔ ۲۰).
+    - cron: '50 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write        # برای راه‌انداختنِ voice-train و خواندنِ artifactها
+
+concurrency:
+  # دو اجرای هم‌زمان یعنی دو بار راه‌انداختنِ یک آموزش و برخورد روی
+  # docs/voices.json. آموزشِ خودِ گویندگان همچنان موازی است — گروهِ آن
+  # در voice-train.yml به کلیدِ گوینده بسته است، نه به این.
+  group: voice-intake
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      measure: ${{ steps.plan.outputs.measure }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: یک گام برای هر گوینده
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # شناسهٔ ثابتِ صف — همان که در src/00_Config.gs زیرِ
+          # VOICE_QUEUE_ID نشسته. اگر یکی عوض شد و دیگری نه، موتور خودش
+          # داد می‌زند (`vintQueueIdOk_`)، چون سکوتِ این دو تا ابد ادامه
+          # پیدا می‌کرد.
+          VOICE_QUEUE_ID: '1NoVT_J1-KQ_e4fyhc4VqbDf3Xy0FcZH5'
+          VI_EPOCHS: '32'
+        run: python3 tools/voiceintake.py --plan
+
+      - name: ثبتِ حالت در ریپو
+        if: steps.plan.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/voices.json; then
+            echo "چیزی عوض نشد."; exit 0
+          fi
+          git config user.name  "content-engine-voice"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/voices.json
+          git commit -m "گویندگان: یک گام جلو"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" \
+              && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 3))
+          done
+          exit 1
+
+  measure:
+    needs: plan
+    if: needs.plan.outputs.measure != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: ffmpeg
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet imageio-ffmpeg
+          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          "$FF" -version | head -1
+          mkdir -p "$HOME/.local/bin"; ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # ══ مدل از artifactِ همان اجرای آموزش ══
+      # نامِ فایل‌ها از خودِ پوشه خوانده می‌شود، نه از فهرستی دستی — همان
+      # درسی که `removeTriggers` در موتور داد: فهرستِ دست‌نویسِ آنچه کد
+      # می‌سازد، کهنه می‌شود.
+      - name: مدلِ گویندهٔ تازه
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEY: ${{ needs.plan.outputs.measure }}
+        run: |
+          set -euo pipefail
+          RID="$(python3 tools/voiceintake.py --runid "$KEY")"
+          [ -n "$RID" ] || { echo "::error::اجرای آموزشِ $KEY ثبت نشده."; exit 1; }
+          gh run download "$RID" -R "$GITHUB_REPOSITORY" -n "voice-$KEY" -D vart
+          M="$(find vart -name '*.pth' ! -name '*_e*' | head -1)"
+          [ -n "$M" ] || M="$(find vart -name '*.pth' | sort -V | tail -1)"
+          I="$(find vart -name '*.index' | head -1)"
+          if [ -z "$M" ]; then
+            echo "::error::در artifactِ اجرای $RID هیچ .pth نبود."
+            find vart -type f | head -20; exit 1
+          fi
+          cp "$M" model.pth
+          [ -n "$I" ] && cp "$I" model.index || echo "بی ایندکس ادامه می‌دهیم."
+
+      - name: کتابخانه‌ها
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "infer-rvc-python>=1.3.1,<2" \
+            "soundfile>=0.13.0,<1" "speechbrain>=1.0,<2" "silero-vad>=5,<6" \
+            "numpy<2" "torch" "torchaudio" gdown
+
+      # ══ مرجع و مبدأ: همان دو فایلی که رضوی با آن‌ها سنجیده شد ══
+      # سنجش فقط وقتی معنا دارد که ورودی‌اش ثابت باشد. عددِ ۰٫۷۴۴ِ رضوی
+      # روی همین دو فایل گرفته شد، پس هر گویندهٔ تازه هم با همین‌ها
+      # سنجیده می‌شود و عددها با هم قابلِ مقایسه‌اند. ورودیِ متغیر یعنی
+      # عددی که با هیچ عددِ دیگری جور نیست.
+      - name: نمونهٔ مبدأ
+        run: |
+          set -euo pipefail
+          python3 -m gdown "1v4HaKFw7_7sD5pe2UE199iFX69jgh2p0" -O src.wav || \
+            python3 -m gdown --fuzzy "https://drive.google.com/uc?id=1v4HaKFw7_7sD5pe2UE199iFX69jgh2p0" -O src.wav
+          ls -la src.wav
+
+      - name: تبدیل و سنجشِ شباهت
+        id: sim
+        env:
+          KEY: ${{ needs.plan.outputs.measure }}
+        run: |
+          set -euo pipefail
+          ARGS=(--engine rvc --src src.wav --out lab --rvc-model model.pth)
+          [ -f model.index ] && ARGS+=(--rvc-index model.index)
+          ARGS+=(--rvc-pitch -12 --rvc-index-rate 1.0 --rvc-protect 0.33)
+          python3 tools/voicelab.py "${ARGS[@]}" || echo "::warning::آزمایشگاه قرمز تمام شد."
+          mkdir -p "docs/voice-samples/$KEY"
+          # نمونه‌های شنیداری — موتور همین‌ها را از raw برمی‌دارد و در
+          # درایو می‌گذارد و لینکشان را می‌فرستد.
+          n=0
+          for f in $(find lab -name 'rvc-*.wav' | sort | head -3); do
+            n=$((n+1)); cp "$f" "docs/voice-samples/$KEY/نمونه-$n.wav"
+          done
+          cp src.wav "docs/voice-samples/$KEY/پیش-از-تبدیل.wav" 2>/dev/null || true
+          S="$(python3 tools/voiceintake.py --sim lab)"
+          echo "قدرِ شباهت: ${S:-—}"
+          echo "sim=$S" >> "$GITHUB_OUTPUT"
+
+      - name: ثبتِ نتیجه
+        env:
+          KEY: ${{ needs.plan.outputs.measure }}
+        run: |
+          set -euo pipefail
+          python3 tools/voiceintake.py --record "$KEY" "${{ steps.sim.outputs.sim }}" \
+            "مدل آموزش دید و سنجیده شد."
+          git config user.name  "content-engine-voice"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/voices.json "docs/voice-samples/$KEY" || true
+          git diff --cached --quiet && { echo "چیزی عوض نشد."; exit 0; }
+          git commit -m "گویندگان: «$KEY» سنجیده شد"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" \
+              && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 3))
+          done
+          exit 1

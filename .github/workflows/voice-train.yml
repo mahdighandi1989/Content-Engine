@@ -38,6 +38,14 @@ on:
         description: 'اگر کشِ اجرای پیشین نبود، از صفر شروع کن (پیش‌فرض: نه — اجرا می‌ایستد تا کارِ قبلی دور ریخته نشود)'
         required: false
         default: 'false'
+      voice:
+        description: 'کلیدِ گوینده — لاتین و کوتاه (مثلِ razavi). کشِ کار، نامِ وزن‌ها و artifact از همین ساخته می‌شوند؛ پس دو گوینده هرگز کشِ هم را نمی‌گیرند.'
+        required: false
+        default: 'razavi'
+      file_ids:
+        description: 'شناسه‌های درایوِ ضبط‌ها، با کاما. خالی = همان هشت ضبطِ رضوی. فایل‌ها باید «هر کسی با لینک» باشند.'
+        required: false
+        default: ''
   # ══ زمان‌بندی برداشته شد (۱۸ سپتامبر) — چون کار تمام شد ══
   # آموزش به هدفش رسید: «دورِ ۳۲ از ۳۲ · تمام‌شده: True» (اجرای ۵۹).
   # ولی زمان‌بندیِ `17 */6 * * *` سرِ جایش ماند، و از آن به بعد هر شش
@@ -73,7 +81,14 @@ concurrency:
   # گروهِ دومِ هم‌نام اضافه کردم؛ کلیدِ تکراری کلِ فایل را برای گیت‌هاب
   # نامعتبر کرد و هفت ساعت هیچ اجرایی راه نیفتاد. پیش از افزودنِ یک
   # سازوکار، ببین همان سازوکار از قبل هست یا نه.)
-  group: voice-train
+  # ══ گروه به گوینده بسته است (۷٫۲۱) ══
+  # تا اینجا گروه یک نام بود، پس آموزشِ گویندهٔ دوم پشتِ گویندهٔ اول در
+  # صف می‌ماند — بی هیچ دلیلِ فنی، چون کش و artifact و پوشهٔ کارشان از
+  # هم جداست. حالا هر گوینده صفِ خودش را دارد: دو نفر می‌توانند هم‌زمان
+  # آموزش ببینند، و دو اجرای **یک** گوینده همچنان صف می‌شوند — که همان
+  # چیزی است که این گروه از روزِ اول برایش گذاشته شد (دو job هم‌زمان یعنی
+  # دو کش که همدیگر را خراب می‌کنند).
+  group: voice-train-${{ github.event.inputs.voice || 'razavi' }}
   cancel-in-progress: false
 
 permissions:
@@ -169,6 +184,15 @@ jobs:
       # عدد را دستی جلو ببرد. یک منبع، نه دو.
       - name: اثرِ انگشتِ ورودی
         id: sig
+        env:
+          # ══ همین دو خط، وگرنه اثرِ انگشت مالِ رضوی است و آموزش مالِ نفرِ دیگر ══
+          # `dsSig_()` از `VOICE` و `DRIVE_IDS` ساخته می‌شود، و هر دو از
+          # محیط می‌آیند. اگر این مرحله بی محیط اجرا شود، کلیدِ کش مالِ
+          # رضوی می‌شود و دیتاستِ او برای گویندهٔ تازه «موجود» شمرده
+          # می‌شود — **بی هیچ خطایی**. این تکرارِ محیط در دو مرحله زشت
+          # است ولی لازم؛ زشتیِ دیده‌شده بهتر از درستیِ نانوشته است.
+          VT_VOICE: ${{ github.event.inputs.voice || 'razavi' }}
+          VT_FILE_IDS: ${{ github.event.inputs.file_ids || '' }}
         run: |
           S=$(python -c 'import sys; sys.path.insert(0,"tools"); import voicetrain as V; print(V.dsSig_())')
           echo "اثرِ انگشت: $S"
@@ -187,7 +211,7 @@ jobs:
             ~/rvcwork/assets/pretrained_v2
             ~/rvcwork/assets/rmvpe
             ~/rvcwork/raw
-          key: rvc-razavi-base-${{ steps.sig.outputs.sig }}
+          key: rvc-${{ github.event.inputs.voice || 'razavi' }}-base-${{ steps.sig.outputs.sig }}
 
       - name: کارِ اجرای پیشین را برگردان
         id: cache
@@ -199,7 +223,7 @@ jobs:
             ~/rvcwork/assets/weights
             ~/rvcwork/assets/indices
             ~/rvcwork/out
-          key: rvc-razavi-ckpt-${{ github.run_id }}
+          key: rvc-${{ github.event.inputs.voice || 'razavi' }}-ckpt-${{ github.run_id }}
           # ══ اینجا کلیدِ مهاجرت **ممکن نیست** ══
           # اول `rvc-razavi-` را هم گذاشته بودم تا کش‌های تک‌تکهٔ پیش از
           # این تغییر برگردند. کار نمی‌کند: شناسهٔ هر کش علاوه بر کلید،
@@ -211,7 +235,7 @@ jobs:
           # `allow_fresh: true`، با آگاهی از اینکه دورهای داخلِ کشِ
           # قدیمی از دست می‌روند.
           restore-keys: |
-            rvc-razavi-ckpt-
+            rvc-${{ github.event.inputs.voice || 'razavi' }}-ckpt-
 
       # ══ اجرایی که از صفر شروع کند، شبیهِ اجرای عادی است ══
       # ۸ سپتامبر: اجرای ۱۸ لغو شد، کشِ خودش را در ۰۶:۴۵:۰۳ نوشت، و
@@ -271,6 +295,8 @@ jobs:
           # بخشِ ۲۹ خودآزما حالا برابریِ این دو را می‌سنجد.
           VT_EPOCHS: ${{ github.event.inputs.epochs || '32' }}
           VT_BUDGET_MIN: '290'
+          VT_VOICE: ${{ github.event.inputs.voice || 'razavi' }}
+          VT_FILE_IDS: ${{ github.event.inputs.file_ids || '' }}
         run: python tools/voicetrain.py
 
       # ══ و اگر ننوشتیم، بلند بگو ══
@@ -340,7 +366,7 @@ jobs:
             ~/rvcwork/assets/pretrained_v2
             ~/rvcwork/assets/rmvpe
             ~/rvcwork/raw
-          key: rvc-razavi-base-${{ steps.sig.outputs.sig }}
+          key: rvc-${{ github.event.inputs.voice || 'razavi' }}-base-${{ steps.sig.outputs.sig }}
 
       # ══ نردبان: اول بایگانی، بعد کوتاه ══
       # کشِ چک‌پوینت تنها یک بخشِ رشدکننده دارد —
@@ -364,7 +390,7 @@ jobs:
         if: always() && steps.train.conclusion != 'skipped'
         uses: actions/upload-artifact@v4
         with:
-          name: voice-razavi-ladder-${{ github.run_number }}
+          name: voice-${{ github.event.inputs.voice || 'razavi' }}-ladder-${{ github.run_number }}
           path: ~/rvcwork/assets/weights/*_e*.pth
           if-no-files-found: ignore
           retention-days: 90
@@ -404,13 +430,13 @@ jobs:
             ~/rvcwork/assets/weights
             ~/rvcwork/assets/indices
             ~/rvcwork/out
-          key: rvc-razavi-ckpt-${{ github.run_id }}
+          key: rvc-${{ github.event.inputs.voice || 'razavi' }}-ckpt-${{ github.run_id }}
 
       - name: نتیجه
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voice-razavi
+          name: voice-${{ github.event.inputs.voice || 'razavi' }}
           path: ~/rvcwork/out
           if-no-files-found: warn
           retention-days: 30
