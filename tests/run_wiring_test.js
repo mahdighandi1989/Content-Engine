@@ -257,4 +257,63 @@ console.log('\n══ ۷) کلیدِ تکراری در CFG — خطایی که �
   ok('۷.۲ و هیچ سرستونی دوبار نیامده', hdrDups.length === 0, hdrDups.join(', '));
 }
 
+/* ══ ۸) بلوکِ «فقط نخستین اجرای هر شب» — و شبی که نسخهٔ تازه نصب می‌شود ══
+ *
+ * ۲۱ سپتامبر: صاحبِ برنامه ۲۷ فایلِ صوتیِ یک گویندهٔ تازه را در پوشه
+ * گذاشت و کارِ شبانه دوید و `_VOICE-QUEUE.json` دست نخورد — بی هیچ خطایی.
+ * علت در بخشِ ۳۳ نبود: همان شب نسخهٔ تازه‌ای نصب شد، اجرای اول با کدِ
+ * **قدیمی** دوید، و اجرای دومِ همان شب `night.first === false` دید و کلِ
+ * بلوکِ «کارهای ارزان» را رد کرد. یعنی هر قابلیتی که داخلِ آن بلوک باشد،
+ * **در شبِ نصبِ خودش اجرا نمی‌شود**.
+ *
+ * این آزمون فهرستِ سفیدِ دست‌نویس ندارد از آنچه *باید* بیرون باشد؛ برعکس:
+ * هرچه داخلِ بلوک بماند باید در فهرستِ زیر نام داشته باشد، با دلیل. پس
+ * قابلیتِ بعدی که کسی آنجا می‌گذارد، همین‌جا گیر می‌کند و باید توضیح
+ * بدهد چرا تکرارش بی‌خطر نیست.
+ */
+{
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const open = su.indexOf('  if (night.first) {');
+  const close = su.indexOf('پایانِ کارهای ارزان');
+  ok('۸.۱ بلوکِ «نخستین اجرا» پیدا شد', open > 0 && close > open);
+  const inside = su.slice(open, close);
+
+  /* آنچه مجاز است داخل بماند — و دلیلش. چیزی که دوباره اجرا شدنش
+     بی‌خطر نیست (نصب، داوری) این‌جا می‌مانَد؛ بقیه بیرون. */
+  const ALLOWED = [
+    'engVerdict_',        // داوریِ تعویضِ دیشب — دو بار داوری یعنی دو حکم
+    'selfUpdateStep',     // نصب
+    'srcNightly_',        // نصبِ تحلیلگرها
+    'auditSourceScripts'  // ورودیِ همان نصب
+  ];
+  const calls = (inside.match(/\b([A-Za-z_][A-Za-z0-9_]*_|[a-z][A-Za-z0-9]+)\(/g) || [])
+    .map(x => x.slice(0, -1));
+  const NOISE = new Set(['if', 'for', 'while', 'catch', 'try', 'function', 'return',
+                         'switch', 'typeof', 'Number', 'String', 'Math', 'JSON',
+                         'nightHas_', 'logLine_', 'mailQueue_', 'getHub_',
+                         'props_', 'nowStr_', 'parseInt', 'Object', 'Array']);
+  const heavy = [];
+  for (const c of calls) {
+    if (NOISE.has(c)) continue;
+    if (ALLOWED.indexOf(c) !== -1) continue;
+    // خانه‌داریِ ارزان و idempotent — این‌ها وعده‌ای به کاربر ندارند که
+    // یک شب دیرتر شکسته شود، و تکرارشان بی‌خطر است.
+    if (/^(outReadmeSync_|promptSyncFromRepo_|pruneReportArchive_|reportStale_|promptPrune_|pruneEnrichFiles_|promptFreshNag_|engHeartbeat_|personaSeed_|musicUnblock_|musicFeedDedup_)$/.test(c)) continue;
+    if (heavy.indexOf(c) === -1) heavy.push(c);
+  }
+  ok('۸.۲ هیچ قابلیتِ تازه‌ای داخلِ بلوکِ «نخستین اجرا» جا نمانده',
+     heavy.length === 0,
+     heavy.length ? ('اینها در شبِ نصبِ خودشان اجرا نمی‌شوند: ' + heavy.join(', '))
+                  : 'فقط نصب و داوری داخل مانده‌اند');
+
+  const after = su.slice(close);
+  ok('۸.۳ دورِ گویندهٔ تازه بیرونِ آن بلوک است',
+     after.indexOf('vintNightly_') !== -1 && inside.indexOf('vintNightly_') === -1,
+     'وگرنه گویندهٔ تازه در شبی که نسخهٔ تازه نصب می‌شود دیده نمی‌شود');
+  ok('۸.۴ و دورِ اثر انگشت هم', after.indexOf('embNightly_') !== -1);
+  ok('۸.۵ ولی نصبِ تحلیلگرها عمداً داخل مانده',
+     inside.indexOf('srcNightly_') !== -1,
+     'نصبِ دوباره بی‌خطر نیست — این یکی باید یک بار در شب بماند');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

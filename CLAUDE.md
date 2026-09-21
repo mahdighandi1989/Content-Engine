@@ -984,6 +984,45 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## The night a version installs is the one night its new code does not run (7.29)
+
+21 September, the first real use of section 33. The owner dropped a folder —
+«محمد تقی پور گلدوز», 27 mp3 files, ~97 MB — at 22:23. The nightly ran at 02:30
+and `_VOICE-QUEUE.json` **was not touched**. No error anywhere.
+
+The fault was not in section 33. `vintQueue_` writes unconditionally, mp3 is in
+`VOICE_AUDIO_EXT`, and the scan saw him (the 10:00 health mail said «در نوبت: ۲»).
+It was one line of structure: `vintNightly_` sat inside `if (night.first)`.
+
+That night 7.27 installed. The **first** run executed the *old* code — 7.16, which
+had no section 33 at all — and `afterCodeSwap` started a second run on the new
+code. In that run `night.first` was false, so the whole cheap block was skipped
+and `vintNightly_` was never called. Section 35's block ran because it happens to
+sit *outside* that brace.
+
+**Generalised: anything inside that block does not run on the night its own
+version installs** — the one night it is newest and most likely to matter. And the
+same gate defeats the multi-run machinery: if run 1 runs out of time inside the
+block, run 2 skips the block entirely, so `_nightSkipTo` can never steer back into
+it.
+
+This is the 7.22/7.27 bell one layer up again, and it is worth stating as its own
+rule because it keeps arriving in new clothes: **it is not enough that the guard
+exists and the threshold is right — ask what has to succeed for the code to be
+reached at all.** Three times now the answer was "a path that does not exist".
+
+The fix moves the voice round out, and the test does not carry a hand-written list
+of what belongs outside — it inverts it. Everything still *inside* must be named
+in an allowlist with a reason, so the next capability someone puts there fails the
+suite until they justify why running it twice is safe. `srcNightly_` stays inside
+deliberately: it installs analyzer code, and a double install is not harmless.
+`vintNightly_` is safe outside because it is idempotent — it rewrites the queue
+with a higher `rev` and builds nothing twice.
+
+**And the owner's own first use is the measurement that found it.** Two test
+suites and 49 green runs never did, because they all asked "does the function
+work", never "does anything call it tonight".
+
 ## The first real night gave the number, and it was four times my estimate (7.28)
 
 7.26 shipped on an estimate: "roughly twelve thousand bank rows, a few nights to
