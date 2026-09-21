@@ -2025,6 +2025,22 @@ console.log('=== ۳۲) کاری که هرگز نوبت نمی‌گیرد، «ک�
      n3.first === true && n3.runs === 0);
   delete P[PK.NIGHT_STARVE];
   delete P[PK.NIGHT_STEP];
+
+  /* ══ ۷٫۳۰: نگهبانی که از کلِ بودجه بزرگ‌تر باشد همیشه رد می‌شود ══
+   * ۷٫۲۸ نگهبانِ اثر انگشت را به ۳۰۰۰۰۰ رساند در حالی که NIGHT_BUDGET_MS
+   * فقط ۲۷۰۰۰۰ است — یعنی nightLeft_() هرگز به آن نمی‌رسید و آن بلوک، و
+   * هر بلوکِ بعدِ آن در همان اجرا، همیشه رد می‌شدند. اینجا هر فراخوانِ
+   * nightHas_(عدد, …) در خودِ selfUpdateDaily استخراج می‌شود تا نگهبانِ
+   * بعدی هم همین اشتباه را نسازد. */
+  const p21n = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const needRe = /nightHas_\((\d+),/g;
+  const needs = []; let mm;
+  while ((mm = needRe.exec(p21n))) needs.push(Number(mm[1]));
+  const budget = Math.max(30000, Number(CFG.NIGHT_BUDGET_MS) || 270000);
+  const tooBig = needs.filter(n => n > budget);
+  ok('۳۲.۱۶ هیچ نگهبانِ nightHas_ای از کلِ بودجهٔ شب بزرگ‌تر نیست',
+     needs.length > 0 && tooBig.length === 0,
+     tooBig.length ? ('بزرگ‌تر از ' + budget + ': ' + tooBig.join(', ')) : String(needs.length));
 }
 
 console.log('=== ۳۳) صفِ بازشنیدن، به ترتیبِ هزینهٔ اشتباه ===');
