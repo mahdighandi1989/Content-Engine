@@ -439,4 +439,43 @@ ok('۱۵.۵ اثرِ انگشتِ دیتاست کلیدِ گوینده را در
    /raw = \("v%d\|" % DS_SIG_VER\) \+ VOICE/.test(vt),
    'خطرناک‌ترین باگِ ممکنِ این خط');
 
+console.log('\n══ ۲۲) اشتراکِ صف — نیمهٔ دومِ همان سؤالی که ۹ می‌پرسد ══');
+/* شناسه درست بود، فایل سرِ جایش بود، و اکشن باز هم چیزی نگرفت: درایو
+   برای فایلِ بی‌اشتراک HTML می‌دهد نه خطا. چهار اجرا پشتِ‌هم قرمز شد و
+   موتور هیچ‌جا نگفت چرا. */
+const qname = CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json';
+const qfile = () => { const it = outFolder_().getFilesByName(qname); return it.hasNext() ? it.next() : null; };
+vintQueue_(hub, vintScan_(), vintState_(hub));
+ok('۲۲.۱ کارِ شبانه خودش اشتراکِ صف را باز می‌گذارد',
+   String(qfile().getSharingAccess()) === String(DriveApp.Access.ANYONE_WITH_LINK));
+ok('۲۲.۲ و وقتی باز است، خبری نیست', vintQueueShare_().ok === true);
+
+qfile().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+const qs = vintQueueShare_();
+ok('۲۲.۳ بسته‌بودن گرفته می‌شود', qs.ok === false);
+ok('۲۲.۴ و همان‌جا باز می‌شود، نه اینکه فقط گزارش شود',
+   qs.fixed === true &&
+   String(qfile().getSharingAccess()) === String(DriveApp.Access.ANYONE_WITH_LINK),
+   'دری که آدم باید دستی بازش کند، در نیست');
+
+qfile().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+const stSh = vintStatus_(hub);
+ok('۲۲.۵ و در سطرِ روزانه گفته می‌شود', stSh.line.indexOf('اشتراکِ') !== -1);
+ok('۲۲.۶ سطر را نمی‌بلعد و شمارشِ گیرکردن را کور نمی‌کند',
+   stSh.line.indexOf('گویندهٔ تازه') === 0 && typeof stSh.stuckDays === 'number',
+   'باگِ ۷٫۲۱، این بار روی نیمهٔ دوم');
+ok('۲۲.۷ بسته‌بودنی که اصلاح شد سلامت را باطل نمی‌کند',
+   stSh.queueShare && stSh.queueShare.fixed === true,
+   'هشداری که برای کارِ درست‌شده بیاید، هشداری است که خوانده نمی‌شود');
+
+/* و وقتی **نشود** بازش کرد، سلامت باید باطل شود — وگرنه این وارسی
+   فقط یک جملهٔ تزئینی است. */
+const realShare = DriveApp.getFileById;
+qfile().setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+DriveApp.getFileById = function (id) { throw new Error('درایو نه'); };
+const qsFail = vintQueueShare_();
+DriveApp.getFileById = realShare;
+ok('۲۲.۸ باز نشدن ⇒ ok=false و دلیلش همراهش',
+   qsFail.ok === false && qsFail.fixed === false && !!qsFail.error);
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

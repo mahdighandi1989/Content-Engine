@@ -984,6 +984,46 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## Half a question is a whole silence (7.33)
+
+`voice-intake` went red four times running, from its very first scheduled run
+on 20 September. The cause is one sentence: `_VOICE-QUEUE.json` was not shared
+«anyone with the link», and Drive answers such a request with an **HTML page**
+rather than a 403 — so the action received something that is not JSON and said
+so. The only place that failure was visible was GitHub's Actions tab, which the
+owner opens by accident, not by habit.
+
+`vintQueueIdOk_` was written for exactly this silence — its docstring says «the
+action cannot read the file and no error is raised». It asks **half** the
+question. The id was right, the file was where it belonged, and the action still
+got nothing. *Can the action read this file?* has two halves and only one was
+guarded. `vintQueueShare_` asks the other.
+
+**And it opens it, rather than reporting it.** The owner does not open a sheet,
+let alone a Drive ACL; a gate a human has to open is not a gate (5.95). A closure
+that got fixed here does not invalidate health, but it is still said out loud —
+a repair nobody hears about is a repair that will be needed again.
+
+**Why nothing caught it.** The one place the queue's sharing was opened was
+inside `vintQueue_`, in a bare `catch (eQ) {}`. Detection and repair were tied to
+the same path, so the night the nightly never reached that block — which is
+precisely the 7.29 bug — it was neither opened nor noticed. The new check runs
+from `healthCheck` too: `embGates_`, 7.27, one section over.
+
+`voice-intake-stuck` existed and would have fired — in three days, by inferring
+from "no answer came back". Its own instruction text even asks «is the Drive
+queue shared with anyone who has the link?». The right question was written down
+and nobody was ever made to ask it. **A condition one direct call can settle must
+not be inferred from three days of silence.**
+
+**And on the action's side, the shape that would have hidden the rest.** The file
+in Drive was a hand-made placeholder — `rev: 0`, `engine: 7.21`, `speakers: []`.
+The moment sharing was fixed, the action would have read it, printed «0 speakers»
+and gone **green**, with a real speaker waiting in the folder and nobody the
+wiser. `vintQueue_` always increments `rev`, so any genuine queue is `rev ≥ 1`.
+*Never written* and *written and empty* are different facts and an empty folder is
+a healthy one. An honest red beats a false green.
+
 ## The wrong party accused again — and rationalised the second time (7.32)
 
 21 September, the 10:00 health mail: «تسکِ غنی‌سازی ۸ روز است کاری نکرده …

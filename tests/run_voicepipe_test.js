@@ -178,6 +178,30 @@ ok('۵.۲ فهرست هم رد می‌شود، نه اینکه بعداً بتر
    'یک فهرست از json.loads سالم درمی‌آید و main را با AttributeError می‌کشت');
 ok('۵.۳ شیءِ درست پذیرفته می‌شود', q('{"rev":1,"speakers":[]}').stdout.indexOf('rev') !== -1);
 
+/* ══ «هرگز نوشته نشده» ≠ «نوشته شد و خالی بود» (۷٫۳۳) ══
+   یک فایلِ دست‌سازِ rev=0 از `fetchQueue` سالم درمی‌آید، «۰ گوینده» چاپ
+   می‌شود و اجرا **سبز** — در حالی که گویندهٔ منتظر هست و هیچ کارِ
+   شبانه‌ای رویِ صف ننشسته. پس این را باید `main` رد کند، نه `fetchQueue`. */
+const runMain = (body) => {
+  fs.writeFileSync(T + '/raw.bin', body);
+  return cp.spawnSync('python3', ['-c',
+    'import io,sys;sys.path.insert(0,"tools");import voiceintake as V;' +
+    'import urllib.request;' +
+    'urllib.request.urlopen=lambda *a,**k: __import__("contextlib").closing(io.BytesIO(open("raw.bin","rb").read()));' +
+    'sys.argv=["voiceintake.py"];sys.exit(V.main())'],
+    { cwd: T, encoding: 'utf8', env: Object.assign({}, process.env,
+      { VOICE_QUEUE_ID: 'x', GITHUB_OUTPUT: '' }) });
+};
+const seed = '{"rev":0,"at":"","engine":"7.21","speakers":[]}';   // عیناً فایلی که ۲۰ سپتامبر در درایو نشست
+const r0 = runMain(seed);
+ok('۵.۴ صفِ rev=0 اجرا را قرمز می‌کند، نه اینکه «۰ گوینده» بخوانَد',
+   r0.status !== 0 && (r0.stdout + r0.stderr).indexOf('هنوز نوشته نشده') !== -1,
+   'سبزِ دروغ بدترین خروجیِ ممکن است: گویندهٔ منتظر هست و کسی خبردار نمی‌شود');
+const r1 = runMain('{"rev":3,"at":"2026-09-21 02:30","speakers":[]}');
+ok('۵.۵ ولی صفی که موتور نوشته و خالی است سبز می‌مانَد',
+   r1.status === 0 && (r1.stdout + r1.stderr).indexOf('rev 3') !== -1,
+   'پوشهٔ خالی یک واقعیتِ سالم است، نه خرابی');
+
 console.log('\n══ ۶) «بهترین» یعنی بیشترین ══');
 fs.mkdirSync(T + '/lab', { recursive: true });
 fs.writeFileSync(T + '/lab/aaa.json', JSON.stringify({ rvc: { best: { out_vs_ref: 0.91 } } }));

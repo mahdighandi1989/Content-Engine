@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.32
+ *  موتور محتوا و پادکست — نسخهٔ 7.33
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.32',
+  CODE_VERSION: '7.33',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -46187,10 +46187,19 @@ function vintQueue_(hub, scan, state) {
     }
 
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
+    /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
+       این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
+       می‌خورد، اکشن به‌جای JSON یک صفحهٔ HTML می‌گرفت و موتور هیچ‌جا
+       نمی‌گفت چرا — که دقیقاً همان چیزی است که افتاد. */
     try {
-      var it = outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'));
-      if (it.hasNext()) driveShareOn_(it.next().getId());
-    } catch (eQ) {}
+      var qn = String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json');
+      var it = outFolder_().getFilesByName(qn);
+      if (it.hasNext() && !driveShareOn_(it.next().getId())) {
+        logLine_('اشتراکِ «' + qn + '» باز نشد — گردش‌کارِ voice-intake HTML می‌گیرد.');
+      }
+    } catch (eQ) {
+      try { logLine_('اشتراکِ صفِ گویندگان وارسی نشد: ' + eQ.message); } catch (eQ2) {}
+    }
     /* ══ اینجا عمداً هیچ مُهرِ زمانی زده نمی‌شود (۷٫۲۲) ══
        نسخهٔ ۷٫۲۱ همین‌جا `PK.VINT_QAT` را هر شب دوباره مهر می‌زد و
        `vintStuckDays_` از رویش می‌خواند — یعنی «چند روز است بی‌پاسخ
@@ -46224,6 +46233,47 @@ function vintQueueIdOk_() {
   } catch (e) { return { ok: true, want: want, got: '' }; }   // نشد ≠ عوض شد
   if (!got) return { ok: true, want: want, got: '' };          // هنوز ساخته نشده
   return { ok: got === want, want: want, got: got };
+}
+
+/**
+ * صف در درایو «هرکس با لینک» هست؟ — و اگر نیست، همین‌جا باز می‌شود.
+ *
+ * ══ چرا این وارسی جدا لازم شد (۷٫۳۳) ══
+ * `vintQueueIdOk_` دقیقاً برای یک سکوت نوشته شد: «اکشن فایل را نمی‌تواند
+ * بخوانَد و هیچ خطایی بلند نمی‌شود». ولی آن فقط **نیمی** از سؤال را
+ * می‌پرسد. شناسه می‌تواند درست باشد، فایل سرِ جایش باشد، و اکشن باز هم
+ * چیزی نگیرد — چون درایو برای فایلی که «هرکس با لینک» نباشد به‌جای JSON
+ * یک صفحهٔ HTML می‌دهد، نه خطای ۴۰۳.
+ *
+ * و همین افتاد: از ۲۰ سپتامبر هر چهار اجرای `voice-intake` روی همان
+ * صفحهٔ HTML قرمز شد، و تنها جایی که این را می‌دید تبِ Actions در گیت‌هاب
+ * بود — جایی که صاحبِ برنامه سر نمی‌زند.
+ *
+ * تنها جایی که اشتراکِ صف باز می‌شد داخلِ `vintQueue_` بود. یعنی تشخیص و
+ * اصلاح به یک مسیر بسته بودند: شبی که کارِ شبانه به آن بلوک نرسد، نه باز
+ * می‌شود و نه کسی می‌فهمد. این وارسی از آن مسیر مستقل است و از
+ * `healthCheck` هم می‌آید — همان درسِ `embGates_` در ۷٫۲۷.
+ *
+ * و چرا **باز می‌کند** نه اینکه فقط بگوید: دری که آدم باید دستی بازش کند
+ * در نیست (۵٫۹۵). `voice-intake-stuck` هم هست، ولی سه روز طول می‌کشد و
+ * از راهِ «جوابی نیامد» حدس می‌زند؛ چیزی که با یک فراخوان مستقیم معلوم
+ * می‌شود نباید از سه روز سکوت استنتاج شود.
+ */
+function vintQueueShare_() {
+  var out = { ok: true, missing: false, fixed: false, error: '' };
+  var f = null;
+  try {
+    var it = outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'));
+    if (it.hasNext()) f = it.next();
+  } catch (e) { out.error = e.message; return out; }   // نشد ≠ بسته است
+  if (!f) { out.missing = true; return out; }          // هنوز ساخته نشده: تقصیر نیست
+  try {
+    if (String(f.getSharingAccess()) === String(DriveApp.Access.ANYONE_WITH_LINK)) return out;
+  } catch (e2) { out.error = e2.message; return out; }
+  out.ok = false;
+  out.fixed = driveShareOn_(f.getId());
+  if (!out.fixed && !out.error) out.error = 'setSharing نشد';
+  return out;
 }
 
 /** صفِ فعلی، اگر باشد. */
@@ -46542,10 +46592,16 @@ function vintStatus_(hub) {
        اینکه جایش را بگیرد. */
     var qi = vintQueueIdOk_();
     if (!qi.ok) { out.queueId = qi; out.ok = false; }
+    /* شناسه و اشتراک دو نیمهٔ یک سؤالند («اکشن می‌تواند بخوانَد؟») و هر
+       دو بی‌صدا شکست می‌خورند، پس هر دو اینجا پرسیده می‌شوند. بسته‌بودنی
+       که همین‌جا باز شد سلامت را باطل نمی‌کند — ولی گفته می‌شود، چون
+       اصلاحی که کسی از آن خبر ندارد، دفعهٔ بعد هم لازم می‌شود. */
+    var qs = vintQueueShare_();
+    if (!qs.ok) out.queueShare = qs;
     out.stuckDays = vintStuckDays_(hub);
     var days = Math.max(1, Number(CFG.VOICE_STUCK_DAYS) || 3);
     var stuck = (out.waiting + out.working) > 0 && out.stuckDays >= days;
-    out.ok = !stuck && !out.queueId;   // یکی سالم‌بودن را باطل می‌کند، هر دو که باشند هم
+    out.ok = !stuck && !out.queueId && !(out.queueShare && !out.queueShare.fixed);
 
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
     if (!out.speakers.length) {
@@ -46573,6 +46629,16 @@ function vintStatus_(hub) {
                   '» عوض شده — اکشن دنبالِ ' + out.queueId.want + ' می‌گردد ولی ' +
                   'فایل حالا ' + out.queueId.got + ' است. تا به‌روز نشدنِ ' +
                   'VOICE_QUEUE_ID هیچ گوینده‌ای آموزش نمی‌بیند.';
+    }
+    if (out.queueShare) {
+      out.line += out.queueShare.fixed
+        ? ' ⚠️ اشتراکِ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
+          '» بسته بود و باز شد — تا این لحظه گردش‌کارِ voice-intake به‌جای صف ' +
+          'یک صفحهٔ HTML می‌گرفت و قرمز می‌شد.'
+        : ' ⚠️ اشتراکِ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
+          '» بسته است و باز نشد (' + (out.queueShare.error || '—') + ') — تا ' +
+          'باز نشود، گردش‌کارِ voice-intake صف را نمی‌بیند و هیچ گوینده‌ای ' +
+          'آموزش نمی‌بیند.';
     }
   } catch (e) {
     out.error = e.message; out.ok = false;
