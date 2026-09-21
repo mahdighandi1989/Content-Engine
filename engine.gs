@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.27
+ *  موتور محتوا و پادکست — نسخهٔ 7.28
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.27',
+  CODE_VERSION: '7.28',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1422,8 +1422,12 @@ var CFG = {
   // (MRL). یک فراخوان، دو نمایش — نه دو فراخوان.
   EMB_PROBE_DIM: 256,
   EMB_BATCH: 64,                // متن در هر فراخوانِ batchEmbedContents
-  EMB_MAX_PER_RUN: 1200,        // سقفِ ردیف در هر دور
-  EMB_BUDGET_MS: 120000,
+  /* ══ سقف، پس از نخستین شبِ واقعی (۷٫۲۸) ══
+     شبِ اول ۱۲۰۰ ردیف در **۵۰ ثانیه** ساخت — یعنی سقفِ ردیف بسته بود، نه
+     بودجهٔ زمان. و بانک ۵۰٬۳۶۷ ردیف دارد، نه ۱۲ هزار که تخمین زده بودم؛
+     با ۱۲۰۰ در شب یعنی ۴۱ شب. «چند شب» و «شش هفته» دو وعدهٔ متفاوت‌اند. */
+  EMB_MAX_PER_RUN: 5000,
+  EMB_BUDGET_MS: 200000,
   EMB_TEXT_MAX: 6000,           // ~۲۰۰۰ توکن؛ سقفِ خودِ مدل ۲۰۴۸ است
   EMB_SCAN_BLOCK: 2000,         // خواندنِ باریکِ سه ستونِ اثر انگشت
   EMB_SHARD_ROWS: 1500,
@@ -1446,6 +1450,17 @@ var CFG = {
   EMB_SCORE_GAP: 0.25,
   EMB_RESCORE: 120,             // چند نامزد با بردارِ کامل دوباره سنجیده شوند
   EMB_RESCORE_SHARDS: 4,
+  /* ══ و چرا همهٔ قطعه‌ها خوانده نمی‌شوند (۷٫۲۸) ══
+     با ۵۰ هزار ردیف، ایندکسِ کوتاه ~۳۰ مگابایت در ۳۴ قطعه می‌شود. خواندنِ
+     همه‌اش در هر جست‌وجو شدنی نیست — و این را ۷٫۲۶ به‌عنوانِ «اگر روزی
+     مسئله شد» نوشته بود. امشب اندازه‌گیری شد: مسئله هست، و **حالا
+     ارزان‌تر است تا بعد**، چون مرکزِ هر قطعه باید هنگامِ نوشتنش حساب شود.
+     هر قطعه یک «مرکز» دارد (میانگینِ نرمال‌شدهٔ بردارهایش) و جست‌وجو فقط
+     نزدیک‌ترین‌ها را می‌خوانَد. قطعه‌ای که مرکز ندارد **همیشه** خوانده
+     می‌شود — ندانستن دلیلِ رد کردن نیست. */
+  EMB_PROBE_SHARDS: 8,          // چند قطعهٔ نزدیک خوانده شود
+  EMB_CENTROID_MIN: 6,          // زیرِ این تعداد قطعه، همه خوانده می‌شوند
+  EMB_CENTROID_FIX: 3,          // چند مرکزِ جامانده در هر شب حساب شود
   // خودآزمون: متنِ خودِ یک ردیف را پرس‌وجو کن؛ اگر خودش برنگردد، ایندکس خراب است
   EMB_SELFTEST_N: 4,
   EMB_SELFTEST_TOP: 10,
@@ -26409,7 +26424,11 @@ function selfUpdateDaily() {
      دسته یک فراخوانِ شبکه. مکان‌نما دارد، پس شبی که جا نشود فردا از
      همان‌جا ادامه می‌دهد — و شمارندهٔ گرسنگیِ ۶٫۸۹ می‌بیندش اگر هرگز
      نوبتش نرسد. */
-  if (CFG.EMB_ON !== false && nightHas_(230000, 'اثر انگشتِ معنایی')) {
+  /* نگهبانش بزرگ است (۷٫۲۸) و عمداً: در نخستین اجرای هر شب تقریباً هیچ‌وقت
+     رد نمی‌شود، پس `_nightMore` ثبتش می‌کند و اجرای بعدیِ همان شب **از
+     همین‌جا** شروع می‌شود — یعنی این بند عملاً یک اجرای تازه را برای خودش
+     دارد. این بهتر از سقفِ کوچک است: کارِ اولیه ۵۰ هزار ردیف است. */
+  if (CFG.EMB_ON !== false && nightHas_(300000, 'اثر انگشتِ معنایی')) {
     try { embNightly_(); }
     catch (eEm) { logLine_('دورِ اثر انگشتِ معنایی ناموفق: ' + eEm.message); }
   }
@@ -48213,6 +48232,62 @@ function embDot_(a, b) {
   return s / (127 * 127);
 }
 
+/**
+ * مرکزِ یک قطعه: میانگینِ بردارهای کوتاهش، نرمال‌شده و فشرده.
+ *
+ * ══ چرا این لازم شد، و چرا **حالا** ══
+ * ۷٫۲۶ نوشت «اگر روزی اندازهٔ ایندکس مسئله شد، خوشه‌بندی قدمِ بعدی است».
+ * شبِ اولِ واقعی عدد را داد: بانک ۵۰٬۳۶۷ ردیف دارد، پس ایندکسِ کوتاه
+ * ~۳۰ مگابایت در ۳۴ قطعه می‌شود و هیچ جست‌وجویی نمی‌تواند همه‌اش را
+ * بخوانَد. مسئله فرضی نبود؛ فقط هنوز نرسیده بود.
+ *
+ * و «حالا» به یک دلیلِ مشخص: مرکز باید هنگامِ **نوشتنِ** قطعه حساب شود.
+ * اگر شش هفته صبر کنیم، ۳۴ قطعه بی‌مرکز روی دست می‌مانَد و یک مهاجرت
+ * لازم می‌شود. کاری که با رشدِ داده گران‌تر می‌شود، همان کاری است که
+ * باید زودتر انجام شود.
+ *
+ * قطعه‌های نزدیکِ هم اینجا تصادفی نیستند: پُر شدنشان به ترتیبِ تب‌های
+ * بانک است، یعنی هر قطعه تقریباً یک دسته است. پس مرکز واقعاً معنا دارد
+ * — چیزی که در یک ایندکسِ درهم صادق نبود.
+ */
+function embCentroid_(packedList) {
+  if (!packedList || !packedList.length) return '';
+  var sum = null, n = 0;
+  for (var i = 0; i < packedList.length; i++) {
+    var v = embUnpack_(packedList[i]);
+    if (!v || !v.length) continue;
+    if (!sum) { sum = []; for (var z = 0; z < v.length; z++) sum.push(0); }
+    if (v.length !== sum.length) continue;
+    for (var j = 0; j < v.length; j++) sum[j] += v[j];
+    n++;
+  }
+  if (!sum || !n) return '';
+  for (var k = 0; k < sum.length; k++) sum[k] = sum[k] / n / 127;
+  return embPack_(embNorm_(sum));
+}
+
+/**
+ * مرکزهای جامانده را حساب می‌کند — برای قطعه‌هایی که پیش از ۷٫۲۸ نوشته
+ * شده‌اند. چندتا در هر شب، تا بارِ یک شب نشود.
+ */
+function embCentroidFix_(cap) {
+  var out = { fixed: 0, left: 0 };
+  var ix = embIndex_();
+  cap = Math.max(1, cap || Number(CFG.EMB_CENTROID_FIX) || 3);
+  for (var i = 0; i < ix.shards.length; i++) {
+    if (ix.shards[i].c) continue;
+    if (out.fixed >= cap) { out.left++; continue; }
+    var P = embGetJson_(embShardName_(ix.shards[i].seq, 'p'));
+    if (!P || !P.p || !P.p.length) continue;
+    var c = embCentroid_(P.p);
+    if (!c) continue;
+    ix.shards[i].c = c;
+    out.fixed++;
+  }
+  if (out.fixed) { try { embIndexSave_(ix); } catch (e) {} }
+  return out;
+}
+
 // ─────────────────────────────────────────── فراخوانِ مدل
 
 /**
@@ -48427,7 +48502,11 @@ function embStamp_(sh, stamps) {
  */
 function embShardFlush_(ix, recs) {
   if (!recs.length) return 0;
-  var capRows = Math.max(200, Number(CFG.EMB_SHARD_ROWS) || 1500);
+  /* کفِ این عدد ۱ است و نه ۲۰۰: کفی که مقدارِ تنظیم‌شده را بی‌صدا نادیده
+     بگیرد، همان تله‌ای است که در همین سشن سه بار آزمون را گمراه کرد —
+     مقدار گذاشته می‌شود، اثر نمی‌کند، و هیچ‌چیز نمی‌گوید چرا. فقط صفر
+     جلو گرفته می‌شود، که حلقه را بی‌پایان می‌کند. */
+  var capRows = Math.max(1, Number(CFG.EMB_SHARD_ROWS) || 1500);
   var wrote = 0, at = 0;
 
   while (at < recs.length) {
@@ -48471,8 +48550,13 @@ function embShardFlush_(ix, recs) {
     V.n = V.id.length;
     embPutJson_(embShardName_(seq, 'p'), P);
     embPutJson_(embShardName_(seq, 'v'), V);
+    var cen = '';
+    try { cen = embCentroid_(P.p); } catch (eC) { cen = ''; }
     for (var s = 0; s < ix.shards.length; s++) {
-      if (ix.shards[s].seq === seq) { ix.shards[s].rows = P.n; ix.shards[s].at = P.at; }
+      if (ix.shards[s].seq === seq) {
+        ix.shards[s].rows = P.n; ix.shards[s].at = P.at;
+        if (cen) ix.shards[s].c = cen;
+      }
     }
     wrote += take;
     at += take;
@@ -48851,7 +48935,7 @@ function embQueryVec_(text) {
  */
 function embSearch_(vec, opts) {
   opts = opts || {};
-  var out = { ok: false, items: [], shards: 0, shardsAll: 0, scanned: 0,
+  var out = { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
               stopped: '', rescored: 0, note: '' };
   var ix = embIndex_();
   out.shardsAll = ix.shards.length;
@@ -48868,8 +48952,30 @@ function embSearch_(vec, opts) {
   var top = Math.max(5, Number(opts.top) || Number(CFG.EMB_TOP) || 60);
   var keep = Math.max(top, Number(CFG.EMB_RESCORE) || 120);
 
+  /* ══ کدام قطعه‌ها خوانده شوند ══
+     زیرِ `EMB_CENTROID_MIN` قطعه، همه — خواندنِ همه‌شان ارزان است و
+     دقیق‌تر. بالاتر از آن، فقط نزدیک‌ترین‌ها به پرس‌وجو؛ و قطعه‌ای که
+     مرکز ندارد **همیشه** خوانده می‌شود، چون ندانستن دلیلِ رد کردن نیست.
+     شمارِ خوانده‌شده در برابرِ کل همیشه گزارش می‌شود (`shards`/
+     `shardsAll`), پس ناتمامی هرگز پنهان نمی‌مانَد. */
+  var pick = [];
+  for (var q = 0; q < ix.shards.length; q++) {
+    var cc = ix.shards[q].c ? embUnpack_(ix.shards[q].c) : null;
+    pick.push({ i: q, near: cc ? embDot_(qp, cc) : Infinity });
+  }
+  var minSh = Math.max(1, Number(CFG.EMB_CENTROID_MIN) || 6);
+  if (pick.length > minSh) {
+    pick.sort(function (a, b) { return b.near - a.near; });
+    var keepSh = Math.max(minSh, Number(CFG.EMB_PROBE_SHARDS) || 8);
+    var unknown = 0;
+    for (var u = 0; u < pick.length; u++) if (pick[u].near === Infinity) unknown++;
+    if (pick.length > keepSh + unknown) pick = pick.slice(0, keepSh + unknown);
+    out.picked = pick.length;
+  }
+
   var best = [];
-  for (var s = 0; s < ix.shards.length; s++) {
+  for (var sp = 0; sp < pick.length; sp++) {
+    var s = pick[sp].i;
     if (new Date().getTime() > deadline) {
       out.stopped = 'بودجهٔ زمانِ جست‌وجوی معنایی تمام شد؛ ' + out.shards +
                     ' قطعه از ' + out.shardsAll + ' خوانده شد.';
@@ -49272,6 +49378,14 @@ function embNightly_(opts) {
     if (sp && sp.done) out.notes.push('جبرانِ «مشخصات» تمام شد.');
   }
   out.specs = sp;
+
+  /* مرکزهای جامانده — قطعه‌هایی که پیش از ۷٫۲۸ نوشته شده‌اند. پیش از
+     ساخت، چون یک قطعهٔ بی‌مرکز همیشه خوانده می‌شود و تا وقتی مرکز نگیرد
+     صرفه‌جوییِ جست‌وجو را خنثی می‌کند. */
+  try {
+    var cf = embCentroidFix_(opts.centroidCap);
+    if (cf.fixed) out.notes.push('مرکزِ ' + cf.fixed + ' قطعه حساب شد.');
+  } catch (eCf) { out.notes.push('مرکزِ قطعه‌ها حساب نشد: ' + eCf.message); }
 
   var run = embRunDue_(opts.cap, opts.budgetMs);
   out.made = run.made; out.failed = run.failed; out.left = run.left;

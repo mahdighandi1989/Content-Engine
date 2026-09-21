@@ -984,6 +984,46 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## The first real night gave the number, and it was four times my estimate (7.28)
+
+7.26 shipped on an estimate: "roughly twelve thousand bank rows, a few nights to
+build." The first night measured it. **50,367 rows.** At 1,200 a night that is
+forty-one nights, not a few — and "a few nights" and "six weeks" are two different
+promises to have made.
+
+Two things follow, and both were cheaper to fix that morning than later.
+
+**The cap was the wrong one.** The run built 1,200 rows in about fifty seconds
+against a 120-second budget: it stopped on the *row* cap with more than half its
+time unspent. Raising it to 5,000 with a 200-second budget puts the backfill near
+ten nights. The night guard went to 300 s, which almost never passes on a night's
+first run — and that is the point: `_nightMore` records it and the next run of the
+same night starts *there*, so the block effectively gets a fresh six minutes.
+
+**And the index will not fit in a query.** 7.26 wrote "if the index ever outgrows
+what one search can read, IVF centroids are the next step" and left it. At 50,367
+rows the probe index is ~30 MB across ~34 shards; no search reads that. The
+measurement turned a hypothetical into a fact. Each shard now carries a centroid —
+the normalized mean of its probe vectors — and a search scores the centroids
+(cheap, they live in the index file) and reads only the nearest `EMB_PROBE_SHARDS`.
+
+**Why *that morning* and not when it bit.** A centroid has to be computed when the
+shard is written. Waiting six weeks would have meant 34 centroid-less shards and a
+migration. **Work that gets more expensive as the data grows is work to do early.**
+`embCentroidFix_` exists only for the one shard that already existed, and a shard
+without a centroid is *always* read — not knowing is not a reason to skip.
+
+One piece of luck worth writing down: shards fill in bank-tab order, so a shard is
+roughly one category. The centroids are meaningful rather than mush, which is not
+true of an index filled in arbitrary order.
+
+**And a floor that silently ignores its own setting.** `EMB_SHARD_ROWS` was clamped
+to a minimum of 200, so the test that needed small shards got 200-row ones and
+proved nothing. That is the same trap that misled three assertions earlier in the
+same session — a configured value that has no effect and says nothing about why.
+The floor is 1 now: enough to stop a zero looping forever, not enough to override a
+human.
+
 ## Fifteen columns out of sixty-one (7.27)
 
 Two questions from the owner, each of which exposed a real defect rather than

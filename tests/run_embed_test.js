@@ -514,6 +514,57 @@ ok('۲۴.۵ و حالت در سطرِ روزانه دیده می‌شود',
    /بازنویسی|عنوان/.test(embStatus_(hub).line) ||
    !embStatus_(hub).selftest, embStatus_(hub).line);
 
+console.log('\n══ ۲۵) مرکزِ قطعه‌ها — ۵۰ هزار ردیف در یک جست‌وجو جا نمی‌شود ══');
+/* عددِ شبِ اولِ واقعی: بانک ۵۰٬۳۶۷ ردیف دارد، پس ایندکسِ کوتاه ~۳۰ مگابایت
+   در ~۳۴ قطعه می‌شود. خواندنِ همه‌اش در هر جست‌وجو شدنی نیست. */
+const savedShardRows = CFG.EMB_SHARD_ROWS;
+const savedMinSh = CFG.EMB_CENTROID_MIN;
+const savedKeepSh = CFG.EMB_PROBE_SHARDS;
+CFG.EMB_SHARD_ROWS = 2;                 // قطعه‌های ریز، تا چند تا ساخته شوند
+CFG.EMB_CENTROID_MIN = 2;
+CFG.EMB_PROBE_SHARDS = 2;
+const shM = mkCat('مستند و مصاحبه', [
+  row({ id: 'M1', topic: 'ساختِ سد و مهندسیِ آب' }),
+  row({ id: 'M2', topic: 'پرورشِ زنبورِ عسل' }),
+  row({ id: 'M3', topic: 'نجومِ رصدی و تلسکوپ' }),
+  row({ id: 'M4', topic: 'خطاطیِ نستعلیق' }),
+  row({ id: 'M5', topic: 'کوهنوردی در زمستان' }),
+  row({ id: 'M6', topic: 'آشپزیِ محلیِ گیلان' })
+]);
+embRunDue_(50, 60000);
+const ix25 = embIndex_();
+ok('۲۵.۱ چند قطعه ساخته شد', ix25.shards.length >= 3, String(ix25.shards.length));
+ok('۲۵.۲ هر قطعهٔ تازه مرکز دارد',
+   ix25.shards.filter(x => x.rows > 0 && !x.c).length === 0,
+   ix25.shards.map(x => x.seq + ':' + (x.c ? 'ok' : 'بی‌مرکز')).join(' '));
+ok('۲۵.۳ مرکز هم‌بُعدِ بردارِ جست‌وجوست',
+   embUnpack_(ix25.shards[ix25.shards.length - 1].c).length === embProbeDim_());
+const s25 = embSearch_(embQueryVec_('ساختِ سد و مهندسیِ آب').vec, {});
+ok('۲۵.۴ همهٔ قطعه‌ها خوانده نمی‌شوند', s25.shards < s25.shardsAll,
+   s25.shards + ' از ' + s25.shardsAll);
+ok('۲۵.۵ و ناتمامی پنهان نمی‌مانَد — شمارش گزارش می‌شود',
+   typeof s25.shards === 'number' && typeof s25.shardsAll === 'number');
+ok('۲۵.۶ با وجودِ نخواندنِ همه، نتیجهٔ درست پیدا می‌شود',
+   s25.items.length >= 1 && s25.items[0].fileId === 'M1',
+   s25.items.map(i => i.fileId).join(','));
+
+/* قطعه‌ای که مرکز ندارد — دقیقاً وضعِ قطعهٔ ۱ که دیشب نوشته شد. */
+const ixNo = embIndex_();
+const lost = ixNo.shards[0].c;
+delete ixNo.shards[0].c;
+embIndexSave_(ixNo);
+const s25b = embSearch_(embQueryVec_('چیزی کاملاً بی‌ربط').vec, {});
+ok('۲۵.۷ قطعهٔ بی‌مرکز همیشه خوانده می‌شود',
+   s25b.shards >= 1, String(s25b.shards),
+   'ندانستن دلیلِ رد کردن نیست');
+const fx = embCentroidFix_(5);
+ok('۲۵.۸ و شبانه مرکزش حساب می‌شود', fx.fixed >= 1, JSON.stringify(fx));
+ok('۲۵.۹ که همان مرکزِ قبلی است', embIndex_().shards[0].c === lost,
+   'مرکز تابعی از محتوای قطعه است، نه از زمانِ حسابش');
+CFG.EMB_SHARD_ROWS = savedShardRows;
+CFG.EMB_CENTROID_MIN = savedMinSh;
+CFG.EMB_PROBE_SHARDS = savedKeepSh;
+
 console.log('\n══ ۱۹) خاموشی ══');
 CFG.EMB_ON = false;
 ok('۱۹.۱ دور اجرا نمی‌شود', embRunDue_(5, 5000).made === 0);
