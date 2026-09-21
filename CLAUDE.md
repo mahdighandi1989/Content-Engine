@@ -984,6 +984,36 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## The wrong party accused again — and rationalised the second time (7.32)
+
+21 September, the 10:00 health mail: «تسکِ غنی‌سازی ۸ روز است کاری نکرده …
+روتینِ Cowork را وارسی کنید». `_ENRICH-variety-046.json` had been sitting in the
+OUTPUT root since 04:31 that morning — written by that task, five hours earlier.
+`enrichAnsName_` is only ever *read* by the engine, never written, so there is no
+other author it could have.
+
+That alone is the 7.18/7.19 failure repeating: the wrong party accused, by a
+watchdog built after the last time to stop exactly this.
+
+**The part worth recording is what happened next.** The monitor session saw the
+same two numbers disagree — and *explained the disagreement away*: «این دو عدد
+چیزهای متفاوتی می‌شمارند … نه اینکه چیزی خراب باشد». It never opened the folder.
+A contradiction resolved by reasoning instead of by looking is not resolved; and
+this file already says, in the 7.19 section, that such a contradiction **is itself
+the finding**.
+
+The cause of the mis-read is still unknown, and guessing it would be the third
+mistake in the same story. So 7.32 does the only honest thing: `whNewestEnrich_`
+now returns **what it saw and how many** — the filename it judged newest, the count
+of answer files it walked, and the error if the folder walk threw (it was wrapped
+in a bare `catch` that returned a silently partial answer, which is one plausible
+cause). The watchdog's own text carries that evidence, so tomorrow the mail either
+names today's file — transient — or names a stale one beside a count that includes
+the fresh one, which localises the bug to the comparison.
+
+**A number that accuses somebody should carry its evidence.** That costs one
+string and ends an argument that has now run twice.
+
 ## A guard bigger than the budget, and a spend bigger than the guard (7.30 / 7.31)
 
 7.28 raised the embed block's `nightHas_` from 230 s to 300 s, reasoning in the

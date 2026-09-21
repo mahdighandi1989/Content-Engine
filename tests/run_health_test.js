@@ -302,3 +302,27 @@ console.log('\n=== وارسیِ سلامت: بودجه و ردِ پا ===');
 }
 
 console.log('\n✅ آزمون سلامت گذشت.');
+
+
+/* ══ نگهبانِ غنی‌سازی باید شهادت بدهد، نه فقط حکم (۷٫۳۲) ══
+   ۲۱ سپتامبر گفت «تسک ۸ روز است کاری نکرده» در حالی که پاسخِ همان روز در
+   ریشه بود. علت پیدا نشد — پس از این به بعد عدد با شاهدش می‌آید: نامِ
+   تازه‌ترین پاسخی که دیده، و شمارِ کلِ پاسخ‌هایی که شمرده. */
+{
+  const okE = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); };
+  const d = whNewestEnrich_(true);
+  okE('۹.۱ شهادت شکلِ درست دارد',
+      d && typeof d === 'object' && 'at' in d && 'seen' in d && 'name' in d,
+      JSON.stringify(d));
+  okE('۹.۲ و بی آرگومان همان رشتهٔ قبلی را می‌دهد — سازگاری نشکسته',
+      typeof whNewestEnrich_() === 'string');
+  const rows = watchdogHeartbeats_({});
+  const er = rows.filter(r => r.key === 'enrich')[0];
+  okE('۹.۳ ردیفِ تسکِ غنی‌سازی شاهد دارد',
+      !!er && typeof er.evidence === 'string',
+      er ? er.evidence : 'ردیف نبود');
+  okE('۹.۴ و متنِ راهنماش نامِ فایل را می‌برد، نه فقط «روتین را وارسی کنید»',
+      !!er && /تازه‌ترین پاسخی که دیده شد/.test(er.fix),
+      er ? er.fix.slice(0, 90) : '');
+}
