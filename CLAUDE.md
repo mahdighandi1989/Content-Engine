@@ -984,6 +984,37 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## A guard bigger than the budget, and a spend bigger than the guard (7.30 / 7.31)
+
+7.28 raised the embed block's `nightHas_` from 230 s to 300 s, reasoning in the
+commit message that `_nightMore` would hand the block "a fresh six minutes" on the
+next run. `NIGHT_BUDGET_MS` is **270 s**. `nightLeft_()` can never exceed it, so
+300 s was unsatisfiable — not rarely, never. And because the first failing
+`nightHas_` sets `_nightMore`, which makes every later `nightHas_` return false,
+this was not only the embed block: the cross-series backfill, the model verdict,
+YouTube publishing and everything after them would have stopped running every
+night from that install onward, silently.
+
+**The monitor session found it by reading the code before it installed**, shipped
+7.30, and added the guard that makes it unrepeatable: `run_oneshot_test.js`
+extracts every `nightHas_` number from the source and fails if any exceeds
+`NIGHT_BUDGET_MS`. That is the loop working exactly as designed — and it is worth
+recording that the thing it caught was mine.
+
+**7.31 closes the layer underneath.** The guard said "I need 230 s"; the block then
+spent up to `EMB_SPECS_MS` + `EMB_BUDGET_MS` = 290 s. *How much I ask for* and *how
+much I spend* were two numbers nobody had compared. Overrunning matters more than it
+looks: Apps Script's hard six-minute kill also kills `nightEnd_`, so the night is
+never rescheduled — a failure with no error anywhere. 150 + 60 = 210 s now, with
+margin under the guard, and the honest cost is that the initial backfill goes from
+~10 nights to ~14.
+
+**The rule, and it is the same one three versions running:** a number that gates
+work must be checked against the number it is measured in. 7.30 checked guard ≤
+budget; 7.31 checks spend ≤ guard. Both are arithmetic that no amount of testing
+the *function* would ever surface, because the function is correct — it is the
+relationship between two constants that is wrong.
+
 ## The night a version installs is the one night its new code does not run (7.29)
 
 21 September, the first real use of section 33. The owner dropped a folder —

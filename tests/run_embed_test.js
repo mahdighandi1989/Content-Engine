@@ -565,6 +565,31 @@ CFG.EMB_SHARD_ROWS = savedShardRows;
 CFG.EMB_CENTROID_MIN = savedMinSh;
 CFG.EMB_PROBE_SHARDS = savedKeepSh;
 
+console.log('\n══ ۲۶) «چقدر می‌خواهم» و «چقدر خرج می‌کنم» باید با هم بخوانند ══');
+/* ۷٫۲۸ نگهبان را به ۳۰۰ ثانیه برد در حالی که کلِ بودجهٔ شب ۲۷۰ است — پس
+   نگهبان هرگز رد نمی‌شد و چون اولین ردشدن همهٔ بلوک‌های بعدی را هم رد
+   می‌کند، شب عملاً از آنجا به بعد تعطیل می‌شد. ۷٫۳۰ آن لایه را بست
+   (`run_oneshot_test.js`: هیچ `nightHas_` بزرگ‌تر از `NIGHT_BUDGET_MS`).
+
+   این آزمون لایهٔ بعدی است و همان اشتباه از درِ دیگر: بلوکی که با
+   نگهبانِ N وارد می‌شود نباید بیش از N خرج کند. رد شدن از سقفِ سختِ
+   شش‌دقیقه‌ایِ Apps Script `nightEnd_` را هم می‌کُشد، یعنی شب دوباره
+   زمان‌بندی نمی‌شود — خرابی‌ای که هیچ خطایی نمی‌دهد. */
+{
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const m = su.match(/nightHas_\((\d+),\s*'اثر انگشتِ معنایی'\)/);
+  ok('۲۶.۱ نگهبانِ بلوکِ اثر انگشت پیدا شد', !!m, m ? m[1] : 'پیدا نشد');
+  const guard = Number(m[1]);
+  const budget = Math.max(30000, Number(CFG.NIGHT_BUDGET_MS) || 270000);
+  ok('۲۶.۲ نگهبان از کلِ بودجهٔ شب بزرگ‌تر نیست',
+     guard <= budget, guard + ' ≤ ' + budget);
+  const spend = (Number(CFG.EMB_SPECS_MS) || 0) + (Number(CFG.EMB_BUDGET_MS) || 0);
+  ok('۲۶.۳ و آنچه بلوک خرج می‌کند از آنچه خواسته بیشتر نیست',
+     spend <= guard,
+     'خرج ' + spend + ' در برابرِ نگهبانِ ' + guard +
+     ' — بیشتر یعنی رد شدن از سقفِ سختِ Apps Script و کشته‌شدنِ nightEnd_');
+}
+
 console.log('\n══ ۱۹) خاموشی ══');
 CFG.EMB_ON = false;
 ok('۱۹.۱ دور اجرا نمی‌شود', embRunDue_(5, 5000).made === 0);
