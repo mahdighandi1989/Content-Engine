@@ -346,4 +346,46 @@ console.log('\n══ ۱۳) «هرگز نوشته نشد» ≠ «نوشته شد
   CFG.VBR_QUEUE_ID = realQ13;
 }
 
+console.log('\n══ ۱۴) کارِ شبانه صف را می‌نویسد، حتی وقتی کاری ندارد ══');
+/* ══ چرا این سنجه ══
+   `voicebridge.py` هر صفِ `rev < 1` را رد می‌کند و باید بکند — سبزِ
+   «۰ قسمت» روی فایلی که موتور هرگز ندیده یک سبزِ دروغ است. ولی تا پیش
+   از ۷٫۴۰ موتور صف را فقط وقتی می‌نوشت که گوینده‌ای روشن بود، پس تا
+   وقتی صاحبِ برنامه ردیفی را روشن نکرده گردش‌کار هر شش ساعت قرمز
+   می‌شد — **برای حالتی که اصلاً ایراد نیست.**
+   قرمزی که هیچ‌وقت عوض نشود، همان قرمزی است که دیگر خوانده نمی‌شود. */
+{
+  personaBoardSave_('razavi', false, [], 1, 'آرام بخوان', '');
+  putOutJson_(vbrFileName_(), { rev: 0, items: [] });
+  outFolder_().getFilesByName(vbrFileName_()).next()
+    .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  ok('۱۴.۱ پیش از شب: هیچ گویندهٔ روشنی، و صفِ نانوشته',
+     vbrSpeakerOn_() === '' && vbrRead_().rev === 0);
+
+  vbrNightly_(hub);
+
+  const q = vbrRead_();
+  ok('۱۴.۲ شب صف را نوشت، با اینکه چیزی برای صف نبود', (Number(q.rev) || 0) >= 1,
+     'rev: ' + q.rev + ' — «هرگز ننوشته» نباید حالتِ پایدار باشد');
+  ok('۱۴.۳ و خالی ماند — نوشتن یعنی «نگاه کردم»، نه «کاری کردم»',
+     q.items.length === 0);
+  ok('۱۴.۴ و همان نوشتن اشتراک را هم باز کرد', String(
+     outFolder_().getFilesByName(vbrFileName_()).next().getSharingAccess()) ===
+     String(DriveApp.Access.ANYONE_WITH_LINK));
+  ok('۱۴.۵ پس سطرِ روزانه دیگر کارِ شبانه را متهم نمی‌کند، و می‌گوید چه لازم است',
+     (function () { const st = vbrStatus_();
+       return st.everWritten === true && !/نوشته نشده/.test(st.line) &&
+              /هیچ گویندهٔ روشنی/.test(st.line); })(),
+     'اتهام باید فقط به کسی بخورد که واقعاً کاری نکرده');
+}
+/* و مرزِ مقابل: پلِ خاموش هیچ‌چیز نمی‌نویسد. کلیدِ خاموش یعنی خاموش. */
+{
+  const before = vbrRead_().rev;
+  CFG.VBR_ON = false;
+  vbrNightly_(hub);
+  CFG.VBR_ON = true;
+  ok('۱۴.۶ ولی پلِ خاموش چیزی نمی‌نویسد', vbrRead_().rev === before,
+     'وگرنه کلیدِ خاموش نصفه است');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

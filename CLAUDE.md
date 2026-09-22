@@ -1086,6 +1086,25 @@ call throws, `everWritten` stays undefined and the daily line accuses the nightl
 of something it did not do. An accusation must come from somewhere that cannot be
 mistaken.
 
+**7.40 is the other half, and it was missing until the fix was checked against
+what actually happens next.** `voicebridge.py` refuses a `rev < 1` queue and must
+— a green "0 episodes" on a file the engine has never seen is a false green. But
+the engine only wrote the queue when it had *work*, i.e. when a speaker was
+switched on. So until the owner switches a row on, the workflow goes red every
+six hours **for a state that is not a fault at all** — and this file has written
+that sentence many times: a warning that fires for the healthy state is the
+warning people learn to ignore. A red that never changes stops being read, and
+then the real red is not read either.
+
+`vbrQueueEnsure_` writes unconditionally, which is what `vintQueue_` in section 33
+did from day one: `rev ≥ 1` means "the engine is alive and looked" and `at` says
+when. **The reason it is empty is stated somewhere else** — in the daily line,
+where the owner reads, not in the Actions tab he opens by accident. The side
+benefit is not an accident either: `vbrSave_` also opens the sharing, so the same
+door now has two independent paths to it — which is exactly what 7.39 found
+missing. And the opposite boundary is asserted: a switched-off bridge writes
+nothing, because a switch that is half-off is not a switch.
+
 **And one of the four new assertions did not fail when I broke the code.** It
 searched the whole of `08_Health.gs` for `vbrStatus_(` — which the `_STATUS.json`
 block also contains — so removing the `healthCheck` call left it green. An
