@@ -1112,6 +1112,47 @@ assertion that cannot fail is worse than none, because it goes green and nobody
 looks again. It now reads only `healthCheck`'s own body. Every new claim here was
 proved falsifiable by deliberately breaking the code, not by reading it.
 
+## Reviewers must run it, not read it — and the debt register (7.44)
+
+After 7.43 he asked the question that matters more than the bug: *how would you
+have found out if I hadn't told you? And what about everything else you built
+that I have not tried?* Then he pointed out he had said this at build time:
+
+> «بازبین‌ها کد رو فقط نبینن و اجرا باید بکنن.»
+
+He was right, and the guard I had built read the code. `run_wiring_test.js` ۵٫۲
+string-matched `google.script.run.X` and checked `X` existed. Nothing ever
+rendered a dialog, executed its script, or pressed a button.
+
+**`tests/run_dialogs_test.js` does.** A small DOM and a `google.script.run` proxy
+in `tests/lib/dialogdom.js`, a `vm` context per dialog: render, run the script,
+then fire every `onclick` with the real button as `this`, and assert which server
+function was reached with which arguments. Pressing «جست‌وجوی ساده» must produce
+`srchRun('هزینه','ساده',true)`. Both of the day's real bugs were reintroduced
+deliberately and both turn it red.
+
+**The DOM deliberately returns `null` for an id the page does not contain**, the
+way a browser does. A stub that invents a node for any name would go green on a
+button wired to a typo'd id — the harness would then be blind to the very class
+it exists for.
+
+**And the honest number: 36 of 56 menu items were named in no suite at all.**
+Rather than hide that behind thirty-six shallow tests, it is written down as
+`MENU_DEBT` — a debt register, not an exemption. The rule is one-way: removing a
+name is good, and a new menu item without a test fails the assertion. One debt
+paid per week (the monitor prompt, v58) clears it without crowding any version.
+
+**The first version of that count returned zero.** The debt list lives in a test
+file, and the scan read every test file — so each name counted as "seen in a
+suite" and the debt reported itself as paid. An assertion that goes green because
+of its own text measures nothing. That is the fourth time this week, and the habit
+that catches it is always the same: break it on purpose and watch it go red.
+
+**What no automation can answer stays named, not waved at.** Whether the search
+actually found the thing he meant, whether the voice sounds like him — those are
+listed for a human by name, because a report that says "everything looks fine"
+about things nothing exercised is the most expensive sentence in this file.
+
 ## The guard stood one layer above the breakage (7.43)
 
 «هرچی رو دکمهٔ جست‌وجوی ساده می‌زنم هیچ اثری نداره.» He was right, and it was
