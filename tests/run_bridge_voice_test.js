@@ -242,4 +242,108 @@ console.log('\n══ ۱۱) تازه‌ترین قسمت اول — چون قض�
      'گرفت: ' + JSON.stringify(keys));
 }
 
+console.log('\n══ ۱۲) اشتراکِ صف — و مسیری که به خودِ صف بند نیست ══');
+/* ══ چرا این بخش هست ══
+   ۲۲ سپتامبر، اجرای ۱ِ voice-bridge قرمز شد: «درایو به‌جای JSON یک صفحهٔ
+   HTML داد». همان جملهٔ ۷٫۳۳ برای صفِ گویندگان، یک روز بعد، در بخشی که
+   خودم نوشته بودم. و بدتر از تکرار، ساختارش:
+
+     `vbrSave_` تنها جایی است که اشتراک را باز می‌کند، و فقط از دو راه
+     صدا زده می‌شود — `vbrAsk_` که گویندهٔ روشن لازم دارد و `vbrIngest_`
+     که ردیفِ موجود لازم دارد. یعنی در حالتِ شروع، هیچ‌کدام.
+
+   پس وارسی باید از آن مسیر **مستقل** باشد، وگرنه دقیقاً وقتی لازم است
+   خاموش است. */
+{
+  // صفی که هست ولی بسته است — همان فایلی که دستی ساخته شد.
+  putOutJson_(vbrFileName_(), { rev: 3, items: [] });
+  const qf = outFolder_().getFilesByName(vbrFileName_()).next();
+  qf.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+
+  const r = vbrQueueShare_();
+  ok('۱۲.۱ بسته بودنِ صف گرفته می‌شود', r.ok === false,
+     'درایو برای فایلِ بی‌اشتراک ۴۰۳ نمی‌دهد؛ HTML می‌دهد — پس خطایی نیست که دیده شود');
+  ok('۱۲.۲ و **خودش** بازش می‌کند', r.fixed === true &&
+     String(outFolder_().getFilesByName(vbrFileName_()).next().getSharingAccess()) ===
+     String(DriveApp.Access.ANYONE_WITH_LINK),
+     'دری که آدم باید دستی بازش کند در نیست — ۵٫۹۵');
+
+  // دوباره بسته‌اش کن تا سطرِ روزانه را همان حالت بسازد.
+  outFolder_().getFilesByName(vbrFileName_()).next()
+    .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  const st = vbrStatus_();
+  ok('۱۲.۳ و سطرِ روزانه می‌گویدش', /اشتراکِ/.test(st.line),
+     'تعمیری که کسی خبرش را نشنود، تعمیری است که دوباره لازم می‌شود');
+  ok('۱۲.۴ ولی سطر را نمی‌بلعد و شمارش‌ها را کور نمی‌کند',
+     st.line.indexOf('پلِ رنگِ صدا') === 0 && typeof st.stuckDays === 'number' &&
+     typeof st.waiting === 'number',
+     'باگِ ۷٫۲۱: return زودهنگام، هم سطر را می‌خورد هم دروازهٔ بعدی را');
+
+  // و مرزِ اتهام: فایلی که نیست، تقصیر نیست.
+  outFolder_().getFilesByName(vbrFileName_()).next().setTrashed(true);
+  const r2 = vbrQueueShare_();
+  ok('۱۲.۵ صفِ ساخته‌نشده اتهام نیست', r2.ok === true && r2.missing === true,
+     'هنوز نوشته نشدن با بسته بودن یکی نیست');
+}
+/* و دلیلِ وجودِ این مسیرِ مستقل، به‌جای تکیه به نگهبانِ موجود:
+   `vbrStuckCheck_` شرطش `waiting > 0` است، پس صفِ خالی ساختاراً از آن
+   دروازه رد نمی‌شود. یعنی همان حالتی که هشدار لازم است، خاموش بود. */
+ok('۱۲.۶ نگهبانِ گیرکردن این حالت را ساختاراً نمی‌گیرد',
+   vbrStuckCheck_(hub, { stuckDays: 99, waiting: 0 }) === false,
+   'صفِ خالی هرگز از دروازه‌اش رد نمی‌شود — پس نمی‌توانست جایش را بگیرد');
+/* مسیرِ مستقل یعنی جایی که به رسیدنِ کارِ شبانه به بخشِ ۳۶ بند نیست.
+   همان کاری که ۷٫۲۷ برای `embGates_` کرد: زنگ را به مسیری که ممکن است
+   اصلاً اجرا نشود گره نزن. */
+ok('۱۲.۷ و `healthCheck` خودش صدایش می‌زند، نه فقط کارِ شبانه', (function () {
+   /* ══ دامنه، وگرنه سنجه چیزِ دیگری را می‌سنجد ══
+      همین فایل جایِ دیگری هم `vbrStatus_` را صدا می‌زند: بلوکی که
+      `_STATUS.json` را می‌سازد. جست‌وجو در کلِ فایل یعنی برداشتنِ
+      فراخوانیِ `healthCheck` سنجه را قرمز **نمی‌کند** — سنجه‌ای که
+      نمی‌تواند بیفتد از نبودنش بدتر است، چون سبز می‌شود و کسی دوباره
+      نگاه نمی‌کند. پس فقط بدنهٔ خودِ `healthCheck` خوانده می‌شود. */
+   const h = fs.readFileSync('src/08_Health.gs', 'utf8');
+   const at = h.indexOf('function healthCheck(');
+   if (at < 0) return false;
+   const nxt = h.indexOf('\nfunction ', at + 1);
+   const body = nxt < 0 ? h.slice(at) : h.slice(at, nxt);
+   return /vbrStatus_\s*\(/.test(body);
+ })(), 'شبی که دروازهٔ زمان از بخشِ ۳۶ رد شود، دقیقاً شبی است که باید گفته شود');
+
+console.log('\n══ ۱۳) «هرگز نوشته نشد» ≠ «نوشته شد و خالی بود» ══');
+/* صفِ دست‌ساز `rev: 0` دارد. `voicebridge.py` همین را قرمز می‌کند، ولی
+   گردش‌کار را صاحبِ برنامه نمی‌بیند؛ سمتِ موتور هم باید بگوید. و سه
+   حالتِ خالی از هم جدا می‌شوند، چون فقط یکی‌شان ایراد است. */
+{
+  putOutJson_(vbrFileName_(), { rev: 0, items: [] });
+  /* شناسه را به فایلِ زنده سنجاق کن. ۱۲٫۵ فایل را به زباله‌دان برد، پس
+     این یکی تازه ساخته شده و شناسه‌اش عوض است — و آن ایرادِ **دیگری**
+     است که `ok` را پایین می‌آورد. سنجه‌ای که بتواند به دلیلِ اشتباه سبز
+     یا قرمز شود، چیزی را که ادعا می‌کند نمی‌سنجد. */
+  const realQ13 = CFG.VBR_QUEUE_ID;
+  CFG.VBR_QUEUE_ID = outFolder_().getFilesByName(vbrFileName_()).next().getId();
+
+  personaBoardSave_('razavi', true, [knownShows_()[0].name], 1, 'آرام بخوان', '');
+  const stOn = vbrStatus_();
+  ok('۱۳.۱ گویندهٔ روشن + صفِ نانوشته ⇒ ایراد، با نام',
+     stOn.ok === false && stOn.everWritten === false &&
+     /نوشته نشده/.test(stOn.line) && stOn.line.indexOf('razavi') !== -1,
+     stOn.line);
+
+  personaBoardSave_('razavi', false, [], 1, 'آرام بخوان', '');
+  const stOff = vbrStatus_();
+  ok('۱۳.۲ ولی بی گویندهٔ روشن، همین حالت سالم است',
+     stOff.ok === true && /هیچ گویندهٔ روشنی/.test(stOff.line),
+     'هشداری که برای حالتِ سالم بزند، همان هشداری است که نادیده‌اش می‌گیرند');
+  ok('۱۳.۳ و سطر می‌گوید دقیقاً چه چیزی لازم است',
+     /صداها/.test(stOff.line), stOff.line);
+
+  putOutJson_(vbrFileName_(), { rev: 4, items: [] });
+  personaBoardSave_('razavi', true, [knownShows_()[0].name], 1, 'آرام بخوان', '');
+  const stW = vbrStatus_();
+  ok('۱۳.۴ صفِ نوشته‌شده و خالی، خبرِ دیگری است',
+     stW.everWritten === true && /هیچ قسمتی تبدیل نشده/.test(stW.line) &&
+     !/نوشته نشده/.test(stW.line), stW.line);
+  CFG.VBR_QUEUE_ID = realQ13;
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

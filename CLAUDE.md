@@ -1047,6 +1047,52 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## A door only the room's own key opens (7.39)
+
+`voice-bridge` went red on its very first run, with the sentence this file
+already carries: **Drive answers a request for an unshared file with an HTML
+page, not a 403.** That is 7.33 verbatim, one day later, in a section written
+with that lesson in hand.
+
+**The repetition is not the part worth recording. The structure is.**
+`vbrSave_` is the only thing that opens the queue's sharing, and it is reachable
+from exactly two places — `vbrAsk_`, which needs a speaker switched **on**, and
+`vbrIngest_`, which needs rows **already in the queue**. In the starting state
+neither holds. So the one condition that opens the door can only be reached
+through the door.
+
+**And no guard could catch it.** `vbrStuckCheck_` requires `waiting > 0`, and an
+empty queue structurally never passes that gate — so the alarm was off in
+precisely the state that needed it. That is the 7.22 and 7.27 bell a third time:
+*it is not enough that the guard exists and the threshold is right — ask what has
+to succeed for it to ring at all.*
+
+`vbrQueueShare_` is therefore called from `healthCheck`, on its own schedule,
+independent of whether the nightly ever reaches section 36 — the same move 7.27
+made for `embGates_`. **And it opens the door itself** rather than reporting it
+(5.95: a gate a human has to open is not a gate). The repair is still said out
+loud, because a repair nobody hears about is a repair that will be needed again.
+
+**«Never written» is not «written and empty».** `voicebridge.py` already refuses
+a `rev < 1` queue, but that only reddens a workflow the owner does not watch. The
+engine's own daily line now separates the three empty states, because only one of
+them is a fault: **no speaker switched on** is healthy and the line says exactly
+what is needed; **a speaker on with an unwritten queue** is a fault and the line
+names the speaker; **a written, empty queue** is ordinary news. A warning that
+fires for the healthy state is the warning people learn to ignore.
+
+`out.rev` is read **immediately** after `vbrRead_`, not further down: if any later
+call throws, `everWritten` stays undefined and the daily line accuses the nightly
+of something it did not do. An accusation must come from somewhere that cannot be
+mistaken.
+
+**And one of the four new assertions did not fail when I broke the code.** It
+searched the whole of `08_Health.gs` for `vbrStatus_(` — which the `_STATUS.json`
+block also contains — so removing the `healthCheck` call left it green. An
+assertion that cannot fail is worse than none, because it goes green and nobody
+looks again. It now reads only `healthCheck`'s own body. Every new claim here was
+proved falsifiable by deliberately breaking the code, not by reading it.
+
 ## The control that was never where the work is (7.35)
 
 On 20 September, in the same message that asked for the soul, he asked:

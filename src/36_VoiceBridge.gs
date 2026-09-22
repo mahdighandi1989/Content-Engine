@@ -238,6 +238,44 @@ function vbrQueueIdOk_() {
   return { ok: got === want, want: want, got: got };
 }
 
+/**
+ * صفِ پل در درایو «هرکس با لینک» هست؟ — و اگر نیست، همین‌جا باز می‌شود.
+ *
+ * ══ چرا این لازم شد، یک روز بعد از اینکه قرینه‌اش را ساختم (۷٫۳۹) ══
+ * ۷٫۳۳ همین را برای صفِ **گویندگان** ساخت، با این جمله در توضیحش:
+ * «تشخیص و اصلاح به یک مسیرِ بسته گره خورده بودند». بخشِ ۳۶ را روزِ بعد
+ * نوشتم و همان گره را دوباره ساختم — و این بار سفت‌تر:
+ *
+ * `vbrSave_` تنها جایی است که اشتراک را باز می‌کند، و فقط از دو راه
+ * صدا زده می‌شود: `vbrAsk_` که **گویندهٔ روشن** لازم دارد، و
+ * `vbrIngest_` که **ردیفِ موجود** لازم دارد. یعنی تا وقتی صاحبِ برنامه
+ * ردیفی را روشن نکرده، صف هرگز باز نمی‌شود و هر اجرای گردش‌کار تا ابد
+ * قرمز می‌مانَد — بی آنکه موتور جایی بگوید چرا.
+ *
+ * و هیچ نگهبانی نمی‌گرفتش: `vbrStuckCheck_` شرطش `waiting > 0` است و
+ * صفِ خالی ساختاراً از آن دروازه رد نمی‌شود. یعنی **دقیقاً در حالتی که
+ * هشدار لازم است، خاموش بود** — همان زنگِ ۷٫۲۲ و ۷٫۲۷، بارِ سوم.
+ *
+ * پس این وارسی از آن مسیر مستقل است، از `healthCheck` صدا زده می‌شود،
+ * و **خودش باز می‌کند**: دری که آدم باید دستی بازش کند در نیست (۵٫۹۵).
+ */
+function vbrQueueShare_() {
+  var out = { ok: true, missing: false, fixed: false, error: '' };
+  var f = null;
+  try {
+    var it = outFolder_().getFilesByName(vbrFileName_());
+    if (it.hasNext()) f = it.next();
+  } catch (e) { out.error = e.message; return out; }   // نشد ≠ بسته است
+  if (!f) { out.missing = true; return out; }          // هنوز ساخته نشده: تقصیر نیست
+  try {
+    if (String(f.getSharingAccess()) === String(DriveApp.Access.ANYONE_WITH_LINK)) return out;
+  } catch (e2) { out.error = e2.message; return out; }
+  out.ok = false;
+  out.fixed = driveShareOn_(f.getId());
+  if (!out.fixed && !out.error) out.error = 'setSharing نشد';
+  return out;
+}
+
 /** نقشهٔ خروجی‌ها، از gitHub raw. یک بار در هر اجرا. */
 var _vbrMapMemo = null;
 function vbrMapCached_() {
@@ -439,6 +477,19 @@ function vbrStatus_() {
               waiting: 0, done: 0, abandoned: 0, stuckDays: 0, ok: true, line: '' };
   try {
     var d = vbrRead_();
+    /* ══ «هرگز نوشته نشده» ≠ «نوشته شد و خالی بود» ══
+       همان تفکیکی که `voicebridge.py` سرِ `rev < 1` می‌گذارد — ولی آن‌جا
+       فقط گردش‌کار را قرمز می‌کند، و گردش‌کار را صاحبِ برنامه نمی‌بیند.
+       سمتِ موتور هم باید همین را بگوید، وگرنه «هنوز هیچ قسمتی تبدیل
+       نشده» شبیهِ سلامت خوانده می‌شود در حالی که یعنی کارِ شبانه اصلاً
+       به این بخش نرسیده.
+
+       و **بلافاصله** پس از `vbrRead_` خوانده می‌شود، نه پایین‌تر: اگر
+       یکی از فراخوانی‌های بعدی پرت کند، `everWritten` نامقدار می‌مانَد و
+       سطرِ روزانه کارِ شبانه را به چیزی متهم می‌کند که نکرده. اتهام باید
+       از جایی بیاید که نمی‌تواند به‌خطا بیفتد. */
+    out.rev = Number(d.rev) || 0;
+    out.everWritten = out.rev >= 1;
     for (var i = 0; i < d.items.length; i++) {
       var st = String(d.items[i].status || '');
       if (st === 'در انتظار') out.waiting++;
@@ -446,10 +497,13 @@ function vbrStatus_() {
       else if (st === 'رهاشده') out.abandoned++;
     }
     out.stuckDays = vbrStuckDays_();
+    out.speaker = vbrSpeakerOn_();
     /* مشکلِ دوم به سطر **اضافه** می‌شود، نه اینکه جایش را بگیرد — ۷٫۲۲
        اینجا `return` می‌کرد و شمارشِ گیرکردن را هم کور می‌کرد. */
     var qi = vbrQueueIdOk_();
     if (!qi.ok) out.queueId = qi;
+    var qs = vbrQueueShare_();
+    if (!qs.ok) out.queueShare = qs;
   } catch (e) { out.error = e.message; }
 
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
@@ -461,7 +515,24 @@ function vbrStatus_() {
   if (out.done) bits.push('ساخته‌شده: ' + fa(out.done));
   if (out.waiting) bits.push('در انتظار: ' + fa(out.waiting));
   if (out.abandoned) bits.push('رهاشده: ' + fa(out.abandoned));
-  if (!bits.length) bits.push('هنوز هیچ قسمتی تبدیل نشده');
+  if (!bits.length) {
+    /* ══ سه حالتِ خالی، و فقط یکی‌شان ایراد است ══
+       «هیچ گوینده‌ای روشن نیست» سالم است و انتخابِ صاحبِ برنامه — و گفتنش
+       همان کاری است که باید بکند: می‌گوید دقیقاً چه چیزی لازم است.
+       «گوینده روشن است ولی صف هرگز نوشته نشده» یعنی کارِ شبانه نرسیده.
+       هشداری که برای حالتِ سالم بزند، همان هشداری است که یاد می‌گیرند
+       نادیده بگیرند. */
+    if (!out.speaker) {
+      bits.push('هیچ گویندهٔ روشنی در «صداها» نیست — تا ردیفی روشن نشود ' +
+                'قسمتی برای تبدیل انتخاب نمی‌شود');
+    } else if (!out.everWritten) {
+      bits.push('گویندهٔ «' + out.speaker + '» روشن است ولی صف یک بار هم ' +
+                'نوشته نشده — کارِ شبانه به این بخش نرسیده');
+      out.ok = false;
+    } else {
+      bits.push('هنوز هیچ قسمتی تبدیل نشده');
+    }
+  }
   out.line = 'پلِ رنگِ صدا — ' + bits.join(' · ');
   /* این جمله هر روز می‌آید و عمدی است: تا وقتی جای صوتِ منتشرشده را
      نگرفته، نبودِ این جمله می‌تواند به‌معنای «پس گرفت» خوانده شود. */
@@ -472,6 +543,14 @@ function vbrStatus_() {
   if (out.waiting > 0 && out.stuckDays >= days) {
     out.ok = false;
     out.line += ' — و ' + fa(out.stuckDays) + ' روز است پاسخی از گردش‌کارِ پل نرسیده.';
+  }
+  if (out.queueShare) {
+    out.line += out.queueShare.fixed
+      ? ' ⚠️ اشتراکِ «' + vbrFileName_() + '» بسته بود و باز شد — تا این ' +
+        'لحظه گردش‌کار به‌جای صف یک صفحهٔ HTML می‌گرفت و قرمز می‌شد.'
+      : ' ⚠️ اشتراکِ «' + vbrFileName_() + '» بسته است و باز نشد (' +
+        (out.queueShare.error || '—') + ') — تا باز نشود هیچ قسمتی تبدیل نمی‌شود.';
+    if (!out.queueShare.fixed) out.ok = false;
   }
   if (out.queueId) {
     out.ok = false;

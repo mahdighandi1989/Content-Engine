@@ -1530,6 +1530,17 @@ function healthCheck() {
       if (emBad) problems.push(emS.line); else notes.push(emS.line);
     }
   } catch (eEm) {}
+  /* ══ پلِ صدا — و وارسیِ اشتراکش، اینجا نه فقط در کارِ شبانه (۷٫۳۹) ══
+     `vbrSave_` تنها جایی است که اشتراکِ صف را باز می‌کند، و فقط وقتی
+     صدا زده می‌شود که گوینده‌ای روشن باشد یا ردیفی در صف. یعنی همان
+     حالتی که هیچ‌کدام نیست — که حالتِ شروع است — اشتراک هرگز باز
+     نمی‌شود و گردش‌کار تا ابد قرمز می‌مانَد. این مسیر از آن مستقل است. */
+  try {
+    var vbS = vbrStatus_();
+    if (vbS && vbS.line) {
+      if (vbS.ok === false) problems.push(vbS.line); else notes.push(vbS.line);
+    }
+  } catch (eVb) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
