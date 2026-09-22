@@ -984,6 +984,43 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## The control that was never where the work is (7.35)
+
+On 20 September, in the same message that asked for the soul, he asked:
+«**انتخاب صدای گوینده برای پادکست رو در منو کدوم گزینه میشه انتخاب کرد؟**»
+The honest answer that day was **none**. The «صداها» tab existed and held the
+rows, but the only way to use it was editing nine columns by hand — and he does
+not open sheets.
+
+This file already carried the fix, written for the production calendar in 5.61:
+*a control that sits somewhere other than the work it controls does not get
+found.* The calendar got a panel. Voices got a tab.
+
+**The 5.61 boundary is repeated exactly, not approximated.** The board reads and
+writes the *same tab and the same columns* `personaFor_` reads. The data model
+was deliberately left untouched, so that function's suite is still the guard and
+a broken window cannot break production. The test proves it **through the gate
+itself** — save from the board, then ask `personaFor_` what it picks — rather
+than by reading the board back, which would only prove the board agrees with
+itself.
+
+**«آخرین تصمیم» stays read-only.** The engine writes it, and it is the only
+honest answer to "did my setting actually take effect?". A mirror you can edit
+is not a mirror.
+
+**Two doors that would otherwise leave someone believing they had switched it
+on.** "On, but no show ticked" and "on, but the style cue is empty" are both
+**refused with a reason**, not silently converted to off. The calendar converts
+"on with no weekday" to off because "every day" was a natural reading there;
+here an empty show list means *I don't know where*, and guessing is wrong in
+both directions. And a row with an empty cue is dropped by `personaFor_`
+without a word.
+
+**Order is a behaviour, not a layout.** `personaFor_` takes the **first**
+eligible row and marks the rest «صدای دیگری زودتر انتخاب شد». A board that does
+not say so leaves someone who switched on two rows waiting for something that
+will never come.
+
 ## Colour was cloned; the soul was not (7.34)
 
 On 20 September the owner asked, in one sentence: «اگر بخوام گویندهٔ جدیدی

@@ -36,6 +36,7 @@ function onOpen() {
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('🎚 نمونهٔ روحِ خواندن (با و بی کارت)', 'runStyleProbe')
+      .addItem('🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست', 'showPersonaBoard')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addItem('🎤 گویندهٔ تازه — وارسیِ پوشه و صف', 'runVoiceIntake')
       .addSeparator()

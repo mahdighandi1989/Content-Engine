@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.34
+ *  موتور محتوا و پادکست — نسخهٔ 7.35
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.34',
+  CODE_VERSION: '7.35',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -8923,6 +8923,7 @@ function onOpen() {
       .addItem('🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)', 'runMusicScan')
       .addItem('🎙 آزمونِ شنیداریِ گویندگان', 'runVoiceAudition')
       .addItem('🎚 نمونهٔ روحِ خواندن (با و بی کارت)', 'runStyleProbe')
+      .addItem('🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست', 'showPersonaBoard')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addItem('🎤 گویندهٔ تازه — وارسیِ پوشه و صف', 'runVoiceIntake')
       .addSeparator()
@@ -45672,6 +45673,113 @@ function personaSeed_() {
 }
 
 /**
+ * تختهٔ «شیوهٔ خواندن» — خواندنِ همان تب، نه یک مدلِ دادهٔ دوم.
+ *
+ * ══ چرا این ساخته شد (۷٫۳۵) ══
+ * صاحبِ برنامه ۲۰ سپتامبر پرسید: «**انتخاب صدای گوینده برای پادکست رو در
+ * منو کدوم گزینه میشه انتخاب کرد؟**» جوابِ درست آن روز این بود: **هیچ
+ * گزینه‌ای**. تبی هست که باید با دست ویرایش شود — و او شیت باز نمی‌کند.
+ * برای «تقویمِ تولید» همین درس در ۵٫۶۱ گرفته شده بود («کنترلی که جای کارش
+ * نباشد پیدا نمی‌شود») و اینجا به کار نرفت.
+ *
+ * ══ مرزی که از ۵٫۶۱ عیناً تکرار می‌شود ══
+ * این تخته فقط همان **تب و همان ستون‌ها**یی را می‌خوانَد و می‌نویسد که
+ * `personaFor_` می‌خوانَد. مدلِ داده دست نخورد، پس آزمونِ آن تابع همچنان
+ * نگهبانش است و پنجره‌ای که بشکند نمی‌تواند تولید را بشکند.
+ *
+ * ══ و «آخرین تصمیم» عمداً خواندنی است ══
+ * آن ستون را موتور می‌نویسد و تنها جوابِ صادق به «تنظیمِ من واقعاً اثر
+ * کرد؟» است. اگر تخته اجازهٔ ویرایشش را بدهد، همان آینه‌ای که قرار بود
+ * حقیقت را نشان دهد، دستکاری‌شدنی می‌شود.
+ */
+function personaBoardData_() {
+  var out = { enabled: CFG.PERSONA_ENABLED !== false, shows: [], rows: [],
+              note: '' };
+  try {
+    var L = knownShows_();
+    for (var i = 0; i < L.length; i++) out.shows.push(L[i].name);
+  } catch (eS) {}
+  var sh;
+  try { sh = personaTab_(); } catch (e) { out.note = 'تبِ صداها خوانده نشد: ' + e.message; return out; }
+  var rows;
+  try { rows = personaRows_(sh); } catch (e2) { out.note = e2.message; return out; }
+  for (var r = 0; r < rows.length; r++) {
+    var v = rows[r];
+    var key = String(v[PC.KEY - 1] || '').trim();
+    if (!key) continue;
+    out.rows.push({
+      key: key,
+      name: String(v[PC.NAME - 1] || '').trim() || key,
+      on: personaOn_(v[PC.ON - 1]),
+      shows: String(v[PC.SHOWS - 1] == null ? '' : v[PC.SHOWS - 1]).trim() || 'همه',
+      every: Math.max(1, Math.floor(Number(v[PC.EVERY - 1]) || 1)),
+      cue: String(v[PC.STYLE - 1] == null ? '' : v[PC.STYLE - 1]),
+      modes: String(v[PC.MODES - 1] == null ? '' : v[PC.MODES - 1]),
+      last: String(v[PC.LAST - 1] == null ? '' : v[PC.LAST - 1]),
+      used: String(v[PC.USED - 1] == null ? '' : v[PC.USED - 1]),
+      row: r + 2
+    });
+  }
+  /* ══ ترتیب یک واقعیتِ رفتاری است، نه آرایش ══
+     `personaFor_` **اولین** ردیفِ واجد شرایط را برمی‌دارد و بقیه را
+     «صدای دیگری زودتر انتخاب شد» می‌زند. اگر تخته این را نگوید، کسی که
+     دو ردیف را روشن می‌کند منتظرِ چیزی می‌مانَد که هرگز نمی‌آید. */
+  var onCount = 0;
+  for (var j = 0; j < out.rows.length; j++) if (out.rows[j].on) onCount++;
+  if (onCount > 1) {
+    out.note = 'بیش از یک ردیف روشن است. هر قسمت فقط **یک** صدای مهمان ' +
+               'می‌گیرد و بالاترین ردیفِ واجدِ شرایط برنده می‌شود.';
+  }
+  return out;
+}
+
+/**
+ * ذخیرهٔ یک ردیف — در همان سلول‌هایی که `personaFor_` می‌خوانَد.
+ *
+ * «روشن ولی هیچ برنامه‌ای» به خاموش تبدیل نمی‌شود، بلکه **رد** می‌شود:
+ * در تقویم «همه‌روز» معنای طبیعی داشت، اینجا فهرستِ خالی یعنی «نمی‌دانم
+ * کجا» و حدسش هر دو جهت غلط است. و دستورِ خالی با ردیفِ روشن هم رد
+ * می‌شود، چون `personaFor_` آن ردیف را بی‌صدا کنار می‌گذارد و آدم فکر
+ * می‌کند روشنش کرده.
+ */
+function personaBoardSave_(key, on, shows, every, cue, modes) {
+  var sh = personaTab_();
+  var rows = personaRows_(sh);
+  var at = -1;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][PC.KEY - 1] || '').trim() === String(key || '').trim()) { at = i + 2; break; }
+  }
+  if (at < 0) return { ok: false, why: 'ردیفی با کلیدِ «' + key + '» نیست.' };
+
+  var list = [];
+  for (var j = 0; j < (shows || []).length; j++) {
+    var t = String(shows[j] || '').trim();
+    if (t) list.push(t);
+  }
+  var cell = (!list.length || list.length >= ((knownShows_() || []).length || 1))
+             ? 'همه' : list.join('، ');
+  var cueT = String(cue == null ? '' : cue).trim();
+
+  if (on && !list.length) {
+    return { ok: false, why: 'روشن است ولی هیچ برنامه‌ای تیک نخورده. ' +
+             'اگر برای همه است، همه را تیک بزنید.' };
+  }
+  if (on && !cueT) {
+    return { ok: false, why: 'روشن است ولی «دستورِ سبک» خالی است — ' +
+             'موتور چنین ردیفی را بی‌صدا کنار می‌گذارد.' };
+  }
+  var n = Math.floor(Number(every) || 1);
+  if (!(n >= 1)) n = 1;
+
+  sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
+  sh.getRange(at, PC.SHOWS).setValue(cell);
+  sh.getRange(at, PC.EVERY).setValue(n);
+  sh.getRange(at, PC.STYLE).setValue(cueT);
+  sh.getRange(at, PC.MODES).setValue(String(modes == null ? '' : modes).trim());
+  return { ok: true, key: String(key), on: !!on, shows: cell, every: n };
+}
+
+/**
  * ردیفِ یک گویندهٔ تازه، از کارتِ سبکِ اندازه‌گیری‌شده‌اش — و **خاموش**.
  *
  * ══ چرا این تابع لازم شد (۷٫۳۴) ══
@@ -45776,6 +45884,115 @@ function personaApply_(segs, p) {
     n++;
   }
   return n;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   پنجرهٔ «شیوهٔ خواندنِ گویندگان»
+
+   ══ چرا اینجا و نه در منوی متن ══
+   یک تب با نُه ستون که باید با دست ویرایش شود، برای کسی که شیت باز
+   نمی‌کند یعنی «نیست». همان درسِ ۵٫۶۱.
+
+   ══ و چرا دکمه‌ها همه تابعِ موجود صدا می‌زنند ══
+   `google.script.run.X()` روی `X`ی که وجود ندارد **هیچ خطایی نمی‌دهد** و
+   هیچ آزمونی نمی‌شکند؛ دکمه فقط کاری نمی‌کند. `run_wiring_test.js` ۵٫۲
+   همین را می‌گیرد، و این پنجره هم از همان در می‌گذرد.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
+function personaBoardData() {
+  try { return personaBoardData_(); }
+  catch (e) { return { enabled: false, shows: [], rows: [], note: 'خطا: ' + e.message }; }
+}
+
+/** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
+function personaBoardSave(key, on, shows, every, cue, modes) {
+  try { return personaBoardSave_(key, on, shows, every, cue, modes); }
+  catch (e) { return { ok: false, why: 'خطا: ' + e.message }; }
+}
+
+/** منو: «🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست». */
+function showPersonaBoard() {
+  var ui = ui_();
+  var html = personaBoardHtml_();
+  if (!ui) { console.log(html.slice(0, 400)); return html; }
+  var out = HtmlService.createHtmlOutput(html).setWidth(1040).setHeight(740);
+  ui.showModalDialog(out, 'شیوهٔ خواندنِ گویندگان');
+}
+
+/** پنجره. یک کارت به ازای هر ردیف؛ هیچ ستونی که موتور می‌نویسد ویرایش‌پذیر نیست. */
+function personaBoardHtml_() {
+  var H = [];
+  H.push('<!DOCTYPE html><html><head><meta charset="utf-8"><style>');
+  H.push('body{font-family:Tahoma,Vazirmatn,sans-serif;direction:rtl;margin:14px;color:#1f2430;background:#fff}');
+  H.push('h2{margin:0 0 4px;font-size:17px}');
+  H.push('.sub{color:#5b6472;font-size:12px;margin-bottom:10px;line-height:1.7}');
+  H.push('.warn{background:#fff6e5;border:1px solid #f0c674;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:12px}');
+  H.push('.card{border:1px solid #dfe3ea;border-radius:10px;padding:12px;margin:10px 0;background:#fbfcfe}');
+  H.push('.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}');
+  H.push('.nm{font-weight:bold;font-size:15px}');
+  H.push('.tag{font-size:11px;color:#5b6472;background:#eef1f6;border-radius:6px;padding:2px 7px}');
+  H.push('.grid{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0}');
+  H.push('label{font-size:12px;color:#39414f}');
+  H.push('textarea{width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;');
+  H.push('direction:rtl;border:1px solid #cfd5df;border-radius:7px;padding:7px;line-height:1.7}');
+  H.push('input[type=number]{width:60px;padding:3px}');
+  H.push('button{background:#2c6bed;color:#fff;border:0;border-radius:7px;padding:7px 15px;cursor:pointer;font-family:inherit}');
+  H.push('button:disabled{background:#9db4e6;cursor:default}');
+  H.push('.last{font-size:11px;color:#5b6472;margin-top:6px}');
+  H.push('.msg{font-size:12px;margin-right:10px}');
+  H.push('.bad{color:#c0392b}.good{color:#1e8449}');
+  H.push('</style></head><body>');
+  H.push('<h2>شیوهٔ خواندنِ گویندگان</h2>');
+  H.push('<div class="sub">هر کارت یک «شخصیتِ خواندن» است: مکث، کشش، ریتم، دامنه. ' +
+         '<b>این رنگِ صدا نیست</b> — صدا همان صدای همیشگی می‌مانَد و فقط طرزِ خواندنش عوض می‌شود.<br>' +
+         'هر قسمت فقط <b>یک</b> صدای مهمان می‌گیرد: بالاترین کارتِ روشنی که برنامه و نوبتش بخورَد. ' +
+         '«آخرین تصمیم» را خودِ موتور می‌نویسد و ویرایش‌پذیر نیست — تنها جوابِ صادق به «تنظیمم اثر کرد؟».</div>');
+  H.push('<div id="warn"></div><div id="box">در حالِ خواندن…</div>');
+  H.push('<script>');
+  H.push('var DATA=null;');
+  H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){');
+  H.push('return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}');
+  H.push('function draw(d){DATA=d;');
+  H.push('document.getElementById("warn").innerHTML = d.note?("<div class=\'warn\'>"+esc(d.note)+"</div>"):"";');
+  H.push('if(!d.rows||!d.rows.length){document.getElementById("box").innerHTML=');
+  H.push('"<div class=\'warn\'>هنوز هیچ گوینده‌ای کارتِ سبک ندارد. هر نمونه‌ای که در پوشهٔ «voice cloning» بگذارید، کارتش خودکار ساخته می‌شود و اینجا ظاهر می‌شود.</div>";return;}');
+  H.push('var H=[];for(var i=0;i<d.rows.length;i++){var r=d.rows[i];');
+  H.push('H.push("<div class=\'card\' id=\'c"+i+"\'>");');
+  H.push('H.push("<div class=\'hd\'><span class=\'nm\'>"+esc(r.name)+"</span>");');
+  H.push('H.push("<span class=\'tag\'>"+esc(r.key)+"</span>");');
+  H.push('H.push("<label><input type=\'checkbox\' id=\'on"+i+"\' "+(r.on?"checked":"")+"> روشن</label>");');
+  H.push('H.push("<label>هر <input type=\'number\' min=\'1\' id=\'ev"+i+"\' value=\'"+r.every+"\'> قسمت یک بار</label>");');
+  H.push('H.push("</div><div class=\'grid\'>");');
+  H.push('for(var j=0;j<d.shows.length;j++){var on=(r.shows==="همه")||(r.shows.indexOf(d.shows[j])!==-1);');
+  H.push('H.push("<label><input type=\'checkbox\' class=\'sh"+i+"\' value=\'"+esc(d.shows[j])+"\' "+(on?"checked":"")+"> "+esc(d.shows[j])+"</label>");}');
+  H.push('H.push("</div>");');
+  H.push('H.push("<label>دستورِ سبک</label><textarea id=\'cu"+i+"\' rows=\'4\'>"+esc(r.cue)+"</textarea>");');
+  H.push('H.push("<label>حالت‌ها — هر خط: <code>نام | وایب‌ها با کاما | دستور</code>. وایبِ خالی یعنی این حالت هرگز انتخاب نمی‌شود.</label>");');
+  H.push('H.push("<textarea id=\'mo"+i+"\' rows=\'4\'>"+esc(r.modes)+"</textarea>");');
+  H.push('H.push("<div class=\'last\'>آخرین تصمیمِ موتور: <b>"+(esc(r.last)||"—")+"</b>");');
+  H.push('if(r.used)H.push(" · آخرین استفاده: "+esc(r.used));');
+  H.push('H.push("</div><div style=\'margin-top:8px\'><button id=\'b"+i+"\' onclick=\'save("+i+")\'>ذخیره</button>");');
+  H.push('H.push("<span class=\'msg\' id=\'m"+i+"\'></span></div></div>");}');
+  H.push('document.getElementById("box").innerHTML=H.join("");}');
+  H.push('function save(i){var r=DATA.rows[i];');
+  H.push('var shows=[];var cs=document.getElementsByClassName("sh"+i);');
+  H.push('for(var k=0;k<cs.length;k++) if(cs[k].checked) shows.push(cs[k].value);');
+  H.push('var b=document.getElementById("b"+i),m=document.getElementById("m"+i);');
+  H.push('b.disabled=true;m.className="msg";m.textContent="در حالِ ذخیره…";');
+  H.push('google.script.run.withSuccessHandler(function(res){b.disabled=false;');
+  H.push('if(res&&res.ok){m.className="msg good";m.textContent="ذخیره شد.";}');
+  H.push('else{m.className="msg bad";m.textContent=(res&&res.why)||"ذخیره نشد.";}})');
+  H.push('.withFailureHandler(function(e){b.disabled=false;m.className="msg bad";');
+  H.push('m.textContent="ذخیره نشد: "+e.message;})');
+  H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
+  H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
+  H.push('document.getElementById("mo"+i).value);}');
+  H.push('google.script.run.withSuccessHandler(draw).withFailureHandler(function(e){');
+  H.push('document.getElementById("box").textContent="خوانده نشد: "+e.message;}).personaBoardData();');
+  H.push('</script></body></html>');
+  return H.join('');
 }
 
 /* ═══════════════════════════ 33_VoiceIntake.gs ═══════════════════════════ */

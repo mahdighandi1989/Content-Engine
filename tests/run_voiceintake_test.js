@@ -514,4 +514,45 @@ const made = personaSyncCards_({
 ok('۲۳.۸ همگام‌سازی فقط کارت‌دارهای تازه را می‌سازد',
    made.length === 1 && made[0] === 'الف', 'گرفت: ' + JSON.stringify(made));
 
+console.log('\n══ ۲۴) تختهٔ شیوهٔ خواندن — جایی که بشود گوینده را انتخاب کرد ══');
+/* «انتخاب صدای گوینده برای پادکست رو در منو کدوم گزینه میشه انتخاب کرد؟»
+   ــ ۲۰ سپتامبر. جوابِ آن روز «هیچ گزینه‌ای» بود. */
+const bd = personaBoardData_();
+ok('۲۴.۱ تخته ردیف‌ها را از همان تب می‌خوانَد',
+   bd.rows.length >= 1 && bd.rows.some(r => r.key === 'spk-test1'));
+ok('۲۴.۲ و نامِ برنامه‌ها را از knownShows_ می‌گیرد، نه از فهرستی دستی',
+   bd.shows.length === knownShows_().length);
+
+const bSave = personaBoardSave_('spk-test1', true, [knownShows_()[0].name], 2,
+                                'دستورِ تازه', 'حالت | سوگ | آرام بخوان');
+ok('۲۴.۳ ذخیره می‌شود', bSave.ok === true);
+const after = personaBoardData_().rows.filter(r => r.key === 'spk-test1')[0];
+ok('۲۴.۴ و همان سلول‌هایی را می‌نویسد که personaFor_ می‌خوانَد',
+   after.on === true && after.every === 2 && after.cue === 'دستورِ تازه',
+   'مدلِ داده دست نخورد، پس آزمونِ personaFor_ همچنان نگهبانش است');
+/* و اثباتش با خودِ دروازه، نه با بازخوانیِ تخته. */
+const chosen = personaFor_(knownShows_()[0].name, 2);
+ok('۲۴.۵ دروازه همان را برمی‌دارد',
+   chosen && chosen.key === 'spk-test1' && chosen.cue === 'دستورِ تازه');
+ok('۲۴.۶ و نوبت را رعایت می‌کند', personaFor_(knownShows_()[0].name, 3) === null,
+   'هر ۲ قسمت یک بار یعنی قسمتِ ۳ نه');
+
+/* دو در که اگر باز بمانند، آدم فکر می‌کند روشنش کرده و نیست. */
+ok('۲۴.۷ روشن بی هیچ برنامه‌ای رد می‌شود',
+   personaBoardSave_('spk-test1', true, [], 1, 'x', '').ok === false,
+   'فهرستِ خالی یعنی «نمی‌دانم کجا»، و حدسش هر دو جهت غلط است');
+ok('۲۴.۸ روشن با دستورِ خالی هم رد می‌شود',
+   personaBoardSave_('spk-test1', true, [knownShows_()[0].name], 1, '   ', '').ok === false,
+   'موتور چنین ردیفی را بی‌صدا کنار می‌گذارد');
+ok('۲۴.۹ کلیدِ ناشناس ذخیره نمی‌شود',
+   personaBoardSave_('nope', true, [knownShows_()[0].name], 1, 'x', '').ok === false);
+
+/* هر قسمت یک صدا؛ اگر تخته نگوید، کسی که دو ردیف را روشن می‌کند
+   منتظرِ چیزی می‌مانَد که هرگز نمی‌آید. */
+personaAddFromCard_('spk-two', 'دومی', { cue: 'دستورِ دوم', modes: '' });
+personaBoardSave_('spk-two', true, [knownShows_()[0].name], 1, 'دستورِ دوم', '');
+personaBoardSave_('spk-test1', true, [knownShows_()[0].name], 1, 'دستورِ تازه', '');
+ok('۲۴.۱۰ دو ردیفِ روشن هشدار می‌گیرد',
+   /یک/.test(personaBoardData_().note || ''), 'گرفت: ' + personaBoardData_().note);
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
