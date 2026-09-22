@@ -35,12 +35,18 @@
  * می‌شود، خبرش داده می‌شود، و روشن کردنش با اوست.
  */
 
+/* ══ ستونِ تازه **در انتها** می‌نشیند، نه وسط (۷٫۴۱) ══
+   `ensureTab_` فقط سطرِ سرصفحه را بازنویسی می‌کند، نه داده را. پس ستونی
+   که وسط اضافه شود، برچسبِ تازه را روی دادهٔ قدیمی می‌گذارد: «آخرین
+   تصمیم» زیرِ عنوانِ دیگری می‌نشیند و هیچ خطایی بلند نمی‌شود. همان باگی
+   که یک بار در داشبورد افتاد و توضیحش در `ensureTab_` هست. */
 var PERSONA_HEADERS = ['کلید', 'نام', 'فعال', 'برنامه‌ها', 'هر چند قسمت',
-                       'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده'];
+                       'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده',
+                       'قسمت‌های موردی'];
 
 /** شمارهٔ ستون‌ها (۱-بنیان) — همان الگوی `CC` در بخشِ ۲۵. */
 var PC = { KEY: 1, NAME: 2, ON: 3, SHOWS: 4, EVERY: 5, STYLE: 6, MODES: 7,
-           LAST: 8, USED: 9 };
+           LAST: 8, USED: 9, ONCE: 10 };
 
 /**
  * ردیف‌های جدول، بی سرصفحه — با همان اصطلاحی که بقیهٔ موتور می‌خوانَد.
@@ -105,6 +111,78 @@ function personaTurn_(every, epNum) {
   var e = Math.floor(Number(epNum) || 0);
   if (!(e > 0)) return false;   // شمارهٔ نامعلوم، نوبتِ نامعلوم
   return (e % n) === 0;
+}
+
+/**
+ * «قسمت‌های موردی» را بخوان — یک ورودی در هر خط یا جداشده با کاما.
+ *
+ * ══ چرا این ستون هست (۷٫۴۱) ══
+ * خواستهٔ صاحبِ برنامه، ۲۰ سپتامبر، عیناً: «بتونم … چه به صورتِ **دائم
+ * یا موردی** از صدایی که استفاده کردیم استفاده کنم».
+ * آنچه ساخته شده بود فقط «هر چند قسمت» بود — یعنی **دوره‌ای**، نه
+ * موردی. «این قسمتِ خاص را با صدای او بساز» هیچ راهی نداشت، و من تا
+ * امروز نگفته بودم که ندارد.
+ *
+ * شکل‌های پذیرفته، همان اصطلاحِ «استثناها»ی تقویم:
+ *   ۴۷            · ۴۷ تا ۵۰            · 47-50
+ *   درس‌نامه ۴۷    · درس‌نامه ۴۷ تا ۵۰    · variety 47
+ * رقمِ فارسی و لاتین هر دو، و نیم‌فاصله در نامِ برنامه بی‌اثر است —
+ * همان `personaShowOk_` که «درس نامه» و «درس‌نامه» را یکی می‌داند.
+ *
+ * ══ و چرا خطِ نافهم **برگردانده** می‌شود، نه دور انداخته ══
+ * `personaModes_` خطِ ناقص را کنار می‌گذارد و درست است: یک حالتِ کمتر
+ * یعنی افتِ کیفیت. اینجا برعکس — خطی که خوانده نشود یعنی **قسمتی که
+ * صاحبِ برنامه خواسته و بی‌صدا نخواهد گرفت**، و او هرگز نمی‌فهمد. پس
+ * ناخوانا را به بالادست گزارش می‌کنیم.
+ */
+function personaOnceParse_(cell) {
+  var out = { items: [], bad: [] };
+  var raw = String(cell == null ? '' : cell);
+  var parts = raw.split(/[\r\n،,؛;]+/);
+  for (var i = 0; i < parts.length; i++) {
+    var t = String(parts[i] || '').trim();
+    if (!t) continue;
+    /* رقم‌ها لاتین می‌شوند ولی متنِ نامِ برنامه دست نمی‌خورد. */
+    var d = (typeof faDigits_ === 'function') ? faDigits_(t) : t;
+    var m = d.match(/^(.*?)(\d+)\s*(?:تا|-|–|—|to)\s*(\d+)\s*$/);
+    var one = d.match(/^(.*?)(\d+)\s*$/);
+    var showPart = '', a = 0, b = 0;
+    if (m) { showPart = m[1]; a = Number(m[2]); b = Number(m[3]); }
+    else if (one) { showPart = one[1]; a = Number(one[2]); b = a; }
+    else { out.bad.push(t); continue; }
+    if (!(a > 0) || !(b > 0)) { out.bad.push(t); continue; }
+    if (b < a) { var sw = a; a = b; b = sw; }
+    out.items.push({ show: String(showPart || '').trim(), from: a, to: b });
+  }
+  return out;
+}
+
+/**
+ * این قسمت در «قسمت‌های موردی» نام برده شده؟
+ *
+ * دو قاعده و بس:
+ *   • ورودیِ **نام‌دار** فقط به همان برنامه می‌خورَد — نام بردنِ برنامه
+ *     صریح‌تر از دامنهٔ پیش‌فرضِ ردیف است.
+ *   • ورودیِ **بی‌نام** هر برنامه‌ای را می‌گیرد که «برنامه‌ها»ی ردیف
+ *     اجازه بدهد.
+ *
+ * و شمارهٔ نامعلوم **هرگز** نمی‌خورَد: وگرنه هر قسمتی که شماره‌اش خوانده
+ * نشده، صدای مهمان می‌گرفت — درست برعکسِ «موردی».
+ */
+function personaOnceHit_(cell, showsCell, show, key, epNum) {
+  var e = Math.floor(Number(epNum) || 0);
+  if (!(e > 0)) return false;
+  var p = personaOnceParse_(cell);
+  for (var i = 0; i < p.items.length; i++) {
+    var it = p.items[i];
+    if (e < it.from || e > it.to) continue;
+    if (it.show) {
+      if (personaShowOk_(it.show, show, key)) return true;
+      continue;
+    }
+    if (personaShowOk_(showsCell, show, key)) return true;
+  }
+  return false;
 }
 
 /**
@@ -182,30 +260,64 @@ function personaFor_(show, epNum) {
              + e.message);
     return null;
   }
-  var picked = null, pickedRow = 0, notes = [];
-  for (var i = 0; i < rows.length; i++) {
-    var v = rows[i];
-    var key = String(v[PC.KEY - 1] || '').trim();
-    if (!key) continue;
-    var name = String(v[PC.NAME - 1] || '').trim() || key;
-    var rowNo = i + 2;                       // ردیفِ ۱ سرصفحه است
-    if (!personaOn_(v[PC.ON - 1])) { notes.push([rowNo, 'خاموش']); continue; }
-    if (!personaShowOk_(v[PC.SHOWS - 1], show, show)) {
-      notes.push([rowNo, 'برای این برنامه نیست']); continue;
-    }
-    if (!personaTurn_(v[PC.EVERY - 1], epNum)) {
-      notes.push([rowNo, 'نوبتش نیست (هر ' +
-                  (Math.floor(Number(v[PC.EVERY - 1])) || 1) + ' قسمت)']);
-      continue;
-    }
-    var cue = String(v[PC.STYLE - 1] || '').trim();
-    if (!cue) { notes.push([rowNo, 'دستورِ سبک خالی است']); continue; }
-    if (!picked) {
-      picked = { key: key, name: name, cue: cue,
-                 modes: personaModes_(v[PC.MODES - 1]) };
-      pickedRow = rowNo;
-    } else {
-      notes.push([rowNo, 'صدای دیگری زودتر انتخاب شد']);
+  var picked = null, pickedRow = 0, notes = [], pickedWhy = '';
+
+  /* ══ دو پیمایش، و «موردی» اول (۷٫۴۱) ══
+     «موردی» دربارهٔ **همین یک قسمت** است و «دائم» دربارهٔ همه؛ مشخص‌تر
+     برنده است. یعنی «معمولاً صدای عادی، ولی این قسمت را با صدای او» —
+     که عیناً همان چیزی است که خواسته شد.
+
+     و «موردی» از «فعال» و «هر چند قسمت» رد می‌شود، وگرنه «موردی» چیزی
+     جز همان «دوره‌ای» نبود: برای یک قسمت مجبور بودی ردیف را روشن کنی،
+     که یعنی دائمی‌اش کنی. دقیقاً کاری که نمی‌خواست. */
+  var pass, i, v, key, name, rowNo, cue;
+  for (pass = 0; pass < 2 && !picked; pass++) {
+    for (i = 0; i < rows.length; i++) {
+      v = rows[i];
+      key = String(v[PC.KEY - 1] || '').trim();
+      if (!key) continue;
+      name = String(v[PC.NAME - 1] || '').trim() || key;
+      rowNo = i + 2;                         // ردیفِ ۱ سرصفحه است
+      var once = false;
+      try {
+        once = personaOnceHit_(v[PC.ONCE - 1], v[PC.SHOWS - 1], show, key, epNum);
+      } catch (eO) { once = false; }
+
+      if (pass === 0) {
+        if (!once) continue;                 // پیمایشِ موردی: فقط نام‌بردگان
+      } else {
+        if (once) continue;                  // در پیمایشِ اول دیده شد
+        if (!personaOn_(v[PC.ON - 1])) { notes.push([rowNo, 'خاموش']); continue; }
+        if (!personaShowOk_(v[PC.SHOWS - 1], show, show)) {
+          notes.push([rowNo, 'برای این برنامه نیست']); continue;
+        }
+        if (!personaTurn_(v[PC.EVERY - 1], epNum)) {
+          notes.push([rowNo, 'نوبتش نیست (هر ' +
+                      (Math.floor(Number(v[PC.EVERY - 1])) || 1) + ' قسمت)']);
+          continue;
+        }
+      }
+
+      cue = String(v[PC.STYLE - 1] || '').trim();
+      if (!cue) {
+        /* ردیفی که بی‌صدا کنار گذاشته شود، کسی را منتظرِ چیزی می‌گذارد
+           که نمی‌آید — و در حالتِ موردی بدتر، چون او **این** قسمت را
+           خواسته بود. پس دلیلش در همان ردیف نوشته می‌شود. */
+        notes.push([rowNo, once
+          ? 'قسمتِ موردی بود ولی دستورِ سبک خالی است'
+          : 'دستورِ سبک خالی است']);
+        continue;
+      }
+      if (!picked) {
+        picked = { key: key, name: name, cue: cue, once: once,
+                   modes: personaModes_(v[PC.MODES - 1]) };
+        pickedRow = rowNo;
+        pickedWhy = once ? 'انتخاب شد (موردی)' : 'انتخاب شد';
+      } else {
+        notes.push([rowNo, once
+          ? 'صدای دیگری زودتر برای همین قسمت انتخاب شد'
+          : 'صدای دیگری زودتر انتخاب شد']);
+      }
     }
   }
   // تصمیمِ هر ردیف در خودِ ردیف — چه انتخاب شده باشد چه نه.
@@ -215,13 +327,14 @@ function personaFor_(show, epNum) {
       sh.getRange(notes[n][0], PC.LAST).setValue(stamp + ' — ' + notes[n][1]);
     }
     if (pickedRow) {
-      sh.getRange(pickedRow, PC.LAST).setValue(stamp + ' — انتخاب شد');
+      sh.getRange(pickedRow, PC.LAST).setValue(stamp + ' — ' + pickedWhy);
       sh.getRange(pickedRow, PC.USED).setValue(
         stamp + ' — ' + String(show || '') + ' ' + String(epNum || ''));
     }
   } catch (eW) {}
   if (picked) {
     logLine_('صدای مهمانِ این قسمت: ' + picked.name +
+             (picked.once ? ' — موردی، برای همین قسمت' : '') +
              ' (' + picked.modes.length + ' حالت)');
   }
   return picked;
@@ -314,6 +427,7 @@ function personaBoardData_() {
       every: Math.max(1, Math.floor(Number(v[PC.EVERY - 1]) || 1)),
       cue: String(v[PC.STYLE - 1] == null ? '' : v[PC.STYLE - 1]),
       modes: String(v[PC.MODES - 1] == null ? '' : v[PC.MODES - 1]),
+      once: String(v[PC.ONCE - 1] == null ? '' : v[PC.ONCE - 1]),
       last: String(v[PC.LAST - 1] == null ? '' : v[PC.LAST - 1]),
       used: String(v[PC.USED - 1] == null ? '' : v[PC.USED - 1]),
       row: r + 2
@@ -341,7 +455,7 @@ function personaBoardData_() {
  * می‌شود، چون `personaFor_` آن ردیف را بی‌صدا کنار می‌گذارد و آدم فکر
  * می‌کند روشنش کرده.
  */
-function personaBoardSave_(key, on, shows, every, cue, modes) {
+function personaBoardSave_(key, on, shows, every, cue, modes, once) {
   var sh = personaTab_();
   var rows = personaRows_(sh);
   var at = -1;
@@ -367,15 +481,38 @@ function personaBoardSave_(key, on, shows, every, cue, modes) {
     return { ok: false, why: 'روشن است ولی «دستورِ سبک» خالی است — ' +
              'موتور چنین ردیفی را بی‌صدا کنار می‌گذارد.' };
   }
+  /* درِ سوم، از همان جنسِ دو تای بالا (۷٫۳۵): قسمتِ موردی نوشته شده ولی
+     دستورِ سبک خالی است. پذیرفتنش یعنی او باور کند برای آن قسمت تنظیم
+     کرده، و آن قسمت با خوانشِ عادی ساخته شود. */
+  if (String(once == null ? '' : once).trim() && !cueT) {
+    return { ok: false, why: 'برای «قسمت‌های موردی» چیزی نوشته‌اید ولی ' +
+             '«دستورِ سبک» خالی است — موتور چنین ردیفی را کنار می‌گذارد، ' +
+             'پس آن قسمت‌ها با خوانشِ عادی ساخته می‌شوند.' };
+  }
   var n = Math.floor(Number(every) || 1);
   if (!(n >= 1)) n = 1;
+
+  /* ══ خطِ ناخوانا ذخیره نمی‌شود، و دلیلش گفته می‌شود (۷٫۴۱) ══
+     `personaModes_` خطِ ناقص را بی‌صدا کنار می‌گذارد و آنجا درست است —
+     یک حالتِ کمتر یعنی افتِ کیفیت. اینجا برعکس: خطی که خوانده نشود
+     یعنی **قسمتی که او خواسته و نخواهد گرفت**، و هیچ‌جا نمی‌فهمد.
+     پس ذخیره رد می‌شود و خودِ آن خط نام برده می‌شود. */
+  var onceT = String(once == null ? '' : once).trim();
+  var op = personaOnceParse_(onceT);
+  if (op.bad.length) {
+    return { ok: false, why: 'این خط از «قسمت‌های موردی» خوانده نشد: «' +
+             op.bad[0] + '». شمارهٔ قسمت لازم است — مثلِ ۴۷ یا ۴۷ تا ۵۰ ' +
+             'یا درس‌نامه ۴۷.' };
+  }
 
   sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
   sh.getRange(at, PC.SHOWS).setValue(cell);
   sh.getRange(at, PC.EVERY).setValue(n);
   sh.getRange(at, PC.STYLE).setValue(cueT);
   sh.getRange(at, PC.MODES).setValue(String(modes == null ? '' : modes).trim());
-  return { ok: true, key: String(key), on: !!on, shows: cell, every: n };
+  sh.getRange(at, PC.ONCE).setValue(onceT);
+  return { ok: true, key: String(key), on: !!on, shows: cell, every: n,
+           once: onceT, onceCount: op.items.length };
 }
 
 /**
@@ -506,8 +643,8 @@ function personaBoardData() {
 }
 
 /** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
-function personaBoardSave(key, on, shows, every, cue, modes) {
-  try { return personaBoardSave_(key, on, shows, every, cue, modes); }
+function personaBoardSave(key, on, shows, every, cue, modes, once) {
+  try { return personaBoardSave_(key, on, shows, every, cue, modes, once); }
   catch (e) { return { ok: false, why: 'خطا: ' + e.message }; }
 }
 
@@ -570,6 +707,11 @@ function personaBoardHtml_() {
   H.push('H.push("<label>دستورِ سبک</label><textarea id=\'cu"+i+"\' rows=\'4\'>"+esc(r.cue)+"</textarea>");');
   H.push('H.push("<label>حالت‌ها — هر خط: <code>نام | وایب‌ها با کاما | دستور</code>. وایبِ خالی یعنی این حالت هرگز انتخاب نمی‌شود.</label>");');
   H.push('H.push("<textarea id=\'mo"+i+"\' rows=\'4\'>"+esc(r.modes)+"</textarea>");');
+  /* ══ «موردی» همین‌جا، نه در منویی دیگر (۵٫۶۱ و ۷٫۳۵) ══
+     کنترلی که جایی جز کنارِ کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود. */
+  H.push('H.push("<label>قسمت‌های موردی — فقط همین قسمت‌ها، حتی اگر ردیف خاموش باشد.<br>");');
+  H.push('H.push("مثال: <code>۴۷</code> · <code>۴۷ تا ۵۰</code> · <code>درس‌نامه ۴۷</code>. رقمِ فارسی و لاتین هر دو.</label>");');
+  H.push('H.push("<textarea id=\'oc"+i+"\' rows=\'2\'>"+esc(r.once)+"</textarea>");');
   H.push('H.push("<div class=\'last\'>آخرین تصمیمِ موتور: <b>"+(esc(r.last)||"—")+"</b>");');
   H.push('if(r.used)H.push(" · آخرین استفاده: "+esc(r.used));');
   H.push('H.push("</div><div style=\'margin-top:8px\'><button id=\'b"+i+"\' onclick=\'save("+i+")\'>ذخیره</button>");');
@@ -587,7 +729,7 @@ function personaBoardHtml_() {
   H.push('m.textContent="ذخیره نشد: "+e.message;})');
   H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
   H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
-  H.push('document.getElementById("mo"+i).value);}');
+  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value);}');
   H.push('google.script.run.withSuccessHandler(draw).withFailureHandler(function(e){');
   H.push('document.getElementById("box").textContent="خوانده نشد: "+e.message;}).personaBoardData();');
   H.push('</script></body></html>');

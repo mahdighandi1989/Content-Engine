@@ -1112,6 +1112,53 @@ assertion that cannot fail is worse than none, because it goes green and nobody
 looks again. It now reads only `healthCheck`'s own body. Every new claim here was
 proved falsifiable by deliberately breaking the code, not by reading it.
 
+## Half a request delivered is a request you have to be asked about twice (7.41)
+
+On 20 September he asked, in one sentence: «بتونم … چه به صورتِ **دائم یا
+موردی** از صدایی که استفاده کردیم استفاده کنم». What got built was «هر چند
+قسمت» — **periodic**, not occasional. "Make *this* episode in his voice" had no
+route at all, and I did not say so. He found it himself, two days later, by
+re-reading his own messages.
+
+**That is the 7.34 rule failing a second time**, and it is worth stating in its
+sharper form: *when the answer to "did we do all of it?" is "most of it", name
+the missing part unprompted* — because the alternative is that he re-reads his
+own words to discover what you dropped, and then nothing you report is trusted
+without him checking.
+
+**«موردی» deliberately bypasses «فعال» and «هر چند قسمت».** Without that it is
+merely «دائم» under another name: to give one episode the voice you would have to
+switch the row on, which makes it permanent — exactly the thing he did not want.
+So a row that is **off** can still produce a guest voice, and the monitor prompt
+(v56) says so in the same version, or it would report a wanted feature as a
+violation — the stale-prohibition trap 7.36 already paid for once.
+
+**«موردی» beats «دائم»** because it is about this one episode and the other is
+about all of them; the next episode still gets the permanent voice, which is its
+own assertion — otherwise «موردی» would silently switch the permanent voice off.
+
+**The new column goes at the END of `PERSONA_HEADERS`.** `ensureTab_` rewrites
+only the header row, never the data, so a column inserted in the middle puts new
+labels over old values with no error anywhere — the dashboard bug its own comment
+records.
+
+**An unreadable line is refused and named, the opposite of `personaModes_`.**
+There, a malformed line is dropped silently and that is right: one fewer mode is
+a quality loss. Here a dropped line is **an episode he asked for and will silently
+not get**, and he never finds out. Same shape, opposite correct answer — which is
+why the rule has to be reasoned each time rather than copied.
+
+**And the public wrapper had to grow the argument too.** `personaBoardSave` is
+what `google.script.run` calls; a missing parameter there raises no error, the
+board sends the value and the wrapper drops it, and the button just does nothing.
+That is the exact failure `run_wiring_test.js` ۵٫۲ exists for, one layer in.
+
+**One of the six new assertions did not fail when I broke the code** — "an unknown
+episode number never matches" was held by two independent locks, so breaking
+either left it green. It now targets the lock that actually does the work. This is
+the third version running where a new assertion turned out to be vacuous on first
+check; the habit that catches it is breaking the code every time, never reading it.
+
 ## The control that was never where the work is (7.35)
 
 On 20 September, in the same message that asked for the soul, he asked:
