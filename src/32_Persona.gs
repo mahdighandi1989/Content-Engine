@@ -689,7 +689,12 @@ function personaBoardHtml_() {
   H.push('<script>');
   H.push('var DATA=null;');
   H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){');
-  H.push('return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}');
+  /* ══ دو بک‌اسلش، نه یکی (۷٫۴۳) ══
+     این رشته تک‌کوتیشن است، پس `\"` در همین‌جا به `"` فرو می‌ریزد و آنچه
+     در پنجره می‌نشیند `,""":"&quot;"` می‌شود — یک خطای نحوی که **کلِ**
+     بلوکِ <script> را می‌کُشد. آن‌وقت `esc` و `draw` و `save` هیچ‌کدام
+     تعریف نمی‌شوند و هر دکمه بی‌صدا هیچ نمی‌کند. */
+  H.push('return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}');
   H.push('function draw(d){DATA=d;');
   H.push('document.getElementById("warn").innerHTML = d.note?("<div class=\'warn\'>"+esc(d.note)+"</div>"):"";');
   H.push('if(!d.rows||!d.rows.length){document.getElementById("box").innerHTML=');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.42
+ *  موتور محتوا و پادکست — نسخهٔ 7.43
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.42',
+  CODE_VERSION: '7.43',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -46321,7 +46321,12 @@ function personaBoardHtml_() {
   H.push('<script>');
   H.push('var DATA=null;');
   H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){');
-  H.push('return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}');
+  /* ══ دو بک‌اسلش، نه یکی (۷٫۴۳) ══
+     این رشته تک‌کوتیشن است، پس `\"` در همین‌جا به `"` فرو می‌ریزد و آنچه
+     در پنجره می‌نشیند `,""":"&quot;"` می‌شود — یک خطای نحوی که **کلِ**
+     بلوکِ <script> را می‌کُشد. آن‌وقت `esc` و `draw` و `save` هیچ‌کدام
+     تعریف نمی‌شوند و هر دکمه بی‌صدا هیچ نمی‌کند. */
+  H.push('return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}');
   H.push('function draw(d){DATA=d;');
   H.push('document.getElementById("warn").innerHTML = d.note?("<div class=\'warn\'>"+esc(d.note)+"</div>"):"";');
   H.push('if(!d.rows||!d.rows.length){document.getElementById("box").innerHTML=');
@@ -48739,9 +48744,16 @@ function srchHtml_() {
      می‌خورند و هم فقط http(s) پذیرفته است. */
   H.push('function saf(u){u=String(u==null?"":u);' +
          'return /^https?:\\/\\//i.test(u)?u:"";}');
+  /* ══ و همین‌جا دو بک‌اسلش لازم است، نه یکی (۷٫۴۳) ══
+     رشتهٔ بیرونی تک‌کوتیشن است، پس `\"` پیش از رسیدن به پنجره به `"`
+     فرو می‌ریزد و `href=""+esc(lf)+""` می‌شود — نقل‌قول‌های نابسته، یعنی
+     خطای نحوی، یعنی **کلِ** بلوکِ <script> پارس نمی‌شود و `go` هرگز
+     تعریف نمی‌شود. دکمه‌ها بی‌صدا هیچ نمی‌کنند.
+     تلخیِ ماجرا: این دو خط برای **امنیت** اضافه شدند (گریزِ href)، و
+     همان‌ها کلِ پنجره را از کار انداختند. */
   H.push('var L=[];var lf=saf(t.link),ls=saf(t.sheetLink);');
-  H.push('if(lf){L.push("<a href=\""+esc(lf)+"\" target=\"_blank\" rel=\"noopener noreferrer\">بازکردنِ فایل</a>");}');
-  H.push('if(ls){L.push("<a href=\""+esc(ls)+"\" target=\"_blank\" rel=\"noopener noreferrer\">همان ردیف در شیت</a>");}');
+  H.push('if(lf){L.push("<a href=\\""+esc(lf)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">بازکردنِ فایل</a>");}');
+  H.push('if(ls){L.push("<a href=\\""+esc(ls)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">همان ردیف در شیت</a>");}');
   H.push('if(L.length){H.push("<div class=\\"m\\">"+L.join(" · ")+"</div>");}');
   H.push('H.push("</div>");}');
   H.push('document.getElementById("out").innerHTML=H.join("");}');

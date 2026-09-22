@@ -1153,9 +1153,16 @@ function srchHtml_() {
      می‌خورند و هم فقط http(s) پذیرفته است. */
   H.push('function saf(u){u=String(u==null?"":u);' +
          'return /^https?:\\/\\//i.test(u)?u:"";}');
+  /* ══ و همین‌جا دو بک‌اسلش لازم است، نه یکی (۷٫۴۳) ══
+     رشتهٔ بیرونی تک‌کوتیشن است، پس `\"` پیش از رسیدن به پنجره به `"`
+     فرو می‌ریزد و `href=""+esc(lf)+""` می‌شود — نقل‌قول‌های نابسته، یعنی
+     خطای نحوی، یعنی **کلِ** بلوکِ <script> پارس نمی‌شود و `go` هرگز
+     تعریف نمی‌شود. دکمه‌ها بی‌صدا هیچ نمی‌کنند.
+     تلخیِ ماجرا: این دو خط برای **امنیت** اضافه شدند (گریزِ href)، و
+     همان‌ها کلِ پنجره را از کار انداختند. */
   H.push('var L=[];var lf=saf(t.link),ls=saf(t.sheetLink);');
-  H.push('if(lf){L.push("<a href=\""+esc(lf)+"\" target=\"_blank\" rel=\"noopener noreferrer\">بازکردنِ فایل</a>");}');
-  H.push('if(ls){L.push("<a href=\""+esc(ls)+"\" target=\"_blank\" rel=\"noopener noreferrer\">همان ردیف در شیت</a>");}');
+  H.push('if(lf){L.push("<a href=\\""+esc(lf)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">بازکردنِ فایل</a>");}');
+  H.push('if(ls){L.push("<a href=\\""+esc(ls)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">همان ردیف در شیت</a>");}');
   H.push('if(L.length){H.push("<div class=\\"m\\">"+L.join(" · ")+"</div>");}');
   H.push('H.push("</div>");}');
   H.push('document.getElementById("out").innerHTML=H.join("");}');

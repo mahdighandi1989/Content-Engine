@@ -1112,6 +1112,45 @@ assertion that cannot fail is worse than none, because it goes green and nobody
 looks again. It now reads only `healthCheck`'s own body. Every new claim here was
 proved falsifiable by deliberately breaking the code, not by reading it.
 
+## The guard stood one layer above the breakage (7.43)
+
+«هرچی رو دکمهٔ جست‌وجوی ساده می‌زنم هیچ اثری نداره.» He was right, and it was
+worse than it looked: not that button — **both buttons, and the whole dialog.**
+
+The dialog's script is assembled from single-quoted strings, so `\"` collapses
+to `"` right there in the `.gs` source. The emitted JavaScript carries unbalanced
+quotes, the entire `<script>` block fails to parse, and **nothing inside it is
+defined** — not `go`, not `esc`, not `show`. Clicking does nothing and no error
+is raised anywhere.
+
+**And the second instance is the one that matters more: the «شیوهٔ خواندنِ
+گویندگان» board had the same bug in its own `esc`, so it has never worked since
+7.35 built it.** That is the board he was told to use to switch the voice on. I
+wrote it, documented it, shipped it, wrote a monitor prompt section about it —
+and never once rendered it.
+
+The search line is bitter in its own way: those two lines were added in 7.24 **for
+safety**, escaping `href` so a quote in a source cell could not inject script into
+a dialog that holds `google.script.run`. The safety fix killed the feature, for
+two days, with no symptom anywhere.
+
+**Why the guard missed it, and this is the part to carry forward.**
+`run_wiring_test.js` ۵٫۲ asks *"does the function that `google.script.run` calls
+exist?"* and for both dialogs the answer was **yes**. The question was right and
+the answer was right — it was simply **one layer above the breakage**. The server
+function existed; the client code that would have called it never parsed.
+
+۵٫۲-ب now renders each dialog, extracts every `<script>` block and parses it with
+`new Function`. It does not execute (that needs a DOM and `google`) — only syntax,
+which is exactly what was broken. Both bugs were reproduced deliberately and both
+turn it red.
+
+This repo has written since 5.61 that *a dialog button that silently does nothing
+is the worst failure shape here*, and built a guard for exactly that. The guard
+was real, the threshold was right, and it still stood in the wrong place. **Ask
+not only "does the alarm exist" but "is it standing where the thing actually
+breaks".**
+
 ## The cure for one bug left the only door behind a manual step (7.42)
 
 He asked why 54 rows were still open, and framed it exactly right: *find the
