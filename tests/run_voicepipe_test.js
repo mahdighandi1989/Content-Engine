@@ -337,4 +337,57 @@ ok('۱۰.۱۰ روی شاخه checkout می‌کند نه commitِ راه‌ان
 ok('۱۰.۱۱ و حلقهٔ گیت واقعاً می‌تواند دوباره تلاش کند',
    /git rebase --abort/.test(bw));
 
+console.log('\n══ ۱۱) سقفِ هم‌زمانی — و بن‌بستی که هر شش ساعت سبز بود ══');
+/* ══ چرا این بخش رفتاری است و نه grep ══
+   ۲۲ سپتامبر، اجرای ۶۳ِ voice-train ساعتِ ۰۹:۱۴ سبز تمام شد. ساعتِ ۱۲:۰۴
+   `plan` گفت «نوبتش هست ولی سقفِ هم‌زمانی پر است» — و هر شش ساعت همین را
+   می‌گفت، **سبز**.
+   `active` گویندگانِ «در حالِ آموزش/سنجش» را می‌شمرد، از جمله خودِ همان
+   گوینده. با `VOICE_MAX_ACTIVE: 1` — که عمدی است، چون کشِ ۱۰ گیگی مالِ کلِ
+   مخزن است (۷٫۲۲) — گوینده‌ای که وسطِ آموزش است جلوی ادامهٔ خودش را
+   می‌گیرد. آموزش عمداً تکه‌تکه است، پس این یعنی هیچ‌وقت تمام نمی‌شود.
+   هیچ grepی این را نمی‌گرفت: کد درست به نظر می‌رسد. فقط اجرا کردنش. */
+const planRun = (state, cap) => cp.spawnSync('python3', ['-c', [
+  'import sys, json; sys.path.insert(0, "tools"); import voiceintake as V',
+  'V.runInfo = lambda r: {"status": "completed", "conclusion": "success"}',
+  'V.artifactState = lambda r, k, d: {"done": False, "epochs_reached": 11}',
+  'sent = []',
+  'V.dispatch = lambda k, i, e, f: (sent.append(k), "RUN-" + k)[1]',
+  'st = json.loads(sys.argv[1]); q = json.loads(sys.argv[2])',
+  'ch, m, sty = V.plan(q, st)',
+  'print(json.dumps({"sent": sent, "stages": {k: v.get("stage") for k, v in st["speakers"].items()}}, ensure_ascii=False))',
+].join('\n'), JSON.stringify(state), JSON.stringify(cap)],
+  { cwd: process.cwd(), encoding: 'utf8' });
+
+{
+  // دقیقاً حالتِ امروز: یک گوینده، وسطِ آموزش، سقف ۱.
+  const st = { speakers: { g1: { name: 'گ', stage: 'آموزش', runId: '63',
+                                 everDispatched: true, style: { cue: 'x' } } } };
+  const q = { maxActive: 1, speakers: [{ key: 'g1', name: 'گ',
+              files: [{ id: 'F1' }] }] };
+  const r = planRun(st, q);
+  ok('۱۱.۰ اجرا شد', r.status === 0, (r.stderr || '').slice(0, 300));
+  const got = JSON.parse(r.stdout.trim().split('\n').pop());
+  ok('۱۱.۱ ادامهٔ آموزشِ خودش فرستاده می‌شود',
+     got.sent.length === 1 && got.sent[0] === 'g1',
+     'گرفت: ' + JSON.stringify(got.sent) +
+     ' — کسی با خودش بر سرِ جایی که مالِ اوست رقابت نمی‌کند');
+}
+{
+  // و مرزِ مقابل، که همین اصلاح نباید بشکندش: گویندهٔ **دیگری** در جریان
+  // است، پس گویندهٔ تازه باید منتظر بماند. سقف برای همین هست.
+  const st = { speakers: { g1: { name: 'الف', stage: 'آموزش', runId: '63',
+                                 everDispatched: true, style: { cue: 'x' } },
+                           g2: { name: 'ب', stage: '', style: { cue: 'x' } } } };
+  const q = { maxActive: 1, speakers: [{ key: 'g2', name: 'ب',
+              files: [{ id: 'F2' }] }] };
+  const r = planRun(st, q);
+  ok('۱۱.۲ اجرا شد', r.status === 0, (r.stderr || '').slice(0, 300));
+  const got = JSON.parse(r.stdout.trim().split('\n').pop());
+  ok('۱۱.۳ ولی گویندهٔ تازه پشتِ گویندهٔ دیگر می‌مانَد',
+     got.sent.length === 0,
+     'گرفت: ' + JSON.stringify(got.sent) +
+     ' — کشِ ۱۰ گیگی مالِ کلِ مخزن است؛ دو نفر هم‌زمان یعنی هر دو می‌افتند (۷٫۲۲)');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

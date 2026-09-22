@@ -203,9 +203,29 @@ def plan(q, st):
     """یک گام برای هر گوینده. بیش از یک گام در یک اجرا یعنی حالتی که
     هیچ‌کس نمی‌تواند بازسازی‌اش کند."""
     sp = st["speakers"]
-    active = sum(1 for k, v in sp.items()
-                 if v.get("stage") in (ST_TRAIN, ST_MEASURE))
     cap = max(1, int(q.get("maxActive") or 2))
+
+    # ══ کسی با خودش بر سرِ جایی که همین حالا مالِ اوست رقابت نمی‌کند (۷٫۴۱) ══
+    # `active` گویندگانِ «در حالِ آموزش/سنجش» را می‌شمرد — **از جمله خودِ
+    # گوینده‌ای که همین حالا داریم درباره‌اش تصمیم می‌گیریم.** آموزش عمداً
+    # تکه‌تکه است و هر تکه یک اجرای تازه لازم دارد؛ پس با
+    # `VOICE_MAX_ACTIVE: 1` (که عمدی است — کشِ ۱۰ گیگی مالِ کلِ مخزن است،
+    # درسِ ۷٫۲۲) گوینده‌ای که وسطِ آموزش است **جلوی ادامهٔ خودش را
+    # می‌گیرد**، برای همیشه.
+    #
+    # ۲۲ سپتامبر دقیقاً همین افتاد: اجرای ۶۳ سبز تمام شد و سه ساعت بعد
+    # `plan` گفت «نوبتش هست ولی سقفِ هم‌زمانی پر است» — و هر شش ساعت
+    # همین را می‌گفت، **سبز**. بن‌بستی بی هیچ خطایی، که تنها نشانه‌اش یک
+    # خطِ فارسی در لاگی بود که کسی باز نمی‌کند.
+    #
+    # اجرایی که «completed» شده دیگر رانری را اشغال نکرده؛ آنچه سقف
+    # نگهش می‌دارد کشِ اوست، و کشِ او را با ادامه دادنِ خودش دو برابر
+    # نمی‌کند. پس خودش از شمارش بیرون است و بقیه تویش.
+    busyKeys = set(k for k, v in sp.items()
+                   if v.get("stage") in (ST_TRAIN, ST_MEASURE))
+
+    def slotsTaken(me):
+        return len([k for k in busyKeys if k != me])
     minutes = max(1, int(q.get("minMinutes") or 20))
     epochs = int(os.environ.get("VI_EPOCHS", "32"))
     measure = ""
@@ -293,8 +313,9 @@ def plan(q, st):
                     say("«%s»: آموزش تمام شد (دورِ %s)." % (name, cur["epochs"]))
                     continue
                 # هنوز تمام نشده: آموزش عمداً تکه‌تکه است، پس ادامه می‌دهیم.
-                if active >= cap:
-                    say("«%s»: نوبتش هست ولی سقفِ هم‌زمانی پر است." % name)
+                if slotsTaken(key) >= cap:
+                    say("«%s»: نوبتش هست ولی سقفِ هم‌زمانی پر است "
+                        "(گویندهٔ دیگری در جریان است)." % name)
                     continue
                 rid = dispatch(key, ids, epochs, False)
                 if rid:
@@ -303,7 +324,7 @@ def plan(q, st):
                         (stt or {}).get("epochs_reached", "؟"))
                     sp[key] = cur
                     changed = True
-                    active += 1
+                    busyKeys.add(key)
                     say("«%s»: ادامهٔ آموزش، اجرای %s." % (name, rid))
                 continue
 
@@ -319,7 +340,7 @@ def plan(q, st):
             # حدس است نه اندازه‌گیری، پس **جلو نمی‌گیرد** — فقط ثبت می‌شود.
             say("«%s»: حدسِ طول %d دقیقه است، زیرِ کفِ %d. ادامه می‌دهیم و "
                 "عددِ واقعی را پس از پاک‌سازی می‌نویسیم." % (name, est, minutes))
-        if active >= cap:
+        if slotsTaken(key) >= cap:
             say("«%s»: در نوبت؛ سقفِ هم‌زمانی (%d) پر است." % (name, cap))
             continue
         # هرگز دوباره allow_fresh نده وقتی یک بار چیزی راه افتاده — حتی
@@ -335,7 +356,7 @@ def plan(q, st):
             cur["note"] = "آموزش راه افتاد (%d فایل)." % len(ids)
             sp[key] = cur
             changed = True
-            active += 1
+            busyKeys.add(key)
             say("«%s»: آموزش راه افتاد، اجرای %s." % (name, rid))
         else:
             # ══ شناسهٔ اجرا گم شد ⇒ باز هم بنویس (۷٫۲۲) ══
@@ -350,7 +371,7 @@ def plan(q, st):
                            "دورِ بعد وارسی می‌شود.")
             sp[key] = cur
             changed = True
-            active += 1
+            busyKeys.add(key)
             say("::warning title=شناسهٔ اجرا گم شد::«%s»: gh اجرا را راه انداخت "
                 "ولی شناسه‌اش خوانده نشد. allow_fresh دیگر فرستاده نمی‌شود." % name)
 
