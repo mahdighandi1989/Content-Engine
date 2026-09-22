@@ -478,4 +478,40 @@ DriveApp.getFileById = realShare;
 ok('۲۲.۸ باز نشدن ⇒ ok=false و دلیلش همراهش',
    qsFail.ok === false && qsFail.fixed === false && !!qsFail.error);
 
+console.log('\n══ ۲۳) روحِ خواندن — کارتِ سبک به ردیفِ خاموش تبدیل می‌شود ══');
+/* صاحبِ برنامه «روح و رنگش» را خواست و تا ۷٫۳۴ فقط رنگ کلون می‌شد. */
+const cardCue = 'آرام و روایی بخوان: حدودِ 59 درصدِ زمان حرف بزن.';
+const cardModes = 'روان و کشیده |  | بلندتر یک‌نفس برو.';
+const mk = personaAddFromCard_('spk-test1', 'گویندهٔ آزمایشی',
+                               { cue: cardCue, modes: cardModes });
+ok('۲۳.۱ ردیف ساخته می‌شود', mk === true);
+const prow = personaRows_(personaTab_()).filter(r => String(r[PC.KEY - 1]) === 'spk-test1')[0];
+ok('۲۳.۲ و **خاموش** است', prow && String(prow[PC.ON - 1]) === 'خیر',
+   'ردیفِ روشن یعنی خوانشِ هر قسمت همان شب عوض می‌شود بی آنکه کسی خواسته باشد');
+ok('۲۳.۳ دستورِ سبک در سلول نشست', String(prow[PC.STYLE - 1]) === cardCue);
+
+/* حالتِ بی‌برچسب باید **پارس شود** ولی **هرگز انتخاب نشود**. اگر پارس
+   نشود کلِ حالت بی‌صدا دور ریخته می‌شود؛ اگر انتخاب شود، حدس است. */
+const pm = personaModes_(String(prow[PC.MODES - 1]));
+ok('۲۳.۴ حالتِ بی‌برچسب پارس می‌شود', pm.length === 1 && pm[0].keys.length === 0);
+ok('۲۳.۵ و هیچ وایبی انتخابش نمی‌کند',
+   personaModePick_(pm, 'سوگ و معنوی و تعلیق') === null,
+   'تنزل به سمتِ دستورِ پایه، نه به سمتِ حدس');
+
+ok('۲۳.۶ ردیفِ موجود دوباره ساخته/بازنویسی نمی‌شود',
+   personaAddFromCard_('spk-test1', 'نامِ دیگر', { cue: 'دستورِ دیگر', modes: '' }) === false &&
+   String(personaRows_(personaTab_()).filter(r => String(r[PC.KEY-1])==='spk-test1')[0][PC.STYLE-1]) === cardCue,
+   'ستونِ دستور جایی است که او با دست تنظیمش می‌کند');
+ok('۲۳.۷ کارتِ بی‌دستور ردیف نمی‌سازد',
+   personaAddFromCard_('spk-empty', 'خالی', { cue: '   ', modes: 'x |  | y' }) === false,
+   'کارتی که از هیچ ساخته شده شبیهِ اندازه‌گیری است و بدتر از نبودنش');
+
+const made = personaSyncCards_({
+  'spk-a': { name: 'الف', style: { cue: 'دستورِ الف', modes: '' } },
+  'spk-b': { name: 'ب' },                                  // بی کارت
+  'spk-test1': { name: 'تکراری', style: { cue: 'x', modes: '' } }
+});
+ok('۲۳.۸ همگام‌سازی فقط کارت‌دارهای تازه را می‌سازد',
+   made.length === 1 && made[0] === 'الف', 'گرفت: ' + JSON.stringify(made));
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

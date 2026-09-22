@@ -629,7 +629,7 @@ function vintFetchSamples_(key, name, paths) {
  * یک ردیفِ تکراری و کارنامه‌ای که دیگر خوانده نمی‌شود.
  */
 function vintIngest_(hub) {
-  var out = { seen: 0, moved: 0, ready: [], error: '' };
+  var out = { seen: 0, moved: 0, ready: [], styled: [], error: '' };
   var doc = vintReadResult_();
   if (!doc || typeof doc !== 'object') return out;
   var sp = doc.speakers;
@@ -654,6 +654,16 @@ function vintIngest_(hub) {
       });
     } catch (eF) {}
     return out;
+  }
+
+  /* ══ کارتِ سبک → ردیفِ «صداها» (۷٫۳۴) ══
+     پس از دروازهٔ شکل، نه پیش از آن: یک `speakers` بدشکل نباید به بخشِ
+     ۳۲ برسد. و ۳۳ → ۳۲ وابستگیِ **عقب** است، که مجاز است — آنچه
+     ممنوع است وابستگیِ رو به جلوست. */
+  try {
+    if (typeof personaSyncCards_ === 'function') out.styled = personaSyncCards_(sp) || [];
+  } catch (ePS) {
+    try { logLine_('ردیف‌های سبک ساخته نشدند: ' + ePS.message); } catch (ePS2) {}
   }
 
   var state = vintState_(hub);
@@ -1124,7 +1134,24 @@ function vintNightly_(force) {
   var hub = null;
   try { hub = getHub_(); } catch (eH) {}
 
-  try { out.ingest = vintIngest_(hub); }
+  try {
+    out.ingest = vintIngest_(hub);
+    /* ══ ردیفی که ساخته شود و کسی نداند، ساخته نشده است ══
+       صاحبِ برنامه شیت باز نمی‌کند؛ خواستهٔ صریحش این بود که «وقتی یه
+       گوینده اضافه شد … باید علامت بخوره». پس ساختِ ردیف خبر دارد، و
+       خبر می‌گوید که **خاموش** است و روشن کردنش با اوست. */
+    var st2 = (out.ingest && out.ingest.styled) || [];
+    if (st2.length) {
+      mailQueue_('گویندهٔ تازه',
+        'روحِ خواندن اندازه گرفته شد: ' + st2.join('، '),
+        'برای ' + st2.join('، ') + ' کارتِ سبک از ضبط‌های خودشان ' +
+        'اندازه‌گیری شد و در تبِ «صداها» ردیف گرفت — مکث، کشش، ریتم، ' +
+        'دامنه. ردیف **خاموش** است: تا روشنش نکنید هیچ قسمتی عوض ' +
+        'نمی‌شود. ستونِ «حالت‌ها» برچسبِ وایب ندارد چون آن قضاوتِ شماست؛ ' +
+        'حالتِ بی‌برچسب هرگز انتخاب نمی‌شود و دستورِ پایه اجرا می‌شود. ' +
+        'نکته: این رنگِ صدا نیست — شیوهٔ خواندن است.');
+    }
+  }
   catch (e1) { try { logLine_('خواندنِ پاسخِ گویندگان ناموفق: ' + e1.message); } catch (e1b) {} }
 
   var scan = null, state = null;

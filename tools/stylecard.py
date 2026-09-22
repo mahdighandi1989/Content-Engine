@@ -858,6 +858,90 @@ def styleOneFile_(path, seconds, at=None):
     return out, dropped, offset, round(total, 1)
 
 
+def styleSheet_(m, modes=None, name="گوینده"):
+    """همان عددها، در شکلی که **تبِ «صداها»** می‌خورَد.
+
+    ══ چرا اینجا و نه در voiceintake ══
+    `styleCard_` عددها را به متن تبدیل می‌کند و این هم همان کار را
+    می‌کند، فقط فشرده. اگر این تبدیل جای دیگری نوشته شود، دو نسخه از
+    یک استنتاج داریم و روزی یکی بی‌صدا کهنه می‌شود — همان چیزی که این
+    مخزن بارها بابتش هزینه داده. پس هر دو در یک فایل‌اند.
+
+    ══ چرا کوتاه ══
+    `ttsCue_` کلِ دستور را سرِ ۳۲۰ نویسه می‌بُرد و هرچه آخر باشد اول
+    قربانی می‌شود. کارتِ کامل چند صفحه است و جایش در درایو است؛ چیزی
+    که در سلول می‌نشیند باید خودش زیرِ سقف بماند.
+
+    ══ و برچسبِ وایب عمداً خالی است ══
+    نامِ هر حالت و دستورش از عدد درمی‌آید، ولی «این حالت به کدام وایب
+    می‌خورَد» قضاوتِ آدم است، نه اندازه‌گیری. حدس زدنش یعنی یک حالتِ
+    غلط روی یک بخش بنشیند و کسی نفهمد چرا. حالتِ بی‌برچسب را
+    `personaModePick_` **هرگز انتخاب نمی‌کند** و دستورِ پایه اجرا
+    می‌شود — تنزل به سمتِ سکوت، نه به سمتِ حدس.
+    """
+    if m.get("error"):
+        return {"name": name, "cue": "", "modes": [], "error": m["error"]}
+    talk = m.get("speech_pct", 0)
+    ph = m.get("phrase_seconds_median", 0)
+    ppm = m.get("pauses_per_minute", 0)
+    sh = m.get("pause_short_median", 0.3)
+    se = m.get("pause_sentence_median", 0.6)
+    pa = m.get("pause_para_median") or 0
+    rng = m.get("range_semitones", 0)
+    bits = [
+        "%s بخوان: حدودِ %d درصدِ زمان حرف بزن و بقیه را سکوت." % (
+            _band(talk, 70, 85, "آرام و روایی", "متعادل", "پیوسته و کم‌نفس"),
+            talk),
+        "هر عبارت حدودِ %.1f ثانیه و بعد مکث؛ در دلِ جمله %.2f ثانیه، "
+        "میانِ دو جمله %.2f%s." % (
+            ph, sh, se,
+            "، و میانِ بندها %.1f" % pa if pa else ""),
+        "حدودِ %d مکث در دقیقه." % round(ppm),
+        "%s؛ تأکید را با مکث و کشش بساز، نه با بلند کردنِ صدا." % _band(
+            rng, 6, 11, "دامنهٔ زیروبمت را باریک نگه دار",
+            "دامنهٔ زیروبم متعادل", "دامنهٔ زیروبمت را باز بگذار"),
+    ]
+    out = {"name": name, "cue": " ".join(bits), "modes": [],
+           "seconds": m.get("seconds"), "thin": False}
+    # کارتی که از نمونهٔ کم ساخته شده باید خودش بگوید — وگرنه عددِ
+    # لرزان از عددِ محکم جدا نمی‌شود.
+    if (m.get("phrases_measured", 0) < STYLE_MIN_PHRASES
+            or m.get("gaps_measured", 0) < STYLE_MIN_GAPS):
+        out["thin"] = True
+    for mo in (modes or []):
+        num = mo.get("numbers") or {}
+        if num.get("error"):
+            continue
+        mppm = num.get("pauses_per_minute", ppm)
+        mph = num.get("phrase_seconds_median", ph)
+        cue = ("جمله‌ها را کوتاه‌تر بشکن و بیشتر بایست (حدودِ %d مکث در "
+               "دقیقه)." % round(mppm)) if mppm > ppm else (
+              "بلندتر یک‌نفس برو و کمتر بایست (حدودِ %d مکث در دقیقه)؛ "
+              "گاهی یک عبارت را بیشتر بکش (تا %.1f ثانیه)." % (
+                  round(mppm), mph))
+        out["modes"].append({
+            "name": str(mo.get("name") or "حالتِ %s" % mo.get("n", "?")),
+            "tags": "",          # قضاوتِ آدم — نه اندازه‌گیری
+            "cue": cue,
+            "share_pct": mo.get("share_pct"),
+        })
+    return out
+
+
+def styleSheetCell_(sheet):
+    """دو سلولِ تب: دستورِ پایه، و حالت‌ها در قالبِ `نام | برچسب | دستور`.
+
+    قالبش را `personaModes_` در بخشِ ۳۲ می‌خوانَد. یک خط با کمتر از سه
+    تکه را آن‌جا رد می‌کند، پس برچسبِ خالی باید **جداکنندهٔ خودش را
+    داشته باشد** وگرنه کلِ حالت بی‌صدا دور ریخته می‌شود.
+    """
+    lines = []
+    for mo in (sheet.get("modes") or []):
+        lines.append("%s | %s | %s" % (mo["name"], mo.get("tags", ""),
+                                       mo["cue"]))
+    return {"cue": sheet.get("cue", ""), "modes": "\n".join(lines)}
+
+
 def styleModes_(sources, name="گوینده", seconds=MODES_WINDOW,
                 sampleDir=None):
     """چند جورِ متمایزِ خواندن، از خودِ ضبط‌های همان گوینده.

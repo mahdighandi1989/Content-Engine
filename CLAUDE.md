@@ -984,6 +984,68 @@ truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
 
+## Colour was cloned; the soul was not (7.34)
+
+On 20 September the owner asked, in one sentence: «اگر بخوام گویندهٔ جدیدی
+اضافه کنم که صداش رو و **روح و رنگش** رو کلون کنی این رو انجام بدی و اضافه
+کنی؟» He was told yes. Only the **colour** was being cloned.
+
+**The two are different things, and RVC only does one of them.** A voice
+conversion model changes timbre. Pause, stretch, rhythm, range — what he calls
+the soul — are not its *output*; they are its **input**, arriving from Gemini's
+reading. So the soul has to be measured from the speaker's own recordings and
+handed to Gemini as an instruction. That is what `tools/stylecard.py` does, and
+it was run **by hand** for Razavi on 18 September.
+
+`grep -c stylecard .github/workflows/voice-intake.yml` returned **0**. The
+seventh instance in this file of analysis written, tested, and never wired to
+the decision. The tool existed, the numbers were real, the guard suites were
+green — and for every new speaker half the request silently did not happen.
+
+**The style job is deliberately not tied to the model.** It is a third job, not
+a step inside `measure`: the card is measured from the speaker's own audio and
+needs no model at all. Tying them would mean a speaker whose training fails
+never gets a soul recorded either — one failure taking two capabilities. It also
+lands hours earlier, while training is still running.
+
+**`styleSheet_` sits beside `styleCard_`, not in `voiceintake.py`.** Both turn
+the same numbers into text; two copies of one derivation is how one of them goes
+quietly stale. The full card is pages long and belongs in Drive; what goes in the
+sheet cell must fit under `ttsCue_`'s 320 characters on its own (measured: 257).
+
+**The vibe tags are deliberately left empty.** A mode's name and cue come out of
+its numbers, but *which vibe this mode suits* is a human judgement, not a
+measurement. `personaModePick_` never selects a tagless mode, so the base cue
+runs — degrade toward silence, not toward a guess. The empty separator must
+still be written, or `personaModes_` drops the whole line without a word.
+
+**And the row is created switched off, and never overwrites an existing one.**
+The style column is where the owner tunes it by hand; a fresh measurement writing
+over his edit is the music scan erasing the curator's taste (5.95). Creating the
+row sends news, because he asked for exactly that — «وقتی یه گوینده اضافه شد باید
+علامت بخوره» — and the news says plainly that it is off, that the tags are his to
+fill, and that **this is not the colour of the voice.**
+
+**None of this is the bridge.** The bridge is the episode's own audio leaving,
+being converted, and coming back. It does not exist and stays forbidden.
+
+## A question already answered is a question that was never read (7.34)
+
+Asking the owner today whether to wire the style card was the real failure of
+this session. He had decided it on 20 September, in writing, in this
+conversation. The transcript was on disk the whole time; I answered from memory
+instead of opening it.
+
+Two rules follow, and they cost trust to learn:
+
+**When the answer to "did we do all of it?" is "most of it", say which part was
+not done, unprompted.** Silence about the missing half is how «هر سه مورد» became
+two and a half, and nobody noticed for two days.
+
+**Before asking the owner anything, check whether he already said it.** A
+question he has already answered does not read as thoroughness; it reads as
+not having looked — and it is, exactly, not having looked.
+
 ## Half a question is a whole silence (7.33)
 
 `voice-intake` went red four times running, from its very first scheduled run

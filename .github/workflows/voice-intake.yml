@@ -43,6 +43,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       measure: ${{ steps.plan.outputs.measure }}
+      style: ${{ steps.plan.outputs.style }}
     steps:
       - uses: actions/checkout@v5
 
@@ -86,6 +87,101 @@ jobs:
           done
           git rebase --abort 2>/dev/null || true
           echo "::error title=ثبت نشد::پس از چهار تلاش، نتیجه در ریپو ثبت نشد."
+          exit 1
+
+  # ══ «روحِ خواندن» — کارِ سومی که به مدل کاری ندارد ══
+  # صاحبِ برنامه هر دو را خواست: «روح و رنگش رو کلون کنی». رنگ کارِ
+  # RVC است؛ روح — مکث و کشش و ریتم — **خروجیِ** آن نیست، **ورودی**‌اش
+  # است و از خوانشِ جمینای می‌آید. پس جداگانه از ضبط‌های خودِ او
+  # اندازه گرفته می‌شود و به‌صورتِ دستور به جمینای داده می‌شود.
+  #
+  # ══ چرا job سوم و نه داخلِ measure ══
+  # `measure` مدل می‌خواهد و ساعت‌ها پشتِ آموزش می‌مانَد. کارتِ سبک
+  # هیچ‌کدام را لازم ندارد — و اگر به آن گره می‌خورد، گوینده‌ای که
+  # آموزشش شکست بخورد روحش هم هرگز ثبت نمی‌شد. یک شکست نباید دو
+  # قابلیت را ببرد.
+  style:
+    needs: plan
+    if: success() && needs.plan.outputs.style != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: ffmpeg
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet imageio-ffmpeg
+          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          mkdir -p "$HOME/.local/bin"; ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: کتابخانه‌ها
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "librosa>=0.10.2,<0.11" \
+            "soundfile>=0.13.0,<1" "silero-vad>=5,<6" "numpy<2" \
+            "torch" "torchaudio" gdown
+
+      # ══ چند ضبط، نه یکی ══
+      # پنجرهٔ حالت‌ها ربعِ ساعت است و تنوعِ لحن بیشتر بینِ ضبط‌هاست تا
+      # داخلِ یکی. یک فایل کارت می‌سازد ولی «نمونه کم» می‌خورَد.
+      - name: ضبط‌های خودِ گوینده
+        env:
+          KEY: ${{ needs.plan.outputs.style }}
+        run: |
+          set -euo pipefail
+          mkdir -p refs
+          n=0
+          for ID in $(python3 tools/voiceintake.py --refids "$KEY" 6); do
+            n=$((n+1))
+            python3 -m gdown "$ID" -O "refs/r$n.audio" || \
+              python3 -m gdown --fuzzy "https://drive.google.com/uc?id=$ID" \
+                -O "refs/r$n.audio" || { echo "::warning::$ID برداشته نشد"; rm -f "refs/r$n.audio"; }
+          done
+          ls -la refs/
+          # ══ هیچ فایلی ⇒ قرمز، نه کارتِ خالی ══
+          # کارتی که از هیچ ساخته شود، عددهایش را از پیش‌فرض‌ها می‌گیرد
+          # و شبیهِ اندازه‌گیری به نظر می‌رسد. آن بدتر از نبودنش است.
+          [ -n "$(ls -A refs/ 2>/dev/null)" ] || \
+            { echo "::error title=ضبطی برداشته نشد::اشتراکِ فایل‌ها را وارسی کن."; exit 1; }
+
+      - name: اندازه‌گیریِ سبک
+        env:
+          KEY: ${{ needs.plan.outputs.style }}
+        run: |
+          set -euo pipefail
+          ARGS=(--engine style --out lab --style-name "$KEY")
+          for f in refs/*.audio; do ARGS+=(--ref "$f"); done
+          python3 tools/voicelab.py "${ARGS[@]}"
+          python3 tools/voiceintake.py --style "$KEY" lab
+
+      - name: ثبتِ نتیجه
+        run: |
+          set -euo pipefail
+          mkdir -p docs/voice-style
+          cp lab/STYLE-*.md "docs/voice-style/" 2>/dev/null || true
+          git config user.name  "content-engine-voice"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/voices.json docs/voice-style || true
+          git diff --cached --quiet && { echo "چیزی عوض نشد."; exit 0; }
+          git commit -m "گویندگان: کارتِ سبک"
+          for i in 1 2 3 4; do
+            git rebase --abort 2>/dev/null || true
+            if git pull --rebase origin "${GITHUB_REF_NAME}" \
+               && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            sleep $((i * 3))
+          done
+          git rebase --abort 2>/dev/null || true
+          echo "::error title=ثبت نشد::پس از چهار تلاش، کارتِ سبک در ریپو ثبت نشد."
           exit 1
 
   measure:

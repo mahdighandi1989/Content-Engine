@@ -46,6 +46,7 @@ import fa2latin
 # خورده. اینجا فقط موتورِ آزمایشگاه می‌مانَد که گزارش می‌نویسد.
 from dsprep import *                                        # noqa: F401,F403
 from stylecard import (STYLE_DEPS, STYLE_WINDOW, MODES_WINDOW,
+                       styleSheet_, styleSheetCell_,
                        styleMeasure_, styleCard_, styleCompare_,
                        styleModes_, modeCard_)
 from dsprep import (DS_SR, VAD_SR, DS_GAP_MIN, DS_SEG_MIN, DS_SEG_MAX,
@@ -2824,6 +2825,15 @@ def run_style(ref, src, text, out):
             "w", encoding="utf-8").write(
         jdump_(md, indent=1))
     rep["style"]["modes"] = {k: v for k, v in md.items() if k != "vectors"}
+    # ══ همان عددها، در شکلی که تبِ «صداها» می‌خورَد ══
+    # کارتِ بالا چند صفحه است و جایش درایو است؛ این دو سلول است و
+    # جایش شیت. هر دو از یک اندازه‌گیری می‌آیند، پس هیچ‌وقت از هم
+    # جدا نمی‌افتند. `voiceintake.py --style` همین فایل را برمی‌دارد.
+    sheet = styleSheet_(m, md.get("modes") or [], name)
+    sheet["cells"] = styleSheetCell_(sheet)
+    io.open(os.path.join(out, "STYLE-sheet.json"), "w",
+            encoding="utf-8").write(jdump_(sheet, indent=1))
+    rep["style"]["sheet"] = sheet
     # نامِ `m` همان اندازه‌گیریِ کلِ گوینده است و کارتِ هر حالت رویش
     # سوار می‌شود — پس متغیرِ حلقه نباید همان نام را بگیرد.
     for mo in (md.get("modes") or []):

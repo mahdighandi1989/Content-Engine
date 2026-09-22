@@ -229,4 +229,56 @@ ok('۸.۱ پیش‌فرضِ هم‌زمانی با سقفِ ۱۰ گیگ می‌�
    'یک گوینده سرِ ذخیره ~۹٫۵ گیگ می‌گیرد؛ دوتا یعنی بیرون انداختنِ کشِ هم');
 
 cp.execSync('rm -rf ' + T);
+console.log('\n══ ۹) روحِ خواندن — مسیری که تا ۷٫۳۴ وجود نداشت ══');
+/* `stylecard.py` ساخته و آزموده شده بود و در گردش‌کار **صفر بار** صدا
+   زده می‌شد. همان شکلِ «تحلیلی که به تصمیم وصل نشد». */
+ok('۹.۱ گردش‌کار موتورِ style را صدا می‌زند',
+   /--engine style/.test(wf), 'بی این، روح هرگز اندازه گرفته نمی‌شود');
+ok('۹.۲ کارت به حالتِ گوینده می‌نشیند',
+   /voiceintake\.py --style/.test(wf));
+ok('۹.۳ از چند ضبط اندازه می‌گیرد، نه یکی',
+   /--refids/.test(wf) && /--refids/.test(py),
+   'پنجرهٔ حالت‌ها ربعِ ساعت است و یک فایل چند دقیقه');
+/* کارتِ سبک به مدل کاری ندارد؛ اگر به measure گره بخورد، گوینده‌ای که
+   آموزشش شکست بخورد روحش هم هرگز ثبت نمی‌شود. */
+const styleJob = wf.slice(wf.indexOf('\n  style:'));
+ok('۹.۴ کارِ سبک به مدل گره نخورده است',
+   styleJob.indexOf('needs: plan') !== -1 &&
+   styleJob.slice(0, styleJob.indexOf('\n  measure:')).indexOf('--runid') === -1,
+   'یک شکست نباید دو قابلیت را ببرد');
+ok('۹.۵ بی هیچ ضبطی، قرمز — نه کارتِ خالی',
+   /ضبطی برداشته نشد/.test(wf) && /exit 1/.test(styleJob),
+   'کارتی که از هیچ ساخته شود شبیهِ اندازه‌گیری است');
+ok('۹.۶ plan خروجیِ style را می‌دهد و جاب می‌خواندش',
+   /style: \$\{\{ steps\.plan\.outputs\.style \}\}/.test(wf) &&
+   /needs\.plan\.outputs\.style != ''/.test(wf) &&
+   /style=%s/.test(py),
+   'سه حلقه: plan می\u200cنویسد، job خروجی می\u200cدهد، job بعدی شرطش می\u200cکند');
+
+/* عددها به متن — همان تبدیل، در یک نسخه. */
+const sc = cp.spawnSync('python3', ['-c',
+  'import sys,json;sys.path.insert(0,"tools");import stylecard as S;' +
+  'm={"seconds":900,"speech_pct":59,"phrase_seconds_median":1.4,' +
+  '"pauses_per_minute":18.7,"pause_short_median":0.2,"pause_sentence_median":0.7,' +
+  '"pause_para_median":1.2,"range_semitones":9.0,"phrases_measured":314,"gaps_measured":271};' +
+  'md=[{"n":1,"name":"روان","share_pct":60,"numbers":{"pauses_per_minute":15.0,"phrase_seconds_median":2.2}}];' +
+  'sh=S.styleSheet_(m,md,"x");print(json.dumps({"cue":sh["cue"],"thin":sh["thin"],' +
+  '"cells":S.styleSheetCell_(sh)},ensure_ascii=False))'],
+  { cwd: process.cwd(), encoding: 'utf8' });
+const card = JSON.parse(sc.stdout.trim() || '{}');
+ok('۹.۷ دستورِ فشرده زیرِ سقفِ ttsCue می‌مانَد',
+   card.cue && card.cue.length <= 320,
+   'هرچه آخر باشد اول قربانی می‌شود — گرفت: ' + (card.cue || '').length);
+ok('۹.۸ برچسبِ وایب خالی است، ولی جداکننده‌اش هست',
+   /^[^|]+\|\s*\|/.test(card.cells.modes),
+   'بی جداکننده، personaModes_ کلِ حالت را بی‌صدا دور می‌ریزد');
+ok('۹.۹ نمونهٔ کم خودش را اعلام می‌کند',
+   card.thin === false &&
+   JSON.parse(cp.spawnSync('python3', ['-c',
+     'import sys,json;sys.path.insert(0,"tools");import stylecard as S;' +
+     'print(json.dumps(S.styleSheet_({"seconds":60,"speech_pct":60,' +
+     '"phrases_measured":3,"gaps_measured":2},[],"x"),ensure_ascii=False))'],
+     { cwd: process.cwd(), encoding: 'utf8' }).stdout).thin === true,
+   'عددِ لرزان باید از عددِ محکم جدا باشد');
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

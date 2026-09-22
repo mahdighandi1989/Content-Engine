@@ -209,6 +209,7 @@ def plan(q, st):
     minutes = max(1, int(q.get("minMinutes") or 20))
     epochs = int(os.environ.get("VI_EPOCHS", "32"))
     measure = ""
+    style = ""
     changed = False
 
     for item in (q.get("speakers") or []):
@@ -224,6 +225,15 @@ def plan(q, st):
         cur.setdefault("name", name)
         cur["name"] = name
         cur["files"] = len(ids)
+
+        # ══ «روحِ خواندن» به مدل کاری ندارد ══
+        # کارتِ سبک از ضبط‌های **خودِ او** اندازه گرفته می‌شود، نه از
+        # خروجیِ تبدیل. پس هیچ دلیلی ندارد پشتِ ساعت‌ها آموزش بماند —
+        # و اگر می‌ماند، گویند‌ه‌ای که آموزشش شکست بخورد روحش هم هرگز
+        # ثبت نمی‌شد. صاحبِ برنامه هر دو را خواست («روح و رنگش»)؛
+        # وابسته کردنِ یکی به دیگری یعنی با یک شکست هر دو می‌روند.
+        if not style and ids and not (cur.get("style") or {}).get("cue"):
+            style = key
 
         if stage == ST_MEASURE:
             # ══ «و نه measure» بود، و همان «و» باگ بود (۷٫۲۲) ══
@@ -344,7 +354,7 @@ def plan(q, st):
             say("::warning title=شناسهٔ اجرا گم شد::«%s»: gh اجرا را راه انداخت "
                 "ولی شناسه‌اش خوانده نشد. allow_fresh دیگر فرستاده نمی‌شود." % name)
 
-    return changed, measure
+    return changed, measure, style
 
 
 def record(key, sim, samples, note, ok=True):
@@ -405,6 +415,46 @@ def main():
         ids = (st["speakers"].get(sys.argv[2]) or {}).get("fileIds") or []
         sys.stdout.write(str(ids[0]) if ids else "")
         return 0
+    if mode == "--refids":
+        # ══ چرا چند فایل و نه یکی ══
+        # `MODES_WINDOW` ربعِ ساعت است و هر ضبط اینجا چند دقیقه. با یک
+        # فایل کارت ساخته می‌شود ولی «نمونه کم» می‌خورَد و لایهٔ حالت‌ها
+        # اصلاً خوشه‌ای پیدا نمی‌کند. و تنوعِ لحن بیشتر **بینِ** ضبط‌هاست
+        # تا داخلِ یکی — پس چند فایل هم کمّیت است هم کیفیت.
+        st = loadState()
+        ids = (st["speakers"].get(sys.argv[2]) or {}).get("fileIds") or []
+        n = int(sys.argv[3]) if len(sys.argv) > 3 else 6
+        sys.stdout.write("\n".join(str(i) for i in ids[:max(1, n)]))
+        return 0
+    if mode == "--style":
+        # کارتِ سبک را در حالتِ گوینده بنشان. `docs/voices.json` همان
+        # راهی است که موتور از gitHub raw می‌خوانَد — پس نوشتن اینجا
+        # یعنی رسیدن به شیت، بی هیچ مسیرِ تازه‌ای.
+        key = sys.argv[2]
+        lab = sys.argv[3] if len(sys.argv) > 3 else "lab"
+        fn = os.path.join(lab, "STYLE-sheet.json")
+        if not os.path.isfile(fn):
+            say("::error title=کارتِ سبک ساخته نشد::%s نیست." % fn)
+            return 1
+        sheet = json.load(io.open(fn, encoding="utf-8"))
+        if sheet.get("error") or not sheet.get("cue"):
+            say("::error title=کارتِ سبک خالی است::%s"
+                % (sheet.get("error") or "دستوری ساخته نشد"))
+            return 1
+        st = loadState()
+        cur = st["speakers"].get(key) or {}
+        cur["style"] = {"cue": sheet["cue"],
+                        "modes": (sheet.get("cells") or {}).get("modes", ""),
+                        "seconds": sheet.get("seconds"),
+                        "thin": bool(sheet.get("thin")),
+                        "at": __import__("datetime").datetime.utcnow()
+                              .strftime("%Y-%m-%dT%H:%M:%SZ")}
+        st["speakers"][key] = cur
+        saveState(st)
+        say("کارتِ سبکِ «%s» ثبت شد%s."
+            % (cur.get("name", key),
+               " (نمونه کم بود)" if sheet.get("thin") else ""))
+        return 0
     if mode == "--sim":
         sys.stdout.write(bestSim(sys.argv[2] if len(sys.argv) > 2 else "lab"))
         return 0
@@ -444,14 +494,15 @@ def main():
         return 1
     say("صف: rev %s · %d گوینده" % (q.get("rev"), len(q.get("speakers") or [])))
     st = loadState()
-    changed, measure = plan(q, st)
+    changed, measure, style = plan(q, st)
     if changed:
         saveState(st)
     gh = os.environ.get("GITHUB_OUTPUT")
     if gh:
         io.open(gh, "a", encoding="utf-8").write(
-            "measure=%s\nchanged=%s\n" % (measure, "true" if changed else "false"))
-    say("سنجشِ این دور: %s" % (measure or "—"))
+            "measure=%s\nstyle=%s\nchanged=%s\n"
+            % (measure, style, "true" if changed else "false"))
+    say("سنجشِ این دور: %s · کارتِ سبک: %s" % (measure or "—", style or "—"))
     return 0
 
 
