@@ -216,4 +216,30 @@ ok('۱۰.۵ شناسه در کد و گردش‌کار یکی است',
    !!CFG.VBR_QUEUE_ID && bwf.indexOf(CFG.VBR_QUEUE_ID) !== -1,
    'دو شناسهٔ متفاوت = صفی که هیچ‌وقت خوانده نمی‌شود');
 
+console.log('\n══ ۱۱) تازه‌ترین قسمت اول — چون قضاوتِ گوش مقایسه می‌خواهد ══');
+/* صفِ رندر به ترتیبِ ورود پر می‌شود و ردیف‌های رسیده هم در آن می‌مانند،
+   پس ابتدایش قدیمی‌ترین است. اگر پل از ابتدا بردارد، اولین چیزی که
+   صاحبِ برنامه می‌شنود قسمتی از هفته‌ها پیش است — که نمی‌تواند با چیزی
+   مقایسه‌اش کند، و کلِ این نسخه برای همان یک قضاوت ساخته شده. */
+{
+  const q = vbrRead_(); q.items = []; vbrSave_(q);          // صفِ پل را خالی کن
+  const f1 = OUT.createFolder('قسمتِ کهنه');
+  f1.createFile('قسمت ۱ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const f2 = OUT.createFolder('قسمتِ تازه');
+  f2.createFile('قسمت ۹ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:1', show: 'variety', ep: '1', folderId: f1.getId(), title: 'کهنه' },
+              { key: 'variety:9', show: 'variety', ep: '9', folderId: f2.getId(), title: 'تازه' }];
+  ytRenderSave_(rd);
+  personaBoardSave_('razavi', true, [knownShows_()[0].name], 1, 'آرام بخوان', '');
+  const realCap = CFG.VBR_MAX; CFG.VBR_MAX = 1;
+  const made = vbrAskDue_(hub);
+  CFG.VBR_MAX = realCap;
+  const keys = vbrRead_().items.map(x => x.key);
+  ok('۱۱.۱ درخواست نوشته شد', made === 1, 'گرفت: ' + made);
+  ok('۱۱.۲ و **تازه‌ترین** برداشته شد، نه قدیمی‌ترین',
+     keys.indexOf('variety:9') !== -1 && keys.indexOf('variety:1') === -1,
+     'گرفت: ' + JSON.stringify(keys));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
