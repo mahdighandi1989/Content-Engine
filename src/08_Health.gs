@@ -547,6 +547,7 @@ function writeStatus_(hub, note) {
     youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
+    voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),

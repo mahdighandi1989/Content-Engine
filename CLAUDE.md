@@ -27,7 +27,7 @@ top of `src/00_Config.gs`.
 engine.gs · manifest.json · README.md · CLAUDE.md   ← MUST stay at the root
 src/                 32 numbered sections — the source of truth for the code
 tools/               build.js + build_header.txt
-tests/               the 43 run_*.js suites
+tests/               the 50 run_*.js suites
 tests/lib/           root.js (path anchor) · mock.js (GAS mock) · probe_r4_lib.js
 tests/fixtures/      newsheets.json · videos.jsonl · photos.jsonl
 docs/                drive_layout.md · prompts/ (بدنه‌ها + bootstrap)
@@ -983,6 +983,69 @@ plainly when a cap or the time budget stopped it. The first version only noticed
 truncation when it moved on to the *next* tab, so a cap reached on the last tab
 was silent. A partial search that presents itself as complete tells the user "it
 isn't there" about something that is.
+
+## The bridge (section 36, 7.36)
+
+«بساز این پل لعنتی رو … بساز و بسنجش و ناظر باید همیشه حواسش بهش باشه.» The
+standing prohibition — «تا نگفتم سمت پل فعلا نرو» — was lifted by the owner in
+those words, and the three verbs are the shape of the work: build, measure, watch.
+
+**What the bridge is, stated once so it is never confused again.** Section 32
+changes the *way* a text is read (pauses, phrasing, range) and converts nothing.
+Section 33 *trains a model*. Neither one changes the voice of an episode. The
+bridge is the missing piece: this episode's own WAV leaves, is converted with the
+speaker's model, and comes back into that episode's folder.
+
+**It reuses the `_YT-RENDER.json` division of labour exactly.** Apps Script has no
+ffmpeg, no GPU and six minutes — the same wall section 27 hit for video. The
+answer was already built and proven over 180 runs: the engine shares the file
+«anyone with the link» and queues it, the Action converts and uploads the output
+as a **release asset**, the engine fetches it and revokes the share. Artifacts
+were deliberately not used: they die after thirty days and cannot be downloaded
+from outside Actions. Building a second path would mean two places to fail and
+half a history in each.
+
+**The published audio does not change, and that is a decision rather than an
+omission.** The converted file sits *beside* the original under a name that
+announces itself. Change the voice of a daily podcast before anyone has heard it
+and there is no taking it back tomorrow: the episode is out, the email is out,
+Telegram is out. `VBR_REPLACE` is that switch and it is off. The daily line says
+so **every day**, because the absence of that sentence could be read as "it took
+over".
+
+**The original is never touched**, even when the conversion is good. If it later
+turns out to be bad, the file is still there.
+
+**The model is copied into OUTPUT, not shared where it lives.** «voice-models»
+sits outside OUTPUT, and this file's first rule is that writes go to OUTPUT only
+— changing an ACL out there is reaching into a place we do not have permission
+for. Copying is a read there and a write here. The side benefit is that the model
+stops depending on an artifact that expires on 17 October. The copy is named after
+the speaker key, because two speakers sharing one filename is the `dsSig_` bug
+again: one person's model counts as "present" for another, with no error anywhere.
+
+**Every lesson this file already carries was applied in advance, not after the
+loss:** returned bytes are judged by their RIFF/WAVE header rather than their
+extension (`musicFetch_`, `ytMp4Ok_` — an error page also returns bytes); the
+queue cap counts only "waiting to be built", never "waiting to be collected"
+(6.37, which once locked the YouTube queue for two days while everything looked
+healthy from outside); a request unanswered for `VBR_STUCK_DAYS` is itself a
+`NEEDS_CODE` finding (the music bank took seven weeks to learn that); repeated
+failure becomes «رهاشده», counted **separately** from «در انتظار» (5.88); the
+temporary share is revoked before the row closes; and the daily line is present
+every single day, including the days when nothing happened.
+
+**With no speaker switched on, the bridge does nothing.** Which voice to use is
+the owner's choice, not the code's guess — the key comes from the topmost enabled
+row of «صداها», the same rule `personaFor_` follows.
+
+**Two of my own assertions were wrong and the suite caught both**, which is worth
+recording because each would have been silent in production: `vbrAudio_` read
+`ytAudioParts_().files`, a key that does not exist (it is `parts`), so every
+request was refused with "no audio in the folder"; and a cross-boundary assertion
+matched `|| echo` inside a **comment** rather than in code — an assertion that
+measures the wrong thing is worse than none, because it goes green and nobody
+looks again.
 
 ## The control that was never where the work is (7.35)
 

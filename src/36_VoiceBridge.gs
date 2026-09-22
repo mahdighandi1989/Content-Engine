@@ -1,0 +1,566 @@
+/**
+ * 36_VoiceBridge.gs — «پلِ رنگِ صدا»: صوتِ قسمت می‌رود، تبدیل می‌شود، برمی‌گردد
+ *
+ * ══ خواستهٔ صاحبِ برنامه، و ترتیبی که خواست ══
+ *
+ * «بساز این پل … بساز و بسنجش و ناظر باید همیشه حواسش بهش باشه ایراداتش
+ * اصلاح کنه.» سه کار است، به همین ترتیب: ساختن، سنجیدن، و زیرِ نظر بودن.
+ *
+ * ══ آنچه پل هست و آنچه نیست ══
+ *
+ * بخشِ ۳۲ **شیوهٔ خواندن** را عوض می‌کند (مکث، کشش، ریتم) و هیچ تبدیلی
+ * نمی‌کند. بخشِ ۳۳ **مدل می‌سازد**. هیچ‌کدام صدای قسمت را عوض نمی‌کنند.
+ * پل این است: فایلِ WAVِ همین قسمت برود بیرون، با مدلِ گوینده تبدیل شود،
+ * و برگردد در پوشهٔ همان قسمت.
+ *
+ * ══ چرا بیرون، و چرا **همین** بیرون ══
+ *
+ * Apps Script نه ffmpeg دارد، نه GPU، نه بیش از شش دقیقه وقت. این همان
+ * دیواری است که بخشِ ۲۷ برای ویدئو به آن خورد — و جوابش از پیش ساخته و
+ * ۱۸۰ بار آزموده شده: موتور فایل را موقتاً «هرکس با لینک» می‌کند و در
+ * صف می‌گذارد؛ اکشن می‌سازد و خروجی را **release asset** می‌کند؛ موتور
+ * برمی‌دارد و اشتراک را پس می‌گیرد. راهِ دومی ساختن یعنی دو جای شکست و
+ * نصفِ تاریخچه در هرکدام.
+ *
+ * ══ و آنچه این نسخه عمداً نمی‌کند ══
+ *
+ * **صوتِ منتشرشده را عوض نمی‌کند.** فایلِ تبدیل‌شده کنارِ اصلی می‌نشیند با
+ * نامی که خودش را معرفی می‌کند. دلیلش ترتیبی است که خودِ او خواست
+ * («بساز و بسنجش») و یک واقعیت: صدای یک پادکستِ روزانه را پیش از آنکه
+ * کسی شنیده باشدش عوض کنی، فردا نمی‌شود پسش گرفت — قسمت رفته، ایمیل
+ * رفته، تلگرام رفته. `CFG.VBR_REPLACE` آن دکمه است و خاموش است.
+ *
+ * ══ و اصلِ سرتاسریِ این پرونده، اینجا هم ══
+ *
+ * هیچ‌چیز پاک نمی‌شود. اصلِ WAV دست‌نخورده می‌مانَد، حتی وقتی تبدیل خوب
+ * درآمده باشد. اگر روزی معلوم شود تبدیل بد بوده، فایلِ اصلی همان‌جاست.
+ */
+
+/** نامِ فایلِ صف. */
+function vbrFileName_() { return String(CFG.VBR_FILE || '_VOICE-RENDER.json'); }
+
+/** صفِ فعلی — همیشه با شکلِ درست، حتی اگر فایل نباشد یا خراب باشد. */
+function vbrRead_() {
+  var d = null;
+  try {
+    var it = outFolder_().getFilesByName(vbrFileName_());
+    if (it.hasNext()) d = JSON.parse(it.next().getBlob().getDataAsString('UTF-8'));
+  } catch (e) { d = null; }
+  if (!d || typeof d !== 'object') d = {};
+  if (Object.prototype.toString.call(d.items) !== '[object Array]') d.items = [];
+  return d;
+}
+
+/** ذخیرهٔ صف، و گشودنِ اشتراکش — اکشن به‌عنوانِ «هیچ‌کس» می‌آید. */
+function vbrSave_(d) {
+  d.rev = (Number(d.rev) || 0) + 1;
+  d.at = nowStr_();
+  d.engine = String(CFG.CODE_VERSION || '');
+  d.note = 'صفِ پلِ رنگِ صدا. موتور (بخشِ ۳۶) می‌نویسد، گردش‌کارِ ' +
+           'voice-bridge می‌خوانَد. دست‌نویس نکنید — بازنویسی می‌شود.';
+  try {
+    putOutJson_(vbrFileName_(), d);
+    /* ══ اشتراک را خاموش نبلع — درسِ ۷٫۳۳ ══
+       صفِ گویندگان چهار اجرا پشتِ‌هم مُرد چون این سه خط در یک `catch`
+       خالی بودند و درایو برای فایلِ بی‌اشتراک به‌جای JSON یک صفحهٔ HTML
+       می‌دهد، نه خطای ۴۰۳. */
+    var it = outFolder_().getFilesByName(vbrFileName_());
+    if (it.hasNext() && !driveShareOn_(it.next().getId())) {
+      logLine_('اشتراکِ «' + vbrFileName_() + '» باز نشد — پل صف را نمی‌بیند.');
+    }
+    return true;
+  } catch (e) {
+    logLine_('صفِ پل نوشته نشد: ' + e.message);
+    return false;
+  }
+}
+
+/**
+ * پوشهٔ مدل‌ها، زیرِ OUTPUT.
+ *
+ * ══ چرا کپی و نه اشتراکِ فایلِ اصلی ══
+ * مدل در پوشهٔ «voice-models» است که **بیرونِ OUTPUT** است، و قاعدهٔ اولِ
+ * این پرونده می‌گوید نوشتن فقط در OUTPUT. عوض کردنِ اشتراکِ فایلی بیرونِ
+ * OUTPUT هم دست‌بردن در جایی است که اجازه‌اش را نداریم. کپی‌گرفتن اما
+ * خواندنِ آنجا و نوشتن اینجاست — و سودِ جانبی‌اش این است که مدل وارد
+ * همان رژیمِ پشتیبان می‌شود و به artifactی که ۱۷ اکتبر منقضی می‌شود
+ * بند نیست.
+ */
+function vbrFolder_() {
+  var name = String(CFG.VBR_FOLDER || 'مدل‌های صدا');
+  var root = outFolder_();
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+/**
+ * مدلِ این گوینده، آماده و گشوده — یا دلیلِ نبودنش.
+ *
+ * یک بار کپی می‌شود و بعد فقط پیدا. نامِ کپی کلیدِ گوینده را دارد، چون
+ * دو گوینده با یک نامِ فایل همان باگی است که ۷٫۲۱ در `dsSig_` گرفت: مدلِ
+ * یکی برای دیگری «موجود» شمرده می‌شود و هیچ خطایی بلند نمی‌شود.
+ */
+function vbrModel_(key) {
+  var k = String(key || '').trim();
+  var out = { ok: false, pth: '', index: '', why: '' };
+  if (!k) { out.why = 'کلیدِ گوینده خالی است'; return out; }
+  var fold = vbrFolder_();
+  var want = { pth: k + '.pth', index: k + '.index' };
+  var have = {};
+  for (var kind in want) {
+    if (!Object.prototype.hasOwnProperty.call(want, kind)) continue;
+    var it = fold.getFilesByName(want[kind]);
+    if (it.hasNext()) have[kind] = it.next();
+  }
+  // نبودِ کپی: از بذر بساز، اگر بذری برایش هست.
+  if (!have.pth) {
+    var seed = (CFG.VBR_SEED_MODELS || {})[k] || null;
+    if (!seed || !seed.pth) {
+      out.why = 'مدلِ «' + k + '» در «' + (CFG.VBR_FOLDER || 'مدل‌های صدا') +
+                '» نیست و بذری هم برایش تعریف نشده.';
+      return out;
+    }
+    try {
+      have.pth = DriveApp.getFileById(String(seed.pth)).makeCopy(want.pth, fold);
+      if (seed.index && !have.index) {
+        have.index = DriveApp.getFileById(String(seed.index)).makeCopy(want.index, fold);
+      }
+      logLine_('مدلِ «' + k + '» در OUTPUT کپی شد — دیگر به artifact بند نیست.');
+    } catch (e) {
+      out.why = 'کپیِ مدل نشد: ' + String(e.message).slice(0, 90);
+      return out;
+    }
+  }
+  /* ایندکس اختیاری است: بی آن هم تبدیل انجام می‌شود، فقط `index_rate`
+     بی‌اثر می‌ماند. نبودنش دلیلِ زمین گذاشتنِ کل کار نیست. */
+  for (var kk in have) {
+    if (!Object.prototype.hasOwnProperty.call(have, kk)) continue;
+    try { driveShareOn_(have[kk].getId()); } catch (eS) {}
+    out[kk] = ytDlUrl_(have[kk].getId());
+  }
+  out.ok = !!out.pth;
+  if (!out.ok) out.why = 'فایلِ مدل پیدا نشد';
+  return out;
+}
+
+/** فایل‌های صوتیِ یک قسمت، مرتب — همان تعریفی که بخشِ ۲۷ دارد. */
+function vbrAudio_(folderId) {
+  var out = [];
+  try {
+    var fold = DriveApp.getFolderById(String(folderId));
+    /* ══ همان تعریفِ بخشِ ۲۷، نه یک تعریفِ دوم ══
+       `ytAudioParts_` ترتیب را از **نام** می‌خوانَد نه از اندازه یا ترتیبِ
+       درایو، و مجموعهٔ ناقص را رد می‌کند — چون نیمِ یک قسمت که منتشر شود
+       مثلِ یک قسمتِ دیرشده برگشت‌پذیر نیست (۶٫۱). ساختنِ تعریفِ دومِ
+       «صوتِ کاملِ قسمت» یعنی روزی یکی از آن دو بی‌صدا کهنه می‌شود.
+       کلیدش `parts` است؛ نسخهٔ اولِ همین تابع `files` خواند و هر درخواست
+       با «فایلِ صوتی‌ای نیست» رد می‌شد — آزمون گرفتش. */
+    var got = ytAudioParts_(fold);
+    var list = (got && got.parts) || [];
+    for (var i = 0; i < list.length; i++) {
+      out.push({ id: list[i].getId(), name: list[i].getName() });
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * یک قسمت را به صف بگذار.
+ *
+ * ══ سقف چه چیزی را می‌شمرد (درسِ ۶٫۳۷) ══
+ * «منتظرِ ساخت» و «منتظرِ برداشت» دو چیزند. سقفی که دومی را هم بشمرد،
+ * وقتی برداشت یک بار شکست بخورد **برای همیشه** صف را قفل می‌کند و از
+ * بیرون همه‌چیز سالم به نظر می‌رسد. این سقف فقط ردیف‌هایی را می‌شمرد که
+ * هنوز خروجی‌شان ساخته نشده.
+ */
+function vbrAsk_(show, epNum, folderId, speaker, title) {
+  if (CFG.VBR_ON === false) return { ok: false, why: 'پل خاموش است' };
+  var key = String(show) + ':' + String(epNum);
+  var d = vbrRead_();
+  for (var i = 0; i < d.items.length; i++) {
+    if (String(d.items[i].key) === key) return { ok: false, why: 'قبلاً خواسته شده' };
+  }
+  var map = vbrMapCached_();
+  var pend = 0;
+  for (var j = 0; j < d.items.length; j++) {
+    var x = d.items[j];
+    if (String(x.status || '') !== 'در انتظار') continue;
+    if (map && map[String(x.key)] && map[String(x.key)].url) continue;   // ساخته شده
+    pend++;
+  }
+  var cap = Math.max(1, Number(CFG.VBR_MAX) || 4);
+  if (pend >= cap) return { ok: false, why: 'صف پر است (' + pend + ')' };
+
+  var mdl = vbrModel_(speaker);
+  if (!mdl.ok) return { ok: false, why: mdl.why };
+  var au = vbrAudio_(folderId);
+  if (!au.length) return { ok: false, why: 'فایلِ صوتی‌ای در پوشهٔ قسمت نیست' };
+
+  var row = { key: key, show: String(show), ep: String(epNum),
+              title: String(title || ''), folderId: String(folderId || ''),
+              speaker: String(speaker), tries: 0, at: nowStr_(),
+              status: 'در انتظار',
+              model: { pth: mdl.pth, index: mdl.index },
+              params: { pitch: String(CFG.VBR_PITCH || '-12'),
+                        indexRate: String(CFG.VBR_INDEX_RATE || '1.0'),
+                        protect: String(CFG.VBR_PROTECT || '0.33') },
+              audio: [] };
+  for (var a = 0; a < au.length; a++) {
+    try { driveShareOn_(au[a].id); } catch (eA) {}
+    row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
+  }
+  row.shared = true;
+  d.items.push(row);
+  return vbrSave_(d) ? { ok: true, key: key, parts: row.audio.length }
+                     : { ok: false, why: 'صف ذخیره نشد' };
+}
+
+/** نقشهٔ خروجی‌ها، از gitHub raw. یک بار در هر اجرا. */
+var _vbrMapMemo = null;
+function vbrMapCached_() {
+  if (_vbrMapMemo !== null) return _vbrMapMemo;
+  try { _vbrMapMemo = vbrMap_(); } catch (e) { _vbrMapMemo = null; }
+  return _vbrMapMemo;
+}
+
+function vbrMap_() {
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.VBR_MAP || 'docs/voice-renders.json'),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return null;
+    var d = JSON.parse(res.getContentText());
+    var m = (d && d.items) || null;
+    return (m && typeof m === 'object' &&
+            Object.prototype.toString.call(m) !== '[object Array]') ? m : null;
+  } catch (e) { return null; }
+}
+
+/**
+ * بایت‌هایی که رسیدند واقعاً WAV هستند یا نه.
+ *
+ * همان قاعدهٔ `musicFetch_` و `ytMp4Ok_`: نه پسوند، نه `Content-Type` —
+ * سرآیندِ خودِ فایل. صفحهٔ خطای گیت‌هاب هم بایت برمی‌گرداند، و فایلِ
+ * خرابی که در پوشهٔ قسمت بنشیند یک روز پخش می‌شود.
+ */
+function vbrWavOk_(blob) {
+  var b = null;
+  try { b = blob.getBytes(); } catch (e) { return { ok: false, why: 'بایت‌ها خوانده نشدند' }; }
+  var min = Math.max(1000, Number(CFG.VBR_MIN_BYTES) || 200000);
+  if (!b || b.length < min) {
+    return { ok: false, why: 'فایل بسیار کوچک است (' + (b ? b.length : 0) + ' بایت)' };
+  }
+  var riff = '', wave = '';
+  for (var i = 0; i < 4; i++) riff += String.fromCharCode(b[i] & 0xFF);
+  for (var j = 8; j < 12; j++) wave += String.fromCharCode(b[j] & 0xFF);
+  if (riff !== 'RIFF' || wave !== 'WAVE') {
+    return { ok: false, why: 'WAV نیست — سرآیندِ RIFF/WAVE ندارد' };
+  }
+  return { ok: true, why: '' };
+}
+
+/** نامِ فایلِ تبدیل‌شده — خودش را معرفی می‌کند، تا با اصل اشتباه نشود. */
+function vbrOutName_(item, speakerName) {
+  var base = 'قسمت ' + String(item.ep);
+  return base + String(CFG.VBR_SUFFIX || ' — با صدای ') +
+         String(speakerName || item.speaker) + '.wav';
+}
+
+/** خروجی را بردار و کنارِ اصل بگذار. اصل دست نمی‌خورد. */
+function vbrFetch_(item, url, speakerName) {
+  var res = null;
+  try {
+    res = UrlFetchApp.fetch(String(url), { muteHttpExceptions: true, followRedirects: true });
+  } catch (e) { return { ok: false, why: 'دانلود نشد: ' + String(e.message).slice(0, 80) }; }
+  if (res.getResponseCode() !== 200) return { ok: false, why: 'کدِ ' + res.getResponseCode() };
+  var blob = null;
+  try { blob = res.getBlob(); } catch (e2) { return { ok: false, why: 'بایت‌ها خوانده نشدند' }; }
+  var chk = vbrWavOk_(blob);
+  if (!chk.ok) return { ok: false, why: chk.why };
+  try {
+    var fold = DriveApp.getFolderById(String(item.folderId));
+    var nm = vbrOutName_(item, speakerName);
+    // هم‌نامِ قبلی؟ جایگزین می‌شود، ولی **اصل** هرگز دست نمی‌خورد.
+    var old = fold.getFilesByName(nm);
+    while (old.hasNext()) { try { old.next().setTrashed(true); } catch (eT) {} }
+    var f = fold.createFile(blob.setName(nm));
+    return { ok: true, why: '', id: f.getId(), name: nm,
+             bytes: (blob.getBytes() || []).length };
+  } catch (e3) { return { ok: false, why: 'در پوشه ننشست: ' + String(e3.message).slice(0, 80) }; }
+}
+
+/** اشتراکِ موقتِ یک ردیف را پس بگیر — پیش از بستنِ ردیف، نه بعدش. */
+function vbrUnshare_(item) {
+  var n = 0;
+  var au = (item && item.audio) || [];
+  for (var i = 0; i < au.length; i++) {
+    try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
+  }
+  return n;
+}
+
+/**
+ * پاسخ‌ها را بردار و ردیف‌ها را ببند.
+ *
+ * ردیفی که خروجی‌اش نیامده دست نمی‌خورد؛ ردیفی که آمده و برداشته شد
+ * «رسید» می‌شود و اشتراکش پس گرفته می‌شود. تلاشِ ناموفق شمرده می‌شود و
+ * پس از `VBR_TRY_MAX` ردیف «رهاشده» می‌شود — **جدا از «در انتظار»
+ * شمرده می‌شود**، چون «در انتظار» یعنی هنوز قرار است اتفاقی بیفتد و
+ * گزارشِ چیزی که هرگز نمی‌افتد به‌عنوانِ «در انتظار» همان است که هشدار
+ * را به نویز تبدیل می‌کند (۵٫۸۸).
+ */
+function vbrIngest_(hub) {
+  var out = { got: [], failed: [], unshared: 0, abandoned: 0 };
+  if (CFG.VBR_ON === false) return out;
+  var map = vbrMapCached_();
+  if (!map) return out;
+  var d = vbrRead_(), changed = false;
+  var names = {};
+  try { names = vbrSpeakerNames_(); } catch (eN) { names = {}; }
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'در انتظار') continue;
+    var hit = map[String(it.key)];
+    if (!hit || !hit.url) continue;
+    var r = vbrFetch_(it, hit.url, names[String(it.speaker)] || it.speaker);
+    if (r.ok) {
+      it.status = 'رسید'; it.doneAt = nowStr_(); it.outId = r.id;
+      it.outName = r.name; it.bytes = r.bytes;
+      it.seconds = Number(hit.seconds) || 0;
+      it.jobMinutes = Number(hit.minutes) || 0;
+      out.unshared += vbrUnshare_(it);
+      out.got.push({ key: it.key, name: r.name, bytes: r.bytes,
+                     seconds: it.seconds, minutes: it.jobMinutes });
+      vbrLog_(hub, it, 'رسید', r.name);
+    } else {
+      it.tries = (Number(it.tries) || 0) + 1;
+      it.lastWhy = r.why;
+      var max = Math.max(1, Number(CFG.VBR_TRY_MAX) || 3);
+      if (it.tries >= max) {
+        it.status = 'رهاشده'; it.doneAt = nowStr_();
+        out.unshared += vbrUnshare_(it);
+        out.abandoned++;
+        vbrLog_(hub, it, 'رهاشده', r.why);
+      } else {
+        vbrLog_(hub, it, 'ناموفق', r.why);
+      }
+      out.failed.push({ key: it.key, why: r.why, tries: it.tries });
+    }
+    changed = true;
+  }
+  if (changed) vbrSave_(d);
+  return out;
+}
+
+/** نامِ فارسیِ هر گوینده، از همان `docs/voices.json` که بخشِ ۳۳ می‌خوانَد. */
+function vbrSpeakerNames_() {
+  var out = {};
+  try {
+    var doc = vintReadResult_();
+    var sp = (doc && doc.speakers) || null;
+    if (!sp || typeof sp !== 'object') return out;
+    for (var k in sp) {
+      if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+      if (sp[k] && sp[k].name) out[k] = String(sp[k].name);
+    }
+  } catch (e) {}
+  return out;
+}
+
+var VBR_TAB = 'کارنامهٔ پلِ صدا';
+var VBR_HEADERS = ['زمان', 'قسمت', 'گوینده', 'نتیجه', 'توضیح', 'ثانیه', 'دقیقهٔ کار'];
+
+/**
+ * یک ردیف در تاریخچه — موفق و ناموفق، هر دو.
+ *
+ * `_STATUS.json` جوابِ «الان چند تا» را می‌دهد؛ سؤالی که وقتی چیزی خراب
+ * می‌شود واقعاً می‌پرسی «از کِی» است، و جوابش فقط از تاریخچه درمی‌آید.
+ * همان دلیلی که تبِ «کاربردِ جزوه» برایش ساخته شد.
+ */
+function vbrLog_(hub, item, result, note) {
+  try {
+    var h = hub || getHub_();
+    var sh = h.getSheetByName(VBR_TAB);
+    if (!sh) {
+      sh = h.insertSheet(VBR_TAB);
+      sh.appendRow(VBR_HEADERS);
+    }
+    sh.appendRow([nowStr_(), String(item.key || ''), String(item.speaker || ''),
+                  String(result || ''), String(note || '').slice(0, 300),
+                  Number(item.seconds) || '', Number(item.jobMinutes) || '']);
+  } catch (e) {
+    try { logLine_('کارنامهٔ پل نوشته نشد: ' + e.message); } catch (e2) {}
+  }
+}
+
+/** چند روز است قدیمی‌ترین درخواستِ بی‌جواب مانده. */
+function vbrStuckDays_() {
+  var d = vbrRead_(), worst = 0, now = new Date().getTime();
+  for (var i = 0; i < d.items.length; i++) {
+    if (String(d.items[i].status || '') !== 'در انتظار') continue;
+    var t = parseWhen_(String(d.items[i].at || ''));
+    if (isNaN(t)) continue;
+    var days = Math.floor((now - t) / 86400000);
+    if (days > worst) worst = days;
+  }
+  return worst;
+}
+
+/**
+ * وضعیتِ روزانه — سطری که **هر روز** هست، حتی وقتی خبری نیست.
+ *
+ * سطرِ خالی نه خبر است نه هشدار؛ فقط شبیهِ سلامت است. همان درسی که
+ * `voiceIntake.line` و `handoutStatus_().line` از آن آمدند.
+ */
+function vbrStatus_() {
+  var out = { on: CFG.VBR_ON !== false, replace: CFG.VBR_REPLACE === true,
+              waiting: 0, done: 0, abandoned: 0, stuckDays: 0, ok: true, line: '' };
+  try {
+    var d = vbrRead_();
+    for (var i = 0; i < d.items.length; i++) {
+      var st = String(d.items[i].status || '');
+      if (st === 'در انتظار') out.waiting++;
+      else if (st === 'رسید') out.done++;
+      else if (st === 'رهاشده') out.abandoned++;
+    }
+    out.stuckDays = vbrStuckDays_();
+  } catch (e) { out.error = e.message; }
+
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+  if (!out.on) {
+    out.line = 'پلِ رنگِ صدا: خاموش است.';
+    return out;
+  }
+  var bits = [];
+  if (out.done) bits.push('ساخته‌شده: ' + fa(out.done));
+  if (out.waiting) bits.push('در انتظار: ' + fa(out.waiting));
+  if (out.abandoned) bits.push('رهاشده: ' + fa(out.abandoned));
+  if (!bits.length) bits.push('هنوز هیچ قسمتی تبدیل نشده');
+  out.line = 'پلِ رنگِ صدا — ' + bits.join(' · ');
+  /* این جمله هر روز می‌آید و عمدی است: تا وقتی جای صوتِ منتشرشده را
+     نگرفته، نبودِ این جمله می‌تواند به‌معنای «پس گرفت» خوانده شود. */
+  out.line += out.replace
+    ? ' · ⚠️ صوتِ منتشرشده **با همین** ساخته می‌شود.'
+    : ' · فایلِ تبدیل‌شده کنارِ اصل می‌نشیند؛ صوتِ منتشرشده عوض نشده.';
+  var days = Math.max(1, Number(CFG.VBR_STUCK_DAYS) || 3);
+  if (out.waiting > 0 && out.stuckDays >= days) {
+    out.ok = false;
+    out.line += ' — و ' + fa(out.stuckDays) + ' روز است پاسخی از گردش‌کارِ پل نرسیده.';
+  }
+  return out;
+}
+
+/**
+ * درخواستی که بی‌پاسخ بماند، **خودش** یافته است.
+ *
+ * درسِ بانکِ موسیقی (هفت هفته سکوت، صفر فایل) از روزِ اول اعمال می‌شود،
+ * نه پس از آن. و یک شبِ بد یافته نمی‌سازد.
+ */
+function vbrStuckCheck_(hub, st) {
+  try {
+    var days = Math.max(1, Number(CFG.VBR_STUCK_DAYS) || 3);
+    if (!st || st.stuckDays < days || st.waiting <= 0) return false;
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'پلِ صدا', key: 'voice-bridge-stuck',
+      title: 'صفِ پلِ رنگِ صدا ' + st.stuckDays + ' روز است بی‌پاسخ مانده',
+      detail: st.waiting + ' قسمت در «' + vbrFileName_() + '» منتظرند و هیچ ' +
+              'خروجی‌ای در ' + (CFG.VBR_MAP || 'docs/voice-renders.json') +
+              ' ننشسته. یعنی تبدیل انجام نمی‌شود.',
+      instruction: 'در گیت‌هاب تبِ Actions را ببین: گردش‌کارِ `voice-bridge` ' +
+                   'اجرا شده؟ قرمز است؟ صفِ درایو «هرکس با لینک» هست؟ ' +
+                   'اگر اجرا سبز است ولی نقشه عوض نشده، مرحلهٔ آپلودِ ' +
+                   'release asset را نگاه کن. پس از اصلاح، فردا وارسی کن ' +
+                   'که ردیفِ تازه‌ای در «' + VBR_TAB + '» نشسته باشد.',
+      owner: ROWNER_CODE
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+/**
+ * دورِ شبانهٔ پل.
+ *
+ * ترتیب عمدی است: اول برداشتِ پاسخ‌ها (تا صف باز شود)، بعد درخواستِ تازه.
+ * برعکسش یعنی سقفِ صف با ردیف‌هایی پر می‌ماند که جوابشان همین حالا
+ * آماده بود.
+ */
+function vbrNightly_(hub) {
+  var out = { on: CFG.VBR_ON !== false, ingest: null, asked: 0, status: null };
+  if (!out.on) { out.status = vbrStatus_(); return out; }
+  var h = hub || null;
+  try { if (!h) h = getHub_(); } catch (eH) {}
+  try { out.ingest = vbrIngest_(h); }
+  catch (e1) { try { logLine_('برداشتِ پل ناموفق: ' + e1.message); } catch (e1b) {} }
+  try { out.asked = vbrAskDue_(h); }
+  catch (e2) { try { logLine_('درخواستِ پل نوشته نشد: ' + e2.message); } catch (e2b) {} }
+  try {
+    out.status = vbrStatus_();
+    vbrStuckCheck_(h, out.status);
+  } catch (e3) {}
+  return out;
+}
+
+/**
+ * کدام قسمت‌ها نوبتشان است.
+ *
+ * از همان صفِ یوتیوب برداشته می‌شود، چون آنجا دقیقاً «قسمت‌هایی که
+ * صوتشان کامل در پوشه هست» فهرست شده‌اند — و ساختنِ یک تعریفِ دومِ
+ * «قسمتِ آماده» یعنی روزی یکی از آن دو بی‌صدا کهنه می‌شود.
+ *
+ * گویندهٔ پیش‌فرض از تبِ «صداها» می‌آید: ردیفی که **روشن** باشد. اگر
+ * هیچ ردیفی روشن نباشد، پل کاری ندارد — و این درست است، چون انتخابِ
+ * گوینده کارِ صاحبِ برنامه است نه حدسِ کد.
+ */
+function vbrAskDue_(hub) {
+  var key = vbrSpeakerOn_();
+  if (!key) return 0;
+  var n = 0;
+  try {
+    var d = ytRenderRead_();
+    for (var i = 0; i < d.items.length; i++) {
+      var it = d.items[i];
+      if (!it.folderId) continue;
+      var r = vbrAsk_(it.show, it.ep, it.folderId, key, it.title);
+      if (r.ok) n++;
+      if (n >= 2) break;         // دو تا در هر شب؛ رانرِ رایگان بی‌انتها نیست
+    }
+  } catch (e) {}
+  return n;
+}
+
+/** کلیدِ گویندهٔ روشن در تبِ «صداها» — بالاترین ردیف، همان قاعدهٔ بخشِ ۳۲. */
+function vbrSpeakerOn_() {
+  try {
+    var rows = personaRows_(personaTab_());
+    for (var i = 0; i < rows.length; i++) {
+      var k = String(rows[i][PC.KEY - 1] || '').trim();
+      if (!k) continue;
+      if (personaOn_(rows[i][PC.ON - 1])) return k;
+    }
+  } catch (e) {}
+  return '';
+}
+
+/** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */
+function runVoiceBridge() {
+  var ui = ui_();
+  var r = vbrNightly_(null);
+  var st = r.status || vbrStatus_();
+  var msg = st.line + '\n\n';
+  if (r.ingest && r.ingest.got.length) {
+    msg += 'برداشته شد:\n';
+    for (var i = 0; i < r.ingest.got.length; i++) {
+      var g = r.ingest.got[i];
+      msg += '• ' + g.key + ' — ' + g.name + '\n';
+    }
+    msg += '\n';
+  }
+  if (r.asked) msg += 'درخواستِ تازه: ' + r.asked + ' قسمت.\n';
+  if (!vbrSpeakerOn_()) {
+    msg += '\n⚠️ هیچ ردیفی در تبِ «صداها» روشن نیست، پس پل نمی‌داند با ' +
+           'صدای چه کسی تبدیل کند. از منو «🎚 شیوهٔ خواندنِ گویندگان» را ' +
+           'باز کنید و یکی را روشن کنید.';
+  }
+  if (!ui) { console.log(msg); return msg; }
+  ui.alert('پلِ رنگِ صدا', msg, ui.ButtonSet.OK);
+  return msg;
+}

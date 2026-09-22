@@ -1,0 +1,100 @@
+# پلِ رنگِ صدا — تبدیلِ صوتِ یک قسمت با مدلِ گوینده
+#
+# ══ چرا اینجا و نه در موتور ══
+# Apps Script نه ffmpeg دارد، نه GPU، نه بیش از شش دقیقه وقت. همان دیوارِ
+# بخشِ ۲۷ برای ویدئو، و همان جواب: موتور تصمیم می‌گیرد و فایل‌ها را موقتاً
+# «هرکس با لینک» می‌کند، اینجا تبدیل می‌شود، خروجی release asset می‌شود، و
+# موتور برمی‌دارد و اشتراک را پس می‌گیرد.
+#
+# هیچ رمزی جز GITHUB_TOKEN لازم نیست.
+#
+# ══ یک قسمت در هر اجرا ══
+# تبدیل بلادرنگ نیست: realtime_factor ۱٫۱ تا ۱٫۴ (اندازه‌گیری‌شده در
+# ۱۸ سپتامبر)، یعنی قسمتِ نوزده‌دقیقه‌ای ~۲۰ تا ۲۵ دقیقه. دو تا در یک job
+# یعنی نزدیک شدن به سقف — و jobی که سرِ سقف کشته شود هیچ خروجی‌ای نمی‌دهد،
+# حتی برای آن یکی که تمام شده بود.
+
+name: voice-bridge
+
+on:
+  schedule:
+    # هر شش ساعت، دقیقهٔ ۱۰ — دور از غنی‌سازی (۲۰)، رندر (۴۰) و گویندگان (۵۰)
+    - cron: '10 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # دو اجرای هم‌زمان یعنی دو بار تبدیلِ یک قسمت و برخورد روی نقشه
+  group: voice-bridge
+  cancel-in-progress: false
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      # شاخه، نه commitِ راه‌انداز (درسِ ۷٫۲۲): پیش‌فرضِ checkout همان
+      # commitی است که اجرا را راه انداخت، و نوشتنِ نقشه روی درختِ کهنه
+      # همیشه — نه گاهی — تضاد می‌گیرد.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: ffmpeg
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet imageio-ffmpeg
+          FF="$(python3 -c 'import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          # بی pipefail، «ffmpeg -version | head -1» کدِ خروجیِ head را
+          # می‌دهد و نبودِ ffmpeg سبز رد می‌شود. یک بار همین شد.
+          "$FF" -version | head -1
+          mkdir -p "$HOME/.local/bin"; ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: کتابخانه‌ها
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "infer-rvc-python>=1.3.1,<2" \
+            "soundfile>=0.13.0,<1" "speechbrain>=1.0,<2" "silero-vad>=5,<6" \
+            "numpy<2" "torch" "torchaudio"
+
+      - name: تبدیل و ثبتِ نشانی
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # شناسهٔ ثابتِ صف — همان که موتور زیرِ VBR_FILE در ریشهٔ OUTPUT
+          # می‌نویسد. اگر فایل پاک و دوباره ساخته شود شناسه عوض می‌شود و
+          # اکشن بی‌صدا هیچ‌چیز نمی‌بیند؛ پس موتور هم خودش وارسی‌اش می‌کند.
+          VBR_QUEUE_ID: ${{ vars.VBR_QUEUE_ID }}
+        run: python3 tools/voicebridge.py
+
+      - name: ثبتِ نقشه در ریپو
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/voice-renders.json; then
+            echo "چیزی عوض نشد."; exit 0
+          fi
+          git config user.name  "content-engine-bridge"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/voice-renders.json
+          git commit -m "پلِ صدا: خروجیِ تازه"
+          # ══ بی abort، تلاشِ دوم اصلاً تلاش نیست ══
+          # rebaseی که تضاد بخورد درخت را نیمه‌ادغام رها می‌کند و `git pull`
+          # بعدی با «unmerged files» می‌افتد — یعنی سه تلاشِ بعدی برای دلیلی
+          # کاملاً دیگر شکست می‌خورند و پیامِ گمراه‌کننده چاپ می‌شود.
+          for i in 1 2 3 4; do
+            git rebase --abort 2>/dev/null || true
+            if git pull --rebase origin "${GITHUB_REF_NAME}" \
+               && git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            sleep $((i * 3))
+          done
+          git rebase --abort 2>/dev/null || true
+          echo "::error title=ثبت نشد::پس از چهار تلاش، نقشه در ریپو ثبت نشد."
+          exit 1

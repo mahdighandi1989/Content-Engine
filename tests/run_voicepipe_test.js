@@ -281,4 +281,60 @@ ok('۹.۹ نمونهٔ کم خودش را اعلام می‌کند',
      { cwd: process.cwd(), encoding: 'utf8' }).stdout).thin === true,
    'عددِ لرزان باید از عددِ محکم جدا باشد');
 
+console.log('\n══ ۱۰) پلِ رنگِ صدا — نیمهٔ بیرونی ══');
+const bw = fs.readFileSync('.github/workflows/voice-bridge.yml', 'utf8');
+const bp = fs.readFileSync('tools/voicebridge.py', 'utf8');
+
+/* voicelab «--ref» را اجباری تعریف کرده. ۷٫۲۲ ثابت کرد نفرستادنش یعنی
+   هر اجرا قرمز — و آن بار هیچ‌کس نفهمید چون خطا بلعیده می‌شد. */
+for (const r of required) {
+  ok('۱۰.۱ پل «' + r + '» را می‌فرستد', bp.indexOf('"' + r + '"') !== -1,
+     'بی آن، هر تبدیل قرمز می‌شود');
+}
+/* ══ این سنجه اول کامنت را می‌خواند، نه کد ══
+   نسخهٔ اولش `bp.indexOf('|| echo')` بود و روی جمله‌ای افتاد که **دربارهٔ**
+   همان تله نوشته شده بود. سنجه‌ای که چیزِ اشتباه را بسنجد از سنجهٔ نبوده
+   بدتر است: سبز می‌شود و کسی دیگر نگاهش نمی‌کند. پس کامنت‌ها کنار
+   گذاشته می‌شوند و مرزِ واقعی سنجیده می‌شود. */
+const bpCode = bp.split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
+ok('۱۰.۲ شکستِ تبدیل بالا می‌آید، بلعیده نمی‌شود',
+   /subprocess\.check_call\(args\)/.test(bpCode) &&
+   !/check_call\(args\)[\s\S]{0,80}?except/.test(bpCode),
+   'check_call روی کدِ غیرصفر خطا می‌اندازد؛ try/except دورش یعنی همان ۷٫۲۲');
+ok('۱۰.۲-ب و گردش‌کار هم شکست را رد نمی‌کند',
+   bw.indexOf('continue-on-error') === -1 && !/voicebridge\.py[^\n]*\|\|/.test(bw),
+   'یک `|| echo` در گردش‌کار، قرمز را سبز می‌کند');
+ok('۱۰.۳ خروجی نساخت ⇒ قرمز، نه ردیفِ بسته',
+   /خروجی ساخته نشد/.test(bp) && /return 1/.test(bp));
+
+/* release asset، نه artifact: artifact سی روز بعد می‌میرد و از بیرونِ
+   Actions دانلود نمی‌شود. همان انتخابی که render.js کرد. */
+ok('۱۰.۴ خروجی release asset می‌شود نه artifact',
+   /uploads\.github\.com/.test(bp) && bp.indexOf('actions/upload-artifact') === -1 &&
+   bw.indexOf('actions/upload-artifact') === -1,
+   'artifact سی روز بعد می‌میرد');
+ok('۱۰.۵ و نشانی در نقشه‌ای می‌نشیند که موتور می‌خوانَد',
+   /docs\/voice-renders\.json/.test(bp) &&
+   fs.readFileSync('src/00_Config.gs', 'utf8').indexOf('docs/voice-renders.json') !== -1,
+   'دو نامِ متفاوت یعنی نقشه‌ای که هیچ‌کس نمی‌خوانَد، بی هیچ خطایی');
+
+/* HTML به‌جای JSON: تلهٔ ۷٫۳۳، که چهار اجرا در آن افتاد. */
+ok('۱۰.۶ صفحهٔ HTML به‌جای صف بلند گزارش می‌شود',
+   /صفحهٔ HTML/.test(bp));
+ok('۱۰.۷ و صفِ ننوشته «۰ ردیف» خوانده نمی‌شود',
+   /rev.*< 1/.test(bp) && /هنوز نوشته نشده/.test(bp),
+   'قرمزِ صادق بهتر از سبزِ دروغ');
+
+/* یکی در هر اجرا — jobی که سرِ سقف کشته شود هیچ خروجی‌ای نمی‌دهد. */
+ok('۱۰.۸ یک قسمت در هر اجرا',
+   /todo\[0\]/.test(bp), 'دو تا یعنی نزدیک شدن به سقفِ زمانی');
+ok('۱۰.۹ و سقفِ job با حاشیه بالاتر از عددِ سنجیده‌شده است',
+   (Number((bw.match(/timeout-minutes:\s*(\d+)/) || [])[1]) || 0) >= 60,
+   'قسمتِ نوزده‌دقیقه‌ای ~۲۰ تا ۲۵ دقیقه — اندازه‌گیریِ ۱۸ سپتامبر');
+ok('۱۰.۱۰ روی شاخه checkout می‌کند نه commitِ راه‌انداز',
+   /ref: \$\{\{ github\.ref_name \}\}/.test(bw),
+   'درسِ \u06f7\u066b\u06f2\u06f2: نوشتن روی درختِ کهنه همیشه تضاد می‌گیرد');
+ok('۱۰.۱۱ و حلقهٔ گیت واقعاً می‌تواند دوباره تلاش کند',
+   /git rebase --abort/.test(bw));
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
