@@ -1173,7 +1173,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.36',
+  CODE_VERSION: '7.37',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1293,6 +1293,12 @@ var CFG = {
   VBR_ON: true,                      // صف نوشته می‌شود
   VBR_REPLACE: false,                // ⛔ صوتِ منتشرشده عوض **نمی‌شود**
   VBR_FILE: '_VOICE-RENDER.json',    // صف، در ریشهٔ OUTPUT
+  /* شناسهٔ ثابتِ صف — همان که در `voice-bridge.yml` نشسته. اگر فایل پاک و
+     دوباره ساخته شود `putOutJson_` شناسهٔ تازه می‌سازد، گردش‌کار همچنان
+     کهنه را می‌خوانَد، و **هیچ خطایی بلند نمی‌شود** — صف پر است و هیچ
+     قسمتی تبدیل نمی‌شود. عیناً همان تله‌ای که `ytQueueIdOk_` و
+     `vintQueueIdOk_` برایش نوشته شدند؛ دو بار کافی است. */
+  VBR_QUEUE_ID: '1E9w_-1qF9j24WmBQVaWKjaXpB_Cta-5V',
   VBR_MAP: 'docs/voice-renders.json',// پاسخ، از gitHub raw
   VBR_FOLDER: 'مدل‌های صدا',          // کپیِ مدل، زیرِ OUTPUT
   VBR_SUFFIX: ' — با صدای ',         // نامِ فایلِ تبدیل‌شده

@@ -191,4 +191,29 @@ ok('۹.۲ ولی سطر باز هم هست و می‌گوید خاموش است'
    /خاموش/.test(vbrStatus_().line));
 CFG.VBR_ON = true;
 
+console.log('\n══ ۱۰) شناسهٔ صف — سکوتی که دو بار گران تمام شد ══');
+/* فایل پاک و دوباره ساخته می‌شود، شناسه عوض می‌شود، گردش‌کار همچنان کهنه
+   را می‌خوانَد، و هیچ خطایی بلند نمی‌شود: صف پر است و هیچ قسمتی تبدیل
+   نمی‌شود. `ytQueueIdOk_` و `vintQueueIdOk_` هر دو برای همین نوشته شدند. */
+const realQ = CFG.VBR_QUEUE_ID;
+CFG.VBR_QUEUE_ID = 'ID-THAT-IS-NOT-THERE';
+ok('۱۰.۱ شناسهٔ جابه‌جاشده گرفته می‌شود', vbrQueueIdOk_().ok === false);
+const stq = vbrStatus_();
+ok('۱۰.۲ و در سطرِ روزانه صریح گفته می‌شود',
+   stq.ok === false && stq.line.indexOf('شناسهٔ') !== -1);
+ok('۱۰.۳ ولی سطر را نمی‌بلعد و شمارشِ گیرکردن را کور نمی‌کند',
+   stq.line.indexOf('پلِ رنگِ صدا') === 0 && typeof stq.stuckDays === 'number',
+   'باگِ ۷٫۲۱: return زودهنگام، هم سطر را می‌خورد هم دروازهٔ گیرکردن را');
+CFG.VBR_QUEUE_ID = realQ;
+ok('۱۰.۴ «نشد» ≠ «عوض شد»', (function () {
+   const old = CFG.VBR_QUEUE_ID; CFG.VBR_QUEUE_ID = '';
+   const r = vbrQueueIdOk_().ok; CFG.VBR_QUEUE_ID = old; return r === true;
+ })(), 'شناسهٔ تنظیم‌نشده یک اتهام نیست');
+/* و مرزِ واقعی: شناسه‌ای که در کد نشسته باید همانی باشد که گردش‌کار
+   می‌خوانَد. دو عددِ متفاوت یعنی صفی که هیچ‌کس نمی‌بیند، بی هیچ خطایی. */
+const bwf = fs.readFileSync('.github/workflows/voice-bridge.yml', 'utf8');
+ok('۱۰.۵ شناسه در کد و گردش‌کار یکی است',
+   !!CFG.VBR_QUEUE_ID && bwf.indexOf(CFG.VBR_QUEUE_ID) !== -1,
+   'دو شناسهٔ متفاوت = صفی که هیچ‌وقت خوانده نمی‌شود');
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

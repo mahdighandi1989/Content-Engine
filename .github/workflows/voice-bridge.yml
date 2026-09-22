@@ -70,7 +70,7 @@ jobs:
           # شناسهٔ ثابتِ صف — همان که موتور زیرِ VBR_FILE در ریشهٔ OUTPUT
           # می‌نویسد. اگر فایل پاک و دوباره ساخته شود شناسه عوض می‌شود و
           # اکشن بی‌صدا هیچ‌چیز نمی‌بیند؛ پس موتور هم خودش وارسی‌اش می‌کند.
-          VBR_QUEUE_ID: ${{ vars.VBR_QUEUE_ID }}
+          VBR_QUEUE_ID: '1E9w_-1qF9j24WmBQVaWKjaXpB_Cta-5V'
         run: python3 tools/voicebridge.py
 
       - name: ثبتِ نقشه در ریپو

@@ -215,6 +215,29 @@ function vbrAsk_(show, epNum, folderId, speaker, title) {
                      : { ok: false, why: 'صف ذخیره نشد' };
 }
 
+/**
+ * شناسهٔ صف همان است که گردش‌کار دنبالش می‌گردد؟
+ *
+ * این تله دو بار در این مخزن افتاده (`ytQueueIdOk_`, `vintQueueIdOk_`) و
+ * شکلش هر بار یکی است: فایل پاک و دوباره ساخته می‌شود، `putOutJson_`
+ * شناسهٔ تازه می‌دهد، گردش‌کار همچنان کهنه را می‌خوانَد، و **هیچ خطایی
+ * بلند نمی‌شود** — صف پر است و هیچ قسمتی تبدیل نمی‌شود. دو بار کافی
+ * است؛ این یکی از روزِ اول وارسی می‌شود.
+ *
+ * «نشد» ≠ «عوض شد»: اگر پوشه خوانده نشود یا فایل هنوز ساخته نشده باشد،
+ * این یک اتهام نیست.
+ */
+function vbrQueueIdOk_() {
+  var want = String(CFG.VBR_QUEUE_ID || ''), got = '';
+  if (!want) return { ok: true, want: '', got: '' };
+  try {
+    var it = outFolder_().getFilesByName(vbrFileName_());
+    if (it.hasNext()) got = it.next().getId();
+  } catch (e) { return { ok: true, want: want, got: '' }; }
+  if (!got) return { ok: true, want: want, got: '' };
+  return { ok: got === want, want: want, got: got };
+}
+
 /** نقشهٔ خروجی‌ها، از gitHub raw. یک بار در هر اجرا. */
 var _vbrMapMemo = null;
 function vbrMapCached_() {
@@ -423,6 +446,10 @@ function vbrStatus_() {
       else if (st === 'رهاشده') out.abandoned++;
     }
     out.stuckDays = vbrStuckDays_();
+    /* مشکلِ دوم به سطر **اضافه** می‌شود، نه اینکه جایش را بگیرد — ۷٫۲۲
+       اینجا `return` می‌کرد و شمارشِ گیرکردن را هم کور می‌کرد. */
+    var qi = vbrQueueIdOk_();
+    if (!qi.ok) out.queueId = qi;
   } catch (e) { out.error = e.message; }
 
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
@@ -445,6 +472,12 @@ function vbrStatus_() {
   if (out.waiting > 0 && out.stuckDays >= days) {
     out.ok = false;
     out.line += ' — و ' + fa(out.stuckDays) + ' روز است پاسخی از گردش‌کارِ پل نرسیده.';
+  }
+  if (out.queueId) {
+    out.ok = false;
+    out.line += ' ⚠️ شناسهٔ «' + vbrFileName_() + '» عوض شده — گردش‌کار دنبالِ ' +
+                out.queueId.want + ' می‌گردد ولی فایل حالا ' + out.queueId.got +
+                ' است. تا به‌روز نشدنِ VBR_QUEUE_ID هیچ قسمتی تبدیل نمی‌شود.';
   }
   return out;
 }
