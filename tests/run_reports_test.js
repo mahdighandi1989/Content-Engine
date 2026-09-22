@@ -581,4 +581,78 @@ console.log('\n══ وارسی‌های روزانهٔ ناظر ══');
   delete P[PK.MON_CHECKS];
 }
 
+console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌شد، و چه چیزی حالا می‌گوید ===');
+/* ══ علتِ واقعی، پیدا شده ۲۲ سپتامبر ══
+   تنها مسیرِ بسته‌شدنِ یک ردیف این است که `manifest.json` شناسه‌اش را
+   **به‌نام** در `sourceReportIds` بیاورد (۵٫۹۳، که خودش درست بود).
+   ولی از سی نسخهٔ اخیر **یکی** آن فهرست را پر کرده — پس صف فقط
+   می‌توانست رشد کند. «دری که آدم باید دستی بازش کند، در نیست.»
+   اینجا نه بستنِ خودکار اضافه می‌شود و نه ردیفی دوباره ثبت؛ فقط عدد
+   صادق می‌شود و بی‌جواب‌ماندن خودش یک یافته. */
+{
+  const daysAgo = (n) => {
+    const d = new Date(Date.now() - n * 86400000);
+    const p2 = (x) => (x < 10 ? '0' : '') + x;
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+           ' 12:00';
+  };
+  const mkQ = (id, lastSeen, done, doneAt) => {
+    const r = new Array(REPORT_HEADERS.length).fill('');
+    r[RC.ID-1] = id; r[RC.AT-1] = daysAgo(40); r[RC.LOGGED-1] = daysAgo(40);
+    r[RC.PRI-1] = 'جدی'; r[RC.CAT-1] = 'کد'; r[RC.TITLE-1] = 'ت ' + id;
+    r[RC.OWNER-1] = ROWNER_CODE; r[RC.STATUS-1] = RST.NEEDS_CODE;
+    r[RC.SEEN-1] = 1; r[RC.LAST_SEEN-1] = lastSeen || '';
+    r[RC.DONE-1] = done || ''; r[RC.DONE_AT-1] = doneAt || '';
+    return r;
+  };
+  const at0 = rt.getLastRow() + 1;
+  const fresh = [
+    mkQ('QQ-1', daysAgo(1)),        // هنوز تکرار می‌شود
+    mkQ('QQ-2', daysAgo(2)),
+    mkQ('QQ-3', daysAgo(30)),       // ۳۰ روز است دیده نشده
+    mkQ('QQ-4', daysAgo(45)),
+  ];
+  rt.getRange(at0, 1, fresh.length, REPORT_HEADERS.length).setValues(fresh);
+
+  const q = codeQueue_(hub);
+  ok('ی.۱ «در انتظار» و «ساکت» جدا شمرده می‌شوند',
+     q.pending >= 2 && q.quiet >= 2,
+     'گرفت: pending=' + q.pending + ' quiet=' + q.quiet +
+     ' — گزارشِ چیزی که تکان نمی‌خورد به‌عنوانِ «در انتظار» همان است که هشدار را نویز می‌کند');
+  ok('ی.۲ و هیچ‌کدام بسته نمی‌شوند',
+     rows().filter(r => String(r[RC.ID-1]).indexOf('QQ-') === 0 &&
+                   String(r[RC.STATUS-1]) === RST.NEEDS_CODE).length === 4,
+     'سکوت می‌تواند یعنی خرابیِ خودِ تشخیص‌دهنده؛ بستنِ خودکار آن را برای همیشه پنهان می‌کند');
+
+  const line = codeQueueLine_(q);
+  ok('ی.۳ سطرِ روزانه هر دو عدد را می‌گوید',
+     /در انتظار/.test(line) && /ساکت/.test(line));
+  ok('ی.۴ و صریح می‌گوید «ساکت» یعنی حل‌شده نیست',
+     /حل‌شده/.test(line), line);
+  ok('ی.۵ و می‌گوید هیچ نسخه‌ای به‌نام چیزی نبسته',
+     q.noAnswerDays === -1 && /به‌نام نبسته/.test(line), line);
+
+  /* و الزام: ۷٫۱۸/۷٫۱۹ — تشخیص نیمهٔ گم‌شده نبود، الزام بود. */
+  const before = rows().filter(r => String(r[RC.CAT-1]) === 'کد').length;
+  ok('ی.۶ صفی که جواب نمی‌گیرد خودش یک یافته می‌شود',
+     codeQueueStuck_(hub, q) === true &&
+     rows().some(r => /خالی نمی‌شود/.test(String(r[RC.TITLE-1]))),
+     'گزارشی که هیچ‌کس را مکلف نکند، با نبودنش یکی است');
+  ok('ی.۷ و دستورش راهِ واقعیِ بستن را می‌گوید',
+     rows().some(r => /sourceReportIds/.test(String(r[RC.INSTR-1]))),
+     'وگرنه همان ردیف فردا دوباره ثبت می‌شود و باز بسته نمی‌شود');
+
+  /* مرزِ مقابل: نسخه‌ای که تازگی چیزی را به‌نام بسته، یافته نمی‌سازد. */
+  const at1 = rt.getLastRow() + 1;
+  rt.getRange(at1, 1, 1, REPORT_HEADERS.length).setValues([
+    mkQ('QQ-5', daysAgo(1), 'کدِ نسخهٔ 7.41 خودکار نصب شد', daysAgo(1))]);
+  const q2 = codeQueue_(hub);
+  ok('ی.۸ ولی اگر تازه چیزی بسته شده باشد، یافته‌ای نیست',
+     q2.noAnswerDays === 1 && q2.answeredVersion === '7.41' &&
+     codeQueueStuck_(hub, q2) === false,
+     'گرفت: noAnswerDays=' + q2.noAnswerDays + ' v=' + q2.answeredVersion);
+  ok('ی.۹ و آن‌وقت سطر شکایتی ندارد',
+     !/به‌نام نبسته/.test(codeQueueLine_(q2)), codeQueueLine_(q2));
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

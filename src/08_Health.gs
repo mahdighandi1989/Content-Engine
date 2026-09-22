@@ -550,6 +550,7 @@ function writeStatus_(hub, note) {
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
+    codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -1541,6 +1542,18 @@ function healthCheck() {
       if (vbS.ok === false) problems.push(vbS.line); else notes.push(vbS.line);
     }
   } catch (eVb) {}
+  /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
+     اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
+     شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته
+     نمی‌شد — زنگِ ۷٫۲۷، یک لایه آن‌طرف‌تر. */
+  try {
+    var cq = codeQueue_(hub);
+    var cqLine = codeQueueLine_(cq);
+    if (cqLine) {
+      if (codeQueueStuck_(hub, cq)) problems.push(cqLine);
+      else notes.push(cqLine);
+    }
+  } catch (eCq) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

@@ -1112,6 +1112,41 @@ assertion that cannot fail is worse than none, because it goes green and nobody
 looks again. It now reads only `healthCheck`'s own body. Every new claim here was
 proved falsifiable by deliberately breaking the code, not by reading it.
 
+## The cure for one bug left the only door behind a manual step (7.42)
+
+He asked why 54 rows were still open, and framed it exactly right: *find the
+cause of them **not closing**, don't just log them again.* The cause is one
+sentence, and it was findable in a minute of looking at the code plus a minute
+of looking at git history:
+
+> A row closes **only** when `manifest.json` names its id in `sourceReportIds`.
+
+**Of the last thirty versions, one filled that list.** So the queue could only
+grow. 5.93 was right to make an empty list mean "answers nothing" — before it,
+an empty list closed *everything* and one row carried install stamps from
+fourteen versions. But the cure put the only closing door behind a manual step,
+and the step was performed once in a month. **A gate a human has to open is not
+a gate** — this repo's own rule, violated for a month by the fix for another bug.
+
+**And nothing closes automatically now either, on purpose.** The tempting move is
+"not seen for N days, so it is probably fixed". But if the *detector* broke,
+silence means blindness, not health — and auto-closing hides exactly that case
+forever. So the number is only made honest: **`pending` (still recurring) counted
+separately from `quiet` (not seen for `CODE_QUIET_DAYS`)**, which is 5.88's
+«رهاشده جدا از عقب‌مانده» again, and the daily line says in words that quiet does
+not mean solved.
+
+**Both dates come from events the running system already writes** — «آخرین تکرار»
+from `logSelfFinding_`, and the answer date from the text `markCodeRowsInstalled_`
+writes — never from a stamp of our own. 7.22: an alarm whose own writer resets it
+can never fire.
+
+**And obligation, not just detection.** `CODE_NOANSWER_DAYS` with a non-empty
+queue raises a `NEEDS_CODE` row of its own, carrying the real closing rule in its
+instruction. 7.18/7.19: detection was never the missing half — obligation was. Its
+instruction says explicitly that the answer is *not* to log the rows again, because
+that is precisely the loop it is meant to break.
+
 ## Half a request delivered is a request you have to be asked about twice (7.41)
 
 On 20 September he asked, in one sentence: «بتونم … چه به صورتِ **دائم یا

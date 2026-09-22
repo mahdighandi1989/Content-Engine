@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.41
+ *  موتور محتوا و پادکست — نسخهٔ 7.42
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.41',
+  CODE_VERSION: '7.42',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1351,6 +1351,17 @@ var CFG = {
    * موازی‌بودن سرِ جایش هست (گروهِ هم‌زمانی و کلیدهای کش به گوینده بسته‌اند)؛
    * این عدد فقط می‌گوید هم‌زمان چند تا را **می‌خواهیم**. بالا بردنش وقتی
    * معنا دارد که سقفِ کش بزرگ‌تر باشد. */
+  /* ══ صفِ «نیازمند تعویض کد» (۷٫۴۲) ══
+     `CODE_QUIET_DAYS`: ردیفی که این‌قدر روز دیده نشده، **جدا** شمرده
+     می‌شود — «ساکت»، نه «در انتظار». بسته نمی‌شود: سکوت می‌تواند یعنی
+     حل شده، و می‌تواند یعنی خودِ تشخیص‌دهنده کور شده؛ و بستنِ خودکار
+     حالتِ دوم را برای همیشه پنهان می‌کند.
+     `CODE_NOANSWER_DAYS`: این‌قدر روز که هیچ نسخه‌ای ردیفی را **به‌نام**
+     نبندد، خودش یک یافته می‌شود. بر حسبِ روز، نه اجرا — یک شبِ بد باید
+     بتواند یک شبِ بد بماند. */
+  CODE_QUIET_DAYS: 14,
+  CODE_NOANSWER_DAYS: 21,
+
   VOICE_MAX_ACTIVE: 1,
 
   /* ══════════════════════════════════════════════════════════════════
@@ -11084,6 +11095,7 @@ function writeStatus_(hub, note) {
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
+    codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -12075,6 +12087,18 @@ function healthCheck() {
       if (vbS.ok === false) problems.push(vbS.line); else notes.push(vbS.line);
     }
   } catch (eVb) {}
+  /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
+     اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
+     شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته
+     نمی‌شد — زنگِ ۷٫۲۷، یک لایه آن‌طرف‌تر. */
+  try {
+    var cq = codeQueue_(hub);
+    var cqLine = codeQueueLine_(cq);
+    if (cqLine) {
+      if (codeQueueStuck_(hub, cq)) problems.push(cqLine);
+      else notes.push(cqLine);
+    }
+  } catch (eCq) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
@@ -14883,6 +14907,142 @@ function monChecksStatus_(hub, raise) {
 }
 
 /** موردی که خودِ موتور پیدا کرده (نه Cowork) را در همان تب ثبت می‌کند. */
+/**
+ * صفِ «نیازمند تعویض کد» — چند تا، چند وقت، و کِی آخرین بار چیزی بسته شد.
+ *
+ * ══ چرا این تابع لازم شد (۷٫۴۲) ══
+ * ۲۲ سپتامبر صاحبِ برنامه پرسید چرا ۵۴ ردیف باز مانده‌اند و گفت: «علتِ
+ * **نبستن** را پیدا کن، نه اینکه دوباره ثبتشان کنی.»
+ *
+ * علت پیدا شد و یک جمله است: تنها مسیرِ بسته‌شدنِ یک ردیف این است که
+ * `manifest.json` شناسه‌اش را **به‌نام** در `sourceReportIds` بیاورد
+ * (۵٫۹۳، که خودش درست بود — پیشترش فهرستِ خالی *همه* را می‌بست و یک ردیف
+ * مُهرِ چهارده نسخه داشت). ولی از سی نسخهٔ اخیر **یکی** آن فهرست را پر
+ * کرده. یعنی صف فقط می‌تواند رشد کند.
+ *
+ * این همان قاعدهٔ خودِ این پرونده است که یک ماه نقض شده بود: **دری که
+ * آدم باید دستی بازش کند، در نیست.**
+ *
+ * ══ و چرا اینجا «بسته» نمی‌کنیم ══
+ * وسوسه‌اش هست: ردیفی که N روز دیده نشده لابد حل شده. ولی اگر خودِ
+ * *تشخیص‌دهنده* خراب شده باشد، سکوت یعنی کوری نه سلامت — و بستنِ
+ * خودکار آن را برای همیشه پنهان می‌کند. پس فقط **جدا شمرده** می‌شود:
+ * «در انتظار» یعنی هنوز تکرار می‌شود، «ساکت» یعنی N روز است دیده نشده.
+ * همان تفکیکِ «رهاشده از عقب‌مانده» در ۵٫۸۸ — گزارشِ چیزی که هرگز
+ * تکان نمی‌خورد به‌عنوانِ «در انتظار» همان است که هشدار را نویز می‌کند.
+ *
+ * و «آخرین شاهد» از ستونی می‌آید که **خودِ موتور** می‌نویسد
+ * («آخرین تکرار»، در `logSelfFinding_`), نه از مُهری که خودمان بگذاریم:
+ * زنگی که نویسنده‌اش هر شب صفرش کند هرگز به صدا درنمی‌آید (۷٫۲۲).
+ */
+function codeQueue_(hub) {
+  var out = { pending: 0, quiet: 0, oldestDays: 0, answeredAt: '',
+              answeredVersion: '', noAnswerDays: 0, ok: true, line: '' };
+  var st;
+  try { st = loadReportRows_(hub || getHub_()); }
+  catch (e) { out.error = e.message; return out; }
+  if (!st || !st.rows || !st.rows.length) return out;
+
+  var quietDays = Math.max(1, Number(CFG.CODE_QUIET_DAYS) || 14);
+  var now = new Date().getTime();
+  var days = function (v) {
+    var t = parseWhen_(String(v || ''));
+    if (isNaN(t)) return -1;
+    return Math.floor((now - t) / 86400000);
+  };
+  var newestAnswer = -1;
+  for (var i = 0; i < st.rows.length; i++) {
+    var r = st.rows[i].vals;
+    var stt = String(r[RC.STATUS - 1] || '');
+    /* آخرین باری که یک نسخه واقعاً ردیفی را به‌نام بست. متنش را خودِ
+       `markCodeRowsInstalled_` می‌نویسد، پس منبعش رویدادِ واقعی است. */
+    var done = String(r[RC.DONE - 1] || '');
+    var mv = done.match(/کدِ نسخهٔ\s*([\d.]+)\s*خودکار نصب شد/);
+    if (mv) {
+      var da = days(r[RC.DONE_AT - 1]);
+      if (da >= 0 && (newestAnswer < 0 || da < newestAnswer)) {
+        newestAnswer = da;
+        out.answeredAt = String(r[RC.DONE_AT - 1] || '');
+        out.answeredVersion = mv[1];
+      }
+    }
+    if (stt !== RST.NEEDS_CODE) continue;
+    /* آخرین شاهد: آخرین تکرار، وگرنه تاریخِ ثبت، وگرنه تاریخِ گزارش. */
+    var seenD = days(r[RC.LAST_SEEN - 1]);
+    if (seenD < 0) seenD = days(r[RC.LOGGED - 1]);
+    if (seenD < 0) seenD = days(r[RC.AT - 1]);
+    if (seenD > out.oldestDays) out.oldestDays = seenD;
+    if (seenD >= quietDays) out.quiet++; else out.pending++;
+  }
+  out.noAnswerDays = newestAnswer < 0 ? -1 : newestAnswer;
+  return out;
+}
+
+/**
+ * سطرِ روزانهٔ صفِ کد — **هر روز**، حتی وقتی صف خالی است.
+ *
+ * خالی بودنِ سطر نه خبر است نه هشدار؛ فقط شبیهِ سلامت است. همان درسی
+ * که `handoutStatus_().line` و `voiceIntake.line` از آن آمدند.
+ */
+function codeQueueLine_(q) {
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+  if (!q || q.error) return 'صفِ تعویضِ کد — خوانده نشد' + (q && q.error ? ': ' + q.error : '') + '.';
+  var total = q.pending + q.quiet;
+  if (!total) return 'صفِ تعویضِ کد — خالی است.';
+  var bits = ['در انتظار: ' + fa(q.pending)];
+  if (q.quiet) {
+    bits.push('ساکت (بیش از ' + fa(Math.max(1, Number(CFG.CODE_QUIET_DAYS) || 14)) +
+              ' روز دیده نشده): ' + fa(q.quiet));
+  }
+  var line = 'صفِ تعویضِ کد — ' + bits.join(' · ');
+  if (q.noAnswerDays < 0) {
+    line += ' — و **هیچ نسخه‌ای تا امروز ردیفی را به‌نام نبسته**.';
+  } else if (q.noAnswerDays >= Math.max(1, Number(CFG.CODE_NOANSWER_DAYS) || 21)) {
+    line += ' — و ' + fa(q.noAnswerDays) + ' روز است هیچ نسخه‌ای ردیفی را ' +
+            'به‌نام نبسته (آخری: ' + q.answeredVersion + ').';
+  }
+  /* «ساکت» ادعای حل‌شدن نیست و نباید این‌طور خوانده شود. */
+  if (q.quiet) {
+    line += ' «ساکت» یعنی دیده نشده، نه حل‌شده — با تکرار دوباره باز می‌شود.';
+  }
+  return line;
+}
+
+/**
+ * صفی که خالی نمی‌شود، **خودش** یافته است.
+ *
+ * ۷٫۱۸/۷٫۱۹ همین را نوشت: تشخیص هرگز نیمهٔ گم‌شده نبود، **الزام** بود.
+ * گزارشی که خوانده و بایگانی شود و هیچ‌کس را مکلف نکند، با نبودنش یکی
+ * است. پس وقتی نسخه‌ها پشتِ‌هم بی‌جواب می‌روند و صف پر است، این خودش
+ * یک ردیفِ `NEEDS_CODE` می‌شود — یعنی سرِ ساختنِ نسخهٔ بعد دیده می‌شود.
+ *
+ * و یک شبِ بد یافته نمی‌سازد: آستانه بر حسبِ **روز** است، نه یک اجرا.
+ */
+function codeQueueStuck_(hub, q) {
+  try {
+    var need = Math.max(1, Number(CFG.CODE_NOANSWER_DAYS) || 21);
+    if (!q || q.error) return false;
+    if (q.pending + q.quiet <= 0) return false;
+    if (q.noAnswerDays >= 0 && q.noAnswerDays < need) return false;
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'کد', key: 'code-queue-stuck',
+      title: 'صفِ «نیازمند تعویض کد» خالی نمی‌شود',
+      detail: (q.pending + q.quiet) + ' ردیف باز است (' + q.pending +
+              ' در انتظار، ' + q.quiet + ' ساکت) و ' +
+              (q.noAnswerDays < 0 ? 'تا امروز هیچ نسخه‌ای'
+                                  : q.noAnswerDays + ' روز است هیچ نسخه‌ای') +
+              ' ردیفی را به‌نام نبسته.',
+      instruction: 'تنها راهِ بسته‌شدنِ یک ردیف این است که ' +
+        '`manifest.json` شناسه‌اش را در `sourceReportIds` بیاورد. ' +
+        'هنگامِ ساختنِ نسخهٔ بعد، شناسهٔ هر ردیفی را که واقعاً جواب ' +
+        'می‌دهی آنجا بنویس. اگر ردیفی دیگر موضوعیت ندارد، دستی ' +
+        '«نادیده گرفته شد» بزن — بستنِ خودکارِ ردیفِ ساکت عمداً انجام ' +
+        'نمی‌شود، چون سکوت می‌تواند خرابیِ خودِ تشخیص‌دهنده باشد.'
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
 function logSelfFinding_(hub, f) {
   try {
     hub = hub || getHub_();
