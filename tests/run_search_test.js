@@ -334,6 +334,10 @@ ok('۱۶.۱ تبی که خطا داد گزارش می‌شود',
 ok('۱۶.۲ و در شمارشِ «گشته شد» حساب نمی‌شود',
    r16.sheets < srchHubTabs_(hub).length,
    'ادعای پوششی که وجود نداشته، از سکوت بدتر است');
+ok('۱۶.۳ ولی در مخرج هست — صورت و مخرج دو چیزند (۷٫۵۱)',
+   r16.sheetsAll > r16.sheets && r16.sheetsAll === srchHubTabs_(hub).length,
+   'گرفت: ' + r16.sheets + ' از ' + r16.sheetsAll + ' — مخرجی که از صورت گرفته شود ' +
+   'همیشه «همه‌اش را گشتم» می‌گوید، و همین بود که ۲۳ سپتامبر ۳ تب را کامل نشان داد');
 delete bad.createTextFinder;
 
 console.log('\n══ ۱۷) مدل حق دارد کنار بگذارد، نه پنهان کند ══');
@@ -384,6 +388,131 @@ const r19 = srchRun_(longQ, { mode: 'ساده', sources: false });
 ok('۱۹.۱ واژه‌ها بریده می‌شوند و گفته می‌شود',
    r19.terms.length <= (CFG.SEARCH_TERMS_MAX || 12) &&
    r19.notes.some(n => n.indexOf('واژهٔ نخست') !== -1),
-   'هر واژه یک پویشِ کاملِ سمتِ سرور در هر تب است');
+   'طولِ برنامهٔ منظمِ RE2 و امتیازدهیِ هر واژه روی هر ردیف — از ۷٫۵۱ دیگر نه شمارِ پویش');
+
+console.log('\n══ ۲۰) هزینهٔ گشتن: چرا ۲۲۶ ثانیه به سه تب از چهل رسید (۷٫۵۱) ══');
+/* ══ چه چیزی سنجیده می‌شود ══
+   جست‌وجوی ۲۳ سپتامبر ۲۲۶ ثانیه گرفت و «۳ تب گشته شد» نشان داد — بی مخرج،
+   پس شبیهِ تمامیت بود. دو هزینه روی هم افتاده بودند و هیچ‌کدام سنجیده نشده
+   بود: هر **واژه** یک پویشِ کاملِ سمتِ سرور در هر تب، و هر پویش صدها
+   `findNext` که هر کدام یک رفت‌وبرگشت است. این بخش هر دو را با شمردنِ
+   فراخوان‌های واقعی می‌سنجد، نه با خواندنِ کد. */
+const { Sheet: MSheet } = require('./lib/mock.js');
+mkCat('گشت‌شمار', [row({ id: 'CT1', topic: 'گشت‌آزما و دلتا و اپسیلون و زتا و اتا' })]);
+
+const origCTF = MSheet.prototype.createTextFinder;
+let ctf = 0;
+MSheet.prototype.createTextFinder = function (q) { ctf++; return origCTF.call(this, q); };
+ctf = 0; const rA = srchRun_('گشت‌آزما', { mode: 'ساده', sources: false });
+const scanOne = ctf;
+ctf = 0; const rB = srchRun_('گشت‌آزما دلتا اپسیلون زتا اتا', { mode: 'ساده', sources: false });
+const scanMany = ctf;
+ctf = 0; const rT = srchRun_('گشت‌آزما دلتا', { mode: 'ساده', sources: false });
+const scanTwo = ctf;
+MSheet.prototype.createTextFinder = origCTF;
+
+ok('۲۰.۱ دوازده واژه یک الگو می‌شوند و نه دوازده الگو',
+   srchPatGroups_(['الف', 'بتا', 'گاما', 'دلتا', 'اپسیلون', 'زتا',
+                   'اتا', 'تتا', 'یوتا', 'کاپا', 'لاندا', 'مو']).length === 1,
+   'گرفت: ' + srchPatGroups_(['الف', 'بتا']).length + ' برای دو واژه');
+const gAny = srchPatGroups_(['کتابخانه', 'بورس'])[0];
+ok('۲۰.۲ و الگوی «یکی از این‌ها» هر دو واژه را می‌گیرد',
+   new RegExp(gAny, 'u').test('كتابخانه ملي') && new RegExp(gAny, 'u').test('بورس تهران'),
+   'ادغام نباید همان بلعیدنِ املا را که ۷٫۲۴ ساخت از بین ببرد');
+{
+  const realPat = CFG.SEARCH_PAT_CHARS; CFG.SEARCH_PAT_CHARS = 300;
+  const grp = srchPatGroups_(['الف', 'بتا', 'گاما', 'دلتا', 'اپسیلون', 'زتا',
+                              'اتا', 'تتا', 'یوتا', 'کاپا', 'لاندا', 'مو']);
+  CFG.SEARCH_PAT_CHARS = realPat;
+  ok('۲۰.۳ الگوی بلند گروه می‌شود و نه یک رشتهٔ بی‌کران', grp.length > 1,
+     'RE2 برنامهٔ بسیار بلند را رد می‌کند و الگوی باطل یعنی «پیدا نشد» برای چیزی که هست');
+}
+ok('۲۰.۴ شمارِ پویشِ سمتِ سرور به شمارِ واژه بند نیست',
+   scanMany === scanOne && scanOne > 0,
+   'یک واژه ' + scanOne + ' پویش، پنج واژه ' + scanMany +
+   ' — پیش از ۷٫۵۱ حالتِ هوشمند تا سیزده برابر پویش می‌کرد و کمتر هم وقت داشت');
+ok('۲۰.۵ عبارتِ دوواژه‌ای یک پویش در هر تب است و نه سه',
+   scanTwo === rT.sheetsAll && rT.sheetsAll > 0,
+   'الگوی «عبارتِ کامل» از مرحلهٔ یافتن حذف شد: هر ردیفی که کلِ عبارت را ' +
+   'دارد واژه‌هایش را هم دارد. گرفت: ' + scanTwo + ' پویش در ' + rT.sheetsAll + ' تب');
+ok('۲۰.۶ راهِ رفته findAll است — یک رفت‌وبرگشت به‌جای صدها',
+   rA.via === 'findAll', 'گرفت: ' + rA.via);
+{
+  /* ══ سقوط به سمتِ کندی، نه به سمتِ جوابِ غلط ══
+     خطرِ `findAll` حافظه است. اگر یک روز بترکد، همان حلقهٔ کرانه‌دارِ قدیم
+     باید همان ردیف‌ها را بدهد — وگرنه «پیدا نشد» می‌گیریم برای چیزی که هست. */
+  const keep = MSheet.prototype.createTextFinder;
+  MSheet.prototype.createTextFinder = function (q) {
+    const api = keep.call(this, q), w = {};
+    for (const k in api) w[k] = api[k];
+    w.findAll = function () { throw new Error('از حافظه گذشت'); };
+    return w;
+  };
+  const rC = srchRun_('گشت‌آزما', { mode: 'ساده', sources: false });
+  MSheet.prototype.createTextFinder = keep;
+  ok('۲۰.۷ اگر findAll بترکد، حلقهٔ قدیم همان ردیف‌ها را می‌دهد',
+     rC.via === 'findNext' && rC.items.length === rA.items.length && rA.items.length > 0,
+     'گرفت: ' + rC.via + ' با ' + rC.items.length + ' در برابرِ ' + rA.items.length);
+}
+
+console.log('\n══ ۲۰-ب) کیفِ ردیف هم تقسیم می‌شود، نه نخست‌آمده‌نخست‌خورده ══');
+{
+  /* ══ همان باگِ ۷٫۲۴ در منبعی دیگر ══
+     `SEARCH_ROWS_MAX` یک کیفِ سراسری بود: با ۴۰۰ یافته به ازای هر تب، شش تبِ
+     اول کیف را خالی می‌کردند و تب‌های بعدی «گشته» شمرده می‌شدند بی آنکه یک
+     ردیف از آن‌ها خوانده شود. اینجا دو تبِ پرتطبیق ساخته می‌شود و پرسش این
+     است که آیا از **هر دو** چیزی خوانده شد. */
+  const big1 = [], big2 = [];
+  for (let i = 0; i < 200; i++) big1.push(row({ id: 'S1_' + i, topic: 'سهم‌آزما یکم ' + i }));
+  for (let i = 0; i < 200; i++) big2.push(row({ id: 'S2_' + i, topic: 'سهم‌آزما دوم ' + i }));
+  mkCat('زخورندهٔ اول', big1);
+  mkCat('زخورندهٔ دوم', big2);
+  const realRows2 = CFG.SEARCH_ROWS_MAX; CFG.SEARCH_ROWS_MAX = 200;
+  const colSh = srchCollect_(['سهم‌آزما'], 'سهم‌آزما', { sources: false, budgetMs: 200000 });
+  CFG.SEARCH_ROWS_MAX = realRows2;
+  const seen = {};
+  colSh.items.forEach(it => { seen[it.tab] = (seen[it.tab] || 0) + 1; });
+  ok('۲۰.۸ تبِ پرتطبیق کیفِ ردیفِ بقیه را نمی‌خورد',
+     !!seen['زخورندهٔ اول'] && !!seen['زخورندهٔ دوم'],
+     'گرفت: ' + JSON.stringify(seen));
+  const rws = colSh.items.filter(it => it.tab === 'زخورندهٔ اول').map(it => it.row);
+  ok('۲۰.۹ و نمونه از سراسرِ تب برداشته می‌شود، نه از کهنه‌ترین ردیف‌ها',
+     Math.max.apply(null, rws) > 150,
+     'تب ردیفِ ۲ تا ۲۰۱ دارد؛ «N تای اول» بالاترین را ۱۰۱ می‌دهد. گرفت: ' +
+     Math.max.apply(null, rws) + ' — بانک افزودنی است، پس «اولِ تب» یعنی «کهنه‌ترین»، ' +
+     'و خواستهٔ صریح این بود: «نه از حیثِ زمانی بلکه از حیثِ محتوایی»');
+  ok('۲۰.۱۰ و نمونه‌گیری در قابِ سرخ نمی‌رود، در یادداشت می‌رود',
+     colSh.sampled > 0 && colSh.notes.some(n => n.indexOf('پخش‌شده') !== -1),
+     'هشداری که برای حالتِ سالم روشن شود، همان هشداری است که یاد می‌گیرند نخوانند');
+}
+ok('۲۰.۱۱ پخش‌کردن سراسرِ بازه را می‌گیرد',
+   (function () {
+     const ord = []; for (let i = 2; i <= 101; i++) ord.push(i);
+     const sp = srchSpread_(ord, 10);
+     return sp.length === 10 && sp[sp.length - 1] > 60;
+   })(),
+   '«ده ردیفِ اول» یعنی «کهنه‌ترین ده»');
+ok('۲۰.۱۱-ب و وقتی یافته‌ها از سهم کمتر باشند همه می‌مانند',
+   srchSpread_([3, 9, 12], 10).length === 3 && srchSpread_([], 5).length === 0);
+
+console.log('\n══ ۲۰-پ) مخرج: «۳ تب» با «۳ تب از ۴۰» یکی نیست ══');
+{
+  const rOff = srchRun_('گشت‌آزما', { mode: 'ساده', sources: false });
+  const realSrc3 = CFG.SOURCES;
+  const f3 = SpreadsheetApp.create('SRC-DENOM');
+  global.__SS[f3.getId()] = f3;
+  const s3a = f3.insertSheet('T1'); s3a.appendRow(['نام فایل', 'متن']);
+  const s3b = f3.insertSheet('T2'); s3b.appendRow(['نام فایل', 'متن']);
+  CFG.SOURCES = [{ key: 'd', id: f3.getId(), title: 'SRC-DENOM', schema: 'auto' }];
+  const rOn = srchRun_('گشت‌آزما', { mode: 'ساده', sources: true });
+  CFG.SOURCES = realSrc3;
+  ok('۲۰.۱۲ مخرج شیت‌های منبع را هم می‌شمارد',
+     rOn.sheetsAll > rOff.sheetsAll && rOff.sheetsAll > 0,
+     'گرفت: ' + rOff.sheetsAll + ' → ' + rOn.sheetsAll +
+     ' — بی مخرج، «۳ تب گشته شد» بوی تمامیت می‌دهد و کاربر نتیجه می‌گیرد آن چیز نیست');
+  ok('۲۰.۱۳ و صورت هرگز از مخرج بیشتر نمی‌شود',
+     rOn.sheets <= rOn.sheetsAll && rOff.sheets <= rOff.sheetsAll,
+     'گرفت: ' + rOn.sheets + '/' + rOn.sheetsAll);
+}
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

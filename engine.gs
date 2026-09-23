@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.50
+ *  موتور محتوا و پادکست — نسخهٔ 7.51
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.50',
+  CODE_VERSION: '7.51',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1454,8 +1454,24 @@ var CFG = {
   SEARCH_BLOCK_CELLS: 6000,
   // سقفِ کلِ ردیف‌هایی که در یک جست‌وجو **خوانده** می‌شوند
   SEARCH_ROWS_MAX: 2500,
-  // سقفِ واژه‌ها: یک بندِ چسبانده‌شده ۴۳ واژه می‌شود، یعنی ۴۳ پویشِ کامل در هر تب
+  /* سقفِ واژه‌ها. تا ۷٫۵۰ دلیلش «۴۳ واژه یعنی ۴۳ پویشِ کامل در هر تب» بود؛
+     از ۷٫۵۱ همهٔ واژه‌ها در یک الگو می‌روند، پس دلیلش شد طولِ برنامهٔ منظمِ
+     RE2 و هزینهٔ امتیازدهیِ هر واژه روی هر ردیف. */
   SEARCH_TERMS_MAX: 12,
+  /* حدِ نویسهٔ یک الگوی «یکی از این‌ها». RE2 برنامهٔ منظمِ بسیار بلند را رد
+     می‌کند و الگوی باطل یعنی «پیدا نشد» برای چیزی که هست — پس واژه‌ها در
+     چند گروه تقسیم می‌شوند و نه در یک رشتهٔ بی‌کران. با واژه‌های فارسیِ
+     معمولی ۱۲ واژه ~۱٬۲۰۰ نویسه است، یعنی یک گروه. */
+  SEARCH_PAT_CHARS: 2000,
+  /* چند تطبیقِ خام از `findAll` پیموده شود. این با سقفِ **ردیف** یکی نیست:
+     یک واژه می‌تواند در بیستِ ستونِ یک ردیف باشد. */
+  SEARCH_FIND_MAX: 6000,
+  /* کفِ سهمِ هر تب از زمان و از ردیف. سهم = باقیماندهٔ بودجه ÷ باقیماندهٔ
+     تب‌ها، و این کف جلوی «۴۰ تب، هر کدام یک ردیف» را می‌گیرد. تا ۷٫۵۰
+     تقسیمی وجود نداشت: تبِ اول می‌توانست کلِ بودجه را بخورد و ترتیبِ
+     `getSheets` تعیین کند چه چیزی گشته می‌شود. */
+  SEARCH_TAB_MS_MIN: 2500,
+  SEARCH_TAB_ROWS_MIN: 15,
   // سقفِ کلِ نامزدها که متنشان خوانده می‌شود
   SEARCH_CAND_MAX: 240,
   // چند مورد به کاربر نشان داده شود
@@ -48365,12 +48381,21 @@ function srchHubTabs_(hub) {
 /**
  * شماره‌ردیف‌هایی که الگو در آن‌ها پیدا شد.
  *
- * `findNext` و نه `findAll`: یک واژهٔ پرتکرار در شیتی ۶۲ مگابایتی می‌تواند
- * ده‌ها هزار نتیجه بدهد و `findAll` همه را یکجا می‌سازد. با `findNext` سقف
- * واقعاً سقف است.
+ * ══ `findAll` نخست، `findNext` به‌عنوانِ سقوطِ مطمئن (۷٫۵۱) ══
+ * تا ۷٫۵۰ این تابع فقط حلقهٔ `findNext` بود، با این استدلال که «با
+ * `findNext` سقف واقعاً سقف است». استدلال درست بود و هزینه‌اش هرگز
+ * سنجیده نشده بود: هر `findNext` یک رفت‌وبرگشتِ سمتِ سرور است و یک واژه
+ * که در پنجِ ستونِ دویست ردیف باشد یعنی هزار رفت‌وبرگشت در **یک** تب.
+ * جست‌وجوی ۲۳ سپتامبر ۲۲۶ ثانیه گرفت و به سه تب از چهل رسید — یعنی
+ * «همه‌اش را می‌گردم» در عمل هفت درصد بود.
+ * `findAll` همان را در یک رفت‌وبرگشت می‌دهد. خطرش حافظه است (واژهٔ
+ * پرتکرار در شیتی ۶۲ مگابایتی ده‌ها هزار Range می‌سازد)، پس دو مهار
+ * دارد: فقط `SEARCH_FIND_MAX` تطبیقِ نخست پیموده می‌شود، و اگر خودِ
+ * فراخوان شکست، همان حلقهٔ کرانه‌دارِ قدیم اجرا می‌شود. سقوط به سمتِ
+ * کندی است، نه به سمتِ جوابِ غلط — و کدام راه رفته، گزارش می‌شود.
  */
 function srchFind_(sh, pattern, cap, deadline) {
-  var res = { rows: [], cut: false };
+  var res = { rows: [], cut: false, via: '', matches: 0 };
   var tf;
   try {
     tf = sh.createTextFinder(pattern);
@@ -48379,40 +48404,125 @@ function srchFind_(sh, pattern, cap, deadline) {
     if (tf.matchEntireCell) tf.matchEntireCell(false);
   } catch (e) { res.err = e.message; return res; }
   var rows = {}, n = 0, first = 0;
-  try {
-    /* ══ دو نگهبان، و هرکدام دلیلِ خودش را دارد ══
-       سقفِ تکرار: یک واژه می‌تواند در بیستِ ستونِ **یک** ردیف باشد، پس
-       تعدادِ فراخوان با تعدادِ ردیف یکی نیست.
-       و `findNext` در Apps Scriptِ واقعی سرِ ته‌کشیدن **دور می‌زند** و از
-       اول شروع می‌کند. بی تشخیصِ دور، هر واژهٔ کمیاب تا سقف فراخوان
-       می‌سوزاند و هر واژهٔ پرتکرار هم همان. رسیدنِ دوباره به نخستین
-       نتیجه یعنی یک دور کامل زده‌ایم. */
-    for (var i = 0; i < cap * 6; i++) {
-      /* ══ مهلت **داخلِ** همین حلقه، نه بیرونش (۷٫۲۵) ══
-         تا ۷٫۲۴ کوچک‌ترین واحدِ غیرقابلِ‌قطع همین حلقه بود: تا ۲۴۰۰
-         رفت‌وبرگشت به یک شیتِ ۶۲ مگابایتی. با ۱۵۰ میلی‌ثانیه به ازای هر
-         فراخوان، یک تب به‌تنهایی از کلِ بودجه رد می‌شد — و ششْ‌دقیقهٔ
-         Apps Script قابلِ گرفتن نیست، پس کاربر به‌جای جوابِ ناقص با
-         هشدار، یک استثنا می‌دید. هر ۲۵ فراخوان یک بار ساعت دیده می‌شود. */
-      if (deadline && (i % 25) === 24 && new Date().getTime() > deadline) {
-        res.cut = true; res.timeout = true; break;
-      }
-      var r = tf.findNext();
-      if (!r) break;
-      var row = r.getRow(), col = r.getColumn ? r.getColumn() : 0;
-      var sig = row + ':' + col;
-      if (!first) first = sig;
-      else if (sig === first) break;                 // دور زد
-      if (row > 1 && !rows[row]) {
-        rows[row] = 1; n++;
+  var all = null;
+  try { if (tf.findAll) all = tf.findAll(); }
+  catch (eA) { all = null; res.fell = eA.message || 'findAll'; }
+  if (all) {
+    res.via = 'findAll';
+    res.matches = all.length;
+    /* سقفِ پیمایش از سقفِ ردیف جداست: ردیف می‌گوید چند تا نگه می‌داریم و
+       این می‌گوید چند تطبیق را حاضریم **ببینیم**. یک واژه می‌تواند در
+       بیستِ ستونِ یک ردیف باشد، پس این دو عدد یکی نیستند. */
+    var walk = Math.max(cap, Number(CFG.SEARCH_FIND_MAX) || 6000);
+    for (var a = 0; a < all.length; a++) {
+      if (a >= walk) { res.cut = true; break; }
+      var rw = 0;
+      try { rw = all[a].getRow(); } catch (eR) { continue; }
+      if (rw > 1 && !rows[rw]) {
+        rows[rw] = 1; n++;
         if (n >= cap) { res.cut = true; break; }
       }
-      if (i === cap * 6 - 1) res.cut = true;         // سقفِ فراخوان
     }
-  } catch (e2) { res.err = e2.message; }
+  } else {
+    res.via = 'findNext';
+    try {
+      /* ══ دو نگهبان، و هرکدام دلیلِ خودش را دارد ══
+         سقفِ تکرار: یک واژه می‌تواند در بیستِ ستونِ **یک** ردیف باشد، پس
+         تعدادِ فراخوان با تعدادِ ردیف یکی نیست.
+         و `findNext` در Apps Scriptِ واقعی سرِ ته‌کشیدن **دور می‌زند** و از
+         اول شروع می‌کند. بی تشخیصِ دور، هر واژهٔ کمیاب تا سقف فراخوان
+         می‌سوزاند و هر واژهٔ پرتکرار هم همان. رسیدنِ دوباره به نخستین
+         نتیجه یعنی یک دور کامل زده‌ایم. */
+      for (var i = 0; i < cap * 6; i++) {
+        /* ══ مهلت **داخلِ** همین حلقه، نه بیرونش (۷٫۲۵) ══
+           تا ۷٫۲۴ کوچک‌ترین واحدِ غیرقابلِ‌قطع همین حلقه بود: تا ۲۴۰۰
+           رفت‌وبرگشت به یک شیتِ ۶۲ مگابایتی. با ۱۵۰ میلی‌ثانیه به ازای هر
+           فراخوان، یک تب به‌تنهایی از کلِ بودجه رد می‌شد — و ششْ‌دقیقهٔ
+           Apps Script قابلِ گرفتن نیست، پس کاربر به‌جای جوابِ ناقص با
+           هشدار، یک استثنا می‌دید. هر ۲۵ فراخوان یک بار ساعت دیده می‌شود. */
+        if (deadline && (i % 25) === 24 && new Date().getTime() > deadline) {
+          res.cut = true; res.timeout = true; break;
+        }
+        var r = tf.findNext();
+        if (!r) break;
+        var row = r.getRow(), col = r.getColumn ? r.getColumn() : 0;
+        var sig = row + ':' + col;
+        if (!first) first = sig;
+        else if (sig === first) break;                 // دور زد
+        res.matches++;
+        if (row > 1 && !rows[row]) {
+          rows[row] = 1; n++;
+          if (n >= cap) { res.cut = true; break; }
+        }
+        if (i === cap * 6 - 1) res.cut = true;         // سقفِ فراخوان
+      }
+    } catch (e2) { res.err = e2.message; }
+  }
   for (var k in rows) if (Object.prototype.hasOwnProperty.call(rows, k)) res.rows.push(Number(k));
-  res.rows.sort(function (a, b) { return a - b; });
+  res.rows.sort(function (a2, b2) { return a2 - b2; });
   return res;
+}
+
+/**
+ * واژه‌ها → کمترین شمارِ الگو.
+ *
+ * ══ چرا یک الگو برای همهٔ واژه‌ها (۷٫۵۱) ══
+ * تا ۷٫۵۰ هر واژه الگوی خودش را داشت و هر الگو یک پویشِ کاملِ سمتِ سرور
+ * در **هر** تب. یادداشتِ خودِ `srchRun_` این را می‌دانست و درمانش را
+ * سقفِ واژه گذاشته بود (`SEARCH_TERMS_MAX`) — یعنی شمارِ پویش را کم کرد
+ * ولی وابستگی‌اش به شمارِ واژه را نگه داشت. نتیجه‌اش این بود که حالتِ
+ * **هوشمند**، که واژه‌ها را گسترش می‌دهد، تا سیزده برابرِ حالتِ ساده پویش
+ * می‌کرد و — چون بازیابیِ معنایی پیش از آن وقت می‌بَرد — **کمتر** وقت
+ * داشت. یعنی قابلیتی که برای بهتر گشتن ساخته شده بود، کمتر می‌گشت.
+ *
+ * یک الگوی «یکی از این‌ها» همان ردیف‌ها را در یک پویش می‌دهد. امتیازِ
+ * به‌ازای واژه آسیب نمی‌بیند: `srchScore_` واژه‌ها را روی متنِ
+ * خوانده‌شده و **در حافظه** می‌سنجد، نه با پویشِ جدا.
+ *
+ * و الگوی «عبارتِ کامل» از مرحلهٔ یافتن حذف شد: هر ردیفی که کلِ عبارت را
+ * دارد واژه‌هایش را هم دارد (واژه‌ها از همان عبارت درآمده‌اند)، پس یک
+ * پویشِ سربه‌سر اضافه بود. پاداشِ عبارتِ کامل سرِ جای خودش است، در
+ * `srchScore_`.
+ *
+ * گروه‌بندی برای RE2 است و نه برای زیبایی: برنامهٔ منظمِ بسیار بلند را
+ * موتورِ شیت رد می‌کند، و یک الگوی باطل یعنی «پیدا نشد» برای چیزی که هست.
+ */
+function srchPatGroups_(terms) {
+  var cap = Math.max(300, Number(CFG.SEARCH_PAT_CHARS) || 2000);
+  var groups = [], cur = [], len = 0;
+  for (var i = 0; i < terms.length; i++) {
+    var p = srchPattern_(terms[i]);
+    if (!p) continue;
+    if (cur.length && len + p.length + 4 > cap) { groups.push(cur); cur = []; len = 0; }
+    cur.push(p); len += p.length + 1;
+  }
+  if (cur.length) groups.push(cur);
+  var pats = [];
+  for (var g = 0; g < groups.length; g++) {
+    pats.push(groups[g].length === 1 ? groups[g][0] : '(?:' + groups[g].join('|') + ')');
+  }
+  return pats;
+}
+
+/**
+ * `want` ردیف از میانِ یافته‌ها — **پخش‌شده در سراسرِ تب**، نه N ردیفِ نخست.
+ *
+ * ══ چرا نمونه‌گیری و نه «N تای اول» (۷٫۵۱) ══
+ * بانک افزودنی است، پس «N ردیفِ نخست» یعنی «کهنه‌ترین N» — و خواستهٔ
+ * صریحِ صاحبِ برنامه این بود: «نه از حیثِ زمانی بلکه از حیثِ محتوایی».
+ * سهمِ ردیفِ هر تب بی این، سوگیریِ تاریخ را از درِ پشتی برمی‌گرداند:
+ * محتوای تازه هرگز خوانده و امتیاز داده نمی‌شد.
+ *
+ * گامِ ثابت و نه تصادف: جست‌وجوی دوباره باید همان جواب را بدهد. و گام
+ * معمولاً از ۲۵ (فاصله‌ای که `srchReadRows_` هنوز یک بلوک می‌شمارَد)
+ * کوچک‌تر است، پس پخش‌کردن خواندن را گران نمی‌کند.
+ */
+function srchSpread_(order, want) {
+  if (!order.length || want <= 0) return [];
+  if (order.length <= want) return order.slice(0);
+  var out = [], n = order.length;
+  for (var i = 0; i < want; i++) out.push(order[Math.floor(i * n / want)]);
+  return out;
 }
 
 /**
@@ -48422,7 +48532,7 @@ function srchFind_(sh, pattern, cap, deadline) {
  * بلوک خوانده می‌شوند؛ ردیفِ تکِ دورافتاده همچنان تک خوانده می‌شود، چون
  * خواندنِ یک بلوکِ ده‌هزارردیفی برای دو نتیجه بدتر است.
  */
-function srchReadRows_(sh, rows, width) {
+function srchReadRows_(sh, rows, width, deadline) {
   var out = {};
   if (!rows.length) return out;
   var last = sh.getLastRow(), w = Math.min(width, Math.max(1, sh.getLastColumn()));
@@ -48437,6 +48547,13 @@ function srchReadRows_(sh, rows, width) {
   var span = Math.max(1, Math.floor(maxCells / Math.max(1, w)));
   var i = 0;
   while (i < rows.length) {
+    /* ══ مهلت **داخلِ** همین حلقه هم (۷٫۵۱) ══
+       ۷٫۲۵ این قاعده را برای حلقهٔ `findNext` نوشت و همین‌جا جا انداخت:
+       این آخرین حلقهٔ چندرفت‌وبرگشتیِ غیرقابلِ‌قطعِ این بخش بود. هر بلوک
+       یک `getRange().getValues()` روی سلول‌هایی است که یازده‌هزار نویسه
+       عادی‌شان است، و ششْ‌دقیقهٔ Apps Script قابلِ گرفتن نیست. ردیفِ
+       خوانده‌نشده با همان «N ردیف خوانده نشد» گزارش می‌شود. */
+    if (deadline && i && new Date().getTime() > deadline) break;
     var a = rows[i], b = a, j = i;
     while (j + 1 < rows.length && rows[j + 1] - b <= 25 && (rows[j + 1] - a) < span) {
       b = rows[++j];
@@ -48575,8 +48692,10 @@ function srchRowLink_(sh, row) {
 /**
  * گشتنِ واقعی: بانک و — اگر خواسته شده — پنج شیتِ منبع.
  *
- * برمی‌گرداند `{items, scanned, sheets, stopped, notes}`. `stopped` یعنی
- * بودجهٔ زمان یا سقفِ نامزدها تمام شد؛ این **همیشه** به کاربر گفته می‌شود.
+ * برمی‌گرداند `{items, scanned, sheets, sheetsAll, stopped, notes}`.
+ * `stopped` یعنی بودجهٔ زمان یا سقفِ سراسری تمام شد؛ این **همیشه** به
+ * کاربر گفته می‌شود. و `sheetsAll` مخرجِ کسر است: «۳ تب» بی مخرج بوی
+ * تمامیت می‌دهد، «۳ تب از ۴۰» حقیقت را می‌گوید (۷٫۵۱).
  */
 function srchCollect_(terms, phrase, opts) {
   opts = opts || {};
@@ -48588,25 +48707,25 @@ function srchCollect_(terms, phrase, opts) {
   var capSheet = Math.max(20, Number(CFG.SEARCH_HITS_PER_SHEET) || 400);
   var capAll = Math.max(20, Number(CFG.SEARCH_CAND_MAX) || 240);
   var rowsMax = Math.max(200, Number(CFG.SEARCH_ROWS_MAX) || 2500);
-  var out = { items: [], scanned: 0, sheets: 0, stopped: '', notes: [],
-              read: 0, dropped: 0, trimmed: false };
+  var tabMsMin = Math.max(1500, Number(CFG.SEARCH_TAB_MS_MIN) || 2500);
+  var tabRowsMin = Math.max(5, Number(CFG.SEARCH_TAB_ROWS_MIN) || 15);
+  var out = { items: [], scanned: 0, sheets: 0, sheetsAll: 0, stopped: '', notes: [],
+              read: 0, dropped: 0, trimmed: false, via: '', slow: '', slowMs: 0,
+              sampled: 0, matches: 0 };
   var left = function () { return budget - (new Date().getTime() - t0); };
 
-  var pats = [];
-  for (var i = 0; i < terms.length; i++) {
-    var p = srchPattern_(terms[i]);
-    if (p) pats.push({ term: terms[i], pat: p });
-  }
-  var whole = srchPattern_(phrase);
-  if (whole && pats.length > 1) pats.unshift({ term: '«' + phrase + '»', pat: whole });
+  var pats = srchPatGroups_(terms);
   if (!pats.length) return out;
 
-  var take = function (sh, mk) {
+  var take = function (sh, mk, tabEnd, rowShare) {
     if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
+    var tStart = new Date().getTime();
     var rows = {}, order = [], cut = false, err = '';
     for (var q = 0; q < pats.length; q++) {
       if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; cut = true; break; }
-      var got = srchFind_(sh, pats[q].pat, capSheet, t0 + budget - 6000);
+      var got = srchFind_(sh, pats[q], capSheet, Math.min(tabEnd, t0 + budget - 6000));
+      if (got.via) out.via = got.via;
+      out.matches += got.matches || 0;
       if (got.err) { err = got.err; continue; }
       if (got.cut) cut = true;
       for (var r = 0; r < got.rows.length; r++) {
@@ -48614,17 +48733,31 @@ function srchCollect_(terms, phrase, opts) {
       }
       if (order.length >= capSheet) { cut = true; break; }
     }
+    var mark = function () {
+      var el = new Date().getTime() - tStart;
+      if (el > out.slowMs) { out.slowMs = el; out.slow = sh.getName(); }
+    };
     if (err) {
       /* تبی که خطا داد **گشته نشده**. شمردنش در «N تب گشته شد» از سکوت
          بدتر است: پوششی را ادعا می‌کند که وجود نداشته. */
       out.notes.push('تبِ «' + sh.getName() + '» گشته نشد: ' + err);
+      mark();
       return true;
     }
     out.sheets++;
     if (cut) out.stopped = out.stopped || 'سقفِ نتیجه در یک تب';
-    if (!order.length) return true;
+    if (!order.length) { mark(); return true; }
     order.sort(function (a, b) { return a - b; });
-    if (order.length > capSheet) { order = order.slice(0, capSheet); out.stopped = out.stopped || 'سقفِ نتیجه در یک تب'; }
+    /* ══ سهمِ ردیفِ هر تب، و چرا این هم مثلِ زمان تقسیم می‌شود (۷٫۵۱) ══
+       `SEARCH_ROWS_MAX` یک کیفِ سراسری بود و نخست‌آمده همه‌اش را می‌برد:
+       با ۲٬۵۰۰ ردیف و ۴۰۰ ردیف به ازای هر تب، شش تبِ اول کیف را خالی
+       می‌کردند و سی‌وچهار تبِ بعدی «گشته» شمرده می‌شدند بی آنکه یک ردیف
+       از آن‌ها خوانده شود. همان باگِ ۷٫۲۴ در منبعی دیگر: نگهبانی که برای
+       یک منبع نوشته شده، بی‌صدا منبعِ دیگری را می‌بندد. */
+    var room = Math.max(0, Math.min(rowShare, rowsMax - out.read));
+    if (!room) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; mark(); return true; }
+    var pick = srchSpread_(order, room);
+    if (pick.length < order.length) out.sampled++;
     /* ══ همهٔ ستون‌ها، نه بیست‌وچهار تا (۷٫۲۴) ══
        `createTextFinder` در **همهٔ** ستون‌ها می‌گردد ولی نسخهٔ اول فقط ۲۴
        ستونِ اول را می‌خواند. شیت‌های تازهٔ منبع ۵۷ ستون دارند و — طبق
@@ -48633,14 +48766,14 @@ function srchCollect_(terms, phrase, opts) {
        این قابلیت برایش ساخته شد، خوانده نمی‌شد و بی‌صدا امتیازِ صفر
        می‌گرفت. */
     var wide = Math.max(1, Math.min(Number(CFG.SEARCH_MAX_COLS) || 80, sh.getLastColumn()));
-    var vals = srchReadRows_(sh, order, wide);
+    var vals = srchReadRows_(sh, pick, wide, Math.min(tabEnd, t0 + budget - 4000));
     var z = 0, missed = 0, dropped = 0;
-    for (; z < order.length; z++) {
+    for (; z < pick.length; z++) {
       if (out.read >= rowsMax) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; break; }
-      var v = vals[order[z]];
+      var v = vals[pick[z]];
       if (!v) { missed++; continue; }
       out.read++;
-      var it = mk(sh, order[z], v);
+      var it = mk(sh, pick[z], v);
       it.score = srchScore_(it.fields, terms, phrase);
       /* الگو خورده ولی امتیاز صفر است. از ۷٫۲۴ این تقریباً همیشه یعنی
          «تطبیق در ستونی بود که وزنی ندارد»، نه یک اشکال — ولی شمرده
@@ -48651,6 +48784,11 @@ function srchCollect_(terms, phrase, opts) {
       out.scanned++;
     }
     out.dropped += dropped;
+    /* کیفِ سراسریِ ردیف که تمام شود، هر تبِ نرسیده **هرگز** خوانده نمی‌شود —
+       پس این یک ایستادن است و در قابِ سرخ می‌رود، نه یک یادداشت. تا پیش از
+       این فقط در ابتدای حلقه دیده می‌شد، و تبی که کیف را دقیقاً تا ته خالی
+       می‌کرد هیچ‌وقت دوباره واردِ حلقه نمی‌شد: بودجه تمام، و «کامل». */
+    if (out.read >= rowsMax) out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده';
     /* ══ سقف یعنی «چند تا نگه می‌داریم»، نه «کِی می‌ایستیم» (۷٫۲۵) ══
        تا ۷٫۲۴ وقتی شمارِ نامزدها به سقف می‌رسید، پویش همان‌جا می‌ایستاد —
        و چون تب‌ها به ترتیبِ `getSheets` پیموده می‌شوند، ۲۴۰ تطبیقِ ضعیف در
@@ -48664,20 +48802,24 @@ function srchCollect_(terms, phrase, opts) {
        شیت‌های منبع آخر پیموده می‌شوند، نتیجهٔ هم‌امتیازِ منبع همیشه قربانی
        می‌شد. حجمِ کار را `SEARCH_ROWS_MAX` می‌بندد، نه این. */
     if (missed) out.notes.push('در «' + sh.getName() + '» ' + missed + ' ردیف خوانده نشد.');
+    mark();
     return true;
   };
 
-  // ── بانک ──
+  /* ══ نقشهٔ تب‌ها **پیش از** هر گشتنی (۷٫۵۱) ══
+     تا ۷٫۵۰ مهلتی که به هر تب داده می‌شد کلِ بودجه بود، پس تبِ اول
+     می‌توانست همه‌اش را بخورد و ترتیبِ `getSheets` تعیین می‌کرد چه چیزی
+     گشته می‌شود. برای تقسیمِ زمان باید شمارِ تب‌ها را از پیش دانست — و
+     همان عدد، مخرجِ کسری است که به کاربر گفته می‌شود. بی مخرج،
+     «۳ تب گشته شد» بوی تمامیت می‌دهد و کاربر نتیجه می‌گیرد آن چیز نیست.
+     خواندنِ فهرستِ تب‌ها فقط فراداده است؛ همان پنج `openById` که پیش از
+     این هم داخلِ حلقه انجام می‌شد، حالا یک‌جا و زودتر. */
+  var plan = [];
   try {
     var hub = getHub_();
-    var tabs = srchHubTabs_(hub);
-    if (!tabs.length) out.notes.push('هیچ تبِ دسته‌ای در بانک شناخته نشد.');
-    for (var t = 0; t < tabs.length; t++) {
-      // با پرانتز صدا زده می‌شود و نه به‌صورتِ ارجاع، تا نگهبانِ «تابعِ خصوصیِ
-      // بی‌فراخوان» (run_wiring_test ۱.۱) واقعاً ببیندش — و قرینهٔ
-      // `srchSrcItem_` هم همین شکل است.
-      if (!take(tabs[t], function (sh, row, vals) { return srchHubItem_(sh, row, vals); })) break;
-    }
+    var htabs = srchHubTabs_(hub);
+    if (!htabs.length) out.notes.push('هیچ تبِ دسته‌ای در بانک شناخته نشد.');
+    for (var ht = 0; ht < htabs.length; ht++) plan.push({ sh: htabs[ht], src: '' });
   } catch (eH) { out.notes.push('بانک خوانده نشد: ' + eH.message); }
 
   // ── شیت‌های منبع ── (فقط خواندن؛ هرگز نوشتن)
@@ -48685,20 +48827,11 @@ function srchCollect_(terms, phrase, opts) {
      نسخهٔ اول `!out.stopped` را شرط کرده بود، پس هر واژهٔ نه‌چندان کمیابی
      که بانک را تا سقف پر می‌کرد، **هر پنج شیتِ منبع را کامل رد می‌کرد** —
      و پنجره همان موقع پیشنهاد می‌داد «تیکِ شیت‌های منبع را بردارید»، یعنی
-     راهنمایی به خاموش‌کردنِ لایه‌ای که اصلاً گشته نشده بود. برای هر عبارتِ
-     معمولی این حالتِ عادی بود، پس «تمام» در عمل دروغ می‌شد.
-     حالا منبع سهمِ رزروشدهٔ خودش را دارد و فقط تمام‌شدنِ **زمان** جلویش را
-     می‌گیرد. */
-  if (opts.sources !== false && left() > 15000) {
-    /* منبع دیگر سهمِ رزرو لازم ندارد: سقف فقط می‌گوید چند مورد نگه داشته
-       می‌شود و رقابت بر پایهٔ امتیاز است، پس یک بانکِ شلوغ نمی‌تواند جای
-       نتیجهٔ بهترِ منبع را بگیرد. */
+     راهنمایی به خاموش‌کردنِ لایه‌ای که اصلاً گشته نشده بود. حالا منبع در
+     همان نقشه می‌نشیند و سهمِ خودش را از زمان و ردیف می‌گیرد. */
+  if (opts.sources !== false) {
     var list = CFG.SOURCES || [];
-    // «سقفِ نتیجه در یک تب» نباید بقیهٔ شیت‌ها را قطع کند — فقط تمام‌شدنِ
-    // زمان یا پر شدنِ سهمِ نامزدها ایستاندن دارد.
-    var halt = function () { return left() < 12000 || out.read >= rowsMax; };
     for (var s = 0; s < list.length; s++) {
-      if (halt()) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
       var src = list[s], ss = null;
       try { ss = SpreadsheetApp.openById(src.id); }
       catch (eO) { out.notes.push('شیتِ «' + src.title + '» باز نشد: ' + eO.message); continue; }
@@ -48707,16 +48840,38 @@ function srchCollect_(terms, phrase, opts) {
       // نگذاشتن یعنی یک شیتِ کاملاً نگشته که کسی خبردار نمی‌شود.
       try { shs = ss.getSheets(); }
       catch (eS) { out.notes.push('تب‌های «' + src.title + '» خوانده نشد: ' + eS.message); continue; }
-      for (var u = 0; u < shs.length; u++) {
-        if (halt()) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
-        var sheet = shs[u];
-        (function (title) {
-          take(sheet, function (sh2, row, vals) { return srchSrcItem_(title, sh2, row, vals); });
-        })(src.title);
-      }
+      for (var u = 0; u < shs.length; u++) plan.push({ sh: shs[u], src: src.title });
     }
   }
+  out.sheetsAll = plan.length;
 
+  for (var pi = 0; pi < plan.length; pi++) {
+    var rest = plan.length - pi;
+    /* سهمِ نخورده به جلو می‌رود: تقسیم هر بار روی **باقیماندهٔ** بودجه و
+       باقیماندهٔ تب‌ها انجام می‌شود، پس تبِ خالی وقتش را به بعدی می‌دهد. */
+    var tabEnd = new Date().getTime() + Math.max(tabMsMin, Math.floor(left() / rest));
+    var share = Math.max(tabRowsMin, Math.floor(Math.max(0, rowsMax - out.read) / rest));
+    var ent = plan[pi];
+    // با پرانتز صدا زده می‌شوند و نه به‌صورتِ ارجاع، تا نگهبانِ «تابعِ
+    // خصوصیِ بی‌فراخوان» (run_wiring_test ۱.۱) واقعاً ببیندشان.
+    var mk = ent.src
+      ? (function (title) {
+          return function (sh2, row, vals) { return srchSrcItem_(title, sh2, row, vals); };
+        })(ent.src)
+      : function (sh, row, vals) { return srchHubItem_(sh, row, vals); };
+    if (!take(ent.sh, mk, tabEnd, share)) break;
+  }
+
+  if (out.sampled) {
+    /* این «ناتمام» نیست و در قابِ سرخ نمی‌رود: نمونهٔ پخش‌شده از چهل تب
+       بهتر از خواندنِ کاملِ شش تب است، و گفتنش لازم است چون عددِ
+       «ردیفِ نامزد» را توضیح می‌دهد. هشداری که برای حالتِ سالم روشن شود،
+       همان هشداری است که یاد می‌گیرند نخوانند. */
+    out.notes.push('در ' + out.sampled + ' تب یافته‌ها از سهمِ ردیفِ آن تب ' +
+                   'بیشتر بود؛ نمونه‌ای پخش‌شده در سراسرِ تب خوانده شد (نه ' +
+                   'ردیف‌های نخست، که کهنه‌ترین‌ها هستند). پوششِ همهٔ تب‌ها بر ' +
+                   'خواندنِ کاملِ چند تبِ اول اولویت دارد.');
+  }
   out.items.sort(function (a, b) { return b.score - a.score; });
   if (out.items.length > capAll) { out.items.length = capAll; out.trimmed = true; }
   return out;
@@ -48956,7 +49111,8 @@ function srchRun_(query, opts) {
   var q = String(query || '').trim();
   var res = { ok: false, query: q, mode: opts.mode === 'هوشمند' ? 'هوشمند' : 'ساده',
               items: [], terms: [], answer: '', notes: [], scanned: 0, sheets: 0,
-              stopped: '', ms: 0, dropped: 0, read: 0, semantic: null };
+              sheetsAll: 0, stopped: '', ms: 0, dropped: 0, read: 0, semantic: null,
+              via: '', matches: 0, slow: '', slowMs: 0 };
   var budget = Math.max(60000, Number(CFG.SEARCH_BUDGET_MS) || 230000);
   if (!q) { res.notes.push('چیزی برای جست‌وجو ننوشتید.'); return res; }
   if (CFG.SEARCH_ON === false) { res.notes.push('جست‌وجو خاموش است.'); return res; }
@@ -48978,9 +49134,12 @@ function srchRun_(query, opts) {
     }
   }
   if (!terms.length) { res.notes.push('واژهٔ معناداری در متنِ شما نبود.'); return res; }
-  /* هر واژه یک پویشِ کاملِ سمتِ سرور در **هر** تب است. یک بندِ چسبانده‌شده
-     ۴۳ واژه می‌شود، یعنی ۴۳ پویش × ~۱۶ تبِ بانک × هر تبِ پنج شیتِ منبع —
-     و پنجره صریح دعوت می‌کند که جمله بنویسید. بریدن گفته می‌شود. */
+  /* ══ سقفِ واژه ماند، ولی دلیلش عوض شد (۷٫۵۱) ══
+     تا ۷٫۵۰ هر واژه یک پویشِ کاملِ سمتِ سرور در **هر** تب بود، و این سقف
+     تنها مهارِ آن. از ۷٫۵۱ همهٔ واژه‌ها در یک الگو می‌روند
+     (`srchPatGroups_`)، پس شمارِ پویش دیگر به شمارِ واژه بند نیست. آنچه
+     مانده دو چیزِ واقعی است: طولِ برنامهٔ منظمِ RE2، و اینکه امتیازدهی به
+     ازای هر واژه روی هر ردیف اجرا می‌شود. بریدن گفته می‌شود. */
   var tmax = Math.max(3, Number(CFG.SEARCH_TERMS_MAX) || 12);
   if (terms.length > tmax) {
     res.notes.push('از ' + terms.length + ' واژه، ' + tmax +
@@ -49032,6 +49191,12 @@ function srchRun_(query, opts) {
                                      budgetMs: Math.max(30000, budget - used) });
   res.scanned = col.scanned; res.sheets = col.sheets; res.stopped = col.stopped;
   res.read = col.read;
+  /* مخرج، و نه فقط صورت: «۳ تب» را کاربر «همه‌اش» می‌خواند، «۳ تب از ۴۰»
+     را نمی‌خواند. و `via`/`slow` برای همین است که نسخهٔ بعد ادعا نکند
+     سریع‌تر شده — بلکه جست‌وجوی بعدیِ خودِ صاحبِ برنامه عدد را بدهد. */
+  res.sheetsAll = col.sheetsAll; res.via = col.via || '';
+  res.matches = col.matches || 0;
+  res.slow = col.slow || ''; res.slowMs = col.slowMs || 0;
   for (var n = 0; n < col.notes.length; n++) res.notes.push(col.notes[n]);
 
   /* ادغام: آنچه هر دو لایه آورده‌اند یک ردیف است، نه دو تا — و امتیازِ
@@ -49142,7 +49307,12 @@ function srchRun_(query, opts) {
   try {
     logLine_('جست‌وجو (' + res.mode + '): «' + q.slice(0, 60) + '» → ' +
              res.items.length + ' نتیجه از ' + res.read + ' ردیفِ خوانده‌شده در ' +
-             res.sheets + ' تب' +
+             res.sheets + ' تب از ' + res.sheetsAll +
+             ' · ' + res.terms.length + ' واژه در ' + srchPatGroups_(res.terms).length +
+             ' الگو' + (res.via ? ' · ' + res.via : '') +
+             (res.matches ? ' · ' + res.matches + ' تطبیق' : '') +
+             (res.slow ? ' · کندترین تب «' + res.slow + '» ' +
+                         Math.round(res.slowMs / 1000) + 'ث' : '') +
              (res.semantic && res.semantic.on
                ? ' · معنایی ' + res.semantic.added + ' از ' + res.semantic.scanned : '') +
              (res.dropped ? ' · ' + res.dropped + ' بی‌امتیاز' : '') +
@@ -49222,8 +49392,9 @@ function srchHtml_() {
          '.srchRun(q,m,document.getElementById("src").checked);}');
   H.push('function show(r){var H=[];');
   H.push('if(r.answer){H.push("<div class=\\"ans\\">"+esc(r.answer)+"</div>");}');
-  H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب گشته شد · "+' +
-         'r.scanned+" ردیفِ نامزد · "+Math.round(r.ms/1000)+" ثانیه</div>");');
+  H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب از "+' +
+         '(r.sheetsAll||r.sheets)+" گشته شد · "+r.scanned+" ردیفِ نامزد از "+' +
+         'r.read+" ردیفِ خوانده‌شده · "+Math.round(r.ms/1000)+" ثانیه</div>");');
   H.push('if(r.stopped){H.push("<div class=\\"warn\\">جست‌وجو کامل نشد ("+esc(r.stopped)+")' +
          ' — یعنی ممکن است چیزی باشد که ندیدم. عبارتِ دقیق‌تری بنویسید یا ' +
          'تیکِ شیت‌های منبع را بردارید.</div>");}');
