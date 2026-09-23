@@ -367,12 +367,82 @@ function driveShareOn_(fileId) {
 
 function driveShareOff_(fileId) {
   if (!fileId) return false;
+  var f = null;
+  try { f = DriveApp.getFileById(String(fileId)); }
+  catch (eF) {
+    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(eF.message).slice(0, 80));
+    return false;
+  }
   try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    f.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
     return true;
   } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
+    /* ══ خطایی که چیزی را نام نبرد، خطا نیست؛ نویز است (۷٫۴۵) ══
+       تنها چیزی که درایو می‌گوید «Access denied: DriveApp» است و این
+       هیچ‌چیز را نام نمی‌برد — نه فایل، نه دلیل، نه کاری که باید کرد.
+       تقریباً همیشه یک دلیل دارد و آن دلیل **یک فراخوانی دورتر** است:
+       پوشهٔ بالادست خودش باز است. پس همان‌جا پرسیده می‌شود. */
+    var op = driveOpenParent_(f);
+    logLine_('اشتراکِ موقتِ فایل «' + driveNameSafe_(f) + '» پس گرفته نشد: ' +
+             String(e.message).slice(0, 80) +
+             (op ? ' — چون پوشهٔ «' + driveNameSafe_(op) + '» خودش «هرکس با ' +
+                   'لینک» است و درایو اجازه نمی‌دهد فرزند بسته‌تر از پوشه‌اش ' +
+                   'باشد؛ تا آن باز باشد اشتراکِ هیچ فایلی در آن پس گرفته نمی‌شود.'
+                 : ''));
+    return false;
+  }
+}
+
+
+/**
+ * نخستین پوشهٔ بالادستی که خودش «خصوصی» نیست — یا null.
+ *
+ * ══ چرا این لازم شد (۷٫۴۵) ══
+ * چهار شب پشتِ هم در سیاهه: «اشتراکِ موقتِ فایل پس گرفته نشد: Access
+ * denied: DriveApp». علت این بود که پوشهٔ «آزمونِ صدای گویندگان» خودش
+ * «هرکس با لینک» بود. درایو اجازه نمی‌دهد فرزندی بسته‌تر از پوشه‌اش
+ * باشد، پس `setSharing(PRIVATE)` روی هر فایلِ درونِ آن پرت می‌کند —
+ * و `styleProbeUnshare_` هر شب همان دو فایل را دوباره برمی‌داشت،
+ * دوباره شکست می‌خورد و دوباره همان جملهٔ بی‌نام را می‌نوشت. تا ابد.
+ *
+ * شاهد قطعی بود و از خودِ درایو آمد: «صدا — Umbriel (مرد).wav» را
+ * `runVoiceAudition` در ۲۱ اوت ساخت و موتور **هرگز** اشتراکش نگذاشت،
+ * ولی آن فایل هم `anyone: reader` داشت. یعنی اجازه از پوشه به ارث
+ * می‌رسد، و «اشتراکِ موقت» تا وقتی پوشه باز است یک ادعای نادرست است —
+ * و ادعای ایمنیِ کمی‌نادرست از نداشتنش بدتر است (۷٫۲۴).
+ *
+ * فقط یک لایه بالا می‌رود و همان بس است: ریشهٔ OUTPUT خصوصی است و
+ * پیمایشِ کاملِ درخت یعنی چند رفت‌وبرگشتِ درایو در مسیرِ **خطا** —
+ * جایی که هزینه دادن بی‌معناست.
+ */
+function driveOpenParent_(file) {
+  try {
+    var ps = file.getParents();
+    while (ps.hasNext()) {
+      var d = ps.next();
+      if (driveShareOpen_(d)) return d;
+    }
+  } catch (e) {}
+  return null;
+}
+
+
+/**
+ * اشتراکِ خودِ یک پوشه را ببند.
+ *
+ * جدا از `driveShareOff_` است چون کارِ متفاوتی است و مرزِ متفاوتی دارد:
+ * بستنِ یک فایلِ موقت بی‌خطر است، بستنِ یک **پوشه** یعنی هر چیزی که در
+ * آن است از دسترسِ بیرون درمی‌آید. پس این تابع از هیچ حلقه‌ای صدا زده
+ * نمی‌شود؛ فقط جایی که خودِ موتور پوشه را ساخته و اشتراکش را «موقت»
+ * اعلام کرده.
+ */
+function driveFolderShareOff_(folder) {
+  try {
+    folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ پوشهٔ «' + driveNameSafe_(folder) + '» بسته نشد: ' +
+             String(e.message).slice(0, 80));
     return false;
   }
 }

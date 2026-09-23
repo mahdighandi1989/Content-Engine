@@ -317,4 +317,40 @@ console.log('=== ۹) نقشهٔ پوشه: ریپو منبع است، درایو 
      !r3.ok && OUT().getFilesByName(CFG.OUT_README).hasNext());
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   ۱۰) پوشه‌ای که خودش «هرکس با لینک» است (۷٫۴۵)
+
+   این از نامِ سرگردان بدتر است، به همان دلیلی که `dups` بدتر بود: چیزی
+   برای دیدن نیست. نام درست است، جا درست است — و **هر فایلی که از این پس
+   در آن نوشته شود عمومی است**. چون اجازه ارثی است، `driveShareOff_` هم
+   نمی‌تواند پسش بگیرد، پس هر «اشتراکِ موقتِ» موتور در آن پوشه یک ادعای
+   نادرست است. ۲۳ سپتامبر دقیقاً همین در «آزمونِ صدای گویندگان» افتاده بود
+   و تنها نشانه‌اش چهار سطرِ «Access denied: DriveApp» در سیاهه بود.
+   ═════════════════════════════════════════════════════════════════════ */
+console.log('\n=== ۱۰) پوشهٔ بازِ OUTPUT ===');
+{
+  const nm = CFG.VOICE_AUDIT_FOLDER;
+  let fd = null;
+  const fi = OUT().getFoldersByName(nm);
+  fd = fi.hasNext() ? fi.next() : OUT().createFolder(nm);
+
+  const before = outLayoutCheck_();
+  ok('۱۰.۱ پوشهٔ بستهٔ شناخته‌شده گزارش نمی‌شود',
+     (before.openFolders || []).indexOf(nm) === -1,
+     'هشداری که برای حالتِ سالم بزند، همان است که یاد می‌گیرند نادیده بگیرند');
+
+  fd.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const after = outLayoutCheck_();
+  ok('۱۰.۲ ولی پوشهٔ باز نام برده می‌شود',
+     (after.openFolders || []).indexOf(nm) !== -1,
+     'گرفت: ' + JSON.stringify(after.openFolders || []));
+  ok('۱۰.۳ و «سرگردان» شمرده نمی‌شود — نامش شناخته است',
+     !(after.strays || []).some(x => x.name === nm),
+     'این دو ایرادِ متفاوت‌اند و قاطی‌کردنشان یکی را پنهان می‌کند');
+
+  fd.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  ok('۱۰.۴ و بعد از بسته شدن، دیگر گزارش نمی‌شود',
+     (outLayoutCheck_().openFolders || []).indexOf(nm) === -1);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

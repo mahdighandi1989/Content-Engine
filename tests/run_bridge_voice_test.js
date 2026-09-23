@@ -388,4 +388,87 @@ console.log('\n══ ۱۴) کارِ شبانه صف را می‌نویسد، ح
      'وگرنه کلیدِ خاموش نصفه است');
 }
 
+console.log('\n══ ۱۵) «موردی» — نیمهٔ گم‌شدهٔ ۷٫۴۱، یک بخش آن‌طرف‌تر ══');
+/* ══ چرا این بخش هست (۷٫۴۵) ══
+   صاحبِ برنامه ۲۰ سپتامبر در یک جمله خواست «چه به صورتِ **دائم یا موردی**
+   از صدایی که استفاده کردیم استفاده کنم». ۷٫۴۱ «موردی» را ساخت — ولی فقط
+   برای **شیوهٔ خواندن** (بخشِ ۳۲). پل که یک نسخه جلوتر ساخته شد، هنوز فقط
+   `فعال = بله` را می‌دید. یعنی «این یک قسمت را با رنگِ صدای او بساز» هیچ
+   راهی نداشت: برای گرفتنِ رنگ باید ردیف را روشن می‌کردی، و روشن کردن یعنی
+   دائم — دقیقاً همان چیزی که او نمی‌خواست.
+
+   و این همان درسِ ۷٫۴۱/۷٫۳۴ است: وقتی جوابِ «همه‌اش را کردیم؟» می‌شود
+   «بیشترش را»، نامِ نکرده را خودت بیاور. */
+{
+  const q = vbrRead_(); q.items = []; vbrSave_(q);
+
+  const f47 = OUT.createFolder('قسمتِ ۴۷');
+  f47.createFile('قسمت ۴۷ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const f48 = OUT.createFolder('قسمتِ ۴۸');
+  f48.createFile('قسمت ۴۸ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:47', show: 'variety', ep: '47', folderId: f47.getId(), title: '۴۷' },
+              { key: 'variety:48', show: 'variety', ep: '48', folderId: f48.getId(), title: '۴۸' }];
+  ytRenderSave_(rd);
+
+  /* حالتِ این بخش صریح ساخته می‌شود، نه از ته‌ماندهٔ بخش‌های پیشین:
+     آزمونی که به حالتِ آزمونِ قبلی بند باشد، روزی که آن یکی عوض شود
+     بی آنکه کسی بفهمد چیزِ دیگری را می‌سنجد. */
+  personaBoardSave_('razavi', true, [knownShows_()[0].name], 1, 'آرام بخوان', '');
+  // razavi دائم و روشن. مهمان خاموش، فقط قسمتِ ۴۷ را نام برده.
+  // مهمان هم مدلِ خودش را دارد — بی مدل، درخواست اصلاً نوشته نمی‌شود.
+  CFG.VBR_SEED_MODELS = Object.assign({}, CFG.VBR_SEED_MODELS, { mehman: {
+    pth: outsideFolder.createFile('mehman-e32.pth', 'PTH', 'application/octet-stream').getId(),
+    index: outsideFolder.createFile('mehman-e32.index', 'IDX', 'application/octet-stream').getId() } });
+  personaAddFromCard_('mehman', 'مهمان', { cue: 'کوتاه بخوان', modes: '' });
+  const sv = personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '۴۷');
+  ok('۱۵.۰ ردیفِ خاموشِ «موردی» ذخیره می‌شود', sv.ok === true && sv.onceCount === 1,
+     JSON.stringify(sv));
+
+  const rows = vbrSpeakerRows_();
+  ok('۱۵.۱ برای قسمتِ نام‌برده، ردیفِ **خاموش** انتخاب می‌شود',
+     vbrSpeakerPick_(rows, 'variety', '47').key === 'mehman',
+     'وگرنه «موردی» فقط نامِ دیگری برای «دائم» است: برای گرفتنِ رنگ باید ' +
+     'ردیف را روشن کنی، و روشن کردن یعنی همیشه');
+  ok('۱۵.۲ و دلیلش ثبت می‌شود', vbrSpeakerPick_(rows, 'variety', '47').why === 'موردی');
+  ok('۱۵.۳ ولی قسمتِ بعدی باز همان گویندهٔ دائم را می‌گیرد',
+     vbrSpeakerPick_(rows, 'variety', '48').key === 'razavi',
+     'وگرنه «موردی» بی‌صدا «دائم» را خاموش می‌کند');
+
+  /* و حالتی که تا حالا وجود نداشت: هیچ ردیفی روشن نیست ولی «موردی» هست. */
+  personaBoardSave_('razavi', false, [], 1, 'آرام بخوان', '');
+  const rows2 = vbrSpeakerRows_();
+  ok('۱۵.۴ با خاموش بودنِ همه، «موردی» هنوز کار می‌کند',
+     vbrSpeakerOn_(rows2) === '' &&
+     vbrSpeakerPick_(rows2, 'variety', '47').key === 'mehman');
+  ok('۱۵.۵ ولی قسمتِ نام‌نبرده هیچ‌کس را نمی‌گیرد',
+     vbrSpeakerPick_(rows2, 'variety', '48').key === '',
+     'شمارهٔ نامعلوم هرگز نباید صدای مهمان بگیرد — برعکسِ «موردی»');
+  ok('۱۵.۶ و دروازهٔ ارزان هم بازش می‌گذارد', vbrSpeakerAny_(rows2) === true,
+     'اگر اینجا false بدهد، صفِ یوتیوب اصلاً خوانده نمی‌شود و «موردی» هرگز اجرا نمی‌شود');
+
+  const stO = vbrStatus_();
+  ok('۱۵.۷ سطرِ روزانه نمی‌گوید «هیچ‌کس»، نامِ ردیف را می‌برد',
+     stO.line.indexOf('mehman') !== -1 &&
+     stO.line.indexOf('قسمتی برای تبدیل انتخاب نمی‌شود') === -1,
+     'گفتنِ «هیچ گویندهٔ روشنی نیست» اینجا دروغ نیست ولی گمراه‌کننده است — ' +
+     'کاری هست که قرار است بشود. گرفت: ' + stO.line.slice(0, 140));
+
+  // و مهم‌تر از هر ادعا: مسیرِ واقعی.
+  const made = vbrAskDue_(hub);
+  const items = vbrRead_().items;
+  ok('۱۵.۸ و مسیرِ واقعی برای قسمتِ ۴۷ درخواست نوشت', made === 1, 'گرفت: ' + made);
+  ok('۱۵.۹ با کلیدِ مهمان، و فقط همان قسمت',
+     items.length === 1 && items[0].key === 'variety:47' &&
+     items[0].speaker === 'mehman',
+     'گرفت: ' + JSON.stringify(items.map(x => x.key + '/' + x.speaker)));
+
+  // و مرزِ مقابل: نه روشن، نه موردی ⇒ هیچ.
+  personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '');
+  const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);
+  ok('۱۵.۱۰ بی روشن و بی موردی، هیچ درخواستی نوشته نمی‌شود',
+     vbrSpeakerAny_() === false && vbrAskDue_(hub) === 0,
+     'انتخابِ گوینده کارِ صاحبِ برنامه است، نه حدسِ کد');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

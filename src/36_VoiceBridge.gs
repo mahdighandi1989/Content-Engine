@@ -497,7 +497,9 @@ function vbrStatus_() {
       else if (st === 'رهاشده') out.abandoned++;
     }
     out.stuckDays = vbrStuckDays_();
-    out.speaker = vbrSpeakerOn_();
+    var prows = vbrSpeakerRows_();          // یک بار، برای هر دو پرسش
+    out.speaker = vbrSpeakerOn_(prows);
+    out.onceKeys = vbrSpeakerOnce_(prows);
     /* مشکلِ دوم به سطر **اضافه** می‌شود، نه اینکه جایش را بگیرد — ۷٫۲۲
        اینجا `return` می‌کرد و شمارشِ گیرکردن را هم کور می‌کرد. */
     var qi = vbrQueueIdOk_();
@@ -522,8 +524,16 @@ function vbrStatus_() {
        «گوینده روشن است ولی صف هرگز نوشته نشده» یعنی کارِ شبانه نرسیده.
        هشداری که برای حالتِ سالم بزند، همان هشداری است که یاد می‌گیرند
        نادیده بگیرند. */
-    if (!out.speaker) {
+    if (!out.speaker && (out.onceKeys || []).length) {
+      /* حالتی که تا ۷٫۴۵ اصلاً وجود نداشت و حالا باید نامش برده شود:
+         ردیف خاموش است ولی قسمت‌های موردی دارد. گفتنِ «هیچ گویندهٔ روشنی
+         نیست» اینجا دروغ نیست ولی گمراه‌کننده است — کاری هست که قرار است
+         بشود. */
+      bits.push('هیچ ردیفی روشن نیست، ولی «' + out.onceKeys.join('» و «') +
+                '» قسمت‌های موردی دارد — همان‌ها تبدیل می‌شوند و بس');
+    } else if (!out.speaker) {
       bits.push('هیچ گویندهٔ روشنی در «صداها» نیست — تا ردیفی روشن نشود ' +
+                '(یا شمارهٔ قسمتی در «قسمت‌های موردی» نوشته نشود) ' +
                 'قسمتی برای تبدیل انتخاب نمی‌شود');
     } else if (!out.everWritten) {
       bits.push('گویندهٔ «' + out.speaker + '» روشن است ولی صف یک بار هم ' +
@@ -654,8 +664,8 @@ function vbrNightly_(hub) {
  * گوینده کارِ صاحبِ برنامه است نه حدسِ کد.
  */
 function vbrAskDue_(hub) {
-  var key = vbrSpeakerOn_();
-  if (!key) return 0;
+  var rows = vbrSpeakerRows_();
+  if (!vbrSpeakerAny_(rows)) return 0;
   var n = 0;
   try {
     var d = ytRenderRead_();
@@ -669,7 +679,11 @@ function vbrAskDue_(hub) {
     for (var i = d.items.length - 1; i >= 0; i--) {
       var it = d.items[i];
       if (!it.folderId) continue;
-      var r = vbrAsk_(it.show, it.ep, it.folderId, key, it.title);
+      /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
+         «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
+      var pick = vbrSpeakerPick_(rows, it.show, it.ep);
+      if (!pick.key) continue;
+      var r = vbrAsk_(it.show, it.ep, it.folderId, pick.key, it.title);
       if (r.ok) n++;
       if (n >= 2) break;         // دو تا در هر شب؛ رانرِ رایگان بی‌انتها نیست
     }
@@ -677,17 +691,76 @@ function vbrAskDue_(hub) {
   return n;
 }
 
+/** ردیف‌های تبِ «صداها» — یک بار خوانده می‌شود، نه یک بار به ازای هر قسمت. */
+function vbrSpeakerRows_() {
+  try { return personaRows_(personaTab_()); } catch (e) { return []; }
+}
+
 /** کلیدِ گویندهٔ روشن در تبِ «صداها» — بالاترین ردیف، همان قاعدهٔ بخشِ ۳۲. */
-function vbrSpeakerOn_() {
-  try {
-    var rows = personaRows_(personaTab_());
-    for (var i = 0; i < rows.length; i++) {
-      var k = String(rows[i][PC.KEY - 1] || '').trim();
-      if (!k) continue;
-      if (personaOn_(rows[i][PC.ON - 1])) return k;
-    }
-  } catch (e) {}
+function vbrSpeakerOn_(rows) {
+  var rs = rows || vbrSpeakerRows_();
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    if (personaOn_(rs[i][PC.ON - 1])) return k;
+  }
   return '';
+}
+
+/**
+ * کلیدهایی که «قسمت‌های موردی» دارند — بی توجه به روشن/خاموش.
+ *
+ * ══ نیمهٔ گم‌شدهٔ ۷٫۴۱، یک بخش آن‌طرف‌تر (۷٫۴۵) ══
+ * صاحبِ برنامه ۲۰ سپتامبر در یک جمله خواست «چه به صورتِ **دائم یا
+ * موردی** از صدایی که استفاده کردیم استفاده کنم». ۷٫۴۱ «موردی» را
+ * ساخت — ولی فقط برای **شیوهٔ خواندن** (بخشِ ۳۲). پلِ رنگِ صدا که یک
+ * نسخه جلوتر ساخته شد، هنوز فقط `فعال = بله` را می‌دید. یعنی «این یک
+ * قسمت را با رنگِ صدای او بساز» هیچ راهی نداشت: برای گرفتنِ رنگ باید
+ * ردیف را روشن می‌کردی، و روشن کردن یعنی دائم — دقیقاً همان چیزی که
+ * او نمی‌خواست.
+ *
+ * پس همان مرزِ ۷٫۴۱ عیناً تکرار می‌شود: «موردی» از «فعال» **عبور
+ * می‌کند**، وگرنه «موردی» فقط نامِ دیگری برای «دائم» است.
+ */
+function vbrSpeakerOnce_(rows) {
+  var rs = rows || vbrSpeakerRows_(), out = [];
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    try {
+      if (personaOnceParse_(rs[i][PC.ONCE - 1]).items.length) out.push(k);
+    } catch (e) {}
+  }
+  return out;
+}
+
+/** آیا اصلاً کسی هست؟ — دروازهٔ ارزان، پیش از خواندنِ صفِ یوتیوب. */
+function vbrSpeakerAny_(rows) {
+  var rs = rows || vbrSpeakerRows_();
+  return !!(vbrSpeakerOn_(rs) || vbrSpeakerOnce_(rs).length);
+}
+
+/**
+ * گویندهٔ **این** قسمت — دو پاس، همان ترتیبِ `personaFor_`.
+ *
+ * «موردی» بر «دائم» می‌چربد چون دربارهٔ همین یک قسمت است و آن دیگری
+ * دربارهٔ همه — و قسمتِ بعدی باز همان گویندهٔ دائم را می‌گیرد.
+ */
+function vbrSpeakerPick_(rows, show, epRaw) {
+  var rs = rows || vbrSpeakerRows_();
+  var e = String(epRaw == null ? '' : epRaw);
+  try { if (typeof faDigits_ === 'function') e = faDigits_(e); } catch (eD) {}
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    try {
+      if (personaOnceHit_(rs[i][PC.ONCE - 1], rs[i][PC.SHOWS - 1], show, k, e)) {
+        return { key: k, why: 'موردی' };
+      }
+    } catch (eH) {}
+  }
+  var on = vbrSpeakerOn_(rs);
+  return on ? { key: on, why: 'دائم' } : { key: '', why: '' };
 }
 
 /** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */
@@ -705,10 +778,11 @@ function runVoiceBridge() {
     msg += '\n';
   }
   if (r.asked) msg += 'درخواستِ تازه: ' + r.asked + ' قسمت.\n';
-  if (!vbrSpeakerOn_()) {
-    msg += '\n⚠️ هیچ ردیفی در تبِ «صداها» روشن نیست، پس پل نمی‌داند با ' +
-           'صدای چه کسی تبدیل کند. از منو «🎚 شیوهٔ خواندنِ گویندگان» را ' +
-           'باز کنید و یکی را روشن کنید.';
+  if (!vbrSpeakerAny_()) {
+    msg += '\n⚠️ نه ردیفی در تبِ «صداها» روشن است و نه جایی شمارهٔ قسمتی ' +
+           'در «قسمت‌های موردی» نوشته شده، پس پل نمی‌داند با صدای چه کسی ' +
+           'تبدیل کند. از منو «🎚 شیوهٔ خواندنِ گویندگان» را باز کنید و ' +
+           'یا ردیف را روشن کنید (دائم) یا فقط شمارهٔ قسمت را بنویسید (موردی).';
   }
   if (!ui) { console.log(msg); return msg; }
   ui.alert('پلِ رنگِ صدا', msg, ui.ButtonSet.OK);

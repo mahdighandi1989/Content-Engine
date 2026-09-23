@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.44
+ *  موتور محتوا و پادکست — نسخهٔ 7.45
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.44',
+  CODE_VERSION: '7.45',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1931,6 +1931,29 @@ function apiKey_() {
 
 function nowStr_() {
   return Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+}
+
+/**
+ * دو کمکیِ ریزِ درایو که **هر بخشی** ممکن است لازمشان داشته باشد.
+ *
+ * جایشان اینجاست نه کنارِ `driveShareOn_`/`driveShareOff_` در بخشِ ۱۸، و
+ * دلیلش همان قاعدهٔ همیشگی است: بخش‌ها نباید رو به جلو وابسته شوند.
+ * `outLayoutCheck_` در بخشِ ۸ است و باید بپرسد «این پوشه باز است؟»؛ اگر
+ * از ۱۸ صدا بزند، در هر بارگذارِ جزئیِ تست یک ReferenceError می‌شود که
+ * `catch` بیرونی قورتش می‌دهد و مجموعه سبز می‌مانَد — همان شکلی که در
+ * ۵٫۵۲ بیست‌ویک مجموعه را ماه‌ها کور کرد. و کپی‌کردنِ تعریف هم جواب نیست:
+ * دو نسخه از یک تعریف یعنی روزی یکی‌شان بی‌صدا کهنه می‌شود.
+ */
+
+/** نامِ یک فایل/پوشه، بی آنکه خواندنِ نام خودش بتواند کار را بشکند. */
+function driveNameSafe_(x) {
+  try { return String(x.getName()); } catch (e) { return '—'; }
+}
+
+/** آیا این فایل/پوشه خودش «هرکس با لینک» است؟ ندانستن ≠ باز بودن. */
+function driveShareOpen_(x) {
+  try { return x.getSharingAccess() !== DriveApp.Access.PRIVATE; }
+  catch (e) { return false; }
 }
 
 function logLine_(msg) {
@@ -10809,7 +10832,7 @@ function rxQuote_(s) {
  */
 function outLayoutCheck_() {
   var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
-              oldPrompts: [], readme: null, error: '' };
+              oldPrompts: [], openFolders: [], readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
@@ -10883,6 +10906,23 @@ function outLayoutCheck_() {
       var okd = false;
       for (var q = 0; q < okFolders.length; q++) if (okFolders[q] === dn) { okd = true; break; }
       if (!okd && out.strays.length < 25) out.strays.push({ name: dn, kind: 'پوشه' });
+
+      /* ── پوشه‌ای که خودش «هرکس با لینک» است (۷٫۴۵) ──
+       * این از نامِ سرگردان بدتر است، دقیقاً به همان دلیلی که `dups` بدتر
+       * بود: چیزی برای دیدن نیست. نامِ پوشه درست است، جایش درست است، و
+       * **هر فایلی که از این پس در آن نوشته شود عمومی است** — ارثی، پس
+       * `driveShareOff_` هم نمی‌تواند پسش بگیرد. یعنی هر «اشتراکِ موقتِ»
+       * موتور در آن پوشه یک ادعای نادرست است.
+       *
+       * موتور خودش نمی‌بنددش و این عمدی است: شاید صاحبِ برنامه پوشه‌ای را
+       * با کسی به اشتراک گذاشته باشد، و بستنِ آن همان «اسکنِ موسیقی که
+       * سلیقهٔ گردآورنده را پاک می‌کند» است. تنها استثنا پوشهٔ نمونه‌های
+       * سبک است که خودِ موتور ساخته و اشتراکش را «موقت» اعلام کرده —
+       * `styleProbeUnshare_` آن یکی را می‌بندد.
+       */
+      if (driveShareOpen_(d) && out.openFolders.length < 25) {
+        out.openFolders.push(dn);
+      }
     }
   } catch (e) { out.error = e.message; }
   return out;
@@ -11699,6 +11739,13 @@ function healthCheck() {
         problems.push('در ریشهٔ OUTPUT فایلِ هم‌نامِ تکراری هست: ' + dn.join(' · ') +
                       ' — getFilesByName فقط یکی را برمی‌گرداند و کدام‌یک معلوم ' +
                       'نیست، پس ممکن است نسخهٔ کهنه خوانده شود و تازه هرگز دیده نشود.');
+      }
+      if (lay.openFolders && lay.openFolders.length) {
+        problems.push('این پوشه‌ها در OUTPUT خودشان «هرکس با لینک» هستند: «' +
+                      lay.openFolders.slice(0, 6).join('» · «') + '» — یعنی هر ' +
+                      'فایلی که در آن‌ها نوشته شود عمومی است، و چون اجازه از ' +
+                      'پوشه به ارث می‌رسد، موتور نمی‌تواند اشتراکِ تک‌تکِ فایل‌ها ' +
+                      'را پس بگیرد. اگر عمدی نیست، از درایو ببندیدشان.');
       }
       if (!lay.readme) {
         notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');
@@ -23782,12 +23829,82 @@ function driveShareOn_(fileId) {
 
 function driveShareOff_(fileId) {
   if (!fileId) return false;
+  var f = null;
+  try { f = DriveApp.getFileById(String(fileId)); }
+  catch (eF) {
+    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(eF.message).slice(0, 80));
+    return false;
+  }
   try {
-    DriveApp.getFileById(String(fileId))
-            .setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    f.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
     return true;
   } catch (e) {
-    logLine_('اشتراکِ موقتِ فایل پس گرفته نشد: ' + String(e.message).slice(0, 80));
+    /* ══ خطایی که چیزی را نام نبرد، خطا نیست؛ نویز است (۷٫۴۵) ══
+       تنها چیزی که درایو می‌گوید «Access denied: DriveApp» است و این
+       هیچ‌چیز را نام نمی‌برد — نه فایل، نه دلیل، نه کاری که باید کرد.
+       تقریباً همیشه یک دلیل دارد و آن دلیل **یک فراخوانی دورتر** است:
+       پوشهٔ بالادست خودش باز است. پس همان‌جا پرسیده می‌شود. */
+    var op = driveOpenParent_(f);
+    logLine_('اشتراکِ موقتِ فایل «' + driveNameSafe_(f) + '» پس گرفته نشد: ' +
+             String(e.message).slice(0, 80) +
+             (op ? ' — چون پوشهٔ «' + driveNameSafe_(op) + '» خودش «هرکس با ' +
+                   'لینک» است و درایو اجازه نمی‌دهد فرزند بسته‌تر از پوشه‌اش ' +
+                   'باشد؛ تا آن باز باشد اشتراکِ هیچ فایلی در آن پس گرفته نمی‌شود.'
+                 : ''));
+    return false;
+  }
+}
+
+
+/**
+ * نخستین پوشهٔ بالادستی که خودش «خصوصی» نیست — یا null.
+ *
+ * ══ چرا این لازم شد (۷٫۴۵) ══
+ * چهار شب پشتِ هم در سیاهه: «اشتراکِ موقتِ فایل پس گرفته نشد: Access
+ * denied: DriveApp». علت این بود که پوشهٔ «آزمونِ صدای گویندگان» خودش
+ * «هرکس با لینک» بود. درایو اجازه نمی‌دهد فرزندی بسته‌تر از پوشه‌اش
+ * باشد، پس `setSharing(PRIVATE)` روی هر فایلِ درونِ آن پرت می‌کند —
+ * و `styleProbeUnshare_` هر شب همان دو فایل را دوباره برمی‌داشت،
+ * دوباره شکست می‌خورد و دوباره همان جملهٔ بی‌نام را می‌نوشت. تا ابد.
+ *
+ * شاهد قطعی بود و از خودِ درایو آمد: «صدا — Umbriel (مرد).wav» را
+ * `runVoiceAudition` در ۲۱ اوت ساخت و موتور **هرگز** اشتراکش نگذاشت،
+ * ولی آن فایل هم `anyone: reader` داشت. یعنی اجازه از پوشه به ارث
+ * می‌رسد، و «اشتراکِ موقت» تا وقتی پوشه باز است یک ادعای نادرست است —
+ * و ادعای ایمنیِ کمی‌نادرست از نداشتنش بدتر است (۷٫۲۴).
+ *
+ * فقط یک لایه بالا می‌رود و همان بس است: ریشهٔ OUTPUT خصوصی است و
+ * پیمایشِ کاملِ درخت یعنی چند رفت‌وبرگشتِ درایو در مسیرِ **خطا** —
+ * جایی که هزینه دادن بی‌معناست.
+ */
+function driveOpenParent_(file) {
+  try {
+    var ps = file.getParents();
+    while (ps.hasNext()) {
+      var d = ps.next();
+      if (driveShareOpen_(d)) return d;
+    }
+  } catch (e) {}
+  return null;
+}
+
+
+/**
+ * اشتراکِ خودِ یک پوشه را ببند.
+ *
+ * جدا از `driveShareOff_` است چون کارِ متفاوتی است و مرزِ متفاوتی دارد:
+ * بستنِ یک فایلِ موقت بی‌خطر است، بستنِ یک **پوشه** یعنی هر چیزی که در
+ * آن است از دسترسِ بیرون درمی‌آید. پس این تابع از هیچ حلقه‌ای صدا زده
+ * نمی‌شود؛ فقط جایی که خودِ موتور پوشه را ساخته و اشتراکش را «موقت»
+ * اعلام کرده.
+ */
+function driveFolderShareOff_(folder) {
+  try {
+    folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+    return true;
+  } catch (e) {
+    logLine_('اشتراکِ پوشهٔ «' + driveNameSafe_(folder) + '» بسته نشد: ' +
+             String(e.message).slice(0, 80));
     return false;
   }
 }
@@ -25707,11 +25824,44 @@ function styleProbeUnshare_() {
     var it = outFolder_().getFoldersByName(
       CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان');
     if (!it.hasNext()) return 0;
-    var fs = it.next().getFiles();
+    var fold = it.next();
+
+    /* ══ اول پوشه، بعد فایل‌ها — وگرنه هیچ‌کدام بسته نمی‌شود (۷٫۴۵) ══
+     * درایو اجازه نمی‌دهد فرزندی بسته‌تر از پوشه‌اش باشد. تا ۲۳ سپتامبر
+     * این پوشه خودش «هرکس با لینک» بود (با دست، نه با کد — هیچ‌جای این
+     * مخزن پوشه‌ای را به اشتراک نمی‌گذارد)، پس `setSharing(PRIVATE)` روی
+     * هر دو فایلِ «نمونهٔ سبک» پرت می‌کرد و هر شب چهار سطرِ
+     * «Access denied: DriveApp» در سیاهه می‌نشست — دو فایل، دو اجرای شبانه.
+     * و چون `n` صفر می‌مانْد، حتی خطِ «اشتراکِ … پس گرفته شد» هم نمی‌آمد.
+     *
+     * بستنش کارِ همین‌جاست و نه یک پیغام به صاحبِ برنامه: این پوشه را خودِ
+     * موتور می‌سازد و خودش اشتراکش را «موقت» اعلام کرده، پس بستنش همان
+     * نیّتِ موجود است یک لایه بالاتر — نه تصمیمی تازه. دری که آدم باید
+     * ببندد، در نیست (۵٫۹۵). ولی گفته می‌شود، چون تعمیری که کسی خبردار
+     * نشود، تعمیری است که دوباره لازم خواهد شد (۷٫۳۳).
+     *
+     * و کار را نمی‌شکند: هر نمونهٔ تازه‌ای که ساخته شود، `runStyleProbe`
+     * خودش با `driveShareOn_` اشتراکِ همان فایل را برقرار می‌کند —
+     * یعنی همان طرحِ «هر فایل، ۳۶ ساعت» که از اول قرار بود.
+     */
+    if (driveShareOpen_(fold)) {
+      if (driveFolderShareOff_(fold)) {
+        logLine_('نمونهٔ سبک: پوشهٔ «' + driveNameSafe_(fold) + '» خودش «هرکس ' +
+                 'با لینک» بود و بسته شد — تا باز بود اشتراکِ هیچ فایلی در آن ' +
+                 'پس گرفته نمی‌شد.');
+      }
+    }
+
+    var fs = fold.getFiles();
     while (fs.hasNext()) {
       var f = fs.next();
       if (String(f.getName()).indexOf('نمونهٔ سبک') !== 0) continue;
       if (f.getDateCreated().getTime() > cut) continue;
+      /* فایلی که از قبل خصوصی است، کاری ندارد — و مهم‌تر: خطِ «اشتراکِ N
+         فایل پس گرفته شد» را هم نمی‌سازد. این پوشه هرگز خالی نمی‌شود، پس
+         بی این شرط همان جمله هر شب تا ابد تکرار می‌شد؛ و جمله‌ای که هر شب
+         برای کارِ تمام‌شده بیاید، همان است که خوانده نمی‌شود. */
+      if (!driveShareOpen_(f)) continue;
       if (driveShareOff_(f.getId())) n++;
     }
     if (n) logLine_('نمونهٔ سبک: اشتراکِ ' + n + ' فایل پس گرفته شد.');
@@ -50977,7 +51127,9 @@ function vbrStatus_() {
       else if (st === 'رهاشده') out.abandoned++;
     }
     out.stuckDays = vbrStuckDays_();
-    out.speaker = vbrSpeakerOn_();
+    var prows = vbrSpeakerRows_();          // یک بار، برای هر دو پرسش
+    out.speaker = vbrSpeakerOn_(prows);
+    out.onceKeys = vbrSpeakerOnce_(prows);
     /* مشکلِ دوم به سطر **اضافه** می‌شود، نه اینکه جایش را بگیرد — ۷٫۲۲
        اینجا `return` می‌کرد و شمارشِ گیرکردن را هم کور می‌کرد. */
     var qi = vbrQueueIdOk_();
@@ -51002,8 +51154,16 @@ function vbrStatus_() {
        «گوینده روشن است ولی صف هرگز نوشته نشده» یعنی کارِ شبانه نرسیده.
        هشداری که برای حالتِ سالم بزند، همان هشداری است که یاد می‌گیرند
        نادیده بگیرند. */
-    if (!out.speaker) {
+    if (!out.speaker && (out.onceKeys || []).length) {
+      /* حالتی که تا ۷٫۴۵ اصلاً وجود نداشت و حالا باید نامش برده شود:
+         ردیف خاموش است ولی قسمت‌های موردی دارد. گفتنِ «هیچ گویندهٔ روشنی
+         نیست» اینجا دروغ نیست ولی گمراه‌کننده است — کاری هست که قرار است
+         بشود. */
+      bits.push('هیچ ردیفی روشن نیست، ولی «' + out.onceKeys.join('» و «') +
+                '» قسمت‌های موردی دارد — همان‌ها تبدیل می‌شوند و بس');
+    } else if (!out.speaker) {
       bits.push('هیچ گویندهٔ روشنی در «صداها» نیست — تا ردیفی روشن نشود ' +
+                '(یا شمارهٔ قسمتی در «قسمت‌های موردی» نوشته نشود) ' +
                 'قسمتی برای تبدیل انتخاب نمی‌شود');
     } else if (!out.everWritten) {
       bits.push('گویندهٔ «' + out.speaker + '» روشن است ولی صف یک بار هم ' +
@@ -51134,8 +51294,8 @@ function vbrNightly_(hub) {
  * گوینده کارِ صاحبِ برنامه است نه حدسِ کد.
  */
 function vbrAskDue_(hub) {
-  var key = vbrSpeakerOn_();
-  if (!key) return 0;
+  var rows = vbrSpeakerRows_();
+  if (!vbrSpeakerAny_(rows)) return 0;
   var n = 0;
   try {
     var d = ytRenderRead_();
@@ -51149,7 +51309,11 @@ function vbrAskDue_(hub) {
     for (var i = d.items.length - 1; i >= 0; i--) {
       var it = d.items[i];
       if (!it.folderId) continue;
-      var r = vbrAsk_(it.show, it.ep, it.folderId, key, it.title);
+      /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
+         «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
+      var pick = vbrSpeakerPick_(rows, it.show, it.ep);
+      if (!pick.key) continue;
+      var r = vbrAsk_(it.show, it.ep, it.folderId, pick.key, it.title);
       if (r.ok) n++;
       if (n >= 2) break;         // دو تا در هر شب؛ رانرِ رایگان بی‌انتها نیست
     }
@@ -51157,17 +51321,76 @@ function vbrAskDue_(hub) {
   return n;
 }
 
+/** ردیف‌های تبِ «صداها» — یک بار خوانده می‌شود، نه یک بار به ازای هر قسمت. */
+function vbrSpeakerRows_() {
+  try { return personaRows_(personaTab_()); } catch (e) { return []; }
+}
+
 /** کلیدِ گویندهٔ روشن در تبِ «صداها» — بالاترین ردیف، همان قاعدهٔ بخشِ ۳۲. */
-function vbrSpeakerOn_() {
-  try {
-    var rows = personaRows_(personaTab_());
-    for (var i = 0; i < rows.length; i++) {
-      var k = String(rows[i][PC.KEY - 1] || '').trim();
-      if (!k) continue;
-      if (personaOn_(rows[i][PC.ON - 1])) return k;
-    }
-  } catch (e) {}
+function vbrSpeakerOn_(rows) {
+  var rs = rows || vbrSpeakerRows_();
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    if (personaOn_(rs[i][PC.ON - 1])) return k;
+  }
   return '';
+}
+
+/**
+ * کلیدهایی که «قسمت‌های موردی» دارند — بی توجه به روشن/خاموش.
+ *
+ * ══ نیمهٔ گم‌شدهٔ ۷٫۴۱، یک بخش آن‌طرف‌تر (۷٫۴۵) ══
+ * صاحبِ برنامه ۲۰ سپتامبر در یک جمله خواست «چه به صورتِ **دائم یا
+ * موردی** از صدایی که استفاده کردیم استفاده کنم». ۷٫۴۱ «موردی» را
+ * ساخت — ولی فقط برای **شیوهٔ خواندن** (بخشِ ۳۲). پلِ رنگِ صدا که یک
+ * نسخه جلوتر ساخته شد، هنوز فقط `فعال = بله` را می‌دید. یعنی «این یک
+ * قسمت را با رنگِ صدای او بساز» هیچ راهی نداشت: برای گرفتنِ رنگ باید
+ * ردیف را روشن می‌کردی، و روشن کردن یعنی دائم — دقیقاً همان چیزی که
+ * او نمی‌خواست.
+ *
+ * پس همان مرزِ ۷٫۴۱ عیناً تکرار می‌شود: «موردی» از «فعال» **عبور
+ * می‌کند**، وگرنه «موردی» فقط نامِ دیگری برای «دائم» است.
+ */
+function vbrSpeakerOnce_(rows) {
+  var rs = rows || vbrSpeakerRows_(), out = [];
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    try {
+      if (personaOnceParse_(rs[i][PC.ONCE - 1]).items.length) out.push(k);
+    } catch (e) {}
+  }
+  return out;
+}
+
+/** آیا اصلاً کسی هست؟ — دروازهٔ ارزان، پیش از خواندنِ صفِ یوتیوب. */
+function vbrSpeakerAny_(rows) {
+  var rs = rows || vbrSpeakerRows_();
+  return !!(vbrSpeakerOn_(rs) || vbrSpeakerOnce_(rs).length);
+}
+
+/**
+ * گویندهٔ **این** قسمت — دو پاس، همان ترتیبِ `personaFor_`.
+ *
+ * «موردی» بر «دائم» می‌چربد چون دربارهٔ همین یک قسمت است و آن دیگری
+ * دربارهٔ همه — و قسمتِ بعدی باز همان گویندهٔ دائم را می‌گیرد.
+ */
+function vbrSpeakerPick_(rows, show, epRaw) {
+  var rs = rows || vbrSpeakerRows_();
+  var e = String(epRaw == null ? '' : epRaw);
+  try { if (typeof faDigits_ === 'function') e = faDigits_(e); } catch (eD) {}
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    try {
+      if (personaOnceHit_(rs[i][PC.ONCE - 1], rs[i][PC.SHOWS - 1], show, k, e)) {
+        return { key: k, why: 'موردی' };
+      }
+    } catch (eH) {}
+  }
+  var on = vbrSpeakerOn_(rs);
+  return on ? { key: on, why: 'دائم' } : { key: '', why: '' };
 }
 
 /** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */
@@ -51185,10 +51408,11 @@ function runVoiceBridge() {
     msg += '\n';
   }
   if (r.asked) msg += 'درخواستِ تازه: ' + r.asked + ' قسمت.\n';
-  if (!vbrSpeakerOn_()) {
-    msg += '\n⚠️ هیچ ردیفی در تبِ «صداها» روشن نیست، پس پل نمی‌داند با ' +
-           'صدای چه کسی تبدیل کند. از منو «🎚 شیوهٔ خواندنِ گویندگان» را ' +
-           'باز کنید و یکی را روشن کنید.';
+  if (!vbrSpeakerAny_()) {
+    msg += '\n⚠️ نه ردیفی در تبِ «صداها» روشن است و نه جایی شمارهٔ قسمتی ' +
+           'در «قسمت‌های موردی» نوشته شده، پس پل نمی‌داند با صدای چه کسی ' +
+           'تبدیل کند. از منو «🎚 شیوهٔ خواندنِ گویندگان» را باز کنید و ' +
+           'یا ردیف را روشن کنید (دائم) یا فقط شمارهٔ قسمت را بنویسید (موردی).';
   }
   if (!ui) { console.log(msg); return msg; }
   ui.alert('پلِ رنگِ صدا', msg, ui.ButtonSet.OK);

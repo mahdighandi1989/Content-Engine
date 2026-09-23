@@ -192,7 +192,7 @@ function rxQuote_(s) {
  */
 function outLayoutCheck_() {
   var out = { files: 0, folders: 0, strays: [], stale: [], dups: [],
-              oldPrompts: [], readme: null, error: '' };
+              oldPrompts: [], openFolders: [], readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
@@ -266,6 +266,23 @@ function outLayoutCheck_() {
       var okd = false;
       for (var q = 0; q < okFolders.length; q++) if (okFolders[q] === dn) { okd = true; break; }
       if (!okd && out.strays.length < 25) out.strays.push({ name: dn, kind: 'پوشه' });
+
+      /* ── پوشه‌ای که خودش «هرکس با لینک» است (۷٫۴۵) ──
+       * این از نامِ سرگردان بدتر است، دقیقاً به همان دلیلی که `dups` بدتر
+       * بود: چیزی برای دیدن نیست. نامِ پوشه درست است، جایش درست است، و
+       * **هر فایلی که از این پس در آن نوشته شود عمومی است** — ارثی، پس
+       * `driveShareOff_` هم نمی‌تواند پسش بگیرد. یعنی هر «اشتراکِ موقتِ»
+       * موتور در آن پوشه یک ادعای نادرست است.
+       *
+       * موتور خودش نمی‌بنددش و این عمدی است: شاید صاحبِ برنامه پوشه‌ای را
+       * با کسی به اشتراک گذاشته باشد، و بستنِ آن همان «اسکنِ موسیقی که
+       * سلیقهٔ گردآورنده را پاک می‌کند» است. تنها استثنا پوشهٔ نمونه‌های
+       * سبک است که خودِ موتور ساخته و اشتراکش را «موقت» اعلام کرده —
+       * `styleProbeUnshare_` آن یکی را می‌بندد.
+       */
+      if (driveShareOpen_(d) && out.openFolders.length < 25) {
+        out.openFolders.push(dn);
+      }
     }
   } catch (e) { out.error = e.message; }
   return out;
@@ -1082,6 +1099,13 @@ function healthCheck() {
         problems.push('در ریشهٔ OUTPUT فایلِ هم‌نامِ تکراری هست: ' + dn.join(' · ') +
                       ' — getFilesByName فقط یکی را برمی‌گرداند و کدام‌یک معلوم ' +
                       'نیست، پس ممکن است نسخهٔ کهنه خوانده شود و تازه هرگز دیده نشود.');
+      }
+      if (lay.openFolders && lay.openFolders.length) {
+        problems.push('این پوشه‌ها در OUTPUT خودشان «هرکس با لینک» هستند: «' +
+                      lay.openFolders.slice(0, 6).join('» · «') + '» — یعنی هر ' +
+                      'فایلی که در آن‌ها نوشته شود عمومی است، و چون اجازه از ' +
+                      'پوشه به ارث می‌رسد، موتور نمی‌تواند اشتراکِ تک‌تکِ فایل‌ها ' +
+                      'را پس بگیرد. اگر عمدی نیست، از درایو ببندیدشان.');
       }
       if (!lay.readme) {
         notes.push('نقشهٔ پوشهٔ OUTPUT («' + CFG.OUT_README + '») هنوز نوشته نشده.');

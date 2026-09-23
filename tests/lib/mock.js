@@ -200,9 +200,46 @@ class DFile {
   getAs() { return this._b; }
   // اشتراک — حالتش نگه داشته می‌شود تا آزمون بتواند بپرسد چه چیزی باز شد و
   // مهم‌تر: چه چیزی دوباره بسته شد.
-  setSharing(access, perm) { this._share = { access, perm }; return this; }
-  getSharingAccess() { return (this._share || {}).access || 'PRIVATE'; }
+  /* ══ و بدَلی که سهل‌گیرتر از اصل باشد هیچ‌چیز را ثابت نمی‌کند (۷٫۲۴) ══
+   * درایو اجازه نمی‌دهد فرزندی بسته‌تر از پوشه‌اش باشد: اگر پوشهٔ بالادست
+   * «هرکس با لینک» باشد، `setSharing(PRIVATE)` روی فایل «Access denied:
+   * DriveApp» پرت می‌کند. تا ۷٫۴۵ این بدَل قبولش می‌کرد، پس باگی که چهار
+   * شب در سیاههٔ واقعی نشسته بود در هیچ مجموعه‌ای دیده نمی‌شد. */
+  setSharing(access, perm) {
+    if (String(access) === 'PRIVATE') {
+      let p = this._f;
+      while (p) {
+        if (p.getSharingAccess && p.getSharingAccess() !== 'PRIVATE') {
+          throw new Error('Access denied: DriveApp');
+        }
+        const it = p.getParents ? p.getParents() : null;
+        p = (it && it.hasNext()) ? it.next() : null;
+      }
+    }
+    this._share = { access, perm }; return this;
+  }
+  /* و خواندنش هم ارثی است، چون در درایو هست: فایلی که در پوشهٔ باز نشسته
+     «هرکس با لینک» گزارش می‌شود، حتی اگر خودش هیچ اجازهٔ مستقیمی نداشته
+     باشد. شاهدش «صدا — Umbriel (مرد).wav» بود که موتور هرگز به اشتراک
+     نگذاشته بود و `anyone: reader` داشت. بدَلی که این را نشان ندهد،
+     `driveShareOpen_` را در هر آزمونی بی‌صدا `false` می‌کند. */
+  getSharingAccess() {
+    const own = (this._share || {}).access;
+    if (own && own !== 'PRIVATE') return own;
+    let p = this._f;
+    while (p) {
+      const a = (p._share || {}).access;
+      if (a && a !== 'PRIVATE') return a;
+      const it = p.getParents ? p.getParents() : null;
+      p = (it && it.hasNext()) ? it.next() : null;
+    }
+    return own || 'PRIVATE';
+  }
   getSharingPermission() { return (this._share || {}).perm || 'NONE'; }
+  getParents() {
+    const arr = this._f ? [this._f] : []; let i = 0;
+    return { hasNext: () => i < arr.length, next: () => arr[i++] };
+  }
   makeCopy(name, folder) {
     const b = global.Utilities.newBlob(this._b ? this._b.getDataAsString() : '',
                                       'application/octet-stream', name || this.getName());
@@ -241,6 +278,11 @@ class DFolder {
   }
   getDateCreated() { return this._created || (this._created = new Date()); }
   getLastUpdated() { return this._updated || this.getDateCreated(); }
+  // پوشه هم اشتراک دارد — و تا ۷٫۴۵ نداشت، پس `driveFolderOpen_` در هر
+  // مجموعه‌ای بی‌صدا `false` می‌داد و نگهبانِ تازه هیچ‌وقت نمی‌توانست قرمز شود.
+  setSharing(access, perm) { this._share = { access, perm }; return this; }
+  getSharingAccess() { return (this._share || {}).access || 'PRIVATE'; }
+  getSharingPermission() { return (this._share || {}).perm || 'NONE'; }
   moveTo(dest) {
     for (const k of Object.keys(global.__FOLDERS)) {
       const p = global.__FOLDERS[k];

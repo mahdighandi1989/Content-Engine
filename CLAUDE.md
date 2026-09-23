@@ -1047,6 +1047,70 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## The permission you cannot revoke at the child (7.45)
+
+Four nights running, four identical lines a night: **«اشتراکِ موقتِ فایل پس گرفته
+نشد: Access denied: DriveApp»**. An error that names nothing — not the file, not
+the reason, not the thing to do. Two files, two nightly runs, forever.
+
+**The cause was one folder.** «آزمونِ صدای گویندگان» was itself
+«anyone with the link» — set by hand, never by code; nothing in this repo shares
+a *folder*. Drive does not let a child be more private than the folder holding
+it, so `setSharing(PRIVATE)` threw on every file inside, `styleProbeUnshare_`
+picked the same two files up again the next night, and `n` stayed 0 so even the
+«اشتراکِ … پس گرفته شد» line never appeared. Meanwhile «اشتراکِ موقت» was, the
+whole time, a false claim: everything in that folder was permanently public.
+
+**The proof came from Drive, not from reasoning.** «صدا — Umbriel (مرد).wav» was
+created on 21 August by `runVoiceAudition`, which never calls `driveShareOn_` —
+the engine has never shared that file — and it carried `anyone: reader` anyway.
+A permission that is inherited is not removable where it is visible.
+
+Three things follow, and the third is the one that generalises:
+
+- `driveShareOff_` now **names the open ancestor** in its own failure message.
+  One extra Drive call, on the failure path only, and an unactionable line
+  becomes an actionable one.
+- `styleProbeUnshare_` closes **the folder first, then the files** — reverse that
+  order and nothing closes. It closes it itself rather than asking (5.95: a gate
+  a human must open is not a gate; the owner does not open Drive, let alone an
+  ACL) and says so out loud (7.33: a repair nobody hears about is a repair that
+  will be needed again). And a file already private is skipped, or the nightly
+  would print «اشتراکِ ۲ فایل پس گرفته شد» every night until the end of time.
+- `outLayoutCheck_` reports any OUTPUT subfolder that is world-open
+  (`outLayout.openFolders`). **This is worse than a stray, for the same reason
+  `dups` is:** there is nothing to see. The name is right, the place is right —
+  and every file written there afterwards is public with no per-file revoke
+  possible. The engine reports those rather than closing them, because the owner
+  may have shared one on purpose; only the folder the engine created and declared
+  temporary is closed automatically.
+
+**And the double had to be made stricter before any of this was provable.**
+`tests/lib/mock.js` accepted `setSharing(PRIVATE)` on a file inside an open
+folder and read sharing non-inheritably, so the bug that sat four nights in the
+real log could not appear in any suite. It now throws exactly where Drive throws
+and reads the ancestor's access — 7.24's rule, one engine over: **a test double
+that is lenient where production is strict proves nothing.**
+
+## «موردی» gave the style but not the colour (7.45)
+
+On 20 September he asked, in one sentence, to use a voice «چه به صورتِ **دائم یا
+موردی**». 7.41 built «موردی» — for **section 32 only**. The bridge (section 36),
+written one version later, still read nothing but `فعال = بله`. So *"make this
+one episode in his voice"* had no route: to get the colour you had to switch the
+row on, and switching it on means every episode. Exactly what he did not want.
+
+That is the same half-delivery 7.41 was written about, repeating **one section
+over**, in code written with that lesson on the page. The boundary is now
+repeated verbatim rather than approximated: «موردی» bypasses «فعال», the speaker
+is chosen **per episode** instead of once for the whole queue, and a «موردی» row
+never silently switches the permanent voice off for the other episodes.
+
+`vbrStatus_` grew a state it did not have: *no row on, but «موردی» rows exist*.
+Saying «هیچ گویندهٔ روشنی نیست» there is not false, it is misleading — work is
+going to happen — and this file's rule is that a healthy-looking sentence over a
+live state is how a daily line stops being read.
+
 ## A door only the room's own key opens (7.39)
 
 `voice-bridge` went red on its very first run, with the sentence this file

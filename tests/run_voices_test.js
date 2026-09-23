@@ -502,4 +502,76 @@ console.log('\n=== ۹ب. وقتی فقط یک مود دستور را رد می�
   global.__STUB = null;
 }
 
+/* ═════════════════════════════════════════════════════════════════════
+   ۱۰) اشتراکی که ارثی است — و خطایی که هیچ‌چیز را نام نمی‌برد (۷٫۴۵)
+
+   ۲۳ سپتامبر، چهار سطر در سیاهه، دو شب پشتِ هم:
+   «اشتراکِ موقتِ فایل پس گرفته نشد: Access denied: DriveApp».
+   علت از خودِ درایو درآمد: پوشهٔ «آزمونِ صدای گویندگان» خودش «هرکس با
+   لینک» بود. فایلی که موتور **هرگز** به اشتراک نگذاشته بود
+   («صدا — Umbriel (مرد).wav»، ساختهٔ ۲۱ اوت) هم `anyone: reader` داشت —
+   یعنی اجازه از پوشه به ارث می‌رسید.
+
+   پس تا آن پوشه باز بود:
+     • «اشتراکِ موقت» یک ادعای نادرست بود؛
+     • `styleProbeUnshare_` هر شب همان دو فایل را برمی‌داشت و هر شب شکست
+       می‌خورد و هر شب همان جملهٔ بی‌نام را می‌نوشت — تا ابد.
+   ═════════════════════════════════════════════════════════════════════ */
+console.log('\n=== ۱۰. اشتراکِ ارثی و خطایی که نام می‌برد ===');
+{
+  const cap = () => { const o = console.log; const lines = [];
+    console.log = (...a) => lines.push(a.join(' ')); 
+    return { lines, done: () => { console.log = o; return lines.join('\n'); } }; };
+
+  const root = outFolder_();
+  const fold = root.createFolder(CFG.VOICE_AUDIT_FOLDER);
+  const old36 = new Date(Date.now() - 80 * 3600 * 1000);
+  const mk = n => { const f = fold.createFile(n, 'RIFF', 'audio/wav');
+                    f._created = old36; return f; };
+  const fA = mk('نمونهٔ سبک — با روحِ خواندن.wav');
+  const fB = mk('نمونهٔ سبک — بی روحِ خواندن.wav');
+
+  /* همان حالتِ واقعی: `runStyleProbe` اشتراکِ **هر فایل** را باز کرده
+     (چون آزمایشگاه از بیرونِ درایو برشان می‌دارد) و پوشه هم — با دست،
+     نه با کد — باز شده. اجازه از پوشه به فایل‌ها ارث هم می‌رسد. */
+  driveShareOn_(fA.getId()); driveShareOn_(fB.getId());
+  fold.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  ok('۱۰.۱ پوشهٔ باز شناخته می‌شود', driveShareOpen_(fold) === true);
+  ok('۱۰.۲ و ندانستن ≠ باز بودن',
+     driveShareOpen_({ getSharingAccess() { throw new Error('nope'); } }) === false,
+     'اگر ندانستن را «باز» بشماریم، هر پوشه‌ای که خوانده نشود یک هشدارِ دروغ می‌سازد');
+
+  // تا پوشه باز است، بستنِ فایل ناممکن است — و خطا باید نامِ پوشه را ببرد.
+  const c1 = cap();
+  const r1 = driveShareOff_(fA.getId());
+  const log1 = c1.done();
+  ok('۱۰.۳ تا پوشه باز است، اشتراکِ فایل پس گرفته نمی‌شود', r1 === false);
+  ok('۱۰.۴ و خطا نامِ پوشه را می‌برد، نه فقط «Access denied»',
+     log1.indexOf(CFG.VOICE_AUDIT_FOLDER) !== -1 && /هرکس با/.test(log1),
+     'خطایی که چیزی را نام نبرد، نویز است نه خطا — ' + log1.slice(0, 120));
+
+  // و حالا کارِ شبانه: اول پوشه، بعد فایل‌ها.
+  const c2 = cap();
+  const n2 = styleProbeUnshare_();
+  const log2 = c2.done();
+  ok('۱۰.۵ کارِ شبانه خودِ پوشه را بست', driveShareOpen_(fold) === false);
+  ok('۱۰.۶ و بستنش را بلند گفت',
+     log2.indexOf(CFG.VOICE_AUDIT_FOLDER) !== -1 && /بسته شد/.test(log2),
+     'تعمیری که کسی خبردار نشود، تعمیری است که دوباره لازم خواهد شد (۷٫۳۳)');
+  ok('۱۰.۷ و بعد هر دو فایل واقعاً بسته شدند', n2 === 2, 'گرفت: ' + n2);
+  ok('۱۰.۸ فایل‌ها هم دیگر عمومی نیستند',
+     String(fA.getSharingAccess()) === 'PRIVATE' &&
+     String(fB.getSharingAccess()) === 'PRIVATE');
+
+  // شبِ بعد: چیزی برای بستن نیست و هیچ خطایی نوشته نمی‌شود.
+  const c3 = cap();
+  const n3 = styleProbeUnshare_();
+  const log3 = c3.done();
+  ok('۱۰.۹ شبِ بعد دیگر خطایی نوشته نمی‌شود', n3 === 0 && !/پس گرفته نشد/.test(log3),
+     'هشداری که هر شب برای کارِ تمام‌شده بزند، همان است که یاد می‌گیرند نادیده بگیرند');
+
+  fold.setTrashed(true);
+}
+
 process.exit(summary('نقش‌گزینیِ گویندگان و تلفظ') ? 1 : 0);

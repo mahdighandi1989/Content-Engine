@@ -1173,7 +1173,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.44',
+  CODE_VERSION: '7.45',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1847,6 +1847,29 @@ function apiKey_() {
 
 function nowStr_() {
   return Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+}
+
+/**
+ * دو کمکیِ ریزِ درایو که **هر بخشی** ممکن است لازمشان داشته باشد.
+ *
+ * جایشان اینجاست نه کنارِ `driveShareOn_`/`driveShareOff_` در بخشِ ۱۸، و
+ * دلیلش همان قاعدهٔ همیشگی است: بخش‌ها نباید رو به جلو وابسته شوند.
+ * `outLayoutCheck_` در بخشِ ۸ است و باید بپرسد «این پوشه باز است؟»؛ اگر
+ * از ۱۸ صدا بزند، در هر بارگذارِ جزئیِ تست یک ReferenceError می‌شود که
+ * `catch` بیرونی قورتش می‌دهد و مجموعه سبز می‌مانَد — همان شکلی که در
+ * ۵٫۵۲ بیست‌ویک مجموعه را ماه‌ها کور کرد. و کپی‌کردنِ تعریف هم جواب نیست:
+ * دو نسخه از یک تعریف یعنی روزی یکی‌شان بی‌صدا کهنه می‌شود.
+ */
+
+/** نامِ یک فایل/پوشه، بی آنکه خواندنِ نام خودش بتواند کار را بشکند. */
+function driveNameSafe_(x) {
+  try { return String(x.getName()); } catch (e) { return '—'; }
+}
+
+/** آیا این فایل/پوشه خودش «هرکس با لینک» است؟ ندانستن ≠ باز بودن. */
+function driveShareOpen_(x) {
+  try { return x.getSharingAccess() !== DriveApp.Access.PRIVATE; }
+  catch (e) { return false; }
 }
 
 function logLine_(msg) {
