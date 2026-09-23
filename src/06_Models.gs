@@ -103,6 +103,22 @@ function resolveModels_(force) {
       if (sa.length) ttss = sa;
     }
 
+    /* ══ حکمی که به تصمیم وصل نشود، حکم نیست (۷٫۴۷) ══
+       مدلِ **متنی** که داوری ردش کرده بالاتر کنار گذاشته می‌شود؛ مدلِ
+       **صوتی** هرگز از آن دروازه رد نمی‌شد، چون `continue`اش چند خط
+       پیش از وارسیِ `bad` است. و جدا از آن، حکمِ «این مدل دستورِ لحن را
+       نمی‌پذیرد» هر روز در ایمیلِ سلامت گفته می‌شد و **هیچ اثری بر
+       انتخابِ مدل نداشت**: همان مدل دوباره انتخاب می‌شد، تا ابد. هشتمین
+       بار در این مخزن که تحلیلی نوشته شده و به تصمیم وصل نشده.
+
+       ترجیح است، نه حذف: اگر همهٔ مدل‌های صوتی دستور را رد کنند فهرست
+       دست‌نخورده می‌مانَد — بی مدلِ صوتی **هیچ قسمتی ساخته نمی‌شود**، و آن
+       از بی‌لحن بودن بسیار بدتر است. همان الگوی `stable` دو خط بالاتر. */
+    var cueOk = ttss.filter(function (x) {
+      try { return !ttsCueBadNow_(x); } catch (eC) { return true; }
+    });
+    if (cueOk.length) ttss = cueOk;
+
     chosen.textAll = texts.slice(0, 6);
     chosen.ttsAll = ttss.slice(0, 6);
     chosen.text = texts[0] || CFG.FALLBACK_TEXT_MODEL;
@@ -147,6 +163,37 @@ function textModel_() {
 function ttsModel_() {
   var m = resolveModels_(false);
   return m.tts || CFG.FALLBACK_TTS_MODEL;
+}
+
+/**
+ * اگر مدلِ صوتیِ فعلی دستورِ لحن را رد کرده و جایگزینی هست، همین حالا برو.
+ *
+ * ══ چرا این لازم است و چرا **اینجا** (۷٫۴۷) ══
+ * ترجیحِ بالا فقط هنگامِ ساختنِ دوبارهٔ کش اثر می‌کند، و کش
+ * `MODEL_REFRESH_DAYS` روز (۷) عمر دارد. یعنی بی این، موتور تا یک هفته
+ * با مدلی می‌مانْد که لحن را نمی‌پذیرد، در حالی که جایگزینش موجود بود.
+ *
+ * و **وسطِ قسمت نه**: عوض شدنِ مدلِ صوتی میانِ تکه‌ها یعنی نیمِ اولِ قسمت
+ * با یک رنگ و نیمِ دوم با رنگِ دیگر — درزی شنیدنی، برای بهبودی که عجله
+ * ندارد. پس از `healthCheck` پرسیده می‌شود: ساعتِ ۱۰، بینِ دو قسمت.
+ * همان قاعدهٔ ۷٫۲۷/۷٫۳۹ — مسیرِ مستقل با زمان‌بندیِ خودش.
+ */
+function ttsCueSwitch_() {
+  var out = { need: false, from: '', to: '', alt: 0, switched: false, why: '' };
+  try { out.from = String(ttsModel_() || ''); } catch (e) { return out; }
+  if (!out.from) return out;
+  try { if (!ttsCueBadNow_(out.from)) return out; } catch (e2) { return out; }
+  out.need = true;
+  var m = null;
+  try { m = resolveModels_(true); }
+  catch (e3) { out.why = String((e3 && e3.message) || e3).slice(0, 80); return out; }
+  var all = (m && m.ttsAll) || [];
+  for (var i = 0; i < all.length; i++) {
+    try { if (!ttsCueBadNow_(all[i])) out.alt++; } catch (e4) {}
+  }
+  out.to = String((m && m.tts) || '');
+  out.switched = !!(out.to && out.to !== out.from);
+  return out;
 }
 
 /** در صورت برخورد با سقف سهمیه، موقتاً یک رده پایین‌تر می‌رویم تا کار متوقف نشود. */

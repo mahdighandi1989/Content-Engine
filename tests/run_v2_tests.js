@@ -216,4 +216,56 @@ say('  خروجی:', JSON.stringify(busy), busy && busy.reason === 'busy' ? '✅
 if (!busy || busy.reason !== 'busy') throw new Error('busy reason missing');
 global.LockService = realLock;
 
+say('\n=== ۸) مدلِ صوتی که دستورِ لحن را رد کرده، دوباره انتخاب نمی‌شود ===');
+/* ══ چرا (۷٫۴۷) ══
+   ۲۳ سپتامبر، ایمیلِ سلامت: «دستورِ لحن **خاموش** — مدلِ
+   gemini-3.1-flash-tts-preview قالبش را نپذیرفت». حکم درست بود، تاریخ
+   داشت، یافته هم داشت — و `resolveModels_` هیچ‌وقت نگاهش نمی‌کرد، پس
+   همان مدل هر بار دوباره انتخاب می‌شد و هر قسمت بی‌لحن ساخته می‌شد.
+   مدلِ **متنی** همین دروازه را از قبل داشت («مدلی که داوری ردش کرده
+   دوباره انتخاب نمی‌شود»)؛ مدلِ صوتی چند خط بالاتر `continue` می‌کرد و
+   هرگز به آن نمی‌رسید. */
+{
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  const before = resolveModels_(true).tts;
+  say('  پیش از حکم → صوت:', before, before === 'gemini-3.1-flash-tts-preview' ? '✅' : '❌');
+  if (before !== 'gemini-3.1-flash-tts-preview') throw new Error('baseline tts wrong: ' + before);
+
+  ttsCueBadAdd_(before);
+  const after = resolveModels_(true).tts;
+  say('  پس از حکم  → صوت:', after, after === 'gemini-2.5-flash-preview-tts' ? '✅' : '❌');
+  if (after === before) throw new Error('❌ حکم به انتخابِ مدل وصل نشد: هنوز ' + after);
+  if (after !== 'gemini-2.5-flash-preview-tts') throw new Error('❌ جایگزینِ اشتباه: ' + after);
+
+  /* ترجیح است نه حذف: بی مدلِ صوتی هیچ قسمتی ساخته نمی‌شود، و آن از
+     بی‌لحن بودن بسیار بدتر است. */
+  ttsCueBadAdd_(after);
+  const both = resolveModels_(true).tts;
+  say('  وقتی هر دو رد کرده‌اند → صوت:', both, both ? '✅ باز هم یکی هست' : '❌');
+  if (!both) throw new Error('❌ فهرستِ صوتی خالی شد — بی مدلِ صوتی هیچ قسمتی ساخته نمی‌شود');
+
+  /* و پنجرهٔ امتحانِ دوباره: مدلِ preview بی عوض شدنِ نامش عوض می‌شود، پس
+     «برای همیشه کنار» یعنی کنار گذاشتنِ چیزی که شاید فردا درست شده باشد. */
+  const old = new Date(Date.now() - (Number(CFG.TTS_CUE_RETRY_DAYS) + 1) * 86400000);
+  const pad = n => (n < 10 ? '0' : '') + n;
+  ttsCueBadAdd_('gemini-3.1-flash-tts-preview',
+    old.getFullYear() + '-' + pad(old.getMonth() + 1) + '-' + pad(old.getDate()) +
+    ' ' + pad(old.getHours()) + ':' + pad(old.getMinutes()));
+  say('  حکمِ کهنه هنوز اثر دارد؟', ttsCueBadNow_('gemini-3.1-flash-tts-preview') ? '❌ بله' : '✅ نه');
+  if (ttsCueBadNow_('gemini-3.1-flash-tts-preview')) throw new Error('❌ حکم منقضی نشد');
+
+  /* و مسیرِ بازگشت: `ttsCueSwitch_` همان چیزی است که `healthCheck` هر روز
+     می‌پرسد — وگرنه کش هفت روز عمر دارد و موتور یک هفته بی‌لحن می‌مانَد. */
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  resolveModels_(true);
+  ttsCueBadAdd_(ttsModel_());
+  const sw = ttsCueSwitch_();
+  say('  ttsCueSwitch_:', JSON.stringify(sw), sw.switched ? '✅ خودش رفت' : '❌');
+  if (!sw.need) throw new Error('❌ نیاز تشخیص داده نشد');
+  if (!sw.switched) throw new Error('❌ عوض نشد: ' + JSON.stringify(sw));
+  if (!(sw.alt > 0)) throw new Error('❌ شمارشِ جایگزین‌ها غلط: ' + sw.alt);
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  resolveModels_(true);
+}
+
 say('\n✅ همهٔ آزمون‌های نسخهٔ ۲ گذشت.');

@@ -1047,6 +1047,53 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## The verdict that never reached the decision — the eighth time (7.47)
+
+Today's health mail: **«دستورِ لحن خاموش — مدلِ `gemini-3.1-flash-tts-preview`
+قالبش را نپذیرفت (از ۰۷:۰۱)؛ تکه‌ها بی‌لحن ساخته می‌شوند»**. Everything about
+that verdict was right: both payload shapes were tried (7.02), the model was
+recorded, the date was recorded, a «جدی» `tts-cue-unsupported` finding was
+raised, and the daily line said it out loud every morning.
+
+**And `resolveModels_` never looked at it.** So the same model was chosen again
+on every resolve, and every chunk was synthesized with no style cue — which
+silently disables section 32's reading style, the measured style cards, the mode
+picking, and the whole «روح» line of work that 7.34–7.41 was built for.
+
+**The bitter part is that the gate already existed one line away.** The *text*
+model has it, with a comment saying exactly why: «مدلی که داوری ردش کرده دوباره
+انتخاب نمی‌شود، وگرنه هر هفته همان تعویضِ بد تکرار می‌شود و داوری بی‌فایده است».
+The TTS branch `continue`s **before** that check, so a voice model never passed
+through the gate at all. Two kinds of verdict, one wired and one not, in the same
+loop.
+
+Three things this version does, and the second one is the general lesson:
+
+- **A single string cannot answer "which ones should I avoid".** `PK.TTS_CUE_OFF`
+  holds the *last* model that rejected the cue; the moment a second one rejects,
+  the first is forgotten and becomes selectable again. It is a map now,
+  `{model: date}`, expiring after `TTS_CUE_RETRY_DAYS` — a preview model changes
+  behaviour without changing its name, so "excluded forever" means excluding
+  something that may be fixed tomorrow.
+- **It is a preference, not an exclusion.** If every voice model rejects the cue,
+  the list is left untouched: with no voice model **no episode is produced at
+  all**, and that is far worse than a flat one. Same shape as the `stable` policy
+  filter two lines above — filter, and keep the original when the filter empties it.
+- **And it acts rather than waiting.** The model cache lives `MODEL_REFRESH_DAYS`
+  (7), so the preference alone would have left the engine flat for a week.
+  `ttsCueSwitch_` is asked from `healthCheck` — 10:00, **between episodes**, never
+  mid-synthesis, because swapping the voice model between chunks would put two
+  timbres in one episode for a fix that is in no hurry. 7.27/7.39 again: the
+  independent path with its own schedule.
+
+**And when there is no alternative, say so.** «we did not look» and «we looked and
+there is none» are different facts, and until today neither was reported.
+
+The assertion that matters is proved through the **running path**, not by hand:
+the suite drives a model that rejects both shapes and then asks whether the map
+the selector reads contains it — 7.22's rule, that a state the engine cannot
+reach proves nothing.
+
 ## A cure placed on a road that is never travelled (7.46)
 
 The owner opened the Actions tab and found `voice-bridge` red — four scheduled

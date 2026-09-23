@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.46
+ *  موتور محتوا و پادکست — نسخهٔ 7.47
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.46',
+  CODE_VERSION: '7.47',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1884,6 +1884,9 @@ var PK = {
   STYLE_PROBE_DONE: 'SPEAK_STYLE_PROBE_DONE',
   TTS_CUE_OFF: 'TTS_CUE_REJECTED',  // مدلی که قالبِ دستورِ لحن را نپذیرفت
   TTS_CUE_OFF_AT: 'TTS_CUE_REJECTED_AT',  // از چه تاریخی خاموش است — «از کی» را فقط تاریخ می‌گوید
+  // نقشهٔ همهٔ مدل‌های صوتی که دستورِ لحن را رد کرده‌اند {model: تاریخ} —
+  // یک مقدارِ تکی برای «کدام‌ها را انتخاب نکن» کافی نیست (۷٫۴۷)
+  TTS_CUE_BAD: 'TTS_CUE_REJECTED_MAP',
   // عکس‌هایی که داوری‌شان انجام شده — کلید، شناسهٔ فایل است نه نامش، چون
   // نامِ عکس با شمارهٔ قسمت ساخته می‌شود و شمارهٔ قسمتِ دو برنامه می‌تواند
   // یکی باشد.
@@ -3726,6 +3729,47 @@ function ttsCueWanted_(chunks, i) {
  * 00_Config است؛ خلاصه: مدلِ preview رفتارش بی عوض شدنِ نامش عوض می‌شود،
  * پس «تا وقتی مدل عوض نشود دیگر امتحان نمی‌شود» برایش یعنی «هرگز».
  */
+/* ══ یک حکم، یا فهرستی از حکم‌ها (۷٫۴۷) ══
+ * `PK.TTS_CUE_OFF` یک رشته است: «آخرین مدلی که رد کرد». برای پاسخ به
+ * «کدام مدل‌ها را انتخاب نکن» یک مقدارِ تکی کافی نیست — همین که مدلِ دوم
+ * رد کند، اولی فراموش می‌شود و دوباره انتخاب‌شدنی است. پس نقشه، با تاریخ.
+ *
+ * و انقضا همان `TTS_CUE_RETRY_DAYS` است: مدلِ preview بی عوض شدنِ نامش
+ * رفتارش عوض می‌شود، پس «برای همیشه کنار» یعنی کنار گذاشتنِ چیزی که شاید
+ * فردا درست شده باشد.
+ */
+function ttsCueBadMap_() {
+  try {
+    var raw = String(props_().getProperty(PK.TTS_CUE_BAD) || '');
+    var o = raw ? JSON.parse(raw) : null;
+    return (o && typeof o === 'object') ? o : {};
+  } catch (e) { return {}; }
+}
+
+function ttsCueBadAdd_(model, at) {
+  if (!model) return false;
+  try {
+    var m = ttsCueBadMap_();
+    m[String(model)] = String(at || nowStr_());
+    props_().setProperty(PK.TTS_CUE_BAD, JSON.stringify(m));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** این مدلِ صوتی همین حالا «دستور را نمی‌پذیرد» است؟ (با پنجرهٔ امتحانِ دوباره) */
+function ttsCueBadNow_(model) {
+  if (!model) return false;
+  var at = '';
+  try { at = String(ttsCueBadMap_()[String(model)] || ''); } catch (e) { return false; }
+  if (!at) return false;
+  var days = Number(CFG.TTS_CUE_RETRY_DAYS);
+  if (!isFinite(days) || days <= 0) return true;          // صفر یعنی «هرگز دوباره»
+  var t = Date.parse(String(at).replace(' ', 'T'));
+  if (!isFinite(t)) return true;                          // تاریخ نداریم؛ محافظه‌کار
+  var age = new Date().getTime() - t;
+  return age >= 0 && age < days * 86400000;
+}
+
 function ttsCueOffNow_(model) {
   if (!model) return false;
   var off = '';
@@ -4090,6 +4134,9 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                 // دستور می‌فرستاد و دوباره رد می‌شد. یک پنجره که پس از
                 // شکست بسته نشود، پنجره نیست.
                 try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
+                // و در نقشه هم ثبت شود، وگرنه انتخابِ مدل هرگز از آن خبر
+                // ندارد و همین مدل فردا دوباره انتخاب می‌شود (۷٫۴۷).
+                try { ttsCueBadAdd_(model); } catch (eM) {}
                 if (!again) {
                   logLine_('قالبِ دستورِ لحن را مدل «' + model + '» در هر دو مسیر ' +
                            '(generateContent و interactions) نپذیرفت؛ از این پس ' +
@@ -9846,6 +9893,22 @@ function resolveModels_(force) {
       if (sa.length) ttss = sa;
     }
 
+    /* ══ حکمی که به تصمیم وصل نشود، حکم نیست (۷٫۴۷) ══
+       مدلِ **متنی** که داوری ردش کرده بالاتر کنار گذاشته می‌شود؛ مدلِ
+       **صوتی** هرگز از آن دروازه رد نمی‌شد، چون `continue`اش چند خط
+       پیش از وارسیِ `bad` است. و جدا از آن، حکمِ «این مدل دستورِ لحن را
+       نمی‌پذیرد» هر روز در ایمیلِ سلامت گفته می‌شد و **هیچ اثری بر
+       انتخابِ مدل نداشت**: همان مدل دوباره انتخاب می‌شد، تا ابد. هشتمین
+       بار در این مخزن که تحلیلی نوشته شده و به تصمیم وصل نشده.
+
+       ترجیح است، نه حذف: اگر همهٔ مدل‌های صوتی دستور را رد کنند فهرست
+       دست‌نخورده می‌مانَد — بی مدلِ صوتی **هیچ قسمتی ساخته نمی‌شود**، و آن
+       از بی‌لحن بودن بسیار بدتر است. همان الگوی `stable` دو خط بالاتر. */
+    var cueOk = ttss.filter(function (x) {
+      try { return !ttsCueBadNow_(x); } catch (eC) { return true; }
+    });
+    if (cueOk.length) ttss = cueOk;
+
     chosen.textAll = texts.slice(0, 6);
     chosen.ttsAll = ttss.slice(0, 6);
     chosen.text = texts[0] || CFG.FALLBACK_TEXT_MODEL;
@@ -9890,6 +9953,37 @@ function textModel_() {
 function ttsModel_() {
   var m = resolveModels_(false);
   return m.tts || CFG.FALLBACK_TTS_MODEL;
+}
+
+/**
+ * اگر مدلِ صوتیِ فعلی دستورِ لحن را رد کرده و جایگزینی هست، همین حالا برو.
+ *
+ * ══ چرا این لازم است و چرا **اینجا** (۷٫۴۷) ══
+ * ترجیحِ بالا فقط هنگامِ ساختنِ دوبارهٔ کش اثر می‌کند، و کش
+ * `MODEL_REFRESH_DAYS` روز (۷) عمر دارد. یعنی بی این، موتور تا یک هفته
+ * با مدلی می‌مانْد که لحن را نمی‌پذیرد، در حالی که جایگزینش موجود بود.
+ *
+ * و **وسطِ قسمت نه**: عوض شدنِ مدلِ صوتی میانِ تکه‌ها یعنی نیمِ اولِ قسمت
+ * با یک رنگ و نیمِ دوم با رنگِ دیگر — درزی شنیدنی، برای بهبودی که عجله
+ * ندارد. پس از `healthCheck` پرسیده می‌شود: ساعتِ ۱۰، بینِ دو قسمت.
+ * همان قاعدهٔ ۷٫۲۷/۷٫۳۹ — مسیرِ مستقل با زمان‌بندیِ خودش.
+ */
+function ttsCueSwitch_() {
+  var out = { need: false, from: '', to: '', alt: 0, switched: false, why: '' };
+  try { out.from = String(ttsModel_() || ''); } catch (e) { return out; }
+  if (!out.from) return out;
+  try { if (!ttsCueBadNow_(out.from)) return out; } catch (e2) { return out; }
+  out.need = true;
+  var m = null;
+  try { m = resolveModels_(true); }
+  catch (e3) { out.why = String((e3 && e3.message) || e3).slice(0, 80); return out; }
+  var all = (m && m.ttsAll) || [];
+  for (var i = 0; i < all.length; i++) {
+    try { if (!ttsCueBadNow_(all[i])) out.alt++; } catch (e4) {}
+  }
+  out.to = String((m && m.tts) || '');
+  out.switched = !!(out.to && out.to !== out.from);
+  return out;
 }
 
 /** در صورت برخورد با سقف سهمیه، موقتاً یک رده پایین‌تر می‌رویم تا کار متوقف نشود. */
@@ -12107,6 +12201,30 @@ function healthCheck() {
     var tcS = ttsCueStatus_();
     if (tcS && tcS.line) { if (tcS.ok) notes.push(tcS.line); else problems.push(tcS.line); }
   } catch (eTc) {}
+  /* ══ و اگر خاموش است، اینجا کاری هم می‌شود — نه فقط گزارش (۷٫۴۷) ══
+     حکمِ «این مدل دستور را نمی‌پذیرد» هفته‌ها فقط گفته می‌شد. حالا اگر
+     جایگزینی هست، همین‌جا سراغش می‌رویم: ساعتِ ۱۰، بینِ دو قسمت، نه وسطِ
+     صداسازی (که درزِ شنیدنی می‌سازد). و اگر جایگزینی نیست، **همان را
+     صریح بگو** — «هیچ مدلِ دیگری هم نمی‌پذیرد» و «هنوز نگشته‌ایم» دو
+     خبرِ متفاوت‌اند و تا امروز هیچ‌کدام گفته نمی‌شد. */
+  try {
+    var tcW = ttsCueSwitch_();
+    if (tcW.switched) {
+      mailQueue_('مدلِ صوتی عوض شد تا لحن برگردد',
+                 'مدلِ «' + tcW.from + '» دستورِ لحن را نمی‌پذیرفت، پس تکه‌ها ' +
+                 'بی‌لحن ساخته می‌شدند. موتور به «' + tcW.to + '» رفت که می‌پذیرد. ' +
+                 'قسمتِ بعدی دوباره با لحن خوانده می‌شود.');
+      notes.push('دستورِ لحن: مدل از «' + tcW.from + '» به «' + tcW.to +
+                 '» عوض شد تا لحن برگردد.');
+    } else if (tcW.need) {
+      problems.push('دستورِ لحن خاموش است و **جایگزینی پیدا نشد**: از ' +
+                    ((tcW.alt || 0) === 0 ? 'هیچ‌کدام' : String(tcW.alt)) +
+                    ' مدلِ صوتیِ در دسترس، هیچ‌کدام قالبِ دستور را نمی‌پذیرد' +
+                    (tcW.why ? ' (' + tcW.why + ')' : '') +
+                    ' — تا مدلِ تازه‌ای نیاید، قسمت‌ها بی‌لحن ساخته می‌شوند. ' +
+                    'این ایراد است، نه انتخاب.');
+    }
+  } catch (eTw) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید

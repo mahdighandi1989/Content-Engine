@@ -795,6 +795,47 @@ function ttsCueWanted_(chunks, i) {
  * 00_Config است؛ خلاصه: مدلِ preview رفتارش بی عوض شدنِ نامش عوض می‌شود،
  * پس «تا وقتی مدل عوض نشود دیگر امتحان نمی‌شود» برایش یعنی «هرگز».
  */
+/* ══ یک حکم، یا فهرستی از حکم‌ها (۷٫۴۷) ══
+ * `PK.TTS_CUE_OFF` یک رشته است: «آخرین مدلی که رد کرد». برای پاسخ به
+ * «کدام مدل‌ها را انتخاب نکن» یک مقدارِ تکی کافی نیست — همین که مدلِ دوم
+ * رد کند، اولی فراموش می‌شود و دوباره انتخاب‌شدنی است. پس نقشه، با تاریخ.
+ *
+ * و انقضا همان `TTS_CUE_RETRY_DAYS` است: مدلِ preview بی عوض شدنِ نامش
+ * رفتارش عوض می‌شود، پس «برای همیشه کنار» یعنی کنار گذاشتنِ چیزی که شاید
+ * فردا درست شده باشد.
+ */
+function ttsCueBadMap_() {
+  try {
+    var raw = String(props_().getProperty(PK.TTS_CUE_BAD) || '');
+    var o = raw ? JSON.parse(raw) : null;
+    return (o && typeof o === 'object') ? o : {};
+  } catch (e) { return {}; }
+}
+
+function ttsCueBadAdd_(model, at) {
+  if (!model) return false;
+  try {
+    var m = ttsCueBadMap_();
+    m[String(model)] = String(at || nowStr_());
+    props_().setProperty(PK.TTS_CUE_BAD, JSON.stringify(m));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** این مدلِ صوتی همین حالا «دستور را نمی‌پذیرد» است؟ (با پنجرهٔ امتحانِ دوباره) */
+function ttsCueBadNow_(model) {
+  if (!model) return false;
+  var at = '';
+  try { at = String(ttsCueBadMap_()[String(model)] || ''); } catch (e) { return false; }
+  if (!at) return false;
+  var days = Number(CFG.TTS_CUE_RETRY_DAYS);
+  if (!isFinite(days) || days <= 0) return true;          // صفر یعنی «هرگز دوباره»
+  var t = Date.parse(String(at).replace(' ', 'T'));
+  if (!isFinite(t)) return true;                          // تاریخ نداریم؛ محافظه‌کار
+  var age = new Date().getTime() - t;
+  return age >= 0 && age < days * 86400000;
+}
+
 function ttsCueOffNow_(model) {
   if (!model) return false;
   var off = '';
@@ -1159,6 +1200,9 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                 // دستور می‌فرستاد و دوباره رد می‌شد. یک پنجره که پس از
                 // شکست بسته نشود، پنجره نیست.
                 try { props_().setProperty(PK.TTS_CUE_OFF_AT, nowStr_()); } catch (eA) {}
+                // و در نقشه هم ثبت شود، وگرنه انتخابِ مدل هرگز از آن خبر
+                // ندارد و همین مدل فردا دوباره انتخاب می‌شود (۷٫۴۷).
+                try { ttsCueBadAdd_(model); } catch (eM) {}
                 if (!again) {
                   logLine_('قالبِ دستورِ لحن را مدل «' + model + '» در هر دو مسیر ' +
                            '(generateContent و interactions) نپذیرفت؛ از این پس ' +
