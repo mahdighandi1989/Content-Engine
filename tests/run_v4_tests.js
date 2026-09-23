@@ -1,6 +1,11 @@
 /* v3.3: spoken date, thread-first curation with callbacks, single merged audio */
 const { outPath } = require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs=require('fs');const{Spread}=require('./lib/mock.js');
+/* `{manual: true}`: این مجموعه چند بار پشتِ‌هم قسمت می‌سازد تا رفتارِ
+   پس از آن را بسنجد. از ۷٫۴۴ مسیرِ **خودکار** روزی یک قسمتِ تازه
+   می‌سازد (باگِ ۲۳ سپتامبر: دو قسمت در یک روز، دومی بی غنی‌سازی).
+   درِ «الان یکی دیگر بساز» همان دکمهٔ دستی است، پس آزمون هم از
+   همان در می‌آید. */
 const F=['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs','05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs','10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs','14_Special.gs','15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs','21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs','26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs','32_Persona.gs', '33_VoiceIntake.gs', '34_Search.gs', '35_Embed.gs', '36_VoiceBridge.gs'];
 let src='';for(const f of F)src+='\n'+fs.readFileSync('src/'+f,'utf8');(0,eval)(src);
 const VH=['تاریخ پردازش','File ID','a','b','لینک دسترسی','c','d','e','متن پیاده‌سازی شده','فضا و وایب','تحلیل تخصصی','f','تحلیل محتوا (JSON)','g','h','i','خلاصه اجرایی','وضعیت'];
@@ -74,7 +79,7 @@ say('  بدون هیچ رقم ✅');
 
 say('\n=== ۲) قسمت اول: نخ + سهم عکس + تاریخ در قلاب ===');
 CFG.MAX_WAV_BYTES = 600000;   // هر تکه یک بخش شود تا ادغام واقعاً آزمایش شود
-let r=produceEpisode(); let d=0;
+let r=produceEpisode({ manual: true }); let d=0;
 while(global.__PROPS['PENDING_EPISODE']&&d++<90){const x=produceEpisodeContinue(); if(x)r=x;}
 const pod=hub.getSheetByName(CFG.TAB_PODCASTS);
 let row=pod.getRange(pod.getLastRow(),1,1,PODCAST_HEADERS.length).getValues()[0];
@@ -111,7 +116,7 @@ say('  نامش:',(audioCalls[0].body.audio||audioCalls[0].body.document).getNam
 say('\n=== ۵) قسمت دوم: ارجاع به محتوای قبلاً پخش‌شده ===');
 // force the same category again so the used pool is non-empty
 global.__PROPS['LAST_CATEGORIES']='';
-r=produceEpisode(); d=0;
+r=produceEpisode({ manual: true }); d=0;
 while(global.__PROPS['PENDING_EPISODE']&&d++<90){const x=produceEpisodeContinue(); if(x)r=x;}
 const cp=curatorPrompts[curatorPrompts.length-1];
 const refsOffered=(cp.match(/\| پخش‌شده \|/g)||[]).length;

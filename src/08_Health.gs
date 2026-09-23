@@ -551,6 +551,7 @@ function writeStatus_(hub, note) {
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
+    nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -1542,6 +1543,21 @@ function healthCheck() {
       if (vbS.ok === false) problems.push(vbS.line); else notes.push(vbS.line);
     }
   } catch (eVb) {}
+  /* ══ شبی که کشته شد — و چرا از اینجا پرسیده می‌شود (۷٫۴۴) ══
+     `nightStarve` فقط از `nightEnd_` تغذیه می‌شود، و وقتی اپس‌اسکریپت
+     اجرا را سرِ شش دقیقه می‌کُشد `nightEnd_` هم می‌میرد. یعنی تنها
+     شاهدِ موجود دقیقاً در حالتی که لازم است وجود ندارد — و سه شب
+     (۲۱ تا ۲۳ سپتامبر) «هر شب فهرست تا آخر می‌رود» گفت در حالی که از
+     «اثر انگشتِ معنایی» به بعد هیچ‌چیز اجرا نشده بود. */
+  try {
+    var nd = nightDeath_();
+    if (nd.died) {
+      problems.push('کارِ شبانه: شبِ ' + nd.day + ' وسطِ «' + nd.at +
+                    '» کشته شد (سقفِ شش دقیقهٔ اپس‌اسکریپت) — یعنی هر ' +
+                    'بلوکی پس از آن، آن شب اجرا نشد و هیچ‌جا ثبت نشد.');
+    }
+  } catch (eNd) {}
+
   /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
      اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
      شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته

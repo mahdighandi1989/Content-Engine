@@ -5,6 +5,11 @@
 require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread, DFolder } = require('./lib/mock.js');
+/* `{manual: true}`: این مجموعه چند بار پشتِ‌هم قسمت می‌سازد تا رفتارِ
+   پس از آن را بسنجد. از ۷٫۴۴ مسیرِ **خودکار** روزی یک قسمتِ تازه
+   می‌سازد (باگِ ۲۳ سپتامبر: دو قسمت در یک روز، دومی بی غنی‌سازی).
+   درِ «الان یکی دیگر بساز» همان دکمهٔ دستی است، پس آزمون هم از
+   همان در می‌آید. */
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
@@ -381,7 +386,7 @@ ok('بازهٔ زمانی هر قطعه ثبت شد', /ثانیه/.test(seg1.chu
 
 // ══════════════════════════════════ ۴) تولید قسمت اول ═════════════════════
 console.log('\n=== ۴) تولید قسمت اولِ درس‌نامه ===');
-un = quiet(); const r1 = produceSpecialEpisode(); un();
+un = quiet(); const r1 = produceSpecialEpisode({ manual: true }); un();
 console.log('  نتیجه:', JSON.stringify(r1));
 ok('قسمت اول نوشته شد', r1.ok === true, JSON.stringify(r1));
 ok('از مجموعهٔ مقدماتی (کتابِ Polya) شروع شد',
@@ -450,13 +455,16 @@ const doneTo1 = Number(before.vals[SP.DONE_TO-1]);
 console.log('  مصرف‌شده تا قطعهٔ:', doneTo1);
 ok('«مصرف‌شده تا» ثبت شد', doneTo1 >= 1, doneTo1 + '');
 
-un = quiet(); const r2 = produceSpecialEpisode();
+un = quiet(); const r2 = produceSpecialEpisode({ manual: true });
 let d2 = 0; while (global.__PROPS[PK.SP_PENDING] && d2++ < 60) produceSpecialContinue(); un();
 const meta2 = JSON.parse(global.__FILES.filter(f => f.getName() === '_special.json')
   .slice(-1)[0].getBlob().getDataAsString());
 console.log('  قسمت دوم:', JSON.stringify({ ok: r2.ok, series: r2.series,
   from: meta2.fromNo, to: meta2.toNo }));
-ok('قسمت دوم هم ساخته شد (روزِ تمام‌شدنِ یک مجموعه هدر نمی‌رود)', r2.ok === true,
+/* نامِ پیشینِ این سنجه «روزِ تمام‌شدنِ یک مجموعه هدر نمی‌رود» بود و
+   ادعایی می‌کرد که هیچ کدی پشتش نیست: هیچ مسیری در موتور همان روز
+   قسمتِ دومِ خودکار نمی‌سازد. آنچه واقعاً می‌سنجد، ادامهٔ مکان‌نماست. */
+ok('قسمت دوم از مکان‌نمای درست ادامه می‌دهد', r2.ok === true,
    JSON.stringify(r2));
 ok('چون کتاب تمام شده بود، سراغ مجموعهٔ بعدی رفت',
    meta2.seriesKey !== meta1.seriesKey && String(r2.series).indexOf('Astrology') !== -1,
@@ -468,7 +476,7 @@ ok('مجموعهٔ اول «تمام‌شده» علامت خورد', (() => {
 })());
 
 // حالا قسمت سوم: باید داخلِ همان مجموعهٔ آسترولوژی ادامه بدهد و مرور بیاورد
-un = quiet(); const r3 = produceSpecialEpisode();
+un = quiet(); const r3 = produceSpecialEpisode({ manual: true });
 let d3 = 0; while (global.__PROPS[PK.SP_PENDING] && d3++ < 60) produceSpecialContinue(); un();
 const meta3 = JSON.parse(global.__FILES.filter(f => f.getName() === '_special.json')
   .slice(-1)[0].getBlob().getDataAsString());
@@ -660,7 +668,7 @@ ok('مجموعهٔ بازگشایی‌شده بر هر مجموعهٔ نو مق�
    nextPick.key);
 
 console.log('\n=== ۱۵) ادامهٔ مجموعهٔ بازگشایی‌شده از قسمتِ تازه ═══');
-un = quiet(); const r4 = produceSpecialEpisode();
+un = quiet(); const r4 = produceSpecialEpisode({ manual: true });
 let d4 = 0; while (global.__PROPS[PK.SP_PENDING] && d4++ < 60) produceSpecialContinue(); un();
 const meta4 = JSON.parse(global.__FILES.filter(f => f.getName() === '_special.json')
   .slice(-1)[0].getBlob().getDataAsString());
@@ -759,7 +767,7 @@ console.log('\n=== ۱۹) پاسخِ بریدهٔ مدل، مکان‌نما را
   rg.rows.forEach(r => { if (String(r.vals[SC.NAME-1]).indexOf('Trunc') === -1)
     rg.sheet.getRange(r.row, SC.STATUS, 1, 1).setValue(SST.DONE); });
   TRUNCATE = true;
-  const rT = produceSpecialEpisode();
+  const rT = produceSpecialEpisode({ manual: true });
   let dT = 0; while (global.__PROPS[PK.SP_PENDING] && dT++ < 60) produceSpecialContinue();
   TRUNCATE = false;
   un();
@@ -791,7 +799,7 @@ console.log('\n=== ۲۰) قسمتِ خوانده‌نشده، برنامه را 
   rg2.sheet.getRange(healthy.row, SC.STATUS, 1, 1).setValue(SST.NEW);
   const hp = readSeriesParts_(hub).byKey[healthy.key];
   hp.forEach(x => readSeriesParts_(hub).sheet.getRange(x.row, SP.DONE_TO, 1, 1).setValue(0));
-  const rB = produceSpecialEpisode();
+  const rB = produceSpecialEpisode({ manual: true });
   let dB = 0; while (global.__PROPS[PK.SP_PENDING] && dB++ < 60) produceSpecialContinue();
   un();
   console.log('  نتیجه:', JSON.stringify({ ok: rB.ok, series: rB.series,
@@ -862,7 +870,7 @@ console.log('\n=== ۲۳) پاسخِ سوراخ‌سوراخ: مکان‌نما �
   clearSeriesPin_();
   props_().deleteProperty(PK.SP_STUCK);
   GAPPY = true;
-  const rG = produceSpecialEpisode();
+  const rG = produceSpecialEpisode({ manual: true });
   let dG = 0; while (global.__PROPS[PK.SP_PENDING] && dG++ < 60) produceSpecialContinue();
   GAPPY = false;
   un();
@@ -883,7 +891,7 @@ console.log('\n=== ۲۳) پاسخِ سوراخ‌سوراخ: مکان‌نما �
     return String(rr.vals[SC.STATUS-1]) !== SST.DONE;
   })());
   // قطعه‌های نگفته باید در قسمت بعد بیایند
-  un = quiet(); const rG2 = produceSpecialEpisode();
+  un = quiet(); const rG2 = produceSpecialEpisode({ manual: true });
   let d2 = 0; while (global.__PROPS[PK.SP_PENDING] && d2++ < 60) produceSpecialContinue(); un();
   ok('قسمت بعد از همان مجموعه و از همان‌جا ادامه داد',
      rG2.ok === true && String(rG2.series).indexOf('Surakh') !== -1,
@@ -904,7 +912,7 @@ console.log('\n=== ۲۴) مجموعه‌ای که قسمت‌هایش خواند
   rgD.rows.forEach(r => { if (String(r.vals[SC.NAME-1]).indexOf('Gomshode') === -1)
     rgD.sheet.getRange(r.row, SC.STATUS, 1, 1).setValue(SST.DONE); });
   clearSeriesPin_();
-  const rD = produceSpecialEpisode();
+  const rD = produceSpecialEpisode({ manual: true });
   let dD = 0; while (global.__PROPS[PK.SP_PENDING] && dD++ < 60) produceSpecialContinue();
   un();
   const rowD = readSeriesReg_(hub).rows.find(r => String(r.vals[SC.NAME-1]).indexOf('Gomshode') !== -1);
@@ -929,7 +937,7 @@ console.log('\n=== ۲۴) مجموعه‌ای که قسمت‌هایش خواند
   // تبِ منبع که برگردد، همان مجموعه باید ادامه پیدا کند
   un = quiet();
   readSeriesParts_(hub).sheet.getRange(pDead.row, SP.TAB, 1, 1).setValue('Video Analysis');
-  const rD2 = produceSpecialEpisode();
+  const rD2 = produceSpecialEpisode({ manual: true });
   let d3 = 0; while (global.__PROPS[PK.SP_PENDING] && d3++ < 60) produceSpecialContinue(); un();
   ok('و همین که تبِ منبع برگشت، دوباره ساخته شد',
      rD2.ok === true && String(rD2.series).indexOf('Gomshode') !== -1,
@@ -946,7 +954,7 @@ console.log('\n=== ۲۵) فشردنِ دکمهٔ دستی وقتی صداگذا�
   global.__PROPS[PK.SERIES_SCAN_AT] = '2020-01-01 00:00';
   scanSeries(true);
   clearSeriesPin_();
-  const rMake = produceSpecialEpisode();
+  const rMake = produceSpecialEpisode({ manual: true });
   un();
   ok('برای این آزمون یک قسمتِ واقعی ساخته شد و صدایش در نوبت ماند',
      rMake.ok === true && !!global.__PROPS[PK.SP_PENDING], JSON.stringify(rMake).slice(0, 70));

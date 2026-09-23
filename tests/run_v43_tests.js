@@ -14,6 +14,11 @@
 require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread, DFolder } = require('./lib/mock.js');
+/* `{manual: true}`: این مجموعه چند بار پشتِ‌هم قسمت می‌سازد تا رفتارِ
+   پس از آن را بسنجد. از ۷٫۴۴ مسیرِ **خودکار** روزی یک قسمتِ تازه
+   می‌سازد (باگِ ۲۳ سپتامبر: دو قسمت در یک روز، دومی بی غنی‌سازی).
+   درِ «الان یکی دیگر بساز» همان دکمهٔ دستی است، پس آزمون هم از
+   همان در می‌آید. */
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
@@ -164,7 +169,7 @@ console.log('  دستورهای باز پیش از تولید:', openBefore.leng
 ok('دست‌کم دو دستور باز داریم', openBefore.length >= 2, openBefore.length + '');
 
 WRITER = 'full';
-un = quiet(); const rp = produceEpisode(); un();
+un = quiet(); const rp = produceEpisode({ manual: true }); un();
 ok('قسمت نوشته شد ولی هنوز منتشر نشده', rp.ok === true && rp.pending === true);
 const stillOpen = openInstructions_(hub).map(o => o.id);
 ok('پیش از انتشار، هیچ دستوری بسته نشده',
@@ -303,7 +308,7 @@ console.log('\n=== ۸) متنِ بریدهٔ قسمت ===');
 WRITER = 'truncated';
 writerCalls = 0;
 const logBefore = hub.getSheetByName(CFG.TAB_LOG).getLastRow();
-un = quiet(); produceEpisode();
+un = quiet(); produceEpisode({ manual: true });
 let dd = 0; while (global.__PROPS[PK.PENDING] && dd++ < 60) produceEpisodeContinue(); un();
 const logTxt = hub.getSheetByName(CFG.TAB_LOG)
   .getRange(logBefore + 1, 1, Math.max(1, hub.getSheetByName(CFG.TAB_LOG).getLastRow() - logBefore), 2)
@@ -596,7 +601,7 @@ ok('«در دنیای امروز،» گرفته می‌شود',
 
 console.log('\n=== ۲۳) ارسالِ دوباره، ایمیل و تلگرام را تکرار نمی‌کند ===');
 WRITER = 'full'; TG.length = 0; global.__MAIL.length = 0;
-un = quiet(); produceEpisode();
+un = quiet(); produceEpisode({ manual: true });
 let guard = 0;
 // تا وقتی به مرحلهٔ «ارسال» برسیم جلو می‌رویم
 while (global.__PROPS[PK.PENDING] &&

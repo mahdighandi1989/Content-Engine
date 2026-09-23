@@ -165,7 +165,14 @@ global.__STUB = function (url, body) {
 
 let un = quiet(); let g = 0; while (g++ < 30) syncCatalog(); un();
 const hub = getHub_();
-const runAll = () => { const r = produceSpecialEpisode();
+/* ══ `{manual: true}` چون این آزمون **دکمهٔ دستی** را می‌زند (۷٫۴۴) ══
+   گزینهٔ منو `produceSpecialEpisode({ manual: true })` صدا می‌زند —
+   `run_calendar_test.js` ۷٫۴ همین را می‌سنجد. این کمک‌کار بی‌آرگومان
+   صدا می‌زد، یعنی مسیرِ **خودکار** را می‌آزمود در حالی که اسمش
+   «دکمهٔ دستی» است. نگهبانِ «روزی یک قسمتِ تازه» همین ناهم‌خوانی را
+   بیرون انداخت: آزمونی که مسیری غیر از مسیرِ ادعایش را برود، دربارهٔ
+   چیزِ دیگری حرف می‌زند. */
+const runAll = () => { const r = produceSpecialEpisode({ manual: true });
   let d = 0; while (global.__PROPS[PK.SP_PENDING] && d++ < 60) produceSpecialContinue(); return r; };
 
 // ══════════════════════ ۱) اسکن خودکار است؟ ═══════════════════════════════

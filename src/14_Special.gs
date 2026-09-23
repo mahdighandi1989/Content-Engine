@@ -824,6 +824,18 @@ function produceSpecialEpisode(opt) {
       if (pend.reason === undefined) pend.reason = 'audio-pending';
       return pend;
     }
+    /* ══ قرینهٔ همان نگهبانِ بخشِ ۳ (۷٫۴۴) ══
+       `produceSpecialEpisodeRetry` هم بی‌حافظه است و همان مسیر را دارد:
+       تلاشِ دوباره که پس از پایانِ درسِ امروز برسد، `SP_PENDING` را خالی
+       می‌بیند و یکی از نو می‌سازد. باگی که در یکی از دو قرینه پیدا شود،
+       در هر دو درست می‌شود — درسِ ۵٫۹۵. */
+    if (!opt.manual && epMadeToday_(ENRICH_SHOW_SPECIAL)) {
+      logLine_('درس‌نامه: امروز قسمتِ تازه ساخته شده؛ دومی ساخته نمی‌شود. ' +
+               '(اجرای دستی از منو همچنان مجاز است.)');
+      lock.releaseLock();
+      return { ok: false, reason: 'already-today' };
+    }
+
     var hub = getHub_();
     try { ingestReports_(hub, new Date().getTime() + 45000); } catch (eIn) {}
     var orders = [];
@@ -1106,6 +1118,7 @@ function produceSpecialEpisode(opt) {
       }
     }
 
+    epMarkMade_(ENRICH_SHOW_SPECIAL);   // پیش از نوشتن — همان دلیلِ بخشِ ۳
     var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
     /* ══ شمارهٔ درس، جدا از شمارهٔ سراسری (۶٫۵۵) ══
      * شمارهٔ قسمت سراسری است و باید بماند — گزارش‌ها و مکان‌نما به آن بندند.

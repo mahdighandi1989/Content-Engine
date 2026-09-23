@@ -686,9 +686,49 @@ function nightHas_(needMs, what) {
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
   }
   if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
-  if (nightLeft_() >= needMs) return true;
+  if (nightLeft_() >= needMs) {
+    /* ══ ضربان، **پیش** از کار ══
+       اگر پس از کار نوشته شود، دقیقاً بلوکی که وقت را خورد و اجرا را به
+       کشتن داد، هرگز ثبت نمی‌شود — یعنی نشانه‌ای که فقط وقتی هست که
+       لازمش نداریم. */
+    nightAtSave_(what);
+    return true;
+  }
   _nightMore = what;                           // نقطهٔ توقف
   return false;
+}
+
+/** آخرین بلوکی که واردش شدیم، با روزش. */
+function nightAtSave_(what) {
+  try {
+    props_().setProperty(PK.NIGHT_AT, JSON.stringify(
+      { day: nightDay_(), at: String(what || ''), ts: nowStr_() }));
+  } catch (e) {}
+}
+
+/**
+ * شبی که **کشته شد** — نه شبی که وقت کم آورد.
+ *
+ * تفاوتشان همه‌چیز است: «وقت تمام شد سرِ X» یعنی `nightEnd_` اجرا شد،
+ * ادامه زمان‌بندی شد و کار جلو می‌رود. ولی وقتی اپس‌اسکریپت اجرا را سرِ
+ * شش دقیقه می‌کُشد، `nightEnd_` هم می‌میرد: نه ادامه‌ای زمان‌بندی می‌شود،
+ * نه چیزی ثبت — و `nightStarve` که فقط از `nightEnd_` تغذیه می‌شود،
+ * می‌گوید همه‌چیز خوب است.
+ *
+ * پس نشانه را از جای دیگری می‌گیریم: اگر ضربانِ آخرین بلوکِ **روزِ
+ * گذشته** روی «پایان» نایستاده باشد، آن شب وسطِ همان بلوک مُرد.
+ */
+function nightDeath_() {
+  var out = { died: false, at: '', day: '', ts: '' };
+  try {
+    var v = JSON.parse(props_().getProperty(PK.NIGHT_AT) || 'null');
+    if (!v || !v.day) return out;
+    out.day = String(v.day); out.at = String(v.at || ''); out.ts = String(v.ts || '');
+    if (out.at === 'پایان') return out;          // آن شب سالم تمام شد
+    if (String(nightDay_()) === out.day) return out;   // امشب هنوز در جریان است
+    out.died = true;
+  } catch (e) {}
+  return out;
 }
 
 /**
@@ -701,6 +741,7 @@ function nightHas_(needMs, what) {
 function nightEnd_(runs) {
   var m = nightStarve_();
   if (!_nightMore) {
+    nightAtSave_('پایان');        // این شب تا آخر رفت — نشانه‌اش بماند
     nightStepClear_();
     if (Object.keys(m).length) nightStarveSave_({});
     logLine_('کارِ شبانه: فهرست تا آخر رفت' +

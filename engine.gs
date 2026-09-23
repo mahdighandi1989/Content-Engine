@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.43
+ *  موتور محتوا و پادکست — نسخهٔ 7.44
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.43',
+  CODE_VERSION: '7.44',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1799,6 +1799,15 @@ var PK = {
   // آخرین باری که **موتور درخواست نوشت** — جدا از «آخرین باری که تسک پاسخ
   // داد». هشت روز این دو یکی گرفته شدند و مقصر اشتباه معرفی شد.
   ENRICH_REQ_AT: 'ENRICH_REQ_LAST_AT',
+  /* ══ روزی که برای هر برنامه قسمتِ تازه ساخته شد (۷٫۴۴) ══
+     ۲۳ سپتامبر دو قسمتِ «از همه جا از همه رنگ» ساخته شد: ۴۹ ساعتِ ۰۷:۲۱
+     تمام شد و ۰۷:۲۳ قسمتِ ۵۰ از نو نوشته شد — **بی هیچ غنی‌سازی**، چون
+     مهلتش نبود. علت: `produceEpisodeRetry` بی‌حافظه است. قفل که گرفته
+     بود یک تلاشِ دوباره زمان‌بندی شد، و وقتی آن تلاش رسید `PK.PENDING`
+     دیگر خالی بود — و خالی بودنِ آن برای `produceEpisode` یعنی «قسمتِ
+     تازه بساز». تلاشِ دوباره‌ای که یادش نباشد برای چه بوده، کارِ دیگری
+     می‌کند. */
+  EP_MADE_DAY: 'EPISODE_MADE_DAY',     // '<show>|<yyyy-MM-dd>' آخرین ساختِ تازه
   BUSY_RETRY: 'PRODUCE_BUSY_RETRY',    // شمارندهٔ تلاشِ دوبارهٔ روزانه
   ENRICH_FORCE: 'ENRICH_FORCE_ONCE',   // یک بار: منتظرِ غنی‌سازی بمان، بی توجه به ساعت
   VOICE_LAST: 'VOICE_LAST_LEAD',       // گویندهٔ اصلیِ دفعهٔ قبلِ هر برنامه
@@ -1887,6 +1896,14 @@ var PK = {
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   MON_CHECKS: 'MONITOR_CHECKS_SEEN', // آخرین بارِ هر وارسیِ روزانهٔ ناظر (۶٫۹۵)
   NIGHT_STEP: 'NIGHT_STEP',       // کجای فهرستِ شبانه ماندیم (۶٫۹۷)
+  /* ══ آخرین بلوکی که واردش شدیم — ضربانِ قلبِ کارِ شبانه (۷٫۴۴) ══
+     اپس‌اسکریپت اجرا را سرِ شش دقیقه **می‌کُشد**، و همان کُشتن `nightEnd_`
+     را هم می‌کُشد؛ پس شبی که این‌طور بمیرد هیچ ردی نمی‌گذارد و
+     `nightStarve` با خیالِ راحت می‌گوید «هر شب فهرست تا آخر می‌رود».
+     ۲۱ تا ۲۳ سپتامبر دقیقاً همین شد: از «اثر انگشتِ معنایی» به بعد هیچ
+     بلوکی اجرا نشد و هیچ‌جا نگفت. این کلید **پیش از** کار نوشته می‌شود،
+     پس از کشته‌شدن جان به در می‌برد. */
+  NIGHT_AT: 'NIGHT_AT',           // {day, at, ts} — آخرین بلوکِ واردشده
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
   PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS',
@@ -7753,6 +7770,43 @@ function produceEpisodeRetry() {
   return produceEpisode();
 }
 
+/**
+ * امروز برای این برنامه قسمتِ **تازه** ساخته شده؟ — و ثبتش.
+ *
+ * ══ چرا لازم شد (۷٫۴۴) ══
+ * `produceEpisode` با `PK.PENDING`ِ خالی یعنی «قسمتِ تازه بساز». این
+ * درست است وقتی تریگرِ روزانه صدایش می‌زند، و **غلط** وقتی یک تلاشِ
+ * دوبارهٔ قفل صدایش می‌زند: تا آن تلاش برسد، قسمتِ امروز تمام شده و
+ * `PENDING` خالی است، پس موتور یکی از نو می‌سازد.
+ *
+ * ۲۳ سپتامبر همین شد — ۴۹ در ۰۷:۲۱ تمام شد و ۵۰ در ۰۷:۲۳ نوشته شد.
+ * و قسمتِ دوم بدتر هم بود: مهلتِ غنی‌سازی نداشت، پس **بی غنی‌سازی**
+ * ساخته شد و ۵:۲۵ درآمد در برابرِ ۱۰:۲۷.
+ *
+ * ══ چرا «یکی در روز» و نه «تلاش را هوشمند کن» ══
+ * تلاشِ دوباره تنها راهِ رسیدن به اینجا نیست: تریگرِ تکراری هم هست
+ * (`trigNames_` یک بار همین را گرفت)، و هر مسیرِ تازه‌ای که فردا اضافه
+ * شود. مرزی که در خودِ «ساختِ تازه» بنشیند، هر سهٔ آنها را می‌گیرد.
+ *
+ * دستی همیشه اجازه دارد — همان قاعدهٔ `calGate_`: صاحبِ برنامه که دکمه
+ * را می‌زند، خودش تصمیم گرفته.
+ */
+function epMadeToday_(show) {
+  try {
+    var v = String(props_().getProperty(PK.EP_MADE_DAY) || '');
+    var today = String(nowStr_()).slice(0, 10);
+    var parts = v.split('|');
+    return parts[0] === String(show) && parts[1] === today;
+  } catch (e) { return false; }   // نشد ≠ ساخته شده
+}
+
+function epMarkMade_(show) {
+  try {
+    props_().setProperty(PK.EP_MADE_DAY,
+      String(show) + '|' + String(nowStr_()).slice(0, 10));
+  } catch (e) {}
+}
+
 function produceEpisode(opt) {
   opt = opt || {};
   // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
@@ -7778,6 +7832,18 @@ function produceEpisode(opt) {
       logLine_('تولید: قسمت قبلی هنوز در حال صداگذاری است؛ ادامه داده می‌شود.');
       lock.releaseLock();
       return renderAudioStep_();
+    }
+
+    /* ══ از اینجا به بعد یعنی «قسمتِ تازه بساز» — و روزی یکی بس است ══
+       نه شمارشِ تریگرها و نه هوشمندکردنِ تلاشِ دوباره؛ مرز در همان جایی
+       می‌نشیند که تصمیمِ ساخت گرفته می‌شود، پس هر مسیری که به اینجا
+       برسد — تلاشِ دوباره، تریگرِ تکراری، یا هر چیزِ فردا — یکسان
+       گرفته می‌شود. */
+    if (!opt.manual && epMadeToday_(ENRICH_SHOW_VARIETY)) {
+      logLine_('تولید: امروز قسمتِ تازهٔ «' + CFG.SHOW_NAME + '» ساخته شده؛ ' +
+               'دومی ساخته نمی‌شود. (اجرای دستی از منو همچنان مجاز است.)');
+      lock.releaseLock();
+      return { ok: false, reason: 'already-today' };
     }
 
     var hub = getHub_();
@@ -7833,6 +7899,12 @@ function produceEpisode(opt) {
     }
 
     var epNum = (parseInt(props_().getProperty(PK.EP_NUM) || '0', 10)) + 1;
+    /* ══ **پیش** از نوشتن، نه پس از آن ══
+       اگر این مُهر پس از ساختِ کامل زده شود، اجرایی که وسطِ راه کشته
+       شود مُهری نمی‌گذارد و تلاشِ بعدی باز یکی از نو می‌سازد — یعنی
+       همان باگ، فقط کمیاب‌تر. مُهر از همین‌جا یعنی «امروز تصمیم به
+       ساخت گرفته شد»، و ادامهٔ نیمه‌تمام کارِ `PK.PENDING` است. */
+    epMarkMade_(ENRICH_SHOW_VARIETY);
     logLine_('تولید قسمت ' + epNum + ' از دستهٔ «' + picked.title + '» با ' + items.length +
              ' آیتم (تازه در این دسته: ' + (picked.freshCount || 0) + ').');
 
@@ -11096,6 +11168,7 @@ function writeStatus_(hub, note) {
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
+    nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
   };
@@ -12087,6 +12160,21 @@ function healthCheck() {
       if (vbS.ok === false) problems.push(vbS.line); else notes.push(vbS.line);
     }
   } catch (eVb) {}
+  /* ══ شبی که کشته شد — و چرا از اینجا پرسیده می‌شود (۷٫۴۴) ══
+     `nightStarve` فقط از `nightEnd_` تغذیه می‌شود، و وقتی اپس‌اسکریپت
+     اجرا را سرِ شش دقیقه می‌کُشد `nightEnd_` هم می‌میرد. یعنی تنها
+     شاهدِ موجود دقیقاً در حالتی که لازم است وجود ندارد — و سه شب
+     (۲۱ تا ۲۳ سپتامبر) «هر شب فهرست تا آخر می‌رود» گفت در حالی که از
+     «اثر انگشتِ معنایی» به بعد هیچ‌چیز اجرا نشده بود. */
+  try {
+    var nd = nightDeath_();
+    if (nd.died) {
+      problems.push('کارِ شبانه: شبِ ' + nd.day + ' وسطِ «' + nd.at +
+                    '» کشته شد (سقفِ شش دقیقهٔ اپس‌اسکریپت) — یعنی هر ' +
+                    'بلوکی پس از آن، آن شب اجرا نشد و هیچ‌جا ثبت نشد.');
+    }
+  } catch (eNd) {}
+
   /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
      اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
      شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته
@@ -17771,6 +17859,18 @@ function produceSpecialEpisode(opt) {
       if (pend.reason === undefined) pend.reason = 'audio-pending';
       return pend;
     }
+    /* ══ قرینهٔ همان نگهبانِ بخشِ ۳ (۷٫۴۴) ══
+       `produceSpecialEpisodeRetry` هم بی‌حافظه است و همان مسیر را دارد:
+       تلاشِ دوباره که پس از پایانِ درسِ امروز برسد، `SP_PENDING` را خالی
+       می‌بیند و یکی از نو می‌سازد. باگی که در یکی از دو قرینه پیدا شود،
+       در هر دو درست می‌شود — درسِ ۵٫۹۵. */
+    if (!opt.manual && epMadeToday_(ENRICH_SHOW_SPECIAL)) {
+      logLine_('درس‌نامه: امروز قسمتِ تازه ساخته شده؛ دومی ساخته نمی‌شود. ' +
+               '(اجرای دستی از منو همچنان مجاز است.)');
+      lock.releaseLock();
+      return { ok: false, reason: 'already-today' };
+    }
+
     var hub = getHub_();
     try { ingestReports_(hub, new Date().getTime() + 45000); } catch (eIn) {}
     var orders = [];
@@ -18053,6 +18153,7 @@ function produceSpecialEpisode(opt) {
       }
     }
 
+    epMarkMade_(ENRICH_SHOW_SPECIAL);   // پیش از نوشتن — همان دلیلِ بخشِ ۳
     var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
     /* ══ شمارهٔ درس، جدا از شمارهٔ سراسری (۶٫۵۵) ══
      * شمارهٔ قسمت سراسری است و باید بماند — گزارش‌ها و مکان‌نما به آن بندند.
@@ -26310,9 +26411,49 @@ function nightHas_(needMs, what) {
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
   }
   if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
-  if (nightLeft_() >= needMs) return true;
+  if (nightLeft_() >= needMs) {
+    /* ══ ضربان، **پیش** از کار ══
+       اگر پس از کار نوشته شود، دقیقاً بلوکی که وقت را خورد و اجرا را به
+       کشتن داد، هرگز ثبت نمی‌شود — یعنی نشانه‌ای که فقط وقتی هست که
+       لازمش نداریم. */
+    nightAtSave_(what);
+    return true;
+  }
   _nightMore = what;                           // نقطهٔ توقف
   return false;
+}
+
+/** آخرین بلوکی که واردش شدیم، با روزش. */
+function nightAtSave_(what) {
+  try {
+    props_().setProperty(PK.NIGHT_AT, JSON.stringify(
+      { day: nightDay_(), at: String(what || ''), ts: nowStr_() }));
+  } catch (e) {}
+}
+
+/**
+ * شبی که **کشته شد** — نه شبی که وقت کم آورد.
+ *
+ * تفاوتشان همه‌چیز است: «وقت تمام شد سرِ X» یعنی `nightEnd_` اجرا شد،
+ * ادامه زمان‌بندی شد و کار جلو می‌رود. ولی وقتی اپس‌اسکریپت اجرا را سرِ
+ * شش دقیقه می‌کُشد، `nightEnd_` هم می‌میرد: نه ادامه‌ای زمان‌بندی می‌شود،
+ * نه چیزی ثبت — و `nightStarve` که فقط از `nightEnd_` تغذیه می‌شود،
+ * می‌گوید همه‌چیز خوب است.
+ *
+ * پس نشانه را از جای دیگری می‌گیریم: اگر ضربانِ آخرین بلوکِ **روزِ
+ * گذشته** روی «پایان» نایستاده باشد، آن شب وسطِ همان بلوک مُرد.
+ */
+function nightDeath_() {
+  var out = { died: false, at: '', day: '', ts: '' };
+  try {
+    var v = JSON.parse(props_().getProperty(PK.NIGHT_AT) || 'null');
+    if (!v || !v.day) return out;
+    out.day = String(v.day); out.at = String(v.at || ''); out.ts = String(v.ts || '');
+    if (out.at === 'پایان') return out;          // آن شب سالم تمام شد
+    if (String(nightDay_()) === out.day) return out;   // امشب هنوز در جریان است
+    out.died = true;
+  } catch (e) {}
+  return out;
 }
 
 /**
@@ -26325,6 +26466,7 @@ function nightHas_(needMs, what) {
 function nightEnd_(runs) {
   var m = nightStarve_();
   if (!_nightMore) {
+    nightAtSave_('پایان');        // این شب تا آخر رفت — نشانه‌اش بماند
     nightStepClear_();
     if (Object.keys(m).length) nightStarveSave_({});
     logLine_('کارِ شبانه: فهرست تا آخر رفت' +

@@ -1112,6 +1112,56 @@ assertion that cannot fail is worse than none, because it goes green and nobody
 looks again. It now reads only `healthCheck`'s own body. Every new claim here was
 proved falsifiable by deliberately breaking the code, not by reading it.
 
+## A retry that forgets what it was retrying does something else (7.44)
+
+23 September: two «از همه جا از همه رنگ» episodes. Episode 49 finished at
+07:21; at **07:23** the engine wrote episode 50 — **with no enrichment at all**,
+because there was no window left for it. 5:25 against 49's 10:27.
+
+`produceEpisodeRetry` carries no memory. The lock was busy, a retry was
+scheduled, and by the time it fired `PK.PENDING` was empty — and an empty
+`PENDING` is precisely how `produceEpisode` is told *"make a new episode"*.
+**A retry that does not remember what it was retrying does something else.**
+
+The guard goes at the **decision to create**, not in the retry, because the retry
+is not the only road there: a duplicate trigger reaches the same line (`trigNames_`
+caught one once), and so will whatever gets added next. The stamp is written
+**before** the episode, not after — otherwise a run killed mid-write leaves no
+stamp and the bug simply becomes rarer. Manual always passes, the `calGate_` rule:
+the owner pressing the button has already decided. And the twin in درس‌نامه was
+fixed in the same change (5.95).
+
+## A witness that dies with the accident is not a witness (7.44)
+
+The same day's log showed the nightly's third run starting at 02:40 and leaving
+**no terminal line at all** — not «فهرست تا آخر رفت», not «وقت تمام شد سرِ…»,
+not a next run. Apps Script had killed it at the six-minute cap.
+
+Everything from the embed block onward had therefore not run **for three nights**:
+fingerprints frozen at 5,265 of 50,568 since 21 September, YouTube publishing,
+reference judging, extraction quality, the style sample, the recap.
+
+**And `nightStarve` said «هر شب فهرست تا آخر می‌رود» every single day.** It was
+not lying; it was blind. Its only source is `nightEnd_`, and the kill that ends
+the night kills `nightEnd_` with it. *The evidence existed only in the case where
+nothing went wrong.*
+
+`nightAtSave_` writes the heartbeat **before** each block, so it survives the
+kill — written after, the block that ate the time and caused the kill is exactly
+the one never recorded. `nightDeath_` then reports a past night that never reached
+«پایان», and it is asked from `healthCheck`, not from the nightly that may itself
+be the thing dying (7.27).
+
+**Three suites created a second episode and the guard threw them out** — which is
+how two false claims surfaced. One asserted «روزِ تمام‌شدنِ یک مجموعه هدر نمی‌رود»,
+a behaviour no code in the engine has. The other said it pressed «دکمهٔ دستی»
+while calling the automatic signature. *A test that takes a different road than
+the one it names is talking about something else.*
+
+And one new assertion did not fail when I broke the code: it hand-wrote the
+«پایان» stamp instead of asking `nightEnd_` to produce it — 7.22 exactly, caught
+by breaking the code rather than reading it.
+
 ## Reviewers must run it, not read it — and the debt register (7.44)
 
 After 7.43 he asked the question that matters more than the bug: *how would you
