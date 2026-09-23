@@ -1321,6 +1321,48 @@ console.log('=== ۲۰) یافته‌ای که هیچ‌کس حلش نکرده، 
      String(after2[1][RC.DONE - 1]).split('خودکار نصب شد').length - 1 === 1,
      String(after2[1][RC.DONE - 1]));
 
+  /* ══ و کلیدِ یافته هم می‌بندد، نه فقط شناسهٔ کاملِ ردیف (۷٫۴۸) ══
+     شناسهٔ یافته‌های خودِ موتور `ENG-<تاریخ-ساعت>#<کلید>` است، و آن مُهرِ
+     زمانی زمانِ **نخستین** دیده‌شدن است. کسی که امروز همان یافته را حل
+     می‌کند آن را ندارد و برای گرفتنش باید هابِ ۲۹ مگابایتی را بخواند —
+     برای همین از سی نسخه یکی این فهرست را پر کرده بود. ۷٫۴۲ نوشت «دری که
+     آدم باید بازش کند، در نیست»؛ **دری که کلیدش به‌سختی به دست بیاید هم
+     در نیست.** */
+  {
+    const sh2 = ensureTab_(hub, CFG.REPORT_TAB, REPORT_HEADERS);
+    const base = sh2.getLastRow() + 1;
+    const rowK = new Array(REPORT_HEADERS.length).fill('');
+    rowK[RC.ID - 1] = 'ENG-20260901-0731#tts-cue-unsupported';
+    rowK[RC.TITLE - 1] = 'مدلِ گفتارساز دستورِ لحن را نمی‌پذیرد';
+    rowK[RC.OWNER - 1] = ROWNER_CODE; rowK[RC.STATUS - 1] = RST.NEEDS_CODE;
+    const rowN = new Array(REPORT_HEADERS.length).fill('');
+    rowN[RC.ID - 1] = 'RPT-2026-08-10-1235#2';
+    rowN[RC.TITLE - 1] = 'یافتهٔ گزارشِ معمولی';
+    rowN[RC.OWNER - 1] = ROWNER_CODE; rowN[RC.STATUS - 1] = RST.NEEDS_CODE;
+    sh2.getRange(base, 1, 2, REPORT_HEADERS.length).setValues([rowK, rowN]);
+
+    /* مرزِ خطرناک اول: «۲» کلید نیست، شمارهٔ یافته در همان گزارش است.
+       پذیرفتنش یعنی نوشتنِ یک رقم در بیانیه ردیفی را ببندد که هیچ ربطی
+       به این نسخه ندارد. */
+    global.readCodeManifest_ = () => ({ info: { version: '9.11', sourceReportIds: ['2'] } });
+    ok('۲۰.۷ عددِ پس از # کلید شمرده نمی‌شود', markCodeRowsInstalled_('9.11') === 0,
+       'وگرنه «5» در بیانیه، ردیفِ بی‌ربطی را می‌بندد');
+
+    // مرزِ دوم: کلیدِ دیگری هیچ‌چیز را نمی‌بندد.
+    global.readCodeManifest_ = () => ({ info: { version: '9.12', sourceReportIds: ['emb-stuck'] } });
+    ok('۲۰.۸ کلیدِ یافتهٔ دیگر چیزی نمی‌بندد', markCodeRowsInstalled_('9.12') === 0);
+
+    // و خودِ ادعا: کلید می‌بندد.
+    global.readCodeManifest_ = () => ({ info: { version: '9.13', sourceReportIds: ['tts-cue-unsupported'] } });
+    ok('۲۰.۹ ولی کلیدِ خودِ یافته می‌بندد', markCodeRowsInstalled_('9.13') === 1,
+       'بی این، بستنِ ردیف به شناسه‌ای بند است که حل‌کننده ندارد');
+    const chk = sh2.getRange(base, 1, 2, REPORT_HEADERS.length).getValues();
+    ok('۲۰.۱۰ و فقط همان ردیف، نه ردیفِ شمارهٔ ۲',
+       String(chk[0][RC.STATUS - 1]) === RST.INSTALLED &&
+       String(chk[1][RC.STATUS - 1]) === RST.NEEDS_CODE,
+       chk.map(r => r[RC.STATUS - 1]).join(' | '));
+  }
+
   /* و راهِ برگشت: یافته‌ای که «نصب شد» خورده ولی دوباره دیده می‌شود، یعنی
      آن نصب حلش نکرده. اگر باز نشود، برای همیشه در «انتظارِ تأییدِ ناظر»
      می‌مانَد و هیچ‌وقت به صف برنمی‌گردد. */

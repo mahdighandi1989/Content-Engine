@@ -1047,6 +1047,32 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## A door whose key is hard to obtain is also not a door (7.48)
+
+7.42 found why the `NEEDS_CODE` queue only ever grew: a row closes **only** when
+`manifest.json` names its id in `sourceReportIds`, and one manifest in thirty had
+filled that list. It wrote the right sentence — *a gate a human has to open is not
+a gate* — and left the gate where it was.
+
+**The layer underneath is why the list stayed empty.** A self-finding's row id is
+`ENG-<yyyyMMdd-HHmm>#<key>`, and that timestamp is when the finding was **first
+seen**, not today. Whoever fixes it today does not have that date, and getting it
+means reading the 29 MB hub. So the list was empty for a reason that was never
+laziness: the key to the door was not in the room.
+
+The finding **key** is the one identifier the person fixing it always has — it is
+in the finding's own text, in the health mail, and in the code that raised it. It
+now closes the row too.
+
+**And the boundary had to be stated, because the same character means two things.**
+Ordinary report rows are `RPT-2026-08-10-1235#5`, where the suffix is the finding's
+*number within that report*. Accepting it as a key would mean writing `"5"` in a
+manifest closes a row that has nothing to do with the version. A numeric suffix is
+never a key, and the suite proves it by trying exactly that.
+
+Its first use is in this same version: 7.47 answered `tts-cue-unsupported`, and
+7.48 closes it by name — the first row this queue has closed by its own rule.
+
 ## The verdict that never reached the decision — the eighth time (7.47)
 
 Today's health mail: **«دستورِ لحن خاموش — مدلِ `gemini-3.1-flash-tts-preview`
