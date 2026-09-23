@@ -1047,6 +1047,50 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## A cure placed on a road that is never travelled (7.46)
+
+The owner opened the Actions tab and found `voice-bridge` red — four scheduled
+runs, four identical lines: **«فایلِ صف خوانده شد ولی موتور هرگز رویش ننوشته
+(rev 0)»**.
+
+The workflow was right. `_VOICE-RENDER.json` in Drive had not been touched since
+it was seeded on 22 September and still carried the **hand-written seed note**,
+which `vbrSave_` overwrites on its first write. So `vbrSave_` had never run once
+in production — section 36 has never executed.
+
+**7.40 had already fixed this bug.** `vbrQueueEnsure_` writes the queue
+unconditionally so that `rev ≥ 1` means "the engine is alive and looked". Its
+only caller is `vbrNightly_`, which sits behind `nightHas_` in the nightly — and
+the nightly does not get there. *The cure was placed on the road that is never
+travelled.* That is 7.39's own sentence, one version later, about the same file:
+the share got a second, independent path from `healthCheck`; the **write** did
+not. `vbrQueueEnsure_` is now called from `healthCheck` too.
+
+**And the alarm was off in precisely the state that needed it — for the fourth
+time.** `vbrStatus_` does say «صف یک بار هم نوشته نشده», but that branch sat
+under `else if` after `if (!out.speaker)`. With no speaker switched on — the
+starting state, and the state we were actually in — the healthy sentence «هیچ
+گویندهٔ روشنی نیست» won every night while the workflow went red. The two are not
+the same fact: *no speaker chosen* is the owner's decision; *the queue has never
+been written* means the nightly never reached the section, and that is a fault
+whoever is switched on.
+
+**The worst part is mine and it was in a test.** `run_bridge_voice_test.js` ۱۳٫۲,
+which I wrote in 7.39, asserted exactly the wrong belief — «بی گویندهٔ روشن،
+صفِ نانوشته سالم است» — and passed every night. **An assertion can lock in a
+wrong reading as firmly as it guards a right one**, and nothing in a green suite
+distinguishes the two. Production is what distinguished them. The assertion is
+now inverted, and the new one for the second path *runs* `healthCheck` rather
+than grepping the source for a function name (7.43/7.44: a check that reads the
+code stands one layer above the breakage).
+
+**And the suite found a second bug while proving the first.** `_VOICE-RENDER.json`
+was in neither `outRootFilePatterns_` nor `docs/drive_layout.md`, so since
+22 September the engine reported its own queue file as «چیزِ ناشناخته» in the
+OUTPUT root every night — the «voice cloning» shape of 7.21, in a file this repo
+wrote itself. A new root file ships with its pattern entry and its layout row, or
+it becomes litter in its own map.
+
 ## The permission you cannot revoke at the child (7.45)
 
 Four nights running, four identical lines a night: **«اشتراکِ موقتِ فایل پس گرفته

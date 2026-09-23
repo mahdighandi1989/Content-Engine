@@ -82,6 +82,11 @@ global.__MAIL.length=0;
     rt.getRange(2, 1, n, w).setValues(Array.from({ length: n }, () => new Array(w).fill('')));
   }
 })();
+/* صفِ پل: شناسه در تنظیمات به فایلِ واقعیِ درایو سنجاق است. اینجا باید به
+   فایلِ همین محیط سنجاق شود، وگرنه «شناسه عوض شده» — که ایرادِ واقعیِ
+   دیگری است — این سناریو را که موضوعش «سکوت یعنی سلامت» است می‌شکند. */
+vbrQueueEnsure_();
+CFG.VBR_QUEUE_ID = outFolder_().getFilesByName(vbrFileName_()).next().getId();
 h=healthCheck();
 console.log('  ایرادها:',h.problems.length, h.problems.length?('→ '+h.problems.join(' | ').slice(0,160)):'هیچ');
 console.log('  ایمیل هشدار:',global.__MAIL.length, global.__MAIL.length===0?'✅ سکوت یعنی سلامت':'❌');
