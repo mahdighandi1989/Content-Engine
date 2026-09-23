@@ -1391,11 +1391,39 @@ function markCodeRowsInstalled_(version) {
   var sh = st.sheet;
   var n = sh.getLastRow() - 1;
   var vals = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+  /* ══ فهرستِ نسخه‌ای که نصب نشد، با خودش از بین می‌رود (۷٫۵۰) ══
+     موتور فقط **بالاترین** نسخه را نصب می‌کند، و `sourceReportIds` به یک
+     نسخه چسبیده است. پس هر نسخه‌ای که پیش از نصب، نسخهٔ بالاتری جایش را
+     بگیرد، فهرستِ بستنش را هم با خودش می‌بَرد.
+
+     این حدس نیست: ۷٫۴۸ ساعتِ ۱۱:۱۰ با `["tts-cue-unsupported"]` رفت، و
+     ساعتی بعد ۷٫۴۹ روی main نشست با فهرستِ خودش — پس آن ردیف هرگز بسته
+     نمی‌شد. و امروز موتور از ۷٫۴۳ مستقیم به ۷٫۴۶ پرید؛ پرش قاعده است نه
+     استثنا، چون چهار نویسنده روی این مخزن می‌نویسند.
+
+     `answers` نقشه‌ای است که فقط **اضافه** می‌شود: `{نسخه: [کلیدها]}`.
+     هر نویسنده فقط ردیفِ خودش را می‌افزاید و لازم نیست بداند کدام نسخه
+     نصب شده — و موتور هر بار **اجتماعِ همه** را اعمال می‌کند. بستنِ ردیفی
+     که از قبل بسته است بی‌اثر است (بالاتر رد می‌شود)، پس تکرارش بی‌ضرر
+     است و هیچ حافظه‌ای لازم نیست.
+
+     این سومین لایهٔ همان در است: ۷٫۴۲ در را پشتِ کارِ دستی گذاشت، ۷٫۴۸
+     کلیدش را در دسترس کرد، و اینجا معلوم شد در فقط برای **یک** نسخه باز
+     می‌شود و کلیدِ بقیه دور ریخته می‌شد. */
   var ids = {};
   try {
     var got = readCodeManifest_();
     var src = (got && got.info && got.info.sourceReportIds) || [];
     for (var s = 0; s < src.length; s++) ids[String(src[s])] = true;
+    var ans = (got && got.info && got.info.answers) || null;
+    if (ans && typeof ans === 'object') {
+      for (var v in ans) {
+        if (!Object.prototype.hasOwnProperty.call(ans, v)) continue;
+        var lst = ans[v];
+        if (Object.prototype.toString.call(lst) !== '[object Array]') continue;
+        for (var a = 0; a < lst.length; a++) ids[String(lst[a])] = true;
+      }
+    }
   } catch (e) {}
   var marked = 0;
   for (var i = 0; i < n; i++) {

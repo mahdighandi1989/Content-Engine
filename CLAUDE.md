@@ -1047,6 +1047,36 @@ matched `|| echo` inside a **comment** rather than in code — an assertion that
 measures the wrong thing is worse than none, because it goes green and nobody
 looks again.
 
+## The third layer of the same door (7.50)
+
+7.48 shipped at 11:10 with `sourceReportIds: ["tts-cue-unsupported"]` — the first
+row this queue was ever going to close by its own rule. **An hour later 7.49
+landed on main with its own list**, and because the engine installs only the
+**highest** version, 7.48 would never install and that row would never close.
+
+**And a skipped version is the normal case, not an accident.** Today the engine
+went 7.43 → 7.46 directly; four writers push to this repo. Any list bolted to one
+version leaves with it.
+
+`answers` is a map in the manifest that is only ever **added to** —
+`{version: [keys]}` — and the engine applies the **union of all of it** at every
+install. A writer adds their own row and never needs to know which version
+installed; closing an already-closed row is a no-op, so repeating the union costs
+nothing and no state is kept anywhere.
+
+Three layers of one door, found in three steps: 7.42 put it behind a manual step,
+7.48 found its key was not obtainable, and 7.50 found it opened for only one
+version. **Each fix was correct and each left the next layer standing** — which is
+the argument for checking a fix against what actually happens next, rather than
+against the bug it was written for.
+
+**And one of the two new assertions measured nothing on first check.** «a string
+instead of a list closes nothing» was green with or without the array guard,
+because single characters matched no row id. The real boundary is that `for…in`
+over a string keys every character — so the assertion now puts a row whose key is
+one character in its way, and without the guard that row really does close. Fifth
+time this week; the habit that catches it never changes.
+
 ## A door whose key is hard to obtain is also not a door (7.48)
 
 7.42 found why the `NEEDS_CODE` queue only ever grew: a row closes **only** when

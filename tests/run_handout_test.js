@@ -1363,6 +1363,55 @@ console.log('=== ۲۰) یافته‌ای که هیچ‌کس حلش نکرده، 
        chk.map(r => r[RC.STATUS - 1]).join(' | '));
   }
 
+  /* ══ و فهرستِ نسخه‌ای که نصب نشد نباید با خودش برود (۷٫۵۰) ══
+     موتور فقط بالاترین نسخه را نصب می‌کند و `sourceReportIds` به یک نسخه
+     چسبیده است. ۷٫۴۸ با `["tts-cue-unsupported"]` رفت و ساعتی بعد ۷٫۴۹
+     جایش را گرفت — پس آن ردیف هرگز بسته نمی‌شد. `answers` نقشه‌ای است که
+     فقط اضافه می‌شود و موتور اجتماعِ همه را اعمال می‌کند، پس پرشِ نسخه
+     (که امروز ۷٫۴۳ → ۷٫۴۶ اتفاق افتاد) چیزی را دور نمی‌اندازد. */
+  {
+    const sh3 = ensureTab_(hub, CFG.REPORT_TAB, REPORT_HEADERS);
+    const base3 = sh3.getLastRow() + 1;
+    const mkK = (key) => {
+      const r = new Array(REPORT_HEADERS.length).fill('');
+      r[RC.ID - 1] = 'ENG-20260820-0101#' + key;
+      r[RC.TITLE - 1] = key;
+      r[RC.OWNER - 1] = ROWNER_CODE; r[RC.STATUS - 1] = RST.NEEDS_CODE;
+      return r;
+    };
+    sh3.getRange(base3, 1, 2, REPORT_HEADERS.length)
+       .setValues([mkK('skipped-ver-key'), mkK('current-ver-key')]);
+
+    global.readCodeManifest_ = () => ({ info: {
+      version: '9.20',
+      sourceReportIds: ['current-ver-key'],
+      answers: { '9.18': ['skipped-ver-key'], '9.19': [] }
+    } });
+    const nA = markCodeRowsInstalled_('9.20');
+    ok('۲۰.۱۱ کلیدِ نسخهٔ پریده‌شده هم بسته می‌شود', nA === 2,
+       'گرفت: ' + nA + ' — فهرستی که به یک نسخه بچسبد، با پرشِ آن نسخه دور ریخته می‌شود');
+    const chk3 = sh3.getRange(base3, 1, 2, REPORT_HEADERS.length).getValues();
+    ok('۲۰.۱۲ هر دو ردیف، هم از answers هم از sourceReportIds',
+       chk3.every(r => String(r[RC.STATUS - 1]) === RST.INSTALLED),
+       chk3.map(r => r[RC.STATUS - 1]).join(' | '));
+
+    /* ══ و مرز — که در اولین نگارش هیچ‌چیز را نمی‌سنجید ══
+       «`answers: 'یک رشته'` هیچ ردیفی را نمی‌بندد» سبز بود چه گاردِ آرایه
+       می‌بود چه نه، چون تک‌نویسه‌ها با هیچ شناسه‌ای جور درنمی‌آمدند —
+       سنجه‌ای که با شکستنِ کد قرمز نشود، چیزی را نمی‌سنجد.
+       مرزِ **واقعی** این است: اگر کسی به‌جای فهرست یک رشته بنویسد،
+       `for…in` رویش تک‌تکِ نویسه‌ها را کلید می‌کند — و ردیفی که کلیدش یک
+       نویسه باشد بی‌دلیل بسته می‌شود. */
+    const rowX = mkK('a');
+    const baseX = sh3.getLastRow() + 1;
+    sh3.getRange(baseX, 1, 1, REPORT_HEADERS.length).setValues([rowX]);
+    global.readCodeManifest_ = () => ({ info: {
+      version: '9.21', sourceReportIds: [], answers: { '9.20': 'abc' } } });
+    ok('۲۰.۱۳ رشته به‌جای فهرست، نویسه‌نویسه کلید نمی‌شود',
+       markCodeRowsInstalled_('9.21') === 0,
+       'بی گاردِ آرایه، «abc» ردیفی را که کلیدش «a» است می‌بندد');
+  }
+
   /* و راهِ برگشت: یافته‌ای که «نصب شد» خورده ولی دوباره دیده می‌شود، یعنی
      آن نصب حلش نکرده. اگر باز نشود، برای همیشه در «انتظارِ تأییدِ ناظر»
      می‌مانَد و هیچ‌وقت به صف برنمی‌گردد. */
