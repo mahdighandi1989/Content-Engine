@@ -77,28 +77,45 @@ console.log('\n══ ۴) ماشینِ حالت — با gh ساختگی، وا�
 const T = '/tmp/vpipe-' + process.pid;
 cp.execSync('rm -rf ' + T + ' && mkdir -p ' + T + '/tools ' + T + '/docs');
 cp.execSync('cp tools/voiceintake.py ' + T + '/tools/');
-fs.writeFileSync(T + '/gh', `#!/bin/bash
+const mkGh = () => fs.writeFileSync(T + '/gh', `#!/bin/bash
 echo "$@" >> ${T}/gh.log
 case "$1 $2" in
   "workflow run") [ -n "$GH_RUN_FAIL" ] && exit 1; exit 0 ;;
-  "run list") echo "\${GH_LIST_OUT:-[{\\"databaseId\\":7001,\\"createdAt\\":\\"x\\"}]}" ;;
+  "run list")
+      # همان باگِ \`\${VAR:-{...}}\` که پایین‌تر توضیح داده شد: \`}\`ِ داخلِ
+      # مقدارِ پیش‌فرض، بسطِ متغیر را همان‌جا می‌بندد. پس پیش‌فرض همیشه
+      # خراب بود و \`dispatch\` هرگز شناسه‌ای نمی‌گرفت — و چون مسیرِ
+      # «گویندهٔ تازه» بی شناسه هم ردیف می‌نویسد، هیچ سنجه‌ای نیفتاد.
+      L="$GH_LIST_OUT"; [ -z "$L" ] && L='[{"databaseId":7001,"createdAt":"x"}]'
+      printf '%s\\n' "$L" ;;
   "run view")
       case "$3" in
         7001) echo '{"status":"in_progress","conclusion":null}' ;;
         7002) echo '{"status":"completed","conclusion":"failure"}' ;;
         7003) echo '{"status":"completed","conclusion":"success"}' ;;
+        7004) echo '{"status":"completed","conclusion":"cancelled"}' ;;
         *) exit 1 ;;
       esac ;;
   "run download")
       [ -n "$GH_DL_FAIL" ] && exit 1
       d=""; for a in "$@"; do [ "$prev" = "-D" ] && d="$a"; prev="$a"; done
-      mkdir -p "$d"; echo "\${FAKE_STATE:-{}}" > "$d/state.json" ;;
+      # ══ بدَلی که JSONِ باطل می‌ساخت، و هیچ‌کس نفهمید ══
+      # \`\${FAKE_STATE:-{}}\` در bash یعنی \`\${FAKE_STATE:-{}\` و بعد یک
+      # \`}\`ِ اضافه، پس state.json همیشه یک آکولادِ زیادی داشت و
+      # \`json.load\` می‌افتاد. یعنی مسیرِ «artifact رسید و خوانده شد» —
+      # قلبِ این ماشینِ حالت — **هرگز یک بار هم اجرا نشده بود** و
+      # مجموعه سبز بود. بدَلی که در جایی خراب باشد که تولید سالم است،
+      # هیچ چیزی را ثابت نمی‌کند (۷٫۲۴).
+      S="$FAKE_STATE"; [ -z "$S" ] && S='{}'
+      mkdir -p "$d"; printf '%s\\n' "$S" > "$d/state.json" ;;
 esac`, { mode: 0o755 });
+mkGh();
 // the shim reads the queue from a local file instead of Drive
-fs.writeFileSync(T + '/tools/vi.py',
+const mkVi = () => fs.writeFileSync(T + '/tools/vi.py',
   fs.readFileSync('tools/voiceintake.py', 'utf8').replace(
     'def fetchQueue(fid):',
     'def fetchQueue(fid):\n    return json.load(io.open("' + T + '/q.json", encoding="utf-8"))\ndef _unused(fid):'));
+mkVi();
 
 const run = (state, queue, env) => {
   if (state === null) { try { fs.unlinkSync(T + '/docs/voices.json'); } catch (e) {} }
@@ -388,6 +405,123 @@ const planRun = (state, cap) => cp.spawnSync('python3', ['-c', [
      got.sent.length === 0,
      'گرفت: ' + JSON.stringify(got.sent) +
      ' — کشِ ۱۰ گیگی مالِ کلِ مخزن است؛ دو نفر هم‌زمان یعنی هر دو می‌افتند (۷٫۲۲)');
+}
+
+console.log('\n══ ۱۲) لغو ≠ شکست، و عددی که در یک جمله زندگی نکند (۲۳ سپتامبر) ══');
+/* ══ اجرای ۶۷ِ voice-train ══
+   دورِ ۶ را تمام و ذخیره کرد («Saving checkpoint spk-1g0r95d_e6: Success»
+   در ۱۵:۰۱) و بعد گیت‌هاب در دقیقهٔ ۲۳۰ کلِ job را لغو کرد — نه سقفِ ۳۵۰
+   دقیقه‌ایِ job، نه بودجهٔ ۲۹۰ دقیقه‌ایِ خودمان، و هیچ‌جای این مخزن
+   `gh run cancel` ندارد. مراحلِ `always()` همه دویدند و کش با وزنِ `_e6`
+   ذخیره شد: **هیچ‌چیز گم نشد.** ولی حالت‌ماشین «موفق نبود ⇒ ناموفق»
+   می‌گفت، پس گلدوز «ناموفق» ثبت شد — و سه تا از این یعنی «رهاشده».
+   آموزشِ CPUی هر دور ~۲ تا ۲٫۷ ساعت است و بودجهٔ هر اجرا ۲۹۰ دقیقه، پس
+   اجرای نیمه‌کاره **قاعده** است؛ همان راهی که رضوی با ۵۹ اجرا رفت. */
+{
+  // بخشِ ۵ پوشهٔ موقت را برمی‌دارد؛ همان ماشینِ حالتِ بخشِ ۴ دوباره لازم است.
+  cp.execSync('mkdir -p ' + T + '/tools ' + T + '/docs');
+  cp.execSync('cp tools/voiceintake.py ' + T + '/tools/');
+  mkVi(); mkGh();
+  const S5 = JSON.stringify({ schema: 2, epochs_reached: 5, done: false });
+  const S6 = JSON.stringify({ schema: 2, epochs_reached: 6, done: false });
+  const base = { rev: 1, speakers: {
+    ali: { name: 'علی', stage: 'آموزش', runId: '7004' } } };
+
+  fs.writeFileSync(T + '/gh.log', '');
+  let c = run(base, Q, { FAKE_STATE: S6 });
+  ok('۱۲.۱ اجرای لغوشده «ناموفق» نیست — ادامه می‌دهد',
+     c.st.speakers.ali.stage === 'آموزش',
+     'گرفت: ' + c.st.speakers.ali.stage + ' · ' + c.st.speakers.ali.note);
+  ok('۱۲.۲ و عددِ دور یک فیلد می‌شود، نه یک جملهٔ فارسی',
+     c.st.speakers.ali.epochs === 6,
+     'گرفت: ' + JSON.stringify(c.st.speakers.ali.epochs) +
+     ' — عددی که در `note` بماند، چیزی نمی‌تواند با دیروز مقایسه‌اش کند');
+
+  const fail = { rev: 1, speakers: {
+    ali: { name: 'علی', stage: 'آموزش', runId: '7002' } } };
+  ok('۱۲.۳ ولی شکستِ واقعی همچنان ناموفق است',
+     run(fail, Q, { FAKE_STATE: S6 }).st.speakers.ali.stage === 'ناموفق',
+     'وگرنه درِ «رهاشده» بسته می‌شود و اجرای خراب تا ابد تکرار می‌شود');
+
+  /* `stall: 2` عمدی است: بی آن، «شمارنده صفر شد» با «شمارنده از اول صفر
+     بود» یکی می‌شود و سنجهٔ ۱۲.۵ هرچه بکنی سبز می‌مانَد — اولین بار که
+     کد را عمداً شکستم، دقیقاً همین شد. */
+  const at6 = { rev: 1, speakers: {
+    ali: { name: 'علی', stage: 'آموزش', runId: '7004', epochs: 6, stall: 2 } } };
+  const same = run(at6, Q, { FAKE_STATE: S6 });
+  ok('۱۲.۴ اجرایی که هیچ دوری جلو نرود، شمرده می‌شود',
+     same.st.speakers.ali.stall === 3 &&
+     same.st.speakers.ali.note.indexOf('جلو نرفت') !== -1,
+     'گرفت: stall=' + same.st.speakers.ali.stall + ' · ' + same.st.speakers.ali.note);
+  const moved = run(at6, Q, { FAKE_STATE: JSON.stringify(
+    { schema: 2, epochs_reached: 7, done: false }) });
+  ok('۱۲.۵ و پیشرفت شمارنده را صفر می‌کند',
+     moved.st.speakers.ali.stall === 0 && moved.st.speakers.ali.epochs === 7,
+     'شمارنده‌ای که صفر نشود، یک بار که بزند تا ابد می‌زند');
+  void S5;
+}
+
+console.log('\n══ ۱۲-ب) عدد از روی دیسک، نه از فایلی که فرآیندِ کشته‌شده قرار بود بنویسد ══');
+{
+  /* `state.json` را پایانِ `voicetrain.py` می‌نویسد. فرآیندی که لغو شود
+     هرگز به آن خط نمی‌رسد، پس فایلِ **اجرای پیشین** به‌عنوانِ نتیجهٔ این
+     اجرا بارگذاری می‌شود. جوابِ درست از روزِ اول در docstringِ
+     `epochsDone_` بود: عکس‌های روی دیسک. تحلیل بود، سیم نبود. */
+  const W = T + '/rvcwork';
+  cp.execSync('rm -rf ' + W + ' && mkdir -p ' + W + '/assets/weights ' +
+              W + '/out ' + W + '/logs/vt');
+  fs.writeFileSync(W + '/assets/weights/vt_e6_s2526.pth', 'x');
+  fs.writeFileSync(W + '/logs/vt/G_2526.pth', 'x');
+  fs.writeFileSync(W + '/out/state.json', JSON.stringify(
+    { schema: 2, voice: 'vt', epochs_target: 32, epochs_reached: 5,
+      done: false, steps: 2333333 }));
+  const sy = cp.spawnSync('python3', ['-c',
+    'import sys, json; sys.path.insert(0, "tools"); import voicetrain as V; ' +
+    'print(json.dumps(V.stateSync_(sys.argv[1])))', W],
+    { cwd: process.cwd(), encoding: 'utf8',
+      env: Object.assign({}, process.env, { VT_VOICE: 'vt', VT_EPOCHS: '32' }) });
+  let got = null;
+  try { got = JSON.parse(sy.stdout.trim().split('\n').pop()); } catch (e) {}
+  ok('۱۲.۶ وضعیت از روی وزنِ روی دیسک بازنویسی می‌شود',
+     !!got && got.epochs_reached === 6 && got.steps === 2526,
+     'گرفت: ' + JSON.stringify(got) + ' — artifactِ اجرای ۶۷ دورِ ۵ گفت در ' +
+     'حالی که `_e6` روی دیسک بود');
+  let onDisk = null;
+  try { onDisk = JSON.parse(fs.readFileSync(W + '/out/state.json', 'utf8')); } catch (e) {}
+  ok('۱۲.۶-ب و روی خودِ فایل نوشته می‌شود (artifact همان را می‌بَرد)',
+     !!onDisk && onDisk.epochs_reached === 6 && onDisk.done === false,
+     'گرفت: ' + JSON.stringify(onDisk));
+  const sy2 = cp.spawnSync('python3', ['-c',
+    'import sys, json; sys.path.insert(0, "tools"); import voicetrain as V; ' +
+    'print(json.dumps(V.stateSync_(sys.argv[1])))', W],
+    { cwd: process.cwd(), encoding: 'utf8',
+      env: Object.assign({}, process.env, { VT_VOICE: 'vt', VT_EPOCHS: '6' }) });
+  let got2 = null;
+  try { got2 = JSON.parse(sy2.stdout.trim().split('\n').pop()); } catch (e) {}
+  ok('۱۲.۷ و «تمام‌شده» هم از همان عدد درمی‌آید، نه از مقدارِ کهنه',
+     !!got2 && got2.done === true,
+     'گرفت: ' + JSON.stringify(got2 && got2.done));
+}
+{
+  const wf = fs.readFileSync('.github/workflows/voice-train.yml', 'utf8');
+  const at = wf.indexOf('stateSync_');
+  // کشِ **چک‌پوینت**، نه کشِ پایه: هر دو `actions/cache/save`اند و پایه
+  // جلوتر است؛ و کلیدِ ckpt در مرحلهٔ `restore` هم هست، آن هم جلوتر.
+  // لنگری که چیزِ دیگری را بگیرد، ادعای دیگری را می‌سنجد — پس آخرین
+  // `cache/save` که همان ذخیرهٔ پایانِ کار است.
+  const save = wf.lastIndexOf('actions/cache/save');
+  // لنگر روی خودِ artifactِ **نتیجه** (`path: ~/rvcwork/out`) و نه روی
+  // «name: voice-…»، چون artifactِ نردبان هم با همان پیشوند شروع می‌شود
+  // و پیش از این مرحله است — لنگری که چیزِ دیگری را بگیرد، ادعای دیگری
+  // را می‌سنجد.
+  const art = wf.indexOf('path: ~/rvcwork/out');
+  ok('۱۲.۸ گردش‌کار آن را پیش از کش و پیش از artifact صدا می‌زند',
+     at !== -1 && at < save && at < art,
+     'بعد از آن‌ها یعنی همان عددِ کهنه ذخیره و بارگذاری می‌شود');
+  const blk = wf.slice(wf.lastIndexOf('- name:', at), at);
+  ok('۱۲.۹ و با always()، چون لغو دقیقاً حالتی است که این برایش هست',
+     /if:\s*always\(\)/.test(blk),
+     'مرحله‌ای که فقط در حالتِ موفق بدود، در حالتی که مشکل دارد نمی‌دود');
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

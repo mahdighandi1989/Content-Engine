@@ -275,7 +275,7 @@ def plan(q, st):
             elif info.get("status") != "completed":
                 say("«%s»: آموزش در جریان است (%s)." % (name, info.get("status")))
                 continue
-            elif info.get("conclusion") != "success":
+            elif info.get("conclusion") not in ("success", "cancelled"):
                 cur["stage"] = ST_FAIL
                 cur["note"] = "اجرای آموزش قرمز تمام شد (%s)." % info.get("conclusion")
                 sp[key] = cur
@@ -283,6 +283,23 @@ def plan(q, st):
                 say("«%s»: آموزش شکست خورد." % name)
                 continue
             else:
+                # ══ لغو ≠ شکست (۲۳ سپتامبر، اجرای ۶۷) ══
+                # آن اجرا دورِ ۶ را تمام و ذخیره کرد و بعد گیت‌هاب در
+                # دقیقهٔ ۲۳۰ کلِ job را لغو کرد — نه سقفِ ۳۵۰ دقیقه‌ایِ
+                # job، نه بودجهٔ ۲۹۰ دقیقه‌ایِ خودمان، و هیچ‌جای این
+                # مخزن `gh run cancel` صدا نمی‌زند. مراحلِ `always()`
+                # همه دویدند: نردبان بایگانی شد، کش ذخیره شد، وزنِ
+                # `_e6` سرِ جایش ماند. **هیچ‌چیز گم نشد.**
+                # ولی اینجا «موفق نبود ⇒ ناموفق» بود، پس گلدوز
+                # «ناموفق» ثبت شد و سه بار از این یعنی «رهاشده» — برای
+                # اجرایی که واقعاً یک دور جلو رفته بود.
+                # یادداشتِ خودِ گردش‌کار سرِ ذخیرهٔ کش این را می‌دانست:
+                # «نیمه‌کاره ماندن حالتِ **عادی** این گردش‌کار است، نه
+                # خطا». همان جمله یک فایل آن‌طرف‌تر خوانده نشده بود.
+                # آموزشِ CPUی هر دور ~۲ تا ۲٫۷ ساعت طول می‌کشد و هر
+                # اجرا ~۲۹۰ دقیقه بودجه دارد، پس **اجرای نیمه‌کاره
+                # قاعده است نه استثنا** — همان راهی که رضوی با ۵۹ اجرا
+                # رفت. شکست فقط `failure`/`timed_out` است.
                 stt = artifactState(cur.get("runId"), key,
                                     os.path.join("vi-art", key))
                 if stt is None:
@@ -317,11 +334,38 @@ def plan(q, st):
                     say("«%s»: نوبتش هست ولی سقفِ هم‌زمانی پر است "
                         "(گویندهٔ دیگری در جریان است)." % name)
                     continue
+                # ══ عددِ دور یک **فیلد** است، نه یک جمله (۲۳ سپتامبر) ══
+                # تا امروز `epochs` فقط وقتی نوشته می‌شد که آموزش تمام
+                # شده باشد؛ در میانهٔ کار عدد فقط داخلِ متنِ فارسیِ
+                # `note` بود. عددی که در یک جمله زندگی می‌کند، عددی است
+                # که هیچ‌چیز نمی‌تواند با دیروز مقایسه‌اش کند — پس
+                # «هیچ دوری جلو نرفت» از «دو دور جلو رفت» قابلِ تشخیص
+                # نبود، و `vintStuckDays_` هم با هر dispatchِ تازه صفر
+                # می‌شد. حالا عدد ثبت می‌شود و درجازدن شمرده می‌شود.
+                reached = (stt or {}).get("epochs_reached")
+                prev = cur.get("epochs")
+                stall = 0
+                try:
+                    if prev is not None and reached is not None and \
+                       int(reached) <= int(prev):
+                        stall = int(cur.get("stall") or 0) + 1
+                except (TypeError, ValueError):
+                    stall = int(cur.get("stall") or 0)
+                if reached is not None:
+                    cur["epochs"] = reached
+                cur["stall"] = stall
+                # ثبت **پیش از** فرستادنِ اجرای بعدی و مستقل از آن: آنچه
+                # الان دانستیم دربارهٔ اجرای گذشته است. اگر dispatch شکست
+                # بخورد، تا امروز نتیجهٔ آن اجرا کاملاً دور ریخته می‌شد.
+                sp[key] = cur
+                changed = True
                 rid = dispatch(key, ids, epochs, False)
                 if rid:
                     cur["runId"] = rid
                     cur["note"] = "ادامهٔ آموزش از دورِ %s." % (
                         (stt or {}).get("epochs_reached", "؟"))
+                    if stall:
+                        cur["note"] += " ⚠️ %d اجرای پیاپی هیچ دوری جلو نرفت." % stall
                     sp[key] = cur
                     changed = True
                     busyKeys.add(key)

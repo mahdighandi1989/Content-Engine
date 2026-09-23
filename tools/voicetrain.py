@@ -643,6 +643,62 @@ def main():
     return finish_(P, root, out, complete=not broke)
 
 
+def stateSync_(root, out=None):
+    """`state.json` را از روی **دیسک** بنویس، نه از حافظهٔ فرآیندی که ممکن است کشته شود.
+
+    ══ ۲۳ سپتامبر، اجرای ۶۷ (گلدوز) ══
+    آموزش دورِ ۶ را تمام کرد و ذخیره‌اش کرد («Saving checkpoint
+    spk-1g0r95d_e6: Success» در ۱۵:۰۱) و بعد گیت‌هاب کلِ job را در دقیقهٔ
+    ۲۳۰ لغو کرد — نه سقفِ ۳۵۰ دقیقه‌ایِ job، نه بودجهٔ ۲۹۰ دقیقه‌ایِ
+    خودمان، و هیچ‌جای این مخزن `gh run cancel` صدا نمی‌زند.
+
+    `state.json` را `finish_` در **پایانِ** اجرا می‌نویسد. فرآیندِ کشته‌شده
+    هرگز به آنجا نرسید، پس `out/` هنوز فایلِ **اجرای پیشین** را داشت
+    (`epochs_reached: 5`) و همان به‌عنوانِ نتیجهٔ این اجرا بارگذاری شد.
+    یعنی artifact عددی را گزارش کرد که یک دور از واقعیتِ روی دیسک عقب بود
+    — و `voiceintake.py` بر پایهٔ همان تصمیم می‌گیرد.
+
+    یادداشتِ خودِ `finish_` می‌گوید «`state.json` در هر اجرا نوشته
+    می‌شود، از جمله اجرایی که سرِ بودجه نصفه ماند». برای ایستادنِ **تمیز**
+    سرِ بودجه درست است؛ برای لغو غلط است. **ضمانتی که فقط در حالتِ
+    بی‌اشکال برقرار باشد، ضمانت نیست** — همان شکلِ `nightStarve` در موتور:
+    شاهدی که با خودِ حادثه می‌میرد.
+
+    و جوابِ درست از روزِ اول در docstringِ `epochsDone_` نوشته شده بود:
+    «وقتی پرسش «واقعاً چقدر جلو رفته‌ایم» است، **دومی** جواب است» — یعنی
+    عکس‌های روی دیسک، نه فایلِ وضعیت. تحلیل نوشته شده بود و به تصمیم
+    سیم‌کشی نشده بود. این تابع همان سیم است، و گردش‌کار آن را با
+    `always()` پیش از ذخیرهٔ کش و بارگذاریِ artifact صدا می‌زند، پس هرچه
+    آموزش را بکُشد، عددِ گزارش‌شده همانی است که روی دیسک هست.
+    """
+    out = out or os.path.join(root, "out")
+    try:
+        os.makedirs(out, exist_ok=True)
+    except (IOError, OSError):
+        pass
+    p = os.path.join(out, "state.json")
+    st = {}
+    try:
+        st = json.loads(io.open(p, encoding="utf-8").read())
+    except (IOError, OSError, ValueError, TypeError):
+        st = {}
+    if not isinstance(st, dict):
+        st = {}
+    st["schema"] = 2
+    st["voice"] = VOICE
+    st["epochs_target"] = EPOCHS
+    st["epochs_reached"] = epochsDone_(root)
+    st["steps"] = steps_done_(root)
+    # `done` هم از روی همان عدد، نه از مقدارِ کهنه: اجرایی که لغو شود
+    # نباید `done`ِ اجرای پیشین را با خودش ببرد.
+    st["done"] = st["epochs_reached"] >= max(1, int(st["epochs_target"] or 0))
+    st.setdefault("files", [])
+    st["syncedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    io.open(p, "w", encoding="utf-8").write(
+        json.dumps(st, ensure_ascii=False, indent=1))
+    return st
+
+
 def epochsDone_(root):
     """تا کدام دور شاهدِ روی دیسک هست — از عکس‌های `<VOICE>_e<N>`.
 

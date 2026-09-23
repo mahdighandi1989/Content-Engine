@@ -444,6 +444,31 @@ jobs:
           echo "— نردبان، پس —"; du -sh "$W/assets/weights" 2>/dev/null || true
           ls -1 "$W"/assets/weights/*_e*.pth 2>/dev/null || true
 
+      # ══ عدد از روی دیسک، پیش از کش و پیش از artifact ══
+      # `state.json` را پایانِ `voicetrain.py` می‌نویسد. اجرای ۶۷ (۲۳
+      # سپتامبر) دورِ ۶ را تمام و ذخیره کرد و بعد گیت‌هاب job را لغو کرد؛
+      # فرآیند هرگز به آن خط نرسید، پس فایلِ **اجرای پیشین** (دورِ ۵) هم
+      # در کش ماند و هم به‌عنوانِ نتیجهٔ این اجرا بارگذاری شد — و
+      # `voiceintake.py` روی همان تصمیم می‌گیرد. `epochsDone_` عدد را از
+      # عکس‌های `<VOICE>_e<N>.pth` می‌خوانَد، یعنی از چیزی که آموزش خودش
+      # نوشته. این مرحله `always()` است، درست مثلِ ذخیرهٔ کش، چون
+      # نیمه‌کاره ماندن حالتِ **عادی** این گردش‌کار است.
+      - name: وضعیت را از روی دیسک بنویس
+        if: always() && steps.train.conclusion != 'skipped'
+        env:
+          VT_VOICE: ${{ github.event.inputs.voice || 'razavi' }}
+          VT_EPOCHS: ${{ github.event.inputs.epochs || '32' }}
+        run: |
+          python - "$HOME/rvcwork" <<'PY'
+          import sys
+          sys.path.insert(0, "tools")
+          import voicetrain as V
+          st = V.stateSync_(sys.argv[1])
+          print("وضعیت از روی دیسک: دورِ %s از %s · گامِ %s · تمام‌شده: %s"
+                % (st["epochs_reached"], st["epochs_target"],
+                   st["steps"], st["done"]))
+          PY
+
       - name: کار را برای اجرای بعدی نگه دار
         # ══ همیشه، حتی وقتی قدم نیمه‌کاره ماند ══
         # نیمه‌کاره ماندن حالتِ **عادی** این گردش‌کار است، نه خطا. اگر
