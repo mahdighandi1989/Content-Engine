@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.56
+ *  موتور محتوا و پادکست — نسخهٔ 7.57
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.56',
+  CODE_VERSION: '7.57',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -11386,6 +11386,8 @@ function writeStatus_(hub, note) {
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
+    // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
+    // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
@@ -12450,6 +12452,21 @@ function healthCheck() {
       else notes.push(cqLine);
     }
   } catch (eCq) {}
+
+  /* ══ درِ دومِ همان قفل: ردیفی که بسته شد ولی شرطش هنوز برقرار است ══
+     دروازهٔ داخلِ `markCodeRowsInstalled_` جلوی بستنِ **تازه** را می‌گیرد،
+     ولی ردیفی که پیش‌تر غلط بسته شده هرگز از آن دروازه رد نمی‌شود —
+     ۵٫۹۵: تمیز کردنِ ورودی آنچه را نوشته شده درست نمی‌کند. و این‌جا
+     می‌نشیند نه در شبانه، چون شبانه خودش همان چیزی است که ممکن است
+     بمیرد (۷٫۲۷/۷٫۴۶). */
+  try {
+    var sv = selfVerifySweep_(hub, st);
+    st.selfVerify = sv;
+    if (sv && sv.line) {
+      if (sv.reopened || (sv.broken && sv.broken.length)) problems.push(sv.line);
+      else notes.push(sv.line);
+    }
+  } catch (eSv) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
@@ -15392,6 +15409,231 @@ function codeQueueStuck_(hub, q) {
     });
     return true;
   } catch (e) { return false; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  شکافِ «گزارش → اقدام»: ردیف با **ادعا** بسته می‌شود، و هیچ‌کس ادعا را
+ *  با خودِ شرطی که ردیف را ساخته نمی‌سنجد.
+ *
+ *  داستانِ واقعیِ ۲۳ تا ۲۴ سپتامبر، که این بخش از آن آمد:
+ *  مدلِ گفتارساز قالبِ «دستورِ لحن» را رد کرد، `ttsCueOffFinding_` یافتهٔ
+ *  `tts-cue-unsupported` را ساخت، ۷٫۴۷ درمانش را نوشت و ۷٫۴۸ ردیف را
+ *  **به‌نام** بست. و شرط همچنان برقرار بود: لحن خاموش ماند و هر تکه
+ *  بی‌لحن ساخته شد. موتور این را می‌دانست — `ttsCueStatus_().ok` نادرست
+ *  بود و **هر روز در ایمیلِ ساعت ۱۰ نوشته می‌شد** — ولی صفِ گزارش‌ها آن
+ *  ردیف را «نصب شد» می‌دید. دو شاهد در یک سامانه، هر روز ناسازگار، و
+ *  هیچ‌جا با هم مقایسه نشدند. ۷٫۳۲ همین را نوشت: *تناقض را نگاه کن،
+ *  توجیه نکن* — و این بار تناقض در دفترداریِ خودِ موتور بود.
+ *
+ *  و چرا `touchExisting_` نجاتش نداد: بازگشایی بر پایهٔ **تکرار** است، و
+ *  این یافته‌ها روی **گذار** ساخته می‌شوند نه روی **حالت**. پس از خاموش
+ *  شدنِ لحن دیگر هیچ درخواستی رد نمی‌شود، پس یافته هرگز تکرار نمی‌شود،
+ *  پس ردیفِ بسته تا ابد بسته می‌ماند — هرچه در واقعیت بگذرد.
+ *
+ *  ── چهار مرزی که این سازوکار را از باگ‌های پیشینِ همین پرونده جدا می‌کند
+ *
+ *  ۱) **هیچ‌وقت خودکار نمی‌بندد.** ۷٫۴۲ نوشت: «دیده نشده پس لابد حل شده»
+ *     غلط است، چون اگر *تشخیص‌دهنده* خراب شده باشد سکوت یعنی کوری. پس
+ *     سنجنده‌ای که بگوید «دیگر برقرار نیست» **هیچ ردیفی را نمی‌بندد**.
+ *     این سازوکار یک‌طرفه است: فقط جلوی بستنِ نادرست را می‌گیرد و
+ *     ردیفِ نادرست‌بسته را بازمی‌گشاید.
+ *
+ *  ۲) **شکِ سنجنده در را نمی‌بندد.** سنجنده‌ای که نداند یا خطا بدهد،
+ *     `unknown` است و رفتار همان می‌شود که امروز هست. وگرنه یک سنجندهٔ
+ *     خراب صف را دوباره غیرقابلِ بستن می‌کرد — همان چیزی که ۷٫۴۲ درست
+ *     کرد. فقط **مشاهدهٔ مثبت** جلوی بستن را می‌گیرد.
+ *
+ *  ۳) **دو در، مستقل از هم** (۷٫۳۹/۷٫۴۶). دروازه سرِ نصب جلوی بستنِ تازه
+ *     را می‌گیرد؛ ولی ردیفی که **پیش از این نسخه** غلط بسته شده هرگز از
+ *     آن دروازه رد نمی‌شود — ۵٫۹۵: *تمیز کردنِ ورودی آنچه را نوشته شده
+ *     درست نمی‌کند.* پس `selfVerifySweep_` از `healthCheck` هم می‌دود،
+ *     روی زمان‌بندیِ خودش، مستقلِ از شبانه‌ای که ممکن است خودش بمیرد.
+ *
+ *  ۴) **پوششِ صادق.** سنجنده‌ای که به وضعیتی اشاره کند که وجود ندارد،
+ *     بی‌صدا رد نمی‌شود: به نام گزارش می‌شود. و شمارِ ردیف‌های بازی که
+ *     هیچ سنجنده‌ای ندارند هر روز گفته می‌شود. سازوکاری که ۶ کلید از ۷۸
+ *     را بپوشاند و این را نگوید، همان جملهٔ «همه‌چیز خوب به نظر می‌رسد»
+ *     است که این پرونده گران‌ترین جملهٔ خودش می‌داندش.
+ * ══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * «این یافته را چطور می‌شود همین حالا سنجید» — کلیدِ یافته ← گزاره‌ای روی
+ * وضعیتِ زندهٔ موتور.
+ *
+ * ورودی همان شیئی است که `writeStatus_` از قبل می‌سازد، پس این سازوکار
+ * **هیچ خواندنِ تازه‌ای** از درایو یا شیت اضافه نمی‌کند — در اجرایی که سرِ
+ * شش دقیقه کشته می‌شود، این شرط است نه سلیقه.
+ *
+ * هر گزاره باید `true` (شرط هنوز برقرار است)، `false` (نیست) یا `null`
+ * («نمی‌دانم») بدهد. `null` یعنی رفتارِ امروز؛ فقط `true` در را می‌بندد.
+ */
+function selfVerifyMap_() {
+  var bad = function (path) {
+    /* «ok === false» یعنی همین حالا خراب است. `null`/نبودنِ وضعیت یعنی
+       نمی‌دانیم — نه «سالم است»: نبودِ خبر خبرِ خوب نیست. */
+    return function (st) {
+      var o = st && st[path];
+      if (!o || typeof o !== 'object') return null;
+      if (typeof o.ok !== 'boolean') return null;
+      return o.ok === false;
+    };
+  };
+  return {
+    /* آن که این بخش را ساخت. `ttsCueStatus_().ok` نادرست یعنی لحن همین
+       حالا خاموش است — هرچه بیانیه ادعا کرده باشد. */
+    'tts-cue-unsupported': { what: 'ttsCue', still: bad('ttsCue') },
+    'night-starve':        { what: 'nightStarve', still: bad('nightStarve') },
+    'embed-stalled':       { what: 'embed', still: bad('embed') },
+    'voice-bridge-stuck':  { what: 'voiceBridge', still: bad('voiceBridge') },
+    'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
+    'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
+    'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
+    /* «ترتیبِ قسمت‌ها» عمداً اینجا نیست: کلیدش `series-order-<مجموعه>` است
+       و وضعیتش سراسری. نگاشتنِ یکی به دیگری یعنی با خرابیِ **یک** مجموعه
+       ردیفِ همهٔ مجموعه‌ها باز شود — سنجنده‌ای که چیزِ دیگری را می‌سنجد از
+       نبودنش بدتر است. پوشش‌نداشته بماند و در شمارِ «بی‌سنجنده» دیده شود. */
+    'handout-viz-stuck':   { what: 'handoutViz', still: bad('handoutViz') },
+    'speak-skipped':       { what: 'speakSkip', still: bad('speakSkip') },
+    /* صفی که خالی نمی‌شود، خودش یافته است — و همان شرط، سنجنده‌اش هم هست. */
+    'code-queue-stuck': {
+      what: 'codeQueue',
+      still: function (st) {
+        var q = st && st.codeQueue;
+        if (!q || typeof q !== 'object' || q.error) return null;
+        var open = (Number(q.pending) || 0) + (Number(q.quiet) || 0);
+        if (open <= 0) return false;
+        var need = Math.max(1, Number(CFG.CODE_NOANSWER_DAYS) || 21);
+        var d = Number(q.noAnswerDays);
+        if (!isFinite(d)) return null;
+        return d < 0 || d >= need;
+      }
+    },
+    /* هشدارِ زمان‌بندی: ردیفِ تکراری یا زمان‌بندیِ گم‌شده، هر دو زنده‌اند. */
+    'triggers-healed': {
+      what: 'triggerNames',
+      still: function (st) {
+        var t = st && st.triggerNames;
+        if (!t || typeof t !== 'object') return null;
+        var dup = t.dups, mis = t.missing;
+        if (!dup && !mis) return null;
+        var n = function (v) {
+          return Object.prototype.toString.call(v) === '[object Array]' ? v.length : 0;
+        };
+        return (n(dup) + n(mis)) > 0;
+      }
+    }
+  };
+}
+
+/**
+ * یک کلید را بسنج. خروجی همیشه سه‌حالته است، و «نمی‌دانم» با «نیست» یکی
+ * گرفته نمی‌شود — همان تفاوتی که ۷٫۴۷ نوشت: «نگاه نکردیم» و «نگاه کردیم
+ * و نبود» دو واقعیتِ متفاوت‌اند.
+ */
+function selfVerifyOne_(key, st) {
+  var out = { key: String(key || ''), known: false, still: null, what: '', why: '' };
+  if (!out.key) return out;
+  var map;
+  try { map = selfVerifyMap_(); } catch (eM) { out.why = 'نقشه خوانده نشد'; return out; }
+  var ent = map[out.key];
+  if (!ent) return out;                       // سنجنده‌ای نیست — پوشش نداده
+  out.known = true;
+  out.what = String(ent.what || '');
+  /* سنجنده‌ای که به وضعیتی اشاره کند که وجود ندارد، **به‌نام** گزارش
+     می‌شود. بی‌صدا رد شدن یعنی نقشه می‌تواند کهنه شود و هیچ‌کس نفهمد —
+     همان شکلی که در این پرونده بارها «تحلیلی که به تصمیم وصل نشد» بود. */
+  if (out.what && st && !(out.what in st)) {
+    out.why = 'وضعیتِ «' + out.what + '» در گزارشِ زنده نیست';
+    return out;
+  }
+  try {
+    var v = ent.still(st);
+    out.still = (v === true || v === false) ? v : null;
+    if (out.still === null && !out.why) out.why = 'وضعیت خوانده نشد';
+  } catch (e) { out.why = e.message; }
+  return out;
+}
+
+/**
+ * ردیفی که بسته شده ولی شرطش هنوز برقرار است، **باز می‌شود**.
+ *
+ * فقط همین یک جهت. هیچ ردیفی اینجا بسته نمی‌شود، و ردیفی که شما دستی
+ * «نادیده گرفته شد» زده‌اید دست نمی‌خورد — تصمیمِ آدم بر مشاهدهٔ کد مقدم
+ * است، همان مرزی که `touchExisting_` از قبل نگه می‌دارد.
+ */
+function selfVerifySweep_(hub, st) {
+  var out = { checked: 0, reopened: 0, live: 0, uncovered: 0, broken: [],
+              keys: [], ok: true, line: '' };
+  var sh;
+  try {
+    var state = loadReportRows_(hub || getHub_());
+    if (!state || !state.sheet || state.sheet.getLastRow() < 2) { out.line = selfVerifyLine_(out); return out; }
+    sh = state.sheet;
+  } catch (e) { out.error = e.message; out.ok = false; out.line = selfVerifyLine_(out); return out; }
+
+  var n = sh.getLastRow() - 1;
+  var vals;
+  try { vals = sh.getRange(2, 1, n, REPORT_HEADERS.length).getValues(); }
+  catch (e2) { out.error = e2.message; out.ok = false; out.line = selfVerifyLine_(out); return out; }
+
+  for (var i = 0; i < n; i++) {
+    var r = vals[i];
+    var stt = String(r[RC.STATUS - 1] || '');
+    if (stt === RST.SKIPPED) continue;                 // تصمیمِ آدم
+    var key = selfRowKey_(String(r[RC.ID - 1] || ''));
+    if (!key) continue;
+    var v = selfVerifyOne_(key, st);
+    var isOpen = (stt === RST.NEW || stt === RST.NEEDS_CODE || stt.indexOf('تکرار') !== -1);
+    if (!v.known) { if (isOpen) out.uncovered++; continue; }
+    out.checked++;
+    if (v.why && v.still === null) {
+      if (out.broken.indexOf(key) === -1) out.broken.push(key + ' (' + v.why + ')');
+      continue;
+    }
+    if (v.still !== true) continue;
+    out.live++;
+    if (out.keys.indexOf(key) === -1) out.keys.push(key);
+    if (isOpen) continue;                              // باز است؛ کاری لازم نیست
+    /* بسته بود و شرط برقرار است: ادعا در برابرِ مشاهده می‌بازد. */
+    r[RC.STATUS - 1] = RST.NEEDS_CODE;
+    r[RC.DONE - 1] = (String(r[RC.DONE - 1] || '') ? String(r[RC.DONE - 1]) + ' | ' : '') +
+                     'بازگشایی — بسته بود ولی شرطش هنوز برقرار است (' + v.what + ')';
+    r[RC.DONE_AT - 1] = nowStr_();
+    r[RC.TG - 1] = '';                                 // هشدارِ تازه لازم است
+    try {
+      sh.getRange(2 + i, 1, 1, REPORT_HEADERS.length).setValues([r]);
+      out.reopened++;
+      alertCodeRows_(null, 2 + i, [r], sh);
+    } catch (eW) { out.ok = false; out.error = eW.message; }
+  }
+  if (out.broken.length) out.ok = false;
+  out.line = selfVerifyLine_(out);
+  return out;
+}
+
+/** کلیدِ یافته از شناسهٔ ردیف — همان قاعدهٔ ۷٫۴۸ («#۵» کلید نیست). */
+function selfRowKey_(rid) {
+  var at = String(rid || '').lastIndexOf('#');
+  if (at === -1) return '';
+  var k = String(rid).slice(at + 1);
+  return (k && !/^\d+$/.test(k)) ? k : '';
+}
+
+/** سطرِ روزانه — **هر روز**، حتی وقتی هیچ ردیفی بازگشایی نشده. */
+function selfVerifyLine_(v) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  if (!v || v.error) return 'سنجشِ ردیف‌های بسته — انجام نشد' + (v && v.error ? ': ' + v.error : '') + '.';
+  var bits = [];
+  bits.push('سنجیده: ' + fa(v.checked));
+  if (v.reopened) bits.push('**بازگشایی: ' + fa(v.reopened) + '**');
+  if (v.live) bits.push('شرطش هنوز برقرار: ' + fa(v.live));
+  if (v.uncovered) bits.push('بی‌سنجنده (باز): ' + fa(v.uncovered));
+  var line = 'سنجشِ ردیف‌های بسته — ' + bits.join(' · ');
+  if (v.keys && v.keys.length) line += ' — ' + v.keys.slice(0, 5).join('، ');
+  if (v.broken && v.broken.length) {
+    line += ' — و **سنجندهٔ خراب**: ' + v.broken.slice(0, 3).join('، ') + '.';
+  }
+  return line + (v.reopened ? ' ادعای «نصب شد» در برابرِ مشاهدهٔ زنده می‌بازد.' : '');
 }
 
 function logSelfFinding_(hub, f) {
@@ -27516,7 +27758,22 @@ function markCodeRowsInstalled_(version) {
       }
     }
   } catch (e) {}
-  var marked = 0;
+  var marked = 0, refused = 0;
+  /* ══ وضعیتِ زنده **تنبل** خوانده می‌شود، و این احتیاط نیست، لازم است ══
+     این تابع از دلِ `afterCodeSwap` صدا زده می‌شود — همان مسیری که
+     زمان‌بندی‌ها را دوباره می‌چیند. اگر آنجا بمیرد، موتور بی‌زمان‌بندی
+     می‌مانَد و هیچ خطایی هم ثبت نمی‌شود (اپس‌اسکریپت سرِ شش دقیقه بی‌صدا
+     می‌کُشد). پس `writeStatus_` فقط وقتی خوانده می‌شود که واقعاً ردیفی
+     سرِ راه باشد که هم بیانیه ادعایش را کرده و هم **سنجنده‌ای دارد** —
+     که در بیشترِ نسخه‌ها هیچ‌وقت پیش نمی‌آید و هزینه‌اش صفر است.
+     یک‌بار برای کلِ حلقه، نه به‌ازای هر ردیف. */
+  var liveSt, liveTried = false;
+  var live = function () {
+    if (liveTried) return liveSt;
+    liveTried = true;
+    try { liveSt = writeStatus_(hub, 'سنجشِ ادعای نسخه'); } catch (eS) { liveSt = null; }
+    return liveSt;
+  };
   for (var i = 0; i < n; i++) {
     var r = vals[i];
     var isCode = String(r[RC.OWNER - 1]) === ROWNER_CODE ||
@@ -27565,6 +27822,33 @@ function markCodeRowsInstalled_(version) {
     }
     var hit = ids[rid] || (rkey && ids[rkey]) || rid === 'CODE-' + version;
     if (!hit) continue;
+    /* ══ ادعا در برابرِ مشاهده: بیانیه می‌گوید «جواب دادم»، ولی شرط زنده است ══
+       تا اینجا بستنِ ردیف فقط به یک **ادعا** تکیه داشت — نامِ کلید در
+       `sourceReportIds` — و هیچ‌چیز آن ادعا را با شرطی که ردیف را ساخته
+       نمی‌سنجید. ۲۳ سپتامبر همین شد: ۷٫۴۸ ردیفِ `tts-cue-unsupported` را
+       به‌نام بست در حالی که لحن همچنان خاموش بود و `ttsCueStatus_()` هر
+       روز در ایمیل همین را می‌گفت. دو شاهد، هیچ مقایسه‌ای.
+
+       فقط **مشاهدهٔ مثبت** جلوی بستن را می‌گیرد: سنجندهٔ نداشته یا
+       خطادار (`null`) رفتار را عوض نمی‌کند، وگرنه یک سنجندهٔ خراب صف را
+       دوباره غیرقابلِ بستن می‌کرد — همان دری که ۷٫۴۲ باز کرد. */
+    var vlive = null;
+    try {
+      /* اول ارزان: این کلید اصلاً سنجنده دارد؟ فقط اگر داشت، وضعیتِ
+         زنده خوانده می‌شود. */
+      if (rkey && selfVerifyMap_()[rkey]) vlive = selfVerifyOne_(rkey, live());
+    } catch (eV) { vlive = null; }
+    if (vlive && vlive.known && vlive.still === true) {
+      r[RC.DONE - 1] = (String(r[RC.DONE - 1] || '') ? String(r[RC.DONE - 1]) + ' | ' : '') +
+                       'نسخهٔ ' + version + ' ادعای جواب کرد ولی شرط هنوز برقرار است (' +
+                       vlive.what + ') — باز ماند.';
+      r[RC.DONE_AT - 1] = nowStr_();
+      try {
+        sh.getRange(2 + i, RC.DONE, 1, 2).setValues([[r[RC.DONE - 1], r[RC.DONE_AT - 1]]]);
+      } catch (eW) {}
+      refused++;
+      continue;
+    }
     r[RC.STATUS - 1] = RST.INSTALLED;
     r[RC.DONE - 1] = String(r[RC.DONE - 1] || '');
     r[RC.DONE - 1] = (r[RC.DONE - 1] ? r[RC.DONE - 1] + ' | ' : '') +
@@ -27572,6 +27856,9 @@ function markCodeRowsInstalled_(version) {
     r[RC.DONE_AT - 1] = nowStr_();
     sh.getRange(2 + i, RC.STATUS, 1, 3).setValues([[r[RC.STATUS - 1], r[RC.DONE - 1], r[RC.DONE_AT - 1]]]);
     marked++;
+  }
+  if (refused) {
+    try { logLine_('markCodeRowsInstalled_: ' + refused + ' ردیف باز ماند — شرطشان هنوز برقرار بود.'); } catch (eL) {}
   }
   return marked;
 }

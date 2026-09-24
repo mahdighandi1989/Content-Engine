@@ -574,6 +574,8 @@ function writeStatus_(hub, note) {
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
     codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
+    // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
+    // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     health: readExistingHealth_()
@@ -1638,6 +1640,21 @@ function healthCheck() {
       else notes.push(cqLine);
     }
   } catch (eCq) {}
+
+  /* ══ درِ دومِ همان قفل: ردیفی که بسته شد ولی شرطش هنوز برقرار است ══
+     دروازهٔ داخلِ `markCodeRowsInstalled_` جلوی بستنِ **تازه** را می‌گیرد،
+     ولی ردیفی که پیش‌تر غلط بسته شده هرگز از آن دروازه رد نمی‌شود —
+     ۵٫۹۵: تمیز کردنِ ورودی آنچه را نوشته شده درست نمی‌کند. و این‌جا
+     می‌نشیند نه در شبانه، چون شبانه خودش همان چیزی است که ممکن است
+     بمیرد (۷٫۲۷/۷٫۴۶). */
+  try {
+    var sv = selfVerifySweep_(hub, st);
+    st.selfVerify = sv;
+    if (sv && sv.line) {
+      if (sv.reopened || (sv.broken && sv.broken.length)) problems.push(sv.line);
+      else notes.push(sv.line);
+    }
+  } catch (eSv) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {

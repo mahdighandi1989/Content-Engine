@@ -349,4 +349,62 @@ console.log('\n══ ۷) کلیدِ تکراری در CFG — خطایی که �
      'نصبِ دوباره بی‌خطر نیست — این یکی باید یک بار در شب بماند');
 }
 
+/* ══ ۹) نقشهٔ سنجشِ ردیف‌های بسته، به کلیدهای واقعی وصل است ══
+ *
+ * `selfVerifyMap_` با **تطبیقِ دقیقِ** کلید کار می‌کند. یعنی یک غلطِ
+ * املایی، یا نامی که از روی وضعیت برداشته شده و نه از روی یافته، هیچ
+ * خطایی نمی‌دهد: آن کلید فقط هیچ ردیفی را نمی‌سنجد و سازوکار بی‌صدا
+ * پوچ می‌شود. دقیقاً همان شکلی که این پرونده بارها نوشته — و در همین
+ * نسخه هم یک‌بار واقعاً پیش آمد (`seriesOrder` به‌جای `series-order-…`).
+ *
+ * پس: هر کلیدِ نقشه باید در `src/` **به‌عنوانِ کلیدِ یک یافته** نوشته شده
+ * باشد. این را از خودِ منبع می‌خوانیم، نه از فهرستی دستی — فهرستِ دستی
+ * همان چیزی است که کهنه می‌شود. */
+{
+  console.log('\n══ ۹) سنجندهٔ ردیف‌های بسته ══');
+  const rep = fs.readFileSync('src/12_Reports.gs', 'utf8');
+  const mapAt = rep.indexOf('function selfVerifyMap_(');
+  ok('۹.۱ نقشه هست', mapAt !== -1);
+  const mapEnd = rep.indexOf('\nfunction ', mapAt + 10);
+  const mapSrc = rep.slice(mapAt, mapEnd === -1 ? rep.length : mapEnd);
+  // کلیدهای نقشه: چیزی که پیش از «: {» یا «: { what» می‌آید
+  const keys = [];
+  const kre = /'([a-z0-9][a-z0-9-]*)'\s*:\s*\{/gi;
+  let m;
+  while ((m = kre.exec(mapSrc))) keys.push(m[1]);
+  ok('۹.۲ نقشه کلید دارد', keys.length >= 5, keys.length + ' کلید');
+
+  // همهٔ کلیدهایی که کدِ زنده واقعاً می‌سازد
+  const raised = new Set();
+  for (const f of fs.readdirSync('src').filter(x => x.endsWith('.gs'))) {
+    const t = fs.readFileSync('src/' + f, 'utf8');
+    const rre = /key:\s*'([^']+)'/g;
+    let r;
+    while ((r = rre.exec(t))) raised.add(r[1]);
+  }
+  const orphan = keys.filter(k => !raised.has(k));
+  ok('۹.۳ هر کلیدِ نقشه، کلیدِ یافته‌ای است که کد واقعاً می‌سازد',
+     orphan.length === 0,
+     orphan.length ? ('این‌ها هیچ ردیفی را نمی‌سنجند: ' + orphan.join('، '))
+                   : keys.length + ' کلید، همه واقعی');
+
+  /* و نیمهٔ دوم: نقشه باید به `markCodeRowsInstalled_` و به `healthCheck`
+     **هر دو** وصل باشد. یک در کافی نیست (۷٫۳۹/۷٫۴۶): دروازهٔ نصب ردیفی را
+     که پیش‌تر غلط بسته شده هرگز نمی‌بیند. */
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const mi = su.indexOf('function markCodeRowsInstalled_(');
+  const miEnd = su.indexOf('\nfunction ', mi + 10);
+  ok('۹.۴ دروازهٔ نصب، ادعا را با مشاهده می‌سنجد',
+     mi !== -1 && su.slice(mi, miEnd).indexOf('selfVerifyOne_(') !== -1,
+     'وگرنه بستنِ ردیف باز هم فقط یک ادعاست');
+
+  const hl = fs.readFileSync('src/08_Health.gs', 'utf8');
+  const hc = hl.indexOf('function healthCheck(');
+  const hcEnd = hl.indexOf('\nfunction ', hc + 10);
+  ok('۹.۵ و درِ دوم در خودِ بدنهٔ healthCheck است',
+     hc !== -1 && hl.slice(hc, hcEnd === -1 ? hl.length : hcEnd)
+                    .indexOf('selfVerifySweep_(') !== -1,
+     'ردیفی که پیش از این نسخه غلط بسته شده، فقط از این در رد می‌شود');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

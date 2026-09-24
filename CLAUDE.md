@@ -1077,6 +1077,73 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A row closed by a claim nobody checks (7.57)
+
+He said it in one line: «این شکاف گزارش به اقدام رو درست کن حتما». The gap is
+one sentence, and it is not the one 7.42 found:
+
+> A row closes **only** when `manifest.json` names its key — and **nothing ever
+> checked that claim against the condition that raised the row**.
+
+7.42 made the door openable, 7.48 made its key obtainable, 7.50 made it open for
+every version. All three were about *getting the row closed*. None asked whether
+closing it was **true**.
+
+**The instance is this week's.** 7.48 closed `tts-cue-unsupported` by name while
+the cue was still off — and `ttsCueStatus_().ok` was false **in the 10:00 mail
+every single day**. Two witnesses in one system, disagreeing daily, never
+compared. That is 7.32's rule («تناقض را نگاه کن، توجیه نکن») applied to
+someone else's report and never to the engine's own bookkeeping.
+
+**Why `touchExisting_` could not save it, and this is the general shape.**
+Reopening is keyed on **recurrence**, but these findings are raised on a
+**transition**, not on a **state**. Once the cue is off, no request is ever
+rejected again, so the finding can never recur, so a closed row stays closed
+forever no matter what is true. **Any finding whose detector fires on the edge
+is a finding that can never reopen itself.**
+
+`selfVerifyMap_` wires eleven keys to the engine's own live status — the object
+`writeStatus_` already builds, so this adds **no** Drive or Sheet read. Four
+boundaries, each one a bug this file already paid for:
+
+- **It never closes anything.** A verifier saying «gone» closes no row. 7.42:
+  if the *detector* broke, silence is blindness, and auto-closing hides exactly
+  that case forever. The mechanism is one-way — refuse a false close, reopen a
+  wrong one.
+- **Doubt does not shut the door.** No verifier, or a verifier that throws, is
+  `unknown` and behaves exactly as today. Only a **positive observation** blocks.
+  Otherwise one broken verifier makes the queue unclosable again — the very door
+  7.42 opened.
+- **Two doors** (7.39/7.46). The install gate stops a false close; a row closed
+  *before* this version never passes that gate, so the sweep runs from
+  `healthCheck` on its own schedule (5.95: cleaning the input does not fix what
+  is already written; 7.27: never from the nightly that may itself be dying).
+- **Honest coverage.** Eleven keys of ~78. The count of open rows with **no**
+  verifier is in the daily line, and a verifier pointing at a status that does
+  not exist is reported **by name**. A mechanism that covers a seventh of the
+  surface and does not say so is the «everything looks fine» sentence.
+
+**And the guard caught one of my own entries.** `selfVerifyMap_` matches keys
+**exactly**, so a name taken from the *status* instead of the *finding* raises no
+error — it simply verifies nothing, silently. `run_wiring_test.js` ۹٫۳ extracts
+every `key:` literal from `src/` and fails on an entry that matches none; it went
+red on `seriesOrder` (the real key is `series-order-<series>`). That one is
+deliberately left **uncovered** rather than approximated: the key is per-series
+and the status is global, so mapping them would reopen every series' row whenever
+one series is bad. **A verifier that measures something else is worse than none.**
+
+**The lazy read is not an optimisation.** `markCodeRowsInstalled_` is called from
+`afterCodeSwap`, the path that re-arms the triggers. Dying there leaves the engine
+with no schedule and no error (Apps Script kills at six minutes silently). So
+`writeStatus_` is read only when a row is actually on the table **and** its key
+has a verifier — which in most versions never happens.
+
+**Two of seventeen new assertions were vacuous on first check**, and neither was
+found by reading: one claimed «the condition is gone» while the state it built was
+actually *unknown* (7.44 — a test that takes a different road than the one it
+names), and one never reached the predicate at all, so both sides returned `null`
+and breaking the predicate stayed green. Break it on purpose, every time.
+
 ## A door whose key is hard to obtain is also not a door (7.48)
 
 7.42 found why the `NEEDS_CODE` queue only ever grew: a row closes **only** when

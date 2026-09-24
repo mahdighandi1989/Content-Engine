@@ -655,4 +655,163 @@ console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌ش�
      !/به‌نام نبسته/.test(codeQueueLine_(q2)), codeQueueLine_(q2));
 }
 
+/* ══ ک) شکافِ «گزارش ← اقدام»: ادعا در برابرِ مشاهده ══
+ *
+ * تا ۷٫۵۶ یک ردیف **فقط** با نامِ کلیدش در `sourceReportIds` بسته می‌شد، و
+ * هیچ‌چیز آن ادعا را با شرطی که ردیف را ساخته نمی‌سنجید. ۲۳ سپتامبر همین
+ * شد: ۷٫۴۸ ردیفِ `tts-cue-unsupported` را به‌نام بست در حالی که لحن
+ * همچنان خاموش بود و `ttsCueStatus_()` هر روز در ایمیل همین را می‌گفت.
+ *
+ * این بخش **اجرا** می‌کند، نه می‌خوانَد: ردیف می‌سازد، وضعیتِ زنده را
+ * می‌چیند، و از خودِ `markCodeRowsInstalled_` و `selfVerifySweep_` می‌پرسد
+ * ردیف چه شد. */
+{
+  console.log('\n══ ک) ادعا در برابرِ مشاهده ══');
+  const mkR = (id, status, done) => {
+    const r = new Array(REPORT_HEADERS.length).fill('');
+    r[RC.ID-1] = id; r[RC.AT-1] = '2026-09-01 10:00'; r[RC.LOGGED-1] = '2026-09-01 10:00';
+    r[RC.PRI-1] = 'جدی'; r[RC.CAT-1] = 'کد'; r[RC.TITLE-1] = 'ت ' + id;
+    r[RC.OWNER-1] = ROWNER_CODE; r[RC.STATUS-1] = status;
+    r[RC.SEEN-1] = 1; r[RC.LAST_SEEN-1] = '2026-09-01 10:00';
+    r[RC.DONE-1] = done || ''; r[RC.DONE_AT-1] = done ? '2026-09-01 11:00' : '';
+    return r;
+  };
+  const rowOf = (id) => {
+    const n = rt.getLastRow() - 1;
+    const v = rt.getRange(2, 1, n, REPORT_HEADERS.length).getValues();
+    for (let i = 0; i < n; i++) if (String(v[i][RC.ID-1]) === id) return v[i];
+    return null;
+  };
+  // وضعیتِ زنده را دستی می‌چینیم — همان شکلی که `writeStatus_` می‌سازد.
+  const stOff = { ttsCue: { ok: false, on: false }, nightStarve: { ok: true },
+                  codeQueue: { pending: 0, quiet: 0, noAnswerDays: 1 } };
+  const stOn  = { ttsCue: { ok: true,  on: true  }, nightStarve: { ok: true },
+                  codeQueue: { pending: 0, quiet: 0, noAnswerDays: 1 } };
+
+  // ── ک.۱ سنجنده، شرطِ زنده را می‌بیند ─────────────────────────────
+  const vOff = selfVerifyOne_('tts-cue-unsupported', stOff);
+  const vOn  = selfVerifyOne_('tts-cue-unsupported', stOn);
+  ok('ک.۱ سنجنده «هنوز برقرار است» را از وضعیتِ زنده می‌خوانَد',
+     vOff.known && vOff.still === true && vOn.still === false,
+     'خاموش→' + vOff.still + ' · روشن→' + vOn.still);
+
+  // ── ک.۲ «نمی‌دانم» با «نیست» یکی نیست ────────────────────────────
+  const vDun  = selfVerifyOne_('tts-cue-unsupported', {});
+  const vJunk = selfVerifyOne_('tts-cue-unsupported', { ttsCue: {} });
+  ok('ک.۲ وضعیتِ نبوده «نمی‌دانم» است، نه «سالم»',
+     vDun.known === true && vDun.still === null && /در گزارشِ زنده نیست/.test(vDun.why),
+     'نبودِ خبر خبرِ خوب نیست');
+  /* و حالتی که واقعاً به **گزاره** می‌رسد: وضعیت هست، ولی `ok` بولی نیست.
+     بدونِ این، هر دو راه `null` می‌دادند و شکستنِ گزاره سبز می‌ماند —
+     سنجه‌ای که راهی غیر از آنچه نامش را می‌برد می‌رود. */
+  ok('ک.۲-ب وضعیتِ ناخوانا هم «نمی‌دانم» است',
+     vJunk.known === true && vJunk.still === null,
+     'گزاره صدا زده شد و `null` داد، نه `false`');
+
+  // ── ک.۳ ردیفِ بسته، با شرطِ زنده، **باز می‌شود** ──────────────────
+  const a0 = rt.getLastRow() + 1;
+  rt.getRange(a0, 1, 2, REPORT_HEADERS.length).setValues([
+    mkR('ENG-20260901-1000#tts-cue-unsupported', RST.INSTALLED, 'کدِ نسخهٔ 7.48 خودکار نصب شد'),
+    mkR('ENG-20260901-1001#night-starve',        RST.INSTALLED, 'کدِ نسخهٔ 7.48 خودکار نصب شد')]);
+  const un = quiet();
+  const sw = selfVerifySweep_(hub, stOff);
+  un();
+  const rTts = rowOf('ENG-20260901-1000#tts-cue-unsupported');
+  ok('ک.۳ ردیفی که بسته شد ولی شرطش برقرار است، بازگشایی می‌شود',
+     String(rTts[RC.STATUS-1]) === RST.NEEDS_CODE && sw.reopened >= 1,
+     'وضعیت: ' + rTts[RC.STATUS-1]);
+  ok('ک.۳-ب و دلیلش در خودِ ردیف نوشته می‌شود',
+     /شرطش هنوز برقرار/.test(String(rTts[RC.DONE-1])),
+     String(rTts[RC.DONE-1]).slice(-60));
+
+  // ── ک.۴ و ردیفی که شرطش رفته، **بسته نمی‌شود** ───────────────────
+  const rNs = rowOf('ENG-20260901-1001#night-starve');
+  ok('ک.۴ ردیفی که شرطش **سنجیده و برقرار نیست**، دست‌نخورده می‌ماند',
+     String(rNs[RC.STATUS-1]) === RST.INSTALLED &&
+     selfVerifyOne_('night-starve', stOff).still === false,
+     'سنجنده هرگز نمی‌بندد — سکوت می‌تواند کوریِ تشخیص‌دهنده باشد (۷٫۴۲)');
+
+  // ── ک.۵ «نادیده گرفته شد» تصمیمِ آدم است ─────────────────────────
+  const a1 = rt.getLastRow() + 1;
+  rt.getRange(a1, 1, 1, REPORT_HEADERS.length).setValues([
+    mkR('ENG-20260902-1000#tts-cue-unsupported', RST.SKIPPED, 'دستی نادیده گرفته شد')]);
+  const un2 = quiet(); selfVerifySweep_(hub, stOff); un2();
+  ok('ک.۵ ردیفِ «نادیده گرفته شد» بازگشایی نمی‌شود',
+     String(rowOf('ENG-20260902-1000#tts-cue-unsupported')[RC.STATUS-1]) === RST.SKIPPED,
+     'تصمیمِ آدم بر مشاهدهٔ کد مقدم است');
+
+  // ── ک.۶ دروازهٔ نصب: ادعا در برابرِ شرطِ زنده می‌بازد ─────────────
+  const a2 = rt.getLastRow() + 1;
+  rt.getRange(a2, 1, 2, REPORT_HEADERS.length).setValues([
+    mkR('ENG-20260903-1000#tts-cue-unsupported', RST.NEEDS_CODE, ''),
+    mkR('ENG-20260903-1001#handout-empty-patch', RST.NEEDS_CODE, '')]);
+  const realManifest = global.readCodeManifest_;
+  const realStatus   = global.writeStatus_;
+  global.readCodeManifest_ = () => ({ ok: true, info: {
+    version: '9.99', sourceReportIds: ['tts-cue-unsupported', 'handout-empty-patch'] } });
+  global.writeStatus_ = () => stOff;          // لحن همین حالا خاموش است
+  const un3 = quiet();
+  const n1 = markCodeRowsInstalled_('9.99');
+  un3();
+  const gTts = rowOf('ENG-20260903-1000#tts-cue-unsupported');
+  const gHo  = rowOf('ENG-20260903-1001#handout-empty-patch');
+  ok('ک.۶ بیانیه ادعا کرد، ولی شرط زنده بود: ردیف باز ماند',
+     String(gTts[RC.STATUS-1]) === RST.NEEDS_CODE,
+     'وضعیت: ' + gTts[RC.STATUS-1]);
+  ok('ک.۶-ب و علتِ باز ماندنش نوشته شد',
+     /ادعای جواب کرد ولی شرط هنوز برقرار/.test(String(gTts[RC.DONE-1])),
+     String(gTts[RC.DONE-1]).slice(0, 70));
+  /* مرزِ افزایشی‌بودن: کلیدی که سنجنده ندارد، دقیقاً مثلِ دیروز بسته
+     می‌شود. وگرنه این سازوکار صف را دوباره غیرقابلِ بستن می‌کرد — همان
+     دری که ۷٫۴۲ باز کرد. */
+  ok('ک.۶-پ ولی کلیدِ بی‌سنجنده مثلِ دیروز بسته می‌شود',
+     String(gHo[RC.STATUS-1]) === RST.INSTALLED && n1 >= 1,
+     'وضعیت: ' + gHo[RC.STATUS-1] + ' · مُهرخورده: ' + n1);
+
+  // ── ک.۷ و وقتی شرط رفت، همان ردیف بسته می‌شود ────────────────────
+  global.writeStatus_ = () => stOn;           // لحن روشن شد
+  const un4 = quiet();
+  markCodeRowsInstalled_('9.99');
+  un4();
+  /* ک.۶-ت مسیرِ بحرانی: کلیدِ بی‌سنجنده نباید `writeStatus_` را صدا بزند.
+     این تابع از `afterCodeSwap` می‌آید — همان جایی که زمان‌بندی‌ها دوباره
+     چیده می‌شوند. مردنش آنجا یعنی موتورِ بی‌زمان‌بندی، بی هیچ خطایی. */
+  {
+    const a3 = rt.getLastRow() + 1;
+    rt.getRange(a3, 1, 1, REPORT_HEADERS.length).setValues([
+      mkR('ENG-20260904-1000#handout-empty-patch', RST.NEEDS_CODE, '')]);
+    global.readCodeManifest_ = () => ({ ok: true, info: {
+      version: '9.98', sourceReportIds: ['handout-empty-patch'] } });
+    let calls = 0;
+    global.writeStatus_ = () => { calls++; return stOn; };
+    const un5 = quiet(); markCodeRowsInstalled_('9.98'); un5();
+    ok('ک.۶-ت کلیدِ بی‌سنجنده وضعیتِ زنده را نمی‌خوانَد',
+       calls === 0 &&
+       String(rowOf('ENG-20260904-1000#handout-empty-patch')[RC.STATUS-1]) === RST.INSTALLED,
+       'writeStatus_ صدا زده شد: ' + calls + ' بار');
+    global.readCodeManifest_ = () => ({ ok: true, info: {
+      version: '9.99', sourceReportIds: ['tts-cue-unsupported', 'handout-empty-patch'] } });
+    global.writeStatus_ = () => stOff;
+  }
+
+  ok('ک.۷ شرط که رفت، همان ردیف بسته می‌شود',
+     String(rowOf('ENG-20260903-1000#tts-cue-unsupported')[RC.STATUS-1]) === RST.INSTALLED,
+     'دروازه در را قفل نمی‌کند، فقط ادعای بی‌شاهد را رد می‌کند');
+  global.readCodeManifest_ = realManifest;
+  global.writeStatus_ = realStatus;
+
+  // ── ک.۸ «#۵» کلید نیست (مرزِ ۷٫۴۸، اینجا هم) ─────────────────────
+  ok('ک.۸ پسوندِ عددیِ شناسه کلید نیست',
+     selfRowKey_('RPT-2026-08-10-1235#5') === '' &&
+     selfRowKey_('ENG-20260901-1000#tts-cue-unsupported') === 'tts-cue-unsupported');
+
+  // ── ک.۹ سطرِ روزانه، **هر روز** ──────────────────────────────────
+  ok('ک.۹ سطرِ روزانه حتی بی‌بازگشایی هم متن دارد',
+     /سنجشِ ردیف‌های بسته/.test(selfVerifyLine_({ checked: 3, reopened: 0, live: 0, uncovered: 2, broken: [], keys: [] })),
+     selfVerifyLine_({ checked: 3, reopened: 0, live: 0, uncovered: 2, broken: [], keys: [] }));
+  ok('ک.۹-ب و سنجندهٔ خراب به‌نام گفته می‌شود',
+     /سنجندهٔ خراب/.test(selfVerifyLine_({ checked: 1, reopened: 0, live: 0, uncovered: 0, broken: ['k (نیست)'], keys: [] })),
+     'بی‌صدا رد شدن یعنی نقشه کهنه می‌شود و هیچ‌کس نمی‌فهمد');
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

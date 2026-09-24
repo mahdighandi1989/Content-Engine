@@ -1425,7 +1425,22 @@ function markCodeRowsInstalled_(version) {
       }
     }
   } catch (e) {}
-  var marked = 0;
+  var marked = 0, refused = 0;
+  /* ══ وضعیتِ زنده **تنبل** خوانده می‌شود، و این احتیاط نیست، لازم است ══
+     این تابع از دلِ `afterCodeSwap` صدا زده می‌شود — همان مسیری که
+     زمان‌بندی‌ها را دوباره می‌چیند. اگر آنجا بمیرد، موتور بی‌زمان‌بندی
+     می‌مانَد و هیچ خطایی هم ثبت نمی‌شود (اپس‌اسکریپت سرِ شش دقیقه بی‌صدا
+     می‌کُشد). پس `writeStatus_` فقط وقتی خوانده می‌شود که واقعاً ردیفی
+     سرِ راه باشد که هم بیانیه ادعایش را کرده و هم **سنجنده‌ای دارد** —
+     که در بیشترِ نسخه‌ها هیچ‌وقت پیش نمی‌آید و هزینه‌اش صفر است.
+     یک‌بار برای کلِ حلقه، نه به‌ازای هر ردیف. */
+  var liveSt, liveTried = false;
+  var live = function () {
+    if (liveTried) return liveSt;
+    liveTried = true;
+    try { liveSt = writeStatus_(hub, 'سنجشِ ادعای نسخه'); } catch (eS) { liveSt = null; }
+    return liveSt;
+  };
   for (var i = 0; i < n; i++) {
     var r = vals[i];
     var isCode = String(r[RC.OWNER - 1]) === ROWNER_CODE ||
@@ -1474,6 +1489,33 @@ function markCodeRowsInstalled_(version) {
     }
     var hit = ids[rid] || (rkey && ids[rkey]) || rid === 'CODE-' + version;
     if (!hit) continue;
+    /* ══ ادعا در برابرِ مشاهده: بیانیه می‌گوید «جواب دادم»، ولی شرط زنده است ══
+       تا اینجا بستنِ ردیف فقط به یک **ادعا** تکیه داشت — نامِ کلید در
+       `sourceReportIds` — و هیچ‌چیز آن ادعا را با شرطی که ردیف را ساخته
+       نمی‌سنجید. ۲۳ سپتامبر همین شد: ۷٫۴۸ ردیفِ `tts-cue-unsupported` را
+       به‌نام بست در حالی که لحن همچنان خاموش بود و `ttsCueStatus_()` هر
+       روز در ایمیل همین را می‌گفت. دو شاهد، هیچ مقایسه‌ای.
+
+       فقط **مشاهدهٔ مثبت** جلوی بستن را می‌گیرد: سنجندهٔ نداشته یا
+       خطادار (`null`) رفتار را عوض نمی‌کند، وگرنه یک سنجندهٔ خراب صف را
+       دوباره غیرقابلِ بستن می‌کرد — همان دری که ۷٫۴۲ باز کرد. */
+    var vlive = null;
+    try {
+      /* اول ارزان: این کلید اصلاً سنجنده دارد؟ فقط اگر داشت، وضعیتِ
+         زنده خوانده می‌شود. */
+      if (rkey && selfVerifyMap_()[rkey]) vlive = selfVerifyOne_(rkey, live());
+    } catch (eV) { vlive = null; }
+    if (vlive && vlive.known && vlive.still === true) {
+      r[RC.DONE - 1] = (String(r[RC.DONE - 1] || '') ? String(r[RC.DONE - 1]) + ' | ' : '') +
+                       'نسخهٔ ' + version + ' ادعای جواب کرد ولی شرط هنوز برقرار است (' +
+                       vlive.what + ') — باز ماند.';
+      r[RC.DONE_AT - 1] = nowStr_();
+      try {
+        sh.getRange(2 + i, RC.DONE, 1, 2).setValues([[r[RC.DONE - 1], r[RC.DONE_AT - 1]]]);
+      } catch (eW) {}
+      refused++;
+      continue;
+    }
     r[RC.STATUS - 1] = RST.INSTALLED;
     r[RC.DONE - 1] = String(r[RC.DONE - 1] || '');
     r[RC.DONE - 1] = (r[RC.DONE - 1] ? r[RC.DONE - 1] + ' | ' : '') +
@@ -1481,6 +1523,9 @@ function markCodeRowsInstalled_(version) {
     r[RC.DONE_AT - 1] = nowStr_();
     sh.getRange(2 + i, RC.STATUS, 1, 3).setValues([[r[RC.STATUS - 1], r[RC.DONE - 1], r[RC.DONE_AT - 1]]]);
     marked++;
+  }
+  if (refused) {
+    try { logLine_('markCodeRowsInstalled_: ' + refused + ' ردیف باز ماند — شرطشان هنوز برقرار بود.'); } catch (eL) {}
   }
   return marked;
 }
