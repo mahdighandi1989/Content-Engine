@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.55
+ *  موتور محتوا و پادکست — نسخهٔ 7.56
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.55',
+  CODE_VERSION: '7.56',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -3759,11 +3759,33 @@ function ttsCueWanted_(chunks, i) {
  * فردا درست شده باشد.
  */
 function ttsCueBadMap_() {
+  var o = {};
   try {
     var raw = String(props_().getProperty(PK.TTS_CUE_BAD) || '');
-    var o = raw ? JSON.parse(raw) : null;
-    return (o && typeof o === 'object') ? o : {};
-  } catch (e) { return {}; }
+    var p = raw ? JSON.parse(raw) : null;
+    if (p && typeof p === 'object' &&
+        Object.prototype.toString.call(p) !== '[object Array]') o = p;
+  } catch (e) { o = {}; }
+  /* ══ خانهٔ تکیِ نسخه‌های پیشین، **خوانده** می‌شود (۷٫۵۶) ══
+     ۷٫۴۷ این نقشه را ساخت تا «کدام مدل‌ها را دور بزنم» جوابِ درست بگیرد،
+     و همان روز ماجرایی که برایش ساخته شده بود از قبل اتفاق افتاده بود:
+     `gemini-3.1-flash-tts-preview` در ۲۳ سپتامبر ۰۷:۰۱ قالبِ دستور را رد
+     کرد و آن ردشدن در کلیدِ **تکیِ** قدیمی (`PK.TTS_CUE_OFF`) ثبت شد.
+     نقشهٔ تازه خالی ماند، پس `ttsCueBadNow_` «نه» می‌گفت، `ttsCueSwitch_`
+     هیچ نیازی نمی‌دید، و صافیِ `resolveModels_` همان مدل را دوباره
+     برمی‌داشت — **یعنی درمانی که برای این ردشدن نوشته شده بود، همین
+     ردشدن را نمی‌دید.** تا امتحانِ دوبارهٔ سه‌روزه، قسمت‌ها بی‌لحن.
+     همان شکلِ ۷٫۵۲ در همان روز: سازوکارِ تازه حالتی را که سازوکارِ کهنه
+     ثبت کرده نمی‌بیند. و مثلِ آنجا، **ادغام سرِ خواندن است، نه نوشتن** —
+     خانهٔ قدیمی نه پاک می‌شود و نه در نقشه می‌نشیند؛ فقط دیده می‌شود. */
+  try {
+    var one = String(props_().getProperty(PK.TTS_CUE_OFF) || '').trim();
+    if (one && !o[one]) {
+      var at = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || '').trim();
+      o[one] = at || nowStr_();
+    }
+  } catch (e2) {}
+  return o;
 }
 
 function ttsCueBadAdd_(model, at) {

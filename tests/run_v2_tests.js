@@ -264,6 +264,43 @@ say('\n=== ۸) مدلِ صوتی که دستورِ لحن را رد کرده، �
   if (!sw.need) throw new Error('❌ نیاز تشخیص داده نشد');
   if (!sw.switched) throw new Error('❌ عوض نشد: ' + JSON.stringify(sw));
   if (!(sw.alt > 0)) throw new Error('❌ شمارشِ جایگزین‌ها غلط: ' + sw.alt);
+
+  /* ══ ردشدنی که نسخهٔ پیشین ثبت کرده (۷٫۵۶) ══
+     ۷٫۴۷ این نقشه را ساخت، و ماجرایی که برایش ساخته شده بود از قبل
+     اتفاق افتاده بود: ردشدنِ ۲۳ سپتامبر در کلیدِ **تکیِ** قدیمی نشسته
+     بود، پس نقشهٔ تازه خالی ماند و درمان همان ردشدنی را که برایش نوشته
+     شده بود نمی‌دید. تا امتحانِ دوبارهٔ سه‌روزه، قسمت‌ها بی‌لحن. */
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  resolveModels_(true);
+  const cur = ttsModel_();
+  global.__PROPS[PK.TTS_CUE_OFF] = cur;
+  global.__PROPS[PK.TTS_CUE_OFF_AT] = nowStr_();
+  say('  خانهٔ تکیِ قدیمی → نقشه:', JSON.stringify(ttsCueBadMap_()));
+  if (!ttsCueBadMap_()[cur]) throw new Error('❌ ردشدنِ نسخهٔ پیشین دیده نشد');
+  if (!ttsCueBadNow_(cur)) throw new Error('❌ دیده شد ولی به تصمیم نرسید');
+  const sw2 = ttsCueSwitch_();
+  if (!sw2.need) throw new Error('❌ نیاز از خانهٔ قدیمی تشخیص داده نشد');
+  say('  و تعویض راه افتاد:', JSON.stringify(sw2), '✅');
+
+  /* ادغام سرِ **خواندن** است، نه نوشتن: خانهٔ قدیمی نه پاک می‌شود و نه در
+     نقشهٔ ذخیره‌شده می‌نشیند — همان قاعدهٔ ۷٫۵۲ در همان روز. */
+  const stored = JSON.parse(global.__PROPS[PK.TTS_CUE_BAD] || '{}');
+  if (stored[cur]) throw new Error('❌ خانهٔ قدیمی در نقشه نوشته شد');
+  if (String(global.__PROPS[PK.TTS_CUE_OFF] || '') !== cur) {
+    throw new Error('❌ خانهٔ قدیمی پاک شد — مُهرِ نسخهٔ پیشین از بین می‌رود');
+  }
+  say('  و خانهٔ قدیمی نه پاک شد نه در نقشه نشست ✅');
+
+  /* و مرز: نقشه بر خانهٔ قدیمی مقدم است، وگرنه تاریخِ کهنه می‌تواند
+     حکمِ تازه‌تر را عقب ببرد. */
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  ttsCueBadAdd_(cur, '2020-01-01 00:00');
+  if (ttsCueBadMap_()[cur] !== '2020-01-01 00:00') {
+    throw new Error('❌ خانهٔ قدیمی روی مقدارِ نقشه نوشت');
+  }
+  say('  و نقشه بر خانهٔ قدیمی مقدم است ✅');
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
   delete global.__PROPS[PK.TTS_CUE_BAD];
   resolveModels_(true);
 }
