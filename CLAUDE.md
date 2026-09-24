@@ -1077,6 +1077,41 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A window that will not open has no settings in it (7.60)
+
+He installed 7.59 and the voices board sat on «در حالِ خواندن…» for more than
+two minutes. The cause is one line, and it was not in the new code's logic:
+
+> `getHub_()` runs `ensureAllTabs_()` on the **29 MB** hub, every time.
+
+7.59's episode list called it **once per show**. So opening the board went from
+one full tab-repair pass to three — placed directly on the path a person is
+standing on, waiting.
+
+**The feature was right and the placement was wrong.** Nothing about the list was
+incorrect; it simply ran where someone was waiting for it. Two halves, and both
+were needed: the hub is opened **once** and passed to every show, and the lists
+left the first load entirely for `personaEpisodeLists()`. The board now draws
+immediately and the lists arrive after.
+
+**And the second call cannot take the first one down.** If the list fails, the
+error rides in its own answer and every other control still works — he must be
+able to change the style cue even when the episode list did not come. Until it
+arrives the page says «در حالِ آمدن…», because an empty space reads as "there are
+no episodes", and that is a lie.
+
+**The assertion counts what was expensive, not how long it took.** A timing
+assertion in the mock measures nothing: the double has no 29 MB spreadsheet. What
+was costly was the *number of `getHub_` calls*, so that is what is counted — one
+on the first load, one for all shows in the list call. Both go red when the code
+is broken.
+
+**My first attempt to break it landed in a different function and stayed green.**
+A blind string replace hit the first `} catch (eS) {}` in the file, which belongs
+to something else, so the suite proved nothing until I checked *where* the
+breakage actually landed. Breaking the code on purpose only works if you confirm
+it broke the thing you meant.
+
 ## A list instead of typing — and two jobs that looked like one (7.59)
 
 His ask, in one sentence: «لیستی باشه جای تایپی و برای پادکست‌ها قسمت‌هایی که

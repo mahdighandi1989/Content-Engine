@@ -244,7 +244,7 @@ function personaFolderMap_() {
  * که بگوید «اینها هستند» در حالی که بخشی را نشان نمی‌دهد، همان جوابِ
  * ناقصی است که خودش را کامل نشان می‌دهد (۷٫۲۳).
  */
-function personaEpisodesFor_(show, capOpt, mapOpt) {
+function personaEpisodesFor_(show, capOpt, mapOpt, hubOpt) {
   var out = { show: String(show || ''), items: [], total: 0, shown: 0,
               noFolder: 0, capped: false };
   var t = personaEpTab_(out.show);
@@ -253,7 +253,10 @@ function personaEpisodesFor_(show, capOpt, mapOpt) {
   var map = mapOpt || personaFolderMap_();
   var sh;
   try {
-    var hub = getHub_();
+    /* هاب **پاس داده می‌شود**. `getHub_()` هر بار `ensureAllTabs_` را روی
+       هابِ ۲۹ مگابایتی می‌دوانَد؛ صدا زدنش به ازای هر برنامه یعنی همان کار
+       سه بار، درست سرِ راهِ باز شدنِ پنجره (۷٫۶۰). */
+    var hub = hubOpt || getHub_();
     sh = hub.getSheetByName(t.tab);
   } catch (e) { out.error = e.message; return out; }
   if (!sh || sh.getLastRow() < 2) return out;
@@ -694,21 +697,14 @@ function personaBoardData_() {
         if (c.known) out.nextEp.push(String(L[i].name) + ' ' + faDigitsOut_(String(c.next)));
       } catch (eC) {}
     }
-    /* فهرستِ قسمت‌های تولیدشده، **یکی برای هر برنامه** — خواستهٔ صریح.
-       نقشهٔ پوشه‌ها یک بار خوانده می‌شود و به هر دو داده می‌شود. */
-    var fmap = personaFolderMap_();
-    for (var g = 0; g < L.length; g++) {
-      var lst = personaEpisodesFor_(L[g].key, 0, fmap);
-      if (!lst.total && !lst.error) continue;
-      out.eps.push({ key: String(L[g].key), name: String(L[g].name),
-                     total: faDigitsOut_(String(lst.total)),
-                     shown: faDigitsOut_(String(lst.shown)),
-                     noFolder: lst.noFolder ? faDigitsOut_(String(lst.noFolder)) : '',
-                     items: lst.items.map(function (x) {
-                       return { ep: x.ep, epFa: faDigitsOut_(String(x.ep)),
-                                title: x.title, at: x.at, can: !!x.can, on: false };
-                     }) });
-    }
+    /* ══ فهرستِ قسمت‌ها اینجا **ساخته نمی‌شود** (۷٫۶۰) ══
+       ۷٫۵۹ آن را داخلِ همین تابع گذاشت و پنجره بیش از دو دقیقه روی
+       «در حالِ خواندن…» ماند. علت یک خط بود: `getHub_()` هر بار
+       `ensureAllTabs_` را روی هابِ ۲۹ مگابایتی می‌دوانَد، و فهرست آن را
+       یک بار به ازای هر برنامه صدا می‌زد — سه برابرِ کارِ پیش از ۷٫۵۹،
+       درست سرِ راهی که آدم منتظرش ایستاده.
+       پس فهرست‌ها **فراخوانِ دومی** دارند: تخته بی‌درنگ باز می‌شود و
+       فهرست‌ها بعد پر می‌شوند. پنجره‌ای که باز نشود، هیچ تنظیمی ندارد. */
   } catch (eS) {}
   var sh;
   try { sh = personaTab_(); } catch (e) { out.note = 'تبِ صداها خوانده نشد: ' + e.message; return out; }
@@ -979,6 +975,48 @@ function personaApply_(segs, p) {
    همین را می‌گیرد، و این پنجره هم از همان در می‌گذرد.
    ══════════════════════════════════════════════════════════════════════ */
 
+/**
+ * فهرستِ قسمت‌های تولیدشدهٔ هر برنامه — **فراخوانِ دوم**، نه بخشی از بارِ اول.
+ *
+ * ۷٫۵۹ این را داخلِ `personaBoardData_` گذاشت و پنجره را قفل کرد: هر
+ * `getHub_()` یک `ensureAllTabs_` روی هابِ ۲۹ مگابایتی است و این کار را
+ * یک بار به ازای هر برنامه انجام می‌داد. حالا هاب **یک بار** باز می‌شود و
+ * به همه پاس داده می‌شود، و کلِ این کار از مسیرِ باز شدنِ پنجره بیرون است.
+ *
+ * شکستش هم پنجره را نمی‌شکند: خطا در خودِ جواب می‌آید و تخته سرِ جایش
+ * می‌مانَد — صاحبِ برنامه باید بتواند «دستورِ سبک» را عوض کند حتی اگر
+ * فهرستِ قسمت‌ها نیامده باشد.
+ */
+function personaEpisodeLists_() {
+  var out = { eps: [], note: '' };
+  var L;
+  try { L = knownShows_() || []; } catch (eK) { out.note = eK.message; return out; }
+  var hub = null, fmap = {};
+  try { hub = getHub_(); } catch (eH) { out.note = eH.message; return out; }
+  try { fmap = personaFolderMap_(); } catch (eM) { fmap = {}; }
+  for (var g = 0; g < L.length; g++) {
+    var lst;
+    try { lst = personaEpisodesFor_(L[g].key, 0, fmap, hub); }
+    catch (eL) { continue; }
+    if (!lst.total) continue;
+    out.eps.push({ key: String(L[g].key), name: String(L[g].name),
+                   total: faDigitsOut_(String(lst.total)),
+                   shown: faDigitsOut_(String(lst.shown)),
+                   noFolder: lst.noFolder ? faDigitsOut_(String(lst.noFolder)) : '',
+                   items: lst.items.map(function (x) {
+                     return { ep: x.ep, epFa: faDigitsOut_(String(x.ep)),
+                              title: x.title, at: x.at, can: !!x.can };
+                   }) });
+  }
+  return out;
+}
+
+/** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
+function personaEpisodeLists() {
+  try { return personaEpisodeLists_(); }
+  catch (e) { return { eps: [], note: 'خطا: ' + e.message }; }
+}
+
 /** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
 function personaBoardData() {
   try { return personaBoardData_(); }
@@ -1085,7 +1123,11 @@ function personaBoardHtml_() {
      تیک نمی‌خورد، با نوشتنِ علتش** — پنهان کردنش یعنی او فکر کند آن
      قسمت اصلاً وجود ندارد. */
   H.push('H.push("<label>قسمت‌های تولیدشده — تیک بزنید تا با این صدا تبدیل شوند (پشتِ‌هم یا پراکنده).</label>");');
-  H.push('for(var g=0;g<(D.eps||[]).length;g++){var G=D.eps[g];');
+  /* تا فهرست نرسیده، **گفته می‌شود که در راه است**. جای خالی را آدم
+     «قسمتی نیست» می‌خوانَد، و آن دروغ است. */
+  H.push('if(!EPS)H.push("<div class=\'dim\' style=\'font-size:12px\'>فهرستِ قسمت‌ها در حالِ آمدن…</div>");');
+  H.push('else if(!EPS.length)H.push("<div class=\'dim\' style=\'font-size:12px\'>قسمتِ تولیدشده‌ای پیدا نشد."+(EPSNOTE?" ("+esc(EPSNOTE)+")":"")+"</div>");');
+  H.push('for(var g=0;g<(EPS||[]).length;g++){var G=EPS[g];');
   H.push('H.push("<div class=\'eps\'><div class=\'epsh\'>"+esc(G.name)+" — "+esc(G.shown)+" از "+esc(G.total)+" قسمت");');
   H.push('if(G.noFolder)H.push(" · <span class=\'dim\'>"+esc(G.noFolder)+" تا پوشه‌شان شناخته نیست</span>");');
   H.push('H.push("</div><div class=\'epl\'>");');
@@ -1115,7 +1157,17 @@ function personaBoardHtml_() {
   H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
   H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
   H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks);}');
-  H.push('google.script.run.withSuccessHandler(draw).withFailureHandler(function(e){');
+  /* ══ دو فراخوان، و تخته منتظرِ دومی نمی‌مانَد (۷٫۶۰) ══
+     بارِ اول فقط ردیف‌های «صداها»ست و سبک. فهرستِ قسمت‌ها — که هاب و
+     درایو می‌خواهد — بعد می‌آید و تخته را دوباره می‌کشد. اگر هم نیامد،
+     تخته سرِ جایش هست و بقیهٔ تنظیم‌ها کار می‌کنند. */
+  H.push('var EPS=null,EPSNOTE="";');
+  H.push('function fillEps(){google.script.run.withSuccessHandler(function(r){');
+  H.push('EPS=(r&&r.eps)||[];EPSNOTE=(r&&r.note)||"";if(DATA)draw(DATA);})');
+  H.push('.withFailureHandler(function(e){EPS=[];EPSNOTE=e.message;if(DATA)draw(DATA);})');
+  H.push('.personaEpisodeLists();}');
+  H.push('google.script.run.withSuccessHandler(function(d){draw(d);fillEps();})');
+  H.push('.withFailureHandler(function(e){');
   H.push('document.getElementById("box").textContent="خوانده نشد: "+e.message;}).personaBoardData();');
   H.push('</script></body></html>');
   return H.join('');

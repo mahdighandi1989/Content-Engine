@@ -385,12 +385,36 @@ console.log('\n══ نامِ فارسیِ برنامه — همان چیزی �
   r2[PC.STYLE - 1] = 'آرام بخوان';
   t2.getRange(t2.getLastRow() + 1, 1, 1, PERSONA_HEADERS.length).setValues([r2]);
 
-  const D = personaBoardData_();
+  const LS = personaEpisodeLists_();
   ok('۱۰.۵ فهرست برای هر برنامه جداست',
-     (D.eps || []).length === 2 &&
-     D.eps.filter(g => g.key === 'special')[0].items.length === 4 &&
-     D.eps.filter(g => g.key === 'variety')[0].items.length === 2,
-     JSON.stringify(D.eps.map(g => g.key + ':' + g.items.length)));
+     (LS.eps || []).length === 2 &&
+     LS.eps.filter(g => g.key === 'special')[0].items.length === 4 &&
+     LS.eps.filter(g => g.key === 'variety')[0].items.length === 2,
+     JSON.stringify(LS.eps.map(g => g.key + ':' + g.items.length)));
+
+  /* ══ و بارِ اولِ تخته این کار را **نمی‌کند** (۷٫۶۰) ══
+     ۷٫۵۹ فهرست را داخلِ `personaBoardData_` گذاشت و پنجره بیش از دو
+     دقیقه روی «در حالِ خواندن…» ماند: هر `getHub_()` یک `ensureAllTabs_`
+     روی هابِ ۲۹ مگابایتی است و فهرست آن را یک بار به ازای هر برنامه صدا
+     می‌زد. سنجه همان چیزی را می‌شمارد که گران بود — نه سرعت، که در ماک
+     بی‌معناست. */
+  {
+    const realHub = global.getHub_;
+    let hits = 0;
+    global.getHub_ = function () { hits++; return realHub.apply(null, arguments); };
+    personaBoardData_();
+    const firstLoad = hits;
+    hits = 0;
+    personaEpisodeLists_();
+    const listCall = hits;
+    global.getHub_ = realHub;
+    ok('۱۰.۵-ب بارِ اولِ تخته بیش از یک بار هاب را باز نمی‌کند',
+       firstLoad <= 1,
+       'getHub_ در بارِ اول: ' + firstLoad + ' — هر بار یک ensureAllTabs_ روی ۲۹ مگابایت');
+    ok('۱۰.۵-پ و فهرست‌ها هم با یک هاب برای همهٔ برنامه‌ها',
+       listCall <= 1,
+       'getHub_ در فراخوانِ فهرست: ' + listCall + ' (دو برنامه)');
+  }
 
   // ── ذخیره با تیک: پراکنده، نه پشتِ‌هم ──────────────────────────
   const sv = personaBoardSave_(K2, false, ['درس‌نامه'], 1, 'آرام بخوان', '', '',
