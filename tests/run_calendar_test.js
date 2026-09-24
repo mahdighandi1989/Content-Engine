@@ -257,7 +257,12 @@ console.log('\n══ ۸) روزی یک قسمتِ تازه — و تلاشِ د
    این سنجه‌ها **اجرا** می‌کنند، نه اینکه متن را بخوانند. */
 {
   const P = global.__PROPS;
-  delete P[PK.EP_MADE_DAY];
+  const clearMade = () => {
+    for (const k of Object.keys(P)) {
+      if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+    }
+  };
+  clearMade();
   ok('۸.۱ روزِ خالی یعنی هنوز ساخته نشده',
      epMadeToday_(ENRICH_SHOW_VARIETY) === false);
 
@@ -268,8 +273,23 @@ console.log('\n══ ۸) روزی یک قسمتِ تازه — و تلاشِ د
      epMadeToday_(ENRICH_SHOW_SPECIAL) === false,
      'وگرنه یک مُهر هر دو پادکست را می‌خواباند');
 
+  /* ══ ۸.۳-ب — جهتی که ۷٫۴۴ نسنجید و ۲۴ سپتامبر هزینه‌اش را داد ══
+     سنجهٔ ۸.۳ می‌پرسید «آیا مُهرِ یکی، دیگری را هم خوابانده؟» — یعنی
+     مثبتِ کاذب. زیانِ واقعی **منفیِ کاذب** بود: مُهرِ دومی، مُهرِ اولی
+     را پاک می‌کرد، چون هر دو در یک ویژگی می‌نشستند. ترتیبِ تریگرها
+     (۰۴:۰۰ و ۰۵:۰۰) یعنی تا ساعتِ هفت خانه `special|…` بود، و آن صبح
+     «از همه جا از همه رنگ» دو قسمت داد: ۵۱ در ۰۷:۱۵ و ۵۲ در ۰۷:۵۲.
+     سنجهٔ کهنه سبز بود — **یک ادعا می‌تواند خوانشِ غلط را به همان
+     محکمی قفل کند که خوانشِ درست را** (۷٫۴۶). */
+  epMarkMade_(ENRICH_SHOW_SPECIAL);
+  ok('۸.۳-ب و مُهرِ برنامهٔ دوم، مُهرِ اولی را پاک نمی‌کند',
+     epMadeToday_(ENRICH_SHOW_VARIETY) === true &&
+     epMadeToday_(ENRICH_SHOW_SPECIAL) === true,
+     'مُهری که دو برنامه در آن شریک باشند، مُهرِ هیچ‌کدام نیست (۵٫۹۶)');
+
   /* مُهرِ دیروز نباید امروز را ببندد. */
-  P[PK.EP_MADE_DAY] = ENRICH_SHOW_VARIETY + '|2000-01-01';
+  clearMade();
+  P[PK.EP_MADE_DAY + '_' + ENRICH_SHOW_VARIETY] = ENRICH_SHOW_VARIETY + '|2000-01-01';
   ok('۸.۴ مُهرِ روزِ دیگر امروز را نمی‌بندد',
      epMadeToday_(ENRICH_SHOW_VARIETY) === false);
 
@@ -281,11 +301,39 @@ console.log('\n══ ۸) روزی یک قسمتِ تازه — و تلاشِ د
      r && r.ok === false && r.reason === 'already-today',
      'گرفت: ' + JSON.stringify(r));
 
+  /* ۸.۵-ب همان، ولی پس از آنکه درس‌نامه هم مُهر زده — یعنی دقیقاً
+     وضعیتِ ساعتِ هفتِ صبح. این سنجه است که ۲۴ سپتامبر را می‌گرفت. */
+  delete P[PK.PENDING];
+  epMarkMade_(ENRICH_SHOW_SPECIAL);
+  const r2 = produceEpisode();
+  ok('۸.۵-ب و پس از مُهرِ درس‌نامه هم همچنان نمی‌سازد',
+     r2 && r2.ok === false && r2.reason === 'already-today',
+     'گرفت: ' + JSON.stringify(r2 && r2.reason) +
+     ' — این همان حالتی است که صبحِ ۲۴ سپتامبر دو قسمت ساخت');
+
   /* و درِ صاحبِ برنامه باز می‌مانَد — همان قاعدهٔ `calGate_`. */
   const rm = produceEpisode({ manual: true });
   ok('۸.۶ ولی اجرای دستی از این نگهبان رد می‌شود',
      !(rm && rm.reason === 'already-today'),
      'گرفت: ' + JSON.stringify(rm && rm.reason));
+
+  /* ══ ۸.۸ — خانهٔ مشترکِ کدِ قبلی، در روزِ نصب ══
+     موتور می‌تواند وسطِ روز نصب شود (۷٫۴۶ ساعتِ ۰۹:۴۳). برنامه‌ای که
+     همان روز و با کدِ قبلی مُهر خورده، خانهٔ تازه‌اش خالی است. */
+  clearMade();
+  const today8 = String(nowStr_()).slice(0, 10);
+  P[PK.EP_MADE_DAY] = ENRICH_SHOW_SPECIAL + '|' + today8;
+  ok('۸.۸ مُهرِ خانهٔ مشترکِ کدِ قبلی همچنان شمرده می‌شود',
+     epMadeToday_(ENRICH_SHOW_SPECIAL) === true);
+  ok('۸.۸-ب ولی فقط برای برنامهٔ خودش',
+     epMadeToday_(ENRICH_SHOW_VARIETY) === false,
+     'مقدارِ یک برنامه نباید برای برنامهٔ دیگر «ساخته شده» معنی بدهد');
+  epMarkMade_(ENRICH_SHOW_VARIETY);
+  ok('۸.۸-پ و خانهٔ مشترک پاک نمی‌شود — وگرنه مُهرِ آن یکی می‌رود',
+     epMadeToday_(ENRICH_SHOW_SPECIAL) === true &&
+     epMadeToday_(ENRICH_SHOW_VARIETY) === true,
+     'همان سوراخ، از درِ دیگر');
+  clearMade();
   delete P[PK.EP_MADE_DAY];
 }
 /* و قرینه‌اش در درس‌نامه — باگی که در یکی از دو قرینه پیدا شود، در هر دو
