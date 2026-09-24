@@ -272,6 +272,17 @@ ok('۱۵.۱ روزهای گیرکردن از کارنامه می‌آید، نه
    /embRows_/.test(String(embStuckDays_)),
    'در ۷٫۲۱ هشدار از مُهری می‌خواند که خودش هر شب می‌زد، پس هرگز به صدا درنیامد');
 ok('۱۵.۲ دورِ تازه یعنی صفر روز گیرکردن', embStuckDays_(hub) === 0, String(embStuckDays_(hub)));
+
+// ۱۵.۲ب (۷٫۵۳) — گوگل‌شیت رشتهٔ تاریخِ nowStr_ را خودش به سلولِ Date تبدیل
+// می‌کند؛ ماکِ appendRow این کار را نمی‌کند، پس اینجا دستی شبیه‌سازی می‌شود
+// (همان چیزی که real getValues() برمی‌گرداند): یک شیءِ Date واقعی، نه رشته.
+const embRow3daysAgo = new Date(Date.now() - 3 * 86400000);
+embTab_(hub).appendRow([embRow3daysAgo, 'شبانه', 1, 1, 0, 1, 1, '۱۰۰٪', '', '']);
+const stuck3 = embStuckDays_(hub);
+ok('۱۵.۲ج سلولِ Dateِ واقعیِ گوگل‌شیت (نه رشته) درست خوانده می‌شود',
+   stuck3 >= 2 && stuck3 <= 4, String(stuck3) +
+   ' — اگر رگ‌اکس روی String(dateObj) بیفتد، ساعت:دقیقه به‌جای ماه:روز خوانده ' +
+   'می‌شود و عددی مثلِ ۱۹۰+ می‌دهد (درسِ ۷٫۵۳)');
 const rep = hub.getSheetByName(CFG.REPORT_TAB || 'گزارش‌های نظارت');
 const before15 = rep ? rep.getLastRow() : 0;
 embGates_(hub, { pending: 40, stuckDays: 9 }, null);
