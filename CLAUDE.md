@@ -1077,6 +1077,47 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A number that can no longer come is not a setting (7.58)
+
+He typed «درس نامه 18» into «قسمت‌های موردی» and asked two questions:
+*does this work? when does it produce?* Executed rather than answered from the
+code: the line parsed correctly, the show name matched correctly (7.55 had fixed
+exactly that), and the save succeeded. The answer to *when* was **never** —
+fifty درس‌نامه episodes have been produced and 18 passed months ago.
+
+**This is the same failure `personaOnceParse_` already documents, one layer
+down.** 7.41 wrote the rule for an *unreadable* line — «خطی که خوانده نشود یعنی
+قسمتی که او خواسته و بی‌صدا نخواهد گرفت، و او هرگز نمی‌فهمد» — and built a door
+for it. A line that is **readable but past** ends in exactly the same place: it
+is stored, it looks right, and it can never match. Nothing stood there.
+
+`personaEpCursor_` reads each show's counter and `personaOncePast_` recognises a
+line whose every item is behind it. Three boundaries, and each is the reason the
+naive version would have been wrong:
+
+- **A mixed line is not refused.** «۱۸ تا ۶۰» and «۱۸، ۶۰» still have a future
+  half; refusing them would kill the episode he *can* still get in order to warn
+  him about the one he cannot.
+- **The in-flight episode is not past.** The boundary is `cur`, not `next` — the
+  episode being produced right now carries a number equal to the counter, and
+  refusing it would make "this very episode" unsettable.
+- **An unknown show refuses nothing** (7.57, one section over: doubt does not
+  shut the door). Otherwise the next podcast added to `knownShows_` would have
+  every per-episode setting refused, with no code anywhere saying why.
+
+**And refusing is only half.** The message names the next episode number, and the
+board prints it beside the box — because a refusal that does not carry the right
+number leaves him guessing, and the number is knowable before he types (5.61/7.35:
+the control belongs where the work is).
+
+**Three of nine new assertions took a road other than the one they named**, and
+breaking the code is what surfaced all three: one asked the *function* about a
+mixed line while the boundary being tested lives in the *save gate*; one claimed
+to test "an unreadable counter" when a deleted property reads as **zero**, which
+is a different and correct fact ("nothing produced yet"); and one read a cell
+through a helper that returns a row *index*. 7.44's rule keeps arriving in new
+clothes — and it is only ever caught by breaking the code, never by reading it.
+
 ## A row closed by a claim nobody checks (7.57)
 
 He said it in one line: «این شکاف گزارش به اقدام رو درست کن حتما». The gap is

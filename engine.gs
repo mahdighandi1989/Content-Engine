@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.57
+ *  موتور محتوا و پادکست — نسخهٔ 7.58
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.57',
+  CODE_VERSION: '7.58',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -46675,6 +46675,109 @@ function personaOnceParse_(cell) {
   return out;
 }
 
+/** نامِ نمایشیِ یک برنامه از کلیدش؛ ناشناخته، خودِ کلید. */
+function personaShowName_(key) {
+  try {
+    var L = knownShows_() || [];
+    for (var i = 0; i < L.length; i++) {
+      if (String(L[i].key) === String(key)) return String(L[i].name || key);
+    }
+  } catch (e) {}
+  return String(key || '');
+}
+
+/**
+ * شمارهٔ قسمتی که این برنامه **بعداً** می‌سازد — و شمارهٔ در جریان.
+ *
+ * هر دو برنامه شمارنده‌ای در `props_()` دارند که پس از ساختِ هر قسمت
+ * جلو می‌رود، و شمارهٔ قسمتِ تازه `شمارنده + ۱` است. پس:
+ *   • `cur`  = آخرین شماره‌ای که ساخته شده (یا همین حالا در جریان است)
+ *   • `next` = شمارهٔ قسمتِ بعدی
+ *
+ * هیچ فهرستی از برنامه‌ها اینجا نیست — کلید را `knownShows_` می‌دهد و
+ * برنامهٔ ناشناخته `0` می‌گیرد، یعنی «نمی‌دانم»، که هیچ‌چیز را رد نمی‌کند.
+ * همان قاعدهٔ `calGate_`: نبودِ فهرست یعنی برنامهٔ بعدی بی تغییرِ کد می‌آید.
+ */
+function personaEpCursor_(show) {
+  var out = { cur: 0, next: 0, known: false };
+  var key = '';
+  try {
+    var n = function (s) { return String(s == null ? '' : s).trim(); };
+    var L = knownShows_() || [];
+    for (var i = 0; i < L.length; i++) {
+      if (n(L[i].key) === n(show) || n(L[i].name) === n(show)) { key = n(L[i].key); break; }
+    }
+  } catch (eK) {}
+  if (!key) key = String(show || '').trim();
+  var prop = '';
+  if (key === ENRICH_SHOW_SPECIAL) prop = PK.SP_EP_NUM;
+  else if (key === ENRICH_SHOW_VARIETY) prop = PK.EP_NUM;
+  if (!prop) return out;
+  try {
+    var v = parseInt(props_().getProperty(prop) || '0', 10);
+    if (!isFinite(v) || v < 0) return out;
+    out.cur = v; out.next = v + 1; out.known = true;
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * ══ شماره‌ای که دیگر نمی‌آید، تنظیم نیست — سکوت است (۷٫۵۸) ══
+ *
+ * صاحبِ برنامه «درس نامه 18» را نوشت و پرسید «کی تولید می‌کنه؟». جواب
+ * **هرگز** بود: پنجاه قسمتِ درس‌نامه ساخته شده و ۱۸ ماه‌ها پیش گذشته.
+ * خط درست خوانده می‌شد، نامِ برنامه درست می‌خورد، ذخیره هم می‌شد — و
+ * هیچ‌وقت هیچ قسمتی نمی‌گرفت.
+ *
+ * این دقیقاً همان چیزی است که `personaOnceParse_` دربارهٔ خطِ ناخوانا
+ * می‌گوید: «خطی که خوانده نشود یعنی قسمتی که او خواسته و بی‌صدا نخواهد
+ * گرفت، و او هرگز نمی‌فهمد». خطِ **خوانا ولی گذشته** همان نتیجه را
+ * می‌دهد و تا امروز هیچ دری جلویش نبود — یک لایه پایین‌تر از دری که
+ * ۷٫۴۱ ساخت.
+ *
+ * مرز، عمداً `cur` است و نه `next`: قسمتی که همین حالا در جریان است
+ * شماره‌اش برابرِ شمارنده است، و رد کردنش یعنی «همین قسمتی که دارد
+ * ساخته می‌شود» نشدنی شود. و «نمی‌دانم» (شمارندهٔ ناخوانا یا برنامهٔ
+ * ناشناخته) هیچ‌چیز را رد نمی‌کند — شکِ سنجنده در را نمی‌بندد، همان
+ * قاعدهٔ ۷٫۵۷ یک بخش آن‌طرف‌تر.
+ */
+function personaOncePast_(items, showsCell) {
+  var out = { past: [], live: 0, next: {}, any: false };
+  var list = items || [];
+  var cur = function (sh) {
+    var c = personaEpCursor_(sh);
+    if (c.known) out.next[sh] = c.next;
+    return c;
+  };
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i];
+    /* ورودیِ بی‌نام به هر برنامه‌ای می‌خورَد که ردیف اجازه بدهد، پس فقط
+       وقتی گذشته است که برای **همهٔ** آن برنامه‌ها گذشته باشد. */
+    var shows = [];
+    try {
+      var L = knownShows_() || [];
+      for (var s = 0; s < L.length; s++) {
+        var k = String(L[s].key);
+        if (it.show) { if (personaShowOk_(it.show, k, k)) shows.push(k); }
+        else if (personaShowOk_(showsCell, k, k)) shows.push(k);
+      }
+    } catch (eS) {}
+    if (!shows.length) { out.live++; continue; }   // نمی‌دانیم کجا — رد نمی‌کنیم
+    var allPast = true, anyKnown = false;
+    for (var j = 0; j < shows.length; j++) {
+      var c = cur(shows[j]);
+      if (!c.known) { allPast = false; continue; }
+      anyKnown = true;
+      if (it.to >= c.cur) allPast = false;
+    }
+    if (anyKnown && allPast) {
+      out.past.push({ show: it.show || shows.join('، '), from: it.from, to: it.to });
+    } else out.live++;
+  }
+  out.any = out.past.length > 0;
+  return out;
+}
+
 /**
  * این قسمت در «قسمت‌های موردی» نام برده شده؟
  *
@@ -46924,10 +47027,18 @@ function personaSeed_() {
  */
 function personaBoardData_() {
   var out = { enabled: CFG.PERSONA_ENABLED !== false, shows: [], rows: [],
-              note: '' };
+              nextEp: [], note: '' };
   try {
     var L = knownShows_();
-    for (var i = 0; i < L.length; i++) out.shows.push(L[i].name);
+    for (var i = 0; i < L.length; i++) {
+      out.shows.push(L[i].name);
+      /* شمارهٔ قسمتِ بعدیِ هر برنامه، برای راهنمای «قسمت‌های موردی» (۷٫۵۸).
+         ناخوانا یعنی چیزی نشان نده — عددِ حدسی بدتر از نبودنش است. */
+      try {
+        var c = personaEpCursor_(L[i].key);
+        if (c.known) out.nextEp.push(String(L[i].name) + ' ' + faDigitsOut_(String(c.next)));
+      } catch (eC) {}
+    }
   } catch (eS) {}
   var sh;
   try { sh = personaTab_(); } catch (e) { out.note = 'تبِ صداها خوانده نشد: ' + e.message; return out; }
@@ -47021,6 +47132,24 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once) {
     return { ok: false, why: 'این خط از «قسمت‌های موردی» خوانده نشد: «' +
              op.bad[0] + '». شمارهٔ قسمت لازم است — مثلِ ۴۷ یا ۴۷ تا ۵۰ ' +
              'یا درس‌نامه ۴۷.' };
+  }
+  /* ══ و درِ چهارم: شماره‌ای که دیگر نمی‌آید (۷٫۵۸) ══
+     خطِ خوانا که همه‌اش گذشته باشد، همان نتیجهٔ خطِ ناخوانا را دارد —
+     ذخیره می‌شود، درست به نظر می‌رسد، و هیچ قسمتی نمی‌گیرد. پس مثلِ آن
+     رد می‌شود، و **شمارهٔ قسمتِ بعدی گفته می‌شود**؛ رد کردن بدونِ گفتنِ
+     عددِ درست یعنی او باید حدس بزند. */
+  var pastChk = personaOncePast_(op.items, cell);
+  if (pastChk.any && !pastChk.live) {
+    var pz = pastChk.past[0];
+    var nx = [];
+    for (var nk in pastChk.next) {
+      if (!Object.prototype.hasOwnProperty.call(pastChk.next, nk)) continue;
+      nx.push(personaShowName_(nk) + ' ' + faDigitsOut_(String(pastChk.next[nk])));
+    }
+    return { ok: false, why: 'قسمت ' + faDigitsOut_(String(pz.from)) +
+             (pz.to !== pz.from ? ' تا ' + faDigitsOut_(String(pz.to)) : '') +
+             ' گذشته است و دیگر ساخته نمی‌شود، پس این تنظیم هیچ‌وقت اثر ' +
+             'نمی‌کرد.' + (nx.length ? ' قسمتِ بعدی: ' + nx.join(' · ') + '.' : '') };
   }
 
   sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
@@ -47233,7 +47362,14 @@ function personaBoardHtml_() {
   /* ══ «موردی» همین‌جا، نه در منویی دیگر (۵٫۶۱ و ۷٫۳۵) ══
      کنترلی که جایی جز کنارِ کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود. */
   H.push('H.push("<label>قسمت‌های موردی — فقط همین قسمت‌ها، حتی اگر ردیف خاموش باشد.<br>");');
-  H.push('H.push("مثال: <code>۴۷</code> · <code>۴۷ تا ۵۰</code> · <code>درس‌نامه ۴۷</code>. رقمِ فارسی و لاتین هر دو.</label>");');
+  H.push('H.push("مثال: <code>۴۷</code> · <code>۴۷ تا ۵۰</code> · <code>درس‌نامه ۴۷</code>. رقمِ فارسی و لاتین هر دو.");');
+  /* ══ شمارهٔ قسمتِ بعدی، همین‌جا (۷٫۵۸) ══
+     او «درس‌نامه ۱۸» نوشت و پرسید «کی تولید می‌کنه؟» — هجده ماه‌ها پیش
+     گذشته بود. ذخیره حالا چنین خطی را رد می‌کند، ولی رد کردن نیمهٔ کار
+     است: عددِ درست باید **پیش از نوشتن** جلوی چشم باشد، نه پس از خطا.
+     ۵٫۶۱/۷٫۳۵: کنترل جایی می‌نشیند که کار آنجاست. */
+  H.push('if(D.nextEp&&D.nextEp.length)H.push("<br><b>قسمتِ بعدی:</b> "+esc(D.nextEp.join(" · "))+" — شمارهٔ گذشته اثری ندارد.");');
+  H.push('H.push("</label>");');
   H.push('H.push("<textarea id=\'oc"+i+"\' rows=\'2\'>"+esc(r.once)+"</textarea>");');
   H.push('H.push("<div class=\'last\'>آخرین تصمیمِ موتور: <b>"+(esc(r.last)||"—")+"</b>");');
   H.push('if(r.used)H.push(" · آخرین استفاده: "+esc(r.used));');
