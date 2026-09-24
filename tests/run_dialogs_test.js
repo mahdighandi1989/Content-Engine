@@ -155,6 +155,37 @@ console.log('\n══ ۶) تختهٔ گویندگان: همان دکمه‌ای 
   ok('۶.۱ و داده‌اش را از سرور می‌خواهد',
      h.calls.some((c) => c.fn === 'personaBoardData'),
      'گرفت: ' + JSON.stringify(h.calls.map((c) => c.fn)));
+
+  /* ══ ۶.۲ و جوابِ سرور را **می‌گیرد و می‌کشد** (۷٫۶۱) ══
+     تا امروز همین‌جا تمام می‌شد: «صدا زده شد؟ بله». و صفحه در تولید سه
+     نسخه روی «در حالِ خواندن…» ماند، چون `draw` یک `ReferenceError`
+     می‌داد (`D` به‌جای `d`) و هیچ‌جا دیده نمی‌شد. پرسشِ درست یک لایه
+     پایین‌تر است: **وقتی داده رسید، صفحه واقعاً پر می‌شود؟**
+
+     و ردیف باید **وجود داشته باشد**: با `rows: []` کلِ حلقهٔ کارت‌ها —
+     جایی که این خطا بود — هرگز اجرا نمی‌شود. یک هابِ خالی این پنجره را
+     همیشه سبز نشان می‌داد. */
+  const t = personaTab_(getHub_());
+  const row = new Array(PERSONA_HEADERS.length).fill('');
+  row[PC.KEY - 1] = 'probe'; row[PC.NAME - 1] = 'گویندهٔ آزمون';
+  row[PC.ON - 1] = 'خیر'; row[PC.SHOWS - 1] = 'همه'; row[PC.EVERY - 1] = 1;
+  row[PC.STYLE - 1] = 'آرام بخوان';
+  t.getRange(t.getLastRow() + 1, 1, 1, PERSONA_HEADERS.length).setValues([row]);
+  const data = JSON.parse(JSON.stringify(hush(() => personaBoardData_())));
+  ok('۶.۲-آ دادهٔ سرور دستِ‌کم یک ردیف دارد',
+     (data.rows || []).length >= 1,
+     'وگرنه حلقهٔ کارت‌ها اجرا نمی‌شود و این سنجه چیزی را نمی‌سنجد');
+
+  let drew = '', boom = '';
+  try { h.reply('personaBoardData', data); drew = String(h.get('box').innerHTML || ''); }
+  catch (e) { boom = e.constructor.name + ': ' + e.message; }
+  ok('۶.۲ جوابِ سرور که رسید، صفحه بی‌خطا کشیده می‌شود', !boom, boom);
+  ok('۶.۲-ب و جعبه واقعاً پر می‌شود (نه اینکه روی «در حالِ خواندن» بماند)',
+     drew.length > 200 && drew.indexOf('در حالِ خواندن') === -1,
+     'طول: ' + drew.length);
+  ok('۶.۳ و بعدش فهرستِ قسمت‌ها را جدا می‌خواهد',
+     h.calls.some((c) => c.fn === 'personaEpisodeLists'),
+     'بارِ اول نباید منتظرِ فهرست بماند — ۷٫۶۰');
 }
 
 console.log('\n══ ۷) دفترِ بدهی — کدام گزینهٔ منو هرگز آزموده نشده ══');

@@ -1077,6 +1077,43 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## One capital letter, three versions, and a guard that threw the answer away (7.61)
+
+He said the board was still stuck after installing 7.60. **7.60 was mine and it
+fixed something that was never the cause** — I reasoned about `getHub_()` being
+expensive instead of running the dialog. This file's own rule, ignored: measure,
+don't reason.
+
+The real cause is one character. `draw(d)` takes **`d`**; 7.58's new "next
+episode" hint wrote **`D`**. The page raises `ReferenceError`, `draw` stops
+half-way, the box keeps its «در حالِ خواندن…» text, and **nothing anywhere shows
+an error**. Broken since 7.58 — three versions, all green.
+
+**Why no guard caught it, and this is the part that generalises.**
+`run_dialogs_test.js` rendered the board, ran its script, and asked *"was
+`personaBoardData` called?"* — yes, and correctly. But the `google.script.run`
+double **discarded `withSuccessHandler`**, so the reply could never be delivered
+and **`draw` never ran in any test, ever**. That is 7.43 exactly: right question,
+right answer, one layer above the breakage.
+
+**And a second layer of the same blindness.** The mock hub has no «صداها» rows,
+so `d.rows` was empty and `draw` returned at its early exit — the card loop,
+where the bug actually lived, would not have run even if the reply had been
+delivered. A test double that is *emptier* than production proves nothing, the
+same way one that is more lenient proves nothing (7.24).
+
+`makeCtx` now keeps the handlers and `h.reply(fn, value)` delivers the answer,
+raising whatever the page raises. The assertions seed a real row first, then ask
+the question that matters: **when the data arrives, does the box actually fill?**
+All three were turned red by breaking the code — one of them by restoring the
+very `D` that caused this.
+
+**The habit that failed here was not the fix, it was the diagnosis.** I had a
+symptom ("stuck on loading"), invented a plausible cause, shipped it, and told him
+it was solved. The cheap check — render the dialog and run its script with data —
+existed the whole time and took four minutes. *Before shipping a fix for something
+you cannot see, reproduce it.*
+
 ## A window that will not open has no settings in it (7.60)
 
 He installed 7.59 and the voices board sat on «در حالِ خواندن…» for more than

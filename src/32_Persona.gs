@@ -1114,7 +1114,7 @@ function personaBoardHtml_() {
      گذشته بود. ذخیره حالا چنین خطی را رد می‌کند، ولی رد کردن نیمهٔ کار
      است: عددِ درست باید **پیش از نوشتن** جلوی چشم باشد، نه پس از خطا.
      ۵٫۶۱/۷٫۳۵: کنترل جایی می‌نشیند که کار آنجاست. */
-  H.push('if(D.nextEp&&D.nextEp.length)H.push("<br><b>قسمتِ بعدی:</b> "+esc(D.nextEp.join(" · "))+" — شمارهٔ گذشته اثری ندارد.");');
+  H.push('if(d.nextEp&&d.nextEp.length)H.push("<br><b>قسمتِ بعدی:</b> "+esc(d.nextEp.join(" · "))+" — شمارهٔ گذشته اثری ندارد.");');
   H.push('H.push("</label>");');
   H.push('H.push("<textarea id=\'oc"+i+"\' rows=\'2\'>"+esc(r.once)+"</textarea>");');
   /* ══ فهرست به‌جای تایپ، و یکی برای هر برنامه (۷٫۵۹) ══

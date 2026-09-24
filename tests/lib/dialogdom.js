@@ -115,14 +115,26 @@ function makeCtx(opts) {
     addEventListener() {}
   };
 
+  /* ══ پاسخِ سرور باید **تحویل داده شود**، نه دور ریخته (۷٫۶۱) ══
+     تا امروز `withSuccessHandler` نگه‌داشته نمی‌شد، پس مجموعه فقط
+     می‌توانست بپرسد «آیا تابعِ سرور صدا زده شد؟» — و هرگز `draw` را
+     نمی‌دواند. ۷٫۵۸ در همان `draw` `D` نوشت به‌جای `d`؛ صفحه
+     `ReferenceError` می‌داد، روی «در حالِ خواندن…» می‌ماند، و سه نسخه
+     سبز رد شد. همان شکلِ ۷٫۴۳: نگهبان یک لایه بالاتر از خرابی.
+     handlerها بیرونِ پروکسی نگه داشته می‌شوند — روی خودِ پروکسی نوشتنشان
+     یعنی تلهٔ `get` همان‌ها را هم یک «فراخوان» می‌شمارد. */
+  let pendS = null, pendF = null;
   const runner = {};
-  const handlers = ['withSuccessHandler', 'withFailureHandler', 'withUserObject'];
   const scriptRun = new Proxy(runner, {
     get(t, prop) {
       if (typeof prop !== 'string') return undefined;
-      if (handlers.indexOf(prop) !== -1) return function () { return scriptRun; };
+      if (prop === 'withSuccessHandler') return function (f) { pendS = f; return scriptRun; };
+      if (prop === 'withFailureHandler') return function (f) { pendF = f; return scriptRun; };
+      if (prop === 'withUserObject') return function () { return scriptRun; };
       return function () {
-        calls.push({ fn: prop, args: Array.prototype.slice.call(arguments) });
+        calls.push({ fn: prop, args: Array.prototype.slice.call(arguments),
+                     success: pendS, failure: pendF });
+        pendS = null; pendF = null;
         return scriptRun;
       };
     }
@@ -140,7 +152,18 @@ function makeCtx(opts) {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  return { ctx, calls, dom, errors, get };
+
+  /* جوابِ سرور را به آخرین فراخوانِ آن نام بده و **همان‌جا** بدوان. خطا
+     را بالا می‌دهد تا سنجه ببیندش؛ در مرورگر همین خطا صفحه را روی متنِ
+     «در حالِ خواندن…» زمین می‌گذارد بی آنکه کسی چیزی ببیند. */
+  const reply = (fn, value) => {
+    const c = calls.filter((x) => x.fn === fn).pop();
+    if (!c) throw new Error('فراخوانی به نامِ «' + fn + '» ثبت نشده');
+    if (typeof c.success !== 'function') throw new Error('«' + fn + '» هیچ withSuccessHandler نداشت');
+    c.success(value);
+    return c;
+  };
+  return { ctx, calls, dom, errors, get, reply };
 }
 
 /** بلوک‌های <script> یک صفحه. */
