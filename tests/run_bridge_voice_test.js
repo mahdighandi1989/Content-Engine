@@ -516,4 +516,113 @@ console.log('\n══ ۱۶) صف از مسیرِ دوم هم نوشته می‌�
      'بی اشتراک، گردش‌کار به‌جای JSON یک صفحهٔ HTML می‌گیرد (۷٫۳۳)');
 }
 
+console.log('\n══ ۱۷) فایلی که فقط در درایو بنشیند، شنیده نمی‌شود (۷٫۵۳) ══');
+/* ══ خواستهٔ صریحِ صاحبِ برنامه ══
+   «همین صوتِ قدیمی که با صدای رضوی یا هرکسِ دیگه‌ست تو تلگرامم ارسال کنه
+   که یادم بمونه گوشش بدم». و دلیلِ عمیق‌ترش همان قاعدهٔ همیشگیِ این
+   مخزن است: او درایو را باز نمی‌کند. کلِ بخشِ ۳۶ برای یک قضاوت ساخته
+   شده که فقط او می‌تواند بکند — «شبیهِ اوست؟» — و قضاوتی که به یادآوری
+   بند باشد، همان قضاوتی است که انجام نمی‌شود.
+
+   این سنجه‌ها مسیرِ **واقعیِ** برداشت را می‌دوانند، نه `vbrTgTell_` را
+   تنها؛ چون سؤال این نیست که «تابع کار می‌کند؟» بلکه «وقتی فایل رسید،
+   چیزی به تلگرام می‌رود؟». */
+{
+  const props = global.__PROPS;
+  props[PK.TG_TOKEN] = 'T'; props[PK.TG_CHAT] = 'C';
+  const realApi = global.tgApi_;
+  /* نامِ فارسی از `docs/voices.json` می‌آید و اینجا نیست. جای‌گزینش
+     می‌کنیم تا سنجه بپرسد «نامی که برداشت *تشخیص داد* به پیام می‌رسد؟» —
+     وگرنه کدی که کلیدِ لاتین را بفرستد هم سبز می‌شد. */
+  const realNames = global.vbrSpeakerNames_;
+  global.vbrSpeakerNames_ = () => ({ razavi: 'بهروز رضوی' });
+  let calls = [];
+  const arm = (behave) => {
+    calls = [];
+    global.tgApi_ = function (method, payload) {
+      calls.push({ method: method, payload: payload });
+      if (behave) behave(method);
+      return { ok: true };
+    };
+  };
+  // یک ردیفِ تازه برای هر آزمون، چون ردیفِ بسته دوباره برداشته نمی‌شود.
+  const queue = (ep) => {
+    vbrAsk_('variety', ep, epFold.getId(), 'razavi', 'قسمت ' + ep);
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        const items = {}; items['variety:' + ep] =
+          { url: 'https://example.invalid/x.wav', minutes: 21.4 };
+        return { getResponseCode: () => 200,
+                 getContentText: () => JSON.stringify({ items: items }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => blobOf(wavBytes) };
+    };
+    _vbrMapMemo = null;
+  };
+  const row = (ep) => vbrRead_().items.filter(x => x.key === 'variety:' + ep)[0];
+  // سیاههٔ موتور پرحرف است؛ خروجیِ سنجه‌ها باید خوانا بمانَد.
+  const quiet = (fn) => { const o = console.log; console.log = () => {};
+    try { return fn(); } finally { console.log = o; } };
+
+  arm(null); queue(61);
+  const i1 = quiet(() => vbrIngest_(hub));
+  const audio = calls.filter(c => c.method === 'sendAudio')[0];
+  ok('۱۷.۱ رسیدنِ فایل، خودش یک پیامِ تلگرام می‌فرستد',
+     !!audio, 'گرفت: ' + JSON.stringify(calls.map(c => c.method)));
+  ok('۱۷.۲ و پیام می‌گوید کدام قسمت و کدام گوینده',
+     /قسمت\s*61/.test(String(audio.payload.caption)) &&
+     /رضوی/.test(String(audio.payload.caption)),
+     'گرفت: ' + String(audio.payload.caption).slice(0, 90));
+  ok('۱۷.۳ و صریح می‌گوید صوتِ منتشرشده عوض نشده',
+     /عوض نشده/.test(String(audio.payload.caption)),
+     'وگرنه همان پیام می‌تواند ترساننده باشد — «یعنی پادکستم رفت؟»');
+  ok('۱۷.۴ ردیف هم بسته شد', row(61).status === 'رسید' && i1.told === 1,
+     'گرفت: ' + row(61).status + ' · told=' + i1.told);
+
+  /* حجمِ WAV می‌تواند از سقفِ تلگرام رد شود. سقوط به «کمتر راحت» است،
+     نه به سکوت — سکوت یعنی او هرگز نمی‌فهمد فایلی آمده. */
+  arm((m) => { if (m === 'sendAudio') throw new Error('too big'); }); queue(62);
+  const i2 = quiet(() => vbrIngest_(hub));
+  ok('۱۷.۵ اگر صوت نرفت، به‌صورتِ فایل می‌رود',
+     calls.some(c => c.method === 'sendDocument') && i2.told === 1,
+     'گرفت: ' + JSON.stringify(calls.map(c => c.method)));
+
+  arm((m) => { if (m !== 'sendMessage') throw new Error('too big'); }); queue(63);
+  const i3 = quiet(() => vbrIngest_(hub));
+  const msg = calls.filter(c => c.method === 'sendMessage')[0];
+  ok('۱۷.۶ و اگر هیچ‌کدام نشد، دستِ‌کم پیام با **لینک** می‌رود',
+     !!msg && /drive\.google\.com/.test(String(msg.payload.text)) && i3.told === 1,
+     'گرفت: ' + JSON.stringify(calls.map(c => c.method)));
+
+  /* ══ مرزی که نباید جابه‌جا شود: خبر نباید کار را بشکند ══
+     نخستین نسخهٔ این سنجه `tgApi_` را می‌ترکاند و **سبز می‌مانْد حتی
+     وقتی عمداً try را برمی‌داشتم** — چون `vbrTgTell_` خودش هر فراخوان را
+     در try دارد و چیزی از آن بیرون نمی‌پرد. یعنی ادعا را نمی‌سنجید.
+     حالتی که واقعاً می‌رسد این است: **خودِ `vbrTgTell_` بترکد** — که
+     دقیقاً همان شکلِ «بارکنندهٔ آزمون یک بخش را نمی‌شناسد» است و در این
+     مخزن بارها افتاده. پس همان را می‌ترکانیم. */
+  const realTell = global.vbrTgTell_;
+  global.vbrTgTell_ = () => { throw new Error('تلگرام قطع است'); };
+  arm(null); queue(64);
+  const i4 = quiet(() => vbrIngest_(hub));
+  global.vbrTgTell_ = realTell;
+  /* برداشتنِ آن try، کلِ مجموعه را با استثنا می‌خواباند — یعنی یک
+     تک‌سرفهٔ تلگرام همهٔ برداشتِ آن شب را می‌بَرد. سرخیِ این یکی به‌شکلِ
+     فروپاشی است، نه یک سطرِ ❌. */
+  ok('۱۷.۷ ترکیدنِ خبررسان ردیفِ رسیده را ناموفق نمی‌کند',
+     row(64).status === 'رسید' && i4.got.length === 1 && i4.told === 0,
+     'خبر دربارهٔ کار است، نه خودِ کار. گرفت: ' + row(64).status);
+
+  props[PK.TG_TOKEN] = ''; props[PK.TG_CHAT] = '';
+  arm(null); queue(65);
+  const i5 = quiet(() => vbrIngest_(hub));
+  ok('۱۷.۸ و بی تنظیمِ تلگرام هم برداشت سالم است',
+     row(65).status === 'رسید' && calls.length === 0 && i5.told === 0,
+     'گرفت: ' + row(65).status + ' · ' + calls.length + ' فراخوان');
+
+  global.tgApi_ = realApi;
+  global.vbrSpeakerNames_ = realNames;
+  props[PK.TG_TOKEN] = 'T'; props[PK.TG_CHAT] = 'C';
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

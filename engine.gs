@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.53
+ *  موتور محتوا و پادکست — نسخهٔ 7.54
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1257,7 +1257,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.53',
+  CODE_VERSION: '7.54',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1387,6 +1387,10 @@ var CFG = {
      دقیقه روی رانرِ رایگان. سقفِ job با حاشیه بالاتر گذاشته شده. */
   VBR_ON: true,                      // صف نوشته می‌شود
   VBR_REPLACE: false,                // ⛔ صوتِ منتشرشده عوض **نمی‌شود**
+  /* فایلِ تبدیل‌شده که رسید، همان‌جا در تلگرام گفته می‌شود — خواستهٔ
+     صریحِ صاحبِ برنامه، و چون او درایو را باز نمی‌کند، تنها راهی که آن
+     فایل واقعاً شنیده شود. خاموش‌کردنش ممکن است، ولی پیش‌فرض روشن است. */
+  VBR_TELL: true,
   VBR_FILE: '_VOICE-RENDER.json',    // صف، در ریشهٔ OUTPUT
   /* شناسهٔ ثابتِ صف — همان که در `voice-bridge.yml` نشسته. اگر فایل پاک و
      دوباره ساخته شود `putOutJson_` شناسهٔ تازه می‌سازد، گردش‌کار همچنان
@@ -51433,7 +51437,7 @@ function vbrUnshare_(item) {
  * را به نویز تبدیل می‌کند (۵٫۸۸).
  */
 function vbrIngest_(hub) {
-  var out = { got: [], failed: [], unshared: 0, abandoned: 0 };
+  var out = { got: [], failed: [], unshared: 0, abandoned: 0, told: 0 };
   if (CFG.VBR_ON === false) return out;
   var map = vbrMapCached_();
   if (!map) return out;
@@ -51452,9 +51456,17 @@ function vbrIngest_(hub) {
       it.seconds = Number(hit.seconds) || 0;
       it.jobMinutes = Number(hit.minutes) || 0;
       out.unshared += vbrUnshare_(it);
+      /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
+         تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
+      var tell = { sent: false, how: '', why: 'صدا زده نشد' };
+      try { tell = vbrTgTell_(it, names[String(it.speaker)] || it.speaker, r); }
+      catch (eT) { tell = { sent: false, how: '', why: eT.message }; }
+      if (tell.sent) out.told = (Number(out.told) || 0) + 1;
       out.got.push({ key: it.key, name: r.name, bytes: r.bytes,
-                     seconds: it.seconds, minutes: it.jobMinutes });
-      vbrLog_(hub, it, 'رسید', r.name);
+                     seconds: it.seconds, minutes: it.jobMinutes,
+                     told: tell.sent, how: tell.how });
+      vbrLog_(hub, it, 'رسید', r.name +
+              (tell.sent ? ' · تلگرام: ' + tell.how : ' · تلگرام نرفت: ' + tell.why));
     } else {
       it.tries = (Number(it.tries) || 0) + 1;
       it.lastWhy = r.why;
@@ -51472,6 +51484,81 @@ function vbrIngest_(hub) {
     changed = true;
   }
   if (changed) vbrSave_(d);
+  return out;
+}
+
+/**
+ * فایلِ تبدیل‌شده رسید ⇒ همان‌جا در تلگرام بگو (۷٫۵۳).
+ *
+ * ══ چرا لازم شد ══
+ * خواستهٔ صریحِ صاحبِ برنامه: «همین صوتِ قدیمی که با صدای رضوی یا هرکسِ
+ * دیگه‌ست تو تلگرامم ارسال کنه که یادم بمونه گوشش بدم».
+ *
+ * و دلیلِ عمیق‌ترش همان قاعدهٔ همیشگیِ این پرونده است: **صاحبِ برنامه
+ * درایو را باز نمی‌کند.** فایلی که فقط در یک پوشه بنشیند، عملاً ساخته
+ * نشده — و کلِ این بخش برای یک قضاوت ساخته شده که فقط او می‌تواند
+ * بکند: «شبیهِ اوست؟». قضاوتی که به یادآوری بند باشد، همان قضاوتی است
+ * که انجام نمی‌شود.
+ *
+ * ══ سه پله، چون اندازه دستِ ما نیست ══
+ * تلگرام برای ربات سقفِ حجم دارد و صوتِ یک قسمت WAV است، نه MP3 — یعنی
+ * یک قسمتِ بلند می‌تواند از سقف رد شود. پس: اول `sendAudio` (که همان‌جا
+ * قابلِ پخش است و بهترین حالت است)، بعد `sendDocument`، و اگر هیچ‌کدام
+ * نشد **دستِ‌کم یک پیام با لینک**. سقوط به سمتِ «کمتر راحت» است، نه به
+ * سمتِ سکوت — چون سکوت یعنی او هرگز نمی‌فهمد فایلی آمده.
+ * همان پلهٔ `sendAudio` → `sendDocument` را بخشِ ۷ از روزِ اول دارد؛
+ * الگوی دومی ساخته نشد.
+ *
+ * ══ و هرگز کارِ اصلی را نمی‌شکند ══
+ * فراخوانش در `vbrIngest_` داخلِ try است و نتیجه‌اش فقط گزارش می‌شود.
+ * یک قطعیِ تلگرام نباید ردیفی را که واقعاً «رسید» است ناموفق کند.
+ */
+function vbrTgTell_(item, speakerName, got) {
+  var out = { sent: false, how: '', why: '' };
+  try {
+    if (CFG.VBR_TELL === false) { out.why = 'خاموش'; return out; }
+    if (!tgEnabled_()) { out.why = 'تلگرام تنظیم نشده'; return out; }
+  } catch (e0) { out.why = 'تلگرام در دسترس نیست'; return out; }
+
+  var who = String(speakerName || (item && item.speaker) || '—');
+  var ep = String((item && item.ep) || '—');
+  var title = String((item && item.title) || '');
+  var link = '';
+  try { link = driveLink_((got && got.id) || item.outId || ''); } catch (eL) { link = ''; }
+
+  /* متن کوتاه می‌مانَد چون caption در تلگرام سقف دارد و این پیام قرار
+     است **در گوشی** خوانده شود، نه روی صفحهٔ بزرگ. */
+  var cap = '🎙 <b>قسمت ' + tgEsc_(ep) + ' با صدای ' + tgEsc_(who) + '</b>' +
+            (title ? '\n' + tgEsc_(title) : '') +
+            '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
+            'صوتی که منتشر و ایمیل شد عوض نشده.' +
+            '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
+
+  var blob = null;
+  try { blob = DriveApp.getFileById(String((got && got.id) || item.outId)).getBlob(); }
+  catch (eB) { blob = null; }
+
+  if (blob) {
+    try {
+      tgApi_('sendAudio', { chat_id: tgChat_(), audio: blob, caption: cap,
+                            parse_mode: 'HTML', title: 'قسمت ' + ep + ' — ' + who,
+                            performer: who });
+      out.sent = true; out.how = 'صوت'; return out;
+    } catch (e1) { out.why = String(e1 && e1.message || e1).slice(0, 80); }
+    try {
+      tgApi_('sendDocument', { chat_id: tgChat_(), document: blob,
+                               caption: cap, parse_mode: 'HTML' });
+      out.sent = true; out.how = 'فایل'; return out;
+    } catch (e2) { out.why = String(e2 && e2.message || e2).slice(0, 80); }
+  }
+
+  /* آخرین پله: حجم از سقف رد شده یا بایت‌ها خوانده نشدند. لینک همیشه
+     می‌رود، وگرنه او اصلاً خبردار نمی‌شود که فایلی آمده. */
+  try {
+    tgSend_(cap + (link ? '\n\n' + link : '') +
+            '\n<i>(حجمش برای تلگرام زیاد بود؛ از لینک بردارید.)</i>');
+    out.sent = true; out.how = 'لینک'; return out;
+  } catch (e3) { out.why = String(e3 && e3.message || e3).slice(0, 80); }
   return out;
 }
 
