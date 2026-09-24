@@ -1077,6 +1077,57 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A list instead of typing — and two jobs that looked like one (7.59)
+
+His ask, in one sentence: «لیستی باشه جای تایپی و برای پادکست‌ها قسمت‌هایی که
+تولید شده رو نشون بده و بتونم هر چند تا که می‌خوام تیک بزنم چه پشتِ‌هم چه جدا
+… و برای درس‌هایی که ساخته نشده بتونم شماره‌ش رو تایپ کنم که موعدش رسید انجام
+بشه … و لیست برای هر نوع پادکست جدا باشه».
+
+**He had already separated the two, and the separation is real in the code.**
+A **produced** episode has audio right now, so it converts right now (the bridge,
+section 36). An **unmade** episode has no audio, so the setting waits for its day
+(the «قسمت‌های موردی» column, with 7.58's gate). So: **two columns, not one.** One
+column would mean «۱۸» is sometimes "convert it" and sometimes "when you make it",
+with nothing able to say which.
+
+**The list is complete; the folder is not, and that is said out loud.** Episode
+numbers come from each show's own episode tab, but converting needs the episode's
+**folder id**, which lives only in `_YT-RENDER.json` — today 45 of 50 درس‌نامه and
+variety only from 20 on. So an episode whose folder is unknown is **shown, not
+hidden**, unticked, with the reason printed. Hiding it would have him conclude the
+episode does not exist; that is the "everything looks fine" sentence again.
+
+**Explicit ticks drain before the automatic rows.** The nightly converts two
+episodes; if the newest-first sweep goes first, what he ticked waits weeks behind
+episodes he never chose — a button that works and whose result never arrives.
+
+Three boundaries, each one a bug avoided rather than found:
+
+- **`undefined` is not `[]`.** No picks argument means "the board didn't send
+  this" and the cell must be left alone; an empty array means "none ticked" and
+  must clear it. Treating them alike would let any save from anywhere silently
+  erase his selection.
+- **Ticks are per speaker, not global.** One list is shared by every row, so each
+  row carries its own set — otherwise one speaker's ticks appear on all of them.
+- **One bad tick must not take the good ones with it.** The only caller wraps this
+  in a bare `catch`, so a throw here drops *every* tick on that row silently. The
+  known case is guarded by name and logged; the unknown case is caught per tick.
+
+**And the guard for "new columns go at the end" (7.41) had named a column.**
+`PERSONA_HEADERS[last] === 'قسمت‌های موردی'` was true until this version added one
+after it. An assertion that names today's last column breaks on the next one, and
+the cheapest fix at that moment is to delete the assertion that was guarding the
+rule. It now checks the rule itself: every `PC` index unique, none past the
+headers, and the largest exactly equal to the header count.
+
+**Two of fourteen new assertions measured nothing on first check.** One matched
+`personaBoardSave\([^)]*picks\)` — but the arguments contain `getElementById(...)`,
+so `[^)]*` stopped at the first inner paren and the pattern could never reach
+`picks`. The other put the broken tick **last** in the list, where the guard's
+presence or absence makes no difference; moving it first is what made the
+assertion mean what its name says.
+
 ## A number that can no longer come is not a setting (7.58)
 
 He typed «درس نامه 18» into «قسمت‌های موردی» and asked two questions:

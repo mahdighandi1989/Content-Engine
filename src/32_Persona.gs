@@ -40,13 +40,16 @@
    که وسط اضافه شود، برچسبِ تازه را روی دادهٔ قدیمی می‌گذارد: «آخرین
    تصمیم» زیرِ عنوانِ دیگری می‌نشیند و هیچ خطایی بلند نمی‌شود. همان باگی
    که یک بار در داشبورد افتاد و توضیحش در `ensureTab_` هست. */
+/* ستونِ تازه به **انتها** می‌رود، نه وسط (۷٫۴۱): `ensureTab_` فقط سطرِ
+   سربرگ را بازمی‌نویسد و دست به داده نمی‌زند، پس ستونی که وسط جا بیفتد
+   برچسب‌های تازه را روی مقدارهای کهنه می‌نشاند، بی هیچ خطایی. */
 var PERSONA_HEADERS = ['کلید', 'نام', 'فعال', 'برنامه‌ها', 'هر چند قسمت',
                        'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده',
-                       'قسمت‌های موردی'];
+                       'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)'];
 
 /** شمارهٔ ستون‌ها (۱-بنیان) — همان الگوی `CC` در بخشِ ۲۵. */
 var PC = { KEY: 1, NAME: 2, ON: 3, SHOWS: 4, EVERY: 5, STYLE: 6, MODES: 7,
-           LAST: 8, USED: 9, ONCE: 10 };
+           LAST: 8, USED: 9, ONCE: 10, PICK: 11 };
 
 /**
  * ردیف‌های جدول، بی سرصفحه — با همان اصطلاحی که بقیهٔ موتور می‌خوانَد.
@@ -174,6 +177,157 @@ function personaOnceParse_(cell) {
     out.items.push({ show: String(showPart || '').trim(), from: a, to: b });
   }
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  فهرست به‌جای تایپ — و دو کارِ متفاوت که یکی به نظر می‌رسیدند (۷٫۵۹)
+ *
+ *  خواستهٔ صاحبِ برنامه، عیناً: «یه کاری کنی که لیستی باشه جای تایپی و
+ *  برای پادکست‌ها قسمت‌هایی که تولید شده رو نشون بده و بتونم هر چند تا
+ *  که می‌خوام تیک بزنم … و برای درس‌هایی که ساخته نشده بتونم شماره‌ش رو
+ *  تایپ کنم که موعدش رسید انجام بشه، و باید لیست برای هر نوع پادکست
+ *  جدا باشه».
+ *
+ *  او خودش درست تفکیک کرده، و تفکیکش در کد هم واقعی است:
+ *   • قسمتِ **تولیدشده** → صوتش همین حالا هست → همین حالا تبدیل می‌شود.
+ *     (پل، بخشِ ۳۶ — صوت می‌رود، با صدای گوینده برمی‌گردد.)
+ *   • قسمتِ **ساخته‌نشده** → هنوز صوتی ندارد → تنظیم می‌ماند تا روزش.
+ *     (همان ستونِ «قسمت‌های موردی»، با دروازهٔ ۷٫۵۸ روی شماره‌های گذشته.)
+ *
+ *  پس دو ستون، نه یکی. یک ستون یعنی «۱۸» گاهی «تبدیلش کن» باشد و گاهی
+ *  «وقتی ساختی…» — و هیچ‌کس نتواند بگوید کدام.
+ *
+ *  ══ و فهرست از کجا می‌آید ══
+ *  تبِ قسمت‌های هر برنامه **کاملِ** آن چیزی است که تولید شده؛ ولی برای
+ *  تبدیل، شناسهٔ **پوشهٔ** قسمت لازم است و آن فقط در `_YT-RENDER.json`
+ *  هست. امروز آن فایل ۴۵ قسمت از ۵۰ درس‌نامه را دارد و متنوع را از ۲۰
+ *  به بعد. پس فهرست از تب ساخته می‌شود (کامل) و پوشه از آن فایل می‌آید،
+ *  و قسمتی که پوشه‌اش شناخته نیست **نشان داده می‌شود ولی تیک نمی‌خورد،
+ *  با نوشتنِ علتش**. پنهان کردنش یعنی او فکر کند آن قسمت وجود ندارد —
+ *  همان «همه‌چیز خوب به نظر می‌رسد» که این پرونده گران‌ترین جمله‌اش
+ *  می‌داند.
+ * ══════════════════════════════════════════════════════════════════════ */
+
+/** تبِ قسمت‌های یک برنامه و ستون‌هایش. برنامهٔ ناشناخته: `null`. */
+function personaEpTab_(show) {
+  var k = String(show || '').trim();
+  if (k === ENRICH_SHOW_SPECIAL) {
+    return { tab: CFG.SPECIAL_TAB, headers: SPECIAL_HEADERS,
+             num: XC.NUM, at: XC.AT, title: XC.TITLE, series: XC.SERIES };
+  }
+  if (k === ENRICH_SHOW_VARIETY) {
+    return { tab: CFG.TAB_PODCASTS, headers: PODCAST_HEADERS,
+             num: 1, at: 2, title: 3, series: 0 };
+  }
+  return null;
+}
+
+/** نقشهٔ «برنامه:قسمت» → شناسهٔ پوشه، از صفِ رندر. یک خواندن، نه یکی در هر ردیف. */
+function personaFolderMap_() {
+  var m = {};
+  try {
+    var d = ytRenderRead_();
+    for (var i = 0; i < d.items.length; i++) {
+      var it = d.items[i];
+      var f = String(it.folderId || '');
+      if (!f) continue;
+      m[String(it.show) + ':' + String(it.ep)] = f;
+    }
+  } catch (e) {}
+  return m;
+}
+
+/**
+ * قسمت‌های تولیدشدهٔ یک برنامه — تازه‌ترین اول.
+ *
+ * سقف هست چون پنجره باید باز شود، ولی **شمارِ کل هم برمی‌گردد**: فهرستی
+ * که بگوید «اینها هستند» در حالی که بخشی را نشان نمی‌دهد، همان جوابِ
+ * ناقصی است که خودش را کامل نشان می‌دهد (۷٫۲۳).
+ */
+function personaEpisodesFor_(show, capOpt, mapOpt) {
+  var out = { show: String(show || ''), items: [], total: 0, shown: 0,
+              noFolder: 0, capped: false };
+  var t = personaEpTab_(out.show);
+  if (!t) return out;
+  var cap = Math.max(1, Number(capOpt) || Number(CFG.PERSONA_EP_LIST) || 40);
+  var map = mapOpt || personaFolderMap_();
+  var sh;
+  try {
+    var hub = getHub_();
+    sh = hub.getSheetByName(t.tab);
+  } catch (e) { out.error = e.message; return out; }
+  if (!sh || sh.getLastRow() < 2) return out;
+  var vals;
+  try { vals = sh.getRange(2, 1, sh.getLastRow() - 1, t.headers.length).getValues(); }
+  catch (e2) { out.error = e2.message; return out; }
+  var all = [];
+  for (var i = 0; i < vals.length; i++) {
+    var v = vals[i];
+    var num = Math.floor(Number(faDigits_(String(v[t.num - 1] || ''))) || 0);
+    if (!(num > 0)) continue;
+    var ttl = String(v[t.title - 1] || '').trim();
+    if (t.series && String(v[t.series - 1] || '').trim()) {
+      ttl = String(v[t.series - 1]).trim() + ' — ' + ttl;
+    }
+    var fid = map[out.show + ':' + num] || '';
+    all.push({ ep: num, title: ttl.slice(0, 110),
+               at: String(v[t.at - 1] || '').slice(0, 10),
+               folder: fid, can: !!fid });
+    if (!fid) out.noFolder++;
+  }
+  all.sort(function (a, b) { return b.ep - a.ep; });
+  out.total = all.length;
+  out.items = all.slice(0, cap);
+  out.shown = out.items.length;
+  out.capped = out.total > out.shown;
+  return out;
+}
+
+/**
+ * تیک‌ها ← متن، و متن ← تیک‌ها.
+ *
+ * ذخیره‌شده همان شکلِ «قسمت‌های موردی» است («درس‌نامه ۱۸، درس‌نامه ۲۰»)
+ * تا `personaOnceParse_` همان‌جور بخوانَدش و یک زبانِ دوم لازم نشود. و
+ * آدمی که سلول را باز کند می‌فهمد چه نوشته — شناسهٔ ماشینی نمی‌فهمید.
+ */
+function personaPickText_(list) {
+  var seen = {}, out = [];
+  var L = list || [];
+  for (var i = 0; i < L.length; i++) {
+    var raw = String(L[i] || '').trim();
+    if (!raw) continue;
+    var at = raw.lastIndexOf(':');
+    if (at === -1) continue;
+    var sh = raw.slice(0, at), ep = Math.floor(Number(faDigits_(raw.slice(at + 1))) || 0);
+    if (!sh || !(ep > 0)) continue;
+    var k = sh + ':' + ep;
+    if (seen[k]) continue;
+    seen[k] = true;
+    out.push(personaShowName_(sh) + ' ' + faDigitsOut_(String(ep)));
+  }
+  return out.join('، ');
+}
+
+/** متنِ ستونِ تیک‌ها ← مجموعهٔ «برنامه:قسمت»، برای علامت زدنِ فهرست. */
+function personaPickSet_(cell, showsCell) {
+  var set = {};
+  var p = personaOnceParse_(cell);
+  for (var i = 0; i < p.items.length; i++) {
+    var it = p.items[i];
+    var shows = [];
+    try {
+      var L = knownShows_() || [];
+      for (var s = 0; s < L.length; s++) {
+        var k = String(L[s].key);
+        if (it.show) { if (personaShowOk_(it.show, k, k)) shows.push(k); }
+        else if (personaShowOk_(showsCell, k, k)) shows.push(k);
+      }
+    } catch (eS) {}
+    for (var j = 0; j < shows.length; j++) {
+      for (var e = it.from; e <= it.to; e++) set[shows[j] + ':' + e] = true;
+    }
+  }
+  return set;
 }
 
 /** نامِ نمایشیِ یک برنامه از کلیدش؛ ناشناخته، خودِ کلید. */
@@ -528,7 +682,7 @@ function personaSeed_() {
  */
 function personaBoardData_() {
   var out = { enabled: CFG.PERSONA_ENABLED !== false, shows: [], rows: [],
-              nextEp: [], note: '' };
+              nextEp: [], eps: [], note: '' };
   try {
     var L = knownShows_();
     for (var i = 0; i < L.length; i++) {
@@ -539,6 +693,21 @@ function personaBoardData_() {
         var c = personaEpCursor_(L[i].key);
         if (c.known) out.nextEp.push(String(L[i].name) + ' ' + faDigitsOut_(String(c.next)));
       } catch (eC) {}
+    }
+    /* فهرستِ قسمت‌های تولیدشده، **یکی برای هر برنامه** — خواستهٔ صریح.
+       نقشهٔ پوشه‌ها یک بار خوانده می‌شود و به هر دو داده می‌شود. */
+    var fmap = personaFolderMap_();
+    for (var g = 0; g < L.length; g++) {
+      var lst = personaEpisodesFor_(L[g].key, 0, fmap);
+      if (!lst.total && !lst.error) continue;
+      out.eps.push({ key: String(L[g].key), name: String(L[g].name),
+                     total: faDigitsOut_(String(lst.total)),
+                     shown: faDigitsOut_(String(lst.shown)),
+                     noFolder: lst.noFolder ? faDigitsOut_(String(lst.noFolder)) : '',
+                     items: lst.items.map(function (x) {
+                       return { ep: x.ep, epFa: faDigitsOut_(String(x.ep)),
+                                title: x.title, at: x.at, can: !!x.can, on: false };
+                     }) });
     }
   } catch (eS) {}
   var sh;
@@ -558,6 +727,16 @@ function personaBoardData_() {
       cue: String(v[PC.STYLE - 1] == null ? '' : v[PC.STYLE - 1]),
       modes: String(v[PC.MODES - 1] == null ? '' : v[PC.MODES - 1]),
       once: String(v[PC.ONCE - 1] == null ? '' : v[PC.ONCE - 1]),
+      /* تیک‌ها **به ازای هر گوینده**‌اند، ولی فهرست یکی است و میانِ همه
+         مشترک. پس هر ردیف مجموعهٔ خودش را با خود می‌بَرد، وگرنه تیکِ یک
+         گوینده روی فهرستِ همه دیده می‌شد. */
+      pickSet: (function () {
+        try {
+          var st = personaPickSet_(v[PC.PICK - 1], v[PC.SHOWS - 1]), a = [];
+          for (var q in st) if (Object.prototype.hasOwnProperty.call(st, q)) a.push(q);
+          return a;
+        } catch (eP) { return []; }
+      })(),
       last: String(v[PC.LAST - 1] == null ? '' : v[PC.LAST - 1]),
       used: String(v[PC.USED - 1] == null ? '' : v[PC.USED - 1]),
       row: r + 2
@@ -585,7 +764,7 @@ function personaBoardData_() {
  * می‌شود، چون `personaFor_` آن ردیف را بی‌صدا کنار می‌گذارد و آدم فکر
  * می‌کند روشنش کرده.
  */
-function personaBoardSave_(key, on, shows, every, cue, modes, once) {
+function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
   var sh = personaTab_();
   var rows = personaRows_(sh);
   var at = -1;
@@ -653,14 +832,30 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once) {
              'نمی‌کرد.' + (nx.length ? ' قسمتِ بعدی: ' + nx.join(' · ') + '.' : '') };
   }
 
+  /* ══ تیک‌های قسمت‌های تولیدشده — ستونِ جدا، عمداً (۷٫۵۹) ══
+     دروازهٔ «شمارهٔ گذشته» (۷٫۵۸) اینجا **اعمال نمی‌شود** و نباید بشود:
+     تمامِ معنای این ستون گذشته است. یک ستون برای هر دو کار یعنی «۱۸»
+     گاهی «تبدیلش کن» باشد و گاهی «وقتی ساختی…»، و هیچ‌کس نتواند بگوید
+     کدام. */
+  var pickT = '';
+  try { pickT = personaPickText_(picks || []); } catch (ePk) { pickT = ''; }
+  /* `undefined` یعنی «تخته این را نفرستاد» (نسخهٔ کهنهٔ پنجره یا فراخوانِ
+     دیگری) و باید سلولِ موجود **دست‌نخورده** بماند؛ آرایهٔ خالی یعنی «هیچ
+     تیکی نیست» و باید پاک کند. یکی گرفتنشان یعنی هر ذخیره‌ای از هر جای
+     دیگر، انتخاب‌های او را بی‌صدا پاک می‌کند. */
+  var touchPick = (picks !== undefined && picks !== null);
+
   sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
   sh.getRange(at, PC.SHOWS).setValue(cell);
   sh.getRange(at, PC.EVERY).setValue(n);
   sh.getRange(at, PC.STYLE).setValue(cueT);
   sh.getRange(at, PC.MODES).setValue(String(modes == null ? '' : modes).trim());
   sh.getRange(at, PC.ONCE).setValue(onceT);
+  if (touchPick) sh.getRange(at, PC.PICK).setValue(pickT);
   return { ok: true, key: String(key), on: !!on, shows: cell, every: n,
-           once: onceT, onceCount: op.items.length };
+           once: onceT, onceCount: op.items.length,
+           picks: touchPick ? pickT : String(rows[at - 2][PC.PICK - 1] || ''),
+           pickCount: touchPick ? (pickT ? pickT.split('، ').length : 0) : -1 };
 }
 
 /**
@@ -791,8 +986,12 @@ function personaBoardData() {
 }
 
 /** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
-function personaBoardSave(key, on, shows, every, cue, modes, once) {
-  try { return personaBoardSave_(key, on, shows, every, cue, modes, once); }
+function personaBoardSave(key, on, shows, every, cue, modes, once, picks) {
+  /* ══ آرگومانِ تازه باید **اینجا هم** اضافه شود (۷٫۴۱) ══
+     `google.script.run` همین پوشش را صدا می‌زند. پارامترِ جاافتاده هیچ
+     خطایی نمی‌دهد: تخته مقدار را می‌فرستد، پوشش دورش می‌ریزد، و دکمه
+     بی‌صدا هیچ نمی‌کند — همان خرابی‌ای که ۵٫۲ برایش هست. */
+  try { return personaBoardSave_(key, on, shows, every, cue, modes, once, picks); }
   catch (e) { return { ok: false, why: 'خطا: ' + e.message }; }
 }
 
@@ -826,6 +1025,14 @@ function personaBoardHtml_() {
   H.push('button:disabled{background:#9db4e6;cursor:default}');
   H.push('.last{font-size:11px;color:#5b6472;margin-top:6px}');
   H.push('.msg{font-size:12px;margin-right:10px}');
+  /* فهرست باید **درونِ خودش** بلغزد، وگرنه پنجرهٔ ۵۰ قسمتیْ دکمهٔ ذخیره را
+     از دسترس بیرون می‌بَرد و کنترلی که دیده نشود کنترل نیست (۷٫۳۵). */
+  H.push('.eps{margin:6px 0;border:1px solid #d7dbe0;border-radius:6px}');
+  H.push('.epsh{background:#f2f4f7;padding:5px 8px;font-size:12px;font-weight:bold}');
+  H.push('.epl{max-height:150px;overflow:auto;padding:4px 8px}');
+  H.push('.ep{display:block;font-size:12px;font-weight:normal;padding:2px 0}');
+  H.push('.ep.off{opacity:.55}');
+  H.push('.dim{color:#6b7280;font-weight:normal}');
   H.push('.bad{color:#c0392b}.good{color:#1e8449}');
   H.push('</style></head><body>');
   H.push('<h2>شیوهٔ خواندنِ گویندگان</h2>');
@@ -872,6 +1079,22 @@ function personaBoardHtml_() {
   H.push('if(D.nextEp&&D.nextEp.length)H.push("<br><b>قسمتِ بعدی:</b> "+esc(D.nextEp.join(" · "))+" — شمارهٔ گذشته اثری ندارد.");');
   H.push('H.push("</label>");');
   H.push('H.push("<textarea id=\'oc"+i+"\' rows=\'2\'>"+esc(r.once)+"</textarea>");');
+  /* ══ فهرست به‌جای تایپ، و یکی برای هر برنامه (۷٫۵۹) ══
+     خواستهٔ او: «لیستی باشه جای تایپی … و باید لیست برای هر نوع پادکست
+     جدا باشه». قسمتی که پوشه‌اش شناخته نیست **نشان داده می‌شود ولی
+     تیک نمی‌خورد، با نوشتنِ علتش** — پنهان کردنش یعنی او فکر کند آن
+     قسمت اصلاً وجود ندارد. */
+  H.push('H.push("<label>قسمت‌های تولیدشده — تیک بزنید تا با این صدا تبدیل شوند (پشتِ‌هم یا پراکنده).</label>");');
+  H.push('for(var g=0;g<(D.eps||[]).length;g++){var G=D.eps[g];');
+  H.push('H.push("<div class=\'eps\'><div class=\'epsh\'>"+esc(G.name)+" — "+esc(G.shown)+" از "+esc(G.total)+" قسمت");');
+  H.push('if(G.noFolder)H.push(" · <span class=\'dim\'>"+esc(G.noFolder)+" تا پوشه‌شان شناخته نیست</span>");');
+  H.push('H.push("</div><div class=\'epl\'>");');
+  H.push('for(var e=0;e<G.items.length;e++){var E=G.items[e];var id="p"+i+"_"+g+"_"+e;');
+  H.push('var vv=G.key+":"+E.ep;var on=(r.pickSet||[]).indexOf(vv)!==-1;');
+  H.push('H.push("<label class=\'ep"+(E.can?"":" off")+"\'><input type=\'checkbox\' class=\'pk"+i+"\' id=\'"+id+"\' value=\'"+esc(vv)+"\'"+(on?" checked":"")+(E.can?"":" disabled")+">");');
+  H.push('H.push("<b>"+esc(E.epFa)+"</b> "+esc(E.title||"—")+(E.at?" <span class=\'dim\'>"+esc(E.at)+"</span>":"")');
+  H.push('+(E.can?"":" <span class=\'dim\'>— پوشه‌اش شناخته نیست، تبدیل نمی‌شود</span>")+"</label>");}');
+  H.push('H.push("</div></div>");}');
   H.push('H.push("<div class=\'last\'>آخرین تصمیمِ موتور: <b>"+(esc(r.last)||"—")+"</b>");');
   H.push('if(r.used)H.push(" · آخرین استفاده: "+esc(r.used));');
   H.push('H.push("</div><div style=\'margin-top:8px\'><button id=\'b"+i+"\' onclick=\'save("+i+")\'>ذخیره</button>");');
@@ -880,6 +1103,8 @@ function personaBoardHtml_() {
   H.push('function save(i){var r=DATA.rows[i];');
   H.push('var shows=[];var cs=document.getElementsByClassName("sh"+i);');
   H.push('for(var k=0;k<cs.length;k++) if(cs[k].checked) shows.push(cs[k].value);');
+  H.push('var picks=[];var ps=document.getElementsByClassName("pk"+i);');
+  H.push('for(var q=0;q<ps.length;q++) if(ps[q].checked) picks.push(ps[q].value);');
   H.push('var b=document.getElementById("b"+i),m=document.getElementById("m"+i);');
   H.push('b.disabled=true;m.className="msg";m.textContent="در حالِ ذخیره…";');
   H.push('google.script.run.withSuccessHandler(function(res){b.disabled=false;');
@@ -889,7 +1114,7 @@ function personaBoardHtml_() {
   H.push('m.textContent="ذخیره نشد: "+e.message;})');
   H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
   H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
-  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value);}');
+  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks);}');
   H.push('google.script.run.withSuccessHandler(draw).withFailureHandler(function(e){');
   H.push('document.getElementById("box").textContent="خوانده نشد: "+e.message;}).personaBoardData();');
   H.push('</script></body></html>');

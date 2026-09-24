@@ -318,4 +318,134 @@ console.log('\n══ نامِ فارسیِ برنامه — همان چیزی �
      'عددِ درست باید پیش از نوشتن جلوی چشم باشد، نه پس از خطا');
 }
 
+/* ══ ۱۰) فهرست به‌جای تایپ (۷٫۵۹) ══
+ *
+ * خواستهٔ صاحبِ برنامه: «لیستی باشه جای تایپی … قسمت‌هایی که تولید شده رو
+ * نشون بده و بتونم هر چند تا که می‌خوام تیک بزنم … و برای درس‌هایی که
+ * ساخته نشده بتونم شماره‌ش رو تایپ کنم … و لیست برای هر نوع پادکست جدا
+ * باشه».
+ *
+ * اینجا **اجرا** می‌شود: تب‌ها پر می‌شوند، تخته خوانده می‌شود، ذخیره با
+ * تیک‌ها صدا زده می‌شود، و از **خودِ صفِ پل** پرسیده می‌شود چه شد. */
+{
+  console.log('\n══ ۱۰) فهرستِ قسمت‌های تولیدشده ══');
+
+  // ── تبِ درس‌نامه: چهار قسمت ─────────────────────────────────────
+  const spt = ensureTab_(hub, CFG.SPECIAL_TAB, SPECIAL_HEADERS);
+  const mkSp = (n, t) => {
+    const r = new Array(SPECIAL_HEADERS.length).fill('');
+    r[XC.NUM - 1] = n; r[XC.AT - 1] = '2026-09-0' + (n % 9 + 1) + ' 05:00';
+    r[XC.SERIES - 1] = 'معرفت‌شناسی'; r[XC.TITLE - 1] = t;
+    return r;
+  };
+  spt.getRange(spt.getLastRow() + 1, 1, 4, SPECIAL_HEADERS.length)
+     .setValues([mkSp(47, 'درسِ چهل‌وهفت'), mkSp(48, 'درسِ چهل‌وهشت'),
+                 mkSp(49, 'درسِ چهل‌ونه'), mkSp(50, 'درسِ پنجاه')]);
+  // ── تبِ متنوع: دو قسمت ──────────────────────────────────────────
+  const vat = ensureTab_(hub, CFG.TAB_PODCASTS, PODCAST_HEADERS);
+  const mkVa = (n, t) => {
+    const r = new Array(PODCAST_HEADERS.length).fill('');
+    r[0] = n; r[1] = '2026-09-10 07:00'; r[2] = t;
+    return r;
+  };
+  vat.getRange(vat.getLastRow() + 1, 1, 2, PODCAST_HEADERS.length)
+     .setValues([mkVa(51, 'قسمتِ پنجاه‌ویک'), mkVa(52, 'قسمتِ پنجاه‌ودو')]);
+
+  // ── پوشه‌ها: همه جز درس‌نامهٔ ۴۸ ─────────────────────────────────
+  putOutJson_('_YT-RENDER.json', { updatedAt: '', note: '', items: [
+    { key: 'special:47', show: 'special', ep: '47', title: 'درسِ چهل‌وهفت', folderId: 'F47', status: 'رسید' },
+    { key: 'special:49', show: 'special', ep: '49', title: 'درسِ چهل‌ونه',  folderId: 'F49', status: 'رسید' },
+    { key: 'special:50', show: 'special', ep: '50', title: 'درسِ پنجاه',    folderId: 'F50', status: 'رسید' },
+    { key: 'variety:52', show: 'variety', ep: '52', title: 'قسمتِ ۵۲',      folderId: 'V52', status: 'رسید' }
+  ] });
+
+  const L = personaEpisodesFor_('special');
+  ok('۱۰.۱ قسمت‌های تولیدشده خوانده می‌شوند، تازه‌ترین اول',
+     L.total === 4 && L.items[0].ep === 50 && L.items[3].ep === 47,
+     L.items.map(x => x.ep).join('،'));
+  ok('۱۰.۲ عنوان و مجموعه با هم می‌آیند',
+     /معرفت‌شناسی/.test(L.items[0].title) && /پنجاه/.test(L.items[0].title),
+     L.items[0].title);
+
+  /* قسمتی که پوشه‌اش شناخته نیست **پنهان نمی‌شود** — نشان داده می‌شود و
+     تیک نمی‌خورد. پنهان کردنش یعنی او فکر کند آن قسمت وجود ندارد. */
+  const e48 = L.items.filter(x => x.ep === 48)[0];
+  ok('۱۰.۳ قسمتِ بی‌پوشه نشان داده می‌شود ولی تیک‌خور نیست',
+     !!e48 && e48.can === false && L.noFolder === 1,
+     'can=' + (e48 && e48.can) + ' · بی‌پوشه: ' + L.noFolder);
+  ok('۱۰.۴ و بقیه تیک‌خورند',
+     L.items.filter(x => x.ep !== 48).every(x => x.can === true));
+
+  // ── فهرست برای هر برنامه **جدا** ───────────────────────────────
+  const K2 = 'lister';
+  const t2 = personaTab_(hub);
+  const r2 = new Array(PERSONA_HEADERS.length).fill('');
+  r2[PC.KEY - 1] = K2; r2[PC.NAME - 1] = 'گویندهٔ فهرست';
+  r2[PC.ON - 1] = 'خیر'; r2[PC.SHOWS - 1] = 'همه'; r2[PC.EVERY - 1] = 1;
+  r2[PC.STYLE - 1] = 'آرام بخوان';
+  t2.getRange(t2.getLastRow() + 1, 1, 1, PERSONA_HEADERS.length).setValues([r2]);
+
+  const D = personaBoardData_();
+  ok('۱۰.۵ فهرست برای هر برنامه جداست',
+     (D.eps || []).length === 2 &&
+     D.eps.filter(g => g.key === 'special')[0].items.length === 4 &&
+     D.eps.filter(g => g.key === 'variety')[0].items.length === 2,
+     JSON.stringify(D.eps.map(g => g.key + ':' + g.items.length)));
+
+  // ── ذخیره با تیک: پراکنده، نه پشتِ‌هم ──────────────────────────
+  const sv = personaBoardSave_(K2, false, ['درس‌نامه'], 1, 'آرام بخوان', '', '',
+                               ['special:47', 'special:50']);
+  ok('۱۰.۶ تیک‌های پراکنده ذخیره می‌شوند',
+     sv.ok === true && sv.pickCount === 2, JSON.stringify(sv.picks));
+  ok('۱۰.۶-ب و در سلول به زبانِ آدم نوشته می‌شود',
+     /درس‌نامه ۴۷/.test(String(get(K2, PC.PICK))) &&
+     /درس‌نامه ۵۰/.test(String(get(K2, PC.PICK))),
+     String(get(K2, PC.PICK)));
+
+  /* `undefined` یعنی «تخته نفرستاد» و باید دست نخورد؛ آرایهٔ خالی یعنی
+     «هیچ تیکی نیست» و باید پاک کند. یکی گرفتنشان یعنی هر ذخیره‌ای از هر
+     جای دیگر، انتخاب‌های او را بی‌صدا پاک می‌کرد. */
+  personaBoardSave_(K2, false, ['درس‌نامه'], 1, 'آرام بخوان', '', '');
+  ok('۱۰.۷ ذخیرهٔ بی‌تیک (نسخهٔ کهنه) انتخاب‌ها را پاک نمی‌کند',
+     /درس‌نامه ۴۷/.test(String(get(K2, PC.PICK))),
+     String(get(K2, PC.PICK)));
+  personaBoardSave_(K2, false, ['درس‌نامه'], 1, 'آرام بخوان', '', '', []);
+  ok('۱۰.۷-ب ولی آرایهٔ خالی یعنی «هیچ‌کدام» و پاک می‌کند',
+     String(get(K2, PC.PICK)).trim() === '', JSON.stringify(get(K2, PC.PICK)));
+
+  /* تیک‌ها **واقعاً وارد صفِ پل می‌شوند** — ولی آن سنجه آنجاست که مدل و
+     پوشهٔ قسمت هست: `run_bridge_voice_test.js` §۱۸. اینجا صدا زدنش فقط
+     «مدلی نیست» می‌داد، یعنی راهی جز آنچه نامش را می‌برد. */
+  personaBoardSave_(K2, false, ['درس‌نامه'], 1, 'آرام بخوان', '', '',
+                    ['special:47', 'special:48']);
+
+  // ── تیک‌ها به ازای هر گوینده‌اند، نه سراسری ─────────────────────
+  const K3 = 'lister2';
+  const r3 = new Array(PERSONA_HEADERS.length).fill('');
+  r3[PC.KEY - 1] = K3; r3[PC.NAME - 1] = 'گویندهٔ دوم';
+  r3[PC.ON - 1] = 'خیر'; r3[PC.SHOWS - 1] = 'همه'; r3[PC.EVERY - 1] = 1;
+  r3[PC.STYLE - 1] = 'تند بخوان';
+  t2.getRange(t2.getLastRow() + 1, 1, 1, PERSONA_HEADERS.length).setValues([r3]);
+  const D2 = personaBoardData_();
+  const rowA = D2.rows.filter(x => x.key === K2)[0];
+  const rowB = D2.rows.filter(x => x.key === K3)[0];
+  ok('۱۰.۹ تیکِ یک گوینده روی گویندهٔ دیگر دیده نمی‌شود',
+     (rowA.pickSet || []).length === 2 && (rowB.pickSet || []).length === 0,
+     JSON.stringify({ a: rowA.pickSet, b: rowB.pickSet }));
+
+  // ── و خودِ پنجره: جعبه‌ها و فرستادنشان ──────────────────────────
+  const htm2 = String(personaBoardHtml_());
+  ok('۱۰.۱۰ پنجره جعبهٔ تیک دارد',
+     htm2.indexOf('type=\'checkbox\' class=\'pk') !== -1 ||
+     htm2.indexOf('class=\\\'pk') !== -1,
+     'وگرنه فهرستی نیست که تیک بخورد');
+  /* آرگومان‌ها خودشان پرانتز دارند (`getElementById(...)`)، پس الگویی که
+     تا نخستین پرانتزِ بسته بخوانَد چیزی را نمی‌سنجد. از خودِ **پایانِ
+     فراخوان** پرسیده می‌شود. */
+  const callAt = htm2.indexOf('personaBoardSave(r.key');
+  ok('۱۰.۱۰-ب و ذخیره تیک‌ها را هم می‌فرستد',
+     callAt !== -1 && htm2.slice(callAt, callAt + 400).indexOf(',picks);') !== -1,
+     'آرگومانِ جاافتاده یعنی دکمه بی‌صدا هیچ نمی‌کند (۷٫۴۱)');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

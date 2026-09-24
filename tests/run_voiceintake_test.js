@@ -627,9 +627,25 @@ const SHOW0 = knownShows_()[0].name;
      'موتور چنین ردیفی را کنار می‌گذارد، پس پذیرفتنش یعنی یک باورِ غلط');
   /* و ستون در **انتها** نشست: وگرنه `ensureTab_` فقط سرصفحه را بازنویسی
      می‌کند و برچسبِ تازه روی دادهٔ قدیمی می‌نشیند، بی هیچ خطایی. */
-  ok('۲۵.۱۲ ستونِ تازه انتهای فهرست است',
-     PERSONA_HEADERS[PERSONA_HEADERS.length - 1] === 'قسمت‌های موردی' &&
-     PC.ONCE === PERSONA_HEADERS.length);
+  /* و ستونِ تازه در **انتها** نشست. عمداً نامِ هیچ ستونی برده نمی‌شود:
+     سنجه‌ای که «فلان نام آخر است» بگوید، با ستونِ بعدی می‌شکند و کسی
+     مجبور می‌شود همان قاعده‌ای را ویرایش کند که نگهبانش بوده — و همان‌جا
+     ساده‌ترین کار، پاک کردنِ سنجه است. قاعده این است: هر شمارهٔ `PC` باید
+     یکتا باشد، از سرصفحه‌ها بیرون نزند، و بزرگ‌ترینشان دقیقاً ستونِ آخر
+     باشد، یعنی هیچ ستونی بی‌صاحب نمانده و هیچ‌کدام وسط جا نیفتاده. */
+  const idx = [], dupPC = [];
+  for (const k in PC) {
+    if (!Object.prototype.hasOwnProperty.call(PC, k)) continue;
+    if (idx.indexOf(PC[k]) !== -1) dupPC.push(k);
+    idx.push(PC[k]);
+  }
+  ok('۲۵.۱۲ هر ستون یکتاست و ستونِ آخر صاحب دارد',
+     dupPC.length === 0 &&
+     Math.max.apply(null, idx) === PERSONA_HEADERS.length &&
+     Math.min.apply(null, idx) === 1 &&
+     idx.length === PERSONA_HEADERS.length,
+     'ستون‌ها: ' + idx.length + ' از ' + PERSONA_HEADERS.length +
+     (dupPC.length ? ' · تکراری: ' + dupPC.join('، ') : ''));
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

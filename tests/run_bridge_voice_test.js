@@ -625,4 +625,89 @@ console.log('\n══ ۱۷) فایلی که فقط در درایو بنشیند�
   props[PK.TG_TOKEN] = 'T'; props[PK.TG_CHAT] = 'C';
 }
 
+/* ══ ۱۸) تیکِ قسمت‌های تولیدشده، واقعاً وارد صف می‌شود (۷٫۵۹) ══
+ *
+ * خواستهٔ صاحبِ برنامه: «لیستی باشه جای تایپی … هر چند تا که می‌خوام تیک
+ * بزنم». تیک‌زدن اگر به صف نرسد، دکمه‌ای است که کار می‌کند و نتیجه‌اش
+ * نمی‌آید — بدترین شکلِ خرابی در این مخزن.
+ *
+ * و اینجا از **خودِ صف** پرسیده می‌شود، نه از تابعِ میانی. */
+{
+  console.log('\n══ ۱۸) تیکِ قسمت‌های تولیدشده ══');
+  const q = vbrRead_(); q.items = []; vbrSave_(q);
+
+  const g1 = OUT.createFolder('قسمتِ تیکی ۱');
+  g1.createFile('قسمت ۶۰ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:60', show: 'variety', ep: '60', folderId: g1.getId(), title: 'شصت' },
+              // ۶۱ عمداً بی‌پوشه: تیکش هرگز نباید به صف برسد.
+              { key: 'variety:61', show: 'variety', ep: '61', folderId: '', title: 'شصت‌ویک' }];
+  ytRenderSave_(rd);
+
+  // همه خاموش، و رضوی فقط این دو قسمت را تیک خورده.
+  personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '');
+  /* بی‌پوشه **اول** تیک می‌خورد، عمداً: کلِ ارزشِ نگهبان همین است که یک
+     تیکِ خراب، تیک‌های سالمِ بعد از خودش را با خود نبَرد. اگر آخر بود،
+     سنجه سبز می‌ماند چه نگهبان باشد چه نباشد. */
+  personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '',
+                    ['variety:61', 'variety:60']);
+
+  const n = vbrAskPicked_(vbrSpeakerRows_());
+  const keys = vbrRead_().items.map(x => String(x.key));
+  ok('۱۸.۱ قسمتِ تیک‌خورده وارد صفِ پل می‌شود — با ردیفِ **خاموش**',
+     keys.indexOf('variety:60') !== -1 && n >= 1,
+     'صف: ' + keys.join('، ') + ' · افزوده: ' + n);
+  ok('۱۸.۲ و قسمتِ بی‌پوشه هرگز وارد نمی‌شود',
+     keys.indexOf('variety:61') === -1,
+     'پوشه‌اش شناخته نیست، پس تبدیل‌شدنی نیست');
+  /* و نیمهٔ دومش، که همان سنجهٔ واقعیِ نگهبان است: تیکِ خراب **پیش از**
+     تیکِ سالم است، پس اگر ردیفِ بی‌پوشه خطا بیندازد، ۶۰ هرگز نوشته
+     نمی‌شود و او هیچ‌وقت نمی‌فهمد چرا. */
+  ok('۱۸.۲-ب یک تیکِ خراب، تیک‌های سالمِ بعدش را نمی‌بَرد',
+     keys.indexOf('variety:60') !== -1,
+     'صف: ' + keys.join('، '));
+  /* تیک می‌مانَد و هر شب دوباره دیده می‌شود، پس دومین‌بار نباید ردیفِ
+     تکراری بسازد — وگرنه صف هر شب از یک قسمت پر می‌شود. */
+  vbrAskPicked_(vbrSpeakerRows_());
+  const dup = vbrRead_().items.filter(x => String(x.key) === 'variety:60').length;
+  ok('۱۸.۳ اجرای دوباره ردیفِ تکراری نمی‌سازد',
+     dup === 1, 'تعداد: ' + dup);
+
+  /* و ردیفی که هیچ تیکی ندارد هیچ‌چیز نمی‌سازد — سوئیچی که نیمه‌خاموش
+     باشد سوئیچ نیست (۷٫۴۰). */
+  const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);
+  personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '', []);
+  ok('۱۸.۴ بی‌تیک، هیچ درخواستی نوشته نمی‌شود',
+     vbrAskPicked_(vbrSpeakerRows_()) === 0 && vbrRead_().items.length === 0);
+
+  /* و همان مرز در برابرِ چیزی که هنوز نمی‌دانیم: اگر ساختنِ درخواست
+     **پرتاب** کند، باز هم تیک‌های بعدی باید بروند. تنها فراخوانندهٔ این
+     تابع `catch` خالی دارد، پس یک پرتاب یعنی همهٔ تیک‌ها بی‌صدا می‌روند. */
+  {
+    const q3 = vbrRead_(); q3.items = []; vbrSave_(q3);
+    const realAsk = global.vbrAsk_;
+    let first = true;
+    global.vbrAsk_ = function (show, ep, fid, spk, ttl) {
+      if (first) { first = false; throw new Error('پرتابِ ساختگی'); }
+      return realAsk(show, ep, fid, spk, ttl);
+    };
+    const g2 = OUT.createFolder('قسمتِ تیکی ۲');
+    g2.createFile('قسمت ۶۲ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+    const rd2 = ytRenderRead_();
+    rd2.items = [{ key: 'variety:62', show: 'variety', ep: '62', folderId: g1.getId(), title: 'شصت‌ودو' },
+                 { key: 'variety:63', show: 'variety', ep: '63', folderId: g2.getId(), title: 'شصت‌وسه' }];
+    ytRenderSave_(rd2);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '',
+                      ['variety:62', 'variety:63']);
+    let threw = false;
+    try { vbrAskPicked_(vbrSpeakerRows_()); } catch (e) { threw = true; }
+    const k2 = vbrRead_().items.map(x => String(x.key));
+    global.vbrAsk_ = realAsk;
+    ok('۱۸.۲-پ و پرتابِ یک تیک، بقیه را زمین نمی‌زند',
+       threw === false && k2.indexOf('variety:63') !== -1,
+       'پرتاب: ' + threw + ' · صف: ' + k2.join('، '));
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
+

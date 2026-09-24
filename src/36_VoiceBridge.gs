@@ -761,6 +761,13 @@ function vbrAskDue_(hub) {
   var rows = vbrSpeakerRows_();
   if (!vbrSpeakerAny_(rows)) return 0;
   var n = 0;
+  /* ══ تیک‌های صریح **اول**، پیش از تازه‌ترین‌ها (۷٫۵۹) ══
+     ستونِ «قسمت‌های تولیدشده» یعنی او خودش این قسمت را انتخاب کرده.
+     انتخابِ صریح بر «تازه‌ترین» مقدم است، وگرنه دو تبدیلِ هر شب را
+     ردیف‌های خودکار می‌خورند و چیزی که او تیک زده هفته‌ها در نوبت
+     می‌ماند — یعنی دکمه‌ای که کار می‌کند ولی نتیجه‌اش نمی‌آید. */
+  try { n += vbrAskPicked_(rows); } catch (eP) {}
+  if (n >= 2) return n;
   try {
     var d = ytRenderRead_();
     /* ══ از آخر، یعنی از تازه‌ترین ══
@@ -782,6 +789,66 @@ function vbrAskDue_(hub) {
       if (n >= 2) break;         // دو تا در هر شب؛ رانرِ رایگان بی‌انتها نیست
     }
   } catch (e) {}
+  return n;
+}
+
+/**
+ * قسمت‌هایی که خودش در تخته تیک زده — پیش از هر چیزِ خودکار.
+ *
+ * فهرست از همان `_YT-RENDER.json` خوانده می‌شود که `vbrAskDue_` می‌خوانَد:
+ * شناسهٔ پوشه فقط آنجاست، و دو راه برای یک چیز یعنی دو جای خرابی و نصفِ
+ * تاریخچه در هرکدام. قسمتی که پوشه‌اش نباشد رد می‌شود — و تخته از اول
+ * تیکش را نمی‌دهد، پس این حالت نباید پیش بیاید؛ اگر آمد، بی‌صدا نمی‌ماند.
+ */
+function vbrAskPicked_(rowsOpt) {
+  var rows = rowsOpt || vbrSpeakerRows_();
+  var n = 0;
+  var map = null;
+  for (var i = 0; i < rows.length; i++) {
+    var key = String(rows[i][PC.KEY - 1] || '').trim();
+    if (!key) continue;
+    var cell = String(rows[i][PC.PICK - 1] == null ? '' : rows[i][PC.PICK - 1]).trim();
+    if (!cell) continue;
+    var set;
+    try { set = personaPickSet_(cell, rows[i][PC.SHOWS - 1]); } catch (eS) { continue; }
+    if (!map) {
+      map = {};
+      try {
+        var d = ytRenderRead_();
+        for (var q = 0; q < d.items.length; q++) {
+          var it = d.items[q];
+          if (!it.folderId) continue;
+          map[String(it.show) + ':' + String(it.ep)] = it;
+        }
+      } catch (eR) { map = {}; }
+    }
+    for (var k in set) {
+      if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
+      var item = map[k];
+      if (!item) {
+        vbrLog_(null, { key: k, show: '', ep: '', speaker: key }, 'رد',
+                'پوشهٔ این قسمت شناخته نیست');
+        continue;
+      }
+      /* ══ یک تیکِ خراب نباید تیک‌های سالم را با خود ببرد ══
+         تنها فراخوانندهٔ این تابع `vbrAskDue_` است و آنجا در `catch` خالی
+         نشسته — پس هر پرتابی اینجا یعنی **همهٔ** تیک‌های این ردیف بی‌صدا
+         دور ریخته می‌شوند و او هیچ‌وقت نمی‌فهمد چرا قسمتی که تیک زده
+         نیامد. `if (!item)` حالتِ شناخته را می‌گیرد؛ این یکی برای آن
+         چیزی است که هنوز نمی‌دانیم. */
+      var r;
+      try { r = vbrAsk_(item.show, item.ep, item.folderId, key, item.title); }
+      catch (eA) {
+        vbrLog_(null, { key: k, show: item.show, ep: item.ep, speaker: key },
+                'رد', 'درخواست ساخته نشد: ' + eA.message);
+        continue;
+      }
+      if (r && r.ok) n++;
+      /* «قبلاً خواسته شده» خطا نیست: تیک می‌مانَد و هر شب دوباره دیده
+         می‌شود، پس صف نباید هر شب از آن پر شود. */
+      if (n >= 2) return n;
+    }
+  }
   return n;
 }
 
