@@ -331,3 +331,139 @@ console.log('\n✅ آزمون سلامت گذشت.');
       !!er && /تازه‌ترین پاسخی که دیده شد/.test(er.fix),
       er ? er.fix.slice(0, 90) : '');
 }
+
+/* ══ ۱۰) شاهدی برای خودِ وارسیِ سلامت (۷٫۶۳) ══
+   ۲۵ سپتامبر `healthCheck` سرِ ۱۰:۰۴ شروع شد و به آخر نرسید. `lastStep` —
+   ردِ پای ۶٫۳۸ — درست کار کرد و گفت کجا ایستاد؛ ولی **زنگی نبود**، پس
+   ایمیلِ روز نرفت و با آن همهٔ درهای دومی که ۷٫۲۷ تا ۷٫۵۷ روی همین تابع
+   گذاشته‌اند. تحلیل نوشته شد و به تصمیم وصل نشد — چندمین بار.
+   و کانالش عمداً `mailQueue_` نیست: آن صف را همان تابعی خالی می‌کند که
+   مُرده است، پس خبر در همان صف می‌ماند و هرگز نمی‌رسد. */
+{
+  const okH = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); };
+  console.log('\n══ ۱۰) گزارشِ روزانه نرفت ══');
+
+  const OUTF = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+  const dayStr = (back) => new Date(new Date(nightDay_() + 'T00:00:00Z').getTime()
+                                    - back * 86400000).toISOString().slice(0, 10);
+  // مهر را در همان فایلی می‌نشانیم که `readExistingHealth_` می‌خواند.
+  const stamp = (at, step) => {
+    const body = JSON.stringify({ health: at === null ? {} : { checkedAt: at, problemCount: 1 } });
+    const it = OUTF.getFilesByName(STATUS_FILE);
+    if (it.hasNext()) it.next().setContent(body);
+    else OUTF.createFile(STATUS_FILE, body, 'application/json');
+    if (step === null) delete global.__PROPS[PK.HEALTH_STEP];
+    else global.__PROPS[PK.HEALTH_STEP] = step;
+  };
+
+  stamp(dayStr(1) + ' 10:08', 'پایان @ 41ث');
+  const fresh = healthStale_();
+  okH('۱۰.۱ مهرِ دیروز سالم است — سرِ ۰۲:۳۰ وارسیِ امروز هنوز نیامده',
+      fresh.stale === false && fresh.days === 1, String(fresh.days) + ' روز');
+
+  stamp(dayStr(2) + ' 10:08', 'شروع @ ' + dayStr(0) + ' 10:04');
+  const dead = healthStale_();
+  okH('۱۰.۲ دو روز یعنی یک روزِ کاملِ بی‌گزارش ⇒ زنگ',
+      dead.stale === true && dead.ok === false && dead.days === 2, dead.line.slice(0, 80));
+  okH('۱۰.۳ و «کجا ایستاد» در همان جمله می‌آید، نه در لاگی دیگر',
+      dead.line.indexOf('شروع @') !== -1, dead.line.slice(-60));
+
+  /* شک، در را نمی‌بندد (۷٫۵۷): مهری که هرگز نوشته نشده می‌تواند موتورِ
+     تازه‌نصب باشد، و زنگ برای حالتِ سالم زنگی است که یاد می‌گیرند نشنوند. */
+  stamp(null, null);
+  const unknown = healthStale_();
+  okH('۱۰.۴ مهرِ نبوده زنگ نمی‌زند — «نمی‌دانیم» با «نرفت» یکی نیست',
+      unknown.stale === false && unknown.days === null, unknown.line.slice(0, 70));
+
+  /* ══ ۱۰.۵ رسیدنِ کد به این وارسی ══
+     هیچ مجموعه‌ای `selfUpdateDaily()` را **اجرا** نمی‌کند (خیلی سنگین
+     است)، پس این یکی ساختاری است و همین را می‌گوید، نه بیشتر: آنچه
+     دیشب ۷٫۶۲ را خرج کرد، دروازه‌ای بود که کد را رد می‌کرد — و دقیقاً
+     همان دو تله اینجا سنجیده می‌شود. نیمهٔ سومش در
+     `run_wiring_test.js` ۸٫۲ است: اگر کسی این فراخوان را داخلِ بلوکِ
+     «نخستین اجرا» ببرد، آن سنجه قرمز می‌شود. */
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const body21 = su.slice(su.indexOf('function selfUpdateDaily() {'),
+                          su.indexOf('function selfUpdateRetry()'));
+  const after = body21.slice(body21.indexOf('پایانِ کارهای ارزان'));
+  okH('۱۰.۵ کارِ شبانه خودش صداش می‌زند، بیرونِ بلوکِ «نخستین اجرا»',
+      body21.indexOf('healthDeadCheck_(') !== -1 &&
+      after.indexOf('healthDeadCheck_(') !== -1,
+      'وگرنه شبی که نسخه نصب می‌شود اجرا نمی‌شود — ۷٫۲۹');
+  okH('۱۰.۶ و پشتِ هیچ نگهبانِ زمانی نیست',
+      after.indexOf('healthDeadCheck_(') < after.indexOf('nightHas_('),
+      'شبی که وقت کم می‌آید همان شبی است که «گزارشی نرفته» باید گفته شود');
+
+  /* ══ رفتارش، با اجرا ══ */
+  stamp(dayStr(3) + ' 10:08', 'شروع @ ' + dayStr(0) + ' 10:04');
+  delete global.__PROPS[PK.HEALTH_DEAD_AT];
+  const mail0 = global.__MAIL.length;
+  healthDeadCheck_(null);
+  const sent = global.__MAIL.slice(mail0)
+    .filter((m) => /گزارشِ روزانه/.test(String(m.subject || '')));
+  okH('۱۰.۷ ایمیلِ فوری می‌رود', sent.length === 1,
+      sent.length + ' ایمیل · ' + (sent[0] ? sent[0].subject : '—'));
+  /* ══ و کانالش صفِ خبرها نیست ══
+     نخستین شکلِ این سنجه شمارِ صف را می‌سنجید و **قرمز شد** — چون
+     `logSelfFinding_` خودش برای یافتهٔ تازه یک خبر در صف می‌گذارد، که
+     درست است و ربطی به کانالِ هشدار ندارد. سنجه‌ای که چیزِ دیگری را
+     بسنجد از نبودنش بدتر است، پس ادعا را همان‌جوری که هست می‌سنجیم:
+     **اگر صف از کار بیفتد، هشدار باز هم می‌رسد.** صفِ خبرها را همان
+     `healthCheck` خالی می‌کند، و او همان چیزی است که مُرده. */
+  {
+    delete global.__PROPS[PK.HEALTH_DEAD_AT];
+    const realQ = global.mailQueue_;
+    global.mailQueue_ = function () { throw new Error('صفِ خراب'); };
+    const m2 = global.__MAIL.length;
+    let threw = '';
+    try { healthDeadCheck_(null); } catch (e) { threw = e.message; }
+    global.mailQueue_ = realQ;
+    okH('۱۰.۸ با صفِ خبرهای خراب هم هشدار می‌رسد — کانالش صف نیست',
+        threw === '' && global.__MAIL.slice(m2)
+          .filter((m) => /گزارشِ روزانه/.test(String(m.subject || ''))).length === 1,
+        threw ? ('پرتاب: ' + threw) : 'ایمیلِ فوری رفت');
+  }
+  const row = loadReportRows_(getHub_()).rows
+    .filter((r) => String(r.vals[RC.TITLE - 1] || '').indexOf('وارسیِ سلامت') !== -1);
+  okH('۱۰.۹ و یافته‌ای ثبت می‌شود — جملهٔ یک ایمیل را فردا جایش می‌گیرد',
+      row.length >= 1 && String(row[0].vals[RC.STATUS - 1]) === RST.NEEDS_CODE,
+      row.length ? String(row[0].vals[RC.STATUS - 1]) : 'ردیفی نیست');
+
+  // دو اجرا در یک شب (شبِ نصبِ کد) یعنی یک خبر، نه دو.
+  const mail1 = global.__MAIL.length;
+  healthDeadCheck_(null);
+  okH('۱۰.۱۰ در یک روز دو بار خبر نمی‌دهد',
+      global.__MAIL.slice(mail1)
+        .filter((m) => /گزارشِ روزانه/.test(String(m.subject || ''))).length === 0);
+
+  /* و بیانیه‌ای که این کلید را نام ببرد، تا وقتی خودِ وضعیت می‌گوید «هنوز
+     هست»، ردیف را نمی‌بندد (۷٫۵۷). */
+  /* `known` همین که مدخل در نقشه باشد true است — پس ادعای «شک در را
+     نمی‌بندد» را باید روی `still` سنجید، نه `known`. نخستین شکلِ این
+     سنجه همین را اشتباه گرفت و قرمز شد. */
+  okH('۱۰.۱۱ سنجندهٔ `health-silent` وصل است و شرط را می‌بیند',
+      selfVerifyOne_('health-silent', { healthStale: { ok: false } }).still === true &&
+      selfVerifyOne_('health-silent', { healthStale: { ok: true } }).still === false &&
+      selfVerifyOne_('health-silent', {}).still === null,
+      'و وضعیتِ نبوده «هنوز هست» نیست — شک در را نمی‌بندد');
+
+  /* ══ و کلیدِ تازه هیچ خواندنِ درایویی اضافه نکرده (۷٫۶۰) ══
+     نخستین شکلش `readExistingHealth_()` را خودش صدا می‌زد، یعنی در هر
+     `writeStatus_` یک خواندنِ **دومِ** ۱۲۶ کیلوبایتیِ `_STATUS.json` —
+     و `writeStatus_` سرِ خودِ `healthCheck` صدا زده می‌شود، همان تابعی که
+     امروز سرِ هزینه مُرد. آنچه گران بود **شمارِ خواندن** است، نه زمان
+     (که در ماک بی‌معناست)، پس همان شمرده می‌شود. */
+  {
+    const real = global.readExistingHealth_;
+    let n = 0;
+    global.readExistingHealth_ = function () { n++; return real.apply(null, arguments); };
+    let st = null;
+    try { st = writeStatus_(getHub_(), 'آزمون'); } catch (e) {}
+    global.readExistingHealth_ = real;
+    okH('۱۰.۱۲ `healthStale` بی خواندنِ تازه ساخته می‌شود — یک بار، نه دو',
+        n === 1 && !!st && !!st.healthStale, 'شمارِ خواندن: ' + n);
+  }
+
+  stamp(dayStr(1) + ' 10:08', 'پایان @ 41ث');
+}

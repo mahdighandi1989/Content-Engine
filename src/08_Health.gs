@@ -490,6 +490,10 @@ function writeStatus_(hub, note) {
     } catch (e) { pending = { raw: 'نامعتبر' }; }
   }
 
+  /* یک بار خوانده می‌شود و دو جا مصرف — `health` و `healthStale`. دو
+     فراخوانِ جدا یعنی دو خواندنِ ۱۲۶ کیلوبایتیِ درایو در هر بار. */
+  var existingHealth = readExistingHealth_();
+
   var status = {
     generatedAt: nowStr_(),
     timezone: CFG.TIMEZONE,
@@ -578,7 +582,15 @@ function writeStatus_(hub, note) {
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
-    health: readExistingHealth_()
+    /* کهنگیِ گزارشِ روزانه — از همین `health` بالا حساب می‌شود، پس
+       هیچ خواندنِ تازه‌ای به درایو اضافه نمی‌کند. اینجاست چون
+       `syncCatalog` هر دو ساعت `writeStatus_` را صدا می‌زند: یعنی
+       این کلید تازه می‌مانَد **حتی وقتی خودِ وارسیِ سلامت مُرده**،
+       که تنها حالتی است که کسی سراغش را می‌گیرد (۷٫۶۳). */
+    health: existingHealth,
+    healthStale: (function () {
+      try { return healthStale_(existingHealth || {}); } catch (e) { return null; }
+    })()
   };
 
   var body = JSON.stringify(status, null, 1);
@@ -973,6 +985,134 @@ function healthStep_(name) {
     props_().setProperty(PK.HEALTH_STEP, _healthStep + ' @ ' +
       Math.round((new Date().getTime() - _healthT0) / 1000) + 'ث');
   } catch (e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * شاهدی برای خودِ وارسیِ سلامت (۷٫۶۳)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ۲۵ سپتامبر، ۱۰:۰۴ دبی: `healthCheck` شروع شد و هرگز به آخر نرسید.
+ * `health.lastStep` — همان ردِ پایی که ۶٫۳۸ برای همین روز ساخت — گفت
+ * «شروع @ 2026-09-25 10:04» و بس، و `health.checkedAt` مالِ دیروز ماند.
+ * پس ایمیلِ عملیاتیِ روز نرفت، و با آن **همهٔ** درهای دومی که نسخه‌های
+ * ۷٫۲۷ تا ۷٫۵۷ عمداً روی همین تابع گذاشته‌اند: `embGates_`،
+ * `vbrQueueShare_`، `vbrQueueEnsure_`، `ttsCueSwitch_`،
+ * `styleProbeUnshare_`، `selfVerifySweep_` و گزارشِ `nightDeath_`.
+ *
+ * ۶٫۳۸ شاهد را ساخت و **زنگ را نساخت**: `lastStep` در `_STATUS.json`
+ * می‌نشیند و تا کسی آن فایل را باز نکند، هیچ‌کس خبردار نمی‌شود. این
+ * چندمین بارِ همان شکل در این مخزن است — تحلیل نوشته شد و به تصمیم وصل
+ * نشد.
+ *
+ * دو مرزِ ناگزیر:
+ *
+ * ۱) **کانال نمی‌تواند `mailQueue_` باشد.** صفِ خبرها را همان تابعی خالی
+ *    می‌کند که مُرده است، پس خبرِ «گزارش نرفت» در همان صف می‌مانَد و
+ *    هرگز نمی‌رسد. این دقیقاً کلاسِ «فوری» است که این پرونده تعریف کرده:
+ *    چیزی که تا ۱۰ صبح نمی‌تواند صبر کند، چون ۱۰ صبح خودش خراب است.
+ *
+ * ۲) **پرسنده باید کارِ شبانه باشد، نه خودِ سلامت.** ۷٫۴۴ برای شبانه
+ *    همین را ساخت (`nightDeath_`) و از `healthCheck` پرسیدش. قرینه‌اش
+ *    جا مانده بود. حالا هر یک شاهدِ دیگری است و هیچ‌کدام شاهدِ خودش
+ *    نیست — شاهدی که با خودِ حادثه بمیرد شاهد نیست.
+ */
+function healthDayDiff_(stamp) {
+  var d = String(stamp || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;     // مهری که خوانده نشود «کهنه» نیست
+  var then = new Date(d + 'T00:00:00Z').getTime();
+  var today = String(nightDay_());
+  var now = new Date(today + 'T00:00:00Z').getTime();
+  if (isNaN(then) || isNaN(now)) return null;
+  return Math.round((now - then) / 86400000);
+}
+
+/**
+ * آیا گزارشِ روزانه رفته است؟
+ *
+ * «نرفته» و «نمی‌دانیم» دو چیزِ جدا هستند و هر دو گزارش می‌شوند، ولی فقط
+ * یکی زنگ می‌زند: مهری که هرگز نوشته نشده می‌تواند موتورِ تازه‌نصب باشد.
+ */
+function healthStale_(healthOpt) {
+  var out = { stale: false, days: null, checkedAt: '', step: '', ok: true, line: '' };
+  try {
+    /* ══ چرا آرگومان، و چرا این یک باگِ واقعی بود ══
+       نخستین شکلش بی‌آرگومان بود و خودش `readExistingHealth_()` را صدا
+       می‌زد — یعنی در هر فراخوانِ `writeStatus_` یک خواندنِ **دومِ**
+       `_STATUS.json` (۱۲۶ کیلوبایت) از درایو و یک `JSON.parse` دیگر. و
+       `writeStatus_` سرِ خودِ `healthCheck` صدا زده می‌شود: یعنی من داشتم
+       هزینه‌ای به همان تابعی اضافه می‌کردم که امروز سرِ همین هزینه مُرد.
+       ادعای بیانیه هم («بی هیچ خواندنِ تازه‌ای») با کد نمی‌خواند — و
+       ادعای ایمنیِ کمی‌نادرست از ادعای نبوده بدتر است (۷٫۲۴). */
+    var h = (healthOpt && typeof healthOpt === 'object')
+              ? healthOpt : (readExistingHealth_() || {});
+    out.checkedAt = String(h.checkedAt || '');
+    out.step = String(h.lastStep || '');
+    out.days = healthDayDiff_(out.checkedAt);
+    var need = Math.max(2, Number(CFG.HEALTH_STALE_DAYS) || 2);
+    if (out.days !== null && out.days >= need) {
+      out.stale = true;
+      out.ok = false;
+      out.line = 'گزارشِ روزانه: ' + out.days + ' روز است نرفته — آخرین وارسیِ ' +
+                 'کامل ' + out.checkedAt +
+                 (out.step ? ' · آخرین جایی که رسید: «' + out.step + '»' : '') +
+                 '. یعنی ایمیلِ ۱۰ صبح و هر کاری که به آن بسته است انجام نشده.';
+    } else if (out.days === null) {
+      out.line = 'گزارشِ روزانه: هنوز یک وارسیِ کاملِ ثبت‌شده ندارد.';
+    } else {
+      out.line = 'گزارشِ روزانه: آخرین وارسیِ کامل ' + out.checkedAt + '.';
+    }
+  } catch (e) {
+    out.line = 'وضعیتِ گزارشِ روزانه خوانده نشد: ' + e.message;
+  }
+  return out;
+}
+
+/**
+ * زنگش — از کارِ شبانه، فوری، و یک بار در هر روز.
+ *
+ * «یک بار در روز» نه برای کم کردنِ سروصدا: تا وقتی خراب است هر شب خبر
+ * می‌رود، چون این تنها کانالِ باقی‌مانده است. مُهرِ روز فقط جلوی دو خبر
+ * در یک شب را می‌گیرد (شبی که کد نصب می‌شود دو بار اجرا می‌شود).
+ */
+function healthDeadCheck_(hub) {
+  var st = healthStale_();
+  if (!st.stale) return st;
+  try {
+    var today = String(nightDay_());
+    if (String(props_().getProperty(PK.HEALTH_DEAD_AT) || '') === today) {
+      return st;                                       // امشب خبرش رفته
+    }
+  } catch (eP) {}
+  var lines = ['⚠️ <b>گزارشِ روزانهٔ موتور نرفت</b>',
+               st.line,
+               'این خبر از کارِ شبانه می‌آید، نه از خودِ وارسیِ سلامت — چون ' +
+               'همان چیزی است که کار نکرده.',
+               '🕒 ' + nowStr_()];
+  try { if (tgEnabled_()) tgSend_(lines.join('\n').replace(/<\/?b>/g, '*')); } catch (eT) {}
+  try {
+    MailApp.sendEmail({ to: CFG.EMAIL_TO,
+      subject: 'موتور محتوا — گزارشِ روزانه ' + st.days + ' روز است نرفته',
+      htmlBody: '<div dir="rtl" style="font-family:Tahoma">' +
+                lines.join('<br>') + '</div>' });
+  } catch (eM) {}
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'کد موتور', key: 'health-silent',
+      title: 'وارسیِ سلامت ' + st.days + ' روز است به آخر نمی‌رسد',
+      detail: st.line + ' هر دری که نسخه‌های ۷٫۲۷ تا ۷٫۵۷ روی `healthCheck` ' +
+              'گذاشته‌اند در این روزها بسته بوده: اشتراک و نوشتنِ صفِ پل، ' +
+              'تعویضِ مدلِ لحن، زنگِ اثر انگشت، سنجشِ ردیف‌های بسته.',
+      instruction: '`health.lastStep` در `_STATUS.json` می‌گوید کجا ایستاد. ' +
+                   'اگر روی «شروع» مانده، مرگ در `getHub_()` یا ' +
+                   '`writeStatus_` است (هابِ ۲۹ مگابایتی، درسِ ۷٫۶۰) — ' +
+                   'یعنی کارِ اختیاری دارد کارِ واجب را می‌کشد و باید از ' +
+                   'مسیرِ ۱۰ صبح بیرون بیاید، نه اینکه بودجه بزرگ‌تر شود. ' +
+                   'سقفِ شش‌دقیقه‌ایِ اپس‌اسکریپت را نمی‌شود گرفت.',
+      owner: ROWNER_CODE
+    });
+  } catch (eF) {}
+  try { props_().setProperty(PK.HEALTH_DEAD_AT, String(nightDay_())); } catch (eS) {}
+  return st;
 }
 
 function healthLeft_() {

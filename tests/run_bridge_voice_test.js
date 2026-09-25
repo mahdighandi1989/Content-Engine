@@ -743,5 +743,67 @@ console.log('\n══ ۱۷) فایلی که فقط در درایو بنشیند�
   }
 }
 
+/* ══ ۱۹) دکمهٔ منو — درِ دستی، از خودِ همان تابعی که منو صدا می‌زند (۷٫۶۳) ══
+ *
+ * بدهیِ این هفته از دفترِ `MENU_DEBT`. انتخابش تصادفی نیست: `runVoiceBridge`
+ * همان دری است که آدم وقتی شبانه کارش را نکرده بازش می‌کند — و دیشب شبانه
+ * کارش را نکرد. اگر این دکمه هم آزموده نشده باشد، تنها راهِ **همین حالا**
+ * جبران کردن، خودش نیازموده است.
+ *
+ * و از **خودِ تابعِ منو** وارد می‌شود، نه از `vbrNightly_` و نه از
+ * `vbrAskDue_`: قاعدهٔ ۷٫۶۲ — سنجه‌ای که تابعِ میانی را صدا بزند تابع را
+ * ثابت می‌کند، نه قابلیت را. نامِ تابع هم از خودِ منو خوانده می‌شود، وگرنه
+ * فردا کسی گزینه را به تابعِ دیگری ببندد و این سنجه چیزی را بسنجد که دیگر
+ * دکمه نیست. */
+{
+  console.log('\n══ ۱۹) دکمهٔ منو «🌉 پلِ رنگِ صدا» ══');
+  const menuSrc = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const bound = /addItem\('[^']*پلِ رنگِ صدا[^']*',\s*'([A-Za-z_][A-Za-z0-9_]*)'\)/.exec(menuSrc);
+  ok('۱۹.۱ گزینهٔ منو به یک تابعِ موجود بسته است',
+     !!bound && typeof global[bound[1]] === 'function',
+     bound ? bound[1] : 'گزینه در منو پیدا نشد');
+  const press = global[bound[1]];
+
+  {
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const g = OUT.createFolder('قسمتِ دکمه‌ای');
+    g.createFile('قسمت ۸۰ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+    const rd = ytRenderRead_();
+    rd.items = [{ key: 'variety:80', show: 'variety', ep: '80',
+                  folderId: g.getId(), title: 'هشتاد' }];
+    ytRenderSave_(rd);
+    // همان حالتِ واقعیِ ۲۴ سپتامبر: همه خاموش، هیچ «موردی»، فقط یک تیک.
+    personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '', []);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '',
+                      ['variety:80']);
+
+    let msg = '', threw = '';
+    try { msg = String(press() || ''); } catch (e) { threw = e.message; }
+    ok('۱۹.۲ فشارِ دکمه خطا نمی‌دهد', threw === '', threw);
+    const keys = vbrRead_().items.map((x) => String(x.key));
+    ok('۱۹.۳ و قسمتِ تیک‌خورده را همان‌جا وارد صف می‌کند',
+       keys.indexOf('variety:80') !== -1, 'صف: ' + keys.join('، '));
+    /* دکمه‌ای که کار کند و نگوید چه کرد، از دکمهٔ خراب سخت‌تر تشخیص داده
+       می‌شود: او دوباره فشارش می‌دهد و صف را دو برابر می‌کند. */
+    ok('۱۹.۴ و در پیامش می‌گوید چند قسمت درخواست شد',
+       /درخواستِ تازه:\s*\S/.test(msg),
+       msg.split('\n').filter((l) => l.indexOf('درخواست') !== -1).join(' | ') ||
+         msg.slice(0, 120));
+  }
+
+  /* و وقتی هیچ‌کدام از سه راه انتخاب نشده، راهنمایی باید **هر سه** را
+     نام ببرد. تا ۷٫۶۲ دو تا را می‌گفت و راهِ سومی که ۷٫۵۹ ساخته بود —
+     همان که او استفاده می‌کند — در متن نبود. */
+  {
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '', []);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '', []);
+    const msg = String(press() || '');
+    ok('۱۹.۵ بی هیچ انتخابی، راهنمایی هر سه راه را نام می‌بَرد',
+       msg.indexOf('روشن') !== -1 && msg.indexOf('موردی') !== -1 && /تیک/.test(msg),
+       msg.slice(msg.indexOf('⚠️')).slice(0, 220));
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

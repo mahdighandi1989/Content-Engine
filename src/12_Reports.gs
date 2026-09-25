@@ -1331,6 +1331,11 @@ function selfVerifyMap_() {
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
+    /* «گزارشِ روزانه نرفت» (۷٫۶۳). سنجنده‌اش از همان `healthStale` می‌آید
+       که خودِ شرط را می‌سازد، پس چیزِ دیگری را نمی‌سنجد. و سرِ ۰۲:۳۰ —
+       یعنی همان لحظه‌ای که نصب مُهر می‌زند — مهرِ دیروز «سالم» است، پس
+       روزی که همه‌چیز درست است این ردیف بسته می‌شود. */
+    'health-silent':       { what: 'healthStale', still: bad('healthStale') },
     /* «ترتیبِ قسمت‌ها» عمداً اینجا نیست: کلیدش `series-order-<مجموعه>` است
        و وضعیتش سراسری. نگاشتنِ یکی به دیگری یعنی با خرابیِ **یک** مجموعه
        ردیفِ همهٔ مجموعه‌ها باز شود — سنجنده‌ای که چیزِ دیگری را می‌سنجد از

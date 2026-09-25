@@ -212,7 +212,7 @@ const MENU_DEBT = [
   'runOrganizeFolders', 'runProduceSpecialEnriched', 'runProduceVarietyEnriched',
   'runRecapNow', 'runRejudgeAll', 'runSelfUpdateDiagnose',
   'runShowSourceVerdict', 'runSyncNow', 'runVoiceAudition',
-  'runVoiceBridge', 'runVoiceIntake', 'runYouTubeStats',
+  'runVoiceIntake', 'runYouTubeStats',
   'setApiKey', 'showEnrichStatus', 'showPersonaBoard',
   'showStatus', 'testGemini', 'testTelegram',
 ];

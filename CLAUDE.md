@@ -1077,6 +1077,85 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The reporter died and nothing said so (7.63)
+
+10:04 Dubai, `healthCheck` started and never finished. `health.lastStep` —
+6.38's own footprint, built for exactly this — said **«شروع @ 2026-09-25 10:04»**
+and nothing more, while `health.checkedAt` stayed on yesterday. So the day's
+operational mail never went, and with it **every second door 7.27 through 7.57
+deliberately put on that one function**: `embGates_`, `vbrQueueShare_`,
+`vbrQueueEnsure_`, `ttsCueSwitch_`, `styleProbeUnshare_`, `selfVerifySweep_` and
+the `nightDeath_` report. From outside it looked like a quiet day.
+
+**6.38 built the witness and never built the alarm.** It wrote the budget and
+the footprint, and the footprint worked perfectly — it sits in `_STATUS.json`,
+where nobody looks unless they already suspect something. That is this file's
+most-repeated shape, and this is its cleanest instance: *the evidence was
+correct, present, and wired to no decision.*
+
+**And the asymmetry is the part to carry forward.** 7.44 gave the nightly a
+witness (`nightDeath_`) and asked it **from `healthCheck`** — the independent
+path with its own schedule. The mirror was never built. Six versions then moved
+their second door onto `healthCheck` precisely *because* it is independent, and
+nobody asked what watches the watcher. Now the nightly asks about health and
+health asks about the nightly: **neither is its own witness.**
+
+**The channel cannot be `mailQueue_`, and that is not a detail.** The news queue
+is drained by `healthCheck`, and `healthCheck` is the thing that died — a queued
+"the daily report did not go out" waits forever for the corpse to deliver it. So
+this one joins the short immediate list beside the install authorisation, the
+failed backup and the rollback: immediate mail, Telegram, and a `health-silent`
+finding in the `NEEDS_CODE` queue, because a sentence in a mail is replaced
+tomorrow and a finding is not.
+
+Three boundaries, each one a rule this file already paid for:
+
+- **«نمی‌دانیم» is not «نرفت».** A stamp that cannot be read rings nothing — it
+  can be a freshly installed engine, and a warning for the healthy state is the
+  warning people learn to ignore (7.40).
+- **The threshold is 2 days, not 1.** At 02:30 today's check has not happened
+  yet, so yesterday's stamp is the healthy state. One is a false alarm every
+  single night.
+- **The call sits outside `if (night.first)` (7.29) and behind no `nightHas_`.**
+  The night that runs short is exactly the night "no report went out" needs
+  saying; behind a time guard it would go silent on the nights that matter most.
+
+**And the fix is not a bigger budget.** Apps Script's six-minute kill cannot be
+caught, so raising `HEALTH_BUDGET_MS` buys nothing. The real answer is 7.60's:
+take optional work off the path someone is standing on. Six independent second
+doors were bolted onto one daily function and **nobody compared the total to the
+cap** — 7.30/7.31 again, one function over.
+
+**Two of eleven new assertions measured something else on first check**, and
+running them is what showed it: one counted the news queue's length, when the
+queue growing by one is `logSelfFinding_` doing its job correctly — the real
+claim is *"with a broken queue the alert still arrives"*, so that is what it now
+asserts; and one asked `selfVerifyOne_(...).known`, which is true the moment the
+map has an entry, instead of `.still`. A third breakage of mine landed inside
+`logSelfFinding_`'s own swallow and stayed green, so the assertion it was meant
+to falsify had to be attacked a different way. **Breaking the code is not enough;
+confirm the break landed where you aimed it** (7.60).
+
+**And the bug in this very version was found by re-reading my own claim.** The
+manifest said the new `healthStale` key costs "no fresh read" — and the code
+called `readExistingHealth_()` itself, so every `writeStatus_` did a **second**
+126 KB read and parse of `_STATUS.json`. `writeStatus_` is called at the top of
+`healthCheck`: I was adding cost to the exact function that had just died of
+cost. *A safety or cost claim that is slightly false is worse than none* (7.24) —
+and the way it surfaced was checking the sentence against the code rather than
+against my intention. The object is read once and used twice now, and the
+assertion counts **reads**, not elapsed time, because the mock has no 29 MB
+spreadsheet (7.60).
+
+**The weekly menu debt: 36 → 35.** `runVoiceBridge` was not a random pick — it is
+the door a person opens when the nightly did not do its job, and last night the
+nightly did not do its job. The new assertion enters through the function the
+menu actually binds, reads that name **from the menu source** rather than
+hard-coding it, and checks that a ticked episode really reaches the queue. Its
+guidance text also named only two of the three ways in; the tick column 7.59
+added was missing, and a half-stated instruction is worse than none because the
+reader concludes the third way does not exist.
+
 ## A cure on a road that is never travelled — the same one, one version later (7.62)
 
 He ticked «درس‌نامه ۴۹» on the 24th and the save succeeded. Next morning
