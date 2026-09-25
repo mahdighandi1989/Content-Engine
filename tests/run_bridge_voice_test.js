@@ -673,6 +673,40 @@ console.log('\n══ ۱۷) فایلی که فقط در درایو بنشیند�
   ok('۱۸.۳ اجرای دوباره ردیفِ تکراری نمی‌سازد',
      dup === 1, 'تعداد: ' + dup);
 
+  /* ══ ۱۸.۵ از **راهی که شبانه می‌رود**، نه از تابعِ میانی (۷٫۶۲) ══
+     ۲۴ سپتامبر او درس‌نامه ۴۹ را تیک زد و صبح صف **خالی** بود. علت:
+     `vbrAskDue_` با `vbrSpeakerAny_` شروع می‌شود، و آن دروازه فقط
+     «روشن» و «موردی» را می‌شناخت — نه ستونِ تیک. پس پیش از رسیدن به
+     `vbrAskPicked_` برمی‌گشت.
+     سنجه‌های ۱۸.۱ تا ۱۸.۴ سبز بودند چون **مستقیم** `vbrAskPicked_` را
+     صدا می‌زدند: راهی که نامش را نمی‌بردند. این یکی از در وارد می‌شود. */
+  {
+    const q4 = vbrRead_(); q4.items = []; vbrSave_(q4);
+    const g4 = OUT.createFolder('قسمتِ تیکی ۴');
+    g4.createFile('قسمت ۷۰ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+    const rd4 = ytRenderRead_();
+    rd4.items = [{ key: 'variety:70', show: 'variety', ep: '70', folderId: g4.getId(), title: 'هفتاد' }];
+    ytRenderSave_(rd4);
+    // همه خاموش، هیچ «موردی» — فقط یک تیک. همان حالتِ واقعیِ او.
+    personaBoardSave_('mehman', false, [], 1, 'کوتاه بخوان', '', '', []);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1, 'آرام بخوان', '', '',
+                      ['variety:70']);
+    ok('۱۸.۵ دروازهٔ شبانه تیک را هم «کار» می‌شمارد',
+       vbrSpeakerAny_(vbrSpeakerRows_()) === true,
+       'وگرنه vbrAskDue_ پیش از رسیدنِ به تیک‌ها برمی‌گردد');
+    /* سطرِ روزانه **پیش از** صف‌شدن سنجیده می‌شود — همان لحظه‌ای که او
+       صبح می‌بیند: تیک زده و هنوز چیزی در صف نیست. پس از صف‌شدن جملهٔ
+       درست «در انتظار: ۱» است، که خبرِ دیگری است. */
+    ok('۱۸.۵-پ سطرِ روزانه، تیکِ صف‌نشده را سالم جا نمی‌زند',
+       /تیک خورده/.test(String(vbrStatus_().line)),
+       String(vbrStatus_().line).slice(0, 130));
+    const nDue = vbrAskDue_(hub);
+    const kDue = vbrRead_().items.map((x) => String(x.key));
+    ok('۱۸.۵-ب و قسمتِ تیک‌خورده از **vbrAskDue_** وارد صف می‌شود',
+       kDue.indexOf('variety:70') !== -1 && nDue >= 1,
+       'صف: ' + kDue.join('، ') + ' · افزوده: ' + nDue);
+  }
+
   /* و ردیفی که هیچ تیکی ندارد هیچ‌چیز نمی‌سازد — سوئیچی که نیمه‌خاموش
      باشد سوئیچ نیست (۷٫۴۰). */
   const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);

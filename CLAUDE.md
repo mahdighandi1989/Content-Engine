@@ -1077,6 +1077,38 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A cure on a road that is never travelled — the same one, one version later (7.62)
+
+He ticked «درس‌نامه ۴۹» on the 24th and the save succeeded. Next morning
+`_VOICE-RENDER.json` carried `engine: 7.61` — written by that night's run — and
+`items: []`. The tick never reached the queue.
+
+`vbrAskDue_` opens with `if (!vbrSpeakerAny_(rows)) return 0;`, and that gate knew
+only two ways work can exist: a row switched **on**, or a «موردی» episode number.
+**The tick column 7.59 added was not among them.** So the nightly returned before
+it ever reached `vbrAskPicked_`.
+
+**This is 7.46 word for word, in code written after reading it.** The cure existed,
+was correct, was tested — and sat on a road the nightly never travels. The rule has
+now cost three versions in one week, so state it as a checklist item rather than a
+story: **when you add a new way for work to enter a system, find the gate that
+decides whether that system runs at all, and put it there too.**
+
+**The daily line made it invisible.** With the row off, `vbrStatus_` said «هیچ
+گویندهٔ روشنی نیست» — healthy, and his own decision. But work *was* waiting, so the
+sentence was misleading in exactly the way 7.45 and 7.46 both record. It now names
+the speaker and the tick.
+
+**And the reason four green assertions proved nothing is the sharpest part.**
+۱۸.۱–۱۸.۴ all called `vbrAskPicked_` **directly**. They tested the room and never
+the door — 7.44's rule, which I wrote down and then walked past. The new assertion
+enters through `vbrAskDue_`, the same function the nightly calls, and it goes red
+when the gate is restored to what it was.
+
+**The general form, for the next person:** a test that calls the function you just
+wrote proves the function. Only a test that starts where production starts proves
+the feature. When the two differ, the second one is the only one that matters.
+
 ## One capital letter, three versions, and a guard that threw the answer away (7.61)
 
 He said the board was still stuck after installing 7.60. **7.60 was mine and it

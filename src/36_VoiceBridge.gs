@@ -583,6 +583,7 @@ function vbrStatus_() {
     var prows = vbrSpeakerRows_();          // یک بار، برای هر دو پرسش
     out.speaker = vbrSpeakerOn_(prows);
     out.onceKeys = vbrSpeakerOnce_(prows);
+    try { out.pickedKeys = vbrSpeakerPicked_(prows); } catch (ePk) { out.pickedKeys = []; }
     /* مشکلِ دوم به سطر **اضافه** می‌شود، نه اینکه جایش را بگیرد — ۷٫۲۲
        اینجا `return` می‌کرد و شمارشِ گیرکردن را هم کور می‌کرد. */
     var qi = vbrQueueIdOk_();
@@ -622,7 +623,15 @@ function vbrStatus_() {
        همان کاری است که باید بکند: می‌گوید دقیقاً چه چیزی لازم است.
        هشداری که برای حالتِ سالم بزند، همان هشداری است که یاد می‌گیرند
        نادیده بگیرند. */
-    if (!out.speaker && (out.onceKeys || []).length) {
+    if (!out.speaker && (out.pickedKeys || []).length) {
+      /* ۷٫۶۲: همان منطق، برای ستونِ تیکِ قسمت‌های تولیدشده. صاحبِ برنامه
+         ۲۴ سپتامبر درس‌نامه ۴۹ را تیک زد و سطرِ روزانه گفت «هیچ گویندهٔ
+         روشنی نیست» — که سالم به نظر می‌رسد در حالی که کارِ تیک‌خورده‌اش
+         اصلاً به صف نمی‌رسید. سطری که حالتِ زنده را سالم نشان بدهد، همان
+         سطری است که خوانده شدنش را از دست می‌دهد. */
+      bits.push('هیچ ردیفی روشن نیست، ولی «' + out.pickedKeys.join('» و «') +
+                '» قسمتِ تولیدشده تیک خورده — همان‌ها تبدیل می‌شوند');
+    } else if (!out.speaker && (out.onceKeys || []).length) {
       /* حالتی که تا ۷٫۴۵ اصلاً وجود نداشت و حالا باید نامش برده شود:
          ردیف خاموش است ولی قسمت‌های موردی دارد. گفتنِ «هیچ گویندهٔ روشنی
          نیست» اینجا دروغ نیست ولی گمراه‌کننده است — کاری هست که قرار است
@@ -895,10 +904,34 @@ function vbrSpeakerOnce_(rows) {
   return out;
 }
 
+/**
+ * گویندگانی که **قسمتِ تولیدشده‌ای تیک خورده‌اند** (۷٫۶۲).
+ *
+ * قرینهٔ `vbrSpeakerOnce_`، برای ستونی که ۷٫۵۹ افزود. بدونِ این،
+ * `vbrSpeakerAny_` فقط «روشن» و «موردی» را می‌دید و `vbrAskDue_` پیش از
+ * رسیدن به `vbrAskPicked_` برمی‌گشت — یعنی **درمانی روی راهی که هرگز
+ * پیموده نمی‌شود** (۷٫۴۶، در کدی که پس از خواندنِ همان درس نوشته شد).
+ */
+function vbrSpeakerPicked_(rows) {
+  var rs = rows || vbrSpeakerRows_(), out = [];
+  for (var i = 0; i < rs.length; i++) {
+    var k = String(rs[i][PC.KEY - 1] || '').trim();
+    if (!k) continue;
+    try {
+      if (personaOnceParse_(rs[i][PC.PICK - 1]).items.length) out.push(k);
+    } catch (e) {}
+  }
+  return out;
+}
+
 /** آیا اصلاً کسی هست؟ — دروازهٔ ارزان، پیش از خواندنِ صفِ یوتیوب. */
 function vbrSpeakerAny_(rows) {
   var rs = rows || vbrSpeakerRows_();
-  return !!(vbrSpeakerOn_(rs) || vbrSpeakerOnce_(rs).length);
+  /* هر سه راهی که کار می‌سازند. هر ستونِ تازه‌ای که کار بسازد باید
+     **همین‌جا** هم بیاید، وگرنه سازوکارش پشتِ این دروازه می‌مانَد و
+     هیچ خطایی هم نمی‌دهد (۷٫۶۲). */
+  return !!(vbrSpeakerOn_(rs) || vbrSpeakerOnce_(rs).length ||
+            vbrSpeakerPicked_(rs).length);
 }
 
 /**
