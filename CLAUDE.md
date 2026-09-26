@@ -1077,6 +1077,40 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The ceiling that one of the two roads drove straight past (7.65)
+
+He pressed the manual embed button an hour after 7.64 shipped. Two things came
+back, and both mattered.
+
+**The good one:** 5,000 rows built in a single run, the bank from 10% to **27%**.
+So `embRunDue_` — the core — was never the problem.
+
+**The other one:** that same run ended with `Exceeded maximum execution time`.
+7.64 had just capped the block's optional tail, and the cap did not hold on this
+road.
+
+**Why, and it is one line.** The cap asks `nightLeft_()`, and that function opens
+with `if (!_nightT0) nightStart_()`. On the nightly the clock has been running
+since 02:30, so the answer is honest. From the **menu button** nobody ever
+started it — and the first thing that asks is the tail check itself. So the clock
+started *at the tail*, answered "270 seconds left" after 300 seconds had already
+been spent, and the tail ran. The ceiling was real, correct, tested — and one of
+its two callers drove straight past it.
+
+`embNightly_` now asks `nightLeft_()` once at its own entry, so the clock starts
+when the block starts. The nightly is unchanged (the clock is already running);
+the manual path now measures real elapsed time. No new constant.
+
+**This is 7.50's rule, and it cost one hour this time instead of three versions:**
+*check a fix against what actually happens next, not against the bug it was
+written for.* 7.64 was correct about the fault and left the layer under it
+standing. And what found it was **pressing the button in production** — not
+reading the code, and not any of the seven assertions I had just written and
+deliberately broken.
+
+The new assertion observes from inside the phase — was the clock already running
+when the work began? — and goes red when the single line is removed.
+
 ## Using "measure, don't guess" as a reason to do nothing (7.64)
 
 He asked why I had deliberately not finished the embed fault, and how long he
