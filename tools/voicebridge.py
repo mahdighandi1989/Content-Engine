@@ -160,6 +160,20 @@ def joinWavs(paths, dst):
                            "-ac", "1", "-ar", "40000", dst])
 
 
+def wavSeconds(path):
+    """طولِ فایل، از هدرِ خودش. کتابخانهٔ استاندارد، بی وابستگیِ تازه."""
+    try:
+        import wave
+        w = wave.open(path, "rb")
+        try:
+            n, fr = w.getnframes(), w.getframerate()
+        finally:
+            w.close()
+        return (float(n) / float(fr)) if fr else 0.0
+    except Exception:
+        return 0.0
+
+
 def main():
     fid = os.environ.get("VBR_QUEUE_ID", "").strip()
     if not fid:
@@ -209,10 +223,24 @@ def main():
     src = os.path.getsize("vb/src.wav")
     say("  ورودی: %.1f مگابایت" % (src / 1048576.0))
 
+    # ══ کلِ قسمت، نه پنجرهٔ پیش‌فرضِ آزمایشگاه ══
+    # `voicelab.py` ابزارِ **سنجش** است: `refAudition_` از فایل یک پنجره
+    # برمی‌دارد و `--src-seconds` طولِ آن پنجره است — پیش‌فرضش **۱۲ ثانیه**.
+    # اینجا هیچ‌وقت پاس داده نمی‌شد، پس پل سال‌ها می‌توانست «موفق» باشد و
+    # از یک قسمتِ پانزده‌دقیقه‌ای دوازده ثانیه تحویل بدهد. ۲۶ سپتامبر دقیقاً
+    # همین شد: ورودی ۹۰۲٫۷ ثانیه، خروجی ۱۱٫۸۴ ثانیه، و اجرا سبز.
+    # عدد از طولِ واقعیِ همین فایل می‌آید، نه از یک ثابتِ حدسی.
+    srcSec = wavSeconds("vb/src.wav")
+    if srcSec <= 0:
+        say("::error title=طولِ صوت خوانده نشد::هدرِ vb/src.wav معتبر نیست.")
+        return 1
+    say("  طولِ ورودی: %.1f ثانیه" % srcSec)
+
     pr = it.get("params") or {}
     args = ["python3", "tools/voicelab.py", "--engine", "rvc",
             "--ref", "vb/src.wav",          # voicelab مرجع را اجباری می‌داند
             "--src", "vb/src.wav", "--out", "vblab",
+            "--src-seconds", str(int(srcSec) + 1),
             "--rvc-model", "vb/model.pth",
             "--rvc-pitch", str(pr.get("pitch", "-12")),
             "--rvc-index-rate", str(pr.get("indexRate", "1.0")),
@@ -236,8 +264,14 @@ def main():
     outs.sort(key=lambda p: -os.path.getsize(p))
     best = outs[0]
     size = os.path.getsize(best)
-    if size < 200000:
-        say("::error title=خروجی بسیار کوچک::%d بایت" % size)
+    outSec = wavSeconds(best)
+    # ══ نگهبان باید با **ورودی** سنجیده شود ══
+    # سقفِ ثابتِ ۲۰۰ کیلوبایت یک لایه پایین‌ترِ خرابی ایستاده بود: نمونهٔ
+    # ۱۲ ثانیه‌ای ۰٫۹ مگابایت است و راحت از آن رد می‌شد. چیزی که باید
+    # سنجیده شود نسبتِ خروجی به ورودی است — «آیا کلِ قسمت تبدیل شد؟»
+    if outSec < srcSec * 0.7:
+        say("::error title=خروجی ناقص::%.1f ثانیه از %.1f ثانیهٔ ورودی — "
+            "کلِ قسمت تبدیل نشده، پس ردیف بسته نمی‌شود." % (outSec, srcSec))
         return 1
 
     rel = ensureRelease()

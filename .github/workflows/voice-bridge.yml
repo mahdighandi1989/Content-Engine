@@ -76,12 +76,18 @@ jobs:
       - name: ثبتِ نقشه در ریپو
         run: |
           set -euo pipefail
-          if git diff --quiet -- docs/voice-renders.json; then
-            echo "چیزی عوض نشد."; exit 0
-          fi
+          # ══ `git diff` فایلِ untracked را نمی‌بیند (۲۶ سپتامبر) ══
+          # docs/voice-renders.json هرگز وجود نداشته، پس بارِ **اول** که
+          # ساخته می‌شود untracked است و `git diff --quiet` تمیز برمی‌گردد:
+          # «چیزی عوض نشد»، خروج با صفر، اجرا سبز — و نشانیِ خروجی هیچ‌وقت
+          # ثبت نمی‌شود، یعنی موتور هرگز نمی‌تواند برش دارد. `git add` یک خط
+          # پایین‌تر بود، پس نوبتش نمی‌رسید. اول add، بعد پرسش.
           git config user.name  "content-engine-bridge"
           git config user.email "actions@users.noreply.github.com"
           git add docs/voice-renders.json
+          if git diff --cached --quiet -- docs/voice-renders.json; then
+            echo "چیزی عوض نشد."; exit 0
+          fi
           git commit -m "پلِ صدا: خروجیِ تازه"
           # ══ بی abort، تلاشِ دوم اصلاً تلاش نیست ══
           # rebaseی که تضاد بخورد درخت را نیمه‌ادغام رها می‌کند و `git pull`
