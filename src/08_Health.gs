@@ -183,7 +183,12 @@ function outRootFolderNames_() {
        ریشه نیست — ریشه فقط چیزی را نگه می‌دارد که موتور با نام پیدایش
        می‌کند. بی این ردیف، همان شبِ اول یک هشدارِ «ناشناخته» می‌ساخت
        برای پوشه‌ای که خودِ موتور ساخته بود. */
-    String(CFG.EMB_FOLDER || '')
+    String(CFG.EMB_FOLDER || ''),
+    /* پوشهٔ کپیِ مدل‌های پلِ رنگِ صدا (بخشِ ۳۶، `vbrModelFolder_`). همان
+       شکلِ «voice cloning» در ۷٫۲۱ و `_VOICE-RENDER.json` در ۷٫۴۶: پوشه از
+       ۷٫۳۶ ساخته و نوشته می‌شد ولی اینجا ثبت نشده بود، پس هر شب در
+       `outLayout.strays` «چیزِ ناشناخته» گزارش می‌شد. */
+    String(CFG.VBR_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
