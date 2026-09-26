@@ -2687,11 +2687,14 @@ def run_rvc(ref, src, text, out):
                 row_ = {"name": nm_, "pitch": int(pv),
                         "index_rate": float(iv), "protect": float(qv),
                         "seconds": took, "info": probe(dst)}
-                try:
-                    row_["speaker"] = rvcSim_(
-                        {"ref": ref, "src": src, "out": dst}, out)
-                except Exception as e:
-                    row_["speaker"] = {"error": str(e)[:200]}
+                if OPT.get("no_sim"):
+                    row_["speaker"] = {"skipped": "no-sim"}
+                else:
+                    try:
+                        row_["speaker"] = rvcSim_(
+                            {"ref": ref, "src": src, "out": dst}, out)
+                    except Exception as e:
+                        row_["speaker"] = {"error": str(e)[:200]}
                 variants_.append(row_)
                 made_.append(dst)
                 OPT["variants"] = variants_
@@ -3004,9 +3007,29 @@ def main():
     ap.add_argument("--rvc-index-rate", default="0.66")
     ap.add_argument("--rvc-protect", default="0.33",
                     help="محافظِ همخوان و نفس؛ پایین‌تر = رضوی‌تر و جویده‌تر")
+    ap.add_argument("--no-sim", action="store_true",
+                    help="شباهتِ گوینده را نسنج — برای مصرفِ تولیدی که "
+                         "عدد را نمی‌خوانَد و فقط خروجی می‌خواهد")
     ap.add_argument("--alphabet", default="fa",
                     choices=["fa"] + sorted(fa2latin.MODES))
     a = ap.parse_args()
+
+    # ══ بی عددِ شباهت، «بهترین» وجود ندارد ══
+    # انتخابِ بهترین تنها معیارش `out_vs_ref` است. با `--no-sim` آن عدد
+    # نیست، پس چند ترکیب یعنی «اولی» — انتخابی خاموش از یک مجموعه، همان
+    # چیزی که بخشِ ۲۷ از روزِ اول رد می‌کند.
+    #
+    # و **اینجا** می‌ایستد نه داخلِ `run_rvc`: آنجا پس از دو دقیقه نصبِ
+    # بسته و دانلودِ مدل است، یعنی رد کردنِ ترکیبی که از اول ناممکن بود
+    # به قیمتِ دو دقیقه. مرزی که بشود بی مدل اجرایش کرد، مرزی است که
+    # می‌شود واقعاً آزمودش — و آن یکی نمی‌شد.
+    if a.no_sim:
+        n_ = 1
+        for v_ in (a.rvc_pitch, a.rvc_index_rate, a.rvc_protect):
+            n_ *= len([t for t in str(v_ or "").split(",") if t.strip()]) or 1
+        if n_ > 1:
+            raise SystemExit("--no-sim فقط با یک ترکیب: بی عددِ شباهت "
+                             "«بهترین» تعریف نشده است.")
 
     os.makedirs(a.out, exist_ok=True)
     OPT["f5_ckpt"] = a.f5_ckpt
@@ -3024,6 +3047,7 @@ def main():
     OPT["rvc_pitch"] = a.rvc_pitch
     OPT["rvc_index_rate"] = a.rvc_index_rate
     OPT["rvc_protect"] = a.rvc_protect
+    OPT["no_sim"] = bool(a.no_sim)
     # برگردان اینجا انجام می‌شود، نه در run_f5: این آزمایشِ **متن** است، نه
     # آزمایشِ f5. Chatterbox و XTTS هم انگلیسی می‌دانند و فارسی نه — یعنی
     # دقیقاً همان مدل‌هایی که این ایده برایشان طرح شده.
