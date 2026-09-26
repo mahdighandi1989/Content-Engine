@@ -1077,6 +1077,41 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A rule stated generally is a rule nobody applies (7.69)
+
+He reported it with his own examples: the narrator reads «توجیه» as `tawjih` and
+«موضوع» as `maowzoo`. The correct Persian is `tojih` and `mozu` — the Arabic
+diphthong /aw/ does not exist in standard Persian; it monophthongized to /o/.
+
+**`SPEAK_TRAPS` already covered this — generally.** The «لهجه» entry says «نه
+عربی‌خوانیِ واژه‌های عربی‌تبار». That sentence is correct, it is in the catalogue,
+it reaches both the writer and the `speak2` reviewer, and the single most frequent
+instance of it was mispronounced every single day. **A category stated at the level
+of the category is not a rule; it is a heading.** The new entry names the sound,
+the words, and the counter-case.
+
+**The counter-case is the part that had to be written or the fix breaks the other
+way.** Not every و is a vowel: where a tashdid follows, the و is the consonant /v/
+and the first letter takes a fatha — «تَوَجُّه», «تَوَسُّط», «تَوَقُّف», «مُوَفَّق».
+Marking those with a damma would turn correct words into wrong ones, which is worse
+than the bug. So the trap states the test — *tashdid? consonant. No tashdid?
+vowel.* — rather than a list to copy.
+
+**And the words he named by name went into `PRON_SEED`, beside the trap and not
+instead of it.** This repo's own rule: a cap stated only in a prompt is not a cap.
+The «تلفظ» tab is applied **after** verification, so nothing gates what gets in —
+which is exactly why it is a guarantee for the reported words and exactly why the
+tashdid family was deliberately kept out of it. A wrong row there ships.
+
+**Two of four new assertions measured nothing on first check.** One compared
+against a hand-typed string and went red on correct code, because `pronStrip_` also
+removes the hamza in «دربارهٔ» — *an assertion that compares against prose the
+author typed is measuring the author's memory.* The other claimed «توجه» stays
+untouched but searched for one specific spelling; when a deliberately wrong row was
+added to the tab it stayed green, because the injected text carried a fatha the
+search string did not. The claim is "the word is not changed", so that is what it
+compares now.
+
 ## The claim was written down, and the code did the opposite (7.68)
 
 He listened to a whole episode and said what no test could: the opening, the
