@@ -1077,6 +1077,39 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Two parts of one repo, two rulings on the same thing
+
+`voice-lab.yml` has refused GitHub Releases since the day it was written, and
+states why: *«این ریپو عمومی است و خروجیِ این آزمایش، صدای کلون‌شدهٔ یک شخصِ حقیقی
+است … لینکی که عمومی شد، «فردا بهترش می‌کنیم» ندارد.»* Artifacts only, one day of
+retention.
+
+**And the bridge publishes exactly that, publicly — a whole fifteen-minute episode
+in his cloned voice, on a public release, forever.** Two parts of one repo held
+opposite rulings on the same question and nobody had put them side by side. This
+file's own rule is that a contradiction is itself the finding (7.32); I found it
+while looking for somewhere to put listening samples, and the tempting move was to
+use the bridge's release because it was already there.
+
+**The answer is not to stop publishing — it is to revoke, the way this repo revokes
+everything else.** A release asset is the only route the engine has (an artifact
+cannot be downloaded from outside Actions, which is why section 36 chose releases
+over artifacts in the first place). So it behaves like the temporary Drive share:
+opened, used, and taken back. `dropCollected` deletes every asset whose queue row
+says «رسید», and it is the exact mirror of `vbrUnshare_` one boundary over.
+
+**The criterion is the queue's own «رسید», never elapsed time.** Deleting a file
+the engine has not collected loses that episode permanently *and* leaves the map
+saying "done", so nothing would ever rebuild it. And it runs before the work is
+picked and behind no condition, because the day the queue is empty is still a day
+the public file should not be sitting there.
+
+**One of the four new checks proved nothing and the honest fix was to relabel, not
+to keep it.** `if not done: return 0` looked like a guard; breaking it changed
+nothing, because with an empty set nothing matches anyway. It is a short-circuit
+and now says so — a line that looks like a gate and is not will mislead whoever
+reads it next.
+
 ## A rule stated generally is a rule nobody applies (7.69)
 
 He reported it with his own examples: the narrator reads «توجیه» as `tawjih` and
