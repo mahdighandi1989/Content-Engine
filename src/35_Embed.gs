@@ -1306,7 +1306,10 @@ function embStatus_(hub) {
               total: 0, done: 0, pending: 0, failed: 0, abandoned: 0, pct: 0,
               oldVer: 0, textVer: EMB_TEXT_VER, specsDone: '',
               shards: 0, stale: '', lastRun: null, selftest: null,
-              stuckDays: 0, nightsLeft: 0, at: '', line: '' };
+              stuckDays: 0, nightsLeft: 0, at: '', step: '', line: '' };
+  /* ردِ پا حتی وقتی بخش خاموش است هم خوانده می‌شود: اگر دیشب وسطِ کار
+     مُرده و امروز کسی خاموشش کرده، آن نشانه نباید گم شود. */
+  out.step = embStepRead_();
   if (!embOn_()) { out.line = 'اثر انگشتِ معنایی خاموش است.'; return out; }
   try {
     var ix = embIndex_();
@@ -1348,6 +1351,14 @@ function embStatus_(hub) {
     if (out.pending) bits.push('~' + faDigitsOut_(out.nightsLeft) + ' شب تا پایان');
     else bits.push('کامل');
     if (out.stale) bits.push('⚠ ایندکس کهنه: ' + out.stale);
+    /* ══ و وقتی گیر کرده، **کجا** گیر کرده (۷٫۶۴) ══
+       فقط در حالتِ گیرکرده، چون در شبِ سالم «پایان» است و گفتنش نویز.
+       جای مرگ باید در همان جمله‌ای باشد که خوانده می‌شود، نه در فایلی که
+       باید بازش کرد — وگرنه باز هم کسی باید برود دنبالش بگردد. */
+    if (out.stuckDays >= Math.max(1, Number(CFG.EMB_STUCK_DAYS) || 3) &&
+        out.step && out.step.indexOf('پایان') !== 0) {
+      bits.push('آخرین جایی که رسید: «' + out.step + '»');
+    }
     out.line = bits.join(' · ') + '.';
   } catch (e) {
     out.ok = false;
@@ -1433,6 +1444,30 @@ function embGates_(hub, st, self) {
  * ارزان، ولی وقتی هنوز چیزی ساخته نشده بی‌معناست. پس فقط وقتی ایندکس
  * چیزی دارد.
  */
+/* ══ ردِ پا: این دور کجا رسیده بود (۷٫۶۴) ══
+ *
+ * چهار شب پیاپی کارِ شبانه داخلِ همین بلوک مُرد و **هیچ‌جا ننوشت کجا**.
+ * ضربانِ `nightAtSave_` می‌گفت «اثر انگشتِ معنایی» — یعنی نامِ بلوک، نه
+ * جای مرگ. بیرون از این تابع هیچ‌کس نمی‌دانست ایست در جبرانِ مشخصات بوده،
+ * در مرکزها، در ساخت، یا در خودآزمون.
+ *
+ * این الگو دو بار در همین مخزن ساخته و جواب داده — `healthStep_` (۶٫۳۸) و
+ * `nightAtSave_` (۷٫۴۴) — و هر دو بار درسش یکی بود: **پیش از کار بنویس، نه
+ * پس از آن.** مهری که پس از کار نوشته شود، دقیقاً همان کاری که وقت را خورد
+ * و اجرا را کُشت هرگز ثبت نمی‌کند.
+ *
+ * و چون در `_STATUS.json` می‌نشیند، فردا صبح کسی لازم نیست دکمه‌ای بزند تا
+ * بفهمد کجا ایستاده. این جوابِ «تا کی باید حواسم به همه‌چیز باشد» است.
+ */
+function embStep_(name) {
+  try { props_().setProperty(PK.EMB_STEP, String(name || '') + ' @ ' + nowStr_()); }
+  catch (e) {}
+}
+
+function embStepRead_() {
+  try { return String(props_().getProperty(PK.EMB_STEP) || ''); } catch (e) { return ''; }
+}
+
 function embNightly_(opts) {
   opts = opts || {};
   var out = { ok: false, made: 0, failed: 0, self: null, left: 0, notes: [] };
@@ -1445,6 +1480,7 @@ function embNightly_(opts) {
      وقتی دورِ جبران تمام شد، این بند خودش کنار می‌رود. */
   var sp = null;
   if (opts.specs !== false && !embSpecsDone_()) {
+    embStep_('جبرانِ مشخصات');
     try { sp = embSpecsBackfill_(opts.specsCap, opts.specsMs); }
     catch (eSp) { out.notes.push('جبرانِ مشخصات ناموفق: ' + eSp.message); }
     if (sp && sp.filled) {
@@ -1457,29 +1493,59 @@ function embNightly_(opts) {
   /* مرکزهای جامانده — قطعه‌هایی که پیش از ۷٫۲۸ نوشته شده‌اند. پیش از
      ساخت، چون یک قطعهٔ بی‌مرکز همیشه خوانده می‌شود و تا وقتی مرکز نگیرد
      صرفه‌جوییِ جست‌وجو را خنثی می‌کند. */
+  embStep_('مرکزِ قطعه‌ها');
   try {
     var cf = embCentroidFix_(opts.centroidCap);
     if (cf.fixed) out.notes.push('مرکزِ ' + cf.fixed + ' قطعه حساب شد.');
   } catch (eCf) { out.notes.push('مرکزِ قطعه‌ها حساب نشد: ' + eCf.message); }
 
+  embStep_('ساختِ بردارها');
   var run = embRunDue_(opts.cap, opts.budgetMs);
   out.made = run.made; out.failed = run.failed; out.left = run.left;
   out.notes = run.notes.slice(0);
 
+  /* ══ شاهد **پیش از** کارِ اختیاری (۷٫۶۴ — قاعدهٔ ۷٫۴۴) ══
+     تا امروز این مُهر **پس از** خودآزمون نوشته می‌شد، و خودآزمون یک
+     رفت‌وبرگشتِ زندهٔ مدل است. یعنی شبی که ۱۲۰۰ ردیف ساخته می‌شد و بعد
+     در خودآزمون کشته می‌شد، **هیچ ردیفی ثبت نمی‌شد**: کار انجام شده بود و
+     دفتر می‌گفت هیچ. بعد `embStuckDays_` همان را «چند شب است جلو نرفته»
+     می‌خواند و یافته‌ای می‌ساخت که موضوعش درست نبود.
+     شاهدی که با خودِ حادثه بمیرد شاهد نیست. */
+  var lastRec = { at: nowStr_(), made: run.made, failed: run.failed,
+                  left: run.left, self: null };
+  try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP) {}
+
   var st = embStatus_(hub);
+
+  /* ══ و دنبالهٔ اختیاری، با سقف (۷٫۶۴ — قاعدهٔ ۷٫۳۱) ══
+     نگهبانِ شبانه ۲۳۰ ثانیه می‌خواهد و بودجه‌های اعلام‌شده ۲۱۰ ثانیه‌اند؛
+     ولی خودآزمون و خواندنِ **دوبارهٔ** وضعیتِ بانکِ ۵۰ هزار ردیفی در هیچ‌کدام
+     حساب نشده بودند. یعنی بلوک بیش از آنچه گرفته بود خرج می‌کرد — همان
+     نقضی که ۷٫۳۱ برای همین تابع نوشت و دنباله را ندید.
+     `embGates_` عمداً می‌تواند رد شود: از ۷٫۲۷ `healthCheck` هم صدایش
+     می‌زند، یعنی درِ دومی دارد. و ردشدن **گفته** می‌شود، وگرنه یک قابلیت
+     بی‌صدا خاموش می‌ماند. */
+  var tailMs = Math.max(0, Number(CFG.EMB_TAIL_MS) || 20000);
+  var roomy = true;
+  try { roomy = nightLeft_() >= tailMs; } catch (eN) { roomy = true; }
+
   var self = null;
-  if (st.total && st.done && opts.selftest !== false) {
+  if (!roomy) {
+    out.notes.push('دنبالهٔ اختیاری (خودآزمون و دروازه‌ها) امشب جا نشد — ' +
+                   'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.');
+  } else if (st.total && st.done && opts.selftest !== false) {
+    embStep_('خودآزمون');
     try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
   }
   out.self = self;
 
-  try {
-    props_().setProperty(PK.EMB_LAST, JSON.stringify(
-      { at: nowStr_(), made: run.made, failed: run.failed, left: run.left,
-        self: self ? { tried: self.tried, hit: self.hit, ratio: self.ratio,
-                       mode: self.mode, note: self.note } : null }));
-  } catch (eP) {}
+  if (self) {
+    lastRec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio,
+                     mode: self.mode, note: self.note };
+    try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP2) {}
+  }
 
+  embStep_('کارنامه');
   embLog_(hub, { step: 'شبانه', scanned: run.scanned, made: run.made,
                  failed: run.failed, done: st.done, total: st.total, pct: st.pct,
                  self: self && self.tried
@@ -1488,13 +1554,17 @@ function embNightly_(opts) {
 
   // وضعیت باید **پس از** ثبتِ کارنامه خوانده شود، وگرنه شمارِ «گیرکرده»
   // دورِ امشب را نمی‌بیند و یک شب عقب گزارش می‌دهد.
-  var st2 = embStatus_(hub);
-  embGates_(hub, st2, self);
+  var st2 = st;
+  if (roomy) {
+    st2 = embStatus_(hub);
+    embGates_(hub, st2, self);
+  }
 
   if (run.made) {
     mailQueue_('اثر انگشت', 'اثر انگشتِ معنایی — ' + faDigitsOut_(run.made) + ' ردیفِ تازه',
                st2.line + (run.notes.length ? '\n' + run.notes.join('\n') : ''));
   }
+  embStep_('پایان');
   out.ok = true;
   return out;
 }

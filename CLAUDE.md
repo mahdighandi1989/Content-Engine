@@ -1077,6 +1077,63 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Using "measure, don't guess" as a reason to do nothing (7.64)
+
+He asked why I had deliberately not finished the embed fault, and how long he
+has to keep watching everything. Both questions were fair and the first one has
+a precise answer: **I had turned a correct rule into a shield.**
+
+The rule says *don't patch a cause you have not proven*. It does not say *don't
+fix a fault you have proven*, and it certainly does not say *hand the
+measurement to the owner*. I had proven two faults from the source alone and
+shipped neither, then asked him to press a button to measure the third. That is
+the wrong division of labour: **the engine should measure itself; the owner
+should not be the instrument.**
+
+**The three faults, all provable without an Apps Script log:**
+
+- **No footprint.** Four nights the nightly died inside this block and nothing
+  anywhere recorded *where*. `nightAtSave_` gave the block's name, not the
+  phase. This exact pattern already existed twice in this repo — `healthStep_`
+  (6.38) and `nightAtSave_` (7.44) — and was not applied here. `embStep_` stamps
+  before each phase, `embStatus_` carries it, and the daily line prints it **only
+  when stuck**, so a healthy night stays quiet.
+- **The witness was written after the optional work.** `PK.EMB_LAST` was stamped
+  *after* `embSelfTest_`, a live model round-trip. A night that built 1,200 rows
+  and then died in the tail recorded **nothing** — the work happened and the
+  ledger said it never did, so `embStuckDays_` then raised a finding whose
+  subject was wrong. 7.44's own sentence, one section over.
+- **The tail had no ceiling.** The block takes 230 s from `nightHas_` and
+  declares 210 s of budget — then runs `embSelfTest_` and **two** full
+  `embStatus_` passes over a 50,568-row bank, none of it counted. That is 7.31's
+  invariant violated *inside the very function 7.31 was written about*: 7.31
+  compared the two constants and the tail was in neither. `EMB_TAIL_MS` closes
+  the arithmetic and `run_embed_test.js` ۲۰٫۴ now asserts
+  `EMB_SPECS_MS + EMB_BUDGET_MS + EMB_TAIL_MS ≤` the block's own `nightHas_`
+  number, read from the source.
+
+**Skipping is announced, and the gate has a second door.** `embGates_` may be
+skipped here because `healthCheck` also asks it (7.27) — but the skip is stated
+in the notes, because a capability that switches itself off in silence is how
+the music bank stayed empty for weeks.
+
+**And what the root cause is remains unproven, deliberately.** Why zero rows are
+built at all still needs the real execution log. The difference is that from
+tonight the engine answers that question *itself*: the footprint names the phase
+it died in, and it rides into the daily line. Nobody has to press anything.
+
+**Two of my own assertions measured nothing on first check**, and only running
+them showed it. One set `NIGHT_BUDGET_MS` to 1 to simulate "no time left" — and
+`nightLeft_` has a `Math.max(30000, …)` floor, so the setting was silently
+ignored and the tail still ran. That is 7.28's trap exactly (`EMB_SHARD_ROWS`
+clamped to 200), and the fix was to reach the state through the real comparison
+by raising the threshold instead. The other made `embSelfTest_` throw and then
+checked the ledger — but a throw is caught, so the **old** code reached the write
+too and the assertion could not fail. What actually kills a run is the six-minute
+cap, which cannot be simulated; so the claim is now measured the way it is
+stated: *at the moment the optional work begins, the witness must already be
+written*. Observed from inside the phase, and red on the pre-7.64 code.
+
 ## The reporter died and nothing said so (7.63)
 
 10:04 Dubai, `healthCheck` started and never finished. `health.lastStep` —

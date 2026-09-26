@@ -610,4 +610,111 @@ ok('۱۹.۳ جست‌وجو همان کارِ دیروز را می‌کند', of
    'خاموش‌بودنِ یک قابلیتِ تازه نباید قابلیتِ قدیمی را بشکند');
 CFG.EMB_ON = true;
 
+/* ══ ۲۰) شبی که وسطِ کار کشته می‌شود (۷٫۶۴) ══
+ *
+ * چهار شب پیاپی کارِ شبانه داخلِ این بلوک مُرد، `failed` صفر ماند، و
+ * هیچ‌جا ننوشت **کجا**. سه عیب، هر سه از روی کد ثابت‌شدنی و هیچ‌کدام
+ * نیازمندِ حدس دربارهٔ علتِ مرگ:
+ *   ۲۰.۱ ردِ پا نبود.
+ *   ۲۰.۲ شاهد (`EMB_LAST`) **پس از** خودآزمون نوشته می‌شد — کاری که
+ *        انجام شده بود با مرگ در دنباله از دفتر پاک می‌شد.
+ *   ۲۰.۳ دنباله سقفِ زمانی نداشت، پس بلوک بیش از آنچه از نگهبان گرفته
+ *        بود خرج می‌کرد (نقضِ قاعدهٔ ۷٫۳۱ در همان تابعی که برایش نوشته شد).
+ */
+{
+  console.log('\n══ ۲۰) مرگِ وسطِ دورِ شبانه ══');
+  const src35 = fs.readFileSync('src/35_Embed.gs', 'utf8');
+  const body = src35.slice(src35.indexOf('function embNightly_(opts) {'),
+                           src35.indexOf('function runEmbedBuild()'));
+
+  ok('۲۰.۱ هر مرحلهٔ دورِ شبانه پیش از شروعش مهر می‌خورد',
+     (body.match(/embStep_\(/g) || []).length >= 5 &&
+     body.indexOf('embStep_(') < body.indexOf('embRunDue_('),
+     'مهرِ پس از کار، همان کاری که وقت را خورد ثبت نمی‌کند');
+
+  /* ══ ۲۰.۲ از **داخلِ خودِ مرحله** نگاه می‌کنیم ══
+     نخستین شکلِ این سنجه خودآزمون را می‌ترکاند و بعد دفتر را می‌خواند —
+     و **هیچ چیز را ثابت نمی‌کرد**: آن پرتاب `catch` می‌شود، پس کدِ قدیمی
+     هم به خطِ ثبت می‌رسید. چیزی که واقعاً می‌کُشد، پرتاب نیست؛ سقفِ
+     شش‌دقیقه‌ایِ اپس‌اسکریپت است و آن را نمی‌شود شبیه‌سازی کرد.
+     پس ادعا را همان‌جوری که هست می‌سنجیم: **در لحظه‌ای که کارِ اختیاری
+     شروع می‌شود، شاهد باید از قبل نوشته شده باشد.** این با کدِ پیش از
+     ۷٫۶۴ قرمز می‌شود، چون آنجا مهر پس از خودآزمون نوشته می‌شد. */
+  {
+    delete global.__PROPS[PK.EMB_LAST];
+    delete global.__PROPS[PK.EMB_STEP];
+    let stampedBeforeTail = null, stepAtBuild = null;
+    const realSelf = global.embSelfTest_, realRun = global.embRunDue_;
+    global.embSelfTest_ = function () {
+      stampedBeforeTail = !!global.__PROPS[PK.EMB_LAST];
+      return realSelf.apply(null, arguments);
+    };
+    global.embRunDue_ = function () {
+      stepAtBuild = String(global.__PROPS[PK.EMB_STEP] || '');
+      return realRun.apply(null, arguments);
+    };
+    embNightly_({ cap: 5, budgetMs: 60000 });
+    global.embSelfTest_ = realSelf; global.embRunDue_ = realRun;
+
+    ok('۲۰.۲ وقتی کارِ اختیاری شروع می‌شود، کارِ ساخته‌شده از قبل ثبت شده',
+       stampedBeforeTail === true,
+       stampedBeforeTail === null ? 'خودآزمون اصلاً صدا زده نشد'
+                                  : ('EMB_LAST پیش از دنباله: ' + stampedBeforeTail));
+    ok('۲۰.۲-ب و ردِ پا **پیش از** خودِ مرحله نوشته می‌شود، نه بعدش',
+       /^ساختِ بردارها/.test(String(stepAtBuild || '')),
+       String(stepAtBuild || '(هیچ)'));
+  }
+
+  /* ۲۰.۳ سقفِ دنباله — با وقتِ تمام‌شده، خودآزمون **شروع نمی‌شود**، و
+     ردشدنش گفته می‌شود (۷٫۲۷: قابلیتی که بی‌صدا خاموش شود از نبودنش بدتر
+     است). */
+  {
+    /* ══ چرا از راهِ `EMB_TAIL_MS` و نه `NIGHT_BUDGET_MS` ══
+       نخستین شکلِ این سنجه بودجهٔ شب را ۱ گذاشت و **سبز ماند**: در
+       `nightLeft_` یک کفِ `Math.max(30000, …)` هست، پس عددِ ۱ هیچ اثری
+       نداشت و دنباله همچنان «جا داشت». همان تلهٔ ۷٫۲۸ — مقداری که تنظیم
+       می‌کنی و بی‌صدا نادیده گرفته می‌شود. پس آستانه را بالا می‌بریم تا
+       **همان مقایسهٔ واقعی** با `nightLeft_()ِ` واقعی انجام شود. */
+    const keepTail = CFG.EMB_TAIL_MS;
+    let called = 0;
+    const realSelf = global.embSelfTest_;
+    global.embSelfTest_ = function () { called++; return realSelf.apply(null, arguments); };
+    nightStart_();
+    CFG.EMB_TAIL_MS = 10 * 60 * 1000;           // بیش از هر وقتی که بتواند مانده باشد
+    const r = embNightly_({ cap: 5, budgetMs: 60000 });
+    CFG.EMB_TAIL_MS = keepTail;
+    global.embSelfTest_ = realSelf;
+    nightStart_();
+    ok('۲۰.۳ با وقتِ تمام‌شده، دنبالهٔ اختیاری شروع نمی‌شود',
+       called === 0, 'خودآزمون ' + called + ' بار صدا زده شد');
+    ok('۲۰.۳-ب و ردشدنش بی‌صدا نیست',
+       r.notes.some((n) => /دنبالهٔ اختیاری/.test(String(n))),
+       r.notes.join(' | ').slice(0, 110));
+  }
+
+  /* ۲۰.۴ و همان قاعده به‌صورتِ حساب: خرجِ اعلام‌شدهٔ بلوک — با دنباله —
+     نباید از عددی که از `nightHas_` گرفته بیشتر باشد. ۷٫۳۱ همین را
+     سنجید و دنباله را در حساب نیاورد. */
+  {
+    const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+    const m = /nightHas_\((\d+),\s*'اثر انگشتِ معنایی'\)/.exec(su);
+    const guard = m ? Number(m[1]) : 0;
+    const spend = (Number(CFG.EMB_SPECS_MS) || 0) + (Number(CFG.EMB_BUDGET_MS) || 0) +
+                  (Number(CFG.EMB_TAIL_MS) || 0);
+    ok('۲۰.۴ خرجِ بلوک (با دنباله) از آنچه از نگهبان گرفته بیشتر نیست',
+       guard > 0 && spend <= guard,
+       spend + 'ms خرج در برابرِ ' + guard + 'ms نگهبان');
+  }
+
+  // ۲۰.۵ و جای مرگ در همان جمله‌ای می‌آید که خوانده می‌شود، نه در فایلی جدا.
+  {
+    global.__PROPS[PK.EMB_STEP] = 'ساختِ بردارها @ 2026-09-22 02:45';
+    const st = embStatus_(hub);
+    const shown = st.stuckDays >= (Number(CFG.EMB_STUCK_DAYS) || 3);
+    ok('۲۰.۵ وضعیت ردِ پا را حمل می‌کند',
+       st.step.indexOf('ساختِ بردارها') === 0,
+       'و در حالتِ گیرکرده در خطِ روزانه هم می‌آید' + (shown ? ' (همین حالا گیرکرده)' : ''));
+  }
+}
+
 console.log('\nPASS=' + pass);
