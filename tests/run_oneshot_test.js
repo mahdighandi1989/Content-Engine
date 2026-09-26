@@ -234,9 +234,12 @@ console.log('=== ۴) نقشهٔ موسیقی وسطِ یک قسمت عوض نم�
   // ندارد، یعنی هیچ‌چیز را نمی‌سنجد.
   const realClip = global.musicClip_;
   global.musicClip_ = (id) => 'PCM-' + id;
+  /* `heard` لازم است: از ۷٫۶۸ قطعهٔ شنیده‌نشده پخش نمی‌شود. بدَلی که این
+     را نداشته باشد، قطعه‌ای را عادی نشان می‌دهد که در تولید اصلاً پخش
+     نمی‌شود — و آن‌وقت سنجهٔ ۴٫۰ روی آرایه‌ای می‌دوید که موسیقی ندارد. */
   global.musicBank_ = () => ([
-    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' },
-    { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' }
+    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', heard: '✅ مدل شنید: آهنگ' },
+    { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', heard: '✅ مدل شنید: آهنگ' }
   ]);
   // هر فراخوان نقشهٔ *دیگری* می‌دهد — دقیقاً همان چیزی که تکه‌ها را می‌لغزاند
   global.musicPlanModel_ = () => { calls++;
@@ -640,7 +643,8 @@ console.log('=== ۹) موسیقی با وایبِ همین قسمت کار دا�
   const realGT = global.geminiText_;
   global.geminiText_ = (p) => { seen = p; return null; };
   musicPlanModel_(
-    [{ id: 'A', name: 'الف', mood: 'آرام', slots: 'شروع', sec: 30, used: 0 }],
+    [{ id: 'A', name: 'الف', mood: 'آرام', slots: 'شروع', sec: 30, used: 0,
+       heard: '✅ مدل شنید: آهنگ' }],
     { title: 'ت', category: 'علمی و آموزشی', cast: 'Leda',
       bounds: [{ at: 0, kind: 'hook', heading: 'قلاب', tone: '', voice: 'Leda' },
                { at: 5, kind: 'section', heading: 'کودکی', tone: 'نوستالژیک', voice: 'Leda' },
@@ -790,9 +794,10 @@ console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، �
    * و یکی‌شان یک باگِ واقعی بود: بانک روی چهار قطعه یخ می‌زد. */
 
   const realBank = global.musicBank_;
+  // `heard` لازم است — از ۷٫۶۸ قطعهٔ شنیده‌نشده پخش نمی‌شود (سنجهٔ ۷٫۱۴).
   const mk = n => Array.from({ length: n }, (_, i) => ({
     id: 'T' + i, name: 'قطعه ' + i, sec: 30, gain: 1, used: 0,
-    slots: 'شروع، پایان، میانه', mood: 'آرام' }));
+    slots: 'شروع، پایان، میانه', mood: 'آرام', heard: '✅ مدل شنید: آهنگ' }));
 
   // الف) بانک تا رسیدن به هدف رشد می‌کند — «صفر نبودن» کافی نیست
   global.musicBank_ = () => mk(1);
@@ -805,7 +810,8 @@ console.log('=== ۱۱) روالِ موسیقی: رشد، ثبت، تکرار، �
   fams.forEach((f, fi) => {
     for (let n = 0; n < CFG.MUSIC_PER_MOOD; n++) {
       full.push({ id: 'F' + fi + '_' + n, name: f + ' ' + n, sec: 30, gain: 1, used: 0,
-                  slots: 'شروع، پایان، میانه', mood: f, kind: 'موسیقی' });
+                  slots: 'شروع، پایان، میانه', mood: f, kind: 'موسیقی',
+                  heard: '✅ مدل شنید: آهنگ' });
     }
   });
   global.musicBank_ = () => full;
@@ -942,7 +948,8 @@ console.log('=== ۱۳) تنوعِ بانک، و جلوه‌های صوتی که 
   // الف) پوشش بر حسبِ خانواده شمرده می‌شود، نه عددِ تخت
   global.musicBank_ = () => Array.from({ length: 9 }, (_, i) => ({
     id: 'P' + i, name: 'پیانو ' + i, sec: 30, gain: 1, used: 0,
-    slots: 'شروع، پایان، میانه', mood: 'آموزشی، شمرده', kind: 'موسیقی' }));
+    slots: 'شروع، پایان، میانه', mood: 'آموزشی، شمرده', kind: 'موسیقی',
+    heard: '✅ مدل شنید: آهنگ' }));
   const cov = musicCoverage_();
   ok('۱۳.۱ نُه قطعه از یک خانواده، بانک را پُر نمی‌کند',
      cov.gaps.length > 0, JSON.stringify(cov.gaps.slice(0, 3)));
@@ -1021,7 +1028,7 @@ console.log('=== ۱۴) گشتن هرگز نمی‌ایستد: بانکِ پُر 
 
   const mk = (n, used) => ({ id: 'T' + n, name: 't' + n, kind: 'موسیقی',
     mood: 'آموزشی', slots: 'شروع میانه پایان', sec: 30, gain: 1,
-    used: used, heard: '', lastAt: '' });
+    used: used, heard: '✅ مدل شنید: آهنگ', lastAt: '' });  // ۷٫۶۸: بی داوری پخش نمی‌شود
 
   // بانکی که پوششش کامل است و همه‌اش فرسوده
   global.musicBank_ = () => [mk(1, 9), mk(2, 7), mk(3, 12), mk(4, 8), mk(5, 6)];
@@ -1649,7 +1656,8 @@ console.log('=== ۲۴) «موسیقیِ یک‌ثانیه‌ای» — سه عل
     const bnds = [], bnk = [];
     for (let i = 0; i < 6; i++) bnds.push({ at: i * 10 + 5, heading: 'ب' + i, tone: '' });
     for (let i = 0; i < 6; i++) bnk.push({ id: 'X' + i, name: 'x' + i, kind: 'موسیقی',
-      mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '' });
+      mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '',
+      heard: '✅ مدل شنید: آهنگ' });
     const w = bridgeFill_([], bnds, bnk, '', 3);
     ok('۲۴.۶ پشتوانه چند مرز را در طولِ برنامه پخش می‌کند', w.length === 3,
        String(w.length));
@@ -1687,7 +1695,8 @@ console.log('=== ۲۵) «موسیقیِ میانه فقط یک بار پخش م�
   for (let i = 0; i < 6; i++) bounds.push({ at: i * 10 + 5, heading: 'ب' + i, tone: '' });
   const bank = [];
   for (let i = 0; i < 6; i++) bank.push({ id: 'T' + i, name: 't' + i, kind: 'موسیقی',
-    mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '' });
+    mood: '', slots: 'میانه', sec: 30, gain: 1, used: 0, lastAt: '',
+    heard: '✅ مدل شنید: آهنگ' });
 
   // مدل یکی داده — کف باید بقیه را پر کند
   let want = [{ at: bounds[0].at, track: bank[0], why: 'مدل', head: 'ب0' }];
@@ -2373,8 +2382,8 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
     global.musicClip_ = (id, o) => { seen.push({ id: id, fi: o.fadeIn, fo: o.fadeOut,
                                                  len: o.lenSec, bed: o.bedIn }); return 'PCM-' + id; };
     global.musicBank_ = () => ([
-      { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' },
-      { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م' }
+      { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', heard: '✅ مدل شنید: آهنگ' },
+      { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', heard: '✅ مدل شنید: آهنگ' }
     ]);
     global.musicPlanModel_ = () => ({ introId: 'A', outroId: 'B',
       bridges: [{ after: '0', id: 'B' }], sfx: [], mood: 'م' });
@@ -2509,7 +2518,8 @@ console.log('=== ۳۴) قطعهٔ سه‌ثانیه‌ای، موسیقیِ آغ
    * سه‌ثانیه‌ای می‌ساخت — و چون بارِ استفاده‌اش صفر بود، امتیازِ
    * «کم‌مصرف‌تر جلوتر» جلوترش هم می‌انداخت. */
   const mk = (id, sec) => ({ id: id, name: id, kind: 'موسیقی', mood: '',
-    slots: 'شروع، پایان، میانه', sec: sec, gain: 1, used: 0, lastAt: '' });
+    slots: 'شروع، پایان، میانه', sec: sec, gain: 1, used: 0, lastAt: '',
+    heard: '✅ مدل شنید: آهنگ' });   // ۷٫۶۸: بی داوری پخش نمی‌شود
   const bank = [mk('کوتاه', 3), mk('بلند', 30)];
 
   ok('۳۴.۱ قطعهٔ سه‌ثانیه‌ای برای آغاز انتخاب نمی‌شود',
@@ -2553,9 +2563,9 @@ console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ==
   global.musicClip_ = (id) => 'PCM-' + id;
   global.musicMarkUsed_ = (h, picks) => { marked += (picks || []).length; return 0; };
   global.musicBank_ = () => ([
-    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 },
-    { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 },
-    { id: 'C', name: 'ج', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0 }
+    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0, heard: '✅ مدل شنید: آهنگ' },
+    { id: 'B', name: 'ب', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0, heard: '✅ مدل شنید: آهنگ' },
+    { id: 'C', name: 'ج', sec: 60, gain: 1, slots: ['شروع', 'پایان', 'میانه'], mood: 'م', used: 0, heard: '✅ مدل شنید: آهنگ' }
   ]);
   // مدل هیچ شناسه‌ای نمی‌دهد — یعنی انتخاب کاملاً به musicPick_ می‌افتد،
   // همان‌جایی که شمارنده‌ها تصمیم می‌گیرند. بدترین حالت، و باید بسته باشد.
@@ -2601,7 +2611,7 @@ console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ==
      پایان، `track.slot = ...` دومی اولی را بازنویسی می‌کرد: در قسمتِ ۱۸ هیچ
      ردیفِ «شروع» در تبِ کاربرد نبود، با اینکه موسیقیِ آغاز پخش شده بود. */
   global.musicBank_ = () => ([
-    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان'], mood: 'م', used: 0 }
+    { id: 'A', name: 'الف', sec: 60, gain: 1, slots: ['شروع', 'پایان'], mood: 'م', used: 0, heard: '✅ مدل شنید: آهنگ' }
   ]);
   delete global.__PROPS[PK.MUSIC_PLAN];
   const r6 = musicWrap_(mk(), null, Object.assign({}, opt, { episode: 20 }));

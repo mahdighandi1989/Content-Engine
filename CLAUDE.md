@@ -1077,6 +1077,72 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The claim was written down, and the code did the opposite (7.68)
+
+He listened to a whole episode and said what no test could: the opening, the
+bridges and the close of many episodes **are not music**. Breathing. A motorcycle.
+Street noise. On episodes that are already published and already going into clips.
+His words were «آبرو بر» and «حیثیتم رفت», and he added that the monitor had said
+nothing for weeks and that I had told him three times it was fixed.
+
+**The evidence came from Drive, not from reasoning.** One bank track's metadata
+file, written 23 September:
+
+```json
+"heard":   "",
+"verdict": "مدل نشنید؛ از روی اندازه‌ها: …"
+```
+
+So `musicAccept_` returns `ok: true` when the model never listened. And this file,
+in the section about this very code, says in bold: **«پیش‌فرض ردّ است** … مدلِ غایب،
+تأییدِ خاموش نیست» — *the default is reject; an absent model is not silent
+approval.* **The sentence was written and the code did the opposite.** That is the
+7.24 shape at its worst: not a safety claim that is slightly false, but one that is
+exactly inverted, in the one place nobody re-checks because it is already written
+down.
+
+**And the second layer is why "unknown blocks playback" felt true.** It *was*
+true — for effects. 5.65 built that gate inside the sound-effect path. For music,
+`heardCanEdge_` only ever rejected «زمینه» and said nothing about an empty verdict,
+so a track nobody had ever heard passed both gates and opened the show.
+
+`heardPlayable_` now implements the written rule: no verdict, no playback, in any
+slot. The one exception stays what it always was — a note a human wrote, because
+the user's taste is never erased.
+
+**Silence is better than a motorcycle, but silent silence is not.** Blocking the
+unheard means episodes can come out with no music at all, so the count has to be
+visible: `musicStatus_().line` says every day how many tracks are playable and how
+many are unheard, in the 10:00 mail and in the episode mail. That number lived only
+in a sheet tab, and he does not open sheets (5.90) — which is the whole reason this
+ran for months with only his ear to report it.
+
+**And a backlog that does not clear is itself a finding.** `music-unheard` after
+`MUSIC_UNHEARD_DAYS`, with a verifier, in the `NEEDS_CODE` queue. Its stamp is
+written by the event rather than by a counter that resets nightly (7.22), and it is
+deleted the moment the count reaches zero — a warning for a state that no longer
+exists is how a warning becomes noise.
+
+**The worst part was a test, and it is worth stating plainly.** `run_music_test.js`
+۷٫۱۴ asserted: *«ردیفِ بی‌داوری با این سد کنار گذاشته نمی‌شود — سدِ «نامعلوم» جای
+دیگری است»*. There was no other gate. **The assertion guaranteed the bug**, and it
+passed every night for months. An assertion can lock in a wrong reading as firmly
+as it guards a right one, and nothing in a green suite tells the two apart (7.46).
+It is now inverted, and it goes red on the pre-7.68 code.
+
+**Eight test doubles were lenient where production has to be strict.** Not one
+music fixture in any suite carried a `heard` value, so every double presented as
+normal exactly the state that is a disaster in production (7.24). Fixing them
+turned three unrelated assertions red — which is itself the proof that the gate
+bites.
+
+**And the shape, for the fourth time:** *cleaning the input does not fix what is
+already written* (5.95). Each previous "fixed" closed the door for **new**
+downloads; nothing ever re-listened to what was already in the bank. When the owner
+says "I have told you this repeatedly", the default assumption should be that the
+symptom was treated and the cause was not — and that whatever already exists was
+never revisited. That is now §۴٫۹٫۴ of the monitor prompt.
+
 ## The same wall, from the other side, in the section built after it (7.66)
 
 The bridge worked. Run 18, 09:56→10:16 Dubai: the **whole** of درس‌نامه ۴۹

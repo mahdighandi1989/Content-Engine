@@ -1334,6 +1334,14 @@ function selfVerifyMap_() {
        شرطِ اضافه هیچ ردیفی را به‌غلط نمی‌بندد — برعکسش (سنجنده‌ای که
        شرطِ خودش را نبیند) همان چیزی است که ۷٫۵۷ برایش ساخته شد. */
     'voice-bridge-toobig': { what: 'voiceBridge', still: bad('voiceBridge') },
+    /* «قطعهٔ نشنیده» را خودِ وضعیت می‌گوید، پس سنجنده‌اش همان عدد است —
+       نه `ok` که موسیقی اصلاً ندارد. `null` یعنی نمی‌دانیم (۷٫۵۷). */
+    'music-unheard':       { what: 'music', still: function (st) {
+      var o = st && st.music;
+      if (!o || typeof o !== 'object') return null;
+      if (typeof o.unheard !== 'number') return null;
+      return o.unheard > 0;
+    } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },

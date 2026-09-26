@@ -183,12 +183,7 @@ function outRootFolderNames_() {
        ریشه نیست — ریشه فقط چیزی را نگه می‌دارد که موتور با نام پیدایش
        می‌کند. بی این ردیف، همان شبِ اول یک هشدارِ «ناشناخته» می‌ساخت
        برای پوشه‌ای که خودِ موتور ساخته بود. */
-    String(CFG.EMB_FOLDER || ''),
-    /* پوشهٔ کپیِ مدل‌های پلِ رنگِ صدا (بخشِ ۳۶، `vbrModelFolder_`). همان
-       شکلِ «voice cloning» در ۷٫۲۱ و `_VOICE-RENDER.json` در ۷٫۴۶: پوشه از
-       ۷٫۳۶ ساخته و نوشته می‌شد ولی اینجا ثبت نشده بود، پس هر شب در
-       `outLayout.strays` «چیزِ ناشناخته» گزارش می‌شد. */
-    String(CFG.VBR_FOLDER || '')
+    String(CFG.EMB_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -1700,6 +1695,18 @@ function healthCheck() {
     var baS = bridgeAuditStatus_(hub);
     if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
   } catch (eBa2) {}
+  /* ══ موسیقی، هر روز، حتی وقتی خبری نیست (۷٫۶۸) ══
+     تا ۷٫۶۶ موسیقی فقط وقتی حرف می‌زد که بانک خالی بود. «چند قطعه هست»
+     گزارش می‌شد و «چند تا شنیده شده» هیچ‌جا — و آن عددِ دوم همان چیزی
+     بود که اهمیت داشت: قطعهٔ نشنیده ماه‌ها سرِ آغازِ قسمت‌ها پخش شد و
+     تنها کسی که فهمید صاحبِ برنامه بود، با گوشش. */
+  try {
+    var muS = musicStatus_();
+    if (muS && muS.line) {
+      if (Number(muS.unheard) > 0) problems.push(muS.line); else notes.push(muS.line);
+    }
+    musicUnheardCheck_(hub, muS);
+  } catch (eMu) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
   if (healthHas_(6000, 'مدل‌ها', skipped)) try {
