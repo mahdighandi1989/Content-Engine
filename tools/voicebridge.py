@@ -174,6 +174,64 @@ def wavSeconds(path):
         return 0.0
 
 
+def pieceCap():
+    """سقفِ هر تکه، بایت. پیش‌فرض ۴۰ مگ.
+
+    ══ چرا تکه‌تکه (۷٫۶۶) ══
+    `UrlFetchApp` — تنها راهی که موتور دارد — پاسخِ بزرگ‌تر از ۵۰ مگابایت
+    را نمی‌گیرد. اولین خروجیِ واقعیِ پل ۷۰٫۹ مگابایت شد، یعنی گردش‌کار سبز
+    می‌شد و موتور هرگز نمی‌توانست برش دارد. همین سقف را بخشِ ۲۷ برای
+    **آپلودِ** یوتیوب از روزِ اول نوشته بود؛ طرفِ دانلودش بسته نبود.
+    ۴۰ و نه ۴۵: هدرِ WAV و گردکردنِ مرزِ فریم چند کیلوبایت اضافه می‌کنند و
+    سقفی که درست سرِ لبه بنشیند سقف نیست.
+    """
+    try:
+        mb = float(os.environ.get("VBR_PIECE_MB", "40"))
+    except ValueError:
+        mb = 40.0
+    return int(max(4.0, mb) * 1048576)
+
+
+def splitWav(path, cap):
+    """فایل را به تکه‌های زیرِ `cap` ببُر و فهرستِ **مرتب** را بده.
+
+    ترتیب از نامِ خودِ ffmpeg (`%03d`) می‌آید و با `sorted` پایدار است —
+    نه از حجم و نه از ترتیبِ گشتنِ پوشه. همان قاعدهٔ `ytAudioParts_`.
+
+    و بازبینی پس از بُرش اجباری است: جمعِ طولِ تکه‌ها باید با طولِ اصل
+    بخوانَد. بُرشی که چیزی گم کند از تحویل ندادن بدتر است، چون نامِ
+    فایل‌ها می‌گوید «کلِ قسمت».
+    """
+    size = os.path.getsize(path)
+    sec = wavSeconds(path)
+    if size <= cap:
+        return [path]
+    if sec <= 0:
+        return []
+    rate = float(size) / sec                      # بایت بر ثانیه، از خودِ فایل
+    segSec = max(10, int(cap / rate))
+    pat = "vb/piece%03d.wav"
+    for f in sorted(__import__("glob").glob("vb/piece*.wav")):
+        os.remove(f)
+    subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", path,
+                           "-f", "segment", "-segment_time", str(segSec),
+                           "-c", "copy", pat])
+    out = sorted(__import__("glob").glob("vb/piece*.wav"))
+    if not out:
+        return []
+    tot = sum(wavSeconds(p) for p in out)
+    if abs(tot - sec) > max(1.0, sec * 0.01):
+        say("::error title=بُرش ناقص::%.1f ثانیه در تکه‌ها برابرِ %.1f ثانیهٔ "
+            "اصل نیست." % (tot, sec))
+        return []
+    for p in out:
+        if os.path.getsize(p) > cap:
+            say("::error title=تکه بزرگ ماند::%s — %d بایت"
+                % (p, os.path.getsize(p)))
+            return []
+    return out
+
+
 def main():
     fid = os.environ.get("VBR_QUEUE_ID", "").strip()
     if not fid:
@@ -274,22 +332,43 @@ def main():
             "کلِ قسمت تبدیل نشده، پس ردیف بسته نمی‌شود." % (outSec, srcSec))
         return 1
 
-    rel = ensureRelease()
-    name = key.replace(":", "-").replace("/", "-") + ".wav"
-    url = uploadAsset(rel, best, name)
-    if not url:
-        say("::error title=آپلود نشد::نشانیِ فایل برنگشت.")
+    cap = pieceCap()
+    pieces = splitWav(best, cap)
+    if not pieces:
+        say("::error title=تکه‌تکه نشد::خروجی زیرِ سقفِ دانلود بُرش نخورد؛ "
+            "ردیف بسته نمی‌شود.")
         return 1
 
-    mp["items"][key] = {"url": url, "bytes": size,
-                        "minutes": round(mins, 1),
-                        "parts": len(parts),
-                        "speaker": str(it.get("speaker") or ""),
-                        "at": __import__("datetime").datetime.utcnow()
-                        .strftime("%Y-%m-%dT%H:%M:%SZ")}
+    rel = ensureRelease()
+    base = key.replace(":", "-").replace("/", "-")
+    urls, pbytes = [], []
+    for i, pp in enumerate(pieces):
+        nm = base + (".wav" if len(pieces) == 1
+                     else "-%dof%d.wav" % (i + 1, len(pieces)))
+        u = uploadAsset(rel, pp, nm)
+        if not u:
+            say("::error title=آپلود نشد::%s — نشانی برنگشت." % nm)
+            return 1
+        urls.append(u)
+        pbytes.append(os.path.getsize(pp))
+
+    # ══ `url` فقط برای تکِ تنها ══
+    # موتورِ ۷٫۶۵ و پیش‌تر `urls` را نمی‌شناسد و فقط `url` را می‌خوانَد. پس
+    # در حالتِ چندتکه `url` **نوشته نمی‌شود** — عمدی: آن موتور منتظر
+    # می‌مانَد به‌جای اینکه تکهٔ اول را به‌عنوانِ کلِ قسمت کنارِ اصل بگذارد.
+    # همان امتناعِ بخشِ ۲۷ از انتشارِ مجموعهٔ ناقص.
+    rec = {"urls": urls, "pieceBytes": pbytes, "bytes": sum(pbytes),
+           "seconds": round(outSec, 1), "minutes": round(mins, 1),
+           "parts": len(parts), "pieces": len(pieces),
+           "speaker": str(it.get("speaker") or ""),
+           "at": __import__("datetime").datetime.utcnow()
+           .strftime("%Y-%m-%dT%H:%M:%SZ")}
+    if len(urls) == 1:
+        rec["url"] = urls[0]
+    mp["items"][key] = rec
     saveMap(mp)
-    say("  ✔ %s — %.1f مگابایت، %.1f دقیقه کار"
-        % (name, size / 1048576.0, mins))
+    say("  ✔ %s — %.1f مگابایت (خامش %.1f) در %d تکه، %.1f ثانیه، %.1f دقیقه کار"
+        % (base, sum(pbytes) / 1048576.0, size / 1048576.0, len(pieces), outSec, mins))
     return 0
 
 

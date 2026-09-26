@@ -1328,6 +1328,12 @@ function selfVerifyMap_() {
     'night-starve':        { what: 'nightStarve', still: bad('nightStarve') },
     'embed-stalled':       { what: 'embed', still: bad('embed') },
     'voice-bridge-stuck':  { what: 'voiceBridge', still: bad('voiceBridge') },
+    /* ۷٫۶۶: همان وضعیت هر دو را می‌پوشاند، چون `vbrStatus_().ok` با حجمِ
+       زیاد هم نادرست می‌شود. فراگیرتر از لازم است و این جهتِ **بی‌خطر**
+       است: سنجنده فقط می‌تواند بستنِ نادرست را رد کند، پس پوشاندنِ یک
+       شرطِ اضافه هیچ ردیفی را به‌غلط نمی‌بندد — برعکسش (سنجنده‌ای که
+       شرطِ خودش را نبیند) همان چیزی است که ۷٫۵۷ برایش ساخته شد. */
+    'voice-bridge-toobig': { what: 'voiceBridge', still: bad('voiceBridge') },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },

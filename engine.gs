@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.65
+ *  موتور محتوا و پادکست — نسخهٔ 7.66
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1263,7 +1263,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.65',
+  CODE_VERSION: '7.66',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1411,6 +1411,13 @@ var CFG = {
   VBR_TRY_MAX: 3,                    // بعدش «رهاشده»، جدا شمرده می‌شود
   VBR_STUCK_DAYS: 3,                 // درخواستِ بی‌پاسخ ⇒ یافتهٔ NEEDS_CODE
   VBR_MIN_BYTES: 200000,             // کمتر از این، فایل نیست
+  /* ══ سقفِ دانلود، همان دیوارِ بخشِ ۲۷ از طرفِ دیگر (۷٫۶۶) ══
+     `UrlFetchApp` پاسخِ بزرگ‌تر از ۵۰ مگابایت را نمی‌گیرد. بخشِ ۲۷ همین
+     سقف را برای **آپلودِ** یوتیوب نوشته بود («آپلودِ Apps Script سقفِ ۵۰
+     مگابایت دارد») و بخشِ ۳۶ طرفِ دانلودش را نبسته بود — اولین خروجیِ
+     واقعیِ پل ۷۰٫۹ مگابایت درآمد. پس خروجی تکه‌تکه می‌آید و هر تکه زیرِ
+     این عدد است. */
+  VBR_MAX_BYTES: 45000000,           // تکهٔ بزرگ‌تر از این برداشته نمی‌شود
   /* پارامترهای تبدیل — همان ترکیبی که بالاترین عدد را داد (۰٫۷۴۴). */
   VBR_PITCH: '-12',
   VBR_INDEX_RATE: '1.0',
@@ -15640,6 +15647,12 @@ function selfVerifyMap_() {
     'night-starve':        { what: 'nightStarve', still: bad('nightStarve') },
     'embed-stalled':       { what: 'embed', still: bad('embed') },
     'voice-bridge-stuck':  { what: 'voiceBridge', still: bad('voiceBridge') },
+    /* ۷٫۶۶: همان وضعیت هر دو را می‌پوشاند، چون `vbrStatus_().ok` با حجمِ
+       زیاد هم نادرست می‌شود. فراگیرتر از لازم است و این جهتِ **بی‌خطر**
+       است: سنجنده فقط می‌تواند بستنِ نادرست را رد کند، پس پوشاندنِ یک
+       شرطِ اضافه هیچ ردیفی را به‌غلط نمی‌بندد — برعکسش (سنجنده‌ای که
+       شرطِ خودش را نبیند) همان چیزی است که ۷٫۵۷ برایش ساخته شد. */
+    'voice-bridge-toobig': { what: 'voiceBridge', still: bad('voiceBridge') },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
@@ -52391,11 +52404,65 @@ function vbrOutName_(item, speakerName) {
          String(speakerName || item.speaker) + '.wav';
 }
 
-/** خروجی را بردار و کنارِ اصل بگذار. اصل دست نمی‌خورد. */
-function vbrFetch_(item, url, speakerName) {
+/**
+ * نامِ یک تکه. تکِ تنها همان نامِ قبلی را دارد؛ چندتایی «۱ از ۲» می‌گیرد.
+ *
+ * همان قاعدهٔ نام‌گذاریِ `ytAudioParts_` در بخشِ ۲۷: ترتیب از **نام**
+ * خوانده می‌شود، نه از حجم و نه از ترتیبِ گشتنِ درایو.
+ */
+function vbrPieceName_(item, speakerName, i, n) {
+  var nm = vbrOutName_(item, speakerName);
+  if (Number(n) <= 1) return nm;
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  return nm.replace(/\.wav$/, '') + ' ' + fa(i + 1) + ' از ' + fa(n) + '.wav';
+}
+
+/**
+ * تکه‌های یک خروجی، به ترتیب — و **هرگز نیمی از یک مجموعه**.
+ *
+ * ══ چرا نقشه دو شکل دارد ══
+ * تا ۷٫۶۵ نقشه یک `url` داشت. اولین خروجیِ واقعی ۷۰٫۹ مگابایت شد و
+ * `UrlFetchApp` سقفِ ۵۰ مگابایتی دارد، پس از ۷٫۶۶ گردش‌کار خروجی را
+ * تکه‌تکه می‌کند و `urls` می‌نویسد. `url` فقط وقتی نوشته می‌شود که
+ * **یک** تکه باشد — عمدی: موتورِ قدیمی‌تر که `urls` را نمی‌شناسد، در
+ * حالتِ چندتکه هیچ چیز برنمی‌دارد و منتظر می‌مانَد، به‌جای اینکه نیمی از
+ * قسمت را کنارِ اصل بگذارد. همان امتناعِ `ytAudioParts_` از انتشارِ
+ * مجموعهٔ ناقص؛ نیمهٔ یک قسمت از تأخیرِ یک قسمت بدتر است.
+ */
+function vbrHitPieces_(hit) {
+  var out = [];
+  if (!hit) return out;
+  var us = hit.urls;
+  if (us && Object.prototype.toString.call(us) === '[object Array]' && us.length) {
+    var bs = (Object.prototype.toString.call(hit.pieceBytes) === '[object Array]')
+      ? hit.pieceBytes : [];
+    for (var i = 0; i < us.length; i++) {
+      if (!us[i]) return [];                 // یک نشانیِ غایب ⇒ مجموعه ناقص است
+      out.push({ url: String(us[i]), bytes: Number(bs[i]) || 0 });
+    }
+    return out;
+  }
+  if (hit.url) out.push({ url: String(hit.url), bytes: Number(hit.bytes) || 0 });
+  return out;
+}
+
+/** یک تکه را بردار و کنارِ اصل بگذار. اصل دست نمی‌خورد. */
+function vbrFetchOne_(item, piece, nm) {
+  /* ══ سقف پیش از دانلود سنجیده می‌شود، نه بعدش (۷٫۶۶) ══
+     نقشه خودش حجم را نوشته، پس این سنجش **هیچ فراخوانِ شبکه‌ای ندارد** —
+     و مهم‌تر: خطای «پاسخ بزرگ‌تر از حد» چیزی است که هیچ تلاشِ دوباره‌ای
+     حلش نمی‌کند، پس نباید به‌عنوانِ تلاشِ ناموفق شمرده شود. `hard` همین
+     را می‌گوید. */
+  var cap = Math.max(1000000, Number(CFG.VBR_MAX_BYTES) || 45000000);
+  if (piece.bytes && piece.bytes > cap) {
+    return { ok: false, hard: true,
+             why: 'تکه ' + Math.round(piece.bytes / 1000000) + ' مگابایت است و ' +
+                  'سقفِ برداشتِ ما ' + Math.round(cap / 1000000) +
+                  ' مگابایت — گردش‌کار باید ریزتر تکه کند' };
+  }
   var res = null;
   try {
-    res = UrlFetchApp.fetch(String(url), { muteHttpExceptions: true, followRedirects: true });
+    res = UrlFetchApp.fetch(String(piece.url), { muteHttpExceptions: true, followRedirects: true });
   } catch (e) { return { ok: false, why: 'دانلود نشد: ' + String(e.message).slice(0, 80) }; }
   if (res.getResponseCode() !== 200) return { ok: false, why: 'کدِ ' + res.getResponseCode() };
   var blob = null;
@@ -52404,7 +52471,6 @@ function vbrFetch_(item, url, speakerName) {
   if (!chk.ok) return { ok: false, why: chk.why };
   try {
     var fold = DriveApp.getFolderById(String(item.folderId));
-    var nm = vbrOutName_(item, speakerName);
     // هم‌نامِ قبلی؟ جایگزین می‌شود، ولی **اصل** هرگز دست نمی‌خورد.
     var old = fold.getFilesByName(nm);
     while (old.hasNext()) { try { old.next().setTrashed(true); } catch (eT) {} }
@@ -52412,6 +52478,34 @@ function vbrFetch_(item, url, speakerName) {
     return { ok: true, why: '', id: f.getId(), name: nm,
              bytes: (blob.getBytes() || []).length };
   } catch (e3) { return { ok: false, why: 'در پوشه ننشست: ' + String(e3.message).slice(0, 80) }; }
+}
+
+/**
+ * کلِ خروجی را بردار — همه‌اش یا هیچ‌اش.
+ *
+ * تکه‌ای که نشست و بعد تکهٔ بعدی نیامد، **پاک می‌شود**: مجموعهٔ نیمه در
+ * پوشهٔ قسمت همان چیزی است که بخشِ ۲۷ از انتشارش امتناع می‌کند، و اینجا
+ * بدتر هم هست چون نامش می‌گوید «با صدای فلانی» و کسی که بشنود فکر
+ * می‌کند قسمت همین‌قدر بوده.
+ */
+function vbrFetch_(item, hit, speakerName) {
+  var ps = vbrHitPieces_(hit);
+  if (!ps.length) return { ok: false, why: 'نقشه نشانیِ کاملی ندارد' };
+  var made = [], bytes = 0, names = [];
+  for (var i = 0; i < ps.length; i++) {
+    var nm = vbrPieceName_(item, speakerName, i, ps.length);
+    var r = vbrFetchOne_(item, ps[i], nm);
+    if (!r.ok) {
+      for (var j = 0; j < made.length; j++) {
+        try { DriveApp.getFileById(made[j]).setTrashed(true); } catch (eT) {}
+      }
+      return { ok: false, hard: r.hard === true,
+               why: (ps.length > 1 ? 'تکهٔ ' + (i + 1) + ' از ' + ps.length + ': ' : '') + r.why };
+    }
+    made.push(r.id); names.push(r.name); bytes += Number(r.bytes) || 0;
+  }
+  return { ok: true, why: '', id: made[0], ids: made,
+           name: names.join(' + '), bytes: bytes, pieces: ps.length };
 }
 
 /** اشتراکِ موقتِ یک ردیف را پس بگیر — پیش از بستنِ ردیف، نه بعدش. */
@@ -52435,7 +52529,7 @@ function vbrUnshare_(item) {
  * را به نویز تبدیل می‌کند (۵٫۸۸).
  */
 function vbrIngest_(hub) {
-  var out = { got: [], failed: [], unshared: 0, abandoned: 0, told: 0 };
+  var out = { got: [], failed: [], unshared: 0, abandoned: 0, told: 0, tooBig: 0 };
   if (CFG.VBR_ON === false) return out;
   var map = vbrMapCached_();
   if (!map) return out;
@@ -52446,12 +52540,15 @@ function vbrIngest_(hub) {
     var it = d.items[i];
     if (String(it.status || '') !== 'در انتظار') continue;
     var hit = map[String(it.key)];
-    if (!hit || !hit.url) continue;
-    var r = vbrFetch_(it, hit.url, names[String(it.speaker)] || it.speaker);
+    if (!hit || !vbrHitPieces_(hit).length) continue;
+    var r = vbrFetch_(it, hit, names[String(it.speaker)] || it.speaker);
     if (r.ok) {
       it.status = 'رسید'; it.doneAt = nowStr_(); it.outId = r.id;
+      if (it.hardWhy) delete it.hardWhy;
       it.outName = r.name; it.bytes = r.bytes;
       it.seconds = Number(hit.seconds) || 0;
+      it.pieces = Number(r.pieces) || 1;
+      if (r.ids && r.ids.length > 1) it.outIds = r.ids;
       it.jobMinutes = Number(hit.minutes) || 0;
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
@@ -52465,9 +52562,30 @@ function vbrIngest_(hub) {
                      told: tell.sent, how: tell.how });
       vbrLog_(hub, it, 'رسید', r.name +
               (tell.sent ? ' · تلگرام: ' + tell.how : ' · تلگرام نرفت: ' + tell.why));
+    } else if (r.hard) {
+      /* ══ سقف، تلاشِ ناموفق نیست (۷٫۶۶) ══
+         تلاش شمردن یعنی پس از `VBR_TRY_MAX` ردیف «رهاشده» می‌شود — و
+         «رهاشده» یعنی «دیگر اتفاقی نمی‌افتد»، که برای خرابیِ خودِ ما
+         دروغ است: خروجی آمده، فقط ریزتر تکه نشده. شبانه هم هر شب تلاش
+         می‌کند، پس بی این تفکیک قسمتِ ۴۹ سه شب بعد خودبه‌خود رها می‌شد.
+         همان قاعدهٔ «رهاشده جدا از عقب‌مانده» (۵٫۸۸) و «هشدار با موضوعِ
+         غلط» (۷٫۱۸/۷٫۳۲).
+
+         و ردیف در کارنامه فقط وقتی نوشته می‌شود که **دلیل عوض شده** —
+         وگرنه هر شب یک ردیفِ تکراری، که کارنامه را بی‌مصرف می‌کند. */
+      var was = String(it.hardWhy || '');
+      it.lastWhy = r.why; it.hardWhy = r.why;
+      out.tooBig++;
+      if (was !== r.why) vbrLog_(hub, it, 'برداشته نشد', r.why);
+      out.failed.push({ key: it.key, why: r.why, tries: Number(it.tries) || 0, hard: true });
+      changed = changed || (was !== r.why);
+      continue;
     } else {
       it.tries = (Number(it.tries) || 0) + 1;
       it.lastWhy = r.why;
+      /* شکستِ نرم یعنی سقف دیگر مانع نیست (گردش‌کار ریزتر تکه کرده) — پس
+         شاهدِ سقف پاک می‌شود، وگرنه یک حالتِ رفع‌شده تا ابد گزارش می‌شود. */
+      if (it.hardWhy) delete it.hardWhy;
       var max = Math.max(1, Number(CFG.VBR_TRY_MAX) || 3);
       if (it.tries >= max) {
         it.status = 'رهاشده'; it.doneAt = nowStr_();
@@ -52532,23 +52650,43 @@ function vbrTgTell_(item, speakerName, got) {
             'صوتی که منتشر و ایمیل شد عوض نشده.' +
             '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
 
-  var blob = null;
-  try { blob = DriveApp.getFileById(String((got && got.id) || item.outId)).getBlob(); }
-  catch (eB) { blob = null; }
-
-  if (blob) {
+  /* ══ چند تکه ⇒ چند پیام، و هر کدام شمارهٔ خودش را دارد (۷٫۶۶) ══
+     تا ۷٫۶۵ فقط `got.id` فرستاده می‌شد. با خروجیِ چندتکه آن یعنی نیمِ
+     قسمت زیرِ عنوانِ «قسمت ۴۹ با صدای رضوی» — همان ادعای نیمه‌ای که
+     همین نسخه در پوشهٔ درایو جلوش را گرفت. مرز در دو جا لازم است، چون
+     او از تلگرام می‌شنود، نه از درایو. */
+  var ids = (got && got.ids && got.ids.length) ? got.ids
+            : [String((got && got.id) || item.outId || '')];
+  var faP = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var okAny = false;
+  for (var pi = 0; pi < ids.length; pi++) {
+    var blob = null;
+    try { blob = DriveApp.getFileById(String(ids[pi])).getBlob(); }
+    catch (eB) { blob = null; }
+    if (!blob) continue;
+    var capP = cap + (ids.length > 1
+      ? '\n\n<b>تکهٔ ' + faP(pi + 1) + ' از ' + faP(ids.length) + '</b>' : '');
+    var ttl = 'قسمت ' + ep + ' — ' + who +
+              (ids.length > 1 ? ' (' + (pi + 1) + '/' + ids.length + ')' : '');
+    var done = false;
     try {
-      tgApi_('sendAudio', { chat_id: tgChat_(), audio: blob, caption: cap,
-                            parse_mode: 'HTML', title: 'قسمت ' + ep + ' — ' + who,
-                            performer: who });
-      out.sent = true; out.how = 'صوت'; return out;
+      tgApi_('sendAudio', { chat_id: tgChat_(), audio: blob, caption: capP,
+                            parse_mode: 'HTML', title: ttl, performer: who });
+      out.how = 'صوت'; done = true;
     } catch (e1) { out.why = String(e1 && e1.message || e1).slice(0, 80); }
-    try {
-      tgApi_('sendDocument', { chat_id: tgChat_(), document: blob,
-                               caption: cap, parse_mode: 'HTML' });
-      out.sent = true; out.how = 'فایل'; return out;
-    } catch (e2) { out.why = String(e2 && e2.message || e2).slice(0, 80); }
+    if (!done) {
+      try {
+        tgApi_('sendDocument', { chat_id: tgChat_(), document: blob,
+                                 caption: capP, parse_mode: 'HTML' });
+        out.how = 'فایل'; done = true;
+      } catch (e2) { out.why = String(e2 && e2.message || e2).slice(0, 80); }
+    }
+    if (done) okAny = true;
+    /* یک تکهٔ نرفته یعنی مجموعه ناقص رسیده — پس به پلهٔ لینک سقوط
+       می‌کنیم، نه اینکه «رفت» بگوییم. */
+    else { okAny = false; break; }
   }
+  if (okAny) { out.sent = true; return out; }
 
   /* آخرین پله: حجم از سقف رد شده یا بایت‌ها خوانده نشدند. لینک همیشه
      می‌رود، وگرنه او اصلاً خبردار نمی‌شود که فایلی آمده. */
@@ -52622,7 +52760,8 @@ function vbrStuckDays_() {
  */
 function vbrStatus_() {
   var out = { on: CFG.VBR_ON !== false, replace: CFG.VBR_REPLACE === true,
-              waiting: 0, done: 0, abandoned: 0, stuckDays: 0, ok: true, line: '' };
+              waiting: 0, done: 0, abandoned: 0, stuckDays: 0, ok: true, line: '',
+              answered: 0, tooBig: 0, tooBigWhy: '' };
   try {
     var d = vbrRead_();
     /* ══ «هرگز نوشته نشده» ≠ «نوشته شد و خالی بود» ══
@@ -52638,9 +52777,37 @@ function vbrStatus_() {
        از جایی بیاید که نمی‌تواند به‌خطا بیفتد. */
     out.rev = Number(d.rev) || 0;
     out.everWritten = out.rev >= 1;
+    /* ══ «بی‌پاسخ» با «پاسخ آمد و برداشته نشد» یکی نیست (۷٫۶۶) ══
+       تا ۷٫۶۵ هر ردیفِ «در انتظار» بی‌پاسخ حساب می‌شد، پس یک خروجیِ
+       بزرگ‌ترازِ سقف سه روز بعد یافتهٔ `voice-bridge-stuck` می‌ساخت با
+       جملهٔ «هیچ خروجی‌ای ننشسته» — که **دروغ** بود: نشسته بود، ما
+       نمی‌توانستیم برش داریم. همان «متهم کردنِ طرفِ اشتباه» (۷٫۱۸/۷٫۳۲).
+
+       ══ و چرا از خودِ ردیف خوانده می‌شود، نه از نقشه ══
+       نسخهٔ اولِ همین بند `vbrMapCached_()` را صدا می‌زد. ولی `vbrStatus_`
+       را `writeStatus_` صدا می‌زند — یعنی سرِ `healthCheck` و هر
+       `syncCatalog` — پس یک فراخوانِ شبکه به داغ‌ترین تابعِ موتور اضافه
+       می‌شد. این **عیناً** اشتباهِ ۷٫۶۳ است: هزینه گذاشتن روی همان تابعی
+       که تازه از هزینه مُرده بود. و سه مجموعهٔ آزمون هم همان‌جا شکستند،
+       چون پاسخ‌های ماک‌شدهٔ مدل یکی جابه‌جا شد.
+       شاهد همان‌جایی نوشته می‌شود که حادثه رخ داده: `vbrIngest_` روی ردیف
+       `hardWhy` می‌زند. پس این شمارش **هیچ خواندنِ تازه‌ای ندارد** — همان
+       شرطِ `selfVerifyMap_`. */
     for (var i = 0; i < d.items.length; i++) {
-      var st = String(d.items[i].status || '');
-      if (st === 'در انتظار') out.waiting++;
+      var itS = d.items[i];
+      var st = String(itS.status || '');
+      if (st === 'در انتظار') {
+        out.waiting++;
+        var hw = String(itS.hardWhy || '');
+        /* «پاسخ آمد» یعنی یا سقف جلویش را گرفت، یا دستِ‌کم یک تلاش شده —
+           هر دو فقط وقتی ممکن‌اند که نقشه نشانی داشته باشد. ردیفی که
+           هیچ‌کدام را ندارد، واقعاً بی‌پاسخ است. */
+        if (hw || (Number(itS.tries) || 0) > 0) out.answered++;
+        if (hw) {
+          out.tooBig++;
+          if (!out.tooBigWhy) out.tooBigWhy = String(itS.key) + ' — ' + hw;
+        }
+      }
       else if (st === 'رسید') out.done++;
       else if (st === 'رهاشده') out.abandoned++;
     }
@@ -52666,6 +52833,13 @@ function vbrStatus_() {
   if (out.done) bits.push('ساخته‌شده: ' + fa(out.done));
   if (out.waiting) bits.push('در انتظار: ' + fa(out.waiting));
   if (out.abandoned) bits.push('رهاشده: ' + fa(out.abandoned));
+  /* این جدا از «در انتظار» گفته می‌شود، چون علتش جای دیگری است و راهِ
+     حلش هم: گردش‌کار باید ریزتر تکه کند، نه اینکه صبر کنیم. */
+  if (out.tooBig) {
+    out.ok = false;
+    bits.push('برداشته نشد (حجم): ' + fa(out.tooBig) +
+              (out.tooBigWhy ? ' — ' + out.tooBigWhy : ''));
+  }
   /* ══ «هرگز نوشته نشده» را **همیشه** بگو (۷٫۴۶) ══
      تا ۷٫۴۵ این جمله زیرِ شرطِ «گوینده‌ای روشن است» بود، پس دقیقاً در
      حالتِ شروع — که هیچ گوینده‌ای روشن نیست — هرگز نمی‌آمد. و همان حالت
@@ -52718,7 +52892,7 @@ function vbrStatus_() {
     ? ' · ⚠️ صوتِ منتشرشده **با همین** ساخته می‌شود.'
     : ' · فایلِ تبدیل‌شده کنارِ اصل می‌نشیند؛ صوتِ منتشرشده عوض نشده.';
   var days = Math.max(1, Number(CFG.VBR_STUCK_DAYS) || 3);
-  if (out.waiting > 0 && out.stuckDays >= days) {
+  if ((out.waiting - out.answered) > 0 && out.stuckDays >= days) {
     out.ok = false;
     out.line += ' — و ' + fa(out.stuckDays) + ' روز است پاسخی از گردش‌کارِ پل نرسیده.';
   }
@@ -52748,7 +52922,10 @@ function vbrStatus_() {
 function vbrStuckCheck_(hub, st) {
   try {
     var days = Math.max(1, Number(CFG.VBR_STUCK_DAYS) || 3);
-    if (!st || st.stuckDays < days || st.waiting <= 0) return false;
+    /* ردیفی که نقشه جوابش را دارد بی‌پاسخ نیست — حتی اگر برداشته نشده
+       باشد. آن یکی موضوعِ دیگری است و یافتهٔ خودش را دارد (۷٫۶۶). */
+    if (!st || st.stuckDays < days) return false;
+    if ((Number(st.waiting) || 0) - (Number(st.answered) || 0) <= 0) return false;
     logSelfFinding_(hub || getHub_(), {
       priority: 'جدی', category: 'پلِ صدا', key: 'voice-bridge-stuck',
       title: 'صفِ پلِ رنگِ صدا ' + st.stuckDays + ' روز است بی‌پاسخ مانده',
@@ -52760,6 +52937,50 @@ function vbrStuckCheck_(hub, st) {
                    'اگر اجرا سبز است ولی نقشه عوض نشده، مرحلهٔ آپلودِ ' +
                    'release asset را نگاه کن. پس از اصلاح، فردا وارسی کن ' +
                    'که ردیفِ تازه‌ای در «' + VBR_TAB + '» نشسته باشد.',
+      owner: ROWNER_CODE
+    });
+    return true;
+  } catch (e) { return false; }
+}
+
+/**
+ * خروجی‌ای که آمد و در سقفِ دانلود جا نشد، **خودش** یافته است — و
+ * موضوعش با «بی‌پاسخ ماندن» یکی نیست.
+ *
+ * ══ چرا یافته و نه یک جملهٔ دیگر در ایمیل ══
+ * یک جمله در ایمیلِ فردا جایش را به جملهٔ دیگری می‌دهد؛ یافته نه. و
+ * این وضع تا نسخهٔ تازهٔ کد (یا گردش‌کار) عوض نشود خودبه‌خود حل نمی‌شود،
+ * پس صفِ `NEEDS_CODE` جای درستش است. بدونِ این، ردیف در «در انتظار»
+ * می‌مانَد و سه روز بعد `voice-bridge-stuck` گردش‌کار را به کاری متهم
+ * می‌کند که کرده است.
+ *
+ * یک شبِ بد یافته نمی‌سازد لازم نیست اینجا: این حالت گذرا نیست — حجمِ
+ * فایل فردا کوچک‌تر نمی‌شود.
+ *
+ * ══ و چرا درِ دومی روی `healthCheck` گذاشته نشد ══
+ * قاعدهٔ ۷٫۳۹/۷٫۴۶ می‌گوید وارسی را روی مسیرِ مستقل هم بگذار. ولی ۷٫۶۳
+ * بهایش را داد: شش درِ دومِ مستقل روی همان یک تابعِ روزانه سوار شده بود
+ * و هیچ‌کس جمعشان را با سقف نسنجیده بود — و آن تابع مُرد. اینجا کانالِ
+ * مستقل از قبل هست و هزینه‌ای ندارد: `vbrStatus_().line` هر روز در
+ * ایمیلِ ۱۰:۰۰ می‌آید و خودش این وضع را با نام می‌گوید. یافته حافظهٔ
+ * دیرپاست، سطرِ روزانه چشمِ هر روز.
+ */
+function vbrBigCheck_(hub, st) {
+  try {
+    if (!st || !(Number(st.tooBig) || 0)) return false;
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'پلِ صدا', key: 'voice-bridge-toobig',
+      title: 'خروجیِ پل آمد ولی از سقفِ دانلودِ Apps Script بزرگ‌تر است',
+      detail: st.tooBig + ' قسمت در «' + vbrFileName_() + '» خروجی دارند و ' +
+              'برداشته نمی‌شوند' + (st.tooBigWhy ? ' (' + st.tooBigWhy + ')' : '') +
+              '. `UrlFetchApp` پاسخِ بزرگ‌تر از ۵۰ مگابایت را نمی‌گیرد، پس ' +
+              'هیچ تلاشِ دوباره‌ای این را حل نمی‌کند — و همین است که این ' +
+              'ردیف‌ها «رهاشده» نمی‌شوند.',
+      instruction: 'گردش‌کارِ `voice-bridge` باید خروجی را ریزتر تکه کند: ' +
+                   '`tools/voicebridge.py` تکه‌ها را زیرِ VBR_PIECE_MB نگه ' +
+                   'می‌دارد و `urls` می‌نویسد. اگر نقشه هنوز `url` تکی دارد، ' +
+                   'یعنی گردش‌کار با نسخهٔ قدیمی اجرا شده — دوباره اجرا شود. ' +
+                   'پاسخ را با کلیدِ همین یافته در manifest بنویس.',
       owner: ROWNER_CODE
     });
     return true;
@@ -52816,6 +53037,7 @@ function vbrNightly_(hub) {
   try {
     out.status = vbrStatus_();
     vbrStuckCheck_(h, out.status);
+    vbrBigCheck_(h, out.status);
   } catch (e3) {}
   return out;
 }

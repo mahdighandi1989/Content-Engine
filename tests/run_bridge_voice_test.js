@@ -102,7 +102,8 @@ UrlFetchApp.fetch = function (u) {
   return { getResponseCode: () => 200, getBlob: () => blobOf(wavBytes),
            getContentText: () => JSON.stringify({ items: {} }) };
 };
-const got = vbrFetch_(vbrRead_().items[0], 'https://example.invalid/x.wav', 'بهروز رضوی');
+const got = vbrFetch_(vbrRead_().items[0],
+                     { url: 'https://example.invalid/x.wav', bytes: 300012 }, 'بهروز رضوی');
 ok('۴.۱ فایل در پوشهٔ قسمت نشست', got.ok === true, got.why || '');
 ok('۴.۲ نامش خودش را معرفی می‌کند',
    /با صدای بهروز رضوی/.test(got.name), got.name);
@@ -803,6 +804,235 @@ console.log('\n══ ۱۷) فایلی که فقط در درایو بنشیند�
        msg.indexOf('روشن') !== -1 && msg.indexOf('موردی') !== -1 && /تیک/.test(msg),
        msg.slice(msg.indexOf('⚠️')).slice(0, 220));
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ * ۲۰) سقفِ دانلود — و اینکه «سقف» تلاشِ ناموفق نیست (۷٫۶۶)
+ *
+ * اولین خروجیِ واقعیِ پل (۲۶ سپتامبر، قسمتِ ۴۹) ۷۰٫۹ مگابایت درآمد.
+ * `UrlFetchApp` سقفِ ۵۰ مگابایتی دارد، پس گردش‌کار سبز بود و موتور هرگز
+ * نمی‌توانست برش دارد — و بدتر: هر تلاش شمرده می‌شد، یعنی سه شب بعد
+ * ردیف خودبه‌خود «رهاشده» می‌شد برای خرابیِ خودِ ما.
+ *
+ * هر سنجهٔ اینجا از **`vbrIngest_`** وارد می‌شود، نه از `vbrFetch_` —
+ * قاعدهٔ ۷٫۴۴/۷٫۶۲: سنجه‌ای که تابعِ تازه را صدا بزند تابع را اثبات
+ * می‌کند؛ فقط سنجه‌ای که از جایی شروع کند که تولید شروع می‌کند، خودِ
+ * قابلیت را اثبات می‌کند.
+ * ══════════════════════════════════════════════════════════════════════ */
+console.log('\n══ ۲۰) سقفِ دانلود، تکه‌تکه، و «رهاشده» که نباید بشود ══');
+{
+  const rf = UrlFetchApp.fetch;
+  const bigWav = 'RIFF' + '....' + 'WAVE' + 'y'.repeat(300000);
+  const bl = (t) => Utilities.newBlob(t, 'audio/wav', 'x.wav');
+  const fold = OUT.createFolder('قسمت ۹۰');
+  fold.createFile('قسمت ۹۰ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const seed = (key, hit) => {
+    const d = vbrRead_();
+    d.items = [{ key: key, show: 'variety', ep: '90', folderId: fold.getId(),
+                 speaker: 'razavi', status: 'در انتظار', at: nowStr_(),
+                 audio: [], tries: 0 }];
+    vbrSave_(d);
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        const it = {}; it[key] = hit;
+        return { getResponseCode: () => 200,
+                 getContentText: () => JSON.stringify({ items: it }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => bl(bigWav) };
+    };
+    _vbrMapMemo = null;
+  };
+  const names = () => { const it = fold.getFiles(), a = []; while (it.hasNext()) a.push(it.next().getName()); return a; };
+
+  /* ۲۰.۱ — تکِ بزرگ‌تر از سقف: برداشته نمی‌شود، **و تلاش شمرده نمی‌شود**. */
+  CFG.VBR_TRY_MAX = 2;
+  seed('variety:90', { url: 'https://example.invalid/big.wav', bytes: 70942444 });
+  const b1 = vbrIngest_(hub);
+  ok('۲۰.۱ تکهٔ بزرگ‌تر از سقف برداشته نمی‌شود',
+     b1.got.length === 0 && b1.tooBig === 1,
+     'tooBig=' + b1.tooBig + ' · ' + ((b1.failed[0] || {}).why || ''));
+  ok('۲۰.۱-ب و دلیلش هر دو عدد را نام می‌بَرد',
+     /\b71\b/.test(String((b1.failed[0] || {}).why)) &&
+     /\b45\b/.test(String((b1.failed[0] || {}).why)),
+     String((b1.failed[0] || {}).why));
+  /* و این همان سنجه‌ای است که کلِ نسخه برایش نوشته شد: با شمردنِ تلاش،
+     شبانه سه شب بعد قسمت را «رهاشده» می‌کرد — برای خروجی‌ای که آمده بود. */
+  _vbrMapMemo = null; const b2 = vbrIngest_(hub);
+  _vbrMapMemo = null; const b3 = vbrIngest_(hub);
+  const row1 = vbrRead_().items.filter((x) => x.key === 'variety:90')[0];
+  ok('۲۰.۲ سه دورِ پیاپی و ردیف هنوز «در انتظار» است، نه «رهاشده»',
+     row1.status === 'در انتظار' && b2.abandoned === 0 && b3.abandoned === 0 &&
+     (Number(row1.tries) || 0) === 0,
+     'status=' + row1.status + ' · tries=' + (row1.tries || 0));
+  /* و کارنامه یک ردیف می‌گیرد، نه سه — دلیل عوض نشده. */
+  const shB = hub.getSheetByName(VBR_TAB);
+  const rowsBig = (function () {
+    const last = shB.getLastRow(); let n = 0;
+    for (let i = 2; i <= last; i++) {
+      if (String(shB.getRange(i, 4, 1, 1).getValues()[0][0]) === 'برداشته نشد') n++;
+    }
+    return n;
+  })();
+  ok('۲۰.۳ و کارنامه یک ردیف می‌گیرد نه سه (دلیل عوض نشده)',
+     rowsBig === 1, 'ردیف: ' + rowsBig);
+
+  /* ۲۰.۴ — چندتکه: هر تکه یک فایل، نام‌ها شمارهٔ خودشان را دارند. */
+  seed('variety:91', { urls: ['https://example.invalid/a.wav',
+                              'https://example.invalid/b.wav'],
+                       pieceBytes: [30000000, 30000000], seconds: 900 });
+  vbrRead_(); // صف را با کلیدِ تازه بنویس
+  {
+    const d = vbrRead_();
+    d.items = [{ key: 'variety:91', show: 'variety', ep: '91', folderId: fold.getId(),
+                 speaker: 'razavi', status: 'در انتظار', at: nowStr_(), audio: [], tries: 0 }];
+    vbrSave_(d); _vbrMapMemo = null;
+  }
+  const p1 = vbrIngest_(hub);
+  const nm = names();
+  ok('۲۰.۴ خروجیِ دوتکه، دو فایل می‌سازد',
+     p1.got.length === 1 && nm.filter((n) => /۱ از ۲/.test(n)).length === 1 &&
+     nm.filter((n) => /۲ از ۲/.test(n)).length === 1, nm.join(' | '));
+
+  /* ۲۰.۵ — نیمهٔ یک مجموعه هرگز نمی‌مانَد. تکهٔ دوم خراب ⇒ اولی هم پاک. */
+  {
+    const d = vbrRead_();
+    d.items = [{ key: 'variety:92', show: 'variety', ep: '92', folderId: fold.getId(),
+                 speaker: 'razavi', status: 'در انتظار', at: nowStr_(), audio: [], tries: 0 }];
+    vbrSave_(d);
+    /* ══ پاسخ بر اساسِ **نشانی**، نه شمارندهٔ فراخوان ══
+       نسخهٔ اولِ همین سنجه شمارنده داشت — و `vbrSpeakerNames_()` پیش از
+       هر تکه `docs/voices.json` را می‌گیرد، پس تکهٔ **اول** بلابِ خراب
+       را می‌گرفت: هیچ فایلی نوشته نمی‌شد و حلقهٔ پاک‌سازی هرگز اجرا
+       نمی‌شد. سنجه سبز بود و چیزی را نمی‌سنجید — و فقط شکستنِ عمدیِ کد
+       نشانش داد (۷٫۴۴). */
+    UrlFetchApp.fetch = function (u) {
+      const s = String(u);
+      if (/voice-renders/.test(s)) {
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ items: {
+          'variety:92': { urls: ['https://example.invalid/g.wav',
+                                 'https://example.invalid/h.wav'],
+                          pieceBytes: [30000000, 30000000] } } }) };
+      }
+      if (/g\.wav$/.test(s)) return { getResponseCode: () => 200, getBlob: () => bl(bigWav) };
+      if (/h\.wav$/.test(s)) return { getResponseCode: () => 200, getBlob: () => bl('<html>no</html>') };
+      return { getResponseCode: () => 200, getContentText: () => '{}', getBlob: () => bl(bigWav) };
+    };
+    _vbrMapMemo = null;
+    const before92 = names().length;
+    const h1 = vbrIngest_(hub);
+    const after92 = names();
+    ok('۲۰.۵ تکهٔ دومِ خراب ⇒ تکهٔ اول هم نمی‌مانَد',
+       h1.got.length === 0 &&
+       /تکهٔ 2 از 2/.test(String((h1.failed[0] || {}).why)) &&   // اولی **نوشته شد**
+       after92.filter((n) => /قسمت 92/.test(n)).length === 0 &&
+       after92.length === before92,
+       'why=' + ((h1.failed[0] || {}).why || '—') + ' · فایل‌ها: ' + after92.join(' | '));
+  }
+
+  /* ۲۰.۶ — موتورِ قدیمی نیمهٔ قسمت را برنمی‌دارد: چندتکه ⇒ بی `url`. */
+  ok('۲۰.۶ نقشهٔ چندتکه بی `url` است، پس موتورِ قدیمی منتظر می‌مانَد',
+     vbrHitPieces_({ urls: ['a', 'b'] }).length === 2 &&
+     vbrHitPieces_({ urls: ['a', ''] }).length === 0 &&
+     vbrHitPieces_({ url: 'a' }).length === 1 &&
+     vbrHitPieces_({}).length === 0,
+     'نشانیِ غایب ⇒ مجموعهٔ ناقص ⇒ هیچ');
+
+  /* ۲۰.۷ — اتهام به طرفِ درست: ردیفی که نقشه جوابش را دارد «بی‌پاسخ»
+     نیست، پس `voice-bridge-stuck` نباید بلند شود. این همان شکلِ
+     ۷٫۱۸/۷٫۳۲ است: عددی که کسی را متهم می‌کند باید شاهدش را داشته باشد. */
+  {
+    const d = vbrRead_();
+    d.items = [{ key: 'variety:93', show: 'variety', ep: '93', folderId: fold.getId(),
+                 speaker: 'razavi', status: 'در انتظار', audio: [], tries: 0,
+                 at: '2026-01-01 00:00' }];              // بسیار قدیمی
+    vbrSave_(d);
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ items: {
+          'variety:93': { urls: ['https://example.invalid/z.wav'],
+                          pieceBytes: [70942444] } } }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => bl(bigWav) };
+    };
+    _vbrMapMemo = null;
+    /* از همان جایی وارد می‌شویم که تولید وارد می‌شود: شاهد را `vbrIngest_`
+       روی ردیف می‌زند، پس دست‌نویس کردنِ آن یعنی سنجیدنِ چیزی که موتور
+       هرگز نمی‌سازد (۷٫۲۲). */
+    vbrIngest_(hub);
+    const stB = vbrStatus_();
+    ok('۲۰.۷ ردیفِ پاسخ‌دار «بی‌پاسخ» شمرده نمی‌شود',
+       stB.waiting === 1 && stB.answered === 1 && stB.tooBig === 1,
+       'waiting=' + stB.waiting + ' answered=' + stB.answered + ' tooBig=' + stB.tooBig);
+    ok('۲۰.۷-ب پس گردش‌کار به بی‌پاسخی متهم نمی‌شود',
+       vbrStuckCheck_(hub, stB) === false && !/پاسخی از گردش‌کارِ پل نرسیده/.test(stB.line),
+       stB.line.slice(0, 160));
+    ok('۲۰.۸ ولی سطرِ روزانه خودِ وضع را با نام می‌گوید',
+       /برداشته نشد \(حجم\)/.test(stB.line) && stB.ok === false,
+       stB.line.slice(stB.line.indexOf('برداشته')).slice(0, 120));
+    ok('۲۰.۸-ب و یافته‌اش موضوعِ درست را دارد',
+       vbrBigCheck_(hub, stB) === true, 'voice-bridge-toobig');
+    ok('۲۰.۹ و سنجندهٔ خودوارسی تا این وضع برقرار است در را می‌بندد',
+       (function () {
+         const mp = selfVerifyMap_()['voice-bridge-toobig'];
+         return !!mp && mp.still({ voiceBridge: { ok: false } }) === true &&
+                mp.still({ voiceBridge: { ok: true } }) === false &&
+                mp.still({}) === null;
+       })(), 'بستنِ نادرست رد می‌شود، «نمی‌دانم» رفتارِ امروز است');
+  }
+
+  /* ══ ۲۰.۹-ب حالتی که رفع شده باید از گزارش برود ══
+     گردش‌کار که ریزتر تکه کند، سقف دیگر مانع نیست. اگر شاهدِ روی ردیف
+     پاک نشود، «برداشته نشد (حجم)» تا ابد در سطرِ روزانه می‌مانَد —
+     هشداری برای وضعی که وجود ندارد، همان چیزی که یاد می‌گیرند نادیده
+     بگیرند. این ادعا در نسخهٔ اول فقط در یک توضیح نوشته شده بود و هیچ
+     سنجه‌ای نداشت؛ شکستنِ عمدیِ کد نشانش داد. */
+  {
+    const d = vbrRead_();
+    d.items = [{ key: 'variety:94', show: 'variety', ep: '94', folderId: fold.getId(),
+                 speaker: 'razavi', status: 'در انتظار', at: nowStr_(), audio: [], tries: 0 }];
+    vbrSave_(d);
+    const answer = (bytes, good) => {
+      UrlFetchApp.fetch = function (u) {
+        const t = String(u);
+        if (/voice-renders/.test(t)) {
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ items: {
+            'variety:94': { urls: ['https://example.invalid/w.wav'], pieceBytes: [bytes] } } }) };
+        }
+        if (/w\.wav$/.test(t)) {
+          return { getResponseCode: () => 200, getBlob: () => bl(good ? bigWav : '<html>no</html>') };
+        }
+        return { getResponseCode: () => 200, getContentText: () => '{}', getBlob: () => bl(bigWav) };
+      };
+      _vbrMapMemo = null;
+      return vbrIngest_(hub);
+    };
+    answer(70942444, true);                       // اول: بزرگ‌تر از سقف
+    const s1 = vbrStatus_();
+    answer(30000000, false);                      // بعد: ریزتر، ولی بایت‌ها خراب
+    const s2 = vbrStatus_();
+    ok('۲۰.۹-ب سقف که برداشته شد، «حجم» از گزارش می‌رود',
+       s1.tooBig === 1 && s2.tooBig === 0 && s2.answered === 1,
+       'اول tooBig=' + s1.tooBig + ' · بعد tooBig=' + s2.tooBig +
+       ' answered=' + s2.answered);
+  }
+
+  /* ══ ۲۰.۱۰ و ادعای خودِ این نسخه، سنجیده ══
+     نسخهٔ اولِ ۷٫۶۶ نقشه را در `vbrStatus_` می‌گرفت. `writeStatus_` این
+     تابع را صدا می‌زند، پس یک فراخوانِ شبکه روی داغ‌ترین مسیرِ موتور
+     می‌نشست — اشتباهِ ۷٫۶۳، عیناً. و سه مجموعهٔ دیگر همان‌جا شکستند چون
+     یک پاسخِ ماک‌شدهٔ مدل مصرف شد.
+     شمارش روی **تعدادِ فراخوان** است، نه زمان: ماک نه هابِ ۲۹ مگابایتی
+     دارد نه شبکه، پس زمان چیزی را نمی‌سنجد (۷٫۶۰). */
+  {
+    let n = 0;
+    UrlFetchApp.fetch = function (u) { n++; return { getResponseCode: () => 404,
+      getContentText: () => '{}', getBlob: () => bl(bigWav) }; };
+    _vbrMapMemo = null;
+    vbrStatus_();
+    ok('۲۰.۱۰ `vbrStatus_` هیچ فراخوانِ شبکه‌ای ندارد',
+       n === 0, 'فراخوان: ' + n + ' — `writeStatus_` این را صدا می‌زند');
+  }
+  UrlFetchApp.fetch = rf; _vbrMapMemo = null;
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -1077,6 +1077,75 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The same wall, from the other side, in the section built after it (7.66)
+
+The bridge worked. Run 18, 09:56→10:16 Dubai: the **whole** of درس‌نامه ۴۹
+converted — 17 minutes 56 seconds of runner time, 70.9 MB out, the map committed.
+So 7.65 was right and the next layer was standing, which is 7.50's rule for the
+second time in one day.
+
+**And the next layer is a wall this repo already documented.** `UrlFetchApp` will
+not take a response over 50 MB. Section 27 wrote that ceiling down on day one —
+«آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد» — for the **upload** side. Section 36,
+written eleven versions later, never closed the download side. `splitWav` now cuts
+the output under `VBR_PIECE_MB` and writes `urls`; the engine lands one file per
+piece, «۱ از ۲» and «۲ از ۲».
+
+**Three boundaries were needed beyond the split, and each is a lesson already in
+this file:**
+
+- **A ceiling is not a failed attempt.** Counting it as a try meant that after
+  `VBR_TRY_MAX` the row became «رهاشده» — for an output that had *arrived*. And
+  the nightly retries every night, so without the distinction episode 49 would
+  have abandoned itself three nights later, unprompted. 5.88's «رهاشده جدا از
+  عقب‌مانده», applied to our own defect rather than to the workflow's.
+- **A row whose answer arrived is not unanswered.** `voice-bridge-stuck` would
+  have fired in three days saying «هیچ خروجی‌ای ننشسته» — false: it had landed,
+  we could not take it. That is 7.18/7.32 exactly, and the new finding
+  (`voice-bridge-toobig`) carries the subject that is actually true. Its verifier
+  is deliberately wider than its own condition: over-inclusive can only ever
+  *refuse* a false close, and a verifier that cannot see its own condition is
+  what 7.57 was written for.
+- **Half a set never stays**, in the folder or in Telegram. A piece that landed
+  and whose successor failed is deleted, and a multi-piece map writes **no**
+  single `url` so an older engine waits rather than putting half an episode beside
+  the original under a name that claims the whole. `ytAudioParts_`'s refusal,
+  restated where it was missing. The Telegram notice needed it too — until now it
+  sent only the first piece, captioned «قسمت ۴۹ با صدای رضوی». The owner hears
+  from Telegram, not from Drive, so the boundary has to exist in both places.
+
+**And my own mistake in this very version was 7.63's, one section over.** The
+first cut of this asked `vbrMapCached_()` inside `vbrStatus_` — a function
+`writeStatus_` calls, so at the top of `healthCheck` and on every `syncCatalog`.
+I had put a network call on the hottest path in the engine, three days after
+writing down that adding cost to the function that had just died of cost is the
+shape to watch for. **Three suites went red and that is what showed it** — one
+mocked model response got consumed and shifted every later one. The witness is
+now stamped on the queue row itself (`hardWhy`) by the function that saw the
+failure, so the count costs nothing, and assertion ۲۰٫۱۰ counts **fetch calls**,
+not elapsed time, because the mock has no network (7.60).
+
+**Three of twenty-one new assertions measured nothing on first check**, and only
+breaking the code showed each one:
+
+- ۲۰٫۵ keyed its fake responses on a **call counter** — and `vbrSpeakerNames_()`
+  fetches `docs/voices.json` before any piece, so the *first* piece got the broken
+  blob. Nothing was ever written and the cleanup loop under test never ran. Keyed
+  on the URL now.
+- «the ceiling witness is cleared once the workflow cuts smaller» existed only in
+  a comment. Deleting the line left the suite green. ۲۰٫۹-ب holds it now.
+- And the Python harness had a trap of its own: `"40"` and `"50"` are the **same
+  byte length**, so `__pycache__` — keyed on mtime-seconds plus size — stayed
+  valid and the **broken** bytecode was re-loaded on restore. A double that is
+  wrong where production is right proves nothing, and this one was wrong in the
+  direction that hides a fix rather than a bug.
+
+**A number that gates work must be checked against the number it is measured in,
+across languages too.** The piece cap lives in Python and the download cap in
+`CFG`; `run_voicepipe_test.js` ۱۴٫۲ reads both **from source** and asserts
+piece < cap < 50 MB. That is 7.30/7.31's arithmetic, with the two constants now
+in two different files — which is exactly how they would have drifted.
+
 ## The ceiling that one of the two roads drove straight past (7.65)
 
 He pressed the manual embed button an hour after 7.64 shipped. Two things came
