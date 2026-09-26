@@ -1077,6 +1077,47 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The number that chose 1.0 now argues against it (7.70)
+
+He listened to a whole fifteen-minute episode and reported something no test could
+have: that characteristic in Razavi's voice — **a feature, not a defect**, the one
+he describes as someone who has just woken up — was present in roughly 98% of the
+words, and that does not match the long recordings he has heard of the man. Razavi
+deploys it selectively. The conversion spread it evenly.
+
+**My first word for it was «خش‌خش» and that was wrong**, and he corrected it. The
+name matters because a wrong name makes the next person do the wrong work: nothing
+here is being removed, the *proportion* is being restored.
+
+`index_rate` is exactly that lever — the higher it is, the harder every frame is
+pulled toward the speaker index, and the flatter the natural variation. It was set
+to 1.0 on 18 September for one reason: it scored highest on `rvcSim_` (0.744
+against 0.728). Lab run 66, four settings on one source:
+
+| index_rate | 0.40 | **0.66** | 0.85 | 1.00 |
+|---|---|---|---|---|
+| out_vs_ref | 0.755 | **0.779** | 0.776 | 0.770 |
+
+**The order flipped.** The whole range is 0.024, and it inverts when the source
+changes — so that number was never distinguishing these four at all. And the deeper
+problem is what it rewards: speaker-similarity cosine pays for *more of his texture
+everywhere*, which is precisely the artefact he complained about. **A measure that
+does not measure the goal must not make the decision** — the fifth instance of that
+shape in this file, and the first where the measure was actively pointing the wrong
+way rather than merely silent.
+
+**And the inline default had to move with it.** `String(CFG.VBR_INDEX_RATE || '1.0')`
+would silently restore the rejected value the day that config key went missing. Two
+numbers in two places that nobody compared (7.30/7.31), now compared by an assertion
+that reads both from source.
+
+**One of the two new assertions went green on an empty queue.** `!seen || …` is true
+when there is no row, so it proved nothing; it now enters where production enters —
+tick an episode, call `vbrAskDue_`, read the row that was actually written — and an
+empty queue is itself a failure. And my first deliberate breakage landed on the
+*other* assertion, because it destroyed the text pattern too; a breakage that lands
+on a different assertion does not prove the one you aimed at.
+
 ## Two parts of one repo, two rulings on the same thing
 
 `voice-lab.yml` has refused GitHub Releases since the day it was written, and

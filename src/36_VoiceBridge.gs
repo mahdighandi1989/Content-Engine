@@ -202,7 +202,11 @@ function vbrAsk_(show, epNum, folderId, speaker, title) {
               status: 'در انتظار',
               model: { pth: mdl.pth, index: mdl.index },
               params: { pitch: String(CFG.VBR_PITCH || '-12'),
-                        indexRate: String(CFG.VBR_INDEX_RATE || '1.0'),
+                        /* پیش‌فرضِ اینجا باید با `CFG` یکی باشد: اگر
+                           روزی آن کلید نباشد، این خط بی‌صدا همان ۱٫۰ را
+                           برمی‌گرداند که ۷٫۷۰ عمداً کنارش گذاشت. دو عدد
+                           در دو جا که کسی با هم نسنجیده باشد — ۷٫۳۰/۷٫۳۱. */
+                        indexRate: String(CFG.VBR_INDEX_RATE || '0.66'),
                         protect: String(CFG.VBR_PROTECT || '0.33') },
               audio: [] };
   for (var a = 0; a < au.length; a++) {

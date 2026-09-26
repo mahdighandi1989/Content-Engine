@@ -1035,5 +1035,36 @@ console.log('\n══ ۲۰) سقفِ دانلود، تکه‌تکه، و «ره�
   UrlFetchApp.fetch = rf; _vbrMapMemo = null;
 }
 
+console.log('\n══ ۲۱) پارامترِ تبدیل — یک عدد، یک جا (۷٫۷۰) ══');
+{
+  const src = require('fs').readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  const fb = /CFG\.VBR_INDEX_RATE \|\| '([^']+)'/.exec(src);
+  ok('۲۱.۱ پیش‌فرضِ درون‌خطی با `CFG` یکی است',
+     !!fb && fb[1] === String(CFG.VBR_INDEX_RATE),
+     'درون‌خطی ' + (fb && fb[1]) + ' · CFG ' + CFG.VBR_INDEX_RATE +
+     ' — دو عدد در دو جا که کسی با هم نسنجیده باشد');
+  /* و همان عددی که به گردش‌کار می‌رود، نه چیزِ دیگری — از راهی که تولید
+     می‌رود: یک قسمت تیک بخورد، `vbrAskDue_` صدا زده شود، و `params`ِ
+     ردیفی که واقعاً نوشته شد خوانده شود.
+     نسخهٔ اولِ این سنجه روی صفِ خالی سبز می‌شد («!seen ||») — یعنی هیچ
+     چیزی را نمی‌سنجید. صفِ خالی حالا خودش شکست است. */
+  {
+    const g2 = OUT.createFolder('قسمت ۹۹');
+    g2.createFile('قسمت ۹۹ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+    const rd2 = ytRenderRead_();
+    rd2.items = [{ key: 'variety:99', show: 'variety', ep: '99',
+                   folderId: g2.getId(), title: 'نود و نه' }];
+    ytRenderSave_(rd2);
+    const q0 = vbrRead_(); q0.items = []; vbrSave_(q0);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1,
+                      'آرام بخوان', '', '', ['variety:99']);
+    vbrAskDue_(hub);
+    const row = vbrRead_().items.filter((x) => String(x.key) === 'variety:99')[0];
+    ok('۲۱.۲ و همان عدد به صف می‌رود',
+       !!row && !!row.params && String(row.params.indexRate) === String(CFG.VBR_INDEX_RATE),
+       row ? ('params.indexRate=' + String((row.params || {}).indexRate)) : 'ردیفی نوشته نشد');
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 
