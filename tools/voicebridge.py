@@ -247,9 +247,30 @@ def main():
         return 1
 
     mp = loadMap()
+    def done(key):
+        """این کلید واقعاً جواب دارد؟
+
+        ══ چرا «در نقشه هست» کافی نیست ══
+        نقشه هم پاسخ است و هم دفترِ «انجام‌شده». ورودی‌های پیش از ۷٫۶۶ یک
+        `url` تکی دارند و ممکن است از سقفِ دانلودِ موتور بزرگ‌تر باشند —
+        یعنی پاسخی که هرگز برداشته نمی‌شود. و چون کلید در نقشه است، هیچ
+        اجرای بعدی هم دوباره نمی‌سازدش: پاسخ تا ابد غیرقابلِ‌استفاده
+        می‌مانَد و هیچ‌جا نمی‌گوید.
+
+        پس معیار «دستورِ پخت» است، نه «وجود داشتن» — همان `EMB_TEXT_VER`
+        در ۷٫۲۷: ردیفی که با دستورِ قدیمی ساخته شده انجام‌شده حساب نمی‌شود.
+        ورودیِ بی `urls` یک بار دوباره تبدیل می‌شود و بس، چون خروجیِ تازه
+        `urls` دارد. هیچ آدمی چیزی را دستی پاک نمی‌کند (۵٫۹۵).
+        """
+        rec = mp["items"].get(key)
+        if not rec:
+            return False
+        us = rec.get("urls")
+        return bool(us) and isinstance(us, list)
+
     todo = [it for it in (q.get("items") or [])
             if str(it.get("status") or "") == "در انتظار"
-            and str(it.get("key") or "") not in mp["items"]
+            and not done(str(it.get("key") or ""))
             and (it.get("audio") or []) and (it.get("model") or {}).get("pth")]
     say("صف: rev %s · %d ردیف · %d تای بی‌خروجی"
         % (q.get("rev"), len(q.get("items") or []), len(todo)))
