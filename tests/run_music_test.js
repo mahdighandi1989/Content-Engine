@@ -729,4 +729,68 @@ console.log('\n=== ۱۴. جملهٔ روزانه و یافتهٔ «نشنیده�
      'نبودِ عدد یعنی «نمی‌دانم»، نه «حل شد»');
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+ * ۱۵) دکمهٔ «🔎 بازبینیِ بانک» — پرداختِ یک قلم از دفترِ بدهی (۷٫۷۱)
+ *
+ * این دکمه در `MENU_DEBT` بود، یعنی هیچ مجموعه‌ای نامش را هم نبرده بود.
+ * و امروز همان دکمه‌ای است که به صاحبِ برنامه گفته شد بزند تا صفِ
+ * قطعه‌های شنیده‌نشده را خالی کند — یعنی **یک دکمه را توصیه کردم که
+ * هرگز فشار داده نشده بود**. درسِ ۷٫۴۳ با نامِ خودش: بازبین اجرا می‌کند،
+ * نمی‌خوانَد.
+ * ══════════════════════════════════════════════════════════════════════ */
+console.log('\n=== ۱۵. دکمهٔ بازبینیِ بانک، واقعاً فشرده ===');
+{
+  const hub = getHub_();
+  const sh = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+  const before = sh ? sh.getLastRow() : 0;
+
+  let threw = '', r = null;
+  try { r = runMusicRecheck(); } catch (e) { threw = e.message; }
+  ok('۱۵.۱ فشارِ دکمه خطا نمی‌دهد', threw === '', threw);
+  /* و چیزی برمی‌گرداند که بشود رویش حساب کرد — دکمه‌ای که کار کند و
+     نگوید چه کرد، از دکمهٔ خراب سخت‌تر تشخیص داده می‌شود (۱۹.۴ پل). */
+  ok('۱۵.۲ و شمارشش را برمی‌گرداند',
+     !!r && typeof r.checked === 'number' && typeof r.moved === 'number' &&
+     Object.prototype.toString.call(r.notes) === '[object Array]',
+     JSON.stringify(r && { checked: r.checked, moved: r.moved, kept: r.kept }));
+  ok('۱۵.۳ و تبِ موسیقی را خراب نمی‌کند',
+     !sh || sh.getLastRow() >= before, 'پیش ' + before + ' · پس ' + (sh && sh.getLastRow()));
+
+  /* ══ و مهم‌ترینش: روی بانکِ واقعی چه می‌کند ══
+     یک قطعهٔ شنیده‌نشده در بانک بگذار و ببین این دکمه آن را **می‌بیند**.
+     اگر نبیند، جمله‌ای که به او گفتم («این دکمه همه را یک‌جا می‌شنود»)
+     دروغ بوده. */
+  const seenNames = [];
+  try {
+    const bank = musicBank_();
+    for (let i = 0; i < bank.length; i++) {
+      if (!heardPlayable_(bank[i].heard, bank[i].note)) seenNames.push(bank[i].name);
+    }
+  } catch (e) {}
+  /* ══ ۱۵.۵ و جمله‌ای که همین اجرا پیدایش کرد ══
+     مدل در دسترس نبود، صفر قطعه شنیده شد، دو قطعه بی‌داوری ماندند — و
+     پنجره بست با «همه‌شان موسیقی‌اند». «هیچ‌کدام رد نشد» با «همه تأیید
+     شدند» یکی نیست، و از ۷٫۶۸ فرقشان این است که دومی یعنی برنامه
+     موسیقی دارد و اولی یعنی ندارد. */
+  {
+    const msg = [];
+    const realLog = global.logLine_;
+    global.logLine_ = (t) => msg.push(String(t));
+    try { runMusicRecheck(); } catch (e) {}
+    global.logLine_ = realLog;
+    const txt = msg.join(' ');
+    const un = musicStatus_().unheard;
+    ok('۱۵.۵ با قطعهٔ بی‌داوری، «همه‌شان موسیقی‌اند» گفته نمی‌شود',
+       un > 0 ? txt.indexOf('همه‌شان موسیقی‌اند') === -1 : true,
+       'نشنیده: ' + un + ' · ' + txt.slice(-150));
+    ok('۱۵.۵-ب و می‌گوید که پخش نمی‌شوند',
+       un > 0 ? /پخش نمی‌شود/.test(txt) : true, txt.slice(-110));
+  }
+
+  ok('۱۵.۴ و شمارِ «شنیده‌نشده» از همان بانکی می‌آید که پخش از آن انتخاب می‌کند',
+     typeof musicStatus_().unheard === 'number' &&
+     musicStatus_().unheard === seenNames.length,
+     'وضعیت ' + musicStatus_().unheard + ' · بانک ' + seenNames.length);
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

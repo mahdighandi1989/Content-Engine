@@ -208,7 +208,7 @@ const MENU_DEBT = [
   'runContentAudit', 'runContentSearch', 'runEmbedBuild',
   'runEmbedRebuild', 'runEmbedSelfTest', 'runIngestReports',
   'runInstallSourceUpdates', 'runJudgeSeries', 'runLocalJudgeAll',
-  'runMusicAuto', 'runMusicRecheck', 'runMusicScan',
+  'runMusicAuto', 'runMusicScan',   // runMusicRecheck پرداخت شد (۷٫۷۱)
   'runOrganizeFolders', 'runProduceSpecialEnriched', 'runProduceVarietyEnriched',
   'runRecapNow', 'runRejudgeAll', 'runSelfUpdateDiagnose',
   'runShowSourceVerdict', 'runSyncNow', 'runVoiceAudition',
