@@ -1,0 +1,15 @@
+{
+ "rev": 1,
+ "items": {
+  "special:49": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-49.wav",
+   "bytes": 70942444,
+   "minutes": 17.7,
+   "parts": 2,
+   "speaker": "razavi",
+   "at": "2026-09-26T06:16:32Z"
+  }
+ },
+ "at": "2026-09-26T06:16:32Z",
+ "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
+}
