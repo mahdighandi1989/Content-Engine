@@ -19,6 +19,7 @@ artifact سی روز بعد می‌میرد و از بیرونِ Actions هم د
 سرِ سقف کشته شود هیچ خروجی‌ای نمی‌دهد — نه حتی برای آن یکی که تمام شده بود.
 """
 
+import hashlib
 import io
 import json
 import os
@@ -178,6 +179,41 @@ def dropCollected(rel, q, mp):
         say("  ↺ %d فایلِ برداشته‌شده از Release پاک شد (صدای کلون‌شده "
             "عمومی نمی‌مانَد)." % n)
     return n
+
+
+def assetName(key, i, n):
+    """نامِ دارایی — **فقط ASCII**، و یکتا.
+
+    ══ یک اجرای واقعی این را ثابت کرد (۷٫۷۷) ══
+    تا ۷٫۷۳ هر کلیدی `show:ep` بود و `show` همیشه لاتین (`special`,
+    `variety`). ۷٫۷۴ کلیدِ «نمونهٔ روح — <گوینده>:<قسمت>» را آورد و نامِ
+    دارایی از همان کلید ساخته می‌شد، پس اولین اجرا با
+
+        curl: (3) URL rejected: Malformed input to a URL function
+
+    مُرد — **بعد از** اینکه تبدیل کامل شده بود (۲۶۱ ثانیه خروجی، ۲۸۰
+    ثانیه کار). یعنی کلِ هزینهٔ رانر خرج شد و چیزی ننشست.
+
+    نامِ دارایی یک جزئیاتِ حمل‌ونقل است، نه چیزی که کسی ببیند: نامِ فایل
+    در درایو و کپشنِ تلگرام را موتور از روی `label` می‌سازد. پس به‌جای
+    درگیرِ کدگذاریِ URL شدن، نام ASCII می‌شود.
+
+    و **هش لازم است، نه تزئین**: دو کلیدِ فارسیِ متفاوت می‌توانند به یک
+    اسلاگ برسند («نمونهٔ روح — razavi:53» و «نمونهٔ دیگر — razavi:53» هر
+    دو `-razavi-53`) و آن‌وقت `uploadAsset` اولی را پاک می‌کند تا دومی را
+    بگذارد — یعنی نمونهٔ یک گوینده بی‌صدا جای دیگری را می‌گیرد. همان
+    شکلِ `dsSig_` در بخشِ ۳۳.
+    """
+    out = []
+    for ch in str(key):
+        out.append(ch if (ord(ch) < 128 and (ch.isalnum() or ch in "._-")) else "-")
+    slug = "".join(out)
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    slug = slug.strip("-.") or "asset"
+    tag = hashlib.sha1(str(key).encode("utf-8")).hexdigest()[:8]
+    tail = ".wav" if n <= 1 else "-%dof%d.wav" % (i + 1, n)
+    return "%s-%s%s" % (slug[:60], tag, tail)
 
 
 def uploadAsset(rel, path, name):
@@ -436,11 +472,9 @@ def main():
         return 1
 
     rel = ensureRelease()
-    base = key.replace(":", "-").replace("/", "-")
     urls, pbytes = [], []
     for i, pp in enumerate(pieces):
-        nm = base + (".wav" if len(pieces) == 1
-                     else "-%dof%d.wav" % (i + 1, len(pieces)))
+        nm = assetName(key, i, len(pieces))
         u = uploadAsset(rel, pp, nm)
         if not u:
             say("::error title=آپلود نشد::%s — نشانی برنگشت." % nm)

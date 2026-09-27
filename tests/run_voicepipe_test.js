@@ -741,4 +741,46 @@ console.log('\n══ ۱۵) ادعایی که `.gitignore` هرگز نگذاشت
      ' — موتور این‌ها را از GitHub raw می‌خواهد و ۴۰۴ می‌گیرد، بی‌صدا');
 }
 
+const vbSrc = fs.readFileSync('tools/voicebridge.py', 'utf8');
+console.log('\n══ ۱۶) نامِ دارایی باید ASCII باشد — یک اجرای واقعی ثابتش کرد (۷٫۷۷) ══');
+/* اجرای ۲۶ِ voice-bridge، ۲۷ سپتامبر ۱۶:۵۳ UTC: تبدیل **کامل شد** (۲۶۱
+   ثانیه خروجی، ۲۸۰ ثانیه کارِ رانر) و بعد آپلود با
+
+       curl: (3) URL rejected: Malformed input to a URL function
+
+   مُرد، چون نامِ دارایی «نمونهٔ روح — razavi-53.wav» بود و خام در نشانی
+   نشسته بود. تا ۷٫۷۳ هر کلیدی `special:49` بود — لاتین — و این در هیچ
+   اجرایی دیده نشده بود. کلِ هزینهٔ رانر خرج شد و چیزی ننشست. */
+{
+  const call = (k, i, n) => cp.spawnSync('python3', ['-c',
+    'import sys;sys.dont_write_bytecode=True;sys.path.insert(0,"tools");' +
+    'import voicebridge as V;print(V.assetName(sys.argv[1],int(sys.argv[2]),int(sys.argv[3])))',
+    k, String(i), String(n)], { encoding: 'utf8' }).stdout.trim();
+
+  const a = call('نمونهٔ روح — razavi:53', 0, 1);
+  ok('۱۶.۱ کلیدِ فارسی، نامِ ASCII می‌دهد',
+     /^[\x20-\x7e]+$/.test(a) && a.indexOf(' ') === -1 && /\.wav$/.test(a),
+     'گرفت: ' + a + ' — نامِ غیرِASCII خام در نشانی یعنی curl ردش می‌کند');
+
+  /* و هش تزئین نیست: دو کلیدِ فارسیِ متفاوت می‌توانند به یک اسلاگ برسند،
+     و `uploadAsset` هم‌نام را **پاک می‌کند** تا تازه را بگذارد — یعنی
+     نمونهٔ یک گوینده بی‌صدا جای دیگری را می‌گیرد. */
+  const b = call('نمونهٔ دیگر — razavi:53', 0, 1);
+  ok('۱۶.۲ دو کلیدِ متفاوت که اسلاگشان یکی است، نامِ یکی نمی‌گیرند',
+     a !== b,
+     'اولی: ' + a + ' · دومی: ' + b +
+     ' — یکی بودن یعنی آپلودِ دومی اولی را پاک می‌کند');
+
+  const p1 = call('special:49', 0, 2), p2 = call('special:49', 1, 2);
+  ok('۱۶.۳ و شمارهٔ تکه‌ها سرِ جایش می‌مانَد',
+     /-1of2\.wav$/.test(p1) && /-2of2\.wav$/.test(p2) && p1 !== p2,
+     p1 + ' · ' + p2);
+
+  /* و کسی دوباره نامِ خام را در نشانی نگذارد. */
+  ok('۱۶.۴ نامِ دارایی از `assetName` می‌آید، نه از خودِ کلید',
+     /nm = assetName\(key, i, len\(pieces\)\)/.test(vbSrc) &&
+     !/base = key\.replace/.test(vbSrc),
+     'ساختنِ نام از `key` در جای دیگر یعنی همان باگ از درِ دیگر');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
