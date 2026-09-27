@@ -2377,6 +2377,9 @@ function renderSpecialAudioStep_() {
          پاک‌سازی را لازم کند. داستانش کنارِ chunkDriftReset_ آمده. */
       var chunks = buildSpecialChunks_(ep, epNum, meta.cat || meta.seriesCat || '');
       chunkDriftReset_(st, chunks, 'درس‌نامه ' + epNum);
+      // قرینهٔ همان خط در بخشِ ۳ — دو قرینه که یکی‌شان وصل نباشد، همان
+      // عیبِ «قرینه‌ای که یک‌بار درست شد» است (۵٫۹۵).
+      epDecisionsSave_(folder, meta, ep, writeSpecialJson_);
 
       if (st.chunkIdx === 0 && (!st.files || !st.files.length)) {
         try {

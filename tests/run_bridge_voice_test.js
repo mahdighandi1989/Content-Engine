@@ -1066,5 +1066,157 @@ console.log('\n══ ۲۱) پارامترِ تبدیل — یک عدد، یک �
   }
 }
 
+console.log('\n══ ۲۲) رنگ و روح — و ادعایی که نیمی‌اش درست بود (۷٫۷۳) ══');
+/* صاحبِ برنامه قسمتِ ۴۹ را کامل شنید: «مثل کسی می‌خواند که متوجه نیست چه
+   می‌خواند و فقط صدایش مثلِ رضوی است». درست بود و علتش ساختاری است: RVC
+   رنگ را عوض می‌کند و مکث و کشش و دامنه **ورودی**‌اش‌اند نه خروجی‌اش
+   (۷٫۳۴). صوتِ آن قسمت ماه‌ها پیش با خوانشِ عادی ساخته شده بود — پس روحی
+   نبود که پل بگذارد، و تلگرام همان را «قسمت ۴۹ با صدای رضوی» نامید. */
+{
+  const mkFold = (nm, per) => {
+    const f = OUT.createFolder(nm);
+    f.createFile('قسمت ۱ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+    const ep = { title: 'ت' };
+    if (per !== undefined) ep.__persona = per;
+    f.createFile('_episode.json', JSON.stringify({ ep: ep }), 'application/json');
+    return f;
+  };
+  const fSoul = mkFold('روح‌دار', { key: 'razavi', name: 'بهروز رضوی' });
+  const fPlain = mkFold('خوانشِ عادی', null);
+  const fOther = mkFold('صدای دیگری', { key: 'goldooz', name: 'گلدوز' });
+  const fOld = mkFold('پیش از ثبت', undefined);
+
+  ok('۲۲.۱ قسمتی که با شیوهٔ خواندنِ خودش خوانده شده: «روح»',
+     vbrSoul_(fSoul.getId(), 'razavi').state === 'روح',
+     JSON.stringify(vbrSoul_(fSoul.getId(), 'razavi')));
+  ok('۲۲.۲ خوانشِ عادی: «رنگ‌تنها» — و علتش نوشته می‌شود',
+     vbrSoul_(fPlain.getId(), 'razavi').state === 'رنگ‌تنها' &&
+     /خوانشِ عادی/.test(vbrSoul_(fPlain.getId(), 'razavi').why),
+     JSON.stringify(vbrSoul_(fPlain.getId(), 'razavi')));
+  ok('۲۲.۳ شیوهٔ خواندنِ گویندهٔ دیگر هم «رنگ‌تنها» است و نامش می‌آید',
+     vbrSoul_(fOther.getId(), 'razavi').state === 'رنگ‌تنها' &&
+     vbrSoul_(fOther.getId(), 'razavi').why.indexOf('گلدوز') !== -1,
+     JSON.stringify(vbrSoul_(fOther.getId(), 'razavi')));
+  /* ══ «نامعلوم» ≠ «نه» ══
+     قسمت‌های پیش از این نسخه `__persona` را در پرونده ندارند، چون هیچ‌جا
+     نوشته نمی‌شد. هشداری که برای حالتی که ممکن است سالم باشد بلند شود،
+     همان هشداری است که خوانده نمی‌شود (۷٫۴۰). */
+  ok('۲۲.۴ قسمتِ بی‌نشانه «نامعلوم» است، نه «رنگ‌تنها»',
+     vbrSoul_(fOld.getId(), 'razavi').state === 'نامعلوم',
+     JSON.stringify(vbrSoul_(fOld.getId(), 'razavi')));
+
+  /* و از راهی که تولید می‌رود: ردیفِ صف باید خودش این را با خود ببرد،
+     چون پروندهٔ قسمت همین حالا در دسترس است و ماه‌ها بعد شاید نباشد. */
+  {
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    vbrAsk_('variety', 61, fPlain.getId(), 'razavi', 'قسمت ۶۱');
+    const rowP = vbrRead_().items.filter((x) => String(x.key) === 'variety:61')[0];
+    ok('۲۲.۵ و ردیفِ صف خودش آن را حمل می‌کند',
+       !!rowP && rowP.soul === 'رنگ‌تنها' && !!rowP.soulWhy,
+       rowP ? JSON.stringify({ soul: rowP.soul, why: rowP.soulWhy }) : 'ردیفی نوشته نشد');
+    const stP = vbrStatus_();
+    ok('۲۲.۶ و سطرِ روزانه پیش از شنیدنِ پانزده دقیقه می‌گویدش',
+       stP.colourOnly === 1 && stP.line.indexOf('فقط رنگ') !== -1,
+       'colourOnly=' + stP.colourOnly + ' · ' + stP.line);
+    ok('۲۲.۷ ولی این ایراد شمرده نمی‌شود — تبدیل درست کار کرده',
+       stP.ok === true,
+       'نتیجه نیمهٔ کار است، ولی خرابی نیست؛ قابِ سرخ برای خرابی است');
+  }
+
+  /* ══ و تصمیمی که در پرونده نمی‌نشست ══
+     `ensureCast_` و `personaEnsure_` هر دو می‌گویند تصمیم «در پروندهٔ قسمت
+     می‌مانَد و اجرای بعدی همان را می‌خوانَد». هیچ‌کدام نوشته نمی‌شد:
+     `writeEpisodeJson_` آخرین بار در فازِ `speak` صدا زده می‌شود و این دو
+     در فازِ `audio` — بعدش — ساخته می‌شوند. */
+  {
+    const fRes = OUT.createFolder('از سرگیری');
+    const SHOW = knownShows_()[0].name;
+    personaBoardSave_('razavi', true, [SHOW], 1, 'آرام بخوان', '', '', []);
+    writeEpisodeJson_(fRes, { ep: { title: 'ت' } });          // فازِ speak
+    const meta1 = ytEpisodeMeta_(fRes);
+    const p1 = personaEnsure_(meta1.ep, SHOW, 1);
+    ok('۲۲.۸ در فازِ صدا تصمیم گرفته می‌شود', !!p1 && p1.key === 'razavi',
+       JSON.stringify(p1));
+    epDecisionsSave_(fRes, meta1, meta1.ep, writeEpisodeJson_);
+    // و حالا ردیف خاموش می‌شود — یعنی همان چیزی که وسطِ ساختِ یک قسمت
+    // می‌تواند بشود (یا فردا شب، وقتی قسمت از سر گرفته می‌شود).
+    personaBoardSave_('razavi', false, [SHOW], 1, 'آرام بخوان', '', '', []);
+    const meta2 = ytEpisodeMeta_(fRes);
+    const p2 = personaEnsure_(meta2.ep, SHOW, 1);
+    ok('۲۲.۹ از سرگیری تصمیم را از نو نمی‌گیرد',
+       !!p2 && p2.key === 'razavi',
+       'گرفت: ' + JSON.stringify(p2) + ' — بی ذخیره، `personaEnsure_` شیت را ' +
+       'از نو می‌خوانَد و نیمهٔ دومِ قسمت با خوانشِ دیگری ساخته می‌شود');
+    ok('۲۲.۱۰ و بارِ دوم چیزی دوباره نوشته نمی‌شود',
+       epDecisionsSave_(fRes, meta2, meta2.ep, writeEpisodeJson_) === false,
+       'هر از سرگیری یک نوشتنِ درایوی برای داده‌ای که عوض نشده');
+    /* و `null` هم یک تصمیم است: «امروز صدای مهمانی نبود». `undefined` را
+       JSON دور می‌ریزد و `personaEnsure_` همان را «تصمیم گرفته نشده»
+       می‌خوانَد، یعنی از نو خواندنِ شیت. */
+    const fNull = OUT.createFolder('بی مهمان');
+    writeEpisodeJson_(fNull, { ep: { title: 'ت' } });
+    const mN = ytEpisodeMeta_(fNull);
+    personaEnsure_(mN.ep, 'برنامه‌ای که نیست', 1);
+    epDecisionsSave_(fNull, mN, mN.ep, writeEpisodeJson_);
+    ok('۲۲.۱۱ «مهمانی نبود» هم ذخیره می‌شود، نه اینکه جا بیفتد',
+       ytEpisodeMeta_(fNull).ep.__persona === null,
+       'گرفت: ' + JSON.stringify(ytEpisodeMeta_(fNull).ep.__persona));
+  }
+}
+
+console.log('\n══ ۲۳) نمونهٔ سبک باید بلند باشد، وگرنه پرسش را نمی‌سنجد (۷٫۷۳) ══');
+/* «صحبتِ من قبلاً هم همین بود که در صوت‌های کوتاه‌مدت نمی‌شه تشخیص داد.»
+   او درست می‌گفت: آنچه دیده بود حاضر بودنِ یک ویژگی در ~۹۸٪ واژه‌های
+   **پانزده دقیقه** بود، و `STYLE_PROBE_LINE` ~۲۰ ثانیه است. سنجه‌ای که
+   بازه‌اش از خودِ پدیده کوتاه‌تر باشد هیچ‌وقت آن را نمی‌بیند. */
+{
+  const rd0 = ytRenderRead_();
+  const keep0 = rd0.items.slice();
+  const fLong = OUT.createFolder('قسمتِ متن‌دار');
+  const segs = [];
+  /* بیست بخش، نه نُه: مجموعِ متن باید از سقف **بیشتر** باشد وگرنه بُرشی
+     رخ نمی‌دهد و سنجهٔ «وسطِ جمله بریده نمی‌شود» چیزی را نمی‌سنجد — نگارشِ
+     اول همین‌جا با ۲٬۸۷۰ نویسه در برابرِ سقفِ ۴٬۰۰۰ سبز مانْد حتی وقتی
+     `styleProbeCut_` را برداشتم. */
+  for (let i = 0; i < 20; i++) {
+    segs.push({ h: 'h' + i, t: 'شَبی از شَب‌هایِ پاییز بود و بادِ سَرد پُشتِ ' +
+      'پَنجِره ایستاده بود و نِمی‌رَفت شمارهٔ ' + i + '. ' +
+      'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد و ایستاد. '.repeat(4) });
+  }
+  fLong.createFile('_episode.json',
+    JSON.stringify({ ep: { title: 'ت', __speakSegs: segs } }), 'application/json');
+  const rd1 = ytRenderRead_();
+  rd1.items = [{ key: 'variety:77', show: 'variety', ep: '77',
+                 folderId: fLong.getId(), title: 'هفتادوهفت' }];
+  ytRenderSave_(rd1);
+  const pk = styleProbeText_();
+  ok('۲۳.۱ متن از یک قسمتِ واقعی می‌آید، و گفته می‌شود از کدام',
+     pk.short === false && pk.text !== STYLE_PROBE_LINE &&
+     pk.from.indexOf('77') !== -1,
+     'از: «' + pk.from + '» · ' + pk.chars + ' نویسه');
+  ok('۲۳.۲ و به‌قدری بلند که «همه‌جا» از «جابه‌جا» جدا شود',
+     pk.chars >= 900 && pk.chars <= Number(CFG.STYLE_PROBE_CHARS),
+     pk.chars + ' نویسه در برابرِ سقفِ ' + CFG.STYLE_PROBE_CHARS +
+     ' — یک سطرِ ۲۵۰ نویسه‌ای ~۲۰ ثانیه است و همان چیزی است که او گفت کافی نیست');
+  ok('۲۳.۳ وسطِ جمله بریده نمی‌شود',
+     '.!؟…'.indexOf(pk.text.charAt(pk.text.length - 1)) !== -1,
+     'آخرین نویسه: «' + pk.text.slice(-1) + '» — متنی که وسطِ جمله قطع شود ' +
+     'خودش یک عیبِ شنیدنی است');
+  ok('۲۳.۴ و چند تکه می‌شود، با همان شکنندهٔ خودِ قسمت',
+     splitForTts_(pk.text).length > 1,
+     'تکه‌ها: ' + splitForTts_(pk.text).length +
+     ' — یک تکه یعنی متن هنوز کوتاه است');
+  /* ══ سقوطِ خاموش به نسخهٔ آسانِ یک آزمون، از شکستِ آزمون بدتر است ══
+     همان قاعدهٔ `embSelfTest_`: وقتی مدل نیست، حالتش **گفته** می‌شود. */
+  {
+    const rd2 = ytRenderRead_(); rd2.items = []; ytRenderSave_(rd2);
+    const pk2 = styleProbeText_();
+    ok('۲۳.۵ متنِ بلندی نبود ⇒ سقوط به سطرِ کوتاه، ولی با اعلام',
+       pk2.short === true && pk2.text === STYLE_PROBE_LINE && !!pk2.why,
+       JSON.stringify({ short: pk2.short, why: pk2.why }));
+  }
+  const rd3 = ytRenderRead_(); rd3.items = keep0; ytRenderSave_(rd3);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

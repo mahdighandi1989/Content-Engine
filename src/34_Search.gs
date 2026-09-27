@@ -241,15 +241,29 @@ function srchScore_(fields, terms, phrase) {
 
 /** آیا این تب، تبِ دسته‌بندیِ بانک است؟ (از روی سرستون، نه از روی نام.) */
 function srchIsHubTab_(sh) {
+  /* ══ «دستهٔ بانک نیست» با «خوانده نشد» یکی نیست (۷٫۷۳) ══
+     تا این نسخه هر دو `false` می‌شدند در یک `catch (e) { return false; }`.
+     تبی که سرصفحه‌اش خوانده نشود بی‌صدا از نقشه بیرون می‌رفت **و از مخرج
+     هم**، پس گزارش «۳۹ تب از ۳۹» می‌داد در حالی که یکی اصلاً دیده نشده
+     بود — همان توهمِ تمامیتی که ۷٫۲۳ مخرج را برایش اضافه کرد.
+
+     نخستین تلاشِ این نسخه برای بستنِ این در، در `srchHubTabs_` نوشته شد و
+     **کدِ مرده بود**: خطا همین‌جا خورده می‌شد و هرگز به آن‌جا نمی‌رسید. خودِ
+     سنجه گرفتش («یادداشت‌ها: []») — و این چندمین بار در این پرونده است که
+     شکستنِ عمدیِ کد چیزی را نشان داد که خواندنش نشان نمی‌داد. */
+  var w = 0;
   try {
-    var w = Math.min(HUB_HEADERS.length, sh.getLastColumn());
-    if (w < 12) return false;
-    var h = sh.getRange(1, 1, 1, w).getValues()[0];
-    for (var i = 0; i < 12; i++) {
-      if (String(h[i]).trim() !== String(HUB_HEADERS[i]).trim()) return false;
-    }
-    return true;
-  } catch (e) { return false; }
+    w = Math.min(HUB_HEADERS.length, sh.getLastColumn());
+  } catch (eW) { throw new Error('شمارِ ستون‌ها خوانده نشد: ' + eW.message); }
+  if (w < 12) return false;                    // واقعاً دستهٔ بانک نیست
+  var h = null;
+  try {
+    h = sh.getRange(1, 1, 1, w).getValues()[0];
+  } catch (e) { throw new Error('سرصفحه خوانده نشد: ' + e.message); }
+  for (var i = 0; i < 12; i++) {
+    if (String(h[i]).trim() !== String(HUB_HEADERS[i]).trim()) return false;
+  }
+  return true;
 }
 
 /**
@@ -262,9 +276,23 @@ function srchIsHubTab_(sh) {
  */
 function srchHubTabs_(hub) {
   var out = [], sheets = [];
+  out.skipped = [];
   try { sheets = (hub || getHub_()).getSheets(); } catch (e) { return out; }
   for (var i = 0; i < sheets.length; i++) {
-    try { if (srchIsHubTab_(sheets[i])) out.push(sheets[i]); } catch (e2) {}
+    try {
+      if (srchIsHubTab_(sheets[i])) out.push(sheets[i]);
+    } catch (e2) {
+      /* ══ تبی که سرصفحه‌اش خوانده نشود، بی‌صدا از **مخرج** هم بیرون
+         می‌رفت (۷٫۷۳) ══
+         `catch (e2) {}` هم تب را از نقشه برمی‌داشت و هم `sheetsAll` را یکی
+         کم می‌کرد، پس گزارش «۳۹ تب از ۳۹» می‌داد در حالی که یک تب اصلاً
+         دیده نشده بود — یعنی دقیقاً همان «جست‌وجوی ناقصی که خودش را کامل
+         نشان می‌دهد» که ۷٫۲۳ برای جلوگیری از آن مخرج را اضافه کرد. حالا
+         نامش برمی‌گردد و در یادداشت‌ها می‌آید. */
+      var nmS = '';
+      try { nmS = sheets[i].getName(); } catch (e3) { nmS = '؟'; }
+      out.skipped.push(nmS + ': ' + String((e2 && e2.message) || e2).slice(0, 60));
+    }
   }
   return out;
 }
@@ -436,6 +464,13 @@ function srchReadRows_(sh, rows, width, deadline) {
      پهنای واقعیِ همان تب تقسیم. */
   var maxCells = Math.max(600, Number(CFG.SEARCH_BLOCK_CELLS) || 6000);
   var span = Math.max(1, Math.floor(maxCells / Math.max(1, w)));
+  /* ══ چرا خوانده نشد، نه فقط اینکه نشد (۷٫۷۳) ══
+     تا این نسخه دو علتِ کاملاً متفاوت به یک عدد می‌رسیدند: «وقت نرسید» و
+     «خواندنِ بلوک پرتاب کرد» — و دومی در یک `catch (e) {}` خاموش می‌شد.
+     پس گزارشِ «N ردیف خوانده نشد» قابلِ عیب‌یابی نبود: نمی‌شد گفت بودجه کم
+     بود یا خواندن شکست خورد، و این دو راهِ حلِ مخالف دارند. عددی که کسی را
+     متهم می‌کند باید شاهدش را با خودش بیاورد (۷٫۳۲). */
+  out.__why = '';                      // 'وقت' یا متنِ خطا
   var i = 0;
   while (i < rows.length) {
     /* ══ مهلت **داخلِ** همین حلقه هم (۷٫۵۱) ══
@@ -444,7 +479,10 @@ function srchReadRows_(sh, rows, width, deadline) {
        یک `getRange().getValues()` روی سلول‌هایی است که یازده‌هزار نویسه
        عادی‌شان است، و ششْ‌دقیقهٔ Apps Script قابلِ گرفتن نیست. ردیفِ
        خوانده‌نشده با همان «N ردیف خوانده نشد» گزارش می‌شود. */
-    if (deadline && i && new Date().getTime() > deadline) break;
+    if (deadline && i && new Date().getTime() > deadline) {
+      out.__why = out.__why || 'وقت';
+      break;
+    }
     var a = rows[i], b = a, j = i;
     while (j + 1 < rows.length && rows[j + 1] - b <= 25 && (rows[j + 1] - a) < span) {
       b = rows[++j];
@@ -457,7 +495,22 @@ function srchReadRows_(sh, rows, width, deadline) {
         var idx = rows[k] - a;
         if (idx >= 0 && idx < vals.length) out[rows[k]] = vals[idx];
       }
-    } catch (e) {}
+    } catch (e) {
+      /* ══ سقوط به سمتِ کامل‌بودن، نه به سمتِ سکوت ══
+         یک بلوکِ هفتادوپنج‌ردیفی از سلول‌های یازده‌هزارنویسه‌ای می‌تواند از
+         حدِ خواندن بگذرد در حالی که همان ردیف‌ها یکی‌یکی می‌آیند. تا این
+         نسخه یک بلوکِ پرتاب‌کننده یعنی **همهٔ** ردیف‌هایش از دست می‌رفتند،
+         بی هیچ نشانه‌ای. حالا همان‌ها تک‌تک تلاش می‌شوند و اگر باز هم نشد،
+         علتش نوشته می‌شود. */
+      out.__why = out.__why || String((e && e.message) || e).slice(0, 90);
+      for (var k2 = i; k2 <= j; k2++) {
+        if (deadline && new Date().getTime() > deadline) { out.__why = 'وقت'; break; }
+        try {
+          var one = sh.getRange(rows[k2], 1, 1, w).getValues();
+          if (one && one[0]) out[rows[k2]] = one[0];
+        } catch (e2) {}
+      }
+    }
     i = j + 1;
   }
   return out;
@@ -602,11 +655,39 @@ function srchCollect_(terms, phrase, opts) {
   var tabRowsMin = Math.max(5, Number(CFG.SEARCH_TAB_ROWS_MIN) || 15);
   var out = { items: [], scanned: 0, sheets: 0, sheetsAll: 0, stopped: '', notes: [],
               read: 0, dropped: 0, trimmed: false, via: '', slow: '', slowMs: 0,
-              sampled: 0, matches: 0 };
+              sampled: 0, matches: 0, pend: [], left: 0, pass2: 0, whys: {} };
   var left = function () { return budget - (new Date().getTime() - t0); };
 
   var pats = srchPatGroups_(terms);
   if (!pats.length) return out;
+
+  /* ══ خواندن و امتیاز دادن، یک جا — چون پاسِ دوم همین کار را می‌کند ══
+     دو نسخه از این حلقه یعنی دو جا برای خراب شدن و نصفِ تاریخچه در هرکدام
+     (همان دلیلی که `vbrFetch_` یک راهِ دانلود دارد). */
+  var absorb = function (sh, mk, pick, tabEnd) {
+    var r = { read: 0, missed: 0, dropped: 0, why: '', got: {} };
+    var wide = Math.max(1, Math.min(Number(CFG.SEARCH_MAX_COLS) || 80, sh.getLastColumn()));
+    var vals = srchReadRows_(sh, pick, wide, Math.min(tabEnd, t0 + budget - 4000));
+    r.why = String(vals.__why || '');
+    for (var z = 0; z < pick.length; z++) {
+      if (out.read >= rowsMax) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; break; }
+      var v = vals[pick[z]];
+      if (!v) { r.missed++; continue; }
+      out.read++; r.read++; r.got[pick[z]] = 1;
+      var it = mk(sh, pick[z], v);
+      it.score = srchScore_(it.fields, terms, phrase);
+      /* الگو خورده ولی امتیاز صفر است. از ۷٫۲۴ این تقریباً همیشه یعنی
+         «تطبیق در ستونی بود که وزنی ندارد»، نه یک اشکال — ولی شمرده
+         می‌شود، چون «یافته ولی نشان‌داده‌نشده» عددی است که اگر یک روز
+         بزرگ شود، تنها نشانهٔ برگشتِ همان باگِ خاموش است. */
+      if (it.score <= 0) { r.dropped++; continue; }
+      out.items.push(it);
+      out.scanned++;
+    }
+    out.dropped += r.dropped;
+    if (r.why) out.whys[r.why] = (out.whys[r.why] || 0) + r.missed;
+    return r;
+  };
 
   var take = function (sh, mk, tabEnd, rowShare) {
     if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
@@ -656,25 +737,15 @@ function srchCollect_(terms, phrase, opts) {
        تحلیل و نکته‌ها در ستون‌های ۲۵ به بعدند. یعنی دقیقاً همان چیزی که
        این قابلیت برایش ساخته شد، خوانده نمی‌شد و بی‌صدا امتیازِ صفر
        می‌گرفت. */
-    var wide = Math.max(1, Math.min(Number(CFG.SEARCH_MAX_COLS) || 80, sh.getLastColumn()));
-    var vals = srchReadRows_(sh, pick, wide, Math.min(tabEnd, t0 + budget - 4000));
-    var z = 0, missed = 0, dropped = 0;
-    for (; z < pick.length; z++) {
-      if (out.read >= rowsMax) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; break; }
-      var v = vals[pick[z]];
-      if (!v) { missed++; continue; }
-      out.read++;
-      var it = mk(sh, pick[z], v);
-      it.score = srchScore_(it.fields, terms, phrase);
-      /* الگو خورده ولی امتیاز صفر است. از ۷٫۲۴ این تقریباً همیشه یعنی
-         «تطبیق در ستونی بود که وزنی ندارد»، نه یک اشکال — ولی شمرده
-         می‌شود، چون «یافته ولی نشان‌داده‌نشده» عددی است که اگر یک روز
-         بزرگ شود، تنها نشانهٔ برگشتِ همان باگِ خاموش است. */
-      if (it.score <= 0) { dropped++; continue; }
-      out.items.push(it);
-      out.scanned++;
+    var ab = absorb(sh, mk, pick, tabEnd);
+    var missed = ab.missed;
+    /* ══ ردیفی که نخوانده مانده، برای پاسِ دوم نگه داشته می‌شود (۷٫۷۳) ══
+       فقط شمارهٔ ردیف‌ها نگه داشته می‌شود، نه محتوایشان. */
+    var restRows = [];
+    for (var rr = 0; rr < order.length; rr++) {
+      if (!ab.got[order[rr]]) restRows.push(order[rr]);
     }
-    out.dropped += dropped;
+    if (restRows.length) out.pend.push({ sh: sh, mk: mk, rows: restRows });
     /* کیفِ سراسریِ ردیف که تمام شود، هر تبِ نرسیده **هرگز** خوانده نمی‌شود —
        پس این یک ایستادن است و در قابِ سرخ می‌رود، نه یک یادداشت. تا پیش از
        این فقط در ابتدای حلقه دیده می‌شد، و تبی که کیف را دقیقاً تا ته خالی
@@ -692,7 +763,8 @@ function srchCollect_(terms, phrase, opts) {
        در دیگر برمی‌گرداند: مساوی‌ها ترتیبِ ورود را نگه می‌دارند، و چون
        شیت‌های منبع آخر پیموده می‌شوند، نتیجهٔ هم‌امتیازِ منبع همیشه قربانی
        می‌شد. حجمِ کار را `SEARCH_ROWS_MAX` می‌بندد، نه این. */
-    if (missed) out.notes.push('در «' + sh.getName() + '» ' + missed + ' ردیف خوانده نشد.');
+    /* یادداشتِ هر تب به پاسِ دوم موکول می‌شود: تا وقتی بودجه هست، «خوانده
+       نشد» یک واقعیتِ نهایی نیست و گفتنش گمراه‌کننده است. */
     mark();
     return true;
   };
@@ -710,6 +782,10 @@ function srchCollect_(terms, phrase, opts) {
     var hub = getHub_();
     var htabs = srchHubTabs_(hub);
     if (!htabs.length) out.notes.push('هیچ تبِ دسته‌ای در بانک شناخته نشد.');
+    var skp = htabs.skipped || [];
+    if (skp.length) {
+      out.notes.push(skp.length + ' تبِ بانک اصلاً وارسی نشد: ' + skp.slice(0, 3).join(' · '));
+    }
     for (var ht = 0; ht < htabs.length; ht++) plan.push({ sh: htabs[ht], src: '' });
   } catch (eH) { out.notes.push('بانک خوانده نشد: ' + eH.message); }
 
@@ -753,6 +829,75 @@ function srchCollect_(terms, phrase, opts) {
     if (!take(ent.sh, mk, tabEnd, share)) break;
   }
 
+  /* ══════════════════════════════════════════════════════════════════
+     پاسِ دوم — بودجهٔ نخورده به پوشش تبدیل می‌شود (۷٫۷۳)
+
+     صاحبِ برنامه یک جست‌وجوی ساده زد و پرسید «این منطقیه؟ کارِ ناقص
+     کرده؟». عددهای خودِ گزارش جواب را می‌دادند: **۲۷۷ ردیف** خوانده شده
+     در حالی که سقف ۲٬۵۰۰ است، و **۱۵۲ ثانیه** مصرف شده از بودجهٔ ۲۳۰
+     ثانیه — و کنارشان ده‌ها سطرِ «N ردیف خوانده نشد». یعنی کار ناتمام
+     ماند در حالی که **نه وقت تمام شده بود و نه سقفِ ردیف**.
+
+     علتش یک‌پاسه بودنِ پیمایش است: زمان بینِ تب‌ها تقسیم می‌شود (۷٫۵۱،
+     که لازم بود — وگرنه تبِ اول همه‌اش را می‌خورد)، ولی تبی که سهمِ
+     خودش را تمام کند دیگر هیچ‌وقت برنمی‌گردد، حتی اگر در پایانِ پیمایش
+     یک‌سومِ بودجه دست‌نخورده مانده باشد. سهمِ **نخورده** به جلو می‌رفت؛
+     سهمِ **کم‌آمده** هیچ‌جا جبران نمی‌شد.
+
+     پاسِ دوم فقط همان ردیف‌هایی را می‌خوانَد که جا مانده‌اند، به ترتیبِ
+     گردشی روی تب‌ها — نه اینکه یک تب همهٔ باقیمانده را بخورد، که همان
+     باگِ ۷٫۵۱ از درِ دیگر است.
+     ══════════════════════════════════════════════════════════════════ */
+  var guard = 0, dead = [];
+  while (out.pend.length && out.read < rowsMax && left() > 12000 && guard < 500) {
+    guard++;
+    var ent2 = out.pend.shift();
+    var rest = out.pend.length + 1;                 // خودش هم هست، پس صفر نمی‌شود
+    var room2 = Math.max(1, Math.min(ent2.rows.length,
+                  Math.floor(Math.max(0, rowsMax - out.read) / rest) + 1));
+    var slice2 = ent2.rows.slice(0, room2);
+    var end2 = new Date().getTime() + Math.max(3000, Math.floor(left() / rest));
+    var ab2 = absorb(ent2.sh, ent2.mk, slice2, end2);
+    out.pass2 += ab2.read;
+    var rest2 = [];
+    for (var s2 = 0; s2 < ent2.rows.length; s2++) {
+      if (!ab2.got[ent2.rows[s2]]) rest2.push(ent2.rows[s2]);
+    }
+    if (!rest2.length) continue;
+    /* ══ نوبتی که هیچ پیشرفتی نداشت، دوباره در صف نمی‌رود ══
+       تبی که خواندنش نمی‌شود (سلولِ بزرگ، خطای درایو) وگرنه تا تهِ بودجه
+       همان یک تب را می‌چرخانْد و بقیه هرگز نوبت نمی‌گرفتند — همان باگِ
+       ۷٫۵۱ از درِ دیگر. کنار می‌رود و در یادداشتِ پایانی شمرده می‌شود. */
+    if (ab2.read) out.pend.push({ sh: ent2.sh, mk: ent2.mk, rows: rest2 });
+    else dead.push({ sh: ent2.sh, mk: ent2.mk, rows: rest2 });
+  }
+  out.pend = out.pend.concat(dead);
+  out.left = Math.max(0, left());
+  /* ══ و حالا یادداشتِ نهایی — یک بار، با علت ══
+     تا این نسخه به ازای هر تب یک سطر «N ردیف خوانده نشد» می‌آمد؛ در یک
+     جست‌وجوی واقعی این ده‌ها سطر بود که هیچ‌کدام نمی‌گفت **چرا**، و
+     خواندنشان کارِ کسی نیست. یک جمله با علت و عدد، به‌جای چهل جملهٔ
+     بی‌علت. */
+  var leftRows = 0;
+  for (var pf = 0; pf < out.pend.length; pf++) leftRows += out.pend[pf].rows.length;
+  if (leftRows) {
+    var whyBits = [];
+    for (var wk in out.whys) {
+      if (!Object.prototype.hasOwnProperty.call(out.whys, wk)) continue;
+      whyBits.push(wk === 'وقت' ? 'وقتِ آن تب' : wk);
+    }
+    out.notes.push(leftRows + ' ردیفِ یافته‌شده خوانده نشد' +
+                   (whyBits.length ? ' (' + whyBits.slice(0, 3).join(' · ') + ')' : '') +
+                   '؛ ' + out.read + ' ردیف خوانده شد' +
+                   (out.pass2 ? ' که ' + out.pass2 + ' تای آن در پاسِ دوم بود' : '') +
+                   '. بودجهٔ باقی‌مانده: ' + Math.round(out.left / 1000) + ' ثانیه.');
+    /* بودجه مانده و ردیف مانده ⇒ این دیگر «تقسیمِ منصفانه» نیست، ایراد
+       است و در قابِ سرخ می‌رود. بی این شرط، همان حالتی که ۷٫۷۳ برایش
+       نوشته شد دوباره شبیهِ سلامت خوانده می‌شود. */
+    if (out.left > 20000 && out.read < rowsMax) {
+      out.stopped = out.stopped || 'ردیفِ نخوانده با بودجهٔ باقی‌مانده';
+    }
+  }
   if (out.sampled) {
     /* این «ناتمام» نیست و در قابِ سرخ نمی‌رود: نمونهٔ پخش‌شده از چهل تب
        بهتر از خواندنِ کاملِ شش تب است، و گفتنش لازم است چون عددِ

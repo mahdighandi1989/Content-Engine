@@ -703,6 +703,90 @@ function runVoiceAudition() {
 }
 
 /**
+ * متنِ نمونه — از **یک قسمتِ واقعی**، به‌قدری بلند که بشود داوری کرد.
+ *
+ * ══ چرا این تابع هست (۷٫۷۳) ══
+ * `STYLE_PROBE_LINE` حدودِ ۲۵۰ نویسه است، یعنی ~۲۰ ثانیه صدا. صاحبِ برنامه
+ * چهار نمونهٔ کوتاه را شنید و جوابش دقیق و درست بود: **«در صوت‌های
+ * کوتاه‌مدت نمی‌شه تشخیص داد»** — چیزی که او دیده بود، حاضر بودنِ یک ویژگی
+ * در ~۹۸٪ واژه‌های **پانزده دقیقه** بود. سنجه‌ای که بازه‌اش از خودِ پدیده
+ * کوتاه‌تر باشد، هیچ‌وقت آن را نمی‌بیند. این همان درسِ «سنجه‌ای که هدف را
+ * نمی‌سنجد» است، این بار در بُعدِ زمان.
+ *
+ * ══ چرا متنِ یک قسمتِ واقعی، نه متنی بلندتر که خودمان بنویسیم ══
+ * شیوهٔ خواندن روی جمله‌های واقعیِ همین برنامه معنا دارد: بخشِ خبری،
+ * داستانی، جمع‌بندی — و همان متنی که فردا واقعاً خوانده می‌شود. متنِ
+ * ساختگیِ بلند فقط بلند است.
+ *
+ * ══ و چرا `__speakSegs` ══
+ * `ttsCue_` برای متنِ **بی‌اعراب** عمداً یادآورِ تلفظ را انتخاب می‌کند و
+ * یادآورِ سبک اصلاً نمی‌نشیند — درسِ ۷٫۱۰ که دو فایلِ بایت‌به‌بایت یکسان
+ * ساخت. متنِ اعراب‌دارِ هر قسمت در `__speakSegs[i].t` است و از فازِ
+ * `speak` در پروندهٔ قسمت ذخیره می‌شود.
+ *
+ * ══ و پوشه‌ها پیمایش نمی‌شوند ══
+ * `_YT-RENDER.json` همین حالا شناسهٔ پوشهٔ قسمت‌ها را دارد — یک خواندنِ
+ * فایل به‌جای گشتنِ درایو. پوشش کامل نیست (بخشی از قسمت‌های قدیمی در آن
+ * نیستند) و برای نمونه کافی است؛ و اگر هیچ‌کدام متنِ اعراب‌دار نداشت،
+ * **گفته می‌شود** و به همان سطرِ کوتاه سقوط می‌کنیم. سقوطِ خاموش به
+ * نسخهٔ آسانِ یک آزمون، از شکستِ آزمون بدتر است (`embSelfTest_`).
+ */
+function styleProbeText_() {
+  var out = { text: '', from: '', chars: 0, short: false, why: '' };
+  var cap = Math.max(400, Number(CFG.STYLE_PROBE_CHARS) || 4000);
+  var items = [];
+  try {
+    items = (ytRenderRead_().items || []).slice();
+  } catch (e) {
+    out.why = 'فهرستِ قسمت‌ها خوانده نشد: ' + String((e && e.message) || e).slice(0, 60);
+  }
+  items.reverse();                                  // تازه‌ترین اول
+  var tried = 0;
+  for (var i = 0; i < items.length && tried < 8; i++) {
+    var fid = String((items[i] || {}).folderId || '');
+    if (!fid) continue;
+    tried++;
+    var meta = null;
+    try { meta = ytEpisodeMeta_(DriveApp.getFolderById(fid)); } catch (e2) { continue; }
+    var segs = (meta && meta.ep && meta.ep.__speakSegs) || [];
+    var acc = [], n = 0;
+    for (var j = 0; j < segs.length; j++) {
+      var t = String((segs[j] || {}).t || '').trim();
+      if (!t) continue;
+      acc.push(t); n += t.length + 1;
+      if (n >= cap) break;
+    }
+    /* کمتر از این، همان مشکلِ نمونهٔ کوتاه است با ظاهرِ دیگر. */
+    if (n < 900) continue;
+    var txt = styleProbeCut_(acc.join(' ').slice(0, cap));
+    if (txt.length < 900) continue;
+    out.text = txt; out.chars = txt.length;
+    out.from = 'قسمت ' + String((items[i] || {}).ep || '؟') +
+               ' (' + String((items[i] || {}).show || '') + ')';
+    return out;
+  }
+  out.text = STYLE_PROBE_LINE;
+  out.chars = out.text.length;
+  out.short = true;
+  out.from = 'سطرِ نمونهٔ ثابت';
+  if (!out.why) {
+    out.why = 'متنِ اعراب‌دارِ هیچ قسمتی پیدا نشد (' + faDigitsOut_(String(tried)) +
+              ' پوشه وارسی شد)';
+  }
+  return out;
+}
+
+/** تا آخرین پایانِ جمله ببُر. متنی که وسطِ جمله قطع شود، خودش یک عیبِ شنیدنی است. */
+function styleProbeCut_(t) {
+  var s = String(t || '');
+  var best = -1, marks = '.!؟…';
+  for (var i = s.length - 1; i >= 0; i--) {
+    if (marks.indexOf(s.charAt(i)) !== -1) { best = i; break; }
+  }
+  return (best > 600) ? s.slice(0, best + 1) : s;
+}
+
+/**
  * دو نمونهٔ کوتاه: یکی با «روحِ خواندن» و یکی بی آن.
  *
  * ══ چرا نمونهٔ شاهد لازم است ══
@@ -728,6 +812,8 @@ function runStyleProbe() {
   // (`produceEpisode` و `renderAudioStep_`) همین قفل را می‌گیرند.
   // خودِ گرفتنِ قفل هم می‌تواند پرتاب کند؛ از منو یعنی یک دیالوگِ خطای خام.
   // `src/18_Files.gs` همین را در try گذاشته و این‌جا نگذاشته بود.
+  var probeDeadline = new Date().getTime() +
+                      (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
   var lock = null, got = false;
   try {
     lock = LockService.getScriptLock();
@@ -749,11 +835,19 @@ function runStyleProbe() {
     var it = root.getFoldersByName(nm);
     folder = it.hasNext() ? it.next() : root.createFolder(nm);
 
-    var line = STYLE_PROBE_LINE;
+    /* ══ متنِ بلند، از یک قسمتِ واقعی (۷٫۷۳) ══
+       تا این نسخه یک سطرِ ۲۵۰ نویسه‌ای بود، یعنی ~۲۰ ثانیه. صاحبِ برنامه
+       گفت «در صوت‌های کوتاه‌مدت نمی‌شه تشخیص داد» و درست گفت. */
+    var pick = styleProbeText_();
+    var line = pick.text;
     // بی نقطهٔ پایانی: `ttsCue_` خودش «. » می‌گذارد و «روایی.. زیر و زبر»
     // دو نقطهٔ پشتِ هم در رشته‌ای می‌ساخت که این مخزن سرِ «مدل خودِ دستور را
     // خواند» تاوانش را داده.
     var st = 'آرام و روایی';
+    if (pick.short) {
+      err += 'متنِ بلند پیدا نشد (' + pick.why + ')، پس نمونه کوتاه است و ' +
+             'برای داوریِ «این ویژگی همه‌جا هست یا انتخابی» کافی نیست. ';
+    }
     var plan = [{ on: true, f: 'نمونهٔ سبک — با روحِ خواندن.wav' },
                 { on: false, f: 'نمونهٔ سبک — بی روحِ خواندن.wav' }];
 
@@ -795,7 +889,35 @@ function runStyleProbe() {
       // false است، هیچ‌جا هم نوشته نیست که چرا. پس finally.
       try {
         styleProbeSet_(plan[i].on);
-        var b64 = ttsChunkTry_(line, st, CFG.TTS_VOICE);
+        /* ══ چند تکه، چون متن بلند است (۷٫۷۳) ══
+           `TTS_CHUNK_CHARS` سقفِ هر فراخوان است، پس متنِ چندهزارنویسه‌ای
+           همان‌طور تکه می‌شود که خودِ قسمت تکه می‌شود — با همان تابع، نه
+           با یک شکنندهٔ دوم.
+
+           و پرچمِ سبک **پیش از هر تکه** دوباره مهر می‌خورد:
+           `STYLE_PROBE_TTL_MIN` پنج دقیقه است و نوشته شده «از هر
+           نمونه‌سازی بلندتر» — که برای یک سطر درست بود. با متنِ بلند،
+           انقضای وسطِ کار یعنی نیمهٔ دومِ نمونه **بی یادآورِ سبک** ساخته
+           می‌شود و دو فایل باز هم قابلِ داوری نیستند، بی هیچ خطایی.
+
+           بودجهٔ زمانی هم لازم است: Apps Script سرِ شش دقیقه بی هیچ خطایی
+           می‌کُشد، و نمونهٔ ناقصی که خودش را کامل نشان بدهد از نبودش بدتر
+           است. پس هرچه ساخته شد نوشته می‌شود و **طولِ واقعی‌اش گفته
+           می‌شود**. */
+        var pieces = splitForTts_(line);
+        if (!pieces.length) { err += plan[i].f + ': متنِ خالی. '; continue; }
+        var accB64 = '', cut = 0;
+        for (var ci = 0; ci < pieces.length; ci++) {
+          if (new Date().getTime() > probeDeadline) { cut = pieces.length - ci; break; }
+          styleProbeSet_(plan[i].on);                 // مهرِ تازه، پیش از هر تکه
+          var b1 = ttsChunkTry_(pieces[ci], st, CFG.TTS_VOICE);
+          if (!b1) { cut = pieces.length - ci; break; }
+          accB64 += alignB64_(b1);
+        }
+        if (cut) {
+          err += plan[i].f + ': ' + faDigitsOut_(String(cut)) + ' تکه ساخته نشد. ';
+        }
+        var b64 = accB64;
         if (!b64) { err += plan[i].f + ': پاسخِ خالی. '; continue; }
         // همان راهی که `runVoiceAudition` می‌رود — سرآیندِ WAV روی PCMِ خام.
         // راهِ دومِ ساختِ wav یعنی دو جا برای خراب شدن و نصفِ تاریخچه در هرکدام.
@@ -815,7 +937,12 @@ function runStyleProbe() {
         if (!driveShareOn_(f.getId())) {
           err += plan[i].f + ': اشتراکِ موقت برقرار نشد (آزمایشگاه نمی‌تواند برش دارد). ';
         }
-        made.push(plan[i].f + ' → ' + f.getUrl());
+        /* طولِ واقعی، نه طولِ خواسته‌شده. اگر بودجه یا مدل وسطِ کار
+           بریده باشد، همین عدد تنها چیزی است که می‌گوید نمونه چقدر است —
+           و کلِ شکایتِ او دربارهٔ **کوتاه بودن** بود. */
+        var sec = Math.round((bytes.length - 54) /
+                             ((Number(CFG.SAMPLE_RATE) || 24000) * 2));
+        made.push(plan[i].f + ' (' + castClock_(sec) + ') → ' + f.getUrl());
       } catch (eOne) {
         // قرینه‌اش `runVoiceAudition` برای هر صدا catch جدا دارد و ادامه
         // می‌دهد. کلِ ارزشِ این کار «دو فایل با یک متغیرِ تفاوت» است، پس از
@@ -835,7 +962,11 @@ function runStyleProbe() {
   var m = (okAll ? '✅ هر دو نمونه ساخته شد.' : '⚠️ ناقص.') + '\n\n' +
           made.join('\n') + (err ? '\n\nخطا: ' + err : '') + '\n\n' +
           'متنِ هر دو یکی است و تنها تفاوتشان یادآورِ سنجیدهٔ سبک است. ' +
-          'اگر فرقی نشنیدید، یعنی یادآور اثری نداشته — و همان جوابِ درست است.';
+          'اگر فرقی نشنیدید، یعنی یادآور اثری نداشته — و همان جوابِ درست است.' +
+          '\n\nاین دو فایل **رنگِ صدا ندارند** — خوانشِ جمینای‌اند. ' +
+          'برای شنیدنِ رنگ و روح با هم روی یک قسمتِ کامل: ردیفِ گوینده را ' +
+          'پیش از تولیدِ قسمت روشن کنید، بعد همان قسمت را به پلِ رنگِ صدا ' +
+          'بدهید؛ وگرنه پل رنگ را می‌گذارد و روحی نیست که بگذارد.';
   logLine_('نمونهٔ سبک: ' + made.length + ' فایل. ' + (err || ''));
   // ══ عنوان باید همان چیزی را بگوید که متن می‌گوید ══
   // «آماده شد» روی متنی که «⚠️ ناقص» است، همان دستورالعملی است که از

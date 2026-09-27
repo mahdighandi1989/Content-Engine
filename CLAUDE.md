@@ -1145,6 +1145,112 @@ empty queue is itself a failure. And my first deliberate breakage landed on the
 *other* assertion, because it destroyed the text pattern too; a breakage that lands
 on a different assertion does not prove the one you aimed at.
 
+## Colour is not soul, and the lever was never in the conversion (7.73)
+
+He listened to the whole of episode 49 in Razavi's voice and said two things.
+The first was about that characteristic of his voice — **a feature, not a defect** —
+being present in ~98% of the words over fifteen minutes, where Razavi himself
+deploys it selectively. The second: **«مثل کسی می‌خواند که متوجه نیست چه می‌خواند
+و فقط صدایش مثلِ رضوی است»**.
+
+**They are one fault seen from two sides, not two faults.** RVC changes timbre
+frame by frame and makes no decision about where to be creaky and where not.
+7.34 already wrote the reason down: *«مکث، کشش، ضرب‌آهنگ، دامنه … خروجیِ این مدل
+نیستند؛ ورودی‌اش‌اند»* — they arrive from Gemini's reading, i.e. from section 32.
+Episode 49's WAV was produced months ago with the ordinary reading: a uniform
+reading in gives a uniform texture out. **The 98% uniformity *is* the flat
+reading, measured from the other end.**
+
+**So 7.70 moved the wrong number**, and he said so plainly: «با همون مقدارِ ۱
+برای رضوی همه چیز خوبه». `VBR_INDEX_RATE` is back to `'1.0'` — his decision, and
+`rvcSim_`'s 0.024 range never distinguished those four settings anyway. The
+identity and the weeks of work stay where they are.
+
+**And the claim the engine was making had to stop.** «قسمت ۴۹ با صدای رضوی» was
+half true and nothing anywhere said which half. `vbrSoul_` reads the episode's
+own `_episode.json` and the queue row carries three states — «روح», «رنگ‌تنها»,
+«نامعلوم» — into the Telegram caption and the daily line. «رنگ‌تنها» does **not**
+lower `ok`: the conversion worked, the result is half the work, and saying so
+costs one sentence against fifteen minutes of his listening. «نامعلوم» stays
+silent, because an alarm for a state that may be healthy is the alarm people
+learn to ignore (7.40).
+
+**The record it reads did not exist, and the docstrings said it did.**
+`ensureCast_` and `personaEnsure_` both promise the decision «در پروندهٔ قسمت
+می‌مانَد و اجرای بعدی همان را می‌خوانَد». Neither was ever written:
+`writeEpisodeJson_` is last called in the `speak` phase and both decisions are
+made in `audio` — after it. So every resume re-cast from the model and re-read
+the sheet (the lead voice can change mid-episode, with no error, audible only),
+and `castSpansRecord_`'s own comment — «یوتیوب فردا فقط `_episode.json` را دارد» —
+was void: section 27 and the episode mail read `castSpans: []` every single night.
+That is the 7.68 shape again, the written claim and the code doing the opposite,
+and the *fourth* instance in this file of analysis wired to no decision.
+`epDecisionsSave_` writes once per episode (`__decAt`, so a resume writes
+nothing) and `null` is stored deliberately: `undefined` is dropped by JSON and
+`personaEnsure_` reads that as "not yet decided".
+
+**And the sample that was supposed to answer the question could not.** He had
+told me before, and told me again: **«در صوت‌های کوتاه‌مدت نمی‌شه تشخیص داد»**.
+`STYLE_PROBE_LINE` is ~250 characters, about twenty seconds, against a phenomenon
+he measured over fifteen minutes. *A measure whose window is shorter than the
+thing it measures never sees it* — the fifth instance of "the measure does not
+measure the goal" in this file, this time in the time dimension. The probe now
+takes ~4,000 characters of a **real episode's** vowelled text (`__speakSegs[i].t`,
+because `ttsCue_` deliberately sends the pronunciation cue instead of the style
+cue for undiacriticised text — 7.10's lesson), chunks it with the episode's own
+splitter, **re-stamps the style flag before every chunk** (`STYLE_PROBE_TTL_MIN`
+is five minutes and its comment says "longer than any sample build", which was
+true for one line and false for four minutes), and prints the **real** duration.
+A fallback to the short line is announced, never silent.
+
+## A search that leaves a third of its budget unspent is doing incomplete work (7.73)
+
+He ran a simple search and asked the right question: *is this logical? is it
+doing incomplete work?* The report's own numbers answered it: **277 rows read
+against a cap of 2,500**, in **152 seconds of a 230-second budget**, beside dozens
+of «N ردیف خوانده نشد» lines. **Neither cap was reached and the work stopped
+anyway.**
+
+**The cause is that the sweep had one pass.** 7.51 divided the time between tabs,
+which was right — before it the first tab could eat the whole budget and
+`getSheets` order decided what got searched. But an **unspent** share rolled
+forward while a **short** share was never made up: a tab cut off at its own share
+was never revisited, even with a third of the budget still on the table. A second
+pass now reads exactly the rows that were left, round-robin over the tabs, so one
+tab cannot eat the remainder either.
+
+**Three separate silences were behind those forty lines**, and each is a rule this
+file already paid for:
+
+- **`missed` conflated "no time" with "the read threw"** — and the throw lived in
+  a bare `catch (e) {}`. Two causes with opposite remedies arriving as one number.
+  A number that accuses carries its evidence (7.32), so the reason is reported.
+- **A block that throws lost every row in it.** A 75-row block of 11,000-character
+  cells can exceed the read limit while the same rows come back one at a time.
+  Degradation goes toward completeness, not toward silence.
+- **A tab whose header could not be read vanished from the map *and from the
+  denominator*.** `srchIsHubTab_` returned `false` for "not a bank tab" and for
+  "could not be read" out of the same `catch`, so "39 tabs of 39" was reported
+  with one tab never looked at — precisely the illusion of completeness that 7.23
+  added the denominator to prevent. And **my first fix for it was dead code**: I
+  put the reporting in `srchHubTabs_`, one layer above the swallow, and the new
+  assertion caught it by printing an empty notes array. Nothing about reading the
+  code showed that; breaking it did.
+
+**Two of my own new assertions measured nothing on first check.** One counted
+`items` where the claim was about **rows read** — `SEARCH_CAND_MAX` trims the list
+to 240 at the end, so it went red on correct code. The other claimed «the row cap
+is not reported as a budget problem» and was guaranteed by `out.stopped = out.stopped || …`
+keeping the first reason, not by the condition I had written: removing that
+condition left it green. A line that looks like a gate and is not misleads whoever
+reads it next (7.71), so the claim was replaced with one that carries load — a tab
+whose rows really cannot be read, with budget remaining, goes in the red frame.
+
+**And the answer to his second question — does smart search share the problem?**
+Yes, the same path: semantic retrieval is a *second candidate source* and its rows
+are read through the same `srchReadRows_`. Both modes get the fix, and both are
+checked by the same three lines in the monitor prompt.
+
 ## Two parts of one repo, two rulings on the same thing
 
 `voice-lab.yml` has refused GitHub Releases since the day it was written, and
