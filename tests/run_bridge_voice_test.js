@@ -46,8 +46,21 @@ ok('۱.۳ و اشتراکِ فایلِ **بیرونِ** OUTPUT دست نخورد
 ok('۱.۴ ولی کپی گشوده شد', String(
    vbrFolder_().getFilesByName('razavi.pth').next().getSharingAccess()) ===
    String(DriveApp.Access.ANYONE_WITH_LINK));
-ok('۱.۵ گویندهٔ بی‌بذر، دلیلش را می‌گوید',
-   vbrModel_('nobody').ok === false && /بذر/.test(vbrModel_('nobody').why));
+/* ══ «دلیلش را می‌گوید» کافی نیست؛ باید بگوید چه باید کرد (۷٫۷۵) ══
+   این حالت **حالتِ عادیِ گویندهٔ دوم** است: مدل در artifactِ گیت‌هاب مانده و
+   موتور نمی‌تواند برش دارد (artifact از بیرونِ Actions دانلود نمی‌شود و
+   `UrlFetchApp` سقفِ ۵۰ مگابایت دارد). پس یک بار دستی لازم است، و پیام باید
+   نامِ **دقیقِ** دو فایل را بدهد — نامِ اشتباه یعنی یک شکستِ بی‌صدای دیگر.
+   نگارشِ پیشینِ این سنجه واژهٔ «بذر» را می‌جست، یعنی نگارشِ پیام را می‌سنجید
+   نه ادعایش را. */
+{
+  const wN = vbrModel_('nobody');
+  ok('۱.۵ گویندهٔ بی‌مدل، نامِ دقیقِ فایل‌های لازم را می‌دهد',
+     wN.ok === false &&
+     wN.why.indexOf('nobody.pth') !== -1 && wN.why.indexOf('nobody.index') !== -1 &&
+     wN.why.indexOf(String(CFG.VBR_FOLDER || 'مدل‌های صدا')) !== -1,
+     wN.why);
+}
 /* نامِ کپی کلیدِ گوینده را دارد — دو گوینده با یک نامِ فایل همان باگی است
    که ۷٫۲۱ در dsSig_ گرفت: مدلِ یکی برای دیگری «موجود» شمرده می‌شود. */
 ok('۱.۶ نامِ کپی کلیدِ گوینده را دارد',
@@ -1320,6 +1333,77 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
      outRootFolderNames_().indexOf(String(CFG.VBR_SOUL_FOLDER)) !== -1,
      'بی این، همان شبِ اول یک هشدارِ «ناشناخته» برای پوشه‌ای که خودِ موتور ' +
      'ساخته (درسِ ۷٫۴۶)');
+
+  /* ══ فشارِ دوم باید سراغِ گویندهٔ بعدی برود (۷٫۷۵) ══
+     او دو گوینده دارد و پرسید «برای هر دو چطور؟». با تیکِ هر دو، ۷٫۷۴ هر بار
+     ردیفِ **اول** را برمی‌داشت و `vbrAsk_` با «قبلاً خواسته شده» ردش می‌کرد،
+     پس نفرِ دوم هرگز نوبت نمی‌گرفت. */
+  {
+    /* گویندهٔ دوم. ردیف باید **وجود داشته باشد** — `personaBoardSave_` کلیدِ
+       ناشناخته را رد می‌کند، و نگارشِ اولِ این سنجه همان‌جا سبز به نظر رسید
+       و در واقع هنوز رضوی را می‌سنجید. */
+    {
+      const shP = personaTab_();
+      const rowG = new Array(PERSONA_HEADERS.length).fill('');
+      rowG[PC.KEY - 1] = 'goldooz';
+      rowG[PC.NAME - 1] = 'محمد تقی پور گلدوز';
+      shP.appendRow(rowG);
+    }
+    personaBoardSave_('goldooz', false, [SHOW], 1, 'گرم و نزدیک بخوان', '', '',
+                      ['variety:88']);
+    /* و مدلش. بی این، سنجه روی «مدل نیست» می‌ایستد — که خودش سنجهٔ ۲۴.۱۴
+       است، نه این یکی. */
+    const gP = outsideFolder.createFile('goldooz-e32.pth', 'PTH', 'application/octet-stream');
+    const gI = outsideFolder.createFile('goldooz-e32.index', 'IDX', 'application/octet-stream');
+    CFG.VBR_SEED_MODELS.goldooz = { pth: gP.getId(), index: gI.getId() };
+    cues = [];
+    const r2 = runVoiceSoulTest();
+    ok('۲۴.۱۱ فشارِ دوم سراغِ گویندهٔ دوم می‌رود، نه همان اولی',
+       r2.ok === true && r2.speaker === 'goldooz',
+       JSON.stringify({ ok: r2.ok, speaker: r2.speaker, why: r2.why }) +
+       ' — دکمه‌ای که بارِ دوم کار نکند، برای کسی که دو گوینده دارد نصفِ قابلیت است');
+    ok('۲۴.۱۲ و با شیوهٔ خواندنِ **او**، نه اولی',
+       cues.length > 0 && cues.every((c) => c.indexOf('گرم و نزدیک بخوان') !== -1),
+       JSON.stringify(cues.slice(0, 1)));
+    /* ══ مدلِ نبوده باید **پیش از** ساختنِ صدا جلو را بگیرد (۷٫۷۵) ══
+       چهار دقیقه فراخوانِ TTS خرج کردن و بعد سرِ صف فهمیدن که مدلی نیست،
+       هم هزینه است هم پیامِ دیرهنگام.
+
+       با گویندهٔ **تازه‌ای** سنجیده می‌شود، نه با پاک‌کردنِ مدلِ گلدوز:
+       `vbrModel_` بذر را در همان پوشه کپی می‌کند، پس پس از یک اجرای موفق
+       فایل آنجاست و «برداشتنِ بذر» چیزی را عوض نمی‌کند. نگارشِ اول همین کار
+       را کرد و چهار تکه ساخت — یعنی راهی جز آن که نامش را می‌برد رفته بود. */
+    {
+      const shN = personaTab_();
+      const rowN = new Array(PERSONA_HEADERS.length).fill('');
+      rowN[PC.KEY - 1] = 'bimodel';
+      rowN[PC.NAME - 1] = 'گویندهٔ بی‌مدل';
+      shN.appendRow(rowN);
+      personaBoardSave_('bimodel', false, [SHOW], 1, 'خنثی بخوان', '', '',
+                        ['variety:88']);
+      // تیکِ آن دو برداشته می‌شود تا نوبت واقعاً به این یکی برسد
+      personaBoardSave_('razavi', false, [SHOW], 1, 'آرام و شمرده بخوان', '', '', []);
+      personaBoardSave_('goldooz', false, [SHOW], 1, 'گرم و نزدیک بخوان', '', '', []);
+      cues = [];
+      const rNo = runVoiceSoulTest();
+      ok('۲۴.۱۴ مدلِ نبوده پیش از خرجِ TTS جلو را می‌گیرد، با نامِ فایل‌ها',
+         rNo.ok === false && cues.length === 0 &&
+         rNo.speaker === 'bimodel' && rNo.why.indexOf('bimodel.pth') !== -1,
+         'تکه‌های ساخته‌شده: ' + cues.length + ' · ' + JSON.stringify(rNo));
+      // و تیک‌ها برمی‌گردند برای سنجهٔ بعدی
+      personaBoardSave_('bimodel', false, [SHOW], 1, 'خنثی بخوان', '', '', []);
+      personaBoardSave_('razavi', false, [SHOW], 1, 'آرام و شمرده بخوان', '', '',
+                        ['variety:88']);
+      personaBoardSave_('goldooz', false, [SHOW], 1, 'گرم و نزدیک بخوان', '', '',
+                        ['variety:88']);
+    }
+    // و فشارِ سوم: چیزی نمانده — و این با «تیکی نخورده» یکی نیست
+    const r3 = runVoiceSoulTest();
+    ok('۲۴.۱۳ فشارِ سوم می‌گوید «همه ساخته شد»، نه «تیکی نخورده»',
+       r3.ok === false && r3.why.indexOf('نمونه ساخته شده') !== -1 &&
+       r3.why.indexOf('تیک نخورده') === -1,
+       JSON.stringify(r3) + ' — گفتنِ «تیکی نخورده» یعنی او فکر می‌کند تیکش گم شده');
+  }
 
   global.ttsChunkTry_ = realTry;
   global.styleProbeSet_ = realSet;

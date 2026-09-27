@@ -1145,6 +1145,49 @@ empty queue is itself a failure. And my first deliberate breakage landed on the
 *other* assertion, because it destroyed the text pattern too; a breakage that lands
 on a different assertion does not prove the one you aimed at.
 
+## Ten green assertions and nobody had pressed it twice (7.75)
+
+He asked the plainest possible follow-up: *how do I run this test for **both**
+Goldooz and Razavi?* Two defects fell out of the question, and 7.74's ten new
+assertions — all green, all deliberately falsified — had seen neither.
+
+**One: the second press did nothing.** `vbrSoulPick_` returned the **first**
+eligible row, so with both speakers ticked every press asked for Razavi again and
+`vbrAsk_` refused it with «قبلاً خواسته شده». The second speaker could never get a
+turn. A button that works once, for a person who has two speakers, is half a
+feature. A (speaker, episode) pair already in the queue is now skipped, so the
+second press walks to the next one by itself — and «all the ticks already have a
+sample» is reported as its own state, because saying «nothing is ticked» there
+tells him his tick was lost.
+
+**Two: the second speaker has no model, and the message did not say what to do.**
+This is not a rare fault; it is **the normal state of every speaker after the
+first**. The trained model lives in a GitHub artifact, which cannot be downloaded
+from outside Actions, and `UrlFetchApp` caps a response at 50 MB while the model is
+larger — so there is no route the engine can take. It has to be placed in Drive by
+hand, once. `vbrModel_` said «مدلِ X … نیست» and stopped there; the two filenames it
+actually looks for (`<key>.pth`, `<key>.index`, named after the speaker key, not the
+person's name) were never stated, and a wrong filename is another silent failure.
+It now names both files and the folder — 7.45's rule, one section over.
+
+**And the check moved in front of the work.** Four minutes of TTS calls followed by
+"there is no model" at the queue is both wasted spend and a late message. He is
+standing in front of the dialog when he presses it; that is the one place the
+sentence gets read.
+
+**The lesson is about the test, not the code.** Every 7.74 assertion exercised one
+speaker. None built the state he actually has — two rows, both ticked — so the room
+was measured and the door was not (7.44). *When a feature is about "several", a
+test with one proves the singular case only.*
+
+**And my first version of the new model-gate assertion built the wrong state:** I
+removed Goldooz's seed to make the model "absent", but `vbrModel_` had already
+copied that seed into the folder on the previous successful run, so four chunks were
+synthesized and the assertion measured a different road. It uses a speaker who never
+had a model. The sibling assertion ۱٫۵ had the mirror defect — it searched the
+message for the word «بذر», i.e. it tested the wording rather than the claim, and it
+went red on correct code the moment the wording improved.
+
 ## «It cannot be done» was true and was half an answer (7.74)
 
 He asked: can I do the episode-49 test with Goldooz too, **with colour and soul

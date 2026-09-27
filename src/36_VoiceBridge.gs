@@ -116,8 +116,21 @@ function vbrModel_(key) {
   if (!have.pth) {
     var seed = (CFG.VBR_SEED_MODELS || {})[k] || null;
     if (!seed || !seed.pth) {
-      out.why = 'مدلِ «' + k + '» در «' + (CFG.VBR_FOLDER || 'مدل‌های صدا') +
-                '» نیست و بذری هم برایش تعریف نشده.';
+      /* ══ پیامی که نگوید چه باید کرد، پیامِ ناکارآمد است (۷٫۴۵) ══
+         این حالت **حالتِ عادیِ گویندهٔ دوم** است، نه یک خرابیِ نادر: مدل در
+         artifactِ گیت‌هاب آموزش دیده و از آنجا بیرون نمی‌آید (artifact از
+         بیرونِ Actions دانلود نمی‌شود، و `UrlFetchApp` هم سقفِ ۵۰ مگابایت
+         دارد در حالی که مدل بزرگ‌تر است). یعنی راهی که موتور خودش برود
+         وجود ندارد و **یک بار** باید دستی گذاشته شود. پس پیام باید نامِ
+         دقیقِ دو فایل و جای دقیقشان را بگوید، وگرنه نامِ اشتباه یک شکستِ
+         بی‌صدای دیگر است. */
+      out.why = 'مدلِ «' + k + '» در پوشهٔ «' + (CFG.VBR_FOLDER || 'مدل‌های صدا') +
+                '» نیست. یک بار دستی بگذاریدش: دو فایل با همین نام‌ها — «' +
+                want.pth + '» و «' + want.index + '» — در همان پوشه زیرِ OUTPUT. ' +
+                'نامِ فایل باید **دقیقاً** کلیدِ گوینده باشد، وگرنه موتور پیدایش نمی‌کند.';
+      out.needFiles = [want.pth, want.index];
+      out.folder = String(CFG.VBR_FOLDER || 'مدل‌های صدا');
+      try { out.folderUrl = fold.getUrl(); } catch (eU) { out.folderUrl = ''; }
       return out;
     }
     try {
@@ -1296,7 +1309,24 @@ function vbrSoulPick_() {
     out.why = 'تبِ «صداها» خوانده نشد: ' + String((e && e.message) || e).slice(0, 60);
     return out;
   }
-  var map = null, noCue = [];
+  /* ══ آنچه یک بار ساخته شد، نوبتِ بعدی را نمی‌گیرد (۷٫۷۵) ══
+     نگارشِ ۷٫۷۴ همیشه **اولین** ردیفِ واجدِ شرط را برمی‌داشت. صاحبِ برنامه
+     دو گوینده دارد و پرسید «برای هر دو چطور؟» — و جواب این بود که با تیکِ
+     هر دو، هر بار فشار دادن سراغِ ردیفِ اول می‌رفت و `vbrAsk_` با «قبلاً
+     خواسته شده» ردش می‌کرد، پس نفرِ دوم **هرگز** نوبت نمی‌گرفت. دکمه‌ای که
+     بارِ دوم کار نکند، برای کسی که دو گوینده دارد یعنی نصفِ قابلیت.
+     پس جفتِ (گوینده، قسمت)ی که از قبل در صف است رد می‌شود و فشارِ دوم
+     خودش می‌رود سرِ بعدی. */
+  var already = {};
+  try {
+    var q0 = vbrRead_();
+    for (var z = 0; z < q0.items.length; z++) {
+      var k0 = String(q0.items[z].key || '');
+      if (k0.indexOf('نمونهٔ روح — ') === 0) already[k0] = 1;
+    }
+  } catch (eQ) { already = {}; }
+
+  var map = null, noCue = [], done = [];
   for (var i = 0; i < rows.length; i++) {
     var key = String(rows[i][PC.KEY - 1] || '').trim();
     if (!key) continue;
@@ -1336,8 +1366,20 @@ function vbrSoulPick_() {
       if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
       var item = map[k];
       if (!item) continue;                       // پوشه‌اش شناخته نیست
+      if (already['نمونهٔ روح — ' + key + ':' + String(item.ep)]) {
+        done.push(name + ' — قسمت ' + String(item.ep));
+        continue;                                // این یکی ساخته شده
+      }
       return { ok: true, key: key, name: name, cue: cue, item: item };
     }
+  }
+  /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
+     اولی یعنی او فکر می‌کند تیکش گم شده. */
+  if (done.length) {
+    out.done = done;
+    out.why = 'برای همهٔ تیک‌ها نمونه ساخته شده: ' + done.join(' · ') +
+              '. برای نمونهٔ تازه، قسمتِ دیگری را تیک بزنید';
+    return out;
   }
   out.why = noCue.length
     ? ('ردیفِ «' + noCue.join('» و «') + '» قسمت تیک خورده ولی ستونِ ' +
@@ -1380,6 +1422,19 @@ function runVoiceSoulTest() {
         'ردیفِ گوینده ← یک قسمتِ تولیدشده را تیک بزنید (ستونِ «شیوهٔ خواندن» ' +
         'هم باید پر باشد)، بعد همین دکمه.');
     return { ok: false, why: pick.why };
+  }
+  /* مدل پیش از ساختنِ صدا سنجیده می‌شود، نه بعدش: ~چهار دقیقه فراخوانِ TTS
+     خرج کردن و بعد سرِ صف فهمیدن که مدلی نیست، هم هزینه است هم پیامِ
+     دیرهنگام. و او همین حالا جلوی پنجره ایستاده، پس این تنها جایی است که
+     جملهٔ «چه باید بکنی» واقعاً خوانده می‌شود. */
+  var mdlChk = null;
+  try { mdlChk = vbrModel_(pick.key); } catch (eM) { mdlChk = null; }
+  if (mdlChk && !mdlChk.ok) {
+    say('⚠️ ' + String(mdlChk.why || 'مدلِ این گوینده آماده نیست') +
+        (mdlChk.folderUrl ? '\n\n' + mdlChk.folderUrl : '') +
+        '\n\nتا مدل سرِ جایش نباشد، رنگِ صدا گذاشته نمی‌شود — پس نمونه هم ' +
+        'ساخته نمی‌شود، که بهتر از ساختنِ چهار دقیقه صوتِ بی‌رنگ است.');
+    return { ok: false, why: String(mdlChk.why || 'مدل نیست'), speaker: pick.key };
   }
   var txt = '';
   try { txt = epSpeakText_(pick.item.folderId); } catch (eT) { txt = ''; }
