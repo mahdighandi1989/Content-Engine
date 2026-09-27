@@ -1077,6 +1077,33 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Looking only for the cost I added (7.72)
+
+Today's 10:00 mail said it itself: *«وارسیِ سلامت وقت کم آورد و این بخش‌ها امروز
+اجرا نشدند: دورِ ۱۰ صبحِ یوتیوب، کیفیتِ استخراج، صفِ داوریِ محتوا، ترتیبِ
+قسمت‌ها، عصری‌سازی، مدل‌ها. (کلِ اجرا ۳۲۰ ثانیه)»* — six blocks dropped.
+
+**The first thing I found was mine.** 7.68 called `musicStatus_()` in `healthCheck`
+while `writeStatus_` had already built that very object into `st.music`, and 7.68
+had *also* changed `musicStatus_` from reading one **column** to reading the whole
+tab. That is 7.63's lesson — *do not put cost on the function that just died of
+cost* — repeated one version after writing it down.
+
+**And then the assertion said 4, not 2.** `musicStatus_` calls `musicSlotCounts_`,
+`musicThinSlots_` and `musicCoverage_`, and **each one independently re-reads the
+entire music tab** of a 29 MB hub. Those three predate yesterday by a long way.
+Eight full-tab reads per health check; now one, read once and passed down.
+
+**That gap is the lesson, not the fix.** I went looking for the cost *I* had added
+and would have found exactly that, removed it, and reported "fixed" with
+seven-eighths of the waste still in place. What stopped me was writing the
+assertion before the fix and letting it report a number instead of a verdict. A
+check that answers *how many* survives being wrong about *who*; a check that
+answers *yes/no* does not.
+
+The count is **reads**, never elapsed time — the double has no 29 MB spreadsheet
+(7.60) — and all four halves of the fix were turned red by breaking them.
+
 ## The number that chose 1.0 now argues against it (7.70)
 
 He listened to a whole fifteen-minute episode and reported something no test could

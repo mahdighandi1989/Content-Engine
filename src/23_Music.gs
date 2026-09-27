@@ -1460,8 +1460,9 @@ function musicStatus_() {
    * فقط داخلِ تب بود و صاحبِ برنامه شیت باز نمی‌کند — پس قطعه‌های
    * نشنیده ماه‌ها سرِ آغازِ پادکست پخش شدند و تنها کسی که فهمید، **او**
    * بود، با گوشش. عددی که فقط در یک شیت زندگی کند، وجود ندارد. */
+  var bk = null;
   try {
-    var bk = musicBank_();
+    bk = musicBank_();
     out.playable = 0; out.unheard = 0; out.unheardEdge = 0;
     for (var q = 0; q < bk.length; q++) {
       if (String(bk[q].kind || '') === 'افکت') continue;
@@ -1475,9 +1476,9 @@ function musicStatus_() {
   } catch (e5) { out.playable = null; out.unheard = null; }
   // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
   try {
-    out.slots = musicSlotCounts_();
+    out.slots = musicSlotCounts_(null, bk);
     out.target = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
-    out.thin = musicThinSlots_();
+    out.thin = musicThinSlots_(null, bk);
   } catch (e3) {}
   /* ══ افکت هم باید دیده شود (یافتهٔ بازِ ناظر، ۵٫۹۶) ══
    * بندِ ۴-د دستورِ نظارت می‌پرسد «چند افکت در بانک هست و هدف چند است؟» و
@@ -1488,7 +1489,7 @@ function musicStatus_() {
    *
    * همان الگوی همیشگی: تحلیل نوشته شده بود و به تصمیمی وصل نبود. */
   try {
-    var cov = musicCoverage_();
+    var cov = musicCoverage_(null, bk);
     out.sfx = Number(cov.sfx) || 0;
     out.sfxTarget = Number(cov.sfxTarget) || 0;
     out.sfxEnabled = CFG.MUSIC_SFX_ENABLED !== false;
@@ -2937,9 +2938,14 @@ function musicMoodFamily_(text) {
  * اجتماعی، هنری، مالی. کمبود هم به همان دقت گزارش می‌شود، تا جست‌وجو
  * دنبالِ همان چیزی برود که واقعاً کم است.
  */
-function musicCoverage_(hub) {
+function musicCoverage_(hub, bankIn) {
+  /* `bankIn` اختیاری است و برای یک دلیل اضافه شد (۷٫۷۲): `musicStatus_`
+     این تابع و دو تابعِ دیگر را صدا می‌زد و هرکدام **کلِ تبِ موسیقی** را
+     از نو می‌خواند — چهار خواندن در یک فراخوان، از هابِ ۲۹ مگابایتی، و
+     همهٔ آن روی مسیرِ `healthCheck`. */
   var bank = [];
-  try { bank = musicBank_(hub); } catch (e) { bank = []; }
+  if (bankIn && Object.prototype.toString.call(bankIn) === '[object Array]') bank = bankIn;
+  else { try { bank = musicBank_(hub); } catch (e) { bank = []; } }
   var per = Math.max(1, Number(CFG.MUSIC_PER_MOOD) || 2);
   var floor = Math.max(1, Number(CFG.MUSIC_BANK_TARGET) || 5);
   var wornAt = Math.max(1, Number(CFG.MUSIC_ROTATE_USED) || 4);
@@ -3019,8 +3025,8 @@ function musicWantedFamilies_() {
 }
 
 /** جایگاه‌هایی که هنوز کم دارند — از روی پوشش، نه عددِ تخت. */
-function musicThinSlots_(hub) {
-  var cov = musicCoverage_(hub);
+function musicThinSlots_(hub, bankIn) {
+  var cov = musicCoverage_(hub, bankIn);
   var out = [], seen = {};
   for (var i = 0; i < cov.gaps.length; i++) {
     var sl = cov.gaps[i].slot;
@@ -3073,10 +3079,11 @@ function musicSeekPage_(advance) {
 }
 
 /** شمارِ قطعه‌های هر جایگاه — برای وضعیت و گزارش. */
-function musicSlotCounts_(hub) {
+function musicSlotCounts_(hub, bankIn) {
   var need = ['شروع', 'پایان', 'میانه'], out = {};
   var bank = [];
-  try { bank = musicBank_(hub); } catch (e) { return out; }
+  if (bankIn && Object.prototype.toString.call(bankIn) === '[object Array]') bank = bankIn;
+  else { try { bank = musicBank_(hub); } catch (e) { return out; } }
   for (var i = 0; i < need.length; i++) {
     out[need[i]] = 0;
     for (var j = 0; j < bank.length; j++) {
