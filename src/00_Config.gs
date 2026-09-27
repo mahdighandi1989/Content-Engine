@@ -1201,7 +1201,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.73',
+  CODE_VERSION: '7.74',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1385,6 +1385,10 @@ var CFG = {
   /* مدلِ رضوی، در پوشهٔ «voice-models» که بیرونِ OUTPUT است. موتور
      **اشتراکِ فایلِ بیرونِ OUTPUT را عوض نمی‌کند**؛ یک کپی در OUTPUT
      می‌گیرد و آن را می‌گشاید. کپی‌گرفتن نوشتن در OUTPUT است و مجاز. */
+  /* پوشهٔ نمونه‌های «رنگ و روح» (۷٫۷۴). زیرپوشهٔ خودش در OUTPUT، و در
+     `outRootFolderNames_` هم ثبت شده — وگرنه همان شبِ اول یک هشدارِ
+     «ناشناخته» می‌ساخت برای پوشه‌ای که خودِ موتور ساخته (درسِ ۷٫۴۶). */
+  VBR_SOUL_FOLDER: 'نمونهٔ رنگ و روح',
   VBR_SEED_MODELS: {
     razavi: { pth: '1MFh6X16JK9z4Ilkw1l1NSdAN6b4ZYFK7',
               index: '1IDCUyeWWghsyHZFhxcQ9N4tJmEohE-Cy' }

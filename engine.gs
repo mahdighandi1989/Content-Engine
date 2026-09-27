@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.73
+ *  موتور محتوا و پادکست — نسخهٔ 7.74
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1285,7 +1285,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.73',
+  CODE_VERSION: '7.74',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1469,6 +1469,10 @@ var CFG = {
   /* مدلِ رضوی، در پوشهٔ «voice-models» که بیرونِ OUTPUT است. موتور
      **اشتراکِ فایلِ بیرونِ OUTPUT را عوض نمی‌کند**؛ یک کپی در OUTPUT
      می‌گیرد و آن را می‌گشاید. کپی‌گرفتن نوشتن در OUTPUT است و مجاز. */
+  /* پوشهٔ نمونه‌های «رنگ و روح» (۷٫۷۴). زیرپوشهٔ خودش در OUTPUT، و در
+     `outRootFolderNames_` هم ثبت شده — وگرنه همان شبِ اول یک هشدارِ
+     «ناشناخته» می‌ساخت برای پوشه‌ای که خودِ موتور ساخته (درسِ ۷٫۴۶). */
+  VBR_SOUL_FOLDER: 'نمونهٔ رنگ و روح',
   VBR_SEED_MODELS: {
     razavi: { pth: '1MFh6X16JK9z4Ilkw1l1NSdAN6b4ZYFK7',
               index: '1IDCUyeWWghsyHZFhxcQ9N4tJmEohE-Cy' }
@@ -9383,6 +9387,7 @@ function onOpen() {
       .addItem('🎚 نمونهٔ روحِ خواندن (با و بی کارت)', 'runStyleProbe')
       .addItem('🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست', 'showPersonaBoard')
       .addItem('🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت', 'runVoiceBridge')
+      .addItem('🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)', 'runVoiceSoulTest')
       .addItem('کنار گذاشتنِ یک گوینده', 'runBlockVoice')
       .addItem('🎤 گویندهٔ تازه — وارسیِ پوشه و صف', 'runVoiceIntake')
       .addSeparator()
@@ -11172,7 +11177,13 @@ function outRootFolderNames_() {
        ریشه نیست — ریشه فقط چیزی را نگه می‌دارد که موتور با نام پیدایش
        می‌کند. بی این ردیف، همان شبِ اول یک هشدارِ «ناشناخته» می‌ساخت
        برای پوشه‌ای که خودِ موتور ساخته بود. */
-    String(CFG.EMB_FOLDER || '')
+    String(CFG.EMB_FOLDER || ''),
+    /* پوشهٔ نمونه‌های «رنگ و روح» (۷٫۷۴). نامِ تازه‌ای در ریشه که خودِ
+       موتور می‌سازد، پس همان‌جا که ساخته می‌شود شناخته هم می‌شود — این
+       عیناً درسِ ۷٫۴۶ است: `_VOICE-RENDER.json` نه در این فهرست بود و نه
+       در نقشهٔ درایو، و موتور هفته‌ها صفِ خودش را «چیزِ ناشناخته» گزارش
+       می‌کرد. */
+    String(CFG.VBR_SOUL_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -26417,9 +26428,37 @@ function runVoiceAudition() {
  * **گفته می‌شود** و به همان سطرِ کوتاه سقوط می‌کنیم. سقوطِ خاموش به
  * نسخهٔ آسانِ یک آزمون، از شکستِ آزمون بدتر است (`embSelfTest_`).
  */
+function epSpeakText_(folderId, capOpt) {
+  var cap = Math.max(400, Number(capOpt) || Number(CFG.STYLE_PROBE_CHARS) || 4000);
+  var meta = null;
+  try { meta = ytEpisodeMeta_(DriveApp.getFolderById(String(folderId))); }
+  catch (e) { return ''; }
+  var segs = (meta && meta.ep && meta.ep.__speakSegs) || [];
+  var acc = [], n = 0;
+  for (var j = 0; j < segs.length; j++) {
+    var t = String((segs[j] || {}).t || '').trim();
+    if (!t) continue;
+    acc.push(t); n += t.length + 1;
+    if (n >= cap) break;
+  }
+  /* کمتر از این، همان مشکلِ نمونهٔ کوتاه است با ظاهرِ دیگر. */
+  if (n < 900) return '';
+  var txt = styleProbeCut_(acc.join(' ').slice(0, cap));
+  return (txt.length < 900) ? '' : txt;
+}
+
+/** تا آخرین پایانِ جمله ببُر. متنی که وسطِ جمله قطع شود، خودش یک عیبِ شنیدنی است. */
+function styleProbeCut_(t) {
+  var s = String(t || '');
+  var best = -1, marks = '.!؟…';
+  for (var i = s.length - 1; i >= 0; i--) {
+    if (marks.indexOf(s.charAt(i)) !== -1) { best = i; break; }
+  }
+  return (best > 600) ? s.slice(0, best + 1) : s;
+}
+
 function styleProbeText_() {
   var out = { text: '', from: '', chars: 0, short: false, why: '' };
-  var cap = Math.max(400, Number(CFG.STYLE_PROBE_CHARS) || 4000);
   var items = [];
   try {
     items = (ytRenderRead_().items || []).slice();
@@ -26432,20 +26471,8 @@ function styleProbeText_() {
     var fid = String((items[i] || {}).folderId || '');
     if (!fid) continue;
     tried++;
-    var meta = null;
-    try { meta = ytEpisodeMeta_(DriveApp.getFolderById(fid)); } catch (e2) { continue; }
-    var segs = (meta && meta.ep && meta.ep.__speakSegs) || [];
-    var acc = [], n = 0;
-    for (var j = 0; j < segs.length; j++) {
-      var t = String((segs[j] || {}).t || '').trim();
-      if (!t) continue;
-      acc.push(t); n += t.length + 1;
-      if (n >= cap) break;
-    }
-    /* کمتر از این، همان مشکلِ نمونهٔ کوتاه است با ظاهرِ دیگر. */
-    if (n < 900) continue;
-    var txt = styleProbeCut_(acc.join(' ').slice(0, cap));
-    if (txt.length < 900) continue;
+    var txt = epSpeakText_(fid);
+    if (!txt) continue;
     out.text = txt; out.chars = txt.length;
     out.from = 'قسمت ' + String((items[i] || {}).ep || '؟') +
                ' (' + String((items[i] || {}).show || '') + ')';
@@ -26460,16 +26487,6 @@ function styleProbeText_() {
               ' پوشه وارسی شد)';
   }
   return out;
-}
-
-/** تا آخرین پایانِ جمله ببُر. متنی که وسطِ جمله قطع شود، خودش یک عیبِ شنیدنی است. */
-function styleProbeCut_(t) {
-  var s = String(t || '');
-  var best = -1, marks = '.!؟…';
-  for (var i = s.length - 1; i >= 0; i--) {
-    if (marks.indexOf(s.charAt(i)) !== -1) { best = i; break; }
-  }
-  return (best > 600) ? s.slice(0, best + 1) : s;
 }
 
 /**
@@ -49127,15 +49144,35 @@ function vintAnnounce_(name, key, r, samples) {
                (CFG.VOICE_AUDIT_FOLDER || 'آزمونِ صدای گویندگان') + '»):');
     for (var i = 0; i < samples.length; i++) lines.push('  ' + samples[i].url);
   } else {
-    lines.push('نمونهٔ شنیداری نرسید — سنجش انجام شده ولی فایلی برای شنیدن نیامد.');
+    /* ══ «فایلی نیامد» جمله‌ای بود که راهِ شنیدن را نمی‌گفت (۷٫۷۴) ══
+       نمونه‌های آزمایشگاه عمداً در ریپو نمی‌نشینند: این ریپو عمومی است و
+       آن فایل‌ها صدای کلون‌شدهٔ یک شخصِ حقیقی‌اند — همان حکمی که
+       `voice-lab.yml` از روزِ اول دارد. پس این جمله باید **راه** را بدهد،
+       نه خبرِ نبودن را؛ وگرنه صاحبِ برنامه می‌پرسد «چرا نفرستادی؟» و
+       جوابش هیچ‌جا نوشته نیست. */
+    lines.push('نمونهٔ شنیداری همراهِ این خبر نمی‌آید، و این عمدی است: این ریپو ' +
+               'عمومی است و نمونهٔ صدای کلون‌شدهٔ یک شخص نباید در آن منتشر شود.');
+    lines.push('برای شنیدن: منو ← «🎨 نمونهٔ بلند با رنگ و روح» — یک قسمتِ ' +
+               'تولیدشده را در تختهٔ «شیوهٔ خواندنِ گویندگان» تیک بزنید و آن دکمه ' +
+               'را بزنید؛ نمونهٔ چنددقیقه‌ای با شیوهٔ خواندن و رنگِ صدای او ' +
+               'در تلگرام می‌آید.');
   }
   lines.push('');
   lines.push('حالا می‌توانید گویندهٔ بعدی را در پوشهٔ «' +
              (CFG.VOICE_CLONE_FOLDER || 'voice cloning') + '» بگذارید.');
   lines.push('');
-  lines.push('⚠️ این مدل هنوز در هیچ قسمتی استفاده نمی‌شود. برای اینکه صدای یک ' +
-             'گوینده روی پادکست بنشیند، «پلِ رنگِ صدا» لازم است که هنوز ساخته ' +
-             'نشده — و ساختش به اجازهٔ خودِ شما بسته است.');
+  /* ══ دستوری که از حقیقتش جلو افتاد (بخشِ «Instructions that outlived
+     their truth» در CLAUDE.md) ══
+     این خط می‌گفت «پلِ رنگِ صدا هنوز ساخته نشده». پل در ۷٫۳۶ ساخته شد و از
+     ۲۶ سپتامبر روی یک قسمتِ کامل کار کرده. یعنی خبرِ آماده شدنِ گویندهٔ
+     دوم — اگر رفته بود — به او می‌گفت راهی وجود ندارد، در حالی که همان روز
+     خودش از آن راه استفاده کرده بود. دستورِ غلط از نبودِ دستور بدتر است. */
+  lines.push('⚠️ این مدل به‌خودیِ خود روی هیچ قسمتی نمی‌نشیند. دو راه هست و هر ' +
+             'دو دستِ شماست: ردیفش را در تختهٔ «شیوهٔ خواندنِ گویندگان» **پیش از ' +
+             'تولیدِ قسمتِ بعدی** روشن کنید (آن قسمت با شیوهٔ خواندنِ او ساخته ' +
+             'می‌شود و پل رنگش را می‌گذارد)، یا یک قسمتِ تولیدشده را تیک بزنید و ' +
+             'با «🎨 نمونهٔ بلند با رنگ و روح» نمونه بگیرید. و صوتِ منتشرشده در ' +
+             'هیچ‌کدام عوض نمی‌شود.');
 
   var body = lines.join('\n');
   /* ══ صفِ ایمیل را «رسید» فرض نکن (۷٫۲۲) ══
@@ -52931,7 +52968,7 @@ function vbrSoul_(folderId, speakerKey) {
  * بیرون همه‌چیز سالم به نظر می‌رسد. این سقف فقط ردیف‌هایی را می‌شمرد که
  * هنوز خروجی‌شان ساخته نشده.
  */
-function vbrAsk_(show, epNum, folderId, speaker, title) {
+function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (CFG.VBR_ON === false) return { ok: false, why: 'پل خاموش است' };
   var key = String(show) + ':' + String(epNum);
   var d = vbrRead_();
@@ -52972,14 +53009,23 @@ function vbrAsk_(show, epNum, folderId, speaker, title) {
     row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
   }
   row.shared = true;
+  var o = opts || {};
+  /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
+     (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
+     چیزی که چهار دقیقه از آن قسمت است — همان ادعای نیمه‌ای که این نسخه و
+     نسخهٔ پیش هر دو دربارهٔ آن نوشته‌اند. */
+  if (o.label) row.label = String(o.label);
   /* رنگ و روح، و کدامش را این ردیف می‌آورد (۷٫۷۳). اینجا سنجیده می‌شود نه
      سرِ تحویل: پروندهٔ قسمت همین حالا در دسترس است و ماه‌ها بعد ممکن است
      نباشد — و اگر سرِ تحویل خوانده شود، یک خطای گذرا ادعا را بی‌صدا به
      «نامعلوم» تنزل می‌دهد. */
-  try {
-    var sl = vbrSoul_(folderId, speaker);
-    row.soul = sl.state; row.soulWhy = sl.why;
-  } catch (eSl) { row.soul = 'نامعلوم'; row.soulWhy = 'سنجیده نشد'; }
+  if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
+  else {
+    try {
+      var sl = vbrSoul_(folderId, speaker);
+      row.soul = sl.state; row.soulWhy = sl.why;
+    } catch (eSl) { row.soul = 'نامعلوم'; row.soulWhy = 'سنجیده نشد'; }
+  }
   d.items.push(row);
   return vbrSave_(d) ? { ok: true, key: key, parts: row.audio.length }
                      : { ok: false, why: 'صف ذخیره نشد' };
@@ -53091,7 +53137,7 @@ function vbrWavOk_(blob) {
 
 /** نامِ فایلِ تبدیل‌شده — خودش را معرفی می‌کند، تا با اصل اشتباه نشود. */
 function vbrOutName_(item, speakerName) {
-  var base = 'قسمت ' + String(item.ep);
+  var base = String((item && item.label) || ('قسمت ' + String(item.ep)));
   return base + String(CFG.VBR_SUFFIX || ' — با صدای ') +
          String(speakerName || item.speaker) + '.wav';
 }
@@ -53352,7 +53398,8 @@ function vbrTgTell_(item, speakerName, got) {
                '. پس مکث و کشش و دامنه از او نیست؛ تبدیل رنگ را عوض می‌کند، ' +
                'شیوهٔ خواندن را نه.';
   }
-  var cap = '🎙 <b>قسمت ' + tgEsc_(ep) + ' با صدای ' + tgEsc_(who) + '</b>' +
+  var head = String((item && item.label) || ('قسمت ' + ep));
+  var cap = '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
             (title ? '\n' + tgEsc_(title) : '') +
             '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
             'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine +
@@ -53973,6 +54020,206 @@ function vbrSpeakerPick_(rows, show, epRaw) {
 }
 
 /** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */
+/**
+ * گویندهٔ نمونهٔ «رنگ و روح» و قسمتی که او تیک زده.
+ *
+ * از همان دو ستونی خوانده می‌شود که `vbrAskPicked_` و `personaFor_`
+ * می‌خوانند — «قسمت‌های تولیدشده» و «قسمت‌های موردی». **کنترلِ تازه‌ای
+ * ساخته نشد**، چون کنترلی که جایی جز کارِ خودش بنشیند پیدا نمی‌شود (۵٫۶۱)
+ * و او همین دو ستون را از ۷٫۵۹ بلد است.
+ *
+ * ردیف باید «شیوهٔ خواندن» داشته باشد، وگرنه روحی برای گذاشتن نیست و این
+ * تابع همان کارِ پل را دوباره می‌کرد. «فعال» شرط نیست: تیک از «فعال» رد
+ * می‌شود (۷٫۴۱) و این کار عمداً یک نمونه است، نه تولید.
+ */
+function vbrSoulPick_() {
+  var out = { ok: false, why: '' };
+  var rows = [];
+  try { rows = vbrSpeakerRows_(); } catch (e) {
+    out.why = 'تبِ «صداها» خوانده نشد: ' + String((e && e.message) || e).slice(0, 60);
+    return out;
+  }
+  var map = null, noCue = [];
+  for (var i = 0; i < rows.length; i++) {
+    var key = String(rows[i][PC.KEY - 1] || '').trim();
+    if (!key) continue;
+    var name = String(rows[i][PC.NAME - 1] || '').trim() || key;
+    var cue = String(rows[i][PC.STYLE - 1] || '').trim();
+    /* ══ فقط ستونِ «قسمت‌های تولیدشده»، عمداً ══
+       ۷٫۵۹ این دو ستون را از هم جدا کرد و جداییِ درستی بود: «تولیدشده»
+       یعنی صوتش همین حالا هست، «موردی» یعنی قسمتی که هنوز ساخته نشده.
+       این نمونه از **متنِ خودِ قسمت** ساخته می‌شود، پس قسمتِ نساخته
+       متنی هم ندارد. خواندنِ «موردی» اینجا یعنی وعده‌ای که همیشه رد
+       می‌شود — و بی‌صدا. */
+    var cell = String(rows[i][PC.PICK - 1] == null ? '' : rows[i][PC.PICK - 1]).trim();
+    var set = {};
+    if (cell) {
+      try { set = personaPickSet_(cell, rows[i][PC.SHOWS - 1]) || {}; }
+      catch (eS) { set = {}; }
+    }
+    var any = false;
+    for (var kk in set) { if (Object.prototype.hasOwnProperty.call(set, kk)) { any = true; break; } }
+    if (!any) continue;
+    /* ردیفی که تیک دارد و شیوهٔ خواندن ندارد **نام‌برده** می‌شود، نه بی‌صدا
+       رد. او تیک زده و منتظرِ چیزی است؛ سکوت یعنی هرگز نمی‌فهمد چرا نیامد
+       (همان قاعدهٔ `personaOnceParse_`، ۷٫۴۱). */
+    if (!cue) { noCue.push(name); continue; }
+    if (!map) {
+      map = {};
+      try {
+        var d = ytRenderRead_();
+        for (var q = 0; q < d.items.length; q++) {
+          var it = d.items[q];
+          if (!it.folderId) continue;
+          map[String(it.show) + ':' + String(it.ep)] = it;
+        }
+      } catch (eR) { map = {}; }
+    }
+    for (var k in set) {
+      if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
+      var item = map[k];
+      if (!item) continue;                       // پوشه‌اش شناخته نیست
+      return { ok: true, key: key, name: name, cue: cue, item: item };
+    }
+  }
+  out.why = noCue.length
+    ? ('ردیفِ «' + noCue.join('» و «') + '» قسمت تیک خورده ولی ستونِ ' +
+       '«شیوهٔ خواندن»ش خالی است — بی آن روحی برای گذاشتن نیست')
+    : 'هیچ قسمتی در ستونِ «قسمت‌های تولیدشده» تیک نخورده';
+  return out;
+}
+
+/**
+ * «رنگ و روح» روی یک قسمتِ **ساخته‌شده** — یک نمونهٔ بلند، نه کلِ قسمت.
+ *
+ * ══ چرا این تابع لازم شد (۷٫۷۴) ══
+ * پل صوتِ موجودِ قسمت را تبدیل می‌کند، و خوانش در آن صوت **پخته** است.
+ * پس روی قسمتی که ماه‌ها پیش با خوانشِ عادی ساخته شده، پل ساختاراً فقط
+ * می‌تواند رنگ بگذارد — همان چیزی که ۷٫۷۳ نوشت و صاحبِ برنامه پیشش شنید.
+ * جوابِ «برای گلدوز هم همین کار را بکنم، ولی رنگ و روح با هم؟» تا دیروز
+ * این بود: «نه، مگر قسمتِ تازه‌ای تولید شود».
+ *
+ * این تابع راهِ سومی می‌سازد که نه تولیدِ دوبارهٔ کلِ قسمت است و نه نمونهٔ
+ * ساختگی: **متنِ خودِ آن قسمت** (اعراب‌دار، از `__speakSegs`) با **شیوهٔ
+ * خواندنِ همان گوینده** خوانده می‌شود، و همان فایل از راهِ عادیِ پل
+ * می‌گذرد تا رنگ هم بگیرد. خروجی در تلگرام می‌آید، مثل هر تبدیلِ دیگر.
+ *
+ * ══ و چرا ~چهار دقیقه و نه پانزده ══
+ * سقفِ شش‌دقیقه‌ایِ Apps Script. پانزده دقیقه صدا یعنی ~۱۵ فراخوانِ TTS و
+ * یک ماشینِ ادامه‌پذیر — که همان `renderAudioStep_` است و تنها بخشی از این
+ * مخزن که بی‌دلیل نباید دست بخورد. چهار دقیقه از بیست ثانیه بی‌نهایت
+ * بهتر است و امروز شدنی است؛ پانزده دقیقه از راهِ تولیدِ قسمتِ تازه با
+ * ردیفِ روشن می‌آید. هر دو راه گفته می‌شوند، نه یکی.
+ */
+function runVoiceSoulTest() {
+  var ui = ui_();
+  var say = function (m) {
+    logLine_('نمونهٔ رنگ و روح: ' + String(m).replace(/\n+/g, ' ').slice(0, 200));
+    if (ui) ui.alert('نمونهٔ بلند با رنگ و روح', m, ui.ButtonSet.OK); else console.log(m);
+  };
+  var pick = vbrSoulPick_();
+  if (!pick.ok) {
+    say('⚠️ ' + pick.why + '.\n\nراهش: منو ← «🎚 شیوهٔ خواندنِ گویندگان» ← ' +
+        'ردیفِ گوینده ← یک قسمتِ تولیدشده را تیک بزنید (ستونِ «شیوهٔ خواندن» ' +
+        'هم باید پر باشد)، بعد همین دکمه.');
+    return { ok: false, why: pick.why };
+  }
+  var txt = '';
+  try { txt = epSpeakText_(pick.item.folderId); } catch (eT) { txt = ''; }
+  if (!txt) {
+    var w = 'متنِ اعراب‌دارِ قسمت ' + String(pick.item.ep) + ' در پروندهٔ خودش نیست ' +
+            '(قسمت‌های قدیمی `__speakSegs` ندارند)';
+    say('⚠️ ' + w + '.\n\nیک قسمتِ تازه‌تر را تیک بزنید.');
+    return { ok: false, why: w };
+  }
+
+  /* ══ قفل، چون این کار پرچمِ سبک را عوض می‌کند ══
+     عیناً دلیلِ `runStyleProbe`: اگر وسطِ صداگذاریِ یک قسمتِ منتشرشدنی
+     زده شود، نیمی از تکه‌های آن قسمت یادآورِ سبک می‌گیرند و نیمی نه. */
+  var lock = null, got = false;
+  try { lock = LockService.getScriptLock(); got = lock.tryLock(20000); }
+  catch (eLk) { got = false; }
+  if (!got) {
+    say('⚠️ الان اسکریپتِ دیگری در حال اجراست (احتمالاً صداگذاریِ قسمت). ' +
+        'چند دقیقهٔ دیگر دوباره بزنید.');
+    return { ok: false, why: 'busy' };
+  }
+
+  var res = { ok: false, why: '' }, made = null, sec = 0, cut = 0;
+  var deadline = new Date().getTime() +
+                 (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
+  try {
+    var pieces = splitForTts_(txt);
+    var accB64 = '';
+    for (var i = 0; i < pieces.length; i++) {
+      if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
+      /* مهرِ تازه پیش از هر تکه: `STYLE_PROBE_TTL_MIN` پنج دقیقه است و
+         انقضای وسطِ کار یعنی نیمهٔ دومِ نمونه بی روح ساخته می‌شود، بی هیچ
+         خطایی — همان تلهٔ ۷٫۷۳ در `runStyleProbe`. */
+      styleProbeSet_(true);
+      var b1 = ttsChunkTry_(pieces[i], pick.cue, CFG.TTS_VOICE);
+      if (!b1) { cut = pieces.length - i; break; }
+      accB64 += alignB64_(b1);
+    }
+    if (!accB64) { res.why = 'پاسخِ صوتیِ خالی'; throw new Error(res.why); }
+    var bytes = Utilities.base64Decode(
+      Utilities.base64Encode(wavHeader54_((alignB64_(accB64).length / 4) * 3)) +
+      alignB64_(accB64));
+    sec = Math.round((bytes.length - 54) / ((Number(CFG.SAMPLE_RATE) || 24000) * 2));
+
+    /* پوشهٔ خودش، و نامی که «کامل» دارد: `vbrAudio_` از همان
+       `ytAudioParts_`ِ بخشِ ۲۷ می‌گذرد و تعریفِ دومِ «صوتِ کاملِ قسمت»
+       ساختن یعنی روزی یکی از آن دو کهنه می‌شود. */
+    var root = outFolder_();
+    var pName = CFG.VBR_SOUL_FOLDER || 'نمونهٔ رنگ و روح';
+    var it0 = root.getFoldersByName(pName);
+    var par = it0.hasNext() ? it0.next() : root.createFolder(pName);
+    var label = 'نمونهٔ رنگ و روح — قسمت ' + String(pick.item.ep);
+    var subNm = label + ' — ' + pick.name;
+    var it1 = par.getFoldersByName(subNm);
+    var sub = it1.hasNext() ? it1.next() : par.createFolder(subNm);
+    var fnm = subNm + ' — کامل.wav';
+    var old = sub.getFilesByName(fnm);
+    while (old.hasNext()) old.next().setTrashed(true);
+    made = sub.createFile(Utilities.newBlob(bytes, 'audio/wav', fnm));
+
+    /* و از همین‌جا به راهِ عادیِ پل. `soul` صریح داده می‌شود چون این پوشه
+       `_episode.json` ندارد و `vbrSoul_` درست می‌گفت «نامعلوم» — ولی ما
+       **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
+    var r = vbrAsk_('نمونهٔ روح — ' + pick.key, pick.item.ep, sub.getId(), pick.key,
+                    String(pick.item.title || ''),
+                    { label: label, soul: 'روح',
+                      soulWhy: 'همین حالا با شیوهٔ خواندنِ خودش خوانده شد' });
+    res.ok = !!(r && r.ok);
+    res.why = (r && r.why) || '';
+  } catch (e) {
+    res.why = res.why || String((e && e.message) || e).slice(0, 150);
+  } finally {
+    try { styleProbeSet_(null); } catch (eD) {}      // برداشتن، نه خاموشِ صریح
+    try { if (lock) lock.releaseLock(); } catch (eL) {}
+  }
+
+  var dur = (typeof castClock_ === 'function') ? castClock_(sec) : String(sec) + 'ث';
+  var m = (res.ok ? '✅ نمونه ساخته شد و به صفِ پل رفت.' : '⚠️ ناقص.') +
+          '\n\nگوینده: ' + pick.name +
+          '\nمتن از: قسمت ' + String(pick.item.ep) +
+          '\nطولِ ساخته‌شده: ' + dur +
+          (cut ? '\n⚠️ ' + faDigitsOut_(String(cut)) + ' تکه ساخته نشد (وقت یا مدل).' : '') +
+          (made ? '\n' + made.getUrl() : '') +
+          (res.why ? '\nپیام: ' + res.why : '') +
+          '\n\nاین فایل **روحِ** خواندنِ او را دارد و هنوز رنگش را نه. ' +
+          'گردش‌کارِ پل رنگ را رویش می‌گذارد و نتیجه به تلگرام می‌آید — مثل هر ' +
+          'تبدیلِ دیگر، پس چند ساعت طول می‌کشد.' +
+          '\n\nو برای پانزده دقیقهٔ کامل: ردیفِ او را **پیش از تولیدِ قسمتِ بعدی** ' +
+          'روشن کنید؛ آن قسمت از اول با شیوهٔ خواندنِ او ساخته می‌شود و پل رنگش را ' +
+          'می‌گذارد. روی قسمتی که قبلاً ساخته شده، خوانش پخته است و تغییرش یعنی ' +
+          'ساختنِ دوبارهٔ کلِ صوت.';
+  say(m);
+  return { ok: res.ok, why: res.why, seconds: sec, cut: cut,
+           speaker: pick.key, ep: String(pick.item.ep),
+           url: made ? made.getUrl() : '' };
+}
+
 function runVoiceBridge() {
   var ui = ui_();
   var r = vbrNightly_(null);

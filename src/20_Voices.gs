@@ -731,9 +731,37 @@ function runVoiceAudition() {
  * **گفته می‌شود** و به همان سطرِ کوتاه سقوط می‌کنیم. سقوطِ خاموش به
  * نسخهٔ آسانِ یک آزمون، از شکستِ آزمون بدتر است (`embSelfTest_`).
  */
+function epSpeakText_(folderId, capOpt) {
+  var cap = Math.max(400, Number(capOpt) || Number(CFG.STYLE_PROBE_CHARS) || 4000);
+  var meta = null;
+  try { meta = ytEpisodeMeta_(DriveApp.getFolderById(String(folderId))); }
+  catch (e) { return ''; }
+  var segs = (meta && meta.ep && meta.ep.__speakSegs) || [];
+  var acc = [], n = 0;
+  for (var j = 0; j < segs.length; j++) {
+    var t = String((segs[j] || {}).t || '').trim();
+    if (!t) continue;
+    acc.push(t); n += t.length + 1;
+    if (n >= cap) break;
+  }
+  /* کمتر از این، همان مشکلِ نمونهٔ کوتاه است با ظاهرِ دیگر. */
+  if (n < 900) return '';
+  var txt = styleProbeCut_(acc.join(' ').slice(0, cap));
+  return (txt.length < 900) ? '' : txt;
+}
+
+/** تا آخرین پایانِ جمله ببُر. متنی که وسطِ جمله قطع شود، خودش یک عیبِ شنیدنی است. */
+function styleProbeCut_(t) {
+  var s = String(t || '');
+  var best = -1, marks = '.!؟…';
+  for (var i = s.length - 1; i >= 0; i--) {
+    if (marks.indexOf(s.charAt(i)) !== -1) { best = i; break; }
+  }
+  return (best > 600) ? s.slice(0, best + 1) : s;
+}
+
 function styleProbeText_() {
   var out = { text: '', from: '', chars: 0, short: false, why: '' };
-  var cap = Math.max(400, Number(CFG.STYLE_PROBE_CHARS) || 4000);
   var items = [];
   try {
     items = (ytRenderRead_().items || []).slice();
@@ -746,20 +774,8 @@ function styleProbeText_() {
     var fid = String((items[i] || {}).folderId || '');
     if (!fid) continue;
     tried++;
-    var meta = null;
-    try { meta = ytEpisodeMeta_(DriveApp.getFolderById(fid)); } catch (e2) { continue; }
-    var segs = (meta && meta.ep && meta.ep.__speakSegs) || [];
-    var acc = [], n = 0;
-    for (var j = 0; j < segs.length; j++) {
-      var t = String((segs[j] || {}).t || '').trim();
-      if (!t) continue;
-      acc.push(t); n += t.length + 1;
-      if (n >= cap) break;
-    }
-    /* کمتر از این، همان مشکلِ نمونهٔ کوتاه است با ظاهرِ دیگر. */
-    if (n < 900) continue;
-    var txt = styleProbeCut_(acc.join(' ').slice(0, cap));
-    if (txt.length < 900) continue;
+    var txt = epSpeakText_(fid);
+    if (!txt) continue;
     out.text = txt; out.chars = txt.length;
     out.from = 'قسمت ' + String((items[i] || {}).ep || '؟') +
                ' (' + String((items[i] || {}).show || '') + ')';
@@ -774,16 +790,6 @@ function styleProbeText_() {
               ' پوشه وارسی شد)';
   }
   return out;
-}
-
-/** تا آخرین پایانِ جمله ببُر. متنی که وسطِ جمله قطع شود، خودش یک عیبِ شنیدنی است. */
-function styleProbeCut_(t) {
-  var s = String(t || '');
-  var best = -1, marks = '.!؟…';
-  for (var i = s.length - 1; i >= 0; i--) {
-    if (marks.indexOf(s.charAt(i)) !== -1) { best = i; break; }
-  }
-  return (best > 600) ? s.slice(0, best + 1) : s;
 }
 
 /**

@@ -1218,5 +1218,113 @@ console.log('\n══ ۲۳) نمونهٔ سبک باید بلند باشد، و�
   const rd3 = ytRenderRead_(); rd3.items = keep0; ytRenderSave_(rd3);
 }
 
+console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته‌شده — بی تولیدِ دوبارهٔ کلِ قسمت (۷٫۷۴) ══');
+/* پرسشِ خودش: «برای گلدوز هم می‌تونم همین کار رو بکنم ولی رنگ و روح با هم
+   باشه؟ چجوری؟» جوابِ ۷٫۷۳ «نه، مگر قسمتِ تازه‌ای تولید شود» بود، چون خوانش
+   در صوتِ موجود پخته است. این تابع راهِ سوم است: متنِ **خودِ** آن قسمت با
+   شیوهٔ خواندنِ همان گوینده خوانده می‌شود و از راهِ عادیِ پل رنگ می‌گیرد. */
+{
+  const SHOW = knownShows_()[0].name;
+  const realTry = global.ttsChunkTry_;
+  const realSet = global.styleProbeSet_;
+  let cues = [], flags = [];
+  global.ttsChunkTry_ = function (text, style) {
+    cues.push(String(style || ''));
+    return Buffer.alloc(24000 * 2 * 8).toString('base64');   // ~۸ ثانیه در هر تکه
+  };
+  global.styleProbeSet_ = function (v) { flags.push(v); return realSet(v); };
+
+  // قسمتی که متنِ اعراب‌دارش در پروندهٔ خودش هست
+  const fEp = OUT.createFolder('قسمتِ روح‌آزما');
+  const segs = [];
+  for (let i = 0; i < 20; i++) {
+    segs.push({ h: 'h' + i, t: 'شَبی از شَب‌هایِ پاییز بود و بادِ سَرد پُشتِ ' +
+      'پَنجِره ایستاده بود شمارهٔ ' + i + '. ' +
+      'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد و ایستاد. '.repeat(4) });
+  }
+  fEp.createFile('_episode.json',
+    JSON.stringify({ ep: { title: 'روح‌آزما', __speakSegs: segs } }), 'application/json');
+  const rdS = ytRenderRead_();
+  const keepS = rdS.items.slice();
+  rdS.items = [{ key: 'variety:88', show: 'variety', ep: '88',
+                 folderId: fEp.getId(), title: 'هشتادوهشت' }];
+  ytRenderSave_(rdS);
+
+  // ── هیچ تیکی نیست: رد می‌شود و می‌گوید چه باید کرد ──
+  personaBoardSave_('razavi', false, [SHOW], 1, 'آرام و شمرده بخوان', '', '', []);
+  const r0 = runVoiceSoulTest();
+  ok('۲۴.۱ بی تیک، رد می‌شود و ستون را نام می‌برد',
+     r0.ok === false && r0.why.indexOf('تولیدشده') !== -1,
+     JSON.stringify(r0));
+
+  // ── تیک هست ولی شیوهٔ خواندن خالی است: **نام‌برده** می‌شود، نه بی‌صدا ──
+  /* همان قاعدهٔ personaOnceParse_ (۷٫۴۱): او تیک زده و منتظرِ چیزی است؛
+     سکوت یعنی هرگز نمی‌فهمد چرا نیامد. */
+  {
+    /* تیک از راهِ خودِ تخته نوشته می‌شود، نه با setValueِ خام: قالبِ آن سلول
+       «نامِ برنامه + شمارهٔ فارسی» است و نوشتنِ «variety:88» در آن هرگز
+       parse نمی‌شود. نگارشِ اولِ همین سنجه همین کار را کرد و «هیچ تیکی
+       نیست» گرفت — یعنی راهی جز آن که نامش را می‌برد رفته بود (۷٫۴۴). */
+    personaBoardSave_('razavi', false, [SHOW], 1, 'آرام و شمرده بخوان', '', '',
+                      ['variety:88']);
+    const sh = personaTab_();
+    const rw = personaRows_(sh);
+    let at = 0;
+    for (let i = 0; i < rw.length; i++) {
+      if (String(rw[i][PC.KEY - 1]).trim() === 'razavi') { at = i + 2; break; }
+    }
+    sh.getRange(at, PC.STYLE).setValue('');
+    const rNo = runVoiceSoulTest();
+    ok('۲۴.۲ تیکِ بی شیوهٔ خواندن، با نام رد می‌شود',
+       rNo.ok === false && rNo.why.indexOf('razavi') + rNo.why.indexOf('رضوی') > -2 &&
+       rNo.why.indexOf('شیوهٔ خواندن') !== -1,
+       JSON.stringify(rNo));
+    sh.getRange(at, PC.STYLE).setValue('آرام و شمرده بخوان');
+  }
+
+  // ── و حالا کارِ واقعی ──
+  const q0 = vbrRead_(); q0.items = []; vbrSave_(q0);
+  cues = []; flags = [];
+  const r1 = runVoiceSoulTest();
+  ok('۲۴.۳ نمونه ساخته شد و به صفِ پل رفت',
+     r1.ok === true && r1.seconds > 20 && r1.cut === 0,
+     JSON.stringify({ ok: r1.ok, sec: r1.seconds, cut: r1.cut, why: r1.why }));
+  ok('۲۴.۴ و با شیوهٔ خواندنِ **خودِ او** خوانده شد، نه با لحنِ عمومی',
+     cues.length > 1 && cues.every((c) => c.indexOf('آرام و شمرده بخوان') !== -1),
+     'تکه‌ها: ' + cues.length + ' · ' + JSON.stringify(cues.slice(0, 2)) +
+     ' — همین «روح» است؛ بی آن این تابع همان کارِ پل را دوباره می‌کرد');
+  ok('۲۴.۵ پرچمِ سبک پیش از **هر** تکه دوباره مهر خورد',
+     flags.filter((f) => f === true).length === cues.length,
+     'مهر: ' + flags.filter((f) => f === true).length + ' برای ' + cues.length +
+     ' تکه — TTL پنج دقیقه است و انقضای وسطِ کار یعنی نیمهٔ دومِ نمونه بی روح');
+  ok('۲۴.۶ و در پایان پرچم برداشته شد',
+     flags[flags.length - 1] === null || flags[flags.length - 1] === undefined,
+     'آخرین مهر: ' + String(flags[flags.length - 1]) +
+     ' — اجرایی که پرچم را جا بگذارد، موتور را در حالتی می‌گذارد که کسی انتخابش نکرده');
+
+  const rowS = vbrRead_().items[0];
+  ok('۲۴.۷ ردیفِ صف «روح» دارد، نه «نامعلوم»',
+     !!rowS && rowS.soul === 'روح',
+     rowS ? JSON.stringify({ soul: rowS.soul, why: rowS.soulWhy }) : 'ردیفی نوشته نشد');
+  /* پوشهٔ نمونه `_episode.json` ندارد، پس `vbrSoul_` درست می‌گفت «نامعلوم» —
+     ولی ما می‌دانیم، چون همین حالا خودمان خواندیمش. */
+  ok('۲۴.۸ و برچسب دارد، پس کپشن ادعا نمی‌کند خودِ قسمت است',
+     !!rowS && String(rowS.label || '').indexOf('نمونه') !== -1 &&
+     vbrOutName_(rowS, 'بهروز رضوی').indexOf('نمونه') !== -1,
+     rowS ? ('label=' + rowS.label + ' · file=' + vbrOutName_(rowS, 'بهروز رضوی')) : '—');
+  ok('۲۴.۹ فایلِ صوتی «کامل» در نامش دارد، وگرنه پل پیدایش نمی‌کند',
+     !!(rowS && rowS.audio && rowS.audio.length === 1 &&
+        String(rowS.audio[0].name).indexOf('کامل') !== -1),
+     rowS ? JSON.stringify((rowS.audio || []).map((a) => a.name)) : '—');
+  ok('۲۴.۱۰ و پوشه‌اش در فهرستِ نام‌های شناختهٔ ریشه است',
+     outRootFolderNames_().indexOf(String(CFG.VBR_SOUL_FOLDER)) !== -1,
+     'بی این، همان شبِ اول یک هشدارِ «ناشناخته» برای پوشه‌ای که خودِ موتور ' +
+     'ساخته (درسِ ۷٫۴۶)');
+
+  global.ttsChunkTry_ = realTry;
+  global.styleProbeSet_ = realSet;
+  const rdZ = ytRenderRead_(); rdZ.items = keepS; ytRenderSave_(rdZ);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

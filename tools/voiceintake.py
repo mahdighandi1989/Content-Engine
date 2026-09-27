@@ -528,11 +528,32 @@ def main():
         sim = sys.argv[3] if len(sys.argv) > 3 else ""
         note = sys.argv[4] if len(sys.argv) > 4 else ""
         d = os.path.join(SAMPLES, key)
-        files = []
+        n = 0
         if os.path.isdir(d):
-            files = ["docs/voice-samples/%s/%s" % (key, f)
-                     for f in sorted(os.listdir(d)) if f.lower().endswith(".wav")]
-        record(key, sim, files, note, ok=bool(files))
+            n = len([f for f in os.listdir(d) if f.lower().endswith(".wav")])
+        # ══ مسیری که هرگز در ریپو نمی‌نشیند، ثبت نمی‌شود (۷٫۷۴) ══
+        # تا امروز اینجا `docs/voice-samples/<key>/…` ثبت می‌شد و موتور همان
+        # را از GitHub raw می‌خواست. `.gitignore` خطِ `*.wav` دارد، پس
+        # `git add docs/voice-samples/$KEY` هیچ‌چیز stage نمی‌کرد و
+        # `|| true` همان را هم می‌بلعید: `voices.json` دو فایل را ادعا
+        # می‌کرد که در ریپو نیستند، و موتور هر بار ۴۰۴ می‌گرفت و بی‌صدا رد
+        # می‌شد. صاحبِ برنامه پرسید «چرا نمونهٔ گلدوز را نفرستادی؟» و جواب
+        # همین بود.
+        #
+        # و کامیت کردنشان **راهِ حل نیست**: `voice-lab.yml` از روزِ اول
+        # همین را رد کرده — «این ریپو عمومی است و خروجیِ این آزمایش، صدای
+        # کلون‌شدهٔ یک شخصِ حقیقی است». دو بخش از یک ریپو دو حکمِ مخالف
+        # داشتند (۷٫۳۲). پس ادعا برداشته می‌شود، نه حکم: نمونه‌ها artifactِ
+        # همان اجرا می‌مانند و راهِ شنیدن «نمونهٔ بلند با رنگ و روح» است که
+        # از درایو و تلگرام می‌آید.
+        record(key, sim, [], note, ok=bool(n))
+        st = loadState()
+        cur = st["speakers"].get(key) or {}
+        cur["sampleCount"] = n
+        cur["samplesIn"] = ("artifactِ همان اجرا (عمومی نمی‌شود)" if n
+                            else "نمونه‌ای ساخته نشد")
+        st["speakers"][key] = cur
+        saveState(st)
         return 0
 
     fid = os.environ.get("VOICE_QUEUE_ID", "").strip()

@@ -307,6 +307,20 @@ jobs:
           echo "قدرِ شباهت: ${S:-—}"
           echo "sim=$S" >> "$GITHUB_OUTPUT"
 
+      # ══ نمونه‌ها artifact می‌شوند، نه کامیت — و کوتاه (۷٫۷۴) ══
+      # همان حکمی که `voice-lab.yml` از روزِ اول دارد: «این ریپو عمومی است و
+      # خروجیِ این آزمایش، صدای کلون‌شدهٔ یک شخصِ حقیقی است … لینکی که عمومی
+      # شد، فردا بهترش می‌کنیم ندارد.» artifact از بیرونِ Actions دانلود
+      # نمی‌شود، پس همان‌جا می‌مانَد. راهِ شنیدنِ صاحبِ برنامه این نیست —
+      # «🎨 نمونهٔ بلند با رنگ و روح» است که از درایو و تلگرام می‌آید.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: voice-samples-${{ needs.plan.outputs.measure }}
+          path: docs/voice-samples/${{ needs.plan.outputs.measure }}
+          retention-days: 1
+          if-no-files-found: warn
+
       - name: ثبتِ نتیجه
         env:
           KEY: ${{ needs.plan.outputs.measure }}
@@ -320,7 +334,16 @@ jobs:
             "مدل آموزش دید و سنجیده شد."
           git config user.name  "content-engine-voice"
           git config user.email "actions@users.noreply.github.com"
-          git add docs/voices.json "docs/voice-samples/$KEY" || true
+          # ══ نمونه‌ها **کامیت نمی‌شوند** و این عمدی است (۷٫۷۴) ══
+          # `.gitignore` خطِ `*.wav` دارد، پس این خط تا امروز فقط
+          # `docs/voices.json` را stage می‌کرد و `|| true` سکوتش را
+          # می‌خرید — یعنی `voices.json` فایل‌هایی را ادعا می‌کرد که در
+          # ریپو نبودند. و کامیت کردنشان راهِ حل نیست: `voice-lab.yml` از
+          # روزِ اول همین را رد کرده، چون این ریپو عمومی است و خروجی
+          # صدای کلون‌شدهٔ یک شخصِ حقیقی است. نمونه‌ها artifact می‌شوند
+          # (مرحلهٔ بعد) و راهِ شنیدنِ صاحبِ برنامه «نمونهٔ بلند با رنگ و
+          # روح» است که از درایو و تلگرام می‌آید.
+          git add docs/voices.json
           git diff --cached --quiet && { echo "چیزی عوض نشد."; exit 0; }
           git commit -m "گویندگان: «$KEY» سنجیده شد"
           # ══ بی abort، تلاشِ دوم اصلاً تلاش نیست ══

@@ -1145,6 +1145,73 @@ empty queue is itself a failure. And my first deliberate breakage landed on the
 *other* assertion, because it destroyed the text pattern too; a breakage that lands
 on a different assertion does not prove the one you aimed at.
 
+## «It cannot be done» was true and was half an answer (7.74)
+
+He asked: can I do the episode-49 test with Goldooz too, **with colour and soul
+together**? And: how? 7.73's answer was "not on an already-produced episode — the
+reading is baked into that WAV, so the bridge can only change timbre." That is
+true, and stopping there made it a refusal rather than an answer.
+
+**There is a third road, and it is neither of the two I had named.** Not
+re-producing the whole episode, and not an invented sample: take **that episode's
+own vowelled text** (`__speakSegs[i].t`, which 7.73 made durable), read it with
+**that speaker's own style card**, and send that file through the ordinary bridge
+so it gets the colour too. `runVoiceSoulTest`. The output arrives in Telegram like
+any other conversion.
+
+**~4 minutes, and the reason is stated rather than hidden.** Fifteen minutes means
+~15 TTS calls and a resumable machine, and that machine is `renderAudioStep_` — the
+one part of this repo that should not be disturbed without cause. Four minutes
+today beats fifteen minutes never, and the full-length road (turn the row on
+*before* the next episode is produced) is named in the same message. Both roads,
+not one.
+
+**No new control was built.** It reads the «قسمت‌های تولیدشده» tick column 7.59
+already gave him — a control that sits somewhere other than the work it controls
+does not get found (5.61). And it reads **only** that column, never «قسمت‌های
+موردی»: 7.59 separated them because one is "audio exists now" and the other is
+"an episode not yet made", and an unmade episode has no text to read. Accepting
+ticks there would be a promise that is always silently refused.
+
+**A ticked row with an empty style cue is refused by name.** `personaFor_` drops
+such a row without a word, and there that is right — one fewer mode is a quality
+loss. Here he ticked an episode and is waiting for something; silence means he
+never learns why it did not come. Same shape, opposite correct answer, reasoned
+each time rather than copied (7.41).
+
+**The style flag is re-stamped before every chunk.** `STYLE_PROBE_TTL_MIN` is five
+minutes and its own comment says "longer than any sample build" — true for one
+line, false for four minutes. Expiring mid-run means the **second half** of the
+sample is built with no reading style at all, two files that still cannot be
+judged, and no error anywhere. That is 7.10's bug with a new clock.
+
+**And the queue row carries a label**, so the file name and the Telegram caption
+do not say «قسمت ۸۸ با صدای …» about four minutes of episode 88. 7.73 was written
+about exactly that half-claim; repeating it one version later would have been the
+same mistake with my own fix on the page.
+
+**The new OUTPUT subfolder went into `outRootFolderNames_` and `docs/drive_layout.md`
+in the same commit.** `_VOICE-RENDER.json` spent weeks being reported as «چیزِ
+ناشناخته» in the engine's own map (7.46); a new root entry ships with its
+recognition and its row, or it becomes litter in its own map.
+
+**One deliberate breakage landed on a different assertion, and that was the
+stronger outcome.** Removing «کامل» from the sample's filename turned ۲۴.۳ red —
+the whole request fails, because `vbrAudio_` goes through `ytAudioParts_` and that
+is the single definition of "this episode's complete audio". ۲۴.۹ guards the name
+explicitly anyway; the transitive failure is the better proof.
+
+**And why Goldooz had nothing to listen to, which he asked about.**
+`docs/voices.json` lists two sample files for him — `docs/voice-samples/spk-1g0r95d/…`
+— and **neither is in the repo**. `.gitignore` carries `*.wav`, so the intake
+workflow's `git add docs/voices.json "docs/voice-samples/$KEY" || true` stages the
+JSON and nothing else, the `|| true` hides it, and the commit lands claiming two
+files that do not exist. Two silences in one line. **And committing them is not the
+fix**: this repo already ruled, in `voice-lab.yml`, that a real person's cloned
+voice must not be published from a public repo — so the claim has to stop being
+made, and the samples have to travel the way every other audio does (Drive and
+Telegram), which is exactly what `runVoiceSoulTest` now does.
+
 ## Colour is not soul, and the lever was never in the conversion (7.73)
 
 He listened to the whole of episode 49 in Razavi's voice and said two things.
