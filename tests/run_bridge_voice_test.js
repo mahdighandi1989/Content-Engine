@@ -1405,6 +1405,32 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
        JSON.stringify(r3) + ' — گفتنِ «تیکی نخورده» یعنی او فکر می‌کند تیکش گم شده');
   }
 
+  /* ══ پیامِ موفقیت نباید شبیهِ خبرِ بد خوانده شود (۷٫۷۶) ══
+     نگارشِ ۷٫۷۴ می‌گفت «این فایل … هنوز رنگش را نه» و صاحبِ برنامه پرسید
+     «یعنی صدایی که می‌آید ناقص است؟». جمله دربارهٔ فایلِ **میانی** درست
+     بود و او منطقی‌ترین چیز را خواند. پس پیام باید **اول** بگوید نتیجه
+     کامل است، بعد توضیح بدهد فایلِ درایو مرحلهٔ اول است — ترتیب خودش
+     بخشی از ادعاست. */
+  {
+    const realUi = global.ui_;
+    let said = '';
+    global.ui_ = () => ({ alert: function (t, m) { said = String(m); },
+                          ButtonSet: { OK: 1 } });
+    const q8 = vbrRead_(); q8.items = []; vbrSave_(q8);
+    personaBoardSave_('bimodel', false, [SHOW], 1, 'خنثی بخوان', '', '', []);
+    personaBoardSave_('goldooz', false, [SHOW], 1, 'گرم و نزدیک بخوان', '', '', []);
+    personaBoardSave_('razavi', false, [SHOW], 1, 'آرام و شمرده بخوان', '', '',
+                      ['variety:88']);
+    runVoiceSoulTest();
+    global.ui_ = realUi;
+    const okAt = said.indexOf('رنگ و روح، هر دو را دارد');
+    const midAt = said.indexOf('هنوز بی رنگِ صدا');
+    ok('۲۴.۱۵ پیام اول می‌گوید نتیجه رنگ و روح هر دو را دارد، بعد توضیح می‌دهد',
+       okAt !== -1 && midAt !== -1 && okAt < midAt,
+       'جای «کامل است»: ' + okAt + ' · جای «هنوز بی رنگ»: ' + midAt +
+       ' — «ناقص است» پیش از «کامل می‌شود» یعنی او همان اولی را می‌خوانَد');
+  }
+
   global.ttsChunkTry_ = realTry;
   global.styleProbeSet_ = realSet;
   const rdZ = ytRenderRead_(); rdZ.items = keepS; ytRenderSave_(rdZ);
