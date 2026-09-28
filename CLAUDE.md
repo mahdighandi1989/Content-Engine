@@ -1077,6 +1077,72 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Both complaints were already answered in the engine's own files (7.79)
+
+He listened to the two samples and said two things: Goldooz **«اصلا مثل خودش
+نیست»**, and Razavi still has that characteristic of his voice in **all** the
+words. Both were true, and the engine had written both answers down before I
+said a single word about either.
+
+**`_STATUS.json`, read today:**
+
+```json
+"ttsCue": { "on": false, "model": "gemini-3.8-flash-lite-tts",
+            "since": "2026-09-27 19:33", "ok": false,
+            "line": "… تکه‌ها بی‌لحن ساخته می‌شوند …" }
+```
+
+The voice model rejected the style-cue payload at 19:33 the night before. Both
+samples were synthesized the next morning — so **neither carried the style card.
+Both were colour-only.** The queue row said «روح», `voiceBridge.colourOnly` was
+`0`, the engine told him «رنگ و روح، هر دو را دارد», and I repeated it twice.
+
+**Two witnesses in one system, disagreeing every single day.** `ttsCue.line` went
+out in the 10:00 mail saying «دستورِ لحن: **خاموش**» while the bridge row claimed
+soul. That is 7.57's rule — *a contradiction is itself the finding* — and this is
+its worst instance, because the disagreement was printed daily in the same email.
+
+**Why `vbrSoul_` could not catch it.** 7.73 built it to read `ep.__persona`:
+*was a reading style chosen?* — not *did the cue reach the model?* A witness that
+cannot see the failure it was built for. And in the soul-sample path the label was
+**hard-coded** `soul: 'روح'`, which is a claim with no input at all. *A claim with
+no input eventually becomes a lie; the only question is when.*
+
+So the gate now sits where the money is spent: `runVoiceSoulTest` asks
+`ttsCueStatus_()` **before** the TTS calls and refuses, naming the model, the date,
+and the fact that `ttsCueSwitch_` tries another voice model at 10:00. Refusing is
+right here: the entire purpose of that button is judging the *soul*, so spending
+four minutes to hand him yesterday's colour-only file again is both waste and one
+more false claim. And if the cue dies *mid-build*, `vbrSoulTag_` labels the row
+«رنگ‌تنها», because the Telegram caption is where he actually reads.
+
+**And the second complaint was a number nothing was wired to.** `docs/voices.json`
+recorded Goldooz at `similarity: 0.708` on ~103 minutes of data. Razavi's
+**rejected** 39-minute model scored 0.712–0.726 on the same measure, and his
+accepted one 0.744. So Goldooz is below the model we ourselves threw away — and
+that number was in three places (`docs/voices.json`, `_STATUS.json`, the daily
+line) while the headline said **«✅ گویندهٔ تازه آماده شد»**. Measured, recorded,
+wired to nothing: the same shape this file has now logged more times than any
+other.
+
+`VOICE_SIM_MIN` (0.73, taken from those recorded numbers rather than invented)
+changes the headline, not the row: the speaker stays usable because **the final
+judge is his ear, not a cosine** — that is the whole lesson of 7.70, where the
+similarity measure actively pointed the wrong way. And an *unmeasured* similarity
+is not a weak one (7.40). The headline has one definition now, because it was
+written in two places and fixing one would have left the other.
+
+**He was right that I should have asked before calling Goldooz ready.** I had the
+number that said otherwise.
+
+**And my own cost assertion carried no load, twice.** First the test folder had no
+`__speakSegs`, so with the gate removed the run died one step later and the TTS
+count stayed 0 either way. Then, after fixing that, the cost assertion sat *after*
+another one — and `ok` throws on failure, so it could never run. Both were found by
+breaking the code and watching where the red landed, never by reading. The cost
+claim now comes **first**, because it is the one that proves the refusal happened
+*before* the work rather than after it.
+
 ## A ceiling whose reason changed, and the ceiling did not (7.78)
 
 He did not ask for a fix. He asked **«از این به بعد … بازم همین مصیبت‌ها رو
