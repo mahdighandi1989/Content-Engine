@@ -189,7 +189,14 @@ function outRootFolderNames_() {
        عیناً درسِ ۷٫۴۶ است: `_VOICE-RENDER.json` نه در این فهرست بود و نه
        در نقشهٔ درایو، و موتور هفته‌ها صفِ خودش را «چیزِ ناشناخته» گزارش
        می‌کرد. */
-    String(CFG.VBR_SOUL_FOLDER || '')
+    String(CFG.VBR_SOUL_FOLDER || ''),
+    /* پوشهٔ کپیِ مدل‌های پلِ رنگِ صدا (بخشِ ۳۶، `vbrModelFolder_`). این
+       ردیف را ۷٫۶۷ اضافه کرد و ۷٫۶۸ — در یک ادغامِ نامرتبط دربارهٔ موسیقی —
+       با ویرایشِ همین لیست به‌جای این تکه، بی‌آنکه کسی بخواهد، حذفش کرد؛
+       هیچ آزمونی هم `outRootFolderNames_().indexOf(CFG.VBR_FOLDER)` را
+       مستقیماً نمی‌سنجید، پس رگرسیون دو شب بی‌صدا ماند و هر شب دوباره
+       «چیزِ ناشناخته: پوشه «مدل‌های صدا»» در outLayout.strays برگشت. */
+    String(CFG.VBR_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
