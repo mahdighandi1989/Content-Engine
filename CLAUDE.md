@@ -1077,6 +1077,64 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## "You press it tomorrow" — and I could not, so the engine does (7.82)
+
+He asked for the plainest thing: *press it yourself tomorrow morning and send me
+the sample.* The answer was no, and **the answer was checked before it was
+given** rather than after:
+
+- Apps Script cannot be invoked from outside, so no menu function is reachable.
+- `mcp__Google_Drive__update_file` changes a file's **title and parent only** —
+  the bridge queue's content cannot be rewritten, and a second
+  `_VOICE-RENDER.json` would be an `outLayout.dups` fault by design.
+- The voice-lab artifact holding the pitch-0 audio returns **403 at the proxy**
+  (`CONNECT tunnel failed`), which this file already recorded — and this time it
+  was tested rather than believed.
+- A **release asset**, though, downloads fine: HTTP 206, real RIFF/WAVE header,
+  40 kHz mono. So the bridge's own transport is open; only the lab's is not.
+
+**So the missing piece was never transport — it was that only a human could
+queue the work.** `vbrAsk_` was reachable from the nightly sweep, the tick
+column and the menu button. Judging a *new* speaker's pitch fits none of those:
+his row is off, and an off row is his decision, not a fault. That left one hand
+press per measurement, and **a measurement that depends on a manual step is the
+measurement that does not happen** — the sentence this file already wrote about
+`rvcSim_` and `voice-lab.yml`, now true of the thing voice-lab was measuring.
+
+`VBR_SEED_ASKS` + `vbrSeedAsk_` is 7.64 taken literally: *the engine should
+measure itself; the owner should not be the instrument.*
+
+**It stores nothing, deliberately.** `vbrAsk_` already refuses a duplicate key
+and the map already remembers a built one, so the list can be read every night
+and every 10:00 forever with no flag anywhere — no one-shot a human cannot
+reopen (5.95), no counter its own writer resets (7.22). Idempotence comes from
+the existing gate rather than from new state.
+
+**And the pitch is not in the seed.** `vbrAsk_` asks `personaPitch_`, so "this
+speaker's pitch" keeps one definition. Writing it into the seed as well would be
+two numbers nobody compares — 7.30/7.31, in a file written the same day as 7.81.
+
+Two doors again, because the nightly block sits behind `nightHas_` and the night
+that runs short is exactly the night the sample is wanted — 7.46 and 7.62, both
+about a cure placed on a road never travelled. **But my first choice of second
+door was wrong and the suite caught it:** reaching `vbrAsk_`'s duplicate gate goes
+through `vbrMapCached_()`, a network call, so putting it on `healthCheck` was cost
+on the function 7.63 recorded dying of cost — and in the harness it ate a mocked
+response and shifted every later one (7.66). It lives on `vbrCollectHourly`'s own
+hourly trigger instead: cheaper, off the health path, and twelve times a day
+rather than one.
+The seed drains **before** the automatic sweep, the order 7.59 set for ticks: a
+thing that was asked for must not wait behind episodes nobody chose.
+
+**One of six new assertions was vacuous in the same way as 7.81's, one section
+over.** «the pitch comes from the speaker's row» compared it to
+`personaPitch_()`'s own answer — `-12 === -12`, which a hard-coded default also
+satisfies. It now puts a number in the row that is no default at all. And a
+breakage aimed at it landed on ۲۹.۱ instead, because §۲۹ runs first; rather than
+claim the proof, the test file records that ۳۰.۳ is proved by the regression it
+actually guards — a `pitch` field appearing in the seed — which was tried and
+does turn it red.
+
 ## He was right that I had attributed it to the wrong number (7.81)
 
 7.80 said Goldooz sounded nothing like himself because his recordings are

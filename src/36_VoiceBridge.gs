@@ -1125,6 +1125,19 @@ function vbrBigCheck_(hub, st) {
  */
 function vbrCollectHourly() {
   if (CFG.VBR_ON === false) return null;
+  /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
+     بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
+     وقت کم بیاید دقیقاً شبی است که این نمونه لازم است (۷٫۴۶/۷٫۶۲). نگارشِ
+     اول درِ دوم را روی `healthCheck` گذاشت و **غلط بود**: مسیرِ رسیدن به
+     سدِ تکرار از `vbrMapCached_()` می‌گذرد که یک فراخوانِ شبکه است، یعنی
+     هزینه روی همان تابعی که ۷٫۶۳ نوشت از هزینه مُرده — و در آزمون هم یک
+     پاسخِ ماک را می‌خورد و همه‌چیزِ بعدش را جابه‌جا می‌کرد (۷٫۶۶؛
+     `run_health_test.js` گرفتش).
+     اینجا جای درستش است: تریگرِ ساعتیِ خودش، ارزان، و **دوازده برابر**
+     بیشتر از یک بار در روز. */
+  try { vbrSeedAsk_(); } catch (eSd) {
+    try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eSd.message); } catch (eSdb) {}
+  }
   try {
     var r = vbrIngest_(null);
     /* سیاهه فقط وقتی چیزی شد — سطرِ «۰ برداشته شد» ساعتی یک بار، یعنی
@@ -1147,8 +1160,84 @@ function vbrQueueEnsure_() {
   return vbrSave_(vbrRead_());
 }
 
+/**
+ * درخواست‌هایی که **خودِ موتور** می‌زند، از `CFG.VBR_SEED_ASKS` (۷٫۸۲).
+ *
+ * چرا لازم شد: تا امروز نمونهٔ یک گوینده فقط از دکمهٔ منو در صف می‌نشست.
+ * یعنی برای سنجیدنِ گامِ یک گوینده — کاری که ۷٫۸۱ تازه ضروری‌اش کرد — یک
+ * ضربهٔ دستِ صاحبِ برنامه لازم بود. ۷٫۶۴: «موتور باید خودش را بسنجد؛ صاحبِ
+ * برنامه ابزارِ سنجش نیست»، و سنجشی که به کارِ دستی بند باشد همان سنجشی
+ * است که انجام نمی‌شود.
+ *
+ * ══ بی هیچ حالتِ ذخیره‌شده ══
+ * `vbrAsk_` خودش کلیدِ تکراری را «قبلاً خواسته شده» رد می‌کند، و نقشه هم
+ * کلیدِ ساخته‌شده را نگه می‌دارد. پس این تابع می‌تواند هر شب و هر ۱۰ صبح
+ * اجرا شود و هیچ‌جا پرچمی نمی‌نشیند — نه پرچمی که انسان نتواند بازش کند
+ * (۵٫۹۵)، نه شمارنده‌ای که نویسنده‌اش صفرش کند (۷٫۲۲).
+ *
+ * ══ گام اینجا نوشته نمی‌شود ══
+ * `vbrAsk_` خودش `personaPitch_` را می‌پرسد. نوشتنِ گام در این فهرست یعنی
+ * دو تعریف برای «گامِ این گوینده»، و دو تعریف همان است که یکی‌شان روزی
+ * بی‌صدا کهنه می‌مانَد.
+ *
+ * ردیفِ گوینده روشن نمی‌شود و صدای دائمِ هیچ قسمتی عوض نمی‌شود — مرزِ
+ * «موردی» در ۷٫۴۱، عیناً.
+ */
+function vbrSeedAsk_() {
+  var out = { asked: [], skipped: [], notes: [] };
+  var list = CFG.VBR_SEED_ASKS || [];
+  if (!list.length) return out;
+  /* ══ کلیدهای موجود، **یک** خواندن، پیش از هر `vbrAsk_` ══
+     `vbrAsk_` خودش کلیدِ تکراری را رد می‌کند و آن سدِ پشتیبان سرِ جایش
+     می‌مانَد — ولی برای رسیدن به آن، `vbrMapCached_()` را می‌پرسد و آن یک
+     **فراخوانِ شبکه** است. این تابع از `healthCheck` هم صدا زده می‌شود، و
+     ۷٫۶۳/۷٫۶۶ دقیقاً همین بودند: به تابعی که تازه از هزینه مُرده هزینه
+     اضافه نکن. پس در روزِ عادی — که همهٔ بذرها از قبل در صف‌اند — این تابع
+     یک خواندنِ کوچکِ صف است و صفر فراخوانِ شبکه.
+     (و در آزمون‌ها همان فراخوان یک پاسخِ ماک را می‌خورد و هرچه بعدش است
+     را جابه‌جا می‌کند — `run_health_test.js` همین را گرفت.) */
+  var have = {};
+  try {
+    var d0 = vbrRead_();
+    for (var q = 0; q < (d0.items || []).length; q++) have[String(d0.items[q].key)] = true;
+  } catch (eR) {
+    out.notes.push('صفِ پل خوانده نشد: ' + eR.message);
+    return out;
+  }
+  for (var i = 0; i < list.length; i++) {
+    var sd = list[i] || {};
+    if (!sd.show || !sd.ep || !sd.speaker || !sd.folderId) {
+      /* ردیفِ ناقص **نام برده می‌شود**، نه بی‌صدا رد: این فهرست دستی نوشته
+         می‌شود و غلطِ تایپی در آن یعنی نمونه‌ای که هرگز نمی‌آید و هیچ‌کس
+         نمی‌فهمد چرا (۷٫۴۱). */
+      out.notes.push('ردیفِ ناقص در VBR_SEED_ASKS: ' + JSON.stringify(sd));
+      continue;
+    }
+    var kk = String(sd.show) + ':' + String(sd.ep);
+    if (have[kk]) { out.skipped.push(kk + ' — از قبل در صف است'); continue; }
+    try {
+      var r = vbrAsk_(String(sd.show), String(sd.ep), String(sd.folderId),
+                      String(sd.speaker), String(sd.title || ''),
+                      { label: String(sd.label || '') });
+      if (r && r.ok !== false) out.asked.push(String(sd.speaker) + ':' + String(sd.ep));
+      else out.skipped.push(String(sd.speaker) + ':' + String(sd.ep) + ' — ' + (r && r.why));
+    } catch (e) {
+      /* ══ پرتاب «نمی‌دانیم» است، نه «خراب است» (۷٫۶۳/۷٫۴۰) ══
+         نگارشِ اول این را در `notes` می‌ریخت و `healthCheck` هم `notes` را
+         «ایراد» حساب می‌کرد — یعنی یک تپقِ گذرای درایو، ایمیلِ هشدارِ روز
+         را می‌فرستاد. `run_health_test.js` («سکوت یعنی سلامت») همین را
+         گرفت. ایرادِ قطعی فقط ردیفِ ناقص است، که یک غلطِ تایپیِ دستی و
+         تکرارشونده است؛ بقیه خبر است، نه هشدار. */
+      out.skipped.push(String(sd.speaker) + ':' + String(sd.ep) +
+                       ' — پرتاب: ' + e.message);
+    }
+  }
+  return out;
+}
+
+
 function vbrNightly_(hub) {
-  var out = { on: CFG.VBR_ON !== false, wrote: false, ingest: null, asked: 0, status: null };
+  var out = { on: CFG.VBR_ON !== false, wrote: false, ingest: null, asked: 0, seeded: null, status: null };
   if (!out.on) { out.status = vbrStatus_(); return out; }
   var h = hub || null;
   try { if (!h) h = getHub_(); } catch (eH) {}
@@ -1159,6 +1248,11 @@ function vbrNightly_(hub) {
   catch (eQ) { try { logLine_('صفِ پل نوشته نشد: ' + eQ.message); } catch (eQb) {} }
   try { out.ingest = vbrIngest_(h); }
   catch (e1) { try { logLine_('برداشتِ پل ناموفق: ' + e1.message); } catch (e1b) {} }
+  /* پیش از `vbrAskDue_`: درخواستِ صریح باید جلوتر از جاروبِ خودکار بنشیند،
+     همان ترتیبی که ۷٫۵۹ برای تیک‌ها گذاشت — وگرنه چیزی که خواسته شده پشتِ
+     قسمت‌هایی می‌مانَد که کسی انتخابشان نکرده. */
+  try { out.seeded = vbrSeedAsk_(); }
+  catch (eS) { try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eS.message); } catch (eSb) {} }
   try { out.asked = vbrAskDue_(h); }
   catch (e2) { try { logLine_('درخواستِ پل نوشته نشد: ' + e2.message); } catch (e2b) {} }
   try {

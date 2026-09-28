@@ -1897,5 +1897,113 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
   shP.getRange(atR, PC.PITCH).setValue('');
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   §۳۰ — درخواستی که خودِ موتور می‌زند (۷٫۸۲)
+
+   صاحبِ برنامه گفت «فردا صبح خودت بزن و نمونه رو بفرست». من نمی‌توانم
+   (Apps Script از بیرون صدا زده نمی‌شود، صفِ درایو با ابزارهای من
+   بازنویسی نمی‌شود، artifact از پشتِ پراکسی ۴۰۳ می‌دهد — امتحان شد). پس
+   موتور خودش می‌زند. ۷٫۶۴: موتور باید خودش را بسنجد.
+   ══════════════════════════════════════════════════════════════════════ */
+{
+  const seedFold = OUT.createFolder('پوشهٔ بذرِ نمونه');
+  seedFold.createFile('نمونه — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const SEED = [{ show: 'نمونهٔ گام — تستی', ep: '77', speaker: 'razavi',
+                  folderId: seedFold.getId(), title: 'ت', label: 'برچسبِ بذر' }];
+  const keepSeed = CFG.VBR_SEED_ASKS;
+  const q0 = vbrRead_(); q0.items = []; vbrSave_(q0);
+
+  CFG.VBR_SEED_ASKS = SEED;
+  const r1 = vbrSeedAsk_();
+  const row = (vbrRead_().items || []).filter(x => String(x.key).indexOf('تستی') !== -1)[0];
+  ok('۳۰.۱ بذر بی هیچ دکمه‌ای در صف می‌نشیند',
+     r1.asked.length === 1 && !!row && row.status === 'در انتظار',
+     JSON.stringify(r1) + ' · ردیف: ' + JSON.stringify(row && row.key));
+  /* برچسب لازم است وگرنه نامِ فایل و کپشنِ تلگرام «قسمت ۷۷ با صدای …»
+     می‌شوند برای چیزی که یک نمونه است — ۷٫۷۳/۷٫۷۴. */
+  ok('۳۰.۲ و برچسبش را با خود می‌بَرد',
+     row && row.label === 'برچسبِ بذر', 'گرفت: ' + (row && row.label));
+  /* ══ گام **در بذر نوشته نشده**؛ از `personaPitch_` می‌آید ══
+     نگارشِ اول این را با `=== personaPitch_('razavi').pitch` می‌سنجید، یعنی
+     `-12 === -12` — که پیش‌فرضِ ثابت هم می‌دهدش. همان بی‌باریِ ۲۹.۲ یک بخش
+     آن‌طرف‌تر. پس عددی در ردیفِ گوینده گذاشته می‌شود که **هیچ پیش‌فرضی**
+     نیست، و از بذر هم نمی‌تواند آمده باشد چون بذر گام ندارد. */
+  {
+    const shPt = personaTab_();
+    const rw = personaRows_(shPt);
+    let atz = 0;
+    for (let i = 0; i < rw.length; i++) {
+      if (String(rw[i][PC.KEY - 1]).trim() === 'razavi') { atz = i + 2; break; }
+    }
+    shPt.getRange(atz, PC.PITCH).setValue('4');
+    const qz = vbrRead_(); qz.items = []; vbrSave_(qz);
+    vbrSeedAsk_();
+    const rz = (vbrRead_().items || []).filter(x => String(x.key).indexOf('تستی') !== -1)[0];
+    ok('۳۰.۳ گامش از ردیفِ گوینده می‌آید، نه از بذر و نه از پیش‌فرض',
+       !!rz && rz.params.pitch === '4' && String(CFG.VBR_PITCH) !== '4' &&
+       !('pitch' in SEED[0]),
+       'ردیف: ' + (rz && rz.params && rz.params.pitch) +
+       ' · پیش‌فرض: ' + CFG.VBR_PITCH);
+    /* ثبت، نه وانمود (۷٫۷۴): شکستنِ `personaPitch_` در `vbrAsk_` روی ۲۹.۱
+       می‌نشیند نه اینجا، چون ۲۹ جلوتر اجرا می‌شود. آنچه **این** سنجه را
+       قرمز می‌کند همان رگرسیونی است که برایش هست: اضافه شدنِ `pitch` به
+       خودِ بذر، یعنی دو تعریف برای یک چیز. با آن امتحان شد و قرمز شد. */
+    shPt.getRange(atz, PC.PITCH).setValue('');
+  }
+
+  /* ── ۳۰.۴ هر شب اجرا می‌شود و دو تا نمی‌سازد ──
+     هیچ پرچمی ذخیره نمی‌شود، پس تنها چیزی که از تکرار جلو می‌گیرد ردِ
+     کلیدِ تکراریِ خودِ `vbrAsk_` است. اگر آن نباشد، هر شب یک ردیفِ تازه
+     و صف پر می‌شود. */
+  const r2 = vbrSeedAsk_();
+  const n2 = (vbrRead_().items || []).filter(x => String(x.key).indexOf('تستی') !== -1).length;
+  /* ادعا «ردیفِ دوم ساخته نمی‌شود» است، نه اینکه دلیلش با چه واژه‌ای
+     گفته شود — سنجه‌ای که متنِ پیام را بسنجد، با بهتر شدنِ پیام قرمز
+     می‌شود (۷٫۷۵). */
+  ok('۳۰.۴ اجرای دوباره ردیفِ دوم نمی‌سازد',
+     n2 === 1 && r2.asked.length === 0 && r2.skipped.length === 1,
+     'تعداد: ' + n2 + ' · ' + JSON.stringify(r2));
+
+  /* ── ۳۰.۵ ردیفِ ناقص نام برده می‌شود، بی‌صدا رد نمی‌شود ──
+     این فهرست با دست نوشته می‌شود؛ غلطِ تایپی در آن یعنی نمونه‌ای که هرگز
+     نمی‌آید و هیچ‌کس نمی‌فهمد چرا (۷٫۴۱). */
+  CFG.VBR_SEED_ASKS = [{ show: 'ناقص', speaker: 'razavi' }];
+  const r3 = vbrSeedAsk_();
+  ok('۳۰.۵ ردیفِ ناقص گزارش می‌شود',
+     r3.notes.length === 1 && r3.asked.length === 0 &&
+     r3.notes[0].indexOf('VBR_SEED_ASKS') !== -1,
+     JSON.stringify(r3));
+
+  /* ── ۳۰.۶ و درِ دوم: `healthCheck` خودش می‌پرسدش ──
+     تنها بودن در کارِ شبانه یعنی شبی که وقت کم بیاید — دقیقاً شبی که این
+     نمونه لازم است — هیچ نمی‌شود. ۷٫۴۶/۷٫۶۲. از **متنِ خودِ `healthCheck`**
+     پرسیده می‌شود، نه از کلِ فایل: بلوکِ `_STATUS.json` هم نامش را دارد و
+     سنجه‌ای که کلِ فایل را بگردد با برداشتنِ فراخوان سبز می‌مانَد (۷٫۴۰). */
+  /* ══ از همان دری که تولید می‌رود، نه با خواندنِ متنِ کد ══
+     نگارشِ اول بدنهٔ `vbrCollectHourly` را برای رشتهٔ `vbrSeedAsk_(`
+     می‌گشت. با `if (false) vbrSeedAsk_()` سبز مانْد — یعنی سنجه‌ای که یک
+     لایه بالاتر از خرابی ایستاده بود (۷٫۴۳/۷٫۶۲). پس خودِ تریگر اجرا
+     می‌شود و از صف پرسیده می‌شود. */
+  {
+    const qh = vbrRead_(); qh.items = []; vbrSave_(qh);
+    CFG.VBR_SEED_ASKS = SEED;
+    vbrCollectHourly();
+    const landed = (vbrRead_().items || [])
+      .filter(x => String(x.key).indexOf('تستی') !== -1).length;
+    ok('۳۰.۶ تریگرِ ساعتی خودش بذر را در صف می‌گذارد',
+       landed === 1,
+       'تعداد: ' + landed + ' — تنها راهش کارِ شبانه بود، که پشتِ nightHas_ است');
+  }
+  /* و **نه** روی `healthCheck`: رسیدن به سدِ تکرار از `vbrMapCached_()`
+     می‌گذرد که فراخوانِ شبکه است، و آن تابع همان است که ۷٫۶۳ نوشت از
+     هزینه مُرده. نگارشِ اولِ همین نسخه این اشتباه را کرد و
+     `run_health_test.js` گرفتش. */
+  ok('۳۰.۷ و روی `healthCheck` نمی‌نشیند',
+     fs.readFileSync('src/08_Health.gs', 'utf8').indexOf('vbrSeedAsk_') === -1,
+     'هزینهٔ شبکه روی تابعی که از هزینه می‌میرد (۷٫۶۳/۷٫۶۶)');
+
+  CFG.VBR_SEED_ASKS = keepSeed;
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 
