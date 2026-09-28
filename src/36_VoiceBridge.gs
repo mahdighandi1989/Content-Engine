@@ -287,6 +287,15 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
 
   var mdl = vbrModel_(speaker);
   if (!mdl.ok) return { ok: false, why: mdl.why };
+  /* ══ گام، به ازای هر گوینده (۷٫۸۱) ══
+     تا امروز `CFG.VBR_PITCH` سراسری بود: عددی که برای رضوی سنجیده شد، روی
+     هر کسی. گلدوز با آن −۱۲ عددِ ۰٫۵۵۶ گرفت و با گامِ ۰، ۰٫۷۸۶ — یعنی
+     «اصلا مثل خودش نیست» از همین یک عدد می‌آمد. `src` هم ذخیره می‌شود،
+     چون «پیش‌فرض» یعنی این گام برای این آدم هرگز سنجیده نشده و ردیف باید
+     بتواند همین را بگوید. یک خواندنِ شیت اینجا هزینه نیست: `vbrModel_` و
+     `vbrAudio_` هر دو پوشهٔ درایو را می‌گردند و این تابع شبی چند بار
+     صدا زده می‌شود، نه روی مسیرِ داغ (۷٫۶۳/۷٫۷۲). */
+  var pit = personaPitch_(speaker);
   var au = vbrAudio_(folderId);
   if (!au.length) return { ok: false, why: 'فایلِ صوتی‌ای در پوشهٔ قسمت نیست' };
 
@@ -295,13 +304,14 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
               speaker: String(speaker), tries: 0, at: nowStr_(),
               status: 'در انتظار',
               model: { pth: mdl.pth, index: mdl.index },
-              params: { pitch: String(CFG.VBR_PITCH || '-12'),
+              params: { pitch: pit.pitch,
                         /* پیش‌فرضِ اینجا باید با `CFG` یکی باشد: اگر
                            روزی آن کلید نباشد، این خط بی‌صدا همان ۱٫۰ را
                            برمی‌گرداند که ۷٫۷۰ عمداً کنارش گذاشت. دو عدد
                            در دو جا که کسی با هم نسنجیده باشد — ۷٫۳۰/۷٫۳۱. */
                         indexRate: String(CFG.VBR_INDEX_RATE || '1.0'),
                         protect: String(CFG.VBR_PROTECT || '0.33') },
+              pitchSrc: pit.src,
               audio: [] };
   for (var a = 0; a < au.length; a++) {
     try { driveShareOn_(au[a].id); } catch (eA) {}

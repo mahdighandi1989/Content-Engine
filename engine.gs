@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.80
+ *  موتور محتوا و پادکست — نسخهٔ 7.81
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1285,7 +1285,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.80',
+  CODE_VERSION: '7.81',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1450,8 +1450,32 @@ var CFG = {
      واقعیِ پل ۷۰٫۹ مگابایت درآمد. پس خروجی تکه‌تکه می‌آید و هر تکه زیرِ
      این عدد است. */
   VBR_MAX_BYTES: 45000000,           // تکهٔ بزرگ‌تر از این برداشته نمی‌شود
-  /* پارامترهای تبدیل — همان ترکیبی که بالاترین عدد را داد (۰٫۷۴۴). */
+  /* ══ گامِ تبدیل: پیش‌فرض، نه قاعده (۷٫۸۱) ══
+     این `-12` برای **رضوی** سنجیده شد — صدای مبدأِ جمینای زنانه است و او
+     مردی با صدای بم، فاصله‌شان حدودِ یک اوکتاو. و `tools/voicelab.py` از
+     روزِ اول نوشته بود: «عددِ درست را نمی‌شود از پیش دانست (**به صدای
+     مبدأ بستگی دارد**) … پس به‌جای حدس زدن، چند گام ساخته می‌شود و
+     **شنونده** انتخاب می‌کند.» تحلیل بود، سیم نبود: عددِ یک نفر سراسری
+     شد و هر گویندهٔ دیگری همان دوازده نیم‌پرده را گرفت.
+
+     گلدوز «اصلا مثل خودش نیست» را همین ساخت، نه نرخِ نمونه. اجرای ۶۷ِ
+     voice-lab روی خودِ همان فایل، با `index_rate`/`protect` ثابت:
+
+         گام   ۰ → ۰٫۷۸۶      گام  −۶ → ۰٫۶۶۵      گام −۱۲ → ۰٫۵۵۶
+         گام  −۳ → ۰٫۷۳۲      گام  −۹ → ۰٫۵۷۴
+
+     یکنواخت، و دامنه‌اش ۰٫۲۳۰ — **ده برابرِ** آن ۰٫۰۲۴ی که ۷٫۷۰ نشان داد
+     این سنجه با آن هیچ چیزی را تفکیک نمی‌کند. اینجا تفکیک می‌کند و جهتش
+     یک‌طرفه است. پس این ستون **برای هر گوینده** است و این عدد فقط
+     پیش‌فرض: خالی‌بودنِ خانه یعنی «سنجیده نشده»، نه «−۱۲ درست است» —
+     و ردیفِ صف همین را می‌گوید (۷٫۴۰: نسنجیده ضعیف نیست، ولی حدس هم
+     تصمیم نیست). رضوی سرِ جایش می‌مانَد: ۰٫۷۴۴ با گوشِ خودش انتخاب شد. */
   VBR_PITCH: '-12',
+  /* گامِ سنجیده‌شدهٔ هر گوینده — فقط خانهٔ **خالی** را پر می‌کند و هرگز روی
+     مقدارِ دستیِ او نمی‌نویسد (همان قاعدهٔ `PRON_SEED` در ۷٫۶۹ و «اسکن،
+     ذوقِ گزینشگر را پاک نمی‌کند» در بخشِ ۲۳). او شیت باز نمی‌کند، پس عددی
+     که امروز سنجیده شد باید خودش سرِ جایش برود، نه با یک درخواست از او. */
+  VOICE_PITCH_SEED: { 'spk-1g0r95d': '0' },   // اجرای ۶۷ voice-lab: ۰٫۷۸۶
   /* ══ اهرم هرگز در تبدیل نبود (۷٫۷۳) ══
      ۷٫۷۰ این عدد را از ۱٫۰ به ۰٫۶۶ برد. صاحبِ برنامه چهار نمونه را شنید و
      گفت **«با همون مقدارِ ۱ برای رضوی همه چیز خوبه»** — هویتِ صدا و زحمتِ
@@ -47284,11 +47308,57 @@ function bridgeAuditStatus_(hub) {
    برچسب‌های تازه را روی مقدارهای کهنه می‌نشاند، بی هیچ خطایی. */
 var PERSONA_HEADERS = ['کلید', 'نام', 'فعال', 'برنامه‌ها', 'هر چند قسمت',
                        'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده',
-                       'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)'];
+                       'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)',
+                       'گامِ تبدیل'];
 
 /** شمارهٔ ستون‌ها (۱-بنیان) — همان الگوی `CC` در بخشِ ۲۵. */
 var PC = { KEY: 1, NAME: 2, ON: 3, SHOWS: 4, EVERY: 5, STYLE: 6, MODES: 7,
-           LAST: 8, USED: 9, ONCE: 10, PICK: 11 };
+           LAST: 8, USED: 9, ONCE: 10, PICK: 11, PITCH: 12 };
+
+/**
+ * گامِ تبدیلِ این گوینده، و **از کجا آمد**.
+ *
+ * سه پله، به همین ترتیب: خانهٔ خودش در تبِ «صداها» ⇒ `VOICE_PITCH_SEED`
+ * (چیزی که voice-lab سنجیده) ⇒ `CFG.VBR_PITCH` (پیش‌فرضِ سراسری، که عددِ
+ * رضوی است).
+ *
+ * `src` را برمی‌گرداند چون پلهٔ سوم یک **حدس** است نه یک تصمیم: عددی که
+ * برای یک آدمِ دیگر سنجیده شده. ردیفِ صف و سطرِ روزانه باید بتوانند این را
+ * بگویند، وگرنه «گامِ −۱۲» دربارهٔ کسی که هرگز سنجیده نشده همان ادعای
+ * بی‌ورودی است که این پرونده بارها نوشته: ادعایی که ورودی ندارد، دیر یا
+ * زود دروغ می‌شود.
+ *
+ * عددِ ناخوانا مثلِ خالی رفتار می‌کند، نه مثلِ صفر: `Number('')` صفر است و
+ * صفر اینجا یک گامِ **معتبر** است (بهترین گامِ گلدوز). پس تشخیصِ «خالی» با
+ * رشته است، نه با عدد.
+ */
+function personaPitch_(key, rows) {
+  var out = { pitch: String(CFG.VBR_PITCH || '-12'), src: 'پیش‌فرض' };
+  var k = String(key || '').trim();
+  if (!k) return out;
+  try {
+    var rs = rows || personaRows_(personaTab_());
+    for (var i = 0; i < rs.length; i++) {
+      if (String(rs[i][PC.KEY - 1] || '').trim() !== k) continue;
+      var cell = String(rs[i][PC.PITCH - 1] == null ? '' : rs[i][PC.PITCH - 1]).trim();
+      /* همان نگهبانِ `personaOnceParse_`: بخشِ ۳۲ نباید به جلو وابسته شود. */
+      var d = (typeof faDigits_ === 'function') ? faDigits_(cell) : cell;
+      if (cell !== '' && d !== '' && isFinite(Number(d))) {
+        out.pitch = String(Number(d));
+        out.src = 'ردیفِ خودش';
+        return out;
+      }
+      break;
+    }
+  } catch (e) {}
+  var seed = (CFG.VOICE_PITCH_SEED || {})[k];
+  if (seed != null && String(seed).trim() !== '') {
+    out.pitch = String(seed).trim();
+    out.src = 'سنجیده‌شده';
+  }
+  return out;
+}
+
 
 /**
  * ردیف‌های جدول، بی سرصفحه — با همان اصطلاحی که بقیهٔ موتور می‌خوانَد.
@@ -47974,6 +48044,13 @@ function personaBoardData_() {
       })(),
       last: String(v[PC.LAST - 1] == null ? '' : v[PC.LAST - 1]),
       used: String(v[PC.USED - 1] == null ? '' : v[PC.USED - 1]),
+      /* خانهٔ خالی و گامِ مؤثر، **هر دو** (۷٫۸۱). فقط خانه را نشان دادن یعنی
+         جای خالی، که خوانده می‌شود «گامی ندارد» — در حالی که یک عددِ
+         پیش‌فرض دارد و آن عدد برای آدمِ دیگری سنجیده شده. */
+      pitch: String(v[PC.PITCH - 1] == null ? '' : v[PC.PITCH - 1]).trim(),
+      pitchEff: (function () {
+        try { return personaPitch_(key, rows); } catch (ePt) { return null; }
+      })(),
       row: r + 2
     });
   }
@@ -47999,7 +48076,7 @@ function personaBoardData_() {
  * می‌شود، چون `personaFor_` آن ردیف را بی‌صدا کنار می‌گذارد و آدم فکر
  * می‌کند روشنش کرده.
  */
-function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
+function personaBoardSave_(key, on, shows, every, cue, modes, once, picks, pitch) {
   var sh = personaTab_();
   var rows = personaRows_(sh);
   var at = -1;
@@ -48080,6 +48157,29 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
      دیگر، انتخاب‌های او را بی‌صدا پاک می‌کند. */
   var touchPick = (picks !== undefined && picks !== null);
 
+  /* ══ گام: همان قاعدهٔ `undefined` در برابرِ خالی (۷٫۵۹) ══
+     نفرستادنش یعنی «تخته این را نفرستاد» و خانه باید دست‌نخورده بماند؛
+     رشتهٔ خالی یعنی «سنجیده نشده، پیش‌فرض را بگیر» و باید پاک کند. و
+     عددِ ناخوانا **رد** می‌شود نه بی‌صدا صفر شود: صفر یک گامِ معتبر است
+     (بهترین گامِ گلدوز)، پس بی‌صدا صفر کردنِ یک غلطِ تایپی یعنی او باور
+     کند چیزی تنظیم کرده و صدای دیگری بگیرد. */
+  var touchPitch = (pitch !== undefined && pitch !== null);
+  var pitchT = '';
+  if (touchPitch) {
+    pitchT = String(pitch).trim();
+    if (pitchT !== '') {
+      var pd = (typeof faDigits_ === 'function') ? faDigits_(pitchT) : pitchT;
+      if (!isFinite(Number(pd)) || pd === '') {
+        return { ok: false, why: '«گامِ تبدیل» عدد نیست: «' + pitchT + '». ' +
+                 'نیم‌پرده است — مثلِ ۰ یا -۱۲. خالی بگذارید تا پیش‌فرض بگیرد.' };
+      }
+      if (Math.abs(Number(pd)) > 24) {
+        return { ok: false, why: '«گامِ تبدیل» باید میانِ -۲۴ و ۲۴ باشد.' };
+      }
+      pitchT = String(Number(pd));
+    }
+  }
+
   sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
   sh.getRange(at, PC.SHOWS).setValue(cell);
   sh.getRange(at, PC.EVERY).setValue(n);
@@ -48087,10 +48187,12 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
   sh.getRange(at, PC.MODES).setValue(String(modes == null ? '' : modes).trim());
   sh.getRange(at, PC.ONCE).setValue(onceT);
   if (touchPick) sh.getRange(at, PC.PICK).setValue(pickT);
+  if (touchPitch) sh.getRange(at, PC.PITCH).setValue(pitchT);
   return { ok: true, key: String(key), on: !!on, shows: cell, every: n,
            once: onceT, onceCount: op.items.length,
            picks: touchPick ? pickT : String(rows[at - 2][PC.PICK - 1] || ''),
-           pickCount: touchPick ? (pickT ? pickT.split('، ').length : 0) : -1 };
+           pickCount: touchPick ? (pickT ? pickT.split('، ').length : 0) : -1,
+           pitch: touchPitch ? pitchT : String(rows[at - 2][PC.PITCH - 1] || '') };
 }
 
 /**
@@ -48263,12 +48365,12 @@ function personaBoardData() {
 }
 
 /** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
-function personaBoardSave(key, on, shows, every, cue, modes, once, picks) {
+function personaBoardSave(key, on, shows, every, cue, modes, once, picks, pitch) {
   /* ══ آرگومانِ تازه باید **اینجا هم** اضافه شود (۷٫۴۱) ══
      `google.script.run` همین پوشش را صدا می‌زند. پارامترِ جاافتاده هیچ
      خطایی نمی‌دهد: تخته مقدار را می‌فرستد، پوشش دورش می‌ریزد، و دکمه
      بی‌صدا هیچ نمی‌کند — همان خرابی‌ای که ۵٫۲ برایش هست. */
-  try { return personaBoardSave_(key, on, shows, every, cue, modes, once, picks); }
+  try { return personaBoardSave_(key, on, shows, every, cue, modes, once, picks, pitch); }
   catch (e) { return { ok: false, why: 'خطا: ' + e.message }; }
 }
 
@@ -48344,6 +48446,16 @@ function personaBoardHtml_() {
   H.push('H.push("<label>دستورِ سبک</label><textarea id=\'cu"+i+"\' rows=\'4\'>"+esc(r.cue)+"</textarea>");');
   H.push('H.push("<label>حالت‌ها — هر خط: <code>نام | وایب‌ها با کاما | دستور</code>. وایبِ خالی یعنی این حالت هرگز انتخاب نمی‌شود.</label>");');
   H.push('H.push("<textarea id=\'mo"+i+"\' rows=\'4\'>"+esc(r.modes)+"</textarea>");');
+  /* ══ گامِ تبدیل، همین‌جا و با عددِ مؤثرش (۷٫۸۱) ══
+     تا امروز این عدد فقط در `CFG` بود: یک `-12` که برای رضوی سنجیده شد و
+     روی هر گویندهٔ دیگری هم می‌نشست. گلدوز با آن ۰٫۵۵۶ گرفت و با گامِ ۰،
+     ۰٫۷۸۶ — همان «اصلا مثل خودش نیست». پس کنترلش کنارِ بقیهٔ تنظیم‌های
+     خودِ او می‌نشیند (۵٫۶۱)، و **عددِ مؤثر و منبعش** نوشته می‌شود: خانهٔ
+     خالی جای خالی نیست، یک عددِ ارثی است. */
+  H.push('H.push("<label>گامِ تبدیلِ صدا (نیم‌پرده) — خالی یعنی پیش‌فرض.");');
+  H.push('if(r.pitchEff)H.push("<br><b>اکنون: </b>"+esc(r.pitchEff.pitch)+" ("+esc(r.pitchEff.src)+")"+(r.pitchEff.src==="پیش‌فرض"?" — برای این گوینده سنجیده نشده":""));');
+  H.push('H.push("</label>");');
+  H.push('H.push("<input type=\'text\' id=\'pt"+i+"\' value=\'"+esc(r.pitch)+"\'>");');
   /* ══ «موردی» همین‌جا، نه در منویی دیگر (۵٫۶۱ و ۷٫۳۵) ══
      کنترلی که جایی جز کنارِ کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود. */
   H.push('H.push("<label>قسمت‌های موردی — فقط همین قسمت‌ها، حتی اگر ردیف خاموش باشد.<br>");');
@@ -48395,7 +48507,8 @@ function personaBoardHtml_() {
   H.push('m.textContent="ذخیره نشد: "+e.message;})');
   H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
   H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
-  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks);}');
+  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks,');
+  H.push('document.getElementById("pt"+i).value);}');
   /* ══ دو فراخوان، و تخته منتظرِ دومی نمی‌مانَد (۷٫۶۰) ══
      بارِ اول فقط ردیف‌های «صداها»ست و سبک. فهرستِ قسمت‌ها — که هاب و
      درایو می‌خواهد — بعد می‌آید و تخته را دوباره می‌کشد. اگر هم نیامد،
@@ -53311,6 +53424,15 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
 
   var mdl = vbrModel_(speaker);
   if (!mdl.ok) return { ok: false, why: mdl.why };
+  /* ══ گام، به ازای هر گوینده (۷٫۸۱) ══
+     تا امروز `CFG.VBR_PITCH` سراسری بود: عددی که برای رضوی سنجیده شد، روی
+     هر کسی. گلدوز با آن −۱۲ عددِ ۰٫۵۵۶ گرفت و با گامِ ۰، ۰٫۷۸۶ — یعنی
+     «اصلا مثل خودش نیست» از همین یک عدد می‌آمد. `src` هم ذخیره می‌شود،
+     چون «پیش‌فرض» یعنی این گام برای این آدم هرگز سنجیده نشده و ردیف باید
+     بتواند همین را بگوید. یک خواندنِ شیت اینجا هزینه نیست: `vbrModel_` و
+     `vbrAudio_` هر دو پوشهٔ درایو را می‌گردند و این تابع شبی چند بار
+     صدا زده می‌شود، نه روی مسیرِ داغ (۷٫۶۳/۷٫۷۲). */
+  var pit = personaPitch_(speaker);
   var au = vbrAudio_(folderId);
   if (!au.length) return { ok: false, why: 'فایلِ صوتی‌ای در پوشهٔ قسمت نیست' };
 
@@ -53319,13 +53441,14 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
               speaker: String(speaker), tries: 0, at: nowStr_(),
               status: 'در انتظار',
               model: { pth: mdl.pth, index: mdl.index },
-              params: { pitch: String(CFG.VBR_PITCH || '-12'),
+              params: { pitch: pit.pitch,
                         /* پیش‌فرضِ اینجا باید با `CFG` یکی باشد: اگر
                            روزی آن کلید نباشد، این خط بی‌صدا همان ۱٫۰ را
                            برمی‌گرداند که ۷٫۷۰ عمداً کنارش گذاشت. دو عدد
                            در دو جا که کسی با هم نسنجیده باشد — ۷٫۳۰/۷٫۳۱. */
                         indexRate: String(CFG.VBR_INDEX_RATE || '1.0'),
                         protect: String(CFG.VBR_PROTECT || '0.33') },
+              pitchSrc: pit.src,
               audio: [] };
   for (var a = 0; a < au.length; a++) {
     try { driveShareOn_(au[a].id); } catch (eA) {}

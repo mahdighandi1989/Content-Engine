@@ -45,11 +45,57 @@
    برچسب‌های تازه را روی مقدارهای کهنه می‌نشاند، بی هیچ خطایی. */
 var PERSONA_HEADERS = ['کلید', 'نام', 'فعال', 'برنامه‌ها', 'هر چند قسمت',
                        'دستورِ سبک', 'حالت‌ها', 'آخرین تصمیم', 'آخرین استفاده',
-                       'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)'];
+                       'قسمت‌های موردی', 'قسمت‌های تولیدشده (تیک‌خورده)',
+                       'گامِ تبدیل'];
 
 /** شمارهٔ ستون‌ها (۱-بنیان) — همان الگوی `CC` در بخشِ ۲۵. */
 var PC = { KEY: 1, NAME: 2, ON: 3, SHOWS: 4, EVERY: 5, STYLE: 6, MODES: 7,
-           LAST: 8, USED: 9, ONCE: 10, PICK: 11 };
+           LAST: 8, USED: 9, ONCE: 10, PICK: 11, PITCH: 12 };
+
+/**
+ * گامِ تبدیلِ این گوینده، و **از کجا آمد**.
+ *
+ * سه پله، به همین ترتیب: خانهٔ خودش در تبِ «صداها» ⇒ `VOICE_PITCH_SEED`
+ * (چیزی که voice-lab سنجیده) ⇒ `CFG.VBR_PITCH` (پیش‌فرضِ سراسری، که عددِ
+ * رضوی است).
+ *
+ * `src` را برمی‌گرداند چون پلهٔ سوم یک **حدس** است نه یک تصمیم: عددی که
+ * برای یک آدمِ دیگر سنجیده شده. ردیفِ صف و سطرِ روزانه باید بتوانند این را
+ * بگویند، وگرنه «گامِ −۱۲» دربارهٔ کسی که هرگز سنجیده نشده همان ادعای
+ * بی‌ورودی است که این پرونده بارها نوشته: ادعایی که ورودی ندارد، دیر یا
+ * زود دروغ می‌شود.
+ *
+ * عددِ ناخوانا مثلِ خالی رفتار می‌کند، نه مثلِ صفر: `Number('')` صفر است و
+ * صفر اینجا یک گامِ **معتبر** است (بهترین گامِ گلدوز). پس تشخیصِ «خالی» با
+ * رشته است، نه با عدد.
+ */
+function personaPitch_(key, rows) {
+  var out = { pitch: String(CFG.VBR_PITCH || '-12'), src: 'پیش‌فرض' };
+  var k = String(key || '').trim();
+  if (!k) return out;
+  try {
+    var rs = rows || personaRows_(personaTab_());
+    for (var i = 0; i < rs.length; i++) {
+      if (String(rs[i][PC.KEY - 1] || '').trim() !== k) continue;
+      var cell = String(rs[i][PC.PITCH - 1] == null ? '' : rs[i][PC.PITCH - 1]).trim();
+      /* همان نگهبانِ `personaOnceParse_`: بخشِ ۳۲ نباید به جلو وابسته شود. */
+      var d = (typeof faDigits_ === 'function') ? faDigits_(cell) : cell;
+      if (cell !== '' && d !== '' && isFinite(Number(d))) {
+        out.pitch = String(Number(d));
+        out.src = 'ردیفِ خودش';
+        return out;
+      }
+      break;
+    }
+  } catch (e) {}
+  var seed = (CFG.VOICE_PITCH_SEED || {})[k];
+  if (seed != null && String(seed).trim() !== '') {
+    out.pitch = String(seed).trim();
+    out.src = 'سنجیده‌شده';
+  }
+  return out;
+}
+
 
 /**
  * ردیف‌های جدول، بی سرصفحه — با همان اصطلاحی که بقیهٔ موتور می‌خوانَد.
@@ -735,6 +781,13 @@ function personaBoardData_() {
       })(),
       last: String(v[PC.LAST - 1] == null ? '' : v[PC.LAST - 1]),
       used: String(v[PC.USED - 1] == null ? '' : v[PC.USED - 1]),
+      /* خانهٔ خالی و گامِ مؤثر، **هر دو** (۷٫۸۱). فقط خانه را نشان دادن یعنی
+         جای خالی، که خوانده می‌شود «گامی ندارد» — در حالی که یک عددِ
+         پیش‌فرض دارد و آن عدد برای آدمِ دیگری سنجیده شده. */
+      pitch: String(v[PC.PITCH - 1] == null ? '' : v[PC.PITCH - 1]).trim(),
+      pitchEff: (function () {
+        try { return personaPitch_(key, rows); } catch (ePt) { return null; }
+      })(),
       row: r + 2
     });
   }
@@ -760,7 +813,7 @@ function personaBoardData_() {
  * می‌شود، چون `personaFor_` آن ردیف را بی‌صدا کنار می‌گذارد و آدم فکر
  * می‌کند روشنش کرده.
  */
-function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
+function personaBoardSave_(key, on, shows, every, cue, modes, once, picks, pitch) {
   var sh = personaTab_();
   var rows = personaRows_(sh);
   var at = -1;
@@ -841,6 +894,29 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
      دیگر، انتخاب‌های او را بی‌صدا پاک می‌کند. */
   var touchPick = (picks !== undefined && picks !== null);
 
+  /* ══ گام: همان قاعدهٔ `undefined` در برابرِ خالی (۷٫۵۹) ══
+     نفرستادنش یعنی «تخته این را نفرستاد» و خانه باید دست‌نخورده بماند؛
+     رشتهٔ خالی یعنی «سنجیده نشده، پیش‌فرض را بگیر» و باید پاک کند. و
+     عددِ ناخوانا **رد** می‌شود نه بی‌صدا صفر شود: صفر یک گامِ معتبر است
+     (بهترین گامِ گلدوز)، پس بی‌صدا صفر کردنِ یک غلطِ تایپی یعنی او باور
+     کند چیزی تنظیم کرده و صدای دیگری بگیرد. */
+  var touchPitch = (pitch !== undefined && pitch !== null);
+  var pitchT = '';
+  if (touchPitch) {
+    pitchT = String(pitch).trim();
+    if (pitchT !== '') {
+      var pd = (typeof faDigits_ === 'function') ? faDigits_(pitchT) : pitchT;
+      if (!isFinite(Number(pd)) || pd === '') {
+        return { ok: false, why: '«گامِ تبدیل» عدد نیست: «' + pitchT + '». ' +
+                 'نیم‌پرده است — مثلِ ۰ یا -۱۲. خالی بگذارید تا پیش‌فرض بگیرد.' };
+      }
+      if (Math.abs(Number(pd)) > 24) {
+        return { ok: false, why: '«گامِ تبدیل» باید میانِ -۲۴ و ۲۴ باشد.' };
+      }
+      pitchT = String(Number(pd));
+    }
+  }
+
   sh.getRange(at, PC.ON).setValue(on ? 'بله' : 'خیر');
   sh.getRange(at, PC.SHOWS).setValue(cell);
   sh.getRange(at, PC.EVERY).setValue(n);
@@ -848,10 +924,12 @@ function personaBoardSave_(key, on, shows, every, cue, modes, once, picks) {
   sh.getRange(at, PC.MODES).setValue(String(modes == null ? '' : modes).trim());
   sh.getRange(at, PC.ONCE).setValue(onceT);
   if (touchPick) sh.getRange(at, PC.PICK).setValue(pickT);
+  if (touchPitch) sh.getRange(at, PC.PITCH).setValue(pitchT);
   return { ok: true, key: String(key), on: !!on, shows: cell, every: n,
            once: onceT, onceCount: op.items.length,
            picks: touchPick ? pickT : String(rows[at - 2][PC.PICK - 1] || ''),
-           pickCount: touchPick ? (pickT ? pickT.split('، ').length : 0) : -1 };
+           pickCount: touchPick ? (pickT ? pickT.split('، ').length : 0) : -1,
+           pitch: touchPitch ? pitchT : String(rows[at - 2][PC.PITCH - 1] || '') };
 }
 
 /**
@@ -1024,12 +1102,12 @@ function personaBoardData() {
 }
 
 /** بی‌زیرخط، چون از HTML صدا زده می‌شود. */
-function personaBoardSave(key, on, shows, every, cue, modes, once, picks) {
+function personaBoardSave(key, on, shows, every, cue, modes, once, picks, pitch) {
   /* ══ آرگومانِ تازه باید **اینجا هم** اضافه شود (۷٫۴۱) ══
      `google.script.run` همین پوشش را صدا می‌زند. پارامترِ جاافتاده هیچ
      خطایی نمی‌دهد: تخته مقدار را می‌فرستد، پوشش دورش می‌ریزد، و دکمه
      بی‌صدا هیچ نمی‌کند — همان خرابی‌ای که ۵٫۲ برایش هست. */
-  try { return personaBoardSave_(key, on, shows, every, cue, modes, once, picks); }
+  try { return personaBoardSave_(key, on, shows, every, cue, modes, once, picks, pitch); }
   catch (e) { return { ok: false, why: 'خطا: ' + e.message }; }
 }
 
@@ -1105,6 +1183,16 @@ function personaBoardHtml_() {
   H.push('H.push("<label>دستورِ سبک</label><textarea id=\'cu"+i+"\' rows=\'4\'>"+esc(r.cue)+"</textarea>");');
   H.push('H.push("<label>حالت‌ها — هر خط: <code>نام | وایب‌ها با کاما | دستور</code>. وایبِ خالی یعنی این حالت هرگز انتخاب نمی‌شود.</label>");');
   H.push('H.push("<textarea id=\'mo"+i+"\' rows=\'4\'>"+esc(r.modes)+"</textarea>");');
+  /* ══ گامِ تبدیل، همین‌جا و با عددِ مؤثرش (۷٫۸۱) ══
+     تا امروز این عدد فقط در `CFG` بود: یک `-12` که برای رضوی سنجیده شد و
+     روی هر گویندهٔ دیگری هم می‌نشست. گلدوز با آن ۰٫۵۵۶ گرفت و با گامِ ۰،
+     ۰٫۷۸۶ — همان «اصلا مثل خودش نیست». پس کنترلش کنارِ بقیهٔ تنظیم‌های
+     خودِ او می‌نشیند (۵٫۶۱)، و **عددِ مؤثر و منبعش** نوشته می‌شود: خانهٔ
+     خالی جای خالی نیست، یک عددِ ارثی است. */
+  H.push('H.push("<label>گامِ تبدیلِ صدا (نیم‌پرده) — خالی یعنی پیش‌فرض.");');
+  H.push('if(r.pitchEff)H.push("<br><b>اکنون: </b>"+esc(r.pitchEff.pitch)+" ("+esc(r.pitchEff.src)+")"+(r.pitchEff.src==="پیش‌فرض"?" — برای این گوینده سنجیده نشده":""));');
+  H.push('H.push("</label>");');
+  H.push('H.push("<input type=\'text\' id=\'pt"+i+"\' value=\'"+esc(r.pitch)+"\'>");');
   /* ══ «موردی» همین‌جا، نه در منویی دیگر (۵٫۶۱ و ۷٫۳۵) ══
      کنترلی که جایی جز کنارِ کاری که کنترل می‌کند بنشیند، پیدا نمی‌شود. */
   H.push('H.push("<label>قسمت‌های موردی — فقط همین قسمت‌ها، حتی اگر ردیف خاموش باشد.<br>");');
@@ -1156,7 +1244,8 @@ function personaBoardHtml_() {
   H.push('m.textContent="ذخیره نشد: "+e.message;})');
   H.push('.personaBoardSave(r.key,document.getElementById("on"+i).checked,shows,');
   H.push('document.getElementById("ev"+i).value,document.getElementById("cu"+i).value,');
-  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks);}');
+  H.push('document.getElementById("mo"+i).value,document.getElementById("oc"+i).value,picks,');
+  H.push('document.getElementById("pt"+i).value);}');
   /* ══ دو فراخوان، و تخته منتظرِ دومی نمی‌مانَد (۷٫۶۰) ══
      بارِ اول فقط ردیف‌های «صداها»ست و سبک. فهرستِ قسمت‌ها — که هاب و
      درایو می‌خواهد — بعد می‌آید و تخته را دوباره می‌کشد. اگر هم نیامد،

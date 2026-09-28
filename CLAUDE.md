@@ -1077,6 +1077,77 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## He was right that I had attributed it to the wrong number (7.81)
+
+7.80 said Goldooz sounded nothing like himself because his recordings are
+11 025 Hz against a 40 kHz training target. He answered: **«شاید تو داری اشتباه
+میکنی که اینو ربط به هرتز دادی»** — and he was right.
+
+**Two facts and one inference, and only the inference was wrong.** The files
+really are 11 025 Hz and `VT_SR` really is 40 000. But *that this caused the
+complaint* was never measured. Training depth was checked next and killed the
+second hypothesis too: `docs/voices.json` records **32 epochs for both** speakers.
+
+**The cause was one global number.** `VBR_PITCH: '-12'`, whose own comment says
+«همان ترکیبی که بالاترین عدد را داد» — measured for **Razavi**, because Gemini's
+source voice is female-ish and he is a deep male, about one octave apart. Every
+other speaker got the same twelve semitones. voice-lab run 67, same file he
+called «افتضاح», `index_rate` and `protect` held fixed and **only pitch varying**:
+
+| pitch | 0 | −3 | −6 | −9 | **−12** |
+|---|---|---|---|---|---|
+| out_vs_ref | **0.786** | 0.732 | 0.665 | 0.574 | **0.556** |
+
+**Monotonic, and the range is 0.230 — ten times the 0.024 that 7.70 showed could
+not distinguish anything.** So unlike `index_rate`, this parameter really does
+discriminate, and its direction is unambiguous. And 0.786 is the highest number
+this repo has ever recorded (Razavi's best was 0.744), which is the proof that
+11 kHz was **not** blocking similarity. Band-limiting makes a voice sound
+*muffled*; a wrong octave makes it *a different person*. His complaint was the
+second shape.
+
+**And `tools/voicelab.py` had written the answer on day one:** *«عددِ درست را
+نمی‌شود از پیش دانست (**به صدای مبدأ بستگی دارد**) … پس به‌جای حدس زدن، چند گام
+ساخته می‌شود و **شنونده** انتخاب می‌کند.»* For Goldooz that ladder was never
+built and nobody ever listened. The analysis was written, was correct, and was
+wired to a constant — the shape this file has now logged more times than any
+other, this time inside the tool that states the rule.
+
+**The number that measured him was not the number that made him, either.** The
+lab's own default is pitch **0**; the bridge converts at **−12**. So the 0.708 in
+`docs/voices.json` and the file he heard were two different things, and neither
+was ever measured at his own pitch.
+
+Now: a «گامِ تبدیل» column at the **end** of `PERSONA_HEADERS` (7.41), a box for
+it on the voices board because a control away from its work is not found (5.61),
+`VOICE_PITCH_SEED` filling only an **empty** cell and never overwriting his hand
+(7.69, and the music scan that must not erase the curator's taste), and
+`pitchSrc` on the queue row so «پیش‌فرض» can be told from «سنجیده‌شده» — a label
+with no input eventually becomes a lie (7.79).
+
+**Zero is a valid pitch and that is the dangerous line.** `Number('')` is 0, so
+testing emptiness numerically would make the *best* setting for Goldooz behave
+exactly like a blank cell and fall back to the −12 this version exists to escape.
+Emptiness is tested as a string. And an unreadable entry is **refused by name**
+rather than silently zeroed: silently zeroing a typo would leave him believing he
+had set something while he gets another voice.
+
+**Two of my twelve new assertions measured nothing, and only breaking the code
+showed it.** «the row says where the number came from» was green with
+`pitchSrc` hard-coded, because in that test state the true answer *was* «ردیفِ
+خودش» — so the claim is now also asked in a state where the right answer is
+something else. And the board-field assertion searched for the substring
+`pt"+i`; renaming only the input's id left it green while the page was genuinely
+broken, because `getElementById("pt"+i)` still contained that text. It now
+extracts **both** ids and requires them equal — a button reading `null.value`
+does nothing and raises nothing (5.61/7.43). A third breakage landed on an
+unrelated older assertion (۸.۳) and had to be re-aimed before ۲۹.۸ was proved.
+
+**And the general rule, because this is the second time in two days:** when the
+owner says the diagnosis is wrong, the cheap move is to re-run the measurement
+rather than defend the reasoning. Here it cost six minutes of runner time, and it
+inverted the answer.
+
 ## What is not in the data cannot be made (7.80)
 
 He asked two things about Goldooz's folder: *did you check and use all 27 files —
