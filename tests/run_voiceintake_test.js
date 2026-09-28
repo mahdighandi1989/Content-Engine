@@ -648,4 +648,115 @@ const SHOW0 = knownShows_()[0].name;
      (dupPC.length ? ' · تکراری: ' + dupPC.join('، ') : ''));
 }
 
+console.log('\n══ ۲۶) نرخِ نمونه — چیزی که در فایل نیست ساخته نمی‌شود (۷٫۸۰) ══');
+/* ══ چرا این بخش هست ══
+   صاحبِ برنامه پرسید «۲۷ فایل هست، همه را استفاده کردی؟». هر ۲۷ تا در صف
+   بودند. ولی وقتی فایل‌ها **باز** شدند:
+
+       Binavayan (27).mp3 → ۱۶ کیلوبیت، ۱۱۰۲۵ هرتز، مونو، ۱۳٫۱ دقیقه
+       Binavayan (20).mp3 → ۱۶ کیلوبیت، ۱۱۰۲۵ هرتز، مونو، ۳۱٫۴ دقیقه
+
+   و `VT_SR` در `tools/voicetrain.py` چهل هزار هرتز است. مدل روی صدایی
+   آموزش دید که هیچ چیزی بالای ~۵٫۵ کیلوهرتز ندارد. «اصلا مثل خودش نیست»
+   نتیجهٔ ریاضیِ همین است — و هیچ‌جای خط تولید نرخِ نمونه را نگاه نمی‌کرد،
+   در حالی که بخشِ ۲۳ همین قاعده را برای موسیقی سال‌هاست نوشته. */
+{
+  /* ── اندازه‌گیری روی بایتِ واقعی، نه روی بدَل ── */
+  const frame = (b1, b2, b3) => {
+    const a = [];
+    for (let i = 0; i < 64; i++) a.push(0);          // کمی زبالهٔ اول
+    a.push(0xFF, b1, b2, b3);
+    for (let i = 0; i < 64; i++) a.push(0);
+    return a.map(x => (x > 127 ? x - 256 : x));      // بایتِ علامت‌دارِ اپس‌اسکریپت
+  };
+  const low = vintMp3Info_(frame(0xE3, 0x20, 0xC0));   // MPEG2.5 L3, 16k, 11025, mono
+  ok('۲۶.۱ ۱۱۰۲۵ هرتز از بایت‌ها خوانده می‌شود',
+     low.ok === true && low.sr === 11025 && low.kbps === 16 && low.ch === 1,
+     'گرفت: ' + JSON.stringify(low) +
+     ' — همان چیزی که در ۲۷ فایلِ گلدوز بود و هیچ‌کس نخوانده بود');
+
+  const hi = vintMp3Info_(frame(0xFB, 0x90, 0x00));    // MPEG1 L3, 128k, 44100
+  ok('۲۶.۲ و ۴۴۱۰۰ هم درست خوانده می‌شود — پارسر یک‌طرفه نیست',
+     hi.ok === true && hi.sr === 44100 && hi.kbps === 128,
+     'گرفت: ' + JSON.stringify(hi));
+
+  /* بایت‌های اپس‌اسکریپت علامت‌دارند؛ بی ماسک، 0xFF منفی می‌شود و هیچ
+     فریمی پیدا نمی‌شود — همان تلهٔ بخشِ ۲۳ دربارهٔ نمونه‌های ۱۶ بیتی. */
+  ok('۲۶.۳ و بایتِ نامعتبر «نسنجیده» می‌دهد، نه عددِ ساختگی',
+     vintMp3Info_([0, 1, 2, 3]).ok === false,
+     'گرفت: ' + JSON.stringify(vintMp3Info_([0, 1, 2, 3])));
+
+  /* ── و دقیقه‌ها از نرخِ بیتِ سنجیده‌شده ── */
+  const bytes = 98485632;                              // مجموعِ واقعیِ ۲۷ فایل
+  const guessed = vintEstMinutes_(bytes, null);
+  const real = vintEstMinutes_(bytes, { ok: true, kbps: 16, sr: 11025 });
+  ok('۲۶.۴ دقیقه از نرخِ بیتِ واقعی حساب می‌شود، نه از فرضِ ۱۲۸',
+     guessed > 90 && guessed < 115 && real > 700 && real < 900,
+     'با فرضِ ۱۲۸: ' + guessed + ' دقیقه · با ۱۶ِ سنجیده‌شده: ' + real +
+     ' دقیقه — عددی که هفت برابر خطا دارد عدد نیست، و همین عدد بود که ' +
+     'باعث شد بگویم راهِ بهتر شدن دادهٔ بیشتر است');
+
+  /* ── و حالا سد، از همان جایی که تولید وارد می‌شود ── */
+  const realProbe = global.vintProbeOne_;
+  const say = {};
+  global.vintProbeOne_ = (id) => say[String(id)] || { ok: false, kbps: 0, sr: 0, ch: 0 };
+  const quiet = (fn) => { const o = console.log; console.log = () => {};
+    try { return fn(); } finally { console.log = o; } };
+  try {
+    const par = vintCloneFolder_();
+    const mk = (person, sr) => {
+      const d = par.createFolder(person);
+      const f = d.createFile('a.mp3', 'x'.repeat(4000), 'audio/mpeg');
+      say[f.getId()] = { ok: true, kbps: sr < 22050 ? 16 : 128, sr: sr, ch: 1 };
+      return d;
+    };
+    const dLow = mk('گویندهٔ کم‌کیفیت', 11025);
+    const dOk  = mk('گویندهٔ باکیفیت', 44100);
+    const dUnk = par.createFolder('گویندهٔ نسنجیده');
+    dUnk.createFile('a.mp3', 'x'.repeat(4000), 'audio/mpeg');   // probe ⇒ ok:false
+
+    const scan = quiet(() => vintScan_());
+    const byName = {};
+    scan.speakers.forEach(x => { byName[x.name] = x; });
+    ok('۲۶.۵ اسکن هر گوینده را سنجید',
+       !!byName['گویندهٔ کم‌کیفیت'] && byName['گویندهٔ کم‌کیفیت'].audio.sr === 11025,
+       'گرفت: ' + JSON.stringify((byName['گویندهٔ کم‌کیفیت'] || {}).audio));
+
+    const q = quiet(() => vintQueue_(getHub_(), scan, vintState_(getHub_())));
+    const queued = (q.speakers || []).map(x => x.name);
+    ok('۲۶.۶ گویندهٔ ۱۱ کیلوهرتزی به آموزش فرستاده نمی‌شود',
+       queued.indexOf('گویندهٔ کم‌کیفیت') === -1,
+       'صف: ' + JSON.stringify(queued) +
+       ' — پشتِ هر ردیف ~۲۰ ساعت پردازنده است و مدلش نمی‌تواند شبیهش باشد');
+
+    ok('۲۶.۷ ولی گویندهٔ ۴۴۱۰۰ می‌رود — سدی که همه را رد کند سد نیست',
+       queued.indexOf('گویندهٔ باکیفیت') !== -1, 'صف: ' + JSON.stringify(queued));
+
+    /* «نسنجیده» ضعیف نیست (۷٫۴۰): یک قطعیِ درایو نباید گوینده را حذف کند.
+       ══ و این سنجه با شکستنِ عمدی **اثبات نشد** ══
+       وقتی `vintQuality_` را واداشتم نسنجیده را هم رد کند، سنجهٔ ۴.۱ —
+       که از قبل بود و ربطی به این نسخه ندارد — زودتر قرمز شد و اجرا
+       همان‌جا ایستاد، پس این خط هرگز اجرا نشد. یعنی ادعا از قبل نگهبان
+       داشت و این یکی تکرارِ آن است، نه سدی تازه. نوشتنش اینجا ارزش دارد
+       (کنارِ دو ادعای همسایه خوانده می‌شود) ولی وانمود نمی‌کنیم که
+       شکستن ثابتش کرد — ۷٫۷۴: شکستنی که روی سنجهٔ دیگری بیفتد، آن یکی
+       را ثابت نمی‌کند. */
+    ok('۲۶.۸ و گویندهٔ نسنجیده رد نمی‌شود',
+       queued.indexOf('گویندهٔ نسنجیده') !== -1, 'صف: ' + JSON.stringify(queued));
+
+    ok('۲۶.۹ و دلیلِ رد با عدد ثبت می‌شود، نه با برچسب',
+       (q.lowSr || []).length === 1 && q.lowSr[0].sr === 11025 &&
+       String(q.lowSr[0].why).indexOf('11025') !== -1,
+       'گرفت: ' + JSON.stringify(q.lowSr));
+
+    const st = quiet(() => vintStatus_(getHub_()));
+    ok('۲۶.۱۰ و سطرِ روزانه می‌گویدش — سدی که بزند و نگوید همان سکوت است',
+       /کیفیتِ ضبط کم/.test(String(st.line)) &&
+       /ضبطِ بهتر لازم است/.test(String(st.line)),
+       'گرفت: ' + String(st.line).slice(0, 220));
+
+    try { dLow.setTrashed(true); dOk.setTrashed(true); dUnk.setTrashed(true); } catch (e) {}
+  } finally { global.vintProbeOne_ = realProbe; }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

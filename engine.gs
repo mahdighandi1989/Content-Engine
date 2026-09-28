@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.79
+ *  موتور محتوا و پادکست — نسخهٔ 7.80
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1285,7 +1285,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.79',
+  CODE_VERSION: '7.80',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1499,6 +1499,15 @@ var CFG = {
   // پسوندهای پذیرفته. ffmpeg همه را می‌خوانَد؛ فهرست برای این است که فایلِ
   // نامربوط (متن، عکس) گزارش شود نه اینکه بی‌صدا رد شود — درسِ «قالب ناسازگار».
   VOICE_AUDIO_EXT: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac', 'webm', 'mp4'],
+  /* ══ زیرِ این نرخِ نمونه، آموزش هدر دادنِ ~۲۰ ساعت پردازنده است (۷٫۸۰) ══
+     ضبط‌های گلدوز ۱۱۰۲۵ هرتز بودند و `VT_SR` چهل هزار. یعنی مدل روی
+     صدایی آموزش دید که هیچ چیزی بالای ~۵٫۵ کیلوهرتز **ندارد** — و آنچه
+     در داده نیست، ساخته نمی‌شود. عدد ۲۲۰۵۰ از قاعدهٔ خودِ همین مخزن
+     می‌آید: بخشِ ۲۳ سال‌هاست می‌گوید «< ۲۲ کیلوهرتز = یک ضبطِ گفتار».
+     این سد گوینده را حذف نمی‌کند؛ فقط نمی‌گذارد بی‌صدا آموزش ببیند و
+     بعد «آماده» اعلام شود. */
+  VOICE_MIN_SR: 22050,
+  VOICE_TRAIN_SR: 40000,             // همان VT_SR در tools/voicetrain.py
   VOICE_INTAKE_ON: true,
 
   /* ══ بخشِ ۳۴ — جست‌وجو در همهٔ محتوا ══
@@ -48590,6 +48599,126 @@ function vintExt_(name) {
 }
 
 /** این فایل صوتی است؟ */
+/**
+ * نرخِ نمونه و نرخِ بیتِ یک فایل — از **خودِ بایت‌ها**، نه از پسوند.
+ *
+ * ══ چرا این تابع وجود دارد (۷٫۸۰) ══
+ * صاحبِ برنامه پرسید «۲۷ فایل هست، مجموعاً بیش از ۲۴۰ دقیقه، همه را
+ * استفاده کردی؟». هر ۲۷ تا در صف بودند — ولی وقتی فایل‌ها **باز** شدند،
+ * چیزِ دیگری بیرون آمد:
+ *
+ *     Binavayan (27).mp3 → ۱۶ کیلوبیت، **۱۱۰۲۵ هرتز**، مونو، ۱۳٫۱ دقیقه
+ *     Binavayan (20).mp3 → ۱۶ کیلوبیت، **۱۱۰۲۵ هرتز**، مونو، ۳۱٫۴ دقیقه
+ *
+ * و `VT_SR` در `tools/voicetrain.py` برابرِ **۴۰ هزار هرتز** است. یعنی مدل
+ * روی صدایی آموزش دید که **هیچ چیزی بالای ~۵٫۵ کیلوهرتز ندارد** — آن
+ * فرکانس‌ها در فایل نیستند، نه اینکه کم باشند. مدل آن‌ها را نمی‌تواند
+ * بسازد چون هرگز ندیده‌شان. «اصلا مثل خودش نیست» نتیجهٔ ریاضیِ همین است،
+ * و با دادهٔ بیشتر یا آموزشِ بیشتر درست نمی‌شود.
+ *
+ * **و هیچ‌جای این خط تولید نرخِ نمونه را نگاه نمی‌کرد** — نه اینجا، نه
+ * `voiceintake.py`، نه `voicetrain.py`. در حالی که بخشِ ۲۳ همین قاعده را
+ * برای موسیقی **نوشته** بود: «نرخِ نمونه < ۲۲ کیلوهرتز = یک ضبطِ گفتار».
+ * دانش در همین مخزن بود و به این تصمیم وصل نبود؛ چندمین بارِ همین شکل.
+ *
+ * ══ و عددِ دقیقه هم ۷ برابر غلط بود ══
+ * `vintEstMinutes_` نرخِ بیت را ۱۲۸ فرض می‌کند. با ۱۶ واقعی، ۹۳٫۹
+ * مگابایت «۱۰۳ دقیقه» گزارش شد در حالی که ~۸۲۰ دقیقه است. تخمینی که
+ * هفت برابر خطا دارد، عدد نیست.
+ */
+function vintMp3Info_(bytes) {
+  var BR1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
+  var BR2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0];
+  var SR = [[44100, 48000, 32000], [22050, 24000, 16000], [11025, 12000, 8000]];
+  var b = bytes, n = b.length, i = 0;
+  var at = function (k) { return b[k] & 0xFF; };   // بایت‌ها علامت‌دارند
+  if (n > 10 && at(0) === 0x49 && at(1) === 0x44 && at(2) === 0x33) {
+    i = 10 + (((at(6) & 0x7f) << 21) | ((at(7) & 0x7f) << 14) |
+              ((at(8) & 0x7f) << 7) | (at(9) & 0x7f));
+  }
+  var guard = 0;
+  while (i < n - 4 && guard++ < 400000) {
+    if (at(i) === 0xFF && (at(i + 1) & 0xE0) === 0xE0) {
+      var ver = (at(i + 1) >> 3) & 3, layer = (at(i + 1) >> 1) & 3;
+      var bri = (at(i + 2) >> 4) & 0xF, sri = (at(i + 2) >> 2) & 3;
+      if (layer === 1 && bri !== 0 && bri !== 15 && sri !== 3) {
+        var vk = (ver === 3) ? 0 : (ver === 2 ? 1 : 2);
+        return { ok: true, kbps: (ver === 3 ? BR1[bri] : BR2[bri]),
+                 sr: SR[vk][sri], ch: ((at(i + 3) >> 6) & 3) === 3 ? 1 : 2 };
+      }
+    }
+    i++;
+  }
+  return { ok: false, kbps: 0, sr: 0, ch: 0 };
+}
+
+/** نرخِ نمونهٔ WAV — از هدرِ RIFF، همان کاری که بخشِ ۲۳ می‌کند. */
+function vintWavInfo_(bytes) {
+  var b = bytes;
+  if (b.length < 44) return { ok: false, kbps: 0, sr: 0, ch: 0 };
+  var u = function (k) { return b[k] & 0xFF; };
+  if (u(0) !== 0x52 || u(1) !== 0x49 || u(2) !== 0x46 || u(3) !== 0x46) {
+    return { ok: false, kbps: 0, sr: 0, ch: 0 };
+  }
+  var sr = u(24) | (u(25) << 8) | (u(26) << 16) | (u(27) << 24);
+  var bps = u(28) | (u(29) << 8) | (u(30) << 16) | (u(31) << 24);
+  return { ok: sr > 0, kbps: Math.round(bps * 8 / 1000), sr: sr,
+           ch: u(22) | (u(23) << 8) };
+}
+
+/**
+ * یک فایل را باز کن و بگو چه کیفیتی دارد.
+ *
+ * **یک فایل به ازای هر گوینده، و فقط تا وقتی هنوز فرستاده نشده** — چون
+ * `getBlob()` کلِ فایل را دانلود می‌کند و ۲۷ فایل یعنی ۹۴ مگابایت در هر
+ * اجرای شبانه. سد جایی است که کار شروع می‌شود، نه جایی که تمام می‌شود
+ * (۷٫۷۵): ~۱۵ تا ۲۰ ساعت پردازندهٔ رانر پشتِ این یک دانلود است.
+ */
+function vintProbeOne_(fileId, name) {
+  /* ══ یک بار برای همیشه، کلیدش شناسهٔ فایل ══
+     `vintStatus_` خودش `vintScan_` را صدا می‌زند و `writeStatus_` هم
+     `vintStatus_` را — یعنی این دانلود روی داغ‌ترین مسیرِ موتور می‌نشست.
+     همان اشتباهِ ۷٫۶۳/۷٫۷۲ که دو بار وارسیِ سلامت را کشت. نرخِ نمونهٔ یک
+     فایل هرگز عوض نمی‌شود، پس یک بار سنجیده و ذخیره می‌شود؛ فایلِ تازه
+     شناسهٔ تازه دارد و خودش دوباره سنجیده می‌شود. */
+  var pk = 'VINT_AUDIO_' + String(fileId);
+  try {
+    var hit = props_().getProperty(pk);
+    if (hit) { var o = JSON.parse(hit); o.cached = true; return o; }
+  } catch (eC) {}
+  var inf;
+  try {
+    var bytes = DriveApp.getFileById(String(fileId)).getBlob().getBytes();
+    var e = vintExt_(name || '');
+    inf = (e === 'wav') ? vintWavInfo_(bytes) : vintMp3Info_(bytes);
+    inf.bytes = bytes.length;
+  } catch (e2) { return { ok: false, kbps: 0, sr: 0, ch: 0, why: e2.message }; }
+  /* فقط نتیجهٔ **موفق** ذخیره می‌شود: یک قطعیِ درایو نباید تا ابد
+     «نسنجیده» را به‌جای اندازه بنشاند. */
+  if (inf && inf.ok) { try { props_().setProperty(pk, JSON.stringify(inf)); } catch (eW) {} }
+  return inf;
+}
+
+/**
+ * آیا این صدا برای کلونِ صدا به‌درد می‌خورد؟
+ *
+ * `null` یعنی **نسنجیدیم** — و نسنجیده ضعیف نیست (۷٫۴۰). فقط مشاهدهٔ
+ * مثبت سد می‌شود.
+ */
+function vintQuality_(sp) {
+  var inf = sp && sp.audio;
+  if (!inf || !inf.ok || !inf.sr) return null;
+  var min = Number(CFG.VOICE_MIN_SR) || 0;
+  if (!min || inf.sr >= min) return null;
+  return { sr: inf.sr, min: min,
+           why: 'نرخِ نمونهٔ این ضبط‌ها ' + inf.sr + ' هرتز است و آموزش روی ' +
+                (CFG.VOICE_TRAIN_SR || '40000') + ' هرتز انجام می‌شود. یعنی ' +
+                'هیچ فرکانسی بالای ~' + Math.round(inf.sr / 2000) + ' کیلوهرتز ' +
+                'در فایل نیست و مدل نمی‌تواند بسازدش. با دادهٔ بیشتر یا ' +
+                'آموزشِ بیشتر درست نمی‌شود؛ ضبطِ بهتر لازم است (دستِ‌کم ' +
+                min + ' هرتز، بهترش ۴۴۱۰۰).' };
+}
+
 function vintAudioOk_(name) {
   var list = CFG.VOICE_AUDIO_EXT || [];
   var e = vintExt_(name);
@@ -48682,6 +48811,16 @@ function vintScan_() {
       if (!Object.prototype.hasOwnProperty.call(by, k)) continue;
       out.speakers.push(by[k]);
     }
+    /* ══ یک فایل از هر گوینده باز می‌شود و واقعاً سنجیده (۷٫۸۰) ══
+       یکی، نه همه: `getBlob()` کلِ فایل را می‌آورد و ۲۷ تا یعنی ۹۴
+       مگابایت در هر شب. و همین یکی هر دو سؤال را جواب می‌دهد — نرخِ
+       نمونه (که تعیین می‌کند مدل اصلاً می‌تواند شبیهش باشد یا نه) و
+       نرخِ بیت (که دقیقه‌ها را درست می‌کند). */
+    for (var s2 = 0; s2 < out.speakers.length; s2++) {
+      var spk = out.speakers[s2];
+      if (!spk.files.length) continue;
+      spk.audio = vintProbeOne_(spk.files[0].id, spk.files[0].name);
+    }
     out.speakers.sort(function (a, b) { return a.key < b.key ? -1 : (a.key > b.key ? 1 : 0); });
   } catch (e) { out.error = e.message; }
   return out;
@@ -48695,10 +48834,16 @@ function vintScan_() {
  * از پنج ساعت آموزش. عددِ واقعی از اکشن می‌آید. «عددی که هیچ‌وقت طولِ
  * واقعیِ چیزی نیست، هدف نیست» — همان درسِ `specialTargetMin_`.
  */
-function vintEstMinutes_(bytes) {
+function vintEstMinutes_(bytes, audio) {
   var b = Number(bytes) || 0;
   if (b <= 0) return 0;
-  return Math.round((b / 16000) / 60);   // ~۱۲۸ کیلوبیت بر ثانیه
+  /* ══ نرخِ بیتِ **سنجیده‌شده**، وقتی داریمش (۷٫۸۰) ══
+     ۱۲۸ یک فرض بود، و فایل‌های گلدوز ۱۶ بودند: «۱۰۳ دقیقه» گزارش شد
+     برای ~۸۲۰ دقیقه. تخمینی که هفت برابر خطا دارد عدد نیست — و همان
+     عدد بود که «دادهٔ کم» را از نظرها پنهان کرد و بعد باعث شد بگویم
+     راهِ بهتر شدن دادهٔ بیشتر است. */
+  var kbps = (audio && audio.ok && Number(audio.kbps)) || 128;
+  return Math.round((b / (kbps * 1000 / 8)) / 60);
 }
 
 function vintTab_(hub) {
@@ -48839,6 +48984,7 @@ function vintIsDone_(step) {
  * `VOICE_SHARE_HOURS` پس گرفته می‌شوند.
  */
 function vintQueue_(hub, scan, state) {
+  var out = { lowSr: [] };
   var q = { rev: 0, at: nowStr_(), engine: String(CFG.CODE_VERSION || ''),
             maxActive: Math.max(1, Number(CFG.VOICE_MAX_ACTIVE) || 2),
             minMinutes: Math.max(1, Number(CFG.VOICE_MIN_MINUTES) || 20),
@@ -48853,6 +48999,21 @@ function vintQueue_(hub, scan, state) {
       var sp = scan.speakers[i], cur = state[sp.key] || null;
       var step = cur ? cur.step : '';
       if (vintIsDone_(step)) continue;              // آماده یا رهاشده: کاری نیست
+      /* ══ سد پیش از کار، نه بعدش (۷٫۸۰) ══
+         پشتِ این ردیف ~۱۵ تا ۲۰ ساعت پردازندهٔ رانر است. صدایی با نرخِ
+         نمونهٔ ۱۱ کیلوهرتز، هر چقدر هم زیاد باشد، مدلی نمی‌دهد که شبیهِ
+         او باشد — چون فرکانس‌های بالا در فایل **نیستند**. پس به صف
+         نمی‌رود، و دلیلش با عدد گفته می‌شود نه با سکوت («قالب ناسازگار»ِ
+         بخشِ ۲۳، همان‌جا که این قاعده از اول نوشته شده بود).
+
+         و **حذفش نمی‌کند**: ردیف در کارنامه می‌مانَد با وضعیتِ خودش، تا
+         اگر صاحبِ برنامه ضبطِ بهتری گذاشت همان‌جا ادامه پیدا کند. */
+      var qual = vintQuality_(sp);
+      if (qual) {
+        out.lowSr.push({ key: sp.key, name: sp.name, sr: qual.sr,
+                         min: qual.min, why: qual.why });
+        continue;
+      }
       var tries = cur ? cur.tries : 0;
       var files = [];
       for (var j = 0; j < sp.files.length; j++) {
@@ -48871,9 +49032,10 @@ function vintQueue_(hub, scan, state) {
       q.speakers.push({ key: sp.key, name: sp.name, source: sp.source,
                         step: step || VINT_ST.QUEUED, tries: tries,
                         files: files, bytes: sp.bytes,
-                        estMinutes: vintEstMinutes_(sp.bytes) });
+                        estMinutes: vintEstMinutes_(sp.bytes, sp.audio) });
     }
 
+    q.lowSr = out.lowSr;
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
@@ -49321,13 +49483,22 @@ function vintStatus_(hub) {
     }
     var state = vintState_(hub);
     var seen = {};
+    /* همان `vintQuality_` که صف با آن رد می‌کند — یک تعریف، نه دو. */
+    out.lowSr = [];
+    for (var qi = 0; qi < scan.speakers.length; qi++) {
+      var qq = vintQuality_(scan.speakers[qi]);
+      if (qq) {
+        out.lowSr.push({ key: scan.speakers[qi].key, name: scan.speakers[qi].name,
+                         sr: qq.sr, min: qq.min, why: qq.why });
+      }
+    }
 
     for (var i = 0; i < scan.speakers.length; i++) {
       var sp = scan.speakers[i], cur = state[sp.key] || null;
       seen[sp.key] = 1;
       var step = cur ? cur.step : VINT_ST.SEEN;
       out.speakers.push({ key: sp.key, name: sp.name, step: step,
-                          files: sp.files.length, estMinutes: vintEstMinutes_(sp.bytes),
+                          files: sp.files.length, estMinutes: vintEstMinutes_(sp.bytes, sp.audio),
                           minutes: cur ? cur.minutes : '', sim: cur ? cur.sim : '',
                           tries: cur ? cur.tries : 0, at: cur ? cur.at : '' });
       vintCount_(out, step);
@@ -49382,12 +49553,26 @@ function vintStatus_(hub) {
       if (out.thin) bits.push('دادهٔ کم: ' + fa(out.thin));
       if (out.abandoned) bits.push('رهاشده: ' + fa(out.abandoned));
       if (out.bad) bits.push('فایلِ نامربوط: ' + fa(out.bad));
+      /* سدی که بزند و نگوید، همان سکوتی است که ۲۷ فایلِ ۱۱ کیلوهرتزی را
+         بی‌صدا به ۲۰ ساعت آموزش فرستاد (۷٫۸۰). */
+      if (out.lowSr && out.lowSr.length) {
+        bits.push('⚠️ کیفیتِ ضبط کم: ' + fa(out.lowSr.length));
+      }
       // سطرِ خالی نه خبر است نه هشدار — فقط شبیهِ سلامت است.
       if (!bits.length) bits.push('' + fa(out.speakers.length) + ' گوینده در کارنامه');
       out.line = 'گویندهٔ تازه — ' + bits.join(' · ');
       if (stuck) {
         out.line += ' — و ' + fa(out.stuckDays) + ' روز است هیچ پاسخی از ' +
                     'گردش‌کارِ آموزش نرسیده.';
+      }
+      /* و دلیلش با عدد، نه با برچسب: «کیفیت کم» بی گفتنِ اینکه چند هرتز
+         و چند لازم است، کاری از دستِ او برنمی‌آید. */
+      if (out.lowSr && out.lowSr.length) {
+        var L = out.lowSr[0];
+        out.line += ' — «' + L.name + '»: ضبط‌ها ' + fa(L.sr) + ' هرتزند و ' +
+                    'دستِ‌کم ' + fa(L.min) + ' لازم است، پس به آموزش فرستاده ' +
+                    'نشد. فرکانس‌های بالا در فایل نیستند و مدل نمی‌تواند ' +
+                    'بسازدشان؛ ضبطِ بهتر لازم است، نه دادهٔ بیشتر.';
       }
     }
     if (out.queueId) {
@@ -49640,7 +49825,7 @@ function vintNightly_(force) {
       var sp = scan.speakers[i];
       if (state[sp.key]) continue;
       vintLog_(hub, { key: sp.key, name: sp.name, step: VINT_ST.SEEN, result: 'ok',
-                      files: sp.files.length, minutes: '~' + vintEstMinutes_(sp.bytes),
+                      files: sp.files.length, minutes: '~' + vintEstMinutes_(sp.bytes, sp.audio),
                       note: 'نمونه‌ها در پوشه دیده شدند (' + sp.source + ').' });
       state[sp.key] = { key: sp.key, name: sp.name, step: VINT_ST.SEEN, tries: 0, at: nowStr_() };
     }

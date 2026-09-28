@@ -1077,6 +1077,61 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## What is not in the data cannot be made (7.80)
+
+He asked two things about Goldooz's folder: *did you check and use all 27 files —
+they look like more than 240 minutes to me?* And: *maybe you are repeating the
+settings mistake we had with Razavi.* Both were right, and the second was truer
+than he knew.
+
+**All 27 were queued.** Nothing was skipped; the ids in `docs/voices.json` match
+the folder exactly. So that half was fine.
+
+**Then the files were opened.** Two of them, parsed frame by frame:
+
+```
+Binavayan (27).mp3 → 16 kbps · 11 025 Hz · mono · 13.1 min
+Binavayan (20).mp3 → 16 kbps · 11 025 Hz · mono · 31.4 min
+```
+
+And `VT_SR` in `tools/voicetrain.py` is **40 000**. So the model was trained
+toward 40 kHz on material that contains **nothing above ~5.5 kHz** — those
+frequencies are not quiet in the recording, they are *absent*. A model cannot
+synthesize what it has never seen. «اصلا مثل خودش نیست» is the arithmetic of
+that, and no amount of extra data or extra epochs changes it.
+
+**Nothing in the pipeline had ever looked at the sample rate** — not `vintScan_`,
+not `voiceintake.py`, not `voicetrain.py`. The only place `16000` appeared was a
+bytes-per-second constant in a *duration estimate*, which is a different thing
+entirely. Meanwhile section 23 has carried this exact rule since 5.56, for music:
+*«نرخِ نمونه < ۲۲ کیلوهرتز = یک ضبطِ گفتار»*. The knowledge was in the repo,
+tested, commented — and wired to no decision in the one place where the entire
+point of the work is sounding like a specific person.
+
+**And the number that hid it was mine.** `vintEstMinutes_` assumed 128 kbps, so
+93.9 MB reported as «۱۰۳ دقیقه». The real figure at 16 kbps is ~820 minutes —
+**13.7 hours, three times Razavi's four**. That wrong number is why, the night
+before, I told him the way forward was *more data*. It was never the amount. *An
+estimate that is wrong by seven times is not a number*, and the cost of checking
+it was opening one file.
+
+The gate sits **before** the work, not after: ~20 hours of runner CPU stand behind
+one queue row, so the refusal happens at the door (7.75) and says the measured
+number rather than a label. It does not delete the speaker — his row stays, so
+better recordings continue where they left off — and *unmeasured is not weak*
+(7.40): only a positive measurement blocks. The probe is cached by file id,
+because `vintStatus_` calls `vintScan_` and `writeStatus_` calls that, so an
+unconditional multi-megabyte download would have landed on the hottest path in the
+engine — 7.63 and 7.72 for the third time.
+
+**And the thing he actually remembered is still true and still open.**
+`VBR_PITCH` is a single global `-12`, whose own comment says it is «همان ترکیبی
+که بالاترین عدد را داد» — measured for Razavi, on one source voice. Every other
+speaker gets the same twelve semitones regardless of their own register. That is
+precisely the class of mistake he described from Razavi's early days, and it is
+named here rather than half-fixed: with 11 kHz source audio no pitch setting saves
+Goldooz, so the order is recordings first, then per-speaker pitch.
+
 ## Both complaints were already answered in the engine's own files (7.79)
 
 He listened to the two samples and said two things: Goldooz **«اصلا مثل خودش
