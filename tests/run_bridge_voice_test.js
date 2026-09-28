@@ -1502,5 +1502,90 @@ console.log('\n══ ۲۵) برداشتن هم مسیرِ دوم گرفت — �
   _vbrMapMemo = null;
 }
 
+console.log('\n══ ۲۶) برداشتِ ساعتی — تریگرِ خودش، و ارزان در نبودِ کار (۷٫۷۸) ══');
+/* ══ چرا این بخش هست ══
+   ۷٫۷۷ تبدیل را تند کرد: چند ردیف در یک اجرا و cronِ دوساعته. تنگنا
+   جابه‌جا شد به **برداشتن** — روزی دو بار، ۰۲:۳۰ و ۱۰:۰۰. یعنی تیکِ
+   ساعتِ ۱۱ تا ۰۲:۳۰ِ فردا نتیجه نمی‌دهد: پانزده ساعت برای کاری که ده
+   دقیقه پیش تمام شده بود.
+
+   وسوسه این بود که به `syncCatalog` (هر دو ساعت) اضافه شود — همان
+   اشتباهِ ۷٫۶۳/۷٫۷۲: هزینه روی مسیری که کسی رویش ایستاده. و مهمان بودنِ
+   اجرای کسِ دیگری همان تلهٔ ۶٫۳۷ است. پس تریگرِ خودش. */
+{
+  const epF26 = OUT.createFolder('قسمتِ آزمونِ برداشتِ ساعتی');
+  epF26.createFile('قسمت ۱ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const quiet26 = (fn) => { const o = console.log; console.log = () => {};
+    try { return fn(); } finally { console.log = o; } };
+
+  /* در (۱): تریگر واقعاً ساخته می‌شود. نامِ تابع از `wantedTriggers_`
+     خوانده می‌شود چون همان جایی است که نصب از آن می‌خوانَد. */
+  quiet26(() => installTriggers());
+  const handlers = ScriptApp.getProjectTriggers()
+                            .map(t => String(t.getHandlerFunction()));
+  ok('۲۶.۱ `installTriggers` تریگرِ برداشتِ ساعتی را می‌سازد',
+     handlers.indexOf('vbrCollectHourly') !== -1,
+     'گرفت: ' + JSON.stringify(handlers) +
+     ' — تابعی که تریگر ندارد، دری است که هیچ‌وقت باز نمی‌شود');
+
+  ok('۲۶.۲ و ساعتی است، نه روزانه',
+     (wantedTriggers_() || []).some(w => w.fn === 'vbrCollectHourly' &&
+                                        w.kind === 'hours' &&
+                                        Number(w.every) === 1),
+     'گرفت: ' + JSON.stringify((wantedTriggers_() || [])
+       .filter(w => /vbr/i.test(String(w.fn)))));
+
+  /* در (۲): ارزان بودنش. **خواندن** شمرده می‌شود نه زمان — ماکِ آزمون
+     هابِ ۲۹ مگابایتی ندارد، پس سنجهٔ زمانی هیچ‌چیز نمی‌سنجد (۷٫۶۰/۷٫۷۲). */
+  const realHub26 = global.getHub_;
+  let hubN = 0;
+  global.getHub_ = function () { hubN++; return realHub26.apply(null, arguments); };
+  try {
+    const rf26 = UrlFetchApp.fetch;
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        return { getResponseCode: () => 200,
+                 getContentText: () => JSON.stringify({ items: {} }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => blobOf(wavBytes) };
+    };
+    _vbrMapMemo = null;
+    hubN = 0;
+    quiet26(() => vbrCollectHourly());
+    ok('۲۶.۳ در نبودِ جواب، هابِ ۲۹ مگابایتی خوانده نمی‌شود',
+       hubN === 0,
+       'گرفت: ' + hubN + ' خواندنِ هاب — ساعتی یک بار روی ۲۹ مگابایت یعنی ' +
+       'همان هزینه‌ای که ۷٫۶۳ از آن مُرد');
+
+    /* در (۳): و وقتی جوابی هست، واقعاً برمی‌داردش — از همان مسیری که
+       تریگر صدا می‌زند، نه با صدا زدنِ `vbrIngest_` به‌طور مستقیم (۷٫۶۲). */
+    const ep26 = 79;
+    const ask26 = vbrAsk_('variety', ep26, epF26.getId(), 'razavi',
+                          'قسمت ' + ep26);
+    ok('۲۶.۴ درخواست در صف نشست', ask26.ok === true, ask26.why || '');
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        const items = {};
+        items['variety:' + ep26] = { url: 'https://example.invalid/z.wav',
+                                     minutes: 3.9, seconds: 240 };
+        return { getResponseCode: () => 200,
+                 getContentText: () => JSON.stringify({ items: items }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => blobOf(wavBytes) };
+    };
+    _vbrMapMemo = null;
+    quiet26(() => vbrCollectHourly());
+    const r26 = vbrRead_().items.filter(x => x.key === 'variety:' + ep26)[0];
+    ok('۲۶.۵ تریگرِ ساعتی خودش خروجی را برمی‌دارد',
+       !!r26 && String(r26.status) === 'رسید' && !!r26.outId,
+       'گرفت: ' + (r26 ? r26.status : 'ردیفی نیست'));
+    UrlFetchApp.fetch = rf26;
+  } finally {
+    global.getHub_ = realHub26;
+    _vbrMapMemo = null;
+    try { epF26.setTrashed(true); } catch (eT26) {}
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

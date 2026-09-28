@@ -342,9 +342,18 @@ ok('۱۰.۷ و صفِ ننوشته «۰ ردیف» خوانده نمی‌شود'
    /rev.*< 1/.test(bp) && /هنوز نوشته نشده/.test(bp),
    'قرمزِ صادق بهتر از سبزِ دروغ');
 
-/* یکی در هر اجرا — jobی که سرِ سقف کشته شود هیچ خروجی‌ای نمی‌دهد. */
-ok('۱۰.۸ یک قسمت در هر اجرا',
-   /todo\[0\]/.test(bp), 'دو تا یعنی نزدیک شدن به سقفِ زمانی');
+/* ══ تا ۷٫۷۷ اینجا «یکی در هر اجرا» بود و `todo[0]` را می‌سنجید ══
+   نگرانی درست بود — jobـِ کشته‌شده سرِ سقف ردیفِ نیمه‌کاره را می‌بَرد — ولی
+   جوابش این سقف نبود: نقشه پس از هر ردیف ذخیره می‌شود و مرحلهٔ ثبتش
+   `if: always()` دارد. مرزِ تازه **زمان** است، نه تعداد، و ردیفِ تازه فقط
+   پیش از پر شدنِ بودجه شروع می‌شود؛ حسابش در بندِ ۱۸ از روی خودِ منبع
+   سنجیده می‌شود. سنجهٔ کهنه حذف نشد — به مرزِ تازه منتقل شد. */
+ok('۱۰.۸ حلقه پیش از شروعِ ردیفِ تازه بودجه را می‌سنجد',
+   /for i, it in enumerate\(todo\)/.test(bp) && /spent >= budgetMin/.test(bp),
+   'بی سنجشِ بودجه، ردیفِ تازه می‌تواند وسطِ کار به سقفِ job بخورد. ' +
+   'شرطِ `i > 0` عمداً اینجا سنجیده نمی‌شود — بندِ ۱۸.۵ آن را **رفتاری** ' +
+   'می‌سنجد، و سنجهٔ متنی که جلوی سنجهٔ رفتاری بایستد فقط شکستن را ' +
+   'می‌قاپد بی آنکه چیزِ بیشتری ثابت کند');
 ok('۱۰.۹ و سقفِ job با حاشیه بالاتر از عددِ سنجیده‌شده است',
    (Number((bw.match(/timeout-minutes:\s*(\d+)/) || [])[1]) || 0) >= 60,
    'قسمتِ نوزده‌دقیقه‌ای ~۲۰ تا ۲۵ دقیقه — اندازه‌گیریِ ۱۸ سپتامبر');
@@ -687,11 +696,18 @@ console.log('\n══ ۱۲-ب) عدد از روی دیسک، نه از فایل�
      'زمان‌محور بودنش یعنی حذفِ چیزی که هنوز لازم است');
   /* و پیش از کارِ تازه اجرا می‌شود و بی‌قید — وگرنه روزی که صف خالی
      است، فایلِ عمومی هم پاک نمی‌شود. */
-  const iDrop = vb.indexOf('dropCollected(ensureRelease()');
-  const iTodo = vb.indexOf('todo = [it for it');
+  /* ══ داخلِ بدنهٔ `main` سنجیده می‌شود، نه در کلِ فایل ══
+     تا ۷٫۷۷ اینجا `todo = [it for it` را در کلِ فایل می‌گشت. وقتی آن
+     شرط به `pending()` منتقل شد — که **بالای** `main` تعریف می‌شود —
+     سنجه روی کدِ درست قرمز شد. ادعا دربارهٔ **ترتیبِ اجرا** است، پس
+     باید در همان بدنه‌ای خوانده شود که اجرا می‌کند. */
+  const mainBody = vb.slice(vb.indexOf('\ndef main():'));
+  const iDrop = mainBody.indexOf('dropCollected(ensureRelease()');
+  const iTodo = mainBody.indexOf('todo = pending(q, mp)');
   ok('۱۴.۸-پ و پیش از انتخابِ کارِ تازه، بی‌قید',
      iDrop > 0 && iTodo > iDrop,
-     'بعدِ `if not todo: return` یعنی روزِ خلوت پاک‌سازی نمی‌شود');
+     'بعدِ `if not todo: return` یعنی روزِ خلوت پاک‌سازی نمی‌شود · ' +
+     'drop@' + iDrop + ' todo@' + iTodo);
 
   ok('۱۴.۵ و `seconds` هم در نقشه می‌آید',
      /"seconds": round\(outSec/.test(vb),
@@ -852,6 +868,181 @@ console.log('\n══ ۱۷) نامی که تعریف نشده، تا لحظهٔ 
      idx > 0 && /^\s*if:\s*always\(\)\s*$/m
        .test(wf.slice(idx, wf.indexOf('run: |', idx))),
      'بی این، هر افتادنِ پایتون کلِ کارِ تمام‌شده را دور می‌ریزد');
+}
+
+console.log('\n══ ۱۸) یک اجرا کلِ صف را می‌بَرد، با بودجهٔ ساعتی (۲۸ سپتامبر) ══');
+/* ══ چرا این بند هست ══
+   سقفِ «یکی در هر اجرا» برای قسمتِ نوزده‌دقیقه‌ایِ کامل بسته شده بود
+   (~۲۵ دقیقه رانر) و هیچ‌وقت برای نمونهٔ چهاردقیقه‌ایِ «رنگ و روح»
+   بازنگری نشد. صاحبِ برنامه دو گوینده را تیک زد و هزینه‌اش را داد: دو
+   اجرا لازم بود، و با cronِ شش‌ساعته تا ۱۲ ساعت انتظار برای دو فایلِ
+   چهاردقیقه‌ای. «چند ساعت» حتی بی هیچ باگی غلط بود.
+
+   نگرانیِ اصلیِ آن سقف — «jobـِ کشته‌شده سرِ سقف هیچ خروجی‌ای نمی‌دهد،
+   حتی برای آن یکی که تمام شده بود» — درست بود و جوابش جای دیگری است:
+   نقشه پس از هر ردیف ذخیره می‌شود و مرحلهٔ ثبتش `if: always()` دارد. */
+{
+  const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  const wf = fs.readFileSync('.github/workflows/voice-bridge.yml', 'utf8');
+
+  /* ══ حسابِ دو عددی که در دو فایلِ مختلف زندگی می‌کنند (۷٫۳۰/۷٫۳۱) ══
+     بودجه در پایتون است و سقفِ job در YAML. هیچ آزمونی روی *تابع* این را
+     پیدا نمی‌کند، چون هر دو تابع درست‌اند — رابطهٔ دو ثابت غلط می‌شود. */
+  const INSTALL_MIN = 10;   // نصبِ torch/RVC، اندازه‌گیری‌شده ~۵ تا ۸ دقیقه
+  const LONGEST_MIN = 30;   // قسمتِ نوزده‌دقیقه‌ای × ضریبِ ۱٫۴ + سرِ کار
+  const bud = Number((vb.match(/VBR_RUN_BUDGET_MIN"\) or "(\d+(?:\.\d+)?)"/) ||
+                      [])[1]);
+  const tmo = Number((wf.match(/timeout-minutes:\s*(\d+)/) || [])[1]);
+  ok('۱۸.۱ نصب + بودجه + بلندترین ردیف ≤ سقفِ زمانیِ job',
+     bud > 0 && tmo > 0 && INSTALL_MIN + bud + LONGEST_MIN <= tmo,
+     'بودجه=' + bud + ' · سقف=' + tmo + ' · ' + INSTALL_MIN + '+' + bud +
+     '+' + LONGEST_MIN + '=' + (INSTALL_MIN + bud + LONGEST_MIN) +
+     ' — jobی که سرِ سقف کشته شود ردیفِ نیمه‌کاره را هم می‌بَرد');
+
+  /* ══ و حالا خودِ حلقه، اجرا شده نه خوانده ══
+     `main` با بدَل‌های ماژول صدا زده می‌شود و `runOne` شمرده می‌شود.
+     خواندنِ متنِ کد یک لایه بالاتر از خرابی می‌ایستد (۷٫۴۳/۷٫۴۴). */
+  const drive = (rows, extra) => {
+    const py = [
+      'import sys, os, io, json',
+      'sys.dont_write_bytecode = True',
+      'sys.path.insert(0, "tools")',
+      'import voicebridge as V',
+      'ROWS = json.loads(sys.argv[1])',
+      'Q = {"rev": 3, "items": ROWS}',
+      'V.fetchQueue = lambda fid: Q',
+      'V.loadMap = lambda: {"items": {}}',
+      'V.saveMap = lambda d: None',
+      'V.ensureRelease = lambda: "rel"',
+      'CALLS = []',
+      'DROPS = []',
+      'V.dropCollected = lambda rel, q, mp: DROPS.append(1)',
+      'SEEN = []',
+      'def fake(it, mp):',
+      '    CALLS.append(str(it.get("key")))',
+      '    SEEN.append(sorted(os.listdir("vblab")) if os.path.isdir("vblab") else None)',
+      '    os.makedirs("vblab", exist_ok=True)',
+      '    io.open("vblab/rvc-leak-" + str(it.get("key")) + ".wav", "w").write("x")',
+      '    return 1 if it.get("boom") else 0',
+      'V.runOne = fake',
+      (extra || ''),
+      'os.environ["VBR_QUEUE_ID"] = "x"',
+      'rc = V.main()',
+      'print(json.dumps({"rc": rc, "calls": CALLS, "seen": SEEN,',
+      '                  "drops": len(DROPS)}, ensure_ascii=False))'
+    ].join('\n');
+    const r = cp.spawnSync('python3', ['-c', py, JSON.stringify(rows)],
+                           { encoding: 'utf8' });
+    const lines = String(r.stdout).trim().split('\n');
+    try { return JSON.parse(lines[lines.length - 1]); }
+    catch (e) { return { err: String(r.stderr).slice(0, 400) + '|' + r.stdout }; }
+  };
+
+  const row = (k, boom) => ({
+    key: k, status: 'در انتظار', speaker: 'sp',
+    audio: [{ url: 'u', name: 'n' }], model: { pth: 'p' },
+    boom: !!boom
+  });
+
+  const two = drive([row('a'), row('b')]);
+  ok('۱۸.۲ دو ردیف در یک اجرا تبدیل می‌شوند',
+     JSON.stringify(two.calls) === JSON.stringify(['a', 'b']) && two.rc === 0,
+     'گرفت: ' + JSON.stringify(two) +
+     ' — «یکی در هر اجرا» یعنی دو تیک، دو اجرا، و با cron یعنی ساعت‌ها');
+
+  /* ردیفِ دوم نباید خروجیِ ردیفِ اول را ببیند: `vblab` را با `rvc-*.wav`
+     می‌گردیم و **بزرگ‌ترین** را برمی‌داریم، پس مانده‌ای از ردیفِ پیش یعنی
+     صوتِ گویندهٔ اول به نامِ گویندهٔ دوم آپلود می‌شود — بی خطا، فقط با گوش
+     شنیدنی. همان شکلِ `dsSig_`. */
+  ok('۱۸.۳ ردیفِ دوم هیچ فایلی از ردیفِ اول نمی‌بیند',
+     JSON.stringify(two.seen) === JSON.stringify([null, null]) ||
+     (two.seen && two.seen.length === 2 &&
+      (two.seen[1] === null || two.seen[1].length === 0)),
+     'گرفت: ' + JSON.stringify(two.seen) +
+     ' — مانده‌ای در vblab یعنی صوتِ یک گوینده به نامِ دیگری منتشر می‌شود');
+
+  const bad = drive([row('a', true), row('b')]);
+  ok('۱۸.۴ یک ردیفِ خراب، ردیفِ سالمِ بعدی را با خودش نمی‌بَرد',
+     JSON.stringify(bad.calls) === JSON.stringify(['a', 'b']) && bad.rc === 1,
+     'گرفت: ' + JSON.stringify(bad) +
+     ' — و کدِ خروج باید ۱ بمانَد، وگرنه شکست بی‌صدا می‌شود');
+
+  /* بودجهٔ صفر نباید یعنی «هیچ کاری نکن» — آن‌وقت یک تنظیمِ بد کلِ پل را
+     خاموش می‌کند بی اینکه جایی بگوید. شرط `i > 0` همین است. */
+  const zero = drive([row('a'), row('b')],
+                     'os.environ["VBR_RUN_BUDGET_MIN"] = "0"');
+  ok('۱۸.۵ بودجهٔ صفر هم دستِ‌کم یک ردیف را تبدیل می‌کند',
+     JSON.stringify(zero.calls) === JSON.stringify(['a']),
+     'گرفت: ' + JSON.stringify(zero) +
+     ' — «هیچ» یعنی پل بی‌صدا خاموش، که بدتر از کند بودن است');
+
+  /* ══ probe: پرسش، نه کار ══ */
+  const probe = (rows, extra) => {
+    const py = [
+      'import sys, os, io, json',
+      'sys.dont_write_bytecode = True',
+      'sys.path.insert(0, "tools")',
+      'import voicebridge as V',
+      'Q = {"rev": 3, "items": json.loads(sys.argv[1])}',
+      'V.fetchQueue = lambda fid: Q',
+      'V.loadMap = lambda: {"items": {}}',
+      'DROPS = []',
+      'V.dropCollected = lambda rel, q, mp: DROPS.append(1)',
+      'V.runOne = lambda it, mp: 0',
+      (extra || ''),
+      'os.environ["VBR_QUEUE_ID"] = "x"',
+      'os.environ.pop("GITHUB_OUTPUT", None)',
+      'sys.argv = ["voicebridge.py", "--probe"]',
+      'import contextlib',
+      'buf = io.StringIO()',
+      'with contextlib.redirect_stdout(buf): rc = V.main()',
+      'sys.stderr.write(json.dumps({"rc": rc, "out": buf.getvalue(),',
+      '                             "drops": len(DROPS)}, ensure_ascii=False))'
+    ].join('\n');
+    const r = cp.spawnSync('python3', ['-c', py, JSON.stringify(rows)],
+                           { encoding: 'utf8' });
+    try { return JSON.parse(String(r.stderr).trim().split('\n').pop()); }
+    catch (e) { return { err: String(r.stderr).slice(0, 400) }; }
+  };
+
+  const pYes = probe([row('a')]), pNo = probe([]);
+  ok('۱۸.۶ `--probe` کارِ موجود را «yes» و صفِ خالی را «no» می‌گوید',
+     /work=yes/.test(String(pYes.out)) && /work=no/.test(String(pNo.out)) &&
+     pYes.rc === 0 && pNo.rc === 0,
+     'با کار: ' + JSON.stringify(pYes) + ' · بی کار: ' + JSON.stringify(pNo));
+
+  ok('۱۸.۷ و probe هیچ‌چیز پاک نمی‌کند',
+     pYes.drops === 0 && pNo.drops === 0,
+     'گرفت: ' + pYes.drops + '/' + pNo.drops +
+     ' — پرسشی که چیزی پاک کند پرسش نیست');
+
+  /* ══ یک تعریفِ «کاری هست»، نه دو ══
+     و این را **رفتاری** می‌سنجیم نه با شمردنِ فراخوانی در متنِ کد: نسخهٔ
+     اولِ همین سنجه `pending(q, mp)` را می‌شمرد و عددش ۳ شد، چون خطِ
+     `def pending(q, mp):` هم با همان الگو می‌خوانَد. سنجه‌ای که به الگوی
+     نویسنده‌اش جواب بدهد، حافظهٔ نویسنده را می‌سنجد نه کد را (۷٫۶۹).
+
+     ادعای واقعی این است: روی **یک** صف، probe و اجرای واقعی هم‌نظرند.
+     ردیفی که جوابش در نقشه هست باید برای هر دو «کاری نیست» باشد. */
+  const answered = 'V.loadMap = lambda: {"items": {"a": {"urls": ["u"]}}}';
+  const pDone = probe([row('a')], answered);
+  const rDone = drive([row('a')], answered);
+  ok('۱۸.۸ probe و اجرای واقعی روی یک صف هم‌نظرند',
+     /work=no/.test(String(pDone.out)) &&
+     JSON.stringify(rDone.calls) === JSON.stringify([]) && rDone.rc === 0,
+     'probe: ' + JSON.stringify(pDone) + ' · اجرا: ' + JSON.stringify(rDone) +
+     ' — دو تعریف یعنی روزی probe «نه» بگوید و کار باشد، یا نصبِ ' +
+     'چنددقیقه‌ای برای هیچ انجام شود');
+
+  /* و نصبِ سنگین پشتِ probe، ولی خودِ برنامه **نه** — `dropCollected`
+     باید هر روز بدوَد، حتی روزی که صف خالی است. */
+  const gated = (wf.match(/if: steps\.probe\.outputs\.work == 'yes'/g) || []).length;
+  const runIdx = wf.indexOf('تبدیل و ثبتِ نشانی');
+  const runBlock = wf.slice(runIdx, wf.indexOf('- name:', runIdx + 10));
+  ok('۱۸.۹ نصبِ سنگین شرطی است ولی خودِ برنامه همیشه می‌دوَد',
+     gated === 2 && runIdx > 0 && runBlock.indexOf('steps.probe') === -1,
+     'شرطی‌ها: ' + gated + ' — اگر خودِ برنامه هم شرطی شود، روزی که صف ' +
+     'خالی است فایلِ عمومیِ برداشته‌شده پاک نمی‌شود');
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

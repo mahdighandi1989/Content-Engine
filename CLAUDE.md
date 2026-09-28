@@ -1077,6 +1077,64 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## A ceiling whose reason changed, and the ceiling did not (7.78)
+
+He did not ask for a fix. He asked **«از این به بعد … بازم همین مصیبت‌ها رو
+داریم یا نه»** — will this keep happening? The honest answer was half bad news:
+the crashes were closed, and the **waiting** would have repeated exactly as
+before. So the answer had to be code, not a sentence.
+
+**Two ceilings, and both were correct on the day they were written.** The
+workflow converted one row per run, because a 19-minute episode is ~25 minutes of
+runner time and a killed job loses the row it was mid-way through. The cron ran
+every six hours, because one row every six hours was plenty when there was one
+row a night. Then 7.74 introduced a **four-minute** sample and 7.75 made two of
+them normal — and neither ceiling was revisited. Two ticks meant two runs, i.e.
+up to twelve hours, and then up to fifteen more waiting for collection.
+**A ceiling whose reason has changed while it has not is as much a bug as a
+wrong ceiling** — and it is harder to see, because reading the code shows a
+correct number with a correct comment.
+
+**The original worry was right and its answer was elsewhere.** "A job killed at
+the cap gives no output, not even for the one that finished" — true, and the
+remedy is not a smaller batch: the map is saved after **each** row and 7.77 gave
+the commit step `if: always()`. With those two, a batch loses nothing. The new
+bound is time (`VBR_RUN_BUDGET_MIN`), and a new row only *starts* inside the
+budget, so a row that starts always has its full window.
+
+**The cheap probe exists so the cron can be frequent.** Installing torch and the
+RVC libs is minutes; twelve times a day for nothing is waste. So the workflow
+asks `voicebridge.py --probe` first — stdlib only, seconds — and gates the heavy
+install on the answer. But **the program itself still always runs**, because
+`dropCollected` has to delete the collected public asset even on a day the queue
+is empty. And "is there work" has exactly **one** definition (`pending()`), asked
+by both paths: two definitions is how one of them goes quietly stale and the
+probe says "no" while work is waiting.
+
+**The bottleneck moves; it does not vanish.** 7.77 gave collection a second door
+(`healthCheck`, 10:00) and that made *collection* the slow part: tick at 11:00,
+see nothing until 02:30. `vbrCollectHourly` gets **its own hourly trigger** —
+deliberately not a guest of `syncCatalog`, which would be 7.63/7.72 again (cost
+on the path someone is standing on, and `syncCatalog` calls `writeStatus_`, the
+very place 7.66 mis-placed a network call), and deliberately not a guest of
+anything else, because a guest starves when its host does (6.37). With no answer
+waiting it is one queue read plus one small fetch; the 29 MB hub is read **only**
+when something really landed, which is why `hub` is not passed in.
+
+**And the row-to-row boundary is the dangerous line in this version.** `vblab` is
+searched for `rvc-*.wav` and the **largest** file wins. Leave row one's output in
+place and row two can upload the first speaker's audio under the second
+speaker's name — no error, audible only. That is `dsSig_` again, between two
+people. Both temp dirs are cleared before every row, and the assertion looks from
+*inside* the row at what the previous one left behind.
+
+**My first version of the "one definition" assertion counted call sites and
+reported 3.** The line `def pending(q, mp):` matches the call pattern too. An
+assertion that answers to its author's own regex is measuring the author, not the
+code (7.69) — so the claim is behavioural now: on **one** queue, the probe and
+the real run must agree, and a row already answered in the map must be "nothing
+to do" for both.
+
 ## The work was done, and one unrelated line threw it away (7.77)
 
 He ticked two rows last night. This morning both were «در انتظار», and his words
