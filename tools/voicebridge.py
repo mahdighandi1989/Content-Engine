@@ -498,7 +498,8 @@ def main():
     mp["items"][key] = rec
     saveMap(mp)
     say("  ✔ %s — %.1f مگابایت (خامش %.1f) در %d تکه، %.1f ثانیه، %.1f دقیقه کار"
-        % (base, sum(pbytes) / 1048576.0, size / 1048576.0, len(pieces), outSec, mins))
+        % (key, sum(pbytes) / 1048576.0, size / 1048576.0,
+           len(pieces), outSec, mins))
     return 0
 
 

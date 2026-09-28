@@ -742,7 +742,7 @@ console.log('\n══ ۱۵) ادعایی که `.gitignore` هرگز نگذاشت
 }
 
 const vbSrc = fs.readFileSync('tools/voicebridge.py', 'utf8');
-console.log('\n══ ۱۶) نامِ دارایی باید ASCII باشد — یک اجرای واقعی ثابتش کرد (۷٫۷۷) ══');
+console.log('\n══ ۱۶) نامِ دارایی باید ASCII باشد — یک اجرای واقعی ثابتش کرد (۲۸ سپتامبر) ══');
 /* اجرای ۲۶ِ voice-bridge، ۲۷ سپتامبر ۱۶:۵۳ UTC: تبدیل **کامل شد** (۲۶۱
    ثانیه خروجی، ۲۸۰ ثانیه کارِ رانر) و بعد آپلود با
 
@@ -781,6 +781,77 @@ console.log('\n══ ۱۶) نامِ دارایی باید ASCII باشد — ی
      /nm = assetName\(key, i, len\(pieces\)\)/.test(vbSrc) &&
      !/base = key\.replace/.test(vbSrc),
      'ساختنِ نام از `key` در جای دیگر یعنی همان باگ از درِ دیگر');
+}
+
+console.log('\n══ ۱۷) نامی که تعریف نشده، تا لحظهٔ آخرِ کار سکوت می‌کند (۲۸ سپتامبر) ══');
+/* ══ چرا این بند هست ══
+   اجرای ۲۷ِ voice-bridge دقیقاً همان کاری را کرد که ۲۶ کرده بود: ۲۳۵
+   ثانیه تبدیل، خروجیِ کامل، آپلودِ موفق روی release — و بعد، در
+   **آخرین خطِ** `main`، `NameError: name 'base' is not defined` و
+   خروج با ۱. نقشه ذخیره شده بود ولی کدِ خروج ۱ بود، پس مرحلهٔ ثبت
+   هرگز اجرا نشد و از بیرون «شکست» دیده شد.
+
+   علتش تعمیرِ خودِ من در ۷٫۷۷ بود: `base` را با `nm` جایگزین کردم و
+   یک مصرف‌کنندهٔ `base` هفت خط پایین‌تر جا ماند. بند ۱۶ `assetName` را
+   **جداگانه** صدا می‌زند، پس هر چهار سنجه‌اش سبز بودند در حالی که
+   `main` روی خطِ آخر می‌مُرد. سنجه‌ای که تابع را تنها امتحان کند،
+   تابع را ثابت می‌کند نه مسیر را.
+
+   و `py_compile` این را نمی‌گیرد — NameError خطای زمانِ اجراست. تنها
+   چیزی که می‌گیردش خواندنِ جدولِ نمادهاست: نامی که در تابع بار می‌شود،
+   در آن تابع تعریف نشده، در سطحِ ماژول هم نیست و builtin هم نیست. */
+{
+  const scan = [
+    'import sys, io, symtable, builtins',
+    'D=set("__file__ __name__ __doc__ __spec__ __loader__ __package__ __builtins__ __debug__".split())',
+    'def g(t):',
+    '    o=set(D)',
+    '    for s in t.get_symbols():',
+    '        if s.is_assigned() or s.is_imported() or s.is_parameter(): o.add(s.get_name())',
+    '    for c in t.get_children(): o.add(c.get_name())',
+    '    return o',
+    'def w(t,gg,path,bad):',
+    '    for s in t.get_symbols():',
+    '        n=s.get_name()',
+    '        if s.is_global() and s.is_referenced() and n not in gg and not hasattr(builtins,n):',
+    '            bad.append("%s :: %s -> %s"%(t2,path,n))',
+    '    for c in t.get_children(): w(c,gg,path+"."+c.get_name(),bad)',
+    'bad=[]',
+    'for t2 in sys.argv[1:]:',
+    '    src=io.open(t2,encoding="utf-8").read()',
+    '    top=symtable.symtable(src,t2,"exec")',
+    '    gg=g(top)',
+    '    for c in top.get_children(): w(c,gg,c.get_name(),bad)',
+    'print("\\n".join(bad))'
+  ].join('\n');
+
+  const pys = fs.readdirSync('tools').filter(f => /\.py$/.test(f))
+                .map(f => 'tools/' + f).sort();
+  const run = () => cp.spawnSync('python3', ['-c', scan].concat(pys),
+                                 { encoding: 'utf8' });
+  const r = run();
+
+  ok('۱۷.۱ جدولِ نمادها خوانده شد',
+     r.status === 0, 'stderr: ' + String(r.stderr).slice(0, 300));
+
+  const found = String(r.stdout).trim();
+  ok('۱۷.۲ هیچ نامِ تعریف‌نشده‌ای در `tools/*.py` نمانده — ' +
+     pys.length + ' فایل',
+     found === '',
+     'پیدا شد:\n' + found +
+     '\n(اجرای ۲۷ همین بود: کلِ کار انجام شد و خطِ آخر افتاد)');
+
+  /* ══ و نیمهٔ دومِ همان اجرا ══
+     نقشه **نوشته شده بود** — `saveMap` یک خط پیش از خطِ افتاده صدا
+     خورده. ولی کدِ خروج ۱ شد و مرحلهٔ ثبت در ریپو به‌کل اجرا نشد، پس
+     ۲۳۵ ثانیه تبدیل و یک دارایی روی release دور ریخته شد و موتور چیزی
+     برای برداشتن نداشت. تنزل به سمتِ کامل بودن، نه به سمتِ سکوت. */
+  const wf = fs.readFileSync('.github/workflows/voice-bridge.yml', 'utf8');
+  const idx = wf.indexOf('ثبتِ نقشه در ریپو');
+  ok('۱۷.۳ مرحلهٔ ثبتِ نقشه با `always()` می‌دوَد',
+     idx > 0 && /^\s*if:\s*always\(\)\s*$/m
+       .test(wf.slice(idx, wf.indexOf('run: |', idx))),
+     'بی این، هر افتادنِ پایتون کلِ کارِ تمام‌شده را دور می‌ریزد');
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
