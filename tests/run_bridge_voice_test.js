@@ -1436,5 +1436,71 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
   const rdZ = ytRenderRead_(); rdZ.items = keepS; ytRenderSave_(rdZ);
 }
 
+console.log('\n══ ۲۵) برداشتن هم مسیرِ دوم گرفت — نه فقط کارِ شبانه (۷٫۷۷) ══');
+/* ══ چرا این بخش هست ══
+   ۷٫۳۹ اشتراکِ صف را به `healthCheck` آورد. ۷٫۴۶ نوشتنِ صف را. هر دو
+   با همین دلیل: `vbrNightly_` پشتِ `nightHas_` در کارِ شبانه است و
+   شبی که نگهبان رد نشود، آن کار انجام نمی‌شود.
+
+   و `vbrIngest_` جا ماند — یعنی **برداشتنِ خروجی** تنها یک مسیر داشت.
+   صاحبِ برنامه دیشب دو ردیف تیک زد؛ صبح هر دو «در انتظار» بودند و
+   تنها راهِ رسیدنشان ۰۲:۳۰ِ فردا بود. تبدیل که تمام شود خروجی روی
+   release می‌نشیند و موتور تا شبِ بعد سراغش نمی‌رود: تا ۲۴ ساعت تأخیر
+   برای کاری که ارزان است.
+
+   سنجه `healthCheck` را **اجرا** می‌کند و ردیفِ واقعی را می‌خوانَد —
+   نه اینکه دنبالِ نامِ تابع در متنِ کد بگردد (۷٫۴۳/۷٫۴۴/۷٫۴۶). */
+{
+  const ep25 = 77;
+  /* پوشهٔ همان قسمتِ آزمایشیِ بالا — `vbrAudio_` از `ytAudioParts_` عبور
+     می‌کند و پوشهٔ بی «کامل» را (درست) رد می‌کند؛ پوشهٔ تازه‌ساخته یعنی
+     سنجه‌ای که مسیرِ دیگری می‌رود. */
+  const fold25 = epFold;
+  const nFiles = () => { const it = fold25.getFiles(); let n = 0;
+                         while (it.hasNext()) { it.next(); n++; } return n; };
+  const was25 = nFiles();
+  {
+    const wav25 = wavBytes;
+    const ask25 = vbrAsk_('variety', ep25, fold25.getId(), 'razavi',
+                          'قسمت ' + ep25);
+    ok('۲۵.۰-الف درخواست در صف نشست', ask25.ok === true, ask25.why || '');
+    const rf25 = UrlFetchApp.fetch;
+    UrlFetchApp.fetch = function (u) {
+      if (/voice-renders/.test(String(u))) {
+        const items = {};
+        items['variety:' + ep25] = { url: 'https://example.invalid/y.wav',
+                                     minutes: 4.1, seconds: 250 };
+        return { getResponseCode: () => 200,
+                 getContentText: () => JSON.stringify({ items: items }) };
+      }
+      return { getResponseCode: () => 200, getBlob: () => blobOf(wav25) };
+    };
+    _vbrMapMemo = null;
+
+    const before = vbrRead_().items.filter(x => x.key === 'variety:' + ep25)[0];
+    ok('۲۵.۰ ردیف پیش از وارسیِ سلامت «در انتظار» است',
+       !!before && String(before.status) === 'در انتظار',
+       'گرفت: ' + (before ? before.status : 'ردیفی نیست') +
+       ' — سنجه‌ای که روی صفِ خالی بدوَد هیچ‌چیز را ثابت نمی‌کند');
+
+    const o25 = console.log; console.log = () => {};
+    try { healthCheck(); } catch (e25) {} finally { console.log = o25; }
+    UrlFetchApp.fetch = rf25;
+
+    const after = vbrRead_().items.filter(x => x.key === 'variety:' + ep25)[0];
+    ok('۲۵.۱ `healthCheck` خودش خروجی را برداشت، بی آنکه کارِ شبانه صدا زده شود',
+       !!after && String(after.status) === 'رسید' && !!after.outId,
+       'گرفت: ' + (after ? after.status : 'ردیفی نیست') +
+       ' — تا وقتی تنها برداشت‌کننده پشتِ نگهبانِ شبانه باشد، خروجی تا ' +
+       'فردا شب روی release می‌مانَد');
+
+    ok('۲۵.۲ و فایل واقعاً در پوشهٔ همان قسمت نشست',
+       nFiles() > was25,
+       'گرفت: ' + was25 + ' → ' + nFiles() +
+       ' — ردیفی که «رسید» بگوید و فایلی نگذاشته باشد، بدتر از نرسیدن است');
+  }
+  _vbrMapMemo = null;
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

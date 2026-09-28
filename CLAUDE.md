@@ -1077,6 +1077,55 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The work was done, and one unrelated line threw it away (7.77)
+
+He ticked two rows last night. This morning both were «در انتظار», and his words
+were «واقعا داری اذیت میکنی / نذاشتی لذت یه کار اتوماسیون رو درست بفهمم». Two
+separate defects sat behind that, **both mine**, and they were found by reading
+the workflow log rather than the code.
+
+**One: my own fix left a name behind.** 7.76's asset-name repair replaced `base`
+with `nm` and left one consumer of `base` seven lines below, in the closing `say`
+of `main`. So run 27 did the *entire* job again — 235 s of conversion, a complete
+261-second output, the asset uploaded to the release — and then died on the last
+line with `NameError`. `py_compile` does not catch that class, and the four
+assertions I had just written called `assetName` **on its own**: all green while
+`main` was fatal. *A test that calls the function proves the function, not the
+path* (7.62), fourth time in one week.
+
+**Two, and this one cost more: the map had already been written.** `saveMap` runs
+one line above the line that died. The only thing that kept the answer from
+reaching him was the exit code — a non-zero exit skips the **next** workflow step,
+and that step is the one that commits the map. So a complete conversion, an
+uploaded asset and a written map were all thrown away because an unrelated
+sentence could not be printed, and the next run would start from zero.
+**Degradation goes toward completeness, not toward silence** — this file says
+exactly that about `srchReadRows_`, and the same rule was missing one file over.
+`if: always()` now runs the commit step; the job still reports failure, which is
+honest, but finished work is not lost.
+
+**Three: the collection had one road.** 7.39 gave the queue's *sharing* a second
+path through `healthCheck`. 7.46 gave the queue's *writing* one, and wrote down
+why. **Collecting the output never got one** — `vbrIngest_` is reachable only from
+`vbrNightly_`, behind `nightHas_` in the nightly. So even a conversion that
+succeeds at noon sits on the release until 02:30 the next night: up to 24 hours
+of delay for the cheapest step in the chain. The same half-measure, three
+versions in a row, in the same section, each time with the previous one's comment
+on the page.
+
+**What the automation still asks of him, stated rather than hidden.** One run
+converts one row, a cap sized for a 19-minute episode (~25 minutes of runner
+time) and not for a 4-minute sample. Two ticks therefore need two runs, and the
+scheduled trigger is every six hours — so «a few hours» was wrong even with no
+bug at all. Making one run drain the queue against a wall-clock budget is the
+other half, and it is named here instead of being discovered by him again.
+
+**And the guard that catches the first defect is a symbol-table read, not a
+grep.** `run_voicepipe_test.js` ۱۷ walks every function scope in all thirteen
+`tools/*.py` and reports any name that is loaded there but is neither local, nor
+a module-level binding, nor a builtin. Restoring `base` turns it red while ۱۶.۴
+stays green — which is itself the proof that §۱۶ could never have seen this.
+
 ## Looking only for the cost I added (7.72)
 
 Today's 10:00 mail said it itself: *«وارسیِ سلامت وقت کم آورد و این بخش‌ها امروز
