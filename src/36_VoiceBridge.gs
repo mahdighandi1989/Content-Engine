@@ -1179,7 +1179,10 @@ function vbrSoulSeedDue_() {
         out.why = 'ردیفِ ناقص در VOICE_SOUL_SEED: ' + JSON.stringify(se);
         return out;
       }
-      if (have['نمونهٔ روح — ' + sp + ':' + String(se.ep)]) continue;
+      /* شناسه از `vbrSoulShow_` می‌آید، نه دستی — وگرنه این خط و خطِ
+         قرینه‌اش در `vbrSoulPick_` دو تعریف می‌شوند و یکی‌شان بی‌صدا
+         کهنه می‌شود (۷٫۸۶). */
+      if (have[vbrSoulShow_(sp, se.tag) + ':' + String(se.ep)]) continue;
       pend = se; break;
     }
   } catch (e) {
@@ -1586,6 +1589,47 @@ function vbrSpeakerPick_(rows, show, epRaw) {
  * تابع همان کارِ پل را دوباره می‌کرد. «فعال» شرط نیست: تیک از «فعال» رد
  * می‌شود (۷٫۴۱) و این کار عمداً یک نمونه است، نه تولید.
  */
+/**
+ * نامِ «برنامه»یِ یک نمونهٔ روح در صف — **یک تعریف، چهار خواننده**.
+ *
+ * ══ چرا این لازم شد (۷٫۸۶) ══
+ * شناسهٔ یک نمونهٔ روح تا امروز (گوینده، قسمت) بود و هیچ چیزِ دیگری. آن روزی
+ * درست بود که تنها پرسش «آیا یک بار ساخته شد؟» باشد. ولی نمونه برای
+ * **داوریِ پارامتر** ساخته می‌شود، و ۷٫۸۱/۷٫۸۵ گامِ گلدوز را از −۱۲ به ۰ و
+ * بعد به −۲ بردند. پس دقیقاً چیزی که نمونه برای سنجیدنش وجود دارد عوض شد و
+ * شناسه همان ماند: ردیفِ «نمونهٔ روح — spk-1g0r95d:53» با وضعیتِ «رسید» در صف
+ * نشسته بود — ساختهٔ ۲۷ سپتامبر، با گامِ −۱۲ و بی دستورِ لحن — و هم
+ * `vbrSoulSeedDue_` و هم `vbrSoulPick_` روی آن می‌گفتند «ساخته شده».
+ * یعنی بذرِ ۷٫۸۴ هرگز چیزی نمی‌ساخت و پیامش «برای همهٔ بذرها نمونه ساخته
+ * شده» بود: سالم به نظر می‌رسید و هیچ نبود. **همان شکلِ ۷٫۴۶/۷٫۶۲** — درمانی
+ * روی راهی که هرگز طی نمی‌شود — این بار در خودِ شناسه.
+ *
+ * `tag` همان `EMB_TEXT_VER`ِ ۷٫۲۷ است: یک واژهٔ کوتاه در بذر که می‌گوید «این
+ * سنجشِ تازه‌ای است». عوضش کن، نمونهٔ تازه ساخته می‌شود؛ عوضش نکن، هیچ.
+ * **هیچ حالتِ تازه‌ای هم ذخیره نمی‌شود** (۷٫۸۲): بی‌تکراری از همان سدِ صف
+ * می‌آید که از قبل بود.
+ *
+ * و عمداً یک **برچسب** است نه یک تنظیم: گامِ واقعی از `personaPitch_` می‌آید
+ * و از هیچ‌جای دیگر (۷٫۳۰/۷٫۳۱ — دو عدد در دو جا که کسی با هم نسنجیده).
+ * گامِ این نمونه را همان‌جا باید عوض کرد، نه اینجا.
+ *
+ * ولی چرا از `personaPitch_` خوانده نمی‌شود تا خودکار باشد؟ چون
+ * `vbrSoulSeedDue_` باید **ارزان** بماند: `personaPitch_` بی ردیف‌های آماده
+ * `personaTab_()` → `getHub_()` است، یعنی یک پاسِ تعمیرِ تب روی هابِ ۲۹
+ * مگابایتی، ساعتی یک بار — همان هزینه‌ای که ۷٫۶۳ از آن مُرد و ۳۱٫۳-ب برایش
+ * قرمز می‌شود. دو تعریفِ متفاوت برای یک شناسه هم بدتر است: زمان‌بند هر شب
+ * زمان‌بندی می‌کرد و انتخاب‌کننده هر شب رد می‌کرد.
+ *
+ * پیشوندِ خالی (`vbrSoulShow_('', '')`) همان چیزی است که پویشِ صف با آن
+ * ردیف‌های روح را می‌شناسد — پس آن هم از همین یک تعریف می‌آید.
+ */
+function vbrSoulShow_(speakerKey, tag) {
+  var t = String(tag == null ? '' : tag).trim();
+  return 'نمونهٔ روح — ' + String(speakerKey == null ? '' : speakerKey) +
+         (t ? ' · ' + t : '');
+}
+
+
 function vbrSoulPick_() {
   var out = { ok: false, why: '' };
   var rows = [];
@@ -1606,7 +1650,7 @@ function vbrSoulPick_() {
     var q0 = vbrRead_();
     for (var z = 0; z < q0.items.length; z++) {
       var k0 = String(q0.items[z].key || '');
-      if (k0.indexOf('نمونهٔ روح — ') === 0) already[k0] = 1;
+      if (k0.indexOf(vbrSoulShow_('', '')) === 0) already[k0] = 1;
     }
   } catch (eQ) { already = {}; }
 
@@ -1625,6 +1669,7 @@ function vbrSoulPick_() {
     var cell = String(rows[i][PC.PICK - 1] == null ? '' : rows[i][PC.PICK - 1]).trim();
     var set = {};
     var seeded = {};
+    var seedTag = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
        اگر موتور خودش روی تیک عمل کند، معنای آن ستون بی‌خبر عوض می‌شود.
@@ -1637,6 +1682,7 @@ function vbrSoulPick_() {
       if (!se.show || !se.ep) continue;
       var sk = String(se.show) + ':' + String(se.ep);
       set[sk] = 1; seeded[sk] = 1;
+      seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
     }
     if (cell) {
       try {
@@ -1668,12 +1714,17 @@ function vbrSoulPick_() {
       if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
       var item = map[k];
       if (!item) continue;                       // پوشه‌اش شناخته نیست
-      if (already['نمونهٔ روح — ' + key + ':' + String(item.ep)]) {
-        done.push(name + ' — قسمت ' + String(item.ep));
+      /* برچسبِ بذر بخشی از شناسه است (۷٫۸۶): نمونه‌ای که با گامِ دیگری
+         ساخته شده، «همان نمونه» نیست. تیکِ او برچسب ندارد، پس رفتارش
+         عیناً همان ۷٫۷۵ می‌مانَد. */
+      var tg = seedTag[k] || '';
+      if (already[vbrSoulShow_(key, tg) + ':' + String(item.ep)]) {
+        done.push(name + ' — قسمت ' + String(item.ep) +
+                  (tg ? ' · ' + tg : ''));
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k] };
+               seeded: !!seeded[k], tag: tg };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -1820,7 +1871,11 @@ function runVoiceSoulTest() {
     var pName = CFG.VBR_SOUL_FOLDER || 'نمونهٔ رنگ و روح';
     var it0 = root.getFoldersByName(pName);
     var par = it0.hasNext() ? it0.next() : root.createFolder(pName);
-    var label = 'نمونهٔ رنگ و روح — قسمت ' + String(pick.item.ep);
+    /* برچسب هم باید بگوید کدام سنجش است: دو فایل به نامِ «نمونهٔ رنگ و
+       روح — قسمت ۵۳» در تلگرام از هم تشخیص داده نمی‌شوند، و او همان‌جا
+       می‌شنود نه در درایو (۷٫۸۶). */
+    var label = 'نمونهٔ رنگ و روح — قسمت ' + String(pick.item.ep) +
+                (pick.tag ? ' · ' + pick.tag : '');
     var subNm = label + ' — ' + pick.name;
     var it1 = par.getFoldersByName(subNm);
     var sub = it1.hasNext() ? it1.next() : par.createFolder(subNm);
@@ -1832,7 +1887,7 @@ function runVoiceSoulTest() {
     /* و از همین‌جا به راهِ عادیِ پل. `soul` صریح داده می‌شود چون این پوشه
        `_episode.json` ندارد و `vbrSoul_` درست می‌گفت «نامعلوم» — ولی ما
        **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
-    var r = vbrAsk_('نمونهٔ روح — ' + pick.key, pick.item.ep, sub.getId(), pick.key,
+    var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''),
                     vbrSoulTag_(cueChk, label));
     res.ok = !!(r && r.ok);

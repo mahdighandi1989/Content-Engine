@@ -2171,5 +2171,155 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
   shS.getRange(atS, PC.PICK).setValue(keepPick);
 }
 
+
+console.log('\n══ ۳۲) برچسبِ بذر بخشی از شناسه است — وگرنه بذر هیچ نمی‌سازد (۷٫۸۶) ══');
+/* شناسهٔ یک نمونهٔ روح (گوینده، قسمت) بود و بس. ردیفِ «نمونهٔ روح —
+   spk-1g0r95d:53» از ۲۷ سپتامبر با وضعیتِ «رسید» در صفِ واقعی نشسته بود —
+   همان فایلِ صافِ گامِ −۱۲ — پس بذرِ ۷٫۸۴ هر شب می‌گفت «برای همهٔ بذرها
+   نمونه ساخته شده» و **هیچ نمی‌ساخت**. سالم به نظر می‌رسید و هیچ نبود:
+   همان شکلِ ۷٫۴۶/۷٫۶۲، این بار در خودِ شناسه.
+
+   سنجه‌ها از همان دری می‌روند که تولید می‌رود (۷٫۴۴/۷٫۶۲): `vbrSoulSeedDue_`
+   و `runVoiceSoulTest`، نه `vbrSoulShow_` به‌تنهایی. */
+{
+  const realTry32 = global.ttsChunkTry_;
+  global.ttsChunkTry_ = function () {
+    return Buffer.alloc(24000 * 2 * 6).toString('base64');       // ~۶ ثانیه
+  };
+  const sh32 = personaTab_();
+  let at32 = 0;
+  {
+    const rw = personaRows_(sh32);
+    for (let i = 0; i < rw.length; i++) {
+      if (String(rw[i][PC.KEY - 1]).trim() === 'razavi') { at32 = i + 2; break; }
+    }
+  }
+  /* قسمتی با متنِ اعراب‌دار و پوشهٔ شناخته — همان چیدمانِ §۲۴، چون بی آن
+     `runVoiceSoulTest` سرِ «متنِ اعراب‌دار نیست» می‌ایستد و سنجه راهِ
+     دیگری می‌رود. */
+  const fEp32 = OUT.createFolder('قسمتِ برچسب‌آزما');
+  {
+    const segs = [];
+    for (let i = 0; i < 8; i++) {
+      segs.push({ h: 'h' + i,
+        t: 'شَبی از شَب‌هایِ پاییز بود و بادِ سَرد ایستاده بود شمارهٔ ' + i + '. ' +
+           'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد و ایستاد. '.repeat(4) });
+    }
+    fEp32.createFile('_episode.json',
+      JSON.stringify({ ep: { title: 'برچسب‌آزما', __speakSegs: segs } }),
+      'application/json');
+  }
+  const rd32 = ytRenderRead_();
+  const keepIt32 = rd32.items.slice();
+  rd32.items = [{ key: 'variety:91', show: 'variety', ep: '91',
+                  folderId: fEp32.getId(), title: 'نودویک' }];
+  ytRenderSave_(rd32);
+
+  const keepSeed32 = CFG.VOICE_SOUL_SEED;
+  const keepPick32 = String(personaRows_(sh32)[at32 - 2][PC.PICK - 1] || '');
+  const SHOW32 = knownShows_()[0].name;
+  personaBoardSave_('razavi', false, [SHOW32], 1, 'آرام و شمرده بخوان', '', '', []);
+  sh32.getRange(at32, PC.PITCH).setValue('');
+  CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '91',
+                           tag: 'گام -2' }];
+
+  /* ── ۳۲.۱ نمونهٔ بی‌برچسبِ دیروز جلوِ سنجشِ تازه را نمی‌گیرد ──
+     عیناً حالتِ تولید در ۲۹ سپتامبر: ردیفِ بی‌برچسب، «رسید». */
+  {
+    const q = vbrRead_();
+    q.items = [{ key: 'نمونهٔ روح — razavi:91', show: 'نمونهٔ روح — razavi',
+                 ep: '91', speaker: 'razavi', status: 'رسید' }];
+    vbrSave_(q);
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const due = vbrSoulSeedDue_();
+    const pk = vbrSoulPick_();
+    ok('۳۲.۱ نمونهٔ بی‌برچسبِ دیروز جلوِ سنجشِ تازه را نمی‌گیرد',
+       due.scheduled === true && pk.ok === true && pk.tag === 'گام -2',
+       JSON.stringify({ sched: due.scheduled, dueWhy: due.why,
+                        ok: pk.ok, tag: pk.tag, why: pk.why }));
+  }
+
+  /* ── ۳۲.۲ و برچسب در شناسهٔ صف **و** در برچسبِ فایل می‌آید ──
+     دو فایل به نامِ «نمونهٔ رنگ و روح — قسمت ۹۱» در تلگرام از هم تشخیص
+     داده نمی‌شوند، و او همان‌جا می‌شنود نه در درایو. */
+  {
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const r = runVoiceSoulTest();
+    const row = (vbrRead_().items || [])[0] || {};
+    ok('۳۲.۲ برچسب هم در شناسهٔ صف و هم در برچسبِ فایل می‌آید',
+       r.ok === true && String(row.key) === 'نمونهٔ روح — razavi · گام -2:91' &&
+       String(row.label || '').indexOf('گام -2') !== -1,
+       JSON.stringify({ ok: r.ok, why: r.why, key: row.key, label: row.label }));
+  }
+
+  /* ── ۳۲.۳ همان برچسب دو بار ساخته نمی‌شود، و هیچ حالتِ تازه‌ای لازم ندارد ──
+     بی‌تکراری از همان سدِ صف می‌آید که از قبل بود (۷٫۸۲) — نه پرچمی که
+     انسان نتواند بازش کند (۵٫۹۵)، نه شمارنده‌ای که خودش را صفر کند (۷٫۲۲). */
+  {
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const due = vbrSoulSeedDue_();
+    const trg = ScriptApp.getProjectTriggers()
+      .filter((t) => t.getHandlerFunction() === 'runVoiceSoulSeed').length;
+    ok('۳۲.۳ همان برچسب دو بار ساخته نمی‌شود و حالتی ذخیره نمی‌کند',
+       due.scheduled === false && trg === 0 && /ساخته شده/.test(String(due.why)),
+       JSON.stringify(due) + ' · تریگرها: ' + trg);
+  }
+
+  /* ── ۳۲.۴ برچسب یک **نام** است نه یک تنظیم ──
+     گامِ واقعی از `personaPitch_` می‌آید و از هیچ‌جای دیگر. عددِ ردیف اینجا
+     −۷ است، که هیچ پیش‌فرضی نیست (۷٫۸۱ همین بی‌باری را یک بخش آن‌طرف‌تر
+     گرفت)، و برچسب عمداً عددِ **دیگری** می‌گوید. شکستنِ خواندنِ خانه در
+     `personaPitch_` این را قرمز می‌کند —— ولی **نه اینجا**: آن شکستن روی ۲۹.۴
+     و ۳۰.۳ می‌نشیند، چون §۲۹ جلوتر اجرا می‌شود. ثبت، نه وانمود (۷٫۷۴/۷٫۸۱):
+     چیزی که این سنجه را واقعاً قرمز می‌کند، همان رگرسیونی است که برایش
+     نوشته شده — اگر روزی `vbrAsk_` عددِ برچسب را به‌عنوانِ گام بخوانَد.
+     امتحان شد و قرمز می‌شود. */
+  {
+    sh32.getRange(at32, PC.PITCH).setValue('-7');
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '91',
+                             tag: 'گام -9' }];
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const r = runVoiceSoulTest();
+    const row = (vbrRead_().items || [])[0] || {};
+    ok('۳۲.۴ برچسب یک نام است نه یک تنظیم: گام از ردیفِ گوینده می‌آید',
+       r.ok === true && String((row.params || {}).pitch) === '-7' &&
+       String(row.key).indexOf('گام -9') !== -1,
+       JSON.stringify({ pitch: (row.params || {}).pitch, key: row.key, why: r.why }));
+    sh32.getRange(at32, PC.PITCH).setValue('');
+  }
+
+  /* ── ۳۲.۵ پویشِ صف و سازندهٔ شناسه یک تعریف‌اند ──
+     دو تعریف یعنی زمان‌بند هر شب زمان‌بندی می‌کند و انتخاب‌کننده هر شب رد
+     می‌کند — بی هیچ خطایی. ردیفِ **برچسب‌دار** در صف است و انتخاب‌کننده
+     باید بشناسدش. و پویشِ صف اگر لفظِ خودش را داشته باشد، **۲۴.۱۳** قرمز
+     می‌شود نه این — آن سنجه همین مرز را برای حالتِ بی‌برچسب نگه می‌دارد.
+     نیمهٔ منحصرِ این سنجه آن است که پیام هم برچسب را نام می‌بَرد، وگرنه او
+     نمی‌فهمد کدام سنجش ساخته شده؛ برداشتنِ برچسب از پیام قرمزش می‌کند. */
+  {
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '91',
+                             tag: 'گام -2' }];
+    const q = vbrRead_();
+    q.items = [{ key: 'نمونهٔ روح — razavi · گام -2:91',
+                 show: 'نمونهٔ روح — razavi · گام -2', ep: '91',
+                 speaker: 'razavi', status: 'رسید' }];
+    vbrSave_(q);
+    const pk = vbrSoulPick_();
+    ok('۳۲.۵ پویشِ صف و سازندهٔ شناسه یک تعریف‌اند',
+       pk.ok === false && (pk.done || []).length === 1 &&
+       /گام -2/.test(String(pk.why)),
+       JSON.stringify({ ok: pk.ok, done: pk.done, why: pk.why }));
+  }
+
+  global.ttsChunkTry_ = realTry32;
+  const rdB = ytRenderRead_(); rdB.items = keepIt32; ytRenderSave_(rdB);
+  CFG.VOICE_SOUL_SEED = keepSeed32;
+  sh32.getRange(at32, PC.PICK).setValue(keepPick32);
+  try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+  try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

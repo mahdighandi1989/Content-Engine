@@ -1077,6 +1077,65 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Ten green assertions and the seed built nothing (7.86)
+
+7.84 gave the soul sample a seed so the owner would not have to press anything.
+It ran every hour for a day and **produced nothing**, and its message the whole
+time was «برای همهٔ بذرها نمونه ساخته شده» — the healthy sentence.
+
+**The cause is one line.** A soul sample's identity in `_VOICE-RENDER.json` was
+`(speaker, episode)` and nothing else. The row «نمونهٔ روح — spk-1g0r95d:53» had
+been sitting there since 27 September with status «رسید» — the **flat**, pitch-−12
+file, built eleven minutes after the style cue died — so both the scheduler's
+`have[]` and the picker's `already[]` answered "already built".
+
+**And the identity ignored exactly what the sample exists to judge.** 7.81 moved
+that speaker's pitch from −12 to 0 and 7.85 to −2; the sample is built to let his
+ear judge that number, and the key could not tell two pitches apart. *When a thing
+exists to measure a parameter, its identity has to contain that parameter.*
+
+`tag` on the seed row is `EMB_TEXT_VER` (7.27) one section over: change it and a
+new sample is built, leave it and nothing happens. **It stores no new state** —
+idempotence comes from the queue gate that was already there (7.82) — and it rides
+into the filename and the Telegram caption, because two files called «نمونهٔ رنگ و
+روح — قسمت ۵۳» are indistinguishable where he actually listens.
+
+**`vbrSoulShow_` is the one definition**, read by all four of the scheduler, the
+picker, the queue scan and the row builder. Two definitions here would be worse
+than the original bug: the scheduler would schedule every night and the picker
+would refuse every night, with no error anywhere.
+
+**And it is deliberately a label, not a setting.** The real pitch comes from
+`personaPitch_` and nowhere else (7.30/7.31). The tempting version reads the pitch
+in the scheduler so the tag is automatic — and `personaPitch_` without prepared
+rows is `personaTab_()` → `getHub_()`, a tab-repair pass over the 29 MB hub, hourly:
+7.63/7.72/7.82/7.84 for the fifth time, on the one trigger whose whole job is to be
+cheap. ۳۱٫۳-ب already goes red for it.
+
+**Why ten green assertions saw none of this.** Every 7.84 assertion emptied the
+queue first. Not one built the state production was *standing in* — yesterday's
+untagged row, «رسید». That is 7.75's rule arriving again: a test that constructs a
+convenient state proves the convenient case. ۳۲٫۱ now builds the real one.
+
+**And the other half of it was one layer over, in the workflow.** The engine
+orders its *asks* correctly — 7.59 and 7.82 both put the explicit request ahead of
+`vbrAskDue_`, with the sentence «چیزی که خواسته شده نباید پشتِ قسمت‌هایی که کسی
+انتخابشان نکرده منتظر بماند». And then `pending()` consumed them in insertion
+order and undid that arrangement: the nightly queues two ~25-minute episodes at
+02:30 and the four-minute sample lands an hour later, so a 45-minute run budget
+puts it two runs — four hours — behind. `label` has meant "this row is a sample,
+not the episode" since 7.74, so it is the discriminator; the sort is stable so
+order inside each group is untouched. **Nothing is lost by the reorder:**
+`VBR_REPLACE` is off, so an episode's converted audio is not published and owes
+nobody a deadline, while the sample exists to be judged now.
+
+**Two of my five deliberate breakages landed somewhere else**, and both are
+recorded in the test file rather than claimed: breaking the pitch cell read lands
+on ۲۹٫۴ (§۲۹ runs first) and hard-coding the queue scan's prefix lands on ۲۴٫۱۳.
+So ۳۲٫۴ is proved by the regression it is actually written for — the tag's number
+being read as the pitch — and ۳۲٫۵ by its own unique half, the message naming the
+tag.
+
 ## Eleven minutes, and the answer was in the engine's own mail (7.84)
 
 He listened to the pitch-0 sample: *«خیلی بهتر شده بود ولی روح نداشت»* — much
