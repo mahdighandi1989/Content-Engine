@@ -1166,11 +1166,25 @@ function vbrSoulSeedDue_() {
      و اثرِ جانبی‌اش بهتر از نگارشِ اول است: این تابع دیگر **هیچ** چیزی از
      ستونِ تیک نمی‌دانَد، پس تیکِ او ساختاراً نمی‌تواند کارِ خودکار راه
      بیندازد — معنای ۷٫۷۴ آن ستون دست‌نخورده می‌مانَد. */
+  /* ══ شمارندهٔ روز **پیش از** انتخاب خوانده می‌شود (۷٫۸۷) ══
+     چون نوبت را همین عدد می‌چرخانَد — پایین‌تر. و صرفه‌جویی‌اش هم واقعی
+     است: روزی که سقف پر شده، صف هم خوانده نمی‌شود. */
+  var max = Math.max(1, Number(CFG.VOICE_SOUL_SEED_MAX_DAY) || 2);
+  var today = String(nowStr_()).slice(0, 10);
+  var pkey = 'VSOUL_SEED_DAY';
+  var n = 0;
+  try {
+    var parts = String(props_().getProperty(pkey) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+
   var pend = null;
   try {
     var q = vbrRead_();
     var have = {};
     for (var z = 0; z < (q.items || []).length; z++) have[String(q.items[z].key)] = 1;
+    var wait = [];
     for (var i = 0; i < list.length; i++) {
       var se = list[i] || {};
       var sp = String(se.speaker || '').trim();
@@ -1183,23 +1197,23 @@ function vbrSoulSeedDue_() {
          قرینه‌اش در `vbrSoulPick_` دو تعریف می‌شوند و یکی‌شان بی‌صدا
          کهنه می‌شود (۷٫۸۶). */
       if (have[vbrSoulShow_(sp, se.tag) + ':' + String(se.ep)]) continue;
-      pend = se; break;
+      wait.push(se);
     }
+    /* ══ نوبت می‌چرخد، وگرنه نفرِ دوم هرگز نوبت نمی‌گیرد (۷٫۸۷) ══
+       نگارشِ ۷٫۸۶ همیشه **اولین** بذرِ در انتظار را برمی‌داشت. اگر آن یکی
+       نتواند وارد صف شود — صف پر باشد، مدلش نباشد، دستورِ لحن خاموش شود —
+       در `have` هم نمی‌نشیند، پس فراخوانِ بعدی دوباره همان را برمی‌دارد و
+       سقفِ روز با یک بذرِ ناکام پر می‌شود. نفرِ دوم هیچ‌وقت نوبت نمی‌گیرد.
+       عیناً ۷٫۷۵، این بار در زمان‌بند به‌جای دکمه.
+
+       چرخش از **همان شمارنده‌ای** می‌آید که از قبل بود، پس هیچ حالتِ تازه‌ای
+       ذخیره نمی‌شود (۷٫۸۲): اجرای اولِ روز بذرِ ۰، اجرای دوم بذرِ ۱. */
+    if (wait.length) pend = wait[n % wait.length];
   } catch (e) {
     out.why = 'صفِ پل خوانده نشد: ' + String((e && e.message) || e).slice(0, 60);
     return out;
   }
   if (!pend) { out.why = 'برای همهٔ بذرها نمونه ساخته شده'; return out; }
-
-  var max = Math.max(1, Number(CFG.VOICE_SOUL_SEED_MAX_DAY) || 2);
-  var today = String(nowStr_()).slice(0, 10);
-  var pkey = 'VSOUL_SEED_DAY';
-  var n = 0;
-  try {
-    var parts = String(props_().getProperty(pkey) || '').split('|');
-    if (parts[0] === today) n = Number(parts[1]) || 0;
-  } catch (eP) {}
-  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
 
   try {
     clearRetryTriggers_('runVoiceSoulSeed');

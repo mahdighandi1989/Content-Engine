@@ -2321,5 +2321,94 @@ console.log('\n══ ۳۲) برچسبِ بذر بخشی از شناسه است 
   try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
 }
 
+
+console.log('\n══ ۳۳) دو بذر، و نفرِ دوم که نوبت نمی‌گرفت (۷٫۸۷) ══');
+/* صاحبِ برنامه همان ایراد را دو بار دربارهٔ رضوی گرفت، و نمونه‌ای که قرار بود
+   جوابش باشد خودش صاف بود: «نمونهٔ روح — razavi:53» ساعتِ ۱۹:۳۷ِ ۲۷ سپتامبر
+   ساخته شد و دستورِ لحن ۱۹:۳۳ رد شده بود. پس هر دو گوینده بذر می‌خواهند.
+
+   و دو بذر شکلِ ۷٫۷۵ را برمی‌گردانَد: زمان‌بند فقط **زمان‌بندی** می‌کند، ردیفِ
+   صف را یک دقیقه بعد `runVoiceSoulTest` می‌نویسد. پس میانِ دو فراخوانِ
+   زمان‌بند، `have` عوض نشده — و نگارشِ ۷٫۸۶ هر بار همان بذرِ اول را
+   برمی‌داشت. سقفِ روز با یک بذر پر می‌شد و نفرِ دوم هرگز نوبت نمی‌گرفت. */
+{
+  const keepSeed33 = CFG.VOICE_SOUL_SEED;
+  const keepMax33 = CFG.VOICE_SOUL_SEED_MAX_DAY;
+
+  /* ── ۳۳.۱ اجرای اولِ روز بذرِ اول، اجرای دوم بذرِ دوم ──
+     این تابع اصلاً به شیت کار ندارد (CFG + صف + Script Properties)، پس
+     بذرها لازم نیست گویندهٔ واقعی باشند: چیزی که سنجیده می‌شود نوبت است. */
+  {
+    CFG.VOICE_SOUL_SEED = [
+      { speaker: 'aa', show: 'variety', ep: '1', tag: 't1' },
+      { speaker: 'bb', show: 'variety', ep: '2', tag: 't2' }
+    ];
+    CFG.VOICE_SOUL_SEED_MAX_DAY = 2;
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const d1 = vbrSoulSeedDue_();
+    const d2 = vbrSoulSeedDue_();
+    ok('۳۳.۱ نوبت می‌چرخد، پس بذرِ دوم هم همان روز نوبت می‌گیرد',
+       d1.scheduled === true && d2.scheduled === true &&
+       d1.speaker === 'aa' && d2.speaker === 'bb',
+       JSON.stringify([d1, d2]) +
+       ' — بی چرخش، سقفِ روز با بذرِ اول پر می‌شود و نفرِ دوم هرگز نمی‌آید (۷٫۷۵)');
+  }
+
+  /* ── ۳۳.۲ هر بذرِ واقعی برچسب دارد، و برچسبش شناسه را از شکلِ بی‌برچسب
+     جدا می‌کند ──
+     بذرِ بی‌برچسب همان شناسه‌ای را می‌سازد که ردیفِ «رسید»ِ ۲۷ سپتامبر دارد،
+     پس بی‌صدا هیچ نمی‌سازد — همان باگی که ۷٫۸۶ بست. و دو بذر با شناسهٔ یکسان
+     یعنی یکی‌شان هرگز ساخته نمی‌شود. */
+  {
+    CFG.VOICE_SOUL_SEED = keepSeed33;
+    const real = CFG.VOICE_SOUL_SEED || [];
+    const keys = real.map((se) => vbrSoulShow_(se.speaker, se.tag) + ':' + String(se.ep));
+    const bare = real.map((se) => vbrSoulShow_(se.speaker, '') + ':' + String(se.ep));
+    const uniq = keys.filter((k, i) => keys.indexOf(k) === i).length;
+    const speakers = real.map((se) => String(se.speaker));
+    ok('۳۳.۲ هر دو گوینده بذر دارند، هر بذر برچسب، و هیچ شناسه‌ای تکراری نیست',
+       real.length >= 2 && speakers.indexOf('razavi') !== -1 &&
+       uniq === keys.length &&
+       keys.every((k, i) => k !== bare[i]),
+       JSON.stringify({ keys: keys, bare: bare }) +
+       ' — برچسبِ خالی یعنی همان شناسهٔ ردیفِ «رسید»ِ ۲۷ سپتامبر، یعنی بی‌صدا هیچ');
+  }
+
+  /* ── ۳۳.۳ سقفِ روز پیش از خواندنِ صف پرسیده می‌شود ──
+     چرخش به شمارندهٔ روز نیاز دارد، پس آن خواندن باید **جلوتر** بیاید؛ و
+     صرفه‌جویی‌اش واقعی است: روزی که سقف پر است، صف هم خوانده نمی‌شود. */
+  {
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'aa', show: 'variety', ep: '1', tag: 't1' }];
+    const realRead = global.vbrRead_;
+    let reads = 0;
+    global.vbrRead_ = function () { reads++; return realRead.apply(null, arguments); };
+    try {
+      try {
+        props_().setProperty('VSOUL_SEED_DAY',
+                             String(nowStr_()).slice(0, 10) + '|99');
+      } catch (e) {}
+      reads = 0;
+      const dFull = vbrSoulSeedDue_();
+      const rFull = reads;
+      try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+      try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+      reads = 0;
+      const dFree = vbrSoulSeedDue_();
+      ok('۳۳.۳ با سقفِ پر، صف خوانده نمی‌شود',
+         dFull.scheduled === false && /سقف/.test(String(dFull.why)) &&
+         rFull === 0 && dFree.scheduled === true && reads === 1,
+         'پر: ' + rFull + ' خواندن · آزاد: ' + reads + ' · ' +
+         JSON.stringify([dFull, dFree]));
+    } finally { global.vbrRead_ = realRead; }
+  }
+
+  CFG.VOICE_SOUL_SEED = keepSeed33;
+  CFG.VOICE_SOUL_SEED_MAX_DAY = keepMax33;
+  try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+  try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

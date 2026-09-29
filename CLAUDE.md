@@ -1077,6 +1077,44 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The sample that was to answer his complaint was itself flat (7.87)
+
+He asked the shortest possible question: *what happened to the defect I raised
+twice about Razavi?* The diagnosis had been right since 7.73 — that characteristic
+in ~98% of the words **is** Gemini's flat reading seen from the other end, not a
+conversion parameter, and `index_rate` went back to 1.0 at his own instruction.
+
+**But the sample built to demonstrate that was flat too.** The queue row
+«نمونهٔ روح — razavi:53» carries `at: 2026-09-27 19:37`, and `ttsCue` went off at
+**19:33** the same evening — four minutes earlier. It was labelled «روح» and it was
+colour-only: *exactly* the lie 7.79 found for Goldooz, in the sibling row, from the
+same night. **Two rows written four minutes apart, one of them examined and the
+other not.** 7.57's rule is that a contradiction is itself the finding; here the two
+halves of one contradiction were the same shape in the same file, and nobody put
+them side by side.
+
+So the seed carries **two** rows now, both on **episode 53** — the same text, so two
+voices are comparable on identical material rather than on whatever each happened to
+get. And Goldooz's tag became «گام -2 و لحن», because two things changed for him and
+a label naming one hides the other (7.79 again).
+
+**And two seeds brought 7.75 straight back.** The scheduler only *schedules*; the
+queue row is written a minute later by `runVoiceSoulTest`. So between two scheduler
+calls `have[]` has not changed — and 7.86 took the **first** pending seed every time.
+One seed that cannot enter the queue (a full queue, a missing model, the cue off)
+therefore ate the whole daily cap and **the second speaker never got a turn**. That
+is the button-that-works-once bug, one layer over, in code written three hours after
+reading it.
+
+The turn rotates off **the day counter that already existed** (`n % wait.length`), so
+no new state is stored (7.82) — and the cap had to move *in front of* the queue read
+to make that possible, which also means the day the cap is full costs no read at all.
+
+**۳۳٫۱ deliberately asks nothing of the sheet**, because `vbrSoulSeedDue_` asks
+nothing of the sheet: a test that builds more than production builds is taking a
+different road than the one it names (7.44). All three new assertions were turned red
+by breaking the code, and each landed on itself.
+
 ## Ten green assertions and the seed built nothing (7.86)
 
 7.84 gave the soul sample a seed so the owner would not have to press anything.
