@@ -1,0 +1,53 @@
+# سنجشِ کیفیتِ ضبط‌ها — بی دانلودِ کامل، بی آموزش، بی هیچ نوشتنی
+#
+# چرا اینجا: از کانتینرِ کلاد `drive.usercontent.google.com` را پراکسی
+# می‌بندد (۴۰۳)، پس سنجشِ روی‌درخواست جایی می‌رود که شبکه‌اش باز است.
+# همان تقسیمِ کارِ `_YT-RENDER.json`.
+#
+# چرا جدا از `voice-intake`: آن یکی آموزش را راه می‌اندازد — ~۱۵ تا ۲۰
+# ساعت پردازنده. این یکی چند ثانیه است و هیچ‌چیزی نمی‌سازد. سدی که
+# پیش از کار بنشیند نباید خودش کار باشد (۷٫۷۵).
+#
+# هیچ وابستگی‌ای نصب نمی‌شود: `mp3probe.py` فقط کتابخانهٔ استاندارد
+# می‌خواهد. یک `pip install` برای سنجشی که ثانیه‌ای است، همان هزینه‌ای
+# است که ۷٫۷۸ از گردشِ پل برداشت.
+#
+# فایل‌ها باید «هرکس با لینک: بیننده» باشند. اگر نبودند، درایو صفحهٔ
+# HTML می‌دهد و ابزار همین را می‌گوید — نه «صفر هرتز» (۷٫۳۳).
+
+name: audio-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'شناسه‌های فایلِ درایو، با فاصله یا کاما (یا نشانیِ کاملشان)'
+        required: true
+        default: ''
+
+concurrency:
+  group: audio-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: سنجش
+        env:
+          MP3PROBE_IDS: ${{ inputs.ids }}
+        run: python3 tools/mp3probe.py | tee /tmp/probe.txt
+
+      - name: خلاصه
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          sed -n '/JSON<</q;p' /tmp/probe.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
