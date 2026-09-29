@@ -1122,28 +1122,61 @@ function ttsCueStatus_() {
     out.line = 'دستورِ لحن: با تنظیمِ TTS_CUE_MODE خاموش است (خواسته).';
     return out;
   }
-  var off = '';
-  try { off = String(props_().getProperty(PK.TTS_CUE_OFF) || ''); } catch (e) {}
-  if (!off) {
+  /* ══ نقشه، نه خانهٔ تکی — آخرین خوانندهٔ بازماندهٔ پیش از ۷٫۴۷ (۷٫۸۸) ══
+     ۷٫۴۷ پرسشِ «کدام مدل‌ها را انتخاب نکن» را به نقشه برد و در همین پرونده
+     نوشت که **یک رشته نمی‌تواند جوابش را بدهد**: همین که مدلِ دوم رد کند،
+     اولی فراموش می‌شود. صافیِ `resolveModels_` و `ttsCueSwitch_` هر دو از
+     همان روز `ttsCueBadNow_` (نقشه) را می‌خوانند — و این تابع، که هم سطرِ
+     روزانه را می‌سازد و هم **سدی است که `runVoiceSoulTest` به آن تکیه
+     می‌کند** (۷٫۷۹)، هنوز `PK.TTS_CUE_OFF` را خام می‌خواند.
+
+     سوراخش رسیدنی بود، نه نظری: اگر مدلِ زنده در نقشه باشد ولی خانهٔ تکی
+     مدلِ **دیگری** را نگه دارد (آخرین ردکننده)، `ttsCueOffNow_` «نه»
+     می‌گفت، `ok` درست می‌شد، و نمونهٔ روح با مدلی ساخته می‌شد که موتور خودش
+     می‌دانست دستور را رد می‌کند — همان چیزی که ۷٫۷۹ برای جلوگیری از آن
+     نوشته شد، از درِ دیگر. و پنجره‌اش همان پنجرهٔ ۲۹ سپتامبر است: نقشه
+     ۰۷:۰۱ پر می‌شود و کشِ مدل تا تعویضِ ۱۰:۰۰ همان مدل را می‌دهد.
+
+     ترتیب عمدی است: نقشه **پیش از** `ttsModel_()` خوانده می‌شود. روی موتورِ
+     سالم نقشه خالی است و همان‌جا برمی‌گردیم، پس `resolveModels_` — که با
+     کشِ کهنه یک فراخوانِ شبکه است — در مسیرِ `writeStatus_` نمی‌افتد
+     (۷٫۶۳/۷٫۶۶). */
+  var bad = {};
+  try { bad = ttsCueBadMap_() || {}; } catch (eB) { bad = {}; }
+  var known = [];
+  for (var bk in bad) {
+    if (Object.prototype.hasOwnProperty.call(bad, bk) && bk) known.push(bk);
+  }
+  if (!known.length) {
     out.line = 'دستورِ لحن: روشن — هر بخش با لحنِ خودش خوانده می‌شود.';
     return out;
   }
-  try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
   // ══ «خاموش» و «منتظرِ امتحانِ دوباره» یکی نیستند ══
   // خطی که هر روز می‌آید باید بگوید کِی خودش دوباره امتحان می‌کند، وگرنه
   // خواننده فرض می‌کند هیچ‌وقت — و همان فرض بود که ده روز طول کشید.
   var live = '';
   try { live = ttsModel_(); } catch (eM) {}
-  if (live && !ttsCueOffNow_(live)) {
-    out.on = true; out.ok = true; out.model = off;
-    out.line = 'دستورِ لحن: در نوبتِ امتحانِ دوباره — مدلِ «' + off +
-               '» پیشتر نپذیرفته بود' + (out.since ? ' (از ' + out.since + ')' : '') +
-               '؛ تکهٔ بعدی دوباره با دستور فرستاده می‌شود.';
+  var liveBad = false;
+  try { liveBad = !!(live && ttsCueBadNow_(live)); } catch (eL) { liveBad = false; }
+  if (!liveBad) {
+    out.on = true; out.ok = true; out.model = known.join(' · ');
+    out.line = 'دستورِ لحن: در نوبتِ امتحانِ دوباره — ' +
+               (known.length > 1
+                  ? faDigitsOut_(String(known.length)) + ' مدل پیشتر نپذیرفته بودند'
+                  : 'مدلِ «' + known[0] + '» پیشتر نپذیرفته بود') +
+               '؛ مدلِ فعلی «' + (live || '—') + '» می‌پذیرد، پس تکهٔ بعدی ' +
+               'دوباره با دستور فرستاده می‌شود.';
     return out;
   }
-  out.on = false; out.ok = false; out.model = off;
+  /* تاریخ از **نقشه** می‌آید نه از `TTS_CUE_OFF_AT`: آن یکی تاریخِ آخرین
+     ردشدنِ هر مدلی است، نه ردشدنِ همین مدل. */
+  out.on = false; out.ok = false; out.model = live;
+  out.since = String(bad[live] || '');
+  if (!out.since) {
+    try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
+  }
   var d = Number(CFG.TTS_CUE_RETRY_DAYS) || 0;
-  out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + off + '» قالبش را نپذیرفت' +
+  out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + live + '» قالبش را نپذیرفت' +
              (out.since ? ' (از ' + out.since + ')' : '') +
              '؛ تکه‌ها بی‌لحن ساخته می‌شوند' +
              (d > 0 ? '، و هر ' + d + ' روز یک بار دوباره امتحان می‌شود' : '') +

@@ -336,6 +336,77 @@ console.log('\n══ ۱۱) وارسیِ سلامت تبِ موسیقی را د�
 }
 
 
+
+console.log('\n══ ۱۴) دو جملهٔ متناقض در یک ایمیل (۷٫۸۸) ══');
+/* نامهٔ ۲۹ سپتامبر هم «دستورِ لحن: **خاموش**» داشت و هم «مدل عوض شد تا لحن
+   برگردد» — دربارهٔ یک چیز، در یک ایمیل. علتش ترتیب بود: سطرِ وضعیت از
+   عکسِ **پیش از** تعویض می‌آمد. و خوانندهٔ دو جملهٔ متناقض یاد می‌گیرد
+   هیچ‌کدام را باور نکند (۷٫۵۷/۷٫۷۹). */
+{
+  const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); };
+
+  /* ── ۱۴.۱ ترتیب: تعویض، بعد سطرِ وضعیت ──
+     اینجا عمداً **متنِ کد** خوانده می‌شود، چون چیزی که گزارش می‌شود خودِ
+     ترتیبِ دو فراخوان در همین تابع است؛ سنجهٔ رفتاری در این ماک ممکن نیست،
+     چون فهرستِ مدل‌های صوتیِ ماک یکی است و هیچ تعویضی شدنی نیست. */
+  {
+    const src8 = fs.readFileSync('src/08_Health.gs', 'utf8');
+    const iH = src8.indexOf('function healthCheck');
+    const iSw = src8.indexOf('ttsCueSwitch_()', iH);
+    const iSt = src8.indexOf('var tcS = ttsCueStatus_()', iH);
+    ok('۱۴.۱ سطرِ وضعیت پس از تعویض خوانده می‌شود، نه پیش از آن',
+       iH > 0 && iSw > 0 && iSt > iSw,
+       'تعویض @ ' + iSw + ' · وضعیت @ ' + iSt +
+       ' — وگرنه یک ایمیل هم «خاموش» می‌گوید و هم «عوض شد»');
+  }
+
+  /* ── ۱۴.۲ و سطر از نقشه می‌آید، نه از خانهٔ تکیِ پیش از ۷٫۴۷ ──
+     مدلِ زنده در نقشه است و خانهٔ تکی **کسِ دیگری** را نگه می‌دارد. کدِ پیش
+     از ۷٫۸۸ اینجا می‌گفت «در نوبتِ امتحانِ دوباره» — یعنی سالم — و همان
+     `ok` سدی است که `runVoiceSoulTest` به آن تکیه می‌کند (۷٫۷۹). */
+  {
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    resolveModels_(true);
+    const liveH = ttsModel_();
+    ttsCueBadAdd_(liveH, nowStr_());
+    global.__PROPS[PK.TTS_CUE_OFF] = 'gemini-some-other-tts';
+    global.__PROPS[PK.TTS_CUE_OFF_AT] = '2020-01-01 00:00';
+    global.__MAIL = [];
+    try { healthCheck(); } catch (e) {}
+    const txt = global.__MAIL.map((m) => String((m && (m.body || m.htmlBody)) || '')).join('\n');
+    ok('۱۴.۲ سطرِ «خاموش» مدلِ زندهٔ واقعی را نام می‌برد، نه خانهٔ تکی',
+       txt.indexOf('دستورِ لحن: **خاموش**') !== -1 &&
+       txt.indexOf('«' + liveH + '» قالبش را نپذیرفت') !== -1 &&
+       txt.indexOf('gemini-some-other-tts') === -1,
+       'مدلِ زنده: ' + liveH);
+    delete global.__PROPS[PK.TTS_CUE_OFF];
+    delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    resolveModels_(true);
+  }
+
+  /* ── ۱۴.۳ دوگانه‌ای که همان اجرا درستش کرده، گزارش نمی‌شود ──
+     `lay` از `writeStatus_` می‌آید که سرِ همین اجرا دویده، و موتور در فاصلهٔ
+     همان اجرا هم‌نام‌ها را یکی می‌کند. نامهٔ ۲۹ سپتامبر «۲ نسخه» گفت و روی
+     دیسک یکی بود. */
+  {
+    const realLay = global.outLayoutCheck_;
+    global.outLayoutCheck_ = function () {
+      return { files: 1, folders: 0, strays: [], stale: [], oldPrompts: [],
+               openFolders: [], readme: null, error: '',
+               dups: [{ name: '_MUSIC-FEED.json', count: 2 }] };
+    };
+    global.__MAIL = [];
+    try { healthCheck(); } catch (e) {}
+    global.outLayoutCheck_ = realLay;
+    const t2 = global.__MAIL.map((m) => String((m && (m.body || m.htmlBody)) || '')).join('\n');
+    ok('۱۴.۳ دوگانهٔ برطرف‌شده در گزارش نمی‌آید',
+       t2.indexOf('هم‌نامِ تکراری') === -1,
+       'عکسِ کهنه ۲ نسخه گفت؛ روی دیسک یکی است');
+  }
+}
+
 console.log('\n✅ آزمون سلامت گذشت.');
 
 

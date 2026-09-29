@@ -299,6 +299,79 @@ say('\n=== ۸) مدلِ صوتی که دستورِ لحن را رد کرده، �
     throw new Error('❌ خانهٔ قدیمی روی مقدارِ نقشه نوشت');
   }
   say('  و نقشه بر خانهٔ قدیمی مقدم است ✅');
+
+  /* ══ و `ttsCueStatus_` هم از نقشه می‌خوانَد، نه از خانهٔ تکی (۷٫۸۸) ══
+     تا ۷٫۸۷ این تابع — که هم سطرِ روزانه را می‌سازد و هم سدی است که
+     `runVoiceSoulTest` به آن تکیه می‌کند (۷٫۷۹) — `PK.TTS_CUE_OFF` را خام
+     می‌خواند و `off === model` می‌گرفت. پس اگر مدلِ **زنده** در نقشه بود
+     ولی خانهٔ تکی مدلِ دیگری را نگه می‌داشت، «سالم» می‌گفت و نمونهٔ روح با
+     مدلی ساخته می‌شد که موتور خودش می‌دانست دستور را رد می‌کند. */
+  {
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    resolveModels_(true);
+    /* مدلِ **زنده** باید در نقشه باشد، و این حالت را همان‌طور می‌سازیم که
+       بالاتر در همین بخش ساخته شد: وقتی همهٔ نامزدها رد کرده‌اند، صافی
+       فهرست را خالی نمی‌کند (۷٫۴۷ — بی مدلِ صوتی هیچ قسمتی ساخته نمی‌شود)،
+       پس مدلِ انتخاب‌شده ناچار یکی از بدهاست. هیچ بدَلی لازم نیست. */
+    /* تاریخ باید **تازه** باشد نسبت به ساعتِ ماک، وگرنه `ttsCueBadNow_` با
+       `age < 0` «نه» می‌گوید و حالتِ آزمون اصلاً ساخته نمی‌شود — تاریخِ
+       دست‌نویسِ آینده همان بی‌باریِ خاموشی است که این پرونده بارها نوشته. */
+    const badAt = nowStr_();
+    let liveM = ttsModel_();
+    for (let g = 0; g < 5 && !ttsCueBadNow_(liveM); g++) {
+      ttsCueBadAdd_(liveM, badAt);                     // همان کاری که `ttsChunkTry_` می‌کند
+      liveM = ttsModel_();
+    }
+    if (!ttsCueBadNow_(liveM)) {
+      throw new Error('❌ حالتِ آزمون ساخته نشد: مدلِ زنده در نقشه نیست — ' + liveM);
+    }
+    /* و آخرین ردکننده در خانهٔ تکی **کسِ دیگری** است: این همان تفاوتی است که
+       کدِ پیش از ۷٫۸۸ نمی‌دیدش. */
+    global.__PROPS[PK.TTS_CUE_OFF] = 'gemini-some-other-tts';
+    global.__PROPS[PK.TTS_CUE_OFF_AT] = '2020-01-01 00:00';
+    const stt = ttsCueStatus_();
+    say('  وضعیت با نقشه:', JSON.stringify(stt).slice(0, 140));
+    if (stt.ok !== false) {
+      throw new Error('❌ مدلِ زنده در نقشه است و وضعیت «سالم» گفت: ' + JSON.stringify(stt));
+    }
+    if (String(stt.model) !== liveM) {
+      throw new Error('❌ سطر مدلِ اشتباه را نام برد: ' + stt.model + ' ≠ ' + liveM);
+    }
+    /* و تاریخ از نقشه می‌آید، نه از مُهرِ سراسری — آن یکی تاریخِ ردشدنِ
+       **هر** مدلی است، پس «از ۱ سپتامبر» دربارهٔ این مدل دروغ بود. */
+    if (String(stt.since) !== badAt) {
+      throw new Error('❌ تاریخ از مُهرِ سراسری آمد نه از نقشه: ' + stt.since +
+                      ' (باید ' + badAt + ' باشد)');
+    }
+    say('  و تاریخ از نقشهٔ همان مدل آمد ✅');
+    delete global.__PROPS[PK.TTS_CUE_OFF];
+    delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+  }
+
+  /* ══ و روی موتورِ سالم، هیچ مدلی resolve نمی‌شود (۷٫۶۳/۷٫۶۶) ══
+     `ttsCueStatus_` از `writeStatus_` صدا زده می‌شود، یعنی هر دو ساعت و سرِ
+     `healthCheck`. `ttsModel_()` → `resolveModels_(false)` با کشِ کهنه یک
+     فراخوانِ شبکه است. پس نقشه باید **پیش از** آن پرسیده شود و روی نقشهٔ
+     خالی همان‌جا برگردد. */
+  {
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    delete global.__PROPS[PK.TTS_CUE_OFF];
+    const realRes = global.resolveModels_;
+    let nRes = 0;
+    global.resolveModels_ = function () { nRes++; return realRes.apply(null, arguments); };
+    try {
+      const clean = ttsCueStatus_();
+      if (clean.ok !== true || clean.on !== true) {
+        throw new Error('❌ نقشهٔ خالی «روشن» نگفت: ' + JSON.stringify(clean));
+      }
+      if (nRes !== 0) {
+        throw new Error('❌ روی موتورِ سالم ' + nRes + ' بار resolveModels_ صدا زده شد');
+      }
+      say('  نقشهٔ خالی: «روشن»، و صفر بار resolveModels_ ✅');
+    } finally { global.resolveModels_ = realRes; }
+  }
+
   delete global.__PROPS[PK.TTS_CUE_OFF];
   delete global.__PROPS[PK.TTS_CUE_OFF_AT];
   delete global.__PROPS[PK.TTS_CUE_BAD];

@@ -1077,6 +1077,56 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## The same email said both things, and one of them was a real hole (7.88)
+
+The 10:07 mail on 29 September carried two contradictory sentences about one
+thing — «دستورِ لحن: **خاموش**» and «مدل عوض شد تا لحن برگردد» — and reported
+«۲ نسخهٔ `_MUSIC-FEED.json`» when **one** file was on disk. The second half was
+settled by opening Drive rather than by reasoning: one file, not two.
+
+**One cause for both.** `writeStatus_` takes its snapshot at the top of
+`healthCheck`, and the engine then repairs both things *inside the same run* —
+`ttsCueSwitch_` moves the voice model, and the feed merge plus `putOutJson_`
+collapse same-named files. So the mail printed a pre-repair snapshot as today's
+state. A warning that fires for a state the same run already fixed is the warning
+people learn to ignore, and this one fired twice in one email.
+
+The cue line is now read **after** the switch, and the dup list is re-counted at
+reporting time. The re-count costs nothing on a healthy day, because it only runs
+when the stale snapshot saw something and a duplicated name is the exception —
+the 7.63/7.72 rule, respected rather than restated.
+
+**And underneath was the thing worth finding.** `ttsCueStatus_` was the last
+reader of the pre-7.47 single key. 7.47 moved "which models should I avoid" to a
+map and wrote in this very file that *a single string cannot answer that question*;
+`resolveModels_`'s filter and `ttsCueSwitch_` both read the map from that day.
+`ttsCueStatus_` kept reading `PK.TTS_CUE_OFF` and comparing `off === model`. So
+when the live model was in the map but the single key held a **different** model
+(the most recent rejecter), it answered "healthy" — and `ok` is exactly the gate
+`runVoiceSoulTest` asks before spending four minutes (7.79). A soul sample could
+be built with a model the engine already knew rejects the cue. The window is not
+theoretical: the map fills at 07:01 and the model cache keeps pointing at that
+model until the 10:00 switch.
+
+**Two definitions of one predicate, thirteen lines apart**, and the one that
+decided nothing was correct while the one that decided the daily line *and* the
+spend gate was stale. That is the `srcJoinJs_` rule arriving in the smallest
+possible form.
+
+**The duplicate files, by contrast, were not a fault at all** — and checking that
+before writing code is the part worth recording. `_ENRICH-*` is read through
+`getOutJson_`, which takes the newest and logs that it did; `_MUSIC-FEED.json` is
+merged in two places. Had I shipped the claim I started with ("duplicates are
+dangerous"), the repo would now carry a new archive folder and a new prune for a
+danger that does not exist.
+
+**Two of my six new assertions built a state production cannot reach**, and only
+running them showed it: one leaned on a `ttsModel_` double that this loader does
+not rebind, and one hard-coded 29 September while the harness clock reads 18
+August — so `ttsCueBadNow_` returned false on `age < 0` and the state was never
+built at all. 7.22's rule: when a test constructs the state by hand, ask whether
+the running system ever produces it.
+
 ## The sample that was to answer his complaint was itself flat (7.87)
 
 He asked the shortest possible question: *what happened to the defect I raised
