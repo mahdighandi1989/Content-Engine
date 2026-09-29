@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.83
+ *  موتور محتوا و پادکست — نسخهٔ 7.84
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1285,7 +1285,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.83',
+  CODE_VERSION: '7.84',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1496,6 +1496,25 @@ var CFG = {
 
      ردیفِ گوینده روشن نمی‌شود و صدای دائمِ هیچ قسمتی عوض نمی‌شود — همان
      مرزِ «موردی» در ۷٫۴۱. */
+  /* ══ نمونهٔ «روح» که موتور خودش می‌سازد (۷٫۸۴) ══
+     ۷٫۸۲ درخواستِ **تبدیل** را از دستِ او گرفت، ولی آن فقط رنگ را عوض
+     می‌کند: مکث و ضرب‌آهنگ و تأکید ورودیِ RVC‌اند نه خروجی‌اش، و از خواندنِ
+     جمینای می‌آیند. پس نمونه‌ای که روح داشته باشد باید **از نو خوانده**
+     شود، با کارتِ سبکِ خودِ گوینده — کاری که `runVoiceSoulTest` می‌کند و
+     تنها راهش دکمهٔ منو بود.
+
+     و اینکه چرا لازم شد: نمونهٔ گلدوز یازده دقیقه **پس از** خاموش شدنِ
+     دستورِ لحن (۲۷ سپتامبر ۱۹:۳۳) خوانده شد، پس صاف خوانده شد. گامِ درست
+     رنگ را درست کرد و روحی در فایل نبود که تبدیل شود. از ۲۸ سپتامبر ۱۰:۰۷
+     مدلِ صوتی عوض شده و دستور می‌رسد، یعنی نمونهٔ تازه روح خواهد داشت.
+
+     این فهرست فقط (گوینده، برنامه، قسمت) را می‌گوید؛ بقیه‌اش همان مسیرِ
+     آزموده است: ستونِ «شیوهٔ خواندن» باید پر باشد، مدل باید باشد، و
+     `ttsCueStatus_` پیش از خرجِ ~چهار دقیقه سنجیده می‌شود (۷٫۷۹). هیچ‌یک
+     از این سه سد دور زده نمی‌شود. */
+  VOICE_SOUL_SEED: [
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '53' }
+  ],
   VBR_SEED_ASKS: [
     { show: 'نمونهٔ گام — spk-1g0r95d', ep: '53', speaker: 'spk-1g0r95d',
       folderId: '1eTExdCMET6sMsEwIN_KF2inpKnTXev2Z',
@@ -54293,6 +54312,110 @@ function vbrBigCheck_(hub, st) {
  * می‌شود که چیزی واقعاً رسیده باشد و یک ردیفِ کارنامه لازم شود — پس
  * `hub` عمداً پاس داده نمی‌شود.
  */
+/**
+ * نمونهٔ «روح» را خودِ موتور بخواهد — بی هیچ دکمه‌ای (۷٫۸۴).
+ *
+ * ══ چرا تریگرِ خودش، و نه همین‌جا ══
+ * ساختِ این نمونه ~چهار دقیقه فراخوانِ TTS است و سقفِ Apps Script شش
+ * دقیقه. روی تریگرِ ساعتی — که کارش برداشتِ ارزانِ خروجی است — یعنی
+ * خوردنِ کلِ اجرا و گرسنه گذاشتنِ برداشت (۶٫۳۷: مهمان، وقتی میزبان کم
+ * بیاورد، گرسنه می‌مانَد). پس این تابع فقط **زمان‌بندی** می‌کند و کارِ
+ * سنگین در اجرای خودش می‌افتد — همان الگوی `busyRetry_`.
+ *
+ * ══ و سقفِ روزانه، چون سه سد می‌توانند ردش کنند ══
+ * `runVoiceSoulTest` سه جا امتناع می‌کند: شیوهٔ خواندنِ خالی، مدلِ نبوده،
+ * و دستورِ لحنِ خاموش (۷٫۷۹). هیچ‌کدام دور زده نمی‌شود — ولی اگر یکی‌شان
+ * پایدار باشد، زمان‌بندیِ بی‌سقف یعنی ساعتی یک تریگرِ تازه تا ابد. سقف
+ * روزانه است: برخوردِ گذرا جبران می‌شود، خرابیِ پایدار حلقه نمی‌شود.
+ *
+ * ══ فقط بذر ══
+ * تیکِ او دست‌نخورده می‌مانَد: `vbrSoulPick_` می‌گوید انتخابش از بذر بود یا
+ * از تیک، و تیک همان معنای ۷٫۷۴ را دارد — «دکمه را که زدم».
+ */
+function vbrSoulSeedDue_() {
+  var out = { scheduled: false, why: '' };
+  var list = CFG.VOICE_SOUL_SEED || [];
+  if (!list.length) return out;
+
+  /* ══ زمان‌بند باید ارزان بماند — و نگارشِ اولم نبود ══
+     نخست `vbrSoulPick_()` را همین‌جا صدا می‌زدم، و آن `personaTab_()` →
+     `getHub_()` است: یک پاسِ تعمیرِ تب روی هابِ ۲۹ مگابایتی، ساعتی یک بار،
+     روی همان تریگری که کارش برداشتِ ارزان است. `run_bridge_voice_test.js`
+     ۲۶٫۳ گرفتش — همان درسِ ۷٫۶۳/۷٫۷۲/۷٫۸۲ برای بارِ چهارم، این بار نه روی
+     `healthCheck` بلکه روی تریگرِ ساعتی.
+
+     پس اینجا فقط سه چیزِ ارزان پرسیده می‌شود: فهرستِ بذر (مفت)، صف (یک
+     خواندنِ کوچک که این تابع از قبل می‌کند)، و شمارندهٔ روز (Script
+     Properties). سه سدِ واقعی — شیوهٔ خواندن، مدل، و دستورِ لحن — داخلِ
+     **اجرای خودش** می‌افتند، که جای درستشان هم همان است: `runVoiceSoulTest`
+     پیش از خرجِ ~چهار دقیقه هر سه را می‌سنجد (۷٫۷۹) و تمیز امتناع می‌کند.
+     بهای این کار یک اجرای بی‌حاصل است در بدترین حالت، و سقفِ روزانه
+     بسته‌اش می‌کند.
+
+     و اثرِ جانبی‌اش بهتر از نگارشِ اول است: این تابع دیگر **هیچ** چیزی از
+     ستونِ تیک نمی‌دانَد، پس تیکِ او ساختاراً نمی‌تواند کارِ خودکار راه
+     بیندازد — معنای ۷٫۷۴ آن ستون دست‌نخورده می‌مانَد. */
+  var pend = null;
+  try {
+    var q = vbrRead_();
+    var have = {};
+    for (var z = 0; z < (q.items || []).length; z++) have[String(q.items[z].key)] = 1;
+    for (var i = 0; i < list.length; i++) {
+      var se = list[i] || {};
+      var sp = String(se.speaker || '').trim();
+      if (!sp || !se.show || !se.ep) {
+        /* ردیفِ ناقص نام برده می‌شود، بی‌صدا رد نمی‌شود (۷٫۴۱). */
+        out.why = 'ردیفِ ناقص در VOICE_SOUL_SEED: ' + JSON.stringify(se);
+        return out;
+      }
+      if (have['نمونهٔ روح — ' + sp + ':' + String(se.ep)]) continue;
+      pend = se; break;
+    }
+  } catch (e) {
+    out.why = 'صفِ پل خوانده نشد: ' + String((e && e.message) || e).slice(0, 60);
+    return out;
+  }
+  if (!pend) { out.why = 'برای همهٔ بذرها نمونه ساخته شده'; return out; }
+
+  var max = Math.max(1, Number(CFG.VOICE_SOUL_SEED_MAX_DAY) || 2);
+  var today = String(nowStr_()).slice(0, 10);
+  var pkey = 'VSOUL_SEED_DAY';
+  var n = 0;
+  try {
+    var parts = String(props_().getProperty(pkey) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+
+  try {
+    clearRetryTriggers_('runVoiceSoulSeed');
+    ScriptApp.newTrigger('runVoiceSoulSeed').timeBased().after(60 * 1000).create();
+    props_().setProperty(pkey, today + '|' + (n + 1));
+    out.scheduled = true;
+    out.speaker = String(pend.speaker);
+    out.ep = String(pend.ep);
+    /* ══ و اینجا `logLine_` صدا زده **نمی‌شود** ══
+       نگارشِ اول می‌زد، و `run_bridge_voice_test.js` ۲۶٫۳ قرمز شد: `logLine_`
+       خودش سیاهه را در هاب می‌نویسد، یعنی `getHub_()`، یعنی یک پاسِ تعمیرِ
+       تب روی ۲۹ مگابایت — دقیقاً همان هزینه‌ای که ۷٫۶۳ از آن مُرد، این بار
+       نه در منطق بلکه در **گزارش دادن**. هزینه‌ای که شبیهِ مفت است.
+       و از دست نمی‌رود: یک دقیقهٔ دیگر خودِ `runVoiceSoulTest` سطرش را
+       می‌نویسد — چه بسازد چه امتناع کند — و ردیفِ صف و تلگرام نتیجه را
+       دارند. سطرِ «یک اجرا زمان‌بندی شد» ارزشش کمتر از یک خواندنِ هاب است. */
+  } catch (eT) {
+    out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60);
+  }
+  return out;
+}
+
+
+/** نامِ جدا، تا پاک کردنش هرگز به تریگرِ روزانه نخورد — قرینهٔ `produceEpisodeRetry`. */
+function runVoiceSoulSeed() {
+  try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+  return runVoiceSoulTest();
+}
+
+
 function vbrCollectHourly() {
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
@@ -54307,6 +54430,10 @@ function vbrCollectHourly() {
      بیشتر از یک بار در روز. */
   try { vbrSeedAsk_(); } catch (eSd) {
     try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eSd.message); } catch (eSdb) {}
+  }
+  /* و نمونهٔ «روح» — فقط **زمان‌بندی** می‌شود، کارِ سنگین اینجا نمی‌افتد. */
+  try { vbrSoulSeedDue_(); } catch (eSs) {
+    try { logLine_('بذرِ نمونهٔ روح ناموفق: ' + eSs.message); } catch (eSsb) {}
   }
   try {
     var r = vbrIngest_(null);
@@ -54686,9 +54813,27 @@ function vbrSoulPick_() {
        می‌شود — و بی‌صدا. */
     var cell = String(rows[i][PC.PICK - 1] == null ? '' : rows[i][PC.PICK - 1]).trim();
     var set = {};
+    var seeded = {};
+    /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
+       تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
+       اگر موتور خودش روی تیک عمل کند، معنای آن ستون بی‌خبر عوض می‌شود.
+       پس بذر مجموعهٔ **جداگانه**ای است و ردیفِ برگشتی می‌گوید کدام بود:
+       فقط بذر به‌طور خودکار ساخته می‌شود. */
+    var sd = CFG.VOICE_SOUL_SEED || [];
+    for (var sdi = 0; sdi < sd.length; sdi++) {
+      var se = sd[sdi] || {};
+      if (String(se.speaker || '').trim() !== key) continue;
+      if (!se.show || !se.ep) continue;
+      var sk = String(se.show) + ':' + String(se.ep);
+      set[sk] = 1; seeded[sk] = 1;
+    }
     if (cell) {
-      try { set = personaPickSet_(cell, rows[i][PC.SHOWS - 1]) || {}; }
-      catch (eS) { set = {}; }
+      try {
+        var tset = personaPickSet_(cell, rows[i][PC.SHOWS - 1]) || {};
+        for (var tk in tset) {
+          if (Object.prototype.hasOwnProperty.call(tset, tk)) set[tk] = 1;
+        }
+      } catch (eS) {}
     }
     var any = false;
     for (var kk in set) { if (Object.prototype.hasOwnProperty.call(set, kk)) { any = true; break; } }
@@ -54716,7 +54861,8 @@ function vbrSoulPick_() {
         done.push(name + ' — قسمت ' + String(item.ep));
         continue;                                // این یکی ساخته شده
       }
-      return { ok: true, key: key, name: name, cue: cue, item: item };
+      return { ok: true, key: key, name: name, cue: cue, item: item,
+               seeded: !!seeded[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -54727,8 +54873,11 @@ function vbrSoulPick_() {
               '. برای نمونهٔ تازه، قسمتِ دیگری را تیک بزنید';
     return out;
   }
+  /* «تیک خورده» گفته نمی‌شود، چون ممکن است از بذرِ موتور آمده باشد نه از
+     دستِ او (۷٫۸۴). نسبت دادنِ کاری که نکرده، همان دستورِ غلطی است که این
+     پرونده می‌گوید از نبودِ دستور بدتر است. */
   out.why = noCue.length
-    ? ('ردیفِ «' + noCue.join('» و «') + '» قسمت تیک خورده ولی ستونِ ' +
+    ? ('برای ردیفِ «' + noCue.join('» و «') + '» قسمتی در نوبت است ولی ستونِ ' +
        '«شیوهٔ خواندن»ش خالی است — بی آن روحی برای گذاشتن نیست')
     : 'هیچ قسمتی در ستونِ «قسمت‌های تولیدشده» تیک نخورده';
   return out;

@@ -2013,5 +2013,163 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
   CFG.VBR_SEED_ASKS = keepSeed;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   §۳۱ — نمونهٔ «روح» را خودِ موتور می‌خواهد (۷٫۸۴)
+
+   صاحبِ برنامه نمونهٔ گامِ ۰ را شنید: «خیلی بهتر شده بود ولی روح نداشت».
+   علتش سنجیده شد نه حدس: فایلِ منبع ۲۷ سپتامبر ۱۹:۴۴ ساخته شد، یازده
+   دقیقه **پس از** ۱۹:۳۳ که مدلِ صوتی دستورِ لحن را رد کرد. پس صاف خوانده
+   شده بود، و RVC فقط رنگ عوض می‌کند — مکث و ضرب‌آهنگ ورودی‌اش‌اند.
+
+   پس نمونه باید **از نو خوانده** شود، و آن تنها از دکمهٔ منو می‌آمد.
+   ══════════════════════════════════════════════════════════════════════ */
+{
+  const shS = personaTab_();
+  const rwS = personaRows_(shS);
+  let atS = 0;
+  for (let i = 0; i < rwS.length; i++) {
+    if (String(rwS[i][PC.KEY - 1]).trim() === 'razavi') { atS = i + 2; break; }
+  }
+  /* نامِ برنامه محلی است: `SH1` در بلوکِ §۳۰ محدود است. */
+  const SHOW31 = ((knownShows_() || [{}])[0] || {}).name || 'از همه جا از همه رنگ';
+  const keepSoul = CFG.VOICE_SOUL_SEED;
+  const keepPick = String(rwS[atS - 2][PC.PICK - 1] || '');
+  /* قسمتی که پوشه‌اش در `_YT-RENDER.json` شناخته است — وگرنه انتخاب‌کننده
+     ردش می‌کند و سنجه راهِ دیگری می‌رود (۷٫۴۴). */
+  let known = null;
+  try {
+    const d = ytRenderRead_();
+    for (const it of (d.items || [])) { if (it.folderId) { known = it; break; } }
+  } catch (e) {}
+  ok('۳۱.۰ قسمتی با پوشهٔ شناخته برای این بخش هست', !!known,
+     'بی آن، بقیهٔ سنجه‌ها چیزِ دیگری می‌سنجند');
+
+  shS.getRange(atS, PC.PITCH).setValue('');
+  shS.getRange(atS, PC.PICK).setValue('');          // هیچ تیکی
+  CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: known.show, ep: String(known.ep) }];
+
+  /* ── ۳۱.۱ بی هیچ تیکی، بذر خودش انتخاب می‌شود ── */
+  {
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const pk = vbrSoulPick_();
+    ok('۳۱.۱ بذر بی تیک انتخاب می‌شود و خودش را «بذر» می‌نامد',
+       pk.ok === true && pk.seeded === true && String(pk.item.ep) === String(known.ep),
+       JSON.stringify({ ok: pk.ok, seeded: pk.seeded, why: pk.why }));
+  }
+
+  /* ── ۳۱.۲ تیکِ او خودکار ساخته نمی‌شود ──
+     ۷٫۷۴ معنای آن ستون را «دکمه را که زدم» گذاشت. اگر موتور خودش روی تیک
+     عمل کند، معنای ستون بی‌خبر عوض شده — و او نمونه‌ای می‌گیرد که نخواسته.
+     زمان‌بند از بازنویسی به بعد **هیچ** چیزی از ستونِ تیک نمی‌دانَد، پس این
+     ساختاراً برقرار است نه تصادفاً — ولی همان را باید سنجید. */
+  {
+    CFG.VOICE_SOUL_SEED = [];
+    personaBoardSave_('razavi', false, [SHOW31], 1, 'آرام و شمرده بخوان', '', '',
+                      [String(known.show) + ':' + String(known.ep)]);
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const pk = vbrSoulPick_();
+    const due = vbrSoulSeedDue_();
+    const trg = ScriptApp.getProjectTriggers()
+      .filter(t => t.getHandlerFunction() === 'runVoiceSoulSeed').length;
+    ok('۳۱.۲ تیک انتخاب می‌شود ولی موتور خودش نمی‌سازدش',
+       pk.ok === true && !pk.seeded && due.scheduled === false && trg === 0,
+       JSON.stringify({ ok: pk.ok, seeded: pk.seeded, sched: due.scheduled,
+                        trig: trg, why: due.why }));
+  }
+
+  /* ── ۳۱.۳ کارِ سنگین **اینجا** نمی‌افتد، فقط زمان‌بندی می‌شود ──
+     ~چهار دقیقه TTS روی تریگرِ ساعتی یعنی خوردنِ کلِ اجرا و گرسنه گذاشتنِ
+     برداشت (۶٫۳۷). پس هیچ فراخوانِ TTS نباید از این مسیر برود. */
+  {
+    shS.getRange(atS, PC.PICK).setValue('');
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: known.show, ep: String(known.ep) }];
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const due = vbrSoulSeedDue_();
+    const trig = ScriptApp.getProjectTriggers()
+      .filter(t => t.getHandlerFunction() === 'runVoiceSoulSeed').length;
+    ok('۳۱.۳ زمان‌بندی می‌شود و تریگرِ خودش را می‌سازد',
+       due.scheduled === true && trig === 1,
+       JSON.stringify(due) + ' · تریگرها: ' + trig);
+    /* ── و زمان‌بند هابِ ۲۹ مگابایتی را **نمی‌خوانَد**، در هر دو حالت ──
+       نگارشِ اولم یک `logLine_` داشت و همان، هاب را می‌خوانْد؛ ۲۶٫۳ گرفتش.
+       شمارش **خواندن** است نه زمان: ماک هابِ ۲۹ مگابایتی ندارد (۷٫۶۰). */
+    {
+      const realH = global.getHub_;
+      let hn = 0;
+      global.getHub_ = function () { hn++; return realH.apply(null, arguments); };
+      try {
+        try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+        try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+        const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);
+        hn = 0;
+        const d2 = vbrSoulSeedDue_();            // حالتِ «زمان‌بندی شد»
+        const hSched = hn;
+        hn = 0;
+        const d3 = vbrSoulSeedDue_();            // حالتِ «کاری نیست» (سقف)
+        /* ثبت، نه وانمود (۷٫۷۴): برگرداندنِ `logLine_` روی **۲۶٫۳** می‌نشیند
+           نه اینجا، چون §۲۶ جلوتر اجرا می‌شود — و ۲۶٫۳ همان سنجه‌ای است که
+           خطای واقعیِ این نسخه را گرفت. این یکی همان مرز را از داخلِ §۳۱ هم
+           می‌بندد تا اگر روزی §۲۶ عوض شد، بی‌شاهد نماند. */
+        ok('۳۱.۳-ب زمان‌بند در هیچ حالتی هاب را نمی‌خوانَد',
+           d2.scheduled === true && hSched === 0 && hn === 0,
+           'زمان‌بندی: ' + hSched + ' خواندن · بی‌کار: ' + hn +
+           ' — ساعتی یک بار روی ۲۹ مگابایت همان هزینه‌ای است که ۷٫۶۳ از آن مُرد');
+      } finally { global.getHub_ = realH; }
+    }
+    /* ── ۳۱.۴ و دو بار صدا زدن، دو تریگر نمی‌سازد ── */
+    const due2 = vbrSoulSeedDue_();
+    const trig2 = ScriptApp.getProjectTriggers()
+      .filter(t => t.getHandlerFunction() === 'runVoiceSoulSeed').length;
+    ok('۳۱.۴ بارِ دوم تریگرِ دوم نمی‌سازد',
+       trig2 === 1, 'تریگرها: ' + trig2 + ' · ' + JSON.stringify(due2));
+  }
+
+  /* ── ۳۱.۵ سقفِ روزانه: خرابیِ پایدار حلقه نمی‌شود ── */
+  {
+    try { props_().setProperty('VSOUL_SEED_DAY', String(nowStr_()).slice(0, 10) + '|99'); } catch (e) {}
+    const due = vbrSoulSeedDue_();
+    ok('۳۱.۵ سقفِ روزانه جلوِ تریگرِ بی‌پایان را می‌گیرد',
+       due.scheduled === false && /سقف/.test(String(due.why)),
+       JSON.stringify(due));
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+  }
+
+  /* ── ۳۱.۶ و تریگرِ ساعتی خودش می‌پرسدش — از همان دری که تولید می‌رود ──
+     خواندنِ متنِ کد یک لایه بالاتر از خرابی می‌ایستد (۷٫۴۳)، پس خودِ
+     `vbrCollectHourly` اجرا می‌شود. */
+  {
+    try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+    try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    vbrCollectHourly();
+    const trig = ScriptApp.getProjectTriggers()
+      .filter(t => t.getHandlerFunction() === 'runVoiceSoulSeed').length;
+    ok('۳۱.۶ تریگرِ ساعتی خودش بذرِ روح را زمان‌بندی می‌کند',
+       trig === 1, 'تریگرها: ' + trig);
+  }
+
+  /* ── ۳۱.۷ و سه سدِ `runVoiceSoulTest` دور زده نمی‌شوند ──
+     شیوهٔ خواندنِ خالی یعنی روحی برای گذاشتن نیست؛ بذر این را نباید رد کند. */
+  {
+    shS.getRange(atS, PC.STYLE).setValue('');
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const pk = vbrSoulPick_();
+    /* و پیام نباید بگوید «تیک خورده»: این یکی از بذر آمده، نه از دستِ او. */
+    ok('۳۱.۷ بذر با «شیوهٔ خواندنِ» خالی انتخاب نمی‌شود و تیک را به او نسبت نمی‌دهد',
+       pk.ok === false && /شیوهٔ خواندن/.test(String(pk.why)) &&
+       String(pk.why).indexOf('تیک خورده') === -1,
+       JSON.stringify({ ok: pk.ok, why: pk.why }));
+    shS.getRange(atS, PC.STYLE).setValue('آرام و شمرده بخوان');
+  }
+
+  try { clearRetryTriggers_('runVoiceSoulSeed'); } catch (e) {}
+  try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
+  CFG.VOICE_SOUL_SEED = keepSoul;
+  shS.getRange(atS, PC.PICK).setValue(keepPick);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 

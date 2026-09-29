@@ -1077,6 +1077,64 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Eleven minutes, and the answer was in the engine's own mail (7.84)
+
+He listened to the pitch-0 sample: *«خیلی بهتر شده بود ولی روح نداشت»* — much
+better, but no soul. **The cause was measured, not reasoned**, and it is exact:
+
+```
+27 Sep 19:33  ttsCue OFF — gemini-3.8-flash-lite-tts rejected the style-cue payload
+27 Sep 19:44  the source WAV was built   ← eleven minutes later
+28 Sep 10:07  ttsCueSwitch_ moved to gemini-2.5-pro-preview-tts, which accepts it
+```
+
+Drive's `createdTime` for that file reads `15:44Z`, which is **19:44 Dubai** — the
+timezone is the whole trick, and reading it as 15:44 local would have put the file
+*before* the failure and inverted the conclusion.
+
+So the file was read **flat**, and RVC changes timbre only: pause, stretch, rhythm
+and emphasis are its **input**, not its output (7.34, restated in 7.73). 7.81's
+pitch fix made the colour right; there was no soul in the file to convert. *No
+conversion parameter can add a reading that was never performed.*
+
+**And the fix he actually needs was one he could not reach.** A soul-carrying
+sample has to be **re-read** with the speaker's style card — `runVoiceSoulTest` —
+and that was a menu button only. 7.82 took the *conversion* request out of his
+hands and left the *reading* request in them, which is the same half-delivery
+7.41 is about, one function over.
+
+`VOICE_SOUL_SEED` + `vbrSoulSeedDue_` close it, and the placement is the whole
+design: ~four minutes of TTS on the hourly collector would eat the run and starve
+collection (6.37 — a guest starves when its host does), so the scheduler only
+*schedules* and the work lands in **its own one-shot run**, the `busyRetry_`
+pattern with a per-day cap so a persistent refusal cannot loop a trigger forever.
+All three of `runVoiceSoulTest`'s gates — empty style cue, missing model, and the
+7.79 cue check before the spend — are untouched, which is why a refusal is cheap
+and honest.
+
+**His tick is deliberately not automated.** 7.74 defined that column as "build
+this when I press the button"; acting on it by itself would change the column's
+meaning without telling him. After the rewrite the scheduler cannot even see the
+tick column, so that boundary is structural rather than a promise.
+
+**And my own defect in this version was caught by an assertion already on the
+page.** The first cut logged one line when it scheduled — and `logLine_` writes
+the log tab, i.e. `getHub_()`, i.e. a tab-repair pass over the 29 MB hub, hourly.
+`run_bridge_voice_test.js` ۲۶٫۳ went red. That is 7.63/7.72/7.82 for the **fourth
+time**, and the new part worth recording is where it hid: not in the logic but in
+the **reporting** — a line that looks free. The schedule is announced by the run
+itself a minute later, which is the better record anyway.
+
+**Seven of eight deliberate breakages landed on their own assertion.** The eighth
+(restoring the `logLine_`) landed on ۲۶٫۳, because §۲۶ runs first — recorded in the
+test file rather than claimed as proof (7.74), with ۳۱٫۳-ب keeping the same
+boundary inside §۳۱ in case §۲۶ ever changes.
+
+**One small honesty defect the suite also surfaced.** With a seed and no tick, the
+"empty style cue" refusal still said «قسمت تیک خورده» — attributing to him an
+action he never took. A wrong instruction is worse than none; it now says a
+sample is queued for that row without naming a source.
+
 ## "You press it tomorrow" — and I could not, so the engine does (7.82)
 
 He asked for the plainest thing: *press it yourself tomorrow morning and send me
