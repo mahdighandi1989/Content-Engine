@@ -407,4 +407,92 @@ console.log('\n══ ۷) کلیدِ تکراری در CFG — خطایی که �
      'ردیفی که پیش از این نسخه غلط بسته شده، فقط از این در رد می‌شود');
 }
 
+console.log('\n=== ۱۰) دو سنجه با یک شماره (۸.۰۶) ===');
+{
+  /* ══ چرا این نگهبان هست ══
+   * امروز دو بار پیش آمد: بندِ تازه‌ای در `run_speak_test.js` شمارهٔ ۱۶ و ۱۷
+   * گرفت که از قبل گرفته بود، و بندِ تازه‌ای در `run_voiceintake_test.js`
+   * دو بار پشتِ سرِ هم روی شماره‌های گرفته‌شده نشست.
+   *
+   * و این آرایش نیست، **قابلیتِ ارجاع** است. کلِ این مخزن با شمارهٔ سنجه
+   * حرف می‌زند — پرامپتِ ناظر، پیامِ نسخه‌ها، و CLAUDE.md («سنجهٔ ۱۹.۳ همان
+   * شب پیدایش کرد»). دو سنجه با یک شماره یعنی روزی کسی «۱۶.۴ سرخ شد» را
+   * می‌خواند، می‌رود سراغِ آن یکی، و «تعمیر»ش سنجهٔ دیگری را سبز نگه
+   * می‌دارد در حالی که عیب سرِ جایش است.
+   *
+   * ══ و چرا **ایستا** خوانده می‌شود، با اینکه قاعدهٔ این مخزن اجراست ══
+   * نگارشِ اول هر مجموعه را با `execFileSync` می‌دواند و برچسب‌ها را از
+   * خروجیِ واقعی می‌خواند — که درست‌تر بود و **خودش را هم صدا می‌زد**، یعنی
+   * بازگشتِ بی‌پایان. آن اشتباه با اجرا پیدا شد، نه با خواندن. کنار گذاشتنِ
+   * خودش تنها نیمهٔ ماجراست: این مجموعه آن‌وقت به‌اندازهٔ کلِ ۵۳ مجموعه طول
+   * می‌کشید و در هر رُفتِ کامل دوباره همه را می‌دواند.
+   * پس اینجا عمداً متنِ پرونده خوانده می‌شود، و **محدودیتش گفته می‌شود**:
+   * برچسبی که در زمانِ اجرا ساخته شود (رشته‌ای که جمع می‌شود، یا حلقه‌ای که
+   * یک برچسب را چند بار چاپ کند) دیده نمی‌شود. همهٔ برچسب‌های امروزِ این
+   * مخزن رشتهٔ ثابت‌اند، پس پوشش کامل است — ولی روزی که نباشد، این جمله
+   * می‌گوید چرا. */
+  /* ══ بدهی، نه معافیت ══
+   * این نگهبان ۷۰ جفتِ تکراریِ **از قبل موجود** پیدا کرد. شماره‌گذاریِ
+   * دوباره‌شان جواب نیست و بدتر است: همین شماره‌ها در CLAUDE.md، در پیامِ
+   * نسخه‌ها و در پرامپتِ ناظر ارجاع داده شده‌اند، پس عوض کردنشان هر ارجاعِ
+   * موجود را باطل می‌کند — درمانی بدتر از درد.
+   * پس همان راهی که ۷٫۴۴ برای `MENU_DEBT` رفت: فهرستِ امروز ثبت می‌شود و
+   * قاعده **یک‌طرفه** است — کم شدن از این فهرست خوب است، و هر جفتِ
+   * **تازه‌ای** که نباشد، سنجه را سرخ می‌کند. معافیت نیست، بدهی است. */
+  const LABEL_DEBT = new Set([
+  'audit_test⇒۹.۱', 'audit_test⇒۹.۲', 'audit_test⇒۹.۳',
+  'board_test⇒۱۷.۸', 'bridge_test⇒۱۱.۴', 'bridge_test⇒۱۱.۵',
+  'calendar_test⇒۸.۱', 'calendar_test⇒۸.۲', 'calendar_test⇒۸.۳',
+  'calendar_test⇒۹.۱', 'calendar_test⇒۹.۲', 'calendar_test⇒۹.۳',
+  'calendar_test⇒۹.۴', 'calendar_test⇒۹.۵', 'embed_test⇒۲۰.۱',
+  'embed_test⇒۲۰.۲', 'embed_test⇒۲۰.۳', 'embed_test⇒۲۰.۴',
+  'embed_test⇒۲۰.۵', 'explain_test⇒۲.۲', 'explain_test⇒۲.۳',
+  'handout_test⇒۲۰.۷', 'handout_test⇒۸.۱', 'handout_test⇒۸.۱۰',
+  'handout_test⇒۸.۲', 'handout_test⇒۸.۳', 'handout_test⇒۸.۴',
+  'handout_test⇒۸.۵', 'handout_test⇒۸.۶', 'handout_test⇒۸.۷',
+  'handout_test⇒۸.۸', 'handout_test⇒۸.۹', 'handout_test⇒۹.۱',
+  'handout_test⇒۹.۲', 'handout_test⇒۹.۳', 'handout_test⇒۹.۴',
+  'handout_test⇒۹.۵', 'handout_test⇒۹.۶', 'handout_test⇒۹.۷',
+  'music_test⇒۷.۱۲', 'music_test⇒۷.۱۳', 'oneshot_test⇒۱.۱',
+  'oneshot_test⇒۱.۲', 'oneshot_test⇒۳۲.۱', 'oneshot_test⇒۳۲.۱۰',
+  'oneshot_test⇒۳۲.۱۱', 'oneshot_test⇒۳۲.۱۲', 'oneshot_test⇒۳۲.۱۳',
+  'oneshot_test⇒۳۲.۱۴', 'oneshot_test⇒۳۲.۱۵', 'oneshot_test⇒۳۲.۱۶',
+  'oneshot_test⇒۳۲.۲', 'oneshot_test⇒۳۲.۳', 'oneshot_test⇒۳۲.۴',
+  'oneshot_test⇒۳۲.۵', 'oneshot_test⇒۳۲.۶', 'oneshot_test⇒۳۲.۷',
+  'oneshot_test⇒۳۲.۸', 'oneshot_test⇒۳۲.۹', 'oneshot_test⇒۳۳.۱',
+  'oneshot_test⇒۳۳.۲', 'oneshot_test⇒۳۳.۳', 'oneshot_test⇒۳۶.۶',
+  'oneshot_test⇒۳۶.۷', 'outlayout_test⇒۸٫۶-ط', 'real_test⇒۱-ح',
+  'real_test⇒۱-خ', 'recap_test⇒۱۵.۱', 'recap_test⇒۱۵.۲',
+  'recap_test⇒۱۵.۳'
+  ]);
+  const dups = [], LAB = /\bok[A-Za-z0-9_]*\(\s*'([۰-۹]+(?:[.٫][۰-۹]+)?(?:-[\u0600-\u06FF]+)?)[  ]/g;
+  for (const f of fs.readdirSync('tests').filter(x => /^run_.*\.js$/.test(x)).sort()) {
+    const src = fs.readFileSync('tests/' + f, 'utf8');
+    const seen = Object.create(null);
+    for (const m of src.matchAll(LAB)) {
+      const pair = f.replace(/^run_|\.js$/g, '') + '⇒' + m[1];
+      if (seen[m[1]] && !LABEL_DEBT.has(pair)) dups.push(pair);
+      seen[m[1]] = true;
+    }
+  }
+  ok('۱۰.۱ هیچ **جفتِ تازه‌ای** شمارهٔ تکراری ندارد',
+     dups.length === 0, dups.slice(0, 10).join(' · ') || 'بی‌تکرارِ تازه');
+
+  /* و فهرست فقط کوچک می‌شود: جفتی که در بدهی هست ولی دیگر تکراری نیست،
+     باید از فهرست بیرون برود — وگرنه بدهی به معافیتِ همیشگی تبدیل می‌شود و
+     روزی دوباره تکراری شدن را نمی‌گیرد. */
+  const stale = [];
+  for (const pair of LABEL_DEBT) {
+    const i = pair.indexOf('⇒');
+    const f = 'run_' + pair.slice(0, i) + '.js', lab = pair.slice(i + 1);
+    let n = 0;
+    try {
+      for (const m of fs.readFileSync('tests/' + f, 'utf8').matchAll(LAB)) if (m[1] === lab) n++;
+    } catch (e) { n = 0; }
+    if (n < 2) stale.push(pair);
+  }
+  ok('۱۰.۲ و فهرستِ بدهی کهنه ندارد — چیزی که درست شد از آن بیرون می‌رود',
+     stale.length === 0, stale.slice(0, 10).join(' · ') || 'بی‌کهنه');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

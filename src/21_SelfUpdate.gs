@@ -1301,6 +1301,10 @@ function selfUpdateDaily() {
   // یعنی شبی که وقت کم بیاید، فایل‌ها عمومی می‌مانند — و همان شب‌ها شب‌های
   // شلوغ‌اند، یعنی دقیقاً وقتی که نباید.
   try { styleProbeUnshare_(); } catch (eSU) {}
+  /* و قرینه‌اش برای پوشهٔ «voice cloning» (۸.۰۶) — همان دلیل، به همان
+     ترتیب: **بی سدّ بودجه**، چون شبِ شلوغ همان شبی است که پوشه نباید باز
+     بمانَد. و مثل آن یکی، دری دوم روی `healthCheck` دارد (۷٫۳۹/۷٫۴۶). */
+  try { vintFolderClose_(); } catch (eVF) {}
   try {
     var spKey = String(CFG.SPEAK_STYLE_HINT || '');
     var spDone = props_().getProperty(PK.STYLE_PROBE_DONE) || '';

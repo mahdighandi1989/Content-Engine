@@ -1186,6 +1186,13 @@ function codeQueue_(hub) {
     if (seenD >= quietDays) out.quiet++; else out.pending++;
   }
   out.noAnswerDays = newestAnswer < 0 ? -1 : newestAnswer;
+  /* ══ `line` وعده داده می‌شد و همیشه خالی بود (۸.۰۶) ══
+   * این کلید از روزِ اول در شیء هست و هیچ‌وقت پر نمی‌شد: جمله را
+   * `codeQueueLine_` در `healthCheck` می‌ساخت و همان‌جا مصرف می‌کرد. یعنی
+   * هرکس `_STATUS.json` را می‌خواند — و ناظر از همان می‌خواند — `line: ''`
+   * می‌دید، که «حرفی نیست» خوانده می‌شود، نه «۱۱۱ ردیف در صف است».
+   * پر کردنش این‌جا و نه در بخشِ ۸، تا یک تعریف بمانَد (قاعدهٔ `srcJoinJs_`). */
+  try { out.line = codeQueueLine_(out); } catch (eL) {}
   return out;
 }
 

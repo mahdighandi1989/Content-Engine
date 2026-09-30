@@ -759,4 +759,61 @@ console.log('\n══ ۲۶) نرخِ نمونه — چیزی که در فایل 
   } finally { global.vintProbeOne_ = realProbe; }
 }
 
+console.log('\n=== ۱۴) پوشهٔ «voice cloning» خودش باز بود — ۲۸ شب (۸.۰۶) ===');
+{
+  /* ══ چرا این بند هست ══
+   * `outLayoutCheck_` از ۷٫۴۵ هر شب می‌گفت این پوشه «هرکس با لینک» است و
+   * متنش می‌گفت «از درایو ببندیدش». ۲۸ شب گفت. صاحبِ برنامه: «لازم نباشه من
+   * هر بار ایمیل بفرستم.» دری که آدم باید ببندد، در نیست (۵٫۹۵).
+   *
+   * و آنچه تصمیم را قطعی کرد تناقضی در همین مخزن بود: `voice-lab.yml`
+   * انتشارِ صدای کلون‌شدهٔ یک شخصِ حقیقی را رد می‌کند، و این پوشه ضبط‌های
+   * **خامِ** همان دو نفر را نگه می‌دارد. */
+  const cfF = vintCloneFolder_();
+  cfF.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  ok('۱۴.۰ حالتی که می‌سنجیم واقعاً «پوشهٔ باز» است', driveShareOpen_(cfF) === true);
+
+  const r = vintFolderClose_();
+  ok('۱۴.۱ موتور خودش می‌بنددش، نه اینکه هر شب یادآوری کند',
+     r.closed === 1 && driveShareOpen_(cfF) === false, JSON.stringify(r));
+
+  /* ۱۴.۲ — و بلند گفته می‌شود: تعمیری که کسی خبردار نشود، تعمیری است که
+     دوباره لازم خواهد شد (۷٫۳۳). نگارشِ اولِ این سنجه یک `true` ثابت بود
+     که هیچ چیزی را نمی‌سنجید — سنجه‌ای که نمی‌تواند سرخ شود، از نبودنش
+     بدتر است، چون سبز است و کسی دوباره نگاهش نمی‌کند. */
+  const lg = getHub_().getSheetByName(CFG.TAB_LOG);
+  const lrows = lg && lg.getLastRow() > 1
+    ? lg.getRange(1, 1, lg.getLastRow(), 2).getValues().map(r => String(r[1])) : [];
+  const logs = lrows.join(' ⟂ ');
+  ok('۱۴.۲ در سیاهه نامِ پوشه و دلیلش می‌آید، نه در سکوت',
+     logs.indexOf('voice cloning') !== -1 && logs.indexOf('بسته شد') !== -1,
+     (lrows.filter(x => x.indexOf('voice cloning') !== -1)[0] || 'نیامد').slice(0, 110));
+
+  /* ۱۴.۳ — پوشهٔ بسته دوباره بسته نمی‌شود: وگرنه هر شب یک خطِ
+     «بسته شد» تا آخرِ دنیا (همان عیبی که ۷٫۴۵ در قرینه‌اش گرفت). */
+  const r2 = vintFolderClose_();
+  ok('۱۴.۳ پوشهٔ بسته دوباره «بسته شد» گزارش نمی‌شود', r2.closed === 0);
+
+  /* ══ ۱۴.۴ — زیرپوشهٔ **مستقلاً** باز، با بستنِ والد بسته نمی‌شود ══
+     این همان شکافی است که ۷٫۴۵ بابتش نسخه سوزاند: سکوت درباره‌ٔ چیزی که
+     بستنِ والد حلش نمی‌کند. */
+  const kid = cfF.createFolder('گویندهٔ آزمایشی');
+  kid.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const r3 = vintFolderClose_();
+  ok('۱۴.۴ زیرپوشهٔ جدا-باز **به نام** گزارش می‌شود',
+     r3.kids.indexOf('گویندهٔ آزمایشی') !== -1, JSON.stringify(r3.kids));
+  try { kid.setTrashed(true); } catch (e) {}
+
+  /* ۱۴.۵ — و با خاموش بودنِ پذیرشِ گوینده، هیچ دستی به اشتراک نمی‌خورد:
+     قابلیتِ خاموش نباید در درایو کاری بکند. */
+  const keep = CFG.VOICE_INTAKE_ON;
+  CFG.VOICE_INTAKE_ON = false;
+  cfF.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  vintFolderClose_();
+  ok('۱۴.۵ پذیرشِ خاموش، دستی به اشتراکِ درایو نمی‌زند',
+     driveShareOpen_(cfF) === true);
+  CFG.VOICE_INTAKE_ON = keep;
+  try { cfF.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (e) {}
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
