@@ -2709,6 +2709,19 @@ console.log('=== ۵۳) دیده‌شدن: «منتظر» با «منتظر» ی�
      lvRows.some(r => String(r[9]) === 'ناقص'),
      'ردیف‌های قسمتِ ۱۰۱: ' + res101.join(' | '));
 
+  /* ۵۳.۶-ث — **و شمارِ گونه‌ها در ستونِ خودش می‌نشیند، نه ته ستونِ «علت»**
+     (باگِ ۴ی ۷.۹۹). نگارشِ ۷.۹۷ در همین فراخوان `why: vis.why || lvSubNote_()`
+     می‌نوشت، پس شمارِ گونه‌ها جای علت را می‌گرفت و `lvPhotoPending_` — که
+     خطِ ارتقا را از همین ستون درمی‌آورد — کور می‌شد. §۵۶ این را نمی‌بیند،
+     چون آن `lvLog_` را مستقیم صدا می‌زند و هر دو کلید را خودش می‌دهد: اتاق،
+     نه در (۷.۶۲). این ردیف از **بدونِ خطا** ساخته شده، پس اگر «علت» چیزی
+     داشته باشد، یعنی گونه‌ها در آن ریخته شده است. */
+  const r101 = lvRows.filter(r => String(r[2]) === '101')[0] || [];
+  ok('۵۳.۶-ث گونه‌ها در ستونِ خودش می‌رود و «علت» را نمی‌خورد',
+     String(r101[12] || '').indexOf('کارت') !== -1 &&
+     String(r101[10] || '') === '',
+     'گونه=«' + String(r101[12] || '—') + '» · علت=«' + String(r101[10] || '') + '»');
+
   /* ۵۳.۷ — مسیرِ سالم: تصویرها کامل، هیچ ردیفی در هیچ‌کدام از دو حافظه. */
   CFG.LV_BUILD_MAX = capWas;
   global.__PROPS[PK.LV_WAIT] = ''; global.__PROPS[PK.LV_SHORT] = '';
@@ -3011,9 +3024,12 @@ console.log('=== ۵۶) نظارت: تاریخچه، ارتقا، و درِ آد�
   /* ۵۶.۱ — **هر تلاش یک ردیف، موفق و ناموفق هر دو.** قسمتی که هر شب تلاش
      می‌کند و هر شب شکست می‌خورد، از بیرون با قسمتی که اصلاً تلاش نکرده یک
      شکل است — و آن دو کاملاً فرقِ هم‌اند (۵.۸۸). */
+  /* شمارِ گونه‌ها در ستونِ **خودش** می‌رود، نه ته ستونِ «علت» (باگِ ۴ی ۷.۹۹):
+     نگارشِ ۷.۹۷ `why || lvSubNote_()` می‌نوشت، پس شبی که خطایی بود شمارِ
+     گونه‌ها را می‌خورد و `lvPhotoPending_` کور می‌شد. */
   lvLog_(hub, { show: 'درس‌نامه', ep: '20', series: 'م', style: 'ساده و رسمی',
                 want: 5, ready: 5, made: 5, tries: 1, result: 'کامل',
-                why: 'کارت: 4 · عکس: 1 · عکس/ویدئو: 1', url: 'https://u/1' });
+                kinds: 'کارت: 4 · عکس: 1 · عکس/ویدئو: 1', url: 'https://u/1' });
   lvLog_(hub, { show: 'درس‌نامه', ep: '21', series: 'م', style: 'ساده و رسمی',
                 want: 5, ready: 0, made: 0, tries: 2, result: 'نشد',
                 why: 'خروجیِ PNG نشد', url: '' });
@@ -3027,12 +3043,26 @@ console.log('=== ۵۶) نظارت: تاریخچه، ارتقا، و درِ آد�
      hist[0].why.indexOf('PNG') !== -1 && hist[1].ready === 5,
      hist.map(x => x.ep + ':' + x.result).join(' | '));
 
+  /* ۵۶.۲-ب — **و «علت» شمارِ گونه‌ها را نمی‌خورد** (باگِ ۴ی ۷.۹۹). ردیفی که
+     هم خطا دارد و هم گونه‌ها، باید هر دو را نگه دارد — وگرنه خطِ ارتقا
+     دقیقاً در شب‌های خطادار کور می‌شود، که همان شب‌هایی است که به آن
+     نیاز هست. */
+  lvLog_(hub, { show: 'درس‌نامه', ep: '22', series: 'م', style: 'ساده و رسمی',
+                want: 4, ready: 2, made: 2, tries: 1, result: 'ناقص',
+                why: 'خروجیِ PNG نشد', kinds: 'کارت: 1 · عکس: 1 · عکس/ویدئو: 1',
+                gMade: 1, gSpent: 0.067, url: '' });
+  const h22 = lvHistory_(hub, 10).filter(x => x.ep === '22')[0] || {};
+  ok('۵۶.۲-پ ردیفی که هم خطا دارد هم گونه، هر دو را نگه می‌دارد',
+     h22.why.indexOf('PNG') !== -1 && h22.kinds.indexOf('عکس/ویدئو: 1') !== -1 &&
+     h22.gMade === 1 && Math.abs(h22.gSpent - 0.067) < 0.001,
+     'علت=' + h22.why + ' · گونه=' + h22.kinds + ' · پس‌زمینه=' + h22.gMade);
+
   /* ۵۶.۳ — **«ارتقایی داد گزارش بده»** — نیمه‌ای که جا افتاده بود. یکی در
      روز، نه فهرستی؛ و صریح می‌گوید ایراد نیست. */
   const up1 = lvUpgrade_(hub, { on: true, waiting: 0, short: 0 });
   ok('۵۶.۳ فرصتِ ارتقا نام‌برده می‌شود، و «عکسِ کارت‌شده» اولویتِ اول است',
      up1.key === 'lv-photo-layer' && up1.text.indexOf('لایهٔ عکسِ آزاد') !== -1 &&
-     up1.text.indexOf('۱ مورد') !== -1,
+     up1.text.indexOf('۲ مورد') !== -1,
      up1.key + ' · ' + up1.text.slice(0, 70));
 
   /* ۵۶.۳-ب — و **یکی** است، نه فهرستی: فهرستی که هر روز ده بند داشته باشد
@@ -3051,7 +3081,7 @@ console.log('=== ۵۶) نظارت: تاریخچه، ارتقا، و درِ آد�
     lvLog_(hub2, { show: 'درس‌نامه', ep: String(30 + i), series: 'م',
                    style: i % 2 ? 'نقشِ ایرانی' : 'چاپِ قدیمی',
                    want: 4, ready: 4, made: 4, tries: 1, result: 'کامل',
-                   why: 'کارت: 3 · نمودار: 1', url: 'https://u' });
+                   kinds: 'کارت: 3 · نمودار: 1', url: 'https://u' });
   }
   const up2 = lvUpgrade_(hub2, { on: true, waiting: 0, short: 0 });
   ok('۵۶.۴ روزی که فرصتی نیست، خط ساکت نمی‌مانَد',
@@ -3471,6 +3501,269 @@ console.log('=== ۵۷) لایهٔ ۳: تصویرِ ساخته‌شده با مد
   global.__STUB = stubWas;
   CFG.LV_GEN_ENABLED = genWas; CFG.LV_GEN_MODEL = modWas;
   CFG.LV_GEN_USD_MONTH = capWas; CFG.LV_GEN_PER_EP = perEpWas;
+}
+
+console.log('=== ۵۸) بازبینیِ هر هفت گام — هشت باگِ واقعی و سدهایشان (۷.۹۹) ===');
+{
+  /* هر بندِ این بخش یک باگِ **سنجیده‌شده** است، نه یک احتمال. هر هشت با
+     اجرای زنجیره از درِ تولید پیدا شدند، نه با خواندنِ کد. */
+  const hub = new Spread('HUBA');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const v = new Array(SERIES_HEADERS.length).fill('');
+  v[SC.KEY - 1] = 'kA'; v[SC.NAME - 1] = 'سیرهٔ نبوی'; v[SC.CAT - 1] = 'تاریخ اسلام';
+  /* سبکِ انتخابیِ آدم عمداً **با پیشنهاد فرق دارد** («تاریخ اسلام» را
+     `lvStyleSuggest_` «نقشِ ایرانی» پیشنهاد می‌دهد). بی این تفاوت، جانشینِ
+     پیشنهاد باگِ کلید را می‌پوشاند و شکستنِ `item.seriesKey` سبز می‌مانَد —
+     یعنی نیمهٔ دومِ خودِ اصلاح، نیمهٔ اولش را پنهان می‌کرد. */
+  v[SC.LVSTYLE - 1] = 'کاغذبری';
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([v]);
+
+  const svcWas = global.YouTube; global.YouTube = {};
+  const mkEp = (id, name, withKey) => {
+    const f = DriveApp.__register(id, name);
+    const m = { seriesName: 'سیرهٔ نبوی', seriesCat: 'تاریخ اسلام', lesson: 2,
+      ep: { title: 'ت', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: 'الف'.repeat(400) },
+                       { heading: 'دو', narration: 'ب'.repeat(300) }] } };
+    if (withKey) m.seriesKey = 'kA';
+    f.createFile(Utilities.newBlob(JSON.stringify(m), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    return f;
+  };
+  const styleOf = (f) => {
+    try { return JSON.parse(f.getFilesByName(CFG.LV_FILE).next().getBlob().getDataAsString()).style; }
+    catch (e) { return undefined; }
+  };
+
+  /* ۵۸.۱ — **باگِ ۱: سبک به قسمت‌های قدیمی نمی‌رسید.** ردیفِ صف از ۵.۹۷
+     `seriesKey` دارد، ولی ۷.۹۶ `item.series` را می‌خواند — کلیدی که هرگز در
+     ردیف نیست. برای ۴۵ درسِ قدیمی که پروندهٔ قسمتشان `seriesKey` ندارد،
+     سبک بی‌صدا اعمال نمی‌شد (`style: undefined`). */
+  ytRenderSave_({ items: [] });
+  const e1 = mkEp('BUG1A', 'قسمت 0301', true);
+  ytUploadOne_({ key: 'special:301', show: 'special', ep: '301', folderId: 'BUG1A',
+                 seriesKey: 'kA', seriesName: 'سیرهٔ نبوی' }, hub, []);
+  ytRenderSave_({ items: [] });
+  const e2 = mkEp('BUG1B', 'قسمت 0302', false);     // قسمتِ قدیمی، بی seriesKey
+  ytUploadOne_({ key: 'special:302', show: 'special', ep: '302', folderId: 'BUG1B',
+                 seriesKey: 'kA', seriesName: 'سیرهٔ نبوی' }, hub, []);
+  ok('۵۸.۱ سبک به قسمتِ قدیمی هم می‌رسد — کلید از ردیفِ صف می‌آید',
+     styleOf(e1) === 'کاغذبری' && styleOf(e2) === 'کاغذبری',
+     'با کلید: ' + styleOf(e1) + ' · بی کلید: ' + styleOf(e2) +
+     ' (پیشنهادِ این دسته «نقشِ ایرانی» است، پس اگر آن بیاید یعنی کلید نرسید)');
+
+  /* ۵۸.۱-ب — و رجیستری که **پرت کند** رشتهٔ خالی می‌دهد، نه یک حدس: «سبک
+     عوض شد» نباید از یک هابِ نخوانده دربیاید (۷.۴۰). */
+  const regWas = global.readSeriesReg_;
+  global.readSeriesReg_ = () => { throw new Error('هاب خوانده نشد'); };
+  const onThrow = lvStyleAt_(hub, { seriesKey: 'kA' }, { seriesKey: 'kA' }, 'س');
+  global.readSeriesReg_ = regWas;
+  ok('۵۸.۱-ب خواندنِ ناکامِ رجیستری رشتهٔ خالی می‌دهد، نه پیشنهاد',
+     onThrow === '', JSON.stringify(onThrow));
+
+  /* ۵۸.۱-پ — و مجموعه‌ای که ردیفی در رجیستری ندارد، **پیشنهاد** می‌گیرد:
+     «ردیفی نیست» یک دانستن است، نه ندانستن. */
+  ok('۵۸.۱-ت مجموعهٔ بی‌ردیف پیشنهاد می‌گیرد، نه پیش‌فرضِ خشک',
+     lvStyleAt_(hub, { seriesKey: 'نیست' }, { seriesCat: 'تاریخ اسلام' }, 'س') ===
+       'نقشِ ایرانی');
+
+  /* ۵۸.۲ — **باگِ ۲: تعویضِ سبک، پس‌زمینه‌های ساخته‌شده را عوض نمی‌کرد.**
+     پس‌زمینه حال‌وهوای سبک را دارد؛ اگر از نام برداشته شود، سبکِ تازه روی
+     دیدنی‌ترین بخشِ تصویر هیچ اثری ندارد. سنجیده شد: «پس‌زمینهٔ تازه = ۰». */
+  const genWas = CFG.LV_GEN_ENABLED, modWas = CFG.LV_GEN_MODEL;
+  CFG.LV_GEN_ENABLED = true; CFG.LV_GEN_MODEL = 'gemini-2.5-flash-image';
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  let gN = 0;
+  const stubWas = global.__STUB;
+  const png = (n) => { const a = new Array(n).fill(7);
+    [137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,5,0,0,0,2,208,8,6,0,0,0]
+      .forEach((b, i) => a[i] = b); return a; };
+  global.__STUB = function (url, body) {
+    if (url.indexOf('flash-image:generateContent') !== -1) { gN++;
+      return { code: 200, json: { candidates: [{ content: { parts: [
+        { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png(30000)) } }] } }] } }; }
+    return stubWas(url, body);
+  };
+  const root = global.__ROOT_FOLDER;
+  const ctxB = { show: 'special', epNum: '۳۰۳', showName: 'درس‌نامه', seriesName: 'س',
+                 cat: 'تاریخ اسلام', title: 'سه شرطِ معرفت',
+                 sections: [{ heading: 'یک', narration: 'معرفت باور صادقِ موجه است. '.repeat(20) }],
+                 totalSec: 900 };
+  const planB = () => ({ visuals: [
+    { at: 1, kind: 'کارت', cardTitle: 'الف', heading: 'یک', cardLines: ['۱'], caption: 'ز', sec: 30 }] });
+  const e3 = root.createFolder('قسمت 0303');
+  lvBuild_(e3, planB(), ctxB, 'نقشِ ایرانی');
+  const g0 = gN;
+  const rB = lvBuild_(e3, planB(), ctxB, 'چاپِ قدیمی');
+  ok('۵۸.۲ تعویضِ سبک، پس‌زمینهٔ ساخته‌شده را هم از نو می‌سازد',
+     rB.restyled === true && rB.gMade === 1 && (gN - g0) === 1,
+     'پس‌زمینهٔ تازه ' + rB.gMade + ' · فراخوانِ مدل ' + (gN - g0));
+
+  /* ۵۸.۳ — **باگِ ۳: بازسازی شناسهٔ فایل را عوض می‌کند و جزوه کهنه می‌مانَد.**
+     `lvCards_` فایلِ هم‌نام را تُرش می‌کند و تازه می‌سازد؛ جزوه شناسه‌ها را کش
+     می‌کند و کشِ ناخالی را دوباره نمی‌خوانَد ⇒ تصویرهای جزوه در مرورگر
+     می‌شکنند، بی هیچ خطایی. سنجیده شد: `F16` ← `F43`. */
+  const sfB = root.createFolder('مجموعهٔ باگِ سه');
+  const epB = sfB.createFolder('قسمت 0304');
+  epB.createFile(Utilities.newBlob(JSON.stringify({ epNum: '304' }),
+                                   'application/json', '_special.json'));
+  const q1 = lvBuild_(epB, planB(), ctxB, 'ساده و رسمی');
+  const idOld = q1.items[0].fileId;
+  const book = { seriesName: 'س', chapters: [], refs: [], roadmap: {},
+                 episodes: [{ n: '304' }], figs: {} };
+  hfigSync_(sfB, book, '', false);
+  sfB.createFile(Utilities.newBlob(JSON.stringify(book), 'application/json',
+                                   CFG.HANDOUT_JSON || '_HANDOUT.json'));
+  ok('۵۸.۳ جزوه شناسهٔ همان تصویر را کش کرده',
+     ((book.figs['304'] || [])[0] || {}).id === idOld, idOld);
+
+  /* و از **درِ دکمه** می‌رود، نه با صدا زدنِ `lvHandoutForget_`: نگارشِ اول
+     تابع را مستقیم صدا می‌زد، پس برداشتنِ فراخوانش از `lvRedoOne_` هیچ
+     سنجه‌ای را قرمز نمی‌کرد — اتاق، نه در (۷.۶۲). */
+  const q2 = lvBuild_(epB, planB(), ctxB, 'نقشِ ایرانی');
+  const foldWas = global.ytFolderOf_;
+  global.ytFolderOf_ = () => epB;
+  lvRedoOne_('special', '304');
+  global.ytFolderOf_ = foldWas;
+  const bk2 = JSON.parse(sfB.getFilesByName(CFG.HANDOUT_JSON || '_HANDOUT.json')
+                            .next().getBlob().getDataAsString());
+  hfigSync_(sfB, bk2, '', false);
+  ok('۵۸.۳-ب دکمهٔ بازسازی جزوه را هم بی‌حافظه می‌کند، پس شناسهٔ تازه را می‌گیرد',
+     q2.items[0].fileId !== idOld &&
+     ((bk2.figs['304'] || [])[0] || {}).id !== idOld,
+     'کهنه ' + idOld + ' ← جزوه حالا: ' +
+     JSON.stringify(((bk2.figs['304'] || [])[0] || {}).id));
+
+  ok('۵۸.۳-پ و اگر جزوه‌ای نباشد، هیچ خطایی نمی‌دهد',
+     lvHandoutForget_(root.createFolder('بی‌جزوه'), '1') === false);
+
+  CFG.LV_GEN_ENABLED = genWas; CFG.LV_GEN_MODEL = modWas;
+  global.__STUB = stubWas;
+
+  /* ۵۸.۴ — **باگِ ۷: دستورِ تصویر فقط عنوان را می‌دید.** صاحبِ برنامه پرسید
+     «مگه متن رو نمی‌بینه مدلی که می‌خواد بسازه؟» و نمی‌دید. حالا مجموعه،
+     درس، بخش، زیرنویس و **بریده‌ای از متنی که در آن لحظه خوانده می‌شود**
+     همه می‌روند — همان زمینه‌دادنی که تصویرهای نوت‌بوک را بامعنا می‌کند. */
+  const pr = lvGenPrompt_(planB().visuals[0], lvStyleFind_('نقشِ ایرانی'), ctxB);
+  ok('۵۸.۴ دستورِ تصویر متنِ واقعیِ همان بخش را می‌بیند، نه فقط عنوان را',
+     pr.indexOf('سه شرطِ معرفت') !== -1 && pr.indexOf('باور صادقِ موجه') !== -1 &&
+     pr.indexOf('حالتش را') !== -1 && pr.length > 900,
+     pr.length + ' نویسه');
+
+  ok('۵۸.۴-ب و بی زمینه هم کار می‌کند، با همان سه قیدِ قطعی',
+     lvGenPrompt_({ cardTitle: 'الف' }, null, null).indexOf('هیچ چهره') !== -1);
+
+  /* ۵۸.۵ — **باگِ ۸: چهار کارتِ پشتِ‌هم یک چیدمان داشتند.** خواستهٔ صریح
+     «تکراری نباشه و متنوع و قشنگ باشه»، و سنجیده شد که نبود. تنوع **درونِ**
+     سبک می‌مانَد: رنگ و قاب یکی است، جای متن و وزنش می‌گردد. */
+  const ep6 = root.createFolder('قسمت 0305');
+  const six = [];
+  for (let k = 0; k < 6; k++) six.push({ at: 1, kind: 'کارت', cardTitle: 'گزارهٔ ' + k,
+    heading: 'یک', cardLines: ['الف', 'ب'], caption: 'ز', sec: 20 });
+  lvBuild_(ep6, { visuals: six }, ctxB, 'ساده و رسمی');
+  const pr6 = global.__PRES_LAST;
+  const sig = pr6.getSlides().map(sl => {
+    const t = sl.getPageElements().filter(e => e.role === 'text');
+    const big = t.slice().sort((a, b) =>
+      (b.getText().style.size || 0) - (a.getText().style.size || 0))[0];
+    const rules = sl.getPageElements().filter(e => e.role === 'shape' &&
+      Math.round(e.getHeight()) <= 4 && Math.round(e.getWidth()) < 200);
+    return Math.round(big.getTop()) + '/' + (big.getText().para.align || '-') +
+           '/' + rules.length;
+  });
+  ok('۵۸.۵ شش کارتِ یک قسمت چهار چیدمانِ یکتا دارند، نه یکی',
+     pr6.getSlides().length === 6 && new Set(sig).size === 4 &&
+     sig[0] !== sig[1] && sig[1] !== sig[2],
+     new Set(sig).size + ' یکتا از ' + sig.length + ' · ' + sig.join(' | '));
+
+  /* ۵۸.۵-ب — ولی رنگ و قاب **یکی** می‌مانند: یک قسمت باید یک چیز به‌نظر
+     بیاید، و دو سبکِ هنری در یک ویدئو همان چیزی است که طرح ردش کرد. */
+  const bgs = pr6.getSlides().map(sl => sl.getPageElements()[0].fill.color);
+  ok('۵۸.۵-پ ولی رنگِ همهٔ کارت‌های یک قسمت یکی است — تنوع در چیدمان، نه در سبک',
+     new Set(bgs).size === 1 && bgs[0] === lvStyleFind_('ساده و رسمی').pal.bg,
+     bgs[0]);
+
+  /* ۵۸.۶ — **باگِ ۶: کاور و کارت‌ها دو ظاهرِ بی‌ربط داشتند.** خواستهٔ صریحِ
+     صاحبِ برنامه، و سنجیده شد: `#F3EAD3` در برابرِ `#0B3B3C`. بندانگشتی
+     اولین چیزی است که آدم‌ها قضاوتش می‌کنند، و یک‌دستی همان چیزی است که
+     «حرفه‌ای» به‌نظر رسیدن را می‌سازد. */
+  /* برچسبِ قسمت **تازه** است، وگرنه `ytCoverCached_` کاورِ ساخته‌شدهٔ ۵۸.۱ را
+     برمی‌دارد، هیچ ارائه‌ای ساخته نمی‌شود و `__PRES_LAST` همان ارائهٔ
+     کارت‌های ۵۸.۵ می‌مانَد — یعنی سنجه شیءِ اشتباهی را می‌خواند. نگارشِ اول
+     همین شد و روی کدِ درست قرمز درآمد. */
+  const cv = ytCoverCard_({ title: 'ت', coverTitle: 'سه شرط', showName: 'درس‌نامه',
+    seriesName: 'سیرهٔ نبوی', epLabel: 'درس ۹۹', cat: 'تاریخ اسلام', style: 'نقشِ ایرانی' });
+  const cp = global.__PRES_LAST;
+  const cels = cp.getSlides()[0].getPageElements();
+  ok('۵۸.۶ کاور رنگ و قابِ سبکِ همان مجموعه را می‌گیرد',
+     cels[0].fill.color === lvStyleFind_('نقشِ ایرانی').pal.bg &&
+     cels.filter(e => e.shape === 'DIAMOND').length === 18,
+     cels[0].fill.color + ' با ' + cels.filter(e => e.shape === 'DIAMOND').length + ' لوزی');
+
+  ok('۵۸.۶-ب و سبک در نامِ کاور است، وگرنه کاورِ سبکِ قبلی از حافظه برداشته می‌شود',
+     ytCoverName_({ epLabel: 'د', showName: 'ن', style: 'نقشِ ایرانی' })
+       .indexOf('نقشِ ایرانی') !== -1 &&
+     ytCoverName_({ epLabel: 'د', showName: 'ن', style: 'چاپِ قدیمی' }) !==
+     ytCoverName_({ epLabel: 'د', showName: 'ن', style: 'نقشِ ایرانی' }),
+     ytCoverName_({ epLabel: 'د', showName: 'ن', style: 'نقشِ ایرانی' }));
+
+  ok('۵۸.۶-پ و کاورِ بی‌سبک عیناً رفتارِ قبلی است — هیچ‌چیز خراب نمی‌شود',
+     (function () {
+       const c2 = ytCoverCard_({ title: 'ت', coverTitle: 'ک', showName: 'ن',
+         seriesName: 'س', epLabel: 'درس ۹۸', cat: 'فلسفه' });
+       const e = global.__PRES_LAST.getSlides()[0].getPageElements();
+       return e[0].fill.color === ytPalette_('فلسفه').bg &&
+              e.filter(x => x.shape === 'DIAMOND').length === 0;
+     })());
+
+  /* ۵۸.۷ — و هر دو مسیرِ کاور (آپلود و بازسازی) سبک را می‌دهند: «دوقلویی که
+     یک‌بار درست شود، یک‌بار درست شده است» (۵.۹۵). */
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const calls = (src27.match(/ytCoverCard_\(\{[\s\S]*?\}\)/g) || []);
+  const epCalls = calls.filter(c => c.indexOf('epLabel') !== -1);
+  /* **هر سه** مسیر، نه دو: آپلود، بازسازی، و کاورِ پلی‌لیست (که کاورِ پادکست
+     هم هست). نگارشِ اولِ این سنجه دو تا می‌خواست و سومی را نمی‌دید — و آن
+     سومی دیدنی‌ترین تصویرِ سطحِ مجموعه است. */
+  ok('۵۸.۷ هر سه مسیرِ کاور سبک را می‌دهند — یک قابلیت، سه در',
+     epCalls.length === 3 && epCalls.every(c => c.indexOf('style:') !== -1),
+     epCalls.length + ' فراخوانِ کاور، ' +
+     epCalls.filter(c => c.indexOf('style:') !== -1).length + ' با سبک');
+
+  /* ۵۸.۷-ب — **و مسیرِ سومی رفتاری سنجیده می‌شود، نه با خواندنِ منبع.**
+     شکستنی که این سنجه از آن زاده شد: `ytPlDress_` را وادار کردم سبک را
+     ندهد (`ytPlaylistCover_(..., '')`). سنجهٔ ۵۸.۷ فقط فراخوان‌های
+     `ytCoverCard_` را می‌شمارد، و آن یکی دست‌نخورده بود — پس سبز مانْد.
+     یعنی سنجه‌ای که منبع را می‌خوانَد یک لایه بالاتر از جایی ایستاده بود
+     که واقعاً می‌شکند (۷.۴۳). این یکی از درِ `ytPlDress_` می‌رود، همان دری
+     که `ytPlaylistSync_` از آن وارد می‌شود، و **رنگِ کشیده‌شده** را
+     می‌پرسد، نه متنِ کد را. */
+  const kpPod = global.ytPlPodcast_, kpHttp = global.ytHttp_;
+  const kpMap = global.__PROPS[PK.YT_PLMAP];
+  global.ytPlPodcast_ = () => 'نشست';
+  global.ytHttp_ = () => ({ code: 200, text: '{}' });
+  ytPlMapSave_({ kA: { id: 'PLA', title: 'سیرهٔ نبوی' } });
+  global.__PRES_LAST = null;
+  const outPl = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLA', 'سیرهٔ نبوی', 'سیرهٔ نبوی', 'درس‌نامه', 'تاریخ اسلام',
+             false, outPl, 'kA');
+  const plPal = (function () {
+    try { return global.__PRES_LAST.getSlides()[0].getPageElements()[0].fill.color; }
+    catch (e) { return 'کشیده نشد: ' + e.message; }
+  })();
+  ok('۵۸.۷-ب کاورِ پلی‌لیست واقعاً با سبکِ مجموعه کشیده می‌شود',
+     outPl.covers === 1 &&
+     plPal === lvStyleFind_('کاغذبری').pal.bg &&
+     plPal !== ytPalette_('تاریخ اسلام').bg,
+     'رنگِ کشیده‌شده ' + plPal + ' · سبک ' + lvStyleFind_('کاغذبری').pal.bg +
+     ' · دستهٔ خالی ' + ytPalette_('تاریخ اسلام').bg);
+
+  global.ytPlPodcast_ = kpPod; global.ytHttp_ = kpHttp;
+  if (kpMap === undefined) delete global.__PROPS[PK.YT_PLMAP];
+  else global.__PROPS[PK.YT_PLMAP] = kpMap;
+
+  if (svcWas === undefined) delete global.YouTube; else global.YouTube = svcWas;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

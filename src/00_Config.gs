@@ -549,6 +549,7 @@ var CFG = {
   LV_GEN_PER_RUN: 6,            // و چند در هر اجرا، تا یک شب کلِ ماه را نخورد
   LV_GEN_MIN_BYTES: 12000,      // کوچک‌تر از این، تصویر نیست
   LV_GEN_SCRIM: 0.55,           // شفافیتِ لایهٔ تیره روی تصویر (خوانایی متن)
+  LV_GEN_CTX_CHARS: 700,        // چند نویسه از متنِ همان بخش به دستورِ تصویر برود
   LV_GEN_PRICES: [
     { match: 'flash-lite-image', usd: 0.034 },
     { match: 'flash-image', usd: 0.067 },
@@ -1307,7 +1308,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.98',
+  CODE_VERSION: '7.99',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

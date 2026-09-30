@@ -560,7 +560,12 @@ function ytPngSize_(blob) {
 function ytCoverName_(c) {
   /* کاورِ مربع نامِ جدا دارد، وگرنه کاورِ ۱۶:۹ی همان مجموعه از حافظه
      برداشته می‌شود و پادکست باز هم کاورِ غلط می‌گیرد — یک اشتباهِ بی‌صدا. */
+  /* سبک در نام است (۷.۹۹): وگرنه با عوض‌شدنِ سبکِ مجموعه، کاورِ کهنه از
+     حافظه برداشته می‌شود و کانال یک کاورِ سبکِ قبلی را نشان می‌دهد در حالی
+     که کارت‌هایش سبکِ تازه دارند. همان درسِ ۷.۸۶: چیزی که یک پارامتر را
+     نشان می‌دهد، باید آن پارامتر در شناسه‌اش باشد. */
   return 'کاور — ' + String(c.epLabel || '') + ' — ' + String(c.showName || '') +
+         (c.style ? ' — ' + String(c.style) : '') +
          (c.square ? ' — مربع' : '') + '.png';
 }
 
@@ -687,7 +692,16 @@ function ytCoverCard_(c) {
       var cached = ytCoverCached_(c);
       if (cached) return cached;
     }
-    var pal = ytPalette_(c.cat || c.seriesName || c.showName);
+    /* ══ کاور از **سبکِ همان مجموعه** می‌آید، نه از هشِ نامِ دسته (۷.۹۹) ══
+     * خواستهٔ صریحِ صاحبِ برنامه: «کاورِ پادکست … باید با توجه به این قابلیت
+     * قشنگ‌تر و بهتر کار کنه». و ایرادش درست بود: کاور با `ytPalette_` رنگ
+     * می‌گرفت و کارت‌ها با `LV_STYLES` — سنجیده شد و دو رنگِ کاملاً جدا
+     * درآمدند (`#F3EAD3` در برابرِ `#0B3B3C`). یعنی بندانگشتیِ ویدئو و
+     * خودِ ویدئو دو ظاهرِ بی‌ربط داشتند، و آنچه کانال را «حرفه‌ای» نشان
+     * می‌دهد پیش از هر چیز همین یک‌دستی است.
+     * و اگر سبکی داده نشده باشد، عیناً رفتارِ قبلی: هشِ دسته. */
+    var csty = c.style ? lvStyleFind_(c.style) : null;
+    var pal = (csty && csty.pal) || ytPalette_(c.cat || c.seriesName || c.showName);
     var name = ytCoverName_(c).replace(/\.png$/, '');
     /* ۱۲۸۰×۷۲۰ در ۹۶ نقطه بر اینچ = ۱۳٫۳۳×۷٫۵ اینچ. یوتیوب همین را توصیه
        می‌کند و کارتِ ۹۶۰×۵۴۰ باید بالا کشیده شود — یعنی متنِ نرم.
@@ -709,10 +723,15 @@ function ytCoverCard_(c) {
     bg.getFill().setSolidFill(pal.bg);
     bg.getBorder().setTransparent();
 
-    // نوارِ رنگی پایین — لنگرِ بصری، تا کارت خالی به‌نظر نیاید
-    var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H - H * 0.055, W, H * 0.055);
-    bar.getFill().setSolidFill(pal.ac);
-    bar.getBorder().setTransparent();
+    /* قابِ همان سبک — همان تابعی که کارت‌ها از آن استفاده می‌کنند، پس
+       بندانگشتی و اسلایدها یک خانواده‌اند. بی سبک، نوارِ پایینِ قبلی. */
+    if (csty) {
+      try { lvFrameDraw_(slide, W, H, pal, String(csty.frame || 'bar'), 0); } catch (eFr) {}
+    } else {
+      var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H - H * 0.055, W, H * 0.055);
+      bar.getFill().setSolidFill(pal.ac);
+      bar.getBorder().setTransparent();
+    }
 
     var pad = W * 0.07;
     var put = function (txt, top, height, size, color, bold, align) {
@@ -2062,6 +2081,36 @@ function lvStyleOf_(vals) {
 }
 
 /**
+ * سبکِ مجموعهٔ یک قسمت — **یک تعریف**، برای کاور و کارت‌ها با هم (۷٫۹۹).
+ *
+ * ══ باگی که این تابع برایش هست (سنجیده) ══
+ * کلید از **ردیفِ صفِ انتشار** می‌آید (`item.seriesKey`, از ۵٫۹۷). نگارشِ
+ * ۷٫۹۶ اینجا `item.series` را می‌خواند — کلیدی که هیچ‌وقت در ردیف نیست — و
+ * فقط چون `_special.json` هم `seriesKey` دارد سرِ پا می‌ماند. برای
+ * **قسمت‌های قدیمی که پروندهٔ قسمتشان `seriesKey` ندارد** (همان ۴۵ درسی که
+ * `ytBackfill_` منتشرشان می‌کند) سبک بی‌صدا اعمال نمی‌شد: آزمون نشان داد
+ * `style` برابرِ `undefined` درمی‌آید، یعنی سبکِ انتخابیِ آدم هیچ اثری
+ * نداشت.
+ *
+ * و سه جوابِ متفاوت برای سه حالتِ متفاوت:
+ *   • ردیف پیدا شد ⇒ سبکِ همان ردیف (یا پیشنهادش، اگر خانه خالی است).
+ *   • رجیستری خوانده شد ولی ردیف نبود ⇒ **پیشنهاد از خودِ پروندهٔ قسمت**.
+ *     «این مجموعه ردیفی ندارد» یک دانستن است، نه ندانستن.
+ *   • خواندن پرت کرد ⇒ رشتهٔ خالی، که یعنی «همان که ذخیره شده» و هیچ
+ *     بازسازی‌ای راه نمی‌اندازد (۷٫۴۰: «نمی‌دانیم» با «عوض شد» یکی نیست).
+ */
+function lvStyleAt_(hub, item, meta, seriesName) {
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) return lvStyleOf_(rec.vals).key;
+    return lvStyleSuggest_(String((meta && (meta.seriesCat || meta.cat)) || ''),
+                           '', String(seriesName || ''));
+  } catch (e) { return ''; }
+}
+
+/**
  * خانه‌های **خالی** را با پیشنهاد پر می‌کند و خانه‌های ناخوانا را نام می‌برد.
  *
  * دو مرز: خانهٔ دست‌نویس هرگز بازنویسی نمی‌شود، و نوشتن فقط وقتی انجام
@@ -2214,14 +2263,39 @@ function lvGenRoom_(model) {
  *   • هیچ نشان و لوگو و پرچم — همان پرسشِ حق‌نشر که `visprobe.py` برایش سد
  *     گذاشت، این بار از سمتِ ساخت.
  */
-function lvGenPrompt_(v, style) {
+function lvGenPrompt_(v, style, ctx) {
   var subj = String((v && (v.cardTitle || v.heading)) || '').trim();
   var look = (style && style.gen) ? String(style.gen) : 'تصویرسازیِ آرام و رسمی';
+  /* ══ متنِ واقعیِ همان بخش، نه فقط عنوانش (۷.۹۹) ══
+   * صاحبِ برنامه پرسید «مگه متن رو و سایر چیزها رو نمی‌بینه مدلی که می‌خواد
+   * بسازه؟» — و درست پرسید: نمی‌دید. نگارشِ ۷.۹۸ فقط `cardTitle` را می‌داد،
+   * یعنی مدل از یک عنوانِ چهار‌کلمه‌ای باید حال‌وهوا می‌ساخت.
+   * این همان کاری است که نوت‌بوکِ گوگل می‌کند و تصویرهایش «بامعنا» درمی‌آیند:
+   * **زمینه** می‌دهد، نه یک برچسب. پس عنوانِ قسمت، نامِ مجموعه، سرِ بخش،
+   * زیرنویسِ خودِ تصویر، و یک بریدهٔ واقعی از متنی که در همان لحظه خوانده
+   * می‌شود همه می‌روند — و همه **فقط برای حال‌وهوا**, که صریح گفته می‌شود
+   * تا مدل سراغِ نشان‌دادنِ عینِ مطلب نرود. */
+  var about = [];
+  if (ctx && ctx.seriesName) about.push('مجموعه: ' + String(ctx.seriesName));
+  if (ctx && ctx.title) about.push('درس: ' + String(ctx.title));
+  if (v && v.heading) about.push('بخش: ' + String(v.heading));
+  if (subj) about.push('گزارهٔ این تصویر: ' + subj);
+  if (v && v.caption) about.push('زیرنویسِ این تصویر: ' + String(v.caption));
+  var body = '';
+  try {
+    var secs = (ctx && ctx.sections) || [];
+    var at = Number((v && v.at) || 0);
+    var sec = secs[at - 1];
+    var txt = String((sec && (sec.narration || sec.text)) || '').replace(/\s+/g, ' ').trim();
+    if (txt) body = txt.slice(0, Math.max(200, Number(CFG.LV_GEN_CTX_CHARS) || 700));
+  } catch (eB) {}
   return 'یک تصویرسازیِ **بی‌واژه** و انتزاعی برای پس‌زمینهٔ یک اسلایدِ ' +
     'آموزشی بساز. نسبتِ ۱۶:۹.\n' +
     'حال‌وهوا: ' + look + '.\n' +
-    (subj ? 'موضوعِ درس (فقط برای حال‌وهوا، نه برای نشان‌دادنِ عین آن): ' +
-            subj + '\n' : '') +
+    (about.length ? 'زمینه (فقط برای حال‌وهوا، نه برای نشان‌دادنِ عینِ آن):\n  ' +
+                    about.join('\n  ') + '\n' : '') +
+    (body ? 'و این همان متنی است که در این لحظه خوانده می‌شود — حالتش را ' +
+            'بگیر، نه محتوایش را:\n«' + body + '»\n' : '') +
     'قیدهای قطعی:\n' +
     '• هیچ متن، حرف، واژه، عدد یا نوشته‌ای در تصویر نباشد.\n' +
     '• هیچ چهره و هیچ شخصِ شناختنی نباشد.\n' +
@@ -2321,7 +2395,7 @@ function lvBgName_(i, v) {
  * پس‌زمینه‌های لازمِ این دسته را می‌سازد یا از پوشه برمی‌دارد.
  * @return {{map:Object, made:number, spent:number, why:string, model:string}}
  */
-function lvGenFill_(todo, imgFolder, style) {
+function lvGenFill_(todo, imgFolder, style, ctx) {
   var out = { map: Object.create(null), made: 0, spent: 0, why: '', model: '' };
   if (!lvGenOn_() || !todo || !todo.length) return out;
 
@@ -2352,7 +2426,7 @@ function lvGenFill_(todo, imgFolder, style) {
   var cap = Math.min(need.length, room, Math.max(1, Number(CFG.LV_GEN_PER_RUN) || 6));
 
   for (var k = 0; k < cap; k++) {
-    var r = lvGenOne_(mk.id, lvGenPrompt_(need[k].v, style));
+    var r = lvGenOne_(mk.id, lvGenPrompt_(need[k].v, style, ctx));
     out.spent += r.usd;
     if (!r.blob) { if (!out.why) out.why = r.why; continue; }
     var nm2 = lvBgName_(need[k].i, need[k].v);
@@ -2608,6 +2682,25 @@ function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame, bgImg) {
   }
   try { lvFrameDraw_(slide, W, H, pal, String(frame || 'bar'), i); } catch (eF) {}
 
+  /* ══ چهار چیدمان، نه یکی (۷.۹۹) ══
+   * خواستهٔ صریح: «جوری که تکراری نباشه و متنوع و قشنگ باشه». سنجیده شد و
+   * نبود: چهار کارتِ پشتِ‌هم **یک** چیدمانِ یکتا داشتند و تنها تفاوتشان جای
+   * نوارِ باریکِ کناری بود. دوازده کارت در یک قسمت یعنی دوازده تصویرِ
+   * تقریباً یکسان.
+   * ولی تنوع **درونِ** سبک می‌مانَد: رنگ و قاب یکی است (یک قسمت باید یک چیز
+   * به‌نظر بیاید)، و آنچه می‌گردد **جای متن و وزنش** است — بالا/وسط/پایین،
+   * راست‌چین/وسط‌چین، با و بی خطِ جداکننده. چهار چیدمان با چرخشِ `i % 4`، پس
+   * هیچ دو کارتِ پیاپی یکی نیستند و هر چهارمین یکی تکرار می‌شود — و آن
+   * فاصله در ویدئو دیده نمی‌شود.
+   * ترتیبِ درج عمداً دست‌نخورده: متن بعد از قاب و لایهٔ تیره می‌آید، پس
+   * همیشه رویشان است (سنجهٔ ۵۷.۹-ب/ت). */
+  var LAY = [
+    { top: 0.17, tall: 0.22, body: 0.42, align: 'END',    rule: false },
+    { top: 0.30, tall: 0.24, body: 0.58, align: 'END',    rule: true  },
+    { top: 0.13, tall: 0.20, body: 0.38, align: 'CENTER', rule: true  },
+    { top: 0.24, tall: 0.26, body: 0.54, align: 'END',    rule: false }
+  ];
+  var lay = LAY[Math.abs(Number(i) || 0) % LAY.length];
   var pad = W * 0.075;
   var put = function (txt, top, height, size, color, bold, align) {
     var box = slide.insertTextBox(String(txt == null ? '' : txt), pad, top, W - pad * 2, height);
@@ -2618,13 +2711,34 @@ function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame, bgImg) {
     } catch (eP) {}
     return box;
   };
+  var alignOf = function (nm) {
+    try {
+      return nm === 'CENTER' ? SlidesApp.ParagraphAlignment.CENTER
+                             : SlidesApp.ParagraphAlignment.END;
+    } catch (eA) { return null; }
+  };
 
   // سرِ بخش، بالا — تا تصویر بدونِ صوت هم بگوید کجای درس است
-  if (v && v.heading) put(ytVisCut_(v.heading, 60), H * 0.085, H * 0.085, 16, pal.ac, true);
+  if (v && v.heading) {
+    put(ytVisCut_(v.heading, 60), H * 0.085, H * 0.085, 16, pal.ac, true, alignOf(lay.align));
+  }
 
   var ttl = String((v && v.cardTitle) || (v && v.heading) || '');
   var fs = ttl.length > 34 ? 30 : (ttl.length > 20 ? 36 : 44);
-  put(ttl, H * 0.17, H * 0.22, fs, pal.fg, true);
+  put(ttl, H * lay.top, H * lay.tall, fs, pal.fg, true, alignOf(lay.align));
+
+  /* خطِ جداکنندهٔ کوتاه زیرِ عنوان — در دو چیدمان از چهار. کوچک است و
+     همان‌قدر کار می‌کند: چشم می‌فهمد کارت تازه است. */
+  if (lay.rule) {
+    try {
+      var rw = W * 0.14;
+      var rx = lay.align === 'CENTER' ? (W - rw) / 2 : (W - pad - rw);
+      var rl = slide.insertShape(SlidesApp.ShapeType.RECTANGLE,
+        rx, H * (lay.top + lay.tall - 0.01), rw, H * 0.006);
+      rl.getFill().setSolidFill(pal.ac);
+      rl.getBorder().setTransparent();
+    } catch (eR) {}
+  }
 
   var lines = (v && v.cardLines) || [];
   if (kind === 'نمودار' && lines.length) {
@@ -2632,7 +2746,8 @@ function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame, bgImg) {
   } else if (lines.length) {
     var body = [];
     for (var L = 0; L < lines.length; L++) body.push('•  ' + String(lines[L] || ''));
-    put(body.join('\n'), H * 0.42, H * 0.34, lines.length > 3 ? 18 : 21, pal.fg, false);
+    put(body.join('\n'), H * lay.body, H * 0.32, lines.length > 3 ? 18 : 21,
+        pal.fg, false, alignOf(lay.align));
   }
 
   /* پانویس: برنامه، قسمت، و **شمارهٔ همین تصویر از کل**. آن عددِ آخر ارزان
@@ -2785,6 +2900,25 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
       if (it.hasNext()) have[String(i)] = it.next().getId();
     } catch (eH) {}
   }
+  /* ══ سبکِ تازه، پس‌زمینهٔ کهنه را هم باطل می‌کند ══
+   * پس‌زمینهٔ ساخته‌شده **حال‌وهوای همان سبک** را دارد (`style.gen`). اگر
+   * فقط کارت‌ها از نو ساخته شوند و پس‌زمینه‌ها از نامشان برداشته شوند، سبکِ
+   * تازه روی **دیدنی‌ترین** بخشِ تصویر هیچ اثری ندارد — یعنی همان «تنظیمی
+   * که اثرِ دیدنی ندارد» که ۷.۹۶ برایش ساخته شد، یک لایه آن‌طرف‌تر. سنجیده
+   * شد: با تعویضِ سبک، «پس‌زمینهٔ تازه = ۰».
+   * ساختنِ دوباره پول می‌خواهد و این **درست** است: صاحبِ برنامه سبک را عوض
+   * کرده. سقف‌های ماهانه و هر اجرا سرِ جایشان‌اند. */
+  if (out.restyled && out.gen) {
+    var gone = 0;
+    for (var gk = 0; gk < want.length; gk++) {
+      try {
+        var gi = imgFolder.getFilesByName(lvBgName_(gk, want[gk]));
+        while (gi.hasNext()) { gi.next().setTrashed(true); gone++; }
+      } catch (eGT) {}
+    }
+    if (gone) logLine_('سبک عوض شد، پس ' + gone + ' پس‌زمینهٔ ساخته‌شده هم ' +
+                       'به زباله رفت و از نو ساخته می‌شود.');
+  }
   if (out.restyled) {
     /* پیام **دستور** را می‌گوید، نه سبک را. مقایسه از ۷.۹۸ روی «سبک + لایهٔ
        ۳» است، و پیامی که فقط سبک را چاپ کند در حالتِ «سبک همان، لایهٔ ۳
@@ -2808,7 +2942,7 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
     /* پس‌زمینه‌ها **پیش از** کارت‌ها، چون کارت رویشان کشیده می‌شود. و شکستش
        هرگز کارت را زمین نمی‌زند: نقشهٔ خالی یعنی کارتِ ساده — رفتارِ ۷.۹۶. */
     var bgm = { map: {}, made: 0, spent: 0, why: '', model: '' };
-    try { bgm = lvGenFill_(todo, imgFolder, sty); }
+    try { bgm = lvGenFill_(todo, imgFolder, sty, ctx); }
     catch (eG) { bgm.why = 'پس‌زمینه ساخته نشد: ' + eG.message; logLine_(bgm.why); }
     out.gMade = bgm.made; out.gSpent = bgm.spent; out.gModel = bgm.model;
     if (bgm.why && !out.why) out.why = bgm.why;
@@ -2849,6 +2983,9 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   if (out.style) d.style = out.style;
   if (out.recipe) d.recipe = out.recipe;
   d.gen = out.gen === true;
+  /* شمارهٔ بازنگری: هر بار که فایلی ساخته شد، شناسه‌ها عوض شده‌اند. جزوه
+     شناسه‌ها را کش می‌کند، پس باید بتواند بفهمد کهنه شده (باگِ ۳). */
+  if (out.made) d.rev = (Number(d.rev) || 0) + 1;
   d.note = 'این تصویرها را ویدئوی یوتیوب و جزوه هر دو می‌خوانند. ' +
            'فایلِ پاک‌شده شبِ بعد دوباره ساخته می‌شود.';
   lvWrite_(epFolder, d);
@@ -3067,6 +3204,23 @@ function lvHealth_(problems, notes) {
     } catch (eF) {}
   }
 
+  /* ══ لایهٔ ۳ روشن ولی ناکارآمد — پیکربندیِ آدم، نه باگِ کد (۷.۹۹) ══
+   * پس یافته نمی‌سازد (یافته‌ای که با عوض‌کردنِ یک تنظیم بسته شود، در صفِ
+   * «نیازمند تعویض کد» جایی ندارد) — ولی **باید دیده شود**، وگرنه سوئیچی
+   * روشن است و هیچ کاری نمی‌کند: همان بدترین حالتِ ۷.۴۵. */
+  try {
+    var g = lvGenStatus_();
+    if (g.on && !g.model) {
+      problems.push('تصویرِ ساخته‌شده روشن است ولی هیچ مدلِ تصویری پیدا نشد — ' +
+        'یعنی هیچ پس‌زمینه‌ای ساخته نمی‌شود. `LV_GEN_MODEL` را صریح بگذارید ' +
+        'یا ببینید حسابِ Gemini مدلِ تصویر دارد.');
+    } else if (g.on && g.room <= 0) {
+      problems.push('سقفِ ماهانهٔ تصویرِ ساخته‌شده پر شده (~' + g.usd.toFixed(2) +
+        ' از ' + faDigitsOut_(String(g.cap)) + ' دلار) — از این پس کارت‌ها ساده ' +
+        'ساخته می‌شوند تا اولِ ماه یا تا بالا بردنِ `LV_GEN_USD_MONTH`.');
+    }
+  } catch (eGh) {}
+
   /* «کم‌رفته» یافتهٔ کد **نمی‌سازد**: کارِ گذشته است، برنگشتنی، و یافته‌ای
      که هیچ اصلاحی نمی‌تواند ببنددش تا ابد در صف می‌مانَد — همان چیزی که
      ۷٫۴۲ دربارهٔ صفِ بی‌پاسخ نوشت. در مسئله‌های روز می‌آید تا دیده شود. */
@@ -3107,8 +3261,14 @@ function lvHealth_(problems, notes) {
  * و سدی که با دستِ آدم باز نشود، سد نیست (۵٫۹۵).
  */
 
+/* «گونه‌ها» ستونِ خودش را دارد، نه ته ستونِ «علت» (باگِ ۴). نگارشِ ۷.۹۷
+   `why || lvSubNote_()` می‌نوشت، پس **شبی که خطایی بود شمارِ گونه‌ها را
+   می‌خورد** — و `lvPhotoPending_` که خطِ ارتقا رویش حساب می‌کند، دقیقاً در
+   همان شب‌ها کور می‌شد. دو معنا در یک ستون، همان چیزی است که این مخزن
+   بارها تاوانش را داده. */
 var LV_HEADERS = ['تاریخ', 'نمایش', 'قسمت', 'مجموعه', 'سبک', 'خواسته', 'ساخته‌شده',
-                  'این اجرا', 'تلاش', 'نتیجه', 'علت', 'پوشهٔ تصویرها'];
+                  'این اجرا', 'تلاش', 'نتیجه', 'علت', 'پوشهٔ تصویرها',
+                  'گونه‌ها', 'پس‌زمینهٔ ساخته‌شده', 'هزینهٔ این اجرا ($)'];
 
 function lvLog_(hub, row) {
   try {
@@ -3118,7 +3278,10 @@ function lvLog_(hub, row) {
                        String(row.want || 0), String(row.ready || 0),
                        String(row.made || 0), String(row.tries || 0),
                        String(row.result || ''), String(row.why || ''),
-                       String(row.url || '')]], LV_HEADERS.length);
+                       String(row.url || ''), String(row.kinds || ''),
+                       String(row.gMade || 0),
+                       row.gSpent ? Number(row.gSpent).toFixed(3) : '']],
+                LV_HEADERS.length);
     return true;
   } catch (e) { logLine_('ثبتِ کاربردِ تصویرها نوشته نشد: ' + e.message); return false; }
 }
@@ -3138,7 +3301,8 @@ function lvHistory_(hub, n) {
                  want: Number(vals[i][5]) || 0, ready: Number(vals[i][6]) || 0,
                  made: Number(vals[i][7]) || 0, tries: Number(vals[i][8]) || 0,
                  result: String(vals[i][9]), why: String(vals[i][10]),
-                 url: String(vals[i][11]) });
+                 url: String(vals[i][11]), kinds: String(vals[i][12] || ''),
+                 gMade: Number(vals[i][13]) || 0, gSpent: Number(vals[i][14]) || 0 });
     }
   } catch (e) {}
   return out;
@@ -3250,7 +3414,7 @@ function lvPhotoPending_(hub) {
     var hist = lvHistory_(hub, 12);
     for (var i = 0; i < hist.length; i++) {
       // ستونِ «علت» شمارِ جایگزینی را در پایانِ خودش دارد (lvSubNote_)
-      var m = String(hist[i].why || '').match(/عکس\/ویدئو:\s*(\d+)/);
+      var m = String(hist[i].kinds || '').match(/عکس\/ویدئو:\s*(\d+)/);
       if (m) n += parseInt(m[1], 10) || 0;
     }
   } catch (e) {}
@@ -3264,7 +3428,7 @@ function lvKindCount_(hub, kind) {
     var hist = lvHistory_(hub, 12);
     var re = new RegExp(String(kind) + ':\\s*(\\d+)');
     for (var i = 0; i < hist.length; i++) {
-      var m = String(hist[i].why || '').match(re);
+      var m = String(hist[i].kinds || '').match(re);
       if (m) n += parseInt(m[1], 10) || 0;
     }
   } catch (e) {}
@@ -3283,6 +3447,40 @@ function lvSubNote_(items) {
   var sub = (c['عکس'] || 0) + (c['ویدئو'] || 0);
   if (sub) p.push('عکس/ویدئو: ' + sub);
   return p.join(' · ');
+}
+
+/**
+ * به جزوهٔ مجموعه می‌گوید «تصویرهای این درس عوض شده‌اند، از نو بخوان».
+ *
+ * ══ باگی که این تابع برایش هست (سنجیده، نه حدس) ══
+ * `lvCards_` فایلِ هم‌نام را تُرش می‌کند و تازه می‌سازد، پس **شناسهٔ فایل عوض
+ * می‌شود**. جزوه شناسه‌ها را در `_HANDOUT.json` کش می‌کند و کشِ ناخالی را
+ * دوباره نمی‌خوانَد — یعنی پس از هر بازسازی، تصویرهای جزوه به فایل‌های
+ * تُرش‌شده اشاره می‌کنند و **در مرورگر می‌شکنند**، بی هیچ خطایی. سنجیده شد:
+ * شناسه از `F16` به `F43` رفت و جزوه همان `F16` را نگه داشت.
+ *
+ * سه راه بازسازی می‌کند و هر سه از این در می‌گذرند: تعویضِ سبک، روشن‌شدنِ
+ * لایهٔ ۳، و دکمهٔ آدم. پاک‌کردنِ ردیفِ همان درس کافی است — `hfigSync_` ورودیِ
+ * خالی را همان اجرای بعدی دوباره می‌خوانَد (مرزِ ۲ی خودش).
+ *
+ * و پوشهٔ مجموعه از **پدرِ پوشهٔ قسمت** پیدا می‌شود، نه از رجیستری: این تابع
+ * از دو جا صدا زده می‌شود که یکی‌شان (دکمه) رجیستری در دست ندارد.
+ */
+function lvHandoutForget_(epFolder, epNum) {
+  try {
+    var ps = epFolder.getParents();
+    if (!ps.hasNext()) return false;
+    var sf = ps.next();
+    var it = sf.getFilesByName(CFG.HANDOUT_JSON || '_HANDOUT.json');
+    if (!it.hasNext()) return false;
+    var f = it.next();
+    var book = JSON.parse(f.getBlob().getDataAsString());
+    if (!book || !book.figs || book.figs[String(epNum)] === undefined) return false;
+    delete book.figs[String(epNum)];
+    f.setContent(JSON.stringify(book, null, 1));
+    logLine_('تصویرهای درسِ ' + epNum + ' عوض شد، پس جزوه از نو می‌خوانَدشان.');
+    return true;
+  } catch (e) { return false; }
 }
 
 /**
@@ -3315,6 +3513,8 @@ function lvRedoOne_(show, ep) {
       while (jt.hasNext()) jt.next().setTrashed(true);
     } catch (eJ) {}
     try { lvWaitClear_(String(show) + ':' + String(ep)); } catch (eW) {}
+    /* و جزوه باید بداند — وگرنه تصویرهایش به فایل‌های تُرش‌شده اشاره می‌کنند. */
+    try { lvHandoutForget_(f, ep); } catch (eHF) {}
     out.ok = true;
     logLine_('تصویرهای قسمتِ ' + ep + ' پاک شد (' + out.dropped +
              ' فایل به زباله)؛ اجرای بعدیِ انتشار از نو می‌سازدشان.');
@@ -3536,13 +3736,21 @@ function ytUploadOne_(item, hub, pub) {
   var plan = ytPlan_(folder, ctx, false);
   if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
 
+  /* ── سبکِ این مجموعه، **یک بار و پیش از کاور** (۷.۹۹) ──
+   * پیش از این، سبک پایین‌تر و داخلِ شاخهٔ تصویرها خوانده می‌شد، پس کاور —
+   * که بالاتر ساخته می‌شود — هرگز نمی‌دیدش. `lvStyleAt_` یک تعریف است و هر
+   * دو از آن می‌خورند: دو تعریف برای «سبکِ این مجموعه» یعنی روزی بندانگشتی
+   * و اسلایدها دو سبک می‌گیرند و هیچ‌چیز نشانش نمی‌دهد. */
+  var lvSty = lvStyleAt_(hub, item, meta, seriesName);
+
   // ── کاور ──
   var cover = null;
   try {
     cover = ytCoverCard_({ title: String(ep.title || ''),
                            coverTitle: plan.coverTitle, kicker: plan.coverKicker,
                            showName: showName, seriesName: seriesName,
-                           epLabel: coverEpLabel, cat: String(meta.cat || seriesName || '') });
+                           epLabel: coverEpLabel, style: lvSty,
+                           cat: String(meta.cat || seriesName || '') });
   } catch (eC) {}
 
   /* ── تصویرهای بخش‌ها ──
@@ -3555,14 +3763,11 @@ function ytUploadOne_(item, hub, pub) {
     /* سبکِ همین مجموعه، از ردیفِ رجیستری. **شکستِ خواندن رشتهٔ خالی می‌دهد،
        نه یک حدس** — و خالی یعنی «همان که ذخیره شده»، پس یک هابِ نخوانده
        دوازده کارت را بی‌دلیل از نو نمی‌سازد (۷.۴۰). */
-    var lvSty = '';
     try {
-      var regL = readSeriesReg_(hub || getHub_());
-      var recL = regL.byKey[String(item.series || (meta && meta.seriesKey) || '')] ||
-                 regL.byKey[String(seriesName)] || null;
-      if (recL) lvSty = lvStyleOf_(recL.vals).key;
-    } catch (eSt) {}
-    try { vis = lvBuild_(folder, plan, ctx, lvSty); }
+      vis = lvBuild_(folder, plan, ctx, lvSty);
+      /* بازسازی شناسهٔ فایل‌ها را عوض می‌کند، پس کشِ جزوه کهنه است (باگِ ۳). */
+      if (vis.restyled) { try { lvHandoutForget_(folder, item.ep); } catch (eHf) {} }
+    }
     catch (eV) {
       /* شکستنِ تصویرها **هرگز** قسمت را زمین نمی‌زند: `done` درست می‌شود و
          مسیرِ کاورِ تک‌تصویریِ امروز می‌رود. قولِ «چیزی خراب نمی‌شود» همین
@@ -3591,7 +3796,9 @@ function ytUploadOne_(item, hub, pub) {
                       style: vis.style || '', want: vis.want, ready: vis.ready,
                       made: vis.made, tries: vis.tries,
                       result: vis.done ? 'کامل' : (vis.ready ? 'ناقص' : 'نشد'),
-                      why: vis.why || lvSubNote_(vis.items),
+                      why: vis.why || '',
+                      kinds: lvSubNote_(vis.items),
+                      gMade: vis.gMade || 0, gSpent: vis.gSpent || 0,
                       url: lvSub ? lvSub.getUrl() : '' });
       } catch (eLg) {}
     }
@@ -5075,6 +5282,12 @@ function ytRedoOne_(show, ep, opt) {
                                  ? 'درس ' + faDigitsOut_(String(meta.lesson))
                                  : 'قسمت ' + faDigitsOut_(String(ep)),
                                cat: String(meta.cat || ctx.seriesName || ''),
+                               /* و سبک هم — وگرنه بازسازی کاورِ بی‌سبک
+                                  می‌سازد و همان ناهم‌خوانیِ ۷.۹۹ برمی‌گردد
+                                  از راهِ دوم («دوقلویی که یک‌بار درست شود،
+                                  یک‌بار درست شده است» — ۵.۹۵). */
+                               style: lvStyleAt_(hub, { seriesKey: meta.seriesKey },
+                                                 meta, ctx.seriesName),
                                redo: opt.recover !== false });
     if (cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
       try { yt.Thumbnails.set(rec.videoId, cover.blob); out.changed.push('کاور'); }
@@ -5307,7 +5520,13 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     }
   }
   if ((!prec.cover || renamed) && !giveUp(prec, 'cover')) {
-    var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker);
+    var plSty = '';
+    try {
+      var regP = readSeriesReg_(getHub_());
+      var recP = regP.byKey[String(key || '')] || null;
+      if (recP) plSty = lvStyleOf_(recP.vals).key;
+    } catch (ePs) {}
+    var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker, plSty);
     if (cv === 'نشست') {
       out.covers++;
       prec = (ytPlMap_()[key] || prec);
@@ -5338,10 +5557,16 @@ function ytPlCoverFails_() {
 }
 
 /** کاورِ پلی‌لیست: همان کارت، ولی با نامِ مجموعه به‌جای عنوانِ قسمت. */
-function ytPlaylistCover_(plId, title, kicker, cat, redo, showName) {
+function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey) {
   if (!plId) return '';
   var cover = ytCoverCard_({ coverTitle: title, kicker: kicker,
                              showName: showName || CFG.SPECIAL_SHOW_NAME || '',
+                             /* کاورِ پلی‌لیست (که کاورِ پادکست هم هست) سبکِ
+                                همان مجموعه را می‌گیرد — این **دیدنی‌ترین**
+                                تصویرِ سطحِ مجموعه است، و اگر با کارت‌ها و
+                                بندانگشتی‌ها یکی نباشد، همان ناهم‌خوانیِ ۷.۹۹
+                                از سومین راه برمی‌گردد. */
+                             style: String(styleKey || ''),
                              epLabel: 'مجموعه', cat: cat || title, redo: !!redo,
                              // پلی‌لیستِ ما پادکست هم می‌شود، و پادکست ۱:۱ می‌خواهد
                              square: CFG.YT_PODCAST !== false });
