@@ -183,6 +183,34 @@ function joinWavs(files, dest, dir) {
   ff(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', dest]);
 }
 
+/**
+ * مدتِ یک WAV از **سرآیندِ خودش**.
+ *
+ * `ffprobe` در باینریِ استاتیکِ `imageio-ffmpeg` نیست، پس مدت از هدر خوانده
+ * می‌شود: نرخِ بایت در ثانیه در `fmt ` است و اندازهٔ داده در `data`. این
+ * عددی است که کلِ زمان‌بندیِ تصویرها رویش سوار می‌شود، پس حدس‌زدنی نیست.
+ */
+function wavSeconds(file) {
+  const st = fs.statSync(file);
+  const b = head(file, Math.min(st.size, 4096));
+  if (b.slice(0, 4).toString('latin1') !== 'RIFF') return 0;
+  let p = 12, bps = 0;
+  while (p + 8 <= b.length) {
+    const id = b.slice(p, p + 4).toString('latin1');
+    const sz = b.readUInt32LE(p + 4);
+    if (id === 'fmt ' && p + 16 <= b.length) bps = b.readUInt32LE(p + 16);  // byteRate
+    if (id === 'data') {
+      // اندازهٔ اعلام‌شده می‌تواند دروغ باشد (فایلِ نیمه‌نوشته)؛ کوچک‌ترِ
+      // «آنچه نوشته» و «آنچه واقعاً هست» درست است.
+      const real = st.size - (p + 8);
+      const n = (sz > 0 && sz <= real) ? sz : real;
+      return bps > 0 ? n / bps : 0;
+    }
+    p += 8 + sz + (sz % 2);
+  }
+  return 0;
+}
+
 /** تصویرِ ثابت + صوت → MP4. */
 function makeMp4(cover, wav, dest) {
   ff(['-loop', '1', '-framerate', '2', '-i', cover, '-i', wav,
@@ -191,6 +219,343 @@ function makeMp4(cover, wav, dest) {
              'pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1',
       '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
       '-shortest', '-movflags', '+faststart', dest]);
+}
+
+/* ── اسلایدشو: از یک تصویر به N تصویر ───────────────────────────────────── */
+
+/**
+ * قالبِ واقعیِ بایت‌ها — نه پسوند و نه Content-Type. هر دو دروغ می‌گویند و
+ * یک صفحهٔ خطا هم بایت برمی‌گرداند با کدِ ۲۰۰. همان قاعدهٔ `isWav`/`isPng`،
+ * این‌بار برای هر چیزی که ممکن است در یک اسلاید بنشیند.
+ */
+function sniffKind(file) {
+  let st;
+  try { st = fs.statSync(file); } catch (e) { return ''; }
+  if (st.size < 64) return '';
+  const b = head(file, 16);
+  if (b.slice(0, 8).toString('hex') === '89504e470d0a1a0a') return 'png';
+  if (b.slice(0, 3).toString('hex') === 'ffd8ff') return 'jpeg';
+  if (b.slice(0, 6).toString('latin1') === 'GIF89a' ||
+      b.slice(0, 6).toString('latin1') === 'GIF87a') return 'gif';
+  if (b.slice(0, 4).toString('latin1') === 'RIFF' &&
+      b.slice(8, 12).toString('latin1') === 'WEBP') return 'webp';
+  if (b.slice(0, 4).toString('hex') === '1a45dfa3') return 'webm';
+  if (b.slice(4, 8).toString('latin1') === 'ftyp') return 'mp4';
+  if (b.slice(0, 1).toString('latin1') === '<') return '';   // صفحهٔ HTML
+  return '';
+}
+
+/**
+ * سقفِ نرخِ بیت، از **مدتِ خودِ قسمت**.
+ *
+ * ══ چرا این تابع وجود دارد ══
+ * موتور فایل را با `UrlFetchApp` برمی‌دارد و با Apps Script بالا می‌فرستد؛
+ * هر دو سقفِ ~۵۰ مگابایت دارند و بخشِ ۲۷ خودش می‌گوید «با نرخِ کمتر رندر
+ * شود». سنجیده شد (۳۰ سپتامبر): یک قسمتِ ۱۹ دقیقه‌ای با کن‌برنز و `crf`
+ * تنها **۱۴۸ مگابایت** درمی‌آید — یعنی موتور اصلاً نمی‌تواند برش دارد.
+ *
+ * و `crf` کم‌کردن هم جواب نیست، چون به محتوا بند است. و `-b:v` تنها هم
+ * جواب نیست، چون حتی برای تصویرِ کاملاً ثابت تا سقف بیت می‌ریزد و فایل
+ * *همیشه* ۴۵ مگابایت می‌شود، که هدر است. راهِ درست هر دو با هم است:
+ * کیفیت از `crf`، سقف از `maxrate` — و هرکدام کوچک‌تر شد، همان.
+ *
+ * یک عددِ سنجیده برای اطمینان: بدترین حالتِ ممکن (۹۰ تصویر، کن‌برنز روی
+ * همه، ۱۰۸۰p، ۲۴fps، ۱۹ دقیقه) با همین سقف **۴۰٫۶۷ مگابایت** شد.
+ */
+function vmaxFor(durSec, capMB, audioBps) {
+  const d = Math.max(1, Number(durSec) || 1);
+  const cap = (Number(capMB) || VIS.capMB) * 1024 * 1024;
+  const v = Math.floor((cap * 8) / d) - (Number(audioBps) || VIS.audioBps);
+  return Math.max(120000, v);            // زیرِ این، تصویر دیگر تصویر نیست
+}
+
+/** تنظیم‌های اسلایدشو. یک جا، تا دو عدد در دو جا از هم دور نیفتند. */
+const VIS = {
+  w: 1920, h: 1080, fps: 24,
+  xfade: 1.0,                 // مدتِ میان‌محوی
+  group: 8,                   // چند تصویر در هر دستهٔ ffmpeg
+  capMB: 45,                  // سقفِ بایت — زیرِ ۵۰ مگابایتِ Apps Script با حاشیه
+  audioBps: 128000,
+  minSec: 4.0,                // کوتاه‌تر از این، تصویر دیده نمی‌شود
+  crf: 23,
+  handoutPx: 900,             // اندازهٔ نسخهٔ جزوه
+  /* گونه‌های میان‌محوی. یکنواخت نبودن، بخشی از «حرفه‌ای به نظر رسیدن» است —
+     ولی تعدادشان کم است تا ویدئو شبیهِ نمایشِ افکت نشود. */
+  trans: ['fade', 'smoothleft', 'wipeleft', 'fade', 'smoothright'],
+  max: 120                    // بیش از این تصویر، نه لازم است نه امن
+};
+
+/**
+ * فهرستِ تصویرهای معتبرِ یک ردیف.
+ *
+ * **نبودنش خطا نیست.** یک ردیفِ بی `visuals` — یا نسخهٔ قدیمیِ موتور که
+ * این فیلد را نمی‌نویسد — باید *عیناً* مسیرِ امروز را برود. این تابع همان
+ * مرز است و `run_render_test.js` رویش سنجه دارد.
+ */
+function visualsOf(it) {
+  const v = (it && it.visuals) || null;
+  if (!Array.isArray(v) || !v.length) return [];
+  const out = [];
+  for (const x of v) {
+    const url = String((x && (x.url || x.u)) || '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;     // نشانیِ بی‌معنا، رد
+    out.push({ url: url, sec: Math.max(0, Number(x.sec || x.seconds || 0)) || 0,
+               kind: String(x.kind || '') });
+    if (out.length >= VIS.max) break;
+  }
+  return out;
+}
+
+/**
+ * زمان‌بندی — و قاعدهٔ **بی‌شکاف**.
+ *
+ * خواستهٔ صریحِ صاحبِ برنامه: «اون مدت زمان که درست می‌کنه با تصویر باشه».
+ * پس این یک قاعده است نه یک آرزو: از ثانیهٔ صفر تا آخرین ثانیه هر لحظه
+ * تصویری دارد. «بیشترِ مدت با تصویر» جوابِ آن خواسته نیست.
+ *
+ * وزن‌ها از سهمِ هر بخش می‌آید (که موتور حساب می‌کند)، ولی **جمعشان با
+ * مدتِ سنجیده‌شدهٔ صوت مقیاس می‌شود** — نه با آنچه موتور حدس زده. اگر
+ * تصویری برای بخشی نیامده باشد، سهمش به همسایه‌ها می‌رسد، پس صفحهٔ سیاه
+ * ساخته نمی‌شود.
+ *
+ * و مدتِ *ورودیِ* هر تکه یک `xfade` بیشتر از سهمِ دیده‌شدنی‌اش است، چون
+ * میان‌محوی از دو طرف می‌خورد. نتیجه: خروجی همیشه یک `xfade` بلندتر از صوت
+ * است و `-shortest` می‌بُردش — یعنی شکاف **ساختاراً** ناممکن است.
+ */
+function timelineOf(vis, durSec) {
+  const n = vis.length;
+  const dur = Math.max(1, Number(durSec) || 1);
+  if (!n) return [];
+  // اگر حتی با کمینه جا نمی‌شوند، از آخر کم می‌کنیم — نه اینکه همه را خرد کنیم
+  let keep = Math.max(1, Math.min(n, Math.floor(dur / VIS.minSec)));
+  const use = vis.slice(0, keep);
+  let w = use.map(x => (x.sec > 0 ? x.sec : 1));
+  let tot = w.reduce((a, b) => a + b, 0) || use.length;
+  let vs = w.map(x => (dur * x) / tot);
+  // کمینه را رعایت کن و کمبود را از بلندترین‌ها بگیر
+  for (let pass = 0; pass < 4; pass++) {
+    const short = vs.filter(x => x < VIS.minSec).length;
+    if (!short) break;
+    let need = 0;
+    vs = vs.map(x => { if (x < VIS.minSec) { need += VIS.minSec - x; return VIS.minSec; } return x; });
+    const donors = vs.map((x, i) => (x > VIS.minSec ? i : -1)).filter(i => i >= 0);
+    const pool = donors.reduce((a, i) => a + (vs[i] - VIS.minSec), 0);
+    if (pool <= 0) break;
+    for (const i of donors) vs[i] -= need * ((vs[i] - VIS.minSec) / pool);
+  }
+  // و جمع را **دقیقاً** روی مدتِ صوت بنشان: بی شکاف، بی سرریز
+  const sum = vs.reduce((a, b) => a + b, 0);
+  vs = vs.map(x => (x * dur) / sum);
+  /* ══ و این‌جا یک ثانیه بود که آزمون گرفتش ══
+   * مدتِ خروجیِ زنجیره = Σclip − XF×(N−1). اگر **همهٔ** تکه‌ها `v+XF` باشند،
+   * خروجی می‌شود Σv + XF — یعنی **دقیقاً یک ثانیه بلندتر از صوت**، و آن یک
+   * ثانیه سکوتِ ته‌ِ هر قسمت است. `-shortest` هم دقیق نمی‌بُرد: آزمون ۳۰٫۳۸
+   * و ۳۰٫۹۲ داد برای صوتِ ۳۰ ثانیه.
+   *
+   * تکهٔ **آخر** میان‌محویِ بعدی ندارد، پس `+XF` هم نمی‌خواهد:
+   *   Σclip = Σv + (N−1)×XF  ⇒  خروجی = Σv = مدتِ صوت. دقیق.
+   * و `v` آخر همیشه از `minSec` بزرگ‌تر است، پس میان‌محویِ ورودی‌اش جا
+   * می‌شود. */
+  return use.map((x, i) => ({
+    url: x.url, kind: x.kind,
+    visible: Math.round(vs[i] * 1000) / 1000,
+    clip: Math.round((vs[i] + (i === use.length - 1 ? 0 : VIS.xfade)) * 1000) / 1000
+  }));
+}
+
+/** یک زنجیرهٔ کن‌برنز + میان‌محوی روی n ورودی. برچسبِ آخر `vout` است. */
+function visFilter(items, idx0) {
+  const parts = [];
+  for (let i = 0; i < items.length; i++) {
+    const N = Math.max(2, Math.round(items[i].clip * VIS.fps));
+    const g = idx0 + i;
+    /* کن‌برنز: بزرگ‌نمایی و کوچک‌نماییِ یکی‌درمیان تا یکنواخت نشود، و
+       هر سوم یکی افقی می‌لغزد. عددها کوچک‌اند: حرکتِ آرام حرفه‌ای است،
+       حرکتِ تند تبلیغ است. */
+    const z = (g % 2 === 0)
+      ? 'min(1+' + (0.18 / N).toFixed(6) + '*on,1.18)'
+      : 'max(1.18-' + (0.18 / N).toFixed(6) + '*on,1.00)';
+    const x = (g % 3 === 2) ? '(iw-iw/zoom)*on/' + N : 'iw/2-(iw/zoom/2)';
+    /* ══ باگی که فقط اجرای واقعی نشانش داد (۳۰ سپتامبر) ══
+       `scale=W:-2` با `force_original_aspect_ratio=increase` با هم
+       نمی‌خوانند: برای یک تصویرِ ۲۰۰۰×۱۰۰۰ نتیجه ۲۳۴۲×۱۱۷۱ می‌شود و
+       `crop` ۱۳۱۸ می‌خواهد ⇒ «Invalid too big or non positive size».
+       اصطلاحِ درستِ «پوشاندن» **هر دو بُعد را صریح** می‌دهد تا خروجی قطعاً
+       بزرگ‌تر یا برابرِ قابِ برش باشد. بی این، هر تصویری که نسبتش از ۱۶:۹
+       پهن‌تر باشد کلِ اسلایدشو را می‌ترکاند و قسمت به کاور برمی‌گشت —
+       بی‌صدا، چون خودِ `buildVideo` می‌گیردش. */
+    const cw = Math.round(VIS.w * 1.22), ch = Math.round(VIS.h * 1.22);
+    parts.push('[' + i + ':v]scale=' + cw + ':' + ch + ':' +
+      'force_original_aspect_ratio=increase,crop=' + cw +
+      ':' + ch + ",zoompan=z='" + z + "':x='" + x +
+      "':y='ih/2-(ih/zoom/2)':d=" + N + ':s=' + VIS.w + 'x' + VIS.h +
+      ':fps=' + VIS.fps + ',setsar=1,format=yuv420p[v' + i + ']');
+  }
+  let prev = 'v0', off = items[0].clip - VIS.xfade;
+  for (let i = 1; i < items.length; i++) {
+    const lab = (i < items.length - 1) ? ('x' + i) : 'vout';
+    parts.push('[' + prev + '][v' + i + ']xfade=transition=' +
+      VIS.trans[(idx0 + i - 1) % VIS.trans.length] +
+      ':duration=' + VIS.xfade.toFixed(2) + ':offset=' + off.toFixed(2) +
+      '[' + lab + ']');
+    prev = lab; off += items[i].clip - VIS.xfade;
+  }
+  return { parts: parts, last: (items.length > 1 ? 'vout' : 'v0') };
+}
+
+/**
+ * اسلایدشو + صوت → MP4.
+ *
+ * ══ چرا دسته‌دسته و نه یک فرمان ══
+ * یک فرمانِ ffmpeg با ۹۰ ورودیِ ۱۹۲۰×۱۰۸۰ و ۸۹ `xfade`ِ زنجیره‌ای **با
+ * SIGKILL مُرد** — حافظه، نه منطق (سنجیده شد، ۳۰ سپتامبر). گرافِ فیلتر
+ * همه‌اش را با هم نگه می‌دارد. پس هر دسته جدا روی دیسک می‌نشیند و بعد
+ * دسته‌ها به هم می‌پیوندند: حافظه به اندازهٔ *یک دسته* بند است، نه به کلِ
+ * قسمت — و یک قسمتِ خیلی بلند هم دیگر خطری ندارد.
+ */
+function buildSlideshow(files, tl, wav, durSec, dest, dir) {
+  const items = tl.map((t, i) => ({ file: files[i], clip: t.clip }));
+  const vmax = vmaxFor(durSec, VIS.capMB, VIS.audioBps);
+  const groups = [];
+
+  for (let g0 = 0; g0 < items.length; g0 += VIS.group) {
+    const grp = items.slice(g0, g0 + VIS.group);
+    const f = visFilter(grp, g0);
+    const out = path.join(dir, 'g' + String(groups.length).padStart(3, '0') + '.mp4');
+    const a = [];
+    /* ══ باگی که یک سنجشِ زمان لو داد، و بزرگ‌ترینشان بود ══
+     * `-loop 1 -t <clip>` با نرخِ پیش‌فرضِ ورودی (۲۵) یعنی `clip×25` فریمِ
+     * **ورودی**، و `zoompan` برای **هر فریمِ ورودی** `d` فریم می‌سازد. پس یک
+     * تکهٔ هفت‌ثانیه‌ای ۱۷۵ فریمِ ورودی می‌داد × d=168 ⇒ ۲۹٬۴۰۰ فریم، یعنی
+     * **۲۰ دقیقه و ۲۵ ثانیه ویدئو برای هفت ثانیه کار** — و ۲ دقیقه و ۳۰
+     * ثانیه پردازنده به‌جای ۱٫۲ ثانیه. سنجیده شد، ۳۰ سپتامبر.
+     *
+     * خروجی **درست** بود، چون گذرِ دوم با افستِ مطلق می‌بُرید و `-t` تهش را
+     * می‌زد — پس هیچ خطایی هیچ‌جا نبود، فقط ۱۷۵ برابر هزینه. یک قسمتِ واقعیِ
+     * ۱۹ دقیقه‌ای این‌طور ~۴۰ دقیقه می‌بُرد و از سقفِ ۵۰ دقیقه‌ایِ اکشن رد
+     * می‌شد — یعنی ویدئو هیچ‌وقت ساخته نمی‌شد و کسی هم نمی‌فهمید چرا.
+     *
+     * `-framerate 1 -t 1` یعنی **دقیقاً یک فریمِ ورودی**، و `zoompan` همان
+     * `d` فریم را می‌سازد و بس.
+     *
+     * و درسِ جدا: در سنجشِ اولم «۰٫۲۹× زمانِ واقعی» را دیدم و سؤال نکردم.
+     * ۳۳۵ ثانیه برای کاری که ~۱۰ ثانیه است. **عددی که اندازه گرفتی ولی
+     * نپرسیدی آیا معقول است، اندازه‌گیری نیست.** */
+    for (const it of grp) a.push('-loop', '1', '-framerate', '1', '-t', '1',
+                                 '-i', it.file);
+    a.push('-filter_complex', f.parts.join(';'), '-map', '[' + f.last + ']',
+           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+           '-pix_fmt', 'yuv420p', '-r', String(VIS.fps),
+           '-g', String(VIS.fps * 10), '-an', out);
+    ff(a);
+    // مدتِ دسته: جمعِ تکه‌ها منهای میان‌محوی‌های داخلی
+    groups.push({ file: out,
+                  dur: grp.reduce((x, y) => x + y.clip, 0) - VIS.xfade * (grp.length - 1) });
+  }
+
+  const a2 = [];
+  for (const g of groups) a2.push('-i', g.file);
+  a2.push('-i', wav);
+  const parts = groups.map((g, i) => '[' + i + ':v]setsar=1,format=yuv420p[a' + i + ']');
+  let prev = 'a0', off = groups[0].dur - VIS.xfade;
+  for (let i = 1; i < groups.length; i++) {
+    const lab = (i < groups.length - 1) ? ('y' + i) : 'vout';
+    parts.push('[' + prev + '][a' + i + ']xfade=transition=fade:duration=' +
+      VIS.xfade.toFixed(2) + ':offset=' + off.toFixed(2) + '[' + lab + ']');
+    prev = lab; off += groups[i].dur - VIS.xfade;
+  }
+  const lastLab = (groups.length > 1 ? 'vout' : 'a0');
+  a2.push('-filter_complex', parts.join(';'), '-map', '[' + lastLab + ']',
+          '-map', String(groups.length) + ':a',
+          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(VIS.crf),
+          '-maxrate', String(vmax), '-bufsize', String(vmax * 2),
+          '-pix_fmt', 'yuv420p', '-r', String(VIS.fps), '-g', String(VIS.fps * 10),
+          '-c:a', 'aac', '-b:a', String(Math.round(VIS.audioBps / 1000)) + 'k',
+          '-ac', '2',
+          /* ══ این سقف، بیمه است — و این را باید صریح نوشت ══
+           * اولین تشخیصم این بود که «`-shortest` روی خروجیِ فیلترشده قابلِ
+           * اتکا نیست»، چون مدتِ رندرشده بین اجراها عوض می‌شد: ۳۰٫۳۸ و
+           * ۳۰٫۹۲ و ۳۱٫۲۱ برای یک صوتِ ۳۰ ثانیه‌ای. **آن تشخیص غلط بود.**
+           * لرزشِ مدت نشانهٔ باگِ نرخِ فریمِ ورودی بود (چند خط پایین‌تر،
+           * ۱۷۵ برابر فریم)، نه نقصی در `-shortest`.
+           *
+           * شاهدش: با اصلاحِ آن باگ، **برداشتنِ این `-t` هیچ سنجه‌ای را قرمز
+           * نمی‌کند** — امتحان شد. پس این خط امروز باربر نیست و هیچ سنجه‌ای
+           * هم نگهش نمی‌دارد.
+           *
+           * می‌مانَد، به‌عنوانِ سقفِ صریح روی چیزی که منتشر می‌شود: مدتِ
+           * ویدئو نباید هرگز از مدتِ صوت بگذرد، هر غافلگیریِ آینده‌ای هم در
+           * زمان‌بندیِ فیلترها پیش بیاید. ولی «بیمه» با «سد» یکی نیست، و
+           * خطی که شکلِ سد داشته باشد و نباشد، خوانندهٔ بعدی را گمراه
+           * می‌کند. */
+          '-t', String(Math.max(1, Number(durSec) || 1)),
+          '-shortest', '-movflags', '+faststart', dest);
+  ff(a2);
+  for (const g of groups) { try { fs.unlinkSync(g.file); } catch (e) {} }
+  return { groups: groups.length, vmax: vmax };
+}
+
+/**
+ * نسخهٔ جزوه از همان تصویرها — یک صفحهٔ کتاب، نه یک پردهٔ سینما.
+ * همان‌جا ساخته می‌شود که تصویرها از قبل روی دیسک‌اند، تا موتور لازم نباشد
+ * دوباره دانلود کند و Apps Script هیچ‌وقت درگیرِ پردازشِ تصویر نشود.
+ */
+function handoutJpegs(files, dir) {
+  const out = [];
+  for (let i = 0; i < files.length; i++) {
+    const dst = path.join(dir, 'h' + String(i).padStart(3, '0') + '.jpg');
+    try {
+      ff(['-i', files[i], '-frames:v', '1',
+          '-vf', 'scale=' + VIS.handoutPx + ':-2:force_original_aspect_ratio=decrease',
+          '-q:v', '4', dst]);
+      if (fs.statSync(dst).size > 500) out.push(dst);
+    } catch (e) { /* یک تصویرِ خراب، بقیه را زمین نمی‌گذارد */ }
+  }
+  return out;
+}
+
+/**
+ * **مرزِ «چیزی خراب نمی‌شود».**
+ *
+ * اگر ردیف `visuals` نداشته باشد، یا دانلودشان کافی نباشد، یا ساختِ
+ * اسلایدشو بترکد — همان `makeMp4`ِ امروز اجرا می‌شود. یعنی بدترین حالتِ
+ * این قابلیت، **وضعیتِ امروز** است، نه یک قسمتِ بی‌ویدئو.
+ *
+ * و شکست بی‌صدا رد نمی‌شود: دلیلش در `notes` می‌نشیند و به `docs/renders.json`
+ * می‌رسد، تا ناظر بداند چرا این قسمت اسلاید نگرفت.
+ */
+function buildVideo(it, cover, wav, durSec, dest, dir) {
+  const notes = [];
+  const vis = visualsOf(it);
+  if (!vis.length) return { mode: 'cover', notes: [] };
+
+  const files = [], kept = [];
+  for (let i = 0; i < vis.length; i++) {
+    const f = path.join(dir, 'i' + String(i).padStart(3, '0'));
+    try {
+      fetchTo(vis[i].url, f);
+      const k = sniffKind(f);
+      if (!k) { notes.push('تصویرِ ' + (i + 1) + ': بایت‌ها تصویر نبود'); continue; }
+      files.push(f); kept.push(vis[i]);
+    } catch (e) {
+      notes.push('تصویرِ ' + (i + 1) + ': ' + String(e.message).split('\n')[0].slice(0, 60));
+    }
+  }
+  if (files.length < 2) {
+    notes.push('کمتر از دو تصویر ماند — کاورِ تک‌تصویری');
+    return { mode: 'cover', notes: notes };
+  }
+
+  const tl = timelineOf(kept, durSec);
+  try {
+    const r = buildSlideshow(files.slice(0, tl.length), tl, wav, durSec, dest, dir);
+    return { mode: 'slides', n: tl.length, groups: r.groups, vmax: r.vmax,
+             handout: handoutJpegs(files.slice(0, tl.length), dir), notes: notes };
+  } catch (e) {
+    notes.push('ساختِ اسلایدشو نشد، کاور گذاشته شد: ' +
+               String(e.message).split('\n')[0].slice(0, 80));
+    return { mode: 'cover', notes: notes };
+  }
 }
 
 /* ── کار ────────────────────────────────────────────────────────────────── */
@@ -270,19 +635,57 @@ function main() {
       joinWavs(wavs, joined, dir);
       const out = path.join(dir, 'out.mp4');
       log('• ' + it.key + ' — ' + wavs.length + ' بخش، ' + (it.audioKind || '') + ' …');
-      makeMp4(cover, joined, out);
+
+      /* مدتِ **سنجیده‌شدهٔ** صوت، از خودِ فایل. زمان‌بندیِ تصویرها رویش
+         مقیاس می‌شود، نه روی عددی که موتور حدس زده — وگرنه شکاف یا سرریز. */
+      const durSec = wavSeconds(joined);
+      const vr = buildVideo(it, cover, joined, durSec, out, dir);
+      if (vr.mode === 'cover') makeMp4(cover, joined, out);
+      for (const nt of (vr.notes || [])) log('    · ' + nt);
+
       const size = fs.statSync(out).size;
       if (size < 5000) throw new Error('MP4 بسیار کوچک درآمد (' + size + ' بایت)');
+      /* سقفِ ۵۰ مگابایتِ Apps Script: اگر رد شد، موتور نمی‌تواند برش دارد.
+         خودش می‌گوید «با نرخِ کمتر رندر شود»، ولی این‌جا گفتنش زودتر و
+         با عددِ واقعی است. */
+      if (size > 49 * 1024 * 1024) {
+        log('    · ⚠ ' + Math.round(size / 1048576) + ' مگابایت — از سقفِ ۵۰ ' +
+            'مگابایتِ موتور می‌گذرد');
+      }
 
       if (!rel) rel = ensureRelease();
-      const name = String(it.key).replace(/[^A-Za-z0-9]+/g, '-') + '.mp4';
+      const base = String(it.key).replace(/[^A-Za-z0-9]+/g, '-');
+      const name = base + '.mp4';
       const url = uploadAsset(rel, out, name);
       if (!url) throw new Error('نشانیِ فایلِ آپلودشده برنگشت');
 
+      /* نسخه‌های جزوه هم همین‌جا بالا می‌روند: موتور بی آنکه تصویری را
+         دوباره دانلود کند برشان می‌دارد، و Apps Script هیچ‌وقت درگیرِ
+         پردازشِ تصویر نمی‌شود. */
+      const hUrls = [];
+      for (let hi = 0; hi < (vr.handout || []).length; hi++) {
+        try {
+          const hu = uploadAsset(rel, vr.handout[hi],
+                                 base + '-h' + String(hi).padStart(3, '0') + '.jpg');
+          if (hu) hUrls.push(hu);
+        } catch (eH) { log('    · تصویرِ جزوهٔ ' + (hi + 1) + ' بالا نرفت'); }
+      }
+
       map.items[it.key] = { url: url, bytes: size, parts: wavs.length,
                             at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+      /* فیلدهای تازه **فقط وقتی اسلاید ساخته شده** نوشته می‌شوند. ردیفی که
+         کاورِ تک‌تصویری گرفته، عیناً همان شکلِ امروز را دارد — یعنی موتورِ
+         امروز هم می‌تواند بخوانَدش. */
+      if (vr.mode === 'slides') {
+        map.items[it.key].visuals = vr.n;
+        map.items[it.key].seconds = Math.round(durSec);
+        if (hUrls.length) map.items[it.key].handout = hUrls;
+      }
+      if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
-      log('  ✔ ' + name + ' — ' + Math.round(size / 1048576) + ' مگابایت');
+      log('  ✔ ' + name + ' — ' + Math.round(size / 1048576) + ' مگابایت' +
+          (vr.mode === 'slides' ? ' · ' + vr.n + ' تصویر در ' + vr.groups + ' دسته'
+                                : ' · کاورِ تک‌تصویری'));
       rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
     } catch (e) {
       // یک ردیفِ خراب نباید بقیه را زمین بگذارد — ولی بی‌صدا هم رد نمی‌شود
@@ -307,4 +710,15 @@ function main() {
   }
 }
 
-main();
+/* ── قابلِ آزمون بودن ─────────────────────────────────────────────────────
+ * تا امروز پایینِ این فایل یک `main();` خالی بود، پس `require` کردنش کلِ
+ * کار را راه می‌انداخت و **هیچ سنجهٔ رفتاری‌ای نمی‌شد برایش نوشت**. این
+ * فایل هر ویدئویی که منتشر می‌شود را می‌سازد؛ بی‌آزمون بودنش همان شکلی
+ * است که این ریپو بارها بهایش را داده.
+ */
+if (require.main === module) main();
+
+module.exports = {
+  isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
+  vmaxFor, timelineOf, visualsOf, buildSlideshow, handoutJpegs, buildVideo
+};
