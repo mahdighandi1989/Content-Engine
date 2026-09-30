@@ -40,7 +40,17 @@ global.__STUB = function (url, body) {
     coverTitle: 'سه شرطِ معرفت', coverKicker: 'معرفت‌شناسی',
     hookLine: 'قلابِ آزمون', summary: 'خلاصهٔ آزمون',
     bullets: ['یک', 'دو'], tags: ['برچسبِ الف', 'برچسبِ ب'],
-    hashtags: ['فلسفه'] }) }] } }] } };
+    hashtags: ['فلسفه'],
+    /* و تصویرها. بی این، `ytVisPlan_` هیچ‌وقت ورودی نمی‌گیرد و مسیرش در
+       هیچ سنجه‌ای دویده نمی‌شود — همان «بدَلی که از تولید تنگ‌تر است». */
+    visuals: [
+      { at: '1', kind: 'کارت', cardTitle: 'گزارهٔ یک',
+        cardLines: ['سطرِ الف', 'سطرِ ب'], terms: '', caption: 'زیرنویسِ یک' },
+      { at: '2', kind: 'عکس', cardTitle: '', cardLines: [],
+        terms: 'john locke portrait', caption: 'زیرنویسِ دو' },
+      { at: '3', kind: 'چیزی که وجود ندارد', cardTitle: 'گزارهٔ سه',
+        cardLines: [], terms: '', caption: 'زیرنویسِ سه' }
+    ] }) }] } }] } };
 };
 
 /* استابِ پایه، تا بندهایی که به دنیای تمیز نیاز دارند بتوانند برگردند به
@@ -2042,6 +2052,137 @@ console.log('\n=== ۴۸) عددِ بی‌علت: بنر و کاور باید *ب
   global.ytPlPodcast_ = keepPod; global.ytPlaylistCover_ = keepCov;
   if (keepMap === undefined) delete global.__PROPS[PK.YT_PLMAP];
   else global.__PROPS[PK.YT_PLMAP] = keepMap;
+}
+
+
+console.log('=== ۴۹) برنامهٔ تصویرهای درس — تصمیم این‌جا، ساخت روی رانر ===');
+{
+  const secs = [{ heading: 'یک', narration: 'x'.repeat(3000) },
+                { heading: 'دو', narration: 'y'.repeat(1000) },
+                { heading: 'سه', narration: 'z'.repeat(1000) }];
+  const mk = (show) => ({ show: show, epRaw: '77', showName: 'ن', title: 'ت',
+                          duration: '10:00', headings: ['یک', 'دو', 'سه'],
+                          sections: secs, totalSec: 600, sources: [] });
+  const mmOf = () => ({ visuals: [
+    { at: '1', kind: 'کارت', cardTitle: 'الف', cardLines: ['۱', '۲'], terms: '', caption: 'ک۱' },
+    { at: '2', kind: 'عکس', cardTitle: '', cardLines: [], terms: 'locke', caption: 'ک۲' },
+    { at: '3', kind: 'نمودار', cardTitle: 'ج', cardLines: [], terms: '', caption: 'ک۳' }
+  ] });
+
+  /* ۴۹.۱ — **خواستهٔ صریحِ بندِ ۴:** «برای شروع این موضوع فعلا روی پادکست
+     درسنامه باشه». اگر این سد جابه‌جا شود، «از همه جا از همه رنگ» بی‌خبر
+     تصویر می‌گیرد و قولِ «دست نمی‌خورد» می‌شکند. */
+  ok('۴۹.۱ فقط درس‌نامه تصویر می‌گیرد؛ نمایشِ دیگر هیچ',
+     ytVisPlan_(mmOf(), mk('special')).length === 3 &&
+     ytVisPlan_(mmOf(), mk('variety')).length === 0 &&
+     ytVisOn_('special') === true && ytVisOn_('variety') === false,
+     'درس‌نامه ' + ytVisPlan_(mmOf(), mk('special')).length + ' مورد، ' +
+     'از همه جا ' + ytVisPlan_(mmOf(), mk('variety')).length);
+
+  /* ۴۹.۲ — تعداد از **مدتِ واقعی** می‌آید، نه از عددی که مدل دوست دارد. */
+  ok('۴۹.۲ تعدادِ خواسته‌شده با مدت مقیاس می‌شود و سقف و کف دارد',
+     ytVisWant_(1200) > ytVisWant_(600) && ytVisWant_(60) >= 3 &&
+     ytVisWant_(100000) <= (CFG.LV_MAX_PER_EP || 40),
+     '۱۰ دقیقه ⇒ ' + ytVisWant_(600) + ' · ۲۰ دقیقه ⇒ ' + ytVisWant_(1200) +
+     ' · یک دقیقه ⇒ ' + ytVisWant_(60) + ' · بی‌نهایت ⇒ ' + ytVisWant_(100000));
+
+  /* ۴۹.۳ — عدمِ تقارنِ **عمدی**: گونهٔ ناشناخته جبران‌شدنی است (کارت مجانی و
+     همیشه در دسترس)، ولی بخشِ ناشناخته نه — تصویری که به هیچ متنی وصل نیست
+     از نبودنش بدتر است، و رد کردنش شکاف نمی‌سازد چون سهمِ زمان از بخش‌های
+     موجود حساب می‌شود. */
+  const mmBad = { visuals: [
+    { at: '1', kind: 'یک چیزِ ناشناخته', cardTitle: 'الف', caption: 'ک' },
+    { at: '99', kind: 'کارت', cardTitle: 'ب', caption: 'ک' },
+    { at: 'سلام', kind: 'کارت', cardTitle: 'پ', caption: 'ک' }
+  ] };
+  const pb = ytVisPlan_(mmBad, mk('special'));
+  ok('۴۹.۳ گونهٔ ناشناخته «کارت» می‌شود، ولی بخشِ ناشناخته دور انداخته می‌شود',
+     pb.length === 1 && pb[0].at === 1 && pb[0].kind === 'کارت',
+     'گرفت: ' + JSON.stringify(pb.map(x => ({ at: x.at, kind: x.kind }))));
+
+  /* ۴۹.۴ — **حقیقت‌ها از کد.** بخشی که سه برابر نویسه دارد باید سه برابر
+     ثانیه بگیرد. اگر سهم را از مدل می‌گرفتیم، یک حدسِ بی‌پشتوانه تعیین
+     می‌کرد بیننده چند ثانیه به چه چیزی نگاه کند. */
+  const p4 = ytVisPlan_(mmOf(), mk('special'));
+  const ratio = p4[0].sec / p4[1].sec;
+  const total = p4.reduce((a, b) => a + b.sec, 0);
+  const body = 600 - (Number(CFG.MUSIC_INTRO_SEC) || 0);
+  ok('۴۹.۴ سهمِ زمان از سهمِ نویسه‌ایِ بخش می‌آید، نه از مدل',
+     Math.abs(ratio - 3) < 0.15 && Math.abs(total - body) < 1.5,
+     'نسبتِ بخشِ ۱ به ۲ = ' + ratio.toFixed(2) + ' (نویسه‌ها ۳۰۰۰ و ۱۰۰۰) · ' +
+     'جمع ' + total.toFixed(1) + ' در برابرِ بدنهٔ ' + body + ' ثانیه');
+
+  /* ۴۹.۵ — دو مورد روی یک بخش، سهمِ **همان بخش** را نصف می‌کنند. وگرنه یک
+     بخشِ پرتصویر وقتِ بخش‌های دیگر را می‌خورد. */
+  const mm2 = { visuals: [
+    { at: '1', kind: 'کارت', cardTitle: 'الف', caption: 'ک' },
+    { at: '1', kind: 'کارت', cardTitle: 'ب', caption: 'ک' },
+    { at: '2', kind: 'کارت', cardTitle: 'پ', caption: 'ک' }
+  ] };
+  const p5 = ytVisPlan_(mm2, mk('special'));
+  ok('۴۹.۵ دو مورد روی یک بخش، سهمِ همان بخش را بین خودشان تقسیم می‌کنند',
+     p5.length === 3 && Math.abs(p5[0].sec - p5[1].sec) < 0.2 &&
+     Math.abs((p5[0].sec + p5[1].sec) / p5[2].sec - 3) < 0.2,
+     'سهم‌ها: ' + JSON.stringify(p5.map(x => ({ at: x.at, sec: x.sec }))));
+
+  /* ۴۹.۶ — سقف‌های متن. کارت در اندازهٔ بندانگشتی خوانده می‌شود؛ متنِ بلند
+     روی آن، متنِ خوانده‌نشده است. همان انضباطِ `coverTitle`. */
+  const long = 'ط'.repeat(300);
+  const mm3 = { visuals: [{ at: '1', kind: 'کارت', cardTitle: long,
+                            cardLines: [long, long, long, long, long, long, long],
+                            terms: long, caption: long }] };
+  const p6 = ytVisPlan_(mm3, mk('special'))[0];
+  ok('۴۹.۶ متن‌ها سرِ سقفِ خودشان بریده می‌شوند، در کد نه در امیدِ به مدل',
+     p6.cardTitle.length <= (CFG.LV_CARD_TITLE_MAX || 48) &&
+     p6.cardLines.length <= (CFG.LV_CARD_LINES_MAX || 4) &&
+     p6.cardLines.every(x => x.length <= (CFG.LV_CARD_LINE_MAX || 72)) &&
+     p6.caption.length <= (CFG.LV_CAPTION_MAX || 120) &&
+     p6.terms.length <= (CFG.LV_TERMS_MAX || 80),
+     'عنوان ' + p6.cardTitle.length + ' · سطرها ' + p6.cardLines.length +
+     ' · زیرنویس ' + p6.caption.length + ' · واژه‌ها ' + p6.terms.length);
+
+  /* ۴۹.۷ — ورودیِ خالی یا بی‌ربط ⇒ فهرستِ خالی ⇒ **مسیرِ کاورِ امروز**. این
+     قرینهٔ سنجهٔ ۱.۱ در `run_render_test.js` است، از این سمتِ مرز. */
+  ok('۴۹.۷ مدلی که تصویری نداد ⇒ فهرستِ خالی، نه خطا',
+     ytVisPlan_({}, mk('special')).length === 0 &&
+     ytVisPlan_({ visuals: [] }, mk('special')).length === 0 &&
+     ytVisPlan_(null, mk('special')).length === 0 &&
+     ytVisPlan_(mmOf(), { show: 'special', sections: [], totalSec: 600 }).length === 0,
+     'هر چهار حالت، بی پرتِ خطا');
+
+  /* ۴۹.۸ — و پرامپت **فقط** برای نمایشی که سد اجازه می‌دهد این بند را دارد.
+     وگرنه هر قسمتِ «از همه جا از همه رنگ» توکنِ بی‌مصرف می‌دهد — و خواستهٔ
+     صاحبِ برنامه این بود که هزینه بالا نرود. */
+  const prS = ytMetaPrompt_(mk('special'));
+  const prV = ytMetaPrompt_(mk('variety'));
+  ok('۴۹.۸ بندِ تصویر فقط در پرامپتِ درس‌نامه می‌آید، نه در همه',
+     prS.indexOf('visuals') !== -1 && prV.indexOf('visuals') === -1 &&
+     prS.indexOf('به انگلیسی') !== -1,
+     'درس‌نامه ' + prS.length + ' نویسه، از همه جا ' + prV.length);
+
+  /* ۴۹.۹ — و از سرتاسرِ مسیر: `_yt.json` تصویرها را دارد، و اجرای دوم
+     **دوباره نمی‌پرسد** — یعنی هزینهٔ توکن یک بار است، نه هر شب. */
+  const folder = global.__ROOT_FOLDER.createFolder('قسمت 0077 — تصویر');
+  const askWas = __askCount;
+  const plan = ytPlan_(folder, mk('special'), false);
+  const onDisk = JSON.parse(folder.getFilesByName(ytPlanName_()).next()
+                            .getBlob().getDataAsString());
+  const again = ytPlan_(folder, mk('special'), false);
+  ok('۴۹.۹ تصویرها در `_yt.json` می‌نشینند و فراخوانِ دوم انجام نمی‌شود',
+     (plan.visuals || []).length >= 2 && (onDisk.visuals || []).length >= 2 &&
+     again.cached === true && (__askCount - askWas) === 1,
+     (plan.visuals || []).length + ' مورد در نقشه، ' +
+     (onDisk.visuals || []).length + ' روی دیسک، ' +
+     (__askCount - askWas) + ' فراخوانِ مدل برای دو بار صدا زدن');
+
+  /* و ویرایشِ دستی — همان قاعدهٔ «اگر اشتباه ساخت چه؟» که برای عنوان هست. */
+  const ff = folder.getFilesByName(ytPlanName_()).next();
+  const ed = JSON.parse(ff.getBlob().getDataAsString());
+  ed.visuals[0].cardTitle = 'آدم این را نوشت';
+  ff.setContent(JSON.stringify(ed));
+  ok('۴۹.۹-ب و ویرایشِ دستیِ تصویرها خوانده می‌شود',
+     ytPlan_(folder, mk('special'), false).visuals[0].cardTitle === 'آدم این را نوشت',
+     'یعنی ناظر و آدم می‌توانند تصویرِ بد را عوض کنند، بی دست‌زدن به کد');
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

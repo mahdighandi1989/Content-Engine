@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.91
+ *  موتور محتوا و پادکست — نسخهٔ 7.92
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -703,6 +703,29 @@ var CFG = {
   YT_DIGEST: true,
   YT_DIGEST_HOURS: 26,
   YT_COVER_FOLDER: 'کاورهای یوتیوب',
+
+  /* ══ تصویرهای درس ══ (بخشِ ۲۷، طرح در docs/lesson_visuals_plan.md)
+   * ویدئوی یوتیوب به‌جای یک کاورِ ثابت، رشته‌ای از تصویرهای هم‌خوانِ محتوا
+   * می‌گیرد. برنامه‌ریزی‌اش **هیچ فراخوانِ تازه‌ای** ندارد: به همان schemaی
+   * `ytPlan_` اضافه می‌شود که از قبل یک بار در هر قسمت پرسیده می‌شود. */
+  LV_ENABLED: true,
+  /* فعلاً فقط درس‌نامه — خواستهٔ صریحِ صاحبِ برنامه: «برای شروع این موضوع
+     فعلا روی پادکست درسنامه باشه». «از همه جا از همه رنگ» کاورِ
+     تک‌تصویریِ امروزش را نگه می‌دارد. */
+  LV_SHOWS: ['special'],
+  LV_PER_MIN: 0.8,              // چند تصویر در هر دقیقه (۲۰ دقیقه ⇒ ~۱۶)
+  LV_MAX_PER_EP: 40,            // بیش از این، نه لازم است نه امن
+  LV_MIN_SEC: 8,                // کوتاه‌تر از این، تصویر دیده نمی‌شود
+  LV_MAX_SEC: 90,               // بلندتر از این، بیننده خسته می‌شود
+  /* گونه‌ها. «کارت» پیش‌فرض است چون **مجانی** است (Slides) و همیشه در
+     دسترس؛ «ویدئو» آخر است چون سنجشِ ۳۰ سپتامبر نشان داد کلیپِ آزادِ
+     مناسب عملاً پیدا نمی‌شود (صفر از سیزده نامزد). */
+  LV_KINDS: ['کارت', 'نمودار', 'عکس', 'ویدئو'],
+  LV_CARD_TITLE_MAX: 48,        // روی کارت، در یک نگاه خوانده شود
+  LV_CARD_LINES_MAX: 4,
+  LV_CARD_LINE_MAX: 72,
+  LV_CAPTION_MAX: 120,          // زیرنویسِ جزوه
+  LV_TERMS_MAX: 80,             // واژه‌های جست‌وجو (انگلیسی)
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
   YT_CHANNEL: true,                     // نگه‌داشتنِ شناسنامهٔ کانال
@@ -1285,7 +1308,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.91',
+  CODE_VERSION: '7.92',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -39231,7 +39254,23 @@ var YT_META_SCHEMA = {
     summary: { type: 'string' },
     bullets: { type: 'array', items: { type: 'string' } },
     tags: { type: 'array', items: { type: 'string' } },
-    hashtags: { type: 'array', items: { type: 'string' } }
+    hashtags: { type: 'array', items: { type: 'string' } },
+    /* ══ تصویرهای درس ══
+     * این‌جا اضافه می‌شود و **نه در یک فراخوانِ جدا**، چون `ytPlan_` از قبل
+     * یک بار در هر قسمت پرسیده می‌شود و جوابش در `_yt.json` می‌مانَد. یعنی
+     * هزینهٔ توکنی چند صد توکنِ خروجیِ بیشتر است، نه یک فراخوانِ تازه —
+     * خواستهٔ صریحِ صاحبِ برنامه که «هزینه و توکن بالا نره».
+     *
+     * همهٔ فیلدها رشته‌اند، از جمله شمارهٔ بخش. مدلِ این ریپو هر schema
+     * حاویِ integer/number/boolean را رد می‌کند (`run_real_test.js` ۲). */
+    visuals: { type: 'array', items: { type: 'object', properties: {
+      at: { type: 'string' },          // شمارهٔ بخش، از ۱
+      kind: { type: 'string' },        // کارت | نمودار | عکس | ویدئو
+      cardTitle: { type: 'string' },   // متنِ درشتِ روی کارت
+      cardLines: { type: 'array', items: { type: 'string' } },
+      terms: { type: 'string' },       // واژه‌های جست‌وجو، انگلیسی
+      caption: { type: 'string' }      // زیرنویسِ جزوه، فارسی
+    } } }
   },
   required: ['title', 'coverTitle', 'hookLine', 'summary', 'tags']
 };
@@ -39292,6 +39331,47 @@ function ytMetaPrompt_(ctx) {
   L.push('• tags — ده تا پانزده برچسبِ فارسی و در صورتِ نیاز انگلیسی؛ از عامْ به ' +
          'خاص. هرکدام دو تا چهار واژه. تکراری نه.');
   L.push('• hashtags — سه هشتگِ کوتاهِ فارسی، بی فاصله، بی علامتِ #.');
+  /* ══ تصویرهای درس ══ فقط برای نمایش‌هایی که `LV_SHOWS` می‌گوید. */
+  if (ytVisOn_(ctx.show) && (ctx.sections || []).length) {
+    var want = ytVisWant_(ctx.totalSec);
+    L.push('');
+    L.push('و یک کارِ دومِ جدا: **برای هر بخش بگو چه تصویری کنارش بنشیند.** ' +
+           'این ویدئو در یوتیوب به‌جای یک کاورِ ثابت، رشته‌ای از تصویر خواهد ' +
+           'داشت که باید **دقیقاً به همان چیزی بخورد که در آن لحظه گفته ' +
+           'می‌شود** — نه تصویرِ تزئینیِ بی‌ربط.');
+    L.push('حدودِ ' + faDigitsOut_(String(want)) + ' مورد بنویس در فیلدِ ' +
+           '`visuals`، به ترتیبِ بخش‌ها. بخشِ بلند می‌تواند دو مورد بگیرد، ' +
+           'بخشِ کوتاه یکی.');
+    L.push('برای هر مورد:');
+    L.push('• at — شمارهٔ بخش (از ۱، به رقمِ لاتین). فقط بخش‌هایی که در ' +
+           'فهرستِ بالا آمده‌اند.');
+    L.push('• kind — یکی از این چهار، و ترتیبشان ترتیبِ ترجیح است:');
+    L.push('   «کارت» — متن روی یک کارتِ تمیز. **پیش‌فرض و مطمئن‌ترین**: ' +
+           'همیشه در دسترس است و هیچ هزینه‌ای ندارد. برای گزاره، تعریف، ' +
+           'نقلِ‌قول، فهرستِ نکته‌ها، عدد و مقایسه.');
+    L.push('   «نمودار» — جایی که رابطه یا روند مهم‌تر از واژه است.');
+    L.push('   «عکس» — فقط برای چیزی که **واقعاً وجود دارد** و دیدنش چیزی ' +
+           'اضافه می‌کند: یک شخصِ معیّن، یک جا، یک شیء، یک سند. برای مفهومِ ' +
+           'انتزاعی عکس نخواه — «کارت» بهتر جواب می‌دهد.');
+    L.push('   «ویدئو» — فقط وقتی **حرکت** خودش بخشی از مطلب است. ' +
+           'کلیپِ آزادِ مناسب کم پیدا می‌شود، پس کم بخواه.');
+    L.push('• cardTitle — متنِ درشتِ روی کارت. حداکثر ' +
+           faDigitsOut_(String(CFG.LV_CARD_TITLE_MAX || 48)) + ' نویسه، ' +
+           'ترجیحاً کمتر. همان انضباطِ coverTitle: در یک نگاه خوانده شود.');
+    L.push('• cardLines — صفر تا ' +
+           faDigitsOut_(String(CFG.LV_CARD_LINES_MAX || 4)) + ' سطرِ کوتاه ' +
+           'زیرِ آن. هر سطر یک چیز.');
+    L.push('• terms — دو تا پنج واژهٔ جست‌وجو **به انگلیسی**. علتش سنجیده ' +
+           'است، نه سلیقه: منبع‌های تصویرِ آزاد انگلیسی‌نمایه‌اند و پرسشِ ' +
+           'فارسی از آن‌ها چیزی برنمی‌گرداند. برای «کارت» و «نمودار» خالی ' +
+           'بگذار.');
+    L.push('• caption — یک جملهٔ کوتاهِ فارسی که زیرِ همین تصویر در **جزوه** ' +
+           'می‌نشیند. حداکثر ' + faDigitsOut_(String(CFG.LV_CAPTION_MAX || 120)) +
+           ' نویسه.');
+    L.push('و یک مرز: تصویری نخواه برای چیزی که خودِ قسمت نگفته است. ' +
+           'تصویرِ بی‌ربط از نبودنِ تصویر بدتر است.');
+  }
+
   L.push('');
   L.push('چه هرگز ننویس: هیچ نشانی یا لینکی از گوگل‌درایو، هیچ شناسهٔ فایل، ' +
          'هیچ ایمیل، هیچ نامِ فایل یا تبِ داخلی، و هیچ اشاره‌ای به اینکه این متن ' +
@@ -40800,6 +40880,134 @@ function ytPlanWrite_(folder, plan) {
 }
 
 /** نقشه را می‌سازد یا از روی دیسک برمی‌دارد. `redo` مدل را دوباره می‌پرسد. */
+/* ═══════════════ تصویرهای درس (طرح: docs/lesson_visuals_plan.md) ═══════════════
+ *
+ * ══ چه چیزی این‌جاست و چه چیزی نیست ══
+ * این‌جا فقط **تصمیم** گرفته می‌شود: کدام بخش چه تصویری، با چه متنی، با چه
+ * سهمی از زمان. آوردنِ عکس، ساختنِ ویدئو و کدگذاری‌اش کارِ رانر است
+ * (`tools/render.js`) — همان تقسیمِ کارِ `_YT-RENDER.json` که ۱۸۰ بار دویده.
+ * Apps Script نه ffmpeg دارد نه شش دقیقه وقت.
+ *
+ * ══ و چرا در همین بخش، نه یک بخشِ تازه ══
+ * فهرستِ بخش‌ها در ۲۹ جا دستی نوشته شده (`tools/build.js` + `probe_r4_lib.js`
+ * + ۲۷ لودرِ آزمون)؛ یک فایلِ تازه یعنی ۲۹ ویرایش و `run_wiring_test.js`
+ * ۴٫۱/۴٫۲ اگر یکی جا بمانَد قرمز می‌شود — شکلِ ۵٫۵۲. و مهم‌تر: بخشِ ۲۶
+ * (جزوه) امروز **صفر** فراخوان به این بخش دارد و آن مرز باید تمیز بمانَد، پس
+ * جزوه `_visuals.json` را خودش می‌خوانَد، نه با فراخوانِ رو به جلو.
+ */
+
+/** آیا این نمایش تصویر می‌گیرد؟ فعلاً فقط درس‌نامه، به خواستهٔ صاحبِ برنامه. */
+function ytVisOn_(show) {
+  if (CFG.LV_ENABLED === false) return false;
+  var list = CFG.LV_SHOWS || ['special'];
+  for (var i = 0; i < list.length; i++) {
+    if (String(list[i]) === String(show)) return true;
+  }
+  return false;
+}
+
+/** چند تصویر برای این مدت. عددِ مدل نیست — از مدتِ واقعیِ قسمت درمی‌آید. */
+function ytVisWant_(totalSec) {
+  var mins = Math.max(1, (Number(totalSec) || 0) / 60);
+  var n = Math.round(mins * (Number(CFG.LV_PER_MIN) || 0.8));
+  return Math.max(3, Math.min(Number(CFG.LV_MAX_PER_EP) || 40, n));
+}
+
+/**
+ * گونه را به فهرستِ شناخته می‌نشاند. **ناشناخته «کارت» می‌شود، نه دورانداخته.**
+ *
+ * چرا: «کارت» مجانی است و همیشه در دسترس، پس بدترین حالتش یک اسلایدِ متنیِ
+ * درست است. دورانداختنِ مورد یعنی یک شکاف در پوششِ زمانی — و قاعدهٔ بی‌شکاف
+ * خواستهٔ صریحِ صاحبِ برنامه است.
+ */
+function ytVisKind_(k) {
+  var t = String(k || '').trim();
+  var list = CFG.LV_KINDS || ['کارت', 'نمودار', 'عکس', 'ویدئو'];
+  for (var i = 0; i < list.length; i++) if (t === list[i]) return t;
+  // چند نگارشِ رایجِ مدل
+  if (/عکس|تصویرِ? ?واقعی|photo|image/i.test(t)) return 'عکس';
+  if (/نمودار|چارت|diagram|chart/i.test(t)) return 'نمودار';
+  if (/ویدئو|ویدیو|کلیپ|video|clip/i.test(t)) return 'ویدئو';
+  return list[0];
+}
+
+function ytVisCut_(t, n) {
+  var x = ytScrub_(String(t == null ? '' : t)).replace(/\s+/g, ' ').trim();
+  var max = Math.max(4, Number(n) || 48);
+  return x.length > max ? x.slice(0, max).trim() : x;
+}
+
+/**
+ * برنامهٔ تصویرها — **حقیقت‌ها از کد، نوشته‌ها از مدل.**
+ *
+ * مدل می‌گوید کدام بخش چه تصویری بخواهد و متنش چه باشد. ولی **سهمِ زمان از
+ * کد می‌آید**، از سهمِ نویسه‌ایِ هر بخش — عیناً همان حسابی که `ytChapters_`
+ * برای فصل‌بندیِ یوتیوب می‌کند. اگر سهم را از مدل می‌گرفتیم، یک حدسِ
+ * بی‌پشتوانه تعیین می‌کرد که بیننده چند ثانیه به چه چیزی نگاه کند.
+ *
+ * و شمارهٔ بخشِ ناشناخته **دور انداخته می‌شود**: مدل بخشی را نام می‌برد که
+ * وجود ندارد، و تصویری که به هیچ متنی وصل نیست از نبودنش بدتر است. این
+ * قرینهٔ `ytVisKind_` است و عمداً فرق دارد: گونهٔ ناشناخته جبران‌شدنی است
+ * (کارت می‌شود)، بخشِ ناشناخته نه.
+ */
+function ytVisPlan_(mm, ctx) {
+  if (!ytVisOn_(ctx && ctx.show)) return [];
+  var secs = (ctx && ctx.sections) || [];
+  var raw = (mm && mm.visuals) || [];
+  if (!secs.length || !raw.length) return [];
+
+  // سهمِ نویسه‌ایِ هر بخش — همان مبنای `ytChapters_`
+  var chars = [], sum = 0;
+  for (var i = 0; i < secs.length; i++) {
+    var n = String((secs[i] && (secs[i].narration || secs[i].text)) || '').length;
+    chars.push(n); sum += n;
+  }
+  if (!sum) return [];
+
+  var lead = Math.max(0, Number(CFG.MUSIC_INTRO_SEC) || 0);
+  var body = Math.max(1, (Number(ctx.totalSec) || 0) - lead);
+  var cap = Math.max(1, Number(CFG.LV_MAX_PER_EP) || 40);
+
+  // اول گروه‌بندی بر اساسِ بخش، تا سهمِ هر بخش بینِ موردهایش تقسیم شود
+  var bySec = Object.create(null), order = [];
+  for (var r = 0; r < raw.length; r++) {
+    var it = raw[r] || {};
+    var at = parseInt(faDigits_(String(it.at == null ? '' : it.at)), 10);
+    if (isNaN(at) || at < 1 || at > secs.length) continue;   // بخشِ ناشناخته، رد
+    var k = String(at);
+    if (!bySec[k]) { bySec[k] = []; order.push(at); }
+    if (bySec[k].length >= 3) continue;                      // سه مورد در یک بخش، کافی
+    var lines = [];
+    var src = Array.isArray(it.cardLines) ? it.cardLines : [];
+    for (var L = 0; L < src.length && lines.length < (Number(CFG.LV_CARD_LINES_MAX) || 4); L++) {
+      var ln = ytVisCut_(src[L], CFG.LV_CARD_LINE_MAX || 72);
+      if (ln) lines.push(ln);
+    }
+    bySec[k].push({
+      at: at,
+      kind: ytVisKind_(it.kind),
+      cardTitle: ytVisCut_(it.cardTitle, CFG.LV_CARD_TITLE_MAX || 48),
+      cardLines: lines,
+      terms: ytVisCut_(it.terms, CFG.LV_TERMS_MAX || 80),
+      caption: ytVisCut_(it.caption, CFG.LV_CAPTION_MAX || 120)
+    });
+  }
+  order.sort(function (a, b) { return a - b; });
+
+  var out = [];
+  for (var o = 0; o < order.length && out.length < cap; o++) {
+    var grp = bySec[String(order[o])];
+    var share = (chars[order[o] - 1] / sum) * body;          // سهمِ این بخش
+    var each = share / grp.length;
+    for (var g = 0; g < grp.length && out.length < cap; g++) {
+      grp[g].sec = Math.round(each * 10) / 10;
+      grp[g].heading = String((secs[order[o] - 1] || {}).heading || '');
+      out.push(grp[g]);
+    }
+  }
+  return out;
+}
+
 function ytPlan_(folder, ctx, redo) {
   if (!redo) {
     var had = ytPlanRead_(folder);
@@ -40822,6 +41030,14 @@ function ytPlan_(folder, ctx, redo) {
     coverTitle: ytScrub_(String(mm.coverTitle || '')).trim(),
     coverKicker: ytScrub_(String(mm.coverKicker || '')).trim(),
     chapters: chapters.length,
+    /* تصویرها همین‌جا و در همین فایل می‌نشینند — یعنی آدم و ناظر می‌توانند
+       ویرایششان کنند، همان قاعدهٔ «اگر اشتباه ساخت چه؟» که `_yt.json` برای
+       عنوان و کاور دارد. خالی بودنش یعنی مسیرِ کاورِ تک‌تصویریِ امروز. */
+    visuals: (function () {
+      try { return ytVisPlan_(mm, ctx); } catch (eV) {
+        logLine_('برنامهٔ تصویرها ساخته نشد: ' + eV.message); return [];
+      }
+    })(),
     note: 'این فایل را می‌شود دستی ویرایش کرد. بعدش از منو ' +
           '«بازسازیِ عنوان و کاورِ یوتیوب» را بزنید تا روی ویدئو بنشیند.'
   };
