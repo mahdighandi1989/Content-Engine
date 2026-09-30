@@ -1948,29 +1948,41 @@ function ytPlanWrite_(folder, plan) {
  * بی‌صدا اولی را بردارد.
  */
 
+/* هر سبک یک `gen` هم دارد: **حال‌وهوای تصویرِ ساخته‌شده** (لایهٔ ۳، ۷٫۹۸).
+   بی این، ستونِ سبک روی پس‌زمینه‌ها هیچ اثری نداشت و «سبکِ مجموعه» فقط
+   نیمه‌ای از تصویر را شکل می‌داد — همان برچسبِ بی‌ورودی، یک لایه آن‌طرف‌تر. */
 var LV_STYLES = [
   { key: 'ساده و رسمی', pal: { bg: '#0F172A', fg: '#F8FAFC', ac: '#38BDF8' },
-    frame: 'bar',      hint: 'فلسفه، منطق، معرفت‌شناسی، کلام' },
+    frame: 'bar',      hint: 'فلسفه، منطق، معرفت‌شناسی، کلام',
+    gen: 'هندسهٔ آرام و مینیمال، سرمه‌ای و فیروزه‌ای، سایه‌های نرم، فضای خالیِ زیاد' },
   { key: 'خطیِ مینیمال', pal: { bg: '#FFFFFF', fg: '#17202E', ac: '#2E6FB8' },
-    frame: 'hairline', hint: 'علمی و فنی، جایی که نمودار حرفِ اصلی است' },
+    frame: 'hairline', hint: 'علمی و فنی، جایی که نمودار حرفِ اصلی است',
+    gen: 'خطوطِ نازکِ فنی روی زمینهٔ روشن، تک‌رنگِ آبی، مثلِ نقشهٔ مهندسی، بی سایه' },
   { key: 'تخته‌سفید', pal: { bg: '#F7F7F2', fg: '#1F2937', ac: '#059669' },
-    frame: 'dashed',   hint: 'ریاضی، فرایند، آموزشِ گام‌به‌گام' },
+    frame: 'dashed',   hint: 'ریاضی، فرایند، آموزشِ گام‌به‌گام',
+    gen: 'طرحِ دست‌کشیده با ماژیک روی تختهٔ سفید، خطوطِ ساده، زمینهٔ کاغذی' },
   { key: 'نقشِ ایرانی', pal: { bg: '#0B3B3C', fg: '#FDF6E3', ac: '#D4A017' },
-    frame: 'motif',    hint: 'تاریخِ اسلام، عرفان، ادبیاتِ کهن' },
+    frame: 'motif',    hint: 'تاریخِ اسلام، عرفان، ادبیاتِ کهن',
+    gen: 'نقشِ هندسیِ اسلامی و تذهیب، فیروزه‌ای و لاجوردی و طلایی، قرینه، بی چهره' },
   { key: 'آبرنگِ گرم', pal: { bg: '#FFF7ED', fg: '#431407', ac: '#EA580C' },
-    frame: 'wash',     hint: 'روایی، اخلاق، زندگی‌نامه' },
+    frame: 'wash',     hint: 'روایی، اخلاق، زندگی‌نامه',
+    gen: 'آبرنگِ گرم و پخش‌شده، نارنجی و خاکی، لبه‌های نرم، بافتِ کاغذ' },
   { key: 'چاپِ قدیمی', pal: { bg: '#F3EAD3', fg: '#2B2116', ac: '#8C5A2B' },
-    frame: 'rules',    hint: 'تاریخ، ادبیات، اسناد' },
+    frame: 'rules',    hint: 'تاریخ، ادبیات، اسناد',
+    gen: 'حکاکیِ چاپِ سنگیِ قدیمی، قهوه‌ای و کرم، بافتِ کاغذِ کهنه، خط‌خطیِ ریز' },
   { key: 'کاغذبری', pal: { bg: '#1E1B4B', fg: '#EEF2FF', ac: '#A78BFA' },
-    frame: 'layers',   hint: 'مفاهیمِ لایه‌لایه و ساختارها' },
+    frame: 'layers',   hint: 'مفاهیمِ لایه‌لایه و ساختارها',
+    gen: 'کاغذبریِ لایه‌لایه، بنفش و نیلی، سایه‌های تیزِ بین لایه‌ها، بی بافت' },
   /* «عکسِ واقعی» امروز **لایه‌اش نیامده** (سنجشِ گامِ صفر: تصویرِ آزاد شدنی
      است، ولی آوردنش کارِ گامِ بعدی است). پس کارت‌ها ساده ساخته می‌شوند و
      این را خطِ روزانه **با اسم می‌گوید** — وگرنه صاحبِ برنامه سبکی انتخاب
      کرده که بی‌صدا کار نمی‌کند، و آن بدترین حالت است (۷٫۴۵). */
   { key: 'عکسِ واقعی', pal: { bg: '#111827', fg: '#F9FAFB', ac: '#9CA3AF' },
-    frame: 'bar', photo: true, hint: 'علومِ تجربی، جغرافیا، رویدادها' },
+    frame: 'bar', photo: true, hint: 'علومِ تجربی، جغرافیا، رویدادها',
+    gen: 'عکسِ فضاییِ واقع‌نما، نورِ طبیعی، عمقِ میدانِ کم، خنثی و بی‌شخص' },
   { key: 'ترکیبی', pal: { bg: '#0F172A', fg: '#FDF6E3', ac: '#D4A017' },
-    frame: 'motif', mix: true, hint: 'کارتِ تمیز + نقشِ مجموعه — حالتِ پیشنهادی برای ترکیب' }
+    frame: 'motif', mix: true, hint: 'کارتِ تمیز + نقشِ مجموعه — حالتِ پیشنهادی برای ترکیب',
+    gen: 'نقشِ هندسیِ کم‌رنگ روی زمینهٔ سرمه‌ای، طلاییِ ملایم، بسیار آرام' }
 ];
 
 /** یک‌دست‌سازیِ نوشتار، تا «خطی مینیمال» بی نیم‌فاصله هم شناخته شود. */
@@ -2074,6 +2086,320 @@ function lvStyleAudit_(hub) {
       }
     }
   } catch (e) { out.why = e.message; }
+  return out;
+}
+
+/* ═══════════ لایهٔ ۳: تصویرِ ساخته‌شده با مدل (۷٫۹۸) ═══════════
+ *
+ * گامِ ۷ِ طرح، و تنها گامی که از روزِ اول «با اجازهٔ شما» نوشته شده بود.
+ * ساخته شد، و **خاموش می‌مانَد** تا صاحبِ برنامه روشنش کند.
+ *
+ * ══ چه چیزی ساخته می‌شود، و چه چیزی نه ══
+ * پس‌زمینهٔ کارت، بی‌واژه و انتزاعی. **نه** جایگزینِ کارت، و **نه** تصویرِ
+ * چیزی که واقعاً وجود دارد. دلیلش در `00_Config.gs` نوشته شده و مهم‌ترین
+ * نیمه‌اش این است: تصویرِ ساخته‌شدهٔ یک شخصِ واقعی یا یک سندِ تاریخی، یک
+ * **جعل** است. کانالی که درس‌نامهٔ تاریخ و کلام می‌دهد نمی‌تواند چهرهٔ
+ * ساخته‌شدهٔ کسی را نشان دهد. این مرز در کد است (`lvGenPrompt_` صریح منعش
+ * می‌کند) نه در یک آرزو.
+ *
+ * ══ یک مسیر، نه دو ══
+ * فقط مدل‌هایی که `generateContent` دارند — یعنی همان راهی که موتور از روزِ
+ * اول با آن حرف می‌زند. Imagen نقطهٔ پایانیِ `:predict` دارد با شکلِ دیگری
+ * از payload؛ پشتیبانی از آن یعنی دو مسیر و دو جای شکستن و نیمی از
+ * تاریخچه در هر کدام. اگر روزی ارزش داشت، جدا اضافه می‌شود.
+ *
+ * ══ و آنچه این بخش **ادعا نمی‌کند** ══
+ * کیفیتِ هنریِ تصویر را نمی‌سنجد. بایت‌ها را می‌سنجد (سرآیندِ واقعی، اندازه)
+ * و همین. داوریِ زیبایی کارِ چشم است و §۴٫۱۱ پرامپتِ ناظر از قبل می‌گوید که
+ * هر روز یک تصویرِ واقعی را باز کن. ادعای سنجشی که انجام نمی‌شود، بدتر از
+ * نبودنش است (۷٫۲۴).
+ */
+
+function lvGenOn_() {
+  return CFG.LV_GEN_ENABLED === true && CFG.LV_ENABLED !== false;
+}
+
+/** قیمتِ یک تصویر با این مدل. مدلِ ناشناخته ⇒ **گران‌ترین** فرض. */
+function lvGenPrice_(model) {
+  var s = String(model || '').toLowerCase();
+  var list = CFG.LV_GEN_PRICES || [];
+  var max = 0;
+  for (var i = 0; i < list.length; i++) {
+    var u = Number(list[i].usd) || 0;
+    if (u > max) max = u;
+    if (s.indexOf(String(list[i].match).toLowerCase()) !== -1) return u;
+  }
+  /* هیچ الگویی نخورد. حدسِ ارزان یعنی از سقف رد شدن — و سقف تنها چیزی است
+     که این لایه را مهار می‌کند. پس گران‌ترین. */
+  return max || 0.134;
+}
+
+/**
+ * مدلِ تصویر: تنظیمِ صریح، وگرنه ارزان‌ترین مدلِ تصویرِ `generateContent`دار.
+ *
+ * `MODEL_BLOCK` عمداً `image` را دارد، چون مدلِ تصویر هرگز نباید مدلِ **متن**
+ * انتخاب شود. پس این‌جا همان فهرست را از راهِ دیگری می‌خوانیم، نه با
+ * برداشتنِ آن سد — برداشتنش یعنی یک روز موتور با مدلِ تصویر قسمت بنویسد.
+ */
+function lvGenModel_() {
+  var set = String(CFG.LV_GEN_MODEL || '').trim();
+  if (set) return { id: set, why: 'تنظیمِ صریح' };
+  try {
+    var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
+    if (c && c.id && (new Date().getTime() - (c.at || 0)) / 86400000 <
+        (Number(CFG.MODEL_REFRESH_DAYS) || 7)) {
+      return { id: String(c.id), why: 'از حافظه' };
+    }
+  } catch (e) {}
+  var found = '', all = [];
+  try {
+    var models = listModels_();
+    for (var i = 0; i < models.length; i++) {
+      var id = String(models[i].name || '').replace(/^models\//, '');
+      var ms = models[i].supportedGenerationMethods ||
+               models[i].supported_generation_methods || [];
+      if (ms.indexOf('generateContent') === -1) continue;
+      if (String(id).toLowerCase().indexOf('image') === -1) continue;
+      all.push(id);
+    }
+    all.sort(function (a, b) { return lvGenPrice_(a) - lvGenPrice_(b); });
+    found = all[0] || '';
+  } catch (e2) { return { id: '', why: 'فهرستِ مدل‌ها خوانده نشد: ' + e2.message }; }
+  if (!found) return { id: '', why: 'هیچ مدلِ تصویری با generateContent در دسترس نیست' };
+  try {
+    props_().setProperty(PK.LV_GEN_MODEL,
+      JSON.stringify({ id: found, at: new Date().getTime() }));
+  } catch (e3) {}
+  return { id: found, why: 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' };
+}
+
+/** خرجِ این ماه. ماه که عوض شود، از صفر. */
+function lvGenSpend_() {
+  var mon = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM');
+  var d = { month: mon, n: 0, usd: 0 };
+  try {
+    var c = JSON.parse(props_().getProperty(PK.LV_GEN_SPEND) || 'null');
+    if (c && String(c.month) === mon) {
+      d.n = Number(c.n) || 0;
+      d.usd = Number(c.usd) || 0;
+    }
+  } catch (e) {}
+  return d;
+}
+
+function lvGenSpendAdd_(usd) {
+  var d = lvGenSpend_();
+  d.n++;
+  d.usd = Math.round((d.usd + (Number(usd) || 0)) * 10000) / 10000;
+  try { props_().setProperty(PK.LV_GEN_SPEND, JSON.stringify(d)); } catch (e) {}
+  return d;
+}
+
+/** چند تصویرِ دیگر این ماه جا دارد. */
+function lvGenRoom_(model) {
+  var cap = Math.max(0, Number(CFG.LV_GEN_USD_MONTH) || 0);
+  var price = lvGenPrice_(model);
+  var sp = lvGenSpend_();
+  if (price <= 0) return 0;
+  return Math.max(0, Math.floor((cap - sp.usd) / price));
+}
+
+/**
+ * دستورِ تصویر — **بی‌واژه، انتزاعی، و بی هیچ شخصِ واقعی.**
+ *
+ * سه منعِ صریح، و هر سه در کد نه در آرزو:
+ *   • هیچ متنی، هیچ حرفی، هیچ عددی. مدل فارسی را بد می‌نویسد و متنِ کارت
+ *     برداری است.
+ *   • هیچ چهره و هیچ شخصِ شناختنی. تصویرِ ساخته‌شدهٔ یک شخصِ واقعی جعل است.
+ *   • هیچ نشان و لوگو و پرچم — همان پرسشِ حق‌نشر که `visprobe.py` برایش سد
+ *     گذاشت، این بار از سمتِ ساخت.
+ */
+function lvGenPrompt_(v, style) {
+  var subj = String((v && (v.cardTitle || v.heading)) || '').trim();
+  var look = (style && style.gen) ? String(style.gen) : 'تصویرسازیِ آرام و رسمی';
+  return 'یک تصویرسازیِ **بی‌واژه** و انتزاعی برای پس‌زمینهٔ یک اسلایدِ ' +
+    'آموزشی بساز. نسبتِ ۱۶:۹.\n' +
+    'حال‌وهوا: ' + look + '.\n' +
+    (subj ? 'موضوعِ درس (فقط برای حال‌وهوا، نه برای نشان‌دادنِ عین آن): ' +
+            subj + '\n' : '') +
+    'قیدهای قطعی:\n' +
+    '• هیچ متن، حرف، واژه، عدد یا نوشته‌ای در تصویر نباشد.\n' +
+    '• هیچ چهره و هیچ شخصِ شناختنی نباشد.\n' +
+    '• هیچ نشان، لوگو، پرچم یا علامتِ تجاری نباشد.\n' +
+    '• روی آن متن نوشته می‌شود، پس **مرکزِ تصویر آرام و کم‌جزئیات** باشد و ' +
+    'جزئیات به لبه‌ها برود. تیره یا کم‌اشباع بهتر است.';
+}
+
+/**
+ * بایت‌ها را می‌سنجد، نه ادعا را. **پیش‌فرض ردّ است.**
+ * صفحهٔ خطا هم بایت برمی‌گرداند — همان درسی که `musicFetch_` و `ytMp4Ok_`
+ * گران خریدند.
+ */
+function lvGenAccept_(blob) {
+  var out = { ok: false, why: '', w: 0, h: 0, bytes: 0 };
+  try {
+    if (!blob) { out.why = 'چیزی برنگشت'; return out; }
+    var b = blob.getBytes();
+    out.bytes = b.length;
+    var min = Math.max(1000, Number(CFG.LV_GEN_MIN_BYTES) || 12000);
+    if (b.length < min) { out.why = b.length + ' بایت — تصویر نیست'; return out; }
+    var u = function (i) { return b[i] & 0xFF; };
+    var isPng = b.length > 24 && u(0) === 137 && u(1) === 80 && u(2) === 78 && u(3) === 71;
+    var isJpg = b.length > 4 && u(0) === 0xFF && u(1) === 0xD8 && u(2) === 0xFF;
+    if (!isPng && !isJpg) {
+      out.why = 'سرآیند نه PNG است نه JPEG — احتمالاً صفحهٔ خطا';
+      return out;
+    }
+    if (isPng) {
+      var z = ytPngSize_(blob);
+      if (z) { out.w = z.w; out.h = z.h; }
+      if (out.w && out.w < 640) {
+        out.why = out.w + ' پیکسل عرض — برای پس‌زمینهٔ ۱۰۸۰p کوچک است';
+        return out;
+      }
+    }
+    out.ok = true;
+    return out;
+  } catch (e) { out.why = 'بایت‌ها خوانده نشد: ' + e.message; return out; }
+}
+
+/**
+ * یک تصویر از مدل. `null` یعنی نشد — و همیشه با دلیل.
+ *
+ * ══ هزینه پس از **فراخوان** ثبت می‌شود، نه پس از پذیرش ══
+ * وسوسه این است که فقط تصویرِ پذیرفته‌شده را بشماریم. ولی گوگل برای
+ * فراخوانِ انجام‌شده پول می‌گیرد، حتی اگر ما بایت‌هایش را رد کنیم. اگر
+ * ردشده‌ها شمرده نشوند، سقفِ دلاری **دروغ** است — و شبی که مدل ده تصویرِ
+ * خراب بدهد، سقف هیچ‌چیز را مهار نکرده. پس هر فراخوان، پذیرفته یا نه.
+ */
+function lvGenOne_(model, prompt) {
+  var out = { blob: null, why: '', usd: 0 };
+  try {
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+              model + ':generateContent?key=' + encodeURIComponent(apiKey_());
+    var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
+    var j = geminiFetch_(url, payload);
+    out.usd = lvGenPrice_(model);
+    lvGenSpendAdd_(out.usd);            // فراخوان انجام شد ⇒ پول رفت
+    var b64 = '';
+    try {
+      var parts = j.candidates[0].content.parts;
+      for (var i = 0; i < parts.length; i++) {
+        var d = parts[i].inlineData || parts[i].inline_data;
+        if (d && d.data) { b64 = d.data; break; }
+      }
+    } catch (eP) {}
+    if (!b64) { out.why = 'پاسخ تصویری نداشت'; return out; }
+    var mime = 'image/png';
+    try {
+      var ps = j.candidates[0].content.parts;
+      for (var k = 0; k < ps.length; k++) {
+        var dd = ps[k].inlineData || ps[k].inline_data;
+        if (dd && dd.data && (dd.mimeType || dd.mime_type)) {
+          mime = String(dd.mimeType || dd.mime_type); break;
+        }
+      }
+    } catch (eM) {}
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, 'gen');
+    var acc = lvGenAccept_(blob);
+    if (!acc.ok) { out.why = acc.why; return out; }
+    out.blob = blob;
+    return out;
+  } catch (e) {
+    out.why = String(e.message).slice(0, 160);
+    return out;
+  }
+}
+
+/** نامِ ثابتِ پس‌زمینهٔ هر تصویر — پلِ «ساختن» و «دوباره پیدا کردن». */
+function lvBgName_(i, v) {
+  return 'پس‌زمینه ' + faDigitsOut_(String(Number(i) + 1)) +
+         ' — بخش ' + faDigitsOut_(String((v && v.at) || 0)) + '.png';
+}
+
+/**
+ * پس‌زمینه‌های لازمِ این دسته را می‌سازد یا از پوشه برمی‌دارد.
+ * @return {{map:Object, made:number, spent:number, why:string, model:string}}
+ */
+function lvGenFill_(todo, imgFolder, style) {
+  var out = { map: Object.create(null), made: 0, spent: 0, why: '', model: '' };
+  if (!lvGenOn_() || !todo || !todo.length) return out;
+
+  // آنچه از قبل ساخته شده — پولِ رفته دوباره خرج نمی‌شود
+  var need = [];
+  for (var i = 0; i < todo.length; i++) {
+    var nm = lvBgName_(todo[i].i, todo[i].v);
+    var got = null;
+    try {
+      var it = imgFolder.getFilesByName(nm);
+      if (it.hasNext()) got = it.next();
+    } catch (eH) {}
+    if (got) { out.map[String(todo[i].i)] = got.getBlob(); continue; }
+    if (todo[i].i < Math.max(0, Number(CFG.LV_GEN_PER_EP) || 4)) need.push(todo[i]);
+  }
+  if (!need.length) return out;
+
+  var mk = lvGenModel_();
+  out.model = mk.id;
+  if (!mk.id) { out.why = mk.why; return out; }
+  var room = lvGenRoom_(mk.id);
+  if (room <= 0) {
+    var sp = lvGenSpend_();
+    out.why = 'سقفِ ماهانه پر شد (' + sp.usd.toFixed(2) + ' از ' +
+              (Number(CFG.LV_GEN_USD_MONTH) || 0) + ' دلار)';
+    return out;
+  }
+  var cap = Math.min(need.length, room, Math.max(1, Number(CFG.LV_GEN_PER_RUN) || 6));
+
+  for (var k = 0; k < cap; k++) {
+    var r = lvGenOne_(mk.id, lvGenPrompt_(need[k].v, style));
+    out.spent += r.usd;
+    if (!r.blob) { if (!out.why) out.why = r.why; continue; }
+    var nm2 = lvBgName_(need[k].i, need[k].v);
+    try {
+      var old = imgFolder.getFilesByName(nm2);
+      while (old.hasNext()) old.next().setTrashed(true);
+      var f = imgFolder.createFile(r.blob.setName(nm2));
+      out.map[String(need[k].i)] = f.getBlob();
+      out.made++;
+    } catch (eF) { if (!out.why) out.why = 'پس‌زمینه ذخیره نشد: ' + eF.message; }
+  }
+  if (out.made) {
+    logLine_('پس‌زمینهٔ ساخته‌شده: ' + out.made + ' تصویر با ' + mk.id +
+             ' (~' + out.spent.toFixed(3) + ' دلار؛ جمعِ این ماه ' +
+             lvGenSpend_().usd.toFixed(2) + ').');
+  }
+  return out;
+}
+
+/** حالِ لایهٔ ۳ برای خطِ روزانه. بی هیچ فراخوانِ شبکه. */
+function lvGenStatus_() {
+  var out = { on: false, model: '', usd: 0, n: 0, cap: 0, price: 0, room: 0, line: '' };
+  try {
+    out.on = lvGenOn_();
+    out.cap = Number(CFG.LV_GEN_USD_MONTH) || 0;
+    var sp = lvGenSpend_();
+    out.usd = sp.usd; out.n = sp.n;
+    try {
+      var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
+      out.model = String(CFG.LV_GEN_MODEL || (c && c.id) || '');
+    } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
+    out.price = lvGenPrice_(out.model);
+    out.room = out.on ? lvGenRoom_(out.model) : 0;
+    if (!out.on) {
+      out.line = 'تصویرِ ساخته‌شده با مدل: **خاموش** — تصمیمِ خودتان است. ' +
+                 'با سقفِ ' + faDigitsOut_(String(out.cap)) + ' دلار در ماه، ' +
+                 '`LV_GEN_ENABLED` را true کنید.';
+    } else {
+      out.line = 'تصویرِ ساخته‌شده: روشن' +
+        (out.model ? ' با ' + out.model : ' (مدل هنوز پیدا نشده)') +
+        ' · این ماه ' + faDigitsOut_(String(out.n)) + ' تصویر، ~' +
+        out.usd.toFixed(2) + ' از ' + faDigitsOut_(String(out.cap)) + ' دلار' +
+        ' · جای ' + faDigitsOut_(String(out.room)) + ' تصویرِ دیگر' +
+        ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
+        'است `LV_GEN_PRICES` را عوض کنید).';
+    }
+  } catch (e) { out.line = ''; }
   return out;
 }
 
@@ -2246,11 +2572,40 @@ function lvFrameDraw_(slide, W, H, pal, frame, i) {
   return 'bar';
 }
 
-function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame) {
+function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame, bgImg) {
   var kind = String((v && v.kind) || 'کارت');
   var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
   bg.getFill().setSolidFill(pal.bg);
   bg.getBorder().setTransparent();
+  /* ══ پس‌زمینهٔ ساخته‌شده، و لایهٔ تیره‌ای که خوانایی را تضمین می‌کند (۷٫۹۸) ══
+   * تصویر تمام‌قاب می‌نشیند و **زیرِ** همه‌چیز می‌رود، بعد یک مستطیلِ تیرهٔ
+   * نیم‌شفاف رویش. آن لایه تزئین نیست: پس‌زمینهٔ ساخته‌شده هر رنگی می‌تواند
+   * دربیاید و بی آن، متنِ روشن روی یک تصویرِ روشن **ناخوانا** می‌شود —
+   * یعنی همان چیزی که کلِ کارت برایش هست از دست می‌رود. با آن، بدترین حالتِ
+   * یک تصویرِ بد «زشت» است، نه «نامفهوم».
+   * و اگر تصویری نیست، همین‌جا هیچ اتفاقی نمی‌افتد: کارتِ ۷٫۹۶ دست‌نخورده. */
+  if (bgImg) {
+    try {
+      /* ══ ترتیبِ درج **همان** ترتیبِ لایه‌هاست، و همین کافی است ══
+       * مستطیلِ رنگی از قبل درج شده، پس تصویر رویش می‌نشیند و لایهٔ تیره و
+       * قاب و متن بعد از آن. نتیجه: رنگ ← تصویر ← لایهٔ تیره ← قاب ← متن.
+       * نگارشِ اول دو فراخوانِ `sendToBack()` هم داشت — روی تصویر و روی
+       * مستطیل — و **هر دو مرده بودند**: با شکستنِ هر کدام ترتیبِ نهایی عوض
+       * نمی‌شد، و همین بود که نشانشان داد. کدِ مرده شکلِ شکستِ این مخزن است
+       * (سه باگِ واقعیِ ثبت‌شده، هر سه از همین جنس)، پس برداشته شدند.
+       * و سنجهٔ ۵۷٫۹-ب حالا خودِ **ترتیب** را می‌پرسد، نه وجودِ یک فراخوان —
+       * پس اگر کسی روزی این بلوک را جابه‌جا کند، قرمز می‌شود. */
+      var im = slide.insertImage(bgImg, 0, 0, W, H);
+      var a = Number(CFG.LV_GEN_SCRIM);
+      if (!isFinite(a)) a = 0.55;
+      a = Math.max(0, Math.min(0.95, a));
+      var sc = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
+      /* `setSolidFill(color, alpha)` — و نه `setTransparency`، که در
+         SlidesApp وجود ندارد. آلفا آن‌جاست که رنگ گذاشته می‌شود. */
+      sc.getFill().setSolidFill(pal.bg, a);
+      sc.getBorder().setTransparent();
+    } catch (eI) {}
+  }
   try { lvFrameDraw_(slide, W, H, pal, String(frame || 'bar'), i); } catch (eF) {}
 
   var pad = W * 0.075;
@@ -2295,7 +2650,7 @@ function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame) {
  * کارت‌های خواسته‌شده را می‌سازد و به‌صورتِ PNG در پوشهٔ تصویرها می‌نشاند.
  * `todo` فهرستِ `{i, v, n}` است — فقط آنچه هنوز فایل ندارد.
  */
-function lvCards_(ctx, todo, imgFolder, style) {
+function lvCards_(ctx, todo, imgFolder, style, bgMap) {
   var out = { made: [], why: '' };
   if (!todo || !todo.length) return out;
   var pres = null;
@@ -2325,7 +2680,8 @@ function lvCards_(ctx, todo, imgFolder, style) {
     var W = pres.getPageWidth(), H = pres.getPageHeight();
     for (var j = 0; j < todo.length; j++) {
       try { lvCardDraw_(use[j], W, H, pal, todo[j].v, ctx, todo[j].i, todo[j].n,
-                        (sty && sty.frame) || 'bar'); }
+                        (sty && sty.frame) || 'bar',
+                        (bgMap || {})[String(todo[j].i)] || null); }
       catch (eD) { out.why = 'کارتِ ' + (todo[j].i + 1) + ' کشیده نشد: ' + eD.message; }
     }
 
@@ -2389,7 +2745,8 @@ function lvCards_(ctx, todo, imgFolder, style) {
  */
 function lvBuild_(epFolder, plan, ctx, styleKey) {
   var out = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: false, why: '',
-              style: '', restyled: false };
+              style: '', recipe: '', restyled: false, gen: false,
+              gMade: 0, gSpent: 0, gModel: '' };
   var want = (plan && plan.visuals) || [];
   out.want = want.length;
   if (!want.length) { out.done = true; return out; }
@@ -2409,7 +2766,16 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   var hadStyle = String(d.style || '');
   out.style = wantStyle || hadStyle;
   var sty = lvStyleFind_(out.style) || lvStyleDefault_();
-  out.restyled = !!(wantStyle && hadStyle && wantStyle !== hadStyle);
+  /* ══ «دستور» = سبک + روشن‌بودنِ لایهٔ ۳ (۷.۹۸) ══
+   * روشن‌کردنِ تصویرِ ساخته‌شده هم باید کارت‌های موجود را از نو بسازد، وگرنه
+   * صاحبِ برنامه سوئیچی را روشن می‌کند که روی قسمت‌های ساخته‌شده هیچ اثری
+   * ندارد — «تمیزکردنِ ورودی آنچه را قبلاً نوشته شده درست نمی‌کند» (۵.۹۵).
+   * پس همان ماشینِ ۷.۹۶، با یک رشتهٔ دوجزئی. */
+  out.gen = lvGenOn_();
+  var wantRec = wantStyle ? (wantStyle + (out.gen ? ' + ساخته‌شده' : '')) : '';
+  var hadRec = String(d.recipe || hadStyle || '');
+  out.recipe = wantRec || hadRec;
+  out.restyled = !!(wantRec && hadRec && wantRec !== hadRec);
 
   var have = Object.create(null);
   for (var i = 0; i < want.length; i++) {
@@ -2420,8 +2786,12 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
     } catch (eH) {}
   }
   if (out.restyled) {
-    logLine_('سبکِ تصویرِ این مجموعه از «' + hadStyle + '» به «' + wantStyle +
-             '» عوض شد؛ کارت‌های این قسمت از نو ساخته می‌شوند.');
+    /* پیام **دستور** را می‌گوید، نه سبک را. مقایسه از ۷.۹۸ روی «سبک + لایهٔ
+       ۳» است، و پیامی که فقط سبک را چاپ کند در حالتِ «سبک همان، لایهٔ ۳
+       روشن شد» می‌نویسد «از نقشِ ایرانی به نقشِ ایرانی عوض شد» — یک جملهٔ
+       بی‌معنا که خواننده را به شکِ خرابی می‌انداز. */
+    logLine_('دستورِ تصویرِ این قسمت از «' + hadRec + '» به «' + wantRec +
+             '» عوض شد؛ کارت‌ها از نو ساخته می‌شوند.');
   }
 
   var todo = [], cap = Math.max(1, Number(CFG.LV_BUILD_MAX) || 24);
@@ -2435,7 +2805,14 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
     d.tries = out.tries + 1;
     out.tries = d.tries;
     lvWrite_(epFolder, d);                       // مرزِ ۱: پیش از کار
-    var r = lvCards_(ctx, todo, imgFolder, sty);
+    /* پس‌زمینه‌ها **پیش از** کارت‌ها، چون کارت رویشان کشیده می‌شود. و شکستش
+       هرگز کارت را زمین نمی‌زند: نقشهٔ خالی یعنی کارتِ ساده — رفتارِ ۷.۹۶. */
+    var bgm = { map: {}, made: 0, spent: 0, why: '', model: '' };
+    try { bgm = lvGenFill_(todo, imgFolder, sty); }
+    catch (eG) { bgm.why = 'پس‌زمینه ساخته نشد: ' + eG.message; logLine_(bgm.why); }
+    out.gMade = bgm.made; out.gSpent = bgm.spent; out.gModel = bgm.model;
+    if (bgm.why && !out.why) out.why = bgm.why;
+    var r = lvCards_(ctx, todo, imgFolder, sty, bgm.map);
     out.made = r.made.length;
     if (r.why) out.why = r.why;
     for (var m = 0; m < r.made.length; m++) have[String(r.made[m].i)] = r.made[m].fileId;
@@ -2470,6 +2847,8 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   /* سبک **فقط وقتی** ذخیره می‌شود که واقعاً پرسیده شده باشد: نوشتنِ رشتهٔ
      خالی روی سبکِ ذخیره‌شده یعنی شبِ بعد «عوض شد» تشخیص داده شود. */
   if (out.style) d.style = out.style;
+  if (out.recipe) d.recipe = out.recipe;
+  d.gen = out.gen === true;
   d.note = 'این تصویرها را ویدئوی یوتیوب و جزوه هر دو می‌خوانند. ' +
            'فایلِ پاک‌شده شبِ بعد دوباره ساخته می‌شود.';
   lvWrite_(epFolder, d);
@@ -2622,7 +3001,12 @@ function lvLine_(st) {
     p.push(faDigitsOut_(String(st.short)) + ' قسمت با تصویرِ کم منتشر شد — ' +
            'یوتیوب ویدئوی منتشرشده را عوض نمی‌کند، پس این عدد جبران نمی‌شود');
   }
-  return p.join(' · ') + '.';
+  /* و حالِ لایهٔ ۳ در همان خط — چه روشن چه خاموش. خاموش‌بودنش هم یک خبر
+     است: تصمیمِ صاحبِ برنامه، و هر روز یادآوری می‌شود که هست و خاموش است
+     (وگرنه قابلیتی که کسی رویش سوئیچ ندارد، فراموش می‌شود). */
+  var g = '';
+  try { g = lvGenStatus_().line; } catch (eG) { g = ''; }
+  return p.join(' · ') + '.' + (g ? '\n🎨 ' + g : '');
 }
 
 /**

@@ -3196,4 +3196,281 @@ console.log('=== ۵۶-ب) درِ آدم: بازسازیِ تصویرهای یک 
      alerted.indexOf(CFG.SPECIAL_SHOW_NAME) !== -1, alerted.slice(0, 80));
 }
 
+console.log('=== ۵۷) لایهٔ ۳: تصویرِ ساخته‌شده با مدل (۷.۹۸) ===');
+{
+  /* ══ چرا این لایه پس‌زمینه است و نه جایگزینِ کارت ══
+   * چهار دلیلِ سنجیده، و مهم‌ترینش این: تصویرِ ساخته‌شدهٔ «یک شخصِ واقعی» یا
+   * «یک سندِ تاریخی» یک **جعل** است. کانالی که درس‌نامهٔ تاریخ و کلام می‌دهد
+   * نمی‌تواند چهرهٔ ساخته‌شدهٔ کسی را نشان بدهد. مرز در کد است. */
+  const genWas = CFG.LV_GEN_ENABLED, modWas = CFG.LV_GEN_MODEL;
+  const capWas = CFG.LV_GEN_USD_MONTH, perEpWas = CFG.LV_GEN_PER_EP;
+
+  /* ۵۷.۱ — **خاموش است، و این خودش سنجیده می‌شود.** طرح از روزِ اول گفت
+     «با اجازهٔ شما». ساخته شد و خاموش می‌مانَد. */
+  ok('۵۷.۱ لایهٔ ۳ در پیش‌فرض خاموش است — روشن‌کردنش تصمیمِ صاحبِ برنامه است',
+     CFG.LV_GEN_ENABLED === false && lvGenOn_() === false);
+
+  /* ۵۷.۲ — **قیمتِ ناشناخته گران‌ترین فرض می‌شود.** حدسِ ارزان یعنی از سقف
+     رد شدن، و سقف تنها چیزی است که این لایه را مهار می‌کند. جهتِ حدس، خودش
+     یک تصمیمِ ایمنی است. */
+  const prices = (CFG.LV_GEN_PRICES || []).map(x => Number(x.usd));
+  ok('۵۷.۲ مدلِ ناشناخته گران‌ترین قیمت را می‌گیرد، نه ارزان‌ترین',
+     lvGenPrice_('gemini-9-mystery-image') === Math.max.apply(null, prices) &&
+     lvGenPrice_('چیزی که مدل نیست') === Math.max.apply(null, prices) &&
+     lvGenPrice_('gemini-2.5-flash-lite-image') < lvGenPrice_('gemini-3-pro-image'),
+     'ناشناخته ' + lvGenPrice_('x-image') + ' · flash-lite ' +
+     lvGenPrice_('gemini-2.5-flash-lite-image'));
+
+  /* ۵۷.۳ — **مدلِ تصویر هرگز مدلِ متن نمی‌شود.** `MODEL_BLOCK` عمداً `image`
+     را دارد؛ این لایه آن سد را **برنمی‌دارد** و از راهِ خودش می‌گردد. اگر
+     روزی کسی برای پیداکردنِ مدلِ تصویر آن سد را بردارد، موتور یک روز با
+     مدلِ تصویر قسمت می‌نویسد. */
+  ok('۵۷.۳ سدِ «مدلِ تصویر هرگز مدلِ متن نیست» دست‌نخورده می‌مانَد',
+     MODEL_BLOCK.indexOf('image') !== -1 && isBlocked_('gemini-3-pro-image') === true,
+     MODEL_BLOCK.join('، '));
+
+  /* ۵۷.۴ — و خودش ارزان‌ترین مدلِ تصویرِ `generateContent`دار را پیدا می‌کند،
+     چون هیچ نامِ مدلی از حافظه سیم‌کشی نشده (نامی که نتوانم بسنجمش، نباید
+     در کد سخت‌کد شود). */
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  global.__PROPS[PK.MODELS] = '';
+  CFG.LV_GEN_MODEL = '';
+  const stubWas = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) {
+      return { code: 200, json: { models: [
+        { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-3-pro-image', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/imagen-4.0-fast', supportedGenerationMethods: ['predict'] }
+      ] } };
+    }
+    return stubWas(url, body);
+  };
+  const mk = lvGenModel_();
+  ok('۵۷.۴ ارزان‌ترین مدلِ تصویرِ generateContent‌دار پیدا می‌شود',
+     mk.id === 'gemini-2.5-flash-image' && mk.why.indexOf('ارزان‌ترین') === 0,
+     mk.id + ' — ' + mk.why);
+
+  /* ۵۷.۴-ب — **و Imagen پذیرفته نمی‌شود، چون نقطهٔ پایانی‌اش `:predict` است.**
+     نگارشِ اولِ همین سنجه این را در ۵۷.۴ ادعا کرده بود و ثابت نمی‌کرد:
+     `imagen` قیمتِ ناشناخته می‌گیرد (یعنی گران‌ترین) و خودش آخر مرتب
+     می‌شود، پس برداشتنِ شرطِ `generateContent` هیچ اثری در جواب نداشت.
+     حالتی که تولید در آن می‌ایستد را باید ساخت: **فقط** Imagen در دسترس. */
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  const stubImg = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+      { name: 'models/imagen-4.0-fast', supportedGenerationMethods: ['predict'] },
+      { name: 'models/imagen-4.0-ultra', supportedGenerationMethods: ['predict'] }] } };
+    return stubImg(url, body);
+  };
+  const onlyImagen = lvGenModel_();
+  global.__STUB = stubImg;
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  ok('۵۷.۴-ب Imagen پذیرفته نمی‌شود — نقطهٔ پایانی‌اش generateContent نیست',
+     onlyImagen.id === '' && onlyImagen.why.indexOf('generateContent') !== -1,
+     onlyImagen.why);
+
+  /* ۵۷.۵ — **هر فراخوان شمرده می‌شود، پذیرفته یا نه.** گوگل برای فراخوانِ
+     انجام‌شده پول می‌گیرد حتی اگر ما بایت‌هایش را رد کنیم؛ اگر ردشده‌ها
+     شمرده نشوند سقفِ دلاری **دروغ** است. */
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  const pngBytes = (n) => { const a = new Array(n).fill(7);
+    [137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,5,0,0,0,2,208,8,6,0,0,0]
+      .forEach((b,i)=>a[i]=b); return a; };
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+      { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] }] } };
+    if (url.indexOf('flash-image:generateContent') !== -1) {
+      return { code: 200, json: { candidates: [{ content: { parts: [
+        { text: 'صفحهٔ خطا، نه تصویر' }] } }] } };
+    }
+    return stubWas(url, body);
+  };
+  const bad = lvGenOne_('gemini-2.5-flash-image', 'x');
+  ok('۵۷.۵ فراخوانی که تصویر نداد هم شمرده می‌شود — وگرنه سقفِ دلاری دروغ است',
+     bad.blob === null && bad.why.indexOf('تصویری') !== -1 &&
+     lvGenSpend_().n === 1 && lvGenSpend_().usd > 0,
+     bad.why + ' · خرج: ' + lvGenSpend_().usd);
+
+  /* ۵۷.۶ — **بایت‌ها باور می‌شوند، نه ادعا.** صفحهٔ خطا هم بایت برمی‌گرداند
+     (درسِ `musicFetch_` و `ytMp4Ok_`)، و پیش‌فرض ردّ است. */
+  ok('۵۷.۶ سرآیندِ نه‌PNG‌نه‌JPEG رد می‌شود، و تصویرِ ریز هم',
+     lvGenAccept_(Utilities.newBlob('<html>خطا</html>'.repeat(3000),
+       'image/png', 'x')).ok === false &&
+     lvGenAccept_(Utilities.newBlob(pngBytes(500), 'image/png', 'x')).ok === false &&
+     lvGenAccept_(null).ok === false &&
+     lvGenAccept_(Utilities.newBlob(pngBytes(20000), 'image/png', 'x')).ok === true,
+     'HTML: ' + lvGenAccept_(Utilities.newBlob('<html>'.repeat(3000), 'image/png', 'x')).why);
+
+  /* ۵۷.۷ — **دستورِ تصویر سه منعِ صریح دارد**، و هر سه در کد است نه در آرزو:
+     بی‌واژه (مدل فارسی را بد می‌نویسد)، بی چهره (تصویرِ ساخته‌شدهٔ یک شخصِ
+     واقعی جعل است)، بی نشان و لوگو (همان پرسشِ حق‌نشر). */
+  const pr = lvGenPrompt_({ cardTitle: 'سه شرطِ معرفت', heading: 'یک' },
+                          lvStyleFind_('نقشِ ایرانی'));
+  ok('۵۷.۷ دستورِ تصویر بی‌واژه، بی چهره و بی لوگو می‌خواهد — و سبک را می‌برد',
+     pr.indexOf('بی‌واژه') !== -1 && pr.indexOf('هیچ چهره') !== -1 &&
+     pr.indexOf('لوگو') !== -1 && pr.indexOf('تذهیب') !== -1 &&
+     pr.indexOf('سه شرطِ معرفت') !== -1,
+     pr.replace(/\n/g, ' ⏎ ').slice(0, 110));
+
+  /* ۵۷.۷-ب — و هر نُه سبک حال‌وهوای تصویرِ خودش را دارد. بی این، ستونِ سبک
+     روی پس‌زمینه‌ها هیچ اثری نداشت — همان برچسبِ بی‌ورودی، یک لایه آن‌طرف‌تر. */
+  ok('۵۷.۷-ب هر نُه سبک حال‌وهوای تصویرِ خودش را دارد، و دو تا یکی نیستند',
+     LV_STYLES.every(x => String(x.gen || '').length > 15) &&
+     new Set(LV_STYLES.map(x => x.gen)).size === LV_STYLES.length,
+     LV_STYLES.length + ' سبک، ' + new Set(LV_STYLES.map(x => x.gen)).size + ' حال‌وهوای یکتا');
+
+  /* ۵۷.۸ — **سقفِ ماهانه واقعاً می‌بندد.** و وقتی بست، کارت ساده ساخته
+     می‌شود؛ قسمت زمین نمی‌خورد. */
+  CFG.LV_GEN_ENABLED = true;
+  CFG.LV_GEN_MODEL = 'gemini-2.5-flash-image';
+  CFG.LV_GEN_USD_MONTH = 0.05;   // جای دقیقاً یک تصویر با ۰٫۰۶۷ ⇒ صفر
+  ok('۵۷.۸ سقفِ ماهانه جا را صفر می‌کند و هیچ فراخوانی نمی‌رود',
+     lvGenRoom_('gemini-2.5-flash-image') === 0);
+
+  CFG.LV_GEN_USD_MONTH = 8;
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  let genCalls = 0;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('flash-image:generateContent') !== -1) {
+      genCalls++;
+      return { code: 200, json: { candidates: [{ content: { parts: [
+        { inlineData: { mimeType: 'image/png',
+                        data: Utilities.base64Encode(pngBytes(30000)) } }] } }] } };
+    }
+    return stubWas(url, body);
+  };
+
+  const root = global.__ROOT_FOLDER;
+  const secs = [{ heading: 'یک', narration: 'الف'.repeat(300) }];
+  const ctx = { show: 'special', epRaw: '80', epNum: '۸۰', showName: 'درس‌نامه',
+                seriesName: 'سیرهٔ نبوی', cat: 'تاریخ اسلام', sections: secs, totalSec: 900 };
+  const planOf = () => ({ visuals: [
+    { at: 1, kind: 'کارت', cardTitle: 'الف', heading: 'یک', cardLines: ['۱'], sec: 30 },
+    { at: 1, kind: 'کارت', cardTitle: 'ب', heading: 'یک', cardLines: ['۲'], sec: 30 },
+    { at: 1, kind: 'کارت', cardTitle: 'پ', heading: 'یک', cardLines: ['۳'], sec: 30 }
+  ] });
+  CFG.LV_GEN_PER_EP = 2;
+  const ep = root.createFolder('قسمت 0080 — ساخته‌شده');
+  const b1 = lvBuild_(ep, planOf(), ctx, 'نقشِ ایرانی');
+  const sub = ep.getFoldersByName(CFG.LV_FOLDER).next();
+  const names = [];
+  { const it = sub.getFiles(); while (it.hasNext()) names.push(it.next().getName()); }
+
+  /* ۵۷.۹ — سقفِ هر قسمت: دو پس‌زمینه برای سه کارت، و سه کارت هر سه ساخته
+     می‌شوند. کارتِ بی‌پس‌زمینه عیناً کارتِ ۷.۹۶ است. */
+  ok('۵۷.۹ سقفِ هر قسمت رعایت می‌شود و کارتِ بی‌پس‌زمینه هم ساخته می‌شود',
+     b1.ready === 3 && b1.gMade === 2 && genCalls === 2 &&
+     names.filter(n => n.indexOf('پس‌زمینه') === 0).length === 2 &&
+     names.filter(n => n.indexOf('تصویر ') === 0).length === 3,
+     b1.gMade + ' پس‌زمینه، ' + b1.ready + ' کارت · ' + names.join(' | '));
+
+  /* ۵۷.۹-ب — **و تصویر واقعاً روی اسلاید نشسته، با لایهٔ خوانایی.** آن لایه
+     تزئین نیست: پس‌زمینهٔ ساخته‌شده هر رنگی می‌تواند دربیاید و بی آن، متنِ
+     روشن روی تصویرِ روشن ناخوانا می‌شود — یعنی همان چیزی که کلِ کارت برایش
+     هست از دست می‌رود. */
+  const pres = global.__PRES_LAST;
+  const els = pres.getSlides()[0].getPageElements();
+  const imgs = els.filter(e => e.role === 'image');
+  const scrim = els.filter(e => e.role === 'shape' && e.fill.alpha !== undefined);
+  /* شاهد **محافظت‌شده**: نگارشِ اول `scrim[0].fill.alpha` را بی‌قید می‌خواند،
+     پس برداشتنِ آلفا مجموعه را با TypeError می‌کشت — «افتاد» و «نیفتاد» یک
+     شکل می‌شدند. تلهٔ ۷.۸۹، چهارمین بار در این سشن. */
+  const alpha = scrim.length ? scrim[0].fill.alpha : 'بی‌لایه';
+  ok('۵۷.۹-پ تصویر تمام‌قاب روی اسلاید است و لایهٔ تیرهٔ خوانایی رویش',
+     imgs.length === 1 && Math.round(imgs[0].getWidth()) === Math.round(pres.getPageWidth()) &&
+     scrim.length === 1 && alpha === CFG.LV_GEN_SCRIM,
+     'تصویر ' + imgs.length + ' · لایه با آلفای ' + alpha);
+
+  /* ۵۷.۹-ب — **و تصویر ته‌ترین لایه است.** نگارشِ اول «تصویر پیش از لایه»
+     را می‌سنجید، که بی‌قید درست بود: لایه بعد از تصویر درج می‌شود، پس
+     `bringToFront` هم همان ترتیب را می‌داد. ادعای واقعی این است که تصویر
+     **پشتِ** همه‌چیز است. */
+  /* ۵۷.۹-ب — **ترتیب، نه وجودِ یک فراخوان.** نگارشِ اول «تصویر در دو جای
+     اول است» را می‌سنجید و برداشتنِ `bg.sendToBack()` را نمی‌گرفت (تصویر
+     می‌رفت به صفر و باز هم می‌گذشت). ترتیبِ درست یک زنجیره است:
+     مستطیلِ رنگی ← تصویر ← لایهٔ تیره ← متن. هر حلقه‌ای که جابه‌جا شود،
+     یا تصویر پنهان می‌شود یا متن ناخوانا. */
+  const plain = els.filter(e => e.role === 'shape' && e.fill.alpha === undefined &&
+                                Math.round(e.getWidth()) === Math.round(pres.getPageWidth()) &&
+                                Math.round(e.getHeight()) === Math.round(pres.getPageHeight()));
+  const iBg = plain.length ? els.indexOf(plain[0]) : -1;
+  const iIm = imgs.length ? els.indexOf(imgs[0]) : -1;
+  const iSc = scrim.length ? els.indexOf(scrim[0]) : -1;
+  ok('۵۷.۹-ب ترتیب درست است: مستطیلِ رنگی ← تصویر ← لایهٔ تیره',
+     iBg === 0 && iIm === 1 && iSc > iIm,
+     'رنگ@' + iBg + ' تصویر@' + iIm + ' لایه@' + iSc + ' از ' + els.length);
+
+  /* ۵۷.۹-ت — و متن **بالای** لایهٔ تیره است، وگرنه خودش هم تیره می‌شود و
+     کلِ کار بی‌معنا. */
+  const texts = els.filter(e => e.role === 'text');
+  ok('۵۷.۹-ت متن‌ها بالای لایهٔ تیره‌اند، نه زیرش',
+     texts.length >= 2 && texts.every(t => els.indexOf(t) > els.indexOf(scrim[0])),
+     'لایه در ' + els.indexOf(scrim[0]) + ' · اولین متن در ' + els.indexOf(texts[0]));
+
+  /* ۵۷.۱۰ — **پولِ رفته دوباره خرج نمی‌شود.** پس‌زمینه در پوشه می‌مانَد، پس
+     هر (قسمت، تصویر، دستور) حداکثر یک بار هزینه دارد. این تنها چیزی است که
+     هزینه را واقعاً محدود می‌کند. */
+  /* کارتی که پاک می‌شود باید **درونِ** پنجرهٔ `LV_GEN_PER_EP` باشد، وگرنه
+     مسیرِ «پس‌زمینهٔ موجود را بردار» هرگز اجرا نمی‌شود و سنجه بی‌قید سبز
+     می‌مانَد — نگارشِ اول کارتِ سومی را پاک می‌کرد که پس‌زمینه‌ای نداشت. */
+  const callsWas = genCalls;
+  sub.getFilesByName(b1.items[0].name).next().setTrashed(true);
+  const b2 = lvBuild_(ep, planOf(), ctx, 'نقشِ ایرانی');
+  ok('۵۷.۱۰ پس‌زمینهٔ ساخته‌شده دوباره ساخته نمی‌شود — پولِ رفته دوباره خرج نمی‌شود',
+     b2.made === 1 && genCalls === callsWas && b2.gMade === 0,
+     'کارتِ تازه ' + b2.made + ' · فراخوانِ تازهٔ مدل ' + (genCalls - callsWas));
+
+  /* ۵۷.۱۱ — **روشن‌کردنِ سوئیچ، کارت‌های موجود را از نو می‌سازد.** وگرنه
+     صاحبِ برنامه سوئیچی را روشن می‌کند که روی قسمت‌های ساخته‌شده هیچ اثری
+     ندارد — «تمیزکردنِ ورودی آنچه را قبلاً نوشته شده درست نمی‌کند» (۵.۹۵). */
+  const ep2 = root.createFolder('قسمت 0081 — سوئیچ');
+  CFG.LV_GEN_ENABLED = false;
+  const c1 = lvBuild_(ep2, planOf(), ctx, 'نقشِ ایرانی');
+  CFG.LV_GEN_ENABLED = true;
+  const c2 = lvBuild_(ep2, planOf(), ctx, 'نقشِ ایرانی');
+  ok('۵۷.۱۱ روشن‌کردنِ لایهٔ ۳ کارت‌های موجود را از نو می‌سازد',
+     c1.made === 3 && c1.gen === false && c2.restyled === true &&
+     c2.made === 3 && c2.gen === true && c2.gMade > 0,
+     'خاموش ' + c1.made + ' کارت · روشن ' + c2.made + ' کارتِ تازه با ' +
+     c2.gMade + ' پس‌زمینه');
+
+  /* ۵۷.۱۲ — و خطِ روزانه **هر روز** خرج و سقف را می‌گوید، چون چیزی که فقط
+     در یک شیت باشد دیده نمی‌شود (۵.۹۰). و قیمتِ فرض‌شده را هم می‌گوید، تا
+     اگر غلط بود دیده شود. */
+  const gs = lvGenStatus_();
+  /* سقف با **رقمِ فارسی** چاپ می‌شود (`faDigitsOut_`), پس جست‌وجوی «8» روی
+     کدِ درست قرمز می‌شود — سنجه‌ای که به نگارشِ لاتین بند باشد، نگارش را
+     می‌سنجد نه رفتار. */
+  ok('۵۷.۱۲ خطِ روزانه خرج، سقف، و قیمتِ فرض‌شده را می‌گوید',
+     gs.on === true && gs.line.indexOf('دلار') !== -1 &&
+     gs.line.indexOf('قیمتِ فرض‌شده') !== -1 &&
+     gs.line.indexOf(faDigitsOut_(String(CFG.LV_GEN_USD_MONTH))) !== -1 &&
+     gs.line.indexOf(gs.usd.toFixed(2)) !== -1 && gs.usd > 0,
+     gs.line.slice(0, 120));
+
+  CFG.LV_GEN_ENABLED = false;
+  const off = lvGenStatus_();
+  ok('۵۷.۱۲-ب و خاموش که باشد، خطش می‌گوید خاموش است و چطور روشن می‌شود',
+     off.on === false && off.line.indexOf('خاموش') !== -1 &&
+     off.line.indexOf('LV_GEN_ENABLED') !== -1, off.line.slice(0, 100));
+
+  ok('۵۷.۱۲-پ و حالِ لایهٔ ۳ در خطِ روزانهٔ تصویرِ درس هم می‌آید',
+     lvLine_(lvStatus_()).indexOf('تصویرِ ساخته‌شده') !== -1,
+     lvLine_(lvStatus_()).replace(/\n/g, ' ⏎ ').slice(0, 130));
+
+  /* ۵۷.۱۳ — و خاموش که باشد، **هیچ فراخوانی** نمی‌رود: صفرِ دلاری یعنی صفر. */
+  const cWas = genCalls;
+  const ep3 = root.createFolder('قسمت 0082 — خاموش');
+  lvBuild_(ep3, planOf(), ctx, 'نقشِ ایرانی');
+  ok('۵۷.۱۳ خاموش که باشد هیچ فراخوانِ تصویری نمی‌رود — صفرِ دلاری یعنی صفر',
+     genCalls === cWas, 'فراخوانِ تازه: ' + (genCalls - cWas));
+
+  global.__STUB = stubWas;
+  CFG.LV_GEN_ENABLED = genWas; CFG.LV_GEN_MODEL = modWas;
+  CFG.LV_GEN_USD_MONTH = capWas; CFG.LV_GEN_PER_EP = perEpWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

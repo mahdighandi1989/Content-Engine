@@ -478,7 +478,12 @@ class SlEl {
   setTop(v) { this.top = Number(v); return this; }
   getFill() {
     const f = this.fill, api = {
-      setSolidFill(c) { f.color = String(c); f.transparent = false; return api; },
+      /* آلفا هم ضبط می‌شود: `setSolidFill(color, alpha)` شکلِ واقعیِ
+         SlidesApp است و لایهٔ تیرهٔ روی پس‌زمینهٔ ساخته‌شده از آن استفاده
+         می‌کند. بدَلی که آرگومانِ دوم را بیندازد، نمی‌گذارد سنجه بپرسد
+         «آیا لایهٔ خوانایی گذاشته شد». */
+      setSolidFill(c, a) { f.color = String(c); f.transparent = false;
+        if (a !== undefined) f.alpha = Number(a); return api; },
       setTransparent() { f.color = ''; f.transparent = true; return api; }
     };
     return api;
