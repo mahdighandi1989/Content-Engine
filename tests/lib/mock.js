@@ -415,6 +415,157 @@ global.__MAIL = [];
 global.MailApp = { sendEmail(o) { global.__MAIL.push(o); } };
 global.console = console;
 
+// --------------------------------------------------------------- SlidesApp
+/* ══ چرا این بدَل تا ۷٫۹۳ نبود، و چه چیزی را نامرئی کرده بود ══
+ * `SlidesApp` در این ماک **وجود نداشت**. پس `ytCoverCard_` در هر مجموعه‌ای
+ * با ReferenceError داخلِ try/catchِ خودش می‌افتاد و `null` برمی‌گرداند — و
+ * سنجه‌ها ناچار بودند *متنِ کد* را بخوانند («آیا `SlidesApp.create` در فایل
+ * هست؟»). یعنی کارتِ کاور، که تصویرِ هر ویدئوی این کانال است، یک بار هم در
+ * هیچ آزمونی کشیده نشده بود: همان شکلِ ۷٫۴۳ — نگهبان یک لایه بالاتر از جایی
+ * که چیز می‌شکند.
+ *
+ * این بدَل چیدمانِ کشیده‌شده را نگه می‌دارد تا سنجه بتواند بپرسد «متنِ درشتِ
+ * این کارت همان `cardTitle` است؟» و «نمودار چند جعبه دارد؟» — یعنی پرسشی
+ * دربارهٔ خروجی، نه دربارهٔ کد.
+ *
+ * `global.__PRES_LAST` همیشه به تازه‌ترین ارائه اشاره می‌کند، و
+ * `global.__PRES[id]` به آنچه با آن شناسه باز شده.
+ */
+global.__PRES = {};
+global.__PRES_LAST = null;
+global.__PRES_SIZE = { w: 960, h: 540 };   // نقطه (pt) — واحدِ خودِ Slides
+class SlText {
+  constructor(t) { this._t = String(t == null ? '' : t); this.style = {}; this.para = {}; }
+  asString() { return this._t; }
+  getLength() { return this._t.length; }
+  setText(t) { this._t = String(t == null ? '' : t); return this; }
+  appendText(t) { this._t += String(t == null ? '' : t); return this; }
+  appendParagraph(t) { this._t += (this._t ? '\n' : '') + String(t == null ? '' : t); return this; }
+  clear() { this._t = ''; return this; }
+  getTextStyle() {
+    const st = this.style, api = {
+      setFontSize(n) { st.size = Number(n); return api; },
+      setForegroundColor(c) { st.color = String(c); return api; },
+      setBold(b) { st.bold = !!b; return api; },
+      setItalic(b) { st.italic = !!b; return api; },
+      setFontFamily(f) { st.font = String(f); return api; }
+    };
+    return api;
+  }
+  getParagraphStyle() {
+    const ps = this.para, api = {
+      setParagraphAlignment(a) { ps.align = String(a); return api; },
+      setLineSpacing(n) { ps.line = Number(n); return api; },
+      setSpaceBelow(n) { ps.below = Number(n); return api; },
+      setSpaceAbove(n) { ps.above = Number(n); return api; }
+    };
+    return api;
+  }
+}
+class SlEl {
+  constructor(slide, role, shape, l, t, w, h, txt) {
+    this._s = slide; this.role = role; this.shape = String(shape);
+    this.left = Number(l) || 0; this.top = Number(t) || 0;
+    this.width = Number(w) || 0; this.height = Number(h) || 0;
+    this._text = new SlText(txt); this.fill = {}; this.line = {};
+    this._id = 'EL' + (SHEET_SEQ++);
+  }
+  getObjectId() { return this._id; }
+  getText() { return this._text; }
+  getLeft() { return this.left; } getTop() { return this.top; }
+  getWidth() { return this.width; } getHeight() { return this.height; }
+  setLeft(v) { this.left = Number(v); return this; }
+  setTop(v) { this.top = Number(v); return this; }
+  getFill() {
+    const f = this.fill, api = {
+      setSolidFill(c) { f.color = String(c); f.transparent = false; return api; },
+      setTransparent() { f.color = ''; f.transparent = true; return api; }
+    };
+    return api;
+  }
+  getBorder() {
+    const b = this.line, api = {
+      setTransparent() { b.transparent = true; return api; },
+      setWeight(n) { b.weight = Number(n); return api; },
+      setDashStyle(d) { b.dash = String(d); return api; },
+      getLineFill: () => ({ setSolidFill(c) { b.color = String(c); return api; },
+                            setTransparent() { b.transparent = true; return api; } })
+    };
+    return api;
+  }
+  setRotation(d) { this.rotation = Number(d); return this; }
+  sendToBack() { const a = this._s._els; this._s._els = [this].concat(a.filter(x => x !== this)); return this; }
+  bringToFront() { this._s._els = this._s._els.filter(x => x !== this).concat([this]); return this; }
+  remove() { this._s._els = this._s._els.filter(x => x !== this); return this; }
+}
+class SlSlide {
+  constructor(pres) { this._p = pres; this._els = []; this._id = 'PG' + (SHEET_SEQ++); }
+  getObjectId() { return this._id; }
+  getPageElements() { return this._els.slice(); }
+  getShapes() { return this._els.filter(x => x.role === 'shape'); }
+  insertShape(type, l, t, w, h) {
+    const e = new SlEl(this, 'shape', type, l, t, w, h, ''); this._els.push(e); return e;
+  }
+  insertTextBox(txt, l, t, w, h) {
+    const e = new SlEl(this, 'text', 'TEXT_BOX', l, t, w, h, txt); this._els.push(e); return e;
+  }
+  insertImage(src, l, t, w, h) {
+    const e = new SlEl(this, 'image', 'IMAGE', l, t, w, h, ''); e.src = src; this._els.push(e); return e;
+  }
+  remove() { this._p._slides = this._p._slides.filter(x => x !== this); return this; }
+}
+class SlPres {
+  constructor(title, w, h) {
+    this._title = String(title == null ? '' : title);
+    this._w = Number(w) || 960; this._h = Number(h) || 540;
+    this._slides = [new SlSlide(this)];
+    this._id = 'PRES' + (SHEET_SEQ++);
+    global.__PRES[this._id] = this; global.__PRES_LAST = this;
+  }
+  getId() { return this._id; }
+  getName() { return this._title; }
+  setName(n) { this._title = String(n); return this; }
+  getPageWidth() { return this._w; }
+  getPageHeight() { return this._h; }
+  getSlides() { return this._slides.slice(); }
+  appendSlide(layout) { const s = new SlSlide(this); s.layout = String(layout || ''); this._slides.push(s); return s; }
+  saveAndClose() { this._closed = true; return this; }
+}
+global.SlidesApp = {
+  create(title) { return new SlPres(title, global.__PRES_SIZE.w, global.__PRES_SIZE.h); },
+  /* ارائه‌ای که با `presentations.create`ِ HTTP ساخته شده در این دنیا شیئی
+     ندارد، پس همان‌جا ساخته می‌شود — با **اندازه‌ای که واقعاً درخواست شده
+     بود** (که `UrlFetchApp` ضبطش می‌کند). یک بدَل که همیشه ۹۶۰×۵۴۰ بدهد،
+     چیدمانی که کسری از W و H است را بی‌صدا درست نشان می‌دهد. */
+  openById(id) {
+    const p = new SlPres(global.__PRES_TITLE || '', global.__PRES_SIZE.w, global.__PRES_SIZE.h);
+    delete global.__PRES[p._id];
+    p._id = String(id); global.__PRES[String(id)] = p;
+    /* و یک **فایلِ درایو** با همان شناسه، چون یک ارائهٔ Slides در واقعیت یک
+       فایلِ درایو است: کدی که `DriveApp.getFileById(presId).moveTo(...)`
+       می‌کند (کاور و کارت‌ها هر دو) باید بتواند پیدایش کند. بی این، بدَل از
+       تولید تنگ‌تر است و آن جابه‌جایی در هیچ سنجه‌ای دیده نمی‌شود. */
+    if (!global.__FILES_BY_ID[String(id)]) {
+      const b = global.Utilities.newBlob('', 'application/vnd.google-apps.presentation',
+                                         p._title || String(id));
+      const f = new DFile(b, global.__ROOT_FOLDER);
+      delete global.__FILES_BY_ID[f._id];
+      f._id = String(id); global.__FILES_BY_ID[String(id)] = f;
+      global.__ROOT_FOLDER._files.push(f); global.__FILES.push(f);
+      p._file = f;
+    } else { p._file = global.__FILES_BY_ID[String(id)]; }
+    return p;
+  },
+  ShapeType: {
+    RECTANGLE: 'RECTANGLE', ROUND_RECTANGLE: 'ROUND_RECTANGLE', ELLIPSE: 'ELLIPSE',
+    LEFT_ARROW: 'LEFT_ARROW', RIGHT_ARROW: 'RIGHT_ARROW', TRIANGLE: 'TRIANGLE',
+    DIAMOND: 'DIAMOND', TEXT_BOX: 'TEXT_BOX', PARALLELOGRAM: 'PARALLELOGRAM'
+  },
+  ParagraphAlignment: { START: 'START', CENTER: 'CENTER', END: 'END', JUSTIFIED: 'JUSTIFIED' },
+  ContentAlignment: { TOP: 'TOP', MIDDLE: 'MIDDLE', BOTTOM: 'BOTTOM' },
+  PredefinedLayout: { BLANK: 'BLANK', TITLE_ONLY: 'TITLE_ONLY', TITLE_AND_BODY: 'TITLE_AND_BODY' }
+};
+
 // ------------------------------------------------------------- UrlFetchApp
 global.__FETCHES = [];
 global.__STUB = null;
@@ -426,6 +577,37 @@ global.UrlFetchApp = {
     else if (opt.payload && typeof opt.payload === 'object') body = opt.payload;   // multipart
     global.__FETCHES.push({ url, method: opt.method || 'get', body,
                             contentType: opt.contentType || '', payload: opt.payload });
+    /* اندازهٔ صفحه‌ای که واقعاً خواسته شد را نگه می‌داریم تا
+       `SlidesApp.openById` همان را بدهد — چیدمانِ کارت کسری از W و H است و
+       بدَلی که همیشه پیش‌فرض بدهد، هیچ‌وقت نسبتِ غلط را نشان نمی‌دهد. */
+    if (url === 'https://slides.googleapis.com/v1/presentations' && body) {
+      if (body.title) global.__PRES_TITLE = String(body.title);
+    }
+    if (url === 'https://slides.googleapis.com/v1/presentations' && body && body.pageSize) {
+      const g = (o) => Math.round((Number(((o || {}).magnitude)) || 0) / 12700);
+      const pw = g(body.pageSize.width), ph = g(body.pageSize.height);
+      if (pw > 0 && ph > 0) global.__PRES_SIZE = { w: pw, h: ph };
+    }
+    /* ══ خروجیِ PNGِ اسلایدز را خودِ بدَل جواب می‌دهد، نه `__STUB` ══
+     * این نشانی نقطهٔ پایانیِ خودِ گوگل است، نه APIِ این برنامه — درست مثلِ
+     * `DriveApp`. و اگر بگذاریم به استابِ هر مجموعه برسد، یکی از پاسخ‌های
+     * مدل را می‌خورد و **هر پاسخِ بعدی یک خانه جابه‌جا می‌شود**: همان تلهٔ
+     * ۷٫۶۶ که سه مجموعه را با هم قرمز کرد.
+     * `global.__PNG_FAIL` برای سنجهٔ «صادرات شکست خورد» است. */
+    if (/docs\.google\.com\/presentation\/.*\/export\/png/.test(String(url))) {
+      if (global.__PNG_FAIL) return { getResponseCode: () => Number(global.__PNG_FAIL),
+        getBlob: () => global.Utilities.newBlob('', 'text/plain', 'x'),
+        getContentText: () => 'export failed' };
+      const w = Math.round(global.__PRES_SIZE.w * (4 / 3));
+      const h = Math.round(global.__PRES_SIZE.h * (4 / 3));
+      const b = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+        (w >> 24) & 255, (w >> 16) & 255, (w >> 8) & 255, w & 255,
+        (h >> 24) & 255, (h >> 16) & 255, (h >> 8) & 255, h & 255,
+        8, 6, 0, 0, 0];
+      const blob = global.Utilities.newBlob(b, 'image/png', 'x.png');
+      return { getResponseCode: () => 200, getBlob: () => blob,
+               getContentText: () => 'PNG' };
+    }
     const r = global.__STUB(url, body);
     // پاسخ می‌تواند json بدهد یا متنِ خام (برای شبیه‌سازیِ خطاهای واقعیِ API)
     const txt = (r && typeof r.text === 'string') ? r.text : JSON.stringify(r && r.json);

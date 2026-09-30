@@ -19,6 +19,7 @@ global.__PROPS['GEMINI_API_KEY'] = 'TEST';
    مدل بند نباشند. چیزی که این‌جا سنجیده می‌شود ساختار است: آیا نقشه ساخته و
    ذخیره می‌شود، آیا اجرای دوم دوباره نمی‌پرسد، آیا ویرایشِ دستی خوانده می‌شود. */
 let __askCount = 0;
+let __presSeq = 0;
 global.__STUB = function (url, body) {
   if (url.indexOf('yt3.example') !== -1) return { code: 200, text: 'PNGDATA' };
   // فقط سرِ راهِ خودِ یوتیوب، نه هر چیزی که googleapis دارد — وگرنه فراخوانِ
@@ -27,7 +28,11 @@ global.__STUB = function (url, body) {
     // شبیه‌سازیِ حالتی که فرضاً pageSize واقعاً اعمال می‌شود — تا سنجه‌های
     // «موفقیتِ عادی» دست‌نخورده بمانند؛ سنجهٔ ۳۴ب جدا حالتِ واقعیِ گوگل
     // (نادیده‌گرفتنِ pageSize) را می‌سنجد.
-    return { code: 200, json: { presentationId: 'PRES1', pageSize: (body || {}).pageSize } };
+    /* شناسهٔ **یکتا** برای هر ساخت، همان‌طور که گوگل می‌دهد. با یک شناسهٔ
+       ثابت، دو ساختِ پشتِ‌هم یک فایل می‌شوند و سنجهٔ «هم‌نامِ پیشین تُرش
+       می‌شود» سبز می‌مانَد بی آنکه آن کد وجود داشته باشد. */
+    return { code: 200, json: { presentationId: 'PRES' + (++__presSeq),
+                                pageSize: (body || {}).pageSize } };
   }
   if (url.indexOf('youtube/v3') !== -1 || url.indexOf('slides.googleapis') !== -1) {
     return { code: 200, json: { url: 'https://banner', presentationId: 'PRES1' } };
@@ -2183,6 +2188,383 @@ console.log('=== ۴۹) برنامهٔ تصویرهای درس — تصمیم ا�
   ok('۴۹.۹-ب و ویرایشِ دستیِ تصویرها خوانده می‌شود',
      ytPlan_(folder, mk('special'), false).visuals[0].cardTitle === 'آدم این را نوشت',
      'یعنی ناظر و آدم می‌توانند تصویرِ بد را عوض کنند، بی دست‌زدن به کد');
+}
+
+console.log('=== ۵۰) از برنامه به فایل: کارت‌ها واقعاً کشیده می‌شوند (۷.۹۳) ===');
+{
+  /* ══ چرا این بند تا امروز شدنی نبود ══
+   * `SlidesApp` در `tests/lib/mock.js` نبود، پس `ytCoverCard_` در هر مجموعه‌ای
+   * با ReferenceError داخلِ try/catchِ خودش می‌افتاد و سنجه‌ها ناچار بودند
+   * *متنِ کد* را بخوانند. حالا بدَل هست و این بند **خروجی** را می‌پرسد:
+   * چند فایل، با چه نامی، و روی کارت چه نوشته شده. */
+  const root = global.__ROOT_FOLDER;
+  const secs = [{ heading: 'یک', narration: 'الف'.repeat(300) },
+                { heading: 'دو', narration: 'ب'.repeat(200) },
+                { heading: 'سه', narration: 'پ'.repeat(100) }];
+  const ctx = { show: 'special', epRaw: '91', epNum: '۹۱', showName: 'درس‌نامه',
+                seriesName: 'معرفت‌شناسی', cat: 'فلسفه', title: 'ت',
+                sections: secs, totalSec: 900 };
+  const planOf = () => ({ visuals: [
+    { at: 1, kind: 'کارت', cardTitle: 'گزارهٔ نخست', heading: 'یک',
+      cardLines: ['سطرِ الف', 'سطرِ ب'], terms: '', caption: 'ک۱', sec: 30 },
+    { at: 2, kind: 'نمودار', cardTitle: 'سه گام', heading: 'دو',
+      cardLines: ['گامِ ۱', 'گامِ ۲', 'گامِ ۳'], terms: '', caption: 'ک۲', sec: 40 },
+    { at: 3, kind: 'عکس', cardTitle: 'چهرهٔ لاک', heading: 'سه',
+      cardLines: [], terms: 'john locke portrait', caption: 'ک۳', sec: 20 }
+  ] });
+
+  const ep91 = root.createFolder('قسمت 0091 — کارت');
+  const pngWas = global.__FETCHES.filter(f => /export\/png/.test(f.url)).length;
+  const b1 = lvBuild_(ep91, planOf(), ctx);
+  const pngNow = global.__FETCHES.filter(f => /export\/png/.test(f.url)).length;
+
+  /* ۵۰.۱ — سه مورد در برنامه ⇒ سه فایلِ PNG در زیرپوشهٔ خودِ همان قسمت.
+     خواستهٔ بندِ ۸: «ذخیره تصاویر … در فولدر خودِ همان درس». */
+  const sub = ep91.getFoldersByName(CFG.LV_FOLDER).next();
+  const names = [];
+  { const it = sub.getFiles(); while (it.hasNext()) names.push(it.next().getName()); }
+  ok('۵۰.۱ هر موردِ برنامه یک فایلِ PNG در زیرپوشهٔ همان قسمت می‌شود',
+     b1.want === 3 && b1.ready === 3 && b1.made === 3 && b1.done === true &&
+     names.filter(n => /\.png$/.test(n)).length === 3,
+     b1.ready + ' از ' + b1.want + ' · ' + names.join(' | '));
+
+  /* ۵۰.۲ — **نام، ترتیب را می‌گوید.** ویدئو از ترتیب ساخته می‌شود؛ نامی که
+     ترتیب را نگوید پوشه را به تودهٔ بی‌معنا بدل می‌کند و اجرای بعدی نمی‌داند
+     چه ساخته شده. */
+  ok('۵۰.۲ نامِ هر تصویر شمارهٔ ترتیب و شمارهٔ بخشش را دارد',
+     b1.items[0].name.indexOf('تصویر ۱') === 0 &&
+     b1.items[0].name.indexOf('بخش ۱') !== -1 &&
+     b1.items[2].name.indexOf('تصویر ۳') === 0 &&
+     b1.items.every(x => names.indexOf(x.name) !== -1),
+     b1.items.map(x => x.name).join(' | '));
+
+  /* ۵۰.۳ — **روی کارت همان متنِ مدل نوشته شده.** این پرسشِ اصلیِ این بند
+     است: نه «تابع صدا زده شد؟» بلکه «چه چیزی کشیده شد؟» */
+  const pres = global.__PRES_LAST;
+  const pages = pres.getSlides();
+  const txtOf = (pg) => pg.getPageElements().filter(e => e.role === 'text')
+                          .map(e => e.getText().asString());
+  ok('۵۰.۳ عنوانِ درشتِ کارت همان cardTitle است و سرِ بخش هم رویش هست',
+     pages.length === 3 && txtOf(pages[0]).indexOf('گزارهٔ نخست') !== -1 &&
+     txtOf(pages[0]).indexOf('یک') !== -1 &&
+     txtOf(pages[0]).join('\n').indexOf('سطرِ الف') !== -1,
+     txtOf(pages[0]).join(' / '));
+
+  /* ۵۰.۳-ب — و بزرگ‌ترین قلمِ صفحه همان عنوان است، نه پانویس. کارتی که
+     عنوانش هم‌اندازهٔ پانویس باشد، در اندازهٔ بندانگشتی خوانده نمی‌شود. */
+  const big = pages[0].getPageElements().filter(e => e.role === 'text')
+                .sort((a, b) => (b.getText().style.size || 0) - (a.getText().style.size || 0))[0];
+  ok('۵۰.۳-پ بزرگ‌ترین متنِ کارت، عنوانش است',
+     big.getText().asString() === 'گزارهٔ نخست' && big.getText().style.size >= 30,
+     big.getText().asString() + ' @ ' + big.getText().style.size);
+
+  /* ۵۰.۴ — «نمودار» باید **در تصویر** با «کارت» فرق کند. اگر همان بولت‌ها
+     کشیده شوند، گونه‌ای که مدل انتخاب کرد فقط یک برچسب است. */
+  const boxes = pages[1].getPageElements().filter(e => e.shape === 'ROUND_RECTANGLE');
+  const arrows = pages[1].getPageElements().filter(e => e.shape === 'LEFT_ARROW');
+  ok('۵۰.۴ «نمودار» جعبه و پیکان می‌کشد، نه فهرستِ بولت',
+     boxes.length === 3 && arrows.length === 2 &&
+     boxes.map(b => b.getText().asString()).join('|') === 'گامِ ۱|گامِ ۲|گامِ ۳' &&
+     pages[0].getPageElements().filter(e => e.shape === 'ROUND_RECTANGLE').length === 0,
+     boxes.length + ' جعبه، ' + arrows.length + ' پیکان');
+
+  /* ۵۰.۴-ب — و راست‌به‌چپ: گامِ ۱ راست‌ترین جعبه است. یک نمودارِ فارسی که
+     چپ‌به‌راست خوانده شود، ترتیبِ خودش را برعکس می‌گوید. */
+  ok('۵۰.۴-ب جعبهٔ اولِ نمودار راست‌ترین است',
+     boxes[0].getLeft() > boxes[1].getLeft() && boxes[1].getLeft() > boxes[2].getLeft(),
+     boxes.map(b => Math.round(b.getLeft())).join(' > '));
+
+  /* ۵۰.۵ — موردی که مدل «عکس» خواسته، امروز کارت می‌شود — و **همین‌جا ثبت
+     می‌شود** که چه خواسته شده بود. جایگزینیِ بی‌ثبت، همان چیزی است که بعداً
+     هیچ‌کس حساب نمی‌کند چند تا بوده. */
+  ok('۵۰.۵ «عکس» تا نیامدنِ لایه‌اش کارت می‌شود، با ثبتِ آنچه خواسته شده بود',
+     b1.items[2].kind === 'عکس' && b1.items[2].via === 'کارت' &&
+     b1.items[2].terms === 'john locke portrait',
+     b1.items[2].kind + ' ⇒ ' + b1.items[2].via);
+
+  /* ۵۰.۶ — `_visuals.json` در پوشهٔ قسمت، با همان اعداد. جزوه (گامِ ۴) این
+     را می‌خوانَد، نه فراخوانی رو به جلو به بخشِ ۲۷. */
+  const man = JSON.parse(ep91.getFilesByName(CFG.LV_FILE).next().getBlob().getDataAsString());
+  ok('۵۰.۶ `_visuals.json` در پوشهٔ همان قسمت می‌نشیند و شمارها را می‌گوید',
+     man.want === 3 && man.ready === 3 && man.done === true &&
+     (man.items || []).length === 3 && man.folderId === sub.getId() &&
+     man.items[0].caption === 'ک۱',
+     JSON.stringify({ w: man.want, r: man.ready, d: man.done }));
+
+  /* ۵۰.۷ — **دوباره ساخته نمی‌شود.** یک قسمت می‌تواند چند شب پشتِ‌هم منتظرِ
+     ویدئو بمانَد؛ هر شب دوازده کارتِ تازه یعنی ده‌ها فایلِ دورریختنی و
+     ده‌ها فراخوانِ شبکه. */
+  const pngBefore = global.__FETCHES.filter(f => /export\/png/.test(f.url)).length;
+  const b2 = lvBuild_(ep91, planOf(), ctx);
+  const pngAfter = global.__FETCHES.filter(f => /export\/png/.test(f.url)).length;
+  ok('۵۰.۷ اجرای دوم چیزی نمی‌سازد و هیچ صادراتی نمی‌فرستد',
+     (pngNow - pngWas) === 3 && b2.made === 0 && b2.ready === 3 &&
+     b2.done === true && (pngAfter - pngBefore) === 0,
+     'اجرای اول ' + (pngNow - pngWas) + ' صادرات، اجرای دوم ' + (pngAfter - pngBefore));
+
+  /* ۵۰.۷-ب — و مرجع **خودِ فایل** است، نه ردیفِ پرونده: تصویری که پاک شود
+     باید دوباره ساخته شود. اگر مرجع پرونده بود، پاک‌شدنِ یک فایل هیچ‌وقت
+     جبران نمی‌شد و ویدئو یک شکاف می‌گرفت. */
+  sub.getFilesByName(b1.items[1].name).next().setTrashed(true);
+  const b3 = lvBuild_(ep91, planOf(), ctx);
+  ok('۵۰.۷-پ تصویرِ پاک‌شده دوباره ساخته می‌شود — مرجع، فایل است نه پرونده',
+     b3.made === 1 && b3.ready === 3 && b3.done === true, 'ساخته: ' + b3.made);
+
+  /* ۵۰.۸ — **تلاش پیش از کار ثبت می‌شود.** Apps Script سرِ شش دقیقه بی‌خطا
+     کشته می‌شود؛ شمارنده‌ای که بعد از ساخت نوشته شود، در اجرای کشته‌شده
+     هیچ‌چیز ثبت نمی‌کند و هر شب از نو شروع می‌شود (۷.۴۴/۷.۶۴).
+     برای سنجیدنش، `lvCards_` وسطِ کار پرت می‌کند — همان کاری که مهلتِ
+     شش‌دقیقه‌ای می‌کند، فقط دیدنی. */
+  const ep92 = root.createFolder('قسمت 0092 — کارت');
+  const cardsWas = global.lvCards_;
+  global.lvCards_ = function () { throw new Error('اجرا وسطِ کار مُرد'); };
+  let threw = false;
+  try { lvBuild_(ep92, planOf(), ctx); } catch (e) { threw = true; }
+  global.lvCards_ = cardsWas;
+  /* شاهد **با احتیاط** خوانده می‌شود: اگر پرونده نوشته نشده باشد،
+     `.next().getBlob()` پیش از `ok` پرت می‌کند و مجموعه با TypeError می‌میرد
+     — یعنی «شکستنی که افتاد» و «شکستنی که نیفتاد» یک شکل می‌شوند. اولین
+     نگارشِ همین سنجه دقیقاً همین بود و شکستنِ A را بی‌صدا بلعید. */
+  const m92 = lvRead_(ep92) || { tries: 0 };
+  ok('۵۰.۸ تلاش پیش از ساخت ثبت می‌شود، پس اجرای کشته‌شده هم شمرده می‌شود',
+     threw === true && Number(m92.tries) === 1,
+     'پرت شد: ' + threw + '، tries=' + m92.tries);
+
+  /* ۵۰.۹ — صادراتی که شکست بخورد: `done` دروغ نمی‌گوید، و تلاش شمرده
+     می‌شود. یک مجموعهٔ ناقص که خودش را «تمام» بخوانَد، بدترین حالت است —
+     ویدئو با شکاف ساخته می‌شود و هیچ‌جا نمی‌گوید چرا. */
+  const ep93 = root.createFolder('قسمت 0093 — کارت');
+  global.__PNG_FAIL = 500;
+  const b93 = lvBuild_(ep93, planOf(), ctx);
+  global.__PNG_FAIL = 0;
+  ok('۵۰.۹ صادراتِ شکست‌خورده «تمام» شمرده نمی‌شود و دلیلش نوشته می‌شود',
+     b93.ready === 0 && b93.done === false && b93.tries === 1 && b93.why.length > 5,
+     b93.ready + '/' + b93.want + ' · ' + b93.why);
+
+  /* ۵۰.۹-ب — و بعد از همان شکست، اجرای بعدی دوباره تلاش می‌کند (شمارنده
+     بالا می‌رود) تا `ytUploadOne_` بتواند سرِ `LV_TRY_MAX` تصمیم بگیرد. */
+  global.__PNG_FAIL = 500;
+  const b93b = lvBuild_(ep93, planOf(), ctx);
+  global.__PNG_FAIL = 0;
+  ok('۵۰.۹-پ تلاشِ دوم شمرده می‌شود، وگرنه سقفِ LV_TRY_MAX هرگز نمی‌رسد',
+     b93b.tries === 2 && b93b.done === false, 'tries=' + b93b.tries);
+
+  /* ۵۰.۱۰ — سقفِ «چند کارت در یک اجرا»: کارِ نیمه‌مانده گم نمی‌شود و اجرای
+     بعدی از همان‌جا ادامه می‌دهد. بی این سقف، قسمتی با چهل تصویر اجرا را
+     سرِ شش دقیقه می‌کشد و هیچ خطایی هم ندارد. */
+  const capWas = CFG.LV_BUILD_MAX;
+  CFG.LV_BUILD_MAX = 2;
+  const ep94 = root.createFolder('قسمت 0094 — کارت');
+  const c1 = lvBuild_(ep94, planOf(), ctx);
+  const c2 = lvBuild_(ep94, planOf(), ctx);
+  CFG.LV_BUILD_MAX = capWas;
+  ok('۵۰.۱۰ سقفِ هر اجرا رعایت می‌شود و اجرای بعدی از همان‌جا ادامه می‌دهد',
+     c1.made === 2 && c1.done === false && c2.made === 1 && c2.done === true &&
+     c2.ready === 3,
+     'اجرای اول ' + c1.made + '، دوم ' + c2.made);
+
+  /* ۵۰.۱۰-ب — و دو اجرا **یک** فایلِ ارائه می‌گذارند، نه دو. بی این، قسمتی
+     که سه اجرا لازم داشته باشد سه ارائهٔ دورریختنی در پوشهٔ خودش جا
+     می‌گذارد — و پوشه‌ای که صاحبِ برنامه بازش می‌کند باید تصویرهایش پیدا
+     باشد، نه زیرِ زبالهٔ ما. */
+  const sub94 = ep94.getFoldersByName(CFG.LV_FOLDER).next();
+  const kinds94 = [];
+  { const it = sub94.getFiles(); while (it.hasNext()) kinds94.push(it.next().getName()); }
+  ok('۵۰.۱۰-پ چند اجرا فقط یک فایلِ ارائه می‌گذارند',
+     kinds94.filter(n => n.indexOf('کارت‌ها — ') === 0).length === 1 &&
+     kinds94.filter(n => /\.png$/.test(n)).length === 3,
+     kinds94.join(' | '));
+
+  /* ۵۰.۱۱ — برنامهٔ خالی یعنی **رفتارِ امروز**، نه خطا: نه پوشه‌ای، نه
+     فایلی، نه فراخوانی. قولِ «چیزی خراب نمی‌شود» همین است. */
+  const ep95 = root.createFolder('قسمت 0095 — بی‌تصویر');
+  const fWas = global.__FETCHES.length;
+  const b95 = lvBuild_(ep95, { visuals: [] }, ctx);
+  ok('۵۰.۱۱ برنامهٔ خالی: تمام‌شده، بی هیچ فایل و هیچ فراخوان',
+     b95.done === true && b95.want === 0 && b95.items.length === 0 &&
+     ep95.getFoldersByName(CFG.LV_FOLDER).hasNext() === false &&
+     global.__FETCHES.length === fWas,
+     'فراخوان‌های تازه: ' + (global.__FETCHES.length - fWas));
+}
+
+console.log('=== ۵۱) تصویرها تا اکشن و برگشت: اجازهٔ فایل‌به‌فایل (۷.۹۳) ===');
+{
+  const root = global.__ROOT_FOLDER;
+  /* صف را عمداً خالی می‌کنیم: بندهای پیش‌تر سقفِ `YT_RENDER_MAX` را پر
+     کرده‌اند و این بند دربارهٔ سقف نیست، دربارهٔ **اجازهٔ فایل‌ها** است.
+     سقف، سنجهٔ خودش را دارد (§۴۴). */
+  ytRenderSave_({ items: [] });
+  const ep = DriveApp.__register('EPF91', 'قسمت ۹۱');
+  const sub = ep.createFolder(CFG.LV_FOLDER);
+  const im = [];
+  for (let i = 0; i < 3; i++) {
+    im.push(sub.createFile(Utilities.newBlob('PNG' + i, 'image/png',
+      'تصویر ' + faDigitsOut_(String(i + 1)) + ' — بخش ۱.png')));
+  }
+  const wav = root.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'کامل.wav'));
+  const cv = root.createFile(Utilities.newBlob('PNG', 'image/png', 'کاور۹۱.png'));
+
+  const asked = ytRenderAsk_({ show: 'special', ep: '91', title: 'ت', folderId: 'EPF91',
+    audio: [{ id: wav.getId(), name: 'کامل.wav' }], coverFileId: cv.getId(),
+    visuals: im.map((f, i) => ({ fileId: f.getId(), kind: 'کارت', sec: 10 + i,
+                                 name: f.getName() })),
+    outName: 'قسمت ۹۱ — ویدئو.mp4' });
+  const row = ytRenderRead_().items.filter(x => x.key === 'special:91')[0] || {};
+
+  /* ۵۱.۱ — ردیف نشانیِ هر تصویر را دارد و سهمِ ثانیه‌اش را. `tools/render.js`
+     دقیقاً همین دو را می‌خواند (`visualsOf`). */
+  ok('۵۱.۱ هر تصویر در ردیفِ صف نشانی و سهمِ ثانیه دارد',
+     asked === true && (row.visuals || []).length === 3 &&
+     row.visuals.every(v => /usercontent/.test(v.url || '')) &&
+     row.visuals[1].sec === 11,
+     (row.visuals || []).length + ' تصویر');
+
+  /* ۵۱.۲ — و اجازه **رفتاری** سنجیده می‌شود: خودِ فایل باز شده باشد، نه
+     اینکه ردیف ادعا کند. */
+  ok('۵۱.۲ هر سه تصویر واقعاً «هرکس با لینک» شدند',
+     im.every(f => f.getSharingAccess() === 'ANYONE_WITH_LINK') && row.shared === true);
+
+  /* ۵۱.۳ — **و پوشه‌شان نه.** درایو اجازه نمی‌دهد فرزندی بسته‌تر از پوشه‌اش
+     باشد؛ اگر پوشه باز شود، بستنِ فایل‌ها پرت می‌کند و اشتراک برای همیشه
+     می‌مانَد — و هر فایلی که بعداً آن‌جا نوشته شود عمومی است (۷.۴۵). */
+  ok('۵۱.۳ ولی پوشهٔ «تصویرها» باز نمی‌شود — همان درسی که چهار شب در سیاهه نشست',
+     sub.getSharingAccess() === 'PRIVATE', sub.getSharingAccess());
+
+  /* ۵۱.۴ — و پس گرفته می‌شود، همراهِ صوت و کاور. سوپاپِ `ytShareSweep_` باید
+     تصویرها را هم ببیند، وگرنه دوازده فایلِ عمومی جا می‌مانند. */
+  const d = ytRenderRead_();
+  for (const it of d.items) if (it.key === 'special:91') it.status = 'رسید';
+  ytRenderSave_(d);
+  const n = ytShareSweep_();
+  ok('۵۱.۴ اشتراکِ تصویرها هم پس گرفته می‌شود، نه فقط صوت و کاور',
+     n >= 1 && im.every(f => f.getSharingAccess() === 'PRIVATE') &&
+     wav.getSharingAccess() === 'PRIVATE' && cv.getSharingAccess() === 'PRIVATE',
+     'پس‌گرفته: ' + n);
+
+  /* ۵۱.۵ — **سنجهٔ مرزی: آنچه موتور نوشت، همان است که رانر می‌خوانَد.**
+     دو طرفِ این مرز در دو زبان و دو مخزنِ اجرا هستند و هیچ تایپی مشترکی
+     ندارند؛ تنها راهِ دانستنِ اینکه شکل‌ها می‌خوانند، خواندنِ واقعیِ یکی از
+     خروجیِ دیگری است. `run_render_test.js` خودش ردیفی دست‌ساز می‌سازد —
+     که یعنی شکلِ *من* را می‌سنجد، نه شکلِ موتور را (۷.۶۹). */
+  const rj = require('../tools/render.js');
+  const seen = rj.visualsOf(row);
+  ok('۵۱.۵ `tools/render.js` همان ردیفی که موتور نوشت را می‌خوانَد',
+     seen.length === 3 && seen[1].sec === 11 &&
+     seen.every(x => /^https?:\/\//.test(x.url)) && seen[0].kind === 'کارت',
+     JSON.stringify(seen.map(x => x.sec)));
+
+  /* ۵۱.۵-ب — و سهم‌ها به **دقیقاً** مدتِ صوت می‌نشینند: قاعدهٔ بی‌شکاف،
+     از این سر تا آن سر. */
+  const tl = rj.timelineOf(seen, 90);
+  const sum = tl.reduce((a, x) => a + x.visible, 0);
+  ok('۵۱.۵-پ و جمعِ سهمِ همان تصویرها دقیقاً مدتِ صوت است',
+     tl.length === 3 && Math.abs(sum - 90) < 0.01, 'جمع = ' + sum.toFixed(3));
+}
+
+console.log('=== ۵۲) از همان دری که تولید وارد می‌شود: ytUploadOne_ (۷.۹۳) ===');
+{
+  /* ══ چرا این بند لازم است و §۵۰ کافی نیست ══
+   * §۵۰ `lvBuild_` را صدا می‌زند — یعنی اتاق را می‌سنجد، نه در را. تصمیمِ
+   * «با مجموعهٔ ناقص درخواست بگذارم یا صبر کنم» در `ytUploadOne_` گرفته
+   * می‌شود، و آن تابع تا امروز در هیچ سنجه‌ای یک بار هم دویده نشده بود —
+   * چون `ytSvc_()` در این دنیا `null` است و تابع سرِ خطِ اول برمی‌گشت.
+   * یک بدَلِ خالی برای `YouTube` بس است: مسیرِ «ویدئو نیامده» هیچ فراخوانی
+   * به API نمی‌کند. همان درسِ ۷.۶۲ — سنجه‌ای که تابعِ تازه را صدا بزند
+   * تابع را ثابت می‌کند؛ فقط سنجه‌ای که از جای تولید شروع کند، قابلیت را. */
+  const svcWas = global.YouTube;
+  global.YouTube = {};
+  const root = global.__ROOT_FOLDER;
+  const mkEp = (id, name) => {
+    const f = DriveApp.__register(id, name);
+    f.createFile(Utilities.newBlob(JSON.stringify({
+      lesson: 5, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'سه شرطِ معرفت', hook: 'قلاب', summary: 'خلاصه',
+            sections: [{ heading: 'یک', narration: 'الف'.repeat(400) },
+                       { heading: 'دو', narration: 'ب'.repeat(300) },
+                       { heading: 'سه', narration: 'پ'.repeat(200) }] }
+    }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    return f;
+  };
+
+  /* ۵۲.۱ — مجموعهٔ ناقص **درخواست نمی‌شود**. قسمت همین‌الان منتظرِ ویدئو
+     است، پس یک اجرای دیگر صبر کردن هزینه‌ای ندارد — ولی ویدئویی که با
+     شکاف ساخته شود، منتشر که شد برنمی‌گردد. */
+  ytRenderSave_({ items: [] });
+  const capWas = CFG.LV_BUILD_MAX, tryWas = CFG.LV_TRY_MAX;
+  CFG.LV_BUILD_MAX = 1; CFG.LV_TRY_MAX = 2;
+  const e1 = mkEp('EPF96', 'قسمت 0096');
+  const r1 = ytUploadOne_({ key: 'special:96', show: 'special', ep: '96',
+                            folderId: 'EPF96', series: 'معرفت‌شناسی' }, null, []);
+  ok('۵۲.۱ تا تصویرها کامل نشده، درخواستِ رندر گذاشته نمی‌شود',
+     r1.waiting === true && r1.why.indexOf('کامل نشده') !== -1 &&
+     ytRenderRead_().items.filter(x => x.key === 'special:96').length === 0,
+     r1.why);
+
+  /* ۵۲.۲ — ولی بی‌نهایت صبر نمی‌کند. بعد از `LV_TRY_MAX` با هر چه هست
+     می‌رود: انتشاری که هرگز نرسد از انتشارِ ساده‌تر بدتر است (۵.۸۸). */
+  const r2 = ytUploadOne_({ key: 'special:96', show: 'special', ep: '96',
+                            folderId: 'EPF96', series: 'معرفت‌شناسی' }, null, []);
+  const row96 = ytRenderRead_().items.filter(x => x.key === 'special:96')[0] || {};
+  ok('۵۲.۲ بعد از سقفِ تلاش، با همان تصویرهای موجود درخواست می‌گذارد',
+     r2.waiting === true && r2.why.indexOf('درخواستِ رندر') !== -1 &&
+     (row96.visuals || []).length === 2,
+     r2.why + ' · ' + (row96.visuals || []).length + ' تصویر در ردیف');
+
+  /* ۵۲.۳ — و مسیرِ سالم: یک اجرا، همهٔ کارت‌ها، ردیف با همهٔ تصویرها. */
+  CFG.LV_BUILD_MAX = capWas;
+  ytRenderSave_({ items: [] });
+  const e2 = mkEp('EPF97', 'قسمت 0097');
+  const r3 = ytUploadOne_({ key: 'special:97', show: 'special', ep: '97',
+                            folderId: 'EPF97', series: 'معرفت‌شناسی' }, null, []);
+  const row97 = ytRenderRead_().items.filter(x => x.key === 'special:97')[0] || {};
+  const sub97 = e2.getFoldersByName(CFG.LV_FOLDER);
+  ok('۵۲.۳ مسیرِ سالم: همهٔ تصویرها ساخته و در ردیف نشانی‌دار می‌شوند',
+     r3.waiting === true && (row97.visuals || []).length === 3 &&
+     row97.visuals.every(v => /usercontent/.test(v.url || '')) &&
+     sub97.hasNext() === true && r3.why.indexOf('تصویر') !== -1,
+     r3.why);
+
+  /* ۵۲.۴ — و **این مهم‌ترین سنجهٔ کلِ این نسخه است.** «از همه جا از همه
+     رنگ» به خواستهٔ صریحِ بندِ ۴ دست نمی‌خورد: ردیفش بی هیچ تصویری نوشته
+     می‌شود (یعنی `tools/render.js` همان کاورِ تک‌تصویری را می‌سازد)، و هیچ
+     پوشه و پرونده‌ای در قسمتش ساخته نمی‌شود. */
+  ytRenderSave_({ items: [] });
+  const e3 = mkEp('EPF98', 'قسمت 0098');
+  const r4 = ytUploadOne_({ key: 'variety:98', show: 'variety', ep: '98',
+                            folderId: 'EPF98', series: '' }, null, []);
+  const row98 = ytRenderRead_().items.filter(x => x.key === 'variety:98')[0] || {};
+  ok('۵۲.۴ «از همه جا از همه رنگ» دست نمی‌خورد: نه تصویری، نه پوشه‌ای، نه پرونده‌ای',
+     r4.waiting === true && (row98.visuals || []).length === 0 &&
+     e3.getFoldersByName(CFG.LV_FOLDER).hasNext() === false &&
+     e3.getFilesByName(CFG.LV_FILE).hasNext() === false,
+     r4.why);
+
+  /* ۵۲.۵ — **این سنجه از یک شکستنیِ نیفتاده زاده شد.** برداشتنِ سدِ
+     `ytVisOn_` در `ytUploadOne_` هیچ سنجه‌ای را قرمز نکرد، چون `ytVisPlan_`
+     خودش برای «از همه جا» فهرستِ خالی می‌دهد و `lvBuild_` همان‌جا برمی‌گردد.
+     پس آن سد یک قفلِ *دوم* است — ولی برای یک حالتِ واقعاً ممکن: `_yt.json`
+     دستی ویرایش‌شدنی است (و ناظر ویرایشش می‌کند)، و نقشه از همان فایل
+     خوانده می‌شود. یعنی یک ردیفِ دست‌نویس می‌تواند برای «از همه جا» تصویر
+     بخواهد. حالتی که تولید در آن می‌ایستد را باید ساخت، نه حالتِ راحت را
+     (۷.۲۲/۷.۸۶). */
+  ytRenderSave_({ items: [] });
+  const e4 = mkEp('EPF99', 'قسمت 0099');
+  ytPlanWrite_(e4, { at: 'x', show: 'variety', ep: '99', title: 'ت', description: 'د',
+    tags: ['الف'], coverTitle: 'ک', coverKicker: '', chapters: 3,
+    visuals: [{ at: 1, kind: 'کارت', cardTitle: 'دستی', cardLines: ['یک'],
+                heading: 'یک', terms: '', caption: 'ز', sec: 20 }] });
+  const r5 = ytUploadOne_({ key: 'variety:99', show: 'variety', ep: '99',
+                            folderId: 'EPF99', series: '' }, null, []);
+  const row99 = ytRenderRead_().items.filter(x => x.key === 'variety:99')[0] || {};
+  ok('۵۲.۵ `_yt.json`ِ دست‌نویسِ «از همه جا» هم تصویر نمی‌گیرد — قفلِ دوم',
+     (row99.visuals || []).length === 0 &&
+     e4.getFoldersByName(CFG.LV_FOLDER).hasNext() === false &&
+     e4.getFilesByName(CFG.LV_FILE).hasNext() === false,
+     r5.why);
+
+  CFG.LV_TRY_MAX = tryWas;
+  if (svcWas === undefined) delete global.YouTube; else global.YouTube = svcWas;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

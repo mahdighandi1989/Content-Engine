@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.92
+ *  موتور محتوا و پادکست — نسخهٔ 7.93
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -726,6 +726,18 @@ var CFG = {
   LV_CARD_LINE_MAX: 72,
   LV_CAPTION_MAX: 120,          // زیرنویسِ جزوه
   LV_TERMS_MAX: 80,             // واژه‌های جست‌وجو (انگلیسی)
+  /* ── ساختِ کارت‌ها (۷٫۹۳) ──
+   * `LV_BUILD_MAX`: چند کارت در **یک اجرا**. هر کارت یک صادراتِ PNG است،
+   *   یعنی یک فراخوانِ شبکه؛ و Apps Script سرِ شش دقیقه بی‌خطا کشته می‌شود.
+   *   کارِ نیمه‌مانده گم نمی‌شود: فایل‌های ساخته‌شده در پوشه می‌مانند و اجرای
+   *   بعدی از همان‌جا ادامه می‌دهد.
+   * `LV_TRY_MAX`: بعد از این تعداد تلاشِ ناکامل، قسمت با **هر چه هست** منتشر
+   *   می‌شود (و اگر هیچ نبود، با کاورِ تک‌تصویریِ امروز). قاعدهٔ ۵٫۸۸، این بار
+   *   از پیش: انتشاری که هرگز نرسد از انتشارِ ساده‌تر بدتر است. */
+  LV_BUILD_MAX: 24,
+  LV_TRY_MAX: 3,
+  LV_FOLDER: 'تصویرها',         // زیرپوشهٔ خودِ قسمت — خواستهٔ بندِ ۸
+  LV_FILE: '_visuals.json',     // در پوشهٔ قسمت، نه در ریشهٔ OUTPUT
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
   YT_CHANNEL: true,                     // نگه‌داشتنِ شناسنامهٔ کانال
@@ -1308,7 +1320,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.92',
+  CODE_VERSION: '7.93',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -39957,6 +39969,14 @@ function ytRenderAsk_(item) {
               audioKind: String(item.audioKind || ''),
               coverFileId: String(item.coverFileId || ''),
               coverUrl: ytDlUrl_(item.coverFileId || ''),
+              /* تصویرهای بخش‌ها، به ترتیب. خالی بودنش یعنی **رفتارِ امروز**:
+                 `tools/render.js` همان کاورِ تک‌تصویری را می‌سازد. */
+              visuals: (item.visuals || []).map(function (v) {
+                return { fileId: String((v && v.fileId) || ''),
+                         url: ytDlUrl_((v && v.fileId) || ''),
+                         kind: String((v && v.kind) || ''),
+                         sec: Number((v && v.sec) || 0) || 0,
+                         name: String((v && v.name) || '') }; }),
               outName: String(item.outName || ''), at: nowStr_(),
               status: 'در انتظار' };
   /* اجازه همراهِ درخواست داده می‌شود، نه پیش از آن و نه جدا از آن: هر فایلی
@@ -40055,6 +40075,16 @@ function ytRenderShare_(item, on) {
   var ids = [], au = (item || {}).audio || [];
   for (var i = 0; i < au.length; i++) if (au[i] && au[i].id) ids.push(au[i].id);
   if (item && item.coverFileId) ids.push(item.coverFileId);
+  /* ══ تصویرها فایل‌به‌فایل باز می‌شوند، هرگز پوشه‌به‌پوشه (درسِ ۷٫۴۵) ══
+   * وسوسه این است که «تصویرها» را یک‌بار باز کنیم و خلاص. درایو اجازه
+   * نمی‌دهد فرزندی بسته‌تر از پوشه‌اش باشد، پس بعدش `setSharing(PRIVATE)`
+   * روی هر فایلِ درونش پرت می‌کند و **اشتراک برای همیشه باز می‌مانَد** —
+   * چهار شب همین در سیاهه نشست و پیامش هیچ‌چیز را نام نمی‌برد. همین‌جا هم
+   * بدتر است: بعد از این، هر فایلی که موتور در آن پوشه بنویسد عمومی است.
+   * پس فقط همان فایل‌هایی که اکشن لازم دارد، و همین فهرست است که
+   * `ytShareSweep_` بعداً می‌بنددش. */
+  var vs = (item || {}).visuals || [];
+  for (var v = 0; v < vs.length; v++) if (vs[v] && vs[v].fileId) ids.push(vs[v].fileId);
   var n = 0;
   for (var j = 0; j < ids.length; j++) {
     if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
@@ -40879,6 +40909,341 @@ function ytPlanWrite_(folder, plan) {
   } catch (e) { logLine_('نقشهٔ یوتیوب ذخیره نشد: ' + e.message); return null; }
 }
 
+/* ═══════════ از برنامه به فایل: کارت‌های تصویر (۷٫۹۳) ═══════════
+ *
+ * ۷٫۹۲ **تصمیم** را ساخت (`ytVisPlan_`): کدام بخش چه تصویری، با چه متنی، با
+ * چه سهمی از زمان. این‌جا آن تصمیم فایل می‌شود — یک PNG برای هر مورد، در
+ * زیرپوشهٔ «تصویرها»ی خودِ همان قسمت، که خواستهٔ صریحِ بندِ ۸ است.
+ *
+ * ══ چرا Slides، و نه چیزِ دیگری ══
+ * Apps Script هیچ کتابخانهٔ تصویری ندارد و `drawtext`ِ ffmpeg در ساختِ
+ * `imageio-ffmpeg`ِ رانر نیست — پس متن باید **پیش از** ویدئو روی تصویر
+ * سوخته باشد. Slides تنها ابزاری است که در دسترسِ موتور است و فارسیِ
+ * راست‌به‌چپ را هم درست می‌چیند. و مسیرش تازه نیست: کاورِ هر قسمت، کاورِ هر
+ * پلی‌لیست و بنرِ کانال از ۶٫۵ همین راه را می‌روند.
+ *
+ * ══ یک ارائه برای هر قسمت، نه یکی برای هر کارت ══
+ * دوازده ارائهٔ جدا یعنی دوازده `presentations.create` و دوازده فایلِ
+ * دورریختنی. یک ارائه با دوازده صفحه، یک ساخت است و `saveAndClose` همهٔ
+ * ویرایش‌ها را یک‌جا می‌فرستد. صادرات همچنان صفحه‌به‌صفحه است، چون نقطهٔ
+ * پایانیِ PNG یک صفحه می‌دهد.
+ *
+ * ══ و آنچه این‌جا **نیست** ══
+ * آوردنِ عکسِ آزاد و کلیپِ ویدئو. سنجشِ گامِ صفر (`tools/visprobe.py`) گفت
+ * تصویرِ آزاد شدنی است و ویدئوی آزاد عملاً نه (از سیزده نامزد، صفر قبول).
+ * تا آن لایه نیاید، موردی که مدل «عکس» یا «ویدئو» خواسته **کارت می‌شود** —
+ * و همان‌جا در `_visuals.json` ثبت می‌شود که چه خواسته شده بود (`kind`) و چه
+ * ساخته شد (`via`). یک جایگزینیِ بی‌ثبت، همان چیزی است که بعداً کسی حساب
+ * نمی‌کند چند تا بوده.
+ */
+
+/** زیرپوشهٔ تصویرهای همین قسمت. `null` اگر ساخته نشد. */
+function lvFolder_(epFolder) {
+  var nm = CFG.LV_FOLDER || 'تصویرها';
+  try {
+    var it = epFolder.getFoldersByName(nm);
+    return it.hasNext() ? it.next() : epFolder.createFolder(nm);
+  } catch (e) { logLine_('پوشهٔ تصویرها ساخته نشد: ' + e.message); return null; }
+}
+
+function lvName_() { return CFG.LV_FILE || '_visuals.json'; }
+
+function lvRead_(epFolder) {
+  try {
+    var it = epFolder.getFilesByName(lvName_());
+    if (it.hasNext()) {
+      var d = JSON.parse(it.next().getBlob().getDataAsString());
+      if (d && Object.prototype.toString.call(d.items) === '[object Array]') return d;
+    }
+  } catch (e) {}
+  return null;
+}
+
+function lvWrite_(epFolder, d) {
+  d.at = nowStr_();
+  var body = JSON.stringify(d, null, 1);
+  try {
+    var it = epFolder.getFilesByName(lvName_());
+    if (it.hasNext()) { it.next().setContent(body); return true; }
+    epFolder.createFile(Utilities.newBlob(body, 'application/json', lvName_()));
+    return true;
+  } catch (e) { logLine_('پروندهٔ تصویرها ذخیره نشد: ' + e.message); return false; }
+}
+
+/**
+ * نامِ ثابتِ هر تصویر — پلِ میانِ «ساختن» و «دوباره پیدا کردن»، همان نقشی که
+ * `ytCoverName_` دارد. **شمارهٔ ترتیب در نام است**، چون ترتیب همان چیزی است
+ * که ویدئو از آن ساخته می‌شود؛ نامی که ترتیب را نگوید، پوشه را به تودهٔ
+ * بی‌معنا بدل می‌کند و اجرای بعدی نمی‌داند چه ساخته شده.
+ */
+function lvImgName_(i, v) {
+  return 'تصویر ' + faDigitsOut_(String(Number(i) + 1)) +
+         ' — بخش ' + faDigitsOut_(String((v && v.at) || 0)) + '.png';
+}
+
+/**
+ * جعبه‌های یک «نمودار» — راست‌به‌چپ، با پیکانِ رو به چپ میانشان.
+ *
+ * چرا جعبه و نه سطرِ فهرست: مدل «نمودار» را جایی می‌خواهد که **رابطه یا
+ * روند** مهم‌تر از واژه است. اگر همان بولت‌های کارت را بکشیم، «نمودار» فقط
+ * یک برچسب می‌شود و هیچ‌چیز در تصویر عوض نمی‌شود — یعنی گونه‌ای که مدل
+ * انتخاب کرد بی‌اثر است.
+ */
+function lvFlowDraw_(slide, W, H, pal, lines) {
+  var n = Math.max(1, Math.min(4, (lines || []).length));
+  var pad = W * 0.07, gap = W * 0.035;
+  var bw = (W - pad * 2 - gap * (n - 1)) / n;
+  var top = H * 0.42, bh = H * 0.28;
+  for (var k = 0; k < n; k++) {
+    var left = pad + (n - 1 - k) * (bw + gap);        // موردِ اول، راست‌ترین
+    var box = slide.insertShape(SlidesApp.ShapeType.ROUND_RECTANGLE, left, top, bw, bh);
+    try {
+      box.getFill().setSolidFill(pal.bg);
+      box.getBorder().setWeight(2);
+      box.getBorder().getLineFill().setSolidFill(pal.ac);
+    } catch (eB) {}
+    try {
+      var t = box.getText();
+      t.setText(String(lines[k] || ''));
+      t.getTextStyle().setFontSize(n > 3 ? 14 : 17).setForegroundColor(pal.fg).setBold(false);
+      t.getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+    } catch (eT) {}
+    // پیکان بینِ این جعبه و بعدی — جهتِ خواندن، چپ
+    if (k < n - 1) {
+      try {
+        var ar = slide.insertShape(SlidesApp.ShapeType.LEFT_ARROW,
+          left - gap * 0.9, top + bh * 0.38, gap * 0.8, bh * 0.24);
+        ar.getFill().setSolidFill(pal.ac);
+        ar.getBorder().setTransparent();
+      } catch (eA) {}
+    }
+  }
+  return n;
+}
+
+/**
+ * یک کارت روی یک صفحه. `kind` فقط بدنه را عوض می‌کند؛ قاب و رنگ یکی است،
+ * چون دوازده کارتِ پشتِ‌هم باید **یک قسمت** به‌نظر بیایند، نه دوازده تصویرِ
+ * بی‌ربط. تنوع از جای نوارِ کناری می‌آید، نه از رنگ.
+ */
+function lvCardDraw_(slide, W, H, pal, v, ctx, i, n) {
+  var kind = String((v && v.kind) || 'کارت');
+  var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
+  bg.getFill().setSolidFill(pal.bg);
+  bg.getBorder().setTransparent();
+
+  var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H - H * 0.045, W, H * 0.045);
+  bar.getFill().setSolidFill(pal.ac);
+  bar.getBorder().setTransparent();
+
+  /* نوارِ باریکِ کناری که هر کارت جایش عوض می‌شود: بیننده می‌فهمد تصویر
+     تازه شده، بی آنکه رنگِ قسمت بشکند. */
+  try {
+    var side = (i % 2 === 0);
+    var stripe = slide.insertShape(SlidesApp.ShapeType.RECTANGLE,
+      side ? W - W * 0.011 : 0, H * 0.10, W * 0.011, H * 0.60);
+    stripe.getFill().setSolidFill(pal.ac);
+    stripe.getBorder().setTransparent();
+  } catch (eS) {}
+
+  var pad = W * 0.075;
+  var put = function (txt, top, height, size, color, bold, align) {
+    var box = slide.insertTextBox(String(txt == null ? '' : txt), pad, top, W - pad * 2, height);
+    try {
+      var t = box.getText();
+      t.getTextStyle().setFontSize(size).setForegroundColor(color).setBold(!!bold);
+      t.getParagraphStyle().setParagraphAlignment(align || SlidesApp.ParagraphAlignment.END);
+    } catch (eP) {}
+    return box;
+  };
+
+  // سرِ بخش، بالا — تا تصویر بدونِ صوت هم بگوید کجای درس است
+  if (v && v.heading) put(ytVisCut_(v.heading, 60), H * 0.085, H * 0.085, 16, pal.ac, true);
+
+  var ttl = String((v && v.cardTitle) || (v && v.heading) || '');
+  var fs = ttl.length > 34 ? 30 : (ttl.length > 20 ? 36 : 44);
+  put(ttl, H * 0.17, H * 0.22, fs, pal.fg, true);
+
+  var lines = (v && v.cardLines) || [];
+  if (kind === 'نمودار' && lines.length) {
+    lvFlowDraw_(slide, W, H, pal, lines);
+  } else if (lines.length) {
+    var body = [];
+    for (var L = 0; L < lines.length; L++) body.push('•  ' + String(lines[L] || ''));
+    put(body.join('\n'), H * 0.42, H * 0.34, lines.length > 3 ? 18 : 21, pal.fg, false);
+  }
+
+  /* پانویس: برنامه، قسمت، و **شمارهٔ همین تصویر از کل**. آن عددِ آخر ارزان
+     است و جوابِ «کدام کارت را دیدم؟» — هم برای بیننده، هم برای ناظری که
+     باید یک تصویرِ واقعی را باز کند و دربارهٔ‌ش نظر بدهد. */
+  var foot = [];
+  if (ctx && ctx.showName) foot.push(String(ctx.showName));
+  if (ctx && ctx.epNum) foot.push('قسمت ' + String(ctx.epNum));
+  foot.push(faDigitsOut_(String(Number(i) + 1)) + ' از ' + faDigitsOut_(String(Number(n) || 1)));
+  put(foot.join('  ·  '), H * 0.895, H * 0.075, 13, pal.ac, false);
+  return true;
+}
+
+/**
+ * کارت‌های خواسته‌شده را می‌سازد و به‌صورتِ PNG در پوشهٔ تصویرها می‌نشاند.
+ * `todo` فهرستِ `{i, v, n}` است — فقط آنچه هنوز فایل ندارد.
+ */
+function lvCards_(ctx, todo, imgFolder) {
+  var out = { made: [], why: '' };
+  if (!todo || !todo.length) return out;
+  var pres = null;
+  try {
+    var pal = ytPalette_((ctx && (ctx.cat || ctx.seriesName || ctx.showName)) || '');
+    var pTitle = 'کارت‌ها — ' + String((ctx && ctx.showName) || '') + ' قسمت ' +
+                 String((ctx && ctx.epNum) || '');
+    var mkP = ytPresCreate_(pTitle, 12192000, 6858000);
+    if (!mkP.id) { out.why = mkP.why || 'ارائه ساخته نشد'; return out; }
+    if (!mkP.exact) logLine_('کارت‌های تصویر با اندازهٔ پیش‌فرض ساخته شدند — ' + mkP.why);
+    pres = SlidesApp.openById(mkP.id);
+
+    var pages = pres.getSlides();
+    var first = pages[0];
+    try {
+      var els = first.getPageElements();
+      for (var e = 0; e < els.length; e++) els[e].remove();
+    } catch (eEl) {}
+    var use = [first];
+    for (var k = 1; k < todo.length; k++) {
+      use.push(pres.appendSlide(SlidesApp.PredefinedLayout.BLANK));
+    }
+
+    var W = pres.getPageWidth(), H = pres.getPageHeight();
+    for (var j = 0; j < todo.length; j++) {
+      try { lvCardDraw_(use[j], W, H, pal, todo[j].v, ctx, todo[j].i, todo[j].n); }
+      catch (eD) { out.why = 'کارتِ ' + (todo[j].i + 1) + ' کشیده نشد: ' + eD.message; }
+    }
+
+    /* شناسهٔ صفحه‌ها **پیش از** `saveAndClose` برداشته می‌شود. کاور همین کار
+       را بعدش می‌کند و تا امروز اشکالی نداشته، ولی شیئی که بسته شده قرار
+       نیست جواب بدهد و این‌جا دوازده تا از آن‌هاست. */
+    var ids = [];
+    for (var p = 0; p < use.length; p++) ids.push(use[p].getObjectId());
+    pres.saveAndClose();
+    var pid = pres.getId();
+    pres = null;
+
+    for (var x = 0; x < todo.length; x++) {
+      var nm = lvImgName_(todo[x].i, todo[x].v);
+      var blob = ytSlideExport_(pid, ids[x], nm);
+      if (!blob) { if (!out.why) out.why = 'خروجیِ PNG نشد'; continue; }
+      var f = null;
+      try {
+        // بازسازی باید *جایگزین* کند، نه هم‌نامِ دوم بسازد (تلهٔ getFilesByName)
+        var old = imgFolder.getFilesByName(nm);
+        while (old.hasNext()) old.next().setTrashed(true);
+        f = imgFolder.createFile(blob);
+      } catch (eF) { out.why = 'فایلِ تصویر ذخیره نشد: ' + eF.message; }
+      if (f) out.made.push({ i: todo[x].i, fileId: f.getId(), name: nm });
+    }
+    /* فایلِ ارائه هم می‌مانَد، همان‌جا — اگر کارتی بد درآمد باید دید چه بوده.
+       ولی **هم‌نامِ پیشین تُرش می‌شود**: یک قسمت می‌تواند چند اجرا لازم داشته
+       باشد (سقفِ `LV_BUILD_MAX`) و بی این خط، هر اجرا یک ارائهٔ دورریختنیِ
+       دیگر در پوشهٔ قسمت می‌گذارد. همان تلهٔ هم‌نامیِ `ytCoverCard_`. */
+    try {
+      var oldP = imgFolder.getFilesByName(pTitle);
+      while (oldP.hasNext()) { var op = oldP.next(); if (op.getId() !== pid) op.setTrashed(true); }
+    } catch (eOP) {}
+    try { DriveApp.getFileById(pid).moveTo(imgFolder); } catch (eM) {}
+    return out;
+  } catch (e) {
+    out.why = 'کارت‌های تصویر ساخته نشدند: ' + e.message;
+    logLine_(out.why);
+    return out;
+  }
+}
+
+/**
+ * برنامه ⇒ فایل‌ها، با ادامه‌پذیری.
+ *
+ * ══ سه مرزی که این تابع را شکل می‌دهند ══
+ *
+ * **۱) تلاش پیش از کار ثبت می‌شود، نه بعدش.** Apps Script سرِ شش دقیقه
+ * بی‌خطا کشته می‌شود. اگر شمارنده بعد از ساخت نوشته شود، اجرایی که وسطِ کار
+ * مُرد هیچ‌چیز ثبت نمی‌کند و هر شب از نو شروع می‌شود — همان شاهدی که با خودِ
+ * حادثه می‌میرد (۷٫۴۴/۷٫۶۴).
+ *
+ * **۲) آنچه ساخته شده دوباره ساخته نمی‌شود.** مرجع، **خودِ فایلِ روی درایو**
+ * است نه ردیفِ `_visuals.json`: اگر کسی تصویری را پاک کند باید دوباره ساخته
+ * شود، و اگر پرونده گم شود نباید دوازده کارت دوباره ساخته شود.
+ *
+ * **۳) مجموعهٔ ناقص «تمام» نیست.** `done` فقط وقتی درست است که هر موردِ
+ * برنامه فایلش را داشته باشد. تصمیمِ «با ناقص منتشر کن یا صبر کن» این‌جا
+ * گرفته نمی‌شود — `ytUploadOne_` با `LV_TRY_MAX` می‌گیردش، چون آن‌جاست که
+ * می‌داند انتشار چقدر عقب افتاده.
+ */
+function lvBuild_(epFolder, plan, ctx) {
+  var out = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: false, why: '' };
+  var want = (plan && plan.visuals) || [];
+  out.want = want.length;
+  if (!want.length) { out.done = true; return out; }
+
+  var imgFolder = lvFolder_(epFolder);
+  if (!imgFolder) { out.why = 'پوشهٔ تصویرها ساخته نشد'; return out; }
+
+  var d = lvRead_(epFolder) || { at: '', tries: 0, items: [] };
+  out.tries = Math.max(0, Number(d.tries) || 0);
+
+  var have = Object.create(null);
+  for (var i = 0; i < want.length; i++) {
+    try {
+      var it = imgFolder.getFilesByName(lvImgName_(i, want[i]));
+      if (it.hasNext()) have[String(i)] = it.next().getId();
+    } catch (eH) {}
+  }
+
+  var todo = [], cap = Math.max(1, Number(CFG.LV_BUILD_MAX) || 24);
+  for (var j = 0; j < want.length; j++) {
+    if (have[String(j)]) continue;
+    todo.push({ i: j, v: want[j], n: want.length });
+    if (todo.length >= cap) break;
+  }
+
+  if (todo.length) {
+    d.tries = out.tries + 1;
+    out.tries = d.tries;
+    lvWrite_(epFolder, d);                       // مرزِ ۱: پیش از کار
+    var r = lvCards_(ctx, todo, imgFolder);
+    out.made = r.made.length;
+    if (r.why) out.why = r.why;
+    for (var m = 0; m < r.made.length; m++) have[String(r.made[m].i)] = r.made[m].fileId;
+  }
+
+  for (var k = 0; k < want.length; k++) {
+    var fid = have[String(k)];
+    if (!fid) continue;
+    out.items.push({
+      n: k + 1,
+      at: Number(want[k].at) || 0,
+      /* `kind` آنچه خواسته شد، `via` آنچه ساخته شد. تا لایهٔ عکسِ آزاد
+         نیاید این دو برای «عکس» و «ویدئو» فرق دارند، و همان فرق است که
+         بعداً می‌گوید چند مورد جایگزین شده. */
+      kind: String(want[k].kind || 'کارت'),
+      via: 'کارت',
+      sec: Number(want[k].sec) || 0,
+      heading: String(want[k].heading || ''),
+      cardTitle: String(want[k].cardTitle || ''),
+      caption: String(want[k].caption || ''),
+      terms: String(want[k].terms || ''),
+      name: lvImgName_(k, want[k]),
+      fileId: fid
+    });
+  }
+  out.ready = out.items.length;
+  out.done = out.ready >= want.length;
+
+  d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
+  d.folderId = imgFolder.getId();
+  d.note = 'این تصویرها را ویدئوی یوتیوب و جزوه هر دو می‌خوانند. ' +
+           'فایلِ پاک‌شده شبِ بعد دوباره ساخته می‌شود.';
+  lvWrite_(epFolder, d);
+  return out;
+}
+
 /** نقشه را می‌سازد یا از روی دیسک برمی‌دارد. `redo` مدل را دوباره می‌پرسد. */
 /* ═══════════════ تصویرهای درس (طرح: docs/lesson_visuals_plan.md) ═══════════════
  *
@@ -41102,11 +41467,46 @@ function ytUploadOne_(item, hub, pub) {
                            epLabel: coverEpLabel, cat: String(meta.cat || seriesName || '') });
   } catch (eC) {}
 
+  /* ── تصویرهای بخش‌ها ──
+   * پیش از درخواستِ رندر، چون ردیفِ صف **یک بار** نوشته می‌شود
+   * (`ytRenderAsk_` تکراری را رد می‌کند) و اجازهٔ فایل‌ها همان‌جا داده
+   * می‌شود. تصویری که بعد از نوشتنِ ردیف ساخته شود، هیچ‌وقت به اکشن
+   * نمی‌رسد. */
+  var vis = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: true, why: '' };
+  if (ytVisOn_(item.show)) {
+    try { vis = lvBuild_(folder, plan, ctx); }
+    catch (eV) {
+      /* شکستنِ تصویرها **هرگز** قسمت را زمین نمی‌زند: `done` درست می‌شود و
+         مسیرِ کاورِ تک‌تصویریِ امروز می‌رود. قولِ «چیزی خراب نمی‌شود» همین
+         خط است، نه یک جمله در سند. */
+      vis = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: true,
+              why: 'ساختِ تصویرها نشد: ' + eV.message };
+      logLine_(vis.why);
+    }
+  }
+
   // ── ویدئو رسیده؟ ──
   var video = ytVideoIn_(folder);
   if (!video) {
+    /* مجموعهٔ ناقصِ تصویر درخواست نمی‌شود — ولی بی‌نهایت هم صبر نمی‌کند.
+       قسمت همین‌الان منتظرِ ویدئو است، پس یک اجرای دیگر صبر کردن هزینه‌ای
+       ندارد؛ و بعد از `LV_TRY_MAX` با هر چه هست می‌رود، چون انتشاری که
+       هرگز نرسد از انتشارِ ساده‌تر بدتر است (۵٫۸۸، این بار از پیش). */
+    var tryMax = Math.max(1, Number(CFG.LV_TRY_MAX) || 3);
+    if (!vis.done && vis.tries < tryMax) {
+      res.waiting = true;
+      res.why = 'تصویرهای این قسمت کامل نشده (' + faDigitsOut_(String(vis.ready)) +
+                ' از ' + faDigitsOut_(String(vis.want)) + '، تلاشِ ' +
+                faDigitsOut_(String(vis.tries)) + ')' + (vis.why ? ' — ' + vis.why : '');
+      return res;
+    }
+    if (!vis.done && vis.want) {
+      logLine_('قسمتِ ' + item.ep + ': تصویرها بعد از ' + tryMax + ' تلاش کامل نشد؛ با ' +
+               vis.ready + ' از ' + vis.want + ' تصویر رندر می‌شود.');
+    }
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
+                   visuals: vis.items,
                    // **فهرستِ مرتب**، نه یک فایل: قسمتِ دوفایلی باید یک ویدئوی
                    // واحد شود، وگرنه نیمی از درس منتشر می‌شود.
                    audio: aud.parts.map(function (f) {
@@ -41115,7 +41515,8 @@ function ytUploadOne_(item, hub, pub) {
                    coverFileId: cover ? cover.fileId : '',
                    outName: outName });
     res.waiting = true;
-    res.why = 'ویدئو هنوز ساخته نشده؛ درخواستِ رندر گذاشته شد';
+    res.why = 'ویدئو هنوز ساخته نشده؛ درخواستِ رندر گذاشته شد' +
+              (vis.ready ? ' (با ' + faDigitsOut_(String(vis.ready)) + ' تصویر)' : '');
     return res;
   }
   ytRenderDone_(item.show, item.ep);
