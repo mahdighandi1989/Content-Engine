@@ -2567,4 +2567,238 @@ console.log('=== ۵۲) از همان دری که تولید وارد می‌شو
   if (svcWas === undefined) delete global.YouTube; else global.YouTube = svcWas;
 }
 
+console.log('=== ۵۳) دیده‌شدن: «منتظر» با «منتظر» یکی نباشد (۷.۹۵) ===');
+{
+  /* ══ سکوتی که این بند برای شکستنش هست ══
+   * `ytUploadOne_` هم برای «منتظرِ ویدئو» و هم برای «تصویرها کامل نشده»
+   * `waiting` برمی‌گرداند. دو حالتِ کاملاً متفاوت با یک نشانه — و این
+   * عیناً همان چیزی است که بانکِ موسیقی را هفت هفته خالی نگه داشت. */
+  const svcWas = global.YouTube;
+  global.YouTube = {};
+  global.__PROPS[PK.LV_WAIT] = ''; global.__PROPS[PK.LV_SHORT] = '';
+  const capWas = CFG.LV_BUILD_MAX, tryWas = CFG.LV_TRY_MAX;
+  const mkEp = (id, name) => {
+    const f = DriveApp.__register(id, name);
+    f.createFile(Utilities.newBlob(JSON.stringify({
+      lesson: 3, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'ت', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: 'الف'.repeat(400) },
+                       { heading: 'دو', narration: 'ب'.repeat(300) },
+                       { heading: 'سه', narration: 'پ'.repeat(200) }] }
+    }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    return f;
+  };
+
+  ytRenderSave_({ items: [] });
+  CFG.LV_BUILD_MAX = 1; CFG.LV_TRY_MAX = 2;
+  mkEp('EPS1', 'قسمت 0101');
+  ytUploadOne_({ key: 'special:101', show: 'special', ep: '101',
+                 folderId: 'EPS1', series: 'معرفت‌شناسی' }, null, []);
+  const st1 = lvStatus_();
+
+  /* ۵۳.۱ — حالا «منتظرِ تصویر» اسم دارد، و خودش می‌گوید چند از چند. */
+  ok('۵۳.۱ قسمتی که منتظرِ تصویر است، در وضعیت اسم دارد',
+     st1.waiting === 1 && st1.short === 0 &&
+     st1.waitKeys[0].indexOf('special:101') === 0 &&
+     st1.waitKeys[0].indexOf('(1/3)') !== -1,
+     st1.waitKeys.join(' | '));
+
+  /* ۵۳.۲ — و خطِ روزانه **همیشه** هست، حتی وقتی هیچ ایرادی نیست: صاحبِ
+     برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از مرگ تشخیص داد. */
+  ok('۵۳.۲ خطِ روزانه جملهٔ آمادهٔ فارسی است و شمارها را می‌گوید',
+     st1.line.length > 20 && st1.line.indexOf('۱ قسمت منتظر') !== -1 &&
+     st1.line.indexOf(CFG.SPECIAL_SHOW_NAME) !== -1, st1.line);
+
+  /* ۵۳.۳ — **یک شبِ منتظر خرابی نیست.** هشداری که برای حالتِ سالم بزند،
+     هشداری است که یاد می‌گیرند نخوانند (۷.۴۰). */
+  ok('۵۳.۳ یک روز انتظار، `ok` را پایین نمی‌آورد', st1.ok === true);
+
+  const p1 = [], n1 = [];
+  lvHealth_(p1, n1);
+  ok('۵۳.۳-ب و در روزِ سالم هم خط در یادداشت‌ها می‌آید، نه در مسئله‌ها',
+     n1.length === 1 && p1.length === 0, 'یادداشت ' + n1.length + ' / مسئله ' + p1.length);
+
+  /* ۵۳.۴ — انتظارِ کهنه یافتهٔ کد می‌سازد و به صفِ «نیازمند تعویض کد» می‌رود.
+     یک جمله در ایمیلِ فردا جایش را می‌گیرد؛ یک یافته نه. */
+  /* تاریخِ کهنه از **ساعتِ خودِ هارنس** ساخته می‌شود، نه یک رشتهٔ دلخواه:
+     `'1400/01/01'` هم «کهنه» است ولی ۲۲۸٬۸۷۱ روز، و عددِ بی‌معنا در شاهد
+     یعنی خواننده نمی‌داند سنجه چه چیزی را دیده (۷.۸۸). */
+  const oldAt = Utilities.formatDate(new Date(Date.now() - 10 * 86400000),
+                                     CFG.TIMEZONE, 'yyyy/MM/dd HH:mm');
+  const w = JSON.parse(global.__PROPS[PK.LV_WAIT]);
+  w['special:101'].at = oldAt;
+  global.__PROPS[PK.LV_WAIT] = JSON.stringify(w);
+  const st2 = lvStatus_();
+  const p2 = [], n2 = [];
+  const hub = getHub_();
+  lvHealth_(p2, n2);
+  /* ردیف از **خودِ تبِ گزارش** خوانده می‌شود. نگارشِ اولم `RC.KEY` را گرفت —
+     ستونی که وجود ندارد — پس `r.vals[NaN]` بود و فیلتر همیشه خالی
+     می‌مانَد: سنجه‌ای که به حافظهٔ نویسنده‌اش جواب می‌دهد، نه به کد. */
+  const rep = hub.getSheetByName(CFG.REPORT_TAB);
+  const all = rep && rep.getLastRow() > 1
+    ? rep.getRange(2, 1, rep.getLastRow() - 1, REPORT_HEADERS.length).getValues() : [];
+  const rows = all.filter(v => String(v[RC.CAT - 1]) === 'تصویرِ درس');
+  ok('۵۳.۴ انتظارِ کهنه یافتهٔ کد می‌سازد، نه فقط یک جمله',
+     st2.ok === false && st2.oldestDays === 10 &&
+     p2.length === 1 && rows.length === 1 &&
+     String(rows[0][RC.OWNER - 1]).indexOf('کد') !== -1 &&
+     String(rows[0][RC.STATUS - 1]) === RST.NEEDS_CODE,
+     st2.oldestDays + ' روز · ' + rows.length + ' ردیف · ' +
+     (rows[0] ? rows[0][RC.STATUS - 1] : '—'));
+
+  ok('۵۳.۴-ب و دستورش می‌گوید کجا را نگاه کند، نه اینکه دوباره لاگ کن',
+     String(rows[0][RC.INSTR - 1]).indexOf('_visuals.json') !== -1 &&
+     String(rows[0][RC.INSTR - 1]).indexOf('why') !== -1,
+     String(rows[0][RC.INSTR - 1]).slice(0, 70));
+
+  /* ۵۳.۵ — و سنجندهٔ ۷.۵۷ به آن وصل است: ردیف با یک بیانیه بسته نمی‌شود
+     تا وقتی خودِ وضعیت بگوید شرط رفته. */
+  /* شاهد **محافظت‌شده**: نگارشِ اول `mp['lv-stuck'].still(...)` را بی‌قید
+     صدا می‌زد، پس با برداشتنِ سنجنده مجموعه با TypeError می‌مُرد **پیش از**
+     آنکه `ok` بتواند گزارش دهد — و در جاروی شکستن‌ها هیچ خطی چاپ نشد:
+     «شکستنی که افتاد» با «شکستنی که نیفتاد» یک شکل شد. همان تلهٔ ۷.۸۹. */
+  const mp = selfVerifyMap_();
+  const vf = mp['lv-stuck'] || null;
+  const call = (st) => { try { return vf ? vf.still(st) : 'بی‌سنجنده'; }
+                         catch (e) { return 'پرت: ' + e.message; } };
+  ok('۵۳.۵ یافته سنجندهٔ خودش را دارد و به همان وضعیت وصل است',
+     !!vf && vf.what === 'lessonVisuals' &&
+     call({ lessonVisuals: { ok: false } }) === true &&
+     call({ lessonVisuals: { ok: true } }) === false &&
+     call({}) === null,
+     vf ? 'شرطِ باقی=' + call({ lessonVisuals: { ok: false } }) : 'سنجنده‌ای نیست');
+
+  /* ۵۳.۶ — **«کم‌رفته» جدا از «منتظر»** (۵.۸۸): این عدد خودش هیچ‌وقت صفر
+     نمی‌شود، چون یوتیوب ویدئوی منتشرشده را عوض نمی‌کند. یکی‌کردنشان یعنی
+     عقب‌ماندگی‌ای که هرگز جبران نمی‌شود. */
+  ytUploadOne_({ key: 'special:101', show: 'special', ep: '101',
+                 folderId: 'EPS1', series: 'معرفت‌شناسی' }, null, []);
+  const st3 = lvStatus_();
+  ok('۵۳.۶ قسمتی که با تصویرِ کم رفت، از «منتظر» درمی‌آید و جدا شمرده می‌شود',
+     st3.waiting === 0 && st3.short === 1 &&
+     st3.shortKeys[0].indexOf('(2/3)') !== -1 && st3.ok === true,
+     st3.shortKeys.join(' | '));
+
+  ok('۵۳.۶-ب و خط می‌گوید که جبران نمی‌شود — وگرنه خواننده منتظرِ صفری می‌مانَد که نمی‌آید',
+     st3.line.indexOf('جبران نمی‌شود') !== -1 &&
+     st3.line.indexOf('۱ قسمت با تصویرِ کم') !== -1, st3.line);
+
+  const p3 = [], n3 = [];
+  lvHealth_(p3, n3);
+  const all3 = rep && rep.getLastRow() > 1
+    ? rep.getRange(2, 1, rep.getLastRow() - 1, REPORT_HEADERS.length).getValues() : [];
+  ok('۵۳.۶-پ «کم‌رفته» یافتهٔ کد نمی‌سازد — یافته‌ای که هیچ اصلاحی نبنددش، تا ابد در صف می‌مانَد',
+     p3.length === 1 && p3[0].indexOf('جبران‌ناپذیر') !== -1 &&
+     all3.filter(v => String(v[RC.CAT - 1]) === 'تصویرِ درس').length === 1,
+     p3[0].slice(0, 60) + ' · ردیف‌های تصویرِ درس: ' +
+     all3.filter(v => String(v[RC.CAT - 1]) === 'تصویرِ درس').length);
+
+  /* ۵۳.۷ — مسیرِ سالم: تصویرها کامل، هیچ ردیفی در هیچ‌کدام از دو حافظه. */
+  CFG.LV_BUILD_MAX = capWas;
+  global.__PROPS[PK.LV_WAIT] = ''; global.__PROPS[PK.LV_SHORT] = '';
+  ytRenderSave_({ items: [] });
+  mkEp('EPS2', 'قسمت 0102');
+  ytUploadOne_({ key: 'special:102', show: 'special', ep: '102',
+                 folderId: 'EPS2', series: 'معرفت‌شناسی' }, null, []);
+  const st4 = lvStatus_();
+  ok('۵۳.۷ مسیرِ سالم: هیچ ردیفی در هیچ‌کدام از دو حافظه نمی‌مانَد',
+     st4.waiting === 0 && st4.short === 0 && st4.ok === true &&
+     st4.line.indexOf('هیچ قسمتی منتظر نیست') !== -1, st4.line);
+
+  /* ۵۳.۸ — و **هیچ فراخوانِ درایو یا شیتی**: این تابع از `writeStatus_` صدا
+     زده می‌شود، یعنی داغ‌ترین مسیرِ موتور. ۷.۶۳ و ۷.۷۲ هر دو دربارهٔ همین
+     یک اشتباه بودند، و شمارش — نه زمان — چیزی است که در ماک معنا دارد. */
+  const fWas = global.__FETCHES.length;
+  let reads = 0;
+  const hubWas = global.getHub_;
+  global.getHub_ = () => { reads++; return hubWas(); };
+  lvStatus_();
+  global.getHub_ = hubWas;
+  ok('۵۳.۸ حالِ تصویرها هیچ فراخوانِ شبکه و هیچ خواندنِ هاب ندارد',
+     reads === 0 && global.__FETCHES.length === fWas,
+     'هاب ' + reads + ' بار، شبکه ' + (global.__FETCHES.length - fWas) + ' بار');
+
+  CFG.LV_TRY_MAX = tryWas;
+  if (svcWas === undefined) delete global.YouTube; else global.YouTube = svcWas;
+}
+
+console.log('=== ۵۴) لینکِ تصویرها به تلگرام و ایمیل می‌رسد (۷.۹۵) ===');
+{
+  /* خواستهٔ بندِ ۸: «ذخیره تصاویر … در فولدر خودِ همان درس و لینکش هم در
+     تلگرام فرستاده بشه». پس این سنجه **خودِ متنِ فرستاده‌شده** را می‌سنجد،
+     نه وجودِ تابع. */
+  const ep = global.__ROOT_FOLDER.createFolder('قسمت 0110 — لینک');
+  const sub = ep.createFolder(CFG.LV_FOLDER);
+  ep.createFile(Utilities.newBlob(JSON.stringify({ want: 3, ready: 3, done: true, items: [
+    { n: 1, at: 1, kind: 'کارت', via: 'کارت', caption: 'ز', fileId: 'L1' }] }),
+    'application/json', CFG.LV_FILE));
+
+  const v = lvEpLine_(ep);
+  ok('۵۴.۱ خطِ قسمت، شمار و لینکِ پوشهٔ تصویرها را دارد',
+     v.text.indexOf('۳ تصویر') !== -1 && v.url === sub.getUrl() && v.url.length > 10,
+     v.text + ' · ' + v.url.slice(0, 40));
+
+  const tg = tgVisualsLine_(ep);
+  ok('۵۴.۲ و در سرپیامِ تلگرام به‌شکلِ یک پیوندِ کلیک‌شونده می‌آید',
+     tg.indexOf('🖼') === 0 && tg.indexOf('<a href="' + sub.getUrl() + '">') !== -1 &&
+     tg.indexOf('پوشهٔ تصویرها') !== -1, tg.replace(/\n/g, ''));
+
+  const ml = visualsHtmlLine_(ep);
+  ok('۵۴.۳ و در ایمیل هم، چون کسی که تلگرام را نمی‌بیند ایمیل را می‌بیند',
+     ml.indexOf('۳ تصویر') !== -1 && ml.indexOf(sub.getUrl()) !== -1,
+     ml.slice(0, 80));
+
+  /* ۵۴.۴ — **و خودِ سرپیام واقعاً می‌فرستدش.** این همان شکافی است که ۷.۹۴
+     گرفتارش شد: تابع درست بود و هیچ‌جا صدا زده نمی‌شد.
+     نگارشِ اولِ همین سنجه متنِ کد را می‌خواند — و **روی کدِ درست قرمز شد**،
+     چون `tgVisualsLine_` در فایل *پیش از* `sendTelegramSpecial_` نشسته و
+     برشِ من خالی بود. سنجه‌ای که به چیدمانِ فایل بند باشد، چیدمان را
+     می‌سنجد نه رفتار. پس حالا پیام **واقعاً فرستاده می‌شود** و متنِ
+     رفته بازخوانی می‌شود. */
+  global.__PROPS[PK.TG_TOKEN] = 'TOK'; global.__PROPS[PK.TG_CHAT] = 'CHAT';
+  const stubTg = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('api.telegram.org') !== -1) return { code: 200, json: { ok: true } };
+    return stubTg(url, body);
+  };
+  const fBefore = global.__FETCHES.length;
+  sendTelegramSpecial_({ epNum: '110', lesson: 3, seriesName: 'معرفت‌شناسی',
+                         ep: { title: 'ت', summary: 'خ', sections: [] } },
+                       [], null, '15:00', ep, ['#فلسفه']);
+  const sentTexts = global.__FETCHES.slice(fBefore)
+    .filter(f => /api\.telegram\.org/.test(f.url))
+    .map(f => String((f.body || {}).text || ''));
+  global.__STUB = stubTg;
+  ok('۵۴.۴ سرپیامِ درس‌نامه واقعاً لینکِ پوشهٔ تصویرها را می‌فرستد',
+     sentTexts.length > 0 &&
+     sentTexts.some(t => t.indexOf('پوشهٔ تصویرها') !== -1 &&
+                         t.indexOf(sub.getUrl()) !== -1),
+     sentTexts.length + ' پیام · ' +
+     (sentTexts[0] || '').replace(/\n/g, ' ⏎ ').slice(0, 120));
+
+  /* ۵۴.۵ — و ایمیل، با **آرگومانِ پوشه**. نگارشِ اولم `meta.folder` را
+     خواند که وجود ندارد: `lvEpLine_(undefined)` داخلِ try/catch خالی
+     برمی‌گرداند، پس جعبه هیچ‌وقت نمی‌آمد و هیچ خطایی هم نبود — همان شکلِ
+     ۷.۴۱. پس هر دو فراخوانِ `specialHtml_` باید پوشه را بدهند. */
+  const src4 = fs.readFileSync('src/04_Mailer.gs', 'utf8');
+  const src14 = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const calls = (src4 + src14).match(/specialHtml_\([^)]*\)/g) || [];
+  ok('۵۴.۵ هر فراخوانِ specialHtml_ پوشه را می‌دهد — پارامترِ جامانده، جعبهٔ همیشه‌خالی است',
+     calls.length >= 2 && calls.every(c => /folder\)$/.test(c)),
+     calls.join(' | '));
+
+  /* ۵۴.۶ — و **خودِ سندِ ایمیل** جعبه را دارد. برداشتنِ فراخوانِ آن جعبه از
+     `specialHtml_` هیچ‌کدام از سنجه‌های بالا را قرمز نکرد: ۵۴.۳ تابع را
+     مستقیم صدا می‌زد (اتاق) و ۵۴.۵ فقط آرگومان‌ها را می‌خواند. پس این‌جا
+     سند **ساخته** می‌شود و متنش خوانده می‌شود — ۷.۶۲ برای چندمین بار. */
+  const doc = specialHtml_({ epNum: '110', lesson: 3, seriesName: 'معرفت‌شناسی',
+                             ep: { title: 'ت', sections: [] } },
+                           [], '15:00', ['#فلسفه'], ep);
+  ok('۵۴.۶ سندِ ایمیلِ درس‌نامه جعبهٔ تصویرها را در خودش دارد',
+     doc.indexOf('تصویرهای این درس') !== -1 && doc.indexOf(sub.getUrl()) !== -1,
+     doc.indexOf('تصویرهای این درس') > 0 ? 'هست' : 'نیست');
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

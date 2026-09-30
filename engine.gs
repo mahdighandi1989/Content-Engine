@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 7.94
+ *  موتور محتوا و پادکست — نسخهٔ 7.95
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -751,6 +751,15 @@ var CFG = {
   HFIG_PER_SEC: 1,
   HFIG_INLINE_PX: 900,          // اندازهٔ تصویرِ درون‌متنیِ جزوه
   HFIG_THUMB_PX: 420,           // اندازهٔ گالریِ پایانِ فصل
+  /* ── دیده‌شدن (۷٫۹۵) ──
+   * `LV_STUCK_DAYS`: قسمتی که این‌قدر روز منتظرِ کامل‌شدنِ تصویرش مانده،
+   *   خودش یک یافتهٔ کد است. درسِ بانکِ موسیقی که هفت هفته خالی ماند، این
+   *   بار **از پیش** اعمال شده، نه پس از زیان.
+   * `LV_SHORT_KEEP`: چند ردیفِ «با تصویرِ کم رفت» در حافظه بمانَد. این‌ها
+   *   برنگشتنی‌اند (یوتیوب ویدئوی منتشرشده را عوض نمی‌کند)، پس شمرده
+   *   می‌شوند — ولی نه برای همیشه، وگرنه Properties پر می‌شود. */
+  LV_STUCK_DAYS: 3,
+  LV_SHORT_KEEP: 40,
   YT_COVER_CHARS: 42,                   // سقفِ متنِ روی کاور — خوانایی در اندازهٔ بندانگشتی
   YT_PLAN_FILE: '_yt.json',             // نقشهٔ انتشارِ هر قسمت، در پوشهٔ خودش
   YT_CHANNEL: true,                     // نگه‌داشتنِ شناسنامهٔ کانال
@@ -1333,7 +1342,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '7.94',
+  CODE_VERSION: '7.95',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2192,6 +2201,9 @@ var PK = {
   // مهاجرتِ یک‌بارهٔ عنوانِ فصل‌ها (پیشوندِ «فصل ۳:» در کتاب‌های پیش از ۵٫۹۳)
   HANDOUT_RETITLE: 'HANDOUT_RETITLE',
   // ── یوتیوب (۵٫۹۷) ──
+  // ── تصویرهای درس (۷٫۹۵) ──
+  LV_WAIT: 'LV_WAIT_MAP',          // قسمت‌هایی که منتظرِ کامل‌شدنِ تصویرشان‌اند
+  LV_SHORT: 'LV_SHORT_MAP',        // قسمت‌هایی که با تصویرِ کم رفتند — برنگشتنی
   YT_DUE: 'YT_DUE_QUEUE',          // صفِ قسمت‌هایی که باید منتشر شوند
   YT_SCAN: 'YT_SCAN_CUR',          // مکان‌نمای کاوشِ قسمت‌های گذشته
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
@@ -9532,7 +9544,24 @@ function handoutHtmlLine_(seriesName) {
   } catch (e) { return ''; }
 }
 
-function specialHtml_(meta, audioLinks, dur, tags) {
+/* جعبهٔ تصویرهای همین قسمت در ایمیل — همان قاعدهٔ جعبهٔ جزوه: کسی که شیت و
+   درایو باز نمی‌کند باید از همین‌جا به پوشهٔ تصویرها برسد (بندِ ۸).
+   پوشه **آرگومان** است، نه یک کلیدِ قاچاقی در `meta`: نگارشِ اولم
+   `meta.folder` را خواند که وجود ندارد، و `lvEpLine_(undefined)` داخلِ
+   try/catchِ خودش خالی برمی‌گرداند — یعنی جعبه هیچ‌وقت نمی‌آمد و هیچ خطایی
+   هم نبود. همان شکلِ ۷.۴۱: پارامترِ جامانده، دکمه‌ای که بی‌صدا کار نمی‌کند. */
+function visualsHtmlLine_(folder) {
+  try {
+    var v = lvEpLine_(folder);
+    if (!v || !v.text) return '';
+    return '<div class="audio" style="background:#f7f4ff;border-color:#ddd2f5">' +
+           '<b>🖼 تصویرهای این درس</b> — ' + esc_(v.text) +
+           (v.url ? ' <a href="' + esc_(v.url) + '">پوشهٔ تصویرها</a>' : '') +
+           '</div>';
+  } catch (e) { return ''; }
+}
+
+function specialHtml_(meta, audioLinks, dur, tags, folder) {
   var ep = meta.ep || {};
   var h = [];
   h.push('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8">');
@@ -9563,6 +9592,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   h.push('</table>');
   if (ep.coverage) h.push('<p>' + esc_(ep.coverage) + '</p>');
   h.push(musicHtml_());
+  h.push(visualsHtmlLine_(folder || null));
   h.push(handoutHtmlLine_(meta.seriesName));
 
   // هدف و انتظارِ دوره
@@ -9648,7 +9678,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
 function sendSpecialEmail_(meta, audioLinks, docBlob, dur, folder, tags) {
   try {
     var ep = meta.ep || {};
-    var html = specialHtml_(meta, audioLinks, dur, tags);
+    var html = specialHtml_(meta, audioLinks, dur, tags, folder);
     var intro = [
       '<div class="wrap" style="margin-bottom:14px"><div class="bd">',
       '<p style="margin:0"><b>مدت:</b> ', esc_(dur), ' &nbsp;·&nbsp; ',
@@ -10942,6 +10972,17 @@ function tgHandoutLine_(seriesName) {
   } catch (e) { return ''; }
 }
 
+/* خطِ تصویرهای همین قسمت — خواستهٔ بندِ ۸: «ذخیره تصاویر … و لینکش هم در
+   تلگرام فرستاده بشه». بخشِ ۲۷ جلوتر است، پس در try/catch (قاعدهٔ ۲۱→۲۲). */
+function tgVisualsLine_(folder) {
+  try {
+    var v = lvEpLine_(folder);
+    if (!v || !v.text) return '';
+    return '🖼 ' + tgEsc_(v.text) +
+           (v.url ? ' <a href="' + tgEsc_(v.url) + '">پوشهٔ تصویرها</a>' : '') + '\n';
+  } catch (e) { return ''; }
+}
+
 function tgKindIcon_(kind) {
   if (kind === 'ویدیو') return '🎬';
   if (kind === 'صدا') return '🎧';
@@ -11259,6 +11300,7 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
                (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
                tgMusicLine_() + '\n' +
+               tgVisualsLine_(folder) +
                tgHandoutLine_(meta.seriesName) +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (ep.goal && ep.goal.message ? '🎯 ' + tgEsc_(ep.goal.message) + '\n\n' : '') +
@@ -11928,6 +11970,10 @@ function writeStatus_(hub, note) {
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
     handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
     youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
+    /* تصویرهای درس (۷.۹۵). هر دو حافظه‌اش در Properties است، پس این‌جا —
+       داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
+       (۷.۶۳/۷.۷۲، دو بار آموخته). */
+    lessonVisuals: (function () { try { return lvStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
@@ -13239,6 +13285,10 @@ function healthCheck() {
     }
   } catch (eSv) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
+  /* تصویرهای درس (۷.۹۵) — **هر روز**، حتی روزی که هیچ خبری نیست. صاحبِ
+     برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»
+     تشخیص داد. */
+  try { lvHealth_(problems, notes); } catch (eLv) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
     var dgT = ytDigestSend_();
@@ -16283,6 +16333,11 @@ function selfVerifyMap_() {
        ردیفِ همهٔ مجموعه‌ها باز شود — سنجنده‌ای که چیزِ دیگری را می‌سنجد از
        نبودنش بدتر است. پوشش‌نداشته بماند و در شمارِ «بی‌سنجنده» دیده شود. */
     'handout-viz-stuck':   { what: 'handoutViz', still: bad('handoutViz') },
+    /* تصویرهای درس (۷.۹۵). `lvStatus_().ok` فقط با بدهیِ **کهنه** نادرست
+       می‌شود، که همان شرطی است که ردیف را ساخت — پس چیزِ دیگری را
+       نمی‌سنجد. و «کم‌رفته» عمداً سنجنده ندارد، چون یافته‌ای هم نمی‌سازد:
+       کارِ گذشته است و هیچ اصلاحی نمی‌تواند ببنددش. */
+    'lv-stuck':            { what: 'lessonVisuals', still: bad('lessonVisuals') },
     'speak-skipped':       { what: 'speakSkip', still: bad('speakSkip') },
     /* صفی که خالی نمی‌شود، خودش یافته است — و همان شرط، سنجنده‌اش هم هست. */
     'code-queue-stuck': {
@@ -20788,7 +20843,7 @@ function renderSpecialAudioStep_() {
     }
 
     var tags = specialTags_(ep, meta.seriesName, meta.partSeq, meta.epNum);
-    var docBlob = Utilities.newBlob(specialHtml_(meta, audioLinks, dur, tags),
+    var docBlob = Utilities.newBlob(specialHtml_(meta, audioLinks, dur, tags, folder),
                                     'text/html', baseName + '.html');
     var docFile = null;
     if (st.docId) { try { docFile = DriveApp.getFileById(st.docId); } catch (eD) { docFile = null; } }
@@ -41502,6 +41557,222 @@ function lvBuild_(epFolder, plan, ctx) {
   return out;
 }
 
+/* ═══════════ دیده‌شدن: خطِ روزانه، لینکِ قسمت، و بدهی (۷٫۹۵) ═══════════
+ *
+ * ══ چرا این بخش، و چرا همین‌جا در ترتیبِ کار ══
+ * از ۷٫۹۳ تصویرها ساخته می‌شوند و از ۷٫۹۴ در جزوه می‌نشینند. ولی تا این
+ * نسخه، **شکستِ این زنجیره از بیرون با یک شبِ عادی یک شکل بود**:
+ * `ytUploadOne_` وقتی تصویرها کامل نشده‌اند `waiting` برمی‌گرداند — و
+ * «منتظرِ ویدئو» هم `waiting` است. دو حالتِ کاملاً متفاوت با یک نشانه.
+ *
+ * این عیناً همان چیزی است که بانکِ موسیقی را هفت هفته خالی نگه داشت: طرف
+ * مقابل گزارش می‌داد و هیچ‌کس دو عدد را کنارِ هم نگذاشت. این بار **از پیش**
+ * نوشته می‌شود، نه پس از زیان.
+ *
+ * ══ دو حافظه، و تفاوتشان همان تفاوتِ «عقب‌مانده» و «رهاشده» است (۵٫۸۸) ══
+ * `PK.LV_WAIT` — قسمتی که منتظر است. **درست‌شدنی**: شبِ بعد دوباره تلاش
+ *   می‌شود و صفر می‌شود.
+ * `PK.LV_SHORT` — قسمتی که با تصویرِ کم رفت. **برنگشتنی**: یوتیوب ویدئوی
+ *   منتشرشده را عوض نمی‌کند، پس این عدد هرگز خودش صفر نمی‌شود. یکی‌کردنِ
+ *   این دو یعنی «عقب‌مانده»ای که هیچ‌وقت جبران نمی‌شود — و هشداری که
+ *   هیچ‌وقت خاموش نشود، هشداری است که خوانده نمی‌شود.
+ *
+ * ══ و خطِ روزانه **هر روز** هست، حتی روزِ سالم ══
+ * صاحبِ برنامه شیت باز نمی‌کند (۵٫۹۰). سکوت را نمی‌شود از «این قابلیت مرده»
+ * تشخیص داد.
+ */
+
+function lvMap_(key) {
+  try { return JSON.parse(props_().getProperty(key) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function lvMapSave_(key, m) {
+  try { props_().setProperty(key, JSON.stringify(m || {})); return true; }
+  catch (e) { return false; }
+}
+
+/** قسمتی که منتظرِ کامل‌شدنِ تصویرش است. `at` اولین بار است، نه آخرین. */
+function lvWaitNote_(key, vis) {
+  var m = lvMap_(PK.LV_WAIT), k = String(key || '');
+  if (!k) return false;
+  var was = m[k] || {};
+  m[k] = { at: String(was.at || nowStr_()), seenAt: nowStr_(),
+           ready: Number((vis || {}).ready) || 0,
+           want: Number((vis || {}).want) || 0,
+           tries: Number((vis || {}).tries) || 0,
+           why: String((vis || {}).why || '') };
+  return lvMapSave_(PK.LV_WAIT, m);
+}
+
+function lvWaitClear_(key) {
+  var m = lvMap_(PK.LV_WAIT), k = String(key || '');
+  if (!m[k]) return false;
+  delete m[k];
+  return lvMapSave_(PK.LV_WAIT, m);
+}
+
+/**
+ * قسمتی که با تصویرِ کم به رندر رفت. **برنگشتنی، پس جدا شمرده می‌شود.**
+ * و حافظه‌اش سقف دارد: قدیمی‌ترین‌ها می‌افتند، وگرنه Properties پر می‌شود.
+ */
+function lvShortNote_(key, vis) {
+  var m = lvMap_(PK.LV_SHORT), k = String(key || '');
+  if (!k) return false;
+  if (!m[k]) m[k] = { at: nowStr_() };
+  m[k].ready = Number((vis || {}).ready) || 0;
+  m[k].want = Number((vis || {}).want) || 0;
+  m[k].why = String((vis || {}).why || '');
+  var keys = [];
+  for (var q in m) if (Object.prototype.hasOwnProperty.call(m, q)) keys.push(q);
+  var cap = Math.max(5, Number(CFG.LV_SHORT_KEEP) || 40);
+  if (keys.length > cap) {
+    keys.sort(function (a, b) {
+      return (parseWhen_(String((m[a] || {}).at || '')) || 0) -
+             (parseWhen_(String((m[b] || {}).at || '')) || 0);
+    });
+    for (var d = 0; d < keys.length - cap; d++) delete m[keys[d]];
+  }
+  return lvMapSave_(PK.LV_SHORT, m);
+}
+
+/**
+ * حالِ تصویرهای درس — **بی هیچ فراخوانِ درایو یا شیت.** هر دو حافظه در
+ * Properties اند، پس این تابع روی داغ‌ترین مسیرِ موتور (`writeStatus_`) هم
+ * ارزان است. ۷٫۶۳/۷٫۷۲ همین را دو بار به این مخزن آموختند.
+ */
+function lvStatus_() {
+  var out = { on: false, shows: [], waiting: 0, oldestDays: 0, waitKeys: [],
+              short: 0, shortKeys: [], line: '', ok: true };
+  try {
+    out.on = CFG.LV_ENABLED !== false;
+    out.shows = (CFG.LV_SHOWS || []).slice(0);
+    var now = new Date().getTime();
+    var w = lvMap_(PK.LV_WAIT);
+    for (var k in w) {
+      if (!Object.prototype.hasOwnProperty.call(w, k)) continue;
+      out.waiting++;
+      if (out.waitKeys.length < 6) {
+        out.waitKeys.push(k + ' (' + (Number(w[k].ready) || 0) + '/' +
+                          (Number(w[k].want) || 0) + ')');
+      }
+      var t = parseWhen_(String(w[k].at || ''));
+      if (!isNaN(t)) {
+        var d = Math.floor((now - t) / 86400000);
+        if (d > out.oldestDays) out.oldestDays = d;
+      }
+    }
+    var sh = lvMap_(PK.LV_SHORT);
+    for (var s in sh) {
+      if (!Object.prototype.hasOwnProperty.call(sh, s)) continue;
+      out.short++;
+      if (out.shortKeys.length < 6) {
+        out.shortKeys.push(s + ' (' + (Number(sh[s].ready) || 0) + '/' +
+                           (Number(sh[s].want) || 0) + ')');
+      }
+    }
+    /* `ok` فقط با بدهیِ **کهنه** نادرست می‌شود. یک شبِ منتظر، خرابی نیست —
+       و هشداری که برای حالتِ سالم بزند، هشداری است که یاد می‌گیرند نخوانند
+       (۷٫۴۰). ردیف‌های «کم‌رفته» `ok` را پایین نمی‌آورند: کارِ گذشته است و
+       دیگر درست نمی‌شود؛ شمرده می‌شود و در خط می‌آید. */
+    var need = Math.max(1, Number(CFG.LV_STUCK_DAYS) || 3);
+    out.ok = !(out.waiting && out.oldestDays >= need);
+    out.line = lvLine_(out);
+  } catch (e) { out.line = 'حالِ تصویرهای درس خوانده نشد: ' + e.message; out.ok = true; }
+  return out;
+}
+
+/** یک جملهٔ فارسیِ آماده، **هر روز** — حتی روزی که هیچ خبری نیست. */
+function lvLine_(st) {
+  if (!st) return '';
+  if (!st.on) return '🖼 تصویرِ درس: خاموش است (LV_ENABLED).';
+  var shows = (st.shows || []).map(function (x) {
+    return x === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : (x === 'variety' ? CFG.SHOW_NAME : x);
+  }).join('، ');
+  var p = ['🖼 تصویرِ درس: روشن' + (shows ? ' برای ' + shows : '')];
+  if (st.waiting) {
+    p.push(faDigitsOut_(String(st.waiting)) + ' قسمت منتظرِ کامل‌شدنِ تصویرش' +
+           (st.oldestDays ? ' (قدیمی‌ترین ' + faDigitsOut_(String(st.oldestDays)) + ' روز)' : ''));
+  } else {
+    p.push('هیچ قسمتی منتظر نیست');
+  }
+  /* «کم‌رفته» جدا گفته می‌شود و **علتش هم**: این عدد خودش صفر نمی‌شود، پس
+     اگر مثلِ «منتظر» گزارش شود، خواننده هر روز منتظرِ صفرشدنی می‌مانَد که
+     نمی‌آید. */
+  if (st.short) {
+    p.push(faDigitsOut_(String(st.short)) + ' قسمت با تصویرِ کم منتشر شد — ' +
+           'یوتیوب ویدئوی منتشرشده را عوض نمی‌کند، پس این عدد جبران نمی‌شود');
+  }
+  return p.join(' · ') + '.';
+}
+
+/**
+ * خطِ تصویرهای **همین قسمت**، برای تلگرام و ایمیل — با لینکِ پوشه.
+ * خواستهٔ بندِ ۸: «ذخیره تصاویر … و لینکش هم در تلگرام فرستاده بشه».
+ */
+function lvEpLine_(folder) {
+  var out = { text: '', url: '' };
+  try {
+    if (!ytVisOn_(ENRICH_SHOW_SPECIAL) && !ytVisOn_('variety')) return out;
+    var d = lvRead_(folder);
+    if (!d) return out;
+    var sub = null;
+    try {
+      var it = folder.getFoldersByName(CFG.LV_FOLDER || 'تصویرها');
+      if (it.hasNext()) sub = it.next();
+    } catch (eS) {}
+    out.url = sub ? sub.getUrl() : '';
+    var ready = Number(d.ready) || 0, want = Number(d.want) || 0;
+    if (!want) return out;
+    out.text = ready >= want
+      ? faDigitsOut_(String(ready)) + ' تصویر برای این درس ساخته شد و در ویدئوی یوتیوب می‌آید.'
+      : faDigitsOut_(String(ready)) + ' از ' + faDigitsOut_(String(want)) +
+        ' تصویرِ این درس ساخته شد.';
+  } catch (e) {}
+  return out;
+}
+
+/** خطِ روزانه + بدهی. `problems` و `notes` همان‌هایی‌اند که `healthCheck` می‌دهد. */
+function lvHealth_(problems, notes) {
+  var st = null;
+  try { st = lvStatus_(); } catch (e) { return; }
+  if (!st) return;
+  if (notes && st.line) notes.push(st.line);
+  if (!st.on) return;
+
+  var need = Math.max(1, Number(CFG.LV_STUCK_DAYS) || 3);
+  if (st.waiting && st.oldestDays >= need) {
+    var wTxt = (st.waitKeys || []).join(' | ');
+    problems.push('تصویرهای ' + faDigitsOut_(String(st.waiting)) + ' قسمت ' +
+                  faDigitsOut_(String(st.oldestDays)) + ' روز است کامل نشده و ویدئویشان ' +
+                  'ساخته نمی‌شود: ' + wTxt);
+    try {
+      logSelfFinding_(getHub_(), {
+        priority: 'جدی', category: 'تصویرِ درس', key: 'lv-stuck',
+        title: 'تصویرهای قسمت‌ها کامل نمی‌شود و ویدئو معطل مانده',
+        detail: wTxt + '. تا تصویرها کامل نشوند درخواستِ رندر نوشته نمی‌شود، ' +
+                'پس ویدئوی این قسمت‌ها ساخته نمی‌شود و انتشارشان معطل است. ' +
+                'علتِ هر کدام در `_visuals.json` پوشهٔ همان قسمت نوشته شده.',
+        instruction: 'در پوشهٔ قسمت `_visuals.json` را باز کن و `why` را بخوان. ' +
+                     'اگر «خروجیِ PNG نشد» است، اسکوپِ Slides یا سهمیهٔ صادرات را ' +
+                     'ببین (ytSlideExport_). اگر «ارائه ساخته نشد» است، ' +
+                     'ytPresCreate_ و روشن‌بودنِ Slides API را. اگر همیشه یک ' +
+                     'تصویرِ خاص می‌مانَد، lvCardDraw_ را با همان متن امتحان کن. ' +
+                     'و اگر سقفِ هر اجرا (LV_BUILD_MAX) نمی‌رسد، بالاترش ببر.',
+        owner: ROWNER_CODE
+      });
+    } catch (eF) {}
+  }
+
+  /* «کم‌رفته» یافتهٔ کد **نمی‌سازد**: کارِ گذشته است، برنگشتنی، و یافته‌ای
+     که هیچ اصلاحی نمی‌تواند ببنددش تا ابد در صف می‌مانَد — همان چیزی که
+     ۷٫۴۲ دربارهٔ صفِ بی‌پاسخ نوشت. در مسئله‌های روز می‌آید تا دیده شود. */
+  if (st.short) {
+    problems.push(faDigitsOut_(String(st.short)) + ' قسمت با تصویرِ کم‌تر از برنامه ' +
+                  'منتشر شد (جبران‌ناپذیر): ' + (st.shortKeys || []).join(' | '));
+  }
+}
+
 /** نقشه را می‌سازد یا از روی دیسک برمی‌دارد. `redo` مدل را دوباره می‌پرسد. */
 /* ═══════════════ تصویرهای درس (طرح: docs/lesson_visuals_plan.md) ═══════════════
  *
@@ -41752,16 +42023,29 @@ function ytUploadOne_(item, hub, pub) {
        هرگز نرسد از انتشارِ ساده‌تر بدتر است (۵٫۸۸، این بار از پیش). */
     var tryMax = Math.max(1, Number(CFG.LV_TRY_MAX) || 3);
     if (!vis.done && vis.tries < tryMax) {
+      /* و **ثبت می‌شود که منتظر است** (۷.۹۵). بی این، «منتظرِ تصویر» و
+         «منتظرِ ویدئو» هر دو `waiting` اند و از بیرون یک شکل — همان سکوتی
+         که بانکِ موسیقی را هفت هفته خالی نگه داشت. */
+      try { lvWaitNote_(item.key || (String(item.show) + ':' + String(item.ep)), vis); }
+      catch (eW1) {}
       res.waiting = true;
       res.why = 'تصویرهای این قسمت کامل نشده (' + faDigitsOut_(String(vis.ready)) +
                 ' از ' + faDigitsOut_(String(vis.want)) + '، تلاشِ ' +
                 faDigitsOut_(String(vis.tries)) + ')' + (vis.why ? ' — ' + vis.why : '');
       return res;
     }
+    var lvKey = item.key || (String(item.show) + ':' + String(item.ep));
     if (!vis.done && vis.want) {
       logLine_('قسمتِ ' + item.ep + ': تصویرها بعد از ' + tryMax + ' تلاش کامل نشد؛ با ' +
                vis.ready + ' از ' + vis.want + ' تصویر رندر می‌شود.');
+      /* **برنگشتنی، پس جدا شمرده می‌شود** (۵.۸۸): یوتیوب ویدئوی منتشرشده را
+         عوض نمی‌کند، پس این عدد خودش هیچ‌وقت صفر نمی‌شود. یکی‌کردنش با
+         «منتظر» یعنی عقب‌ماندگی‌ای که هرگز جبران نمی‌شود. */
+      try { lvShortNote_(lvKey, vis); } catch (eS1) {}
     }
+    /* و از فهرستِ منتظران بیرون می‌آید — چه کامل شده باشد چه با کم رفته
+       باشد. حافظه‌ای که خودش خالی نشود، هشدارش همیشگی می‌شود. */
+    try { lvWaitClear_(lvKey); } catch (eW2) {}
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
                    visuals: vis.items,

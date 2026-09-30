@@ -103,6 +103,17 @@ function tgHandoutLine_(seriesName) {
   } catch (e) { return ''; }
 }
 
+/* خطِ تصویرهای همین قسمت — خواستهٔ بندِ ۸: «ذخیره تصاویر … و لینکش هم در
+   تلگرام فرستاده بشه». بخشِ ۲۷ جلوتر است، پس در try/catch (قاعدهٔ ۲۱→۲۲). */
+function tgVisualsLine_(folder) {
+  try {
+    var v = lvEpLine_(folder);
+    if (!v || !v.text) return '';
+    return '🖼 ' + tgEsc_(v.text) +
+           (v.url ? ' <a href="' + tgEsc_(v.url) + '">پوشهٔ تصویرها</a>' : '') + '\n';
+  } catch (e) { return ''; }
+}
+
 function tgKindIcon_(kind) {
   if (kind === 'ویدیو') return '🎬';
   if (kind === 'صدا') return '🎧';
@@ -420,6 +431,7 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
                (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
                tgMusicLine_() + '\n' +
+               tgVisualsLine_(folder) +
                tgHandoutLine_(meta.seriesName) +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (ep.goal && ep.goal.message ? '🎯 ' + tgEsc_(ep.goal.message) + '\n\n' : '') +

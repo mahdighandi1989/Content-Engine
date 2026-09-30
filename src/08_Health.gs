@@ -585,6 +585,10 @@ function writeStatus_(hub, note) {
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
     handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
     youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
+    /* تصویرهای درس (۷.۹۵). هر دو حافظه‌اش در Properties است، پس این‌جا —
+       داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
+       (۷.۶۳/۷.۷۲، دو بار آموخته). */
+    lessonVisuals: (function () { try { return lvStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
@@ -1896,6 +1900,10 @@ function healthCheck() {
     }
   } catch (eSv) {}
   try { ytHealth_(problems, notes); } catch (eYt) {}
+  /* تصویرهای درس (۷.۹۵) — **هر روز**، حتی روزی که هیچ خبری نیست. صاحبِ
+     برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»
+     تشخیص داد. */
+  try { lvHealth_(problems, notes); } catch (eLv) {}
   /* و همان خلاصه به تلگرام — یک بار در روز، و فقط اگر ویدئویی منتشر شده. */
   try {
     var dgT = ytDigestSend_();

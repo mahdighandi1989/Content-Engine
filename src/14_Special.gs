@@ -2458,7 +2458,7 @@ function renderSpecialAudioStep_() {
     }
 
     var tags = specialTags_(ep, meta.seriesName, meta.partSeq, meta.epNum);
-    var docBlob = Utilities.newBlob(specialHtml_(meta, audioLinks, dur, tags),
+    var docBlob = Utilities.newBlob(specialHtml_(meta, audioLinks, dur, tags, folder),
                                     'text/html', baseName + '.html');
     var docFile = null;
     if (st.docId) { try { docFile = DriveApp.getFileById(st.docId); } catch (eD) { docFile = null; } }

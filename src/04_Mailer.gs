@@ -257,7 +257,24 @@ function handoutHtmlLine_(seriesName) {
   } catch (e) { return ''; }
 }
 
-function specialHtml_(meta, audioLinks, dur, tags) {
+/* جعبهٔ تصویرهای همین قسمت در ایمیل — همان قاعدهٔ جعبهٔ جزوه: کسی که شیت و
+   درایو باز نمی‌کند باید از همین‌جا به پوشهٔ تصویرها برسد (بندِ ۸).
+   پوشه **آرگومان** است، نه یک کلیدِ قاچاقی در `meta`: نگارشِ اولم
+   `meta.folder` را خواند که وجود ندارد، و `lvEpLine_(undefined)` داخلِ
+   try/catchِ خودش خالی برمی‌گرداند — یعنی جعبه هیچ‌وقت نمی‌آمد و هیچ خطایی
+   هم نبود. همان شکلِ ۷.۴۱: پارامترِ جامانده، دکمه‌ای که بی‌صدا کار نمی‌کند. */
+function visualsHtmlLine_(folder) {
+  try {
+    var v = lvEpLine_(folder);
+    if (!v || !v.text) return '';
+    return '<div class="audio" style="background:#f7f4ff;border-color:#ddd2f5">' +
+           '<b>🖼 تصویرهای این درس</b> — ' + esc_(v.text) +
+           (v.url ? ' <a href="' + esc_(v.url) + '">پوشهٔ تصویرها</a>' : '') +
+           '</div>';
+  } catch (e) { return ''; }
+}
+
+function specialHtml_(meta, audioLinks, dur, tags, folder) {
   var ep = meta.ep || {};
   var h = [];
   h.push('<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8">');
@@ -288,6 +305,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
   h.push('</table>');
   if (ep.coverage) h.push('<p>' + esc_(ep.coverage) + '</p>');
   h.push(musicHtml_());
+  h.push(visualsHtmlLine_(folder || null));
   h.push(handoutHtmlLine_(meta.seriesName));
 
   // هدف و انتظارِ دوره
@@ -373,7 +391,7 @@ function specialHtml_(meta, audioLinks, dur, tags) {
 function sendSpecialEmail_(meta, audioLinks, docBlob, dur, folder, tags) {
   try {
     var ep = meta.ep || {};
-    var html = specialHtml_(meta, audioLinks, dur, tags);
+    var html = specialHtml_(meta, audioLinks, dur, tags, folder);
     var intro = [
       '<div class="wrap" style="margin-bottom:14px"><div class="bd">',
       '<p style="margin:0"><b>مدت:</b> ', esc_(dur), ' &nbsp;·&nbsp; ',
