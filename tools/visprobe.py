@@ -67,8 +67,12 @@ VID_MAX_MB = 120           # و کلیپِ بزرگ‌تر از این هم
 
 # مجوزهایی که می‌شود رویشان حساب کرد. NC و ND عمداً نیستند: کانال قرار است
 # درآمد داشته باشد، و ویدئو خودش اثرِ اشتقاقی است.
-LIC_OK = [r'\bcc0\b', r'\bpublic\s*domain\b', r'\bpd\b', r'\bpd-',
-          r'\bcc[\s\-]?by\b', r'\bcc[\s\-]?by[\s\-]?sa\b',
+# اوپن‌ورس کدِ خالی می‌دهد (`by-sa 2.0`, `pdm 1.0`) و کامنز نامِ کامل
+# (`CC BY-SA 3.0`). هر دو شکل باید شناخته شود، وگرنه یک منبعِ کامل بی‌دلیل
+# کنار می‌رود — که در اجرای ۳۰ سپتامبر ۰۶:۵۰ دقیقاً همین شد.
+LIC_OK = [r'\bcc0\b', r'\bpublic\s*domain\b', r'\bpdm\b', r'\bpd\b', r'\bpd-',
+          r'\bzero\b',
+          r'(?:\bcc[\s\-]?)?\bby\b', r'(?:\bcc[\s\-]?)?\bby[\s\-]?sa\b',
           r'creativecommons\.org/licenses/by(-sa)?/',
           r'creativecommons\.org/publicdomain/']
 LIC_NO = [r'all\s*rights\s*reserved', r'\bnc\b', r'non-?commercial', r'\bnd\b',
@@ -128,6 +132,9 @@ def sizeOk_(b, kind):
     return True, ''
 
 
+MIN_W = 800                # زیرِ این عرض، برای یک اسلایدِ ۱۰۸۰p قابلِ استفاده نیست
+
+
 def judge(c, kind):
     """سه سد، همه پیش از دانلود. مجوز اول — فایلِ بی‌مجوز هر چقدر مناسب
        باشد استفاده‌شدنی نیست."""
@@ -136,7 +143,16 @@ def judge(c, kind):
     ok, why = licOk_(c.get('license'))
     if not ok:
         return False, why
-    return sizeOk_(c.get('bytes'), kind)
+    ok, why = sizeOk_(c.get('bytes'), kind)
+    if not ok:
+        return False, why
+    # ابعادِ نامعلوم ردّ نیست (۷٫۴۰)؛ ابعادِ **کوچکِ معلوم** هست. اجرای ۰۶:۵۰
+    # یک ویدئوی ۳۲۰×۲۴۰ را تنها نامزدِ مجوزدارِ ویدئو داد — که برای ۱۰۸۰p
+    # چیزی نیست.
+    w = int(c.get('w') or 0)
+    if w and w < MIN_W:
+        return False, '%d پیکسل عرض — برای اسلایدِ ۱۰۸۰p کوچک است' % w
+    return True, ''
 
 
 def apiNote_(d):
@@ -209,7 +225,12 @@ def src_commons(q, kind='bitmap'):
             'w': ii.get('thumbwidth') or ii.get('width') or 0,
             'h': ii.get('thumbheight') or ii.get('height') or 0,
             'bytes': ii.get('size', 0),
-            'url': ii.get('thumburl') or ii.get('url') or '',
+            # ویدئو: نشانیِ **خودِ فایل**. `thumburl` برای ویدئو یک فریمِ
+            # JPEG است، و اجرای ۰۶:۵۰ دقیقاً همان را «✅ JPEG» گزارش کرد
+            # برای یک `.webm` — یعنی ادعای «ویدئو کار می‌کند» روی یک عکسِ
+            # ساکن سنجیده شده بود.
+            'url': (ii.get('url') if kind == 'video'
+                    else (ii.get('thumburl') or ii.get('url'))) or '',
             'name': pg.get('title', '')})
     return out
 
@@ -296,7 +317,7 @@ def report(tag, r, kind, test_bytes=True):
               % (tag, r.get('n', 0), (' — ' + r['note']) if r.get('note') else ''))
         return False
 
-    passed, first = [], None
+    passed, first, rejected = [], None, []
     for c in cands:
         ok, why = judge(c, kind)
         if ok:
@@ -304,16 +325,22 @@ def report(tag, r, kind, test_bytes=True):
             if first is None:
                 first = c
         else:
-            # ردّ **با دلیل** چاپ می‌شود، وگرنه «۸ نامزد، ۰ قبول» بی‌معناست
-            print('     ✗ %-32s %s' % ((c.get('name') or '?')[:32], why))
+            # ردّ **با دلیل** جمع می‌شود، وگرنه «۸ نامزد، ۰ قبول» بی‌معناست.
+            # و **پس از** سرتیترِ منبعِ خودش چاپ می‌شود: در اجرای ۰۶:۵۰
+            # ردّهای اوپن‌ورس زیرِ ✅ی کامنز نشستند و گزارش خودش گمراه‌کننده شد.
+            rejected.append('     ✗ %-32s %s' % ((c.get('name') or '?')[:32], why))
 
     if not passed:
-        print('  %-26s ❌ %d نامزد آمد و هیچ‌کدام مجوزِ آزاد نداشت'
+        print('  %-26s ❌ %d نامزد آمد و هیچ‌کدام از سدها نگذشت'
               % (tag, len(cands)))
+        for ln in rejected:
+            print(ln)
         return False
 
-    print('  %-26s ✅ %d از %d نامزد مجوزِ آزاد دارد (n=%s)'
+    print('  %-26s ✅ %d از %d نامزد از سدها گذشت (n=%s)'
           % (tag, len(passed), len(cands), r.get('n', 0)))
+    for ln in rejected:
+        print(ln)
     print('     نامزد: %s' % ((first.get('name') or '—')[:62]))
     print('     مجوز=%s  قالب=%s  %sx%s  %s کیلوبایت'
           % ((first['license'] or '—')[:32], (first['mime'] or '—')[:14],

@@ -1437,5 +1437,82 @@ console.log('\n══ ۲۰) سنجشِ منابعِ تصویرِ آزاد، بی
      })(),
      'اجرای اول با چهار واژه همه‌جا n=0 داد؛ بی این دو، «منبع خالی است» و ' +
      '«پرسشم تنگ بود» یک چیز به نظر می‌رسیدند');
+
+  /* ══ و سه ایرادِ دیگر که اجرای دومِ واقعی (۰۶:۵۰) لو داد ══
+     اولی از همه مهم‌تر است و **آینهٔ** ایرادِ قبلی است: آن‌بار چیزی را
+     پذیرفتم که نباید، این‌بار یک منبعِ کامل را بی‌دلیل رد کردم.
+
+     اوپن‌ورس کدِ مجوز را **خالی** می‌دهد — `by-sa 2.0`، `by 2.0`،
+     `pdm 1.0` — و رگکسِ من پیشوندِ `cc` را لازم می‌دانست. نتیجه: هشت
+     نامزدِ کاملاً سالم «مجوزِ ناشناخته» خوانده شدند و کلِ اوپن‌ورس ❌ شد.
+     اگر همان‌جا نتیجه می‌گرفتم، لایهٔ دومِ مجانی بی‌دلیل کنار می‌رفت و
+     صاحبِ برنامه بی‌دلیل به سمتِ لایهٔ پولی هدایت می‌شد. */
+
+  ok('۲۰.۱۲ کدِ خالیِ اوپن‌ورس هم شناخته می‌شود، و محدودها همچنان ردّ',
+     (() => {
+       const r = vcall('print(json.dumps({k: V.licOk_(k)[0] for k in [' +
+         '"by-sa 2.0", "by 2.0", "pdm 1.0", "by-sa 4.0", "cc0 1.0",' +
+         '"by-nc 4.0", "by-nd 4.0", "by-nc-sa 3.0"]}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g['by-sa 2.0'] === true && g['by 2.0'] === true &&
+              g['pdm 1.0'] === true && g['by-sa 4.0'] === true &&
+              g['cc0 1.0'] === true &&
+              g['by-nc 4.0'] === false && g['by-nd 4.0'] === false &&
+              g['by-nc-sa 3.0'] === false;
+     })(),
+     'اجرای ۰۶:۵۰ هشت نامزدِ سالمِ اوپن‌ورس را «ناشناخته» خواند — یک منبعِ ' +
+     'کامل، به خاطرِ نبودِ پیشوندِ cc در رگکسِ من');
+
+  ok('۲۰.۱۳ نامزدِ ویدئو نشانیِ خودِ فایل است، نه بندانگشتی',
+     (() => {
+       const m = vp.match(/'url':\s*\(ii\.get\('url'\)\s*if\s*kind\s*==\s*'video'/);
+       return !!m && /thumburl/.test(vp);
+     })(),
+     '`iiurlwidth` یک ویدئو را به فریمِ JPEG تبدیل می‌کند؛ اجرای ۰۶:۵۰ برای ' +
+     'یک `.webm` گزارش داد «✅ JPEG» — یعنی ادعای «ویدئو کار می‌کند» روی یک ' +
+     'عکسِ ساکن سنجیده شده بود');
+
+  ok('۲۰.۱۴ ابعادِ کوچکِ معلوم ردّ است، ابعادِ نامعلوم نه',
+     (() => {
+       const r = vcall('print(json.dumps({' +
+         '"small": V.judge({"name": "x", "license": "by 3.0", "bytes": 9, ' +
+         '"w": 320}, "video")[0], ' +
+         '"big": V.judge({"name": "x", "license": "by-sa 4.0", "bytes": 9, ' +
+         '"w": 1920}, "image")[0], ' +
+         '"unknown": V.judge({"name": "x", "license": "pdm 1.0", "bytes": 9, ' +
+         '"w": 0}, "image")[0]}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g.small === false && g.big === true && g.unknown === true;
+     })(),
+     'تنها نامزدِ مجوزدارِ ویدئو در اجرای ۰۶:۵۰ سه‌صد‌و‌بیست در دویست‌و‌چهل ' +
+     'بود — برای ۱۰۸۰p چیزی نیست. و «نمی‌دانم چند پیکسل است» ردّ نیست (۷.۴۰)');
+
+  /* ۲۰.۱۵ — گزارشی که خودش گمراه‌کننده باشد، از گزارش‌نداشتن بدتر است. در
+     اجرای ۰۶:۵۰ هشت ردِّ اوپن‌ورس **زیرِ ✅ی کامنز** چاپ شد، چون ردّها پیش
+     از سرتیترِ منبعِ خودشان می‌آمدند. */
+  ok('۲۰.۱۵ ردّها زیرِ سرتیترِ منبعِ خودشان چاپ می‌شوند، نه منبعِ قبلی',
+     (() => {
+       const r = vcall([
+         'good = {"license": "cc0", "mime": "image/png", "w": 1920, "h": 9,',
+         '        "bytes": 99, "url": "", "name": "fine"}',
+         'bad  = {"license": "", "mime": "image/png", "w": 1920, "h": 9,',
+         '        "bytes": 99, "url": "", "name": "no-licence"}',
+         'V.report("SRC-A", {"ok": True, "n": 2, "note": "",',
+         '                   "cands": [good, bad]}, "image", test_bytes=False)'
+       ].join('\n'));
+       const lines = String(r.stdout).split('\n').filter(x => x.trim());
+       const hdr = lines.findIndex(x => x.indexOf('SRC-A') !== -1);
+       const rej = lines.findIndex(x => x.indexOf('no-licence') !== -1);
+       return hdr >= 0 && rej > hdr;
+     })(),
+     'گرفت: ' + JSON.stringify(String(vcall([
+         'good = {"license": "cc0", "mime": "image/png", "w": 1920, "h": 9,',
+         '        "bytes": 99, "url": "", "name": "fine"}',
+         'bad  = {"license": "", "mime": "image/png", "w": 1920, "h": 9,',
+         '        "bytes": 99, "url": "", "name": "no-licence"}',
+         'V.report("SRC-A", {"ok": True, "n": 2, "note": "",',
+         '                   "cands": [good, bad]}, "image", test_bytes=False)'
+       ].join('\n')).stdout).split('\n').filter(x => x.trim()).slice(0, 3)) +
+     ' — ردّی که بالای سرتیتر بنشیند، به منبعِ قبلی نسبت داده می‌شود');
 }
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
