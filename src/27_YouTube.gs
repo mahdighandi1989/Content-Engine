@@ -2692,6 +2692,252 @@ function lvHealth_(problems, notes) {
   }
 }
 
+/* ═══════════ نظارت: تاریخچه، ارتقا، و درِ آدم (۷٫۹۷) ═══════════
+ *
+ * مقدمهٔ درخواستِ صاحبِ برنامه: «تحتِ نظرِ ناظر … در گزارش‌ها ثبت بشه و
+ * صحتِ انجامِ کارش بررسی بشه و ایرادی بود گزارش بده و **ارتقایی داد گزارش
+ * بده** و نیاز به اصلاح بود حتما اتوماسیون اصلاح انجام بده و پیگیر اصلاحش
+ * هم باشه.»
+ *
+ * سه چیزِ این بخش، سه نیمهٔ همان جمله‌اند:
+ *
+ * **۱) تاریخچه — «از کِی».** `_STATUS.json` جوابِ «حالا چند تصویر» را
+ * می‌دهد. ولی وقتی چیزی می‌شکند، پرسشی که واقعاً می‌پرسی «از کِی» است، و
+ * آن را فقط تاریخچه جواب می‌دهد — همان استدلالِ تبِ «کاربردِ جزوه» (۵٫۸۸).
+ * **هر تلاش یک ردیف، موفق و ناموفق هر دو**: قسمتی که هر شب تلاش می‌کند و
+ * هر شب شکست می‌خورد، از بیرون با قسمتی که اصلاً تلاش نکرده یک شکل است.
+ *
+ * **۲) ارتقا — و این نیمه‌ای بود که جا افتاده بود.** «ایرادی بود گزارش بده»
+ * را یافته‌ها پوشش می‌دهند. «ارتقایی داد گزارش بده» چیزِ دیگری است: نه
+ * خرابی، بلکه **فرصتِ بهترشدن**. اگر فقط ایرادها گزارش شوند، سیستمی که
+ * هیچ ایرادی ندارد و در همان حالِ متوسط ساکن مانده، هر روز «سالم» گزارش
+ * می‌شود. `lvUpgrade_` هر روز **یک** فرصت را نام می‌برد — یکی، نه فهرستی،
+ * چون فهرستی که هر روز ده بند داشته باشد خوانده نمی‌شود — و صریح می‌گوید
+ * که ایراد نیست. **هیچ فراخوانِ مدلی ندارد**؛ همه‌اش از عددهایی است که
+ * موتور از قبل دارد.
+ *
+ * **۳) درِ آدم.** «اصلاح اتوماسیون انجام بده و پیگیرش باش» یک نیمه دارد که
+ * خودکار است (بازسازیِ خودکار وقتی سبک عوض شود، تلاشِ دوباره تا
+ * `LV_TRY_MAX`) و یک نیمه که نه: وقتی کارتی بد درآمد و آدم می‌خواهد
+ * همین‌الان از نو ساخته شود. `runLessonVisualsRebuild` همان در است —
+ * و سدی که با دستِ آدم باز نشود، سد نیست (۵٫۹۵).
+ */
+
+var LV_HEADERS = ['تاریخ', 'نمایش', 'قسمت', 'مجموعه', 'سبک', 'خواسته', 'ساخته‌شده',
+                  'این اجرا', 'تلاش', 'نتیجه', 'علت', 'پوشهٔ تصویرها'];
+
+function lvLog_(hub, row) {
+  try {
+    var sh = ensureTab_(hub || getHub_(), CFG.LV_TAB || 'کاربردِ تصویرها', LV_HEADERS);
+    appendBlock_(sh, [[nowStr_(), String(row.show || ''), String(row.ep || ''),
+                       String(row.series || ''), String(row.style || ''),
+                       String(row.want || 0), String(row.ready || 0),
+                       String(row.made || 0), String(row.tries || 0),
+                       String(row.result || ''), String(row.why || ''),
+                       String(row.url || '')]], LV_HEADERS.length);
+    return true;
+  } catch (e) { logLine_('ثبتِ کاربردِ تصویرها نوشته نشد: ' + e.message); return false; }
+}
+
+/** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
+function lvHistory_(hub, n) {
+  var out = [];
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.LV_TAB || 'کاربردِ تصویرها');
+    if (!sh || sh.getLastRow() < 2) return out;
+    var take = Math.max(1, Number(n) || 30);
+    var from = Math.max(2, sh.getLastRow() - take + 1);
+    var vals = sh.getRange(from, 1, sh.getLastRow() - from + 1, LV_HEADERS.length).getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      out.push({ at: String(vals[i][0]), show: String(vals[i][1]), ep: String(vals[i][2]),
+                 series: String(vals[i][3]), style: String(vals[i][4]),
+                 want: Number(vals[i][5]) || 0, ready: Number(vals[i][6]) || 0,
+                 made: Number(vals[i][7]) || 0, tries: Number(vals[i][8]) || 0,
+                 result: String(vals[i][9]), why: String(vals[i][10]),
+                 url: String(vals[i][11]) });
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * **یک** فرصتِ ارتقا برای امروز — نه یک فهرست.
+ *
+ * ══ چرا این تابع هست ══
+ * «ایرادی بود گزارش بده» را یافته‌ها پوشش می‌دهند. «ارتقایی داد گزارش بده»
+ * را هیچ‌چیز پوشش نمی‌داد: سیستمی که خراب نیست ولی در حالِ متوسط ساکن
+ * مانده، هر روز «سالم» گزارش می‌شود و هیچ‌وقت بهتر نمی‌شود.
+ *
+ * ══ سه مرز ══
+ * **یکی، نه فهرستی.** فهرستی که هر روز ده بند داشته باشد، همان فهرستی است
+ * که خوانده نمی‌شود. ترتیبِ بررسی، ترتیبِ اهمیت است و اولین موردِ برقرار
+ * برمی‌گردد.
+ * **و صریح می‌گوید ایراد نیست.** فرصتی که به‌شکلِ خرابی گزارش شود، اعتمادِ
+ * خواننده به مسئله‌های واقعی را می‌خورد.
+ * **و هیچ فراخوانِ مدلی ندارد** — همه‌اش از عددهایی است که در دست است.
+ */
+function lvUpgrade_(hub, st) {
+  var out = { text: '', key: '' };
+  try {
+    if (!st) st = lvStatus_();
+    if (!st || !st.on) return out;
+    var hist = lvHistory_(hub, 30);
+
+    // ۱) هیچ‌وقت هیچ کارتی ساخته نشده: مهم‌ترین چیزی که می‌شود گفت
+    if (!hist.length) {
+      out.key = 'lv-none-yet';
+      out.text = 'هنوز هیچ قسمتی تصویر نگرفته. اولین درس‌نامه‌ای که برای یوتیوب ' +
+                 'نوبتش برسد، کارت‌هایش ساخته می‌شود — اگر چند روز گذشت و این ' +
+                 'خط عوض نشد، یعنی صفِ انتشارِ یوتیوب به درس‌نامه نرسیده.';
+      return out;
+    }
+
+    // ۲) «عکس»‌هایی که کارت شدند: بزرگ‌ترین جهشِ کیفیِ در دسترس
+    var photoAsk = 0, total = 0;
+    for (var h = 0; h < hist.length; h++) { total += hist[h].want; }
+    try {
+      var pj = lvPhotoPending_(hub);
+      photoAsk = pj;
+    } catch (eP) { photoAsk = 0; }
+    if (photoAsk > 0) {
+      out.key = 'lv-photo-layer';
+      out.text = 'در ' + faDigitsOut_(String(photoAsk)) + ' مورد از تصویرهای اخیر، ' +
+                 'مدل «عکس» یا «ویدئو» خواسته بود و کارتِ متنی جایش نشست. ' +
+                 'لایهٔ عکسِ آزاد (سنجیده و شدنی) همین‌ها را به تصویرِ واقعی بدل می‌کند — ' +
+                 'بزرگ‌ترین جهشِ کیفیِ در دسترس، و مجانی.';
+      return out;
+    }
+
+    // ۳) هیچ «نمودار»ی ساخته نشده: یعنی پرامپت کم می‌خواهد
+    var vizN = 0;
+    try { vizN = lvKindCount_(hub, 'نمودار'); } catch (eV) { vizN = -1; }
+    if (vizN === 0 && hist.length >= 5) {
+      out.key = 'lv-no-diagram';
+      out.text = 'در ' + faDigitsOut_(String(hist.length)) + ' اجرای اخیر، هیچ ' +
+                 '«نمودار»ی ساخته نشده — همه‌اش کارتِ متنی. جایی که رابطه یا روند ' +
+                 'مهم‌تر از واژه است، نمودار بهتر جواب می‌دهد؛ ارزشش را دارد که ' +
+                 'بندِ مربوط در پرامپتِ تصویرها صریح‌تر شود.';
+      return out;
+    }
+
+    // ۴) تراکمِ تصویر پایین‌تر از تنظیم است
+    var wSum = 0, rSum = 0, n = 0;
+    for (var k = 0; k < hist.length; k++) {
+      if (!hist[k].want) continue;
+      wSum += hist[k].want; rSum += hist[k].ready; n++;
+    }
+    if (n >= 3 && wSum > 0 && rSum / wSum < 0.9) {
+      out.key = 'lv-density';
+      out.text = 'در ' + faDigitsOut_(String(n)) + ' قسمتِ اخیر، ' +
+                 faDigitsOut_(String(rSum)) + ' از ' + faDigitsOut_(String(wSum)) +
+                 ' تصویرِ برنامه‌ریزی‌شده ساخته شد. اگر این نسبت پایین بماند، ' +
+                 'بالا بردنِ `LV_BUILD_MAX` یا وارسیِ علتِ ستونِ «علت» همین تب ' +
+                 'کیفیتِ پوششِ زمانی را بهتر می‌کند.';
+      return out;
+    }
+
+    // ۵) همه با سبکِ پیش‌فرض: انتخابِ دستی بهترش می‌کند
+    var sty = {};
+    for (var s2 = 0; s2 < hist.length; s2++) if (hist[s2].style) sty[hist[s2].style] = 1;
+    var styN = 0;
+    for (var q in sty) if (Object.prototype.hasOwnProperty.call(sty, q)) styN++;
+    if (styN === 1 && hist.length >= 6 && sty[lvStyleDefault_().key]) {
+      out.key = 'lv-one-style';
+      out.text = 'همهٔ ' + faDigitsOut_(String(hist.length)) + ' اجرای اخیر با سبکِ ' +
+                 '«' + lvStyleDefault_().key + '» ساخته شده‌اند. ستونِ «سبکِ تصویر» در ' +
+                 'تبِ مجموعه‌ها نُه سبک دارد؛ یک سبکِ متناسب با موضوعِ هر مجموعه، ' +
+                 'کانال را شکل می‌دهد.';
+      return out;
+    }
+
+    // ۶) هیچ فرصتِ مشخصی نیست — و این خودش یک خبر است، نه سکوت
+    out.key = 'lv-steady';
+    out.text = 'در ' + faDigitsOut_(String(hist.length)) + ' اجرای اخیر چیزی برای ' +
+               'ارتقا پیدا نشد: پوشش کامل است و سبک‌ها متنوع‌اند. قدمِ بعدیِ کیفی، ' +
+               'لایهٔ تصویرِ ساخته‌شده است که هزینهٔ دلاری دارد و خاموش مانده.';
+  } catch (e) { out.text = ''; }
+  return out;
+}
+
+/** چند مورد از تصویرهای اخیر «عکس/ویدئو» خواسته بودند و کارت شدند. */
+function lvPhotoPending_(hub) {
+  var n = 0;
+  try {
+    var hist = lvHistory_(hub, 12);
+    for (var i = 0; i < hist.length; i++) {
+      // ستونِ «علت» شمارِ جایگزینی را در پایانِ خودش دارد (lvSubNote_)
+      var m = String(hist[i].why || '').match(/عکس\/ویدئو:\s*(\d+)/);
+      if (m) n += parseInt(m[1], 10) || 0;
+    }
+  } catch (e) {}
+  return n;
+}
+
+/** چند تصویر از گونهٔ خواسته‌شده در اجراهای اخیر ساخته شده. */
+function lvKindCount_(hub, kind) {
+  var n = 0;
+  try {
+    var hist = lvHistory_(hub, 12);
+    var re = new RegExp(String(kind) + ':\\s*(\\d+)');
+    for (var i = 0; i < hist.length; i++) {
+      var m = String(hist[i].why || '').match(re);
+      if (m) n += parseInt(m[1], 10) || 0;
+    }
+  } catch (e) {}
+  return n;
+}
+
+/** خلاصهٔ گونه‌ها برای ستونِ «علت» — تا `lvUpgrade_` بعداً بتواند بشمارد. */
+function lvSubNote_(items) {
+  var c = {};
+  for (var i = 0; i < (items || []).length; i++) {
+    var k = String(items[i].kind || 'کارت');
+    c[k] = (c[k] || 0) + 1;
+  }
+  var p = [];
+  for (var q in c) if (Object.prototype.hasOwnProperty.call(c, q)) p.push(q + ': ' + c[q]);
+  var sub = (c['عکس'] || 0) + (c['ویدئو'] || 0);
+  if (sub) p.push('عکس/ویدئو: ' + sub);
+  return p.join(' · ');
+}
+
+/**
+ * درِ آدم: تصویرهای یک قسمت را از نو می‌سازد.
+ *
+ * `ytRedoOne_` از قبل عنوان و کاور را از نو می‌سازد؛ این‌جا **تصویرها**.
+ * پوشهٔ تصویرها خالی می‌شود (فایل‌ها به زباله می‌روند، پاک نمی‌شوند — هیچ‌چیز
+ * در این مخزن پاک نمی‌شود) و اجرای بعدیِ انتشار از نو می‌سازدشان.
+ */
+function lvRedoOne_(show, ep) {
+  var out = { ok: false, why: '', dropped: 0 };
+  try {
+    var f = null;
+    try { f = ytFolderOf_(show, ep, ''); } catch (eF) { f = null; }
+    if (!f) { out.why = 'پوشهٔ قسمت پیدا نشد'; return out; }
+    var sub = null;
+    try {
+      var it = f.getFoldersByName(CFG.LV_FOLDER || 'تصویرها');
+      if (it.hasNext()) sub = it.next();
+    } catch (eS) {}
+    if (sub) {
+      var fi = sub.getFiles();
+      while (fi.hasNext()) { try { fi.next().setTrashed(true); out.dropped++; } catch (eT) {} }
+    }
+    /* و پروندهٔ تصویرها هم پاک می‌شود، وگرنه `tries` از اجرای قبلی می‌مانَد و
+       قسمتی که سه بار شکست خورده بود، همین‌الان «رهاشده» حساب می‌شود —
+       دکمه‌ای که سابقهٔ تلاش را پاک نکند، در نیست (۵٫۸۸/۵٫۹۵). */
+    try {
+      var jt = f.getFilesByName(lvName_());
+      while (jt.hasNext()) jt.next().setTrashed(true);
+    } catch (eJ) {}
+    try { lvWaitClear_(String(show) + ':' + String(ep)); } catch (eW) {}
+    out.ok = true;
+    logLine_('تصویرهای قسمتِ ' + ep + ' پاک شد (' + out.dropped +
+             ' فایل به زباله)؛ اجرای بعدیِ انتشار از نو می‌سازدشان.');
+  } catch (e) { out.why = e.message; }
+  return out;
+}
+
 /** نقشه را می‌سازد یا از روی دیسک برمی‌دارد. `redo` مدل را دوباره می‌پرسد. */
 /* ═══════════════ تصویرهای درس (طرح: docs/lesson_visuals_plan.md) ═══════════════
  *
@@ -2950,6 +3196,21 @@ function ytUploadOne_(item, hub, pub) {
        قسمت همین‌الان منتظرِ ویدئو است، پس یک اجرای دیگر صبر کردن هزینه‌ای
        ندارد؛ و بعد از `LV_TRY_MAX` با هر چه هست می‌رود، چون انتشاری که
        هرگز نرسد از انتشارِ ساده‌تر بدتر است (۵٫۸۸، این بار از پیش). */
+    /* **هر تلاش یک ردیف، موفق و ناموفق هر دو** (۷.۹۷). قسمتی که هر شب
+       تلاش می‌کند و هر شب شکست می‌خورد، از بیرون با قسمتی که اصلاً تلاش
+       نکرده یک شکل است — و آن دو کاملاً فرقِ هم‌اند. */
+    if (vis.want) {
+      try {
+        var lvSub = null;
+        try { lvSub = lvFolder_(folder); } catch (eLf) {}
+        lvLog_(hub, { show: showName, ep: item.ep, series: seriesName,
+                      style: vis.style || '', want: vis.want, ready: vis.ready,
+                      made: vis.made, tries: vis.tries,
+                      result: vis.done ? 'کامل' : (vis.ready ? 'ناقص' : 'نشد'),
+                      why: vis.why || lvSubNote_(vis.items),
+                      url: lvSub ? lvSub.getUrl() : '' });
+      } catch (eLg) {}
+    }
     var tryMax = Math.max(1, Number(CFG.LV_TRY_MAX) || 3);
     if (!vis.done && vis.tries < tryMax) {
       /* و **ثبت می‌شود که منتظر است** (۷.۹۵). بی این، «منتظرِ تصویر» و
@@ -5087,6 +5348,47 @@ function runYouTubeRedo() {
     (out.ok ? '✅ انجام شد: ' + out.changed.join('، ') : '❌ انجام نشد') +
     (out.why ? '\n\n' + out.why : '') +
     '\n\nویدئو دوباره آپلود نشد، پس بازدید و لینکش دست‌نخورده است.',
+    ui.ButtonSet.OK);
+  return out;
+}
+
+/**
+ * «بازسازیِ تصویرهای یک قسمت» — درِ آدم، وقتی کارتی بد درآمد.
+ *
+ * چیزی پاک نمی‌شود: فایل‌ها به زباله می‌روند و سابقهٔ تلاش هم صفر می‌شود، تا
+ * قسمتی که سه بار شکست خورده بود همین‌الان «رهاشده» حساب نشود (۵٫۹۵/۵٫۸۸).
+ * ساختِ تازه کارِ اجرای بعدیِ انتشار است، نه این دکمه: یک ساختِ درون‌خطیِ
+ * دوازده‌کارتی، همان اجرای شش‌دقیقه‌ای را می‌خورد که ۷٫۶۰ درباره‌اش نوشت.
+ */
+function runLessonVisualsRebuild() {
+  var ui = ui_();
+  if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };
+  var r = ui.prompt('بازسازیِ تصویرهای یک قسمت',
+    'کدام قسمت؟ به این شکل بنویسید:\n' +
+    '   درس‌نامه 16\n\n' +
+    'تصویرهای آن قسمت به زباله می‌روند (پاک نمی‌شوند) و اجرای بعدیِ انتشارِ ' +
+    'یوتیوب از نو می‌سازدشان — با سبکی که همین حالا در ستونِ «سبکِ تصویر» ' +
+    'آن مجموعه نوشته شده. پس اگر می‌خواهید سبک عوض شود، اول آن خانه را ' +
+    'عوض کنید.',
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var txt = faDigits_(String(r.getResponseText() || '')).trim();
+  var m = txt.match(/(\d{1,5})/);
+  if (!m) { ui.alert('شمارهٔ قسمت خوانده نشد.'); return; }
+  var show = /درس|تخصص|special/i.test(txt) ? ENRICH_SHOW_SPECIAL : ENRICH_SHOW_VARIETY;
+  if (!ytVisOn_(show)) {
+    ui.alert('بازسازیِ تصویرها',
+      'این نمایش تصویر نمی‌گیرد. فعلاً فقط ' + (CFG.SPECIAL_SHOW_NAME || 'درس‌نامه') +
+      ' — به خواستهٔ خودتان.', ui.ButtonSet.OK);
+    return;
+  }
+  var out = lvRedoOne_(show, m[1]);
+  ui.alert('بازسازیِ تصویرها',
+    (out.ok ? '✅ ' + faDigitsOut_(String(out.dropped)) + ' فایل به زباله رفت' :
+              '❌ انجام نشد') +
+    (out.why ? '\n\n' + out.why : '') +
+    '\n\nاجرای بعدیِ انتشارِ یوتیوب از نو می‌سازدشان. ویدئوی منتشرشده عوض ' +
+    'نمی‌شود — یوتیوب اجازه نمی‌دهد.',
     ui.ButtonSet.OK);
   return out;
 }

@@ -46,6 +46,7 @@ function onOpen() {
       .addItem('🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام', 'runContentAudit')
       .addItem('▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست', 'runYouTubePublish')
       .addItem('🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)', 'runYouTubeRedo')
+      .addItem('🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)', 'runLessonVisualsRebuild')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')

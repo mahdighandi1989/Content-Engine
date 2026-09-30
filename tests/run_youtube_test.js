@@ -2695,6 +2695,20 @@ console.log('=== ۵۳) دیده‌شدن: «منتظر» با «منتظر» ی�
      p3[0].slice(0, 60) + ' · ردیف‌های تصویرِ درس: ' +
      all3.filter(v => String(v[RC.CAT - 1]) === 'تصویرِ درس').length);
 
+  /* ۵۳.۶-ت — **و تبِ تاریخچه از همان دری پر می‌شود که تولید وارد می‌شود.**
+     این سنجه از دو شکستنیِ نیفتاده زاده شد: §۵۶ `lvLog_` را مستقیم صدا
+     می‌زند (اتاق)، پس برداشتنِ فراخوانش از `ytUploadOne_` — و حتی محدودکردنش
+     به فقط موفق‌ها — هیچ‌چیز را قرمز نکرد. **هر تلاش یک ردیف، موفق و ناموفق
+     هر دو** فقط این‌جا سنجیدنی است (۷.۶۲). */
+  const lvSh = getHub_().getSheetByName(CFG.LV_TAB);
+  const lvRows = lvSh && lvSh.getLastRow() > 1
+    ? lvSh.getRange(2, 1, lvSh.getLastRow() - 1, LV_HEADERS.length).getValues() : [];
+  const res101 = lvRows.filter(r => String(r[2]) === '101').map(r => String(r[9]));
+  ok('۵۳.۶-ت هر تلاش یک ردیف در «کاربردِ تصویرها» می‌گذارد — ناموفق هم',
+     res101.length === 2 && res101.indexOf('ناقص') !== -1 &&
+     lvRows.some(r => String(r[9]) === 'ناقص'),
+     'ردیف‌های قسمتِ ۱۰۱: ' + res101.join(' | '));
+
   /* ۵۳.۷ — مسیرِ سالم: تصویرها کامل، هیچ ردیفی در هیچ‌کدام از دو حافظه. */
   CFG.LV_BUILD_MAX = capWas;
   global.__PROPS[PK.LV_WAIT] = ''; global.__PROPS[PK.LV_SHORT] = '';
@@ -2986,6 +3000,200 @@ console.log('=== ۵۵-ب) پیشنهاد در شیت نوشته می‌شود، 
   /* ۵۵-ب.۵ — و یک خواندنِ رجیستری، نه یکی به‌ازای هر مجموعه: این تابع از
      `healthCheck` صدا زده می‌شود و آن یک بار از هزینه مُرد (۷.۶۳). */
   ok('۵۵-ب.۵ کلِ وارسی یک خواندنِ رجیستری است', a2.read === 1, String(a2.read));
+}
+
+console.log('=== ۵۶) نظارت: تاریخچه، ارتقا، و درِ آدم (۷.۹۷) ===');
+{
+  const hub = new Spread('HUB');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+
+  /* ۵۶.۱ — **هر تلاش یک ردیف، موفق و ناموفق هر دو.** قسمتی که هر شب تلاش
+     می‌کند و هر شب شکست می‌خورد، از بیرون با قسمتی که اصلاً تلاش نکرده یک
+     شکل است — و آن دو کاملاً فرقِ هم‌اند (۵.۸۸). */
+  lvLog_(hub, { show: 'درس‌نامه', ep: '20', series: 'م', style: 'ساده و رسمی',
+                want: 5, ready: 5, made: 5, tries: 1, result: 'کامل',
+                why: 'کارت: 4 · عکس: 1 · عکس/ویدئو: 1', url: 'https://u/1' });
+  lvLog_(hub, { show: 'درس‌نامه', ep: '21', series: 'م', style: 'ساده و رسمی',
+                want: 5, ready: 0, made: 0, tries: 2, result: 'نشد',
+                why: 'خروجیِ PNG نشد', url: '' });
+  const sh = hub.getSheetByName(CFG.LV_TAB);
+  ok('۵۶.۱ تبِ «کاربردِ تصویرها» ساخته شد و هر تلاش یک ردیف دارد',
+     !!sh && sh.getLastRow() === 3, sh ? String(sh.getLastRow()) : 'بی‌تب');
+
+  const hist = lvHistory_(hub, 10);
+  ok('۵۶.۲ تاریخچه تازه‌ترین‌اول خوانده می‌شود و علت را نگه می‌دارد',
+     hist.length === 2 && hist[0].ep === '21' && hist[0].result === 'نشد' &&
+     hist[0].why.indexOf('PNG') !== -1 && hist[1].ready === 5,
+     hist.map(x => x.ep + ':' + x.result).join(' | '));
+
+  /* ۵۶.۳ — **«ارتقایی داد گزارش بده»** — نیمه‌ای که جا افتاده بود. یکی در
+     روز، نه فهرستی؛ و صریح می‌گوید ایراد نیست. */
+  const up1 = lvUpgrade_(hub, { on: true, waiting: 0, short: 0 });
+  ok('۵۶.۳ فرصتِ ارتقا نام‌برده می‌شود، و «عکسِ کارت‌شده» اولویتِ اول است',
+     up1.key === 'lv-photo-layer' && up1.text.indexOf('لایهٔ عکسِ آزاد') !== -1 &&
+     up1.text.indexOf('۱ مورد') !== -1,
+     up1.key + ' · ' + up1.text.slice(0, 70));
+
+  /* ۵۶.۳-ب — و **یکی** است، نه فهرستی: فهرستی که هر روز ده بند داشته باشد
+     همان فهرستی است که خوانده نمی‌شود. */
+  ok('۵۶.۳-ب یک فرصت برمی‌گردد، نه فهرست',
+     typeof up1.text === 'string' && up1.text.length > 40 &&
+     up1.text.indexOf('\n') === -1);
+
+  /* ۵۶.۴ — و وقتی هیچ فرصتی نیست، **سکوت نمی‌کند**: «چیزی برای ارتقا پیدا
+     نشد» خودش یک خبر است. جای خالیِ این خط از «همه‌چیز خوب است» قابلِ
+     تشخیص نیست. */
+  const hub2 = new Spread('HUB2');
+  global.__SS[CFG.HUB_ID || 'HUB'] = hub2;
+  global.getHub_ = () => hub2;
+  for (let i = 0; i < 7; i++) {
+    lvLog_(hub2, { show: 'درس‌نامه', ep: String(30 + i), series: 'م',
+                   style: i % 2 ? 'نقشِ ایرانی' : 'چاپِ قدیمی',
+                   want: 4, ready: 4, made: 4, tries: 1, result: 'کامل',
+                   why: 'کارت: 3 · نمودار: 1', url: 'https://u' });
+  }
+  const up2 = lvUpgrade_(hub2, { on: true, waiting: 0, short: 0 });
+  ok('۵۶.۴ روزی که فرصتی نیست، خط ساکت نمی‌مانَد',
+     up2.key === 'lv-steady' && up2.text.length > 30 &&
+     up2.text.indexOf('لایهٔ تصویرِ ساخته‌شده') !== -1, up2.text.slice(0, 80));
+
+  /* ۵۶.۵ — و خاموش که باشد، هیچ ارتقایی گزارش نمی‌شود: پیشنهادِ بهترشدنِ
+     چیزی که روشن نیست، نویز است. */
+  ok('۵۶.۵ خاموش که باشد، خطِ ارتقا نمی‌آید',
+     lvUpgrade_(hub2, { on: false }).text === '');
+
+  /* ۵۶.۶ — هیچ تاریخچه‌ای ⇒ جملهٔ مخصوصِ خودش، با اینکه بگوید اگر چند روز
+     عوض نشد یعنی چه. */
+  const hub3 = new Spread('HUB3');
+  global.__SS[CFG.HUB_ID || 'HUB'] = hub3;
+  global.getHub_ = () => hub3;
+  const up3 = lvUpgrade_(hub3, { on: true, waiting: 0, short: 0 });
+  ok('۵۶.۶ بی هیچ تاریخچه‌ای هم جملهٔ درستِ خودش را دارد',
+     up3.key === 'lv-none-yet' && up3.text.indexOf('صفِ انتشارِ یوتیوب') !== -1,
+     up3.text.slice(0, 70));
+
+  /* ۵۶.۷ — و **هیچ فراخوانِ مدلی**: «نمیخوام هزینه کار و توکن بالا بره». */
+  const fWas = global.__FETCHES.length;
+  lvUpgrade_(hub2, { on: true, waiting: 0, short: 0 });
+  ok('۵۶.۷ هیچ فراخوانِ مدلی در ساختِ خطِ ارتقا نیست',
+     global.__FETCHES.length === fWas,
+     'فراخوانِ تازه: ' + (global.__FETCHES.length - fWas));
+}
+
+console.log('=== ۵۶-پ) وارسیِ اجباریِ ناظر: فهرستِ موتور و پرامپت یکی باشند ===');
+{
+  /* ══ این بند هم از یک شکستنیِ نیفتاده زاده شد ══
+   * برداشتنِ `visuals-read` از `CFG.MONITOR_CHECKS` هیچ سنجه‌ای را قرمز
+   * نکرد. و این مهم است: آن فهرست همان چیزی است که زنگِ «ناظر این وارسی را
+   * گزارش نکرد» از رویش می‌زند. اگر کلیدی در پرامپت اجباری باشد و در موتور
+   * نباشد، ناظر می‌تواند هر روز از قلم بیندازدش و هیچ‌کس نمی‌فهمد — و
+   * برعکسش، کلیدی در موتور که در پرامپت نیست، هر روز زنگ می‌زند برای کاری
+   * که از کسی خواسته نشده. دو فهرست در دو جا، و هیچ‌کدام دیگری را نمی‌بیند:
+   * همان شکلِ ۷.۸۸. */
+  const keys = (CFG.MONITOR_CHECKS || []).map(x => x.key);
+  ok('۵۶-پ.۱ کلیدِ `visuals-read` در فهرستِ وارسی‌های اجباریِ موتور هست',
+     keys.indexOf('visuals-read') !== -1, keys.join('، '));
+
+  const pf = fs.readdirSync('docs/prompts')
+    .filter(f => /^_PROMPT-monitor-v(\d+)\.md$/.test(f))
+    .sort((a, b) => Number(a.match(/v(\d+)/)[1]) - Number(b.match(/v(\d+)/)[1]));
+  const newest = fs.readFileSync('docs/prompts/' + pf[pf.length - 1], 'utf8');
+  const missing = keys.filter(k => newest.indexOf('`' + k + '`') === -1);
+  ok('۵۶-پ.۲ و تازه‌ترین پرامپتِ ناظر هر کلیدِ موتور را نام می‌برد',
+     missing.length === 0,
+     'پرامپت: ' + pf[pf.length - 1] + (missing.length ? ' · جامانده: ' + missing.join('، ') : ''));
+
+  /* و پرامپت باید بگوید چند ردیف اجباری است، با همان عدد. یک جملهٔ «سه
+     ردیف» روی فهرستی چهارتایی، خواننده را وامی‌دارد یکی را جا بیندازد. */
+  ok('۵۶-پ.۳ و شمارِ ردیف‌های اجباری در پرامپت با فهرستِ موتور می‌خواند',
+     newest.indexOf('هر چهار ردیفش') !== -1 && keys.length === 4,
+     keys.length + ' کلید در موتور');
+}
+
+console.log('=== ۵۶-ب) درِ آدم: بازسازیِ تصویرهای یک قسمت (۷.۹۷) ===');
+{
+  /* «اصلاح اتوماسیون انجام بده و پیگیرش باش» یک نیمه دارد که خودکار است
+     (بازسازی وقتی سبک عوض شود، تلاشِ دوباره تا سقف) و یک نیمه که نه: وقتی
+     کارتی بد درآمد و آدم می‌خواهد همین‌الان از نو ساخته شود. */
+  const ep = DriveApp.__register('EPR1', 'درس‌نامه — م — قسمت 040 — ت');
+  const sub = ep.createFolder(CFG.LV_FOLDER);
+  for (let i = 0; i < 3; i++) {
+    sub.createFile(Utilities.newBlob('PNG', 'image/png', 'تصویر ' + (i + 1) + '.png'));
+  }
+  ep.createFile(Utilities.newBlob(JSON.stringify({ want: 3, ready: 3, tries: 3,
+    style: 'ساده و رسمی', items: [] }), 'application/json', CFG.LV_FILE));
+  global.__PROPS[PK.LV_WAIT] = JSON.stringify({ 'special:40': { at: '2026/08/01 00:00' } });
+
+  const folderWas = global.ytFolderOf_;
+  global.ytFolderOf_ = () => ep;
+  const r = lvRedoOne_('special', '40');
+  global.ytFolderOf_ = folderWas;
+
+  ok('۵۶-ب.۱ دکمه تصویرها را به زباله می‌برد، نه پاک — اگر اشتباه بود، فایل سرِ جایش است',
+     r.ok === true && r.dropped === 3 &&
+     sub.getFiles().hasNext() === false, 'به زباله: ' + r.dropped);
+
+  /* ۵۶-ب.۲ — **و سابقهٔ تلاش هم صفر می‌شود.** بی این، قسمتی که سه بار شکست
+     خورده بود همین‌الان «رهاشده» حساب می‌شود و دکمه هیچ کاری نکرده —
+     سدی که با دستِ آدم باز نشود، سد نیست (۵.۹۵/۵.۸۸). */
+  ok('۵۶-ب.۲ سابقهٔ تلاش هم پاک می‌شود، وگرنه دکمه هیچ کاری نکرده',
+     ep.getFilesByName(CFG.LV_FILE).hasNext() === false &&
+     JSON.parse(global.__PROPS[PK.LV_WAIT] || '{}')['special:40'] === undefined,
+     'پروندهٔ تصویرها مانده؟ ' + ep.getFilesByName(CFG.LV_FILE).hasNext());
+
+  /* ۵۶-ب.۳ — و پوشهٔ ناموجود **با دلیل** رد می‌شود، نه با یک «انجام شد»ِ
+     دروغ. */
+  global.ytFolderOf_ = () => null;
+  const bad = lvRedoOne_('special', '999');
+  global.ytFolderOf_ = folderWas;
+  ok('۵۶-ب.۳ قسمتِ ناموجود با دلیل رد می‌شود، نه با ادعای انجام',
+     bad.ok === false && bad.why.indexOf('پیدا نشد') !== -1, bad.why);
+
+  /* ۵۶-ب.۴ — و **خودِ دکمهٔ منو** فشار داده می‌شود: نامی که منو صدا می‌زند،
+     از خودِ فایلِ منو خوانده می‌شود نه دستی. یک دکمه که تابعش نباشد، هیچ
+     خطایی نمی‌دهد و بی‌صدا کار نمی‌کند (۵.۶۱/۷.۴۳). */
+  const setupSrc = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const named = (setupSrc.match(/addItem\('[^']*تصویرهای یک قسمت[^']*',\s*'(\w+)'\)/) || [])[1];
+  ok('۵۶-ب.۴ منو نامِ همین تابع را صدا می‌زند',
+     named === 'runLessonVisualsRebuild' &&
+     typeof global[named] === 'function', String(named));
+
+  let asked = '', alerted = '';
+  global.__UI = {
+    prompt: function (t, m) { asked = String(m);
+      return { getSelectedButton: () => 'OK', getResponseText: () => 'درس‌نامه 40',
+               Button: { OK: 'OK' } }; },
+    alert: function () { alerted += Array.prototype.join.call(arguments, ' | '); },
+    ButtonSet: { OK: 'OK', OK_CANCEL: 'OK_CANCEL' },
+    Button: { OK: 'OK' }
+  };
+  global.__UI.prompt = function (t, m) { asked = String(m);
+    return { getSelectedButton: () => global.__UI.Button.OK,
+             getResponseText: () => 'درس‌نامه 40' }; };
+  global.ytFolderOf_ = () => ep;
+  const out = runLessonVisualsRebuild();
+  global.ytFolderOf_ = folderWas;
+  global.__UI = null;
+  ok('۵۶-ب.۵ فشردنِ دکمه واقعاً همان قسمت را بازسازی می‌کند و جوابش را می‌گوید',
+     !!out && out.ok === true && alerted.indexOf('زباله') !== -1 &&
+     asked.indexOf('سبکِ تصویر') !== -1,
+     alerted.slice(0, 70));
+
+  /* ۵۶-ب.۶ — و «از همه جا از همه رنگ» **با اسم** رد می‌شود، نه اینکه پوشهٔ
+     بی‌تصویری را بگردد و «۰ فایل» بگوید. */
+  global.__UI = {
+    prompt: function () { return { getSelectedButton: () => 'OK',
+                                   getResponseText: () => 'رنگ 19' }; },
+    alert: function () { alerted = Array.prototype.join.call(arguments, ' | '); },
+    ButtonSet: { OK: 'OK', OK_CANCEL: 'OK_CANCEL' }, Button: { OK: 'OK' }
+  };
+  alerted = '';
+  runLessonVisualsRebuild();
+  global.__UI = null;
+  ok('۵۶-ب.۶ نمایشی که تصویر نمی‌گیرد، با اسم رد می‌شود',
+     alerted.indexOf('تصویر نمی‌گیرد') !== -1 &&
+     alerted.indexOf(CFG.SPECIAL_SHOW_NAME) !== -1, alerted.slice(0, 80));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
