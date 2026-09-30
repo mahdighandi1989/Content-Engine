@@ -11,6 +11,26 @@
 شد، ۳۰ سپتامبر). پس همان تقسیمِ کارِ `_YT-RENDER.json`: **موتور تصمیم
 می‌گیرد، اکشن کار می‌کند** — و این‌جا اکشن فقط *می‌پرسد*.
 
+══ و درسی که اجرای اولِ خودِ این ابزار داد (۳۰ سپتامبر، ۰۶:۱۷) ══
+نسخهٔ اول مجوز را **می‌خواند و رویش تصمیم نمی‌گرفت**. نتیجه: تنها «منبعِ
+قابلِ استفاده»ای که پیدا کرد `youtube-rHrhBzqJenw` بود — یک بازنشرِ یوتیوب
+در آرشیو، **۵۱۰ مگابایت، با مجوزِ خالی** — و ابزار آن را ✅ شمرد و سبز تمام
+شد. یک سنجشِ سبز که معنایش صفر بود.
+
+سه سد از همان‌جا آمد، و هر سه **پیش از دانلود**:
+  ۱) **مجوزِ خالی = ردّ.** «نمی‌دانیم مجوزش چیست» با «آزاد است» یکی نیست.
+     برای کانالی که قرار است درآمد داشته باشد، تصویرِ بی‌مجوز از تصویرِ
+     نداشته بدتر است.
+  ۲) **سقفِ اندازه.** ۵۱۰ مگابایت برای یک کلیپِ چندثانیه‌ای یعنی این نامزد
+     چیزِ دیگری است.
+  ۳) **بازنشرِ یوتیوب = ردّ، با نام.** `youtube-*` در آرشیو به‌حکمِ ساختار
+     یک پرسشِ حق‌نشر است، هرچه در فرادَیش نوشته باشد.
+
+و «n=0» بی‌جواب رها نمی‌شود: پرسشِ **سادهٔ تک‌واژه** هم امتحان می‌شود و
+خطا/هشدارِ خودِ API چاپ می‌شود — چون «منبع چیزی ندارد» و «پرسشِ من تنگ بود»
+دو چیزِ متفاوت با دو درمانِ متفاوت‌اند، و نتیجه‌گیریِ اولی از دومی کلِ لایهٔ
+دوم را بی‌دلیل کنار می‌گذارد.
+
 قاعدهٔ اصلیِ بخشِ ۲۳ (موسیقی) این‌جا عیناً همان قاعده است و تمامِ دلیلِ
 انتخابِ این منابع است: **باید بتوان یک نامزد را پیش از دانلود رد کرد.**
 آرشیو برای موسیقی انتخاب شد چون endpointِ `metadata` قالب و اندازه و مجوزِ
@@ -33,14 +53,26 @@
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-UA = 'Content-Engine-visprobe/1.0 (+https://github.com/mahdighandi1989/Content-Engine)'
+UA = 'Content-Engine-visprobe/2.0 (+https://github.com/mahdighandi1989/Content-Engine)'
 TIMEOUT = 25
 HEAD_BYTES = 4096          # برای داوریِ سرآیند، چند کیلوبایت کافی است
+IMG_MAX_MB = 25            # عکسِ بزرگ‌تر از این، برای یک اسلاید چیزِ دیگری است
+VID_MAX_MB = 120           # و کلیپِ بزرگ‌تر از این هم
+
+# مجوزهایی که می‌شود رویشان حساب کرد. NC و ND عمداً نیستند: کانال قرار است
+# درآمد داشته باشد، و ویدئو خودش اثرِ اشتقاقی است.
+LIC_OK = [r'\bcc0\b', r'\bpublic\s*domain\b', r'\bpd\b', r'\bpd-',
+          r'\bcc[\s\-]?by\b', r'\bcc[\s\-]?by[\s\-]?sa\b',
+          r'creativecommons\.org/licenses/by(-sa)?/',
+          r'creativecommons\.org/publicdomain/']
+LIC_NO = [r'all\s*rights\s*reserved', r'\bnc\b', r'non-?commercial', r'\bnd\b',
+          r'no-?deriv', r'\bfair\s*use\b', r'\bcopyright(ed)?\b']
 
 # سرآیندهای شناخته — نه پسوند، نه Content-Type
 MAGIC = [
@@ -65,6 +97,58 @@ def sniff(b):
     if b[:1] == b'<':
         return 'HTML/XML — یعنی فایل نرسید، صفحه رسید'
     return 'ناشناخته'
+
+
+def licOk_(t):
+    """
+    مجوز، پیش از دانلود. **خالی یعنی ردّ.**
+
+    «نمی‌دانیم مجوزش چیست» با «آزاد است» یکی نیست، و همین تفاوت فرقِ کانالی
+    است که درآمد دارد با کانالی که ادعای حق‌نشر می‌گیرد. نسخهٔ اولِ همین ابزار
+    این سد را نداشت و یک بازنشرِ یوتیوبِ بی‌مجوز را ✅ شمرد.
+    """
+    t = ' ' + re.sub(r'\s+', ' ', str(t or '')).strip().lower() + ' '
+    if not t.strip():
+        return False, 'مجوز خالی است — «نمی‌دانیم» با «آزاد» یکی نیست'
+    for bad in LIC_NO:
+        if re.search(bad, t):
+            return False, 'مجوز اجازه نمی‌دهد: ' + t.strip()[:40]
+    for good in LIC_OK:
+        if re.search(good, t):
+            return True, ''
+    return False, 'مجوزِ ناشناخته: ' + t.strip()[:40]
+
+
+def sizeOk_(b, kind):
+    cap = (VID_MAX_MB if kind == 'video' else IMG_MAX_MB) * 1024 * 1024
+    if not b:
+        return True, ''                    # اندازهٔ نامعلوم، خودش ردّ نیست
+    if int(b) > cap:
+        return False, '%d مگابایت، از سقفِ %d گذشت' % (int(b) // 1048576, cap // 1048576)
+    return True, ''
+
+
+def judge(c, kind):
+    """سه سد، همه پیش از دانلود. مجوز اول — فایلِ بی‌مجوز هر چقدر مناسب
+       باشد استفاده‌شدنی نیست."""
+    if kind == 'video' and re.match(r'^youtube-', str(c.get('name') or '')):
+        return False, 'بازنشرِ یوتیوب — پرسشِ حق‌نشر است، هرچه فرادَیش بگوید'
+    ok, why = licOk_(c.get('license'))
+    if not ok:
+        return False, why
+    return sizeOk_(c.get('bytes'), kind)
+
+
+def apiNote_(d):
+    """خطا/هشدارِ خودِ API — بی این، «n=0» و «پرسشم تنگ بود» یکی می‌شوند."""
+    if not isinstance(d, dict):
+        return ''
+    bits = []
+    if d.get('error'):
+        bits.append('error: ' + json.dumps(d['error'], ensure_ascii=False)[:110])
+    if d.get('warnings'):
+        bits.append('warnings: ' + json.dumps(d['warnings'], ensure_ascii=False)[:110])
+    return ' · '.join(bits)
 
 
 def get(url, want_json=True, limit=None):
@@ -92,8 +176,8 @@ def get(url, want_json=True, limit=None):
 
 # ─────────────────────────── منبع‌ها ───────────────────────────
 # هر تابع یک dict برمی‌گرداند:
-#   ok, n, why, pre {license,mime,w,h,bytes}  ← آنچه **پیش از دانلود** معلوم است
-#   url ← نشانیِ یک نامزد، برای آزمونِ سرآیند
+#   ok, n, why, note, cands[{license,mime,w,h,bytes,url,name}]
+# داوری در `judge` می‌افتد نه این‌جا — یک جا تصمیم می‌گیرد، نه سه جا.
 
 def src_commons(q, kind='bitmap'):
     """ویکی‌مدیا کامنز. `extmetadata` مجوز را می‌دهد و `iiurlwidth` تصویرِ
@@ -102,7 +186,7 @@ def src_commons(q, kind='bitmap'):
     p = {
         'action': 'query', 'format': 'json', 'formatversion': '2',
         'generator': 'search', 'gsrsearch': 'filetype:%s %s' % (kind, q),
-        'gsrnamespace': '6', 'gsrlimit': '5',
+        'gsrnamespace': '6', 'gsrlimit': '8',
         'prop': 'imageinfo',
         'iiprop': 'url|size|mime|extmetadata',
         'iiurlwidth': '1920',
@@ -111,20 +195,22 @@ def src_commons(q, kind='bitmap'):
     url = 'https://commons.wikimedia.org/w/api.php?' + urllib.parse.urlencode(p)
     ok, d, why = get(url)
     if not ok:
-        return {'ok': False, 'why': why}
+        return {'ok': False, 'why': why, 'cands': []}
     pages = ((d or {}).get('query') or {}).get('pages') or []
-    out = {'ok': True, 'n': len(pages), 'why': '', 'pre': None, 'url': '', 'name': ''}
+    out = {'ok': True, 'n': len(pages), 'why': '', 'note': apiNote_(d), 'cands': []}
     for pg in pages:
         ii = (pg.get('imageinfo') or [{}])[0]
         em = ii.get('extmetadata') or {}
         lic = (em.get('LicenseShortName') or {}).get('value') or \
+              (em.get('License') or {}).get('value') or \
               (em.get('UsageTerms') or {}).get('value') or ''
-        out['pre'] = {'license': lic, 'mime': ii.get('mime', ''),
-                      'w': ii.get('width', 0), 'h': ii.get('height', 0),
-                      'bytes': ii.get('size', 0)}
-        out['url'] = ii.get('thumburl') or ii.get('url') or ''
-        out['name'] = pg.get('title', '')
-        break
+        out['cands'].append({
+            'license': lic, 'mime': ii.get('mime', ''),
+            'w': ii.get('thumbwidth') or ii.get('width') or 0,
+            'h': ii.get('thumbheight') or ii.get('height') or 0,
+            'bytes': ii.get('size', 0),
+            'url': ii.get('thumburl') or ii.get('url') or '',
+            'name': pg.get('title', '')})
     return out
 
 
@@ -132,21 +218,21 @@ def src_openverse(q):
     """اوپن‌ورس. یک API روی چند بانکِ تصویر؛ مجوز و ابعاد را در همان جواب
        می‌دهد. بی کلید کار می‌کند ولی سهمیه‌اش تنگ است — اگر ۴۰۱/۴۲۹ داد،
        همان جوابِ سنجش است، نه خطای ما."""
-    p = {'q': q, 'page_size': '5', 'license_type': 'commercial'}
+    p = {'q': q, 'page_size': '8', 'license_type': 'commercial'}
     url = 'https://api.openverse.org/v1/images/?' + urllib.parse.urlencode(p)
     ok, d, why = get(url)
     if not ok:
-        return {'ok': False, 'why': why}
+        return {'ok': False, 'why': why, 'cands': []}
     res = (d or {}).get('results') or []
     out = {'ok': True, 'n': (d or {}).get('result_count', len(res)), 'why': '',
-           'pre': None, 'url': '', 'name': ''}
+           'note': apiNote_(d), 'cands': []}
     for r in res:
-        out['pre'] = {'license': '%s %s' % (r.get('license', ''), r.get('license_version', '')),
-                      'mime': r.get('filetype', ''), 'w': r.get('width', 0),
-                      'h': r.get('height', 0), 'bytes': r.get('filesize', 0) or 0}
-        out['url'] = r.get('url') or ''
-        out['name'] = (r.get('title') or '')[:70]
-        break
+        out['cands'].append({
+            'license': ('%s %s' % (r.get('license', ''),
+                                   r.get('license_version', ''))).strip(),
+            'mime': r.get('filetype', ''), 'w': r.get('width', 0),
+            'h': r.get('height', 0), 'bytes': r.get('filesize') or 0,
+            'url': r.get('url') or '', 'name': (r.get('title') or '')[:60]})
     return out
 
 
@@ -154,37 +240,38 @@ def src_archive(q, mediatype='image'):
     """آرشیو. همان منبعی که موتور از ۵٫۵۶ برای موسیقی می‌خوانَد، پس شبکه‌اش
        از Apps Script آزموده است. دو مرحله دارد: جست‌وجو، بعد `metadata`
        که فهرستِ فایل‌ها را با قالب و اندازه می‌دهد."""
-    p = {'q': 'mediatype:(%s) AND %s' % (mediatype, q), 'rows': '4', 'output': 'json',
+    p = {'q': 'mediatype:(%s) AND %s' % (mediatype, q), 'rows': '8', 'output': 'json',
          'fl[]': 'identifier'}
     url = 'https://archive.org/advancedsearch.php?' + urllib.parse.urlencode(p, doseq=True)
     ok, d, why = get(url)
     if not ok:
-        return {'ok': False, 'why': why}
+        return {'ok': False, 'why': why, 'cands': []}
     docs = (((d or {}).get('response') or {}).get('docs')) or []
-    out = {'ok': True, 'n': len(docs), 'why': '', 'pre': None, 'url': '', 'name': ''}
-    for doc in docs:
-        ident = doc.get('identifier') or ''
+    out = {'ok': True, 'n': len(docs), 'why': '', 'note': '', 'cands': []}
+    for doc in docs[:5]:
+        ident = str(doc.get('identifier') or '')
         if not ident:
             continue
         ok2, md, why2 = get('https://archive.org/metadata/' + urllib.parse.quote(ident))
         if not ok2:
-            out['why'] = 'metadata: ' + why2
+            out['note'] = 'metadata: ' + why2
             continue
-        lic = (md.get('metadata') or {}).get('licenseurl') or \
-              (md.get('metadata') or {}).get('rights') or ''
+        meta = md.get('metadata') or {}
+        lic = meta.get('licenseurl') or meta.get('rights') or meta.get('license') or ''
         for f in (md.get('files') or []):
             fm = str(f.get('format', ''))
             if mediatype == 'image' and fm not in ('JPEG', 'PNG', 'JPEG 2000'):
                 continue
-            if mediatype == 'movies' and fm not in ('MPEG4', 'h.264', 'Ogg Video', 'WebM'):
+            if mediatype == 'movies' and fm not in ('MPEG4', 'h.264', 'Ogg Video',
+                                                    'WebM', 'h.264 IA'):
                 continue
-            out['pre'] = {'license': lic, 'mime': fm, 'w': 0, 'h': 0,
-                          'bytes': int(f.get('size') or 0)}
-            out['url'] = 'https://archive.org/download/%s/%s' % (
-                urllib.parse.quote(ident), urllib.parse.quote(str(f.get('name', ''))))
-            out['name'] = ident
-            break
-        if out['url']:
+            out['cands'].append({
+                'license': lic, 'mime': fm, 'w': 0, 'h': 0,
+                'bytes': int(f.get('size') or 0),
+                'url': 'https://archive.org/download/%s/%s'
+                       % (urllib.parse.quote(ident),
+                          urllib.parse.quote(str(f.get('name', '')))),
+                'name': ident})
             break
     return out
 
@@ -198,60 +285,93 @@ NEED_KEY = [
 ]
 
 
-def line(tag, r, test_bytes=True):
+def report(tag, r, kind, test_bytes=True):
+    """برمی‌گرداند: آیا این منبع **یک نامزدِ مجوزدار** داد؟"""
     if not r.get('ok'):
         print('  %-26s ❌ %s' % (tag, r.get('why', '')))
         return False
-    pre = r.get('pre')
-    if not pre:
-        print('  %-26s ⚠️  رسید ولی نامزدی نداد (n=%s) %s'
-              % (tag, r.get('n', 0), r.get('why', '')))
+    cands = r.get('cands') or []
+    if not cands:
+        print('  %-26s ⚠️  رسید، نامزدی نداد (n=%s)%s'
+              % (tag, r.get('n', 0), (' — ' + r['note']) if r.get('note') else ''))
         return False
-    print('  %-26s ✅ n=%-6s مجوز=%-22s قالب=%-12s %sx%s  %s کیلوبایت'
-          % (tag, r.get('n', 0), (pre['license'] or '—')[:22], (pre['mime'] or '—')[:12],
-             pre['w'] or '?', pre['h'] or '?',
-             (pre['bytes'] // 1024) if pre['bytes'] else '?'))
-    print('     نامزد: %s' % (r.get('name', '') or '—'))
-    if not test_bytes or not r.get('url'):
+
+    passed, first = [], None
+    for c in cands:
+        ok, why = judge(c, kind)
+        if ok:
+            passed.append(c)
+            if first is None:
+                first = c
+        else:
+            # ردّ **با دلیل** چاپ می‌شود، وگرنه «۸ نامزد، ۰ قبول» بی‌معناست
+            print('     ✗ %-32s %s' % ((c.get('name') or '?')[:32], why))
+
+    if not passed:
+        print('  %-26s ❌ %d نامزد آمد و هیچ‌کدام مجوزِ آزاد نداشت'
+              % (tag, len(cands)))
+        return False
+
+    print('  %-26s ✅ %d از %d نامزد مجوزِ آزاد دارد (n=%s)'
+          % (tag, len(passed), len(cands), r.get('n', 0)))
+    print('     نامزد: %s' % ((first.get('name') or '—')[:62]))
+    print('     مجوز=%s  قالب=%s  %sx%s  %s کیلوبایت'
+          % ((first['license'] or '—')[:32], (first['mime'] or '—')[:14],
+             first['w'] or '?', first['h'] or '?',
+             (first['bytes'] // 1024) if first['bytes'] else '?'))
+    if not test_bytes or not first.get('url'):
         return True
-    ok, got, why = get(r['url'], want_json=False, limit=HEAD_BYTES)
+    ok, got, why = get(first['url'], want_json=False, limit=HEAD_BYTES)
     if not ok:
         print('     بایت‌ها: ❌ %s' % why)
         return False
     fmt = sniff(got['bytes'])
+    good = 'HTML' not in fmt and fmt != 'ناشناخته'
     print('     بایت‌ها: %s %s (Content-Type گفت: %s)'
-          % ('✅' if 'HTML' not in fmt and fmt != 'ناشناخته' else '❌',
-             fmt, got['ctype'] or '—'))
-    return True
+          % ('✅' if good else '❌', fmt, got['ctype'] or '—'))
+    return good
 
 
 def main():
-    q = os.environ.get('VISPROBE_Q', '').strip() or 'epistemology knowledge'
+    q = (os.environ.get('VISPROBE_Q') or '').strip() or 'epistemology knowledge'
+    # «پرسشِ من تنگ بود» با «منبع چیزی ندارد» یکی نیست، و اولی با یک واژه
+    # معلوم می‌شود. اجرای اول با چهار واژه همه‌جا n=0 داد؛ بی این تفکیک،
+    # نتیجه‌گیری «منابعِ مجانی جواب نمی‌دهند» بود که ممکن است اصلاً غلط باشد.
+    words = [w for w in re.split(r'\s+', q) if len(w) > 3]
+    q2 = words[0] if words and words[0] != q else ''
+
     print('پرسشِ آزمون: «%s»' % q)
+    if q2:
+        print('و پرسشِ سادهٔ دوم: «%s» — برای تفکیکِ «منبع خالی است» از '
+              '«پرسشم تنگ بود»' % q2)
     print('')
-    print('«پیش از دانلود چه می‌دانیم؟» — این ستون تمامِ دلیلِ این سنجش است:')
-    print('')
+    print('سه سد، همه پیش از دانلود: مجوز · اندازه · بازنشرِ یوتیوب.')
+    print('**مجوزِ خالی = ردّ** — «نمی‌دانیم» با «آزاد» یکی نیست.')
 
     good = 0
-    print('── تصویر ──')
-    good += line('Wikimedia Commons', src_commons(q, 'bitmap'))
-    good += line('Openverse', src_openverse(q))
-    good += line('archive.org', src_archive(q, 'image'))
-    print('')
-    print('── ویدئو ──')
-    good += line('Wikimedia Commons (video)', src_commons(q, 'video'))
-    good += line('archive.org (movies)', src_archive(q, 'movies'))
+    for qq in ([q, q2] if q2 else [q]):
+        print('')
+        print('══ پرسش: «%s» ══' % qq)
+        print('── تصویر ──')
+        good += report('Wikimedia Commons', src_commons(qq, 'bitmap'), 'image')
+        good += report('Openverse', src_openverse(qq), 'image')
+        good += report('archive.org', src_archive(qq, 'image'), 'image')
+        print('── ویدئو ──')
+        good += report('Wikimedia Commons (video)', src_commons(qq, 'video'), 'video')
+        good += report('archive.org (movies)', src_archive(qq, 'movies'), 'video')
+
     print('')
     print('── منابعی که کلید لازم دارند (سنجیده نشدند، فقط ثبت) ──')
     for nm, host, note in NEED_KEY:
         print('  %-26s 🔑 %s — %s' % (nm, host, note))
 
     print('')
-    print('منبعِ قابلِ استفاده در این اجرا: %d' % good)
+    print('منبعِ **مجوزدارِ** قابلِ استفاده در این اجرا: %d' % good)
     # یک اجرای سبزِ بی‌جواب، بدترین حالت است — همان قاعدهٔ `render.js`.
     if good == 0:
-        print('هیچ منبعی جواب نداد. یعنی لایهٔ دومِ طرح (عکس و ویدئوی آزاد) '
-              'روی این رانر شدنی نیست و باید راهِ دیگری برایش پیدا شود.')
+        print('هیچ منبعی نامزدِ مجوزدار نداد. یعنی لایهٔ دومِ طرح روی این '
+              'پرسش‌ها جواب نمی‌دهد و راهش یا عوض‌کردنِ پرسش‌سازی است، یا '
+              'منبعِ کلیددار (Pexels/Pixabay)، یا لایهٔ سومِ پولی.')
         return 1
     return 0
 

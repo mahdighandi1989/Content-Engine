@@ -1333,5 +1333,109 @@ console.log('\n══ ۲۰) سنجشِ منابعِ تصویرِ آزاد، بی
      gz.rc === 1,
      'گرفت: ' + JSON.stringify(gz) + ' — اجرای سبز با صفر منبع یعنی لایهٔ ' +
      'دوم را روی چیزی می‌سازیم که جواب نمی‌دهد');
+
+  /* ══ چرا این پنج سنجه هست ══
+     اجرای واقعیِ ۳۰ سپتامبر (۰۶:۱۷) گفت «منبعِ قابلِ استفاده: ۱» و آن یک
+     منبع، `youtube-rHrhBzqJenw` بود: یک بازنشرِ یوتیوب، ۵۱۰ مگابایت، با
+     مجوزِ **خالی**. ابزار مجوز را می‌خواند و رویش تصمیم نمی‌گرفت.
+
+     یعنی یک سنجشِ سبز که معنایش صفر بود — و بدتر: اگر رویش کار ساخته
+     می‌شد، کانالی که قرار است درآمد داشته باشد ویدئوی بی‌مجوز منتشر
+     می‌کرد. «هشتمین بارِ» همان شکلِ این پرونده: تحلیل نوشته شد و به
+     تصمیمی وصل نبود. این پنج سنجه آن وصل را نگه می‌دارند. */
+
+  ok('۲۰.۷ مجوزِ خالی ردّ است — «نمی‌دانیم» با «آزاد» یکی نیست',
+     (() => {
+       const r = vcall('print(json.dumps({k: V.licOk_(v)[0] for k, v in {' +
+         '"empty": "", "space": "   ", "none": None}.items()}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g.empty === false && g.space === false && g.none === false;
+     })(),
+     'اجرای واقعی با همین سد قرمز می‌شد؛ بی آن، یک فایلِ بی‌مجوز ✅ شمرده شد');
+
+  ok('۲۰.۷-ب آزادها قبول، تجاری‌ممنوع و اشتقاق‌ممنوع و حق‌نشردار ردّ',
+     (() => {
+       const r = vcall('print(json.dumps({k: V.licOk_(k)[0] for k in [' +
+         '"CC0", "CC BY 4.0", "CC BY-SA 3.0", "Public domain",' +
+         '"CC BY-NC 2.0", "CC BY-ND 4.0", "All rights reserved", "zzz"]}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g['CC0'] === true && g['CC BY 4.0'] === true &&
+              g['CC BY-SA 3.0'] === true && g['Public domain'] === true &&
+              g['CC BY-NC 2.0'] === false && g['CC BY-ND 4.0'] === false &&
+              g['All rights reserved'] === false && g['zzz'] === false;
+     })(),
+     'NC و ND عمداً ردّند: کانال درآمد دارد و ویدئو خودش اثرِ اشتقاقی است');
+
+  ok('۲۰.۸ بازنشرِ یوتیوب ردّ است، حتی با مجوزِ تمیز',
+     (() => {
+       const r = vcall('print(json.dumps({' +
+         '"yt": V.judge({"name": "youtube-rHrhBzqJenw", "license": "CC0", ' +
+         '"bytes": 1000}, "video")[0], ' +
+         '"ok": V.judge({"name": "lecture-1952", "license": "CC0", ' +
+         '"bytes": 1000}, "video")[0]}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g.yt === false && g.ok === true;
+     })(),
+     'همان شناسه‌ای که اجرای واقعی برگرداند — بازنشرِ یوتیوب به‌حکمِ ساختار ' +
+     'یک پرسشِ حق‌نشر است، هرچه فرادَیش بگوید');
+
+  ok('۲۰.۹ سقفِ اندازه پیش از دانلود می‌بُرد، و اندازهٔ نامعلوم خودش ردّ نیست',
+     (() => {
+       const r = vcall('print(json.dumps({' +
+         '"big": V.judge({"name": "x", "license": "CC0", ' +
+         '"bytes": 600*1024*1024}, "video")[0], ' +
+         '"small": V.judge({"name": "x", "license": "CC0", ' +
+         '"bytes": 900000}, "image")[0], ' +
+         '"unknown": V.judge({"name": "x", "license": "CC0", ' +
+         '"bytes": 0}, "image")[0]}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       return g.big === false && g.small === true && g.unknown === true;
+     })(),
+     '۵۱۰ مگابایت برای یک کلیپِ چندثانیه‌ای یعنی نامزد چیزِ دیگری است — ولی ' +
+     '«نمی‌دانم چند بایت است» دلیلِ ردّ نیست (۷.۴۰)');
+
+  /* ۲۰.۱۰ — **سنجهٔ اصلی.** منبعی که نامزد *می‌دهد* ولی هیچ‌کدام مجوز
+     ندارند، باید «غیرقابلِ استفاده» شمرده شود و اجرا قرمز شود. این
+     دقیقاً حالتی است که اجرای واقعی در آن سبز شد. */
+  ok('۲۰.۱۰ منبعی که فقط نامزدِ بی‌مجوز می‌دهد، «قابلِ استفاده» شمرده نمی‌شود',
+     (() => {
+       const stub = '{"ok": True, "n": 4, "note": "", "cands": [' +
+         '{"license": "", "mime": "JPEG", "w": 9, "h": 9, "bytes": 10, ' +
+         '"url": "", "name": "no-licence"}]}';
+       const r = vcall([
+         'V.src_commons = lambda *a, **k: ' + stub,
+         'V.src_openverse = lambda *a, **k: ' + stub,
+         'V.src_archive = lambda *a, **k: ' + stub,
+         'print("RC=" + str(V.main()))'
+       ].join('\n'));
+       return /RC=1\b/.test(String(r.stdout));
+     })(),
+     'گرفت: ' + (() => {
+       const stub = '{"ok": True, "n": 4, "note": "", "cands": [' +
+         '{"license": "", "mime": "JPEG", "w": 9, "h": 9, "bytes": 10, ' +
+         '"url": "", "name": "no-licence"}]}';
+       const r = vcall([
+         'V.src_commons = lambda *a, **k: ' + stub,
+         'V.src_openverse = lambda *a, **k: ' + stub,
+         'V.src_archive = lambda *a, **k: ' + stub,
+         'print("RC=" + str(V.main()))'
+       ].join('\n'));
+       return (String(r.stdout).match(/RC=\d/) || ['RC=?'])[0];
+     })() + ' — اجرای واقعی در همین حالت «۱ منبع» گفت و سبز شد');
+
+  /* ۲۰.۱۱ — «n=0» باید قابلِ تشخیص باشد از «پرسشم تنگ بود». بی خطای خودِ
+     API و بی پرسشِ سادهٔ دوم، نتیجه‌گیری «منابعِ مجانی جواب نمی‌دهند»
+     می‌شد — که ممکن است اصلاً غلط باشد. */
+  ok('۲۰.۱۱ خطا/هشدارِ API چاپ می‌شود و پرسشِ سادهٔ دوم هم امتحان می‌شود',
+     (() => {
+       const r = vcall('print(json.dumps({"note": V.apiNote_(' +
+         '{"warnings": {"search": {"*": "too narrow"}}}), ' +
+         '"clean": V.apiNote_({"query": {}})}))');
+       const g = JSON.parse(String(r.stdout).trim() || '{}');
+       const twoQ = /for qq in \(\[q, q2\] if q2 else \[q\]\)/.test(vp);
+       return /too narrow/.test(String(g.note)) && g.clean === '' && twoQ;
+     })(),
+     'اجرای اول با چهار واژه همه‌جا n=0 داد؛ بی این دو، «منبع خالی است» و ' +
+     '«پرسشم تنگ بود» یک چیز به نظر می‌رسیدند');
 }
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
