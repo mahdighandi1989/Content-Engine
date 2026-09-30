@@ -3551,8 +3551,31 @@ function ytVisOn_(show) {
 
 /** چند تصویر برای این مدت. عددِ مدل نیست — از مدتِ واقعیِ قسمت درمی‌آید. */
 function ytVisWant_(totalSec) {
-  var mins = Math.max(1, (Number(totalSec) || 0) / 60);
+  var sec = Math.max(60, Number(totalSec) || 0);
+  var mins = sec / 60;
   var n = Math.round(mins * (Number(CFG.LV_PER_MIN) || 0.8));
+
+  /* ══ دو عددی که نوشته شده بودند و به هیچ تصمیمی وصل نبودند (۸.۰۰) ══
+   * `LV_MIN_SEC` و `LV_MAX_SEC` از روزِ اول در تنظیم‌ها بودند، با
+   * توضیحِ خودشان — «کوتاه‌تر از این، تصویر دیده نمی‌شود» و «بلندتر از
+   * این، بیننده خسته می‌شود» — و در **هیچ فایلی** خوانده نمی‌شدند: نه در
+   * `src/`، نه در `tools/`، نه در یک سنجه. قاعده نوشته شده بود و کد
+   * اجرایش نمی‌کرد؛ همان شکلی که این پرونده بیش از هر شکلِ دیگری ثبت
+   * کرده. با اجرای نقشه روی یک قسمتِ واقعی پیدا شد، نه با خواندنِ کد.
+   *
+   * حالا `LV_PER_MIN` یک **پیشنهاد** است و این دو، مرز:
+   *   کف  ⇐ هیچ تصویری کمتر از LV_MIN_SEC روی قاب نمانَد
+   *   سقف ⇐ هیچ تصویری بیشتر از LV_MAX_SEC روی قاب نمانَد
+   * و اگر این دو با هم نخوانند، **سقف برنده است**: تصویرِ کوتاه یعنی یک
+   * کارتِ دیده‌نشده، تصویرِ بلند یعنی یک ویدئوی خسته‌کننده — و اولی
+   * برگشت‌پذیر است (کارت در جزوه هست)، دومی نه. */
+  var maxSec = Math.max(5, Number(CFG.LV_MAX_SEC) || 90);
+  var minSec = Math.max(1, Number(CFG.LV_MIN_SEC) || 8);
+  var floorN = Math.ceil(sec / maxSec);          // کمتر از این، کارت‌ها بلند می‌شوند
+  var ceilN = Math.floor(sec / minSec);          // بیشتر از این، کارت‌ها کوتاه می‌شوند
+  if (ceilN >= floorN) n = Math.min(Math.max(n, floorN), ceilN);
+  else n = floorN;
+
   return Math.max(3, Math.min(Number(CFG.LV_MAX_PER_EP) || 40, n));
 }
 
