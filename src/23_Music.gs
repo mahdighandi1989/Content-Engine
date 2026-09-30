@@ -3173,16 +3173,52 @@ function musicRecheck_(hub, opt) {
       out.notes.push('وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.');
       break;
     }
-    var f2 = todo[i], bytes = null, info = null;
-    out.checked++;
-    try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
+    var f2 = todo[i];
     var mt = null;
     try { mt = musicMeta_(f2.getName()); } catch (eMt) {}
+
+    /* ══ سقفِ تلاش **پیش از خواندنِ بایت‌ها** (۸.۰۳) ══
+     * قطعه‌ای که `MUSIC_HEAR_TRY_MAX` بار پرسیده شده و مدل جواب نداده، از
+     * صفِ **شبانه** بیرون می‌رود. نه پاک می‌شود و نه پخش — فقط هر شب چند
+     * مگابایتش خوانده نمی‌شود تا جای بقیه را نگیرد.
+     * و این سد این‌جاست نه در فیلترِ بالا، چون آن‌جا فقط ردیفِ **تب** در
+     * دسترس است و تب ستونِ «تلاش» ندارد: سدی که در فیلتر گذاشته بودم هرگز
+     * نمی‌گرفت و سنجهٔ ۱۹.۳ همان شب پیدایش کرد.
+     * `onlyUnknown` نداشتن یعنی دکمهٔ منو، و آن بی‌قید است: دری که آدم
+     * بتواند بازش کند بسته نمی‌شود (۵.۹۵). */
+    if (opt.onlyUnknown) {
+      var tmax = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
+      if ((Number(mt && mt.tries) || 0) >= tmax) { out.skipped = (out.skipped || 0) + 1; continue; }
+    }
+
+    var bytes = null, info = null;
+    out.checked++;
+    try { bytes = f2.getBlob().getBytes(); info = wavInfo_(bytes); } catch (e) { info = null; }
     var acc = info ? musicAccept_(bytes, info, f2.getName(),
                                   (mt && mt.kind) || 'موسیقی')
                    : { ok: false, why: 'WAV خوانده نشد' };
     if (acc.ok) {
       out.kept++;
+      /* ══ تلاشِ ناموفق هم ثبت می‌شود — وگرنه حلقه هرگز بسته نمی‌شود (۸.۰۳) ══
+       * تا ۸.۰۲ فقط داوریِ **قطعی** نوشته می‌شد. یعنی قطعه‌ای که مدل نشنیدش
+       * فردا شب دوباره در صف بود، بایت‌هایش دوباره خوانده می‌شد، و باز هم
+       * چیزی ثبت نمی‌شد. سنجیده شد: ۲۹ سپتامبر ۹۹ قطعه / ۶۲ شنیده‌نشده،
+       * ۳۰ سپتامبر ۱۰۵ / ۶۸ — یعنی در یک شب شش تا آمد و **صفر تا** شنیده شد.
+       * از بیرون «۶۸ شنیده‌نشده» شبیهِ «هنوز نرسیده‌ایم» است، در حالی که
+       * واقعیت «هفته‌هاست می‌پرسیم و مدل جواب نمی‌دهد» بود — دو چیزِ کاملاً
+       * متفاوت با دو درمانِ متفاوت، که گزارش یکی‌شان می‌کرد. */
+      if (!acc.sure) {
+        try {
+          var na = mt || {};
+          na.tries = String((Number(na.tries) || 0) + 1);
+          na.lastTry = nowStr_();
+          na.verdict = String(acc.why || '');
+          if (!na.title) na.title = f2.getName().replace(/\.wav$/i, '');
+          if (!na.kind) na.kind = 'موسیقی';
+          musicMetaWrite_(f2.getName(), na);
+          out.tried = (out.tried || 0) + 1;
+        } catch (eTa) {}
+      }
       /* ── داوریِ تازه باید ثبت شود، وگرنه بازبینی بی‌اثر است ──
        * تا ۵٫۷۰ اینجا فقط شمرده می‌شد. یعنی قطعه‌ای که بارِ اول مدل نتوانست
        * قضاوتش کند («❓ مدل نشنید») تا ابد نامعلوم می‌ماند، هرچند بار هم

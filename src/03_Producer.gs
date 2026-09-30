@@ -494,6 +494,37 @@ function hasTashkil_(t) {
  * اعرابِ کاملاً درست دور می‌رفت — چهار فراخوانِ محکوم‌به‌شکست خرج می‌شد و
  * بخشِ کوتاه همیشه با متنِ ساده خوانده می‌شد.
  */
+/**
+ * **پوششِ واژه‌ای اعراب** — عددی که تا ۸.۰۲ هیچ‌جا سنجیده نمی‌شد.
+ *
+ * `speakVowelledOk_` می‌پرسد «اصلاً اعرابی هست؟» و `speakSkip` می‌شمارد
+ * «چند **بخش** بی‌اعراب خوانده شد». هر دو درست‌اند و هر دو ساختاری: یک بخش
+ * می‌تواند ۸۷٪ پوشیده باشد و باز هم دویست واژه‌اش هیچ علامتی نداشته باشند.
+ *
+ * سنجیده شد روی درس‌نامهٔ ۵۶: گزارشِ موتور «۱ بخش از ۹۵ بی‌اعراب (۱٪)» بود،
+ * و عددِ واقعی **۲۰۷ واژه از ۱۵۸۴ (۱۳٫۱٪)** — از جمله «پی‌ریزی» که صاحبِ
+ * برنامه با گوشش شنید غلط خوانده شد. دو عدد دربارهٔ دو چیز، و فقط آنکه
+ * خوشایندتر بود گزارش می‌شد.
+ *
+ * واژه‌های کوتاه‌تر از سه حرف شمرده نمی‌شوند: «را»، «به»، «که» بی‌اعراب هم
+ * درست خوانده می‌شوند و واردکردنشان عدد را بی‌معنا می‌کند.
+ */
+function speakCover_(v) {
+  var H = '\u064B-\u0652\u0670';
+  var out = { words: 0, bare: 0, pct: 0 };
+  try {
+    var ws = String(v || '').match(new RegExp('[\u0621-\u064A\u066E-\u06FF\u200c' + H + ']+', 'g')) || [];
+    for (var i = 0; i < ws.length; i++) {
+      var letters = ws[i].replace(new RegExp('[' + H + '\u200c]', 'g'), '');
+      if (letters.length < 3) continue;
+      out.words++;
+      if (!(new RegExp('[' + H + ']')).test(ws[i])) out.bare++;
+    }
+    out.pct = out.words ? Math.round(out.bare / out.words * 1000) / 10 : 0;
+  } catch (e) {}
+  return out;
+}
+
 function speakVowelledOk_(plain, v) {
   if (hasTashkil_(v)) return true;
   var letters = (String(plain || '').match(/[\u0621-\u064A\u066E-\u06FF]/g) || []).length;
@@ -2342,8 +2373,19 @@ function speakSkipRecord_(ep, label, hub, epNum) {
     /* نجاتِ جمله‌ای هم ثبت می‌شود (۶٫۸۹). بی این، اثرِ اصلاح نامرئی است:
        درصدِ «بی‌اعراب» پایین می‌آید و هیچ‌کس نمی‌داند از کجا — و اگر روزی
        بالا برود، نمی‌شود گفت نجات از کار افتاده یا مدل بدتر شده. */
+    /* ══ پوششِ واژه‌ای، در همان رکورد (۸.۰۳) ══
+       عددِ `s/n` می‌گوید چند **بخش** بی‌اعراب رفت؛ این می‌گوید داخلِ بخش‌هایی
+       که اعراب خوردند، چند **واژه** هیچ علامتی ندارند. دو چیزِ متفاوت، و تا
+       امروز فقط اولی گزارش می‌شد — درس‌نامهٔ ۵۶ با «۱٪» گزارش شد در حالی که
+       ۱۳٫۱٪ واژه‌هایش بی‌اعراب بود، و صاحبِ برنامه یکی‌شان را با گوشش شنید. */
+    var cw = 0, cb = 0;
+    for (var c0 = 0; c0 < S.length; c0++) {
+      if (!S[c0] || !S[c0].t) continue;
+      try { var cv = speakCover_(S[c0].t); cw += cv.words; cb += cv.bare; } catch (eCv) {}
+    }
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
+                cw: cw, cb: cb,
                 sv: Number(SPEAK_SALVAGE_.pieces) || 0,
                 sk: Number(SPEAK_SALVAGE_.kept) || 0,
                 sd: Number(SPEAK_SALVAGE_.dropped) || 0,
@@ -2391,7 +2433,8 @@ function speakSkipRecord_(ep, label, hub, epNum) {
 /** خطِ روزانهٔ «چند بخش بی‌اعراب رفت» — حتی وقتی صفر است. */
 function speakSkipStatus_() {
   var out = { line: '', ok: true, eps: 0, segs: 0, skipped: 0,
-              saved: 0, savedSents: 0, rawSents: 0 };
+              saved: 0, savedSents: 0, rawSents: 0,
+              words: 0, bare: 0, barePct: 0 };
   try {
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = raw ? JSON.parse(raw) : [];
@@ -2405,11 +2448,14 @@ function speakSkipStatus_() {
       out.saved += Number(L[i].sv) || 0;
       out.savedSents += Number(L[i].sk) || 0;
       out.rawSents += Number(L[i].sd) || 0;
+      out.words += Number(L[i].cw) || 0;
+      out.bare += Number(L[i].cb) || 0;
       var w0 = L[i].w || {};
       for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
         whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
       }
     }
+    out.barePct = out.words ? Math.round(out.bare * 1000 / out.words) / 10 : 0;
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
     out.line = 'اعراب‌گذاری: در ' + fa(out.eps) + ' قسمتِ اخیر، ' + fa(out.skipped) +
@@ -2419,6 +2465,39 @@ function speakSkipStatus_() {
     if (out.saved) {
       out.line += ' ' + fa(out.saved) + ' بخش جمله‌به‌جمله نجات یافت (' +
                   fa(out.savedSents) + ' جمله با اعراب، ' + fa(out.rawSents) + ' جمله خام).';
+    }
+    /* ══ و عددی که تا ۸.۰۲ هیچ‌جا گفته نمی‌شد (۸.۰۳) ══
+       «۱ بخش از ۹۵ بی‌اعراب» و «۲۰۷ واژه از ۱۵۸۴ بی‌اعراب» دو چیزِ متفاوت‌اند،
+       و فقط اولی گزارش می‌شد. صاحبِ برنامه «پی‌ریزی» را با گوشش شنید که غلط
+       خوانده شد؛ آن واژه در دستهٔ دوم بود، یعنی در گزارش اصلاً دیده نمی‌شد.
+       این خط **همیشه** می‌آید، حتی وقتی عدد خوب است: نبودش از «خوب بود»
+       قابلِ تشخیص نیست. */
+    if (out.words) {
+      out.line += ' پوششِ واژه‌ای: ' + fa(out.bare) + ' واژه از ' + fa(out.words) +
+                  ' هیچ اعرابی ندارد (' + fa(out.barePct) + '٪).';
+    }
+    /* و از سقفی به بالا، **ایرادِ کد** است نه یادداشت: مدل دارد کار می‌کند و
+       بخش‌ها اعراب می‌خورند، ولی داخلشان یک‌هفتمِ واژه‌ها علامت نمی‌گیرند —
+       و هر کدامشان یک «پی‌ریزی»ِ بالقوه است. */
+    var bareMax = Math.max(1, Number(CFG.SPEAK_BARE_MAX_PCT) || 8);
+    if (out.words >= 300 && out.barePct > bareMax) {
+      out.ok = false;
+      out.line += ' — بیش از سقفِ ' + fa(bareMax) + '٪.';
+      try {
+        logSelfFinding_({
+          key: 'speak-bare-words', priority: 'جدی', category: 'اعراب‌گذاری',
+          title: 'یک‌هفتمِ واژه‌ها اعراب نمی‌گیرند',
+          detail: out.bare + ' واژه از ' + out.words + ' در ' + out.eps +
+                  ' قسمتِ اخیر هیچ علامتی ندارند (' + out.barePct + '٪، سقف ' +
+                  bareMax + '٪). بخش‌ها اعراب می‌خورند، پس سدِ ساختاری سبز است؛ ' +
+                  'ایراد داخلِ بخش است.',
+          instruction: 'متنِ `__speakSegs` یک قسمتِ تازه را باز کن و واژه‌های ' +
+                       'بی‌علامت را ببین. اگر دسته‌ای‌اند (ترکیب‌ها، واژه‌های ' +
+                       'فرنگی، عددها) بندِ SPEAK_TRAPS برایشان بنویس؛ اگر پراکنده‌اند، ' +
+                       'دستورِ نویسنده باید صریح بگوید «هر واژهٔ سه‌حرفی به بالا علامت بگیرد».',
+          owner: 'کد'
+        });
+      } catch (eF) {}
     }
     // همان مرزِ speakSkipRecord_: «هیچ بخشی نگرفت» مسئلهٔ دسترسی است،
     // «بعضی گرفتند و بعضی نه» مسئلهٔ سد است. سه قسمتِ پیاپیِ کاملاً بی‌اعراب
