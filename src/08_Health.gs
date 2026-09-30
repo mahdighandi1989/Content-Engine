@@ -610,6 +610,10 @@ function writeStatus_(hub, note) {
     })()
   };
 
+  /* کارنامهٔ قابلیت‌ها **پس از** ساختنِ `status` حساب می‌شود، چون ورودی‌اش
+     همین شیء است — و همین است که هزینه‌اش را صفر می‌کند. */
+  try { status.capabilities = capStatus_(status); } catch (eCap) { status.capabilities = null; }
+
   var body = JSON.stringify(status, null, 1);
   var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
   var it = folder.getFilesByName(STATUS_FILE);
@@ -1147,6 +1151,236 @@ function healthHas_(needMs, what, skipped) {
   if (healthLeft_() >= needMs) { healthStep_(what); return true; }
   if (skipped) skipped.push(what);
   return false;
+}
+
+
+/**
+ * ══ کارنامهٔ قابلیت‌ها — «روشن است» با «کار می‌کند» یکی نیست ══
+ *
+ * صاحبِ برنامه: «حتی ممکن خیلی گزینه‌های که اضافه کردی استفاده نکنم تا
+ * مدت‌ها، ولی ناظر باید به عملکردش توجه کنه … ببینه همه سیم‌کشی‌ها و
+ * گزینه‌ها و قابلیت‌ها درست کار می‌کنه یا نه … و اصلاحات رو هم پیگیری کنه.»
+ * و بعد، صریح‌تر: «فقط حرفم برای این ویدیو و .. نبود بلکه همه موارد توی
+ * پروژه.»
+ *
+ * **این تابع هیچ خواندنِ تازه‌ای ندارد.** `st` همان چیزی است که
+ * `writeStatus_` ساخته و همه‌جا مصرف می‌شود؛ گذاشتنِ خواندنِ تازه این‌جا
+ * دقیقاً همان کاری بود که ۷٫۶۳ و ۷٫۷۲ ثبتش کرده‌اند — هزینه روی تابعی که
+ * تازه از هزینه مرده بود.
+ *
+ * چهار داوری، و مرزها عمدی‌اند:
+ *   • «خاموش (تصمیم)» — کلیدش پایین است. **ایراد نیست** و `ok` را پایین
+ *     نمی‌آورد. هشداری که برای تصمیمِ خودِ صاحبِ برنامه بزند، هشداری است که
+ *     یاد می‌گیرند نخوانند.
+ *   • «کار می‌کند» — شاهدِ تازه دارد.
+ *   • «روشن ولی بی‌اثر» — تنها حالتی که ایراد است.
+ *   • «نامعلوم» — شاهدی نیست. **به‌عنوان شکافِ پوشش شمرده می‌شود، نه ایراد**
+ *     (۷٫۵۷): نبودِ سنجه با بودنِ عیب یکی نیست، و اگر یکی گرفته شوند یک
+ *     شاهدِ خراب همهٔ جدول را بی‌اعتبار می‌کند.
+ *
+ * و ردیفی که **سیم‌کشی‌اش** غلط است — کلیدی در `CFG` که وجود ندارد، یا
+ * شاهدی در `_STATUS.json` که وجود ندارد — **به نام** گزارش می‌شود. این همان
+ * چیزی است که در نگارشِ اولِ همین جدول پیش آمد: `EMB_ENABLED` نوشته بودم و
+ * کلیدِ واقعی `EMB_ON` است؛ بی این وارسی، آن قابلیت **برای همیشه «خاموش»**
+ * گزارش می‌شد و هیچ‌جا صدا درنمی‌آمد. یعنی خودِ جدول همان عیبی را می‌گرفت که
+ * برای گرفتنش ساخته شده — به شرطِ اینکه سیم‌کشیِ خودش هم سنجیده شود.
+ */
+function capNewest_(o, depth) {
+  /* تازه‌ترین تاریخِ `yyyy-MM-dd HH:mm` (یا فقط `yyyy-MM-dd`) هرجا در این
+     شیء. عمداً عمومی است و نه یک استخراج‌گر به‌ازای هر قابلیت: فهرستِ
+     دستیِ سی‌تایی همان `removeTriggers` است که یک سال کهنه ماند — قابلیتِ
+     تازه این‌طور مفت پوشش می‌گیرد، و قابلیتی که تاریخ ندارد **می‌گوید**
+     ندارد، نه اینکه عددی از خودش دربیاورد. */
+  var best = '';
+  /* **دو قالبِ تاریخ در این مخزن هست، نه یکی**: `nowStr_` می‌دهد
+     `yyyy-MM-dd HH:mm` و چند جا (`speakRevLog_`، `recapLog_`، …) مستقیم
+     `toISOString()` می‌نویسند که با `T` جدا می‌کند. نگارشِ اولِ این تابع فقط
+     اولی را می‌شناخت، پس شاهدِ آن قابلیت‌ها را **نمی‌دید** و آن‌ها برای همیشه
+     «نامعلوم» گزارش می‌شدند — عیبی که از بیرون شبیهِ «آن قابلیت کار نمی‌کند»
+     است. تاریخِ بی‌ساعت هم پذیرفته می‌شود (`speakSkipRecord_`).
+
+     یکسان‌سازی با **جانشینیِ `T` با فاصله** انجام می‌شود، نه با یک شاخهٔ
+     `[ T]` در الگو — و این انتخاب است نه سلیقه: مقایسهٔ «تازه‌ترین» رشته‌ای
+     است، و `'T' > ' '` در اسکی، پس با دو قالبِ درهم یک تاریخِ ISOِ قدیمی‌تر
+     از یک تاریخِ تازهٔ فاصله‌دار بزرگ‌تر درمی‌آمد. نگارشِ اول **هر دو** را
+     داشت، و شاخهٔ الگو کدِ مرده بود: شکستنش هیچ سنجه‌ای را سرخ نکرد. */
+  var RE = /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/;
+  var walk = function (v, d) {
+    if (d > 4 || v == null) return;
+    if (typeof v === 'string') {
+      var s = (v.length > 16 ? v.slice(0, 16) : v).replace('T', ' ');
+      if (RE.test(s) && s > best) best = s;
+      return;
+    }
+    if (typeof v !== 'object') return;
+    if (v instanceof Array) {
+      for (var i = 0; i < v.length && i < 40; i++) walk(v[i], d + 1);
+      return;
+    }
+    for (var k in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+      walk(v[k], d + 1);
+    }
+  };
+  walk(o, depth || 0);
+  return best;
+}
+
+function capStatus_(st) {
+  var out = { n: 0, working: 0, off: 0, idle: [], unknown: [], wiring: [],
+              rows: [], ok: true, line: '' };
+  var list = (CFG.CAPABILITIES || []);
+  var idleDays = Math.max(1, Number(CFG.CAP_IDLE_DAYS) || 7);
+  var fresh = Math.max(0, Number(CFG.CAP_FRESH_DAYS) || 2);
+  var today = new Date();
+
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    var row = { key: c.key, name: c.name, on: true, did: '', days: -1, verdict: '', why: '' };
+    out.n++;
+
+    /* ۱) کلید. نبودنش در `CFG` یک عیبِ سیم‌کشی است، نه «خاموش». */
+    if (c.sw) {
+      if (!Object.prototype.hasOwnProperty.call(CFG, c.sw)) {
+        row.verdict = 'سیم‌کشی';
+        row.why = 'کلیدِ ' + c.sw + ' در CFG نیست';
+        out.wiring.push(c.key + ' — ' + row.why);
+        out.rows.push(row); continue;
+      }
+      row.on = !!CFG[c.sw];
+    }
+
+    /* ۲) شاهد. نبودِ کلید در `_STATUS.json` هم عیبِ سیم‌کشی است — و با
+       «شاهد خوانده نشد» (که `null` است) یکی نیست. */
+    var has = !!st && Object.prototype.hasOwnProperty.call(st, c.at);
+    if (!has) {
+      row.verdict = 'سیم‌کشی';
+      row.why = 'شاهدِ ' + c.at + ' در _STATUS.json نیست';
+      out.wiring.push(c.key + ' — ' + row.why);
+      out.rows.push(row); continue;
+    }
+    var ev = st[c.at];
+
+    if (!row.on) {
+      row.verdict = 'خاموش (تصمیم)';
+      out.off++;
+      out.rows.push(row); continue;
+    }
+
+    if (ev === null || ev === undefined) {
+      row.verdict = 'نامعلوم'; row.why = 'شاهد خوانده نشد';
+      out.unknown.push(c.key + ' — ' + row.why);
+      out.rows.push(row); continue;
+    }
+
+    row.did = capNewest_(ev);
+    /* ══ درِ دوم: کارنامهٔ خودِ زیرسامانه در Script Properties ══
+     * چند تابعِ وضعیت تاریخ را **دارند ولی بیرون نمی‌دهند** (`speakRevLog_`،
+     * `recapLog_`، واسنجیِ گفتار، پوششِ اعراب). عوض کردنِ هفت تابع در هفت
+     * بخش یعنی هفت مجموعهٔ آزمونِ دیگر در معرضِ خطر، برای عددی که همان‌جا
+     * کنارِ دست است. `pk` همان کارنامه را می‌خوانَد.
+     *
+     * هزینه‌اش یک `getProperty` است، نه خواندنِ هابِ ۲۹ مگابایتی — و فقط
+     * وقتی شاهدِ اصلی تاریخ نداشت (۷٫۶۳/۷٫۷۲: هزینه روی مسیری که کسی
+     * رویش ایستاده، فقط وقتی لازم است). */
+    if (!row.did && c.pk && PK[c.pk]) {
+      try {
+        var raw = props_().getProperty(PK[c.pk]);
+        if (raw) row.did = capNewest_(JSON.parse(raw));
+      } catch (ePk) {}
+    }
+    if (!row.did) {
+      row.verdict = 'نامعلوم'; row.why = 'هیچ تاریخی در شاهد نیست';
+      out.unknown.push(c.key + ' — ' + row.why);
+      out.rows.push(row); continue;
+    }
+    row.days = Math.floor((today.getTime() - new Date(row.did.replace(' ', 'T') + ':00').getTime())
+                          / 86400000);
+    if (!(row.days >= 0)) row.days = 0;
+
+    /* موتورِ تازه‌نصب «بی‌اثر» نیست — ۷٫۶۳: «نمی‌دانیم» با «نرفت» یکی نیست. */
+    if (row.days > idleDays && row.days > fresh) {
+      row.verdict = 'روشن ولی بی‌اثر';
+      row.why = row.days + ' روز است اثری ندارد';
+      out.idle.push(c.key + ' — ' + row.why);
+      out.ok = false;
+    } else {
+      row.verdict = 'کار می‌کند'; out.working++;
+    }
+    out.rows.push(row);
+  }
+
+  /* خط **هر روز** می‌آید، حتی وقتی همه‌چیز سالم است: سکوت را نمی‌شود از
+     مرگِ سامانه تشخیص داد (۵٫۹۰/۷٫۲۱). */
+  var L = 'کارنامهٔ قابلیت‌ها: ' + out.working + ' از ' + out.n + ' کار می‌کنند';
+  if (out.off) L += ' · ' + out.off + ' خاموش (تصمیمِ شما)';
+  if (out.idle.length) L += ' · ⚠ ' + out.idle.length + ' روشن ولی بی‌اثر: ' + out.idle.join('؛ ');
+  /* «نامعلوم» **نام‌برده** می‌شود، نه فقط شمرده — همان تفاوتی که ۸.۰۴ برای
+     واژه‌های بی‌اعراب پیدا کرد: تا وقتی فقط عدد را می‌دانیم، هیچ‌کس نمی‌تواند
+     دنبالش برود. و `ok` را پایین نمی‌آورد، چون نبودِ سنجه با بودنِ عیب یکی
+     نیست (۷٫۵۷) — قضاوتش کارِ ناظر است که زمینه را می‌داند: قابلیتی که
+     هفته‌هاست موتور روشن است و هنوز شاهدی ندارد، خودش یافته است. */
+  if (out.unknown.length) {
+    var nm = [];
+    for (var u = 0; u < out.rows.length && nm.length < 8; u++) {
+      if (out.rows[u].verdict === 'نامعلوم') nm.push(out.rows[u].name);
+    }
+    L += ' · ' + out.unknown.length + ' نامعلوم (شاهدی ندارند): ' + nm.join('، ') +
+         (out.unknown.length > nm.length ? ' و ' + (out.unknown.length - nm.length) + ' تای دیگر' : '');
+  }
+  if (out.wiring.length) {
+    L += ' · ❌ ' + out.wiring.length + ' سیم‌کشیِ خرابِ خودِ کارنامه: ' + out.wiring.join('؛ ');
+    out.ok = false;
+  }
+  out.line = L + '.';
+  return out;
+}
+
+/**
+ * یافته‌ای به‌ازای **هر** قابلیتِ بی‌اثر، نه یکی برای همه: یک ردیفِ «چند
+ * قابلیت بی‌اثرند» فردا با یک ردیفِ دیگر عوض می‌شود و تکرار دیده نمی‌شود،
+ * در حالی که این پرونده می‌گوید یافته روی موضوعِ خودش کلید بخورد تا تکرار،
+ * تکرار دیده شود.
+ */
+function capFindings_(hub, cap) {
+  if (!cap || !cap.rows) return 0;
+  var n = 0;
+  for (var i = 0; i < cap.rows.length; i++) {
+    var r = cap.rows[i];
+    if (r.verdict !== 'روشن ولی بی‌اثر' && r.verdict !== 'سیم‌کشی') continue;
+    try {
+      logSelfFinding_(hub, {
+        priority: r.verdict === 'سیم‌کشی' ? 'جدی' : 'متوسط',
+        category: 'کد',
+        /* `owner` است که مسیر را تعیین می‌کند، نه `category`: `reportRow_`
+           هر مسئولی که واژهٔ «کد» داشته باشد را به صفِ `NEEDS_CODE`
+           می‌فرستد. نگارشِ اول فقط `category` داشت و ردیف با «موتور / تازه»
+           می‌نشست — یعنی بیرونِ همان صفی که نسخهٔ بعدیِ کد از آن ساخته
+           می‌شود، که کلِ هدفِ این یافته است. */
+        owner: ROWNER_CODE,
+        key: (r.verdict === 'سیم‌کشی' ? 'cap-wiring-' : 'capability-idle-') + r.key,
+        title: r.verdict === 'سیم‌کشی'
+          ? ('کارنامهٔ قابلیت‌ها برای «' + r.name + '» سیم‌کشی ندارد')
+          : ('«' + r.name + '» روشن است ولی کاری نمی‌کند'),
+        detail: r.verdict === 'سیم‌کشی'
+          ? (r.why + '. تا این درست نشود، این قابلیت هر روز بی‌صدا «خاموش» گزارش می‌شود — ' +
+             'بدترین شکلِ خرابی در این پرونده: نامی درست، جایی درست، و هیچ سنجشی.')
+          : (r.why + ' (آخرین شاهد: ' + (r.did || 'هیچ') + '). کلیدش پایین نیست، ' +
+             'یعنی این خاموشیِ خواسته‌شده نیست.'),
+        instruction: r.verdict === 'سیم‌کشی'
+          ? ('ردیفِ `' + r.key + '` در `CFG.CAPABILITIES` را درست کن — نامِ کلیدِ `sw` یا ' +
+             'نامِ شاهدِ `at` با واقعیت نمی‌خوانَد. این عیب در نگارشِ اولِ خودِ این جدول ' +
+             'واقعاً افتاد (`EMB_ENABLED` نوشته شده بود و کلیدِ واقعی `EMB_ON` است).')
+          : ('علتش را پیدا کن، نه اینکه دوباره ثبتش کنی: قابلیت روشن است و کاری نمی‌کند. ' +
+             'شاهدش `_STATUS.json` ⇒ `' + r.key + '` است؛ اول ببین آن شاهد چرا تاریخِ تازه ' +
+             'ندارد — کارِ شبانه به بلوکش نمی‌رسد (`nightHas_`)، یا گیتِ ورودش هیچ‌وقت ' +
+             'صادق نمی‌شود (۷٫۶۲)، یا واقعاً چیزی برایش نیست. اگر خاموشی خواستهٔ صاحبِ ' +
+             'برنامه است، کلیدش را پایین بیاور تا «تصمیم» شمرده شود، نه ایراد.')
+      });
+      n++;
+    } catch (e) {}
+  }
+  return n;
 }
 
 function healthCheck() {
@@ -1899,6 +2133,26 @@ function healthCheck() {
       else notes.push(sv.line);
     }
   } catch (eSv) {}
+
+  /* ══ کارنامهٔ قابلیت‌ها — هر روز، حتی روزِ سالم ══
+   * خواستهٔ صاحبِ برنامه: «لازم نباشه من هر بار ایمیل بفرستم و تو دوباره
+   * بفهمی اتوماسیون درست کار نکرده.» یعنی جدولی که خودش هر روز می‌گوید چه
+   * چیزی روشن است و کار می‌کند، چه چیزی خاموش است (و آن تصمیمِ خودش است)،
+   * و چه چیزی روشن است و **کاری نمی‌کند** — که تنها حالتِ ایراد است.
+   *
+   * `st.capabilities` را `writeStatus_` از قبل ساخته؛ این‌جا فقط خوانده
+   * می‌شود. اگر نساخته بود (روزی که نوشتنِ وضعیت افتاد) همان‌جا حساب
+   * می‌شود، چون این خط نباید روزی که بیشترین لزوم را دارد غایب باشد. */
+  try {
+    var cp = st.capabilities;
+    if (!cp) { cp = capStatus_(st); st.capabilities = cp; }
+    if (cp && cp.line) {
+      if (cp.ok === false) problems.push(cp.line); else notes.push(cp.line);
+    }
+    /* و یافته، نه فقط جمله: جمله‌ای در نامهٔ فردا عوض می‌شود، یافته نه. */
+    if (cp && (cp.idle.length || cp.wiring.length)) capFindings_(hub, cp);
+  } catch (eCp) {}
+
   try { ytHealth_(problems, notes); } catch (eYt) {}
   /* تصویرهای درس (۷.۹۵) — **هر روز**، حتی روزی که هیچ خبری نیست. صاحبِ
      برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»

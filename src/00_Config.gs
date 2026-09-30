@@ -603,10 +603,78 @@ var CFG = {
     { key: 'video-watch', title: 'یک ویدئوی واقعیِ تولیدشده تماشا شد (§۴٫۱۲)' },
     { key: 'video-sync', title: 'هم‌زمانیِ گفتار و تصویر در سه نقطه سنجیده شد (§۴٫۱۲)' },
     { key: 'video-match', title: 'تصویرها با محتوای همان لحظه مقایسه شدند (§۴٫۱۲)' },
+    /* ══ خواستهٔ صریحِ ۸.۰۵ ══
+     * «حتی ممکن خیلی گزینه‌های که اضافه کردی استفاده نکنم تا مدت‌ها، ولی
+     * ناظر باید به عملکردش توجه کنه … و اصلاحات رو هم پیگیری کنه» — و بعد:
+     * «فقط حرفم برای این ویدیو و .. نبود بلکه همه موارد توی پروژه.»
+     * خروجیِ سالمِ این وارسی طبیعتاً کم‌حرف است، پس بی این ردیف «دیدم و
+     * ایرادی نبود» از «ندیدم» قابلِ تشخیص نیست. */
+    { key: 'capabilities', title: 'کارنامهٔ قابلیت‌های کلِ پروژه دیده و پیگیری شد (§۴٫۱۳)' },
     { key: 'reports-queue', title: 'صفِ دستورها و یافته‌های تکراری (§۴٫۸)' },
     { key: 'podcasts', title: 'دو پادکستِ دیروز (§۲)' }
   ],
   MONITOR_CHECK_DAYS: 2,       // چند روز سکوت تا یافته ساخته شود
+
+  /* ══ کارنامهٔ قابلیت‌ها (۸.۰۵) ══
+   * خواستهٔ صریحِ صاحبِ برنامه: «حتی ممکن خیلی گزینه‌های که اضافه کردی
+   * استفاده نکنم تا مدت‌ها، ولی ناظر باید به عملکردش توجه کنه و فقط کدها رو
+   * نبینه و اجرا کنه و ببینه همه سیم‌کشی‌ها و گزینه‌ها و قابلیت‌ها درست کار
+   * می‌کنه یا نه» — و بعد، صریح‌تر: «فقط حرفم برای این ویدیو و .. نبود بلکه
+   * همه موارد توی پروژه».
+   *
+   * چرا یک جدول و نه چند جملهٔ پراکنده: این پرونده بیش از هر شکلِ دیگری
+   * یک چیز را ثبت کرده — قابلیتی که ساخته شد، سنجه‌اش سبز بود، و **هفته‌ها
+   * هیچ کاری نکرد** بی آنکه جایی صدا دربیاید (بانکِ موسیقی، `sfxAllow_`،
+   * `pruneEnrichFiles_`، `musicWish_`، بذرِ نمونهٔ روح). هر بار علت یکی بود:
+   * «روشن است» با «کار می‌کند» یکی گرفته شده بود.
+   *
+   * سه ستونِ این جدول همان سه پرسشِ جدا هستند:
+   *   on   — روشن است؟  (تصمیمِ صاحبِ برنامه)
+   *   did  — آخرین بار **کاری کرد**؟ (نه «اجرا شد»)
+   *   why  — اگر نه، چرا
+   *
+   * و داوری چهار حالت دارد، نه دو — چون «خاموش» ایراد نیست و «روشن ولی
+   * بی‌اثر» ایراد است، و قاطی کردنشان یعنی هشداری که برای حالتِ سالم هم
+   * می‌زند، یعنی هشداری که یاد می‌گیرند نخوانند.
+   *
+   * `st` همان چیزی است که `writeStatus_` از قبل ساخته — پس این جدول **هیچ
+   * خواندنِ تازه‌ای از درایو یا شیت ندارد** (۷٫۵۷/۷٫۶۳/۷٫۷۲). هر ردیف
+   * می‌گوید شاهدش کجاست؛ ردیفی که شاهدش وجود نداشته باشد **به نام** گزارش
+   * می‌شود، نه اینکه بی‌صدا هیچ چیزی را نسنجد. */
+  CAPABILITIES: [
+    { key: 'podcast-variety', name: 'پادکستِ «از همه جا از همه رنگ»', at: 'lastEpisode' },
+    { key: 'podcast-special', name: 'پادکستِ «درس‌نامه»', at: 'special' },
+    { key: 'speak-review', name: 'بازبینیِ اعرابِ متنِ گفتار', at: 'speakReview', pk: 'SPEAK_REV' },
+    { key: 'speak-cover', name: 'پوششِ واژه‌ایِ اعراب و ترمیمش', at: 'speakSkip', pk: 'SPEAK_SKIP' },
+    { key: 'tts-cue', name: 'دستورِ لحنِ گوینده', at: 'ttsCue' },
+    { key: 'music', name: 'موسیقیِ پس‌زمینه', at: 'music', sw: 'MUSIC_AUTO' },
+    { key: 'handout', name: 'جزوهٔ هر مجموعه', at: 'handout' },
+    { key: 'handout-viz', name: 'نمودارهای جزوه', at: 'handoutViz' },
+    { key: 'youtube', name: 'انتشار در یوتیوب', at: 'youtube', sw: 'YT_ENABLED' },
+    { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED' },
+    { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED' },
+    { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG' },
+    { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED' },
+    { key: 'embed', name: 'اثرِانگشتِ معناییِ بانک', at: 'embed', sw: 'EMB_ON' },
+    { key: 'voice-intake', name: 'پذیرشِ گویندهٔ تازه', at: 'voiceIntake' },
+    { key: 'voice-bridge', name: 'پلِ رنگِ صدا', at: 'voiceBridge' },
+    { key: 'enrich', name: 'غنی‌سازیِ اینترنتی', at: 'enrich' },
+    { key: 'content-audit', name: 'داوریِ محتوا', at: 'contentAudit' },
+    { key: 'src-quality', name: 'کیفیتِ استخراجِ منابع', at: 'srcQuality' },
+    { key: 'calendar', name: 'تقویمِ تولید', at: 'calendar' },
+    { key: 'backup', name: 'پشتیبان', at: 'backup' },
+    { key: 'self-update', name: 'به‌روزرسانیِ خودکارِ کد', at: 'selfUpdate' },
+    { key: 'source-scripts', name: 'کدِ تحلیل‌گرهای منبع', at: 'sourceScripts' },
+    { key: 'code-queue', name: 'صفِ یافته‌های کد', at: 'codeQueue' },
+    { key: 'prompt-sync', name: 'همگام‌سازیِ پرامپت‌ها', at: 'promptFresh' },
+    { key: 'monitor-checks', name: 'وارسی‌های روزانهٔ ناظر', at: 'monChecks' },
+    { key: 'out-layout', name: 'نقشهٔ پوشهٔ OUTPUT', at: 'outLayout' },
+    { key: 'series-order', name: 'ترتیبِ قسمت‌های مجموعه', at: 'seriesOrder' },
+    { key: 'speech-calib', name: 'واسنجیِ آهنگِ گفتار', at: 'speechCalib', pk: 'SPEECH_CAL' },
+    { key: 'triggers', name: 'زمان‌بندی‌ها', at: 'triggerNames' }
+  ],
+  CAP_IDLE_DAYS: 7,            // چند روزِ «روشن ولی بی‌اثر» تا یافتهٔ کد
+  CAP_FRESH_DAYS: 2,           // موتورِ تازه‌نصب، «بی‌اثر» نیست
   HANDOUT_WATCH_MAX: 60,       // سقفِ مجموعه‌های زیرِ نظرِ همیشگی
 
   PROMPT_SYNC: true,
@@ -1345,7 +1413,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.04',
+  CODE_VERSION: '8.05',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور

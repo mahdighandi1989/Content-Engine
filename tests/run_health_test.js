@@ -619,3 +619,212 @@ console.log('\n══ ۱۵) ستونِ سبکِ تصویر — از همان د�
   okS('۱۵.۵ و در مسئله‌ها نمی‌آید — فرصت، خرابی نیست',
       (hU.problems || []).every(x => String(x).indexOf('فرصتِ ارتقا') === -1));
 }
+
+console.log('\n=== ۱۶) کارنامهٔ قابلیت‌ها: «روشن است» با «کار می‌کند» یکی نیست (۸.۰۵) ===');
+{
+  let p16 = 0;
+  const ok16 = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); p16++; };
+
+  /* ══ چرا این بند هست ══
+   * «حتی ممکن خیلی گزینه‌های که اضافه کردی استفاده نکنم تا مدت‌ها، ولی ناظر
+   * باید به عملکردش توجه کنه و فقط کدها رو نبینه و اجرا کنه و ببینه همه
+   * سیم‌کشی‌ها و گزینه‌ها و قابلیت‌ها درست کار می‌کنه یا نه» — و بعد:
+   * «فقط حرفم برای این ویدیو و .. نبود بلکه همه موارد توی پروژه.» */
+
+  /* ۱۶.۱ — **سیم‌کشیِ خودِ کارنامه** اول سنجیده می‌شود، چون این همان عیبی
+     بود که در نگارشِ اولِ همین جدول واقعاً افتاد: `EMB_ENABLED` نوشته بودم و
+     کلیدِ واقعی `EMB_ON` است. بی این وارسی، آن قابلیت برای همیشه «خاموش»
+     گزارش می‌شد و هیچ‌جا صدا درنمی‌آمد — بدترین شکلِ خرابی در این پرونده:
+     نامی درست، جایی درست، و هیچ سنجشی. */
+  const stC = writeStatus_(hub, 'کارنامه');
+  const cap0 = stC.capabilities;
+  ok16('۱۶.۱ سیم‌کشیِ هر ردیفِ کارنامه درست است — کلیدِ CFG و کلیدِ شاهد هر دو وجود دارند',
+       !!cap0 && cap0.wiring.length === 0,
+       cap0 ? (cap0.wiring.join(' | ') || 'بی‌عیب') : 'کارنامه ساخته نشد');
+
+  ok16('۱۶.۱-ب و کارنامه واقعاً در _STATUS.json می‌نشیند، نه فقط حساب می‌شود',
+       (function () {
+         const ff = global.__ROOT_FOLDER._files.find(x => x.getName() === '_STATUS.json');
+         const pj = JSON.parse(ff.getBlob().getDataAsString());
+         return !!pj.capabilities && pj.capabilities.n === (CFG.CAPABILITIES || []).length;
+       })(), 'n=' + (cap0 && cap0.n));
+
+  /* ۱۶.۲ — و کلیدی که در `CFG` نیست **به نام** گزارش می‌شود، نه به‌عنوان
+     «خاموش». این مرز کلِ ارزشِ جدول است. */
+  {
+    const keep = CFG.CAPABILITIES;
+    CFG.CAPABILITIES = [{ key: 'ghost', name: 'قابلیتِ خیالی', at: 'music', sw: 'NO_SUCH_KEY' }];
+    const c = capStatus_(stC);
+    ok16('۱۶.۲ کلیدِ نبوده در CFG «سیم‌کشی» است، نه «خاموش»',
+         c.wiring.length === 1 && c.off === 0 &&
+         c.wiring[0].indexOf('NO_SUCH_KEY') !== -1 && c.ok === false,
+         c.rows[0].verdict + ' — ' + (c.wiring[0] || ''));
+
+    CFG.CAPABILITIES = [{ key: 'ghost2', name: 'شاهدِ خیالی', at: 'noSuchStatusKey' }];
+    const c2 = capStatus_(stC);
+    ok16('۱۶.۲-ب شاهدِ نبوده در _STATUS.json هم «سیم‌کشی» است و نامش گفته می‌شود',
+         c2.wiring.length === 1 && c2.wiring[0].indexOf('noSuchStatusKey') !== -1 &&
+         c2.ok === false, c2.wiring[0] || 'نگفت');
+
+    /* ۱۶.۳ — و «شاهد خوانده نشد» (`null`) با «شاهد وجود ندارد» یکی نیست:
+       اولی نامعلوم است و ایراد نیست؛ دومی سیم‌کشیِ خراب است و ایراد است.
+       قاطی کردنشان یعنی یک شاهدِ خراب کلِ جدول را بی‌اعتبار می‌کند (۷٫۵۷). */
+    const stNull = { music: null };
+    CFG.CAPABILITIES = [{ key: 'g3', name: 'شاهدِ خوانده‌نشده', at: 'music' }];
+    const c3 = capStatus_(stNull);
+    ok16('۱۶.۳ «شاهد خوانده نشد» نامعلوم است، نه سیم‌کشیِ خراب — و ok را پایین نمی‌آورد',
+         c3.unknown.length === 1 && c3.wiring.length === 0 && c3.ok === true,
+         c3.rows[0].verdict);
+    CFG.CAPABILITIES = keep;
+  }
+
+  /* ══ ۱۶.۴ — سه حالتِ جدا: خاموش / کار می‌کند / روشن ولی بی‌اثر ══
+     و «خاموش» **نباید** `ok` را پایین بیاورد: هشداری که برای تصمیمِ خودِ
+     صاحبِ برنامه بزند، هشداری است که یاد می‌گیرند نخوانند. */
+  {
+    const keep = CFG.CAPABILITIES, keepSw = CFG.MUSIC_AUTO;
+    const now = nowStr_();
+    const old = (function () {
+      const d = new Date(Date.now() - 40 * 86400000);
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' 03:00';
+    })();
+    const stF = { fresh: { at: now }, stale: { at: old } };
+
+    CFG.CAPABILITIES = [{ key: 'w', name: 'تازه', at: 'fresh' },
+                        { key: 's', name: 'کهنه', at: 'stale' }];
+    const c = capStatus_(stF);
+    ok16('۱۶.۴ شاهدِ تازه «کار می‌کند» و شاهدِ ۴۰روزه «روشن ولی بی‌اثر»',
+         c.working === 1 && c.idle.length === 1 && c.ok === false,
+         c.rows.map(r => r.name + '=' + r.verdict).join(' · '));
+
+    CFG.MUSIC_AUTO = false;
+    CFG.CAPABILITIES = [{ key: 's', name: 'کهنه ولی خاموش', at: 'stale', sw: 'MUSIC_AUTO' }];
+    const c2 = capStatus_(stF);
+    ok16('۱۶.۴-ب همان شاهدِ کهنه، وقتی کلیدش پایین است، «خاموش (تصمیم)» است و ایراد نیست',
+         c2.off === 1 && c2.idle.length === 0 && c2.ok === true,
+         c2.rows[0].verdict);
+    CFG.MUSIC_AUTO = keepSw;
+
+    /* ══ ۱۶.۴-پ — کفِ «موتورِ تازه‌نصب» ══
+       نگارشِ اول این را با شاهدِ **امروز** می‌سنجید و باری نداشت: در آن حالت
+       سدِ `days > idleDays` خودش جلو را گرفته، پس برداشتنِ کف هیچ چیزی را
+       عوض نمی‌کرد. (و شکستنِ عمدی‌اش روی سنجهٔ قدیمیِ «روزِ سالم باید ساکت
+       باشد» نشست، چون کلِ کارنامهٔ ۳۰تایی بی‌اثر می‌شد — که خودش گواهِ
+       محکم‌تری است، ولی گواهِ این سنجه نیست.)
+       آنچه کف واقعاً از آن محافظت می‌کند، سقفِ **بدتنظیم‌شده** است: کسی
+       `CAP_IDLE_DAYS` را صفر بگذارد و موتور هر شاهدِ دیروزی را «بی‌اثر»
+       بخواند. آن حالت این‌جا ساخته می‌شود. */
+    const keepIdle = CFG.CAP_IDLE_DAYS;
+    /* عدد **۱** است نه ۰، و دلیلش خودش یک تلهٔ ثبت‌شدهٔ همین پرونده است:
+       `Number(CFG.CAP_IDLE_DAYS) || 7` صفر را می‌خورَد و ۷ می‌دهد، پس
+       تنظیمِ ۰ هیچ اثری ندارد و سنجه بی‌آنکه بفهمی توخالی می‌شود — همان
+       چیزی که ۷٫۲۸ با `EMB_SHARD_ROWS` و ۷٫۸۱ با `Number('')` دید.
+       و روزِ شاهد **۲** است، چون کف تنها وقتی معنا دارد که سقف از کف
+       کوچک‌تر شده باشد و سنِ شاهد میانِ آن دو بیفتد. */
+    CFG.CAP_IDLE_DAYS = 1;                       // < CAP_FRESH_DAYS (۲)
+    const y = (function () {
+      const d = new Date(Date.now() - 2 * 86400000);
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' 03:00';
+    })();
+    CFG.CAPABILITIES = [{ key: 'w', name: 'دوروزه', at: 'y' }];
+    const cY = capStatus_({ y: { at: y } });
+    ok16('۱۶.۴-پ با سقفِ بدتنظیم هم، شاهدِ تازه «بی‌اثر» شمرده نمی‌شود',
+         cY.rows[0].days === 2 && cY.working === 1 && cY.idle.length === 0 && cY.ok === true,
+         cY.rows[0].verdict + ' · ' + cY.rows[0].days + ' روز');
+    CFG.CAP_IDLE_DAYS = keepIdle;
+    CFG.CAPABILITIES = keep;
+  }
+
+  /* ══ ۱۶.۴-ت — **دو قالبِ تاریخ**، نه یکی ══
+     `nowStr_` می‌دهد `yyyy-MM-dd HH:mm`؛ `speakRevLog_` و `recapLog_` مستقیم
+     `toISOString()` می‌نویسند که با `T` جدا می‌کند. نگارشِ اول فقط اولی را
+     می‌شناخت، پس شاهدِ آن قابلیت‌ها **دیده نمی‌شد** و از بیرون شبیهِ «آن
+     قابلیت کار نمی‌کند» بود. و شکستنِ عمدیِ این در محیطِ آزمون هیچ عددی را
+     عوض نکرد — چون کارنامه‌های مربوطه در ماک خالی‌اند — پس این سنجه لازم
+     است، وگرنه آن نیمه از تعمیر هیچ نگهبانی ندارد. */
+  {
+    const keep = CFG.CAPABILITIES;
+    const iso = new Date().toISOString();
+    CFG.CAPABILITIES = [{ key: 'i', name: 'شاهدِ ISO', at: 'i' }];
+    const cI = capStatus_({ i: { at: iso } });
+    ok16('۱۶.۴-ت تاریخِ ISO (با T) هم شاهد شمرده می‌شود، نه فقط قالبِ nowStr_',
+         cI.working === 1 && cI.unknown.length === 0,
+         cI.rows[0].verdict + ' · ' + cI.rows[0].did);
+
+    /* ۱۶.۴-ث — و **درِ دومِ شاهد**: کارنامه‌ای که تابعِ وضعیت بیرون نمی‌دهد،
+       از خودِ Script Property خوانده می‌شود. بی این، چهار قابلیت برای همیشه
+       «نامعلوم» می‌ماندند در حالی که تاریخشان همان‌جا کنارِ دست بود. */
+    const oldRev = global.__PROPS[PK.SPEAK_REV];
+    global.__PROPS[PK.SPEAK_REV] = JSON.stringify([{ at: iso, ep: 'ت', seen: 1 }]);
+    CFG.CAPABILITIES = [{ key: 'sr', name: 'با درِ دوم', at: 'i', pk: 'SPEAK_REV' }];
+    const cP = capStatus_({ i: { note: 'بی هیچ تاریخی' } });
+    ok16('۱۶.۴-ث شاهدی که تابعِ وضعیت بیرون نمی‌دهد، از کارنامهٔ خودش خوانده می‌شود',
+         cP.working === 1 && cP.unknown.length === 0,
+         cP.rows[0].verdict + ' · ' + cP.rows[0].did);
+    /* و بی آن کارنامه، همان ردیف «نامعلوم» است — یعنی درِ دوم واقعاً باری
+       برمی‌دارد و سنجهٔ بالا از پیش سبز نبوده. */
+    delete global.__PROPS[PK.SPEAK_REV];
+    ok16('۱۶.۴-ث-ب و با کارنامهٔ خالی همان ردیف «نامعلوم» است',
+         capStatus_({ i: { note: 'بی هیچ تاریخی' } }).unknown.length === 1);
+    if (oldRev !== undefined) global.__PROPS[PK.SPEAK_REV] = oldRev;
+    CFG.CAPABILITIES = keep;
+  }
+
+  /* ۱۶.۵ — و خط **هر روز** می‌آید، حتی روزِ کاملاً سالم: سکوت را نمی‌شود
+     از مرگِ سامانه تشخیص داد (۵٫۹۰). */
+  {
+    const hC = healthCheck();
+    const all = (hC.notes || []).concat(hC.problems || []);
+    const line = all.filter(x => String(x).indexOf('کارنامهٔ قابلیت‌ها') !== -1);
+    ok16('۱۶.۵ خطِ کارنامه در گزارشِ ۱۰ صبح هست — در هر حالت، حتی سالم',
+         line.length === 1, line[0] ? line[0].slice(0, 120) : 'نیامد');
+    ok16('۱۶.۵-ب و شمارِ «کار می‌کند از کل» را می‌گوید، نه یک برچسبِ بی‌عدد',
+         /\d+ از \d+/.test(line[0] || ''), line[0] ? line[0].slice(0, 60) : '');
+    /* ۱۶.۵-پ — و قابلیتِ نامعلوم **نام برده می‌شود**. عددِ تنها دنبال‌کردنی
+       نیست؛ همان درسی که ۸.۰۴ برای واژه‌های بی‌اعراب داد، یک بخش آن‌طرف‌تر. */
+    ok16('۱۶.۵-پ قابلیتِ بی‌شاهد نام برده می‌شود، نه فقط شمرده',
+         (function () {
+           const c = capStatus_(stC);
+           if (!c.unknown.length) return true;          // همه شاهد دارند: ادعایی نیست
+           const first = c.rows.filter(r => r.verdict === 'نامعلوم')[0];
+           return c.line.indexOf(first.name) !== -1;
+         })(), (line[0] || '').slice(-80));
+  }
+
+  /* ══ ۱۶.۶ — و یافته، نه فقط جمله ══
+     جمله‌ای در نامهٔ فردا عوض می‌شود؛ یافته نه. و کلید **به‌ازای هر قابلیت**
+     است، نه یکی برای همه — وگرنه تکرار به‌عنوان تکرار دیده نمی‌شود. */
+  {
+    const keep = CFG.CAPABILITIES;
+    const old = (function () {
+      const d = new Date(Date.now() - 40 * 86400000);
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' 03:00';
+    })();
+    const stF = { a: { at: old }, b: { at: old } };
+    CFG.CAPABILITIES = [{ key: 'aa', name: 'یکی', at: 'a' }, { key: 'bb', name: 'دومی', at: 'b' }];
+    const c = capStatus_(stF);
+    const n = capFindings_(hub, c);
+    const sh = hub.getSheetByName(CFG.REPORT_TAB);
+    const vals = sh.getLastRow() < 2 ? []
+      : sh.getRange(2, 1, sh.getLastRow() - 1, REPORT_HEADERS.length).getValues();
+    const keys = vals.map(r => r.join(' ')).filter(x => x.indexOf('capability-idle-') !== -1);
+    ok16('۱۶.۶ هر قابلیتِ بی‌اثر ردیفِ خودش را دارد، نه یک ردیفِ «چند تا بی‌اثرند»',
+         n === 2 && keys.length === 2, n + ' یافته · ' + keys.length + ' ردیف');
+    ok16('۱۶.۶-ب و دستورش «دوباره ثبتش کن» نیست — علت خواسته می‌شود',
+         keys.join(' ').indexOf('نه اینکه دوباره ثبتش کنی') !== -1);
+    /* ۱۶.۶-پ — و ردیف واقعاً در صفِ `NEEDS_CODE` می‌نشیند. نگارشِ اولِ
+       `capFindings_` فقط `category: 'کد'` می‌داد و ردیف با «موتور / تازه»
+       می‌نشست: بیرونِ همان صفی که نسخهٔ بعدیِ کد از آن ساخته می‌شود، یعنی
+       یافته‌ای که کسی را به کاری موظف نمی‌کرد (۷٫۱۸/۷٫۱۹). */
+    ok16('۱۶.۶-پ ردیف در صفِ «نیازمند تعویضِ کد» می‌نشیند، نه در «تازه»',
+         keys.every(x => x.indexOf(RST.NEEDS_CODE) !== -1),
+         keys[0] ? keys[0].slice(0, 70) : '');
+    CFG.CAPABILITIES = keep;
+  }
+
+  console.log('  ✅ بندِ ۱۶: ' + p16 + ' سنجه');
+}
