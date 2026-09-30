@@ -573,3 +573,36 @@ console.log('\n✅ آزمون سلامت گذشت.');
 
   stamp(dayStr(1) + ' 10:08', 'پایان @ 41ث');
 }
+
+console.log('\n══ ۱۵) ستونِ سبکِ تصویر — از همان دری که تولید وارد می‌شود (۷.۹۶) ══');
+{
+  const okS = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); };
+  /* ══ چرا این بند این‌جاست و نه در مجموعهٔ یوتیوب ══
+   * §۵۵-ب آن‌جا `lvStyleAudit_` را مستقیم صدا می‌زند — اتاق را می‌سنجد، نه
+   * در را. برداشتنِ فراخوانش از `healthCheck` هیچ سنجه‌ای را قرمز نکرد.
+   * این‌جا تنها جایی است که `healthCheck` **واقعاً اجرا می‌شود**، پس مرزِ
+   * «آیا وارسیِ سبک در دورِ ۱۰ صبح انجام می‌شود» فقط همین‌جا سنجیدنی است
+   * (۷.۶۲). */
+  const hubS = getHub_();
+  const regS = ensureTab_(hubS, CFG.SERIES_TAB, SERIES_HEADERS);
+  const vS = new Array(SERIES_HEADERS.length).fill('');
+  vS[SC.KEY - 1] = 'kSty'; vS[SC.NAME - 1] = 'سیرهٔ نبوی';
+  vS[SC.CAT - 1] = 'تاریخ اسلام';
+  regS.getRange(regS.getLastRow() + 1, 1, 1, SERIES_HEADERS.length).setValues([vS]);
+  const rowS = regS.getLastRow();
+
+  const hS = healthCheck();
+  const cell = String(regS.getRange(rowS, SC.LVSTYLE).getValue() || '');
+  okS('۱۵.۱ دورِ ۱۰ صبح خانهٔ خالیِ سبک را با پیشنهادِ موتور پر می‌کند',
+      cell === 'نقشِ ایرانی', 'خانه: «' + cell + '»');
+  okS('۱۵.۲ و در یادداشت‌های همان گزارش اعلامش می‌کند — وگرنه کسی نمی‌فهمد پیشنهادی هست',
+      (hS.notes || []).some(x => String(x).indexOf('سبکِ تصویر برای') !== -1),
+      (hS.notes || []).filter(x => String(x).indexOf('سبکِ تصویر') !== -1).join(' | ').slice(0, 90));
+
+  /* و خانهٔ دستِ آدم در همان دور هم دست نمی‌خورد. */
+  regS.getRange(rowS, SC.LVSTYLE).setValue('آبرنگِ گرم');
+  healthCheck();
+  okS('۱۵.۳ و خانهٔ دست‌نویس در دورِ بعدی هم دست نمی‌خورد',
+      String(regS.getRange(rowS, SC.LVSTYLE).getValue()) === 'آبرنگِ گرم');
+}

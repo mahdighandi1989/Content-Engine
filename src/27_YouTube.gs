@@ -1917,6 +1917,166 @@ function ytPlanWrite_(folder, plan) {
  * نمی‌کند چند تا بوده.
  */
 
+/* ═══════════ سبکِ تصویرِ هر مجموعه (۷٫۹۶) ═══════════
+ *
+ * خواستهٔ صریحِ صاحبِ برنامه: «بشه … برای مجموعه‌ها انتخاب کنم … و البته
+ * برای مجموعه‌ها پیشنهادِ خودت رو هم تو اون مجموعه بنویس ولی بشه خودم هم
+ * تغییر بدم و انتخاب کنم».
+ *
+ * ══ و **سبک واقعاً کارت را عوض می‌کند** ══
+ * این مهم‌ترین خطِ این نسخه است. این پرونده بیش از هر شکلِ دیگری این را ثبت
+ * کرده: تحلیلی که نوشته شد و به هیچ تصمیمی وصل نبود، یا برچسبی که ورودی
+ * نداشت. یک ستونِ «سبک» که فقط یک واژه در شیت باشد و رنگ و قابِ کارت را
+ * عوض نکند، دقیقاً همان شکل است. پس `lvStyleFind_` رنگ و قاب می‌دهد و
+ * `lvCardDraw_` از آن می‌سازد.
+ *
+ * ══ و اگر سبک عوض شد، کارت‌های ساخته‌شده از نو ساخته می‌شوند ══
+ * `_visuals.json` سبکِ روزِ ساختش را نگه می‌دارد. سبکِ تازه یعنی همه از نو —
+ * وگرنه تنظیمی که هیچ اثرِ دیدنی ندارد، تنظیم نیست (درسِ ۷٫۸۶: چیزی که برای
+ * سنجشِ یک پارامتر هست، باید آن پارامتر در شناسه‌اش باشد).
+ * ولی **«نمی‌دانیم» با «عوض شد» یکی نیست**: اگر خواندنِ سبک شکست بخورد،
+ * رشتهٔ خالی می‌آید و آن یعنی «همان که ذخیره شده» — نه یک بازسازیِ کاملِ
+ * بی‌دلیل.
+ *
+ * ══ ترکیبی: یک جورش قشنگ در می‌آید و یک جورش نه ══
+ * او پرسید «ایا حالت های ترکیبی هم میشه … و ایا قشنگ در میاد». جواب در
+ * `docs/lesson_visuals_plan.md` سنجیده شد: **ترکیبِ نقش‌ها** (کارتِ تمیزِ
+ * تایپوگرافیک + نقشِ مجموعه) قشنگ در می‌آید و همان حالتی است که خودِ
+ * نوت‌بوک هم می‌کند؛ پس یک گزینهٔ صریح است: «ترکیبی». ولی **دو سبکِ هنری در
+ * یک ویدئو** ناهم‌خوان می‌شود و به چشمِ بیننده «اشتباه» می‌آید نه «تنوع» —
+ * پس خانه‌ای که دو سبک با «+» داشته باشد **با اسم رد می‌شود**، نه اینکه
+ * بی‌صدا اولی را بردارد.
+ */
+
+var LV_STYLES = [
+  { key: 'ساده و رسمی', pal: { bg: '#0F172A', fg: '#F8FAFC', ac: '#38BDF8' },
+    frame: 'bar',      hint: 'فلسفه، منطق، معرفت‌شناسی، کلام' },
+  { key: 'خطیِ مینیمال', pal: { bg: '#FFFFFF', fg: '#17202E', ac: '#2E6FB8' },
+    frame: 'hairline', hint: 'علمی و فنی، جایی که نمودار حرفِ اصلی است' },
+  { key: 'تخته‌سفید', pal: { bg: '#F7F7F2', fg: '#1F2937', ac: '#059669' },
+    frame: 'dashed',   hint: 'ریاضی، فرایند، آموزشِ گام‌به‌گام' },
+  { key: 'نقشِ ایرانی', pal: { bg: '#0B3B3C', fg: '#FDF6E3', ac: '#D4A017' },
+    frame: 'motif',    hint: 'تاریخِ اسلام، عرفان، ادبیاتِ کهن' },
+  { key: 'آبرنگِ گرم', pal: { bg: '#FFF7ED', fg: '#431407', ac: '#EA580C' },
+    frame: 'wash',     hint: 'روایی، اخلاق، زندگی‌نامه' },
+  { key: 'چاپِ قدیمی', pal: { bg: '#F3EAD3', fg: '#2B2116', ac: '#8C5A2B' },
+    frame: 'rules',    hint: 'تاریخ، ادبیات، اسناد' },
+  { key: 'کاغذبری', pal: { bg: '#1E1B4B', fg: '#EEF2FF', ac: '#A78BFA' },
+    frame: 'layers',   hint: 'مفاهیمِ لایه‌لایه و ساختارها' },
+  /* «عکسِ واقعی» امروز **لایه‌اش نیامده** (سنجشِ گامِ صفر: تصویرِ آزاد شدنی
+     است، ولی آوردنش کارِ گامِ بعدی است). پس کارت‌ها ساده ساخته می‌شوند و
+     این را خطِ روزانه **با اسم می‌گوید** — وگرنه صاحبِ برنامه سبکی انتخاب
+     کرده که بی‌صدا کار نمی‌کند، و آن بدترین حالت است (۷٫۴۵). */
+  { key: 'عکسِ واقعی', pal: { bg: '#111827', fg: '#F9FAFB', ac: '#9CA3AF' },
+    frame: 'bar', photo: true, hint: 'علومِ تجربی، جغرافیا، رویدادها' },
+  { key: 'ترکیبی', pal: { bg: '#0F172A', fg: '#FDF6E3', ac: '#D4A017' },
+    frame: 'motif', mix: true, hint: 'کارتِ تمیز + نقشِ مجموعه — حالتِ پیشنهادی برای ترکیب' }
+];
+
+/** یک‌دست‌سازیِ نوشتار، تا «خطی مینیمال» بی نیم‌فاصله هم شناخته شود. */
+function lvStyleNorm_(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/[‌‏‎]/g, ' ')          // نیم‌فاصله و نشانه‌های جهت
+    .replace(/[ً-ْٰ]/g, '')          // اعراب
+    .replace(/ك/g, 'ک').replace(/[يى]/g, 'ی')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/** سبکِ نوشته‌شده را پیدا می‌کند. `null` یعنی خوانده نشد. */
+function lvStyleFind_(v) {
+  var t = lvStyleNorm_(v);
+  if (!t) return null;
+  for (var i = 0; i < LV_STYLES.length; i++) {
+    if (lvStyleNorm_(LV_STYLES[i].key) === t) return LV_STYLES[i];
+  }
+  return null;
+}
+
+function lvStyleDefault_() { return LV_STYLES[0]; }
+
+/**
+ * پیشنهادِ خودِ موتور، از دسته و موضوعِ همان مجموعه.
+ * **هیچ فراخوانِ مدلی این‌جا نیست** — «نمیخوام هزینه کار و توکن بالا بره».
+ */
+function lvStyleSuggest_(cat, topic, name) {
+  var t = lvStyleNorm_([cat, topic, name].join(' '));
+  var rule = [
+    ['نقشِ ایرانی', /تاریخ ?اسلام|اسلام|عرفان|تصوف|قرآن|حدیث|فقه|ادبیات کهن|شعر|حافظ|مولوی|سعدی|مذهب|معنو/],
+    ['چاپِ قدیمی', /تاریخ|باستان|سند|انقلاب|جنگ|تمدن|سیاس/],
+    ['تخته‌سفید', /ریاضی|هندسه|آمار|جبر|حساب|برنامه ?نویسی|الگوریتم|آموزش گام/],
+    ['خطیِ مینیمال', /علمی|فنی|مهندس|فیزیک|شیمی|فناوری|کامپیوتر|اقتصاد|مدیریت/],
+    ['عکسِ واقعی', /جغرافیا|زیست|طبیعت|نجوم|پزشک|سلامت|حیوان|گیاه|رویداد/],
+    ['آبرنگِ گرم', /اخلاق|روان|داستان|زندگی ?نامه|خانواده|تربیت|کودک|سبک زندگی/],
+    ['کاغذبری', /ساختار|سیستم|نظام|لایه|معماری/],
+    ['ساده و رسمی', /فلسفه|منطق|معرفت|کلام|حکمت|اندیش/]
+  ];
+  for (var r = 0; r < rule.length; r++) {
+    if (rule[r][1].test(t)) return rule[r][0];
+  }
+  return lvStyleDefault_().key;
+}
+
+/**
+ * سبکِ این مجموعه: خانهٔ خودش، وگرنه پیشنهاد.
+ * @return {{style:object, key:string, src:string, bad:string}}
+ */
+function lvStyleOf_(vals) {
+  var out = { style: lvStyleDefault_(), key: '', src: 'پیش‌فرض', bad: '' };
+  try {
+    var raw = String((vals || [])[SC.LVSTYLE - 1] || '').trim();
+    if (raw) {
+      /* دو سبکِ هنری در یک ویدئو **با اسم رد می‌شود**، نه بی‌صدا. تحلیلش
+         در طرح نوشته شده: ناهم‌خوانی به چشمِ بیننده «اشتباه» می‌آید نه
+         «تنوع». و خانه‌ای که خوانده نشود یعنی انتخابی که او کرده و بی‌صدا
+         نخواهد گرفت (۷٫۴۱). */
+      if (raw.indexOf('+') !== -1) {
+        out.bad = 'دو سبک با «+» («' + raw + '») — دو سبکِ هنری در یک ویدئو ' +
+                  'ناهم‌خوان می‌شود. برای ترکیب، «ترکیبی» را بنویسید.';
+      } else {
+        var f = lvStyleFind_(raw);
+        if (f) { out.style = f; out.key = f.key; out.src = 'ردیفِ خودش'; return out; }
+        out.bad = 'سبکِ «' + raw + '» شناخته نشد. یکی از این‌ها را بنویسید: ' +
+                  LV_STYLES.map(function (x) { return x.key; }).join(' / ');
+      }
+    }
+    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
+                              String((vals || [])[SC.TOPIC - 1] || ''),
+                              String((vals || [])[SC.NAME - 1] || ''));
+    out.style = lvStyleFind_(sug) || lvStyleDefault_();
+    out.key = out.style.key;
+    out.src = out.bad ? 'پیشنهاد (خانه خوانده نشد)' : 'پیشنهاد';
+  } catch (e) { out.bad = 'سبک خوانده نشد: ' + e.message; }
+  return out;
+}
+
+/**
+ * خانه‌های **خالی** را با پیشنهاد پر می‌کند و خانه‌های ناخوانا را نام می‌برد.
+ *
+ * دو مرز: خانهٔ دست‌نویس هرگز بازنویسی نمی‌شود، و نوشتن فقط وقتی انجام
+ * می‌شود که چیزی عوض شده باشد — یک مهاجرتِ آرایشی نباید ۲۶۴ ردیف را هر شب
+ * دوباره مهر کند (۵٫۹۵).
+ */
+function lvStyleAudit_(hub) {
+  var out = { filled: 0, bad: [], photo: [], read: 0, why: '' };
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    out.read = 1;
+    for (var i = 0; i < reg.rows.length; i++) {
+      var rec = reg.rows[i];
+      var nm = String(rec.vals[SC.NAME - 1] || rec.key);
+      var raw = String(rec.vals[SC.LVSTYLE - 1] || '').trim();
+      var st = lvStyleOf_(rec.vals);
+      if (st.bad) { if (out.bad.length < 6) out.bad.push('«' + nm + '»: ' + st.bad); }
+      if (st.style && st.style.photo && out.photo.length < 6) out.photo.push(nm);
+      if (!raw && reg.sheet) {
+        try { reg.sheet.getRange(rec.row, SC.LVSTYLE).setValue(st.key); out.filled++; }
+        catch (eW) {}
+      }
+    }
+  } catch (e) { out.why = e.message; }
+  return out;
+}
+
 /** زیرپوشهٔ تصویرهای همین قسمت. `null` اگر ساخته نشد. */
 function lvFolder_(epFolder) {
   var nm = CFG.LV_FOLDER || 'تصویرها';
@@ -2006,25 +2166,92 @@ function lvFlowDraw_(slide, W, H, pal, lines) {
  * چون دوازده کارتِ پشتِ‌هم باید **یک قسمت** به‌نظر بیایند، نه دوازده تصویرِ
  * بی‌ربط. تنوع از جای نوارِ کناری می‌آید، نه از رنگ.
  */
-function lvCardDraw_(slide, W, H, pal, v, ctx, i, n) {
+/**
+ * قابِ کارت — **این‌جا سبک واقعاً کار می‌کند.**
+ *
+ * هر سبک یک `frame` دارد و شکلِ قاب از همان می‌آید. اگر این تابع نبود،
+ * ستونِ «سبکِ تصویر» یک واژه در شیت می‌شد و هیچ چیزی در تصویر عوض نمی‌کرد —
+ * همان «برچسبی که ورودی ندارد» که این پرونده بیش از هر شکلِ دیگری ثبتش
+ * کرده.
+ */
+function lvFrameDraw_(slide, W, H, pal, frame, i) {
+  var fill = function (sh, c) { try { sh.getFill().setSolidFill(c); } catch (e) {} };
+  var noLine = function (sh) { try { sh.getBorder().setTransparent(); } catch (e) {} };
+  var R = SlidesApp.ShapeType;
+  if (frame === 'hairline') {
+    // خطِ مو: فقط دو خطِ نازک، بی هیچ پُری — «مینیمال» یعنی همین
+    var t1 = slide.insertShape(R.RECTANGLE, W * 0.06, H * 0.075, W * 0.88, H * 0.004);
+    fill(t1, pal.ac); noLine(t1);
+    var b1 = slide.insertShape(R.RECTANGLE, W * 0.06, H * 0.92, W * 0.88, H * 0.004);
+    fill(b1, pal.ac); noLine(b1);
+    return 'hairline';
+  }
+  if (frame === 'dashed') {
+    // تختهٔ سفید: قابِ خط‌چین، مثلِ کشیدنِ دورِ یک مطلب روی تخته
+    var bx = slide.insertShape(R.RECTANGLE, W * 0.04, H * 0.05, W * 0.92, H * 0.88);
+    try {
+      bx.getFill().setTransparent();
+      bx.getBorder().setWeight(2);
+      bx.getBorder().setDashStyle(SlidesApp.DashStyle ? SlidesApp.DashStyle.DASH : 'DASH');
+      bx.getBorder().getLineFill().setSolidFill(pal.ac);
+    } catch (eD) {}
+    return 'dashed';
+  }
+  if (frame === 'motif') {
+    // نقشِ ایرانی: نوارِ لوزی‌های تکرارشونده، بالا و پایین
+    for (var m = 0; m < 9; m++) {
+      var x = W * 0.06 + m * (W * 0.88 / 9);
+      var d1 = slide.insertShape(R.DIAMOND, x, H * 0.045, W * 0.026, H * 0.046);
+      fill(d1, pal.ac); noLine(d1);
+      var d2 = slide.insertShape(R.DIAMOND, x, H * 0.905, W * 0.026, H * 0.046);
+      fill(d2, pal.ac); noLine(d2);
+    }
+    return 'motif';
+  }
+  if (frame === 'wash') {
+    // آبرنگ: یک لکهٔ بزرگِ نرم در گوشه، زیرِ متن
+    var el = slide.insertShape(R.ELLIPSE, -W * 0.12, H * 0.42, W * 0.62, H * 0.70);
+    fill(el, pal.ac); noLine(el);
+    try { el.sendToBack(); } catch (eB) {}
+    return 'wash';
+  }
+  if (frame === 'rules') {
+    // چاپِ قدیمی: دو خطِ موازیِ کلاسیک بالا و یک خطِ نازک پایین
+    var r1 = slide.insertShape(R.RECTANGLE, W * 0.07, H * 0.085, W * 0.86, H * 0.006);
+    fill(r1, pal.ac); noLine(r1);
+    var r2 = slide.insertShape(R.RECTANGLE, W * 0.07, H * 0.105, W * 0.86, H * 0.002);
+    fill(r2, pal.ac); noLine(r2);
+    var r3 = slide.insertShape(R.RECTANGLE, W * 0.07, H * 0.905, W * 0.86, H * 0.002);
+    fill(r3, pal.ac); noLine(r3);
+    return 'rules';
+  }
+  if (frame === 'layers') {
+    // کاغذبری: سه مستطیلِ جابه‌جا، مثلِ کاغذهای روی هم
+    for (var L = 2; L >= 0; L--) {
+      var off = L * (W * 0.012);
+      var ly = slide.insertShape(R.RECTANGLE, W * 0.035 + off, H * 0.05 + off,
+                                 W * 0.92, H * 0.87);
+      fill(ly, L === 0 ? pal.bg : pal.ac); noLine(ly);
+      try { ly.sendToBack(); } catch (eL) {}
+    }
+    return 'layers';
+  }
+  // 'bar' — نوارِ پایین + نوارِ باریکِ کنارِ جای‌گردان (رفتارِ ۷٫۹۳)
+  var bar = slide.insertShape(R.RECTANGLE, 0, H - H * 0.045, W, H * 0.045);
+  fill(bar, pal.ac); noLine(bar);
+  var side = (i % 2 === 0);
+  var stripe = slide.insertShape(R.RECTANGLE,
+    side ? W - W * 0.011 : 0, H * 0.10, W * 0.011, H * 0.60);
+  fill(stripe, pal.ac); noLine(stripe);
+  return 'bar';
+}
+
+function lvCardDraw_(slide, W, H, pal, v, ctx, i, n, frame) {
   var kind = String((v && v.kind) || 'کارت');
   var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
   bg.getFill().setSolidFill(pal.bg);
   bg.getBorder().setTransparent();
-
-  var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H - H * 0.045, W, H * 0.045);
-  bar.getFill().setSolidFill(pal.ac);
-  bar.getBorder().setTransparent();
-
-  /* نوارِ باریکِ کناری که هر کارت جایش عوض می‌شود: بیننده می‌فهمد تصویر
-     تازه شده، بی آنکه رنگِ قسمت بشکند. */
-  try {
-    var side = (i % 2 === 0);
-    var stripe = slide.insertShape(SlidesApp.ShapeType.RECTANGLE,
-      side ? W - W * 0.011 : 0, H * 0.10, W * 0.011, H * 0.60);
-    stripe.getFill().setSolidFill(pal.ac);
-    stripe.getBorder().setTransparent();
-  } catch (eS) {}
+  try { lvFrameDraw_(slide, W, H, pal, String(frame || 'bar'), i); } catch (eF) {}
 
   var pad = W * 0.075;
   var put = function (txt, top, height, size, color, bold, align) {
@@ -2068,12 +2295,15 @@ function lvCardDraw_(slide, W, H, pal, v, ctx, i, n) {
  * کارت‌های خواسته‌شده را می‌سازد و به‌صورتِ PNG در پوشهٔ تصویرها می‌نشاند.
  * `todo` فهرستِ `{i, v, n}` است — فقط آنچه هنوز فایل ندارد.
  */
-function lvCards_(ctx, todo, imgFolder) {
+function lvCards_(ctx, todo, imgFolder, style) {
   var out = { made: [], why: '' };
   if (!todo || !todo.length) return out;
   var pres = null;
   try {
-    var pal = ytPalette_((ctx && (ctx.cat || ctx.seriesName || ctx.showName)) || '');
+    /* رنگ از **سبکِ همین مجموعه** می‌آید، نه از هش نامِ دسته. بی این خط،
+       ستونِ «سبکِ تصویر» یک واژه در شیت است و بس. */
+    var sty = style || lvStyleDefault_();
+    var pal = (sty && sty.pal) || ytPalette_((ctx && (ctx.cat || ctx.seriesName)) || '');
     var pTitle = 'کارت‌ها — ' + String((ctx && ctx.showName) || '') + ' قسمت ' +
                  String((ctx && ctx.epNum) || '');
     var mkP = ytPresCreate_(pTitle, 12192000, 6858000);
@@ -2094,7 +2324,8 @@ function lvCards_(ctx, todo, imgFolder) {
 
     var W = pres.getPageWidth(), H = pres.getPageHeight();
     for (var j = 0; j < todo.length; j++) {
-      try { lvCardDraw_(use[j], W, H, pal, todo[j].v, ctx, todo[j].i, todo[j].n); }
+      try { lvCardDraw_(use[j], W, H, pal, todo[j].v, ctx, todo[j].i, todo[j].n,
+                        (sty && sty.frame) || 'bar'); }
       catch (eD) { out.why = 'کارتِ ' + (todo[j].i + 1) + ' کشیده نشد: ' + eD.message; }
     }
 
@@ -2156,8 +2387,9 @@ function lvCards_(ctx, todo, imgFolder) {
  * گرفته نمی‌شود — `ytUploadOne_` با `LV_TRY_MAX` می‌گیردش، چون آن‌جاست که
  * می‌داند انتشار چقدر عقب افتاده.
  */
-function lvBuild_(epFolder, plan, ctx) {
-  var out = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: false, why: '' };
+function lvBuild_(epFolder, plan, ctx, styleKey) {
+  var out = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: false, why: '',
+              style: '', restyled: false };
   var want = (plan && plan.visuals) || [];
   out.want = want.length;
   if (!want.length) { out.done = true; return out; }
@@ -2168,12 +2400,28 @@ function lvBuild_(epFolder, plan, ctx) {
   var d = lvRead_(epFolder) || { at: '', tries: 0, items: [] };
   out.tries = Math.max(0, Number(d.tries) || 0);
 
+  /* ══ سبک که عوض شود، کارت‌ها از نو ساخته می‌شوند ══
+   * وگرنه تنظیمی که هیچ اثرِ دیدنی ندارد، تنظیم نیست (۷٫۸۶).
+   * ولی **«نمی‌دانیم» با «عوض شد» یکی نیست**: رشتهٔ خالی یعنی خواندنِ سبک
+   * شکست خورد یا پرسیده نشد، و آن باید «همان که ذخیره شده» باشد — نه یک
+   * بازسازیِ کاملِ بی‌دلیلِ دوازده کارت (۷٫۴۰). */
+  var wantStyle = String(styleKey || '');
+  var hadStyle = String(d.style || '');
+  out.style = wantStyle || hadStyle;
+  var sty = lvStyleFind_(out.style) || lvStyleDefault_();
+  out.restyled = !!(wantStyle && hadStyle && wantStyle !== hadStyle);
+
   var have = Object.create(null);
   for (var i = 0; i < want.length; i++) {
+    if (out.restyled) break;                   // همه از نو
     try {
       var it = imgFolder.getFilesByName(lvImgName_(i, want[i]));
       if (it.hasNext()) have[String(i)] = it.next().getId();
     } catch (eH) {}
+  }
+  if (out.restyled) {
+    logLine_('سبکِ تصویرِ این مجموعه از «' + hadStyle + '» به «' + wantStyle +
+             '» عوض شد؛ کارت‌های این قسمت از نو ساخته می‌شوند.');
   }
 
   var todo = [], cap = Math.max(1, Number(CFG.LV_BUILD_MAX) || 24);
@@ -2187,7 +2435,7 @@ function lvBuild_(epFolder, plan, ctx) {
     d.tries = out.tries + 1;
     out.tries = d.tries;
     lvWrite_(epFolder, d);                       // مرزِ ۱: پیش از کار
-    var r = lvCards_(ctx, todo, imgFolder);
+    var r = lvCards_(ctx, todo, imgFolder, sty);
     out.made = r.made.length;
     if (r.why) out.why = r.why;
     for (var m = 0; m < r.made.length; m++) have[String(r.made[m].i)] = r.made[m].fileId;
@@ -2204,6 +2452,7 @@ function lvBuild_(epFolder, plan, ctx) {
          بعداً می‌گوید چند مورد جایگزین شده. */
       kind: String(want[k].kind || 'کارت'),
       via: 'کارت',
+      style: out.style,
       sec: Number(want[k].sec) || 0,
       heading: String(want[k].heading || ''),
       cardTitle: String(want[k].cardTitle || ''),
@@ -2218,6 +2467,9 @@ function lvBuild_(epFolder, plan, ctx) {
 
   d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
   d.folderId = imgFolder.getId();
+  /* سبک **فقط وقتی** ذخیره می‌شود که واقعاً پرسیده شده باشد: نوشتنِ رشتهٔ
+     خالی روی سبکِ ذخیره‌شده یعنی شبِ بعد «عوض شد» تشخیص داده شود. */
+  if (out.style) d.style = out.style;
   d.note = 'این تصویرها را ویدئوی یوتیوب و جزوه هر دو می‌خوانند. ' +
            'فایلِ پاک‌شده شبِ بعد دوباره ساخته می‌شود.';
   lvWrite_(epFolder, d);
@@ -2670,7 +2922,17 @@ function ytUploadOne_(item, hub, pub) {
    * نمی‌رسد. */
   var vis = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: true, why: '' };
   if (ytVisOn_(item.show)) {
-    try { vis = lvBuild_(folder, plan, ctx); }
+    /* سبکِ همین مجموعه، از ردیفِ رجیستری. **شکستِ خواندن رشتهٔ خالی می‌دهد،
+       نه یک حدس** — و خالی یعنی «همان که ذخیره شده»، پس یک هابِ نخوانده
+       دوازده کارت را بی‌دلیل از نو نمی‌سازد (۷.۴۰). */
+    var lvSty = '';
+    try {
+      var regL = readSeriesReg_(hub || getHub_());
+      var recL = regL.byKey[String(item.series || (meta && meta.seriesKey) || '')] ||
+                 regL.byKey[String(seriesName)] || null;
+      if (recL) lvSty = lvStyleOf_(recL.vals).key;
+    } catch (eSt) {}
+    try { vis = lvBuild_(folder, plan, ctx, lvSty); }
     catch (eV) {
       /* شکستنِ تصویرها **هرگز** قسمت را زمین نمی‌زند: `done` درست می‌شود و
          مسیرِ کاورِ تک‌تصویریِ امروز می‌رود. قولِ «چیزی خراب نمی‌شود» همین

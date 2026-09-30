@@ -2801,4 +2801,191 @@ console.log('=== ۵۴) لینکِ تصویرها به تلگرام و ایمیل
      doc.indexOf('تصویرهای این درس') > 0 ? 'هست' : 'نیست');
 }
 
+console.log('=== ۵۵) سبکِ تصویرِ هر مجموعه — و اینکه واقعاً کارت را عوض می‌کند (۷.۹۶) ===');
+{
+  /* ══ مهم‌ترین سنجهٔ این بند، ۵۵.۳ است ══
+   * یک ستونِ «سبک» که فقط یک واژه در شیت باشد و رنگ و قابِ کارت را عوض
+   * نکند، همان «برچسبی که ورودی ندارد» است که این پرونده بیش از هر شکلِ
+   * دیگری ثبتش کرده. پس سنجه **خودِ شکلِ کشیده‌شده** را می‌پرسد. */
+  const row = (o) => {
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = o.key || 'k'; v[SC.NAME - 1] = o.name || 'م';
+    v[SC.CAT - 1] = o.cat || ''; v[SC.TOPIC - 1] = o.topic || '';
+    if (o.style !== undefined) v[SC.LVSTYLE - 1] = o.style;
+    return v;
+  };
+
+  /* ۵۵.۱ — ستون **در انتها** است و هر شاخصِ SC یکتا و در محدوده. ستونی که
+     وسط جا داده شود، برچسبِ تازه را روی مقدارِ کهنه می‌گذارد، بی هیچ خطایی
+     (۷.۴۱ — و سنجه‌اش نامِ ستون را نمی‌گوید، وگرنه ستونِ بعدی می‌شکندش). */
+  const idx = Object.keys(SC).map(k => SC[k]);
+  ok('۵۵.۱ ستونِ تازه در انتهاست و هیچ شاخصی تکراری یا بیرون از محدوده نیست',
+     new Set(idx).size === idx.length &&
+     Math.max.apply(null, idx) === SERIES_HEADERS.length &&
+     SC.LVSTYLE === SERIES_HEADERS.length,
+     SERIES_HEADERS.length + ' ستون، بزرگ‌ترین شاخص ' + Math.max.apply(null, idx));
+
+  /* ۵۵.۲ — خانهٔ خالی ⇒ پیشنهادِ موتور، و خانهٔ پرشده ⇒ انتخابِ آدم. */
+  const sugg = lvStyleOf_(row({ cat: 'تاریخ اسلام', name: 'سیرهٔ نبوی' }));
+  const mine = lvStyleOf_(row({ cat: 'تاریخ اسلام', style: 'تخته‌سفید' }));
+  ok('۵۵.۲ خانهٔ خالی پیشنهاد می‌گیرد، خانهٔ پرشده انتخابِ آدم است',
+     sugg.key === 'نقشِ ایرانی' && sugg.src === 'پیشنهاد' &&
+     mine.key === 'تخته‌سفید' && mine.src === 'ردیفِ خودش',
+     sugg.key + ' (' + sugg.src + ') / ' + mine.key + ' (' + mine.src + ')');
+
+  /* ۵۵.۳ — **و سبک واقعاً کارت را عوض می‌کند.** دو سبک، دو رنگِ پس‌زمینه و
+     دو شکلِ قاب — سنجیده روی خودِ اسلایدِ کشیده‌شده، نه روی متنِ کد. */
+  const root = global.__ROOT_FOLDER;
+  const secs = [{ heading: 'یک', narration: 'الف'.repeat(300) }];
+  const ctx = { show: 'special', epRaw: '95', epNum: '۹۵', showName: 'درس‌نامه',
+                seriesName: 'سیرهٔ نبوی', cat: 'تاریخ اسلام', sections: secs, totalSec: 600 };
+  const planOf = () => ({ visuals: [{ at: 1, kind: 'کارت', cardTitle: 'گزاره',
+    heading: 'یک', cardLines: ['الف'], terms: '', caption: 'ز', sec: 30 }] });
+
+  const drawWith = (key, folderName) => {
+    const f = root.createFolder(folderName);
+    lvBuild_(f, planOf(), ctx, key);
+    const p = global.__PRES_LAST;
+    const els = p.getSlides()[0].getPageElements();
+    return { bg: (els[0] || {}).fill ? els[0].fill.color : '',
+             shapes: els.filter(e => e.role === 'shape').map(e => e.shape) };
+  };
+  const a = drawWith('نقشِ ایرانی', 'قسمت 0095 — نقش');
+  const b = drawWith('خطیِ مینیمال', 'قسمت 0096 — خطی');
+  ok('۵۵.۳ سبک، رنگِ پس‌زمینه و شکلِ قابِ کارت را واقعاً عوض می‌کند',
+     a.bg !== b.bg &&
+     a.bg === lvStyleFind_('نقشِ ایرانی').pal.bg &&
+     b.bg === lvStyleFind_('خطیِ مینیمال').pal.bg &&
+     a.shapes.filter(x => x === 'DIAMOND').length === 18 &&
+     b.shapes.filter(x => x === 'DIAMOND').length === 0,
+     'نقش: ' + a.bg + ' با ' + a.shapes.filter(x => x === 'DIAMOND').length +
+     ' لوزی · خطی: ' + b.bg + ' با ' + b.shapes.filter(x => x === 'DIAMOND').length);
+
+  /* ۵۵.۳-ب — و هر نُه سبک یک قابِ **ساخته‌شده** دارند، نه یک نام در فهرست.
+     سبکی که فقط در `LV_STYLES` باشد و `lvFrameDraw_` نشناسدش، بی‌صدا به
+     حالتِ پیش‌فرض می‌افتد — یعنی انتخابِ او هیچ اثری ندارد. */
+  const frames = {};
+  for (const sty of LV_STYLES) {
+    const f = root.createFolder('قسمت س — ' + sty.key);
+    lvBuild_(f, planOf(), ctx, sty.key);
+    const els = global.__PRES_LAST.getSlides()[0].getPageElements();
+    frames[sty.key] = els.filter(e => e.role === 'shape').length;
+  }
+  ok('۵۵.۳-پ هر نُه سبک واقعاً چیزی می‌کشد، و «عکسِ واقعی» هم سادهٔ آبرومند است',
+     Object.keys(frames).length === 9 &&
+     Object.keys(frames).every(k => frames[k] >= 2) &&
+     new Set(Object.values(frames)).size >= 4,
+     Object.keys(frames).map(k => k + ':' + frames[k]).join(' · '));
+
+  /* ۵۵.۴ — **سبک که عوض شود، کارت‌ها از نو ساخته می‌شوند.** وگرنه تنظیمی
+     که هیچ اثرِ دیدنی ندارد، تنظیم نیست (۷.۸۶). */
+  const f2 = root.createFolder('قسمت 0097 — تعویض');
+  const r1 = lvBuild_(f2, planOf(), ctx, 'ساده و رسمی');
+  const r2 = lvBuild_(f2, planOf(), ctx, 'ساده و رسمی');
+  const r3 = lvBuild_(f2, planOf(), ctx, 'چاپِ قدیمی');
+  ok('۵۵.۴ سبکِ عوض‌شده کارت‌ها را از نو می‌سازد، و سبکِ یکسان نه',
+     r1.made === 1 && r2.made === 0 && r2.restyled === false &&
+     r3.made === 1 && r3.restyled === true,
+     'اول ' + r1.made + ' · دوم ' + r2.made + ' · بعد از تعویض ' + r3.made);
+
+  /* ۵۵.۴-ب — ولی **«نمی‌دانیم» با «عوض شد» یکی نیست**: اگر خواندنِ سبک
+     شکست بخورد (رشتهٔ خالی) هیچ بازسازی‌ای نباید بشود، وگرنه یک هابِ
+     نخوانده هر شب دوازده کارت را بی‌دلیل از نو می‌سازد (۷.۴۰). */
+  const r4 = lvBuild_(f2, planOf(), ctx, '');
+  ok('۵۵.۴-ب سبکِ خوانده‌نشده بازسازی نمی‌کند — «نمی‌دانیم» با «عوض شد» یکی نیست',
+     r4.made === 0 && r4.restyled === false && r4.style === 'چاپِ قدیمی',
+     'ساخته ' + r4.made + ' · سبکِ ذخیره‌شده ' + r4.style);
+
+  /* ۵۵.۵ — و در `_visuals.json` ثبت می‌شود، پس ناظر و جزوه می‌دانند با چه
+     سبکی ساخته شده. */
+  const man = JSON.parse(f2.getFilesByName(CFG.LV_FILE).next().getBlob().getDataAsString());
+  ok('۵۵.۵ سبکِ روزِ ساخت در پروندهٔ تصویرها ثبت می‌شود',
+     man.style === 'چاپِ قدیمی' && man.items[0].style === 'چاپِ قدیمی', man.style);
+
+  /* ۵۵.۶ — **خانهٔ ناخوانا با اسم رد می‌شود، نه بی‌صدا.** انتخابی که خوانده
+     نشود یعنی سبکی که او خواسته و بی‌صدا نخواهد گرفت (۷.۴۱) — و اسمِ
+     سبک‌های درست هم در پیام می‌آید، وگرنه باید حدس بزند. */
+  const bad = lvStyleOf_(row({ style: 'سبکِ من' }));
+  ok('۵۵.۶ سبکِ ناشناخته رد می‌شود و پیامش فهرستِ درست را می‌گوید',
+     bad.bad.indexOf('سبکِ من') !== -1 && bad.bad.indexOf('نقشِ ایرانی') !== -1 &&
+     bad.src.indexOf('پیشنهاد') === 0 && bad.key === lvStyleDefault_().key,
+     bad.bad.slice(0, 80));
+
+  /* ۵۵.۶-ب — **دو سبکِ هنری با «+» هم رد می‌شود، با دلیل.** او پرسید آیا
+     ترکیبی می‌شود؛ جوابِ سنجیده در طرح این است که یک جورش قشنگ در می‌آید
+     («ترکیبی») و یک جورش نه. پس پیام همان راهِ درست را نشان می‌دهد. */
+  const mix = lvStyleOf_(row({ style: 'نقشِ ایرانی + چاپِ قدیمی' }));
+  ok('۵۵.۶-پ دو سبک با «+» رد می‌شود و «ترکیبی» را پیشنهاد می‌کند',
+     mix.bad.indexOf('ناهم‌خوان') !== -1 && mix.bad.indexOf('«ترکیبی»') !== -1,
+     mix.bad.slice(0, 90));
+
+  ok('۵۵.۶-ت و خودِ «ترکیبی» یک سبکِ پذیرفته‌شده است',
+     lvStyleOf_(row({ style: 'ترکیبی' })).key === 'ترکیبی' &&
+     lvStyleFind_('ترکیبی').mix === true);
+
+  /* ۵۵.۷ — نوشتار یک‌دست می‌شود: «خطی مینیمال» بی نیم‌فاصله هم شناخته شود.
+     چهار راهِ نوشتنِ یک واژه در فارسی، همان چیزی است که ۷.۲۳ برایش سد
+     گذاشت — «پیدا نشد» بدترین جواب است. */
+  /* و نیم‌فاصله **جداگانه** سنجیده می‌شود: نگارشِ اولِ همین سنجه سه حالت
+     داشت که هیچ‌کدام نیم‌فاصله‌ای نبودند («خطیِ مینیمال» با کسره جور
+     می‌شد، نه با نیم‌فاصله)، پس برداشتنِ آن سطر هیچ اثری نداشت. «تخته‌سفید»
+     نیم‌فاصله دارد و همان چیزی است که آدم با فاصلهٔ معمولی می‌نویسد. */
+  ok('۵۵.۷ نوشتارِ دیگرِ همان سبک هم شناخته می‌شود — از جمله نیم‌فاصله',
+     lvStyleFind_('خطی مینیمال') !== null &&
+     lvStyleFind_('نقش ايراني') !== null &&
+     lvStyleFind_('  ترکیبی  ') !== null &&
+     lvStyleFind_('تخته سفید') !== null &&
+     lvStyleFind_('چاپ قديمي') !== null,
+     'پنج نگارش، یکی‌شان بی نیم‌فاصله');
+}
+
+console.log('=== ۵۵-ب) پیشنهاد در شیت نوشته می‌شود، دستِ آدم هرگز بازنویسی نمی‌شود ===');
+{
+  const hub = new Spread('HUB');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const mk = (r, key, name, cat, style) => {
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = key; v[SC.NAME - 1] = name; v[SC.CAT - 1] = cat;
+    if (style) v[SC.LVSTYLE - 1] = style;
+    reg.getRange(r, 1, 1, SERIES_HEADERS.length).setValues([v]);
+  };
+  mk(2, 'k1', 'سیرهٔ نبوی', 'تاریخ اسلام');           // خالی
+  mk(3, 'k2', 'هندسه', 'ریاضی', 'آبرنگِ گرم');        // دستِ آدم
+  mk(4, 'k3', 'جانوران', 'زیست‌شناسی');               // خالی ⇒ عکسِ واقعی
+  mk(5, 'k4', 'چیزی', 'فلسفه', 'سبکِ نامعلوم');       // ناخوانا
+
+  const a1 = lvStyleAudit_(hub);
+  const col = () => reg.getRange(2, SC.LVSTYLE, 4, 1).getValues().map(x => String(x[0]));
+
+  /* ۵۵-ب.۱ — خانه‌های خالی پر شدند، و **خانهٔ دستِ آدم دست نخورد** — همان
+     قاعدهٔ اسکنِ موسیقی که سلیقهٔ گزیننده را پاک نمی‌کند. */
+  ok('۵۵-ب.۱ خانهٔ خالی پیشنهاد گرفت و خانهٔ دست‌نویس دست نخورد',
+     a1.filled === 2 && col()[0] === 'نقشِ ایرانی' && col()[1] === 'آبرنگِ گرم' &&
+     col()[2] === 'عکسِ واقعی' && col()[3] === 'سبکِ نامعلوم',
+     a1.filled + ' پر شد · ' + col().join(' | '));
+
+  /* ۵۵-ب.۲ — خانهٔ ناخوانا **با اسمِ مجموعه** گزارش می‌شود و بازنویسی
+     نمی‌شود: بازنویسی‌اش یعنی او هرگز نمی‌فهمد چه نوشته بود. */
+  ok('۵۵-ب.۲ خانهٔ ناخوانا با نامِ مجموعه گزارش می‌شود، نه بازنویسی',
+     a1.bad.length === 1 && a1.bad[0].indexOf('چیزی') !== -1 &&
+     col()[3] === 'سبکِ نامعلوم', a1.bad.join(' | '));
+
+  /* ۵۵-ب.۳ — «عکسِ واقعی» انتخاب شده ولی لایه‌اش نیامده: نام‌برده می‌شود.
+     سبکی که بی‌صدا کار نکند، همان بدترین حالت است (۷.۴۵). */
+  ok('۵۵-ب.۳ «عکسِ واقعی» که لایه‌اش نیامده، نام‌برده می‌شود',
+     a1.photo.length === 1 && a1.photo[0] === 'جانوران', a1.photo.join('، '));
+
+  /* ۵۵-ب.۴ — اجرای دوم **چیزی نمی‌نویسد**: یک مهاجرتِ آرایشی نباید ۲۶۴
+     ردیف را هر شب دوباره مهر کند (۵.۹۵). */
+  const a2 = lvStyleAudit_(hub);
+  ok('۵۵-ب.۴ اجرای دوم هیچ خانه‌ای را دوباره نمی‌نویسد',
+     a2.filled === 0 && a2.bad.length === 1, 'پر شد: ' + a2.filled);
+
+  /* ۵۵-ب.۵ — و یک خواندنِ رجیستری، نه یکی به‌ازای هر مجموعه: این تابع از
+     `healthCheck` صدا زده می‌شود و آن یک بار از هزینه مُرد (۷.۶۳). */
+  ok('۵۵-ب.۵ کلِ وارسی یک خواندنِ رجیستری است', a2.read === 1, String(a2.read));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
