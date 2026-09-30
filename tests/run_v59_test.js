@@ -407,6 +407,103 @@ console.log('\n=== ۳-پ. صفِ تولید با شمارهٔ دستی ===');
      noCue.generateContent.body.generationConfig.speechConfig.voiceConfig
           .prebuiltVoiceConfig.voiceName === 'Kore');
 
+  /* ══ قالبِ سوم: پیشوندِ متن (۷٫۸۹) ══
+     سه مدل پشتِ‌هم هر دو قالبِ فیلددار را رد کردند، پس دستور باید از راهی
+     برود که خودِ این خانواده مدل مستندش کرده: «<دستور>: <متن>». */
+  ok('۷٫۸۹ قالبِ پیشوندی هست و متن **دست‌نخورده** در انتهایش می‌نشیند',
+     !!withCue.prompted &&
+     withCue.prompted.body.contents[0].parts[0].text.slice(-TXT.length) === TXT &&
+     withCue.prompted.body.contents[0].parts[0].text.length > TXT.length,
+     /* ══ شاهد هم باید نگهبان داشته باشد، نه فقط شرط ══
+        نگارشِ اول فقط شرط را گارد کرده بود؛ ولی آرگومانِ **شاهد** پیش از
+        صدا زدنِ `ok` ارزیابی می‌شود، پس با نبودنِ `prompted` کلِ مجموعه با
+        TypeError می‌مُرد و هیچ سنجه‌ای گزارش نمی‌شد — یعنی شکستنِ عمدی
+        «هیچ‌جا نمی‌افتاد» در حالی که واقعاً افتاده بود. */
+     withCue.prompted &&
+       JSON.stringify(withCue.prompted.body.contents[0].parts[0].text).slice(0, 110));
+  ok('۷٫۸۹-ب و هیچ فیلدِ دستوری در آن نیست — همان چیزی که مدل رد می‌کرد',
+     !!withCue.prompted && !withCue.prompted.body.systemInstruction &&
+     !withCue.prompted.body.instructions);
+  ok('۷٫۸۹-پ مرزِ دستور و متن یک دونقطه است، نه چسباندنِ خام (۵٫۵۹)',
+     !!withCue.prompted &&
+     /:\n$/.test(withCue.prompted.body.contents[0].parts[0].text.slice(0, -TXT.length)),
+     withCue.prompted && JSON.stringify(withCue.prompted.body.contents[0].parts[0]
+       .text.slice(0, -TXT.length).slice(-24)));
+  ok('۷٫۸۹-ت تکهٔ بی‌دستور در این قالب هم فقط خودِ متن است',
+     !!noCue.prompted && noCue.prompted.body.contents[0].parts[0].text === TXT,
+     noCue.prompted && JSON.stringify(noCue.prompted.body.contents[0].parts[0].text).slice(0, 60));
+
+  /* ══ و مدلی که فیلد را رد کرده، دستورش را **از دست نمی‌دهد** ══
+     این همان رگرسیونی است که ۳۰ سپتامبر نمونهٔ گویندهٔ دوم را نساخت: نقشهٔ
+     بدها یعنی «قالبِ دیگری برو»، نه «لحن را بینداز». */
+  {
+    const liveTts = ttsModel_();
+    ttsCueBadAdd_(liveTts, nowStr_());
+    const after = ttsPayloads_(TXT, liveTts, 'گرم', 'Kore', true);
+    ok('۷٫۸۹-ث مدلِ در نقشه، فیلدِ دستور نمی‌گیرد',
+       !after.generateContent.body.systemInstruction && !after.interactions.body.instructions);
+    ok('۷٫۸۹-ج ولی دستورش از راهِ پیشوند همچنان می‌رود',
+       !!after.prompted && after.prompted.body.contents[0].parts[0].text.length > TXT.length &&
+       after.prompted.body.contents[0].parts[0].text.slice(-TXT.length) === TXT,
+       after.prompted && JSON.stringify(after.prompted.body.contents[0].parts[0].text).slice(0, 90));
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    delete global.__PROPS[PK.TTS_CUE_OFF];
+  }
+
+  /* ══ و کلِ مسیر، نه فقط سازندهٔ بسته (۷٫۸۹) ══
+     سنجه‌های بالا `ttsPayloads_` را تنها امتحان می‌کنند؛ آنچه واقعاً باید
+     ثابت شود رفتارِ `ttsChunkTry_` است وقتی مدل فیلد را رد می‌کند — همان
+     چیزی که ۳۰ سپتامبر در تولید افتاد. پس `geminiFetch_` جوری بدل می‌شود
+     که **فقط** قالبِ فیلددار را رد کند (با همان پیامِ واقعیِ گوگل). */
+  {
+    const realFetch = global.geminiFetch_;
+    const realProps = JSON.stringify(global.__PROPS);
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    delete global.__PROPS[PK.TTS_CUE_OFF];
+    delete global.__PROPS[PK.TTS_MODE];
+    const SCRIPT = 'مَتنِ آزمایشی.';
+    const seen = [];
+    /* ══ بدَل باید سه حالت را از هم تشخیص بدهد، نه دو تا ══
+       نگارشِ اولم هر بسته‌ای را که فیلد نداشت «پیشوندی» می‌نامید — ولی
+       تکهٔ **بی‌دستور** هم فیلد ندارد. یعنی «لحن از راهِ پیشوند رفت» و
+       «لحن دور انداخته شد» یک برچسب می‌گرفتند، و شکستنِ عمدیِ همان
+       سقوط هیچ سنجه‌ای را قرمز نمی‌کرد. حالا از روی **متن** داوری
+       می‌شود: پیشوند یعنی متنِ فرستاده‌شده از خودِ متن بلندتر است. */
+    global.geminiFetch_ = function (url, body) {
+      const hasField = !!(body && (body.systemInstruction || body.instructions));
+      const sent = (body && body.contents && body.contents[0] &&
+                    body.contents[0].parts[0].text) || '';
+      seen.push(hasField ? 'field' : (sent.length > SCRIPT.length ? 'prompted' : 'nocue'));
+      if (hasField) throw new Error('HTTP 400 — Developer instruction is not enabled for this model');
+      return { candidates: [{ content: { parts: [{ inlineData: { data: 'QUJD' } }] } }] };
+    };
+    let outB64 = null, threw = '';
+    try { outB64 = ttsChunkTry_(SCRIPT, 'گرم', 'Kore', true); }
+    catch (e) { threw = String(e.message || e); }
+    global.geminiFetch_ = realFetch;
+
+    ok('۷٫۸۹-چ وقتی فیلد رد می‌شود، صدا باز هم ساخته می‌شود',
+       !!outB64 && !threw, 'خطا: ' + threw + ' · مسیرها: ' + seen.join('→'));
+    ok('۷٫۸۹-ح و آخرین تلاش همان قالبِ پیشوندی است، نه تسلیمِ بی‌لحن',
+       seen[seen.length - 1] === 'prompted' && seen.indexOf('nocue') === -1,
+       seen.join('→'));
+    ok('۷٫۸۹-خ هر دو قالبِ فیلددار پیش از آن امتحان شده‌اند',
+       seen.filter((x) => x === 'field').length >= 2, seen.join('→'));
+    /* و حکمِ مدل ثبت می‌شود، وگرنه فردا همان دو فراخوانِ دورریز تکرار
+       می‌شود — ۵٫۸۴: یک بار یاد بگیر، نه سیزده بار. */
+    ok('۷٫۸۹-د حکمِ «فیلد را نمی‌پذیرد» ثبت شد',
+       !!(global.__PROPS[PK.TTS_CUE_BAD] || '').length,
+       String(global.__PROPS[PK.TTS_CUE_BAD] || '(خالی)').slice(0, 80));
+    /* ══ و قالبِ پیشوندی «ترجیحی» نمی‌شود ══
+       دو قالبِ فیلددار ساختاراً نمی‌توانند خوانده شوند، پس امن‌ترند و باید
+       همیشه اول بمانند. اگر پیشوند ترجیحی شود، روزی که مدلی فیلد را
+       بپذیرد باز هم اول پیشوند می‌رود — یعنی ریسکِ ۵٫۵۹ بی‌دلیل می‌مانَد. */
+    ok('۷٫۸۹-ذ ولی پیشوند به‌عنوانِ قالبِ ترجیحی ذخیره نمی‌شود',
+       String(global.__PROPS[PK.TTS_MODE] || '') !== 'prompted',
+       'ترجیح: ' + String(global.__PROPS[PK.TTS_MODE] || '(هیچ)'));
+    global.__PROPS = JSON.parse(realProps);
+  }
+
   CFG.TTS_CUE_MODE = 'perChunk';
   ok('حالتِ قدیمی هنوز در دسترس است',
      chunks.map((_, i) => ttsCueWanted_(chunks, i)).every(Boolean));
@@ -873,7 +970,12 @@ console.log('\n=== ۱۳. حکمِ «دستور را نمی‌پذیرد» تار
     return (si && si.parts && si.parts[0] && si.parts[0].text) || '';
   };
   stamp(0);
-  ok('۱۳٫۶ در پنجرهٔ خاموشی هیچ دستوری فرستاده نمی‌شود', cueOf(M) === '');
+  /* `cueOf` عمداً فقط قالبِ **فیلددار** را می‌خوانَد: ادعای این سنجه از
+     ۷٫۸۹ این است که فیلد بسته می‌ماند، نه اینکه لحن قطع شود. */
+  ok('۱۳٫۶ در پنجرهٔ خاموشی هیچ دستوری در فیلد فرستاده نمی‌شود', cueOf(M) === '');
+  ok('۱۳٫۶-ب ولی همان لحظه دستور از راهِ پیشوند می‌رود (۷٫۸۹)',
+     ttsPayloads_('مَتنِ آزمایشی.', M, 'گرم', 'Kore', true)
+       .prompted.body.contents[0].parts[0].text.indexOf('با صدای') === 0);
   stamp(days + 1);
   ok('۱۳٫۷ و پس از آن دوباره دستور می‌رود', cueOf(M).indexOf('با صدای') === 0,
      cueOf(M).slice(0, 40));
@@ -887,8 +989,14 @@ console.log('\n=== ۱۳. حکمِ «دستور را نمی‌پذیرد» تار
   stamp(days + 1);
   const s2 = ttsCueStatus_();
   global.ttsModel_ = realTM;
-  ok('۱۳٫۸ خطِ روزانه در خاموشی می‌گوید هر چند روز دوباره امتحان می‌شود',
-     s1.ok === false && s1.line.indexOf('دوباره امتحان') !== -1, s1.line);
+  /* ══ این ادعا هم در ۷٫۸۹ وارونه شد و همین‌جا ثبت می‌شود ══
+     تا ۷٫۸۸ ردشدنِ فیلد یعنی «لحن نمی‌رود»، پس `ok === false` درست بود.
+     از ۷٫۸۹ دستور از راهِ پیشوندِ متن می‌رود، پس `ok` باید درست باشد —
+     ولی سطر همچنان موظف است **مدل و مسیر** را نام ببرد، وگرنه همان
+     «همه‌چیز خوب است»ی می‌شود که چیزی را پنهان می‌کند. */
+  ok('۱۳٫۸ در ردشدنِ فیلد، سطر مسیرِ جایگزین و نامِ مدل را می‌گوید',
+     s1.ok === true && s1.line.indexOf('پیشوندِ متن') !== -1 &&
+     s1.line.indexOf(M) !== -1, s1.line);
   ok('۱۳٫۹ و در نوبتِ امتحان، دیگر «خاموش» نمی‌گوید',
      s2.ok === true && s2.line.indexOf('نوبتِ امتحانِ دوباره') !== -1, s2.line);
 

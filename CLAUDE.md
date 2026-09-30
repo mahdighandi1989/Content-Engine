@@ -1077,6 +1077,68 @@ over a string keys every character — so the assertion now puts a row whose key
 one character in its way, and without the guard that row really does close. Fifth
 time this week; the habit that catches it never changes.
 
+## Three models refused, and the third road was never tried (7.89)
+
+He listened to the Razavi sample and said the defect was still there, **on every
+word**. It was — and the queue row had already said why, in the engine's own
+words: `soul: «رنگ‌تنها»`, the style cue died **mid-build**.
+
+**Three models, three days, the same refusal.** `gemini-3.8-flash-lite-tts`
+(27 Sep 19:33), `gemini-2.5-pro-preview-tts` (29 Sep 07:01),
+`gemini-3.1-flash-tts-preview` (30 Sep 03:29). The server's own sentence is
+`Developer instruction is not enabled for this model` — a **model capability**,
+not a bug in our payload. So `ttsCueSwitch_` was hunting for something that may
+not exist in this family at all, and every hunt costs one episode its tone.
+
+**And the third road was documented the whole time.** Gemini TTS is steered by a
+prefix *inside* the content: `<instruction>: <text>`. That is not 5.59's raw
+concatenation — there the model had to guess which line was an instruction; here
+the colon is the boundary these models were trained on. And the guarantee is not
+a hope: `ttsGuarded_` sends six seconds of the **output** back and asks what it
+heard, rebuilding the chunk cue-less if the cue leaked. That guard was written
+before this shape and is exactly the risk it was written for.
+
+**The prefix is the last road, never the first**, because the two field shapes
+cannot structurally be read aloud; and it is never cached as the preferred mode,
+or the day a model does accept the field it would still go second.
+
+**The map's meaning changed, and that is the fix that mattered.** «this model
+rejects the instruction field» no longer means «throw the cue away». Before this,
+that same map set `ttsCueStatus_().ok` false — and `ok` is the gate
+`runVoiceSoulTest` asks before spending four minutes (7.79). On 30 September it
+refused the second speaker's sample outright, with nothing wrong with that
+speaker at all.
+
+**But `ok` must keep an input.** With the field rejection no longer lowering it,
+`ok` would have been *permanently true* — a flag with no input, and 7.79's spend
+gate silently removed. So the one state where genuinely no cue is sent —
+`TTS_CUE_MODE: 'off'`, the owner's own decision — now sets `ok=false`, and its
+line says it is a decision rather than a fault.
+
+**And the hole this very fix opened was closed in the same version.** The «روح»
+label came only from that flag, so if the prefix *also* failed and the chunk was
+built cue-less, the label would have said «روح» — the exact lie 7.79 exists to
+prevent. `TTS_CUE_DROP_AT` is stamped at the one place the cue is really thrown
+away, and `vbrSoulTag_` judges the **event**, not the flag.
+
+**Five old assertions across four suites encoded the pre-7.89 belief**, and each
+was re-aimed at what it was actually protecting rather than deleted — the 7.68
+rule, applied to my own change.
+
+**Three deliberate breakages landed nowhere at first**, and each reason is worth
+more than the fix: one because the assertion's **evidence** argument was
+unguarded, so the suite died with a TypeError before any assertion could report
+— a break that *had* landed looked like a break that had not; one because the
+test double labelled any body without an instruction field «prompted», so «the
+cue went by prefix» and «the cue was thrown away» were the same label and the
+regression could not show; and one because `CFG.TTS_CUE_MODE` leaked from the
+block above, so the next assertions ran on an engine whose cue was off.
+
+**What no suite here can prove:** whether Google actually honours the prefix.
+That is answerable only by a real episode and a human ear. The engine now
+reports it either way — the row is labelled from what happened during the build,
+not from what we hoped.
+
 ## The same email said both things, and one of them was a real hole (7.88)
 
 The 10:07 mail on 29 September carried two contradictory sentences about one

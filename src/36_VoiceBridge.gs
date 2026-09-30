@@ -212,17 +212,30 @@ function vbrAudio_(folderId) {
  * حالتِ دومی را می‌گیرد: لحن **وسطِ ساخت** خاموش شود. آن‌وقت ردیف باید
  * «رنگ‌تنها» برود، وگرنه کپشنِ تلگرام و سطرِ روزانه چیزی می‌گویند که نشد.
  */
-function vbrSoulTag_(cueBefore, label) {
+/** مهرِ «آخرین باری که یک تکه بی‌دستور ساخته شد» — رشته، یا خالی. */
+function ttsCueDropAt_() {
+  try { return String(props_().getProperty(PK.TTS_CUE_DROP_AT) || ''); } catch (e) { return ''; }
+}
+
+function vbrSoulTag_(cueBefore, label, dropBefore) {
   var now = null;
   try { now = ttsCueStatus_(); } catch (e) { now = null; }
   var onBefore = !(cueBefore && cueBefore.ok === false);
   var onNow = !(now && now.ok === false);
-  if (onBefore && onNow) {
+  /* ══ و شاهدِ رویداد، نه فقط پرچم (۷٫۸۹) ══
+     قالبِ پیشوندی یعنی پرچم می‌تواند درست بماند در حالی که تکه‌ای واقعاً
+     بی‌دستور ساخته شده. اگر مهرِ «دور انداخته شد» بینِ شروع و پایانِ همین
+     ساخت عوض شده باشد، این نمونه رنگ‌تنهاست، هر چه پرچم بگوید. */
+  var dropped = false;
+  try { dropped = ttsCueDropAt_() !== String(dropBefore == null ? '' : dropBefore); }
+  catch (eD) { dropped = false; }
+  if (onBefore && onNow && !dropped) {
     return { label: label, soul: 'روح',
              soulWhy: 'همین حالا با شیوهٔ خواندنِ خودش خوانده شد' };
   }
   return { label: label, soul: 'رنگ‌تنها',
-           soulWhy: 'دستورِ لحن وسطِ ساخت خاموش شد' +
+           soulWhy: (dropped ? 'دستورِ لحن در ساختِ دستِ‌کم یک تکه دور انداخته شد'
+                             : 'دستورِ لحن وسطِ ساخت خاموش شد') +
                     ((now && now.model) ? ' (مدلِ «' + now.model + '»)' : '') +
                     '؛ بخشی از این نمونه بی شیوهٔ خواندن ساخته شده' };
 }
@@ -1825,6 +1838,10 @@ function runVoiceSoulTest() {
      دیروز است، هم هزینه است هم یک ادعای نادرستِ دیگر. */
   var cueChk = null;
   try { cueChk = ttsCueStatus_(); } catch (eC) { cueChk = null; }
+  /* مهر **پیش از** ساخت برداشته می‌شود؛ مقایسه‌اش پس از ساخت می‌گوید در
+     همین نمونه تکه‌ای بی‌دستور ساخته شد یا نه (۷٫۸۹). */
+  var dropChk = '';
+  try { dropChk = ttsCueDropAt_(); } catch (eD0) { dropChk = ''; }
   if (cueChk && cueChk.ok === false) {
     say('⚠️ الان **شیوهٔ خواندن به مدل نمی‌رسد**، پس این نمونه فقط رنگِ صدا ' +
         'می‌گرفت — همان چیزی که دیروز گرفتید.\n\n' + String(cueChk.line || '') +
@@ -1903,7 +1920,7 @@ function runVoiceSoulTest() {
        **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''),
-                    vbrSoulTag_(cueChk, label));
+                    vbrSoulTag_(cueChk, label, dropChk));
     res.ok = !!(r && r.ok);
     res.why = (r && r.why) || '';
   } catch (e) {

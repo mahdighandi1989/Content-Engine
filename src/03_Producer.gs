@@ -880,9 +880,20 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
   // `!!model` لازم است: بی آن، مدلِ ناشناخته (null) با کلیدِ خالیِ خاصیت
   // (null) برابر می‌شد و دستور برای همه خاموش می‌ماند — سدی که همیشه بسته
   // است، همان اشتباهی است که ۵٫۶۵ کرد.
-  var cueOff = false;
-  try { cueOff = ttsCueOffNow_(model); } catch (eC) {}
-  var cue = (withCue === false || cueOff) ? '' : ttsCue_(sectionStyle, text);
+  /* ══ «فیلدِ دستور را نمی‌پذیرد» ≠ «لحن نمی‌گیرد» (۷٫۸۹) ══
+     تا امروز این دو یکی گرفته می‌شدند: مدلی که در نقشهٔ بدها بود، اصلاً
+     دستوری نمی‌گرفت و تکه‌ها صاف ساخته می‌شدند. ولی راهِ **مستندِ خودِ**
+     Gemini TTS برای هدایتِ خواندن اصلاً یک فیلدِ جدا نیست — پیشوندی است
+     در متنِ همان درخواست. پس نقشهٔ بدها از این پس فقط یک چیز می‌گوید:
+     «دو قالبِ فیلددار را امتحان نکن»، نه «لحن را بینداز دور».
+
+     سه مدل پشتِ‌هم (۲۷ و ۲۹ سپتامبر و ۳۰) هر دو قالبِ فیلددار را رد
+     کردند با پیامِ «Developer instruction is not enabled for this model».
+     یعنی این یک **قابلیتِ مدل** است، نه باگِ ما، و گشتن به دنبالِ مدلی که
+     بپذیرد ممکن است هیچ‌وقت تمام نشود. */
+  var fieldOff = false;
+  try { fieldOff = ttsCueBadNow_(model) || ttsCueOffNow_(model); } catch (eC) {}
+  var cue = (withCue === false) ? '' : ttsCue_(sectionStyle, text);
 
   var gc = {
     contents: [{ parts: [{ text: text }] }],
@@ -891,7 +902,7 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vc } } }
     }
   };
-  if (cue) gc.systemInstruction = { parts: [{ text: cue }] };
+  if (cue && !fieldOff) gc.systemInstruction = { parts: [{ text: cue }] };
 
   var ix = {
     model: model,
@@ -899,7 +910,28 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
     response_format: { type: 'audio' },
     generation_config: { speech_config: [{ voice: vc }] }
   };
-  if (cue) ix.instructions = cue;
+  if (cue && !fieldOff) ix.instructions = cue;
+
+  /* ══ قالبِ سوم: دستور به‌صورتِ پیشوندِ متن (۷٫۸۹) ══
+     شکلِ مستندِ Gemini TTS: «<دستور>: <متن>» — مدل فقط آنچه پس از دونقطه
+     است را می‌خوانَد. این **همان کارِ ۵٫۵۹ نیست**: آنجا دستور و متن خام به
+     هم چسبانده می‌شدند و مدل باید حدس می‌زد کدام کدام است؛ اینجا دونقطه
+     همان مرزی است که این خانوادهٔ مدل رویش آموزش دیده.
+
+     و ضمانتش حرف نیست: `ttsGuarded_` شش ثانیهٔ **خروجی** را به مدل
+     می‌دهد و می‌پرسد چه شنیدی؛ اگر واژه‌های دستور در صدا بود و در متن
+     نبود، همان تکه بی‌دستور از نو ساخته می‌شود. آن نگهبان پیش از این
+     قالب نوشته شده بود و دقیقاً برای همین خطر است.
+
+     پسوندِ نگارشیِ ته دستور برداشته می‌شود وگرنه «…بخوان.:» می‌شود. */
+  var lead = String(cue || '').replace(/[.،؛:\s]+$/, '');
+  var pr = {
+    contents: [{ parts: [{ text: (cue ? lead + ':\n' : '') + text }] }],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vc } } }
+    }
+  };
 
   return {
     generateContent: {
@@ -911,6 +943,11 @@ function ttsPayloads_(text, modelOverride, sectionStyle, voice, withCue) {
       url: 'https://generativelanguage.googleapis.com/v1beta/interactions?key=' +
            encodeURIComponent(apiKey_()),
       body: ix
+    },
+    prompted: {
+      url: 'https://generativelanguage.googleapis.com/v1beta/models/' + model +
+           ':generateContent?key=' + encodeURIComponent(apiKey_()),
+      body: pr
     }
   };
 }
@@ -1117,9 +1154,20 @@ function ttsCueOffFinding_(model, why) {
  */
 function ttsCueStatus_() {
   var out = { on: true, model: '', since: '', ok: true, line: '' };
+  /* ══ `ok` یعنی «با این ساخت دستوری می‌رود»، و باید ورودی داشته باشد ══
+     پس از ۷٫۸۹ دستور از سه راه می‌تواند برود، پس ردشدنِ فیلد دیگر `ok` را
+     نمی‌خوابانَد. اگر همین‌جا هم `true` بماند، `ok` **هیچ‌وقت** نادرست
+     نمی‌شود — یعنی پرچمی بی‌ورودی، و سدِ ۷٫۷۹ که چهار دقیقه خرج را پشتش
+     نگه داشته بود عملاً برداشته می‌شود.
+
+     و این تنها حالتی است که واقعاً «دستوری نمی‌رود»: خواستهٔ خودِ صاحبِ
+     برنامه. پس سد درست عمل می‌کند — نمونهٔ «روح» با لحنِ خاموش ساختن،
+     همان چهار دقیقهٔ دورریز است — و سطر می‌گوید این یک تصمیم است نه
+     خرابی، تا هشداری برای حالتِ سالم زده نشود. */
   if (String(CFG.TTS_CUE_MODE || '') === 'off') {
-    out.on = false; out.ok = true;
-    out.line = 'دستورِ لحن: با تنظیمِ TTS_CUE_MODE خاموش است (خواسته).';
+    out.on = false; out.ok = false;
+    out.line = 'دستورِ لحن: با تنظیمِ TTS_CUE_MODE خاموش است (خواسته) — ' +
+               'تکه‌ها بی‌لحن ساخته می‌شوند تا خودتان روشنش کنید.';
     return out;
   }
   /* ══ نقشه، نه خانهٔ تکی — آخرین خوانندهٔ بازماندهٔ پیش از ۷٫۴۷ (۷٫۸۸) ══
@@ -1170,17 +1218,28 @@ function ttsCueStatus_() {
   }
   /* تاریخ از **نقشه** می‌آید نه از `TTS_CUE_OFF_AT`: آن یکی تاریخِ آخرین
      ردشدنِ هر مدلی است، نه ردشدنِ همین مدل. */
-  out.on = false; out.ok = false; out.model = live;
+  out.model = live;
   out.since = String(bad[live] || '');
   if (!out.since) {
     try { out.since = String(props_().getProperty(PK.TTS_CUE_OFF_AT) || ''); } catch (e2) {}
   }
-  var d = Number(CFG.TTS_CUE_RETRY_DAYS) || 0;
-  out.line = 'دستورِ لحن: **خاموش** — مدلِ «' + live + '» قالبش را نپذیرفت' +
+  /* ══ «فیلد را نپذیرفت» دیگر یعنی «قالبِ دیگری می‌رود»، نه «لحن نرفت» (۷٫۸۹) ══
+     تا ۷٫۸۸ همین‌جا `ok=false` می‌نشست، و `ok` همان سدی است که
+     `runVoiceSoulTest` پیش از خرجِ چهار دقیقه می‌پرسد (۷٫۷۹). نتیجه‌اش ۳۰
+     سپتامبر دیده شد: نمونهٔ گویندهٔ دوم اصلاً ساخته نشد، در حالی که ایرادی
+     در آن گوینده نبود.
+
+     حالا دستور از راهِ پیشوندِ متن می‌رود، پس لحن **می‌رسد** و `ok` درست
+     است. آنچه عوض شده مسیر است، نه توانایی — و سطر همین را می‌گوید، نه
+     بیشتر: ادعای «همه‌چیز خوب است» روی مسیری که هنوز روی قسمتِ واقعی
+     شنیده نشده، همان ادعای بی‌ورودی است که این پرونده بارها تاوانش را
+     داده. پس «خاموش» نمی‌گوید و «سنجیده شد» هم نمی‌گوید. */
+  out.on = true; out.ok = true;
+  out.line = 'دستورِ لحن: روشن، از راهِ پیشوندِ متن — مدلِ «' + live +
+             '» قالبِ فیلددار را نپذیرفت' +
              (out.since ? ' (از ' + out.since + ')' : '') +
-             '؛ تکه‌ها بی‌لحن ساخته می‌شوند' +
-             (d > 0 ? '، و هر ' + d + ' روز یک بار دوباره امتحان می‌شود' : '') +
-             '. یافتهٔ tts-cue-unsupported.';
+             '، پس دستور در خودِ متن فرستاده می‌شود و نگهبانِ «گوینده دستور ' +
+             'را نخواند» روی خروجی می‌دود.';
   return out;
 }
 
@@ -1188,8 +1247,24 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
   var model = ttsModel_();
   var modes = ttsPayloads_(text, model, sectionStyle, voice, withCue);
   var pref = props_().getProperty(PK.TTS_MODE);
-  var order = pref ? [pref, pref === 'generateContent' ? 'interactions' : 'generateContent']
-                   : ['generateContent', 'interactions'];
+  var fields = (pref === 'interactions') ? ['interactions', 'generateContent']
+                                         : ['generateContent', 'interactions'];
+  /* ══ ترتیب: اول قالب‌های فیلددار، آخر پیشوندِ متن (۷٫۸۹) ══
+     دو قالبِ اول **ساختاراً** نمی‌توانند خوانده شوند، پس امن‌ترند و همیشه
+     جلوترند. پیشوند آخرین راه است، نه اولین — و اگر مدل از قبل ثابت کرده
+     که فیلد را نمی‌پذیرد، مستقیم سراغِ همان می‌رویم تا فراخوانِ دورریز
+     ندهیم (۵٫۸۴: یک بار یاد بگیر، نه سیزده بار).
+
+     و `prompted` هرگز به‌عنوانِ «قالبِ ترجیحی» ذخیره نمی‌شود: روزی که
+     مدلی فیلد را بپذیرد باید همان اول امتحان شود، نه پس از پیشوند. */
+  var fieldOff2 = false;
+  try { fieldOff2 = ttsCueBadNow_(model) || ttsCueOffNow_(model); } catch (eF0) {}
+  var order;
+  if (withCue === false) order = fields;
+  else if (fieldOff2) order = ['prompted'];
+  else order = fields.concat(['prompted']);
+  var lastFieldIdx = -1;
+  for (var q = 0; q < order.length; q++) if (order[q] !== 'prompted') lastFieldIdx = q;
   var lastErr = null, refreshed = false;
 
   for (var i = 0; i < order.length; i++) {
@@ -1199,7 +1274,7 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
       try {
         var j = geminiFetch_(cfg.url, cfg.body);
         var b64 = extractAudioB64_(j);
-        props_().setProperty(PK.TTS_MODE, mode);
+        if (mode !== 'prompted') props_().setProperty(PK.TTS_MODE, mode);
         return b64;
       } catch (e) {
         lastErr = e;
@@ -1241,7 +1316,11 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                  که ۵٫۵۹/۶٫۹۸ برایش دستور را جدا کردند، برای دستورِ لحن
                  عملاً هرگز به کار نمی‌رفت. حالا فقط وقتی که **هر دو** قالب
                  رد کردند، مدل واقعاً «نمی‌پذیرد» است. */
-              if (i < order.length - 1) {
+              /* آخرین قالبِ **فیلددار** است که حکم می‌دهد، نه آخرین قالبِ
+                 ترتیب — چون آخری از ۷٫۸۹ پیشوندِ متن است و ردشدنش اصلاً
+                 دربارهٔ فیلدِ دستور نیست. سنجیدنِ چیزِ دیگری به‌جای چیزی که
+                 ادعا می‌کنیم، همان شکلی است که این پرونده بارها ثبت کرده. */
+              if (i < lastFieldIdx) {
                 logLine_('قالبِ «' + mode + '» دستورِ لحن را نپذیرفت؛ ' +
                          'قالبِ دیگر با همان دستور امتحان می‌شود.');
                 break;
@@ -1259,9 +1338,10 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                 // ندارد و همین مدل فردا دوباره انتخاب می‌شود (۷٫۴۷).
                 try { ttsCueBadAdd_(model); } catch (eM) {}
                 if (!again) {
-                  logLine_('قالبِ دستورِ لحن را مدل «' + model + '» در هر دو مسیر ' +
-                           '(generateContent و interactions) نپذیرفت؛ از این پس ' +
-                           'تکه‌ها بی‌دستور ساخته می‌شوند.');
+                  logLine_('قالبِ دستورِ لحن را مدل «' + model + '» در هر دو مسیرِ ' +
+                           'فیلددار (generateContent و interactions) نپذیرفت؛ از ' +
+                           'این پس دستور به‌صورتِ پیشوندِ متن فرستاده می‌شود ' +
+                           '(راهِ مستندِ همین خانواده مدل).');
                   ttsCueOffFinding_(model, m);
                 } else {
                   logLine_('امتحانِ دوبارهٔ دستورِ لحن: مدل «' + model +
@@ -1269,6 +1349,12 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                            ' روزِ دیگر دوباره امتحان می‌شود.');
                 }
               } catch (eP) {}
+              /* ══ حکم ثبت شد — ولی لحن دور انداخته نمی‌شود (۷٫۸۹) ══
+                 پیش از این، همین‌جا `return ttsChunkTry_(…, false)` بود:
+                 یعنی همان لحظه‌ای که می‌فهمیدیم فیلد پذیرفته نمی‌شود، کلِ
+                 لحن را می‌انداختیم. حالا قالبِ پیشوندی هنوز امتحان نشده،
+                 پس سقوط یک پله است نه تا ته. */
+              if (i < order.length - 1) break;
             } else {
               /* اینجا یعنی خطا **دربارهٔ قالبِ دستور نبود** — پس گفتنِ «قالبِ
                  دستور پذیرفته نشد» دروغ است و علتِ واقعی را پنهان می‌کند.
@@ -1277,6 +1363,11 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
                  (۲۵ اوت: قسمت ۱۶ یک بار همین را داد و متنِ خطا هیچ‌جا نماند.) */
               logLine_('صداسازیِ یک تکه رد شد؛ بی‌دستور دوباره ساخته می‌شود — ' +
                        m.replace(/\s+/g, ' ').slice(0, 180));
+            }
+            /* این تنها جایی است که دستورِ خواسته‌شده واقعاً دور انداخته
+               می‌شود. مهرش اینجاست، نه جای دیگر (۷٫۸۹). */
+            if (withCue !== false) {
+              try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD) {}
             }
             return ttsChunkTry_(text, sectionStyle, voice, false);
           }
