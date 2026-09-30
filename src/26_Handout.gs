@@ -686,6 +686,23 @@ var HANDOUT_CSS_ = [
   '.bar{height:7px;background:#0d2b49}.bar i{display:block;height:7px;background:#7ec4ff}',
   '.bd{padding:26px 40px 40px}',
   '.toc{background:#f6f8fc;border:1px solid #dfe6f2;border-radius:12px;padding:20px 24px;margin:0 0 30px}',
+  /* تصویرهای درس (۷٫۹۴). عرضِ کامل ولی قدِ محدود، تا یک کارتِ بلند صفحه را
+     نبلعد؛ و همیشه یک پیوندِ متنی زیرش، چون اگر مرورگر تصویرِ درایو را بار
+     نکند، یک آیکونِ شکسته با یک زیرنویسِ بی‌تصویر می‌مانَد. */
+  '.hfg{margin:18px 0;padding:0;background:#f9fafd;border:1px solid #dfe6f2;',
+  'border-radius:12px;overflow:hidden}',
+  '.hfg img{display:block;width:100%;height:auto;max-height:420px;object-fit:cover}',
+  '.hfg figcaption{font-size:12.5px;color:#65718a;padding:9px 14px;line-height:1.85}',
+  '.hfg-l{color:#2e6fb8;text-decoration:none;white-space:nowrap;font-size:11.5px}',
+  /* گالریِ پایانِ فصل: تصویرهایی که کنارِ بخشی نرفتند — جدا از متن، پس از
+     مرورِ فصل و پیش از پانوشت، تا هیچ‌جا دو بصری پشتِ‌هم نیاید. */
+  '.hfgal{background:#f6f8fc;border:1px solid #dfe6f2;border-radius:12px;',
+  'padding:14px 16px;margin:18px 0}',
+  '.hfgal-h{font-size:13.5px;color:#123a63;font-weight:bold;margin-bottom:10px}',
+  '.hfgal-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}',
+  '.hfgal .hfg{margin:0;background:#fff}',
+  '.hfgal .hfg img{max-height:170px}',
+  '.hfgal .hfg figcaption{font-size:11.5px;padding:7px 10px;line-height:1.7}',
   /* نمودارها (۶٫۵۷، بازطراحیِ ۶٫۶۶): هر نوع، شکلِ خودش */
   '.hvz{background:#f9fafd;border:1px solid #dfe6f2;border-radius:12px;padding:16px 18px;margin:18px 0}',
   '.hvz-h{margin-bottom:12px;font-size:14px}.hvz-h b{margin-right:8px}',
@@ -836,6 +853,160 @@ var HANDOUT_CSS_ = [
 ].join('');
 
 /** نشانهٔ پانوشت: بالانویسِ شماره‌دار که به پانوشتِ همان فصل می‌رود. */
+/* ═══════════ همان تصویرها، در جزوه (۷٫۹۴ — بندِ ۶ و ۷ِ درخواست) ═══════════
+ *
+ * خواسته: «جزوه هم با همین تصاویر به‌روزرسانی بشه و تصاویر رو در جای مناسب
+ * قرار بده **بدون اینکه به متن و نمودارها بخوره**» و «تصاویرِ جزوه به اندازهٔ
+ * جزوه».
+ *
+ * ══ «به متن و نمودارها نخورد» به یک قاعده ترجمه شد، نه یک آرزو ══
+ * جزوه از ۶٫۵۷ نمودار دارد (`hviz*`) و نمودارها سه جا می‌نشینند: پیش از فصل،
+ * زیرِ یک بخش، و مرورِ فصل. پس قاعده: **هر بخش یک تصویرِ بصری، نه دو.** بخشی
+ * که نمودار دارد تصویر نمی‌گیرد، و تصویرهای باقی‌مانده در گالریِ **پایانِ
+ * فصل** می‌نشینند — جدا از متن، پس از مرورِ فصل و پیش از پانوشت. این‌طور هیچ
+ * تصویری گم نمی‌شود (خواستهٔ «همین تصاویر») و هیچ‌جا دو بصری پشتِ‌هم نمی‌آید.
+ *
+ * ══ کدام تصویر کنارِ کدام بخش ══
+ * هر بخشِ جزوه `addedIn` دارد: شمارهٔ درسی که ساختش. تصویرها هم از
+ * `_visuals.json`ِ همان درس می‌آیند. برای انتخاب، `handoutTitleShare_` —
+ * که از قبل هست و سنجه دارد — واژه‌های مشترکِ عنوانِ بخش و سرِ بخشِ تصویر را
+ * می‌شمارد؛ صفر بودنِ همهٔ امتیازها یعنی اولین تصویرِ استفاده‌نشده، که همان
+ * ترتیبِ طبیعی است. **هیچ فراخوانِ مدلی این‌جا نیست** — صاحبِ برنامه گفت
+ * «نمیخوام هزینه کار و توکن بالا بره»، و زیرنویسِ فارسیِ هر تصویر از ۷٫۹۲ در
+ * همان یک فراخوانِ موجود نوشته شده است.
+ *
+ * ══ چرا نشانیِ درایو، و نه فایلِ تازه ══
+ * `drive.google.com/thumbnail?id=…&sz=w900` همان تصویر را در اندازهٔ خواسته
+ * می‌دهد، پس نه نسخهٔ دومی لازم است و نه انتقالی. اولین طرح این بود که رانر
+ * JPEGهای ~۹۰۰ پیکسلی بسازد و به ریلیز بفرستد — **و آن یک مسیرِ دومِ بی‌فایده
+ * بود**: نشانیِ ریلیز عمومیِ همیشگی است (همان مرزی که `voice-lab.yml` و
+ * `dropCollected` برایش نوشته شده‌اند) و نشانیِ درایو همان احتیاجِ ورود به
+ * حساب را دارد که فایلِ کوچک‌تر هم دارد. پس آن نیمه در همین نسخه برداشته شد.
+ *
+ * و اگر تصویر در مرورگر بار نشد، **دیده می‌شود**: زیرِ هر تصویر یک پیوندِ
+ * متنی هست، پس بدترین حالتش یک کلیک است نه یک آیکونِ شکسته و یک زیرنویسِ
+ * بی‌تصویر.
+ */
+
+function hfigOn_() { return CFG.HFIG_ENABLED !== false; }
+
+/** نشانیِ همان تصویرِ درایو در اندازهٔ دلخواه — بی ساختنِ نسخهٔ دوم. */
+function hfigUrl_(fileId, px) {
+  return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(String(fileId || '')) +
+         '&sz=w' + Math.max(120, Number(px) || 900);
+}
+
+function hfigView_(fileId) {
+  return 'https://drive.google.com/file/d/' + encodeURIComponent(String(fileId || '')) + '/view';
+}
+
+/** تصویرهای یک قسمت، از `_visuals.json`ِ درونِ پوشهٔ خودش. `null` = پرونده نبود. */
+function hfigReadEp_(folderId) {
+  var d = null;
+  try {
+    var f = DriveApp.getFolderById(String(folderId || ''));
+    var it = f.getFilesByName(CFG.LV_FILE || '_visuals.json');
+    if (!it.hasNext()) return null;
+    d = JSON.parse(it.next().getBlob().getDataAsString());
+  } catch (e) { return null; }
+  var out = [];
+  var items = (d && d.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    var x = items[i] || {};
+    if (!x.fileId) continue;
+    out.push({ id: String(x.fileId), n: Number(x.n) || (i + 1), at: Number(x.at) || 0,
+               kind: String(x.kind || ''), heading: String(x.heading || ''),
+               title: String(x.cardTitle || ''), cap: String(x.caption || '') });
+  }
+  return out;
+}
+
+/**
+ * تصویرهای همهٔ درس‌های این مجموعه را در خودِ کتاب می‌نشاند (`book.figs`).
+ *
+ * ══ سه مرز ══
+ * **۱) درایو یک بار پیمایش می‌شود، و فقط وقتی چیزی کم است.** `handoutSeriesEpisodes_`
+ * تنها جایی است که پوشهٔ مجموعه پیمایش می‌شود و شناسهٔ پوشهٔ هر قسمت را
+ * می‌دهد؛ شبی که همهٔ درس‌ها تصویرشان خوانده شده، این تابع هیچ فراخوانِ
+ * درایویی ندارد.
+ *
+ * **۲) «خالی» همیشگی نیست.** قسمت‌های پیش از ۷٫۹۳ `_visuals.json` ندارند —
+ * ولی `ytBackfill_` آن‌ها را کم‌کم منتشر می‌کند و همان‌جا تصویرشان ساخته
+ * می‌شود. اگر خالی را همیشگی ثبت کنیم، درس‌های قدیمی **هرگز** تصویر نمی‌گیرند
+ * و کسی هم نمی‌فهمد چرا. پس فقط ورودیِ **ناخالی** کش می‌شود.
+ *
+ * **۳) سقف دارد.** `HFIG_SCAN_MAX` خواندنِ درایو در هر اجرا، تا یک مجموعهٔ
+ * بیست‌درسه اجرای شش‌دقیقه‌ای را نخورد.
+ */
+function hfigSync_(seriesFolder, book, epNum, force) {
+  var out = { read: 0, imgs: 0, missing: 0, capped: false, why: '' };
+  if (!hfigOn_() || !book) return out;
+  if (!book.figs || typeof book.figs !== 'object') book.figs = {};
+
+  var list = [];
+  for (var e = 0; e < (book.episodes || []).length; e++) list.push(String(book.episodes[e].n));
+  if (epNum && list.indexOf(String(epNum)) === -1) list.push(String(epNum));
+
+  var want = [];
+  for (var i = 0; i < list.length; i++) {
+    if (!force && ((book.figs[list[i]] || []).length)) continue;   // مرزِ ۲
+    want.push(list[i]);
+  }
+  out.missing = want.length;
+  if (!want.length) return out;
+
+  var eps = null;
+  try { eps = handoutSeriesEpisodes_(seriesFolder); }
+  catch (eS) { out.why = 'پوشهٔ مجموعه خوانده نشد: ' + eS.message; return out; }
+
+  var cap = Math.max(1, Number(CFG.HFIG_SCAN_MAX) || 8);
+  for (var j = 0; j < want.length; j++) {
+    if (out.read >= cap) { out.capped = true; break; }
+    var m = eps[want[j]];
+    if (!m || !m.__folderId) continue;            // پوشه‌اش پیدا نشد — دفعهٔ بعد
+    var got = hfigReadEp_(m.__folderId);
+    out.read++;
+    if (got === null) { if (!book.figs[want[j]]) book.figs[want[j]] = []; continue; }
+    book.figs[want[j]] = got;
+    out.imgs += got.length;
+  }
+  var still = 0;
+  for (var k = 0; k < list.length; k++) if (!((book.figs[list[k]] || []).length)) still++;
+  out.missing = still;
+  return out;
+}
+
+/**
+ * از تصویرهای یک درس، آن که به این عنوان نزدیک‌تر است.
+ * همهٔ امتیازها صفر ⇒ اولین استفاده‌نشده، که همان ترتیبِ طبیعیِ درس است.
+ */
+function hfigPick_(figs, title, used) {
+  var best = null, bs = -1;
+  for (var i = 0; i < (figs || []).length; i++) {
+    var f = figs[i];
+    if (!f || !f.id || used[f.id]) continue;
+    var sc = 0;
+    try { sc = handoutTitleShare_(String(title || ''),
+                                  String(f.heading || '') + ' ' + String(f.title || '')); }
+    catch (e) { sc = 0; }
+    if (sc > bs) { bs = sc; best = f; }
+  }
+  return best;
+}
+
+/** یک `<figure>`. `px` اندازهٔ همین جا را می‌گوید — جزوه و گالری یکی نیستند. */
+function hfigHtml_(f, px, cls) {
+  if (!f || !f.id) return '';
+  var cap = String(f.cap || f.title || f.heading || '');
+  return '<figure class="' + (cls || 'hfg') + '">' +
+    '<a href="' + esc_(hfigView_(f.id)) + '" target="_blank" rel="noopener">' +
+    '<img src="' + esc_(hfigUrl_(f.id, px)) + '" loading="lazy" alt="' +
+    esc_(cap || 'تصویرِ درس') + '"></a>' +
+    '<figcaption>' + (cap ? esc_(cap) + ' ' : '') +
+    '<a class="hfg-l" href="' + esc_(hfigView_(f.id)) + '" target="_blank" ' +
+    'rel="noopener">↗ تصویر</a></figcaption></figure>';
+}
+
 function handoutSup_(chId, nos) {
   if (!nos || !nos.length) return '';
   var out = [];
@@ -928,6 +1099,11 @@ function handoutHtml_(book) {
   try { h.push(hvizBookMap_(book)); } catch (eVm) {}
 
   // ── فصل‌ها ──
+  /* تصویرهای هر درس، از خودِ کتاب — نه از درایو. `hfigSync_` آن‌ها را سرِ
+     به‌روزرسانی می‌نشاند، پس رندر هیچ فراخوانِ شبکه‌ای ندارد. */
+  var figsOf = (book.figs && typeof book.figs === 'object') ? book.figs : {};
+  var figUsed = Object.create(null);
+
   for (var ci = 0; ci < book.chapters.length; ci++) {
     var cc = book.chapters[ci];
     var used = {};
@@ -968,10 +1144,54 @@ function handoutHtml_(book) {
       }
       if (vzBySec[String(sec.id)]) {
         try { h.push(hvizHtml_(vzBySec[String(sec.id)], '')); } catch (eVs) {}
+      } else if (hfigOn_()) {
+        /* **یک بصری برای هر بخش، نه دو.** بخشی که نمودار دارد تصویر
+           نمی‌گیرد — ترجمهٔ «به متن و نمودارها نخورد» به یک قاعده. و
+           تصویری که این‌جا جا نشد گم نمی‌شود: در گالریِ پایانِ فصل است. */
+        var per = Math.max(1, Number(CFG.HFIG_PER_SEC) || 1);
+        for (var fq = 0; fq < per; fq++) {
+          var pick = hfigPick_(figsOf[String(sec.addedIn || '')] || [], sec.title, figUsed);
+          if (!pick) break;
+          figUsed[pick.id] = 1;
+          try { h.push(hfigHtml_(pick, CFG.HFIG_INLINE_PX || 900, 'hfg')); } catch (eFg) {}
+        }
       }
     }
     // ── مرورِ فصل در یک نگاه — پیش از پانوشت ──
     if (vz.recap) { try { h.push(hvizHtml_(vz.recap, 'مرورِ فصل')); } catch (eVr) {} }
+    /* ── تصویرهای این فصل که کنارِ بخشی نرفتند ──
+       یک درس ده‌دوازده تصویر دارد و یک فصل سه‌چهار بخش، پس بیشترشان این‌جا
+       می‌نشینند. انداختنشان یعنی نیمهٔ خواستهٔ «همین تصاویر در جزوه» — و
+       درهم‌آمیختنشان با متن یعنی نیمهٔ دیگرش («به متن نخورد»). گالری هر دو
+       را نگه می‌دارد. */
+    if (hfigOn_()) {
+      var lessons = {}, lOrder = [];
+      for (var sl = 0; sl < (cc.sections || []).length; sl++) {
+        var ln = String((cc.sections[sl] || {}).addedIn || '');
+        if (!ln || lessons[ln]) continue;
+        lessons[ln] = 1; lOrder.push(ln);
+        for (var al = 0; al < ((cc.sections[sl] || {}).adds || []).length; al++) {
+          var an = String(cc.sections[sl].adds[al].fromEpisode || '');
+          if (an && !lessons[an]) { lessons[an] = 1; lOrder.push(an); }
+        }
+      }
+      var rest = [];
+      for (var lo = 0; lo < lOrder.length; lo++) {
+        var fl = figsOf[lOrder[lo]] || [];
+        for (var fi = 0; fi < fl.length; fi++) {
+          if (!fl[fi] || !fl[fi].id || figUsed[fl[fi].id]) continue;
+          figUsed[fl[fi].id] = 1; rest.push(fl[fi]);
+        }
+      }
+      if (rest.length) {
+        h.push('<div class="hfgal"><div class="hfgal-h">تصویرهای این فصل (' +
+               esc_(faDigitsOut_(String(rest.length))) + ')</div><div class="hfgal-g">');
+        for (var rg = 0; rg < rest.length; rg++) {
+          try { h.push(hfigHtml_(rest[rg], CFG.HFIG_THUMB_PX || 420, 'hfg')); } catch (eGl) {}
+        }
+        h.push('</div></div>');
+      }
+    }
     // ── پانوشتِ همین فصل، مثلِ زیرِ صفحه در کتاب ──
     var fnos = [];
     for (var k in used) if (Object.prototype.hasOwnProperty.call(used, k)) fnos.push(k);
@@ -1243,6 +1463,13 @@ function handoutUpdate_(folder, meta, hub, rec) {
                               st.touched);
     if (vzf.made) out.viz = vzf.made;
   } catch (eVz) {}
+  /* تصویرهای درس‌ها، پیش از رندر. این درسِ تازه همیشه خوانده می‌شود (هنوز
+     در کش نیست) و درس‌های قدیمی‌ای که تصویرشان نرسیده بود هم تا سقف. */
+  try {
+    var fsy = hfigSync_(folder, book, epNum, false);
+    if (fsy.imgs) out.figs = fsy.imgs;
+    if (fsy.why) logLine_('تصویرهای جزوهٔ «' + book.seriesName + '»: ' + fsy.why);
+  } catch (eFs) { logLine_('تصویرهای جزوه خوانده نشد: ' + eFs.message); }
   handoutWrite_(folder, book);
   var file = handoutRender_(folder, book);
   out.ok = true; out.stats = st; out.url = file.getUrl();
@@ -1488,15 +1715,28 @@ function handoutOneSeries_(key, maxItems) {
     /* و همین‌جا عنوان‌های کهنه هم مرتب می‌شوند — بی‌قیدِ نشانهٔ «مهاجرت تمام
        شد». دکمه‌ای که آدم می‌زند باید همیشه کارش را بکند؛ اگر یک بار جارو
        رد شده و چیزی جا مانده، این دومین در است. */
+    /* و تصویرها **با اجبار** خوانده می‌شوند: دکمهٔ آدم یعنی «از نو نگاه
+       کن». اگر تصویری در درایو عوض یا پاک شده باشد، تنها در همین‌جاست که
+       کتاب دوباره می‌پرسد — کشِ ناخالی وگرنه برای همیشه می‌مانَد. */
+    var figN = 0;
+    try {
+      var fs1 = hfigSync_(sf, book, '', true);
+      figN = fs1.imgs;
+      if (fs1.read) out.notes.push('تصویرهای ' + fs1.read + ' درس از نو خوانده شد (' +
+                                   fs1.imgs + ' تصویر)' +
+                                   (fs1.missing ? '، ' + fs1.missing + ' درس بی‌تصویر' : '') +
+                                   (fs1.capped ? ' — سقفِ این اجرا' : ''));
+    } catch (eF1) { out.notes.push('تصویرهای جزوه: ' + eF1.message); }
+
     out.retitled = handoutRetitleBook_(book);
-    if (reset || out.retitled) {
+    if (reset || out.retitled || figN) {
       try {
         if (out.retitled) {
           book.revision = Number(book.revision || 0) + 1;
           book.updatedAt = nowStr_();
         }
         handoutWrite_(sf, book);
-        if (out.retitled) handoutRender_(sf, book);
+        if (out.retitled || figN) handoutRender_(sf, book);
       } catch (eR) {}
     }
     var have = Object.create(null);
@@ -2891,6 +3131,11 @@ function handoutSeriesEpisodes_(seriesFolder) {
            می‌نشیند نه در هر شمارنده — مرزی که هر فراخوان باید یادش باشد،
            همان مرزی است که فردا یکی یادش می‌رود. */
         if (m && m.recap) continue;
+        /* شناسهٔ پوشهٔ خودِ قسمت، همین‌جا که در دست است. `_visuals.json`
+           (۷٫۹۳) درونِ همین پوشه است و جزوه بی این شناسه باید یک پیمایشِ
+           دومِ کاملِ مجموعه بکند — و این تابع تنها جایی است که این پیمایش
+           یک بار انجام می‌شود. */
+        if (m) m.__folderId = f.getId();
         if (m && m.epNum !== undefined && m.epNum !== null) map[String(m.epNum)] = m;
       } catch (e) {}
     }

@@ -2022,4 +2022,273 @@ console.log('\n=== نمودار: درسِ امروز اولْ نوبت دارد 
   global.hvizModelOne_ = realM;
 }
 
+console.log('\n=== ۲۷) همان تصویرها، در جزوه (۷.۹۴) ===');
+{
+  /* ══ خواستهٔ بندِ ۶ و ۷ ══
+   * «جزوه هم با همین تصاویر به‌روزرسانی بشه و تصاویر رو در جای مناسب قرار
+   * بده **بدون اینکه به متن و نمودارها بخوره**» و «تصاویرِ جزوه به اندازهٔ
+   * جزوه». هر سه در HTMLِ واقعی سنجیده می‌شوند، نه در متنِ کد. */
+  const mkFig = (i, h, cap) => ({ id: 'IMG' + i, n: i, at: i, kind: 'کارت',
+                                  heading: h, title: 'ت' + i, cap: cap });
+  /* ══ ترتیبِ تصویرها عمداً با ترتیبِ بخش‌ها **نمی‌خوانَد** ══
+     نگارشِ اولِ این بدَل، تصویرِ اول را «باورِ صادق» و دومی را «توجیه»
+     گذاشته بود — یعنی انتخابِ عنوان‌محور و انتخابِ ترتیبی **یک جواب**
+     می‌دادند، و شکستنِ انتخابِ عنوان‌محور هیچ سنجه‌ای را قرمز نکرد. بدَلی
+     که دو رفتار را از هم جدا نکند، هیچ‌کدام را ثابت نمی‌کند.
+     حالا: تصویرِ ۳ به «باورِ صادق» می‌خورد و تصویرِ ۱ به «توجیه»، پس
+     ترتیبی می‌داد ۱ و ۲، و عنوان‌محور می‌دهد ۳ و ۱.
+     و `addedIn` روی **خودِ بخش‌ها** است، نه فقط روی فصل: بی آن، هیچ تصویری
+     جایی پیدا نمی‌کند و سنجه‌های «بی‌تصویر» و «خاموش» بی‌قید سبز می‌شوند —
+     که همان چیزی است که در اولین شکستن معلوم شد. */
+  const mkBook = () => ({
+    seriesKey: 'S', seriesName: 'معرفت‌شناسی', cat: 'فلسفه', revision: 3,
+    updatedAt: '۱۴۰۵/۰۷/۰۸', chapters: [
+      { id: 'ch1', title: 'فصلِ یک', intro: 'درآمد', addedIn: '5', sections: [
+        { id: 's1', title: 'باورِ صادق', addedIn: '5', body: 'متنِ یک.',
+          takeaway: 'چ', refs: [], adds: [] },
+        { id: 's2', title: 'توجیه', addedIn: '5', body: 'متنِ دو.', refs: [], adds: [] }
+      ] }
+    ], refs: [], episodes: [{ n: '5', title: 'درسِ پنج' }], roadmap: {},
+    figs: { '5': [mkFig(1, 'توجیه', 'زیرنویسِ یک'),
+                  mkFig(2, 'چیزِ دیگر', 'زیرنویسِ دو'),
+                  mkFig(3, 'باورِ صادق', 'زیرنویسِ سه'),
+                  mkFig(4, 'باز چیزِ دیگر', 'زیرنویسِ چهار')] }
+  });
+  const book = mkBook();
+  const html = handoutHtml_(book);
+
+  /* ۱۰.۱ — تصویرها **در HTML** هستند، با نشانیِ همان فایلِ درایو. */
+  ok('۲۷.۱ تصویرها در جزوه می‌نشینند، با نشانیِ همان فایلِ درایو',
+     html.indexOf('IMG1') !== -1 && html.indexOf('IMG4') !== -1 &&
+     html.indexOf('drive.google.com/thumbnail?id=IMG1') !== -1 &&
+     (html.match(/<figure/g) || []).length === 4,
+     (html.match(/<figure/g) || []).length + ' تصویر در HTML');
+
+  /* ۱۰.۲ — **اندازه‌ها فرق دارند**: درون‌متنی به اندازهٔ جزوه، گالری
+     بندانگشتی. یک اندازه برای هر دو یعنی یکی‌شان بد است (همان استدلالِ
+     `coverTitle` در بخشِ ۲۷). */
+  ok('۲۷.۲ تصویرِ درون‌متنی و گالری دو اندازهٔ جدا دارند',
+     html.indexOf('sz=w' + (CFG.HFIG_INLINE_PX || 900)) !== -1 &&
+     html.indexOf('sz=w' + (CFG.HFIG_THUMB_PX || 420)) !== -1 &&
+     (CFG.HFIG_THUMB_PX || 420) < (CFG.HFIG_INLINE_PX || 900),
+     'درون‌متنی w' + CFG.HFIG_INLINE_PX + ' · گالری w' + CFG.HFIG_THUMB_PX);
+
+  /* ۱۰.۳ — **انتخاب بر اساسِ عنوان، نه فقط ترتیب.** تصویرِ «توجیه» باید
+     زیرِ بخشِ «توجیه» بنشیند، هرچند دومین تصویر است. */
+  const i1 = html.indexOf('id="s1"'), i2 = html.indexOf('id="s2"');
+  const g3 = html.indexOf('IMG3'), g1 = html.indexOf('IMG1');
+  ok('۲۷.۳ هر تصویر زیرِ بخشی می‌رود که عنوانش می‌خوانَد، نه به ترتیبِ فهرست',
+     i1 < g3 && g3 < i2 && i2 < g1,
+     's1@' + i1 + ' ⇒ IMG3@' + g3 + ' · s2@' + i2 + ' ⇒ IMG1@' + g1 +
+     ' (ترتیبی می‌داد IMG1 و IMG2)');
+
+  /* ۱۰.۴ — و باقی‌مانده‌ها **گم نمی‌شوند**: گالریِ پایانِ فصل. انداختنشان
+     نیمهٔ خواستهٔ «همین تصاویر در جزوه» را می‌خورد. */
+  /* ══ و این‌جا چهارمین بارِ یک اشتباهِ واحد در همین سشن بود ══
+     نگارشِ اول `html.indexOf('hfgal')` را می‌گرفت — ولی `hfgal` یک نامِ
+     کلاس است و **در بلوکِ CSS هم هست**، در نویسهٔ ۱۲۶۱. پس مقایسهٔ
+     «IMG3 بعد از گالری است» با موقعیتِ CSS انجام می‌شد و **بی‌قید درست**
+     بود: سنجه سبز بود و چیزی را ثابت نمی‌کرد. مرز باید `class="hfgal"`
+     باشد، که فقط در بدنه است. */
+  const galAt = html.indexOf('class="hfgal"');
+  ok('۲۷.۴ تصویرهایی که کنارِ بخشی نرفتند در گالریِ پایانِ فصل‌اند',
+     galAt > 0 && html.indexOf('تصویرهای این فصل') > galAt &&
+     html.indexOf('IMG2') > galAt && html.indexOf('IMG4') > galAt,
+     'گالری@' + galAt + ' · IMG2@' + html.indexOf('IMG2') +
+     ' · IMG4@' + html.indexOf('IMG4'));
+
+  /* ۱۰.۵ — **«به نمودارها نخورد»، ترجمه‌شده به یک قاعده.** بخشی که نمودار
+     دارد تصویرِ درون‌متنی نمی‌گیرد — یک بصری برای هر بخش، نه دو. */
+  const b2 = mkBook();
+  b2.chapters[0].viz = { secs: [{ at: 's1', kind: 'روندنما', title: 'ن',
+                                  items: [{ label: 'الف' }, { label: 'ب' }] }],
+                         secDone: true };
+  const h2 = handoutHtml_(b2);
+  const s1a = h2.indexOf('id="s1"'), s2a = h2.indexOf('id="s2"');
+  const between = h2.slice(s1a, s2a);
+  ok('۲۷.۵ بخشی که نمودار دارد تصویرِ درون‌متنی نمی‌گیرد',
+     between.indexOf('hvz') !== -1 && between.indexOf('<figure') === -1,
+     'میانِ s1 و s2: نمودار=' + (between.indexOf('hvz') !== -1) +
+     ' تصویر=' + (between.indexOf('<figure') !== -1));
+
+  /* ۱۰.۵-ب — ولی آن تصویر **گم نمی‌شود**، به گالری می‌رود. */
+  ok('۲۷.۵-ب و تصویرش گم نمی‌شود — به گالری می‌رود',
+     (h2.match(/<figure/g) || []).length === 4 &&
+     h2.indexOf('تصویرهای این فصل (۳)') !== -1,
+     (h2.match(/<figure/g) || []).length + ' تصویر، گالری: ' +
+     (h2.indexOf('تصویرهای این فصل (۳)') !== -1));
+
+  /* ۱۰.۶ — **هیچ تصویری دو بار نمی‌آید.** یک تصویرِ تکراری در یک کتاب،
+     خواننده را به این فکر می‌انداز که چیزی خراب است. */
+  /* نگارشِ اولِ همین سنجه `id=IMG1` را می‌شمرد — که فقط در نشانیِ
+     بندانگشتی هست و در پیوندِ `/file/d/IMG1/view` نیست. یعنی عددِ ادعا با
+     عددِ واقعی فرق داشت و سنجه روی کدِ درست قرمز می‌شد: سنجه‌ای که به
+     حافظهٔ نویسنده‌اش جواب می‌دهد، نویسنده را می‌سنجد نه کد را (۷.۶۹).
+     ادعا این است: هر تصویر در **دقیقاً یک** `<figure>` است. */
+  const figChunks = html.split('<figure').slice(1);
+  const homes = ['IMG1', 'IMG2', 'IMG3', 'IMG4'].map(
+    id => figChunks.filter(c => c.indexOf(id) !== -1).length);
+  ok('۲۷.۶ هر تصویر در دقیقاً یک `<figure>` است، نه دو جا',
+     figChunks.length === 4 && homes.every(n => n === 1),
+     homes.join('،') + ' (۴ قاب)');
+
+  /* ۱۰.۷ — **اگر مرورگر تصویرِ درایو را بار نکند، دیده می‌شود.** یک
+     آیکونِ شکسته با یک زیرنویسِ بی‌تصویر، همان «همه‌چیز خوب است» است. */
+  /* و این هم اولش عددِ غلط می‌شمرد: `hfg-l` یک بار در **CSS** هم هست، پس
+     شمارشِ سراسری ۵ می‌داد نه ۴. شمارش باید داخلِ خودِ قاب‌ها باشد. */
+  ok('۲۷.۷ زیرِ هر تصویر یک پیوندِ متنی هست، پس شکستنش بی‌صدا نیست',
+     figChunks.length === 4 &&
+     figChunks.every(c => c.indexOf('hfg-l') !== -1 && c.indexOf('↗ تصویر') !== -1),
+     figChunks.filter(c => c.indexOf('hfg-l') !== -1).length + ' از ' + figChunks.length);
+
+  /* ۱۰.۸ — و کتابِ بی‌تصویر **عیناً جزوهٔ امروز** است: نه گالری، نه
+     `<figure>`، نه نشانیِ درایو. قولِ «چیزی خراب نمی‌شود». */
+  const b3 = mkBook(); delete b3.figs;
+  const h3 = handoutHtml_(b3);
+  ok('۲۷.۸ کتابِ بی‌تصویر عیناً جزوهٔ امروز است',
+     h3.indexOf('<figure') === -1 && h3.indexOf('class="hfgal"') === -1 &&
+     h3.indexOf('drive.google.com/thumbnail') === -1 &&
+     h3.indexOf('id="s1"') !== -1 && h3.indexOf('متنِ یک.') !== -1);
+
+  /* ۱۰.۹ — سدِ خاموشی هم واقعی است. */
+  const was = CFG.HFIG_ENABLED;
+  CFG.HFIG_ENABLED = false;
+  const h4 = handoutHtml_(mkBook());
+  CFG.HFIG_ENABLED = was;
+  ok('۲۷.۹ خاموش که باشد، هیچ تصویری نمی‌نشیند',
+     h4.indexOf('<figure') === -1 && h4.indexOf('class="hfgal"') === -1 &&
+     h4.indexOf('drive.google.com/thumbnail') === -1);
+}
+
+console.log('\n=== ۲۷-ب) تصویرها از درایو به کتاب: hfigSync_ (۷.۹۴) ===');
+{
+  const root = global.__ROOT_FOLDER;
+  const sf = root.createFolder('مجموعهٔ آزمونِ تصویر');
+  const mkEp = (n, imgs) => {
+    const f = sf.createFolder('قسمت 00' + n);
+    f.createFile(Utilities.newBlob(JSON.stringify({ epNum: String(n) }),
+                                   'application/json', '_special.json'));
+    if (imgs !== null) {
+      f.createFile(Utilities.newBlob(JSON.stringify({ want: imgs, ready: imgs, done: true,
+        items: Array.from({ length: imgs }, (_, i) => ({
+          n: i + 1, at: i + 1, kind: 'کارت', via: 'کارت', heading: 'سر' + i,
+          cardTitle: 'ع' + i, caption: 'ز' + i, fileId: 'F' + n + '_' + i })) }),
+        'application/json', CFG.LV_FILE));
+    }
+    return f;
+  };
+  mkEp(1, 3); mkEp(2, 2); mkEp(3, null);       // سومی `_visuals.json` ندارد
+
+  const book = { seriesKey: 'S', seriesName: 'س', chapters: [], refs: [],
+                 episodes: [{ n: '1' }, { n: '2' }, { n: '3' }], roadmap: {} };
+  const r1 = hfigSync_(sf, book, '', false);
+
+  /* ۱۰-ب.۱ — تصویرها از `_visuals.json`ِ پوشهٔ خودِ هر قسمت خوانده می‌شوند. */
+  ok('۲۷-ب.۱ تصویرهای هر درس از پوشهٔ خودش خوانده و در کتاب ذخیره می‌شوند',
+     r1.read === 3 && r1.imgs === 5 &&
+     (book.figs['1'] || []).length === 3 && (book.figs['2'] || []).length === 2 &&
+     book.figs['1'][0].id === 'F1_0' && book.figs['1'][0].cap === 'ز0',
+     r1.read + ' درس، ' + r1.imgs + ' تصویر');
+
+  /* ۱۰-ب.۲ — **درسِ بی‌پرونده «کم» شمرده می‌شود، نه «تمام».** قسمت‌های پیش
+     از ۷.۹۳ پرونده ندارند و با `ytBackfill_` کم‌کم می‌گیرند؛ اگر «خالی»
+     همیشگی ثبت شود، هرگز تصویر نمی‌گیرند و کسی هم نمی‌فهمد چرا. */
+  ok('۲۷-ب.۲ درسِ بی‌پرونده «کم» می‌مانَد، نه «خوانده‌شده»',
+     r1.missing === 1, 'کم: ' + r1.missing);
+
+  /* ۱۰-ب.۳ — و اجرای دوم **هیچ درسی را دوباره نمی‌خواند** جز همان خالی.
+     کشی که هر شب همه را بخواند، جزوه را گران می‌کند. */
+  const r2 = hfigSync_(sf, book, '', false);
+  ok('۲۷-ب.۳ اجرای دوم فقط همان درسِ خالی را دوباره امتحان می‌کند',
+     r2.read === 1 && r2.imgs === 0 && r2.missing === 1,
+     'خوانده: ' + r2.read);
+
+  /* ۱۰-ب.۳-ب — و وقتی آن درس تصویر گرفت، همان اجرای بعدی برش می‌دارد. */
+  mkEp(3, 2);
+  const r2b = hfigSync_(sf, book, '', false);
+  ok('۲۷-ب.۳-ب درسی که بعداً تصویر گرفت، همان اجرای بعدی دیده می‌شود',
+     (book.figs['3'] || []).length === 2 && r2b.missing === 0,
+     JSON.stringify(Object.keys(book.figs)));
+
+  /* ۱۰-ب.۴ — `force` همه را از نو می‌خوانَد: دکمهٔ آدم یعنی «از نو نگاه کن»
+     و سدی که با دستِ آدم باز نشود، سد نیست (۵.۹۵). */
+  const r3 = hfigSync_(sf, book, '', true);
+  ok('۲۷-ب.۴ اجبار (دکمهٔ آدم) همهٔ درس‌ها را از نو می‌خوانَد',
+     r3.read === 3 && r3.imgs === 7, r3.read + ' درس، ' + r3.imgs + ' تصویر');
+
+  /* ۱۰-ب.۵ — سقفِ هر اجرا واقعی است، وگرنه مجموعهٔ بیست‌درسه اجرای
+     شش‌دقیقه‌ای را می‌خورد. */
+  const capWas = CFG.HFIG_SCAN_MAX;
+  CFG.HFIG_SCAN_MAX = 2;
+  const b2 = { seriesName: 'س', chapters: [], refs: [], roadmap: {},
+               episodes: [{ n: '1' }, { n: '2' }, { n: '3' }] };
+  const r4 = hfigSync_(sf, b2, '', true);
+  CFG.HFIG_SCAN_MAX = capWas;
+  ok('۲۷-ب.۵ سقفِ خواندنِ هر اجرا رعایت و اعلام می‌شود',
+     r4.read === 2 && r4.capped === true, r4.read + ' خوانده، capped=' + r4.capped);
+
+  /* ۱۰-ب.۶ — و شناسهٔ پوشهٔ هر قسمت از همان یک پیمایش می‌آید، نه پیمایشِ
+     دوم: این تنها جایی است که پوشهٔ مجموعه باز می‌شود. */
+  const eps = handoutSeriesEpisodes_(sf);
+  ok('۲۷-ب.۶ شناسهٔ پوشهٔ هر قسمت از همان یک پیمایش در دست است',
+     !!(eps['1'] && eps['1'].__folderId) && !!(eps['2'] && eps['2'].__folderId),
+     Object.keys(eps).sort().join('،'));
+}
+
+console.log('\n=== ۲۷-پ) از همان دری که تولید وارد می‌شود: یک درسِ تازه (۷.۹۴) ===');
+{
+  /* ══ این بند از یک شکستنیِ نیفتاده زاده شد ══
+   * برداشتنِ فراخوانِ `hfigSync_` از `handoutUpdate_` — یعنی راهِ اصلی و
+   * خودکار — **هیچ سنجه‌ای را قرمز نکرد**. §۲۷ و §۲۷-ب هر دو تابع‌ها را
+   * مستقیم صدا می‌زدند: اتاق را می‌سنجیدند، نه در را. و `run_wiring_test.js`
+   * هم ساکت می‌مانَد، چون `handoutOneSeries_` همچنان صدایش می‌زند، پس
+   * «بی‌فراخوان» نیست (۷.۶۲).
+   * این بند از همان‌جا شروع می‌کند که شب شروع می‌کند: یک درسِ تازه در صف. */
+  const hub = new Spread('HUB');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  global.getHub_ = () => hub;
+  global.__PROPS[PK.HANDOUT_DUE] = '';
+  const reg = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+  const sfp = global.__ROOT_FOLDER.createFolder('۹۹ — درِ تولید');
+  const row = new Array(SERIES_HEADERS.length).fill('');
+  row[SC.KEY - 1] = 'kFig'; row[SC.NAME - 1] = 'درِ تولید';
+  row[SC.EPISODES - 1] = '1'; row[SC.FOLDER - 1] = sfp.getId();
+  row[SC.LEVEL - 1] = 'مقدماتی'; row[SC.CHUNKS - 1] = 10; row[SC.CUR_CHUNK - 1] = 2;
+  reg.getRange(2, 1, 1, SERIES_HEADERS.length).setValues([row]);
+
+  const ef = sfp.createFolder('قسمت 007');
+  ef.createFile(Utilities.newBlob(JSON.stringify({
+    epNum: 7, seriesKey: 'kFig', seriesName: 'درِ تولید', level: 'مقدماتی',
+    ep: { title: 'درسِ هفت', hook: 'ق', outro: 'خ',
+          sections: [{ heading: 'یک', narration: 'معرفت باور صادقِ موجه است.' }] }
+  }), 'application/json', '_special.json'));
+  /* و تصویرهایش، همان‌طور که ۷.۹۳ می‌نویسدشان. */
+  ef.createFile(Utilities.newBlob(JSON.stringify({ want: 2, ready: 2, done: true, items: [
+    { n: 1, at: 1, kind: 'کارت', via: 'کارت', heading: 'سه شرط',
+      cardTitle: 'سه شرط', caption: 'زیرنویسِ الف', fileId: 'PROD1' },
+    { n: 2, at: 1, kind: 'نمودار', via: 'کارت', heading: 'سه شرط',
+      cardTitle: 'روند', caption: 'زیرنویسِ ب', fileId: 'PROD2' }] }),
+    'application/json', CFG.LV_FILE));
+
+  global.handoutPatchModel_ = () => ({ newChapters: [{ title: 'درسِ هفت',
+    sections: [{ title: 'سه شرط', body: 'باور، صدق، توجیه.', takeaway: 'سه' }] }] });
+
+  handoutDueAdd_('kFig', '7');
+  const rr = handoutRunDue_(2);
+  const hp = sfp.getFilesByName(handoutHtmlName_('درِ تولید')).next()
+                .getBlob().getDataAsString();
+  const bk = JSON.parse(sfp.getFilesByName(handoutJsonName_()).next()
+                           .getBlob().getDataAsString());
+  ok('۲۷-پ.۱ یک درسِ تازه، و تصویرهایش همان شب در جزوه‌اند',
+     rr.done === 1 && ((bk.figs || {})['7'] || []).length === 2 &&
+     hp.indexOf('PROD1') !== -1 && hp.indexOf('PROD2') !== -1 &&
+     hp.indexOf('زیرنویسِ الف') !== -1,
+     JSON.stringify(rr.notes) + ' · ' + (hp.match(/<figure/g) || []).length + ' قاب');
+
+  ok('۲۷-پ.۲ و در خودِ کتاب ذخیره شده‌اند، پس رندرِ بعدی درایو را نمی‌خوانَد',
+     (((bk.figs || {})['7'] || [])[0] || {}).id === 'PROD1' &&
+     (((bk.figs || {})['7'] || [])[0] || {}).cap === 'زیرنویسِ الف',
+     JSON.stringify(Object.keys(bk.figs || {})));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ جزوه گذشت.');

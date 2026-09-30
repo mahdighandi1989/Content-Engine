@@ -278,7 +278,6 @@ const VIS = {
   audioBps: 128000,
   minSec: 4.0,                // کوتاه‌تر از این، تصویر دیده نمی‌شود
   crf: 23,
-  handoutPx: 900,             // اندازهٔ نسخهٔ جزوه
   /* گونه‌های میان‌محوی. یکنواخت نبودن، بخشی از «حرفه‌ای به نظر رسیدن» است —
      ولی تعدادشان کم است تا ویدئو شبیهِ نمایشِ افکت نشود. */
   trans: ['fade', 'smoothleft', 'wipeleft', 'fade', 'smoothright'],
@@ -495,24 +494,21 @@ function buildSlideshow(files, tl, wav, durSec, dest, dir) {
   return { groups: groups.length, vmax: vmax };
 }
 
-/**
- * نسخهٔ جزوه از همان تصویرها — یک صفحهٔ کتاب، نه یک پردهٔ سینما.
- * همان‌جا ساخته می‌شود که تصویرها از قبل روی دیسک‌اند، تا موتور لازم نباشد
- * دوباره دانلود کند و Apps Script هیچ‌وقت درگیرِ پردازشِ تصویر نشود.
+/* ══ چرا نسخهٔ جزوه این‌جا ساخته **نمی‌شود** (۷٫۹۴) ══
+ * گامِ ۱ این‌جا JPEGهای ~۹۰۰ پیکسلی می‌ساخت و به‌عنوانِ asset به ریلیز
+ * می‌فرستاد، تا جزوه برشان دارد. گامِ ۴ که نوبتِ خودِ جزوه شد، معلوم شد آن
+ * یک **مسیرِ دومِ بی‌فایده** بود:
+ *   · `drive.google.com/thumbnail?id=…&sz=w900` همان تصویر را در همان
+ *     اندازه می‌دهد، بی هیچ فایلِ تازه و هیچ انتقالی؛
+ *   · و نشانیِ ریلیز **عمومیِ همیشگی** است. `voice-lab.yml` از روزِ اول
+ *     نوشته که خروجیِ کارِ ما نباید از یک ریپوی عمومی منتشر بماند، و
+ *     `dropCollected` همان مرز را برای پلِ صدا پیاده می‌کند. دو مسیر برای
+ *     یک کار، یکی‌شان با یک سطحِ عمومیِ تازه، همان شکلی است که این مخزن
+ *     بارها تاوانش را داده.
+ * پس برداشته شد، و سنجه‌اش به چیزی که واقعاً محافظت می‌کرد نشانه گرفته شد
+ * (۷٫۶۸: سنجه را دوباره نشانه بگیر، پاک نکن): رانر **نسخهٔ دومِ عمومی از
+ * تصویرهای قسمت نمی‌سازد**.
  */
-function handoutJpegs(files, dir) {
-  const out = [];
-  for (let i = 0; i < files.length; i++) {
-    const dst = path.join(dir, 'h' + String(i).padStart(3, '0') + '.jpg');
-    try {
-      ff(['-i', files[i], '-frames:v', '1',
-          '-vf', 'scale=' + VIS.handoutPx + ':-2:force_original_aspect_ratio=decrease',
-          '-q:v', '4', dst]);
-      if (fs.statSync(dst).size > 500) out.push(dst);
-    } catch (e) { /* یک تصویرِ خراب، بقیه را زمین نمی‌گذارد */ }
-  }
-  return out;
-}
 
 /**
  * **مرزِ «چیزی خراب نمی‌شود».**
@@ -550,7 +546,7 @@ function buildVideo(it, cover, wav, durSec, dest, dir) {
   try {
     const r = buildSlideshow(files.slice(0, tl.length), tl, wav, durSec, dest, dir);
     return { mode: 'slides', n: tl.length, groups: r.groups, vmax: r.vmax,
-             handout: handoutJpegs(files.slice(0, tl.length), dir), notes: notes };
+             notes: notes };
   } catch (e) {
     notes.push('ساختِ اسلایدشو نشد، کاور گذاشته شد: ' +
                String(e.message).split('\n')[0].slice(0, 80));
@@ -659,18 +655,6 @@ function main() {
       const url = uploadAsset(rel, out, name);
       if (!url) throw new Error('نشانیِ فایلِ آپلودشده برنگشت');
 
-      /* نسخه‌های جزوه هم همین‌جا بالا می‌روند: موتور بی آنکه تصویری را
-         دوباره دانلود کند برشان می‌دارد، و Apps Script هیچ‌وقت درگیرِ
-         پردازشِ تصویر نمی‌شود. */
-      const hUrls = [];
-      for (let hi = 0; hi < (vr.handout || []).length; hi++) {
-        try {
-          const hu = uploadAsset(rel, vr.handout[hi],
-                                 base + '-h' + String(hi).padStart(3, '0') + '.jpg');
-          if (hu) hUrls.push(hu);
-        } catch (eH) { log('    · تصویرِ جزوهٔ ' + (hi + 1) + ' بالا نرفت'); }
-      }
-
       map.items[it.key] = { url: url, bytes: size, parts: wavs.length,
                             at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
       /* فیلدهای تازه **فقط وقتی اسلاید ساخته شده** نوشته می‌شوند. ردیفی که
@@ -679,7 +663,6 @@ function main() {
       if (vr.mode === 'slides') {
         map.items[it.key].visuals = vr.n;
         map.items[it.key].seconds = Math.round(durSec);
-        if (hUrls.length) map.items[it.key].handout = hUrls;
       }
       if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
@@ -720,5 +703,5 @@ if (require.main === module) main();
 
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
-  vmaxFor, timelineOf, visualsOf, buildSlideshow, handoutJpegs, buildVideo
+  vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo
 };
