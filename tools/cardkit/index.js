@@ -36,9 +36,30 @@ function chromeExe() {
  * `at` ثانیهٔ مطلقِ **همان قسمت** است (نه نسبت به پنجره) — تبدیلش کارِ
  * صداکننده است، چون فقط او می‌داند کدام بازه را می‌سازد.
  */
+/* تصویرِ نشان یک بار برداشته و **درونِ SVG** می‌نشیند: کروم فایلِ محلی را
+   می‌کشد و اجازهٔ شبکه ندارد، پس یک `href` به نشانیِ بیرونی خالی درمی‌آید —
+   بی هیچ خطایی، که بدترین شکلش است. نشدنش خطا نیست: تک‌نگارهٔ حرفِ اول
+   کشیده می‌شود، که از نشانِ نبودن بهتر است و ادعای دروغ هم نمی‌کند. */
+function logoData(url, dir) {
+  if (!url || !/^https?:\/\//.test(url)) return '';
+  try {
+    const f = path.join(dir, 'logo.bin');
+    execFileSync('curl', ['-sSL', '--max-time', '25', '-o', f, url], { stdio: 'ignore' });
+    const b = fs.readFileSync(f);
+    if (b.length < 200) return '';
+    const png = b[0] === 0x89 && b[1] === 0x50;
+    const jpg = b[0] === 0xFF && b[1] === 0xD8;
+    if (!png && !jpg) return '';                 // بایت‌ها را باور کن، نه پسوند را
+    return 'data:image/' + (png ? 'png' : 'jpeg') + ';base64,' + b.toString('base64');
+  } catch (e) { return ''; }
+}
+
 function build(spec, dir) {
   fs.mkdirSync(dir, { recursive: true });
   const exe = chromeExe();
+  if (spec.mark && spec.mark.logoUrl && !spec.mark.logo) {
+    spec.mark.logo = logoData(spec.mark.logoUrl, dir);
+  }
   const look = spec.look || L.lookFor(spec.cat, spec.seriesName, spec.tones);
   const pal = spec.palette || look.pal;
   const out = [];

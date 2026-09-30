@@ -127,6 +127,20 @@ console.log('\n=== ۳) نشانِ کانال: جابه‌جا می‌شود و �
   const withMk = F.beats(Object.assign({}, CARD, { mark: { corner: 'br', handle: '@ce', name: 'د' } }), PAL);
   ok('۳.۳ نشان و شناسهٔ کانال روی کارت هستند',
      withMk.svg[0].indexOf('@ce') !== -1 && withMk.svg[0].indexOf('mkS') !== -1);
+
+  /* ۳.۴ — تصویرِ نشان باید **درونِ** SVG بنشیند. کروم فایلِ محلی را می‌کشد و
+     اجازهٔ شبکه ندارد، پس یک `href` به نشانیِ بیرونی خالی درمی‌آید، بی هیچ
+     خطایی — که بدترین شکلِ خرابی است. */
+  const withLogo = F.beats(Object.assign({}, CARD, { mark: {
+    corner: 'br', handle: '@ce', name: 'د', logo: 'data:image/png;base64,AAAA' } }), PAL);
+  ok('۳.۴ تصویرِ نشان به‌صورتِ داده درونِ SVG می‌نشیند، نه نشانیِ بیرونی',
+     withLogo.svg[0].indexOf('data:image/png;base64') !== -1 &&
+     !/href="https?:/.test(withLogo.svg[0]));
+
+  /* ۳.۵ — و **نبودِ تصویر خطا نیست**: تک‌نگارهٔ حرفِ اولِ نامِ کانال کشیده
+     می‌شود. یک نشانِ خالی بدتر از یک تک‌نگاره است. */
+  ok('۳.۵ بی تصویر، تک‌نگارهٔ حرفِ اول کشیده می‌شود',
+     withMk.svg[0].indexOf('<circle') !== -1 && withMk.svg[0].indexOf('>د<') !== -1);
 }
 
 console.log('\n=== ۴) ظاهر از محتوا می‌آید، نه یک تمِ ثابت ===');

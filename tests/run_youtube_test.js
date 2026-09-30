@@ -3942,6 +3942,52 @@ console.log('=== ۶۲) نشانِ کانال (۸.۰۱) ===');
      !!m && m.handle === '@test' && m.everySec >= 60, JSON.stringify(m));
   CFG.YT_MARK = false;
   ok('۶۲.۳ و خاموش‌بودنش یک تصمیم است، نه خطا', ytMarkSpec_() === null);
+
+  /* ══ ۶۲.۴ — شناسه **از خودِ یوتیوب** خوانده می‌شود، نه از خانهٔ تنظیم ══
+   * نگارشِ اولِ ۸.۰۱ خانه را خالی گذاشت و از صاحبِ برنامه خواست پُرش کند.
+   * او پرسید «مگر دسترسی داده نشده؟» — داده شده بود: `ytChannelInfo_` از
+   * روزِ اول `snippet` را می‌خواند و `customUrl` همان شناسه است. یعنی یک
+   * کارِ دستی ساخته بودم برای چیزی که موتور می‌داند.
+   * این سنجه از **درِ تولید** می‌رود: خانه را خالی می‌گذارد، یوتیوب را
+   * جواب می‌دهد، و می‌پرسد نشان ساخته شد یا نه. */
+  CFG.YT_MARK = true; CFG.YT_MARK_HANDLE = ''; CFG.YT_MARK_NAME = '';
+  delete global.__PROPS[PK.YT_MARK_ID];
+  const chWas = global.ytChannelInfo_;
+  global.ytChannelInfo_ = () => ({ info: { snippet: {
+    customUrl: 'truce-trace', title: 'رد پای حقیقت',
+    thumbnails: { medium: { url: 'https://yt3.example/av.jpg' } } } } });
+  const auto = ytMarkSpec_();
+  ok('۶۲.۴ شناسه و نام و تصویر از خودِ یوتیوب می‌آیند، بی هیچ تنظیمِ دستی',
+     !!auto && auto.handle === '@truce-trace' && auto.name === 'رد پای حقیقت' &&
+     auto.logoUrl.indexOf('yt3.example') !== -1,
+     JSON.stringify(auto));
+
+  /* ۶۲.۴-ب — و `@` اگر نبود گذاشته می‌شود: یوتیوب `customUrl` را بی `@`
+     می‌دهد و «truce-trace» روی ویدئو کسی را به کانال نمی‌رساند. */
+  ok('۶۲.۴-ب نشانِ @ اگر نبود اضافه می‌شود', auto.handle.charAt(0) === '@', auto.handle);
+
+  /* ۶۲.۵ — و **یک بار** خوانده می‌شود، نه به‌ازای هر قسمت: `channels.list`
+     یک واحد سهمیه دارد و این تابع در مسیرِ هر انتشار است (۷.۶۳/۷.۷۲). */
+  let calls = 0;
+  global.ytChannelInfo_ = () => { calls++; return { info: { snippet: {
+    customUrl: 'truce-trace', title: 'رد پای حقیقت', thumbnails: {} } } }; };
+  ytMarkSpec_(); ytMarkSpec_(); ytMarkSpec_();
+  ok('۶۲.۵ کانال یک بار خوانده می‌شود و نتیجه می‌مانَد',
+     calls === 0, calls + ' فراخوانِ تازه پس از ذخیره');
+
+  /* ۶۲.۶ — و اگر یوتیوب جواب ندهد، **تنظیمِ دستی برنده است**: یک درِ
+     پشتی که آدم بتواند بازش کند، برای روزی که خواندن نشود. */
+  delete global.__PROPS[PK.YT_MARK_ID];
+  global.ytChannelInfo_ = () => ({ why: 'سرویس خاموش' });
+  CFG.YT_MARK_HANDLE = '@دستی';
+  ok('۶۲.۶ نخواندنِ کانال با تنظیمِ دستی جبران می‌شود',
+     (ytMarkSpec_() || {}).handle === '@دستی');
+  CFG.YT_MARK_HANDLE = '';
+  ok('۶۲.۶-ب و بی هر دو، نشان کشیده نمی‌شود — نه یک نشانِ بی‌شناسه',
+     ytMarkSpec_() === null);
+
+  global.ytChannelInfo_ = chWas;
+  delete global.__PROPS[PK.YT_MARK_ID];
   CFG.YT_MARK = wasOn; CFG.YT_MARK_HANDLE = wasH;
 }
 

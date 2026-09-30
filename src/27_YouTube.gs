@@ -3478,14 +3478,54 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
 }
 
 /**
- * نشانِ کانال. خاموش‌بودنش خرابی نیست — ولی روشن که باشد، **شناسه لازم
- * است**: نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند.
+ * شناسه، نام و تصویرِ کانال — **از خودِ یوتیوب**، نه از یک خانهٔ تنظیم.
+ *
+ * نگارشِ اولِ ۸.۰۱ `YT_MARK_HANDLE` را خالی گذاشت و از صاحبِ برنامه خواست
+ * پُرش کند. او درست پرسید «مگر دسترسی داده نشده؟» — داده شده بود:
+ * `ytChannelInfo_` از روزِ اول `snippet` را می‌خواند و `customUrl` همان
+ * شناسه است. یعنی یک تنظیمِ دستی ساخته بودم برای چیزی که موتور می‌داند.
+ * این دقیقاً همان شکلی است که این پرونده بارها نوشته: **گیتی که آدم باید
+ * بازش کند، گیت نیست** — و بدترش، گیتی که لازم نبوده باشد.
+ *
+ * نتیجه در حافظه می‌مانَد، چون این تابع به ازای هر قسمت صدا زده می‌شود و
+ * `channels.list` یک واحد سهمیه دارد: رایگان نیست و لازم هم نیست.
+ * `CFG.YT_MARK_HANDLE` اگر پر باشد **برنده است** — یک درِ دستی برای وقتی
+ * که یوتیوب چیزِ دیگری برگرداند.
+ */
+function ytChannelMark_() {
+  var cached = null;
+  try { cached = JSON.parse(props_().getProperty(PK.YT_MARK_ID) || 'null'); } catch (e) {}
+  var days = Math.max(1, Number(CFG.YT_MARK_REFRESH_DAYS) || 14);
+  if (cached && cached.at && daysSince_(cached.at) < days) return cached;
+  var r = ytChannelInfo_();
+  if (!r || !r.info) return cached;                  // نشد ⇒ کهنه بهتر از هیچ
+  var sn = r.info.snippet || {};
+  var th = (sn.thumbnails || {});
+  var img = (th.medium || th.high || th.default || {}).url || '';
+  var out = { handle: String(sn.customUrl || '').trim(),
+              name: String(sn.title || '').trim(),
+              logoUrl: String(img || ''), at: nowStr_() };
+  if (!out.handle && !out.name) return cached;
+  try { props_().setProperty(PK.YT_MARK_ID, JSON.stringify(out)); } catch (e2) {}
+  return out;
+}
+
+/**
+ * نشانِ کانال. خاموش‌بودنش یک **تصمیم** است، نه خرابی.
+ * شناسه از یوتیوب می‌آید؛ نبودنش یعنی هنوز نتوانسته‌ایم بخوانیم، و آن‌وقت
+ * نشان کشیده نمی‌شود — نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند و فقط
+ * جای خالیِ تصویر را می‌گیرد.
  */
 function ytMarkSpec_() {
   if (CFG.YT_MARK !== true) return null;
-  var h = String(CFG.YT_MARK_HANDLE || '').trim();
+  var ch = null;
+  try { ch = ytChannelMark_(); } catch (e) {}
+  var h = String(CFG.YT_MARK_HANDLE || (ch && ch.handle) || '').trim();
+  if (h && h.charAt(0) !== '@') h = '@' + h;
   if (!h) return null;
-  return { handle: h, name: String(CFG.YT_MARK_NAME || CFG.SPECIAL_SHOW_NAME || ''),
+  return { handle: h,
+           name: String(CFG.YT_MARK_NAME || (ch && ch.name) || CFG.SPECIAL_SHOW_NAME || ''),
+           logoUrl: String((ch && ch.logoUrl) || ''),
            everySec: Math.max(60, Number(CFG.YT_MARK_MOVE_SEC) || 180),
            opacity: Math.max(0.2, Math.min(0.9, Number(CFG.YT_MARK_OPACITY) || 0.6)) };
 }

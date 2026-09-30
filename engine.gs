@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.01
+ *  موتور محتوا و پادکست — نسخهٔ 8.02
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -811,10 +811,11 @@ var CFG = {
   LV_LEVEL_DEFAULT: 'کم',
   LV_LEVELS: ['خاموش', 'کم', 'زیاد'],
   YT_MARK: true,
-  YT_MARK_HANDLE: '',            // مثل ‎@نامِ‌کانال — خالی یعنی خاموش
+  YT_MARK_HANDLE: '',            // خالی = از خودِ یوتیوب خوانده می‌شود (customUrl)
   YT_MARK_NAME: '',              // برای تک‌نگاره وقتی تصویرِ نشان نداریم
   YT_MARK_MOVE_SEC: 180,         // هر سه دقیقه یک گوشه، چرخشی بینِ چهار گوشه
   YT_MARK_OPACITY: 0.6,
+  YT_MARK_REFRESH_DAYS: 14,      // هر چند روز شناسه و تصویرِ کانال دوباره خوانده شود
   /* ── همان تصویرها در جزوه (۷٫۹۴، بندِ ۶ و ۷ِ درخواست) ──
    * `HFIG_SCAN_MAX`: چند قسمت در هر به‌روزرسانیِ جزوه از درایو خوانده شود.
    *   قسمتی که تصویرهایش یک بار خوانده شد دیگر خوانده نمی‌شود؛ قسمتی که
@@ -1419,7 +1420,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.01',
+  CODE_VERSION: '8.02',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2302,6 +2303,7 @@ var PK = {
   LV_SHORT: 'LV_SHORT_MAP',        // قسمت‌هایی که با تصویرِ کم رفتند — برنگشتنی
   LV_GEN_SPEND: 'LV_GEN_SPEND',    // خرجِ این ماه: {month, n, usd}
   LV_GEN_MODEL: 'LV_GEN_MODEL_ID', // مدلِ تصویرِ پیداشده، تا هر بار فهرست نگیریم
+  YT_MARK_ID: 'YT_MARK_ID',       // شناسه/نام/تصویرِ کانال، خوانده‌شده از خودِ یوتیوب
   YT_DUE: 'YT_DUE_QUEUE',          // صفِ قسمت‌هایی که باید منتشر شوند
   YT_SCAN: 'YT_SCAN_CUR',          // مکان‌نمای کاوشِ قسمت‌های گذشته
   YT_QUOTA: 'YT_QUOTA_DAY',        // سهمیهٔ مصرف‌شدهٔ امروز
@@ -43012,14 +43014,54 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
 }
 
 /**
- * نشانِ کانال. خاموش‌بودنش خرابی نیست — ولی روشن که باشد، **شناسه لازم
- * است**: نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند.
+ * شناسه، نام و تصویرِ کانال — **از خودِ یوتیوب**، نه از یک خانهٔ تنظیم.
+ *
+ * نگارشِ اولِ ۸.۰۱ `YT_MARK_HANDLE` را خالی گذاشت و از صاحبِ برنامه خواست
+ * پُرش کند. او درست پرسید «مگر دسترسی داده نشده؟» — داده شده بود:
+ * `ytChannelInfo_` از روزِ اول `snippet` را می‌خواند و `customUrl` همان
+ * شناسه است. یعنی یک تنظیمِ دستی ساخته بودم برای چیزی که موتور می‌داند.
+ * این دقیقاً همان شکلی است که این پرونده بارها نوشته: **گیتی که آدم باید
+ * بازش کند، گیت نیست** — و بدترش، گیتی که لازم نبوده باشد.
+ *
+ * نتیجه در حافظه می‌مانَد، چون این تابع به ازای هر قسمت صدا زده می‌شود و
+ * `channels.list` یک واحد سهمیه دارد: رایگان نیست و لازم هم نیست.
+ * `CFG.YT_MARK_HANDLE` اگر پر باشد **برنده است** — یک درِ دستی برای وقتی
+ * که یوتیوب چیزِ دیگری برگرداند.
+ */
+function ytChannelMark_() {
+  var cached = null;
+  try { cached = JSON.parse(props_().getProperty(PK.YT_MARK_ID) || 'null'); } catch (e) {}
+  var days = Math.max(1, Number(CFG.YT_MARK_REFRESH_DAYS) || 14);
+  if (cached && cached.at && daysSince_(cached.at) < days) return cached;
+  var r = ytChannelInfo_();
+  if (!r || !r.info) return cached;                  // نشد ⇒ کهنه بهتر از هیچ
+  var sn = r.info.snippet || {};
+  var th = (sn.thumbnails || {});
+  var img = (th.medium || th.high || th.default || {}).url || '';
+  var out = { handle: String(sn.customUrl || '').trim(),
+              name: String(sn.title || '').trim(),
+              logoUrl: String(img || ''), at: nowStr_() };
+  if (!out.handle && !out.name) return cached;
+  try { props_().setProperty(PK.YT_MARK_ID, JSON.stringify(out)); } catch (e2) {}
+  return out;
+}
+
+/**
+ * نشانِ کانال. خاموش‌بودنش یک **تصمیم** است، نه خرابی.
+ * شناسه از یوتیوب می‌آید؛ نبودنش یعنی هنوز نتوانسته‌ایم بخوانیم، و آن‌وقت
+ * نشان کشیده نمی‌شود — نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند و فقط
+ * جای خالیِ تصویر را می‌گیرد.
  */
 function ytMarkSpec_() {
   if (CFG.YT_MARK !== true) return null;
-  var h = String(CFG.YT_MARK_HANDLE || '').trim();
+  var ch = null;
+  try { ch = ytChannelMark_(); } catch (e) {}
+  var h = String(CFG.YT_MARK_HANDLE || (ch && ch.handle) || '').trim();
+  if (h && h.charAt(0) !== '@') h = '@' + h;
   if (!h) return null;
-  return { handle: h, name: String(CFG.YT_MARK_NAME || CFG.SPECIAL_SHOW_NAME || ''),
+  return { handle: h,
+           name: String(CFG.YT_MARK_NAME || (ch && ch.name) || CFG.SPECIAL_SHOW_NAME || ''),
+           logoUrl: String((ch && ch.logoUrl) || ''),
            everySec: Math.max(60, Number(CFG.YT_MARK_MOVE_SEC) || 180),
            opacity: Math.max(0.2, Math.min(0.9, Number(CFG.YT_MARK_OPACITY) || 0.6)) };
 }
