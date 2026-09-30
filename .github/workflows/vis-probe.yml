@@ -1,0 +1,54 @@
+# سنجشِ منابعِ تصویر و ویدئوی آزاد — فقط پرسش، هیچ ساختی
+#
+# گامِ صفرِ طرحِ `docs/lesson_visuals_plan.md`. لایهٔ دومِ آن طرح (عکس و
+# ویدئوی با مجوزِ آزاد) روی منابعی تکیه می‌کند که **از کانتینرِ کلاد
+# سنجیدنی نیستند**: پروکسی `commons.wikimedia.org` و `api.openverse.org`
+# و `archive.org` را با ۴۰۳ روی CONNECT می‌بندد (سنجیده شد، ۳۰ سپتامبر).
+# پس سنجش جایی می‌رود که شبکه‌اش باز است — همان تقسیمِ کارِ
+# `_YT-RENDER.json` و همان کاری که `audio-probe` می‌کند.
+#
+# «measure before you architect» قاعدهٔ همین ریپوست، و این‌جا هزینه‌اش
+# چند ثانیه است در برابرِ ساختنِ یک لایهٔ کامل روی منبعی که شاید مجوز و
+# اندازه را پیش از دانلود ندهد. بخشِ ۲۳ آرشیو را برای موسیقی **فقط** به
+# همین دلیل انتخاب کرد.
+#
+# هیچ وابستگی‌ای نصب نمی‌شود، هیچ کلیدی لازم نیست، هیچ چیزی در درایو یا
+# ریپو نوشته نمی‌شود، و `schedule` ندارد — پس تا کسی دستی نزند، صفر
+# هزینه دارد.
+
+name: vis-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      q:
+        description: 'پرسشِ آزمون (انگلیسی بهتر جواب می‌دهد — منابع انگلیسی‌اند)'
+        required: false
+        default: 'epistemology knowledge'
+
+concurrency:
+  group: vis-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: سنجش
+        env:
+          VISPROBE_Q: ${{ inputs.q }}
+        run: python3 tools/visprobe.py | tee /tmp/visprobe.txt
+
+      - name: خلاصه
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/visprobe.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
