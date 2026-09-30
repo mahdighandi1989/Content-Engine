@@ -255,12 +255,32 @@ var YT_META_SCHEMA = {
      *
      * همهٔ فیلدها رشته‌اند، از جمله شمارهٔ بخش. مدلِ این ریپو هر schema
      * حاویِ integer/number/boolean را رد می‌کند (`run_real_test.js` ۲). */
+    /* ══ قراردادِ تصویر — از ۸.۰۱ عوض شد، و این ریشهٔ همهٔ ایرادها بود ══
+     * پیش از این از مدل «جمله‌های کلیدیِ این بخش» خواسته می‌شد، پس خروجی
+     * **همان متن به شکلی دیگر** بود. حالا از او «تصویرِ این مفهوم» خواسته
+     * می‌شود: چه شکلی (مقایسه؟ زنجیره؟ پرسش؟)، با یک برچسبِ کوتاه.
+     *
+     * و `quote` مهم‌ترین فیلدِ این ساختار است: عبارتی **عیناً از روایت**، تا
+     * کد بتواند بگوید این تصویر در کدام ثانیه گفته می‌شود. بی آن، زمان‌بندی
+     * دوباره حسابی می‌شود و تصویر از گفتار جدا می‌افتد — که سنجیده شد و
+     * ۱۱ تا ۸۰ ثانیه اختلاف داشت. */
     visuals: { type: 'array', items: { type: 'object', properties: {
       at: { type: 'string' },          // شمارهٔ بخش، از ۱
-      kind: { type: 'string' },        // کارت | نمودار | عکس | ویدئو
-      cardTitle: { type: 'string' },   // متنِ درشتِ روی کارت
-      cardLines: { type: 'array', items: { type: 'string' } },
-      terms: { type: 'string' },       // واژه‌های جست‌وجو، انگلیسی
+      quote: { type: 'string' },       // ۴ تا ۹ واژه، **عیناً** از روایتِ همان بخش
+      form: { type: 'string' },        // مقایسه | زنجیره | تمرکز | نقل | پرسش
+      kicker: { type: 'string' },      // برچسبِ گوشه، ۲ تا ۵ واژه
+      headline: { type: 'string' },    // متنِ درشت — حداکثر ۷ واژه
+      note: { type: 'string' },        // یک جملهٔ کوتاه، اختیاری
+      icon: { type: 'string' },        // مثلث | خوشه | ذهن | گوش | زنجیر | برچسب | برگه
+      aTitle: { type: 'string' },      // «مقایسه»: سرِ ستونِ راست
+      aIcon: { type: 'string' },
+      aItems: { type: 'array', items: { type: 'string' } },   // ۲ تا ۳ بند، هر کدام ≤ ۴ واژه
+      bTitle: { type: 'string' },      // سرِ ستونِ چپ
+      bIcon: { type: 'string' },
+      bItems: { type: 'array', items: { type: 'string' } },
+      steps: { type: 'array', items: { type: 'string' } },    // «زنجیره»: ۳ گام
+      items: { type: 'array', items: { type: 'string' } },    // «تمرکز»: ۲ تا ۳ اصطلاح
+      terms: { type: 'string' },       // واژه‌های جست‌وجوی تصویر، انگلیسی
       caption: { type: 'string' }      // زیرنویسِ جزوه، فارسی
     } } }
   },
@@ -3286,6 +3306,224 @@ function lvLog_(hub, row) {
   } catch (e) { logLine_('ثبتِ کاربردِ تصویرها نوشته نشد: ' + e.message); return false; }
 }
 
+
+/* ══════════════ مشخصاتِ تصویریِ یک قسمت (۸.۰۱) ══════════════
+ *
+ * این تابع جای `lvBuild_` را در **ویدئو** می‌گیرد. کارت دیگر در اسلایدز
+ * کشیده نمی‌شود؛ این‌جا فقط «چه چیزی، با چه شکلی، در کدام ثانیه» تصمیم
+ * گرفته می‌شود و کشیدنش کارِ رانر است (`tools/cardkit`).
+ *
+ * چرا: اسلایدز فقط مستطیل، بیضی، لوزی، خط و متن دارد. بافت، خطِ دست‌کشیده،
+ * هایلایتر و ظاهرشدنِ تدریجی از آن پنج شکل درنمی‌آید — و همان بود که خروجی
+ * را به «اسلایدشوِ متنِ گوینده» تبدیل کرده بود.
+ *
+ * و مهم‌ترین چیزی که این‌جا حل می‌شود **زمان** است. هیچ‌جای این خط تولید
+ * نمی‌دانست کدام جمله در کدام ثانیه گفته می‌شود؛ زمان به‌تساوی روی کارت‌ها
+ * تقسیم می‌شد و در یک سنجشِ واقعی پنج کارت از شش، متنی را نشان می‌دادند که
+ * ۱۱ تا ۸۰ ثانیه **قبل** گفته شده بود. حالا:
+ *   `_times.json` ⇒ ثانیهٔ شروعِ هر تکهٔ صوتی (از بایت‌های واقعی، نه تخمین)
+ *   تکه‌ها ⇒ متنِ هر تکه (همان `buildSpecialChunks_`، که قطعی است)
+ *   `quote` مدل ⇒ جای آن عبارت در متن ⇒ ثانیه‌اش
+ */
+
+/** نرمال‌سازیِ سبکِ فارسی برای جست‌وجوی عبارت: ی/ک عربی، نیم‌فاصله، اعراب. */
+function lvNorm_(t) {
+  return String(t == null ? '' : t)
+    .replace(/[ً-ْٰـ]/g, '')
+    .replace(/‌/g, ' ')
+    .replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک')
+    .replace(/[أإآءؤئ]/g, 'ا')
+    .replace(/[^؀-ۿ\s]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * نقشهٔ «جای نویسه در متنِ گفتاری ⇒ ثانیه».
+ * داخلِ هر تکه خطی درون‌یابی می‌شود؛ مرزِ تکه‌ها **دقیق** است.
+ */
+function lvTimeMap_(chunks, times) {
+  var marks = [], pos = 0, byIdx = {};
+  for (var t = 0; t < (times || []).length; t++) byIdx[String(times[t].i)] = Number(times[t].at);
+  for (var i = 0; i < (chunks || []).length; i++) {
+    var txt = lvNorm_((chunks[i] && chunks[i].text) || '');
+    var at = byIdx[String(i)];
+    if (at === undefined) { pos += txt.length + 1; continue; }
+    marks.push({ from: pos, len: txt.length, at: at });
+    pos += txt.length + 1;
+  }
+  for (var m = 0; m < marks.length; m++) {
+    marks[m].to = (m + 1 < marks.length) ? marks[m + 1].at : null;
+  }
+  return marks;
+}
+
+/** جای یک نویسه ⇒ ثانیه. بیرون از نقشه ⇒ `null`، نه یک حدس. */
+function lvSecAt_(marks, charPos) {
+  for (var i = 0; i < marks.length; i++) {
+    var m = marks[i];
+    if (charPos >= m.from && charPos < m.from + m.len + 1) {
+      if (m.to === null || !m.len) return m.at;
+      var f = (charPos - m.from) / m.len;
+      return m.at + (m.to - m.at) * Math.max(0, Math.min(1, f));
+    }
+  }
+  return null;
+}
+
+/** شکلِ فارسی ⇒ شکلِ cardkit. ناشناخته ⇒ «تمرکز»، که همیشه قابلِ کشیدن است. */
+function lvFormOf_(f) {
+  var m = { 'مقایسه': 'split', 'زنجیره': 'chain', 'تمرکز': 'focus',
+            'نقل': 'quote', 'پرسش': 'question' };
+  return m[String(f || '').trim()] || 'focus';
+}
+/** نامِ نشانه‌های فارسی ⇒ کلیدِ cardkit. ناشناخته ⇒ بی‌نشانه، نه نشانهٔ غلط. */
+function lvIconOf_(n) {
+  var m = { 'مثلث': 'triangle', 'خوشه': 'many', 'ذهن': 'mind', 'گوش': 'ear',
+            'زنجیر': 'link', 'برچسب': 'tag', 'برگه': 'doc', 'پرسش': 'q' };
+  return m[String(n || '').trim()] || '';
+}
+
+/**
+ * مشخصاتِ تصویری را می‌سازد. `null` یعنی «نمی‌شود» و مسیرِ امروز باید برود —
+ * که برای هر قسمتِ پیش از ۸.۰۱ حالتِ عادی است.
+ */
+function lvSpecBuild_(folder, meta, mm, ctx) {
+  try {
+    if (!ytVisOn_(ctx && ctx.show)) return null;
+    var raw = (mm && mm.visuals) || [];
+    if (!raw.length) return null;
+
+    var tj = epTimesRead_(folder);
+    if (!tj) return null;                       // بی زمانِ واقعی، حدس نمی‌زنیم
+
+    var ep = (meta && meta.ep) || {};
+    var chunks;
+    try { chunks = buildSpecialChunks_(ep, meta); } catch (eC) { chunks = null; }
+    if (!chunks || !chunks.length) return null;
+
+    var marks = lvTimeMap_(chunks, tj.times);
+    if (!marks.length) return null;
+    var stream = '';
+    for (var c = 0; c < chunks.length; c++) stream += lvNorm_(chunks[c].text || '') + ' ';
+
+    var secs = Number(tj.secs) || 0;
+    var cards = [], miss = 0;
+    for (var r = 0; r < raw.length; r++) {
+      var v = raw[r] || {};
+      var q = lvNorm_(v.quote || '');
+      if (q.length < 8) { miss++; continue; }
+      var p = stream.indexOf(q);
+      if (p < 0) {                              // عبارت پیدا نشد ⇒ کارت نمی‌سازیم
+        var half = q.split(' ').slice(0, 4).join(' ');
+        p = half.length >= 8 ? stream.indexOf(half) : -1;
+      }
+      if (p < 0) { miss++; continue; }
+      var at = lvSecAt_(marks, p);
+      if (at === null) { miss++; continue; }
+      var form = lvFormOf_(v.form);
+      var card = { form: form, at: Math.round(at * 10) / 10,
+                   kicker: ytVisCut_(v.kicker, 46), foot: ctx.foot || '',
+                   headline: ytVisCut_(v.headline, CFG.LV_CARD_TITLE_MAX || 48),
+                   note: ytVisCut_(v.note, 110), icon: lvIconOf_(v.icon) };
+      var lines = function (a) {
+        var o = [];
+        for (var k = 0; k < (a || []).length && o.length < 3; k++) {
+          var s2 = ytVisCut_(a[k], CFG.LV_CARD_LINE_MAX || 72);
+          if (s2) o.push(s2);
+        }
+        return o;
+      };
+      if (form === 'split') {
+        card.right = { title: ytVisCut_(v.aTitle, 22), icon: lvIconOf_(v.aIcon), items: lines(v.aItems) };
+        card.left = { title: ytVisCut_(v.bTitle, 22), icon: lvIconOf_(v.bIcon), items: lines(v.bItems) };
+        if (!card.right.title || !card.left.title) { miss++; continue; }
+      } else if (form === 'chain') {
+        card.steps = lines(v.steps);
+        if (card.steps.length < 2) { miss++; continue; }
+      } else if (form === 'focus') {
+        card.items = lines(v.items);
+      }
+      if (!card.headline) { miss++; continue; }
+      cards.push(card);
+    }
+    if (cards.length < 2) return null;
+
+    /* ترتیب از **زمان** می‌آید، نه از ترتیبی که مدل داد: مدل می‌تواند
+       جمع‌بندی را آخر بنویسد در حالی که در صوت وسط گفته شده — و همان بود که
+       در نمونهٔ سنجیده‌شده دو کارتِ آخر جابه‌جا افتادند. */
+    cards.sort(function (a, b) { return a.at - b.at; });
+
+    /* لنگرهای درونِ هر کارت: بینِ شروعِ خودش و شروعِ کارتِ بعدی پخش می‌شوند،
+       ولی **هرگز از آن جلو نمی‌زنند**. ریتم از این می‌آید (هر ~۳ ثانیه یک
+       ضرب)، نه از زیادکردنِ تعدادِ کارت‌ها. */
+    for (var j = 0; j < cards.length; j++) {
+      var end = (j + 1 < cards.length) ? cards[j + 1].at : secs;
+      cards[j].end = Math.round(end * 10) / 10;
+      var span = Math.max(1, end - cards[j].at);
+      var n = Math.max(1, Math.min(4, Math.round(span / 9)));
+      var an = [];
+      for (var a2 = 0; a2 < n; a2++) an.push(Math.round((cards[j].at + span * (a2 / n)) * 10) / 10);
+      cards[j].anchors = an;
+    }
+
+    return { v: 1, t0: cards[0].at, t1: Math.round(secs * 10) / 10,
+             cat: ctx.cat || '', seriesName: ctx.seriesName || '',
+             level: String(ctx.level || CFG.LV_LEVEL_DEFAULT || 'کم'),
+             cards: cards, missed: miss,
+             mark: ytMarkSpec_() };
+  } catch (e) {
+    try { logLine_('مشخصاتِ تصویری ساخته نشد: ' + e.message); } catch (e2) {}
+    return null;
+  }
+}
+
+/**
+ * نشانِ کانال. خاموش‌بودنش خرابی نیست — ولی روشن که باشد، **شناسه لازم
+ * است**: نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند.
+ */
+function ytMarkSpec_() {
+  if (CFG.YT_MARK !== true) return null;
+  var h = String(CFG.YT_MARK_HANDLE || '').trim();
+  if (!h) return null;
+  return { handle: h, name: String(CFG.YT_MARK_NAME || CFG.SPECIAL_SHOW_NAME || ''),
+           everySec: Math.max(60, Number(CFG.YT_MARK_MOVE_SEC) || 180),
+           opacity: Math.max(0.2, Math.min(0.9, Number(CFG.YT_MARK_OPACITY) || 0.6)) };
+}
+
+
+/**
+ * سطحِ تصویرسازیِ یک مجموعه: «خاموش» | «کم» | «زیاد».
+ *
+ * خانهٔ خالی «کم» است، نه «خاموش» — پیش‌فرضی که قابلیت را خاموش کند یعنی
+ * چیزی ساخته‌ایم که هیچ‌کس نمی‌بیندش مگر یک کارِ دستی انجام دهد، و این
+ * پرونده بارها نوشته که «گیتی که آدم باید بازش کند، گیت نیست».
+ * نوشتهٔ ناخوانا هم «کم» است، نه خطا: یک غلطِ تایپی نباید قسمت را بی‌تصویر کند.
+ */
+function lvLevelOf_(vals) {
+  var def = String(CFG.LV_LEVEL_DEFAULT || 'کم');
+  try {
+    var raw = String((vals || [])[SC.LVLEVEL - 1] || '').trim();
+    if (!raw) return def;
+    var n = raw.replace(/‌/g, ' ').replace(/\s+/g, ' ');
+    var list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد'];
+    for (var i = 0; i < list.length; i++) if (n === list[i]) return list[i];
+    if (/خاموش|هیچ|بی.?تصویر|غیرفعال/.test(n)) return 'خاموش';
+    if (/زیاد|همه|کامل|حداکثر/.test(n)) return 'زیاد';
+    return def;
+  } catch (e) { return def; }
+}
+
+/** سطحِ تصویرسازیِ مجموعهٔ همین قسمت — یک تعریف، مثل `lvStyleAt_`. */
+function lvLevelAt_(hub, item, meta) {
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) return lvLevelOf_(rec.vals);
+  } catch (e) {}
+  return String(CFG.LV_LEVEL_DEFAULT || 'کم');
+}
+
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
 function lvHistory_(hub, n) {
   var out = [];
@@ -3850,9 +4088,31 @@ function ytUploadOne_(item, hub, pub) {
     /* و از فهرستِ منتظران بیرون می‌آید — چه کامل شده باشد چه با کم رفته
        باشد. حافظه‌ای که خودش خالی نشود، هشدارش همیشگی می‌شود. */
     try { lvWaitClear_(lvKey); } catch (eW2) {}
+    /* ══ مشخصاتِ تصویری — اگر ساخته شود، رانر کارت‌ها را خودش می‌کشد ══
+     * نبودش خرابی نیست: هر قسمتِ پیش از ۸.۰۱ `_times.json` ندارد و باید
+     * **عیناً** مسیرِ امروز را برود. `visuals` هم کنارش می‌مانَد، هم برای
+     * جزوه و هم برای موتورِ قدیمی که `spec` را نمی‌شناسد. */
+    var lvSpec = null;
+    try {
+      /* سطحِ خودِ مجموعه از همه مقدم است: «خاموش» یعنی صاحبِ برنامه برای این
+         مجموعه تصویر نخواسته، و آن یک تصمیم است نه یک نقص. */
+      var lvLvl = lvLevelAt_(hub, item, meta);
+      if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
+      lvSpec = lvSpecBuild_(folder, meta, plan, {
+        level: lvLvl,
+        show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
+        seriesName: seriesName,
+        foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
+      });
+      if (lvSpec) logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری با ' +
+        lvSpec.cards.length + ' کارت ساخته شد' +
+        (lvSpec.missed ? ' (' + lvSpec.missed + ' مورد بی‌لنگر رد شد)' : '') + '.');
+    } catch (eSp) { logLine_('مشخصاتِ تصویری نشد: ' + eSp.message); }
+
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
                    visuals: vis.items,
+                   spec: lvSpec || undefined,
                    // **فهرستِ مرتب**، نه یک فایل: قسمتِ دوفایلی باید یک ویدئوی
                    // واحد شود، وگرنه نیمی از درس منتشر می‌شود.
                    audio: aud.parts.map(function (f) {

@@ -46,6 +46,18 @@ jobs:
           ln -sf "$FF" "$HOME/.local/bin/ffmpeg"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      # کارت‌های ویدئو از ۸.۰۱ این‌جا کشیده می‌شوند، نه در اسلایدز: بافت،
+      # خطِ دست‌کشیده، هایلایتر و ظاهرشدنِ تدریجی از پنج شکلِ اسلایدز درنمی‌آید.
+      # کروم روی رانر هست؛ فقط قلمِ فارسی نیست و بی آن متن مربع می‌شود —
+      # پس نصبش اینجا یک مرحلهٔ **لازم** است، نه آرایشی.
+      - name: قلمِ فارسی
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends fonts-noto-core
+          fc-list :lang=fa | head -3
+          test "$(fc-list | grep -ci 'NotoSansArabic')" -gt 0
+
       - name: ساختِ ویدئوها
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

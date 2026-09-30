@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.00
+ *  موتور محتوا و پادکست — نسخهٔ 8.01
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -676,6 +676,17 @@ var CFG = {
        طبیعتاً خالی است، پس بی این ردیف «انجام شد و ایرادی نبود» از «انجام
        نشد» قابلِ تشخیص نیست. */
     { key: 'visuals-read', title: 'دو کارتِ تصویرِ واقعی باز و دیده شد (§۴٫۱۱)' },
+    /* ══ خواستهٔ صریحِ ۸.۰۱ ══
+     * «ناظر حتماً کیفیتِ ویدئوهای تولیدی را بسنجد و اصلاحات تذکر بدهد و
+     * دستور بدهد و پیگیری کند و عکس‌های تولیدشده را با محتوا مقایسه کند و
+     * زمان‌بندیِ صدا و تصویر را حتماً بررسی کند … هیچ چیزی از چشمِ ناظر جا
+     * نمانَد، چون واقعاً وقت نمی‌کنم همه‌چیز را ببینم.»
+     * سه کلیدِ جدا، نه یکی: «ویدئو را دیدم» با «صدا و تصویر هم‌زمان بودند»
+     * یکی نیست، و اگر یک کلید باشد، ناظر می‌تواند یکی را ببیند و هر سه را
+     * تیک بزند — همان شکلی که این پرونده «برچسبِ بی‌ورودی» می‌نامدش. */
+    { key: 'video-watch', title: 'یک ویدئوی واقعیِ تولیدشده تماشا شد (§۴٫۱۲)' },
+    { key: 'video-sync', title: 'هم‌زمانیِ گفتار و تصویر در سه نقطه سنجیده شد (§۴٫۱۲)' },
+    { key: 'video-match', title: 'تصویرها با محتوای همان لحظه مقایسه شدند (§۴٫۱۲)' },
     { key: 'reports-queue', title: 'صفِ دستورها و یافته‌های تکراری (§۴٫۸)' },
     { key: 'podcasts', title: 'دو پادکستِ دیروز (§۲)' }
   ],
@@ -787,7 +798,23 @@ var CFG = {
   LV_BUILD_MAX: 24,
   LV_TRY_MAX: 3,
   LV_FOLDER: 'تصویرها',         // زیرپوشهٔ خودِ قسمت — خواستهٔ بندِ ۸
-  LV_FILE: '_visuals.json',     // در پوشهٔ قسمت، نه در ریشهٔ OUTPUT
+  LV_FILE: '_visuals.json',
+  EP_TIMES_FILE: '_times.json',  // زمانِ واقعیِ هر تکهٔ صوتی — در پوشهٔ خودِ قسمت
+  /* ── نشانِ کانال روی ویدئو (۸.۰۱، خواستهٔ صریح) ──
+   * «هر چند دقیقه بدون اینکه رو جای مهم بیاد مکانش تغییر کنه … این تغییرِ
+   * مکان برای اینه که کسی نتونه بعداً لوگوی خودش رو بیاره روش.»
+   * جای نشان **ورودیِ** چیدمان است: سربرگ و پانویس و ستونِ همان سمت از آن
+   * کنار می‌روند، پس هرگز روی متن نمی‌افتد (سنجهٔ ۳.۲ در run_cardkit_test).
+   * شناسه زیرِ نشان می‌آید؛ بی شناسه نشان اصلاً کشیده نمی‌شود، چون نشانی که
+   * کسی را به کانال نرساند فقط جای خالیِ تصویر را می‌گیرد. */
+  /* سطحِ پیش‌فرضِ تصویرسازی وقتی خانهٔ مجموعه خالی است. */
+  LV_LEVEL_DEFAULT: 'کم',
+  LV_LEVELS: ['خاموش', 'کم', 'زیاد'],
+  YT_MARK: true,
+  YT_MARK_HANDLE: '',            // مثل ‎@نامِ‌کانال — خالی یعنی خاموش
+  YT_MARK_NAME: '',              // برای تک‌نگاره وقتی تصویرِ نشان نداریم
+  YT_MARK_MOVE_SEC: 180,         // هر سه دقیقه یک گوشه، چرخشی بینِ چهار گوشه
+  YT_MARK_OPACITY: 0.6,
   /* ── همان تصویرها در جزوه (۷٫۹۴، بندِ ۶ و ۷ِ درخواست) ──
    * `HFIG_SCAN_MAX`: چند قسمت در هر به‌روزرسانیِ جزوه از درایو خوانده شود.
    *   قسمتی که تصویرهایش یک بار خوانده شد دیگر خوانده نمی‌شود؛ قسمتی که
@@ -1392,7 +1419,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.00',
+  CODE_VERSION: '8.01',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2092,7 +2119,16 @@ var SERIES_HEADERS = [
      در **انتها** اضافه شده، چون `ensureTab_` فقط ردیفِ سرستون را بازنویسی
      می‌کند: ستونی که وسط جا داده شود، برچسبِ تازه را روی مقدارِ کهنه
      می‌گذارد، بی هیچ خطایی (۷٫۴۱). */
-  'سبکِ تصویر'
+  'سبکِ تصویر',
+  /* ── سطحِ تصویرسازیِ هر مجموعه (۸.۰۱، خواستهٔ صریح) ──
+   * «در مجموعه‌ها جایی باشه بتونم انتخاب کنم برای هر نوع چطور باشه و
+   * به‌صورت پیش‌فرض برای همه فعلاً همون حالتِ ۱ باشه.»
+   *   «خاموش» ⇒ هیچ کارتی؛ ویدئو همان کاورِ تک‌تصویریِ امروز
+   *   «کم»    ⇒ کارت‌های برداری + چند نقاشیِ ساخته‌شده در نقاطِ کلیدی (پیش‌فرض)
+   *   «زیاد»  ⇒ نقاشیِ ساخته‌شده برای همهٔ کارت‌ها
+   * خانهٔ خالی یعنی «کم»؛ ارتقا یک واژه است، نه یک نسخهٔ تازه. و در **انتها**
+   * اضافه شده، به همان دلیلِ ستونِ بالایی. */
+  'تصویرسازی'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -2100,7 +2136,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35 };
+           LVSTYLE: 35, LVLEVEL: 36 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -6466,6 +6502,52 @@ function splitForTts_(text) {
 }
 
 /** بستن یک گروه از تکه‌های base64 به یک فایل WAV و نوشتنش در درایو */
+
+/**
+ * طولِ base64 ⇒ ثانیه. **یک تعریف**، چون این عدد جای دیگری هم لازم می‌شود و
+ * دو تعریفِ کمی متفاوت همان باگی است که این پرونده بارها ثبت کرده.
+ * base64 هر ۴ نویسه = ۳ بایت؛ PCMِ ۱۶ بیتیِ تک‌کاناله هر نمونه ۲ بایت.
+ */
+function b64Sec_(len) {
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  return ((Number(len) || 0) / 4 * 3) / 2 / sr;
+}
+
+
+/**
+ * زمانِ واقعیِ تکه‌ها را کنارِ خودِ قسمت می‌نویسد.
+ *
+ * چرا فایلِ جدا و نه داخلِ `_episode.json`: آن پرونده در فازِ `audio` نوشته
+ * می‌شود و `__decAt` یک‌بار بیشتر نمی‌گذارد بنویسدش، در حالی که زمان‌ها تازه
+ * **در پایانِ** ساختِ صدا کامل‌اند. دو نویسنده روی یک فایل با دو زمان‌بندیِ
+ * متفاوت، همان شکلی است که این مخزن بارها خورده.
+ *
+ * و نبودش خطا نیست: قسمت‌های پیش از ۸.۰۱ این فایل را ندارند و بخشِ ۲۷ باید
+ * همان‌طور که امروز کار می‌کند کار کند.
+ */
+function epTimesSave_(folder, times, secs) {
+  try {
+    if (!folder || !Array.isArray(times) || !times.length) return false;
+    var body = JSON.stringify({ v: 1, at: nowStr_(), secs: Number(secs) || 0,
+                                sr: Number(CFG.SAMPLE_RATE) || 24000, times: times });
+    var it = folder.getFilesByName(CFG.EP_TIMES_FILE || '_times.json');
+    if (it.hasNext()) { it.next().setContent(body); return true; }
+    folder.createFile(Utilities.newBlob(body, 'application/json',
+                                        CFG.EP_TIMES_FILE || '_times.json'));
+    return true;
+  } catch (e) { try { logLine_('زمانِ تکه‌ها نوشته نشد: ' + e.message); } catch (e2) {} return false; }
+}
+
+/** و خواندنش. نبودش `null` است، نه خطا. */
+function epTimesRead_(folder) {
+  try {
+    var it = folder.getFilesByName(CFG.EP_TIMES_FILE || '_times.json');
+    if (!it.hasNext()) return null;
+    var o = JSON.parse(it.next().getBlob().getDataAsString());
+    return (o && Array.isArray(o.times) && o.times.length) ? o : null;
+  } catch (e) { return null; }
+}
+
 function writeWavPart_(parts, baseName, partNo, folder) {
   var b64 = parts.join('');
   if (!b64) return null;
@@ -6483,7 +6565,7 @@ function writeWavPart_(parts, baseName, partNo, folder) {
  * Apps Script بخورد، هیچ کاری هدر نمی‌رود و اجرای بعدی دقیقاً از همان تکه ادامه می‌دهد.
  * @return {{done:boolean, chunkIdx:number, partNo:number, files:Array}}
  */
-function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart) {
+function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart, t0) {
   var maxB64 = Math.floor(CFG.MAX_WAV_BYTES / 3) * 4;
   var buf = [], bufChars = 0, files = [];
   var partNo = startPart, i = startChunk;
@@ -6500,6 +6582,16 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
   // این اتصال نیست.
   var prevXf = 0;
+  /* ══ ثانیهٔ شروعِ هر تکه — رایگان، و همان چیزی که نبودش تصویر را از گفتار
+     جدا کرده بود ══
+     تا ۸.۰۰ هیچ‌جای این خط تولید نمی‌دانست کدام جمله در کدام ثانیه گفته
+     می‌شود، پس تصویرها به‌تساوی روی مدت پخش می‌شدند و در یک سنجشِ واقعی پنج
+     کارت از شش، متنی را نشان می‌دادند که ۱۱ تا ۸۰ ثانیه **قبل** گفته شده بود.
+     این عدد از بایت‌هایی می‌آید که همین‌جا شمرده می‌شوند: نه فراخوانِ تازه،
+     نه مدل، نه حدس. `t0` مجموعِ اجراهای پیشین است، چون این تابع از وسط
+     ادامه می‌دهد و بی آن هر اجرا از صفر می‌شمرد. */
+  var tAcc = Number(t0) || 0;
+  var times = [];
   for (; i < chunks.length; i++) {
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
@@ -6554,6 +6646,8 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       }
       buf = []; bufChars = 0;
     }
+    times.push({ i: i, at: Math.round(tAcc * 100) / 100 });
+    tAcc += b64Sec_(b64.length);
     buf.push(b64); bufChars += b64.length;
     Utilities.sleep(400);          // ملایمت با سهمیهٔ API
   }
@@ -6561,7 +6655,8 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     var g = writeWavPart_(buf, baseName, partNo, folder);
     if (g) { files.push(g); partNo++; if (onPart) onPart(files, i, partNo); }
   }
-  return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files };
+  return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files,
+           times: times, secs: Math.round(tAcc * 100) / 100 };
 }
 
 /**
@@ -9133,6 +9228,10 @@ function renderAudioStep_() {
         } catch (eClean) {}
       }
 
+      /* زمانِ واقعیِ هر تکه از اجرای پیشین ادامه پیدا می‌کند — وگرنه هر
+         اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
+         صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
+      if (!Array.isArray(st.times)) st.times = [];
       var baseFiles = st.files.slice();
       var saveProgress = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files);
@@ -9141,10 +9240,12 @@ function renderAudioStep_() {
         props_().setProperty(PK.PENDING, JSON.stringify(st));
       };
       var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo,
-                                deadline, saveProgress);
+                                deadline, saveProgress, Number(st.secs) || 0);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx;
       st.partNo = res.partNo;
+      st.times = st.times.concat(res.times || []);
+      st.secs = res.secs;
 
       if (!res.done) {
         props_().setProperty(PK.PENDING, JSON.stringify(st));
@@ -9156,6 +9257,7 @@ function renderAudioStep_() {
 
       // صدا تمام شد. مرحلهٔ بعد (ادغام) روی ده‌ها مگابایت کار می‌کند و مرحلهٔ
       // بعدترش (ایمیل و تلگرام) هم وقت می‌برد؛ هر کدام اجرای خودش را می‌گیرد.
+      try { epTimesSave_(folder, st.times, st.secs); } catch (eT) {}
       st.phase = (CFG.MERGE_AUDIO && st.files.length > 1) ? 'merge' : 'deliver';
       props_().setProperty(PK.PENDING, JSON.stringify(st));
       scheduleContinue_(45 * 1000);
@@ -20871,20 +20973,28 @@ function renderSpecialAudioStep_() {
           if (removed) logLine_('درس‌نامه: ' + removed + ' فایل صوتیِ بی‌صاحب پاک شد.');
         } catch (eC) {}
       }
+      /* زمانِ واقعیِ هر تکه از اجرای پیشین ادامه پیدا می‌کند — وگرنه هر
+         اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
+         صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
+      if (!Array.isArray(st.times)) st.times = [];
       var baseFiles = st.files.slice();
       var save = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files); st.chunkIdx = nextChunk; st.partNo = nextPart;
         props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       };
-      var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo, deadline, save);
+      var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo, deadline,
+                                save, Number(st.secs) || 0);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx; st.partNo = res.partNo;
+      st.times = st.times.concat(res.times || []);
+      st.secs = res.secs;
       if (!res.done) {
         props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
         scheduleSpecialContinue_(60 * 1000);
         logLine_('درس‌نامه ' + epNum + ': ' + st.chunkIdx + ' از ' + chunks.length + ' تکهٔ صوتی آماده شد.');
         return { ok: true, episode: epNum, pending: true };
       }
+      try { epTimesSave_(folder, st.times, st.secs); } catch (eT) {}
       st.phase = (CFG.MERGE_AUDIO && st.files.length > 1) ? 'merge' : 'deliver';
       props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       scheduleSpecialContinue_(45 * 1000);
@@ -39679,12 +39789,32 @@ var YT_META_SCHEMA = {
      *
      * همهٔ فیلدها رشته‌اند، از جمله شمارهٔ بخش. مدلِ این ریپو هر schema
      * حاویِ integer/number/boolean را رد می‌کند (`run_real_test.js` ۲). */
+    /* ══ قراردادِ تصویر — از ۸.۰۱ عوض شد، و این ریشهٔ همهٔ ایرادها بود ══
+     * پیش از این از مدل «جمله‌های کلیدیِ این بخش» خواسته می‌شد، پس خروجی
+     * **همان متن به شکلی دیگر** بود. حالا از او «تصویرِ این مفهوم» خواسته
+     * می‌شود: چه شکلی (مقایسه؟ زنجیره؟ پرسش؟)، با یک برچسبِ کوتاه.
+     *
+     * و `quote` مهم‌ترین فیلدِ این ساختار است: عبارتی **عیناً از روایت**، تا
+     * کد بتواند بگوید این تصویر در کدام ثانیه گفته می‌شود. بی آن، زمان‌بندی
+     * دوباره حسابی می‌شود و تصویر از گفتار جدا می‌افتد — که سنجیده شد و
+     * ۱۱ تا ۸۰ ثانیه اختلاف داشت. */
     visuals: { type: 'array', items: { type: 'object', properties: {
       at: { type: 'string' },          // شمارهٔ بخش، از ۱
-      kind: { type: 'string' },        // کارت | نمودار | عکس | ویدئو
-      cardTitle: { type: 'string' },   // متنِ درشتِ روی کارت
-      cardLines: { type: 'array', items: { type: 'string' } },
-      terms: { type: 'string' },       // واژه‌های جست‌وجو، انگلیسی
+      quote: { type: 'string' },       // ۴ تا ۹ واژه، **عیناً** از روایتِ همان بخش
+      form: { type: 'string' },        // مقایسه | زنجیره | تمرکز | نقل | پرسش
+      kicker: { type: 'string' },      // برچسبِ گوشه، ۲ تا ۵ واژه
+      headline: { type: 'string' },    // متنِ درشت — حداکثر ۷ واژه
+      note: { type: 'string' },        // یک جملهٔ کوتاه، اختیاری
+      icon: { type: 'string' },        // مثلث | خوشه | ذهن | گوش | زنجیر | برچسب | برگه
+      aTitle: { type: 'string' },      // «مقایسه»: سرِ ستونِ راست
+      aIcon: { type: 'string' },
+      aItems: { type: 'array', items: { type: 'string' } },   // ۲ تا ۳ بند، هر کدام ≤ ۴ واژه
+      bTitle: { type: 'string' },      // سرِ ستونِ چپ
+      bIcon: { type: 'string' },
+      bItems: { type: 'array', items: { type: 'string' } },
+      steps: { type: 'array', items: { type: 'string' } },    // «زنجیره»: ۳ گام
+      items: { type: 'array', items: { type: 'string' } },    // «تمرکز»: ۲ تا ۳ اصطلاح
+      terms: { type: 'string' },       // واژه‌های جست‌وجوی تصویر، انگلیسی
       caption: { type: 'string' }      // زیرنویسِ جزوه، فارسی
     } } }
   },
@@ -42710,6 +42840,224 @@ function lvLog_(hub, row) {
   } catch (e) { logLine_('ثبتِ کاربردِ تصویرها نوشته نشد: ' + e.message); return false; }
 }
 
+
+/* ══════════════ مشخصاتِ تصویریِ یک قسمت (۸.۰۱) ══════════════
+ *
+ * این تابع جای `lvBuild_` را در **ویدئو** می‌گیرد. کارت دیگر در اسلایدز
+ * کشیده نمی‌شود؛ این‌جا فقط «چه چیزی، با چه شکلی، در کدام ثانیه» تصمیم
+ * گرفته می‌شود و کشیدنش کارِ رانر است (`tools/cardkit`).
+ *
+ * چرا: اسلایدز فقط مستطیل، بیضی، لوزی، خط و متن دارد. بافت، خطِ دست‌کشیده،
+ * هایلایتر و ظاهرشدنِ تدریجی از آن پنج شکل درنمی‌آید — و همان بود که خروجی
+ * را به «اسلایدشوِ متنِ گوینده» تبدیل کرده بود.
+ *
+ * و مهم‌ترین چیزی که این‌جا حل می‌شود **زمان** است. هیچ‌جای این خط تولید
+ * نمی‌دانست کدام جمله در کدام ثانیه گفته می‌شود؛ زمان به‌تساوی روی کارت‌ها
+ * تقسیم می‌شد و در یک سنجشِ واقعی پنج کارت از شش، متنی را نشان می‌دادند که
+ * ۱۱ تا ۸۰ ثانیه **قبل** گفته شده بود. حالا:
+ *   `_times.json` ⇒ ثانیهٔ شروعِ هر تکهٔ صوتی (از بایت‌های واقعی، نه تخمین)
+ *   تکه‌ها ⇒ متنِ هر تکه (همان `buildSpecialChunks_`، که قطعی است)
+ *   `quote` مدل ⇒ جای آن عبارت در متن ⇒ ثانیه‌اش
+ */
+
+/** نرمال‌سازیِ سبکِ فارسی برای جست‌وجوی عبارت: ی/ک عربی، نیم‌فاصله، اعراب. */
+function lvNorm_(t) {
+  return String(t == null ? '' : t)
+    .replace(/[ً-ْٰـ]/g, '')
+    .replace(/‌/g, ' ')
+    .replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک')
+    .replace(/[أإآءؤئ]/g, 'ا')
+    .replace(/[^؀-ۿ\s]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * نقشهٔ «جای نویسه در متنِ گفتاری ⇒ ثانیه».
+ * داخلِ هر تکه خطی درون‌یابی می‌شود؛ مرزِ تکه‌ها **دقیق** است.
+ */
+function lvTimeMap_(chunks, times) {
+  var marks = [], pos = 0, byIdx = {};
+  for (var t = 0; t < (times || []).length; t++) byIdx[String(times[t].i)] = Number(times[t].at);
+  for (var i = 0; i < (chunks || []).length; i++) {
+    var txt = lvNorm_((chunks[i] && chunks[i].text) || '');
+    var at = byIdx[String(i)];
+    if (at === undefined) { pos += txt.length + 1; continue; }
+    marks.push({ from: pos, len: txt.length, at: at });
+    pos += txt.length + 1;
+  }
+  for (var m = 0; m < marks.length; m++) {
+    marks[m].to = (m + 1 < marks.length) ? marks[m + 1].at : null;
+  }
+  return marks;
+}
+
+/** جای یک نویسه ⇒ ثانیه. بیرون از نقشه ⇒ `null`، نه یک حدس. */
+function lvSecAt_(marks, charPos) {
+  for (var i = 0; i < marks.length; i++) {
+    var m = marks[i];
+    if (charPos >= m.from && charPos < m.from + m.len + 1) {
+      if (m.to === null || !m.len) return m.at;
+      var f = (charPos - m.from) / m.len;
+      return m.at + (m.to - m.at) * Math.max(0, Math.min(1, f));
+    }
+  }
+  return null;
+}
+
+/** شکلِ فارسی ⇒ شکلِ cardkit. ناشناخته ⇒ «تمرکز»، که همیشه قابلِ کشیدن است. */
+function lvFormOf_(f) {
+  var m = { 'مقایسه': 'split', 'زنجیره': 'chain', 'تمرکز': 'focus',
+            'نقل': 'quote', 'پرسش': 'question' };
+  return m[String(f || '').trim()] || 'focus';
+}
+/** نامِ نشانه‌های فارسی ⇒ کلیدِ cardkit. ناشناخته ⇒ بی‌نشانه، نه نشانهٔ غلط. */
+function lvIconOf_(n) {
+  var m = { 'مثلث': 'triangle', 'خوشه': 'many', 'ذهن': 'mind', 'گوش': 'ear',
+            'زنجیر': 'link', 'برچسب': 'tag', 'برگه': 'doc', 'پرسش': 'q' };
+  return m[String(n || '').trim()] || '';
+}
+
+/**
+ * مشخصاتِ تصویری را می‌سازد. `null` یعنی «نمی‌شود» و مسیرِ امروز باید برود —
+ * که برای هر قسمتِ پیش از ۸.۰۱ حالتِ عادی است.
+ */
+function lvSpecBuild_(folder, meta, mm, ctx) {
+  try {
+    if (!ytVisOn_(ctx && ctx.show)) return null;
+    var raw = (mm && mm.visuals) || [];
+    if (!raw.length) return null;
+
+    var tj = epTimesRead_(folder);
+    if (!tj) return null;                       // بی زمانِ واقعی، حدس نمی‌زنیم
+
+    var ep = (meta && meta.ep) || {};
+    var chunks;
+    try { chunks = buildSpecialChunks_(ep, meta); } catch (eC) { chunks = null; }
+    if (!chunks || !chunks.length) return null;
+
+    var marks = lvTimeMap_(chunks, tj.times);
+    if (!marks.length) return null;
+    var stream = '';
+    for (var c = 0; c < chunks.length; c++) stream += lvNorm_(chunks[c].text || '') + ' ';
+
+    var secs = Number(tj.secs) || 0;
+    var cards = [], miss = 0;
+    for (var r = 0; r < raw.length; r++) {
+      var v = raw[r] || {};
+      var q = lvNorm_(v.quote || '');
+      if (q.length < 8) { miss++; continue; }
+      var p = stream.indexOf(q);
+      if (p < 0) {                              // عبارت پیدا نشد ⇒ کارت نمی‌سازیم
+        var half = q.split(' ').slice(0, 4).join(' ');
+        p = half.length >= 8 ? stream.indexOf(half) : -1;
+      }
+      if (p < 0) { miss++; continue; }
+      var at = lvSecAt_(marks, p);
+      if (at === null) { miss++; continue; }
+      var form = lvFormOf_(v.form);
+      var card = { form: form, at: Math.round(at * 10) / 10,
+                   kicker: ytVisCut_(v.kicker, 46), foot: ctx.foot || '',
+                   headline: ytVisCut_(v.headline, CFG.LV_CARD_TITLE_MAX || 48),
+                   note: ytVisCut_(v.note, 110), icon: lvIconOf_(v.icon) };
+      var lines = function (a) {
+        var o = [];
+        for (var k = 0; k < (a || []).length && o.length < 3; k++) {
+          var s2 = ytVisCut_(a[k], CFG.LV_CARD_LINE_MAX || 72);
+          if (s2) o.push(s2);
+        }
+        return o;
+      };
+      if (form === 'split') {
+        card.right = { title: ytVisCut_(v.aTitle, 22), icon: lvIconOf_(v.aIcon), items: lines(v.aItems) };
+        card.left = { title: ytVisCut_(v.bTitle, 22), icon: lvIconOf_(v.bIcon), items: lines(v.bItems) };
+        if (!card.right.title || !card.left.title) { miss++; continue; }
+      } else if (form === 'chain') {
+        card.steps = lines(v.steps);
+        if (card.steps.length < 2) { miss++; continue; }
+      } else if (form === 'focus') {
+        card.items = lines(v.items);
+      }
+      if (!card.headline) { miss++; continue; }
+      cards.push(card);
+    }
+    if (cards.length < 2) return null;
+
+    /* ترتیب از **زمان** می‌آید، نه از ترتیبی که مدل داد: مدل می‌تواند
+       جمع‌بندی را آخر بنویسد در حالی که در صوت وسط گفته شده — و همان بود که
+       در نمونهٔ سنجیده‌شده دو کارتِ آخر جابه‌جا افتادند. */
+    cards.sort(function (a, b) { return a.at - b.at; });
+
+    /* لنگرهای درونِ هر کارت: بینِ شروعِ خودش و شروعِ کارتِ بعدی پخش می‌شوند،
+       ولی **هرگز از آن جلو نمی‌زنند**. ریتم از این می‌آید (هر ~۳ ثانیه یک
+       ضرب)، نه از زیادکردنِ تعدادِ کارت‌ها. */
+    for (var j = 0; j < cards.length; j++) {
+      var end = (j + 1 < cards.length) ? cards[j + 1].at : secs;
+      cards[j].end = Math.round(end * 10) / 10;
+      var span = Math.max(1, end - cards[j].at);
+      var n = Math.max(1, Math.min(4, Math.round(span / 9)));
+      var an = [];
+      for (var a2 = 0; a2 < n; a2++) an.push(Math.round((cards[j].at + span * (a2 / n)) * 10) / 10);
+      cards[j].anchors = an;
+    }
+
+    return { v: 1, t0: cards[0].at, t1: Math.round(secs * 10) / 10,
+             cat: ctx.cat || '', seriesName: ctx.seriesName || '',
+             level: String(ctx.level || CFG.LV_LEVEL_DEFAULT || 'کم'),
+             cards: cards, missed: miss,
+             mark: ytMarkSpec_() };
+  } catch (e) {
+    try { logLine_('مشخصاتِ تصویری ساخته نشد: ' + e.message); } catch (e2) {}
+    return null;
+  }
+}
+
+/**
+ * نشانِ کانال. خاموش‌بودنش خرابی نیست — ولی روشن که باشد، **شناسه لازم
+ * است**: نشانی بی شناسه هیچ‌کس را به کانال نمی‌رساند.
+ */
+function ytMarkSpec_() {
+  if (CFG.YT_MARK !== true) return null;
+  var h = String(CFG.YT_MARK_HANDLE || '').trim();
+  if (!h) return null;
+  return { handle: h, name: String(CFG.YT_MARK_NAME || CFG.SPECIAL_SHOW_NAME || ''),
+           everySec: Math.max(60, Number(CFG.YT_MARK_MOVE_SEC) || 180),
+           opacity: Math.max(0.2, Math.min(0.9, Number(CFG.YT_MARK_OPACITY) || 0.6)) };
+}
+
+
+/**
+ * سطحِ تصویرسازیِ یک مجموعه: «خاموش» | «کم» | «زیاد».
+ *
+ * خانهٔ خالی «کم» است، نه «خاموش» — پیش‌فرضی که قابلیت را خاموش کند یعنی
+ * چیزی ساخته‌ایم که هیچ‌کس نمی‌بیندش مگر یک کارِ دستی انجام دهد، و این
+ * پرونده بارها نوشته که «گیتی که آدم باید بازش کند، گیت نیست».
+ * نوشتهٔ ناخوانا هم «کم» است، نه خطا: یک غلطِ تایپی نباید قسمت را بی‌تصویر کند.
+ */
+function lvLevelOf_(vals) {
+  var def = String(CFG.LV_LEVEL_DEFAULT || 'کم');
+  try {
+    var raw = String((vals || [])[SC.LVLEVEL - 1] || '').trim();
+    if (!raw) return def;
+    var n = raw.replace(/‌/g, ' ').replace(/\s+/g, ' ');
+    var list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد'];
+    for (var i = 0; i < list.length; i++) if (n === list[i]) return list[i];
+    if (/خاموش|هیچ|بی.?تصویر|غیرفعال/.test(n)) return 'خاموش';
+    if (/زیاد|همه|کامل|حداکثر/.test(n)) return 'زیاد';
+    return def;
+  } catch (e) { return def; }
+}
+
+/** سطحِ تصویرسازیِ مجموعهٔ همین قسمت — یک تعریف، مثل `lvStyleAt_`. */
+function lvLevelAt_(hub, item, meta) {
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) return lvLevelOf_(rec.vals);
+  } catch (e) {}
+  return String(CFG.LV_LEVEL_DEFAULT || 'کم');
+}
+
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
 function lvHistory_(hub, n) {
   var out = [];
@@ -43274,9 +43622,31 @@ function ytUploadOne_(item, hub, pub) {
     /* و از فهرستِ منتظران بیرون می‌آید — چه کامل شده باشد چه با کم رفته
        باشد. حافظه‌ای که خودش خالی نشود، هشدارش همیشگی می‌شود. */
     try { lvWaitClear_(lvKey); } catch (eW2) {}
+    /* ══ مشخصاتِ تصویری — اگر ساخته شود، رانر کارت‌ها را خودش می‌کشد ══
+     * نبودش خرابی نیست: هر قسمتِ پیش از ۸.۰۱ `_times.json` ندارد و باید
+     * **عیناً** مسیرِ امروز را برود. `visuals` هم کنارش می‌مانَد، هم برای
+     * جزوه و هم برای موتورِ قدیمی که `spec` را نمی‌شناسد. */
+    var lvSpec = null;
+    try {
+      /* سطحِ خودِ مجموعه از همه مقدم است: «خاموش» یعنی صاحبِ برنامه برای این
+         مجموعه تصویر نخواسته، و آن یک تصمیم است نه یک نقص. */
+      var lvLvl = lvLevelAt_(hub, item, meta);
+      if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
+      lvSpec = lvSpecBuild_(folder, meta, plan, {
+        level: lvLvl,
+        show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
+        seriesName: seriesName,
+        foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
+      });
+      if (lvSpec) logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری با ' +
+        lvSpec.cards.length + ' کارت ساخته شد' +
+        (lvSpec.missed ? ' (' + lvSpec.missed + ' مورد بی‌لنگر رد شد)' : '') + '.');
+    } catch (eSp) { logLine_('مشخصاتِ تصویری نشد: ' + eSp.message); }
+
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
                    visuals: vis.items,
+                   spec: lvSpec || undefined,
                    // **فهرستِ مرتب**، نه یک فایل: قسمتِ دوفایلی باید یک ویدئوی
                    // واحد شود، وگرنه نیمی از درس منتشر می‌شود.
                    audio: aud.parts.map(function (f) {

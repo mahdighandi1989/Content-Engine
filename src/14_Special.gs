@@ -2395,20 +2395,28 @@ function renderSpecialAudioStep_() {
           if (removed) logLine_('درس‌نامه: ' + removed + ' فایل صوتیِ بی‌صاحب پاک شد.');
         } catch (eC) {}
       }
+      /* زمانِ واقعیِ هر تکه از اجرای پیشین ادامه پیدا می‌کند — وگرنه هر
+         اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
+         صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
+      if (!Array.isArray(st.times)) st.times = [];
       var baseFiles = st.files.slice();
       var save = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files); st.chunkIdx = nextChunk; st.partNo = nextPart;
         props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       };
-      var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo, deadline, save);
+      var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo, deadline,
+                                save, Number(st.secs) || 0);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx; st.partNo = res.partNo;
+      st.times = st.times.concat(res.times || []);
+      st.secs = res.secs;
       if (!res.done) {
         props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
         scheduleSpecialContinue_(60 * 1000);
         logLine_('درس‌نامه ' + epNum + ': ' + st.chunkIdx + ' از ' + chunks.length + ' تکهٔ صوتی آماده شد.');
         return { ok: true, episode: epNum, pending: true };
       }
+      try { epTimesSave_(folder, st.times, st.secs); } catch (eT) {}
       st.phase = (CFG.MERGE_AUDIO && st.files.length > 1) ? 'merge' : 'deliver';
       props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       scheduleSpecialContinue_(45 * 1000);

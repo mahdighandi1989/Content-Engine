@@ -538,10 +538,91 @@ function buildSlideshow(files, tl, wav, durSec, dest, dir) {
  * و شکست بی‌صدا رد نمی‌شود: دلیلش در `notes` می‌نشیند و به `docs/renders.json`
  * می‌رسد، تا ناظر بداند چرا این قسمت اسلاید نگرفت.
  */
+/* ══ مسیرِ تازه: کارت‌ها این‌جا کشیده می‌شوند، از روی «مشخصاتِ تصویری» ══
+ *
+ * ردیفی که `spec` ندارد **عیناً** مسیرِ امروز را می‌رود — قولِ «چیزی خراب
+ * نمی‌شود» همین شرط است، نه یک جمله در سند.
+ *
+ * و سه تفاوتِ بنیادی با مسیرِ قدیم، که هر سه از ایرادهای سنجیده‌شده آمدند:
+ *   ۱) **هیچ zoompan نیست.** کن‌برنز روی متنِ برداری لرزش می‌دهد، و همان
+ *      «هی صفحه می‌لرزه» بود. حرکت مالِ محتواست: عناصر یکی‌یکی می‌آیند.
+ *   ۲) **زمانِ هر ضرب از گفتار می‌آید** (`at`)، نه از تقسیمِ حسابیِ مدت.
+ *      در نمونهٔ پیشین پنج کارت از شش، متنی را نشان می‌دادند که ۱۱ تا ۸۰
+ *      ثانیه قبل گفته شده بود.
+ *   ۳) ضرب‌ها **زیاد و کوتاه**اند (~۳ ثانیه)، نه ~۷۶ ثانیه.
+ */
+function specOf(it) {
+  const s = it && it.spec;
+  if (!s || typeof s !== 'object' || !Array.isArray(s.cards) || !s.cards.length) return null;
+  return s;
+}
+
+function buildSpecVideo(spec, wav, durSec, dest, dir) {
+  const CK = require('./cardkit/index.js');
+  const shots = CK.build(spec, path.join(dir, 'cards'));
+  if (shots.length < 2) throw new Error('کمتر از دو ضرب ساخته شد');
+
+  const t0 = Number(spec.t0) || 0, t1 = Number(spec.t1) || (t0 + durSec);
+  const items = [];
+  for (let i = 0; i < shots.length; i++) {
+    const a = shots[i].at - t0;
+    const b = (i + 1 < shots.length ? shots[i + 1].at : t1) - t0;
+    if (b - a > 0.05) items.push({ f: shots[i].file, d: b - a });
+  }
+  /* آخرین ضرب تا پایانِ صوت کشیده می‌شود — وگرنه ثانیه‌های آخر سیاه می‌شوند،
+     و یک قابِ سیاه در انتها بدترین چیزی است که بیننده می‌بیند. */
+  const sum = items.reduce((x, y) => x + y.d, 0);
+  if (durSec - sum > 0.05) items[items.length - 1].d += (durSec - sum);
+
+  const vmax = vmaxFor(durSec, VIS.capMB, VIS.audioBps);
+  const XF = 0.42, G = 10, parts = [];
+  for (let g0 = 0; g0 < items.length; g0 += G) {
+    const grp = items.slice(g0, g0 + G), a = [], f = [];
+    grp.forEach((it2, i) => {
+      a.push('-loop', '1', '-framerate', String(VIS.fps),
+             '-t', (it2.d + (i === grp.length - 1 ? 0 : XF)).toFixed(3), '-i', it2.f);
+      f.push(`[${i}:v]crop=1920:1080:0:0,scale=${VIS.w}:${VIS.h},setsar=1,format=yuv420p[v${i}]`);
+    });
+    let prev = 'v0', off = grp[0].d;
+    for (let i = 1; i < grp.length; i++) {
+      const lab = (i === grp.length - 1) ? 'vout' : ('x' + i);
+      f.push(`[${prev}][v${i}]xfade=transition=fade:duration=${XF}:offset=${off.toFixed(3)}[${lab}]`);
+      prev = lab; off += grp[i].d;
+    }
+    const outp = path.join(dir, 'sg' + String(parts.length).padStart(3, '0') + '.mp4');
+    ff(a.concat(['-filter_complex', grp.length > 1 ? f.join(';') : f[0].replace('[v0]', '[vout]'),
+      '-map', '[vout]', '-c:v', 'libx264', '-crf', String(VIS.crf), '-preset', 'medium',
+      '-maxrate', String(vmax), '-bufsize', String(vmax * 2),
+      '-pix_fmt', 'yuv420p', '-r', String(VIS.fps), outp]));
+    parts.push(outp);
+  }
+  const lst = path.join(dir, 'sl.txt');
+  fs.writeFileSync(lst, parts.map(p => `file '${p}'`).join('\n'));
+  const silent = path.join(dir, 'sall.mp4');
+  ff(['-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', silent]);
+  ff(['-i', silent, '-i', wav, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+      '-shortest', '-movflags', '+faststart', dest]);
+  return { beats: items.length, cards: spec.cards.length, vmax: vmax,
+           marks: Array.from(new Set(spec.cards.map(c =>
+             CK.mark.cornerAt(Number(c.at) || 0, spec.mark && spec.mark.everySec)))) };
+}
+
 function buildVideo(it, cover, wav, durSec, dest, dir) {
   const notes = [];
+  /* مشخصاتِ تصویری از همه مقدم است؛ نبودش یعنی موتورِ قدیم، و آن مسیر
+     دست‌نخورده می‌مانَد. */
+  const spec = specOf(it);
+  if (spec) {
+    try {
+      const r = buildSpecVideo(spec, wav, durSec, dest, dir);
+      return { mode: 'cards', n: r.beats, cards: r.cards, marks: r.marks, notes: notes };
+    } catch (e) {
+      notes.push('کشیدنِ کارت‌ها نشد، مسیرِ قدیم: ' +
+                 String(e.message).split('\n')[0].slice(0, 90));
+    }
+  }
   const vis = visualsOf(it);
-  if (!vis.length) return { mode: 'cover', notes: [] };
+  if (!vis.length) return { mode: 'cover', notes: notes };
 
   const files = [], kept = [];
   for (let i = 0; i < vis.length; i++) {
@@ -721,5 +802,6 @@ if (require.main === module) main();
 
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
-  vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo
+  vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
+  specOf, buildSpecVideo, visFilter
 };

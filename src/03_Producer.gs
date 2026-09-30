@@ -3124,6 +3124,52 @@ function splitForTts_(text) {
 }
 
 /** بستن یک گروه از تکه‌های base64 به یک فایل WAV و نوشتنش در درایو */
+
+/**
+ * طولِ base64 ⇒ ثانیه. **یک تعریف**، چون این عدد جای دیگری هم لازم می‌شود و
+ * دو تعریفِ کمی متفاوت همان باگی است که این پرونده بارها ثبت کرده.
+ * base64 هر ۴ نویسه = ۳ بایت؛ PCMِ ۱۶ بیتیِ تک‌کاناله هر نمونه ۲ بایت.
+ */
+function b64Sec_(len) {
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  return ((Number(len) || 0) / 4 * 3) / 2 / sr;
+}
+
+
+/**
+ * زمانِ واقعیِ تکه‌ها را کنارِ خودِ قسمت می‌نویسد.
+ *
+ * چرا فایلِ جدا و نه داخلِ `_episode.json`: آن پرونده در فازِ `audio` نوشته
+ * می‌شود و `__decAt` یک‌بار بیشتر نمی‌گذارد بنویسدش، در حالی که زمان‌ها تازه
+ * **در پایانِ** ساختِ صدا کامل‌اند. دو نویسنده روی یک فایل با دو زمان‌بندیِ
+ * متفاوت، همان شکلی است که این مخزن بارها خورده.
+ *
+ * و نبودش خطا نیست: قسمت‌های پیش از ۸.۰۱ این فایل را ندارند و بخشِ ۲۷ باید
+ * همان‌طور که امروز کار می‌کند کار کند.
+ */
+function epTimesSave_(folder, times, secs) {
+  try {
+    if (!folder || !Array.isArray(times) || !times.length) return false;
+    var body = JSON.stringify({ v: 1, at: nowStr_(), secs: Number(secs) || 0,
+                                sr: Number(CFG.SAMPLE_RATE) || 24000, times: times });
+    var it = folder.getFilesByName(CFG.EP_TIMES_FILE || '_times.json');
+    if (it.hasNext()) { it.next().setContent(body); return true; }
+    folder.createFile(Utilities.newBlob(body, 'application/json',
+                                        CFG.EP_TIMES_FILE || '_times.json'));
+    return true;
+  } catch (e) { try { logLine_('زمانِ تکه‌ها نوشته نشد: ' + e.message); } catch (e2) {} return false; }
+}
+
+/** و خواندنش. نبودش `null` است، نه خطا. */
+function epTimesRead_(folder) {
+  try {
+    var it = folder.getFilesByName(CFG.EP_TIMES_FILE || '_times.json');
+    if (!it.hasNext()) return null;
+    var o = JSON.parse(it.next().getBlob().getDataAsString());
+    return (o && Array.isArray(o.times) && o.times.length) ? o : null;
+  } catch (e) { return null; }
+}
+
 function writeWavPart_(parts, baseName, partNo, folder) {
   var b64 = parts.join('');
   if (!b64) return null;
@@ -3141,7 +3187,7 @@ function writeWavPart_(parts, baseName, partNo, folder) {
  * Apps Script بخورد، هیچ کاری هدر نمی‌رود و اجرای بعدی دقیقاً از همان تکه ادامه می‌دهد.
  * @return {{done:boolean, chunkIdx:number, partNo:number, files:Array}}
  */
-function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart) {
+function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart, t0) {
   var maxB64 = Math.floor(CFG.MAX_WAV_BYTES / 3) * 4;
   var buf = [], bufChars = 0, files = [];
   var partNo = startPart, i = startChunk;
@@ -3158,6 +3204,16 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
   // این اتصال نیست.
   var prevXf = 0;
+  /* ══ ثانیهٔ شروعِ هر تکه — رایگان، و همان چیزی که نبودش تصویر را از گفتار
+     جدا کرده بود ══
+     تا ۸.۰۰ هیچ‌جای این خط تولید نمی‌دانست کدام جمله در کدام ثانیه گفته
+     می‌شود، پس تصویرها به‌تساوی روی مدت پخش می‌شدند و در یک سنجشِ واقعی پنج
+     کارت از شش، متنی را نشان می‌دادند که ۱۱ تا ۸۰ ثانیه **قبل** گفته شده بود.
+     این عدد از بایت‌هایی می‌آید که همین‌جا شمرده می‌شوند: نه فراخوانِ تازه،
+     نه مدل، نه حدس. `t0` مجموعِ اجراهای پیشین است، چون این تابع از وسط
+     ادامه می‌دهد و بی آن هر اجرا از صفر می‌شمرد. */
+  var tAcc = Number(t0) || 0;
+  var times = [];
   for (; i < chunks.length; i++) {
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
@@ -3212,6 +3268,8 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       }
       buf = []; bufChars = 0;
     }
+    times.push({ i: i, at: Math.round(tAcc * 100) / 100 });
+    tAcc += b64Sec_(b64.length);
     buf.push(b64); bufChars += b64.length;
     Utilities.sleep(400);          // ملایمت با سهمیهٔ API
   }
@@ -3219,7 +3277,8 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     var g = writeWavPart_(buf, baseName, partNo, folder);
     if (g) { files.push(g); partNo++; if (onPart) onPart(files, i, partNo); }
   }
-  return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files };
+  return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files,
+           times: times, secs: Math.round(tAcc * 100) / 100 };
 }
 
 /**
@@ -5791,6 +5850,10 @@ function renderAudioStep_() {
         } catch (eClean) {}
       }
 
+      /* زمانِ واقعیِ هر تکه از اجرای پیشین ادامه پیدا می‌کند — وگرنه هر
+         اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
+         صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
+      if (!Array.isArray(st.times)) st.times = [];
       var baseFiles = st.files.slice();
       var saveProgress = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files);
@@ -5799,10 +5862,12 @@ function renderAudioStep_() {
         props_().setProperty(PK.PENDING, JSON.stringify(st));
       };
       var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo,
-                                deadline, saveProgress);
+                                deadline, saveProgress, Number(st.secs) || 0);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx;
       st.partNo = res.partNo;
+      st.times = st.times.concat(res.times || []);
+      st.secs = res.secs;
 
       if (!res.done) {
         props_().setProperty(PK.PENDING, JSON.stringify(st));
@@ -5814,6 +5879,7 @@ function renderAudioStep_() {
 
       // صدا تمام شد. مرحلهٔ بعد (ادغام) روی ده‌ها مگابایت کار می‌کند و مرحلهٔ
       // بعدترش (ایمیل و تلگرام) هم وقت می‌برد؛ هر کدام اجرای خودش را می‌گیرد.
+      try { epTimesSave_(folder, st.times, st.secs); } catch (eT) {}
       st.phase = (CFG.MERGE_AUDIO && st.files.length > 1) ? 'merge' : 'deliver';
       props_().setProperty(PK.PENDING, JSON.stringify(st));
       scheduleContinue_(45 * 1000);
