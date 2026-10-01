@@ -889,6 +889,12 @@ function nightStarveFinding_(hub, bad, need) {
  * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
  */
 function selfUpdateDaily() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('selfUpdateDaily');
+  try {
   var night = nightBegin_();
   if (!night.first) {
     logLine_('کارِ شبانه: ادامهٔ همین شب (اجرای ' + (night.runs + 1) +
@@ -1326,6 +1332,8 @@ function selfUpdateDaily() {
   try { nightEnd_(night.runs); }
   catch (eNE) { logLine_('پایانِ کارِ شبانه ثبت نشد: ' + eNE.message); }
   return installed;
+
+  } finally { runExit_('selfUpdateDaily'); }
 }
 
 function selfUpdateRetry() { return selfUpdateDaily(); }

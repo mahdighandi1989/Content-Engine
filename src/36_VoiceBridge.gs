@@ -1272,6 +1272,12 @@ function runVoiceSoulSeed() {
 
 
 function vbrCollectHourly() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('vbrCollectHourly');
+  try {
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
@@ -1306,6 +1312,8 @@ function vbrCollectHourly() {
     try { logLine_('برداشتِ ساعتیِ پل ناموفق: ' + e.message); } catch (e2) {}
     return null;
   }
+
+  } finally { runExit_('vbrCollectHourly'); }
 }
 
 function vbrQueueEnsure_() {

@@ -792,6 +792,12 @@ function recapTextOf_(rec) {
 }
 
 function produceSpecialEpisode(opt) {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('produceSpecialEpisode');
+  try {
   opt = opt || {};
   if (!CFG.SPECIAL_ENABLED) return { ok: false, reason: 'disabled' };
   // همان دروازهٔ «از همه جا از همه رنگ»، با کلیدِ خودش. ردیفِ این برنامه در
@@ -1718,6 +1724,8 @@ function produceSpecialEpisode(opt) {
     try { lock.releaseLock(); } catch (e) {}
     throw err;
   }
+
+  } finally { runExit_('produceSpecialEpisode'); }
 }
 
 /** نشانِ درس‌نامه — عمداً در ستونِ جدا، تا با نشانِ برنامهٔ متنوع قاطی نشود. */

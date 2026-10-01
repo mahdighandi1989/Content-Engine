@@ -871,3 +871,154 @@ console.log('\n=== ۱۶) کارنامهٔ قابلیت‌ها: «روشن است
 
   console.log('  ✅ بندِ ۱۶: ' + p16 + ' سنجه');
 }
+
+console.log('\n=== ۱۷) شاهدِ اجرا: تریگری که ترکید و هیچ‌جا صدا درنیامد (۸.۱۱) ===');
+/* صاحبِ برنامه ۱ اکتبر سطرِ قرمزِ `ytPublishTick` را **شانسی** در صفحهٔ
+   Executions دید و پرسید «اگه نمی‌دیدم چی؟ ناظر پس چی کار می‌کنه؟».
+   جوابِ راست آن روز: هیچ. Apps Script از درون راهی برای خواندنِ تاریخچهٔ
+   اجراهای خودش نمی‌دهد، پس یک تریگرِ ترکیده هیچ ردی در موتور نمی‌گذارد.
+   ۷.۴۴ این شاهد را فقط برای کارِ شبانه ساخت.
+
+   و شاهد عمداً در Script Properties است، نه در تبِ سیاهه: چیزی که آن روز
+   شکست، **خودِ شیت** بود. */
+{
+  let p17 = 0;
+  const ok17 = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); p17++; };
+
+  const P = () => PropertiesService.getScriptProperties();
+  P().deleteProperty(PK.RUN_AT);
+  P().deleteProperty(PK.RUN_LAST);
+
+  /* ۱۷.۱ — مهر **پیش از** کار نوشته می‌شود. این تمامِ نکته است: اجرایی که
+     گوگل سرِ شش دقیقه بکُشد به هیچ خطِ پایانی نمی‌رسد، پس شاهدی که در
+     پایان نوشته شود دقیقاً در حالتی که لازم است وجود ندارد (۷.۴۴). */
+  runEnter_('fakeTrigger');
+  const mid = JSON.parse(P().getProperty(PK.RUN_AT) || '{}');
+  ok17('۱۷.۱ مهر پیش از کار نوشته می‌شود، پس از کشته‌شدنِ اجرا جان به در می‌برد',
+       !!mid.fakeTrigger && !!mid.fakeTrigger.ts,
+       JSON.stringify(mid));
+
+  /* ۱۷.۲ — و تا وقتی اجرا زنده است، هشدار نمی‌دهد. */
+  const fresh = runStuck_();
+  ok17('۱۷.۲ اجرای تازه «ناتمام» شمرده نمی‌شود — هشدار برای حالتِ سالم خوانده نمی‌شود',
+       fresh.items.length === 0 && fresh.line.indexOf('✅') === 0, fresh.line);
+
+  /* ۱۷.۳ — پایانِ تمیز مهر را برمی‌دارد. */
+  runExit_('fakeTrigger', 'تمام');
+  ok17('۱۷.۳ پایانِ تمیز مهر را برمی‌دارد',
+       runStuck_().items.length === 0 &&
+       !!JSON.parse(P().getProperty(PK.RUN_LAST) || '{}').fakeTrigger);
+
+  /* ۱۷.۴ — و اجرایی که مُرد، دیده می‌شود. مرز از سقفِ خودِ گوگل می‌آید:
+     شش دقیقه حداکثرِ یک اجراست، پس ۱۵ دقیقه یعنی قطعاً مرده. */
+  runEnter_('deadTrigger');
+  const dead = runStuck_(new Date().getTime() +
+                         (Number(CFG.RUN_STUCK_MIN) + 1) * 60000);
+  ok17('۱۷.۴ اجرایی که شروع شد و تمام نشد، به نام گزارش می‌شود',
+       dead.items.length === 1 && dead.items[0].fn === 'deadTrigger' &&
+       dead.line.indexOf('deadTrigger') !== -1 && dead.line.indexOf('❌') === 0,
+       dead.line);
+
+  /* ۱۷.۵ — **و از درِ تولید دیده می‌شود، نه با صدا زدنِ خودِ تابع** (۷.۶۲).
+     ادعا این است که `healthCheck` خودش این را در مسئله‌ها می‌آورد. */
+  {
+    const keepNow = global.runStuck_;
+    global.runStuck_ = function () {
+      return { items: [{ fn: 'ytPublishTick', at: '2026-10-01 08:57', mins: 99 }],
+               line: '❌ اجرای ناتمام: ytPublishTick (۹۹ دقیقه پیش شروع شد و تمام نشد)' };
+    };
+    const hh = healthCheck();
+    global.runStuck_ = keepNow;
+    ok17('۱۷.۵ healthCheck خودش اجرای ناتمام را در مسئله‌ها می‌آورد',
+         (hh.problems || []).some(x => String(x).indexOf('ytPublishTick') !== -1),
+         JSON.stringify((hh.problems || []).filter(x => String(x).indexOf('ناتمام') !== -1)));
+
+    const sh = hub.getSheetByName(CFG.REPORT_TAB);
+    const vals = sh.getLastRow() < 2 ? []
+      : sh.getRange(2, 1, sh.getLastRow() - 1, REPORT_HEADERS.length).getValues();
+    const rows = vals.map(r => r.join(' ')).filter(x => x.indexOf('run-died') !== -1);
+    ok17('۱۷.۵-ب و یافته‌اش در صفِ «نیازمند تعویضِ کد» می‌نشیند — یک جملهٔ ایمیل فردا عوض می‌شود، یافته نه',
+         rows.length >= 1 && rows[0].indexOf(RST.NEEDS_CODE) !== -1,
+         rows[0] ? rows[0].slice(0, 80) : 'ردیفی ننشست');
+  }
+
+  /* ۱۷.۶ — و سطرِ سالم **هر روز** گفته می‌شود: سکوت را نمی‌شود از کوری
+     تشخیص داد (۵.۹۱). */
+  P().deleteProperty(PK.RUN_AT);
+  const hOk = healthCheck();
+  ok17('۱۷.۶ روزی که همه‌چیز سالم است هم یک سطر دارد',
+       (hOk.notes || []).some(x => String(x).indexOf('هیچ اجرای ناتمامی نیست') !== -1),
+       JSON.stringify((hOk.notes || []).filter(x => String(x).indexOf('ناتمام') !== -1)));
+
+  /* ۱۷.۷ — و تریگرهای واقعی همه مهر می‌زنند. فهرست از `wantedTriggers_`
+     خوانده می‌شود، نه دست‌نویس: تریگرِ بعدی که اضافه شود، همین‌جا گرفته
+     می‌شود (۵.۹۵ — فهرستِ دست‌نویس کهنه می‌شود). */
+  {
+    const src = fs.readdirSync('src').filter(f => /\.gs$/.test(f))
+      .map(f => fs.readFileSync('src/' + f, 'utf8')).join('\n');
+    /* بدنه با تطبیقِ آکولاد برداشته می‌شود، نه با یک پنجرهٔ ثابت: نگارشِ اول
+       ۲۶۰۰ نویسه می‌خواند و پنج تریگرِ بلند را «بی‌شاهد» می‌دید — یعنی سنجه
+       برای کدِ **درست** سرخ می‌شد، و ارزان‌ترین راهِ سبزکردنش بزرگ‌کردنِ
+       همان عددِ دل‌بخواهی بود (۷.۵۹). */
+    const bodyOf = (src, fn) => {
+      const i = src.indexOf('function ' + fn + '(');
+      if (i === -1) return '';
+      const ob = src.indexOf('{', i);
+      let d = 0;
+      for (let j = ob; j < src.length; j++) {
+        if (src[j] === '{') d++;
+        else if (src[j] === '}') { d--; if (!d) return src.slice(ob, j + 1); }
+      }
+      return '';
+    };
+    const miss = wantedTriggers_().map(t => t.fn).filter(function (fn) {
+      const body = bodyOf(src, fn);
+      return !body ||
+             body.indexOf("runEnter_('" + fn + "')") === -1 ||
+             body.indexOf("runExit_('" + fn + "')") === -1;
+    });
+    ok17('۱۷.۷ هر تریگرِ زمان‌بندی‌شده شاهدِ خودش را دارد',
+         miss.length === 0, miss.length ? ('بی‌شاهد: ' + miss.join('، ')) : 'همه');
+  }
+
+  /* ══ ۱۷.۸ — «نتوانستم بخوانم» با «پاک شده» یکی گرفته شده بود ══
+     ۱ اکتبر سه بار `Service Spreadsheets timed out` افتاد. `getHub_` هر
+     خطایی را «حذف شده؛ دوباره می‌سازیم» می‌خواند — یعنی یک وقفهٔ گذرای
+     سرویس موتور را به مسیرِ ساختنِ هابِ **تازه** می‌فرستاد. آن روز نجات
+     پیدا کرد چون فایل در پوشه پیدا شد؛ اگر درایو هم کند بود، ۲۹ مگابایت
+     داده رها می‌شد و `PK.HUB_ID` به یک هابِ خالی می‌رفت — بی هیچ خطایی.
+
+     این شکستن اولین بار **هیچ‌جا ننشست**، یعنی سنجه‌ای نداشت. */
+  {
+    const realOpen = SpreadsheetApp.openById;
+    const madeBefore = (global.__ROOT_FOLDER._files || []).length;
+    let tries = 0;
+    SpreadsheetApp.openById = function () {
+      tries++;
+      throw new Error('Service Spreadsheets timed out while accessing document with id X');
+    };
+    let threw = '';
+    try { getHub_(); } catch (e) { threw = String(e.message || e); }
+    SpreadsheetApp.openById = realOpen;
+    ok17('۱۷.۸ خطای گذرای شیت پرتاب می‌شود — هابِ تازه ساخته نمی‌شود',
+         /timed out/i.test(threw) &&
+         (global.__ROOT_FOLDER._files || []).length === madeBefore,
+         'پرتاب: ' + (threw || '—') + ' · فایل‌ها: ' + madeBefore + ' ⇒ ' +
+         (global.__ROOT_FOLDER._files || []).length);
+    ok17('۱۷.۸-ب و پیش از تسلیم چند بار تلاش می‌کند',
+         tries === Math.max(1, Number(CFG.SHEETS_RETRY) || 3),
+         tries + ' تلاش برای سقفِ ' + CFG.SHEETS_RETRY);
+
+    /* و مرزِ مقابل: خطای **واقعی** فوراً بالا می‌رود و تلاشِ دوباره نمی‌خورد —
+       وگرنه هر شناسهٔ غلط سه برابر وقت می‌گیرد و علت پنهان می‌شود. */
+    let hard = 0;
+    SpreadsheetApp.openById = function () { hard++; throw new Error('Access denied'); };
+    try { getHub_(); } catch (e) {}
+    SpreadsheetApp.openById = realOpen;
+    ok17('۱۷.۸-پ ولی خطای واقعی تلاشِ دوباره نمی‌خورد',
+         hard === 1, hard + ' تلاش');
+  }
+
+  console.log('  ✅ بندِ ۱۷: ' + p17 + ' سنجه');
+}

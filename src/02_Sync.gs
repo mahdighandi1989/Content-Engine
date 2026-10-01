@@ -8,14 +8,58 @@
 
 // ---------------------------------------------------------------- شیت مقصد
 
+/**
+ * ══ خطای گذرای شیت، و تلاشِ دوباره (۸٫۱۱) ══
+ *
+ * ۱ اکتبر ۸:۵۷ تا ۸:۵۹ سه بار پشتِ‌هم:
+ * `Service Spreadsheets timed out while accessing document with id …` — و
+ * اجرای `ytPublishTick` همان‌جا مُرد. هاب ۲۹ مگابایت است؛ این خطا گذراست و
+ * می‌افتد. هیچ تلاشِ دوباره‌ای در کار نبود، پس یک وقفهٔ چندثانیه‌ای کلِ دورِ
+ * یوتیوبِ آن روز را انداخت.
+ *
+ * فقط خطای **گذرا** دوباره تلاش می‌شود. خطای واقعی (دسترسی، شناسهٔ غلط)
+ * فوراً بالا می‌رود — تلاشِ دوباره رویش فقط وقت را می‌خورَد و علت را پنهان
+ * می‌کند.
+ */
+function sheetsTransient_(e) {
+  var m = String((e && e.message) || e || '');
+  return /timed out|timeout|service unavailable|internal error|try again|rate limit|too many|unavailable|\b50[0-9]\b/i.test(m);
+}
+
+function sheetsRetry_(fn, tries) {
+  var n = Math.max(1, Number(tries) || Number(CFG.SHEETS_RETRY) || 3);
+  var last = null;
+  for (var i = 0; i < n; i++) {
+    try { return fn(); }
+    catch (e) {
+      last = e;
+      if (!sheetsTransient_(e)) throw e;
+      if (i < n - 1) { try { Utilities.sleep(1500 * (i + 1)); } catch (eS) {} }
+    }
+  }
+  throw last;
+}
+
 function getHub_() {
   var id = props_().getProperty(PK.HUB_ID);
   if (id) {
     try {
-      var open = SpreadsheetApp.openById(id);
-      ensureAllTabs_(open);       // ارتقای خودکار شیت‌های ساخته‌شده با نسخهٔ قدیمی
-      return open;
-    } catch (e) { /* حذف شده؛ دوباره می‌سازیم */ }
+      return sheetsRetry_(function () {
+        var open = SpreadsheetApp.openById(id);
+        ensureAllTabs_(open);   // ارتقای خودکار شیت‌های ساخته‌شده با نسخهٔ قدیمی
+        return open;
+      });
+    } catch (e) {
+      /* ══ «نتوانستم بخوانم» با «پاک شده» یکی گرفته شده بود (۸٫۱۱) ══
+         این `catch` هر خطایی را «حذف شده؛ دوباره می‌سازیم» می‌خواند. یعنی یک
+         وقفهٔ گذرای سرویس — که ۱ اکتبر سه بار پشتِ‌هم افتاد — موتور را به
+         مسیرِ **ساختنِ هابِ تازه** می‌فرستاد. امروز نجات پیدا کرد چون
+         `getFilesByName` فایل را یافت؛ اگر درایو هم همان لحظه کند بود، یک
+         هابِ خالی ساخته می‌شد و `PK.HUB_ID` به آن می‌رفت: ۲۹ مگابایت داده
+         رها، بی هیچ خطایی. خطای گذرا **پرتاب** می‌شود، نه اینکه به ساختِ
+         دوباره راه بدهد. */
+      if (sheetsTransient_(e)) throw e;
+    }
   }
   var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
 
@@ -392,6 +436,12 @@ function loadSeen_(hub) {
 function syncCatalogContinue() { syncCatalog(); }
 
 function syncCatalog() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('syncCatalog');
+  try {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) { console.log('اجرای موازی؛ رد شد.'); return; }
   var t0 = new Date().getTime();
@@ -661,6 +711,8 @@ function syncCatalog() {
   } finally {
     lock.releaseLock();
   }
+
+  } finally { runExit_('syncCatalog'); }
 }
 
 function flushBuffers_(hub, buffers) {

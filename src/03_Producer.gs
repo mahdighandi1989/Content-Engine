@@ -5763,6 +5763,12 @@ function epMarkMade_(show) {
 }
 
 function produceEpisode(opt) {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('produceEpisode');
+  try {
   opt = opt || {};
   // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
   // همیشه اجازه دارد. تریگرهای گوگل یک شیءِ رویداد پاس می‌دهند که manual
@@ -6064,6 +6070,8 @@ function produceEpisode(opt) {
     try { lock.releaseLock(); } catch (e) {}
     throw err;
   }
+
+  } finally { runExit_('produceEpisode'); }
 }
 
 function produceEpisodeContinue() { return renderAudioStep_(); }

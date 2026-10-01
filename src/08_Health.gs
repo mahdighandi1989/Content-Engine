@@ -598,6 +598,10 @@ function writeStatus_(hub, note) {
     // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
+    /* ══ اجراهایی که شروع شدند و تمام نشدند (۸.۱۱) ══
+       تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
+       نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
+    runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     /* کهنگیِ گزارشِ روزانه — از همین `health` بالا حساب می‌شود، پس
        هیچ خواندنِ تازه‌ای به درایو اضافه نمی‌کند. اینجاست چون
@@ -1424,6 +1428,12 @@ function capFindings_(hub, cap) {
 }
 
 function healthCheck() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('healthCheck');
+  try {
   healthStart_();
   var hub = getHub_();
   var problems = [], notes = [], skipped = [];
@@ -2146,6 +2156,32 @@ function healthCheck() {
     }
   } catch (eNd) {}
 
+  /* ══ تریگری که ترکید و هیچ‌جا صدا درنیامد (۸.۱۱) ══
+     صاحبِ برنامه ۱ اکتبر سطرِ قرمزِ `ytPublishTick` را **شانسی** در صفحهٔ
+     Executions دید و پرسید «اگه نمی‌دیدم چی؟». جوابِ راست: هیچ — موتور
+     فهرستِ اجراهای خودش را نمی‌بیند و Apps Script از درون راهی برای
+     خواندنش نمی‌دهد. ۷.۴۴ این شاهد را فقط برای کارِ شبانه ساخت و نُه
+     تریگرِ دیگر کور ماندند؛ این همان، تعمیم‌یافته.
+
+     و سطرِ سالم هم **هر روز** گفته می‌شود، چون سکوت را نمی‌شود از کوری
+     تشخیص داد (۵.۹۱). */
+  try {
+    var rs = runStuck_();
+    if (rs.items.length) {
+      problems.push(rs.line);
+      logSelfFinding_(hub, {
+        key: 'run-died', severity: 'جدی', owner: ROWNER_CODE,
+        title: 'یک تریگر وسطِ کار مُرد و هیچ‌جا ثبت نشد',
+        detail: rs.line,
+        instruction: 'در Apps Script ← Executions سطرِ قرمزِ همان تابع را باز ' +
+          'کنید و متنِ خطا را بخوانید. اگر «Service Spreadsheets timed out» ' +
+          'بود، یعنی مسیری هست که هنوز از `sheetsRetry_` نمی‌گذرد. مهرِ ' +
+          'ناتمام با اجرای بعدیِ همان تابع خودبه‌خود پاک می‌شود، پس ردیفِ ' +
+          'تکرارشونده یعنی هر بار می‌میرد — نه یک بارِ گذشته.'
+      });
+    } else notes.push(rs.line);
+  } catch (eRs) {}
+
   /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
      اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
      شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته
@@ -2343,6 +2379,8 @@ function healthCheck() {
             (notes.length ? '\n\n' + notes.join('\n') : '');
   var ui = ui_(); if (ui) ui.alert('وارسی سلامت', msg, ui.ButtonSet.OK); else console.log(msg);
   return { problems: problems, notes: notes };
+
+  } finally { runExit_('healthCheck'); }
 }
 
 // ------------------------------------------------- وضعیت برنامهٔ «درس‌نامه»

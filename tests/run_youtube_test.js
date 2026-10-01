@@ -3993,4 +3993,94 @@ console.log('=== ۶۲) نشانِ کانال (۸.۰۱) ===');
   CFG.YT_MARK = wasOn; CFG.YT_MARK_HANDLE = wasH;
 }
 
+console.log('=== ۶۳) نقشهٔ تصویر که نحیف درآمد و «تمام» گزارش شد (۸.۱۱) ===');
+/* ۱ اکتبر، درس‌نامه ۵۷: `_visuals.json` نوشت `want: 1, ready: 1, done: true`
+   برای درسی که موتور خودش حدودِ دوازده تصویر برایش خواسته بود. ویدئو یعنی
+   پانزده دقیقه یک تصویرِ ثابت، و هیچ‌جا صدا درنیامد — چون `want` برابرِ
+   «آنچه زنده مانْد» گذاشته می‌شد و `done` با همان سنجیده می‌شد: **عدد با
+   خودش مقایسه می‌شد و همیشه سالم بود.**
+
+   سه جا بی‌صدا می‌ریخت؛ این بند هر سه را می‌شمارد و شکاف را نام می‌برد. */
+{
+  const secs58 = [{ heading: 'یک', narration: 'x'.repeat(3000) },
+                  { heading: 'دو', narration: 'y'.repeat(2000) }];
+  const ctx58 = () => ({ show: 'special', epRaw: '57', showName: 'ن', title: 'ت',
+                         duration: '15:00', headings: ['یک', 'دو'],
+                         sections: secs58, totalSec: 900, sources: [] });
+
+  /* ۶۳.۱ — شمارهٔ بخشِ بیرونِ بازه شمرده می‌شود. چهار مورد می‌رود، سه‌تاشان
+     بخشِ ۵ و ۹ را نام می‌برند که وجود ندارد — دقیقاً شکلی که یک جوابِ مدل
+     می‌تواند داشته باشد و تا امروز بی‌صدا می‌ریخت. */
+  {
+    const st = {};
+    const mm = { visuals: [
+      { at: '1', kind: 'کارت', cardTitle: 'الف', cardLines: ['۱'], terms: '', caption: 'ک' },
+      { at: '5', kind: 'کارت', cardTitle: 'ب', cardLines: ['۲'], terms: '', caption: 'ک' },
+      { at: '9', kind: 'کارت', cardTitle: 'پ', cardLines: ['۳'], terms: '', caption: 'ک' },
+      { at: 'x', kind: 'کارت', cardTitle: 'ت', cardLines: ['۴'], terms: '', caption: 'ک' }
+    ] };
+    const plan = ytVisPlan_(mm, ctx58(), st);
+    ok('۶۳.۱ موردهای دورانداخته شمرده می‌شوند، نه بی‌صدا',
+       plan.length === 1 && st.raw === 4 && st.badSec === 3,
+       'نقشه ' + plan.length + ' · خام ' + st.raw + ' · بخشِ ناشناخته ' + st.badSec);
+  }
+
+  /* ۶۳.۲ — و موردِ چهارمِ یک بخش هم شمرده می‌شود (سقفِ سه در هر بخش). */
+  {
+    const st = {};
+    const many = [];
+    for (let i = 0; i < 5; i++) {
+      many.push({ at: '1', kind: 'کارت', cardTitle: 'ع' + i, cardLines: ['x'],
+                  terms: '', caption: 'ک' });
+    }
+    ytVisPlan_({ visuals: many }, ctx58(), st);
+    ok('۶۳.۲ موردِ چهارمِ یک بخش هم شمرده می‌شود',
+       st.perSec === 2, 'perSec=' + st.perSec);
+  }
+
+  /* ۶۳.۳ — **و عددِ خواسته‌شده کنارِ عددِ ساخته‌شده می‌نشیند.** این تمامِ
+     تعمیر است: تا دیروز `ytVisWant_` یک عدد می‌داد که فقط به پرامپت می‌رفت
+     و هیچ‌وقت با نتیجه مقایسه نمی‌شد — ۷.۳۰/۷.۳۱، این بار بینِ یک پرسش و
+     جوابِ خودش. */
+  {
+    const asked = ytVisWant_(900);
+    ok('۶۳.۳ برای درسِ پانزده‌دقیقه‌ای بیش از یک تصویر خواسته می‌شود',
+       asked >= 3, 'خواسته‌شده: ' + asked);
+
+    const ctx = ctx58();
+    const plan = { visuals: ytVisPlan_({ visuals: [
+      { at: '1', kind: 'کارت', cardTitle: 'الف', cardLines: ['۱'], terms: '', caption: 'ک' }
+    ] }, ctx, (ctx.__visStat = {})) };
+    const epF = global.__ROOT_FOLDER.createFolder('قسمتِ نحیف ۶۳');
+    const vis = lvBuild_(epF, plan, ctx, '');
+    ok('۶۳.۳-ب نقشهٔ یک‌تایی در برابرِ خواستهٔ چندتایی «نحیف» علامت می‌خورد',
+       vis.asked === asked && vis.want === 1 && vis.thin === true,
+       JSON.stringify({ asked: vis.asked, want: vis.want, thin: vis.thin }));
+
+    /* و در پروندهٔ خودِ قسمت می‌نشیند — جایی که ۱ اکتبر فقط `want: 1` بود و
+       هیچ‌کس نمی‌توانست بفهمد یک از چند. */
+    const d = lvRead_(epF);
+    ok('۶۳.۳-پ و عددِ خواسته‌شده در _visuals.json می‌نشیند',
+       Number(d.asked) === asked && d.thin === true,
+       JSON.stringify({ asked: d.asked, want: d.want, thin: d.thin, drop: d.dropped }));
+  }
+
+  /* ۶۳.۴ — و «نحیف» در خطِ روزانه به نام می‌آید، جدا از «منتظر» و «کم‌رفت».
+     سه عدد با سه معنی: درست‌شدنی · برنگشتنی · هنوز جبران‌شدنی (۵.۸۸). */
+  {
+    const keep = global.__PROPS[PK.LV_THIN];
+    lvThinNote_('special:57', { want: 1, asked: 12,
+                                dropped: { raw: 12, badSec: 11, perSec: 0, capped: 0 } });
+    const st = lvStatus_();
+    ok('۶۳.۴ «نحیف» در خطِ روزانه به نام می‌آید و از «کم‌رفت» جداست',
+       st.thin === 1 && st.line.indexOf('نحیف') !== -1 &&
+       st.line.indexOf('special:57') !== -1 && st.short === 0,
+       st.line.split('·').filter(x => x.indexOf('نحیف') !== -1).join('') || st.line);
+    ok('۶۳.۴-ب و می‌گوید هنوز جبران‌شدنی است — برخلافِ «کم‌رفت»',
+       st.line.indexOf('پیش از انتشار') !== -1, st.line.slice(-120));
+    if (keep === undefined) delete global.__PROPS[PK.LV_THIN];
+    else global.__PROPS[PK.LV_THIN] = keep;
+  }
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

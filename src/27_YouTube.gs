@@ -2884,6 +2884,18 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
               gMade: 0, gSpent: 0, gModel: '' };
   var want = (plan && plan.visuals) || [];
   out.want = want.length;
+  /* ══ عددی که خواسته شد، کنارِ عددی که ساخته شد (۸٫۱۱) ══
+     `ytVisWant_` از روی طولِ قسمت می‌گوید چند تصویر لازم است و همان عدد در
+     پرامپت می‌رود. تا امروز هیچ‌جا با نتیجه مقایسه نمی‌شد — ۷.۳۰/۷.۳۱، این
+     بار بینِ یک پرسش و جوابش. */
+  try {
+    out.asked = ytVisWant_(Number((ctx || {}).totalSec) || 0);
+    var dr = (ctx || {}).__visStat || null;
+    if (dr) out.dropped = { raw: dr.raw || 0, badSec: dr.badSec || 0,
+                            perSec: dr.perSec || 0, capped: dr.capped || 0 };
+    var floor = Math.max(1, Math.ceil(out.asked * (Number(CFG.LV_THIN_PCT) || 0.5)));
+    out.thin = out.want < floor;
+  } catch (eAsk) { out.asked = 0; out.thin = false; }
   if (!want.length) { out.done = true; return out; }
 
   var imgFolder = lvFolder_(epFolder);
@@ -2997,6 +3009,9 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   out.done = out.ready >= want.length;
 
   d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
+  d.asked = Number(out.asked) || 0;
+  d.thin = out.thin === true;
+  if (out.dropped) d.dropped = out.dropped;
   d.folderId = imgFolder.getId();
   /* سبک **فقط وقتی** ذخیره می‌شود که واقعاً پرسیده شده باشد: نوشتنِ رشتهٔ
      خالی روی سبکِ ذخیره‌شده یعنی شبِ بعد «عوض شد» تشخیص داده شود. */
@@ -3092,13 +3107,46 @@ function lvShortNote_(key, vis) {
 }
 
 /**
+ * ══ نقشه‌ای که نحیف درآمد (۸٫۱۱) ══
+ *
+ * سومین حافظه، و عمداً از آن دو جداست — همان قاعدهٔ «عقب‌مانده ≠ رهاشده»
+ * (۵٫۸۸) یک قدم جلوتر:
+ *   `LV_WAIT`  — نقشه کامل است، فایل‌ها هنوز نه. **درست‌شدنی.**
+ *   `LV_SHORT` — با تصویرِ کم **منتشر** شد. **برنگشتنی.**
+ *   `LV_THIN`  — خودِ **نقشه** کم درآمد: دوازده خواسته شد، یک تا آمد.
+ *
+ * سومی هیچ‌وقت در آن دو دیده نمی‌شد، و همین بود که ۱ اکتبر قسمت ۵۷ را
+ * «✅ تمام» نشان داد: `ready` برابرِ `want` بود و `want` خودش ۱ بود. یک
+ * عددی که با خودش مقایسه شود همیشه سالم است.
+ */
+function lvThinNote_(key, vis) {
+  var m = lvMap_(PK.LV_THIN), k = String(key || '');
+  if (!k) return false;
+  if (!m[k]) m[k] = { at: nowStr_() };
+  m[k].want = Number((vis || {}).want) || 0;
+  m[k].asked = Number((vis || {}).asked) || 0;
+  if ((vis || {}).dropped) m[k].drop = vis.dropped;
+  var keys = [];
+  for (var q in m) if (Object.prototype.hasOwnProperty.call(m, q)) keys.push(q);
+  var cap = Math.max(5, Number(CFG.LV_SHORT_KEEP) || 40);
+  if (keys.length > cap) {
+    keys.sort(function (a, b) {
+      return (parseWhen_(String((m[a] || {}).at || '')) || 0) -
+             (parseWhen_(String((m[b] || {}).at || '')) || 0);
+    });
+    for (var d = 0; d < keys.length - cap; d++) delete m[keys[d]];
+  }
+  return lvMapSave_(PK.LV_THIN, m);
+}
+
+/**
  * حالِ تصویرهای درس — **بی هیچ فراخوانِ درایو یا شیت.** هر دو حافظه در
  * Properties اند، پس این تابع روی داغ‌ترین مسیرِ موتور (`writeStatus_`) هم
  * ارزان است. ۷٫۶۳/۷٫۷۲ همین را دو بار به این مخزن آموختند.
  */
 function lvStatus_() {
   var out = { on: false, shows: [], waiting: 0, oldestDays: 0, waitKeys: [],
-              short: 0, shortKeys: [], line: '', ok: true };
+              short: 0, shortKeys: [], thin: 0, thinKeys: [], line: '', ok: true };
   try {
     out.on = CFG.LV_ENABLED !== false;
     out.shows = (CFG.LV_SHOWS || []).slice(0);
@@ -3124,6 +3172,15 @@ function lvStatus_() {
       if (out.shortKeys.length < 6) {
         out.shortKeys.push(s + ' (' + (Number(sh[s].ready) || 0) + '/' +
                            (Number(sh[s].want) || 0) + ')');
+      }
+    }
+    var th = lvMap_(PK.LV_THIN);
+    for (var t2 in th) {
+      if (!Object.prototype.hasOwnProperty.call(th, t2)) continue;
+      out.thin++;
+      if (out.thinKeys.length < 6) {
+        out.thinKeys.push(t2 + ' (' + (Number(th[t2].want) || 0) + ' از ' +
+                          (Number(th[t2].asked) || 0) + ')');
       }
     }
     /* `ok` فقط با بدهیِ **کهنه** نادرست می‌شود. یک شبِ منتظر، خرابی نیست —
@@ -3157,6 +3214,14 @@ function lvLine_(st) {
   if (st.short) {
     p.push(faDigitsOut_(String(st.short)) + ' قسمت با تصویرِ کم منتشر شد — ' +
            'یوتیوب ویدئوی منتشرشده را عوض نمی‌کند، پس این عدد جبران نمی‌شود');
+  }
+  /* ══ و نقشه‌ای که نحیف درآمد — سومین عدد، جدا (۸٫۱۱) ══
+     این یکی **پیش از** ساختِ ویدئو دیده می‌شود، یعنی هنوز جبران‌شدنی است:
+     دکمهٔ بازسازیِ تصویرها همان قسمت را از نو نقشه می‌کشد. */
+  if (st.thin) {
+    p.push('❌ ' + faDigitsOut_(String(st.thin)) + ' قسمت نقشهٔ تصویرش نحیف ' +
+           'درآمد (' + (st.thinKeys || []).join('، ') + ') — ویدئویش ' +
+           'تک‌تصویر می‌شود؛ پیش از انتشار با بازسازیِ تصویرها درست می‌شود');
   }
   /* و حالِ لایهٔ ۳ در همان خط — چه روشن چه خاموش. خاموش‌بودنش هم یک خبر
      است: تصمیمِ صاحبِ برنامه، و هر روز یادآوری می‌شود که هست و خاموش است
@@ -3894,10 +3959,26 @@ function ytVisCut_(t, n) {
  * قرینهٔ `ytVisKind_` است و عمداً فرق دارد: گونهٔ ناشناخته جبران‌شدنی است
  * (کارت می‌شود)، بخشِ ناشناخته نه.
  */
-function ytVisPlan_(mm, ctx) {
+/**
+ * ══ آنچه بی‌صدا دور انداخته می‌شود، شمرده می‌شود (۸٫۱۱) ══
+ *
+ * ۱ اکتبر، قسمت ۵۷: `_visuals.json` نوشت `want: 1, done: true` برای درسی
+ * که موتور خودش برایش **حدودِ دوازده** تصویر خواسته بود. ویدئو یعنی
+ * پانزده دقیقه یک تصویرِ ثابت — بدتر از کاور — و هیچ‌جا صدا درنیامد، چون
+ * `want` برابرِ «آنچه زنده مانْد» گذاشته می‌شد و `done` هم با همان سنجیده
+ * می‌شد: **عدد با خودش مقایسه می‌شد.**
+ *
+ * سه جا بی‌صدا می‌ریزد و حالا هر سه شمرده می‌شوند: شمارهٔ بخشِ بیرونِ بازه،
+ * موردِ چهارمِ یک بخش، و سقفِ `LV_MAX_PER_EP`. شمردن تعمیر نیست — ولی بی
+ * شمردن، هیچ‌وقت معلوم نمی‌شود کدامشان بوده.
+ */
+function ytVisPlan_(mm, ctx, stat) {
+  var st = stat || {};
+  st.raw = 0; st.badSec = 0; st.perSec = 0; st.capped = 0;
   if (!ytVisOn_(ctx && ctx.show)) return [];
   var secs = (ctx && ctx.sections) || [];
   var raw = (mm && mm.visuals) || [];
+  st.raw = raw.length;
   if (!secs.length || !raw.length) return [];
 
   // سهمِ نویسه‌ایِ هر بخش — همان مبنای `ytChapters_`
@@ -3917,10 +3998,10 @@ function ytVisPlan_(mm, ctx) {
   for (var r = 0; r < raw.length; r++) {
     var it = raw[r] || {};
     var at = parseInt(faDigits_(String(it.at == null ? '' : it.at)), 10);
-    if (isNaN(at) || at < 1 || at > secs.length) continue;   // بخشِ ناشناخته، رد
+    if (isNaN(at) || at < 1 || at > secs.length) { st.badSec++; continue; }  // بخشِ ناشناخته، رد
     var k = String(at);
     if (!bySec[k]) { bySec[k] = []; order.push(at); }
-    if (bySec[k].length >= 3) continue;                      // سه مورد در یک بخش، کافی
+    if (bySec[k].length >= 3) { st.perSec++; continue; }     // سه مورد در یک بخش، کافی
     var lines = [];
     var src = Array.isArray(it.cardLines) ? it.cardLines : [];
     for (var L = 0; L < src.length && lines.length < (Number(CFG.LV_CARD_LINES_MAX) || 4); L++) {
@@ -3943,7 +4024,8 @@ function ytVisPlan_(mm, ctx) {
     var grp = bySec[String(order[o])];
     var share = (chars[order[o] - 1] / sum) * body;          // سهمِ این بخش
     var each = share / grp.length;
-    for (var g = 0; g < grp.length && out.length < cap; g++) {
+    for (var g = 0; g < grp.length; g++) {
+      if (out.length >= cap) { st.capped++; continue; }
       grp[g].sec = Math.round(each * 10) / 10;
       grp[g].heading = String((secs[order[o] - 1] || {}).heading || '');
       out.push(grp[g]);
@@ -3978,7 +4060,7 @@ function ytPlan_(folder, ctx, redo) {
        ویرایششان کنند، همان قاعدهٔ «اگر اشتباه ساخت چه؟» که `_yt.json` برای
        عنوان و کاور دارد. خالی بودنش یعنی مسیرِ کاورِ تک‌تصویریِ امروز. */
     visuals: (function () {
-      try { return ytVisPlan_(mm, ctx); } catch (eV) {
+      try { return ytVisPlan_(mm, ctx, (ctx.__visStat = {})); } catch (eV) {
         logLine_('برنامهٔ تصویرها ساخته نشد: ' + eV.message); return [];
       }
     })(),
@@ -4102,6 +4184,14 @@ function ytUploadOne_(item, hub, pub) {
                       gMade: vis.gMade || 0, gSpent: vis.gSpent || 0,
                       url: lvSub ? lvSub.getUrl() : '' });
       } catch (eLg) {}
+    }
+    /* ══ نقشهٔ نحیف، **پیش از** آپلود ثبت می‌شود (۸٫۱۱) ══
+       این‌جا هنوز جبران‌شدنی است: ویدئو ساخته نشده و بازسازیِ تصویرها
+       همان قسمت را از نو نقشه می‌کشد. اگر پس از انتشار ثبت می‌شد، همان
+       «برنگشتنیِ» `LV_SHORT` بود و فرقِ این دو از بین می‌رفت. */
+    if (vis.thin) {
+      try { lvThinNote_(item.key || (String(item.show) + ':' + String(item.ep)), vis); }
+      catch (eT1) {}
     }
     var tryMax = Math.max(1, Number(CFG.LV_TRY_MAX) || 3);
     if (!vis.done && vis.tries < tryMax) {
@@ -4591,6 +4681,12 @@ function ytPubIdleDays_(hub) {
  * دو نوبتِ قبلی سرِ جایشان می‌مانند — سه در برای یک کار، نه یکی کمتر.
  */
 function ytPublishTick() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('ytPublishTick');
+  try {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
@@ -4610,6 +4706,8 @@ function ytPublishTick() {
     logLine_('یوتیوبِ دوره‌ای اجرا نشد: ' + e.message);
   }
   return out;
+
+  } finally { runExit_('ytPublishTick'); }
 }
 
 function ytTick_(budgetMs) {

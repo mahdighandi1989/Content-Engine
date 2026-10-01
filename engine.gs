@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.10
+ *  موتور محتوا و پادکست — نسخهٔ 8.11
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -871,8 +871,21 @@ var CFG = {
      فعلا روی پادکست درسنامه باشه». «از همه جا از همه رنگ» کاورِ
      تک‌تصویریِ امروزش را نگه می‌دارد. */
   LV_SHOWS: ['special'],
+  /* ══ شاهدِ اجرا (۸.۱۱) ══
+     ۱۵ دقیقه، چون سقفِ خودِ گوگل ۶ دقیقه است: مهری که ۱۵ دقیقه مانده باشد
+     قطعاً مالِ اجرایی است که دیگر نیست. کمتر از این، اجرای زنده را مرده
+     اعلام می‌کند. */
+  RUN_STUCK_MIN: 15,
+  /* ══ تلاشِ دوبارهٔ شیت (۸.۱۱) ══
+     سه بار کافی است: خطای گذرا معمولاً در چند ثانیه رفع می‌شود، و بیشتر از
+     این یعنی بودجهٔ اجرا را خرجِ انتظار کردن. */
+  SHEETS_RETRY: 3,
   LV_PER_MIN: 0.8,              // چند تصویر در هر دقیقه (۲۰ دقیقه ⇒ ~۱۶)
   LV_MAX_PER_EP: 40,            // بیش از این، نه لازم است نه امن
+  /* ══ کمتر از این نسبت از آنچه خواسته شد = «نحیف» (۸.۱۱) ══
+     نصف، چون مدل حق دارد کمی کمتر بدهد و هشداری که برای نوسانِ طبیعی بزند
+     خوانده نمی‌شود (۷.۴۰). یک تصویر در برابرِ دوازده، نوسان نیست. */
+  LV_THIN_PCT: 0.5,
   LV_MIN_SEC: 8,                // کوتاه‌تر از این، تصویر دیده نمی‌شود
   LV_MAX_SEC: 90,               // بلندتر از این، بیننده خسته می‌شود
   /* گونه‌ها. «کارت» پیش‌فرض است چون **مجانی** است (Slides) و همیشه در
@@ -1531,7 +1544,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.10',
+  CODE_VERSION: '8.11',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2441,6 +2454,7 @@ var PK = {
   // ── تصویرهای درس (۷٫۹۵) ──
   LV_WAIT: 'LV_WAIT_MAP',          // قسمت‌هایی که منتظرِ کامل‌شدنِ تصویرشان‌اند
   LV_SHORT: 'LV_SHORT_MAP',        // قسمت‌هایی که با تصویرِ کم رفتند — برنگشتنی
+  LV_THIN: 'LV_THIN_MAP',          // نقشهٔ تصویرش نحیف درآمد — هنوز جبران‌شدنی (۸.۱۱)
   LV_GEN_SPEND: 'LV_GEN_SPEND',    // خرجِ این ماه: {month, n, usd}
   LV_GEN_MODEL: 'LV_GEN_MODEL_ID', // مدلِ تصویرِ پیداشده، تا هر بار فهرست نگیریم
   YT_MARK_ID: 'YT_MARK_ID',       // شناسه/نام/تصویرِ کانال، خوانده‌شده از خودِ یوتیوب
@@ -2492,6 +2506,8 @@ var PK = {
      ۲۱ تا ۲۳ سپتامبر دقیقاً همین شد: از «اثر انگشتِ معنایی» به بعد هیچ
      بلوکی اجرا نشد و هیچ‌جا نگفت. این کلید **پیش از** کار نوشته می‌شود،
      پس از کشته‌شدن جان به در می‌برد. */
+  RUN_AT: 'RUN_AT',               // {fn:{at,ts}} — اجراهایی که شروع شده و تمام نشده‌اند (۸.۱۱)
+  RUN_LAST: 'RUN_LAST',           // {fn:{at,note}} — آخرین پایانِ سالمِ هر تریگر (۸.۱۱)
   NIGHT_AT: 'NIGHT_AT',           // {day, at, ts} — آخرین بلوکِ واردشده
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
@@ -2543,6 +2559,84 @@ function driveNameSafe_(x) {
 function driveShareOpen_(x) {
   try { return x.getSharingAccess() !== DriveApp.Access.PRIVATE; }
   catch (e) { return false; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ * شاهدِ اجرا — جوابِ «اگه نمی‌دیدم چی؟ ناظر پس چی کار می‌کنه؟» (۸٫۱۱)
+ * ══════════════════════════════════════════════════════════════════════
+ *
+ * ۱ اکتبر ساعت ۸:۵۷ تریگرِ `ytPublishTick` قرمز شد و **هیچ‌جا صدا درنیامد**.
+ * صاحبِ برنامه شانسی در فهرستِ Executions دیدش و پرسید اگر نمی‌دید چه.
+ * جوابِ راست این بود: هیچ. و علتش ساختاری است، نه فراموشی:
+ *
+ *   **موتور فهرستِ اجراهای خودش را نمی‌بیند.** Apps Script از درون هیچ راهی
+ *   برای خواندنِ تاریخچهٔ اجراهایش نمی‌دهد. یک تریگر که بترکد، جایی جز آن
+ *   صفحهٔ وب ثبت نمی‌شود — و آن صفحه را کسی به عادت باز نمی‌کند.
+ *
+ * ۷٫۴۴ همین را برای کارِ شبانه حل کرد (`nightDeath_`): مهر **پیش از** کار
+ * زده می‌شود، پس از کشته‌شدنِ اجرا جان به در می‌برد. ولی آن فقط برای یک
+ * تابع ساخته شد، و نُه تریگرِ دیگر همان‌طور کور ماندند. این تعمیم همان است.
+ *
+ * **و چرا Script Properties، نه تبِ سیاهه:** چیزی که امروز شکست، خودِ شیت
+ * بود («Service Spreadsheets timed out»). شاهدی که در همان سرویسی بنشیند که
+ * خراب شده، دقیقاً وقتی لازم است که نمی‌تواند بنویسد — همان درسِ ۷٫۶۳ دربارهٔ
+ * `mailQueue_`: صفی که مرده باید تحویلش بدهد، هرگز تحویل نمی‌دهد.
+ */
+function runEnter_(fn) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
+    m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
+    props_().setProperty(PK.RUN_AT, JSON.stringify(m));
+  } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
+}
+
+function runExit_(fn, note) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
+    delete m[String(fn)];
+    props_().setProperty(PK.RUN_AT, JSON.stringify(m));
+    var d = JSON.parse(props_().getProperty(PK.RUN_LAST) || '{}');
+    d[String(fn)] = { at: nowStr_(), note: String(note || '').slice(0, 120) };
+    props_().setProperty(PK.RUN_LAST, JSON.stringify(d));
+  } catch (e) {}
+}
+
+/**
+ * اجراهایی که شروع شدند و هرگز تمام نشدند.
+ *
+ * مرز ۱۵ دقیقه است و دلیلش حساب است نه سلیقه: گوگل هر اجرا را سرِ **۶**
+ * دقیقه می‌کُشد، پس مهری که ۱۵ دقیقه مانده باشد قطعاً مالِ اجرایی است که
+ * دیگر وجود ندارد. کمتر از این، اجرای **در حالِ دویدن** را مرده اعلام
+ * می‌کند — و هشداری که برای حالتِ سالم بزند همان است که یاد می‌گیرند
+ * نخوانند (۷٫۴۰).
+ */
+function runStuck_(nowMs) {
+  var out = { items: [], line: '' };
+  var now = Number(nowMs) || new Date().getTime();
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}'); } catch (e) { return out; }
+  var lim = Math.max(7, Number(CFG.RUN_STUCK_MIN) || 15) * 60000;
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+    var ts = Number((m[k] || {}).ts) || 0;
+    if (!ts || (now - ts) < lim) continue;
+    out.items.push({ fn: k, at: String((m[k] || {}).at || ''),
+                     mins: Math.round((now - ts) / 60000) });
+  }
+  out.items.sort(function (a, b) { return b.mins - a.mins; });
+  if (out.items.length) {
+    var L = [];
+    for (var i = 0; i < out.items.length && i < 4; i++) {
+      L.push(out.items[i].fn + ' (' + faDigitsOut_(String(out.items[i].mins)) +
+             ' دقیقه پیش شروع شد و تمام نشد)');
+    }
+    out.line = '❌ اجرای ناتمام: ' + L.join(' · ') +
+               ' — این یعنی آن تریگر وسطِ کار مُرد؛ علتش در Apps Script ← ' +
+               'Executions است.';
+  } else {
+    out.line = '✅ هیچ اجرای ناتمامی نیست.';
+  }
+  return out;
 }
 
 function logLine_(msg) {
@@ -2714,14 +2808,58 @@ function txPriority(rec) {
 
 // ---------------------------------------------------------------- شیت مقصد
 
+/**
+ * ══ خطای گذرای شیت، و تلاشِ دوباره (۸٫۱۱) ══
+ *
+ * ۱ اکتبر ۸:۵۷ تا ۸:۵۹ سه بار پشتِ‌هم:
+ * `Service Spreadsheets timed out while accessing document with id …` — و
+ * اجرای `ytPublishTick` همان‌جا مُرد. هاب ۲۹ مگابایت است؛ این خطا گذراست و
+ * می‌افتد. هیچ تلاشِ دوباره‌ای در کار نبود، پس یک وقفهٔ چندثانیه‌ای کلِ دورِ
+ * یوتیوبِ آن روز را انداخت.
+ *
+ * فقط خطای **گذرا** دوباره تلاش می‌شود. خطای واقعی (دسترسی، شناسهٔ غلط)
+ * فوراً بالا می‌رود — تلاشِ دوباره رویش فقط وقت را می‌خورَد و علت را پنهان
+ * می‌کند.
+ */
+function sheetsTransient_(e) {
+  var m = String((e && e.message) || e || '');
+  return /timed out|timeout|service unavailable|internal error|try again|rate limit|too many|unavailable|\b50[0-9]\b/i.test(m);
+}
+
+function sheetsRetry_(fn, tries) {
+  var n = Math.max(1, Number(tries) || Number(CFG.SHEETS_RETRY) || 3);
+  var last = null;
+  for (var i = 0; i < n; i++) {
+    try { return fn(); }
+    catch (e) {
+      last = e;
+      if (!sheetsTransient_(e)) throw e;
+      if (i < n - 1) { try { Utilities.sleep(1500 * (i + 1)); } catch (eS) {} }
+    }
+  }
+  throw last;
+}
+
 function getHub_() {
   var id = props_().getProperty(PK.HUB_ID);
   if (id) {
     try {
-      var open = SpreadsheetApp.openById(id);
-      ensureAllTabs_(open);       // ارتقای خودکار شیت‌های ساخته‌شده با نسخهٔ قدیمی
-      return open;
-    } catch (e) { /* حذف شده؛ دوباره می‌سازیم */ }
+      return sheetsRetry_(function () {
+        var open = SpreadsheetApp.openById(id);
+        ensureAllTabs_(open);   // ارتقای خودکار شیت‌های ساخته‌شده با نسخهٔ قدیمی
+        return open;
+      });
+    } catch (e) {
+      /* ══ «نتوانستم بخوانم» با «پاک شده» یکی گرفته شده بود (۸٫۱۱) ══
+         این `catch` هر خطایی را «حذف شده؛ دوباره می‌سازیم» می‌خواند. یعنی یک
+         وقفهٔ گذرای سرویس — که ۱ اکتبر سه بار پشتِ‌هم افتاد — موتور را به
+         مسیرِ **ساختنِ هابِ تازه** می‌فرستاد. امروز نجات پیدا کرد چون
+         `getFilesByName` فایل را یافت؛ اگر درایو هم همان لحظه کند بود، یک
+         هابِ خالی ساخته می‌شد و `PK.HUB_ID` به آن می‌رفت: ۲۹ مگابایت داده
+         رها، بی هیچ خطایی. خطای گذرا **پرتاب** می‌شود، نه اینکه به ساختِ
+         دوباره راه بدهد. */
+      if (sheetsTransient_(e)) throw e;
+    }
   }
   var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
 
@@ -3098,6 +3236,12 @@ function loadSeen_(hub) {
 function syncCatalogContinue() { syncCatalog(); }
 
 function syncCatalog() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('syncCatalog');
+  try {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) { console.log('اجرای موازی؛ رد شد.'); return; }
   var t0 = new Date().getTime();
@@ -3367,6 +3511,8 @@ function syncCatalog() {
   } finally {
     lock.releaseLock();
   }
+
+  } finally { runExit_('syncCatalog'); }
 }
 
 function flushBuffers_(hub, buffers) {
@@ -9283,6 +9429,12 @@ function epMarkMade_(show) {
 }
 
 function produceEpisode(opt) {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('produceEpisode');
+  try {
   opt = opt || {};
   // تقویمِ تولید. فقط جلوی زمان‌بندیِ خودکار را می‌گیرد؛ اجرای دستی از منو
   // همیشه اجازه دارد. تریگرهای گوگل یک شیءِ رویداد پاس می‌دهند که manual
@@ -9584,6 +9736,8 @@ function produceEpisode(opt) {
     try { lock.releaseLock(); } catch (e) {}
     throw err;
   }
+
+  } finally { runExit_('produceEpisode'); }
 }
 
 function produceEpisodeContinue() { return renderAudioStep_(); }
@@ -12851,6 +13005,10 @@ function writeStatus_(hub, note) {
     // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
+    /* ══ اجراهایی که شروع شدند و تمام نشدند (۸.۱۱) ══
+       تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
+       نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
+    runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
     recentLog: recentLog_(hub, 25),
     /* کهنگیِ گزارشِ روزانه — از همین `health` بالا حساب می‌شود، پس
        هیچ خواندنِ تازه‌ای به درایو اضافه نمی‌کند. اینجاست چون
@@ -13677,6 +13835,12 @@ function capFindings_(hub, cap) {
 }
 
 function healthCheck() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('healthCheck');
+  try {
   healthStart_();
   var hub = getHub_();
   var problems = [], notes = [], skipped = [];
@@ -14399,6 +14563,32 @@ function healthCheck() {
     }
   } catch (eNd) {}
 
+  /* ══ تریگری که ترکید و هیچ‌جا صدا درنیامد (۸.۱۱) ══
+     صاحبِ برنامه ۱ اکتبر سطرِ قرمزِ `ytPublishTick` را **شانسی** در صفحهٔ
+     Executions دید و پرسید «اگه نمی‌دیدم چی؟». جوابِ راست: هیچ — موتور
+     فهرستِ اجراهای خودش را نمی‌بیند و Apps Script از درون راهی برای
+     خواندنش نمی‌دهد. ۷.۴۴ این شاهد را فقط برای کارِ شبانه ساخت و نُه
+     تریگرِ دیگر کور ماندند؛ این همان، تعمیم‌یافته.
+
+     و سطرِ سالم هم **هر روز** گفته می‌شود، چون سکوت را نمی‌شود از کوری
+     تشخیص داد (۵.۹۱). */
+  try {
+    var rs = runStuck_();
+    if (rs.items.length) {
+      problems.push(rs.line);
+      logSelfFinding_(hub, {
+        key: 'run-died', severity: 'جدی', owner: ROWNER_CODE,
+        title: 'یک تریگر وسطِ کار مُرد و هیچ‌جا ثبت نشد',
+        detail: rs.line,
+        instruction: 'در Apps Script ← Executions سطرِ قرمزِ همان تابع را باز ' +
+          'کنید و متنِ خطا را بخوانید. اگر «Service Spreadsheets timed out» ' +
+          'بود، یعنی مسیری هست که هنوز از `sheetsRetry_` نمی‌گذرد. مهرِ ' +
+          'ناتمام با اجرای بعدیِ همان تابع خودبه‌خود پاک می‌شود، پس ردیفِ ' +
+          'تکرارشونده یعنی هر بار می‌میرد — نه یک بارِ گذشته.'
+      });
+    } else notes.push(rs.line);
+  } catch (eRs) {}
+
   /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
      اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد
      شود دقیقاً شبی است که «چیزی جلو نمی‌رود» باید گفته شود و گفته
@@ -14596,6 +14786,8 @@ function healthCheck() {
             (notes.length ? '\n\n' + notes.join('\n') : '');
   var ui = ui_(); if (ui) ui.alert('وارسی سلامت', msg, ui.ButtonSet.OK); else console.log(msg);
   return { problems: problems, notes: notes };
+
+  } finally { runExit_('healthCheck'); }
 }
 
 // ------------------------------------------------- وضعیت برنامهٔ «درس‌نامه»
@@ -20392,6 +20584,12 @@ function recapTextOf_(rec) {
 }
 
 function produceSpecialEpisode(opt) {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('produceSpecialEpisode');
+  try {
   opt = opt || {};
   if (!CFG.SPECIAL_ENABLED) return { ok: false, reason: 'disabled' };
   // همان دروازهٔ «از همه جا از همه رنگ»، با کلیدِ خودش. ردیفِ این برنامه در
@@ -21318,6 +21516,8 @@ function produceSpecialEpisode(opt) {
     try { lock.releaseLock(); } catch (e) {}
     throw err;
   }
+
+  } finally { runExit_('produceSpecialEpisode'); }
 }
 
 /** نشانِ درس‌نامه — عمداً در ستونِ جدا، تا با نشانِ برنامهٔ متنوع قاطی نشود. */
@@ -25714,8 +25914,16 @@ function backupContinue() {
 
 /** تریگرِ شبانه. سقفِ «یک بار در روز» را رعایت می‌کند. */
 function backupDaily() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('backupDaily');
+  try {
   try { return runBackupStep(false); }
   catch (e) { logLine_('پشتیبانِ شبانه ناموفق: ' + e.message); return { ok: false }; }
+
+  } finally { runExit_('backupDaily'); }
 }
 
 /**
@@ -27250,10 +27458,16 @@ function pruneEnrichFiles_(keepDays) {
  * می‌سپارد. اگر این اجرا به هر دلیل انجام نشود، اجرای ساعتِ انتشار خودش همه
  * کار را می‌کند (بی غنی‌سازی) تا پادکست از دست نرود.
  */
-function prepareEpisode() { return produceEpisode(); }
+function prepareEpisode() {
+  runEnter_('prepareEpisode');
+  try { return produceEpisode(); } finally { runExit_('prepareEpisode'); }
+}
 
 /** همان، برای «درس‌نامه». */
-function prepareSpecialEpisode() { return produceSpecialEpisode(); }
+function prepareSpecialEpisode() {
+  runEnter_('prepareSpecialEpisode');
+  try { return produceSpecialEpisode(); } finally { runExit_('prepareSpecialEpisode'); }
+}
 
 /** منو: کجای کارِ غنی‌سازی هستیم. */
 function showEnrichStatus() {
@@ -29436,6 +29650,12 @@ function nightStarveFinding_(hub, bad, need) {
  * ۴) کارِ سنگین، هرکدام با نگهبانِ زمان
  */
 function selfUpdateDaily() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('selfUpdateDaily');
+  try {
   var night = nightBegin_();
   if (!night.first) {
     logLine_('کارِ شبانه: ادامهٔ همین شب (اجرای ' + (night.runs + 1) +
@@ -29873,6 +30093,8 @@ function selfUpdateDaily() {
   try { nightEnd_(night.runs); }
   catch (eNE) { logLine_('پایانِ کارِ شبانه ثبت نشد: ' + eNE.message); }
   return installed;
+
+  } finally { runExit_('selfUpdateDaily'); }
 }
 
 function selfUpdateRetry() { return selfUpdateDaily(); }
@@ -43500,6 +43722,18 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
               gMade: 0, gSpent: 0, gModel: '' };
   var want = (plan && plan.visuals) || [];
   out.want = want.length;
+  /* ══ عددی که خواسته شد، کنارِ عددی که ساخته شد (۸٫۱۱) ══
+     `ytVisWant_` از روی طولِ قسمت می‌گوید چند تصویر لازم است و همان عدد در
+     پرامپت می‌رود. تا امروز هیچ‌جا با نتیجه مقایسه نمی‌شد — ۷.۳۰/۷.۳۱، این
+     بار بینِ یک پرسش و جوابش. */
+  try {
+    out.asked = ytVisWant_(Number((ctx || {}).totalSec) || 0);
+    var dr = (ctx || {}).__visStat || null;
+    if (dr) out.dropped = { raw: dr.raw || 0, badSec: dr.badSec || 0,
+                            perSec: dr.perSec || 0, capped: dr.capped || 0 };
+    var floor = Math.max(1, Math.ceil(out.asked * (Number(CFG.LV_THIN_PCT) || 0.5)));
+    out.thin = out.want < floor;
+  } catch (eAsk) { out.asked = 0; out.thin = false; }
   if (!want.length) { out.done = true; return out; }
 
   var imgFolder = lvFolder_(epFolder);
@@ -43613,6 +43847,9 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   out.done = out.ready >= want.length;
 
   d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
+  d.asked = Number(out.asked) || 0;
+  d.thin = out.thin === true;
+  if (out.dropped) d.dropped = out.dropped;
   d.folderId = imgFolder.getId();
   /* سبک **فقط وقتی** ذخیره می‌شود که واقعاً پرسیده شده باشد: نوشتنِ رشتهٔ
      خالی روی سبکِ ذخیره‌شده یعنی شبِ بعد «عوض شد» تشخیص داده شود. */
@@ -43708,13 +43945,46 @@ function lvShortNote_(key, vis) {
 }
 
 /**
+ * ══ نقشه‌ای که نحیف درآمد (۸٫۱۱) ══
+ *
+ * سومین حافظه، و عمداً از آن دو جداست — همان قاعدهٔ «عقب‌مانده ≠ رهاشده»
+ * (۵٫۸۸) یک قدم جلوتر:
+ *   `LV_WAIT`  — نقشه کامل است، فایل‌ها هنوز نه. **درست‌شدنی.**
+ *   `LV_SHORT` — با تصویرِ کم **منتشر** شد. **برنگشتنی.**
+ *   `LV_THIN`  — خودِ **نقشه** کم درآمد: دوازده خواسته شد، یک تا آمد.
+ *
+ * سومی هیچ‌وقت در آن دو دیده نمی‌شد، و همین بود که ۱ اکتبر قسمت ۵۷ را
+ * «✅ تمام» نشان داد: `ready` برابرِ `want` بود و `want` خودش ۱ بود. یک
+ * عددی که با خودش مقایسه شود همیشه سالم است.
+ */
+function lvThinNote_(key, vis) {
+  var m = lvMap_(PK.LV_THIN), k = String(key || '');
+  if (!k) return false;
+  if (!m[k]) m[k] = { at: nowStr_() };
+  m[k].want = Number((vis || {}).want) || 0;
+  m[k].asked = Number((vis || {}).asked) || 0;
+  if ((vis || {}).dropped) m[k].drop = vis.dropped;
+  var keys = [];
+  for (var q in m) if (Object.prototype.hasOwnProperty.call(m, q)) keys.push(q);
+  var cap = Math.max(5, Number(CFG.LV_SHORT_KEEP) || 40);
+  if (keys.length > cap) {
+    keys.sort(function (a, b) {
+      return (parseWhen_(String((m[a] || {}).at || '')) || 0) -
+             (parseWhen_(String((m[b] || {}).at || '')) || 0);
+    });
+    for (var d = 0; d < keys.length - cap; d++) delete m[keys[d]];
+  }
+  return lvMapSave_(PK.LV_THIN, m);
+}
+
+/**
  * حالِ تصویرهای درس — **بی هیچ فراخوانِ درایو یا شیت.** هر دو حافظه در
  * Properties اند، پس این تابع روی داغ‌ترین مسیرِ موتور (`writeStatus_`) هم
  * ارزان است. ۷٫۶۳/۷٫۷۲ همین را دو بار به این مخزن آموختند.
  */
 function lvStatus_() {
   var out = { on: false, shows: [], waiting: 0, oldestDays: 0, waitKeys: [],
-              short: 0, shortKeys: [], line: '', ok: true };
+              short: 0, shortKeys: [], thin: 0, thinKeys: [], line: '', ok: true };
   try {
     out.on = CFG.LV_ENABLED !== false;
     out.shows = (CFG.LV_SHOWS || []).slice(0);
@@ -43740,6 +44010,15 @@ function lvStatus_() {
       if (out.shortKeys.length < 6) {
         out.shortKeys.push(s + ' (' + (Number(sh[s].ready) || 0) + '/' +
                            (Number(sh[s].want) || 0) + ')');
+      }
+    }
+    var th = lvMap_(PK.LV_THIN);
+    for (var t2 in th) {
+      if (!Object.prototype.hasOwnProperty.call(th, t2)) continue;
+      out.thin++;
+      if (out.thinKeys.length < 6) {
+        out.thinKeys.push(t2 + ' (' + (Number(th[t2].want) || 0) + ' از ' +
+                          (Number(th[t2].asked) || 0) + ')');
       }
     }
     /* `ok` فقط با بدهیِ **کهنه** نادرست می‌شود. یک شبِ منتظر، خرابی نیست —
@@ -43773,6 +44052,14 @@ function lvLine_(st) {
   if (st.short) {
     p.push(faDigitsOut_(String(st.short)) + ' قسمت با تصویرِ کم منتشر شد — ' +
            'یوتیوب ویدئوی منتشرشده را عوض نمی‌کند، پس این عدد جبران نمی‌شود');
+  }
+  /* ══ و نقشه‌ای که نحیف درآمد — سومین عدد، جدا (۸٫۱۱) ══
+     این یکی **پیش از** ساختِ ویدئو دیده می‌شود، یعنی هنوز جبران‌شدنی است:
+     دکمهٔ بازسازیِ تصویرها همان قسمت را از نو نقشه می‌کشد. */
+  if (st.thin) {
+    p.push('❌ ' + faDigitsOut_(String(st.thin)) + ' قسمت نقشهٔ تصویرش نحیف ' +
+           'درآمد (' + (st.thinKeys || []).join('، ') + ') — ویدئویش ' +
+           'تک‌تصویر می‌شود؛ پیش از انتشار با بازسازیِ تصویرها درست می‌شود');
   }
   /* و حالِ لایهٔ ۳ در همان خط — چه روشن چه خاموش. خاموش‌بودنش هم یک خبر
      است: تصمیمِ صاحبِ برنامه، و هر روز یادآوری می‌شود که هست و خاموش است
@@ -44510,10 +44797,26 @@ function ytVisCut_(t, n) {
  * قرینهٔ `ytVisKind_` است و عمداً فرق دارد: گونهٔ ناشناخته جبران‌شدنی است
  * (کارت می‌شود)، بخشِ ناشناخته نه.
  */
-function ytVisPlan_(mm, ctx) {
+/**
+ * ══ آنچه بی‌صدا دور انداخته می‌شود، شمرده می‌شود (۸٫۱۱) ══
+ *
+ * ۱ اکتبر، قسمت ۵۷: `_visuals.json` نوشت `want: 1, done: true` برای درسی
+ * که موتور خودش برایش **حدودِ دوازده** تصویر خواسته بود. ویدئو یعنی
+ * پانزده دقیقه یک تصویرِ ثابت — بدتر از کاور — و هیچ‌جا صدا درنیامد، چون
+ * `want` برابرِ «آنچه زنده مانْد» گذاشته می‌شد و `done` هم با همان سنجیده
+ * می‌شد: **عدد با خودش مقایسه می‌شد.**
+ *
+ * سه جا بی‌صدا می‌ریزد و حالا هر سه شمرده می‌شوند: شمارهٔ بخشِ بیرونِ بازه،
+ * موردِ چهارمِ یک بخش، و سقفِ `LV_MAX_PER_EP`. شمردن تعمیر نیست — ولی بی
+ * شمردن، هیچ‌وقت معلوم نمی‌شود کدامشان بوده.
+ */
+function ytVisPlan_(mm, ctx, stat) {
+  var st = stat || {};
+  st.raw = 0; st.badSec = 0; st.perSec = 0; st.capped = 0;
   if (!ytVisOn_(ctx && ctx.show)) return [];
   var secs = (ctx && ctx.sections) || [];
   var raw = (mm && mm.visuals) || [];
+  st.raw = raw.length;
   if (!secs.length || !raw.length) return [];
 
   // سهمِ نویسه‌ایِ هر بخش — همان مبنای `ytChapters_`
@@ -44533,10 +44836,10 @@ function ytVisPlan_(mm, ctx) {
   for (var r = 0; r < raw.length; r++) {
     var it = raw[r] || {};
     var at = parseInt(faDigits_(String(it.at == null ? '' : it.at)), 10);
-    if (isNaN(at) || at < 1 || at > secs.length) continue;   // بخشِ ناشناخته، رد
+    if (isNaN(at) || at < 1 || at > secs.length) { st.badSec++; continue; }  // بخشِ ناشناخته، رد
     var k = String(at);
     if (!bySec[k]) { bySec[k] = []; order.push(at); }
-    if (bySec[k].length >= 3) continue;                      // سه مورد در یک بخش، کافی
+    if (bySec[k].length >= 3) { st.perSec++; continue; }     // سه مورد در یک بخش، کافی
     var lines = [];
     var src = Array.isArray(it.cardLines) ? it.cardLines : [];
     for (var L = 0; L < src.length && lines.length < (Number(CFG.LV_CARD_LINES_MAX) || 4); L++) {
@@ -44559,7 +44862,8 @@ function ytVisPlan_(mm, ctx) {
     var grp = bySec[String(order[o])];
     var share = (chars[order[o] - 1] / sum) * body;          // سهمِ این بخش
     var each = share / grp.length;
-    for (var g = 0; g < grp.length && out.length < cap; g++) {
+    for (var g = 0; g < grp.length; g++) {
+      if (out.length >= cap) { st.capped++; continue; }
       grp[g].sec = Math.round(each * 10) / 10;
       grp[g].heading = String((secs[order[o] - 1] || {}).heading || '');
       out.push(grp[g]);
@@ -44594,7 +44898,7 @@ function ytPlan_(folder, ctx, redo) {
        ویرایششان کنند، همان قاعدهٔ «اگر اشتباه ساخت چه؟» که `_yt.json` برای
        عنوان و کاور دارد. خالی بودنش یعنی مسیرِ کاورِ تک‌تصویریِ امروز. */
     visuals: (function () {
-      try { return ytVisPlan_(mm, ctx); } catch (eV) {
+      try { return ytVisPlan_(mm, ctx, (ctx.__visStat = {})); } catch (eV) {
         logLine_('برنامهٔ تصویرها ساخته نشد: ' + eV.message); return [];
       }
     })(),
@@ -44718,6 +45022,14 @@ function ytUploadOne_(item, hub, pub) {
                       gMade: vis.gMade || 0, gSpent: vis.gSpent || 0,
                       url: lvSub ? lvSub.getUrl() : '' });
       } catch (eLg) {}
+    }
+    /* ══ نقشهٔ نحیف، **پیش از** آپلود ثبت می‌شود (۸٫۱۱) ══
+       این‌جا هنوز جبران‌شدنی است: ویدئو ساخته نشده و بازسازیِ تصویرها
+       همان قسمت را از نو نقشه می‌کشد. اگر پس از انتشار ثبت می‌شد، همان
+       «برنگشتنیِ» `LV_SHORT` بود و فرقِ این دو از بین می‌رفت. */
+    if (vis.thin) {
+      try { lvThinNote_(item.key || (String(item.show) + ':' + String(item.ep)), vis); }
+      catch (eT1) {}
     }
     var tryMax = Math.max(1, Number(CFG.LV_TRY_MAX) || 3);
     if (!vis.done && vis.tries < tryMax) {
@@ -45207,6 +45519,12 @@ function ytPubIdleDays_(hub) {
  * دو نوبتِ قبلی سرِ جایشان می‌مانند — سه در برای یک کار، نه یکی کمتر.
  */
 function ytPublishTick() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('ytPublishTick');
+  try {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
@@ -45226,6 +45544,8 @@ function ytPublishTick() {
     logLine_('یوتیوبِ دوره‌ای اجرا نشد: ' + e.message);
   }
   return out;
+
+  } finally { runExit_('ytPublishTick'); }
 }
 
 function ytTick_(budgetMs) {
@@ -58705,6 +59025,12 @@ function runVoiceSoulSeed() {
 
 
 function vbrCollectHourly() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('vbrCollectHourly');
+  try {
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
@@ -58739,6 +59065,8 @@ function vbrCollectHourly() {
     try { logLine_('برداشتِ ساعتیِ پل ناموفق: ' + e.message); } catch (e2) {}
     return null;
   }
+
+  } finally { runExit_('vbrCollectHourly'); }
 }
 
 function vbrQueueEnsure_() {

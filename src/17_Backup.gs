@@ -244,8 +244,16 @@ function backupContinue() {
 
 /** تریگرِ شبانه. سقفِ «یک بار در روز» را رعایت می‌کند. */
 function backupDaily() {
+  /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
+     به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
+     `finally` پایانِ تمیز را تضمین می‌کند؛ کشته‌شدنِ سرِ شش دقیقه را
+     نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
+  runEnter_('backupDaily');
+  try {
   try { return runBackupStep(false); }
   catch (e) { logLine_('پشتیبانِ شبانه ناموفق: ' + e.message); return { ok: false }; }
+
+  } finally { runExit_('backupDaily'); }
 }
 
 /**

@@ -808,10 +808,16 @@ function pruneEnrichFiles_(keepDays) {
  * می‌سپارد. اگر این اجرا به هر دلیل انجام نشود، اجرای ساعتِ انتشار خودش همه
  * کار را می‌کند (بی غنی‌سازی) تا پادکست از دست نرود.
  */
-function prepareEpisode() { return produceEpisode(); }
+function prepareEpisode() {
+  runEnter_('prepareEpisode');
+  try { return produceEpisode(); } finally { runExit_('prepareEpisode'); }
+}
 
 /** همان، برای «درس‌نامه». */
-function prepareSpecialEpisode() { return produceSpecialEpisode(); }
+function prepareSpecialEpisode() {
+  runEnter_('prepareSpecialEpisode');
+  try { return produceSpecialEpisode(); } finally { runExit_('prepareSpecialEpisode'); }
+}
 
 /** منو: کجای کارِ غنی‌سازی هستیم. */
 function showEnrichStatus() {
