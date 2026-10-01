@@ -2860,8 +2860,54 @@ function lvGenFill_(todo, imgFolder, style, ctx) {
 }
 
 /** حالِ لایهٔ ۳ برای خطِ روزانه. بی هیچ فراخوانِ شبکه. */
+/* ══ «نگشته‌ایم» با «گشتیم و نبود» یکی گرفته شده بود (۸٫۲۰) ══
+ * صاحبِ برنامه دیروز لایهٔ ۳ را روشن کرد و خطِ روزانه گفت «روشن (مدل هنوز
+ * پیدا نشده)». آن جمله **شاهدِ نبودنِ مدل نیست**: `lvGenStatus_` مدل را فقط
+ * از حافظه می‌خوانَد و حافظه را تنها `lvGenFill_` پر می‌کند، یعنی موقعِ
+ * ساختنِ تصویرِ یک قسمت. پس تا امروز **هیچ‌کس نگشته بود** و خط طوری
+ * می‌نوشت که انگار گشته و نیافته.
+ *
+ * ۷٫۴۷ همین را نوشت: «نگاه نکردیم» و «نگاه کردیم و نیست» دو حقیقت‌اند. و
+ * تفاوتشان عملی است: اولی یعنی صبر کن، دومی یعنی این قابلیت روشن است و
+ * کار نمی‌کند — حالتِ «روشن ولی بی‌اثر»ِ ۸٫۰۵، تنها حالتی که ایراد است.
+ *
+ * گشتن **روی `healthCheck`** می‌نشیند نه `writeStatus_`: `listModels_` یک
+ * فراخوانِ شبکه است و `writeStatus_` هر دو ساعت می‌دود. گذاشتنِ هزینه روی
+ * داغ‌ترین مسیرِ موتور همان اشتباهی است که ۷٫۶۳/۷٫۶۶/۷٫۷۲ سه بار ثبت
+ * کردند. */
+function lvGenProbe_() {
+  var out = { looked: false, id: '', why: '' };
+  try {
+    if (lvGenOn_() !== true) return out;
+    if (String(CFG.LV_GEN_MODEL || '').trim()) return out;   // تنظیمِ صریح
+    var seen = null;
+    try { seen = JSON.parse(props_().getProperty(PK.LV_GEN_SEEN) || 'null'); } catch (e1) {}
+    var fresh = seen && seen.at &&
+                (new Date().getTime() - Number(seen.at)) / 86400000 <
+                (Number(CFG.MODEL_REFRESH_DAYS) || 7);
+    if (fresh && seen.id) return { looked: true, id: String(seen.id), why: String(seen.why || '') };
+    var r = lvGenModel_();
+    out.looked = true; out.id = String((r && r.id) || ''); out.why = String((r && r.why) || '');
+    try {
+      props_().setProperty(PK.LV_GEN_SEEN, JSON.stringify(
+        { at: new Date().getTime(), id: out.id, why: out.why }));
+    } catch (e2) {}
+  } catch (e) { out.why = 'گشتن نشد: ' + e.message; }
+  return out;
+}
+
+/** آنچه آخرین گشتن دید — بی هیچ فراخوانِ شبکه. سه حالت، نه دو. */
+function lvGenSeen_() {
+  try {
+    var c = JSON.parse(props_().getProperty(PK.LV_GEN_SEEN) || 'null');
+    if (!c || !c.at) return null;
+    return { at: Number(c.at), id: String(c.id || ''), why: String(c.why || '') };
+  } catch (e) { return null; }
+}
+
 function lvGenStatus_() {
-  var out = { on: false, model: '', usd: 0, n: 0, cap: 0, price: 0, room: 0, line: '' };
+  var out = { on: false, model: '', usd: 0, n: 0, cap: 0, price: 0, room: 0, line: '',
+              looked: false, lookWhy: '', dead: false };
   try {
     out.on = lvGenOn_();
     out.cap = Number(CFG.LV_GEN_USD_MONTH) || 0;
@@ -2873,6 +2919,13 @@ function lvGenStatus_() {
     } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
+    /* سه حالت، نه دو (۸٫۲۰): مدل داریم · گشتیم و نبود · هنوز نگشته‌ایم.
+       فقط حالتِ دوم ایراد است، و علتش **نام برده می‌شود** — «نبود» و
+       «فهرستِ مدل‌ها خوانده نشد» دو چارهٔ کاملاً متفاوت دارند (۷٫۳۲). */
+    var seen = lvGenSeen_();
+    out.looked = !!seen;
+    out.lookWhy = seen ? seen.why : '';
+    out.dead = !!(out.on && !out.model && seen && !seen.id);
     if (!out.on) {
       /* دستور باید **انجام‌شدنی** باشد: تا ۸٫۱۴ همین خط می‌گفت
          «`LV_GEN_ENABLED` را true کنید» — یعنی ویرایشِ سورس، کاری که او
@@ -2883,7 +2936,11 @@ function lvGenStatus_() {
                  faDigitsOut_(String(out.cap)) + ' دلار است و موتور از آن رد نمی‌شود.';
     } else {
       out.line = 'تصویرِ ساخته‌شده: روشن' +
-        (out.model ? ' با ' + out.model : ' (مدل هنوز پیدا نشده)') +
+        (out.model ? ' با ' + out.model
+                   : (out.dead
+                       ? ' ❌ **ولی مدلی پیدا نشد** (' + (out.lookWhy || 'بی علت') +
+                         ') — یعنی امروز فقط کارتِ متنی درمی‌آید'
+                       : ' · هنوز دنبالِ مدل نگشته‌ایم؛ وارسیِ ۱۰ صبح می‌گردد')) +
         ' · این ماه ' + faDigitsOut_(String(out.n)) + ' تصویر، ~' +
         out.usd.toFixed(2) + ' از ' + faDigitsOut_(String(out.cap)) + ' دلار' +
         ' · جای ' + faDigitsOut_(String(out.room)) + ' تصویرِ دیگر' +
@@ -3586,6 +3643,10 @@ function lvStatus_() {
        دیگر درست نمی‌شود؛ شمرده می‌شود و در خط می‌آید. */
     var need = Math.max(1, Number(CFG.LV_STUCK_DAYS) || 3);
     out.ok = !(out.waiting && out.oldestDays >= need);
+    /* و «روشن ولی بی‌اثر» (۸٫۰۵): لایهٔ ۳ روشن است، گشته‌ایم، و مدلی نیست.
+       این تنها حالتِ ایراد است — «هنوز نگشته‌ایم» ایراد نیست و ساکت می‌مانَد،
+       چون زنگی که برای نامعلوم بزند همان زنگی است که یاد می‌گیرند نخوانند. */
+    try { if (lvGenStatus_().dead) out.ok = false; } catch (eG) {}
     out.line = lvLine_(out);
   } catch (e) { out.line = 'حالِ تصویرهای درس خوانده نشد: ' + e.message; out.ok = true; }
   return out;

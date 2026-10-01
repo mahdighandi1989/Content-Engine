@@ -4442,4 +4442,104 @@ console.log('=== ۶۶) خانه‌هایی که سوئیپِ دیروز منجم
   }
 }
 
+console.log('=== ۶۷) «نگشته‌ایم» با «گشتیم و نبود» یکی نیست (۸٫۲۰) ===');
+{
+  /* صاحبِ برنامه لایهٔ ۳ را روشن کرد و خطِ روزانه گفت «روشن (مدل هنوز پیدا
+     نشده)» — جمله‌ای که شبیهِ شاهد است و نیست: مدل فقط از حافظه خوانده
+     می‌شد و حافظه را تنها `lvGenFill_` پر می‌کند، یعنی موقعِ ساختِ یک قسمت.
+     پس هیچ‌کس نگشته بود. ۷٫۴۷ همین را نوشت و اینجا تکرار شده بود. */
+  const clean = () => {
+    try { props_().deleteProperty(PK.LV_GEN_SEEN); } catch (e) {}
+    try { props_().deleteProperty(PK.LV_GEN_MODEL); } catch (e) {}
+  };
+  const realFetch67 = global.UrlFetchApp;
+  const wasOn = CFG.LV_GEN_ENABLED, wasSet = CFG.LV_GEN_MODEL;
+  CFG.LV_GEN_MODEL = '';
+  try { props_().setProperty(PK.LV_GEN_ON, '1'); } catch (e) {}
+
+  /* ۶۷.۱ — حالتِ «هنوز نگشته‌ایم»: ساکت، و `ok` را پایین نمی‌آورد. زنگی که
+     برای نامعلوم بزند همان زنگی است که یاد می‌گیرند نخوانند (۷٫۴۰/۸٫۰۵). */
+  clean();
+  const g1 = lvGenStatus_();
+  ok('۶۷.۱ تا نگشته‌ایم، خط «نگشته‌ایم» می‌گوید نه «نیست» — و ایراد نمی‌سازد',
+     g1.on === true && g1.looked === false && g1.dead === false &&
+     g1.line.indexOf('نگشته') !== -1 && lvStatus_().ok === true,
+     g1.line.slice(0, 110));
+
+  /* ۶۷.۲ — گشتیم و نبود: این **ایراد** است («روشن ولی بی‌اثر»، ۸٫۰۵) و
+     علتش نام برده می‌شود — «نبود» و «فهرست خوانده نشد» دو چارهٔ متفاوت
+     دارند (۷٫۳۲). و از همان دری وارد می‌شویم که تولید می‌رود. */
+  clean();
+  let calls67 = 0;
+  global.UrlFetchApp = { fetch: function (u) {
+    calls67++;
+    return { getResponseCode: () => 200,
+             getContentText: () => JSON.stringify({ models: [
+               { name: 'models/gemini-3.8-flash',
+                 supportedGenerationMethods: ['generateContent'] }] }) };
+  } };
+  const p2 = lvGenProbe_();
+  global.UrlFetchApp = realFetch67;
+  const g2 = lvGenStatus_();
+  ok('۶۷.۲ گشتیم و مدلِ تصویری نبود ⇒ ایراد، با علتِ نام‌برده',
+     p2.looked === true && !p2.id && g2.dead === true &&
+     g2.line.indexOf(p2.why.slice(0, 12)) !== -1 && lvStatus_().ok === false,
+     JSON.stringify(p2) + ' · ok=' + lvStatus_().ok);
+
+  /* ۶۷.۳ — و وقتی هست، نامش در خط می‌آید و دیگر ایراد نیست. */
+  clean();
+  global.UrlFetchApp = { fetch: function () {
+    return { getResponseCode: () => 200,
+             getContentText: () => JSON.stringify({ models: [
+               { name: 'models/gemini-3.8-flash',
+                 supportedGenerationMethods: ['generateContent'] },
+               { name: 'models/gemini-2.5-flash-image-preview',
+                 supportedGenerationMethods: ['generateContent'] }] }) };
+  } };
+  const p3 = lvGenProbe_();
+  global.UrlFetchApp = realFetch67;
+  const g3 = lvGenStatus_();
+  ok('۶۷.۳ و وقتی مدل هست، نامش در خط می‌آید و ایراد نیست',
+     p3.id === 'gemini-2.5-flash-image-preview' &&
+     g3.line.indexOf('gemini-2.5-flash-image-preview') !== -1 &&
+     g3.dead === false && lvStatus_().ok === true,
+     g3.line.slice(0, 110));
+
+  /* ۶۷.۴ — **هزینه**: خطِ وضعیت هیچ فراخوانِ شبکه‌ای ندارد. `writeStatus_`
+     هر دو ساعت می‌دود و ۷٫۶۳/۷٫۶۶/۷٫۷۲ سه بار همین را به این مخزن
+     آموختند. شمارشِ فراخوان است نه زمان، چون بدَل شبکه ندارد (۷٫۶۰). */
+  let calls4 = 0;
+  global.UrlFetchApp = { fetch: function () { calls4++;
+    return { getResponseCode: () => 500, getContentText: () => '' }; } };
+  lvGenStatus_(); lvStatus_();
+  global.UrlFetchApp = realFetch67;
+  ok('۶۷.۴ خطِ وضعیت هیچ فراخوانِ شبکه‌ای نمی‌زند',
+     calls4 === 0, 'فراخوان: ' + calls4);
+  /* ثبت می‌شود، نه ادعا (۷٫۷۴): گذاشتنِ `lvGenProbe_` داخلِ `lvGenStatus_`
+     روی **۶۷.۱** می‌نشیند نه این یکی — چون حافظه همان لحظه پر می‌شود و
+     حالتِ «هنوز نگشته‌ایم» دیگر ساختنی نیست. ۶۷.۴ ادعای باریک‌ترِ خودش را
+     نگه می‌دارد (خطِ وضعیت خودش شبکه نمی‌زند) و نگهبانِ واقعیِ «گشتن به
+     مسیرِ داغ نشت نکند» ۶۷.۱ و ۶۷.۵ اند. */
+
+  /* ۶۷.۵ — و گشتن از **درِ تولید** می‌آید: `healthCheck` صدایش می‌زند، نه
+     اینکه فقط تابع وجود داشته باشد. اتاق را سنجیدن و در را نه، همان
+     ۷٫۶۲ است. */
+  {
+    const fs67 = require('fs');
+    const hSrc = fs67.readFileSync('src/08_Health.gs', 'utf8');
+    const i0 = hSrc.indexOf('function healthCheck(');
+    const body = hSrc.slice(i0, hSrc.indexOf('\nfunction ', i0 + 10));
+    const wSrc = hSrc.slice(hSrc.indexOf('function writeStatus_('));
+    const wBody = wSrc.slice(0, wSrc.indexOf('\nfunction ', 10));
+    ok('۶۷.۵ گشتن روی healthCheck است، نه روی writeStatus_',
+       body.indexOf('lvGenProbe_(') !== -1 && wBody.indexOf('lvGenProbe_(') === -1,
+       'health=' + (body.indexOf('lvGenProbe_(') !== -1) +
+       ' · status=' + (wBody.indexOf('lvGenProbe_(') !== -1));
+  }
+
+  clean();
+  CFG.LV_GEN_ENABLED = wasOn; CFG.LV_GEN_MODEL = wasSet;
+  try { props_().deleteProperty(PK.LV_GEN_ON); } catch (e) {}
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
