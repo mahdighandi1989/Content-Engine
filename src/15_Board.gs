@@ -97,6 +97,11 @@ function seriesBoardData_(hub) {
       level: String(v[SC.LEVEL - 1] || '').trim(),
       levelRank: lvRank(String(v[SC.LEVEL - 1] || '').trim()),
       topic: String(v[SC.TOPIC - 1] || ''),
+      /* سبکِ تصویر — ستونش از ۷.۹۶ هست و هیچ‌وقت روی تخته نیامد (۸.۱۳).
+         صاحبِ برنامه پرسید «کجای این قسمت تنظیماتِ ویدئو را گذاشتی؟» و
+         جوابِ راست «هیچ‌جا» بود: کنترلی که جای کارش نباشد پیدا نمی‌شود
+         (۵.۶۱/۷.۳۵). رشتهٔ خالی یعنی «خودش انتخاب کند». */
+      lvStyle: String(v[SC.LVSTYLE - 1] || '').trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
       // ── تنظیمِ دستیِ شما ──
       morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
@@ -439,6 +444,10 @@ var BOARD_CSS =
   'td{border-bottom:1px solid #eef0f5;padding:6px 8px;vertical-align:middle}' +
   '.now{background:#eaf6ec!important}.pinned{background:#fff6e5!important}' +
   '.bdg{display:inline-block;border-radius:20px;padding:1px 9px;font-size:10px;color:#fff}' +
+  /* سه مربعِ پالتِ واقعی — انتخابی که نتیجه‌اش دیده نشود، انتخاب نیست (۸.۱۳) */
+  '.sw{display:inline-block;width:10px;height:10px;border-radius:2px;' +
+  'border:1px solid #c7cdd8;margin-left:2px;vertical-align:-1px}' +
+  '.sty select{max-width:140px;font-size:11px}' +
   '.b-act{background:#166534}.b-done{background:#5a6478}.b-new{background:#2e5cb8}' +
   '.b-re{background:#b45309}.b-skip{background:#9ca3af}.b-man{background:#7c3aed}' +
   '.abt{font-size:11px;color:#cbd5e1;margin-top:2px;line-height:1.6}' +
@@ -673,7 +682,7 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<div class="tw"><table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th>مرورِ بزرگ</th><th>مجموعه‌های مرجع</th>' +
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>مجموعه‌های مرجع</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -709,6 +718,7 @@ function seriesBoardHtml_(d) {
       H.push('<td>' + faNum_(x.episodes) + '</td>');
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
+      H.push(lvStyleCell_(x));
       /* فراخوانِ رو به جلو (۱۵ → ۳۱) در try/catch — قاعدهٔ ۲۱→۲۲ این ریپو.
          بارگذارِ جزئی یا بخشی که بالا نیامده باشد نباید کلِ تخته را بخواباند؛
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
@@ -736,7 +746,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="10"><table style="font-size:11px">');
+               '<td colspan="11"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -880,6 +890,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبت انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiPinCategory(c,a);}');
+  H.push('function lvStyle(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ سبکِ تصویر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvStyleSave(k,v);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
   /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
@@ -1767,6 +1781,92 @@ function uiCalSave(key, on, days, exc) {
 
 /** انتخاب دستیِ یک مجموعه. `act` از خودِ دکمه می‌آید: 'pin' یا 'unpin'.
     اگر خالی باشد (پنجرهٔ کهنه) همان رفتارِ کلید‌گردانِ قبلی را دارد. */
+/**
+ * ══ جعبهٔ سبکِ تصویر — کنترلی که جای کارش بنشیند (۸٫۱۳) ══
+ *
+ * ستونِ «سبکِ تصویر» از ۷٫۹۶ در رجیستری هست و `lvStyleAt_` می‌خوانَدش، ولی
+ * هیچ راهی برای عوض‌کردنش جز ویرایشِ دستیِ شیت نبود — و صاحبِ برنامه شیت باز
+ * نمی‌کند. نتیجه‌اش این شد که مجموعهٔ معرفت‌شناسی به‌طور خودکار «ساده و رسمی»
+ * گرفت، که **همان `LV_STYLES[0]` یعنی پیش‌فرض است**، و او هشت سبکِ تازه را
+ * دید که برای مجموعهٔ خودش هیچ تفاوتی نساختند.
+ *
+ * **پیش‌نمایشِ رنگ عمداً هست.** نامِ سبک («کاغذبری») نمی‌گوید چه شکلی است، و
+ * انتخابی که نتیجه‌اش را نشود دید، انتخاب نیست — سه مربعِ رنگ همان پالتِ
+ * واقعیِ `LV_STYLES` است، نه رنگِ تزئینی.
+ *
+ * و «خودکار» یک گزینهٔ **صریح** است، نه خانهٔ خالی: خالی‌بودن یعنی «نگفته»،
+ * و «نگفته» با «بسپار به خودش» یکی نیست — همان مرزِ «نمی‌دانیم ≠ نه» که این
+ * پرونده بارها نوشته.
+ */
+function lvStyleCell_(x) {
+  var cur = String((x && x.lvStyle) || '');
+  var list = [];
+  try { list = LV_STYLES || []; } catch (e) { list = []; }
+  var opts = ['<option value=""' + (cur ? '' : ' selected') + '>خودکار (از موضوع)</option>'];
+  var pal = null;
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i].key || '');
+    var on = (k === cur);
+    if (on) pal = list[i].pal;
+    opts.push('<option value="' + bEsc_(k) + '"' + (on ? ' selected' : '') + '>' +
+              bEsc_(k) + '</option>');
+  }
+  if (!pal && list.length) pal = list[0].pal;
+  var sw = '';
+  if (pal) {
+    sw = '<span class="sw" style="background:' + bEsc_(String(pal.bg)) + '"></span>' +
+         '<span class="sw" style="background:' + bEsc_(String(pal.fg)) + '"></span>' +
+         '<span class="sw" style="background:' + bEsc_(String(pal.ac)) + '"></span>';
+  }
+  return '<td class="sty">' +
+         '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvStyle(this)">' +
+         opts.join('') + '</select>' +
+         '<div class="sub">' + sw +
+         (cur ? ' ' + bEsc_(cur) : ' خودکار') + '</div></td>';
+}
+
+/**
+ * ذخیرهٔ سبکِ یک مجموعه. سبکِ ناشناخته **رد** می‌شود و نامِ سبک‌های مجاز
+ * برگردانده می‌شود — نه اینکه بی‌صدا پیش‌فرض بنشیند: خانه‌ای که حرفِ کاربر را
+ * بی‌صدا عوض کند، او را به این باور می‌رساند که چیزی را تنظیم کرده.
+ */
+function uiLvStyleSave(key, style) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(style == null ? '' : style).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var names = [];
+    try {
+      for (var i = 0; i < LV_STYLES.length; i++) names.push(String(LV_STYLES[i].key));
+    } catch (eL) {}
+    if (v && names.indexOf(v) === -1) {
+      boardReceipt_(false, 'سبکِ ناشناخته', ['سبک‌های مجاز: ' + names.join(' · ')]);
+      return { ok: false, message: 'سبکِ «' + v + '» را نمی‌شناسم. مجازها: ' +
+                                   names.join(' · ') };
+    }
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVSTYLE).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    /* ══ و کارت‌های ساخته‌شده باید از نو ساخته شوند ══
+       ۷.۹۹ بندِ ۲ همین را نوشت: تعویضِ سبک بی پاک‌کردنِ کارت‌ها یعنی کارتِ
+       دوپاره — نیمی با سبکِ تازه، نیمی با تصویرِ سبکِ قبلی. `lvBuild_` خودش
+       با دیدنِ تفاوتِ سبک از نو می‌سازد، پس اینجا فقط گفته می‌شود. */
+    boardReceipt_(true, 'سبکِ تصویرِ «' + nm + '» ثبت شد',
+      [v ? ('سبک: ' + v) : 'خودکار — موتور از موضوعِ مجموعه انتخاب می‌کند',
+       'کارت‌ها و کاورِ قسمت‌های بعدی با همین سبک ساخته می‌شوند. برای قسمتی ' +
+       'که از قبل ساخته شده، از منو «🖼 بازسازیِ تصویرهای یک قسمت» را بزنید.']);
+    return { ok: true, message: v
+      ? ('سبکِ «' + nm + '» شد «' + v + '».')
+      : ('سبکِ «' + nm + '» به انتخابِ خودکار برگشت.') };
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ سبک نشد', [e.message]);
+    return { ok: false, message: 'ثبتِ سبک نشد: ' + e.message };
+  }
+}
+
 function uiPinSeries(key, act) {
   var hub = getHub_();
   var reg = readSeriesReg_(hub);

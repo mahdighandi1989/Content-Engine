@@ -19,6 +19,34 @@ const CFG_SRC = fs.readFileSync(DIR + '00_Config.gs', 'utf8');
 const VER_M = CFG_SRC.match(/CODE_VERSION:\s*'([^']+)'/);
 if (!VER_M) { console.error('✗ CODE_VERSION در src/00_Config.gs پیدا نشد.'); process.exit(1); }
 const VERSION = VER_M[1];
+
+/* ══ بدهیِ منو — شمرده می‌شود، نه دست‌نویس (۸٫۱۳) ══
+ * «ناظر به تمام موارد منو نظارت می‌کنه؟» — عددش در یک فایلِ آزمون بود، یعنی
+ * جایی که فقط با گشتنِ عمدی پیدا می‌شود. حالا در هر build از دو منبعِ واقعی
+ * شمرده و در `src/00_Config.gs` نوشته می‌شود، تا موتور بتواند هر روز بگویدش.
+ * دست‌نویس بودنش یعنی یک سال کهنه ماندن (۵٫۹۵). */
+const MENU_SRC = fs.readFileSync(DIR + '05_Setup.gs', 'utf8');
+const MENU_TOTAL = (MENU_SRC.match(/\.addItem\s*\(/g) || []).length;
+const DEBT_SRC = fs.readFileSync(path.join(ROOT, 'tests', 'run_dialogs_test.js'), 'utf8');
+const DEBT_M = DEBT_SRC.match(/const MENU_DEBT = \[([\s\S]*?)\n\];/);
+if (!DEBT_M) { console.error('✗ MENU_DEBT در tests/run_dialogs_test.js پیدا نشد.'); process.exit(1); }
+const MENU_DEBT_N = (DEBT_M[1].match(/'[^']+'/g) || []).length;
+const MENU_LINE = "var BUILD_MENU_ = { total: " + MENU_TOTAL + ", debt: " + MENU_DEBT_N +
+                  " };   /* ⚙ BUILD-MENU */";
+{
+  /* ══ «چیزی عوض نشد» با «چیزی پیدا نشد» یکی نیست ══
+   * نگارشِ اول همین دو را یکی گرفت: وقتی عدد همان بود که بود، `after` با
+   * `before` برابر می‌شد و اسکریپت می‌گفت «نشانه پیدا نشد» و می‌مُرد — یعنی
+   * دقیقاً در حالتِ **سالم**. همان مرزی که این مخزن بارها نوشته، این بار در
+   * ابزارِ ساخت: وجودِ نشانه را باید جدا پرسید، نه از روی تفاوت حدس زد. */
+  const RE_MENU = /var BUILD_MENU_ = \{[^}]*\};\s*\/\* ⚙ BUILD-MENU \*\//;
+  if (!RE_MENU.test(CFG_SRC)) {
+    console.error('✗ خطِ ⚙ BUILD-MENU در src/00_Config.gs نیست — بی آن عدد کهنه می‌مانَد.');
+    process.exit(1);
+  }
+  const after = CFG_SRC.replace(RE_MENU, MENU_LINE);
+  if (after !== CFG_SRC) fs.writeFileSync(DIR + '00_Config.gs', after);
+}
 let HEADER = fs.readFileSync(path.join(__dirname, 'build_header.txt'), 'utf8');
 if (HEADER.indexOf('{{VERSION}}') === -1) {
   console.error('✗ build_header.txt جای‌نشانِ {{VERSION}} را ندارد — سرآیند دوباره از CODE_VERSION جدا می‌افتد.');

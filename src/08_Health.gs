@@ -602,6 +602,14 @@ function writeStatus_(hub, note) {
        تنها شاهدی که یک تریگرِ ترکیده دارد. ورودی‌اش Script Properties است،
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
     runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
+    /* عددِ تولیدشده در build — بی هیچ خواندنی، و بی امکانِ کهنه شدن (۸.۱۳) */
+    menuCover: (function () {
+      try {
+        if (typeof BUILD_MENU_ !== 'object' || !BUILD_MENU_) return null;
+        return { total: BUILD_MENU_.total, debt: BUILD_MENU_.debt,
+                 covered: BUILD_MENU_.total - BUILD_MENU_.debt };
+      } catch (e) { return null; }
+    })(),
     recentLog: recentLog_(hub, 25),
     /* کهنگیِ گزارشِ روزانه — از همین `health` بالا حساب می‌شود، پس
        هیچ خواندنِ تازه‌ای به درایو اضافه نمی‌کند. اینجاست چون
@@ -2181,6 +2189,27 @@ function healthCheck() {
       });
     } else notes.push(rs.line);
   } catch (eRs) {}
+
+  /* ══ بدهیِ منو، هر روز و با عدد (۸.۱۳) ══
+     «ناظر به تمام موارد منو نظارت می‌کنه و عملکرد می‌سنجه؟» — جوابِ آن روز
+     این بود که ۳۴ گزینه از ۵۸ در هیچ سنجه‌ای نبودند، و **خودِ آن عدد هیچ‌جا
+     دیده نمی‌شد**: در یک فایلِ آزمون زندگی می‌کرد، یعنی جایی که فقط با
+     گشتنِ عمدی پیدا می‌شود. بدهی‌ای که دیده نشود، بدهی نیست؛ معافیت است.
+
+     در یادداشت‌ها می‌نشیند نه در مسئله‌ها: کارِ باقی‌مانده است نه خرابی، و
+     قرمزی که هر روز برای کارِ در جریان بزند خوانده نمی‌شود (۷.۴۰). ولی هر
+     روز گفته می‌شود، چون عددی که دیده نشود کوچک نمی‌شود. */
+  try {
+    var bm = (typeof BUILD_MENU_ === 'object' && BUILD_MENU_) || null;
+    if (bm && bm.total) {
+      var cov = bm.total - bm.debt;
+      notes.push('🧪 پوششِ سنجهٔ منو: ' + faDigitsOut_(String(cov)) + ' از ' +
+                 faDigitsOut_(String(bm.total)) + ' گزینه سنجه دارد' +
+                 (bm.debt ? ' · ' + faDigitsOut_(String(bm.debt)) +
+                            ' هنوز نه (دفترِ بدهی در run_dialogs_test.js)'
+                          : ' — بدهی صفر'));
+    }
+  } catch (eBm) {}
 
   /* ══ صفِ تعویضِ کد — از `healthCheck`، که جدولِ زمانیِ خودش را دارد ══
      اگر این فقط در کارِ شبانه می‌نشست، شبی که دروازهٔ زمان از آن بلوک رد

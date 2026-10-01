@@ -255,4 +255,117 @@ const MENU_DEBT = [
      ' — هر کدام یعنی قابلیتی که تا کسی دستی امتحانش نکند، خرابی‌اش دیده نمی‌شود');
 }
 
+console.log('\n══ ۸) جعبهٔ سبکِ تصویر روی تخته — کنترلی که جای کارش بنشیند (۸.۱۳) ══');
+/* صاحبِ برنامه پرسید «کجای این قسمت تنظیماتی که برای ویدئوی درس‌نامه گفتی
+   گذاشتی؟» و جوابِ راست «هیچ‌جا» بود: ستونِ «سبکِ تصویر» از ۷.۹۶ در رجیستری
+   هست و `lvStyleAt_` می‌خوانَدش، ولی راهی برای عوض‌کردنش جز ویرایشِ دستیِ
+   شیت نبود — و او شیت باز نمی‌کند (۵.۶۱/۷.۳۵).
+
+   و ادعا **از همان دری سنجیده می‌شود که تولید از آن وارد می‌شود** (۷.۳۵):
+   از تخته ذخیره می‌کنیم، بعد از `lvStyleAt_` می‌پرسیم چه می‌بیند — نه اینکه
+   تخته را دوباره بخوانیم، که فقط ثابت می‌کند تخته با خودش جور است. */
+{
+  const hub = getHub_();
+  /* ردیفِ واقعی ساخته می‌شود، چون این بند دربارهٔ **ذخیره‌شدن در رجیستری**
+     است: تختهٔ خالی فقط ثابت می‌کند تخته با خودش جور است (۷.۶۱ — بدَلی که
+     خالی‌تر از تولید باشد، چیزی را ثابت نمی‌کند). */
+  {
+    const sh = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = 'sty-test';
+    v[SC.NAME - 1] = 'مجموعهٔ آزمونِ سبک';
+    v[SC.TOPIC - 1] = 'معرفت‌شناسی';
+    v[SC.STATUS - 1] = SST.ACTIVE;
+    sh.appendRow(v);
+  }
+  const reg = readSeriesReg_(hub);
+  const keys = Object.keys(reg.byKey);
+  if (!keys.length) {
+    ok('۸.۰ رجیستری ردیفی دارد تا بشود سنجید', false, 'هیچ مجموعه‌ای نیست');
+  } else {
+    const k = 'sty-test';
+
+    /* ۸.۱ — ذخیره از تخته، و خواندن از همان تابعی که کارت‌ها را می‌سازد. */
+    const want = LV_STYLES[3].key;            // یک سبکِ غیرِ پیش‌فرض
+    const r1 = uiLvStyleSave(k, want);
+    /* از همان امضایی که تولید صدا می‌زند: `lvStyleAt_(hub, item, meta, name)`
+       — ردیف را مستقیم نمی‌دهیم، چون تولید هم نمی‌دهد (۷.۶۲). */
+    const seen = lvStyleAt_(getHub_(), { seriesKey: k }, null, '');
+    ok('۸.۱ سبکی که از تخته ثبت شود، همان است که سازندهٔ کارت می‌بیند',
+       r1.ok === true && seen === want,
+       JSON.stringify({ ok: r1.ok, want: want, seen: seen }));
+
+    /* ۸.۲ — و «خودکار» یک گزینهٔ صریح است، نه خانهٔ خالیِ مبهم: برمی‌گردد به
+       انتخابِ خودِ موتور از روی موضوع. */
+    const r2 = uiLvStyleSave(k, '');
+    const auto = lvStyleAt_(getHub_(), { seriesKey: k }, null, '');
+    ok('۸.۲ «خودکار» سبک را به انتخابِ موتور برمی‌گرداند، نه به سبکِ قبلی',
+       r2.ok === true && auto !== want && auto !== '',
+       JSON.stringify({ ok: r2.ok, auto: auto, wasnt: want }));
+
+    /* ۸.۳ — سبکِ ناشناخته **رد** می‌شود و مجازها را نام می‌برد. خانه‌ای که
+       حرفِ کاربر را بی‌صدا عوض کند، او را به این باور می‌رساند که چیزی را
+       تنظیم کرده (۷.۸۱). */
+    const r3 = uiLvStyleSave(k, 'سبکِ خیالی');
+    ok('۸.۳ سبکِ ناشناخته رد می‌شود و مجازها را نام می‌برد',
+       r3.ok === false && LV_STYLES.some(x => String(r3.message).indexOf(x.key) !== -1),
+       String(r3.message).slice(0, 110));
+
+    /* ۸.۴ — و جعبه واقعاً روی تخته رندر می‌شود و به تابعِ موجود وصل است.
+       همان شکلی که ۵.۶۱ از آن می‌ترسد: دکمه‌ای که بی‌صدا هیچ کاری نکند. */
+    const html = uiBoardHtml();
+    const hasSel = /onchange="lvStyle\(this\)"/.test(html);
+    const callsFn = /google\.script\.run[\s\S]{0,120}?\.uiLvStyleSave\(/.test(html);
+    ok('۸.۴ جعبه روی تخته هست و به uiLvStyleSave وصل است',
+       hasSel && callsFn && typeof uiLvStyleSave === 'function',
+       'select=' + hasSel + ' · call=' + callsFn);
+
+    /* ۸.۵ — و هر هشت سبک در فهرست می‌آید، با پیش‌نمایشِ رنگ. انتخابی که
+       نتیجه‌اش را نشود دید، انتخاب نیست — و فهرست از `LV_STYLES` می‌آید نه
+       دست‌نویس، وگرنه سبکِ نهم که اضافه شود بی‌صدا جا می‌مانَد (۵.۹۵). */
+    const missing = LV_STYLES.map(x => x.key)
+      .filter(kk => html.indexOf('>' + kk + '</option>') === -1);
+    ok('۸.۵ هر سبکِ LV_STYLES در فهرستِ تخته هست',
+       missing.length === 0, missing.length ? missing.join('، ') : 'همه');
+    ok('۸.۵-ب و پیش‌نمایشِ رنگ از پالتِ واقعی می‌آید',
+       html.indexOf('class="sw"') !== -1 &&
+       LV_STYLES.some(x => html.indexOf(x.pal.ac) !== -1),
+       'swatch=' + (html.indexOf('class="sw"') !== -1));
+  }
+}
+
+console.log('\n══ ۹) بدهیِ منو: عددی که دیده شود (۸.۱۳) ══');
+/* «ناظر به تمام موارد منو نظارت می‌کنه؟» — عدد بود (۳۴ از ۵۸) و **هیچ‌جا
+   دیده نمی‌شد**، چون در همین فایلِ آزمون زندگی می‌کرد. بدهی‌ای که دیده نشود
+   معافیت است. حالا `tools/build.js` می‌شماردش و در `src/00_Config.gs`
+   می‌نویسد، و `healthCheck` هر روز می‌گویدش. */
+{
+  const menuSrc = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const realTotal = (menuSrc.match(/\.addItem\s*\(/g) || []).length;
+  ok('۹.۱ عددِ تولیدشده با شمارشِ واقعیِ منو می‌خواند',
+     BUILD_MENU_.total === realTotal,
+     'تولیدشده ' + BUILD_MENU_.total + ' · واقعی ' + realTotal +
+     ' — اگر نخواند یعنی build گرفته نشده و عدد کهنه است');
+  ok('۹.۲ و بدهی با دفترِ بدهیِ همین فایل می‌خواند',
+     BUILD_MENU_.debt === MENU_DEBT.length,
+     'تولیدشده ' + BUILD_MENU_.debt + ' · دفتر ' + MENU_DEBT.length);
+  ok('۹.۳ و بدهی از کلِ گزینه‌ها بیشتر نیست',
+     BUILD_MENU_.debt <= BUILD_MENU_.total && BUILD_MENU_.total > 0,
+     BUILD_MENU_.debt + '/' + BUILD_MENU_.total);
+
+  /* ۹.۴ — و عدد **هر روز در گزارش می‌آید**. بی این، همان جایی می‌مانَد که
+     بود: یک فایلِ آزمون که فقط با گشتنِ عمدی پیدا می‌شود. در یادداشت‌ها، نه
+     در مسئله‌ها — کارِ باقی‌مانده خرابی نیست (۷.۴۰). */
+  {
+    const h = healthCheck();
+    const line = (h.notes || []).filter(x => String(x).indexOf('پوششِ سنجهٔ منو') !== -1);
+    ok('۹.۴ عدد هر روز در گزارشِ سلامت می‌آید',
+       line.length === 1 &&
+       line[0].indexOf(faDigitsOut_(String(BUILD_MENU_.total))) !== -1,
+       line[0] || 'نیامد');
+    ok('۹.۴-ب و در مسئله‌ها نمی‌آید — بدهی خرابی نیست',
+       (h.problems || []).every(x => String(x).indexOf('پوششِ سنجهٔ منو') === -1));
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
