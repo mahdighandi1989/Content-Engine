@@ -1241,8 +1241,10 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
   const realTry = global.ttsChunkTry_;
   const realSet = global.styleProbeSet_;
   let cues = [], flags = [];
-  global.ttsChunkTry_ = function (text, style) {
+  const withCueSeen = [];
+  global.ttsChunkTry_ = function (text, style, voice, withCue) {
     cues.push(String(style || ''));
+    withCueSeen.push(withCue);
     return Buffer.alloc(24000 * 2 * 8).toString('base64');   // ~۸ ثانیه در هر تکه
   };
   global.styleProbeSet_ = function (v) { flags.push(v); return realSet(v); };
@@ -1329,6 +1331,49 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
      !!(rowS && rowS.audio && rowS.audio.length === 1 &&
         String(rowS.audio[0].name).indexOf('کامل') !== -1),
      rowS ? JSON.stringify((rowS.audio || []).map((a) => a.name)) : '—');
+  /* ══ ۲۴.۱۱ — نمونه از همان نگهبانی می‌گذرد که قسمتِ منتشرشده (۸.۰۷) ══
+   * ۱ اکتبر صاحبِ برنامه در نمونهٔ ۶دقیقه‌ایِ قسمتِ ۵۳ شنید که گوینده دستورِ
+   * لحن را **در چند جا** می‌خوانَد — و هیچ‌جا صدا درنیامد. علت یک نام بود:
+   * این مسیر `ttsChunkTry_` را صدا می‌زد و مسیرِ قسمتِ واقعی `ttsChunk_` را،
+   * و نگهبانِ شنیداری (`ttsGuarded_`) فقط روی دومی است. پس عیبی که در تولید
+   * گرفته می‌شد، در همان فایلی که قرار بود **قضاوت** شود می‌مانْد.
+   *
+   * رفتاری سنجیده می‌شود، نه با grep: وارسیِ شنیداری وادار می‌شود بگوید
+   * «دستور خوانده شد»، و ادعا این است که همان تکه **بی‌دستور** از نو ساخته
+   * شد — یعنی نگهبان روی این راه هست. */
+  {
+    const q1 = vbrRead_(); q1.items = []; vbrSave_(q1);
+    const realLeak = global.ttsCueLeaked_;
+    const keepVer = CFG.TTS_CUE_VERIFY;
+    CFG.TTS_CUE_VERIFY = true;
+    let asked = 0;
+    global.ttsCueLeaked_ = function () {
+      asked++;
+      return asked === 1 ? { leaked: true, heard: 'با صدای گویندهٔ حرفه‌ای…' }
+                         : { leaked: false, heard: '' };
+    };
+    withCueSeen.length = 0;
+    const rL = runVoiceSoulTest();
+    ok('۲۴.۱۶ نمونه از همان نگهبانِ لو‌رفتنِ دستور می‌گذرد که قسمتِ منتشرشده',
+       asked > 0 && withCueSeen.indexOf(false) !== -1,
+       'وارسیِ شنیداری ' + asked + ' بار پرسید · withCue: ' +
+       JSON.stringify(withCueSeen.slice(0, 6)) + ' — بی این، همان چیزی که ' +
+       'قرار است قضاوت شود، خودش عیب را دارد');
+    ok('۲۴.۱۶-ب و نمونه با وجودِ لو‌رفتن ساخته می‌شود، نه اینکه زمین بخورد',
+       rL && rL.ok === true, JSON.stringify({ ok: rL && rL.ok, why: rL && rL.why }));
+    global.ttsCueLeaked_ = realLeak;
+    CFG.TTS_CUE_VERIFY = keepVer;
+    /* ══ حالتی که این بند ساخت، نباید به بندهای بعدی سرریز کند ══
+       نگارشِ اول مهرِ `TTS_CUE_DROP_AT` را جا گذاشت و §۲۷ سرخ شد: آن‌جا
+       `vbrSoulTag_` شاخهٔ «رویدادِ انداختن» را می‌گرفت نه شاخهٔ «پرچمِ وسطِ
+       ساخت»، و متنِ `soulWhy` عوض می‌شد. همان تلهٔ ۷٫۸۹ — نشتِ تنظیم از یک
+       بلوک به بلوکِ بعد — این بار با یک Script Property. */
+    props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+    const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);
+    runVoiceSoulTest();          // ردیفِ صف را برای سنجه‌های بعدی بازمی‌سازد
+    props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+  }
+
   ok('۲۴.۱۰ و پوشه‌اش در فهرستِ نام‌های شناختهٔ ریشه است',
      outRootFolderNames_().indexOf(String(CFG.VBR_SOUL_FOLDER)) !== -1,
      'بی این، همان شبِ اول یک هشدارِ «ناشناخته» برای پوشه‌ای که خودِ موتور ' +

@@ -659,6 +659,10 @@ function runVoiceAudition() {
       // ساخته‌شده‌ها دوباره ساخته نمی‌شوند، پس اجرای دوم از همان‌جا ادامه می‌دهد
       if (folder.getFilesByName(fname).hasNext()) continue;
       try {
+        /* این یکی عمداً `ttsChunkTry_` می‌مانَد و نه `ttsChunk_` (۸.۰۷):
+           آزمونِ **نامِ صدا**ست، و سقوطِ امنِ `ttsChunk_` نامِ ردشده را به
+           `PK.VOICE_BLOCK` می‌افزاید و با صدای پشتیبان می‌سازد — یعنی همان
+           چیزی که این‌جا سنجیده می‌شود را خراب می‌کند. */
         var b64 = ttsChunkTry_(VOICE_TEST_LINE, 'خیلی شمرده و واضح بخوان.', v.n);
         if (!b64) { failed.push(v.n + ' (پاسخِ خالی)'); continue; }
         var bytes = Utilities.base64Decode(
@@ -916,7 +920,9 @@ function runStyleProbe() {
         for (var ci = 0; ci < pieces.length; ci++) {
           if (new Date().getTime() > probeDeadline) { cut = pieces.length - ci; break; }
           styleProbeSet_(plan[i].on);                 // مهرِ تازه، پیش از هر تکه
-          var b1 = ttsChunkTry_(pieces[ci], st, CFG.TTS_VOICE);
+          /* نگهبانِ لو‌رفتنِ دستور، همان که تولید دارد (۸.۰۷) — نمونهٔ سبک
+             هم شنیده می‌شود و روی همان قضاوت می‌شود. */
+          var b1 = ttsChunk_(pieces[ci], st, CFG.TTS_VOICE);
           if (!b1) { cut = pieces.length - ci; break; }
           accB64 += alignB64_(b1);
         }

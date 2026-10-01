@@ -1038,8 +1038,39 @@ function ttsCueLeaked_(pcmB64, cueText, spokenText) {
     if (!heard) return { leaked: false, heard: '' };
 
     var body = String(spokenText || '').replace(/\s+/g, ' ');
-    for (var i = 0; i < CUE_MARKERS.length; i++) {
-      var mk = CUE_MARKERS[i];
+
+    /* ══ نشانه‌ها از **خودِ دستور** هم می‌آیند، نه فقط از فهرستِ دستی (۸.۰۷) ══
+       `CUE_MARKERS` هفت عبارتِ دست‌نویس است — همان شکلی که این پرونده دربارهٔ
+       `removeTriggers` نوشته: «فهرستِ دستیِ آنچه کد می‌کند، کهنه می‌شود». و
+       این‌جا کهنه شدنش ساختاری است: از ۷٫۳۴ متنِ دستور برای هر گوینده
+       **اندازه‌گیری** می‌شود (کارتِ سبک)، پس واژه‌هایش از پیش معلوم نیست.
+
+       ══ و شاهد **سه واژهٔ پیاپی** است، نه یک واژه ══
+       نگارشِ اول هر واژهٔ ۵حرفیِ دستور را نشانه گرفت. `run_reports_test.js`
+       همان لحظه سرخ شد: متنِ شنیده‌شدهٔ کاملاً سالمِ «متنِ سالمِ برنامه» با
+       دستور یک واژهٔ معمولی مشترک داشت و «لو رفته» اعلام شد. پیامدش دقیقاً
+       عکسِ هدفِ این نسخه بود — هر تکه بی‌دستور از نو ساخته می‌شد، یعنی **هر
+       قسمت صاف**.
+       «دستور خوانده شد» یعنی جمله‌اش **گفته** شده، و جمله سه واژهٔ پیاپی
+       دارد؛ اشتراکِ تصادفیِ یک واژه ندارد. پس واحدِ شاهد، سه‌گانه است. */
+    var marks = CUE_MARKERS.slice(0);
+    try {
+      var cw = String(cueText || '').replace(/[.،؛:!؟«»]/g, ' ')
+                 .split(/\s+/).filter(function (x) { return x; });
+      var seenG = {};
+      for (var w = 0; w + 2 < cw.length && marks.length < CUE_MARKERS.length + 24; w++) {
+        var g = cw[w] + ' ' + cw[w + 1] + ' ' + cw[w + 2];
+        if (seenG[g]) continue;
+        seenG[g] = true;
+        /* کوتاه‌کننده است، نه سد: سدِ واقعی همان شرطِ حلقهٔ بعدی است
+           (`body.indexOf(mk) === -1`). */
+        if (body.indexOf(g) !== -1) continue;
+        marks.push(g);
+      }
+    } catch (eM) {}
+
+    for (var i = 0; i < marks.length; i++) {
+      var mk = marks[i];
       // نشانه فقط وقتی معنا دارد که در خودِ متنِ گفتار نباشد — وگرنه یک
       // قسمتِ رادیویی که واقعاً دربارهٔ «صدای گوینده» حرف می‌زند، هر بار
       // بی‌دلیل دوباره ساخته می‌شد.
@@ -1099,6 +1130,12 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
 
   logLine_('⚠️ گوینده دستورِ لحن را خواند؛ همین تکه بی‌دستور از نو ساخته شد. ' +
            'شنیده‌شده: «' + v.heard + '»');
+  /* ══ مهرِ «دستور انداخته شد» این‌جا هم می‌خورَد (۸.۰۷) ══
+     تا امروز فقط جایی مهر می‌خورد که مدل قالب را رد می‌کرد. ولی تکه‌ای که
+     لو داده و **بی‌دستور از نو ساخته شده** هم دقیقاً همان است: لحنی به آن
+     نرسیده. بی این مهر، `vbrSoulTag_` همان فایل را «روح» برچسب می‌زد —
+     همان دروغی که ۷٫۷۹ و ۷٫۸۹ برای جلوگیری از آن نوشته شدند، از درِ سوم. */
+  try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD1) {}
   try {
     logSelfFinding_(getHub_(), {
       priority: 'جدی', category: 'گفتارسازی', key: 'tts-cue-leak',
@@ -1290,10 +1327,23 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
      مدلی فیلد را بپذیرد باید همان اول امتحان شود، نه پس از پیشوند. */
   var fieldOff2 = false;
   try { fieldOff2 = ttsCueBadNow_(model) || ttsCueOffNow_(model); } catch (eF0) {}
+  /* ══ پیشوند یک گزینه است، نه یک راه (۸.۰۷) ══
+     صاحبِ برنامه شنید که گوینده دستور را بلند می‌خوانَد. پس وقتی
+     `TTS_CUE_PREFIX` خاموش است، این قالب در هیچ ترتیبی نمی‌آید — و مدلی که
+     فیلد را رد کرده، تکه‌اش **بی‌دستور** ساخته می‌شود، که همان سقوطِ امنِ
+     ۵٫۵۹ است: افت به سمتِ سکوت، نه به سمتِ چسباندن. */
+  var preOn = CFG.TTS_CUE_PREFIX === true;
   var order;
   if (withCue === false) order = fields;
-  else if (fieldOff2) order = ['prompted'];
-  else order = fields.concat(['prompted']);
+  else if (fieldOff2) order = preOn ? ['prompted'] : [];
+  else order = preOn ? fields.concat(['prompted']) : fields;
+  /* ترتیبِ خالی یعنی «این مدل فیلد را نمی‌پذیرد و پیشوند هم خاموش است» ⇒
+     مستقیم بی‌دستور، بی یک فراخوانِ دورریز. و مهرِ انداختنِ دستور همان‌جا
+     می‌خورَد که واقعاً انداخته می‌شود (۷٫۸۹) تا برچسبِ «روح» دروغ نشود. */
+  if (!order.length) {
+    try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD0) {}
+    return ttsChunkTry_(text, sectionStyle, voice, false);
+  }
   var lastFieldIdx = -1;
   for (var q = 0; q < order.length; q++) if (order[q] !== 'prompted') lastFieldIdx = q;
   var lastErr = null, refreshed = false;
