@@ -1242,8 +1242,10 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
   const realSet = global.styleProbeSet_;
   let cues = [], flags = [];
   const withCueSeen = [];
+  const saidTexts = [];
   global.ttsChunkTry_ = function (text, style, voice, withCue) {
     cues.push(String(style || ''));
+    saidTexts.push(String(text || ''));
     withCueSeen.push(withCue);
     return Buffer.alloc(24000 * 2 * 8).toString('base64');   // ~۸ ثانیه در هر تکه
   };
@@ -1369,7 +1371,68 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
        ساخت»، و متنِ `soulWhy` عوض می‌شد. همان تلهٔ ۷٫۸۹ — نشتِ تنظیم از یک
        بلوک به بلوکِ بعد — این بار با یک Script Property. */
     props_().deleteProperty(PK.TTS_CUE_DROP_AT);
-    const q2 = vbrRead_(); q2.items = []; vbrSave_(q2);
+  }
+
+  /* ══ ۲۴.۱۷ — نمونه‌ای که برای داوریِ **لحن** است، باید لحن داشته باشد ══
+   * ۸.۰۸ نشانه‌گذاریِ لحن را آورد، و این نمونه از متنِ **ذخیره‌شدهٔ** قسمت
+   * ساخته می‌شود — متنی که پیش از ۸.۰۸ نوشته شده و آن نشانه‌ها را ندارد،
+   * چون تا دیروز از `verifySpeak_` نمی‌گذشتند. بی این مرحله، نمونهٔ «لحن»
+   * همان متنِ صافِ دیروز را می‌خواند: ۷.۸۶ عیناً — شناسه‌ای که پارامترِ
+   * زیرِ سنجش را در خودش ندارد.
+   *
+   * ادعا رفتاری است: **متنی که به گفتارساز رسید** نشانهٔ گویا دارد. */
+  {
+    const qM = vbrRead_(); qM.items = []; vbrSave_(qM);
+    const realGem = global.geminiText_;
+    let askedMk = 0;
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem ? realGem.apply(null, arguments) : null;
+      }
+      askedMk++;
+      /* همان واژه‌ها، فقط نشانه‌گذاری‌شده — پس از `verifySpeak_` می‌گذرد.
+         آخرین نقطهٔ هر جمله به «؟» و «!» و «…» و «—» عوض می‌شود. */
+      const src = String(pr).split('\n\n').pop();
+      let n = 0;
+      const out = src.replace(/\./g, () => ['!', '؟', '…', '.'][(n++) % 4]);
+      return { t: out };
+    };
+    saidTexts.length = 0;
+    const rP = runVoiceSoulTest();
+    const prMk = speakProsody_(saidTexts.join(' '));
+    ok('۲۴.۱۷ متنی که به گفتارساز رسید نشانهٔ لحن دارد، نه فقط نقطه',
+       askedMk === 1 && prMk.rich > 0 && prMk.kinds >= 2,
+       'پرسش: ' + askedMk + ' · گویا=' + prMk.rich + ' · انواع=' + prMk.kinds +
+       ' · ' + JSON.stringify(prMk.has) + ' — بی این، نمونهٔ «لحن» متنِ صافِ ' +
+       'دیروز را می‌خواند و چیزی را که نامش را دارد نمی‌سنجد');
+    /* ۲۴.۱۷-ب با شکستنِ عمدی روی ۲۴.۳ نشست، نه روی خودش (§۲۴ زودتر می‌دود و
+       «نمونه ساخته شد» را از قبل می‌پرسد). ثبت می‌شود، نه ادعا (۷٫۷۴). */
+    ok('۲۴.۱۷-ب و نمونه ساخته شد — نشانه‌گذاری جلوِ ساخت را نمی‌گیرد',
+       !!(rP && rP.ok === true && rP.seconds > 20),
+       JSON.stringify({ ok: rP && rP.ok, sec: rP && rP.seconds, why: rP && rP.why }));
+
+    /* و وقتی ترمیم نگیرد، نمونه همان‌طور ساخته می‌شود و پیام می‌گویدش —
+       سکوت این‌جا یعنی او فایلی می‌گیرد و نمی‌داند لحنش نیامده (۷.۷۹). */
+    const qN = vbrRead_(); qN.items = []; vbrSave_(qN);
+    global.geminiText_ = function (pq) {
+      if (String(pq).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem ? realGem.apply(null, arguments) : null;
+      }
+      /* نشانه‌دار **و** واژه‌عوض‌شده: اگر سدِ `verifySpeak_` برداشته شود این
+         متن می‌نشیند و `گویا` بالا می‌رود، پس این سنجه همان سد را می‌سنجد و
+         نه فقط «زمین نخوردن». و کوتاه نیست، وگرنه ۲۴.۳ زودتر سرخ می‌شود. */
+      return { t: ('واژه‌هایِ کاملاً دیگری که از سدِ وارسی نمی‌گذرند! ' +
+                   'و این جملهٔ دوم هم همان‌قدر بیگانه است؟ ' +
+                   'سومی — که هیچ ربطی ندارد — تمام… ').repeat(40) };
+    };
+    saidTexts.length = 0;
+    const rQ = runVoiceSoulTest();
+    const prNo = speakProsody_(saidTexts.join(' '));
+    ok('۲۴.۱۷-پ جوابِ ردشده نمونه را زمین نمی‌زند — متنِ قسمت همان‌طور خوانده می‌شود',
+       !!(rQ && rQ.ok === true) && prNo.rich === 0,
+       JSON.stringify({ ok: rQ && rQ.ok, gooya: prNo.rich }));
+    global.geminiText_ = realGem;
+    const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
     runVoiceSoulTest();          // ردیفِ صف را برای سنجه‌های بعدی بازمی‌سازد
     props_().deleteProperty(PK.TTS_CUE_DROP_AT);
   }
