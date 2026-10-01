@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.15
+ *  موتور محتوا و پادکست — نسخهٔ 8.16
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1544,7 +1544,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.15',
+  CODE_VERSION: '8.16',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -23360,10 +23360,17 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبت انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiPinCategory(c,a);}');
-  H.push('function lvStyle(sel){var k=sel.dataset.key,v=sel.value;' +
+  /* هر دو جعبه یک تابع را صدا می‌زنند و **هر بار هر دو مقدار** می‌روند:
+     فرستادنِ فقط آنکه عوض شده یعنی سرور باید حدس بزند آن‌یکی چه بود، و
+     حدسِ سرور همان جایی است که انتخابِ او بی‌صدا پاک می‌شود (۷٫۵۹). */
+  H.push('function lvStyle(sel){var k=sel.dataset.key;' +
+         'var row=sel.closest("td");' +
+         'var b=row.querySelector(\'select[data-role="base"]\');' +
+         'var m=row.querySelector(\'select[data-role="motif"]\');' +
+         'var v=(b?b.value:""),mv=(m?m.value:"");' +
          'busy();say("ثبتِ سبکِ تصویر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
-         '.uiLvStyleSave(k,v);}');
+         '.uiLvStyleSave(k,v,mv);}');
   H.push('function lvLevel(sel){var k=sel.dataset.key,v=sel.value;' +
          'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -24276,14 +24283,32 @@ function lvStyleCell_(x) {
   var cur = String((x && x.lvStyle) || '');
   var list = [];
   try { list = LV_STYLES || []; } catch (e) { list = []; }
-  var opts = ['<option value=""' + (cur ? '' : ' selected') + '>خودکار (از موضوع)</option>'];
+
+  /* ══ «چی با چی» — دو جعبه، نه یک برچسب (۸٫۱۶) ══
+     او «ترکیبی» را زد و گفت «فکر کردم میشه انتخاب کرد ترکیبی یعنی چی با
+     چی». پس همان می‌شود: جعبهٔ اول **رنگ و فضا**، جعبهٔ دوم **نقش و قاب**.
+     ذخیره‌اش «الف + ب» است و `lvStyleOf_` همان را می‌خوانَد. */
+  var base = cur, motif = '';
+  var two = null;
+  try { two = lvStyleSplit_(cur); } catch (eS) { two = null; }
+  if (two) { base = two.a; motif = two.b; }
+
+  var isAuto = (!cur || lvStyleNorm_(cur) === lvStyleNorm_('خودکار'));
+  var opts = ['<option value="خودکار"' + (isAuto ? ' selected' : '') +
+              '>خودکار — از موضوعِ مجموعه</option>'];
   var pal = null;
   for (var i = 0; i < list.length; i++) {
     var k = String(list[i].key || '');
-    var on = (k === cur);
+    var on = (!isAuto && k === base);
     if (on) pal = list[i].pal;
     opts.push('<option value="' + bEsc_(k) + '"' + (on ? ' selected' : '') + '>' +
               bEsc_(k) + '</option>');
+  }
+  var mo = ['<option value=""' + (motif ? '' : ' selected') + '>— بی نقشِ اضافه</option>'];
+  for (var j = 0; j < list.length; j++) {
+    var k2 = String(list[j].key || '');
+    mo.push('<option value="' + bEsc_(k2) + '"' + (k2 === motif ? ' selected' : '') +
+            '>' + bEsc_(k2) + '</option>');
   }
   if (!pal && list.length) pal = list[0].pal;
   var sw = '';
@@ -24292,11 +24317,17 @@ function lvStyleCell_(x) {
          '<span class="sw" style="background:' + bEsc_(String(pal.fg)) + '"></span>' +
          '<span class="sw" style="background:' + bEsc_(String(pal.ac)) + '"></span>';
   }
+  var note = isAuto ? 'خودکار — هر شب از موضوع'
+                    : (motif ? ('رنگ از «' + base + '» · نقش از «' + motif + '»')
+                             : base);
+  var kk = bEsc_(String(x.key));
   return '<td class="sty">' +
-         '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvStyle(this)">' +
+         '<select data-key="' + kk + '" data-role="base" onchange="lvStyle(this)">' +
          opts.join('') + '</select>' +
-         '<div class="sub">' + sw +
-         (cur ? ' ' + bEsc_(cur) : ' خودکار') + '</div></td>';
+         '<div class="sub">+ نقش: <select data-key="' + kk +
+         '" data-role="motif" onchange="lvStyle(this)">' + mo.join('') +
+         '</select></div>' +
+         '<div class="sub">' + sw + ' ' + bEsc_(note) + '</div></td>';
 }
 
 /**
@@ -24319,22 +24350,30 @@ function lvLevelCell_(x) {
   }
   var def = 'کم';
   try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD) { def = 'کم'; }
+  /* برچسب **نتیجه** را می‌گوید، نه اندازه را: «کم/زیاد» برای کسی که نمی‌داند
+     لایهٔ ۳ چیست هیچ معنایی ندارد — خودِ صاحبِ برنامه جلوِ همین منو گفت
+     «کلماتِ کلیشه‌ای و گنگی هستن». مقدارِ ذخیره‌شده عوض نشده (همان
+     خاموش/کم/زیاد که `lvLevelOf_` می‌خوانَد)؛ فقط متنِ دیده‌شده. */
+  var lab = function (k) {
+    var w = '';
+    try { w = lvLevelWhat_(k); } catch (eW) { w = ''; }
+    return k + (w ? ' — ' + w : '');
+  };
   var opts = ['<option value=""' + (cur ? '' : ' selected') + '>پیش‌فرض (' +
-              bEsc_(def) + ')</option>'];
+              bEsc_(lab(def)) + ')</option>'];
   for (var i = 0; i < list.length; i++) {
     var k = String(list[i] || '');
     opts.push('<option value="' + bEsc_(k) + '"' + (k === cur ? ' selected' : '') +
-              '>' + bEsc_(k) + '</option>');
+              '>' + bEsc_(lab(k)) + '</option>');
   }
   /* حالِ لایهٔ ۳ در همان خانه، نه در یک نامهٔ دیگر: اگر خاموش باشد، «زیاد»
      و «کم» امروز هر دو یعنی کارتِ برداری و بس. */
   var gen = false;
   try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
   var eff = String(cur || def);
-  var note = (eff === 'خاموش')
-    ? 'بی کارت — ویدئو تک‌تصویری'
-    : (gen ? 'کارت + نقاشیِ ساخته‌شده'
-           : '⚠️ کارتِ برداری تنها — نقاشیِ ساخته‌شده خاموش است');
+  var note = '';
+  try { note = lvLevelWhat_(eff, gen); } catch (eN) { note = ''; }
+  if (!gen && eff !== 'خاموش') note = '⚠️ ' + note;
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
          opts.join('') + '</select>' +
@@ -24346,20 +24385,39 @@ function lvLevelCell_(x) {
  * برگردانده می‌شود — نه اینکه بی‌صدا پیش‌فرض بنشیند: خانه‌ای که حرفِ کاربر را
  * بی‌صدا عوض کند، او را به این باور می‌رساند که چیزی را تنظیم کرده.
  */
-function uiLvStyleSave(key, style) {
+function uiLvStyleSave(key, style, motif) {
   try {
     var k = String(key || '').trim();
     var v = String(style == null ? '' : style).trim();
+    /* `undefined` یعنی «تخته این را نفرستاده» و خانه باید دست‌نخورده بمانَد؛
+       رشتهٔ خالی یعنی «نقشی نمی‌خواهم» و باید پاکش کند. یکی‌گرفتنشان همان
+       باگی است که ۷٫۵۹ نوشت. */
+    var mv = (motif === undefined || motif === null) ? null : String(motif).trim();
     if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
     var names = [];
     try {
       for (var i = 0; i < LV_STYLES.length; i++) names.push(String(LV_STYLES[i].key));
     } catch (eL) {}
-    if (v && names.indexOf(v) === -1) {
+    var isAuto = !v || lvStyleNorm_(v) === lvStyleNorm_('خودکار');
+    if (!isAuto && names.indexOf(v) === -1) {
       boardReceipt_(false, 'سبکِ ناشناخته', ['سبک‌های مجاز: ' + names.join(' · ')]);
       return { ok: false, message: 'سبکِ «' + v + '» را نمی‌شناسم. مجازها: ' +
                                    names.join(' · ') };
     }
+    if (mv && names.indexOf(mv) === -1) {
+      boardReceipt_(false, 'نقشِ ناشناخته', ['نقش‌های مجاز: ' + names.join(' · ')]);
+      return { ok: false, message: 'نقشِ «' + mv + '» را نمی‌شناسم. مجازها: ' +
+                                   names.join(' · ') };
+    }
+    /* نقش روی «خودکار» معنا ندارد: پایه هنوز معلوم نیست، پس ترکیبی هم
+       نیست. رد می‌شود با اسم، نه اینکه بی‌صدا دور انداخته شود. */
+    if (isAuto && mv) {
+      boardReceipt_(false, 'نقش روی «خودکار» نمی‌نشیند',
+        ['اول یک سبکِ پایه انتخاب کنید، بعد نقش را رویش بگذارید.']);
+      return { ok: false, message: 'برای ترکیب، اول سبکِ پایه را انتخاب کنید.' };
+    }
+    if (isAuto) v = 'خودکار';
+    else if (mv) v = v + ' + ' + mv;
     var hub = getHub_();
     var reg = readSeriesReg_(hub);
     var row = reg.byKey[k];
@@ -24370,13 +24428,19 @@ function uiLvStyleSave(key, style) {
        ۷.۹۹ بندِ ۲ همین را نوشت: تعویضِ سبک بی پاک‌کردنِ کارت‌ها یعنی کارتِ
        دوپاره — نیمی با سبکِ تازه، نیمی با تصویرِ سبکِ قبلی. `lvBuild_` خودش
        با دیدنِ تفاوتِ سبک از نو می‌سازد، پس اینجا فقط گفته می‌شود. */
+    /* رسید می‌گوید ترکیب **یعنی چه**، نه فقط اینکه ثبت شد: «الف + ب» برای
+       کسی که تازه انتخابش کرده هیچ نمی‌گوید تا وقتی نقشِ هر تکه گفته نشود. */
+    var what = isAuto
+      ? 'خودکار — هر شب از موضوعِ مجموعه انتخاب می‌شود و ثابت نمی‌مانَد'
+      : (mv ? ('رنگ و فضا از «' + style + '» · نقش و قاب از «' + mv + '»')
+            : ('سبک: ' + v));
     boardReceipt_(true, 'سبکِ تصویرِ «' + nm + '» ثبت شد',
-      [v ? ('سبک: ' + v) : 'خودکار — موتور از موضوعِ مجموعه انتخاب می‌کند',
+      [what,
        'کارت‌ها و کاورِ قسمت‌های بعدی با همین سبک ساخته می‌شوند. برای قسمتی ' +
        'که از قبل ساخته شده، از منو «🖼 بازسازیِ تصویرهای یک قسمت» را بزنید.']);
-    return { ok: true, message: v
-      ? ('سبکِ «' + nm + '» شد «' + v + '».')
-      : ('سبکِ «' + nm + '» به انتخابِ خودکار برگشت.') };
+    return { ok: true, message: isAuto
+      ? ('سبکِ «' + nm + '» به انتخابِ خودکار برگشت.')
+      : ('سبکِ «' + nm + '» شد «' + v + '».') };
   } catch (e) {
     boardReceipt_(false, 'ثبتِ سبک نشد', [e.message]);
     return { ok: false, message: 'ثبتِ سبک نشد: ' + e.message };
@@ -24418,20 +24482,17 @@ function uiLvLevelSave(key, level) {
     var def = 'کم';
     try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD2) { def = 'کم'; }
     var eff = v || def;
-    var notes = [v ? ('سطح: ' + v) : ('پیش‌فرض — یعنی «' + def + '»')];
-    if (eff === 'خاموش') {
-      notes.push('هیچ کارتی ساخته نمی‌شود؛ ویدئوی این مجموعه همان کاورِ ' +
-                 'تک‌تصویری می‌مانَد.');
-    } else {
-      var gen = false;
-      try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
-      notes.push(gen
-        ? 'کارتِ برداری + نقاشیِ ساخته‌شده در نقاطِ کلیدی.'
-        : '⚠️ «' + eff + '» نقاشیِ ساخته‌شده می‌خواهد و آن لایه الان ' +
-          '**خاموش** است، پس امروز فقط کارتِ برداری درمی‌آید. از منوی ' +
-          '«موتور محتوا» گزینهٔ «🎨 تصویرِ ساخته‌شده: روشن/خاموش» روشنش ' +
-          'می‌کند؛ سقفِ ماهانه ' +
-          faDigitsOut_(String(Number(CFG.LV_GEN_USD_MONTH) || 0)) + ' دلار است.');
+    var gen = false;
+    try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
+    /* رسید و جعبه از **یک** تعریف می‌خوانند؛ دو متن برای یک معنا یعنی روزی
+       منو چیزی بگوید که رسید نقضش می‌کند. */
+    var notes = [(v ? ('سطح: ' + v) : ('پیش‌فرض — یعنی «' + def + '»')) +
+                 ' — ' + lvLevelWhat_(eff, gen)];
+    if (eff !== 'خاموش' && !gen) {
+      notes.push('⚠️ نقاشیِ ساخته‌شده الان **خاموش** است، پس امروز فقط کارتِ ' +
+                 'متنی درمی‌آید. از منوی «موتور محتوا» گزینهٔ ' +
+                 '«🎨 تصویرِ ساخته‌شده: روشن/خاموش» روشنش می‌کند؛ سقفِ ماهانه ' +
+                 faDigitsOut_(String(Number(CFG.LV_GEN_USD_MONTH) || 0)) + ' دلار است.');
     }
     notes.push('قسمت‌های بعدی با همین سطح ساخته می‌شوند. برای قسمتی که از ' +
                'قبل ساخته شده، از منو «🖼 بازسازیِ تصویرهای یک قسمت» را بزنید.');
@@ -43216,6 +43277,51 @@ function lvStyleFind_(v) {
 function lvStyleDefault_() { return LV_STYLES[0]; }
 
 /**
+ * ══ «ترکیبی» یک برچسب بود، نه یک ترکیب (۸٫۱۶) ══
+ *
+ * صاحبِ برنامه «ترکیبی» را زد و گفت: «فکر کردم یه جوری میشه انتخاب کرد
+ * ترکیبی یعنی چی با چی». درست دید — و بدتر از آن: `mix: true` روی آن سبک
+ * **هیچ‌جا خوانده نمی‌شد**. سنجهٔ ۳۵.۲ هم فقط وجودِ همان فیلد را تأیید
+ * می‌کرد، یعنی سنجه‌ای که یک برچسبِ توخالی را قفل کرده بود (۷٫۶۸). پس
+ * «ترکیبی» عملاً فقط یک ظاهرِ ثابتِ دهم بود: `frame: 'motif'` با پالتِ خودش.
+ *
+ * ترکیبِ واقعی وقتی معنا دارد که دو **نقش** جدا داشته باشد، نه دو سبکِ هنریِ
+ * رقیب — و همان استدلالِ قدیمی («دو سبک در یک ویدئو ناهم‌خوان می‌شود») فقط
+ * دربارهٔ حالتِ دوم درست بود. پس:
+ *     رنگ و فضا از سبکِ **اول**، نقش و قاب از سبکِ **دوم**.
+ * این دقیقاً همان «کارتِ تمیز + نقشِ مجموعه»ای است که `hint`ِ «ترکیبی» از
+ * روزِ اول وعده‌اش را داده بود و هیچ کدی اجرایش نمی‌کرد.
+ */
+function lvStyleCompose_(a, b) {
+  if (!a || !b) return null;
+  return {
+    key: a.key + ' + ' + b.key,
+    pal: a.pal,                 // رنگ و فضا از اولی
+    frame: b.frame,             // نقش و قاب از دومی
+    photo: a.photo === true,    // «عکسِ واقعی» بودن مالِ پایه است، نه نقش
+    composed: true,
+    base: a.key, motif: b.key,
+    hint: 'رنگ از «' + a.key + '»، نقش از «' + b.key + '»',
+    gen: String(a.gen || '') +
+         (b.gen ? '؛ با نقش‌مایهٔ ' + String(b.gen) : '')
+  };
+}
+
+/** «الف + ب» را به دو تکهٔ پاک‌شده می‌شکند. `null` یعنی ترکیب نیست. */
+function lvStyleSplit_(v) {
+  var s = String(v === null || v === undefined ? '' : v);
+  /* «ترکیبی: الف + ب» هم پذیرفته می‌شود، چون روی تخته همین شکل ذخیره
+     می‌شود و خواندنِ فقط یک شکل یعنی خانهٔ دست‌نویس بی‌صدا رد شود. */
+  s = s.replace(/^\s*ترکیبی\s*[:：]\s*/, '');
+  if (s.indexOf('+') === -1) return null;
+  var p = s.split('+');
+  if (p.length !== 2) return null;
+  var a = p[0].trim(), b = p[1].trim();
+  if (!a || !b) return null;
+  return { a: a, b: b };
+}
+
+/**
  * پیشنهادِ خودِ موتور، از دسته و موضوعِ همان مجموعه.
  * **هیچ فراخوانِ مدلی این‌جا نیست** — «نمیخوام هزینه کار و توکن بالا بره».
  */
@@ -43250,9 +43356,34 @@ function lvStyleOf_(vals) {
          در طرح نوشته شده: ناهم‌خوانی به چشمِ بیننده «اشتباه» می‌آید نه
          «تنوع». و خانه‌ای که خوانده نشود یعنی انتخابی که او کرده و بی‌صدا
          نخواهد گرفت (۷٫۴۱). */
-      if (raw.indexOf('+') !== -1) {
-        out.bad = 'دو سبک با «+» («' + raw + '») — دو سبکِ هنری در یک ویدئو ' +
-                  'ناهم‌خوان می‌شود. برای ترکیب، «ترکیبی» را بنویسید.';
+      /* ══ «خودکار» حالا یک **انتخاب** است، نه خانهٔ خالی (۸٫۱۶) ══
+         جعبهٔ تخته گزینهٔ «خودکار» داشت و مقدارش رشتهٔ خالی بود — و
+         `lvStyleAudit_` هر شب خانهٔ خالی را با پیشنهادِ regex پر می‌کند.
+         یعنی «خودکار» حداکثر یک شب دوام می‌آورد و بعد بی‌صدا به یک مقدارِ
+         ثابت تبدیل می‌شد. انتخابی که خودش را نگه ندارد، انتخاب نیست. */
+      if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) {
+        var sa = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
+                                 String((vals || [])[SC.TOPIC - 1] || ''),
+                                 String((vals || [])[SC.NAME - 1] || ''));
+        out.style = lvStyleFind_(sa) || lvStyleDefault_();
+        out.key = out.style.key; out.src = 'خودکار';
+        return out;
+      }
+      var two = lvStyleSplit_(raw);
+      if (two) {
+        /* ترکیبِ واقعی: رنگ از اولی، نقش از دومی. تکهٔ ناشناخته **با اسم**
+           رد می‌شود و می‌گوید کدام تکه بد بود — «یکی از این دو» برای کسی که
+           باید درستش کند، نصفِ جواب است. */
+        var fa = lvStyleFind_(two.a), fb = lvStyleFind_(two.b);
+        if (fa && fb) {
+          var cmp = lvStyleCompose_(fa, fb);
+          if (cmp) { out.style = cmp; out.key = cmp.key; out.src = 'ترکیبِ خودتان'; return out; }
+        }
+        out.bad = 'ترکیبِ «' + raw + '» خوانده نشد — ' +
+                  (!fa ? 'تکهٔ اول («' + two.a + '») ' : '') +
+                  (!fb ? 'تکهٔ دوم («' + two.b + '») ' : '') +
+                  'شناخته نشد. مجازها: ' +
+                  LV_STYLES.map(function (x) { return x.key; }).join(' / ');
       } else {
         var f = lvStyleFind_(raw);
         if (f) { out.style = f; out.key = f.key; out.src = 'ردیفِ خودش'; return out; }
@@ -44837,6 +44968,36 @@ function ytMarkSpec_() {
  * پرونده بارها نوشته که «گیتی که آدم باید بازش کند، گیت نیست».
  * نوشتهٔ ناخوانا هم «کم» است، نه خطا: یک غلطِ تایپی نباید قسمت را بی‌تصویر کند.
  */
+/**
+ * ══ «کم» و «زیاد» چیزی به کسی نمی‌گویند (۸٫۱۶) ══
+ *
+ * صاحبِ برنامه جلوِ همین منو ایستاد و گفت: «کم و زیاد و خاموش کلماتِ
+ * کلیشه‌ای و گنگی هستن». حق داشت — اینها **اندازه** را می‌گویند، نه
+ * **نتیجه** را، و کسی که نمی‌داند لایهٔ ۳ چیست از «زیاد» هیچ نمی‌فهمد.
+ *
+ * یک تعریف، و هر سه جا از همین می‌خوانند: جعبهٔ تخته، رسیدِ ثبت، و خطِ
+ * روزانه. دو متنِ جدا برای یک معنا یعنی روزی یکی کهنه می‌شود و منو چیزی
+ * می‌گوید که رسید نقضش می‌کند.
+ *
+ * و **وضعیتِ امروزِ لایهٔ ۳ در متن می‌آید**، چون «زیاد» وقتی نقاشی خاموش
+ * است یک وعدهٔ توخالی است و همان شکایتِ «مثل روزهای قبل» را می‌سازد.
+ */
+function lvLevelWhat_(level, gen) {
+  var g = (gen === undefined) ? null : !!gen;
+  if (g === null) { try { g = lvGenOn_() === true; } catch (e) { g = false; } }
+  var s = String(level || '');
+  if (s === 'خاموش') return 'بدونِ کارت — ویدئو همان کاورِ ثابت می‌مانَد';
+  if (s === 'زیاد') {
+    return g ? 'برای هر کارت یک تصویرِ ساخته‌شده'
+             : 'برای هر کارت یک تصویرِ ساخته‌شده — ولی الان فقط کارتِ متنی (نقاشی خاموش)';
+  }
+  if (s === 'کم') {
+    return g ? 'کارتِ متنی + چند تصویرِ ساخته‌شده در نقاطِ کلیدی'
+             : 'کارتِ متنی + چند تصویرِ ساخته‌شده — ولی الان فقط کارتِ متنی (نقاشی خاموش)';
+  }
+  return '';
+}
+
 function lvLevelOf_(vals) {
   var def = String(CFG.LV_LEVEL_DEFAULT || 'کم');
   try {

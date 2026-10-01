@@ -435,9 +435,20 @@ console.log('\n══ ۱۰) جعبهٔ سطحِ تصویرسازی — درِ د
       global.boardReceipt_ = realRc;
     }
     const joined = seen ? seen.lines.join(' ⏎ ') : '';
-    ok('۱۰.۴ با لایهٔ ۳ خاموش، رسید می‌گوید «کم» امروز فقط کارتِ برداری است',
+    ok('۱۰.۴ با لایهٔ ۳ خاموش، رسید می‌گوید «کم» امروز فقط کارتِ متنی است',
+       /* نگارشِ اول دنبالِ «کارتِ برداری» می‌گشت — یعنی عبارتی که خودم
+          تایپ کرده بودم. ۸.۱۶ متن را به «کارتِ متنی» عوض کرد و سنجه روی
+          کدِ **درست** سرخ شد: ادعایی که با نثرِ نویسنده‌اش سنجیده شود،
+          حافظهٔ او را می‌سنجد نه کد را (۷.۶۹). حالا سه چیزِ **معنادار**
+          خواسته می‌شود: خاموش‌بودن گفته شود، سقفِ واقعی بیاید، و نامِ همان
+          گزینهٔ منو که باید بزند — و نامِ گزینه از منبعِ منو خوانده می‌شود. */
        !!(r2 && r2.ok === true) && !!seen && seen.ok === true &&
-       /خاموش/.test(joined) && /کارتِ برداری/.test(joined) &&
+       /خاموش/.test(joined) &&
+       (() => {
+         const ms = fs.readFileSync('src/05_Setup.gs', 'utf8');
+         const mi = ms.match(/\.addItem\(\s*'([^']*)'\s*,\s*'runLvGenToggle'\s*\)/);
+         return !!mi && joined.indexOf(mi[1]) !== -1;
+       })() &&
        joined.indexOf(faDigitsOut_(String(CFG.LV_GEN_USD_MONTH))) !== -1,
        JSON.stringify({ r: r2 }) + ' · رسید: ' + joined.slice(0, 220) +
        ' — سطحی که عوض شود و ویدئو عوض نشود، همان شکایتِ امروز است');
@@ -460,6 +471,98 @@ console.log('\n══ ۱۰) جعبهٔ سطحِ تصویرسازی — درِ د
        page.indexOf('.uiLvLevelSave(') !== -1,
        'fn=' + (typeof uiLvLevelSave) +
        ' · call=' + (page.indexOf('.uiLvLevelSave(') !== -1));
+  }
+}
+
+console.log('\n══ ۱۱) «چی با چی» و برچسبی که نتیجه را بگوید (۸.۱۶) ══');
+/* دو ایرادِ خودش، جلوِ همین تخته:
+   «فکر کردم یه جوری میشه انتخاب کرد ترکیبی یعنی چی با چی» — و «ترکیبی»
+   تا دیروز یک ظاهرِ ثابت بود که `mix: true`اش هیچ‌جا خوانده نمی‌شد.
+   «کم و زیاد و خاموش کلماتِ کلیشه‌ای و گنگی هستن» — و بودند: اندازه را
+   می‌گفتند، نه نتیجه را. */
+{
+  const hub = getHub_();
+  {
+    const sh = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = 'mix-test';
+    v[SC.NAME - 1] = 'مجموعهٔ آزمونِ ترکیب';
+    v[SC.STATUS - 1] = SST.ACTIVE;
+    sh.appendRow(v);
+  }
+  const k = 'mix-test';
+
+  /* و ادعا از همان دری که تولید وارد می‌شود: ذخیره از تخته، بعد پرسش از
+     `lvStyleAt_` — نه بازخوانیِ خودِ تخته (۷.۳۵). */
+  const r1 = uiLvStyleSave(k, 'نقشِ ایرانی', 'چاپِ قدیمی');
+  const seen = lvStyleAt_(getHub_(), { seriesKey: k }, {});
+  const st = lvStyleFind_(seen) || lvStyleOf_(readSeriesReg_(getHub_()).byKey[k].vals).style;
+  ok('۱۱.۱ ترکیبِ انتخابیِ خودش ذخیره می‌شود و تولید همان را می‌بیند',
+     !!(r1 && r1.ok === true) && seen.indexOf('نقشِ ایرانی') !== -1 &&
+     seen.indexOf('چاپِ قدیمی') !== -1,
+     JSON.stringify({ r: r1, seen: seen }));
+
+  /* و واقعاً **ترکیب** است، نه یک نامِ طولانی: رنگ از اولی، نقش از دومی. */
+  {
+    const comp = lvStyleOf_(readSeriesReg_(getHub_()).byKey[k].vals);
+    ok('۱۱.۱-ب و ترکیب یعنی رنگ از اولی و نقش از دومی',
+       comp.style.composed === true &&
+       comp.style.pal === lvStyleFind_('نقشِ ایرانی').pal &&
+       comp.style.frame === lvStyleFind_('چاپِ قدیمی').frame,
+       JSON.stringify({ key: comp.key, frame: comp.style.frame,
+                        base: comp.style.base, motif: comp.style.motif }));
+  }
+
+  /* نقش روی «خودکار» رد می‌شود **با اسم**: پایه هنوز معلوم نیست، پس ترکیبی
+     هم نیست — و انتخابی که بی‌صدا دور انداخته شود همان ۷.۴۱ است. */
+  const au = uiLvStyleSave(k, 'خودکار', 'چاپِ قدیمی');
+  ok('۱۱.۲ نقش روی «خودکار» رد می‌شود و دلیلش گفته می‌شود',
+     !!(au && au.ok === false) && /پایه/.test(String(au.message)),
+     JSON.stringify({ r: au }));
+
+  /* «خودکار» باید **دوام بیاورد**: خانهٔ خالی را `lvStyleAudit_` هر شب پر
+     می‌کند، پس اگر خالی ذخیره شود انتخابِ او یک شب بیشتر زنده نمی‌مانَد. */
+  {
+    uiLvStyleSave(k, 'خودکار', '');
+    const raw = String(readSeriesReg_(getHub_()).byKey[k].vals[SC.LVSTYLE - 1] || '');
+    const before = raw;
+    lvStyleAudit_(getHub_());
+    const after = String(readSeriesReg_(getHub_()).byKey[k].vals[SC.LVSTYLE - 1] || '');
+    ok('۱۱.۳ «خودکار» خالی ذخیره نمی‌شود و سوئیپِ شبانه رویش نمی‌نویسد',
+       before !== '' && after === before,
+       JSON.stringify({ before: before, after: after }) +
+       ' — خالی یعنی «دست نخورده» و هر شب با پیشنهاد پر می‌شود');
+  }
+
+  /* و برچسب‌ها: مقدارِ ذخیره‌شده همان خاموش/کم/زیاد می‌مانَد (وگرنه
+     `lvLevelOf_` نمی‌شناسدش) ولی متنی که او می‌بیند باید **نتیجه** را
+     بگوید. فهرست از `CFG.LV_LEVELS` خوانده می‌شود نه دست‌نویس، وگرنه سطحِ
+     چهارمی که فردا اضافه شود این سنجه را سبز می‌گذارد (۷.۵۹). */
+  {
+    const page = seriesBoardHtml_(seriesBoardData_(getHub_()));
+    const miss = (CFG.LV_LEVELS || []).filter((lv) => {
+      const w = lvLevelWhat_(lv);
+      return page.indexOf('value="' + lv + '"') === -1 ||
+             (w && page.indexOf(w) === -1);
+    });
+    ok('۱۱.۴ هر سطح با توضیحِ نتیجه‌اش روی تخته می‌آید، نه فقط «کم/زیاد»',
+       miss.length === 0 && (CFG.LV_LEVELS || []).length > 0,
+       miss.length ? 'بی‌توضیح: ' + miss.join('، ')
+                   : (CFG.LV_LEVELS || []).map((x) => x + '=' + lvLevelWhat_(x)).join(' · ').slice(0, 200));
+
+    /* و جعبهٔ دومِ سبک («+ نقش») واقعاً رندر می‌شود و هر دو جعبه نقشِ خود را
+       اعلام می‌کنند — بی `data-role` کدِ صفحه نمی‌داند کدام کدام است و
+       دکمه بی‌صدا مقدارِ غلط می‌فرستد (۵.۶۱/۷.۴۳). */
+    /* ⚠️ الگو باید **کلِ مقدار** را بگیرد، نه پیشوندش: نگارشِ اول
+       `/data-role="motif"/` بود و شکستنِ عمدی (`motif` ⇒ `motifX`) هیچ‌جا
+       ننشست، چون رشتهٔ بلندتر همان پیشوند را در خود دارد. دقیقاً تلهٔ
+       `pt"+i`ِ ۷.۸۱. نقلِ‌قولِ بسته، همان یک نویسه‌ای است که فرق می‌کند. */
+    const hasRole = (r) => page.indexOf('data-role="' + r + '"') !== -1;
+    ok('۱۱.۵ هر دو جعبهٔ سبک روی تخته‌اند و نقششان اعلام شده',
+       hasRole('base') && hasRole('motif') &&
+       page.indexOf('.uiLvStyleSave(k,v,mv)') !== -1,
+       'base=' + hasRole('base') + ' · motif=' + hasRole('motif') +
+       ' · call=' + (page.indexOf('.uiLvStyleSave(k,v,mv)') !== -1));
   }
 }
 
