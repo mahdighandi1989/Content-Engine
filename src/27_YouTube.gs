@@ -282,7 +282,18 @@ var YT_META_SCHEMA = {
       items: { type: 'array', items: { type: 'string' } },    // «تمرکز»: ۲ تا ۳ اصطلاح
       terms: { type: 'string' },       // واژه‌های جست‌وجوی تصویر، انگلیسی
       caption: { type: 'string' }      // زیرنویسِ جزوه، فارسی
-    } } }
+    } } },
+    /* ══ ظاهرِ این درس را خودِ مدل انتخاب می‌کند (۸٫۱۸) ══
+     * روی همین فراخوان، نه یک فراخوانِ تازه: مدل همین الان عنوان و خلاصه و
+     * تصویرهای این درس را می‌نویسد، یعنی تنها جایی در کلِ موتور که **هم
+     * موضوعِ مجموعه را می‌داند و هم متنِ همین قسمت را خوانده**. چند ده
+     * توکنِ خروجیِ بیشتر، و هیچ هزینهٔ تازه‌ای. */
+    look: { type: 'object', properties: {
+      level: { type: 'string' },       // خاموش | کم | زیاد
+      base:  { type: 'string' },       // رنگ و فضا — یکی از سبک‌های فهرست
+      motif: { type: 'string' },       // نقش و قاب — یکی از سبک‌ها، یا خالی
+      why:   { type: 'string' }        // یک جملهٔ کوتاهِ فارسی
+    } }
   },
   required: ['title', 'coverTitle', 'hookLine', 'summary', 'tags']
 };
@@ -382,6 +393,43 @@ function ytMetaPrompt_(ctx) {
            ' نویسه.');
     L.push('و یک مرز: تصویری نخواه برای چیزی که خودِ قسمت نگفته است. ' +
            'تصویرِ بی‌ربط از نبودنِ تصویر بدتر است.');
+  }
+
+  /* ══ و کارِ سوم: ظاهرِ این درس ══ */
+  if (ytVisOn_(ctx.show)) {
+    var styles = [], motifs = [];
+    try { styles = LV_STYLES || []; } catch (eS1) { styles = []; }
+    try { motifs = lvMotifs_() || []; } catch (eS2) { motifs = []; }
+    if (styles.length) {
+      L.push('');
+      L.push('و یک کارِ سومِ کوتاه: **ظاهرِ این درس را تو انتخاب کن** — فیلدِ ' +
+             '`look`. صاحبِ برنامه این را خواست: «حسبِ نیاز و ضرورت و تشخیص، ' +
+             'بدونِ وسواسِ هزینه». پس بر اساسِ موضوعِ همین مجموعه و متنِ همین ' +
+             'قسمت تصمیم بگیر، نه بر اساسِ دستهٔ اداریِ آن.');
+      L.push('• level — یکی از «خاموش» / «کم» / «زیاد».');
+      L.push('   «زیاد» = برای هر کارت یک تصویرِ ساخته‌شده. درسی که مفهومِ ' +
+             'تازه و تصویرپذیر دارد، یا بحثش انتزاعی است و تصویر کمکش می‌کند.');
+      L.push('   «کم» = کارتِ متنی + چند تصویر در نقاطِ کلیدی. حالتِ متعارف.');
+      L.push('   «خاموش» = اصلاً کارت نه. فقط وقتی تصویر واقعاً چیزی اضافه ' +
+             'نمی‌کند. کم پیشش بیاید.');
+      L.push('• base — رنگ و فضا. دقیقاً یکی از این‌ها، با همین املا:');
+      for (var sI = 0; sI < styles.length; sI++) {
+        L.push('   «' + String(styles[sI].key) + '» — ' + String(styles[sI].hint || ''));
+      }
+      L.push('• motif — نقش و قاب که **روی** آن رنگ می‌نشیند. یکی از این‌ها، ' +
+             'یا خالی اگر کارتِ ساده بهتر است:');
+      for (var mI = 0; mI < motifs.length; mI++) {
+        L.push('   «' + String(motifs[mI].key) + '» — ' + String(motifs[mI].what || ''));
+      }
+      L.push('   نقشی که از خودِ `base` بیاید همان کارِ `base` را می‌کند، پس ' +
+             'نقش را وقتی بده که واقعاً چیزِ دیگری اضافه کند.');
+      L.push('• why — یک جملهٔ کوتاهِ فارسی: چرا این سه. این جمله خوانده ' +
+             'می‌شود، پس «مناسب است» ننویس؛ بگو چه چیزی در این درس این را ' +
+             'می‌خواهد.');
+      L.push('و یک مرز: اگر صاحبِ برنامه برای این مجموعه سبک یا سطحی را ' +
+             'خودش نوشته باشد، انتخابِ تو نادیده گرفته می‌شود و این درست ' +
+             'است. پس بی‌محابا بهترین انتخابت را بنویس.');
+    }
   }
 
   L.push('');
@@ -2134,6 +2182,87 @@ function lvStyleCompose_(a, b) {
   };
 }
 
+/* ══ نقش‌ها: فهرستی که می‌گوید چه می‌کشد، و هر نقش فقط یک بار (۸٫۱۸) ══
+ * صاحبِ برنامه جلوِ تخته گفت: «اون لیستِ نقش چرا محتواش مثلِ لیستِ بالاییشه؟»
+ * و درست می‌گفت — همان نُه کلید بود با همان برچسب‌ها. دو ایراد در یک جا:
+ *
+ *   • برچسب نمی‌گفت آن سبک **به‌عنوانِ نقش** چه می‌آورد. «ساده و رسمی» در
+ *     جایگاهِ نقش یعنی چه؟ انتخابی که نتیجه‌اش را نشود دید انتخاب نیست —
+ *     همان دلیلی که ۸٫۱۳ برای پیش‌نمایشِ رنگ نوشت.
+ *   • و دو تا از آن نُه تا **اثرِ یکسان** داشتند. `lvStyleCompose_` از نقش
+ *     فقط `frame` را برمی‌دارد؛ `ترکیبی` همان `motif`ِ «نقشِ ایرانی» است و
+ *     «عکسِ واقعی» همان `bar`ِ «ساده و رسمی». یعنی دو گزینه که عوض‌کردنشان
+ *     هیچ تفاوتی در تصویر نمی‌سازد — برچسبِ توخالی، در فهرستی که ۸٫۱۶ عمداً
+ *     برای پایان‌دادن به یک برچسبِ توخالی ساخته بود.
+ *
+ * پس فهرست از روی `frame`های **یکتا** ساخته می‌شود، نه از روی کلیدها. */
+function lvMotifs_() {
+  var what = {
+    bar:      'نوارِ رنگیِ ساده در لبهٔ کارت',
+    hairline: 'خط‌های نازکِ فنی، مثلِ نقشهٔ مهندسی',
+    dashed:   'کادرِ خط‌چین، حالِ تختهٔ درس',
+    motif:    'نقشِ هندسیِ اسلامی و تذهیب در گوشه‌ها',
+    wash:     'لکهٔ آبرنگِ نرم پشتِ متن',
+    rules:    'خط‌کشیِ چاپِ سنگی و بافتِ کاغذِ کهنه',
+    layers:   'لایه‌های کاغذبری با سایهٔ تیز'
+  };
+  var out = [], seen = {};
+  try {
+    for (var i = 0; i < LV_STYLES.length; i++) {
+      var st = LV_STYLES[i], f = String(st.frame || '');
+      if (!f || seen[f]) continue;          // نقشِ تکراری دوباره عرضه نمی‌شود
+      seen[f] = true;
+      out.push({ key: String(st.key || ''), frame: f,
+                 what: what[f] || String(st.gen || '').split('،')[0] });
+    }
+  } catch (e) {}
+  return out;
+}
+
+/* ══ «خودش انتخاب کند» — و این‌بار واقعاً (۸٫۱۸) ══
+ * «مگه قرار نشد خودِ سیستم … هم برای نقش هم اون لیست و هم برای کم و زیاد
+ *  رو حسب نیاز و ضرورت و تشخیص و بدونِ وسواس برای هزینه انتخاب کنه؟»
+ *
+ * تا ۸٫۱۷ «خودکار» یعنی `lvStyleSuggest_` — یک زنجیرهٔ regex روی دسته و
+ * موضوع. ۸٫۱۳ اندازه‌اش گرفت و نتیجه تلخ بود: برای مجموعهٔ معرفت‌شناسیِ او
+ * همیشه گزینهٔ **اول** را می‌داد، یعنی هشت سبکِ تازه صفر تفاوت ساختند.
+ * قابلیتی که انتخابِ خودکارش همیشه یک جواب بدهد، برای کسی که یک مجموعه
+ * دارد وجود ندارد.
+ *
+ * حالا تصمیم با مدل است — روی **همان فراخوانی که از قبل برای هر قسمت
+ * انجام می‌شود** (`ytMetaModel_`)، پس هیچ فراخوانِ تازه‌ای اضافه نشد و این
+ * را باید همان‌طور که هست گفت، نه اینکه وانمود شود هزینه‌ای خرج شده.
+ *
+ * و مرز همان مرزِ همیشگیِ این مخزن است: **مدل پیشنهاد می‌دهد، کد تصمیم
+ * می‌گیرد.** کلیدِ ناشناخته و سطحِ ناشناخته دور ریخته می‌شوند و همان
+ * پیشنهادِ regex سرِ جایش می‌مانَد — یک کلیدِ ساختگی نباید قسمتی را بی‌سبک
+ * بگذارد (همان مرزی که `musicPlanModel_` دارد). */
+function lvLookApply_(mm) {
+  var out = { level: '', base: '', motif: '', why: '' };
+  try {
+    var lk = (mm && mm.look) || null;
+    if (!lk) return out;
+    var lv = String(lk.level || '').trim();
+    var list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد'];
+    for (var i = 0; i < list.length; i++) if (lv === list[i]) { out.level = lv; break; }
+    var b = lvStyleFind_(String(lk.base || '').trim());
+    if (b) out.base = b.key;
+    var m = lvStyleFind_(String(lk.motif || '').trim());
+    /* نقشی که `frame`ش با پایه یکی باشد یعنی هیچ — `lvStyleCompose_` از نقش
+       فقط همان را برمی‌دارد، پس «الف + الف» با «الف» یک تصویر می‌دهد. بی این
+       خط، هر شب یک ترکیبِ ثبت‌شده داشتیم که شبیهِ انتخاب است و نیست. */
+    if (b && m && m.frame !== b.frame) out.motif = m.key;
+    out.why = String(lk.why || '').slice(0, 160);
+  } catch (e) {}
+  return out;
+}
+
+/** سبکی که انتخابِ مدل می‌سازد: «الف» یا «الف + ب». خالی یعنی مدل نگفت. */
+function lvLookStyle_(look) {
+  if (!look || !look.base) return '';
+  return look.motif ? (String(look.base) + ' + ' + String(look.motif)) : String(look.base);
+}
+
 /** «الف + ب» را به دو تکهٔ پاک‌شده می‌شکند. `null` یعنی ترکیب نیست. */
 function lvStyleSplit_(v) {
   var s = String(v === null || v === undefined ? '' : v);
@@ -2247,12 +2376,23 @@ function lvStyleOf_(vals) {
  *   • خواندن پرت کرد ⇒ رشتهٔ خالی، که یعنی «همان که ذخیره شده» و هیچ
  *     بازسازی‌ای راه نمی‌اندازد (۷٫۴۰: «نمی‌دانیم» با «عوض شد» یکی نیست).
  */
-function lvStyleAt_(hub, item, meta, seriesName) {
+function lvStyleAt_(hub, item, meta, seriesName, look) {
   try {
+    var mdl = lvLookStyle_(look);
     var reg = readSeriesReg_(hub || getHub_());
     var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
               reg.byKey[String((meta && meta.seriesKey) || '')] || null;
-    if (rec) return lvStyleOf_(rec.vals).key;
+    if (rec) {
+      var st = lvStyleOf_(rec.vals);
+      /* ══ انتخابِ مدل فقط جایی می‌نشیند که او کار را به موتور سپرده (۸٫۱۸) ══
+         «خودکار» یا خانهٔ خالی. سبکی که خودش نوشته دست‌نخورده می‌مانَد —
+         پاک‌کردنِ سلیقهٔ آدم بدتر از نداشتنِ انتخابِ خودکار است، همان قاعدهٔ
+         اسکنِ موسیقی که ستونِ سلیقهٔ کیوریتور را نمی‌شوید (۵٫۹۵). */
+      if (mdl && (st.src === 'خودکار' || st.src === 'پیشنهاد' ||
+                  st.src === 'پیشنهاد (خانه خوانده نشد)')) return mdl;
+      return st.key;
+    }
+    if (mdl) return mdl;
     return lvStyleSuggest_(String((meta && (meta.seriesCat || meta.cat)) || ''),
                            '', String(seriesName || ''));
   } catch (e) { return ''; }
@@ -2277,8 +2417,13 @@ function lvStyleAudit_(hub) {
       var st = lvStyleOf_(rec.vals);
       if (st.bad) { if (out.bad.length < 6) out.bad.push('«' + nm + '»: ' + st.bad); }
       if (st.style && st.style.photo && out.photo.length < 6) out.photo.push(nm);
+      /* ══ خانهٔ خالی «خودکار» می‌شود، نه یک سبکِ منجمد (۸٫۱۸) ══
+         تا ۸٫۱۷ همین‌جا `st.key` نوشته می‌شد — یعنی پیشنهادِ regex، همان شبِ
+         اول، برای همیشه. پس هیچ مجموعه‌ای که او دستش نزده بود هرگز به
+         انتخابِ مدل نمی‌رسید: درِ «خودکار» باز شد و جاروی شبانه بی‌صدا
+         می‌بستش. این دقیقاً همان نیمهٔ دومِ ایرادِ ۸٫۱۶ است، یک تابع آن‌طرف‌تر. */
       if (!raw && reg.sheet) {
-        try { reg.sheet.getRange(rec.row, SC.LVSTYLE).setValue(st.key); out.filled++; }
+        try { reg.sheet.getRange(rec.row, SC.LVSTYLE).setValue('خودکار'); out.filled++; }
         catch (eW) {}
       }
     }
@@ -3840,14 +3985,32 @@ function lvLevelOf_(vals) {
 }
 
 /** سطحِ تصویرسازیِ مجموعهٔ همین قسمت — یک تعریف، مثل `lvStyleAt_`. */
-function lvLevelAt_(hub, item, meta) {
+function lvLevelAt_(hub, item, meta, look) {
+  var mdl = String((look && look.level) || '');
   try {
     var reg = readSeriesReg_(hub || getHub_());
     var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
               reg.byKey[String((meta && meta.seriesKey) || '')] || null;
-    if (rec) return lvLevelOf_(rec.vals);
+    if (rec) {
+      /* ══ خانهٔ خالی و «خودکار» هر دو یعنی «تو تصمیم بگیر» (۸٫۱۸) ══
+         تا امروز خالی مستقیم `LV_LEVEL_DEFAULT` می‌شد، پس ۲۶۴ مجموعه‌ای که
+         او هیچ‌وقت دستشان نزده همیشه «کم» می‌گرفتند و هیچ تشخیصی در کار
+         نبود. سطحی که او **خودش** نوشته همچنان از همه مقدم است. */
+      if (lvLevelAuto_(rec.vals) && mdl) return mdl;
+      return lvLevelOf_(rec.vals);
+    }
   } catch (e) {}
+  if (mdl) return mdl;
   return String(CFG.LV_LEVEL_DEFAULT || 'کم');
+}
+
+/** خانهٔ سطح به موتور سپرده شده؟ (خالی یا «خودکار») — یک تعریف، سه خواننده. */
+function lvLevelAuto_(vals) {
+  try {
+    var raw = String((vals || [])[SC.LVLEVEL - 1] || '').trim();
+    if (!raw) return true;
+    return lvStyleNorm_(raw) === lvStyleNorm_('خودکار');
+  } catch (e) { return true; }
 }
 
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
@@ -4285,6 +4448,13 @@ function ytPlan_(folder, ctx, redo) {
         logLine_('برنامهٔ تصویرها ساخته نشد: ' + eV.message); return [];
       }
     })(),
+    /* انتخابِ ظاهر در همین فایل می‌نشیند، نه فقط در حافظهٔ یک اجرا: `_yt.json`
+       همان «اگر اشتباه ساخت چه؟» است — آدم و ناظر می‌بینندش و می‌توانند
+       عوضش کنند، و شبِ بعد همان خوانده می‌شود. انتخابی که جایی ثبت نشود،
+       برای کسی که فقط نتیجه را می‌بیند با تصادف فرقی ندارد. */
+    look: (function () {
+      try { return lvLookApply_(mm); } catch (eL) { return null; }
+    })(),
     note: 'این فایل را می‌شود دستی ویرایش کرد. بعدش از منو ' +
           '«بازسازیِ عنوان و کاورِ یوتیوب» را بزنید تا روی ویدئو بنشیند.'
   };
@@ -4345,7 +4515,7 @@ function ytUploadOne_(item, hub, pub) {
    * که بالاتر ساخته می‌شود — هرگز نمی‌دیدش. `lvStyleAt_` یک تعریف است و هر
    * دو از آن می‌خورند: دو تعریف برای «سبکِ این مجموعه» یعنی روزی بندانگشتی
    * و اسلایدها دو سبک می‌گیرند و هیچ‌چیز نشانش نمی‌دهد. */
-  var lvSty = lvStyleAt_(hub, item, meta, seriesName);
+  var lvSty = lvStyleAt_(hub, item, meta, seriesName, plan.look);
 
   // ── کاور ──
   var cover = null;
@@ -4447,7 +4617,7 @@ function ytUploadOne_(item, hub, pub) {
     try {
       /* سطحِ خودِ مجموعه از همه مقدم است: «خاموش» یعنی صاحبِ برنامه برای این
          مجموعه تصویر نخواسته، و آن یک تصمیم است نه یک نقص. */
-      var lvLvl = lvLevelAt_(hub, item, meta);
+      var lvLvl = lvLevelAt_(hub, item, meta, plan.look);
       if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
       lvSpec = lvSpecBuild_(folder, meta, plan, {
         level: lvLvl,

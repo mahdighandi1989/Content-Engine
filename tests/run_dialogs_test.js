@@ -566,4 +566,57 @@ console.log('\n══ ۱۱) «چی با چی» و برچسبی که نتیجه �
   }
 }
 
+console.log('\n══ ۱۲) «خودش انتخاب کند» روی تخته — و فهرستی که رونوشت نباشد (۸.۱۸) ══');
+{
+  const k = Object.keys(readSeriesReg_(getHub_()).byKey)[0];
+
+  /* ۱۲.۱ — فهرستِ نقش روی **خودِ صفحه** رونوشتِ فهرستِ بالا نیست و هر گزینه
+     می‌گوید چه می‌کشد. او این را جلوِ همین جعبه گفت: «اون لیستِ نقش چرا
+     محتواش مثلِ لیستِ بالاییشه؟» — و سنجه‌ای که فقط `lvMotifs_()` را صدا
+     بزند، صفحه را ندیده (۷.۴۳: نگهبان یک لایه بالاتر از شکستگی). */
+  {
+    uiLvStyleSave(k, 'کاغذبری', '');
+    const page = seriesBoardHtml_(seriesBoardData_(getHub_()));
+    const sel = page.slice(page.indexOf('data-role="motif"'));
+    const body = sel.slice(0, sel.indexOf('</select>'));
+    const mo = lvMotifs_();
+    const named = mo.filter((m) => body.indexOf(m.what) !== -1).length;
+    /* سبکی که `frame`ش تکراری است **نباید** در این جعبه باشد: گزینه‌ای که
+       عوض‌کردنش هیچ تفاوتی در تصویر نمی‌دهد، همان برچسبِ توخالی است. */
+    const dup = LV_STYLES.filter((x) => !mo.some((m) => m.key === x.key));
+    const leaked = dup.filter((x) => body.indexOf('value="' + x.key + '"') !== -1);
+    ok('۱۲.۱ جعبهٔ نقش هر نقش را با توضیحش می‌آورد و تکراری‌ها را نمی‌آورد',
+       named === mo.length && mo.length > 0 && dup.length > 0 && leaked.length === 0,
+       named + ' از ' + mo.length + ' توضیح‌دار · کنارگذاشته: ' +
+       dup.map((x) => x.key).join('،') +
+       (leaked.length ? ' · نشتی: ' + leaked.map((x) => x.key).join('،') : ''));
+  }
+
+  /* ۱۲.۲ — «خودکار» گزینهٔ **صریحِ** جعبهٔ سطح است و ذخیره هم می‌شود. تا
+     ۸.۱۷ فقط خانهٔ خالی بود، و خالی یعنی `LV_LEVEL_DEFAULT` — یعنی هیچ
+     تشخیصی در کار نبود. «نگفته» با «بسپار به خودش» یکی نیست (۸.۱۳). */
+  {
+    const r = uiLvLevelSave(k, 'خودکار');
+    const cell = String(readSeriesReg_(getHub_()).byKey[k].vals[SC.LVLEVEL - 1] || '');
+    const page = seriesBoardHtml_(seriesBoardData_(getHub_()));
+    ok('۱۲.۲ «خودکار» روی جعبهٔ سطح هست، ذخیره می‌شود، و خالی نمی‌مانَد',
+       r && r.ok === true && cell === 'خودکار' &&
+       page.indexOf('value="خودکار"') !== -1,
+       JSON.stringify({ ok: r && r.ok, cell: cell }));
+
+    /* و ردیفی که سطحش «خودکار» است، کارِ مدل را می‌گیرد — از همان دری که
+       تولید می‌رود (`lvLevelAt_`)، نه با خواندنِ خانه (۷.۶۲). */
+    ok('۱۲.۳ و همان خانه در تولید حرفِ مدل را می‌گیرد',
+       lvLevelAt_(getHub_(), { seriesKey: k }, {}, { level: 'زیاد' }) === 'زیاد',
+       lvLevelAt_(getHub_(), { seriesKey: k }, {}, { level: 'زیاد' }));
+
+    /* و سطحِ ناشناخته همچنان رد می‌شود — باز کردنِ در برای «خودکار» نباید
+       در را برای هر رشته‌ای باز کند. */
+    const bad = uiLvLevelSave(k, 'خیلی زیاد');
+    ok('۱۲.۴ ولی سطحِ ناشناخته هنوز با اسم رد می‌شود',
+       bad && bad.ok === false && String(bad.message).indexOf('خیلی زیاد') !== -1,
+       bad ? String(bad.message).slice(0, 70) : 'جواب نیامد');
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

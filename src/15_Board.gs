@@ -1834,7 +1834,7 @@ function lvStyleCell_(x) {
 
   var isAuto = (!cur || lvStyleNorm_(cur) === lvStyleNorm_('خودکار'));
   var opts = ['<option value="خودکار"' + (isAuto ? ' selected' : '') +
-              '>خودکار — از موضوعِ مجموعه</option>'];
+              '>خودکار — مدل برای هر درس انتخاب کند</option>'];
   var pal = null;
   for (var i = 0; i < list.length; i++) {
     var k = String(list[i].key || '');
@@ -1843,11 +1843,19 @@ function lvStyleCell_(x) {
     opts.push('<option value="' + bEsc_(k) + '"' + (on ? ' selected' : '') + '>' +
               bEsc_(k) + '</option>');
   }
-  var mo = ['<option value=""' + (motif ? '' : ' selected') + '>— بی نقشِ اضافه</option>'];
-  for (var j = 0; j < list.length; j++) {
-    var k2 = String(list[j].key || '');
+  /* ══ فهرستِ نقش دیگر رونوشتِ فهرستِ بالا نیست (۸٫۱۸) ══
+     او پرسید «اون لیستِ نقش چرا محتواش مثلِ لیستِ بالاییشه؟». بود — همان نُه
+     کلید با همان برچسب‌ها، که دو تایشان اثرِ یکسانِ دو تای دیگر داشتند، چون
+     `lvStyleCompose_` از نقش فقط `frame` را برمی‌دارد. حالا `lvMotifs_()`
+     هر `frame` را یک بار می‌آورد و برچسب می‌گوید **چه می‌کشد**. */
+  var mlist = [];
+  try { mlist = lvMotifs_() || []; } catch (eM) { mlist = []; }
+  var mo = ['<option value=""' + (motif ? '' : ' selected') +
+            '>— بی نقشِ اضافه (کارتِ ساده)</option>'];
+  for (var j = 0; j < mlist.length; j++) {
+    var k2 = String(mlist[j].key || '');
     mo.push('<option value="' + bEsc_(k2) + '"' + (k2 === motif ? ' selected' : '') +
-            '>' + bEsc_(k2) + '</option>');
+            '>' + bEsc_(k2 + ' — ' + String(mlist[j].what || '')) + '</option>');
   }
   if (!pal && list.length) pal = list[0].pal;
   var sw = '';
@@ -1856,7 +1864,7 @@ function lvStyleCell_(x) {
          '<span class="sw" style="background:' + bEsc_(String(pal.fg)) + '"></span>' +
          '<span class="sw" style="background:' + bEsc_(String(pal.ac)) + '"></span>';
   }
-  var note = isAuto ? 'خودکار — هر شب از موضوع'
+  var note = isAuto ? 'خودکار — مدل برای هر درس انتخاب می‌کند'
                     : (motif ? ('رنگ از «' + base + '» · نقش از «' + motif + '»')
                              : base);
   var kk = bEsc_(String(x.key));
@@ -1898,20 +1906,27 @@ function lvLevelCell_(x) {
     try { w = lvLevelWhat_(k); } catch (eW) { w = ''; }
     return k + (w ? ' — ' + w : '');
   };
-  var opts = ['<option value=""' + (cur ? '' : ' selected') + '>پیش‌فرض (' +
-              bEsc_(lab(def)) + ')</option>'];
+  /* ══ «خودکار» گزینهٔ صریحِ این جعبه هم شد (۸٫۱۸) ══
+     «مگه قرار نشد خودِ سیستم … کم و زیاد رو حسب نیاز و ضرورت انتخاب کنه؟»
+     تا امروز خانهٔ خالی مستقیم `LV_LEVEL_DEFAULT` می‌شد و هیچ تشخیصی در کار
+     نبود. حالا خالی و «خودکار» هر دو یعنی «مدل تصمیم بگیرد» — و گزینه
+     **نوشته** می‌شود، چون «نگفته» با «بسپار به خودش» یکی نیست (۸٫۱۳). */
+  var isA = (!cur || lvStyleNorm_(cur) === lvStyleNorm_('خودکار'));
+  var opts = ['<option value="خودکار"' + (isA ? ' selected' : '') +
+              '>خودکار — مدل برای هر درس انتخاب کند</option>'];
   for (var i = 0; i < list.length; i++) {
     var k = String(list[i] || '');
-    opts.push('<option value="' + bEsc_(k) + '"' + (k === cur ? ' selected' : '') +
+    opts.push('<option value="' + bEsc_(k) + '"' + (!isA && k === cur ? ' selected' : '') +
               '>' + bEsc_(lab(k)) + '</option>');
   }
   /* حالِ لایهٔ ۳ در همان خانه، نه در یک نامهٔ دیگر: اگر خاموش باشد، «زیاد»
      و «کم» امروز هر دو یعنی کارتِ برداری و بس. */
   var gen = false;
   try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
-  var eff = String(cur || def);
+  var eff = isA ? def : String(cur);
   var note = '';
   try { note = lvLevelWhat_(eff, gen); } catch (eN) { note = ''; }
+  if (isA) note = 'مدل انتخاب می‌کند؛ اگر نگفت: ' + note;
   if (!gen && eff !== 'خاموش') note = '⚠️ ' + note;
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
@@ -1943,10 +1958,19 @@ function uiLvStyleSave(key, style, motif) {
       return { ok: false, message: 'سبکِ «' + v + '» را نمی‌شناسم. مجازها: ' +
                                    names.join(' · ') };
     }
-    if (mv && names.indexOf(mv) === -1) {
-      boardReceipt_(false, 'نقشِ ناشناخته', ['نقش‌های مجاز: ' + names.join(' · ')]);
+    /* نقش از فهرستِ **نقش‌ها** سنجیده می‌شود، نه از فهرستِ سبک‌ها: از ۸٫۱۸ آن
+       فهرست کوتاه‌تر است (هر `frame` یک بار) و پیامِ خطا باید همان چیزی را
+       نام ببرد که در جعبه دیده می‌شود، وگرنه او دنبالِ گزینه‌ای می‌گردد که
+       نیست. */
+    var mnames = [];
+    try {
+      var ml = lvMotifs_() || [];
+      for (var mN = 0; mN < ml.length; mN++) mnames.push(String(ml[mN].key));
+    } catch (eMN) { mnames = names.slice(); }
+    if (mv && mnames.indexOf(mv) === -1) {
+      boardReceipt_(false, 'نقشِ ناشناخته', ['نقش‌های مجاز: ' + mnames.join(' · ')]);
       return { ok: false, message: 'نقشِ «' + mv + '» را نمی‌شناسم. مجازها: ' +
-                                   names.join(' · ') };
+                                   mnames.join(' · ') };
     }
     /* نقش روی «خودکار» معنا ندارد: پایه هنوز معلوم نیست، پس ترکیبی هم
        نیست. رد می‌شود با اسم، نه اینکه بی‌صدا دور انداخته شود. */
@@ -1970,7 +1994,8 @@ function uiLvStyleSave(key, style, motif) {
     /* رسید می‌گوید ترکیب **یعنی چه**، نه فقط اینکه ثبت شد: «الف + ب» برای
        کسی که تازه انتخابش کرده هیچ نمی‌گوید تا وقتی نقشِ هر تکه گفته نشود. */
     var what = isAuto
-      ? 'خودکار — هر شب از موضوعِ مجموعه انتخاب می‌شود و ثابت نمی‌مانَد'
+      ? 'خودکار — مدل برای هر درس، از روی موضوعِ مجموعه و متنِ همان قسمت، ' +
+        'انتخاب می‌کند؛ پس ثابت نمی‌مانَد'
       : (mv ? ('رنگ و فضا از «' + style + '» · نقش و قاب از «' + mv + '»')
             : ('سبک: ' + v));
     boardReceipt_(true, 'سبکِ تصویرِ «' + nm + '» ثبت شد',
@@ -2007,11 +2032,14 @@ function uiLvLevelSave(key, level) {
     try { list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (eL) {
       list = ['خاموش', 'کم', 'زیاد'];
     }
-    if (v && list.indexOf(v) === -1) {
-      boardReceipt_(false, 'سطحِ ناشناخته', ['سطح‌های مجاز: ' + list.join(' · ')]);
-      return { ok: false, message: 'سطحِ «' + v + '» را نمی‌شناسم. مجازها: ' +
+    var auto = (!v || lvStyleNorm_(v) === lvStyleNorm_('خودکار'));
+    if (!auto && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'سطحِ ناشناخته',
+        ['سطح‌های مجاز: خودکار · ' + list.join(' · ')]);
+      return { ok: false, message: 'سطحِ «' + v + '» را نمی‌شناسم. مجازها: خودکار · ' +
                                    list.join(' · ') };
     }
+    if (auto) v = 'خودکار';
     var hub = getHub_();
     var reg = readSeriesReg_(hub);
     var row = reg.byKey[k];
@@ -2020,13 +2048,15 @@ function uiLvLevelSave(key, level) {
     var nm = String(row.vals[SC.NAME - 1] || k);
     var def = 'کم';
     try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD2) { def = 'کم'; }
-    var eff = v || def;
+    var eff = auto ? def : v;
     var gen = false;
     try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
     /* رسید و جعبه از **یک** تعریف می‌خوانند؛ دو متن برای یک معنا یعنی روزی
        منو چیزی بگوید که رسید نقضش می‌کند. */
-    var notes = [(v ? ('سطح: ' + v) : ('پیش‌فرض — یعنی «' + def + '»')) +
-                 ' — ' + lvLevelWhat_(eff, gen)];
+    var notes = [(auto
+      ? ('خودکار — مدل برای هر درسِ این مجموعه تصمیم می‌گیرد؛ اگر نگفت «' +
+         def + '»: ' + lvLevelWhat_(eff, gen))
+      : ('سطح: ' + v + ' — ' + lvLevelWhat_(eff, gen)))];
     if (eff !== 'خاموش' && !gen) {
       notes.push('⚠️ نقاشیِ ساخته‌شده الان **خاموش** است، پس امروز فقط کارتِ ' +
                  'متنی درمی‌آید. از منوی «موتور محتوا» گزینهٔ ' +
