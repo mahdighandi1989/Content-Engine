@@ -1121,11 +1121,34 @@ function ttsChunk_(text, sectionStyle, voice, withCue) {
  * ساخت، و بعد گوش‌دادن. اگر دستور خوانده شده باشد، بی‌دستور از نو.
  * این تنها جایی است که خروجی — نه ورودی — سنجیده می‌شود.
  */
+var TTS_LAST_PROMPTED_ = false;
+
 function ttsGuarded_(text, sectionStyle, voice, withCue) {
+  TTS_LAST_PROMPTED_ = false;
   var b64 = ttsChunkTry_(text, sectionStyle, voice, withCue);
   if (withCue === false || CFG.TTS_CUE_VERIFY === false || !b64) return b64;
+  var byPrefix = TTS_LAST_PROMPTED_;
 
   var v = ttsCueLeaked_(b64, ttsCue_(sectionStyle, text), text);
+
+  /* ══ نشنیدن، تأییدِ خاموش نیست — ولی فقط آن‌جا که خطر واقعی است (۸.۰۷) ══
+     `ttsCueLeaked_` وقتی مدلِ شنونده در دسترس نباشد `failed` برمی‌گرداند و
+     تا امروز همان یعنی «لو نرفته» ⇒ تکهٔ وارسی‌نشده منتشر می‌شد. این همان
+     شکلِ ۷٫۶۸ است: «مدل نشنید» را تأیید خواندن.
+     ولی جوابش برای دو قالب یکی نیست، و همین مرز هزینه را صفر می‌کند:
+     • دستور در **فیلد** ⇒ ساختاراً خوانده نمی‌شود، پس نشنیدن بی‌خطر است و
+       تکه می‌مانَد. بستنِ این‌جا یعنی روزی که مدلِ متن قطع است، **هر قسمت
+       صاف** شود — هزینه‌ای بی هیچ خطرِ متناظر.
+     • دستور در **متنِ خودِ درخواست** (پیشوند) ⇒ همین است که صاحبِ برنامه
+       شنید. این‌جا دیگر ریسک نمی‌کنیم: بی‌دستور از نو، و مهرش می‌خورَد تا
+       برچسب «روح» نشود. افت به سمتِ سکوت. */
+  if (!v.leaked && v.failed && byPrefix) {
+    logLine_('وارسیِ شنیداری انجام نشد و دستور از راهِ متن رفته بود؛ همین تکه ' +
+             'بی‌دستور از نو ساخته شد — نشنیدن تأیید نیست.');
+    try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD2) {}
+    var safe = ttsChunkTry_(text, sectionStyle, voice, false);
+    return safe || b64;
+  }
   if (!v.leaked) return b64;
 
   logLine_('⚠️ گوینده دستورِ لحن را خواند؛ همین تکه بی‌دستور از نو ساخته شد. ' +
@@ -1356,6 +1379,12 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
         var j = geminiFetch_(cfg.url, cfg.body);
         var b64 = extractAudioB64_(j);
         if (mode !== 'prompted') props_().setProperty(PK.TTS_MODE, mode);
+        /* ══ کدام قالب ساختش، برای نگهبانِ شنیداری (۸.۰۷) ══
+           فرقش را `ttsGuarded_` لازم دارد: دستوری که در **فیلد** رفته
+           ساختاراً خوانده نمی‌شود (کلِ حرفِ ۵٫۵۹)، ولی دستوری که در
+           **متن** رفته می‌تواند. پس وقتی وارسیِ شنیداری نتواند اجرا شود،
+           جوابِ درست برای این دو یکی نیست. */
+        TTS_LAST_PROMPTED_ = (mode === 'prompted');
         return b64;
       } catch (e) {
         lastErr = e;

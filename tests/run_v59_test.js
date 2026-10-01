@@ -1266,4 +1266,62 @@ console.log('\n=== ۸.۰۷-ب) نشانهٔ لو‌رفتن از متنِ دست
   global.geminiFetch_ = realFetch2;
 }
 
+
+/* ══ ۸.۰۷-پ) «مدل نشنید» تأییدِ خاموش نیست — ولی فقط آن‌جا که خطر هست ══
+ * `ttsCueLeaked_` وقتی مدلِ شنونده در دسترس نباشد `failed` می‌دهد، و تا ۸.۰۷
+ * همان یعنی «لو نرفته» ⇒ تکهٔ وارسی‌نشده منتشر می‌شد. همان شکلِ ۷٫۶۸ («مدل
+ * نشنید» را تأیید خواندن)، یک بخش آن‌طرف‌تر.
+ * و مرزش هزینه را صفر می‌کند: دستورِ درونِ **فیلد** ساختاراً خوانده نمی‌شود،
+ * پس بستنِ آن‌جا یعنی روزی که مدلِ متن قطع است هر قسمت صاف شود — هزینه بی
+ * خطرِ متناظر. فقط قالبِ **پیشوندی** ریسک دارد. */
+console.log('\n=== ۸.۰۷-پ) نشنیدن، برای قالبِ پیشوندی تأیید نیست ===');
+{
+  const TX = 'یک جملهٔ آزمایشی برای گفتار.';
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+  const liveM2 = ttsModel_();
+  const realLeak2 = global.ttsCueLeaked_;
+  const keepPre2 = CFG.TTS_CUE_PREFIX, keepVer2 = CFG.TTS_CUE_VERIFY;
+  CFG.TTS_CUE_VERIFY = true;
+  global.ttsCueLeaked_ = function () { return { leaked: false, heard: '', failed: true }; };
+
+  const seen = [];
+  const realFetch3 = global.geminiFetch_;
+  global.geminiFetch_ = function (url, body) {
+    let t = '';
+    try { t = String(body.contents[0].parts[0].text); } catch (e) { t = String(body.input || ''); }
+    const hasField = !!(body.systemInstruction || body.instructions);
+    seen.push(hasField ? 'field' : (t.length > TX.length ? 'prompted' : 'nocue'));
+    return { candidates: [{ content: { parts: [{ inlineData: { data: 'QUJD' } }] } }] };
+  };
+
+  /* الف) دستور از راهِ **پیشوند** و وارسی نشد ⇒ بی‌دستور از نو */
+  ttsCueBadAdd_(liveM2, nowStr_());        // فیلد رد شده ⇒ پیشوند
+  CFG.TTS_CUE_PREFIX = true;
+  seen.length = 0;
+  props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+  ttsGuarded_(TX, 'گرم', 'Kore', true);
+  ok('۸.۰۷-پ.۱ پیشوند + وارسیِ ناموفق ⇒ تکه بی‌دستور از نو ساخته می‌شود',
+     seen.indexOf('prompted') !== -1 && seen[seen.length - 1] === 'nocue',
+     seen.join('→'));
+  ok('۸.۰۷-پ.۲ و مهر می‌خورَد، پس برچسب «روح» نمی‌شود',
+     !!global.__PROPS[PK.TTS_CUE_DROP_AT],
+     String(global.__PROPS[PK.TTS_CUE_DROP_AT] || 'نخورد'));
+
+  /* ب) دستور از راهِ **فیلد** و وارسی نشد ⇒ تکه می‌مانَد. بستنِ این‌جا یعنی
+     یک روزِ بی‌مدلِ متن = همهٔ قسمت‌ها صاف، بی هیچ خطرِ متناظر. */
+  global.__PROPS[PK.TTS_CUE_BAD] = '{}';
+  delete global.__PROPS[PK.TTS_CUE_OFF];
+  delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  seen.length = 0;
+  props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+  ttsGuarded_(TX, 'گرم', 'Kore', true);
+  ok('۸.۰۷-پ.۳ ولی فیلد + وارسیِ ناموفق ⇒ تکه می‌مانَد و بی‌دلیل صاف نمی‌شود',
+     seen.indexOf('field') !== -1 && seen.indexOf('nocue') === -1,
+     seen.join('→') + ' — دستورِ درونِ فیلد ساختاراً خوانده نمی‌شود (۵٫۵۹)');
+
+  global.ttsCueLeaked_ = realLeak2; global.geminiFetch_ = realFetch3;
+  CFG.TTS_CUE_PREFIX = keepPre2; CFG.TTS_CUE_VERIFY = keepVer2;
+  props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);
