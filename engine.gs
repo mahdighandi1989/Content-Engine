@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.14
+ *  موتور محتوا و پادکست — نسخهٔ 8.15
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1544,7 +1544,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.14',
+  CODE_VERSION: '8.15',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2455,6 +2455,13 @@ var PK = {
   LV_WAIT: 'LV_WAIT_MAP',          // قسمت‌هایی که منتظرِ کامل‌شدنِ تصویرشان‌اند
   LV_SHORT: 'LV_SHORT_MAP',        // قسمت‌هایی که با تصویرِ کم رفتند — برنگشتنی
   LV_THIN: 'LV_THIN_MAP',          // نقشهٔ تصویرش نحیف درآمد — هنوز جبران‌شدنی (۸.۱۱)
+  /* ══ کلیدِ روشن/خاموشِ لایهٔ ۳، در دستِ خودِ او (۸٫۱۵) ══
+     `LV_GEN_ENABLED` در `CFG` بود و کامنتش می‌گفت «روشن‌کردنش تصمیمِ صاحبِ
+     برنامه است» — و خطِ روزانه هم می‌گفت «`LV_GEN_ENABLED` را true کنید».
+     ولی او به سورس دست نمی‌زند؛ یعنی تصمیمی به او نسبت داده شده بود که هیچ
+     راهی برای گرفتنش نداشت، و دستوری که نمی‌شود انجامش داد از نبودنِ دستور
+     بدتر است. '1'/'0' این‌جا برنده است و نبودنش یعنی همان پیش‌فرضِ `CFG`. */
+  LV_GEN_ON: 'LV_GEN_ON',          // '1' روشن · '0' خاموش · نبود = پیش‌فرضِ CFG
   LV_GEN_SPEND: 'LV_GEN_SPEND',    // خرجِ این ماه: {month, n, usd}
   LV_GEN_MODEL: 'LV_GEN_MODEL_ID', // مدلِ تصویرِ پیداشده، تا هر بار فهرست نگیریم
   YT_MARK_ID: 'YT_MARK_ID',       // شناسه/نام/تصویرِ کانال، خوانده‌شده از خودِ یوتیوب
@@ -2543,7 +2550,7 @@ var PK = {
  * drift ساختاراً ممکن نیست. `run_wiring_test.js` هم دوباره می‌شمارد و اگر
  * نخوانَد سرخ می‌شود.
  */
-var BUILD_MENU_ = { total: 58, debt: 34 };   /* ⚙ BUILD-MENU */
+var BUILD_MENU_ = { total: 59, debt: 34 };   /* ⚙ BUILD-MENU */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -10807,6 +10814,9 @@ function onOpen() {
       .addItem('▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست', 'runYouTubePublish')
       .addItem('🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)', 'runYouTubeRedo')
       .addItem('🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)', 'runLessonVisualsRebuild')
+      /* ۸٫۱۵: کلیدِ لایهٔ ۳. تا دیروز فقط در سورس بود و خطِ روزانه از او
+         می‌خواست `LV_GEN_ENABLED` را true کند — دستوری که انجام‌شدنی نبود. */
+      .addItem('🎨 تصویرِ ساخته‌شده: روشن/خاموش', 'runLvGenToggle')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')
@@ -22553,6 +22563,13 @@ function seriesBoardData_(hub) {
          جوابِ راست «هیچ‌جا» بود: کنترلی که جای کارش نباشد پیدا نمی‌شود
          (۵.۶۱/۷.۳۵). رشتهٔ خالی یعنی «خودش انتخاب کند». */
       lvStyle: String(v[SC.LVSTYLE - 1] || '').trim(),
+      /* ── و سطحِ تصویرسازی، که همان عیب را یک ستون آن‌طرف‌تر داشت (۸٫۱۵) ──
+         ستونش از ۸٫۰۱ هست و خواستهٔ صریحِ خودِ او بود — «در مجموعه‌ها جایی
+         باشه بتونم انتخاب کنم برای هر نوع چطور باشه» — و ۸٫۱۳ که درِ سبک را
+         ساخت، این یکی را ندید. یعنی جوابِ «همهٔ تنظیم‌های ویدئو روی تخته
+         هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
+         می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
+      lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
       // ── تنظیمِ دستیِ شما ──
       morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
@@ -23133,7 +23150,8 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<div class="tw"><table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>مجموعه‌های مرجع</th>' +
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
+           '<th>مجموعه‌های مرجع</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -23170,6 +23188,7 @@ function seriesBoardHtml_(d) {
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
       H.push(lvStyleCell_(x));
+      H.push(lvLevelCell_(x));
       /* فراخوانِ رو به جلو (۱۵ → ۳۱) در try/catch — قاعدهٔ ۲۱→۲۲ این ریپو.
          بارگذارِ جزئی یا بخشی که بالا نیامده باشد نباید کلِ تخته را بخواباند؛
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
@@ -23197,7 +23216,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="11"><table style="font-size:11px">');
+               '<td colspan="12"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -23345,6 +23364,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سبکِ تصویر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvStyleSave(k,v);}');
+  H.push('function lvLevel(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvLevelSave(k,v);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
   /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
@@ -24277,6 +24300,48 @@ function lvStyleCell_(x) {
 }
 
 /**
+ * ══ جعبهٔ سطحِ تصویرسازی — درِ دومی که ۸٫۱۳ ندیدش (۸٫۱۵) ══
+ *
+ * ستونِ «تصویرسازی» از ۸٫۰۱ در رجیستری است و خواستهٔ صریحِ خودِ صاحبِ برنامه
+ * بود. ۸٫۱۳ درِ «سبکِ تصویر» را ساخت و این یکی را جا گذاشت — پس پرسشِ «همهٔ
+ * تنظیم‌های ویدئو روی تخته هست؟» باز هم جوابش «نه» بود، در همان نسخه‌ای که
+ * برای همین عیب نوشته شده بود.
+ *
+ * **و سطح چیزی را وعده می‌دهد که امروز خاموش است**، پس همان‌جا گفته می‌شود:
+ * «کم» و «زیاد» هر دو نقاشیِ ساخته‌شده می‌خواهند و `lvGenOn_()` خاموش است.
+ * سطحی که بی‌صدا همان «کارتِ برداری» بدهد، همان برچسبِ بی‌ورودیِ ۷٫۷۹ است.
+ */
+function lvLevelCell_(x) {
+  var cur = String((x && x.lvLevel) || '');
+  var list = [];
+  try { list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (e) {
+    list = ['خاموش', 'کم', 'زیاد'];
+  }
+  var def = 'کم';
+  try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD) { def = 'کم'; }
+  var opts = ['<option value=""' + (cur ? '' : ' selected') + '>پیش‌فرض (' +
+              bEsc_(def) + ')</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (k === cur ? ' selected' : '') +
+              '>' + bEsc_(k) + '</option>');
+  }
+  /* حالِ لایهٔ ۳ در همان خانه، نه در یک نامهٔ دیگر: اگر خاموش باشد، «زیاد»
+     و «کم» امروز هر دو یعنی کارتِ برداری و بس. */
+  var gen = false;
+  try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
+  var eff = String(cur || def);
+  var note = (eff === 'خاموش')
+    ? 'بی کارت — ویدئو تک‌تصویری'
+    : (gen ? 'کارت + نقاشیِ ساخته‌شده'
+           : '⚠️ کارتِ برداری تنها — نقاشیِ ساخته‌شده خاموش است');
+  return '<td class="sty">' +
+         '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
+         opts.join('') + '</select>' +
+         '<div class="sub">' + bEsc_(note) + '</div></td>';
+}
+
+/**
  * ذخیرهٔ سبکِ یک مجموعه. سبکِ ناشناخته **رد** می‌شود و نامِ سبک‌های مجاز
  * برگردانده می‌شود — نه اینکه بی‌صدا پیش‌فرض بنشیند: خانه‌ای که حرفِ کاربر را
  * بی‌صدا عوض کند، او را به این باور می‌رساند که چیزی را تنظیم کرده.
@@ -24315,6 +24380,66 @@ function uiLvStyleSave(key, style) {
   } catch (e) {
     boardReceipt_(false, 'ثبتِ سبک نشد', [e.message]);
     return { ok: false, message: 'ثبتِ سبک نشد: ' + e.message };
+  }
+}
+
+/**
+ * سطحِ تصویرسازیِ یک مجموعه را می‌نویسد (۸٫۱۵).
+ *
+ * سطحِ ناشناخته **با اسم رد می‌شود** و مجازها را می‌گوید، قرینهٔ `uiLvStyleSave`:
+ * خانه‌ای که بی‌صدا نادیده گرفته شود یعنی او چیزی انتخاب کرده که هرگز اثر
+ * نمی‌کند و هیچ‌وقت نمی‌فهمد (۷٫۴۱).
+ *
+ * و رسید **وعدهٔ همین سطح را با واقعیتِ امروز می‌سنجد**: «کم» و «زیاد» هر دو
+ * نقاشیِ ساخته‌شده می‌خواهند، و اگر لایهٔ ۳ خاموش باشد همان کارتِ برداری
+ * درمی‌آید. گفتنش یک جمله است؛ نگفتنش همان «سطحی که عوض شد و ویدئو عوض
+ * نشد» است.
+ */
+function uiLvLevelSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = [];
+    try { list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (eL) {
+      list = ['خاموش', 'کم', 'زیاد'];
+    }
+    if (v && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'سطحِ ناشناخته', ['سطح‌های مجاز: ' + list.join(' · ')]);
+      return { ok: false, message: 'سطحِ «' + v + '» را نمی‌شناسم. مجازها: ' +
+                                   list.join(' · ') };
+    }
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVLEVEL).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var def = 'کم';
+    try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD2) { def = 'کم'; }
+    var eff = v || def;
+    var notes = [v ? ('سطح: ' + v) : ('پیش‌فرض — یعنی «' + def + '»')];
+    if (eff === 'خاموش') {
+      notes.push('هیچ کارتی ساخته نمی‌شود؛ ویدئوی این مجموعه همان کاورِ ' +
+                 'تک‌تصویری می‌مانَد.');
+    } else {
+      var gen = false;
+      try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
+      notes.push(gen
+        ? 'کارتِ برداری + نقاشیِ ساخته‌شده در نقاطِ کلیدی.'
+        : '⚠️ «' + eff + '» نقاشیِ ساخته‌شده می‌خواهد و آن لایه الان ' +
+          '**خاموش** است، پس امروز فقط کارتِ برداری درمی‌آید. از منوی ' +
+          '«موتور محتوا» گزینهٔ «🎨 تصویرِ ساخته‌شده: روشن/خاموش» روشنش ' +
+          'می‌کند؛ سقفِ ماهانه ' +
+          faDigitsOut_(String(Number(CFG.LV_GEN_USD_MONTH) || 0)) + ' دلار است.');
+    }
+    notes.push('قسمت‌های بعدی با همین سطح ساخته می‌شوند. برای قسمتی که از ' +
+               'قبل ساخته شده، از منو «🖼 بازسازیِ تصویرهای یک قسمت» را بزنید.');
+    boardReceipt_(true, 'سطحِ تصویرسازیِ «' + nm + '» ثبت شد', notes);
+    return { ok: true, message: 'سطحِ «' + nm + '» شد «' + eff + '».' };
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ سطح نشد', [e.message]);
+    return { ok: false, message: 'ثبتِ سطح نشد: ' + e.message };
   }
 }
 
@@ -43229,8 +43354,67 @@ function lvStyleAudit_(hub) {
  * نبودنش است (۷٫۲۴).
  */
 
+/**
+ * آیا لایهٔ ۳ (نقاشیِ ساخته‌شده) روشن است؟
+ *
+ * ══ کلید از دستِ سورس به دستِ او آمد (۸٫۱۵) ══
+ * تا ۸٫۱۴ این فقط `CFG.LV_GEN_ENABLED` را می‌خواند، و کامنتِ خودِ آن کلید
+ * می‌گفت «روشن‌کردنش تصمیمِ صاحبِ برنامه است» در حالی که تنها راهش ویرایشِ
+ * سورس بود — تصمیمی که به او نسبت داده شده و راهی برای گرفتنش نداشت
+ * (۵٫۹۵: گیتی که آدم باید بازش کند و نمی‌تواند، گیت نیست). خطِ روزانه هم
+ * هر روز می‌گفت «`LV_GEN_ENABLED` را true کنید» — دستوری که انجام‌شدنی
+ * نبود، و دستورِ غلط از نبودنِ دستور بدتر است.
+ *
+ * `LV_ENABLED` عمداً **بالاسرِ** این می‌مانَد: کلِ تصویرسازی خاموش باشد،
+ * لایهٔ ۳ هم معنا ندارد.
+ */
 function lvGenOn_() {
-  return CFG.LV_GEN_ENABLED === true && CFG.LV_ENABLED !== false;
+  if (CFG.LV_ENABLED === false) return false;
+  var o = '';
+  try { o = String(props_().getProperty(PK.LV_GEN_ON) || ''); } catch (e) { o = ''; }
+  if (o === '1') return true;
+  if (o === '0') return false;
+  return CFG.LV_GEN_ENABLED === true;
+}
+
+/**
+ * کلیدِ منو: لایهٔ ۳ را روشن/خاموش می‌کند و سقفِ هزینه را **پیش از** تأیید
+ * می‌گوید. نوشتنِ عدد در پیام لازم است، چون تصمیم دربارهٔ پول است و
+ * «روشن شد» بی عدد، تصمیمی است که او نگرفته.
+ */
+function runLvGenToggle() {
+  var now = false;
+  try { now = lvGenOn_(); } catch (e0) { now = false; }
+  var cap = Number(CFG.LV_GEN_USD_MONTH) || 0;
+  var ui = null;
+  try { ui = ui_(); } catch (eU) { ui = null; }
+  var msg = now
+    ? ('تصویرِ ساخته‌شده الان **روشن** است.\n\nخاموشش کنم؟ کارت‌های برداری ' +
+       'سرِ جایشان می‌مانند و ویدئو ساخته می‌شود؛ فقط نقاشیِ ساخته‌شده نمی‌آید.')
+    : ('تصویرِ ساخته‌شده الان **خاموش** است.\n\nروشنش کنم؟ سقفِ ماهانه ' +
+       faDigitsOut_(String(cap)) + ' دلار است و موتور از آن رد نمی‌شود؛ ' +
+       'هر وقت خواستید همین گزینه خاموشش می‌کند.');
+  if (ui) {
+    try {
+      var a = ui.alert('تصویرِ ساخته‌شده', msg, ui.ButtonSet.YES_NO);
+      if (a !== ui.Button.YES) return { ok: false, on: now, why: 'لغو شد' };
+    } catch (eA) {}
+  }
+  var next = !now;
+  try { props_().setProperty(PK.LV_GEN_ON, next ? '1' : '0'); }
+  catch (eS) { return { ok: false, on: now, why: eS.message }; }
+  var line = '';
+  try { line = lvGenStatus_().line; } catch (eL) { line = ''; }
+  if (ui) {
+    try {
+      ui.alert('تصویرِ ساخته‌شده',
+               (next ? '✅ روشن شد.' : '⏸ خاموش شد.') + '\n\n' + line,
+               ui.ButtonSet.OK);
+    } catch (eA2) {}
+  }
+  try { logLine_('تصویرِ ساخته‌شده ' + (next ? 'روشن' : 'خاموش') + ' شد (دستی)'); }
+  catch (eLg) {}
+  return { ok: true, on: next };
 }
 
 /** قیمتِ یک تصویر با این مدل. مدلِ ناشناخته ⇒ **گران‌ترین** فرض. */
@@ -43526,9 +43710,13 @@ function lvGenStatus_() {
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
     if (!out.on) {
+      /* دستور باید **انجام‌شدنی** باشد: تا ۸٫۱۴ همین خط می‌گفت
+         «`LV_GEN_ENABLED` را true کنید» — یعنی ویرایشِ سورس، کاری که او
+         نمی‌کند. حالا نامِ گزینهٔ منو می‌آید (۸٫۱۵). */
       out.line = 'تصویرِ ساخته‌شده با مدل: **خاموش** — تصمیمِ خودتان است. ' +
-                 'با سقفِ ' + faDigitsOut_(String(out.cap)) + ' دلار در ماه، ' +
-                 '`LV_GEN_ENABLED` را true کنید.';
+                 'از منوی «موتور محتوا» گزینهٔ «🎨 تصویرِ ساخته‌شده: روشن/خاموش» ' +
+                 'روشنش می‌کند؛ سقفِ ماهانه ' +
+                 faDigitsOut_(String(out.cap)) + ' دلار است و موتور از آن رد نمی‌شود.';
     } else {
       out.line = 'تصویرِ ساخته‌شده: روشن' +
         (out.model ? ' با ' + out.model : ' (مدل هنوز پیدا نشده)') +

@@ -368,4 +368,99 @@ console.log('\n══ ۹) بدهیِ منو: عددی که دیده شود (۸.�
   }
 }
 
+console.log('\n══ ۱۰) جعبهٔ سطحِ تصویرسازی — درِ دومی که ۸.۱۳ ندیدش (۸.۱۵) ══');
+/* او پرسید «آیا تمامِ چیزهایی که برای تنظیماتِ تولیدِ ویدیوِ مجموعه‌ها هست
+   رعایت کردی؟» و جوابِ راست باز هم «نه» بود: ستونِ «تصویرسازی» از ۸.۰۱ در
+   رجیستری است و خواستهٔ صریحِ خودش بود، و ۸.۱۳ که درِ «سبکِ تصویر» را ساخت
+   این یکی را جا گذاشت. یعنی همان عیب، یک ستون آن‌طرف‌تر، در نسخه‌ای که برای
+   همین عیب نوشته شده بود.
+
+   و مثلِ §۸، ادعا **از دری سنجیده می‌شود که تولید از آن وارد می‌شود**:
+   از تخته ذخیره می‌کنیم، بعد از `lvLevelAt_` می‌پرسیم چه می‌بیند. */
+{
+  const hub = getHub_();
+  {
+    const sh = ensureTab_(hub, CFG.SERIES_TAB, SERIES_HEADERS);
+    const v = new Array(SERIES_HEADERS.length).fill('');
+    v[SC.KEY - 1] = 'lvl-test';
+    v[SC.NAME - 1] = 'مجموعهٔ آزمونِ سطح';
+    v[SC.STATUS - 1] = SST.ACTIVE;
+    sh.appendRow(v);
+  }
+  const k = 'lvl-test';
+
+  /* خانهٔ خالی = پیش‌فرض، نه «نگفته»: اگر این دو یکی گرفته شوند، روزی
+     «پیش‌فرض» به «خاموش» تفسیر می‌شود و ویدئو بی‌صدا تک‌تصویری می‌ماند. */
+  ok('۱۰.۱ خانهٔ خالی یعنی پیش‌فرض',
+     lvLevelAt_(hub, { seriesKey: k }, {}) === String(CFG.LV_LEVEL_DEFAULT || 'کم'),
+     lvLevelAt_(hub, { seriesKey: k }, {}));
+
+  const r1 = uiLvLevelSave(k, 'زیاد');
+  ok('۱۰.۲ ذخیره از تخته به رجیستری می‌رسد و تولید همان را می‌بیند',
+     !!(r1 && r1.ok === true) &&
+     lvLevelAt_(getHub_(), { seriesKey: k }, {}) === 'زیاد',
+     JSON.stringify({ r: r1, read: lvLevelAt_(getHub_(), { seriesKey: k }, {}) }));
+
+  /* سطحِ ناشناخته با **اسم** رد می‌شود، قرینهٔ `uiLvStyleSave`: خانه‌ای که
+     بی‌صدا نادیده گرفته شود یعنی او چیزی انتخاب کرده که هرگز اثر نمی‌کند و
+     هیچ‌وقت نمی‌فهمد (۷.۴۱). و مقدارِ قبلی باید دست‌نخورده بمانَد. */
+  const bad = uiLvLevelSave(k, 'متوسط');
+  ok('۱۰.۳ سطحِ ناشناخته رد می‌شود، مجازها را می‌گوید، و مقدارِ قبلی نمی‌پرد',
+     !!(bad && bad.ok === false) &&
+     (CFG.LV_LEVELS || []).every((x) => String(bad.message).indexOf(x) !== -1) &&
+     lvLevelAt_(getHub_(), { seriesKey: k }, {}) === 'زیاد',
+     JSON.stringify({ msg: bad && bad.message,
+                      still: lvLevelAt_(getHub_(), { seriesKey: k }, {}) }));
+
+  /* ══ و وعدهٔ سطح با واقعیتِ امروز سنجیده می‌شود ══
+     «کم» و «زیاد» هر دو نقاشیِ ساخته‌شده می‌خواهند. اگر لایهٔ ۳ خاموش باشد و
+     رسید این را نگوید، او سطح را عوض کرده و ویدئو عوض نشده — همان «سطحی که
+     انتخاب شد و هیچ اثری نداشت» که اصلِ شکایتِ امروز بود. */
+  {
+    const genWas = CFG.LV_GEN_ENABLED;
+    CFG.LV_GEN_ENABLED = false;
+    try { props_().deleteProperty(PK.LV_GEN_ON); } catch (e) {}
+    /* رسید تابعِ خودش نیست؛ `boardReceipt_` می‌سازدش. پس همان را می‌گیریم و
+       **متنی که واقعاً به او نشان داده می‌شود** سنجیده می‌شود، نه بازخوانیِ
+       یک رشته در آزمون (۷.۶۲: درِ تولید، نه خودِ تابع). */
+    const realRc = global.boardReceipt_;
+    let seen = null;
+    global.boardReceipt_ = function (okk, title, lines) {
+      seen = { ok: okk, title: String(title || ''),
+               lines: (lines || []).map(String) };
+      return realRc ? realRc.apply(null, arguments) : null;
+    };
+    let r2 = null;
+    try { r2 = uiLvLevelSave(k, 'کم'); } finally {
+      global.boardReceipt_ = realRc;
+    }
+    const joined = seen ? seen.lines.join(' ⏎ ') : '';
+    ok('۱۰.۴ با لایهٔ ۳ خاموش، رسید می‌گوید «کم» امروز فقط کارتِ برداری است',
+       !!(r2 && r2.ok === true) && !!seen && seen.ok === true &&
+       /خاموش/.test(joined) && /کارتِ برداری/.test(joined) &&
+       joined.indexOf(faDigitsOut_(String(CFG.LV_GEN_USD_MONTH))) !== -1,
+       JSON.stringify({ r: r2 }) + ' · رسید: ' + joined.slice(0, 220) +
+       ' — سطحی که عوض شود و ویدئو عوض نشود، همان شکایتِ امروز است');
+    CFG.LV_GEN_ENABLED = genWas;
+  }
+
+  /* و روی **خودِ صفحه**: ستون و جعبه‌اش باید رندر شوند، وگرنه تنظیم هست و
+     دری ندارد — عیبی که این بند برای آن نوشته شده (۵.۶۱/۷.۴۳). */
+  {
+    const page = seriesBoardHtml_(seriesBoardData_(getHub_()));
+    ok('۱۰.۵ ستونِ «تصویرسازی» و جعبه‌اش روی تخته رندر می‌شوند',
+       page.indexOf('<th>تصویرسازی</th>') !== -1 &&
+       /onchange="lvLevel\(this\)"/.test(page),
+       'th=' + (page.indexOf('<th>تصویرسازی</th>') !== -1) +
+       ' · select=' + /onchange="lvLevel\(this\)"/.test(page));
+    /* و دکمه‌ای که به تابعِ ناموجود وصل باشد بی‌صدا هیچ نمی‌کند (۵.۶۱) —
+       پس نامی که صفحه صدا می‌زند باید واقعاً وجود داشته باشد. */
+    ok('۱۰.۵-ب و تابعی که صفحه صدا می‌زند وجود دارد',
+       typeof uiLvLevelSave === 'function' &&
+       page.indexOf('.uiLvLevelSave(') !== -1,
+       'fn=' + (typeof uiLvLevelSave) +
+       ' · call=' + (page.indexOf('.uiLvLevelSave(') !== -1));
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

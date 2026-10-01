@@ -102,6 +102,13 @@ function seriesBoardData_(hub) {
          جوابِ راست «هیچ‌جا» بود: کنترلی که جای کارش نباشد پیدا نمی‌شود
          (۵.۶۱/۷.۳۵). رشتهٔ خالی یعنی «خودش انتخاب کند». */
       lvStyle: String(v[SC.LVSTYLE - 1] || '').trim(),
+      /* ── و سطحِ تصویرسازی، که همان عیب را یک ستون آن‌طرف‌تر داشت (۸٫۱۵) ──
+         ستونش از ۸٫۰۱ هست و خواستهٔ صریحِ خودِ او بود — «در مجموعه‌ها جایی
+         باشه بتونم انتخاب کنم برای هر نوع چطور باشه» — و ۸٫۱۳ که درِ سبک را
+         ساخت، این یکی را ندید. یعنی جوابِ «همهٔ تنظیم‌های ویدئو روی تخته
+         هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
+         می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
+      lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
       // ── تنظیمِ دستیِ شما ──
       morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
@@ -682,7 +689,8 @@ function seriesBoardHtml_(d) {
            '</button></div>');
     H.push('<div class="tw"><table><tr><th>اولویت</th><th>مجموعه</th><th>سطح</th><th>قسمت</th>' +
            '<th>پیشرفت</th><th>وضعیت</th><th>قسمت‌های ساخته‌شده</th>' +
-           '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>مجموعه‌های مرجع</th>' +
+           '<th>جزوه</th><th>مرورِ بزرگ</th><th>سبکِ تصویر</th><th>تصویرسازی</th>' +
+           '<th>مجموعه‌های مرجع</th>' +
            '<th></th></tr>');
     for (var i = 0; i < grp.series.length; i++) {
       var x = grp.series[i];
@@ -719,6 +727,7 @@ function seriesBoardHtml_(d) {
       H.push(handoutCell_(x));
       H.push(recapCell_(x));
       H.push(lvStyleCell_(x));
+      H.push(lvLevelCell_(x));
       /* فراخوانِ رو به جلو (۱۵ → ۳۱) در try/catch — قاعدهٔ ۲۱→۲۲ این ریپو.
          بارگذارِ جزئی یا بخشی که بالا نیامده باشد نباید کلِ تخته را بخواباند؛
          یک ستونِ خالی از یک پنجرهٔ سفید بی‌نهایت بهتر است. */
@@ -746,7 +755,7 @@ function seriesBoardHtml_(d) {
       // قسمت‌های همان مجموعه، به ترتیب، با جای ایستادن
       if (x.partRows.length) {
         H.push('<tr class="' + clsName.replace('srow', 'sdetail') + '"><td></td>' +
-               '<td colspan="11"><table style="font-size:11px">');
+               '<td colspan="12"><table style="font-size:11px">');
         for (var p = 0; p < x.partRows.length; p++) {
           var pr = x.partRows[p];
           H.push('<tr><td style="width:34px">' + faNum_(pr.seq || (p + 1)) + '</td>' +
@@ -894,6 +903,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سبکِ تصویر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvStyleSave(k,v);}');
+  H.push('function lvLevel(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvLevelSave(k,v);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
   /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
@@ -1826,6 +1839,48 @@ function lvStyleCell_(x) {
 }
 
 /**
+ * ══ جعبهٔ سطحِ تصویرسازی — درِ دومی که ۸٫۱۳ ندیدش (۸٫۱۵) ══
+ *
+ * ستونِ «تصویرسازی» از ۸٫۰۱ در رجیستری است و خواستهٔ صریحِ خودِ صاحبِ برنامه
+ * بود. ۸٫۱۳ درِ «سبکِ تصویر» را ساخت و این یکی را جا گذاشت — پس پرسشِ «همهٔ
+ * تنظیم‌های ویدئو روی تخته هست؟» باز هم جوابش «نه» بود، در همان نسخه‌ای که
+ * برای همین عیب نوشته شده بود.
+ *
+ * **و سطح چیزی را وعده می‌دهد که امروز خاموش است**، پس همان‌جا گفته می‌شود:
+ * «کم» و «زیاد» هر دو نقاشیِ ساخته‌شده می‌خواهند و `lvGenOn_()` خاموش است.
+ * سطحی که بی‌صدا همان «کارتِ برداری» بدهد، همان برچسبِ بی‌ورودیِ ۷٫۷۹ است.
+ */
+function lvLevelCell_(x) {
+  var cur = String((x && x.lvLevel) || '');
+  var list = [];
+  try { list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (e) {
+    list = ['خاموش', 'کم', 'زیاد'];
+  }
+  var def = 'کم';
+  try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD) { def = 'کم'; }
+  var opts = ['<option value=""' + (cur ? '' : ' selected') + '>پیش‌فرض (' +
+              bEsc_(def) + ')</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (k === cur ? ' selected' : '') +
+              '>' + bEsc_(k) + '</option>');
+  }
+  /* حالِ لایهٔ ۳ در همان خانه، نه در یک نامهٔ دیگر: اگر خاموش باشد، «زیاد»
+     و «کم» امروز هر دو یعنی کارتِ برداری و بس. */
+  var gen = false;
+  try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
+  var eff = String(cur || def);
+  var note = (eff === 'خاموش')
+    ? 'بی کارت — ویدئو تک‌تصویری'
+    : (gen ? 'کارت + نقاشیِ ساخته‌شده'
+           : '⚠️ کارتِ برداری تنها — نقاشیِ ساخته‌شده خاموش است');
+  return '<td class="sty">' +
+         '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
+         opts.join('') + '</select>' +
+         '<div class="sub">' + bEsc_(note) + '</div></td>';
+}
+
+/**
  * ذخیرهٔ سبکِ یک مجموعه. سبکِ ناشناخته **رد** می‌شود و نامِ سبک‌های مجاز
  * برگردانده می‌شود — نه اینکه بی‌صدا پیش‌فرض بنشیند: خانه‌ای که حرفِ کاربر را
  * بی‌صدا عوض کند، او را به این باور می‌رساند که چیزی را تنظیم کرده.
@@ -1864,6 +1919,66 @@ function uiLvStyleSave(key, style) {
   } catch (e) {
     boardReceipt_(false, 'ثبتِ سبک نشد', [e.message]);
     return { ok: false, message: 'ثبتِ سبک نشد: ' + e.message };
+  }
+}
+
+/**
+ * سطحِ تصویرسازیِ یک مجموعه را می‌نویسد (۸٫۱۵).
+ *
+ * سطحِ ناشناخته **با اسم رد می‌شود** و مجازها را می‌گوید، قرینهٔ `uiLvStyleSave`:
+ * خانه‌ای که بی‌صدا نادیده گرفته شود یعنی او چیزی انتخاب کرده که هرگز اثر
+ * نمی‌کند و هیچ‌وقت نمی‌فهمد (۷٫۴۱).
+ *
+ * و رسید **وعدهٔ همین سطح را با واقعیتِ امروز می‌سنجد**: «کم» و «زیاد» هر دو
+ * نقاشیِ ساخته‌شده می‌خواهند، و اگر لایهٔ ۳ خاموش باشد همان کارتِ برداری
+ * درمی‌آید. گفتنش یک جمله است؛ نگفتنش همان «سطحی که عوض شد و ویدئو عوض
+ * نشد» است.
+ */
+function uiLvLevelSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = [];
+    try { list = CFG.LV_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (eL) {
+      list = ['خاموش', 'کم', 'زیاد'];
+    }
+    if (v && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'سطحِ ناشناخته', ['سطح‌های مجاز: ' + list.join(' · ')]);
+      return { ok: false, message: 'سطحِ «' + v + '» را نمی‌شناسم. مجازها: ' +
+                                   list.join(' · ') };
+    }
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVLEVEL).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var def = 'کم';
+    try { def = String(CFG.LV_LEVEL_DEFAULT || 'کم'); } catch (eD2) { def = 'کم'; }
+    var eff = v || def;
+    var notes = [v ? ('سطح: ' + v) : ('پیش‌فرض — یعنی «' + def + '»')];
+    if (eff === 'خاموش') {
+      notes.push('هیچ کارتی ساخته نمی‌شود؛ ویدئوی این مجموعه همان کاورِ ' +
+                 'تک‌تصویری می‌مانَد.');
+    } else {
+      var gen = false;
+      try { gen = lvGenOn_() === true; } catch (eG) { gen = false; }
+      notes.push(gen
+        ? 'کارتِ برداری + نقاشیِ ساخته‌شده در نقاطِ کلیدی.'
+        : '⚠️ «' + eff + '» نقاشیِ ساخته‌شده می‌خواهد و آن لایه الان ' +
+          '**خاموش** است، پس امروز فقط کارتِ برداری درمی‌آید. از منوی ' +
+          '«موتور محتوا» گزینهٔ «🎨 تصویرِ ساخته‌شده: روشن/خاموش» روشنش ' +
+          'می‌کند؛ سقفِ ماهانه ' +
+          faDigitsOut_(String(Number(CFG.LV_GEN_USD_MONTH) || 0)) + ' دلار است.');
+    }
+    notes.push('قسمت‌های بعدی با همین سطح ساخته می‌شوند. برای قسمتی که از ' +
+               'قبل ساخته شده، از منو «🖼 بازسازیِ تصویرهای یک قسمت» را بزنید.');
+    boardReceipt_(true, 'سطحِ تصویرسازیِ «' + nm + '» ثبت شد', notes);
+    return { ok: true, message: 'سطحِ «' + nm + '» شد «' + eff + '».' };
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ سطح نشد', [e.message]);
+    return { ok: false, message: 'ثبتِ سطح نشد: ' + e.message };
   }
 }
 

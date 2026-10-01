@@ -3496,14 +3496,80 @@ console.log('=== ۵۷) لایهٔ ۳: تصویرِ ساخته‌شده با مد
      gs.line.slice(0, 120));
 
   CFG.LV_GEN_ENABLED = false;
+  try { props_().deleteProperty(PK.LV_GEN_ON); } catch (ePg) {}
   const off = lvGenStatus_();
+  /* ══ ادعا همان است، شاهدش عوض شد (۸٫۱۵) ══
+     نامِ این سنجه از روزِ اول «و **چطور روشن می‌شود**» بود و درست هم بود؛
+     شاهدش غلط بود: نامِ یک کلیدِ `CFG` را می‌خواست، یعنی دستوری که صاحبِ
+     برنامه نمی‌تواند انجامش دهد (ویرایشِ سورس). حالا همان ادعا را با چیزی
+     می‌سنجد که **واقعاً فشاردادنی** است — و نامِ گزینه از خودِ منبعِ منو
+     خوانده می‌شود نه دست‌نویس، وگرنه عوض‌کردنِ برچسبِ منو این سنجه را سبز
+     می‌گذارد و خطِ روزانه به گزینه‌ای اشاره می‌کند که وجود ندارد (۷٫۶۳). */
+  const mSrc = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const mItem = mSrc.match(/\.addItem\(\s*'([^']*)'\s*,\s*'runLvGenToggle'\s*\)/);
   ok('۵۷.۱۲-ب و خاموش که باشد، خطش می‌گوید خاموش است و چطور روشن می‌شود',
      off.on === false && off.line.indexOf('خاموش') !== -1 &&
-     off.line.indexOf('LV_GEN_ENABLED') !== -1, off.line.slice(0, 100));
+     !!mItem && off.line.indexOf(mItem[1]) !== -1 &&
+     off.line.indexOf('LV_GEN_ENABLED') === -1,
+     JSON.stringify({ menu: mItem ? mItem[1] : null }) + ' · ' +
+     off.line.slice(0, 140) +
+     ' — دستوری که انجام‌شدنی نباشد، از نبودنِ دستور بدتر است');
 
   ok('۵۷.۱۲-پ و حالِ لایهٔ ۳ در خطِ روزانهٔ تصویرِ درس هم می‌آید',
      lvLine_(lvStatus_()).indexOf('تصویرِ ساخته‌شده') !== -1,
      lvLine_(lvStatus_()).replace(/\n/g, ' ⏎ ').slice(0, 130));
+
+  /* ══ ۵۷.۱۴ — کلید در دستِ او، نه در سورس (۸٫۱۵) ══
+     `CFG.LV_GEN_ENABLED` خاموش است و خاموش می‌مانَد؛ ادعا این است که او
+     **بی عوض‌کردنِ سورس** می‌تواند روشنش کند. پس سنجه از همان دری وارد
+     می‌شود که منو واردش می‌شود — `runLvGenToggle` — و بعد `lvGenOn_` را
+     می‌پرسد: اگر کلیدِ زمانِ اجرا خوانده نشود، این سرخ می‌شود. */
+  {
+    const realUi57 = global.ui_;
+    global.ui_ = () => ({
+      alert: function () { return 'YES'; },
+      ButtonSet: { YES_NO: 1, OK: 2 }, Button: { YES: 'YES' }
+    });
+    try {
+      CFG.LV_GEN_ENABLED = false;
+      try { props_().deleteProperty(PK.LV_GEN_ON); } catch (e1) {}
+      const before = lvGenOn_();
+      const r1 = runLvGenToggle();
+      const after = lvGenOn_();
+      ok('۵۷.۱۴ گزینهٔ منو لایهٔ ۳ را روشن می‌کند، بی دست‌زدن به سورس',
+         before === false && !!(r1 && r1.ok === true && r1.on === true) &&
+         after === true && CFG.LV_GEN_ENABLED === false,
+         JSON.stringify({ before: before, r: r1, after: after,
+                          cfg: CFG.LV_GEN_ENABLED }) +
+         ' — تا ۸٫۱۴ تنها راهش ویرایشِ `src/00_Config.gs` بود');
+
+      /* و خطِ روزانه همان لحظه راست می‌گوید — وگرنه او روشن کرده و گزارش
+         هر روز «خاموش» می‌گوید، که همان تناقضِ دو شاهدِ ۷٫۵۷ است. */
+      ok('۵۷.۱۴-ب و خطِ روزانه بی‌درنگ «روشن» می‌شود',
+         lvGenStatus_().on === true &&
+         lvGenStatus_().line.indexOf('روشن') !== -1,
+         lvGenStatus_().line.slice(0, 120));
+
+      const r2 = runLvGenToggle();
+      ok('۵۷.۱۴-پ و همان گزینه خاموشش می‌کند — کلیدی که یک‌طرفه باشد کلید نیست',
+         !!(r2 && r2.ok === true && r2.on === false) && lvGenOn_() === false,
+         JSON.stringify({ r: r2, on: lvGenOn_() }));
+
+      /* ══ و مرزی که نباید جابه‌جا شود ══
+         `LV_ENABLED` بالاسرِ این است: کلِ تصویرسازی خاموش باشد، کلیدِ لایهٔ ۳
+         هم نباید روشنش کند. بی این، «خاموشِ کلی» نیمه‌خاموش می‌شد. */
+      const lvWas = CFG.LV_ENABLED;
+      CFG.LV_ENABLED = false;
+      try { props_().setProperty(PK.LV_GEN_ON, '1'); } catch (e2) {}
+      ok('۵۷.۱۴-ت ولی خاموشیِ کلِ تصویرسازی بالاسرِ این کلید است',
+         lvGenOn_() === false,
+         'LV_ENABLED=false و کلیدِ زمانِ اجرا «۱» — باز هم باید خاموش باشد');
+      CFG.LV_ENABLED = lvWas;
+      try { props_().deleteProperty(PK.LV_GEN_ON); } catch (e3) {}
+    } finally {
+      global.ui_ = realUi57;
+    }
+  }
 
   /* ۵۷.۱۳ — و خاموش که باشد، **هیچ فراخوانی** نمی‌رود: صفرِ دلاری یعنی صفر. */
   const cWas = genCalls;

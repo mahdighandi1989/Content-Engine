@@ -2242,8 +2242,67 @@ function lvStyleAudit_(hub) {
  * نبودنش است (۷٫۲۴).
  */
 
+/**
+ * آیا لایهٔ ۳ (نقاشیِ ساخته‌شده) روشن است؟
+ *
+ * ══ کلید از دستِ سورس به دستِ او آمد (۸٫۱۵) ══
+ * تا ۸٫۱۴ این فقط `CFG.LV_GEN_ENABLED` را می‌خواند، و کامنتِ خودِ آن کلید
+ * می‌گفت «روشن‌کردنش تصمیمِ صاحبِ برنامه است» در حالی که تنها راهش ویرایشِ
+ * سورس بود — تصمیمی که به او نسبت داده شده و راهی برای گرفتنش نداشت
+ * (۵٫۹۵: گیتی که آدم باید بازش کند و نمی‌تواند، گیت نیست). خطِ روزانه هم
+ * هر روز می‌گفت «`LV_GEN_ENABLED` را true کنید» — دستوری که انجام‌شدنی
+ * نبود، و دستورِ غلط از نبودنِ دستور بدتر است.
+ *
+ * `LV_ENABLED` عمداً **بالاسرِ** این می‌مانَد: کلِ تصویرسازی خاموش باشد،
+ * لایهٔ ۳ هم معنا ندارد.
+ */
 function lvGenOn_() {
-  return CFG.LV_GEN_ENABLED === true && CFG.LV_ENABLED !== false;
+  if (CFG.LV_ENABLED === false) return false;
+  var o = '';
+  try { o = String(props_().getProperty(PK.LV_GEN_ON) || ''); } catch (e) { o = ''; }
+  if (o === '1') return true;
+  if (o === '0') return false;
+  return CFG.LV_GEN_ENABLED === true;
+}
+
+/**
+ * کلیدِ منو: لایهٔ ۳ را روشن/خاموش می‌کند و سقفِ هزینه را **پیش از** تأیید
+ * می‌گوید. نوشتنِ عدد در پیام لازم است، چون تصمیم دربارهٔ پول است و
+ * «روشن شد» بی عدد، تصمیمی است که او نگرفته.
+ */
+function runLvGenToggle() {
+  var now = false;
+  try { now = lvGenOn_(); } catch (e0) { now = false; }
+  var cap = Number(CFG.LV_GEN_USD_MONTH) || 0;
+  var ui = null;
+  try { ui = ui_(); } catch (eU) { ui = null; }
+  var msg = now
+    ? ('تصویرِ ساخته‌شده الان **روشن** است.\n\nخاموشش کنم؟ کارت‌های برداری ' +
+       'سرِ جایشان می‌مانند و ویدئو ساخته می‌شود؛ فقط نقاشیِ ساخته‌شده نمی‌آید.')
+    : ('تصویرِ ساخته‌شده الان **خاموش** است.\n\nروشنش کنم؟ سقفِ ماهانه ' +
+       faDigitsOut_(String(cap)) + ' دلار است و موتور از آن رد نمی‌شود؛ ' +
+       'هر وقت خواستید همین گزینه خاموشش می‌کند.');
+  if (ui) {
+    try {
+      var a = ui.alert('تصویرِ ساخته‌شده', msg, ui.ButtonSet.YES_NO);
+      if (a !== ui.Button.YES) return { ok: false, on: now, why: 'لغو شد' };
+    } catch (eA) {}
+  }
+  var next = !now;
+  try { props_().setProperty(PK.LV_GEN_ON, next ? '1' : '0'); }
+  catch (eS) { return { ok: false, on: now, why: eS.message }; }
+  var line = '';
+  try { line = lvGenStatus_().line; } catch (eL) { line = ''; }
+  if (ui) {
+    try {
+      ui.alert('تصویرِ ساخته‌شده',
+               (next ? '✅ روشن شد.' : '⏸ خاموش شد.') + '\n\n' + line,
+               ui.ButtonSet.OK);
+    } catch (eA2) {}
+  }
+  try { logLine_('تصویرِ ساخته‌شده ' + (next ? 'روشن' : 'خاموش') + ' شد (دستی)'); }
+  catch (eLg) {}
+  return { ok: true, on: next };
 }
 
 /** قیمتِ یک تصویر با این مدل. مدلِ ناشناخته ⇒ **گران‌ترین** فرض. */
@@ -2539,9 +2598,13 @@ function lvGenStatus_() {
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
     if (!out.on) {
+      /* دستور باید **انجام‌شدنی** باشد: تا ۸٫۱۴ همین خط می‌گفت
+         «`LV_GEN_ENABLED` را true کنید» — یعنی ویرایشِ سورس، کاری که او
+         نمی‌کند. حالا نامِ گزینهٔ منو می‌آید (۸٫۱۵). */
       out.line = 'تصویرِ ساخته‌شده با مدل: **خاموش** — تصمیمِ خودتان است. ' +
-                 'با سقفِ ' + faDigitsOut_(String(out.cap)) + ' دلار در ماه، ' +
-                 '`LV_GEN_ENABLED` را true کنید.';
+                 'از منوی «موتور محتوا» گزینهٔ «🎨 تصویرِ ساخته‌شده: روشن/خاموش» ' +
+                 'روشنش می‌کند؛ سقفِ ماهانه ' +
+                 faDigitsOut_(String(out.cap)) + ' دلار است و موتور از آن رد نمی‌شود.';
     } else {
       out.line = 'تصویرِ ساخته‌شده: روشن' +
         (out.model ? ' با ' + out.model : ' (مدل هنوز پیدا نشده)') +

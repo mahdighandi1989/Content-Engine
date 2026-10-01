@@ -47,6 +47,9 @@ function onOpen() {
       .addItem('▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست', 'runYouTubePublish')
       .addItem('🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)', 'runYouTubeRedo')
       .addItem('🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)', 'runLessonVisualsRebuild')
+      /* ۸٫۱۵: کلیدِ لایهٔ ۳. تا دیروز فقط در سورس بود و خطِ روزانه از او
+         می‌خواست `LV_GEN_ENABLED` را true کند — دستوری که انجام‌شدنی نبود. */
+      .addItem('🎨 تصویرِ ساخته‌شده: روشن/خاموش', 'runLvGenToggle')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')
