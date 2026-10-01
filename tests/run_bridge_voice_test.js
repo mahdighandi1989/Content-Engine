@@ -2549,5 +2549,160 @@ console.log('\n══ ۳۳) دو بذر، و نفرِ دوم که نوبت نم�
   try { props_().deleteProperty('VSOUL_SEED_DAY'); } catch (e) {}
 }
 
-console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 
+
+console.log('\n══ ۳۴) سدی که جلوِ درمانِ ۸.۰۸ را می‌گرفت (۸٫۰۹) ══');
+/* ۷٫۷۹ سدی ساخت که با خاموش‌بودنِ دستورِ لحن، نمونهٔ روح را رد می‌کند — و آن
+   روز درست بود، چون لحن **فقط** از فیلدِ دستور می‌آمد و فایلی که می‌ساخت
+   همان «رنگ‌تنها»ی دیروز بود.
+
+   ۸٫۰۸ راهِ دوم را ساخت: نشانه‌های خودِ متن. و ۸٫۰۷ قالبِ پیشوندی را خاموش
+   کرد، پس `ttsCueStatus_().ok` روی مدلی که فیلد را رد کند **false** است.
+   یعنی نمونه‌ای که برای سنجشِ نشانه‌ها ساخته می‌شود، هرگز ساخته نمی‌شد:
+   سدی که برای دنیای قبل درست بود و جلوِ درمانِ دنیای بعد را می‌گرفت — همان
+   شکلِ ۷٫۴۶/۷٫۶۲، این بار نه «درمان روی راهی که پیموده نمی‌شود» بلکه
+   «نگهبانی که درمان را نمی‌شناسد».
+
+   ادعا رفتاری است و از درِ تولید وارد می‌شود: با دستورِ خاموش، متنی که
+   نشانه دارد باید نمونه بسازد، و برچسبش نه «روح» باشد نه «رنگ‌تنها». */
+{
+  const realTry34 = global.ttsChunkTry_;
+  const realUi34 = global.ui_;
+  const realGem34 = global.geminiText_;
+  const keepMode34 = CFG.TTS_CUE_MODE;
+  let ttsCalls34 = 0, said34 = '';
+  global.ttsChunkTry_ = function () {
+    ttsCalls34++;
+    return Buffer.alloc(24000 * 2 * 8).toString('base64');
+  };
+  global.ui_ = () => ({ alert: function (t, m) { said34 = String(m); },
+                        ButtonSet: { OK: 1 } });
+
+  /* قسمتی که متنِ ذخیره‌شده‌اش **از قبل** نشانهٔ لحن دارد — یعنی همان چیزی که
+     از فردا تولید می‌سازد. ترمیم لازم نیست، پس این بند به مدل کاری ندارد و
+     شاهد از خودِ متن می‌آید نه از پرچمی که خودمان بالا برده باشیم. */
+  const fEp34 = OUT.createFolder('قسمتِ نشانه‌دار');
+  const segs34 = [];
+  for (let i = 0; i < 20; i++) {
+    segs34.push({ h: 'h' + i, t:
+      'شَبی از شَب‌هایِ پاییز بود — و بادِ سَرد پُشتِ پَنجِره ایستاده بود! ' +
+      'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد… آیا کَسی خانه بود؟ ' +
+      'او گفت «دیر آمدی» و دَر را بَست. شُمارهٔ ' + i + '. ' });
+  }
+  fEp34.createFile('_episode.json',
+    JSON.stringify({ ep: { title: 'نشانه‌دار', __speakSegs: segs34 } }),
+    'application/json');
+
+  try {
+    const q34 = vbrRead_(); q34.items = []; vbrSave_(q34);
+    const rd34 = ytRenderRead_();
+    const keepRd34 = rd34.items.slice();
+    rd34.items = [{ key: 'variety:94', show: 'variety', ep: '94',
+                    folderId: fEp34.getId(), status: 'رسید' }];
+    ytRenderSave_(rd34);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1,
+                      'آرام و شمرده بخوان', '', '', ['variety:94']);
+
+    CFG.TTS_CUE_MODE = 'off';
+    ok('۳۴.۰ حالتِ «دستورِ لحن خاموش» واقعاً ساخته شد',
+       ttsCueStatus_().ok === false,
+       'گرفت: ' + String(ttsCueStatus_().ok) +
+       ' — سنجه‌ای که روی حالتِ سالم بدوَد چیزی را ثابت نمی‌کند');
+    ok('۳۴.۰-ب و متنِ این قسمت واقعاً نشانهٔ لحن دارد',
+       speakProsody_(epSpeakText_(fEp34.getId())).richPer1k >=
+         Number(CFG.SPEAK_PROSODY_MIN),
+       'گویا در هزار: ' +
+       speakProsody_(epSpeakText_(fEp34.getId())).richPer1k +
+       ' · سقف: ' + CFG.SPEAK_PROSODY_MIN);
+
+    ttsCalls34 = 0; said34 = '';
+    const r34 = runVoiceSoulTest();
+
+    ok('۳۴.۱ با دستورِ خاموش ولی متنِ نشانه‌دار، نمونه ساخته می‌شود',
+       !!(r34 && r34.ok === true && ttsCalls34 > 1),
+       JSON.stringify({ ok: r34 && r34.ok, why: r34 && r34.why,
+                        tts: ttsCalls34 }) +
+       ' — سدِ ۷٫۷۹ این را رد می‌کرد، یعنی نمونه‌ای که برای سنجشِ نشانه‌ها ' +
+       'ساخته می‌شود هرگز ساخته نمی‌شد');
+
+    const row34 = vbrRead_().items.filter(
+      (x) => /نمونهٔ روح/.test(String(x.key)))[0];
+    ok('۳۴.۲ و برچسبش نه «روح» است نه «رنگ‌تنها» — راستش را می‌گوید',
+       !!row34 && row34.soul === 'لحن از نشانه‌ها' &&
+       /نشانه‌های متن/.test(String(row34.soulWhy)),
+       row34 ? JSON.stringify({ soul: row34.soul, why: row34.soulWhy })
+             : 'ردیفی نوشته نشد');
+
+    /* کپشن تابعِ خودش نیست؛ داخلِ `vbrTgTell_` ساخته می‌شود. پس همان را
+       می‌دوانیم و متنی که **واقعاً به تلگرام می‌رود** سنجیده می‌شود — نه
+       بازخوانیِ یک رشته در آزمون (۷٫۶۲: درِ تولید، نه خودِ تابع). */
+    let capSeen = '';
+    const realApi34 = global.tgApi_;
+    const realSend34 = global.tgSend_;
+    const realEn34 = global.tgEnabled_;
+    global.tgEnabled_ = () => true;
+    global.tgApi_ = function (m, p) {
+      if (p && p.caption) capSeen = String(p.caption);
+      return { ok: true };
+    };
+    global.tgSend_ = function (t) { capSeen = String(t); return true; };
+    try { vbrTgTell_(row34, 'بهروز رضوی', []); } catch (eTg) {}
+    global.tgApi_ = realApi34;
+    global.tgSend_ = realSend34;
+    global.tgEnabled_ = realEn34;
+    ok('۳۴.۳ و کپشنِ تلگرام همان را می‌گوید — او آن‌جا می‌شنود، نه در درایو',
+       /لحن از نشانه‌های متن/.test(capSeen),
+       capSeen.slice(0, 200) ||
+       '(کپشنی نرفت) — برچسبی که فقط در صف بنشیند، جایی است که او نگاه نمی‌کند');
+
+    /* و مرزِ مقابل: متنِ **بی‌نشانه** با دستورِ خاموش هنوز رد می‌شود، وگرنه
+       ۸٫۰۹ سدِ ۷٫۷۹ را باز کرده بود نه باریک‌تر. ترمیم هم نباید نجاتش بدهد،
+       پس مدل جوابی می‌دهد که از وارسی نمی‌گذرد. */
+    const q34b = vbrRead_(); q34b.items = []; vbrSave_(q34b);
+    const fEp34b = OUT.createFolder('قسمتِ بی‌نشانه');
+    const segs34b = [];
+    for (let i = 0; i < 20; i++) {
+      segs34b.push({ h: 'h' + i, t:
+        'شَبی از شَب‌هایِ پاییز بود و بادِ سَرد پُشتِ پَنجِره ایستاده بود. ' +
+        'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد و ایستاد. شُمارهٔ ' +
+        i + '. ' });
+    }
+    fEp34b.createFile('_episode.json',
+      JSON.stringify({ ep: { title: 'بی‌نشانه', __speakSegs: segs34b } }),
+      'application/json');
+    const rd34b = ytRenderRead_();
+    rd34b.items = [{ key: 'variety:95', show: 'variety', ep: '95',
+                     folderId: fEp34b.getId(), status: 'رسید' }];
+    ytRenderSave_(rd34b);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1,
+                      'آرام و شمرده بخوان', '', '', ['variety:95']);
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem34 ? realGem34.apply(null, arguments) : null;
+      }
+      return { t: 'واژه‌هایِ کاملاً دیگری! که از سدِ وارسی نمی‌گذرند؟' };
+    };
+    ttsCalls34 = 0; said34 = '';
+    const r34b = runVoiceSoulTest();
+    /* شکستنِ «شاهد بی ورودی» (`prMarks = true` ثابت) روی ۲۷.۱ نشست، نه
+       این‌جا — §۲۷ زودتر می‌دود و همین مرز را از قبل نگه می‌دارد. ثبت
+       می‌شود، نه ادعا (۷٫۷۴)؛ ۳۴.۴ همان مرز را درونِ §۳۴ هم می‌گیرد. */
+    ok('۳۴.۴ ولی متنِ بی‌نشانه با دستورِ خاموش هنوز رد می‌شود — سد باریک شد، باز نشد',
+       !!(r34b && r34b.ok === false && r34b.cueOff === true) && ttsCalls34 === 0,
+       JSON.stringify({ ok: r34b && r34b.ok, cueOff: r34b && r34b.cueOff,
+                        tts: ttsCalls34 }));
+    ok('۳۴.۴-ب و پیامش می‌گوید نشانه هم نبود، نه فقط دستور',
+       /نشانهٔ لحن ندارد/.test(said34),
+       said34.slice(0, 200) +
+       ' — علتی که نیمی‌اش گفته شود، او را سرِ راهِ غلط می‌فرستد');
+
+    ytRenderSave_(Object.assign(ytRenderRead_(), { items: keepRd34 }));
+  } finally {
+    global.ttsChunkTry_ = realTry34;
+    global.ui_ = realUi34;
+    global.geminiText_ = realGem34;
+    CFG.TTS_CUE_MODE = keepMode34;
+    try { props_().deleteProperty(PK.TTS_CUE_DROP_AT); } catch (e) {}
+  }
+}
+console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
