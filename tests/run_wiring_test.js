@@ -495,4 +495,34 @@ console.log('\n=== ۱۰) دو سنجه با یک شماره (۸.۰۶) ===');
      stale.length === 0, stale.slice(0, 10).join(' · ') || 'بی‌کهنه');
 }
 
+console.log('\n=== ۱۱) یافته‌ای که در جای اشتباه فرستاده شود، گم می‌شود (۸.۲۱) ===');
+{
+  /* ۱ اکتبر، سیاههٔ واقعی، دو بار در دو ساعت:
+       «ثبت یافتهٔ خودِ موتور ناموفق: Cannot read properties of undefined
+        (reading 'key')»
+     علتش یک فراخوانِ **یک‌آرگومانی** بود — `logSelfFinding_({...})` — که شیءِ
+     یافته را در جای `hub` می‌گذارد و `f` را `undefined` می‌کند. `reportFp_`
+     روی `f.key` می‌ترکد، و **دو** `catch` خاموشش می‌کنند: یکی در خودِ
+     `logSelfFinding_` و یکی سرِ فراخوان. پس یافته‌ای که هر روز می‌زد — همان
+     «یک‌هفتمِ واژه‌ها اعراب نمی‌گیرند» که ریشهٔ ۸.۰۳/۸.۰۴ است — هیچ‌وقت در
+     صف ننشست و هیچ‌کس نفهمید. */
+  const fs11 = require('fs');
+  const bad = [];
+  for (const f of fs11.readdirSync('src').filter((x) => x.endsWith('.gs'))) {
+    const src = fs11.readFileSync('src/' + f, 'utf8');
+    const re = /logSelfFinding_\(\s*([\s\S]{0,12})/g;
+    let m;
+    while ((m = re.exec(src))) {
+      /* آرگومانِ اول باید هاب باشد (یا `null`), نه شیءِ یافته. شروعِ یک
+         آکولاد یعنی همان اشتباه. */
+      if (/^\{/.test(m[1].trim())) {
+        bad.push(f + ':' + src.slice(0, m.index).split('\n').length);
+      }
+    }
+  }
+  ok('۱۱.۱ هیچ فراخوانی یافته را در جای هاب نمی‌فرستد',
+     bad.length === 0, bad.join(' · ') || 'هیچ');
+
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

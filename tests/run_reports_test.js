@@ -814,4 +814,46 @@ console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌ش�
      'بی‌صدا رد شدن یعنی نقشه کهنه می‌شود و هیچ‌کس نمی‌فهمد');
 }
 
+console.log('\n=== ل) یافته‌ای که در جای اشتباه فرستاده شود، گم نمی‌شود (۸.۲۱) ===');
+{
+  /* سیاههٔ واقعیِ ۱ اکتبر، دو بار در دو ساعت:
+       «ثبت یافتهٔ خودِ موتور ناموفق: Cannot read properties of undefined
+        (reading 'key')»
+     علتش یک فراخوانِ **یک‌آرگومانی** بود — `logSelfFinding_({...})` — که شیءِ
+     یافته را در جای `hub` می‌گذارد و `f` را `undefined` می‌کند. `reportFp_`
+     روی `f.key` می‌ترکد و **دو** `catch` خاموشش می‌کنند. پس یافته‌ای که هر
+     روز می‌زد — «یک‌هفتمِ واژه‌ها اعراب نمی‌گیرند»، همان ریشه‌ای که
+     ۸.۰۳/۸.۰۴ دنبالش بودند — هیچ‌وقت در صف ننشست.
+     مرز در خودِ تابع است نه سرِ هر فراخوان: مرزی که هر صدازننده خودش باید
+     رعایتش کند، همان است که صدازنندهٔ بعدی فراموشش می‌کند (۵.۹۵). */
+  const hubL = new Spread('HUB-L');
+  global.__SS[CFG.HUB_ID || 'HUB-L'] = hubL;
+  global.__SS['HUB-L'] = hubL;
+  const realGet = global.getHub_;
+  global.getHub_ = () => hubL;
+  try {
+    ensureReportTab_(hubL);
+    const before = loadReportRows_(hubL).rows.length;
+    logSelfFinding_({ key: 'oneArg-guard', priority: 'متوسط', category: 'آزمون',
+                      title: 'یافتهٔ یک‌آرگومانی', detail: 'د',
+                      instruction: 'د', owner: 'کد' });
+    const rows = loadReportRows_(hubL).rows;
+    ok('ل.۱ فراخوانِ یک‌آرگومانی هم ثبت می‌شود، نه اینکه بی‌صدا دور ریخته شود',
+       rows.length === before + 1 &&
+       rows.some((r) => String(r.vals[RC.ID - 1]).indexOf('oneArg-guard') !== -1),
+       'پیش: ' + before + ' · پس: ' + rows.length);
+    /* و شکلِ درست هنوز کار می‌کند — سدِ تازه نباید راهِ اصلی را خراب کند. */
+    const b2 = loadReportRows_(hubL).rows.length;
+    logSelfFinding_(hubL, { key: 'twoArg-ok', priority: 'کم', category: 'آزمون',
+                            title: 'یافتهٔ دوآرگومانی', detail: 'د',
+                            instruction: 'د', owner: 'کد' });
+    /* ثبت می‌شود نه ادعا (۷.۷۴): خراب‌کردنِ مرز طوری که شکلِ **درست** را هم
+       بخورد، روی سنجهٔ قدیمی‌ترِ «رفت‌وبرگشت: ردیف با مسیرِ واقعی ساخته شد»
+       می‌نشیند، چون آن زودتر می‌دود و همین مرز را از سمتِ دیگر نگه داشته. */
+    ok('ل.۲ و شکلِ درست (hub, f) دست‌نخورده کار می‌کند',
+       loadReportRows_(hubL).rows.length === b2 + 1,
+       'پیش: ' + b2 + ' · پس: ' + loadReportRows_(hubL).rows.length);
+  } finally { global.getHub_ = realGet; }
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

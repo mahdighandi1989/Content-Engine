@@ -1518,6 +1518,23 @@ function selfVerifyLine_(v) {
 
 function logSelfFinding_(hub, f) {
   try {
+    /* ══ مرز، نه فیلتر سرِ هر فراخوان (۸٫۲۱) ══
+     * ۱ اکتبر سیاهه دو بار نوشت «ثبت یافتهٔ خودِ موتور ناموفق: Cannot read
+     * properties of undefined (reading 'key')». علت یک فراخوانِ **یک‌آرگومانی**
+     * بود: شیءِ یافته در جای `hub` نشست و `f` شد `undefined`. هر دو `catch`
+     * خاموشش کردند، پس آن یافته — «یک‌هفتمِ واژه‌ها اعراب نمی‌گیرند»، دقیقاً
+     * همان ریشه‌ای که ۸٫۰۳/۸٫۰۴ دنبالش بودند — **هرگز ثبت نشد**.
+     *
+     * جای درستِ این سد همین‌جاست نه سرِ هر فراخوان: مرزی که هر صدازننده
+     * خودش باید رعایتش کند، مرزی است که صدازنندهٔ بعدی فراموشش می‌کند
+     * (۵٫۹۵، همان درسِ `engineTextProblems_`). و **بی‌صدا هم درستش نمی‌کند**:
+     * اصلاحِ خاموش یعنی همین اشتباه ماه‌ها تکرار شود. */
+    if (!f && hub && typeof hub === 'object' && (hub.key || hub.title)) {
+      try { logLine_('logSelfFinding_ یک‌آرگومانی صدا زده شد («' +
+                     String(hub.key || hub.title).slice(0, 40) +
+                     '») — یافته نگه داشته شد، ولی فراخوان باید (hub, f) باشد.'); } catch (eS) {}
+      f = hub; hub = null;
+    }
     hub = hub || getHub_();
     var fp = reportFp_(f);
     var st = loadReportRows_(hub);

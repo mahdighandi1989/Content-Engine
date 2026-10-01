@@ -2966,7 +2966,11 @@ function speakSkipStatus_() {
       out.ok = false;
       out.line += ' — بیش از سقفِ ' + fa(bareMax) + '٪.';
       try {
-        logSelfFinding_({
+        /* ⚠️ `null` عمدی است: امضا `(hub, f)` است و تا ۸٫۲۰ این فراخوان یک
+           آرگومانی بود، پس شیءِ یافته در جای `hub` می‌نشست و `f` می‌شد
+           `undefined` — و `reportFp_` روی آن می‌ترکید. هر دو `catch` هم
+           خاموشش می‌کردند، پس **این یافته هرگز ثبت نشد**. */
+        logSelfFinding_(null, {
           key: 'speak-bare-words', priority: 'جدی', category: 'اعراب‌گذاری',
           title: 'یک‌هفتمِ واژه‌ها اعراب نمی‌گیرند',
           detail: out.bare + ' واژه از ' + out.words + ' در ' + out.eps +
