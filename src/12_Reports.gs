@@ -1114,7 +1114,13 @@ function monChecksStatus_(hub, raise) {
       });
     } catch (e) {}
   }
-  return { rows: rows, silent: silent, ok: !silent.length, line: line };
+  /* `repAt`/`repFirstAt` بیرون داده می‌شوند چون `watchdogHeartbeats_` به شاهدی
+     نیاز دارد که **فقط** گزارشِ روزانهٔ ناظر بنویسدش (۸٫۱۷) — `__rep` تنها با
+     نامِ `_REPORT-YYYYMMDD.json` مهر می‌خورد، نه با `_REPORT-tts-*` و نه با
+     یافته‌های خودِ موتور. اینجا هیچ خواندنِ تازه‌ای نیست؛ همان `m`ِ بالا. */
+  return { rows: rows, silent: silent, ok: !silent.length, line: line,
+           repAt: String((m.__rep || {}).lastAt || ''),
+           repFirstAt: String((m.__rep || {}).firstAt || '') };
 }
 
 /** موردی که خودِ موتور پیدا کرده (نه Cowork) را در همان تب ثبت می‌کند. */

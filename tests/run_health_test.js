@@ -160,8 +160,14 @@ console.log('=== ۱۲) دیده‌بان: کی ناظر را می‌پاید (۶
     console.log('  ✅ ' + name);
   };
 
+  /* ══ از ۸٫۱۷ ورودیِ این ردیف `monChecks.repAt` است، نه `reports.lastReportAt` ══
+     آن یکی تازه‌ترین تاریخِ **هر** ردیفِ تبِ گزارش‌هاست و `logSelfFinding_` هم
+     همان تب را می‌نویسد، پس یافته‌های خودِ موتور زنگ را خاموش می‌کردند. این دو
+     سنجه باورِ پیش از ۸٫۱۷ را رمز کرده بودند؛ **دوباره نشانه‌گیری شدند، نه
+     حذف** (۷٫۶۸) — ادعایشان همان است، ورودی‌شان همان چیزی که تولید می‌خوانَد.
+     و خودِ جابه‌جایی را ۹.۶ نگه می‌دارد. */
   const P = [], N = [];
-  watchdog_({ reports: { lastReportAt: '1400/01/01 00:00' } }, P, N);
+  watchdog_({ monChecks: { repAt: '1400/01/01 00:00' } }, P, N);
   T('۱۲.۱ ناظرِ خوابیده ایراد می‌شود، نه یادداشت',
     P.some(x => x.indexOf('ناظرِ روزانه') !== -1), P.join(' | ').slice(0, 120));
   T('۱۲.۲ و چاره‌اش گفته می‌شود، نه فقط خبرش', P.some(x => x.indexOf('Cowork') !== -1));
@@ -169,7 +175,7 @@ console.log('=== ۱۲) دیده‌بان: کی ناظر را می‌پاید (۶
 
   const P2 = [], N2 = [];
   const today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
-  watchdog_({ reports: { lastReportAt: today } }, P2, N2);
+  watchdog_({ monChecks: { repAt: today } }, P2, N2);
   T('۱۲.۴ ناظرِ سالم هیچ ایرادی نمی‌سازد',
     !P2.some(x => x.indexOf('ناظرِ روزانه') !== -1), P2.join(' | '));
 
@@ -478,6 +484,58 @@ console.log('\n✅ آزمون سلامت گذشت.');
         'زنگ: ' + evD.at + ' · جمله: ' + (evS || 'هیچ'));
     if (oldAt === undefined) delete global.__PROPS[PK.ENRICH_AT];
     else global.__PROPS[PK.ENRICH_AT] = oldAt;
+  }
+
+  /* ══ ۹.۶ — زنگِ «ناظر نمی‌دود» با نوشتهٔ خودِ موتور ساکت نشود (۸٫۱۷) ══
+     `reports.lastReportAt` تازه‌ترین تاریخِ **هر** ردیفِ تبِ گزارش‌هاست، و
+     `logSelfFinding_` هم همان تب را با `nowStr_()` می‌نویسد. پس تا ۸٫۱۶ اگر
+     ناظر می‌مُرد، اولین یافتهٔ خودیِ موتور این زنگ را خاموش می‌کرد. حالتِ زیر
+     دقیقاً همان است: ردیفِ تبْ امروز، گزارشِ روزانه نُه روز پیش. */
+  {
+    const fmt = (t) => Utilities.formatDate(new Date(t), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+    const today = fmt(Date.now()), nine = fmt(Date.now() - 9 * 86400000);
+    const mrow = (st2) => watchdogHeartbeats_(st2).filter(r => r.key === 'monitor')[0];
+    const mix = mrow({ reports: { lastReportAt: today }, monChecks: { repAt: nine } });
+    okE('۹.۶ ردیفِ ناظر از گزارشِ روزانه می‌خواند، نه از تازه‌ترین ردیفِ تب',
+        !!mix && mix.days >= 9 && mix.at === nine,
+        mix ? ('days=' + mix.days + ' at=' + mix.at + ' | تب=' + today) : 'ردیف نبود');
+    okE('۹.۶-ب و هر دو عدد در مدرک هست، پس اختلافشان پنهان نمی‌مانَد (۷٫۳۲)',
+        !!mix && String(mix.evidence || '').indexOf(nine) !== -1 &&
+        String(mix.evidence || '').indexOf(today) !== -1,
+        mix ? String(mix.evidence || '') : '');
+    /* و جهتِ مخالف: شاهدی که نیست زنگ نمی‌زند. `watchdog_` برای `days < 0`
+       فقط یادداشت می‌گذارد — «نمی‌دانیم» با «نرفت» یکی نیست (۷٫۶۳). */
+    const pr = [], nt = [];
+    watchdog_({ reports: { lastReportAt: today } }, pr, nt);
+    const hit = (a) => a.filter(x => String(x).indexOf('ناظرِ روزانه') !== -1).length;
+    okE('۹.۶-پ و نبودِ آن شاهد زنگ نمی‌زند، فقط یادداشت می‌شود (۷٫۶۳)',
+        hit(pr) === 0 && hit(nt) === 1,
+        'مسئله=' + hit(pr) + ' یادداشت=' + hit(nt));
+    /* ثبت می‌شود، نه ادعا (۷٫۷۴): شکستنِ همین قاعده — `problems` به‌جای
+       `notes` برای `days < 0` — روی سنجهٔ قدیمی‌ترِ «should be silent when
+       healthy» می‌نشیند، چون آن پیش از §۹ می‌دود. و همان هم خودش جواب است:
+       اگر شاهدِ نبوده را «هرگز ندوید» بخوانیم، موتورِ تازه‌نصب هر روز شکایت
+       می‌کند (۷٫۶۳). ۹.۶-پ این مرز را در خودِ این ردیف نگه می‌دارد.
+       و شکستنِ B1 (بازگرداندنِ منبع به `lastReportAt`) روی ۱۲.۱ می‌نشیند،
+       چون §۱۲ زودتر می‌دود؛ ۹.۶ با همان رگرسیونی سنجیده شد که واقعاً
+       نگهبانش است: گرفتنِ **تازه‌ترینِ** دو شاهد به‌جای شاهدِ درست. */
+    /* ══ ۹.۶-ت — مرزی که نگذاشتنش همین تعمیر را باطل می‌کرد ══
+       از امروز روتین‌های دیگر هم `_REPORT-<kind>-<date>.json` می‌نویسند. اگر
+       `monChecksIngest_` ضربانِ ناظر را با **هر** گزارشی مهر می‌زد، همان
+       حفره از درِ تازه برمی‌گشت — و `checks`ِ همان فایل باید ثبت شود. */
+    /* مهر را **از قبل** می‌نشانیم، چون حالتی که تولید در آن ایستاده همین است:
+       گزارشِ روزانه دیروز خورده. با مهرِ خالی، «نزد» از «زد ولی خالی» جدا
+       نمی‌شد و ادعا نیمه‌خالی می‌مانْد (۷٫۸۶). */
+    const seeded = '2026-08-17 12:00';
+    const m0 = monChecksLoad_(); m0.__rep = { firstAt: seeded, lastAt: seeded };
+    monChecksSave_(m0);
+    const before = (monChecksLoad_().__rep || {}).lastAt || '';
+    monChecksIngest_({ checks: [{ key: 'tts-model-scan', verdict: 'سالم', note: 'ن' }] },
+                     '_REPORT-tts-20270101.json');
+    const after = (monChecksLoad_().__rep || {}).lastAt || '';
+    okE('۹.۶-ت گزارشی که نامش روزانه نیست ضربانِ ناظر را تازه نمی‌کند',
+        after === before && after === seeded && !!monChecksLoad_()['tts-model-scan'],
+        JSON.stringify({ before: before, after: after }));
   }
 }
 
