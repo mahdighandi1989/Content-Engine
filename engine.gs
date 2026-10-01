@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.21
+ *  موتور محتوا و پادکست — نسخهٔ 8.22
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1078,6 +1078,9 @@ var CFG = {
      (ویرگول شمرده نمی‌شود، چون خودش پرتکرار است و لحن را جدا نمی‌کند) و
      نسخهٔ لحن‌دارِ همان متن ۱۵٫۴ در هزار. سه، کفِ محتاطانه‌ای است میانِ آن دو. */
   SPEAK_PROSODY_MIN: 3,
+  /* بندِ نشانه‌گذاری (۸.۲۲): متنِ بلند در یک فراخوان یعنی همه‌یا‌هیچ — یک
+     واژهٔ عوض‌شده یا یک خروجیِ بریده، و کلِ نشانه‌گذاری دور می‌رود. */
+  SPEAK_MARK_BLOCK: 700,
   MUSIC_HEAR_TRY_MAX: 4,
   /* و سقفِ انباشت: بیش از این قطعهٔ شنیده‌نشده، **دیگر قطعهٔ تازه نمی‌آوریم**.
      آوردنِ چیزی که نمی‌توانیم استفاده کنیم فقط عدد را بدتر می‌کند — و همان
@@ -1547,7 +1550,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.21',
+  CODE_VERSION: '8.22',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1841,9 +1844,16 @@ var CFG = {
      «قبلاً ساخته شده» حساب می‌شد. برچسب عوض می‌شود، یعنی نمونهٔ تازه ساخته
      می‌شود؛ برچسب را عوض نکنی، هیچ اتفاقی نمی‌افتد. هیچ حالتِ تازه‌ای ذخیره
      نمی‌شود — بی‌تکراری از همان سدِ صف می‌آید که از قبل بود (۷٫۸۲). */
+  /* ══ تگ عوض شد چون **درمان** عوض شد (۸٫۲۲) ══
+     ردیفِ «نشانه‌گذاریِ لحن» از ۱ اکتبر در صف نشسته و برچسبش «رنگ‌تنها» است،
+     یعنی نشانه‌گذاری نگرفته بود. اگر تگ همان بمانَد، `vbrSoulShow_` آن را
+     «قبلاً ساخته شده» می‌خوانَد و همان فایلِ بی‌لحن تبدیل و فرستاده می‌شود —
+     یعنی اصلاح انجام شده و او همان نمونهٔ قبلی را می‌شنود. ۷٫۸۶ عیناً:
+     چیزی که برای سنجشِ یک پارامتر ساخته می‌شود، باید آن پارامتر را در
+     **هویتش** داشته باشد. */
   VOICE_SOUL_SEED: [
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '53', tag: 'گام -2 و نشانه‌گذاریِ لحن' },
-    { speaker: 'razavi',      show: 'special', ep: '53', tag: 'نشانه‌گذاریِ لحن' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '53', tag: 'گام -2 و نشانهٔ بندبند' },
+    { speaker: 'razavi',      show: 'special', ep: '53', tag: 'نشانهٔ بندبند' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -5743,9 +5753,41 @@ var SPEAK_MARK_SCHEMA = {
  * شمارِ جمله‌ها را به‌هم بزند دور انداخته می‌شود، پس بدترین حالت «همان متنِ
  * قبلی» است، نه متنی خراب.
  */
-function speakMarkUp_(vowelled, plain, coverAll) {
-  var t = String(vowelled || '');
-  if (!t) return null;
+/* ══ بند به بند، نه همه‌یا‌هیچ (۸٫۲۲) ══
+ * صاحبِ برنامه دو نمونه را شنید و گفت لحن ندارند. ردیفِ صف هم همین را
+ * می‌گفت: `soul: «رنگ‌تنها»`, یعنی `prMarks` نادرست بود، یعنی نشانه‌گذاری
+ * **نگرفته** بود.
+ *
+ * و زنجیرهٔ وارسی سالم است — سنجیده شد، حدس نیست: هر هفت نشانه و هر هفت
+ * با هم از `verifySpeak_` می‌گذرند (`run_speak_test.js` ۲۳٫۱). پس عیب در
+ * خودِ فراخوان بود: **کلِ متنِ ~۴۰۰۰ نویسه‌ایِ اعراب‌دار در یک بار**، و
+ * قاعده‌اش همه‌یا‌هیچ. مدل باید تمامِ متن را عیناً بازتولید کند؛ یک واژه که
+ * جابه‌جا شود، یا خروجی که سرِ سقفِ توکن بریده شود، و **تمامِ** نشانه‌گذاری
+ * دور ریخته می‌شود و متن صاف می‌مانَد.
+ *
+ * این دقیقاً همان درسِ ۸٫۰۴ است که برای اعراب نوشته شد و اینجا به کار
+ * نرفت: «یک فراخوانِ هدف‌دار … نه بازنویسیِ کلِ متن، که هم گران است و هم
+ * هر بار یک شانسِ تازه برای خراب کردنِ چیزی که درست بود».
+ *
+ * پس بند به بند: هر بند جدا نشانه می‌گیرد و جدا وارسی می‌شود؛ بندی که رد
+ * شود **خودش** می‌مانَد و بقیه را با خود نمی‌بَرد. ضمانت ذره‌ای ضعیف نشده —
+ * `verifySpeak_` روی متنِ **سرِهم‌شده** هم دوباره پرسیده می‌شود.
+ */
+function speakMarkBlocks_(t) {
+  var cap = Math.max(200, Number(CFG.SPEAK_MARK_BLOCK) || 700);
+  var parts = String(t).split(/(?<=[.!؟…])\s+/);
+  var out = [], cur = '';
+  for (var i = 0; i < parts.length; i++) {
+    var add = (cur ? cur + ' ' : '') + parts[i];
+    if (cur && add.length > cap) { out.push(cur); cur = parts[i]; }
+    else cur = add;
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : [String(t)];
+}
+
+/** یک بند. `null` هرگز بی علت برنمی‌گردد — چهار علتِ متفاوت، چهار چارهٔ متفاوت. */
+function speakMarkOne_(t, coverAll) {
   var prompt =
     'این متن برای یک گفتارسازِ فارسی است و اعرابش گذاشته شده. کارِ تو **فقط ' +
     'نشانه‌گذاریِ لحن** است.\n\n' +
@@ -5769,13 +5811,54 @@ function speakMarkUp_(vowelled, plain, coverAll) {
       : '') +
     'خروجی فقط خودِ متن در فیلد t.\n\n' + t;
   var r = null;
-  try { r = geminiText_(prompt, SPEAK_MARK_SCHEMA, 8192); } catch (e) { return null; }
+  try { r = geminiText_(prompt, SPEAK_MARK_SCHEMA, 8192); }
+  catch (e) { return { why: 'مدل جواب نداد: ' + e.message }; }
   var to = (r && r.t) ? String(r.t) : '';
-  if (!to || to === t) return null;
-  if (!verifySpeak_(plain || t, to)) return null;
+  if (!to) return { why: 'جوابِ خالی' };
+  if (to === t) return { why: 'متن عوض نشد' };
+  if (!verifySpeak_(t, to)) {
+    /* علتِ ردشدن دو تاست و چاره‌شان یکی نیست: واژه عوض شده، یا مرزِ جمله
+       جابه‌جا شده. گفتنِ «نگرفت» هر دو را یکی می‌کند (۷٫۳۲). */
+    var sOk = true;
+    try { sOk = speakSentOk_(t, to); } catch (eS) { sOk = true; }
+    return { why: sOk ? 'واژه‌ها عوض شدند' : 'شمارِ پایان‌بندی عوض شد' };
+  }
   var a = speakProsody_(t), b = speakProsody_(to);
-  if (b.rich <= a.rich) return null;           // گویاتر نشد ⇒ همان قبلی
-  return { t: to, before: a, after: b };
+  if (b.rich <= a.rich) return { why: 'گویاتر نشد' };
+  return { t: to };
+}
+
+function speakMarkUp_(vowelled, plain, coverAll) {
+  var t = String(vowelled || '');
+  if (!t) return null;
+  var blocks = speakMarkBlocks_(t);
+  var parts = [], okN = 0, why = {};
+  for (var i = 0; i < blocks.length; i++) {
+    var one = speakMarkOne_(blocks[i], coverAll === true);
+    if (one && one.t) { parts.push(one.t); okN++; }
+    else {
+      parts.push(blocks[i]);
+      var w = (one && one.why) ? one.why : 'نامعلوم';
+      why[w] = (why[w] || 0) + 1;
+    }
+  }
+  var to = parts.join(' ');
+  var whyTxt = Object.keys(why).map(function (k) {
+    return k + (why[k] > 1 ? ' ×' + why[k] : '');
+  }).join('، ');
+  /* هیچ بندی نگرفت ⇒ همان رفتارِ قبلی، `null` — ولی این بار **با علت**. */
+  if (!okN) return { t: '', why: whyTxt || 'هیچ بندی نگرفت', blocks: blocks.length, ok: 0 };
+  /* و ضمانتِ بیرونی دست‌نخورده: متنِ سرِهم‌شده هم باید از همان سدی بگذرد که
+     نگارشِ یک‌تکه از آن می‌گذشت. بی این، تکه‌تکه‌کردن یک در تازه باز می‌کرد. */
+  if (!verifySpeak_(plain || t, to)) {
+    return { t: '', why: 'سرِهم‌شده از وارسی نگذشت (' + (whyTxt || 'بی علتِ بندی') + ')',
+             blocks: blocks.length, ok: 0 };
+  }
+  var a = speakProsody_(t), b = speakProsody_(to);
+  if (b.rich <= a.rich) {
+    return { t: '', why: 'گویاتر نشد', blocks: blocks.length, ok: 0 };
+  }
+  return { t: to, before: a, after: b, blocks: blocks.length, ok: okN, why: whyTxt };
 }
 
 var SPEAK_PROSODY = [
@@ -6337,15 +6420,21 @@ function speakReviewText_(plain, vowelled) {
       var need = Number(CFG.SPEAK_PROSODY_MIN);
       if (!isFinite(need) || need <= 0) need = 3;
       if (pr0.chars >= 300 && pr0.richPer1k < need) {
+        /* `.t` سنجیده می‌شود نه خودِ شیء: از ۸٫۲۲ این تابع **همیشه** شیء
+           برمی‌گردانَد تا علت را با خود بیاورد، پس `if (mk)` همیشه درست
+           می‌شد و متنِ خالی می‌نشست. */
         var mk = speakMarkUp_(t, plain);
-        if (mk) {
+        if (mk && mk.t) {
           t = mk.t;
           notes.push('نشانه‌گذاریِ لحن: ' + mk.before.richPer1k + ' ⇒ ' +
                      mk.after.richPer1k + ' نشانهٔ گویا در هزار نویسه (' +
-                     mk.after.kinds + ' نوع)');
+                     mk.after.kinds + ' نوع)' +
+                     (mk.ok < mk.blocks ? ' · ' + mk.ok + ' از ' + mk.blocks +
+                                          ' بند (' + (mk.why || '') + ')' : ''));
         } else {
           notes.push('نشانه‌گذاریِ لحن کم مانْد (' + pr0.richPer1k +
-                     ' نشانهٔ گویا در هزار) و ترمیمش نگرفت.');
+                     ' نشانهٔ گویا در هزار) و ترمیمش نگرفت' +
+                     ((mk && mk.why) ? ': ' + mk.why : '') + '.');
         }
       }
     }
@@ -60736,13 +60825,20 @@ function runVoiceSoulTest() {
       var cv0 = speakMarkCover_(txt);
       if (!cv0.ok || pA.richPer1k < needP) {
         var mkS = speakMarkUp_(txt, txt, true);
-        if (mkS) {
+        if (mkS && mkS.t) {
           txt = mkS.t;
           prMsg = 'نشانه‌گذاریِ لحن: ' + pA.richPer1k + ' ⇒ ' + mkS.after.richPer1k +
-                  ' نشانهٔ گویا در هزار نویسه (' + mkS.after.kinds + ' نوع)';
+                  ' نشانهٔ گویا در هزار نویسه (' + mkS.after.kinds + ' نوع)' +
+                  ' · ' + mkS.ok + ' از ' + mkS.blocks + ' بند' +
+                  (mkS.why ? ' (' + mkS.why + ')' : '');
         } else {
+          /* **علت** می‌آید، نه «نگرفت» (۸٫۲۲): «واژه‌ها عوض شدند»، «شمارِ
+             پایان‌بندی عوض شد»، «مدل جواب نداد» و «گویاتر نشد» چهار چارهٔ
+             کاملاً متفاوت دارند، و تا امروز هر چهار یک جمله می‌شدند. */
           prMsg = 'نشانه‌گذاریِ لحن نگرفت (' + pA.richPer1k +
-                  ' نشانهٔ گویا در هزار مانْد) — متنِ قسمت همان‌طور خوانده می‌شود';
+                  ' نشانهٔ گویا در هزار مانْد' +
+                  ((mkS && mkS.why) ? ' — ' + mkS.why : '') +
+                  ') — متنِ قسمت همان‌طور خوانده می‌شود';
           /* فقط همین حالت دلیل دارد: ترمیم **خواسته شد و نگرفت**. دو حالتِ
              دیگر خبرِ خوب‌اند و تکرارشان در کپشن همان هشداری است که یاد
              می‌گیرند نخوانند (۷٫۴۰/۸٫۰۵). */
