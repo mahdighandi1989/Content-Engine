@@ -1225,6 +1225,38 @@ console.log('\n=== ۲۲) نشانه‌گذاریِ لحن: ده نشانهٔ ج�
       return { t: rich + ' ' + rich + ' ' + rich };
     };
 
+    /* ══ ۲۲.۸ — متنِ **قسمت** پرنشانه نمی‌شود، فقط متنِ نمونه (۸٫۱۰) ══
+       نمونه باید هر هفت نشانه را داشته باشد تا بشود قضاوتش کرد؛ قسمت باید
+       نشانه را جایی داشته باشد که **معنا** می‌خواهد. یک پرچم و دو رفتار، و
+       اگر این مرز نباشد هر قسمتی که منتشر می‌شود پرنشانه می‌شود — یعنی
+       عیبی که صاحبِ برنامه هرگز نخواسته، روی هر قسمت، هر روز. */
+    askedMark = 0;
+    let coverAsked = '';
+    global.geminiText_ = (pr) => {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) return null;
+      askedMark++; coverAsked = String(pr);
+      return { t: rich + ' ' + rich + ' ' + rich };
+    };
+    speakReviewText_(big, big);
+    ok('۲۲.۸ مسیرِ قسمت خواستِ «هر هفت نشانه» نمی‌فرستد — آن فقط برای نمونه است',
+       askedMark === 1 && coverAsked.indexOf('نمونهٔ آزمون') === -1,
+       askedMark + ' فراخوان · «نمونهٔ آزمون» در پرسش: ' +
+       (coverAsked.indexOf('نمونهٔ آزمون') !== -1 ? 'هست (غلط)' : 'نیست'));
+    ok('۲۲.۸-ب و خودِ آن خواسته هر هفت نشانه را نام می‌برد — فهرست یک کپی است',
+       (function () {
+         const q = speakMarkUp_ && typeof speakMarkUp_ === 'function';
+         if (!q) return false;
+         let seen = '';
+         const keep = global.geminiText_;
+         global.geminiText_ = (pr) => { seen = String(pr); return null; };
+         speakMarkUp_('متنِ کوتاه.', 'متنِ کوتاه.', true);
+         global.geminiText_ = keep;
+         const line = seen.slice(seen.indexOf('نمونهٔ آزمون'));
+         return line !== '' && SPEAK_MARK_NEED.every((e) => line.indexOf(e.k) !== -1);
+       })(),
+       'فهرست از SPEAK_MARK_NEED خوانده می‌شود، نه دست‌نویس — وگرنه نشانهٔ ' +
+       'هشتم که فردا اضافه شود، این سنجه را سبز می‌گذارد');
+
     /* و متنی که از قبل لحن دارد، هیچ فراخوانی نمی‌خورد. */
     askedMark = 0;
     const bigRich = rich + ' ' + rich + ' ' + rich;

@@ -2705,4 +2705,133 @@ console.log('\n══ ۳۴) سدی که جلوِ درمانِ ۸.۰۸ را می�
     try { props_().deleteProperty(PK.TTS_CUE_DROP_AT); } catch (e) {}
   }
 }
+console.log('\n══ ۳۵) نمونه‌ای که نشانهٔ زیرِ سنجش را ندارد (۸٫۱۰) ══');
+/* صاحبِ برنامه خودش گرفتش: «شاید تو اون نمونه که میشنوم گیومه و یا این
+   نشانه‌ها نباشه که ببینم به صورتِ واژه میخونه یا به صورتِ رعایتِ لحن.»
+
+   درست است، و همان شکلِ ۷٫۷۳ است — سنجه‌ای که پنجره‌اش ممکن است چیزِ زیرِ
+   سنجش را نداشته باشد، آن را هرگز نمی‌بیند. و «گیومه» و «پرانتز» بدترین دوتا
+   هستند، چون نامشان واژه است: اگر گفتارساز بلند بخواندشان، شنیده می‌شود — و
+   اگر در نمونه نباشند، هیچ‌وقت معلوم نمی‌شود.
+
+   دو ادعا: متنِ نمونه خواستِ **پوشش** می‌برد (نه فقط چگالی)، و آنچه در نمونه
+   نیست **به نام** گفته می‌شود. */
+{
+  const realTry35 = global.ttsChunkTry_;
+  const realUi35 = global.ui_;
+  const realGem35 = global.geminiText_;
+  let said35 = '', askedCover = '';
+  global.ttsChunkTry_ = function () {
+    return Buffer.alloc(24000 * 2 * 8).toString('base64');
+  };
+  global.ui_ = () => ({ alert: function (t, m) { said35 = String(m); },
+                        ButtonSet: { OK: 1 } });
+
+  /* متنی که چگالی‌اش بالاست ولی **گیومه و پرانتز ندارد** — یعنی دقیقاً حالتی
+     که او توصیفش کرد: به‌نظر لحن‌دار، و بی آن دو نشانه‌ای که باید سنجیده شوند.
+     نگارشِ قبل این متن را «از قبل نشانه دارد» می‌دید و هیچ ترمیمی نمی‌رفت. */
+  const fEp35 = OUT.createFolder('قسمتِ بی‌گیومه');
+  const segs35 = [];
+  for (let i = 0; i < 20; i++) {
+    segs35.push({ h: 'h' + i, t:
+      'شَبی از شَب‌هایِ پاییز بود — و بادِ سَرد پُشتِ پَنجِره ایستاده بود! ' +
+      'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد… آیا کَسی خانه بود؟ ' +
+      'شُمارهٔ ' + i + '. ' });
+  }
+  fEp35.createFile('_episode.json',
+    JSON.stringify({ ep: { title: 'بی‌گیومه', __speakSegs: segs35 } }),
+    'application/json');
+
+  try {
+    const base35 = epSpeakText_(fEp35.getId());
+    const cv35 = speakMarkCover_(base35);
+    ok('۳۵.۰ متنِ آزمون واقعاً پرچگالی است ولی گیومه و پرانتز ندارد',
+       speakProsody_(base35).richPer1k >= Number(CFG.SPEAK_PROSODY_MIN) &&
+       cv35.miss.indexOf('گیومه « »') !== -1 &&
+       cv35.miss.indexOf('پرانتز ( )') !== -1,
+       'گویا در هزار: ' + speakProsody_(base35).richPer1k +
+       ' · جامانده: ' + JSON.stringify(cv35.miss) +
+       ' — سنجه‌ای که این حالت را نسازد، چیزی را ثابت نمی‌کند');
+
+    const q35 = vbrRead_(); q35.items = []; vbrSave_(q35);
+    const rd35 = ytRenderRead_();
+    const keepRd35 = rd35.items.slice();
+    rd35.items = [{ key: 'variety:96', show: 'variety', ep: '96',
+                    folderId: fEp35.getId(), status: 'رسید' }];
+    ytRenderSave_(rd35);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1,
+                      'آرام و شمرده بخوان', '', '', ['variety:96']);
+
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem35 ? realGem35.apply(null, arguments) : null;
+      }
+      askedCover = String(pr);
+      /* همان واژه‌ها، با گیومه و پرانتز افزوده — از `verifySpeak_` می‌گذرد،
+         چون `speakBone_` هر دو را برمی‌دارد و مرزِ جمله دست نخورده. */
+      const src = String(pr).split('\n\n').pop();
+      return { t: src.replace(/مَردی که سال‌ها دور مانده بود/g,
+                              'مَردی (که سال‌ها دور مانده بود)')
+                     .replace(/آیا کَسی خانه بود؟/g, 'آیا «کَسی» خانه بود؟')
+                     /* `!` ⇒ `؟!` — شمارِ مرزِ جمله عوض نمی‌شود، چون الگوی
+                        پایان‌بندی `+` دارد و دو نویسهٔ چسبیده یک مرز است. */
+                     .replace(/ایستاده بود!/g, 'ایستاده بود؟!') };
+    };
+
+    said35 = ''; askedCover = '';
+    const r35 = runVoiceSoulTest();
+
+    ok('۳۵.۱ متنِ پرچگالیِ بی‌گیومه هم ترمیم می‌خورد — سقف، پوشش است نه چگالی',
+       askedCover !== '', 'پرسشی نرفت — یعنی همان حالتی که او توصیفش کرد، ' +
+       'بی‌جواب می‌مانْد');
+    /* ادعا دربارهٔ **محتوا**ست نه دربارهٔ واژه‌آراییِ پرامپت: هر هفت نشانه
+       باید در خواسته باشند، و فهرست از `SPEAK_MARK_NEED` خوانده می‌شود نه
+       دست‌نویس — وگرنه نشانهٔ هشتمی که فردا اضافه شود این سنجه را سبز
+       می‌گذارد (۷٫۵۹: سنجه‌ای که امروز را نام ببرد، فردا عوضی می‌شود). */
+    const needLine = askedCover.slice(askedCover.indexOf('نمونهٔ آزمون'));
+    const missInAsk = SPEAK_MARK_NEED.filter((e) => needLine.indexOf(e.k) === -1);
+    ok('۳۵.۱-ب و خودِ پرسش هر هفت نشانه را به نام می‌خواهد',
+       needLine !== '' && missInAsk.length === 0,
+       'جامانده از خواسته: ' + JSON.stringify(missInAsk.map((e) => e.nm)) +
+       ' · ' + needLine.slice(0, 180));
+
+    ok('۳۵.۲ و نمونه ساخته شد', !!(r35 && r35.ok === true),
+       JSON.stringify({ ok: r35 && r35.ok, why: r35 && r35.why }));
+    ok('۳۵.۳ پیام می‌گوید کدام نشانه‌ها در نمونه هست',
+       /نشانه‌های موجود در این نمونه/.test(said35) &&
+       /گیومه « »/.test(said35),
+       said35.slice(said35.indexOf('نشانه‌های موجود'), said35.indexOf('نشانه‌های موجود') + 220));
+    ok('۳۵.۴ و چون هر هفت تا آمد، می‌گوید هر هفت را می‌توانی بسنجی',
+       /هر هفت نشانه در متن هست/.test(said35),
+       said35.slice(-260));
+
+    /* ══ و مرزِ مقابل: جوابی که پوشش را کامل نکند، سکوت نمی‌شود ══
+       همین است کلِ ایرادِ او: اگر نگوییم «گیومه نبود»، او چهار دقیقه گوش
+       می‌دهد و خیال می‌کند قضاوت کرده. */
+    const q35b = vbrRead_(); q35b.items = []; vbrSave_(q35b);
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem35 ? realGem35.apply(null, arguments) : null;
+      }
+      const src = String(pr).split('\n\n').pop();
+      return { t: src.replace(/ایستاده بود!/g, 'ایستاده بود؟!') };   // گیومه و پرانتز نه
+    };
+    said35 = '';
+    const r35b = runVoiceSoulTest();
+    ok('۳۵.۵ جوابی که گیومه و پرانتز نیاورد، نمونه را نگه می‌دارد ولی نامشان را می‌گوید',
+       !!(r35b && r35b.ok === true) &&
+       /دربارهٔ این‌ها قضاوت نکنید/.test(said35) &&
+       /گیومه « »/.test(said35) && /پرانتز \( \)/.test(said35),
+       said35.slice(said35.indexOf('نشانه‌های موجود'), said35.indexOf('نشانه‌های موجود') + 240) ||
+       said35.slice(0, 200));
+
+    ytRenderSave_(Object.assign(ytRenderRead_(), { items: keepRd35 }));
+  } finally {
+    global.ttsChunkTry_ = realTry35;
+    global.ui_ = realUi35;
+    global.geminiText_ = realGem35;
+    try { props_().deleteProperty(PK.TTS_CUE_DROP_AT); } catch (e) {}
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
