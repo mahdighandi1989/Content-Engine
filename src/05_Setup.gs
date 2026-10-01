@@ -50,6 +50,7 @@ function onOpen() {
       /* ۸٫۱۵: کلیدِ لایهٔ ۳. تا دیروز فقط در سورس بود و خطِ روزانه از او
          می‌خواست `LV_GEN_ENABLED` را true کند — دستوری که انجام‌شدنی نبود. */
       .addItem('🎨 تصویرِ ساخته‌شده: روشن/خاموش', 'runLvGenToggle')
+      .addItem('🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار', 'runLvStyleAllAuto')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.18
+ *  موتور محتوا و پادکست — نسخهٔ 8.19
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -886,6 +886,9 @@ var CFG = {
      نصف، چون مدل حق دارد کمی کمتر بدهد و هشداری که برای نوسانِ طبیعی بزند
      خوانده نمی‌شود (۷.۴۰). یک تصویر در برابرِ دوازده، نوسان نیست. */
   LV_THIN_PCT: 0.5,
+  /* نسخهٔ مهاجرتِ «سبکِ منجمد ⇒ خودکار» (۸٫۱۹). بالا بردنش یعنی یک دورِ
+     تازه — همان الگوی `EMB_TEXT_VER`، تا این قفل دری داشته باشد. */
+  LV_THAW_VER: '1',
   LV_MIN_SEC: 8,                // کوتاه‌تر از این، تصویر دیده نمی‌شود
   LV_MAX_SEC: 90,               // بلندتر از این، بیننده خسته می‌شود
   /* گونه‌ها. «کارت» پیش‌فرض است چون **مجانی** است (Slides) و همیشه در
@@ -1544,7 +1547,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.18',
+  CODE_VERSION: '8.19',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2461,6 +2464,7 @@ var PK = {
      ولی او به سورس دست نمی‌زند؛ یعنی تصمیمی به او نسبت داده شده بود که هیچ
      راهی برای گرفتنش نداشت، و دستوری که نمی‌شود انجامش داد از نبودنِ دستور
      بدتر است. '1'/'0' این‌جا برنده است و نبودنش یعنی همان پیش‌فرضِ `CFG`. */
+  LV_THAW: 'LV_STYLE_THAW_VER',   // مهاجرتِ سبکِ منجمد به «خودکار» (۸.۱۹)
   LV_GEN_ON: 'LV_GEN_ON',          // '1' روشن · '0' خاموش · نبود = پیش‌فرضِ CFG
   LV_GEN_SPEND: 'LV_GEN_SPEND',    // خرجِ این ماه: {month, n, usd}
   LV_GEN_MODEL: 'LV_GEN_MODEL_ID', // مدلِ تصویرِ پیداشده، تا هر بار فهرست نگیریم
@@ -2550,7 +2554,7 @@ var PK = {
  * drift ساختاراً ممکن نیست. `run_wiring_test.js` هم دوباره می‌شمارد و اگر
  * نخوانَد سرخ می‌شود.
  */
-var BUILD_MENU_ = { total: 59, debt: 34 };   /* ⚙ BUILD-MENU */
+var BUILD_MENU_ = { total: 60, debt: 34 };   /* ⚙ BUILD-MENU */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -10817,6 +10821,7 @@ function onOpen() {
       /* ۸٫۱۵: کلیدِ لایهٔ ۳. تا دیروز فقط در سورس بود و خطِ روزانه از او
          می‌خواست `LV_GEN_ENABLED` را true کند — دستوری که انجام‌شدنی نبود. */
       .addItem('🎨 تصویرِ ساخته‌شده: روشن/خاموش', 'runLvGenToggle')
+      .addItem('🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار', 'runLvStyleAllAuto')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')
@@ -14755,6 +14760,17 @@ function healthCheck() {
        «خودکار» نوشته می‌شود و انتخاب هر شب با مدل است. دستوری که از مکانیسمش
        عقب بماند، یا کارِ بیهوده می‌تراشد یا خواننده را از خواندن می‌اندازد —
        قاعدهٔ «دستورهایی که از حقیقتشان جا ماندند». */
+    /* مهاجرتِ ۸٫۱۹ **با اسم** گزارش می‌شود و یک بار بیشتر نمی‌آید: کاری که
+       بی‌صدا ۲۶۴ خانه را عوض کند، فردا پرسشِ «کی این را عوض کرد؟» می‌سازد. */
+    if (lvA.thawed) notes.push('سبکِ تصویرِ ' + faDigitsOut_(String(lvA.thawed)) +
+      ' مجموعه که سوئیپِ شب‌های پیش منجمدشان کرده بود، به «خودکار» برگشت' +
+      ((lvA.thawNames || []).length ? ' (مثلاً ' + lvA.thawNames.join('، ') + ')' : '') +
+      ' — از این به بعد مدل برای هر درس انتخاب می‌کند. ' +
+      (lvA.mine ? faDigitsOut_(String(lvA.mine)) + ' مجموعه که سبکشان را خودتان ' +
+                  'گذاشته‌اید دست نخورد' +
+                  ((lvA.mineNames || []).length ? ' (' + lvA.mineNames.join('، ') + ')' : '') +
+                  '. برای اینکه آن‌ها هم خودکار شوند، از منو «🎨 سبکِ تصویرِ همهٔ ' +
+                  'مجموعه‌ها: خودکار».' : ''));
     if (lvA.filled) notes.push('سبکِ تصویرِ ' + faDigitsOut_(String(lvA.filled)) +
       ' مجموعه روی «خودکار» نشست — یعنی مدل برای هر درس، از روی موضوعِ مجموعه ' +
       'و متنِ همان قسمت، سبک و نقش را انتخاب می‌کند. هر وقت خواستید، در تختهٔ ' +
@@ -43646,7 +43662,8 @@ function lvStyleAt_(hub, item, meta, seriesName, look) {
  * دوباره مهر کند (۵٫۹۵).
  */
 function lvStyleAudit_(hub) {
-  var out = { filled: 0, bad: [], photo: [], read: 0, why: '' };
+  var out = { filled: 0, bad: [], photo: [], read: 0, why: '',
+              thawed: 0, thawNames: [], mine: 0, mineNames: [] };
   try {
     var reg = readSeriesReg_(hub || getHub_());
     out.read = 1;
@@ -43665,10 +43682,70 @@ function lvStyleAudit_(hub) {
       if (!raw && reg.sheet) {
         try { reg.sheet.getRange(rec.row, SC.LVSTYLE).setValue('خودکار'); out.filled++; }
         catch (eW) {}
+        continue;
+      }
+      /* ══ و آنچه سوئیپِ دیروز از قبل منجمد کرده (۸٫۱۹) ══
+         «چرا هی دونه‌دونه برای همه‌شون بذارم که ممکن از دستم در بره؟» — حق
+         با اوست، و ۸٫۱۸ فقط نیمی از کار بود: درِ «خودکار» را باز کرد ولی
+         ۲۶۴ خانه‌ای که شب‌های پیش پر شده بودند همچنان یک سبکِ ثابت داشتند و
+         از بیرون **عیناً شبیهِ انتخابِ آدم** بودند. همان ۵٫۹۵: تمیزکردنِ
+         ورودی آنچه را که از قبل نوشته شده درست نمی‌کند. */
+      if (reg.sheet && lvThawable_(rec.vals, raw)) {
+        try {
+          reg.sheet.getRange(rec.row, SC.LVSTYLE).setValue('خودکار');
+          out.thawed++;
+          if (out.thawNames.length < 6) out.thawNames.push(nm);
+        } catch (eT) {}
+      } else if (raw && lvStyleNorm_(raw) !== lvStyleNorm_('خودکار')) {
+        /* دستِ خودش — **با اسم** شمرده می‌شود، نه بی‌صدا رد. اگر فردا بگوید
+           «پس چرا این یکی خودکار نشد»، جوابش باید از قبل روی میز باشد. */
+        out.mine++;
+        if (out.mineNames.length < 6) out.mineNames.push(nm);
       }
     }
+    if (out.thawed && reg.sheet) lvThawDone_();
   } catch (e) { out.why = e.message; }
   return out;
+}
+
+/* ══ کدام خانه را خودمان نوشته‌ایم و کدام را او؟ ══
+ * تشخیص یک چیز بیشتر ندارد و همان کافی است: سوئیپِ پیش از ۸٫۱۸ **دقیقاً**
+ * خروجیِ `lvStyleSuggest_` را می‌نوشت. پس خانه‌ای که مو‌به‌مو همان رشته باشد،
+ * نوشتهٔ ماست؛ هر چیزِ دیگری — ترکیبِ «الف + ب»، کلیدی که regex برای این
+ * ردیف نمی‌داد، یا مقداری که اصلاً شناخته نمی‌شود — مالِ اوست و دست نمی‌خورد.
+ *
+ * و احتمالِ هم‌پوشانی (او دقیقاً همان را دست‌چین کرده باشد) صفر نیست؛ بهایش
+ * هم کوچک است: آن مجموعه «خودکار» می‌شود، یعنی مدل برای هر درسش انتخاب
+ * می‌کند — همان چیزی که او برای همه خواسته — و یک کلیک روی تخته برش
+ * می‌گرداند. ولی **یک‌بار** انجام می‌شود، نه هر شب: مهاجرتی که هر شب بدود،
+ * انتخابِ فردای او را هم پاک می‌کند، و آن دیگر مهاجرت نیست، خرابکاری است. */
+function lvThawable_(vals, raw) {
+  try {
+    if (!raw) return false;
+    if (lvThawDoneAt_() === String(CFG.LV_THAW_VER || '1')) return false;
+    if (lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) return false;
+    /* ⚠️ این خط **سد نیست، میان‌بُر است** — و این را شکستنِ عمدی گفت نه
+       خواندن: برداشتنش هیچ سنجه‌ای را سرخ نکرد، چون `lvStyleSuggest_` همیشه
+       یک کلیدِ تنها برمی‌گرداند و هیچ ترکیبی («الف + ب») با آن برابر
+       نمی‌شود. پس مقایسهٔ دو خط پایین‌تر خودش ترکیب را رد می‌کند. برچسبش
+       عوض شد نه نگه‌داشته‌شدنش به‌عنوانِ سد (۷٫۷۱/۸٫۱۲): خطی که شبیهِ سد
+       باشد و نباشد، خوانندهٔ بعدی را گمراه می‌کند. */
+    if (lvStyleSplit_(raw)) return false;           // میان‌بُر: ترکیب هرگز پیشنهادِ ما نبوده
+    var sug = lvStyleSuggest_(String((vals || [])[SC.CAT - 1] || ''),
+                              String((vals || [])[SC.TOPIC - 1] || ''),
+                              String((vals || [])[SC.NAME - 1] || ''));
+    return lvStyleNorm_(raw) === lvStyleNorm_(sug);
+  } catch (e) { return false; }
+}
+
+/** مهاجرت یک **نسخه** دارد، نه یک پرچمِ دوحالته: بالا بردنِ `LV_THAW_VER`
+ *  دوباره‌اش می‌دواند — همان درِ `EMB_TEXT_VER` (۷٫۲۷)، چون قفلی که هیچ آدمی
+ *  نتواند بازش کند همان شکلی است که ۵٫۹۵ نوشت. */
+function lvThawDoneAt_() {
+  try { return String(props_().getProperty(PK.LV_THAW) || ''); } catch (e) { return ''; }
+}
+function lvThawDone_() {
+  try { props_().setProperty(PK.LV_THAW, String(CFG.LV_THAW_VER || '1')); } catch (e) {}
 }
 
 /* ═══════════ لایهٔ ۳: تصویرِ ساخته‌شده با مدل (۷٫۹۸) ═══════════
@@ -48021,6 +48098,60 @@ function runYouTubeRedo() {
  * ساختِ تازه کارِ اجرای بعدیِ انتشار است، نه این دکمه: یک ساختِ درون‌خطیِ
  * دوازده‌کارتی، همان اجرای شش‌دقیقه‌ای را می‌خورد که ۷٫۶۰ درباره‌اش نوشت.
  */
+/**
+ * «سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار» — درِ آدم برای همان کاری که ۸٫۱۹
+ * خودکارش کرد.
+ *
+ * مهاجرتِ خودکار فقط خانه‌هایی را برمی‌گرداند که **خودمان** منجمدشان کرده
+ * بودیم؛ این دکمه برای وقتی است که او بگوید «همه‌شان، حتی آن‌هایی که خودم
+ * گذاشته بودم». پس عمداً دستی است و عمداً **می‌شمارد پیش از آنکه بنویسد**:
+ * پاک‌کردنِ سلیقهٔ آدم بی اینکه بداند چند تا را پاک می‌کند، همان چیزی است که
+ * این پرونده بارها نوشته نباید بشود.
+ */
+function runLvStyleAllAuto() {
+  var ui = ui_();
+  if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };
+  var hub, reg;
+  try { hub = getHub_(); reg = readSeriesReg_(hub); }
+  catch (e) { ui.alert('خوانده نشد: ' + e.message); return { ok: false, why: e.message }; }
+
+  var mine = [], n = 0;
+  for (var i = 0; i < reg.rows.length; i++) {
+    var raw = String(reg.rows[i].vals[SC.LVSTYLE - 1] || '').trim();
+    if (!raw || lvStyleNorm_(raw) === lvStyleNorm_('خودکار')) continue;
+    n++;
+    if (!lvThawable_(reg.rows[i].vals, raw) && mine.length < 8) {
+      mine.push(String(reg.rows[i].vals[SC.NAME - 1] || reg.rows[i].key) + ' («' + raw + '»)');
+    }
+  }
+  if (!n) {
+    ui.alert('سبکِ تصویر', 'همهٔ مجموعه‌ها از قبل روی «خودکار» هستند.', ui.ButtonSet.OK);
+    return { ok: true, changed: 0 };
+  }
+  var ask = ui.alert('سبکِ تصویرِ همهٔ مجموعه‌ها را «خودکار» کنم؟',
+    faDigitsOut_(String(n)) + ' مجموعه سبکِ ثابت دارند و همه روی «خودکار» می‌روند — ' +
+    'یعنی مدل برای هر درس، از روی موضوعِ مجموعه و متنِ همان قسمت، انتخاب می‌کند.' +
+    (mine.length ? '\n\nاز این‌ها، این‌ها را خودتان گذاشته بودید و پاک می‌شوند:\n• ' +
+                   mine.join('\n• ') : '') +
+    '\n\nهر کدام را بعداً در تختهٔ «مجموعه‌های آموزشی و پیشرفت» می‌شود برگرداند.',
+    ui.ButtonSet.OK_CANCEL);
+  if (ask !== ui.Button.OK) return { ok: false, why: 'لغو شد' };
+
+  var done = 0;
+  for (var j = 0; j < reg.rows.length; j++) {
+    var r2 = String(reg.rows[j].vals[SC.LVSTYLE - 1] || '').trim();
+    if (!r2 || lvStyleNorm_(r2) === lvStyleNorm_('خودکار')) continue;
+    try { reg.sheet.getRange(reg.rows[j].row, SC.LVSTYLE).setValue('خودکار'); done++; } catch (eW) {}
+  }
+  try { lvThawDone_(); } catch (eF) {}
+  ui.alert('سبکِ تصویر',
+    '✅ ' + faDigitsOut_(String(done)) + ' مجموعه روی «خودکار» نشست.\n\n' +
+    'قسمت‌هایی که از این به بعد ساخته می‌شوند سبکشان را از مدل می‌گیرند. برای ' +
+    'قسمتی که از قبل منتشر شده، «بازسازیِ عنوان و کاورِ یوتیوب» را با واژهٔ «نو» بزنید.',
+    ui.ButtonSet.OK);
+  return { ok: true, changed: done };
+}
+
 function runLessonVisualsRebuild() {
   var ui = ui_();
   if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };
