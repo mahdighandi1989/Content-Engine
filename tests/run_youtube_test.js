@@ -4371,6 +4371,38 @@ console.log('=== ۶۶) خانه‌هایی که سوئیپِ دیروز منجم
   const a66 = lvStyleAudit_(hub66);
   const col66 = () => reg66.getRange(2, SC.LVSTYLE, 4, 1).getValues().map(x => String(x[0]));
 
+  /* ۶۶.۰ — و پیش از هر مهاجرتی: خانه‌ای که **خودِ سوئیپ** نوشته، انتخابِ او
+     نیست، پس حرفِ مدل رویش می‌نشیند — **بی اینکه لازم باشد چیزی نوشته شود**.
+     بی این، درسِ ۰۸:۰۰ِ فردا با سبکِ regexِ دیروز ساخته می‌شد، چون مهاجرت از
+     `healthCheck` می‌دود و آن ۱۰ صبح است — دو ساعت دیر.
+     ⚠️ پیشنهادِ مدل عمداً سبکی است که **هیچ‌کدام** از دو خانه ندارند، وگرنه
+     «نشست» از «از قبل همان بود» جدا نمی‌شود — تلهٔ فیکسچرِ ۷٫۸۱. */
+  {
+    const hub0 = new Spread('HUB660');
+    global.__SS = { HUB660: hub0 };
+    global.getHub_ = () => hub0;
+    const reg0 = ensureTab_(hub0, CFG.SERIES_TAB, SERIES_HEADERS);
+    const put = (r, key, style) => {
+      const v = new Array(SERIES_HEADERS.length).fill('');
+      v[SC.KEY - 1] = key; v[SC.NAME - 1] = key; v[SC.CAT - 1] = 'تاریخ اسلام';
+      v[SC.LVSTYLE - 1] = style;
+      reg0.getRange(r, 1, 1, SERIES_HEADERS.length).setValues([v]);
+    };
+    put(2, 'sweep', 'نقشِ ایرانی');   // همان چیزی که regex برای «تاریخ اسلام» می‌داد
+    put(3, 'his',   'آبرنگِ گرم');    // regex هرگز این را نمی‌داد ⇒ دستِ خودش
+    const lookX = lvLookApply_({ look: { base: 'تخته‌سفید', why: 'x' } });
+    const gotS = lvStyleAt_(hub0, { seriesKey: 'sweep' }, {}, '', lookX);
+    const gotH = lvStyleAt_(hub0, { seriesKey: 'his' }, {}, '', lookX);
+    /* ثبت می‌شود نه ادعا (۷٫۷۴): خراب‌کردنِ شکل‌سنج طوری که **هر** خانه را
+       مالِ ما بداند، روی ۶۵.۴ می‌نشیند — «حرفِ مدل روی خانه‌ای که خودش نوشته
+       نمی‌نشیند». یعنی آن مرز دو نگهبان دارد، نه یکی. */
+    ok('۶۶.۰ خانهٔ نوشتهٔ سوئیپ حرفِ مدل را می‌گیرد، خانهٔ خودش نمی‌گیرد',
+       gotS === 'تخته‌سفید' && gotH === 'آبرنگِ گرم',
+       'سوئیپ ⇒ ' + gotS + ' · دستِ خودش ⇒ ' + gotH);
+    global.__SS = { HUB66: hub66 };
+    global.getHub_ = () => hub66;
+  }
+
   ok('۶۶.۱ خانه‌ای که خودِ سوئیپ نوشته بود به «خودکار» برمی‌گردد',
      a66.thawed === 1 && col66()[0] === 'خودکار',
      a66.thawed + ' ⇒ ' + col66().join(' | '));
