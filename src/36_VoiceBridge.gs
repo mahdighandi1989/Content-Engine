@@ -217,7 +217,40 @@ function ttsCueDropAt_() {
   try { return String(props_().getProperty(PK.TTS_CUE_DROP_AT) || ''); } catch (e) { return ''; }
 }
 
-function vbrSoulTag_(cueBefore, label, dropBefore, marks) {
+/* ══ و شاهدِ نشانه‌ها روی **ردیف**، نه در پیامِ پنجره‌ای که کسی نمی‌بیند (۸٫۱۴) ══
+   ۸٫۱۰ این را درست نوشت: «آنچه در نمونه نیست، به نام گفته می‌شود … سکوت
+   این‌جا یعنی او چهار دقیقه گوش می‌دهد و خیال می‌کند دربارهٔ گیومه قضاوت
+   کرده، در حالی که گیومه‌ای نبوده.» و همان جمله را در `say()` گذاشت — یعنی
+   در پنجرهٔ دکمهٔ منو.
+
+   ولی از ۷٫۸۲/۷٫۸۴ آن دکمه **دیگر راهِ اصلی نیست**: نمونه را `VOICE_SOUL_SEED`
+   هر روز خودش زمان‌بندی می‌کند و هیچ انسانی پنجره‌ای باز نمی‌کند. پس آن
+   جمله به هیچ‌کس نمی‌رسید — عیناً ۷٫۶۲: درمانی که روی راهی گذاشته شده که
+   پیموده نمی‌شود. و شاهدش با پایانِ اجرا می‌مُرد (۷٫۴۴).
+
+   مدرکِ واقعیِ ۱ اکتبر: ردیفِ «نمونهٔ روح — razavi · نشانه‌گذاریِ لحن:53»
+   با `soul: رنگ‌تنها` بسته شد، یعنی `marks` دروغ نبود — **خالی** بود: متنِ
+   نمونه‌ای که نامش «نشانه‌گذاریِ لحن» است به سقفِ `SPEAK_PROSODY_MIN` نرسید،
+   و هیچ‌جا — نه ردیف، نه کپشن — این را نگفت. فایل با همان نام رفت.
+
+   پس عدد و پوشش روی ردیف می‌نشینند و از آن‌جا به کپشنِ تلگرام می‌روند، چون
+   او همان‌جا می‌شنود نه در درایو (۷٫۶۸/۵٫۹۰). و `why` دلیلِ نگرفتنِ ترمیم را
+   می‌آورد تا فردا علت در صف باشد، نه در حافظهٔ یک اجرا. */
+function vbrSoulTag_(cueBefore, label, dropBefore, marks, cover, rich, why) {
+  var ev = {};
+  if (cover) {
+    ev.markHave = (cover.have && cover.have.length) ? cover.have.join(' · ') : '';
+    ev.markMiss = (cover.miss && cover.miss.length) ? cover.miss.join(' · ') : '';
+  }
+  if (rich != null && isFinite(Number(rich))) ev.markRich = Number(rich);
+  if (why) ev.markWhy = String(why);
+  var fin = function (soul, soulWhy) {
+    var r = { label: label, soul: soul, soulWhy: soulWhy };
+    for (var k in ev) {
+      if (Object.prototype.hasOwnProperty.call(ev, k)) r[k] = ev[k];
+    }
+    return r;
+  };
   var now = null;
   try { now = ttsCueStatus_(); } catch (e) { now = null; }
   var onBefore = !(cueBefore && cueBefore.ok === false);
@@ -230,8 +263,7 @@ function vbrSoulTag_(cueBefore, label, dropBefore, marks) {
   try { dropped = ttsCueDropAt_() !== String(dropBefore == null ? '' : dropBefore); }
   catch (eD) { dropped = false; }
   if (onBefore && onNow && !dropped) {
-    return { label: label, soul: 'روح',
-             soulWhy: 'همین حالا با شیوهٔ خواندنِ خودش خوانده شد' };
+    return fin('روح', 'همین حالا با شیوهٔ خواندنِ خودش خوانده شد');
   }
   var how = (dropped ? 'دستورِ لحن در ساختِ دستِ‌کم یک تکه دور انداخته شد'
                     : 'دستورِ لحن وسطِ ساخت خاموش شد') +
@@ -242,12 +274,12 @@ function vbrSoulTag_(cueBefore, label, dropBefore, marks) {
      دربارهٔ «روح» هشدار داد. و «روح» هم نیست، چون کارتِ شیوهٔ خواندن به
      مدل نرسید. پس نامِ خودش را دارد، و در کپشن هم دیده می‌شود. */
   if (marks) {
-    return { label: label, soul: 'لحن از نشانه‌ها',
-             soulWhy: how + '؛ ولی متن نشانه‌گذاریِ لحن دارد، پس لحن از ' +
-                      'نشانه‌های متن می‌آید نه از کارتِ شیوهٔ خواندن' };
+    return fin('لحن از نشانه‌ها',
+               how + '؛ ولی متن نشانه‌گذاریِ لحن دارد، پس لحن از ' +
+               'نشانه‌های متن می‌آید نه از کارتِ شیوهٔ خواندن');
   }
-  return { label: label, soul: 'رنگ‌تنها', soulWhy: how +
-           '؛ بخشی از این نمونه بی شیوهٔ خواندن ساخته شده' };
+  return fin('رنگ‌تنها',
+             how + '؛ بخشی از این نمونه بی شیوهٔ خواندن ساخته شده');
 }
 
 function vbrSoul_(folderId, speakerKey) {
@@ -357,6 +389,16 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
       var sl = vbrSoul_(folderId, speaker);
       row.soul = sl.state; row.soulWhy = sl.why;
     } catch (eSl) { row.soul = 'نامعلوم'; row.soulWhy = 'سنجیده نشد'; }
+  }
+  /* ══ شاهدِ نشانه‌های لحن، اگر این ردیف نمونه‌ای است که آن را سنجیده (۸٫۱۴) ══
+     حضورشان شرط است نه همیشگی: ردیفِ «خودِ قسمت» چنین سنجشی ندارد و نوشتنِ
+     رشتهٔ خالی روی آن یعنی کپشن هر شب دربارهٔ چیزی حرف بزند که سنجیده نشده —
+     و «نسنجیده» با «نبودن» یکی نیست (۸٫۰۵). */
+  if (o.markHave != null || o.markMiss != null) {
+    row.markHave = String(o.markHave == null ? '' : o.markHave);
+    row.markMiss = String(o.markMiss == null ? '' : o.markMiss);
+    if (o.markRich != null) row.markRich = Number(o.markRich);
+    if (o.markWhy) row.markWhy = String(o.markWhy);
   }
   d.items.push(row);
   return vbrSave_(d) ? { ok: true, key: key, parts: row.audio.length }
@@ -734,11 +776,38 @@ function vbrTgTell_(item, speakerName, got) {
                '. پس مکث و کشش و دامنه از او نیست؛ تبدیل رنگ را عوض می‌کند، ' +
                'شیوهٔ خواندن را نه.';
   }
+  /* ══ و آنچه در این نمونه **نیست**، همان‌جا که می‌شنود (۸٫۱۴) ══
+     ۸٫۱۰ این جمله را ساخت و در `say()` گذاشت، یعنی در پنجرهٔ دکمهٔ منو — و
+     از ۷٫۸۲/۷٫۸۴ نمونه را بذر می‌سازد و هیچ‌کس آن پنجره را باز نمی‌کند. پس
+     جمله‌ای که ساخته شد تا او اشتباهی قضاوت نکند، به او نمی‌رسید.
+     «نسنجیده» با «سالم» یکی نیست، و اگر نشانه‌ای در متن نباشد، شنیدنِ
+     چهار دقیقه دربارهٔ آن نشانه **هیچ** جوابی نمی‌دهد. */
+  var markLine = '';
+  /* `faDigitsOut_` در بخشِ ۲۵ است و بارکنندهٔ جزئیِ آزمون‌ها ممکن است آن را
+     نداشته باشد — همان گاردی که `faP` چند خط پایین‌تر دارد. */
+  var faD = function (x) {
+    try { return faDigitsOut_(String(x)); } catch (eF) { return String(x); }
+  };
+  if (item && item.markHave != null) {
+    var mr = (item.markRich == null) ? '' :
+             (' (' + tgEsc_(faD(item.markRich)) + ' در هزار نویسه)');
+    markLine = '\n\n🎵 <b>نشانه‌های لحن در این نمونه</b>' + mr + ': ' +
+               tgEsc_(String(item.markHave || '—'));
+    if (String(item.markMiss || '')) {
+      markLine += '\n⚠️ <b>در این نمونه نیست، پس دربارهٔ این‌ها قضاوت نکنید:</b> ' +
+                  tgEsc_(String(item.markMiss));
+    } else {
+      markLine += '\n✅ هر هفت نشانه هست — هر هفت را می‌توانید بسنجید.';
+    }
+    if (String(item.markWhy || '')) {
+      markLine += '\n' + tgEsc_(String(item.markWhy));
+    }
+  }
   var head = String((item && item.label) || ('قسمت ' + ep));
   var cap = '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
             (title ? '\n' + tgEsc_(title) : '') +
             '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
-            'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine +
+            'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine + markLine +
             '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
 
   /* ══ چند تکه ⇒ چند پیام، و هر کدام شمارهٔ خودش را دارد (۷٫۶۶) ══
@@ -1873,7 +1942,9 @@ function runVoiceSoulTest() {
      می‌گذرانَد و اگر گویاتر نشد `null` می‌دهد — پس بدترین حالت همان متنِ
      قبلی است و نمونه ساخته می‌شود، فقط بی لحنِ تازه. و عدد در پیام می‌آید
      نه یک برچسب: اگر نگرفت باید دیده شود (۷٫۷۹). */
-  var prMsg = '', prMarks = false, prCover = null;
+  /* `prRich` و `prWhy` از ۸٫۱۴: عدد و دلیل باید از این اجرا **بیرون** بروند،
+     وگرنه با پایانِ اجرا می‌مانند و فردا کسی نمی‌داند ترمیم گرفت یا نه. */
+  var prMsg = '', prMarks = false, prCover = null, prRich = null, prWhy = '';
   try {
     var needP = Number(CFG.SPEAK_PROSODY_MIN);
     if (!isFinite(needP) || needP <= 0) needP = 3;
@@ -1894,6 +1965,10 @@ function runVoiceSoulTest() {
         } else {
           prMsg = 'نشانه‌گذاریِ لحن نگرفت (' + pA.richPer1k +
                   ' نشانهٔ گویا در هزار مانْد) — متنِ قسمت همان‌طور خوانده می‌شود';
+          /* فقط همین حالت دلیل دارد: ترمیم **خواسته شد و نگرفت**. دو حالتِ
+             دیگر خبرِ خوب‌اند و تکرارشان در کپشن همان هشداری است که یاد
+             می‌گیرند نخوانند (۷٫۴۰/۸٫۰۵). */
+          prWhy = 'ℹ️ ترمیمِ نشانه‌گذاری نگرفت؛ متنِ قسمت همان‌طور خوانده شد.';
         }
       } else {
         prMsg = 'متنِ قسمت از قبل هر هفت نشانه را دارد (' + pA.richPer1k + ' در هزار)';
@@ -1916,8 +1991,9 @@ function runVoiceSoulTest() {
        متن از قبل نشانه داشت، ترمیمی در کار نبوده و شاهد باز هم هست. این
        تفاوت همان چیزی است که ۷٫۷۹ از آن درس گرفت: برچسب از رویداد بیاید،
        نه از امید. */
-    prMarks = speakProsody_(txt).richPer1k >= needP;
-  } catch (ePm) { prMsg = ''; prMarks = false; }
+    prRich = speakProsody_(txt).richPer1k;
+    prMarks = prRich >= needP;
+  } catch (ePm) { prMsg = ''; prMarks = false; prRich = null; }
 
   /* ══ و دستورِ لحن، پیش از خرجِ چهار دقیقه (۷٫۷۹) ══
      صاحبِ برنامه هر دو نمونه را شنید و گفت آن ویژگیِ صدای رضوی هنوز در
@@ -2027,7 +2103,8 @@ function runVoiceSoulTest() {
        **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''),
-                    vbrSoulTag_(cueChk, label, dropChk, prMarks));
+                    vbrSoulTag_(cueChk, label, dropChk, prMarks,
+                                prCover, prRich, prWhy));
     res.ok = !!(r && r.ok);
     res.why = (r && r.why) || '';
   } catch (e) {

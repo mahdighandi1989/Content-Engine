@@ -2834,4 +2834,173 @@ console.log('\n══ ۳۵) نمونه‌ای که نشانهٔ زیرِ سنج�
   }
 }
 
+console.log('\n══ ۳۶) شاهدِ نشانه‌ها باید از اجرا بیرون برود (۸٫۱۴) ══');
+/* ۸٫۱۰ جملهٔ درست را ساخت — «در این نمونه نیست، پس دربارهٔ این‌ها قضاوت
+   نکنید» — و در `say()` گذاشتش، یعنی در پنجرهٔ دکمهٔ منو. ولی از ۷٫۸۲/۷٫۸۴
+   نمونه را `VOICE_SOUL_SEED` خودش زمان‌بندی می‌کند و هیچ انسانی آن پنجره را
+   باز نمی‌کند: درمانی روی راهی که پیموده نمی‌شود (۷٫۶۲)، و شاهدی که با
+   پایانِ اجرا می‌مُرد (۷٫۴۴).
+
+   مدرکِ واقعیِ ۱ اکتبر ۲۰۲۶ در `_VOICE-RENDER.json`: ردیفِ «نمونهٔ روح —
+   razavi · نشانه‌گذاریِ لحن:53» با `soul: رنگ‌تنها` بسته شد — یعنی `prMarks`
+   خالی بود: متنِ نمونه‌ای که **نامش** «نشانه‌گذاریِ لحن» است به سقف نرسید، و
+   نه ردیف و نه کپشن این را نگفتند. فایل با همان نام رفت.
+
+   سه ادعا: عدد و پوشش روی **ردیف** می‌نشینند · کپشنِ تلگرام نامشان را
+   می‌برد · و ردیفی که سنجشی نداشته، **هیچ** چیزی دربارهٔ نشانه‌ها نمی‌گوید
+   («نسنجیده» با «نبودن» یکی نیست — ۸٫۰۵). */
+{
+  const realTry36 = global.ttsChunkTry_;
+  const realUi36 = global.ui_;
+  const realGem36 = global.geminiText_;
+  const keepMarks36 = CFG.SPEAK_MARKS;
+  let said36 = '';
+  global.ttsChunkTry_ = function () {
+    return Buffer.alloc(24000 * 2 * 8).toString('base64');
+  };
+  global.ui_ = () => ({ alert: function (t, m) { said36 = String(m); },
+                        ButtonSet: { OK: 1 } });
+
+  /* کپشن تابعِ خودش نیست؛ داخلِ `vbrTgTell_` ساخته می‌شود — پس متنی که
+     **واقعاً به تلگرام می‌رود** سنجیده می‌شود، نه بازخوانیِ یک رشته. */
+  const capOf = function (row) {
+    let seen = '';
+    const rA = global.tgApi_, rS = global.tgSend_, rE = global.tgEnabled_;
+    global.tgEnabled_ = () => true;
+    global.tgApi_ = function (m, p) {
+      if (p && p.caption) seen = String(p.caption);
+      return { ok: true };
+    };
+    global.tgSend_ = function (t) { seen = String(t); return true; };
+    try { vbrTgTell_(row, 'بهروز رضوی', []); } catch (eT) {}
+    global.tgApi_ = rA; global.tgSend_ = rS; global.tgEnabled_ = rE;
+    return seen;
+  };
+  const soulRow = function () {
+    return vbrRead_().items.filter((x) => /نمونهٔ روح/.test(String(x.key)))[0];
+  };
+
+  const fEp36 = OUT.createFolder('قسمتِ شاهدِ نشانه');
+  const segs36 = [];
+  for (let i = 0; i < 20; i++) {
+    segs36.push({ h: 'h' + i, t:
+      'شَبی از شَب‌هایِ پاییز بود و بادِ سَرد پُشتِ پَنجِره ایستاد. ' +
+      'مَردی که سال‌ها دور مانده بود کِلید را چَرخانْد و ایستاد. شُمارهٔ ' +
+      i + '. ' });
+  }
+  fEp36.createFile('_episode.json',
+    JSON.stringify({ ep: { title: 'شاهدِ نشانه', __speakSegs: segs36 } }),
+    'application/json');
+
+  const keepRd36 = ytRenderRead_().items.slice();
+  try {
+    const rd36 = ytRenderRead_();
+    rd36.items = [{ key: 'variety:94', show: 'variety', ep: '94',
+                    folderId: fEp36.getId(), status: 'رسید' }];
+    ytRenderSave_(rd36);
+    personaBoardSave_('razavi', false, [knownShows_()[0].name], 1,
+                      'آرام و شمرده بخوان', '', '', ['variety:94']);
+
+    /* ── الف) ترمیم می‌گیرد ولی پوشش کامل نمی‌شود: همان حالتی که او ترسش را
+       گفت. جواب فقط `؟!` می‌آورد — گیومه و پرانتز نه. */
+    let q36 = vbrRead_(); q36.items = []; vbrSave_(q36);
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem36 ? realGem36.apply(null, arguments) : null;
+      }
+      const src = String(pr).split('\n\n').pop();
+      return { t: src.replace(/پُشتِ پَنجِره ایستاد\./g, 'پُشتِ پَنجِره ایستاد؟!') };
+    };
+    said36 = '';
+    const rA = runVoiceSoulTest();
+    const rowA = soulRow();
+    ok('۳۶.۱ نمونه ساخته شد و ردیفش پوششِ نشانه‌ها را با خودش دارد',
+       /* هر سه میدان جدا خواسته می‌شوند: نگارشِ اول فقط `markMiss` و
+          `markRich` را می‌پرسید، و شکستنِ عمدیِ **`markHave`** روی ۳۶.۲
+          نشست نه این‌جا — یعنی ادعای «ردیف پوشش را دارد» نیمی‌اش بی‌سنجه
+          بود. ادعایی که بخشی از خودش را نسنجد، همان سنجهٔ توخالی است. */
+       !!(rA && rA.ok === true) && !!rowA &&
+       typeof rowA.markHave === 'string' &&
+       rowA.markHave.indexOf('پرسش ؟') !== -1 &&
+       typeof rowA.markMiss === 'string' &&
+       rowA.markMiss.indexOf('گیومه « »') !== -1 &&
+       rowA.markMiss.indexOf('پرانتز ( )') !== -1 &&
+       typeof rowA.markRich === 'number',
+       JSON.stringify({ ok: rA && rA.ok, why: rA && rA.why,
+                        have: rowA && rowA.markHave,
+                        miss: rowA && rowA.markMiss,
+                        rich: rowA && rowA.markRich }) +
+       ' — بی این، شاهد با پایانِ اجرا می‌مُرد و فردا کسی نمی‌دانست نمونه ' +
+       'گیومه داشت یا نه (ردیفِ ۱ اکتبر عیناً همین بود)');
+
+    const capA = capOf(rowA);
+    ok('۳۶.۲ و کپشنِ تلگرام نامشان را می‌برد — او همان‌جا می‌شنود، نه در درایو',
+       /دربارهٔ این‌ها قضاوت نکنید/.test(capA) &&
+       /گیومه « »/.test(capA) && /پرانتز \( \)/.test(capA),
+       capA.slice(capA.indexOf('نشانه‌های لحن'), capA.indexOf('نشانه‌های لحن') + 260) ||
+       capA.slice(0, 220) ||
+       '(کپشنی نرفت) — جمله‌ای که فقط در `say()` بماند، به کسی نمی‌رسد');
+
+    /* ── ب) ترمیم **خواسته شد و نگرفت**: دلیلش باید روی ردیف بنشیند، وگرنه
+       فردا علت در حافظهٔ یک اجرای مُرده است. */
+    q36 = vbrRead_(); q36.items = []; vbrSave_(q36);
+    global.geminiText_ = function (pr) {
+      if (String(pr).indexOf('فقط نشانه‌گذاریِ لحن') === -1) {
+        return realGem36 ? realGem36.apply(null, arguments) : null;
+      }
+      return { t: 'واژه‌هایِ کاملاً دیگری! که از سدِ وارسی نمی‌گذرند؟' };
+    };
+    said36 = '';
+    const rB = runVoiceSoulTest();
+    const rowB = soulRow();
+    const capB = rowB ? capOf(rowB) : '';
+    ok('۳۶.۳ ترمیمی که نگرفت، دلیلش روی ردیف و در کپشن است',
+       !!(rB && rB.ok === true) && !!rowB &&
+       /ترمیمِ نشانه‌گذاری نگرفت/.test(String(rowB.markWhy || '')) &&
+       /ترمیمِ نشانه‌گذاری نگرفت/.test(capB),
+       JSON.stringify({ ok: rB && rB.ok, why: rB && rB.why,
+                        markWhy: rowB && rowB.markWhy }) +
+       ' · کپشن: ' + capB.slice(capB.indexOf('نشانه‌های لحن'), capB.indexOf('نشانه‌های لحن') + 240));
+    /* ⚠️ آنچه §۳۶ نمی‌سازد، و ادعا نمی‌شود: شاخهٔ «متن از قبل هر هفت نشانه را
+       دارد». شکستنِ عمدیِ آن شاخه (گذاشتنِ `prWhy` در آن) **هیچ‌جا ننشست**،
+       چون هر سه حالتِ این بخش از شاخهٔ **ترمیم** می‌گذرند. پس ۳۶.۳-ب فقط
+       دربارهٔ «ترمیم رفت و گرفت» است؛ آن شاخه را ۳۵.۴ در سطحِ پیام می‌گیرد و
+       در سطحِ **ردیف** بی‌سنجه است. ثبت می‌شود، نه پوشانده (۸٫۱۰). */
+    ok('۳۶.۳-ب ولی ترمیمی که گرفت دلیلی ندارد — شمردنِ حالتِ سالم همان هشداری ' +
+       'است که یاد می‌گیرند نخوانند',
+       !!rowA && rowA.markWhy === undefined,
+       JSON.stringify({ markWhy: rowA && rowA.markWhy }));
+
+    /* ── ج) مرزِ مقابل، و مهم‌ترینشان: ردیفی که **سنجشِ نشانه نداشته** هیچ
+       چیزی دربارهٔ نشانه‌ها نمی‌گوید. بی این گارد، کپشنِ هر قسمتِ عادی هر شب
+       «✅ هر هفت نشانه هست» می‌گفت — دروغی که هیچ‌کس نخواسته، روی هر قسمت.
+       حالت دست‌ساز نیست: `CFG.SPEAK_MARKS === false` یک تنظیمِ واقعیِ تولید
+       است و همان مسیر را می‌سازد (۷٫۲۲/۷٫۷۵). */
+    q36 = vbrRead_(); q36.items = []; vbrSave_(q36);
+    CFG.SPEAK_MARKS = false;
+    said36 = '';
+    const rC = runVoiceSoulTest();
+    const rowC = soulRow();
+    const capC = rowC ? capOf(rowC) : '';
+    ok('۳۶.۴ ردیفِ بی‌سنجش هیچ چیزی دربارهٔ نشانه‌ها نمی‌گوید — «نسنجیده» با «نبودن» یکی نیست',
+       !!(rC && rC.ok === true) && !!rowC &&
+       rowC.markHave === undefined && rowC.markMiss === undefined &&
+       rowC.markRich === undefined &&
+       capC.indexOf('نشانه‌های لحن در این نمونه') === -1 &&
+       capC.indexOf('هر هفت نشانه هست') === -1,
+       JSON.stringify({ ok: rC && rC.ok,
+                        have: rowC && rowC.markHave,
+                        miss: rowC && rowC.markMiss,
+                        rich: rowC && rowC.markRich }) +
+       ' · کپشن: ' + capC.slice(0, 220));
+  } finally {
+    CFG.SPEAK_MARKS = keepMarks36;
+    global.ttsChunkTry_ = realTry36;
+    global.ui_ = realUi36;
+    global.geminiText_ = realGem36;
+    ytRenderSave_(Object.assign(ytRenderRead_(), { items: keepRd36 }));
+    try { props_().deleteProperty(PK.TTS_CUE_DROP_AT); } catch (e) {}
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
