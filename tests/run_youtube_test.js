@@ -4083,4 +4083,73 @@ console.log('=== ۶۳) نقشهٔ تصویر که نحیف درآمد و «تم�
   }
 }
 
+console.log('=== ۶۴) کاورِ ۹۶۰×۵۴۰ که موتور خودش هر روز می‌گفتش (۸.۱۲) ===');
+/* لاگِ ۱ اکتبر، دو بار: «`presentations.create` اندازهٔ درخواستی را نادیده
+   گرفت» و «۹۶۰×۵۴۰ درآمد، نه ۱۲۸۰×۷۲۰ — یوتیوب می‌پذیردش ولی متن نرم
+   می‌شود». تشخیص درست بود و با «نه خطای این اجرا» کنار گذاشته شد: باز هم
+   اندازه‌گیریِ درست، وصل‌نشده به تصمیم.
+
+   `export/png` همیشه به اندازهٔ **صفحه** می‌دهد، پس تا وقتی صفحه ۹۶۰×۵۴۰
+   است هیچ کاری نمی‌شود کرد. نقطهٔ `pages/{id}/thumbnail` اندازه‌اش را از
+   صفحه نمی‌گیرد. */
+{
+  const realFetch = global.UrlFetchApp;
+  const seen = [];
+  const mk = (code, body, blob) => ({
+    getResponseCode: () => code,
+    getContentText: () => body || '',
+    getBlob: () => blob || Utilities.newBlob('PNG', 'image/png', 'x.png')
+  });
+
+  /* ۶۴.۱ — راهِ **اول** thumbnail است، نه export. */
+  global.UrlFetchApp = { fetch: function (u) {
+    seen.push(String(u));
+    if (String(u).indexOf('/thumbnail?') !== -1) {
+      return mk(200, JSON.stringify({ contentUrl: 'https://img/big.png' }));
+    }
+    return mk(200, '');
+  } };
+  const b1 = ytSlideExport_('P', 'G', 'کاور.png');
+  global.UrlFetchApp = realFetch;
+  ok('۶۴.۱ تصویر از نقطهٔ thumbnail با اندازهٔ LARGE خواسته می‌شود',
+     !!b1 && seen.length === 2 &&
+     seen[0].indexOf('thumbnailProperties.thumbnailSize=LARGE') !== -1 &&
+     seen[0].indexOf('slides.googleapis.com') !== -1 &&
+     seen[1] === 'https://img/big.png',
+     JSON.stringify(seen.map(x => x.slice(0, 60))));
+
+  ok('۶۴.۱-ب و از export/png استفاده نمی‌شود وقتی thumbnail گرفت',
+     seen.every(x => x.indexOf('/export/png') === -1),
+     'هیچ‌کدام export نبود');
+
+  /* ۶۴.۲ — و سقوطش به سمتِ **داشتن** است: thumbnail که نشد، همان راهِ قدیم.
+     کاورِ نرم از کاورِ نداشته بهتر است. */
+  const seen2 = [];
+  global.UrlFetchApp = { fetch: function (u) {
+    seen2.push(String(u));
+    if (String(u).indexOf('/thumbnail?') !== -1) return mk(403, 'no');
+    return mk(200, '');
+  } };
+  const b2 = ytSlideExport_('P', 'G', 'کاور.png');
+  global.UrlFetchApp = realFetch;
+  ok('۶۴.۲ thumbnail که نشد، export/png قدیمی می‌رود — کاورِ نرم از نداشته بهتر است',
+     !!b2 && seen2.length === 2 && seen2[1].indexOf('/export/png') !== -1,
+     JSON.stringify(seen2.map(x => x.slice(0, 50))));
+
+  /* ۶۴.۳ — و جوابِ بی `contentUrl` هم سقوط می‌کند، نه اینکه null بدهد.
+     جوابِ ۲۰۰ با بدنهٔ بی‌ربط، همان شکلی است که درایو برای فایلِ
+     اشتراک‌نشده می‌دهد (۷.۳۳) — «۲۰۰ گرفتم» یعنی «درست بود» نیست. */
+  const seen3 = [];
+  global.UrlFetchApp = { fetch: function (u) {
+    seen3.push(String(u));
+    if (String(u).indexOf('/thumbnail?') !== -1) return mk(200, '<html>nope</html>');
+    return mk(200, '');
+  } };
+  const b3 = ytSlideExport_('P', 'G', 'کاور.png');
+  global.UrlFetchApp = realFetch;
+  ok('۶۴.۳ جوابِ ۲۰۰ بی contentUrl هم به راهِ قدیم سقوط می‌کند، نه به هیچ',
+     !!b3 && seen3.length === 2 && seen3[1].indexOf('/export/png') !== -1,
+     JSON.stringify(seen3.map(x => x.slice(0, 50))));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

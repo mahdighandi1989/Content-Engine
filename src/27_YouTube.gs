@@ -534,7 +534,65 @@ function ytDescBuild_(meta, ctx, chapters) {
  * یک اسلاید → یک PNG. تنها راهِ رستر کردنِ تصویر در Apps Script.
  * مشترکِ کاورِ قسمت، کاورِ پلی‌لیست و بنرِ کانال — سه جا، یک تعریف.
  */
+/**
+ * ══ ۹۶۰×۵۴۰ به‌جای ۱۲۸۰×۷۲۰ — و موتور خودش هر روز می‌گفتش (۸٫۱۲) ══
+ *
+ * در لاگِ ۱ اکتبر، دو بار، با همین واژه‌ها:
+ *   «`presentations.create` اندازهٔ درخواستی را نادیده گرفت — صفحه با
+ *    5143500×9144000 ساخته شد، نه 6858000×12192000 EMU»
+ *   «۹۶۰×۵۴۰ درآمد، نه ۱۲۸۰×۷۲۰ — یوتیوب می‌پذیردش ولی متن نرم می‌شود»
+ *
+ * یک **محدودیتِ شناخته‌شدهٔ Slides API** است و درست تشخیص داده شده بود — و
+ * بعد با جملهٔ «نه خطای این اجرا» کنار گذاشته شد. یعنی باز هم همان شکل:
+ * اندازه‌گیری درست، نوشته‌شده، و به هیچ تصمیمی وصل نشده. هر کاور و هر کارتِ
+ * این موتور از روزِ اول نرم بوده.
+ *
+ * **و راهش ساختنِ اسلاید نیست، گرفتنِ تصویر است.** `export/png` همیشه به
+ * اندازهٔ **صفحه** می‌دهد، پس تا وقتی صفحه ۹۶۰×۵۴۰ است هیچ کاری نمی‌شود
+ * کرد. ولی نقطهٔ `pages/{id}/thumbnail` اندازه‌اش را از صفحه نمی‌گیرد:
+ * `thumbnailSize=LARGE` حدودِ ۱۶۰۰ نقطه عرض می‌دهد — بالاتر از سقفِ
+ * ۱۲۸۰×۷۲۰ِ یوتیوب، و تیز.
+ *
+ * و سقوطش به سمتِ **داشتن** است نه نداشتن: اگر thumbnail نشد، همان
+ * `export/png`ِ قدیمی می‌رود. کاورِ نرم از کاورِ نداشته بهتر است — همان
+ * قاعده‌ای که این پرونده دربارهٔ `srchReadRows_` نوشت.
+ */
 function ytSlideExport_(presId, pageId, name) {
+  var b = null;
+  try { b = ytSlideThumb_(presId, pageId, name); } catch (eT) { b = null; }
+  if (b) return b;
+  return ytSlideExportRaw_(presId, pageId, name);
+}
+
+/** تصویرِ بزرگ از نقطهٔ thumbnailِ Slides — اندازه‌اش به صفحه بند نیست. */
+function ytSlideThumb_(presId, pageId, name) {
+  var url = 'https://slides.googleapis.com/v1/presentations/' +
+            encodeURIComponent(presId) + '/pages/' + encodeURIComponent(pageId) +
+            '/thumbnail?thumbnailProperties.mimeType=PNG' +
+            '&thumbnailProperties.thumbnailSize=LARGE';
+  var res = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  /* ══ این خط سد نیست، میان‌بُر است — و گفته می‌شود (۷٫۷۱) ══
+     برداشتنش هیچ سنجه‌ای را سرخ نکرد، و درست هم بود: سدِ واقعی دو خط
+     پایین‌تر است («`contentUrl` هست یا نه»)، چون بدنهٔ خطا یا پارس نمی‌شود
+     یا `contentUrl` ندارد. این فقط از پارس‌کردنِ یک بدنهٔ خطا جلوگیری
+     می‌کند. خطی که شبیهِ سد باشد و نباشد، خوانندهٔ بعدی را گمراه می‌کند. */
+  if (res.getResponseCode() !== 200) return null;
+  var j = null;
+  try { j = JSON.parse(res.getContentText()); } catch (eJ) { return null; }
+  /* ══ و **این** سد است: «۲۰۰ گرفتم» یعنی «درست بود» نیست ══
+     درایو برای فایلِ اشتراک‌نشده یک صفحهٔ HTML با کدِ ۲۰۰ می‌دهد (۷٫۳۳)، و
+     اینجا هم جوابِ بی `contentUrl` ممکن است. ۶۴.۳ همین را می‌سنجد. */
+  var link = String((j && j.contentUrl) || '');
+  if (!link) return null;
+  var img = UrlFetchApp.fetch(link, { muteHttpExceptions: true });
+  if (img.getResponseCode() !== 200) return null;
+  return img.getBlob().setName(name);
+}
+
+function ytSlideExportRaw_(presId, pageId, name) {
   var url = 'https://docs.google.com/presentation/d/' + encodeURIComponent(presId) +
             '/export/png?id=' + encodeURIComponent(presId) +
             '&pageid=' + encodeURIComponent(pageId);
