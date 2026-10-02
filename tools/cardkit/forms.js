@@ -169,7 +169,7 @@ function beats(c, p) {
   const svg = [], times = [];
   for (let k = 0; k <= maxAt; k++) {
     svg.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${K.FONT}">
-${K.texture(p)}
+${K.texture(p, c.bg)}
 ${chrome(c, p)}
 ${els.filter(e => e.at <= k).map(e => e.s).join('\n')}
 </svg>`);

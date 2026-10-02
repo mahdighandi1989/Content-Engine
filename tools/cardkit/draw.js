@@ -49,10 +49,23 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp
 const fa = s => String(s).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 
 /* ── بافت: دانهٔ کاغذ. بافت همان چیزی است که «تخت» را «زنده» می‌کند. ── */
-function texture(p) {
+/* ══ تصویرِ ساخته‌شده زیرِ کارت (۸.۲۶) ══
+ * همان ترتیبِ کارتِ اسلایدز (`lvCardDraw_`): رنگ ← تصویر ← لایهٔ هم‌رنگِ
+ * زمینه ← بقیه. آن لایه تزئین نیست: تصویرِ ساخته‌شده هر رنگی می‌تواند
+ * دربیاید و بی آن متن ناخوانا می‌شود؛ با آن، بدترین حالتِ یک تصویرِ بد
+ * «کم‌رنگ» است، نه «نامفهوم». `img` باید data URI باشد — کروم این‌جا اجازهٔ
+ * شبکه ندارد و `href`ِ بیرونی بی‌خطا خالی درمی‌آید (همان درسِ نشانِ کانال). */
+function backdrop(p, img) {
+  if (!img || !/^data:image\//.test(String(img))) return '';
+  const a = p.scrim == null ? 0.62 : p.scrim;
+  return `<image href="${img}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="${W}" height="${H}" fill="${p.bg}" opacity="${a}"/>`;
+}
+function texture(p, img) {
   return `<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="7"/>
     <feColorMatrix type="saturate" values="0"/></filter>
   <rect width="${W}" height="${H}" fill="${p.bg}"/>
+  ${backdrop(p, img)}
   <rect width="${W}" height="${H}" filter="url(#grain)" opacity="${p.grain == null ? 0.09 : p.grain}" style="mix-blend-mode:multiply"/>
   ${p.grid ? `<pattern id="gr" width="${p.grid}" height="${p.grid}" patternUnits="userSpaceOnUse">
     <path d="M ${p.grid} 0 L 0 0 0 ${p.grid}" fill="none" stroke="${p.ink}" stroke-opacity="0.09" stroke-width="1.4"/></pattern>
@@ -63,4 +76,4 @@ function texture(p) {
     <stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="${p.vig == null ? 0.07 : p.vig}"/>
   </radialGradient><rect width="${W}" height="${H}" fill="url(#vig)"/>`;
 }
-module.exports = { W, H, FONT, wob, wobEllipse, arrowRTL, marker, esc, fa, texture, rnd };
+module.exports = { W, H, FONT, wob, wobEllipse, arrowRTL, marker, esc, fa, texture, backdrop, rnd };

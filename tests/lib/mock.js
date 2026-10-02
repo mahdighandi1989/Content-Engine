@@ -572,6 +572,45 @@ global.SlidesApp = {
 };
 
 // ------------------------------------------------------------- UrlFetchApp
+/** شیء را از روی schema صافی می‌کند: کلیدِ تعریف‌نشده می‌افتد، همان‌طور که
+ *  مدلِ واقعی هرگز نمی‌نویسدش. نوعِ ناسازگار هم می‌افتد (آرایه به‌جای رشته). */
+function schemaPrune(v, sc) {
+  if (!sc || typeof sc !== 'object') return v;
+  const t = String(sc.type || '').toLowerCase();
+  if (t === 'object') {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+    if (!sc.properties) return v;
+    const o = {};
+    for (const k of Object.keys(v)) {
+      if (!Object.prototype.hasOwnProperty.call(sc.properties, k)) continue;
+      const x = schemaPrune(v[k], sc.properties[k]);
+      if (x !== undefined) o[k] = x;
+    }
+    return o;
+  }
+  if (t === 'array') {
+    if (!Array.isArray(v)) return undefined;
+    return v.map(x => schemaPrune(x, sc.items)).filter(x => x !== undefined);
+  }
+  if (t === 'string') return (typeof v === 'string' || typeof v === 'number') ? String(v) : undefined;
+  return v;
+}
+function schemaStrict(r, body) {
+  try {
+    const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+    if (!sc || !r || !r.json || !Array.isArray(r.json.candidates)) return r;
+    const parts = (((r.json.candidates[0] || {}).content || {}).parts) || [];
+    if (!parts.length || typeof parts[0].text !== 'string') return r;
+    let obj;
+    try { obj = JSON.parse(parts[0].text); } catch (e) { return r; }
+    const pruned = schemaPrune(obj, sc);
+    if (pruned === undefined) return r;
+    const json = JSON.parse(JSON.stringify(r.json));
+    json.candidates[0].content.parts[0].text = JSON.stringify(pruned);
+    return Object.assign({}, r, { json: json });
+  } catch (e) { return r; }
+}
+global.__schemaPrune = schemaPrune;
 global.__FETCHES = [];
 global.__STUB = null;
 global.UrlFetchApp = {
@@ -613,7 +652,14 @@ global.UrlFetchApp = {
       return { getResponseCode: () => 200, getBlob: () => blob,
                getContentText: () => 'PNG' };
     }
-    const r = global.__STUB(url, body);
+    let r = global.__STUB(url, body);
+    /* ══ بدَلِ مدل به اندازهٔ مدلِ واقعی سخت‌گیر است (۸.۲۶) ══
+       مدلِ ساختاریافته **فقط فیلدهای schemaی فرستاده‌شده** را می‌تواند
+       بنویسد. بدَلی که هر فیلدی را برگرداند، قراردادی را سبز نشان می‌دهد که
+       تولید هرگز نمی‌تواند پر کند — دقیقاً همان که درس‌های ۵۷ و ۵۸ را با یک
+       تصویر فرستاد: پرامپت `cardTitle` می‌خواست، schema نداشتش، و بدَلِ
+       `run_youtube_test.js` همان `cardTitle` را تحویل می‌داد. */
+    if (global.__SCHEMA_STRICT !== false) r = schemaStrict(r, body);
     // پاسخ می‌تواند json بدهد یا متنِ خام (برای شبیه‌سازیِ خطاهای واقعیِ API)
     const txt = (r && typeof r.text === 'string') ? r.text : JSON.stringify(r && r.json);
     // پاسخِ دودویی (دانلودِ موسیقی): اگر بایت داده شده باشد، getBlob هم هست

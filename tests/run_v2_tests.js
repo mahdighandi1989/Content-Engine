@@ -3,6 +3,11 @@
 require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread } = require('./lib/mock.js');
+/* بدَلِ مدلِ این مجموعه برای **هر** فراخوان یک شکل برمی‌گرداند (مثلاً متنِ قسمت
+   برای پرسشِ داوری)، پس صافیِ schema (۸.۲۶) پاسخ‌هایش را خالی می‌کرد. این
+   **بدهی** است نه معافیت: `run_wiring_test.js` ۱۲ فهرستِ این‌ها را یک‌طرفه نگه
+   می‌دارد — مجموعه‌ای که بدَلش را درست کند، این خط را برمی‌دارد. */
+global.__SCHEMA_STRICT = false;
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs','10_Sources.gs','11_SourceHealth.gs','12_Reports.gs','13_Series.gs','14_Special.gs','15_Board.gs','16_Curate.gs','17_Backup.gs','18_Files.gs','19_Enrich.gs','20_Voices.gs','21_SelfUpdate.gs','22_SourceScripts.gs','23_Music.gs','24_ContentAudit.gs','25_Calendar.gs','26_Handout.gs','27_YouTube.gs','28_SourceQuality.gs','29_Explain.gs','30_Recap.gs','31_Bridge.gs','32_Persona.gs', '33_VoiceIntake.gs', '34_Search.gs', '35_Embed.gs', '36_VoiceBridge.gs'];

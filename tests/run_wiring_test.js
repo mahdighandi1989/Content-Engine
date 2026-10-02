@@ -525,4 +525,48 @@ console.log('\n=== ۱۱) یافته‌ای که در جای اشتباه فرس�
 
 }
 
+console.log('\n=== ۱۲) بدَلِ مدل به اندازهٔ مدلِ واقعی سخت‌گیر است (۸.۲۶) ===');
+{
+  /* درس‌های ۵۷ و ۵۸ با یک تصویر رفتند چون پرامپت فیلدهایی می‌خواست که
+     schema نداشت — و هیچ سنجه‌ای نیفتاد، چون بدَلِ مدل همان فیلدها را
+     تحویل می‌داد. `tests/lib/mock.js` حالا پاسخ را از روی schemaی فرستاده‌شده
+     صافی می‌کند. مجموعه‌ای که هنوز بدَلِ یک‌شکل دارد خاموشش کرده، و این
+     فهرست **یک‌طرفه** است: تازه اضافه نمی‌شود، و مجموعه‌ای که درست شد باید
+     از آن بیرون برود — وگرنه بدهی به معافیتِ همیشگی تبدیل می‌شود (۱۰.۲). */
+  const DEBT = ['run_board_test.js', 'run_curate_test.js', 'run_enrich_test.js',
+                'run_special_test.js', 'run_v2_tests.js'];
+  const fs12 = require('fs');
+  const off = fs12.readdirSync('tests').filter((f) => /^run_.*\.js$/.test(f))
+    .filter((f) => /__SCHEMA_STRICT\s*=\s*false/.test(fs12.readFileSync('tests/' + f, 'utf8')));
+  const extra = off.filter((f) => DEBT.indexOf(f) === -1);
+  const paid = DEBT.filter((f) => off.indexOf(f) === -1);
+  ok('۱۲.۱ هیچ مجموعهٔ تازه‌ای صافیِ schema را خاموش نمی‌کند',
+     extra.length === 0, extra.join('، ') || 'هیچ');
+  ok('۱۲.۲ و بدهیِ پرداخت‌شده از فهرست بیرون می‌رود',
+     paid.length === 0, paid.join('، ') || 'هیچ');
+  /* و خودِ صافی واقعاً می‌بُرد — وگرنه این فهرست چیزی را نگه نمی‌دارد. */
+  require('./lib/mock.js');
+  const pr = global.__schemaPrune;
+  const sc = { type: 'object', properties: { a: { type: 'string' },
+               v: { type: 'array', items: { type: 'object', properties: { q: { type: 'string' } } } } } };
+  const out = pr ? pr({ a: 'x', b: 'y', v: [{ q: '1', cardTitle: 'z' }] }, sc) : null;
+  ok('۱۲.۳ صافی کلیدِ بیرون از schema را می‌اندازد، تا عمقِ آرایه',
+     !!out && out.a === 'x' && !('b' in out) && out.v.length === 1 && !('cardTitle' in out.v[0]),
+     JSON.stringify(out));
+  /* ۱۲.۴ — و صافی **سرِ راهِ واقعی** نشسته: پاسخی که از `UrlFetchApp` به
+     کد می‌رسد، صافی‌شده است. تابعِ درست که هیچ‌کس صدایش نزند، همان کدِ
+     مرده‌ای است که این مخزن بارها خورده. */
+  const stubW = global.__STUB, strictW = global.__SCHEMA_STRICT;
+  global.__SCHEMA_STRICT = undefined;
+  global.__STUB = () => ({ code: 200, json: { candidates: [{ content: { parts: [
+    { text: JSON.stringify({ a: 'x', cardTitle: 'بیرون از قرارداد' }) }] } }] } });
+  const resp = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/m:generateContent',
+    { method: 'post', payload: JSON.stringify({ generationConfig: {
+      responseSchema: { type: 'object', properties: { a: { type: 'string' } } } } }) });
+  global.__STUB = stubW; global.__SCHEMA_STRICT = strictW;
+  const got = JSON.parse(JSON.parse(resp.getContentText()).candidates[0].content.parts[0].text);
+  ok('۱۲.۴ پاسخِ مدل در خودِ `UrlFetchApp` صافی می‌شود',
+     got.a === 'x' && !('cardTitle' in got), JSON.stringify(got));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

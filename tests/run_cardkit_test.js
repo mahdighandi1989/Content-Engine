@@ -164,4 +164,29 @@ console.log('\n=== ۴) ظاهر از محتوا می‌آید، نه یک تمِ
      weak.length === 0, weak.map(x => x.key).join(' · ') || 'هر ' + L.LOOKS.length + ' ظاهر');
 }
 
+console.log('\n=== ۵) تصویرِ ساخته‌شده زیرِ کارت، با لایهٔ خوانایی (۸.۲۶) ===');
+{
+  /* تا ۸.۲۵ تصویرِ ساخته‌شده فقط روی کارتِ اسلایدز می‌نشست — که ویدئو
+     نمی‌خواندش — و کارت‌های برداری هیچ لایه‌ای برایش نداشتند. سطحِ «زیاد»
+     در منو «برای هر کارت یک تصویر» می‌گفت و ویدئو هیچ تصویری نداشت. */
+  const img = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64');
+  const pal = Object.assign({}, PAL, { scrim: 0.8 });
+  const r = F.beats(Object.assign({}, CARD, { bg: img }), pal);
+  const s0 = r.svg[r.svg.length - 1];
+  const iImg = s0.indexOf('<image href="data:image/jpeg');
+  const iScr = s0.indexOf('opacity="0.8"', iImg);
+  const iHead = s0.indexOf(CARD.headline);
+  ok('۵.۱ تصویر تمام‌قاب زیرِ همه‌چیز، لایهٔ هم‌رنگِ زمینه رویش، و متن بالای هر دو',
+     iImg > 0 && iScr > iImg && iHead > iScr && s0.indexOf('fill="' + pal.bg + '" opacity="0.8"') !== -1,
+     'تصویر@' + iImg + ' لایه@' + iScr + ' عنوان@' + iHead);
+
+  /* ۵.۲ — نشانیِ بیرونی کشیده نمی‌شود: کروم این‌جا شبکه ندارد و `href`ِ
+     بیرونی **بی‌خطا خالی** درمی‌آید — همان تلهٔ نشانِ کانال. */
+  const r2 = F.beats(Object.assign({}, CARD, { bg: 'https://example.com/a.png' }), pal);
+  const r3 = F.beats(CARD, pal);
+  ok('۵.۲ نشانیِ بیرونی یا نبودِ تصویر ⇒ همان کارتِ سادهٔ دیروز',
+     r2.svg[0].indexOf('<image') === -1 && r3.svg[0].indexOf('<image') === -1 &&
+     r3.svg[0] === F.beats(Object.assign({}, CARD, { bg: '' }), pal).svg[0]);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ کارت گذشت.');

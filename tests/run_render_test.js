@@ -517,6 +517,35 @@ console.log('\n=== ۹) حرکت نباید متنِ کارت را ببُرد (۸
      ' بار · «۱٫۱۸»ِ کهنه هنوز در فایل هست؟ ' + /1\.18/.test(rsrc));
 }
 
+console.log('\n=== ۱۰) کارت‌های برداری: تصویرِ هر کارت و شاهدِ حالت (۸.۲۶) ===');
+{
+  /* ۱۰.۱ — تصویرِ ساخته‌شدهٔ هر کارت **این‌جا** برداشته می‌شود (cardkit هیچ
+     چیزی دانلود نمی‌کند)، با بایت‌ها سنجیده می‌شود نه با پسوند، و پیش از
+     جاسازی کوچک می‌شود. یک HTMLِ دروغ‌گو (فایلی که اشتراکش باز نشده) کارت را
+     بی‌تصویر می‌گذارد و **گفته** می‌شود — کلِ ویدئو زمین نمی‌خورد. */
+  const d = fs.mkdtempSync(path.join(TMP, 'bg-'));
+  const good = serve('bg-good.png', mkPng(path.join(d, 'g.png'), 1600, 900, 3));
+  const liar = serveRaw('bg-liar.png', '<html><body>Sign in</body></html>'.repeat(40));
+  const spec = { cards: [ { form: 'focus', at: 0, headline: 'یک', bgUrl: good },
+                          { form: 'quote', at: 9, headline: 'دو', bgUrl: liar },
+                          { form: 'quote', at: 19, headline: 'سه' } ] };
+  const notes = [];
+  const n = R.specBackdrops(spec, d, notes);
+  ok('۱۰.۱ تصویرِ درست جاسازی می‌شود، دروغ‌گو نه — و گفته می‌شود',
+     n === 1 && /^data:image\/jpeg;base64,/.test(spec.cards[0].bg || '') &&
+     !spec.cards[1].bg && !spec.cards[2].bg && notes.length === 1 && /کارتِ 2:/.test(notes[0]),
+     n + ' جاسازی · ' + (spec.cards[0].bg || '').length + ' نویسه · ' + notes.join(' | '));
+
+  /* ۱۰.۲ — و حالتِ «کارت» در نقشه شاهد دارد. تا ۸.۲۵ این مسیر هیچ ردی
+     نمی‌گذاشت و سیاهه‌اش «کاورِ تک‌تصویری» می‌نوشت: روزی که کارت‌ها واقعاً
+     ساخته شوند، از بیرون با ویدئوی تک‌قاب یک شکل بود. */
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۰.۲ حالتِ «کارت» در نقشه `mode/cards` می‌نویسد و سیاهه‌اش «کاور» نمی‌گوید',
+     /if \(vr\.mode === 'cards'\) \{[\s\S]{0,200}?mode = 'cards'[\s\S]{0,120}?cards = vr\.cards/.test(src) &&
+     /vr\.mode === 'cards' \? /.test(src),
+     'نقشه و سیاهه');
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

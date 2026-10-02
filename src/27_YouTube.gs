@@ -356,43 +356,10 @@ function ytMetaPrompt_(ctx) {
   L.push('• hashtags — سه هشتگِ کوتاهِ فارسی، بی فاصله، بی علامتِ #.');
   /* ══ تصویرهای درس ══ فقط برای نمایش‌هایی که `LV_SHOWS` می‌گوید. */
   if (ytVisOn_(ctx.show) && (ctx.sections || []).length) {
-    var want = ytVisWant_(ctx.totalSec);
     L.push('');
-    L.push('و یک کارِ دومِ جدا: **برای هر بخش بگو چه تصویری کنارش بنشیند.** ' +
-           'این ویدئو در یوتیوب به‌جای یک کاورِ ثابت، رشته‌ای از تصویر خواهد ' +
-           'داشت که باید **دقیقاً به همان چیزی بخورد که در آن لحظه گفته ' +
-           'می‌شود** — نه تصویرِ تزئینیِ بی‌ربط.');
-    L.push('حدودِ ' + faDigitsOut_(String(want)) + ' مورد بنویس در فیلدِ ' +
-           '`visuals`، به ترتیبِ بخش‌ها. بخشِ بلند می‌تواند دو مورد بگیرد، ' +
-           'بخشِ کوتاه یکی.');
-    L.push('برای هر مورد:');
-    L.push('• at — شمارهٔ بخش (از ۱، به رقمِ لاتین). فقط بخش‌هایی که در ' +
-           'فهرستِ بالا آمده‌اند.');
-    L.push('• kind — یکی از این چهار، و ترتیبشان ترتیبِ ترجیح است:');
-    L.push('   «کارت» — متن روی یک کارتِ تمیز. **پیش‌فرض و مطمئن‌ترین**: ' +
-           'همیشه در دسترس است و هیچ هزینه‌ای ندارد. برای گزاره، تعریف، ' +
-           'نقلِ‌قول، فهرستِ نکته‌ها، عدد و مقایسه.');
-    L.push('   «نمودار» — جایی که رابطه یا روند مهم‌تر از واژه است.');
-    L.push('   «عکس» — فقط برای چیزی که **واقعاً وجود دارد** و دیدنش چیزی ' +
-           'اضافه می‌کند: یک شخصِ معیّن، یک جا، یک شیء، یک سند. برای مفهومِ ' +
-           'انتزاعی عکس نخواه — «کارت» بهتر جواب می‌دهد.');
-    L.push('   «ویدئو» — فقط وقتی **حرکت** خودش بخشی از مطلب است. ' +
-           'کلیپِ آزادِ مناسب کم پیدا می‌شود، پس کم بخواه.');
-    L.push('• cardTitle — متنِ درشتِ روی کارت. حداکثر ' +
-           faDigitsOut_(String(CFG.LV_CARD_TITLE_MAX || 48)) + ' نویسه، ' +
-           'ترجیحاً کمتر. همان انضباطِ coverTitle: در یک نگاه خوانده شود.');
-    L.push('• cardLines — صفر تا ' +
-           faDigitsOut_(String(CFG.LV_CARD_LINES_MAX || 4)) + ' سطرِ کوتاه ' +
-           'زیرِ آن. هر سطر یک چیز.');
-    L.push('• terms — دو تا پنج واژهٔ جست‌وجو **به انگلیسی**. علتش سنجیده ' +
-           'است، نه سلیقه: منبع‌های تصویرِ آزاد انگلیسی‌نمایه‌اند و پرسشِ ' +
-           'فارسی از آن‌ها چیزی برنمی‌گرداند. برای «کارت» و «نمودار» خالی ' +
-           'بگذار.');
-    L.push('• caption — یک جملهٔ کوتاهِ فارسی که زیرِ همین تصویر در **جزوه** ' +
-           'می‌نشیند. حداکثر ' + faDigitsOut_(String(CFG.LV_CAPTION_MAX || 120)) +
-           ' نویسه.');
-    L.push('و یک مرز: تصویری نخواه برای چیزی که خودِ قسمت نگفته است. ' +
-           'تصویرِ بی‌ربط از نبودنِ تصویر بدتر است.');
+    L.push('و یک کارِ دومِ جدا: **تصویرهای ویدئو**.');
+    var vl = ytVisPromptLines_(ctx);
+    for (var vi = 0; vi < vl.length; vi++) L.push(vl[vi]);
   }
 
   /* ══ و کارِ سوم: ظاهرِ این درس ══ */
@@ -442,9 +409,176 @@ function ytMetaPrompt_(ctx) {
 
 function ytMetaModel_(ctx) {
   try {
-    var r = geminiText_(ytMetaPrompt_(ctx), YT_META_SCHEMA, 4096);
+    var r = geminiText_(ytMetaPrompt_(ctx), YT_META_SCHEMA,
+                        Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384));
     if (r && r.title) return r;
   } catch (e) { logLine_('متنِ یوتیوب از مدل نیامد: ' + e.message); }
+  return null;
+}
+
+/* ═══════════ قراردادِ تصویر: پرامپت، schema و مصرف‌کننده یک زبان (۸.۲۶) ═══════════
+ *
+ * ۱ و ۲ اکتبر، درس‌های ۵۷ و ۵۸: موتور برای هر کدام **چهارده** تصویر خواست و
+ * مدل **یکی** داد — آن هم خالی. ویدئو شد پانزده دقیقه یک قابِ ثابت.
+ *
+ * ۸.۱۱ این را شمرد و نام برد (`dropped.raw: 1`)، ولی علتش را نگفت، و علت یک
+ * جمله است: **از ۸.۰۱ پرامپت و schema دو زبانِ جدا حرف می‌زدند.** ۸.۰۱
+ * فیلدهای schema را عوض کرد (`quote`, `form`, `headline`, …) و پرامپت هنوز
+ * `kind`, `cardTitle`, `cardLines` می‌خواست — نام‌هایی که در schema **نیستند**.
+ * مدلِ ساختاریافته فقط می‌تواند فیلدهای schema را بنویسد؛ پس از هر چه
+ * خواسته شده بود هیچ‌چیز نوشتنی نبود، و از هر چه نوشتنی بود هیچ‌چیز
+ * خواسته نشده بود. نتیجه یک شیءِ تقریباً خالی است — دقیقاً همان که آمد.
+ *
+ * و یک لایه زیرتر: `quote` «عبارتی **عیناً** از روایت» است، و متنِ روایت
+ * هرگز به این فراخوان داده نمی‌شد — فقط سرِ بخش‌ها و آغاز و خلاصه. هیچ
+ * مدلی جمله‌ای را عیناً نقل نمی‌کند که ندیده.
+ *
+ * چرا هیچ سنجه‌ای سرخ نشد: بدَلِ مدل در `run_youtube_test.js` همان فیلدهای
+ * قدیمی را برمی‌گرداند — چیزی که مدلِ واقعی **نمی‌تواند** برگرداند. بدَلی
+ * که از تولید آزادتر است هیچ چیزی را ثابت نمی‌کند (۷٫۲۴). حالا بدَل از روی
+ * همان schemaی که فرستاده شده صافی می‌شود.
+ *
+ * `ytVisPromptLines_` تنها جایی است که این قرارداد به زبانِ آدم نوشته
+ * می‌شود، و هم فراخوانِ اصلی و هم فراخوانِ «فقط تصویر» از آن می‌خوانند —
+ * دو متن برای یک قرارداد یعنی روزی یکی کهنه می‌شود، که همین بار شد. */
+
+/** کفِ «نحیف» — یک تعریف، برای `lvBuild_` و برای پرسشِ دوباره. */
+function ytVisFloor_(asked) {
+  return Math.max(1, Math.ceil((Number(asked) || 0) * (Number(CFG.LV_THIN_PCT) || 0.5)));
+}
+
+/** سقفِ موردهای یک بخش: یک‌ونیم برابرِ سهمش، و هرگز کمتر از سه. */
+function ytVisSecCap_(share) {
+  return Math.max(3, Math.ceil((Number(share) || 1) * 1.5));
+}
+
+/** سهمِ نویسه‌ایِ هر بخش ⇒ چند تصویر. همان مبنای `ytVisPlan_` و `ytChapters_`. */
+function ytVisShares_(secs, want) {
+  var chars = [], sum = 0, out = [];
+  for (var i = 0; i < (secs || []).length; i++) {
+    var n = String((secs[i] && (secs[i].narration || secs[i].text)) || '').length;
+    chars.push(n); sum += n;
+  }
+  for (var j = 0; j < chars.length; j++) {
+    out.push(sum ? Math.max(1, Math.round((Number(want) || 0) * chars[j] / sum)) : 1);
+  }
+  return out;
+}
+
+/**
+ * متنِ بخش‌ها برای برداشتنِ `quote`. اگر بلندتر از سقف باشد، **هر بخش به
+ * نسبتِ سهمش** کوتاه می‌شود، نه از ته — بریدنِ از ته یعنی بخش‌های آخر هیچ
+ * عبارتی برای نقل نداشته باشند و همهٔ تصویرها در نیمهٔ اولِ درس جمع شوند.
+ */
+function ytVisNarr_(secs) {
+  var max = Math.max(2000, Number(CFG.YT_VIS_NARR_MAX) || 24000);
+  var txt = [], sum = 0;
+  for (var i = 0; i < (secs || []).length; i++) {
+    var t = String((secs[i] && (secs[i].narration || secs[i].text)) || '')
+      .replace(/\s+/g, ' ').trim();
+    txt.push(t); sum += t.length;
+  }
+  var out = [];
+  for (var j = 0; j < txt.length; j++) {
+    var t2 = txt[j];
+    if (sum > max) {
+      var cap = Math.max(300, Math.floor(max * txt[j].length / sum));
+      if (t2.length > cap) {
+        var cut = t2.slice(0, cap), sp = cut.lastIndexOf(' ');
+        t2 = (sp > cap * 0.7 ? cut.slice(0, sp) : cut) + ' …';
+      }
+    }
+    out.push(t2);
+  }
+  return out;
+}
+
+/** قراردادِ تصویر به زبانِ مدل. **نام‌ها همان نام‌های `YT_META_SCHEMA` اند** —
+ *  `run_youtube_test.js` ۶۸.۱ هر نامی را که این‌جا بیاید در schema می‌جوید. */
+function ytVisPromptLines_(ctx) {
+  var L = [];
+  var secs = (ctx && ctx.sections) || [];
+  var want = ytVisWant_(ctx && ctx.totalSec);
+  var each = Math.round((Math.max(60, Number(ctx && ctx.totalSec) || 0)) / Math.max(1, want));
+  var shares = ytVisShares_(secs, want);
+  L.push('این ویدئو در یوتیوب به‌جای یک کاورِ ثابت، رشته‌ای از کارت‌های تصویری دارد ' +
+         'که هر کدام **درست همان لحظه‌ای** روی صفحه می‌آید که جمله‌اش گفته می‌شود. ' +
+         'هر کارت «تصویرِ این مفهوم» است — شکلِ رابطه با چند واژهٔ کوتاه — نه همان ' +
+         'جمله‌های گوینده به شکلی دیگر.');
+  L.push('**دقیقاً ' + faDigitsOut_(String(want)) + ' مورد** در فیلدِ `visuals` بنویس، ' +
+         'نه کمتر. هر کارت حدودِ ' + faDigitsOut_(String(each)) + ' ثانیه روی صفحه ' +
+         'می‌مانَد؛ کمتر نوشتن یعنی یک تصویرِ ثابت برای چند دقیقه. به ترتیبِ بخش‌ها، ' +
+         'و در هر بخش به ترتیبِ گفتار.');
+  L.push('سهمِ هر بخش (از روی طولِ متنش):');
+  for (var i = 0; i < secs.length; i++) {
+    L.push('  ' + (i + 1) + ') «' + String((secs[i] && secs[i].heading) || '') + '» — حدودِ ' +
+           faDigitsOut_(String(shares[i] || 1)) + ' مورد');
+  }
+  L.push('برای هر مورد این فیلدها — **نام‌ها دقیقاً همین‌ها**:');
+  L.push('• at — شمارهٔ بخش، به رقمِ لاتین («1»، «2»، …).');
+  L.push('• quote — **مهم‌ترین فیلد.** چهار تا نُه واژهٔ پشتِ‌هم که **عیناً** از متنِ ' +
+         'همان بخش (پایین‌تر آمده) برداشته شده‌اند: همان واژه‌ها، همان ترتیب، بی ' +
+         'بازنویسی و بی خلاصه‌کردن. کد با همین عبارت پیدا می‌کند تصویر در کدام ثانیه ' +
+         'بیاید؛ عبارتی که در متن نباشد، آن تصویر را حذف می‌کند. عبارتِ یکتا بردار، ' +
+         'نه تکه‌ای که در بخش چند بار تکرار شده.');
+  L.push('• form — یکی از این پنج، با همین املا. و **تنوع بده**: پنج کارتِ پشتِ‌هم ' +
+         'با یک شکل خسته‌کننده است.');
+  L.push('   «مقایسه» — دو چیزِ رودررو: دو دیدگاه، دو مفهوم، پیش و پس.');
+  L.push('   «زنجیره» — گام‌ها یا استدلالِ پشتِ‌هم: اگر الف، پس ب، پس ج.');
+  L.push('   «تمرکز» — یک مفهومِ مرکزی و چند اصطلاحِ دورش.');
+  L.push('   «نقل» — یک جملهٔ کلیدی که باید دیده شود: تعریف، نقل‌قول.');
+  L.push('   «پرسش» — پرسشی که درس طرح می‌کند.');
+  L.push('• headline — متنِ درشتِ کارت. **همیشه پر**؛ حداکثر هفت واژه و ' +
+         faDigitsOut_(String(CFG.LV_CARD_TITLE_MAX || 48)) + ' نویسه. در یک نگاه خوانده شود.');
+  L.push('• kicker — برچسبِ کوچکِ گوشه، دو تا پنج واژه (مثلاً موضوعِ همان بخش).');
+  L.push('• note — یک جملهٔ کوتاه زیرِ کارت. اختیاری.');
+  L.push('• icon — یکی از: مثلث، خوشه، ذهن، گوش، زنجیر، برچسب، برگه، پرسش — یا خالی.');
+  L.push('• برای «مقایسه»: aTitle و bTitle (سرِ دو ستون، هر کدام یک تا سه واژه — ' +
+         '**هر دو لازم‌اند**)، aItems و bItems (هر کدام دو تا سه بندِ حداکثر چهارواژه‌ای)، ' +
+         'و اگر خواستی aIcon و bIcon از همان فهرستِ نشانه‌ها.');
+  L.push('• برای «زنجیره»: steps — دو تا سه گامِ کوتاه (**دست‌کم دو**).');
+  L.push('• برای «تمرکز»: items — دو تا سه اصطلاحِ کوتاه.');
+  L.push('• caption — یک جملهٔ کوتاهِ فارسی که زیرِ همین تصویر در **جزوه** می‌نشیند. ' +
+         'حداکثر ' + faDigitsOut_(String(CFG.LV_CAPTION_MAX || 120)) + ' نویسه.');
+  L.push('• terms — خالی بگذار، مگر برای چیزی که **واقعاً وجود دارد** (یک شخص، یک جا، ' +
+         'یک سند) و عکسش چیزی اضافه می‌کند؛ آن‌وقت دو تا پنج واژهٔ جست‌وجو **به انگلیسی** (منبع‌های تصویرِ آزاد انگلیسی‌نمایه‌اند).');
+  L.push('و یک مرز: تصویری نخواه برای چیزی که خودِ قسمت نگفته است. تصویرِ بی‌ربط از ' +
+         'نبودنِ تصویر بدتر است.');
+  L.push('');
+  L.push('متنِ گفتاریِ بخش‌ها — `quote` را **فقط از همین‌جا** بردار:');
+  var nar = ytVisNarr_(secs);
+  for (var j = 0; j < nar.length; j++) {
+    L.push('[بخش ' + (j + 1) + '] ' + String((secs[j] && secs[j].heading) || ''));
+    L.push(nar[j]);
+  }
+  return L;
+}
+
+/**
+ * پرسشِ دوباره، **فقط تصویر** — وقتی نقشه نحیف درآمد.
+ *
+ * فراخوانِ اصلی همه‌چیز را با هم می‌نویسد: عنوان، خلاصه، برچسب، ظاهر و
+ * تصویرها. اگر تصویرها کم آمد، تکرارِ همان فراخوان عنوانِ خوبِ امروز را هم
+ * عوض می‌کند؛ این یکی فقط همان را می‌پرسد که کم است.
+ * `null` یعنی نشد — و آن‌وقت همان نقشهٔ قبلی می‌مانَد، نه یک نقشهٔ خالی.
+ */
+function ytVisAsk_(ctx) {
+  try {
+    var L = [];
+    L.push('تو طراحِ تصویرهای ویدئوی یک پادکستِ آموزشیِ فارسی هستی.');
+    L.push('برنامه: «' + String((ctx && ctx.showName) || '') + '»' +
+           (ctx && ctx.seriesName ? ' — مجموعه: «' + ctx.seriesName + '»' : ''));
+    L.push('عنوانِ قسمت: ' + String((ctx && ctx.title) || ''));
+    L.push('مدت: ' + String((ctx && ctx.duration) || ''));
+    L.push('');
+    var vl = ytVisPromptLines_(ctx);
+    for (var i = 0; i < vl.length; i++) L.push(vl[i]);
+    var schema = { type: 'object',
+                   properties: { visuals: YT_META_SCHEMA.properties.visuals },
+                   required: ['visuals'] };
+    var r = geminiText_(L.join('\n'), schema, Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384));
+    if (r && Array.isArray(r.visuals)) return r.visuals;
+  } catch (e) { logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + e.message); }
   return null;
 }
 
@@ -826,7 +960,7 @@ function ytCoverCard_(c) {
      * خودِ ویدئو دو ظاهرِ بی‌ربط داشتند، و آنچه کانال را «حرفه‌ای» نشان
      * می‌دهد پیش از هر چیز همین یک‌دستی است.
      * و اگر سبکی داده نشده باشد، عیناً رفتارِ قبلی: هشِ دسته. */
-    var csty = c.style ? lvStyleFind_(c.style) : null;
+    var csty = c.style ? lvStyleResolve_(c.style) : null;
     var pal = (csty && csty.pal) || ytPalette_(c.cat || c.seriesName || c.showName);
     var name = ytCoverName_(c).replace(/\.png$/, '');
     /* ۱۲۸۰×۷۲۰ در ۹۶ نقطه بر اینچ = ۱۳٫۳۳×۷٫۵ اینچ. یوتیوب همین را توصیه
@@ -1104,6 +1238,14 @@ function ytRenderAsk_(item) {
                          name: String((v && v.name) || '') }; }),
               outName: String(item.outName || ''), at: nowStr_(),
               status: 'در انتظار' };
+  /* ══ مشخصاتِ تصویری **در ردیف** — سیمی که از ۸.۰۱ وصل نبود (۸.۲۶) ══
+     `ytUploadOne_` مشخصات را از ۸.۰۱ می‌سازد و به همین تابع می‌دهد، و
+     `tools/render.js` از ۸.۰۱ اول از همه `it.spec` را می‌خوانَد. ولی همین‌جا،
+     در میانهٔ آن دو، ردیف فیلدِ `spec` نداشت: ساخته می‌شد و دور ریخته می‌شد.
+     یعنی کارت‌های برداری — کلِ کارِ ۸.۰۱ — **یک بار هم** به رانر نرسیده‌اند،
+     و هیچ‌جا صدایی درنیامد چون رانر بی `spec` عیناً مسیرِ قدیم را می‌رود
+     («قولِ چیزی خراب نمی‌شود»): خرابیِ بی‌صدا، از درِ سازگاری. */
+  if (item.spec && Array.isArray(item.spec.cards) && item.spec.cards.length) row.spec = item.spec;
   /* اجازه همراهِ درخواست داده می‌شود، نه پیش از آن و نه جدا از آن: هر فایلی
      که این‌جا باز می‌شود در `ytShareSweep_` نامش هست و پس گرفته می‌شود. */
   row.shared = ytRenderShare_(row, true) > 0;
@@ -1210,6 +1352,11 @@ function ytRenderShare_(item, on) {
    * `ytShareSweep_` بعداً می‌بنددش. */
   var vs = (item || {}).visuals || [];
   for (var v = 0; v < vs.length; v++) if (vs[v] && vs[v].fileId) ids.push(vs[v].fileId);
+  /* و تصویرهای ساخته‌شدهٔ کارت‌های برداری — همان قاعده: فایل‌به‌فایل، و همین
+     فهرست است که بعداً بسته می‌شود. بازنشده یعنی رانر یک صفحهٔ HTML به‌جای
+     تصویر می‌گیرد (درسِ ۷٫۳۳) و کارت بی‌تصویر کشیده می‌شود. */
+  var sc = (((item || {}).spec || {}).cards) || [];
+  for (var c = 0; c < sc.length; c++) if (sc[c] && sc[c].bgId) ids.push(sc[c].bgId);
   var n = 0;
   for (var j = 0; j < ids.length; j++) {
     if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
@@ -2152,6 +2299,24 @@ function lvStyleFind_(v) {
 function lvStyleDefault_() { return LV_STYLES[0]; }
 
 /**
+ * کلیدِ سبک ⇒ خودِ سبک، **از جمله ترکیب** («الف + ب»).
+ *
+ * `lvStyleAt_` کلیدِ ترکیبی برمی‌گرداند — انتخابِ مدل از ۸٫۱۸ همیشه چنین
+ * است، و `_visuals.json`ِ درسِ ۵۸ نوشت `ساده و رسمی + خطیِ مینیمال` — ولی
+ * کاور و کارت‌ها آن را با `lvStyleFind_` می‌خواندند، که فقط کلیدِ تکی را
+ * می‌شناسد. پس هر ترکیبی **بی‌صدا** به سبکِ پیش‌فرض برمی‌گشت: نقشِ انتخاب‌شده
+ * هیچ‌جا دیده نمی‌شد و ثبتش در پرونده ادعا می‌کرد که دیده شده (۸.۲۶).
+ * `null` یعنی خوانده نشد؛ تصمیمِ «پس چه» با صداکننده است.
+ */
+function lvStyleResolve_(v) {
+  var f = lvStyleFind_(v);
+  if (f) return f;
+  var two = lvStyleSplit_(v);
+  if (!two) return null;
+  return lvStyleCompose_(lvStyleFind_(two.a), lvStyleFind_(two.b));
+}
+
+/**
  * ══ «ترکیبی» یک برچسب بود، نه یک ترکیب (۸٫۱۶) ══
  *
  * صاحبِ برنامه «ترکیبی» را زد و گفت: «فکر کردم یه جوری میشه انتخاب کرد
@@ -2825,6 +2990,25 @@ function lvGenOne_(model, prompt) {
 }
 
 /** نامِ ثابتِ پس‌زمینهٔ هر تصویر — پلِ «ساختن» و «دوباره پیدا کردن». */
+/**
+ * این کارت تصویرِ ساخته‌شده بگیرد؟ — **یک تعریف** برای سطحِ تصویرسازی (۸.۲۶).
+ *   «زیاد»  ⇒ هر کارت (`lvLevelWhat_`: «برای هر کارت یک تصویرِ ساخته‌شده»)
+ *   «کم»    ⇒ `LV_GEN_PER_EP` کارت، **پخش در طولِ درس** («در نقاطِ کلیدی»)
+ *   «خاموش» ⇒ هیچ
+ * «کم» تا ۸.۲۵ یعنی چهار کارتِ **اول**: هر چهار تصویر در دو دقیقهٔ اولِ
+ * درس، و سیزده دقیقهٔ بعد بی‌تصویر. «نقاطِ کلیدی» یعنی پخش، نه اول.
+ */
+function lvGenPick_(i, n, level) {
+  var lv = String(level || CFG.LV_LEVEL_DEFAULT || 'کم');
+  if (lv === 'خاموش') return false;
+  if (lv === 'زیاد') return true;
+  var k = Math.max(0, Number(CFG.LV_GEN_PER_EP) || 4);
+  var N = Math.max(1, Number(n) || 1);
+  if (N <= k) return true;
+  for (var j = 0; j < k; j++) if (Math.floor((j + 0.5) * N / k) === Number(i)) return true;
+  return false;
+}
+
 function lvBgName_(i, v) {
   return 'پس‌زمینه ' + faDigitsOut_(String(Number(i) + 1)) +
          ' — بخش ' + faDigitsOut_(String((v && v.at) || 0)) + '.png';
@@ -2835,20 +3019,36 @@ function lvBgName_(i, v) {
  * @return {{map:Object, made:number, spent:number, why:string, model:string}}
  */
 function lvGenFill_(todo, imgFolder, style, ctx) {
-  var out = { map: Object.create(null), made: 0, spent: 0, why: '', model: '' };
+  var out = { map: Object.create(null), ids: Object.create(null), made: 0, spent: 0,
+              why: '', model: '', want: 0, have: 0, capped: false };
   if (!lvGenOn_() || !todo || !todo.length) return out;
+  var level = String((ctx && ctx.level) || CFG.LV_LEVEL_DEFAULT || 'کم');
 
   // آنچه از قبل ساخته شده — پولِ رفته دوباره خرج نمی‌شود
   var need = [];
   for (var i = 0; i < todo.length; i++) {
+    /* کدام کارت تصویرِ ساخته‌شده بگیرد، از **سطحِ همان مجموعه** می‌آید (۸.۲۶).
+       تا ۸.۲۵ این‌جا `i < LV_GEN_PER_EP` بود: چهار تصویر، همیشه، و همه در
+       **اولِ** درس — «کم» و «زیاد» هیچ تفاوتی نمی‌ساختند، در حالی که منو
+       و رسیدِ ثبت هر روز می‌گفتند «زیاد = برای هر کارت یک تصویر». */
+    if (!lvGenPick_(todo[i].i, todo[i].n, level)) continue;
+    out.want++;
     var nm = lvBgName_(todo[i].i, todo[i].v);
     var got = null;
     try {
       var it = imgFolder.getFilesByName(nm);
       if (it.hasNext()) got = it.next();
     } catch (eH) {}
-    if (got) { out.map[String(todo[i].i)] = got.getBlob(); continue; }
-    if (todo[i].i < Math.max(0, Number(CFG.LV_GEN_PER_EP) || 4)) need.push(todo[i]);
+    if (got) {
+      out.have++;
+      out.ids[String(todo[i].i)] = got.getId();
+      /* بایت‌ها فقط وقتی خوانده می‌شوند که کارتش **همین حالا** کشیده می‌شود.
+         خواندنِ چهارده تصویرِ چندمگابایتی در هر نوبتِ انتظار، فقط برای
+         دانستنِ اینکه هستند، هزینه روی مسیری است که کسی رویش ایستاده. */
+      if (todo[i].card !== false) out.map[String(todo[i].i)] = got.getBlob();
+      continue;
+    }
+    need.push(todo[i]);
   }
   if (!need.length) return out;
 
@@ -2862,7 +3062,11 @@ function lvGenFill_(todo, imgFolder, style, ctx) {
               (Number(CFG.LV_GEN_USD_MONTH) || 0) + ' دلار)';
     return out;
   }
-  var cap = Math.min(need.length, room, Math.max(1, Number(CFG.LV_GEN_PER_RUN) || 6));
+  var perRun = Math.max(1, Number(CFG.LV_GEN_PER_RUN) || 6);
+  var cap = Math.min(need.length, room, perRun);
+  /* «سقفِ هر اجرا» با «نشد» یکی نیست: اولی یعنی اجرای بعد ادامه می‌دهد و
+     ارزشِ صبر کردن دارد، دومی نه. `lvBuild_` همین را می‌پرسد. */
+  out.capped = need.length > cap && cap === perRun;
 
   for (var k = 0; k < cap; k++) {
     var r = lvGenOne_(mk.id, lvGenPrompt_(need[k].v, style, ctx));
@@ -2873,8 +3077,9 @@ function lvGenFill_(todo, imgFolder, style, ctx) {
       var old = imgFolder.getFilesByName(nm2);
       while (old.hasNext()) old.next().setTrashed(true);
       var f = imgFolder.createFile(r.blob.setName(nm2));
-      out.map[String(need[k].i)] = f.getBlob();
-      out.made++;
+      out.ids[String(need[k].i)] = f.getId();
+      if (need[k].card !== false) out.map[String(need[k].i)] = f.getBlob();
+      out.made++; out.have++;
     } catch (eF) { if (!out.why) out.why = 'پس‌زمینه ذخیره نشد: ' + eF.message; }
   }
   if (out.made) {
@@ -3392,7 +3597,7 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   var wantStyle = String(styleKey || '');
   var hadStyle = String(d.style || '');
   out.style = wantStyle || hadStyle;
-  var sty = lvStyleFind_(out.style) || lvStyleDefault_();
+  var sty = lvStyleResolve_(out.style) || lvStyleDefault_();
   /* ══ «دستور» = سبک + روشن‌بودنِ لایهٔ ۳ (۷.۹۸) ══
    * روشن‌کردنِ تصویرِ ساخته‌شده هم باید کارت‌های موجود را از نو بسازد، وگرنه
    * صاحبِ برنامه سوئیچی را روشن می‌کند که روی قسمت‌های ساخته‌شده هیچ اثری
@@ -3447,17 +3652,36 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
     if (todo.length >= cap) break;
   }
 
+  /* ══ پس‌زمینه‌ها برای **همهٔ** کارت‌هایی که سطح می‌خواهد، نه فقط کارتِ امروز (۸.۲۶) ══
+     تا ۸.۲۵ تصویرِ ساخته‌شده فقط برای کارتی خواسته می‌شد که **همین اجرا**
+     کشیده می‌شد. کارتی که اجرای اول بی‌تصویر ساخته شد (سقفِ هر اجرا)، دیگر
+     هرگز در `todo` نبود — پس «زیاد» عملاً یعنی شش تصویر. و کارت‌های برداری
+     (`lvSpecBuild_`) که حالا ویدئو را می‌سازند، تصویر را از همین پوشه
+     برمی‌دارند، نه از کارتِ اسلایدز. */
+  var bgList = [], todoSet = Object.create(null);
+  for (var ts = 0; ts < todo.length; ts++) todoSet[String(todo[ts].i)] = true;
+  if (out.gen) {
+    for (var bl = 0; bl < want.length; bl++) {
+      bgList.push({ i: bl, v: want[bl], n: want.length, card: !!todoSet[String(bl)] });
+    }
+  }
   if (todo.length) {
     d.tries = out.tries + 1;
     out.tries = d.tries;
     lvWrite_(epFolder, d);                       // مرزِ ۱: پیش از کار
-    /* پس‌زمینه‌ها **پیش از** کارت‌ها، چون کارت رویشان کشیده می‌شود. و شکستش
-       هرگز کارت را زمین نمی‌زند: نقشهٔ خالی یعنی کارتِ ساده — رفتارِ ۷.۹۶. */
-    var bgm = { map: {}, made: 0, spent: 0, why: '', model: '' };
-    try { bgm = lvGenFill_(todo, imgFolder, sty, ctx); }
+  }
+  /* پس‌زمینه‌ها **پیش از** کارت‌ها، چون کارت رویشان کشیده می‌شود. و شکستش
+     هرگز کارت را زمین نمی‌زند: نقشهٔ خالی یعنی کارتِ ساده — رفتارِ ۷.۹۶. */
+  var bgm = { map: {}, ids: {}, made: 0, spent: 0, why: '', model: '', want: 0, have: 0, capped: false };
+  if (bgList.length) {
+    try { bgm = lvGenFill_(bgList, imgFolder, sty, ctx); }
     catch (eG) { bgm.why = 'پس‌زمینه ساخته نشد: ' + eG.message; logLine_(bgm.why); }
-    out.gMade = bgm.made; out.gSpent = bgm.spent; out.gModel = bgm.model;
-    if (bgm.why && !out.why) out.why = bgm.why;
+  }
+  out.gMade = bgm.made; out.gSpent = bgm.spent; out.gModel = bgm.model;
+  out.bgIds = bgm.ids || {};
+  out.gWant = bgm.want || 0; out.gHave = bgm.have || 0;
+  if (bgm.why && !out.why) out.why = bgm.why;
+  if (todo.length) {
     var r = lvCards_(ctx, todo, imgFolder, sty, bgm.map);
     out.made = r.made.length;
     if (r.why) out.why = r.why;
@@ -3487,6 +3711,15 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   }
   out.ready = out.items.length;
   out.done = out.ready >= want.length;
+  /* تصویرهایی که سطح خواسته و فقط **سقفِ هر اجرا** جلویشان را گرفته، ارزشِ یک
+     نوبتِ دیگر صبر کردن را دارند — ویدئو هنوز ساخته نشده و همین تصویرها در آن
+     می‌نشینند. شکست (مدل نبود، سقفِ ماهانه) ارزشِ صبر ندارد، و `LV_TRY_MAX`
+     در هر حال سقفِ انتظار است. */
+  out.bgShort = !!(bgm.capped && out.gHave < out.gWant);
+  if (out.done && out.bgShort) {
+    out.done = false;
+    d.tries = out.tries + 1; out.tries = d.tries;
+  }
 
   d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
   d.asked = Number(out.asked) || 0;
@@ -3882,6 +4115,12 @@ function lvNorm_(t) {
     .replace(/‌/g, ' ')
     .replace(/[يی]/g, 'ی').replace(/[كک]/g, 'ک')
     .replace(/[أإآءؤئ]/g, 'ا')
+    /* نشانه‌های فارسی هم برداشته می‌شوند (۸.۲۶): از ۸.۰۸ متنِ گفتاری عمداً
+       پرنشانه‌تر از متنِ نوشتاری است («بود. تو» ⇒ «بود… تو»، ویرگول برای
+       مکث)، پس عبارتی که مدل از متنِ نوشتاری نقل کند، با یک «،» اضافه در
+       متنِ گفتاری **هرگز** پیدا نمی‌شد. این‌ها همه در بازهٔ ؀-ۿ اند و خطِ
+       بعد نگهشان می‌داشت. */
+    .replace(/[،؛؟٪٫٬٭۔]/g, ' ')
     .replace(/[^؀-ۿ\s]/g, ' ')
     .replace(/\s+/g, ' ').trim();
 }
@@ -3917,6 +4156,86 @@ function lvSecAt_(marks, charPos) {
     }
   }
   return null;
+}
+
+/**
+ * جای یک عبارت در متنِ گفتاری — اول عیناً، بعد **بی‌فاصله**.
+ *
+ * نشانه‌گذاریِ تلفظ (بخشِ ۳) نیم‌فاصله را **وسطِ واژه** می‌گذارد — «بِ‌ایستیم»
+ * تا «با» خوانده نشود — و `lvNorm_` نیم‌فاصله را فاصله می‌کند. پس «بایستیم»ِ
+ * متنِ نوشتاری و «ب ایستیم»ِ متنِ گفتاری دو رشتهٔ متفاوت‌اند، و برعکسش هم
+ * هست («می‌شود» در یکی، «می شود» در دیگری). جست‌وجوی بی‌فاصله هر دو را
+ * می‌بلعد؛ نقشهٔ جای نویسه‌ها جای واقعی را در متنِ اصلی برمی‌گرداند، چون
+ * `lvTimeMap_` با همان جای واقعی کار می‌کند.
+ */
+function lvFind_(stream, q, cmp) {
+  if (!q) return -1;
+  var p = stream.indexOf(q);
+  if (p >= 0) return p;
+  var cq = String(q).replace(/ /g, '');
+  if (cq.length < 6) return -1;
+  if (!cmp.s) {
+    var cs = [], map = [];
+    for (var i = 0; i < stream.length; i++) {
+      var ch = stream.charAt(i);
+      if (ch !== ' ') { cs.push(ch); map.push(i); }
+    }
+    cmp.s = cs.join(''); cmp.map = map;
+  }
+  var k = cmp.s.indexOf(cq);
+  return k >= 0 ? cmp.map[k] : -1;
+}
+
+/* ── رنگِ کارت‌های برداری از **سبکِ همان مجموعه** (۸.۲۶) ──
+ * تا ۸.۲۵ مشخصات هیچ سبکی نداشت و `cardkit` ظاهر را خودش از روی **دسته**
+ * با یک regex برمی‌داشت (`look.js`). یعنی سبکی که صاحبِ برنامه روی تخته
+ * انتخاب می‌کرد — یا مدل برای این درس انتخاب می‌کرد — روی کاور و کارت‌های
+ * اسلایدز می‌نشست و روی **خودِ ویدئو** نه. */
+function lvHex_(h) {
+  var x = String(h || '').replace('#', '');
+  if (x.length === 3) x = x.charAt(0) + x.charAt(0) + x.charAt(1) + x.charAt(1) + x.charAt(2) + x.charAt(2);
+  var n = parseInt(x, 16);
+  if (isNaN(n) || x.length !== 6) return [0, 0, 0];
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function lvMix_(a, b, t) {
+  var A = lvHex_(a), B = lvHex_(b), o = '#';
+  for (var i = 0; i < 3; i++) {
+    var v = Math.round(A[i] * (1 - t) + B[i] * t);
+    o += ('0' + Math.max(0, Math.min(255, v)).toString(16)).slice(-2);
+  }
+  return o.toUpperCase();
+}
+function lvLum_(h) {
+  var c = lvHex_(h);
+  return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+}
+
+/**
+ * سبکِ موتور ⇒ پالتِ `cardkit`. `null` یعنی سبکی نیست و `cardkit` همان
+ * رفتارِ قبلی را دارد (ظاهر از دسته).
+ * زمینهٔ تیره قاعدهٔ خودش را دارد: هایلایتر پشتِ متنِ روشن باید **تیره‌تر**
+ * از رنگِ تأکید باشد، وگرنه متنِ روشن روی هایلایترِ روشن ناخوانا می‌شود.
+ */
+function lvCardPal_(sty) {
+  if (!sty || !sty.pal || !sty.pal.bg) return null;
+  var bg = String(sty.pal.bg), ink = String(sty.pal.fg || '#1F2937'), ac = String(sty.pal.ac || ink);
+  var dark = lvLum_(bg) < 0.45;
+  var fr = String(sty.frame || '');
+  var scrim = Number(CFG.LV_GEN_SCRIM);
+  if (!isFinite(scrim)) scrim = 0.55;
+  return {
+    bg: bg, ink: ink, accent: ac,
+    mark: dark ? lvMix_(ac, bg, 0.55) : lvMix_(ac, bg, 0.72),
+    card: dark ? lvMix_(bg, ink, 0.08) : lvMix_(bg, '#FFFFFF', 0.6),
+    grain: dark ? 0.05 : 0.09, vig: dark ? 0.14 : 0.07,
+    grid: fr === 'hairline' ? 64 : (fr === 'dashed' ? 96 : 0),
+    wash: fr === 'wash', rule: (fr === 'rules' || fr === 'motif'),
+    /* روی تصویرِ ساخته‌شده، بیشتر از کارتِ اسلایدز: این‌جا متن نه سایه دارد
+       نه کادر، و در نمونهٔ کشیده‌شده با ۰٫۶۵ تصویر با متن رقابت می‌کرد. تصویر
+       این‌جا **فضا** است، نه موضوعِ کارت. */
+    scrim: Math.max(0.7, Math.min(0.92, scrim + 0.25))
+  };
 }
 
 /** شکلِ فارسی ⇒ شکلِ cardkit. ناشناخته ⇒ «تمرکز»، که همیشه قابلِ کشیدن است. */
@@ -3956,24 +4275,28 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
     for (var c = 0; c < chunks.length; c++) stream += lvNorm_(chunks[c].text || '') + ' ';
 
     var secs = Number(tj.secs) || 0;
-    var cards = [], miss = 0;
+    var cards = [], miss = 0, cmp = {};
+    var bgOf = (ctx && ctx.bg) || {};
     for (var r = 0; r < raw.length; r++) {
       var v = raw[r] || {};
       var q = lvNorm_(v.quote || '');
       if (q.length < 8) { miss++; continue; }
-      var p = stream.indexOf(q);
+      var p = lvFind_(stream, q, cmp);
       if (p < 0) {                              // عبارت پیدا نشد ⇒ کارت نمی‌سازیم
         var half = q.split(' ').slice(0, 4).join(' ');
-        p = half.length >= 8 ? stream.indexOf(half) : -1;
+        p = half.length >= 8 ? lvFind_(stream, half, cmp) : -1;
       }
       if (p < 0) { miss++; continue; }
       var at = lvSecAt_(marks, p);
       if (at === null) { miss++; continue; }
       var form = lvFormOf_(v.form);
-      var card = { form: form, at: Math.round(at * 10) / 10,
+      var card = { form: form, at: Math.round(at * 10) / 10, src: r,
                    kicker: ytVisCut_(v.kicker, 46), foot: ctx.foot || '',
-                   headline: ytVisCut_(v.headline, CFG.LV_CARD_TITLE_MAX || 48),
+                   headline: ytVisCut_(v.headline || v.cardTitle, CFG.LV_CARD_TITLE_MAX || 48),
                    note: ytVisCut_(v.note, 110), icon: lvIconOf_(v.icon) };
+      /* تصویرِ ساخته‌شدهٔ **همین مورد** (همان شمارهٔ نقشه که `lvBuild_` با آن
+         ساختش). نبودش یعنی کارتِ ساده — هرگز یک تصویرِ دیگر به‌جایش. */
+      if (bgOf[String(r)]) { card.bgId = String(bgOf[String(r)]); card.bgUrl = ytDlUrl_(card.bgId); }
       var lines = function (a) {
         var o = [];
         for (var k = 0; k < (a || []).length && o.length < 3; k++) {
@@ -4015,11 +4338,15 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
       cards[j].anchors = an;
     }
 
-    return { v: 1, t0: cards[0].at, t1: Math.round(secs * 10) / 10,
-             cat: ctx.cat || '', seriesName: ctx.seriesName || '',
-             level: String(ctx.level || CFG.LV_LEVEL_DEFAULT || 'کم'),
-             cards: cards, missed: miss,
-             mark: ytMarkSpec_() };
+    var out = { v: 1, t0: cards[0].at, t1: Math.round(secs * 10) / 10,
+                cat: ctx.cat || '', seriesName: ctx.seriesName || '',
+                level: String(ctx.level || CFG.LV_LEVEL_DEFAULT || 'کم'),
+                cards: cards, missed: miss,
+                mark: ytMarkSpec_() };
+    var sty = ctx.style ? lvStyleResolve_(ctx.style) : null;
+    var pal = lvCardPal_(sty);
+    if (pal) { out.palette = pal; out.style = sty.key; }
+    return out;
   } catch (e) {
     try { logLine_('مشخصاتِ تصویری ساخته نشد: ' + e.message); } catch (e2) {}
     return null;
@@ -4472,6 +4799,65 @@ function ytVisKind_(k) {
   return list[0];
 }
 
+/** فهرستی از رشته‌ها، بریده و بی خالی. */
+function ytVisList_(a, max, each) {
+  var o = [], src = Array.isArray(a) ? a : [];
+  for (var i = 0; i < src.length && o.length < (Number(max) || 3); i++) {
+    var x = ytVisCut_(src[i], each || CFG.LV_CARD_LINE_MAX || 72);
+    if (x) o.push(x);
+  }
+  return o;
+}
+
+/**
+ * یک موردِ نقشه — **همهٔ فیلدهای قراردادِ ۸.۰۱ نگه داشته می‌شوند** (۸.۲۶).
+ *
+ * تا ۸.۲۵ این‌جا فقط `kind/cardTitle/cardLines/terms/caption` ساخته می‌شد،
+ * یعنی حتی اگر مدل `quote` و `form` و `headline` را درست می‌داد، همین
+ * تابع دورشان می‌ریخت — و `lvSpecBuild_`، که کارت‌های برداری را از روی
+ * همان‌ها می‌سازد، هر بار نقشه‌ای بی‌لنگر می‌گرفت. دو سرِ یک خط که یکی
+ * فیلدِ تازه می‌خواند و دیگری فیلدِ تازه را نمی‌نوشت.
+ *
+ * و چون کارت‌های اسلایدز (مسیرِ پشتیبان) و جزوه هنوز `cardTitle/cardLines`
+ * می‌خوانند، آن دو **از همین فیلدها ساخته می‌شوند** نه از مدل پرسیده: یک
+ * پرسش، دو مصرف‌کننده. `kind` هم از `form` می‌آید — «زنجیره» در اسلایدز
+ * همان نمودارِ جریان است (`lvFlowDraw_`).
+ */
+function ytVisItem_(it, at) {
+  var x = it || {};
+  var tMax = CFG.LV_CARD_TITLE_MAX || 48;
+  var o = {
+    at: at,
+    quote: ytVisCut_(x.quote, 200),
+    form: String(x.form || '').trim(),
+    kicker: ytVisCut_(x.kicker, 46),
+    headline: ytVisCut_(x.headline || x.cardTitle, tMax),
+    note: ytVisCut_(x.note, 110),
+    icon: String(x.icon || '').trim(),
+    aTitle: ytVisCut_(x.aTitle, 22), aIcon: String(x.aIcon || '').trim(),
+    aItems: ytVisList_(x.aItems, 3),
+    bTitle: ytVisCut_(x.bTitle, 22), bIcon: String(x.bIcon || '').trim(),
+    bItems: ytVisList_(x.bItems, 3),
+    steps: ytVisList_(x.steps, 3),
+    items: ytVisList_(x.items, 3),
+    terms: ytVisCut_(x.terms, CFG.LV_TERMS_MAX || 80),
+    caption: ytVisCut_(x.caption, CFG.LV_CAPTION_MAX || 120)
+  };
+  o.cardTitle = ytVisCut_(x.cardTitle || o.headline, tMax);
+  var lines = ytVisList_(x.cardLines, Number(CFG.LV_CARD_LINES_MAX) || 4);
+  if (!lines.length) {
+    if (o.form === 'مقایسه' && (o.aTitle || o.bTitle)) {
+      if (o.aTitle) lines.push(ytVisCut_(o.aTitle + (o.aItems.length ? ': ' + o.aItems.join('، ') : ''), CFG.LV_CARD_LINE_MAX || 72));
+      if (o.bTitle) lines.push(ytVisCut_(o.bTitle + (o.bItems.length ? ': ' + o.bItems.join('، ') : ''), CFG.LV_CARD_LINE_MAX || 72));
+    } else if (o.steps.length) lines = o.steps.slice(0);
+    else if (o.items.length) lines = o.items.slice(0);
+    else if (o.note) lines = [o.note];
+  }
+  o.cardLines = lines;
+  o.kind = x.kind ? ytVisKind_(x.kind) : (o.form === 'زنجیره' ? 'نمودار' : ytVisKind_(''));
+  return o;
+}
+
 function ytVisCut_(t, n) {
   var x = ytScrub_(String(t == null ? '' : t)).replace(/\s+/g, ' ').trim();
   var max = Math.max(4, Number(n) || 48);
@@ -4525,6 +4911,12 @@ function ytVisPlan_(mm, ctx, stat) {
   var body = Math.max(1, (Number(ctx.totalSec) || 0) - lead);
   var cap = Math.max(1, Number(CFG.LV_MAX_PER_EP) || 40);
 
+  /* سقفِ هر بخش از **سهمِ** آن بخش می‌آید، نه یک عددِ ثابت. «سه مورد در یک
+     بخش، کافی» برای پنج‌شش تصویرِ کلِ قسمت نوشته شده بود؛ با چهارده تصویر و
+     یک بخشِ بلند، همان سه یعنی دورریختنِ تصویرهایی که خودمان خواسته بودیم. */
+  var asked = ytVisWant_(ctx.totalSec);
+  var shares = ytVisShares_(secs, asked);
+
   // اول گروه‌بندی بر اساسِ بخش، تا سهمِ هر بخش بینِ موردهایش تقسیم شود
   var bySec = Object.create(null), order = [];
   for (var r = 0; r < raw.length; r++) {
@@ -4533,21 +4925,9 @@ function ytVisPlan_(mm, ctx, stat) {
     if (isNaN(at) || at < 1 || at > secs.length) { st.badSec++; continue; }  // بخشِ ناشناخته، رد
     var k = String(at);
     if (!bySec[k]) { bySec[k] = []; order.push(at); }
-    if (bySec[k].length >= 3) { st.perSec++; continue; }     // سه مورد در یک بخش، کافی
-    var lines = [];
-    var src = Array.isArray(it.cardLines) ? it.cardLines : [];
-    for (var L = 0; L < src.length && lines.length < (Number(CFG.LV_CARD_LINES_MAX) || 4); L++) {
-      var ln = ytVisCut_(src[L], CFG.LV_CARD_LINE_MAX || 72);
-      if (ln) lines.push(ln);
-    }
-    bySec[k].push({
-      at: at,
-      kind: ytVisKind_(it.kind),
-      cardTitle: ytVisCut_(it.cardTitle, CFG.LV_CARD_TITLE_MAX || 48),
-      cardLines: lines,
-      terms: ytVisCut_(it.terms, CFG.LV_TERMS_MAX || 80),
-      caption: ytVisCut_(it.caption, CFG.LV_CAPTION_MAX || 120)
-    });
+    var secCap = ytVisSecCap_(shares[at - 1]);
+    if (bySec[k].length >= secCap) { st.perSec++; continue; }
+    bySec[k].push(ytVisItem_(it, at));
   }
   order.sort(function (a, b) { return a - b; });
 
@@ -4606,8 +4986,65 @@ function ytPlan_(folder, ctx, redo) {
     note: 'این فایل را می‌شود دستی ویرایش کرد. بعدش از منو ' +
           '«بازسازیِ عنوان و کاورِ یوتیوب» را بزنید تا روی ویدئو بنشیند.'
   };
+  try { ytVisThicken_(folder, plan, ctx); } catch (eTk) {
+    logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eTk.message);
+  }
   ytPlanWrite_(folder, plan);
   return plan;
+}
+
+/**
+ * ══ نقشهٔ نحیف یک بار دیگر پرسیده می‌شود — فقط تصویرها (۸.۲۶) ══
+ *
+ * ۸.۱۱ نقشهٔ نحیف را **پیش از** آپلود ثبت کرد و نوشت «این‌جا هنوز جبران‌شدنی
+ * است: ویدئو ساخته نشده و بازسازیِ تصویرها همان قسمت را از نو نقشه می‌کشد».
+ * جملهٔ درستی بود و **هیچ کدی پشتش نبود**: `ytPlan_` نقشهٔ ذخیره‌شده را
+ * برمی‌گرداند و هیچ‌جا دوباره نمی‌پرسید. پس «جبران‌شدنی» فقط یک برچسب بود،
+ * و درسِ ۵۷ و ۵۸ با همان یک تصویر رفتند.
+ *
+ * مرزها: یک بار (`LV_VIS_RETRY_MAX`)، **پیش از کار ثبت می‌شود** — اجرایی که
+ * وسطِ فراخوان کشته شود نباید هر شب از نو بپرسد (۷٫۴۴) — و جوابِ تازه فقط
+ * وقتی جای قبلی را می‌گیرد که **بیشتر** باشد. پرسیدنِ دوباره هرگز نقشه را
+ * بدتر نمی‌کند.
+ * @return {boolean} نقشه عوض شد
+ */
+function ytVisThicken_(folder, plan, ctx) {
+  if (!plan || !ytVisOn_(ctx && ctx.show)) return false;
+  if (!((ctx && ctx.sections) || []).length) return false;
+  var asked = ytVisWant_(ctx.totalSec);
+  var have = (plan.visuals || []).length;
+  if (have >= ytVisFloor_(asked)) return false;
+  var lim = Number(CFG.LV_VIS_RETRY_MAX);
+  if (!isFinite(lim)) lim = 1;
+  var tries = Number((plan.visAsk || {}).n) || 0;
+  if (tries >= lim) return false;
+  plan.visAsk = { n: tries + 1, at: nowStr_(), asked: asked, before: have, after: have, raw: 0 };
+  if (folder) ytPlanWrite_(folder, plan);              // پیش از کار
+  var raw = ytVisAsk_(ctx);
+  var st = {};
+  var v2 = raw ? ytVisPlan_({ visuals: raw }, ctx, st) : [];
+  plan.visAsk.raw = raw ? raw.length : 0;
+  var better = v2.length > have;
+  if (better) { plan.visuals = v2; ctx.__visStat = st; plan.visAsk.after = v2.length; }
+  logLine_('نقشهٔ تصویرِ قسمتِ ' + String(ctx.epRaw || '') + ' نحیف بود (' + have + ' از ' +
+           asked + ')؛ فقط تصویرها دوباره پرسیده شد ⇒ ' + v2.length +
+           (better ? ' — جایگزین شد.' : ' — بهتر نشد، همان قبلی ماند.'));
+  if (folder) ytPlanWrite_(folder, plan);
+  return better;
+}
+
+/**
+ * نقشهٔ **ذخیره‌شده**ای که نحیف است، فقط وقتی دوباره پرسیده می‌شود که هنوز
+ * اثری دارد: ویدئو ساخته نشده و درخواستِ رندرش هم نوشته نشده. پس از آن،
+ * پرسیدن فقط پول است — یوتیوب ویدئوی منتشرشده را عوض نمی‌کند (`LV_SHORT`).
+ */
+function ytVisReplanDue_(folder, item) {
+  try {
+    if (ytVideoIn_(folder)) return false;
+    var d = ytRenderRead_(), key = String(item.show) + ':' + String(item.ep);
+    for (var i = 0; i < d.items.length; i++) if (String(d.items[i].key) === key) return false;
+    return true;
+  } catch (e) { return false; }
 }
 
 function ytUploadOne_(item, hub, pub) {
@@ -4657,6 +5094,14 @@ function ytUploadOne_(item, hub, pub) {
               sections: ep.sections || [], totalSec: totalSec };
   var plan = ytPlan_(folder, ctx, false);
   if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
+  /* نقشهٔ ذخیره‌شده‌ای که نحیف است و هنوز اثری دارد (ویدئو نه ساخته شده نه
+     خواسته شده) یک بار دیگر پرسیده می‌شود — همان «جبران‌شدنی»ِ ۸.۱۱ که تا
+     ۸.۲۶ هیچ کدی پشتش نبود. */
+  if (plan.cached && ytVisOn_(item.show) &&
+      (plan.visuals || []).length < ytVisFloor_(ytVisWant_(totalSec))) {
+    try { if (ytVisReplanDue_(folder, item)) ytVisThicken_(folder, plan, ctx); }
+    catch (eRp) { logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eRp.message); }
+  }
 
   /* ── سبکِ این مجموعه، **یک بار و پیش از کاور** (۷.۹۹) ──
    * پیش از این، سبک پایین‌تر و داخلِ شاخهٔ تصویرها خوانده می‌شد، پس کاور —
@@ -4664,6 +5109,12 @@ function ytUploadOne_(item, hub, pub) {
    * دو از آن می‌خورند: دو تعریف برای «سبکِ این مجموعه» یعنی روزی بندانگشتی
    * و اسلایدها دو سبک می‌گیرند و هیچ‌چیز نشانش نمی‌دهد. */
   var lvSty = lvStyleAt_(hub, item, meta, seriesName, plan.look);
+  /* سطحِ تصویرسازی هم **یک بار و پیش از ساختن** (۸.۲۶). تا ۸.۲۵ فقط پیش از
+     مشخصاتِ برداری خوانده می‌شد — یعنی پس از آنکه کارت‌ها و تصویرهای
+     ساخته‌شده با سطحی ساخته شده بودند که هیچ‌کس نپرسیده بود. */
+  var lvLvl = String(CFG.LV_LEVEL_DEFAULT || 'کم');
+  try { lvLvl = lvLevelAt_(hub, item, meta, plan.look) || lvLvl; } catch (eLv) {}
+  ctx.level = lvLvl; ctx.style = lvSty;
 
   // ── کاور ──
   var cover = null;
@@ -4681,7 +5132,11 @@ function ytUploadOne_(item, hub, pub) {
    * می‌شود. تصویری که بعد از نوشتنِ ردیف ساخته شود، هیچ‌وقت به اکشن
    * نمی‌رسد. */
   var vis = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: true, why: '' };
-  if (ytVisOn_(item.show)) {
+  /* «خاموش» یعنی **بدونِ کارت** — همان جمله‌ای که `lvLevelWhat_` در منو و رسید
+     می‌گوید. تا ۸.۲۵ این سطح فقط مشخصاتِ برداری را می‌بست و کارت‌های اسلایدز
+     باز هم ساخته و به رانر فرستاده می‌شدند؛ یعنی «خاموش» تصویر را خاموش
+     نمی‌کرد، فقط شکلش را عوض می‌کرد. */
+  if (ytVisOn_(item.show) && lvLvl !== 'خاموش') {
     /* سبکِ همین مجموعه، از ردیفِ رجیستری. **شکستِ خواندن رشتهٔ خالی می‌دهد،
        نه یک حدس** — و خالی یعنی «همان که ذخیره شده»، پس یک هابِ نخوانده
        دوازده کارت را بی‌دلیل از نو نمی‌سازد (۷.۴۰). */
@@ -4765,17 +5220,27 @@ function ytUploadOne_(item, hub, pub) {
     try {
       /* سطحِ خودِ مجموعه از همه مقدم است: «خاموش» یعنی صاحبِ برنامه برای این
          مجموعه تصویر نخواسته، و آن یک تصمیم است نه یک نقص. */
-      var lvLvl = lvLevelAt_(hub, item, meta, plan.look);
       if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
       lvSpec = lvSpecBuild_(folder, meta, plan, {
-        level: lvLvl,
+        level: lvLvl, style: lvSty, bg: vis.bgIds || {},
         show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
         seriesName: seriesName,
         foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
       });
-      if (lvSpec) logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری با ' +
-        lvSpec.cards.length + ' کارت ساخته شد' +
-        (lvSpec.missed ? ' (' + lvSpec.missed + ' مورد بی‌لنگر رد شد)' : '') + '.');
+      if (lvSpec) {
+        var nBg = lvSpec.cards.filter(function (c) { return !!c.bgId; }).length;
+        logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری با ' +
+          lvSpec.cards.length + ' کارت ساخته شد' +
+          (nBg ? '، ' + nBg + ' تا با تصویرِ ساخته‌شده' : '') +
+          (lvSpec.style ? '، سبکِ «' + lvSpec.style + '»' : '') +
+          (lvSpec.missed ? ' (' + lvSpec.missed + ' مورد بی‌لنگر رد شد)' : '') + '.');
+      } else if ((plan.visuals || []).length) {
+        /* نقشه بود و مشخصات نشد — یعنی ویدئو با کارت‌های اسلایدز می‌رود، نه
+           کارت‌های برداری. این یک خطِ سیاهه است نه یافته، ولی بی آن هیچ‌کس
+           نمی‌فهمد کدام مسیر رفت. */
+        logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری ساخته نشد (کمتر از دو کارتِ ' +
+                 'لنگردار، یا `_times.json` نبود) — ویدئو با کارت‌های اسلایدز می‌رود.');
+      }
     } catch (eSp) { logLine_('مشخصاتِ تصویری نشد: ' + eSp.message); }
 
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),

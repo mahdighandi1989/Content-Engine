@@ -557,8 +557,44 @@ function specOf(it) {
   return s;
 }
 
-function buildSpecVideo(spec, wav, durSec, dest, dir) {
+/* ══ تصویرِ ساخته‌شدهٔ هر کارت — این‌جا برداشته می‌شود، نه در cardkit (۸.۲۶) ══
+ * مرزِ cardkit این است که چیزی دانلود نکند؛ پس این‌جا، کنارِ بقیهٔ دانلودها.
+ * بایت‌ها باور می‌شوند نه پسوند (`sniffKind`): فایلی که اشتراکش باز نشده یک
+ * صفحهٔ HTML برمی‌گرداند، نه خطا (درسِ ۷٫۳۳). و تصویر پیش از جاسازی با ffmpeg
+ * به ۱۹۲۰×۱۰۸۰ و JPEG کوچک می‌شود: هر ضربِ کارت یک فایلِ HTMLِ جدا است و
+ * یک PNGِ چندمگابایتی در هر کدام یعنی صدها مگابایت برای هیچ.
+ * نشد ⇒ کارتِ ساده و یک خطِ یادداشت؛ هرگز کلِ ویدئو زمین نمی‌خورد. */
+function specBackdrops(spec, dir, notes) {
+  let n = 0;
+  (spec.cards || []).forEach((c, ci) => {
+    if (!c || !c.bgUrl || c.bg) return;
+    const f = path.join(dir, 'bg' + String(ci).padStart(2, '0'));
+    try {
+      fetchTo(c.bgUrl, f);
+      const k = sniffKind(f);
+      if (k !== 'png' && k !== 'jpeg') {
+        notes.push('تصویرِ کارتِ ' + (ci + 1) + ': بایت‌ها تصویر نبود');
+        return;
+      }
+      let use = f, mime = 'image/' + k;
+      try {
+        const j = f + '.jpg';
+        ff(['-i', f, '-vf', 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080',
+            '-q:v', '4', '-frames:v', '1', j]);
+        if (sniffKind(j) === 'jpeg') { use = j; mime = 'image/jpeg'; }
+      } catch (e) {}
+      c.bg = 'data:' + mime + ';base64,' + fs.readFileSync(use).toString('base64');
+      n++;
+    } catch (e) {
+      notes.push('تصویرِ کارتِ ' + (ci + 1) + ': ' + String(e.message).split('\n')[0].slice(0, 60));
+    }
+  });
+  return n;
+}
+
+function buildSpecVideo(spec, wav, durSec, dest, dir, notes) {
   const CK = require('./cardkit/index.js');
+  const bgs = specBackdrops(spec, dir, notes || []);
   const shots = CK.build(spec, path.join(dir, 'cards'));
   if (shots.length < 2) throw new Error('کمتر از دو ضرب ساخته شد');
 
@@ -602,7 +638,7 @@ function buildSpecVideo(spec, wav, durSec, dest, dir) {
   ff(['-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', silent]);
   ff(['-i', silent, '-i', wav, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
       '-shortest', '-movflags', '+faststart', dest]);
-  return { beats: items.length, cards: spec.cards.length, vmax: vmax,
+  return { beats: items.length, cards: spec.cards.length, vmax: vmax, bgs: bgs,
            marks: Array.from(new Set(spec.cards.map(c =>
              CK.mark.cornerAt(Number(c.at) || 0, spec.mark && spec.mark.everySec)))) };
 }
@@ -614,8 +650,8 @@ function buildVideo(it, cover, wav, durSec, dest, dir) {
   const spec = specOf(it);
   if (spec) {
     try {
-      const r = buildSpecVideo(spec, wav, durSec, dest, dir);
-      return { mode: 'cards', n: r.beats, cards: r.cards, marks: r.marks, notes: notes };
+      const r = buildSpecVideo(spec, wav, durSec, dest, dir, notes);
+      return { mode: 'cards', n: r.beats, cards: r.cards, bgs: r.bgs, marks: r.marks, notes: notes };
     } catch (e) {
       notes.push('کشیدنِ کارت‌ها نشد، مسیرِ قدیم: ' +
                  String(e.message).split('\n')[0].slice(0, 90));
@@ -763,11 +799,24 @@ function main() {
         map.items[it.key].visuals = vr.n;
         map.items[it.key].seconds = Math.round(durSec);
       }
+      /* ══ و کارت‌های برداری هم شاهد دارند (۸.۲۶) ══
+         تا امروز این مسیر هیچ ردی در نقشه نمی‌گذاشت و سیاهه‌اش «کاورِ
+         تک‌تصویری» می‌نوشت — یعنی روزی که کارت‌ها واقعاً ساخته شوند، از بیرون
+         با ویدئوی تک‌قاب یک شکل بود. `mode` برای همین است. */
+      if (vr.mode === 'cards') {
+        map.items[it.key].mode = 'cards';
+        map.items[it.key].cards = vr.cards;
+        map.items[it.key].beats = vr.n;
+        map.items[it.key].bgs = vr.bgs || 0;
+        map.items[it.key].seconds = Math.round(durSec);
+      }
       if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
       log('  ✔ ' + name + ' — ' + Math.round(size / 1048576) + ' مگابایت' +
           (vr.mode === 'slides' ? ' · ' + vr.n + ' تصویر در ' + vr.groups + ' دسته'
-                                : ' · کاورِ تک‌تصویری'));
+            : vr.mode === 'cards' ? ' · ' + vr.cards + ' کارتِ برداری، ' + vr.n + ' ضرب' +
+                                    (vr.bgs ? '، ' + vr.bgs + ' با تصویرِ ساخته‌شده' : '')
+            : ' · کاورِ تک‌تصویری'));
       rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
     } catch (e) {
       // یک ردیفِ خراب نباید بقیه را زمین بگذارد — ولی بی‌صدا هم رد نمی‌شود
@@ -803,5 +852,5 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, visFilter
+  specOf, buildSpecVideo, specBackdrops, visFilter
 };

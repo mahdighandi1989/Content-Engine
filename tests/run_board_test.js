@@ -9,6 +9,11 @@
 require('./lib/root.js');   // cwd را روی ریشهٔ ریپو می‌گذارد — پیش از هر require دیگر
 const fs = require('fs');
 const { Spread, DFolder } = require('./lib/mock.js');
+/* بدَلِ مدلِ این مجموعه برای **هر** فراخوان یک شکل برمی‌گرداند (مثلاً متنِ قسمت
+   برای پرسشِ داوری)، پس صافیِ schema (۸.۲۶) پاسخ‌هایش را خالی می‌کرد. این
+   **بدهی** است نه معافیت: `run_wiring_test.js` ۱۲ فهرستِ این‌ها را یک‌طرفه نگه
+   می‌دارد — مجموعه‌ای که بدَلش را درست کند، این خط را برمی‌دارد. */
+global.__SCHEMA_STRICT = false;
 const DIR = 'src/';
 const FILES = ['00_Config.gs','01_Taxonomy.gs','02_Sync.gs','03_Producer.gs','04_Mailer.gs',
                '05_Setup.gs','06_Models.gs','07_Telegram.gs','08_Health.gs','09_DateWords.gs',
