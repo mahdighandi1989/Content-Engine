@@ -20,6 +20,15 @@ const ok = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d 
   if (!c) throw new Error('FAILED: ' + n); pass++; };
 
 const OUT = DriveApp.__register(CFG.OUTPUT_FOLDER_ID, 'OUTPUT');
+/* ══ بذرهای واقعی کنار گذاشته می‌شوند (۸٫۲۵) ══
+   تا ۸٫۲۴ بذرها به قسمتِ ۵۳ اشاره می‌کردند که در این آزمون پوشه ندارد، پس
+   `vbrSoulPick_` بی‌صدا ردشان می‌کرد و هر بخشی که تیکِ او را می‌سنجید، تصادفاً
+   از دستشان در امان بود. از ۸٫۲۵ به متنِ آزمون اشاره می‌کنند و **همیشه** پیدا
+   می‌شوند — پس هر سنجه‌ای که دربارهٔ تیک است، بی‌آنکه بخواهد بذر را می‌سنجید.
+   فهرستِ واقعی این‌جا نگه داشته می‌شود و فقط جایی به کار می‌رود که خودِ آن
+   فهرست موضوعِ سنجه است (۳۳.۲) یا متنِ آزمون (§۳۷). */
+const REAL_SOUL_SEED = CFG.VOICE_SOUL_SEED;
+CFG.VOICE_SOUL_SEED = [];
 const hub = getHub_();
 
 // صوتِ قسمت، در یک پوشهٔ ساختگی
@@ -2593,7 +2602,7 @@ console.log('\n══ ۳۳) دو بذر، و نفرِ دوم که نوبت نم�
      یعنی یکی‌شان هرگز ساخته نمی‌شود. */
   {
     CFG.VOICE_SOUL_SEED = keepSeed33;
-    const real = CFG.VOICE_SOUL_SEED || [];
+    const real = REAL_SOUL_SEED || [];
     const keys = real.map((se) => vbrSoulShow_(se.speaker, se.tag) + ':' + String(se.ep));
     const bare = real.map((se) => vbrSoulShow_(se.speaker, '') + ':' + String(se.ep));
     const uniq = keys.filter((k, i) => keys.indexOf(k) === i).length;
@@ -3092,6 +3101,134 @@ console.log('\n══ ۳۶) شاهدِ نشانه‌ها باید از اجرا 
     ytRenderSave_(Object.assign(ytRenderRead_(), { items: keepRd36 }));
     try { props_().deleteProperty(PK.TTS_CUE_DROP_AT); } catch (e) {}
   }
+}
+
+console.log('\n══ ۳۷) متنِ آزمونِ گویندگان — همان متن برای هر دو (۸٫۲۵) ══');
+{
+  /* او خواست متنی «خارج از درس‌نامه» که «تمام مواردِ نگارشی» و همهٔ حالت‌های
+     تازه را داشته باشد و «کوتاه هم نباشه». هر کدام از این سه، یک سنجه. */
+  const def = vtestDef_('ساعت‌ساز');
+  const p = vtestPlain_(def);
+  const tr = speakSpanTrim_({ spans: p.spans }, p.n);
+  const kinds = Object.keys(speakProsody_(p.text).has || {});
+  const ALL = ['!', '؟', '؟!', '…', '؛', '،', '—', '« »', '( )', '(؟)'];
+  ok('۳۷.۱ هر ده نشانه در متن هست',
+     ALL.every(k => kinds.indexOf(k) !== -1), JSON.stringify(kinds));
+  const moods = tr.spans.map(x => x.k);
+  ok('۳۷.۱-ب هر نُه حالت هست، و هیچ‌کدام ردِ سدِ حالت‌ها نشد',
+     SPEAK_SPANS.every(d => moods.indexOf(d.k) !== -1) && !Object.keys(tr.drop).length,
+     JSON.stringify({ moods, drop: tr.drop }));
+  ok('۳۷.۱-پ کوتاه نیست — دستِ‌کم ۲۵۰۰ نویسه', p.text.length >= 2500, String(p.text.length));
+
+  /* ۳۴.۲ — **هر حالت روی همان جمله‌ای می‌نشیند که برایش نوشته شد.** تلهٔ واقعی:
+     پایان‌بندی درونِ گیومه یا پرانتز مرزِ جمله نیست، پس دو جمله یکی می‌شوند و
+     همهٔ شماره‌های بعد یکی جابه‌جا — «نجوا» روی جملهٔ کناری، بی هیچ خطایی. */
+  const ss = speakSentSplit_(p.text);
+  const miss = [];
+  def.blocks.forEach(b => {
+    if (!b.k || b.k === 'مکث' || !b.t) return;
+    const sp = tr.spans.filter(x => x.k === b.k)[0];
+    const first = speakSentSplit_(b.t)[0];
+    if (!sp || ss[sp.a - 1] !== first) miss.push(b.k);
+  });
+  ok('۳۷.۲ هر حالت روی جملهٔ خودش', !miss.length && ss.length === p.n, JSON.stringify(miss));
+
+  /* ۳۴.۳ — اعراب یک بار، با نشانه‌های دست‌نخورده، و برای هر دو گوینده همان. */
+  const realV = global.vowelizePiece_;
+  let calls = 0, marksOff = true;
+  const fatha = (x) => String(x).replace(/([بتپثجچحخدذرزژسشصضطظعغفقکگلمن])/g, '$1َ');
+  global.vowelizePiece_ = function (pc) {
+    calls++; if (CFG.SPEAK_MARKS !== false) marksOff = false;
+    return fatha(pc);
+  };
+  const par = vbrSoulFolder_();
+  const trash = () => { const it = par.getFilesByName('متنِ آزمونِ گویندگان — ساعت‌ساز — نسخهٔ ' + def.ver + '.json');
+                        while (it.hasNext()) it.next().setTrashed(true); };
+  trash();
+  let a1, a2;
+  try { a1 = vtestText_('ساعت‌ساز'); const c1 = calls; a2 = vtestText_('ساعت‌ساز');
+        ok('۳۷.۳ بارِ اول اعراب می‌گیرد و ذخیره می‌شود، بارِ دوم از پرونده — یک متن برای هر دو',
+           a1.ok && a1.fresh && a1.vowelled === a1.pieces && a1.pieces >= 2 &&
+           a2.ok && !a2.fresh && a2.t === a1.t && calls === c1,
+           JSON.stringify({ f1: a1.fresh, f2: a2.fresh, v: a1.vowelled, p: a1.pieces, same: a2.t === a1.t, calls }));
+        ok('۳۷.۳-ب اعراب‌گذار با نشانه‌گذاریِ خاموش پرسیده شد، و تنظیم برگشت',
+           marksOff && CFG.SPEAK_MARKS !== false);
+  } finally { global.vowelizePiece_ = realV; }
+
+  /* ۳۴.۴ — تکه‌ای که نشانه‌ای را عوض کند، **ساده** می‌مانَد: آزمون دربارهٔ همان
+     نشانه‌هاست، و نشانهٔ گمشده بدتر از اعرابِ نبوده است. */
+  trash();
+  global.vowelizePiece_ = (pc) => fatha(pc).replace('؟!', '!');
+  let a3;
+  try { a3 = vtestText_('ساعت‌ساز'); } finally { global.vowelizePiece_ = realV; }
+  ok('۳۷.۴ تکه‌ای که نشانه را عوض کرد ساده ماند، و علتش گفته شد',
+     a3.ok && a3.vowelled === a3.pieces - 1 && /نشانه عوض شد/.test(a3.why) &&
+     a3.t.indexOf('؟!') !== -1 && speakSentSplit_(a3.t).length === p.n,
+     JSON.stringify({ v: a3.vowelled, p: a3.pieces, why: a3.why }));
+
+  /* ۳۴.۵ — از همان درِ تولید: بذرِ واقعی ⇒ `runVoiceSoulTest`. اجرای اول فقط
+     اعراب می‌گیرد و اجرای بعد را زمان‌بندی می‌کند (شش دقیقه برای هر دو کم است)؛
+     اجرای دوم می‌سازد. */
+  trash();
+  const realT = global.ttsChunkTry_;
+  const cues34 = [], said34 = [];
+  global.ttsChunkTry_ = function (text, style) {
+    cues34.push(String(style || '')); said34.push(String(text || ''));
+    return Buffer.alloc(24000 * 2 * 4).toString('base64');
+  };
+  global.vowelizePiece_ = (pc) => fatha(pc);
+  CFG.VOICE_SOUL_SEED = REAL_SOUL_SEED.filter(x => x.speaker === 'razavi');
+  const q34 = vbrRead_(); q34.items = []; vbrSave_(q34);
+  global.__TRIGGERS.length = 0;
+  let r1, r2;
+  try {
+    r1 = runVoiceSoulTest();
+    const sched = global.__TRIGGERS.filter(x => String(x.handler || x.getHandlerFunction && x.getHandlerFunction()) === 'runVoiceSoulSeed').length;
+    ok('۳۷.۵ اجرای اول: متن اعراب گرفت، صدایی ساخته نشد، اجرای بعد زمان‌بندی شد',
+       r1 && r1.pending === true && said34.length === 0 && sched === 1,
+       JSON.stringify({ r1, said: said34.length, sched }));
+    r2 = runVoiceSoulTest();
+  } finally {
+    global.vowelizePiece_ = realV;
+    global.ttsChunkTry_ = realT;
+    CFG.VOICE_SOUL_SEED = [];
+  }
+  const row34 = (vbrRead_().items || [])[0] || {};
+  const want = [['آرام', 'آرام و با صدای پایین‌تر'], ['نجوا', 'نجواگونه'], ['بلند', 'با صدای بلند و پرشور'],
+                ['کمی‌بلند', 'کمی بلندتر'], ['تند', 'تندتر'], ['سنگین', 'سنگین و جدی'],
+                ['لبخند', 'با لبخند'], ['کشیده', 'آهسته و کشیده']];
+  const lost = want.filter(w => !cues34.some(c => c.indexOf(w[1]) !== -1)).map(w => w[0]);
+  ok('۳۷.۶ اجرای دوم ساخت، و هر هشت حالتِ گفتنی با دستورِ خودش رفت',
+     r2 && r2.ok === true && !lost.length, JSON.stringify({ ok: r2 && r2.ok, why: r2 && r2.why, lost }));
+  const bare = said34.filter(t => SPEAK_SPANS.some(d => String(t).trim() === d.k || String(t).indexOf('«' + d.k + '»') !== -1));
+  ok('۳۷.۶-ب هیچ نامِ حالتی به گفتارساز نرسید', !bare.length, JSON.stringify(bare));
+  ok('۳۷.۶-پ ردیفِ صف می‌گوید «متنِ آزمون» و جای هر نُه حالت را دارد',
+     /متنِ آزمون/.test(String(row34.label)) &&
+     SPEAK_SPANS.every(d => String(row34.spanLine).indexOf(d.k) !== -1),
+     JSON.stringify({ label: row34.label, spans: row34.spanLine }));
+  /* ۳۷.۷ — آنچه در تلگرام می‌رسد: عنوانِ فایل «قسمت ساعت‌ساز» نمی‌گوید، و
+     گام و زیروبمِ خروجی در کپشن هست. از همان `vbrTgTell_` که تولید می‌دواند. */
+  {
+    const fW = OUT.createFile(Utilities.newBlob('RIFF....WAVE', 'audio/wav', 'نمونه.wav'));
+    let ttlSeen = '', capSeen7 = '';
+    const rA = global.tgApi_, rE = global.tgEnabled_;
+    global.tgEnabled_ = () => true;
+    global.tgApi_ = function (m, prm) {
+      if (prm && prm.title) ttlSeen = String(prm.title);
+      if (prm && prm.caption) capSeen7 = String(prm.caption);
+      return { ok: true };
+    };
+    const it7 = Object.assign({}, row34, { pitchAuto: { srcHz: 113, targetHz: 106.9, pitch: -1 },
+                                           f0Out: { medianHz: 104, lowPct: 3 } });
+    try { vbrTgTell_(it7, 'بهروز رضوی', { id: fW.getId() }); } catch (eT7) {}
+    global.tgApi_ = rA; global.tgEnabled_ = rE;
+    ok('۳۷.۷ عنوانِ فایل در تلگرام «متنِ آزمون» می‌گوید، نه «قسمت ساعت‌ساز»',
+       /متنِ آزمون/.test(ttlSeen) && ttlSeen.indexOf('قسمت ساعت') === -1, ttlSeen);
+    ok('۳۷.۷-ب و کپشن گامِ خودکار و زیروبمِ خروجی را دارد، و حالت‌ها را',
+       /گامِ خودکار/.test(capSeen7) && /خروجی/.test(capSeen7) && /حالت‌ها/.test(capSeen7),
+       capSeen7.replace(/<[^>]+>/g, '').length + ' · ' + capSeen7.slice(-260));
+  }
+  const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.24
+ *  موتور محتوا و پادکست — نسخهٔ 8.25
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1567,7 +1567,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.24',
+  CODE_VERSION: '8.25',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1884,9 +1884,19 @@ var CFG = {
      یعنی اصلاح انجام شده و او همان نمونهٔ قبلی را می‌شنود. ۷٫۸۶ عیناً:
      چیزی که برای سنجشِ یک پارامتر ساخته می‌شود، باید آن پارامتر را در
      **هویتش** داشته باشد. */
+  /* ══ متنِ آزمون به‌جای یک تکه از درس (۸٫۲۵) ══
+     او خواست: «یه متنی خارج از درس‌نامه … که بتونی تمام مواردِ نگارشی داخلش
+     بگنجونی و دستوراتِ جدید رو هم بتونن انجام بدن … و کوتاه هم نباشه».
+     درست می‌گفت: چهار هزار نویسه از درسِ معرفت‌شناسی جایی برای «نجوا» یا
+     «لبخند» ندارد، و نشانه‌ای که در نمونه نیست سنجیده نمی‌شود (۸٫۱۰). پس
+     `text` به‌جای قسمت به `VOICE_TEST_TEXTS` اشاره می‌کند: یک داستانِ کوتاه
+     که هر ده نشانه و هر نُه حالت جای معنادارِ خودشان را در آن دارند، با
+     جای ثابت — تا هر دو گوینده **عیناً همان متن** را بخوانند. */
   VOICE_SOUL_SEED: [
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '53', tag: 'گام -2 و حالت‌ها' },
-    { speaker: 'razavi',      show: 'special', ep: '53', tag: 'گامِ خودکار و حالت‌ها' }
+    { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
+      tag: 'گام -2' },
+    { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
+      tag: 'گامِ خودکار' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -60044,7 +60054,7 @@ function vbrTgTell_(item, speakerName, got) {
     if (!blob) continue;
     var capP = cap + (ids.length > 1
       ? '\n\n<b>تکهٔ ' + faP(pi + 1) + ' از ' + faP(ids.length) + '</b>' : '');
-    var ttl = 'قسمت ' + ep + ' — ' + who +
+    var ttl = (item && item.label ? String(item.label) : 'قسمت ' + ep) + ' — ' + who +
               (ids.length > 1 ? ' (' + (pi + 1) + '/' + ids.length + ')' : '');
     var done = false;
     try {
@@ -60966,6 +60976,196 @@ function vbrSoulShow_(speakerKey, tag) {
 }
 
 
+/**
+ * ══ متنِ آزمونِ گویندگان (۸٫۲۵) ══
+ *
+ * او خواست برای سنجیدنِ رضوی و گلدوز متنی باشد «خارج از درس‌نامه … که تمام
+ * مواردِ نگارشی داخلش بگنجه و دستوراتِ جدید رو هم بتونن انجام بدن». درسِ
+ * معرفت‌شناسی جایی برای نجوا یا لبخند ندارد؛ و نشانه یا حالتی که در نمونه
+ * نیست، سنجیده نمی‌شود — فقط خیال می‌کنی سنجیده شد (۸٫۱۰).
+ *
+ * پس یک داستانِ کوتاه، با دو قاعده:
+ * - **هر ده نشانه و هر نُه حالت، جایی که معنا خودش می‌خواهد** — نه پشتِ‌هم
+ *   برای شمارش. نشانه‌ای که به‌زور بنشیند، خودش لحنِ غلط می‌سازد.
+ * - **جای حالت‌ها ثابت است، نه انتخابِ مدل.** این آزمونِ گوینده است، نه آزمونِ
+ *   انتخاب‌گر: اگر هر بار مدل جای دیگری را «آرام» کند، دو گوینده روی دو چیزِ
+ *   متفاوت سنجیده می‌شوند. انتخابِ خودِ مدل در قسمت‌ها سنجیده می‌شود.
+ *
+ * و یک تلهٔ شکستنِ جمله که باید نوشته شود: پایان‌بندی **درونِ** گیومه یا
+ * پرانتز («… دارد؟») مرزِ جمله نیست — `speakSentSplit_` پس از نشانه فاصله
+ * می‌خواهد و «»» نشانهٔ پایان نیست — پس دو جمله یکی می‌شوند و همهٔ شماره‌های
+ * بعد یکی جابه‌جا. گیومه و پرانتز این‌جا فقط وسطِ جمله‌اند.
+ *
+ * `ver` را هر بار متن عوض شد بالا ببر: نسخهٔ اعراب‌دارِ ذخیره‌شده به همین
+ * گره خورده، و متنِ تازه با اعرابِ متنِ کهنه یعنی واژه‌هایی که با هم نمی‌خوانند.
+ */
+var VOICE_TEST_TEXTS = {
+  'ساعت‌ساز': {
+    ver: '1',
+    title: 'ساعت‌سازِ کوچهٔ باریک',
+    blocks: [
+      { k: '', t: 'در کوچه‌ای باریک، پشتِ بازارِ قدیمیِ شهر، پیرمردی ساعت‌ساز زندگی می‌کرد که همه «استاد رحیم» صدایش می‌کردند. مغازه‌اش کوچک بود؛ اما هر کس یک بار پا به آن‌جا می‌گذاشت، دیگر هرگز فراموشش نمی‌کرد.' },
+      { k: '', t: 'دیوارها پر بود از ساعت: ساعت‌های دیواری، ساعت‌های جیبی، ساعت‌های شماطه‌دار — و حتی یک ساعتِ آفتابی، که هیچ‌کس نمی‌دانست در مغازه‌ای سرپوشیده چه می‌کند. خودش می‌گفت آن ساعتِ آفتابی دقیق‌ترین ساعتِ مغازه است (البته فقط روزهای آفتابی).' },
+      { k: '', t: 'بوی روغن و چوبِ کهنه همیشه در هوا بود، و صدای تیک‌تاکِ صدها ساعت با هم، مثلِ نفس‌کشیدنِ آرامِ یک موجودِ زنده، فضا را پر می‌کرد. مشتری‌ها می‌گفتند آن‌جا زمان آهسته‌تر می‌گذرد؛ و شاید راست می‌گفتند.' },
+      { k: 'لبخند', t: 'همسایه‌ها هم با خنده می‌گفتند استاد رحیم بهترین (؟) ساعت‌سازِ شهر است، چون خودش هیچ‌وقت سرِ وقت در مغازه را باز نمی‌کرد.' },
+      { k: '', t: 'یک روزِ پاییزی، پسرکی ده‌ساله در را باز کرد و آهسته جلو آمد. دستانش می‌لرزید. ساعتِ جیبیِ کهنه‌ای را روی پیشخوان گذاشت؛ شیشه‌اش ترک خورده بود و عقربه‌هایش روی هفت و ده دقیقه ایستاده بودند.' },
+      { k: 'مکث' },
+      { k: '', t: 'استاد رحیم عینکش را روی بینی جابه‌جا کرد، ساعت را برداشت و مدتی بی‌صدا نگاهش کرد. بعد پرسید: می‌دانی این ساعت چند سال دارد؟' },
+      { k: '', t: 'پسرک سرش را تکان داد. پیرمرد گفت این ساعت از خودِ او هم پیرتر است. پسرک با تعجب گفت: از شما هم پیرتر؟!' },
+      { k: 'آرام', t: 'بعد آهسته‌تر گفت که ساعت مالِ پدربزرگش بوده است. پدربزرگی که پارسال، در یک شبِ زمستانی، برای همیشه رفته بود…' },
+      { k: '', t: 'استاد رحیم چیزی نگفت. فقط سر تکان داد، چراغِ کوچکِ میزِ کارش را روشن کرد و جعبهٔ ابزارش را جلو کشید.' },
+      { k: '', t: 'سال‌ها بود که کسی چنین ساعتی برایش نیاورده بود. ساختنش به روزگاری برمی‌گشت که هنوز در شهر برق نبود، و هر چرخ‌دنده‌اش را با دست تراشیده بودند.' },
+      { k: 'تند', t: 'یکی‌یکی بیرونشان آورد: پیچ‌گوشتیِ ریز، ذره‌بین، موچینِ نقره‌ای، روغن‌دانِ کوچک، فنرهای یدکی، و دفترچه‌ای جلدچرمی که همهٔ رازهای کارش را در آن نوشته بود.' },
+      { k: 'سنگین', t: 'پیش از آنکه درِ ساعت را باز کند، رو به پسرک کرد و گفت: اگر عجله کنی، این چرخ‌دنده‌های ظریف برای همیشه می‌شکنند. در این کار، هیچ‌چیز جای صبر را نمی‌گیرد.' },
+      { k: '', t: 'ساعت‌ها گذشت. پسرک روی چهارپایهٔ چوبی نشسته بود و نگاه می‌کرد؛ گاهی به دستانِ پیرمرد، گاهی به عقربه‌های بی‌حرکت، و گاهی به کوچه، که کم‌کم تاریک می‌شد.' },
+      { k: '', t: 'یک بار پرسید: چرا این‌قدر طول می‌کشد؟ استاد بی آنکه سر بلند کند جواب داد که ساعتی که هفتاد سال کار کرده، حق دارد چند ساعتی هم برای خودش وقت بخواهد.' },
+      { k: 'نجوا', t: 'وسطِ کار، استاد خم شد و طوری که انگار رازی را می‌گوید، زیرِ لب گفت که «قلبِ هر ساعتی همین فنرِ کوچک است»، نه آن عقربه‌هایی که همه نگاهشان می‌کنند.' },
+      { k: '', t: 'بعد قطره‌ای روغن روی محور چکاند، پیچِ آخر را بست، و ساعت را آرام کنارِ گوشش برد.' },
+      { k: 'مکث' },
+      { k: 'بلند', t: 'ناگهان صدای تیک‌تاک در مغازه پیچید! ساعت دوباره زنده شده بود!' },
+      { k: 'کمی‌بلند', t: 'پسرک از جا پرید و گفت: این همان صدایی است که هر شب از اتاقِ پدربزرگ می‌شنیدم!' },
+      { k: '', t: 'پیرمرد ساعت را در دستِ کوچکِ پسرک گذاشت و دستش را رویش بست. پسرک کیفِ پولش را درآورد؛ اما استاد سرش را به نشانهٔ نه تکان داد. پسرک پرسید: پس چرا پول نمی‌گیرید؟' },
+      { k: 'کشیده', t: 'استاد رحیم لبخندی زد و گفت: بعضی چیزها را نمی‌شود با پول اندازه گرفت؛ مثلِ صدای کسی که دیگر نیست.' },
+      { k: '', t: 'آن روز پسرک فهمید که ساعت‌ها فقط زمان را نشان نمی‌دهند — گاهی آدم‌ها را هم به یاد می‌آورند. و شاید برای همین است که هنوز، در آن کوچهٔ باریک، صدای تیک‌تاک از پشتِ شیشه‌ها شنیده می‌شود.' }
+    ]
+  }
+};
+
+function vtestDef_(id) {
+  var d = VOICE_TEST_TEXTS[String(id == null ? '' : id)];
+  return (d && d.blocks && d.blocks.length) ? d : null;
+}
+
+/**
+ * بلوک‌ها ⇒ متنِ ساده و حالت‌ها با **شمارهٔ جمله**. شمارش با همان
+ * `speakSentSplit_` است که گفتارساز با آن تکه می‌کند — تعریفِ دوم یعنی روزی
+ * «آرام» روی جملهٔ کناری می‌نشیند و هیچ خطایی نمی‌دهد (۸٫۲۴).
+ */
+function vtestPlain_(def) {
+  var parts = [], spans = [], n = 0, pauseNext = false;
+  for (var i = 0; i < def.blocks.length; i++) {
+    var b = def.blocks[i] || {};
+    var k = String(b.k || '');
+    var t = String(b.t || '').replace(/\s+/g, ' ').trim();
+    if (k === 'مکث' && !t) { pauseNext = true; continue; }
+    if (!t) continue;
+    var c = speakSentSplit_(t).length;
+    if (pauseNext) { spans.push({ from: String(n + 1), k: 'مکث' }); pauseNext = false; }
+    if (k) spans.push({ from: String(n + 1), to: String(n + c), k: k });
+    parts.push(t);
+    n += c;
+  }
+  return { text: parts.join(' '), spans: spans, n: n };
+}
+
+/** پوشهٔ نمونه‌های رنگ و روح در OUTPUT — یک تعریف برای سازنده و متنِ آزمون. */
+function vbrSoulFolder_() {
+  var root = outFolder_();
+  var pName = CFG.VBR_SOUL_FOLDER || 'نمونهٔ رنگ و روح';
+  var it = root.getFoldersByName(pName);
+  return it.hasNext() ? it.next() : root.createFolder(pName);
+}
+
+function vtestMarksSame_(a, b) {
+  var ha = speakProsody_(a).has || {}, hb = speakProsody_(b).has || {};
+  var keys = {};
+  var k;
+  for (k in ha) if (Object.prototype.hasOwnProperty.call(ha, k)) keys[k] = 1;
+  for (k in hb) if (Object.prototype.hasOwnProperty.call(hb, k)) keys[k] = 1;
+  for (k in keys) {
+    if (!Object.prototype.hasOwnProperty.call(keys, k)) continue;
+    if ((ha[k] || 0) !== (hb[k] || 0)) return false;
+  }
+  return true;
+}
+
+/**
+ * متنِ آزمونِ اعراب‌دار — **یک بار** ساخته و ذخیره، برای هر دو گوینده.
+ *
+ * ══ چرا ذخیره، نه هر بار از نو ══
+ * اعراب‌گذاری کارِ مدل است و دو بار پرسیدن دو جوابِ کمی متفاوت می‌دهد؛ آن‌وقت
+ * رضوی و گلدوز روی دو متنِ متفاوت سنجیده می‌شوند — همان چیزی که این متن
+ * برای از بین بردنش ساخته شد. و سقفِ شش‌دقیقه: اعراب (~یک دقیقه) و صداسازی
+ * (~چهار دقیقه) با هم در یک اجرا جا نمی‌شوند، پس اولی اجرای خودش را دارد.
+ *
+ * ══ و نشانه‌ها دست نمی‌خورند ══
+ * اعراب‌گذارِ قسمت‌ها نشانه‌گذاریِ لحن هم می‌کند — «.» را «!» می‌کند. این‌جا
+ * نشانه‌ها را خودم گذاشته‌ام و جایشان طراحی شده، پس اعراب‌گذار با
+ * `SPEAK_MARKS: false` پرسیده می‌شود («نشانه‌ها همان بمانند»)، و هر تکه‌ای که
+ * باز هم نشانه‌ای را عوض کند یا شمارِ جمله را، **متنِ ساده‌اش** می‌مانَد —
+ * بی‌اعراب بهتر از نشانهٔ گمشده، چون آزمون دربارهٔ همان نشانه‌هاست.
+ *
+ * `{ok, t, spans, title, fresh, vowelled, pieces, why}`
+ */
+function vtestText_(id) {
+  var def = vtestDef_(id);
+  if (!def) return { ok: false, why: 'متنِ آزمونِ «' + id + '» تعریف نشده' };
+  var p = vtestPlain_(def);
+  var tr = speakSpanTrim_({ spans: p.spans }, p.n);
+  var out = { ok: true, t: '', spans: tr.spans, title: def.title, fresh: false,
+              vowelled: 0, pieces: 0, why: '', n: p.n };
+  var dk = Object.keys(tr.drop || {});
+  if (dk.length) out.why = 'حالتِ ردشده در متنِ آزمون: ' + dk.join('، ');
+
+  var fname = 'متنِ آزمونِ گویندگان — ' + id + ' — نسخهٔ ' + def.ver + '.json';
+  var h = speakHash_(p.text);
+  var par = vbrSoulFolder_();
+  try {
+    var itF = par.getFilesByName(fname);
+    if (itF.hasNext()) {
+      var c = JSON.parse(itF.next().getBlob().getDataAsString());
+      if (c && c.h === h && c.t &&
+          speakSentSplit_(String(c.t)).length === p.n) {
+        out.t = String(c.t);
+        out.vowelled = Number(c.vowelled) || 0;
+        out.pieces = Number(c.pieces) || 0;
+        return out;
+      }
+    }
+  } catch (eR) {}
+
+  var pcs = speakPieces_(p.text, 1500);
+  var acc = [], notes = {};
+  var keep = CFG.SPEAK_MARKS;
+  for (var i = 0; i < pcs.length; i++) {
+    var v = '';
+    CFG.SPEAK_MARKS = false;
+    try { v = vowelizePiece_(pcs[i]); }
+    catch (eV) { v = ''; }
+    finally { CFG.SPEAK_MARKS = keep; }
+    var w = '';
+    if (!v) w = 'اعراب نگرفت';
+    else if (speakSentSplit_(v).length !== speakSentSplit_(pcs[i]).length) w = 'شمارِ جمله عوض شد';
+    else if (!vtestMarksSame_(pcs[i], v)) w = 'نشانه عوض شد';
+    if (w) { acc.push(pcs[i]); notes[w] = (notes[w] || 0) + 1; }
+    else { acc.push(v); out.vowelled++; }
+  }
+  out.pieces = pcs.length;
+  var t = acc.join(' ');
+  /* و سدِ بیرونی: اگر سرِهم‌شده شمارِ جمله‌ها را نگه ندارد، همهٔ حالت‌ها
+     جابه‌جا می‌نشینند — پس کلِ متنِ ساده، نه متنی که شماره‌هایش دروغ است. */
+  if (speakSentSplit_(t).length !== p.n) { t = p.text; out.vowelled = 0; notes['سرِهم‌شده جابه‌جا شد'] = 1; }
+  out.t = t;
+  out.fresh = true;
+  var nk = Object.keys(notes);
+  if (nk.length) {
+    out.why = (out.why ? out.why + ' · ' : '') + nk.map(function (k) {
+      return k + (notes[k] > 1 ? ' ×' + notes[k] : '');
+    }).join('، ');
+  }
+  try {
+    var old = par.getFilesByName(fname);
+    while (old.hasNext()) old.next().setTrashed(true);
+    par.createFile(Utilities.newBlob(JSON.stringify({
+      id: id, ver: def.ver, h: h, t: t, vowelled: out.vowelled,
+      pieces: out.pieces, why: out.why, at: nowStr_()
+    }), 'application/json', fname));
+  } catch (eW) {
+    out.why = (out.why ? out.why + ' · ' : '') + 'ذخیره نشد: ' + String(eW.message || eW).slice(0, 60);
+  }
+  return out;
+}
+
 function vbrSoulPick_() {
   var out = { ok: false, why: '' };
   var rows = [];
@@ -61006,6 +61206,7 @@ function vbrSoulPick_() {
     var set = {};
     var seeded = {};
     var seedTag = {};
+    var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
        اگر موتور خودش روی تیک عمل کند، معنای آن ستون بی‌خبر عوض می‌شود.
@@ -61019,6 +61220,13 @@ function vbrSoulPick_() {
       var sk = String(se.show) + ':' + String(se.ep);
       set[sk] = 1; seeded[sk] = 1;
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
+      /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
+         شیءِ خودش را می‌سازد. */
+      if (se.text) {
+        var vd = vtestDef_(se.text);
+        if (vd) seedItem[sk] = { show: String(se.show), ep: String(se.ep),
+                                 title: vd.title, text: String(se.text) };
+      }
     }
     if (cell) {
       try {
@@ -61048,7 +61256,7 @@ function vbrSoulPick_() {
     }
     for (var k in set) {
       if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
-      var item = map[k];
+      var item = seedItem[k] || map[k];
       if (!item) continue;                       // پوشه‌اش شناخته نیست
       /* برچسبِ بذر بخشی از شناسه است (۷٫۸۶): نمونه‌ای که با گامِ دیگری
          ساخته شده، «همان نمونه» نیست. تیکِ او برچسب ندارد، پس رفتارش
@@ -61140,7 +61348,33 @@ function runVoiceSoulTest() {
      چهار دقیقه TTS که سد جلویش را می‌گیرد، ارزان؛ و بی آن، تصمیم ممکن
      نیست. */
   var txt = '';
-  try { txt = epSpeakText_(pick.item.folderId); } catch (eT) { txt = ''; }
+  /* ══ متنِ آزمون (۸٫۲۵) ══
+     اعراب یک بار ساخته می‌شود و اجرای خودش را دارد: با صداسازی در یک اجرا
+     از شش دقیقه می‌گذرد. اجرای بعدی یک دقیقه بعد خودش زمان‌بندی می‌شود —
+     یک بار در عمرِ هر نسخهٔ متن، چون بعد از آن از پرونده خوانده می‌شود. */
+  var vtest = null;
+  if (pick.item && pick.item.text) {
+    try { vtest = vtestText_(pick.item.text); }
+    catch (eVt) { vtest = { ok: false, why: String((eVt && eVt.message) || eVt).slice(0, 100) }; }
+    if (!vtest.ok) {
+      say('⚠️ متنِ آزمون آماده نشد: ' + vtest.why);
+      return { ok: false, why: vtest.why, speaker: pick.key };
+    }
+    if (vtest.fresh) {
+      try {
+        clearRetryTriggers_('runVoiceSoulSeed');
+        ScriptApp.newTrigger('runVoiceSoulSeed').timeBased().after(60 * 1000).create();
+      } catch (eSch) {}
+      say('✅ متنِ آزمونِ «' + vtest.title + '» اعراب گرفت (' + vtest.vowelled + ' از ' +
+          vtest.pieces + ' تکه)' + (vtest.why ? ' — ' + vtest.why : '') +
+          ' و ذخیره شد. ساختِ صدا یک دقیقهٔ دیگر در اجرای جدا شروع می‌شود؛ ' +
+          'هر دو با هم در سقفِ شش‌دقیقه جا نمی‌شوند.');
+      return { ok: false, why: 'متنِ آزمون آماده شد؛ ساخت در اجرای بعد',
+               pending: true, speaker: pick.key };
+    }
+    txt = vtest.t;
+  }
+  if (!vtest) { try { txt = epSpeakText_(pick.item.folderId); } catch (eT) { txt = ''; } }
   if (!txt) {
     var w = 'متنِ اعراب‌دارِ قسمت ' + String(pick.item.ep) + ' در پروندهٔ خودش نیست ' +
             '(قسمت‌های قدیمی `__speakSegs` ندارند)';
@@ -61243,7 +61477,10 @@ function runVoiceSoulTest() {
      واقعاً خوانده می‌شود. */
   var spanPlan = { spans: [], why: 'خاموش' };
   try {
-    if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
+    /* متنِ آزمون جای حالت‌هایش را خودش دارد: این آزمونِ گوینده است، نه
+       آزمونِ انتخاب‌گر — دو گوینده باید روی **همان** جاها سنجیده شوند. */
+    if (vtest) spanPlan = { spans: vtest.spans || [], why: 'متنِ آزمون حالتی ندارد' };
+    else if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
       spanPlan = speakSpanPlan_(txt, true);
     }
   } catch (eSp) { spanPlan = { spans: [], why: 'سنجیده نشد: ' + String(eSp.message || eSp).slice(0, 60) }; }
@@ -61331,14 +61568,12 @@ function runVoiceSoulTest() {
     /* پوشهٔ خودش، و نامی که «کامل» دارد: `vbrAudio_` از همان
        `ytAudioParts_`ِ بخشِ ۲۷ می‌گذرد و تعریفِ دومِ «صوتِ کاملِ قسمت»
        ساختن یعنی روزی یکی از آن دو کهنه می‌شود. */
-    var root = outFolder_();
-    var pName = CFG.VBR_SOUL_FOLDER || 'نمونهٔ رنگ و روح';
-    var it0 = root.getFoldersByName(pName);
-    var par = it0.hasNext() ? it0.next() : root.createFolder(pName);
+    var par = vbrSoulFolder_();
     /* برچسب هم باید بگوید کدام سنجش است: دو فایل به نامِ «نمونهٔ رنگ و
        روح — قسمت ۵۳» در تلگرام از هم تشخیص داده نمی‌شوند، و او همان‌جا
        می‌شنود نه در درایو (۷٫۸۶). */
-    var label = 'نمونهٔ رنگ و روح — قسمت ' + String(pick.item.ep) +
+    var label = (vtest ? 'نمونهٔ رنگ و روح — متنِ آزمونِ «' + vtest.title + '»'
+                       : 'نمونهٔ رنگ و روح — قسمت ' + String(pick.item.ep)) +
                 (pick.tag ? ' · ' + pick.tag : '');
     var subNm = label + ' — ' + pick.name;
     var it1 = par.getFoldersByName(subNm);
@@ -61371,7 +61606,8 @@ function runVoiceSoulTest() {
   var dur = (typeof castClock_ === 'function') ? castClock_(sec) : String(sec) + 'ث';
   var m = (res.ok ? '✅ نمونه ساخته شد و به صفِ پل رفت.' : '⚠️ ناقص.') +
           '\n\nگوینده: ' + pick.name +
-          '\nمتن از: قسمت ' + String(pick.item.ep) +
+          (vtest ? '\nمتن از: متنِ آزمونِ «' + vtest.title + '» — همان متن برای هر دو گوینده'
+                 : '\nمتن از: قسمت ' + String(pick.item.ep)) +
           '\nطولِ ساخته‌شده: ' + dur +
           (prMsg ? '\n' + prMsg : '') +
           (spanLine ? '\n🎭 ' + spanLine : '') +
