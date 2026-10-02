@@ -1,5 +1,5 @@
 {
- "rev": 11,
+ "rev": 13,
  "items": {
   "special:49": {
    "urls": [
@@ -162,8 +162,40 @@
    "speaker": "razavi",
    "at": "2026-10-01T13:09:02Z",
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-53-fa66b661.wav"
+  },
+  "نمونهٔ روح — razavi · نشانهٔ بندبند:53": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-53-9595a558.wav"
+   ],
+   "pieceBytes": [
+    21032044
+   ],
+   "bytes": 21032044,
+   "seconds": 262.9,
+   "minutes": 5.5,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "razavi",
+   "at": "2026-10-01T23:58:55Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-53-9595a558.wav"
+  },
+  "نمونهٔ روح — spk-1g0r95d · گام -2 و نشانهٔ بندبند:53": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-2-53-30dcd3b9.wav"
+   ],
+   "pieceBytes": [
+    20851244
+   ],
+   "bytes": 20851244,
+   "seconds": 260.6,
+   "minutes": 4.9,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-02T00:03:57Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-2-53-30dcd3b9.wav"
   }
  },
- "at": "2026-10-01T13:09:02Z",
+ "at": "2026-10-02T00:03:57Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
