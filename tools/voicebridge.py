@@ -335,6 +335,65 @@ def splitWav(path, cap):
     return out
 
 
+def f0Stats(path, maxFrames=3000):
+    """زیروبمِ میانه و سهمِ قاب‌های زیرِ ۷۰ هرتز (۸٫۲۴).
+
+    numpy و wave، نه کتابخانهٔ دیگر — و import همین‌جا، چون `--probe` باید
+    بی numpy بدود. خودهمبستگی روی قاب‌های ۶۰ میلی‌ثانیه‌ای؛ قابی که
+    تناوبش ضعیف است (خِرخِر، همخوان، سکوت) شمرده نمی‌شود. `None` یعنی
+    «نسنجیدم»، نه «صفر» — و صدازننده باید این دو را جدا کند.
+    """
+    try:
+        import wave
+        import numpy as np
+        with wave.open(path, "rb") as w:
+            sr = w.getframerate()
+            ch = w.getnchannels()
+            if w.getsampwidth() != 2:
+                return None
+            x = np.frombuffer(w.readframes(w.getnframes()),
+                              dtype="<i2").astype(np.float32) / 32768.0
+    except Exception:
+        return None
+    if ch > 1:
+        x = x[:len(x) // ch * ch].reshape(-1, ch).mean(1)
+    d = max(1, int(sr // 8000))
+    x = x[:len(x) // d * d].reshape(-1, d).mean(1)
+    sr = float(sr) / d
+    win, hop = int(sr * 0.06), int(sr * 0.02)
+    if len(x) <= win:
+        return None
+    starts = list(range(0, len(x) - win, hop))
+    if len(starts) > maxFrames:
+        starts = [int(v) for v in np.linspace(0, len(x) - win - 1, maxFrames)]
+    lo, hi = int(sr / 300), int(sr / 40)
+    F = []
+    for s0 in starts:
+        fr = x[s0:s0 + win]
+        fr = fr - fr.mean()
+        if float((fr ** 2).mean()) < 4e-4:          # ~ rms 0.02: سکوت
+            continue
+        c = np.correlate(fr, fr, "full")[win - 1:]
+        if hi >= len(c) or c[0] <= 0:
+            continue
+        k = lo + int(np.argmax(c[lo:hi]))
+        if c[k] / c[0] > 0.3:
+            F.append(sr / k)
+    if len(F) < 20:
+        return None
+    F = np.array(F)
+    return {"medianHz": round(float(np.median(F)), 1),
+            "lowPct": int(round(100.0 * float((F < 70).mean()))),
+            "frames": int(len(F))}
+
+
+def autoPitch(srcHz, targetHz):
+    """گام به نیم‌پرده از نسبتِ دو زیروبم — محدود، چون عددِ پرت یعنی سنجشِ خراب."""
+    import math
+    st = 12.0 * math.log2(float(targetHz) / float(srcHz))
+    return int(max(-14, min(6, round(st))))
+
+
 def pending(q, mp):
     """کدام ردیف‌ها واقعاً کار دارند — **تنها** تعریفِ این پرسش.
 
@@ -509,12 +568,34 @@ def runOne(it, mp):
     say("  طولِ ورودی: %.1f ثانیه" % srcSec)
 
     pr = it.get("params") or {}
+    # ══ گام از زیروبمِ خودِ ورودی، نه یک عددِ ثابت (۸٫۲۴) ══
+    # −۱۲ روی صدای مبدأِ زن‌گونه درست بود؛ روی صدای مرد، رضوی را یک اکتاو
+    # زیرِ خودش می‌بُرد — ۶۰ هرتز در برابرِ ۱۰۶٫۹ِ صدای واقعی‌اش. اگر سنجش
+    # نشد، همان گامِ پشتیبان می‌مانَد و این **گفته می‌شود**، نه بی‌صدا.
+    pitch = str(pr.get("pitch", "-12"))
+    pitchAuto = None
+    tgt = pr.get("targetHz")
+    if tgt:
+        try:
+            tgtF = float(tgt)
+        except (TypeError, ValueError):
+            tgtF = 0.0
+        stIn = f0Stats("vb/src.wav") if tgtF > 0 else None
+        if stIn:
+            pitch = str(autoPitch(stIn["medianHz"], tgtF))
+            pitchAuto = {"srcHz": stIn["medianHz"], "targetHz": tgtF,
+                         "pitch": int(pitch)}
+            say("  گامِ خودکار: ورودی %.1f هرتز ⇒ هدف %.1f ⇒ %s نیم‌پرده"
+                % (stIn["medianHz"], tgtF, pitch))
+        else:
+            say("::warning title=زیروبمِ ورودی سنجیده نشد::گامِ پشتیبان %s به کار رفت."
+                % pitch)
     args = ["python3", "tools/voicelab.py", "--engine", "rvc",
             "--ref", "vb/src.wav",          # voicelab مرجع را اجباری می‌داند
             "--src", "vb/src.wav", "--out", "vblab",
             "--src-seconds", str(int(srcSec) + 1),
             "--rvc-model", "vb/model.pth",
-            "--rvc-pitch", str(pr.get("pitch", "-12")),
+            "--rvc-pitch", pitch,
             "--rvc-index-rate", str(pr.get("indexRate", "1.0")),
             "--rvc-protect", str(pr.get("protect", "0.33")),
             # ══ عددِ شباهت کارِ آزمایشگاه است، نه کارِ تولید ══
@@ -590,6 +671,20 @@ def runOne(it, mp):
            .strftime("%Y-%m-%dT%H:%M:%SZ")}
     if len(urls) == 1:
         rec["url"] = urls[0]
+    rec["pitch"] = pitch
+    if pitchAuto:
+        rec["pitchAuto"] = pitchAuto
+    # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══
+    # «رضوی مثلِ قبل بود» تنها شاهدِ ۱ اکتبر بود — گوشِ او. این عدد همان را
+    # پیش از او می‌گوید: میانهٔ زیرِ ۷۵ یا سهمِ بزرگِ زیرِ ۷۰ هرتز یعنی خروجی
+    # در محدودهٔ خِرخِر نشسته.
+    stOut = f0Stats(best)
+    if stOut:
+        rec["f0Out"] = stOut
+        if stOut["medianHz"] < 75 or stOut["lowPct"] >= 40:
+            rec["f0Warn"] = ("زیروبمِ خروجی %.0f هرتز، %d٪ زیرِ ۷۰ — محدودهٔ "
+                             "خِرخِر" % (stOut["medianHz"], stOut["lowPct"]))
+            say("::warning title=خروجی خیلی بم::%s — %s" % (key, rec["f0Warn"]))
     mp["items"][key] = rec
     saveMap(mp)
     say("  ✔ %s — %.1f مگابایت (خامش %.1f) در %d تکه، %.1f ثانیه، %.1f دقیقه کار"

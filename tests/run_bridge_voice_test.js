@@ -1436,10 +1436,69 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
     ok('۲۴.۱۷-پ جوابِ ردشده نمونه را زمین نمی‌زند — متنِ قسمت همان‌طور خوانده می‌شود',
        !!(rQ && rQ.ok === true) && prNo.rich === 0,
        JSON.stringify({ ok: rQ && rQ.ok, gooya: prNo.rich }));
+    /* ══ ۲۴.۱۸ — حالت‌ها از همان درِ تولیدِ نمونه (۸.۲۴) ══
+       ادعا سه‌تاست و هر سه رفتاری: تکهٔ حالت‌دار با **دستورِ همان حال**
+       ساخته می‌شود؛ متنی که به گفتارساز می‌رسد هیچ نامی از حالت‌ها ندارد؛ و
+       جای هر حالت در فایل به ردیفِ صف می‌رسد تا در کپشن گفته شود. */
+    {
+      const qS = vbrRead_(); qS.items = []; vbrSave_(qS);
+      global.geminiText_ = function (pq) {
+        const P = String(pq);
+        if (P.indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) {
+          return { spans: [{ from: '3', to: '3', k: 'آرام' },
+                           { from: '6', k: 'مکث' },
+                           { from: '8', to: '9', k: 'کمی‌بلند' }] };
+        }
+        return realGem ? realGem.apply(null, arguments) : null;
+      };
+      cues.length = 0; saidTexts.length = 0;
+      const rS = runVoiceSoulTest();
+      const soft = cues.filter(c => c.indexOf('آرام و با صدای پایین‌تر بخوان') !== -1).length;
+      const louder = cues.filter(c => c.indexOf('کمی بلندتر و محکم‌تر') !== -1).length;
+      const names = saidTexts.filter(t => /«(آرام|مکث|کمی‌بلند)»|⟦/.test(t)).length;
+      const rowS = (vbrRead_().items || [])[0] || {};
+      ok('۲۴.۱۸ تکهٔ حالت‌دار با دستورِ همان حال ساخته شد',
+         !!(rS && rS.ok) && soft === 1 && louder >= 1,
+         JSON.stringify({ ok: rS && rS.ok, soft, louder, n: cues.length }));
+      ok('۲۴.۱۸-ب و هیچ نامِ حالتی به گفتارساز نرسید', names === 0, String(names));
+      /* ۲۴.۱۸-ب۲ — شکستنِ عمدیِ «مکث را به گفتارساز بفرست» روی ۲۴.۱۸-ب **ننشست**،
+         چون آن سنجه نام را درونِ گیومه می‌گشت و این شکستن واژهٔ برهنه می‌فرستد.
+         ثبت می‌شود و سنجهٔ درست جایش می‌آید: هیچ تکه‌ای که به گفتارساز رسید
+         **خودش** نامِ یک حالت نیست — مکث سکوت است، نه یک واژه. */
+      const bare = saidTexts.filter(t => SPEAK_SPANS.some(d => String(t).trim() === d.k));
+      ok('۲۴.۱۸-ب۲ مکث سکوت است — هیچ تکه‌ای نامِ برهنهٔ حالت نیست',
+         bare.length === 0, JSON.stringify(bare));
+      ok('۲۴.۱۸-پ جای حالت‌ها در ردیفِ صف نشست، با مکث',
+         /آرام/.test(String(rowS.spanLine)) && /مکث/.test(String(rowS.spanLine)) &&
+         /کمی‌بلند/.test(String(rowS.spanLine)),
+         String(rowS.spanLine));
+      /* و مدلی که جواب ندهد، نمونه را نمی‌اندازد — فقط بی حالت، و می‌گوید چرا. */
+      const qS2 = vbrRead_(); qS2.items = []; vbrSave_(qS2);
+      global.geminiText_ = function (pq) {
+        if (String(pq).indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) throw new Error('quota');
+        return realGem ? realGem.apply(null, arguments) : null;
+      };
+      const rS2 = runVoiceSoulTest();
+      const rowS2 = (vbrRead_().items || [])[0] || {};
+      ok('۲۴.۱۸-ت مدلِ غایب ⇒ نمونه ساخته می‌شود، بی حالت، با علت',
+         !!(rS2 && rS2.ok) && /هیچ/.test(String(rowS2.spanLine)) && /quota/.test(String(rowS2.spanLine)),
+         String(rowS2.spanLine));
+    }
     global.geminiText_ = realGem;
     const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
     runVoiceSoulTest();          // ردیفِ صف را برای سنجه‌های بعدی بازمی‌سازد
     props_().deleteProperty(PK.TTS_CUE_DROP_AT);
+  }
+
+  /* ۲۴.۱۹ — گام و زیروبمِ خروجی در کپشن (۸٫۲۴): عددی که پیش از گوشِ او
+     سنجیده شد. و کپشن هرگز از سقفِ تلگرام نمی‌گذرد. */
+  {
+    const L = vbrPitchLine_({ pitchAuto: { srcHz: 112, targetHz: 106.9, pitch: -1 },
+                              f0Out: { medianHz: 61, lowPct: 65 },
+                              f0Warn: 'زیروبمِ خروجی 61 هرتز' });
+    ok('۲۴.۱۹ سطرِ گام: خودکار، ورودی، هدف، خروجی و هشدار',
+       /گامِ خودکار/.test(L) && /112|۱۱۲/.test(L) && /107|۱۰۷/.test(L) && /⚠️/.test(L), L);
+    ok('۲۴.۱۹-ب بی هیچ داده، هیچ سطری', vbrPitchLine_({}) === '');
   }
 
   ok('۲۴.۱۰ و پوشه‌اش در فهرستِ نام‌های شناختهٔ ریشه است',
@@ -1932,6 +1991,12 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
     ok('۲۹.۲ و ردیف می‌گوید این عدد از کجا آمد',
        row && row.pitchSrc === 'ردیفِ خودش',
        'گرفت: ' + (row && row.pitchSrc));
+    /* ۸٫۲۴: هدفِ هرتزی هرگز بر دستِ او مقدم نیست — اگر در ردیف چیزی نوشته،
+       گردش‌کار گام را حساب نمی‌کند. */
+    ok('۲۹.۲-الف دستِ او بر هدفِ خودکار مقدم است',
+       row && row.params && row.params.targetHz == null &&
+       !!(CFG.VOICE_TARGET_HZ || {}).razavi,
+       'گرفت: ' + JSON.stringify(row && row.params));
   }
   /* ── ۲۹.۲-ب و اینجاست که آن ادعا بار برمی‌دارد ──
      نگارشِ اولِ ۲۹.۲ با `pitchSrc: 'ردیفِ خودش'`ِ **ثابت** هم سبز می‌مانْد،
@@ -1941,13 +2006,31 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
      جوابِ درست **چیزِ دیگری** است. */
   {
     shP.getRange(atR, PC.PITCH).setValue('');
+    /* از ۸٫۲۴ رضوی هدفِ هرتزی دارد؛ این سنجه دربارهٔ «پیش‌فرض» است، پس
+       همان حالت ساخته می‌شود و هدف در §۲۹.۲-پ جدا سنجیده می‌شود. */
+    const keepT = CFG.VOICE_TARGET_HZ; CFG.VOICE_TARGET_HZ = {};
     const q = vbrRead_(); q.items = []; vbrSave_(q);
-    vbrAsk_('آزمونِ گام', '902', epFold.getId(), 'razavi', 'دو');
+    try { vbrAsk_('آزمونِ گام', '902', epFold.getId(), 'razavi', 'دو'); }
+    finally { CFG.VOICE_TARGET_HZ = keepT; }
     const row2 = (vbrRead_().items || [])[0];
     ok('۲۹.۲-ب و با خانهٔ خالی «پیش‌فرض» می‌گوید، نه «ردیفِ خودش»',
        row2 && row2.pitchSrc === 'پیش‌فرض' && row2.params.pitch === '-12',
        'گرفت: ' + JSON.stringify(row2 && { s: row2.pitchSrc, p: row2.params.pitch }) +
        ' — برچسبی که ورودی ندارد، دیر یا زود دروغ می‌شود');
+  }
+
+  /* ── ۲۹.۲-پ گامِ ثابت فرض می‌کرد صدای مبدأ یکی است (۸٫۲۴) ──
+     خانهٔ خالی + هدفِ هرتزی ⇒ هدف به گردش‌کار می‌رود و گامِ پشتیبان هم، تا
+     اگر سنجشِ ورودی نشد، صف بی گام نماند. از همان درِ تولید: `vbrAsk_`. */
+  {
+    shP.getRange(atR, PC.PITCH).setValue('');
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    vbrAsk_('آزمونِ گام', '903', epFold.getId(), 'razavi', 'سه');
+    const row3 = (vbrRead_().items || [])[0];
+    ok('۲۹.۲-پ هدفِ هرتزی در صف می‌نشیند، با گامِ پشتیبان و برچسبِ راست',
+       row3 && row3.params && row3.params.targetHz === '106.9' &&
+       row3.params.pitch === '-12' && /خودکار/.test(String(row3.pitchSrc)),
+       'گرفت: ' + JSON.stringify(row3 && { p: row3.params, s: row3.pitchSrc }));
   }
 
   /* ── ۲۹.۳ صفر یک گامِ معتبر است، نه «خالی» ──
@@ -1974,7 +2057,10 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
      بگوید این عدد برای این آدم هرگز سنجیده نشده. */
   shP.getRange(atR, PC.PITCH).setValue('');
   {
-    const pp = personaPitch_('razavi');
+    /* «بی بذر» از ۸٫۲۴ «بی هدف» هم هست — رضوی هدف دارد، پس همان حالت ساخته
+       می‌شود (هدف در ۲۹.۲-پ سنجیده می‌شود). */
+    const keepT = CFG.VOICE_TARGET_HZ; CFG.VOICE_TARGET_HZ = {};
+    let pp; try { pp = personaPitch_('razavi'); } finally { CFG.VOICE_TARGET_HZ = keepT; }
     ok('۲۹.۵ خانهٔ خالی پیش‌فرض می‌گیرد و خودش را «پیش‌فرض» می‌نامد',
        pp.pitch === '-12' && pp.src === 'پیش‌فرض',
        'گرفت: ' + JSON.stringify(pp));

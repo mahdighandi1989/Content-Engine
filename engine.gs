@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.23
+ *  موتور محتوا و پادکست — نسخهٔ 8.24
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1081,6 +1081,23 @@ var CFG = {
   /* بندِ نشانه‌گذاری (۸.۲۲): متنِ بلند در یک فراخوان یعنی همه‌یا‌هیچ — یک
      واژهٔ عوض‌شده یا یک خروجیِ بریده، و کلِ نشانه‌گذاری دور می‌رود. */
   SPEAK_MARK_BLOCK: 700,
+  /* ══ حالت‌ها: آنچه نشانهٔ نگارشی نمی‌تواند بگوید (۸٫۲۴) ══
+     او خواست «گاهی کشیده، گاهی بلند، گاهی کمی بلندتر، گاهی یواش» — و
+     «به باگِ قبلی نخوریم که گوینده دستور را می‌خواند». هر دو با یک تصمیم:
+     **گوینده هرگز نشانه را نمی‌بیند.** مدلِ متنی (که جدول را یاد می‌گیرد)
+     فقط می‌گوید کدام جمله‌ها چه حالی دارند — با **شمارهٔ جمله**، بی آنکه
+     یک واژه از متن را بازنویسد. کد آن جمله‌ها را تکهٔ جدا می‌کند و
+     دستورِ کوتاهِ همان حال را در جای همیشگیِ دستور می‌گذارد، که نگهبانِ
+     شش‌ثانیه‌ای از قبل گوش می‌دهد. «مکث» اصلاً به گفتارساز نمی‌رود: سکوتِ
+     واقعی است که کد در صوت می‌گذارد.
+     در نمونه‌ها روشن است؛ در قسمت‌ها **خاموش** تا گوشِ او بگوید (همان مرزِ
+     `VBR_REPLACE`). */
+  SPEAK_SPANS: true,
+  SPEAK_SPANS_EP: false,
+  SPEAK_SPAN_MAX: 10,        // بیشترین حالت در یک متن (مکث هم یکی است)
+  SPEAK_SPAN_SENT_MAX: 3,    // یک حالت حداکثر چند جملهٔ پشتِ‌هم
+  SPEAK_SPAN_SENTS: 160,     // متنِ بلندتر از این، فقط تا همین‌جا حالت می‌گیرد
+  SPEAK_PAUSE_SEC: 0.9,
   MUSIC_HEAR_TRY_MAX: 4,
   /* و سقفِ انباشت: بیش از این قطعهٔ شنیده‌نشده، **دیگر قطعهٔ تازه نمی‌آوریم**.
      آوردنِ چیزی که نمی‌توانیم استفاده کنیم فقط عدد را بدتر می‌کند — و همان
@@ -1550,7 +1567,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.23',
+  CODE_VERSION: '8.24',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1736,6 +1753,22 @@ var CFG = {
      و ردیفِ صف همین را می‌گوید (۷٫۴۰: نسنجیده ضعیف نیست، ولی حدس هم
      تصمیم نیست). رضوی سرِ جایش می‌مانَد: ۰٫۷۴۴ با گوشِ خودش انتخاب شد. */
   VBR_PITCH: '-12',
+  /* ══ گامِ ثابت فرض می‌کرد صدای مبدأ همیشه یکی است، و نیست (۸٫۲۴) ══
+     او دو نمونهٔ ۱ اکتبر را شنید: «رضوی مثلِ قبل بود». اندازه‌گیریِ خودِ
+     فایلِ تبدیل‌شده جواب داد، نه حدس: زیروبمِ میانه **۶۰ هرتز**، و ۵۷٪ِ
+     قاب‌های واک‌دار زیرِ ۶۵ هرتز — یعنی محدودهٔ خِرخِرِ حنجره (vocal fry)، یک
+     اکتاو زیرِ صدای یک مردِ بم. و خودِ رضوی؟ کارتِ سبکِ ۱۸ سپتامبر روی ۱۲۶۴
+     ثانیه از صدای واقعیِ او **۱۰۶٫۹ هرتز** سنجیده بود. فاصله ~۱۰ نیم‌پرده.
+     علت یک فرض است: −۱۲ روی صدای مبدأیی سنجیده شد که زن‌گونه بود (۷٫۸۱
+     خودش نوشته «صدای مبدأ زن‌گونه است و او مردِ بم، حدودِ یک اکتاو»). نمونه
+     با `CFG.TTS_VOICE` (Charon، مرد) خوانده می‌شود و قسمت‌ها با چند صدای
+     نقش‌گزینی‌شده، زن و مرد. یک اکتاو زیرِ صدای مرد، همان «عاروق‌مانندی»
+     است که او در همهٔ واژه‌ها شنید.
+     پس هدف **هرتز** است، نه نیم‌پرده: گردش‌کار زیروبمِ خودِ فایلِ ورودی را
+     می‌سنجد و گام را از نسبتِ دو عدد حساب می‌کند. گلدوز این‌جا نیست چون
+     زیروبمِ واقعی‌اش هنوز به عدد ثبت نشده؛ گامِ سنجیدهٔ خودش (−۲) سرِ جایش
+     می‌مانَد و این نسخه برایش چیزی را عوض نمی‌کند. */
+  VOICE_TARGET_HZ: { razavi: '106.9' },
   /* گامِ سنجیده‌شدهٔ هر گوینده — فقط خانهٔ **خالی** را پر می‌کند و هرگز روی
      مقدارِ دستیِ او نمی‌نویسد (همان قاعدهٔ `PRON_SEED` در ۷٫۶۹ و «اسکن،
      ذوقِ گزینشگر را پاک نمی‌کند» در بخشِ ۲۳). او شیت باز نمی‌کند، پس عددی
@@ -1852,8 +1885,8 @@ var CFG = {
      چیزی که برای سنجشِ یک پارامتر ساخته می‌شود، باید آن پارامتر را در
      **هویتش** داشته باشد. */
   VOICE_SOUL_SEED: [
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '53', tag: 'گام -2 و نشانهٔ بندبند' },
-    { speaker: 'razavi',      show: 'special', ep: '53', tag: 'نشانهٔ بندبند' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '53', tag: 'گام -2 و حالت‌ها' },
+    { speaker: 'razavi',      show: 'special', ep: '53', tag: 'گامِ خودکار و حالت‌ها' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -5919,6 +5952,233 @@ function speakProsodyText_() {
   return L.join('\n');
 }
 
+/**
+ * ══ حالت‌ها — آنچه نشانهٔ نگارشی نمی‌تواند بگوید (۸٫۲۴) ══
+ *
+ * او خواست: «گاهی کشیده، گاهی با صدای بلند، گاهی یکم بلندتر، گاهی یواش …
+ * و به باگِ قبلی نخوریم که گوینده همون دستورِ لحن رو می‌خوند».
+ *
+ * دو راهِ آشکار هر دو بد بودند. نشانهٔ تازه در خودِ متن (مثلاً «⟦آرام⟧»)
+ * یعنی گفتارساز آن را **می‌بیند** — و این مخزن سه نسخه صرفِ گوینده‌ای کرد که
+ * دستور را بلند می‌خوانْد؛ نشانه‌ای وسطِ متن، جایی است که نگهبانِ
+ * شش‌ثانیه‌ای اصلاً نمی‌شنود. و جدولِ کامل در دستورِ گفتارساز از سقفِ ۳۲۰
+ * نویسه می‌گذرد و در هر تکه تکرار می‌شود.
+ *
+ * پس جدول را **مدلِ متنی** یاد می‌گیرد، نه گوینده. او فقط می‌گوید «جملهٔ ۱۲
+ * آرام، ۱۷ تا ۱۸ بلند، پیش از ۲۳ مکث» — با شماره، بی آنکه یک واژه از متن را
+ * بازنویسد، پس سدِ هویتِ واژه‌ها هیچ‌وقت لازم نمی‌شود. کد آن جمله‌ها را تکهٔ
+ * جدا می‌کند و دستورِ کوتاهِ همان حال را **در جای همیشگیِ دستور** می‌گذارد،
+ * که `ttsGuarded_` از قبل رویش گوش می‌دهد. «مکث» اصلاً به گفتارساز نمی‌رود:
+ * سکوتِ واقعی است که کد در صوت می‌گذارد، و نمی‌شود بلند خواندش.
+ *
+ * و آنچه عمداً نیست، با دلیل: کشیدنِ حروف، فاصله میانِ حروف و بولد هنوز
+ * کنار گذاشته‌اند (۸٫۰۸) — املای واژه را عوض می‌کنند. «کشیده» این‌جا همان
+ * کار را بی دست‌زدن به املا می‌کند.
+ */
+var SPEAK_SPANS = [
+  { k: 'کشیده',   cue: 'آهسته و کشیده بخوان؛ هجاها را کمی بکش و میانِ واژه‌ها درنگ کن',
+    when: 'جملهٔ کلیدی، نتیجه‌گیری، چیزی که باید در ذهن بنشیند' },
+  { k: 'بلند',    cue: 'با صدای بلند و پرشور بخوان',
+    when: 'اوجِ هیجان، فریاد، خبرِ شگفت — کم‌یاب، وگرنه بی‌اثر' },
+  { k: 'کمی‌بلند', cue: 'کمی بلندتر و محکم‌تر از معمول بخوان',
+    when: 'ادعای اصلی، تأکید، مخالفت' },
+  { k: 'آرام',    cue: 'آرام و با صدای پایین‌تر بخوان، نرم',
+    when: 'توضیحِ فرعی، دلداری، لحظهٔ اندوه' },
+  { k: 'نجوا',    cue: 'نجواگونه و خیلی آهسته بخوان، انگار رازی را می‌گویی',
+    when: 'راز، اعتراف، نکتهٔ خصوصی — کم‌یاب' },
+  { k: 'تند',     cue: 'کمی تندتر و پرشتاب بخوان',
+    when: 'فهرست، شمارش، هیجانِ رو به جلو' },
+  { k: 'سنگین',   cue: 'سنگین و جدی بخوان، با تأکید روی هر واژه',
+    when: 'هشدار، حکم، جملهٔ قاطع' },
+  { k: 'لبخند',   cue: 'گرم و با لبخند در صدا بخوان',
+    when: 'طنز، شوخی، خاطرهٔ شیرین' },
+  { k: 'مکث',     cue: '',
+    when: 'سکوتی پیش از جملهٔ کلیدی یا پس از یک ضربه — فقط شمارهٔ جمله‌ای که پیشش می‌نشیند' }
+];
+
+function speakSpanDef_(k) {
+  for (var i = 0; i < SPEAK_SPANS.length; i++) if (SPEAK_SPANS[i].k === k) return SPEAK_SPANS[i];
+  return null;
+}
+
+/** جدولِ حالت‌ها برای پرامپتِ مدلِ متنی — یک تعریف، از همان فهرست. */
+function speakSpanText_() {
+  var L = [];
+  for (var i = 0; i < SPEAK_SPANS.length; i++) {
+    L.push('- «' + SPEAK_SPANS[i].k + '» — ' + SPEAK_SPANS[i].when);
+  }
+  return L.join('\n');
+}
+
+var SPEAK_SPAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    spans: { type: 'array', items: { type: 'object', properties: {
+      from: { type: 'string' }, to: { type: 'string' },
+      k: { type: 'string' }, why: { type: 'string' } },
+      required: ['from', 'k'] } }
+  },
+  required: ['spans']
+};
+
+/**
+ * پیشنهادِ مدل ⇒ فهرستِ معتبر. مدل پیشنهاد می‌دهد، کد تصمیم می‌گیرد — همان
+ * مرزِ `bridgeTrim_`: نامِ ناشناخته، شمارهٔ بیرون از متن، بازهٔ بلند، و
+ * همپوشانی دور ریخته می‌شوند و **شمرده** می‌شوند، تا «۳ حالت» با «۹ پیشنهاد،
+ * ۶ تا رد» یکی نشود (۵٫۸۸).
+ */
+function speakSpanTrim_(raw, n) {
+  var max = Math.max(0, Number(CFG.SPEAK_SPAN_MAX) || 10);
+  var smax = Math.max(1, Number(CFG.SPEAK_SPAN_SENT_MAX) || 3);
+  var drop = {}, cand = [];
+  var bump = function (w) { drop[w] = (drop[w] || 0) + 1; };
+  /* بخشِ ۱۰ است و این‌جا بخشِ ۳ — همان گاردِ `personaPitch_`. */
+  var fd = function (v) { return (typeof faDigits_ === 'function') ? faDigits_(v) : v; };
+  var arr = (raw && raw.spans && raw.spans.length) ? raw.spans : [];
+  for (var i = 0; i < arr.length; i++) {
+    var x = arr[i] || {};
+    var d = speakSpanDef_(String(x.k || '').trim());
+    if (!d) { bump('نامِ ناشناخته'); continue; }
+    var a = parseInt(fd(String(x.from == null ? '' : x.from)), 10);
+    var b = parseInt(fd(String(x.to == null || x.to === '' ? x.from : x.to)), 10);
+    if (!isFinite(a) || !isFinite(b) || a < 1 || b < a || b > n) { bump('شمارهٔ نامعتبر'); continue; }
+    if (d.k === 'مکث') b = a;
+    if (b - a + 1 > smax) { bump('بازهٔ بلند'); continue; }
+    cand.push({ a: a, b: b, k: d.k });
+  }
+  cand.sort(function (p, q) { return p.a - q.a || p.b - q.b; });
+  var out = [], lastB = 0, pauseAt = {};
+  for (var j = 0; j < cand.length; j++) {
+    var c = cand[j];
+    if (c.k === 'مکث') {
+      /* مکث پیشِ جملهٔ اول بی‌معناست، و دو مکث پیشِ یک جمله یکی است. */
+      if (c.a === 1 || pauseAt[c.a]) { bump('مکثِ بی‌جا'); continue; }
+      pauseAt[c.a] = true;
+    } else {
+      if (c.a <= lastB) { bump('همپوشانی'); continue; }
+      lastB = c.b;
+    }
+    if (out.length >= max) { bump('بیش از سقف'); continue; }
+    out.push(c);
+  }
+  return { spans: out, drop: drop };
+}
+
+/**
+ * از مدلِ متنی بپرس کدام جمله‌ها چه حالی دارند. متن **بازنویسی نمی‌شود**.
+ * `{spans, n, why}` — و `why` هرگز خالی نیست وقتی چیزی نیامد.
+ */
+function speakSpanPlan_(text, coverAll) {
+  var sents = speakSentSplit_(text);
+  var out = { spans: [], n: sents.length, why: '', drop: {} };
+  if (CFG.SPEAK_SPANS === false) { out.why = 'خاموش'; return out; }
+  if (sents.length < 3) { out.why = 'متن کوتاه است'; return out; }
+  var cap = Math.max(10, Number(CFG.SPEAK_SPAN_SENTS) || 160);
+  var use = Math.min(sents.length, cap);
+  var L = [];
+  for (var i = 0; i < use; i++) L.push('[' + (i + 1) + '] ' + sents[i]);
+  var prompt =
+    'این متن را گوینده‌ای فارسی بلند می‌خوانَد. جمله‌ها شماره دارند. کارِ تو ' +
+    'فقط این است که بگویی **کدام جمله‌ها حالِ خاصی می‌خواهند** — متن را ' +
+    'بازنویسی نکن و چیزی به آن اضافه نکن.\n\n' +
+    'حالت‌ها، و جایی که هر کدام درست است:\n' + speakSpanText_() + '\n\n' +
+    'قاعده‌ها:\n' +
+    '• حالت را از **معنای همان جمله و جای آن در کلِ متن** دربیاور، نه از ' +
+    'یک واژه. جمله‌ای که حالِ خاصی نمی‌خواهد، خودش بی‌حالت بمانَد — بیشترِ ' +
+    'جمله‌ها همین‌اند.\n' +
+    '• کلیشه نساز: یک الگو را پشتِ‌هم تکرار نکن، و «بلند» و «نجوا» را کم ' +
+    'به کار ببر — زیادی‌شان اثرشان را می‌کُشد.\n' +
+    '• هر حالت حداکثر ' + (Number(CFG.SPEAK_SPAN_SENT_MAX) || 3) +
+    ' جملهٔ پشتِ‌هم (from تا to). حالت‌ها روی هم نیفتند.\n' +
+    '• «مکث» فقط from دارد: شمارهٔ جمله‌ای که سکوت **پیش** از آن می‌نشیند.\n' +
+    '• روی‌هم حداکثر ' + (Number(CFG.SPEAK_SPAN_MAX) || 10) + ' حالت.\n' +
+    (coverAll
+      ? '• این یک **نمونهٔ آزمون** است: شنونده می‌خواهد هر حالت را بشنود. پس ' +
+        'هرجا معنا اجازه می‌دهد، از حالت‌های گوناگون استفاده کن — ولی حالتی ' +
+        'را که هیچ جمله‌ای برایش مناسب نیست، به زور نگذار.\n'
+      : '') +
+    'برای هر حالت در why در چند واژه بگو چرا.\n\n' + L.join('\n');
+  var r = null;
+  try { r = geminiText_(prompt, SPEAK_SPAN_SCHEMA, 4096); }
+  catch (e) { out.why = 'مدل جواب نداد: ' + String(e.message || e).slice(0, 80); return out; }
+  var tr = speakSpanTrim_(r, use);
+  out.spans = tr.spans; out.drop = tr.drop;
+  if (!out.spans.length) {
+    var dk = Object.keys(tr.drop);
+    out.why = dk.length ? 'همهٔ پیشنهادها رد شد (' + dk.map(function (k) {
+      return k + ' ×' + tr.drop[k]; }).join('، ') + ')' : 'مدل حالتی پیشنهاد نکرد';
+  }
+  return out;
+}
+
+/**
+ * متن ⇒ تکه‌های گفتارساز، با حالتِ هر تکه. `{t, k}` یا `{pause: ثانیه}`.
+ * جمله‌های بی‌حالت با همان `splitForTts_` بسته می‌شوند، پس متنِ بی‌حالت
+ * دقیقاً همان تکه‌هایی را می‌دهد که امروز می‌دهد.
+ */
+function speakSpanPieces_(text, spans) {
+  var sents = speakSentSplit_(text);
+  var at = {}, pauseAt = {};
+  var sp = spans || [];
+  for (var i = 0; i < sp.length; i++) {
+    if (sp[i].k === 'مکث') { pauseAt[sp[i].a] = true; continue; }
+    for (var j = sp[i].a; j <= sp[i].b; j++) at[j] = sp[i];
+  }
+  var out = [], plain = [];
+  var flush = function () {
+    if (!plain.length) return;
+    var ps = splitForTts_(plain.join(' '));
+    for (var q = 0; q < ps.length; q++) out.push({ t: ps[q], k: '' });
+    plain = [];
+  };
+  var pauseSec = Number(CFG.SPEAK_PAUSE_SEC) || 0.9;
+  for (var n = 1; n <= sents.length; n++) {
+    if (pauseAt[n]) { flush(); out.push({ pause: pauseSec }); }
+    var h = at[n];
+    if (!h) { plain.push(sents[n - 1]); continue; }
+    if (h.a !== n) continue;                              // در تکهٔ اولِ بازه آمد
+    flush();
+    var body = sents.slice(h.a - 1, h.b).join(' ');
+    var ps2 = splitForTts_(body);
+    for (var r = 0; r < ps2.length; r++) out.push({ t: ps2[r], k: h.k });
+  }
+  flush();
+  return out;
+}
+
+/**
+ * دستورِ تکه: کارتِ گوینده، و **در انتها** حالِ همین تکه. انتها عمدی است:
+ * `styleFit_` اگر جا کم باشد از **سر** می‌اندازد، چون آنچه یک تکه را از
+ * بقیه جدا می‌کند همیشه در انتهاست — پس حال هرگز قربانیِ کارت نمی‌شود.
+ */
+function speakSpanStyle_(k, card) {
+  var d = speakSpanDef_(k);
+  var c = String(card || '').replace(/[.،؛:\s]+$/, '');
+  if (!d || !d.cue) return c;
+  return (c ? c + '. ' : '') + d.cue;
+}
+
+/** سکوتِ PCM به base64 — صفرها، طولِ مضربِ ۶ بایت تا با `alignB64_` جفت شود. */
+function speakSilenceB64_(sec) {
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  var bytes = Math.round(Math.max(0, Number(sec) || 0) * sr * 2 / 6) * 6;
+  return new Array(bytes / 3 + 1).join('AAAA');
+}
+
+/** «آرام ۰:۴۲ · بلند ۱:۱۰ …» — جای هر حالت در فایل، تا گوش بداند کجا را بسنجد. */
+function speakSpanWhere_(at) {
+  if (!at || !at.length) return '';
+  var fa = function (x) {
+    try { return faDigitsOut_(String(x)); } catch (e) { return String(x); }
+  };
+  var L = [];
+  for (var i = 0; i < at.length; i++) {
+    var m = Math.floor(at[i].s / 60), s2 = at[i].s % 60;
+    L.push(at[i].k + ' ' + fa(m + ':' + (s2 < 10 ? '0' : '') + s2));
+  }
+  return 'حالت‌ها: ' + L.join(' · ');
+}
+
 /** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
 function speakTrapText_() {
   var L = [];
@@ -7442,8 +7702,13 @@ function wavHeader54_(dataLen) {
   return h;
 }
 
-/** شکستن متن به تکه‌های امن روی مرز جمله (بدون lookbehind، برای سازگاری کامل) */
-function splitForTts_(text) {
+/**
+ * جمله‌های یک متن، همان‌طور که `splitForTts_` می‌شکند — یک تعریف، دو مصرف
+ * (۸٫۲۴). حالت‌ها با **شمارهٔ جمله** گفته می‌شوند؛ اگر شمارش این‌جا با شکستنِ
+ * گفتارساز فرق کند، حالتِ «آرام» روی جملهٔ کناری می‌نشیند و هیچ خطایی هم
+ * نمی‌دهد.
+ */
+function speakSentSplit_(text) {
   var t = String(text).replace(/\s+/g, ' ').trim();
   var sentences = [], cur = '';
   for (var i = 0; i < t.length; i++) {
@@ -7453,6 +7718,12 @@ function splitForTts_(text) {
     }
   }
   if (cur.trim()) sentences.push(cur.trim());
+  return sentences;
+}
+
+/** شکستن متن به تکه‌های امن روی مرز جمله (بدون lookbehind، برای سازگاری کامل) */
+function splitForTts_(text) {
+  var sentences = speakSentSplit_(text);
 
   var out = [], acc = '';
   for (var j = 0; j < sentences.length; j++) {
@@ -53040,10 +53311,20 @@ function personaPitch_(key, rows) {
       break;
     }
   } catch (e) {}
+  /* ══ هدفِ هرتزی بر گامِ ثابت مقدم است، ولی نه بر دستِ او (۸٫۲۴) ══
+     گامِ ثابت فرض می‌کند صدای مبدأ همیشه یکی است؛ نیست (`VOICE_TARGET_HZ`).
+     `pitch` همچنان پر می‌شود — اگر گردش‌کار نتواند زیروبمِ ورودی را بسنجد،
+     همان عددِ قبلی را به کار می‌بَرد، نه هیچ. */
+  var tg = String((CFG.VOICE_TARGET_HZ || {})[k] == null ? '' :
+                  CFG.VOICE_TARGET_HZ[k]).trim();
+  if (tg !== '' && isFinite(Number(tg)) && Number(tg) > 0) {
+    out.targetHz = String(Number(tg));
+    out.src = 'خودکار، هدف ' + out.targetHz + ' هرتز';
+  }
   var seed = (CFG.VOICE_PITCH_SEED || {})[k];
   if (seed != null && String(seed).trim() !== '') {
     out.pitch = String(seed).trim();
-    out.src = 'سنجیده‌شده';
+    if (!out.targetHz) out.src = 'سنجیده‌شده';
   }
   return out;
 }
@@ -59261,6 +59542,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
                         protect: String(CFG.VBR_PROTECT || '0.33') },
               pitchSrc: pit.src,
               audio: [] };
+  /* گامِ بالا پشتیبان است؛ اگر هدف هست، گردش‌کار گام را از زیروبمِ خودِ
+     ورودی حساب می‌کند (۸٫۲۴). */
+  if (pit.targetHz) row.params.targetHz = String(pit.targetHz);
   for (var a = 0; a < au.length; a++) {
     try { driveShareOn_(au[a].id); } catch (eA) {}
     row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
@@ -59287,6 +59571,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      حضورشان شرط است نه همیشگی: ردیفِ «خودِ قسمت» چنین سنجشی ندارد و نوشتنِ
      رشتهٔ خالی روی آن یعنی کپشن هر شب دربارهٔ چیزی حرف بزند که سنجیده نشده —
      و «نسنجیده» با «نبودن» یکی نیست (۸٫۰۵). */
+  if (o.spanLine) row.spanLine = String(o.spanLine).slice(0, 260);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
     row.markMiss = String(o.markMiss == null ? '' : o.markMiss);
@@ -59555,6 +59840,12 @@ function vbrIngest_(hub) {
       it.pieces = Number(r.pieces) || 1;
       if (r.ids && r.ids.length > 1) it.outIds = r.ids;
       it.jobMinutes = Number(hit.minutes) || 0;
+      /* گام و زیروبمِ خروجی، از گزارشِ خودِ گردش‌کار (۸٫۲۴) — تا کپشن عددی
+         را بگوید که پیش از گوشِ او سنجیده شد، نه یک ادعا. */
+      if (hit.pitch != null) it.pitchUsed = String(hit.pitch);
+      if (hit.pitchAuto) it.pitchAuto = hit.pitchAuto;
+      if (hit.f0Out) it.f0Out = hit.f0Out;
+      if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -59634,6 +59925,28 @@ function vbrIngest_(hub) {
  * فراخوانش در `vbrIngest_` داخلِ try است و نتیجه‌اش فقط گزارش می‌شود.
  * یک قطعیِ تلگرام نباید ردیفی را که واقعاً «رسید» است ناموفق کند.
  */
+/**
+ * یک سطرِ کوتاه دربارهٔ گام و زیروبمِ خروجی — یا هیچ (۸٫۲۴).
+ * «−۱۲ ثابت» تا امروز هیچ‌جا گفته نمی‌شد، و همان بود که رضوی را یک اکتاو
+ * زیرِ خودش می‌نشاند. عددی که گوش را از پیش خبر می‌کند، در کپشن می‌آید.
+ */
+function vbrPitchLine_(item, faD) {
+  var f = faD || function (x) { return String(x); };
+  if (!item) return '';
+  var a = item.pitchAuto, o = item.f0Out, out = '';
+  if (a && a.srcHz && a.targetHz) {
+    out = 'گامِ خودکار ' + f(a.pitch) + ' نیم‌پرده (ورودی ' + f(Math.round(a.srcHz)) +
+          ' ⇒ هدف ' + f(Math.round(a.targetHz)) + ' هرتز)';
+  } else if (item.pitchUsed != null && String(item.pitchUsed) !== '') {
+    out = 'گام ' + f(item.pitchUsed) + ' نیم‌پرده';
+  }
+  if (o && o.medianHz) {
+    out += (out ? ' · ' : '') + 'خروجی ' + f(Math.round(o.medianHz)) + ' هرتز';
+  }
+  if (item.f0Warn) out += (out ? ' · ' : '') + '⚠️ ' + String(item.f0Warn);
+  return out ? '\n🎚 ' + tgEsc_(out) : '';
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -59696,12 +60009,24 @@ function vbrTgTell_(item, speakerName, got) {
       markLine += '\n' + tgEsc_(String(item.markWhy));
     }
   }
+  /* ══ گام و حالت‌ها، کوتاه (۸٫۲۴) ══
+     caption سقفِ ۱۰۲۴ نویسه دارد و از قبل پر است؛ پس این دو سطر فقط وقتی
+     می‌نشینند که جا باشد — بلندترشدن یعنی شکستنِ کلِ ارسال، که بدتر از
+     نگفتنِ دو عدد است. */
+  var pitchLine = vbrPitchLine_(item, faD);
+  var spanLine = (item && item.spanLine) ? '\n🎭 ' + tgEsc_(String(item.spanLine)) : '';
   var head = String((item && item.label) || ('قسمت ' + ep));
-  var cap = '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
-            (title ? '\n' + tgEsc_(title) : '') +
-            '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
-            'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine + markLine +
-            '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
+  var capOf = function (extra) {
+    return '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
+           (title ? '\n' + tgEsc_(title) : '') +
+           '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
+           'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine + markLine + extra +
+           '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
+  };
+  var capLen = function (c) { return String(c).replace(/<[^>]+>/g, '').length; };
+  var cap = capOf(pitchLine + spanLine);
+  if (capLen(cap) > 1000) cap = capOf(pitchLine);
+  if (capLen(cap) > 1000) cap = capOf('');
 
   /* ══ چند تکه ⇒ چند پیام، و هر کدام شمارهٔ خودش را دارد (۷٫۶۶) ══
      تا ۷٫۶۵ فقط `got.id` فرستاده می‌شد. با خروجیِ چندتکه آن یعنی نیمِ
@@ -60911,6 +61236,17 @@ function runVoiceSoulTest() {
      و امتناع درست‌تر از ساختن است: کلِ کارِ این دکمه داوریِ **روح** است.
      چهار دقیقه فراخوانِ TTS خرج کردن تا فایلی بدهد که همان «رنگ‌تنها»ی
      دیروز است، هم هزینه است هم یک ادعای نادرستِ دیگر. */
+  /* ══ حالت‌ها (۸٫۲۴) ══
+     کشیده، بلند، کمی بلندتر، آرام، نجوا … — آنچه نشانهٔ نگارشی نمی‌تواند
+     بگوید. مدلِ متنی جدول را می‌خوانَد و فقط **شمارهٔ جمله** می‌دهد؛ گوینده
+     هرگز نشانه‌ای نمی‌بیند. پس از نشانه‌گذاری، چون شمارش روی متنی است که
+     واقعاً خوانده می‌شود. */
+  var spanPlan = { spans: [], why: 'خاموش' };
+  try {
+    if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
+      spanPlan = speakSpanPlan_(txt, true);
+    }
+  } catch (eSp) { spanPlan = { spans: [], why: 'سنجیده نشد: ' + String(eSp.message || eSp).slice(0, 60) }; }
   var cueChk = null;
   try { cueChk = ttsCueStatus_(); } catch (eC) { cueChk = null; }
   /* مهر **پیش از** ساخت برداشته می‌شود؛ مقایسه‌اش پس از ساخت می‌گوید در
@@ -60946,14 +61282,26 @@ function runVoiceSoulTest() {
     return { ok: false, why: 'busy' };
   }
 
-  var res = { ok: false, why: '' }, made = null, sec = 0, cut = 0;
+  var res = { ok: false, why: '' }, made = null, sec = 0, cut = 0, spanLine = '';
   var deadline = new Date().getTime() +
                  (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
   try {
-    var pieces = splitForTts_(txt);
-    var accB64 = '';
+    var pieces = (spanPlan.spans && spanPlan.spans.length)
+      ? speakSpanPieces_(txt, spanPlan.spans)
+      : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
+    var accB64 = '', spanAt = [], bps = (Number(CFG.SAMPLE_RATE) || 24000) * 2;
     for (var i = 0; i < pieces.length; i++) {
       if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
+      var atSec = Math.round(((alignB64_(accB64).length / 4) * 3) / bps);
+      /* «مکث» به گفتارساز نمی‌رود: سکوتِ واقعی، که نمی‌شود بلند خواندش. */
+      if (pieces[i].pause) {
+        accB64 += speakSilenceB64_(pieces[i].pause);
+        spanAt.push({ k: 'مکث', s: atSec });
+        continue;
+      }
+      if (pieces[i].k && (!i || pieces[i - 1].k !== pieces[i].k)) {
+        spanAt.push({ k: pieces[i].k, s: atSec });
+      }
       /* مهرِ تازه پیش از هر تکه: `STYLE_PROBE_TTL_MIN` پنج دقیقه است و
          انقضای وسطِ کار یعنی نیمهٔ دومِ نمونه بی روح ساخته می‌شود، بی هیچ
          خطایی — همان تلهٔ ۷٫۷۳ در `runStyleProbe`. */
@@ -60968,7 +61316,9 @@ function runVoiceSoulTest() {
          و نمونه‌ای که برای **داوری** ساخته می‌شود باید دستِ‌کم همان‌قدر
          نگهبان داشته باشد که چیزی که منتشر می‌شود؛ وگرنه عیبی که در
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
-      var b1 = ttsChunk_(pieces[i], pick.cue, CFG.TTS_VOICE);
+      var b1 = ttsChunk_(pieces[i].t,
+                         pieces[i].k ? speakSpanStyle_(pieces[i].k, pick.cue) : pick.cue,
+                         CFG.TTS_VOICE);
       if (!b1) { cut = pieces.length - i; break; }
       accB64 += alignB64_(b1);
     }
@@ -61001,10 +61351,14 @@ function runVoiceSoulTest() {
     /* و از همین‌جا به راهِ عادیِ پل. `soul` صریح داده می‌شود چون این پوشه
        `_episode.json` ندارد و `vbrSoul_` درست می‌گفت «نامعلوم» — ولی ما
        **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
+    var tagO = vbrSoulTag_(cueChk, label, dropChk, prMarks, prCover, prRich, prWhy);
+    /* جای هر حالت در فایل، تا گوش بداند کجا را بسنجد — همان درسِ ۸٫۱۰: آنچه
+       شنونده نداند کجاست، قضاوت نمی‌شود. */
+    spanLine = speakSpanWhere_(spanAt) ||
+               ('حالت‌ها: هیچ — ' + String(spanPlan.why || 'نامعلوم'));
+    tagO.spanLine = spanLine;
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
-                    String(pick.item.title || ''),
-                    vbrSoulTag_(cueChk, label, dropChk, prMarks,
-                                prCover, prRich, prWhy));
+                    String(pick.item.title || ''), tagO);
     res.ok = !!(r && r.ok);
     res.why = (r && r.why) || '';
   } catch (e) {
@@ -61020,6 +61374,7 @@ function runVoiceSoulTest() {
           '\nمتن از: قسمت ' + String(pick.item.ep) +
           '\nطولِ ساخته‌شده: ' + dur +
           (prMsg ? '\n' + prMsg : '') +
+          (spanLine ? '\n🎭 ' + spanLine : '') +
           (cut ? '\n⚠️ ' + faDigitsOut_(String(cut)) + ' تکه ساخته نشد (وقت یا مدل).' : '') +
           (made ? '\n' + made.getUrl() : '') +
           (res.why ? '\nپیام: ' + res.why : '') +

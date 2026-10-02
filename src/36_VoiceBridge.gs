@@ -368,6 +368,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
                         protect: String(CFG.VBR_PROTECT || '0.33') },
               pitchSrc: pit.src,
               audio: [] };
+  /* گامِ بالا پشتیبان است؛ اگر هدف هست، گردش‌کار گام را از زیروبمِ خودِ
+     ورودی حساب می‌کند (۸٫۲۴). */
+  if (pit.targetHz) row.params.targetHz = String(pit.targetHz);
   for (var a = 0; a < au.length; a++) {
     try { driveShareOn_(au[a].id); } catch (eA) {}
     row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
@@ -394,6 +397,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      حضورشان شرط است نه همیشگی: ردیفِ «خودِ قسمت» چنین سنجشی ندارد و نوشتنِ
      رشتهٔ خالی روی آن یعنی کپشن هر شب دربارهٔ چیزی حرف بزند که سنجیده نشده —
      و «نسنجیده» با «نبودن» یکی نیست (۸٫۰۵). */
+  if (o.spanLine) row.spanLine = String(o.spanLine).slice(0, 260);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
     row.markMiss = String(o.markMiss == null ? '' : o.markMiss);
@@ -662,6 +666,12 @@ function vbrIngest_(hub) {
       it.pieces = Number(r.pieces) || 1;
       if (r.ids && r.ids.length > 1) it.outIds = r.ids;
       it.jobMinutes = Number(hit.minutes) || 0;
+      /* گام و زیروبمِ خروجی، از گزارشِ خودِ گردش‌کار (۸٫۲۴) — تا کپشن عددی
+         را بگوید که پیش از گوشِ او سنجیده شد، نه یک ادعا. */
+      if (hit.pitch != null) it.pitchUsed = String(hit.pitch);
+      if (hit.pitchAuto) it.pitchAuto = hit.pitchAuto;
+      if (hit.f0Out) it.f0Out = hit.f0Out;
+      if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -741,6 +751,28 @@ function vbrIngest_(hub) {
  * فراخوانش در `vbrIngest_` داخلِ try است و نتیجه‌اش فقط گزارش می‌شود.
  * یک قطعیِ تلگرام نباید ردیفی را که واقعاً «رسید» است ناموفق کند.
  */
+/**
+ * یک سطرِ کوتاه دربارهٔ گام و زیروبمِ خروجی — یا هیچ (۸٫۲۴).
+ * «−۱۲ ثابت» تا امروز هیچ‌جا گفته نمی‌شد، و همان بود که رضوی را یک اکتاو
+ * زیرِ خودش می‌نشاند. عددی که گوش را از پیش خبر می‌کند، در کپشن می‌آید.
+ */
+function vbrPitchLine_(item, faD) {
+  var f = faD || function (x) { return String(x); };
+  if (!item) return '';
+  var a = item.pitchAuto, o = item.f0Out, out = '';
+  if (a && a.srcHz && a.targetHz) {
+    out = 'گامِ خودکار ' + f(a.pitch) + ' نیم‌پرده (ورودی ' + f(Math.round(a.srcHz)) +
+          ' ⇒ هدف ' + f(Math.round(a.targetHz)) + ' هرتز)';
+  } else if (item.pitchUsed != null && String(item.pitchUsed) !== '') {
+    out = 'گام ' + f(item.pitchUsed) + ' نیم‌پرده';
+  }
+  if (o && o.medianHz) {
+    out += (out ? ' · ' : '') + 'خروجی ' + f(Math.round(o.medianHz)) + ' هرتز';
+  }
+  if (item.f0Warn) out += (out ? ' · ' : '') + '⚠️ ' + String(item.f0Warn);
+  return out ? '\n🎚 ' + tgEsc_(out) : '';
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -803,12 +835,24 @@ function vbrTgTell_(item, speakerName, got) {
       markLine += '\n' + tgEsc_(String(item.markWhy));
     }
   }
+  /* ══ گام و حالت‌ها، کوتاه (۸٫۲۴) ══
+     caption سقفِ ۱۰۲۴ نویسه دارد و از قبل پر است؛ پس این دو سطر فقط وقتی
+     می‌نشینند که جا باشد — بلندترشدن یعنی شکستنِ کلِ ارسال، که بدتر از
+     نگفتنِ دو عدد است. */
+  var pitchLine = vbrPitchLine_(item, faD);
+  var spanLine = (item && item.spanLine) ? '\n🎭 ' + tgEsc_(String(item.spanLine)) : '';
   var head = String((item && item.label) || ('قسمت ' + ep));
-  var cap = '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
-            (title ? '\n' + tgEsc_(title) : '') +
-            '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
-            'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine + markLine +
-            '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
+  var capOf = function (extra) {
+    return '🎙 <b>' + tgEsc_(head) + ' با صدای ' + tgEsc_(who) + '</b>' +
+           (title ? '\n' + tgEsc_(title) : '') +
+           '\n\nاین <b>آزمایشی</b> است و کنارِ فایلِ اصلی نشسته — ' +
+           'صوتی که منتشر و ایمیل شد عوض نشده.' + soulLine + markLine + extra +
+           '\n\nتنها چیزی که هیچ کدی جوابش را نمی‌دهد: <b>شبیهِ اوست؟</b>';
+  };
+  var capLen = function (c) { return String(c).replace(/<[^>]+>/g, '').length; };
+  var cap = capOf(pitchLine + spanLine);
+  if (capLen(cap) > 1000) cap = capOf(pitchLine);
+  if (capLen(cap) > 1000) cap = capOf('');
 
   /* ══ چند تکه ⇒ چند پیام، و هر کدام شمارهٔ خودش را دارد (۷٫۶۶) ══
      تا ۷٫۶۵ فقط `got.id` فرستاده می‌شد. با خروجیِ چندتکه آن یعنی نیمِ
@@ -2018,6 +2062,17 @@ function runVoiceSoulTest() {
      و امتناع درست‌تر از ساختن است: کلِ کارِ این دکمه داوریِ **روح** است.
      چهار دقیقه فراخوانِ TTS خرج کردن تا فایلی بدهد که همان «رنگ‌تنها»ی
      دیروز است، هم هزینه است هم یک ادعای نادرستِ دیگر. */
+  /* ══ حالت‌ها (۸٫۲۴) ══
+     کشیده، بلند، کمی بلندتر، آرام، نجوا … — آنچه نشانهٔ نگارشی نمی‌تواند
+     بگوید. مدلِ متنی جدول را می‌خوانَد و فقط **شمارهٔ جمله** می‌دهد؛ گوینده
+     هرگز نشانه‌ای نمی‌بیند. پس از نشانه‌گذاری، چون شمارش روی متنی است که
+     واقعاً خوانده می‌شود. */
+  var spanPlan = { spans: [], why: 'خاموش' };
+  try {
+    if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
+      spanPlan = speakSpanPlan_(txt, true);
+    }
+  } catch (eSp) { spanPlan = { spans: [], why: 'سنجیده نشد: ' + String(eSp.message || eSp).slice(0, 60) }; }
   var cueChk = null;
   try { cueChk = ttsCueStatus_(); } catch (eC) { cueChk = null; }
   /* مهر **پیش از** ساخت برداشته می‌شود؛ مقایسه‌اش پس از ساخت می‌گوید در
@@ -2053,14 +2108,26 @@ function runVoiceSoulTest() {
     return { ok: false, why: 'busy' };
   }
 
-  var res = { ok: false, why: '' }, made = null, sec = 0, cut = 0;
+  var res = { ok: false, why: '' }, made = null, sec = 0, cut = 0, spanLine = '';
   var deadline = new Date().getTime() +
                  (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
   try {
-    var pieces = splitForTts_(txt);
-    var accB64 = '';
+    var pieces = (spanPlan.spans && spanPlan.spans.length)
+      ? speakSpanPieces_(txt, spanPlan.spans)
+      : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
+    var accB64 = '', spanAt = [], bps = (Number(CFG.SAMPLE_RATE) || 24000) * 2;
     for (var i = 0; i < pieces.length; i++) {
       if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
+      var atSec = Math.round(((alignB64_(accB64).length / 4) * 3) / bps);
+      /* «مکث» به گفتارساز نمی‌رود: سکوتِ واقعی، که نمی‌شود بلند خواندش. */
+      if (pieces[i].pause) {
+        accB64 += speakSilenceB64_(pieces[i].pause);
+        spanAt.push({ k: 'مکث', s: atSec });
+        continue;
+      }
+      if (pieces[i].k && (!i || pieces[i - 1].k !== pieces[i].k)) {
+        spanAt.push({ k: pieces[i].k, s: atSec });
+      }
       /* مهرِ تازه پیش از هر تکه: `STYLE_PROBE_TTL_MIN` پنج دقیقه است و
          انقضای وسطِ کار یعنی نیمهٔ دومِ نمونه بی روح ساخته می‌شود، بی هیچ
          خطایی — همان تلهٔ ۷٫۷۳ در `runStyleProbe`. */
@@ -2075,7 +2142,9 @@ function runVoiceSoulTest() {
          و نمونه‌ای که برای **داوری** ساخته می‌شود باید دستِ‌کم همان‌قدر
          نگهبان داشته باشد که چیزی که منتشر می‌شود؛ وگرنه عیبی که در
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
-      var b1 = ttsChunk_(pieces[i], pick.cue, CFG.TTS_VOICE);
+      var b1 = ttsChunk_(pieces[i].t,
+                         pieces[i].k ? speakSpanStyle_(pieces[i].k, pick.cue) : pick.cue,
+                         CFG.TTS_VOICE);
       if (!b1) { cut = pieces.length - i; break; }
       accB64 += alignB64_(b1);
     }
@@ -2108,10 +2177,14 @@ function runVoiceSoulTest() {
     /* و از همین‌جا به راهِ عادیِ پل. `soul` صریح داده می‌شود چون این پوشه
        `_episode.json` ندارد و `vbrSoul_` درست می‌گفت «نامعلوم» — ولی ما
        **می‌دانیم**: همین حالا با شیوهٔ خواندنِ خودش خوانده شد. */
+    var tagO = vbrSoulTag_(cueChk, label, dropChk, prMarks, prCover, prRich, prWhy);
+    /* جای هر حالت در فایل، تا گوش بداند کجا را بسنجد — همان درسِ ۸٫۱۰: آنچه
+       شنونده نداند کجاست، قضاوت نمی‌شود. */
+    spanLine = speakSpanWhere_(spanAt) ||
+               ('حالت‌ها: هیچ — ' + String(spanPlan.why || 'نامعلوم'));
+    tagO.spanLine = spanLine;
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
-                    String(pick.item.title || ''),
-                    vbrSoulTag_(cueChk, label, dropChk, prMarks,
-                                prCover, prRich, prWhy));
+                    String(pick.item.title || ''), tagO);
     res.ok = !!(r && r.ok);
     res.why = (r && r.why) || '';
   } catch (e) {
@@ -2127,6 +2200,7 @@ function runVoiceSoulTest() {
           '\nمتن از: قسمت ' + String(pick.item.ep) +
           '\nطولِ ساخته‌شده: ' + dur +
           (prMsg ? '\n' + prMsg : '') +
+          (spanLine ? '\n🎭 ' + spanLine : '') +
           (cut ? '\n⚠️ ' + faDigitsOut_(String(cut)) + ' تکه ساخته نشد (وقت یا مدل).' : '') +
           (made ? '\n' + made.getUrl() : '') +
           (res.why ? '\nپیام: ' + res.why : '') +

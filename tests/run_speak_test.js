@@ -1379,4 +1379,100 @@ console.log('\n=== ۲۳) نشانه‌گذاری بند به بند، نه هم�
   }
 }
 
+
+console.log('\n=== ۲۴) حالت‌ها — گوینده هرگز نشانه را نمی‌بیند (۸.۲۴) ===');
+{
+  const okS = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); pass++; };
+  const txt = 'جملهٔ یکم این است. جملهٔ دوم آمد! آیا جملهٔ سوم هست؟ ' +
+              'جملهٔ چهارم آرام است. جملهٔ پنجم بلند است. جملهٔ ششم پایان است.';
+  const sents = speakSentSplit_(txt);
+
+  /* ۲۴.۱ — مدل پیشنهاد می‌دهد، کد تصمیم می‌گیرد. هر ردی شمرده می‌شود. */
+  {
+    const raw = { spans: [
+      { from: '4', to: '4', k: 'آرام' },
+      { from: '5', k: 'بلند' },
+      { from: '5', to: '5', k: 'نجوا' },            // روی «بلند» افتاده
+      { from: '2', to: '6', k: 'کشیده' },           // بلندتر از سقف
+      { from: '9', k: 'تند' },                      // بیرون از متن
+      { from: '3', k: 'فریاد' },                    // نامِ ناشناخته
+      { from: '1', k: 'مکث' },                      // مکث پیشِ جملهٔ اول
+      { from: '۶', k: 'مکث' }                       // رقمِ فارسی پذیرفته
+    ] };
+    const tr = speakSpanTrim_(raw, sents.length);
+    const got = tr.spans.map(x => x.k + x.a + '-' + x.b).join(',');
+    okS('۲۴.۱ فقط پیشنهادهای معتبر می‌مانند', got === 'آرام4-4,بلند5-5,مکث6-6', got);
+    okS('۲۴.۱-ب و هر رد به نام شمرده می‌شود',
+        tr.drop['همپوشانی'] === 1 && tr.drop['بازهٔ بلند'] === 1 &&
+        tr.drop['شمارهٔ نامعتبر'] === 1 && tr.drop['نامِ ناشناخته'] === 1 &&
+        tr.drop['مکثِ بی‌جا'] === 1, JSON.stringify(tr.drop));
+    const keep = CFG.SPEAK_SPAN_MAX; CFG.SPEAK_SPAN_MAX = 1;
+    let tr2; try { tr2 = speakSpanTrim_(raw, sents.length); } finally { CFG.SPEAK_SPAN_MAX = keep; }
+    okS('۲۴.۱-پ سقفِ شمار رعایت می‌شود', tr2.spans.length === 1 && tr2.drop['بیش از سقف'] >= 1,
+        JSON.stringify(tr2.drop));
+  }
+
+  /* ۲۴.۲ — **مهم‌ترین مرز: متنِ گفتارساز همان جمله‌های متن است، نه یک نویسه
+     بیشتر.** اگر نامِ حالت یا جدول وارد متن شود، همان باگی برمی‌گردد که
+     گوینده دستور را بلند می‌خوانْد. پس پیوندِ تکه‌ها باید دقیقاً همان متن
+     باشد، و نامِ هیچ حالتی در آن نباشد. */
+  {
+    const spans = [{ a: 4, b: 4, k: 'آرام' }, { a: 5, b: 5, k: 'بلند' }, { a: 6, b: 6, k: 'مکث' }];
+    const ps = speakSpanPieces_(txt, spans);
+    const joined = ps.filter(p => p.t).map(p => p.t).join(' ');
+    okS('۲۴.۲ پیوندِ تکه‌ها عیناً همان متن است', joined === sents.join(' '), joined);
+    const leak = ps.filter(p => p.t && SPEAK_SPANS.some(d => p.t.indexOf('«' + d.k + '»') !== -1 || p.t.indexOf(d.cue || '¤') !== -1));
+    okS('۲۴.۲-ب هیچ نام یا دستورِ حالتی وارد متن نشد', leak.length === 0, JSON.stringify(leak));
+    const kinds = ps.map(p => p.pause ? 'سکوت' : (p.k || '-')).join(',');
+    okS('۲۴.۲-پ هر حالت تکهٔ خودش است و مکث سکوت است، نه متن',
+        kinds === '-,آرام,بلند,سکوت,-', kinds);
+    const none = speakSpanPieces_(txt, []).map(p => p.t);
+    okS('۲۴.۲-ت بی حالت، دقیقاً همان تکه‌های امروز', JSON.stringify(none) === JSON.stringify(splitForTts_(txt)));
+  }
+
+  /* ۲۴.۳ — حالِ تکه در **انتهای** دستور است، چون `styleFit_` از سر می‌اندازد.
+     با کارتی بلند که از سقف بگذرد، حال باید بماند و کارت کوتاه شود. */
+  {
+    const card = 'متعادل بخوان: حدودِ ۷۹ درصدِ زمان حرف بزن و بقیه را سکوت. ' +
+      'هر عبارت حدودِ ۱٫۵ ثانیه و بعد مکث؛ در دلِ جمله ۰٫۳۰ ثانیه، میانِ دو جمله ' +
+      '۰٫۶۰، و میانِ بندها ۱٫۱. حدودِ ۲۶ مکث در دقیقه. دامنهٔ زیروبم متعادل؛ ' +
+      'تأکید را با مکث و کشش بساز، نه با بلند کردنِ صدا. پایانِ عبارت را فرود بیاور.';
+    const cue = ttsCue_(speakSpanStyle_('آرام', card), 'سَلام بَر شُما.');
+    okS('۲۴.۳ حالِ «آرام» در دستورِ نهایی هست، حتی وقتی کارت جا نمی‌شود',
+        cue.indexOf('آرام و با صدای پایین‌تر بخوان') !== -1 &&
+        cue.length <= (CFG.TTS_CUE_MAX || 320) + 40, cue.length + ' · ' + cue);
+    okS('۲۴.۳-ب «مکث» دستوری نمی‌سازد', speakSpanStyle_('مکث', card) === card.replace(/[.،؛:\s]+$/, ''));
+  }
+
+  /* ۲۴.۴ — سکوت، صفرِ واقعی و هم‌ترازِ base64. */
+  {
+    const b = speakSilenceB64_(0.9);
+    const bytes = b.length / 4 * 3;
+    okS('۲۴.۴ سکوت مضربِ ۶ بایت و ~۰٫۹ ثانیه است',
+        b.length % 8 === 0 && Math.abs(bytes / ((CFG.SAMPLE_RATE || 24000) * 2) - 0.9) < 0.01 &&
+        /^A*$/.test(b) && alignB64_(b) === b, bytes);
+  }
+
+  /* ۲۴.۵ — پرسش از مدل: جمله‌ها شماره‌دار می‌روند، متن پس گرفته نمی‌شود، و
+     وقتی مدل نیست علتش گفته می‌شود. */
+  {
+    const realG = global.geminiText_;
+    let seen = '';
+    global.geminiText_ = function (pr) { seen = String(pr);
+      return { spans: [{ from: '2', k: 'لبخند' }, { from: '4', to: '5', k: 'سنگین' }] }; };
+    let r;
+    try { r = speakSpanPlan_(txt, true); } finally { global.geminiText_ = realG; }
+    okS('۲۴.۵ جمله‌ها با شماره رفتند و جدولِ حالت‌ها در پرامپت بود',
+        /\[1\] جملهٔ یکم/.test(seen) && /\[6\]/.test(seen) && /«نجوا»/.test(seen) &&
+        !/فیلد t/.test(seen), seen.slice(0, 80));
+    okS('۲۴.۵-ب و جواب به فهرستِ معتبر تبدیل شد',
+        r.spans.length === 2 && r.spans[1].k === 'سنگین' && r.spans[1].b === 5, JSON.stringify(r));
+    global.geminiText_ = function () { throw new Error('quota'); };
+    let r2;
+    try { r2 = speakSpanPlan_(txt, true); } finally { global.geminiText_ = realG; }
+    okS('۲۴.۵-پ مدلِ غایب ⇒ بی حالت، با علت', r2.spans.length === 0 && /quota/.test(r2.why), r2.why);
+  }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

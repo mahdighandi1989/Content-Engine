@@ -88,10 +88,20 @@ function personaPitch_(key, rows) {
       break;
     }
   } catch (e) {}
+  /* ══ هدفِ هرتزی بر گامِ ثابت مقدم است، ولی نه بر دستِ او (۸٫۲۴) ══
+     گامِ ثابت فرض می‌کند صدای مبدأ همیشه یکی است؛ نیست (`VOICE_TARGET_HZ`).
+     `pitch` همچنان پر می‌شود — اگر گردش‌کار نتواند زیروبمِ ورودی را بسنجد،
+     همان عددِ قبلی را به کار می‌بَرد، نه هیچ. */
+  var tg = String((CFG.VOICE_TARGET_HZ || {})[k] == null ? '' :
+                  CFG.VOICE_TARGET_HZ[k]).trim();
+  if (tg !== '' && isFinite(Number(tg)) && Number(tg) > 0) {
+    out.targetHz = String(Number(tg));
+    out.src = 'خودکار، هدف ' + out.targetHz + ' هرتز';
+  }
   var seed = (CFG.VOICE_PITCH_SEED || {})[k];
   if (seed != null && String(seed).trim() !== '') {
     out.pitch = String(seed).trim();
-    out.src = 'سنجیده‌شده';
+    if (!out.targetHz) out.src = 'سنجیده‌شده';
   }
   return out;
 }

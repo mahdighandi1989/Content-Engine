@@ -2211,6 +2211,233 @@ function speakProsodyText_() {
   return L.join('\n');
 }
 
+/**
+ * ══ حالت‌ها — آنچه نشانهٔ نگارشی نمی‌تواند بگوید (۸٫۲۴) ══
+ *
+ * او خواست: «گاهی کشیده، گاهی با صدای بلند، گاهی یکم بلندتر، گاهی یواش …
+ * و به باگِ قبلی نخوریم که گوینده همون دستورِ لحن رو می‌خوند».
+ *
+ * دو راهِ آشکار هر دو بد بودند. نشانهٔ تازه در خودِ متن (مثلاً «⟦آرام⟧»)
+ * یعنی گفتارساز آن را **می‌بیند** — و این مخزن سه نسخه صرفِ گوینده‌ای کرد که
+ * دستور را بلند می‌خوانْد؛ نشانه‌ای وسطِ متن، جایی است که نگهبانِ
+ * شش‌ثانیه‌ای اصلاً نمی‌شنود. و جدولِ کامل در دستورِ گفتارساز از سقفِ ۳۲۰
+ * نویسه می‌گذرد و در هر تکه تکرار می‌شود.
+ *
+ * پس جدول را **مدلِ متنی** یاد می‌گیرد، نه گوینده. او فقط می‌گوید «جملهٔ ۱۲
+ * آرام، ۱۷ تا ۱۸ بلند، پیش از ۲۳ مکث» — با شماره، بی آنکه یک واژه از متن را
+ * بازنویسد، پس سدِ هویتِ واژه‌ها هیچ‌وقت لازم نمی‌شود. کد آن جمله‌ها را تکهٔ
+ * جدا می‌کند و دستورِ کوتاهِ همان حال را **در جای همیشگیِ دستور** می‌گذارد،
+ * که `ttsGuarded_` از قبل رویش گوش می‌دهد. «مکث» اصلاً به گفتارساز نمی‌رود:
+ * سکوتِ واقعی است که کد در صوت می‌گذارد، و نمی‌شود بلند خواندش.
+ *
+ * و آنچه عمداً نیست، با دلیل: کشیدنِ حروف، فاصله میانِ حروف و بولد هنوز
+ * کنار گذاشته‌اند (۸٫۰۸) — املای واژه را عوض می‌کنند. «کشیده» این‌جا همان
+ * کار را بی دست‌زدن به املا می‌کند.
+ */
+var SPEAK_SPANS = [
+  { k: 'کشیده',   cue: 'آهسته و کشیده بخوان؛ هجاها را کمی بکش و میانِ واژه‌ها درنگ کن',
+    when: 'جملهٔ کلیدی، نتیجه‌گیری، چیزی که باید در ذهن بنشیند' },
+  { k: 'بلند',    cue: 'با صدای بلند و پرشور بخوان',
+    when: 'اوجِ هیجان، فریاد، خبرِ شگفت — کم‌یاب، وگرنه بی‌اثر' },
+  { k: 'کمی‌بلند', cue: 'کمی بلندتر و محکم‌تر از معمول بخوان',
+    when: 'ادعای اصلی، تأکید، مخالفت' },
+  { k: 'آرام',    cue: 'آرام و با صدای پایین‌تر بخوان، نرم',
+    when: 'توضیحِ فرعی، دلداری، لحظهٔ اندوه' },
+  { k: 'نجوا',    cue: 'نجواگونه و خیلی آهسته بخوان، انگار رازی را می‌گویی',
+    when: 'راز، اعتراف، نکتهٔ خصوصی — کم‌یاب' },
+  { k: 'تند',     cue: 'کمی تندتر و پرشتاب بخوان',
+    when: 'فهرست، شمارش، هیجانِ رو به جلو' },
+  { k: 'سنگین',   cue: 'سنگین و جدی بخوان، با تأکید روی هر واژه',
+    when: 'هشدار، حکم، جملهٔ قاطع' },
+  { k: 'لبخند',   cue: 'گرم و با لبخند در صدا بخوان',
+    when: 'طنز، شوخی، خاطرهٔ شیرین' },
+  { k: 'مکث',     cue: '',
+    when: 'سکوتی پیش از جملهٔ کلیدی یا پس از یک ضربه — فقط شمارهٔ جمله‌ای که پیشش می‌نشیند' }
+];
+
+function speakSpanDef_(k) {
+  for (var i = 0; i < SPEAK_SPANS.length; i++) if (SPEAK_SPANS[i].k === k) return SPEAK_SPANS[i];
+  return null;
+}
+
+/** جدولِ حالت‌ها برای پرامپتِ مدلِ متنی — یک تعریف، از همان فهرست. */
+function speakSpanText_() {
+  var L = [];
+  for (var i = 0; i < SPEAK_SPANS.length; i++) {
+    L.push('- «' + SPEAK_SPANS[i].k + '» — ' + SPEAK_SPANS[i].when);
+  }
+  return L.join('\n');
+}
+
+var SPEAK_SPAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    spans: { type: 'array', items: { type: 'object', properties: {
+      from: { type: 'string' }, to: { type: 'string' },
+      k: { type: 'string' }, why: { type: 'string' } },
+      required: ['from', 'k'] } }
+  },
+  required: ['spans']
+};
+
+/**
+ * پیشنهادِ مدل ⇒ فهرستِ معتبر. مدل پیشنهاد می‌دهد، کد تصمیم می‌گیرد — همان
+ * مرزِ `bridgeTrim_`: نامِ ناشناخته، شمارهٔ بیرون از متن، بازهٔ بلند، و
+ * همپوشانی دور ریخته می‌شوند و **شمرده** می‌شوند، تا «۳ حالت» با «۹ پیشنهاد،
+ * ۶ تا رد» یکی نشود (۵٫۸۸).
+ */
+function speakSpanTrim_(raw, n) {
+  var max = Math.max(0, Number(CFG.SPEAK_SPAN_MAX) || 10);
+  var smax = Math.max(1, Number(CFG.SPEAK_SPAN_SENT_MAX) || 3);
+  var drop = {}, cand = [];
+  var bump = function (w) { drop[w] = (drop[w] || 0) + 1; };
+  /* بخشِ ۱۰ است و این‌جا بخشِ ۳ — همان گاردِ `personaPitch_`. */
+  var fd = function (v) { return (typeof faDigits_ === 'function') ? faDigits_(v) : v; };
+  var arr = (raw && raw.spans && raw.spans.length) ? raw.spans : [];
+  for (var i = 0; i < arr.length; i++) {
+    var x = arr[i] || {};
+    var d = speakSpanDef_(String(x.k || '').trim());
+    if (!d) { bump('نامِ ناشناخته'); continue; }
+    var a = parseInt(fd(String(x.from == null ? '' : x.from)), 10);
+    var b = parseInt(fd(String(x.to == null || x.to === '' ? x.from : x.to)), 10);
+    if (!isFinite(a) || !isFinite(b) || a < 1 || b < a || b > n) { bump('شمارهٔ نامعتبر'); continue; }
+    if (d.k === 'مکث') b = a;
+    if (b - a + 1 > smax) { bump('بازهٔ بلند'); continue; }
+    cand.push({ a: a, b: b, k: d.k });
+  }
+  cand.sort(function (p, q) { return p.a - q.a || p.b - q.b; });
+  var out = [], lastB = 0, pauseAt = {};
+  for (var j = 0; j < cand.length; j++) {
+    var c = cand[j];
+    if (c.k === 'مکث') {
+      /* مکث پیشِ جملهٔ اول بی‌معناست، و دو مکث پیشِ یک جمله یکی است. */
+      if (c.a === 1 || pauseAt[c.a]) { bump('مکثِ بی‌جا'); continue; }
+      pauseAt[c.a] = true;
+    } else {
+      if (c.a <= lastB) { bump('همپوشانی'); continue; }
+      lastB = c.b;
+    }
+    if (out.length >= max) { bump('بیش از سقف'); continue; }
+    out.push(c);
+  }
+  return { spans: out, drop: drop };
+}
+
+/**
+ * از مدلِ متنی بپرس کدام جمله‌ها چه حالی دارند. متن **بازنویسی نمی‌شود**.
+ * `{spans, n, why}` — و `why` هرگز خالی نیست وقتی چیزی نیامد.
+ */
+function speakSpanPlan_(text, coverAll) {
+  var sents = speakSentSplit_(text);
+  var out = { spans: [], n: sents.length, why: '', drop: {} };
+  if (CFG.SPEAK_SPANS === false) { out.why = 'خاموش'; return out; }
+  if (sents.length < 3) { out.why = 'متن کوتاه است'; return out; }
+  var cap = Math.max(10, Number(CFG.SPEAK_SPAN_SENTS) || 160);
+  var use = Math.min(sents.length, cap);
+  var L = [];
+  for (var i = 0; i < use; i++) L.push('[' + (i + 1) + '] ' + sents[i]);
+  var prompt =
+    'این متن را گوینده‌ای فارسی بلند می‌خوانَد. جمله‌ها شماره دارند. کارِ تو ' +
+    'فقط این است که بگویی **کدام جمله‌ها حالِ خاصی می‌خواهند** — متن را ' +
+    'بازنویسی نکن و چیزی به آن اضافه نکن.\n\n' +
+    'حالت‌ها، و جایی که هر کدام درست است:\n' + speakSpanText_() + '\n\n' +
+    'قاعده‌ها:\n' +
+    '• حالت را از **معنای همان جمله و جای آن در کلِ متن** دربیاور، نه از ' +
+    'یک واژه. جمله‌ای که حالِ خاصی نمی‌خواهد، خودش بی‌حالت بمانَد — بیشترِ ' +
+    'جمله‌ها همین‌اند.\n' +
+    '• کلیشه نساز: یک الگو را پشتِ‌هم تکرار نکن، و «بلند» و «نجوا» را کم ' +
+    'به کار ببر — زیادی‌شان اثرشان را می‌کُشد.\n' +
+    '• هر حالت حداکثر ' + (Number(CFG.SPEAK_SPAN_SENT_MAX) || 3) +
+    ' جملهٔ پشتِ‌هم (from تا to). حالت‌ها روی هم نیفتند.\n' +
+    '• «مکث» فقط from دارد: شمارهٔ جمله‌ای که سکوت **پیش** از آن می‌نشیند.\n' +
+    '• روی‌هم حداکثر ' + (Number(CFG.SPEAK_SPAN_MAX) || 10) + ' حالت.\n' +
+    (coverAll
+      ? '• این یک **نمونهٔ آزمون** است: شنونده می‌خواهد هر حالت را بشنود. پس ' +
+        'هرجا معنا اجازه می‌دهد، از حالت‌های گوناگون استفاده کن — ولی حالتی ' +
+        'را که هیچ جمله‌ای برایش مناسب نیست، به زور نگذار.\n'
+      : '') +
+    'برای هر حالت در why در چند واژه بگو چرا.\n\n' + L.join('\n');
+  var r = null;
+  try { r = geminiText_(prompt, SPEAK_SPAN_SCHEMA, 4096); }
+  catch (e) { out.why = 'مدل جواب نداد: ' + String(e.message || e).slice(0, 80); return out; }
+  var tr = speakSpanTrim_(r, use);
+  out.spans = tr.spans; out.drop = tr.drop;
+  if (!out.spans.length) {
+    var dk = Object.keys(tr.drop);
+    out.why = dk.length ? 'همهٔ پیشنهادها رد شد (' + dk.map(function (k) {
+      return k + ' ×' + tr.drop[k]; }).join('، ') + ')' : 'مدل حالتی پیشنهاد نکرد';
+  }
+  return out;
+}
+
+/**
+ * متن ⇒ تکه‌های گفتارساز، با حالتِ هر تکه. `{t, k}` یا `{pause: ثانیه}`.
+ * جمله‌های بی‌حالت با همان `splitForTts_` بسته می‌شوند، پس متنِ بی‌حالت
+ * دقیقاً همان تکه‌هایی را می‌دهد که امروز می‌دهد.
+ */
+function speakSpanPieces_(text, spans) {
+  var sents = speakSentSplit_(text);
+  var at = {}, pauseAt = {};
+  var sp = spans || [];
+  for (var i = 0; i < sp.length; i++) {
+    if (sp[i].k === 'مکث') { pauseAt[sp[i].a] = true; continue; }
+    for (var j = sp[i].a; j <= sp[i].b; j++) at[j] = sp[i];
+  }
+  var out = [], plain = [];
+  var flush = function () {
+    if (!plain.length) return;
+    var ps = splitForTts_(plain.join(' '));
+    for (var q = 0; q < ps.length; q++) out.push({ t: ps[q], k: '' });
+    plain = [];
+  };
+  var pauseSec = Number(CFG.SPEAK_PAUSE_SEC) || 0.9;
+  for (var n = 1; n <= sents.length; n++) {
+    if (pauseAt[n]) { flush(); out.push({ pause: pauseSec }); }
+    var h = at[n];
+    if (!h) { plain.push(sents[n - 1]); continue; }
+    if (h.a !== n) continue;                              // در تکهٔ اولِ بازه آمد
+    flush();
+    var body = sents.slice(h.a - 1, h.b).join(' ');
+    var ps2 = splitForTts_(body);
+    for (var r = 0; r < ps2.length; r++) out.push({ t: ps2[r], k: h.k });
+  }
+  flush();
+  return out;
+}
+
+/**
+ * دستورِ تکه: کارتِ گوینده، و **در انتها** حالِ همین تکه. انتها عمدی است:
+ * `styleFit_` اگر جا کم باشد از **سر** می‌اندازد، چون آنچه یک تکه را از
+ * بقیه جدا می‌کند همیشه در انتهاست — پس حال هرگز قربانیِ کارت نمی‌شود.
+ */
+function speakSpanStyle_(k, card) {
+  var d = speakSpanDef_(k);
+  var c = String(card || '').replace(/[.،؛:\s]+$/, '');
+  if (!d || !d.cue) return c;
+  return (c ? c + '. ' : '') + d.cue;
+}
+
+/** سکوتِ PCM به base64 — صفرها، طولِ مضربِ ۶ بایت تا با `alignB64_` جفت شود. */
+function speakSilenceB64_(sec) {
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  var bytes = Math.round(Math.max(0, Number(sec) || 0) * sr * 2 / 6) * 6;
+  return new Array(bytes / 3 + 1).join('AAAA');
+}
+
+/** «آرام ۰:۴۲ · بلند ۱:۱۰ …» — جای هر حالت در فایل، تا گوش بداند کجا را بسنجد. */
+function speakSpanWhere_(at) {
+  if (!at || !at.length) return '';
+  var fa = function (x) {
+    try { return faDigitsOut_(String(x)); } catch (e) { return String(x); }
+  };
+  var L = [];
+  for (var i = 0; i < at.length; i++) {
+    var m = Math.floor(at[i].s / 60), s2 = at[i].s % 60;
+    L.push(at[i].k + ' ' + fa(m + ':' + (s2 < 10 ? '0' : '') + s2));
+  }
+  return 'حالت‌ها: ' + L.join(' · ');
+}
+
 /** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
 function speakTrapText_() {
   var L = [];
@@ -3734,8 +3961,13 @@ function wavHeader54_(dataLen) {
   return h;
 }
 
-/** شکستن متن به تکه‌های امن روی مرز جمله (بدون lookbehind، برای سازگاری کامل) */
-function splitForTts_(text) {
+/**
+ * جمله‌های یک متن، همان‌طور که `splitForTts_` می‌شکند — یک تعریف، دو مصرف
+ * (۸٫۲۴). حالت‌ها با **شمارهٔ جمله** گفته می‌شوند؛ اگر شمارش این‌جا با شکستنِ
+ * گفتارساز فرق کند، حالتِ «آرام» روی جملهٔ کناری می‌نشیند و هیچ خطایی هم
+ * نمی‌دهد.
+ */
+function speakSentSplit_(text) {
   var t = String(text).replace(/\s+/g, ' ').trim();
   var sentences = [], cur = '';
   for (var i = 0; i < t.length; i++) {
@@ -3745,6 +3977,12 @@ function splitForTts_(text) {
     }
   }
   if (cur.trim()) sentences.push(cur.trim());
+  return sentences;
+}
+
+/** شکستن متن به تکه‌های امن روی مرز جمله (بدون lookbehind، برای سازگاری کامل) */
+function splitForTts_(text) {
+  var sentences = speakSentSplit_(text);
 
   var out = [], acc = '';
   for (var j = 0; j < sentences.length; j++) {

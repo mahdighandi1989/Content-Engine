@@ -1515,4 +1515,43 @@ console.log('\n══ ۲۰) سنجشِ منابعِ تصویرِ آزاد، بی
        ].join('\n')).stdout).split('\n').filter(x => x.trim()).slice(0, 3)) +
      ' — ردّی که بالای سرتیتر بنشیند، به منبعِ قبلی نسبت داده می‌شود');
 }
+
+/* ══ ۲۱) گام از زیروبمِ خودِ ورودی، نه عددِ ثابت (۸.۲۴) ══
+   −۱۲ روی صدای مبدأِ زن‌گونه سنجیده شد؛ نمونه‌ها با صدای مرد (Charon) خوانده
+   می‌شوند و رضوی یک اکتاو زیرِ خودش نشست — ۶۰ هرتز در برابرِ ۱۰۶٫۹. این
+   سنجه‌ها روی صوتِ **ساختگی با زیروبمِ معلوم** می‌دوند، نه روی ادعا. */
+console.log('\n=== ۲۱) گامِ خودکار و زیروبمِ خروجی (۸.۲۴) ===');
+{
+  const run = (code) => cp.spawnSync('python3', ['-c', [
+    'import sys, json, math, wave, struct, os, tempfile',
+    'sys.path.insert(0, "tools")',
+    'import voicebridge as V',
+    'def tone(hz, sec=3.0, sr=40000, amp=0.3):',
+    '    p = tempfile.mktemp(suffix=".wav")',
+    '    w = wave.open(p, "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)',
+    '    fr = bytearray()',
+    '    for i in range(int(sec*sr)):',
+    '        t = i/sr',
+    '        v = amp*(math.sin(2*math.pi*hz*t)+0.5*math.sin(4*math.pi*hz*t)+0.25*math.sin(6*math.pi*hz*t))/1.75',
+    '        fr += struct.pack("<h", int(v*32767))',
+    '    w.writeframes(bytes(fr)); w.close(); return p',
+    code].join('\n')], { encoding: 'utf8' });
+  const r1 = run('print(json.dumps([V.f0Stats(tone(120)), V.f0Stats(tone(60)), V.f0Stats(tone(120, amp=0.0))]))');
+  let a = null; try { a = JSON.parse(r1.stdout); } catch (e) {}
+  ok('۲۱.۱ زیروبمِ میانهٔ صوتِ ۱۲۰ و ۶۰ هرتزی درست سنجیده می‌شود',
+     a && Math.abs(a[0].medianHz - 120) < 4 && a[0].lowPct === 0 &&
+     Math.abs(a[1].medianHz - 60) < 3 && a[1].lowPct === 100,
+     'گرفت: ' + (r1.stdout || r1.stderr).slice(0, 200));
+  ok('۲۱.۱-ب سکوت ⇒ «نسنجیدم» (None)، نه صفر', a && a[2] === null, JSON.stringify(a && a[2]));
+  const r2 = run('print(json.dumps([V.autoPitch(120, 106.9), V.autoPitch(200, 106.9), V.autoPitch(30, 500), V.autoPitch(500, 30)]))');
+  ok('۲۱.۲ گام از نسبتِ دو زیروبم، و محدود',
+     String(r2.stdout).trim() === '[-2, -11, 6, -14]', String(r2.stdout || r2.stderr).trim());
+  const src = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۲۱.۳ گامِ حساب‌شده همان است که به تبدیل می‌رسد، نه پارامترِ خام',
+     /"--rvc-pitch", pitch,/.test(src) && !/"--rvc-pitch", str\(pr\.get/.test(src));
+  /* `--probe` بی numpy می‌دود (۷٫۷۸) — import در سطحِ پرونده آن را می‌شکند. */
+  ok('۲۱.۴ numpy در سطحِ پرونده import نمی‌شود', !/^import numpy|^from numpy/m.test(src));
+  ok('۲۱.۵ خروجی هم سنجیده و در نقشه ثبت می‌شود',
+     /stOut = f0Stats\(best\)/.test(src) && /rec\["f0Warn"\]/.test(src) && /rec\["f0Out"\]/.test(src));
+}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
