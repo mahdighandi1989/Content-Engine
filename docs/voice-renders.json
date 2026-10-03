@@ -1,5 +1,5 @@
 {
- "rev": 14,
+ "rev": 15,
  "items": {
   "special:49": {
    "urls": [
@@ -221,8 +221,30 @@
     "lowPct": 6,
     "frames": 1954
    }
+  },
+  "نمونهٔ روح — spk-1g0r95d · گام -2:ساعت‌ساز": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-2-3ea99a4f.wav"
+   ],
+   "pieceBytes": [
+    20264044
+   ],
+   "bytes": 20264044,
+   "seconds": 253.3,
+   "minutes": 5.1,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-03T04:36:15Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-2-3ea99a4f.wav",
+   "pitch": "-2",
+   "f0Out": {
+    "medianHz": 101.3,
+    "lowPct": 11,
+    "frames": 1843
+   }
   }
  },
- "at": "2026-10-02T23:49:02Z",
+ "at": "2026-10-03T04:36:15Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
