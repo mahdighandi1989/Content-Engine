@@ -4772,7 +4772,10 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
     let visOnly = 0;
     global.__STUB = function (url, body) {
       const sc = body && body.generationConfig && body.generationConfig.responseSchema;
-      if (sc && sc.properties && sc.properties.visuals && !sc.properties.title) visOnly++;
+      let pr = ''; try { pr = body.contents[0].parts[0].text; } catch (e) {}
+      /* فقط پرسشِ دوبارهٔ **کلِ** نقشه؛ پرسشِ یک‌بخشیِ ۸.۳۰ («فقط همین بخش») جداست. */
+      if (sc && sc.properties && sc.properties.visuals && !sc.properties.title &&
+          pr.indexOf('فقط همین بخش') === -1) visOnly++;
       return BASE_STUB(url, body);
     };
     const e1 = mkEp68('EP68A', 'قسمت 0171');
@@ -4780,7 +4783,9 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
                    series: 'معرفت‌شناسی' }, null, []);
     const pl1 = ytPlanRead_(e1) || {};
     const e2 = mkEp68('EP68B', 'قسمت 0172');
-    ytRenderSave_({ items: [{ key: 'special:172', status: 'در انتظار', at: nowStr_() }] });
+    /* از ۸.۳۰ ردیفِ نحیف و ساخته‌نشده یک بار جایگزین‌شدنی است (§۷۰)؛ این‌جا
+       ردیفی است که یک بار جایگزین شده (`redo: 1`) — پس دیگر هرگز. */
+    ytRenderSave_({ items: [{ key: 'special:172', status: 'در انتظار', at: nowStr_(), redo: 1 }] });
     ytUploadOne_({ key: 'special:172', show: 'special', ep: '172', folderId: 'EP68B',
                    series: 'معرفت‌شناسی' }, null, []);
     const pl2 = ytPlanRead_(e2) || {};
@@ -5024,9 +5029,18 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
       kicker: 'تعریفِ کلاسیک', steps: ['باور', 'صدق', 'دلیل'] },
     { at: '1', quote: 'هر کدام از این شرط‌ها پرسش‌های تازه‌ای', form: 'پرسش', headline: 'کافی است؟',
       kicker: 'تعریفِ کلاسیک' } ];
-  let asks = 0;
+  let asks = 0, secAsks = 0;
+  /* §۶۹ مسیرِ آخر را می‌سنجد — وقتی پرسشِ یک‌بخشیِ ۸.۳۰ (§۷۰) هم چیزی نداد —
+     پس آن پرسش این‌جا جوابِ خالی می‌گیرد. */
   const LAZY = function (url, body) {
     const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+    let pr = ''; try { pr = body.contents[0].parts[0].text; } catch (e) {}
+    if (sc && sc.properties && sc.properties.visuals && pr.indexOf('فقط همین بخش') !== -1) {
+      secAsks++;
+      const r0 = BASE_STUB(url, body);
+      r0.json.candidates[0].content.parts[0].text = JSON.stringify({ visuals: [] });
+      return r0;
+    }
     if (sc && sc.properties && sc.properties.visuals) {
       asks++;
       const r = BASE_STUB(url, body);
@@ -5049,12 +5063,12 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
   const mine1 = v1.filter(x => !x.auto), auto1 = v1.filter(x => x.auto);
   const perSec1 = [1, 2, 3, 4, 5].map(s => v1.filter(x => Number(x.at) === s).length);
   ok('۶۹.۱ مدلِ کم‌کار هر بخش را بی‌تصویر نمی‌گذارد: پر از روایت، و کارِ مدل دست‌نخورده',
-     asks === 2 && v1.length >= ytVisFloor_(ytVisWant_(929)) && perSec1.every(n => n >= 1) &&
+     asks === 2 && secAsks === 4 && v1.length >= ytVisFloor_(ytVisWant_(929)) && perSec1.every(n => n >= 1) &&
      mine1.length === 3 && mine1.map(x => x.headline).join('|') === 'سه شرطِ دانستن|از باور تا معرفت|کافی است؟' &&
      auto1.length > 0 && auto1.every(x => x.form === 'نقل' && x.headline && x.kicker) &&
      p1.visAuto && p1.visAuto.n === auto1.length &&
      p1.visModel && p1.visModel.raw === 3 && p1.visModel.kept === 3,
-     'پرسش ' + asks + ' · ' + v1.length + ' مورد از ' + ytVisWant_(929) + ' · هر بخش ' +
+     'پرسش ' + asks + ' · یک‌بخشی ' + secAsks + ' · ' + v1.length + ' مورد از ' + ytVisWant_(929) + ' · هر بخش ' +
      JSON.stringify(perSec1) + ' · ازروایت ' + auto1.length + ' · مدل ' + JSON.stringify(p1.visModel));
 
   /* ۶۹.۲ — **کارتِ ساختهٔ کد همیشه لنگر دارد**، از درِ `lvSpecBuild_` و روی
@@ -5179,7 +5193,9 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
     ok('۶۹.۷ ردیفِ رندر شاهدِ نقشه را دارد: خواسته، نقشه، ازروایت، ساخته، و علتِ نبودِ مشخصات',
        !!row && vi.asked > 0 &&
        vi.planned === (pl7.visuals || []).length &&
-       vi.auto === (pl7.visuals || []).filter(x => x.auto).length && vi.auto > 0 &&
+       vi.auto === (pl7.visuals || []).filter(x => x.auto).length &&
+       vi.designed + vi.auto === vi.planned && vi.secAsk > 0 && vi.planned > 3 &&
+       vi.board && typeof vi.board.styleSrc === 'string' && vi.board.styleSrc.length > 0 &&
        vi.model && vi.model.raw === 3 && vi.again && vi.again.raw === 3 &&
        vi.ready === (row.visuals || []).length && vi.spec === 0 && /_times\.json/.test(vi.specWhy) &&
        txt.indexOf('سه شرط') === -1 && txt.indexOf('معرفت‌شناسی می‌پرسد') === -1,
@@ -5238,6 +5254,229 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
        'اول ' + r1.tries + ' · دوم ' + r2.tries + ' · ' + r1.gHave + '/' + r1.gWant);
   }
   if (svc69 === undefined) delete global.YouTube; else global.YouTube = svc69;
+}
+
+console.log('=== ۷۰) درسِ ۵۹ از نو، و درست: لنگرِ گفتاری، پرسشِ بخش‌به‌بخش، جایگزینیِ یک‌باره (۸.۳۰) ===');
+{
+  global.__STUB = BASE_STUB;
+  const svc70 = global.YouTube;
+  global.YouTube = {};
+  const root = global.__ROOT_FOLDER;
+
+  /* ۷۰.۱ — **«ی»ِ اضافه در متنِ گفتاری.** عبارتِ مدل از متنِ نوشتاری است و
+     متنِ گفتاری «سَرچَشمه‌یِ اَوَّلیه‌یِ» دارد. درسِ ۵۹ دقیقاً از همین دو عبارت
+     از سه را گم کرد. از درِ `lvSpecBuild_`، با تکه‌های گفتاریِ واقعی‌شکل. */
+  {
+    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    global.epTimesRead_ = () => ({ secs: 200, times: [{ i: 0, at: 0 }, { i: 1, at: 100 }] });
+    global.buildSpecialChunks_ = () => [
+      { text: 'اِسْتِنْتاج، سَرچَشمه‌یِ اَوَّلیه‌یِ مَعرِفَت نیست، بَلکه مَنبَعی اِشتِقاقی است.' },
+      { text: 'اِعتِبارِ اِستِدلال بَر دو پایه‌یِ مادّه وُ صورَت اُستوار است.' } ];
+    const plan = { visuals: [
+      { at: 1, quote: 'استنتاج سرچشمه اولیه معرفت نیست بلکه', form: 'تمرکز', headline: 'جایگاهِ استنتاج' },
+      { at: 1, quote: 'اعتبار استدلال بر دو پایهٔ ماده و صورت', form: 'نقل', headline: 'ارکانِ استدلالِ معتبر' } ] };
+    const sc = { show: 'special' };
+    const sp = lvSpecBuild_(root, { ep: {} }, plan, sc);
+    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    ok('۷۰.۱ عبارتِ نوشتاری در متنِ گفتاریِ «ی»دار و «ٔ»دار پیدا می‌شود',
+       !!sp && sp.cards.length === 2 && sp.missed === 0 && sp.cards[1].at >= 100 &&
+       lvNorm_('یک یار') === 'یک یار' && lvNorm_('خانهٔ ما') === lvNorm_('خانه‌یِ ما'),
+       sp ? sp.cards.length + ' کارت · گمشده ' + sp.missed : 'نشد: ' + sc.why);
+  }
+
+  /* ۷۰.۲ — **شکلِ ناقص ساده‌تر می‌شود، نه حذف.** مدل «مقایسه» داد بی سرِ دو
+     ستون — یکی از سه موردِ درسِ ۵۹. هم در نقشهٔ تازه (`ytVisItem_`) و هم در
+     نقشهٔ قدیمی که از آن‌جا نگذشته (`lvSpecBuild_`). */
+  {
+    const it = ytVisItem_({ form: 'مقایسه', headline: 'ارکانِ استدلال', aItems: ['ماده'], bItems: ['صورت'] }, 1);
+    const ch = ytVisItem_({ form: 'زنجیره', headline: 'یک گام', steps: ['تنها'] }, 1);
+    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    global.epTimesRead_ = () => ({ secs: 100, times: [{ i: 0, at: 0 }] });
+    global.buildSpecialChunks_ = () => [{ text: 'اعتبار استدلال بر دو پایه ماده و صورت است و نتیجه از آن می‌آید.' }];
+    const sp = lvSpecBuild_(root, { ep: {} }, { visuals: [
+      { at: 1, quote: 'اعتبار استدلال بر دو پایه', form: 'مقایسه', headline: 'ارکان', aTitle: '', bTitle: '', aItems: ['ماده'] },
+      { at: 1, quote: 'نتیجه از آن می‌آید', form: 'نقل', headline: 'نتیجه' } ] }, { show: 'special' });
+    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    ok('۷۰.۲ مقایسهٔ بی‌سر و زنجیرهٔ تک‌گام «تمرکز» می‌شوند و کارتشان می‌مانَد',
+       it.form === 'تمرکز' && it.items.join('|') === 'ماده|صورت' && it.reshaped &&
+       ch.form === 'تمرکز' && ch.items.join('|') === 'تنها' &&
+       !!sp && sp.cards.length === 2 && sp.missed === 0 && sp.reshaped === 1 &&
+       sp.cards.filter(c => c.form === 'focus')[0].items.join('|') === 'ماده',
+       it.form + ' · ' + ch.form + ' · ' + (sp ? sp.cards.map(c => c.form).join(',') + ' · بازشکل ' + sp.reshaped : 'نشد'));
+  }
+
+  const NAR70 = [
+    'استنتاج سرچشمه اولیه معرفت نیست بلکه منبعی اشتقاقی است. استدلال نامعتبر نمی‌تواند توجیه را منتقل کند. اعتبار استدلال بر دو پایه ماده و صورت استوار است. این سه نکته پایه درس امروز است.',
+    'در استقرا نتیجه از مقدمات فراتر می‌رود. شواهد بیشتر احتمال را بالا می‌برد اما تضمین نمی‌کند. ابطال‌پذیری در استقرا معنای دیگری دارد.',
+    'زنجیره‌های طولی استدلال توجیه را فرسوده می‌کنند. هر حلقه کمی از احتمال را می‌گیرد. در پایان زنجیره احتمال به زیر نیم می‌رسد.'
+  ];
+  const secs70 = NAR70.map((t, i) => ({ heading: 'بخشِ ' + (i + 1), narration: t }));
+  const ctx70 = ep => ({ show: 'special', epRaw: ep, showName: 'درس‌نامه', title: 'انتقالِ توجیه',
+                         sections: secs70, totalSec: 600, sources: [] });
+  const one3 = [
+    { at: '1', quote: 'استنتاج سرچشمه اولیه معرفت نیست', form: 'تمرکز', headline: 'جایگاهِ استنتاج', items: ['اشتقاقی'] },
+    { at: '1', quote: 'استدلال نامعتبر نمی‌تواند توجیه را', form: 'پرسش', headline: 'مغالطه' },
+    { at: '1', quote: 'اعتبار استدلال بر دو پایه', form: 'تمرکز', headline: 'ارکان', items: ['ماده', 'صورت'] } ];
+
+  /* ۷۰.۳ — **بخش‌به‌بخش، پیش از کارتِ ازروایت.** هر بخشِ کم‌مانده یک بار جدا
+     پرسیده می‌شود، `at` همیشه همان بخش است (حتی اگر مدل چیزِ دیگری بنویسد)،
+     و پرسشِ دوم هیچ‌چیز نمی‌پرسد. */
+  {
+    const prompts = [];
+    global.__STUB = function (url, body) {
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      let pr = ''; try { pr = body.contents[0].parts[0].text; } catch (e) {}
+      if (sc && sc.properties && sc.properties.visuals && pr.indexOf('فقط همین بخش') !== -1) {
+        prompts.push(pr);
+        const r = BASE_STUB(url, body);
+        const j = JSON.parse(r.json.candidates[0].content.parts[0].text);
+        j.visuals = (j.visuals || []).map(v => Object.assign(v, { at: '9' }));   // شمارهٔ غلط
+        r.json.candidates[0].content.parts[0].text = JSON.stringify(j);
+        return r;
+      }
+      return BASE_STUB(url, body);
+    };
+    const f = root.createFolder('قسمت 0270 — بخش‌به‌بخش');
+    const ctx = ctx70('270');
+    const plan = { visuals: ytVisPlan_({ visuals: one3 }, ctx, {}) };
+    const n1 = ytVisSecAsk_(f, plan, ctx);
+    const n2 = ytVisSecAsk_(f, plan, ctx);
+    global.__STUB = BASE_STUB;
+    const sh = ytVisShares_(secs70, ytVisWant_(600));
+    const per = [1, 2, 3].map(s => plan.visuals.filter(v => Number(v.at) === s).length);
+    const onlyOwn = prompts.every((p, i) => p.indexOf(NAR70[i + 1].slice(0, 30)) !== -1 &&
+                                            p.indexOf(NAR70[0].slice(0, 30)) === -1);
+    /* ۷۰.۳-ب — و «یک بار» یعنی حتی وقتی جواب خالی بود: بی آن، هر نوبتِ انتشار
+       (هر دو ساعت) همان بخش‌ها را دوباره می‌پرسید و هر بار پول می‌داد. */
+    let empties = 0;
+    global.__STUB = function (url, body) {
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      let pr = ''; try { pr = body.contents[0].parts[0].text; } catch (e) {}
+      if (sc && sc.properties && sc.properties.visuals && pr.indexOf('فقط همین بخش') !== -1) {
+        empties++;
+        const r = BASE_STUB(url, body);
+        r.json.candidates[0].content.parts[0].text = JSON.stringify({ visuals: [] });
+        return r;
+      }
+      return BASE_STUB(url, body);
+    };
+    const fE = root.createFolder('قسمت 0275 — جوابِ خالی');
+    const planE = { visuals: ytVisPlan_({ visuals: one3 }, ctx, {}) };
+    ytVisSecAsk_(fE, planE, ctx);
+    const e1 = empties;
+    ytVisSecAsk_(fE, planE, ctx);
+    global.__STUB = BASE_STUB;
+    ok('۷۰.۳-ب بخشی که یک بار پرسیده شد و جوابش خالی بود، دوباره پرسیده نمی‌شود',
+       e1 === 2 && empties === 2 && planE.visSec['2'].got === 0,
+       'بارِ اول ' + e1 + ' · پس از دومی ' + empties);
+    ok('۷۰.۳ هر بخشِ کم‌مانده یک بار جدا پرسیده می‌شود و جوابش سرِ همان بخش می‌نشیند',
+       prompts.length === 2 && onlyOwn && n1 > 0 && n2 === 0 &&
+       per[1] === sh[1] && per[2] === sh[2] && plan.visuals.filter(v => v.secAsk).length === n1 &&
+       plan.visuals.every(v => Number(v.at) >= 1 && Number(v.at) <= 3) &&
+       plan.visSec && plan.visSec['2'] && plan.visSec['2'].got === sh[1],
+       'پرسش ' + prompts.length + ' · افزوده ' + n1 + '/' + n2 + ' · هر بخش ' + JSON.stringify(per) +
+       ' از ' + JSON.stringify(sh));
+  }
+
+  /* ۷۰.۴ — **درسِ ۵۹ از درِ انتشار:** ردیفِ نحیفِ ساخته‌نشده در صف است. نقشه
+     از نو پر می‌شود، تلاش از صفر شروع می‌شود، و ردیف **جایگزین** می‌شود — یک
+     ردیف، با `at` تازه (تا نگه‌داشتنِ رانر رها شود) و `redo: 1`. و دیگر هرگز. */
+  {
+    ytRenderSave_({ items: [] });
+    const f = DriveApp.__register('EP70A', 'قسمت 0271');
+    f.createFile(Utilities.newBlob(JSON.stringify({
+      lesson: 37, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'انتقالِ توجیه', hook: 'قلاب', summary: 'خلاصه', sections: secs70 }
+    }), 'application/json', '_special.json'));
+    const wav70 = f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    /* مدت از اندازهٔ فایل حساب می‌شود (`ytSecondsOf_`)؛ ده دقیقه، مثلِ یک درسِ
+       واقعی — با بیست کیلوبایت، موتور سه تصویر می‌خواهد و سه‌تای ردیف «نحیف»
+       نیست، یعنی حالتی که تولید نمی‌سازد (۷٫۲۲). */
+    wav70.getSize = () => 600 * 48000 + 44;
+    const ctx = ctx70('271');
+    ytPlanWrite_(f, { at: 'x', show: 'special', ep: '271', title: 'ت', description: 'د',
+      tags: ['الف'], coverTitle: 'ک', coverKicker: '', chapters: 3,
+      visAsk: { n: 1, raw: 1, after: 3 }, visModel: { raw: 3, kept: 3 },
+      visuals: ytVisPlan_({ visuals: one3 }, ctx, {}) });
+    lvWrite_(f, { at: 'x', tries: 2, items: [], done: true });
+    const oldAt = '2026-10-03 09:01';
+    ytRenderSave_({ items: [{ key: 'special:271', show: 'special', ep: '271', status: 'در انتظار',
+      at: oldAt, visuals: [{ fileId: 'A' }, { fileId: 'B' }, { fileId: 'C' }] }] });
+    _ytMapMemo = {};                       // رانر هنوز چیزی نساخته
+    let row = null, rounds = 0;
+    for (; rounds < 5; rounds++) {
+      ytUploadOne_({ key: 'special:271', show: 'special', ep: '271', folderId: 'EP70A',
+                     series: 'معرفت‌شناسی' }, null, []);
+      row = ytRenderRead_().items.filter(x => x.key === 'special:271');
+      if (row.length === 1 && row[0].redo) break;
+    }
+    const r1 = row && row[0] || {};
+    const plan = ytPlanRead_(f) || {};
+    const triesAfter = Number((lvRead_(f) || {}).tries);
+    /* دورِ بعد: ردیفِ جایگزین‌شده دیگر جایگزین نمی‌شود، حتی اگر بهتری بیاید. */
+    const atAfter = r1.at;
+    ytUploadOne_({ key: 'special:271', show: 'special', ep: '271', folderId: 'EP70A',
+                   series: 'معرفت‌شناسی' }, null, []);
+    const again = ytRenderRead_().items.filter(x => x.key === 'special:271');
+    ok('۷۰.۴ ردیفِ نحیفِ ساخته‌نشده یک بار جایگزین می‌شود — با at تازه، نه ردیفِ دوم',
+       row.length === 1 && r1.redo === 1 && r1.replaced === oldAt && r1.at !== oldAt &&
+       (r1.visuals || []).length > 3 && (plan.visuals || []).length > 3 &&
+       again.length === 1 && again[0].at === atAfter && triesAfter === 1,
+       'تلاش ' + triesAfter + ' · دور ' + (rounds + 1) + ' · ردیف ' + row.length + ' · redo ' + r1.redo + ' · تصویر ' +
+       (r1.visuals || []).length + ' · نقشه ' + (plan.visuals || []).length + ' · at ' + r1.at);
+    _ytMapMemo = null;
+    ytRenderSave_({ items: [] });
+  }
+
+  /* ۷۰.۵ — **و مرزهایش:** ردیفی که رانر ساخته، ردیفی که نحیف نیست، و جوابی که
+     بهتر نیست، هیچ‌کدام جایگزین نمی‌شوند. */
+  {
+    const thin = { key: 'special:272', status: 'در انتظار', visuals: [{}, {}] };
+    _ytMapMemo = {};
+    const a = ytRenderRedoable_(thin, 12);
+    _ytMapMemo = { 'special:272': { url: 'https://x/v.mp4' } };
+    const b = ytRenderRedoable_(thin, 12);
+    _ytMapMemo = {};
+    const c = ytRenderRedoable_({ key: 'k', status: 'در انتظار', visuals: new Array(8).fill({}) }, 12);
+    const d = ytRenderRedoable_({ key: 'k', status: 'در انتظار', visuals: [], spec: { cards: [{}, {}] } }, 12);
+    const e = ytRenderRedoable_({ key: 'k', status: 'رسید', visuals: [] }, 12);
+    ytRenderSave_({ items: [{ key: 'special:273', show: 'special', ep: '273', status: 'در انتظار',
+                              at: 'x', visuals: [{ fileId: 'A' }, { fileId: 'B' }] }] });
+    const worse = ytRenderAsk_({ show: 'special', ep: '273', folderId: 'F', audio: [],
+                                 visuals: [{ fileId: 'Z' }], visInfo: { asked: 12 } });
+    const kept = ytRenderRead_().items.filter(x => x.key === 'special:273');
+    _ytMapMemo = null;
+    ok('۷۰.۵ ساخته‌شده، نانحیف، دارای مشخصات، رسیده، و جوابِ بدتر — هیچ‌کدام جایگزین نمی‌شوند',
+       a === true && b === false && c === false && d === false && e === false &&
+       worse === false && kept.length === 1 && kept[0].at === 'x',
+       JSON.stringify([a, b, c, d, e, worse, kept.length]));
+    ytRenderSave_({ items: [] });
+  }
+  /* ۷۰.۶ — **کارتِ ازروایت، جملهٔ مرتبط و کامل.** روی درسِ ۵۹ نسخهٔ اول یک
+     یادداشتِ غنی‌سازی («این توضیح در خودِ درس نیامده…») و تکه‌ای از وسطِ
+     جمله («که او…») را کارت کرد. حالا: قابِ متن کنار می‌رود، جملهٔ «و…»ِ
+     بی‌سر عقب می‌افتد، جمله‌ای که واژه‌های سرِ بخش را دارد جلو، و متنِ درشت
+     تا دو سطر کامل می‌مانَد. */
+  {
+    /* جملهٔ خنثی و کاملِ دوم عمداً پیش از جملهٔ مرتبط است: بی امتیازِ موضوع،
+       این دو هم‌امتیازند و اولی برنده می‌شود — پس «مرتبط» واقعاً سنجیده می‌شود. */
+    const narr = 'این توضیح در خودِ درس نیامده و برای تکمیل اضافه شده است. ' +
+                 'و این همان چیزی است که پیش‌تر گفتیم و دوباره می‌گوییم. ' +
+                 'فیلسوفان دربارهٔ این پرسش بسیار نوشته‌اند و هنوز هم با شور می‌نویسند. ' +
+                 'زنجیره‌های طولی استدلال توجیه را در هر حلقه کمی فرسوده می‌کنند و در پایان به زیر نیم می‌رسانند.';
+    const pk = ytVisAutoPick_(narr, 1, [], 'فرسایشِ توجیه در زنجیره‌های طولی');
+    const all3 = ytVisAutoPick_(narr, 3, [], 'فرسایشِ توجیه در زنجیره‌های طولی');
+    const ctxQ = { show: 'special', sections: [{ heading: 'فرسایشِ توجیه در زنجیره‌های طولی', narration: narr }], totalSec: 300 };
+    const fq = ytVisFill_([], ctxQ, {});
+    const h0 = (fq.filter(x => /زنجیره/.test(x.headline))[0] || {}).headline || '';
+    ok('۷۰.۶ قابِ متن کارت نمی‌شود؛ جملهٔ مرتبط و کامل جلو است و متنِ درشتش بریده نمی‌شود',
+       pk.length === 1 && /زنجیره/.test(pk[0].t) &&
+       all3.every(x => x.t.indexOf('در خودِ درس نیامده') === -1) &&
+       fq.every(x => x.headline.indexOf('در خودِ درس نیامده') === -1) &&
+       /زنجیره/.test(h0) && h0.indexOf('…') === -1 && h0.length > 48,
+       (pk[0] || {}).t + ' | ' + h0.length + ' نویسه');
+  }
+  if (svc70 === undefined) delete global.YouTube; else global.YouTube = svc70;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
