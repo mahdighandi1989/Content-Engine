@@ -4743,9 +4743,12 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
     };
     const f2 = root.createFolder('قسمت 0070 — بدتر نه');
     const p2 = ytPlan_(f2, mk(), false);
+    /* از ۸.۲۹ نقشهٔ نحیف پس از این پرسش از روایت پر می‌شود (§۶۹)، پس «همان
+       قبلی» یعنی **دو موردِ مدل سرِ جایشان**، نه «فقط دو مورد». */
+    const mine2 = (p2.visuals || []).filter(x => !x.auto);
     ok('۶۸.۴-ب پرسشِ دوبارهٔ بی‌حاصل نقشهٔ قبلی را نگه می‌دارد',
-       (p2.visuals || []).length === 2 && p2.visAsk && p2.visAsk.after === 2 && p2.visAsk.raw === 0,
-       JSON.stringify(p2.visAsk));
+       mine2.length === 2 && p2.visAsk && p2.visAsk.after === 2 && p2.visAsk.raw === 0,
+       JSON.stringify(p2.visAsk) + ' · موردِ مدل ' + mine2.length);
     global.__STUB = BASE_STUB;
   }
 
@@ -4978,6 +4981,263 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
        weak.join('، ') || 'هر ' + LV_STYLES.length + ' سبک، سه جفت');
   }
   if (svc68 === undefined) delete global.YouTube; else global.YouTube = svc68;
+}
+
+console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌ای که از روایت پر می‌شود و شاهدش در ردیف (۸.۲۹) ===');
+{
+  /* ۳ اکتبر، درسِ ۵۹، روزِ اولِ ۸.۲۶: درخواستِ رندر با سه کارت، هر سه از
+     بخشِ یک، برای درسی که موتور دوازده تصویر برایش خواسته بود — و بی
+     مشخصاتِ برداری، بی هیچ علتی در جایی که دیده شود. این بند همان شکل را
+     از **درِ تولید** می‌سازد: مدلی که سه مورد می‌دهد و در پرسشِ دوم هم
+     همان سه را. */
+  global.__STUB = BASE_STUB;
+  const svc69 = global.YouTube;
+  global.YouTube = {};
+  const root = global.__ROOT_FOLDER;
+  const NAR = [
+    'معرفت‌شناسی می‌پرسد دانستن دقیقاً یعنی چه. سنت فلسفی سه شرط را برای دانستن پیشنهاد کرده است. ' +
+    'باور باید صادق باشد و صاحبش برای آن دلیل داشته باشد. این سه شرط با هم تعریف کلاسیک را می‌سازند. ' +
+    'اما هر کدام از این شرط‌ها پرسش‌های تازه‌ای پیش می‌کشد.',
+    'استنتاج قیاسی از مقدمات به نتیجه‌ای می‌رسد که از آن‌ها جدا نیست. اگر مقدمات صادق باشند نتیجه هم صادق است. ' +
+    'پرسش اصلی این است که آیا توجیه هم مثل صدق منتقل می‌شود یا نه. ' +
+    'بسیاری گمان می‌کنند توجیه همیشه از مقدمات به نتیجه سرایت می‌کند. ' +
+    'ولی مثال‌های نقض نشان می‌دهند که این انتقال گاهی شکست می‌خورد.',
+    'استنتاج استقرایی از نمونه‌های دیده‌شده به قاعده‌ای کلی می‌رسد. هیوم پرسید چه چیزی این گذر را موجه می‌کند. ' +
+    'هیچ تعداد نمونه‌ای منطقاً تضمین نمی‌کند که نمونهٔ بعدی هم همان باشد. ' +
+    'با این حال ما هر روز با استقرا زندگی می‌کنیم و به آن اعتماد داریم.',
+    'آئودی میان دو گونه انتقال فرق می‌گذارد که هر کدام شرایط خودش را دارد. ' +
+    'انتقال توجیه به این بستگی دارد که فرد پیوند استنتاجی را دریافته باشد. ' +
+    'انتقال معرفت شرط سخت‌تری دارد چون صدق نتیجه هم باید تضمین شود.',
+    'پس انتقال توجیه و معرفت دو مسئلهٔ جدا هستند که نباید یکی گرفته شوند. ' +
+    'در درس بعد سراغ نقش حافظه در نگه‌داشتن معرفت می‌رویم. پس تا پایان همراه ما باشید و خوب گوش کنید.'
+  ];
+  const secs = NAR.map((t, i) => ({ heading: 'بخشِ ' + (i + 1), narration: t }));
+  const ctxOf = (ep) => ({ show: 'special', epRaw: ep, showName: 'درس‌نامه', title: 'انتقالِ توجیه',
+                           duration: '15:29', headings: secs.map(x => x.heading),
+                           sections: secs, totalSec: 929, sources: [] });
+  /* مدلِ کم‌کار: سه مورد، همه در بخشِ یک، با عبارتِ واقعی — در پرسشِ اصلی و
+     در پرسشِ «فقط تصویر» هر دو. */
+  const lazy3 = [
+    { at: '1', quote: 'سنت فلسفی سه شرط را برای دانستن', form: 'تمرکز', headline: 'سه شرطِ دانستن',
+      kicker: 'تعریفِ کلاسیک', items: ['باور', 'صدق', 'توجیه'] },
+    { at: '1', quote: 'باور باید صادق باشد و صاحبش', form: 'زنجیره', headline: 'از باور تا معرفت',
+      kicker: 'تعریفِ کلاسیک', steps: ['باور', 'صدق', 'دلیل'] },
+    { at: '1', quote: 'هر کدام از این شرط‌ها پرسش‌های تازه‌ای', form: 'پرسش', headline: 'کافی است؟',
+      kicker: 'تعریفِ کلاسیک' } ];
+  let asks = 0;
+  const LAZY = function (url, body) {
+    const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+    if (sc && sc.properties && sc.properties.visuals) {
+      asks++;
+      const r = BASE_STUB(url, body);
+      const j = JSON.parse(r.json.candidates[0].content.parts[0].text);
+      j.visuals = JSON.parse(JSON.stringify(lazy3));
+      r.json.candidates[0].content.parts[0].text = JSON.stringify(j);
+      return r;
+    }
+    return BASE_STUB(url, body);
+  };
+
+  /* ۶۹.۱ — **از درِ تولید:** مدل دو بار سه مورد داد؛ نقشه به هر بخشِ متن‌دار
+     دست‌کم یک کارت می‌دهد و از کفِ نحیف بالاتر است، و سه موردِ مدل دست
+     نخورده سرِ جایشان‌اند. */
+  global.__STUB = LAZY;
+  const f1 = root.createFolder('قسمت 0259 — سه کارت');
+  const p1 = ytPlan_(f1, ctxOf('259'), false);
+  global.__STUB = BASE_STUB;
+  const v1 = p1.visuals || [];
+  const mine1 = v1.filter(x => !x.auto), auto1 = v1.filter(x => x.auto);
+  const perSec1 = [1, 2, 3, 4, 5].map(s => v1.filter(x => Number(x.at) === s).length);
+  ok('۶۹.۱ مدلِ کم‌کار هر بخش را بی‌تصویر نمی‌گذارد: پر از روایت، و کارِ مدل دست‌نخورده',
+     asks === 2 && v1.length >= ytVisFloor_(ytVisWant_(929)) && perSec1.every(n => n >= 1) &&
+     mine1.length === 3 && mine1.map(x => x.headline).join('|') === 'سه شرطِ دانستن|از باور تا معرفت|کافی است؟' &&
+     auto1.length > 0 && auto1.every(x => x.form === 'نقل' && x.headline && x.kicker) &&
+     p1.visAuto && p1.visAuto.n === auto1.length &&
+     p1.visModel && p1.visModel.raw === 3 && p1.visModel.kept === 3,
+     'پرسش ' + asks + ' · ' + v1.length + ' مورد از ' + ytVisWant_(929) + ' · هر بخش ' +
+     JSON.stringify(perSec1) + ' · ازروایت ' + auto1.length + ' · مدل ' + JSON.stringify(p1.visModel));
+
+  /* ۶۹.۲ — **کارتِ ساختهٔ کد همیشه لنگر دارد**، از درِ `lvSpecBuild_` و روی
+     **متنِ گفتاری** — با اعراب، نیم‌فاصله و ویرگولِ مکث، که متنِ نوشتاری
+     ندارد. این همان چیزی است که برای `quote`ِ مدل فقط امید است. */
+  {
+    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const spoken = NAR.map(t => t.replace(/ می/g, ' مِی').replace(/است\./g, 'است، .').replace(/دانستن/g, 'دانِستن'));
+    global.epTimesRead_ = () => ({ secs: 929, times: spoken.map((_, i) => ({ i: i, at: i * 180 })) });
+    global.buildSpecialChunks_ = () => spoken.map(t => ({ text: t }));
+    const sc = { show: 'special', style: '', bg: {}, foot: 'درس‌نامه' };
+    const sp = lvSpecBuild_(f1, { ep: {} }, p1, sc);
+    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    const autoIdx = v1.map((x, i) => x.auto ? i : -1).filter(i => i >= 0);
+    const anchored = sp ? autoIdx.filter(i => sp.cards.some(c => c.src === i)) : [];
+    const ordered = sp ? sp.cards.every((c, i) => !i || c.at >= sp.cards[i - 1].at) : false;
+    ok('۶۹.۲ هر کارتِ ساختهٔ کد در متنِ گفتاری لنگر می‌گیرد و مشخصات ساخته می‌شود',
+       !!sp && anchored.length === autoIdx.length && ordered &&
+       sp.cards.filter(c => c.form === 'quote').length >= autoIdx.length,
+       sp ? (sp.cards.length + ' کارت · کد ' + anchored.length + ' از ' + autoIdx.length +
+             ' · گمشده ' + sp.missed) : ('مشخصات نشد: ' + sc.why));
+  }
+
+  /* ۶۹.۳ — **ترتیبِ گفتار، نه ترتیبِ رسیدن.** موردِ مدل که عبارتش از تهِ بخشِ
+     دو است، پس از کارت‌های ساختهٔ کد می‌نشیند؛ و کارت‌های کد به ترتیبِ جایشان
+     در متن‌اند — کارتِ اسلایدز بی زمانِ واقعی پشتِ‌هم می‌آید. */
+  {
+    const one = [{ at: '2', quote: 'مثال‌های نقض نشان می‌دهند که این انتقال', form: 'نقل',
+                   headline: 'انتقال گاهی شکست می‌خورد', kicker: 'قیاس' }];
+    const vis = ytVisPlan_({ visuals: one }, ctxOf('260'), {});
+    const st = {};
+    const full = ytVisFill_(vis, ctxOf('260'), st);
+    const s2 = full.filter(x => Number(x.at) === 2);
+    const n2 = lvNorm_(NAR[1]);
+    const pos = s2.map(x => lvFind_(n2, lvNorm_(x.quote), {}));
+    ok('۶۹.۳ در هر بخش، کارت‌ها به ترتیبِ جایشان در گفتارند',
+       s2.length >= 2 && s2[s2.length - 1].auto !== true &&
+       pos.every((p, i) => p >= 0 && (!i || p > pos[i - 1])) &&
+       full.reduce((a, x) => a + x.sec, 0) > 900,
+       'بخشِ ۲: ' + s2.map(x => (x.auto ? 'کد' : 'مدل') + '@' + lvFind_(n2, lvNorm_(x.quote), {})).join(' · ') +
+       ' · کلِ زمان ' + Math.round(full.reduce((a, x) => a + x.sec, 0)));
+  }
+
+  /* ۶۹.۴ — **مدلی که کارش را کرده دست نمی‌خورد.** نقشهٔ کامل و پخش، همان
+     آرایه برمی‌گردد و چیزی از روایت اضافه نمی‌شود. */
+  {
+    const f4 = root.createFolder('قسمت 0261 — کامل');
+    const p4 = ytPlan_(f4, ctxOf('261'), false);
+    ok('۶۹.۴ نقشهٔ کاملِ مدل بی هیچ کارتِ کد می‌مانَد',
+       (p4.visuals || []).length === ytVisShares_(secs, ytVisWant_(929)).reduce((a, b) => a + b, 0) &&
+       !p4.visAuto &&
+       (p4.visuals || []).every(x => !x.auto),
+       (p4.visuals || []).length + ' مورد · ' + JSON.stringify(p4.visAuto || null));
+
+    /* ۶۹.۴-ب — و وقتی **یک** بخش کم دارد، فقط همان بخش پر می‌شود. ۶۹.۴ را
+       میان‌بُرِ «هیچ بخشی کم ندارد» هم سبز نگه می‌دارد؛ این‌جا میان‌بُر رد
+       می‌شود و فقط محاسبهٔ کسریِ هر بخش است که بخش‌های پُر را دست‌نخورده
+       می‌گذارد. */
+    const no3 = (p4.visuals || []).filter(x => Number(x.at) !== 3);
+    const st4 = {};
+    const f4b = ytVisFill_(no3, ctxOf('261'), st4);
+    const autoAt = f4b.filter(x => x.auto).map(x => Number(x.at));
+    ok('۶۹.۴-ب فقط بخشی که کم دارد پر می‌شود',
+       autoAt.length > 0 && autoAt.every(a => a === 3) &&
+       f4b.filter(x => !x.auto).length === no3.length,
+       'کارتِ کد در بخش‌های ' + JSON.stringify(autoAt));
+  }
+
+  /* ۶۹.۵ — **جملهٔ رادیویی کارت نمی‌شود.** «تا پایان همراه ما باشید» و «در درسِ
+     بعد…» قابِ رادیواند، نه مفهومِ درس — همان فهرستِ جزوه. و بخشی که فقط
+     همین‌ها را دارد، بخشی است که کد جمله‌ای برایش نیافت. */
+  {
+    const cap5 = auto1.map(x => x.caption + ' ' + x.headline).join(' | ');
+    ok('۶۹.۵ از جمله‌های رادیوییِ پایانِ درس هیچ کارتی ساخته نمی‌شود',
+       cap5.indexOf('همراه ما باشید') === -1 && cap5.indexOf('گوش کنید') === -1 &&
+       cap5.indexOf('درس بعد') === -1 &&
+       auto1.filter(x => Number(x.at) === 5).length >= 1,
+       auto1.filter(x => Number(x.at) === 5).map(x => x.headline).join(' · '));
+  }
+
+  /* ۶۹.۶ — **«نشد» با علتش.** هر `return null`ِ مشخصات علتی جدا دارد و درسِ ۵۹
+     بی هیچ‌کدام رفت. */
+  {
+    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const a = { show: 'special' };
+    global.epTimesRead_ = () => null;
+    lvSpecBuild_(f1, { ep: {} }, p1, a);
+    const b = { show: 'special' };
+    global.epTimesRead_ = () => ({ secs: 100, times: [{ i: 0, at: 0 }] });
+    global.buildSpecialChunks_ = () => [{ text: 'متنی که هیچ عبارتی از نقشه در آن نیست و نخواهد بود' }];
+    lvSpecBuild_(f1, { ep: {} }, p1, b);
+    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    ok('۶۹.۶ مشخصاتی که ساخته نشد علتش را می‌گوید: بی‌زمان، یا بی‌لنگر',
+       /_times\.json/.test(a.why || '') && /لنگر/.test(b.why || '') && /پیدا نشد/.test(b.why || ''),
+       (a.why || '—') + ' | ' + (b.why || '—'));
+  }
+
+  /* ۶۹.۷ — **شاهد در ردیفِ عمومی**، از درِ انتشار: نقشهٔ ذخیره‌شدهٔ نحیف پیش
+     از ویدئو پر می‌شود، و ردیفِ رندر می‌گوید مدل چند داد، کد چند ساخت، چند
+     کارت ساخته شد و چرا مشخصات نشد — بی هیچ متنی از درس. */
+  {
+    ytRenderSave_({ items: [] });
+    const f7 = DriveApp.__register('EP69A', 'قسمت 0262');
+    f7.createFile(Utilities.newBlob(JSON.stringify({
+      lesson: 9, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'انتقالِ توجیه', hook: 'قلاب', summary: 'خلاصه', sections: secs }
+    }), 'application/json', '_special.json'));
+    f7.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    ytPlanWrite_(f7, { at: 'x', show: 'special', ep: '262', title: 'ت', description: 'د',
+      tags: ['الف'], coverTitle: 'ک', coverKicker: '', chapters: 5,
+      visAsk: { n: 1, raw: 3, after: 3 }, visModel: { raw: 3, kept: 3 },
+      visuals: ytVisPlan_({ visuals: lazy3 }, ctxOf('262'), {}) });
+    let row = null;
+    for (let t = 0; t < 4 && !row; t++) {
+      ytUploadOne_({ key: 'special:262', show: 'special', ep: '262', folderId: 'EP69A',
+                     series: 'معرفت‌شناسی' }, null, []);
+      row = ytRenderRead_().items.filter(x => x.key === 'special:262')[0] || null;
+    }
+    const pl7 = ytPlanRead_(f7) || {};
+    const vi = (row && row.vis) || {};
+    const txt = JSON.stringify(vi);
+    ok('۶۹.۷ ردیفِ رندر شاهدِ نقشه را دارد: خواسته، نقشه، ازروایت، ساخته، و علتِ نبودِ مشخصات',
+       !!row && vi.asked > 0 &&
+       vi.planned === (pl7.visuals || []).length &&
+       vi.auto === (pl7.visuals || []).filter(x => x.auto).length && vi.auto > 0 &&
+       vi.model && vi.model.raw === 3 && vi.again && vi.again.raw === 3 &&
+       vi.ready === (row.visuals || []).length && vi.spec === 0 && /_times\.json/.test(vi.specWhy) &&
+       txt.indexOf('سه شرط') === -1 && txt.indexOf('معرفت‌شناسی می‌پرسد') === -1,
+       row ? txt : 'ردیفی نوشته نشد');
+    ytRenderSave_({ items: [] });
+  }
+
+  /* ۶۹.۸ — **تصویرِ ساخته‌شده به همان مورد تعلق دارد، نه به همان شماره.**
+     نقشه پس از ساختِ کارت‌ها عوض شد: کارتِ شمارهٔ یک دیگر مالِ موردِ یک
+     نیست و از نو ساخته می‌شود؛ کارتِ دو همان است و دست نمی‌خورد. */
+  {
+    const f8 = root.createFolder('قسمت 0263 — نقشهٔ عوض‌شده');
+    const pl = t0 => ({ visuals: [
+      { at: 1, kind: 'کارت', cardTitle: t0, heading: 'یک', cardLines: [], sec: 30 },
+      { at: 1, kind: 'کارت', cardTitle: 'ثابت', heading: 'یک', cardLines: [], sec: 30 } ] });
+    const cx = { show: 'special', epRaw: '263', sections: [{ heading: 'یک', narration: 'الف'.repeat(200) }], totalSec: 60 };
+    const b1 = lvBuild_(f8, pl('قدیم'), cx, '');
+    const b2 = lvBuild_(f8, pl('تازه'), cx, '');
+    const id = (b, n) => ((b.items || []).filter(x => x.n === n)[0] || {}).fileId;
+    ok('۶۹.۸ کارتی که به موردِ دیگری می‌خورد از نو ساخته می‌شود؛ کارتِ درست می‌مانَد',
+       b1.ready === 2 && b2.stale === 1 && b2.made === 1 && b2.ready === 2 &&
+       id(b1, 1) !== id(b2, 1) && id(b1, 2) === id(b2, 2),
+       'کهنه ' + b2.stale + ' · ساخته ' + b2.made + ' · کارتِ ۲ ' + (id(b1, 2) === id(b2, 2) ? 'همان' : 'عوض شد'));
+  }
+
+  /* ۶۹.۹ — **یک اجرا، یک تلاش.** اجرایی که کارت ساخت و تصویرهای ساخته‌شده‌اش
+     به سقفِ هر اجرا خورد، تا ۸.۲۸ دو تلاش می‌شمرد — یعنی پس از دو نوبت قسمت
+     با هر چه هست می‌رفت. */
+  {
+    const keep = { on: CFG.LV_GEN_ENABLED, mdl: CFG.LV_GEN_MODEL, per: CFG.LV_GEN_PER_EP,
+                   usd: CFG.LV_GEN_USD_MONTH, run: CFG.LV_GEN_PER_RUN };
+    CFG.LV_GEN_ENABLED = true; CFG.LV_GEN_MODEL = 'gemini-2.5-flash-image';
+    CFG.LV_GEN_PER_EP = 5; CFG.LV_GEN_USD_MONTH = 100; CFG.LV_GEN_PER_RUN = 2;
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const png = n => { const b = [137, 80, 78, 71, 13, 10, 26, 10]; while (b.length < n) b.push(7); return b; };
+    global.__STUB = function (url, body) {
+      if (url.indexOf('flash-image:generateContent') !== -1) {
+        return { code: 200, json: { candidates: [{ content: { parts: [
+          { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png(30000)) } }] } }] } };
+      }
+      return BASE_STUB(url, body);
+    };
+    const f9 = root.createFolder('قسمت 0264 — یک تلاش');
+    const plan9 = { visuals: [0, 1, 2, 3, 4].map(i => ({ at: 1, kind: 'کارت', cardTitle: 'ک' + i,
+      heading: 'یک', cardLines: [], sec: 20 })) };
+    const cx9 = { show: 'special', epRaw: '264', sections: [{ heading: 'یک', narration: 'الف'.repeat(200) }],
+                  totalSec: 100, level: 'زیاد' };
+    const r1 = lvBuild_(f9, plan9, cx9, 'آبرنگِ گرم');
+    const r2 = lvBuild_(f9, plan9, cx9, 'آبرنگِ گرم');
+    global.__STUB = BASE_STUB;
+    CFG.LV_GEN_ENABLED = keep.on; CFG.LV_GEN_MODEL = keep.mdl; CFG.LV_GEN_PER_EP = keep.per;
+    CFG.LV_GEN_USD_MONTH = keep.usd; CFG.LV_GEN_PER_RUN = keep.run;
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    ok('۶۹.۹ اجرای اول یک تلاش می‌شمرد، اجرای دوم یکی دیگر — نه دو در یک اجرا',
+       r1.bgShort === true && r1.done === false && r1.tries === 1 && r2.tries === 2,
+       'اول ' + r1.tries + ' · دوم ' + r2.tries + ' · ' + r1.gHave + '/' + r1.gWant);
+  }
+  if (svc69 === undefined) delete global.YouTube; else global.YouTube = svc69;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

@@ -1246,6 +1246,7 @@ function ytRenderAsk_(item) {
      و هیچ‌جا صدایی درنیامد چون رانر بی `spec` عیناً مسیرِ قدیم را می‌رود
      («قولِ چیزی خراب نمی‌شود»): خرابیِ بی‌صدا، از درِ سازگاری. */
   if (item.spec && Array.isArray(item.spec.cards) && item.spec.cards.length) row.spec = item.spec;
+  if (item.visInfo) row.vis = item.visInfo;
   /* اجازه همراهِ درخواست داده می‌شود، نه پیش از آن و نه جدا از آن: هر فایلی
      که این‌جا باز می‌شود در `ytShareSweep_` نامش هست و پس گرفته می‌شود. */
   row.shared = ytRenderShare_(row, true) > 0;
@@ -3609,14 +3610,43 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   out.recipe = wantRec || hadRec;
   out.restyled = !!(wantRec && hadRec && wantRec !== hadRec);
 
+  /* ══ تصویرِ ساخته‌شده به **همان** مورد تعلق دارد، نه به همان شماره (۸.۲۹) ══
+   * نام‌ها شمارهٔ مورد را دارند («تصویر ۲ — بخش ۱»). وقتی نقشه پس از ساختِ
+   * چند کارت عوض شود — پرسشِ دوبارهٔ ۸.۲۶ یا پرکردنِ ۸.۲۹ — موردِ دومِ
+   * نقشهٔ تازه همان نامِ کارتِ دومِ نقشهٔ قبلی را دارد و آن کارت **روی
+   * موردی دیگر** می‌نشیند: متنِ یک مفهوم، زیرِ گفتارِ مفهومی دیگر، بی هیچ
+   * خطایی. پس آنچه `_visuals.json` از هر نام نوشته (`cardTitle`) با موردِ
+   * امروز سنجیده می‌شود؛ ناهمخوان ⇒ به زباله و از نو. نامی که در پرونده
+   * نیست «نمی‌دانیم» است و مثلِ قبل می‌مانَد (۷٫۴۰). */
+  var was = Object.create(null);
+  for (var wi = 0; wi < (d.items || []).length; wi++) {
+    var di = d.items[wi] || {};
+    if (di.name) was[String(di.name)] = String(di.cardTitle || '');
+  }
   var have = Object.create(null);
+  out.stale = 0;
   for (var i = 0; i < want.length; i++) {
     if (out.restyled) break;                   // همه از نو
     try {
-      var it = imgFolder.getFilesByName(lvImgName_(i, want[i]));
-      if (it.hasNext()) have[String(i)] = it.next().getId();
+      var nmI = lvImgName_(i, want[i]);
+      var it = imgFolder.getFilesByName(nmI);
+      if (!it.hasNext()) continue;
+      var fI = it.next();
+      if (Object.prototype.hasOwnProperty.call(was, nmI) &&
+          was[nmI] !== String(want[i].cardTitle || '')) {
+        fI.setTrashed(true);
+        try {
+          var bgI = imgFolder.getFilesByName(lvBgName_(i, want[i]));
+          while (bgI.hasNext()) bgI.next().setTrashed(true);
+        } catch (eBgS) {}
+        out.stale++;
+        continue;
+      }
+      have[String(i)] = fI.getId();
     } catch (eH) {}
   }
+  if (out.stale) logLine_('نقشهٔ تصویرِ این قسمت عوض شده بود؛ ' + out.stale +
+                          ' کارتِ ساخته‌شده به موردِ دیگری می‌خورد و از نو ساخته می‌شود.');
   /* ══ سبکِ تازه، پس‌زمینهٔ کهنه را هم باطل می‌کند ══
    * پس‌زمینهٔ ساخته‌شده **حال‌وهوای همان سبک** را دارد (`style.gen`). اگر
    * فقط کارت‌ها از نو ساخته شوند و پس‌زمینه‌ها از نامشان برداشته شوند، سبکِ
@@ -3665,9 +3695,11 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
       bgList.push({ i: bl, v: want[bl], n: want.length, card: !!todoSet[String(bl)] });
     }
   }
+  var bumped = false;
   if (todo.length) {
     d.tries = out.tries + 1;
     out.tries = d.tries;
+    bumped = true;
     lvWrite_(epFolder, d);                       // مرزِ ۱: پیش از کار
   }
   /* پس‌زمینه‌ها **پیش از** کارت‌ها، چون کارت رویشان کشیده می‌شود. و شکستش
@@ -3718,7 +3750,10 @@ function lvBuild_(epFolder, plan, ctx, styleKey) {
   out.bgShort = !!(bgm.capped && out.gHave < out.gWant);
   if (out.done && out.bgShort) {
     out.done = false;
-    d.tries = out.tries + 1; out.tries = d.tries;
+    /* **یک اجرا، یک تلاش** (۸.۲۹). اجرایی که کارت ساخته، تلاشش را همان بالا
+       شمرده؛ شمردنِ دوباره یعنی یک اجرا دو تا از سه تلاش را بخورد و قسمت
+       پس از دو نوبت با هر چه هست برود — صبرِ `LV_TRY_MAX` نصف می‌شد. */
+    if (!bumped) { d.tries = out.tries + 1; out.tries = d.tries; }
   }
 
   d.items = out.items; d.want = out.want; d.ready = out.ready; d.done = out.done;
@@ -4257,20 +4292,27 @@ function lvIconOf_(n) {
  */
 function lvSpecBuild_(folder, meta, mm, ctx) {
   try {
-    if (!ytVisOn_(ctx && ctx.show)) return null;
+    /* ══ «نشد» با علتش (۸.۲۹) ══
+       هر `return null` این تابع یک علتِ جدا داشت و هیچ‌کدام جایی ثبت نمی‌شد؛
+       درسِ ۵۹ بی مشخصات رفت و از بیرون هیچ‌چیز نمی‌گفت کدام بود. علت روی
+       `ctx.why` می‌نشیند و تا ردیفِ عمومیِ رندر می‌رود. */
+    var why = function (t) { try { if (ctx) ctx.why = t; } catch (eW) {} return null; };
+    if (!ytVisOn_(ctx && ctx.show)) return why('این نمایش تصویر نمی‌گیرد');
     var raw = (mm && mm.visuals) || [];
-    if (!raw.length) return null;
+    if (!raw.length) return why('نقشهٔ تصویر خالی بود');
 
     var tj = epTimesRead_(folder);
-    if (!tj) return null;                       // بی زمانِ واقعی، حدس نمی‌زنیم
+    if (!tj) return why('`_times.json` در پوشهٔ قسمت نبود');   // بی زمانِ واقعی، حدس نمی‌زنیم
 
     var ep = (meta && meta.ep) || {};
     var chunks;
-    try { chunks = buildSpecialChunks_(ep, meta); } catch (eC) { chunks = null; }
-    if (!chunks || !chunks.length) return null;
+    var chErr = '';
+    try { chunks = buildSpecialChunks_(ep, meta); } catch (eC) { chunks = null; chErr = eC.message; }
+    if (!chunks || !chunks.length) return why('تکه‌های گفتار دوباره ساخته نشد' + (chErr ? ': ' + chErr : ''));
 
     var marks = lvTimeMap_(chunks, tj.times);
-    if (!marks.length) return null;
+    if (!marks.length) return why('زمانِ تکه‌ها با تکه‌های گفتار جور نشد (' + chunks.length +
+                                  ' تکه، ' + (tj.times || []).length + ' زمان)');
     var stream = '';
     for (var c = 0; c < chunks.length; c++) stream += lvNorm_(chunks[c].text || '') + ' ';
 
@@ -4318,7 +4360,8 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
       if (!card.headline) { miss++; continue; }
       cards.push(card);
     }
-    if (cards.length < 2) return null;
+    if (cards.length < 2) return why('فقط ' + cards.length + ' کارت از ' + raw.length +
+                                     ' لنگر گرفت (' + miss + ' عبارت در گفتار پیدا نشد یا ناقص بود)');
 
     /* ترتیب از **زمان** می‌آید، نه از ترتیبی که مدل داد: مدل می‌تواند
        جمع‌بندی را آخر بنویسد در حالی که در صوت وسط گفته شده — و همان بود که
@@ -4349,6 +4392,7 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
     return out;
   } catch (e) {
     try { logLine_('مشخصاتِ تصویری ساخته نشد: ' + e.message); } catch (e2) {}
+    try { if (ctx) ctx.why = 'خطا: ' + e.message; } catch (e3) {}
     return null;
   }
 }
@@ -4946,6 +4990,196 @@ function ytVisPlan_(mm, ctx, stat) {
   return out;
 }
 
+/**
+ * ══ نقشه‌ای که هیچ بخشی را خالی نمی‌گذارد — پر کردن از خودِ روایت (۸.۲۹) ══
+ *
+ * ۳ اکتبر، درسِ ۵۹ — روزِ اولِ ۸.۲۶: درخواستِ رندر با **سه** کارت نوشته شد،
+ * هر سه از بخشِ یک، برای درسی پانزده‌ونیم‌دقیقه‌ای که موتور خودش دوازده
+ * تصویر برایش خواسته بود. یعنی هر کارت پنج دقیقه روی قاب، و چهار بخشِ بعدی
+ * بی هیچ تصویرِ خودشان. ۸.۲۶ قرارداد را درست کرد و یک بار دوباره پرسید؛
+ * ولی **هر دو راهش به مدل ختم می‌شد**، و مدلی که بار اول کم داد، بار دوم هم
+ * می‌تواند کم بدهد. شمردنِ ۸.۱۱ گفت «نحیف است»؛ هیچ‌چیز نحیفی را پُر نکرد.
+ *
+ * این تابع راهی است که به مدل ختم نمی‌شود. برای هر بخشی که کمتر از سهمش
+ * مورد دارد، از **متنِ خودِ همان بخش** جمله برمی‌دارد — پخش در طولِ بخش،
+ * نه از سرش — و یک کارتِ «نقل» می‌سازد: متنِ درشت همان جمله، برچسبِ گوشه
+ * سرِ بخش، و `quote` چند واژهٔ اولِ همان جمله، **عیناً**. پس این کارت‌ها به
+ * ساختار همیشه لنگر دارند و `lvSpecBuild_` ثانیه‌شان را پیدا می‌کند — کاری
+ * که برای `quote`ِ مدل فقط امید است.
+ *
+ * مرزها:
+ * - **کارِ مدل جایگزین نمی‌شود، کامل می‌شود.** بخشی که به اندازهٔ سهمش
+ *   دارد دست نمی‌خورد؛ موردِ مدل هرگز حذف یا بازنویسی نمی‌شود.
+ * - **جملهٔ رادیویی** («بشنوید»، «در قسمتِ بعد…») کارت نمی‌شود — همان
+ *   فهرستِ جزوه (`HANDOUT_RADIO`)؛ دو فهرست برای یک چیز یعنی یکی کهنه شود.
+ * - **ترتیب از گفتار می‌آید.** موردهای هر بخش به جای عبارتشان در متن مرتب
+ *   می‌شوند، تا کارتِ اسلایدز (که بی زمانِ واقعی پشتِ‌هم می‌آید) هم با
+ *   گفتار هم‌قدم باشد. موردی که عبارتش پیدا نشود، پشتِ موردِ قبلی‌اش می‌مانَد.
+ * - **شمرده می‌شود** (`auto`) و به ردیفِ رندر می‌رود: کارتی که کد ساخت با
+ *   کارتی که مدل طراحی کرد یکی نیست، و هر روز که این عدد بالا باشد یعنی
+ *   مدل کارش را نکرده — آن را باید دید، نه پنهان کرد.
+ */
+function ytVisSents_(text) {
+  var src = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!src) return [];
+  var parts = [];
+  try { parts = handoutSentences_(src); } catch (eS) { parts = src.split(/(?<=[.!؟?…])\s+/); }
+  var radio = [];
+  try { radio = (HANDOUT_RADIO || []).slice(0); } catch (eR) { radio = []; }
+  /* و یک قابِ دیگر که جزوه نگهش می‌دارد ولی کارت نباید: وعدهٔ درسِ بعد.
+     جزوه جمله را در دلِ فصل می‌خوانَد؛ کارت آن را تنها و درشت نشان می‌دهد،
+     و «در درسِ بعد سراغِ …» روی قاب یعنی تصویرِ درسی که هنوز نیامده. */
+  radio.push(/(در|تا|برای) (درس|قسمت|جلسه)ِ? ?(بعد|بعدی|آینده)/);
+  var out = [], pos = 0;
+  for (var i = 0; i < parts.length; i++) {
+    var s = String(parts[i] || '').trim();
+    var at = src.indexOf(s, pos);
+    if (at >= 0) pos = at + s.length;
+    if (!s) continue;
+    var bad = false;
+    for (var r = 0; r < radio.length; r++) { if (radio[r].test(' ' + s)) { bad = true; break; } }
+    if (bad) continue;
+    var words = s.replace(/[.!؟?…]+$/, '').split(' ').filter(function (w) { return !!w; });
+    /* جملهٔ بلند — یا متنی که اصلاً نقطه ندارد — به پنجره‌های دوازده‌واژه‌ای
+       شکسته می‌شود، نه دور انداخته. وگرنه بخشی که گوینده‌اش یک‌نفس حرف
+       زده، درست همان بخشی است که هیچ کارتی نمی‌گیرد. */
+    if (words.length > 24) {
+      for (var w0 = 0; w0 + 5 <= words.length; w0 += 12) {
+        var ws = words.slice(w0, w0 + 12);
+        out.push({ t: ws.join(' ') + (w0 + 12 < words.length ? ' …' : ''), words: ws,
+                   at: (at < 0 ? pos : at) + w0 });
+      }
+      continue;
+    }
+    out.push({ t: s, words: words, at: at < 0 ? pos : at });
+  }
+  return out;
+}
+
+/** متنِ درشتِ یک کارتِ «نقل»: تا سقف، سرِ واژه بریده، نه وسطِ آن. */
+function ytVisAutoHead_(words) {
+  var max = Math.max(16, Number(CFG.LV_CARD_TITLE_MAX) || 48);
+  var t = '';
+  for (var i = 0; i < words.length; i++) {
+    var nx = t ? t + ' ' + words[i] : words[i];
+    if (nx.length > max - 1) return (t || nx.slice(0, max - 1)).replace(/[،؛:,]+$/, '') + '…';
+    t = nx;
+  }
+  return t.replace(/[،؛:,]+$/, '');
+}
+
+/** چند جمله از یک بخش، پخش در طولش. جملهٔ کوتاه‌تر جلوتر است چون کامل جا می‌شود. */
+function ytVisAutoPick_(narr, need, taken) {
+  var sents = ytVisSents_(narr), cand = [];
+  var used = (taken || []).map(function (q) { return lvNorm_(q); }).filter(function (q) { return q.length >= 8; });
+  for (var i = 0; i < sents.length; i++) {
+    var n = sents[i].words.length;
+    if (n < 5 || n > 40) continue;
+    var norm = lvNorm_(sents[i].t), dup = false;
+    for (var u = 0; u < used.length; u++) if (norm.indexOf(used[u]) !== -1) { dup = true; break; }
+    if (dup) continue;
+    cand.push(sents[i]);
+  }
+  var short = cand.filter(function (s) { return s.words.length <= 16; });
+  var pool = short.length >= need ? short : cand;
+  var out = [], seen = Object.create(null);
+  if (!pool.length || need <= 0) return out;
+  for (var k = 0; k < need && out.length < pool.length; k++) {
+    var idx = Math.min(pool.length - 1, Math.floor((k + 0.5) * pool.length / need));
+    while (seen[idx] && idx + 1 < pool.length) idx++;
+    if (seen[idx]) continue;
+    seen[idx] = true; out.push(pool[idx]);
+  }
+  out.sort(function (a, b) { return a.at - b.at; });
+  return out;
+}
+
+/**
+ * @param {Array} vis  نقشهٔ ساخته‌شده (خروجیِ `ytVisPlan_`)
+ * @param {Object} ctx همان ctxِ `ytPlan_`
+ * @param {Object=} stat `auto` (چند کارت از روایت ساخته شد) و `bare` (بخش‌هایی
+ *   که حتی جمله‌ای هم برای برداشتن نداشتند) روی آن می‌نشیند
+ * @return {Array} نقشهٔ کامل — همان آرایه اگر چیزی لازم نبود
+ */
+function ytVisFill_(vis, ctx, stat) {
+  var st = stat || {};
+  st.auto = 0; st.bare = 0;
+  var list = vis || [];
+  if (!ytVisOn_(ctx && ctx.show)) return list;
+  var secs = (ctx && ctx.sections) || [];
+  if (!secs.length) return list;
+  var chars = [], sum = 0;
+  for (var i = 0; i < secs.length; i++) {
+    var n = String((secs[i] && (secs[i].narration || secs[i].text)) || '').length;
+    chars.push(n); sum += n;
+  }
+  if (!sum) return list;
+  var asked = ytVisWant_(ctx.totalSec);
+  var shares = ytVisShares_(secs, asked);
+  var bySec = Object.create(null);
+  for (var v = 0; v < list.length; v++) {
+    var k = String(Number(list[v] && list[v].at) || 0);
+    (bySec[k] = bySec[k] || []).push(list[v]);
+  }
+  /* میان‌بُر، نه سد: نقشه‌ای که هیچ بخشش کم ندارد همان آرایه برمی‌گردد و
+     زمان‌ها از نو حساب نمی‌شوند. سدِ واقعی `gap` پایین‌تر است — شکستنِ
+     این حلقه به‌تنهایی هیچ رفتاری را عوض نمی‌کند (۷٫۷۱). */
+  var need = 0;
+  for (var s = 1; s <= secs.length; s++) {
+    if (!chars[s - 1]) continue;
+    if ((bySec[String(s)] || []).length < shares[s - 1]) need++;
+  }
+  if (!need) return list;
+
+  var lead = Math.max(0, Number(CFG.MUSIC_INTRO_SEC) || 0);
+  var body = Math.max(1, (Number(ctx.totalSec) || 0) - lead);
+  var cap = Math.max(1, Number(CFG.LV_MAX_PER_EP) || 40);
+  var out = [];
+  for (var s2 = 1; s2 <= secs.length; s2++) {
+    var sec = secs[s2 - 1] || {};
+    var narr = String(sec.narration || sec.text || '');
+    var head = String(sec.heading || '');
+    var grp = (bySec[String(s2)] || []).slice(0);
+    var gap = shares[s2 - 1] - grp.length;
+    if (gap > 0 && narr) {
+      var picks = ytVisAutoPick_(narr, gap, grp.map(function (x) { return String(x.quote || ''); }));
+      if (!picks.length && !grp.length) st.bare++;
+      for (var p = 0; p < picks.length; p++) {
+        var w = picks[p].words;
+        var item = ytVisItem_({
+          quote: w.slice(0, Math.min(7, w.length)).join(' '),
+          form: 'نقل',
+          kicker: head,
+          headline: ytVisAutoHead_(w),
+          caption: picks[p].t
+        }, s2);
+        item.auto = true;
+        grp.push(item);
+        st.auto++;
+      }
+    }
+    if (!grp.length) continue;
+    /* ترتیبِ گفتار: جای عبارتِ هر مورد در متنِ بخش. */
+    var stream = lvNorm_(narr), cmp = {}, last = -1;
+    for (var g = 0; g < grp.length; g++) {
+      var q = lvNorm_(grp[g].quote || '');
+      var at = q.length >= 8 ? lvFind_(stream, q, cmp) : -1;
+      grp[g].__pos = at >= 0 ? at : last + 0.001;
+      if (at >= 0) last = at; else last = grp[g].__pos;
+    }
+    grp.sort(function (a, b) { return a.__pos - b.__pos; });
+    var share = sum ? (chars[s2 - 1] / sum) * body : 0;
+    var each = share / grp.length;
+    for (var g2 = 0; g2 < grp.length; g2++) {
+      delete grp[g2].__pos;
+      grp[g2].sec = Math.round(each * 10) / 10;
+      grp[g2].heading = head;
+      if (out.length < cap) out.push(grp[g2]);
+    }
+  }
+  return out;
+}
+
 function ytPlan_(folder, ctx, redo) {
   if (!redo) {
     var had = ytPlanRead_(folder);
@@ -4986,11 +5220,42 @@ function ytPlan_(folder, ctx, redo) {
     note: 'این فایل را می‌شود دستی ویرایش کرد. بعدش از منو ' +
           '«بازسازیِ عنوان و کاورِ یوتیوب» را بزنید تا روی ویدئو بنشیند.'
   };
+  /* جوابِ خامِ مدل، کنارِ نقشه: چند مورد داد و چندتایش کجا ریخت. بی این، فردا
+     «نقشه سه مورد دارد» از «مدل سه مورد داد» جدا نمی‌شود (۸.۲۹). */
+  try {
+    var vs0 = ctx.__visStat || {};
+    plan.visModel = { raw: Number(vs0.raw) || 0, badSec: Number(vs0.badSec) || 0,
+                      perSec: Number(vs0.perSec) || 0, kept: (plan.visuals || []).length,
+                      repaired: !!(mm && mm.__repaired) };
+  } catch (eVm) {}
   try { ytVisThicken_(folder, plan, ctx); } catch (eTk) {
     logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eTk.message);
   }
+  /* و آنچه مدل حتی بار دوم کم گذاشت، از خودِ روایت پر می‌شود (۸.۲۹). */
+  try { ytVisFillPlan_(plan, ctx); } catch (eFl) {
+    logLine_('پرکردنِ نقشهٔ تصویر نشد: ' + eFl.message);
+  }
   ytPlanWrite_(folder, plan);
   return plan;
+}
+
+/** `ytVisFill_` روی نقشه، با ثبتِ آنچه کرد — هم در نقشه، هم در سیاهه، هم در
+ *  آمارِ همین اجرا که `lvBuild_` به `_visuals.json` و ردیفِ رندر می‌بَرد.
+ *  @return {number} چند کارت از روایت ساخته شد */
+function ytVisFillPlan_(plan, ctx) {
+  if (!plan) return 0;
+  var st = {};
+  var before = (plan.visuals || []).length;
+  var v2 = ytVisFill_(plan.visuals || [], ctx, st);
+  if (!st.auto) return 0;
+  plan.visuals = v2;
+  plan.visAuto = { n: st.auto, bare: st.bare, before: before, after: v2.length, at: nowStr_() };
+  try { (ctx.__visStat = ctx.__visStat || {}).auto = st.auto; } catch (eS) {}
+  logLine_('نقشهٔ تصویرِ قسمتِ ' + String((ctx && ctx.epRaw) || '') + ': مدل ' + before +
+           ' مورد داد از ' + ytVisWant_(ctx && ctx.totalSec) + '؛ ' + st.auto +
+           ' کارتِ «نقل» از متنِ خودِ بخش‌ها ساخته شد' +
+           (st.bare ? ' (' + st.bare + ' بخش حتی جمله‌ای برای برداشتن نداشت)' : '') + '.');
+  return st.auto;
 }
 
 /**
@@ -5097,10 +5362,22 @@ function ytUploadOne_(item, hub, pub) {
   /* نقشهٔ ذخیره‌شده‌ای که نحیف است و هنوز اثری دارد (ویدئو نه ساخته شده نه
      خواسته شده) یک بار دیگر پرسیده می‌شود — همان «جبران‌شدنی»ِ ۸.۱۱ که تا
      ۸.۲۶ هیچ کدی پشتش نبود. */
-  if (plan.cached && ytVisOn_(item.show) &&
-      (plan.visuals || []).length < ytVisFloor_(ytVisWant_(totalSec))) {
-    try { if (ytVisReplanDue_(folder, item)) ytVisThicken_(folder, plan, ctx); }
-    catch (eRp) { logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eRp.message); }
+  /* نقشهٔ ذخیره‌شده: نحیف ⇒ یک پرسشِ دیگر (۸.۲۶)؛ هنوز کم ⇒ پر از روایت
+     (۸.۲۹). هر دو فقط وقتی ویدئو و درخواستِ رندرش هنوز نیست — پس از آن
+     تغییرِ نقشه هیچ اثری ندارد جز پول. پرسشِ «لازم هست؟» اول و بی خواندنِ
+     درایو جواب می‌گیرد، تا قسمتی که نقشه‌اش کامل است هر بار صف را نخوانَد. */
+  if (plan.cached && ytVisOn_(item.show)) {
+    var thinNow = (plan.visuals || []).length < ytVisFloor_(ytVisWant_(totalSec));
+    var stF0 = {};
+    try { ytVisFill_(plan.visuals || [], ctx, stF0); } catch (eF0) {}
+    if (thinNow || stF0.auto) {
+      try {
+        if (ytVisReplanDue_(folder, item)) {
+          if (thinNow) ytVisThicken_(folder, plan, ctx);
+          if (ytVisFillPlan_(plan, ctx)) ytPlanWrite_(folder, plan);
+        }
+      } catch (eRp) { logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eRp.message); }
+    }
   }
 
   /* ── سبکِ این مجموعه، **یک بار و پیش از کاور** (۷.۹۹) ──
@@ -5216,17 +5493,18 @@ function ytUploadOne_(item, hub, pub) {
      * نبودش خرابی نیست: هر قسمتِ پیش از ۸.۰۱ `_times.json` ندارد و باید
      * **عیناً** مسیرِ امروز را برود. `visuals` هم کنارش می‌مانَد، هم برای
      * جزوه و هم برای موتورِ قدیمی که `spec` را نمی‌شناسد. */
-    var lvSpec = null;
+    var lvSpec = null, spCtx = null;
     try {
       /* سطحِ خودِ مجموعه از همه مقدم است: «خاموش» یعنی صاحبِ برنامه برای این
          مجموعه تصویر نخواسته، و آن یک تصمیم است نه یک نقص. */
       if (lvLvl === 'خاموش') throw new Error('سطحِ تصویرسازیِ این مجموعه «خاموش» است');
-      lvSpec = lvSpecBuild_(folder, meta, plan, {
+      spCtx = {
         level: lvLvl, style: lvSty, bg: vis.bgIds || {},
         show: item.show, cat: String(meta.cat || meta.seriesCat || ''),
         seriesName: seriesName,
         foot: showName + (lessonNo ? '  ·  درس ' + faDigitsOut_(String(lessonNo)) : '')
-      });
+      };
+      lvSpec = lvSpecBuild_(folder, meta, plan, spCtx);
       if (lvSpec) {
         var nBg = lvSpec.cards.filter(function (c) { return !!c.bgId; }).length;
         logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری با ' +
@@ -5238,15 +5516,44 @@ function ytUploadOne_(item, hub, pub) {
         /* نقشه بود و مشخصات نشد — یعنی ویدئو با کارت‌های اسلایدز می‌رود، نه
            کارت‌های برداری. این یک خطِ سیاهه است نه یافته، ولی بی آن هیچ‌کس
            نمی‌فهمد کدام مسیر رفت. */
-        logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری ساخته نشد (کمتر از دو کارتِ ' +
-                 'لنگردار، یا `_times.json` نبود) — ویدئو با کارت‌های اسلایدز می‌رود.');
+        logLine_('قسمتِ ' + item.ep + ': مشخصاتِ تصویری ساخته نشد — ' +
+                 String((spCtx && spCtx.why) || 'علت نامعلوم') +
+                 ' — ویدئو با کارت‌های اسلایدز می‌رود.');
       }
-    } catch (eSp) { logLine_('مشخصاتِ تصویری نشد: ' + eSp.message); }
+    } catch (eSp) {
+      logLine_('مشخصاتِ تصویری نشد: ' + eSp.message);
+      spCtx = spCtx || {}; spCtx.why = spCtx.why || eSp.message;
+    }
+
+    /* ══ شاهدِ نقشه **در ردیفِ عمومی** (۸.۲۹) ══
+       درسِ ۵۹ با سه کارت رفت و پرسشِ «چرا» جوابی جز سیاههٔ درونِ هاب نداشت —
+       که ناظر و سشنِ کد، روزی که درایو در دسترس نیست، نمی‌بینندش. `_YT-RENDER.json`
+       عمومی است و هر ساعت خوانده می‌شود؛ چند عدد در آن، فردا جوابِ «مدل کم داد
+       یا ساختن نرسید یا لنگر نگرفت» را بی هیچ دسترسیِ تازه‌ای می‌دهد. فقط
+       شمارش و علت — هیچ متنی از درس. */
+    var visInfo = null;
+    if (vis.want || (plan.visuals || []).length) {
+      visInfo = {
+        asked: Number(vis.asked) || ytVisWant_(totalSec),
+        planned: (plan.visuals || []).length,
+        auto: (plan.visuals || []).filter(function (x) { return x && x.auto; }).length,
+        model: plan.visModel || null,
+        again: plan.visAsk ? { raw: Number(plan.visAsk.raw) || 0, after: Number(plan.visAsk.after) || 0 } : null,
+        ready: Number(vis.ready) || 0, tries: Number(vis.tries) || 0,
+        stale: Number(vis.stale) || 0,
+        bg: (Number(vis.gHave) || 0) + '/' + (Number(vis.gWant) || 0),
+        level: String(lvLvl || ''), style: String(lvSty || ''),
+        spec: lvSpec ? lvSpec.cards.length : 0,
+        specMissed: lvSpec ? Number(lvSpec.missed) || 0 : 0,
+        specWhy: lvSpec ? '' : String((spCtx && spCtx.why) || '')
+      };
+    }
 
     ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
                    folderId: folder.getId(),
                    visuals: vis.items,
                    spec: lvSpec || undefined,
+                   visInfo: visInfo || undefined,
                    // **فهرستِ مرتب**، نه یک فایل: قسمتِ دوفایلی باید یک ویدئوی
                    // واحد شود، وگرنه نیمی از درس منتشر می‌شود.
                    audio: aud.parts.map(function (f) {
