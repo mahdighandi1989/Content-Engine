@@ -2373,6 +2373,22 @@ function runVoiceSoulTest() {
                          pieces[i].k ? speakSpanStyle_(pieces[i].k, pick.cue) : pick.cue,
                          CFG.TTS_VOICE);
       if (!b1) { cut = pieces.length - i; break; }
+      /* ══ حالت رسید یا نه — از رویدادِ همین تکه، نه از امید (۸.۲۷) ══
+         حالت روی دستورِ لحن سوار است؛ اگر دستورِ **همین تکه** دور انداخته شد،
+         بلندی و سرعتش در خودِ صدا ساخته می‌شود، و آنچه در صدا ساختنی نیست
+         «نشد» ثبت می‌شود تا کپشن جایش را با ثانیه ادعا نکند. */
+      if (pieces[i].k) {
+        var how = 'دستور';
+        if (TTS_CUE_DROPPED_ || (cueChk && cueChk.ok === false)) {
+          var dsp = null;
+          try { dsp = speakMoodDsp_(b1, pieces[i].k); } catch (eDsp) { dsp = null; }
+          if (dsp) { b1 = dsp; how = 'صدا'; } else how = 'نشد';
+        }
+        var lastAt = spanAt[spanAt.length - 1];
+        if (lastAt && lastAt.k === pieces[i].k) {
+          lastAt.how = (!lastAt.how || lastAt.how === how) ? how : 'بخشی';
+        }
+      }
       accB64 += alignB64_(b1);
     }
     if (!accB64) { res.why = 'پاسخِ صوتیِ خالی'; throw new Error(res.why); }

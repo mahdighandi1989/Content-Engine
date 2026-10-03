@@ -424,7 +424,41 @@ def ffmpeg():
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def to_wav(src, dst, seconds=None, rate=24000):
+TRIM_ = ("silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,"
+         "areverse,silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,areverse")
+
+
+def loudStatic_(src, target=-18.0, tp=-2.0):
+    """
+    یک **عدد** گین برای کلِ فایل: بلندی یک بار سنجیده می‌شود و همان روی
+    همه می‌نشیند. `None` یعنی سنجیده نشد — صداکننده می‌گوید و به حالتِ
+    پویا برمی‌گردد.
+
+    ══ چرا (۸.۲۷) ══
+    `loudnorm` بی اندازه‌های سنجیده در حالتِ **پویا** کار می‌کند: پنجره‌ای
+    چندثانیه‌ای و گینی که آرام عوض می‌شود تا هر جای فایل به هدف برسد. برای
+    نمونهٔ مرجع درست است؛ برای صوتِ مبدأیی که عمداً جایی «آرام» و جایی «بلند»
+    است، همان تفاوت را صاف می‌کند — یعنی حالت‌هایی که موتور در خودِ صدا
+    ساخته بود، پیش از تبدیل پاک می‌شدند، بی هیچ خطایی.
+    """
+    f = ffmpeg()
+    r = sh([f, "-nostdin", "-i", src, "-af",
+            TRIM_ + ",loudnorm=I=%s:TP=%s:print_format=json" % (target, tp),
+            "-f", "null", "-"], capture_output=True, timeout=SURVEY_TIMEOUT)
+    txt = (r.stderr or b"").decode("utf-8", "replace")
+    a, b = txt.rfind("{"), txt.rfind("}")
+    try:
+        j = json.loads(txt[a:b + 1])
+        i, p = float(j["input_i"]), float(j["input_tp"])
+    except Exception:
+        return None
+    if not (math.isfinite(i) and math.isfinite(p)) or i < -70:
+        return None
+    # گینی که هدف می‌خواهد، ولی هرگز بیش از آنچه قله اجازه می‌دهد
+    return round(min(target - i, tp - p), 2)
+
+
+def to_wav(src, dst, seconds=None, rate=24000, static=False):
     """
     نرمال‌سازیِ نمونه: تک‌کاناله، ۲۴ کیلوهرتز، بی سکوتِ ابتدا و انتها.
 
@@ -432,12 +466,21 @@ def to_wav(src, dst, seconds=None, rate=24000):
     (`CFG.SAMPLE_RATE`)، پس هر چیزی که بسازیم بی تبدیلِ دوباره کنارِ بقیهٔ
     صدا می‌نشیند. و `silenceremove` چون سکوتِ ابتدای فایل، به‌اندازهٔ نویز
     کیفیتِ نمونه‌برداری را خراب می‌کند.
+
+    `static` ⇒ یک گینِ ثابت به‌جای `loudnorm`ِ پویا (`loudStatic_`)، تا
+    تفاوتِ بلندیِ درونِ فایل بماند.
     """
     f = ffmpeg()
+    norm = "loudnorm=I=-18:TP=-2"
+    if static:
+        g = loudStatic_(src)
+        if g is None:
+            print("بلندیِ مبدأ سنجیده نشد؛ نرمال‌سازیِ پویا به کار رفت — حالت‌های "
+                  "بلندی ممکن است صاف شوند.", flush=True)
+        else:
+            norm = "volume=%.2fdB" % g
     cmd = [f, "-y", "-nostdin", "-i", src, "-ac", "1", "-ar", str(rate),
-           "-af", "silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,"
-                  "areverse,silenceremove=start_periods=1:start_silence=0.1:start_threshold=-45dB,areverse,"
-                  "loudnorm=I=-18:TP=-2"]
+           "-af", TRIM_ + "," + norm]
     if seconds:
         cmd += ["-t", str(seconds)]
     cmd += [dst]
@@ -610,7 +653,7 @@ def refScore_(path, seconds=30.0, neutral=False):
     return best
 
 
-def refAudition_(paths, out, seconds, tag="reference", neutral=False):
+def refAudition_(paths, out, seconds, tag="reference", neutral=False, static=False):
     """
     از میانِ نمونه‌ها یکی را انتخاب کن، و از داخلش بهترین پنجره را.
 
@@ -678,7 +721,8 @@ def refAudition_(paths, out, seconds, tag="reference", neutral=False):
     # نرمال‌سازیِ سنگین حالا روی یک فایلِ سی‌ثانیه‌ای می‌نشیند، نه روی
     # کلِ ضبط — همان جایی که از اول برایش نوشته شده بود.
     try:
-        to_wav(cut if r.returncode == 0 else win["_full"], dst, seconds=seconds)
+        to_wav(cut if r.returncode == 0 else win["_full"], dst, seconds=seconds,
+               static=static)
     except Exception as e:
         print("نرمال‌سازی نشد؛ با برشِ خام ادامه: %s" % str(e)[:200], flush=True)
         shutil.copyfile(cut if r.returncode == 0 else win["_full"], dst)
@@ -2977,6 +3021,8 @@ def main():
     ap.add_argument("--ref-seconds", type=int, default=30)
     # آزمایشی که ارزان نباشد، دو بار انجام نمی‌شود.
     ap.add_argument("--src-seconds", type=int, default=12)
+    # پل می‌دهدش: صوتِ مبدأ با یک گینِ ثابت، تا حالت‌های بلندی بمانند (۸.۲۷)
+    ap.add_argument("--src-static", action="store_true")
     # چک‌پوینتِ سفارشیِ f5 — «hf://کاربر/مخزن/فایل» یا مسیرِ محلی
     ap.add_argument("--f5-ckpt", default="")
     ap.add_argument("--f5-vocab", default="")
@@ -3110,7 +3156,7 @@ def main():
         # `refAudition_` همین را می‌سنجد: پنجره‌ای با کفِ سکوتِ پایین
         # (یعنی بی موسیقیِ زیرِ گفتار) و مکث‌های واقعی.
         src = refAudition_([a.src], a.out, srcSec, tag="source-gemini",
-                           neutral=neutral_)
+                           neutral=neutral_, static=a.src_static)
         rep["source"] = probe(src)
     if meta["needs_src"] and not src:
         rep["error"] = "این موتور به صوتِ مبدأ نیاز دارد و داده نشد."

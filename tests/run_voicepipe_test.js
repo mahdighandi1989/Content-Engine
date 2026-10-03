@@ -1554,4 +1554,51 @@ console.log('\n=== ۲۱) گامِ خودکار و زیروبمِ خروجی (۸.
   ok('۲۱.۵ خروجی هم سنجیده و در نقشه ثبت می‌شود',
      /stOut = f0Stats\(best\)/.test(src) && /rec\["f0Warn"\]/.test(src) && /rec\["f0Out"\]/.test(src));
 }
+console.log('\n=== ۲۲) مبدأ با گینِ ثابت، تا حالت‌های بلندی بمانند (۸.۲۷) ===');
+{
+  /* موتور «آرام» و «بلند» را در خودِ صدا می‌سازد، چون دستورِ لحن به این
+     مدل‌ها نمی‌رسد. و پل پیش از تبدیل `loudnorm`ِ **پویا** می‌زد — پنجره‌ای
+     چندثانیه‌ای که بلندیِ هر تکه را جدا به هدف می‌رساند. سنجیده شد، روی همین
+     کانتینر: اختلافِ ۱۲ دسی‌بلی ۵٫۷ شد. این سنجه همان را با ffmpegِ واقعی
+     می‌پرسد، از همان تابعی که `main` برای مبدأ صدا می‌زند (`refAudition_`). */
+  const ffOk = cp.spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' }).status === 0;
+  if (!ffOk) {
+    console.log('  ⚠️ ۲۲.۱ ffmpeg در این محیط نیست — سنجهٔ رفتاری اجرا نشد (فقط سیم‌کشی سنجیده می‌شود)');
+  } else {
+    const d22 = fs.mkdtempSync('/tmp/vp22-');
+    const r = cp.spawnSync('python3', ['-c', [
+      'import sys,os,wave,struct,math,io,contextlib',
+      'sys.path.insert(0,"tools")',
+      'import voicelab as V',
+      'd=sys.argv[1]; sr=24000',
+      'w=wave.open(d+"/in.wav","wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)',
+      'fr=bytearray()',
+      'for i in range(sr*12):',
+      '    t=i/sr; a=0.3 if (t<4 or t>=8) else 0.075',
+      '    fr+=struct.pack("<h", int(a*math.sin(2*math.pi*220*t)*(0.6+0.4*math.sin(2*math.pi*4*t))*32767))',
+      'w.writeframes(bytes(fr)); w.close()',
+      'def db(p,a,b):',
+      '    w=wave.open(p); r=w.getframerate(); x=w.readframes(w.getnframes()); w.close()',
+      '    s=struct.unpack("<%dh"%(len(x)//2),x); g=s[int(a*r):int(b*r)]',
+      '    return 10*math.log10(sum(v*v for v in g)/len(g)+1e-9)',
+      'buf=io.StringIO()',
+      'with contextlib.redirect_stdout(buf):',
+      '    o=V.refAudition_([d+"/in.wav"], d, 13, tag="source-gemini", static=True)',
+      'print("CONTRAST %.2f %.2f" % (db(d+"/in.wav",1,3.5)-db(d+"/in.wav",5,7.5), db(o,1,3.5)-db(o,5,7.5)))'
+    ].join('\n'), d22], { cwd: process.cwd(), encoding: 'utf8', timeout: 240000 });
+    const m = /CONTRAST (-?[\d.]+) (-?[\d.]+)/.exec(r.stdout || '');
+    ok('۲۲.۱ با گینِ ثابت، اختلافِ بلندیِ درونِ مبدأ می‌مانَد',
+       !!m && Math.abs(Number(m[1]) - Number(m[2])) < 0.5 && Number(m[2]) > 11,
+       m ? ('ورودی ' + m[1] + 'dB ⇒ خروجی ' + m[2] + 'dB') : String(r.stderr || r.stdout).slice(-300));
+    try { fs.rmSync(d22, { recursive: true, force: true }); } catch (e) {}
+  }
+  /* ۲۲.۲ — و پل واقعاً می‌خواهدش، و `main` واقعاً به مبدأ می‌دهدش. پرچمی که
+     تعریف شود و کسی نفرستد، همان کدِ مرده‌ای است که این مخزن بارها خورده. */
+  const vb22 = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  const lab22 = fs.readFileSync('tools/voicelab.py', 'utf8');
+  ok('۲۲.۲ پل `--src-static` می‌فرستد و آزمایشگاه آن را به مبدأ می‌رساند',
+     /"--src-static"/.test(vb22) &&
+     /tag="source-gemini",[\s\S]{0,80}static=a\.src_static/.test(lab22) &&
+     /add_argument\("--src-static", action="store_true"\)/.test(lab22));
+}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

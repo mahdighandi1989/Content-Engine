@@ -1492,6 +1492,96 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
       ok('۲۴.۱۸-ت مدلِ غایب ⇒ نمونه ساخته می‌شود، بی حالت، با علت',
          !!(rS2 && rS2.ok) && /هیچ/.test(String(rowS2.spanLine)) && /quota/.test(String(rowS2.spanLine)),
          String(rowS2.spanLine));
+
+      /* ══ ۲۴.۲۱ — دستور نرسید ⇒ حالت در خودِ صدا، و کپشن راستش را می‌گوید (۸.۲۷) ══
+         ۳ اکتبر: نمونهٔ رضوی برچسبِ «لحن از نشانه‌ها» داشت و کپشن جای نُه حالت
+         را با ثانیه نوشته بود؛ او همان ثانیه‌ها را گوش داد و هیچ نشنید. این‌جا
+         گفتارساز همان کاری را می‌کند که مدلِ واقعی با فیلدِ دستور می‌کند —
+         مهرِ «دستور انداخته شد» با همان تابعِ تولید (`ttsCueDropMark_`) و ساختِ
+         بی‌دستور — و صدا سینوسیِ یکنواخت است تا پردازش در **خودِ فایل** دیده شود. */
+      const qS3 = vbrRead_(); qS3.items = []; vbrSave_(qS3);
+      global.geminiText_ = function (pq) {
+        if (String(pq).indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) {
+          return { spans: [{ from: '3', to: '3', k: 'آرام' },
+                           { from: '5', to: '5', k: 'لبخند' },
+                           { from: '6', k: 'مکث' }] };
+        }
+        return realGem ? realGem.apply(null, arguments) : null;
+      };
+      const tryKeep19 = global.ttsChunkTry_;
+      global.ttsChunkTry_ = function (text, style, voice, withCue) {
+        if (withCue !== false) ttsCueDropMark_();
+        const n = 24000 * 4, b = Buffer.alloc(n * 2);
+        for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(3000 * Math.sin(2 * Math.PI * 180 * i / 24000)), i * 2);
+        return b.toString('base64');
+      };
+      const rD = runVoiceSoulTest();
+      global.ttsChunkTry_ = tryKeep19;
+      const rowD = (vbrRead_().items || [])[0] || {};
+      const lineD = String(rowD.spanLine || '');
+      ok('۲۴.۲۱ دستور نرسید ⇒ «آرام» در صدا ساخته و نام برده شد؛ «لبخند» جایش ادعا نشد',
+         !!(rD && rD.ok) && /آرام [۰-۹:]+ \(در صدا\)/.test(lineD.split('\n')[0]) &&
+         lineD.split('\n')[0].indexOf('لبخند') === -1 && /اجرا نشد[^\n]*لبخند/.test(lineD),
+         lineD.replace(/\n/g, ' ⏎ '));
+      /* ۲۴.۲۱-ب — و پردازش در **فایلِ ساخته‌شده** هست، نه فقط در جمله: پنجره‌ای
+         از فایل باید حدودِ شش دسی‌بل آهسته‌تر از بقیه باشد. */
+      let dbGap = null;
+      try {
+        const fD = DriveApp.getFolderById(String(rowD.folderId));
+        const itD = fD.getFiles();
+        let wav = null;
+        while (itD.hasNext()) { const f = itD.next(); if (/کامل\.wav$/.test(f.getName())) wav = f; }
+        const by = Buffer.from(wav.getBlob().getBytes().map(v => (v < 0 ? v + 256 : v)));
+        const pcmD = [];
+        for (let i = 54; i + 1 < by.length; i += 2) pcmD.push(by.readInt16LE(i));
+        /* پنجره‌ای که سکوتِ «مکث» در آن افتاده حساب نمی‌شود — آن آهسته‌تر است
+           چون خاموش است، نه چون پردازش شده. */
+        const W = 24000, r = [];
+        for (let a = 0; a + W <= pcmD.length; a += W) {
+          let e = 0, run = 0, hole = false;
+          for (let j = a; j < a + W; j++) {
+            e += pcmD[j] * pcmD[j];
+            run = pcmD[j] === 0 ? run + 1 : 0;
+            if (run >= 240) hole = true;
+          }
+          if (!hole && e > 0) r.push(Math.sqrt(e / W));
+        }
+        dbGap = 20 * Math.log10(Math.max.apply(null, r) / Math.min.apply(null, r));
+      } catch (eW) { dbGap = 'خطا: ' + eW.message; }
+      ok('۲۴.۲۱-ب پنجره‌ای از خودِ فایل حدودِ شش دسی‌بل آهسته‌تر است',
+         typeof dbGap === 'number' && dbGap > 5 && dbGap < 7,
+         String(typeof dbGap === 'number' ? dbGap.toFixed(2) + 'dB' : dbGap));
+    }
+    /* ۲۴.۲۲ — و پرچمِ تکه‌ای را **خودِ** `ttsChunkTry_` می‌زند، نه بدَلِ بالا:
+       مدلی که فیلد را رد کرده و پیشوند خاموش ⇒ ساختِ بی‌دستور و پرچم. و مدلی
+       که می‌پذیرد ⇒ پرچم پایین. بی این، ۲۴.۲۱ فقط بدَلِ خودش را می‌سنجید. */
+    {
+      const keepBad = global.ttsCueBadNow_, keepOff = global.ttsCueOffNow_,
+            keepFetch = global.geminiFetch_, keepVer = CFG.TTS_CUE_VERIFY;
+      CFG.TTS_CUE_VERIFY = false;
+      const keyWas = global.__PROPS['GEMINI_API_KEY'];
+      global.__PROPS['GEMINI_API_KEY'] = 'TEST';
+      global.geminiFetch_ = function () {
+        return { candidates: [{ content: { parts: [{ inlineData: {
+          data: Buffer.alloc(4800).toString('base64') } }] } }] };
+      };
+      global.ttsChunkTry_ = realTry;
+      global.ttsCueBadNow_ = () => true; global.ttsCueOffNow_ = () => false;
+      ttsGuarded_('متنِ آزمون', 'آرام بخوان', CFG.TTS_VOICE);
+      const dropped = TTS_CUE_DROPPED_;
+      global.ttsCueBadNow_ = () => false;
+      ttsGuarded_('متنِ آزمون', 'آرام بخوان', CFG.TTS_VOICE);
+      const kept = TTS_CUE_DROPPED_;
+      global.ttsCueBadNow_ = keepBad; global.ttsCueOffNow_ = keepOff;
+      global.geminiFetch_ = keepFetch; CFG.TTS_CUE_VERIFY = keepVer;
+      if (keyWas === undefined) delete global.__PROPS['GEMINI_API_KEY'];
+      else global.__PROPS['GEMINI_API_KEY'] = keyWas;
+      global.ttsChunkTry_ = function (text, style, voice, withCue) {
+        cues.push(String(style || '')); saidTexts.push(String(text || '')); withCueSeen.push(withCue);
+        return Buffer.alloc(24000 * 2 * 8).toString('base64');
+      };
+      ok('۲۴.۲۲ پرچمِ «دستورِ همین تکه نرسید» را خودِ `ttsChunkTry_` می‌زند',
+         dropped === true && kept === false, JSON.stringify({ dropped, kept }));
     }
     global.geminiText_ = realGem;
     const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);

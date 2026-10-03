@@ -1475,4 +1475,91 @@ console.log('\n=== ۲۴) حالت‌ها — گوینده هرگز نشانه ر
   }
 }
 
+console.log('\n=== ۲۵) حالتی که دستورش نرسید، در خودِ صدا (۸.۲۷) ===');
+{
+  /* ۳ اکتبر: «یه سری حالت‌ها رو اصلاً رعایت نکرد … تو کپشن نوشته بودی». حالت‌ها
+     روی دستورِ لحن سوار بودند و دستور به این مدل‌ها نمی‌رسد. این بند خودِ
+     پردازشِ صدا را می‌سنجد، با سیگنالِ واقعی — نه وجودِ یک تابع. */
+  const SR = Number(CFG.SAMPLE_RATE) || 24000;
+  const pcm = (fn, sec) => {
+    const n = Math.round(sec * SR), b = Buffer.alloc(n * 2);
+    for (let i = 0; i < n; i++) b.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(fn(i / SR) * 32767))), i * 2);
+    return b.toString('base64');
+  };
+  const read = (b64) => {
+    const b = Buffer.from(b64, 'base64'), out = new Float64Array(Math.floor(b.length / 2));
+    for (let i = 0; i < out.length; i++) out[i] = b.readInt16LE(i * 2) / 32768;
+    return out;
+  };
+  const rms = (x, a, z) => { let s = 0, n = 0; for (let i = a || 0; i < (z || x.length); i++) { s += x[i] * x[i]; n++; } return Math.sqrt(s / Math.max(1, n)); };
+  const zc = (x) => { let c = 0; for (let i = 1; i < x.length; i++) if ((x[i - 1] < 0) !== (x[i] < 0)) c++; return c; };
+  const sine = pcm(t => 0.1 * Math.sin(2 * Math.PI * 200 * t), 3);
+  const x0 = read(sine);
+
+  const loud = read(speakMoodDsp_(sine, 'بلند'));
+  const soft = read(speakMoodDsp_(sine, 'آرام'));
+  const rL = rms(loud) / rms(x0), rS = rms(soft) / rms(x0);
+  ok('۲۵.۱ «بلند» و «آرام» واقعاً بلندتر و آهسته‌ترند — با عددِ دسی‌بلِ خودشان',
+     Math.abs(20 * Math.log10(rL) - 6) < 0.6 && Math.abs(20 * Math.log10(rS) + 6) < 0.6,
+     'بلند ' + (20 * Math.log10(rL)).toFixed(2) + 'dB · آرام ' + (20 * Math.log10(rS)).toFixed(2) + 'dB');
+
+  /* ۲۵.۲ — سرعت عوض می‌شود و **زیروبم نه**. بازنمونه‌برداری هم سرعت را عوض
+     می‌کند — ولی صدا را زیر و بم هم می‌کند، که برای گوینده یعنی آدمِ دیگر. */
+  const fast = read(speakMoodDsp_(sine, 'تند'));
+  const durF = fast.length / SR, hzF = zc(fast) / 2 / durF;
+  const slow = read(speakMoodDsp_(sine, 'کشیده'));
+  const durS = slow.length / SR, hzS = zc(slow) / 2 / durS;
+  ok('۲۵.۲ «تند» کوتاه‌تر و «کشیده» بلندتر می‌شود، و زیروبم ۲۰۰ هرتز می‌مانَد',
+     Math.abs(durF - 3 / 1.12) < 0.08 && Math.abs(durS - 3 / 0.85) < 0.08 &&
+     Math.abs(hzF - 200) < 6 && Math.abs(hzS - 200) < 6,
+     'تند ' + durF.toFixed(2) + 'ث @' + hzF.toFixed(1) + 'Hz · کشیده ' + durS.toFixed(2) + 'ث @' + hzS.toFixed(1) + 'Hz');
+
+  /* ۲۵.۳ — بایتِ علامت‌دار. نمونهٔ منفی اگر بی ماسک خوانده شود، عددی بی‌معنا
+     می‌شود که هیچ خطایی نمی‌دهد و فقط شنیده می‌شود (بخشِ ۲۳، ۵.۱/۶.۲).
+     ثبت می‌شود، نه ادعا (۷٫۷۴): برداشتنِ ماسکِ بایتِ پایین روی **۲۵.۱**
+     می‌نشیند نه این‌جا — سینوسِ ۲۵.۱ هم نیمه‌اش منفی است و همان‌جا نویز
+     می‌شود. این سنجه همان مرز را با نویزِ تصادفی، نمونه‌به‌نمونه می‌پرسد. */
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 - 0.5; };
+  const noise = pcm(() => 0.3 * rnd(), 1);
+  const xn = read(noise), yn = read(speakMoodDsp_(noise, 'کمی‌بلند'));
+  const g = Math.pow(10, 3 / 20);
+  let bad = 0, neg = 0;
+  for (let i = 0; i < xn.length; i++) {
+    if (Math.abs(xn[i] * g) >= 0.69) continue;            // زیرِ زانوی محدودکننده
+    if (xn[i] < 0) neg++;
+    if (Math.abs(yn[i] - xn[i] * g) > 2 / 32768) bad++;
+  }
+  ok('۲۵.۳ نمونه‌های منفی درست خوانده و نوشته می‌شوند', bad === 0 && neg > 5000,
+     'نادرست ' + bad + ' از ' + xn.length + ' · منفی ' + neg);
+
+  /* ۲۵.۴ — بلندکردنِ صدای بلند **بریده** نمی‌شود؛ نرم سقف می‌گیرد. */
+  const hot = read(speakMoodDsp_(pcm(t => 0.6 * Math.sin(2 * Math.PI * 200 * t), 1), 'بلند'));
+  let clip = 0, peak = 0;
+  for (let i = 0; i < hot.length; i++) { const a = Math.abs(hot[i]); if (a > peak) peak = a; if (a >= 32700 / 32768) clip++; }
+  ok('۲۵.۴ صدای بلند با محدودکنندهٔ نرم، بی بُرش', clip === 0 && peak > 0.8,
+     'قله ' + peak.toFixed(3) + ' · بُرش ' + clip);
+
+  /* ۲۵.۵ — «لبخند» در صدا ساختنی نیست و ادعا نمی‌شود؛ «مکث» سکوت است. */
+  ok('۲۵.۵ لبخند و مکث در صدا ساخته نمی‌شوند — `null`، نه یک تقلید',
+     speakMoodDsp_(sine, 'لبخند') === null && speakMoodDsp_(sine, 'مکث') === null &&
+     speakMoodDsp_(sine, 'ناشناخته') === null);
+
+  /* ۲۵.۶ — خروجی مضربِ ۶ بایت است، وگرنه چسباندنِ base64 تکه‌ها یک بایت را
+     جابه‌جا می‌کند و بقیهٔ فایل نویز می‌شود. */
+  const lens = ['بلند', 'تند', 'کشیده', 'آرام', 'نجوا', 'سنگین'].map(k => Buffer.from(speakMoodDsp_(sine, k), 'base64').length % 6);
+  ok('۲۵.۶ خروجیِ هر حالت مضربِ ۶ بایت است', lens.every(v => v === 0), JSON.stringify(lens));
+
+  /* ۲۵.۷ — کپشن **چطور** را می‌گوید، و آنچه اجرا نشد را در فهرستِ جاها نمی‌آورد. */
+  const cap = speakSpanWhere_([{ k: 'لبخند', s: 56, how: 'نشد' }, { k: 'مکث', s: 84 },
+                               { k: 'آرام', s: 105, how: 'صدا' }, { k: 'نجوا', s: 200, how: 'صدا' },
+                               { k: 'تند', s: 140, how: 'دستور' }]);
+  const first = cap.split('\n')[0];
+  ok('۲۵.۷ کپشن: «در صدا» نام برده می‌شود، و حالتِ اجرانشده در فهرستِ جاها نیست',
+     first.indexOf('لبخند') === -1 && /آرام [۰-۹:]+ \(در صدا\)/.test(first) &&
+     /تند [۰-۹:]+(?! \()/.test(first) && /اجرا نشد[^\n]*لبخند/.test(cap) &&
+     /نجوا: [^\n]*آهسته‌تر/.test(cap),
+     cap.replace(/\n/g, ' ⏎ '));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

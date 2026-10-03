@@ -594,6 +594,11 @@ def runOne(it, mp):
             "--ref", "vb/src.wav",          # voicelab مرجع را اجباری می‌داند
             "--src", "vb/src.wav", "--out", "vblab",
             "--src-seconds", str(int(srcSec) + 1),
+            # ══ گینِ ثابت برای مبدأ (۸.۲۷) ══
+            # `loudnorm`ِ پویا بلندیِ هر چند ثانیه را جدا به هدف می‌رساند؛
+            # پس «آرام» و «بلند»ی که موتور در خودِ صدا ساخته، پیش از تبدیل
+            # صاف می‌شدند. یک عدد برای کلِ فایل، تفاوت را نگه می‌دارد.
+            "--src-static",
             "--rvc-model", "vb/model.pth",
             "--rvc-pitch", pitch,
             "--rvc-index-rate", str(pr.get("indexRate", "1.0")),

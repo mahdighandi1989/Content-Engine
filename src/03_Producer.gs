@@ -1123,8 +1123,25 @@ function ttsChunk_(text, sectionStyle, voice, withCue) {
  */
 var TTS_LAST_PROMPTED_ = false;
 
+/* ══ «دستورِ همین تکه رسید یا نه» — شاهدِ تکه‌به‌تکه (۸.۲۷) ══
+ * مهرِ `TTS_CUE_DROP_AT` دقیقه‌ای است و برای **کلِ** یک نمونه ساخته شد
+ * (۷٫۸۹): بینِ آغاز و پایانِ ساخت عوض شد یا نه. برای یک تکه کافی نیست —
+ * دو تکه در یک دقیقه یک مهر می‌گیرند. و پرسشِ تازه دقیقاً تکه‌ای است:
+ * «حالتِ این جمله به گفتارساز رسید؟» ۳ اکتبر صاحبِ برنامه شنید که حالت‌ها
+ * اجرا نشدند در حالی که کپشن جای هر نُه را با ثانیه نوشته بود — چون
+ * حالت‌ها روی همان دستورِ لحن سوار بودند و دستور به این مدل‌ها نمی‌رسد.
+ * این پرچم را فقط همان چهار جایی می‌زنند که دستور واقعاً دور انداخته
+ * می‌شود؛ پس یک تعریف دارد، نه دو. */
+var TTS_CUE_DROPPED_ = false;
+
+function ttsCueDropMark_() {
+  TTS_CUE_DROPPED_ = true;
+  try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (e) {}
+}
+
 function ttsGuarded_(text, sectionStyle, voice, withCue) {
   TTS_LAST_PROMPTED_ = false;
+  TTS_CUE_DROPPED_ = false;
   var b64 = ttsChunkTry_(text, sectionStyle, voice, withCue);
   if (withCue === false || CFG.TTS_CUE_VERIFY === false || !b64) return b64;
   var byPrefix = TTS_LAST_PROMPTED_;
@@ -1145,7 +1162,7 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
   if (!v.leaked && v.failed && byPrefix) {
     logLine_('وارسیِ شنیداری انجام نشد و دستور از راهِ متن رفته بود؛ همین تکه ' +
              'بی‌دستور از نو ساخته شد — نشنیدن تأیید نیست.');
-    try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD2) {}
+    ttsCueDropMark_();
     var safe = ttsChunkTry_(text, sectionStyle, voice, false);
     return safe || b64;
   }
@@ -1158,7 +1175,7 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
      لو داده و **بی‌دستور از نو ساخته شده** هم دقیقاً همان است: لحنی به آن
      نرسیده. بی این مهر، `vbrSoulTag_` همان فایل را «روح» برچسب می‌زد —
      همان دروغی که ۷٫۷۹ و ۷٫۸۹ برای جلوگیری از آن نوشته شدند، از درِ سوم. */
-  try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD1) {}
+  ttsCueDropMark_();
   try {
     logSelfFinding_(getHub_(), {
       priority: 'جدی', category: 'گفتارسازی', key: 'tts-cue-leak',
@@ -1364,7 +1381,7 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
      مستقیم بی‌دستور، بی یک فراخوانِ دورریز. و مهرِ انداختنِ دستور همان‌جا
      می‌خورَد که واقعاً انداخته می‌شود (۷٫۸۹) تا برچسبِ «روح» دروغ نشود. */
   if (!order.length) {
-    try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD0) {}
+    ttsCueDropMark_();
     return ttsChunkTry_(text, sectionStyle, voice, false);
   }
   var lastFieldIdx = -1;
@@ -1477,7 +1494,7 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
             /* این تنها جایی است که دستورِ خواسته‌شده واقعاً دور انداخته
                می‌شود. مهرش اینجاست، نه جای دیگر (۷٫۸۹). */
             if (withCue !== false) {
-              try { props_().setProperty(PK.TTS_CUE_DROP_AT, nowStr_()); } catch (eD) {}
+              ttsCueDropMark_();
             }
             return ttsChunkTry_(text, sectionStyle, voice, false);
           }
@@ -2235,20 +2252,32 @@ function speakProsodyText_() {
  * کار را بی دست‌زدن به املا می‌کند.
  */
 var SPEAK_SPANS = [
+  /* `dsp` همان حال است **در خودِ صدا**، وقتی دستورش به گفتارساز نرسید (۸.۲۷):
+     `gain` به دسی‌بل و `tempo` نسبتِ سرعت (بیشتر از ۱ = تندتر). فقط آنچه
+     پردازشِ صدا واقعاً می‌سازد این‌جاست؛ «لبخند» در صدا ساختنی نیست و
+     `dsp` ندارد — و کپشن همین را می‌گوید، نه اینکه جایش را با ثانیه بنویسد. */
   { k: 'کشیده',   cue: 'آهسته و کشیده بخوان؛ هجاها را کمی بکش و میانِ واژه‌ها درنگ کن',
-    when: 'جملهٔ کلیدی، نتیجه‌گیری، چیزی که باید در ذهن بنشیند' },
+    when: 'جملهٔ کلیدی، نتیجه‌گیری، چیزی که باید در ذهن بنشیند',
+    dsp: { tempo: 0.85 } },
   { k: 'بلند',    cue: 'با صدای بلند و پرشور بخوان',
-    when: 'اوجِ هیجان، فریاد، خبرِ شگفت — کم‌یاب، وگرنه بی‌اثر' },
+    when: 'اوجِ هیجان، فریاد، خبرِ شگفت — کم‌یاب، وگرنه بی‌اثر',
+    dsp: { gain: 6 } },
   { k: 'کمی‌بلند', cue: 'کمی بلندتر و محکم‌تر از معمول بخوان',
-    when: 'ادعای اصلی، تأکید، مخالفت' },
+    when: 'ادعای اصلی، تأکید، مخالفت',
+    dsp: { gain: 3 } },
   { k: 'آرام',    cue: 'آرام و با صدای پایین‌تر بخوان، نرم',
-    when: 'توضیحِ فرعی، دلداری، لحظهٔ اندوه' },
+    when: 'توضیحِ فرعی، دلداری، لحظهٔ اندوه',
+    dsp: { gain: -6, tempo: 0.95 } },
   { k: 'نجوا',    cue: 'نجواگونه و خیلی آهسته بخوان، انگار رازی را می‌گویی',
-    when: 'راز، اعتراف، نکتهٔ خصوصی — کم‌یاب' },
+    when: 'راز، اعتراف، نکتهٔ خصوصی — کم‌یاب',
+    dsp: { gain: -11, tempo: 0.92 },
+    dspNote: 'در صدا فقط آهسته‌تر — نجوای واقعی بی دستورِ لحن ساختنی نیست' },
   { k: 'تند',     cue: 'کمی تندتر و پرشتاب بخوان',
-    when: 'فهرست، شمارش، هیجانِ رو به جلو' },
+    when: 'فهرست، شمارش، هیجانِ رو به جلو',
+    dsp: { tempo: 1.12 } },
   { k: 'سنگین',   cue: 'سنگین و جدی بخوان، با تأکید روی هر واژه',
-    when: 'هشدار، حکم، جملهٔ قاطع' },
+    when: 'هشدار، حکم، جملهٔ قاطع',
+    dsp: { gain: 2, tempo: 0.9 } },
   { k: 'لبخند',   cue: 'گرم و با لبخند در صدا بخوان',
     when: 'طنز، شوخی، خاطرهٔ شیرین' },
   { k: 'مکث',     cue: '',
@@ -2417,6 +2446,96 @@ function speakSpanStyle_(k, card) {
   return (c ? c + '. ' : '') + d.cue;
 }
 
+/* ═══════════ حالت در خودِ صدا، وقتی دستورش نرسید (۸.۲۷) ═══════════
+ *
+ * ۳ اکتبر، نمونهٔ رضوی روی متنِ آزمون: «یه سری حالت‌ها رو اصلاً رعایت
+ * نکرد … دیدم تو کپشن نوشته بودی ولی رعایت نشده بود». درست شنیده بود. ردیفِ
+ * صف برچسبِ «لحن از نشانه‌ها» داشت — یعنی دستورِ لحن به مدل نرسید — و
+ * حالت‌ها **روی همان دستور** سوار بودند (`speakSpanStyle_`). پس جز «مکث» که
+ * سکوتِ واقعی در PCM است، هیچ حالتی به گفتارساز نرسید؛ و کپشن جای هر نُه را
+ * با ثانیه نوشت. ادعایی بی ورودی — شکلِ ۷٫۷۹، از درِ ۸٫۲۴.
+ *
+ * این خانوادهٔ مدل هیچ فیلدِ دستوری نمی‌پذیرد (۷٫۸۹) و پیشوند خوانده
+ * می‌شود (۸٫۰۷) — صاحبِ برنامه گفت «به باگِ قبلی نخوریم». پس راهِ سوم نه
+ * متن است نه دستور: **خودِ صدا**. بلندی ضریب است و سرعت WSOLA — هر دو
+ * پردازشِ واقعیِ سیگنال، که چیزی برای خواندن به گفتارساز نمی‌دهند.
+ *
+ * و مرز: فقط وقتی دستورِ **همین تکه** دور انداخته شد (`TTS_CUE_DROPPED_`).
+ * روزی که مدلی دستور را بپذیرد، حال از خودِ گفتارساز می‌آید و پردازش روی
+ * آن دوبار حساب می‌شد. «لبخند» در صدا ساختنی نیست و `null` برمی‌گردد. */
+
+/** WSOLA: سرعت عوض می‌شود و زیروبم نه. `rate` > ۱ یعنی کوتاه‌تر و تندتر. */
+function speakWsola_(x, rate) {
+  var r = Number(rate) || 1;
+  if (Math.abs(r - 1) < 0.005 || !x || x.length < 4000) return x;
+  var N = 960, Hs = 480, L = N - Hs, tol = 240;       // ۴۰ میلی‌ثانیه، نیم‌هم‌پوشانی
+  var n = x.length, outLen = Math.floor(n / r);
+  var y = new Float32Array(outLen + N), w = new Float32Array(outLen + N);
+  var win = new Float32Array(N);
+  for (var i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+  var prev = 0, last = 0;
+  for (var k = 0; ; k++) {
+    var op = k * Hs;
+    if (op >= outLen) break;
+    var pos = 0;
+    if (k > 0) {
+      var tgt = prev + Hs;                               // ادامهٔ طبیعیِ قابِ قبلی
+      var nom = Math.round(k * Hs * r);
+      var lo = Math.max(0, nom - tol), hi = Math.min(n - N, nom + tol);
+      if (hi < lo || tgt + L > n) break;
+      var best = lo, bestC = -Infinity;
+      for (var p = lo; p <= hi; p += 2) {
+        var c = 0;
+        for (var j = 0; j < L; j += 4) c += x[p + j] * x[tgt + j];
+        if (c > bestC) { bestC = c; best = p; }
+      }
+      pos = best;
+    }
+    if (pos + N > n) break;
+    for (var q = 0; q < N; q++) { y[op + q] += x[pos + q] * win[q]; w[op + q] += win[q]; }
+    prev = pos; last = op + N;
+  }
+  var m = Math.min(outLen, last);
+  var out = new Float32Array(m);
+  for (var t = 0; t < m; t++) out[t] = w[t] > 1e-3 ? y[t] / w[t] : 0;
+  return out;
+}
+
+/**
+ * base64ِ PCMِ ۱۶ بیتیِ تک‌کاناله ⇒ همان، با حالتِ `k` در خودِ صدا.
+ * `null` یعنی این حالت در صدا ساختنی نیست (یا تکه کوتاه‌تر از آن است).
+ */
+function speakMoodDsp_(b64, k) {
+  var d = speakSpanDef_(k);
+  var dsp = d && d.dsp;
+  if (!dsp || (!dsp.gain && !dsp.tempo)) return null;
+  var bytes = Utilities.base64Decode(alignB64_(b64));
+  var n = Math.floor(bytes.length / 2);
+  if (n < 2400) return null;
+  var x = new Float32Array(n);
+  for (var i = 0; i < n; i++) {
+    /* بایت در Apps Script علامت‌دار است: بایتِ بالا **ماسک** می‌شود و علامت
+       از خودِ عددِ ۱۶ بیتی می‌آید — همان خطی که بخشِ ۲۳ نگه می‌دارد. */
+    var v = ((bytes[2 * i + 1] & 255) << 8) | (bytes[2 * i] & 255);
+    if (v >= 32768) v -= 65536;
+    x[i] = v / 32768;
+  }
+  if (dsp.tempo) x = speakWsola_(x, dsp.tempo);
+  var g = dsp.gain ? Math.pow(10, Number(dsp.gain) / 20) : 1;
+  var T = 0.7;                                          // زانوی محدودکنندهٔ نرم
+  var m = x.length - (x.length % 3);                   // مضربِ ۶ بایت، برای `alignB64_`
+  var out = new Array(m * 2);
+  for (var t = 0; t < m; t++) {
+    var s = x[t] * g, a = Math.abs(s);
+    if (a > T) s = (s < 0 ? -1 : 1) * (T + (1 - T) * Math.tanh((a - T) / (1 - T)));
+    var iv = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+    var lo = iv & 255, hi = (iv >> 8) & 255;
+    out[2 * t] = lo > 127 ? lo - 256 : lo;
+    out[2 * t + 1] = hi > 127 ? hi - 256 : hi;
+  }
+  return Utilities.base64Encode(out);
+}
+
 /** سکوتِ PCM به base64 — صفرها، طولِ مضربِ ۶ بایت تا با `alignB64_` جفت شود. */
 function speakSilenceB64_(sec) {
   var sr = Number(CFG.SAMPLE_RATE) || 24000;
@@ -2425,17 +2544,47 @@ function speakSilenceB64_(sec) {
 }
 
 /** «آرام ۰:۴۲ · بلند ۱:۱۰ …» — جای هر حالت در فایل، تا گوش بداند کجا را بسنجد. */
+/**
+ * «آرام ۰:۴۲ · بلند ۱:۱۰ …» — جای هر حالت در فایل، تا گوش بداند کجا را بسنجد.
+ *
+ * ══ و **چطور** اجرا شد، نه فقط کجا (۸.۲۷) ══
+ * `how` روی هر ردیف: «دستور» (گفتارساز خودش)، «صدا» (پردازشِ صدا، چون دستور
+ * نرسید)، «نشد» (نه دستور رسید نه در صدا ساختنی است). حالتی که اجرا نشده
+ * **در فهرستِ جاها نمی‌آید**؛ جدا نام برده می‌شود. ۳ اکتبر کپشن جای «لبخند»
+ * را با ثانیه نوشت و او همان ثانیه را گوش داد و چیزی نشنید.
+ */
 function speakSpanWhere_(at) {
   if (!at || !at.length) return '';
   var fa = function (x) {
     try { return faDigitsOut_(String(x)); } catch (e) { return String(x); }
   };
-  var L = [];
+  var tm = function (sec) {
+    var m = Math.floor(sec / 60), s2 = sec % 60;
+    return fa(m + ':' + (s2 < 10 ? '0' : '') + s2);
+  };
+  var L = [], miss = [], viaDsp = 0, notes = {};
   for (var i = 0; i < at.length; i++) {
-    var m = Math.floor(at[i].s / 60), s2 = at[i].s % 60;
-    L.push(at[i].k + ' ' + fa(m + ':' + (s2 < 10 ? '0' : '') + s2));
+    var h = String(at[i].how || '');
+    if (h === 'نشد') { miss.push(at[i].k + ' ' + tm(at[i].s)); continue; }
+    var tag = '';
+    if (h === 'صدا') { viaDsp++; tag = ' (در صدا)'; }
+    else if (h === 'بخشی') tag = ' (بخشی)';
+    var d = speakSpanDef_(at[i].k);
+    if (h === 'صدا' && d && d.dspNote) notes[d.k] = d.dspNote;
+    L.push(at[i].k + ' ' + tm(at[i].s) + tag);
   }
-  return 'حالت‌ها: ' + L.join(' · ');
+  var out = 'حالت‌ها: ' + (L.length ? L.join(' · ') : 'هیچ');
+  if (viaDsp) {
+    out += '\n«در صدا» یعنی دستورِ لحن به این مدلِ صوتی نرسید و بلندی/سرعت ' +
+           'در خودِ صدا ساخته شد — حال‌وهوای گفتار نه.';
+    for (var nk in notes) {
+      if (Object.prototype.hasOwnProperty.call(notes, nk)) out += '\n' + nk + ': ' + notes[nk] + '.';
+    }
+  }
+  if (miss.length) {
+    out += '\nاجرا نشد (دستورِ لحن نرسید و در صدا هم ساختنی نیست): ' + miss.join(' · ');
+  }
+  return out;
 }
 
 /** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
