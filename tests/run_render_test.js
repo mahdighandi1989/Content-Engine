@@ -546,6 +546,36 @@ console.log('\n=== ۱۰) کارت‌های برداری: تصویرِ هر کا�
      'نقشه و سیاهه');
 }
 
+console.log('\n=== ۱۱) نگه‌داشتنِ یک درخواستِ مشخص، با سقف (۸.۳۰) ===');
+{
+  /* ۱۱.۱ — نگه‌داشتن به **همان ردیف** بسته است: ردیفی که موتور بازنویسی کرد
+     (`at` تازه) همان اجرا ساخته می‌شود؛ پس از `until` هم با هر چه هست؛ و
+     کلیدِ دیگر هرگز. بی این سه مرز، نگه‌داشتن یا ویدئو را برای همیشه می‌خوابانَد
+     یا درخواستِ درست‌شده را هم پشتِ در نگه می‌دارد. */
+  const h = { 'special:59': { at: '2026-10-03 09:01', until: '2026-10-04T08:00:00Z', why: 'آزمون' } };
+  const t0 = new Date('2026-10-03T12:00:00Z');
+  const same = R.heldNow({ key: 'special:59', at: '2026-10-03 09:01' }, h, t0);
+  const fresh = R.heldNow({ key: 'special:59', at: '2026-10-04 03:10' }, h, t0);
+  const late = R.heldNow({ key: 'special:59', at: '2026-10-03 09:01' }, h, new Date('2026-10-04T08:00:01Z'));
+  const other = R.heldNow({ key: 'special:60', at: '2026-10-04 09:01' }, h, t0);
+  const broken = R.heldNow({ key: 'special:59', at: '2026-10-03 09:01' },
+                           { 'special:59': { at: '2026-10-03 09:01', until: 'فردا' } }, t0);
+  ok('۱۱.۱ همان ردیف نگه داشته می‌شود؛ ردیفِ بازنویسی‌شده، پس از سقف و کلیدِ دیگر نه',
+     !!same && /آزمون/.test(same) && fresh === '' && late === '' && other === '' && broken === '',
+     JSON.stringify([same, fresh, late, other, broken]));
+
+  /* ۱۱.۲ — و از **درِ اجرا**: `main` ردیفِ نگه‌داشته را نمی‌سازد و می‌گوید.
+     خواندنِ متن بس نیست (۷٫۴۴)؛ فیلتر باید روی همان فهرستی باشد که حلقه
+     می‌پیماید. */
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  const mi = src.indexOf('function main()');
+  const body = src.slice(mi, src.indexOf('\nfunction ', mi + 10) > 0 ? src.indexOf('\nfunction ', mi + 10) : undefined);
+  ok('۱۱.۲ حلقهٔ ساخت روی فهرستِ پس از نگه‌داشتن می‌چرخد و نگه‌داشته را نام می‌برد',
+     /const todo = ready\.filter\(x => \{[\s\S]{0,120}heldNow\(x, hold/.test(body) &&
+     /for \(const it of todo\)/.test(body) && /نگه داشته شد: /.test(body),
+     'main');
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

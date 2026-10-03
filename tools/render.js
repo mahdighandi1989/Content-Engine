@@ -689,6 +689,33 @@ function buildVideo(it, cover, wav, durSec, dest, dir) {
   }
 }
 
+/* ══ نگه‌داشتنِ یک درخواستِ مشخص، نه یک قسمت ══
+ * ۳ اکتبر، درسِ ۵۹: درخواست با سه کارت نوشته شده بود و صاحبِ برنامه خواست
+ * ویدئو یک روز صبر کند تا موتور با نسخهٔ تازه از نو بسازدش. یوتیوب ویدئوی
+ * منتشرشده را عوض نمی‌کند، پس «امروز بد» برنگشتنی است و «فردا درست» نه.
+ *
+ * نگه‌داشتن به **همان ردیف** بسته است، نه به کلید: `at` ثبت می‌شود و وقتی
+ * موتور ردیف را بازنویسی کند (`at` تازه)، نگه‌داشتن خودش بی‌اثر می‌شود و
+ * درخواستِ تازه همان اجرا ساخته می‌شود — کسی لازم نیست چیزی را باز کند.
+ * و **سقف دارد** (`until`): نگه‌داشتنی که موتور هرگز جوابش را ندهد، پس از
+ * آن با همان درخواستِ قبلی می‌رود. ویدئوی ساده از ویدئوی نیامده بهتر است. */
+const HOLD_FILE = path.join(__dirname, '..', 'docs', 'render-hold.json');
+function readHold() {
+  try {
+    const d = JSON.parse(fs.readFileSync(HOLD_FILE, 'utf8'));
+    return (d && d.items && typeof d.items === 'object') ? d.items : {};
+  } catch (e) { return {}; }
+}
+/** دلیلِ نگه‌داشتن، یا '' اگر نگه داشته نمی‌شود. */
+function heldNow(it, hold, now) {
+  const h = (hold || {})[String((it || {}).key || '')];
+  if (!h) return '';
+  if (h.at && String(h.at) !== String(it.at || '')) return '';      // ردیف بازنویسی شده
+  const until = Date.parse(String(h.until || ''));
+  if (!isFinite(until) || (now || new Date()).getTime() >= until) return '';
+  return String(h.why || 'نگه‌داشته') + ' (تا ' + new Date(until).toISOString().slice(0, 16) + 'Z)';
+}
+
 /* ── کار ────────────────────────────────────────────────────────────────── */
 
 function main() {
@@ -726,8 +753,15 @@ function main() {
   const items = Array.isArray(queue.items) ? queue.items : [];
   const map = readMap();
 
-  const todo = items.filter(x => String(x.status || '') === 'در انتظار' && !map.items[x.key]);
-  log('صف: ' + items.length + ' ردیف، ' + todo.length + ' تای ساخته‌نشده.');
+  const hold = readHold();
+  const ready = items.filter(x => String(x.status || '') === 'در انتظار' && !map.items[x.key]);
+  const todo = ready.filter(x => {
+    const h = heldNow(x, hold, new Date());
+    if (h) log('نگه داشته شد: ' + x.key + ' — ' + h);
+    return !h;
+  });
+  log('صف: ' + items.length + ' ردیف، ' + todo.length + ' تای ساخته‌نشده' +
+      (ready.length > todo.length ? ' (' + (ready.length - todo.length) + ' نگه داشته)' : '') + '.');
   if (!todo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
@@ -852,5 +886,5 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, specBackdrops, visFilter
+  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold
 };
