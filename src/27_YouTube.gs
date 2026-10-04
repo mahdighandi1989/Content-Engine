@@ -2972,7 +2972,7 @@ function lvGenModel_() {
   try {
     var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
     if (c && c.id && (new Date().getTime() - (c.at || 0)) / 86400000 <
-        (Number(CFG.MODEL_REFRESH_DAYS) || 7)) {
+        (Number(CFG.MODEL_REFRESH_DAYS) || 7) && !lvGenModelBad_(String(c.id)).bad) {
       return { id: String(c.id), why: 'از حافظه' };
     }
   } catch (e) {}
@@ -2988,14 +2988,77 @@ function lvGenModel_() {
       all.push(id);
     }
     all.sort(function (a, b) { return lvGenPrice_(a) - lvGenPrice_(b); });
+    /* ══ ارزان‌ترین، **مگر کیفیتش سنجیده و رد شده باشد** (۸.۳۳) ══
+       تا ۸.۳۲ این تابع فقط قیمت را می‌دید: مدل‌های متن و صدا هر هفته
+       بازانتخاب و هر شب داوری می‌شوند، و مدلِ تصویر هیچ داوری‌ای نداشت.
+       حالا هر تصویرِ صحنه کنارِ متنش داوری می‌شود و نمره‌اش به حسابِ همان
+       مدل می‌رود (`lvGenScoreAdd_`)؛ مدلی که در دست‌کم `LV_GEN_MODEL_MIN_N`
+       تصویر زیرِ کف مانده، کنار می‌رود و مدلِ بعدی امتحان می‌شود. اگر همه
+       رد شده باشند، فهرست دست نمی‌خورد: بی مدل، هیچ تصویری نیست — بدتر از
+       تصویرِ متوسط (همان شکلِ `ttsCueSwitch_`، ۷٫۴۷). */
+    var good = all.filter(function (x) { return !lvGenModelBad_(x).bad; });
+    var skipped = good.length ? all.length - good.length : 0;
+    var allBad = !good.length && all.length > 0;
+    if (good.length) all = good;
     found = all[0] || '';
   } catch (e2) { return { id: '', why: 'فهرستِ مدل‌ها خوانده نشد: ' + e2.message }; }
   if (!found) return { id: '', why: 'هیچ مدلِ تصویری با generateContent در دسترس نیست' };
+  var why = 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' +
+            (skipped ? ' (' + skipped + ' مدل به‌خاطرِ نمرهٔ داوری کنار رفت)' : '') +
+            (allBad ? ' — همهٔ مدل‌ها زیرِ کفِ داوری‌اند؛ ارزان‌ترین ماند چون بی مدل هیچ تصویری نیست' : '');
   try {
+    var prev = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
     props_().setProperty(PK.LV_GEN_MODEL,
-      JSON.stringify({ id: found, at: new Date().getTime() }));
+      JSON.stringify({ id: found, at: new Date().getTime(), why: why }));
+    if (prev && prev.id && prev.id !== found && lvGenModelBad_(String(prev.id)).bad) {
+      mailQueue_('تصویر', 'مدلِ تصویر عوض شد — کیفیت',
+                 '«' + prev.id + '» ' + lvGenModelBad_(String(prev.id)).why + ' ⇒ «' + found + '».');
+    }
   } catch (e3) {}
-  return { id: found, why: 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' };
+  return { id: found, why: why };
+}
+
+/**
+ * نمرهٔ داوریِ یک تصویر به حسابِ مدلی که ساختش (۸.۳۳).
+ * پنجرهٔ غلتان: از ۲۰۰ که گذشت، همه نصف می‌شوند — مدلی که دیروز بد بود و
+ * امروز بهتر شده، نباید تا ابد زیرِ بارِ گذشته بماند.
+ */
+function lvGenScoreAdd_(model, v) {
+  if (!model || !v) return;
+  try {
+    var m = JSON.parse(props_().getProperty(PK.LV_GEN_SCORES) || '{}') || {};
+    var r = m[model] || { n: 0, sum: 0, bad: 0 };
+    var minS = Number(CFG.LV_SCENE_JUDGE_MIN) || 5;
+    var sc = Number(v.s);
+    if (isFinite(sc) && sc >= 0) { r.n++; r.sum += sc; }
+    if (v.txt || v.face || (isFinite(sc) && sc >= 0 && sc < minS)) r.bad++;
+    if (r.n > 200) { r.n = Math.round(r.n / 2); r.sum = r.sum / 2; r.bad = Math.round(r.bad / 2); }
+    r.at = nowStr_();
+    m[model] = r;
+    props_().setProperty(PK.LV_GEN_SCORES, JSON.stringify(m));
+  } catch (e) {}
+}
+
+/** آیا این مدلِ تصویر با نمرهٔ داوری‌اش رد شده است؟ «نسنجیده» رد نیست (۷٫۴۰). */
+function lvGenModelBad_(model) {
+  var out = { bad: false, n: 0, avg: 0, badPct: 0, why: '' };
+  try {
+    var m = JSON.parse(props_().getProperty(PK.LV_GEN_SCORES) || '{}') || {};
+    var r = m[String(model || '')];
+    if (!r || !r.n) return out;
+    out.n = r.n; out.avg = Math.round((r.sum / r.n) * 10) / 10;
+    out.badPct = Math.round((r.bad / r.n) * 100);
+    var needN = Math.max(5, Number(CFG.LV_GEN_MODEL_MIN_N) || 20);
+    if (r.n < needN) return out;
+    var minAvg = Number(CFG.LV_GEN_MODEL_MIN_SCORE) || 5.5;
+    var maxBad = Number(CFG.LV_GEN_MODEL_MAX_BAD_PCT) || 40;
+    if (out.avg < minAvg || out.badPct > maxBad) {
+      out.bad = true;
+      out.why = 'میانگینِ داوری ' + out.avg + ' از ۱۰ و ' + out.badPct + '٪ تصویرِ ضعیف/نوشته‌دار در ' +
+                r.n + ' تصویر';
+    }
+  } catch (e) {}
+  return out;
 }
 
 /** خرجِ این ماه. ماه که عوض شود، از صفر. */
@@ -3346,6 +3409,7 @@ function lvGenStatus_() {
     } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
+    out.quality = out.model ? lvGenModelBad_(out.model) : null;
     /* سه حالت، نه دو (۸٫۲۰): مدل داریم · گشتیم و نبود · هنوز نگشته‌ایم.
        فقط حالتِ دوم ایراد است، و علتش **نام برده می‌شود** — «نبود» و
        «فهرستِ مدل‌ها خوانده نشد» دو چارهٔ کاملاً متفاوت دارند (۷٫۳۲). */
@@ -3371,6 +3435,12 @@ function lvGenStatus_() {
         ' · این ماه ' + faDigitsOut_(String(out.n)) + ' تصویر، ~' +
         out.usd.toFixed(2) + ' از ' + faDigitsOut_(String(out.cap)) + ' دلار' +
         ' · جای ' + faDigitsOut_(String(out.room)) + ' تصویرِ دیگر' +
+        /* کیفیت هم، نه فقط خرج (۸.۳۳): «روشن است» با «خوب می‌سازد» یکی نیست. */
+        (out.quality && out.quality.n
+          ? ' · داوریِ تصویرها: میانگین ' + faDigitsOut_(String(out.quality.avg)) + ' از ۱۰ در ' +
+            faDigitsOut_(String(out.quality.n)) + ' تصویر' +
+            (out.quality.bad ? ' — ❌ زیرِ کفِ داوری؛ اگر مدلِ تصویرِ دیگری باشد، ساختِ بعدی با همان است' : '')
+          : ' · داوریِ تصویرها: هنوز هیچ') +
         ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
         'است `LV_GEN_PRICES` را عوض کنید).';
     }
@@ -5167,7 +5237,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
         var old = imgFolder.getFilesByName(nm);
         while (old.hasNext()) old.next().setTrashed(true);
         sc.fileId = imgFolder.createFile(r.blob.setName(nm)).getId();
-        sc.at = nowStr_(); sc.why = '';
+        sc.at = nowStr_(); sc.why = ''; sc.model = mk.id;
         out.made++; d.made = (Number(d.made) || 0) + 1;
       } catch (eF) { sc.why = 'ذخیره نشد: ' + eF.message; }
       if (out.made % 4 === 0) lvSceneWrite_(folder, d);     // پیشرفت در میانه هم ثبت می‌شود
@@ -5215,6 +5285,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           if (!v) continue;
           batch[b2].judge = v;
           out.judged++;
+          lvGenScoreAdd_(batch[b2].model || mk.id, v);
           var bad = v.txt || v.face || (v.s >= 0 && v.s < minS);
           if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
               lvGenRoom_(mk.id) > 0 && left() > 25000) {
@@ -5230,6 +5301,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                 var o2 = imgFolder.getFilesByName(nm2);
                 while (o2.hasNext()) o2.next().setTrashed(true);
                 batch[b2].fileId = imgFolder.createFile(rr.blob.setName(nm2)).getId();
+                batch[b2].model = mk.id;
                 batch[b2].judge = null;      // تصویرِ تازه، داوریِ تازه
               } catch (eR) {}
             }

@@ -1115,6 +1115,74 @@ function xfBridgeSec_() {
   return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
 }
 
+/**
+ * آیا **همان تکه‌ای که پخش می‌شود** موسیقی است؟ (۸.۳۳)
+ *
+ * داوریِ بانک (`musicRecheck_`) هشت ثانیه از **وسطِ** فایل را می‌شنود؛ ولی
+ * آغاز و پایان و پلِ هر قسمت از ثانیه‌ای پخش می‌شوند که نقشه انتخاب کرده.
+ * قطعه‌ای که وسطش آهنگ است و سرش صدای خیابان، از داوریِ بانک می‌گذشت و
+ * می‌توانست برنامه را باز کند — همان شکایتِ ۲۶ سپتامبر («نفس، موتورسیکلت،
+ * صدای خیابان سرِ آغاز»). پس پیش از پخش، همان بازه شنیده می‌شود.
+ *
+ * مرزها: آغاز و پایان «آهنگ» می‌خواهند (همان `heardCanEdge_`)، پل «آهنگ» یا
+ * «زمینه». **نشنیدن یعنی نه** (۷٫۶۸: مدلِ غایب تأییدِ خاموش نیست). و قطعه‌ای
+ * که آدم برایش یادداشت نوشته شنیده نمی‌شود: سلیقهٔ او هرگز پاک نمی‌شود.
+ */
+function musicSegOk_(track, startSec, slot) {
+  var out = { ok: false, heard: '', why: '' };
+  try {
+    if (!track || !track.id) { out.why = 'قطعه نیست'; return out; }
+    var nt = String(track.note || '').trim();
+    if (nt && nt.indexOf('خودکار') !== 0) { out.ok = true; out.heard = 'آدم'; return out; }
+    var b = DriveApp.getFileById(track.id).getBlob().getBytes();
+    var info = wavInfo_(b);
+    if (!wavReadable_(info)) { out.why = 'WAV خوانده نشد'; return out; }
+    var st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - 8)));
+    var h = musicListen_(b, info, track.name, st);
+    out.heard = h;
+    var edge = (slot === 'شروع' || slot === 'پایان');
+    out.ok = edge ? h === 'آهنگ' : (h === 'آهنگ' || h === 'زمینه');
+    if (!out.ok) out.why = h ? 'شنیده شد: «' + h + '»' : 'مدل نشنید';
+  } catch (e) { out.why = 'خطا: ' + String(e.message).slice(0, 60); }
+  return out;
+}
+
+/**
+ * لبه‌ای (آغاز/پایان) که نقشه برایش قطعه گذاشته — شنیده، و اگر نشد یک
+ * جانشین که خودش هم شنیده شود؛ وگرنه آن لبه بی‌موسیقی. نتیجه در **خودِ
+ * نقشه** می‌نشیند و نقشه پس از آن ذخیره می‌شود، پس ازسرگیری‌ها دوباره
+ * نمی‌پرسند و تکه‌ها جابه‌جا نمی‌شوند («Anything rebuilt on resume must be
+ * deterministic»).
+ */
+function musicEdgeHear_(bank, track, slot, key, mood, plan) {
+  plan.heard = plan.heard || {};
+  var st = Number(plan[key + 'Start']) || 0;
+  var r = musicSegOk_(track, st, slot);
+  if (r.ok) {
+    plan[key + 'Id'] = track.id; plan[key + 'Start'] = st;
+    plan.heard[key] = r.heard;
+    return track;
+  }
+  var tried = [String(track && track.name || '') + ' (' + r.why + ')'];
+  var pool = bank.filter(function (b) { return !track || b.id !== track.id; });
+  var fb = musicPick_(pool, slot, mood, '');
+  if (fb) {
+    var r2 = musicSegOk_(fb, 0, slot);
+    if (r2.ok) {
+      plan[key + 'Id'] = fb.id; plan[key + 'Start'] = 0;
+      plan.heard[key] = r2.heard + ' (جانشین)';
+      logLine_('موسیقیِ ' + slot + ': «' + tried[0] + '» پخش نشد؛ جانشینِ شنیده‌شده «' + fb.name + '».');
+      return fb;
+    }
+    tried.push(String(fb.name || '') + ' (' + r2.why + ')');
+  }
+  plan[key + 'None'] = true;
+  plan.heard[key] = '—';
+  logLine_('موسیقیِ ' + slot + ' این قسمت حذف شد — هیچ قطعه‌ای در بازهٔ پخش موسیقی شنیده نشد: ' +
+           tried.join(' · '));
+  return null;
+}
+
 function musicWrap_(chunks, hub, opt) {
   opt = opt || {};
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
@@ -1136,6 +1204,7 @@ function musicWrap_(chunks, hub, opt) {
 
   var mood = String(opt.mood || opt.category || '');
   var plan = opt.plan || {};
+  var planFresh = false, planKey = '';
 
   // حالتِ خودکار: پیش از هر چیز از مدل می‌پرسیم. چیزی که به او می‌دهیم عنوان و
   // سرِ بخش‌ها و گویندگانِ همین قسمت است، نه فقط برچسبِ دسته — حال‌وهوا را
@@ -1163,15 +1232,23 @@ function musicWrap_(chunks, hub, opt) {
                outroId: mp.outroId, outroStart: mp.outroStart,
                bridges: mp.bridges || [], sfx: mp.sfx || [],
                sfxWant: mp.sfxWant || [],
-               mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '' };
+               mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '',
+               /* نتیجهٔ شنیدنِ تکه‌های پخش (۸.۳۳) — با نقشه ذخیره و با نقشه خوانده
+                  می‌شود؛ بی این‌ها ازسرگیری دوباره می‌پرسید و می‌لغزید. */
+               introNone: !!mp.introNone, outroNone: !!mp.outroNone,
+               bridgesFinal: mp.bridgesFinal || null, heard: mp.heard || null };
       if (mp.mood) mood = mp.mood;
       if (mp.gain) opt.gain = mp.gain;
       if (!cached) {
-        if (ck) musicPlanCachePut_(ck, plan);
         logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
       }
     }
+    /* ذخیره **پس از** شنیدنِ تکه‌ها (پایینِ همین تابع)، نه این‌جا: نقشه‌ای که
+       پیش از داوری ذخیره شود، اجرای بعد بی‌داوری می‌خواندش. */
+    planFresh = !cached && !!ck;
+    planKey = ck;
   }
+  var hearSeg = planFresh && CFG.MUSIC_HEAR_SEGMENT !== false;
 
   var picks = [], out = [];
 
@@ -1213,7 +1290,8 @@ function musicWrap_(chunks, hub, opt) {
     });
   };
 
-  var intro = musicPick_(bank, 'شروع', mood, plan.introId);
+  var intro = plan.introNone ? null : musicPick_(bank, 'شروع', mood, plan.introId);
+  if (intro && hearSeg) intro = musicEdgeHear_(bank, intro, 'شروع', 'intro', mood, plan);
   if (intro) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
@@ -1244,7 +1322,15 @@ function musicWrap_(chunks, hub, opt) {
   var maxBr = Math.max(0, Number(CFG.MUSIC_BRIDGE_MAX) || 0);
   var want = [];
 
-  for (var bi = 0; bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
+  /* نقشه‌ای که پل‌هایش شنیده و نهایی شده‌اند، همان‌ها را عیناً می‌دهد — نه
+     دوباره مدل، نه دوباره پُرکردنِ کف (۸.۳۳). */
+  var finalBr = plan.bridgesFinal && plan.bridgesFinal.length !== undefined;
+  for (var fz = 0; finalBr && fz < plan.bridgesFinal.length; fz++) {
+    var fbz = plan.bridgesFinal[fz], ftr = null;
+    for (var fy = 0; fy < bank.length; fy++) if (bank[fy].id === fbz.id) ftr = bank[fy];
+    if (ftr) want.push({ at: fbz.at, track: ftr, why: String(fbz.why || ''), head: fbz.head });
+  }
+  for (var bi = 0; !finalBr && bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
     var pb = plan.bridges[bi];
     var k = parseInt(faDigits_(String(pb.after)), 10);
     if (!isFinite(k) || k < 0 || k >= bounds.length) continue;
@@ -1269,7 +1355,21 @@ function musicWrap_(chunks, hub, opt) {
    * می‌سازد: تقریباً یک قطعه به‌ازای هر دو مرزِ بخش. */
   var per = Math.max(1, Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS) || 2);
   var minBr = Math.min(maxBr, Math.ceil(bounds.length / per));
-  if (want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  if (!finalBr && want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  if (hearSeg && !finalBr) {
+    var keptBr = [], dropBr = [];
+    for (var hz = 0; hz < want.length; hz++) {
+      var hr = musicSegOk_(want[hz].track, Number(plan.bridgeStart) || 0, 'میانه');
+      if (hr.ok) keptBr.push(want[hz]);
+      else dropBr.push(String(want[hz].track.name || '') + ' (' + hr.why + ')');
+    }
+    if (dropBr.length) logLine_('موسیقیِ میانه: ' + dropBr.length + ' پل حذف شد — بازهٔ پخششان ' +
+                                'موسیقی شنیده نشد: ' + dropBr.join(' · '));
+    want = keptBr;
+    plan.bridgesFinal = want.map(function (w) {
+      return { at: w.at, id: w.track.id, why: w.why, head: w.head || '' };
+    });
+  }
 
   var atMap = {};
   for (var wz = 0; wz < want.length; wz++) atMap[want[wz].at] = want[wz];
@@ -1295,7 +1395,10 @@ function musicWrap_(chunks, hub, opt) {
   }
   var bridge = want.length ? want[0].track : null;
 
-  var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
+  var outro = plan.outroNone ? null : musicPick_(bank, 'پایان', mood, plan.outroId);
+  if (outro && hearSeg) outro = musicEdgeHear_(bank, outro, 'پایان', 'outro', mood, plan);
+  /* و نقشه **حالا** ذخیره می‌شود، با هر سه نتیجه در خودش. */
+  if (planFresh && planKey) { try { musicPlanCachePut_(planKey, plan); } catch (ePc) {} }
   if (outro) {
     /* پایانِ قسمت از ۶٫۷۰ «بستر» است، نه تلفیقِ معمولی: موسیقی از
        MUSIC_OUTRO_UNDER_SEC ثانیه قبل از تمام‌شدنِ آخرین جمله‌ها، نرم و
@@ -1404,6 +1507,18 @@ function musicWrap_(chunks, hub, opt) {
       if (atIdx >= 0) lock.bridges.push({ after: String(atIdx), id: want[wq].track.id,
                                           why: want[wq].why || '' });
     }
+    /* ══ نتیجهٔ شنیدن هم در قفل می‌مانَد (۸.۳۳) ══
+       این قفل نقشه را از روی انتخاب‌های نهایی **بازنویسی** می‌کند. نگارشِ اولِ
+       ۸.۳۳ نتیجهٔ شنیدن را در نقشه گذاشت و همین بازنویسی پاکش کرد: ازسرگیری
+       «حذف شد»ِ آغاز را نمی‌دید و `musicPick_` قطعهٔ دیگری را **نشنیده**
+       می‌گذاشت، و پلِ ردشده از راهِ پُرکردنِ کف برمی‌گشت. یعنی دقیقاً همان
+       موسیقیِ نشنیده‌ای که این نسخه بسته بود، از درِ ازسرگیری — و تکه‌ها هم
+       یک خانه می‌لغزیدند. §۲۲.۲ و ۲۲.۳-ب از درِ خودِ `musicWrap_` گرفتندش. */
+    lock.introNone = !!plan.introNone; lock.outroNone = !!plan.outroNone;
+    lock.heard = plan.heard || null;
+    lock.bridgesFinal = plan.bridgesFinal ? want.map(function (w) {
+      return { at: w.at, id: w.track.id, why: w.why || '', head: w.head || '' };
+    }) : null;
     musicPlanCachePut_(ck2, lock);
   }
 
@@ -3831,13 +3946,19 @@ function musicIsSpeech_(pr, info, name, wantSfx) {
 }
 
 /** بریده‌ای از وسطِ فایل، برای شنیدنِ مدل. WAVِ تک‌کاناله با نرخِ خودِ فایل. */
-function musicExcerpt_(b, info, secs) {
+function musicExcerpt_(b, info, secs, startSec) {
   try {
     var want = Math.max(2, Math.min(Number(secs) || 8, Math.floor(info.seconds)));
     var bps = info.bits / 8, frameB = bps * info.channels;
     var total = Math.floor(info.dataLen / frameB);
     var n = Math.min(total, Math.round(want * info.rate));
     var from = Math.max(0, Math.floor((total - n) / 2));          // از وسط
+    /* ══ یا از همان ثانیه‌ای که پخش می‌شود (۸.۳۳) ══ — بدونِ این، «شنیده شد»
+       یعنی «وسطش موسیقی بود»، در حالی که آغازِ قسمت از ثانیهٔ برشِ نقشه پخش
+       می‌شود. */
+    if (typeof startSec === 'number' && isFinite(startSec) && startSec >= 0) {
+      from = Math.max(0, Math.min(total - n, Math.round(startSec * info.rate)));
+    }
 
     var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
     var out = [];
@@ -3870,10 +3991,10 @@ function musicExcerpt_(b, info, secs) {
  * این تنها سنجه‌ای است که واقعاً *می‌شنود*. بقیه از روی عدد حدس می‌زنند.
  * اگر در دسترس نبود، حکمِ اندازه‌ها می‌ماند — ولی نبودش سکوتِ تأیید نیست.
  */
-function musicListen_(b, info, name) {
+function musicListen_(b, info, name, startSec) {
   try {
     if (!info || !(info.seconds > 0)) return '';
-    var b64 = musicExcerpt_(b, info, 8);
+    var b64 = musicExcerpt_(b, info, 8, startSec);
     if (!b64) return '';
     /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
        تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،

@@ -679,6 +679,11 @@ CFG.EMB_ON = true;
     let called = 0;
     const realSelf = global.embSelfTest_;
     global.embSelfTest_ = function () { called++; return realSelf.apply(null, arguments); };
+    /* حالتِ واقعیِ ۴ اکتبر: خودآزمون **هرگز** ندویده بود. بندهای بالاتر یکی
+       دویده‌اند؛ آن را برمی‌داریم، وگرنه سدِ «امروز تازه دارد» درست کار می‌کند
+       و ۲۰.۳-پ چیزی را نمی‌سنجد. */
+    { const L0 = JSON.parse(global.__PROPS[PK.EMB_LAST] || '{}'); L0.self = null;
+      global.__PROPS[PK.EMB_LAST] = JSON.stringify(L0); delete global.__PROPS[PK.EMB_SELF_ARM]; }
     nightStart_();
     CFG.EMB_TAIL_MS = 10 * 60 * 1000;           // بیش از هر وقتی که بتواند مانده باشد
     const r = embNightly_({ cap: 5, budgetMs: 60000 });
@@ -690,6 +695,50 @@ CFG.EMB_ON = true;
     ok('۲۰.۳-ب و ردشدنش بی‌صدا نیست',
        r.notes.some((n) => /دنبالهٔ اختیاری/.test(String(n))),
        r.notes.join(' | ').slice(0, 110));
+
+    /* ══ ۲۰.۳-پ و جا نشدن یعنی **اجرای جدای خودش**، نه «هرگز» (۸.۳۳) ══
+       تا ۸.۳۲ این دنباله در دورانِ پس‌پر کردن **هر شب** جا نمی‌شد و
+       `_STATUS.json` تا ۴ اکتبر `selftest: null` داشت — تنها سنجه‌ای که
+       می‌پرسد «جست‌وجو واقعاً پیدا می‌کند؟» یک بار هم نَدَویده بود. */
+    const armed = global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'embSelfTestLater');
+    ok('۲۰.۳-پ خودآزمونی که جا نشد، اجرای یک‌بارهٔ خودش را می‌گیرد — و گفته می‌شود',
+       armed.length === 1 && r.notes.some((n) => /اجرای جدای خودش/.test(String(n))),
+       armed.length + ' تریگر · ' + r.notes.join(' | ').slice(0, 120));
+    const before = JSON.parse(global.__PROPS[PK.EMB_LAST] || '{}');
+    const note = embSelfTestLater();
+    const after = JSON.parse(global.__PROPS[PK.EMB_LAST] || '{}');
+    ok('۲۰.۳-ت همان اجرا خودآزمون را می‌دَوانَد و در کارنامه می‌نشیند — و تریگرِ خودش را پاک می‌کند',
+       after.self && after.self.at && (after.self.tried >= 1 || after.self.note) &&
+       !global.__TRIGGERS.some((t) => t.getHandlerFunction() === 'embSelfTestLater') &&
+       embStatus_().selftest !== null,
+       JSON.stringify(after.self || null) + ' · ' + note);
+    /* و روزی یک بار: خودآزمونِ تازه ⇒ زمان‌بندیِ دوباره نه. دو سدِ جدا، هر کدام
+       جدا سنجیده: اگر پرچمِ «امروز زمان‌بندی شد» بماند، سدِ اول را می‌پوشانَد. */
+    const tailRun = () => {
+      nightStart_();
+      CFG.EMB_TAIL_MS = 10 * 60 * 1000;
+      embNightly_({ cap: 5, budgetMs: 60000 });
+      CFG.EMB_TAIL_MS = keepTail;
+      nightStart_();
+      return global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'embSelfTestLater').length;
+    };
+    delete global.__PROPS[PK.EMB_SELF_ARM];
+    const nFresh = tailRun();
+    ok('۲۰.۳-ث خودآزمونِ تازه دارد ⇒ امشب دوباره زمان‌بندی نمی‌شود',
+       nFresh === 0, nFresh + ' تریگر');
+    /* خودآزمونِ کهنه ولی همین امروز یک بار زمان‌بندی شده ⇒ دوباره نه (دو اجرای
+       یک شب نباید دو تریگر بسازند). */
+    const lastOld = JSON.parse(global.__PROPS[PK.EMB_LAST] || '{}');
+    lastOld.self = Object.assign({}, lastOld.self || {}, { at: '2020-01-01 00:00' });
+    global.__PROPS[PK.EMB_LAST] = JSON.stringify(lastOld);
+    global.__PROPS[PK.EMB_SELF_ARM] = String(nowStr_()).slice(0, 10);
+    const nSameDay = tailRun();
+    delete global.__PROPS[PK.EMB_SELF_ARM];
+    const nOld = tailRun();
+    ok('۲۰.۳-ج همان روز دو بار زمان‌بندی نمی‌شود — ولی خودآزمونِ کهنه روزِ تازه زمان‌بندی می‌شود',
+       nSameDay === 0 && nOld === 1, nSameDay + ' / ' + nOld);
+    try { clearRetryTriggers_('embSelfTestLater'); } catch (eC) {}
+    void before;
   }
 
   /* ۲۰.۴ و همان قاعده به‌صورتِ حساب: خرجِ اعلام‌شدهٔ بلوک — با دنباله —

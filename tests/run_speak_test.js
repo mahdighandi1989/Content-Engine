@@ -1594,4 +1594,67 @@ console.log('\n=== ۲۵) حالتی که دستورش نرسید، در خودِ
      cap.replace(/\n/g, ' ⏎ '));
 }
 
+console.log('\n=== ۲۶) همزهٔ اضافه و مدارشکن — دو علتِ ۱۲٪ از دادهٔ واقعی (۸.۳۳) ===');
+{
+  /* ۲۶.۱ — دادهٔ واقعیِ قسمتِ ۶۲: پیش‌درآمدِ غنی‌سازیِ خودِ موتور «نکتهٔ» دارد،
+     و اعراب‌گذار جای دیگری «ابلاغیهٔ» گذاشت. تا ۸.۳۲ این یک همزه کلِ بخش را
+     از وارسی می‌انداخت. */
+  const P62 = 'ابلاغیه الکترونیکی صادر شد. یک نکتهٔ تکمیلی هم هست.';
+  const V62 = 'اِبلاغیهٔ اِلِکترونیکی صادِر شُد. یِک نُکتهٔ تَکمیلی هَم هَست.';
+  ok('۲۶.۱ همزهٔ اضافهٔ افزوده‌شده، در متنی که جای دیگری همزه دارد، رد نمی‌شود',
+     verifySpeak_(P62, V62) === true);
+
+  /* ۲۶.۲ — مرزِ دیگر: **انداختنِ** همزه‌ای که متنِ خام داشت هنوز رد می‌شود. */
+  const Vdrop = 'اِبلاغیه اِلِکترونیکی صادِر شُد. یِک نُکته تَکمیلی هَم هَست.';
+  ok('۲۶.۲ همزه‌ای که نویسنده گذاشته بود و اعراب‌گذار انداخت، رد می‌شود',
+     verifySpeak_(P62, Vdrop) === false);
+
+  /* ۲۶.۳ — حرفِ واقعیِ اضافه هنوز رد می‌شود؛ بخشش فقط برای همزه است. */
+  ok('۲۶.۳ حرفِ اضافه (نه همزه) هنوز رد می‌شود',
+     verifySpeak_(P62, V62.replace('صادِر', 'صادِرات')) === false);
+
+  /* مدارشکن: «رد شد» با «جواب نداد» یکی نیست. */
+  const PL = 'ما باید همین‌جا بایستیم و نگاه کنیم.';
+  const mkEp = () => ({ hook: PL, sections: [{ heading: 'ب', narration: PL, tone: '' },
+                                             { heading: 'ب۲', narration: PL, tone: '' }], outro: PL });
+  const mkSegs = () => [{ text: PL, kind: 'hook' }, { text: PL, kind: 'body', secIndex: 0 },
+                        { text: PL, kind: 'body', secIndex: 1 }, { text: PL, kind: 'outro' }];
+  const far = new Date().getTime() + 3600000;
+  const oldGem = global.geminiText_;
+  const run = (ans) => {
+    global.geminiText_ = (pr) => (String(pr).indexOf('اعراب‌گذاریِ کامل') !== -1 ? ans : null);
+    const ep = mkEp(), segs = mkSegs();
+    const un = quiet();
+    let r;
+    try { r = speakStep_(ep, segs, far, function () {}); } finally { un(); global.geminiText_ = oldGem; }
+    return { r, ep };
+  };
+
+  /* ۲۶.۴ — قسمتِ ۶۱: هر بخش جوابِ **نزدیک** گرفت (همان واژه‌ها، یک ناهم‌خوانیِ
+     ریز) و مدارشکن کلِ قسمت را بی‌اعراب فرستاد. */
+  const NEAR = { v: V(PL).replace(V('نگاه'), V('نگاهی')) };
+  const a = run(NEAR);
+  ok('۲۶.۴ چهار ردِ **نزدیک**: مدارشکن نمی‌زند، رد جدا شمرده می‌شود',
+     a.r.done === true && a.r.dead !== true && (a.ep.__speakRejects || 0) >= 3 &&
+     !(a.ep.__speakFails > 0),
+     JSON.stringify({ dead: a.r.dead, rej: a.ep.__speakRejects, fails: a.ep.__speakFails }));
+
+  /* ۲۶.۵ — مرزِ دیگر: جوابِ بی‌ربط هنوز «در دسترس نیست» است. */
+  const b = run({ v: 'چیزِ بی‌ربطی که هیچ ربطی ندارد.' });
+  ok('۲۶.۵ جوابِ بی‌ربط: مدارشکن مثلِ پیش می‌زند', b.r.dead === true,
+     JSON.stringify({ dead: b.r.dead, fails: b.ep.__speakFails }));
+
+  /* ۲۶.۶ — بی‌جواب هم. */
+  const c = run(null);
+  ok('۲۶.۶ مدل جواب نداد: مدارشکن می‌زند', c.r.dead === true);
+
+  /* ۲۶.۷ — همان واژه‌ها ولی **بی هیچ اعرابی**: کارِ اعراب‌گذار نشده ⇒ در دسترس
+     نیست؛ با اعرابِ کم ⇒ ردِ نزدیک. */
+  const d = run({ v: PL });
+  const e2 = run({ v: PL.replace('بایستیم', 'بِایستیم') });
+  ok('۲۶.۷ بی‌اعرابِ محض مدارشکن را می‌زند، اعرابِ کم نه',
+     d.r.dead === true && e2.r.dead !== true,
+     JSON.stringify({ bare: d.r.dead, sparse: e2.r.dead }));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

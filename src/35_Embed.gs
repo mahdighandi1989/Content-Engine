@@ -1528,8 +1528,17 @@ function embNightly_(opts) {
      دفتر می‌گفت هیچ. بعد `embStuckDays_` همان را «چند شب است جلو نرفته»
      می‌خواند و یافته‌ای می‌ساخت که موضوعش درست نبود.
      شاهدی که با خودِ حادثه بمیرد شاهد نیست. */
+  /* خودآزمونِ پیشین **با تاریخِ خودش** می‌مانَد (۸.۳۳). این مُهر تا ۸.۳۲
+     `self: null` می‌نوشت، پس هر شب شاهدِ خودآزمونِ دیروز را پاک می‌کرد:
+     `_STATUS.json` «خودآزمون نشده» می‌گفت و سدِ «امروز تازه دارد» هیچ‌وقت
+     چیزی برای دیدن نداشت. شاهدی که مُهرِ بعدی پاکش کند، شاهد نیست. */
+  var prevSelf = null;
+  try {
+    var pv = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null');
+    prevSelf = (pv && pv.self && pv.self.at) ? pv.self : null;
+  } catch (ePv) {}
   var lastRec = { at: nowStr_(), made: run.made, failed: run.failed,
-                  left: run.left, self: null };
+                  left: run.left, self: prevSelf };
   try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP) {}
 
   var st = embStatus_(hub);
@@ -1548,8 +1557,17 @@ function embNightly_(opts) {
 
   var self = null;
   if (!roomy) {
-    out.notes.push('دنبالهٔ اختیاری (خودآزمون و دروازه‌ها) امشب جا نشد — ' +
-                   'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.');
+    /* ══ خودآزمونی که هرگز نوبت نگرفت (۸.۳۳) ══
+       تا وقتی پس‌پر کردن ادامه دارد، ساخت کلِ بودجهٔ بلوک را می‌خورد و این
+       دنباله **هر شب** جا نمی‌شد — `_STATUS.json` تا ۴ اکتبر `selftest: null`
+       داشت، یعنی تنها سنجه‌ای که می‌پرسد «جست‌وجو واقعاً پیدا می‌کند؟» یک بار
+       هم اجرا نشده بود. همان حالِ ۷٫۸۴: کارِ اختیاری که در بلوکِ پرکار جا
+       نمی‌شود، **اجرای خودش** را می‌گیرد، نه اینکه هر شب کنار برود. */
+    var armed = false;
+    if (opts.selftest !== false) { try { armed = embSelfTestArm_(); } catch (eA) {} }
+    out.notes.push('دنبالهٔ اختیاری (خودآزمون و دروازه‌ها) امشب در همین اجرا جا نشد — ' +
+                   (armed ? 'خودآزمون چند دقیقهٔ دیگر در اجرای جدای خودش.'
+                          : 'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.'));
   } else if (st.total && st.done && opts.selftest !== false) {
     embStep_('خودآزمون');
     try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
@@ -1558,7 +1576,7 @@ function embNightly_(opts) {
 
   if (self) {
     lastRec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio,
-                     mode: self.mode, note: self.note };
+                     mode: self.mode, note: self.note, at: nowStr_() };
     try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP2) {}
   }
 
@@ -1584,6 +1602,54 @@ function embNightly_(opts) {
   embStep_('پایان');
   out.ok = true;
   return out;
+}
+
+/**
+ * خودآزمون را به یک اجرای یک‌بارهٔ جدا می‌سپارد (۸.۳۳) — روزی یک بار، و فقط
+ * وقتی آخرین خودآزمون از `EMB_SELFTEST_DAYS` کهنه‌تر است. سقفِ روزانه همان
+ * درسِ `busyRetry_` است: ردِ پیاپی نباید یک تریگر را تا ابد بچرخاند.
+ */
+function embSelfTestArm_() {
+  var today = String(nowStr_()).slice(0, 10);
+  var last = null;
+  try { last = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e0) {}
+  var selfAt = String((last && last.self && last.self.at) || '');
+  var days = Math.max(1, Number(CFG.EMB_SELFTEST_DAYS) || 1);
+  if (selfAt && (parseWhen_(nowStr_()) - parseWhen_(selfAt)) < days * 86400000) return false;
+  if (String(props_().getProperty(PK.EMB_SELF_ARM) || '') === today) return false;
+  clearRetryTriggers_('embSelfTestLater');
+  ScriptApp.newTrigger('embSelfTestLater').timeBased()
+    .after(Math.max(1, Number(CFG.EMB_SELFTEST_LATER_MIN) || 6) * 60000).create();
+  props_().setProperty(PK.EMB_SELF_ARM, today);
+  return true;
+}
+
+/** اجرای یک‌بارهٔ خودآزمون و دروازه‌ها — نامِ جدا، تا پاک‌کردنش به تریگرِ دیگری نخورد. */
+function embSelfTestLater() {
+  runEnter_('embSelfTestLater');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('embSelfTestLater'); } catch (e0) {}
+    var self = null;
+    try { self = embSelfTest_(); } catch (eS) { note = 'خودآزمون نشد: ' + eS.message; }
+    if (self) {
+      var rec = null;
+      try { rec = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e1) {}
+      rec = rec || {};
+      rec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio, mode: self.mode,
+                   note: self.note, at: nowStr_() };
+      try { props_().setProperty(PK.EMB_LAST, JSON.stringify(rec)); } catch (eP) {}
+      note = self.tried ? (self.hit + '/' + self.tried + ' · ' + (self.mode || '')) : (self.note || '');
+    }
+    try {
+      var hub = getHub_();
+      var st = embStatus_(hub);
+      embGates_(hub, st, self);
+      embLog_(hub, { step: 'خودآزمونِ جدا', scanned: 0, made: 0, failed: 0, done: st.done,
+                     total: st.total, pct: st.pct, self: note, note: '' });
+    } catch (eG) { note += ' · دروازه‌ها: ' + eG.message; }
+  } finally { runExit_('embSelfTestLater', note); }
+  return note;
 }
 
 /** دکمهٔ منو: یک دورِ دستی با بودجهٔ بزرگ‌تر. */

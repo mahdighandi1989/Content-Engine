@@ -1910,9 +1910,19 @@ function speakGraft_(plain, vowelled) {
  */
 function speakEzafePrep_(plain, vowelled) {
   var p = String(plain || ''), v = String(vowelled || '');
-  if (/ٔ/.test(p)) {
-    // متنِ خام رسمِ همزه را دارد — دربارهٔ آن سخت‌گیری کامل می‌ماند.
-  } else {
+  /* ══ همزهٔ اضافه: «افزودن» آزاد، «انداختن» نه (۸.۳۳) ══
+     تا ۸.۳۲ قاعده این بود: اگر متنِ خام **جایی** «ٔ» داشت، سخت‌گیری **همه‌جا**
+     کامل می‌شد. و پیش‌درآمدِ غنی‌سازیِ خودِ موتور — «یک نکتهٔ تکمیلی…» — همزه
+     دارد. پس در هر بخشی که غنی‌سازیِ بیرونی گرفت، هر «هٔ»ِ درستی که اعراب‌گذار
+     جای دیگری گذاشت («ابلاغیهٔ الکترونیکی») حرفِ اضافه شمرده شد، بخش از
+     وارسی افتاد، و ترمیمِ واژه‌های بی‌علامت هم — که فقط با وارسیِ کلِ بخش
+     می‌نشیند — دور ریخته شد. این را دادهٔ واقعیِ قسمتِ ۶۲ نشان داد، نه
+     استدلال: دو بخشِ ۳۱٪ و ۱۷٪ بی‌اعراب، هر دو با همین یک نشانه ناهم‌خوان.
+     همزهٔ اضافه حرف نیست؛ نشانهٔ تلفظ است، مثلِ کسرهٔ اضافه. پس افزودنش
+     آزاد است — ولی **انداختنِ** همزه‌ای که متنِ خام داشت هنوز رد می‌شود
+     (شمارش)، چون آن یعنی اضافه‌ای که نویسنده خواسته بود گم شد. */
+  var pc = (p.match(/ٔ/g) || []).length, vc = (v.match(/ٔ/g) || []).length;
+  if (vc >= pc) {
     p = p.replace(/ٔ/g, ''); v = v.replace(/ٔ/g, '');
   }
   // میانِ «ه» و نیم‌فاصله ممکن است اعرابِ خودِ مدل نشسته باشد (مثلاً فتحه) —
@@ -2784,10 +2794,35 @@ function speakSalvage_(piece, vowelled) {
    نمی‌دهد؟ واژه عوض می‌کند؟ اعراب کم می‌گذارد؟ عددِ بی‌تشخیص، اقدام‌پذیر
    نیست؛ همین نبودِ تشخیص بود که آن هشدار را دو روز بی‌جواب گذاشت. */
 var VOWEL_LAST_WHY_ = '';
+/* آیا جوابِ ردشده **نزدیک** به متن بود (همان واژه‌ها، یک ناهم‌خوانیِ ریز) یا
+   بی‌ربط؟ (۸.۳۳) — مدارشکن فقط دومی را «در دسترس نیست» می‌شمارد. */
+var VOWEL_LAST_NEAR_ = false;
+function speakOverlap_(plain, v) {
+  try {
+    var ez = speakEzafePrep_(plain, v);
+    var A = speakBone_(ez.p).split(' ').filter(Boolean);
+    var B = speakBone_(ez.v).split(' ').filter(Boolean);
+    if (!A.length) return 0;
+    var bag = Object.create(null), hit = 0;
+    for (var i = 0; i < B.length; i++) bag[B[i]] = (bag[B[i]] || 0) + 1;
+    for (var j = 0; j < A.length; j++) if (bag[A[j]] > 0) { bag[A[j]]--; hit++; }
+    return hit / A.length;
+  } catch (e) { return 0; }
+}
 function vowelWhyOf_(piece, v) {
+  VOWEL_LAST_NEAR_ = false;
   if (!v || !String(v).trim()) return 'مدل جواب نداد';
-  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان' + speakDiff_(piece, v);
-  if (!speakVowelledOk_(piece, v)) return 'اعرابِ ناکافی';
+  if (!verifySpeak_(piece, v)) {
+    VOWEL_LAST_NEAR_ = speakOverlap_(piece, v) >= 0.6;
+    return 'واژه‌ها ناهم‌خوان' + speakDiff_(piece, v);
+  }
+  /* اعرابِ کم یعنی مدل جواب داده و واژه‌ها همان‌اند — «در دسترس نیست» نیست.
+     ولی جوابی که **هیچ** اعرابی ندارد کارِ اعراب‌گذار را نکرده و همان «در
+     دسترس نیست» است؛ ادامه‌دادن با آن فقط فراخوان می‌سوزاند. */
+  if (!speakVowelledOk_(piece, v)) {
+    VOWEL_LAST_NEAR_ = /[\u064B-\u0653\u0655-\u065F\u0670]/.test(String(v));
+    return 'اعرابِ ناکافی';
+  }
   return '';
 }
 
@@ -3704,8 +3739,19 @@ function speakStep_(ep, segs, deadline, persist) {
       // سه شکست بی حتی یک موفقیت یعنی مدلِ اعراب‌گذاری الان در دسترس نیست
       // (سهمیه، قطعی، حسابِ محدود). ادامه‌دادن فقط فراخوان می‌سوزاند و
       // پادکست را عقب می‌اندازد؛ بقیهٔ بخش‌ها با متنِ ساده می‌روند.
-      ep.__speakFails = (Number(ep.__speakFails) || 0) + 1;
-      if (!okSoFar && !did && ep.__speakFails >= 3) {
+      /* ══ «رد شد» با «جواب نداد» یکی نیست (۸.۳۳) ══
+         مدارشکن برای وقتی است که اعراب‌گذار **در دسترس نیست**. ولی تا ۸.۳۲
+         هر شکستی شمرده می‌شد — حتی وقتی مدل جواب داده و فقط وارسی ردش کرده
+         بود. قسمتِ ۶۱ همین شد: سه بخشِ اول رد شدند (به احتمالِ زیاد همان
+         قاعدهٔ غلطِ همزهٔ اضافه که در قسمت‌های ۶۰ و ۶۲ به داده دیده شد)، مدارشکن
+         «در دسترس نیست» خواند، و **کلِ قسمت** بی‌اعراب رفت. ردِ **نزدیک**
+         جدا شمرده می‌شود (`__speakRejects`) و مدارشکن را نمی‌زند. */
+      /* «جواب نداد» یا جوابِ **بی‌ربط** (کمتر از ۶۰٪ همان واژه‌ها) ⇒ در دسترس
+         نیست؛ ردِ نزدیک ⇒ فقط همین بخش. */
+      var noAnswer = /^(مدل جواب نداد|خطا)/.test(String(VOWEL_LAST_WHY_ || '')) || !VOWEL_LAST_NEAR_;
+      if (noAnswer) ep.__speakFails = (Number(ep.__speakFails) || 0) + 1;
+      else ep.__speakRejects = (Number(ep.__speakRejects) || 0) + 1;
+      if (noAnswer && !okSoFar && !did && ep.__speakFails >= 3) {
         for (var z = 0; z < segs.length; z++) {
           var pz = String(segs[z].text || '');
           if (!pz.trim()) continue;

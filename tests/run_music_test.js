@@ -996,4 +996,145 @@ console.log('\n=== ۲۱. ۴۸ توکن و مدلی که پیش از جواب ف�
   global.musicListen_ = listenWas;
 }
 
+console.log('\n=== ۲۲. آنچه پخش می‌شود شنیده می‌شود — نه فقط وسطِ فایل (۸.۳۳) ===');
+{
+  /* داوریِ بانک هشت ثانیه از **وسطِ** فایل را می‌شنود؛ آغازِ قسمت از ثانیه‌ای
+     پخش می‌شود که نقشه انتخاب کرده. قطعه‌ای که وسطش آهنگ است و سرش صدای
+     خیابان، از داوریِ بانک می‌گذشت. این بند از درِ خودِ `musicWrap_` و با
+     **کلیدِ قسمت** وارد می‌شود — بی کلید، نقشه تازه نیست و هیچ شنیدنی رخ
+     نمی‌دهد؛ همهٔ آزمون‌های پیشینِ این فایل همان‌طور بودند و برای همین هیچ‌کدام
+     این در را نمی‌دیدند. */
+  const hub = getHub_();
+  const sh = hub.getSheetByName(CFG.MUSIC_TAB);
+  const F = musicFolder_();
+  const mk = (nm, slots) => {
+    F.createFile(Utilities.newBlob(mkWav(24000, 1, 16, 20, (i) => Math.round(6000 * Math.sin(i / 30))),
+                                   'audio/wav', nm));
+    return [nm, slots];
+  };
+  const want = [mk('noisy-intro.wav', 'شروع، پایان'), mk('clean-song.wav', 'شروع، پایان'),
+                mk('bed-pad.wav', 'میانه'), mk('noisy-bed.wav', 'میانه')];
+  musicScan_(hub);
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues();
+  for (let r = 0; r < rows.length; r++) {
+    const w = want.filter((x) => x[0] === String(rows[r][MC.NAME - 1]))[0];
+    if (!w) continue;
+    sh.getRange(r + 2, MC.SLOTS).setValue(w[1]);
+    sh.getRange(r + 2, MC.HEARD).setValue('✅ آهنگ');      // داوریِ بانک: وسطِ فایل آهنگ است
+    sh.getRange(r + 2, MC.NOTE).setValue('');
+  }
+  const bank = musicBank_(hub);
+  const noisy = bank.filter((b) => b.name === 'noisy-intro.wav')[0];
+  const noisyBed = bank.filter((b) => b.name === 'noisy-bed.wav')[0];
+  const planWas = global.musicPlanModel_, listenWas = global.musicListen_;
+  /* پل را هم مدل پیشنهاد می‌دهد، و همان پل در بازهٔ پخش صدای خیابان است. */
+  global.musicPlanModel_ = () => ({ introId: noisy.id, introStart: '3', outroId: noisy.id, outroStart: '0',
+                                    bridges: [{ after: '1', id: noisyBed.id }], mood: 'آرام' });
+  const calls = [];
+  global.musicListen_ = (b, info, name, st) => {
+    calls.push({ name: name, st: st });
+    return /noisy/.test(name) ? 'جلوه' : (/bed/.test(name) ? 'زمینه' : 'آهنگ');
+  };
+  const chunks = []; for (let i = 0; i < 6; i++) chunks.push({ text: 'ت' + i });
+  const bounds = [{ at: 0, kind: 'hook' }, { at: 1, kind: 'body', heading: 'الف' },
+                  { at: 3, kind: 'body', heading: 'ب' }, { at: 5, kind: 'body', heading: 'پ' },
+                  { at: 6, kind: 'outro' }];
+  delete global.__PROPS[PK.MUSIC_PLAN];
+  const opt = { mood: 'آرام', bounds: bounds, show: 'variety', episode: '901' };
+  const labels = (r) => r.chunks.filter((c) => c.pcm).map((c) => c.label);
+  const r1 = musicWrap_(chunks, hub, Object.assign({}, opt));
+  const L1 = labels(r1);
+  const introL = L1.filter((l) => /آغاز/.test(l))[0] || '';
+  const outroL = L1.filter((l) => /پایان/.test(l))[0] || '';
+  const heardNoisy = calls.filter((c) => /noisy/.test(c.name));
+  ok('۲۲.۱ بازهٔ پخشِ آغاز شنیده می‌شود (همان ثانیهٔ برشِ نقشه) و قطعهٔ نامناسب جانشین می‌گیرد',
+     introL && !/noisy/.test(introL) && outroL && !/noisy/.test(outroL) &&
+     heardNoisy.some((c) => c.st === 3) && !L1.some((l) => /noisy/.test(l)) &&
+     calls.some((c) => /noisy-bed/.test(c.name)),
+     'آغاز «' + introL + '» · پایان «' + outroL + '» · شنیده‌ها ' +
+     JSON.stringify(calls.map((c) => c.name + '@' + c.st)));
+
+  /* ازسرگیری: نقشه با نتیجهٔ شنیدن ذخیره شد، پس اجرای بعد **هیچ** نمی‌پرسد و
+     تکه‌ها همان‌اند — وگرنه شمارهٔ تکهٔ ذخیره‌شده می‌لغزد. */
+  calls.length = 0;
+  global.musicPlanModel_ = () => { throw new Error('ازسرگیری نباید نقشهٔ تازه بخواهد'); };
+  let r2;
+  try { r2 = musicWrap_(chunks, hub, Object.assign({}, opt)); }
+  catch (e) { r2 = { chunks: [{ pcm: 'x', label: 'خطا: ' + e.message }] }; }
+  ok('۲۲.۲ ازسرگیری هیچ چیزی را دوباره نمی‌شنود و همان تکه‌ها را می‌دهد',
+     calls.length === 0 && JSON.stringify(labels(r2)) === JSON.stringify(L1),
+     calls.length + ' شنیدن · ' + JSON.stringify(labels(r2)));
+
+  /* نشنیدن یعنی نه: مدل در دسترس نیست ⇒ هیچ موسیقی‌ای پخش نمی‌شود، و گفته می‌شود. */
+  global.musicPlanModel_ = () => ({ introId: noisy.id, outroId: noisy.id, bridges: [], mood: 'آرام' });
+  /* لبه‌ها شنیده نمی‌شوند، ولی پلِ بستر شنیده می‌شود — پس قسمت موسیقی دارد و
+     «قفلِ دوم» نقشه را بازنویسی می‌کند؛ «حذف شد»ِ لبه‌ها باید از آن جان به در ببرد. */
+  global.musicListen_ = (b, info, name) => (/bed-pad/.test(name) ? 'زمینه' : '');
+  const edges = (r) => labels(r).filter((l) => /آغاز|پایان/.test(l));
+  const r3 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '902' }));
+  const cached3 = (JSON.parse(global.__PROPS[PK.MUSIC_PLAN] || '{}') || {})['variety#902'] || {};
+  ok('۲۲.۳ لبه‌ای که شنیده نشد بی‌موسیقی است — نه موسیقیِ نشنیده؛ و نقشه همین را به خاطر می‌سپارد',
+     edges(r3).length === 0 && labels(r3).some((l) => /bed-pad/.test(l)) &&
+     cached3.introNone === true && cached3.outroNone === true,
+     JSON.stringify(labels(r3)) + ' · ' + JSON.stringify({ i: cached3.introNone, o: cached3.outroNone }));
+  /* و ازسرگیریِ همان قسمت هم بی‌موسیقی می‌مانَد: ازسرگیری نمی‌شنود (۲۲.۲)، پس
+     اگر «حذف شد» از نقشهٔ ذخیره‌شده خوانده نشود، قطعهٔ ردشده بی‌داوری پخش می‌شود. */
+  global.musicPlanModel_ = () => { throw new Error('ازسرگیری نباید نقشهٔ تازه بخواهد'); };
+  let r3b;
+  try { r3b = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '902' })); }
+  catch (e) { r3b = { chunks: [{ pcm: 'x', label: 'خطا: ' + e.message }] }; }
+  ok('۲۲.۳-ب ازسرگیری هم لبه‌ها را بی‌موسیقی نگه می‌دارد — «حذف شد» از قفلِ نقشه خوانده می‌شود',
+     edges(r3b).length === 0 && JSON.stringify(labels(r3b)) === JSON.stringify(labels(r3)),
+     JSON.stringify(labels(r3b)));
+  global.musicPlanModel_ = () => ({ introId: noisy.id, outroId: noisy.id, bridges: [], mood: 'آرام' });
+
+  /* هیچ‌چیز شنیده نشد ⇒ هیچ قطعه‌ای نیست ⇒ «قفلِ دوم» اصلاً نوشته نمی‌شود. پس
+     تنها چیزی که نقشه را نگه می‌دارد ذخیرهٔ پس از شنیدن است — بی آن ازسرگیری
+     نقشهٔ تازه می‌خواهد و هر بار دوباره می‌شنود. */
+  global.musicListen_ = () => '';
+  const r5 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '904' }));
+  global.musicPlanModel_ = () => { throw new Error('ازسرگیری نباید نقشهٔ تازه بخواهد'); };
+  let r5b;
+  try { r5b = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '904' })); }
+  catch (e) { r5b = { chunks: [{ pcm: 'x', label: 'خطا: ' + e.message }] }; }
+  ok('۲۲.۳-پ قسمتی که هیچ موسیقی‌ای نگرفت هم نقشه‌اش را نگه می‌دارد — ازسرگیری نمی‌پرسد',
+     labels(r5).length === 0 && labels(r5b).length === 0, JSON.stringify(labels(r5b)));
+  global.musicPlanModel_ = () => ({ introId: noisy.id, outroId: noisy.id, bridges: [], mood: 'آرام' });
+
+  /* سلیقهٔ آدم: قطعه‌ای که او برایش یادداشت نوشته شنیده نمی‌شود و پخش می‌شود. */
+  for (let r = 0; r < rows.length; r++) {
+    if (String(rows[r][MC.NAME - 1]) === 'noisy-intro.wav') sh.getRange(r + 2, MC.NOTE).setValue('دستی: همین را می‌خواهم');
+  }
+  calls.length = 0;
+  global.musicListen_ = (b, info, name, st) => { calls.push({ name: name, st: st }); return ''; };
+  const r4 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '903' }));
+  ok('۲۲.۴ قطعه‌ای که آدم تأییدش کرده بی شنیدنِ مدل پخش می‌شود',
+     labels(r4).some((l) => /آغاز/.test(l) && /noisy/.test(l)) && !calls.some((c) => /noisy/.test(c.name)),
+     JSON.stringify(labels(r4)));
+  for (let r = 0; r < rows.length; r++) {
+    if (String(rows[r][MC.NAME - 1]) === 'noisy-intro.wav') sh.getRange(r + 2, MC.NOTE).setValue('');
+  }
+
+  /* و برش واقعاً از همان ثانیه است: نمونهٔ اولِ بریده برابرِ نمونهٔ ثانیهٔ ۵ِ فایل. */
+  const wb = Utilities.newBlob(mkWav(8000, 1, 16, 12, (i) => Math.floor(i / 8000) * 1000)).getBytes();
+  const wi = wavInfo_(wb);
+  /* ثانیهٔ ۱، نه ۵: وسطِ این فایلِ ۱۲ ثانیه‌ای خودش ثانیهٔ ۵ است، پس «۵» با
+     رفتارِ قدیم (از وسط) هم همان عدد را می‌داد و سنجه هیچ نمی‌سنجید. */
+  const ex = Utilities.base64Decode(musicExcerpt_(wb, wi, 2, 1));
+  const v0 = ((ex[44] & 255) | ((ex[45] & 255) << 8));
+  ok('۲۲.۵ بریدهٔ شنیدن از ثانیهٔ خواسته‌شده برداشته می‌شود، نه از وسط',
+     v0 === 1000, 'نمونهٔ اول ' + v0);
+
+  /* آغاز و پایان «آهنگ» می‌خواهند؛ پل «زمینه» را هم می‌پذیرد — بستری که زیرِ
+     گذارِ دو بخش خوب است، سرِ برنامه «بی‌آغاز» شنیده می‌شود. */
+  const bed = musicBank_(hub).filter((b) => b.name === 'bed-pad.wav')[0];
+  global.musicListen_ = () => 'زمینه';
+  const sEdge = musicSegOk_(bed, 0, 'شروع'), sMid = musicSegOk_(bed, 0, 'میانه');
+  ok('۲۲.۶ «زمینه» برای پل بس است، برای آغاز نه',
+     sEdge.ok === false && sMid.ok === true, JSON.stringify({ edge: sEdge, mid: sMid }));
+
+  global.musicPlanModel_ = planWas; global.musicListen_ = listenWas;
+  delete global.__PROPS[PK.MUSIC_PLAN];
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

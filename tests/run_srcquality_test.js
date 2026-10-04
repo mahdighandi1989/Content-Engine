@@ -174,4 +174,73 @@ console.log('=== ۷) دوری که چیزی نسنجید، صفِ هفتگی ر�
   global.getHub_ = prevGetHub;
 }
 
+console.log('=== ۸) «خالی ۱۰۰٪» از خودِ موتور بود (۸.۳۳) ===');
+{
+  /* ۱ تا ۴ اکتبر، هر روز: «Photo-Analyzer-Gemini: بی‌داوری (خالی ۱۰۰٪)». هیچ
+     سنجه‌ای وارد `sqSampleRows_` نشده بود — تنها راهی که به شیتِ واقعی
+     می‌رسد — و `sqJudge_` فقط در دو حالتِ «ورودی نیست» سنجیده شده بود. این
+     بند با **سرستون‌های واقعیِ** تحلیلگر (از fixtureِ همان شیت) وارد می‌شود. */
+  const fx = JSON.parse(fs.readFileSync('tests/fixtures/newsheets.json', 'utf8'));
+  const hdr = fx.general[0].hdr.slice();
+  const col = (name) => hdr.indexOf(name);
+  const SID = 'SQ-REAL-SHEET';
+  const ss = new Spread('منبع', SID);
+  const sh = ss.insertSheet('Video Analysis');
+  sh._d.push(hdr.slice());
+  for (let i = 0; i < 8; i++) {
+    /* هر ستونِ تحلیلی پر است، مثلِ خروجیِ سالمِ تحلیلگر؛ چند ستونِ خاص با
+       متنِ شناختنی تا معلوم شود از **همان** ستون خوانده شده نه از همسایه‌اش. */
+    const r = hdr.map((h) => 'متنِ ' + h + ' برای ردیفِ ' + i);
+    r[col('Timestamp')] = '2026-10-0' + (i % 9 + 1) + ' 10:00:00';
+    r[col('File_ID')] = 'F' + i;
+    r[col('Content_Analysis')] = 'تحلیلِ محتوای ردیفِ ' + i + ' با جزئیاتِ کافی';
+    r[col('Key_Insights')] = 'نکتهٔ کلیدیِ ' + i;
+    r[col('Executive_Summary')] = 'خلاصهٔ اجراییِ ردیفِ ' + i;
+    r[col('Main_Subject')] = 'موضوعِ ' + i;
+    r[col('Core_Ideas')] = 'ایدهٔ محوریِ ' + i;
+    r[col('Status')] = i === 7 ? 'ERROR: quota' : 'SUCCESS';
+    sh._d.push(r);
+  }
+  sh._max = sh._d.length + 5;
+  global.__SS[SID] = ss;
+  const sm = sqSampleRows_(SID, 12);
+  const st = sqStats_(sm.rows);
+  ok('۸.۱ خانه‌های تحلیل از ستونِ درستِ خودشان خوانده می‌شوند، نه خالی',
+     sm.rows.length >= 5 && st.emptyPct < 20 && (sm.heads || []).indexOf('Content_Analysis') !== -1 &&
+     sm.heads.indexOf('Timestamp') === -1 &&
+     /* ستونی که این تحلیلگر ندارد (۱−) نمونه‌برداری نمی‌شود — وگرنه خانهٔ
+        خالیِ ساختگی به حسابِ تحلیلگر می‌رود؛ همان شکلِ «خالی ۱۰۰٪». */
+     sm.heads.every((h) => !!h) &&
+     sm.rows[0].join(' ').indexOf('تحلیلِ محتوای ردیفِ 0') !== -1,
+     'ردیف ' + sm.rows.length + ' · خالی ' + st.emptyPct + '٪ · ستون‌ها ' + (sm.heads || []).join('، '));
+  ok('۸.۲ ردیفِ ERROR کنار گذاشته می‌شود — ستونِ وضعیت هم سرِ جای خودش خوانده می‌شود',
+     sm.rows.length === 7 && sm.rows.every((r) => r.join(' ').indexOf('ردیفِ 7') === -1),
+     sm.rows.length + ' ردیف');
+
+  /* داور: `geminiText_` شیءِ پارس‌شده برمی‌گردانَد، همان‌طور که در تولید. */
+  const gWas = global.geminiText_;
+  global.geminiText_ = () => ({ verdict: 'خوب', clarity: 'روشن', coverage: 'کامل', risk: 'کم',
+                                fix: '', why: 'ردیفِ ۱ همهٔ خانه‌ها را دارد' });
+  const j = sqJudge_('آزمون', 'پرامپتِ بلندِ استخراج', sm.rows);
+  global.geminiText_ = gWas;
+  ok('۸.۳ داوری از شیءِ پارس‌شده خوانده می‌شود — «بی‌داوری» نمی‌ماند',
+     !!j && j.verdict === 'خوب', JSON.stringify(j));
+
+  /* و تاریخ در خطِ روزانه، تاریخ است — نه «Sun Oct 04 2026 … GMT+0400». */
+  const hubQ = new Spread('hubQ3', 'HUBQ3');
+  global.__SS['HUBQ3'] = hubQ;
+  const ghWas = global.getHub_;
+  global.getHub_ = () => hubQ;
+  const tq = hubQ.insertSheet(CFG.SQ_TAB || 'کیفیتِ استخراج');
+  tq._d.push(SQ_HEADERS.slice());
+  const row = new Array(SQ_HEADERS.length).fill('');
+  row[0] = new Date(Date.UTC(2026, 9, 3, 22, 53)); row[1] = 'Photo-Analyzer-Gemini (تحلیلگرِ عکس)';
+  row[6] = '۵'; row[7] = '۰'; row[9] = 'خوب';
+  tq._d.push(row);
+  const ln = sqStatus_().line;
+  global.getHub_ = ghWas;
+  ok('۸.۴ تاریخِ خطِ روزانه قالبِ موتور را دارد', /\(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\)/.test(ln) &&
+     ln.indexOf('GMT') === -1, ln);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ کیفیتِ استخراج گذشت.');

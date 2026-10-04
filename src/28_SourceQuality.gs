@@ -141,7 +141,18 @@ function sqSampleRows_(sheetId, want) {
   try {
     var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
     var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
-    var map = srcMap_(hdrSet_(head));
+    /* ══ «خالی ۱۰۰٪» از این خط بود، نه از تحلیلگرها (۸.۳۳) ══
+       تا ۸.۳۲ این‌جا `srcMap_(hdrSet_(head))` بود. `srcMap_` **ردیفِ سرستون**
+       را می‌خواهد و `hdrSet_` یک شیء می‌دهد که `length` ندارد، پس هر ستون
+       ۱− شد؛ ۱− در جاوااسکریپت راست است، پس از سدِ `if (c)` رد شد؛ و
+       `vals[r][-2]` هر خانه را خالی خواند. هفته‌به‌هفته «خالی ۱۰۰٪» و یافتهٔ
+       «جدی» برای تحلیلگرهایی که کارشان درست بود — گناه به گردنِ طرفِ اشتباه.
+       همان دامی است که ۷٫۲۵ در CLAUDE.md نوشت («passing hdrSet_'s boolean map
+       silently resolves every column to −1») — و این تابع پیش از آن نوشته
+       شده بود و کسی برنگشت نگاهش کند.
+       و لایهٔ زیرش: `findAny_` شمارهٔ **صفر‌پایه** می‌دهد و این کد `c - 1`
+       می‌خواند — یعنی حتی با نقشهٔ درست، ستونِ سمتِ چپ. پس هر دو با هم. */
+    var map = srcMap_(head);
     /* ستون‌های «تحلیل» — نه تاریخ و نام و لینک. خالی‌بودنِ نامِ فایل ایراد
        نیست؛ خالی‌بودنِ تحلیل هست. */
     var keys = ['content', 'points', 'ideas', 'points2', 'summary', 'summary2',
@@ -149,18 +160,19 @@ function sqSampleRows_(sheetId, want) {
     var cols = [];
     for (var k = 0; k < keys.length; k++) {
       var c = map[keys[k]];
-      if (c && cols.indexOf(c) === -1) cols.push(c);
+      if (typeof c === 'number' && c >= 0 && cols.indexOf(c) === -1) cols.push(c);
     }
     if (!cols.length) { out.why = 'ستونِ تحلیلی شناخته نشد'; return out; }
     out.cols = cols;
+    out.heads = cols.map(function (ci) { return String(head[ci] || ''); });
 
     var from = Math.max(2, lastRow - n + 1);
     var vals = sh.getRange(from, 1, lastRow - from + 1, lastCol).getValues();
-    var stCol = map.status || 0;
+    var stCol = (typeof map.status === 'number') ? map.status : -1;
     for (var r = 0; r < vals.length; r++) {
-      if (stCol && String(vals[r][stCol - 1] || '').toUpperCase().indexOf('ERROR') === 0) continue;
+      if (stCol >= 0 && String(vals[r][stCol] || '').toUpperCase().indexOf('ERROR') === 0) continue;
       var cells = [];
-      for (var c2 = 0; c2 < cols.length; c2++) cells.push(String(vals[r][cols[c2] - 1] || ''));
+      for (var c2 = 0; c2 < cols.length; c2++) cells.push(String(vals[r][cols[c2]] || ''));
       out.rows.push(cells);
     }
   } catch (e2) { out.why = 'خواندنِ ردیف‌ها نشد: ' + String(e2.message).slice(0, 80); }
@@ -252,9 +264,13 @@ function sqJudge_(name, prompt, rows) {
     'خروجی‌ها باشد، نه یک حکمِ کلی.',
     'سخت‌گیر باش ولی منصف: علامت‌زدنِ بی‌مورد همان‌قدر بد است که ندیدنِ ایراد.'
   ].join('\n');
+  /* `geminiText_` شیءِ **پارس‌شده** برمی‌گردانَد (۷٫۲۷ همین را دربارهٔ اثرِ
+     انگشت نوشت). `JSON.parse` روی شیء «[object Object]» را می‌خوانَد و پرتاب
+     می‌کند، پس تا ۸.۳۲ داوری همیشه تهی بود و خطِ روزانه «بی‌داوری» می‌گفت. */
   try {
-    var t = geminiText_(p, SQ_SCHEMA, 900);
-    return t ? JSON.parse(t) : null;
+    var t = geminiText_(p, SQ_SCHEMA, 4096);   // بیش از بودجهٔ فکرِ ۲۰۴۸، وگرنه یک فراخوانِ بریدهٔ بی‌فایده
+    if (!t) return null;
+    return (typeof t === 'string') ? JSON.parse(t) : t;
   } catch (e) { logLine_('داوریِ پرامپتِ «' + name + '» نشد: ' + e.message); return null; }
 }
 
@@ -500,7 +516,12 @@ function sqStatus_() {
     var parts = [];
     for (var k in last) {
       if (!Object.prototype.hasOwnProperty.call(last, k)) continue;
-      out.at = String(last[k][0] || '') || out.at;
+      /* خانهٔ تاریخ در شیت `Date` است؛ `String()` رویش «Sun Oct 04 2026
+         02:53:00 GMT+0400 (Gulf Standard Time)» می‌داد — همان که در ایمیل آمد. */
+      var at0 = last[k][0];
+      out.at = (at0 instanceof Date)
+        ? Utilities.formatDate(at0, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm')
+        : (String(at0 || '') || out.at);
       parts.push(k.split(' ')[0] + ': ' + (String(last[k][9] || '') || 'بی‌داوری') +
                  ' (خالی ' + String(last[k][6] || '۰') + '٪، تکراری ' +
                  String(last[k][7] || '۰') + '٪)');

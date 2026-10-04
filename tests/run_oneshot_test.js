@@ -234,6 +234,13 @@ console.log('=== ۴) نقشهٔ موسیقی وسطِ یک قسمت عوض نم�
   // ندارد، یعنی هیچ‌چیز را نمی‌سنجد.
   const realClip = global.musicClip_;
   global.musicClip_ = (id) => 'PCM-' + id;
+  /* از ۸.۳۳ بازهٔ پخش هم پیش از پخش شنیده می‌شود (`musicSegOk_`) و این شناسه‌ها
+     فایلی پشتشان ندارند؛ شنیدن کارِ `run_music_test.js` §۲۲ است، این بند
+     ثابت‌ماندنِ نقشه را می‌سنجد. پس بدَل داوریِ «آهنگ» را با خود می‌آورد —
+     همان‌طور که `heard` را. */
+  const realSeg4 = global.musicSegOk_;
+  let segCalls4 = 0;
+  global.musicSegOk_ = () => { segCalls4++; return { ok: true, heard: 'آهنگ', why: '' }; };
   /* `heard` لازم است: از ۷٫۶۸ قطعهٔ شنیده‌نشده پخش نمی‌شود. بدَلی که این
      را نداشته باشد، قطعه‌ای را عادی نشان می‌دهد که در تولید اصلاً پخش
      نمی‌شود — و آن‌وقت سنجهٔ ۴٫۰ روی آرایه‌ای می‌دوید که موسیقی ندارد. */
@@ -250,6 +257,7 @@ console.log('=== ۴) نقشهٔ موسیقی وسطِ یک قسمت عوض نم�
   const opt = { show: 'special', episode: 14, bounds: [{ at: 0, kind: 'body' }],
                 sections: [{ heading: 'الف' }], mood: 'م', title: 'ت' };
   const a = musicWrap_(chunks(), null, opt);
+  const segAfterA = segCalls4;
   const b = musicWrap_(chunks(), null, opt);
   ok('۴.۰ موسیقی واقعاً درج شده — وگرنه سنجه‌های بعدی چیزی را نمی‌سنجند',
      a.chunks.filter(c => c.pcm).length > 0 && a.picks.length > 0,
@@ -260,6 +268,10 @@ console.log('=== ۴) نقشهٔ موسیقی وسطِ یک قسمت عوض نم�
   ok('۴.۳ و همان قطعه‌ها، نه قطعه‌های دیگر',
      JSON.stringify(a.picks.map(p => p.id)) === JSON.stringify(b.picks.map(p => p.id)),
      JSON.stringify(a.picks.map(p => p.id)) + ' / ' + JSON.stringify(b.picks.map(p => p.id)));
+  /* شنیدنِ بازهٔ پخش (۸.۳۳) هم مثلِ نقشه یک بار است: ازسرگیری دوباره نمی‌شنود،
+     وگرنه جوابِ دیگری می‌توانست یک لبه را بیندازد و شماره‌ها بلغزند. */
+  ok('۴.۳-ب بازهٔ پخش فقط در اجرای اول شنیده می‌شود، نه در ازسرگیری',
+     segAfterA > 0 && segCalls4 === segAfterA, segAfterA + ' ⇒ ' + segCalls4);
 
   // قسمتِ بعد نقشهٔ خودش را می‌گیرد
   musicWrap_(chunks(), null, Object.assign({}, opt, { episode: 15 }));
@@ -269,7 +281,7 @@ console.log('=== ۴) نقشهٔ موسیقی وسطِ یک قسمت عوض نم�
      Object.keys(cache).length === 1, Object.keys(cache).join(','));
 
   global.musicPlanModel_ = realPlan; global.musicBank_ = realBank;
-  global.musicClip_ = realClip;
+  global.musicClip_ = realClip; global.musicSegOk_ = realSeg4;
   delete global.__PROPS[PK.MUSIC_PLAN];
 }
 
@@ -1687,7 +1699,7 @@ console.log('=== ۲۵) «موسیقیِ میانه فقط یک بار پخش م�
   const p23g = fs.readFileSync('src/23_Music.gs', 'utf8');
   ok('۲۵.۱ پر کردن دیگر پشتِ «هیچ مرزی نداده» نیست',
      !/if \(!want\.length && maxBr && bounds\.length\)/.test(p23g) &&
-     /if \(want\.length < minBr\) bridgeFill_/.test(p23g));
+     /if \((?:!finalBr && )?want\.length < minBr\) bridgeFill_/.test(p23g));  // ۸.۳۳: نقشهٔ نهایی‌شده دوباره پر نمی‌شود
   ok('۲۵.۲ کف از شمارِ مرزها ساخته می‌شود',
      /Math\.ceil\(bounds\.length \/ per\)/.test(p23g));
 
@@ -2387,6 +2399,8 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
     delete global.__PROPS[PK.MUSIC_PLAN];
     const realClip = global.musicClip_, realBank = global.musicBank_;
     const realPlan = global.musicPlanModel_, realUsed = global.musicMarkUsed_;
+    const realSeg = global.musicSegOk_;
+    global.musicSegOk_ = () => ({ ok: true, heard: 'آهنگ', why: '' });  // §۴: بدَلِ شنیدن
     const seen = [];
     global.musicClip_ = (id, o) => { seen.push({ id: id, fi: o.fadeIn, fo: o.fadeOut,
                                                  len: o.lenSec, bed: o.bedIn }); return 'PCM-' + id; };
@@ -2433,7 +2447,7 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
        oc ? (String(oc.xmode) + '/' + oc.xfade) : 'نیست');
     ok('۳۲.۲۵-ث و آغاز و میانه حالتِ بستر ندارند',
        mus.slice(0, mus.length - 1).every((c) => !c.xmode));
-    global.musicClip_ = realClip; global.musicBank_ = realBank;
+    global.musicClip_ = realClip; global.musicBank_ = realBank; global.musicSegOk_ = realSeg;
     global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realUsed;
     delete global.__PROPS[PK.MUSIC_PLAN];
   }
@@ -2568,6 +2582,8 @@ console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ==
   delete global.__PROPS[PK.MUSIC_LOGGED];
   const realClip = global.musicClip_, realBank = global.musicBank_;
   const realPlan = global.musicPlanModel_, realMark = global.musicMarkUsed_;
+  const realSeg35 = global.musicSegOk_;
+  global.musicSegOk_ = () => ({ ok: true, heard: 'آهنگ', why: '' });  // §۴: بدَلِ شنیدن
   let marked = 0;
   global.musicClip_ = (id) => 'PCM-' + id;
   global.musicMarkUsed_ = (h, picks) => { marked += (picks || []).length; return 0; };
@@ -2630,6 +2646,7 @@ console.log('=== ۳۵) ثبتِ موسیقی، یک بار در هر قسمت ==
 
   global.musicClip_ = realClip; global.musicBank_ = realBank;
   global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realMark;
+  global.musicSegOk_ = realSeg35;
   delete global.__PROPS[PK.MUSIC_PLAN];
   delete global.__PROPS[PK.MUSIC_LAST];
   delete global.__PROPS[PK.MUSIC_LOGGED];

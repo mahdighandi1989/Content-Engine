@@ -5892,4 +5892,76 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
   if (svc71 === undefined) delete global.YouTube; else global.YouTube = svc71;
 }
 
+console.log('\n=== ۷۲) مدلِ تصویر با کیفیت هم انتخاب می‌شود، نه فقط قیمت (۸.۳۳) ===');
+{
+  /* مدل‌های متن و صدا هر هفته بازانتخاب و هر شب داوری می‌شوند؛ مدلِ تصویر فقط
+     قیمت را می‌دید. حالا نمرهٔ داوریِ هر تصویرِ صحنه به حسابِ مدلی که ساختش
+     می‌رود، و مدلی که زیرِ کف مانده کنار می‌رود. */
+  /* ۷۲.۱ — از درِ تولید: صحنه‌هایی که بندِ ۷۱ ساخت و داوری کرد، نمره‌شان واقعاً
+     به حسابِ مدل نشسته — نه یک ثبتِ دستی. */
+  const sc0 = JSON.parse(global.__PROPS[PK.LV_GEN_SCORES] || '{}');
+  const anyN = Object.keys(sc0).reduce((a, k) => a + (Number(sc0[k].n) || 0), 0);
+  ok('۷۲.۱ داوریِ صحنه‌ها از مسیرِ ساخت به حسابِ مدلِ سازنده رفت', anyN >= 1, JSON.stringify(sc0));
+
+  delete global.__PROPS[PK.LV_GEN_SCORES];
+  const cheap = 'gemini-3.1-flash-lite-image', mid = 'gemini-2.5-flash-image';
+  for (let i = 0; i < 10; i++) lvGenScoreAdd_(cheap, { s: 2, txt: false, face: false });
+  ok('۷۲.۲ زیرِ کفِ شمارش، «نسنجیده» است نه «بد»', lvGenModelBad_(cheap).bad === false,
+     JSON.stringify(lvGenModelBad_(cheap)));
+  for (let i = 0; i < 15; i++) lvGenScoreAdd_(cheap, { s: 3, txt: i % 2 === 0, face: false });
+  for (let i = 0; i < 25; i++) lvGenScoreAdd_(mid, { s: 8, txt: false, face: false });
+  const bc = lvGenModelBad_(cheap), bm = lvGenModelBad_(mid);
+  ok('۷۲.۳ مدلی که در ۲۵ تصویر زیرِ کف مانده «بد» است؛ مدلِ خوب نه',
+     bc.bad === true && bm.bad === false && /میانگین/.test(bc.why), bc.why + ' · ' + JSON.stringify(bm));
+  /* نمرهٔ خوب ولی **نوشته در تصویر**: ۷۲.۳ این را نمی‌دید، چون مدلِ بدش نمرهٔ
+     پایین هم داشت. نوشته در تصویرِ ساخته‌شده یعنی واژهٔ ساختگیِ بی‌معنا روی صفحه
+     — با هر نمره‌ای عیب است، و همین است که سهمِ «ضعیف/نوشته‌دار» جدا شمرده می‌شود. */
+  const wordy = 'gemini-9-wordy-image';
+  for (let i = 0; i < 25; i++) lvGenScoreAdd_(wordy, { s: 8, txt: i % 3 !== 0, face: false });
+  const bw = lvGenModelBad_(wordy);
+  ok('۷۲.۳-ب نمرهٔ خوب با نوشته در بیشترِ تصویرها هم «بد» است',
+     bw.bad === true && bw.avg >= 7 && bw.badPct > 40, JSON.stringify(bw));
+
+  const stubWas = global.__STUB;
+  global.__PROPS[PK.MODELS] = '';
+  global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: cheap, at: Date.now() });   // حافظهٔ تازه با مدلِ بد
+  CFG.LV_GEN_MODEL = '';
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) return { code: 200, json: { models: [
+      { name: 'models/' + cheap, supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/' + mid, supportedGenerationMethods: ['generateContent'] }] } };
+    return stubWas(url, body);
+  };
+  const qBefore = (JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || []).length;
+  const pick = lvGenModel_();
+  const qAfter = JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || [];
+  ok('۷۲.۴ حافظهٔ مدلِ بد نادیده گرفته می‌شود و مدلِ بعدی می‌آید — و خبرش می‌رود',
+     pick.id === mid && /کنار رفت/.test(pick.why) && qAfter.length > qBefore &&
+     /کیفیت/.test(JSON.stringify(qAfter.slice(-1))),
+     pick.id + ' — ' + pick.why);
+
+  /* اگر همه بد باشند، فهرست دست نمی‌خورد: بی مدل، هیچ تصویری نیست. */
+  for (let i = 0; i < 25; i++) lvGenScoreAdd_(mid, { s: 1, txt: true, face: false });
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  global.__PROPS[PK.MODELS] = '';
+  const pick2 = lvGenModel_();
+  ok('۷۲.۵ همه بد ⇒ ارزان‌ترین می‌مانَد، نه هیچ — و همین گفته می‌شود، نه «کنار رفت»',
+     pick2.id === cheap && /همهٔ مدل‌ها زیرِ کف/.test(pick2.why) && !/کنار رفت/.test(pick2.why),
+     pick2.id + ' — ' + pick2.why);
+  global.__STUB = stubWas;
+
+  /* روشن، تا خطِ روشن سنجیده شود — نگارشِ اول در حالتِ «خاموش» سبز ماند و هیچ
+     چیزی را نمی‌سنجید. */
+  const onWas = global.__PROPS[PK.LV_GEN_ON];
+  global.__PROPS[PK.LV_GEN_ON] = '1';
+  global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: cheap, at: Date.now() });
+  const gl = lvGenStatus_();
+  if (onWas === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = onWas;
+  ok('۷۲.۶ خطِ روزانه کیفیتِ مدل را هم می‌گوید، نه فقط خرج',
+     gl.on === true && /داوریِ تصویرها: میانگین/.test(gl.line) && /زیرِ کف/.test(gl.line),
+     gl.line.slice(-200));
+  delete global.__PROPS[PK.LV_GEN_SCORES];
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

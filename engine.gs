@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.32
+ *  موتور محتوا و پادکست — نسخهٔ 8.33
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -683,6 +683,12 @@ var CFG = {
   /* نخستین ویدئوهای حالتِ تازه Unlisted می‌مانند تا کلیدشان در
      `docs/yt-approve.json` بنشیند (سشنِ کد پس از دیدنِ فریم‌ها می‌نشاندش).
      از آن به بعد سدِ خودکار — سنجشِ رانر و داوریِ تصویر — تصمیم می‌گیرد. */
+  /* مدلِ تصویر با **کیفیت** هم انتخاب می‌شود، نه فقط قیمت (۸.۳۳): مدلی که در
+     دست‌کم این‌قدر تصویر میانگینِ داوری‌اش زیرِ کف یا سهمِ ضعیف/نوشته‌دارش
+     بالای سقف باشد، کنار می‌رود و مدلِ بعدی امتحان می‌شود. */
+  LV_GEN_MODEL_MIN_N: 20,
+  LV_GEN_MODEL_MIN_SCORE: 5.5,
+  LV_GEN_MODEL_MAX_BAD_PCT: 40,
   YT_SCENES_APPROVE: 2,
   YT_APPROVE_FILE: 'docs/yt-approve.json',
   LV_GEN_PRICES: [
@@ -1634,7 +1640,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.32',
+  CODE_VERSION: '8.33',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2176,6 +2182,10 @@ var CFG = {
   EMB_CENTROID_FIX: 3,          // چند مرکزِ جامانده در هر شب حساب شود
   // خودآزمون: متنِ خودِ یک ردیف را پرس‌وجو کن؛ اگر خودش برنگردد، ایندکس خراب است
   EMB_SELFTEST_N: 4,
+  /* خودآزمون اگر در بلوکِ شبانه جا نشد، اجرای یک‌بارهٔ خودش را می‌گیرد (۸.۳۳)؛
+     روزی یک بار، و فقط وقتی آخرینش از این چند روز کهنه‌تر است. */
+  EMB_SELFTEST_DAYS: 1,
+  EMB_SELFTEST_LATER_MIN: 6,
   EMB_SELFTEST_TOP: 10,
   EMB_SELFTEST_MIN: 0.6,
   /* «مشخصات استخراج‌شده»: سقفِ هر میدان و سقفِ کل. پهنا از عمق مهم‌تر
@@ -2639,6 +2649,8 @@ var PK = {
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   MON_CHECKS: 'MONITOR_CHECKS_SEEN', // آخرین بارِ هر وارسیِ روزانهٔ ناظر (۶٫۹۵)
   HEALTH_CHRONIC: 'HEALTH_CHRONIC_SIGS', // امضای ایرادهای سلامت و روزهای پیاپی‌شان (۸.۳۲)
+  EMB_SELF_ARM: 'EMB_SELFTEST_ARMED',  // روزی که خودآزمونِ جدا زمان‌بندی شد (۸.۳۳)
+  LV_GEN_SCORES: 'LV_GEN_MODEL_SCORES', // نمرهٔ داوریِ تصویرها به ازای هر مدل (۸.۳۳)
   NIGHT_STEP: 'NIGHT_STEP',       // کجای فهرستِ شبانه ماندیم (۶٫۹۷)
   /* ══ آخرین بلوکی که واردش شدیم — ضربانِ قلبِ کارِ شبانه (۷٫۴۴) ══
      اپس‌اسکریپت اجرا را سرِ شش دقیقه **می‌کُشد**، و همان کُشتن `nightEnd_`
@@ -5737,9 +5749,19 @@ function speakGraft_(plain, vowelled) {
  */
 function speakEzafePrep_(plain, vowelled) {
   var p = String(plain || ''), v = String(vowelled || '');
-  if (/ٔ/.test(p)) {
-    // متنِ خام رسمِ همزه را دارد — دربارهٔ آن سخت‌گیری کامل می‌ماند.
-  } else {
+  /* ══ همزهٔ اضافه: «افزودن» آزاد، «انداختن» نه (۸.۳۳) ══
+     تا ۸.۳۲ قاعده این بود: اگر متنِ خام **جایی** «ٔ» داشت، سخت‌گیری **همه‌جا**
+     کامل می‌شد. و پیش‌درآمدِ غنی‌سازیِ خودِ موتور — «یک نکتهٔ تکمیلی…» — همزه
+     دارد. پس در هر بخشی که غنی‌سازیِ بیرونی گرفت، هر «هٔ»ِ درستی که اعراب‌گذار
+     جای دیگری گذاشت («ابلاغیهٔ الکترونیکی») حرفِ اضافه شمرده شد، بخش از
+     وارسی افتاد، و ترمیمِ واژه‌های بی‌علامت هم — که فقط با وارسیِ کلِ بخش
+     می‌نشیند — دور ریخته شد. این را دادهٔ واقعیِ قسمتِ ۶۲ نشان داد، نه
+     استدلال: دو بخشِ ۳۱٪ و ۱۷٪ بی‌اعراب، هر دو با همین یک نشانه ناهم‌خوان.
+     همزهٔ اضافه حرف نیست؛ نشانهٔ تلفظ است، مثلِ کسرهٔ اضافه. پس افزودنش
+     آزاد است — ولی **انداختنِ** همزه‌ای که متنِ خام داشت هنوز رد می‌شود
+     (شمارش)، چون آن یعنی اضافه‌ای که نویسنده خواسته بود گم شد. */
+  var pc = (p.match(/ٔ/g) || []).length, vc = (v.match(/ٔ/g) || []).length;
+  if (vc >= pc) {
     p = p.replace(/ٔ/g, ''); v = v.replace(/ٔ/g, '');
   }
   // میانِ «ه» و نیم‌فاصله ممکن است اعرابِ خودِ مدل نشسته باشد (مثلاً فتحه) —
@@ -6611,10 +6633,35 @@ function speakSalvage_(piece, vowelled) {
    نمی‌دهد؟ واژه عوض می‌کند؟ اعراب کم می‌گذارد؟ عددِ بی‌تشخیص، اقدام‌پذیر
    نیست؛ همین نبودِ تشخیص بود که آن هشدار را دو روز بی‌جواب گذاشت. */
 var VOWEL_LAST_WHY_ = '';
+/* آیا جوابِ ردشده **نزدیک** به متن بود (همان واژه‌ها، یک ناهم‌خوانیِ ریز) یا
+   بی‌ربط؟ (۸.۳۳) — مدارشکن فقط دومی را «در دسترس نیست» می‌شمارد. */
+var VOWEL_LAST_NEAR_ = false;
+function speakOverlap_(plain, v) {
+  try {
+    var ez = speakEzafePrep_(plain, v);
+    var A = speakBone_(ez.p).split(' ').filter(Boolean);
+    var B = speakBone_(ez.v).split(' ').filter(Boolean);
+    if (!A.length) return 0;
+    var bag = Object.create(null), hit = 0;
+    for (var i = 0; i < B.length; i++) bag[B[i]] = (bag[B[i]] || 0) + 1;
+    for (var j = 0; j < A.length; j++) if (bag[A[j]] > 0) { bag[A[j]]--; hit++; }
+    return hit / A.length;
+  } catch (e) { return 0; }
+}
 function vowelWhyOf_(piece, v) {
+  VOWEL_LAST_NEAR_ = false;
   if (!v || !String(v).trim()) return 'مدل جواب نداد';
-  if (!verifySpeak_(piece, v)) return 'واژه‌ها ناهم‌خوان' + speakDiff_(piece, v);
-  if (!speakVowelledOk_(piece, v)) return 'اعرابِ ناکافی';
+  if (!verifySpeak_(piece, v)) {
+    VOWEL_LAST_NEAR_ = speakOverlap_(piece, v) >= 0.6;
+    return 'واژه‌ها ناهم‌خوان' + speakDiff_(piece, v);
+  }
+  /* اعرابِ کم یعنی مدل جواب داده و واژه‌ها همان‌اند — «در دسترس نیست» نیست.
+     ولی جوابی که **هیچ** اعرابی ندارد کارِ اعراب‌گذار را نکرده و همان «در
+     دسترس نیست» است؛ ادامه‌دادن با آن فقط فراخوان می‌سوزاند. */
+  if (!speakVowelledOk_(piece, v)) {
+    VOWEL_LAST_NEAR_ = /[\u064B-\u0653\u0655-\u065F\u0670]/.test(String(v));
+    return 'اعرابِ ناکافی';
+  }
   return '';
 }
 
@@ -7531,8 +7578,19 @@ function speakStep_(ep, segs, deadline, persist) {
       // سه شکست بی حتی یک موفقیت یعنی مدلِ اعراب‌گذاری الان در دسترس نیست
       // (سهمیه، قطعی، حسابِ محدود). ادامه‌دادن فقط فراخوان می‌سوزاند و
       // پادکست را عقب می‌اندازد؛ بقیهٔ بخش‌ها با متنِ ساده می‌روند.
-      ep.__speakFails = (Number(ep.__speakFails) || 0) + 1;
-      if (!okSoFar && !did && ep.__speakFails >= 3) {
+      /* ══ «رد شد» با «جواب نداد» یکی نیست (۸.۳۳) ══
+         مدارشکن برای وقتی است که اعراب‌گذار **در دسترس نیست**. ولی تا ۸.۳۲
+         هر شکستی شمرده می‌شد — حتی وقتی مدل جواب داده و فقط وارسی ردش کرده
+         بود. قسمتِ ۶۱ همین شد: سه بخشِ اول رد شدند (به احتمالِ زیاد همان
+         قاعدهٔ غلطِ همزهٔ اضافه که در قسمت‌های ۶۰ و ۶۲ به داده دیده شد)، مدارشکن
+         «در دسترس نیست» خواند، و **کلِ قسمت** بی‌اعراب رفت. ردِ **نزدیک**
+         جدا شمرده می‌شود (`__speakRejects`) و مدارشکن را نمی‌زند. */
+      /* «جواب نداد» یا جوابِ **بی‌ربط** (کمتر از ۶۰٪ همان واژه‌ها) ⇒ در دسترس
+         نیست؛ ردِ نزدیک ⇒ فقط همین بخش. */
+      var noAnswer = /^(مدل جواب نداد|خطا)/.test(String(VOWEL_LAST_WHY_ || '')) || !VOWEL_LAST_NEAR_;
+      if (noAnswer) ep.__speakFails = (Number(ep.__speakFails) || 0) + 1;
+      else ep.__speakRejects = (Number(ep.__speakRejects) || 0) + 1;
+      if (noAnswer && !okSoFar && !did && ep.__speakFails >= 3) {
         for (var z = 0; z < segs.length; z++) {
           var pz = String(segs[z].text || '');
           if (!pz.trim()) continue;
@@ -34706,6 +34764,74 @@ function xfBridgeSec_() {
   return v > 0 ? v : (Number(CFG.MUSIC_XFADE_SEC) || 1.8);
 }
 
+/**
+ * آیا **همان تکه‌ای که پخش می‌شود** موسیقی است؟ (۸.۳۳)
+ *
+ * داوریِ بانک (`musicRecheck_`) هشت ثانیه از **وسطِ** فایل را می‌شنود؛ ولی
+ * آغاز و پایان و پلِ هر قسمت از ثانیه‌ای پخش می‌شوند که نقشه انتخاب کرده.
+ * قطعه‌ای که وسطش آهنگ است و سرش صدای خیابان، از داوریِ بانک می‌گذشت و
+ * می‌توانست برنامه را باز کند — همان شکایتِ ۲۶ سپتامبر («نفس، موتورسیکلت،
+ * صدای خیابان سرِ آغاز»). پس پیش از پخش، همان بازه شنیده می‌شود.
+ *
+ * مرزها: آغاز و پایان «آهنگ» می‌خواهند (همان `heardCanEdge_`)، پل «آهنگ» یا
+ * «زمینه». **نشنیدن یعنی نه** (۷٫۶۸: مدلِ غایب تأییدِ خاموش نیست). و قطعه‌ای
+ * که آدم برایش یادداشت نوشته شنیده نمی‌شود: سلیقهٔ او هرگز پاک نمی‌شود.
+ */
+function musicSegOk_(track, startSec, slot) {
+  var out = { ok: false, heard: '', why: '' };
+  try {
+    if (!track || !track.id) { out.why = 'قطعه نیست'; return out; }
+    var nt = String(track.note || '').trim();
+    if (nt && nt.indexOf('خودکار') !== 0) { out.ok = true; out.heard = 'آدم'; return out; }
+    var b = DriveApp.getFileById(track.id).getBlob().getBytes();
+    var info = wavInfo_(b);
+    if (!wavReadable_(info)) { out.why = 'WAV خوانده نشد'; return out; }
+    var st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - 8)));
+    var h = musicListen_(b, info, track.name, st);
+    out.heard = h;
+    var edge = (slot === 'شروع' || slot === 'پایان');
+    out.ok = edge ? h === 'آهنگ' : (h === 'آهنگ' || h === 'زمینه');
+    if (!out.ok) out.why = h ? 'شنیده شد: «' + h + '»' : 'مدل نشنید';
+  } catch (e) { out.why = 'خطا: ' + String(e.message).slice(0, 60); }
+  return out;
+}
+
+/**
+ * لبه‌ای (آغاز/پایان) که نقشه برایش قطعه گذاشته — شنیده، و اگر نشد یک
+ * جانشین که خودش هم شنیده شود؛ وگرنه آن لبه بی‌موسیقی. نتیجه در **خودِ
+ * نقشه** می‌نشیند و نقشه پس از آن ذخیره می‌شود، پس ازسرگیری‌ها دوباره
+ * نمی‌پرسند و تکه‌ها جابه‌جا نمی‌شوند («Anything rebuilt on resume must be
+ * deterministic»).
+ */
+function musicEdgeHear_(bank, track, slot, key, mood, plan) {
+  plan.heard = plan.heard || {};
+  var st = Number(plan[key + 'Start']) || 0;
+  var r = musicSegOk_(track, st, slot);
+  if (r.ok) {
+    plan[key + 'Id'] = track.id; plan[key + 'Start'] = st;
+    plan.heard[key] = r.heard;
+    return track;
+  }
+  var tried = [String(track && track.name || '') + ' (' + r.why + ')'];
+  var pool = bank.filter(function (b) { return !track || b.id !== track.id; });
+  var fb = musicPick_(pool, slot, mood, '');
+  if (fb) {
+    var r2 = musicSegOk_(fb, 0, slot);
+    if (r2.ok) {
+      plan[key + 'Id'] = fb.id; plan[key + 'Start'] = 0;
+      plan.heard[key] = r2.heard + ' (جانشین)';
+      logLine_('موسیقیِ ' + slot + ': «' + tried[0] + '» پخش نشد؛ جانشینِ شنیده‌شده «' + fb.name + '».');
+      return fb;
+    }
+    tried.push(String(fb.name || '') + ' (' + r2.why + ')');
+  }
+  plan[key + 'None'] = true;
+  plan.heard[key] = '—';
+  logLine_('موسیقیِ ' + slot + ' این قسمت حذف شد — هیچ قطعه‌ای در بازهٔ پخش موسیقی شنیده نشد: ' +
+           tried.join(' · '));
+  return null;
+}
+
 function musicWrap_(chunks, hub, opt) {
   opt = opt || {};
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
@@ -34727,6 +34853,7 @@ function musicWrap_(chunks, hub, opt) {
 
   var mood = String(opt.mood || opt.category || '');
   var plan = opt.plan || {};
+  var planFresh = false, planKey = '';
 
   // حالتِ خودکار: پیش از هر چیز از مدل می‌پرسیم. چیزی که به او می‌دهیم عنوان و
   // سرِ بخش‌ها و گویندگانِ همین قسمت است، نه فقط برچسبِ دسته — حال‌وهوا را
@@ -34754,15 +34881,23 @@ function musicWrap_(chunks, hub, opt) {
                outroId: mp.outroId, outroStart: mp.outroStart,
                bridges: mp.bridges || [], sfx: mp.sfx || [],
                sfxWant: mp.sfxWant || [],
-               mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '' };
+               mood: mp.mood || '', gain: mp.gain || '', why: mp.why || '',
+               /* نتیجهٔ شنیدنِ تکه‌های پخش (۸.۳۳) — با نقشه ذخیره و با نقشه خوانده
+                  می‌شود؛ بی این‌ها ازسرگیری دوباره می‌پرسید و می‌لغزید. */
+               introNone: !!mp.introNone, outroNone: !!mp.outroNone,
+               bridgesFinal: mp.bridgesFinal || null, heard: mp.heard || null };
       if (mp.mood) mood = mp.mood;
       if (mp.gain) opt.gain = mp.gain;
       if (!cached) {
-        if (ck) musicPlanCachePut_(ck, plan);
         logLine_('حال‌وهوای موسیقیِ این قسمت: ' + mood + (mp.why ? ' — ' + mp.why : ''));
       }
     }
+    /* ذخیره **پس از** شنیدنِ تکه‌ها (پایینِ همین تابع)، نه این‌جا: نقشه‌ای که
+       پیش از داوری ذخیره شود، اجرای بعد بی‌داوری می‌خواندش. */
+    planFresh = !cached && !!ck;
+    planKey = ck;
   }
+  var hearSeg = planFresh && CFG.MUSIC_HEAR_SEGMENT !== false;
 
   var picks = [], out = [];
 
@@ -34804,7 +34939,8 @@ function musicWrap_(chunks, hub, opt) {
     });
   };
 
-  var intro = musicPick_(bank, 'شروع', mood, plan.introId);
+  var intro = plan.introNone ? null : musicPick_(bank, 'شروع', mood, plan.introId);
+  if (intro && hearSeg) intro = musicEdgeHear_(bank, intro, 'شروع', 'intro', mood, plan);
   if (intro) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
@@ -34835,7 +34971,15 @@ function musicWrap_(chunks, hub, opt) {
   var maxBr = Math.max(0, Number(CFG.MUSIC_BRIDGE_MAX) || 0);
   var want = [];
 
-  for (var bi = 0; bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
+  /* نقشه‌ای که پل‌هایش شنیده و نهایی شده‌اند، همان‌ها را عیناً می‌دهد — نه
+     دوباره مدل، نه دوباره پُرکردنِ کف (۸.۳۳). */
+  var finalBr = plan.bridgesFinal && plan.bridgesFinal.length !== undefined;
+  for (var fz = 0; finalBr && fz < plan.bridgesFinal.length; fz++) {
+    var fbz = plan.bridgesFinal[fz], ftr = null;
+    for (var fy = 0; fy < bank.length; fy++) if (bank[fy].id === fbz.id) ftr = bank[fy];
+    if (ftr) want.push({ at: fbz.at, track: ftr, why: String(fbz.why || ''), head: fbz.head });
+  }
+  for (var bi = 0; !finalBr && bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
     var pb = plan.bridges[bi];
     var k = parseInt(faDigits_(String(pb.after)), 10);
     if (!isFinite(k) || k < 0 || k >= bounds.length) continue;
@@ -34860,7 +35004,21 @@ function musicWrap_(chunks, hub, opt) {
    * می‌سازد: تقریباً یک قطعه به‌ازای هر دو مرزِ بخش. */
   var per = Math.max(1, Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS) || 2);
   var minBr = Math.min(maxBr, Math.ceil(bounds.length / per));
-  if (want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  if (!finalBr && want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  if (hearSeg && !finalBr) {
+    var keptBr = [], dropBr = [];
+    for (var hz = 0; hz < want.length; hz++) {
+      var hr = musicSegOk_(want[hz].track, Number(plan.bridgeStart) || 0, 'میانه');
+      if (hr.ok) keptBr.push(want[hz]);
+      else dropBr.push(String(want[hz].track.name || '') + ' (' + hr.why + ')');
+    }
+    if (dropBr.length) logLine_('موسیقیِ میانه: ' + dropBr.length + ' پل حذف شد — بازهٔ پخششان ' +
+                                'موسیقی شنیده نشد: ' + dropBr.join(' · '));
+    want = keptBr;
+    plan.bridgesFinal = want.map(function (w) {
+      return { at: w.at, id: w.track.id, why: w.why, head: w.head || '' };
+    });
+  }
 
   var atMap = {};
   for (var wz = 0; wz < want.length; wz++) atMap[want[wz].at] = want[wz];
@@ -34886,7 +35044,10 @@ function musicWrap_(chunks, hub, opt) {
   }
   var bridge = want.length ? want[0].track : null;
 
-  var outro = musicPick_(bank, 'پایان', mood, plan.outroId);
+  var outro = plan.outroNone ? null : musicPick_(bank, 'پایان', mood, plan.outroId);
+  if (outro && hearSeg) outro = musicEdgeHear_(bank, outro, 'پایان', 'outro', mood, plan);
+  /* و نقشه **حالا** ذخیره می‌شود، با هر سه نتیجه در خودش. */
+  if (planFresh && planKey) { try { musicPlanCachePut_(planKey, plan); } catch (ePc) {} }
   if (outro) {
     /* پایانِ قسمت از ۶٫۷۰ «بستر» است، نه تلفیقِ معمولی: موسیقی از
        MUSIC_OUTRO_UNDER_SEC ثانیه قبل از تمام‌شدنِ آخرین جمله‌ها، نرم و
@@ -34995,6 +35156,18 @@ function musicWrap_(chunks, hub, opt) {
       if (atIdx >= 0) lock.bridges.push({ after: String(atIdx), id: want[wq].track.id,
                                           why: want[wq].why || '' });
     }
+    /* ══ نتیجهٔ شنیدن هم در قفل می‌مانَد (۸.۳۳) ══
+       این قفل نقشه را از روی انتخاب‌های نهایی **بازنویسی** می‌کند. نگارشِ اولِ
+       ۸.۳۳ نتیجهٔ شنیدن را در نقشه گذاشت و همین بازنویسی پاکش کرد: ازسرگیری
+       «حذف شد»ِ آغاز را نمی‌دید و `musicPick_` قطعهٔ دیگری را **نشنیده**
+       می‌گذاشت، و پلِ ردشده از راهِ پُرکردنِ کف برمی‌گشت. یعنی دقیقاً همان
+       موسیقیِ نشنیده‌ای که این نسخه بسته بود، از درِ ازسرگیری — و تکه‌ها هم
+       یک خانه می‌لغزیدند. §۲۲.۲ و ۲۲.۳-ب از درِ خودِ `musicWrap_` گرفتندش. */
+    lock.introNone = !!plan.introNone; lock.outroNone = !!plan.outroNone;
+    lock.heard = plan.heard || null;
+    lock.bridgesFinal = plan.bridgesFinal ? want.map(function (w) {
+      return { at: w.at, id: w.track.id, why: w.why || '', head: w.head || '' };
+    }) : null;
     musicPlanCachePut_(ck2, lock);
   }
 
@@ -37422,13 +37595,19 @@ function musicIsSpeech_(pr, info, name, wantSfx) {
 }
 
 /** بریده‌ای از وسطِ فایل، برای شنیدنِ مدل. WAVِ تک‌کاناله با نرخِ خودِ فایل. */
-function musicExcerpt_(b, info, secs) {
+function musicExcerpt_(b, info, secs, startSec) {
   try {
     var want = Math.max(2, Math.min(Number(secs) || 8, Math.floor(info.seconds)));
     var bps = info.bits / 8, frameB = bps * info.channels;
     var total = Math.floor(info.dataLen / frameB);
     var n = Math.min(total, Math.round(want * info.rate));
     var from = Math.max(0, Math.floor((total - n) / 2));          // از وسط
+    /* ══ یا از همان ثانیه‌ای که پخش می‌شود (۸.۳۳) ══ — بدونِ این، «شنیده شد»
+       یعنی «وسطش موسیقی بود»، در حالی که آغازِ قسمت از ثانیهٔ برشِ نقشه پخش
+       می‌شود. */
+    if (typeof startSec === 'number' && isFinite(startSec) && startSec >= 0) {
+      from = Math.max(0, Math.min(total - n, Math.round(startSec * info.rate)));
+    }
 
     var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
     var out = [];
@@ -37461,10 +37640,10 @@ function musicExcerpt_(b, info, secs) {
  * این تنها سنجه‌ای است که واقعاً *می‌شنود*. بقیه از روی عدد حدس می‌زنند.
  * اگر در دسترس نبود، حکمِ اندازه‌ها می‌ماند — ولی نبودش سکوتِ تأیید نیست.
  */
-function musicListen_(b, info, name) {
+function musicListen_(b, info, name, startSec) {
   try {
     if (!info || !(info.seconds > 0)) return '';
-    var b64 = musicExcerpt_(b, info, 8);
+    var b64 = musicExcerpt_(b, info, 8, startSec);
     if (!b64) return '';
     /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
        تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،
@@ -45236,7 +45415,7 @@ function lvGenModel_() {
   try {
     var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
     if (c && c.id && (new Date().getTime() - (c.at || 0)) / 86400000 <
-        (Number(CFG.MODEL_REFRESH_DAYS) || 7)) {
+        (Number(CFG.MODEL_REFRESH_DAYS) || 7) && !lvGenModelBad_(String(c.id)).bad) {
       return { id: String(c.id), why: 'از حافظه' };
     }
   } catch (e) {}
@@ -45252,14 +45431,77 @@ function lvGenModel_() {
       all.push(id);
     }
     all.sort(function (a, b) { return lvGenPrice_(a) - lvGenPrice_(b); });
+    /* ══ ارزان‌ترین، **مگر کیفیتش سنجیده و رد شده باشد** (۸.۳۳) ══
+       تا ۸.۳۲ این تابع فقط قیمت را می‌دید: مدل‌های متن و صدا هر هفته
+       بازانتخاب و هر شب داوری می‌شوند، و مدلِ تصویر هیچ داوری‌ای نداشت.
+       حالا هر تصویرِ صحنه کنارِ متنش داوری می‌شود و نمره‌اش به حسابِ همان
+       مدل می‌رود (`lvGenScoreAdd_`)؛ مدلی که در دست‌کم `LV_GEN_MODEL_MIN_N`
+       تصویر زیرِ کف مانده، کنار می‌رود و مدلِ بعدی امتحان می‌شود. اگر همه
+       رد شده باشند، فهرست دست نمی‌خورد: بی مدل، هیچ تصویری نیست — بدتر از
+       تصویرِ متوسط (همان شکلِ `ttsCueSwitch_`، ۷٫۴۷). */
+    var good = all.filter(function (x) { return !lvGenModelBad_(x).bad; });
+    var skipped = good.length ? all.length - good.length : 0;
+    var allBad = !good.length && all.length > 0;
+    if (good.length) all = good;
     found = all[0] || '';
   } catch (e2) { return { id: '', why: 'فهرستِ مدل‌ها خوانده نشد: ' + e2.message }; }
   if (!found) return { id: '', why: 'هیچ مدلِ تصویری با generateContent در دسترس نیست' };
+  var why = 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' +
+            (skipped ? ' (' + skipped + ' مدل به‌خاطرِ نمرهٔ داوری کنار رفت)' : '') +
+            (allBad ? ' — همهٔ مدل‌ها زیرِ کفِ داوری‌اند؛ ارزان‌ترین ماند چون بی مدل هیچ تصویری نیست' : '');
   try {
+    var prev = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
     props_().setProperty(PK.LV_GEN_MODEL,
-      JSON.stringify({ id: found, at: new Date().getTime() }));
+      JSON.stringify({ id: found, at: new Date().getTime(), why: why }));
+    if (prev && prev.id && prev.id !== found && lvGenModelBad_(String(prev.id)).bad) {
+      mailQueue_('تصویر', 'مدلِ تصویر عوض شد — کیفیت',
+                 '«' + prev.id + '» ' + lvGenModelBad_(String(prev.id)).why + ' ⇒ «' + found + '».');
+    }
   } catch (e3) {}
-  return { id: found, why: 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' };
+  return { id: found, why: why };
+}
+
+/**
+ * نمرهٔ داوریِ یک تصویر به حسابِ مدلی که ساختش (۸.۳۳).
+ * پنجرهٔ غلتان: از ۲۰۰ که گذشت، همه نصف می‌شوند — مدلی که دیروز بد بود و
+ * امروز بهتر شده، نباید تا ابد زیرِ بارِ گذشته بماند.
+ */
+function lvGenScoreAdd_(model, v) {
+  if (!model || !v) return;
+  try {
+    var m = JSON.parse(props_().getProperty(PK.LV_GEN_SCORES) || '{}') || {};
+    var r = m[model] || { n: 0, sum: 0, bad: 0 };
+    var minS = Number(CFG.LV_SCENE_JUDGE_MIN) || 5;
+    var sc = Number(v.s);
+    if (isFinite(sc) && sc >= 0) { r.n++; r.sum += sc; }
+    if (v.txt || v.face || (isFinite(sc) && sc >= 0 && sc < minS)) r.bad++;
+    if (r.n > 200) { r.n = Math.round(r.n / 2); r.sum = r.sum / 2; r.bad = Math.round(r.bad / 2); }
+    r.at = nowStr_();
+    m[model] = r;
+    props_().setProperty(PK.LV_GEN_SCORES, JSON.stringify(m));
+  } catch (e) {}
+}
+
+/** آیا این مدلِ تصویر با نمرهٔ داوری‌اش رد شده است؟ «نسنجیده» رد نیست (۷٫۴۰). */
+function lvGenModelBad_(model) {
+  var out = { bad: false, n: 0, avg: 0, badPct: 0, why: '' };
+  try {
+    var m = JSON.parse(props_().getProperty(PK.LV_GEN_SCORES) || '{}') || {};
+    var r = m[String(model || '')];
+    if (!r || !r.n) return out;
+    out.n = r.n; out.avg = Math.round((r.sum / r.n) * 10) / 10;
+    out.badPct = Math.round((r.bad / r.n) * 100);
+    var needN = Math.max(5, Number(CFG.LV_GEN_MODEL_MIN_N) || 20);
+    if (r.n < needN) return out;
+    var minAvg = Number(CFG.LV_GEN_MODEL_MIN_SCORE) || 5.5;
+    var maxBad = Number(CFG.LV_GEN_MODEL_MAX_BAD_PCT) || 40;
+    if (out.avg < minAvg || out.badPct > maxBad) {
+      out.bad = true;
+      out.why = 'میانگینِ داوری ' + out.avg + ' از ۱۰ و ' + out.badPct + '٪ تصویرِ ضعیف/نوشته‌دار در ' +
+                r.n + ' تصویر';
+    }
+  } catch (e) {}
+  return out;
 }
 
 /** خرجِ این ماه. ماه که عوض شود، از صفر. */
@@ -45610,6 +45852,7 @@ function lvGenStatus_() {
     } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
+    out.quality = out.model ? lvGenModelBad_(out.model) : null;
     /* سه حالت، نه دو (۸٫۲۰): مدل داریم · گشتیم و نبود · هنوز نگشته‌ایم.
        فقط حالتِ دوم ایراد است، و علتش **نام برده می‌شود** — «نبود» و
        «فهرستِ مدل‌ها خوانده نشد» دو چارهٔ کاملاً متفاوت دارند (۷٫۳۲). */
@@ -45635,6 +45878,12 @@ function lvGenStatus_() {
         ' · این ماه ' + faDigitsOut_(String(out.n)) + ' تصویر، ~' +
         out.usd.toFixed(2) + ' از ' + faDigitsOut_(String(out.cap)) + ' دلار' +
         ' · جای ' + faDigitsOut_(String(out.room)) + ' تصویرِ دیگر' +
+        /* کیفیت هم، نه فقط خرج (۸.۳۳): «روشن است» با «خوب می‌سازد» یکی نیست. */
+        (out.quality && out.quality.n
+          ? ' · داوریِ تصویرها: میانگین ' + faDigitsOut_(String(out.quality.avg)) + ' از ۱۰ در ' +
+            faDigitsOut_(String(out.quality.n)) + ' تصویر' +
+            (out.quality.bad ? ' — ❌ زیرِ کفِ داوری؛ اگر مدلِ تصویرِ دیگری باشد، ساختِ بعدی با همان است' : '')
+          : ' · داوریِ تصویرها: هنوز هیچ') +
         ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
         'است `LV_GEN_PRICES` را عوض کنید).';
     }
@@ -47431,7 +47680,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
         var old = imgFolder.getFilesByName(nm);
         while (old.hasNext()) old.next().setTrashed(true);
         sc.fileId = imgFolder.createFile(r.blob.setName(nm)).getId();
-        sc.at = nowStr_(); sc.why = '';
+        sc.at = nowStr_(); sc.why = ''; sc.model = mk.id;
         out.made++; d.made = (Number(d.made) || 0) + 1;
       } catch (eF) { sc.why = 'ذخیره نشد: ' + eF.message; }
       if (out.made % 4 === 0) lvSceneWrite_(folder, d);     // پیشرفت در میانه هم ثبت می‌شود
@@ -47479,6 +47728,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           if (!v) continue;
           batch[b2].judge = v;
           out.judged++;
+          lvGenScoreAdd_(batch[b2].model || mk.id, v);
           var bad = v.txt || v.face || (v.s >= 0 && v.s < minS);
           if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
               lvGenRoom_(mk.id) > 0 && left() > 25000) {
@@ -47494,6 +47744,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                 var o2 = imgFolder.getFilesByName(nm2);
                 while (o2.hasNext()) o2.next().setTrashed(true);
                 batch[b2].fileId = imgFolder.createFile(rr.blob.setName(nm2)).getId();
+                batch[b2].model = mk.id;
                 batch[b2].judge = null;      // تصویرِ تازه، داوریِ تازه
               } catch (eR) {}
             }
@@ -51963,7 +52214,18 @@ function sqSampleRows_(sheetId, want) {
   try {
     var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
     var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
-    var map = srcMap_(hdrSet_(head));
+    /* ══ «خالی ۱۰۰٪» از این خط بود، نه از تحلیلگرها (۸.۳۳) ══
+       تا ۸.۳۲ این‌جا `srcMap_(hdrSet_(head))` بود. `srcMap_` **ردیفِ سرستون**
+       را می‌خواهد و `hdrSet_` یک شیء می‌دهد که `length` ندارد، پس هر ستون
+       ۱− شد؛ ۱− در جاوااسکریپت راست است، پس از سدِ `if (c)` رد شد؛ و
+       `vals[r][-2]` هر خانه را خالی خواند. هفته‌به‌هفته «خالی ۱۰۰٪» و یافتهٔ
+       «جدی» برای تحلیلگرهایی که کارشان درست بود — گناه به گردنِ طرفِ اشتباه.
+       همان دامی است که ۷٫۲۵ در CLAUDE.md نوشت («passing hdrSet_'s boolean map
+       silently resolves every column to −1») — و این تابع پیش از آن نوشته
+       شده بود و کسی برنگشت نگاهش کند.
+       و لایهٔ زیرش: `findAny_` شمارهٔ **صفر‌پایه** می‌دهد و این کد `c - 1`
+       می‌خواند — یعنی حتی با نقشهٔ درست، ستونِ سمتِ چپ. پس هر دو با هم. */
+    var map = srcMap_(head);
     /* ستون‌های «تحلیل» — نه تاریخ و نام و لینک. خالی‌بودنِ نامِ فایل ایراد
        نیست؛ خالی‌بودنِ تحلیل هست. */
     var keys = ['content', 'points', 'ideas', 'points2', 'summary', 'summary2',
@@ -51971,18 +52233,19 @@ function sqSampleRows_(sheetId, want) {
     var cols = [];
     for (var k = 0; k < keys.length; k++) {
       var c = map[keys[k]];
-      if (c && cols.indexOf(c) === -1) cols.push(c);
+      if (typeof c === 'number' && c >= 0 && cols.indexOf(c) === -1) cols.push(c);
     }
     if (!cols.length) { out.why = 'ستونِ تحلیلی شناخته نشد'; return out; }
     out.cols = cols;
+    out.heads = cols.map(function (ci) { return String(head[ci] || ''); });
 
     var from = Math.max(2, lastRow - n + 1);
     var vals = sh.getRange(from, 1, lastRow - from + 1, lastCol).getValues();
-    var stCol = map.status || 0;
+    var stCol = (typeof map.status === 'number') ? map.status : -1;
     for (var r = 0; r < vals.length; r++) {
-      if (stCol && String(vals[r][stCol - 1] || '').toUpperCase().indexOf('ERROR') === 0) continue;
+      if (stCol >= 0 && String(vals[r][stCol] || '').toUpperCase().indexOf('ERROR') === 0) continue;
       var cells = [];
-      for (var c2 = 0; c2 < cols.length; c2++) cells.push(String(vals[r][cols[c2] - 1] || ''));
+      for (var c2 = 0; c2 < cols.length; c2++) cells.push(String(vals[r][cols[c2]] || ''));
       out.rows.push(cells);
     }
   } catch (e2) { out.why = 'خواندنِ ردیف‌ها نشد: ' + String(e2.message).slice(0, 80); }
@@ -52074,9 +52337,13 @@ function sqJudge_(name, prompt, rows) {
     'خروجی‌ها باشد، نه یک حکمِ کلی.',
     'سخت‌گیر باش ولی منصف: علامت‌زدنِ بی‌مورد همان‌قدر بد است که ندیدنِ ایراد.'
   ].join('\n');
+  /* `geminiText_` شیءِ **پارس‌شده** برمی‌گردانَد (۷٫۲۷ همین را دربارهٔ اثرِ
+     انگشت نوشت). `JSON.parse` روی شیء «[object Object]» را می‌خوانَد و پرتاب
+     می‌کند، پس تا ۸.۳۲ داوری همیشه تهی بود و خطِ روزانه «بی‌داوری» می‌گفت. */
   try {
-    var t = geminiText_(p, SQ_SCHEMA, 900);
-    return t ? JSON.parse(t) : null;
+    var t = geminiText_(p, SQ_SCHEMA, 4096);   // بیش از بودجهٔ فکرِ ۲۰۴۸، وگرنه یک فراخوانِ بریدهٔ بی‌فایده
+    if (!t) return null;
+    return (typeof t === 'string') ? JSON.parse(t) : t;
   } catch (e) { logLine_('داوریِ پرامپتِ «' + name + '» نشد: ' + e.message); return null; }
 }
 
@@ -52322,7 +52589,12 @@ function sqStatus_() {
     var parts = [];
     for (var k in last) {
       if (!Object.prototype.hasOwnProperty.call(last, k)) continue;
-      out.at = String(last[k][0] || '') || out.at;
+      /* خانهٔ تاریخ در شیت `Date` است؛ `String()` رویش «Sun Oct 04 2026
+         02:53:00 GMT+0400 (Gulf Standard Time)» می‌داد — همان که در ایمیل آمد. */
+      var at0 = last[k][0];
+      out.at = (at0 instanceof Date)
+        ? Utilities.formatDate(at0, CFG.TIMEZONE, 'yyyy-MM-dd HH:mm')
+        : (String(at0 || '') || out.at);
       parts.push(k.split(' ')[0] + ': ' + (String(last[k][9] || '') || 'بی‌داوری') +
                  ' (خالی ' + String(last[k][6] || '۰') + '٪، تکراری ' +
                  String(last[k][7] || '۰') + '٪)');
@@ -61630,8 +61902,17 @@ function embNightly_(opts) {
      دفتر می‌گفت هیچ. بعد `embStuckDays_` همان را «چند شب است جلو نرفته»
      می‌خواند و یافته‌ای می‌ساخت که موضوعش درست نبود.
      شاهدی که با خودِ حادثه بمیرد شاهد نیست. */
+  /* خودآزمونِ پیشین **با تاریخِ خودش** می‌مانَد (۸.۳۳). این مُهر تا ۸.۳۲
+     `self: null` می‌نوشت، پس هر شب شاهدِ خودآزمونِ دیروز را پاک می‌کرد:
+     `_STATUS.json` «خودآزمون نشده» می‌گفت و سدِ «امروز تازه دارد» هیچ‌وقت
+     چیزی برای دیدن نداشت. شاهدی که مُهرِ بعدی پاکش کند، شاهد نیست. */
+  var prevSelf = null;
+  try {
+    var pv = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null');
+    prevSelf = (pv && pv.self && pv.self.at) ? pv.self : null;
+  } catch (ePv) {}
   var lastRec = { at: nowStr_(), made: run.made, failed: run.failed,
-                  left: run.left, self: null };
+                  left: run.left, self: prevSelf };
   try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP) {}
 
   var st = embStatus_(hub);
@@ -61650,8 +61931,17 @@ function embNightly_(opts) {
 
   var self = null;
   if (!roomy) {
-    out.notes.push('دنبالهٔ اختیاری (خودآزمون و دروازه‌ها) امشب جا نشد — ' +
-                   'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.');
+    /* ══ خودآزمونی که هرگز نوبت نگرفت (۸.۳۳) ══
+       تا وقتی پس‌پر کردن ادامه دارد، ساخت کلِ بودجهٔ بلوک را می‌خورد و این
+       دنباله **هر شب** جا نمی‌شد — `_STATUS.json` تا ۴ اکتبر `selftest: null`
+       داشت، یعنی تنها سنجه‌ای که می‌پرسد «جست‌وجو واقعاً پیدا می‌کند؟» یک بار
+       هم اجرا نشده بود. همان حالِ ۷٫۸۴: کارِ اختیاری که در بلوکِ پرکار جا
+       نمی‌شود، **اجرای خودش** را می‌گیرد، نه اینکه هر شب کنار برود. */
+    var armed = false;
+    if (opts.selftest !== false) { try { armed = embSelfTestArm_(); } catch (eA) {} }
+    out.notes.push('دنبالهٔ اختیاری (خودآزمون و دروازه‌ها) امشب در همین اجرا جا نشد — ' +
+                   (armed ? 'خودآزمون چند دقیقهٔ دیگر در اجرای جدای خودش.'
+                          : 'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.'));
   } else if (st.total && st.done && opts.selftest !== false) {
     embStep_('خودآزمون');
     try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
@@ -61660,7 +61950,7 @@ function embNightly_(opts) {
 
   if (self) {
     lastRec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio,
-                     mode: self.mode, note: self.note };
+                     mode: self.mode, note: self.note, at: nowStr_() };
     try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP2) {}
   }
 
@@ -61686,6 +61976,54 @@ function embNightly_(opts) {
   embStep_('پایان');
   out.ok = true;
   return out;
+}
+
+/**
+ * خودآزمون را به یک اجرای یک‌بارهٔ جدا می‌سپارد (۸.۳۳) — روزی یک بار، و فقط
+ * وقتی آخرین خودآزمون از `EMB_SELFTEST_DAYS` کهنه‌تر است. سقفِ روزانه همان
+ * درسِ `busyRetry_` است: ردِ پیاپی نباید یک تریگر را تا ابد بچرخاند.
+ */
+function embSelfTestArm_() {
+  var today = String(nowStr_()).slice(0, 10);
+  var last = null;
+  try { last = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e0) {}
+  var selfAt = String((last && last.self && last.self.at) || '');
+  var days = Math.max(1, Number(CFG.EMB_SELFTEST_DAYS) || 1);
+  if (selfAt && (parseWhen_(nowStr_()) - parseWhen_(selfAt)) < days * 86400000) return false;
+  if (String(props_().getProperty(PK.EMB_SELF_ARM) || '') === today) return false;
+  clearRetryTriggers_('embSelfTestLater');
+  ScriptApp.newTrigger('embSelfTestLater').timeBased()
+    .after(Math.max(1, Number(CFG.EMB_SELFTEST_LATER_MIN) || 6) * 60000).create();
+  props_().setProperty(PK.EMB_SELF_ARM, today);
+  return true;
+}
+
+/** اجرای یک‌بارهٔ خودآزمون و دروازه‌ها — نامِ جدا، تا پاک‌کردنش به تریگرِ دیگری نخورد. */
+function embSelfTestLater() {
+  runEnter_('embSelfTestLater');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('embSelfTestLater'); } catch (e0) {}
+    var self = null;
+    try { self = embSelfTest_(); } catch (eS) { note = 'خودآزمون نشد: ' + eS.message; }
+    if (self) {
+      var rec = null;
+      try { rec = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e1) {}
+      rec = rec || {};
+      rec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio, mode: self.mode,
+                   note: self.note, at: nowStr_() };
+      try { props_().setProperty(PK.EMB_LAST, JSON.stringify(rec)); } catch (eP) {}
+      note = self.tried ? (self.hit + '/' + self.tried + ' · ' + (self.mode || '')) : (self.note || '');
+    }
+    try {
+      var hub = getHub_();
+      var st = embStatus_(hub);
+      embGates_(hub, st, self);
+      embLog_(hub, { step: 'خودآزمونِ جدا', scanned: 0, made: 0, failed: 0, done: st.done,
+                     total: st.total, pct: st.pct, self: note, note: '' });
+    } catch (eG) { note += ' · دروازه‌ها: ' + eG.message; }
+  } finally { runExit_('embSelfTestLater', note); }
+  return note;
 }
 
 /** دکمهٔ منو: یک دورِ دستی با بودجهٔ بزرگ‌تر. */
