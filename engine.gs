@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.40
+ *  موتور محتوا و پادکست — نسخهٔ 8.41
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1190,6 +1190,16 @@ var CFG = {
   SPEAK_SPAN_EP_BLOCK: 120,   // جمله‌های یک پرسش؛ قسمتِ بلندتر چند پرسش است
   SPEAK_SPAN_EP_MIN: 6,       // بندِ کوتاه‌تر از این حالت نمی‌گیرد
   SPEAK_SPAN_TRY_MAX: 2,      // پرسشِ ناموفق چند بار تا «رهاشده» (با علت)
+  /* ══ ۸.۴۱ ══
+     فایلِ خوانای «حالت‌ها و نشانه‌ها» کنارِ «متن صوتی» در پوشهٔ هر قسمت: هر
+     حالت با ثانیه، جمله، «چرا»ی مدل و «چطور» ساخته شد. */
+  SPEAK_MOOD_FILE: true,
+  /* سبکِ مکثِ گوینده روی کلِ خوانش: هر مکثی که گفتارساز گذاشته و از اندازهٔ
+     کارتِ گوینده کوتاه‌تر است، با سکوتِ واقعی کشیده می‌شود (هرگز کوتاه
+     نمی‌شود، مکثِ تازه ساخته نمی‌شود). بی کارت هیچ اثری ندارد. */
+  SPEAK_STYLE_GAPS: true,
+  SPEAK_STYLE_GAP_CAP: 0.25,  // سقفِ سکوتِ افزوده در هر تکه، نسبت به طولِ آن
+  SPEAK_STYLE_GAP_MIN_F: 12,  // کوتاه‌ترین سکوتی که «مکث» شمرده می‌شود (×۱۰ میلی‌ثانیه)
   SPEAK_SPAN_MAX: 10,        // بیشترین حالت در یک متن (مکث هم یکی است)
   SPEAK_SPAN_SENT_MAX: 3,    // یک حالت حداکثر چند جملهٔ پشتِ‌هم
   SPEAK_SPAN_SENTS: 160,     // متنِ بلندتر از این، فقط تا همین‌جا حالت می‌گیرد
@@ -1672,7 +1682,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.40',
+  CODE_VERSION: '8.41',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2013,10 +2023,12 @@ var CFG = {
      ۸.۲۷ بلندی و سرعت در خودِ صدا ساخته می‌شود، و برچسبِ قبلی یعنی «قبلاً
      ساخته شده» — همان باگِ ۷٫۸۶ که شناسه پارامترِ زیرِ سنجش را نداشت. */
   VOICE_SOUL_SEED: [
+    /* برچسب‌ها در ۸.۴۱ عوض شدند: «مکث به اندازهٔ خودش» پارامترِ تازه‌ای است
+       که این نمونه باید داشته باشد تا شنیده شود — همان قاعدهٔ ۷٫۸۶. */
     { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار ۱۵۸ هرتز · بلندی ۱۶− · بی برفک · مدلِ صبح' },
+      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · مدلِ صبح' },
     { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار · بلندی ۱۶− · بی برفک · مدلِ صبح' }
+      tag: 'گامِ خودکار · مکث به اندازهٔ خودش · مدلِ صبح' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -2068,6 +2080,17 @@ var CFG = {
      `outRootFolderNames_` هم ثبت شده — وگرنه همان شبِ اول یک هشدارِ
      «ناشناخته» می‌ساخت برای پوشه‌ای که خودِ موتور ساخته (درسِ ۷٫۴۶). */
   VBR_SOUL_FOLDER: 'نمونهٔ رنگ و روح',
+  /* ══ مدلِ گویندهٔ تازه، خودکار به درایو (۸.۴۱) ══
+     `voice-intake` مدل را تکه‌تکه و موقت در Release می‌گذارد؛ موتور هر ساعت
+     سر می‌زند، با بارگذاریِ ازسرگیری‌پذیر در «مدل‌های صدا» می‌نشاند و
+     اثرانگشتش را وارسی می‌کند. خاموش ⇒ همان راهِ دستیِ قبل. */
+  VBR_MODEL_AUTO: true,
+  VBR_MODEL_TRY_MAX: 3,       // شکستِ پیاپی تا یافتهٔ کد و پیامِ راهِ دستی
+  VBR_MODEL_TRY_DAY: 4,       // سقفِ زمان‌بندیِ روزانهٔ اجرای برداشت
+  VBR_MODEL_BUDGET_MS: 270000,
+  /* نمونهٔ آزمونِ خودکار برای هر گویندهٔ آماده‌ای که مدلش در درایو است —
+     بی نسخهٔ کد و بی تیک. */
+  VOICE_SOUL_AUTO: true,
   VBR_SEED_MODELS: {
     razavi: { pth: '1MFh6X16JK9z4Ilkw1l1NSdAN6b4ZYFK7',
               index: '1IDCUyeWWghsyHZFhxcQ9N4tJmEohE-Cy' }
@@ -6504,7 +6527,12 @@ function speakSpanTrim_(raw, n, opt) {
     if (!isFinite(a) || !isFinite(b) || a < 1 || b < a || b > n) { bump('شمارهٔ نامعتبر'); continue; }
     if (d.k === 'مکث') b = a;
     if (b - a + 1 > smax) { bump('بازهٔ بلند'); continue; }
-    cand.push({ a: a, b: b, k: d.k });
+    /* «چرا»ی مدل نگه داشته می‌شود (۸.۴۱): او خواست حالت‌ها «توجیه بشن و ثبت
+       بشن»، و مدل از ۸.۲۴ برای هر حالت دلیلش را می‌نوشت و همین خط دورش
+       می‌ریخت — باز «تحلیلی که به هیچ‌جا نرسید». فقط ثبت می‌شود، هیچ تصمیمی
+       به آن بند نیست؛ پس متنِ مدل این‌جا سد ندارد جز طول. */
+    var w = String(x.why == null ? '' : x.why).replace(/\s+/g, ' ').trim().slice(0, 200);
+    cand.push({ a: a, b: b, k: d.k, w: w });
   }
   cand.sort(function (p, q) { return p.a - q.a || p.b - q.b; });
   var out = [], lastB = 0, pauseAt = {};
@@ -6601,7 +6629,8 @@ function speakSpanAsk_(sents, opt) {
         'را با مکث و کشش بساز، نه با بلند کردنِ صدا»، «کشیده» و «مکث» را بر ' +
         '«بلند» ترجیح بده.\n'
       : '') +
-    'برای هر حالت در why در چند واژه بگو چرا.\n\n' + L.join('\n');
+    'برای هر حالت در why در یک جملهٔ کوتاه بگو چرا — از معنای همان جمله‌ها، ' +
+    'طوری که کسی که فقط این دلیل را می‌خوانَد بفهمد.\n\n' + L.join('\n');
   var r = null;
   try { r = geminiText_(prompt, SPEAK_SPAN_SCHEMA, 4096); }
   catch (e) {
@@ -6639,16 +6668,19 @@ function speakSpanPieces_(text, spans, pauseOpt) {
     for (var q = 0; q < ps.length; q++) out.push({ t: ps[q], k: '' });
     plain = [];
   };
+  /* `sa` (۸.۴۱): شمارهٔ جملهٔ آغازِ حالتی که این تکه از آن است — تا فایلِ
+     «حالت‌ها و نشانه‌ها» بداند هر حالت در کدام ثانیه نشست. شمار و ترتیبِ
+     تکه‌ها عوض نمی‌شود؛ فقط برچسب است. */
   var pauseSec = (Number(pauseOpt) > 0) ? Number(pauseOpt) : (Number(CFG.SPEAK_PAUSE_SEC) || 0.9);
   for (var n = 1; n <= sents.length; n++) {
-    if (pauseAt[n]) { flush(); out.push({ pause: pauseSec }); }
+    if (pauseAt[n]) { flush(); out.push({ pause: pauseSec, sa: n }); }
     var h = at[n];
     if (!h) { plain.push(sents[n - 1]); continue; }
     if (h.a !== n) continue;                              // در تکهٔ اولِ بازه آمد
     flush();
     var body = sents.slice(h.a - 1, h.b).join(' ');
     var ps2 = splitForTts_(body);
-    for (var r = 0; r < ps2.length; r++) out.push({ t: speakSpanMark_(ps2[r], h.k), k: h.k });
+    for (var r = 0; r < ps2.length; r++) out.push({ t: speakSpanMark_(ps2[r], h.k), k: h.k, sa: h.a });
   }
   flush();
   return out;
@@ -6776,6 +6808,187 @@ function speakSilenceB64_(sec) {
   var sr = Number(CFG.SAMPLE_RATE) || 24000;
   var bytes = Math.round(Math.max(0, Number(sec) || 0) * sr * 2 / 6) * 6;
   return new Array(bytes / 3 + 1).join('AAAA');
+}
+
+/* ═══════════ سبکِ مکثِ گوینده روی **کلِ** خوانش (۸.۴۱) ═══════════
+ *
+ * او پرسید آن «حالتِ خواندنِ» رضوی و گلدوز که از ضبط‌هایشان درآمد، الان اثر
+ * دارد یا نه. جوابِ راست «بخشی» بود: کارت فقط حالت‌ها را انتخاب می‌کرد و طولِ
+ * «مکث» را می‌داد؛ **ریتمِ کلِ خواندن** هنوز مالِ جمینای بود، چون متنِ کارت به
+ * هیچ مدلِ صوتی نمی‌رسد (۷٫۸۹).
+ *
+ * ولی بخشی از کارت **عدد** است، و عدد را لازم نیست به مدل گفت؛ می‌شود خودمان
+ * در صدا ساختش: «در دلِ جمله 0.30 ثانیه، میانِ دو جمله 0.60، و میانِ بندها
+ * 1.1». پس هر مکثی که گفتارساز گذاشته و از اندازهٔ او **کوتاه‌تر** است، با
+ * سکوتِ واقعی تا اندازهٔ او کشیده می‌شود — در دلِ تکه، و در مرزِ دو تکه.
+ *
+ * سه مرز، هر کدام درسی که این پرونده از قبل دارد:
+ * ۱) **هرگز کوتاه نمی‌کند.** بریدنِ صدا یعنی شاید نیمِ یک هجا برود؛ افزودنِ
+ *    سکوت وسطِ یک سکوت، هیچ چیزی از گفتار برنمی‌دارد.
+ * ۲) **مکثِ تازه نمی‌سازد.** فقط جایی که گوینده خودش ایستاده کشیده می‌شود؛
+ *    شکستنِ جمله در جای بی‌مکث کارِ گوش است، نه عدد.
+ * ۳) **سقف دارد** (`SPEAK_STYLE_GAP_CAP`): تشخیصِ اشتباهِ سکوت نباید یک تکه را
+ *    دو برابر کند. و هر عدد فقط وقتی در کارت باشد و در بازهٔ معقول.
+ *
+ * بی کارت (صدای پیش‌فرض) هیچ‌کدام اجرا نمی‌شود: صدای امروزِ برنامه‌ها
+ * **عیناً** همان می‌مانَد.
+ */
+
+/** عددهای مکثِ کارتِ گوینده — هر کدام فقط اگر در کارت باشد. `null` یعنی هیچ. */
+function speakStyleGaps_(per) {
+  if (CFG.SPEAK_STYLE_GAPS === false) return null;
+  var c = String((per && per.cue) || '');
+  if (!c) return null;
+  var lat = c.replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x6F0); })
+             .replace(/٫/g, '.');
+  var num = function (re, lo, hi) {
+    var m = lat.match(re);
+    if (!m) return 0;
+    var v = parseFloat(m[1]);
+    return (v >= lo && v <= hi) ? Math.round(v * 100) / 100 : 0;
+  };
+  var N = '(?:حدودِ?\\s*)?\\*{0,2}([0-9]+(?:\\.[0-9]+)?)';
+  var g = {
+    inS: num(new RegExp('در\\s*دلِ?\\s*جمله\\s*' + N), 0.15, 0.8),
+    sent: num(new RegExp('میانِ?\\s*دو\\s*جمله\\s*' + N), 0.25, 1.5),
+    para: 0,
+    talk: num(/([0-9]+(?:\.[0-9]+)?)\s*درصدِ?\s*(?:از\s*)?زمان/, 40, 98)
+  };
+  /* «میانِ بندها» یک تعریف دارد: همان که طولِ حالتِ «مکث» را می‌دهد. */
+  var pz = speakMoodPause_(per);
+  if (pz && pz.src !== 'پیش‌فرض') g.para = pz.sec;
+  if (!g.inS && !g.sent && !g.para) return null;
+  g.src = String((per && (per.name || per.key)) || 'گوینده');
+  return g;
+}
+
+/** نمونه‌های ۱۶ بیتیِ یک base64ِ هم‌تراز ⇒ RMSِ قاب‌های ۱۰ میلی‌ثانیه‌ای (۰ تا ۱). */
+function speakFrameRms_(b64) {
+  var bytes = Utilities.base64Decode(alignB64_(b64));
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  var F = Math.max(1, Math.round(sr / 100));
+  var n = Math.floor(bytes.length / 2), nf = Math.floor(n / F);
+  var rms = new Float32Array(nf);
+  for (var f = 0; f < nf; f++) {
+    var acc = 0, o = f * F;
+    for (var j = 0; j < F; j++) {
+      /* بایتِ بالا ماسک می‌شود — همان خطِ `speakMoodDsp_` و بخشِ ۲۳. */
+      var v = ((bytes[2 * (o + j) + 1] & 255) << 8) | (bytes[2 * (o + j)] & 255);
+      if (v >= 32768) v -= 65536;
+      acc += v * v;
+    }
+    rms[f] = Math.sqrt(acc / F) / 32768;
+  }
+  return { rms: rms, F: F, sr: sr, n: n };
+}
+
+/** آستانهٔ سکوتِ یک تکه: نسبت به بلندیِ خودِ همان تکه، با کفِ مطلق. */
+function speakSilThr_(rms) {
+  var a = Array.prototype.slice.call(rms).sort(function (x, y) { return x - y; });
+  var p90 = a.length ? a[Math.min(a.length - 1, Math.floor(a.length * 0.9))] : 0;
+  return Math.max(0.004, p90 * 0.06);
+}
+
+/**
+ * مکث‌های **درونِ** یک تکه را به اندازهٔ گوینده می‌رساند. `nSent` شمارِ جمله‌های
+ * تکه است: بلندترین `nSent − 1` سکوت مرزِ جمله‌اند و بقیه مکثِ درونِ جمله.
+ * `{b64, add, n, v, t}` — `v`/`t` قاب‌های گفتار/کل پیش از افزودن، برای سنجشِ
+ * «سهمِ گفتار». `null` یعنی چیزی برای کشیدن نبود.
+ */
+function speakGapStretch_(b64, g, nSent) {
+  if (!g || !(g.inS > 0 || g.sent > 0)) return null;
+  var src = alignB64_(b64);
+  var A = speakFrameRms_(src), rms = A.rms, nf = rms.length;
+  if (nf < 50) return null;
+  var thr = speakSilThr_(rms);
+  var runs = [], st = -1, voiced = 0;
+  for (var f = 0; f < nf; f++) {
+    if (rms[f] < thr) { if (st < 0) st = f; }
+    else {
+      voiced++;
+      if (st >= 0) { runs.push({ a: st, b: f }); st = -1; }
+    }
+  }
+  /* سکوتِ سر و تهِ تکه مالِ مرز است، نه درونِ تکه (`speakGapEdge_`). */
+  var minF = Math.max(3, Number(CFG.SPEAK_STYLE_GAP_MIN_F) || 12);
+  var inner = runs.filter(function (r) { return r.a > 0 && r.b - r.a >= minF; });
+  var out = { b64: src, add: 0, n: 0, v: voiced, t: nf };
+  if (!inner.length) return out;
+  var kS = Math.max(0, (Number(nSent) || 1) - 1);
+  var byLen = inner.slice().sort(function (p, q) { return (q.b - q.a) - (p.b - p.a); });
+  for (var j = 0; j < byLen.length; j++) byLen[j].sent = j < kS;
+  var total = 0;
+  for (var r0 = 0; r0 < inner.length; r0++) {
+    var R = inner[r0], cur = (R.b - R.a) / 100;
+    var tgt = R.sent ? (Number(g.sent) || 0) : (Number(g.inS) || 0);
+    R.add = tgt > cur ? tgt - cur : 0;
+    total += R.add;
+  }
+  var dur = A.n / A.sr;
+  var cap = dur * Math.max(0, Number(CFG.SPEAK_STYLE_GAP_CAP) || 0.25);
+  /* ══ و هرگز کندتر از خودِ او ══
+     کارت «سهمِ گفتار»ِ او را هم دارد («حدودِ 79 درصدِ زمان حرف بزن»). اگر
+     کشیدنِ مکث‌ها سهمِ گفتارِ این تکه را زیرِ عددِ خودش ببرد، دیگر «به اندازهٔ
+     او» نیست، کش‌دارتر از اوست. نخستین اجرای آزمونِ همین نسخه درست همین را
+     نشان داد: ۹۴٪ ⇒ ۷۶٪، در برابرِ ۷۹ِ خودش. */
+  var talk = Number(g.talk) || 0;
+  if (talk > 0) {
+    var voicedSec = voiced / 100;
+    cap = Math.min(cap, Math.max(0, voicedSec * 100 / talk - dur));
+  }
+  var scale = total > cap && total > 0 ? cap / total : 1;
+  /* درج روی خودِ base64: هر ۳ نمونه = ۶ بایت = ۸ نویسه، و سکوتِ
+     `speakSilenceB64_` هم مضربِ ۶ بایت است — پس نه رمزگشاییِ دوباره، نه
+     جابه‌جاییِ یک نمونه. وسطِ سکوت، تا لبهٔ هیچ هجایی نزدیکِ درز نباشد. */
+  var parts = [], pos = 0;
+  for (var r1 = 0; r1 < inner.length; r1++) {
+    var Q = inner[r1], add = Q.add * scale;
+    if (add < 0.02) continue;
+    var mid = Math.floor((Q.a + Q.b) / 2) * A.F;
+    var ip = Math.floor(mid / 3) * 3, cp = (ip / 3) * 8;
+    if (cp <= pos || cp >= src.length) continue;
+    var sil = speakSilenceB64_(add);
+    if (!sil) continue;
+    parts.push(src.substring(pos, cp), sil);
+    pos = cp;
+    out.add += b64Sec_(sil.length);
+    out.n++;
+  }
+  if (!out.n) return out;
+  parts.push(src.substring(pos));
+  out.b64 = parts.join('');
+  out.add = Math.round(out.add * 100) / 100;
+  return out;
+}
+
+/** سکوتِ سر (`atEnd` نادرست) یا تهِ (`atEnd` درست) یک base64، به ثانیه. */
+function speakEdgeSil_(b64, atEnd, maxSec) {
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  var bytes = Math.floor((Number(maxSec) || 3) * sr * 2 / 6) * 6;
+  var chars = (bytes / 6) * 8;
+  /* بُرش پیش از هم‌ترازی: ورودی (بافرِ چنددقیقه‌ای) هم‌تراز است، و پیمودنِ
+     کلِ آن برای خواندنِ سه ثانیهٔ آخر هزینهٔ بی‌دلیل است. */
+  var s0 = String(b64 || '');
+  if (!s0) return 0;
+  if (s0.length % 8) s0 = alignB64_(s0);
+  var piece = s0.length <= chars ? s0 : (atEnd ? s0.substring(s0.length - chars) : s0.substring(0, chars));
+  var A = speakFrameRms_(piece), rms = A.rms, nf = rms.length;
+  var thr = 0.006, k = 0;
+  if (atEnd) { for (var i = nf - 1; i >= 0 && rms[i] < thr; i--) k++; }
+  else { for (var j = 0; j < nf && rms[j] < thr; j++) k++; }
+  return k / 100;
+}
+
+/**
+ * مرزِ دو تکه: سکوتِ تهِ قبلی + سرِ این، در برابرِ اندازهٔ گوینده. کمبود را
+ * برمی‌گرداند (ثانیه) — هرگز منفی، هرگز بیش از خودِ هدف.
+ */
+function speakGapEdge_(prevB64, b64, target) {
+  var t = Number(target) || 0;
+  if (!(t > 0) || !prevB64 || !b64) return 0;
+  var have = speakEdgeSil_(prevB64, true, t + 0.5) + speakEdgeSil_(b64, false, t + 0.5);
+  var need = t - have;
+  return need >= 0.03 ? Math.round(Math.min(need, t) * 100) / 100 : 0;
 }
 
 /** «آرام ۰:۴۲ · بلند ۱:۱۰ …» — جای هر حالت در فایل، تا گوش بداند کجا را بسنجد. */
@@ -6937,6 +7150,9 @@ function speakMoodsStep_(ep, segs, deadline, persist, show, epNum) {
       v: 1, sig: sig, segs: [], nb: blocks.length, bi: 0, done: false,
       by: per ? String(per.name || per.key || '') : '', byKey: per ? String(per.key || '') : '',
       pause: pz.sec, pauseSrc: pz.src, cue: reach ? 1 : 0,
+      /* سبکِ مکثِ گوینده (۸.۴۱) — همین‌جا یک بار، کنارِ تصمیمِ گوینده، تا
+         صداسازیِ ادامه‌پذیر هر بار همان عدد را بخوانَد (درسِ `musicWrap_`). */
+      gaps: speakStyleGaps_(per),
       asked: 0, got: 0, drop: {}, why: [], tries: 0, at: ''
     };
     for (var c0 = 0; c0 < texts.length; c0++) M.segs.push({ h: hs[c0], n: counts[c0], s: [] });
@@ -6988,7 +7204,13 @@ function speakMoodsStep_(ep, segs, deadline, persist, show, epNum) {
       var ga = a0 + x.a - 1, gb = a0 + x.b - 1;
       var seg = Gs[ga].seg;
       while (gb > ga && Gs[gb].seg !== seg) gb--;       // از مرزِ بخش نمی‌گذرد
-      M.segs[seg].s.push({ a: Gs[ga].j + 1, b: Gs[gb].j + 1, k: x.k });
+      /* `t` و `w` (۸.۴۱): خودِ جمله و «چرا»ی مدل، برای فایلِ خوانای «حالت‌ها و
+         نشانه‌ها». متنِ جمله همان است که خوانده می‌شود؛ کوتاه، چون پرونده
+         در هر ادامه دوباره نوشته می‌شود. */
+      var tx = [];
+      for (var gq = ga; gq <= gb; gq++) tx.push(Gs[gq].t);
+      M.segs[seg].s.push({ a: Gs[ga].j + 1, b: Gs[gb].j + 1, k: x.k,
+                           t: tx.join(' ').slice(0, 240), w: String(x.w || '') });
       M.got++;
     }
     M.bi++;
@@ -7008,23 +7230,43 @@ function speakMoodsStep_(ep, segs, deadline, persist, show, epNum) {
  */
 function speakSegPieces_(ep, i, spoken) {
   var txt = applyPron_(spoken);
+  var M = ep && ep.__moods;
+  /* سبکِ مکثِ گوینده (۸.۴۱) — مستقل از اینکه این بخش حالتی دارد یا نه، و از
+     همان نقشه‌ای که یک بار ساخته شد. `edge` مکثِ پیش از تکه است: سرِ هر بخش
+     «میانِ بندها»، بقیه «میانِ دو جمله». تکهٔ اولِ قسمت مرز ندارد. */
+  var G = (speakMoodsOn_() && M && M.done && M.gaps) ? M.gaps : null;
+  var deco = function (arr) {
+    if (!G) return arr;
+    for (var q = 0; q < arr.length; q++) {
+      var sent = Number(G.sent) || 0;
+      arr[q].gaps = { inS: Number(G.inS) || 0, sent: sent,
+                      edge: q === 0 ? (i > 0 ? (Number(G.para) || sent) : 0) : sent };
+      arr[q].ns = speakSentSplit_(arr[q].t).length;
+    }
+    return arr;
+  };
   var plain = function () {
-    return splitForTts_(txt).map(function (t) { return { t: t, k: '', pre: 0 }; });
+    return deco(splitForTts_(txt).map(function (t) { return { t: t, k: '', pre: 0 }; }));
   };
   if (!speakMoodsOn_()) return plain();
-  var M = ep && ep.__moods, m = M && M.done && M.segs && M.segs[i];
+  var m = M && M.done && M.segs && M.segs[i];
   if (!m || !m.s || !m.s.length || !m.h || m.h !== speakHash_(spoken)) return plain();
   /* جدولِ تلفظ نباید شمارِ جمله‌ها را عوض کند؛ اگر کرد، «آرام» روی جملهٔ
      کناری می‌نشست — پس بی‌حالت، و کارنامه کمبودش را می‌شمارد. */
   if (speakSentSplit_(txt).length !== Number(m.n)) return plain();
   var ps = speakSpanPieces_(txt, m.s, Number(M.pause) || 0);
-  var out = [], pre = 0;
+  var out = [], pre = 0, pa = 0;
   for (var q = 0; q < ps.length; q++) {
-    if (ps[q].pause) { pre += ps[q].pause; continue; }
-    out.push({ t: ps[q].t, k: ps[q].k || '', pre: pre });
-    pre = 0;
+    if (ps[q].pause) { pre += ps[q].pause; pa = ps[q].sa || pa; continue; }
+    var o = { t: ps[q].t, k: ps[q].k || '', pre: pre };
+    /* نشانیِ حالت در نقشه («بخش:جمله») — فقط برچسب، برای فایلِ «حالت‌ها و
+       نشانه‌ها»؛ شمار و ترتیبِ تکه‌ها را عوض نمی‌کند (۸.۴۱). */
+    if (o.k && ps[q].sa) o.mref = i + ':' + ps[q].sa;
+    if (pre > 0 && pa) o.pref = i + ':' + pa;
+    out.push(o);
+    pre = 0; pa = 0;
   }
-  return out;
+  return deco(out);
 }
 
 /** تکهٔ آمادهٔ گفتارساز از یک تکهٔ `speakSegPieces_` — یک تعریف برای هر دو برنامه. */
@@ -7032,6 +7274,9 @@ function speakMoodChunk_(pc, style, voice) {
   var ch = { text: pc.t, style: style, voice: voice };
   if (pc.k) { ch.mood = pc.k; ch.style = speakSpanStyle_(pc.k, style); }
   if (Number(pc.pre) > 0) ch.pre = Number(pc.pre);
+  if (pc.mref) ch.mref = pc.mref;
+  if (pc.pref) ch.pref = pc.pref;
+  if (pc.gaps) { ch.gaps = pc.gaps; ch.ns = Number(pc.ns) || 1; }
   return ch;
 }
 
@@ -7047,9 +7292,15 @@ function speakMoodRecord_(ep, times, label) {
     if (M && M.segs) for (var i = 0; i < M.segs.length; i++) planned += (M.segs[i].s || []).length;
     var T = (times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
     var at = [], how = {}, lastK = '', lastI = -9;
+    /* سبکِ مکث (۸.۴۱): چند جا، چند ثانیه، و سهمِ گفتار پیش و پس — از خودِ
+       صداسازی، نه از نقشه. */
+    var gy = { n: 0, add: 0, v: 0, t: 0 };
     for (var t = 0; t < T.length; t++) {
       var x = T[t] || {};
-      var s0 = Number(x.at) || 0;
+      var s0 = (Number(x.at) || 0) + (Number(x.g) || 0);
+      if (Number(x.g) > 0) { gy.n++; gy.add += Number(x.g); }
+      if (Number(x.gs) > 0) { gy.n++; gy.add += Number(x.gs); }
+      if (x.gv && x.gv.length === 2) { gy.v += Number(x.gv[0]) || 0; gy.t += Number(x.gv[1]) || 0; }
       if (Number(x.p) > 0) {
         at.push({ k: 'مکث', s: Math.round(s0), how: 'سکوت' });
         how['سکوت'] = (how['سکوت'] || 0) + 1;
@@ -7081,6 +7332,7 @@ function speakMoodRecord_(ep, times, label) {
       by: M ? String(M.by || '') : '', pz: M ? Number(M.pause) || 0 : 0,
       pzs: M ? String(M.pauseSrc || '') : '',
       cue: M ? Number(M.cue) || 0 : 0,
+      sty: speakStyleSum_(M, gy),
       drop: (M && M.drop) || {}, why: why, fault: fault ? 1 : 0,
       line: speakSpanWhere_(at).slice(0, 700)
     };
@@ -7098,15 +7350,185 @@ function speakMoodRecord_(ep, times, label) {
   } catch (e) { return null; }
 }
 
+/**
+ * ══ فایلِ خوانای «حالت‌ها و نشانه‌ها» در پوشهٔ هر قسمت (۸.۴۱) ══
+ *
+ * او پرسید «کجا در فولدرِ هر پادکست می‌تونم ببینم … روی همون فایلی که اعراب
+ * گذاری شده خودشو نشون میده؟» — و جوابِ راست «نه» بود: اعراب و نشانه‌ها در
+ * «متن صوتی» بودند، ولی حالت‌ها فقط در سطرِ ایمیل و در `_times.json` (که برای
+ * ماشین است). و «چرا»ی هر حالت که مدل می‌نوشت، دور ریخته می‌شد.
+ *
+ * فایلِ «متن صوتی» عمداً دست نخورد: همان متنی است که به گفتارساز می‌رود، و
+ * هر برچسبی در آن یعنی روزی خوانده شود (۵٫۵۹). پس فایلِ جدا، کنارش.
+ *
+ * زمانِ هر حالت از **رویدادِ صداسازی** است (`ms`/`ps` در `times`)، نه از
+ * نقشه؛ حالتی که برنامه‌ریزی شد و ننشست، جدا و با نام می‌آید (۷٫۷۹).
+ * بی نقشه هم نوشته می‌شود و همین را می‌گوید — نبودنِ فایل با «حالتی نبود»
+ * یکی نیست.
+ */
+function speakMoodFileName_(baseName) {
+  return String(baseName || 'قسمت') + ' — حالت‌ها و نشانه‌ها.txt';
+}
+
+function speakMoodFileText_(ep, times, label) {
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  var tm = function (sec) {
+    var v = Math.max(0, Math.round(Number(sec) || 0));
+    var m = Math.floor(v / 60), s2 = v % 60;
+    return fa(m + ':' + (s2 < 10 ? '0' : '') + s2);
+  };
+  var M = (ep && ep.__moods) || null;
+  var T = (times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
+  var byM = {}, byP = {};
+  for (var t = 0; t < T.length; t++) {
+    var x = T[t] || {};
+    if (x.ms && !byM[x.ms]) byM[x.ms] = x;
+    if (x.ps && !byP[x.ps]) byP[x.ps] = x;
+  }
+  var howFa = { 'دستور': 'گفتارساز خودش (دستور رسید)', 'صدا': 'در خودِ صدا — سرعت عوض شد، و نشانهٔ پایانِ جمله',
+                'نشانه': 'فقط با نشانهٔ پایانِ جمله', 'نشد': 'ساخته نشد', 'بخشی': 'بخشی', 'سکوت': 'سکوتِ واقعی' };
+  var L = [];
+  L.push('حالت‌ها و نشانه‌های لحن — ' + String(label || ''));
+  L.push('نوشته‌شده: ' + nowStr_());
+  L.push('');
+  L.push('این فایل را موتور می‌نویسد تا بشود دید هر حالت کجای صداست، چرا انتخاب شد و چطور ساخته شد.');
+  L.push('هیچ دستوری به گوینده نمی‌رسد: هیچ مدلِ صوتیِ امروز دستورِ لحن نمی‌پذیرد، و دستوری که در متن ' +
+         'نوشته شود بلند خوانده می‌شود. پس حالت با سه چیز ساخته می‌شود — نشانهٔ پایانِ جمله («…» یا «!»)، ' +
+         'سرعتِ خودِ صدا (بی عوض‌شدنِ زیروبم و بی عوض‌شدنِ بلندی)، و سکوتِ واقعی.');
+  L.push('«لبخند» و «خنده» امروز با هیچ‌کدام ساختنی نیستند، پس برنامه‌ریزی نمی‌شوند.');
+  L.push('اعراب و نشانه‌های لحنِ کلِ متن در فایلِ «… — متن صوتی (اعراب‌گذاری کامل).txt» در همین پوشه است.');
+  L.push('');
+  if (!M) {
+    L.push('این قسمت نقشهٔ حالت ندارد' + (speakMoodsOn_()
+      ? ' — پیش از ۸.۴۰ به صداسازی رسیده بود، یا مرحلهٔ متن رد شد.' : ' — حالت‌ها در قسمت‌ها خاموش است (تصمیم).'));
+    return L.join('\n');
+  }
+  L.push('گوینده: ' + (M.by ? M.by + ' (با کارتِ سبکِ سنجیده از ضبط‌های خودش)' : 'صدای پیش‌فرضِ برنامه') +
+         ' · طولِ «مکث»: ' + fa(Number(M.pause) || 0) + ' ثانیه (' + String(M.pauseSrc || 'پیش‌فرض') + ')');
+  var gy = { n: 0, add: 0, v: 0, t: 0 };
+  for (var t2 = 0; t2 < T.length; t2++) {
+    var y = T[t2] || {};
+    if (Number(y.g) > 0) { gy.n++; gy.add += Number(y.g); }
+    if (Number(y.gs) > 0) { gy.n++; gy.add += Number(y.gs); }
+    if (y.gv && y.gv.length === 2) { gy.v += Number(y.gv[0]) || 0; gy.t += Number(y.gv[1]) || 0; }
+  }
+  var sty = speakStyleSum_(M, gy);
+  if (sty) {
+    L.push('سبکِ مکثِ ' + sty.by + ' (از کارتش): ' +
+           [sty.inS ? 'در دلِ جمله ' + fa(sty.inS) : '', sty.sent ? 'میانِ دو جمله ' + fa(sty.sent) : '',
+            sty.para ? 'میانِ بخش‌ها ' + fa(sty.para) : ''].filter(String).join('، ') + ' ثانیه.');
+    L.push(speakStyleLine_(sty) + '.');
+    L.push('فقط مکثی کشیده می‌شود که گوینده خودش گذاشته و از اندازهٔ او کوتاه‌تر است؛ هیچ مکثی کوتاه نمی‌شود.');
+  }
+  L.push('');
+  var rows = [], lost = [];
+  var segs = M.segs || [];
+  for (var i = 0; i < segs.length; i++) {
+    var S = (segs[i] && segs[i].s) || [];
+    for (var j = 0; j < S.length; j++) {
+      var sp = S[j], key = i + ':' + sp.a;
+      var hit = sp.k === 'مکث' ? byP[key] : byM[key];
+      var d = speakSpanDef_(sp.k);
+      var r = { k: sp.k, t: String(sp.t || ''), w: String(sp.w || ''), seg: i + 1 };
+      if (!hit) { lost.push(r); continue; }
+      r.s = sp.k === 'مکث' ? Number(hit.at) || 0
+                           : (Number(hit.at) || 0) + (Number(hit.p) || 0) + (Number(hit.g) || 0);
+      r.how = sp.k === 'مکث' ? 'سکوت' : String(hit.h || '');
+      r.mark = d && d.mark ? d.mark : '';
+      rows.push(r);
+    }
+  }
+  rows.sort(function (a, b) { return a.s - b.s; });
+  L.push('— ' + fa(rows.length) + ' حالت در صدا —');
+  if (!rows.length) {
+    L.push(M.done ? ('هیچ حالتی ننشست' + ((M.why || []).length ? ': ' + M.why.join(' · ').slice(0, 300) : '.'))
+                  : 'نقشهٔ حالت تمام نشد.');
+  }
+  for (var q = 0; q < rows.length; q++) {
+    var R = rows[q];
+    L.push('');
+    L.push(fa(q + 1) + ') ' + tm(R.s) + ' · ' + R.k + (R.k === 'مکث' ? ' (پیش از این جمله)' : '') +
+           ' · بخشِ ' + fa(R.seg));
+    if (R.t) L.push('   «' + R.t + (R.t.length >= 240 ? '…' : '') + '»');
+    L.push('   چرا: ' + (R.w || 'مدل دلیلی ننوشت'));
+    L.push('   چطور: ' + (howFa[R.how] || R.how || 'نامعلوم') +
+           (R.mark && R.how !== 'نشد' && R.k !== 'مکث' ? ' («' + R.mark + '» آخرِ جمله)' : ''));
+  }
+  if (lost.length) {
+    L.push('');
+    L.push('— ' + fa(lost.length) + ' حالتِ برنامه‌ریزی‌شده که در صدا ننشست —');
+    L.push('(معمولاً یعنی جدولِ تلفظ شمارِ جمله‌های آن بخش را عوض کرد و آن بخش بی‌حالت خوانده شد، ' +
+           'تا حالت روی جملهٔ کناری ننشیند.)');
+    for (var u = 0; u < lost.length; u++) {
+      L.push('• ' + lost[u].k + ' · بخشِ ' + fa(lost[u].seg) + ' — «' + lost[u].t.slice(0, 120) + '»' +
+             (lost[u].w ? ' — چرا: ' + lost[u].w : ''));
+    }
+  }
+  return L.join('\n');
+}
+
+/** نوشتن یا بازنویسیِ همان فایل — ارسالِ دوباره دومی نمی‌سازد. */
+function speakMoodFileSave_(folder, baseName, ep, times, label) {
+  try {
+    if (!folder || CFG.SPEAK_MOOD_FILE === false) return false;
+    var nm = speakMoodFileName_(baseName);
+    var body = speakMoodFileText_(ep, times, label || baseName);
+    var it = folder.getFilesByName(nm);
+    if (it.hasNext()) { it.next().setContent(body); return true; }
+    folder.createFile(Utilities.newBlob(body, 'text/plain', nm));
+    return true;
+  } catch (e) {
+    try { logLine_('فایلِ «حالت‌ها و نشانه‌ها» نوشته نشد: ' + String(e.message || e).slice(0, 120)); } catch (e2) {}
+    return false;
+  }
+}
+
+/**
+ * خلاصهٔ سبکِ مکث برای کارنامه: `{by, n, add, t0, t1, his}` — درصدها گرد،
+ * `null` وقتی گوینده‌ای با کارتِ سنجیده نخوانده. «سهمِ گفتار» از قاب‌هایی که
+ * واقعاً سنجیده شدند (`gv`)، پیش و پس از سکوتِ افزوده.
+ */
+function speakStyleSum_(M, gy) {
+  if (!M || !M.gaps) return null;
+  var g = M.gaps, out = { by: String(g.src || M.by || ''), n: gy.n,
+                          add: Math.round(gy.add * 10) / 10, t0: 0, t1: 0,
+                          his: Number(g.talk) || 0,
+                          inS: Number(g.inS) || 0, sent: Number(g.sent) || 0,
+                          para: Number(g.para) || 0 };
+  if (gy.t > 0) {
+    out.t0 = Math.round(gy.v * 100 / gy.t);
+    out.t1 = Math.round(gy.v * 100 / (gy.t + gy.add * 100));
+  }
+  return out;
+}
+
+/** «مکث‌ها به اندازهٔ گلدوز: … سهمِ گفتار ۸۶٪ ⇒ ۸۱٪ (خودش ۷۹٪)» — یک سطر. */
+function speakStyleLine_(sty) {
+  if (!sty) return '';
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  var L = 'مکث‌ها به اندازهٔ ' + sty.by + ': ' +
+          (sty.n ? fa(sty.n) + ' جا، ' + fa(sty.add) + ' ثانیه سکوت افزوده شد'
+                 : 'هیچ مکثی کوتاه‌تر از اندازهٔ او نبود');
+  if (sty.t0) {
+    L += '؛ سهمِ گفتار ' + fa(sty.t0) + '٪' + (sty.n ? ' ⇒ ' + fa(sty.t1) + '٪' : '') +
+         (sty.his ? ' (خودش ' + fa(sty.his) + '٪)' : '');
+  }
+  return L;
+}
+
 /** «۹ حالت: آرام ۱:۲۰ · …» — کوتاه، برای سرِ ایمیل و کپشن. */
 function speakMoodShort_(rec) {
   if (!rec) return '';
   var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
   if (!rec.on) return '';
-  if (!rec.got) return 'حالت‌ها: هیچ — ' + String(rec.why || 'نامعلوم');
+  if (!rec.got) {
+    var sl0 = speakStyleLine_(rec.sty);
+    return 'حالت‌ها: هیچ — ' + String(rec.why || 'نامعلوم') + (sl0 ? ' · ' + sl0 : '');
+  }
   var line = String(rec.line || '').split('\n')[0].replace(/^حالت‌ها:\s*/, '');
+  var sl = speakStyleLine_(rec.sty);
   return 'حالت‌ها (' + fa(rec.got) + '): ' + line.slice(0, 300) +
-         (rec.by ? ' · با شیوهٔ ' + rec.by : '');
+         (rec.by ? ' · با شیوهٔ ' + rec.by : '') + (sl ? ' · ' + sl : '');
 }
 
 /**
@@ -7149,6 +7571,7 @@ function speakMoodStatus_() {
                          : 'هیچ — ' + String(last.why || '')) +
                (last.lost ? '؛ ' + fa(last.lost) + ' حالتِ برنامه‌ریزی‌شده ننشست' : '') +
                (last.by ? '؛ با شیوهٔ ' + last.by + ' (مکث ' + fa(last.pz) + ' ثانیه از ' + last.pzs + ')' : ''));
+    if (last.sty) parts.push(speakStyleLine_(last.sty));
     if (last.fault) out.ok = false;
   }
   if (out.pr !== null) {
@@ -8966,7 +9389,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     // همان است و فقط شانسِ «دستور را بخواند» از بین می‌رود.
     // تکهٔ موسیقی از پیش صدا دارد و به مدل فرستاده نمی‌شود — نه هزینه‌ای
     // دارد، نه شانسی برای اشتباه‌خواندن.
-    var b64, moodK = '', moodHow = '', preSec = 0;
+    var b64, moodK = '', moodHow = '', preSec = 0, gapIn = 0, gapEdge = 0, gapV = null;
     if (chunks[i] && chunks[i].pcm) {
       b64 = alignB64_(chunks[i].pcm);
     } else {
@@ -8988,9 +9411,28 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
           else moodHow = (dd && dd.mark) ? 'نشانه' : 'نشد';
         }
       }
+      /* ══ سبکِ مکثِ گوینده (۸.۴۱) ══
+         مکث‌های درونِ تکه تا اندازهٔ او کشیده می‌شوند — **پیش** از سکوتِ «مکث»،
+         وگرنه همان سکوت سرِ تکه می‌نشست و مرز شمرده می‌شد. بی کارت، `gaps`
+         وجود ندارد و این خط هیچ کاری نمی‌کند. شکستش بی‌صداست ولی بی‌خطر:
+         تکه همان تکهٔ گفتارساز می‌مانَد. */
+      if (b64 && chunks[i] && chunks[i].gaps) {
+        try {
+          var gst = speakGapStretch_(b64, chunks[i].gaps, chunks[i].ns);
+          if (gst) { b64 = gst.b64; gapIn = gst.add; gapV = [gst.v, gst.t]; }
+        } catch (eGs) { gapIn = 0; }
+      }
       /* «مکث» سکوتِ واقعی است پیش از جمله — به گفتارساز نمی‌رود، پس خواندنی نیست. */
       preSec = Number(chunks[i] && chunks[i].pre) || 0;
       if (b64 && preSec > 0) b64 = speakSilenceB64_(preSec) + b64;
+      /* و مرزِ دو تکه: فقط میانِ دو گفتار در همان فایل. پس از موسیقی، تلفیق
+         کارش را می‌کند؛ پس از «مکث»، سکوت از قبل بلندتر است. */
+      else if (b64 && chunks[i] && chunks[i].gaps && chunks[i].gaps.edge > 0 &&
+               buf.length && prevMusic === false) {
+        try { gapEdge = speakGapEdge_(buf[buf.length - 1], b64, chunks[i].gaps.edge); }
+        catch (eGe) { gapEdge = 0; }
+        if (gapEdge > 0) b64 = speakSilenceB64_(gapEdge) + b64;
+      }
     }
     if (!b64) continue;
 
@@ -9038,6 +9480,15 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
        `k` همان «t» می‌مانَد تا `lvAlignTimes_` تکه‌های متن را همان‌طور بشمارد. */
     if (moodK) { tEnt.mo = moodK; tEnt.h = moodHow; }
     if (preSec > 0) tEnt.p = preSec;
+    /* `ms`/`ps` نشانیِ حالت و «مکث» در نقشه؛ `g` سکوتِ افزوده پیش از تکه و
+       `gs` درونِ آن؛ `gv` قاب‌های گفتار/کل **پیش از** افزودن — شاهدِ «سهمِ
+       گفتار» در برابرِ عددِ خودِ گوینده (۸.۴۱). `at` آغازِ سکوت است، پس
+       گفتار در `at + p + g` می‌آید. */
+    if (moodK && chunks[i].mref) tEnt.ms = chunks[i].mref;
+    if (preSec > 0 && chunks[i].pref) tEnt.ps = chunks[i].pref;
+    if (gapEdge > 0) tEnt.g = gapEdge;
+    if (gapIn > 0) tEnt.gs = gapIn;
+    if (gapV) tEnt.gv = gapV;
     times.push(tEnt);
     tAcc += b64Sec_(b64.length);
     buf.push(b64); bufChars += b64.length;
@@ -11737,6 +12188,8 @@ function renderAudioStep_() {
     try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
     /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
     try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
+    /* و همان، خوانا، در پوشهٔ قسمت — کنارِ «متن صوتی»، نه درونش (۸.۴۱). */
+    try { speakMoodFileSave_(folder, baseName, ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMf) {}
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {
@@ -24835,6 +25288,7 @@ function renderSpecialAudioStep_() {
     try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
     try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
     try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
+    try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }
@@ -59815,6 +60269,9 @@ function vintQueue_(hub, scan, state) {
     }
 
     q.lowSr = out.lowSr;
+    /* «رسید»ِ مدل‌ها (۸.۴۱) — بازنویسیِ شبانه نباید پاکش کند، وگرنه
+       گیت‌هاب تکه‌های برداشته‌شده را تا سقفِ زمان عمومی نگه می‌دارد. */
+    q.models = vintModelsForQueue_(null);
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
@@ -59906,6 +60363,43 @@ function vintQueueShare_() {
 }
 
 /** صفِ فعلی، اگر باشد. */
+/**
+ * «رسید»ِ مدل‌ها برای صف (۸.۴۱): `{key: {ok, drop, at}}`. `drop` زمانِ همان
+ * تحویل است، تا `voicemodel.py --clean` تحویلِ تازهٔ همان گوینده را با
+ * تأییدِ تحویلِ قبلی پاک نکند. از Script Properties که بخشِ ۳۶ می‌نویسد —
+ * کلید مشترک است، تابع نه، پس وابستگیِ رو به جلو ساخته نمی‌شود.
+ */
+function vintModelsForQueue_(have) {
+  var h = have;
+  if (!h) { try { h = JSON.parse(props_().getProperty('VMODEL_HAVE') || '{}'); } catch (e) { h = {}; } }
+  var out = {};
+  for (var k in (h || {})) {
+    if (!Object.prototype.hasOwnProperty.call(h, k) || !h[k] || !h[k].ok) continue;
+    out[k] = { ok: true, drop: String(h[k].drop || ''), at: String(h[k].at || '') };
+  }
+  return out;
+}
+
+/**
+ * فقط `models` را در صفِ موجود به‌روز کن — همین حالا، نه شبِ بعد. بازسازیِ
+ * کاملِ صف (`vintQueue_`) پیمایشِ پوشهٔ گویندگان و هاب را می‌خواهد؛ این‌جا
+ * فقط یک خواندن و یک نوشتن. صفِ نبوده را نمی‌سازد: شبانه می‌سازدش، با همین.
+ */
+function vintQueueModels_(have) {
+  var q = vintReadQueue_();
+  if (!q || typeof q !== 'object') return false;
+  q.models = vintModelsForQueue_(have);
+  q.rev = (Number(q.rev) || 0) + 1;
+  q.at = nowStr_();
+  var qn = String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json');
+  putOutJson_(qn, q);
+  try {
+    var it = outFolder_().getFilesByName(qn);
+    if (it.hasNext()) driveShareOn_(it.next().getId());
+  } catch (eS) {}
+  return true;
+}
+
 function vintReadQueue_() {
   var nm = String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json');
   var it = outFolder_().getFilesByName(nm);
@@ -60187,12 +60681,16 @@ function vintAnnounce_(name, key, r, samples) {
        `voice-lab.yml` از روزِ اول دارد. پس این جمله باید **راه** را بدهد،
        نه خبرِ نبودن را؛ وگرنه صاحبِ برنامه می‌پرسد «چرا نفرستادی؟» و
        جوابش هیچ‌جا نوشته نیست. */
-    lines.push('نمونهٔ شنیداری همراهِ این خبر نمی‌آید، و این عمدی است: این ریپو ' +
-               'عمومی است و نمونهٔ صدای کلون‌شدهٔ یک شخص نباید در آن منتشر شود.');
-    lines.push('برای شنیدن: منو ← «🎨 نمونهٔ بلند با رنگ و روح» — یک قسمتِ ' +
-               'تولیدشده را در تختهٔ «شیوهٔ خواندنِ گویندگان» تیک بزنید و آن دکمه ' +
-               'را بزنید؛ نمونهٔ چنددقیقه‌ای با شیوهٔ خواندن و رنگِ صدای او ' +
-               'در تلگرام می‌آید.');
+    /* ══ و از ۸.۴۱ راهش خودکار است ══
+       تا ۸.۴۰ این جمله راهِ **دستی** را می‌داد — چون مدل باید دستی به درایو
+       می‌رفت و نمونه با تیک و دکمه ساخته می‌شد. حالا مدل خودش می‌رود و
+       نمونهٔ آزمون خودش ساخته می‌شود؛ گفتنِ راهِ دستی یعنی کاری به او
+       حواله شود که لازم نیست (همان «Instructions that outlived their truth»). */
+    lines.push('نمونهٔ شنیداری همراهِ این خبر نمی‌آید (این ریپو عمومی است و صدای ' +
+               'کلون‌شدهٔ یک شخص در آن منتشر نمی‌شود)، ولی **لازم نیست کاری بکنید**: ' +
+               'مدلش یکی دو ساعتِ دیگر خودکار به پوشهٔ «' + (CFG.VBR_FOLDER || 'مدل‌های صدا') +
+               '» در درایو می‌رود، و بعد نمونهٔ آزمون — داستانِ «ساعت‌ساز» با صدای او — ' +
+               'ساخته و در تلگرام فرستاده می‌شود.');
   }
   lines.push('');
   lines.push('حالا می‌توانید گویندهٔ بعدی را در پوشهٔ «' +
@@ -60204,12 +60702,12 @@ function vintAnnounce_(name, key, r, samples) {
      ۲۶ سپتامبر روی یک قسمتِ کامل کار کرده. یعنی خبرِ آماده شدنِ گویندهٔ
      دوم — اگر رفته بود — به او می‌گفت راهی وجود ندارد، در حالی که همان روز
      خودش از آن راه استفاده کرده بود. دستورِ غلط از نبودِ دستور بدتر است. */
-  lines.push('⚠️ این مدل به‌خودیِ خود روی هیچ قسمتی نمی‌نشیند. دو راه هست و هر ' +
-             'دو دستِ شماست: ردیفش را در تختهٔ «شیوهٔ خواندنِ گویندگان» **پیش از ' +
-             'تولیدِ قسمتِ بعدی** روشن کنید (آن قسمت با شیوهٔ خواندنِ او ساخته ' +
-             'می‌شود و پل رنگش را می‌گذارد)، یا یک قسمتِ تولیدشده را تیک بزنید و ' +
-             'با «🎨 نمونهٔ بلند با رنگ و روح» نمونه بگیرید. و صوتِ منتشرشده در ' +
-             'هیچ‌کدام عوض نمی‌شود.');
+  lines.push('⚠️ این مدل به‌خودیِ خود روی هیچ قسمتی نمی‌نشیند. اگر پس از شنیدنِ ' +
+             'نمونه خواستید، ردیفش را در تختهٔ «شیوهٔ خواندنِ گویندگان» **پیش از ' +
+             'تولیدِ قسمتِ بعدی** روشن کنید: آن قسمت با شیوهٔ خواندن و مکث‌های او ساخته ' +
+             'می‌شود و پل رنگش را می‌گذارد. برای نمونهٔ بلندتر از یک قسمتِ واقعی، هنوز ' +
+             'می‌شود یک قسمتِ تولیدشده را تیک زد و «🎨 نمونهٔ بلند با رنگ و روح» را زد. ' +
+             'و صوتِ منتشرشده در هیچ‌کدام عوض نمی‌شود.');
 
   var body = lines.join('\n');
   /* ══ صفِ ایمیل را «رسید» فرض نکن (۷٫۲۲) ══
@@ -64092,6 +64590,433 @@ function vbrModel_(key) {
   return out;
 }
 
+/* ═══════════ مدلِ گویندهٔ تازه، خودکار به «مدل‌های صدا» (۸.۴۱) ═══════════
+ *
+ * او پرسید «یعنی من دارم چی رو بعد از سی روز از دست میدم؟». جوابِ راست:
+ * مدلِ هر گویندهٔ **تازه**، تا امروز. آموزش در گیت‌هاب تمام می‌شود و مدل در
+ * artifact می‌مانَد؛ artifact سی روز بعد پاک می‌شود و از Apps Script دانلود
+ * نمی‌شود. `vbrModel_` تا امروز فقط می‌توانست بگوید «دستی بگذاریدش» — و این
+ * پیام (۷٫۷۵) درست بود ولی کار را به او حواله می‌داد.
+ *
+ * حالا `voice-intake` مدل را تکه‌تکه و **موقتاً** در یک Release می‌گذارد و
+ * نشانی و اثرانگشتش را در `docs/voices.json` (`modelDrop`) می‌نویسد. موتور:
+ *   ۱) هر ساعت (و شبانه) می‌پرسد تحویلی منتظر هست یا نه — فقط زمان‌بندی،
+ *      چون برداشتنِ ۸۰ مگابایت جای تریگرِ ساعتیِ ارزان نیست (۶٫۳۷/۷٫۸۴).
+ *   ۲) در اجرای جدای خودش (`runVoiceModelFetch`) تکه‌ها را با «بارگذاریِ
+ *      ازسرگیری‌پذیرِ» درایو یکی می‌کند — چون یک فایلِ ۵۵ مگابایتی از سقفِ
+ *      ۵۰ مگابایتیِ هر پاسخ و هر blob بزرگ‌تر است — و **اثرانگشتِ کلِ فایل**
+ *      را از خودِ درایو می‌خوانَد و با `sha256`ِ تحویل مقایسه می‌کند.
+ *      ناهمخوان ⇒ فایل به سطل می‌رود؛ مدلِ خراب از مدلِ نبوده بدتر است، چون
+ *      «موجود» شمرده می‌شود و هر تبدیل را بی‌صدا خراب می‌کند (درسِ RIFFِ
+ *      `musicFetch_`: به چیزی که رسید نگاه کن، نه به اسمش).
+ *   ۳) «رسید» را در صفِ گویندگان می‌نویسد (`models`)، و `voicemodel.py
+ *      --clean` با همان تکه‌ها را از Release پاک می‌کند — قرینهٔ `dropCollected`.
+ *   ۴) همان گوینده را در فهرستِ نمونهٔ خودکار می‌گذارد: داستانِ آزمون با
+ *      صدای او ساخته و به تلگرام فرستاده می‌شود، بی هیچ تیکی.
+ *
+ * شکستِ پیاپی (`VBR_MODEL_TRY_MAX`) یافتهٔ کد است، با راهِ دستی در پیامش —
+ * چون مدلِ منتظر سقفِ زمان دارد و پس از آن از Release پاک می‌شود.
+ */
+var VBR_MD_WAIT = 'منتظرِ موتور';
+
+/** تحویل‌های منتظر در `docs/voices.json`: `[{key, name, md}]`. */
+function vbrModelDrops_(doc) {
+  var out = [];
+  var sp = doc && doc.speakers;
+  if (!sp || typeof sp !== 'object') return out;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var md = sp[k] && sp[k].modelDrop;
+    if (!md || md.state !== VBR_MD_WAIT || !md.pth || !(md.pth.parts || []).length) continue;
+    out.push({ key: String(k), name: String((sp[k] && sp[k].name) || k), md: md });
+  }
+  return out;
+}
+
+function vbrModelPk_(name) {
+  try {
+    var o = JSON.parse(props_().getProperty(name) || '{}');
+    return (o && typeof o === 'object' && !(o instanceof Array)) ? o : {};
+  } catch (e) { return {}; }
+}
+
+/** تحویلی که همین موتور قبلاً برداشته — با `drop` (زمانِ همان تحویل) نه فقط کلید. */
+function vbrModelTaken_(have, d) {
+  var h = have && have[d.key];
+  return !!(h && h.ok && String(h.drop || '') === String(d.md.at || ''));
+}
+
+/**
+ * زمان‌بندِ ارزان. `opt.doc` اگر خواننده از قبل دارد؛ `opt.scanManual` (فقط
+ * شبانه) گویندهٔ آماده‌ای را هم که مدلش **دستی** در درایو گذاشته شده، به
+ * فهرستِ نمونهٔ خودکار می‌برد.
+ */
+function vbrModelDropDue_(opt) {
+  opt = opt || {};
+  var out = { pending: 0, scheduled: false, why: '' };
+  if (CFG.VBR_ON === false || CFG.VBR_MODEL_AUTO === false) { out.why = 'خاموش (تصمیم)'; return out; }
+  var doc = opt.doc || null;
+  if (!doc) { try { doc = vintReadResult_(); } catch (eR) { doc = null; } }
+  if (!doc) { out.why = 'docs/voices.json خوانده نشد'; return out; }
+  if (opt.scanManual) { try { vbrSoulAutoScan_(doc); } catch (eA) {} }
+  var have = vbrModelPk_('VMODEL_HAVE');
+  var drops = vbrModelDrops_(doc).filter(function (d) { return !vbrModelTaken_(have, d); });
+  out.pending = drops.length;
+  /* ══ گویندهٔ آماده‌ای که مدلش نه در درایو است نه در راه ══
+     تحویلی که پیش از برداشتن منقضی شد (موتور سه روز نتوانست)، یا گوینده‌ای
+     که پیش از ۸.۴۱ آموزش دید و کسی مدلش را نیاورد. بی این شمارش، سکوت
+     همان «همه‌چیز سالم است» خوانده می‌شد. فقط شبانه، چون پیمایشِ پوشه است. */
+  if (opt.scanManual) { try { vbrModelMissingScan_(doc, drops); } catch (eM) {} }
+  if (!drops.length) return out;
+  var max = Math.max(1, Number(CFG.VBR_MODEL_TRY_DAY) || 4);
+  var today = String(nowStr_()).slice(0, 10), n = 0;
+  try {
+    var parts = String(props_().getProperty('VMODEL_DAY') || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+  try {
+    clearRetryTriggers_('runVoiceModelFetch');
+    ScriptApp.newTrigger('runVoiceModelFetch').timeBased().after(60 * 1000).create();
+    props_().setProperty('VMODEL_DAY', today + '|' + (n + 1));
+    out.scheduled = true;
+  } catch (eT) { out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60); }
+  return out;
+}
+
+/** گویندگانِ آماده (نه پیش‌ساخته) بی مدل در درایو و بی تحویلِ منتظر ⇒ `VMODEL_MISSING`. */
+function vbrModelMissingScan_(doc, drops) {
+  var sp = doc && doc.speakers, miss = {};
+  if (!sp || typeof sp !== 'object') return miss;
+  var wait = {};
+  for (var i = 0; i < (drops || []).length; i++) wait[drops[i].key] = 1;
+  var fold = null;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var s = sp[k] || {};
+    if (String(s.stage || '') !== 'آماده' || s.preexisting || wait[k]) continue;
+    if (!fold) fold = vbrFolder_();
+    if (fold.getFilesByName(k + '.pth').hasNext()) continue;
+    var md = s.modelDrop || null;
+    miss[k] = { name: String(s.name || k), why: md && md.state === 'منقضی'
+      ? 'تحویلش پیش از برداشتن منقضی شد (' + String(md.closedAt || md.at || '') + ')'
+      : 'هیچ تحویلی برایش نیامده' };
+  }
+  try { props_().setProperty('VMODEL_MISSING', JSON.stringify(miss)); } catch (e) {}
+  return miss;
+}
+
+/** اجرای جدا — نامِ خودش، تا پاک‌کردنش به تریگرِ روزانه نخورد. */
+function runVoiceModelFetch() {
+  runEnter_('runVoiceModelFetch');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('runVoiceModelFetch'); } catch (e0) {}
+    var r = vbrModelFetchAll_();
+    note = r.map(function (x) { return x.key + ':' + (x.ok ? 'رسید' : 'نشد'); }).join(' ');
+    return r;
+  } finally { runExit_('runVoiceModelFetch', note); }
+}
+
+function vbrModelFetchAll_() {
+  var res = [];
+  var doc = null;
+  try { doc = vintReadResult_(); } catch (eD) { doc = null; }
+  if (!doc) return res;
+  var have = vbrModelPk_('VMODEL_HAVE');
+  var drops = vbrModelDrops_(doc).filter(function (d) { return !vbrModelTaken_(have, d); });
+  var t0 = new Date().getTime();
+  var budget = Math.max(60000, Number(CFG.VBR_MODEL_BUDGET_MS) || 270000);
+  for (var i = 0; i < drops.length; i++) {
+    /* هر گوینده دست‌کم دو دقیقه وقت می‌خواهد؛ آنچه جا نشد، ساعتِ بعد. */
+    if (i > 0 && new Date().getTime() - t0 > budget - 120000) break;
+    var d = drops[i], r = null;
+    try { r = vbrModelFetchOne_(d); }
+    catch (e) { r = { ok: false, why: String((e && e.message) || e).slice(0, 160) }; }
+    r.key = d.key; r.name = d.name;
+    res.push(r);
+    vbrModelAfter_(d, r);
+  }
+  return res;
+}
+
+/** پس از هر تلاش: ثبت، خبر، صف، نمونه — یا شمارشِ شکست. */
+function vbrModelAfter_(d, r) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var fail = vbrModelPk_('VMODEL_FAIL');
+  if (r.ok) {
+    var have = vbrModelPk_('VMODEL_HAVE');
+    have[d.key] = { ok: 1, at: nowStr_(), drop: String(d.md.at || ''),
+                    pth: Number(r.sizes && r.sizes.pth) || 0,
+                    index: Number(r.sizes && r.sizes.index) || 0 };
+    try { props_().setProperty('VMODEL_HAVE', JSON.stringify(have)); } catch (eS) {}
+    delete fail[d.key];
+    try { props_().setProperty('VMODEL_FAIL', JSON.stringify(fail)); } catch (eF) {}
+    /* «رسید» به صف، تا گیت‌هاب تکه‌ها را پاک کند — بی این، مدل تا سقفِ زمان
+       عمومی می‌ماند. بخشِ ۳۳ پیش از این است، پس فراخوان رو به عقب است. */
+    try { vintQueueModels_(have); }
+    catch (eQ) { try { logLine_('«رسید»ِ مدل در صفِ گویندگان نوشته نشد: ' + eQ.message); } catch (eQ2) {} }
+    var seeded = false;
+    try { seeded = vbrSoulAutoAdd_(d.key); } catch (eA) { seeded = false; }
+    var msg = '✅ مدلِ صدای «' + d.name + '» خودکار از گیت‌هاب به درایو آمد (پوشهٔ «' +
+              String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '»، ' + fa(Math.round((r.sizes.pth || 0) / 1048576)) +
+              ' مگابایت، اثرانگشتش با تحویل یکی بود). دیگر به artifactِ سی‌روزهٔ گیت‌هاب بند نیست.' +
+              (seeded ? '\nنمونهٔ آزمونش (داستانِ «ساعت‌ساز» با صدای او) در یکی دو ساعتِ آینده ' +
+                        'ساخته و همین‌جا فرستاده می‌شود.' : '') +
+              '\nروشن‌کردنِ ردیفش برای پادکست‌ها تصمیمِ شماست.';
+    try { mailQueue_('گویندهٔ تازه', 'مدلِ «' + d.name + '» به درایو آمد', msg); } catch (eM) {}
+    try { tgSend_(msg); } catch (eT) {}
+    try { logLine_('مدلِ «' + d.key + '» از تحویلِ ' + d.md.at + ' در درایو نشست.'); } catch (eL) {}
+    return;
+  }
+  var cur = fail[d.key] && String(fail[d.key].drop) === String(d.md.at) ? fail[d.key] : { n: 0 };
+  cur.n = (Number(cur.n) || 0) + 1;
+  cur.why = String(r.why || 'نامعلوم').slice(0, 200);
+  cur.at = nowStr_(); cur.drop = String(d.md.at || ''); cur.name = d.name;
+  fail[d.key] = cur;
+  try { props_().setProperty('VMODEL_FAIL', JSON.stringify(fail)); } catch (eF2) {}
+  try { logLine_('مدلِ «' + d.key + '» برداشته نشد (' + cur.n + '): ' + cur.why); } catch (eL2) {}
+  var max = Math.max(1, Number(CFG.VBR_MODEL_TRY_MAX) || 3);
+  if (cur.n === max) {
+    var hint = 'راهِ دستی تا وقتی تکه‌ها پاک نشده‌اند: از اجرای آموزشِ همین گوینده در گیت‌هاب ' +
+               '(artifactِ «voice-' + d.key + '») دو فایل را بردارید و با این نام‌ها در پوشهٔ «' +
+               String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» زیرِ OUTPUT بگذارید: «' + d.key +
+               '.pth» و «' + d.key + '.index».';
+    try {
+      logSelfFinding_(getHub_(), {
+        /* کلیدِ کوتاه: شناسهٔ ردیف بیش از ۲۴ نویسه را هش می‌کند، و آن‌وقت
+           بستنِ ردیف با نامِ کلید در `answers` (۷٫۴۸) ممکن نیست. */
+        priority: 'جدی', category: 'گویندهٔ تازه', key: 'vmodel-' + d.key,
+        title: 'مدلِ «' + d.name + '» ' + cur.n + ' بار از گیت‌هاب به درایو نیامد',
+        detail: 'آخرین علت: ' + cur.why + '. تحویل: ' + d.md.at + '. پس از سقفِ زمان، ' +
+                'تکه‌ها از Release پاک می‌شوند.',
+        instruction: 'علت را در `vbrResumableUpload_`/`vbrModelFetchOne_` پیدا کن (اسکوپِ درایو؟ ' +
+                     'سقفِ اندازه؟ اثرانگشتِ ناهمخوان؟). ' + hint,
+        owner: ROWNER_CODE
+      });
+    } catch (eF3) {}
+    var m2 = '⚠️ مدلِ صدای «' + d.name + '» سه بار از گیت‌هاب به درایو نیامد. علت: ' + cur.why +
+             '\n' + hint;
+    try { mailQueue_('گویندهٔ تازه', 'مدلِ «' + d.name + '» به درایو نیامد', m2); } catch (eM2) {}
+    try { tgSend_(m2); } catch (eT2) {}
+  }
+}
+
+/**
+ * یک گوینده: هر دو فایل، یکی‌یکی. فایلی که از قبل با همین اندازه در پوشه
+ * هست (مثلاً دستی گذاشته شده) دوباره بارگذاری نمی‌شود. فایلِ هم‌نامِ قدیمی
+ * (آموزشِ دوباره) فقط **پس از** وارسیِ فایلِ تازه به سطل می‌رود.
+ */
+function vbrModelFetchOne_(d) {
+  var fold = vbrFolder_();
+  var out = { ok: false, why: '', sizes: {} };
+  var kinds = ['pth', 'index'];
+  for (var i = 0; i < kinds.length; i++) {
+    var kind = kinds[i], spec = d.md[kind];
+    if (!spec) continue;
+    var name = d.key + '.' + kind;
+    var size = Number(spec.size) || 0;
+    var olds = [], it = fold.getFilesByName(name), same = null;
+    while (it.hasNext()) {
+      var f = it.next();
+      if (size && Number(f.getSize()) === size) same = f; else olds.push(f);
+    }
+    if (same) { out.sizes[kind] = size; continue; }
+    var up = vbrResumableUpload_(fold.getId(), name, spec);
+    if (!up.ok) { out.why = name + ': ' + up.why; return out; }
+    for (var j = 0; j < olds.length; j++) { try { olds[j].setTrashed(true); } catch (eO) {} }
+    out.sizes[kind] = up.size;
+  }
+  out.ok = !!out.sizes.pth;
+  if (!out.ok && !out.why) out.why = 'فایلِ .pth در تحویل نبود';
+  return out;
+}
+
+/**
+ * بارگذاریِ ازسرگیری‌پذیرِ درایو، تکه‌به‌تکه از نشانی‌های تحویل.
+ *
+ * چرا این راه: `DriveApp.createFile` یک blob می‌خواهد و blob سقفِ ۵۰ مگابایت
+ * دارد؛ مدل ۵۵ است. این API همان فایل را در چند درخواست می‌سازد و هیچ‌وقت
+ * کلِ فایل در حافظه نیست. هر تکه همان `Blob`ِ پاسخِ دانلود است — به آرایهٔ
+ * بایت تبدیل نمی‌شود، چون آرایهٔ ۳۲ میلیون‌عنصریِ جاوااسکریپت خودش حافظهٔ
+ * اجرا را می‌خورد.
+ *
+ * `followRedirects: false` روی PUT حیاتی است: درایو برای «ادامه بده» کدِ
+ * ۳۰۸ می‌دهد، و دنبال‌کردنش یعنی درخواستِ بعدی جای دیگری برود.
+ */
+function vbrResumableUpload_(folderId, name, spec) {
+  var tok = ScriptApp.getOAuthToken();
+  var total = Number(spec.size) || 0;
+  var parts = spec.parts || [];
+  if (!total || !parts.length) return { ok: false, why: 'تحویل اندازه یا تکه ندارد' };
+  var sum = 0;
+  for (var s0 = 0; s0 < parts.length; s0++) sum += Number(parts[s0].size) || 0;
+  if (sum !== total) return { ok: false, why: 'جمعِ تکه‌ها (' + sum + ') با اندازهٔ فایل (' + total + ') نمی‌خوانَد' };
+  var init = UrlFetchApp.fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true',
+    { method: 'post', contentType: 'application/json; charset=UTF-8',
+      payload: JSON.stringify({ name: name, parents: [String(folderId)],
+                                mimeType: 'application/octet-stream' }),
+      headers: { Authorization: 'Bearer ' + tok,
+                 'X-Upload-Content-Type': 'application/octet-stream',
+                 'X-Upload-Content-Length': String(total) },
+      muteHttpExceptions: true });
+  var c0 = init.getResponseCode();
+  if (c0 !== 200) {
+    return { ok: false, why: 'آغازِ بارگذاری: HTTP ' + c0 + ' ' +
+             String(init.getContentText() || '').slice(0, 120) +
+             (c0 === 403 ? ' — اسکوپِ درایو؟' : '') };
+  }
+  var hd = {};
+  try { hd = init.getAllHeaders(); } catch (eH) { try { hd = init.getHeaders(); } catch (eH2) { hd = {}; } }
+  var loc = hd.Location || hd.location || '';
+  if (loc instanceof Array) loc = loc[0];
+  if (!loc) return { ok: false, why: 'درایو نشانیِ نشستِ بارگذاری را نداد' };
+  var off = 0, last = null;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i] || {};
+    var got = UrlFetchApp.fetch(String(p.url || ''), { muteHttpExceptions: true, followRedirects: true });
+    if (got.getResponseCode() !== 200) {
+      return { ok: false, why: 'تکهٔ ' + (i + 1) + ' از گیت‌هاب: HTTP ' + got.getResponseCode() };
+    }
+    var sz = Number(p.size) || 0;
+    var end = off + sz - 1;
+    var put = UrlFetchApp.fetch(String(loc), {
+      method: 'put', contentType: 'application/octet-stream', payload: got.getBlob(),
+      headers: { 'Content-Range': 'bytes ' + off + '-' + end + '/' + total },
+      muteHttpExceptions: true, followRedirects: false });
+    var c = put.getResponseCode();
+    var lastPart = (i === parts.length - 1);
+    if (lastPart ? (c !== 200 && c !== 201) : c !== 308) {
+      return { ok: false, why: 'تکهٔ ' + (i + 1) + ' به درایو: HTTP ' + c + ' ' +
+               String(put.getContentText() || '').slice(0, 100) };
+    }
+    off = end + 1;
+    last = put;
+  }
+  var id = '';
+  try { id = String((JSON.parse(last.getContentText() || '{}') || {}).id || ''); } catch (eJ) { id = ''; }
+  if (!id) return { ok: false, why: 'درایو شناسهٔ فایلِ ساخته‌شده را نداد' };
+  /* ══ اثرانگشت از خودِ درایو، نه از امید ══
+     اندازهٔ درست با بایت‌های غلط هم ممکن است. `sha256Checksum` را درایو
+     خودش از بایت‌هایی که نشسته حساب می‌کند. نبودنش رد نیست (گاهی دیر
+     پر می‌شود) ولی گفته می‌شود؛ ناهمخوانی‌اش رد است. */
+  var meta = {};
+  try {
+    var mr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                               '?fields=size,sha256Checksum&supportsAllDrives=true',
+                               { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true });
+    if (mr.getResponseCode() === 200) meta = JSON.parse(mr.getContentText() || '{}') || {};
+  } catch (eM) { meta = {}; }
+  var bad = '';
+  if (meta.size != null && Number(meta.size) !== total) bad = 'اندازهٔ نشسته ' + meta.size + ' به‌جای ' + total;
+  else if (meta.sha256Checksum && spec.sha256 &&
+           String(meta.sha256Checksum).toLowerCase() !== String(spec.sha256).toLowerCase()) {
+    bad = 'اثرانگشتِ نشسته با تحویل یکی نیست';
+  }
+  if (bad) {
+    try { DriveApp.getFileById(id).setTrashed(true); } catch (eT) {}
+    return { ok: false, why: bad + ' — فایل به سطل رفت' };
+  }
+  return { ok: true, id: id, size: total, sha: String(meta.sha256Checksum || ''),
+           shaChecked: !!meta.sha256Checksum };
+}
+
+/** خطِ روزانهٔ مدل‌ها — فقط Script Properties، بی هیچ خواندنی (۷٫۶۳). */
+function vbrModelStatus_() {
+  var out = { fail: 0, recent: 0, line: '' };
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var fail = vbrModelPk_('VMODEL_FAIL'), have = vbrModelPk_('VMODEL_HAVE');
+  var L = [];
+  for (var k in fail) {
+    if (!Object.prototype.hasOwnProperty.call(fail, k)) continue;
+    out.fail++;
+    L.push('⚠️ مدلِ «' + String(fail[k].name || k) + '» هنوز از گیت‌هاب به درایو نیامده (' +
+           fa(fail[k].n) + ' تلاش): ' + String(fail[k].why || ''));
+  }
+  var miss = vbrModelPk_('VMODEL_MISSING');
+  for (var mk in miss) {
+    if (!Object.prototype.hasOwnProperty.call(miss, mk) || fail[mk]) continue;
+    out.fail++;
+    L.push('⚠️ گویندهٔ «' + String(miss[mk].name || mk) + '» آماده است ولی مدلش در «' +
+           String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» نیست — ' + String(miss[mk].why || '') +
+           '. تا سی روز پس از آموزش، artifactِ «voice-' + mk + '» در گیت‌هاب هست: دو فایلِ «' + mk +
+           '.pth» و «' + mk + '.index» را در همان پوشه بگذارید.');
+  }
+  var now = new Date().getTime();
+  for (var h in have) {
+    if (!Object.prototype.hasOwnProperty.call(have, h)) continue;
+    var t = Date.parse(String(have[h].at || '').replace(' ', 'T'));
+    if (isFinite(t) && now - t < 7 * 86400000) {
+      out.recent++;
+      L.push('مدلِ «' + h + '» خودکار به درایو آمد (' + String(have[h].at || '').slice(0, 10) + ').');
+    }
+  }
+  out.line = L.join(' · ');
+  return out;
+}
+
+/* ═══════════ نمونهٔ آزمونِ خودکار برای گویندهٔ تازه (۸.۴۱) ═══════════
+ *
+ * تا امروز نمونهٔ خودکار فقط برای گوینده‌هایی ساخته می‌شد که کسی دستی در
+ * `VOICE_SOUL_SEED` نوشته بود — یعنی هر گویندهٔ تازه یک نسخهٔ کد می‌خواست، یا
+ * تیک و دکمه. حالا هر گوینده‌ای که آماده شد **و** مدلش در «مدل‌های صدا»
+ * هست، خودش به فهرست می‌آید: با تحویلِ خودکار (`vbrModelAfter_`)، یا اگر
+ * مدل دستی گذاشته شد، با وارسیِ شبانه (`vbrSoulAutoScan_`). همان سدهای
+ * `runVoiceSoulTest` برقرارند و هیچ‌کدام دور زده نمی‌شود.
+ *
+ * فهرست یک بار برای هر گوینده است و هرگز خودبه‌خود پاک نمی‌شود؛ تکرار را
+ * همان سدِ صف می‌گیرد که `VOICE_SOUL_SEED` را می‌گیرد (۷٫۸۲: بی‌حالتِ تازه).
+ */
+var VBR_AUTO_SEED_TAG = 'نمونهٔ خودکارِ گویندهٔ تازه · مکث به اندازهٔ خودش';
+
+function vbrSoulAutoAdd_(key) {
+  if (CFG.VOICE_SOUL_AUTO === false) return false;
+  var k = String(key || '').trim();
+  if (!k) return false;
+  var m = vbrModelPk_('VSOUL_AUTO');
+  if (m[k]) return true;
+  m[k] = nowStr_();
+  try { props_().setProperty('VSOUL_AUTO', JSON.stringify(m)); } catch (e) { return false; }
+  return true;
+}
+
+/** بذرها — یک تعریف برای زمان‌بند و انتخاب‌گر: دستیِ CFG، به‌علاوهٔ خودکار. */
+function vbrSoulSeeds_() {
+  var out = (CFG.VOICE_SOUL_SEED || []).slice();
+  if (CFG.VOICE_SOUL_AUTO === false) return out;
+  var cfg = {};
+  for (var i = 0; i < out.length; i++) cfg[String((out[i] || {}).speaker || '').trim()] = 1;
+  var auto = vbrModelPk_('VSOUL_AUTO');
+  var keys = Object.keys(auto).sort();
+  for (var j = 0; j < keys.length; j++) {
+    if (cfg[keys[j]]) continue;              // دستی برنده است — برچسبش را او گذاشته
+    out.push({ speaker: keys[j], show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
+               tag: VBR_AUTO_SEED_TAG, auto: 1 });
+  }
+  return out;
+}
+
+/** شبانه: گویندهٔ آماده‌ای که مدلش (دستی یا خودکار) در درایو هست. */
+function vbrSoulAutoScan_(doc) {
+  var n = 0;
+  if (CFG.VOICE_SOUL_AUTO === false) return n;
+  var sp = doc && doc.speakers;
+  if (!sp || typeof sp !== 'object') return n;
+  var auto = vbrModelPk_('VSOUL_AUTO'), cfg = {};
+  var seeds = CFG.VOICE_SOUL_SEED || [];
+  for (var i = 0; i < seeds.length; i++) cfg[String((seeds[i] || {}).speaker || '').trim()] = 1;
+  var fold = null;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var s = sp[k] || {};
+    if (String(s.stage || '') !== 'آماده' || s.preexisting || auto[k] || cfg[k]) continue;
+    if (!fold) fold = vbrFolder_();
+    if (fold.getFilesByName(k + '.pth').hasNext() && vbrSoulAutoAdd_(k)) n++;
+  }
+  return n;
+}
+
 /** فایل‌های صوتیِ یک قسمت، مرتب — همان تعریفی که بخشِ ۲۷ دارد. */
 function vbrAudio_(folderId) {
   var out = [];
@@ -65099,6 +66024,13 @@ function vbrStatus_() {
                 out.queueId.want + ' می‌گردد ولی فایل حالا ' + out.queueId.got +
                 ' است. تا به‌روز نشدنِ VBR_QUEUE_ID هیچ قسمتی تبدیل نمی‌شود.';
   }
+  /* مدل‌های تحویلی (۸.۴۱) — فقط وقتی چیزی هست: شکست، یا رسیدنِ این هفته. */
+  try {
+    var ms = vbrModelStatus_();
+    out.models = ms;
+    if (ms.line) out.line += ' · ' + ms.line;
+    if (ms.fail) out.ok = false;
+  } catch (eMs) {}
   return out;
 }
 
@@ -65250,7 +66182,8 @@ function vbrBigCheck_(hub, st) {
  */
 function vbrSoulSeedDue_() {
   var out = { scheduled: false, why: '' };
-  var list = CFG.VOICE_SOUL_SEED || [];
+  /* دستی + خودکار (۸.۴۱) — همان تعریفی که `vbrSoulPick_` می‌خوانَد. */
+  var list = vbrSoulSeeds_();
   if (!list.length) return out;
 
   /* ══ زمان‌بند باید ارزان بماند — و نگارشِ اولم نبود ══
@@ -65374,6 +66307,12 @@ function vbrCollectHourly() {
   try { vbrSoulSeedDue_(); } catch (eSs) {
     try { logLine_('بذرِ نمونهٔ روح ناموفق: ' + eSs.message); } catch (eSsb) {}
   }
+  /* مدلِ گویندهٔ تازه (۸.۴۱): فقط زمان‌بندی — یک خواندنِ کوچکِ gitHub raw،
+     بی هاب. هر ساعت، چون هر ساعتِ انتظار یعنی یک ساعتِ دیگر مدل روی
+     لینکِ عمومی. */
+  try { vbrModelDropDue_(); } catch (eMd) {
+    try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
+  }
   try {
     var r = vbrIngest_(null);
     /* سیاهه فقط وقتی چیزی شد — سطرِ «۰ برداشته شد» ساعتی یک بار، یعنی
@@ -65493,6 +66432,9 @@ function vbrNightly_(hub) {
   catch (eS) { try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eS.message); } catch (eSb) {} }
   try { out.asked = vbrAskDue_(h); }
   catch (e2) { try { logLine_('درخواستِ پل نوشته نشد: ' + e2.message); } catch (e2b) {} }
+  /* مدلِ تحویلی، و گویندهٔ آماده‌ای که مدلش دستی آمد (۸.۴۱). */
+  try { out.models = vbrModelDropDue_({ scanManual: true }); }
+  catch (eMd) { try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {} }
   try {
     out.status = vbrStatus_();
     vbrStuckCheck_(h, out.status);
@@ -65993,7 +66935,7 @@ function vbrSoulPick_() {
        اگر موتور خودش روی تیک عمل کند، معنای آن ستون بی‌خبر عوض می‌شود.
        پس بذر مجموعهٔ **جداگانه**ای است و ردیفِ برگشتی می‌گوید کدام بود:
        فقط بذر به‌طور خودکار ساخته می‌شود. */
-    var sd = CFG.VOICE_SOUL_SEED || [];
+    var sd = vbrSoulSeeds_();
     for (var sdi = 0; sdi < sd.length; sdi++) {
       var se = sd[sdi] || {};
       if (String(se.speaker || '').trim() !== key) continue;
@@ -66304,10 +67246,18 @@ function runVoiceSoulTest() {
   var deadline = new Date().getTime() +
                  (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
   try {
+    /* سبکِ مکثِ همین گوینده (۸.۴۱) — همان تعریفِ قسمت‌ها: «مکث» به اندازهٔ
+       «میانِ بندها»ی خودش، و هر مکثی که گفتارساز کوتاه‌تر از اندازهٔ او
+       گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
+    var perS = { cue: pick.cue, name: pick.name, key: pick.key };
+    var pzS = null, gapsS = null;
+    try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
+    try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
     var pieces = (spanPlan.spans && spanPlan.spans.length)
-      ? speakSpanPieces_(txt, spanPlan.spans)
+      ? speakSpanPieces_(txt, spanPlan.spans, pzS && pzS.src !== 'پیش‌فرض' ? pzS.sec : 0)
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
     var accB64 = '', spanAt = [], bps = (Number(CFG.SAMPLE_RATE) || 24000) * 2;
+    var gy = { n: 0, add: 0, v: 0, t: 0 }, prevSpeech = false;
     for (var i = 0; i < pieces.length; i++) {
       if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
       var atSec = Math.round(((alignB64_(accB64).length / 4) * 3) / bps);
@@ -66315,6 +67265,7 @@ function runVoiceSoulTest() {
       if (pieces[i].pause) {
         accB64 += speakSilenceB64_(pieces[i].pause);
         spanAt.push({ k: 'مکث', s: atSec });
+        prevSpeech = false;
         continue;
       }
       if (pieces[i].k && (!i || pieces[i - 1].k !== pieces[i].k)) {
@@ -66356,7 +67307,22 @@ function runVoiceSoulTest() {
           lastAt.how = (!lastAt.how || lastAt.how === how) ? how : 'بخشی';
         }
       }
+      if (gapsS) {
+        try {
+          var gst = speakGapStretch_(b1, gapsS, speakSentSplit_(pieces[i].t).length);
+          if (gst) {
+            b1 = gst.b64; gy.v += gst.v; gy.t += gst.t;
+            if (gst.n) { gy.n += gst.n; gy.add += gst.add; }
+          }
+        } catch (eGs) {}
+        if (prevSpeech && gapsS.sent > 0) {
+          var ge = 0;
+          try { ge = speakGapEdge_(accB64, b1, gapsS.sent); } catch (eGe) { ge = 0; }
+          if (ge > 0) { accB64 += speakSilenceB64_(ge); gy.n++; gy.add += ge; }
+        }
+      }
       accB64 += alignB64_(b1);
+      prevSpeech = true;
     }
     if (!accB64) { res.why = 'پاسخِ صوتیِ خالی'; throw new Error(res.why); }
     var bytes = Utilities.base64Decode(
@@ -66390,6 +67356,13 @@ function runVoiceSoulTest() {
        شنونده نداند کجاست، قضاوت نمی‌شود. */
     spanLine = speakSpanWhere_(spanAt) ||
                ('حالت‌ها: هیچ — ' + String(spanPlan.why || 'نامعلوم'));
+    if (gapsS) {
+      try {
+        var styS = speakStyleSum_({ gaps: gapsS, by: pick.name }, gy);
+        var slS = speakStyleLine_(styS);
+        if (slS) spanLine += '\n' + slS;
+      } catch (eSl) {}
+    }
     tagO.spanLine = spanLine;
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''), tagO);

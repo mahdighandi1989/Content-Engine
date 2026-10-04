@@ -156,6 +156,433 @@ function vbrModel_(key) {
   return out;
 }
 
+/* ═══════════ مدلِ گویندهٔ تازه، خودکار به «مدل‌های صدا» (۸.۴۱) ═══════════
+ *
+ * او پرسید «یعنی من دارم چی رو بعد از سی روز از دست میدم؟». جوابِ راست:
+ * مدلِ هر گویندهٔ **تازه**، تا امروز. آموزش در گیت‌هاب تمام می‌شود و مدل در
+ * artifact می‌مانَد؛ artifact سی روز بعد پاک می‌شود و از Apps Script دانلود
+ * نمی‌شود. `vbrModel_` تا امروز فقط می‌توانست بگوید «دستی بگذاریدش» — و این
+ * پیام (۷٫۷۵) درست بود ولی کار را به او حواله می‌داد.
+ *
+ * حالا `voice-intake` مدل را تکه‌تکه و **موقتاً** در یک Release می‌گذارد و
+ * نشانی و اثرانگشتش را در `docs/voices.json` (`modelDrop`) می‌نویسد. موتور:
+ *   ۱) هر ساعت (و شبانه) می‌پرسد تحویلی منتظر هست یا نه — فقط زمان‌بندی،
+ *      چون برداشتنِ ۸۰ مگابایت جای تریگرِ ساعتیِ ارزان نیست (۶٫۳۷/۷٫۸۴).
+ *   ۲) در اجرای جدای خودش (`runVoiceModelFetch`) تکه‌ها را با «بارگذاریِ
+ *      ازسرگیری‌پذیرِ» درایو یکی می‌کند — چون یک فایلِ ۵۵ مگابایتی از سقفِ
+ *      ۵۰ مگابایتیِ هر پاسخ و هر blob بزرگ‌تر است — و **اثرانگشتِ کلِ فایل**
+ *      را از خودِ درایو می‌خوانَد و با `sha256`ِ تحویل مقایسه می‌کند.
+ *      ناهمخوان ⇒ فایل به سطل می‌رود؛ مدلِ خراب از مدلِ نبوده بدتر است، چون
+ *      «موجود» شمرده می‌شود و هر تبدیل را بی‌صدا خراب می‌کند (درسِ RIFFِ
+ *      `musicFetch_`: به چیزی که رسید نگاه کن، نه به اسمش).
+ *   ۳) «رسید» را در صفِ گویندگان می‌نویسد (`models`)، و `voicemodel.py
+ *      --clean` با همان تکه‌ها را از Release پاک می‌کند — قرینهٔ `dropCollected`.
+ *   ۴) همان گوینده را در فهرستِ نمونهٔ خودکار می‌گذارد: داستانِ آزمون با
+ *      صدای او ساخته و به تلگرام فرستاده می‌شود، بی هیچ تیکی.
+ *
+ * شکستِ پیاپی (`VBR_MODEL_TRY_MAX`) یافتهٔ کد است، با راهِ دستی در پیامش —
+ * چون مدلِ منتظر سقفِ زمان دارد و پس از آن از Release پاک می‌شود.
+ */
+var VBR_MD_WAIT = 'منتظرِ موتور';
+
+/** تحویل‌های منتظر در `docs/voices.json`: `[{key, name, md}]`. */
+function vbrModelDrops_(doc) {
+  var out = [];
+  var sp = doc && doc.speakers;
+  if (!sp || typeof sp !== 'object') return out;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var md = sp[k] && sp[k].modelDrop;
+    if (!md || md.state !== VBR_MD_WAIT || !md.pth || !(md.pth.parts || []).length) continue;
+    out.push({ key: String(k), name: String((sp[k] && sp[k].name) || k), md: md });
+  }
+  return out;
+}
+
+function vbrModelPk_(name) {
+  try {
+    var o = JSON.parse(props_().getProperty(name) || '{}');
+    return (o && typeof o === 'object' && !(o instanceof Array)) ? o : {};
+  } catch (e) { return {}; }
+}
+
+/** تحویلی که همین موتور قبلاً برداشته — با `drop` (زمانِ همان تحویل) نه فقط کلید. */
+function vbrModelTaken_(have, d) {
+  var h = have && have[d.key];
+  return !!(h && h.ok && String(h.drop || '') === String(d.md.at || ''));
+}
+
+/**
+ * زمان‌بندِ ارزان. `opt.doc` اگر خواننده از قبل دارد؛ `opt.scanManual` (فقط
+ * شبانه) گویندهٔ آماده‌ای را هم که مدلش **دستی** در درایو گذاشته شده، به
+ * فهرستِ نمونهٔ خودکار می‌برد.
+ */
+function vbrModelDropDue_(opt) {
+  opt = opt || {};
+  var out = { pending: 0, scheduled: false, why: '' };
+  if (CFG.VBR_ON === false || CFG.VBR_MODEL_AUTO === false) { out.why = 'خاموش (تصمیم)'; return out; }
+  var doc = opt.doc || null;
+  if (!doc) { try { doc = vintReadResult_(); } catch (eR) { doc = null; } }
+  if (!doc) { out.why = 'docs/voices.json خوانده نشد'; return out; }
+  if (opt.scanManual) { try { vbrSoulAutoScan_(doc); } catch (eA) {} }
+  var have = vbrModelPk_('VMODEL_HAVE');
+  var drops = vbrModelDrops_(doc).filter(function (d) { return !vbrModelTaken_(have, d); });
+  out.pending = drops.length;
+  /* ══ گویندهٔ آماده‌ای که مدلش نه در درایو است نه در راه ══
+     تحویلی که پیش از برداشتن منقضی شد (موتور سه روز نتوانست)، یا گوینده‌ای
+     که پیش از ۸.۴۱ آموزش دید و کسی مدلش را نیاورد. بی این شمارش، سکوت
+     همان «همه‌چیز سالم است» خوانده می‌شد. فقط شبانه، چون پیمایشِ پوشه است. */
+  if (opt.scanManual) { try { vbrModelMissingScan_(doc, drops); } catch (eM) {} }
+  if (!drops.length) return out;
+  var max = Math.max(1, Number(CFG.VBR_MODEL_TRY_DAY) || 4);
+  var today = String(nowStr_()).slice(0, 10), n = 0;
+  try {
+    var parts = String(props_().getProperty('VMODEL_DAY') || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+  try {
+    clearRetryTriggers_('runVoiceModelFetch');
+    ScriptApp.newTrigger('runVoiceModelFetch').timeBased().after(60 * 1000).create();
+    props_().setProperty('VMODEL_DAY', today + '|' + (n + 1));
+    out.scheduled = true;
+  } catch (eT) { out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60); }
+  return out;
+}
+
+/** گویندگانِ آماده (نه پیش‌ساخته) بی مدل در درایو و بی تحویلِ منتظر ⇒ `VMODEL_MISSING`. */
+function vbrModelMissingScan_(doc, drops) {
+  var sp = doc && doc.speakers, miss = {};
+  if (!sp || typeof sp !== 'object') return miss;
+  var wait = {};
+  for (var i = 0; i < (drops || []).length; i++) wait[drops[i].key] = 1;
+  var fold = null;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var s = sp[k] || {};
+    if (String(s.stage || '') !== 'آماده' || s.preexisting || wait[k]) continue;
+    if (!fold) fold = vbrFolder_();
+    if (fold.getFilesByName(k + '.pth').hasNext()) continue;
+    var md = s.modelDrop || null;
+    miss[k] = { name: String(s.name || k), why: md && md.state === 'منقضی'
+      ? 'تحویلش پیش از برداشتن منقضی شد (' + String(md.closedAt || md.at || '') + ')'
+      : 'هیچ تحویلی برایش نیامده' };
+  }
+  try { props_().setProperty('VMODEL_MISSING', JSON.stringify(miss)); } catch (e) {}
+  return miss;
+}
+
+/** اجرای جدا — نامِ خودش، تا پاک‌کردنش به تریگرِ روزانه نخورد. */
+function runVoiceModelFetch() {
+  runEnter_('runVoiceModelFetch');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('runVoiceModelFetch'); } catch (e0) {}
+    var r = vbrModelFetchAll_();
+    note = r.map(function (x) { return x.key + ':' + (x.ok ? 'رسید' : 'نشد'); }).join(' ');
+    return r;
+  } finally { runExit_('runVoiceModelFetch', note); }
+}
+
+function vbrModelFetchAll_() {
+  var res = [];
+  var doc = null;
+  try { doc = vintReadResult_(); } catch (eD) { doc = null; }
+  if (!doc) return res;
+  var have = vbrModelPk_('VMODEL_HAVE');
+  var drops = vbrModelDrops_(doc).filter(function (d) { return !vbrModelTaken_(have, d); });
+  var t0 = new Date().getTime();
+  var budget = Math.max(60000, Number(CFG.VBR_MODEL_BUDGET_MS) || 270000);
+  for (var i = 0; i < drops.length; i++) {
+    /* هر گوینده دست‌کم دو دقیقه وقت می‌خواهد؛ آنچه جا نشد، ساعتِ بعد. */
+    if (i > 0 && new Date().getTime() - t0 > budget - 120000) break;
+    var d = drops[i], r = null;
+    try { r = vbrModelFetchOne_(d); }
+    catch (e) { r = { ok: false, why: String((e && e.message) || e).slice(0, 160) }; }
+    r.key = d.key; r.name = d.name;
+    res.push(r);
+    vbrModelAfter_(d, r);
+  }
+  return res;
+}
+
+/** پس از هر تلاش: ثبت، خبر، صف، نمونه — یا شمارشِ شکست. */
+function vbrModelAfter_(d, r) {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var fail = vbrModelPk_('VMODEL_FAIL');
+  if (r.ok) {
+    var have = vbrModelPk_('VMODEL_HAVE');
+    have[d.key] = { ok: 1, at: nowStr_(), drop: String(d.md.at || ''),
+                    pth: Number(r.sizes && r.sizes.pth) || 0,
+                    index: Number(r.sizes && r.sizes.index) || 0 };
+    try { props_().setProperty('VMODEL_HAVE', JSON.stringify(have)); } catch (eS) {}
+    delete fail[d.key];
+    try { props_().setProperty('VMODEL_FAIL', JSON.stringify(fail)); } catch (eF) {}
+    /* «رسید» به صف، تا گیت‌هاب تکه‌ها را پاک کند — بی این، مدل تا سقفِ زمان
+       عمومی می‌ماند. بخشِ ۳۳ پیش از این است، پس فراخوان رو به عقب است. */
+    try { vintQueueModels_(have); }
+    catch (eQ) { try { logLine_('«رسید»ِ مدل در صفِ گویندگان نوشته نشد: ' + eQ.message); } catch (eQ2) {} }
+    var seeded = false;
+    try { seeded = vbrSoulAutoAdd_(d.key); } catch (eA) { seeded = false; }
+    var msg = '✅ مدلِ صدای «' + d.name + '» خودکار از گیت‌هاب به درایو آمد (پوشهٔ «' +
+              String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '»، ' + fa(Math.round((r.sizes.pth || 0) / 1048576)) +
+              ' مگابایت، اثرانگشتش با تحویل یکی بود). دیگر به artifactِ سی‌روزهٔ گیت‌هاب بند نیست.' +
+              (seeded ? '\nنمونهٔ آزمونش (داستانِ «ساعت‌ساز» با صدای او) در یکی دو ساعتِ آینده ' +
+                        'ساخته و همین‌جا فرستاده می‌شود.' : '') +
+              '\nروشن‌کردنِ ردیفش برای پادکست‌ها تصمیمِ شماست.';
+    try { mailQueue_('گویندهٔ تازه', 'مدلِ «' + d.name + '» به درایو آمد', msg); } catch (eM) {}
+    try { tgSend_(msg); } catch (eT) {}
+    try { logLine_('مدلِ «' + d.key + '» از تحویلِ ' + d.md.at + ' در درایو نشست.'); } catch (eL) {}
+    return;
+  }
+  var cur = fail[d.key] && String(fail[d.key].drop) === String(d.md.at) ? fail[d.key] : { n: 0 };
+  cur.n = (Number(cur.n) || 0) + 1;
+  cur.why = String(r.why || 'نامعلوم').slice(0, 200);
+  cur.at = nowStr_(); cur.drop = String(d.md.at || ''); cur.name = d.name;
+  fail[d.key] = cur;
+  try { props_().setProperty('VMODEL_FAIL', JSON.stringify(fail)); } catch (eF2) {}
+  try { logLine_('مدلِ «' + d.key + '» برداشته نشد (' + cur.n + '): ' + cur.why); } catch (eL2) {}
+  var max = Math.max(1, Number(CFG.VBR_MODEL_TRY_MAX) || 3);
+  if (cur.n === max) {
+    var hint = 'راهِ دستی تا وقتی تکه‌ها پاک نشده‌اند: از اجرای آموزشِ همین گوینده در گیت‌هاب ' +
+               '(artifactِ «voice-' + d.key + '») دو فایل را بردارید و با این نام‌ها در پوشهٔ «' +
+               String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» زیرِ OUTPUT بگذارید: «' + d.key +
+               '.pth» و «' + d.key + '.index».';
+    try {
+      logSelfFinding_(getHub_(), {
+        /* کلیدِ کوتاه: شناسهٔ ردیف بیش از ۲۴ نویسه را هش می‌کند، و آن‌وقت
+           بستنِ ردیف با نامِ کلید در `answers` (۷٫۴۸) ممکن نیست. */
+        priority: 'جدی', category: 'گویندهٔ تازه', key: 'vmodel-' + d.key,
+        title: 'مدلِ «' + d.name + '» ' + cur.n + ' بار از گیت‌هاب به درایو نیامد',
+        detail: 'آخرین علت: ' + cur.why + '. تحویل: ' + d.md.at + '. پس از سقفِ زمان، ' +
+                'تکه‌ها از Release پاک می‌شوند.',
+        instruction: 'علت را در `vbrResumableUpload_`/`vbrModelFetchOne_` پیدا کن (اسکوپِ درایو؟ ' +
+                     'سقفِ اندازه؟ اثرانگشتِ ناهمخوان؟). ' + hint,
+        owner: ROWNER_CODE
+      });
+    } catch (eF3) {}
+    var m2 = '⚠️ مدلِ صدای «' + d.name + '» سه بار از گیت‌هاب به درایو نیامد. علت: ' + cur.why +
+             '\n' + hint;
+    try { mailQueue_('گویندهٔ تازه', 'مدلِ «' + d.name + '» به درایو نیامد', m2); } catch (eM2) {}
+    try { tgSend_(m2); } catch (eT2) {}
+  }
+}
+
+/**
+ * یک گوینده: هر دو فایل، یکی‌یکی. فایلی که از قبل با همین اندازه در پوشه
+ * هست (مثلاً دستی گذاشته شده) دوباره بارگذاری نمی‌شود. فایلِ هم‌نامِ قدیمی
+ * (آموزشِ دوباره) فقط **پس از** وارسیِ فایلِ تازه به سطل می‌رود.
+ */
+function vbrModelFetchOne_(d) {
+  var fold = vbrFolder_();
+  var out = { ok: false, why: '', sizes: {} };
+  var kinds = ['pth', 'index'];
+  for (var i = 0; i < kinds.length; i++) {
+    var kind = kinds[i], spec = d.md[kind];
+    if (!spec) continue;
+    var name = d.key + '.' + kind;
+    var size = Number(spec.size) || 0;
+    var olds = [], it = fold.getFilesByName(name), same = null;
+    while (it.hasNext()) {
+      var f = it.next();
+      if (size && Number(f.getSize()) === size) same = f; else olds.push(f);
+    }
+    if (same) { out.sizes[kind] = size; continue; }
+    var up = vbrResumableUpload_(fold.getId(), name, spec);
+    if (!up.ok) { out.why = name + ': ' + up.why; return out; }
+    for (var j = 0; j < olds.length; j++) { try { olds[j].setTrashed(true); } catch (eO) {} }
+    out.sizes[kind] = up.size;
+  }
+  out.ok = !!out.sizes.pth;
+  if (!out.ok && !out.why) out.why = 'فایلِ .pth در تحویل نبود';
+  return out;
+}
+
+/**
+ * بارگذاریِ ازسرگیری‌پذیرِ درایو، تکه‌به‌تکه از نشانی‌های تحویل.
+ *
+ * چرا این راه: `DriveApp.createFile` یک blob می‌خواهد و blob سقفِ ۵۰ مگابایت
+ * دارد؛ مدل ۵۵ است. این API همان فایل را در چند درخواست می‌سازد و هیچ‌وقت
+ * کلِ فایل در حافظه نیست. هر تکه همان `Blob`ِ پاسخِ دانلود است — به آرایهٔ
+ * بایت تبدیل نمی‌شود، چون آرایهٔ ۳۲ میلیون‌عنصریِ جاوااسکریپت خودش حافظهٔ
+ * اجرا را می‌خورد.
+ *
+ * `followRedirects: false` روی PUT حیاتی است: درایو برای «ادامه بده» کدِ
+ * ۳۰۸ می‌دهد، و دنبال‌کردنش یعنی درخواستِ بعدی جای دیگری برود.
+ */
+function vbrResumableUpload_(folderId, name, spec) {
+  var tok = ScriptApp.getOAuthToken();
+  var total = Number(spec.size) || 0;
+  var parts = spec.parts || [];
+  if (!total || !parts.length) return { ok: false, why: 'تحویل اندازه یا تکه ندارد' };
+  var sum = 0;
+  for (var s0 = 0; s0 < parts.length; s0++) sum += Number(parts[s0].size) || 0;
+  if (sum !== total) return { ok: false, why: 'جمعِ تکه‌ها (' + sum + ') با اندازهٔ فایل (' + total + ') نمی‌خوانَد' };
+  var init = UrlFetchApp.fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true',
+    { method: 'post', contentType: 'application/json; charset=UTF-8',
+      payload: JSON.stringify({ name: name, parents: [String(folderId)],
+                                mimeType: 'application/octet-stream' }),
+      headers: { Authorization: 'Bearer ' + tok,
+                 'X-Upload-Content-Type': 'application/octet-stream',
+                 'X-Upload-Content-Length': String(total) },
+      muteHttpExceptions: true });
+  var c0 = init.getResponseCode();
+  if (c0 !== 200) {
+    return { ok: false, why: 'آغازِ بارگذاری: HTTP ' + c0 + ' ' +
+             String(init.getContentText() || '').slice(0, 120) +
+             (c0 === 403 ? ' — اسکوپِ درایو؟' : '') };
+  }
+  var hd = {};
+  try { hd = init.getAllHeaders(); } catch (eH) { try { hd = init.getHeaders(); } catch (eH2) { hd = {}; } }
+  var loc = hd.Location || hd.location || '';
+  if (loc instanceof Array) loc = loc[0];
+  if (!loc) return { ok: false, why: 'درایو نشانیِ نشستِ بارگذاری را نداد' };
+  var off = 0, last = null;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i] || {};
+    var got = UrlFetchApp.fetch(String(p.url || ''), { muteHttpExceptions: true, followRedirects: true });
+    if (got.getResponseCode() !== 200) {
+      return { ok: false, why: 'تکهٔ ' + (i + 1) + ' از گیت‌هاب: HTTP ' + got.getResponseCode() };
+    }
+    var sz = Number(p.size) || 0;
+    var end = off + sz - 1;
+    var put = UrlFetchApp.fetch(String(loc), {
+      method: 'put', contentType: 'application/octet-stream', payload: got.getBlob(),
+      headers: { 'Content-Range': 'bytes ' + off + '-' + end + '/' + total },
+      muteHttpExceptions: true, followRedirects: false });
+    var c = put.getResponseCode();
+    var lastPart = (i === parts.length - 1);
+    if (lastPart ? (c !== 200 && c !== 201) : c !== 308) {
+      return { ok: false, why: 'تکهٔ ' + (i + 1) + ' به درایو: HTTP ' + c + ' ' +
+               String(put.getContentText() || '').slice(0, 100) };
+    }
+    off = end + 1;
+    last = put;
+  }
+  var id = '';
+  try { id = String((JSON.parse(last.getContentText() || '{}') || {}).id || ''); } catch (eJ) { id = ''; }
+  if (!id) return { ok: false, why: 'درایو شناسهٔ فایلِ ساخته‌شده را نداد' };
+  /* ══ اثرانگشت از خودِ درایو، نه از امید ══
+     اندازهٔ درست با بایت‌های غلط هم ممکن است. `sha256Checksum` را درایو
+     خودش از بایت‌هایی که نشسته حساب می‌کند. نبودنش رد نیست (گاهی دیر
+     پر می‌شود) ولی گفته می‌شود؛ ناهمخوانی‌اش رد است. */
+  var meta = {};
+  try {
+    var mr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                               '?fields=size,sha256Checksum&supportsAllDrives=true',
+                               { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true });
+    if (mr.getResponseCode() === 200) meta = JSON.parse(mr.getContentText() || '{}') || {};
+  } catch (eM) { meta = {}; }
+  var bad = '';
+  if (meta.size != null && Number(meta.size) !== total) bad = 'اندازهٔ نشسته ' + meta.size + ' به‌جای ' + total;
+  else if (meta.sha256Checksum && spec.sha256 &&
+           String(meta.sha256Checksum).toLowerCase() !== String(spec.sha256).toLowerCase()) {
+    bad = 'اثرانگشتِ نشسته با تحویل یکی نیست';
+  }
+  if (bad) {
+    try { DriveApp.getFileById(id).setTrashed(true); } catch (eT) {}
+    return { ok: false, why: bad + ' — فایل به سطل رفت' };
+  }
+  return { ok: true, id: id, size: total, sha: String(meta.sha256Checksum || ''),
+           shaChecked: !!meta.sha256Checksum };
+}
+
+/** خطِ روزانهٔ مدل‌ها — فقط Script Properties، بی هیچ خواندنی (۷٫۶۳). */
+function vbrModelStatus_() {
+  var out = { fail: 0, recent: 0, line: '' };
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var fail = vbrModelPk_('VMODEL_FAIL'), have = vbrModelPk_('VMODEL_HAVE');
+  var L = [];
+  for (var k in fail) {
+    if (!Object.prototype.hasOwnProperty.call(fail, k)) continue;
+    out.fail++;
+    L.push('⚠️ مدلِ «' + String(fail[k].name || k) + '» هنوز از گیت‌هاب به درایو نیامده (' +
+           fa(fail[k].n) + ' تلاش): ' + String(fail[k].why || ''));
+  }
+  var miss = vbrModelPk_('VMODEL_MISSING');
+  for (var mk in miss) {
+    if (!Object.prototype.hasOwnProperty.call(miss, mk) || fail[mk]) continue;
+    out.fail++;
+    L.push('⚠️ گویندهٔ «' + String(miss[mk].name || mk) + '» آماده است ولی مدلش در «' +
+           String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» نیست — ' + String(miss[mk].why || '') +
+           '. تا سی روز پس از آموزش، artifactِ «voice-' + mk + '» در گیت‌هاب هست: دو فایلِ «' + mk +
+           '.pth» و «' + mk + '.index» را در همان پوشه بگذارید.');
+  }
+  var now = new Date().getTime();
+  for (var h in have) {
+    if (!Object.prototype.hasOwnProperty.call(have, h)) continue;
+    var t = Date.parse(String(have[h].at || '').replace(' ', 'T'));
+    if (isFinite(t) && now - t < 7 * 86400000) {
+      out.recent++;
+      L.push('مدلِ «' + h + '» خودکار به درایو آمد (' + String(have[h].at || '').slice(0, 10) + ').');
+    }
+  }
+  out.line = L.join(' · ');
+  return out;
+}
+
+/* ═══════════ نمونهٔ آزمونِ خودکار برای گویندهٔ تازه (۸.۴۱) ═══════════
+ *
+ * تا امروز نمونهٔ خودکار فقط برای گوینده‌هایی ساخته می‌شد که کسی دستی در
+ * `VOICE_SOUL_SEED` نوشته بود — یعنی هر گویندهٔ تازه یک نسخهٔ کد می‌خواست، یا
+ * تیک و دکمه. حالا هر گوینده‌ای که آماده شد **و** مدلش در «مدل‌های صدا»
+ * هست، خودش به فهرست می‌آید: با تحویلِ خودکار (`vbrModelAfter_`)، یا اگر
+ * مدل دستی گذاشته شد، با وارسیِ شبانه (`vbrSoulAutoScan_`). همان سدهای
+ * `runVoiceSoulTest` برقرارند و هیچ‌کدام دور زده نمی‌شود.
+ *
+ * فهرست یک بار برای هر گوینده است و هرگز خودبه‌خود پاک نمی‌شود؛ تکرار را
+ * همان سدِ صف می‌گیرد که `VOICE_SOUL_SEED` را می‌گیرد (۷٫۸۲: بی‌حالتِ تازه).
+ */
+var VBR_AUTO_SEED_TAG = 'نمونهٔ خودکارِ گویندهٔ تازه · مکث به اندازهٔ خودش';
+
+function vbrSoulAutoAdd_(key) {
+  if (CFG.VOICE_SOUL_AUTO === false) return false;
+  var k = String(key || '').trim();
+  if (!k) return false;
+  var m = vbrModelPk_('VSOUL_AUTO');
+  if (m[k]) return true;
+  m[k] = nowStr_();
+  try { props_().setProperty('VSOUL_AUTO', JSON.stringify(m)); } catch (e) { return false; }
+  return true;
+}
+
+/** بذرها — یک تعریف برای زمان‌بند و انتخاب‌گر: دستیِ CFG، به‌علاوهٔ خودکار. */
+function vbrSoulSeeds_() {
+  var out = (CFG.VOICE_SOUL_SEED || []).slice();
+  if (CFG.VOICE_SOUL_AUTO === false) return out;
+  var cfg = {};
+  for (var i = 0; i < out.length; i++) cfg[String((out[i] || {}).speaker || '').trim()] = 1;
+  var auto = vbrModelPk_('VSOUL_AUTO');
+  var keys = Object.keys(auto).sort();
+  for (var j = 0; j < keys.length; j++) {
+    if (cfg[keys[j]]) continue;              // دستی برنده است — برچسبش را او گذاشته
+    out.push({ speaker: keys[j], show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
+               tag: VBR_AUTO_SEED_TAG, auto: 1 });
+  }
+  return out;
+}
+
+/** شبانه: گویندهٔ آماده‌ای که مدلش (دستی یا خودکار) در درایو هست. */
+function vbrSoulAutoScan_(doc) {
+  var n = 0;
+  if (CFG.VOICE_SOUL_AUTO === false) return n;
+  var sp = doc && doc.speakers;
+  if (!sp || typeof sp !== 'object') return n;
+  var auto = vbrModelPk_('VSOUL_AUTO'), cfg = {};
+  var seeds = CFG.VOICE_SOUL_SEED || [];
+  for (var i = 0; i < seeds.length; i++) cfg[String((seeds[i] || {}).speaker || '').trim()] = 1;
+  var fold = null;
+  for (var k in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, k)) continue;
+    var s = sp[k] || {};
+    if (String(s.stage || '') !== 'آماده' || s.preexisting || auto[k] || cfg[k]) continue;
+    if (!fold) fold = vbrFolder_();
+    if (fold.getFilesByName(k + '.pth').hasNext() && vbrSoulAutoAdd_(k)) n++;
+  }
+  return n;
+}
+
 /** فایل‌های صوتیِ یک قسمت، مرتب — همان تعریفی که بخشِ ۲۷ دارد. */
 function vbrAudio_(folderId) {
   var out = [];
@@ -1163,6 +1590,13 @@ function vbrStatus_() {
                 out.queueId.want + ' می‌گردد ولی فایل حالا ' + out.queueId.got +
                 ' است. تا به‌روز نشدنِ VBR_QUEUE_ID هیچ قسمتی تبدیل نمی‌شود.';
   }
+  /* مدل‌های تحویلی (۸.۴۱) — فقط وقتی چیزی هست: شکست، یا رسیدنِ این هفته. */
+  try {
+    var ms = vbrModelStatus_();
+    out.models = ms;
+    if (ms.line) out.line += ' · ' + ms.line;
+    if (ms.fail) out.ok = false;
+  } catch (eMs) {}
   return out;
 }
 
@@ -1314,7 +1748,8 @@ function vbrBigCheck_(hub, st) {
  */
 function vbrSoulSeedDue_() {
   var out = { scheduled: false, why: '' };
-  var list = CFG.VOICE_SOUL_SEED || [];
+  /* دستی + خودکار (۸.۴۱) — همان تعریفی که `vbrSoulPick_` می‌خوانَد. */
+  var list = vbrSoulSeeds_();
   if (!list.length) return out;
 
   /* ══ زمان‌بند باید ارزان بماند — و نگارشِ اولم نبود ══
@@ -1438,6 +1873,12 @@ function vbrCollectHourly() {
   try { vbrSoulSeedDue_(); } catch (eSs) {
     try { logLine_('بذرِ نمونهٔ روح ناموفق: ' + eSs.message); } catch (eSsb) {}
   }
+  /* مدلِ گویندهٔ تازه (۸.۴۱): فقط زمان‌بندی — یک خواندنِ کوچکِ gitHub raw،
+     بی هاب. هر ساعت، چون هر ساعتِ انتظار یعنی یک ساعتِ دیگر مدل روی
+     لینکِ عمومی. */
+  try { vbrModelDropDue_(); } catch (eMd) {
+    try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
+  }
   try {
     var r = vbrIngest_(null);
     /* سیاهه فقط وقتی چیزی شد — سطرِ «۰ برداشته شد» ساعتی یک بار، یعنی
@@ -1557,6 +1998,9 @@ function vbrNightly_(hub) {
   catch (eS) { try { logLine_('درخواستِ بذرِ پل ناموفق: ' + eS.message); } catch (eSb) {} }
   try { out.asked = vbrAskDue_(h); }
   catch (e2) { try { logLine_('درخواستِ پل نوشته نشد: ' + e2.message); } catch (e2b) {} }
+  /* مدلِ تحویلی، و گویندهٔ آماده‌ای که مدلش دستی آمد (۸.۴۱). */
+  try { out.models = vbrModelDropDue_({ scanManual: true }); }
+  catch (eMd) { try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {} }
   try {
     out.status = vbrStatus_();
     vbrStuckCheck_(h, out.status);
@@ -2057,7 +2501,7 @@ function vbrSoulPick_() {
        اگر موتور خودش روی تیک عمل کند، معنای آن ستون بی‌خبر عوض می‌شود.
        پس بذر مجموعهٔ **جداگانه**ای است و ردیفِ برگشتی می‌گوید کدام بود:
        فقط بذر به‌طور خودکار ساخته می‌شود. */
-    var sd = CFG.VOICE_SOUL_SEED || [];
+    var sd = vbrSoulSeeds_();
     for (var sdi = 0; sdi < sd.length; sdi++) {
       var se = sd[sdi] || {};
       if (String(se.speaker || '').trim() !== key) continue;
@@ -2368,10 +2812,18 @@ function runVoiceSoulTest() {
   var deadline = new Date().getTime() +
                  (Number(CFG.STYLE_PROBE_BUDGET_MS) || 240000);
   try {
+    /* سبکِ مکثِ همین گوینده (۸.۴۱) — همان تعریفِ قسمت‌ها: «مکث» به اندازهٔ
+       «میانِ بندها»ی خودش، و هر مکثی که گفتارساز کوتاه‌تر از اندازهٔ او
+       گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
+    var perS = { cue: pick.cue, name: pick.name, key: pick.key };
+    var pzS = null, gapsS = null;
+    try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
+    try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
     var pieces = (spanPlan.spans && spanPlan.spans.length)
-      ? speakSpanPieces_(txt, spanPlan.spans)
+      ? speakSpanPieces_(txt, spanPlan.spans, pzS && pzS.src !== 'پیش‌فرض' ? pzS.sec : 0)
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
     var accB64 = '', spanAt = [], bps = (Number(CFG.SAMPLE_RATE) || 24000) * 2;
+    var gy = { n: 0, add: 0, v: 0, t: 0 }, prevSpeech = false;
     for (var i = 0; i < pieces.length; i++) {
       if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
       var atSec = Math.round(((alignB64_(accB64).length / 4) * 3) / bps);
@@ -2379,6 +2831,7 @@ function runVoiceSoulTest() {
       if (pieces[i].pause) {
         accB64 += speakSilenceB64_(pieces[i].pause);
         spanAt.push({ k: 'مکث', s: atSec });
+        prevSpeech = false;
         continue;
       }
       if (pieces[i].k && (!i || pieces[i - 1].k !== pieces[i].k)) {
@@ -2420,7 +2873,22 @@ function runVoiceSoulTest() {
           lastAt.how = (!lastAt.how || lastAt.how === how) ? how : 'بخشی';
         }
       }
+      if (gapsS) {
+        try {
+          var gst = speakGapStretch_(b1, gapsS, speakSentSplit_(pieces[i].t).length);
+          if (gst) {
+            b1 = gst.b64; gy.v += gst.v; gy.t += gst.t;
+            if (gst.n) { gy.n += gst.n; gy.add += gst.add; }
+          }
+        } catch (eGs) {}
+        if (prevSpeech && gapsS.sent > 0) {
+          var ge = 0;
+          try { ge = speakGapEdge_(accB64, b1, gapsS.sent); } catch (eGe) { ge = 0; }
+          if (ge > 0) { accB64 += speakSilenceB64_(ge); gy.n++; gy.add += ge; }
+        }
+      }
       accB64 += alignB64_(b1);
+      prevSpeech = true;
     }
     if (!accB64) { res.why = 'پاسخِ صوتیِ خالی'; throw new Error(res.why); }
     var bytes = Utilities.base64Decode(
@@ -2454,6 +2922,13 @@ function runVoiceSoulTest() {
        شنونده نداند کجاست، قضاوت نمی‌شود. */
     spanLine = speakSpanWhere_(spanAt) ||
                ('حالت‌ها: هیچ — ' + String(spanPlan.why || 'نامعلوم'));
+    if (gapsS) {
+      try {
+        var styS = speakStyleSum_({ gaps: gapsS, by: pick.name }, gy);
+        var slS = speakStyleLine_(styS);
+        if (slS) spanLine += '\n' + slS;
+      } catch (eSl) {}
+    }
     tagO.spanLine = spanLine;
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''), tagO);

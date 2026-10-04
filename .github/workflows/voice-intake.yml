@@ -59,8 +59,20 @@ jobs:
           VI_EPOCHS: '32'
         run: python3 tools/voiceintake.py --plan
 
+      # ══ مدلِ تحویل‌شده عمومی نمی‌مانَد (۸.۴۱) ══
+      # مدلِ گویندهٔ تازه تکه‌تکه در Releaseِ «voice-model-drop» گذاشته می‌شود
+      # تا موتور برش دارد (پایین، در `measure`). این گام هر شش ساعت هر تکه‌ای
+      # را که موتور گفته «رسید» یا بیش از سقفِ زمان مانده، پاک می‌کند —
+      # همان `dropCollected`ِ پلِ صدا. بی صفِ خوانا هم سقفِ زمان اجرا می‌شود.
+      - name: پاک‌کردنِ مدل‌های برداشته‌شده
+        id: mclean
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VOICE_QUEUE_ID: '1NoVT_J1-KQ_e4fyhc4VqbDf3Xy0FcZH5'
+        run: python3 tools/voicemodel.py --clean
+
       - name: ثبتِ حالت در ریپو
-        if: steps.plan.outputs.changed == 'true'
+        if: steps.plan.outputs.changed == 'true' || steps.mclean.outputs.changed == 'true'
         run: |
           set -euo pipefail
           if git diff --quiet -- docs/voices.json; then
@@ -320,6 +332,25 @@ jobs:
           path: docs/voice-samples/${{ needs.plan.outputs.measure }}
           retention-days: 1
           if-no-files-found: warn
+
+      # ══ مدل خودکار به درایو می‌رود (۸.۴۱) ══
+      # artifact سی روز بعد پاک می‌شود و از بیرونِ Actions دانلود نمی‌شود؛ تا
+      # امروز صاحبِ برنامه باید دستی دو فایل را به «مدل‌های صدا» می‌برد. حالا
+      # تکه‌ها موقتاً در Release می‌نشینند، موتور هر ساعت سر می‌زند و با
+      # اثرانگشتِ کلِ فایل وارسی‌شان می‌کند، و `--clean` پس از برداشتن پاکشان
+      # می‌کند. نشانی‌ها در همان `docs/voices.json` می‌روند که گامِ بعد کامیت
+      # می‌کند — پس تحویل و ثبت یک کامیت‌اند.
+      - name: تحویلِ مدل به موتور
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEY: ${{ needs.plan.outputs.measure }}
+        run: |
+          set -euo pipefail
+          if [ -f model.index ]; then
+            python3 tools/voicemodel.py --drop "$KEY" model.pth model.index
+          else
+            python3 tools/voicemodel.py --drop "$KEY" model.pth
+          fi
 
       - name: ثبتِ نتیجه
         env:

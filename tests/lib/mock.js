@@ -652,7 +652,7 @@ global.UrlFetchApp = {
       return { getResponseCode: () => 200, getBlob: () => blob,
                getContentText: () => 'PNG' };
     }
-    let r = global.__STUB(url, body);
+    let r = global.__STUB(url, body, opt);
     /* ══ بدَلِ مدل به اندازهٔ مدلِ واقعی سخت‌گیر است (۸.۲۶) ══
        مدلِ ساختاریافته **فقط فیلدهای schemaی فرستاده‌شده** را می‌تواند
        بنویسد. بدَلی که هر فیلدی را برگرداند، قراردادی را سبز نشان می‌دهد که
@@ -663,7 +663,12 @@ global.UrlFetchApp = {
     // پاسخ می‌تواند json بدهد یا متنِ خام (برای شبیه‌سازیِ خطاهای واقعیِ API)
     const txt = (r && typeof r.text === 'string') ? r.text : JSON.stringify(r && r.json);
     // پاسخِ دودویی (دانلودِ موسیقی): اگر بایت داده شده باشد، getBlob هم هست
+    /* سرآیندها (۸.۴۱): بارگذاریِ ازسرگیری‌پذیرِ درایو نشانیِ نشست را در
+       `Location` می‌دهد. بدَلی که سرآیند نداشته باشد، آن مسیر را هرگز
+       نمی‌پیماید. */
+    const hdr = (r && r.headers) || {};
     return { getResponseCode: () => r.code,
+             getAllHeaders: () => hdr, getHeaders: () => hdr,
              getBlob: () => (r && r.bytes
                ? global.Utilities.newBlob(r.bytes, r.mime || 'audio/wav', 'x')
                : global.Utilities.newBlob(txt || '', 'text/plain', 'x')),

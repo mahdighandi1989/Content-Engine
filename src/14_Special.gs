@@ -2525,6 +2525,7 @@ function renderSpecialAudioStep_() {
     try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
     try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
     try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
+    try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }

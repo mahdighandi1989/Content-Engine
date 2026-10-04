@@ -36,6 +36,18 @@ global.__PROPS['GEMINI_API_KEY'] = 'TEST';
 global.__PROPS['TELEGRAM_BOT_TOKEN'] = '1:FAKE'; global.__PROPS['TELEGRAM_CHAT_ID'] = '-100';
 
 /* ── بدَل‌ها ── */
+/* PCMِ ۲۴ کیلوهرتزی: عددِ مثبت = ثانیه‌های گفتار (موجِ مربعی)، منفی = سکوت.
+   طولِ هر تکه مضربِ ۳ نمونه، تا با `alignB64_` هم‌تراز بماند. */
+function pcmGaps(spec) {
+  const sr = 24000, parts = [];
+  for (const v of spec) {
+    const n = Math.round(Math.abs(v) * sr / 3) * 3;
+    const b = Buffer.alloc(n * 2);
+    if (v > 0) for (let i = 0; i < n; i++) b.writeInt16LE((i % 40) < 20 ? 3000 : -3000, i * 2);
+    parts.push(b);
+  }
+  return Buffer.concat(parts);
+}
 const PIN = CFG.TTS_MODEL_PIN || 'gemini-3.1-flash-tts-preview';
 const tg = []; const plannerPrompts = []; const ttsBodies = []; let listens = 0;
 /* پاسخِ برنامه‌ریزِ حالت: شماره‌ها از خودِ پرامپت می‌آیند، پس جوابی که بیرون
@@ -76,6 +88,10 @@ global.__STUB = function (url, body) {
   }
   if (url.indexOf('tts') !== -1) {
     ttsBodies.push(body);
+    /* `ttsShape = 'gaps'` (۸.۴۱): گفتار با دو مکثِ کوتاه وسطش — یکی ۰٫۱۲ و
+       یکی ۰٫۲۰ ثانیه — تا کشیدنِ مکث به اندازهٔ گوینده از درِ تولید سنجیده
+       شود. پیش‌فرض همان موجِ پیوستهٔ همیشه است. */
+    if (global.__TTS_SHAPE === 'gaps') return { code: 200, json: { candidates: [{ content: { parts: [{ inlineData: { data: pcmGaps([1.5, -0.12, 1.5, -0.2, 1.8]).toString('base64') } }] } }] } };
     const b = Buffer.alloc(240000); for (let i = 0; i < b.length; i += 2) b.writeInt16LE(((i / 2) % 40) < 20 ? 3000 : -3000, i);
     return { code: 200, json: { candidates: [{ content: { parts: [{ inlineData: { data: b.toString('base64') } }] } }] } };
   }
@@ -372,6 +388,126 @@ console.log('\n=== ۹) بازبینی خاموش، حالت‌ها نه ===');
   const m9 = JSON.parse(lastFolder().getBlob().getDataAsString()).ep.__moods;
   ok('۹.۱ بازبینیِ خاموش، حالت‌ها را خاموش نکرد', !!(m9 && m9.done) && plannerPrompts.length === n0 + 1,
      m9 ? 'پرسش ' + m9.asked : 'نقشه نیست');
+}
+
+console.log('\n=== ۱۰) ۸.۴۱: فایلِ خوانای «حالت‌ها و نشانه‌ها»، و مکث به اندازهٔ گوینده ===');
+{
+  /* ── ۱۰.۱ تا ۱۰.۵: همان قسمتِ بخشِ ۱، از درِ تولید ── */
+  const fold = epFile._f;
+  const mf = fold._files.find(f => /— حالت‌ها و نشانه‌ها\.txt$/.test(f.getName()));
+  ok('۱۰.۱ فایلِ «حالت‌ها و نشانه‌ها» کنارِ «متن صوتی» در پوشهٔ همان قسمت نشست',
+     !!mf && fold._files.some(f => /متن صوتی \(اعراب‌گذاری کامل\)\.txt$/.test(f.getName())),
+     mf ? mf.getName() : fold._files.map(f => f.getName()).join(' | '));
+  const txt = mf ? mf.getBlob().getDataAsString() : '';
+  /* «چرا»ی مدل همان است که بدَلِ برنامه‌ریز داد — تا ۸.۴۰ دور ریخته می‌شد. */
+  ok('۱۰.۲ «چرا»ی مدل برای هر حالت ثبت است', /چرا: نرم/.test(txt) && /چرا: نتیجه/.test(txt) &&
+     /چرا: ضربه/.test(txt), (txt.match(/چرا: [^\n]*/g) || []).join(' · '));
+  const tA = ((rec.line || '').match(/آرام ([۰-۹]+:[۰-۹]{2})/) || [])[1];
+  ok('۱۰.۳ ثانیهٔ هر حالت همان است که کارنامه و ایمیل می‌گویند (از رویدادِ صداسازی)',
+     !!tA && txt.indexOf(tA + ' · آرام') !== -1, tA + ' ↔ ' + ((txt.match(/[۰-۹]+:[۰-۹]{2} · آرام/) || [])[0] || 'نیست'));
+  ok('۱۰.۳-ب جملهٔ خودِ حالت، و «چطور» ساخته شد، کنارِ آن',
+     /* متن همان اعراب‌دارِ خوانده‌شده است (بدَلِ اعراب‌گذار پس از هر حرف فتحه می‌گذارد). */
+     (txt.match(/\n   «[^»\n]+»/g) || []).length === rec.got && /چطور: در خودِ صدا/.test(txt) && /چطور: سکوتِ واقعی/.test(txt),
+     (txt.match(/چطور: [^\n]*/g) || []).slice(0, 3).join(' · '));
+  ok('۱۰.۳-پ شمارِ حالت‌ها در فایل = شمارِ نشسته در کارنامه',
+     new RegExp('— ' + faDigitsOut_(String(rec.got)) + ' حالت در صدا —').test(txt), 'کارنامه ' + rec.got);
+  const sp = fold._files.find(f => /متن صوتی \(اعراب‌گذاری کامل\)\.txt$/.test(f.getName()));
+  const spT = sp ? sp.getBlob().getDataAsString() : '';
+  ok('۱۰.۴ «متن صوتی» دست نخورد — هیچ برچسب و دلیلی در متنی که به گفتارساز می‌رود نیست',
+     spT.length > 0 && spT.indexOf('چرا:') === -1 && !/«(آرام|کشیده|مکث)»/.test(spT));
+  ok('۱۰.۵ بی کارتِ گوینده، صدا عیناً همان: هیچ سکوتی افزوده نشد و فایل «صدای پیش‌فرض» می‌گوید',
+     times.every(x => !x.g && !x.gs && !x.gv) && /صدای پیش‌فرضِ برنامه/.test(txt) && txt.indexOf('سبکِ مکثِ') === -1);
+
+  /* ── ۱۰.۶/۱۰.۷: حالتی که ننشست، و قسمتِ بی‌نقشه ── */
+  const epL = { __moods: { done: true, by: '', pause: 0.9, pauseSrc: 'پیش‌فرض', why: [],
+    segs: [{ s: [{ a: 1, b: 1, k: 'آرام', t: 'جملهٔ نشسته.', w: 'نرم' },
+                 { a: 3, b: 3, k: 'کشیده', t: 'جملهٔ گم‌شده.', w: 'تأکید' }] }] } };
+  const tL = speakMoodFileText_(epL, [{ i: 0, at: 0, k: 't', mo: 'آرام', h: 'صدا', ms: '0:1' }], 'آزمون');
+  ok('۱۰.۶ حالتِ برنامه‌ریزی‌شده‌ای که ننشست، جدا و با نام می‌آید — نه با ثانیهٔ ساختگی',
+     /— ۱ حالت در صدا —/.test(tL) && /— ۱ حالتِ برنامه‌ریزی‌شده که در صدا ننشست —/.test(tL) &&
+     /کشیده · بخشِ ۱ — «جملهٔ گم‌شده\.»/.test(tL) && !/[۰-۹]:[۰-۹]{2} · کشیده/.test(tL));
+  ok('۱۰.۷ قسمتِ بی‌نقشه هم فایل می‌گیرد و همین را می‌گوید', /نقشهٔ حالت ندارد/.test(speakMoodFileText_({}, [], 'x')));
+
+  /* ── ۱۰.۸: عددهای کارت ── */
+  const card = 'متعادل بخوان: حدودِ 79 درصدِ زمان حرف بزن و بقیه را سکوت. در دلِ جمله 0.30 ثانیه، ' +
+               'میانِ دو جمله 0.60، و میانِ بندها 1.1. تأکید را با مکث و کشش بساز.';
+  const g = speakStyleGaps_({ name: 'گلدوز', cue: card });
+  ok('۱۰.۸ عددهای مکث از کارتِ خودِ او', g && g.inS === 0.3 && g.sent === 0.6 && g.para === 1.1 && g.talk === 79,
+     JSON.stringify(g));
+  const gFa = speakStyleGaps_({ name: 'ر', cue: 'در دلِ جمله ۰٫۲۵ و میانِ دو جمله ۰٫۷' });
+  ok('۱۰.۸-ب رقم و ممیزِ فارسی؛ و عددی که در کارت نیست، صفر می‌مانَد نه حدس',
+     gFa && gFa.inS === 0.25 && gFa.sent === 0.7 && gFa.para === 0, JSON.stringify(gFa));
+  ok('۱۰.۸-پ کارتِ بی‌عدد ⇒ هیچ (صدای گفتارساز دست نمی‌خورد)', speakStyleGaps_({ cue: 'گرم و صمیمی بخوان.' }) === null);
+  ok('۱۰.۸-ت عددِ پرت هدف نمی‌سازد', speakStyleGaps_({ cue: 'میانِ دو جمله 9' }) === null);
+  { const k0 = CFG.SPEAK_STYLE_GAPS; CFG.SPEAK_STYLE_GAPS = false;
+    const off = speakStyleGaps_({ cue: card }); CFG.SPEAK_STYLE_GAPS = k0;
+    ok('۱۰.۸-ث کلیدِ خاموش یعنی خاموش', off === null); }
+
+  /* ── ۱۰.۹ تا ۱۰.۱۲: کشیدن روی صدای ساختگیِ معلوم ── */
+  const b64 = pcmGaps([1, -0.15, 1, -0.35, 1]).toString('base64');
+  const r = speakGapStretch_(b64, { inS: 0.3, sent: 0.6 }, 2);
+  const secOf = x => Buffer.from(x, 'base64').length / 48000;
+  const d0 = secOf(b64), d1 = secOf(r.b64);
+  /* بلندتر = مرزِ جمله (۰٫۳۵ ⇒ ۰٫۶۰، +۰٫۲۵)، کوتاه‌تر = درونِ جمله (۰٫۱۵ ⇒ ۰٫۳۰، +۰٫۱۵). */
+  ok('۱۰.۹ مکث‌های درونِ تکه تا اندازهٔ او کشیده شدند: +۰٫۴۰ ثانیه، در دو جا',
+     r.n === 2 && Math.abs((d1 - d0) - 0.40) < 0.02 && Math.abs(r.add - 0.40) < 0.02,
+     (d1 - d0).toFixed(3) + ' ثانیه، ' + r.n + ' جا');
+  const nz = x => { const B = Buffer.from(x, 'base64'); let n = 0; for (let i = 0; i < B.length; i += 2) if (B.readInt16LE(i) !== 0) n++; return n; };
+  ok('۱۰.۹-ب هیچ نمونهٔ گفتاری کم یا زیاد نشد — فقط سکوت افزوده شد', nz(b64) === nz(r.b64), nz(b64) + ' / ' + nz(r.b64));
+  const rLong = speakGapStretch_(pcmGaps([1, -0.8, 1]).toString('base64'), { inS: 0.3, sent: 0.6 }, 2);
+  ok('۱۰.۱۰ هرگز کوتاه نمی‌کند: مکثِ ۰٫۸ ثانیه‌ای با هدفِ ۰٫۶ دست نخورد', rLong.n === 0 && rLong.add === 0);
+  const rCap = speakGapStretch_(pcmGaps([0.6, -0.13, 0.6, -0.13, 0.6, -0.13, 0.6]).toString('base64'),
+                                { inS: 0.8, sent: 1.5 }, 1);
+  ok('۱۰.۱۱ سقف: سکوتِ افزوده از ۲۵٪ِ طولِ تکه نمی‌گذرد', rCap.add <= 0.25 * (2.4 + 0.39) + 0.02, rCap.add);
+  const edge = speakGapEdge_(pcmGaps([1, -0.1]).toString('base64'), pcmGaps([-0.05, 1]).toString('base64'), 0.6);
+  ok('۱۰.۱۲ مرزِ دو تکه: سکوتِ موجود (۰٫۱۰ + ۰٫۰۵) شمرده می‌شود و فقط کمبود افزوده', Math.abs(edge - 0.45) < 0.02, edge);
+  ok('۱۰.۱۲-ب مرزی که از قبل به اندازه است، چیزی نمی‌گیرد',
+     speakGapEdge_(pcmGaps([1, -0.5]).toString('base64'), pcmGaps([-0.3, 1]).toString('base64'), 0.6) === 0);
+
+  /* ── ۱۰.۱۳: از درِ تولید، با گوینده‌ای که کارتِ سنجیده دارد ── */
+  personaSeed_();
+  const pt = personaTab_(hub), pv = pt.getRange(2, 1, pt.getLastRow() - 1, PERSONA_HEADERS.length).getValues();
+  const pr0 = pv.findIndex(x => String(x[PC.KEY - 1]) === 'razavi') + 2;
+  pt.getRange(pr0, PC.ON).setValue('بله');
+  pt.getRange(pr0, PC.SHOWS).setValue('');
+  pt.getRange(pr0, PC.EVERY).setValue('');
+  pt.getRange(pr0, PC.STYLE).setValue(card);
+  global.__TTS_SHAPE = 'gaps';
+  global.__MAIL.length = 0;
+  try { runEpisode(); } finally { global.__TTS_SHAPE = ''; }
+  const ep13 = lastFolder();
+  const M13 = JSON.parse(ep13.getBlob().getDataAsString()).ep.__moods;
+  const tF13 = ep13._f._files.find(f => f.getName() === (CFG.EP_TIMES_FILE || '_times.json'));
+  const T13 = JSON.parse(tF13.getBlob().getDataAsString()).times;
+  ok('۱۰.۱۳ عددهای کارتِ گوینده یک بار در نقشهٔ قسمت نشستند', !!(M13 && M13.gaps && M13.gaps.sent === 0.6 &&
+     M13.gaps.para === 1.1), M13 ? JSON.stringify(M13.gaps) : 'نقشه نیست');
+  const gIn = T13.filter(x => x.gs > 0), gEd = T13.filter(x => x.g > 0);
+  ok('۱۰.۱۳-ب در صدای واقعیِ قسمت هم درونِ تکه‌ها کشیده شد و هم مرزِ تکه‌ها', gIn.length >= 2 && gEd.length >= 1,
+     'درون ' + gIn.length + ' · مرز ' + gEd.length);
+  ok('۱۰.۱۳-پ مرزِ بخشِ تازه «میانِ بندها»ی او را گرفت (۱٫۱)، مرزِ جمله «میانِ دو جمله» (۰٫۶) — هیچ‌کدام بیش از هدف',
+     gEd.every(x => x.g <= 1.1 + 1e-9) && gEd.some(x => x.g > 0.6 + 1e-9), gEd.map(x => x.g).join(','));
+  const L13 = JSON.parse(global.__PROPS[PK.SPEAK_MOODS] || '[]').pop() || {};
+  ok('۱۰.۱۳-ت کارنامه «سهمِ گفتار» را پیش و پس می‌گوید، کنارِ عددِ خودِ او',
+     !!(L13.sty && L13.sty.n > 0 && L13.sty.t1 < L13.sty.t0 && L13.sty.his === 79), JSON.stringify(L13.sty));
+  /* درونِ تکه سهمِ گفتار زیرِ عددِ خودِ او نمی‌رود؛ مرزِ بخش‌ها و جمله‌ها
+     (۱٫۱ و ۰٫۶) جدا افزوده می‌شوند، پس کلِ قسمت کمی پایین‌تر از «درون» است. */
+  const inner13 = T13.filter(x => x.gv).map(x => x.gv[0] / (x.gv[1] + (x.gs || 0) * 100));
+  /* این ویژگی است، نه سدِ سقف: صدای بدَلِ این قسمت آن‌قدر پرگفتار است که
+     سقفِ ۲۵٪ هم زیرِ ۷۹ نمی‌بَردش، و شکستنِ سقفِ «سهمِ گفتار» این‌جا سبز
+     ماند (B8). خودِ سقف را ۱۰.۱۳-ت-پ روی صدای معلوم می‌سنجد. */
+  ok('۱۰.۱۳-ت-ب در این قسمت سهمِ گفتارِ هر تکه پس از کشیدن ≥ ۷۹٪',
+     inner13.length > 0 && inner13.every(v => v >= 0.79 - 0.005), inner13.map(v => Math.round(v * 100)).join(','));
+  const rTalk = speakGapStretch_(pcmGaps([1, -0.12, 1, -0.12, 1]).toString('base64'), { inS: 0.6, sent: 0.6, talk: 90 }, 1);
+  ok('۱۰.۱۳-ت-پ و همین روی صدای معلوم: سقف از «سهمِ گفتارِ» او می‌آید نه از ۲۵٪',
+     Math.abs(rTalk.add - (3 / 0.9 - 3.24)) < 0.03, rTalk.add);
+  const mf13 = ep13._f._files.find(f => /— حالت‌ها و نشانه‌ها\.txt$/.test(f.getName()));
+  const tx13 = mf13 ? mf13.getBlob().getDataAsString() : '';
+  ok('۱۰.۱۳-ث فایلِ خوانا سبکِ مکثِ او را با عدد می‌گوید', /سبکِ مکثِ /.test(tx13) && /مکث‌ها به اندازهٔ /.test(tx13) &&
+     /خودش ۷۹٪/.test(tx13), (tx13.match(/مکث‌ها به اندازهٔ[^\n]*/) || [''])[0]);
+  const mail13 = global.__MAIL.find(m => /^🎧/.test(String(m.subject || '')));
+  ok('۱۰.۱۳-ج سطرِ 🎭 ایمیل هم', !!(mail13 && mail13.htmlBody.indexOf('مکث‌ها به اندازهٔ') !== -1));
+  ok('۱۰.۱۳-چ سطرِ روزانه هم', /مکث‌ها به اندازهٔ/.test(speakMoodStatus_().line), speakMoodStatus_().line.slice(0, 120));
+  pt.getRange(pr0, PC.ON).setValue('خیر');
 }
 
 console.log('\n=== ۸) سیم‌کشی و ناظر ===');
