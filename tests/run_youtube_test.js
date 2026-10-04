@@ -5964,4 +5964,108 @@ console.log('\n=== ۷۲) مدلِ تصویر با کیفیت هم انتخاب �
   global.__PROPS[PK.LV_GEN_MODEL] = '';
 }
 
+console.log('\n=== ۷۳) پرسشِ تصویرِ افسارگسیخته دورِ انتشار را نمی‌کُشد (۸.۳۴) ===');
+{
+  /* ۴ اکتبر، دورِ انتشارِ ۰۸:۵۷: شش فراخوانِ تصویرِ درسِ ۶۰، هر کدام ۸۸ تا ۱۴۵
+     هزار نویسه — رشته‌ای که بسته نشد — و هر کدام نزدیکِ یک دقیقه. نقشه ۱ از ۱۵
+     ماند و `ytPublishTick` سرِ سقفِ شش‌دقیقه کشته شد. سه سد، هر کدام جدا. */
+  const secs = [];
+  for (let i = 0; i < 5; i++) secs.push({ heading: 'بخشِ ' + (i + 1),
+    narration: 'این جمله دربارهٔ معرفت است و شرط‌هایش را می‌گوید. '.repeat(30) });
+  const mk = () => ({ show: 'special', epRaw: '73', showName: 'درس‌نامه', title: 'سه شرطِ معرفت',
+                      seriesName: 'معرفت‌شناسی', duration: '15:00', headings: secs.map(x => x.heading),
+                      sections: secs, totalSec: 900, sources: [] });
+  const isVis = (body) => String(body.contents[0].parts[0].text).indexOf('تو طراحِ تصویرهای ویدئوی') !== -1;
+  let seen = [];
+  const spy = (thin) => function (url, body) {
+    if (url.indexOf(':generateContent') !== -1 && body && body.generationConfig) {
+      const sc = body.generationConfig.responseSchema || {};
+      seen.push({ mx: Number(body.generationConfig.maxOutputTokens) || 0, vis: isVis(body),
+                  meta: !!(sc.properties && sc.properties.title) });
+      if (thin && sc.properties && sc.properties.title) {
+        const r = BASE_STUB(url, body);
+        const j = JSON.parse(r.json.candidates[0].content.parts[0].text); j.visuals = [];
+        r.json.candidates[0].content.parts[0].text = JSON.stringify(j);
+        return r;
+      }
+    }
+    return BASE_STUB(url, body);
+  };
+
+  /* ۷۳.۱ — سقفِ دقیق: کفِ به‌خاطرسپردهٔ مدل (۳۲۷۶۸) بالایش نمی‌برد. شاهدِ مقابل
+     هم سنجیده می‌شود، وگرنه «۸۱۹۲ رسید» ممکن بود فقط یعنی کف اصلاً نبود. */
+  const mdl = textModel_();
+  const floorWas = modelTokFloor_(mdl);
+  rememberTokFloor_(mdl, 32768);
+  global.__STUB = spy(false);
+  seen = []; ytVisAsk_(mk()); const askMx = (seen.filter(x => x.vis)[0] || {}).mx;
+  seen = []; ytMetaModel_(mk()); const metaMx = (seen.filter(x => x.meta)[0] || {}).mx;
+  seen = []; try { geminiText_('آزمونِ کف', { type: 'object', properties: { v: { type: 'string' } } }, 8192); } catch (eG) {}
+  const plainMx = (seen[0] || {}).mx;
+  ok('۷۳.۱ پرسشِ تصویر و متنِ یوتیوب با سقفِ خودشان می‌روند، نه با کفِ ۳۲۷۶۸ — و فراخوانِ عادی هنوز کف را می‌گیرد',
+     askMx === 8192 && metaMx === 16384 && plainMx === 32768,
+     'تصویر ' + askMx + ' · متن ' + metaMx + ' · عادی ' + plainMx);
+
+  /* ۷۳.۲ — پرسشِ یک بخش سقفِ کوچک‌ترِ خودش را دارد. */
+  global.__STUB = spy(false);
+  seen = [];
+  const planS = { visuals: [] };
+  ytVisSecAsk_(null, planS, mk());
+  const secMx = seen.filter(x => x.vis).map(x => x.mx);
+  ok('۷۳.۲ هر پرسشِ بخش با سقفِ ۶۱۴۴ می‌رود',
+     secMx.length > 0 && secMx.every(m => m === 6144), JSON.stringify(secMx));
+  if (floorWas) rememberTokFloor_(mdl, floorWas); else forgetTokFloor_(mdl);
+
+  /* ۷۳.۳ — مهلتِ دور پیش از **هر** پرسش؛ بخشی که وقتش نرسید «پرسیده‌شده» نمی‌ماند. */
+  global.__STUB = spy(false);
+  seen = [];
+  const deadWas = _ytRunDeadline;
+  _ytRunDeadline = new Date().getTime() + 20000;          // کمتر از بدترین زمانِ یک پرسش
+  const planL = { visuals: [] };
+  const nL = ytVisSecAsk_(null, planL, mk());
+  const markedL = Object.keys(planL.visSec || {}).length;
+  const thL = ytVisThicken_(null, planL, mk());
+  _ytRunDeadline = deadWas;
+  ok('۷۳.۳ وقتِ دور تمام ⇒ هیچ پرسشی نمی‌رود، و نه بخشی «پرسیده‌شده» ثبت می‌شود نه تلاشی شمرده',
+     seen.length === 0 && nL === 0 && markedL === 0 && thL === false && !planL.visAsk,
+     seen.length + ' فراخوان · ' + markedL + ' بخشِ ثبت‌شده · visAsk ' + JSON.stringify(planL.visAsk || null));
+
+  /* ۷۳.۴ — در حالتِ صحنه، نقشهٔ **تازه** کارت‌ها را دوباره نمی‌پرسد؛ بی آن، می‌پرسد. */
+  const f73 = DriveApp.__register('EP73', 'قسمت 0073');
+  const askVis = (sceneMode) => {
+    global.__STUB = spy(true);
+    seen = [];
+    const c = mk(); c.sceneMode = sceneMode;
+    ytPlan_(f73, c, true);
+    return seen.filter(x => x.vis).length;
+  };
+  const visScene = askVis(true), visCards = askVis(false);
+  ok('۷۳.۴ نقشهٔ نحیف در حالتِ صحنه هیچ پرسشِ کارتی نمی‌کند؛ در حالتِ کارت می‌کند',
+     visScene === 0 && visCards > 0, 'صحنه ' + visScene + ' · کارت ' + visCards);
+
+  /* ۷۳.۵ — و این حالت **پیش از** نقشه از درِ خودِ `ytUploadOne_` می‌رسد. */
+  const planWas = global.ytPlan_, genWas = global.lvGenOn_;
+  let sawMode = 'نرسید';
+  global.ytPlan_ = function (folder, ctx) { sawMode = ctx.sceneMode; return null; };
+  global.lvGenOn_ = () => true;
+  const e73 = DriveApp.__register('EPU73', 'قسمت 0273');
+  e73.createFile(Utilities.newBlob(JSON.stringify({ lesson: 5, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+    ep: { title: 'سه شرطِ معرفت', hook: 'قلاب', summary: 'خلاصه', sections: secs } }),
+    'application/json', '_special.json'));
+  e73.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(20000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+  const svcWas73 = global.YouTube; global.YouTube = {};
+  try { ytUploadOne_({ key: 'special:273', show: 'special', ep: '273', folderId: 'EPU73',
+                       series: 'معرفت‌شناسی' }, null, []); } catch (eU) { sawMode = 'خطا: ' + eU.message; }
+  const onMode = sawMode;
+  const scWas = CFG.LV_SCENES; CFG.LV_SCENES = false; sawMode = 'نرسید';
+  try { ytUploadOne_({ key: 'special:273', show: 'special', ep: '273', folderId: 'EPU73',
+                       series: 'معرفت‌شناسی' }, null, []); } catch (eU2) { sawMode = 'خطا: ' + eU2.message; }
+  const offMode = sawMode;
+  CFG.LV_SCENES = scWas; global.YouTube = svcWas73;
+  global.ytPlan_ = planWas; global.lvGenOn_ = genWas;
+  global.__STUB = BASE_STUB;
+  ok('۷۳.۵ `ytUploadOne_` حالتِ صحنه را پیش از ساختنِ نقشه به آن می‌دهد',
+     onMode === true && offMode === false, 'روشن ' + onMode + ' · خاموش ' + offMode);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.33
+ *  موتور محتوا و پادکست — نسخهٔ 8.34
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -985,6 +985,13 @@ var CFG = {
    * `LV_VIS_RETRY_MAX`: نقشهٔ نحیف چند بار با یک فراخوانِ **فقط تصویر**
    *   دوباره پرسیده شود. یک بار؛ بیشتر یعنی هر شب پول برای همان جوابِ بد. */
   YT_META_TOKENS: 16384,
+  /* سقفِ دقیقِ پرسش‌های فقط-تصویر (۸.۳۴). ۴ اکتبر هر شش فراخوانِ تصویرِ درسِ ۶۰
+     ۸۸ تا ۱۴۵ هزار نویسه دادند — رشته‌ای که بسته نشد — و هر کدام نزدیکِ یک دقیقه
+     خورد، چون سقف ۱۶۳۸۴ بود و کفِ به‌خاطرسپردهٔ مدل بالاترش هم می‌برد. نقشهٔ
+     کاملِ ۱۵ تصویر چند هزار توکن است، یک بخش چند صد. */
+  YT_VIS_TOKENS: 8192,
+  YT_VIS_SEC_TOKENS: 6144,
+  YT_VIS_ASK_MIN_MS: 60000,     // بدترین زمانِ یک پرسشِ تصویر؛ کمتر مانده ⇒ دورِ بعد
   YT_VIS_NARR_MAX: 24000,
   LV_VIS_RETRY_MAX: 1,
   YT_MARK: true,
@@ -1640,7 +1647,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.33',
+  CODE_VERSION: '8.34',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -4026,7 +4033,7 @@ function emptyWhy_(j) {
   return w;
 }
 
-function geminiText_(prompt, schema, maxTokens) {
+function geminiText_(prompt, schema, maxTokens, opt) {
   var model = textModel_();
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
             model + ':generateContent?key=' + encodeURIComponent(apiKey_());
@@ -4048,7 +4055,12 @@ function geminiText_(prompt, schema, maxTokens) {
   // و اگر قبلاً فهمیده‌ایم این مدل سقفِ بالاتری لازم دارد، از همان اول بالا برو.
   // ولی نه روی فراخوان‌های عمداً کوچک: آن‌ها متنِ کوتاه می‌خواهند و بالا بردنِ
   // سقفشان فقط ریسکِ ردِ ۴۰۰ را می‌آورد.
-  var floor = modelTokFloor_(model);
+  /* `opt.exact` (۸.۳۴): سقفی که فراخوانَنده **عمداً** گذاشته تا یک جوابِ
+     افسارگسیخته وقتش را نخورد، با کفِ به‌خاطرسپرده بالا نمی‌رود. ۴ اکتبر شش
+     فراخوانِ تصویرِ درسِ ۶۰ هر کدام ۸۸ تا ۱۴۵ هزار نویسه «جواب» دادند — رشته‌ای
+     که هرگز بسته نشد — هر کدام نزدیکِ یک دقیقه، و `ytPublishTick` سرِ سقفِ
+     شش‌دقیقه کشته شد. سقفِ بالاتر آن‌جا یعنی فقط دقیقهٔ بیشتر برای همان بیهودگی. */
+  var floor = (opt && opt.exact) ? 0 : modelTokFloor_(model);
   if (floor > (Number(gen.maxOutputTokens) || 0) && (Number(gen.maxOutputTokens) || 0) >= 4096) {
     gen.maxOutputTokens = floor;
   }
@@ -15564,7 +15576,10 @@ function healthCheck() {
           'کنید و متنِ خطا را بخوانید. اگر «Service Spreadsheets timed out» ' +
           'بود، یعنی مسیری هست که هنوز از `sheetsRetry_` نمی‌گذرد. مهرِ ' +
           'ناتمام با اجرای بعدیِ همان تابع خودبه‌خود پاک می‌شود، پس ردیفِ ' +
-          'تکرارشونده یعنی هر بار می‌میرد — نه یک بارِ گذشته.'
+          'تکرارشونده یعنی هر بار می‌میرد — نه یک بارِ گذشته. ' +
+          'و پیش از Executions، سیاههٔ خودِ موتور در همان دقیقه‌ها را بخوانید: ' +
+          'سطرهای «ناقص برگشت و ترمیم شد» با ده‌ها هزار نویسه یعنی فراخوانِ مدلی ' +
+          'که افسار گسیخت و هر کدام یک دقیقه خورد — علتِ ۴ اکتبر (۸.۳۴) همین بود.'
       });
     } else notes.push(rs.line);
   } catch (eRs) {}
@@ -42853,7 +42868,7 @@ function ytMetaPrompt_(ctx) {
 function ytMetaModel_(ctx) {
   try {
     var r = geminiText_(ytMetaPrompt_(ctx), YT_META_SCHEMA,
-                        Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384));
+                        Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384), { exact: true });
     if (r && r.title) return r;
   } catch (e) { logLine_('متنِ یوتیوب از مدل نیامد: ' + e.message); }
   return null;
@@ -43055,8 +43070,15 @@ function ytVisSecAsk_(folder, plan, ctx) {
   todo = todo.slice(0, lim);
   for (var t0 = 0; t0 < todo.length; t0++) done[String(todo[t0].s)] = { asked: todo[t0].gap, got: 0, at: nowStr_() };
   if (folder) ytPlanWrite_(folder, plan);              // پیش از کار
-  var added = [];
+  var added = [], late = 0;
   for (var t = 0; t < todo.length; t++) {
+    /* مهلتِ این دور پیش از **هر** پرسش (۸.۳۴): بخشی که وقتش نرسید «پرسیده‌شده»
+       ثبت نمی‌ماند، تا دورِ بعد بپرسدش — نه اینکه برای همیشه کنار برود. */
+    if (!ytVisTimeOk_()) {
+      for (var tl = t; tl < todo.length; tl++) delete done[String(todo[tl].s)];
+      late = todo.length - t;
+      break;
+    }
     var raw = null;
     try {
       var L = [];
@@ -43069,7 +43091,10 @@ function ytVisSecAsk_(folder, plan, ctx) {
       for (var k = 0; k < vl.length; k++) L.push(vl[k]);
       var schema = { type: 'object', properties: { visuals: YT_META_SCHEMA.properties.visuals },
                      required: ['visuals'] };
-      var r = geminiText_(L.join('\n'), schema, Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384));
+      /* یک بخش، دو سه مورد: چند صد توکن. سقفِ کوچک و دقیق یعنی جوابِ افسارگسیخته
+         چند ثانیه می‌خورد نه یک دقیقه (۸.۳۴). */
+      var r = geminiText_(L.join('\n'), schema, Math.max(2048, Number(CFG.YT_VIS_SEC_TOKENS) || 6144),
+                          { exact: true });
       if (r && Array.isArray(r.visuals)) raw = r.visuals;
     } catch (eS) { logLine_('پرسشِ تصویرِ بخشِ ' + todo[t].s + ' نشد: ' + eS.message); }
     var got = 0;
@@ -43088,8 +43113,9 @@ function ytVisSecAsk_(folder, plan, ctx) {
     var cap = Math.max(1, Number(CFG.LV_MAX_PER_EP) || 40);
     plan.visuals = ytVisFill_(merged, ctx, st, { noAuto: true }).slice(0, cap);
   }
-  logLine_('تصویرهای قسمتِ ' + String((ctx && ctx.epRaw) || '') + ': ' + todo.length +
-           ' بخشِ کم‌مانده جدا پرسیده شد ⇒ ' + added.length + ' مورد.');
+  logLine_('تصویرهای قسمتِ ' + String((ctx && ctx.epRaw) || '') + ': ' + (todo.length - late) +
+           ' بخشِ کم‌مانده جدا پرسیده شد ⇒ ' + added.length + ' مورد.' +
+           (late ? ' ' + late + ' بخش ماند برای دورِ بعد — وقتِ این دور کافی نبود.' : ''));
   if (folder) ytPlanWrite_(folder, plan);
   return added.length;
 }
@@ -43116,7 +43142,8 @@ function ytVisAsk_(ctx) {
     var schema = { type: 'object',
                    properties: { visuals: YT_META_SCHEMA.properties.visuals },
                    required: ['visuals'] };
-    var r = geminiText_(L.join('\n'), schema, Math.max(4096, Number(CFG.YT_META_TOKENS) || 16384));
+    var r = geminiText_(L.join('\n'), schema, Math.max(4096, Number(CFG.YT_VIS_TOKENS) || 8192),
+                        { exact: true });
     if (r && Array.isArray(r.visuals)) return r.visuals;
   } catch (e) { logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + e.message); }
   return null;
@@ -47867,6 +47894,18 @@ function ytPublicGate_(key, m) {
 var YT_APPROVED_ = null;
 /** مهلتِ دورِ جاریِ انتشار (ms از ۱۹۷۰)؛ صفر یعنی «نامعلوم». */
 var _ytRunDeadline = 0;
+
+/**
+ * آیا در این دورِ انتشار هنوز وقتِ یک فراخوانِ دیگرِ مدل هست؟ (۸.۳۴)
+ * بیرون از دور (منو، بازسازی) مهلتی نیست و همیشه «بله». `YT_VIS_ASK_MIN_MS`
+ * بدترین زمانِ یک پرسشِ تصویر با سقفِ دقیقش است؛ تا ۸.۳۳ هیچ پرسشی این را
+ * نمی‌پرسید و دورِ ۱۵۰ ثانیه‌ای شش دقیقه می‌دوید تا کشته شود.
+ */
+function ytVisTimeOk_() {
+  if (!(_ytRunDeadline > 0)) return true;
+  var need = Math.max(10000, Number(CFG.YT_VIS_ASK_MIN_MS) || 60000);
+  return new Date().getTime() + need <= _ytRunDeadline;
+}
 /** کلیدهای تأییدشده از `docs/yt-approve.json` — یک خواندن در هر اجرا. */
 function ytApproved_() {
   if (YT_APPROVED_) return YT_APPROVED_;
@@ -48815,13 +48854,21 @@ function ytPlan_(folder, ctx, redo) {
                       perSec: Number(vs0.perSec) || 0, kept: (plan.visuals || []).length,
                       repaired: !!(mm && mm.__repaired) };
   } catch (eVm) {}
-  try { ytVisThicken_(folder, plan, ctx); } catch (eTk) {
-    logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eTk.message);
-  }
-  /* بخشِ کم‌مانده یک بار جدا پرسیده می‌شود (۸.۳۰)، و آنچه باز هم کم ماند از
-     خودِ روایت پر می‌شود (۸.۲۹). ترتیب عمدی است: کارتِ طراحی‌شده اول. */
-  try { ytVisSecAsk_(folder, plan, ctx); } catch (eSa) {
-    logLine_('پرسشِ بخش‌به‌بخشِ تصویرها نشد: ' + eSa.message);
+  /* ══ در حالتِ صحنه، کارت‌ها دوباره پرسیده نمی‌شوند (۸.۳۴) ══
+     ۸.۳۱ این را برای نقشهٔ **ذخیره‌شده** نوشت و نقشهٔ **تازه** را جا انداخت:
+     همین‌جا هر درس دو تا هشت فراخوانِ دیگر برای کارت‌هایی می‌کرد که صحنه‌ها
+     جایشان را می‌گیرند — همان فراخوان‌هایی که ۴ اکتبر افسار گسیختند و دورِ
+     انتشار را کشتند. پرکردن از روایت (بی مدل) همچنان می‌مانَد: اگر صحنه‌ها
+     نشد و به کارت افتاد، کارت‌ها نحیف نیستند. */
+  if (ctx.sceneMode !== true) {
+    try { ytVisThicken_(folder, plan, ctx); } catch (eTk) {
+      logLine_('پرسشِ دوبارهٔ تصویرها نشد: ' + eTk.message);
+    }
+    /* بخشِ کم‌مانده یک بار جدا پرسیده می‌شود (۸.۳۰)، و آنچه باز هم کم ماند از
+       خودِ روایت پر می‌شود (۸.۲۹). ترتیب عمدی است: کارتِ طراحی‌شده اول. */
+    try { ytVisSecAsk_(folder, plan, ctx); } catch (eSa) {
+      logLine_('پرسشِ بخش‌به‌بخشِ تصویرها نشد: ' + eSa.message);
+    }
   }
   try { ytVisFillPlan_(plan, ctx); } catch (eFl) {
     logLine_('پرکردنِ نقشهٔ تصویر نشد: ' + eFl.message);
@@ -48874,6 +48921,12 @@ function ytVisThicken_(folder, plan, ctx) {
   if (!isFinite(lim)) lim = 1;
   var tries = Number((plan.visAsk || {}).n) || 0;
   if (tries >= lim) return false;
+  /* وقت نیست ⇒ تلاش شمرده نمی‌شود و دورِ بعد می‌پرسد (۸.۳۴). */
+  if (!ytVisTimeOk_()) {
+    logLine_('پرسشِ دوبارهٔ تصویرهای قسمتِ ' + String(ctx.epRaw || '') +
+             ' به دورِ بعد ماند — وقتِ این دور کافی نبود.');
+    return false;
+  }
   plan.visAsk = { n: tries + 1, at: nowStr_(), asked: asked, before: have, after: have, raw: 0 };
   if (folder) ytPlanWrite_(folder, plan);              // پیش از کار
   var raw = ytVisAsk_(ctx);
@@ -48979,6 +49032,11 @@ function ytUploadOne_(item, hub, pub) {
               // سهمِ نویسهٔ هر گوینده، همان‌طور که موقعِ نقش‌گزینی ثبت شد
               castSpans: ((ep.__cast || {}).spans) || [],
               sections: ep.sections || [], totalSec: totalSec };
+  /* حالتِ صحنه پیش از نقشه، از تخته (بی `look`ِ مدل که هنوز نیامده): فقط برای
+     اینکه نقشه کارت‌ها را بیهوده دوباره نپرسد. سطحِ «خودکار» این‌جا پیش‌فرض
+     می‌گیرد؛ اگر مدل بعداً «خاموش» بگوید، پرکردن از روایت هنوز هست. */
+  try { ctx.sceneMode = lvSceneOn_(item.show, lvLevelAt_(hub, item, meta, null)); }
+  catch (eSm0) { ctx.sceneMode = false; }
   var plan = ytPlan_(folder, ctx, false);
   if (!plan) { res.why = 'مدل عنوان و کپشن نداد'; return res; }
   /* نقشهٔ ذخیره‌شده‌ای که نحیف است و هنوز اثری دارد (ویدئو نه ساخته شده نه

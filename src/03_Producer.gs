@@ -187,7 +187,7 @@ function emptyWhy_(j) {
   return w;
 }
 
-function geminiText_(prompt, schema, maxTokens) {
+function geminiText_(prompt, schema, maxTokens, opt) {
   var model = textModel_();
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
             model + ':generateContent?key=' + encodeURIComponent(apiKey_());
@@ -209,7 +209,12 @@ function geminiText_(prompt, schema, maxTokens) {
   // و اگر قبلاً فهمیده‌ایم این مدل سقفِ بالاتری لازم دارد، از همان اول بالا برو.
   // ولی نه روی فراخوان‌های عمداً کوچک: آن‌ها متنِ کوتاه می‌خواهند و بالا بردنِ
   // سقفشان فقط ریسکِ ردِ ۴۰۰ را می‌آورد.
-  var floor = modelTokFloor_(model);
+  /* `opt.exact` (۸.۳۴): سقفی که فراخوانَنده **عمداً** گذاشته تا یک جوابِ
+     افسارگسیخته وقتش را نخورد، با کفِ به‌خاطرسپرده بالا نمی‌رود. ۴ اکتبر شش
+     فراخوانِ تصویرِ درسِ ۶۰ هر کدام ۸۸ تا ۱۴۵ هزار نویسه «جواب» دادند — رشته‌ای
+     که هرگز بسته نشد — هر کدام نزدیکِ یک دقیقه، و `ytPublishTick` سرِ سقفِ
+     شش‌دقیقه کشته شد. سقفِ بالاتر آن‌جا یعنی فقط دقیقهٔ بیشتر برای همان بیهودگی. */
+  var floor = (opt && opt.exact) ? 0 : modelTokFloor_(model);
   if (floor > (Number(gen.maxOutputTokens) || 0) && (Number(gen.maxOutputTokens) || 0) >= 4096) {
     gen.maxOutputTokens = floor;
   }
