@@ -728,7 +728,11 @@ var CFG = {
     { key: 'youtube', name: 'انتشار در یوتیوب', at: 'youtube', sw: 'YT_ENABLED' },
     { key: 'lesson-visuals', name: 'تصویرسازیِ درس‌نامه', at: 'lessonVisuals', sw: 'LV_ENABLED' },
     { key: 'explain', name: 'عصری‌سازیِ درس‌نامه', at: 'explain', sw: 'EXPLAIN_ENABLED' },
-    { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG' },
+    /* `due`: قابلیتی که فقط وقتی کاری رسیده اثر می‌گذارد (۸.۳۵). مرور یک بار برای
+       هر مجموعه ساخته می‌شود؛ ۲۵ روز بی‌اثری وقتی هیچ مروری در صف نیست، «سالم»
+       است نه «بی‌اثر». */
+    { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG',
+      due: 'queued' },
     { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED' },
     { key: 'embed', name: 'اثرِانگشتِ معناییِ بانک', at: 'embed', sw: 'EMB_ON' },
     { key: 'voice-intake', name: 'پذیرشِ گویندهٔ تازه', at: 'voiceIntake' },
@@ -1563,7 +1567,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.34',
+  CODE_VERSION: '8.35',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2530,6 +2534,7 @@ var PK = {
   LV_SCENE_MORE: 'LV_SCENE_MORE_DAY', // شمارِ اجرای یک‌بارهٔ ادامهٔ صحنه‌ها، امروز
   LV_SCENE_LEASE: 'LV_SCENE_LEASE',   // اجارهٔ ساختِ صحنه: {key, until} — دو اجرای هم‌زمان نه
   YT_SCENES_OK: 'YT_SCENES_OK_N',     // چند ویدئوی حالتِ صحنه تا حالا عمومی شده
+  YT_STUCK_WHY: 'YT_STUCK_WHY',       // علتِ هر ویدئوی هنوز-Unlisted از آخرین بازسنجی (۸.۳۵)
   YT_MARK_ID: 'YT_MARK_ID',       // شناسه/نام/تصویرِ کانال، خوانده‌شده از خودِ یوتیوب
   YT_DUE: 'YT_DUE_QUEUE',          // صفِ قسمت‌هایی که باید منتشر شوند
   YT_SCAN: 'YT_SCAN_CUR',          // مکان‌نمای کاوشِ قسمت‌های گذشته

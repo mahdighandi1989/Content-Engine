@@ -7457,9 +7457,18 @@ function ytStatus_() {
       if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
       if (pub[k].videoId) {
         out.published++;
-        if (String(pub[k].privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) out.unlisted++;
+        if (String(pub[k].privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) {
+          out.unlisted++;
+          (out.unlistedKeys = out.unlistedKeys || []).push(k);
+        }
       } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) out.failed++;
     }
+    /* چرا هر کدام هنوز عمومی نیست — از آخرین بازسنجیِ شبانه (۸.۳۵). یک
+       `getProperty`، نه خواندنِ تازه. */
+    try {
+      var sw = JSON.parse(props_().getProperty(PK.YT_STUCK_WHY) || '[]') || [];
+      out.stuckWhy = sw.filter(function (x) { return (out.unlistedKeys || []).indexOf(x.key) !== -1; });
+    } catch (eSw) { out.stuckWhy = []; }
     var sh = hub.getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
     if (sh && sh.getLastRow() > 1) {
       var v = sh.getRange(sh.getLastRow(), 1, 1, YT_HEADERS.length).getValues()[0];
@@ -7620,9 +7629,17 @@ function ytHealth_(problems, notes) {
     }
   } catch (eQi) {}
   if (st.unlisted) {
+    /* علتِ واقعی، به نام — نه یک حدس (۸.۳۵). تا ۸.۳۴ این سطر می‌گفت «یعنی در
+       کپشنشان چیزی از جنسِ خصوصی پیدا شده»؛ ادعایی بی ورودی (۷٫۷۹). علتِ واقعیِ
+       سه ویدئوی گیرکرده باگی در بازسنجی بود، و این جمله هفته‌ها همه را — ناظر
+       را هم — دنبالِ نشتی فرستاد. */
+    var sw0 = st.stuckWhy || [];
     problems.push('ویدئو در انتظارِ وارسی: ' + faDigitsOut_(String(st.unlisted)) +
-                  ' مورد عمومی نشده‌اند — یعنی در کپشنشان چیزی از جنسِ خصوصی ' +
-                  'پیدا شده. تا اصلاحِ ytScrub_ عمومی نمی‌شوند.');
+                  ' مورد هنوز عمومی نشده‌اند' +
+                  (sw0.length
+                    ? ' — ' + sw0.map(function (x) {
+                        return '«' + (x.title || x.key) + '»: ' + x.why; }).join(' · ')
+                    : ' — علتشان پس از بازسنجیِ شبانه این‌جا می‌آید.'));
   }
   /* پادکست‌نشدن یک بار اتفاق است (سهمیه، شبکه)؛ چند شبِ پیاپی یعنی چیزی
      ساختاری اشکال دارد و باید دیده شود. */
@@ -8285,13 +8302,21 @@ function runYouTubePublish() {
  */
 function ytRedoOne_(show, ep, opt) {
   opt = opt || {};
+  /* ══ کلید، نه نامِ نمایشی (۸.۳۵) ══
+     `ytPublished_` از ۶ سپتامبر کلیدها را با `ytShowKey_` یک‌دست می‌کند
+     («special:59»)، ولی این تابع با **نامِ نمایشی** می‌گشت («درس‌نامه:59»).
+     پس هیچ ویدئویی پیدا نمی‌شد و جوابِ همیشگی «این قسمت هنوز منتشر نشده»
+     بود — هم برای دکمهٔ منو، هم برای بازسنجیِ شبانه. سه ویدئو هفته‌ها
+     Unlisted ماندند و تنها شاهدشان سطرِ «۳ سنجیده شد — ۰ عمومی شد» بود که
+     سالم به نظر می‌رسید. هر دو شکل این‌جا پذیرفته می‌شوند. */
+  show = ytShowKey_(show);
   var out = { ok: false, why: '', changed: [] };
   var yt = ytSvc_();
   if (!yt) { out.why = ytOffWhy_(); return out; }
   var hub = getHub_();
   var pub = ytPublished_(hub);
   var showName = String(show) === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
-  var rec = pub[showName + ':' + String(ep)];
+  var rec = pub[String(show) + ':' + String(ep)];
   if (!rec || !rec.videoId) { out.why = 'این قسمت هنوز منتشر نشده'; return out; }
 
   // پوشهٔ قسمت از صف نمی‌آید (صف خالی شده)، پس از روی نامِ پوشه پیدایش می‌کنیم
@@ -8366,7 +8391,14 @@ function ytRedoOne_(show, ep, opt) {
   if (!gateR.ok && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) {
     out.why = (out.why ? out.why + ' · ' : '') + gateR.why;
   }
-  if (gateR.ok && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
+  /* و عمومی فقط وقتی متنِ تازه واقعاً نشست (۸.۳۵): ویدئویی که برای نشتی
+     Unlisted مانده، هنوز متنِ **قدیمش** را دارد. اگر به‌روزرسانیِ متن (سهمیه
+     یا خطای API) نشد و ما عمومی‌اش کنیم، همان نشتی عمومی می‌شود. */
+  var textLanded = out.changed.indexOf('عنوان و کپشن') !== -1;
+  if (gateR.ok && !textLanded && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) {
+    out.why = (out.why ? out.why + ' · ' : '') + 'متنِ تازه ننشست؛ عمومی نشد تا متنِ قدیم عمومی نشود';
+  }
+  if (gateR.ok && textLanded && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
       ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: rec.videoId,
@@ -8374,7 +8406,7 @@ function ytRedoOne_(show, ep, opt) {
                                    selfDeclaredMadeForKids: false } }, 'status');
       out.changed.push('عمومی شد');
       if (rmeR && String(rmeR.mode || '') === 'scenes') ytScenesOkAdd_();
-    } catch (eP) {}
+    } catch (eP) { out.why = (out.why ? out.why + ' · ' : '') + 'عمومی‌کردن نشد: ' + String(eP.message).slice(0, 120); }
   }
 
   ytLog_(hub, { show: showName, ep: ep, series: ctx.seriesName, title: plan.title,
@@ -8425,18 +8457,34 @@ function ytRedoStuckNightly_(budgetMs) {
   // قدیمی‌ترین اول — همان‌هایی که بیشترین وقت را در unlisted مانده‌اند
   stuck.sort(function (a, b) { return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0); });
   var max = Math.max(1, Number(CFG.YT_REDO_MAX_PER_NIGHT) || 3);
+  /* علتِ هر کدام **به نام** نگه داشته می‌شود (۸.۳۵) — `ytStatus_` و خطِ روزانه
+     از همین می‌خوانند. تا ۸.۳۴ تنها شاهد «N عمومی شد، M هنوز نشتی دارد» بود،
+     و M با جست‌وجوی واژهٔ «نشتی» شمرده می‌شد که در پیامِ خودِ `ytRedoOne_`
+     نیست؛ یعنی همیشه صفر، و علتِ واقعی («منتشر نشده»، که خودش باگ بود)
+     هیچ‌جا دیده نمی‌شد. */
+  var why = [];
   for (var i = 0; i < stuck.length && i < max; i++) {
     if (new Date().getTime() - t0 > budget) break;
     out.checked++;
+    var w = { key: stuck[i].show + ':' + stuck[i].ep, title: String((pub[stuck[i].show + ':' + stuck[i].ep] || {}).title || ''),
+              at: nowStr_(), why: '' };
     try {
       var res = ytRedoOne_(stuck[i].show, stuck[i].ep, {});
-      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) out.cleared++;
-      else if (res.why && res.why.indexOf('نشتی') !== -1) out.stillLeak++;
-    } catch (e) {}
+      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) { out.cleared++; w = null; }
+      else {
+        w.why = String(res.why || 'عمومی نشد، بی علتِ ثبت‌شده').slice(0, 220);
+        if (/خصوصی/.test(w.why)) out.stillLeak++;
+      }
+    } catch (e) { w.why = 'خطا: ' + String(e.message).slice(0, 160); }
+    if (w) why.push(w);
   }
+  try { props_().setProperty(PK.YT_STUCK_WHY, JSON.stringify(why)); } catch (eS) {}
+  out.why = why;
   if (out.checked) {
     logLine_('یوتیوب: ' + out.checked + ' ویدئوی در انتظارِ وارسی دوباره سنجیده شد — ' +
-             out.cleared + ' عمومی شد، ' + out.stillLeak + ' هنوز نشتی دارد.');
+             out.cleared + ' عمومی شد' +
+             (why.length ? '، ' + why.length + ' نه: ' + why.map(function (x) {
+               return x.key + ' (' + x.why + ')'; }).join(' · ') : '') + '.');
   }
   return out;
 }

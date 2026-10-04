@@ -6068,4 +6068,83 @@ console.log('\n=== ۷۳) پرسشِ تصویرِ افسارگسیخته دورِ
      onMode === true && offMode === false, 'روشن ' + onMode + ' · خاموش ' + offMode);
 }
 
+console.log('\n=== ۷۴) ویدئوی گیرکرده: بازسنجی واقعاً پیدایش می‌کند (۸.۳۵) ===');
+{
+  /* سه ویدئو هفته‌ها Unlisted ماندند. `ytPublished_` کلید را «special:N» می‌سازد
+     و `ytRedoOne_` با «درس‌نامه:N» می‌گشت — پس هر شب «منتشر نشده» برمی‌گشت و
+     هیچ‌چیز سرخ نشد، چون تنها سنجه‌های رفتاریِ این تابع (۱۸.۶/۱۸.۷) فقط شاخهٔ
+     «منتشر نشده» را می‌پرسیدند. این بند ردیف را با **`ytLog_`ِ خودِ موتور**
+     می‌نویسد (با نامِ نمایشی، همان‌طور که در تولید) و از درِ بازسنجیِ شبانه وارد
+     می‌شود. */
+  const hub = getHub_();
+  const thumbWas = CFG.YT_THUMB, unitsWas = CFG.YT_QUOTA_UNITS;
+  CFG.YT_THUMB = false; CFG.YT_QUOTA_UNITS = 1e9;
+  const folders = {};
+  const mkEp = (n, desc) => {
+    const f = DriveApp.__register('EPR' + n, 'درس 00' + n);
+    f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 7, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'سه شرط', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: 'الف'.repeat(200) }] } }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob(JSON.stringify({ at: '2026-10-01 05:00', show: 'special', ep: String(n),
+      title: 'عنوانِ ' + n, description: desc, tags: ['معرفت'], coverTitle: 'ک', coverKicker: 'ک',
+      chapters: 3, visuals: [] }), 'application/json', CFG.YT_PLAN_FILE || '_yt.json'));
+    ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: String(n), series: 'معرفت‌شناسی', title: 'عنوانِ ' + n,
+                  videoId: 'VID' + n, url: 'https://www.youtube.com/watch?v=VID' + n,
+                  privacy: 'unlisted', result: 'منتشر نشد (وارسی)' });
+    folders[String(n)] = f;
+  };
+  const calls = { snip: [], pub: [], failSnip: false };
+  global.YouTube = {
+    Videos: { update: (b) => {
+      if (b.snippet) { if (calls.failSnip) throw new Error('quotaExceeded'); calls.snip.push(b.id); }
+      if (b.status && b.status.privacyStatus === 'public') calls.pub.push(b.id);
+    } },
+    Thumbnails: { set() {} }, Channels: { list: () => ({ items: [] }) },
+    PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
+  const folderWas = global.ytFolderOf_;
+  /* پوشه فقط با **کلید** پیدا می‌شود، نه با نامِ نمایشی — اگر یک‌دست‌سازی
+     برگردد، این‌جا هم می‌شکند. */
+  global.ytFolderOf_ = (show, ep) => (String(show) === 'special' ? folders[String(ep)] || null : null);
+
+  mkEp(74, 'کپشنِ پاکِ درس');
+  const night = ytRedoStuckNightly_(120000);
+  ok('۷۴.۱ بازسنجیِ شبانه ویدئوی گیرکرده را پیدا می‌کند، متنِ پاک را می‌نشانَد و عمومی می‌کند',
+     night.cleared === 1 && calls.snip.indexOf('VID74') !== -1 && calls.pub.indexOf('VID74') !== -1 &&
+     String(ytPublished_(hub)['special:74'].privacy) === 'public',
+     JSON.stringify({ cleared: night.cleared, why: night.why, snip: calls.snip, pub: calls.pub }));
+
+  /* و دکمهٔ منو — که کلید می‌فرستد — و نامِ نمایشی، هر دو. */
+  mkEp(75, 'کپشنِ پاک');
+  const r75 = ytRedoOne_(CFG.SPECIAL_SHOW_NAME, '75', {});
+  ok('۷۴.۲ نامِ نمایشی هم پذیرفته می‌شود — همان ویدئو، نه «منتشر نشده»',
+     r75.changed.indexOf('عمومی شد') !== -1, JSON.stringify(r75));
+
+  /* متنِ تازه ننشست ⇒ عمومی نه: متنِ قدیمِ ویدئو همان است که برایش نگه داشته شد. */
+  mkEp(76, 'کپشنِ پاک');
+  calls.failSnip = true;
+  const r76 = ytRedoOne_('special', '76', {});
+  calls.failSnip = false;
+  ok('۷۴.۳ به‌روزرسانیِ متن نشد ⇒ عمومی نمی‌شود، و علتش گفته می‌شود',
+     calls.pub.indexOf('VID76') === -1 && /ننشست/.test(r76.why), r76.why);
+
+  /* نشتیِ واقعی در `_yt.json` ⇒ می‌مانَد، و **به نام** در وضعیت و خطِ روزانه. */
+  mkEp(77, 'منبع: https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz012345/view');
+  const n2 = ytRedoStuckNightly_(120000);
+  const sw = JSON.parse(global.__PROPS[PK.YT_STUCK_WHY] || '[]');
+  const w77 = sw.filter(x => x.key === 'special:77')[0] || {};
+  const st = ytStatus_();
+  const probs = []; ytHealth_(probs, []);
+  const line = probs.filter(p => /در انتظارِ وارسی/.test(p))[0] || '';
+  ok('۷۴.۴ نشتیِ واقعی عمومی نمی‌شود — و علتش به نام در وضعیت و خطِ روزانه می‌آید',
+     calls.pub.indexOf('VID77') === -1 && /خصوصی/.test(w77.why || '') &&
+     (st.stuckWhy || []).some(x => x.key === 'special:77') && /عنوانِ 77/.test(line) && /خصوصی/.test(line) &&
+     n2.stillLeak >= 1,
+     line.slice(0, 220));
+  ok('۷۴.۵ و خطِ روزانه دیگر علت را حدس نمی‌زند',
+     !/یعنی در کپشنشان چیزی از جنسِ خصوصی/.test(line), line.slice(0, 160));
+
+  global.ytFolderOf_ = folderWas; delete global.YouTube;
+  CFG.YT_THUMB = thumbWas; CFG.YT_QUOTA_UNITS = unitsWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

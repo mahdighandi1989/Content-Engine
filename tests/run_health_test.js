@@ -794,6 +794,25 @@ console.log('\n=== ۱۶) کارنامهٔ قابلیت‌ها: «روشن است
     CFG.CAPABILITIES = keep;
   }
 
+  /* ══ ۱۶.۳-ب — «کاری نرسیده» با «کار نمی‌کند» یکی نیست (۸.۳۵) ══
+     مرورِ مجموعه یک بار در عمرِ هر مجموعه ساخته می‌شود. با آخرین اثرِ ۲۵ روز
+     پیش و صفِ خالی، «سالم» است؛ همان آخرین اثر با یک مرورِ منتظر در صف،
+     «بی‌اثر» است. شاهد همان شیئی است که `recapStatus_` می‌سازد. */
+  {
+    const keep = CFG.CAPABILITIES;
+    const row = (CFG.CAPABILITIES || []).filter(x => x.key === 'recap')[0];
+    CFG.CAPABILITIES = [row];
+    const old = '2026-01-01 10:00';
+    const cIdle = capStatus_({ recap: { line: 'مرور', ok: true, n: 2, queued: 0, at: old } });
+    const cDue = capStatus_({ recap: { line: 'مرور', ok: true, n: 2, queued: 1, at: old } });
+    ok16('۱۶.۳-ب مرور با صفِ خالی «کاری نرسیده» است و ok را پایین نمی‌آورد؛ با کارِ منتظر «بی‌اثر» است',
+         !!row && row.due === 'queued' &&
+         cIdle.rows[0].verdict === 'کاری نرسیده' && cIdle.ok === true && cIdle.idle.length === 0 &&
+         cDue.rows[0].verdict === 'روشن ولی بی‌اثر' && cDue.ok === false,
+         cIdle.rows[0].verdict + ' / ' + cDue.rows[0].verdict);
+    CFG.CAPABILITIES = keep;
+  }
+
   /* ══ ۱۶.۴ — سه حالتِ جدا: خاموش / کار می‌کند / روشن ولی بی‌اثر ══
      و «خاموش» **نباید** `ok` را پایین بیاورد: هشداری که برای تصمیمِ خودِ
      صاحبِ برنامه بزند، هشداری است که یاد می‌گیرند نخوانند. */
