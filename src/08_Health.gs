@@ -534,6 +534,8 @@ function writeStatus_(hub, note) {
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
     nightStarve: (function () { try { return nightStarveStatus_(); } catch (e) { return null; } })(),
     ttsCue: (function () { try { return ttsCueStatus_(); } catch (e) { return null; } })(),
+    /* مدلِ صوتی: سنجاق، مرجع، جانشینِ هم‌خوان و دگرگونی (۸.۳۹) — فقط Properties */
+    ttsModel: (function () { try { return ttsModelStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -2146,6 +2148,17 @@ function healthCheck() {
     var tcS = ttsCueStatus_();
     if (tcS && tcS.line) { if (tcS.ok) notes.push(tcS.line); else problems.push(tcS.line); }
   } catch (eTc) {}
+  /* ══ مدلِ صوتی: کدام می‌خوانَد، و اگر برود کدام جایش (۸.۳۹) ══
+     سطر هر روز هست، حتی وقتی همه‌چیز سالم است (۵٫۹۰): «سنجاق زنده است و
+     جانشینِ هم‌خوان آماده» با «سنجاق زنده است و هیچ جانشینی نیست» از بیرون
+     یک شکل دارند و فقط این سطر جدایشان می‌کند. آزمونِ خودش در اجرای جدا،
+     نه این‌جا: چند فراخوانِ گفتارساز روی تابعی که از هزینه مُرد (۷٫۶۳). */
+  try {
+    var tmS = ttsModelStatus_();
+    if (tmS && tmS.line) { if (tmS.ok) notes.push(tmS.line); else problems.push(tmS.line); }
+    try { ttsModelGates_(hub, tmS); } catch (eTg) {}
+  } catch (eTm) {}
+  try { ttsAuditArm_(); } catch (eTa) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید

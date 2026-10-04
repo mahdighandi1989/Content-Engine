@@ -1017,6 +1017,12 @@ function selfUpdateDaily() {
   try { healthDeadCheck_(null); }
   catch (eHD) { logLine_('وارسیِ سکوتِ گزارشِ روزانه ناموفق: ' + eHD.message); }
 
+  /* آزمونِ مدلِ صوتی (۸.۳۹) — درِ دوم کنارِ `healthCheck`، بی نگهبانِ زمان
+     چون فقط Properties می‌خوانَد و یک تریگرِ یک‌باره می‌سازد؛ خودِ آزمون
+     در اجرای جداست. سنجاقی که امشب رفته باشد، تا ۱۰ صبح منتظر نمی‌مانَد. */
+  try { ttsAuditArm_(); }
+  catch (eTA) { logLine_('زمان‌بندیِ آزمونِ مدلِ صوتی ناموفق: ' + eTA.message); }
+
   if (nightHas_(25000, 'گویندهٔ تازه')) {
     try { vintNightly_(false); }
     catch (eVI) { logLine_('دورِ گویندگانِ تازه ناموفق: ' + eVI.message); }

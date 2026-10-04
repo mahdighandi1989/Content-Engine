@@ -1387,6 +1387,18 @@ function selfVerifyMap_() {
     /* آن که این بخش را ساخت. `ttsCueStatus_().ok` نادرست یعنی لحن همین
        حالا خاموش است — هرچه بیانیه ادعا کرده باشد. */
     'tts-cue-unsupported': { what: 'ttsCue', still: bad('ttsCue') },
+    /* ۸.۳۹: هر دو از همان وضعیت. «سنجاق برگشت» یا «دگرگونی تمام شد» را
+       خودِ آزمون می‌گوید، نه بیانیه. `null` یعنی نمی‌دانیم (۷٫۵۷). */
+    'tts-pin-missing':     { what: 'ttsModel', still: function (st) {
+      var o = st && st.ttsModel;
+      if (!o || typeof o !== 'object' || typeof o.pinMissing !== 'boolean') return null;
+      return o.pinMissing;
+    } },
+    'tts-pin-drift':       { what: 'ttsModel', still: function (st) {
+      var o = st && st.ttsModel;
+      if (!o || typeof o !== 'object' || typeof o.drift !== 'number') return null;
+      return o.drift >= Math.max(1, Number(CFG.TTS_DRIFT_RUNS) || 2);
+    } },
     'night-starve':        { what: 'nightStarve', still: bad('nightStarve') },
     'embed-stalled':       { what: 'embed', still: bad('embed') },
     'voice-bridge-stuck':  { what: 'voiceBridge', still: bad('voiceBridge') },

@@ -26,7 +26,10 @@ global.__PROPS['GEMINI_API_KEY']='TEST';
 global.__STUB=function(url,body){
   if(url.indexOf('/v1beta/models?')!==-1) return {code:200,json:{models:[
     {name:'models/gemini-2.5-flash',supportedGenerationMethods:['generateContent']},
-    {name:'models/gemini-2.5-flash-preview-tts',supportedGenerationMethods:['generateContent']}]}};
+    {name:'models/gemini-2.5-flash-preview-tts',supportedGenerationMethods:['generateContent']},
+    /* سنجاقِ ۸.۳۸ در حسابِ واقعی هست؛ حالتِ «سالم» یعنی همین. بی آن، وارسیِ
+       سلامت درست می‌گوید «مدلِ سنجاق‌شده رفته» (۸.۳۹). */
+    {name:'models/'+CFG.TTS_MODEL_PIN,supportedGenerationMethods:['generateContent']}]}};
   const t=body.contents?body.contents[0].parts[0].text:'';
   if(t.indexOf('سردبیرِ یک برنامهٔ رادیویی')!==-1){const c=[...t.matchAll(/- id: (\S+) \|/g)].map(m=>m[1]);
     return {code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({theme:'ت',chosen:c.slice(0,12).map(id=>({id})),rejected:[]})}]}}]}};}
@@ -374,6 +377,11 @@ console.log('\n══ ۱۴) دو جملهٔ متناقض در یک ایمیل (�
      از ۷٫۸۸ اینجا می‌گفت «در نوبتِ امتحانِ دوباره» — یعنی سالم — و همان
      `ok` سدی است که `runVoiceSoulTest` به آن تکیه می‌کند (۷٫۷۹). */
   {
+    /* ۸.۳۹: بی سنجاق. این سنجه سازوکارِ «سطر از نقشه» را می‌پرسد، و با سنجاق
+       (۸.۳۸) تعویضِ ۱۰ صبح عمداً «نیاز» گزارش نمی‌کند، پس ایمیلی نمی‌رفت که
+       سطر در آن خوانده شود. سنجاق جدا در run_ttsmodel_test و run_v2 §۹ است. */
+    var pinSave14 = CFG.TTS_MODEL_PIN;
+    CFG.TTS_MODEL_PIN = '';
     delete global.__PROPS[PK.TTS_CUE_BAD];
     resolveModels_(true);
     const liveH = ttsModel_();
@@ -396,6 +404,7 @@ console.log('\n══ ۱۴) دو جملهٔ متناقض در یک ایمیل (�
     delete global.__PROPS[PK.TTS_CUE_OFF];
     delete global.__PROPS[PK.TTS_CUE_OFF_AT];
     delete global.__PROPS[PK.TTS_CUE_BAD];
+    CFG.TTS_MODEL_PIN = pinSave14;
     resolveModels_(true);
   }
 
