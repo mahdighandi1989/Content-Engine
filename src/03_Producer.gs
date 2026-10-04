@@ -509,15 +509,19 @@ function extractText_(j) {
 
 // --------------------------------------------------------------- گفتارسازی
 
-/** پیدا کردن دادهٔ صوتی base64 در پاسخ، مستقل از شکل API */
+/** پیدا کردن دادهٔ صوتی base64 در پاسخ، مستقل از شکل API — همیشه PCMِ خام (۸.۳۸). */
 function extractAudioB64_(j) {
   try {
     var parts = j.candidates[0].content.parts;
     for (var i = 0; i < parts.length; i++) {
-      if (parts[i].inlineData && parts[i].inlineData.data) return parts[i].inlineData.data;
-      if (parts[i].inline_data && parts[i].inline_data.data) return parts[i].inline_data.data;
+      var inl = parts[i].inlineData || parts[i].inline_data;
+      if (inl && inl.data) return ttsPcmB64_(inl.data, inl.mimeType || inl.mime_type);
     }
-  } catch (e) {}
+  } catch (e) {
+    /* خطای قالبِ صوت (WAVِ بی data، ۸ بیتی، …) باید بالا برود، نه اینکه به
+       جست‌وجوی عمقی بیفتد و همان بایت‌ها را خام برگرداند. */
+    if (e && e.ttsFormat) throw e;
+  }
   var paths = [
     function (o) { return o.output_audio && o.output_audio.data; },
     function (o) { return o.outputAudio && o.outputAudio.data; },
@@ -525,7 +529,9 @@ function extractAudioB64_(j) {
     function (o) { return o.audio && o.audio.data; }
   ];
   for (var p = 0; p < paths.length; p++) {
-    try { var v = paths[p](j); if (v) return v; } catch (e) {}
+    var v = null;
+    try { v = paths[p](j); } catch (e) {}
+    if (v) return ttsPcmB64_(v, '');
   }
   // جست‌وجوی عمقی به‌عنوان آخرین راه
   var found = null;
@@ -535,8 +541,136 @@ function extractAudioB64_(j) {
     if (typeof o !== 'object') return;
     for (var k in o) { if (o.hasOwnProperty(k)) { walk(o[k], d + 1); if (found) return; } }
   })(j, 0);
-  if (found) return found;
+  if (found) return ttsPcmB64_(found, '');
   throw new Error('دادهٔ صوتی در پاسخ Gemini پیدا نشد.');
+}
+
+/**
+ * جوابِ گفتارساز را به PCMِ خامِ همین موتور برمی‌گرداند — ۱۶ بیت، تک‌کاناله،
+ * `CFG.SAMPLE_RATE`.
+ *
+ * ══ برفکِ «یک‌ثانیه‌ای میانِ جمله‌ها» صدا نبود؛ داده بود (۸.۳۸) ══
+ * ۴ اکتبر او در هر دو نمونهٔ شب «میانِ اکثرِ جمله‌ها یک صدای برفکِ
+ * تلویزیون» شنید، و همان را چند روز در بعضی پادکست‌ها. بایت‌های همان لحظه
+ * در فایلِ مبدأ خوانده شد: `C2PA~\x17\0\0…jumb…jumdc2pa`. یعنی **برچسبِ
+ * اعتبارِ محتوا** (C2PA) که گوگل در فایلِ صوتیِ ساختهٔ هوش مصنوعی می‌گذارد،
+ * ۶۰۱۴ بایت = ۰٫۱۲۵ ثانیه، با بلندیِ ~۴− dBFS، یعنی ۱۷ دسی‌بل بلندتر از
+ * گفتار. مدلِ `gemini-3.8-flash-tts` به‌جای PCMِ خام یک **فایلِ WAVِ کامل**
+ * می‌دهد (RIFF → fmt → data → C2PA)، و این موتور از روزِ اول هر جوابی را
+ * PCM فرض می‌کرد: سرآیند یک «تیک» می‌شد و برچسبِ آخرِ فایل یک برفک، در
+ * انتهای هر تکه، یعنی دقیقاً «میانِ جمله‌ها». مدلی که صبح با آن ساخته شد
+ * (`gemini-3.1-flash-tts-preview`) PCMِ خام می‌دهد و برای همین آن دو نمونه
+ * پاک بودند.
+ *
+ * چانک‌به‌چانک پیموده می‌شود، نه «از بایتِ ۴۴»: برچسب می‌تواند پیش یا پس از
+ * data بنشیند (همان درسِ `wavInfo_` در بخشِ ۲۳، که اینجا صدا زده نمی‌شود چون
+ * وابستگیِ رو به جلو است). و نرخ/کانالِ دیگر **تبدیل** می‌شود، نه بی‌صدا
+ * چسبانده — صوتِ ۴۸ کیلوهرتزی که ۲۴ فرض شود، دو برابر کُند و بم پخش می‌شود.
+ *
+ * پاسخِ PCMِ خام (نخستین بایت‌ها «RIFF» نیستند و mime نرخِ دیگری نمی‌گوید)
+ * **عیناً** برمی‌گردد، بی رمزگشایی — هزینه‌ای روی مسیرِ سالم ندارد.
+ */
+function ttsPcmB64_(b64, mime) {
+  var s = String(b64 || '');
+  var m = String(mime || '').toLowerCase();
+  var sr = Number(CFG.SAMPLE_RATE) || 24000;
+  var head = s.slice(0, 16).replace(/\s+/g, '');
+  var bad = function (msg) { var e = new Error(msg); e.ttsFormat = true; return e; };
+  if (head.indexOf('UklGR') !== 0) {
+    /* PCMِ خام با نرخی که mime صریح می‌گوید و با موتور نمی‌خوانَد */
+    var mr = /rate=(\d+)/.exec(m);
+    var rate = mr ? Number(mr[1]) : sr;
+    if (!rate || rate === sr) return s;
+    var rb = Utilities.base64Decode(s);
+    TTS_WRAP_LAST_ = { tags: [], rate: rate, channels: 1 };
+    return Utilities.base64Encode(pcmConvert_(rb, 1, rate, sr));
+  }
+  var b = Utilities.base64Decode(s);
+  var u8 = function (i) { return b[i] < 0 ? b[i] + 256 : b[i]; };
+  var u16 = function (i) { return u8(i) | (u8(i + 1) << 8); };
+  var u32 = function (i) { return (u8(i) | (u8(i + 1) << 8) | (u8(i + 2) << 16)) + u8(i + 3) * 16777216; };
+  var tag = function (i) { return String.fromCharCode(u8(i), u8(i + 1), u8(i + 2), u8(i + 3)); };
+  if (b.length < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return s;
+  var pos = 12, fmt = null, data = null, tags = [];
+  while (pos + 8 <= b.length) {
+    var id = tag(pos), sz = u32(pos + 4);
+    tags.push(id);
+    if (id === 'fmt ') {
+      fmt = { format: u16(pos + 8), channels: u16(pos + 10), rate: u32(pos + 12), bits: u16(pos + 22) };
+      if (fmt.format === 65534 && sz >= 40) fmt.format = u16(pos + 8 + 24);
+    } else if (id === 'data') {
+      /* اندازهٔ «نامعلوم» (0xFFFFFFFF در WAVِ جریانی) یعنی تا انتهای فایل */
+      data = { at: pos + 8, len: Math.min(sz, b.length - pos - 8) };
+    }
+    if (sz > b.length) break;
+    pos += 8 + sz + (sz % 2);           // چانک‌ها روی مرزِ زوج می‌نشینند
+  }
+  if (!fmt || !data) throw bad('صوتِ گفتارساز WAV است ولی ' + (fmt ? 'چانکِ data' : 'چانکِ fmt') +
+                               ' ندارد (چانک‌ها: ' + tags.join('، ') + ')');
+  if (fmt.format !== 1 || fmt.bits !== 16) {
+    throw bad('صوتِ گفتارساز WAVِ ' + fmt.bits + ' بیتی با قالبِ ' + fmt.format +
+              ' است؛ این موتور فقط PCMِ ۱۶ بیتی را می‌چسبانَد');
+  }
+  var len = data.len - (data.len % (2 * (fmt.channels || 1)));
+  var pcm = b.slice(data.at, data.at + len);
+  TTS_WRAP_LAST_ = { tags: tags, rate: fmt.rate, channels: fmt.channels };
+  if (fmt.channels !== 1 || fmt.rate !== sr) pcm = pcmConvert_(pcm, fmt.channels || 1, fmt.rate, sr);
+  return Utilities.base64Encode(pcm);
+}
+
+/** آخرین بسته‌ای که `ttsPcmB64_` باز کرد — شاهدِ `ttsChunkTry_`، نه حالتِ ماندگار. */
+var TTS_WRAP_LAST_ = null;
+
+/**
+ * شاهدِ «کدام مدل صوت را در بسته می‌دهد» — در Script Properties، روزی یک بار
+ * برای هر مدل، نه یک نوشتن برای هر تکه. سیاهه نمی‌نویسد: `logLine_` یعنی
+ * هاب، و این روی مسیرِ هر تکهٔ صداسازی است (۷٫۸۴). `ttsCueStatus_` و ناظر
+ * از همین می‌خوانند که برفکِ ۴ اکتبر از کدام مدل آمد و آیا هنوز باز می‌شود.
+ */
+function ttsWrapNote_(model, w) {
+  try {
+    var day = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+    var mp = {};
+    try { mp = JSON.parse(props_().getProperty(PK.TTS_WRAP) || '{}') || {}; } catch (eP) { mp = {}; }
+    var k = String(model || '?');
+    var tags = (w.tags || []).join(',');
+    if (mp[k] && mp[k].day === day && mp[k].tags === tags) return;
+    mp[k] = { day: day, tags: tags, rate: w.rate, channels: w.channels };
+    props_().setProperty(PK.TTS_WRAP, JSON.stringify(mp));
+  } catch (e) {}
+}
+
+/**
+ * PCMِ ۱۶ بیتی ⇒ تک‌کاناله با نرخِ `to`. کانال‌ها میانگین، نرخ با درون‌یابیِ
+ * خطی — همان کاری که بخشِ ۲۳ برای موسیقی می‌کند. بایت‌ها علامت‌دارند، پس
+ * بایتِ پایین **ماسک** می‌شود؛ بی آن نمونه‌های منفی بی‌معنا می‌شوند.
+ */
+function pcmConvert_(bytes, channels, from, to) {
+  var ch = Math.max(1, channels | 0);
+  var frames = Math.floor(bytes.length / (2 * ch));
+  var mono = new Array(frames);
+  for (var f = 0; f < frames; f++) {
+    var acc = 0;
+    for (var c = 0; c < ch; c++) {
+      var k = (f * ch + c) * 2;
+      var v = (bytes[k] & 255) | (bytes[k + 1] << 8);
+      acc += v;
+    }
+    mono[f] = acc / ch;
+  }
+  var n = (from && to && from !== to) ? Math.floor(frames * to / from) : frames;
+  var out = new Array(n * 2);
+  for (var i = 0; i < n; i++) {
+    var x = (from && to && from !== to) ? i * from / to : i;
+    var i0 = Math.floor(x), fr = x - i0;
+    var a = mono[Math.min(i0, frames - 1)] || 0, bb = mono[Math.min(i0 + 1, frames - 1)] || 0;
+    var y = Math.round(a + (bb - a) * fr);
+    if (y > 32767) y = 32767; else if (y < -32768) y = -32768;
+    var lo = y & 255, hi = (y >> 8) & 255;
+    out[2 * i] = lo > 127 ? lo - 256 : lo;
+    out[2 * i + 1] = hi > 127 ? hi - 256 : hi;
+  }
+  return out;
 }
 
 /**
@@ -1412,6 +1546,13 @@ function ttsCueStatus_() {
              (out.since ? ' (از ' + out.since + ')' : '') +
              '، پس دستور در خودِ متن فرستاده می‌شود و نگهبانِ «گوینده دستور ' +
              'را نخواند» روی خروجی می‌دود.';
+  /* سنجاق گفته می‌شود، وگرنه خواننده منتظرِ «تعویضِ ۱۰ صبح» می‌مانَد که
+     از ۸.۳۸ عمداً رخ نمی‌دهد. */
+  if (live && live === String(CFG.TTS_MODEL_PIN || '').trim()) {
+    out.pinned = true;
+    out.line += ' مدلِ صوتی به انتخابِ گوشِ شما روی «' + live + '» ثابت است و ' +
+                'برای دستورِ لحن عوض نمی‌شود؛ لحن از نشانه‌های متن می‌آید.';
+  }
   return out;
 }
 
@@ -1458,7 +1599,9 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
       var cfg = modes[mode];
       try {
         var j = geminiFetch_(cfg.url, cfg.body);
+        TTS_WRAP_LAST_ = null;
         var b64 = extractAudioB64_(j);
+        if (TTS_WRAP_LAST_) ttsWrapNote_(model, TTS_WRAP_LAST_);
         if (mode !== 'prompted') props_().setProperty(PK.TTS_MODE, mode);
         /* ══ کدام قالب ساختش، برای نگهبانِ شنیداری (۸.۰۷) ══
            فرقش را `ttsGuarded_` لازم دارد: دستوری که در **فیلد** رفته
@@ -1468,6 +1611,9 @@ function ttsChunkTry_(text, sectionStyle, voice, withCue) {
         TTS_LAST_PROMPTED_ = (mode === 'prompted');
         return b64;
       } catch (e) {
+        /* قالبِ صوتی که نمی‌شود چسباند، با تکرارِ همان درخواست درست نمی‌شود؛
+           سه فراخوانِ دیگر فقط خرج است (۸.۳۸). */
+        if (e && e.ttsFormat) throw e;
         lastErr = e;
         var m = String(e.message || '');
         // مدل صوتی بازنشسته شده؟ یک‌بار فهرست را تازه کن و با جانشین ادامه بده

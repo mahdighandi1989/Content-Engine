@@ -93,6 +93,10 @@ function resolveModels_(force) {
     }
     var byScore = function (a, b) { return modelScore_(b) - modelScore_(a); };
     texts.sort(byScore); ttss.sort(byScore);
+    /* فهرستِ **کاملِ** مدل‌های صوتیِ حساب، پیش از هر صافی — تنها پاسخِ درست به
+       «سنجاقِ او هنوز هست؟» (۸.۳۸). `ttsAll` جواب نمی‌دهد: صافیِ دستورِ لحن
+       همان سنجاق را از آن بیرون می‌اندازد. */
+    chosen.ttsAvail = ttss.slice(0);
 
     // سیاست «stable»: پیش‌نمایش‌ها کنار گذاشته می‌شوند — مگر آنکه چیزی باقی نماند
     // (مدل‌های صوتی فعلاً همگی پیش‌نمایش‌اند، پس آنجا خودکار نادیده گرفته می‌شود).
@@ -118,6 +122,19 @@ function resolveModels_(force) {
       try { return !ttsCueBadNow_(x); } catch (eC) { return true; }
     });
     if (cueOk.length) ttss = cueOk;
+
+    /* ══ سنجاقِ گوشِ او بر هر دو صافیِ بالا مقدم است (۸.۳۸) ══
+       صافیِ «دستور را می‌پذیرد» برای مدلی ساخته شد که لحن را برگرداند؛ هیچ
+       مدلی برنگرداند و صافی فقط هر روز صدای دیگری انتخاب کرد. مدلی که او
+       شنیده و پسندیده، تا وقتی در حساب هست، می‌مانَد. نبودنش گفته می‌شود
+       (`pinMissing`)، نه اینکه بی‌صدا به انتخابِ خودکار برگردد. */
+    var pin = String(CFG.TTS_MODEL_PIN || '').trim();
+    if (pin && chosen.ttsAvail.indexOf(pin) !== -1) {
+      ttss = [pin].concat(ttss.filter(function (x) { return x !== pin; }));
+      chosen.pinned = pin;
+    } else if (pin) {
+      chosen.pinMissing = pin;
+    }
 
     chosen.textAll = texts.slice(0, 6);
     chosen.ttsAll = ttss.slice(0, 6);
@@ -162,6 +179,12 @@ function textModel_() {
 
 function ttsModel_() {
   var m = resolveModels_(false);
+  /* کشِ پیش از ۸.۳۸ (تا هفت روز) سنجاق را نمی‌شناسد و هنوز مدلِ دیروز را
+     دارد؛ پس سنجاق همین‌جا هم خوانده می‌شود، نه فقط هنگامِ ساختنِ کش. فقط
+     فهرستی که **صریحاً** می‌گوید سنجاق نیست کنارش می‌گذارد؛ مدلی که واقعاً
+     رفته باشد، خطای «مدل نیست» می‌دهد و `ttsChunkTry_` کش را از نو می‌سازد. */
+  var pin = String(CFG.TTS_MODEL_PIN || '').trim();
+  if (pin && !(m.ttsAvail && m.ttsAvail.indexOf(pin) === -1)) return pin;
   return m.tts || CFG.FALLBACK_TTS_MODEL;
 }
 
@@ -182,6 +205,13 @@ function ttsCueSwitch_() {
   var out = { need: false, from: '', to: '', alt: 0, switched: false, why: '' };
   try { out.from = String(ttsModel_() || ''); } catch (e) { return out; }
   if (!out.from) return out;
+  /* مدلِ سنجاق‌شده عوض نمی‌شود، حتی اگر دستور را نپذیرد (۸.۳۸): آن تعویض‌ها
+     لحن را برنگرداندند و فقط صدای هر روز را عوض کردند. «نپذیرفتنِ دستور»
+     این‌جا ایراد شمرده نمی‌شود؛ لحن از نشانه‌های متن می‌آید (۸.۰۸). */
+  if (out.from === String(CFG.TTS_MODEL_PIN || '').trim()) {
+    out.pinned = true;
+    return out;
+  }
   try { if (!ttsCueBadNow_(out.from)) return out; } catch (e2) { return out; }
   out.need = true;
   var m = null;

@@ -1324,4 +1324,88 @@ console.log('\n=== ۸.۰۷-پ) نشنیدن، برای قالبِ پیشوندی
   props_().deleteProperty(PK.TTS_CUE_DROP_AT);
 }
 
+/* ══ ۸.۳۸ — برفکِ «میانِ جمله‌ها» برچسبِ C2PA بود که صدا پخش می‌شد ══
+   ۴ اکتبر، بایت‌های لحظهٔ برفک در فایلِ مبدأ: `C2PA~\x17\0\0…jumb…jumdc2pa`.
+   مدلِ 3.8-flash یک فایلِ WAVِ کامل می‌داد (RIFF → fmt → data → C2PA) و این
+   موتور هر جوابی را PCM فرض می‌کرد. سنجه‌ها از درِ `ttsChunkTry_` می‌روند —
+   همان دری که قسمت‌ها و نمونه‌ها هر دو از آن رد می‌شوند — نه با صدا زدنِ
+   تابعِ کمکی به‌تنهایی (۷٫۶۲). */
+{
+  const realFetch4 = global.geminiFetch_;
+  const TX4 = 'سلام. این یک آزمون است.';
+  const le32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  const le16 = n => [n & 255, (n >>> 8) & 255];
+  const str = t => Array.from(Buffer.from(t, 'latin1'));
+  const chunk = (id, body) => str(id).concat(le32(body.length), body, body.length % 2 ? [0] : []);
+  const fmtC = (ch, rate, bits, fmt) => chunk('fmt ', [].concat(le16(fmt || 1), le16(ch), le32(rate),
+    le32(rate * ch * bits / 8), le16(ch * bits / 8), le16(bits)));
+  const wav = parts => { const body = str('WAVE').concat(...parts); return str('RIFF').concat(le32(body.length), body); };
+  // PCMِ شناخته‌شده: نمونه‌های 0..999 با علامتِ متناوب — منفی‌ها مرزِ ماسک را می‌سنجند
+  const pcmS = []; for (let i = 0; i < 1000; i++) pcmS.push((i % 2 ? -1 : 1) * i * 30);
+  const pcm = [].concat(...pcmS.map(v => le16(v & 0xffff)));
+  const c2pa = []; for (let i = 0; i < 6014; i++) c2pa.push((i * 7919 + 13) & 255);
+  const b64 = bytes => Buffer.from(bytes).toString('base64');
+  const answer = (data, mime) => ({ candidates: [{ content: { parts: [{ inlineData:
+    (mime ? { mimeType: mime, data: data } : { data: data }) }] } }] });
+  let fetches = 0, reply = null;
+  global.geminiFetch_ = function () { fetches++; return reply; };
+  const run = (data, mime) => { fetches = 0; reply = answer(data, mime);
+    return Buffer.from(ttsChunkTry_(TX4, 'گرم', 'Kore', false), 'base64'); };
+  const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+  try {
+    // ۸.۳۸-۱ WAVِ 3.8-flash: data و پس از آن C2PA ⇒ فقط همان PCM
+    const o1 = run(b64(wav([fmtC(1, 24000, 16), chunk('data', pcm), chunk('C2PA', c2pa)])), 'audio/wav');
+    ok('۸.۳۸-۱ WAV با برچسبِ C2PA ⇒ فقط PCM، بی سرآیند و بی برچسب',
+       same(Array.from(o1), pcm) && o1.indexOf(Buffer.from('C2PA')) === -1 && o1.indexOf(Buffer.from('RIFF')) === -1,
+       'طول ' + o1.length + ' (باید ' + pcm.length + ')');
+
+    // ۸.۳۸-۲ برچسب **پیش از** data (و LIST) ⇒ باز هم فقط PCM — «از بایتِ ۴۴» نه
+    const o2 = run(b64(wav([fmtC(1, 24000, 16), chunk('LIST', str('INFOISFT')), chunk('C2PA', c2pa), chunk('data', pcm)])), '');
+    ok('۸.۳۸-۲ برچسبِ پیش از data هم کنار می‌رود (پیمایشِ چانک، نه جای ثابت)',
+       same(Array.from(o2), pcm), 'طول ' + o2.length);
+
+    // ۸.۳۸-۳ PCMِ خامِ 3.1-flash عیناً همان می‌مانَد — مسیرِ سالم دست نمی‌خورد
+    const rawB64 = b64(pcm);
+    fetches = 0; reply = answer(rawB64, 'audio/L16;codec=pcm;rate=24000');
+    const o3 = ttsChunkTry_(TX4, 'گرم', 'Kore', false);
+    ok('۸.۳۸-۳ PCMِ خام با نرخِ ۲۴ کیلوهرتز عیناً برمی‌گردد', o3 === rawB64, String(o3).slice(0, 24));
+
+    // ۸.۳۸-۴ نرخ و کانالِ دیگر تبدیل می‌شود، نه بی‌صدا چسبانده
+    const st = []; for (let i = 0; i < 1000; i++) st.push(...le16(1000 & 0xffff), ...le16((-3000) & 0xffff));
+    const o4 = run(b64(wav([fmtC(2, 48000, 16), chunk('data', st)])), 'audio/wav');
+    const s4 = []; for (let i = 0; i + 1 < o4.length; i += 2) s4.push(o4.readInt16LE(i));
+    ok('۸.۳۸-۴ WAVِ ۴۸ کیلوهرتزِ دوکاناله ⇒ ۲۴ کیلوهرتزِ تک‌کاناله، میانگینِ کانال‌ها',
+       s4.length === 500 && s4.every(v => v === -1000),
+       s4.length + ' نمونه، نمونهٔ اول ' + s4[0]);
+
+    // ۸.۳۸-۵ و L16 با نرخِ صریحِ دیگر هم
+    const o5 = run(b64(pcm), 'audio/L16;codec=pcm;rate=48000');
+    ok('۸.۳۸-۵ L16 با rate=48000 ⇒ نصفِ نمونه‌ها', o5.length === pcm.length / 2, 'طول ' + o5.length);
+
+    // ۸.۳۸-۶ قالبی که نمی‌شود چسباند ⇒ خطای روشن، و **یک** فراخوان، نه سه‌تا
+    let threw6 = '';
+    try { run(b64(wav([fmtC(1, 24000, 8), chunk('data', pcm)])), 'audio/wav'); }
+    catch (e) { threw6 = String(e.message || e); }
+    ok('۸.۳۸-۶ WAVِ ۸ بیتی ⇒ خطای نام‌دار و بی تکرارِ بی‌ثمر',
+       /۸ بیتی|8 بیتی|بیتی/.test(threw6) && fetches === 1, threw6.slice(0, 80) + ' · فراخوان‌ها ' + fetches);
+
+    // ۸.۳۸-۷ شاهد: کدام مدل بسته می‌دهد، با نامِ چانک‌ها
+    delete global.__PROPS[PK.TTS_WRAP];
+    run(b64(wav([fmtC(1, 24000, 16), chunk('data', pcm), chunk('C2PA', c2pa)])), 'audio/wav');
+    let w7 = {}; try { w7 = JSON.parse(global.__PROPS[PK.TTS_WRAP] || '{}'); } catch (e) {}
+    const k7 = Object.keys(w7)[0] || '';
+    ok('۸.۳۸-۷ شاهدِ بسته به نامِ مدل و با «C2PA» ثبت می‌شود',
+       k7 === ttsModel_() && /C2PA/.test((w7[k7] || {}).tags || ''), JSON.stringify(w7));
+
+    // ۸.۳۸-۸ PCMِ خام شاهد نمی‌سازد — حالتِ سالم بی‌صداست
+    delete global.__PROPS[PK.TTS_WRAP];
+    run(b64(pcm), 'audio/L16;codec=pcm;rate=24000');
+    ok('۸.۳۸-۸ PCMِ خام هیچ شاهدی نمی‌نویسد', !global.__PROPS[PK.TTS_WRAP], String(global.__PROPS[PK.TTS_WRAP]));
+  } finally {
+    global.geminiFetch_ = realFetch4;
+    delete global.__PROPS[PK.TTS_WRAP];
+  }
+}
+
 process.exit(summary('شش درخواستِ نسخهٔ ۵٫۹') ? 1 : 0);

@@ -231,6 +231,11 @@ say('\n=== ۸) مدلِ صوتی که دستورِ لحن را رد کرده، �
    دوباره انتخاب نمی‌شود»)؛ مدلِ صوتی چند خط بالاتر `continue` می‌کرد و
    هرگز به آن نمی‌رسید. */
 {
+  /* این بخش سازوکارِ «حکم ⇒ انتخاب» را **بی سنجاق** می‌سنجد (۸.۳۸): آن
+     سازوکار برای روزی است که `TTS_MODEL_PIN` خالی باشد و همچنان باید کار کند.
+     سنجاق جدا در §۹ سنجیده می‌شود. */
+  var pinSave8 = CFG.TTS_MODEL_PIN;
+  CFG.TTS_MODEL_PIN = '';
   delete global.__PROPS[PK.TTS_CUE_BAD];
   const before = resolveModels_(true).tts;
   say('  پیش از حکم → صوت:', before, before === 'gemini-3.1-flash-tts-preview' ? '✅' : '❌');
@@ -395,6 +400,69 @@ say('\n=== ۸) مدلِ صوتی که دستورِ لحن را رد کرده، �
 
   delete global.__PROPS[PK.TTS_CUE_OFF];
   delete global.__PROPS[PK.TTS_CUE_OFF_AT];
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  CFG.TTS_MODEL_PIN = pinSave8;
+  resolveModels_(true);
+}
+
+say('\n=== ۹) مدلِ صوتیِ سنجاق‌شده با «دستور را نپذیرفت» عوض نمی‌شود (۸.۳۸) ===');
+/* ══ چرا ══
+   از ۲۷ سپتامبر هیچ مدلی دستورِ لحن را نپذیرفت و `ttsCueSwitch_` هر صبح
+   مدلِ بعدی را برداشت. ۴ اکتبر او نمونهٔ صبح (3.1-flash) را «با طمأنینه» و
+   نمونهٔ شب (3.8-flash، پس از تعویضِ ۱۰ صبح) را «با اضطراب و برفک» شنید.
+   سنجاق یعنی مدلی که او پسندیده می‌مانَد — از هر دو در: ساختنِ کش و تعویضِ
+   روزانه. */
+{
+  const PIN = 'gemini-3.1-flash-tts-preview';
+  if (CFG.TTS_MODEL_PIN !== PIN) throw new Error('❌ ۹.۰ سنجاقِ پیکربندی: ' + CFG.TTS_MODEL_PIN);
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+
+  /* ۹.۱ حکمِ «دستور را نپذیرفت» روی خودِ سنجاق، انتخاب را عوض نمی‌کند —
+     همان وضعیتی که تا امروز موتور را از 3.1 به 3.8 برد. */
+  ttsCueBadAdd_(PIN);
+  const m1 = resolveModels_(true);
+  if (m1.tts !== PIN) throw new Error('❌ ۹.۱ حکمِ لحن سنجاق را کنار زد: ' + m1.tts);
+  if (m1.pinned !== PIN) throw new Error('❌ ۹.۱ `pinned` ثبت نشد: ' + JSON.stringify(m1.pinned));
+  say('  ۹.۱ با حکمِ لحن روی سنجاق، انتخاب همان سنجاق ماند ✅');
+
+  /* ۹.۲ و تعویضِ ۱۰ صبح هم دست نمی‌زند، و «نیاز» هم گزارش نمی‌شود — وگرنه
+     ایمیلِ سلامت هر روز «جایگزینی پیدا نشد … این ایراد است» می‌گفت، برای
+     تصمیمِ خودِ او. */
+  const sw = ttsCueSwitch_();
+  if (sw.switched) throw new Error('❌ ۹.۲ سنجاق عوض شد: ' + JSON.stringify(sw));
+  if (sw.need) throw new Error('❌ ۹.۲ سنجاق «نیاز به تعویض» گزارش شد: ' + JSON.stringify(sw));
+  if (!sw.pinned) throw new Error('❌ ۹.۲ `pinned` نیامد: ' + JSON.stringify(sw));
+  if (ttsModel_() !== PIN) throw new Error('❌ ۹.۲ پس از تعویض، مدل: ' + ttsModel_());
+  say('  ۹.۲ ttsCueSwitch_ سنجاق را نگه داشت و نیازی گزارش نکرد ✅');
+
+  /* ۹.۳ کشِ پیش از ۸.۳۸ (هفت روز عمر) مدلِ دیروز را دارد و سنجاق را
+     نمی‌شناسد — موتورِ واقعی امشب با همین کش بیدار می‌شود. */
+  global.__PROPS[PK.MODELS] = JSON.stringify({ text: 'gemini-2.5-flash', tts: 'gemini-3.8-flash-tts',
+    at: Date.now(), textAll: ['gemini-2.5-flash'], ttsAll: ['gemini-3.8-flash-tts'] });
+  if (ttsModel_() !== PIN) throw new Error('❌ ۹.۳ کشِ کهنه بر سنجاق مقدم شد: ' + ttsModel_());
+  say('  ۹.۳ کشِ کهنهٔ «3.8-flash» ⇒ باز هم سنجاق ✅');
+
+  /* ۹.۴ سنجاقی که در فهرستِ حساب نیست، رها می‌شود و **گفته** می‌شود —
+     مدلِ بازنشسته‌ای که سنجاق بماند یعنی هیچ قسمتی ساخته نشود. */
+  CFG.TTS_MODEL_PIN = 'gemini-0.0-gone-tts';
+  try {
+    delete global.__PROPS[PK.TTS_CUE_BAD];
+    const m4 = resolveModels_(true);
+    if (m4.tts === 'gemini-0.0-gone-tts') throw new Error('❌ ۹.۴ سنجاقِ ناموجود انتخاب شد');
+    if (m4.pinMissing !== 'gemini-0.0-gone-tts') throw new Error('❌ ۹.۴ نبودنِ سنجاق گفته نشد: ' + JSON.stringify(m4));
+    if (ttsModel_() === 'gemini-0.0-gone-tts') throw new Error('❌ ۹.۴ ttsModel_ سنجاقِ رفته را داد');
+    say('  ۹.۴ سنجاقِ ناموجود ⇒ انتخابِ خودکار «' + m4.tts + '»، و pinMissing ✅');
+  } finally { CFG.TTS_MODEL_PIN = PIN; }
+
+  /* ۹.۵ سطرِ روزانه می‌گوید ثابت است، تا کسی منتظرِ تعویضِ ۱۰ صبح نماند. */
+  delete global.__PROPS[PK.TTS_CUE_BAD];
+  resolveModels_(true);
+  ttsCueBadAdd_(PIN);
+  const st = ttsCueStatus_();
+  if (!st.pinned || st.line.indexOf(PIN) === -1 || st.line.indexOf('ثابت') === -1) {
+    throw new Error('❌ ۹.۵ سطرِ روزانه سنجاق را نگفت: ' + st.line);
+  }
+  say('  ۹.۵ سطرِ روزانه: «… ثابت است و برای دستورِ لحن عوض نمی‌شود» ✅');
   delete global.__PROPS[PK.TTS_CUE_BAD];
   resolveModels_(true);
 }
