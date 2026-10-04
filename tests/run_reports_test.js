@@ -88,6 +88,12 @@ global.__STUB = function (url, body) {
     return { code: 200, json: { candidates: [{ content: { parts: [{
       text: JSON.stringify({ wants: [] }) }] } }] } };
   }
+  // پرسشِ حالت‌ها در هر قسمت (۸.۴۰) — همان تله: بی این شاخه جای پرامپتِ
+  // نویسنده را می‌گرفت و «متنِ دستورها در پرامپتِ نویسنده» سرخ می‌شد.
+  if (t.indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) {
+    return { code: 200, json: { candidates: [{ content: { parts: [{
+      text: JSON.stringify({ spans: [] }) }] } }] } };
+  }
   writerPrompt = t;
   const ids = [...t.matchAll(/شناسه: (\S+)/g)].map(m => m[1]);
   // قلاب باید روز و تاریخ را بگوید و تعداد بخش‌ها کامل باشد، وگرنه پاس وفاداری

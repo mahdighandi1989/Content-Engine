@@ -94,6 +94,15 @@ function tgMusicLine_() {
 /* خطِ جزوه در سرپیامِ درس‌نامه. خواستهٔ صاحبِ برنامه بود که «اطلاع‌رسانی
    بشه» — و جای طبیعی‌اش همان‌جاست که خودِ قسمت اعلام می‌شود، نه یک گزارشِ
    جدا که باید سراغش رفت. بخشِ ۲۶ جلوتر است، پس try/catch. */
+/* «🎭 حالت‌ها (۹): آرام ۱:۲۰ · …» — جای هر حالت، تا گوش بداند کجا را بسنجد
+   (۸.۱۰)؛ او همین‌جا می‌شنود، نه در درایو (۷٫۶۸). خالی ⇒ هیچ سطری. */
+function tgMoodLine_(ep) {
+  try {
+    var t = String((ep && ep.__moodLine) || '');
+    return t ? '🎭 ' + tgEsc_(t.slice(0, 380)) + '\n' : '';
+  } catch (e) { return ''; }
+}
+
 function tgHandoutLine_(seriesName) {
   try {
     var h = handoutLineFull_(seriesName);
@@ -270,6 +279,7 @@ function sendTelegramEpisode_(epNum, ep, items, cat, audioFiles, docBlob, dur, f
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +
                (tags ? tgEsc_(tags) + '\n' : '') +
                tgMusicLine_() +
+               tgMoodLine_(ep) +
                '<a href="' + tgEsc_(folder.getUrl()) + '">پوشهٔ قسمت در درایو</a>';
     tgSend_(head); sent++;
   } catch (e) { failed++; notes.push('سرپیام: ' + e.message); }
@@ -431,6 +441,7 @@ function sendTelegramSpecial_(meta, audioFiles, docBlob, dur, folder, tags) {
                   ? '  ·  ➕ ' + meta.enrich.length + ' منبع مکمل (خارج از درس)' : '') + '\n' +
                (meta.more ? '↪️ ادامه دارد\n' : '✅ این قسمتِ درس تمام شد\n') +
                tgMusicLine_() + '\n' +
+               tgMoodLine_(ep) +
                tgVisualsLine_(folder) +
                tgHandoutLine_(meta.seriesName) +
                (ep.summary ? tgEsc_(ep.summary) + '\n\n' : '') +

@@ -536,6 +536,8 @@ function writeStatus_(hub, note) {
     ttsCue: (function () { try { return ttsCueStatus_(); } catch (e) { return null; } })(),
     /* مدلِ صوتی: سنجاق، مرجع، جانشینِ هم‌خوان و دگرگونی (۸.۳۹) — فقط Properties */
     ttsModel: (function () { try { return ttsModelStatus_(); } catch (e) { return null; } })(),
+    /* حالت‌ها و نشانه‌های لحنِ قسمت‌ها: کجا نشست و چطور (۸.۴۰) — فقط Properties */
+    speakMoods: (function () { try { return speakMoodStatus_(); } catch (e) { return null; } })(),
     auditQueue: (function () { try { return auditQueueStatus_(null); } catch (e) { return null; } })(),
     seriesOrder: (function () { try { return seriesOrderStatus_(null); } catch (e) { return null; } })(),
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
@@ -2159,6 +2161,15 @@ function healthCheck() {
     try { ttsModelGates_(hub, tmS); } catch (eTg) {}
   } catch (eTm) {}
   try { ttsAuditArm_(); } catch (eTa) {}
+  /* ══ لحنِ متن: حالت‌ها و نشانه‌ها (۸.۴۰) ══ «اتوماسیون زیر نظر باشه و ببینه
+     دقیق و کامل داره انجام می‌شه و اگر نه هم گزارش بده و هم اقدام کنه». سطر
+     هر روز هست؛ ایراد در مسئله‌ها می‌نشیند و `healthChronic_` تکرارش را
+     می‌شمارد، و دو قسمتِ پیاپیِ ناقص خودش یافتهٔ کد است. */
+  try {
+    var smS = speakMoodStatus_();
+    if (smS && smS.line) { if (smS.ok) notes.push(smS.line); else problems.push(smS.line); }
+    try { speakMoodGates_(hub, smS); } catch (eMg) {}
+  } catch (eSm) {}
   /* صفِ داوریِ محتوا. این یکی عمداً *اینجا*ست و نه در خودِ auditRun_: وقتی
      بودجهٔ شبانه تمام شود، auditRun_ اصلاً اجرا نمی‌شود و هر هشداری که
      داخلش باشد هم اجرا نمی‌شود. سه شب صفِ روبه‌رشد، و تنها کسی که فهمید

@@ -412,6 +412,17 @@ ok('قاعدهٔ «نصیحت و برداشت شخصی ممنوع» در پرا�
 // صداگذاری تا انتها
 un = quiet(); let d = 0; while (global.__PROPS[PK.SP_PENDING] && d++ < 60) produceSpecialContinue(); un();
 ok('قسمت کامل شد و وضعیتِ نیمه‌تمام پاک شد', !global.__PROPS[PK.SP_PENDING]);
+/* ۸.۴۰ — حالت‌ها از درِ تولیدِ **درس‌نامه** هم رد می‌شوند، نه فقط از برنامهٔ
+   متنوع. `run_moods_test.js` قرینه را تکه‌تکه می‌سنجد؛ این‌جا خودِ مرحله. */
+{
+  const spJ = global.__FILES.filter(f => f.getName() === '_special.json').pop();
+  const spM = spJ ? JSON.parse(spJ.getBlob().getDataAsString()) : null;
+  const recs = JSON.parse(global.__PROPS[PK.SPEAK_MOODS] || '[]');
+  ok('۸.۴۰ مرحلهٔ متنِ درس‌نامه نقشهٔ حالت‌ها را نوشت و کارنامه ثبتش کرد',
+     !!(spM && spM.ep && spM.ep.__moods && spM.ep.__moods.done) &&
+     recs.some(r => /^درس‌نامه/.test(String(r.l))),
+     spM && spM.ep && spM.ep.__moods ? 'پرسش ' + spM.ep.__moods.asked : 'نقشه نیست');
+}
 
 const spTab = hub.getSheetByName(CFG.SPECIAL_TAB);
 const spRows = () => spTab.getLastRow() < 2 ? [] :

@@ -1931,9 +1931,11 @@ function specialTextChunks_(ep, catHint) {
   for (var i = 0; i < segs.length; i++) {
     var plainS = speakSanitize_(String(segs[i].text || ''));
     var spoken = speakSanitize_(speakTextOf_(ep, i, plainS));
-    var pieces = splitForTts_(applyPron_(spoken));
+    /* همان تکه‌های صداسازی، با حالت‌ها (۸.۴۰) — وگرنه شمارِ تکه‌ها با
+       `_times.json` نمی‌خوانَد و کارت‌ها جابه‌جا می‌شوند. */
+    var pieces = speakSegPieces_(ep, i, spoken);
     for (var j = 0; j < pieces.length; j++) {
-      out.push({ text: pieces[j], seg: i, kind: String(segs[i].kind || 'body'),
+      out.push({ text: pieces[j].t, seg: i, kind: String(segs[i].kind || 'body'),
                  secIndex: (segs[i].secIndex === undefined ? -1 : Number(segs[i].secIndex)) });
     }
   }
@@ -1972,7 +1974,7 @@ function buildSpecialChunks_(ep, epNum, catHint) {
     // همان قاعدهٔ برنامهٔ متنوع: متنِ صوتیِ اعراب‌دار + پاک‌سازی از شناسه و لینک
     var plainS = speakSanitize_(String(segs[i].text || ''));
     var spoken = speakSanitize_(speakTextOf_(ep, i, plainS));
-    var pieces = splitForTts_(applyPron_(spoken));
+    var pieces = speakSegPieces_(ep, i, spoken);
     // مرزِ واقعیِ هر قطعه — همان چیزی که «از همه جا از همه رنگ» هم دارد.
     // بی این، موسیقیِ میانه در درس‌نامه اصلاً پخش نمی‌شد.
     // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
@@ -1988,8 +1990,7 @@ function buildSpecialChunks_(ep, epNum, catHint) {
                   tone: String(segs[i].tone || ''),
                   voice: String(segs[i].voice || '') });
     for (var j = 0; j < pieces.length; j++) {
-      out.push({ text: pieces[j], style: segs[i].style,
-                 voice: segs[i].voice || CFG.TTS_VOICE_SPECIAL });
+      out.push(speakMoodChunk_(pieces[j], segs[i].style, segs[i].voice || CFG.TTS_VOICE_SPECIAL));
     }
   }
   // موسیقی برای درس‌نامه هم، با همان سازوکار. بخشِ ۲۳ پایین‌تر است، پس
@@ -2371,9 +2372,10 @@ function renderSpecialAudioStep_() {
       meta.ep = ep;
       try { writeSpecialJson_(folder, meta); } catch (eWs) {}
       // فاصله، بعد بازبینی — همان ترتیبِ برنامهٔ متنوع (توضیح در speakReview_).
-      st.phase = (CFG.SPEAK_REVIEW === false) ? 'audio' : 'speak2';
+      /* `speak2` بازبینی **و** حالت‌ها (۸.۴۰) — قرینهٔ بخشِ ۳. */
+      st.phase = (CFG.SPEAK_REVIEW === false && !speakMoodsOn_()) ? 'audio' : 'speak2';
       props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
-      scheduleSpecialContinue_(st.phase === 'speak2'
+      scheduleSpecialContinue_((st.phase === 'speak2' && CFG.SPEAK_REVIEW !== false)
                                ? Math.max(60, (Number(CFG.SPEAK_REVIEW_MIN) || 3) * 60) * 1000
                                : 45 * 1000);
       logLine_('درس‌نامه ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSp) + '.');
@@ -2383,13 +2385,31 @@ function renderSpecialAudioStep_() {
     // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
     if (st.phase === 'speak2') {
       var segsRv = specialSegments_(ep, meta.seriesCat || meta.cat || '');
-      var rvS = speakReview_(ep, segsRv, deadline, function () {
-        meta.ep = ep; writeSpecialJson_(folder, meta);
-      }, CFG.SPECIAL_SHOW_NAME + ' ' + epNum);
-      if (!rvS.done) {
-        scheduleSpecialContinue_(45 * 1000);
-        logLine_('درس‌نامه ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
-        return { ok: true, episode: epNum, pending: true, reviewing: true };
+      var persistRvS = function () { meta.ep = ep; writeSpecialJson_(folder, meta); };
+      var rvS = { done: true, seen: 0, fixed: 0, learned: 0 };
+      if (!st.revDone) {
+        rvS = speakReview_(ep, segsRv, deadline, persistRvS, CFG.SPECIAL_SHOW_NAME + ' ' + epNum);
+        if (!rvS.done) {
+          scheduleSpecialContinue_(45 * 1000);
+          logLine_('درس‌نامه ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
+          return { ok: true, episode: epNum, pending: true, reviewing: true };
+        }
+        st.revDone = true;
+        props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+      }
+      /* حالت‌ها روی متنِ نهایی — قرینهٔ بخشِ ۳؛ قرینه‌ای که یکی‌اش وصل نباشد
+         همان «قرینه‌ای که یک بار درست شد» است (۵٫۹۵). */
+      var mdS = speakMoodsStep_(ep, segsRv, deadline, persistRvS, ENRICH_SHOW_SPECIAL, epNum);
+      if (!mdS.done) {
+        scheduleSpecialContinue_(mdS.retry ? 120 * 1000 : 45 * 1000);
+        logLine_('درس‌نامه ' + epNum + ': حالت‌های لحن ادامه دارد' +
+                 (mdS.retry ? ' (مدل جواب نداد؛ دوباره می‌پرسد)' : '') + '.');
+        return { ok: true, episode: epNum, pending: true, moods: true };
+      }
+      if (mdS.plan) {
+        logLine_('درس‌نامه ' + epNum + ': حالت‌ها — ' + mdS.plan.got + ' حالت در ' +
+                 mdS.plan.asked + ' پرسش' + (mdS.plan.by ? '، با شیوهٔ ' + mdS.plan.by : '') +
+                 ((mdS.plan.why || []).length ? ' (' + mdS.plan.why.slice(0, 2).join(' · ') + ')' : '') + '.');
       }
       writeSpeakFile_(folder, baseName, ep, segsRv);
       meta.ep = ep;
@@ -2504,6 +2524,7 @@ function renderSpecialAudioStep_() {
     // باید به همان اندازه‌گیری غذا بدهند (۶٫۲۹).
     try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
     try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
+    try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }

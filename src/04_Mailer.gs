@@ -218,6 +218,7 @@ function sendEpisodeEmail_(epNum, ep, items, cat, audioLinks, docBlob, dur, fold
       '<p style="margin:0"><b>مدت:</b> ', esc_(dur), ' &nbsp;·&nbsp; ',
       '<b>پوشهٔ قسمت:</b> <a href="', esc_(folder.getUrl()), '">باز کردن در درایو</a> &nbsp;·&nbsp; ',
       '<b>بانک محتوا:</b> <a href="', esc_(getHub_().getUrl()), '">CONTENT-HUB</a></p>',
+      moodHtmlLine_(ep),
       '</div></div>'
     ].join('');
 
@@ -244,6 +245,17 @@ function sendEpisodeEmail_(epNum, ep, items, cat, audioLinks, docBlob, dur, fold
  * جدولِ پوشش (چه قطعه‌هایی از کدام قسمت آمد و چه چیزی مانده)، و جداییِ صریحِ
  * «موادِ مکمل خارج از درس» از خودِ درس.
  */
+/* حالت‌های این قسمت، کجا نشستند و چطور (۸.۴۰) — همان‌جا که او می‌خوانَد. سطر
+   را `speakMoodRecord_` پیش از ارسال روی خودِ قسمت گذاشته است. */
+function moodHtmlLine_(ep) {
+  try {
+    var t = String((ep && ep.__moodLine) || '');
+    if (!t) return '';
+    return '<p style="margin:6px 0 0"><b>🎭 ' + esc_(t.split(':')[0]) + ':</b>' +
+           esc_(t.slice(t.indexOf(':') + 1)) + '</p>';
+  } catch (e) { return ''; }
+}
+
 /* جعبهٔ جزوه در ایمیلِ درس‌نامه — «اطلاع‌رسانی بشه». بخشِ ۲۶ جلوتر است. */
 function handoutHtmlLine_(seriesName) {
   try {
@@ -397,6 +409,7 @@ function sendSpecialEmail_(meta, audioLinks, docBlob, dur, folder, tags) {
       '<p style="margin:0"><b>مدت:</b> ', esc_(dur), ' &nbsp;·&nbsp; ',
       '<b>پوشهٔ قسمت:</b> <a href="', esc_(folder.getUrl()), '">باز کردن در درایو</a> &nbsp;·&nbsp; ',
       '<b>بانک محتوا:</b> <a href="', esc_(getHub_().getUrl()), '">CONTENT-HUB</a></p>',
+      moodHtmlLine_(ep),
       '</div></div>'
     ].join('');
     MailApp.sendEmail({

@@ -66,6 +66,10 @@ global.__STUB=function(url,body){
   // نویسنده بنشیند — همان تلهٔ اعراب‌گذاری، این بار برای افکت.
   if(t.indexOf('آیا جایی در آن هست که یک **صدای کوتاه**')!==-1){
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({wants:[]})}]}}]}};}
+  // و پرسشِ حالت‌ها در هر قسمت (۸.۴۰) — همان تله، بارِ **پنجم**. سنجهٔ
+  // «ارجاع‌ها به نویسنده رسید» دوباره همان لحظه سرخ شد.
+  if(t.indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند')!==-1){
+    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({spans:[]})}]}}]}};}
   writerPrompts.push(t);
   const ids=[...t.matchAll(/شناسه: (\S+)/g)].map(m=>m[1]);
   return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({title:'قسمت آزمایشی',

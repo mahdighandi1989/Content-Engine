@@ -1342,6 +1342,12 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
   TTS_CUE_DROPPED_ = false;
   var b64 = ttsChunkTry_(text, sectionStyle, voice, withCue);
   if (withCue === false || CFG.TTS_CUE_VERIFY === false || !b64) return b64;
+  /* ══ دستوری که نرفت، لو نمی‌رود (۸.۴۰) ══
+     مدلی که فیلدِ دستور را نمی‌پذیرد تکه را **بی‌دستور** می‌سازد و همان‌جا
+     مُهرِ «انداخته شد» می‌خورد. شنیدنِ شش ثانیهٔ آن تکه دنبالِ دستوری
+     می‌گشت که در بسته نبود: یک فراخوانِ مدلِ شنونده برای هیچ، سرِ هر بخش —
+     و از ۸.۴۰ سرِ هر حالت هم، چون حالت سبکِ تکه را عوض می‌کند. */
+  if (TTS_CUE_DROPPED_) return b64;
   var byPrefix = TTS_LAST_PROMPTED_;
 
   var v = ttsCueLeaked_(b64, ttsCue_(sectionStyle, text), text);
@@ -2515,12 +2521,45 @@ function speakSpanDef_(k) {
 }
 
 /** جدولِ حالت‌ها برای پرامپتِ مدلِ متنی — یک تعریف، از همان فهرست. */
-function speakSpanText_() {
-  var L = [];
-  for (var i = 0; i < SPEAK_SPANS.length; i++) {
-    L.push('- «' + SPEAK_SPANS[i].k + '» — ' + SPEAK_SPANS[i].when);
+function speakSpanText_(menu) {
+  var M = menu || SPEAK_SPANS, L = [];
+  for (var i = 0; i < M.length; i++) {
+    L.push('- «' + M[i].k + '» — ' + M[i].when);
   }
   return L.join('\n');
+}
+
+/**
+ * ══ منوی حالت‌ها در **قسمت**: فقط آنچه واقعاً به گوش می‌رسد (۸.۴۰) ══
+ *
+ * حالت سه راه دارد: دستورِ لحن، سرعت در خودِ صدا، و نشانهٔ پایانِ جمله.
+ * امروز هیچ مدلِ صوتی دستور را نمی‌پذیرد (۷٫۸۹) و پیشوند خاموش است (۸.۰۷)؛
+ * پس «لبخند» — که نه سرعت دارد نه نشانه — در قسمت هیچ اثری ندارد. در نمونه
+ * می‌مانَد، چون آن‌جا «اجرا نشد» خودش جوابِ آزمون است؛ در قسمت، حالتی که
+ * برنامه‌ریزی شود و هیچ اثری نداشته باشد، فقط یک ادعای بی‌ورودی در کارنامه
+ * است (۷٫۷۹). روزی که دستور برسد، همین تابع همه را برمی‌گرداند.
+ */
+function speakSpanMenu_(cueReaches) {
+  if (cueReaches) return SPEAK_SPANS.slice(0);
+  return SPEAK_SPANS.filter(function (d) {
+    return d.k === 'مکث' || !!d.mark || !!(d.dsp && d.dsp.tempo);
+  });
+}
+
+/**
+ * دستورِ لحن **امروز** به مدلِ صوتی می‌رسد؟ یک تعریف برای منوی حالت‌ها.
+ * مدلِ صوتی در بخشِ ۶ است، پس هر فراخوانِ رو به جلو در try/catch.
+ * «نمی‌دانم» یعنی «می‌رسد» — منو کامل می‌مانَد و اجرا خودش می‌گوید نرسید.
+ */
+function speakCueReaches_() {
+  if (String(CFG.TTS_CUE_MODE || '') === 'off') return false;
+  try {
+    var m = (typeof ttsModel_ === 'function') ? ttsModel_() : '';
+    if (!m) return true;
+    var bad = false;
+    try { bad = ttsCueBadNow_(m) || ttsCueOffNow_(m); } catch (eB) { bad = false; }
+    return !(bad && CFG.TTS_CUE_PREFIX !== true);
+  } catch (e) { return true; }
 }
 
 var SPEAK_SPAN_SCHEMA = {
@@ -2540,18 +2579,23 @@ var SPEAK_SPAN_SCHEMA = {
  * همپوشانی دور ریخته می‌شوند و **شمرده** می‌شوند، تا «۳ حالت» با «۹ پیشنهاد،
  * ۶ تا رد» یکی نشود (۵٫۸۸).
  */
-function speakSpanTrim_(raw, n) {
-  var max = Math.max(0, Number(CFG.SPEAK_SPAN_MAX) || 10);
+function speakSpanTrim_(raw, n, opt) {
+  opt = opt || {};
+  var max = (opt.max > 0) ? Math.floor(opt.max) : Math.max(0, Number(CFG.SPEAK_SPAN_MAX) || 10);
   var smax = Math.max(1, Number(CFG.SPEAK_SPAN_SENT_MAX) || 3);
   var drop = {}, cand = [];
   var bump = function (w) { drop[w] = (drop[w] || 0) + 1; };
   /* بخشِ ۱۰ است و این‌جا بخشِ ۳ — همان گاردِ `personaPitch_`. */
   var fd = function (v) { return (typeof faDigits_ === 'function') ? faDigits_(v) : v; };
+  var allow = null;
+  if (opt.menu) { allow = {}; for (var m0 = 0; m0 < opt.menu.length; m0++) allow[opt.menu[m0].k] = true; }
   var arr = (raw && raw.spans && raw.spans.length) ? raw.spans : [];
   for (var i = 0; i < arr.length; i++) {
     var x = arr[i] || {};
     var d = speakSpanDef_(String(x.k || '').trim());
     if (!d) { bump('نامِ ناشناخته'); continue; }
+    /* حالتی که در منوی این متن نبود: مدل جدول را نخوانده. دور، و شمرده. */
+    if (allow && !allow[d.k]) { bump('بیرون از منو'); continue; }
     var a = parseInt(fd(String(x.from == null ? '' : x.from)), 10);
     var b = parseInt(fd(String(x.to == null || x.to === '' ? x.from : x.to)), 10);
     if (!isFinite(a) || !isFinite(b) || a < 1 || b < a || b > n) { bump('شمارهٔ نامعتبر'); continue; }
@@ -2587,14 +2631,40 @@ function speakSpanPlan_(text, coverAll) {
   if (CFG.SPEAK_SPANS === false) { out.why = 'خاموش'; return out; }
   if (sents.length < 3) { out.why = 'متن کوتاه است'; return out; }
   var cap = Math.max(10, Number(CFG.SPEAK_SPAN_SENTS) || 160);
-  var use = Math.min(sents.length, cap);
+  var r = speakSpanAsk_(sents.slice(0, Math.min(sents.length, cap)), { coverAll: coverAll });
+  out.spans = r.spans; out.drop = r.drop; out.why = r.why;
+  return out;
+}
+
+/**
+ * پرسشِ واحدِ «کدام جمله چه حالی» — هم نمونه و هم قسمت از همین می‌پرسند،
+ * تا جدول و قاعده‌ها یک نسخه داشته باشند (۸.۴۰).
+ *
+ * `opt.menu`  حالت‌هایی که این بار مجازند (قسمت: فقط آنچه به گوش می‌رسد)
+ * `opt.max`   سقفِ شمار (قسمت: از طولِ متن)
+ * `opt.who`   گوینده‌ای که شیوهٔ خواندنش سنجیده شده — `{name, cue}`
+ * `opt.breaks` شمارهٔ جمله‌هایی که بخشِ تازه‌ای را شروع می‌کنند
+ * `opt.coverAll` نمونهٔ آزمون: هر حالتی که جا دارد
+ * `err` فقط وقتی پر است که مدل **جواب نداد** — با «حالتی پیشنهاد نکرد» یکی
+ * نیست: اولی ایراد است و دوباره پرسیده می‌شود، دومی تصمیمِ مدل است.
+ */
+function speakSpanAsk_(sents, opt) {
+  opt = opt || {};
+  var n = sents.length;
+  var out = { spans: [], n: n, why: '', drop: {}, err: '' };
+  var menu = opt.menu || SPEAK_SPANS;
+  var max = (opt.max > 0) ? Math.floor(opt.max) : (Number(CFG.SPEAK_SPAN_MAX) || 10);
   var L = [];
-  for (var i = 0; i < use; i++) L.push('[' + (i + 1) + '] ' + sents[i]);
+  for (var i = 0; i < n; i++) {
+    if (opt.breaks && opt.breaks[i + 1]) L.push('— بخشِ تازه —');
+    L.push('[' + (i + 1) + '] ' + sents[i]);
+  }
+  var who = opt.who && opt.who.cue ? opt.who : null;
   var prompt =
     'این متن را گوینده‌ای فارسی بلند می‌خوانَد. جمله‌ها شماره دارند. کارِ تو ' +
     'فقط این است که بگویی **کدام جمله‌ها حالِ خاصی می‌خواهند** — متن را ' +
     'بازنویسی نکن و چیزی به آن اضافه نکن.\n\n' +
-    'حالت‌ها، و جایی که هر کدام درست است:\n' + speakSpanText_() + '\n\n' +
+    'حالت‌ها، و جایی که هر کدام درست است:\n' + speakSpanText_(menu) + '\n\n' +
     'قاعده‌ها:\n' +
     '• حالت را از **معنای همان جمله و جای آن در کلِ متن** دربیاور، نه از ' +
     'یک واژه. جمله‌ای که حالِ خاصی نمی‌خواهد، خودش بی‌حالت بمانَد — بیشترِ ' +
@@ -2604,17 +2674,39 @@ function speakSpanPlan_(text, coverAll) {
     '• هر حالت حداکثر ' + (Number(CFG.SPEAK_SPAN_SENT_MAX) || 3) +
     ' جملهٔ پشتِ‌هم (from تا to). حالت‌ها روی هم نیفتند.\n' +
     '• «مکث» فقط from دارد: شمارهٔ جمله‌ای که سکوت **پیش** از آن می‌نشیند.\n' +
-    '• روی‌هم حداکثر ' + (Number(CFG.SPEAK_SPAN_MAX) || 10) + ' حالت.\n' +
-    (coverAll
+    '• روی‌هم حداکثر ' + max + ' حالت.\n' +
+    (opt.breaks
+      ? '• خطِ «— بخشِ تازه —» مرزِ دو بخشِ برنامه است و شماره ندارد؛ هیچ حالتی ' +
+        'از روی آن نگذرد.\n'
+      : '') +
+    (opt.coverAll
       ? '• این یک **نمونهٔ آزمون** است: شنونده می‌خواهد هر حالت را بشنود. پس ' +
         'هرجا معنا اجازه می‌دهد، از حالت‌های گوناگون استفاده کن — ولی حالتی ' +
         'را که هیچ جمله‌ای برایش مناسب نیست، به زور نگذار.\n'
       : '') +
+    (opt.episode
+      ? '• این یک قسمتِ **منتشرشدنی** است، نه نمونه: حالت فقط جایی که معنا ' +
+        'واقعاً می‌خواهد. متنی که حالِ خاصی نمی‌خواهد، بی‌حالت بمانَد — حالتِ ' +
+        'بی‌جا بدتر از نبودنش است.\n'
+      : '') +
+    (who
+      ? '• این متن را «' + String(who.name || '') + '» می‌خوانَد، و شیوهٔ ' +
+        'خواندنِ او از ضبط‌های خودش سنجیده شده:\n«' +
+        String(who.cue).replace(/\s+/g, ' ').slice(0, 500) + '»\n' +
+        'حالت‌ها را با همین شیوه هماهنگ کن: حالتی بگذار که از او برمی‌آید، و ' +
+        'حالتی را که با این شیوه ناسازگار است نگذار — مثلاً اگر نوشته «تأکید ' +
+        'را با مکث و کشش بساز، نه با بلند کردنِ صدا»، «کشیده» و «مکث» را بر ' +
+        '«بلند» ترجیح بده.\n'
+      : '') +
     'برای هر حالت در why در چند واژه بگو چرا.\n\n' + L.join('\n');
   var r = null;
   try { r = geminiText_(prompt, SPEAK_SPAN_SCHEMA, 4096); }
-  catch (e) { out.why = 'مدل جواب نداد: ' + String(e.message || e).slice(0, 80); return out; }
-  var tr = speakSpanTrim_(r, use);
+  catch (e) {
+    out.err = String(e.message || e).slice(0, 80);
+    out.why = 'مدل جواب نداد: ' + out.err;
+    return out;
+  }
+  var tr = speakSpanTrim_(r, n, { max: max, menu: opt.menu || null });
   out.spans = tr.spans; out.drop = tr.drop;
   if (!out.spans.length) {
     var dk = Object.keys(tr.drop);
@@ -2629,7 +2721,7 @@ function speakSpanPlan_(text, coverAll) {
  * جمله‌های بی‌حالت با همان `splitForTts_` بسته می‌شوند، پس متنِ بی‌حالت
  * دقیقاً همان تکه‌هایی را می‌دهد که امروز می‌دهد.
  */
-function speakSpanPieces_(text, spans) {
+function speakSpanPieces_(text, spans, pauseOpt) {
   var sents = speakSentSplit_(text);
   var at = {}, pauseAt = {};
   var sp = spans || [];
@@ -2644,7 +2736,7 @@ function speakSpanPieces_(text, spans) {
     for (var q = 0; q < ps.length; q++) out.push({ t: ps[q], k: '' });
     plain = [];
   };
-  var pauseSec = Number(CFG.SPEAK_PAUSE_SEC) || 0.9;
+  var pauseSec = (Number(pauseOpt) > 0) ? Number(pauseOpt) : (Number(CFG.SPEAK_PAUSE_SEC) || 0.9);
   for (var n = 1; n <= sents.length; n++) {
     if (pauseAt[n]) { flush(); out.push({ pause: pauseSec }); }
     var h = at[n];
@@ -2826,6 +2918,375 @@ function speakSpanWhere_(at) {
     out += '\nاجرا نشد (دستورِ لحن نرسید و نه در صدا ساختنی است نه با نشانه): ' + miss.join(' · ');
   }
   return out;
+}
+
+/* ═══════════ حالت‌ها در **هر** قسمت (۸.۴۰) ═══════════
+ *
+ * او نمونه‌های ۸.۳۸ را شنید و گفت «صداها از نظرم اوکی بودن» — و بعد پرسید
+ * متنِ پادکست‌ها چه می‌شود: «همه متن‌ها نشانه‌گذاری بشن، حالت‌ها توجیه بشن،
+ * و ثبت بشن، و اعراب‌گذاری هم سرِ جایش باشه … نه فقط برای این گوینده‌ها، حتی
+ * برای گوینده‌های فعلی». تا امروز حالت‌ها فقط در مسیرِ **نمونه** سیم‌کشی
+ * شده بودند؛ `SPEAK_SPANS_EP` در CFG بود و **هیچ‌جا خوانده نمی‌شد** — کلیدی
+ * که نامش می‌گفت «حالت در قسمت» و به هیچ کدی وصل نبود.
+ *
+ * سه قاعده، هر کدام درسی که این پرونده از قبل دارد:
+ *
+ * ۱) **یک بار حساب، همیشه خوانده** (درسِ `musicWrap_`). صداسازی در چند اجرا
+ *    ادامه می‌یابد و تکه‌ها را هر بار از نو می‌سازد؛ نقشه‌ای که هر بار پرسیده
+ *    شود، شمارهٔ تکه‌ها را جابه‌جا می‌کند — تکهٔ جاافتاده یا تکراری، بی خطا.
+ *    پس نقشه در مرحلهٔ متن (`speak2`) ساخته و در پروندهٔ قسمت نوشته می‌شود،
+ *    با امضای متن؛ متنی که عوض شود، نقشهٔ کهنه را نمی‌گیرد.
+ * ۲) **«کجا» از معنای متن است، «چطور» از گوینده.** جای «آرام» و «مکث» از خودِ
+ *    جمله می‌آید و برای هر گوینده‌ای همان است؛ نشانه و اعراب هم مالِ متن‌اند.
+ *    ولی وقتی گوینده‌ای با کارتِ سنجیده (رضوی، گلدوز، …) قسمت را می‌خوانَد،
+ *    همان کارت به پرسشِ حالت می‌رود («تأکید را با مکث و کشش بساز، نه با بلند
+ *    کردنِ صدا» ⇒ «کشیده» بر «بلند») و طولِ «مکث» از مکثِ میانِ بندهای خودِ او
+ *    گرفته می‌شود. این تنها جایی است که کارتِ سبک امروز واقعاً اثر دارد: خودِ
+ *    کارت به گفتارساز نمی‌رسد (۷٫۸۹).
+ * ۳) **«برنامه‌ریزی شد» با «نشست» یکی نیست** (۷٫۷۹، ۸.۲۷). هر حالت پس از
+ *    ساختِ صدا ثبت می‌شود با **چطور**ش (دستور / در صدا / با نشانه / نشد)، و
+ *    کارنامه همان را می‌گوید، نه نقشه را.
+ */
+
+/** حالت‌ها در قسمت روشن است؟ یک تعریف برای مرحلهٔ متن، صداسازی و گزارش. */
+function speakMoodsOn_() {
+  return CFG.SPEAK_SPANS !== false && CFG.SPEAK_SPANS_EP !== false;
+}
+
+/**
+ * طولِ «مکث» برای این قسمت. پیش‌فرض `SPEAK_PAUSE_SEC`؛ اگر گوینده‌ای با کارتِ
+ * سنجیده قسمت را می‌خوانَد، مکثِ **میانِ بندهای خودِ او** («میانِ بندها 1.1»)
+ * — همان عددی که `stylecard.py` از ضبط‌هایش درآورد. عددِ پرت (بیرونِ ۰٫۴ تا
+ * ۲) هدف نمی‌سازد، همان مرزِ `vbrStyleHz_`.
+ */
+function speakMoodPause_(per) {
+  var dflt = Number(CFG.SPEAK_PAUSE_SEC) || 0.9;
+  var out = { sec: dflt, src: 'پیش‌فرض' };
+  var c = String((per && per.cue) || '');
+  if (!c) return out;
+  var lat = c.replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 0x6F0); })
+             .replace(/٫/g, '.');
+  var m = lat.match(/میانِ?\s*بندها\s*(?:حدودِ?\s*)?\*{0,2}([0-9]+(?:\.[0-9]+)?)/);
+  if (!m) return out;
+  var v = parseFloat(m[1]);
+  if (!(v >= 0.4 && v <= 2)) return out;
+  out.sec = Math.round(v * 100) / 100;
+  out.src = 'کارتِ ' + String(per.name || per.key || 'گوینده');
+  return out;
+}
+
+/**
+ * مرحلهٔ «حالت‌ها» — در `speak2`، پس از بازبینیِ اعراب، چون متن باید **نهایی**
+ * باشد. ادامه‌پذیر: هر بندِ پرسش جدا ذخیره می‌شود و اجرای کشته‌شده از همان
+ * بند ادامه می‌دهد.
+ *
+ * ep.__moods = { sig, segs:[{h, n, s:[{a,b,k}]}], blocks, bi, done, by, pause,
+ *                asked, got, drop, why, tries, cue }
+ */
+function speakMoodsStep_(ep, segs, deadline, persist, show, epNum) {
+  if (!speakMoodsOn_()) return { done: true, off: true };
+  if (!ep || !segs || !segs.length) return { done: true };
+  /* متنی که واقعاً خوانده می‌شود — همان زنجیرهٔ `buildChunks_`، پیش از جدولِ
+     تلفظ (که در صداسازی اعمال می‌شود و آن‌جا شمارِ جمله دوباره سنجیده می‌شود). */
+  var texts = [], hs = [];
+  for (var i = 0; i < segs.length; i++) {
+    var plain = speakSanitize_(String(segs[i].text || ''));
+    var sp = speakSanitize_(speakTextOf_(ep, i, plain));
+    texts.push(sp);
+    hs.push(sp.trim() ? speakHash_(sp) : '');
+  }
+  var sig = speakHash_(hs.join('|'));
+  var M = ep.__moods;
+  /* میان‌بُر است، نه سد: نقشهٔ تمام‌شده بی آن هم دوباره پرسیده نمی‌شود، چون
+     `bi` به آخر رسیده است. فقط ساختنِ دوبارهٔ جمله‌ها را صرفه می‌کند (۷٫۷۱). */
+  if (M && M.sig === sig && M.done) return { done: true, plan: M };
+  /* جمله‌های کلِ قسمت با شمارهٔ سراسری، و بندهای پرسش — هر دو از خودِ متن
+     **دوباره** ساخته می‌شوند، نه ذخیره: متن با امضای `sig` همان است، پس
+     جواب همان است، و پرونده سبک می‌مانَد. */
+  var Gs = [], counts = [];
+  for (var s0 = 0; s0 < texts.length; s0++) {
+    var ss = texts[s0].trim() ? speakSentSplit_(texts[s0]) : [];
+    counts.push(ss.length);
+    for (var j0 = 0; j0 < ss.length; j0++) Gs.push({ seg: s0, j: j0, t: ss[j0] });
+  }
+  var B = Math.max(20, Number(CFG.SPEAK_SPAN_EP_BLOCK) || 120);
+  var blocks = [], st0 = 0;
+  while (st0 < Gs.length) {
+    var en = Math.min(Gs.length, st0 + B);
+    /* مرزِ بند ترجیحاً سرِ مرزِ بخش؛ حالتی که از بند بگذرد بریده می‌شود. */
+    if (en < Gs.length) {
+      var k0 = en;
+      while (k0 > st0 + Math.floor(B / 2) && Gs[k0].seg === Gs[k0 - 1].seg) k0--;
+      if (k0 > st0 + Math.floor(B / 2)) en = k0;
+    }
+    blocks.push([st0, en]);
+    st0 = en;
+  }
+  if (!M || M.sig !== sig) {
+    var per = null;
+    /* گوینده همین‌جا تصمیم گرفته و در پرونده می‌مانَد؛ صداسازی همان را می‌خوانَد
+       (`personaEnsure_` یک بار در هر قسمت). بخشِ ۳۲ پایین‌تر است. */
+    try { if (typeof personaEnsure_ === 'function') per = personaEnsure_(ep, show, epNum); }
+    catch (eP) { per = null; }
+    var pz = speakMoodPause_(per);
+    var reach = speakCueReaches_();
+    M = ep.__moods = {
+      v: 1, sig: sig, segs: [], nb: blocks.length, bi: 0, done: false,
+      by: per ? String(per.name || per.key || '') : '', byKey: per ? String(per.key || '') : '',
+      pause: pz.sec, pauseSrc: pz.src, cue: reach ? 1 : 0,
+      asked: 0, got: 0, drop: {}, why: [], tries: 0, at: ''
+    };
+    for (var c0 = 0; c0 < texts.length; c0++) M.segs.push({ h: hs[c0], n: counts[c0], s: [] });
+  }
+  var menu = speakSpanMenu_(!!M.cue);
+  var every = Math.max(3, Number(CFG.SPEAK_SPAN_EP_EVERY) || 10);
+  var minN = Math.max(3, Number(CFG.SPEAK_SPAN_EP_MIN) || 6);
+  var tryMax = Math.max(1, Number(CFG.SPEAK_SPAN_TRY_MAX) || 2);
+  var whoP = null;
+  try {
+    if (M.byKey && ep.__persona && ep.__persona.cue) whoP = { name: M.by, cue: ep.__persona.cue };
+  } catch (eW) { whoP = null; }
+  var touched = 0;
+  while (M.bi < blocks.length) {
+    if (touched > 0 && new Date().getTime() > deadline - 40000) {
+      try { persist(); } catch (eP1) {}
+      return { done: false, plan: M };
+    }
+    var bl = blocks[M.bi], a0 = bl[0], b0 = bl[1], n = b0 - a0;
+    if (n < minN) { M.why.push('بندِ ' + (M.bi + 1) + ': کوتاه'); M.bi++; continue; }
+    var sents = [], breaks = {};
+    for (var g = a0; g < b0; g++) {
+      sents.push(Gs[g].t);
+      if (g > a0 && Gs[g].j === 0) breaks[g - a0 + 1] = true;
+    }
+    touched++;
+    var r = speakSpanAsk_(sents, {
+      menu: menu, max: Math.max(1, Math.min(16, Math.round(n / every))),
+      who: whoP, breaks: breaks, episode: true });
+    if (r.err) {
+      M.tries = (Number(M.tries) || 0) + 1;
+      if (M.tries < tryMax) {
+        /* پرسشِ ناموفق دوباره پرسیده می‌شود — در اجرای بعد، نه همین حالا. */
+        try { persist(); } catch (eP2) {}
+        return { done: false, plan: M, retry: true };
+      }
+      M.why.push('بندِ ' + (M.bi + 1) + ': ' + r.why);
+      M.tries = 0; M.bi++;
+      try { persist(); } catch (eP3) {}
+      continue;
+    }
+    M.tries = 0; M.asked++;
+    for (var dk in r.drop) {
+      if (Object.prototype.hasOwnProperty.call(r.drop, dk)) M.drop[dk] = (M.drop[dk] || 0) + r.drop[dk];
+    }
+    if (!r.spans.length && r.why) M.why.push('بندِ ' + (M.bi + 1) + ': ' + r.why);
+    for (var q = 0; q < r.spans.length; q++) {
+      var x = r.spans[q];
+      var ga = a0 + x.a - 1, gb = a0 + x.b - 1;
+      var seg = Gs[ga].seg;
+      while (gb > ga && Gs[gb].seg !== seg) gb--;       // از مرزِ بخش نمی‌گذرد
+      M.segs[seg].s.push({ a: Gs[ga].j + 1, b: Gs[gb].j + 1, k: x.k });
+      M.got++;
+    }
+    M.bi++;
+    try { persist(); } catch (eP4) {}
+  }
+  M.done = true;
+  M.at = nowStr_();
+  try { persist(); } catch (eP5) {}
+  return { done: true, plan: M };
+}
+
+/**
+ * تکه‌های یک بخش، با حالتِ هر تکه — **یک تعریف** برای صداسازیِ هر دو برنامه و
+ * برای بازسازیِ متنِ ویدئو (`specialTextChunks_`). دو نسخه یعنی روزی شمارِ
+ * تکه‌های ویدئو با صدا نخوانَد و کارت‌ها جابه‌جا شوند (۸.۳۱).
+ * `{t, k, pre}` — `pre` سکوتِ پیش از تکه (حالتِ «مکث»)، به ثانیه.
+ */
+function speakSegPieces_(ep, i, spoken) {
+  var txt = applyPron_(spoken);
+  var plain = function () {
+    return splitForTts_(txt).map(function (t) { return { t: t, k: '', pre: 0 }; });
+  };
+  if (!speakMoodsOn_()) return plain();
+  var M = ep && ep.__moods, m = M && M.done && M.segs && M.segs[i];
+  if (!m || !m.s || !m.s.length || !m.h || m.h !== speakHash_(spoken)) return plain();
+  /* جدولِ تلفظ نباید شمارِ جمله‌ها را عوض کند؛ اگر کرد، «آرام» روی جملهٔ
+     کناری می‌نشست — پس بی‌حالت، و کارنامه کمبودش را می‌شمارد. */
+  if (speakSentSplit_(txt).length !== Number(m.n)) return plain();
+  var ps = speakSpanPieces_(txt, m.s, Number(M.pause) || 0);
+  var out = [], pre = 0;
+  for (var q = 0; q < ps.length; q++) {
+    if (ps[q].pause) { pre += ps[q].pause; continue; }
+    out.push({ t: ps[q].t, k: ps[q].k || '', pre: pre });
+    pre = 0;
+  }
+  return out;
+}
+
+/** تکهٔ آمادهٔ گفتارساز از یک تکهٔ `speakSegPieces_` — یک تعریف برای هر دو برنامه. */
+function speakMoodChunk_(pc, style, voice) {
+  var ch = { text: pc.t, style: style, voice: voice };
+  if (pc.k) { ch.mood = pc.k; ch.style = speakSpanStyle_(pc.k, style); }
+  if (Number(pc.pre) > 0) ch.pre = Number(pc.pre);
+  return ch;
+}
+
+/**
+ * پس از ساختِ صدا: هر حالت **کجا نشست و چطور** — از `times`ِ همان صداسازی، نه
+ * از نقشه. یک ردیف برای هر قسمت در `PK.SPEAK_MOODS` (ده تای آخر)؛ همان برچسب
+ * دوباره بیاید (ارسالِ دوباره) جایگزین می‌شود نه افزوده.
+ */
+function speakMoodRecord_(ep, times, label) {
+  try {
+    var M = (ep && ep.__moods) || null;
+    var planned = 0;
+    if (M && M.segs) for (var i = 0; i < M.segs.length; i++) planned += (M.segs[i].s || []).length;
+    var T = (times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
+    var at = [], how = {}, lastK = '', lastI = -9;
+    for (var t = 0; t < T.length; t++) {
+      var x = T[t] || {};
+      var s0 = Number(x.at) || 0;
+      if (Number(x.p) > 0) {
+        at.push({ k: 'مکث', s: Math.round(s0), how: 'سکوت' });
+        how['سکوت'] = (how['سکوت'] || 0) + 1;
+      }
+      if (x.mo) {
+        var hw = String(x.h || '');
+        var last = at[at.length - 1];
+        if (x.mo === lastK && Number(x.i) === lastI + 1 && last && last.k === x.mo) {
+          if (last.how !== hw) last.how = 'بخشی';
+        } else {
+          at.push({ k: String(x.mo), s: Math.round(s0 + (Number(x.p) || 0)), how: hw });
+          how[hw || '؟'] = (how[hw || '؟'] || 0) + 1;
+        }
+        lastK = String(x.mo); lastI = Number(x.i);
+      } else { lastK = ''; lastI = -9; }
+    }
+    var on = speakMoodsOn_();
+    var why = '';
+    if (!M) why = on ? 'نقشه‌ای ساخته نشد (قسمت پیش از ۸.۴۰ به صداسازی رسیده بود، یا مرحلهٔ متن رد شد)' : 'خاموش';
+    else if (!M.done) why = 'نقشه ناتمام ماند';
+    else if (!planned) why = (M.why || []).join(' · ').slice(0, 200) || 'مدل حالتی پیشنهاد نکرد';
+    var fault = !!(on && (!M || !M.done ||
+                  (!planned && /جواب نداد|رد شد/.test(why)) ||
+                  (planned && at.length < Math.ceil(planned * 2 / 3))));
+    var rec = {
+      at: nowStr_(), l: String(label || ''), on: on ? 1 : 0,
+      plan: planned, got: at.length, how: how,
+      lost: Math.max(0, planned - at.length),
+      by: M ? String(M.by || '') : '', pz: M ? Number(M.pause) || 0 : 0,
+      pzs: M ? String(M.pauseSrc || '') : '',
+      cue: M ? Number(M.cue) || 0 : 0,
+      drop: (M && M.drop) || {}, why: why, fault: fault ? 1 : 0,
+      line: speakSpanWhere_(at).slice(0, 700)
+    };
+    var raw = props_().getProperty(PK.SPEAK_MOODS);
+    var L = [];
+    try { L = raw ? JSON.parse(raw) : []; } catch (eJ) { L = []; }
+    if (!(L instanceof Array)) L = [];
+    L = L.filter(function (r) { return r && r.l !== rec.l; });
+    L.push(rec);
+    while (L.length > 10) L.shift();
+    props_().setProperty(PK.SPEAK_MOODS, JSON.stringify(L));
+    /* برای ایمیل و تلگرامِ همین قسمت: او آن‌جا می‌شنود، نه در درایو (۷٫۶۸). */
+    try { ep.__moodLine = speakMoodShort_(rec); } catch (eL) {}
+    return rec;
+  } catch (e) { return null; }
+}
+
+/** «۹ حالت: آرام ۱:۲۰ · …» — کوتاه، برای سرِ ایمیل و کپشن. */
+function speakMoodShort_(rec) {
+  if (!rec) return '';
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  if (!rec.on) return '';
+  if (!rec.got) return 'حالت‌ها: هیچ — ' + String(rec.why || 'نامعلوم');
+  var line = String(rec.line || '').split('\n')[0].replace(/^حالت‌ها:\s*/, '');
+  return 'حالت‌ها (' + fa(rec.got) + '): ' + line.slice(0, 300) +
+         (rec.by ? ' · با شیوهٔ ' + rec.by : '');
+}
+
+/**
+ * خطِ روزانهٔ «لحن»: حالت‌ها و نشانه‌ها با هم، چون هر دو یک پرسش‌اند —
+ * «متن آن‌طور که باید خوانده شد؟». **هر روز**، حتی وقتی سالم است (۵٫۹۰).
+ * فقط Script Properties — هیچ خواندنی از هاب (۷٫۶۳/۷٫۷۲).
+ */
+function speakMoodStatus_() {
+  var out = { ok: true, on: speakMoodsOn_(), line: '', last: null, eps: 0,
+              plan: 0, got: 0, lost: 0, faults: 0, pr: null, prOk: true };
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+  var L = [];
+  try { L = JSON.parse(props_().getProperty(PK.SPEAK_MOODS) || '[]'); } catch (e) { L = []; }
+  if (!(L instanceof Array)) L = [];
+  for (var i = 0; i < L.length; i++) {
+    out.eps++; out.plan += Number(L[i].plan) || 0; out.got += Number(L[i].got) || 0;
+    out.lost += Number(L[i].lost) || 0; if (L[i].fault) out.faults++;
+  }
+  var last = L.length ? L[L.length - 1] : null;
+  out.last = last;
+  /* نشانه‌های لحن از کارنامهٔ اعراب (`speakSkipRecord_` همان متن را دارد). */
+  var need = Number(CFG.SPEAK_PROSODY_MIN);
+  if (!isFinite(need) || need <= 0) need = 3;
+  try {
+    var S = JSON.parse(props_().getProperty(PK.SPEAK_SKIP) || '[]');
+    var sl = (S instanceof Array && S.length) ? S[S.length - 1] : null;
+    if (sl && typeof sl.pr === 'number') {
+      out.pr = sl.pr; out.prKinds = Number(sl.pk) || 0; out.prLabel = String(sl.l || '');
+      out.prOk = sl.pr >= need;
+    }
+  } catch (eS) {}
+  var parts = [];
+  if (!out.on) parts.push('حالت‌ها در قسمت‌ها: خاموش (تصمیم)');
+  else if (!last) parts.push('حالت‌ها در قسمت‌ها: روشن — هنوز هیچ قسمتی با آن ساخته نشده');
+  else {
+    var hw = last.how || {}, hl = [];
+    for (var k in hw) if (Object.prototype.hasOwnProperty.call(hw, k)) hl.push(fa(hw[k]) + ' ' + k);
+    parts.push('حالت‌ها، قسمتِ آخر («' + last.l + '»): ' +
+               (last.got ? fa(last.got) + ' حالت نشست' + (hl.length ? ' (' + hl.join('، ') + ')' : '')
+                         : 'هیچ — ' + String(last.why || '')) +
+               (last.lost ? '؛ ' + fa(last.lost) + ' حالتِ برنامه‌ریزی‌شده ننشست' : '') +
+               (last.by ? '؛ با شیوهٔ ' + last.by + ' (مکث ' + fa(last.pz) + ' ثانیه از ' + last.pzs + ')' : ''));
+    if (last.fault) out.ok = false;
+  }
+  if (out.pr !== null) {
+    parts.push('نشانه‌های لحن در «' + out.prLabel + '»: ' + fa(out.pr) + ' در هزار نویسه' +
+               ' (' + fa(out.prKinds) + ' نوع؛ کف ' + fa(need) + ')');
+    if (!out.prOk) out.ok = false;
+  }
+  out.line = parts.join(' · ');
+  if (!out.ok) {
+    out.line = '⚠️ ' + out.line + ' — ' +
+      (last && last.fault ? 'حالت‌ها کامل اجرا نشد: ' + String(last.why || (last.lost + ' گم شد')) : '') +
+      (!out.prOk ? (last && last.fault ? '؛ ' : '') + 'نشانه‌گذاریِ لحن زیرِ کف ماند' : '');
+  }
+  return out;
+}
+
+/**
+ * یافته‌ای که می‌مانَد — جمله‌ای در ایمیل فردا جایش را به جملهٔ دیگری می‌دهد.
+ * دو قسمتِ پیاپی با ایراد ⇒ یافتهٔ کد در صفِ نسخهٔ بعد. یک قسمت هیچ: یک شبِ
+ * بد باید شبِ بد بمانَد (۷٫۴۰).
+ */
+function speakMoodGates_(hub, st) {
+  try {
+    var L = JSON.parse(props_().getProperty(PK.SPEAK_MOODS) || '[]');
+    if (!(L instanceof Array) || L.length < 2) return false;
+    var a = L[L.length - 1], b = L[L.length - 2];
+    if (!(a && b && a.fault && b.fault)) return false;
+    logSelfFinding_(hub || null, {
+      priority: 'جدی', category: 'تلفظ', key: 'speak-moods-fault',
+      title: 'حالت‌های لحن در دو قسمتِ پیاپی کامل اجرا نشد',
+      detail: '«' + a.l + '»: ' + (a.why || (a.lost + ' از ' + a.plan + ' نشست')) +
+              ' · «' + b.l + '»: ' + (b.why || (b.lost + ' از ' + b.plan + ' نشست')),
+      instruction: 'سه جا را به ترتیب ببین: (۱) `ep.__moods` در `_episode.json`ِ همان ' +
+                   'قسمت — نقشه ساخته شد؟ `why` چه می‌گوید؟ (۲) اگر ساخته شد و نشست، ' +
+                   'شمارِ جمله‌ها پس از جدولِ تلفظ عوض شده (`speakSegPieces_`)، یا ' +
+                   '`_times.json` فیلدِ `mo` ندارد. (۳) اگر مدل جواب نداد، `geminiText_`. ' +
+                   'دوباره ثبت کردنِ همین یافته جواب نیست.',
+      owner: ROWNER_CODE
+    });
+    return true;
+  } catch (e) { return false; }
 }
 
 /** متنِ قاعده‌ها برای پرامپت — یک بار ساخته می‌شود، دو جا مصرف. */
@@ -3623,7 +4084,17 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       bwx = speakBareWords_(allT.join(' '), 8);
     } catch (eBw) {}
     var fl0 = (ep && ep.__fill) || {};
+    /* ══ نشانه‌های لحنِ همین قسمت (۸.۴۰) ══ تا امروز هیچ‌جا ثبت نمی‌شد: ترمیم
+       زیرِ کف می‌رفت و چگالیِ نهایی با پایانِ اجرا گم می‌شد. «همهٔ متن‌ها
+       نشانه‌گذاری بشن» بی این عدد قابلِ وارسی نیست. */
+    var prN = null, prK = 0;
+    try {
+      var allP = [];
+      for (var pp = 0; pp < S.length; pp++) if (S[pp] && S[pp].t) allP.push(S[pp].t);
+      if (allP.length) { var prA = speakProsody_(allP.join(' ')); prN = prA.richPer1k; prK = prA.kinds; }
+    } catch (ePr) {}
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
+                pr: prN, pk: prK,
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
                 cw: cw, cb: cb, bw: bwx,
                 fa: Number(fl0.a) || 0, fg: Number(fl0.g) || 0, fk: Number(fl0.k) || 0,
@@ -4096,7 +4567,8 @@ function buildChunks_(ep, cat, epNum) {
     // شناسه و لینکی که «گفتنی» نیست. متنِ خواندنیِ سند دست نمی‌خورد.
     var plainS = speakSanitize_(String(segs[i].text || ''));
     var spoken = speakSanitize_(speakTextOf_(ep, i, plainS));
-    var pieces = splitForTts_(applyPron_(spoken));
+    /* با حالت‌هایی که مرحلهٔ متن یک بار ساخت (۸.۴۰)؛ بی نقشه همان تکه‌های دیروز. */
+    var pieces = speakSegPieces_(ep, i, spoken);
     // مرزِ واقعیِ این قطعه در فهرستِ تکه‌ها. موسیقیِ میانه فقط اینجاها
     // می‌نشیند، وگرنه وسطِ روایتِ یک بخش می‌افتاد.
     // وایب و گویندهٔ هر بخش هم با مرز می‌روند. بی این‌ها، انتخاب‌کنندهٔ
@@ -4112,7 +4584,7 @@ function buildChunks_(ep, cat, epNum) {
                   tone: String(segs[i].tone || ''),
                   voice: String(segs[i].voice || '') });
     for (var j = 0; j < pieces.length; j++) {
-      out.push({ text: pieces[j], style: segs[i].style, voice: segs[i].voice });
+      out.push(speakMoodChunk_(pieces[j], segs[i].style, segs[i].voice));
     }
   }
   // موسیقی لای تکه‌ها می‌نشیند. بخشِ ۲۳ پایین‌تر از این است، پس فراخوانش در
@@ -4591,12 +5063,31 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     // همان است و فقط شانسِ «دستور را بخواند» از بین می‌رود.
     // تکهٔ موسیقی از پیش صدا دارد و به مدل فرستاده نمی‌شود — نه هزینه‌ای
     // دارد، نه شانسی برای اشتباه‌خواندن.
-    var b64;
+    var b64, moodK = '', moodHow = '', preSec = 0;
     if (chunks[i] && chunks[i].pcm) {
       b64 = alignB64_(chunks[i].pcm);
     } else {
       var withCue = ttsCueWanted_(chunks, i);
       b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
+      /* ══ حالتِ این تکه رسید یا نه — از رویدادِ همین تکه (۸.۲۷، در قسمت از ۸.۴۰) ══
+         دستور فقط وقتی رسیده که همراهِ همین تکه رفته و دور انداخته نشده باشد.
+         تکهٔ دومِ یک حالت دستور نمی‌گیرد (`ttsCueWanted_`)، پس آن هم «نرسید» است.
+         نرسید ⇒ سرعت در خودِ صدا (بلندی هرگز، ۸.۳۶)، وگرنه نشانهٔ پایانِ جمله
+         که از قبل در متن نشسته، وگرنه «نشد» — و همین «چطور» ثبت می‌شود. */
+      moodK = (chunks[i] && chunks[i].mood) ? String(chunks[i].mood) : '';
+      if (b64 && moodK) {
+        if (withCue && !TTS_CUE_DROPPED_) moodHow = 'دستور';
+        else {
+          var dz = null;
+          try { dz = speakMoodDsp_(b64, moodK); } catch (eDz) { dz = null; }
+          var dd = speakSpanDef_(moodK);
+          if (dz) { b64 = alignB64_(dz); moodHow = 'صدا'; }
+          else moodHow = (dd && dd.mark) ? 'نشانه' : 'نشد';
+        }
+      }
+      /* «مکث» سکوتِ واقعی است پیش از جمله — به گفتارساز نمی‌رود، پس خواندنی نیست. */
+      preSec = Number(chunks[i] && chunks[i].pre) || 0;
+      if (b64 && preSec > 0) b64 = speakSilenceB64_(preSec) + b64;
     }
     if (!b64) continue;
 
@@ -4638,8 +5129,13 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     }
     /* `k` (۸.۳۱): «t» گفتار، «m» موسیقی. بی آن، بازسازیِ بعدی نمی‌داند کدام
        زمان مالِ کدام تکهٔ متن است و باید با مدت‌ها حدس بزند (`lvAlignTimes_`). */
-    times.push({ i: i, at: Math.round(tAcc * 100) / 100,
-                 k: (chunks[i] && chunks[i].pcm) ? 'm' : 't' });
+    var tEnt = { i: i, at: Math.round(tAcc * 100) / 100,
+                 k: (chunks[i] && chunks[i].pcm) ? 'm' : 't' };
+    /* `mo`/`h`/`p` (۸.۴۰): حالت، چطور نشست، و سکوتِ پیش از آن — شاهدِ کارنامه.
+       `k` همان «t» می‌مانَد تا `lvAlignTimes_` تکه‌های متن را همان‌طور بشمارد. */
+    if (moodK) { tEnt.mo = moodK; tEnt.h = moodHow; }
+    if (preSec > 0) tEnt.p = preSec;
+    times.push(tEnt);
     tAcc += b64Sec_(b64.length);
     buf.push(b64); bufChars += b64.length;
     Utilities.sleep(400);          // ملایمت با سهمیهٔ API
@@ -7153,9 +7649,11 @@ function renderAudioStep_() {
       // نوشتن تمام شد؛ حالا فاصله، بعد بازبینی. فاصله تزئینی نیست: نوشتن و
       // قضاوت باید دو فراخوانِ جدا باشند، وگرنه مدل جوابِ خودش را تأیید
       // می‌کند — و دقیقاً همین شکل بود که سه نسخه پیاپی «درست شد» گفت.
-      st.phase = (CFG.SPEAK_REVIEW === false) ? 'audio' : 'speak2';
+      /* `speak2` حالا دو کار دارد: بازبینی، و حالت‌ها (۸.۴۰). یکی که روشن باشد،
+         مرحله لازم است — وگرنه خاموش‌کردنِ بازبینی حالت‌ها را هم بی‌صدا می‌کُشت. */
+      st.phase = (CFG.SPEAK_REVIEW === false && !speakMoodsOn_()) ? 'audio' : 'speak2';
       props_().setProperty(PK.PENDING, JSON.stringify(st));
-      scheduleContinue_(st.phase === 'speak2'
+      scheduleContinue_((st.phase === 'speak2' && CFG.SPEAK_REVIEW !== false)
                         ? Math.max(60, (Number(CFG.SPEAK_REVIEW_MIN) || 3) * 60) * 1000
                         : 45 * 1000);
       logLine_('قسمت ' + epNum + ': متنِ صوتی آماده شد — ' + speakStats_(ep, segsSpk) + '.');
@@ -7165,13 +7663,33 @@ function renderAudioStep_() {
     // ── مرحلهٔ «بازبینیِ متنِ صوتی» ──
     if (st.phase === 'speak2') {
       var segsRev = episodeSegments_(ep, cat);
-      var rv = speakReview_(ep, segsRev, deadline, function () {
-        meta.ep = ep; writeEpisodeJson_(folder, meta);
-      }, CFG.SHOW_NAME + ' ' + epNum);
-      if (!rv.done) {
-        scheduleContinue_(45 * 1000);
-        logLine_('قسمت ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
-        return { ok: true, episode: epNum, pending: true, reviewing: true };
+      var persistRv = function () { meta.ep = ep; writeEpisodeJson_(folder, meta); };
+      /* بازبینی یک بار؛ اگر حالت‌ها اجرای بعدی خواستند، بازبینی دوباره ثبت نمی‌شود
+         (`speakRevLog_` هر بار یک ردیف می‌نوشت و «۰ بخش وارسی» دروغ بود). */
+      var rv = { done: true, seen: 0, fixed: 0, learned: 0 };
+      if (!st.revDone) {
+        rv = speakReview_(ep, segsRev, deadline, persistRv, CFG.SHOW_NAME + ' ' + epNum);
+        if (!rv.done) {
+          scheduleContinue_(45 * 1000);
+          logLine_('قسمت ' + epNum + ': بازبینیِ متنِ صوتی ادامه دارد.');
+          return { ok: true, episode: epNum, pending: true, reviewing: true };
+        }
+        st.revDone = true;
+        props_().setProperty(PK.PENDING, JSON.stringify(st));
+      }
+      /* ══ حالت‌ها، روی متنِ نهایی (۸.۴۰) ══ یک بار ساخته و در پرونده نوشته
+         می‌شود؛ صداسازی فقط همان را می‌خوانَد. */
+      var md = speakMoodsStep_(ep, segsRev, deadline, persistRv, ENRICH_SHOW_VARIETY, epNum);
+      if (!md.done) {
+        scheduleContinue_(md.retry ? 120 * 1000 : 45 * 1000);
+        logLine_('قسمت ' + epNum + ': حالت‌های لحن ادامه دارد' +
+                 (md.retry ? ' (مدل جواب نداد؛ دوباره می‌پرسد)' : '') + '.');
+        return { ok: true, episode: epNum, pending: true, moods: true };
+      }
+      if (md.plan) {
+        logLine_('قسمت ' + epNum + ': حالت‌ها — ' + md.plan.got + ' حالت در ' +
+                 md.plan.asked + ' پرسش' + (md.plan.by ? '، با شیوهٔ ' + md.plan.by : '') +
+                 ((md.plan.why || []).length ? ' (' + md.plan.why.slice(0, 2).join(' · ') + ')' : '') + '.');
       }
       writeSpeakFile_(folder, baseName, ep, segsRev);
       meta.ep = ep;
@@ -7314,6 +7832,8 @@ function renderAudioStep_() {
        سقفِ «یک فایل» فردا از همین اندازه‌گیری می‌آید (۶٫۲۹). */
     try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
     try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
+    /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
+    try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {
