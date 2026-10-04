@@ -84,4 +84,4 @@ function build(spec, dir) {
   out.sort((a, b) => a.at - b.at);
   return out;
 }
-module.exports = { build, chromeExe, looks: L.LOOKS, lookFor: L.lookFor, mark: MARK };
+module.exports = { build, chromeExe, logoData, looks: L.LOOKS, lookFor: L.lookFor, mark: MARK };

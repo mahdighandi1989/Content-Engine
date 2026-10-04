@@ -4299,7 +4299,10 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
       }
       buf = []; bufChars = 0;
     }
-    times.push({ i: i, at: Math.round(tAcc * 100) / 100 });
+    /* `k` (۸.۳۱): «t» گفتار، «m» موسیقی. بی آن، بازسازیِ بعدی نمی‌داند کدام
+       زمان مالِ کدام تکهٔ متن است و باید با مدت‌ها حدس بزند (`lvAlignTimes_`). */
+    times.push({ i: i, at: Math.round(tAcc * 100) / 100,
+                 k: (chunks[i] && chunks[i].pcm) ? 'm' : 't' });
     tAcc += b64Sec_(b64.length);
     buf.push(b64); bufChars += b64.length;
     Utilities.sleep(400);          // ملایمت با سهمیهٔ API

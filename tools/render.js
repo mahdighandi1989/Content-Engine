@@ -111,7 +111,7 @@ function ensureRelease() {
     })]));
 }
 
-function uploadAsset(rel, file, name) {
+function uploadAsset(rel, file, name, ctype) {
   // نامِ تکراری اول پاک می‌شود، وگرنه گیت‌هاب ۴۲۲ می‌دهد و اسمِ فایل را عوض می‌کند
   for (const a of (rel.assets || [])) {
     if (a.name === name) {
@@ -120,7 +120,7 @@ function uploadAsset(rel, file, name) {
     }
   }
   const res = JSON.parse(gh([
-    '-X', 'POST', '-H', 'Content-Type: video/mp4',
+    '-X', 'POST', '-H', 'Content-Type: ' + (ctype || 'video/mp4'),
     '--data-binary', '@' + file,
     'https://uploads.github.com/repos/' + REPO + '/releases/' + rel.id +
       '/assets?name=' + encodeURIComponent(name)]));
@@ -643,8 +643,74 @@ function buildSpecVideo(spec, wav, durSec, dest, dir, notes) {
              CK.mark.cornerAt(Number(c.at) || 0, spec.mark && spec.mark.everySec)))) };
 }
 
+/* ══ صحنه‌های مصور (۸.۳۱) — از همه مقدم ══
+ * ردیفِ `mode: 'scenes'` تصویرِ تمام‌صفحهٔ هر صحنه را با ثانیهٔ شروعش دارد.
+ * دانلود این‌جاست (مرزِ scenekit: شبکه ندارد)، و بایت‌ها باور می‌شوند نه
+ * نشانی: فایلی که اشتراکش باز نیست صفحهٔ HTML برمی‌گرداند (۷.۳۳).
+ * نشد ⇒ با علت به مسیرِ بعدی؛ هرگز کلِ قسمت زمین نمی‌خورد. */
+function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
+  const SKIT = require('./scenekit.js');
+  const CK = require('./cardkit/index.js');
+  const imgs = {};
+  for (const s of scenes) {
+    const f = path.join(dir, 's' + String(s.n).padStart(3, '0'));
+    try {
+      fetchTo(s.url, f);
+      const k = sniffKind(f);
+      if (k !== 'png' && k !== 'jpeg') { notes.push('صحنهٔ ' + s.n + ': بایت‌ها تصویر نبود'); continue; }
+      const j = f + '.jpg';
+      ff(['-i', f, '-vf', 'scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080',
+          '-q:v', '3', '-frames:v', '1', j]);
+      if (sniffKind(j) === 'jpeg') imgs[String(s.n)] = j;
+    } catch (e) {
+      notes.push('صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60));
+    }
+  }
+  const mark = it.mark && it.mark.handle ? Object.assign({}, it.mark) : null;
+  if (mark && mark.logoUrl && !mark.logo) mark.logo = CK.logoData(mark.logoUrl, dir);
+  const exe = CK.chromeExe();
+  const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
+                             dest: dest, dir: dir, imgs: imgs, mark: mark, notes: notes });
+  const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
+
+  // کاورِ بندانگشتی از نقاشیِ خودِ درس
+  let thumb = '';
+  try {
+    let src = '';
+    if (it.sceneCover && it.sceneCover.url) {
+      const cf = path.join(dir, 'coverscene');
+      fetchTo(it.sceneCover.url, cf);
+      const k = sniffKind(cf);
+      if (k === 'png' || k === 'jpeg') src = cf;
+    }
+    if (!src) src = r.tl.length ? r.tl[0].img : '';
+    if (src) {
+      const cj = path.join(dir, 'cover1280.jpg');
+      ff(['-i', src, '-vf', 'scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720',
+          '-q:v', '3', '-frames:v', '1', cj]);
+      const data = 'data:image/jpeg;base64,' + fs.readFileSync(cj).toString('base64');
+      const png = SKIT.shoot(exe, SKIT.coverHtml(data, it), path.join(dir, 'thumb.png'), 1280, 720, ff);
+      const tj = path.join(dir, 'thumb.jpg');
+      ff(['-i', png, '-q:v', '3', '-frames:v', '1', tj]);
+      if (sniffKind(tj) === 'jpeg' && fs.statSync(tj).size < 2 * 1024 * 1024) thumb = tj;
+    }
+  } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
+  return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
+           groups: r.groups, qa: qa, thumbFile: thumb };
+}
+
 function buildVideo(it, cover, wav, durSec, dest, dir) {
   const notes = [];
+  /* صحنه‌های مصور از همه مقدم‌اند (۸.۳۱)؛ بعد مشخصاتِ برداری؛ بعد اسلایدها. */
+  const sc = require('./scenekit.js').scenesOf(it);
+  if (sc) {
+    try {
+      const r = buildScenesVideo(it, sc, wav, durSec, dest, dir, notes);
+      return Object.assign({ mode: 'scenes', notes: notes }, r);
+    } catch (e) {
+      notes.push('صحنه‌ها نشد، مسیرِ بعدی: ' + String(e.message).split('\n')[0].slice(0, 90));
+    }
+  }
   /* مشخصاتِ تصویری از همه مقدم است؛ نبودش یعنی موتورِ قدیم، و آن مسیر
      دست‌نخورده می‌مانَد. */
   const spec = specOf(it);
@@ -711,6 +777,9 @@ function heldNow(it, hold, now) {
   const h = (hold || {})[String((it || {}).key || '')];
   if (!h) return '';
   if (h.at && String(h.at) !== String(it.at || '')) return '';      // ردیف بازنویسی شده
+  /* «فقط کارت» (۸.۳۱): نگه‌داشتنی که برای ماندنِ ردیفِ کارتی تا رسیدنِ صحنه‌ها
+     گذاشته شده، خودِ صحنه‌ها را نگه نمی‌دارد. */
+  if (h.cardsOnly && String(it.mode || '') === 'scenes') return '';
   const until = Date.parse(String(h.until || ''));
   if (!isFinite(until) || (now || new Date()).getTime() >= until) return '';
   return String(h.why || 'نگه‌داشته') + ' (تا ' + new Date(until).toISOString().slice(0, 16) + 'Z)';
@@ -765,8 +834,13 @@ function main() {
   if (!todo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
+  const runT0 = Date.now();
   for (const it of todo) {
     if (made >= MAX_PER_RUN) { log('سقفِ این اجرا پر شد؛ بقیه دفعهٔ بعد.'); break; }
+    /* ویدئوی صحنه‌ای ~۱٫۲ برابرِ مدتش زمان می‌برد (سنجیده روی همین کانتینر)؛
+       سه درسِ پانزده‌دقیقه‌ای از سقفِ ۵۰ دقیقه‌ایِ کار می‌گذرد و کارِ کشته‌شده
+       هیچ خروجی‌ای نمی‌دهد. پس پس از ۲۵ دقیقه، بقیه دفعهٔ بعد. */
+    if (made && Date.now() - runT0 > 25 * 60 * 1000) { log('وقتِ این اجرا رو به پایان است؛ بقیه دفعهٔ بعد.'); break; }
     const dir = fs.mkdtempSync(path.join(tmp, 'ep-'));
     try {
       const audio = Array.isArray(it.audio) ? it.audio : [];
@@ -844,12 +918,32 @@ function main() {
         map.items[it.key].bgs = vr.bgs || 0;
         map.items[it.key].seconds = Math.round(durSec);
       }
+      /* ══ صحنه‌ها و سنجشِ ویدئو (۸.۳۱) ══
+         `qa` همان چیزی است که موتور پیش از عمومی‌کردن می‌پرسد: هر صحنه از
+         خودِ فایل سرِ جایش دیده شد؟ قابِ خالی نبود؟ */
+      if (vr.mode === 'scenes') {
+        map.items[it.key].mode = 'scenes';
+        map.items[it.key].scenes = vr.n;
+        map.items[it.key].want = vr.want;
+        map.items[it.key].snapped = vr.snapped;
+        map.items[it.key].seconds = Math.round(durSec);
+        map.items[it.key].qa = vr.qa;
+        if (vr.thumbFile) {
+          try {
+            const tu = uploadAsset(rel, vr.thumbFile, base + '-cover.jpg', 'image/jpeg');
+            if (tu) map.items[it.key].thumb = tu;
+          } catch (eT) { (vr.notes = vr.notes || []).push('کاور بالا نرفت: ' + String(eT.message).slice(0, 60)); }
+        }
+      }
       if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
       log('  ✔ ' + name + ' — ' + Math.round(size / 1048576) + ' مگابایت' +
           (vr.mode === 'slides' ? ' · ' + vr.n + ' تصویر در ' + vr.groups + ' دسته'
             : vr.mode === 'cards' ? ' · ' + vr.cards + ' کارتِ برداری، ' + vr.n + ' ضرب' +
                                     (vr.bgs ? '، ' + vr.bgs + ' با تصویرِ ساخته‌شده' : '')
+            : vr.mode === 'scenes' ? ' · ' + vr.n + ' صحنهٔ مصور (' + vr.snapped + ' مرز روی مکث) · سنجش: ' +
+                                     (vr.qa && vr.qa.ok ? '✔ ' + vr.qa.matched + '/' + vr.qa.n
+                                                         : '✗ ' + ((vr.qa && vr.qa.why) || ''))
             : ' · کاورِ تک‌تصویری'));
       rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
     } catch (e) {
@@ -886,5 +980,5 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold
+  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo
 };

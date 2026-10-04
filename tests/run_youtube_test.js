@@ -3977,10 +3977,18 @@ console.log('=== ۶۰) مشخصاتِ تصویری: زمان از گفتار، �
 
   /* تکه‌های ساختگی با متنِ معلوم و زمانِ معلوم: دقیقاً همان شکلی که
      `synthesizeStep_` می‌سازد — `{i, at}` — نه یک شکلِ راحت‌تر (۷.۲۲). */
-  const chunks = [{ text: 'الف بتا گاما' }, { text: 'دلتا اپسیلون زتا' },
-                  { text: 'اتا تتا یوتا' }];
+  /* از ۸.۳۱ نقشه از تکه‌های **هم‌ترازشده** ساخته می‌شود (`lvAlignTimes_`) —
+     نگاشتِ شماره‌به‌شماره موسیقی را نمی‌دید و درسِ ۵۹ را جابه‌جا کرد (§۷۱). */
+  const chunks = [{ text: 'الف بتا گاما', seg: 0 }, { text: 'دلتا اپسیلون زتا', seg: 1 },
+                  { text: 'اتا تتا یوتا', seg: 2 }];
   const times = [{ i: 0, at: 0 }, { i: 1, at: 30 }, { i: 2, at: 75 }];
-  const marks = lvTimeMap_(chunks, times);
+  const alignAt = (ch, tm, secs) => {
+    const al = lvAlignTimes_(ch, tm, secs);
+    if (!al.map) return null;
+    return ch.map((c, k) => ({ text: c.text, at: tm[al.map[k]].at,
+                               end: al.map[k] + 1 < tm.length ? tm[al.map[k] + 1].at : secs }));
+  };
+  const marks = lvTimeMapAligned_(alignAt(chunks, times, 120));
 
   ok('۶۰.۱ نقشهٔ زمان از تکه‌های واقعی ساخته می‌شود',
      marks.length === 3 && marks[0].at === 0 && marks[1].at === 30,
@@ -3992,13 +4000,13 @@ console.log('=== ۶۰) مشخصاتِ تصویری: زمان از گفتار، �
      واقعی است: اجرایی که وسط کشته شود، تکه‌های ساخته‌نشده زمان ندارند.
      اگر به آن‌ها صفر بدهیم، کارتِ آن جمله به **ابتدای قسمت** پرت می‌شود —
      دقیقاً همان باگی که این نسخه برای رفعش نوشته شده، از در دیگر. */
-  const gapMarks = lvTimeMap_(chunks, [{ i: 0, at: 0 }, { i: 2, at: 75 }]);
+  /* از ۸.۳۱: زمان‌های کمتر از تکه‌ها (اجرای کشته‌شده) یعنی **هیچ نقشه‌ای** —
+     نه نیمی درست و نیمی حدس. «نمی‌دانیم» با «صفر» یکی نیست. */
+  const gap = lvAlignTimes_(chunks, [{ i: 0, at: 0 }, { i: 2, at: 75 }], 120);
   ok('۶۰.۱-ب تکهٔ بی‌زمان کنار می‌رود و صفر نمی‌گیرد',
-     gapMarks.length === 2 && gapMarks.every(m => m.at !== undefined) &&
-     gapMarks[1].at === 75 &&
-     gapMarks[1].from === lvNorm_(chunks[0].text).length + 1 +
-                          lvNorm_(chunks[1].text).length + 1,
-     gapMarks.map(m => m.from + '→' + m.at + 's').join(' · '));
+     gap.map === null && /زمان/.test(gap.why) &&
+     marks[2].from === lvNorm_(chunks[0].text).length + 1 + lvNorm_(chunks[1].text).length + 1,
+     gap.why);
 
   /* ۶۰.۲ — مرزِ تکه‌ها **دقیق** است: نویسهٔ اولِ تکهٔ دوم باید ثانیهٔ ۳۰
      بدهد، نه چیزی نزدیکِ آن. این همان نیمه‌ای است که تخمینِ نویسه‌ای
@@ -4803,9 +4811,9 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
      متنِ نوشتاری ندارد. و مشخصات سبکِ مجموعه و تصویرِ ساخته‌شدهٔ هر مورد را
      می‌برد. */
   {
-    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
     global.epTimesRead_ = () => ({ secs: 300, times: [{ i: 0, at: 0 }, { i: 1, at: 100 }, { i: 2, at: 200 }] });
-    global.buildSpecialChunks_ = () => [
+    global.specialTextChunks_ = () => [
       { text: 'معرفت در سنتِ فلسفی، سه شرط دارد که باید با هم جمع شوند.' },
       { text: 'او گفت: باید بِ‌ایستیم و نگاه کنیم که توجیه دقیقاً چه چیزی اضافه می‌کند.' },
       /* ویرگولِ مکث وسطِ عبارت — متنِ گفتاری از ۸.۰۸ عمداً پرنشانه‌تر است. */
@@ -4817,7 +4825,7 @@ console.log('=== ۶۸) چهارده تصویر خواسته شد و یکی آم�
       { at: 3, quote: 'مثال گتیه نشان داد که', form: 'پرسش', headline: 'کافی است؟' } ] };
     const sp = lvSpecBuild_(root, { ep: {} }, plan,
       { show: 'special', style: 'کاغذبری', bg: { '1': 'BGFILE1' }, foot: 'درس‌نامه' });
-    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
     const c2 = sp && sp.cards.filter(c => c.src === 1)[0];
     ok('۶۸.۶ عبارتِ نوشتاری در متنِ پرنشانه پیدا می‌شود؛ مشخصات سبک و تصویرِ هر مورد را دارد',
        !!sp && sp.cards.length === 3 && sp.missed === 0 &&
@@ -5075,13 +5083,13 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
      **متنِ گفتاری** — با اعراب، نیم‌فاصله و ویرگولِ مکث، که متنِ نوشتاری
      ندارد. این همان چیزی است که برای `quote`ِ مدل فقط امید است. */
   {
-    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
     const spoken = NAR.map(t => t.replace(/ می/g, ' مِی').replace(/است\./g, 'است، .').replace(/دانستن/g, 'دانِستن'));
     global.epTimesRead_ = () => ({ secs: 929, times: spoken.map((_, i) => ({ i: i, at: i * 180 })) });
-    global.buildSpecialChunks_ = () => spoken.map(t => ({ text: t }));
+    global.specialTextChunks_ = () => spoken.map(t => ({ text: t }));
     const sc = { show: 'special', style: '', bg: {}, foot: 'درس‌نامه' };
     const sp = lvSpecBuild_(f1, { ep: {} }, p1, sc);
-    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
     const autoIdx = v1.map((x, i) => x.auto ? i : -1).filter(i => i >= 0);
     const anchored = sp ? autoIdx.filter(i => sp.cards.some(c => c.src === i)) : [];
     const ordered = sp ? sp.cards.every((c, i) => !i || c.at >= sp.cards[i - 1].at) : false;
@@ -5152,15 +5160,15 @@ console.log('=== ۶۹) سه کارت، همه از بخشِ یک — نقشه‌
   /* ۶۹.۶ — **«نشد» با علتش.** هر `return null`ِ مشخصات علتی جدا دارد و درسِ ۵۹
      بی هیچ‌کدام رفت. */
   {
-    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
     const a = { show: 'special' };
     global.epTimesRead_ = () => null;
     lvSpecBuild_(f1, { ep: {} }, p1, a);
     const b = { show: 'special' };
     global.epTimesRead_ = () => ({ secs: 100, times: [{ i: 0, at: 0 }] });
-    global.buildSpecialChunks_ = () => [{ text: 'متنی که هیچ عبارتی از نقشه در آن نیست و نخواهد بود' }];
+    global.specialTextChunks_ = () => [{ text: 'متنی که هیچ عبارتی از نقشه در آن نیست و نخواهد بود' }];
     lvSpecBuild_(f1, { ep: {} }, p1, b);
-    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
     ok('۶۹.۶ مشخصاتی که ساخته نشد علتش را می‌گوید: بی‌زمان، یا بی‌لنگر',
        /_times\.json/.test(a.why || '') && /لنگر/.test(b.why || '') && /پیدا نشد/.test(b.why || ''),
        (a.why || '—') + ' | ' + (b.why || '—'));
@@ -5267,9 +5275,9 @@ console.log('=== ۷۰) درسِ ۵۹ از نو، و درست: لنگرِ گفت�
      متنِ گفتاری «سَرچَشمه‌یِ اَوَّلیه‌یِ» دارد. درسِ ۵۹ دقیقاً از همین دو عبارت
      از سه را گم کرد. از درِ `lvSpecBuild_`، با تکه‌های گفتاریِ واقعی‌شکل. */
   {
-    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
     global.epTimesRead_ = () => ({ secs: 200, times: [{ i: 0, at: 0 }, { i: 1, at: 100 }] });
-    global.buildSpecialChunks_ = () => [
+    global.specialTextChunks_ = () => [
       { text: 'اِسْتِنْتاج، سَرچَشمه‌یِ اَوَّلیه‌یِ مَعرِفَت نیست، بَلکه مَنبَعی اِشتِقاقی است.' },
       { text: 'اِعتِبارِ اِستِدلال بَر دو پایه‌یِ مادّه وُ صورَت اُستوار است.' } ];
     const plan = { visuals: [
@@ -5277,7 +5285,7 @@ console.log('=== ۷۰) درسِ ۵۹ از نو، و درست: لنگرِ گفت�
       { at: 1, quote: 'اعتبار استدلال بر دو پایهٔ ماده و صورت', form: 'نقل', headline: 'ارکانِ استدلالِ معتبر' } ] };
     const sc = { show: 'special' };
     const sp = lvSpecBuild_(root, { ep: {} }, plan, sc);
-    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
     ok('۷۰.۱ عبارتِ نوشتاری در متنِ گفتاریِ «ی»دار و «ٔ»دار پیدا می‌شود',
        !!sp && sp.cards.length === 2 && sp.missed === 0 && sp.cards[1].at >= 100 &&
        lvNorm_('یک یار') === 'یک یار' && lvNorm_('خانهٔ ما') === lvNorm_('خانه‌یِ ما'),
@@ -5290,13 +5298,13 @@ console.log('=== ۷۰) درسِ ۵۹ از نو، و درست: لنگرِ گفت�
   {
     const it = ytVisItem_({ form: 'مقایسه', headline: 'ارکانِ استدلال', aItems: ['ماده'], bItems: ['صورت'] }, 1);
     const ch = ytVisItem_({ form: 'زنجیره', headline: 'یک گام', steps: ['تنها'] }, 1);
-    const keepT = global.epTimesRead_, keepC = global.buildSpecialChunks_;
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
     global.epTimesRead_ = () => ({ secs: 100, times: [{ i: 0, at: 0 }] });
-    global.buildSpecialChunks_ = () => [{ text: 'اعتبار استدلال بر دو پایه ماده و صورت است و نتیجه از آن می‌آید.' }];
+    global.specialTextChunks_ = () => [{ text: 'اعتبار استدلال بر دو پایه ماده و صورت است و نتیجه از آن می‌آید.' }];
     const sp = lvSpecBuild_(root, { ep: {} }, { visuals: [
       { at: 1, quote: 'اعتبار استدلال بر دو پایه', form: 'مقایسه', headline: 'ارکان', aTitle: '', bTitle: '', aItems: ['ماده'] },
       { at: 1, quote: 'نتیجه از آن می‌آید', form: 'نقل', headline: 'نتیجه' } ] }, { show: 'special' });
-    global.epTimesRead_ = keepT; global.buildSpecialChunks_ = keepC;
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
     ok('۷۰.۲ مقایسهٔ بی‌سر و زنجیرهٔ تک‌گام «تمرکز» می‌شوند و کارتشان می‌مانَد',
        it.form === 'تمرکز' && it.items.join('|') === 'ماده|صورت' && it.reshaped &&
        ch.form === 'تمرکز' && ch.items.join('|') === 'تنها' &&
@@ -5477,6 +5485,411 @@ console.log('=== ۷۰) درسِ ۵۹ از نو، و درست: لنگرِ گفت�
        (pk[0] || {}).t + ' | ' + h0.length + ' نویسه');
   }
   if (svc70 === undefined) delete global.YouTube; else global.YouTube = svc70;
+}
+
+console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ محتواست، و زمان از گفتار ===');
+{
+  global.__STUB = BASE_STUB;
+  const svc71 = global.YouTube;
+  global.YouTube = {};
+  const root = global.__ROOT_FOLDER;
+  const png71 = (n) => { const a = new Array(n).fill(9);
+    [137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,7,128,0,0,4,56,8,6,0,0,0]
+      .forEach((b, i) => a[i] = b); return a; };
+
+  /* ۷۱.۱ — **دوقلو.** `specialTextChunks_` (بازسازیِ بی‌اثرِ جانبی) و
+     `buildSpecialChunks_` (تولید) باید متنِ یکسان بدهند — وگرنه زمانِ تصویر از
+     متنی می‌آید که گفته نشده. موسیقی خاموش، چون فقط متن مقایسه می‌شود. */
+  {
+    const ep71 = { title: 'ت', hook: 'سلام. امروز دربارهٔ استنتاج حرف می‌زنیم.',
+      /* بلندتر از سقفِ یک تکهٔ گفتار (`TTS_CHUNK_CHARS`)، تا شکستنِ تکه‌ها هم
+         در مقایسه بیاید — دو متنِ کوتاه با هر شکستنی یکی‌اند. */
+      sections: [{ heading: 'یک', narration: 'جملهٔ اولِ بخش. جملهٔ دومِ بخش که کمی بلندتر است. '.repeat(40) },
+                 { heading: 'دو', narration: 'جملهٔ سوم. جملهٔ چهارم و آخر. '.repeat(4) }],
+      outro: 'تا درسِ بعد.' };
+    const keepM = CFG.MUSIC_ENABLED;
+    CFG.MUSIC_ENABLED = false;
+    const a = buildSpecialChunks_(JSON.parse(JSON.stringify(ep71)), '71', 'فلسفه').map(c => c.text);
+    CFG.MUSIC_ENABLED = keepM;
+    const b = specialTextChunks_(JSON.parse(JSON.stringify(ep71)), 'فلسفه');
+    ok('۷۱.۱ بازسازیِ متن همان تکه‌هایی را می‌دهد که تولید به گفتارساز داد',
+       a.length > 4 && a.join('|') === b.map(c => c.text).join('|') &&
+       b.every(c => typeof c.seg === 'number'),
+       a.length + ' / ' + b.length);
+  }
+
+  /* ۷۱.۲ — **موسیقی دیده می‌شود.** درسِ ۵۹: ۲۱ زمان و ۱۸ تکهٔ متن؛ نگاشتِ
+     شماره‌به‌شماره پس از هر پلِ موسیقی همه را جابه‌جا کرد. */
+  {
+    const tc = [{ text: 'الف'.repeat(100), seg: 0 }, { text: 'ب'.repeat(300), seg: 1 },
+                { text: 'پ'.repeat(200), seg: 1 }, { text: 'ت'.repeat(250), seg: 2 }];
+    const times = [{ i: 0, at: 0 }, { i: 1, at: 30 }, { i: 2, at: 36 }, { i: 3, at: 126 },
+                   { i: 4, at: 186 }, { i: 5, at: 191 }];
+    const al = lvAlignTimes_(tc, times, 266);
+    const tk = times.map((x, i) => Object.assign({ k: (i === 1 || i === 4) ? 'm' : 't' }, x));
+    const ak = lvAlignTimes_(tc, tk, 266);
+    const eq = lvAlignTimes_(tc, times.slice(0, 4), 200);
+    const few = lvAlignTimes_(tc, times.slice(0, 3), 100);
+    const wild = lvAlignTimes_([{ text: 'x'.repeat(100), seg: 0 }, { text: 'x'.repeat(100), seg: 1 },
+                                { text: 'x'.repeat(100), seg: 2 }],
+                               [{ i: 0, at: 0 }, { i: 1, at: 2 }, { i: 2, at: 80 }, { i: 3, at: 81 }], 200);
+    ok('۷۱.۲ هم‌ترازی زمانِ موسیقی را کنار می‌گذارد؛ با «k» مستقیم؛ نامطمئن و ناجور «نه» با علت',
+       JSON.stringify(al.map) === '[0,2,3,5]' && al.how === 'هم‌ترازی' &&
+       JSON.stringify(ak.map) === '[0,2,3,5]' && ak.how === 'نوع' &&
+       eq.how === 'برابر' && few.map === null && /زمان/.test(few.why) &&
+       wild.map === null && /نامطمئن/.test(wild.why),
+       JSON.stringify([al.map, ak.map, eq.how, few.why, wild.why]));
+  }
+
+  /* ۷۱.۳ — **کارتِ برداری هم از همان راه.** تکهٔ سوم پس از یک پلِ موسیقی
+     است؛ کارتش باید در زمانِ واقعیِ تکهٔ سوم بنشیند، نه در زمانِ «سومین زمان». */
+  {
+    const keepT = global.epTimesRead_, keepC = global.specialTextChunks_;
+    global.epTimesRead_ = () => ({ secs: 30, times: [{ i: 0, at: 0 }, { i: 1, at: 8 }, { i: 2, at: 14 }, { i: 3, at: 22 }] });
+    global.specialTextChunks_ = () => [
+      { text: 'معرفت در سنت فلسفی سه شرط دارد که باید با هم جمع شوند تا ادعا موجه شود.', seg: 0 },
+      { text: 'توجیه از مقدمات به نتیجه منتقل می‌شود اگر استدلال معتبر باشد و مقدمات موجه.', seg: 1 },
+      { text: 'زنجیره‌های طولی استدلال توجیه را در هر حلقه کمی فرسوده می‌کنند تا آخر کار.', seg: 2 } ];
+    const plan = { visuals: [
+      { at: 1, quote: 'سه شرط دارد که باید با هم', form: 'تمرکز', headline: 'سه شرط', items: ['باور'] },
+      { at: 3, quote: 'توجیه را در هر حلقه کمی فرسوده', form: 'پرسش', headline: 'فرسایش' } ] };
+    const sp = lvSpecBuild_(root, { ep: {} }, plan, { show: 'special', foot: 'x' });
+    global.epTimesRead_ = keepT; global.specialTextChunks_ = keepC;
+    const c3 = sp && sp.cards.filter(c => c.src === 1)[0];
+    ok('۷۱.۳ کارتِ پس از پلِ موسیقی در زمانِ گفتارِ خودش می‌نشیند (نه یک تکه زودتر)',
+       !!c3 && c3.at >= 22 && c3.at < 30,
+       c3 ? 'کارت در ' + c3.at : 'مشخصات نشد');
+  }
+
+  /* ۷۱.۴ — **صحنه سرِ مرزِ جمله شروع می‌شود و هیچ قابی بی‌صحنه نیست.** */
+  {
+    const ch = [{ text: 'جملهٔ یک. جملهٔ دو. جملهٔ سه. جملهٔ چهار.', at: 0, end: 30, secIndex: -1 },
+                { text: 'جملهٔ پنج. جملهٔ شش. جملهٔ هفت.', at: 36, end: 70, secIndex: 0 },
+                { text: 'جملهٔ هشت. جملهٔ نه. جملهٔ ده. جملهٔ یازده.', at: 70, end: 118, secIndex: 1 }];
+    const ss = lvSceneSents_(ch);
+    const g = lvSceneGroups_(ss, 20, 120, 60);
+    const starts = ss.map(x => x.t);
+    const gMax = lvSceneGroups_(ss, 5, 120, 3);
+    /* اولین جمله دیرتر از صفر شروع می‌شود (موسیقیِ آغاز): صحنهٔ اول باز هم از
+       صفر است — قابِ خالی در ثانیه‌های اول همان «صفحهٔ خالی»ِ درسِ ۵۹ است. */
+    const late = lvSceneGroups_(lvSceneSents_([{ text: 'یک. دو. سه.', at: 9, end: 40, secIndex: 0 },
+                                               { text: 'چهار. پنج.', at: 40, end: 80, secIndex: 1 }]), 15, 80, 60);
+    ok('۷۱.۴ صحنه‌ها از ثانیهٔ صفر تا پایان، روی شروعِ جمله، با بخشِ خودشان؛ سقفِ تعداد رعایت می‌شود',
+       g.length >= 3 && g[0].t0 === 0 && g[g.length - 1].t1 === 120 &&
+       g.slice(1).every(x => starts.indexOf(x.t0) !== -1) &&
+       g.every((x, i) => i === 0 || x.t0 === g[i - 1].t1) &&
+       g.some(x => x.sec === 2) && gMax.length <= 3 && late[0].t0 === 0 &&
+       ss.filter(x => x.ci === 1)[0].t === 36,
+       g.map(x => x.t0 + '-' + x.t1 + '@' + x.sec).join(' · ') + ' | سقف ' + gMax.length);
+  }
+
+  /* ۷۱.۵ — **از نقشه تا تصویر، در چند اجرا.** یک درسِ واقعی‌شکل با سه بخش:
+     نقشه یک بار، تصویر‌ها با نسبتِ ۱۶:۹، داوری کنارِ متن، تصویرِ ضعیف یک بار از
+     نو، جزوه صحنه‌ها را می‌گیرد، و هزینهٔ هر فراخوان شمرده می‌شود. */
+  const sceneStub = (cnt) => function (url, body) {
+    const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+    if (url.indexOf('image:generateContent') !== -1) {
+      cnt.gen++; cnt.cfg.push(!!(body.generationConfig && body.generationConfig.imageConfig));
+      cnt.imgPrompts.push(body.contents[0].parts[0].text);
+      return { code: 200, json: { candidates: [{ content: { parts: [
+        { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png71(20000)) } }] } }] } };
+    }
+    if (sc && sc.properties && sc.properties.scenes) {
+      const pr = body.contents[0].parts[0].text;
+      cnt.plan++; cnt.prompts.push(pr);
+      const ns = []; const re = /^\[(\d+)\]/mg; let m;
+      while ((m = re.exec(pr))) ns.push(m[1]);
+      const r = { cast: 'a curious student in a blue sweater', cover: 'a lantern lighting a path of stones',
+                  scenes: ns.map(n => ({ n: n, scene: 'a lantern passing light to the next lantern number ' + n,
+                                         caption: 'مفهومِ ' + n })) };
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+    }
+    if (sc && sc.properties && sc.properties.items && JSON.stringify(body).indexOf('inlineData') !== -1) {
+      cnt.judge++;
+      const parts = body.contents[0].parts, items = [];
+      parts.forEach(p => { const m = /^تصویرِ (\d+)/.exec(p.text || ''); if (m) items.push(m[1]); });
+      const r = { items: items.map(n => ({ n: n, score: n === '2' && !cnt.redid ? '2' : '8',
+                                           hasText: 'خیر', realFace: 'خیر', why: 'ربط دارد' })) };
+      if (items.indexOf('2') !== -1) cnt.redid = true;
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+    }
+    return BASE_STUB(url, body);
+  };
+  const SEC71 = [
+    { heading: 'جایگاهِ استنتاج', narration: 'استنتاج سرچشمهٔ اولیهٔ معرفت نیست. منبعی اشتقاقی است. هر استنتاج به مقدماتش بند است. '.repeat(7) },
+    { heading: 'اعتبارِ منطقی', narration: 'استدلالِ نامعتبر توجیه را منتقل نمی‌کند. اعتبار دو پایه دارد. ماده و صورت هر دو لازم‌اند. '.repeat(7) },
+    { heading: 'زنجیره‌های طولی', narration: 'هر حلقه کمی از احتمال را می‌گیرد. در پایان زنجیره احتمال به زیرِ نیم می‌رسد. '.repeat(7) } ];
+  const mkEp71 = (id, name) => {
+    const f = DriveApp.__register(id, name);
+    const meta = { lesson: 37, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+                   ep: { title: 'انتقالِ توجیه', hook: 'سلام. امروز دربارهٔ انتقالِ توجیه حرف می‌زنیم.',
+                         sections: SEC71, outro: 'تا درسِ بعد.' } };
+    f.createFile(Utilities.newBlob(JSON.stringify(meta), 'application/json', '_special.json'));
+    const tc = specialTextChunks_(meta.ep, 'فلسفه');
+    /* زمان‌ها با «k» و یک پلِ موسیقی میانِ دو بخش — همان شکلی که از ۸.۳۱ ثبت می‌شود. */
+    const times = []; let t = 0, i = 0;
+    tc.forEach((c, k) => {
+      if (k > 0 && c.seg !== tc[k - 1].seg && c.seg === 2) { times.push({ i: i++, at: t, k: 'm' }); t += 6; }
+      times.push({ i: i++, at: Math.round(t * 100) / 100, k: 't' });
+      t += String(c.text).length * 0.09;
+    });
+    f.createFile(Utilities.newBlob(JSON.stringify({ v: 1, secs: Math.round(t * 100) / 100, times: times }),
+                                   'application/json', '_times.json'));
+    return { f: f, meta: meta, secs: Math.round(t * 100) / 100 };
+  };
+  const genWas = { on: global.__PROPS[PK.LV_GEN_ON], model: CFG.LV_GEN_MODEL, usd: CFG.LV_GEN_USD_MONTH,
+                   enabled: CFG.LV_GEN_ENABLED };
+  global.__PROPS[PK.LV_GEN_ON] = '1';
+  CFG.LV_GEN_MODEL = 'gemini-2.5-flash-image';
+  CFG.LV_GEN_USD_MONTH = 60;
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  delete global.__PROPS[PK.LV_SCENE_LEASE];
+  {
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    global.__STUB = sceneStub(cnt);
+    const E = mkEp71('EP71A', 'قسمت 0271 — صحنه');
+    const ctx = { show: 'special', epRaw: '271', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
+                  sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم' };
+    const keepRun = CFG.LV_SCENE_RUN_MS;
+    let r = null, runs = 0;
+    for (; runs < 8; runs++) {
+      r = lvScenesBuild_(E.f, E.meta, {}, ctx);
+      if (r.done || r.fallback) break;
+    }
+    CFG.LV_SCENE_RUN_MS = keepRun;
+    const d = lvSceneRead_(E.f);
+    const imgs = lvFolder_(E.f);
+    let nImg = 0; const it = imgs.getFiles(); while (it.hasNext()) { if (/^صحنه/.test(it.next().getName())) nImg++; }
+    const vis = lvRead_(E.f) || {};
+    const sp = lvGenSpend_();
+    const p0 = cnt.prompts[0] || '';
+    ok('۷۱.۵ نقشهٔ صحنه یک بار، تصویر ۱۶:۹ برای هر صحنه، داوری کنارِ متن، ضعیف یک بار از نو',
+       r && r.done && !r.fallback && cnt.plan === 1 && d && d.scenes.length >= 3 &&
+       d.scenes[0].t0 === 0 && Math.abs(d.scenes[d.scenes.length - 1].t1 - E.secs) < 0.1 &&
+       nImg === d.scenes.length && r.items.length === d.scenes.length &&
+       r.items.every(x => /usercontent/.test(x.url)) && r.items[0].t0 === 0 &&
+       cnt.cfg.every(Boolean) && cnt.judge >= 1 && Number(d.redo) === 1 &&
+       d.scenes.filter(x => x.n === 2)[0].redo === 1 && !!r.cover && d.align === 'نوع' &&
+       sp.n === cnt.gen && cnt.gen === d.scenes.length + 2 &&
+       cnt.imgPrompts.every(x => /watercolor/.test(x) && /no text/i.test(x)) &&
+       /متنی که \*\*همان موقع\*\* خوانده می‌شود/.test(p0) && p0.indexOf('[1] (0:00') !== -1 &&
+       vis.mode === 'scenes' && (vis.items || []).length >= 2 && vis.items.every(x => x.at >= 1),
+       'دور ' + (runs + 1) + ' · صحنه ' + (d ? d.scenes.length : 0) + ' · تصویر ' + nImg + ' · ساخت ' + cnt.gen +
+       ' · داوری ' + cnt.judge + ' · ازنو ' + (d && d.redo) + ' · خرج ' + sp.n + ' · جزوه ' + (vis.items || []).length +
+       (r && r.why ? ' · ' + r.why : ''));
+
+    /* ۷۱.۵-ب — **اجاره:** اجرای هم‌زمانِ دیگری که همین درس را می‌سازد، این
+       اجرا را بی هیچ خرجی برمی‌گرداند. */
+    const E2 = mkEp71('EP71B', 'قسمت 0272 — اجاره');
+    lvScenesBuild_(E2.f, E2.meta, {}, Object.assign({}, ctx, { epRaw: '272' }));   // نقشه + چند تصویر
+    const g0 = cnt.gen;
+    global.__PROPS[PK.LV_SCENE_LEASE] = JSON.stringify({ key: 'special:272', until: Date.now() + 600000 });
+    const rL = lvScenesBuild_(E2.f, E2.meta, {}, Object.assign({}, ctx, { epRaw: '272' }));
+    delete global.__PROPS[PK.LV_SCENE_LEASE];
+    ok('۷۱.۵-ب اجرای دوم، وقتی اجرای دیگری همین درس را می‌سازد، هیچ تصویری نمی‌سازد',
+       !rL.done && /اجرای دیگری/.test(rL.why) && cnt.gen === g0, rL.why);
+  }
+
+  /* ۷۱.۶ — **سقفِ ماهانه و نقشهٔ ناشده:** خرج‌نشدن یعنی مسیرِ قبلی با علت، و
+     نقشه‌ای که دو بار نشد، بارِ سوم مدل را صدا نمی‌زند. */
+  {
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    global.__STUB = sceneStub(cnt);
+    CFG.LV_GEN_USD_MONTH = 0.01;
+    const E = mkEp71('EP71C', 'قسمت 0273 — سقف');
+    const ctx = { show: 'special', epRaw: '273', title: 'ت', seriesName: 'س', sections: SEC71,
+                  level: 'زیاد', style: 'ساده و رسمی' };
+    const rB = lvScenesBuild_(E.f, E.meta, {}, ctx);
+    CFG.LV_GEN_USD_MONTH = 60;
+    let planCalls = 0;
+    global.__STUB = function (url, body) {
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      if (sc && sc.properties && sc.properties.scenes) {
+        planCalls++;
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: '{"scenes":[]}' }] } }] } };
+      }
+      return BASE_STUB(url, body);
+    };
+    const E2 = mkEp71('EP71D', 'قسمت 0274 — نقشهٔ ناشده');
+    const ctx2 = Object.assign({}, ctx, { epRaw: '274' });
+    const f1 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
+    const f2 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
+    const f3 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
+    global.__STUB = BASE_STUB;
+    ok('۷۱.۶ سقفِ پر ⇒ مسیرِ قبلی با علت؛ نقشه‌ای که دو بار نشد بارِ سوم پرسیده نمی‌شود',
+       rB.fallback && /سقفِ ماهانه/.test(rB.why) && cnt.gen === 0 &&
+       f1.fallback && f2.fallback && f3.fallback && planCalls === 2 && /توصیف/.test(f1.why),
+       rB.why + ' | ' + planCalls + ' پرسش · ' + f3.why);
+  }
+
+  /* ۷۱.۷ — **ردیفِ رندر:** صحنه‌ها با ثانیه و تصویرشان، هر فایل یک بار باز
+     می‌شود، و ردیفِ کارتیِ ساخته‌نشده جایگزین می‌شود — ساخته‌شده نه. */
+  {
+    const shared = [];
+    const keepS = global.driveShareOn_;
+    global.driveShareOn_ = (id) => { shared.push(id); return true; };
+    ytRenderSave_({ items: [{ key: 'special:281', show: 'special', ep: '281', status: 'در انتظار', at: 'old',
+                              visuals: [{ fileId: 'V1' }], spec: { cards: [{ at: 0 }] } },
+                            { key: 'special:282', show: 'special', ep: '282', status: 'در انتظار', at: 'built',
+                              visuals: [{ fileId: 'V2' }] }] });
+    _ytMapMemo = { 'special:282': { url: 'https://x/v.mp4' } };
+    const scenes = [{ n: 1, t0: 0, fileId: 'S1', caption: 'الف' }, { n: 2, t0: 20, fileId: 'S2', caption: '' },
+                    { n: 3, t0: 41, fileId: 'S2', caption: '' }];
+    const okA = ytRenderAsk_({ show: 'special', ep: '281', folderId: 'F', audio: [{ id: 'A1' }],
+                               scenes: scenes, sceneCover: { fileId: 'C1' }, coverTitle: 'عنوان',
+                               coverFoot: 'درس ۳۷', sceneInfo: { scenes: 3 } });
+    const okB = ytRenderAsk_({ show: 'special', ep: '282', folderId: 'F', audio: [], scenes: scenes });
+    global.driveShareOn_ = keepS;
+    const rows = ytRenderRead_().items;
+    const r1 = rows.filter(x => x.key === 'special:281');
+    const r2 = rows.filter(x => x.key === 'special:282');
+    _ytMapMemo = null;
+    ok('۷۱.۷ ردیفِ صحنه‌ای: ثانیه و تصویرِ هر صحنه، اشتراکِ فایل‌به‌فایلِ یکتا، جایگزینیِ فقط ساخته‌نشده',
+       okA && r1.length === 1 && r1[0].mode === 'scenes' && r1[0].scenes.length === 3 &&
+       r1[0].scenes[1].t0 === 20 && /usercontent/.test(r1[0].scenes[0].url) &&
+       r1[0].sceneCover.fileId === 'C1' && r1[0].coverTitle === 'عنوان' && r1[0].redo === 1 &&
+       /صحنهٔ مصور/.test(r1[0].replacedWhy) &&
+       shared.filter(x => x === 'S2').length === 1 && shared.indexOf('C1') !== -1 &&
+       okB === false && r2.length === 1 && r2[0].at === 'built',
+       JSON.stringify({ okA, okB, shared, why: r1[0] && r1[0].replacedWhy }));
+    ytRenderSave_({ items: [] });
+  }
+
+  /* ۷۱.۸ — **سدِ انتشار، یک تعریف برای دو در.** */
+  {
+    const keepA = YT_APPROVED_;
+    YT_APPROVED_ = { 'special:291': true };
+    delete global.__PROPS[PK.YT_SCENES_OK];
+    const qaOk = { ok: true, matched: 10, n: 10 };
+    const g1 = ytPublicGate_('special:290', { mode: 'scenes' });
+    const g2 = ytPublicGate_('special:290', { mode: 'scenes', qa: { ok: false, why: 'فقط ۳ از ۱۰ صحنه' } });
+    const g3 = ytPublicGate_('special:290', { mode: 'scenes', qa: qaOk });
+    const g4 = ytPublicGate_('special:291', { mode: 'scenes', qa: qaOk });
+    ytScenesOkAdd_(); ytScenesOkAdd_();
+    const g5 = ytPublicGate_('special:292', { mode: 'scenes', qa: qaOk });
+    const g6 = ytPublicGate_('special:293', { mode: 'cards' });
+    const g7 = ytPublicGate_('special:294', null);
+    YT_APPROVED_ = keepA;
+    delete global.__PROPS[PK.YT_SCENES_OK];
+    ok('۷۱.۸ بی سنجش نه؛ سنجشِ رد نه (با علت)؛ نخستین‌ها تا تأیید نه؛ پس از آن خودکار؛ حالت‌های دیگر مثلِ قبل',
+       !g1.ok && !g2.ok && /۳ از ۱۰/.test(g2.why) && !g3.ok && g3.approval === true &&
+       g4.ok && g5.ok && g6.ok && g7.ok,
+       [g1, g2, g3, g4, g5, g6, g7].map(g => (g.ok ? '✓' : '✗') + (g.why || '')).join(' | '));
+  }
+
+  /* ۷۱.۹ — **از درِ انتشار:** `ytUploadOne_` تا صحنه‌ها کامل نشده منتظر
+     می‌مانَد، بعد ردیفِ صحنه‌ای می‌نویسد — بی کارتِ اسلایدز. */
+  {
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    global.__STUB = sceneStub(cnt);
+    ytRenderSave_({ items: [] });
+    const E = mkEp71('EP71E', 'قسمت 0295 — از درِ انتشار');
+    const wav = E.f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(2000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    wav.getSize = () => Math.round(E.secs * 48000) + 44;
+    _ytMapMemo = {};
+    let row = null, waits = 0, lastWhy = '';
+    for (let k = 0; k < 8; k++) {
+      const res = ytUploadOne_({ key: 'special:295', show: 'special', ep: '295', folderId: 'EP71E',
+                                 series: 'معرفت‌شناسی' }, null, []);
+      lastWhy = res.why;
+      row = ytRenderRead_().items.filter(x => x.key === 'special:295')[0] || null;
+      if (row) break;
+      if (res.waiting) waits++;
+    }
+    _ytMapMemo = null;
+    global.__STUB = BASE_STUB;
+    ok('۷۱.۹ از درِ انتشار: صحنه‌ها ساخته می‌شوند و ردیفِ رندر حالتِ صحنه می‌گیرد',
+       !!row && row.mode === 'scenes' && row.scenes.length >= 3 && (row.visuals || []).length === 0 &&
+       !row.spec && row.vis && row.vis.board !== undefined,
+       row ? ((row.scenes || []).length + ' صحنه · انتظار ' + waits + ' · ' + lastWhy) : 'ردیفی نوشته نشد');
+    ytRenderSave_({ items: [] });
+  }
+
+  /* ۷۱.۱۰ — **نسبتِ ۱۶:۹ بی سماجت:** مدلی که `imageConfig` را رد کند یک بار
+     به خاطر سپرده می‌شود و تصویر بی آن ساخته می‌شود. */
+  {
+    let calls = 0, withCfg = 0;
+    delete global.__PROPS[PK.LV_GEN_NOCFG];
+    global.__STUB = function (url, body) {
+      if (url.indexOf('image:generateContent') !== -1) {
+        calls++;
+        if (body.generationConfig && body.generationConfig.imageConfig) {
+          withCfg++;
+          return { code: 400, json: { error: { message: 'imageConfig is not supported' } } };
+        }
+        return { code: 200, json: { candidates: [{ content: { parts: [
+          { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png71(20000)) } }] } }] } };
+      }
+      return BASE_STUB(url, body);
+    };
+    const a = lvGenOne_('gemini-2.5-flash-image', 'x', { aspect: '16:9' });
+    const b = lvGenOne_('gemini-2.5-flash-image', 'x', { aspect: '16:9' });
+    global.__STUB = BASE_STUB;
+    ok('۷۱.۱۰ ردِ imageConfig یک بار به خاطر سپرده می‌شود؛ تصویر بی آن ساخته می‌شود',
+       !!a.blob && !!b.blob && withCfg === 1 && calls === 3,
+       'فراخوان ' + calls + ' · با تنظیم ' + withCfg);
+    delete global.__PROPS[PK.LV_GEN_NOCFG];
+  }
+
+  /* ۷۱.۱۱ — **در انتشار، از خودِ مسیرِ آپلود:** ویدئوی صحنه‌ای که سنجشش درست
+     است ولی هنوز تأیید نشده، Unlisted می‌مانَد و خبرش می‌رود؛ کاورِ رانر (JPEG)
+     به‌جای کارتِ اسلایدز می‌نشیند. و پس از تأیید، همان مسیر عمومی‌اش می‌کند.
+     و درِ دوم (`ytRedoOne_`) هم همان سد را می‌پرسد. */
+  {
+    const calls = { ins: 0, pub: 0, thumbType: '' };
+    global.YouTube = {
+      Videos: { insert: () => { calls.ins++; return { id: 'VID' + calls.ins }; },
+                update: (b) => { if (b && b.status && b.status.privacyStatus === 'public') calls.pub++; } },
+      Thumbnails: { set: (vid, blob) => { calls.thumbType = blob.getContentType(); } },
+      Channels: { list: () => ({ items: [] }) }, PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
+    const keepPl = CFG.YT_PLAYLISTS; CFG.YT_PLAYLISTS = false;
+    const keepA = YT_APPROVED_;
+    delete global.__PROPS[PK.YT_SCENES_OK];
+    delete global.__PROPS[PK.MAIL_QUEUE];
+    const jpg = [0xFF, 0xD8, 0xFF, 0xE0].concat(new Array(9000).fill(5));
+    global.__STUB = function (url, body) {
+      if (url === 'https://x/t.jpg') return { code: 200, bytes: jpg, mime: 'image/jpeg' };
+      return BASE_STUB(url, body);
+    };
+    const run = (id, ep) => {
+      const f = DriveApp.__register(id, 'قسمت 0' + ep + ' — انتشار');
+      f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 37, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+        ep: { title: 'انتقالِ توجیه', sections: SEC71 } }), 'application/json', '_special.json'));
+      const w = f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(2000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+      w.getSize = () => 300 * 48000 + 44;
+      f.createFile(Utilities.newBlob([0, 0, 0, 24, 102, 116, 121, 112].concat(new Array(9000).fill(1)),
+                                     'video/mp4', 'قسمت 0' + ep + ' — ویدئو.mp4'));
+      ytPlanWrite_(f, { at: 'x', show: 'special', ep: ep, title: 'عنوانِ درس', description: 'توضیح',
+                        tags: ['الف'], coverTitle: 'ک', coverKicker: '', chapters: 0, visuals: [] });
+      _ytMapMemo = {}; _ytMapMemo['special:' + ep] = { url: 'https://x/v.mp4', mode: 'scenes',
+        qa: { ok: true, n: 4, matched: 4 }, thumb: 'https://x/t.jpg' };
+      return ytUploadOne_({ key: 'special:' + ep, show: 'special', ep: ep, folderId: id, series: 'معرفت‌شناسی' }, null, []);
+    };
+    YT_APPROVED_ = {};
+    const r1 = run('EP71F', '296');
+    const q1 = JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]');
+    const pub1 = calls.pub, th1 = calls.thumbType;
+    YT_APPROVED_ = { 'special:297': true };
+    const r2 = run('EP71G', '297');
+    const okN = Number(global.__PROPS[PK.YT_SCENES_OK] || 0);
+    const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+    const redo = src27.slice(src27.indexOf('function ytRedoOne_'), src27.indexOf('function ytRedoStuckNightly_'));
+    YT_APPROVED_ = keepA; CFG.YT_PLAYLISTS = keepPl; _ytMapMemo = null;
+    global.__STUB = BASE_STUB;
+    delete global.__PROPS[PK.YT_SCENES_OK];
+    global.YouTube = {};
+    ok('۷۱.۱۱ تأییدنشده Unlisted می‌مانَد و خبرش می‌رود؛ کاورِ نقاشی می‌نشیند؛ تأییدشده عمومی می‌شود؛ درِ دوم هم همان سد',
+       r1.ok === false && /تأیید/.test(r1.why) && pub1 === 0 && th1 === 'image/jpeg' &&
+       q1.some(x => /منتظرِ تأیید/.test(JSON.stringify(x))) &&
+       r2.ok === true && calls.pub === 1 && okN === 1 &&
+       /ytPublicGate_\(/.test(redo) && /gateR\.ok && String\(rec\.privacy/.test(redo),
+       JSON.stringify({ r1: r1.why, pub1, th1, q: q1.length, r2: r2.ok, pub: calls.pub, okN }));
+  }
+
+  if (genWas.on === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas.on;
+  CFG.LV_GEN_MODEL = genWas.model; CFG.LV_GEN_USD_MONTH = genWas.usd; CFG.LV_GEN_ENABLED = genWas.enabled;
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  if (svc71 === undefined) delete global.YouTube; else global.YouTube = svc71;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

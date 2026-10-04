@@ -1297,6 +1297,15 @@ function ytRenderAsk_(item) {
        این یکی واقعاً بهتر (۸.۳۰). «بهتر» یعنی تصویرِ بیشتر یا مشخصاتِ برداری؛
        بی این شرط، ردیفی بدتر هم می‌توانست جای قبلی را بگیرد. */
     var old = d.items[i];
+    /* ══ صحنه جای کارت را می‌گیرد، تا ویدئو ساخته نشده (۸.۳۱) ══
+       درسِ ۶۰ پیش از ۸.۳۱ با کارت خواسته شد و رانر نگهش داشت؛ بی این، ردیفِ
+       کارتی تا ابد در صف می‌ماند و صحنه‌ها هرگز به رانر نمی‌رسیدند. */
+    var scNew = !!(item.scenes && item.scenes.length);
+    var scOld = !!(old.scenes && old.scenes.length);
+    if (scNew && !scOld && String(old.status || '') === 'در انتظار') {
+      var mm0 = ytRenderMapCached_();
+      if (!(mm0 && mm0[key] && mm0[key].url)) { replaceAt = i; break; }
+    }
     var nNew = (item.visuals || []).length, nOld = (old.visuals || []).length;
     var specNew = !!(item.spec && item.spec.cards && item.spec.cards.length);
     if (ytRenderRedoable_(old, Number((item.visInfo || {}).asked) || 0) &&
@@ -1355,6 +1364,23 @@ function ytRenderAsk_(item) {
      («قولِ چیزی خراب نمی‌شود»): خرابیِ بی‌صدا، از درِ سازگاری. */
   if (item.spec && Array.isArray(item.spec.cards) && item.spec.cards.length) row.spec = item.spec;
   if (item.visInfo) row.vis = item.visInfo;
+  /* ══ صحنه‌ها: هر کدام با ثانیهٔ شروع و تصویرش (۸.۳۱) ══
+     رانر این‌ها را تمام‌صفحه می‌کشد، مرز را روی نزدیک‌ترین مکث می‌نشاند،
+     و از خودِ ویدئوی ساخته‌شده می‌سنجد که هر صحنه سرِ جایش هست. */
+  if (item.scenes && item.scenes.length) {
+    row.mode = 'scenes';
+    row.scenes = item.scenes.map(function (x) {
+      return { n: Number(x.n) || 0, t0: Number(x.t0) || 0, fileId: String(x.fileId || ''),
+               url: ytDlUrl_(x.fileId || ''), caption: String(x.caption || '') }; });
+    if (item.sceneCover && item.sceneCover.fileId) {
+      row.sceneCover = { fileId: String(item.sceneCover.fileId), url: ytDlUrl_(item.sceneCover.fileId) };
+    }
+    row.coverTitle = String(item.coverTitle || '');
+    row.coverKicker = String(item.coverKicker || '');
+    row.coverFoot = String(item.coverFoot || '');
+    try { row.mark = ytMarkSpec_(); } catch (eMk) {}
+    if (item.sceneInfo) row.vis = item.sceneInfo;
+  }
   /* اجازه همراهِ درخواست داده می‌شود، نه پیش از آن و نه جدا از آن: هر فایلی
      که این‌جا باز می‌شود در `ytShareSweep_` نامش هست و پس گرفته می‌شود. */
   if (replaceAt >= 0) {
@@ -1364,8 +1390,10 @@ function ytRenderAsk_(item) {
     try { ytRenderShare_(was, false); } catch (eRs) {}
     row.redo = (Number(was.redo) || 0) + 1;
     row.replaced = String(was.at || '');
-    row.replacedWhy = 'ردیفِ قبلی ' + (was.visuals || []).length + ' تصویر داشت' +
-                      (was.spec ? '' : ' و بی مشخصاتِ برداری بود');
+    row.replacedWhy = row.scenes
+      ? 'ردیفِ قبلی کارتِ متنی بود؛ حالا ' + row.scenes.length + ' صحنهٔ مصور'
+      : 'ردیفِ قبلی ' + (was.visuals || []).length + ' تصویر داشت' +
+        (was.spec ? '' : ' و بی مشخصاتِ برداری بود');
   }
   row.shared = ytRenderShare_(row, true) > 0;
   row.sharedAt = nowStr_();
@@ -1480,6 +1508,15 @@ function ytRenderShare_(item, on) {
      تصویر می‌گیرد (درسِ ۷٫۳۳) و کارت بی‌تصویر کشیده می‌شود. */
   var sc = (((item || {}).spec || {}).cards) || [];
   for (var c = 0; c < sc.length; c++) if (sc[c] && sc[c].bgId) ids.push(sc[c].bgId);
+  /* و صحنه‌ها (۸.۳۱) — همان قاعده، فایل‌به‌فایل. صحنه‌ای که تصویرِ قبلی را
+     ادامه می‌دهد شناسهٔ تکراری دارد؛ یک بار باز می‌شود. */
+  var seen = {};
+  var ss = (item || {}).scenes || [];
+  for (var z = 0; z < ss.length; z++) {
+    var fz = ss[z] && ss[z].fileId;
+    if (fz && !seen[fz]) { seen[fz] = true; ids.push(fz); }
+  }
+  if (item && item.sceneCover && item.sceneCover.fileId) ids.push(item.sceneCover.fileId);
   var n = 0;
   for (var j = 0; j < ids.length; j++) {
     if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
@@ -2369,35 +2406,44 @@ function ytPlanWrite_(folder, plan) {
 var LV_STYLES = [
   { key: 'ساده و رسمی', pal: { bg: '#0F172A', fg: '#F8FAFC', ac: '#38BDF8' },
     frame: 'bar',      hint: 'فلسفه، منطق، معرفت‌شناسی، کلام',
-    gen: 'هندسهٔ آرام و مینیمال، سرمه‌ای و فیروزه‌ای، سایه‌های نرم، فضای خالیِ زیاد' },
+    gen: 'هندسهٔ آرام و مینیمال، سرمه‌ای و فیروزه‌ای، سایه‌های نرم، فضای خالیِ زیاد',
+    art: 'clean modern flat editorial illustration, deep navy and teal palette with a warm accent, soft shadows, simple confident shapes, calm intelligent mood' },
   { key: 'خطیِ مینیمال', pal: { bg: '#FFFFFF', fg: '#17202E', ac: '#2E6FB8' },
     frame: 'hairline', hint: 'علمی و فنی، جایی که نمودار حرفِ اصلی است',
-    gen: 'خطوطِ نازکِ فنی روی زمینهٔ روشن، تک‌رنگِ آبی، مثلِ نقشهٔ مهندسی، بی سایه' },
+    gen: 'خطوطِ نازکِ فنی روی زمینهٔ روشن، تک‌رنگِ آبی، مثلِ نقشهٔ مهندسی، بی سایه',
+    art: 'minimal hand-drawn line illustration, confident thin ink lines on an off-white background with a single blue accent, like an elegant explainer sketch' },
   { key: 'تخته‌سفید', pal: { bg: '#F7F7F2', fg: '#1F2937', ac: '#059669' },
     frame: 'dashed',   hint: 'ریاضی، فرایند، آموزشِ گام‌به‌گام',
-    gen: 'طرحِ دست‌کشیده با ماژیک روی تختهٔ سفید، خطوطِ ساده، زمینهٔ کاغذی' },
+    gen: 'طرحِ دست‌کشیده با ماژیک روی تختهٔ سفید، خطوطِ ساده، زمینهٔ کاغذی',
+    art: 'whiteboard explainer drawing, black and colored marker strokes on a clean white board, simple expressive stick figures, arrows and props' },
   { key: 'نقشِ ایرانی', pal: { bg: '#0B3B3C', fg: '#FDF6E3', ac: '#D4A017' },
     frame: 'motif',    hint: 'تاریخِ اسلام، عرفان، ادبیاتِ کهن',
-    gen: 'نقشِ هندسیِ اسلامی و تذهیب، فیروزه‌ای و لاجوردی و طلایی، قرینه، بی چهره' },
+    gen: 'نقشِ هندسیِ اسلامی و تذهیب، فیروزه‌ای و لاجوردی و طلایی، قرینه، بی چهره',
+    art: 'Persian-miniature-inspired illustration, flat perspective, turquoise, lapis and gold, ornamental details, stylized generic figures' },
   { key: 'آبرنگِ گرم', pal: { bg: '#FFF7ED', fg: '#431407', ac: '#EA580C' },
     frame: 'wash',     hint: 'روایی، اخلاق، زندگی‌نامه',
-    gen: 'آبرنگِ گرم و پخش‌شده، نارنجی و خاکی، لبه‌های نرم، بافتِ کاغذ' },
+    gen: 'آبرنگِ گرم و پخش‌شده، نارنجی و خاکی، لبه‌های نرم، بافتِ کاغذ',
+    art: 'warm watercolor storybook illustration, soft bleeding edges, orange, ochre and earth tones, visible paper texture' },
   { key: 'چاپِ قدیمی', pal: { bg: '#F3EAD3', fg: '#2B2116', ac: '#8C5A2B' },
     frame: 'rules',    hint: 'تاریخ، ادبیات، اسناد',
-    gen: 'حکاکیِ چاپِ سنگیِ قدیمی، قهوه‌ای و کرم، بافتِ کاغذِ کهنه، خط‌خطیِ ریز' },
+    gen: 'حکاکیِ چاپِ سنگیِ قدیمی، قهوه‌ای و کرم، بافتِ کاغذِ کهنه، خط‌خطیِ ریز',
+    art: 'vintage engraving and lithograph illustration, sepia and cream, fine cross-hatching, aged paper' },
   { key: 'کاغذبری', pal: { bg: '#1E1B4B', fg: '#EEF2FF', ac: '#A78BFA' },
     frame: 'layers',   hint: 'مفاهیمِ لایه‌لایه و ساختارها',
-    gen: 'کاغذبریِ لایه‌لایه، بنفش و نیلی، سایه‌های تیزِ بین لایه‌ها، بی بافت' },
+    gen: 'کاغذبریِ لایه‌لایه، بنفش و نیلی، سایه‌های تیزِ بین لایه‌ها، بی بافت',
+    art: 'layered paper-cut diorama illustration, purple and indigo paper layers, crisp drop shadows, sense of depth' },
   /* «عکسِ واقعی» امروز **لایه‌اش نیامده** (سنجشِ گامِ صفر: تصویرِ آزاد شدنی
      است، ولی آوردنش کارِ گامِ بعدی است). پس کارت‌ها ساده ساخته می‌شوند و
      این را خطِ روزانه **با اسم می‌گوید** — وگرنه صاحبِ برنامه سبکی انتخاب
      کرده که بی‌صدا کار نمی‌کند، و آن بدترین حالت است (۷٫۴۵). */
   { key: 'عکسِ واقعی', pal: { bg: '#111827', fg: '#F9FAFB', ac: '#9CA3AF' },
     frame: 'bar', photo: true, hint: 'علومِ تجربی، جغرافیا، رویدادها',
-    gen: 'عکسِ فضاییِ واقع‌نما، نورِ طبیعی، عمقِ میدانِ کم، خنثی و بی‌شخص' },
+    gen: 'عکسِ فضاییِ واقع‌نما، نورِ طبیعی، عمقِ میدانِ کم، خنثی و بی‌شخص',
+    art: 'photorealistic editorial photograph, natural light, shallow depth of field, people only as silhouettes, hands or from behind' },
   { key: 'ترکیبی', pal: { bg: '#0F172A', fg: '#FDF6E3', ac: '#D4A017' },
     frame: 'motif', mix: true, hint: 'کارتِ تمیز + نقشِ مجموعه — حالتِ پیشنهادی برای ترکیب',
-    gen: 'نقشِ هندسیِ کم‌رنگ روی زمینهٔ سرمه‌ای، طلاییِ ملایم، بسیار آرام' }
+    gen: 'نقشِ هندسیِ کم‌رنگ روی زمینهٔ سرمه‌ای، طلاییِ ملایم، بسیار آرام',
+    art: 'flat editorial illustration on deep navy with subtle gold geometric ornament, calm and refined' }
 ];
 
 /** یک‌دست‌سازیِ نوشتار، تا «خطی مینیمال» بی نیم‌فاصله هم شناخته شود. */
@@ -2466,7 +2512,10 @@ function lvStyleCompose_(a, b) {
     base: a.key, motif: b.key,
     hint: 'رنگ از «' + a.key + '»، نقش از «' + b.key + '»',
     gen: String(a.gen || '') +
-         (b.gen ? '؛ با نقش‌مایهٔ ' + String(b.gen) : '')
+         (b.gen ? '؛ با نقش‌مایهٔ ' + String(b.gen) : ''),
+    /* زبانِ هنریِ صحنه‌های مصور (۸.۳۱) — همان تقسیمِ نقش: پایه از اولی،
+       رگه از دومی. */
+    art: String(a.art || '') + (b.art ? '; with accents borrowed from ' + String(b.art) : '')
   };
 }
 
@@ -3073,13 +3122,37 @@ function lvGenAccept_(blob) {
  * ردشده‌ها شمرده نشوند، سقفِ دلاری **دروغ** است — و شبی که مدل ده تصویرِ
  * خراب بدهد، سقف هیچ‌چیز را مهار نکرده. پس هر فراخوان، پذیرفته یا نه.
  */
-function lvGenOne_(model, prompt) {
+function lvGenOne_(model, prompt, opt) {
   var out = { blob: null, why: '', usd: 0 };
   try {
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
               model + ':generateContent?key=' + encodeURIComponent(apiKey_());
     var payload = { contents: [{ role: 'user', parts: [{ text: prompt }] }] };
-    var j = geminiFetch_(url, payload);
+    /* ══ نسبتِ ۱۶:۹ از خودِ مدل (۸.۳۱) ══
+       صحنه تمام‌صفحه است؛ تصویرِ مربعی که بریده شود، نیمی از صحنه را دور
+       می‌ریزد. مدلی که `imageConfig` را رد کند یک بار به خاطر سپرده می‌شود و
+       بی آن پرسیده می‌شود — ردِ ۴۰۰ پولی نیست، ولی دو بار پرسیدنِ هر صحنه
+       وقت است. */
+    var aspect = opt && opt.aspect ? String(opt.aspect) : '';
+    var noCfg = false;
+    if (aspect) {
+      try { noCfg = (JSON.parse(props_().getProperty(PK.LV_GEN_NOCFG) || '{}') || {})[model] === true; }
+      catch (eN) { noCfg = false; }
+      if (!noCfg) payload.generationConfig = { responseModalities: ['IMAGE'],
+                                               imageConfig: { aspectRatio: aspect } };
+    }
+    var j;
+    try { j = geminiFetch_(url, payload); }
+    catch (eF) {
+      if (!payload.generationConfig || !/HTTP 400/.test(String(eF.message))) throw eF;
+      try {
+        var m0 = JSON.parse(props_().getProperty(PK.LV_GEN_NOCFG) || '{}') || {};
+        m0[model] = true;
+        props_().setProperty(PK.LV_GEN_NOCFG, JSON.stringify(m0));
+      } catch (eM0) {}
+      delete payload.generationConfig;
+      j = geminiFetch_(url, payload);
+    }
     out.usd = lvGenPrice_(model);
     lvGenSpendAdd_(out.usd);            // فراخوان انجام شد ⇒ پول رفت
     var b64 = '';
@@ -4294,21 +4367,123 @@ function lvNorm_(t) {
 }
 
 /**
- * نقشهٔ «جای نویسه در متنِ گفتاری ⇒ ثانیه».
- * داخلِ هر تکه خطی درون‌یابی می‌شود؛ مرزِ تکه‌ها **دقیق** است.
+ * کدام زمانِ `_times.json` مالِ کدام تکهٔ **متن** است (۸.۳۱).
+ *
+ * `_times.json` برای **هر** تکه یک زمان دارد — گفتار و موسیقی هر دو. تا ۸.۳۰
+ * نگاشت شماره‌به‌شماره بود و موسیقی را نمی‌دید: درسِ ۵۹ ۲۱ زمان داشت و ۱۸
+ * تکهٔ متن، و پس از هر پلِ موسیقی همهٔ کارت‌ها یک تکه جابه‌جا شدند.
+ *
+ * دو راه، به ترتیبِ اعتماد:
+ *   ۱) زمان‌ها `k` دارند (از ۸.۳۱ ثبت می‌شود) ⇒ n-امین «t» همان n-امین تکهٔ متن.
+ *   ۲) ندارند (قسمت‌های پیش از ۸.۳۱) ⇒ هم‌ترازیِ پویا: هر تکهٔ متن مدتی
+ *      متناسب با طولش دارد (سرعتِ گفتار تقریباً ثابت است) و موسیقی **فقط**
+ *      سرِ مرزِ بخش‌ها می‌نشیند (اول، میانِ دو بخش، آخر). پس انتخاب‌ها
+ *      محدودند و جواب روشن — روی درسِ ۵۹ همهٔ ۱۸ تکه با نسبتِ ۰٫۰۸ تا ۰٫۱۱
+ *      ثانیه بر نویسه نشستند و سه موسیقی همان سه تکهٔ ۵ تا ۷ ثانیه‌ای شدند.
+ * نامطمئن ⇒ `null` با علت، نه یک حدس. تصویری که به جملهٔ دیگری بچسبد بدتر
+ * از تصویری است که نیاید.
+ * @return {{map:Array, how:string, why:string}} map[k] = شمارهٔ زمانِ تکهٔ k
  */
-function lvTimeMap_(chunks, times) {
-  var marks = [], pos = 0, byIdx = {};
-  for (var t = 0; t < (times || []).length; t++) byIdx[String(times[t].i)] = Number(times[t].at);
-  for (var i = 0; i < (chunks || []).length; i++) {
-    var txt = lvNorm_((chunks[i] && chunks[i].text) || '');
-    var at = byIdx[String(i)];
-    if (at === undefined) { pos += txt.length + 1; continue; }
-    marks.push({ from: pos, len: txt.length, at: at });
-    pos += txt.length + 1;
+function lvAlignTimes_(tc, times, secs) {
+  var out = { map: null, how: '', why: '' };
+  var T = (times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
+  var N = T.length, M = (tc || []).length;
+  if (!N || !M) { out.why = 'زمان یا تکه‌ای نبود'; return out; }
+  var allK = T.every(function (x) { return x && (x.k === 't' || x.k === 'm'); });
+  if (allK) {
+    var tIdx = [];
+    for (var a = 0; a < N; a++) if (T[a].k === 't') tIdx.push(a);
+    if (tIdx.length !== M) { out.why = 'شمارِ تکه‌های گفتار ' + tIdx.length + ' است و متن ' + M + ' تکه'; return out; }
+    out.map = tIdx; out.how = 'نوع'; return out;
   }
-  for (var m = 0; m < marks.length; m++) {
-    marks[m].to = (m + 1 < marks.length) ? marks[m + 1].at : null;
+  var K = N - M;
+  if (K < 0) { out.why = M + ' تکهٔ متن و فقط ' + N + ' زمان'; return out; }
+  var at = T.map(function (x) { return Number(x.at) || 0; });
+  var dur = at.map(function (v, i) { return Math.max(0.1, (i + 1 < N ? at[i + 1] : (Number(secs) || v)) - v); });
+  var L = tc.map(function (c) { return Math.max(1, String(c.text || '').replace(/[ً-ْٰ]/g, '').length); });
+  if (K === 0) { out.map = at.map(function (v, i) { return i; }); out.how = 'برابر'; return out; }
+  var sumL = L.reduce(function (p, q) { return p + q; }, 0);
+  var canMusic = function (k) { return k === 0 || k === M || tc[k].seg !== tc[k - 1].seg; };
+  var run = function (r) {
+    var INF = 1e9, C = [], B = [];
+    for (var i = 0; i <= N; i++) { C.push([]); B.push([]); for (var k = 0; k <= M; k++) { C[i].push(INF); B[i].push(''); } }
+    C[0][0] = 0;
+    for (var i2 = 0; i2 <= N; i2++) for (var k2 = 0; k2 <= M; k2++) {
+      var c0 = C[i2][k2];
+      if (c0 >= INF) continue;
+      if (i2 < N && k2 < M) {
+        var cm = c0 + Math.abs(Math.log(dur[i2] / (L[k2] * r)));
+        if (cm < C[i2 + 1][k2 + 1]) { C[i2 + 1][k2 + 1] = cm; B[i2 + 1][k2 + 1] = 'm'; }
+      }
+      if (i2 < N && canMusic(k2)) {
+        var cs = c0 + 0.7 + (dur[i2] > 45 ? 3 : 0);
+        if (cs < C[i2 + 1][k2]) { C[i2 + 1][k2] = cs; B[i2 + 1][k2] = 's'; }
+      }
+    }
+    if (C[N][M] >= INF) return null;
+    var map = [], ii = N, kk = M;
+    while (ii > 0) { if (B[ii][kk] === 'm') { map[kk - 1] = ii - 1; kk--; } ii--; }
+    return { cost: C[N][M], map: map };
+  };
+  var r = Math.max(0.02, ((Number(secs) || at[N - 1]) - 10 * K) / sumL), res = null;
+  for (var it = 0; it < 3; it++) {
+    res = run(r);
+    if (!res) break;
+    var sd = 0, sl = 0;
+    for (var q = 0; q < M; q++) { sd += dur[res.map[q]]; sl += L[q]; }
+    r = sd / sl;
+  }
+  if (!res) { out.why = 'هم‌ترازیِ زمان و متن جواب نداشت'; return out; }
+  // سنجشِ اطمینان: میانهٔ انحرافِ نسبتِ «ثانیه بر نویسه»
+  var dev = [];
+  for (var z = 0; z < M; z++) dev.push(Math.abs(Math.log(dur[res.map[z]] / (L[z] * r))));
+  dev.sort(function (x, y) { return x - y; });
+  var med = dev[Math.floor(dev.length / 2)];
+  if (med > 0.35) { out.why = 'هم‌ترازی نامطمئن بود (انحرافِ میانه ' + med.toFixed(2) + ')'; return out; }
+  out.map = res.map; out.how = 'هم‌ترازی'; return out;
+}
+
+/**
+ * تکه‌های متنِ گفتار با **ثانیهٔ شروع و پایانِ واقعی‌شان** — تنها راهی که
+ * تصویر از آن زمان می‌گیرد (کارت‌ها و صحنه‌ها هر دو).
+ * @return {{chunks:Array, secs:number, how:string, why:string}}
+ */
+function lvReplayChunks_(folder, meta) {
+  var out = { chunks: [], secs: 0, how: '', why: '' };
+  var tj = epTimesRead_(folder);
+  if (!tj) { out.why = '`_times.json` در پوشهٔ قسمت نبود'; return out; }
+  var tc = null;
+  try { tc = specialTextChunks_((meta && meta.ep) || {}, (meta && (meta.cat || meta.seriesCat)) || ''); }
+  catch (e) { out.why = 'تکه‌های گفتار دوباره ساخته نشد: ' + e.message; return out; }
+  if (!tc || !tc.length) { out.why = 'تکه‌های گفتار دوباره ساخته نشد'; return out; }
+  var secs = Number(tj.secs) || 0;
+  var al = lvAlignTimes_(tc, tj.times, secs);
+  if (!al.map) { out.why = al.why + ' (' + tc.length + ' تکه، ' + (tj.times || []).length + ' زمان)'; return out; }
+  var T = (tj.times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
+  for (var k = 0; k < tc.length; k++) {
+    var ti = al.map[k];
+    var a = Number(T[ti].at) || 0;
+    var b = (ti + 1 < T.length) ? Number(T[ti + 1].at) : secs;
+    out.chunks.push({ text: tc[k].text, seg: tc[k].seg, secIndex: tc[k].secIndex,
+                      at: a, end: Math.max(a, b) });
+  }
+  out.secs = secs; out.how = al.how;
+  return out;
+}
+
+/**
+ * نقشهٔ «جای نویسه در متنِ گفتاری ⇒ ثانیه»، از تکه‌های هم‌ترازشده.
+ * داخلِ هر تکه خطی درون‌یابی می‌شود؛ مرزِ تکه‌ها **دقیق** است، و پایانِ هر تکه
+ * پایانِ گفتارِ خودش — نه شروعِ موسیقیِ بعدی. جانشینِ `lvTimeMap_` (تا ۸.۳۰)
+ * که زمان را شماره‌به‌شماره می‌گذاشت و موسیقی را نمی‌دید.
+ */
+function lvTimeMapAligned_(chunks) {
+  var marks = [], pos = 0;
+  for (var i = 0; i < (chunks || []).length; i++) {
+    var txt = lvNorm_(chunks[i].text || '');
+    marks.push({ from: pos, len: txt.length, at: Number(chunks[i].at) || 0,
+                 to: Number(chunks[i].end) || null });
+    pos += txt.length + 1;
   }
   return marks;
 }
@@ -4334,7 +4509,7 @@ function lvSecAt_(marks, charPos) {
  * متنِ نوشتاری و «ب ایستیم»ِ متنِ گفتاری دو رشتهٔ متفاوت‌اند، و برعکسش هم
  * هست («می‌شود» در یکی، «می شود» در دیگری). جست‌وجوی بی‌فاصله هر دو را
  * می‌بلعد؛ نقشهٔ جای نویسه‌ها جای واقعی را در متنِ اصلی برمی‌گرداند، چون
- * `lvTimeMap_` با همان جای واقعی کار می‌کند.
+ * `lvTimeMapAligned_` با همان جای واقعی کار می‌کند.
  */
 function lvFind_(stream, q, cmp) {
   if (!q) return -1;
@@ -4434,22 +4609,18 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
     var raw = (mm && mm.visuals) || [];
     if (!raw.length) return why('نقشهٔ تصویر خالی بود');
 
-    var tj = epTimesRead_(folder);
-    if (!tj) return why('`_times.json` در پوشهٔ قسمت نبود');   // بی زمانِ واقعی، حدس نمی‌زنیم
-
-    var ep = (meta && meta.ep) || {};
-    var chunks;
-    var chErr = '';
-    try { chunks = buildSpecialChunks_(ep, meta); } catch (eC) { chunks = null; chErr = eC.message; }
-    if (!chunks || !chunks.length) return why('تکه‌های گفتار دوباره ساخته نشد' + (chErr ? ': ' + chErr : ''));
-
-    var marks = lvTimeMap_(chunks, tj.times);
-    if (!marks.length) return why('زمانِ تکه‌ها با تکه‌های گفتار جور نشد (' + chunks.length +
-                                  ' تکه، ' + (tj.times || []).length + ' زمان)');
+    /* ══ زمان از تکه‌های **هم‌ترازشده** (۸.۳۱) ══
+       تا ۸.۳۰ این‌جا `buildSpecialChunks_` بود و نگاشتِ شماره‌به‌شماره — که
+       موسیقی را نمی‌دید و درسِ ۵۹ را تا دو دقیقه جابه‌جا کرد. داستانش کنارِ
+       `specialTextChunks_` و `lvAlignTimes_` است. */
+    var rp = lvReplayChunks_(folder, meta);
+    if (!rp.chunks.length) return why(rp.why || 'زمانِ تکه‌ها با تکه‌های گفتار جور نشد');
+    var chunks = rp.chunks;
+    var marks = lvTimeMapAligned_(chunks);
     var stream = '';
     for (var c = 0; c < chunks.length; c++) stream += lvNorm_(chunks[c].text || '') + ' ';
 
-    var secs = Number(tj.secs) || 0;
+    var secs = Number(rp.secs) || 0;
     var cards = [], miss = 0, cmp = {}, reshaped = 0;
     var bgOf = (ctx && ctx.bg) || {};
     for (var r = 0; r < raw.length; r++) {
@@ -4538,6 +4709,701 @@ function lvSpecBuild_(folder, meta, mm, ctx) {
     try { if (ctx) ctx.why = 'خطا: ' + e.message; } catch (e3) {}
     return null;
   }
+}
+
+/* ═══════════ صحنه‌های مصور — ویدئوی درس‌نامه از نو (۸.۳۱) ═══════════
+ *
+ * ۴ اکتبر، دربارهٔ ویدئوی درسِ ۵۹: «فقط متن بود · نقاشی کو · متن‌ها می‌رفتن و
+ * می‌اومدن و صدا اصلاً هماهنگ نبود · آبرومو بردی». هر سه درست، و علتِ هر سه
+ * یک تصمیم بود، نه یک باگ: ۷.۹۸ تصویرِ ساخته‌شده را «پس‌زمینهٔ بی‌واژه و
+ * انتزاعیِ زیرِ کارت» تعریف کرد و پرده‌ای ۶۲٪ هم‌رنگِ زمینه رویش کشید.
+ * او ۳۰ سپتامبر چیزی مثلِ ویدئوهای NotebookLM خواسته بود — تصویری که **خودِ
+ * مفهوم را نشان بدهد** — و گفته بود آن تصمیم را نفهمیده. یعنی نقاشی طوری
+ * ساخته شده بود که دیده نشود، و دیده هم نشد.
+ *
+ * حالا نقش‌ها برعکس است، و هر مرز در کد است نه در پرامپت:
+ *   • **تصویر خودِ محتواست**: تمام‌صفحه، بی پرده. هر صحنه همان چیزی را
+ *     نشان می‌دهد که گوینده **در همان لحظه** می‌گوید — مدل متنِ همان چند
+ *     جمله را می‌بیند، نه کلِ درس را.
+ *   • **زمان را کد می‌دهد، نه مدل**: مرزِ هر صحنه از زمانِ واقعیِ تکه‌های
+ *     گفتار (`_times.json`) درمی‌آید و رانر آن را روی نزدیک‌ترین مکث
+ *     می‌نشاند. هیچ قابِ خالی نیست: صحنهٔ اول از ثانیهٔ صفر، آخری تا آخر.
+ *   • **نوشته کم است**: یک زیرنویسِ کوتاه در چند ثانیهٔ اول، نه کارتِ متن.
+ *   • **مرزِ جعل سرِ جایش است**: هیچ شخصِ واقعی و هیچ سندِ واقعی.
+ *   • **داوری پیش از رندر**: هر تصویر کنارِ متنِ خودش به مدل نشان داده
+ *     می‌شود؛ ضعیف یا نوشته‌دار یک بار از نو ساخته می‌شود.
+ *   • **نشد ⇒ مسیرِ قبلی**، با علت. ویدئوی ساده از ویدئوی نیامده بهتر است.
+ */
+function lvSceneOn_(show, level) {
+  try {
+    if (CFG.LV_SCENES === false) return false;
+    if (!ytVisOn_(show)) return false;
+    if (String(level || '') === 'خاموش') return false;
+    return lvGenOn_() === true;
+  } catch (e) { return false; }
+}
+
+/** طولِ هدفِ هر صحنه از **سطحِ همان مجموعه** روی تخته. */
+function lvSceneSec_(level) {
+  var hi = Math.max(8, Number(CFG.LV_SCENE_SEC_HIGH) || 20);
+  var lo = Math.max(hi, Number(CFG.LV_SCENE_SEC_LOW) || 45);
+  return String(level || '') === 'زیاد' ? hi : lo;
+}
+
+/** زبانِ هنریِ صحنه‌ها، از سبکِ همان مجموعه (و ترکیبش). */
+function lvSceneArt_(styleKey) {
+  var s = null;
+  try { s = lvStyleResolve_(styleKey); } catch (e) { s = null; }
+  if (!s) s = lvStyleDefault_();
+  return { key: String(s.key || ''), art: String(s.art || LV_STYLES[0].art) };
+}
+
+/**
+ * جمله‌ها با ثانیهٔ شروعشان، از تکه‌های **هم‌ترازشده** (`lvReplayChunks_`).
+ * درونِ هر تکه زمان به نسبتِ نویسه پخش می‌شود (سرعتِ گفتار تقریباً ثابت
+ * است)؛ مرزِ تکه‌ها دقیق است، و پایانِ هر تکه پایانِ گفتارِ خودش — پس
+ * صحنه روی پلِ موسیقی از جملهٔ دیگری جلو نمی‌زند.
+ */
+function lvSceneSents_(chunks) {
+  var out = [];
+  for (var i = 0; i < (chunks || []).length; i++) {
+    var txt = String((chunks[i] && chunks[i].text) || '').replace(/\s+/g, ' ').trim();
+    if (!txt) continue;
+    var a = Number(chunks[i].at) || 0;
+    var b = Math.max(a, Number(chunks[i].end) || a);
+    var ss = speakSentSplit_(txt);
+    var tot = 0;
+    for (var k = 0; k < ss.length; k++) tot += ss[k].length + 1;
+    var pos = 0;
+    for (var k2 = 0; k2 < ss.length; k2++) {
+      out.push({ t: Math.round((a + (b - a) * (tot ? pos / tot : 0)) * 10) / 10,
+                 text: ss[k2], ci: i,
+                 sec: (Number(chunks[i].secIndex) >= 0) ? Number(chunks[i].secIndex) + 1 : 0 });
+      pos += ss[k2].length + 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * جمله‌ها ⇒ صحنه‌ها. صحنهٔ تازه روی **مرزِ جمله** شروع می‌شود، هرگز وسطِ آن.
+ * سقفِ تعداد با بلندکردنِ صحنه‌ها رعایت می‌شود، نه با بریدنِ آخرِ درس.
+ */
+function lvSceneGroups_(sents, target, secs, maxN) {
+  var total = Math.max(1, Number(secs) || 0);
+  var T = Math.max(6, Number(target) || 20);
+  var cap = Math.max(3, Number(maxN) || 60);
+  if (total / T > cap) T = total / cap;
+  var g = [], cur = null, cut = T * 0.85;
+  for (var i = 0; i < (sents || []).length; i++) {
+    var s = sents[i];
+    if (cur && s.t - cur.t0 >= cut) { g.push(cur); cur = null; }
+    if (!cur) cur = { t0: s.t, text: [], sec: 0 };
+    cur.text.push(s.text);
+    if (!cur.sec && s.sec) cur.sec = s.sec;
+  }
+  if (cur) g.push(cur);
+  // صحنهٔ آخرِ خیلی کوتاه به قبلی می‌پیوندد — تصویری که دو ثانیه بماند دیده نمی‌شود
+  if (g.length > 1 && total - g[g.length - 1].t0 < T * 0.4) {
+    var last = g.pop();
+    g[g.length - 1].text = g[g.length - 1].text.concat(last.text);
+  }
+  if (g.length) g[0].t0 = 0;
+  for (var j = 0; j < g.length; j++) {
+    g[j].n = j + 1;
+    g[j].t1 = (j + 1 < g.length) ? g[j + 1].t0 : Math.round(total * 10) / 10;
+    g[j].text = g[j].text.join(' ');
+  }
+  return g;
+}
+
+/** متنِ صحنه برای مدل: بی اعراب و بی نیم‌فاصلهٔ تلفظی — مدل معنا را می‌خوانَد، نه تلفظ را. */
+function lvSceneClean_(t) {
+  return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+var LV_SCENE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    cast: { type: 'STRING' },
+    cover: { type: 'STRING' },
+    scenes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      n: { type: 'STRING' }, scene: { type: 'STRING' }, caption: { type: 'STRING' } },
+      required: ['n', 'scene'] } }
+  },
+  required: ['scenes']
+};
+
+function lvScenePrompt_(groups, ctx, art, cast, only) {
+  var mm = function (x) {
+    var s = Math.max(0, Math.round(Number(x) || 0));
+    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+  };
+  var cap = Math.max(160, Number(CFG.LV_SCENE_TEXT_CHARS) || 420);
+  var L = [];
+  L.push('تو کارگردانِ هنریِ یک ویدئوی آموزشیِ فارسی هستی. صدای ویدئو یک درس است و ' +
+         'تصویرش باید **لحظه‌به‌لحظه همان چیزی را نشان بدهد که گوینده در همان لحظه ' +
+         'می‌گوید** — مثلِ ویدئوهای مصورِ NotebookLM: هر تصویر یک صحنهٔ روشن و ' +
+         'بامعناست که ایده را به چشم می‌رساند؛ نه نوشته، نه نقشِ تزئینی، نه نمودارِ برچسب‌دار.');
+  L.push('');
+  L.push('درس: «' + String((ctx && ctx.title) || '') + '»' +
+         ((ctx && ctx.seriesName) ? ' — مجموعه: «' + String(ctx.seriesName) + '»' : ''));
+  L.push('زبانِ هنریِ همهٔ تصویرها (ثابت، برای یک‌دستی): ' + art);
+  if (cast) L.push('شخصیت‌های ثابتِ این ویدئو (همین توصیف را هر بار عیناً به کار ببر): ' + cast);
+  L.push('');
+  L.push(only ? 'فقط برای این صحنه‌ها بنویس:' :
+         'صحنه‌ها پشتِ‌هم‌اند؛ کنارِ هر کدام متنی که **همان موقع** خوانده می‌شود آمده است:');
+  for (var i = 0; i < groups.length; i++) {
+    var g = groups[i];
+    if (only && only.indexOf(g.n) === -1) continue;
+    var tx = lvSceneClean_(g.text);
+    if (tx.length > cap) tx = tx.slice(0, cap) + '…';
+    L.push('[' + g.n + '] (' + mm(g.t0) + '–' + mm(g.t1) + ') ' + tx);
+  }
+  L.push('');
+  L.push('برای هر صحنه:');
+  L.push('• `scene` — **به انگلیسی**، یک تصویرِ مشخص و دیدنی: چه کسی یا چه چیزی، کجا، ' +
+         'در حالِ چه کاری، و با چه استعارهٔ دیداری‌ای ایدهٔ **همان متن** را نشان می‌دهد. ' +
+         'ایدهٔ انتزاعی را به موقعیتی ملموس ترجمه کن (مثلاً «توجیه از مقدمه به نتیجه ' +
+         'منتقل می‌شود» ⇒ نوری که از یک فانوس به فانوسِ بعدی در زنجیره‌ای از فانوس‌ها ' +
+         'می‌رسد). یک کانونِ روشن، ترکیب‌بندیِ پهن (۱۶:۹). ۲۵ تا ۶۰ واژه.');
+  L.push('• `caption` — به فارسی، حداکثر شش واژه: **مفهومِ کلیدیِ همان لحظه** (نه جمله). ' +
+         'اگر تصویر خودش گویاست، خالی بگذار.');
+  L.push('• `n` — همان شمارهٔ صحنه.');
+  if (!only) {
+    L.push('و یک `cover` — به انگلیسی، یک تصویرِ چشم‌گیر از ایدهٔ مرکزیِ کلِ درس، ' +
+           'با فضای خلوت و آرام در **سمتِ راستِ** قاب برای عنوان.');
+    L.push('و یک `cast` — به انگلیسی، یک جمله: شخصیت(های) ثابت و بی‌نامِ این ویدئو ' +
+           '(مثلاً a curious young student in a blue sweater)، تا در همهٔ صحنه‌ها یک‌جور ' +
+           'توصیف شوند. اگر شخصیتی لازم نیست، خالی.');
+  }
+  L.push('');
+  L.push('قیدهای قطعی:');
+  L.push('• در هیچ تصویری متن، حرف، عدد، برچسب، تابلو یا لوگو نخواه.');
+  L.push('• هیچ شخصِ واقعی و شناختنی (فیلسوف، عالم، چهرهٔ تاریخی، سیاستمدار) و هیچ ' +
+         'سند یا کتابِ واقعی را نشان نده. اگر متن از کسی نام می‌برد، **ایده‌اش** را ' +
+         'نشان بده، نه او را. شخصیت‌ها عام و بی‌نام‌اند.');
+  L.push('• دو صحنهٔ پشتِ‌هم یک ترکیب‌بندی نداشته باشند: زاویه، فاصله یا مکان عوض شود.');
+  L.push('• هر صحنه به **متنِ خودش** مربوط باشد، نه به کلِ درس.');
+  return L.join('\n');
+}
+
+/** پرسشِ صحنه‌ها. `only` = فقط این شماره‌ها (پرسشِ دوم برای جاافتاده‌ها). */
+function lvSceneAsk_(groups, ctx, art, cast, only) {
+  var out = { scenes: {}, cover: '', cast: '', why: '' };
+  var r = null;
+  try {
+    r = geminiText_(lvScenePrompt_(groups, ctx, art, cast, only), LV_SCENE_SCHEMA,
+                    Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384));
+  } catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 120); return out; }
+  if (!r || !Array.isArray(r.scenes)) { out.why = 'پاسخ صحنه نداشت'; return out; }
+  for (var i = 0; i < r.scenes.length; i++) {
+    var x = r.scenes[i] || {};
+    var n = Number(String(x.n || '').replace(/[^0-9۰-۹]/g, '')
+                   .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }));
+    var sc = String(x.scene || '').replace(/\s+/g, ' ').trim();
+    if (!n || sc.length < 12) continue;
+    out.scenes[String(n)] = { scene: sc.slice(0, 700),
+                              caption: ytVisCut_(String(x.caption || ''), 48) };
+  }
+  out.cover = String(r.cover || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+  out.cast = String(r.cast || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return out;
+}
+
+/** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
+function lvSceneImgPrompt_(desc, art, cast, extra) {
+  return String(art || LV_STYLES[0].art) + '.\n' +
+    (cast ? 'Recurring characters, when they appear: ' + cast + '.\n' : '') +
+    'Scene: ' + String(desc || '') + '\n' +
+    'Widescreen 16:9 composition with one clear focal point and breathing room; ' +
+    'part of a cohesive series of illustrations in exactly this style.\n' +
+    'Absolutely no text, letters, words, numbers, captions, signs, labels, logos or ' +
+    'watermarks anywhere in the image. No real or identifiable person, no real document.' +
+    (extra ? '\n' + extra : '');
+}
+
+/** بهترین مدلِ تصویرِ زیرِ سقفِ قیمت — برای کاور، که یک بار ساخته می‌شود و همه می‌بینندش. */
+function lvGenModelHq_() {
+  var base = lvGenModel_();
+  if (!base.id) return base;
+  try {
+    var max = Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14, best = base.id, bp = lvGenPrice_(base.id);
+    var models = listModels_();
+    for (var i = 0; i < models.length; i++) {
+      var id = String(models[i].name || '').replace(/^models\//, '');
+      var ms = models[i].supportedGenerationMethods || models[i].supported_generation_methods || [];
+      if (ms.indexOf('generateContent') === -1) continue;
+      if (id.toLowerCase().indexOf('image') === -1) continue;
+      var p = lvGenPrice_(id);
+      if (p <= max && p > bp) { best = id; bp = p; }
+    }
+    return { id: best, why: best === base.id ? base.why : 'بهترینِ زیرِ ' + max + ' دلار' };
+  } catch (e) { return base; }
+}
+
+/**
+ * داوریِ تصویرها کنارِ متنِ خودشان. **نشنیدن تأیید نیست** (۷.۶۸): اگر مدل
+ * جواب نداد، `judged` نادرست می‌مانَد و سدِ انتشار آن را می‌بیند.
+ * @return {Object} n ⇒ {s, txt, why}
+ */
+function lvSceneJudge_(batch) {
+  var out = {};
+  if (!batch || !batch.length) return out;
+  var parts = [{ text:
+    'برای هر تصویر بگو چقدر **همان ایده‌ای را که متنِ کنارش می‌گوید** به بیننده نشان ' +
+    'می‌دهد (۰ تا ۱۰؛ ۷ یعنی بیننده ربطش را فوراً می‌فهمد، ۳ یعنی فقط حال‌وهوای کلی). ' +
+    'و جدا بگو آیا در تصویر **هر نوع نوشته، حرف یا عدد** دیده می‌شود (بله/خیر)، و آیا ' +
+    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس.' }];
+  for (var i = 0; i < batch.length; i++) {
+    parts.push({ text: 'تصویرِ ' + batch[i].n + ' — متن: «' +
+                       lvSceneClean_(batch[i].text).slice(0, 300) + '»' });
+    parts.push({ inlineData: { mimeType: batch[i].mime || 'image/png', data: batch[i].b64 } });
+  }
+  var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: {
+    type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
+      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' } },
+    required: ['n', 'score'] } } }, required: ['items'] };
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+            textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
+  /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
+     خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). پس بودجهٔ فکر کوچک و سقف بزرگ،
+     و مدلی که `thinkingConfig` را نپذیرد یک بار بی آن پرسیده می‌شود. */
+  var gen = { temperature: 0, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 256 },
+              responseMimeType: 'application/json', responseSchema: schema };
+  var j;
+  try { j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen }); }
+  catch (eT) {
+    if (!/HTTP 400/.test(String(eT.message)) || !/think/i.test(String(eT.message))) throw eT;
+    delete gen.thinkingConfig;
+    j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen });
+  }
+  var txt = String(extractText_(j) || '');
+  var r = null;
+  try { r = JSON.parse(txt); } catch (eP) { r = repairJson_(txt, eP.message); }
+  var items = (r && r.items) || [];
+  for (var k = 0; k < items.length; k++) {
+    var n = Number(String(items[k].n || '').replace(/[^0-9]/g, ''));
+    if (!n) continue;
+    var sc = Number(String(items[k].score || '').replace(/[^0-9.]/g, ''));
+    out[String(n)] = { s: isNaN(sc) ? -1 : Math.max(0, Math.min(10, sc)),
+                       txt: /بله|yes/i.test(String(items[k].hasText || '')),
+                       face: /بله|yes/i.test(String(items[k].realFace || '')),
+                       why: String(items[k].why || '').slice(0, 140) };
+  }
+  return out;
+}
+
+function lvSceneFile_() { return '_scenes.json'; }
+
+function lvSceneRead_(folder) {
+  try {
+    var it = folder.getFilesByName(lvSceneFile_());
+    if (!it.hasNext()) return null;
+    var d = JSON.parse(it.next().getBlob().getDataAsString());
+    return (d && Array.isArray(d.scenes)) ? d : null;
+  } catch (e) { return null; }
+}
+
+function lvSceneWrite_(folder, d) {
+  try {
+    var body = JSON.stringify(d, null, 1);
+    var it = folder.getFilesByName(lvSceneFile_());
+    if (it.hasNext()) { it.next().setContent(body); return true; }
+    folder.createFile(Utilities.newBlob(body, 'application/json', lvSceneFile_()));
+    return true;
+  } catch (e) { try { logLine_('`_scenes.json` نوشته نشد: ' + e.message); } catch (e2) {} return false; }
+}
+
+function lvSceneImgName_(n) {
+  return 'صحنه ' + faDigitsOut_(('0' + String(n)).slice(-2)) + '.png';
+}
+
+/**
+ * اجاره: دو اجرای هم‌زمان (تریگرِ دوساعته و اجرای یک‌بارهٔ ادامه) نباید یک
+ * صحنه را دو بار بسازند — دو بار پول، و دو نویسنده روی یک `_scenes.json`.
+ */
+function lvSceneLease_(key, take) {
+  try {
+    var now = new Date().getTime();
+    var cur = null;
+    try { cur = JSON.parse(props_().getProperty(PK.LV_SCENE_LEASE) || 'null'); } catch (e0) { cur = null; }
+    if (!take) {
+      if (cur && String(cur.key) === String(key)) props_().deleteProperty(PK.LV_SCENE_LEASE);
+      return true;
+    }
+    if (cur && String(cur.key) === String(key) && Number(cur.until) > now) return false;
+    props_().setProperty(PK.LV_SCENE_LEASE, JSON.stringify({ key: String(key),
+      until: now + Math.max(2, Number(CFG.LV_SCENE_LEASE_MIN) || 8) * 60000 }));
+    return true;
+  } catch (e) { return true; }
+}
+
+/**
+ * ادامه در چند دقیقهٔ بعد، نه دو ساعت بعد. ~۴۰ تصویر در یک اجرای شش‌دقیقه‌ای
+ * جا نمی‌شود؛ با تریگرِ دوساعته ویدئو عصر می‌رسید. سقفِ روزانه دارد تا یک
+ * ردِ دائمی تریگر را تا ابد زنده نگه ندارد (`busyRetry_`، همان الگو).
+ */
+function lvSceneMoreArm_() {
+  try {
+    var today = String(nowStr_()).slice(0, 10);
+    var max = Math.max(0, Number(CFG.LV_SCENE_MORE_MAX) || 30);
+    var parts = String(props_().getProperty(PK.LV_SCENE_MORE) || '').split('|');
+    var n = parts[0] === today ? (Number(parts[1]) || 0) : 0;
+    if (n >= max) return false;
+    clearRetryTriggers_('ytSceneMore');
+    ScriptApp.newTrigger('ytSceneMore').timeBased()
+      .after(Math.max(1, Number(CFG.LV_SCENE_MORE_MIN) || 3) * 60000).create();
+    props_().setProperty(PK.LV_SCENE_MORE, today + '|' + (n + 1));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** اجرای یک‌بارهٔ ادامهٔ صحنه‌ها — همان دورِ یوتیوب، زودتر. */
+function ytSceneMore() {
+  try { clearRetryTriggers_('ytSceneMore'); } catch (e) {}
+  return ytPublishTick();
+}
+
+/**
+ * نقشه و ساختِ صحنه‌های یک درس — ادامه‌پذیر، در چند اجرا.
+ *
+ * @return {{active:boolean, done:boolean, fallback:boolean, why:string,
+ *           want:number, ready:number, items:Array, cover:Object, info:Object}}
+ * `active=false` یعنی این درس صحنه نمی‌گیرد (و مسیرِ قبلی می‌رود)؛ `fallback`
+ * یعنی خواست و نشد — علتش در `why` است و همان به ردیفِ عمومی می‌رود.
+ */
+function lvScenesBuild_(folder, meta, plan, ctx) {
+  var out = { active: false, done: false, fallback: false, why: '', want: 0, ready: 0,
+              items: [], cover: null, info: null, made: 0, spent: 0, judged: 0, redo: 0 };
+  var key = String((ctx && ctx.show) || '') + ':' + String((ctx && ctx.epRaw) || '');
+  if (!lvSceneOn_(ctx && ctx.show, ctx && ctx.level)) return out;
+  out.active = true;
+  var t0 = new Date().getTime();
+  var deadline = t0 + Math.max(30000, Number(CFG.LV_SCENE_RUN_MS) || 150000);
+  if (_ytRunDeadline > t0) deadline = Math.min(deadline, _ytRunDeadline);
+  var left = function () { return deadline - new Date().getTime(); };
+  var fail = function (w) {
+    out.fallback = true; out.why = w;
+    try { logLine_('صحنه‌های مصورِ ' + key + ' نشد — ' + w + ' — ویدئو با مسیرِ قبلی می‌رود.'); } catch (e) {}
+    return out;
+  };
+
+  var d = lvSceneRead_(folder);
+  var art = lvSceneArt_(ctx.style);
+  /* نقشه‌ای که دو بار نشد، هر دو ساعت یک فراخوانِ مدلِ تازه نمی‌خورد. */
+  var planFail = function (w) {
+    try {
+      var n0 = (d && Number(d.failed)) || 0;
+      lvSceneWrite_(folder, { v: 1, key: key, at: nowStr_(), failed: n0 + 1, why: w, scenes: [] });
+    } catch (eW) {}
+    return fail(w);
+  };
+  if (d && !d.scenes.length && Number(d.failed) >= 2) {
+    out.fallback = true; out.why = String(d.why || 'نقشهٔ صحنه دو بار نشد');
+    return out;
+  }
+
+  // ── ۱) نقشه: یک بار، و پیش از هر خرجی ثبت می‌شود ──
+  if ((!d || !d.scenes.length) && left() < 60000) {
+    out.why = 'وقتِ این دور برای نقشهٔ صحنه کم است؛ دورِ بعد';
+    lvSceneMoreArm_();
+    return out;
+  }
+  if (!d || !d.scenes.length) {
+    var rp = lvReplayChunks_(folder, meta);
+    if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد');
+    var secs = Number(rp.secs) || 0;
+    var sents = lvSceneSents_(rp.chunks);
+    if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)');
+    var groups = lvSceneGroups_(sents, lvSceneSec_(ctx.level), secs, CFG.LV_SCENE_MAX);
+    if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)');
+    var ask = lvSceneAsk_(groups, ctx, art.art, '', null);
+    var miss = [];
+    for (var g = 0; g < groups.length; g++) if (!ask.scenes[String(groups[g].n)]) miss.push(groups[g].n);
+    if (miss.length && miss.length < groups.length) {
+      var ask2 = lvSceneAsk_(groups, ctx, art.art, ask.cast, miss);
+      for (var m2 in ask2.scenes) if (!ask.scenes[m2]) ask.scenes[m2] = ask2.scenes[m2];
+    }
+    var scenes = [];
+    for (var s = 0; s < groups.length; s++) {
+      var a = ask.scenes[String(groups[s].n)];
+      scenes.push({ n: groups[s].n, t0: groups[s].t0, t1: groups[s].t1, sec: groups[s].sec || 0,
+                    text: lvSceneClean_(groups[s].text).slice(0, 600),
+                    scene: a ? a.scene : '', caption: a ? a.caption : '',
+                    fileId: '', tries: 0, judge: null, redo: 0 });
+    }
+    var have = scenes.filter(function (x) { return x.scene; }).length;
+    if (have < Math.max(3, Math.ceil(scenes.length * 0.6))) {
+      return planFail('مدل برای ' + have + ' صحنه از ' + scenes.length + ' توصیف داد' +
+                  (ask.why ? ' (' + ask.why + ')' : ''));
+    }
+    // صحنهٔ بی‌توصیف به قبلی می‌پیوندد: زمانش را تصویرِ قبلی پر می‌کند، نه قابِ خالی
+    var kept = [];
+    for (var s2 = 0; s2 < scenes.length; s2++) {
+      if (!scenes[s2].scene && kept.length) { kept[kept.length - 1].t1 = scenes[s2].t1; continue; }
+      if (!scenes[s2].scene) continue;
+      kept.push(scenes[s2]);
+    }
+    if (kept.length) kept[0].t0 = 0;
+    d = { v: 1, key: key, at: nowStr_(), level: String(ctx.level || ''), style: art.key,
+          art: art.art, cast: ask.cast, secs: secs, target: lvSceneSec_(ctx.level), align: rp.how,
+          scenes: kept, cover: { scene: ask.cover || (kept[0] && kept[0].scene) || '', fileId: '' },
+          spent: 0, made: 0, judged: false, done: false, why: '' };
+    if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
+    logLine_('صحنه‌های مصورِ ' + key + ': نقشهٔ ' + kept.length + ' صحنه (هر کدام ~' +
+             d.target + ' ثانیه، سبکِ «' + art.key + '»).');
+  }
+  out.want = d.scenes.length;
+
+  // ── ۲) ساختن، تا جایی که وقتِ این اجرا اجازه بدهد ──
+  var imgFolder = lvFolder_(folder);
+  var mk = lvGenModel_();
+  if (!mk.id) return fail(mk.why || 'مدلِ تصویر پیدا نشد');
+  if (!lvSceneLease_(key, 1)) { out.why = 'اجرای دیگری همین حالا صحنه‌ها را می‌سازد'; return out; }
+  var tryMax = 2;
+  try {
+    for (var i = 0; i < d.scenes.length && left() > 20000; i++) {
+      var sc = d.scenes[i];
+      if (sc.fileId) continue;
+      if (sc.tries >= tryMax) continue;
+      if (lvGenRoom_(mk.id) <= 0) { d.why = 'سقفِ ماهانهٔ تصویر پر شد'; break; }
+      sc.tries++;
+      var r = lvGenOne_(mk.id, lvSceneImgPrompt_(sc.scene, d.art, d.cast), { aspect: '16:9' });
+      out.spent += r.usd; d.spent = Math.round(((Number(d.spent) || 0) + r.usd) * 1000) / 1000;
+      if (!r.blob) { sc.why = r.why; continue; }
+      try {
+        var nm = lvSceneImgName_(sc.n);
+        var old = imgFolder.getFilesByName(nm);
+        while (old.hasNext()) old.next().setTrashed(true);
+        sc.fileId = imgFolder.createFile(r.blob.setName(nm)).getId();
+        sc.at = nowStr_(); sc.why = '';
+        out.made++; d.made = (Number(d.made) || 0) + 1;
+      } catch (eF) { sc.why = 'ذخیره نشد: ' + eF.message; }
+      if (out.made % 4 === 0) lvSceneWrite_(folder, d);     // پیشرفت در میانه هم ثبت می‌شود
+    }
+    // کاور — یک بار، با بهترین مدلِ زیرِ سقف
+    var hq = (!d.cover.fileId && d.cover.scene) ? lvGenModelHq_() : { id: '' };
+    if (!d.cover.fileId && (Number(d.cover.tries) || 0) < tryMax && left() > 20000 && d.cover.scene &&
+        lvGenRoom_(hq.id || mk.id) > 0) {
+      d.cover.tries = (Number(d.cover.tries) || 0) + 1;
+      var rc = lvGenOne_(hq.id || mk.id, lvSceneImgPrompt_(d.cover.scene, d.art, d.cast,
+               'This is a YouTube thumbnail: bold, high-contrast, instantly readable at small size; ' +
+               'keep the right third calm and uncluttered for a title.'), { aspect: '16:9' });
+      out.spent += rc.usd; d.spent = Math.round(((Number(d.spent) || 0) + rc.usd) * 1000) / 1000;
+      if (rc.blob) {
+        try {
+          var cn = 'کاور — صحنه.png';
+          var oc = imgFolder.getFilesByName(cn);
+          while (oc.hasNext()) oc.next().setTrashed(true);
+          d.cover.fileId = imgFolder.createFile(rc.blob.setName(cn)).getId();
+          d.cover.model = hq.id || mk.id;
+        } catch (eCv) { d.cover.why = eCv.message; }
+      } else d.cover.why = rc.why;
+    }
+
+    // ── ۳) داوری، کنارِ متنِ خودش؛ ضعیف ⇒ یک بار از نو ──
+    if (CFG.LV_SCENE_JUDGE !== false) {
+      var batchN = Math.max(1, Number(CFG.LV_SCENE_JUDGE_BATCH) || 4);
+      var redoMax = Math.max(0, Number(CFG.LV_SCENE_REDO_MAX) || 8);
+      var minS = Number(CFG.LV_SCENE_JUDGE_MIN) || 5;
+      var todo = d.scenes.filter(function (x) { return x.fileId && !x.judge; });
+      while (todo.length && left() > 25000) {
+        var batch = todo.splice(0, batchN), payload = [];
+        for (var b = 0; b < batch.length; b++) {
+          try {
+            var bl = DriveApp.getFileById(batch[b].fileId).getBlob();
+            payload.push({ n: batch[b].n, text: batch[b].text, mime: bl.getContentType() || 'image/png',
+                           b64: Utilities.base64Encode(bl.getBytes()) });
+          } catch (eB) {}
+        }
+        var jr = {};
+        try { jr = lvSceneJudge_(payload); }
+        catch (eJ) { d.judgeWhy = 'داوری نشد: ' + String(eJ.message).slice(0, 100); break; }
+        for (var b2 = 0; b2 < batch.length; b2++) {
+          var v = jr[String(batch[b2].n)];
+          if (!v) continue;
+          batch[b2].judge = v;
+          out.judged++;
+          var bad = v.txt || v.face || (v.s >= 0 && v.s < minS);
+          if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
+              lvGenRoom_(mk.id) > 0 && left() > 25000) {
+            var fix = v.txt ? 'The previous attempt contained written text; this time there must be none at all.'
+                    : v.face ? 'The previous attempt showed a recognizable real person; use only generic, anonymous figures.'
+                    : 'The previous attempt did not show the idea clearly (' + v.why + '); make the metaphor concrete and obvious.';
+            var rr = lvGenOne_(mk.id, lvSceneImgPrompt_(batch[b2].scene, d.art, d.cast, fix), { aspect: '16:9' });
+            out.spent += rr.usd; d.spent = Math.round(((Number(d.spent) || 0) + rr.usd) * 1000) / 1000;
+            batch[b2].redo = 1; d.redo = (Number(d.redo) || 0) + 1; out.redo++;
+            if (rr.blob) {
+              try {
+                var nm2 = lvSceneImgName_(batch[b2].n);
+                var o2 = imgFolder.getFilesByName(nm2);
+                while (o2.hasNext()) o2.next().setTrashed(true);
+                batch[b2].fileId = imgFolder.createFile(rr.blob.setName(nm2)).getId();
+                batch[b2].judge = null;      // تصویرِ تازه، داوریِ تازه
+              } catch (eR) {}
+            }
+          }
+        }
+      }
+      d.judged = d.scenes.every(function (x) { return !x.fileId || !!x.judge; });
+    }
+  } finally {
+    lvSceneLease_(key, 0);
+  }
+
+  // ── ۴) حساب ──
+  var ready = d.scenes.filter(function (x) { return x.fileId; }).length;
+  var givenUp = d.scenes.filter(function (x) { return !x.fileId && x.tries >= tryMax; }).length;
+  out.ready = ready;
+  /* سقفِ ماهانه پر شد ⇒ «همه آزموده شد» حساب می‌شود: هرچه ساخته شده یا
+     کافی است و می‌رود، یا نیست و مسیرِ قبلی می‌رود — انتظارِ یک‌ماهه نه. */
+  var allTried = ready + givenUp >= d.scenes.length || !!d.why;
+  d.done = allTried && ready >= Math.max(3, Math.ceil(d.scenes.length * 0.8)) &&
+           (CFG.LV_SCENE_JUDGE === false || d.judged || !!d.judgeWhy);
+  if (allTried && !d.done && ready < Math.max(3, Math.ceil(d.scenes.length * 0.8))) {
+    lvSceneWrite_(folder, d);
+    return fail('فقط ' + ready + ' تصویر از ' + d.scenes.length + ' ساخته شد' +
+                (d.why ? ' — ' + d.why : ''));
+  }
+  lvSceneWrite_(folder, d);
+  if (out.made || out.redo) {
+    logLine_('صحنه‌های مصورِ ' + key + ': ' + out.made + ' تصویرِ تازه' +
+             (out.redo ? '، ' + out.redo + ' از نو پس از داوری' : '') + ' — ' + ready + ' از ' +
+             d.scenes.length + ' آماده (~' + out.spent.toFixed(2) + ' دلار؛ این درس ~' +
+             (Number(d.spent) || 0).toFixed(2) + ').');
+  }
+  out.done = d.done;
+  if (!d.done) {
+    out.why = 'صحنه‌ها: ' + ready + ' از ' + d.scenes.length + ' آماده' + (d.why ? ' — ' + d.why : '');
+    if (!d.why) lvSceneMoreArm_();
+    return out;
+  }
+
+  // ── ۵) خروجی برای ردیفِ رندر: هر صحنه با زمان و تصویرش ──
+  var items = [], lastId = '';
+  for (var z = 0; z < d.scenes.length; z++) {
+    var x = d.scenes[z];
+    var id = x.fileId || lastId;               // صحنهٔ بی‌تصویر ⇒ تصویرِ قبلی ادامه می‌یابد
+    if (!id) continue;
+    lastId = id;
+    items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
+                 caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0 });
+  }
+  if (items.length) items[0].t0 = 0;
+  out.items = items;
+  if (d.cover.fileId) out.cover = { fileId: d.cover.fileId, url: ytDlUrl_(d.cover.fileId) };
+  var sc2 = d.scenes.filter(function (x) { return x.judge && x.judge.s >= 0; });
+  var avg = sc2.length ? sc2.reduce(function (a2, x2) { return a2 + x2.judge.s; }, 0) / sc2.length : -1;
+  out.info = { scenes: d.scenes.length, ready: ready, style: d.style, level: d.level,
+               target: d.target, judged: sc2.length, avg: Math.round(avg * 10) / 10,
+               low: d.scenes.filter(function (x) {
+                 return x.judge && (x.judge.txt || x.judge.face ||
+                        (x.judge.s >= 0 && x.judge.s < (Number(CFG.LV_SCENE_JUDGE_MIN) || 5))); }).length,
+               redo: Number(d.redo) || 0, spent: Number(d.spent) || 0,
+               judgeWhy: String(d.judgeWhy || '') };
+  try { lvSceneVisuals_(folder, d); } catch (eV) {}
+  return out;
+}
+
+/**
+ * `_visuals.json` برای جزوه، از روی صحنه‌ها — یک تصویر برای هر بخش (بهترین
+ * داوری‌شده). جزوه از ۷.۹۴ همین پرونده را می‌خوانَد؛ پس صحنه‌ها بی هیچ تغییری
+ * در بخشِ ۲۶ به جزوه هم می‌رسند، و دیگر کارتِ متنی نیستند.
+ */
+function lvSceneVisuals_(folder, d) {
+  var best = {};
+  for (var i = 0; i < d.scenes.length; i++) {
+    var x = d.scenes[i];
+    if (!x.fileId) continue;
+    var k = String(x.sec || 0);
+    var s = (x.judge && x.judge.s >= 0) ? x.judge.s : 5;
+    if (!best[k] || s > best[k].s) best[k] = { s: s, x: x };
+  }
+  var items = [];
+  var keys = Object.keys(best).sort(function (a, b) { return Number(a) - Number(b); });
+  for (var j = 0; j < keys.length; j++) {
+    var y = best[keys[j]].x;
+    items.push({ fileId: y.fileId, n: j + 1, at: Number(y.sec) || 0, kind: 'صحنه',
+                 heading: '', cardTitle: String(y.caption || ''), caption: String(y.caption || '') });
+  }
+  lvWrite_(folder, { v: 2, mode: 'scenes', style: d.style, at: nowStr_(),
+                     want: d.scenes.length, ready: items.length, made: Number(d.made) || 0,
+                     tries: 1, done: true, items: items });
+}
+
+/**
+ * آیا این ویدئو می‌تواند عمومی شود؟ — **یک تعریف**، برای هر دو درِ انتشار
+ * (`ytUploadOne_` و `ytRedoOne_`). سدی که فقط سرِ یکی از راه‌ها باشد، از راهِ
+ * دیگر دور زده می‌شود (۷.۱۴: ویدئوهای گیرکرده را شبانه همان دوم عمومی می‌کرد).
+ *   • حالتِ صحنه + سنجشِ رانر رد ⇒ نه، با علت.
+ *   • حالتِ صحنه + هنوز کمتر از `YT_SCENES_APPROVE` ویدئوی تأییدشده ⇒ تا
+ *     کلیدش در `docs/yt-approve.json` ننشیند، نه.
+ *   • حالت‌های دیگر ⇒ همان رفتارِ قبل (این تابع فقط نشتی را نمی‌سنجد).
+ */
+function ytPublicGate_(key, m) {
+  try {
+    if (!m || String(m.mode || '') !== 'scenes') return { ok: true, why: '' };
+    var qa = m.qa || null;
+    if (!qa) return { ok: false, why: 'سنجشِ خودکارِ رانر برای این ویدئو ثبت نشده' };
+    if (qa.ok !== true) {
+      return { ok: false, why: 'سنجشِ خودکارِ ویدئو رد کرد: ' + String(qa.why || '').slice(0, 160) };
+    }
+    var need = Math.max(0, Number(CFG.YT_SCENES_APPROVE) || 0);
+    var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
+    if (n < need && !ytApproved_()[String(key)]) {
+      return { ok: false, approval: true,
+               why: 'منتظرِ تأییدِ نخستین ویدئوهای حالتِ صحنه (' + n + ' از ' + need + ')' };
+    }
+    return { ok: true, why: '' };
+  } catch (e) { return { ok: false, why: 'سدِ انتشار خوانده نشد: ' + e.message }; }
+}
+
+var YT_APPROVED_ = null;
+/** مهلتِ دورِ جاریِ انتشار (ms از ۱۹۷۰)؛ صفر یعنی «نامعلوم». */
+var _ytRunDeadline = 0;
+/** کلیدهای تأییدشده از `docs/yt-approve.json` — یک خواندن در هر اجرا. */
+function ytApproved_() {
+  if (YT_APPROVED_) return YT_APPROVED_;
+  var out = {};
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_APPROVE_FILE || 'docs/yt-approve.json'),
+                                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() === 200) {
+      var dd = JSON.parse(res.getContentText());
+      var it = (dd && dd.items) || {};
+      for (var k in it) if (Object.prototype.hasOwnProperty.call(it, k) && it[k]) out[k] = true;
+    }
+  } catch (e) {}
+  YT_APPROVED_ = out;
+  return out;
+}
+
+/** یک ویدئوی حالتِ صحنه عمومی شد ⇒ شمارِ سدِ تأیید. */
+function ytScenesOkAdd_() {
+  try {
+    var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
+    props_().setProperty(PK.YT_SCENES_OK, String(n + 1));
+  } catch (e) {}
+}
+
+/**
+ * کاورِ ساخته‌شده در رانر (نقاشی + عنوان)، اگر هست. بایت‌ها سنجیده می‌شوند،
+ * نه نشانی؛ و بیش از ۲ مگابایت را یوتیوب نمی‌پذیرد.
+ */
+function ytRenderThumb_(m) {
+  try {
+    var u = m && m.thumb ? String(m.thumb) : '';
+    if (!/^https:\/\//.test(u)) return null;
+    var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return null;
+    var b = res.getBlob(), by = b.getBytes();
+    if (by.length < 5000 || by.length > 2 * 1024 * 1024) return null;
+    var jpg = (by[0] & 0xFF) === 0xFF && (by[1] & 0xFF) === 0xD8;
+    var png = (by[0] & 0xFF) === 0x89 && (by[1] & 0xFF) === 0x50;
+    if (!jpg && !png) return null;
+    return b.setContentType(jpg ? 'image/jpeg' : 'image/png');
+  } catch (e) { return null; }
 }
 
 /**
@@ -5617,7 +6483,24 @@ function ytUploadOne_(item, hub, pub) {
      (۸.۲۹). هر دو فقط وقتی ویدئو و درخواستِ رندرش هنوز نیست — پس از آن
      تغییرِ نقشه هیچ اثری ندارد جز پول. پرسشِ «لازم هست؟» اول و بی خواندنِ
      درایو جواب می‌گیرد، تا قسمتی که نقشه‌اش کامل است هر بار صف را نخوانَد. */
-  if (plan.cached && ytVisOn_(item.show)) {
+  /* ── سبکِ این مجموعه، **یک بار و پیش از کاور** (۷.۹۹) ──
+   * پیش از این، سبک پایین‌تر و داخلِ شاخهٔ تصویرها خوانده می‌شد، پس کاور —
+   * که بالاتر ساخته می‌شود — هرگز نمی‌دیدش. `lvStyleAt_` یک تعریف است و هر
+   * دو از آن می‌خورند: دو تعریف برای «سبکِ این مجموعه» یعنی روزی بندانگشتی
+   * و اسلایدها دو سبک می‌گیرند و هیچ‌چیز نشانش نمی‌دهد. */
+  var lvSty = lvStyleAt_(hub, item, meta, seriesName, plan.look);
+  /* سطحِ تصویرسازی هم **یک بار و پیش از ساختن** (۸.۲۶). تا ۸.۲۵ فقط پیش از
+     مشخصاتِ برداری خوانده می‌شد — یعنی پس از آنکه کارت‌ها و تصویرهای
+     ساخته‌شده با سطحی ساخته شده بودند که هیچ‌کس نپرسیده بود. */
+  var lvLvl = String(CFG.LV_LEVEL_DEFAULT || 'کم');
+  try { lvLvl = lvLevelAt_(hub, item, meta, plan.look) || lvLvl; } catch (eLv) {}
+  ctx.level = lvLvl; ctx.style = lvSty;
+
+  /* در حالتِ صحنه، نقشهٔ کارت‌ها دیگر به کار نمی‌آید (۸.۳۱): پرسشِ دوبارهٔ
+     کارت‌ها فقط پولِ مدل است برای چیزی که ساخته نمی‌شود. */
+  var sceneMode = false;
+  try { sceneMode = lvSceneOn_(item.show, lvLvl); } catch (eSm) { sceneMode = false; }
+  if (plan.cached && ytVisOn_(item.show) && !sceneMode) {
     var thinNow = (plan.visuals || []).length < ytVisFloor_(ytVisWant_(totalSec));
     var stF0 = {};
     try { ytVisFill_(plan.visuals || [], ctx, stF0); } catch (eF0) {}
@@ -5645,18 +6528,7 @@ function ytUploadOne_(item, hub, pub) {
     }
   }
 
-  /* ── سبکِ این مجموعه، **یک بار و پیش از کاور** (۷.۹۹) ──
-   * پیش از این، سبک پایین‌تر و داخلِ شاخهٔ تصویرها خوانده می‌شد، پس کاور —
-   * که بالاتر ساخته می‌شود — هرگز نمی‌دیدش. `lvStyleAt_` یک تعریف است و هر
-   * دو از آن می‌خورند: دو تعریف برای «سبکِ این مجموعه» یعنی روزی بندانگشتی
-   * و اسلایدها دو سبک می‌گیرند و هیچ‌چیز نشانش نمی‌دهد. */
-  var lvSty = lvStyleAt_(hub, item, meta, seriesName, plan.look);
-  /* سطحِ تصویرسازی هم **یک بار و پیش از ساختن** (۸.۲۶). تا ۸.۲۵ فقط پیش از
-     مشخصاتِ برداری خوانده می‌شد — یعنی پس از آنکه کارت‌ها و تصویرهای
-     ساخته‌شده با سطحی ساخته شده بودند که هیچ‌کس نپرسیده بود. */
-  var lvLvl = String(CFG.LV_LEVEL_DEFAULT || 'کم');
-  try { lvLvl = lvLevelAt_(hub, item, meta, plan.look) || lvLvl; } catch (eLv) {}
-  ctx.level = lvLvl; ctx.style = lvSty;
+
 
   // ── کاور ──
   var cover = null;
@@ -5667,6 +6539,43 @@ function ytUploadOne_(item, hub, pub) {
                            epLabel: coverEpLabel, style: lvSty,
                            cat: String(meta.cat || seriesName || '') });
   } catch (eC) {}
+
+  /* ══ صحنه‌های مصور (۸.۳۱) — پیش از کارت‌ها و به‌جای آن‌ها ══
+   * تا ویدئو نرسیده، این درس صحنه می‌گیرد: تصویرِ تمام‌صفحه‌ای که همان چیزی
+   * را نشان می‌دهد که در همان لحظه گفته می‌شود. نشد ⇒ با علت به مسیرِ قبلی
+   * (کارت‌ها) می‌افتد؛ ویدئوی ساده از ویدئوی نیامده بهتر است. */
+  if (ytVisOn_(item.show) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
+    var scn = null;
+    try { scn = lvScenesBuild_(folder, meta, plan, ctx); }
+    catch (eSc) {
+      scn = { active: true, fallback: true, why: 'خطا: ' + eSc.message };
+      logLine_('صحنه‌های مصورِ ' + item.key + ' نشد: ' + eSc.message);
+    }
+    if (scn && scn.active && !scn.fallback) {
+      if (!scn.done) { res.waiting = true; res.why = scn.why || 'صحنه‌ها در حالِ ساخت'; return res; }
+      var scInfo = scn.info || {};
+      try {
+        var bsrc = lvBoardSrc_(hub, item, meta);
+        scInfo.board = { found: bsrc.found, style: bsrc.style, level: bsrc.level,
+                         styleSrc: bsrc.styleSrc, levelSrc: bsrc.levelSrc };
+      } catch (eBs) {}
+      var askedOk = ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
+                     folderId: folder.getId(), visuals: [],
+                     scenes: scn.items, sceneCover: scn.cover, sceneInfo: scInfo,
+                     coverTitle: String(plan.coverTitle || ep.title || ''),
+                     coverKicker: String(plan.coverKicker || seriesName || ''),
+                     coverFoot: coverEpLabel,
+                     audio: aud.parts.map(function (f) { return { id: f.getId(), name: f.getName() }; }),
+                     audioKind: aud.kind, coverFileId: cover ? cover.fileId : '',
+                     outName: outName });
+      res.waiting = true;
+      res.why = askedOk
+        ? 'ویدئوی صحنه‌ای هنوز ساخته نشده؛ درخواستِ رندر با ' +
+          faDigitsOut_(String(scn.items.length)) + ' صحنه گذاشته شد'
+        : 'ویدئوی صحنه‌ای منتظرِ رندر است (درخواست از قبل هست یا صفِ رندر پر است)';
+      return res;
+    }
+  }
 
   /* ── تصویرهای بخش‌ها ──
    * پیش از درخواستِ رندر، چون ردیفِ صف **یک بار** نوشته می‌شود
@@ -5890,9 +6799,17 @@ function ytUploadOne_(item, hub, pub) {
   var url = 'https://www.youtube.com/watch?v=' + vid;
 
   // ── کاور ──
+  /* کاورِ رانر (نقاشیِ خودِ درس + عنوان) بر کارتِ اسلایدز مقدم است (۸.۳۱)؛
+     نبودش یعنی همان کاورِ قبلی. */
+  var rme = null;
+  try { rme = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; }
+  catch (eRm) { rme = null; }
+  var thumbBlob = null;
+  try { thumbBlob = ytRenderThumb_(rme); } catch (eTb) { thumbBlob = null; }
   var thumb = '—';
-  if (CFG.YT_THUMB !== false && cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
-    try { yt.Thumbnails.set(vid, cover.blob); thumb = 'نشست'; }
+  if (CFG.YT_THUMB !== false && (thumbBlob || (cover && cover.blob)) &&
+      ytQuotaTake_(YT_COST.thumbSet, false)) {
+    try { yt.Thumbnails.set(vid, thumbBlob || cover.blob); thumb = thumbBlob ? 'نشست (نقاشی)' : 'نشست'; }
     catch (eT) {
       // کاورِ سفارشی کانالِ تأییدشده می‌خواهد. این ایراد نیست، یک شرط است —
       // ولی باید گفته شود، وگرنه هر روز بی‌صدا رد می‌شود.
@@ -5915,6 +6832,33 @@ function ytUploadOne_(item, hub, pub) {
 
   // ── و تازه حالا عمومی ──
   var privacy = CFG.YT_PRIVACY_FIRST || 'unlisted';
+  /* سدِ حالتِ صحنه (۸.۳۱): سنجشِ رانر، و تأییدِ نخستین ویدئوها. یک تعریف،
+     همان که `ytRedoOne_` هم می‌پرسد. */
+  var gate = ytPublicGate_(String(item.key || (item.show + ':' + item.ep)), rme);
+  if (!leaks.length && !gate.ok) {
+    logLine_('یوتیوب ' + item.key + ': عمومی نشد و در ' + privacy + ' ماند — ' + gate.why + ' — ' + url);
+    try {
+      if (gate.approval) {
+        mailQueue_('یوتیوب', 'ویدئوی تازهٔ صحنه‌ای منتظرِ تأیید',
+                   '«' + title + '» در حالتِ Unlisted بالا رفت و منتظرِ تأیید است: ' + url);
+        if (tgEnabled_()) {
+          tgApi_('sendMessage', { chat_id: tgChat_(), disable_web_page_preview: false,
+            text: '🎬 ویدئوی تازهٔ درس‌نامه (حالتِ صحنه‌های مصور) — هنوز عمومی نیست:\n' +
+                  title + '\n' + url + '\nپس از وارسیِ فریم‌ها عمومی می‌شود.' });
+        }
+      } else {
+        logSelfFinding_(hub, {
+          priority: 'جدی', category: 'یوتیوب', key: 'yt-scene-qa',
+          title: 'ویدئوی صحنه‌ای از سنجشِ خودکار رد شد؛ عمومی نشد',
+          detail: item.key + ' — ' + gate.why,
+          instruction: 'qa را در docs/renders.json برای همین کلید بخوان (کدام صحنه نخورد، ' +
+                       'کدام قاب خالی بود). اگر عیب از رانر است، tools/scenekit.js را درست کن و ' +
+                       'رندر را دوباره بخواه؛ ویدئو تا آن وقت Unlisted می‌مانَد.',
+          owner: ROWNER_CODE, episode: item.ep
+        });
+      }
+    } catch (eG) {}
+  }
   if (leaks.length) {
     logLine_('یوتیوب ' + item.key + ': ' + leaks.length + ' نشتیِ خصوصی؛ ویدئو ' +
              'عمومی نشد و در ' + privacy + ' ماند.');
@@ -5929,12 +6873,13 @@ function ytUploadOne_(item, hub, pub) {
         owner: ROWNER_CODE, episode: item.ep
       });
     } catch (eF) {}
-  } else if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+  } else if (gate.ok && ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: vid, status: {
         privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
         selfDeclaredMadeForKids: false } }, 'status');
       privacy = CFG.YT_PRIVACY_FINAL || 'public';
+      if (rme && String(rme.mode || '') === 'scenes') ytScenesOkAdd_();
     } catch (eV) {
       logLine_('عمومی‌کردنِ ویدئو نشد: ' + eV.message);
     }
@@ -5948,11 +6893,12 @@ function ytUploadOne_(item, hub, pub) {
                 tags: tags.length, descChars: desc.length,
                 leak: leaks.length ? leaks.map(function (x) { return x.kind; }).join('، ') : '',
                 result: privacy === (CFG.YT_PRIVACY_FINAL || 'public') ? 'منتشر شد' : 'منتشر نشد (وارسی)',
-                note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند' : '' });
+                note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
+                    : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
-  res.ok = !leaks.length; res.url = url; res.privacy = privacy; res.title = title;
-  res.why = leaks.length ? 'نشتیِ خصوصی' : '';
+  res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;
+  res.why = leaks.length ? 'نشتیِ خصوصی' : (!gate.ok ? gate.why : '');
   return res;
 }
 
@@ -6124,6 +7070,10 @@ function ytRunDue_(maxItems, budgetMs) {
   var cap = Math.max(1, Number(maxItems) || Number(CFG.YT_MAX_PER_RUN) || 2);
   var budget = Math.max(20000, Number(budgetMs) || Number(CFG.YT_MS) || 150000);
   var t0 = new Date().getTime();
+  /* مهلتِ این دور، برای کارِ درازِ درونِ یک قسمت (ساختِ صحنه‌ها، ۸.۳۱): بی
+     آن، صحنه‌ها بودجهٔ خودشان را از صفر می‌شمردند و دورِ دوساعته از سقفِ
+     شش‌دقیقه‌ای می‌گذشت — کشته‌شدنی بی خطا. */
+  _ytRunDeadline = t0 + budget;
   var hub = getHub_();
   var pub = ytPublished_(hub);
   /* صف مرتب مصرف می‌شود — و مرتب‌سازی این‌جا دوباره انجام می‌شود، نه فقط
@@ -7302,13 +8252,23 @@ function ytRedoOne_(show, ep, opt) {
   }
 
   // اگر پیشتر به‌خاطرِ نشتی در unlisted مانده بود، حالا که پاک است عمومی شود
-  if (String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
+  /* … مگر سدِ حالتِ صحنه بگوید نه (۸.۳۱). این همان درِ دومِ ۷.۱۴ است که
+     ویدئوهای گیرکرده را شبانه عمومی می‌کند؛ سدی که فقط سرِ آپلود باشد از
+     همین راه دور زده می‌شد. */
+  var rmeR = null;
+  try { rmeR = (ytRenderMapCached_() || {})[String(show) + ':' + String(ep)] || null; } catch (eRr) {}
+  var gateR = ytPublicGate_(String(show) + ':' + String(ep), rmeR);
+  if (!gateR.ok && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public')) {
+    out.why = (out.why ? out.why + ' · ' : '') + gateR.why;
+  }
+  if (gateR.ok && String(rec.privacy || '') !== (CFG.YT_PRIVACY_FINAL || 'public') &&
       ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: rec.videoId,
                          status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
                                    selfDeclaredMadeForKids: false } }, 'status');
       out.changed.push('عمومی شد');
+      if (rmeR && String(rmeR.mode || '') === 'scenes') ytScenesOkAdd_();
     } catch (eP) {}
   }
 

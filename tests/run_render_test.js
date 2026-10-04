@@ -576,6 +576,122 @@ console.log('\n=== ۱۱) نگه‌داشتنِ یک درخواستِ مشخص، 
      'main');
 }
 
+console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ تمام‌صفحه، مرز روی مکث، سنجش از خودِ ویدئو ══');
+{
+  const SKIT = require('../tools/scenekit.js');
+  /* ۱۲.۱ — ردیفِ بی‌صحنه یا با کمتر از سه صحنهٔ معتبر، این حالت را نمی‌گیرد. */
+  const s3 = SKIT.scenesOf({ scenes: [{ n: 2, t0: 20, url: 'https://a/2' }, { n: 1, t0: 0, url: 'https://a/1' },
+                                      { n: 3, t0: 40, url: 'nope' }, { n: 4, t0: 60, url: 'https://a/4' }] });
+  ok('۱۲.۱ صحنه‌های معتبر به ترتیبِ زمان؛ نشانیِ بی‌معنا رد؛ کمتر از سه یعنی «نه»',
+     s3 && s3.length === 3 && s3[0].n === 1 && s3[2].n === 4 &&
+     SKIT.scenesOf({ scenes: [{ t0: 0, url: 'https://a' }, { t0: 5, url: 'https://b' }] }) === null &&
+     SKIT.scenesOf({}) === null,
+     JSON.stringify(s3 && s3.map(x => x.n)));
+
+  /* ۱۲.۲ — زمان‌بندی: از صفر تا آخر، بی شکاف؛ مرز روی نزدیک‌ترین مکث (اگر
+     نزدیک باشد)؛ صحنهٔ خیلی کوتاه به قبلی می‌پیوندد. */
+  const sc = [{ t0: 0 }, { t0: 10.4 }, { t0: 12.0 }, { t0: 25 }, { t0: 40 }];
+  const tl = SKIT.timeline(sc, 50, [11.5, 24.1, 33]);
+  const sum = tl.reduce((a, b) => a + b.d, 0);
+  ok('۱۲.۲ زمان‌بندی بی شکاف و بی سرریز؛ مرز روی مکث؛ صحنهٔ کوتاه ادغام',
+     tl[0].t0 === 0 && Math.abs(sum - 50) < 0.01 && tl[1].t0 === 11.5 && tl[2].t0 === 24.1 &&
+     tl[3].t0 === 40 && tl.length === 4 && tl.every((x, i) => i === 0 || Math.abs(x.t0 - (tl[i - 1].t0 + tl[i - 1].d)) < 0.01),
+     JSON.stringify(tl));
+
+  /* ۱۲.۳ — حرکت آرام است و هرگز از قاب بیرون نمی‌زند: چهار گوشهٔ منبع در هر
+     دو سرِ صحنه درونِ تصویر می‌مانند، و سه نوعِ حرکت هر سه هست. */
+  const ev = (e, on, N) => Function('W', 'H', 'on', 'return (' + String(e).replace(/\bon\b/g, 'on') + ');')(1920, 1080, on, N);
+  let inside = true; const kinds = new Set();
+  for (let g = 0; g < 6; g++) {
+    const N = 240, m = SKIT.motion(g, N);
+    const at = on => ({ x0: ev(m.x0, on), x1: ev(m.x1, on), y0: ev(m.y0, on), y2: ev(m.y2, on) });
+    const a = at(0), b = at(N);
+    for (const q of [a, b]) {
+      if (!(q.x0 >= -0.01 && q.x1 <= 1920.01 && q.y0 >= -0.01 && q.y2 <= 1080.01 && q.x0 < q.x1 && q.y0 < q.y2)) inside = false;
+    }
+    kinds.add(Math.abs(b.x0 - a.x0) < 0.01 ? 'ثابت' : (b.x1 - b.x0 < a.x1 - a.x0 - 1 ? 'نزدیک' :
+              (b.x1 - b.x0 > a.x1 - a.x0 + 1 ? 'دور' : 'لغزش')));
+  }
+  ok('۱۲.۳ حرکتِ آرام در قاب می‌مانَد؛ نزدیک‌شدن، دورشدن و لغزش هر سه هست', inside && kinds.size >= 3,
+     [...kinds].join('، '));
+
+  /* ۱۲.۴ — **از درِ اجرا:** چهار صحنهٔ واقعی روی سرورِ محلی، صوت با مکث،
+     زیرنویس و نشانِ کانال. ویدئو ساخته می‌شود، مدتش همان صوت است، سنجشِ خودِ
+     فایل هر چهار صحنه را سرِ جایش می‌بیند، و کاورِ ۱۲۸۰×۷۲۰ از نقاشیِ درس. */
+  const d = fs.mkdtempSync(path.join(TMP, 'sc-'));
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,6),0,5.1)':s=24000:d=24", '-ac', '1', wav]);
+  const urls = [];
+  for (let i = 1; i <= 4; i++) urls.push(serve('scene' + i + '.png', mkPng(path.join(d, 'p' + i + '.png'), 1344, 768, i * 5)));
+  const it = { key: 'special:test', mode: 'scenes',
+    scenes: urls.map((u, i) => ({ n: i + 1, t0: i * 6 + (i ? 0.3 : 0), url: u, caption: i % 2 ? '' : 'مفهومِ ' + (i + 1) })),
+    sceneCover: { url: urls[2] }, coverTitle: 'چرا احتمالِ بالا معرفت نیست؟', coverKicker: 'معرفت‌شناسی', coverFoot: 'درس ۳۷',
+    mark: { handle: '@test-channel', name: 'آزمون', everySec: 12, opacity: 0.7 } };
+  const dest = path.join(d, 'out.mp4');
+  const t0 = Date.now();
+  const vr = R.buildVideo(it, null, wav, R.wavSeconds(wav), dest, d);
+  const secs = ((Date.now() - t0) / 1000).toFixed(1);
+  const thumbOk = vr.thumbFile && R.sniffKind(vr.thumbFile) === 'jpeg';
+  let tw = 0, th = 0;
+  if (thumbOk) { const r = cp.spawnSync(FF, ['-hide_banner', '-i', vr.thumbFile], { encoding: 'utf8' });
+                 const m = String(r.stderr).match(/, (\d+)x(\d+)/); if (m) { tw = +m[1]; th = +m[2]; } }
+  ok('۱۲.۴ ویدئوی صحنه‌ای ساخته می‌شود؛ سنجش از خودِ فایل هر صحنه را سرِ جایش می‌بیند؛ کاور ۱۲۸۰×۷۲۰',
+     vr.mode === 'scenes' && vr.n === 4 && vr.qa && vr.qa.ok === true && vr.qa.matched === 4 &&
+     Math.abs(durOf(dest) - 24) < 0.6 && vr.snapped >= 1 && thumbOk && tw === 1280 && th === 720,
+     'حالت ' + vr.mode + ' · ' + secs + ' ثانیه · سنجش ' + JSON.stringify(vr.qa) + ' · مدت ' + durOf(dest).toFixed(2) +
+     ' · مکث ' + vr.snapped + ' · کاور ' + tw + '×' + th + ((vr.notes || []).length ? ' · ' + vr.notes.join(' | ') : ''));
+
+  /* ۱۲.۵ — **سنجش واقعاً می‌سنجد:** همان ویدئو، با نقشه‌ای که دو تصویرش جابه‌جا
+     شده — یعنی ویدئویی که صحنه‌اش جای دیگری است — رد می‌شود. */
+  const tlOk = [0, 6.3, 12.3, 18.3].map((t, i) => ({ n: i + 1, t0: t, d: i < 3 ? 6 : 5.7,
+                                                     img: path.join(d, 's' + String(i + 1).padStart(3, '0') + '.jpg') }));
+  const sw = tlOk.map(x => Object.assign({}, x));
+  const tmp = sw[1].img; sw[1].img = sw[2].img; sw[2].img = tmp;
+  const qBad = SKIT.qa(FF, dest, sw, 24);
+  const qGood = SKIT.qa(FF, dest, tlOk, 24);
+  ok('۱۲.۵ صحنهٔ جابه‌جا را سنجش می‌گیرد و با علت رد می‌کند',
+     qGood.ok === true && qBad.ok === false && qBad.miss.length >= 2 && /سرِ جای خودش/.test(qBad.why),
+     'درست ' + qGood.matched + '/' + qGood.n + ' · جابه‌جا ' + qBad.matched + '/' + qBad.n + ' — ' + qBad.why);
+
+  /* ۱۲.۵-ب — دو حالتی که ۱۲.۵ نمی‌دید، و شکستنِ عمدی نشانش داد:
+     (الف) **تصویرِ هم‌سبک.** تصویرهای یک سری عمداً شبیه‌اند، پس «به خودش
+     نزدیک‌تر از سقف» کافی نیست: قابی که در زمانِ صحنهٔ ۲ عملاً تصویرِ صحنهٔ ۳ را
+     نشان می‌دهد ممکن است به تصویرِ ۲ هم زیرِ سقف نزدیک باشد. سدِ واقعی مقایسه با
+     همسایه است. ساختنش: تصویرِ صحنهٔ ۲ در نقشه کمی روشن‌تر از قابِ واقعی، و
+     همسایه‌اش **دقیقاً** همان قاب. با برداشتنِ مقایسهٔ همسایه، ۱۲.۵ سبز می‌ماند.
+     (ب) **قابِ خالی.** ویدئوی سراسر سیاه نباید «سرِ جایش نیست» بخورد — علتش
+     چیزِ دیگری است و باید به نام بیاید؛ بی سنجهٔ انحرافِ معیار، سیاه فقط
+     «نامطابق» شمرده می‌شد. */
+  const near = path.join(d, 'near2.jpg');
+  ff(['-i', tlOk[1].img, '-vf', 'eq=brightness=0.05', near]);
+  const nb = tlOk.map(x => Object.assign({}, x));
+  nb[1].img = near;                       // نقشه: «صحنهٔ ۲ این است» — شبیه، نه همان
+  nb[0].img = tlOk[1].img;                // و همسایه‌اش دقیقاً همان قاب
+  const qNear = SKIT.qa(FF, dest, nb, 24);
+  const ownNear = SKIT.mad(SKIT.gray(FF, dest, 6.3 + 3), SKIT.gray(FF, near));
+  const black = path.join(d, 'black.mp4');
+  ff(['-f', 'lavfi', '-i', 'color=c=black:s=640x360:d=24:r=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', black]);
+  const qBlack = SKIT.qa(FF, black, tlOk, 24);
+  ok('۱۲.۵-ب قابی که به همسایه نزدیک‌تر است «سرِ جایش نیست»، حتی زیرِ سقف؛ قابِ سیاه «خالی» نام می‌گیرد',
+     ownNear <= SKIT.SK.qaMad && qNear.miss.indexOf(2) !== -1 &&
+     qBlack.blank.length === 4 && qBlack.ok === false && /قابِ خالی/.test(qBlack.why),
+     'اختلافِ خود ' + ownNear.toFixed(1) + ' (سقف ' + SKIT.SK.qaMad + ') · نامطابق ' + JSON.stringify(qNear.miss) +
+     ' · سیاه: خالی ' + qBlack.blank.length + ' — ' + qBlack.why);
+
+  /* ۱۲.۶ — نگه‌داشتنِ «فقط کارت» صحنه‌ها را نگه نمی‌دارد (درسِ ۶۰). */
+  const hC = { 'special:60': { until: '2099-01-01T00:00:00Z', why: 'کارت', cardsOnly: true } };
+  ok('۱۲.۶ نگه‌داشتنِ «فقط کارت» ردیفِ کارتی را نگه می‌دارد و ردیفِ صحنه‌ای را نه',
+     !!R.heldNow({ key: 'special:60', at: 'x' }, hC) && R.heldNow({ key: 'special:60', at: 'y', mode: 'scenes' }, hC) === '');
+
+  /* ۱۲.۷ — و نقشه **سنجش و کاور را می‌نویسد**؛ بی آن موتور نمی‌داند ویدئو سالم
+     است و هرگز عمومی‌اش نمی‌کند. خواندنِ متنِ `main`، چون این مسیر گیت‌هاب
+     می‌خواهد. */
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۲.۷ نقشه حالت، سنجش و کاورِ صحنه‌ای را برای موتور ثبت می‌کند',
+     /map\.items\[it\.key\]\.qa = vr\.qa/.test(src) && /'-cover\.jpg', 'image\/jpeg'\)/.test(src) &&
+     /map\.items\[it\.key\]\.thumb = tu/.test(src) && /map\.items\[it\.key\]\.mode = 'scenes'/.test(src));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
