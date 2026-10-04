@@ -387,6 +387,66 @@ def f0Stats(path, maxFrames=3000):
             "frames": int(len(F))}
 
 
+# ══ بلندیِ خروجی (۸.۳۷) ══
+# ۴ اکتبر صاحبِ برنامه گفت صدای گلدوز در برابرِ ضبط‌های خودِ او «خیلی صدا و
+# حجمش پایینه». تا این‌جا **هیچ** مرحله‌ای بلندیِ خروجی را نمی‌سنجید یا تعیین
+# نمی‌کرد: مبدأ به ‎−18 LUFS‎ می‌رسید، RVC هرچه داد همان نوشته می‌شد. پس بلندیِ
+# هر نمونه به مدل و ورودی بند بود و هیچ‌جا ثبت نمی‌شد. حالا یک **گینِ ثابت**
+# برای کلِ فایل تا هدفِ رایجِ پادکست (۱۶−) می‌رود — ثابت، نه پویا، تا تفاوتِ
+# بلندیِ درونِ فایل دست نخورد (۸.۲۷) — و قله‌ای که از سقف بگذرد فقط همان
+# قله محدود می‌شود. عددِ پیش و پس در نقشه ثبت می‌شود و به کپشن می‌رسد.
+LOUD_TARGET = -16.0      # LUFS
+LOUD_TP = -1.5           # dBFS
+
+
+def loudMeasure(path):
+    """`(بلندیِ یکپارچه، قلهٔ واقعی)` یا `None` — «نسنجیدم»، نه صفر."""
+    import math
+    try:
+        r = subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-i", path,
+                            "-af", "loudnorm=I=%s:TP=%s:print_format=json"
+                            % (LOUD_TARGET, LOUD_TP), "-f", "null", "-"],
+                           capture_output=True, timeout=900)
+        txt = (r.stderr or b"").decode("utf-8", "replace")
+        a, b = txt.rfind("{"), txt.rfind("}")
+        j = json.loads(txt[a:b + 1])
+        i, tp = float(j["input_i"]), float(j["input_tp"])
+    except Exception:
+        return None
+    if not (math.isfinite(i) and math.isfinite(tp)) or i < -70:
+        return None
+    return i, tp
+
+
+def loudGain(i, tp, target=LOUD_TARGET, ceil=LOUD_TP):
+    """گینِ ثابت تا هدف، و اینکه آیا قله پس از آن از سقف می‌گذرد."""
+    g = round(float(target) - float(i), 2)
+    return g, (float(tp) + g) > float(ceil)
+
+
+def loudFix(src, dst):
+    """خروجی را به بلندیِ هدف برسان. `None` یعنی دست نخورد (و گفته می‌شود)."""
+    m = loudMeasure(src)
+    if not m:
+        return None
+    i, tp = m
+    g, lim = loudGain(i, tp)
+    af = "volume=%.2fdB" % g
+    if lim:
+        # فقط قله‌های بالای سقف؛ `level=0` تا محدودکننده خودش دوباره بلندی را
+        # عوض نکند. سقفِ نمونه یک دسی‌بل زیرِ سقفِ قلهٔ واقعی است، چون قلهٔ
+        # میانِ دو نمونه از قلهٔ خودِ نمونه بالاتر است — سنجیده شد: با سقفِ
+        # برابر، قلهٔ واقعی ۰٫۸− درآمد، نه ۱٫۵−.
+        af += (",alimiter=limit=%.4f:level=0:attack=5:release=60"
+               % (10 ** ((LOUD_TP - 1.0) / 20.0)))
+    subprocess.check_call(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", src,
+                           "-af", af, "-c:a", "pcm_s16le", dst])
+    m2 = loudMeasure(dst)
+    return {"rawLufs": round(i, 1), "rawTp": round(tp, 1), "gainDb": g,
+            "limited": bool(lim), "lufs": round(m2[0], 1) if m2 else None,
+            "tp": round(m2[1], 1) if m2 else None}
+
+
 def autoPitch(srcHz, targetHz):
     """گام به نیم‌پرده از نسبتِ دو زیروبم — محدود، چون عددِ پرت یعنی سنجشِ خراب."""
     import math
@@ -645,6 +705,24 @@ def runOne(it, mp):
             "کلِ قسمت تبدیل نشده، پس ردیف بسته نمی‌شود." % (outSec, srcSec))
         return 1
 
+    # بلندی، پیش از بُرش — تا همهٔ تکه‌ها یک گین داشته باشند (۸.۳۷). شکست
+    # در سنجش خروجی را نمی‌اندازد: فایلِ خام می‌رود و «نسنجیدم» ثبت می‌شود.
+    loud = None
+    try:
+        normed = os.path.join(os.path.dirname(best), "loud-out.wav")
+        loud = loudFix(best, normed)
+        if loud and wavSeconds(normed) >= outSec * 0.99:
+            best = normed
+            say("  بلندی: %.1f ⇒ %s LUFS (گینِ %+.1f دسی‌بل%s)"
+                % (loud["rawLufs"], loud["lufs"], loud["gainDb"],
+                   "، قله محدود شد" if loud["limited"] else ""))
+        else:
+            loud = None
+            say("::warning title=بلندیِ خروجی سنجیده نشد::فایلِ خام رفت.")
+    except Exception as e:
+        loud = None
+        say("::warning title=بلندیِ خروجی تنظیم نشد::%s" % str(e)[:200])
+
     cap = pieceCap()
     pieces = splitWav(best, cap)
     if not pieces:
@@ -677,6 +755,8 @@ def runOne(it, mp):
     if len(urls) == 1:
         rec["url"] = urls[0]
     rec["pitch"] = pitch
+    if loud:
+        rec["loud"] = loud
     if pitchAuto:
         rec["pitchAuto"] = pitchAuto
     # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══

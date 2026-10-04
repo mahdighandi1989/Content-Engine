@@ -1601,4 +1601,74 @@ console.log('\n=== ۲۲) مبدأ با گینِ ثابت، تا حالت‌ها�
      /tag="source-gemini",[\s\S]{0,80}static=a\.src_static/.test(lab22) &&
      /add_argument\("--src-static", action="store_true"\)/.test(lab22));
 }
+console.log('\n=== ۲۳) بلندیِ خروجی، و زیروبمی که دیگر فقط در سیاهه نمی‌مانَد (۸.۳۷) ===');
+{
+  /* ۴ اکتبر: «گلدوز … صدا و حجمش پایینه». هیچ مرحله‌ای بلندیِ خروجی را
+     نمی‌سنجید، و زیروبمِ خودِ او از ۲۲ سپتامبر فقط در سیاههٔ اجرا بود. */
+  const ffOk = cp.spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' }).status === 0;
+  const r1 = cp.spawnSync('python3', ['-c', [
+    'import sys, json', 'sys.path.insert(0, "tools")', 'import voicebridge as V',
+    'print(json.dumps([V.loudGain(-21.3, -8.0), V.loudGain(-30.0, -3.0), V.loudGain(-12.0, -0.5)]))'
+  ].join('\n')], { encoding: 'utf8' });
+  ok('۲۳.۱ گین تا ۱۶− و تشخیصِ قله‌ای که از سقف می‌گذرد',
+     String(r1.stdout).trim() === '[[5.3, false], [14.0, true], [-4.0, false]]',
+     String(r1.stdout || r1.stderr).trim());
+  if (!ffOk) {
+    console.log('  ⚠️ ۲۳.۲ ffmpeg در این محیط نیست — سنجهٔ رفتاری اجرا نشد');
+  } else {
+    const d23 = fs.mkdtempSync('/tmp/vp23-');
+    const r2 = cp.spawnSync('python3', ['-c', [
+      'import sys, json, math, wave, struct', 'sys.path.insert(0, "tools")', 'import voicebridge as V',
+      'd = sys.argv[1]',
+      'def mk(p, amp, spikes, sec=12, sr=40000):',
+      '    w = wave.open(p, "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)',
+      '    fr = bytearray()',
+      '    for i in range(sec * sr):',
+      '        t = i / sr',
+      '        env = max(0, math.sin(2 * math.pi * 0.7 * t)) ** 0.5',
+      '        v = amp * env * (math.sin(2*math.pi*130*t) + 0.6*math.sin(2*math.pi*260*t) + 0.4*math.sin(2*math.pi*900*t)) / 2.0',
+      '        if spikes and i % 8000 < 3: v += 0.6 if i % 16000 < 3 else -0.6',
+      '        fr += struct.pack("<h", int(max(-1, min(1, v)) * 32767))',
+      '    w.writeframes(bytes(fr)); w.close()',
+      'mk(d + "/q.wav", 0.05, False); mk(d + "/p.wav", 0.12, True)',
+      'a = V.loudFix(d + "/q.wav", d + "/q-n.wav"); b = V.loudFix(d + "/p.wav", d + "/p-n.wav")',
+      'print(json.dumps([a, b, V.wavSeconds(d + "/q.wav"), V.wavSeconds(d + "/q-n.wav")]))'
+    ].join('\n'), d23], { encoding: 'utf8', timeout: 240000 });
+    let j = null; try { j = JSON.parse(r2.stdout); } catch (e) {}
+    ok('۲۳.۲ خروجیِ آهسته به ۱۶− می‌رسد، طولش همان می‌مانَد',
+       j && j[0] && Math.abs(j[0].lufs + 16) <= 0.5 && j[0].limited === false &&
+       Math.abs(j[2] - j[3]) < 0.01, String(r2.stdout || r2.stderr).slice(0, 300));
+    ok('۲۳.۲-ب قله‌ای که با گین از سقف می‌گذرد، محدود می‌شود — قلهٔ واقعی زیرِ ۱٫۵−',
+       j && j[1] && j[1].limited === true && j[1].tp <= -1.5 && Math.abs(j[1].lufs + 16) <= 1.0,
+       JSON.stringify(j && j[1]));
+    try { fs.rmSync(d23, { recursive: true, force: true }); } catch (e) {}
+  }
+  /* ۲۳.۳ — `main` واقعاً صدایش می‌زند، **پیش از** بُرش (تا همهٔ تکه‌ها یک
+     گین داشته باشند)، و عدد را در نقشه می‌نویسد. */
+  const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  const iFix = vb.indexOf('loud = loudFix(best, normed)'), iSplit = vb.indexOf('pieces = splitWav(best, cap)');
+  ok('۲۳.۳ پل پیش از بُرش بلندی را می‌سازد و در نقشه ثبت می‌کند',
+     iFix > 0 && iSplit > iFix && /rec\["loud"\] = loud/.test(vb) &&
+     /best = normed/.test(vb), 'fix@' + iFix + ' split@' + iSplit);
+  /* ۲۳.۴ — زیروبمِ خودِ گوینده به `docs/voices.json` می‌رسد، از همان درِ
+     `--style` که گردش‌کار می‌زند. فایلِ ریپو دست نمی‌خورد: مسیرِ حالت عوض می‌شود. */
+  const d24 = fs.mkdtempSync('/tmp/vp24-');
+  const r4 = cp.spawnSync('python3', ['-c', [
+    'import sys, json, os, io, contextlib', 'sys.path.insert(0, "tools")', 'import voiceintake as VI',
+    'd = sys.argv[1]; VI.STATE = os.path.join(d, "voices.json")',
+    'json.dump({"rev": 1, "speakers": {"spk-x": {"name": "x"}}}, open(VI.STATE, "w"))',
+    'lab = os.path.join(d, "lab"); os.makedirs(lab)',
+    'json.dump({"cue": "c", "cells": {"modes": ""}, "seconds": 900, "thin": False, "medianHz": 158.4},',
+    '          open(os.path.join(lab, "STYLE-sheet.json"), "w"))',
+    'sys.argv = ["vi", "--style", "spk-x", lab]',
+    'with contextlib.redirect_stdout(io.StringIO()): rc = VI.main()',
+    'print(json.dumps([rc, json.load(open(VI.STATE))["speakers"]["spk-x"]["style"].get("medianHz")]))'
+  ].join('\n'), d24], { encoding: 'utf8' });
+  try { fs.rmSync(d24, { recursive: true, force: true }); } catch (e) {}
+  const lab23 = fs.readFileSync('tools/voicelab.py', 'utf8');
+  ok('۲۳.۴ زیروبمِ سنجیدهٔ گوینده در voices.json می‌نشیند، و آزمایشگاه آن را روی برگه می‌گذارد',
+     String(r4.stdout).trim() === '[0, 158.4]' &&
+     /sheet\["medianHz"\] = m\["median_hz"\]/.test(lab23),
+     String(r4.stdout || r4.stderr).trim().slice(0, 200));
+}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

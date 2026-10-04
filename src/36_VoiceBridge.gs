@@ -371,6 +371,17 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   /* گامِ بالا پشتیبان است؛ اگر هدف هست، گردش‌کار گام را از زیروبمِ خودِ
      ورودی حساب می‌کند (۸٫۲۴). */
   if (pit.targetHz) row.params.targetHz = String(pit.targetHz);
+  /* ══ و هدف از ضبط‌های خودِ گوینده، وقتی CFG چیزی نگفته (۸.۳۷) ══
+     کارتِ سبک زیروبمِ او را می‌سنجد و از ۸.۳۷ در `docs/voices.json` نگه
+     می‌دارد. گلدوز هفته‌ها با گامِ ثابت ساخته شد در حالی که عددش در سیاههٔ
+     همان اجرا بود. دستِ او در ردیف هنوز برنده است (۷٫۸۱). */
+  else if (pit.src !== 'ردیفِ خودش') {
+    var hz = vbrStyleHz_(speaker);
+    if (hz) {
+      row.params.targetHz = hz;
+      row.pitchSrc = 'خودکار، هدف ' + hz + ' هرتز (زیروبمِ ضبط‌های خودش)';
+    }
+  }
   for (var a = 0; a < au.length; a++) {
     try { driveShareOn_(au[a].id); } catch (eA) {}
     row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
@@ -672,6 +683,7 @@ function vbrIngest_(hub) {
       if (hit.pitchAuto) it.pitchAuto = hit.pitchAuto;
       if (hit.f0Out) it.f0Out = hit.f0Out;
       if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
+      if (hit.loud) it.loud = hit.loud;          // بلندیِ پیش و پس (۸.۳۷)
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -768,6 +780,13 @@ function vbrPitchLine_(item, faD) {
   }
   if (o && o.medianHz) {
     out += (out ? ' · ' : '') + 'خروجی ' + f(Math.round(o.medianHz)) + ' هرتز';
+  }
+  /* بلندی هم سنجیده و گفته می‌شود (۸.۳۷): «صدا و حجمش پایینه» تا امروز هیچ
+     عددی پشتش نداشت، چون هیچ مرحله‌ای بلندیِ خروجی را نمی‌سنجید. */
+  var L = item.loud;
+  if (L && L.rawLufs != null && L.lufs != null) {
+    out += (out ? ' · ' : '') + 'بلندی ' + f(Number(L.rawLufs).toFixed(1)) + ' ⇒ ' +
+           f(Number(L.lufs).toFixed(1)) + ' LUFS';
   }
   if (item.f0Warn) out += (out ? ' · ' : '') + '⚠️ ' + String(item.f0Warn);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
@@ -903,6 +922,16 @@ function vbrTgTell_(item, speakerName, got) {
 }
 
 /** نامِ فارسیِ هر گوینده، از همان `docs/voices.json` که بخشِ ۳۳ می‌خوانَد. */
+/** زیروبمِ میانهٔ ضبط‌های خودِ گوینده از کارتِ سبک، یا '' (۸.۳۷). */
+function vbrStyleHz_(speaker) {
+  try {
+    var doc = vintReadResult_();
+    var sp = doc && doc.speakers && doc.speakers[String(speaker)];
+    var hz = Number(sp && sp.style && sp.style.medianHz);
+    return (isFinite(hz) && hz >= 60 && hz <= 350) ? String(Math.round(hz * 10) / 10) : '';
+  } catch (e) { return ''; }
+}
+
 function vbrSpeakerNames_() {
   var out = {};
   try {

@@ -2878,6 +2878,12 @@ def run_style(ref, src, text, out):
     # جدا نمی‌افتند. `voiceintake.py --style` همین فایل را برمی‌دارد.
     sheet = styleSheet_(m, md.get("modes") or [], name)
     sheet["cells"] = styleSheetCell_(sheet)
+    # ══ زیروبمِ خودِ گوینده هم روی برگه می‌نشیند (۸.۳۷) ══
+    # این عدد از ۲۲ سپتامبر برای گلدوز سنجیده می‌شد (۱۵۵ تا ۱۶۳ هرتز) و فقط
+    # در سیاههٔ اجرا می‌ماند؛ نمونه‌ها با گامِ ثابت ۵ تا ۷ نیم‌پرده بم‌تر از
+    # خودِ او درمی‌آمدند. پل از همین عدد گام را حساب می‌کند.
+    if m.get("median_hz"):
+        sheet["medianHz"] = m["median_hz"]
     io.open(os.path.join(out, "STYLE-sheet.json"), "w",
             encoding="utf-8").write(jdump_(sheet, indent=1))
     rep["style"]["sheet"] = sheet

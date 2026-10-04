@@ -2189,12 +2189,21 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
      او شیت باز نمی‌کند (۵٫۹۰). عددی که امروز سنجیده شد باید خودش سرِ جایش
      برود، نه با یک درخواست از او — همان قاعدهٔ `PRON_SEED` در ۷٫۶۹. */
   {
+    /* از ۸.۳۷ گلدوز هدفِ هرتزی هم دارد (§۳۸)، که بر بذر مقدم است و بذر گامِ
+       پشتیبانش می‌شود. این سنجه دربارهٔ خودِ مسیرِ بذر است، پس همان حالت —
+       «بی هدف» — ساخته می‌شود، همان‌طور که ۲۹.۵ برای رضوی می‌کند. */
     const seedKey = Object.keys(CFG.VOICE_PITCH_SEED || {})[0];
+    const keepT6 = CFG.VOICE_TARGET_HZ; CFG.VOICE_TARGET_HZ = {};
+    let p6; try { p6 = personaPitch_(seedKey); } finally { CFG.VOICE_TARGET_HZ = keepT6; }
     ok('۲۹.۶ گویندهٔ سنجیده‌شده عددِ خودش را می‌گیرد، نه عددِ رضوی را',
-       !!seedKey && personaPitch_(seedKey).pitch === String(CFG.VOICE_PITCH_SEED[seedKey]) &&
-       personaPitch_(seedKey).src === 'سنجیده‌شده' &&
-       personaPitch_(seedKey).pitch !== String(CFG.VBR_PITCH),
-       'کلید: ' + seedKey + ' · گرفت: ' + JSON.stringify(personaPitch_(seedKey)));
+       !!seedKey && p6.pitch === String(CFG.VOICE_PITCH_SEED[seedKey]) &&
+       p6.src === 'سنجیده‌شده' && p6.pitch !== String(CFG.VBR_PITCH),
+       'کلید: ' + seedKey + ' · گرفت: ' + JSON.stringify(p6));
+    /* و با هدف، بذر گامِ پشتیبان می‌مانَد — اگر سنجشِ ورودی نشد، همان می‌رود. */
+    const p6b = personaPitch_(seedKey);
+    ok('۲۹.۶-ب با هدفِ هرتزی، بذر گامِ پشتیبان است',
+       !!p6b.targetHz && p6b.pitch === String(CFG.VOICE_PITCH_SEED[seedKey]),
+       JSON.stringify(p6b));
   }
 
   /* ── ۲۹.۷ عددِ ناخوانا **رد** می‌شود و خانه دست نمی‌خورد ──
@@ -3338,6 +3347,86 @@ console.log('\n══ ۳۷) متنِ آزمونِ گویندگان — همان 
        /گامِ خودکار/.test(capSeen7) && /خروجی/.test(capSeen7) && /حالت‌ها/.test(capSeen7),
        capSeen7.replace(/<[^>]+>/g, '').length + ' · ' + capSeen7.slice(-260));
   }
+  const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   §۳۸ — زیروبمِ خودِ گوینده و بلندیِ خروجی (۸.۳۷)
+
+   ۴ اکتبر: «گلدوز رو با صوت‌های دیگه‌اش مقایسه می‌کنم، صدا و حجمش پایینه».
+   دو عدد پشتش بود و هیچ‌کدام به تصمیمی وصل نبود: کارتِ سبکِ ۲۲ سپتامبر
+   زیروبمِ او را ۱۵۵ تا ۱۶۳ هرتز سنجیده بود (فقط در سیاههٔ اجرا)، و نمونه‌ها با
+   گامِ ثابتِ −۲ درآمدند ۱۰۱ و ۱۱۴ هرتز. و بلندیِ خروجی را هیچ مرحله‌ای
+   نمی‌سنجید. هر ادعا از درِ تولید: `vbrAsk_` و `vbrIngest_`.
+   ══════════════════════════════════════════════════════════════════════ */
+console.log('\n=== ۳۸) زیروبمِ خودِ گوینده و بلندیِ خروجی (۸.۳۷) ===');
+{
+  const ppG = personaPitch_('spk-1g0r95d');
+  ok('۳۸.۱ گلدوز هدفِ ۱۵۸ هرتز دارد، از ضبط‌های خودش — نه گامِ ثابت',
+     ppG.targetHz === '158' && /هدف 158/.test(ppG.src), JSON.stringify(ppG));
+
+  const shP = personaTab_();
+  const rw = personaRows_(shP);
+  let atR = 0;
+  for (let i = 0; i < rw.length; i++) if (String(rw[i][PC.KEY - 1]).trim() === 'razavi') atR = i + 2;
+  const keepT = CFG.VOICE_TARGET_HZ, keepV = global.vintReadResult_;
+  const askOne = (ep, styleHz, cell) => {
+    shP.getRange(atR, PC.PITCH).setValue(cell == null ? '' : cell);
+    CFG.VOICE_TARGET_HZ = {};
+    global.vintReadResult_ = () => ({ speakers: { razavi: { name: 'بهروز رضوی',
+                                                            style: { cue: 'x', medianHz: styleHz } } } });
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    try { vbrAsk_('آزمونِ زیروبم', String(ep), epFold.getId(), 'razavi', 'یک'); }
+    finally { CFG.VOICE_TARGET_HZ = keepT; global.vintReadResult_ = keepV; }
+    return (vbrRead_().items || [])[0] || {};
+  };
+  /* ۳۸.۲ — گوینده‌ای که CFG چیزی برایش نگفته، هدف را از کارتِ سبکِ خودش
+     می‌گیرد. این همان سیمی است که برای گلدوز هفته‌ها نبود. */
+  const r2 = askOne(9381, 112.4, '');
+  ok('۳۸.۲ بی CFG، هدف از زیروبمِ ضبط‌های خودش (کارتِ سبک) می‌آید',
+     r2.params && r2.params.targetHz === '112.4' && /ضبط‌های خودش/.test(String(r2.pitchSrc)),
+     JSON.stringify({ p: r2.params, s: r2.pitchSrc }));
+  /* ۳۸.۳ — دستِ او در ردیف هنوز برنده است (۷.۸۱). */
+  const r3 = askOne(9382, 112.4, '3');
+  ok('۳۸.۳ گامی که او در ردیف نوشته، بر کارتِ سبک مقدم است',
+     r3.params && r3.params.targetHz == null && r3.params.pitch === '3',
+     JSON.stringify(r3.params));
+  /* ۳۸.۴ — عددِ پرت یا نبوده هدف نمی‌سازد؛ «نسنجیدم» با «صفر» یکی نیست. */
+  const r4 = askOne(9383, 20, '');
+  const r4b = askOne(9384, undefined, '');
+  ok('۳۸.۴ زیروبمِ پرت یا نبوده هدف نمی‌سازد',
+     r4.params && r4.params.targetHz == null && r4b.params && r4b.params.targetHz == null,
+     JSON.stringify([r4.params, r4b.params]));
+  shP.getRange(atR, PC.PITCH).setValue('');
+
+  /* ۳۸.۵ — بلندیِ پیش و پس، از نقشهٔ گردش‌کار تا کپشنِ تلگرام، از درِ
+     `vbrIngest_` — همان که تولید می‌دود. */
+  const q5 = vbrRead_(); q5.items = []; vbrSave_(q5);
+  vbrAsk_('variety', 9385, epFold.getId(), 'razavi', 'بلندی');
+  const realF5 = UrlFetchApp.fetch;
+  UrlFetchApp.fetch = function (u) {
+    if (/voice-renders/.test(String(u))) {
+      return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ items: {
+        'variety:9385': { url: 'https://example.invalid/l.wav', minutes: 3,
+                          loud: { rawLufs: -21.3, rawTp: -4.2, gainDb: 5.3, limited: false,
+                                  lufs: -16.0, tp: -1.9 } } } }) };
+    }
+    if (/voices\.json/.test(String(u))) {
+      return { getResponseCode: () => 200,
+               getContentText: () => JSON.stringify({ speakers: { razavi: { name: 'بهروز رضوی' } } }) };
+    }
+    return { getResponseCode: () => 200, getBlob: () => blobOf(wavBytes) };
+  };
+  _vbrMapMemo = null;
+  const o5 = console.log; console.log = () => {};
+  try { vbrIngest_(hub); } finally { console.log = o5; UrlFetchApp.fetch = realF5; _vbrMapMemo = null; }
+  const it5 = (vbrRead_().items || []).filter(x => x.key === 'variety:9385')[0] || {};
+  const line5 = vbrPitchLine_(it5, (x) => faDigitsOut_(String(x)));
+  ok('۳۸.۵ بلندیِ پیش و پس به ردیف و کپشن می‌رسد',
+     it5.status === 'رسید' && it5.loud && it5.loud.lufs === -16 &&
+     /بلندی [^ ]+ ⇒ [^ ]+ LUFS/.test(line5) && /۲۱٫?۳|۲۱\.۳/.test(line5),
+     JSON.stringify({ st: it5.status, loud: it5.loud }) + ' · ' + line5);
+  ok('۳۸.۵-ب بی عدد، از بلندی هیچ نمی‌گوید', vbrPitchLine_({ f0Out: { medianHz: 104 } }).indexOf('بلندی') === -1);
   const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
 }
 

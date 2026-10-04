@@ -512,6 +512,9 @@ def main():
                         "modes": (sheet.get("cells") or {}).get("modes", ""),
                         "seconds": sheet.get("seconds"),
                         "thin": bool(sheet.get("thin")),
+                        # زیروبمِ میانهٔ ضبط‌های خودش — پل گام را از همین
+                        # حساب می‌کند (۸.۳۷). بی آن، عددِ سنجیده فقط در سیاهه بود.
+                        "medianHz": sheet.get("medianHz"),
                         "at": __import__("datetime").datetime.utcnow()
                               .strftime("%Y-%m-%dT%H:%M:%SZ")}
         st["speakers"][key] = cur
