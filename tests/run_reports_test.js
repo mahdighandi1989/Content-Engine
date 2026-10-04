@@ -572,6 +572,44 @@ console.log('\n══ وارسی‌های روزانهٔ ناظر ══');
   const hr = st4.rows.filter((r) => r.key === 'handout-read')[0];
   ok('۶ «نشد» ثبت می‌شود و گم نمی‌شود', hr && hr.verdict === 'نشد', JSON.stringify(hr || {}));
 
+  /* ══ «نشد» دو روزِ پیاپی = شکست (۸.۳۲) ══
+     ۱ تا ۳ اکتبر پنج وارسیِ «باز کن و ببین» هر روز «نشد» خوردند و این
+     تابع گفت «هر ۹ وارسی گزارش شده». روزها با ساعتِ سراسری جلو می‌روند،
+     نه با رکوردِ دست‌نوشتهٔ دیروز (۷.۲۲). */
+  {
+    const RealDate = Date;
+    const onDay = (k, fn) => {
+      const shift = k * 86400000;
+      global.Date = class extends RealDate {
+        constructor(...a) { if (a.length) super(...a); else super(RealDate.now() + shift); }
+        static now() { return RealDate.now() + shift; }
+      };
+      try { return fn(); } finally { global.Date = RealDate; }
+    };
+    delete P[PK.MON_CHECKS];
+    const skipRep = { checks: [{ key: 'video-watch', verdict: 'نشد', note: 'ابزارِ پخشِ ویدئو در سشن نبود' }] };
+    onDay(-1, () => monChecksIngest_(skipRep, '_REPORT-20261002.json'));
+    onDay(-1, () => monChecksIngest_(skipRep, '_REPORT-20261002.json'));     // دو گزارش، یک روز
+    const k1 = monChecksStatus_(hub, false);
+    ok('۶-ب یک روز «نشد» (حتی با دو گزارش) هنوز شکست نیست',
+       k1.skipped.length === 0 && k1.ok === true, k1.line);
+    const before = sh.getLastRow();
+    monChecksIngest_(skipRep, '_REPORT-20261003.json');
+    const k2 = monChecksStatus_(hub, true);
+    const vw = k2.skipped.filter((r) => r.key === 'video-watch')[0];
+    const vs = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues()
+                 .filter((r) => r.join(' ').indexOf('روزهای پیاپی «نشد»') !== -1);
+    ok('۶-پ دو روزِ پیاپی «نشد» شکست است، علتش در سطر می‌آید، و یافتهٔ کد می‌سازد',
+       k2.ok === false && vw && vw.skipDays === 2 && /ابزارِ پخشِ ویدئو/.test(k2.line) &&
+       vs.length === 1 && vs[0].join(' ').indexOf(ROWNER_CODE) !== -1 && sh.getLastRow() > before,
+       k2.line);
+    monChecksIngest_({ checks: [{ key: 'video-watch', verdict: 'سالم', note: 'سه قاب دیده شد' }] },
+                     '_REPORT-20261003.json');
+    const k3 = monChecksStatus_(hub, false);
+    ok('۶-ت «سالم» زنجیره را می‌بُرد', k3.skipped.length === 0 && k3.ok === true, k3.line);
+    delete P[PK.MON_CHECKS];
+  }
+
   /* گزارشِ ساعتیِ غنی‌سازی پنجره را باز نمی‌کند — وگرنه هر ساعت یک «روز»
      می‌شد و سنجه بی‌معنا. */
   delete P[PK.MON_CHECKS];

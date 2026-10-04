@@ -274,7 +274,9 @@ console.log('\n=== وارسیِ سلامت: بودجه و ردِ پا ===');
   /* `indexOf` تعریفِ تابع را پیدا می‌کند نه فراخوانش — و تعریف بالاتر از
      همه‌چیز است. مقایسه باید با *فراخوانِ* پایانی باشد. */
   const iGuard = src.lastIndexOf('healthHas_(');
-  const iStamp = src.lastIndexOf('saveHealthSnapshot_(problems, notes)');
+  /* پیشوند، نه فراخوانِ کامل: از ۸.۳۲ آرگومانِ سومی (ایرادهای مزمن) دارد و
+     نامِ کامل این سنجه را بی‌دلیل سرخ می‌کرد — پرسش ترتیب است، نه امضا. */
+  const iStamp = src.lastIndexOf('saveHealthSnapshot_(problems, notes');
   ok('نگهبان‌ها پیش از مُهرِ پایانی‌اند', iGuard > 0 && iGuard < iStamp,
      iGuard + ' < ' + iStamp);
 
@@ -1091,4 +1093,88 @@ console.log('\n=== ۱۷) شاهدِ اجرا: تریگری که ترکید و ه
   }
 
   console.log('  ✅ بندِ ۱۷: ' + p17 + ' سنجه');
+}
+
+console.log('\n=== ۱۸) ایرادِ مزمن: «گزارش‌شده» با «رفع‌شده» یکی نیست (۸.۳۲) ===');
+{
+  let p18 = 0;
+  const ok18 = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); p18++; };
+  /* ══ ۱ تا ۳ اکتبر ══
+   * ایمیلِ ۱۰ صبح هر روز همان ایرادها را نوشت — اعراب بالای سقف، ۷۱ موسیقیِ
+   * نشنیده، سه ویدئوی گیرکرده — و ناظر هر روز نوشت «یافتهٔ تازه‌ای نبود».
+   * فهرستِ امروز حافظه نداشت. این بند روزها را **واقعاً** جلو می‌بَرد (ساعتِ
+   * سراسری، نه رکوردِ دست‌نوشتهٔ «دیروز»: حالتی که تولید نمی‌سازد چیزی را
+   * ثابت نمی‌کند — ۷.۲۲) و از درِ خودِ `healthCheck` وارد می‌شود. */
+  const RealDate = Date;
+  const onDay = (k, fn) => {
+    const shift = k * 86400000;
+    global.Date = class extends RealDate {
+      constructor(...a) { if (a.length) super(...a); else super(RealDate.now() + shift); }
+      static now() { return RealDate.now() + shift; }
+    };
+    try { return fn(); } finally { global.Date = RealDate; }
+  };
+  const P = global.__PROPS;
+  delete P[PK.HEALTH_CHRONIC];
+  const snap = () => JSON.parse(global.__ROOT_FOLDER._files.find((x) => x.getName() === '_STATUS.json')
+                                  .getBlob().getDataAsString()).health || {};
+
+  ok18('۱۸.۱ امضا عدد را نمی‌بیند — «۷۱ قطعه» و «۷۳ قطعه» یک ایرادند',
+       healthSig_('موسیقی — شنیده‌نشده: ۷۱ قطعه') === healthSig_('موسیقی — شنیده‌نشده: ۷۳ قطعه') &&
+       healthSig_('آخرین پشتیبان 30 ساعت پیش — 2026-10-03 03:04') ===
+       healthSig_('آخرین پشتیبان 54 ساعت پیش — 2026-10-04 03:04') &&
+       healthSig_('الف ۵') !== healthSig_('ب ۵'));
+
+  const h1 = onDay(30, () => healthCheck());
+  const s1 = snap();
+  ok18('۱۸.۲ روزِ اول هیچ ایرادی مزمن نیست',
+       !/^ایرادهای مزمن/.test(String(h1.problems[0] || '')) && (s1.chronic || []).length === 0,
+       h1.problems.length + ' ایراد · مزمن ' + (s1.chronic || []).length);
+  onDay(31, () => healthCheck());
+  const h3 = onDay(32, () => healthCheck());
+  const s3 = snap();
+  const ch3 = s3.chronic || [];
+  ok18('۱۸.۳ سه روزِ پیاپی: بالای ایمیل و در `_STATUS.json`، قدیمی‌ترین اول',
+       /^ایرادهای مزمن/.test(String(h3.problems[0] || '')) && ch3.length >= 1 &&
+       ch3.some((c) => c.days === 3) && ch3.every((c, i) => i === 0 || String(ch3[i - 1].since) <= String(c.since)),
+       auditCut_(String(h3.problems[0] || ''), 110) + ' · ' + ch3.length + ' مزمن');
+  ok18('۱۸.۴ «⟨شما⟩» و خودِ سطرِ مزمن در شمارش نمی‌آیند',
+       ch3.every((c) => String(c.text).indexOf(HY_) !== 0 && String(c.text).indexOf('ایرادهای مزمن') !== 0));
+  const rt = getHub_().getSheetByName(CFG.REPORT_TAB);
+  const rows = rt.getRange(2, 1, Math.max(1, rt.getLastRow() - 1), rt.getLastColumn()).getValues();
+  const chRows = rows.filter((r) => r.join(' ').indexOf('ایرادِ مزمن (') !== -1);
+  ok18('۱۸.۵ از روزِ سوم یافتهٔ کد می‌شود — در صفی که نسخهٔ بعد از آن ساخته می‌شود',
+       chRows.length >= 1 && chRows.some((r) => r.join(' ').indexOf(ROWNER_CODE) !== -1),
+       chRows.length + ' ردیف');
+
+  /* اجرای دوم در همان روز یک روز است، نه دو — وگرنه هر تریگرِ دستی عدد را بالا می‌بَرد. */
+  onDay(32, () => healthCheck());
+  const ch3b = snap().chronic || [];
+  /* هر امضا جدا سنجیده می‌شود، نه بیشینه: نگارشِ اول فقط بیشینه را می‌سنجید و
+     شکستنِ عمدیِ همین سد سبز ماند — یک امضا که اتفاقی سه روز ماند، هشت امضای
+     بازنشسته را پوشاند. */
+  const d3 = {}; ch3.forEach((c) => { d3[c.sig] = c.days; });
+  ok18('۱۸.۶ اجرای دوم در همان روز روز نمی‌شمارد — و زنجیره را هم از نو شروع نمی‌کند',
+       ch3b.length === ch3.length && ch3b.every((c) => d3[c.sig] === c.days),
+       ch3.map((c) => c.days).join(',') + ' ⇒ ' + ch3b.map((c) => c.days).join(','));
+
+  /* و ردیفِ صف تکراری نمی‌شود: فردا همان کلید «تکرار» می‌خورد. */
+  onDay(33, () => healthCheck());
+  const rows2 = rt.getRange(2, 1, Math.max(1, rt.getLastRow() - 1), rt.getLastColumn()).getValues()
+                  .filter((r) => r.join(' ').indexOf('ایرادِ مزمن (') !== -1);
+  ok18('۱۸.۷ روزِ بعد ردیفِ تازه نمی‌سازد — همان ردیف تکرار می‌خورد',
+       rows2.length === chRows.length, chRows.length + ' ⇒ ' + rows2.length);
+
+  /* دو روز غیبت یعنی رفع شده؛ یک روز غیبت یعنی «سنجیده نشد» و زنجیره را نمی‌بُرد. */
+  delete P[PK.HEALTH_CHRONIC];
+  onDay(40, () => healthChronic_(['الف ۱', 'ب ۱']));
+  onDay(42, () => healthChronic_(['الف ۲']));          // ۴۱ غایب — زنجیره نمی‌بُرد
+  const g1 = onDay(43, () => healthChronic_(['الف ۳']));
+  const g2 = onDay(46, () => healthChronic_(['الف ۴', 'ب ۲']));   // ۴۴ و ۴۵ غایب — بریده
+  ok18('۱۸.۸ یک روز غیبت زنجیره را نگه می‌دارد؛ دو روز می‌بُرد',
+       g1.list.length === 1 && g1.list[0].days === 3 && g2.n === 0 && /هیچ ایرادی/.test(g2.line),
+       JSON.stringify(g1.list.map((c) => c.days)) + ' · ' + g2.line);
+  delete P[PK.HEALTH_CHRONIC];
+  console.log('  ✅ بندِ ۱۸: ' + p18 + ' سنجه');
 }

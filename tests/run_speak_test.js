@@ -1086,6 +1086,38 @@ console.log('\n=== ۲۱) ترمیمِ ریشه‌ای: واژه‌های بی‌
   speakReviewText_(good, good);
   ok('۲۱.۷ متنِ زیرِ سقف هیچ فراخوانِ ترمیمی نمی‌خورد', calls === 0, calls + ' فراخوان');
 
+  /* ══ ۲۱.۸ — و حالا **چرا** ۱۲٪ ماند گفته می‌شود (۸.۳۲) ══
+     از ۸.۰۴ این ترمیم هست و ۱ تا ۳ اکتبر پوشش ۱۲ تا ۱۳٪ ماند، با سه علتِ
+     ممکن و سه درمانِ متفاوت، و هیچ‌کدام شمرده نمی‌شد. از درِ تولید:
+     `speakReview_` ⇒ پروندهٔ قسمت ⇒ `speakSkipRecord_` ⇒ خطِ روزانه. */
+  const big = (bad + ' ').repeat(9);
+  const epF = { __speakSegs: [{ t: big, h: speakHash_(speakSanitize_(big)) }] };
+  global.geminiText_ = (pr) => {
+    if (String(pr).indexOf('هیچ اعرابی ندارند') === -1) return null;
+    const a = (String(pr).split('فهرست:\n')[1] || '').split('\n').filter(Boolean);
+    /* دو تا درست، بقیه با حرفِ اضافه — همان ردی که سدِ هویتِ حروف باید بگیرد */
+    return { w: a.map((w, i) => (i < 2 ? w : w + 'ی').split('').join('َ')) };
+  };
+  speakReview_(epF, [{ text: big }], Date.now() + 600000, function () {}, 'درس‌نامه ۹۹');
+  const skW = global.__PROPS[PK.SPEAK_SKIP];
+  delete global.__PROPS[PK.SPEAK_SKIP];
+  speakSkipRecord_(epF, 'درس‌نامه ۹۹', null, 99);
+  const stF = speakSkipStatus_();
+  const fl = epF.__fill || {};
+  ok('۲۱.۸ ترمیم شاهد دارد: چند پرسیده، چند پذیرفته، چند رد — و کدام واژه‌ها ماندند',
+     fl.a >= 10 && fl.k === 2 && fl.r === fl.a - 2 && /^\S+ ⇒ /.test(String(fl.x)) &&
+     /ترمیم: /.test(stF.line) && /به‌خاطرِ تغییرِ حروف رد/.test(stF.line) &&
+     /واژه‌های بی‌علامتِ قسمتِ آخر: /.test(stF.line),
+     JSON.stringify(fl) + ' · ' + stF.line.slice(-200));
+  if (skW === undefined) delete global.__PROPS[PK.SPEAK_SKIP]; else global.__PROPS[PK.SPEAK_SKIP] = skW;
+
+  /* ۲۱.۹ — «ي/ك» عربی حرفِ دیگری نیست: جوابِ درست به‌خاطرِ آن رد نمی‌شود، و
+     آنچه در متن می‌نشیند فارسی است. */
+  global.geminiText_ = () => ({ w: ['كَيفيَّت'] });
+  const frK = speakFillBare_('متنِ کیفیت اینجاست', ['کیفیت']);
+  ok('۲۱.۹ «ي/ك» عربیِ جوابِ مدل رد نمی‌شود و فارسی می‌نشیند',
+     !!frK && frK.t.indexOf('کَیفیَّت') !== -1 && !/[يك]/.test(frK.t), frK && frK.t);
+
   global.geminiText_ = oldGem;
   delete global.speakReviewPiece_;
 }

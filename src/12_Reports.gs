@@ -1032,8 +1032,22 @@ function monChecksIngest_(rep, fileName) {
     var c = arr[i] || {};
     var k = String(c.key || '').trim();
     if (!k) continue;
-    m[k] = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
-             note: String(c.note || '').slice(0, 300) };
+    var prev = m[k] || {};
+    var rec = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
+                note: String(c.note || '').slice(0, 300) };
+    /* ══ «نشد» زنجیره دارد (۸.۳۲) ══
+       تا ۸.۳۱ هر رکورد رکوردِ قبلی را بی‌حافظه می‌پوشاند، پس «نشد»ِ پنجمین
+       روز با «نشد»ِ روزِ اول یکی بود — و هر دو «گزارش‌شده» شمرده می‌شدند.
+       روزها جدا شمرده می‌شوند، نه گزارش‌ها: دو گزارش در یک روز یک روز است. */
+    if (/نشد/.test(rec.verdict)) {
+      var today = rec.at.slice(0, 10);
+      var was = /نشد/.test(String(prev.verdict || ''));
+      rec.skipSince = (was && prev.skipSince) ? String(prev.skipSince) : today;
+      rec.skipDays = !was ? 1 : (String(prev.skipDay || '') === today
+                                   ? (Number(prev.skipDays) || 1) : (Number(prev.skipDays) || 1) + 1);
+      rec.skipDay = today;
+    }
+    m[k] = rec;
     n++;
   }
   if (n || touched) monChecksSave_(m);
@@ -1062,15 +1076,21 @@ function monChecksStatus_(hub, raise) {
   var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
   // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
   var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
-  var rows = [], silent = [];
+  var rows = [], silent = [], skipped = [];
+  var skipNeed = Math.max(1, Number(CFG.MONITOR_SKIP_DAYS) || 2);
   for (var i = 0; i < want.length; i++) {
     var w = want[i] || {};
     var d = monCheckDays_(m[w.key]);
     var r = { key: String(w.key || ''), title: String(w.title || ''),
               at: String((m[w.key] || {}).at || ''),
               verdict: String((m[w.key] || {}).verdict || ''),
+              note: String((m[w.key] || {}).note || ''),
+              skipDays: Number((m[w.key] || {}).skipDays) || 0,
               days: (d === null ? -1 : d) };
     rows.push(r);
+    /* «نشد»ِ کهنه شمرده نمی‌شود: اگر خودِ رکورد قدیمی است، آن «سکوت» است
+       و جای دیگری گفته می‌شود — یک ایراد، یک جمله. */
+    if (/نشد/.test(r.verdict) && r.skipDays >= skipNeed && d !== null && d < need) skipped.push(r);
     if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
     if (d === null || d >= need) silent.push(r);
   }
@@ -1093,6 +1113,34 @@ function monChecksStatus_(hub, raise) {
              return '«' + r.title + '» (' + (r.days < 0 ? 'هرگز' : fa(r.days) + ' روز') + ')';
            }).join(' · ') +
            '. سکوت یعنی نمی‌دانیم انجام شد و سالم بود یا اصلاً انجام نشد.';
+  }
+  /* ══ «نشد» دو روزِ پیاپی = شکست (۸.۳۲) ══
+     ۱ تا ۳ اکتبر پنج وارسیِ «باز کن و ببین» هر روز «نشد» خوردند و این تابع
+     نوشت «هر ۹ وارسی گزارش شده» — درست، و بی‌معنا. هیچ ویدئویی تماشا نشد و
+     همان ویدئو بی هیچ هشداری عمومی شد. «نشد» یک بار یعنی «امروز نتوانستم»؛
+     دو روزِ پیاپی یعنی وارسی وجود ندارد. */
+  if (skipped.length) {
+    line += (line ? ' ' : '') + '❌ «نشد» ' + fa(skipNeed) + ' روز یا بیشتر پشتِ‌هم: ' +
+            skipped.map(function (r) {
+              return '«' + r.title + '» (' + fa(r.skipDays) + ' روز' +
+                     (r.note ? ' — ' + auditCut_(r.note, 60) : ' — بی علت') + ')';
+            }).join(' · ') + '. وارسی‌ای که هر روز «نشد» می‌خورد، انجام نمی‌شود.';
+  }
+  if (skipped.length && raise === true) {
+    try {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'جدی', category: 'وارسیِ ناظر',
+        key: 'monitor-check-skipped',
+        title: 'وارسی‌های روزانه‌ای که ناظر روزهای پیاپی «نشد» می‌زند: ' +
+               skipped.map(function (r) { return r.key; }).join('، '),
+        detail: line,
+        instruction: 'علتِ فنیِ «نشد» را پیدا کن و برطرف کن — ابزار، دسترسی یا دستور. ' +
+                     'اگر سشنِ ناظر ابزاری ندارد، دستورش (`_PROMPT-monitor-v*.md`) باید ' +
+                     'راهِ دیگری بدهد؛ اگر کاری است که موتور می‌تواند، موتور انجامش بدهد. ' +
+                     '«نشد» بی علت پذیرفته نیست.',
+        owner: 'کد'
+      });
+    } catch (eSk) {}
   }
   /* یافته فقط از healthCheck (روزی یک بار) ساخته می‌شود، نه از writeStatus_
      که هر دو ساعت می‌دود: شمارندهٔ «تکرار» سنجهٔ بسته‌نشدنِ حلقه است و اگر
@@ -1118,7 +1166,8 @@ function monChecksStatus_(hub, raise) {
      نیاز دارد که **فقط** گزارشِ روزانهٔ ناظر بنویسدش (۸٫۱۷) — `__rep` تنها با
      نامِ `_REPORT-YYYYMMDD.json` مهر می‌خورد، نه با `_REPORT-tts-*` و نه با
      یافته‌های خودِ موتور. اینجا هیچ خواندنِ تازه‌ای نیست؛ همان `m`ِ بالا. */
-  return { rows: rows, silent: silent, ok: !silent.length, line: line,
+  return { rows: rows, silent: silent, skipped: skipped,
+           ok: !silent.length && !skipped.length, line: line,
            repAt: String((m.__rep || {}).lastAt || ''),
            repFirstAt: String((m.__rep || {}).firstAt || '') };
 }

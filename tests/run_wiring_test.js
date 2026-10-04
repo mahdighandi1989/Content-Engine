@@ -569,4 +569,30 @@ console.log('\n=== ۱۲) بدَلِ مدل به اندازهٔ مدلِ واقع
      got.a === 'x' && !('cardTitle' in got), JSON.stringify(got));
 }
 
+console.log('\n=== ۱۳) سقفِ توکنی که فکرِ مدل همه‌اش را می‌خورد (۸.۳۲) ===');
+{
+  /* `musicListen_` با `maxOutputTokens: 48` و `ttsCueLeaked_` با ۲۵۶ — هر دو
+     فراخوانِ خامِ `geminiFetch_`، بی حلقهٔ «پاسخِ بریده را دوباره بپرس»ِ
+     `geminiText_`. مدلِ فکرکننده سقف را صرفِ فکر کرد و ۷۱ قطعه هفته‌ها بی‌داوری
+     ماند. قاعده: فراخوانِ کوتاه از `geminiShort_` می‌رود. این بند هر عددِ
+     لفظیِ کمتر از ۱۰۲۴ را در **کد** (نه توضیح) می‌گیرد — فراخوانِ خامِ بعدی که
+     کسی با سقفِ کوچک بنویسد، همین‌جا سرخ می‌شود. */
+  const fsT = require('fs');
+  const bad = [];
+  for (const f of fsT.readdirSync('src').filter((x) => /\.gs$/.test(x))) {
+    const code = fsT.readFileSync('src/' + f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:'"])\/\/.*$/gm, '$1');
+    const re = /maxOutputTokens\s*:\s*(\d+)/g;
+    let m;
+    while ((m = re.exec(code))) if (Number(m[1]) < 1024) bad.push(f + ': ' + m[0]);
+  }
+  ok('۱۳.۱ هیچ فراخوانی سقفِ لفظیِ کمتر از ۱۰۲۴ توکن ندارد',
+     bad.length === 0, bad.join(' · ') || 'هیچ');
+  /* و نگهبان خودش کور نیست: همان الگو روی عینِ خطِ ۸.۳۱ می‌گیرد. */
+  const probe = "] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } };";
+  const pm = /maxOutputTokens\s*:\s*(\d+)/.exec(probe);
+  ok('۱۳.۲ الگو خطِ واقعیِ ۸.۳۱ را می‌گیرد', !!pm && Number(pm[1]) === 48);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

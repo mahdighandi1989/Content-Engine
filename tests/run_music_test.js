@@ -695,8 +695,11 @@ console.log('\n=== ۱۴. جملهٔ روزانه و یافتهٔ «نشنیده�
      !/شنیده‌نشده/.test(musicLine_({ enabled: true, playable: 9, unheard: 0 })),
      musicLine_({ enabled: true, playable: 9, unheard: 0 }));
   const bad = musicLine_({ enabled: true, playable: 2, unheard: 7, unheardEdge: 4 });
-  ok('۱۴.۲ و وقتی نیستند، عدد و راهِ حل هر دو در سطر می‌آیند',
-     /شنیده‌نشده/.test(bad) && /۷/.test(bad) && /بازبینیِ بانک/.test(bad), bad);
+  /* «راهِ حل» تا ۸.۳۱ «از منو بزنید» بود — کار به صاحبِ برنامه حواله می‌شد،
+     در حالی که موتور خودش هر شب می‌شنود و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما
+     بود (۸.۳۲). سنجه حالا قراردادِ تازه را می‌گوید: موتور، نه منو. */
+  ok('۱۴.۲ و وقتی نیستند، عدد و راهِ حل هر دو در سطر می‌آیند — راهِ حلِ خودِ موتور، نه منو',
+     /شنیده‌نشده/.test(bad) && /۷/.test(bad) && /موتور هر شب/.test(bad) && !/از منو/.test(bad), bad);
   /* «۴۰ قطعه» کنارِ برنامهٔ بی‌موسیقی گمراه‌کننده است — عددی که باید گفته
      شود «قابلِ پخش» است. */
   ok('۱۴.۳ سطر عددِ قابلِ پخش را می‌گوید، نه شمارِ فایل‌ها',
@@ -882,6 +885,115 @@ console.log('\n=== ۲۰. آوردنِ موسیقی پشتِ سرِ انبار م
      خاموش کند و کسی نفهمد، همان چیزی است که بانک را هفته‌ها خالی نگه داشت. */
   ok('۲۰.۳ توقفِ آوردن در سیاهه گفته می‌شود',
      /آوردنِ موسیقی امشب رد شد/.test(p21));
+}
+
+console.log('\n=== ۲۱. ۴۸ توکن و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ===');
+{
+  /* ══ ۷۱ قطعهٔ نشنیده، و علتش در خودِ موتور بود ══
+   * سیاههٔ هر شب: «شنیدنِ مدل نتیجه نداد: جوابِ خام «»». `musicListen_` با
+   * `maxOutputTokens: 48` می‌پرسید و مدلِ فکرکننده همان ۴۸ را صرفِ فکر کرد.
+   * پس از چهار «تلاش»، قطعه برای همیشه از صفِ شبانه بیرون رفت و خطِ روزانه
+   * کار را به منوی صاحبِ برنامه حواله داد. بدَلِ این مجموعه `musicListen_`
+   * را یکسره عوض می‌کرد، پس خودِ درخواست هرگز دیده نشده بود. */
+  const F = musicFolder_();
+  const wavB = Utilities.newBlob(mkWav(44100, 1, 16, 20, (i) => Math.round(9000 * Math.sin(i / 37)))).getBytes();
+  const info = wavInfo_(wavB);
+  const stubWas = global.__STUB;
+  const keyWas = global.__PROPS['GEMINI_API_KEY'];
+  global.__PROPS['GEMINI_API_KEY'] = 'TEST';      // این مجموعه کلید ندارد؛ بی آن درخواست هرگز نمی‌رود
+  const models = (url, body) => (typeof stubWas === 'function' ? stubWas(url, body)
+    : { code: 200, json: { models: [{ name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] }] } });
+  const bodies = [];
+  const answer = (txt) => ({ code: 200, json: { candidates: [{ content: { parts: [{ text: txt }] } }] } });
+  global.__STUB = function (url, body) {
+    if (url.indexOf(':generateContent') === -1) return models(url, body);
+    bodies.push(body);
+    /* مدلِ واقعی: با سقفِ کوچک و فکر، چیزی جز فکر نمی‌ماند */
+    const g = body.generationConfig || {};
+    if (g.thinkingConfig && Number(g.maxOutputTokens) < 512) {
+      return { code: 200, json: { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [] } }],
+                                  usageMetadata: { thoughtsTokenCount: Number(g.maxOutputTokens) } } };
+    }
+    return answer('آهنگ');
+  };
+  const h1 = musicListen_(wavB, info, 'آزمون.wav');
+  const g1 = (bodies[0] || {}).generationConfig || {};
+  ok('۲۱.۱ شنیدن سقفی دارد که فکرِ مدل نمی‌خوردش، و جواب می‌آید',
+     h1 === 'آهنگ' && Number(g1.maxOutputTokens) >= 1024 &&
+     g1.thinkingConfig && Number(g1.thinkingConfig.thinkingBudget) <= 256,
+     'جواب «' + h1 + '» · سقف ' + g1.maxOutputTokens + ' · فکر ' + JSON.stringify(g1.thinkingConfig || null));
+
+  /* ۲۱.۱-ب — و کف **ساختاری** است: صدازننده‌ای که سقفِ کوچک بخواهد (همان
+     خطای ۴۸ و ۲۵۶)، باز هم ۱۰۲۴ می‌فرستد. */
+  bodies.length = 0;
+  geminiShort_([{ text: 'گوش کن' }], { min: 48 });
+  ok('۲۱.۱-ب سقفِ کمتر از ۱۰۲۴ از صدازننده پذیرفته نمی‌شود',
+     Number(((bodies[0] || {}).generationConfig || {}).maxOutputTokens) >= 1024,
+     String(((bodies[0] || {}).generationConfig || {}).maxOutputTokens));
+
+  /* ۲۱.۲ — مدلی که `thinkingConfig` را نمی‌شناسد: یک بار بی آن، و به خاطر سپرده. */
+  bodies.length = 0;
+  global.__STUB = function (url, body) {
+    if (url.indexOf(':generateContent') === -1) return models(url, body);
+    bodies.push(body);
+    if ((body.generationConfig || {}).thinkingConfig) {
+      return { code: 400, json: { error: { message: 'Invalid JSON payload: Unknown name "thinkingConfig"' } } };
+    }
+    return answer('زمینه');
+  };
+  const dropKey = Object.keys(global.__PROPS).filter((k) => /DROP/i.test(k));
+  dropKey.forEach((k) => delete global.__PROPS[k]);
+  const h2 = musicListen_(wavB, info, 'آزمون.wav');
+  const n2 = bodies.length;
+  const h3 = musicListen_(wavB, info, 'آزمون.wav');
+  ok('۲۱.۲ ردِ «فکر» یک بار بی آن پرسیده و به خاطر سپرده می‌شود',
+     h2 === 'زمینه' && h3 === 'زمینه' && n2 === 2 && bodies.length === 3 &&
+     !(bodies[2].generationConfig || {}).thinkingConfig,
+     'جواب‌ها ' + h2 + '/' + h3 + ' · فراخوان‌ها ' + n2 + ' ⇒ ' + bodies.length);
+  /* ۲۱.۴ — و اگر باز هم بریده آمد (سقف یا فکرِ بی‌پایان)، یک بار با سقفِ
+     بزرگ و بی فکر؛ و پاسخِ مسدود علتش را با خود می‌آورد — «جوابِ خام «»»
+     به‌تنهایی هیچ نمی‌گفت. */
+  bodies.length = 0;
+  global.__STUB = function (url, body) {
+    if (url.indexOf(':generateContent') === -1) return models(url, body);
+    bodies.push(body);
+    if (Number((body.generationConfig || {}).maxOutputTokens) < 4096) {
+      return { code: 200, json: { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [] } }] } };
+    }
+    return answer('آهنگ');
+  };
+  const j4 = geminiShort_([{ text: 'گوش کن' }], { min: 1024 });
+  global.__STUB = function (url, body) {
+    if (url.indexOf(':generateContent') === -1) return models(url, body);
+    return { code: 200, json: { promptFeedback: { blockReason: 'SAFETY' }, candidates: [] } };
+  };
+  const j5 = geminiShort_([{ text: 'گوش کن' }], { min: 1024 });
+  ok('۲۱.۴ پاسخِ بریده یک بار بزرگ‌تر و بی فکر پرسیده می‌شود؛ پاسخِ مسدود علتش را دارد',
+     extractText_(j4) === 'آهنگ' && bodies.length === 2 &&
+     Number(bodies[1].generationConfig.maxOutputTokens) >= 4096 && !bodies[1].generationConfig.thinkingConfig &&
+     /SAFETY/.test(String(j5._why || '')),
+     'فراخوان ' + bodies.length + ' · متن «' + extractText_(j4) + '» · علت «' + (j5._why || '') + '»');
+  global.__STUB = stubWas;
+  if (keyWas === undefined) delete global.__PROPS['GEMINI_API_KEY']; else global.__PROPS['GEMINI_API_KEY'] = keyWas;
+  Object.keys(global.__PROPS).filter((k) => /DROP/i.test(k)).forEach((k) => delete global.__PROPS[k]);
+
+  /* ۲۱.۳ — «تلاش»هایی که با سقفِ ۴۸ ثبت شدند، تلاش نبودند. قطعه‌ای که ۸.۳۱
+     با `tries: "4"` (بی نسخه) از صف بیرون کرد، حالا دوباره در صف است — و
+     بی هیچ دستی، چون صاحبِ برنامه منو نمی‌زند. */
+  const nm = 'قطعهٔ ردشده با ۴۸ توکن.wav';
+  F.createFile(Utilities.newBlob(wavB, 'audio/wav', nm));
+  musicScan_();
+  const m0 = musicMeta_(nm) || {};
+  m0.tries = '4'; m0.lastTry = '2026-10-01 02:40'; m0.verdict = 'مدل نشنید'; delete m0.hv; delete m0.heard;
+  musicMetaWrite_(nm, m0);
+  const listenWas = global.musicListen_;
+  global.musicListen_ = () => '';
+  const r3 = musicRecheck_(null, { onlyUnknown: true, cap: 50, budgetMs: 60000 });
+  const m3 = musicMeta_(nm) || {};
+  ok('۲۱.۳ تلاشِ نسخهٔ پیشینِ «شنیدن» شمرده نمی‌شود — قطعه دوباره در صفِ شبانه است',
+     Number(m3.tries) === 1 && String(m3.hv) === String(CFG.MUSIC_HEAR_VER) && r3.checked >= 1,
+     'تلاش ' + m3.tries + ' · نسخه ' + m3.hv + ' · بررسی‌شده ' + r3.checked);
+  global.musicListen_ = listenWas;
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

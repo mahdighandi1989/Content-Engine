@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.31
+ *  موتور محتوا و پادکست — نسخهٔ 8.32
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -758,6 +758,15 @@ var CFG = {
     { key: 'podcasts', title: 'دو پادکستِ دیروز (§۲)' }
   ],
   MONITOR_CHECK_DAYS: 2,       // چند روز سکوت تا یافته ساخته شود
+  /* «نشد» دو روزِ پیاپی = شکست، نه گزارش (۸.۳۲). ۱ تا ۳ اکتبر پنج وارسیِ
+     «باز کن و ببین» هر روز «نشد» خوردند و `monChecksStatus_` آن‌ها را
+     «گزارش‌شده» شمرد — پس هیچ ویدئویی تماشا نشد و هیچ سدی نیفتاد. */
+  MONITOR_SKIP_DAYS: 2,
+  /* ایرادی که این‌قدر روزِ پیاپی در وارسیِ سلامت بیاید «مزمن» است (۸.۳۲):
+     به `_STATUS.json` ⇒ `health.chronic` و بالای ایمیل می‌رود، و از
+     `HEALTH_CHRONIC_FIND_DAYS` یافتهٔ کد می‌شود. */
+  HEALTH_CHRONIC_DAYS: 2,
+  HEALTH_CHRONIC_FIND_DAYS: 3,
 
   /* ══ کارنامهٔ قابلیت‌ها (۸.۰۵) ══
    * خواستهٔ صریحِ صاحبِ برنامه: «حتی ممکن خیلی گزینه‌های که اضافه کردی
@@ -1148,6 +1157,15 @@ var CFG = {
   SPEAK_SPAN_SENTS: 160,     // متنِ بلندتر از این، فقط تا همین‌جا حالت می‌گیرد
   SPEAK_PAUSE_SEC: 0.9,
   MUSIC_HEAR_TRY_MAX: 4,
+  /* ══ نسخهٔ «شنیدن» (۸.۳۲) ══
+     تا ۸.۳۱ `musicListen_` با سقفِ ۴۸ توکن می‌پرسید و مدلِ «فکرکننده» همان
+     ۴۸ را صرفِ فکر می‌کرد: پاسخ خالی، «مدل نشنید»، و پس از چهار بار قطعه
+     برای همیشه از صفِ شبانه بیرون. یعنی آن چهار «تلاش» هرگز تلاش نبودند.
+     تلاش‌ها فقط وقتی شمرده می‌شوند که با همین نسخه انجام شده باشند؛ عوض
+     کردنِ این عدد صفِ شبانه را یک بار برای همهٔ قطعه‌ها از نو باز می‌کند —
+     همان شکلِ `EMB_TEXT_VER` (۷.۲۷)، چون «پاک‌کردنِ ورودی آنچه را نوشته شده
+     درست نمی‌کند» (۵.۹۵). */
+  MUSIC_HEAR_VER: 2,
   /* و سقفِ انباشت: بیش از این قطعهٔ شنیده‌نشده، **دیگر قطعهٔ تازه نمی‌آوریم**.
      آوردنِ چیزی که نمی‌توانیم استفاده کنیم فقط عدد را بدتر می‌کند — و همان
      بود که در یک شب ۶ تا اضافه کرد در حالی که صفر تا شنیده شد. */
@@ -1616,7 +1634,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.31',
+  CODE_VERSION: '8.32',
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -2620,6 +2638,7 @@ var PK = {
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
   MON_CHECKS: 'MONITOR_CHECKS_SEEN', // آخرین بارِ هر وارسیِ روزانهٔ ناظر (۶٫۹۵)
+  HEALTH_CHRONIC: 'HEALTH_CHRONIC_SIGS', // امضای ایرادهای سلامت و روزهای پیاپی‌شان (۸.۳۲)
   NIGHT_STEP: 'NIGHT_STEP',       // کجای فهرستِ شبانه ماندیم (۶٫۹۷)
   /* ══ آخرین بلوکی که واردش شدیم — ضربانِ قلبِ کارِ شبانه (۷٫۴۴) ══
      اپس‌اسکریپت اجرا را سرِ شش دقیقه **می‌کُشد**، و همان کُشتن `nightEnd_`
@@ -3839,6 +3858,64 @@ function geminiFetch_(url, payload) {
 }
 
 /**
+ * فراخوانِ کوتاه (شنیدن، داوری، رونویسی) — **یک تعریف** برای سقفِ توکن (۸.۳۲).
+ *
+ * ══ چرا ══
+ * مدل‌های متنیِ امروز پیش از جواب «فکر» می‌کنند، و فکر از **همان**
+ * `maxOutputTokens` می‌خورد. `musicListen_` سقفِ ۴۸ داشت: مدل ۴۸ توکن فکر کرد
+ * و جوابی نماند — «شنیدنِ مدل نتیجه نداد: جوابِ خام «»». هفته‌ها، هر شب، و
+ * ۷۱ قطعه بی‌داوری ماند. همان دام در `ttsCueLeaked_` (۲۵۶) هم بود.
+ * `geminiText_` از این دام جان به در می‌بَرد (پاسخِ بریده را با سقفِ چهاربرابر
+ * دوباره می‌پرسد)؛ فراخوان‌های خامِ `geminiFetch_` این حلقه را ندارند.
+ *
+ * پس سقف هرگز کمتر از `min` (۱۰۲۴) نیست، فکر بودجهٔ کوچکِ جدا دارد، و مدلی
+ * که `thinkingConfig` را نپذیرد یک بار بی آن پرسیده می‌شود — و این ردّ
+ * به خاطر سپرده می‌شود (`rememberDrop_`)، همان حافظه‌ای که `geminiText_` دارد.
+ * پاسخی که باز هم بی‌متن بیاید، **علتش** را با خود دارد (`_why`)، چون
+ * «جوابِ خام «»» به‌تنهایی هیچ‌چیز نمی‌گوید.
+ */
+function geminiShort_(parts, opt) {
+  opt = opt || {};
+  var model = opt.model || textModel_();
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+            model + ':generateContent?key=' + encodeURIComponent(apiKey_());
+  var gen = { temperature: 0,
+              /* کف ساختاری است، نه پیش‌فرض: `min` کمتر از ۱۰۲۴ نادیده گرفته می‌شود. */
+              maxOutputTokens: Math.max(1024, Number(opt.min) || 0, Number(opt.max) || 0),
+              thinkingConfig: { thinkingBudget: Math.max(0, Number(opt.think) || 128) } };
+  if (opt.schema) { gen.responseMimeType = 'application/json'; gen.responseSchema = opt.schema; }
+  var dropped = { thinking: false };
+  try { dropped = modelDrops_(model); } catch (eD) {}
+  if (dropped.thinking) delete gen.thinkingConfig;
+  var payload = { contents: [{ role: 'user', parts: parts }], generationConfig: gen };
+  var j;
+  try { j = geminiFetch_(url, payload); }
+  catch (e) {
+    var m = String(e.message || '');
+    if (!gen.thinkingConfig || !/HTTP 400/.test(m) || !/think/i.test(m)) throw e;
+    delete gen.thinkingConfig;
+    try { rememberDrop_(model, 'thinking'); } catch (eR) {}
+    j = geminiFetch_(url, payload);
+  }
+  /* پاسخِ بریده (سقف) یک بار با سقفِ بزرگ‌تر و بی فکر — همان پلهٔ آخرِ
+     `geminiText_`، نه همهٔ نردبانش: این فراخوان‌ها کوتاه‌اند و ارزان باید بمانند. */
+  try {
+    if (!String(extractText_(j) || '').trim()) {
+      var w = emptyWhy_(j);
+      if (w && w.truncated && !w.blocked) {
+        gen.maxOutputTokens = Math.max(4096, gen.maxOutputTokens * 4);
+        delete gen.thinkingConfig;
+        j = geminiFetch_(url, payload);
+        if (!String(extractText_(j) || '').trim()) j._why = (emptyWhy_(j) || {}).reason || w.reason;
+      } else if (w) {
+        j._why = w.reason + (w.detail ? ' · ' + w.detail : '');
+      }
+    }
+  } catch (eW) {}
+  return j;
+}
+
+/**
  * چه چیزهایی را این مدل قبلاً نپذیرفته است.
  * در ویژگی‌های اسکریپت می‌ماند تا هر فراخوانِ بعدی از همان‌جا شروع کند و
  * درخواست‌های ۴۰۰ تکرار نشوند. با عوض‌شدنِ مدل، حافظه‌اش هم عوض می‌شود.
@@ -4834,13 +4911,14 @@ function ttsCueLeaked_(pcmB64, cueText, spokenText) {
   try {
     if (!pcmB64 || !cueText) return { leaked: false, heard: '' };
     var b64 = ttsWavOf_(pcmB64, Number(CFG.TTS_CUE_VERIFY_SEC) || 6);
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
-    var j = geminiFetch_(url, { contents: [{ role: 'user', parts: [
+    /* سقفِ ۲۵۶ با مدلِ فکرکننده همان دامِ ۴۸ توکنیِ `musicListen_` بود:
+       فکر همه را می‌خورد و «نشنیدم» برمی‌گشت — یعنی نگهبانی که هرگز
+       نمی‌شنید (۸.۳۲). `geminiShort_` تنها تعریفِ سقفِ فراخوانِ کوتاه است. */
+    var j = geminiShort_([
       { text: 'دقیقاً بنویس در این صدا چه گفته می‌شود. فقط خودِ واژه‌ها، ' +
               'بی هیچ توضیح یا نشانه‌گذاریِ اضافه.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
-    ] }], generationConfig: { temperature: 0, maxOutputTokens: 256 } });
+    ], { min: 1024 });
 
     var heard = String(extractAudioText_(j) || '').replace(/\s+/g, ' ').trim();
     if (!heard) return { leaked: false, heard: '' };
@@ -6463,6 +6541,10 @@ function speakPieces_(text, cap) {
 }
 
 var SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
+/* شاهدِ آخرین ترمیمِ واژه‌های بی‌اعراب (۸.۳۲): چند واژه پرسیده شد، چند
+   پذیرفته، چند به‌خاطرِ تغییرِ حروف رد. `speakReview_` روی پروندهٔ قسمت
+   (`__fill`) جمعش می‌کند تا از اجرای بعد هم دیده شود. */
+var SPEAK_FILL_LAST_ = null;
 
 /**
  * ══ یک واژهٔ خراب نباید هشتاد‌وهفت واژهٔ سالم را با خود ببرد (۶٫۸۹) ══
@@ -6725,16 +6807,32 @@ function speakFillBare_(vowelled, words) {
     '• فقط اعراب اضافه کن: فتحه، کسره، ضمه، سکون، تشدید.\n' +
     '• ترتیب و شمارِ فهرست را نگه دار: به‌ازای هر ورودی دقیقاً یک خروجی.\n\n' +
     'فهرست:\n' + words.join('\n');
+  /* ══ شاهد، چون ۱۲٪ ماند و هیچ‌جا نگفت چرا (۸.۳۲) ══
+     از ۸.۰۴ این ترمیم هست و پوششِ واژه‌ای ۱۲ تا ۱۳ درصد ماند. سه علتِ
+     ممکن با سه درمانِ متفاوت — مدل جواب نداد، جواب داد و سدِ حروف ردش کرد،
+     یا پذیرفته شد و جایش در متن پیدا نشد — و هیچ‌کدام شمرده نمی‌شد. */
+  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '' };
+  SPEAK_FILL_LAST_ = stat;
   var r = null;
   try { r = geminiText_(prompt, SPEAK_FILL_SCHEMA, 4096); } catch (e) { return null; }
   var got = (r && r.w) || [];
+  stat.g = got.length;
   if (!got.length) return null;
 
   var map = {};
   for (var i = 0; i < words.length && i < got.length; i++) {
-    var to = String(got[i] || '').trim();
+    /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
+       بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
+       پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. */
+    var to = String(got[i] || '').trim()
+      .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654]/g, '');
     if (!to || to === words[i]) continue;
-    if (bare(to) !== words[i]) continue;          // حروف عوض شده ⇒ دور
+    if (bare(to) !== words[i]) {                  // حروف عوض شده ⇒ دور
+      stat.r++;
+      if (!stat.x) stat.x = words[i] + ' ⇒ ' + to.slice(0, 30);
+      continue;
+    }
+    stat.k++;
     /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست و **نوشتنش کدِ مرده بود**:
        `words` همیشه بی‌علامت می‌آید (از `speakBareWords_`)، پس جوابی که هم
        حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار دستِ‌کم یک علامت
@@ -7029,7 +7127,15 @@ function speakReview_(ep, segs, deadline, persist, epLabel) {
       return { done: false, seen: seen, fixed: fixed, learned: 0 };
     }
     touched++; seen++;
+    SPEAK_FILL_LAST_ = null;
     var r = speakReviewText_(plain, e.t);
+    if (SPEAK_FILL_LAST_) {
+      var fl = ep.__fill || { a: 0, g: 0, k: 0, r: 0, x: '' };
+      fl.a += SPEAK_FILL_LAST_.a; fl.g += SPEAK_FILL_LAST_.g;
+      fl.k += SPEAK_FILL_LAST_.k; fl.r += SPEAK_FILL_LAST_.r;
+      if (!fl.x && SPEAK_FILL_LAST_.x) fl.x = SPEAK_FILL_LAST_.x;
+      ep.__fill = fl;
+    }
     if (r && r.t) {
       e.t = r.t;
       if (r.fixed) { fixed += r.fixed; notes = notes.concat(r.notes); }
@@ -7128,9 +7234,20 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       if (!S[c0] || !S[c0].t) continue;
       try { var cv = speakCover_(S[c0].t); cw += cv.words; cb += cv.bare; } catch (eCv) {}
     }
+    /* و **کدام** واژه‌ها بی‌علامت ماندند (۸.۳۲) — «۷۰۱ واژه» اقدام‌پذیر
+       نیست، «پی‌ریزی، هندسه، …» هست. */
+    var bwx = [];
+    try {
+      var allT = [];
+      for (var b0 = 0; b0 < S.length; b0++) if (S[b0] && S[b0].t) allT.push(S[b0].t);
+      bwx = speakBareWords_(allT.join(' '), 8);
+    } catch (eBw) {}
+    var fl0 = (ep && ep.__fill) || {};
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
-                cw: cw, cb: cb,
+                cw: cw, cb: cb, bw: bwx,
+                fa: Number(fl0.a) || 0, fg: Number(fl0.g) || 0, fk: Number(fl0.k) || 0,
+                fr: Number(fl0.r) || 0, fx: String(fl0.x || '').slice(0, 60),
                 sv: Number(SPEAK_SALVAGE_.pieces) || 0,
                 sk: Number(SPEAK_SALVAGE_.kept) || 0,
                 sd: Number(SPEAK_SALVAGE_.dropped) || 0,
@@ -7195,6 +7312,12 @@ function speakSkipStatus_() {
       out.rawSents += Number(L[i].sd) || 0;
       out.words += Number(L[i].cw) || 0;
       out.bare += Number(L[i].cb) || 0;
+      out.fillAsked = (out.fillAsked || 0) + (Number(L[i].fa) || 0);
+      out.fillGot = (out.fillGot || 0) + (Number(L[i].fg) || 0);
+      out.fillKept = (out.fillKept || 0) + (Number(L[i].fk) || 0);
+      out.fillRej = (out.fillRej || 0) + (Number(L[i].fr) || 0);
+      if (L[i].fx) out.fillEx = String(L[i].fx);
+      if (L[i].bw && L[i].bw.length) out.bareEx = L[i].bw.slice(0, 8);
       var w0 = L[i].w || {};
       for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
         whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
@@ -7228,6 +7351,21 @@ function speakSkipStatus_() {
     if (out.words >= 300 && out.barePct > bareMax) {
       out.ok = false;
       out.line += ' — بیش از سقفِ ' + fa(bareMax) + '٪.';
+      /* ══ و چرا (۸.۳۲) ══ — سه علتِ ممکن، سه درمانِ متفاوت. بی این سطر،
+         ۱ تا ۳ اکتبر سه ایمیلِ پیاپی «بیش از سقف» گفتند و هیچ‌کس نتوانست
+         بگوید از کجا. قسمتِ پیش از ۸.۳۲ شاهد ندارد و «ثبت نشده» می‌گیرد،
+         نه صفر: نسنجیده با سالم یکی نیست. */
+      var fA = Number(out.fillAsked) || 0;
+      if (fA) {
+        out.line += ' ترمیم: ' + fa(fA) + ' واژه پرسیده شد، ' + fa(out.fillGot || 0) +
+                    ' جواب آمد، ' + fa(out.fillKept || 0) + ' پذیرفته، ' + fa(out.fillRej || 0) +
+                    ' به‌خاطرِ تغییرِ حروف رد' + (out.fillEx ? ' (نمونه: ' + out.fillEx + ')' : '') + '.';
+      } else {
+        out.line += ' ترمیم: شاهدی ثبت نشده (قسمت‌های پیش از ۸.۳۲، یا ترمیم اجرا نشد).';
+      }
+      if (out.bareEx && out.bareEx.length) {
+        out.line += ' واژه‌های بی‌علامتِ قسمتِ آخر: ' + out.bareEx.join('، ') + '.';
+      }
       try {
         /* ⚠️ `null` عمدی است: امضا `(hub, f)` است و تا ۸٫۲۰ این فراخوان یک
            آرگومانی بود، پس شیءِ یافته در جای `hub` می‌نشست و `f` می‌شد
@@ -13679,7 +13817,7 @@ function capHealthList_(list, maxChars) {
   return { list: out, omitted: 0 };
 }
 
-function saveHealthSnapshot_(problems, notes) {
+function saveHealthSnapshot_(problems, notes, chronic) {
   try {
     var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var it = folder.getFilesByName(STATUS_FILE);
@@ -13693,10 +13831,143 @@ function saveHealthSnapshot_(problems, notes) {
       problemCount: (problems || []).length,
       problems: capped.list,
       omitted: capped.omitted,
-      notes: (notes || []).slice(0, 20)
+      notes: (notes || []).slice(0, 20),
+      /* ایرادهایی که دیروز هم بودند (۸.۳۲) — قدیمی‌ترین اول. ناظر از همین‌جا
+         کارِ امروزش را برمی‌دارد، نه از «یافتهٔ تازه». */
+      chronic: (chronic || []).slice(0, 15)
     };
     f.setContent(JSON.stringify(st, null, 1));
   } catch (e) { logLine_('نوشتنِ خلاصهٔ سلامت ناموفق: ' + e.message); }
+}
+
+/* ═══════════ ایرادِ مزمن: «گزارش‌شده» با «رفع‌شده» یکی نیست (۸.۳۲) ═══════════
+
+   ۴ اکتبر صاحبِ برنامه پرسید: «اگر ایمیل‌ها را برایت نمی‌فرستادم، متوجهِ
+   اشتباهاتِ اتوماسیون می‌شدی؟» جوابِ راست «نه» بود — و علتش در خودِ ایمیل‌ها
+   بود: ایمیلِ ۱۰ صبحِ ۱ و ۲ و ۳ اکتبر **همان ایرادها** را هر روز نوشت
+   (اعراب بالای سقف، ۷۱ موسیقیِ نشنیده، سه ویدئوی گیرکرده، پیشرفتِ اثرِ انگشت)
+   و ناظر هر روز نوشت «یافتهٔ تازه‌ای نبود ⇒ کدی نساخته شد».
+
+   **هر دو درست می‌گفتند، و همین عیب بود.** ایمیل فهرستِ امروز را می‌دهد، بی
+   حافظه؛ ناظر «تازه» را می‌جوید. ایرادی که دیروز هم بود از هر دو صافی رد می‌شد:
+   برای ایمیل یک سطرِ دیگر، برای ناظر «قدیمی». **ایرادی که دیروز هم بود و امروز
+   هم هست، تازه نیست — بدتر است.** هیچ جای سامانه این را نمی‌شمرد.
+
+   ══ امضا، نه متن ══
+   سطرهای سلامت عدد دارند و عدد هر روز عوض می‌شود («۷۱ موسیقی» ⇒ «۷۳ موسیقی»).
+   مقایسهٔ متن یعنی هیچ ایرادی هرگز دو روز پشتِ‌هم «همان» نیست — همان سکوت. پس
+   رقم‌ها (فارسی، عربی، لاتین) و تاریخ و ساعت کنار می‌روند و ۷۰ نویسهٔ اولِ
+   باقی‌مانده امضاست.
+
+   ══ مرزها ══
+   • «⟨شما⟩» بیرون است: کاری که فقط از صاحبِ برنامه برمی‌آید ایرادِ کد نیست.
+   • یک روز غیبت زنجیره را نمی‌بُرد: healthCheck گاهی پیش از رسیدن به یک بخش
+     وقت کم می‌آورد (`skipped`)، و نبودنِ سطر آن روز یعنی «سنجیده نشد» نه «رفع شد».
+     دو روز غیبت یعنی رفع شده.
+   • دو اجرا در یک روز یک روز است، نه دو.
+   • خودِ سطرِ «مزمن» در شمارش نمی‌آید، وگرنه از روزِ دوم خودش مزمن می‌شد.
+   • سقفِ ۶۰ امضا و ۱۶۰ نویسه: Script Properties نُه کیلوبایت جا دارد.
+*/
+var CHRONIC_HEAD_ = 'ایرادهای مزمن';
+
+/** امضای پایدارِ یک سطرِ سلامت: بی عدد، بی تاریخ و ساعت، ۷۰ نویسهٔ اول. */
+function healthSig_(s) {
+  return String(s || '')
+    .replace(/\d{4}-\d{2}-\d{2}[ T]?\d{0,2}:?\d{0,2}(:\d{2})?/g, ' ')
+    .replace(/[0-9۰-۹٠-٩]+([.,٫][0-9۰-۹٠-٩]+)?/g, '#')
+    .replace(/[\s\u200c]+/g, ' ').trim().slice(0, 70);
+}
+
+/**
+ * ایرادهای امروز را با روزهای قبل می‌سنجد و آن‌هایی را که دست‌کم
+ * `HEALTH_CHRONIC_DAYS` روزِ پیاپی آمده‌اند برمی‌گرداند — قدیمی‌ترین اول.
+ * فقط از healthCheck صدا زده می‌شود (روزی یک بار).
+ */
+function healthChronic_(problems) {
+  var out = { list: [], line: '', n: 0 };
+  try {
+    var need = Math.max(2, Number(CFG.HEALTH_CHRONIC_DAYS) || 2);
+    var tz = CFG.TIMEZONE;            // همان قراردادِ بقیهٔ موتور (`speakSkipRecord_`)
+    var day = function (t) { return Utilities.formatDate(new Date(t), tz, 'yyyy-MM-dd'); };
+    var nowT = new Date().getTime();
+    var today = day(nowT), d1 = day(nowT - 86400000), d2 = day(nowT - 2 * 86400000);
+    var m = {};
+    try { m = JSON.parse(props_().getProperty(PK.HEALTH_CHRONIC) || '{}') || {}; } catch (e0) { m = {}; }
+    var seen = {};
+    for (var i = 0; i < (problems || []).length; i++) {
+      var p = String(problems[i] || '');
+      if (!p || p.indexOf(HY_) === 0 || p.indexOf(CHRONIC_HEAD_) === 0) continue;
+      var k = healthSig_(p);
+      if (!k || seen[k]) continue;
+      seen[k] = true;
+      var r = m[k];
+      if (r && r.l === today) { r.t = p.slice(0, 160); continue; }       // اجرای دومِ همان روز
+      if (r && (r.l === d1 || r.l === d2)) { r.d = (Number(r.d) || 1) + 1; r.l = today; r.t = p.slice(0, 160); }
+      else m[k] = { f: today, l: today, d: 1, t: p.slice(0, 160) };
+    }
+    /* زنجیرهٔ بریده (دو روز غیبت) پاک می‌شود — **این جاروست، نه سد**: سدِ
+       واقعی شرطِ «دیروز یا پریروز» در بالاست، و شکستنِ عمدیِ این خط هیچ سنجه‌ای
+       را سرخ نمی‌کند چون رکوردِ کهنه به‌هرحال از نو شروع می‌شود. کارش فقط این
+       است که Script Properties (نُه کیلوبایت) از امضای مرده پر نشود. */
+    for (var k2 in m) if (Object.prototype.hasOwnProperty.call(m, k2)) {
+      if (m[k2].l !== today && m[k2].l !== d1 && m[k2].l !== d2) delete m[k2];
+    }
+    var keys = Object.keys(m).sort(function (a, b) { return String(m[a].f).localeCompare(String(m[b].f)); });
+    while (keys.length > 60) delete m[keys.shift()];
+    try { props_().setProperty(PK.HEALTH_CHRONIC, JSON.stringify(m)); } catch (eW) {}
+    for (var j = 0; j < keys.length; j++) {
+      var q = m[keys[j]];
+      if (!q || q.l !== today || (Number(q.d) || 0) < need) continue;
+      out.list.push({ sig: keys[j], since: q.f, days: Number(q.d) || 0, text: q.t });
+    }
+    out.n = out.list.length;
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    out.line = out.n
+      ? CHRONIC_HEAD_ + ': ' + fa(out.n) + ' ایراد دست‌کم ' + fa(need) + ' روزِ پیاپی تکرار شده و هنوز رفع نشده — ' +
+        'قدیمی‌ترین: «' + auditCut_(out.list[0].text, 90) + '» (از ' + out.list[0].since + '، ' + fa(out.list[0].days) + ' روز).'
+      : 'ایرادِ مزمن: هیچ ایرادی دو روزِ پیاپی تکرار نشده.';
+  } catch (e) { out.line = 'ایرادِ مزمن: سنجیده نشد (' + e.message + ').'; }
+  return out;
+}
+
+/**
+ * ایرادی که `HEALTH_CHRONIC_FIND_DAYS` روز مانده، یافتهٔ **کد** می‌شود (۸.۳۲).
+ *
+ * سطرِ ایمیل فردا جایش را به سطرِ دیگری می‌دهد؛ ردیفِ صفِ `NEEDS_CODE` نه —
+ * و ناظر نسخهٔ بعد را از همان صف می‌سازد. کلید از امضاست نه از متن، پس فردا
+ * همان ردیف «تکرار» می‌خورد نه ردیفِ تازه. سقفِ پنج در روز: صفی که همه‌چیز
+ * را دارد صف نیست، و قدیمی‌ترین‌ها اول‌اند.
+ */
+function healthChronicFind_(hub, chr) {
+  var made = 0;
+  try {
+    var need = Math.max(2, Number(CFG.HEALTH_CHRONIC_FIND_DAYS) || 3);
+    var L = (chr && chr.list) || [];
+    for (var i = 0; i < L.length && made < 5; i++) {
+      var c = L[i];
+      if ((Number(c.days) || 0) < need) continue;
+      var hx = '';
+      try {
+        var dg = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(c.sig), Utilities.Charset.UTF_8);
+        for (var b = 0; b < 4; b++) hx += ('0' + ((dg[b] + 256) % 256).toString(16)).slice(-2);
+      } catch (eH) { hx = String(c.sig).length.toString(16); }
+      logSelfFinding_(hub, {
+        key: 'chronic-' + hx,
+        priority: (Number(c.days) || 0) >= 5 ? 'جدی' : 'متوسط',
+        category: 'ایرادِ مزمن',
+        title: 'ایرادِ مزمن (' + c.days + ' روزِ پیاپی): ' + auditCut_(c.text, 90),
+        detail: 'این سطر از ' + c.since + ' هر روز در وارسیِ سلامت آمده و رفع نشده: «' +
+                auditCut_(c.text, 300) + '». ایرادی که دیروز هم بود تازه نیست — بدتر است.',
+        instruction: 'علتِ ریشه‌ای را پیدا کن و نسخه بده — نه اینکه دوباره ثبتش کنی. اگر ' +
+                     'کارِ صاحبِ برنامه است، سطرِ سلامتش باید «⟨شما⟩» بگیرد؛ اگر کاری است ' +
+                     'که موتور می‌تواند، راهِ خودکارش را بساز. شناسه را در `answers`ِ ' +
+                     '`manifest.json` بیاور.',
+        owner: 'کد'
+      });
+      made++;
+    }
+  } catch (e) {}
+  return made;
 }
 
 /**
@@ -15425,7 +15696,20 @@ function healthCheck() {
                   skipped.join('، ') + '. (کلِ اجرا ' +
                   Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه)');
   }
-  saveHealthSnapshot_(problems, notes);
+  /* ══ ایرادِ مزمن (۸.۳۲) ══
+     ۱ تا ۳ اکتبر این ایمیل هر روز همان ایرادها را نوشت و ناظر هر روز نوشت
+     «یافتهٔ تازه‌ای نبود». هر دو درست می‌گفتند و همین عیب بود: فهرستِ امروز
+     حافظه ندارد. آنچه دو روزِ پیاپی آمده، **بالای** ایمیل می‌نشیند. */
+  var chr = { list: [], line: '', n: 0 };
+  try {
+    healthStep_('ایرادِ مزمن');
+    chr = healthChronic_(problems);
+    if (chr.n) {
+      problems.unshift(chr.line);
+      healthChronicFind_(hub, chr);
+    } else if (chr.line) notes.push(chr.line);
+  } catch (eCh) {}
+  saveHealthSnapshot_(problems, notes, chr.list);
   try { props_().setProperty(PK.HEALTH_STEP, 'تمام @ ' + nowStr_()); } catch (eHs) {}
   logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست') +
            ' — ' + Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه' +
@@ -18118,8 +18402,22 @@ function monChecksIngest_(rep, fileName) {
     var c = arr[i] || {};
     var k = String(c.key || '').trim();
     if (!k) continue;
-    m[k] = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
-             note: String(c.note || '').slice(0, 300) };
+    var prev = m[k] || {};
+    var rec = { at: nowStr_(), verdict: String(c.verdict || '').slice(0, 40),
+                note: String(c.note || '').slice(0, 300) };
+    /* ══ «نشد» زنجیره دارد (۸.۳۲) ══
+       تا ۸.۳۱ هر رکورد رکوردِ قبلی را بی‌حافظه می‌پوشاند، پس «نشد»ِ پنجمین
+       روز با «نشد»ِ روزِ اول یکی بود — و هر دو «گزارش‌شده» شمرده می‌شدند.
+       روزها جدا شمرده می‌شوند، نه گزارش‌ها: دو گزارش در یک روز یک روز است. */
+    if (/نشد/.test(rec.verdict)) {
+      var today = rec.at.slice(0, 10);
+      var was = /نشد/.test(String(prev.verdict || ''));
+      rec.skipSince = (was && prev.skipSince) ? String(prev.skipSince) : today;
+      rec.skipDays = !was ? 1 : (String(prev.skipDay || '') === today
+                                   ? (Number(prev.skipDays) || 1) : (Number(prev.skipDays) || 1) + 1);
+      rec.skipDay = today;
+    }
+    m[k] = rec;
     n++;
   }
   if (n || touched) monChecksSave_(m);
@@ -18148,15 +18446,21 @@ function monChecksStatus_(hub, raise) {
   var need = Math.max(1, Number(CFG.MONITOR_CHECK_DAYS) || 2);
   // چند روز است که *گزارشِ روزانه* می‌آید — پنجره‌ای که سکوت در آن معنا دارد
   var repAge = monCheckDays_((m.__rep || {}).firstAt ? { at: m.__rep.firstAt } : null);
-  var rows = [], silent = [];
+  var rows = [], silent = [], skipped = [];
+  var skipNeed = Math.max(1, Number(CFG.MONITOR_SKIP_DAYS) || 2);
   for (var i = 0; i < want.length; i++) {
     var w = want[i] || {};
     var d = monCheckDays_(m[w.key]);
     var r = { key: String(w.key || ''), title: String(w.title || ''),
               at: String((m[w.key] || {}).at || ''),
               verdict: String((m[w.key] || {}).verdict || ''),
+              note: String((m[w.key] || {}).note || ''),
+              skipDays: Number((m[w.key] || {}).skipDays) || 0,
               days: (d === null ? -1 : d) };
     rows.push(r);
+    /* «نشد»ِ کهنه شمرده نمی‌شود: اگر خودِ رکورد قدیمی است، آن «سکوت» است
+       و جای دیگری گفته می‌شود — یک ایراد، یک جمله. */
+    if (/نشد/.test(r.verdict) && r.skipDays >= skipNeed && d !== null && d < need) skipped.push(r);
     if (repAge === null || repAge < need) continue;   // هنوز پنجره‌ای نیست
     if (d === null || d >= need) silent.push(r);
   }
@@ -18179,6 +18483,34 @@ function monChecksStatus_(hub, raise) {
              return '«' + r.title + '» (' + (r.days < 0 ? 'هرگز' : fa(r.days) + ' روز') + ')';
            }).join(' · ') +
            '. سکوت یعنی نمی‌دانیم انجام شد و سالم بود یا اصلاً انجام نشد.';
+  }
+  /* ══ «نشد» دو روزِ پیاپی = شکست (۸.۳۲) ══
+     ۱ تا ۳ اکتبر پنج وارسیِ «باز کن و ببین» هر روز «نشد» خوردند و این تابع
+     نوشت «هر ۹ وارسی گزارش شده» — درست، و بی‌معنا. هیچ ویدئویی تماشا نشد و
+     همان ویدئو بی هیچ هشداری عمومی شد. «نشد» یک بار یعنی «امروز نتوانستم»؛
+     دو روزِ پیاپی یعنی وارسی وجود ندارد. */
+  if (skipped.length) {
+    line += (line ? ' ' : '') + '❌ «نشد» ' + fa(skipNeed) + ' روز یا بیشتر پشتِ‌هم: ' +
+            skipped.map(function (r) {
+              return '«' + r.title + '» (' + fa(r.skipDays) + ' روز' +
+                     (r.note ? ' — ' + auditCut_(r.note, 60) : ' — بی علت') + ')';
+            }).join(' · ') + '. وارسی‌ای که هر روز «نشد» می‌خورد، انجام نمی‌شود.';
+  }
+  if (skipped.length && raise === true) {
+    try {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'جدی', category: 'وارسیِ ناظر',
+        key: 'monitor-check-skipped',
+        title: 'وارسی‌های روزانه‌ای که ناظر روزهای پیاپی «نشد» می‌زند: ' +
+               skipped.map(function (r) { return r.key; }).join('، '),
+        detail: line,
+        instruction: 'علتِ فنیِ «نشد» را پیدا کن و برطرف کن — ابزار، دسترسی یا دستور. ' +
+                     'اگر سشنِ ناظر ابزاری ندارد، دستورش (`_PROMPT-monitor-v*.md`) باید ' +
+                     'راهِ دیگری بدهد؛ اگر کاری است که موتور می‌تواند، موتور انجامش بدهد. ' +
+                     '«نشد» بی علت پذیرفته نیست.',
+        owner: 'کد'
+      });
+    } catch (eSk) {}
   }
   /* یافته فقط از healthCheck (روزی یک بار) ساخته می‌شود، نه از writeStatus_
      که هر دو ساعت می‌دود: شمارندهٔ «تکرار» سنجهٔ بسته‌نشدنِ حلقه است و اگر
@@ -18204,7 +18536,8 @@ function monChecksStatus_(hub, raise) {
      نیاز دارد که **فقط** گزارشِ روزانهٔ ناظر بنویسدش (۸٫۱۷) — `__rep` تنها با
      نامِ `_REPORT-YYYYMMDD.json` مهر می‌خورد، نه با `_REPORT-tts-*` و نه با
      یافته‌های خودِ موتور. اینجا هیچ خواندنِ تازه‌ای نیست؛ همان `m`ِ بالا. */
-  return { rows: rows, silent: silent, ok: !silent.length, line: line,
+  return { rows: rows, silent: silent, skipped: skipped,
+           ok: !silent.length && !skipped.length, line: line,
            repAt: String((m.__rep || {}).lastAt || ''),
            repFirstAt: String((m.__rep || {}).firstAt || '') };
 }
@@ -34779,8 +35112,11 @@ function musicLine_(st) {
     }
     var line = 'موسیقی — ' + bits.join(' · ');
     if (Number(st.unheard) > 0) {
-      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. ' +
-              'از منو «🔎 بازبینیِ بانک» یک بار همه را می‌شنود.';
+      /* «از منو بزنید» کار را به صاحبِ برنامه حواله می‌داد، در حالی که
+         موتور خودش هر شب می‌شنود — و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما بود،
+         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست. */
+      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. موتور هر شب تا ' +
+              fa(Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3)) + ' تا را خودش می‌شنود.';
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }
@@ -36359,6 +36695,18 @@ function musicSlotCounts_(hub, bankIn) {
  * فایل‌های موجود می‌زند و ردشده‌ها را به زیرپوشهٔ «کنارگذاشته» می‌بَرد —
  * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
  */
+/**
+ * چند بار **با همین سازوکارِ شنیدن** پرسیده شده (۸.۳۲).
+ * تلاشی که با نسخهٔ دیگری از `musicListen_` ثبت شده، شمرده نمی‌شود: تا ۸.۳۱
+ * هر «تلاش» با سقفِ ۴۸ توکن بود و مدل اصلاً فرصتِ جواب نداشت — شمردنِ آن‌ها
+ * یعنی قطعه‌ای را برای همیشه کنار بگذاریم به جرمِ خطای خودمان.
+ */
+function musicHearTries_(mt) {
+  if (!mt) return 0;
+  if (String(mt.hv || '') !== String(CFG.MUSIC_HEAR_VER || '')) return 0;
+  return Number(mt.tries) || 0;
+}
+
 function musicRecheck_(hub, opt) {
   opt = opt || {};
   var out = { checked: 0, moved: 0, kept: 0, heard: 0, notes: [] };
@@ -36446,7 +36794,7 @@ function musicRecheck_(hub, opt) {
      * بتواند بازش کند بسته نمی‌شود (۵.۹۵). */
     if (opt.onlyUnknown) {
       var tmax = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
-      if ((Number(mt && mt.tries) || 0) >= tmax) { out.skipped = (out.skipped || 0) + 1; continue; }
+      if (musicHearTries_(mt) >= tmax) { out.skipped = (out.skipped || 0) + 1; continue; }
     }
 
     var bytes = null, info = null;
@@ -36468,7 +36816,8 @@ function musicRecheck_(hub, opt) {
       if (!acc.sure) {
         try {
           var na = mt || {};
-          na.tries = String((Number(na.tries) || 0) + 1);
+          na.tries = String(musicHearTries_(na) + 1);
+          na.hv = String(CFG.MUSIC_HEAR_VER || '');
           na.lastTry = nowStr_();
           na.verdict = String(acc.why || '');
           if (!na.title) na.title = f2.getName().replace(/\.wav$/i, '');
@@ -37117,9 +37466,13 @@ function musicListen_(b, info, name) {
     if (!info || !(info.seconds > 0)) return '';
     var b64 = musicExcerpt_(b, info, 8);
     if (!b64) return '';
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
-    var payload = { contents: [{ role: 'user', parts: [
+    /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
+       تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،
+       پس هر شب «شنیدنِ مدل نتیجه نداد: جوابِ خام «»» — و پس از
+       `MUSIC_HEAR_TRY_MAX` بار، قطعه برای همیشه از صفِ شبانه بیرون رفت و
+       خطِ روزانه کار را به منوی صاحبِ برنامه حواله داد. ۷۱ قطعه. سقف حالا از
+       `geminiShort_` می‌آید، همان یک تعریف برای همهٔ فراخوان‌های کوتاه. */
+    var parts = [
       { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست پخش شود.\n\n' +
               'فقط یکی از این پنج واژه را برگردان، بی هیچ توضیحی:\n' +
               '«آهنگ» — موسیقی با ملودی یا ضرب: چیزی که بشود آن را زمزمه کرد و ' +
@@ -37130,9 +37483,9 @@ function musicListen_(b, info, name) {
               '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
               '«نامعلوم» — اگر مطمئن نیستی.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
-    ] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } };
+    ];
 
-    var j = geminiFetch_(url, payload);
+    var j = geminiShort_(parts, { min: 1024 });
     var t = String(extractText_(j) || '');
     if (t.indexOf('گفتار') !== -1) return 'گفتار';
     if (t.indexOf('جلوه') !== -1) return 'جلوه';
@@ -37150,7 +37503,8 @@ function musicListen_(b, info, name) {
        هر افکتی را می‌گرفت، مهم‌ترین شکستِ این زنجیره نامرئی‌ترینش بود.
        جوابِ خامِ مدل نوشته می‌شود تا دفعهٔ بعد بشود فهمید چرا. */
     logLine_('شنیدنِ مدل نتیجه نداد (' + auditCut_(String(name || ''), 40) +
-             '): جوابِ خام «' + auditCut_(t, 40) + '»');
+             '): جوابِ خام «' + auditCut_(t, 40) + '»' +
+             (j && j._why ? ' — علت: ' + j._why : ''));
     return '';
   } catch (e) {
     logLine_('شنیدنِ مدل انجام نشد (' + String(name || '') + '): ' + e.message);
@@ -46874,20 +47228,10 @@ function lvSceneJudge_(batch) {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
       hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-            textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
-     خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). پس بودجهٔ فکر کوچک و سقف بزرگ،
-     و مدلی که `thinkingConfig` را نپذیرد یک بار بی آن پرسیده می‌شود. */
-  var gen = { temperature: 0, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 256 },
-              responseMimeType: 'application/json', responseSchema: schema };
-  var j;
-  try { j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen }); }
-  catch (eT) {
-    if (!/HTTP 400/.test(String(eT.message)) || !/think/i.test(String(eT.message))) throw eT;
-    delete gen.thinkingConfig;
-    j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen });
-  }
+     خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). `geminiShort_` (۸.۳۲) تنها
+     تعریفِ این مرز است؛ نگارشِ ۸.۳۱ همین را این‌جا جدا نوشته بود. */
+  var j = geminiShort_(parts, { min: 4096, think: 256, schema: schema });
   var txt = String(extractText_(j) || '');
   var r = null;
   try { r = JSON.parse(txt); } catch (eP) { r = repairJson_(txt, eP.message); }

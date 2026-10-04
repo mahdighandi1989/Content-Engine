@@ -653,7 +653,7 @@ function capHealthList_(list, maxChars) {
   return { list: out, omitted: 0 };
 }
 
-function saveHealthSnapshot_(problems, notes) {
+function saveHealthSnapshot_(problems, notes, chronic) {
   try {
     var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
     var it = folder.getFilesByName(STATUS_FILE);
@@ -667,10 +667,143 @@ function saveHealthSnapshot_(problems, notes) {
       problemCount: (problems || []).length,
       problems: capped.list,
       omitted: capped.omitted,
-      notes: (notes || []).slice(0, 20)
+      notes: (notes || []).slice(0, 20),
+      /* ایرادهایی که دیروز هم بودند (۸.۳۲) — قدیمی‌ترین اول. ناظر از همین‌جا
+         کارِ امروزش را برمی‌دارد، نه از «یافتهٔ تازه». */
+      chronic: (chronic || []).slice(0, 15)
     };
     f.setContent(JSON.stringify(st, null, 1));
   } catch (e) { logLine_('نوشتنِ خلاصهٔ سلامت ناموفق: ' + e.message); }
+}
+
+/* ═══════════ ایرادِ مزمن: «گزارش‌شده» با «رفع‌شده» یکی نیست (۸.۳۲) ═══════════
+
+   ۴ اکتبر صاحبِ برنامه پرسید: «اگر ایمیل‌ها را برایت نمی‌فرستادم، متوجهِ
+   اشتباهاتِ اتوماسیون می‌شدی؟» جوابِ راست «نه» بود — و علتش در خودِ ایمیل‌ها
+   بود: ایمیلِ ۱۰ صبحِ ۱ و ۲ و ۳ اکتبر **همان ایرادها** را هر روز نوشت
+   (اعراب بالای سقف، ۷۱ موسیقیِ نشنیده، سه ویدئوی گیرکرده، پیشرفتِ اثرِ انگشت)
+   و ناظر هر روز نوشت «یافتهٔ تازه‌ای نبود ⇒ کدی نساخته شد».
+
+   **هر دو درست می‌گفتند، و همین عیب بود.** ایمیل فهرستِ امروز را می‌دهد، بی
+   حافظه؛ ناظر «تازه» را می‌جوید. ایرادی که دیروز هم بود از هر دو صافی رد می‌شد:
+   برای ایمیل یک سطرِ دیگر، برای ناظر «قدیمی». **ایرادی که دیروز هم بود و امروز
+   هم هست، تازه نیست — بدتر است.** هیچ جای سامانه این را نمی‌شمرد.
+
+   ══ امضا، نه متن ══
+   سطرهای سلامت عدد دارند و عدد هر روز عوض می‌شود («۷۱ موسیقی» ⇒ «۷۳ موسیقی»).
+   مقایسهٔ متن یعنی هیچ ایرادی هرگز دو روز پشتِ‌هم «همان» نیست — همان سکوت. پس
+   رقم‌ها (فارسی، عربی، لاتین) و تاریخ و ساعت کنار می‌روند و ۷۰ نویسهٔ اولِ
+   باقی‌مانده امضاست.
+
+   ══ مرزها ══
+   • «⟨شما⟩» بیرون است: کاری که فقط از صاحبِ برنامه برمی‌آید ایرادِ کد نیست.
+   • یک روز غیبت زنجیره را نمی‌بُرد: healthCheck گاهی پیش از رسیدن به یک بخش
+     وقت کم می‌آورد (`skipped`)، و نبودنِ سطر آن روز یعنی «سنجیده نشد» نه «رفع شد».
+     دو روز غیبت یعنی رفع شده.
+   • دو اجرا در یک روز یک روز است، نه دو.
+   • خودِ سطرِ «مزمن» در شمارش نمی‌آید، وگرنه از روزِ دوم خودش مزمن می‌شد.
+   • سقفِ ۶۰ امضا و ۱۶۰ نویسه: Script Properties نُه کیلوبایت جا دارد.
+*/
+var CHRONIC_HEAD_ = 'ایرادهای مزمن';
+
+/** امضای پایدارِ یک سطرِ سلامت: بی عدد، بی تاریخ و ساعت، ۷۰ نویسهٔ اول. */
+function healthSig_(s) {
+  return String(s || '')
+    .replace(/\d{4}-\d{2}-\d{2}[ T]?\d{0,2}:?\d{0,2}(:\d{2})?/g, ' ')
+    .replace(/[0-9۰-۹٠-٩]+([.,٫][0-9۰-۹٠-٩]+)?/g, '#')
+    .replace(/[\s\u200c]+/g, ' ').trim().slice(0, 70);
+}
+
+/**
+ * ایرادهای امروز را با روزهای قبل می‌سنجد و آن‌هایی را که دست‌کم
+ * `HEALTH_CHRONIC_DAYS` روزِ پیاپی آمده‌اند برمی‌گرداند — قدیمی‌ترین اول.
+ * فقط از healthCheck صدا زده می‌شود (روزی یک بار).
+ */
+function healthChronic_(problems) {
+  var out = { list: [], line: '', n: 0 };
+  try {
+    var need = Math.max(2, Number(CFG.HEALTH_CHRONIC_DAYS) || 2);
+    var tz = CFG.TIMEZONE;            // همان قراردادِ بقیهٔ موتور (`speakSkipRecord_`)
+    var day = function (t) { return Utilities.formatDate(new Date(t), tz, 'yyyy-MM-dd'); };
+    var nowT = new Date().getTime();
+    var today = day(nowT), d1 = day(nowT - 86400000), d2 = day(nowT - 2 * 86400000);
+    var m = {};
+    try { m = JSON.parse(props_().getProperty(PK.HEALTH_CHRONIC) || '{}') || {}; } catch (e0) { m = {}; }
+    var seen = {};
+    for (var i = 0; i < (problems || []).length; i++) {
+      var p = String(problems[i] || '');
+      if (!p || p.indexOf(HY_) === 0 || p.indexOf(CHRONIC_HEAD_) === 0) continue;
+      var k = healthSig_(p);
+      if (!k || seen[k]) continue;
+      seen[k] = true;
+      var r = m[k];
+      if (r && r.l === today) { r.t = p.slice(0, 160); continue; }       // اجرای دومِ همان روز
+      if (r && (r.l === d1 || r.l === d2)) { r.d = (Number(r.d) || 1) + 1; r.l = today; r.t = p.slice(0, 160); }
+      else m[k] = { f: today, l: today, d: 1, t: p.slice(0, 160) };
+    }
+    /* زنجیرهٔ بریده (دو روز غیبت) پاک می‌شود — **این جاروست، نه سد**: سدِ
+       واقعی شرطِ «دیروز یا پریروز» در بالاست، و شکستنِ عمدیِ این خط هیچ سنجه‌ای
+       را سرخ نمی‌کند چون رکوردِ کهنه به‌هرحال از نو شروع می‌شود. کارش فقط این
+       است که Script Properties (نُه کیلوبایت) از امضای مرده پر نشود. */
+    for (var k2 in m) if (Object.prototype.hasOwnProperty.call(m, k2)) {
+      if (m[k2].l !== today && m[k2].l !== d1 && m[k2].l !== d2) delete m[k2];
+    }
+    var keys = Object.keys(m).sort(function (a, b) { return String(m[a].f).localeCompare(String(m[b].f)); });
+    while (keys.length > 60) delete m[keys.shift()];
+    try { props_().setProperty(PK.HEALTH_CHRONIC, JSON.stringify(m)); } catch (eW) {}
+    for (var j = 0; j < keys.length; j++) {
+      var q = m[keys[j]];
+      if (!q || q.l !== today || (Number(q.d) || 0) < need) continue;
+      out.list.push({ sig: keys[j], since: q.f, days: Number(q.d) || 0, text: q.t });
+    }
+    out.n = out.list.length;
+    var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    out.line = out.n
+      ? CHRONIC_HEAD_ + ': ' + fa(out.n) + ' ایراد دست‌کم ' + fa(need) + ' روزِ پیاپی تکرار شده و هنوز رفع نشده — ' +
+        'قدیمی‌ترین: «' + auditCut_(out.list[0].text, 90) + '» (از ' + out.list[0].since + '، ' + fa(out.list[0].days) + ' روز).'
+      : 'ایرادِ مزمن: هیچ ایرادی دو روزِ پیاپی تکرار نشده.';
+  } catch (e) { out.line = 'ایرادِ مزمن: سنجیده نشد (' + e.message + ').'; }
+  return out;
+}
+
+/**
+ * ایرادی که `HEALTH_CHRONIC_FIND_DAYS` روز مانده، یافتهٔ **کد** می‌شود (۸.۳۲).
+ *
+ * سطرِ ایمیل فردا جایش را به سطرِ دیگری می‌دهد؛ ردیفِ صفِ `NEEDS_CODE` نه —
+ * و ناظر نسخهٔ بعد را از همان صف می‌سازد. کلید از امضاست نه از متن، پس فردا
+ * همان ردیف «تکرار» می‌خورد نه ردیفِ تازه. سقفِ پنج در روز: صفی که همه‌چیز
+ * را دارد صف نیست، و قدیمی‌ترین‌ها اول‌اند.
+ */
+function healthChronicFind_(hub, chr) {
+  var made = 0;
+  try {
+    var need = Math.max(2, Number(CFG.HEALTH_CHRONIC_FIND_DAYS) || 3);
+    var L = (chr && chr.list) || [];
+    for (var i = 0; i < L.length && made < 5; i++) {
+      var c = L[i];
+      if ((Number(c.days) || 0) < need) continue;
+      var hx = '';
+      try {
+        var dg = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(c.sig), Utilities.Charset.UTF_8);
+        for (var b = 0; b < 4; b++) hx += ('0' + ((dg[b] + 256) % 256).toString(16)).slice(-2);
+      } catch (eH) { hx = String(c.sig).length.toString(16); }
+      logSelfFinding_(hub, {
+        key: 'chronic-' + hx,
+        priority: (Number(c.days) || 0) >= 5 ? 'جدی' : 'متوسط',
+        category: 'ایرادِ مزمن',
+        title: 'ایرادِ مزمن (' + c.days + ' روزِ پیاپی): ' + auditCut_(c.text, 90),
+        detail: 'این سطر از ' + c.since + ' هر روز در وارسیِ سلامت آمده و رفع نشده: «' +
+                auditCut_(c.text, 300) + '». ایرادی که دیروز هم بود تازه نیست — بدتر است.',
+        instruction: 'علتِ ریشه‌ای را پیدا کن و نسخه بده — نه اینکه دوباره ثبتش کنی. اگر ' +
+                     'کارِ صاحبِ برنامه است، سطرِ سلامتش باید «⟨شما⟩» بگیرد؛ اگر کاری است ' +
+                     'که موتور می‌تواند، راهِ خودکارش را بساز. شناسه را در `answers`ِ ' +
+                     '`manifest.json` بیاور.',
+        owner: 'کد'
+      });
+      made++;
+    }
+  } catch (e) {}
+  return made;
 }
 
 /**
@@ -2399,7 +2532,20 @@ function healthCheck() {
                   skipped.join('، ') + '. (کلِ اجرا ' +
                   Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه)');
   }
-  saveHealthSnapshot_(problems, notes);
+  /* ══ ایرادِ مزمن (۸.۳۲) ══
+     ۱ تا ۳ اکتبر این ایمیل هر روز همان ایرادها را نوشت و ناظر هر روز نوشت
+     «یافتهٔ تازه‌ای نبود». هر دو درست می‌گفتند و همین عیب بود: فهرستِ امروز
+     حافظه ندارد. آنچه دو روزِ پیاپی آمده، **بالای** ایمیل می‌نشیند. */
+  var chr = { list: [], line: '', n: 0 };
+  try {
+    healthStep_('ایرادِ مزمن');
+    chr = healthChronic_(problems);
+    if (chr.n) {
+      problems.unshift(chr.line);
+      healthChronicFind_(hub, chr);
+    } else if (chr.line) notes.push(chr.line);
+  } catch (eCh) {}
+  saveHealthSnapshot_(problems, notes, chr.list);
   try { props_().setProperty(PK.HEALTH_STEP, 'تمام @ ' + nowStr_()); } catch (eHs) {}
   logLine_('وارسی سلامت: ' + (problems.length ? problems.length + ' ایراد' : 'همه‌چیز درست') +
            ' — ' + Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه' +

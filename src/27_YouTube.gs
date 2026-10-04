@@ -4964,20 +4964,10 @@ function lvSceneJudge_(batch) {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
       hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-            textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
-     خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). پس بودجهٔ فکر کوچک و سقف بزرگ،
-     و مدلی که `thinkingConfig` را نپذیرد یک بار بی آن پرسیده می‌شود. */
-  var gen = { temperature: 0, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 256 },
-              responseMimeType: 'application/json', responseSchema: schema };
-  var j;
-  try { j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen }); }
-  catch (eT) {
-    if (!/HTTP 400/.test(String(eT.message)) || !/think/i.test(String(eT.message))) throw eT;
-    delete gen.thinkingConfig;
-    j = geminiFetch_(url, { contents: [{ role: 'user', parts: parts }], generationConfig: gen });
-  }
+     خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). `geminiShort_` (۸.۳۲) تنها
+     تعریفِ این مرز است؛ نگارشِ ۸.۳۱ همین را این‌جا جدا نوشته بود. */
+  var j = geminiShort_(parts, { min: 4096, think: 256, schema: schema });
   var txt = String(extractText_(j) || '');
   var r = null;
   try { r = JSON.parse(txt); } catch (eP) { r = repairJson_(txt, eP.message); }

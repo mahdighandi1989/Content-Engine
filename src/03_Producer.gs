@@ -31,6 +31,64 @@ function geminiFetch_(url, payload) {
 }
 
 /**
+ * فراخوانِ کوتاه (شنیدن، داوری، رونویسی) — **یک تعریف** برای سقفِ توکن (۸.۳۲).
+ *
+ * ══ چرا ══
+ * مدل‌های متنیِ امروز پیش از جواب «فکر» می‌کنند، و فکر از **همان**
+ * `maxOutputTokens` می‌خورد. `musicListen_` سقفِ ۴۸ داشت: مدل ۴۸ توکن فکر کرد
+ * و جوابی نماند — «شنیدنِ مدل نتیجه نداد: جوابِ خام «»». هفته‌ها، هر شب، و
+ * ۷۱ قطعه بی‌داوری ماند. همان دام در `ttsCueLeaked_` (۲۵۶) هم بود.
+ * `geminiText_` از این دام جان به در می‌بَرد (پاسخِ بریده را با سقفِ چهاربرابر
+ * دوباره می‌پرسد)؛ فراخوان‌های خامِ `geminiFetch_` این حلقه را ندارند.
+ *
+ * پس سقف هرگز کمتر از `min` (۱۰۲۴) نیست، فکر بودجهٔ کوچکِ جدا دارد، و مدلی
+ * که `thinkingConfig` را نپذیرد یک بار بی آن پرسیده می‌شود — و این ردّ
+ * به خاطر سپرده می‌شود (`rememberDrop_`)، همان حافظه‌ای که `geminiText_` دارد.
+ * پاسخی که باز هم بی‌متن بیاید، **علتش** را با خود دارد (`_why`)، چون
+ * «جوابِ خام «»» به‌تنهایی هیچ‌چیز نمی‌گوید.
+ */
+function geminiShort_(parts, opt) {
+  opt = opt || {};
+  var model = opt.model || textModel_();
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+            model + ':generateContent?key=' + encodeURIComponent(apiKey_());
+  var gen = { temperature: 0,
+              /* کف ساختاری است، نه پیش‌فرض: `min` کمتر از ۱۰۲۴ نادیده گرفته می‌شود. */
+              maxOutputTokens: Math.max(1024, Number(opt.min) || 0, Number(opt.max) || 0),
+              thinkingConfig: { thinkingBudget: Math.max(0, Number(opt.think) || 128) } };
+  if (opt.schema) { gen.responseMimeType = 'application/json'; gen.responseSchema = opt.schema; }
+  var dropped = { thinking: false };
+  try { dropped = modelDrops_(model); } catch (eD) {}
+  if (dropped.thinking) delete gen.thinkingConfig;
+  var payload = { contents: [{ role: 'user', parts: parts }], generationConfig: gen };
+  var j;
+  try { j = geminiFetch_(url, payload); }
+  catch (e) {
+    var m = String(e.message || '');
+    if (!gen.thinkingConfig || !/HTTP 400/.test(m) || !/think/i.test(m)) throw e;
+    delete gen.thinkingConfig;
+    try { rememberDrop_(model, 'thinking'); } catch (eR) {}
+    j = geminiFetch_(url, payload);
+  }
+  /* پاسخِ بریده (سقف) یک بار با سقفِ بزرگ‌تر و بی فکر — همان پلهٔ آخرِ
+     `geminiText_`، نه همهٔ نردبانش: این فراخوان‌ها کوتاه‌اند و ارزان باید بمانند. */
+  try {
+    if (!String(extractText_(j) || '').trim()) {
+      var w = emptyWhy_(j);
+      if (w && w.truncated && !w.blocked) {
+        gen.maxOutputTokens = Math.max(4096, gen.maxOutputTokens * 4);
+        delete gen.thinkingConfig;
+        j = geminiFetch_(url, payload);
+        if (!String(extractText_(j) || '').trim()) j._why = (emptyWhy_(j) || {}).reason || w.reason;
+      } else if (w) {
+        j._why = w.reason + (w.detail ? ' · ' + w.detail : '');
+      }
+    }
+  } catch (eW) {}
+  return j;
+}
+
+/**
  * چه چیزهایی را این مدل قبلاً نپذیرفته است.
  * در ویژگی‌های اسکریپت می‌ماند تا هر فراخوانِ بعدی از همان‌جا شروع کند و
  * درخواست‌های ۴۰۰ تکرار نشوند. با عوض‌شدنِ مدل، حافظه‌اش هم عوض می‌شود.
@@ -1026,13 +1084,14 @@ function ttsCueLeaked_(pcmB64, cueText, spokenText) {
   try {
     if (!pcmB64 || !cueText) return { leaked: false, heard: '' };
     var b64 = ttsWavOf_(pcmB64, Number(CFG.TTS_CUE_VERIFY_SEC) || 6);
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
-    var j = geminiFetch_(url, { contents: [{ role: 'user', parts: [
+    /* سقفِ ۲۵۶ با مدلِ فکرکننده همان دامِ ۴۸ توکنیِ `musicListen_` بود:
+       فکر همه را می‌خورد و «نشنیدم» برمی‌گشت — یعنی نگهبانی که هرگز
+       نمی‌شنید (۸.۳۲). `geminiShort_` تنها تعریفِ سقفِ فراخوانِ کوتاه است. */
+    var j = geminiShort_([
       { text: 'دقیقاً بنویس در این صدا چه گفته می‌شود. فقط خودِ واژه‌ها، ' +
               'بی هیچ توضیح یا نشانه‌گذاریِ اضافه.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
-    ] }], generationConfig: { temperature: 0, maxOutputTokens: 256 } });
+    ], { min: 1024 });
 
     var heard = String(extractAudioText_(j) || '').replace(/\s+/g, ' ').trim();
     if (!heard) return { leaked: false, heard: '' };
@@ -2655,6 +2714,10 @@ function speakPieces_(text, cap) {
 }
 
 var SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
+/* شاهدِ آخرین ترمیمِ واژه‌های بی‌اعراب (۸.۳۲): چند واژه پرسیده شد، چند
+   پذیرفته، چند به‌خاطرِ تغییرِ حروف رد. `speakReview_` روی پروندهٔ قسمت
+   (`__fill`) جمعش می‌کند تا از اجرای بعد هم دیده شود. */
+var SPEAK_FILL_LAST_ = null;
 
 /**
  * ══ یک واژهٔ خراب نباید هشتاد‌وهفت واژهٔ سالم را با خود ببرد (۶٫۸۹) ══
@@ -2917,16 +2980,32 @@ function speakFillBare_(vowelled, words) {
     '• فقط اعراب اضافه کن: فتحه، کسره، ضمه، سکون، تشدید.\n' +
     '• ترتیب و شمارِ فهرست را نگه دار: به‌ازای هر ورودی دقیقاً یک خروجی.\n\n' +
     'فهرست:\n' + words.join('\n');
+  /* ══ شاهد، چون ۱۲٪ ماند و هیچ‌جا نگفت چرا (۸.۳۲) ══
+     از ۸.۰۴ این ترمیم هست و پوششِ واژه‌ای ۱۲ تا ۱۳ درصد ماند. سه علتِ
+     ممکن با سه درمانِ متفاوت — مدل جواب نداد، جواب داد و سدِ حروف ردش کرد،
+     یا پذیرفته شد و جایش در متن پیدا نشد — و هیچ‌کدام شمرده نمی‌شد. */
+  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '' };
+  SPEAK_FILL_LAST_ = stat;
   var r = null;
   try { r = geminiText_(prompt, SPEAK_FILL_SCHEMA, 4096); } catch (e) { return null; }
   var got = (r && r.w) || [];
+  stat.g = got.length;
   if (!got.length) return null;
 
   var map = {};
   for (var i = 0; i < words.length && i < got.length; i++) {
-    var to = String(got[i] || '').trim();
+    /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
+       بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
+       پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. */
+    var to = String(got[i] || '').trim()
+      .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654]/g, '');
     if (!to || to === words[i]) continue;
-    if (bare(to) !== words[i]) continue;          // حروف عوض شده ⇒ دور
+    if (bare(to) !== words[i]) {                  // حروف عوض شده ⇒ دور
+      stat.r++;
+      if (!stat.x) stat.x = words[i] + ' ⇒ ' + to.slice(0, 30);
+      continue;
+    }
+    stat.k++;
     /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست و **نوشتنش کدِ مرده بود**:
        `words` همیشه بی‌علامت می‌آید (از `speakBareWords_`)، پس جوابی که هم
        حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار دستِ‌کم یک علامت
@@ -3221,7 +3300,15 @@ function speakReview_(ep, segs, deadline, persist, epLabel) {
       return { done: false, seen: seen, fixed: fixed, learned: 0 };
     }
     touched++; seen++;
+    SPEAK_FILL_LAST_ = null;
     var r = speakReviewText_(plain, e.t);
+    if (SPEAK_FILL_LAST_) {
+      var fl = ep.__fill || { a: 0, g: 0, k: 0, r: 0, x: '' };
+      fl.a += SPEAK_FILL_LAST_.a; fl.g += SPEAK_FILL_LAST_.g;
+      fl.k += SPEAK_FILL_LAST_.k; fl.r += SPEAK_FILL_LAST_.r;
+      if (!fl.x && SPEAK_FILL_LAST_.x) fl.x = SPEAK_FILL_LAST_.x;
+      ep.__fill = fl;
+    }
     if (r && r.t) {
       e.t = r.t;
       if (r.fixed) { fixed += r.fixed; notes = notes.concat(r.notes); }
@@ -3320,9 +3407,20 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       if (!S[c0] || !S[c0].t) continue;
       try { var cv = speakCover_(S[c0].t); cw += cv.words; cb += cv.bare; } catch (eCv) {}
     }
+    /* و **کدام** واژه‌ها بی‌علامت ماندند (۸.۳۲) — «۷۰۱ واژه» اقدام‌پذیر
+       نیست، «پی‌ریزی، هندسه، …» هست. */
+    var bwx = [];
+    try {
+      var allT = [];
+      for (var b0 = 0; b0 < S.length; b0++) if (S[b0] && S[b0].t) allT.push(S[b0].t);
+      bwx = speakBareWords_(allT.join(' '), 8);
+    } catch (eBw) {}
+    var fl0 = (ep && ep.__fill) || {};
     var rec = { at: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
                 l: String(label || ''), n: total, s: skipped, w: why, ex: ev,
-                cw: cw, cb: cb,
+                cw: cw, cb: cb, bw: bwx,
+                fa: Number(fl0.a) || 0, fg: Number(fl0.g) || 0, fk: Number(fl0.k) || 0,
+                fr: Number(fl0.r) || 0, fx: String(fl0.x || '').slice(0, 60),
                 sv: Number(SPEAK_SALVAGE_.pieces) || 0,
                 sk: Number(SPEAK_SALVAGE_.kept) || 0,
                 sd: Number(SPEAK_SALVAGE_.dropped) || 0,
@@ -3387,6 +3485,12 @@ function speakSkipStatus_() {
       out.rawSents += Number(L[i].sd) || 0;
       out.words += Number(L[i].cw) || 0;
       out.bare += Number(L[i].cb) || 0;
+      out.fillAsked = (out.fillAsked || 0) + (Number(L[i].fa) || 0);
+      out.fillGot = (out.fillGot || 0) + (Number(L[i].fg) || 0);
+      out.fillKept = (out.fillKept || 0) + (Number(L[i].fk) || 0);
+      out.fillRej = (out.fillRej || 0) + (Number(L[i].fr) || 0);
+      if (L[i].fx) out.fillEx = String(L[i].fx);
+      if (L[i].bw && L[i].bw.length) out.bareEx = L[i].bw.slice(0, 8);
       var w0 = L[i].w || {};
       for (var k0 in w0) if (Object.prototype.hasOwnProperty.call(w0, k0)) {
         whyAll[k0] = (whyAll[k0] || 0) + (Number(w0[k0]) || 0);
@@ -3420,6 +3524,21 @@ function speakSkipStatus_() {
     if (out.words >= 300 && out.barePct > bareMax) {
       out.ok = false;
       out.line += ' — بیش از سقفِ ' + fa(bareMax) + '٪.';
+      /* ══ و چرا (۸.۳۲) ══ — سه علتِ ممکن، سه درمانِ متفاوت. بی این سطر،
+         ۱ تا ۳ اکتبر سه ایمیلِ پیاپی «بیش از سقف» گفتند و هیچ‌کس نتوانست
+         بگوید از کجا. قسمتِ پیش از ۸.۳۲ شاهد ندارد و «ثبت نشده» می‌گیرد،
+         نه صفر: نسنجیده با سالم یکی نیست. */
+      var fA = Number(out.fillAsked) || 0;
+      if (fA) {
+        out.line += ' ترمیم: ' + fa(fA) + ' واژه پرسیده شد، ' + fa(out.fillGot || 0) +
+                    ' جواب آمد، ' + fa(out.fillKept || 0) + ' پذیرفته، ' + fa(out.fillRej || 0) +
+                    ' به‌خاطرِ تغییرِ حروف رد' + (out.fillEx ? ' (نمونه: ' + out.fillEx + ')' : '') + '.';
+      } else {
+        out.line += ' ترمیم: شاهدی ثبت نشده (قسمت‌های پیش از ۸.۳۲، یا ترمیم اجرا نشد).';
+      }
+      if (out.bareEx && out.bareEx.length) {
+        out.line += ' واژه‌های بی‌علامتِ قسمتِ آخر: ' + out.bareEx.join('، ') + '.';
+      }
       try {
         /* ⚠️ `null` عمدی است: امضا `(hub, f)` است و تا ۸٫۲۰ این فراخوان یک
            آرگومانی بود، پس شیءِ یافته در جای `hub` می‌نشست و `f` می‌شد

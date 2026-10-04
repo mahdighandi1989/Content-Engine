@@ -1521,8 +1521,11 @@ function musicLine_(st) {
     }
     var line = 'موسیقی — ' + bits.join(' · ');
     if (Number(st.unheard) > 0) {
-      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. ' +
-              'از منو «🔎 بازبینیِ بانک» یک بار همه را می‌شنود.';
+      /* «از منو بزنید» کار را به صاحبِ برنامه حواله می‌داد، در حالی که
+         موتور خودش هر شب می‌شنود — و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما بود،
+         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست. */
+      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. موتور هر شب تا ' +
+              fa(Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3)) + ' تا را خودش می‌شنود.';
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }
@@ -3101,6 +3104,18 @@ function musicSlotCounts_(hub, bankIn) {
  * فایل‌های موجود می‌زند و ردشده‌ها را به زیرپوشهٔ «کنارگذاشته» می‌بَرد —
  * پاک نمی‌کند. اگر سنجه اشتباه کرده باشد، فایل هنوز آنجاست.
  */
+/**
+ * چند بار **با همین سازوکارِ شنیدن** پرسیده شده (۸.۳۲).
+ * تلاشی که با نسخهٔ دیگری از `musicListen_` ثبت شده، شمرده نمی‌شود: تا ۸.۳۱
+ * هر «تلاش» با سقفِ ۴۸ توکن بود و مدل اصلاً فرصتِ جواب نداشت — شمردنِ آن‌ها
+ * یعنی قطعه‌ای را برای همیشه کنار بگذاریم به جرمِ خطای خودمان.
+ */
+function musicHearTries_(mt) {
+  if (!mt) return 0;
+  if (String(mt.hv || '') !== String(CFG.MUSIC_HEAR_VER || '')) return 0;
+  return Number(mt.tries) || 0;
+}
+
 function musicRecheck_(hub, opt) {
   opt = opt || {};
   var out = { checked: 0, moved: 0, kept: 0, heard: 0, notes: [] };
@@ -3188,7 +3203,7 @@ function musicRecheck_(hub, opt) {
      * بتواند بازش کند بسته نمی‌شود (۵.۹۵). */
     if (opt.onlyUnknown) {
       var tmax = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
-      if ((Number(mt && mt.tries) || 0) >= tmax) { out.skipped = (out.skipped || 0) + 1; continue; }
+      if (musicHearTries_(mt) >= tmax) { out.skipped = (out.skipped || 0) + 1; continue; }
     }
 
     var bytes = null, info = null;
@@ -3210,7 +3225,8 @@ function musicRecheck_(hub, opt) {
       if (!acc.sure) {
         try {
           var na = mt || {};
-          na.tries = String((Number(na.tries) || 0) + 1);
+          na.tries = String(musicHearTries_(na) + 1);
+          na.hv = String(CFG.MUSIC_HEAR_VER || '');
           na.lastTry = nowStr_();
           na.verdict = String(acc.why || '');
           if (!na.title) na.title = f2.getName().replace(/\.wav$/i, '');
@@ -3859,9 +3875,13 @@ function musicListen_(b, info, name) {
     if (!info || !(info.seconds > 0)) return '';
     var b64 = musicExcerpt_(b, info, 8);
     if (!b64) return '';
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-              textModel_() + ':generateContent?key=' + encodeURIComponent(apiKey_());
-    var payload = { contents: [{ role: 'user', parts: [
+    /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
+       تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،
+       پس هر شب «شنیدنِ مدل نتیجه نداد: جوابِ خام «»» — و پس از
+       `MUSIC_HEAR_TRY_MAX` بار، قطعه برای همیشه از صفِ شبانه بیرون رفت و
+       خطِ روزانه کار را به منوی صاحبِ برنامه حواله داد. ۷۱ قطعه. سقف حالا از
+       `geminiShort_` می‌آید، همان یک تعریف برای همهٔ فراخوان‌های کوتاه. */
+    var parts = [
       { text: 'به این بریدهٔ صوتی گوش کن. قرار است در یک پادکست پخش شود.\n\n' +
               'فقط یکی از این پنج واژه را برگردان، بی هیچ توضیحی:\n' +
               '«آهنگ» — موسیقی با ملودی یا ضرب: چیزی که بشود آن را زمزمه کرد و ' +
@@ -3872,9 +3892,9 @@ function musicListen_(b, info, name) {
               '«گفتار» — اگر کسی حرف می‌زند، سخنرانی، مصاحبه، خواندنِ متن، یا آواز با کلام.\n' +
               '«نامعلوم» — اگر مطمئن نیستی.' },
       { inlineData: { mimeType: 'audio/wav', data: b64 } }
-    ] }], generationConfig: { temperature: 0, maxOutputTokens: 48 } };
+    ];
 
-    var j = geminiFetch_(url, payload);
+    var j = geminiShort_(parts, { min: 1024 });
     var t = String(extractText_(j) || '');
     if (t.indexOf('گفتار') !== -1) return 'گفتار';
     if (t.indexOf('جلوه') !== -1) return 'جلوه';
@@ -3892,7 +3912,8 @@ function musicListen_(b, info, name) {
        هر افکتی را می‌گرفت، مهم‌ترین شکستِ این زنجیره نامرئی‌ترینش بود.
        جوابِ خامِ مدل نوشته می‌شود تا دفعهٔ بعد بشود فهمید چرا. */
     logLine_('شنیدنِ مدل نتیجه نداد (' + auditCut_(String(name || ''), 40) +
-             '): جوابِ خام «' + auditCut_(t, 40) + '»');
+             '): جوابِ خام «' + auditCut_(t, 40) + '»' +
+             (j && j._why ? ' — علت: ' + j._why : ''));
     return '';
   } catch (e) {
     logLine_('شنیدنِ مدل انجام نشد (' + String(name || '') + '): ' + e.message);
