@@ -490,6 +490,13 @@ jobs:
             ~/rvcwork/out
           key: rvc-${{ github.event.inputs.voice || 'razavi' }}-ckpt-${{ github.run_id }}
 
+      # ══ نود روز، نه سی (۸.۴۲) ══
+      # این اصلِ مدل است — حاصلِ چند روز آموزش. نسخهٔ موقتی که برای موتور در
+      # Release گذاشته می‌شود پس از وارسی پاک می‌شود، ولی این نه؛ و تا وقتی این
+      # هست، `voicemodel.py --redrop` می‌تواند مدلی را که به درایو نرسید دوباره
+      # بفرستد. سی روز یعنی یک ماه فرصت برای یک خرابی؛ نود سقفِ گیت‌هاب برای
+      # مخزنِ عمومی است و همان عددِ نردبانِ بالا — چیزی که از قبل نود روز در
+      # artifact بود (وزن‌های پله‌ها) همین جنس است، پس دامنهٔ دیده‌شدن عوض نمی‌شود.
       - name: نتیجه
         if: always()
         uses: actions/upload-artifact@v4
@@ -497,7 +504,7 @@ jobs:
           name: voice-${{ github.event.inputs.voice || 'razavi' }}
           path: ~/rvcwork/out
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 90
 
       # ══ آخرین خطِ لاگ، عمداً ══
       # پرسشِ روزمرهٔ این گردش‌کار یکی است: «دورِ چندم؟» — و تا امروز

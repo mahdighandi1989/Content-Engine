@@ -172,20 +172,27 @@ ok('۳.۳ زمان‌بندِ نمونه همان گویندهٔ تازه را �
 
 console.log('\n=== ۴) فایلِ موجود با همان اندازه: بی بارگذاری ===');
 const P4 = bytesOf(30, 5);
-modelsFolder().createFile(Utilities.newBlob(Array.from(P4).map(x => x > 127 ? x - 256 : x), 'application/octet-stream', 'spk-hand.pth'));
+/* درایو برای هر فایلی که نگه می‌دارد اثرانگشت دارد؛ بدَلی که برای فایلِ دستی
+   ندارد، همان حالتِ «اثرانگشت نیامده» را می‌سازد که تولید به‌ندرت دارد (۷٫۲۴). */
+modelsFolder().createFile(Utilities.newBlob(Array.from(P4).map(x => x > 127 ? x - 256 : x), 'application/octet-stream', 'spk-hand.pth')).__sha = sha(P4);
 mkDrop('spk-hand', 'دستی', '2026-10-04T11:00:00Z', P4, null);
 const nI4 = inits.length;
 runVoiceModelFetch();
-ok('۴.۱ مدلی که دستی گذاشته شده بود دوباره بالا نرفت، ولی «رسید» ثبت شد',
-   inits.length === nI4 && JSON.parse(global.__PROPS['VMODEL_HAVE'])['spk-hand'].ok === 1 && fileIn('spk-hand.pth').length === 1);
+ok('۴.۱ مدلی که دستی گذاشته شده بود دوباره بالا نرفت، ولی «رسید» ثبت شد — با اثرانگشتِ درایو',
+   inits.length === nI4 && JSON.parse(global.__PROPS['VMODEL_HAVE'])['spk-hand'].ok === 1 &&
+   JSON.parse(global.__PROPS['VMODEL_HAVE'])['spk-hand'].sha === 1 && fileIn('spk-hand.pth').length === 1 &&
+   !!queue().models['spk-hand']);
 
 console.log('\n=== ۵) آموزشِ دوباره: فایلِ قدیم فقط پس از وارسیِ تازه کنار می‌رود ===');
 const P5 = bytesOf(33, 11);
 mkDrop('spk-new1', 'نفرِ تازه', '2026-10-05T09:00:00Z', P5, null);
 runVoiceModelFetch();
 const f5 = fileIn('spk-new1.pth');
-ok('۵.۱ تحویلِ تازه با زمانِ تازه دوباره برداشته شد و قدیمی به سطل رفت', f5.length === 1 && bytesOfFile(f5[0]).equals(P5),
-   f5.map(f => f.getSize()).join(','));
+const oldF = () => { const it = modelsFolder().getFoldersByName(String(CFG.VBR_MODEL_OLD_FOLDER)); return it.hasNext() ? it.next() : null; };
+ok('۵.۱ تحویلِ تازه با زمانِ تازه دوباره برداشته شد و قدیمی به «پیشین» رفت — نه به سطل (۸.۴۲)',
+   f5.length === 1 && bytesOfFile(f5[0]).equals(P5) && oldF() &&
+   oldF()._files.some(f => /^spk-new1\.pth — کنار رفت /.test(f.getName()) && bytesOfFile(f).equals(P1) && !f._trashed),
+   f5.map(f => f.getSize()).join(',') + ' | ' + (oldF() ? oldF()._files.map(f => f.getName()).join(',') : '—'));
 ok('۵.۲ و «رسید» مالِ تحویلِ تازه است', JSON.parse(global.__PROPS['VMODEL_HAVE'])['spk-new1'].drop === '2026-10-05T09:00:00Z');
 
 console.log('\n=== ۶) اثرانگشتِ ناهمخوان: مدلِ خراب «موجود» شمرده نمی‌شود ===');
@@ -291,7 +298,8 @@ console.log('\n=== ۹) کارِ شبانه: صفِ بازنویسی‌شده «�
   ok('۹.۱ «رسید»ها از Script Properties، بی هیچ خواندنِ درایو', m['spk-new1'] && m['spk-new1'].ok === true && !m['spk-bad']);
   const body = fs.readFileSync('src/33_VoiceIntake.gs', 'utf8');
   const q = body.slice(body.indexOf('function vintQueue_('), body.indexOf('function vintQueue_(') + 9000);
-  ok('۹.۲ `vintQueue_` پیش از نوشتن `models` را می‌گذارد', /q\.models = vintModelsForQueue_\(null\);\s*putOutJson_/.test(q));
+  ok('۹.۲ `vintQueue_` پیش از نوشتن `models` (و از ۸.۴۲ `missing`) را می‌گذارد',
+     /q\.models = vintModelsForQueue_\(null\);\s*q\.missing = vintModelsMissing_\(\);\s*putOutJson_/.test(q));
   clearTrig(); hubCalls = 0;
   const nb = vbrNightly_(getHub_());
   ok('۹.۳ کارِ شبانه هم می‌پرسد', nb.models && typeof nb.models.pending === 'number', JSON.stringify(nb.models));
@@ -418,6 +426,221 @@ console.log('\n=== ۱۲) سیم‌کشیِ گردش‌کار ===');
   ok('۱۲.۴ اندازهٔ تکه: مضربِ ۲۵۶ کیلوبایت و زیرِ سقفِ ۵۰ مگابایتیِ UrlFetchApp',
      /PIECE = 32 \* 1024 \* 1024/.test(vm) && piece % (256 * 1024) === 0 && piece < 50 * 1024 * 1024);
   ok('۱۲.۵ واژه‌های حالت در دو زبان یکی‌اند', vm.indexOf('"' + VBR_MD_WAIT + '"') !== -1);
+  const iClean = planJob.indexOf('voicemodel.py --clean'), iRe = planJob.indexOf('voicemodel.py --redrop');
+  const iCommit = planJob.indexOf('name: ثبتِ حالت در ریپو'), reStep = planJob.slice(planJob.indexOf('id: mredrop'), iRe);
+  ok('۱۲.۶ `--redrop` در کارِ plan: پس از `--clean`، پیش از کامیت، با توکن و شناسهٔ صف؛ کامیت به خروجیِ آن هم بند است',
+     iClean > 0 && iRe > iClean && iCommit > iRe && /GH_TOKEN/.test(reStep) && /VOICE_QUEUE_ID/.test(reStep) &&
+     /steps\.mredrop\.outputs\.changed == 'true'/.test(planJob));
+  const dropStep = measJob.slice(measJob.indexOf('name: تحویلِ مدل به موتور'), iRec);
+  ok('۱۲.۷ شکستِ تحویل در measure کار را نمی‌اندازد — «آماده» پشتش نمی‌ماند (`--redrop` جبران می‌کند)',
+     !/set -e/.test(dropStep) && /if ! python3 tools\/voicemodel\.py --drop/.test(dropStep), dropStep.slice(-260));
+  const tr = fs.readFileSync('.github/workflows/voice-train.yml', 'utf8');
+  const res = tr.slice(tr.indexOf('- name: نتیجه\n'), tr.indexOf('- name: نتیجه\n') + 300);
+  ok('۱۲.۸ اصلِ مدل (artifactِ «voice-<کلید>») نود روز می‌مانَد، نه سی',
+     /name: voice-\$\{\{ github\.event\.inputs\.voice \|\| 'razavi' \}\}\n/.test(res) && /retention-days: 90\b/.test(res), res.slice(-120));
+}
+
+console.log('\n=== ۱۳) ۸.۴۲: «سریع پاک نکنه» — هیچ مدلِ آموزش‌دیده‌ای گم نمی‌شود ===');
+{
+  const HV = () => JSON.parse(global.__PROPS['VMODEL_HAVE'] || '{}');
+  const tgText = () => tg.filter(c => c.m === 'sendMessage').map(c => String(c.body.text || ''));
+  /* تحویل‌های منتظرِ بخش‌های پیش (spk-bad، spk-403) هم در همین اجرا برداشته
+     می‌شوند؛ شمارش فقط مالِ همان فایل است. */
+  const upsOf = (name, from) => inits.slice(from).filter(x => { let b = x.body; try { b = typeof b === 'string' ? JSON.parse(b) : b; } catch (e) {} return b && b.name === name; }).length;
+  global.__PROPS['VMODEL_FAIL'] = '{}';
+  runVoiceModelFetch();
+  const putFile = (name, bytes, withSha) => {
+    const f = modelsFolder().createFile(Utilities.newBlob(Array.from(bytes).map(x => x > 127 ? x - 256 : x), 'application/octet-stream', name));
+    if (withSha) f.__sha = sha(bytes);
+    return f;
+  };
+  /* آموزشِ دوبارهٔ همان گوینده: `.pth`ِ RVC اندازه‌اش را از معماری می‌گیرد،
+     پس مدلِ تازه **هم‌اندازهٔ** قبلی است. تا ۸.۴۱ همین «همان مدل» شمرده
+     می‌شد: تازه بالا نمی‌رفت و «رسید» تکه‌هایش را پاک می‌کرد. */
+  const A = bytesOf(36, 21), B = bytesOf(36, 77);
+  putFile('spk-re.pth', A, true);
+  mkDrop('spk-re', 'دوباره‌آموخته', '2026-10-06T08:00:00Z', B, null);
+  tg.length = 0;
+  const nI = inits.length;
+  runVoiceModelFetch();
+  const live = fileIn('spk-re.pth');
+  ok('۱۳.۱ آموزشِ دوباره با **همان اندازه**: مدلِ تازه بالا رفت، چون اثرانگشتِ درایو فرق داشت',
+     upsOf('spk-re.pth', nI) === 1 && live.length === 1 && bytesOfFile(live[0]).equals(B),
+     upsOf('spk-re.pth', nI) + ' بارگذاری، ' + live.length + ' فایل');
+  const of = oldF()._files.filter(f => /^spk-re\.pth — کنار رفت /.test(f.getName()));
+  ok('۱۳.۲ و مدلِ قبلی پاک نشد: با همان بایت‌ها در «پیشین»، با نامی که پل آن را زنده نمی‌خوانَد',
+     of.length === 1 && bytesOfFile(of[0]).equals(A) && !of[0]._trashed, oldF()._files.map(f => f.getName()).join(','));
+  ok('۱۳.۳ «رسید» با اثرانگشت، و در صف — حالا و فقط حالا نسخهٔ گیت‌هاب پاک‌شدنی است',
+     HV()['spk-re'].sha === 1 && queue().models['spk-re'] && queue().models['spk-re'].drop === '2026-10-06T08:00:00Z');
+  const m13 = tgText().find(x => /دوباره‌آموخته/.test(x)) || '';
+  ok('۱۳.۴ پیام می‌گوید قبلی به «پیشین» رفت و اصلِ مدل تا ۹۰ روز در گیت‌هاب هست',
+     /پیشین/.test(m13) && /۹۰ روز/.test(m13) && /خودِ درایو حساب کرد/.test(m13), m13.split('\n')[0].slice(0, 120));
+
+  /* هم‌اندازه، و درایو اثرانگشتش را هنوز نداده. */
+  const C = bytesOf(29, 5), D2 = bytesOf(29, 66);
+  const xf = putFile('spk-lag.pth', C, false);
+  mkDrop('spk-lag', 'دیرکرد', '2026-10-06T09:00:00Z', D2, null);
+  tg.length = 0;
+  const nI5 = inits.length;
+  runVoiceModelFetch();
+  const h5 = HV()['spk-lag'];
+  ok('۱۳.۵ هم‌اندازه با اثرانگشتِ نیامده: بارگذاری نشد، قابلِ استفاده ثبت شد ولی **بی تأیید** — صف «رسید» ندارد',
+     upsOf('spk-lag.pth', nI5) === 0 && h5 && h5.ok === 1 && h5.sha === 0 && !queue().models['spk-lag'], JSON.stringify(h5));
+  const m15 = tgText().find(x => /دیرکرد/.test(x)) || '';
+  ok('۱۳.۶ و پیام همین را می‌گوید — نه «اثرانگشتش یکی بود»',
+     /هنوز از درایو نیامده/.test(m15) && /پاک نمی‌شود/.test(m15) && !/یکی بود/.test(m15), m15.split('\n')[0].slice(0, 140));
+  clearTrig();
+  vbrModelDropDue_();
+  ok('۱۳.۷ برداشتِ بی‌تأیید برداشته‌شده شمرده نمی‌شود: ساعتِ بعد دوباره زمان‌بندی شد', trig('runVoiceModelFetch') === 1);
+  /* اثرانگشت رسید — و مالِ فایلِ **قدیم** بود. */
+  xf.__sha = sha(C);
+  tg.length = 0;
+  runVoiceModelFetch();
+  const live5 = fileIn('spk-lag.pth');
+  ok('۱۳.۸ اثرانگشت که رسید و فرق داشت: مدلِ تازه بالا رفت و قدیمی به «پیشین» — همگرایی بی دستِ آدم',
+     live5.length === 1 && bytesOfFile(live5[0]).equals(D2) && HV()['spk-lag'].sha === 1 && !!queue().models['spk-lag'] &&
+     oldF()._files.some(f => /^spk-lag\.pth — کنار رفت /.test(f.getName()) && bytesOfFile(f).equals(C)));
+  ok('۱۳.۹ و برای یک تحویل یک «✅ آمد» — نه دو', !tgText().some(x => /به درایو آمد/.test(x)));
+
+  /* بارگذاریِ تازه‌ای که درایو اثرانگشتش را بلافاصله نداد. */
+  const E = bytesOf(31, 12);
+  mkDrop('spk-ns', 'بی‌اثرانگشت', '2026-10-06T10:00:00Z', E, null);
+  shaMissing = true;
+  try { runVoiceModelFetch(); } finally { shaMissing = false; }
+  ok('۱۳.۱۰ بارگذاریِ تازه‌ای که درایو اثرانگشتش را نداد: نشست، ولی تأیید نشد',
+     fileIn('spk-ns.pth').length === 1 && HV()['spk-ns'].sha === 0 && !queue().models['spk-ns']);
+  const nI10 = inits.length;
+  tg.length = 0;
+  runVoiceModelFetch();
+  ok('۱۳.۱۱ ساعتِ بعد، با اثرانگشتِ رسیده و یکی: تأیید — بی بارگذاریِ دوباره و بی خبرِ دوباره',
+     upsOf('spk-ns.pth', nI10) === 0 && HV()['spk-ns'].sha === 1 && !!queue().models['spk-ns'] && !tgText().some(x => /به درایو آمد/.test(x)));
+
+  /* گویندهٔ آماده بی مدل ⇒ صف (`missing`) ⇒ گیت‌هاب از artifact دوباره می‌فرستد. */
+  global.__PROPS['VMODEL_MISSING'] = '{}';
+  global.__PROPS['VMODEL_FAIL'] = '{}';
+  const D13 = { speakers: { 'spk-lost': { name: 'جامانده', stage: 'آماده', runId: '77',
+    modelDrop: { state: 'منقضی', at: 'x', closedAt: '2026-10-09T00:00:00Z' } } } };
+  const rev0 = queue().rev;
+  vbrModelMissingScan_(D13, []);
+  const q13 = queue();
+  ok('۱۳.۱۲ گویندهٔ بی‌مدل همان لحظه در صف (`missing`) — گیت‌هاب از همین می‌فهمد دوباره بفرستد؛ بی هیچ نشانی',
+     q13.missing && q13.missing['spk-lost'] && q13.missing['spk-lost'].name === 'جامانده' && q13.rev === rev0 + 1 &&
+     !JSON.stringify(q13.missing).includes('http'), JSON.stringify(q13.missing));
+  vbrModelMissingScan_(D13, []);
+  ok('۱۳.۱۳ پیمایشِ بی‌تغییر صف را دوباره نمی‌نویسد', queue().rev === rev0 + 1, queue().rev - rev0);
+  let vs = vbrStatus_();
+  ok('۱۳.۱۴ خطِ روزانه: راهِ خودکار باز است — و نامِ دو فایل برای روزِ مبادا',
+     /خودکار از artifactِ آموزش دوباره می‌فرستد/.test(vs.line) && /«spk-lost\.pth»/.test(vs.line) && vs.ok === false);
+  D13.speakers['spk-lost'].modelRedropFail = { gone: true, why: 'no valid artifacts found', run: '77' };
+  vbrModelMissingScan_(D13, []);
+  vs = vbrStatus_();
+  ok('۱۳.۱۵ artifact که دیگر نیست، جمله عوض می‌شود — «آموزشِ دوباره می‌خواهد»، با علتِ خودِ گیت‌هاب',
+     /دیگر در گیت‌هاب نیست/.test(vs.line) && /آموزشِ دوباره/.test(vs.line) && /no valid artifacts/.test(vs.line));
+  delete D13.speakers['spk-lost'].modelRedropFail;
+  D13.speakers['spk-lost'].modelRedrops = 3;
+  vbrModelMissingScan_(D13, []);
+  vs = vbrStatus_();
+  ok('۱۳.۱۶ سقف که پر شد: علت در موتور است، با نامِ یافته — نه «خودکار می‌فرستد»',
+     /(۳|3) بار/.test(vs.line) && /vmodel-spk-lost/.test(vs.line) && !/خودکار از artifactِ آموزش دوباره می‌فرستد/.test(vs.line));
+  global.__PROPS['VMODEL_MISSING'] = '{}';
+  const vm = fs.readFileSync('tools/voicemodel.py', 'utf8');
+  const pyMax = Number((vm.match(/^REDROP_MAX = (\d+)$/m) || [])[1]);
+  ok('۱۳.۱۷ سقفِ دوباره‌فرستادن در دو زبان یک عدد است (۷٫۳۰/۷٫۳۱)', pyMax > 0 && pyMax === Number(CFG.VBR_MODEL_REDROP_MAX),
+     pyMax + ' / ' + CFG.VBR_MODEL_REDROP_MAX);
+}
+
+console.log('\n=== ۱۴) سمتِ گیت‌هاب: `--redrop` از artifactِ آموزش — اجرا، نه خواندن ===');
+{
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'vmr-'));
+  fs.mkdirSync(T + '/tools'); fs.mkdirSync(T + '/docs'); fs.mkdirSync(T + '/bin');
+  for (const f of ['voicemodel.py', 'voiceintake.py']) fs.copyFileSync('tools/' + f, T + '/tools/' + f);
+  const CLOG = T + '/curl.log', GLOG = T + '/gh.log';
+  fs.writeFileSync(T + '/bin/curl', `#!/usr/bin/env python3
+import sys, json
+a = sys.argv[1:]
+open(${JSON.stringify(CLOG)}, "a").write(json.dumps(a) + "\\n")
+url = [x for x in a if x.startswith("http")][-1]
+if "uploads.github.com" in url:
+    print(json.dumps({"browser_download_url": "https://gh/dl/" + url.split("name=")[1]}))
+elif "/releases/tags/" in url:
+    print(json.dumps({"id": 7, "assets": []}))
+else:
+    print("{}")
+`);
+  /* ghِ ساختگی: همان شکلِ `gh run download RID -R … -n voice-KEY -D dest`. */
+  const BA = bytesOf(300, 2), BL = bytesOf(310, 8), BE2 = bytesOf(200, 3), BE10 = bytesOf(220, 4), BI = bytesOf(50, 6);
+  const W = (p, b) => `open(os.path.join(d, ${JSON.stringify(p)}), "wb").write(bytes(${JSON.stringify(Array.from(b))}))`;
+  fs.writeFileSync(T + '/bin/gh', `#!/usr/bin/env python3
+import sys, os, json
+a = sys.argv[1:]
+open(${JSON.stringify(GLOG)}, "a").write(json.dumps(a) + "\\n")
+rid = a[2]
+d = a[a.index("-D") + 1]
+os.makedirs(os.path.join(d, "out"), exist_ok=True)
+if rid == "101":
+    d = os.path.join(d, "out")
+    ${W('final.pth', BA)}
+    ${W('final_e10.pth', BL)}
+    ${W('final_e32.pth', BL)}
+    ${W('added_IVF.index', BI)}
+elif rid == "105":
+    ${W('x_e2.pth', BE2)}
+    ${W('x_e10.pth', BE10)}
+elif rid == "106":
+    sys.stderr.write("HTTP 502: Bad Gateway\\n"); sys.exit(1)
+elif rid == "107":
+    sys.stderr.write("no valid artifacts found to download\\n"); sys.exit(1)
+else:
+    sys.exit(3)
+`);
+  fs.chmodSync(T + '/bin/curl', 0o755); fs.chmodSync(T + '/bin/gh', 0o755);
+  const W8 = { v: 1, at: '2026-10-06T00:00:00Z', state: 'منتظرِ موتور', expireH: 72, pth: { size: 1, sha256: 'z', parts: [{ url: 'https://gh/dl/b.p1', size: 1, sha256: 'z' }] } };
+  fs.writeFileSync(T + '/docs/voices.json', JSON.stringify({ rev: 1, at: '', speakers: {
+    a: { name: 'الف', stage: 'آماده', runId: '101', modelDrop: { state: 'منقضی', at: '2026-10-01T00:00:00Z' } },
+    b: { name: 'ب', stage: 'آماده', runId: '102', modelDrop: W8 },
+    c: { name: 'پ', stage: 'آماده', runId: '103', modelRedrops: 3 },
+    d: { name: 'ت', stage: 'آماده', runId: '104', modelRedropFail: { gone: true, run: '104', why: 'رفته' } },
+    e: { name: 'ث', stage: 'آماده', runId: '105', modelRedropFail: { gone: true, run: '99', why: 'اجرای قبلی' } },
+    f: { name: 'ج', stage: 'آماده', runId: '106' },
+    g: { name: 'چ', stage: 'آماده', runId: '107' } } }));
+  const env = Object.assign({}, process.env, { PATH: T + '/bin:' + process.env.PATH, GH_TOKEN: 't',
+                                              VM_PIECE_KB: '256', GITHUB_REPOSITORY: 'o/r' });
+  const drv = T + '/drv.py';
+  fs.writeFileSync(drv, `import sys, json
+sys.path.insert(0, "tools")
+import voicemodel as vm
+q = {"missing": {k: {"name": k} for k in "abcdefg"}}
+print(json.dumps({"changed": vm.redrop(q)}))
+`);
+  const r1 = cp.spawnSync('python3', [drv], { cwd: T, env, encoding: 'utf8' });
+  let o1 = {};
+  try { o1 = JSON.parse(r1.stdout.trim().split('\n').pop()); } catch (e) { o1 = {}; }
+  const st = JSON.parse(fs.readFileSync(T + '/docs/voices.json', 'utf8')).speakers;
+  const gl = () => fs.existsSync(GLOG) ? fs.readFileSync(GLOG, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)[2]) : [];
+  ok('۱۴.۱ اجرا شد و voices.json عوض شد', r1.status === 0 && o1.changed === true, (r1.stderr || '').slice(-300));
+  ok('۱۴.۲ «الف»: از artifact دوباره تحویل شد — `.pth`ِ نهایی، نه پلهٔ نردبان، با ایندکس',
+     st.a.modelDrop && st.a.modelDrop.state === 'منتظرِ موتور' && st.a.modelDrop.pth.sha256 === sha(BA) &&
+     st.a.modelDrop.index && st.a.modelDrop.index.sha256 === sha(BI) && st.a.modelRedrops === 1,
+     JSON.stringify({ st: st.a.modelDrop && st.a.modelDrop.state, n: st.a.modelRedrops }));
+  ok('۱۴.۳ «ث»: «نیست» مالِ اجرای **قبلی** بود، پس دوباره پرسیده شد — و بالاترین پله با ترتیبِ عددی (۱۰ پس از ۲)',
+     st.e.modelDrop && st.e.modelDrop.pth.sha256 === sha(BE10) && !st.e.modelRedropFail && st.e.modelRedrops === 1);
+  ok('۱۴.۴ در راه، سقف‌پر و «نیستِ همین اجرا» دست نخوردند و حتی پرسیده نشدند',
+     JSON.stringify(st.b.modelDrop) === JSON.stringify(W8) && !st.c.modelDrop && !st.d.modelDrop &&
+     !gl().some(x => ['102', '103', '104'].includes(x)), gl().join(','));
+  ok('۱۴.۵ خطای گذرا «نیست» نیست؛ «پیدا نشد»ِ خودِ گیت‌هاب هست — با اجرای همان',
+     st.f.modelRedropFail && st.f.modelRedropFail.gone === false && /502/.test(st.f.modelRedropFail.why) &&
+     st.g.modelRedropFail && st.g.modelRedropFail.gone === true && st.g.modelRedropFail.run === '107',
+     JSON.stringify({ f: st.f.modelRedropFail, g: st.g.modelRedropFail }));
+  ok('۱۴.۶ موتور همان را تحویلِ منتظر می‌خوانَد — و دیگر «بی‌مدل» نمی‌شمارد',
+     vbrModelDrops_({ speakers: st }).map(x => x.key).sort().join(',') === 'a,b,e');
+  fs.writeFileSync(GLOG, '');
+  const r2 = cp.spawnSync('python3', [drv], { cwd: T, env, encoding: 'utf8' });
+  ok('۱۴.۷ نوبتِ بعد فقط خطای گذرا دوباره پرسیده می‌شود — نه در راه‌ها، نه «نیست»ِ همان اجرا',
+     r2.status === 0 && gl().join(',') === '106', gl().join(','));
+  const OUT = T + '/gh_out';
+  const r3 = cp.spawnSync('python3', ['tools/voicemodel.py', '--redrop'], { cwd: T,
+    env: Object.assign({}, env, { GITHUB_OUTPUT: OUT, VOICE_QUEUE_ID: '' }), encoding: 'utf8' });
+  ok('۱۴.۸ بی صفِ خوانا هیچ کاری نمی‌شود و کارِ plan نمی‌افتد', r3.status === 0 && /changed=false/.test(fs.readFileSync(OUT, 'utf8')));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ مدلِ خودکار گذشت.');

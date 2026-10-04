@@ -5,8 +5,8 @@ voicemodel.py — مدلِ گویندهٔ تازه، خودکار از گیت‌
 
 ══ چرا این فایل هست ══
 آموزشِ هر گویندهٔ تازه در گیت‌هاب تمام می‌شود و مدلش در artifactِ همان
-اجراست. artifact دو عیب دارد: **سی روز بعد پاک می‌شود**، و از بیرونِ
-Actions دانلود نمی‌شود — نه از Apps Script، نه از کانتینرِ کلاد. پس تا
+اجراست. artifact دو عیب دارد: **عمرش محدود است** (تا ۸.۴۲ سی روز، حالا
+نود)، و از بیرونِ Actions دانلود نمی‌شود — نه از Apps Script، نه از کانتینرِ کلاد. پس تا
 امروز کسی (صاحبِ برنامه) باید دستی دو فایل را برمی‌داشت، نامِ یکی را عوض
 می‌کرد و در «مدل‌های صدا» می‌گذاشت. برای گلدوز همین کار را ۲۷ سپتامبر کرد.
 گامی که به دستِ آدم بند باشد، روزی که او درگیرِ چیزِ دیگری است انجام
@@ -26,6 +26,14 @@ Actions دانلود نمی‌شود — نه از Apps Script، نه از کا�
         صفِ گویندگان را از درایو می‌خوانَد؛ هر مدلی که موتور گفته «رسید»
         (`models` در صف) **و هر مدلی که بیش از EXPIRE_H ساعت منتظر مانده**
         از Release پاک می‌شود. فایلِ بی‌صاحب در همان Release هم.
+        «رسید» را موتور فقط وقتی می‌نویسد که اثرانگشتِ **خودِ درایو** با
+        تحویل یکی باشد (۸.۴۲) — اندازهٔ درست کافی نیست.
+    --redrop
+        گویندهٔ آماده‌ای که موتور گفته مدلش در درایو نیست (`missing` در صف)،
+        از artifactِ آموزشِ خودش دوباره تحویل داده می‌شود (۸.۴۲). پاک‌شدنِ
+        نسخهٔ موقت فقط **حمل** را می‌بندد؛ اصلِ مدل در artifact است، و تا وقتی
+        آن هست، شکستِ موتور مدل را گم نمی‌کند. سقف دارد (REDROP_MAX)، چون هر
+        بار تا ۷۲ ساعت عمومی است.
 
 ══ بهای این راه، صریح ══
 مدلِ صدای یک آدمِ واقعی چند ساعت روی لینکِ عمومی می‌نشیند — این ریپو
@@ -63,6 +71,8 @@ if os.environ.get("VM_PIECE_KB"):
         raise SystemExit("VM_PIECE_KB باید مضربِ ۲۵۶ باشد")
     PIECE = _kb * 1024
 EXPIRE_H = float(os.environ.get("VM_EXPIRE_H", "72"))
+# همان عددِ `CFG.VBR_MODEL_REDROP_MAX`ِ موتور — آزمون هر دو را از متن می‌خوانَد.
+REDROP_MAX = 3
 
 # همان واژه‌هایی که موتور (بخشِ ۳۶، `vbrModelDrop*`) می‌خوانَد.
 DS_WAIT, DS_TAKEN, DS_EXPIRED = "منتظرِ موتور", "برداشته شد", "منقضی"
@@ -147,7 +157,7 @@ def nowZ():
     return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def drop(key, pth, index=""):
+def drop(key, pth, index="", redrop=False):
     """مدل را تکه‌تکه بالا بگذار و در `docs/voices.json` بنویس. ۰ یعنی شد."""
     if not key or not os.path.isfile(pth):
         say("::error::مدلِ «%s» برای تحویل پیدا نشد (%s)." % (key, pth))
@@ -177,6 +187,12 @@ def drop(key, pth, index=""):
         say("::error::فایلِ .pth نبود؛ چیزی تحویل نشد.")
         return 1
     cur["modelDrop"] = rec
+    # تحویلِ موفق یادداشتِ شکستِ قبلی را می‌بندد؛ شمارِ دوباره‌فرستادن می‌مانَد،
+    # چون سقف مالِ کلِ عمرِ همان artifact است، نه هر بار از نو.
+    cur.pop("modelRedropFail", None)
+    if redrop:
+        cur["modelRedrops"] = int(cur.get("modelRedrops") or 0) + 1
+        cur["modelRedropAt"] = nowZ()
     st["speakers"][key] = cur
     saveState(st)
     say("✅ مدلِ «%s» برای موتور گذاشته شد؛ پس از برداشتن (یا %g ساعت) پاک می‌شود."
@@ -250,6 +266,107 @@ def clean(q):
     return True
 
 
+def findModel(root):
+    """همان قاعدهٔ گامِ «مدلِ گویندهٔ تازه» در `measure`: `.pth`ِ بی `_e`
+    (مدلِ نهایی، نه پلهٔ نردبان)، وگرنه بزرگ‌ترین شمارهٔ پله؛ و اولین
+    `.index`. دو قاعده برای یک پرسش یعنی روزی دو مدلِ متفاوت تحویل شود."""
+    import glob
+    import re
+    pths = sorted(glob.glob(os.path.join(root, "**", "*.pth"), recursive=True))
+    main_ = [p for p in pths if "_e" not in os.path.basename(p)]
+
+    def natural(p):
+        return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", p)]
+    pth = main_[0] if main_ else (sorted(pths, key=natural)[-1] if pths else "")
+    idx = sorted(glob.glob(os.path.join(root, "**", "*.index"), recursive=True))
+    return pth, (idx[0] if idx else "")
+
+
+def fetchArtifact(key, dest):
+    """artifactِ `voice-<key>` از اجرای آموزشِ ثبت‌شده. `(pth, index, why, gone)`.
+
+    `gone` فقط وقتی راست است که خودِ گیت‌هاب گفته نیست (منقضی/پیدا نشد)؛
+    خطای گذرا `gone` نیست، چون آن‌وقت خطِ روزانه به او می‌گفت «آموزشِ
+    دوباره می‌خواهد» برای چیزی که شش ساعتِ بعد درست می‌شد."""
+    from voiceintake import runIdOf, sh
+    rid = runIdOf(key)
+    if not rid:
+        return "", "", "اجرای آموزشش در docs/voices.json ثبت نشده", True
+    r = sh(["gh", "run", "download", str(rid), "-R", REPO, "-n", "voice-" + key, "-D", dest])
+    if r.returncode != 0:
+        err = (r.stderr or r.stdout or "").strip().replace("\n", " ")[:160]
+        low = err.lower()
+        gone = ("no valid artifacts" in low or "not found" in low or "expired" in low
+                or "no artifact" in low or "404" in low)
+        return "", "", "artifactِ اجرای %s برداشته نشد: %s" % (rid, err), gone
+    pth, idx = findModel(dest)
+    if not pth:
+        return "", "", "در artifactِ اجرای %s هیچ .pth نبود" % rid, True
+    return pth, idx, "", False
+
+
+def redrop(q):
+    """گویندگانِ «آماده ولی بی‌مدل» را از artifact دوباره تحویل بده. آیا voices.json عوض شد؟"""
+    import shutil
+    import tempfile
+    miss = (q or {}).get("missing") or {}
+    if not isinstance(miss, dict) or not miss:
+        return False
+    changed = False
+    for key in sorted(miss):
+        st = loadState()
+        sp = st["speakers"].get(key)
+        if not isinstance(sp, dict):
+            say("  · %s: در voices.json نیست؛ کاری نمی‌شود." % key)
+            continue
+        md = sp.get("modelDrop") if isinstance(sp.get("modelDrop"), dict) else {}
+        # تحویلی در راه است — صفِ موتور از شبِ قبل است و هنوز این را ندیده.
+        if md.get("state") == DS_WAIT:
+            continue
+        n = int(sp.get("modelRedrops") or 0)
+        if n >= REDROP_MAX:
+            say("  · %s: %d بار دوباره فرستاده شد و نرسید؛ دیگر نه — علت در موتور است." % (key, n))
+            continue
+        fail = sp.get("modelRedropFail") if isinstance(sp.get("modelRedropFail"), dict) else {}
+        run = str(sp.get("runId") or "")
+        # artifactی که گیت‌هاب گفته نیست، هر شش ساعت پرسیدنش فقط سیاهه را پر
+        # می‌کند. ولی «نیست» مالِ **همان** اجراست: آموزشِ دوباره اجرای تازه
+        # دارد و دوباره پرسیده می‌شود.
+        if fail.get("gone") and str(fail.get("run") or "") == run:
+            continue
+
+        def note(why, gone):
+            s2 = loadState()
+            c2 = s2["speakers"].get(key) or {}
+            c2["modelRedropFail"] = {"at": nowZ(), "why": why, "gone": bool(gone), "run": run,
+                                     "n": int(fail.get("n") or 0) + 1}
+            s2["speakers"][key] = c2
+            saveState(s2)
+
+        tmp = tempfile.mkdtemp(prefix="vm-redrop-")
+        try:
+            pth, idx, why, gone = fetchArtifact(key, tmp)
+            if not pth:
+                say("::warning title=مدل دوباره فرستاده نشد::%s: %s" % (key, why))
+                note(why, gone)
+                changed = True
+                continue
+            say("  ↻ %s: مدل از artifactِ آموزش دوباره تحویل می‌شود (بارِ %d)." % (key, n + 1))
+            try:
+                rc = drop(key, pth, idx, redrop=True)
+            except Exception as e:
+                rc, why = 1, "بارگذاری در Release: %s" % str(e)[:140]
+            else:
+                why = "بارگذاری در Release نشد"
+            if rc != 0:
+                say("::warning title=مدل دوباره فرستاده نشد::%s: %s" % (key, why))
+                note(why, False)
+            changed = True
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return changed
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "--drop":
@@ -263,6 +380,21 @@ def main():
         # صفِ ناخوانا تأییدی ندارد، ولی سقفِ زمان هنوز اجرا می‌شود: بی‌صفی
         # نباید یعنی «مدل برای همیشه عمومی».
         changed = clean(q or {})
+        out = os.environ.get("GITHUB_OUTPUT", "")
+        if out:
+            io.open(out, "a", encoding="utf-8").write(
+                "changed=%s\n" % ("true" if changed else "false"))
+        return 0
+    if mode == "--redrop":
+        fid = os.environ.get("VOICE_QUEUE_ID", "")
+        q = fetchQueue(fid) if fid else None
+        # هیچ شکستی این‌جا کارِ plan را نمی‌اندازد: فرستادنِ دوباره کمکی است،
+        # و ثبتِ پیشرفتِ آموزشِ گویندگانِ دیگر نباید پشتش بماند.
+        try:
+            changed = redrop(q or {})
+        except Exception as e:
+            say("::warning title=فرستادنِ دوبارهٔ مدل::%s" % str(e)[:200])
+            changed = False
         out = os.environ.get("GITHUB_OUTPUT", "")
         if out:
             io.open(out, "a", encoding="utf-8").write(

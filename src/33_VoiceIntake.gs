@@ -623,6 +623,7 @@ function vintQueue_(hub, scan, state) {
     /* «رسید»ِ مدل‌ها (۸.۴۱) — بازنویسیِ شبانه نباید پاکش کند، وگرنه
        گیت‌هاب تکه‌های برداشته‌شده را تا سقفِ زمان عمومی نگه می‌دارد. */
     q.models = vintModelsForQueue_(null);
+    q.missing = vintModelsMissing_();
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
@@ -726,7 +727,31 @@ function vintModelsForQueue_(have) {
   var out = {};
   for (var k in (h || {})) {
     if (!Object.prototype.hasOwnProperty.call(h, k) || !h[k] || !h[k].ok) continue;
+    /* ══ «رسید» فقط با اثرانگشت (۸.۴۲) ══
+       این همان نشانه‌ای است که گیت‌هاب با آن نسخهٔ موقت را پاک می‌کند. پس
+       برداشتی که اثرانگشتِ درایو هنوز تأییدش نکرده این‌جا نمی‌آید — نسخهٔ
+       گیت‌هاب تا آمدنِ آن (یا تا سقفِ ۷۲ ساعت) می‌مانَد. `sha` نبوده (ردیفِ
+       ۸.۴۱) همان «تأییدشده» است، چون ۸.۴۱ فقط با اثرانگشت `ok` می‌داد مگر
+       درایو آن را دیر بدهد. */
+    if (h[k].sha === 0) continue;
     out[k] = { ok: true, drop: String(h[k].drop || ''), at: String(h[k].at || '') };
+  }
+  return out;
+}
+
+/**
+ * گویندگانِ آماده‌ای که مدلشان در درایو نیست (۸.۴۲): `{key: {name, why}}`، از
+ * همان `VMODEL_MISSING` که بخشِ ۳۶ شبانه می‌نویسد. `voicemodel.py --redrop`
+ * همین را می‌خوانَد و مدل را از artifactِ آموزش دوباره می‌فرستد. فقط نام و
+ * علت — نه نشانی و نه مسیر، چون صف «هرکس با لینک» است.
+ */
+function vintModelsMissing_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty('VMODEL_MISSING') || '{}') || {}; } catch (e) { m = {}; }
+  var out = {};
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k) || !m[k]) continue;
+    out[k] = { name: String(m[k].name || k), why: String(m[k].why || '').slice(0, 160) };
   }
   return out;
 }
@@ -740,6 +765,7 @@ function vintQueueModels_(have) {
   var q = vintReadQueue_();
   if (!q || typeof q !== 'object') return false;
   q.models = vintModelsForQueue_(have);
+  q.missing = vintModelsMissing_();
   q.rev = (Number(q.rev) || 0) + 1;
   q.at = nowStr_();
   var qn = String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json');

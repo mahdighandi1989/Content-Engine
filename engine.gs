@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.41
+ *  موتور محتوا و پادکست — نسخهٔ 8.42
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1682,7 +1682,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.41',
+  CODE_VERSION: '8.42',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2088,6 +2088,18 @@ var CFG = {
   VBR_MODEL_TRY_MAX: 3,       // شکستِ پیاپی تا یافتهٔ کد و پیامِ راهِ دستی
   VBR_MODEL_TRY_DAY: 4,       // سقفِ زمان‌بندیِ روزانهٔ اجرای برداشت
   VBR_MODEL_BUDGET_MS: 270000,
+  /* ══ هیچ مدلِ آموزش‌دیده‌ای گم نمی‌شود (۸.۴۲) ══
+     مدلِ قبلیِ یک گوینده (آموزشِ دوباره) به این زیرپوشهٔ «مدل‌های صدا» می‌رود،
+     با تاریخ در نام — هرگز به سطل: سطلِ درایو سی روز بعد خالی می‌شود، و مدلی
+     که با آموزشِ تازه کنار رفت همان است که اگر گوشِ او تازه را نپسندید باید
+     برگردد. `getFilesByName`ِ پل زیرپوشه را نمی‌گردد، پس پیشین هرگز جای زنده
+     خوانده نمی‌شود. */
+  VBR_MODEL_OLD_FOLDER: 'پیشین',
+  /* گویندهٔ آماده‌ای که مدلش نیست، از artifactِ آموزش دوباره فرستاده می‌شود
+     (`voicemodel.py --redrop`). هر بار تا ۷۲ ساعت روی لینکِ عمومی است، پس
+     سقف دارد. **همان عدد** `REDROP_MAX`ِ پایتون است؛ `run_voicemodel_test.js`
+     هر دو را از متن می‌خوانَد (۷٫۳۰/۷٫۳۱ — دو عدد در دو زبان). */
+  VBR_MODEL_REDROP_MAX: 3,
   /* نمونهٔ آزمونِ خودکار برای هر گویندهٔ آماده‌ای که مدلش در درایو است —
      بی نسخهٔ کد و بی تیک. */
   VOICE_SOUL_AUTO: true,
@@ -60272,6 +60284,7 @@ function vintQueue_(hub, scan, state) {
     /* «رسید»ِ مدل‌ها (۸.۴۱) — بازنویسیِ شبانه نباید پاکش کند، وگرنه
        گیت‌هاب تکه‌های برداشته‌شده را تا سقفِ زمان عمومی نگه می‌دارد. */
     q.models = vintModelsForQueue_(null);
+    q.missing = vintModelsMissing_();
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
@@ -60375,7 +60388,31 @@ function vintModelsForQueue_(have) {
   var out = {};
   for (var k in (h || {})) {
     if (!Object.prototype.hasOwnProperty.call(h, k) || !h[k] || !h[k].ok) continue;
+    /* ══ «رسید» فقط با اثرانگشت (۸.۴۲) ══
+       این همان نشانه‌ای است که گیت‌هاب با آن نسخهٔ موقت را پاک می‌کند. پس
+       برداشتی که اثرانگشتِ درایو هنوز تأییدش نکرده این‌جا نمی‌آید — نسخهٔ
+       گیت‌هاب تا آمدنِ آن (یا تا سقفِ ۷۲ ساعت) می‌مانَد. `sha` نبوده (ردیفِ
+       ۸.۴۱) همان «تأییدشده» است، چون ۸.۴۱ فقط با اثرانگشت `ok` می‌داد مگر
+       درایو آن را دیر بدهد. */
+    if (h[k].sha === 0) continue;
     out[k] = { ok: true, drop: String(h[k].drop || ''), at: String(h[k].at || '') };
+  }
+  return out;
+}
+
+/**
+ * گویندگانِ آماده‌ای که مدلشان در درایو نیست (۸.۴۲): `{key: {name, why}}`، از
+ * همان `VMODEL_MISSING` که بخشِ ۳۶ شبانه می‌نویسد. `voicemodel.py --redrop`
+ * همین را می‌خوانَد و مدل را از artifactِ آموزش دوباره می‌فرستد. فقط نام و
+ * علت — نه نشانی و نه مسیر، چون صف «هرکس با لینک» است.
+ */
+function vintModelsMissing_() {
+  var m = {};
+  try { m = JSON.parse(props_().getProperty('VMODEL_MISSING') || '{}') || {}; } catch (e) { m = {}; }
+  var out = {};
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k) || !m[k]) continue;
+    out[k] = { name: String(m[k].name || k), why: String(m[k].why || '').slice(0, 160) };
   }
   return out;
 }
@@ -60389,6 +60426,7 @@ function vintQueueModels_(have) {
   var q = vintReadQueue_();
   if (!q || typeof q !== 'object') return false;
   q.models = vintModelsForQueue_(have);
+  q.missing = vintModelsMissing_();
   q.rev = (Number(q.rev) || 0) + 1;
   q.at = nowStr_();
   var qn = String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json');
@@ -64616,6 +64654,22 @@ function vbrModel_(key) {
  *
  * شکستِ پیاپی (`VBR_MODEL_TRY_MAX`) یافتهٔ کد است، با راهِ دستی در پیامش —
  * چون مدلِ منتظر سقفِ زمان دارد و پس از آن از Release پاک می‌شود.
+ *
+ * ══ ۸.۴۲: «سریع پاک نکنه … زحمات چند روزه از بین بره» ══
+ * او درست نگران بود، و یک جا حق داشت که فقط نگرانی نبود: فایلی که از قبل
+ * **با همان اندازه** در پوشه بود، «همان مدل» شمرده می‌شد. ولی `.pth`ِ RVC
+ * اندازه‌اش را از معماری می‌گیرد، نه از داده — آموزشِ دوبارهٔ همان گوینده با
+ * همان شمارِ دور تقریباً همیشه همان اندازه را دارد. یعنی مدلِ تازه هرگز بالا نمی‌رفت، مدلِ
+ * قدیم سرِ جایش می‌ماند، «رسید» ثبت می‌شد و گیت‌هاب تکه‌های تازه را پاک
+ * می‌کرد: کارِ چند روز آموزش، بی هیچ خطا. حالا:
+ *   • هم‌اندازه فقط با **اثرانگشتِ درایو** «همان» است (`vbrDriveMeta_`).
+ *   • «رسید» به گیت‌هاب فقط وقتی می‌رود که اثرانگشتِ خودِ درایو با تحویل یکی
+ *     باشد (`sha: 1`). اندازهٔ درست بی اثرانگشت، مدل را قابلِ استفاده می‌کند
+ *     ولی نسخهٔ گیت‌هاب را پاک‌شدنی نمی‌کند؛ ساعتِ بعد دوباره سنجیده می‌شود.
+ *   • مدلِ قبلی به «پیشین» می‌رود، نه به سطل (`vbrModelAside_`).
+ *   • گویندهٔ آماده‌ای که مدلش نیست در صف (`missing`) نوشته می‌شود و
+ *     `voicemodel.py --redrop` همان را از artifactِ آموزش دوباره می‌فرستد —
+ *     راهِ دستی دیگر تنها راه نیست.
  */
 var VBR_MD_WAIT = 'منتظرِ موتور';
 
@@ -64640,10 +64694,15 @@ function vbrModelPk_(name) {
   } catch (e) { return {}; }
 }
 
-/** تحویلی که همین موتور قبلاً برداشته — با `drop` (زمانِ همان تحویل) نه فقط کلید. */
+/**
+ * تحویلی که همین موتور قبلاً برداشته — با `drop` (زمانِ همان تحویل) نه فقط کلید.
+ * برداشتی که اثرانگشتش هنوز از درایو نیامده (`sha: 0`) برداشته‌شده شمرده
+ * نمی‌شود: ساعتِ بعد دوباره می‌پرسد، و آن‌وقت یا یکی است (تأیید) یا نیست
+ * (بارگذاریِ دوباره). بی این، یک «هم‌اندازه»ِ نسنجیده برای همیشه می‌ماند.
+ */
 function vbrModelTaken_(have, d) {
   var h = have && have[d.key];
-  return !!(h && h.ok && String(h.drop || '') === String(d.md.at || ''));
+  return !!(h && h.ok && h.sha !== 0 && String(h.drop || '') === String(d.md.at || ''));
 }
 
 /**
@@ -64698,11 +64757,26 @@ function vbrModelMissingScan_(doc, drops) {
     if (!fold) fold = vbrFolder_();
     if (fold.getFilesByName(k + '.pth').hasNext()) continue;
     var md = s.modelDrop || null;
-    miss[k] = { name: String(s.name || k), why: md && md.state === 'منقضی'
+    var why = md && md.state === 'منقضی'
       ? 'تحویلش پیش از برداشتن منقضی شد (' + String(md.closedAt || md.at || '') + ')'
-      : 'هیچ تحویلی برایش نیامده' };
+      : 'هیچ تحویلی برایش نیامده';
+    /* آنچه گیت‌هاب در فرستادنِ دوباره دید، از همان `docs/voices.json` — تا
+       خطِ روزانه بگوید راهِ خودکار هنوز باز است یا بسته شد (۸.۴۲). */
+    var rf = s.modelRedropFail || null;
+    var rn = Number(s.modelRedrops) || 0;
+    miss[k] = { name: String(s.name || k), why: why, redrops: rn,
+                gone: !!(rf && rf.gone), redropWhy: rf ? String(rf.why || '').slice(0, 160) : '' };
   }
-  try { props_().setProperty('VMODEL_MISSING', JSON.stringify(miss)); } catch (e) {}
+  var prev = '';
+  try { prev = String(props_().getProperty('VMODEL_MISSING') || ''); } catch (eP) {}
+  var cur = JSON.stringify(miss);
+  try { props_().setProperty('VMODEL_MISSING', cur); } catch (e) {}
+  /* صف همین حالا، نه شبِ بعد — ولی فقط وقتی چیزی عوض شد: یک خواندن و یک
+     نوشتن روی فایلی که هر ساعت هم نوشته می‌شود، نه هر شب برای هیچ. */
+  if (cur !== (prev || '{}')) {
+    try { vintQueueModels_(null); }
+    catch (eQ) { try { logLine_('فهرستِ «مدلِ جامانده» در صفِ گویندگان نوشته نشد: ' + eQ.message); } catch (eQ2) {} }
+  }
   return miss;
 }
 
@@ -64746,27 +64820,50 @@ function vbrModelAfter_(d, r) {
   var fail = vbrModelPk_('VMODEL_FAIL');
   if (r.ok) {
     var have = vbrModelPk_('VMODEL_HAVE');
-    have[d.key] = { ok: 1, at: nowStr_(), drop: String(d.md.at || ''),
+    var prev = have[d.key];
+    /* اولین برداشتِ **همین** تحویل خبر دارد؛ تکرارش (اثرانگشتی که ساعتِ بعد
+       رسید) فقط ثبت می‌شود — دو «✅ آمد» برای یک مدل، یکی را دروغ می‌کند. */
+    var first = !(prev && prev.ok && String(prev.drop || '') === String(d.md.at || ''));
+    have[d.key] = { ok: 1, at: first ? nowStr_() : String(prev.at || nowStr_()),
+                    drop: String(d.md.at || ''),
                     pth: Number(r.sizes && r.sizes.pth) || 0,
-                    index: Number(r.sizes && r.sizes.index) || 0 };
+                    index: Number(r.sizes && r.sizes.index) || 0,
+                    sha: r.verified ? 1 : 0 };
     try { props_().setProperty('VMODEL_HAVE', JSON.stringify(have)); } catch (eS) {}
     delete fail[d.key];
     try { props_().setProperty('VMODEL_FAIL', JSON.stringify(fail)); } catch (eF) {}
     /* «رسید» به صف، تا گیت‌هاب تکه‌ها را پاک کند — بی این، مدل تا سقفِ زمان
-       عمومی می‌ماند. بخشِ ۳۳ پیش از این است، پس فراخوان رو به عقب است. */
+       عمومی می‌ماند. بخشِ ۳۳ پیش از این است، پس فراخوان رو به عقب است.
+       `vintModelsForQueue_` برداشتِ بی‌اثرانگشت را **نمی‌نویسد** (۸.۴۲). */
     try { vintQueueModels_(have); }
     catch (eQ) { try { logLine_('«رسید»ِ مدل در صفِ گویندگان نوشته نشد: ' + eQ.message); } catch (eQ2) {} }
+    if (!first) {
+      if (r.verified && prev && prev.sha === 0) {
+        try { logLine_('اثرانگشتِ مدلِ «' + d.key + '» حالا از درایو رسید و با تحویل یکی بود؛ ' +
+                       'نسخهٔ موقتِ گیت‌هاب از این پس پاک‌شدنی است.'); } catch (eL0) {}
+      }
+      return;
+    }
     var seeded = false;
     try { seeded = vbrSoulAutoAdd_(d.key); } catch (eA) { seeded = false; }
-    var msg = '✅ مدلِ صدای «' + d.name + '» خودکار از گیت‌هاب به درایو آمد (پوشهٔ «' +
-              String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '»، ' + fa(Math.round((r.sizes.pth || 0) / 1048576)) +
-              ' مگابایت، اثرانگشتش با تحویل یکی بود). دیگر به artifactِ سی‌روزهٔ گیت‌هاب بند نیست.' +
+    var fold = String(CFG.VBR_FOLDER || 'مدل‌های صدا');
+    var msg = '✅ مدلِ صدای «' + d.name + '» خودکار از گیت‌هاب به درایو آمد (پوشهٔ «' + fold + '»، ' +
+              fa(Math.round((r.sizes.pth || 0) / 1048576)) + ' مگابایت' +
+              (r.verified
+                ? '، اثرانگشتش را خودِ درایو حساب کرد و با تحویل یکی بود).'
+                : '، اندازه‌اش درست بود ولی اثرانگشتش هنوز از درایو نیامده). ' +
+                  'تا آن نیامده، نسخهٔ گیت‌هاب پاک نمی‌شود؛ ساعتِ بعد دوباره سنجیده می‌شود.') +
+              (r.moved && r.moved.length
+                ? '\nمدلِ قبلیِ همین گوینده پاک نشد: به «' + fold + '/' +
+                  String(CFG.VBR_MODEL_OLD_FOLDER || 'پیشین') + '» رفت.' : '') +
+              '\nاصلِ مدل در artifactِ آموزش در گیت‌هاب هم تا ۹۰ روز می‌مانَد.' +
               (seeded ? '\nنمونهٔ آزمونش (داستانِ «ساعت‌ساز» با صدای او) در یکی دو ساعتِ آینده ' +
                         'ساخته و همین‌جا فرستاده می‌شود.' : '') +
               '\nروشن‌کردنِ ردیفش برای پادکست‌ها تصمیمِ شماست.';
     try { mailQueue_('گویندهٔ تازه', 'مدلِ «' + d.name + '» به درایو آمد', msg); } catch (eM) {}
     try { tgSend_(msg); } catch (eT) {}
-    try { logLine_('مدلِ «' + d.key + '» از تحویلِ ' + d.md.at + ' در درایو نشست.'); } catch (eL) {}
+    try { logLine_('مدلِ «' + d.key + '» از تحویلِ ' + d.md.at + ' در درایو نشست' +
+                   (r.verified ? '' : ' (اثرانگشت هنوز نیامده)') + '.'); } catch (eL) {}
     return;
   }
   var cur = fail[d.key] && String(fail[d.key].drop) === String(d.md.at) ? fail[d.key] : { n: 0 };
@@ -64803,33 +64900,93 @@ function vbrModelAfter_(d, r) {
 }
 
 /**
- * یک گوینده: هر دو فایل، یکی‌یکی. فایلی که از قبل با همین اندازه در پوشه
- * هست (مثلاً دستی گذاشته شده) دوباره بارگذاری نمی‌شود. فایلِ هم‌نامِ قدیمی
- * (آموزشِ دوباره) فقط **پس از** وارسیِ فایلِ تازه به سطل می‌رود.
+ * یک گوینده: هر دو فایل، یکی‌یکی.
+ *
+ * فایلی که از قبل در پوشه هست فقط وقتی «همین مدل» است که **اثرانگشتِ
+ * درایو**ش با تحویل یکی باشد — نه اندازه‌اش (۸.۴۲). `.pth`ِ RVC اندازه‌اش را
+ * از معماری می‌گیرد، پس آموزشِ دوباره همان اندازه را دارد؛ با سنجهٔ اندازه،
+ * مدلِ تازه هرگز بالا نمی‌رفت و نسخهٔ گیت‌هاب‌اش پس از «رسید» پاک می‌شد.
+ * هم‌اندازه با اثرانگشتِ **نیامده** همان می‌مانَد ولی `verified` نمی‌گیرد —
+ * بارگذاریِ دوباره برای چیزی که شاید همان است، بی‌دلیل یک فایلِ تکراری
+ * می‌سازد، و ساعتِ بعد دوباره سنجیده می‌شود.
+ *
+ * فایلِ هم‌نامِ قدیمی فقط **پس از** وارسیِ فایلِ تازه کنار می‌رود — و به
+ * «پیشین»، نه به سطل.
  */
 function vbrModelFetchOne_(d) {
   var fold = vbrFolder_();
-  var out = { ok: false, why: '', sizes: {} };
+  var out = { ok: false, why: '', sizes: {}, verified: true, moved: [] };
   var kinds = ['pth', 'index'];
   for (var i = 0; i < kinds.length; i++) {
     var kind = kinds[i], spec = d.md[kind];
     if (!spec) continue;
     var name = d.key + '.' + kind;
     var size = Number(spec.size) || 0;
-    var olds = [], it = fold.getFilesByName(name), same = null;
+    var want = String(spec.sha256 || '').toLowerCase();
+    var olds = [], it = fold.getFilesByName(name), same = null, sameSha = '';
     while (it.hasNext()) {
       var f = it.next();
-      if (size && Number(f.getSize()) === size) same = f; else olds.push(f);
+      if (!same && size && Number(f.getSize()) === size) {
+        var hs = String(vbrDriveMeta_(f.getId()).sha256Checksum || '').toLowerCase();
+        if (!hs || !want || hs === want) { same = f; sameSha = hs; continue; }
+      }
+      olds.push(f);
     }
-    if (same) { out.sizes[kind] = size; continue; }
+    if (same) {
+      out.sizes[kind] = size;
+      if (!(sameSha && want)) { out.verified = false; continue; }
+      /* «همین» با اثرانگشت ثابت شد؛ هم‌نامِ دیگری که کنارش مانده، `getFilesByName`ِ
+         پل ممکن است به‌جای آن بخوانَد — پس کنار می‌رود، نه پاک. */
+      for (var j0 = 0; j0 < olds.length; j0++) {
+        try { out.moved.push(vbrModelAside_(olds[j0])); } catch (eO0) {}
+      }
+      continue;
+    }
     var up = vbrResumableUpload_(fold.getId(), name, spec);
     if (!up.ok) { out.why = name + ': ' + up.why; return out; }
-    for (var j = 0; j < olds.length; j++) { try { olds[j].setTrashed(true); } catch (eO) {} }
+    if (!up.shaChecked) out.verified = false;
+    for (var j = 0; j < olds.length; j++) {
+      try { out.moved.push(vbrModelAside_(olds[j])); } catch (eO) {}
+    }
     out.sizes[kind] = up.size;
   }
   out.ok = !!out.sizes.pth;
   if (!out.ok && !out.why) out.why = 'فایلِ .pth در تحویل نبود';
+  if (!out.ok) out.verified = false;
   return out;
+}
+
+/**
+ * مدلِ قبلی به «پیشین»، با زمانِ کنار رفتن در نامش — هرگز به سطل.
+ *
+ * سطلِ درایو سی روز بعد خالی می‌شود، و مدلی که با آموزشِ تازه کنار رفت همان
+ * است که اگر گوشِ او تازه را نپسندید باید برگردد. نامِ تازه عمداً دیگر
+ * `<کلید>.pth` نیست: حتی اگر روزی کسی آن را به پوشهٔ اصلی برگرداند، پل آن را
+ * با مدلِ زنده اشتباه نمی‌گیرد مگر آن‌که نامش را دستی پس بدهد.
+ */
+function vbrModelAside_(f) {
+  var fold = vbrFolder_();
+  var nm = String(CFG.VBR_MODEL_OLD_FOLDER || 'پیشین');
+  var it = fold.getFoldersByName(nm);
+  var sub = it.hasNext() ? it.next() : fold.createFolder(nm);
+  var was = String(f.getName());
+  var to = was + ' — کنار رفت ' + String(nowStr_()).slice(0, 16);
+  f.setName(to);
+  f.moveTo(sub);
+  try { logLine_('مدلِ پیشینِ «' + was + '» به «' + nm + '» رفت (پاک نشد): ' + to); } catch (e) {}
+  return to;
+}
+
+/** اندازه و اثرانگشتِ یک فایل از خودِ درایو — `{size, sha256Checksum}`؛ نبودنش `{}`. */
+function vbrDriveMeta_(id, tok) {
+  try {
+    var mr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                               '?fields=size,sha256Checksum&supportsAllDrives=true',
+                               { headers: { Authorization: 'Bearer ' + (tok || ScriptApp.getOAuthToken()) },
+                                 muteHttpExceptions: true });
+    if (mr.getResponseCode() !== 200) return {};
+    return JSON.parse(mr.getContentText() || '{}') || {};
+  } catch (e) { return {}; }
 }
 
 /**
@@ -64901,13 +65058,7 @@ function vbrResumableUpload_(folderId, name, spec) {
      اندازهٔ درست با بایت‌های غلط هم ممکن است. `sha256Checksum` را درایو
      خودش از بایت‌هایی که نشسته حساب می‌کند. نبودنش رد نیست (گاهی دیر
      پر می‌شود) ولی گفته می‌شود؛ ناهمخوانی‌اش رد است. */
-  var meta = {};
-  try {
-    var mr = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
-                               '?fields=size,sha256Checksum&supportsAllDrives=true',
-                               { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true });
-    if (mr.getResponseCode() === 200) meta = JSON.parse(mr.getContentText() || '{}') || {};
-  } catch (eM) { meta = {}; }
+  var meta = vbrDriveMeta_(id, tok);
   var bad = '';
   if (meta.size != null && Number(meta.size) !== total) bad = 'اندازهٔ نشسته ' + meta.size + ' به‌جای ' + total;
   else if (meta.sha256Checksum && spec.sha256 &&
@@ -64938,10 +65089,23 @@ function vbrModelStatus_() {
   for (var mk in miss) {
     if (!Object.prototype.hasOwnProperty.call(miss, mk) || fail[mk]) continue;
     out.fail++;
-    L.push('⚠️ گویندهٔ «' + String(miss[mk].name || mk) + '» آماده است ولی مدلش در «' +
-           String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» نیست — ' + String(miss[mk].why || '') +
-           '. تا سی روز پس از آموزش، artifactِ «voice-' + mk + '» در گیت‌هاب هست: دو فایلِ «' + mk +
-           '.pth» و «' + mk + '.index» را در همان پوشه بگذارید.');
+    var mm = miss[mk] || {};
+    var files = 'دو فایلِ «' + mk + '.pth» و «' + mk + '.index»';
+    /* سه حالت و سه جملهٔ متفاوت (۸.۴۲): راهِ خودکار هنوز باز است، بسته شد
+       چون artifact دیگر نیست، یا بسته شد چون بارها فرستاده شد و نرسید. جملهٔ
+       یکسان برای هر سه یعنی او نمی‌فهمد کِی کارِ او شروع می‌شود. */
+    var how = mm.gone
+      ? 'artifactِ آموزشش هم دیگر در گیت‌هاب نیست (' + String(mm.redropWhy || '') + ') — اگر ' + files +
+        ' جای دیگری هست در همان پوشه بگذارید، وگرنه این گوینده آموزشِ دوباره می‌خواهد'
+      : (Number(mm.redrops) || 0) >= Math.max(1, Number(CFG.VBR_MODEL_REDROP_MAX) || 3)
+        ? 'گیت‌هاب ' + fa(mm.redrops) + ' بار از artifactِ آموزش دوباره فرستاد و نرسید — علت در موتور است ' +
+          '(یافتهٔ «vmodel-' + mk + '»)؛ تا آن درست شود، ' + files + ' را از artifactِ «voice-' + mk +
+          '» دستی در همان پوشه بگذارید'
+        : 'گیت‌هاب در نوبتِ بعدیِ گویندگان (هر شش ساعت) آن را خودکار از artifactِ آموزش دوباره می‌فرستد' +
+          (mm.redropWhy ? ' — بارِ قبل نشد: ' + String(mm.redropWhy) : '') + '. اگر نیامد، ' + files +
+          ' را از artifactِ «voice-' + mk + '» در همان پوشه بگذارید';
+    L.push('⚠️ گویندهٔ «' + String(mm.name || mk) + '» آماده است ولی مدلش در «' +
+           String(CFG.VBR_FOLDER || 'مدل‌های صدا') + '» نیست — ' + String(mm.why || '') + '. ' + how + '.');
   }
   var now = new Date().getTime();
   for (var h in have) {
@@ -64949,7 +65113,8 @@ function vbrModelStatus_() {
     var t = Date.parse(String(have[h].at || '').replace(' ', 'T'));
     if (isFinite(t) && now - t < 7 * 86400000) {
       out.recent++;
-      L.push('مدلِ «' + h + '» خودکار به درایو آمد (' + String(have[h].at || '').slice(0, 10) + ').');
+      L.push('مدلِ «' + h + '» خودکار به درایو آمد (' + String(have[h].at || '').slice(0, 10) + ')' +
+             (have[h].sha === 0 ? '، اثرانگشتش هنوز از درایو نیامده و نسخهٔ گیت‌هاب تا آمدنش می‌مانَد' : '') + '.');
     }
   }
   out.line = L.join(' · ');

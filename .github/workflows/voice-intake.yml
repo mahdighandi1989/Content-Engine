@@ -40,7 +40,7 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     outputs:
       measure: ${{ steps.plan.outputs.measure }}
       style: ${{ steps.plan.outputs.style }}
@@ -71,8 +71,22 @@ jobs:
           VOICE_QUEUE_ID: '1NoVT_J1-KQ_e4fyhc4VqbDf3Xy0FcZH5'
         run: python3 tools/voicemodel.py --clean
 
+      # ══ مدلِ جامانده از artifactِ آموزش دوباره فرستاده می‌شود (۸.۴۲) ══
+      # پاک‌شدنِ نسخهٔ موقت فقط **حمل** را می‌بندد؛ اصلِ مدل در artifactِ
+      # آموزش است (۹۰ روز). اگر موتور نتوانست برش دارد و سقفِ ۷۲ ساعت گذشت،
+      # یا تحویلِ `measure` اصلاً نرفت، موتور گوینده را در صف «بی مدل»
+      # (`missing`) می‌نویسد و همین گام از همان artifact دوباره تحویل می‌دهد —
+      # تا سقفِ `REDROP_MAX`، چون هر بار تا ۷۲ ساعت عمومی است. هیچ شکستی
+      # این‌جا کارِ plan را نمی‌اندازد.
+      - name: فرستادنِ دوبارهٔ مدلِ جامانده
+        id: mredrop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VOICE_QUEUE_ID: '1NoVT_J1-KQ_e4fyhc4VqbDf3Xy0FcZH5'
+        run: python3 tools/voicemodel.py --redrop
+
       - name: ثبتِ حالت در ریپو
-        if: steps.plan.outputs.changed == 'true' || steps.mclean.outputs.changed == 'true'
+        if: steps.plan.outputs.changed == 'true' || steps.mclean.outputs.changed == 'true' || steps.mredrop.outputs.changed == 'true'
         run: |
           set -euo pipefail
           if git diff --quiet -- docs/voices.json; then
@@ -344,12 +358,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEY: ${{ needs.plan.outputs.measure }}
+        # ══ شکستِ تحویل سنجش را نمی‌برد (۸.۴۲) ══
+        # تا ۸.۴۱ یک خطای Release این job را می‌انداخت و «ثبتِ نتیجه» هرگز
+        # نمی‌دوید: مدلی که آموزش دید و سنجیده شد، «آماده» ثبت نمی‌شد. حالا
+        # فقط هشدار است؛ موتور شبانه گوینده را «بی مدل» می‌شمارد و کارِ plan
+        # همان مدل را از artifact دوباره تحویل می‌دهد.
         run: |
-          set -euo pipefail
-          if [ -f model.index ]; then
-            python3 tools/voicemodel.py --drop "$KEY" model.pth model.index
-          else
-            python3 tools/voicemodel.py --drop "$KEY" model.pth
+          set -uo pipefail
+          if [ -f model.index ]; then set -- model.pth model.index; else set -- model.pth; fi
+          if ! python3 tools/voicemodel.py --drop "$KEY" "$@"; then
+            echo "::warning title=مدل تحویل نشد::موتور شبانه این گوینده را «بی مدل» می‌شمارد و کارِ plan آن را از artifactِ آموزش دوباره می‌فرستد."
           fi
 
       - name: ثبتِ نتیجه
