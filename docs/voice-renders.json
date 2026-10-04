@@ -1,5 +1,5 @@
 {
- "rev": 18,
+ "rev": 19,
  "items": {
   "special:49": {
    "urls": [
@@ -327,8 +327,43 @@
     "lowPct": 2,
     "frames": 1855
    }
+  },
+  "نمونهٔ روح — spk-1g0r95d · گامِ خودکار ۱۵۸ هرتز · حالت بی تغییرِ ولوم · بلندی ۱۶−:ساعت‌ساز": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-0977ab48.wav"
+   ],
+   "pieceBytes": [
+    20918478
+   ],
+   "bytes": 20918478,
+   "seconds": 261.5,
+   "minutes": 5.3,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-04T13:44:43Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-0977ab48.wav",
+   "pitch": "6",
+   "loud": {
+    "rawLufs": -22.7,
+    "rawTp": -0.1,
+    "gainDb": 6.66,
+    "limited": true,
+    "lufs": -16.7,
+    "tp": -2.4
+   },
+   "pitchAuto": {
+    "srcHz": 112.7,
+    "targetHz": 158.0,
+    "pitch": 6
+   },
+   "f0Out": {
+    "medianHz": 153.8,
+    "lowPct": 1,
+    "frames": 1788
+   }
   }
  },
- "at": "2026-10-04T13:36:56Z",
+ "at": "2026-10-04T13:44:43Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
