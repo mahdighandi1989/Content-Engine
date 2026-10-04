@@ -109,6 +109,8 @@ function seriesBoardData_(hub) {
          هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
          می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
+      /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
+      recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
       // ── تنظیمِ دستیِ شما ──
       morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
@@ -914,6 +916,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvLevelSave(k,v);}');
+  H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiRecapEverySave(k,v);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
   /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
@@ -1200,16 +1206,19 @@ function recapCell_(x) {
   var r = x && x.recap;
   var key = bEsc_(x.key);
   if (!r || !r.made) {
+    /* جعبهٔ فاصله این‌جا هم هست: مجموعه‌ای که هنوز شروع نشده هم باید پیش از
+       درسِ یکش تنظیم‌شدنی باشد (۸.۳۶). */
     return '<td class="sub rcc"><label style="opacity:.5"><input type="checkbox" ' +
            'class="rcChk" data-key="' + key + '" disabled> مرور</label>' +
-           '<div class="sub">قسمتی ساخته نشده</div></td>';
+           '<div class="sub">قسمتی ساخته نشده</div>' + recapEverySel_(x) + '</td>';
   }
   /* ══ پیش‌فرض: «مرور نشده» **و** به کفِ خودکار رسیده ══
    * خواسته این بود که «اون‌هایی که مرور نشدن تیک خورده باشه، در صورتی که
    * پادکستش قبلاً تولید شده باشه». تحتِ‌اللفظی یعنی هر مجموعه با یک درس هم
    * تیک بخورد — ولی ۲۶۴ مجموعه هست و فشردنِ دکمه آن‌وقت ده‌ها مرورِ
    * تک‌درسی سفارش می‌داد: هرکدام یک فراخوانِ مدل و یک قسمت در پلی‌لیست.
-   * پس پیش‌فرض کفِ خودِ موتور (RECAP_MIN_PARTS) را هم رعایت می‌کند، و
+   * پس پیش‌فرض نوبتِ خودکارِ همان مجموعه را هم رعایت می‌کند (از ۸.۳۶ «هر
+   * چند درس»ِ خودش، پیش از آن کفِ ثابتِ هشت)، و
    * مجموعهٔ زیرِ کف **همچنان تیک‌زدنی است** — فقط از پیش تیک نخورده، و
    * دلیلش روی همان خانه نوشته شده. تصمیم دستِ آدم می‌ماند؛ چیزی که عوض
    * می‌شود فقط «حدسِ اولیه» است.
@@ -1224,8 +1233,8 @@ function recapCell_(x) {
   var body;
   if (!r.done) {
     body = '<div class="sub">ساخته نشده — ' + faNum_(r.made) + ' درس آماده' +
-           (r.ripe ? '' : '<br>زیرِ کفِ ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
-                          ' درس؛ از پیش تیک نخورده، ولی می‌توانید بزنید') + '</div>';
+           (r.ripe ? '' : '<br>هنوز نوبتِ مرورِ خودکارش نرسیده؛ از پیش تیک نخورده، ' +
+                          'ولی می‌توانید بزنید') + '</div>';
   } else {
     /* «چند فصل گفته شد از چند» — نه «چند فصل در دست بود». تا ۶٫۳۲ اینجا
        عددِ کلِ فصل‌های جزوه می‌نشست و ادعای پوششِ کامل می‌کرد؛ ناظر متنِ
@@ -1263,19 +1272,72 @@ function recapCell_(x) {
    * نگرفته خودش شبانه نوبت می‌گیرد، ولی مجموعه‌ای که یک بار مرور گرفته
    * **هرگز** دوباره خودکار نمی‌گیرد (`recapCandidates_` رد می‌کندش). بدونِ
    * این جمله، آدم منتظرِ چیزی می‌ماند که قرار نیست بیاید. */
-  var idle;
+  /* ۸.۳۶: «اگر هیچ نکنم؟» — **کِی**، از همان حسابِ کارِ شبانه. */
+  var idle = '<div class="sub">' + recapIdleText_(r) + '</div>';
   if (r.queued) {
     idle = '<div class="sub" style="color:#166534">در صف (' + faNum_(r.queued) +
            ') — امشب یا شب‌های بعد خودش ساخته می‌شود</div>';
-  } else if (!r.done) {
-    idle = r.ripe
-      ? '<div class="sub">اگر کاری نکنید، خودش شبانه نوبت می‌گیرد</div>'
-      : '<div class="sub">خودکار سراغش نمی‌رود (زیرِ کف)؛ فقط با تیک و دکمه</div>';
-  } else {
-    idle = '<div class="sub">خودکار دیگر سراغش نمی‌رود — فقط با تیک و دکمه</div>';
   }
-  return '<td class="rcc">' + body + idle + recapScopePick_(r, key) +
+  return '<td class="rcc">' + body + idle + recapEverySel_(x) + recapScopePick_(r, key) +
          '<div style="margin-top:4px">' + chk + '</div></td>';
+}
+
+/** «اگر کاری نکنم، این مجموعه کِی مرور می‌گیرد؟» — یک جمله، از همان حسابِ شبانه. */
+function recapIdleText_(r) {
+  var tail = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+  var per = 'هر ' + faNum_(r.every) + ' درس' + (r.everySrc === 'پیش‌فرض' ? '، پیش‌فرض' : '');
+  if (r.everyOff) return 'مرورِ خودکار برای این مجموعه خاموش است — فقط با تیک و دکمه';
+  if (r.unknown) return 'معلوم نیست مرورِ قبلی تا کجا رسید؛ خودکار حدس نمی‌زند — با تیک بسازید';
+  if (r.gaveUp) {
+    return 'مرورِ خودکار ' + faNum_(Number(r.fail && r.fail.n) || 0) + ' بار نشد (' +
+           bEsc_(String((r.fail && r.fail.why) || '')) + ') — با درسِ تازه دوباره امتحان ' +
+           'می‌شود؛ یا همین حالا تیک بزنید';
+  }
+  if (r.due === 'tail') {
+    return 'مجموعه تمام شده؛ مرورِ پایانیِ ' + faNum_(r.since) + ' درسِ آخر شبانه خودش ساخته می‌شود';
+  }
+  if (r.due === 'every') {
+    return 'نوبتش رسیده (' + faNum_(r.since) + ' درس' + (r.done ? ' پس از مرورِ قبلی' : '') +
+           '، ' + per + ') — شبانه خودش ساخته می‌شود';
+  }
+  if (r.finished) {
+    return r.since
+      ? 'مجموعه تمام شده و فقط ' + faNum_(r.since) + ' درس' +
+        (r.done ? ' پس از مرورِ قبلی مانده' : ' دارد') + ' — کمتر از ' + faNum_(tail) +
+        '، پس خودکار ساخته نمی‌شود؛ با تیک می‌شود'
+      : 'مجموعه تمام شده و همهٔ درس‌هایش مرور شده';
+  }
+  return 'مرورِ خودکارِ بعدی پس از ' + faNum_(r.left) + ' درسِ دیگر (' + per + ')';
+}
+
+/**
+ * جعبهٔ «مرورِ خودکار: هر چند درس» (۸.۳۶): «این ۱۵ تا هاردکد نباشه بلکه در
+ * تنظیماتِ مجموعه به‌صورتِ پیش‌فرض انتخاب بشه». گزینهٔ اول همان خانهٔ خالی
+ * است؛ عددِ دستیِ بیرونِ فهرست گزینهٔ خودش را می‌گیرد (۷.۴۱).
+ */
+function recapEverySel_(x) {
+  var key = bEsc_(String((x && x.key) || ''));
+  var cell = [];
+  cell[SC.RECAP_EVERY - 1] = x ? x.recapEvery : '';
+  var ev = recapEveryOf_(cell);
+  var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+  var ch = (CFG.RECAP_EVERY_CHOICES || [5, 8, 10, 12, 15, 20, 25, 30]).slice();
+  var hand = (ev.src === 'تخته' && !ev.off);
+  if (hand && ch.indexOf(ev.n) === -1) { ch.push(ev.n); ch.sort(function (a, b) { return a - b; }); }
+  var opts = ['<option value=""' + (ev.src === 'پیش‌فرض' ? ' selected' : '') +
+              '>پیش‌فرض — هر ' + faNum_(def) + ' درس</option>'];
+  for (var i = 0; i < ch.length; i++) {
+    var n = Number(ch[i]);
+    opts.push('<option value="' + n + '"' + (hand && ev.n === n ? ' selected' : '') +
+              '>هر ' + faNum_(n) + ' درس</option>');
+  }
+  opts.push('<option value="خاموش"' + (ev.off ? ' selected' : '') +
+            '>خاموش — بی مرورِ خودکار</option>');
+  return '<div class="sub" style="margin-top:4px">مرورِ خودکار: ' +
+         '<select class="rcEvery" data-key="' + key + '" onchange="recapEvery(this)">' +
+         opts.join('') + '</select>' +
+         (ev.bad ? '<br><span style="color:#8a6d1f">«' + bEsc_(ev.raw) +
+                   '» خوانده نشد؛ پیش‌فرض به کار می‌رود</span>' : '') + '</div>';
 }
 
 /**
@@ -1444,12 +1506,17 @@ function recapPanelHtml_(d) {
        نمی‌شوند (هر بار از نو حساب می‌شوند) و هر مجموعه به‌محضِ ساخته‌شدنِ
        مرورش از صف بیرون می‌رود. ترسِ «یک تیکِ فراموش‌شده که هر شب یک قسمت
        می‌سازد» ترسِ بی‌جایی نیست؛ فقط جوابش جایی نوشته نشده بود. */
-    '<div style="margin-top:4px"><b>تکرار نمی‌شود:</b> تیک‌ها ذخیره نمی‌شوند و ' +
-    'هر مجموعه پس از ساخته‌شدنِ مرورش از صف بیرون می‌رود. مجموعه‌ای که یک بار ' +
-    'مرور گرفته، دیگر خودکار مرور نمی‌گیرد — فقط اگر خودتان دوباره تیکش بزنید.</div>' +
-    '<div style="margin-top:4px">تیکِ پیش‌فرض روی مجموعه‌هایی است که مرور ' +
-    'نگرفته‌اند و دستِ‌کم ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
-    ' درس دارند؛ بقیه را خودتان می‌توانید بزنید.</div></div>' +
+    /* ۸.۳۶: «یک بار برای همیشه» دیگر درست نیست — جملهٔ کهنه بدتر از هیچ است. */
+    '<div style="margin-top:4px"><b>مرورِ خودکار:</b> هر مجموعه هر ' +
+    faNum_(Number(CFG.RECAP_EVERY) || 15) + ' درس یک بار خودش مرور می‌گیرد ' +
+    '(پیش‌فرض) — روی درس‌هایی که پس از مرورِ قبلی آمده‌اند. این عدد برای هر ' +
+    'مجموعه جداست: جلوی همان ردیف، جعبهٔ «مرورِ خودکار» را عوض کنید، یا خاموشش ' +
+    'کنید. مجموعه‌ای که <b>تمام شود</b> و به آن عدد نرسد، اگر دستِ‌کم ' +
+    faNum_(Number(CFG.RECAP_TAIL_MIN) || 3) + ' درس پس از مرورِ قبلی‌اش مانده باشد، ' +
+    'یک مرورِ پایانی می‌گیرد.</div>' +
+    '<div style="margin-top:4px"><b>تیک‌ها تکرار نمی‌شوند:</b> ذخیره نمی‌شوند و ' +
+    'هر مجموعه پس از ساخته‌شدنِ مرورش از صف بیرون می‌رود. تیکِ پیش‌فرض روی ' +
+    'مجموعه‌هایی است که هرگز مرور نگرفته‌اند و نوبتشان رسیده.</div></div>' +
     '<div><b>' + faNum_(made) + '</b> مجموعه مرور دارد · ' +
     '<b>' + faNum_(none) + '</b> هنوز نه · ' +
     '<b>' + faNum_(def) + '</b> از پیش تیک خورده' +
@@ -2070,6 +2137,57 @@ function uiLvLevelSave(key, level) {
   } catch (e) {
     boardReceipt_(false, 'ثبتِ سطح نشد', [e.message]);
     return { ok: false, message: 'ثبتِ سطح نشد: ' + e.message };
+  }
+}
+
+/**
+ * ثبتِ «مرورِ هر چند درس» از تخته (۸.۳۶). «حتماً تغییرات اعمال بشه»: رسید
+ * پس از نوشتن از همان حسابِ شبانه روی رجیستریِ تازه‌خوانده می‌گوید بعدی کِی
+ * است. ناخوانا با نام رد می‌شود و خانهٔ قبلی دست نمی‌خورد.
+ */
+function uiRecapEverySave(key, every) {
+  try {
+    var k = String(key || '').trim();
+    var raw = String(every == null ? '' : every).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var v;
+    if (!raw || raw === 'پیش‌فرض') v = '';
+    else if (raw === 'خاموش') v = 'خاموش';
+    else {
+      var c0 = [];
+      c0[SC.RECAP_EVERY - 1] = raw;
+      var e0 = recapEveryOf_(c0);
+      if (e0.bad) {
+        boardReceipt_(false, 'فاصلهٔ مرورِ ناخوانا', ['«' + raw + '» عدد نیست. ' +
+          'مجازها: پیش‌فرض · یک عدد میانِ ۱ و ۵۰۰ · خاموش']);
+        return { ok: false, message: '«' + raw + '» را نمی‌شناسم؛ یک عدد بدهید یا «خاموش».' };
+      }
+      v = e0.n;
+    }
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.RECAP_EVERY).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var m = null;
+    try { m = recapBoardMap_(hub, readSeriesReg_(hub))[k] || null; } catch (eM) { m = null; }
+    var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+    var lines = [];
+    if (v === 'خاموش') {
+      lines.push('مرورِ خودکار برای «' + nm + '» خاموش شد. با تیک و دکمهٔ «همین حالا بساز» ' +
+                 'هنوز می‌شود ساخت.');
+    } else {
+      lines.push('از این پس هر ' + faNum_(v === '' ? def : v) + ' درس یک مرور' +
+                 (v === '' ? ' (پیش‌فرض؛ با عوض‌شدنِ پیش‌فرض این هم عوض می‌شود)' : '') + '.');
+      if (m && m.made) lines.push(recapIdleText_(m) + '.');
+      else lines.push('هنوز درسی ساخته نشده؛ شمارش از درسِ یک شروع می‌شود.');
+    }
+    boardReceipt_(true, 'فاصلهٔ مرورِ «' + nm + '» ثبت شد', lines);
+    return { ok: true, message: lines.join(' ') };
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ فاصلهٔ مرور نشد', [e.message]);
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
   }
 }
 

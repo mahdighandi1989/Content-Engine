@@ -2382,7 +2382,9 @@ function runVoiceSoulTest() {
         if (TTS_CUE_DROPPED_ || (cueChk && cueChk.ok === false)) {
           var dsp = null;
           try { dsp = speakMoodDsp_(b1, pieces[i].k); } catch (eDsp) { dsp = null; }
-          if (dsp) { b1 = dsp; how = 'صدا'; } else how = 'نشد';
+          /* بی سرعت، نشانهٔ پایانِ جمله هنوز در متن نشسته است (۸.۳۶) — «نشد» نیست. */
+          var dfn = speakSpanDef_(pieces[i].k);
+          if (dsp) { b1 = dsp; how = 'صدا'; } else how = (dfn && dfn.mark) ? 'نشانه' : 'نشد';
         }
         var lastAt = spanAt[spanAt.length - 1];
         if (lastAt && lastAt.k === pieces[i].k) {

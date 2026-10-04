@@ -1503,13 +1503,16 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
       global.geminiText_ = function (pq) {
         if (String(pq).indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) {
           return { spans: [{ from: '3', to: '3', k: 'آرام' },
+                           { from: '4', to: '4', k: 'بلند' },
                            { from: '5', to: '5', k: 'لبخند' },
                            { from: '6', k: 'مکث' }] };
         }
         return realGem ? realGem.apply(null, arguments) : null;
       };
       const tryKeep19 = global.ttsChunkTry_;
+      const sentD = [];
       global.ttsChunkTry_ = function (text, style, voice, withCue) {
+        sentD.push(String(text));
         if (withCue !== false) ttsCueDropMark_();
         const n = 24000 * 4, b = Buffer.alloc(n * 2);
         for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(3000 * Math.sin(2 * Math.PI * 180 * i / 24000)), i * 2);
@@ -1523,9 +1526,18 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
          !!(rD && rD.ok) && /آرام [۰-۹:]+ \(در صدا\)/.test(lineD.split('\n')[0]) &&
          lineD.split('\n')[0].indexOf('لبخند') === -1 && /اجرا نشد[^\n]*لبخند/.test(lineD),
          lineD.replace(/\n/g, ' ⏎ '));
-      /* ۲۴.۲۱-ب — و پردازش در **فایلِ ساخته‌شده** هست، نه فقط در جمله: پنجره‌ای
-         از فایل باید حدودِ شش دسی‌بل آهسته‌تر از بقیه باشد. */
-      let dbGap = null;
+      /* ۲۴.۲۱-پ — «بلند» در صدا هیچ نمی‌سازد (۸.۳۶)، ولی «اجرا نشد» هم نیست: متنی
+         که واقعاً به گفتارساز رفت با «!» تمام شد، و کپشن همین را می‌گوید. */
+      ok('۲۴.۲۱-پ «بلند» بی دستور: متنِ رفته با «!» و کپشن «فقط با نشانه»',
+         /بلند [۰-۹:]+ \(فقط با نشانه\)/.test(lineD.split('\n')[0]) &&
+         sentD.some(t => /!\s*$/.test(t)) && !/اجرا نشد[^\n]*بلند/.test(lineD),
+         JSON.stringify(sentD.map(t => t.slice(-12))));
+      /* ۲۴.۲۱-ب — و پردازش در **فایلِ ساخته‌شده** هست، نه فقط در جمله — و از
+         ۸.۳۶ **بلندی نیست**: ۴ اکتبر او در هر دو نمونه حدودِ ۳:۴۰ شنید که «صدا یهو
+         کم شد و بعد زیاد شد». پس دو ادعا روی خودِ فایل: هیچ پنجره‌ای بلندی‌اش با
+         بقیه فرق ندارد، و تکهٔ «آرام» واقعاً کشیده‌تر است (هر تکهٔ بدَل چهار ثانیه
+         است؛ با سرعتِ ۰٫۹۵ یکی‌شان حدودِ ۵٪ بلندتر می‌شود). */
+      let dbGap = null, stretch = null;
       try {
         const fD = DriveApp.getFolderById(String(rowD.folderId));
         const itD = fD.getFiles();
@@ -1547,10 +1559,18 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
           if (!hole && e > 0) r.push(Math.sqrt(e / W));
         }
         dbGap = 20 * Math.log10(Math.max.apply(null, r) / Math.min.apply(null, r));
+        let silent = 0, run2 = 0;
+        for (let j = 0; j <= pcmD.length; j++) {
+          if (j < pcmD.length && pcmD[j] === 0) { run2++; continue; }
+          if (run2 >= 240) silent += run2;
+          run2 = 0;
+        }
+        const voiced = (pcmD.length - silent) / 96000;
+        stretch = voiced - Math.floor(voiced);
       } catch (eW) { dbGap = 'خطا: ' + eW.message; }
-      ok('۲۴.۲۱-ب پنجره‌ای از خودِ فایل حدودِ شش دسی‌بل آهسته‌تر است',
-         typeof dbGap === 'number' && dbGap > 5 && dbGap < 7,
-         String(typeof dbGap === 'number' ? dbGap.toFixed(2) + 'dB' : dbGap));
+      ok('۲۴.۲۱-ب بلندیِ فایل صاف است و «آرام» در خودِ فایل کشیده‌تر است — نه آهسته‌تر',
+         typeof dbGap === 'number' && dbGap < 0.5 && stretch > 0.03 && stretch < 0.07,
+         String(typeof dbGap === 'number' ? 'فاصلهٔ بلندی ' + dbGap.toFixed(2) + 'dB · کشش ' + stretch.toFixed(3) : dbGap));
     }
     /* ۲۴.۲۲ — و پرچمِ تکه‌ای را **خودِ** `ttsChunkTry_` می‌زند، نه بدَلِ بالا:
        مدلی که فیلد را رد کرده و پیشوند خاموش ⇒ ساختِ بی‌دستور و پرچم. و مدلی

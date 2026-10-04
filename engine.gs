@@ -1,82 +1,17 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.35
+ *  موتور محتوا و پادکست — نسخهٔ 8.36
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
- *  ══ پیشینه — ۵٫۱۲: منبعِ کد از درایو به «گیت‌هاب» منتقل شد ══
+ *  منبعِ حقیقت: github.com/mahdighandi1989/Content-Engine — src/، manifest.json،
+ *  و CLAUDE.md (قاعده‌ها و چرایی‌ها). تاریخچهٔ نسخه‌ها: جدولِ Changelog در
+ *  README.md. برگشتِ اضطراری: CODE_SOURCE = 'drive' در CONFIG، یا از منو
+ *  «بازگشت به نسخهٔ پشتیبانِ کد».
  *
- *  • این «آخرین چسباندنِ دستی» است. از این پس موتور، بیانیه (manifest.json) و
- *    کدِ کامل (engine.gs) را مستقیم از raw گیت‌هاب می‌خواند
- *    (github.com/mahdighandi1989/Content-Engine، ریپوی عمومی، بی‌توکن)،
- *    اثرانگشتِ SHA-256 و نسخهٔ داخلِ فایل را می‌سنجد، و اگر درست بود با
- *    Apps Script API خودش را عوض می‌کند — بی هیچ کپیِ دستی.
- *  • بعد از هر نصب، یک کپیِ کامل هم در پوشهٔ «کدها»ی درایو می‌ماند (بایگانی +
- *    پشتیبان)، پس نسخه‌ای در درایو هم داری.
- *  • برای برگشتِ اضطراری به روشِ درایو: در CONFIG مقدار CODE_SOURCE را 'drive'
- *    کن. همهٔ سدهای امنیتیِ نسخهٔ ۵٫۱۰ (اثرانگشت، نسخهٔ داخلِ فایل، توابعِ
- *    ضروری، کامپایلرِ گوگل، پشتیبانِ پیش از نصب، afterCodeSwap) سرِ جای‌شان‌اند.
- *
- *  ── و همچنان از ۵٫۱۱: «شماره و دستهٔ دستی» درست و کامل ──
- *
- *  • در تختهٔ مجموعه‌ها، «تنظیمِ دستی» حالا یک فرمِ یکجاست — نه سه پنجرهٔ
- *    پشتِ‌هم: شماره، دستهٔ اصلی (از فهرست یا دستهٔ تازه) و زیردسته، همه در یک
- *    نگاه. پیش‌تر فقط شماره روشن بود و دسته گم می‌شد؛ این رفع شد.
- *
- *  • دسته حالا در خودِ درایو اثر می‌گذارد: هر مجموعه زیرِ پوشهٔ دستهٔ خودش
- *    می‌نشیند — «درس‌نامه / <دسته> / NN — نامِ مجموعه / قسمت‌ها». با تغییرِ
- *    دستیِ دسته، پوشهٔ مجموعه — حتی برای قسمت‌های قبلی — به زیرِ دستهٔ تازه
- *    منتقل و شماره‌اش به‌روز می‌شود، و دستهٔ فایل‌های وضعیتِ قسمت‌های قدیمی هم
- *    عقب‌گرد اصلاح می‌شود.
- *
- *  • سامان‌دهیِ فایل‌های سرگردان دسته‌آگاه شد: برای دوره‌ای که زیرِ دسته است،
- *    دیگر شاخهٔ موازی نمی‌سازد و فایل را در همان پوشهٔ موجود می‌نشاند.
- *
- *  • یک رخنهٔ ریز در پنجرهٔ تخته بسته شد: نامِ دسته با نویسه‌های خاص دیگر
- *    نمی‌تواند از تگِ اسکریپت بیرون بزند.
- *
- *  این نسخه از همان چرخهٔ خودکارِ زیر نصب می‌شود (نیازی به کپیِ دستی نیست).
- *
- *  ══ زیرساختِ نسخهٔ ۵٫۱۰ که هنوز پابرجاست: پایانِ آشفتگیِ «تعویض کد» ══
- *
- *  چرخهٔ قبلی دستی و پرگره بود: ناظر در تبِ گزارش‌ها می‌نوشت «نیازمند تعویض
- *  کد»، یک _CODE-LATEST.json می‌گذاشت که فقط می‌گفت «نسخهٔ تازه ساخته شد» —
- *  بی‌آنکه بگوید خودِ کد کجاست — و شما باید لای سشن‌ها دنبال فایل می‌گشتید و
- *  دستی کپی می‌کردید؛ هیچ‌کس هم جلوی ردیف «انجام شد» نمی‌زد. یک بار هم
- *  بسته‌ای با برچسبِ ۵٫۹ ساخته شد که داخلش ۵٫۸ بود.
- *
- *  از این نسخه (21_SelfUpdate.gs):
- *
- *  • نصبِ خودکار. ناظرِ Cowork کدِ کامل («_CODE-vX.gs») و بیانیه‌اش
- *    (_CODE-LATEST.json با نسخه، نامِ فایل، اثرانگشتِ SHA-256 و شناسهٔ
- *    ردیف‌های گزارشی که جوابشان است) را در OUTPUT می‌گذارد؛ موتور هر شب
- *    ساعتِ ۲:۳۰ خودش وارسی و با Google Apps Script API نصب می‌کند —
- *    دیگر هیچ کپیِ دستی‌ای لازم نیست.
- *
- *  • وارسیِ سخت‌گیرانه پیش از نصب: اثرانگشت، اندازه، بودنِ توابعِ ضروری، و
- *    مهم‌تر از همه اینکه نسخهٔ نوشته‌شده «داخلِ خودِ فایل» با نسخهٔ اعلامی
- *    یکی باشد — همان دامی که یک بار ۵٫۹/۵٫۸ شد. کدِ خراب اصلاً نصب نمی‌شود؛
- *    کامپایلرِ خودِ گوگل هم هنگامِ ذخیره سدِ دوم است.
- *
- *  • پیش از هر تعویض، از کدِ در حالِ اجرا نسخهٔ پشتیبان گرفته می‌شود و هر دو
- *    نسخه در پوشهٔ «کدها — نسخه‌های موتور» داخلِ OUTPUT می‌مانند؛ همین پوشه
- *    هر شب همراهِ شیت‌ها پشتیبان می‌گیرد و در پیامِ پشتیبان هم لینک می‌شود.
- *    منو: «بازگشت به نسخهٔ پشتیبانِ کد» برای عقب‌گردِ یک‌کلیکی.
- *
- *  • پس از نصب، تریگرِ afterCodeSwap با «کدِ تازه» بالا می‌آید:
- *    زمان‌بندی‌ها را وارسی می‌کند، جلوی ردیف‌های گزارش «کد نصب شد — در
- *    انتظارِ تأییدِ ناظر» می‌زند، بیانیه را با ساعت و عاملِ نصب کامل می‌کند و
- *    در تلگرام و ایمیل با لینکِ دقیقِ نسخهٔ ذخیره‌شده خبر می‌دهد. ناظرِ فردا
- *    نسخهٔ در حالِ اجرا را می‌بیند و ردیف را «تأیید» و بسته می‌کند.
- *
- *  • اعلانِ «کدِ تازه» در تبِ گزارش‌ها هم دیگر مبهم نیست: لینکِ خودِ فایل،
- *    فهرستِ ردیف‌هایی که جواب می‌دهد، و اینکه «نصبِ خودکار امشب انجام می‌شود».
- *
- *  پیش‌نیازِ یک‌باره: روشن‌بودنِ Google Apps Script API (که روشن کرده‌اید) و
- *  افزودنِ اسکوپ script.projects به appsscript.json — راهنمای نصب، بخشِ
- *  «نصبِ خودکارِ کد». تا وقتی اسکوپ نباشد، موتور خراب نمی‌شود: یک بار پیامِ
- *  راهنما می‌دهد و همان روالِ اعلامِ دستی برقرار می‌ماند.
+ *  (تا ۸.۳۵ این‌جا پیشینهٔ ۵٫۱۰ تا ۵٫۱۲ بود — چهار هزار نویسه دربارهٔ کوچ از
+ *   درایو به گیت‌هاب. جایش README است، و فایلِ نصب‌شده به سقفِ اندازهٔ خودش
+ *   رسیده بود؛ ۸.۳۶ را ببینید.)
  * ==========================================================================*/
-
 
 
 
@@ -523,9 +458,25 @@ var CFG = {
   // «یه پادکست به صورت استثنا … همهٔ مفاهیم قسمت‌های گذشته رو اون یه نفر با
   // همون لحن و سادگی و مثال‌های بسیار ملموس بیاد توضیح بده.»
   RECAP_ENABLED: true,
-  // هشت درس کفِ معناداری است: با سه چهار درس هنوز چیزی برای «مرورِ بزرگ»
-  // نیست، و مرورِ زودهنگام همان قسمتی است که کسی دوباره گوش نمی‌دهد.
-  RECAP_MIN_PARTS: 8,
+  /* ══ مرورِ دوره‌ای: هر چند درس یک بار (۸.۳۶) ══
+     خواستهٔ صاحبِ برنامه: «هر ۱۵ درس یک مرورِ خودکار بساز … این ۱۵ تا
+     هاردکد نباشه بلکه در تنظیماتِ مجموعه به‌صورتِ پیش‌فرض انتخاب بشه».
+     تا ۸.۳۵ مرور «یک بار برای هر مجموعه» بود، با کفِ ثابتِ هشت درس، و
+     مجموعه‌ای که یک بار مرور گرفته بود هرگز دوباره خودکار نمی‌گرفت.
+     حالا این عدد **پیش‌فرض** است: ستونِ «مرورِ هر چند درس» در رجیستری، که
+     از خانهٔ مرورِ همان مجموعه روی تخته عوض می‌شود. خانهٔ خالی یعنی همین
+     پیش‌فرض، پس عوض‌کردنِ این عدد همهٔ مجموعه‌هایی را که دستی تنظیم نشده‌اند
+     با هم عوض می‌کند و دستِ آدم را نه. «خاموش» یعنی هیچ مرورِ خودکاری. */
+  RECAP_EVERY: 15,
+  RECAP_EVERY_CHOICES: [5, 8, 10, 12, 15, 20, 25, 30],
+  /* ── مجموعه‌ای که به آن عدد نمی‌رسد ──
+     او پرسید: «برای درس‌هایی که ممکن ۱۵ تا هم نشن و کمتر باشن چی؟» جواب:
+     وقتی مجموعه **تمام شد** (وضعیتِ «تمام‌شده»)، باقی‌مانده‌اش — هرچه پس از
+     آخرین مرور آمده، یا همهٔ درس‌ها اگر هرگز مرور نگرفته — یک مرورِ پایانی
+     می‌گیرد، به شرطِ اینکه دستِ‌کم این‌قدر درس باشد. مرورِ یک یا دو درس
+     تقریباً همان طولِ خودِ درس‌هاست؛ آن درس‌ها در جزوه هستند و تیکِ تخته
+     هنوز می‌تواندشان بسازد. */
+  RECAP_TAIL_MIN: 3,
   // سفارشی که نشود، صف را برای بقیه نمی‌بندد.
   RECAP_TRY_MAX: 3,
 
@@ -816,7 +767,7 @@ var CFG = {
        هر مجموعه ساخته می‌شود؛ ۲۵ روز بی‌اثری وقتی هیچ مروری در صف نیست، «سالم»
        است نه «بی‌اثر». */
     { key: 'recap', name: 'قسمتِ مرورِ مجموعه', at: 'recap', sw: 'RECAP_ENABLED', pk: 'RECAP_LOG',
-      due: 'queued' },
+      due: 'due' },
     { key: 'bridge', name: 'ارجاعِ میان‌مجموعه‌ای', at: 'bridge', sw: 'BRIDGE_ENABLED' },
     { key: 'embed', name: 'اثرِانگشتِ معناییِ بانک', at: 'embed', sw: 'EMB_ON' },
     { key: 'voice-intake', name: 'پذیرشِ گویندهٔ تازه', at: 'voiceIntake' },
@@ -1651,7 +1602,10 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.35',
+  CODE_VERSION: '8.36',
+  /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
+     گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
+  ENGINE_MAX_CHARS: 6000000,
   CODE_FILE: '_CODE-LATEST.json',
   // ---- نصبِ خودکارِ کد (نسخهٔ ۵٫۱۰) ----
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
@@ -1982,9 +1936,9 @@ var CFG = {
      ساخته شده» — همان باگِ ۷٫۸۶ که شناسه پارامترِ زیرِ سنجش را نداشت. */
   VOICE_SOUL_SEED: [
     { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گام -2 · حالت در صدا' },
+      tag: 'گام -2 · حالت بی تغییرِ ولوم' },
     { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار · حالت در صدا' }
+      tag: 'گامِ خودکار · حالت بی تغییرِ ولوم' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -2430,7 +2384,12 @@ var SERIES_HEADERS = [
    *   «زیاد»  ⇒ نقاشیِ ساخته‌شده برای همهٔ کارت‌ها
    * خانهٔ خالی یعنی «کم»؛ ارتقا یک واژه است، نه یک نسخهٔ تازه. و در **انتها**
    * اضافه شده، به همان دلیلِ ستونِ بالایی. */
-  'تصویرسازی'
+  'تصویرسازی',
+  /* ── مرورِ هر چند درس (۸.۳۶) ── خالی یعنی `CFG.RECAP_EVERY`؛ «خاموش» یعنی
+     هیچ مرورِ خودکاری برای این مجموعه. از خانهٔ مرورِ تخته نوشته می‌شود و
+     همان را `recapPeriodicDue_` می‌خوانَد — یک ستون، دو مصرف. در **انتها**،
+     به همان دلیلِ دو ستونِ بالا. */
+  'مرورِ هر چند درس'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -2438,7 +2397,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -2511,6 +2470,13 @@ var PK = {
   HVIZ_BAD: 'HANDOUT_VIZ_BAD_ROUNDS',  // شمارِ دورهای پیاپیِ بی‌ساخت با نوبتِ پر
   HVIZ_COVER: 'HANDOUT_VIZ_COVER',     // پوشش: هر مجموعه چند فصل از چند، نمودار دارد
   RECAP_Q: 'RECAP_QUEUE',         // سفارشِ مرور از تخته — تیکِ خودِ صاحبِ برنامه
+  /* شکستِ مرورِ خودکارِ هر مجموعه: {key: {n, made, why, at}}. وقتی مجموعه
+     درسِ تازه بگیرد پاک می‌شود — پس «رهاشده» تا وقتی معتبر است که چیزی عوض
+     نشده (۵.۸۸)، و هر شب همان مجموعه را دوباره امتحان نمی‌کند. */
+  RECAP_AUTO_FAIL: 'RECAP_AUTO_FAIL',
+  /* شاهدِ آخرین وارسیِ مرورِ خودکار: {at, due, ok, reason, series, next}.
+     در Properties، تا سطرِ روزانه بی خواندنِ هاب بگوید «بعدی کِی» (۷.۶۳). */
+  RECAP_AUTO_LAST: 'RECAP_AUTO_LAST',
   YT_LASTPUB: 'YT_LAST_PUBLISH',  // آخرین انتشارِ موفق
   YT_LASTRUN: 'YT_LAST_RUN',      // کارنامهٔ آخرین دورِ صفِ یوتیوب
   TG_TOKEN: 'TELEGRAM_BOT_TOKEN',
@@ -6178,31 +6144,36 @@ function speakProsodyText_() {
  */
 var SPEAK_SPANS = [
   /* `dsp` همان حال است **در خودِ صدا**، وقتی دستورش به گفتارساز نرسید (۸.۲۷):
-     `gain` به دسی‌بل و `tempo` نسبتِ سرعت (بیشتر از ۱ = تندتر). فقط آنچه
-     پردازشِ صدا واقعاً می‌سازد این‌جاست؛ «لبخند» در صدا ساختنی نیست و
-     `dsp` ندارد — و کپشن همین را می‌گوید، نه اینکه جایش را با ثانیه بنویسد. */
+     `tempo` نسبتِ سرعت (بیشتر از ۱ = تندتر). فقط آنچه پردازشِ صدا واقعاً
+     می‌سازد این‌جاست؛ «لبخند» در صدا ساختنی نیست و `dsp` ندارد.
+
+     ══ بلندی دیگر هرگز عوض نمی‌شود (۸.۳۶) ══ ۴ اکتبر، هر دو نمونه، ~۳:۴۰:
+     «صدا یهو کم شد و بعد زیاد شد» («نجوا» −۱۱ و «بلند» +۶ دسی‌بل). ولومِ
+     پایین آهسته حرف زدن نیست. حالت حالا از **دستورِ لحن** می‌آید، و
+     همیشه هم از **نشانهٔ پایانِ جمله** (`mark`، جای «.»؛ «؟» و «!»ِ متن
+     دست نمی‌خورد و شمارِ جمله‌ها همان می‌مانَد). */
   { k: 'کشیده',   cue: 'آهسته و کشیده بخوان؛ هجاها را کمی بکش و میانِ واژه‌ها درنگ کن',
     when: 'جملهٔ کلیدی، نتیجه‌گیری، چیزی که باید در ذهن بنشیند',
-    dsp: { tempo: 0.85 } },
+    dsp: { tempo: 0.85 }, mark: '…' },
   { k: 'بلند',    cue: 'با صدای بلند و پرشور بخوان',
     when: 'اوجِ هیجان، فریاد، خبرِ شگفت — کم‌یاب، وگرنه بی‌اثر',
-    dsp: { gain: 6 } },
+    mark: '!' },
   { k: 'کمی‌بلند', cue: 'کمی بلندتر و محکم‌تر از معمول بخوان',
     when: 'ادعای اصلی، تأکید، مخالفت',
-    dsp: { gain: 3 } },
+    mark: '!' },
   { k: 'آرام',    cue: 'آرام و با صدای پایین‌تر بخوان، نرم',
     when: 'توضیحِ فرعی، دلداری، لحظهٔ اندوه',
-    dsp: { gain: -6, tempo: 0.95 } },
+    dsp: { tempo: 0.95 }, mark: '…' },
   { k: 'نجوا',    cue: 'نجواگونه و خیلی آهسته بخوان، انگار رازی را می‌گویی',
     when: 'راز، اعتراف، نکتهٔ خصوصی — کم‌یاب',
-    dsp: { gain: -11, tempo: 0.92 },
-    dspNote: 'در صدا فقط آهسته‌تر — نجوای واقعی بی دستورِ لحن ساختنی نیست' },
+    dsp: { tempo: 0.92 }, mark: '…',
+    dspNote: 'بی دستورِ لحن فقط کندتر و با «…» — نجوای واقعی را فقط خودِ گوینده می‌سازد' },
   { k: 'تند',     cue: 'کمی تندتر و پرشتاب بخوان',
     when: 'فهرست، شمارش، هیجانِ رو به جلو',
     dsp: { tempo: 1.12 } },
   { k: 'سنگین',   cue: 'سنگین و جدی بخوان، با تأکید روی هر واژه',
     when: 'هشدار، حکم، جملهٔ قاطع',
-    dsp: { gain: 2, tempo: 0.9 } },
+    dsp: { tempo: 0.9 }, mark: '!' },
   { k: 'لبخند',   cue: 'گرم و با لبخند در صدا بخوان',
     when: 'طنز، شوخی، خاطرهٔ شیرین' },
   { k: 'مکث',     cue: '',
@@ -6353,10 +6324,24 @@ function speakSpanPieces_(text, spans) {
     flush();
     var body = sents.slice(h.a - 1, h.b).join(' ');
     var ps2 = splitForTts_(body);
-    for (var r = 0; r < ps2.length; r++) out.push({ t: ps2[r], k: h.k });
+    for (var r = 0; r < ps2.length; r++) out.push({ t: speakSpanMark_(ps2[r], h.k), k: h.k });
   }
   flush();
   return out;
+}
+
+/**
+ * نشانهٔ پایانِ جملهٔ حالت (۸.۳۶) — راهِ دومِ رساندنِ حال، بی دست‌زدن به ولوم.
+ * فقط «.»ی که پیش از فاصله یا پایان است عوض می‌شود — پس «۳.۵» نه، «؟»/«!»ِ متن
+ * نه، و «...»ِ خودِ متن هم نه (نقطهٔ آخرش پس از نقطه است) — و شمارِ جمله‌ها همان.
+ */
+function speakSpanMark_(t, k) {
+  var d = speakSpanDef_(k);
+  var mk = d && d.mark;
+  if (!mk) return String(t || '');
+  return String(t || '').replace(/\.(?=\s|$)/g, function (m0, at, all) {
+    return all.charAt(at - 1) === '.' ? m0 : mk;
+  });
 }
 
 /**
@@ -6382,8 +6367,9 @@ function speakSpanStyle_(k, card) {
  *
  * این خانوادهٔ مدل هیچ فیلدِ دستوری نمی‌پذیرد (۷٫۸۹) و پیشوند خوانده
  * می‌شود (۸٫۰۷) — صاحبِ برنامه گفت «به باگِ قبلی نخوریم». پس راهِ سوم نه
- * متن است نه دستور: **خودِ صدا**. بلندی ضریب است و سرعت WSOLA — هر دو
- * پردازشِ واقعیِ سیگنال، که چیزی برای خواندن به گفتارساز نمی‌دهند.
+ * متن است نه دستور: **خودِ صدا**. سرعت با WSOLA — پردازشِ واقعیِ سیگنال،
+ * که چیزی برای خواندن به گفتارساز نمی‌دهد. (تا ۸.۳۶ بلندی هم با ضریب عوض
+ * می‌شد، و همان «یهو کم شد و زیاد شد» بود که او شنید؛ حالا هرگز.)
  *
  * و مرز: فقط وقتی دستورِ **همین تکه** دور انداخته شد (`TTS_CUE_DROPPED_`).
  * روزی که مدلی دستور را بپذیرد، حال از خودِ گفتارساز می‌آید و پردازش روی
@@ -6433,7 +6419,9 @@ function speakWsola_(x, rate) {
 function speakMoodDsp_(b64, k) {
   var d = speakSpanDef_(k);
   var dsp = d && d.dsp;
-  if (!dsp || (!dsp.gain && !dsp.tempo)) return null;
+  /* فقط سرعت (۸.۳۶): بلندی در این تابع دیگر عوض نمی‌شود، حتی اگر کسی `gain`
+     را به جدول برگرداند — ولومِ پایین‌آمده «آرام حرف زدن» نیست. */
+  if (!dsp || !dsp.tempo) return null;
   var bytes = Utilities.base64Decode(alignB64_(b64));
   var n = Math.floor(bytes.length / 2);
   if (n < 2400) return null;
@@ -6445,15 +6433,13 @@ function speakMoodDsp_(b64, k) {
     if (v >= 32768) v -= 65536;
     x[i] = v / 32768;
   }
-  if (dsp.tempo) x = speakWsola_(x, dsp.tempo);
-  var g = dsp.gain ? Math.pow(10, Number(dsp.gain) / 20) : 1;
-  var T = 0.7;                                          // زانوی محدودکنندهٔ نرم
+  x = speakWsola_(x, dsp.tempo);
+  /* محدودکنندهٔ نرمِ ۸.۲۷ هم رفت: فقط برای بلندکردن لازم بود، و بی بلندکردن
+     تنها کارش فشردنِ قله‌های گفتارِ خودِ گوینده بود — باز یعنی تغییرِ بلندی. */
   var m = x.length - (x.length % 3);                   // مضربِ ۶ بایت، برای `alignB64_`
   var out = new Array(m * 2);
   for (var t = 0; t < m; t++) {
-    var s = x[t] * g, a = Math.abs(s);
-    if (a > T) s = (s < 0 ? -1 : 1) * (T + (1 - T) * Math.tanh((a - T) / (1 - T)));
-    var iv = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+    var iv = Math.max(-32768, Math.min(32767, Math.round(x[t] * 32767)));
     var lo = iv & 255, hi = (iv >> 8) & 255;
     out[2 * t] = lo > 127 ? lo - 256 : lo;
     out[2 * t + 1] = hi > 127 ? hi - 256 : hi;
@@ -6493,6 +6479,7 @@ function speakSpanWhere_(at) {
     if (h === 'نشد') { miss.push(at[i].k + ' ' + tm(at[i].s)); continue; }
     var tag = '';
     if (h === 'صدا') { viaDsp++; tag = ' (در صدا)'; }
+    else if (h === 'نشانه') tag = ' (فقط با نشانه)';
     else if (h === 'بخشی') tag = ' (بخشی)';
     var d = speakSpanDef_(at[i].k);
     if (h === 'صدا' && d && d.dspNote) notes[d.k] = d.dspNote;
@@ -6500,14 +6487,14 @@ function speakSpanWhere_(at) {
   }
   var out = 'حالت‌ها: ' + (L.length ? L.join(' · ') : 'هیچ');
   if (viaDsp) {
-    out += '\n«در صدا» یعنی دستورِ لحن به این مدلِ صوتی نرسید و بلندی/سرعت ' +
-           'در خودِ صدا ساخته شد — حال‌وهوای گفتار نه.';
+    out += '\n«در صدا» یعنی دستورِ لحن به این مدلِ صوتی نرسید و فقط سرعت ' +
+           'در خودِ صدا عوض شد، به‌علاوهٔ نشانهٔ پایانِ جمله — بلندی هرگز.';
     for (var nk in notes) {
       if (Object.prototype.hasOwnProperty.call(notes, nk)) out += '\n' + nk + ': ' + notes[nk] + '.';
     }
   }
   if (miss.length) {
-    out += '\nاجرا نشد (دستورِ لحن نرسید و در صدا هم ساختنی نیست): ' + miss.join(' · ');
+    out += '\nاجرا نشد (دستورِ لحن نرسید و نه در صدا ساختنی است نه با نشانه): ' + miss.join(' · ');
   }
   return out;
 }
@@ -23700,6 +23687,8 @@ function seriesBoardData_(hub) {
          هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
          می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
+      /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
+      recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
       // ── تنظیمِ دستیِ شما ──
       morder: isFinite(seriesMOrder_(v)) ? seriesMOrder_(v) : null,
@@ -24505,6 +24494,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvLevelSave(k,v);}');
+  H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiRecapEverySave(k,v);}');
   H.push('function clearPin(){busy();say("برداشتن انتخاب…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail).uiClearPin();}');
   /* جزوه: ساختش یک فراخوانِ مدل است و می‌تواند ده‌ها ثانیه طول بکشد، پس
@@ -24791,16 +24784,19 @@ function recapCell_(x) {
   var r = x && x.recap;
   var key = bEsc_(x.key);
   if (!r || !r.made) {
+    /* جعبهٔ فاصله این‌جا هم هست: مجموعه‌ای که هنوز شروع نشده هم باید پیش از
+       درسِ یکش تنظیم‌شدنی باشد (۸.۳۶). */
     return '<td class="sub rcc"><label style="opacity:.5"><input type="checkbox" ' +
            'class="rcChk" data-key="' + key + '" disabled> مرور</label>' +
-           '<div class="sub">قسمتی ساخته نشده</div></td>';
+           '<div class="sub">قسمتی ساخته نشده</div>' + recapEverySel_(x) + '</td>';
   }
   /* ══ پیش‌فرض: «مرور نشده» **و** به کفِ خودکار رسیده ══
    * خواسته این بود که «اون‌هایی که مرور نشدن تیک خورده باشه، در صورتی که
    * پادکستش قبلاً تولید شده باشه». تحتِ‌اللفظی یعنی هر مجموعه با یک درس هم
    * تیک بخورد — ولی ۲۶۴ مجموعه هست و فشردنِ دکمه آن‌وقت ده‌ها مرورِ
    * تک‌درسی سفارش می‌داد: هرکدام یک فراخوانِ مدل و یک قسمت در پلی‌لیست.
-   * پس پیش‌فرض کفِ خودِ موتور (RECAP_MIN_PARTS) را هم رعایت می‌کند، و
+   * پس پیش‌فرض نوبتِ خودکارِ همان مجموعه را هم رعایت می‌کند (از ۸.۳۶ «هر
+   * چند درس»ِ خودش، پیش از آن کفِ ثابتِ هشت)، و
    * مجموعهٔ زیرِ کف **همچنان تیک‌زدنی است** — فقط از پیش تیک نخورده، و
    * دلیلش روی همان خانه نوشته شده. تصمیم دستِ آدم می‌ماند؛ چیزی که عوض
    * می‌شود فقط «حدسِ اولیه» است.
@@ -24815,8 +24811,8 @@ function recapCell_(x) {
   var body;
   if (!r.done) {
     body = '<div class="sub">ساخته نشده — ' + faNum_(r.made) + ' درس آماده' +
-           (r.ripe ? '' : '<br>زیرِ کفِ ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
-                          ' درس؛ از پیش تیک نخورده، ولی می‌توانید بزنید') + '</div>';
+           (r.ripe ? '' : '<br>هنوز نوبتِ مرورِ خودکارش نرسیده؛ از پیش تیک نخورده، ' +
+                          'ولی می‌توانید بزنید') + '</div>';
   } else {
     /* «چند فصل گفته شد از چند» — نه «چند فصل در دست بود». تا ۶٫۳۲ اینجا
        عددِ کلِ فصل‌های جزوه می‌نشست و ادعای پوششِ کامل می‌کرد؛ ناظر متنِ
@@ -24854,19 +24850,72 @@ function recapCell_(x) {
    * نگرفته خودش شبانه نوبت می‌گیرد، ولی مجموعه‌ای که یک بار مرور گرفته
    * **هرگز** دوباره خودکار نمی‌گیرد (`recapCandidates_` رد می‌کندش). بدونِ
    * این جمله، آدم منتظرِ چیزی می‌ماند که قرار نیست بیاید. */
-  var idle;
+  /* ۸.۳۶: «اگر هیچ نکنم؟» — **کِی**، از همان حسابِ کارِ شبانه. */
+  var idle = '<div class="sub">' + recapIdleText_(r) + '</div>';
   if (r.queued) {
     idle = '<div class="sub" style="color:#166534">در صف (' + faNum_(r.queued) +
            ') — امشب یا شب‌های بعد خودش ساخته می‌شود</div>';
-  } else if (!r.done) {
-    idle = r.ripe
-      ? '<div class="sub">اگر کاری نکنید، خودش شبانه نوبت می‌گیرد</div>'
-      : '<div class="sub">خودکار سراغش نمی‌رود (زیرِ کف)؛ فقط با تیک و دکمه</div>';
-  } else {
-    idle = '<div class="sub">خودکار دیگر سراغش نمی‌رود — فقط با تیک و دکمه</div>';
   }
-  return '<td class="rcc">' + body + idle + recapScopePick_(r, key) +
+  return '<td class="rcc">' + body + idle + recapEverySel_(x) + recapScopePick_(r, key) +
          '<div style="margin-top:4px">' + chk + '</div></td>';
+}
+
+/** «اگر کاری نکنم، این مجموعه کِی مرور می‌گیرد؟» — یک جمله، از همان حسابِ شبانه. */
+function recapIdleText_(r) {
+  var tail = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+  var per = 'هر ' + faNum_(r.every) + ' درس' + (r.everySrc === 'پیش‌فرض' ? '، پیش‌فرض' : '');
+  if (r.everyOff) return 'مرورِ خودکار برای این مجموعه خاموش است — فقط با تیک و دکمه';
+  if (r.unknown) return 'معلوم نیست مرورِ قبلی تا کجا رسید؛ خودکار حدس نمی‌زند — با تیک بسازید';
+  if (r.gaveUp) {
+    return 'مرورِ خودکار ' + faNum_(Number(r.fail && r.fail.n) || 0) + ' بار نشد (' +
+           bEsc_(String((r.fail && r.fail.why) || '')) + ') — با درسِ تازه دوباره امتحان ' +
+           'می‌شود؛ یا همین حالا تیک بزنید';
+  }
+  if (r.due === 'tail') {
+    return 'مجموعه تمام شده؛ مرورِ پایانیِ ' + faNum_(r.since) + ' درسِ آخر شبانه خودش ساخته می‌شود';
+  }
+  if (r.due === 'every') {
+    return 'نوبتش رسیده (' + faNum_(r.since) + ' درس' + (r.done ? ' پس از مرورِ قبلی' : '') +
+           '، ' + per + ') — شبانه خودش ساخته می‌شود';
+  }
+  if (r.finished) {
+    return r.since
+      ? 'مجموعه تمام شده و فقط ' + faNum_(r.since) + ' درس' +
+        (r.done ? ' پس از مرورِ قبلی مانده' : ' دارد') + ' — کمتر از ' + faNum_(tail) +
+        '، پس خودکار ساخته نمی‌شود؛ با تیک می‌شود'
+      : 'مجموعه تمام شده و همهٔ درس‌هایش مرور شده';
+  }
+  return 'مرورِ خودکارِ بعدی پس از ' + faNum_(r.left) + ' درسِ دیگر (' + per + ')';
+}
+
+/**
+ * جعبهٔ «مرورِ خودکار: هر چند درس» (۸.۳۶): «این ۱۵ تا هاردکد نباشه بلکه در
+ * تنظیماتِ مجموعه به‌صورتِ پیش‌فرض انتخاب بشه». گزینهٔ اول همان خانهٔ خالی
+ * است؛ عددِ دستیِ بیرونِ فهرست گزینهٔ خودش را می‌گیرد (۷.۴۱).
+ */
+function recapEverySel_(x) {
+  var key = bEsc_(String((x && x.key) || ''));
+  var cell = [];
+  cell[SC.RECAP_EVERY - 1] = x ? x.recapEvery : '';
+  var ev = recapEveryOf_(cell);
+  var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+  var ch = (CFG.RECAP_EVERY_CHOICES || [5, 8, 10, 12, 15, 20, 25, 30]).slice();
+  var hand = (ev.src === 'تخته' && !ev.off);
+  if (hand && ch.indexOf(ev.n) === -1) { ch.push(ev.n); ch.sort(function (a, b) { return a - b; }); }
+  var opts = ['<option value=""' + (ev.src === 'پیش‌فرض' ? ' selected' : '') +
+              '>پیش‌فرض — هر ' + faNum_(def) + ' درس</option>'];
+  for (var i = 0; i < ch.length; i++) {
+    var n = Number(ch[i]);
+    opts.push('<option value="' + n + '"' + (hand && ev.n === n ? ' selected' : '') +
+              '>هر ' + faNum_(n) + ' درس</option>');
+  }
+  opts.push('<option value="خاموش"' + (ev.off ? ' selected' : '') +
+            '>خاموش — بی مرورِ خودکار</option>');
+  return '<div class="sub" style="margin-top:4px">مرورِ خودکار: ' +
+         '<select class="rcEvery" data-key="' + key + '" onchange="recapEvery(this)">' +
+         opts.join('') + '</select>' +
+         (ev.bad ? '<br><span style="color:#8a6d1f">«' + bEsc_(ev.raw) +
+                   '» خوانده نشد؛ پیش‌فرض به کار می‌رود</span>' : '') + '</div>';
 }
 
 /**
@@ -25035,12 +25084,17 @@ function recapPanelHtml_(d) {
        نمی‌شوند (هر بار از نو حساب می‌شوند) و هر مجموعه به‌محضِ ساخته‌شدنِ
        مرورش از صف بیرون می‌رود. ترسِ «یک تیکِ فراموش‌شده که هر شب یک قسمت
        می‌سازد» ترسِ بی‌جایی نیست؛ فقط جوابش جایی نوشته نشده بود. */
-    '<div style="margin-top:4px"><b>تکرار نمی‌شود:</b> تیک‌ها ذخیره نمی‌شوند و ' +
-    'هر مجموعه پس از ساخته‌شدنِ مرورش از صف بیرون می‌رود. مجموعه‌ای که یک بار ' +
-    'مرور گرفته، دیگر خودکار مرور نمی‌گیرد — فقط اگر خودتان دوباره تیکش بزنید.</div>' +
-    '<div style="margin-top:4px">تیکِ پیش‌فرض روی مجموعه‌هایی است که مرور ' +
-    'نگرفته‌اند و دستِ‌کم ' + faNum_(Number(CFG.RECAP_MIN_PARTS) || 8) +
-    ' درس دارند؛ بقیه را خودتان می‌توانید بزنید.</div></div>' +
+    /* ۸.۳۶: «یک بار برای همیشه» دیگر درست نیست — جملهٔ کهنه بدتر از هیچ است. */
+    '<div style="margin-top:4px"><b>مرورِ خودکار:</b> هر مجموعه هر ' +
+    faNum_(Number(CFG.RECAP_EVERY) || 15) + ' درس یک بار خودش مرور می‌گیرد ' +
+    '(پیش‌فرض) — روی درس‌هایی که پس از مرورِ قبلی آمده‌اند. این عدد برای هر ' +
+    'مجموعه جداست: جلوی همان ردیف، جعبهٔ «مرورِ خودکار» را عوض کنید، یا خاموشش ' +
+    'کنید. مجموعه‌ای که <b>تمام شود</b> و به آن عدد نرسد، اگر دستِ‌کم ' +
+    faNum_(Number(CFG.RECAP_TAIL_MIN) || 3) + ' درس پس از مرورِ قبلی‌اش مانده باشد، ' +
+    'یک مرورِ پایانی می‌گیرد.</div>' +
+    '<div style="margin-top:4px"><b>تیک‌ها تکرار نمی‌شوند:</b> ذخیره نمی‌شوند و ' +
+    'هر مجموعه پس از ساخته‌شدنِ مرورش از صف بیرون می‌رود. تیکِ پیش‌فرض روی ' +
+    'مجموعه‌هایی است که هرگز مرور نگرفته‌اند و نوبتشان رسیده.</div></div>' +
     '<div><b>' + faNum_(made) + '</b> مجموعه مرور دارد · ' +
     '<b>' + faNum_(none) + '</b> هنوز نه · ' +
     '<b>' + faNum_(def) + '</b> از پیش تیک خورده' +
@@ -25661,6 +25715,57 @@ function uiLvLevelSave(key, level) {
   } catch (e) {
     boardReceipt_(false, 'ثبتِ سطح نشد', [e.message]);
     return { ok: false, message: 'ثبتِ سطح نشد: ' + e.message };
+  }
+}
+
+/**
+ * ثبتِ «مرورِ هر چند درس» از تخته (۸.۳۶). «حتماً تغییرات اعمال بشه»: رسید
+ * پس از نوشتن از همان حسابِ شبانه روی رجیستریِ تازه‌خوانده می‌گوید بعدی کِی
+ * است. ناخوانا با نام رد می‌شود و خانهٔ قبلی دست نمی‌خورد.
+ */
+function uiRecapEverySave(key, every) {
+  try {
+    var k = String(key || '').trim();
+    var raw = String(every == null ? '' : every).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var v;
+    if (!raw || raw === 'پیش‌فرض') v = '';
+    else if (raw === 'خاموش') v = 'خاموش';
+    else {
+      var c0 = [];
+      c0[SC.RECAP_EVERY - 1] = raw;
+      var e0 = recapEveryOf_(c0);
+      if (e0.bad) {
+        boardReceipt_(false, 'فاصلهٔ مرورِ ناخوانا', ['«' + raw + '» عدد نیست. ' +
+          'مجازها: پیش‌فرض · یک عدد میانِ ۱ و ۵۰۰ · خاموش']);
+        return { ok: false, message: '«' + raw + '» را نمی‌شناسم؛ یک عدد بدهید یا «خاموش».' };
+      }
+      v = e0.n;
+    }
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.RECAP_EVERY).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var m = null;
+    try { m = recapBoardMap_(hub, readSeriesReg_(hub))[k] || null; } catch (eM) { m = null; }
+    var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+    var lines = [];
+    if (v === 'خاموش') {
+      lines.push('مرورِ خودکار برای «' + nm + '» خاموش شد. با تیک و دکمهٔ «همین حالا بساز» ' +
+                 'هنوز می‌شود ساخت.');
+    } else {
+      lines.push('از این پس هر ' + faNum_(v === '' ? def : v) + ' درس یک مرور' +
+                 (v === '' ? ' (پیش‌فرض؛ با عوض‌شدنِ پیش‌فرض این هم عوض می‌شود)' : '') + '.');
+      if (m && m.made) lines.push(recapIdleText_(m) + '.');
+      else lines.push('هنوز درسی ساخته نشده؛ شمارش از درسِ یک شروع می‌شود.');
+    }
+    boardReceipt_(true, 'فاصلهٔ مرورِ «' + nm + '» ثبت شد', lines);
+    return { ok: true, message: lines.join(' ') };
+  } catch (e) {
+    boardReceipt_(false, 'ثبتِ فاصلهٔ مرور نشد', [e.message]);
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
   }
 }
 
@@ -30447,7 +30552,11 @@ function engineTextProblems_(text) {
   if (t.length < 100000) {
     errs.push('متن برای کدِ موتور خیلی کوچک است (' + t.length + ' نویسه)');
   }
-  if (t.length > 3000000) errs.push('متن به‌طرزِ نامعقولی بزرگ است');
+  /* سقف از CFG (۸.۳۶): تا ۸.۳۵ عددِ ثابتِ ۳٬۰۰۰٬۰۰۰ بود و engine.gs به
+     ۲٬۹۹۹٬۹۷۵ رسیده بود — نسخهٔ بعد نصب نمی‌شد و شکلِ پشتیبانش همین حالا رد
+     می‌شد. `tools/build.js` در ۹۰٪ آن می‌ایستد. */
+  var cap = Number(CFG.ENGINE_MAX_CHARS) || 6000000;
+  if (t.length > cap) errs.push('متن به‌طرزِ نامعقولی بزرگ است (' + t.length + ' > ' + cap + ')');
   for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
     if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
       errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در متن نیست');
@@ -53448,22 +53557,9 @@ function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed, 
   } catch (e) {}
 }
 
-/**
- * دکمه‌ای که آدم بتواند بازش کند.
- *
- * قاعدهٔ ۵٫۹۵ در این ریپو: «یک‌بار‌مصرفِ بی‌درِ بازگشت، شکلی است که این ریپو
- * مدام به آن می‌خورد.» اگر مرورِ یک مجموعه بد در بیاید یا مجموعه بعداً ده
- * درسِ دیگر بگیرد، باید بشود دوباره ساخت.
- */
-function recapReopen_(seriesKey) {
-  try {
-    var o = recapDone_();
-    if (!o[String(seriesKey)]) return false;
-    delete o[String(seriesKey)];
-    props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
-    return true;
-  } catch (e) { return false; }
-}
+/* `recapReopen_` (۶.۲۲) در ۸.۳۶ رفت: تنها فراخوانَش، پروندهٔ «تا کجا» را **پیش از
+   موفقیت** پاک می‌کرد. درِ بازگشت همان تیکِ تخته است — با کلید، قفل نادیده
+   گرفته می‌شود و `recapMarkDone_` در پایان بازنویسی می‌کند. */
 
 /**
  * چند قسمتِ درس‌نامه از هر مجموعه تولید شده — **یک خواندن برای همه**.
@@ -53559,23 +53655,178 @@ function recapPartsMap_(hub, epsMap) {
  * یک بار داشت.
  */
 function recapCandidates_(hub, reg, forceKey) {
-  var done = recapDone_();
-  var min = Number(CFG.RECAP_MIN_PARTS) || 8;
+  /* «خودکار» یک تعریف دارد (۸.۳۶): بی‌کلید، همان `recapPeriodicDue_`. */
+  if (!forceKey) {
+    var due = recapPeriodicDue_(hub, reg);
+    var L = [];
+    for (var d0 = 0; d0 < due.length; d0++) {
+      var r0 = (reg.byKey || {})[due[d0].key];
+      if (r0) L.push({ rec: r0, name: due[d0].name, made: due[d0].made, due: due[d0] });
+    }
+    return L;
+  }
   var out = [];
   var made0 = recapPartsMap_(hub);          // ← یک خواندن، پیش از حلقه
   for (var i = 0; i < (reg.rows || []).length; i++) {
     var rec = reg.rows[i];
     var key = String(rec.key || '');
     var name = String(rec.vals[SC.NAME - 1] || key);
-    if (forceKey) { if (key !== String(forceKey)) continue; }
-    else if (done[key]) continue;
+    if (key !== String(forceKey)) continue;
     var made = made0[name] || 0;
-    if (!forceKey && made < min) continue;
     if (!made) continue;                       // مروری که چیزی برای مرور ندارد
     out.push({ rec: rec, name: name, made: made });
   }
-  out.sort(function (a, b) { return b.made - a.made; });
   return out;
+}
+
+/**
+ * «هر چند درس»ِ این مجموعه (۸.۳۶): ستونِ خودش، یا پیش‌فرض. `{n, src, off,
+ * raw, bad}`. ناخوانا به پیش‌فرض می‌افتد **و گفته می‌شود** (۷.۴۱).
+ */
+function recapEveryOf_(vals) {
+  var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+  var cell = vals ? vals[SC.RECAP_EVERY - 1] : '';
+  var raw = String(cell == null ? '' : cell).trim();
+  if (!raw || raw === 'پیش‌فرض') return { n: def, src: 'پیش‌فرض', off: false, raw: '' };
+  if (raw === 'خاموش' || /^off$/i.test(raw)) return { n: 0, src: 'تخته', off: true, raw: raw };
+  var lat = raw.replace(/[۰-۹]/g, function (c) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)); });
+  var n = /^\d+$/.test(lat) ? parseInt(lat, 10) : NaN;
+  if (!(n >= 1 && n <= 500)) return { n: def, src: 'پیش‌فرض', off: false, raw: raw, bad: true };
+  return { n: n, src: 'تخته', off: false, raw: raw };
+}
+
+function recapAutoLastSave_(o) {
+  try { props_().setProperty(PK.RECAP_AUTO_LAST, JSON.stringify(o || {})); } catch (e) {}
+}
+
+function recapAutoLast_() {
+  try { return JSON.parse(props_().getProperty(PK.RECAP_AUTO_LAST) || 'null'); }
+  catch (e) { return null; }
+}
+
+/** حافظهٔ شکستِ مرورِ خودکار — `{key: {n, made, why, at}}`. */
+function recapAutoFailRead_() {
+  try {
+    var o = JSON.parse(props_().getProperty(PK.RECAP_AUTO_FAIL) || '{}');
+    return (o && typeof o === 'object' && !(o instanceof Array)) ? o : {};
+  } catch (e) { return {}; }
+}
+
+function recapAutoFailSave_(o) {
+  try { props_().setProperty(PK.RECAP_AUTO_FAIL, JSON.stringify(o || {})); return true; }
+  catch (e) { return false; }
+}
+
+/**
+ * کدام مجموعه‌ها امشب مرورِ خودکار می‌خواهند (۸.۳۶) — یک تعریف برای شب،
+ * منو و تخته (تخته همین را از `recapBoardMap_` می‌خوانَد):
+ *   • هرگز مرور نگرفته و ≥ «هر چند درس»ِ خودش ⇒ «همه»
+ *   • مرور گرفته و ≥ همان‌قدر درس پس از آن ⇒ «پس از آخرین مرور»
+ *   • **تمام‌شده** با باقی‌ماندهٔ ≥ `RECAP_TAIL_MIN` ⇒ مرورِ پایانی
+ * بیرون: «خاموش»، «نادیده»، مروری که نمی‌دانیم تا کجا رسید (حدس یعنی تکرار
+ * یا جاانداختن)، و مجموعه‌ای که `RECAP_TRY_MAX` بار نشده تا درسِ تازه (۵.۸۸).
+ */
+function recapPeriodicDue_(hub, reg, map) {
+  var out = [];
+  try {
+    hub = hub || getHub_();
+    reg = reg || readSeriesReg_(hub);
+    map = map || recapBoardMap_(hub, reg);
+    var fails = recapAutoFailRead_();
+    var tail = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+    var max = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var key = String(rec.key || '');
+      var m = map[key];
+      if (!m || !m.made || m.unknown) continue;
+      var ev = recapEveryOf_(rec.vals);
+      if (ev.off) continue;
+      var st = String(rec.vals[SC.STATUS - 1] || '');
+      if (st === SST.SKIPPED) continue;
+      var since = m.done ? (Number(m.behind) || 0) : m.made;
+      if (since <= 0) continue;
+      var why = '';
+      if (since >= ev.n) why = 'every';
+      else if (st === SST.DONE && since >= tail) why = 'tail';
+      if (!why) continue;
+      var f = fails[key];
+      if (f && Number(f.made) === m.made && (Number(f.n) || 0) >= max) continue;
+      out.push({ key: key, name: m.name, made: m.made, since: since, every: ev.n,
+                 mode: m.done ? 'since' : 'all', why: why });
+    }
+    out.sort(function (a, b) { return b.since - a.since; });
+  } catch (e) {}
+  return out;
+}
+
+/** نزدیک‌ترین مجموعه به نوبتِ مرورش — «بعدی کِی؟»؛ سکوت شبیهِ خرابی است (۸.۳۵). */
+function recapNextDue_(hub, reg, map) {
+  var best = null;
+  try {
+    reg = reg || readSeriesReg_(hub);
+    map = map || recapBoardMap_(hub, reg);
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var m = map[String(rec.key || '')];
+      if (!m || !m.made || m.unknown) continue;
+      var ev = recapEveryOf_(rec.vals);
+      if (ev.off) continue;
+      var st0 = String(rec.vals[SC.STATUS - 1] || '');
+      if (st0 === SST.DONE || st0 === SST.SKIPPED) continue;    // درسِ تازه‌ای نمی‌آید
+      var since = m.done ? (Number(m.behind) || 0) : m.made;
+      var left = ev.n - since;
+      if (left <= 0) continue;               // همین حالا نوبت دارد؛ آن «نوبت‌دار» است نه «بعدی»
+      if (!best || left < best.left) best = { name: m.name, left: left, every: ev.n };
+    }
+  } catch (e) {}
+  return best;
+}
+
+/**
+ * مرورِ خودکار: اولین مجموعهٔ نوبت‌دار، با دامنهٔ خودش (۸.۳۶). شکستِ ارزان
+ * (بی‌جزوه، دامنهٔ خالی) نوبت را به بعدی می‌دهد؛ گران (مدل) همان‌جا می‌ایستد.
+ * هر شکست شمرده می‌شود تا شبِ بعد بی‌پایان تکرار نشود.
+ */
+function recapAutoRun_(opt) {
+  opt = opt || {};
+  if (props_().getProperty(PK.SP_PENDING)) return { ok: false, reason: 'busy' };
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  var map = recapBoardMap_(hub, reg);
+  var due = recapPeriodicDue_(hub, reg, map);
+  var next = recapNextDue_(hub, reg, map);
+  /* شاهد پیش از کار نوشته می‌شود و پس از آن تکمیل: اجرایی که وسطِ نوشتنِ
+     مرور کشته شود، دستِ‌کم «چند مجموعه نوبت داشت» را جا می‌گذارد (۷.۴۴). */
+  var wit = { at: nowStr_(), due: due.length, ok: false, reason: due.length ? 'running' : 'none',
+              series: due.length ? due[0].name : '', next: next };
+  recapAutoLastSave_(wit);
+  if (!due.length) return { ok: false, reason: 'none', next: next };
+  var fails = recapAutoFailRead_();
+  var last = null;
+  for (var i = 0; i < due.length && i < 3; i++) {
+    var d = due[i], r;
+    try {
+      r = runRecapEpisode({ key: d.key, mode: d.mode, force: !!opt.force, auto: d.why });
+    } catch (e) { r = { ok: false, reason: 'error', why: e.message }; }
+    r.auto = d;
+    wit.ok = !!r.ok; wit.reason = String(r.reason || (r.ok ? 'ok' : '')); wit.series = d.name;
+    recapAutoLastSave_(wit);
+    if (r.ok) {
+      if (fails[d.key]) { delete fails[d.key]; recapAutoFailSave_(fails); }
+      return r;
+    }
+    if (r.reason === 'busy' || r.reason === 'off') return r;
+    var f = fails[d.key] || {};
+    var prevN = (Number(f.made) === d.made) ? (Number(f.n) || 0) : 0;
+    fails[d.key] = { n: prevN + 1, made: d.made, why: String(r.reason || ''), at: nowStr_() };
+    recapAutoFailSave_(fails);
+    logLine_('مرورِ خودکارِ «' + d.name + '» ساخته نشد (' + String(r.reason || '') +
+             ')؛ تلاشِ ' + (prevN + 1) + ' با همین ' + d.made + ' درس.');
+    last = r;
+    if (r.reason !== 'no-handout' && r.reason !== 'scope-empty' && r.reason !== 'none') return r;
+  }
+  return last || { ok: false, reason: 'none' };
 }
 
 /* همهٔ فیلدها رشته‌اند — قاعدهٔ شمای این ریپو. */
@@ -54131,14 +54382,15 @@ function runRecapEpisode(opt) {
     // آن‌دو نیمه‌کاره رها می‌شود، و PK.SP_PENDING یک کلید بیشتر نیست.
     return { ok: false, reason: 'busy' };
   }
+  /* بی‌کلید یعنی «خودکار»، و خودکار یک تعریف دارد (۸.۳۶). */
+  if (!opt.key) return recapAutoRun_(opt);
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
-  /* پروندهٔ مرورِ قبلی **پیش از** بازکردنِ قفل خوانده می‌شود: دامنهٔ «پس از
-     آخرین مرور» دقیقاً از همین می‌آید، و `recapReopen_` پاکش می‌کند. اگر
-     ترتیب برعکس بود، `since` همیشه به «همه» فرو می‌افتاد — بی هیچ خطایی و
-     دقیقاً در جایی که آدم صریحاً چیزِ دیگری خواسته. */
+  /* دامنهٔ «پس از آخرین مرور» از همین پرونده می‌آید — و دیگر **پیش از
+     موفقیت** پاک نمی‌شود (۸.۳۶): تا ۸.۳۵ `recapReopen_` این‌جا بود و سفارشی
+     که بعد «جزوه ندارد» می‌گرفت، «تا کجا» را از دست می‌داد؛ مرورِ بعدی
+     دوباره از درسِ یک. `recapMarkDone_` در پایان بازنویسی می‌کند. */
   var prevDone = recapDone_()[String(opt.key || '')] || null;
-  if (opt.key && opt.force) recapReopen_(opt.key);
   /* نامزدها به ترتیب امتحان می‌شوند، نه فقط اولی: مجموعه‌ای که جزوه ندارد
      نباید صف را برای بقیه ببندد. */
   var cands = recapCandidates_(hub, reg, opt.key || '');
@@ -54445,7 +54697,9 @@ function recapBoardMap_(hub, reg) {
     var done = recapDone_();
     var q = recapQueue_(), qs = Object.create(null);
     for (var j = 0; j < q.length; j++) qs[String(q[j].key)] = j + 1;
-    var min = Number(CFG.RECAP_MIN_PARTS) || 8;
+    var fails = recapAutoFailRead_();
+    var tailMin = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+    var tryMax = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
     for (var i = 0; i < (reg.rows || []).length; i++) {
       var rec = reg.rows[i];
       var key = String(rec.key || '');
@@ -54509,6 +54763,17 @@ function recapBoardMap_(hub, reg) {
           behind = Math.max(0, m - covered);
         }
       }
+      /* نوبتِ خودکار با عددِ همین مجموعه (۸.۳۶) — `recapPeriodicDue_` همین را می‌خوانَد. */
+      var ev = recapEveryOf_(rec.vals);
+      var st = String(rec.vals[SC.STATUS - 1] || '');
+      var since = d ? behind : m;
+      var dueWhy = '';
+      if (m && !unknown && !ev.off && st !== SST.SKIPPED && since > 0) {
+        if (since >= ev.n) dueWhy = 'every';
+        else if (st === SST.DONE && since >= tailMin) dueWhy = 'tail';
+      }
+      var fl = fails[key] || null;
+      var gaveUp = !!(fl && Number(fl.made) === m && (Number(fl.n) || 0) >= tryMax);
       out[key] = {
         name: name, made: m, eps: eps, lessons: lessons, done: d, covered: covered,
         chOk: chOk, chAll: chAll, mode: mode, upto: upto, uptoFrom: uptoFrom,
@@ -54517,7 +54782,12 @@ function recapBoardMap_(hub, reg) {
         behind: behind,
         queued: qs[key] || 0,
         eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»
-        ripe: m >= min                // به کفِ خودکار هم رسیده
+        every: ev.n, everySrc: ev.src, everyOff: ev.off, everyRaw: ev.raw,
+        everyBad: !!ev.bad, since: since, finished: st === SST.DONE,
+        due: gaveUp ? '' : dueWhy, gaveUp: gaveUp, fail: fl,
+        left: ev.off ? 0 : Math.max(0, ev.n - since),
+        /* «رسیده» یعنی خودکار سراغش می‌رود — همان معنای قبلی، با عددِ خودش. */
+        ripe: !!dueWhy && !gaveUp
       };
     }
   } catch (e) {}
@@ -54534,7 +54804,7 @@ function recapNightly_() {
   try { q = recapRunNext_(); } catch (eQ) { q = { ok: false, reason: 'error' }; }
   if (q && q.reason !== 'empty') return q;
   var r;
-  try { r = runRecapEpisode({}); } catch (e) { return { ok: false, reason: 'error', why: e.message }; }
+  try { r = recapAutoRun_({}); } catch (e) { return { ok: false, reason: 'error', why: e.message }; }
   return r;
 }
 
@@ -54550,7 +54820,7 @@ function runRecapNow() {
      نادیده بگیرد یعنی دو رفتار برای یک کار، و روزی یکی‌شان عوض می‌شود. */
   var r = null;
   try { r = recapRunNext_(); } catch (eQ) { r = null; }
-  if (!r || r.reason === 'empty') r = runRecapEpisode({ force: true });
+  if (!r || r.reason === 'empty') r = recapAutoRun_({ force: true });
   var L = ['قسمتِ مرورِ بزرگ:'];
   if (r.ok) {
     L.push('• مجموعه: ' + r.series);
@@ -54564,8 +54834,11 @@ function runRecapNow() {
     var why = {
       off: 'قابلیت خاموش است (RECAP_ENABLED).',
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ بعد از تمام‌شدنش دوباره بزنید.',
-      none: 'هیچ مجموعه‌ای هنوز به کفِ ' + faDigitsOut_(String(CFG.RECAP_MIN_PARTS || 8)) +
-            ' قسمتِ تولیدشده نرسیده.',
+      none: 'هیچ مجموعه‌ای به نوبتِ مرورش نرسیده' +
+            (r.next ? ' — بعدی «' + r.next.name + '»، پس از ' +
+                      faDigitsOut_(String(r.next.left)) + ' درسِ دیگر (هر ' +
+                      faDigitsOut_(String(r.next.every)) + ' درس)' : '') +
+            '. برای ساختنِ همین حالا، روی تخته تیک بزنید.',
       'no-handout': 'متنِ جمع‌شدهٔ درس‌های آن مجموعه هنوز آماده نیست؛ هر شب ' +
                     'خودش ساخته می‌شود، فردا دوباره امتحان کنید.',
       write: 'مدل متنی برنگرداند.',
@@ -54585,9 +54858,27 @@ function runRecapNow() {
 
 /** یک سطرِ فارسیِ آماده برای ایمیلِ روزانه. */
 function recapStatus_() {
-  var out = { line: '', ok: true, n: 0, queued: 0 };
+  var out = { line: '', ok: true, n: 0, queued: 0, due: 0 };
   try {
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    /* ══ مرورِ خودکار، از شاهدِ خودش (۸.۳۶) ══
+       این تابع در `writeStatus_` است — داغ‌ترین مسیرِ موتور — پس هاب را
+       نمی‌خوانَد؛ «بعدی کِی» را از شاهدی می‌گیرد که کارِ شبانه نوشته. */
+    var au = recapAutoLast_();
+    var auLine = '';
+    if (au && au.at) {
+      var nx = au.next;
+      auLine = ' مرورِ خودکار هر ' + fa(Number(CFG.RECAP_EVERY) || 15) + ' درس (پیش‌فرض)؛ ' +
+        (au.due ? fa(au.due) + ' مجموعه نوبت داشت' +
+                  (au.ok ? ' و «' + au.series + '» ساخته شد'
+                         : ' — «' + au.series + '» نشد (' + ({ 'no-handout': 'جزوه ندارد',
+                             'scope-empty': 'دامنه خالی بود', write: 'مدل متن نداد',
+                             busy: 'درس‌نامهٔ دیگری در جریان بود', running: 'نیمه‌کاره ماند',
+                             error: 'خطا' }[au.reason] || String(au.reason || '')) + ')')
+                : 'امشب نوبتِ هیچ مجموعه‌ای نبود') +
+        (nx && nx.name ? '؛ بعدی «' + nx.name + '» پس از ' + fa(nx.left) + ' درسِ دیگر' : '') + '.';
+      out.due = au.ok ? 0 : (Number(au.due) || 0);
+    }
     var done = recapDone_(), keys = [];
     for (var k in done) if (Object.prototype.hasOwnProperty.call(done, k)) keys.push(k);
     out.n = keys.length;
@@ -54595,9 +54886,10 @@ function recapStatus_() {
       var q0 = [];
       try { q0 = recapQueue_(); } catch (eQ0) { q0 = []; }
       out.queued = q0.length;
+      out.due += q0.length;
       out.line = 'مرورِ بزرگ: هنوز برای هیچ مجموعه‌ای ساخته نشده' +
                  (q0.length ? '؛ ' + fa(q0.length) + ' مجموعه در صف است («' +
-                              String(q0[0].name || q0[0].key) + '» بعدی است)' : '') + '.';
+                              String(q0[0].name || q0[0].key) + '» بعدی است)' : '') + '.' + auLine;
       return out;
     }
     var raw = props_().getProperty(PK.RECAP_LOG);
@@ -54608,11 +54900,12 @@ function recapStatus_() {
     var q = [];
     try { q = recapQueue_(); } catch (eQ) { q = []; }
     out.queued = q.length;
+    out.due += q.length;
     out.line = 'مرورِ بزرگ: برای ' + fa(keys.length) + ' مجموعه ساخته شده' +
                (last ? ' — آخری «' + last.series + '»، قسمت ' + fa(last.ep) +
                        ' با ' + fa(last.secs) + ' بخش' : '') +
                (q.length ? '؛ ' + fa(q.length) + ' مجموعه در صف («' +
-                           String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.';
+                           String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.' + auLine;
   } catch (e) {}
   return out;
 }
@@ -64621,7 +64914,9 @@ function runVoiceSoulTest() {
         if (TTS_CUE_DROPPED_ || (cueChk && cueChk.ok === false)) {
           var dsp = null;
           try { dsp = speakMoodDsp_(b1, pieces[i].k); } catch (eDsp) { dsp = null; }
-          if (dsp) { b1 = dsp; how = 'صدا'; } else how = 'نشد';
+          /* بی سرعت، نشانهٔ پایانِ جمله هنوز در متن نشسته است (۸.۳۶) — «نشد» نیست. */
+          var dfn = speakSpanDef_(pieces[i].k);
+          if (dsp) { b1 = dsp; how = 'صدا'; } else how = (dfn && dfn.mark) ? 'نشانه' : 'نشد';
         }
         var lastAt = spanAt[spanAt.length - 1];
         if (lastAt && lastAt.k === pieces[i].k) {

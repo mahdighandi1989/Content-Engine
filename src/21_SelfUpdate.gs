@@ -191,7 +191,11 @@ function engineTextProblems_(text) {
   if (t.length < 100000) {
     errs.push('متن برای کدِ موتور خیلی کوچک است (' + t.length + ' نویسه)');
   }
-  if (t.length > 3000000) errs.push('متن به‌طرزِ نامعقولی بزرگ است');
+  /* سقف از CFG (۸.۳۶): تا ۸.۳۵ عددِ ثابتِ ۳٬۰۰۰٬۰۰۰ بود و engine.gs به
+     ۲٬۹۹۹٬۹۷۵ رسیده بود — نسخهٔ بعد نصب نمی‌شد و شکلِ پشتیبانش همین حالا رد
+     می‌شد. `tools/build.js` در ۹۰٪ آن می‌ایستد. */
+  var cap = Number(CFG.ENGINE_MAX_CHARS) || 6000000;
+  if (t.length > cap) errs.push('متن به‌طرزِ نامعقولی بزرگ است (' + t.length + ' > ' + cap + ')');
   for (var i = 0; i < SELFUP_ANCHORS.length; i++) {
     if (t.indexOf(SELFUP_ANCHORS[i]) === -1) {
       errs.push('تابعِ ضروری «' + SELFUP_ANCHORS[i] + '» در متن نیست');

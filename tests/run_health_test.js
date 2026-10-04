@@ -803,13 +803,24 @@ console.log('\n=== ۱۶) کارنامهٔ قابلیت‌ها: «روشن است
     const row = (CFG.CAPABILITIES || []).filter(x => x.key === 'recap')[0];
     CFG.CAPABILITIES = [row];
     const old = '2026-01-01 10:00';
-    const cIdle = capStatus_({ recap: { line: 'مرور', ok: true, n: 2, queued: 0, at: old } });
-    const cDue = capStatus_({ recap: { line: 'مرور', ok: true, n: 2, queued: 1, at: old } });
-    ok16('۱۶.۳-ب مرور با صفِ خالی «کاری نرسیده» است و ok را پایین نمی‌آورد؛ با کارِ منتظر «بی‌اثر» است',
-         !!row && row.due === 'queued' &&
+    /* از ۸.۳۶ «کاری رسیده» دو در دارد: صفِ تیک‌ها **و** مرورِ خودکاری که نوبت
+       داشت و نشد. شاهد از خودِ `recapStatus_` ساخته می‌شود، نه دست‌نویس (۷.۲۲). */
+    delete global.__PROPS[PK.RECAP_Q];
+    global.__PROPS[PK.RECAP_AUTO_LAST] = JSON.stringify({ at: old, due: 0, ok: false, reason: 'none' });
+    const cIdle = capStatus_({ recap: Object.assign(recapStatus_(), { at: old }) });
+    global.__PROPS[PK.RECAP_AUTO_LAST] = JSON.stringify({ at: old, due: 2, ok: false,
+                                                         reason: 'no-handout', series: 'الف' });
+    const sDue = recapStatus_();
+    const cDue = capStatus_({ recap: Object.assign(sDue, { at: old }) });
+    global.__PROPS[PK.RECAP_AUTO_LAST] = JSON.stringify({ at: old, due: 1, ok: true, reason: 'ok', series: 'الف' });
+    const cMade = capStatus_({ recap: Object.assign(recapStatus_(), { at: old }) });
+    delete global.__PROPS[PK.RECAP_AUTO_LAST];
+    ok16('۱۶.۳-ب مرور: «کاری نرسیده» سالم است؛ مرورِ خودکاری که نوبت داشت و نشد «بی‌اثر» است',
+         !!row && row.due === 'due' && sDue.due === 2 &&
          cIdle.rows[0].verdict === 'کاری نرسیده' && cIdle.ok === true && cIdle.idle.length === 0 &&
-         cDue.rows[0].verdict === 'روشن ولی بی‌اثر' && cDue.ok === false,
-         cIdle.rows[0].verdict + ' / ' + cDue.rows[0].verdict);
+         cDue.rows[0].verdict === 'روشن ولی بی‌اثر' && cDue.ok === false &&
+         cMade.rows[0].verdict === 'کاری نرسیده',
+         cIdle.rows[0].verdict + ' / ' + cDue.rows[0].verdict + ' / ' + cMade.rows[0].verdict);
     CFG.CAPABILITIES = keep;
   }
 

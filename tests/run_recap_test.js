@@ -75,32 +75,37 @@ const BOOK = {
 sf.createFile(Utilities.newBlob(JSON.stringify(BOOK), 'application/json', handoutJsonName_()));
 setSeries('kEp', 'معرفت‌شناسی', sf.getId());
 addParts('معرفت‌شناسی', 9);
+/* از ۸.۳۶ «خودکار» یعنی «هر چند درس»ِ هر مجموعه (پیش‌فرض ۱۵). فیکسچرِ این
+   فایل نُه درس دارد و از روزِ اول با کفِ هشت نوشته شده، پس پیش‌فرض این‌جا
+   هشت می‌شود؛ خودِ پیش‌فرضِ ۱۵ و ستونِ هر مجموعه در §۱۸ سنجیده می‌شوند. */
+CFG.RECAP_EVERY = 8;
 
-console.log('=== ۱) انتخابِ مجموعه: کف، یک‌بار، و درِ بازگشت ===');
+console.log('=== ۱) انتخابِ مجموعه: نوبتِ دوره‌ای، و درِ بازگشت (۸.۳۶) ===');
 {
   delete global.__PROPS[PK.RECAP_DONE];
   const reg = readSeriesReg_(hub);
   const first = (r) => { const a = recapCandidates_(hub, r, ''); return a.length ? a[0] : null; };
   let p = first(reg);
-  ok('۱.۱ مجموعه‌ای با نُه قسمت انتخاب می‌شود', p && p.name === 'معرفت‌شناسی', p && p.name);
+  ok('۱.۱ مجموعه‌ای که به «هر چند درس»ش رسیده انتخاب می‌شود', p && p.name === 'معرفت‌شناسی', p && p.name);
   ok('۱.۲ و شمارِ قسمت‌هایش از تب خوانده می‌شود', p.made === 9, String(p.made));
 
-  /* «مروری که چیزی برای مرور ندارد» نباید ساخته شود — و کف هشت است چون با
-     سه چهار درس هنوز چیزی برای مرورِ بزرگ نیست. */
-  const keep = CFG.RECAP_MIN_PARTS;
-  CFG.RECAP_MIN_PARTS = 20;
-  ok('۱.۳ زیرِ کف، هیچ', first(reg) === null);
-  CFG.RECAP_MIN_PARTS = keep;
+  /* «مروری که چیزی برای مرور ندارد» نباید ساخته شود — و زیرِ عددِ خودِ
+     مجموعه هنوز نوبتش نیست (مجموعه تمام نشده، پس مرورِ پایانی هم نه). */
+  CFG.RECAP_EVERY = 20;
+  ok('۱.۳ زیرِ عددِ خودش، هیچ', first(reg) === null);
+  CFG.RECAP_EVERY = 8;
 
-  recapMarkDone_('kEp', 12);
-  ok('۱.۴ مجموعه‌ای که مرور گرفته، دوباره انتخاب نمی‌شود',
+  /* مرور تا درسِ نُه ⇒ «پس از آن» صفر درس ⇒ نوبت نیست. تا ۸.۳۵ این سنجه
+     می‌گفت «مرور گرفته ⇒ دیگر هرگز»؛ حالا فقط «تا وقتی درسِ تازه نیامده». */
+  recapMarkDone_('kEp', 12, 9, 2, 2, [], { mode: 'all', upto: 9 });
+  ok('۱.۴ مجموعه‌ای که تا آخرین درسش مرور گرفته، دوباره انتخاب نمی‌شود',
      first(reg) === null);
-  /* ولی «یک‌بار‌مصرفِ بی‌درِ بازگشت» شکلی است که این ریپو مدام به آن می‌خورَد
-     (۵٫۹۵). اگر مرور بد در بیاید یا مجموعه ده درسِ دیگر بگیرد، باید بشود. */
-  ok('۱.۵ ولی درِ بازگشت هست', recapReopen_('kEp') === true &&
-     first(reg) !== null);
-  ok('۱.۶ و بازکردنِ چیزی که بسته نیست، دروغ نمی‌گوید',
-     recapReopen_('نیست') === false);
+  /* درِ بازگشت (۵.۹۵) دیگر `recapReopen_` نیست، که «تا کجا» را پیش از موفقیت
+     پاک می‌کرد: تیکِ تخته با کلید می‌آید و قفل را نادیده می‌گیرد. */
+  ok('۱.۵ ولی درِ بازگشت هست: با کلید، قفل نادیده گرفته می‌شود',
+     recapCandidates_(hub, reg, 'kEp').length === 1);
+  ok('۱.۶ و کلیدِ ناموجود چیزی نمی‌سازد',
+     recapCandidates_(hub, reg, 'نیست').length === 0);
 }
 
 console.log('=== ۲) ورودی: جزوهٔ همان مجموعه، نه هفده پوشه ===');
@@ -427,12 +432,13 @@ console.log('\n=== ۱۲) تخته: «تا کجا مرور شده» و تیکِ �
   /* ولی «یک درس ساخته شده» پیش‌فرضِ تیک نمی‌گیرد: ۲۶۴ مجموعه هست و فشردنِ
      دکمه آن‌وقت ده‌ها مرورِ تک‌درسی سفارش می‌داد. تیکش خاموش است ولی
      **غیرفعال نیست** — تصمیم دستِ آدم می‌ماند. */
-  const keepMin = CFG.RECAP_MIN_PARTS; CFG.RECAP_MIN_PARTS = 99;
+  const keepEv = CFG.RECAP_EVERY; CFG.RECAP_EVERY = 99;
   const cellThin = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
-  CFG.RECAP_MIN_PARTS = keepMin;
-  ok('۱۲.۵-ب زیرِ کف: تیکِ خاموش ولی زدنی، با دلیلِ نوشته‌شده',
+  CFG.RECAP_EVERY = keepEv;
+  ok('۱۲.۵-ب هنوز نوبتش نیست: تیکِ خاموش ولی زدنی، با دلیل و «کِی»ِ نوشته‌شده',
      cellThin.indexOf('checked') === -1 && cellThin.indexOf('disabled') === -1 &&
-     cellThin.indexOf('data-def="0"') !== -1 && cellThin.indexOf('زیرِ کفِ') !== -1);
+     cellThin.indexOf('data-def="0"') !== -1 && cellThin.indexOf('هنوز نوبتِ مرورِ خودکارش') !== -1 &&
+     /پس از [۰-۹]+ درسِ دیگر/.test(cellThin), cellThin.replace(/<[^>]+>/g, ' ').slice(0, 220));
   ok('۱۲.۶ مرورشده → تیکِ خاموش، ولی زدنی',
      cellDone.indexOf('checked') === -1 && cellDone.indexOf('disabled') === -1 &&
      cellDone.indexOf('data-def="0"') !== -1);
@@ -1021,27 +1027,40 @@ console.log('\n=== ۲۴) «اگر هیچ نکنم چه می‌شود؟» — ج�
   const reg = readSeriesReg_(hub);
   delete global.__PROPS[PK.RECAP_DONE];
   delete global.__PROPS[PK.RECAP_Q];
+  /* ══ ۸.۳۶: جواب‌ها عوض شدند، پرسش نه ══ «مرور گرفته ⇒ هرگز دوباره» دیگر
+     درست نیست: هر مجموعه هر چند درس یک بار خودکار مرور می‌گیرد. پس این بند
+     حالا **کِی** را می‌پرسد، و هر جمله را با رفتارِ واقعیِ انتخابِ خودکار
+     کنارِ هم می‌سنجد — وگرنه روزی یکی از آن دو عوض می‌شود و آن‌یکی می‌ماند. */
   const cellNew = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
-  ok('۲۴.۱ مرورنشده و رسیده به کف: «خودش شبانه نوبت می‌گیرد»',
-     cellNew.indexOf('خودش شبانه نوبت می‌گیرد') !== -1);
-
-  recapMarkDone_('kEp', 50, 9, 2, 3, [], { mode: 'all', eps: [], upto: 9 });
-  const cellDone2 = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
-  ok('۲۴.۲ مرورشده: «خودکار دیگر سراغش نمی‌رود»',
-     cellDone2.indexOf('خودکار دیگر سراغش نمی‌رود') !== -1);
-  /* و این ادعا با رفتارِ واقعیِ انتخابِ خودکار سنجیده می‌شود، نه با خواندنِ
-     دوبارهٔ همان جمله — وگرنه روزی یکی از آن دو عوض می‌شود و آن‌یکی می‌ماند. */
-  ok('۲۴.۳ و انتخابِ خودکار واقعاً ردش می‌کند',
-     recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp').length === 0);
-  delete global.__PROPS[PK.RECAP_DONE];
-  ok('۲۴.۴ ولی با برداشتنِ پرونده دوباره نامزد می‌شود (درِ بازگشت)',
+  ok('۲۴.۱ مرورنشده و نوبت‌رسیده: «شبانه خودش ساخته می‌شود» — و واقعاً نامزد است',
+     cellNew.indexOf('شبانه خودش ساخته می‌شود') !== -1 &&
      recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp').length === 1);
 
-  /* «تکرار نمی‌شود» هم باید نوشته باشد، نه از رفتار استنباط شود. */
+  recapMarkDone_('kEp', 50, 9, 2, 3, [], { mode: 'all', eps: [], upto: 9 });
+  const mD = recapBoardMap_(hub, reg)['kEp'];
+  const cellDone2 = recapCell_({ key: 'kEp', recap: mD });
+  ok('۲۴.۲ مرورشده با درس‌های کمتر از عددش: «بعدی پس از N درسِ دیگر»، با عددِ درست',
+     mD.since === 3 && mD.left === 5 &&
+     cellDone2.indexOf('مرورِ خودکارِ بعدی پس از ۵ درسِ دیگر') !== -1,
+     JSON.stringify({ since: mD.since, left: mD.left }));
+  ok('۲۴.۳ و انتخابِ خودکار واقعاً ردش می‌کند',
+     recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp').length === 0);
+  const keep24 = CFG.RECAP_EVERY; CFG.RECAP_EVERY = 3;
+  let c24 = [], cell24 = '';
+  try {
+    c24 = recapCandidates_(hub, reg, '').filter(c => c.rec.key === 'kEp');
+    cell24 = recapCell_({ key: 'kEp', recap: recapBoardMap_(hub, reg)['kEp'] });
+  } finally { CFG.RECAP_EVERY = keep24; }
+  ok('۲۴.۴ و وقتی درس‌های پس از مرور به عددش برسد، دوباره نامزد است — «پس از آخرین مرور»',
+     c24.length === 1 && c24[0].due.mode === 'since' &&
+     cell24.indexOf('پس از مرورِ قبلی') !== -1, JSON.stringify(c24.map(c => c.due)));
+  delete global.__PROPS[PK.RECAP_DONE];
+
   const panel = recapPanelHtml_(seriesBoardData_());
-  ok('۲۴.۵ جعبه صریح می‌گوید تکرار نمی‌شود',
-     panel.indexOf('تکرار نمی‌شود') !== -1 &&
-     panel.indexOf('تیک‌ها ذخیره نمی‌شوند') !== -1);
+  ok('۲۴.۵ جعبه می‌گوید تیک‌ها تکرار نمی‌شوند، و مرورِ خودکار هر چند درس است',
+     panel.indexOf('تکرار نمی‌شوند') !== -1 && panel.indexOf('ذخیره نمی‌شوند') !== -1 &&
+     panel.indexOf('هر ' + faDigitsOut_(String(CFG.RECAP_EVERY)) + ' درس یک بار') !== -1 &&
+     panel.indexOf('مرورِ پایانی') !== -1 && panel.indexOf('دیگر خودکار مرور نمی‌گیرد') === -1);
   ok('۲۴.۶ و دکمه می‌گوید «همین حالا»',
      panel.indexOf('همین حالا بساز') !== -1);
 }
@@ -1193,4 +1212,260 @@ console.log('\n=== سقفِ متنِ مرورِ بزرگ ===');
   /* و رزروِ درس‌ها (غنی‌سازی/عصری‌سازی) رویش اثر ندارد — در مسیرِ مرور نیستند */
   ok('و از سقفِ نوشتنِ درس (که رزرو خورده) بلندتر است',
      recapCap_() > specialMaxChars_(), recapCap_() + ' > ' + specialMaxChars_());
+}
+
+console.log('\n=== ۲۷) «هر ۱۵ درس یک مرور» — عددِ هر مجموعه، از تخته تا کارِ شبانه (۸.۳۶) ===');
+{
+  /* ══ خواستهٔ صاحبِ برنامه، ۴ اکتبر ══
+   * «هر ۱۵ درس یک مرورِ خودکار بساز ولی تنظیمات هم باید در بورد … به‌روز بشه
+   *  که بتونم تغییرات لازم از اونجا بدم و **حتماً تغییرات اعمال بشه** و این
+   *  ۱۵ تا هاردکد نباشه … و برای درس‌هایی که ممکن ۱۵ تا درس هم نشن و کمتر
+   *  باشن چی؟»
+   * پس هر ادعا از **درِ تولید** سنجیده می‌شود: ذخیره با همان تابعی که تخته
+   * صدا می‌زند، و نتیجه با همان تابعی که کارِ شبانه صدا می‌زند. */
+  const { makeCtx, scripts, vm } = require('./lib/dialogdom.js');
+  const keepEvery = CFG.RECAP_EVERY;
+  CFG.RECAP_EVERY = 15;                          // پیش‌فرضِ واقعی، برای این بند
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_Q];
+  delete global.__PROPS[PK.RECAP_AUTO_FAIL];
+  delete global.__PROPS[PK.SP_PENDING];
+
+  /* مجموعه‌ای با جزوه‌ای که `addedIn` دارد — تا «پس از آخرین مرور» واقعاً
+     دامنه داشته باشد، نه همیشه «همه». */
+  const pf = global.__ROOT_FOLDER.createFolder('۰۹ — دوره‌ای');
+  const mkBook = (n) => ({ seriesKey: 'kP', seriesName: 'دوره‌ای', refs: [], episodes: [],
+    chapters: Array.from({ length: n }, (_, i) => ({ id: 'p' + (i + 1), title: 'مبحثِ ' + (i + 1),
+      addedIn: i + 1, sections: [{ id: 'ps' + (i + 1), title: 'بخشِ ' + (i + 1), addedIn: i + 1,
+        body: ('متنِ درسِ ' + (i + 1) + '. ').repeat(30) }] })) });
+  const putBook = (n) => {
+    const it = pf.getFilesByName(handoutJsonName_());
+    while (it.hasNext()) it.next().setTrashed(true);
+    pf.createFile(Utilities.newBlob(JSON.stringify(mkBook(n)), 'application/json', handoutJsonName_()));
+  };
+  setSeries('kP', 'دوره‌ای', pf.getId());
+  addParts('دوره‌ای', 14);
+  putBook(14);
+  const regOf = () => readSeriesReg_(hub);
+  const dueKeys = () => recapPeriodicDue_(hub, regOf()).map(d => d.key);
+  const cellOf = (k) => { const reg = regOf(); return recapCell_(Object.assign(
+    { key: k, recapEvery: String(reg.byKey[k].vals[SC.RECAP_EVERY - 1] == null ? '' :
+                                 reg.byKey[k].vals[SC.RECAP_EVERY - 1]).trim() },
+    { recap: recapBoardMap_(hub, reg)[k] })); };
+  /* بقیهٔ مجموعه‌های این فایل خاموش می‌شوند تا هر سنجه فقط دربارهٔ خودش باشد. */
+  for (const k of ['kEp', 'kNoBook', 'kNoBk', 'kNew']) {
+    try { const r0 = regOf().byKey[k]; if (r0) r0.sheet = null; } catch (e) {}
+  }
+  const offOthers = () => {
+    const reg = regOf();
+    for (const k of Object.keys(reg.byKey)) {
+      if (k === 'kP' || k === 'kT' || k === 'kH') continue;
+      reg.sheet.getRange(reg.byKey[k].row, SC.RECAP_EVERY).setValue('خاموش');
+    }
+  };
+  offOthers();
+
+  /* ۲۷.۱ — پیش‌فرض ۱۵ است و هاردکد نیست: خانهٔ خالی همان پیش‌فرض است، و
+     عوض‌شدنِ پیش‌فرض بی دست‌زدن به رجیستری اثر می‌کند. */
+  ok('۲۷.۱ خانهٔ خالی = پیش‌فرضِ ۱۵؛ با ۱۴ درس نوبت نیست، با ۱۵ هست',
+     recapEveryOf_(regOf().byKey['kP'].vals).n === 15 && dueKeys().indexOf('kP') === -1 &&
+     (addParts('دوره‌ای', 1), putBook(15), dueKeys().indexOf('kP') !== -1),
+     JSON.stringify(recapPeriodicDue_(hub, regOf())));
+  CFG.RECAP_EVERY = 20;
+  ok('۲۷.۱-ب پیش‌فرض عوض شود، همهٔ خانه‌های خالی با آن عوض می‌شوند',
+     dueKeys().indexOf('kP') === -1);
+  CFG.RECAP_EVERY = 15;
+
+  /* ۲۷.۲ — روی خودِ تخته: جعبه رندر می‌شود، پیش‌فرض را با عددش نشان می‌دهد،
+     و تغییرِ آن واقعاً `uiRecapEverySave` را با کلید و مقدار صدا می‌زند. */
+  const page = seriesBoardHtml_(seriesBoardData_(hub));
+  const h = makeCtx({ html: page });
+  let jsErr = '';
+  for (const b of scripts(page)) { try { vm.runInContext(b, h.ctx, { timeout: 5000 }); } catch (e) { jsErr = e.message; } }
+  const sel = h.dom.all.filter(n => n.tag === 'select' && n.className === 'rcEvery' &&
+                                    n.dataset.key === 'kP')[0];
+  ok('۲۷.۲ جعبهٔ «مرورِ خودکار» روی خانهٔ همان مجموعه است و پیش‌فرضش «هر ۱۵ درس» را می‌گوید',
+     !jsErr && !!sel && /پیش‌فرض — هر ۱۵ درس<\/option>/.test(page) &&
+     /onchange="recapEvery\(this\)"/.test(page), jsErr || String(!!sel));
+  sel.value = '10';
+  h.ctx.__sel = sel;
+  vm.runInContext('recapEvery(__sel);', h.ctx, { timeout: 5000 });
+  const call = h.calls.filter(c => c.fn === 'uiRecapEverySave').pop();
+  ok('۲۷.۲-ب تغییرِ جعبه همان تابعِ سرور را با کلید و عدد صدا می‌زند',
+     !!call && call.args[0] === 'kP' && call.args[1] === '10' && typeof global.uiRecapEverySave === 'function',
+     JSON.stringify(call && call.args));
+
+  /* ۲۷.۳ — «حتماً تغییرات اعمال بشه»: ذخیره با همان آرگومان‌ها، و کارِ شبانه
+     همان را می‌بیند. ۲۰ درسِ کمتر یعنی «نوبت نیست»، ۱۰ یعنی «هست». */
+  const realRc = global.boardReceipt_;
+  let rc = null;
+  global.boardReceipt_ = function (okk, title, lines) { rc = { okk, title, lines: (lines || []).map(String) };
+    return realRc.apply(null, arguments); };
+  let r20, r10;
+  try {
+    r20 = uiRecapEverySave('kP', '20');
+    const due20 = dueKeys().indexOf('kP') === -1;
+    const rc20 = rc;
+    r10 = uiRecapEverySave.apply(null, call.args);
+    ok('۲۷.۳ «هر ۲۰»: نوبت نیست و رسید می‌گوید «پس از ۵ درسِ دیگر»',
+       r20.ok === true && due20 && rc20 && rc20.lines.join(' ').indexOf('پس از ۵ درسِ دیگر') !== -1,
+       JSON.stringify(rc20));
+    ok('۲۷.۳-ب «هر ۱۰» از تخته: رجیستری ۱۰ دارد، کارِ شبانه نامزدش می‌کند، رسید همین را می‌گوید',
+       r10.ok === true && Number(regOf().byKey['kP'].vals[SC.RECAP_EVERY - 1]) === 10 &&
+       dueKeys().indexOf('kP') !== -1 && rc.lines.join(' ').indexOf('نوبتش رسیده') !== -1,
+       JSON.stringify(rc));
+    /* ۲۷.۴ — ناخوانا با نام رد می‌شود و خانهٔ قبلی دست نمی‌خورد (۷.۴۱)؛ رقمِ
+       فارسی پذیرفته می‌شود چون در شیت تایپ می‌شود. */
+    const bad = uiRecapEverySave('kP', 'هفت‌تا');
+    ok('۲۷.۴ ناخوانا رد می‌شود و ۱۰ سرِ جایش می‌مانَد',
+       bad.ok === false && /هفت‌تا/.test(bad.message) &&
+       Number(regOf().byKey['kP'].vals[SC.RECAP_EVERY - 1]) === 10, bad.message);
+    const fa = uiRecapEverySave('kP', '۱۲');
+    ok('۲۷.۴-ب «۱۲» با رقمِ فارسی پذیرفته می‌شود — و جعبه همان را انتخاب‌شده نشان می‌دهد',
+       fa.ok === true && recapEveryOf_(regOf().byKey['kP'].vals).n === 12 &&
+       /<option value="12" selected>/.test(cellOf('kP')) &&
+       !/<option value="" selected>/.test(cellOf('kP')));
+    /* ۲۷.۵ — «خاموش» یعنی هیچ مرورِ خودکاری، حتی با درس‌های بسیار. */
+    uiRecapEverySave('kP', 'خاموش');
+    ok('۲۷.۵ «خاموش»: نامزد نیست و خانه همین را می‌گوید',
+       dueKeys().indexOf('kP') === -1 && cellOf('kP').indexOf('مرورِ خودکار برای این مجموعه خاموش است') !== -1 &&
+       /<option value="خاموش" selected>/.test(cellOf('kP')));
+    uiRecapEverySave('kP', '');
+    ok('۲۷.۵-ب و «پیش‌فرض» خانه را خالی می‌کند — دوباره هر ۱۵',
+       String(regOf().byKey['kP'].vals[SC.RECAP_EVERY - 1]).trim() === '' && dueKeys().indexOf('kP') !== -1);
+  } finally { global.boardReceipt_ = realRc; }
+
+  /* ۲۷.۶ — کارِ شبانه، سرتاسری: بارِ اول «همه»، و پس از ۱۵ درسِ دیگر «فقط پس
+     از آخرین مرور» — با دامنه‌ای که واقعاً فقط درس‌های تازه را دارد. */
+  global.__PROPS[PK.SP_EP_NUM] = '200';
+  let lastPrompt = '';
+  global.__STUB = (url, body) => {
+    let t = '';
+    try { t = String(body.contents[0].parts[0].text); } catch (e) { t = ''; }
+    if (t.indexOf('مبحثِ ') !== -1) lastPrompt = t;
+    return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
+      title: 'مرور', hook: 'ه.', sections: [{ heading: 'ی', narration: 'م'.repeat(900) }],
+      outro: 'پ.' }) }] } }] } };
+  };
+  const un = quiet();
+  const n1 = recapNightly_();
+  un();
+  const d1 = recapDone_()['kP'] || {};
+  ok('۲۷.۶ شبِ اول: مرورِ «همه» ساخته شد، تا درسِ ۱۵',
+     n1.ok === true && n1.series === 'دوره‌ای' && d1.mode === 'all' && d1.upto === 15,
+     JSON.stringify({ n1: { ok: n1.ok, s: n1.series, r: n1.reason }, d1 }));
+  delete global.__PROPS[PK.SP_PENDING];
+  const un2 = quiet();
+  const n2 = recapNightly_();
+  un2();
+  ok('۲۷.۶-ب شبِ بعد، بی درسِ تازه: هیچ — و نمی‌گوید «خراب»، می‌گوید بعدی کِی',
+     n2.ok === false && n2.reason === 'none' && n2.next && n2.next.name === 'دوره‌ای' && n2.next.left === 15 &&
+     /بعدی «دوره‌ای» پس از ۱۵ درسِ دیگر/.test(recapStatus_().line),
+     JSON.stringify(n2) + ' · ' + recapStatus_().line);
+  addParts('دوره‌ای', 15);
+  putBook(30);
+  lastPrompt = '';
+  const un3 = quiet();
+  const n3 = recapNightly_();
+  un3();
+  const d3 = recapDone_()['kP'] || {};
+  ok('۲۷.۶-پ پس از ۱۵ درسِ تازه: خودکار «فقط پس از آخرین مرور»، تا درسِ ۳۰',
+     n3.ok === true && d3.mode === 'since' && d3.upto === 30 && /پس از درسِ ۱۵/.test(String(n3.scope)),
+     JSON.stringify({ ok: n3.ok, r: n3.reason, scope: n3.scope, d3 }));
+  ok('۲۷.۶-ت و دامنه واقعاً فقط درس‌های تازه را به نویسنده داد',
+     lastPrompt.indexOf('مبحثِ 16') !== -1 && lastPrompt.indexOf('مبحثِ 30') !== -1 &&
+     !/مبحثِ (1[0-5]|[1-9])(?!\d)/.test(lastPrompt),
+     'گرفت: ' + (lastPrompt.match(/مبحثِ \d+/g) || []).slice(0, 4).join('، '));
+  delete global.__PROPS[PK.SP_PENDING];
+  /* ۲۷.۶-ث — درِ عمومیِ بی‌کلید (`runRecapEpisode({})`) همان راهِ کارِ شبانه
+     را می‌رود: «خودکار» یک تعریف دارد، با دامنه و حافظهٔ شکستش. */
+  addParts('دوره‌ای', 15);
+  putBook(45);
+  const un3b = quiet();
+  const n3b = runRecapEpisode({});
+  un3b();
+  const d3b = recapDone_()['kP'] || {};
+  ok('۲۷.۶-ث `runRecapEpisode({})` هم «پس از آخرین مرور» می‌سازد، نه «همه»',
+     n3b.ok === true && d3b.mode === 'since' && d3b.upto === 45, JSON.stringify({ r: n3b.reason, d3b }));
+  delete global.__PROPS[PK.SP_PENDING];
+
+  /* ۲۷.۷ — «اگر ۱۵ تا نشد چی؟»: مجموعهٔ تمام‌شده با ≥ RECAP_TAIL_MIN درس، مرورِ
+     پایانی می‌گیرد؛ با کمتر، نه — و خانه هر دو را با عدد می‌گوید. */
+  uiRecapEverySave('kP', 'خاموش');
+  const tf = global.__ROOT_FOLDER.createFolder('۱۰ — کوتاه');
+  setSeries('kT', 'کوتاه', tf.getId());
+  addParts('کوتاه', 2);
+  tf.createFile(Utilities.newBlob(JSON.stringify({ seriesKey: 'kT', seriesName: 'کوتاه', refs: [], episodes: [],
+    chapters: [1, 2, 3, 4].map(i => ({ id: 't' + i, title: 'مبحثِ کوتاهِ ' + i, addedIn: i,
+      sections: [{ id: 'ts' + i, title: 'ب' + i, addedIn: i, body: 'متن. '.repeat(40) }] })) }),
+    'application/json', handoutJsonName_()));
+  const setDone = (k) => { const reg = regOf(); reg.sheet.getRange(reg.byKey[k].row, SC.STATUS).setValue(SST.DONE); };
+  ok('۲۷.۷ مجموعهٔ کوتاهِ در جریان (۲ درس): نوبت نیست', dueKeys().indexOf('kT') === -1);
+  setDone('kT');
+  ok('۲۷.۷-ب تمام‌شده با ۲ درس (کمتر از ۳): باز هم نه، و خانه دلیلش را درست می‌گوید',
+     dueKeys().indexOf('kT') === -1 && cellOf('kT').indexOf('کمتر از ۳') !== -1 &&
+     /* هرگز مرور نگرفته — پس «پس از مرورِ قبلی» دروغ است */
+     cellOf('kT').indexOf('فقط ۲ درس دارد') !== -1 && cellOf('kT').indexOf('پس از مرورِ قبلی') === -1,
+     cellOf('kT').replace(/<[^>]+>/g, ' ').slice(0, 200));
+  addParts('کوتاه', 2);
+  const tDue = recapPeriodicDue_(hub, regOf()).filter(d => d.key === 'kT')[0];
+  ok('۲۷.۷-پ تمام‌شده با ۴ درس: مرورِ پایانی، «همه» — و خانه «مرورِ پایانی» می‌گوید',
+     !!tDue && tDue.why === 'tail' && tDue.mode === 'all' &&
+     cellOf('kT').indexOf('مرورِ پایانیِ ۴ درسِ آخر') !== -1, JSON.stringify(tDue));
+  const un4 = quiet();
+  const n4 = recapNightly_();
+  un4();
+  ok('۲۷.۷-ت و کارِ شبانه همان را می‌سازد', n4.ok === true && n4.series === 'کوتاه', JSON.stringify(n4));
+  delete global.__PROPS[PK.SP_PENDING];
+
+  /* ۲۷.۸ — شکستِ خودکار شمرده می‌شود و «رهاشده» تا درسِ تازه؛ و درسِ تازه
+     دوباره درش را باز می‌کند (۵.۸۸). */
+  const hf = global.__ROOT_FOLDER.createFolder('۱۱ — بی‌جزوهٔ دوره‌ای');
+  setSeries('kH', 'بی‌جزوهٔ دوره‌ای', hf.getId());
+  addParts('بی‌جزوهٔ دوره‌ای', 16);
+  const tries = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
+  const un5 = quiet();
+  for (let i = 0; i < tries; i++) { delete global.__PROPS[PK.SP_PENDING]; recapNightly_(); }
+  un5();
+  const f8 = recapAutoFailRead_()['kH'] || {};
+  const w8 = recapAutoLast_() || {};
+  ok('۲۷.۸ بی‌جزوه: ' + tries + ' بار شمرده شد و دیگر نامزد نیست',
+     f8.n === tries && f8.why === 'no-handout' && dueKeys().indexOf('kH') === -1 &&
+     cellOf('kH').indexOf('بار نشد') !== -1, JSON.stringify(f8));
+  /* «بعدی» یعنی هنوز نرسیده؛ مجموعه‌ای که همین حالا نوبت دارد (حتی رهاشده)
+     «پس از ۰ درس» یا «پس از −۱ درس» نیست. */
+  ok('۲۷.۸-پ شاهدِ «بعدی» هرگز مجموعهٔ نوبت‌دار را با صفر یا منفی نمی‌گوید',
+     !w8.next || w8.next.left > 0, JSON.stringify(w8.next));
+  addParts('بی‌جزوهٔ دوره‌ای', 1);
+  ok('۲۷.۸-ب درسِ تازه دوباره امتحانش می‌کند', dueKeys().indexOf('kH') !== -1);
+
+  /* ۲۷.۹ — باگِ همسایه که همین بند پیدا کرد: سفارشی که شکست بخورد، «تا کجا»
+     را پاک نمی‌کند. تا ۸.۳۵ `recapReopen_` پیش از کار پاک می‌کرد و مرورِ بعدی
+     دوباره از درسِ یک می‌شد. */
+  recapMarkDone_('kH', 150, 10, 3, 3, [], { mode: 'all', upto: 10 });
+  delete global.__PROPS[PK.SP_PENDING];
+  recapQueueSet_(['kH'], hub, { kH: { mode: 'since' } });
+  const un6 = quiet();
+  const q9 = recapRunNext_();
+  un6();
+  ok('۲۷.۹ سفارشِ شکست‌خورده «تا درسِ ۱۰» را نگه می‌دارد',
+     q9.ok === false && q9.reason === 'no-handout' && (recapDone_()['kH'] || {}).upto === 10,
+     JSON.stringify({ q9, d: recapDone_()['kH'] }));
+  recapQueueSave_([]);
+
+  /* ۲۷.۱۰ — سطرِ روزانه هاب نمی‌خوانَد: در `writeStatus_` است، داغ‌ترین مسیر
+     (۷.۶۳/۷.۷۲)؛ «بعدی کِی» از شاهدِ کارِ شبانه می‌آید. */
+  const realHub = global.getHub_;
+  let hubReads = 0;
+  global.getHub_ = function () { hubReads++; return realHub.apply(null, arguments); };
+  let st10;
+  try { st10 = recapStatus_(); } finally { global.getHub_ = realHub; }
+  ok('۲۷.۱۰ سطرِ روزانه هاب را نمی‌خوانَد و «مرورِ خودکار» را می‌گوید — به فارسی، بی «پس از ۰ درس»',
+     hubReads === 0 && /مرورِ خودکار هر ۱۵ درس/.test(st10.line) && /جزوه ندارد/.test(st10.line) &&
+     !/پس از ۰ درس/.test(st10.line) && !/no-handout/.test(st10.line), hubReads + ' · ' + st10.line);
+
+  CFG.RECAP_EVERY = keepEvery;
+  delete global.__PROPS[PK.RECAP_DONE];
+  delete global.__PROPS[PK.RECAP_AUTO_FAIL];
+  delete global.__PROPS[PK.SP_PENDING];
 }

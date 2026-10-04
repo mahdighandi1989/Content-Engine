@@ -58,6 +58,21 @@ for (const f of FILES) {
   out += '\n/* ═══════════════════════════ ' + f + ' ═══════════════════════════ */\n\n';
   out += fs.readFileSync(DIR + f, 'utf8').replace(/\s+$/, '') + '\n';
 }
+/* ══ سقفِ اندازه، پیش از رسیدن (۸.۳۶) ══
+ * `engineTextProblems_` فایلِ بزرگ‌تر از `ENGINE_MAX_CHARS` را نصب نمی‌کند. ۸.۳۵
+ * با ۲٬۹۹۹٬۹۷۵ نویسه بیست‌وپنج نویسه زیرِ سقفِ آن روز بود و هیچ‌چیز نگفت؛
+ * نسخهٔ بعد بی‌صدا نصب نمی‌شد. حالا ساخت در ۹۰٪ می‌ایستد. */
+{
+  const capM = CFG_SRC.match(/ENGINE_MAX_CHARS:\s*(\d+)/);
+  const cap = capM ? Number(capM[1]) : 0;
+  if (!cap) { console.error('✗ ENGINE_MAX_CHARS در src/00_Config.gs نیست.'); process.exit(1); }
+  if (out.length > cap * 0.9) {
+    console.error('✗ engine.gs ' + out.length + ' نویسه است — بیش از ۹۰٪ سقفِ نصب (' + cap +
+                  '). سقف را در src/00_Config.gs بالا ببر یا متن را کوتاه کن؛ نسخهٔ در حالِ ' +
+                  'اجرا فایلِ بزرگ‌تر از سقفِ **خودش** را نصب نمی‌کند.');
+    process.exit(1);
+  }
+}
 fs.writeFileSync(OUT, out);
 console.log('built v' + VERSION + ' —', out.length, 'chars from', FILES.length,
             'files ->', path.relative(ROOT, OUT) || OUT);

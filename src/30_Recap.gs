@@ -81,22 +81,9 @@ function recapMarkDone_(seriesKey, epNum, parts, chapters, chaptersAll, missed, 
   } catch (e) {}
 }
 
-/**
- * دکمه‌ای که آدم بتواند بازش کند.
- *
- * قاعدهٔ ۵٫۹۵ در این ریپو: «یک‌بار‌مصرفِ بی‌درِ بازگشت، شکلی است که این ریپو
- * مدام به آن می‌خورد.» اگر مرورِ یک مجموعه بد در بیاید یا مجموعه بعداً ده
- * درسِ دیگر بگیرد، باید بشود دوباره ساخت.
- */
-function recapReopen_(seriesKey) {
-  try {
-    var o = recapDone_();
-    if (!o[String(seriesKey)]) return false;
-    delete o[String(seriesKey)];
-    props_().setProperty(PK.RECAP_DONE, JSON.stringify(o));
-    return true;
-  } catch (e) { return false; }
-}
+/* `recapReopen_` (۶.۲۲) در ۸.۳۶ رفت: تنها فراخوانَش، پروندهٔ «تا کجا» را **پیش از
+   موفقیت** پاک می‌کرد. درِ بازگشت همان تیکِ تخته است — با کلید، قفل نادیده
+   گرفته می‌شود و `recapMarkDone_` در پایان بازنویسی می‌کند. */
 
 /**
  * چند قسمتِ درس‌نامه از هر مجموعه تولید شده — **یک خواندن برای همه**.
@@ -192,23 +179,178 @@ function recapPartsMap_(hub, epsMap) {
  * یک بار داشت.
  */
 function recapCandidates_(hub, reg, forceKey) {
-  var done = recapDone_();
-  var min = Number(CFG.RECAP_MIN_PARTS) || 8;
+  /* «خودکار» یک تعریف دارد (۸.۳۶): بی‌کلید، همان `recapPeriodicDue_`. */
+  if (!forceKey) {
+    var due = recapPeriodicDue_(hub, reg);
+    var L = [];
+    for (var d0 = 0; d0 < due.length; d0++) {
+      var r0 = (reg.byKey || {})[due[d0].key];
+      if (r0) L.push({ rec: r0, name: due[d0].name, made: due[d0].made, due: due[d0] });
+    }
+    return L;
+  }
   var out = [];
   var made0 = recapPartsMap_(hub);          // ← یک خواندن، پیش از حلقه
   for (var i = 0; i < (reg.rows || []).length; i++) {
     var rec = reg.rows[i];
     var key = String(rec.key || '');
     var name = String(rec.vals[SC.NAME - 1] || key);
-    if (forceKey) { if (key !== String(forceKey)) continue; }
-    else if (done[key]) continue;
+    if (key !== String(forceKey)) continue;
     var made = made0[name] || 0;
-    if (!forceKey && made < min) continue;
     if (!made) continue;                       // مروری که چیزی برای مرور ندارد
     out.push({ rec: rec, name: name, made: made });
   }
-  out.sort(function (a, b) { return b.made - a.made; });
   return out;
+}
+
+/**
+ * «هر چند درس»ِ این مجموعه (۸.۳۶): ستونِ خودش، یا پیش‌فرض. `{n, src, off,
+ * raw, bad}`. ناخوانا به پیش‌فرض می‌افتد **و گفته می‌شود** (۷.۴۱).
+ */
+function recapEveryOf_(vals) {
+  var def = Math.max(1, Math.round(Number(CFG.RECAP_EVERY) || 15));
+  var cell = vals ? vals[SC.RECAP_EVERY - 1] : '';
+  var raw = String(cell == null ? '' : cell).trim();
+  if (!raw || raw === 'پیش‌فرض') return { n: def, src: 'پیش‌فرض', off: false, raw: '' };
+  if (raw === 'خاموش' || /^off$/i.test(raw)) return { n: 0, src: 'تخته', off: true, raw: raw };
+  var lat = raw.replace(/[۰-۹]/g, function (c) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)); });
+  var n = /^\d+$/.test(lat) ? parseInt(lat, 10) : NaN;
+  if (!(n >= 1 && n <= 500)) return { n: def, src: 'پیش‌فرض', off: false, raw: raw, bad: true };
+  return { n: n, src: 'تخته', off: false, raw: raw };
+}
+
+function recapAutoLastSave_(o) {
+  try { props_().setProperty(PK.RECAP_AUTO_LAST, JSON.stringify(o || {})); } catch (e) {}
+}
+
+function recapAutoLast_() {
+  try { return JSON.parse(props_().getProperty(PK.RECAP_AUTO_LAST) || 'null'); }
+  catch (e) { return null; }
+}
+
+/** حافظهٔ شکستِ مرورِ خودکار — `{key: {n, made, why, at}}`. */
+function recapAutoFailRead_() {
+  try {
+    var o = JSON.parse(props_().getProperty(PK.RECAP_AUTO_FAIL) || '{}');
+    return (o && typeof o === 'object' && !(o instanceof Array)) ? o : {};
+  } catch (e) { return {}; }
+}
+
+function recapAutoFailSave_(o) {
+  try { props_().setProperty(PK.RECAP_AUTO_FAIL, JSON.stringify(o || {})); return true; }
+  catch (e) { return false; }
+}
+
+/**
+ * کدام مجموعه‌ها امشب مرورِ خودکار می‌خواهند (۸.۳۶) — یک تعریف برای شب،
+ * منو و تخته (تخته همین را از `recapBoardMap_` می‌خوانَد):
+ *   • هرگز مرور نگرفته و ≥ «هر چند درس»ِ خودش ⇒ «همه»
+ *   • مرور گرفته و ≥ همان‌قدر درس پس از آن ⇒ «پس از آخرین مرور»
+ *   • **تمام‌شده** با باقی‌ماندهٔ ≥ `RECAP_TAIL_MIN` ⇒ مرورِ پایانی
+ * بیرون: «خاموش»، «نادیده»، مروری که نمی‌دانیم تا کجا رسید (حدس یعنی تکرار
+ * یا جاانداختن)، و مجموعه‌ای که `RECAP_TRY_MAX` بار نشده تا درسِ تازه (۵.۸۸).
+ */
+function recapPeriodicDue_(hub, reg, map) {
+  var out = [];
+  try {
+    hub = hub || getHub_();
+    reg = reg || readSeriesReg_(hub);
+    map = map || recapBoardMap_(hub, reg);
+    var fails = recapAutoFailRead_();
+    var tail = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+    var max = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var key = String(rec.key || '');
+      var m = map[key];
+      if (!m || !m.made || m.unknown) continue;
+      var ev = recapEveryOf_(rec.vals);
+      if (ev.off) continue;
+      var st = String(rec.vals[SC.STATUS - 1] || '');
+      if (st === SST.SKIPPED) continue;
+      var since = m.done ? (Number(m.behind) || 0) : m.made;
+      if (since <= 0) continue;
+      var why = '';
+      if (since >= ev.n) why = 'every';
+      else if (st === SST.DONE && since >= tail) why = 'tail';
+      if (!why) continue;
+      var f = fails[key];
+      if (f && Number(f.made) === m.made && (Number(f.n) || 0) >= max) continue;
+      out.push({ key: key, name: m.name, made: m.made, since: since, every: ev.n,
+                 mode: m.done ? 'since' : 'all', why: why });
+    }
+    out.sort(function (a, b) { return b.since - a.since; });
+  } catch (e) {}
+  return out;
+}
+
+/** نزدیک‌ترین مجموعه به نوبتِ مرورش — «بعدی کِی؟»؛ سکوت شبیهِ خرابی است (۸.۳۵). */
+function recapNextDue_(hub, reg, map) {
+  var best = null;
+  try {
+    reg = reg || readSeriesReg_(hub);
+    map = map || recapBoardMap_(hub, reg);
+    for (var i = 0; i < (reg.rows || []).length; i++) {
+      var rec = reg.rows[i];
+      var m = map[String(rec.key || '')];
+      if (!m || !m.made || m.unknown) continue;
+      var ev = recapEveryOf_(rec.vals);
+      if (ev.off) continue;
+      var st0 = String(rec.vals[SC.STATUS - 1] || '');
+      if (st0 === SST.DONE || st0 === SST.SKIPPED) continue;    // درسِ تازه‌ای نمی‌آید
+      var since = m.done ? (Number(m.behind) || 0) : m.made;
+      var left = ev.n - since;
+      if (left <= 0) continue;               // همین حالا نوبت دارد؛ آن «نوبت‌دار» است نه «بعدی»
+      if (!best || left < best.left) best = { name: m.name, left: left, every: ev.n };
+    }
+  } catch (e) {}
+  return best;
+}
+
+/**
+ * مرورِ خودکار: اولین مجموعهٔ نوبت‌دار، با دامنهٔ خودش (۸.۳۶). شکستِ ارزان
+ * (بی‌جزوه، دامنهٔ خالی) نوبت را به بعدی می‌دهد؛ گران (مدل) همان‌جا می‌ایستد.
+ * هر شکست شمرده می‌شود تا شبِ بعد بی‌پایان تکرار نشود.
+ */
+function recapAutoRun_(opt) {
+  opt = opt || {};
+  if (props_().getProperty(PK.SP_PENDING)) return { ok: false, reason: 'busy' };
+  var hub = getHub_();
+  var reg = readSeriesReg_(hub);
+  var map = recapBoardMap_(hub, reg);
+  var due = recapPeriodicDue_(hub, reg, map);
+  var next = recapNextDue_(hub, reg, map);
+  /* شاهد پیش از کار نوشته می‌شود و پس از آن تکمیل: اجرایی که وسطِ نوشتنِ
+     مرور کشته شود، دستِ‌کم «چند مجموعه نوبت داشت» را جا می‌گذارد (۷.۴۴). */
+  var wit = { at: nowStr_(), due: due.length, ok: false, reason: due.length ? 'running' : 'none',
+              series: due.length ? due[0].name : '', next: next };
+  recapAutoLastSave_(wit);
+  if (!due.length) return { ok: false, reason: 'none', next: next };
+  var fails = recapAutoFailRead_();
+  var last = null;
+  for (var i = 0; i < due.length && i < 3; i++) {
+    var d = due[i], r;
+    try {
+      r = runRecapEpisode({ key: d.key, mode: d.mode, force: !!opt.force, auto: d.why });
+    } catch (e) { r = { ok: false, reason: 'error', why: e.message }; }
+    r.auto = d;
+    wit.ok = !!r.ok; wit.reason = String(r.reason || (r.ok ? 'ok' : '')); wit.series = d.name;
+    recapAutoLastSave_(wit);
+    if (r.ok) {
+      if (fails[d.key]) { delete fails[d.key]; recapAutoFailSave_(fails); }
+      return r;
+    }
+    if (r.reason === 'busy' || r.reason === 'off') return r;
+    var f = fails[d.key] || {};
+    var prevN = (Number(f.made) === d.made) ? (Number(f.n) || 0) : 0;
+    fails[d.key] = { n: prevN + 1, made: d.made, why: String(r.reason || ''), at: nowStr_() };
+    recapAutoFailSave_(fails);
+    logLine_('مرورِ خودکارِ «' + d.name + '» ساخته نشد (' + String(r.reason || '') +
+             ')؛ تلاشِ ' + (prevN + 1) + ' با همین ' + d.made + ' درس.');
+    last = r;
+    if (r.reason !== 'no-handout' && r.reason !== 'scope-empty' && r.reason !== 'none') return r;
+  }
+  return last || { ok: false, reason: 'none' };
 }
 
 /* همهٔ فیلدها رشته‌اند — قاعدهٔ شمای این ریپو. */
@@ -764,14 +906,15 @@ function runRecapEpisode(opt) {
     // آن‌دو نیمه‌کاره رها می‌شود، و PK.SP_PENDING یک کلید بیشتر نیست.
     return { ok: false, reason: 'busy' };
   }
+  /* بی‌کلید یعنی «خودکار»، و خودکار یک تعریف دارد (۸.۳۶). */
+  if (!opt.key) return recapAutoRun_(opt);
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
-  /* پروندهٔ مرورِ قبلی **پیش از** بازکردنِ قفل خوانده می‌شود: دامنهٔ «پس از
-     آخرین مرور» دقیقاً از همین می‌آید، و `recapReopen_` پاکش می‌کند. اگر
-     ترتیب برعکس بود، `since` همیشه به «همه» فرو می‌افتاد — بی هیچ خطایی و
-     دقیقاً در جایی که آدم صریحاً چیزِ دیگری خواسته. */
+  /* دامنهٔ «پس از آخرین مرور» از همین پرونده می‌آید — و دیگر **پیش از
+     موفقیت** پاک نمی‌شود (۸.۳۶): تا ۸.۳۵ `recapReopen_` این‌جا بود و سفارشی
+     که بعد «جزوه ندارد» می‌گرفت، «تا کجا» را از دست می‌داد؛ مرورِ بعدی
+     دوباره از درسِ یک. `recapMarkDone_` در پایان بازنویسی می‌کند. */
   var prevDone = recapDone_()[String(opt.key || '')] || null;
-  if (opt.key && opt.force) recapReopen_(opt.key);
   /* نامزدها به ترتیب امتحان می‌شوند، نه فقط اولی: مجموعه‌ای که جزوه ندارد
      نباید صف را برای بقیه ببندد. */
   var cands = recapCandidates_(hub, reg, opt.key || '');
@@ -1078,7 +1221,9 @@ function recapBoardMap_(hub, reg) {
     var done = recapDone_();
     var q = recapQueue_(), qs = Object.create(null);
     for (var j = 0; j < q.length; j++) qs[String(q[j].key)] = j + 1;
-    var min = Number(CFG.RECAP_MIN_PARTS) || 8;
+    var fails = recapAutoFailRead_();
+    var tailMin = Math.max(1, Number(CFG.RECAP_TAIL_MIN) || 3);
+    var tryMax = Math.max(1, Number(CFG.RECAP_TRY_MAX) || 3);
     for (var i = 0; i < (reg.rows || []).length; i++) {
       var rec = reg.rows[i];
       var key = String(rec.key || '');
@@ -1142,6 +1287,17 @@ function recapBoardMap_(hub, reg) {
           behind = Math.max(0, m - covered);
         }
       }
+      /* نوبتِ خودکار با عددِ همین مجموعه (۸.۳۶) — `recapPeriodicDue_` همین را می‌خوانَد. */
+      var ev = recapEveryOf_(rec.vals);
+      var st = String(rec.vals[SC.STATUS - 1] || '');
+      var since = d ? behind : m;
+      var dueWhy = '';
+      if (m && !unknown && !ev.off && st !== SST.SKIPPED && since > 0) {
+        if (since >= ev.n) dueWhy = 'every';
+        else if (st === SST.DONE && since >= tailMin) dueWhy = 'tail';
+      }
+      var fl = fails[key] || null;
+      var gaveUp = !!(fl && Number(fl.made) === m && (Number(fl.n) || 0) >= tryMax);
       out[key] = {
         name: name, made: m, eps: eps, lessons: lessons, done: d, covered: covered,
         chOk: chOk, chAll: chAll, mode: mode, upto: upto, uptoFrom: uptoFrom,
@@ -1150,7 +1306,12 @@ function recapBoardMap_(hub, reg) {
         behind: behind,
         queued: qs[key] || 0,
         eligible: m > 0,              // «پادکستش قبلاً تولید شده باشه»
-        ripe: m >= min                // به کفِ خودکار هم رسیده
+        every: ev.n, everySrc: ev.src, everyOff: ev.off, everyRaw: ev.raw,
+        everyBad: !!ev.bad, since: since, finished: st === SST.DONE,
+        due: gaveUp ? '' : dueWhy, gaveUp: gaveUp, fail: fl,
+        left: ev.off ? 0 : Math.max(0, ev.n - since),
+        /* «رسیده» یعنی خودکار سراغش می‌رود — همان معنای قبلی، با عددِ خودش. */
+        ripe: !!dueWhy && !gaveUp
       };
     }
   } catch (e) {}
@@ -1167,7 +1328,7 @@ function recapNightly_() {
   try { q = recapRunNext_(); } catch (eQ) { q = { ok: false, reason: 'error' }; }
   if (q && q.reason !== 'empty') return q;
   var r;
-  try { r = runRecapEpisode({}); } catch (e) { return { ok: false, reason: 'error', why: e.message }; }
+  try { r = recapAutoRun_({}); } catch (e) { return { ok: false, reason: 'error', why: e.message }; }
   return r;
 }
 
@@ -1183,7 +1344,7 @@ function runRecapNow() {
      نادیده بگیرد یعنی دو رفتار برای یک کار، و روزی یکی‌شان عوض می‌شود. */
   var r = null;
   try { r = recapRunNext_(); } catch (eQ) { r = null; }
-  if (!r || r.reason === 'empty') r = runRecapEpisode({ force: true });
+  if (!r || r.reason === 'empty') r = recapAutoRun_({ force: true });
   var L = ['قسمتِ مرورِ بزرگ:'];
   if (r.ok) {
     L.push('• مجموعه: ' + r.series);
@@ -1197,8 +1358,11 @@ function runRecapNow() {
     var why = {
       off: 'قابلیت خاموش است (RECAP_ENABLED).',
       busy: 'درس‌نامهٔ دیگری در حالِ صداگذاری است؛ بعد از تمام‌شدنش دوباره بزنید.',
-      none: 'هیچ مجموعه‌ای هنوز به کفِ ' + faDigitsOut_(String(CFG.RECAP_MIN_PARTS || 8)) +
-            ' قسمتِ تولیدشده نرسیده.',
+      none: 'هیچ مجموعه‌ای به نوبتِ مرورش نرسیده' +
+            (r.next ? ' — بعدی «' + r.next.name + '»، پس از ' +
+                      faDigitsOut_(String(r.next.left)) + ' درسِ دیگر (هر ' +
+                      faDigitsOut_(String(r.next.every)) + ' درس)' : '') +
+            '. برای ساختنِ همین حالا، روی تخته تیک بزنید.',
       'no-handout': 'متنِ جمع‌شدهٔ درس‌های آن مجموعه هنوز آماده نیست؛ هر شب ' +
                     'خودش ساخته می‌شود، فردا دوباره امتحان کنید.',
       write: 'مدل متنی برنگرداند.',
@@ -1218,9 +1382,27 @@ function runRecapNow() {
 
 /** یک سطرِ فارسیِ آماده برای ایمیلِ روزانه. */
 function recapStatus_() {
-  var out = { line: '', ok: true, n: 0, queued: 0 };
+  var out = { line: '', ok: true, n: 0, queued: 0, due: 0 };
   try {
     var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (x) { return String(n); } };
+    /* ══ مرورِ خودکار، از شاهدِ خودش (۸.۳۶) ══
+       این تابع در `writeStatus_` است — داغ‌ترین مسیرِ موتور — پس هاب را
+       نمی‌خوانَد؛ «بعدی کِی» را از شاهدی می‌گیرد که کارِ شبانه نوشته. */
+    var au = recapAutoLast_();
+    var auLine = '';
+    if (au && au.at) {
+      var nx = au.next;
+      auLine = ' مرورِ خودکار هر ' + fa(Number(CFG.RECAP_EVERY) || 15) + ' درس (پیش‌فرض)؛ ' +
+        (au.due ? fa(au.due) + ' مجموعه نوبت داشت' +
+                  (au.ok ? ' و «' + au.series + '» ساخته شد'
+                         : ' — «' + au.series + '» نشد (' + ({ 'no-handout': 'جزوه ندارد',
+                             'scope-empty': 'دامنه خالی بود', write: 'مدل متن نداد',
+                             busy: 'درس‌نامهٔ دیگری در جریان بود', running: 'نیمه‌کاره ماند',
+                             error: 'خطا' }[au.reason] || String(au.reason || '')) + ')')
+                : 'امشب نوبتِ هیچ مجموعه‌ای نبود') +
+        (nx && nx.name ? '؛ بعدی «' + nx.name + '» پس از ' + fa(nx.left) + ' درسِ دیگر' : '') + '.';
+      out.due = au.ok ? 0 : (Number(au.due) || 0);
+    }
     var done = recapDone_(), keys = [];
     for (var k in done) if (Object.prototype.hasOwnProperty.call(done, k)) keys.push(k);
     out.n = keys.length;
@@ -1228,9 +1410,10 @@ function recapStatus_() {
       var q0 = [];
       try { q0 = recapQueue_(); } catch (eQ0) { q0 = []; }
       out.queued = q0.length;
+      out.due += q0.length;
       out.line = 'مرورِ بزرگ: هنوز برای هیچ مجموعه‌ای ساخته نشده' +
                  (q0.length ? '؛ ' + fa(q0.length) + ' مجموعه در صف است («' +
-                              String(q0[0].name || q0[0].key) + '» بعدی است)' : '') + '.';
+                              String(q0[0].name || q0[0].key) + '» بعدی است)' : '') + '.' + auLine;
       return out;
     }
     var raw = props_().getProperty(PK.RECAP_LOG);
@@ -1241,11 +1424,12 @@ function recapStatus_() {
     var q = [];
     try { q = recapQueue_(); } catch (eQ) { q = []; }
     out.queued = q.length;
+    out.due += q.length;
     out.line = 'مرورِ بزرگ: برای ' + fa(keys.length) + ' مجموعه ساخته شده' +
                (last ? ' — آخری «' + last.series + '»، قسمت ' + fa(last.ep) +
                        ' با ' + fa(last.secs) + ' بخش' : '') +
                (q.length ? '؛ ' + fa(q.length) + ' مجموعه در صف («' +
-                           String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.';
+                           String(q[0].name || q[0].key) + '» بعدی است)' : '') + '.' + auLine;
   } catch (e) {}
   return out;
 }
