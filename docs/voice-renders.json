@@ -1,5 +1,5 @@
 {
- "rev": 17,
+ "rev": 18,
  "items": {
   "special:49": {
    "urls": [
@@ -292,8 +292,43 @@
     "lowPct": 8,
     "frames": 1352
    }
+  },
+  "نمونهٔ روح — razavi · گامِ خودکار · حالت بی تغییرِ ولوم · بلندی ۱۶−:ساعت‌ساز": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-06c3cc1e.wav"
+   ],
+   "pieceBytes": [
+    21435278
+   ],
+   "bytes": 21435278,
+   "seconds": 267.9,
+   "minutes": 5.6,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "razavi",
+   "at": "2026-10-04T13:36:56Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-06c3cc1e.wav",
+   "pitch": "0",
+   "loud": {
+    "rawLufs": -24.7,
+    "rawTp": -0.1,
+    "gainDb": 8.67,
+    "limited": true,
+    "lufs": -16.8,
+    "tp": -2.3
+   },
+   "pitchAuto": {
+    "srcHz": 109.6,
+    "targetHz": 106.9,
+    "pitch": 0
+   },
+   "f0Out": {
+    "medianHz": 108.1,
+    "lowPct": 2,
+    "frames": 1855
+   }
   }
  },
- "at": "2026-10-04T04:07:10Z",
+ "at": "2026-10-04T13:36:56Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
