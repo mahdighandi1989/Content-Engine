@@ -3658,6 +3658,8 @@ function lvGenStatus_() {
          نمی‌شود» یکی است. از Properties، بی درایو (۷.۶۳). */
       out.clip = lvClipStatus_();
       if (out.clip.line) out.line += '\n' + out.clip.line;
+      out.motion = lvMotionStatus_();
+      if (out.motion.line) out.line += '\n' + out.motion.line;
       out.aud = lvAudStatus_();
       if (out.aud.line) out.line += '\n' + out.aud.line;
     }
@@ -3667,11 +3669,14 @@ function lvGenStatus_() {
 
 /** خطِ روزانهٔ کلیپِ آغاز. */
 function lvClipStatus_() {
-  var out = { on: lvClipOn_(), model: String(CFG.LV_CLIP_MODEL || ''), clips: 0, usd: 0, last: null, line: '' };
+  var out = { on: lvClipOn_(), model: String(CFG.LV_CLIP_MODEL || ''), clips: 0, usd: 0, last: null,
+              fails: 0, ok: true, line: '' };
   try {
     out.clips = Number(lvGenSpend_().clips) || 0;
     out.usd = lvClipCost_();
     try { out.last = JSON.parse(props_().getProperty(PK.LV_CLIP_LAST) || 'null'); } catch (eL) { out.last = null; }
+    out.fails = Number(out.last && out.last.fails) || 0;
+    out.ok = !(out.on && out.fails >= Math.max(1, Number(CFG.LV_CLIP_FAIL_FIND) || 2));
     if (!out.on) {
       out.line = '🎬 کلیپِ آغازِ درس: خاموش.';
       return out;
@@ -3684,7 +3689,9 @@ function lvClipStatus_() {
            (L.state === 'ok' ? '✅ ساخته و داوری شد' :
             L.state === 'fail' ? '❌ نشد — ' + String(L.why || 'بی علت') + ' — ویدئو با همان نقاشیِ ثابت رفت' :
             L.state === 'off' ? 'ساخته نشد — ' + String(L.why || '') : String(L.state || ''))
-         : ' · هنوز هیچ درسی با کلیپ ساخته نشده') + '.';
+         : ' · هنوز هیچ درسی با کلیپ ساخته نشده') +
+      (out.ok ? '' : ' · ❌ ' + faDigitsOut_(String(out.fails)) + ' درسِ پیاپی کلیپشان نشد' +
+        (L && L.fail && L.state !== 'fail' ? ' (آخرین علت: ' + String(L.fail.why || 'بی علت') + ')' : '')) + '.';
   } catch (e) { out.line = ''; }
   return out;
 }
@@ -4568,6 +4575,66 @@ function lvHealth_(problems, notes) {
         'نمی‌خواند. تا اولِ ماه درس‌های تازه تصویرِ تازه نمی‌گیرند؛ علت را پیدا کنید یا سقف را بالا ببرید.');
     }
   } catch (eGh) {}
+
+  /* ══ کلیپ، حرکت و آزمونِ مدلِ تازه — زیرِ نظر، نه فقط یک خط (۸.۵۲) ══
+     هر سه تا ۸.۵۱ فقط جمله‌ای در گزارشِ روزانه بودند؛ کلیپی که هر روز نشود هر روز همان
+     جمله را می‌نوشت و هیچ‌کس موظف به کاری نبود (۷.۱۸/۷.۱۹: دیدن با ملزم‌بودن یکی
+     نیست). حالا تکرار ⇒ مسئلهٔ روز **و** یافتهٔ کد در صفی که نسخهٔ بعد از آن ساخته
+     می‌شود؛ یک بار نشدن هیچ‌چیز نمی‌سازد — یک درسِ بد حق دارد یک درسِ بد بماند. */
+  try {
+    var cs = lvClipStatus_();
+    if (cs.on && !cs.ok) {
+      var cl = (cs.last && cs.last.fail) || cs.last || {};
+      problems.push('🎬 کلیپِ آغاز ' + faDigitsOut_(String(cs.fails)) + ' درسِ پیاپی نشد — آخرین (' +
+                    String(cl.key || '') + '): ' + String(cl.why || 'بی علت'));
+      logSelfFinding_(getHub_(), {
+        priority: 'جدی', category: 'تصویرِ درس', key: 'lv-clip-fail',
+        title: 'کلیپِ آغازِ درس پیاپی ساخته نمی‌شود',
+        detail: faDigitsOut_(String(cs.fails)) + ' درسِ پیاپی کلیپشان «نشد» گرفت و با نقاشیِ ثابت رفتند. ' +
+                'آخرین علت: ' + String(cl.why || 'ثبت نشده') + (cl.adj && cl.adj.length ? ' · نرم‌شده: ' +
+                cl.adj.join('، ') : '') + ' · مدل: ' + String((cs.last || {}).model || CFG.LV_CLIP_MODEL),
+        instruction: '`_scenes.json`ِ همان درس را بخوان (`clip.why`، `clip.judge`، `clip.adj`). ' +
+                     'خطای HTTP یعنی شکلِ درخواست — lvClipStart_ یا lvClipPoll_ را با پاسخِ واقعی درست کن. ' +
+                     '«بایت‌ها ویدئو نبود» یعنی نشانیِ دانلود (`uri` + کلید). «نوشته در کلیپ» یا «چهرهٔ کج» ' +
+                     'یعنی lvClipPrompt_. «داوری جواب نداد» یعنی lvClipJudge_ (اندازه یا مدل). ' +
+                     'پس از نصبِ درمان، کلیپِ درسِ بعد شمار را صفر می‌کند و ردیف بسته می‌ماند.',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eCl) {}
+  try {
+    var ms = lvMotionStatus_();
+    if (ms.on && !ms.ok) {
+      var ml = ms.last || {};
+      problems.push('🎥 حرکتِ کانون‌دار ' + faDigitsOut_(String(ms.zero)) + ' درسِ پیاپی روی هیچ صحنه‌ای ننشست');
+      logSelfFinding_(getHub_(), {
+        priority: 'متوسط', category: 'تصویرِ درس', key: 'lv-motion-none',
+        title: 'حرکتِ کانون‌دار روی هیچ صحنه‌ای نمی‌نشیند',
+        detail: 'آخرین درس (' + String(ml.key || '') + '): ' + (ml.n || 0) + ' صحنه — کانون از توصیف‌گر ' +
+                (ml.focus || 0) + '، حرکتِ push/reveal ' + (ml.moves || 0) + '، جای کانون از داور ' + (ml.box || 0) + '.',
+        instruction: 'عددِ صفر نشان می‌دهد کدام نیمه نشد: کانون یا حرکتِ صفر ⇒ پاسخِ lvSceneAsk_ ' +
+                     '(schema یا پرامپتِ focus/move)؛ جای کانونِ صفر ⇒ پاسخِ lvSceneJudge_ (فیلدِ box) یا lvSceneBox_ ' +
+                     'که قالبِ مدل را نمی‌خوانَد. هر دو با یک `_scenes.json`ِ واقعی بسنج، نه با بدَل.',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eMs) {}
+  try {
+    var as = lvAudStatus_();
+    if (as.on && !as.ok) {
+      problems.push('🧪 مدلِ تصویرِ تازه ' + faDigitsOut_(String(as.stuckDays)) + ' روز است در صفِ آزمون مانده: ' +
+                    as.due.join('، '));
+      logSelfFinding_(getHub_(), {
+        priority: 'متوسط', category: 'تصویرِ درس', key: 'lv-aud-stuck',
+        title: 'آزمونِ مدلِ تصویرِ تازه اجرا نمی‌شود',
+        detail: 'در صف از ' + as.since + ': ' + as.due.join('، ') + (as.ref ? ' · مرجع: ' + as.ref : ' · مرجعی نیست'),
+        instruction: 'سیاههٔ «آزمونِ مدلِ تصویر» را بخوان (lvAuditionLater). «مرجعی نیست» ⇒ lvAudRefSave_ در ' +
+                     'lvScenesBuild_ نمی‌نشیند؛ «سقفِ ماه جا ندارد» ⇒ تصمیمِ بودجه است، بگو؛ و اگر هیچ سطری نیست، ' +
+                     'تریگرِ یک‌بارهٔ lvAuditionLater ساخته نشده (lvAudArm_).',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eAs) {}
 
   /* «کم‌رفته» یافتهٔ کد **نمی‌سازد**: کارِ گذشته است، برنگشتنی، و یافته‌ای
      که هیچ اصلاحی نمی‌تواند ببنددش تا ابد در صف می‌مانَد — همان چیزی که
@@ -6083,10 +6150,74 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
 /** آخرین کلیپ، برای خطِ روزانه — از Properties، بی خواندنِ درایو (۷.۶۳). */
 function lvClipNote_(key, c, model) {
   try {
+    /* شمارِ درس‌های **پیاپی** که کلیپشان نشد (۸.۵۲): «نشد» بالا، «ساخته شد» صفر، و
+       «خاموش» (سقف یا تصمیم) دست نمی‌زند — بی‌پولی شکستِ ساز‌وکار نیست، گفته می‌شود.
+       همان درس دو بار شمرده نمی‌شود. */
+    var prev = null;
+    try { prev = JSON.parse(props_().getProperty(PK.LV_CLIP_LAST) || 'null'); } catch (eP) { prev = null; }
+    var fails = Number(prev && prev.fails) || 0;
+    var same = prev && prev.key === key && prev.state === c.state;
+    if (!same) {
+      if (c.state === 'fail') fails++;
+      else if (c.state === 'ok') fails = 0;
+    }
+    var why = String(c.why || c.judge || '').slice(0, 200);
+    /* علتِ آخرین «نشد» جدا می‌مانَد: درسِ «خاموش»ِ بعدی (سقف) آخرین خط را عوض می‌کند،
+       و یافته‌ای که آن‌وقت «سقف» را علتِ شکست بگوید، کد را سرِ راهِ غلط می‌فرستد. */
+    var fail = c.state === 'fail' ? { key: key, at: nowStr_(), why: why, adj: c.adj || [] }
+             : (c.state === 'ok' ? null : (prev && prev.fail) || null);
     props_().setProperty(PK.LV_CLIP_LAST, JSON.stringify({ key: key, at: nowStr_(), state: c.state,
-      why: String(c.why || c.judge || '').slice(0, 200), model: model, tries: c.tries || 0,
-      usd: Number(c.usd) || 0 }));
+      why: why, model: model, tries: c.tries || 0,
+      usd: Number(c.usd) || 0, adj: c.adj || [], fails: fails, fail: fail }));
   } catch (e) {}
+}
+
+/**
+ * حرکتِ کانون‌دارِ یک درس، برای خطِ روزانه و پیگیری (۸.۵۲). فقط نقشه‌ای که با ۸.۵۱ به بعد
+ * ساخته شده شمرده می‌شود (`clip` در آن هست): نقشه‌های پیش از آن کانون نپرسیده‌اند و
+ * «بی‌حرکت»شان عیب نیست. هر نیمه جدا شمرده می‌شود — کانون از توصیف‌گر، حرکت، جای کانون از
+ * داور — تا «نشد» بگوید **کدام** نیمه نشد.
+ */
+function lvMotionNote_(key, d, items) {
+  if (!d || !d.scenes || !Object.prototype.hasOwnProperty.call(d, 'clip')) return null;
+  try {
+    var prev = null;
+    try { prev = JSON.parse(props_().getProperty(PK.LV_MOTION_LAST) || 'null'); } catch (eP) { prev = null; }
+    var rec = { key: key, at: nowStr_(), n: d.scenes.length,
+                focus: d.scenes.filter(function (x) { return !!x.focus; }).length,
+                moves: d.scenes.filter(function (x) { return x.move === 'push' || x.move === 'reveal'; }).length,
+                box: d.scenes.filter(function (x) { return x.judge && x.judge.box; }).length,
+                mv: (items || []).filter(function (x) { return !!x.mv; }).length,
+                zero: Number(prev && prev.zero) || 0 };
+    if (!prev || prev.key !== key) {
+      if (rec.mv > 0) rec.zero = 0;
+      else if (rec.n >= 8 && CFG.LV_MOTION_ON !== false) rec.zero++;
+    } else {
+      rec.zero = Number(prev.zero) || 0;           // همان درس، دوباره: شمار عوض نمی‌شود
+    }
+    props_().setProperty(PK.LV_MOTION_LAST, JSON.stringify(rec));
+    return rec;
+  } catch (e) { return null; }
+}
+
+/** خطِ روزانهٔ حرکتِ کانون‌دار — از Properties، بی درایو (۷.۶۳). */
+function lvMotionStatus_() {
+  var out = { on: CFG.LV_MOTION_ON !== false, last: null, zero: 0, ok: true, line: '' };
+  try {
+    try { out.last = JSON.parse(props_().getProperty(PK.LV_MOTION_LAST) || 'null'); } catch (eL) { out.last = null; }
+    out.zero = Number(out.last && out.last.zero) || 0;
+    var find = Math.max(1, Number(CFG.LV_MOTION_ZERO_FIND) || 2);
+    out.ok = !(out.on && out.zero >= find);
+    if (!out.on) { out.line = '🎥 حرکتِ کانون‌دار: خاموش.'; return out; }
+    var L = out.last;
+    out.line = '🎥 حرکتِ کانون‌دار: ' + (L
+      ? 'آخرین درس (' + L.key + ') ' + faDigitsOut_(String(L.mv)) + ' از ' + faDigitsOut_(String(L.n)) +
+        ' صحنه — کانون از توصیف‌گر ' + faDigitsOut_(String(L.focus)) + '، حرکتِ push/reveal ' +
+        faDigitsOut_(String(L.moves)) + '، جای کانون از داور ' + faDigitsOut_(String(L.box)) +
+        (out.ok ? '' : ' · ❌ ' + faDigitsOut_(String(out.zero)) + ' درسِ پیاپی بی هیچ حرکتِ کانون‌دار')
+      : 'هنوز هیچ درسی با نقشهٔ ۸.۵۱ ساخته نشده') + '.';
+  } catch (e) { out.line = ''; }
+  return out;
 }
 
 /** آیا کارِ کلیپ تمام است (هر جوری)؟ ویدئو فقط همین را منتظر می‌مانَد. */
@@ -6122,6 +6253,7 @@ function lvAudSee_(ids) {
     if (!out.length) return out;
     var due = [];
     try { due = JSON.parse(props_().getProperty(PK.LV_AUD_DUE) || '[]') || []; } catch (eD) { due = []; }
+    if (!due.length && !props_().getProperty(PK.LV_AUD_SINCE)) props_().setProperty(PK.LV_AUD_SINCE, nowStr_());
     for (var j = 0; j < out.length; j++) if (due.indexOf(out[j]) === -1) due.push(out[j]);
     props_().setProperty(PK.LV_AUD_DUE, JSON.stringify(due.slice(-12)));
     props_().setProperty(PK.LV_AUD_KNOWN, JSON.stringify(known.concat(out).slice(-60)));
@@ -6245,6 +6377,7 @@ function lvAudition_() {
   }
   try {
     props_().setProperty(PK.LV_AUD_DUE, JSON.stringify(due));
+    if (!due.length) props_().deleteProperty(PK.LV_AUD_SINCE);   // صف خالی شد ⇒ «از کِی» پاک
     var keys = Object.keys(log).sort(function (a, b) { return String(log[b].at).localeCompare(String(log[a].at)); });
     var keep = {};
     keys.slice(0, 8).forEach(function (k) { keep[k] = log[k]; });
@@ -6291,9 +6424,17 @@ function lvAudSend_(model, ref, pairs, rec) {
 
 /** خطِ روزانهٔ آزمون — از Properties، بی درایو (۷.۶۳). */
 function lvAudStatus_() {
-  var out = { on: CFG.LV_AUD_ON !== false, due: [], last: null, ref: '', line: '' };
+  var out = { on: CFG.LV_AUD_ON !== false, due: [], dueN: 0, since: '', stuckDays: 0, last: null, ref: '',
+              ok: true, line: '' };
   try {
     try { out.due = JSON.parse(props_().getProperty(PK.LV_AUD_DUE) || '[]') || []; } catch (e1) {}
+    out.dueN = out.due.length;
+    out.since = out.dueN ? String(props_().getProperty(PK.LV_AUD_SINCE) || '') : '';
+    if (out.since) {
+      var sd = new Date(out.since.replace(' ', 'T') + ':00');
+      out.stuckDays = isNaN(sd.getTime()) ? 0 : Math.max(0, Math.floor((new Date().getTime() - sd.getTime()) / 86400000));
+    }
+    out.ok = !(out.on && out.dueN && out.stuckDays >= Math.max(1, Number(CFG.LV_AUD_STUCK_DAYS) || 7));
     var log = {};
     try { log = JSON.parse(props_().getProperty(PK.LV_AUD_LOG) || '{}') || {}; } catch (e2) {}
     var ks = Object.keys(log).sort(function (a, b) { return String(log[b].at).localeCompare(String(log[a].at)); });
@@ -6302,7 +6443,8 @@ function lvAudStatus_() {
     if (!out.on) { out.line = '🧪 آزمونِ مدلِ تصویرِ تازه: خاموش.'; return out; }
     var L = out.last;
     out.line = '🧪 آزمونِ مدلِ تصویرِ تازه: ' +
-      (out.due.length ? 'در صف: ' + out.due.join('، ') + (out.ref ? '' : ' (منتظرِ نخستین درسِ صحنه‌دار برای مرجع)')
+      (out.due.length ? 'در صف: ' + out.due.join('، ') + (out.ref ? '' : ' (منتظرِ نخستین درسِ صحنه‌دار برای مرجع)') +
+                        (out.ok ? '' : ' · ❌ ' + faDigitsOut_(String(out.stuckDays)) + ' روز است آزموده نشده')
                       : 'مدلِ تازه‌ای نیامده') +
       (L ? ' · آخرین: «' + L.model + '» ' + (L.made ? 'میانگین ' + L.avgNew + ' در برابرِ ' + L.avgPin + 'ِ سنجاق' : 'نساخت') +
            (L.sent ? '' : ' — ❌ به تلگرام نرفت') : '') +
@@ -6698,6 +6840,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   }
   if (items.length) items[0].t0 = 0;
   lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
+  lvMotionNote_(key, d, items);          // حرکتِ کانون‌دار، برای پیگیری (۸.۵۲)
   /* کلیپ فقط روی همان تصویری می‌نشیند که از آن ساخته شد. */
   if (items.length && d.clip && d.clip.state === 'ok' && d.clip.fileId && items[0].fileId === d.clip.img) {
     items[0].clip = { fileId: d.clip.fileId, sec: Number(d.clip.sec) || lvClipSec_() };

@@ -1434,6 +1434,11 @@ function selfVerifyMap_() {
        نمی‌سنجد. و «کم‌رفته» عمداً سنجنده ندارد، چون یافته‌ای هم نمی‌سازد:
        کارِ گذشته است و هیچ اصلاحی نمی‌تواند ببنددش. */
     'lv-stuck':            { what: 'lessonVisuals', still: bad('lessonVisuals') },
+    /* ۸.۵۲: کلیپ، حرکت و صفِ آزمون — هر کدام شاهدِ جدای خودش را دارد، تا بستنِ یکی
+       به حالِ دیگری بند نباشد. */
+    'lv-clip-fail':        { what: 'lessonClip', still: bad('lessonClip') },
+    'lv-motion-none':      { what: 'lessonMotion', still: bad('lessonMotion') },
+    'lv-aud-stuck':        { what: 'imageAudition', still: bad('imageAudition') },
     'speak-skipped':       { what: 'speakSkip', still: bad('speakSkip') },
     /* صفی که خالی نمی‌شود، خودش یافته است — و همان شرط، سنجنده‌اش هم هست. */
     'code-queue-stuck': {

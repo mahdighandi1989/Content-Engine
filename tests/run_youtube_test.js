@@ -6873,7 +6873,9 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     global.__PROPS[PK.TG_TOKEN] = 'TOK'; global.__PROPS[PK.TG_CHAT] = 'CHAT';
     aud.gens = []; aud.judges = []; aud.tg = [];
     const spBefore = lvGenSpend_().usd;
+    global.__PROPS[PK.LV_AUD_SINCE] = '2026-08-10 09:00';         // «از کِی» پیش از آزمون (۷۸.۳ می‌سنجد)
     const n1 = lvAuditionLater();
+    const sinceAfterAud = global.__PROPS[PK.LV_AUD_SINCE];
     const log = JSON.parse(global.__PROPS[PK.LV_AUD_LOG] || '{}')[nova] || {};
     const albums = aud.tg.filter(x => /sendMediaGroup/.test(x.url));
     const texts = aud.tg.filter(x => /sendMessage/.test(x.url)).map(x => String((x.body || {}).text || ''));
@@ -6909,6 +6911,116 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        /آخرین: «gemini-4-flash-image-preview» میانگین 8 در برابرِ 6/.test(stAud.line) &&
        /هیچ مدلی خودکار جایگزین نمی‌شود/.test(stAud.line),
        n2 + ' · ' + (stAud.line.split('\n').find(l => /🧪/.test(l)) || 'بی خطِ 🧪'));
+
+    /* ══ ۷۸) زیرِ نظر، نه فقط یک خط (۸.۵۲) ══
+       او پرسید «همه چیز زیرِ نظرِ ناظر می‌ره و بررسی می‌کنه و اقدام و اصلاح می‌کنه و پیگیری
+       می‌کنه؟». برای کلیپ، حرکت و آزمونِ ۸.۵۱ جوابِ راست «فقط یک خط» بود: کلیپی که هر روز
+       نشود هر روز همان جمله را می‌نوشت و هیچ یافته‌ای نمی‌ساخت. حالا تکرار ⇒ مسئلهٔ روز +
+       یافتهٔ کد، و هر سه در وضعیت و کارنامهٔ قابلیت‌ها. همه از درِ تولید. */
+    console.log('\n=== ۷۸) کلیپ، حرکت و آزمونِ مدلِ تازه زیرِ نظر (۸.۵۲) ===');
+    global.__STUB = BASE_STUB;
+    const found = [];
+    const lsfWas = global.logSelfFinding_;
+    global.logSelfFinding_ = function (hub, f) { found.push(f || hub); return true; };
+    const health = () => { const pr = [], nt = []; found.length = 0; lvHealth_(pr, nt); return { pr: pr, nt: nt }; };
+    const findKey = (k) => found.filter(f => f && f.key === k);
+
+    /* ۷۸.۱ — دو درسِ پیاپی که کلیپشان نشد ⇒ وضعیت نادرست، مسئلهٔ روز، یافتهٔ جدیِ کد با علت؛
+       یک درسِ سالم ⇒ صفر. همان درس دو بار شمرده نمی‌شود و «خاموش» (بی‌پولی) شمار را عوض نمی‌کند. */
+    delete global.__PROPS[PK.LV_CLIP_LAST];
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const vX1 = { startFail: 'Invalid JSON payload: unknown field' };
+    run77('EP78C1', 781, vX1);
+    const one = lvClipStatus_();
+    const h1 = health();
+    const f1n = findKey('lv-clip-fail').length;
+    const vX2 = { startFail: 'Invalid JSON payload: unknown field' };
+    run77('EP78C2', 782, vX2);
+    lvClipNote_('special:782', { state: 'fail', tries: 2, why: 'تکرار' }, CFG.LV_CLIP_MODEL);   // همان درس، دوباره
+    lvClipNote_('special:783', { state: 'off', why: 'سقف' }, CFG.LV_CLIP_MODEL);              // خاموش
+    const two = lvClipStatus_();
+    const h2 = health();
+    const fC = findKey('lv-clip-fail')[0] || {};
+    ok('۷۸.۱ دو درسِ پیاپیِ «نشد» ⇒ ok نادرست، مسئلهٔ روز و یافتهٔ جدیِ کد با علت؛ یک «نشد» هیچ',
+       one.fails === 1 && one.ok === true && !h1.pr.some(x => /کلیپِ آغاز/.test(x)) && f1n === 0 &&
+       two.fails === 2 && two.ok === false && /❌ ۲ درسِ پیاپی کلیپشان نشد/.test(two.line) &&
+       h2.pr.some(x => /🎬 کلیپِ آغاز ۲ درسِ پیاپی نشد/.test(x)) &&
+       fC.priority === 'جدی' && fC.owner === ROWNER_CODE && /تکرار/.test(fC.detail) && !/سقف/.test(fC.detail) &&
+       h2.pr.some(x => /تکرار/.test(x)) && /آخرین علت: تکرار/.test(two.line),
+       JSON.stringify({ one: [one.fails, one.ok], h1: h1.pr.filter(x => /🎬/.test(x)), f1: f1n,
+                        two: [two.fails, two.ok], line: two.line, pr: h2.pr.filter(x => /🎬/.test(x)), f: fC.detail }));
+    run77('EP78C3', 784, {});
+    const back = lvClipStatus_();
+    const h3 = health();
+    ok('۷۸.۱-ب کلیپِ سالم ⇒ شمار صفر و یافته‌ای نیست',
+       back.fails === 0 && back.ok === true && !findKey('lv-clip-fail').length,
+       JSON.stringify({ fails: back.fails, last: back.last && back.last.state }));
+
+    /* ۷۸.۲ — حرکت: درسی با حرکت ⇒ صفر؛ دو درسِ پیاپیِ بی هیچ حرکتِ کانون‌دار ⇒ یافته، با شمارِ
+       هر نیمه تا «کدام نیمه نشد» گفته شود. نقشهٔ پیش از ۸.۵۱ (بی `clip`) شمرده نمی‌شود. */
+    delete global.__PROPS[PK.LV_MOTION_LAST];
+    run77('EP78M1', 785, { motion: true });
+    const m1 = lvMotionStatus_();
+    run77('EP78M2', 786, {});
+    run77('EP78M3', 787, {});
+    const m3 = lvMotionStatus_();
+    const hm = health();
+    const fM = findKey('lv-motion-none')[0] || {};
+    const oldD = { scenes: m3.last ? new Array(10).fill({}) : [] };          // بی کلیدِ clip
+    const before = JSON.stringify(lvMotionStatus_().last);
+    const oldR = lvMotionNote_('special:999', oldD, []);
+    ok('۷۸.۲ دو درسِ پیاپیِ بی حرکت ⇒ یافتهٔ کد با شمارِ هر نیمه؛ درسِ با حرکت صفر؛ نقشهٔ قدیمی شمرده نمی‌شود',
+       m1.last && m1.last.mv > 0 && m1.zero === 0 && m3.zero === 2 && m3.ok === false &&
+       m3.last.focus === 0 && m3.last.n >= 8 &&
+       hm.pr.some(x => /🎥 حرکتِ کانون‌دار ۲ درسِ پیاپی/.test(x)) && fM.owner === ROWNER_CODE &&
+       /کانون از توصیف‌گر 0/.test(fM.detail) && oldR === null && JSON.stringify(lvMotionStatus_().last) === before,
+       JSON.stringify({ m1: m1.last, m3: m3.last, f: fM.detail }));
+
+    /* ۷۸.۳ — آزمونِ مدلِ تازه: صفی که هفت روز خالی نشد ⇒ یافته؛ «از کِی» با پرشدنِ صف ثبت و با
+       خالی‌شدنش پاک می‌شود (همان ۷۷.۱۴ صف را خالی کرد). */
+    /* «از کِی» که پاک نشود، بارِ بعد که صف پر شد همان تاریخِ کهنه می‌مانَد (lvAudSee_ فقط وقتی
+       نیست می‌نویسدش) و یافتهٔ «هفت روز مانده» همان روزِ اول می‌زند. ۷۷.۱۴ صف را با آزمونِ واقعی
+       خالی کرد و پیش از آن «از کِی» را گذاشته بود. */
+    const sinceGone = !sinceAfterAud;
+    global.__PROPS[PK.LV_AUD_DUE] = JSON.stringify(['gemini-5-image']);
+    global.__PROPS[PK.LV_AUD_SINCE] = Utilities.formatDate(new Date(Date.now() - 8 * 86400000), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+    const a8 = lvAudStatus_();
+    const ha = health();
+    global.__PROPS[PK.LV_AUD_SINCE] = Utilities.formatDate(new Date(Date.now() - 2 * 86400000), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+    const a2 = lvAudStatus_();
+    global.__PROPS[PK.LV_AUD_DUE] = '[]'; delete global.__PROPS[PK.LV_AUD_SINCE];
+    const known0 = global.__PROPS[PK.LV_AUD_KNOWN];
+    global.__PROPS[PK.LV_AUD_KNOWN] = JSON.stringify(['a-image']);
+    lvAudSee_(['a-image', 'b-image']);
+    const sinceSet = !!global.__PROPS[PK.LV_AUD_SINCE];
+    global.__PROPS[PK.LV_AUD_KNOWN] = known0;
+    ok('۷۸.۳ مدلِ تازهٔ هفت‌روزه در صف ⇒ یافته؛ دوروزه ⇒ نه؛ «از کِی» با صف ثبت و پاک می‌شود',
+       a8.ok === false && a8.stuckDays >= 7 && a8.dueN === 1 && findKey('lv-aud-stuck').length === 1 &&
+       ha.pr.some(x => /🧪 مدلِ تصویرِ تازه/.test(x)) && a2.ok === true && sinceGone && sinceSet,
+       JSON.stringify({ a8: { ok: a8.ok, d: a8.stuckDays }, a2: a2.ok, sinceGone: sinceGone, sinceSet: sinceSet }));
+    global.__PROPS[PK.LV_AUD_DUE] = '[]'; delete global.__PROPS[PK.LV_AUD_SINCE];
+
+    /* ۷۸.۴ — کارنامهٔ قابلیت‌ها هر سه را می‌شناسد؛ آزمونِ بی مدلِ تازه «کاری نرسیده» است، نه
+       «بی‌اثر». و نگهبانِ بستنِ ردیف (`selfVerifyOne_`) هر سه یافته را با وضعیتِ زنده می‌سنجد. */
+    const stW = { lessonClip: lvClipStatus_(), lessonMotion: lvMotionStatus_(), imageAudition: lvAudStatus_() };
+    const capW = capStatus_(stW);
+    const rowOf = (k) => capW.rows.find(r => r.key === k) || {};
+    const badClip = { lessonClip: Object.assign({}, stW.lessonClip, { ok: false }) };
+    ok('۷۸.۴ سه قابلیتِ تازه در کارنامه، آزمونِ بی‌کار «کاری نرسیده»؛ و هر سه یافته سنجندهٔ زنده دارند',
+       ['lesson-clip', 'lesson-motion', 'image-audition'].every(k => rowOf(k).key && rowOf(k).verdict !== 'سیم‌کشی') &&
+       rowOf('image-audition').verdict === 'کاری نرسیده' &&
+       selfVerifyOne_('lv-clip-fail', badClip).still === true &&
+       selfVerifyOne_('lv-clip-fail', stW).still === false &&
+       selfVerifyOne_('lv-motion-none', stW).known && selfVerifyOne_('lv-aud-stuck', stW).still === false,
+       JSON.stringify(['lesson-clip', 'lesson-motion', 'image-audition'].map(k => [k, rowOf(k).verdict])));
+
+    /* ۷۸.۵ — و خطِ روزانهٔ تصویر هر سه را دارد، هر روز. */
+    global.__PROPS[PK.LV_GEN_ON] = '1';
+    const gl = lvGenStatus_().line;
+    ok('۷۸.۵ خطِ روزانهٔ تصویر خطِ 🎬، 🎥 و 🧪 را دارد', /🎬 کلیپِ آغازِ درس/.test(gl) && /🎥 حرکتِ کانون‌دار/.test(gl) &&
+       /🧪 آزمونِ مدلِ تصویرِ تازه/.test(gl), gl.split('\n').filter(l => /🎬|🎥|🧪/.test(l)).join(' | '));
+    global.logSelfFinding_ = lsfWas;
+    delete global.__PROPS[PK.LV_MOTION_LAST];
 
     global.__STUB = BASE_STUB;
     delete global.__PROPS[PK.TG_TOKEN]; delete global.__PROPS[PK.TG_CHAT];

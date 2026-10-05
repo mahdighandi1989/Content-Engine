@@ -593,6 +593,10 @@ function writeStatus_(hub, note) {
        داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
        (۷.۶۳/۷.۷۲، دو بار آموخته). */
     lessonVisuals: (function () { try { return lvStatus_(); } catch (e) { return null; } })(),
+    /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
+    lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
+    lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
+    imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
