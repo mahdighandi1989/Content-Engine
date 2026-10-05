@@ -595,4 +595,33 @@ console.log('\n=== ۱۳) سقفِ توکنی که فکرِ مدل همه‌اش 
   ok('۱۳.۲ الگو خطِ واقعیِ ۸.۳۱ را می‌گیرد', !!pm && Number(pm[1]) === 48);
 }
 
+console.log('\n=== ۱۴) فراخوانِ نامی که هیچ‌جا تعریف نشده (۸.۴۵) ===');
+{
+  /* `ytChannelMark_` از روزِ نوشتنش `daysSince_` را صدا می‌زد — تابعی که هیچ‌جای
+     موتور تعریف نداشت. بارِ اول (بی کش) آن خط اجرا نمی‌شد؛ از بارِ دوم هر بار
+     ReferenceError، که `ytMarkSpec_` در `catch` می‌بلعید. نتیجه: فقط نخستین
+     ویدئو نشانِ کانال داشت و هیچ سنجه‌ای نیفتاد. ۴.۲ فقط بارکننده‌ها را می‌سنجد و
+     بخشِ «کدِ مرده» تابعِ **تعریف‌شدهٔ** بی‌فراخوان را؛ هیچ‌کدام فراخوانِ
+     **تعریف‌نشده** را نمی‌دید. این‌جا هر `نام_(` در src باید تعریفی داشته باشد. */
+  const fsU = require('fs');
+  const defs = new Set(), calls = {};
+  for (const f of fsU.readdirSync('src').filter((x) => /\.gs$/.test(x))) {
+    const code = fsU.readFileSync('src/' + f, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:'"\\])\/\/.*$/gm, '$1');
+    let m;
+    const d = /function\s+([A-Za-z_$][\w$]*)\s*\(|(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=/g;
+    while ((m = d.exec(code))) defs.add(m[1] || m[2]);
+    const c = /(^|[^.\w$])([A-Za-z][\w$]*_)\s*\(/g;
+    while ((m = c.exec(code))) (calls[m[2]] = calls[m[2]] || new Set()).add(f);
+  }
+  const miss = Object.keys(calls).filter((k) => !defs.has(k));
+  ok('۱۴.۱ هر فراخوانِ نامِ خصوصی در src تعریفی دارد',
+     miss.length === 0, miss.map((k) => k + ' در ' + Array.from(calls[k]).join('، ')).join(' · ') || 'هیچ');
+  /* و نگهبان کور نیست: خطِ واقعیِ پیش از ۸.۴۵ را می‌گیرد. */
+  const probe = '  if (cached && cached.at && daysSince_(cached.at) < days) return cached;';
+  const pm = /(^|[^.\w$])([A-Za-z][\w$]*_)\s*\(/.exec(probe);
+  ok('۱۴.۲ الگو همان خطِ `daysSince_` را می‌گیرد', !!pm && pm[2] === 'daysSince_');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

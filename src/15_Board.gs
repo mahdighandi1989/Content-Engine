@@ -109,6 +109,8 @@ function seriesBoardData_(hub) {
          هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
          می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
+      /* «نوشته روی تصویر» (۸.۴۵) — کنارِ سطح، در همان خانه؛ خالی یعنی پیش‌فرض. */
+      lvText: String(v[SC.LVTEXT - 1] || '').trim(),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -916,6 +918,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvLevelSave(k,v);}');
+  H.push('function lvText(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ نوشتهٔ رویِ تصویر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvTextSave(k,v);}');
   H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
          'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -1998,7 +2004,75 @@ function lvLevelCell_(x) {
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
          opts.join('') + '</select>' +
-         '<div class="sub">' + bEsc_(note) + '</div></td>';
+         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + '</td>';
+}
+
+/**
+ * «نوشته روی تصویر» (۸.۴۵) — جعبهٔ دوم **در همان خانهٔ سطح**، نه ستونِ تازهٔ جدول:
+ * ستونِ تازه `colspan`ِ ردیفِ جزئیات را کهنه می‌کند (۸.۱۳). جدا از سبک و سطح،
+ * چون او پرسید «حالتِ برداری اگر میاد نقضِ تنظیماتِ بورد حساب میشه؟» — جواب
+ * «نه» است فقط اگر نوشته تنظیمِ خودش را داشته باشد و به آن دو دست نزند.
+ */
+function lvTextBox_(x) {
+  var cur = String((x && x.lvText) || '');
+  var list = [];
+  try { list = CFG.LV_TEXT_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (e) { list = ['خاموش', 'کم', 'زیاد']; }
+  var what = {
+    'خودکار': 'روی بعضی از نقاشی‌ها، هرجا حرفی برای دیدن هست',
+    'خاموش': 'هیچ نوشته‌ای روی نقاشی‌ها',
+    'کم': 'روی چند نقاشی، فقط مهم‌ترین‌ها',
+    'زیاد': 'روی بیشترِ نقاشی‌ها'
+  };
+  var isA = (!cur || cur === 'خودکار' || list.indexOf(cur) === -1);
+  var opts = ['<option value="خودکار"' + (isA ? ' selected' : '') + '>نوشته: خودکار — ' + what['خودکار'] + '</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (!isA && k === cur ? ' selected' : '') +
+              '>نوشته: ' + bEsc_(k) + ' — ' + bEsc_(what[k] || '') + '</option>');
+  }
+  return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
+         '" data-role="text" onchange="lvText(this)">' + opts.join('') + '</select>' +
+         '<div class="sub">نوشتهٔ رویِ نقاشی‌ها — سبک و شمارِ تصویر همان است که بالا انتخاب شده.</div></div>';
+}
+
+/**
+ * ذخیرهٔ «نوشته روی تصویر» (۸.۴۵). مقدارِ ناشناخته **رد** می‌شود و نامِ مجازها
+ * برمی‌گردد — خانه‌ای که حرفِ او را بی‌صدا عوض کند، او را به این باور می‌رساند که
+ * چیزی را تنظیم کرده (۷.۴۱). و رسید **از همان تعریفی** می‌خوانَد که تولید
+ * می‌خوانَد (`lvTextAt_`)، تا روزی منو چیزی نگوید که تولید نقضش کند.
+ */
+function uiLvTextSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = (CFG.LV_TEXT_LEVELS || ['خاموش', 'کم', 'زیاد']).slice();
+    if (v && v !== 'خودکار' && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'مقدارِ ناشناخته', ['مجازها: خودکار · ' + list.join(' · ')]);
+      return { ok: false, message: '«' + v + '» را نمی‌شناسم. مجازها: خودکار · ' + list.join(' · ') };
+    }
+    if (!v) v = 'خودکار';
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVTEXT).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var eff = null;
+    try { eff = lvTextAt_(hub, { seriesKey: k }, null); } catch (eE) { eff = null; }
+    var pct = eff ? Math.round(eff.share * 100) : 0;
+    var note = eff
+      ? (eff.share > 0 ? 'تا حدودِ ' + faDigitsOut_(String(pct)) + '٪ِ صحنه‌های هر درس نوشته می‌گیرند — فقط ' +
+                        'جایی که حرفی برای دیدن هست و تصویر جای خالی دارد.'
+                      : 'هیچ نوشته‌ای روی نقاشی‌ها نمی‌نشیند.')
+      : 'ثبت شد.';
+    boardReceipt_(true, 'نوشتهٔ رویِ تصویرِ «' + nm + '»: ' + v,
+                  [note, 'سبک و سطحِ تصویر دست نخورد. درس‌های بعدی با همین ساخته می‌شوند؛ ' +
+                         'درسی که نقشهٔ صحنه‌اش از قبل ساخته شده عوض نمی‌شود.']);
+    return { ok: true, message: 'نوشتهٔ رویِ تصویرِ «' + nm + '»: ' + v + ' — ' + note };
+  } catch (e) {
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.44
+ *  موتور محتوا و پادکست — نسخهٔ 8.45
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -672,6 +672,16 @@ var CFG = {
   LV_SCENE_MORE_MAX: 30,
   LV_SCENE_LEASE_MIN: 8,
   LV_GEN_HQ_MAX_USD: 0.14,      // کاورِ صحنه با بهترین مدلِ تصویرِ زیرِ این قیمت
+  /* ══ نوشتهٔ رویِ نقاشی (۸.۴۵) ══
+     «روی بعضی یا خیلی از تصویرها و نقاشی‌ها حالتِ برداری هم باشه … نه اینکه یه
+     اسلاید برداری باشه یکی تصویری». لایه‌ای روی **همان** نقاشی‌ها: سبک و شمارِ
+     تصویر همان است که تخته گفته؛ این فقط می‌گوید روی چه سهمی از صحنه‌ها نوشته
+     بنشیند. ستونِ خودش در تخته (`SC.LVTEXT`)؛ خالی یا «خودکار» = پیش‌فرض.
+     سهم **سقف** است، نه هدف: صحنه‌ای که حرفِ نوشتنی ندارد یا تصویرش جای خالی
+     ندارد (رانر می‌سنجد) نوشته نمی‌گیرد. */
+  LV_TEXT_DEFAULT: 'خودکار',
+  LV_TEXT_LEVELS: ['خاموش', 'کم', 'زیاد'],
+  LV_TEXT_SHARE: { 'خاموش': 0, 'کم': 0.25, 'خودکار': 0.45, 'زیاد': 0.7 },
   /* نخستین ویدئوهای حالتِ تازه Unlisted می‌مانند تا کلیدشان در
      `docs/yt-approve.json` بنشیند (سشنِ کد پس از دیدنِ فریم‌ها می‌نشاندش).
      از آن به بعد سدِ خودکار — سنجشِ رانر و داوریِ تصویر — تصمیم می‌گیرد. */
@@ -1008,7 +1018,7 @@ var CFG = {
   YT_MARK_HANDLE: '',            // خالی = از خودِ یوتیوب خوانده می‌شود (customUrl)
   YT_MARK_NAME: '',              // برای تک‌نگاره وقتی تصویرِ نشان نداریم
   YT_MARK_MOVE_SEC: 180,         // هر سه دقیقه یک گوشه، چرخشی بینِ چهار گوشه
-  YT_MARK_OPACITY: 0.6,
+  YT_MARK_OPACITY: 0.5,          // ۸.۴۵: «لوگو یه مقدار شفاف‌تر» — و بی مربعِ سیاه (logoClean در رانر)
   YT_MARK_REFRESH_DAYS: 14,      // هر چند روز شناسه و تصویرِ کانال دوباره خوانده شود
   /* ── همان تصویرها در جزوه (۷٫۹۴، بندِ ۶ و ۷ِ درخواست) ──
    * `HFIG_SCAN_MAX`: چند قسمت در هر به‌روزرسانیِ جزوه از درایو خوانده شود.
@@ -1689,7 +1699,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.44',
+  CODE_VERSION: '8.45',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2543,7 +2553,10 @@ var SERIES_HEADERS = [
      هیچ مرورِ خودکاری برای این مجموعه. از خانهٔ مرورِ تخته نوشته می‌شود و
      همان را `recapPeriodicDue_` می‌خوانَد — یک ستون، دو مصرف. در **انتها**،
      به همان دلیلِ دو ستونِ بالا. */
-  'مرورِ هر چند درس'
+  'مرورِ هر چند درس',
+  /* ══ نوشتهٔ رویِ نقاشیِ صحنه‌ها (۸.۴۵) ══ خاموش/کم/خودکار/زیاد — جدا از «سبک» و
+     «سطح»، تا افزودنِ نوشته هیچ‌کدام از آن دو را عوض نکند. در **انتها**. */
+  'نوشته روی تصویر'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -2551,7 +2564,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -25593,6 +25606,8 @@ function seriesBoardData_(hub) {
          هست؟» باز هم «نه» بود، و این بار در نسخه‌ای که همین عیب را تعمیر
          می‌کرد. رشتهٔ خالی یعنی «کم» (پیش‌فرض)، نه «نگفته». */
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
+      /* «نوشته روی تصویر» (۸.۴۵) — کنارِ سطح، در همان خانه؛ خالی یعنی پیش‌فرض. */
+      lvText: String(v[SC.LVTEXT - 1] || '').trim(),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -26400,6 +26415,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ سطحِ تصویرسازی…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvLevelSave(k,v);}');
+  H.push('function lvText(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ نوشتهٔ رویِ تصویر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvTextSave(k,v);}');
   H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
          'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -27482,7 +27501,75 @@ function lvLevelCell_(x) {
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
          opts.join('') + '</select>' +
-         '<div class="sub">' + bEsc_(note) + '</div></td>';
+         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + '</td>';
+}
+
+/**
+ * «نوشته روی تصویر» (۸.۴۵) — جعبهٔ دوم **در همان خانهٔ سطح**، نه ستونِ تازهٔ جدول:
+ * ستونِ تازه `colspan`ِ ردیفِ جزئیات را کهنه می‌کند (۸.۱۳). جدا از سبک و سطح،
+ * چون او پرسید «حالتِ برداری اگر میاد نقضِ تنظیماتِ بورد حساب میشه؟» — جواب
+ * «نه» است فقط اگر نوشته تنظیمِ خودش را داشته باشد و به آن دو دست نزند.
+ */
+function lvTextBox_(x) {
+  var cur = String((x && x.lvText) || '');
+  var list = [];
+  try { list = CFG.LV_TEXT_LEVELS || ['خاموش', 'کم', 'زیاد']; } catch (e) { list = ['خاموش', 'کم', 'زیاد']; }
+  var what = {
+    'خودکار': 'روی بعضی از نقاشی‌ها، هرجا حرفی برای دیدن هست',
+    'خاموش': 'هیچ نوشته‌ای روی نقاشی‌ها',
+    'کم': 'روی چند نقاشی، فقط مهم‌ترین‌ها',
+    'زیاد': 'روی بیشترِ نقاشی‌ها'
+  };
+  var isA = (!cur || cur === 'خودکار' || list.indexOf(cur) === -1);
+  var opts = ['<option value="خودکار"' + (isA ? ' selected' : '') + '>نوشته: خودکار — ' + what['خودکار'] + '</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (!isA && k === cur ? ' selected' : '') +
+              '>نوشته: ' + bEsc_(k) + ' — ' + bEsc_(what[k] || '') + '</option>');
+  }
+  return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
+         '" data-role="text" onchange="lvText(this)">' + opts.join('') + '</select>' +
+         '<div class="sub">نوشتهٔ رویِ نقاشی‌ها — سبک و شمارِ تصویر همان است که بالا انتخاب شده.</div></div>';
+}
+
+/**
+ * ذخیرهٔ «نوشته روی تصویر» (۸.۴۵). مقدارِ ناشناخته **رد** می‌شود و نامِ مجازها
+ * برمی‌گردد — خانه‌ای که حرفِ او را بی‌صدا عوض کند، او را به این باور می‌رساند که
+ * چیزی را تنظیم کرده (۷.۴۱). و رسید **از همان تعریفی** می‌خوانَد که تولید
+ * می‌خوانَد (`lvTextAt_`)، تا روزی منو چیزی نگوید که تولید نقضش کند.
+ */
+function uiLvTextSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = (CFG.LV_TEXT_LEVELS || ['خاموش', 'کم', 'زیاد']).slice();
+    if (v && v !== 'خودکار' && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'مقدارِ ناشناخته', ['مجازها: خودکار · ' + list.join(' · ')]);
+      return { ok: false, message: '«' + v + '» را نمی‌شناسم. مجازها: خودکار · ' + list.join(' · ') };
+    }
+    if (!v) v = 'خودکار';
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVTEXT).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var eff = null;
+    try { eff = lvTextAt_(hub, { seriesKey: k }, null); } catch (eE) { eff = null; }
+    var pct = eff ? Math.round(eff.share * 100) : 0;
+    var note = eff
+      ? (eff.share > 0 ? 'تا حدودِ ' + faDigitsOut_(String(pct)) + '٪ِ صحنه‌های هر درس نوشته می‌گیرند — فقط ' +
+                        'جایی که حرفی برای دیدن هست و تصویر جای خالی دارد.'
+                      : 'هیچ نوشته‌ای روی نقاشی‌ها نمی‌نشیند.')
+      : 'ثبت شد.';
+    boardReceipt_(true, 'نوشتهٔ رویِ تصویرِ «' + nm + '»: ' + v,
+                  [note, 'سبک و سطحِ تصویر دست نخورد. درس‌های بعدی با همین ساخته می‌شوند؛ ' +
+                         'درسی که نقشهٔ صحنه‌اش از قبل ساخته شده عوض نمی‌شود.']);
+    return { ok: true, message: 'نوشتهٔ رویِ تصویرِ «' + nm + '»: ' + v + ' — ' + note };
+  } catch (e) {
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
+  }
 }
 
 /**
@@ -45914,8 +46001,10 @@ function ytRenderAsk_(item) {
   if (item.scenes && item.scenes.length) {
     row.mode = 'scenes';
     row.scenes = item.scenes.map(function (x) {
-      return { n: Number(x.n) || 0, t0: Number(x.t0) || 0, fileId: String(x.fileId || ''),
-               url: ytDlUrl_(x.fileId || ''), caption: String(x.caption || '') }; });
+      var r0 = { n: Number(x.n) || 0, t0: Number(x.t0) || 0, fileId: String(x.fileId || ''),
+                 url: ytDlUrl_(x.fileId || ''), caption: String(x.caption || '') };
+      if (x.ov) r0.ov = x.ov;                       // نوشتهٔ رویِ نقاشی (۸.۴۵)
+      return r0; });
     if (item.sceneCover && item.sceneCover.fileId) {
       row.sceneCover = { fileId: String(item.sceneCover.fileId), url: ytDlUrl_(item.sceneCover.fileId) };
     }
@@ -49442,7 +49531,12 @@ var LV_SCENE_SCHEMA = {
     cast: { type: 'STRING' },
     cover: { type: 'STRING' },
     scenes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      n: { type: 'STRING' }, scene: { type: 'STRING' }, caption: { type: 'STRING' } },
+      n: { type: 'STRING' }, scene: { type: 'STRING' }, caption: { type: 'STRING' },
+      // نوشتهٔ رویِ نقاشی (۸.۴۵) — همه رشته، چون این مدل جز رشته نمی‌پذیرد
+      ov: { type: 'STRING' }, ovTitle: { type: 'STRING' },
+      ovLines: { type: 'ARRAY', items: { type: 'STRING' } },
+      ovA: { type: 'STRING' }, ovB: { type: 'STRING' },
+      ovKeys: { type: 'ARRAY', items: { type: 'STRING' } }, ovSide: { type: 'STRING' } },
       required: ['n', 'scene'] } }
   },
   required: ['scenes']
@@ -49484,6 +49578,29 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
   L.push('• `caption` — به فارسی، حداکثر شش واژه: **مفهومِ کلیدیِ همان لحظه** (نه جمله). ' +
          'اگر تصویر خودش گویاست، خالی بگذار.');
   L.push('• `n` — همان شمارهٔ صحنه.');
+  var share = Number((ctx && ctx.textShare) || 0);
+  if (share > 0) {
+    var want = Math.max(1, Math.round(groups.length * share));
+    L.push('');
+    L.push('**نوشتهٔ رویِ نقاشی** (`ov` و فیلدهای `ov…`): روی حدودِ ' + want + ' صحنه از ' +
+           groups.length + ' (نه بیشتر)، یک لایهٔ نوشتاریِ کوتاه و زیبا **روی همان نقاشی** ' +
+           'می‌نشیند — مثلِ ویدئوهای آموزشیِ خوب: تیتری با واژهٔ کلیدیِ رنگی، چند نکتهٔ کنارِ ' +
+           'تصویر، جدولِ مقایسه، نقل‌قول، یا گام‌های پشتِ‌هم. فقط جایی بگذار که **واقعاً چیزی ' +
+           'برای دیدن** دارد: تعریف، تمایز، فهرست، روند، جملهٔ کلیدی. تکرارِ واژه‌به‌واژهٔ روایت نیست؛ ' +
+           'چکیده‌ای است که بیننده با یک نگاه بگیرد. صحنه‌ای که نوشته نمی‌خواهد: `ov` خالی.');
+    L.push('• `ov` — یکی از: headline · points · compare · quote · steps.');
+    L.push('  headline: `ovTitle` تیترِ کوتاه (≤ ۳۰ نویسه) و اختیاری یک سطرِ زیرتیتر در `ovLines`.');
+    L.push('  points: `ovTitle` اختیاری و ۲ تا ۳ نکتهٔ کوتاه (≤ ۶۰ نویسه) در `ovLines`.');
+    L.push('  compare: `ovA` و `ovB` نامِ دو ستون، و ۱ تا ۳ ردیف در `ovLines` به شکلِ «برچسب: مقدارِ ستونِ اول | مقدارِ ستونِ دوم».');
+    L.push('  quote: `ovTitle` خودِ جملهٔ کلیدی (≤ ۹۰ نویسه)، و اختیاری گوینده/منبع در `ovLines`.');
+    L.push('  steps: ۳ گامِ خیلی کوتاه (≤ ۲۴ نویسه) در `ovLines`، به ترتیب، و `ovTitle` اختیاری.');
+    L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان نوشته آمده و رنگی می‌شود.');
+    L.push('• `ovSide` — جایی از قاب که نوشته می‌نشیند: right · left · top. و **صحنه را طوری ' +
+           'توصیف کن که همان بخشِ قاب خلوت و ساده بماند** (آسمانِ صاف، دیوار، کاغذ) و موضوعِ ' +
+           'اصلی در طرفِ دیگر باشد — نوشته نباید روی چهره یا شیءِ اصلی بیفتد.');
+    L.push('• صحنه‌های نوشته‌دار را در طولِ درس **پخش** کن و نوعشان را عوض کن؛ دو صحنهٔ پشتِ‌هم ' +
+           'یک نوع نگیرند. واژه‌ها فارسیِ معیار و درست، اعداد فارسی.');
+  }
   if (!only) {
     L.push('و یک `cover` — به انگلیسی، یک تصویرِ چشم‌گیر از ایدهٔ مرکزیِ کلِ درس، ' +
            'با فضای خلوت و آرام در **سمتِ راستِ** قاب برای عنوان.');
@@ -49518,11 +49635,89 @@ function lvSceneAsk_(groups, ctx, art, cast, only) {
     var sc = String(x.scene || '').replace(/\s+/g, ' ').trim();
     if (!n || sc.length < 12) continue;
     out.scenes[String(n)] = { scene: sc.slice(0, 700),
-                              caption: ytVisCut_(String(x.caption || ''), 48) };
+                              caption: ytVisCut_(String(x.caption || ''), 48),
+                              ov: lvSceneOvNorm_(x) };
   }
   out.cover = String(r.cover || '').replace(/\s+/g, ' ').trim().slice(0, 700);
   out.cast = String(r.cast || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   return out;
+}
+
+/**
+ * نوشتهٔ رویِ نقاشی، پاک‌شده (۸.۴۵). نامعتبر ⇒ `null` — صحنه بی‌نوشته می‌ماند، نه
+ * با نوشتهٔ نیمه‌کاره. «نه بیشتر از» در پرامپت فقط امید است؛ سقف این‌جا و در
+ * `lvSceneOvTrim_` است (یک سقفِ گفته‌شده فقط در پرامپت سقف نیست).
+ */
+function lvSceneOvNorm_(x) {
+  var kind = String((x && x.ov) || '').trim().toLowerCase();
+  if (['headline', 'points', 'compare', 'quote', 'steps'].indexOf(kind) === -1) return null;
+  var cut = function (t, n) {
+    t = String(t || '').replace(/\s+/g, ' ').trim();
+    try { t = faDigitsOut_(t); } catch (e) {}
+    return t.length > n ? t.slice(0, n - 1).trim() + '…' : t;
+  };
+  var lines = [];
+  var raw = (x && Array.isArray(x.ovLines)) ? x.ovLines : [];
+  for (var i = 0; i < raw.length && lines.length < 3; i++) { var l = cut(raw[i], 80); if (l) lines.push(l); }
+  var o = { kind: kind, title: cut(x.ovTitle, kind === 'quote' ? 120 : 48), lines: lines,
+            a: cut(x.ovA, 24), b: cut(x.ovB, 24), keys: [], side: '' };
+  var side = String(x.ovSide || '').trim().toLowerCase();
+  if (['right', 'left', 'top'].indexOf(side) !== -1) o.side = side;
+  var all = o.title + ' ' + lines.join(' ') + ' ' + o.a + ' ' + o.b;
+  var ks = (x && Array.isArray(x.ovKeys)) ? x.ovKeys : [];
+  for (var k = 0; k < ks.length && o.keys.length < 2; k++) {
+    var kk = cut(ks[k], 24);
+    if (kk && all.indexOf(kk) !== -1) o.keys.push(kk);   // واژه‌ای که در متن نیست رنگی نمی‌شود
+  }
+  if (kind === 'headline' && !o.title) return null;
+  if (kind === 'points' && lines.length < 2) return null;
+  if (kind === 'quote' && !o.title) return null;
+  if (kind === 'steps' && lines.length < 2) return null;
+  if (kind === 'compare') {
+    if (!o.a || !o.b) return null;
+    o.lines = lines.filter(function (y) { return y.indexOf('|') > 0; });
+    if (!o.lines.length) return null;
+  }
+  return o;
+}
+
+/**
+ * سهمِ تخته **سقف** است (۸.۴۵): اگر مدل بیشتر داد، صحنه‌های نوشته‌دار با فاصلهٔ
+ * برابر در طولِ درس نگه داشته می‌شوند و بقیه بی‌نوشته — و دو صحنهٔ پشتِ‌هم با
+ * یک نوع، دومی کنار می‌رود. «خاموش» یعنی هیچ.
+ */
+function lvSceneOvTrim_(scenes, share) {
+  var n = scenes.length, cap = Math.round(n * Math.max(0, Math.min(1, Number(share) || 0)));
+  var withOv = [];
+  for (var i = 0; i < n; i++) {
+    if (!scenes[i].ov) continue;
+    if (cap <= 0) { scenes[i].ov = null; continue; }
+    var prev = withOv.length ? scenes[withOv[withOv.length - 1]] : null;
+    if (prev && withOv[withOv.length - 1] === i - 1 && prev.ov.kind === scenes[i].ov.kind) {
+      scenes[i].ov = null; continue;
+    }
+    withOv.push(i);
+  }
+  if (withOv.length > cap) {
+    var keep = {};
+    for (var j = 0; j < cap; j++) keep[withOv[Math.floor((j + 0.5) * withOv.length / cap)]] = true;
+    for (var q = 0; q < withOv.length; q++) if (!keep[withOv[q]]) scenes[withOv[q]].ov = null;
+  }
+  var cnt = 0;
+  for (var z = 0; z < n; z++) if (scenes[z].ov) cnt++;
+  return cnt;
+}
+
+/** به نقاش: همان بخشی از قاب را که نوشته می‌گیرد، خلوت بگذار. */
+function lvSceneOvSpace_(ov) {
+  if (!ov) return '';
+  var side = ov.side || (ov.kind === 'compare' || ov.kind === 'steps' ? 'top' : 'right');
+  var where = side === 'left' ? 'the left third of the frame' : side === 'top' ? 'the upper third of the frame' :
+              'the right third of the frame';
+  var other = side === 'left' ? 'the right side' : side === 'top' ? 'the lower part' : 'the left side';
+  return 'Composition: keep ' + where + ' calm, plain and uncluttered (open sky, soft wall, blank paper or ' +
+         'gentle gradient, no figures and no detailed objects there) because text will be placed on it later; ' +
+         'put the main subject and every face on ' + other + '.';
 }
 
 /** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
@@ -49568,7 +49763,9 @@ function lvSceneJudge_(batch) {
     'برای هر تصویر بگو چقدر **همان ایده‌ای را که متنِ کنارش می‌گوید** به بیننده نشان ' +
     'می‌دهد (۰ تا ۱۰؛ ۷ یعنی بیننده ربطش را فوراً می‌فهمد، ۳ یعنی فقط حال‌وهوای کلی). ' +
     'و جدا بگو آیا در تصویر **هر نوع نوشته، حرف یا عدد** دیده می‌شود (بله/خیر)، و آیا ' +
-    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس.' }];
+    'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
+    'و در `space` بگو کدام بخشِ تصویر **خالی و آرام** است، طوری که نوشته‌ای کوتاه آن‌جا روی هیچ ' +
+    'چهره، آدم یا شیءِ اصلی نیفتد: right یا left یا top — و اگر هیچ‌جا نیست، none.' }];
   for (var i = 0; i < batch.length; i++) {
     parts.push({ text: 'تصویرِ ' + batch[i].n + ' — متن: «' +
                        lvSceneClean_(batch[i].text).slice(0, 300) + '»' });
@@ -49576,7 +49773,8 @@ function lvSceneJudge_(batch) {
   }
   var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
-      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' } },
+      hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' },
+      space: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
      خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). `geminiShort_` (۸.۳۲) تنها
@@ -49590,10 +49788,12 @@ function lvSceneJudge_(batch) {
     var n = Number(String(items[k].n || '').replace(/[^0-9]/g, ''));
     if (!n) continue;
     var sc = Number(String(items[k].score || '').replace(/[^0-9.]/g, ''));
+    var sp = String(items[k].space || '').trim().toLowerCase();
     out[String(n)] = { s: isNaN(sc) ? -1 : Math.max(0, Math.min(10, sc)),
                        txt: /بله|yes/i.test(String(items[k].hasText || '')),
                        face: /بله|yes/i.test(String(items[k].realFace || '')),
-                       why: String(items[k].why || '').slice(0, 140) };
+                       why: String(items[k].why || '').slice(0, 140),
+                       space: ['right', 'left', 'top', 'none'].indexOf(sp) !== -1 ? sp : '' };
   }
   return out;
 }
@@ -49735,6 +49935,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       scenes.push({ n: groups[s].n, t0: groups[s].t0, t1: groups[s].t1, sec: groups[s].sec || 0,
                     text: lvSceneClean_(groups[s].text).slice(0, 600),
                     scene: a ? a.scene : '', caption: a ? a.caption : '',
+                    ov: (a && a.ov) || null,
                     fileId: '', tries: 0, judge: null, redo: 0 });
     }
     var have = scenes.filter(function (x) { return x.scene; }).length;
@@ -49750,7 +49951,10 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       kept.push(scenes[s2]);
     }
     if (kept.length) kept[0].t0 = 0;
+    var ovShare = Number(ctx.textShare || 0);
+    var ovN = lvSceneOvTrim_(kept, ovShare);
     d = { v: 1, key: key, at: nowStr_(), level: String(ctx.level || ''), style: art.key,
+          text: String(ctx.textLevel || ''), ovShare: ovShare, ovN: ovN,
           art: art.art, cast: ask.cast, secs: secs, target: lvSceneSec_(ctx.level), align: rp.how,
           scenes: kept, cover: { scene: ask.cover || (kept[0] && kept[0].scene) || '', fileId: '' },
           spent: 0, made: 0, judged: false, done: false, why: '' };
@@ -49773,7 +49977,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       if (sc.tries >= tryMax) continue;
       if (lvGenRoom_(mk.id) <= 0) { d.why = 'سقفِ ماهانهٔ تصویر پر شد'; break; }
       sc.tries++;
-      var r = lvGenOne_(mk.id, lvSceneImgPrompt_(sc.scene, d.art, d.cast), { aspect: '16:9' });
+      var r = lvGenOne_(mk.id, lvSceneImgPrompt_(sc.scene, d.art, d.cast, lvSceneOvSpace_(sc.ov)), { aspect: '16:9' });
       out.spent += r.usd; d.spent = Math.round(((Number(d.spent) || 0) + r.usd) * 1000) / 1000;
       if (!r.blob) { sc.why = r.why; continue; }
       try {
@@ -49829,6 +50033,14 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           if (!v) continue;
           batch[b2].judge = v;
           out.judged++;
+          /* ══ جای خالی را داور می‌گوید، نه حدسِ پیکسلی (۸.۴۵) ══
+             رانر جای نوشته را از شلوغیِ تصویر پیدا می‌کند، ولی زنجیرِ تیره روی پنلِ
+             تیره یا ابرِ سفید روی آسمان را از «موضوع» تشخیص نمی‌دهد. داور خودِ تصویر را
+             می‌بیند؛ پس جای خالی از او، و «هیچ‌جا» یعنی این صحنه نوشته نمی‌گیرد. */
+          if (batch[b2].ov && v.space) {
+            if (v.space === 'none') { batch[b2].ov = null; d.ovDropped = (Number(d.ovDropped) || 0) + 1; }
+            else batch[b2].ov.side = v.space;
+          }
           lvGenScoreAdd_(batch[b2].model || mk.id, v);
           var bad = v.txt || v.face || (v.s >= 0 && v.s < minS);
           if (bad && batch[b2].redo < 1 && (Number(d.redo) || 0) < redoMax &&
@@ -49836,7 +50048,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
             var fix = v.txt ? 'The previous attempt contained written text; this time there must be none at all.'
                     : v.face ? 'The previous attempt showed a recognizable real person; use only generic, anonymous figures.'
                     : 'The previous attempt did not show the idea clearly (' + v.why + '); make the metaphor concrete and obvious.';
-            var rr = lvGenOne_(mk.id, lvSceneImgPrompt_(batch[b2].scene, d.art, d.cast, fix), { aspect: '16:9' });
+            var sp2 = lvSceneOvSpace_(batch[b2].ov);
+            var rr = lvGenOne_(mk.id, lvSceneImgPrompt_(batch[b2].scene, d.art, d.cast,
+                                                        fix + (sp2 ? '\n' + sp2 : '')), { aspect: '16:9' });
             out.spent += rr.usd; d.spent = Math.round(((Number(d.spent) || 0) + rr.usd) * 1000) / 1000;
             batch[b2].redo = 1; d.redo = (Number(d.redo) || 0) + 1; out.redo++;
             if (rr.blob) {
@@ -49894,7 +50108,8 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     if (!id) continue;
     lastId = id;
     items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
-                 caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0 });
+                 caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0,
+                 ov: x.fileId ? (x.ov || null) : null });
   }
   if (items.length) items[0].t0 = 0;
   out.items = items;
@@ -49907,7 +50122,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                  return x.judge && (x.judge.txt || x.judge.face ||
                         (x.judge.s >= 0 && x.judge.s < (Number(CFG.LV_SCENE_JUDGE_MIN) || 5))); }).length,
                redo: Number(d.redo) || 0, spent: Number(d.spent) || 0,
-               judgeWhy: String(d.judgeWhy || '') };
+               judgeWhy: String(d.judgeWhy || ''),
+               text: String(d.text || ''), ov: d.scenes.filter(function (x) { return !!x.ov; }).length,
+               ovDropped: Number(d.ovDropped) || 0 };
   try { lvSceneVisuals_(folder, d); } catch (eV) {}
   return out;
 }
@@ -50043,7 +50260,15 @@ function ytChannelMark_() {
   var cached = null;
   try { cached = JSON.parse(props_().getProperty(PK.YT_MARK_ID) || 'null'); } catch (e) {}
   var days = Math.max(1, Number(CFG.YT_MARK_REFRESH_DAYS) || 14);
-  if (cached && cached.at && daysSince_(cached.at) < days) return cached;
+  /* ══ تابعی که هرگز تعریف نشده بود (۸.۴۵) ══
+     تا ۸.۴۴ این‌جا `daysSince_` صدا زده می‌شد — نامی که هیچ‌جای موتور تعریف
+     نداشت. نخستین بار (بی کش) از این خط رد می‌شد و نشان ساخته و ذخیره می‌شد؛ از
+     آن پس هر بار ReferenceError، که `ytMarkSpec_` می‌بلعید و `null` برمی‌گرداند.
+     پس فقط **نخستین** ویدئو نشانِ کانال داشت (درسِ ۵۹) و درسِ ۳۸ (قسمتِ ۶۰) با
+     `mark: null` ساخته شد — بی هیچ خطایی. `run_wiring_test.js` ۱۳ حالا هر
+     فراخوانِ نامِ خصوصیِ تعریف‌نشده را می‌گیرد. */
+  var age = cached && cached.at ? (parseWhen_(nowStr_()) - parseWhen_(cached.at)) / 86400000 : NaN;
+  if (cached && cached.at && age >= 0 && age < days) return cached;
   var r = ytChannelInfo_();
   if (!r || !r.info) return cached;                  // نشد ⇒ کهنه بهتر از هیچ
   var sn = r.info.snippet || {};
@@ -50187,6 +50412,29 @@ function lvLevelAuto_(vals) {
     if (!raw) return true;
     return lvStyleNorm_(raw) === lvStyleNorm_('خودکار');
   } catch (e) { return true; }
+}
+
+/**
+ * سهمِ صحنه‌های نوشته‌دارِ یک مجموعه، از ستونِ «نوشته روی تصویر» (۸.۴۵).
+ * خالی یا «خودکار» ⇒ `LV_TEXT_DEFAULT`؛ نوشتهٔ ناشناخته ⇒ همان پیش‌فرض، نه خطا —
+ * یک غلطِ تایپی نباید قسمت را بی‌نوشته یا پرنوشته کند.
+ * @return {{v:string, share:number, src:string}}
+ */
+function lvTextAt_(hub, item, meta) {
+  var def = String(CFG.LV_TEXT_DEFAULT || 'خودکار');
+  var tab = CFG.LV_TEXT_SHARE || {};
+  var shareOf = function (v) { var x = Number(tab[v]); return isNaN(x) ? Number(tab[def]) || 0 : x; };
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) {
+      var raw = String((rec.vals || [])[SC.LVTEXT - 1] || '').trim();
+      if (raw && tab.hasOwnProperty(raw)) return { v: raw, share: shareOf(raw), src: 'تخته' };
+      return { v: def, share: shareOf(def), src: raw ? 'تخته: ناشناخته ⇒ پیش‌فرض' : 'تخته: خالی ⇒ پیش‌فرض' };
+    }
+  } catch (e) {}
+  return { v: def, share: shareOf(def), src: 'مجموعه پیدا نشد ⇒ پیش‌فرض' };
 }
 
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
@@ -51132,6 +51380,9 @@ function ytUploadOne_(item, hub, pub) {
   var lvLvl = String(CFG.LV_LEVEL_DEFAULT || 'کم');
   try { lvLvl = lvLevelAt_(hub, item, meta, plan.look) || lvLvl; } catch (eLv) {}
   ctx.level = lvLvl; ctx.style = lvSty;
+  /* نوشتهٔ رویِ نقاشی: ستونِ خودش در تخته، جدا از سبک و سطح (۸.۴۵). */
+  try { var lvTx = lvTextAt_(hub, item, meta); ctx.textLevel = lvTx.v; ctx.textShare = lvTx.share; }
+  catch (eTx) { ctx.textLevel = ''; ctx.textShare = 0; }
 
   /* در حالتِ صحنه، نقشهٔ کارت‌ها دیگر به کار نمی‌آید (۸.۳۱): پرسشِ دوبارهٔ
      کارت‌ها فقط پولِ مدل است برای چیزی که ساخته نمی‌شود. */
@@ -51220,6 +51471,19 @@ function ytUploadOne_(item, hub, pub) {
    * می‌شود. تصویری که بعد از نوشتنِ ردیف ساخته شود، هیچ‌وقت به اکشن
    * نمی‌رسد. */
   var vis = { items: [], want: 0, ready: 0, made: 0, tries: 0, done: true, why: '' };
+  /* ══ ویدئوی صحنه‌ای رسیده ⇒ کارت لازم نیست (۸.۴۵) ══
+     بالا شاخهٔ صحنه‌ها فقط تا وقتی ویدئو نیامده می‌دود (`!ytVideoIn_`). ویدئو که
+     رسید، اجرا به این‌جا می‌افتاد و `lvBuild_` برای همان درس **کارت و پس‌زمینهٔ
+     تازه** می‌ساخت: درسِ ۳۸ (قسمتِ ۶۰) پس از ساختِ ویدئو پنج پس‌زمینهٔ پولی و
+     یک اسلایدز گرفت که هیچ‌جا دیده نمی‌شوند، و `_visuals.json`ِ صحنه‌ای (که
+     جزوه می‌خوانَد) با کارت‌ها بازنویسی شد. صحنه‌های تمام‌شده یعنی کارِ تصویر
+     تمام است. */
+  var scDoneV = false;
+  try { var scD0 = lvSceneRead_(folder); scDoneV = !!(scD0 && scD0.done && scD0.scenes && scD0.scenes.length); }
+  catch (eSd) { scDoneV = false; }
+  if (scDoneV && ytVideoIn_(folder)) {
+    vis.why = 'ویدئوی صحنه‌ای ساخته شده؛ کارت لازم نیست';
+  } else
   /* «خاموش» یعنی **بدونِ کارت** — همان جمله‌ای که `lvLevelWhat_` در منو و رسید
      می‌گوید. تا ۸.۲۵ این سطح فقط مشخصاتِ برداری را می‌بست و کارت‌های اسلایدز
      باز هم ساخته و به رانر فرستاده می‌شدند؛ یعنی «خاموش» تصویر را خاموش
@@ -53440,19 +53704,36 @@ function ytBannerSet_(chId) {
  * ماشینی برای گوشهٔ ویدئو یعنی دو هویت برای یک کانال.
  */
 function ytWatermarkSet_(info) {
+  /* ══ اول نشانِ بریده و بی‌زمینه، بعد عکسِ پروفایل (۸.۴۵) ══
+     عکسِ پروفایل ۸۷٪ سیاه است و بی شفافیت؛ واترمارکِ یوتیوب همان «مربعِ سیاهِ زشت»
+     را روی همهٔ ویدئوها می‌گذاشت. رانر (`logoClean`) زمینه را برمی‌دارد و نتیجه را
+     در `docs/brand/channel-mark.png` می‌گذارد؛ Apps Script ابزارِ تصویر ندارد، پس
+     همان فایل از گیت‌هاب خوانده می‌شود. نبودنش یعنی هنوز رندری نشده — آن‌وقت همان
+     عکسِ پروفایلِ قبلی، نه هیچ. بایت‌ها باور می‌شوند، نه نشانی (۷.۳۳). */
+  var blob = null, url = '';
+  try {
+    var rc = UrlFetchApp.fetch(githubRawUrl_('docs/brand/channel-mark.png'), { muteHttpExceptions: true });
+    if (rc.getResponseCode() === 200) {
+      var bb = rc.getBlob().getBytes();
+      if (bb.length > 200 && (bb[0] & 0xFF) === 0x89 && bb[1] === 0x50) {
+        blob = Utilities.newBlob(bb, 'image/png', 'watermark.png');
+        url = 'docs/brand/channel-mark.png';
+      }
+    }
+  } catch (eC) { blob = null; }
   // عکسِ پروفایل، از بزرگ‌ترین اندازه‌ای که کانال دارد
-  var url = '';
-  try {
-    var th = (((info || {}).snippet || {}).thumbnails) || {};
-    url = String((th.high || th.medium || th['default'] || {}).url || '');
-  } catch (e) { url = ''; }
-  if (!url) return 'عکسِ پروفایل خوانده نشد';
-  var blob = null;
-  try {
-    var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-    if (r.getResponseCode() !== 200) return 'عکسِ پروفایل گرفته نشد (' + r.getResponseCode() + ')';
-    blob = r.getBlob().setName('watermark.png');
-  } catch (e2) { return 'عکسِ پروفایل گرفته نشد: ' + String(e2.message).slice(0, 80); }
+  if (!blob) {
+    try {
+      var th = (((info || {}).snippet || {}).thumbnails) || {};
+      url = String((th.high || th.medium || th['default'] || {}).url || '');
+    } catch (e) { url = ''; }
+    if (!url) return 'عکسِ پروفایل خوانده نشد';
+    try {
+      var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      if (r.getResponseCode() !== 200) return 'عکسِ پروفایل گرفته نشد (' + r.getResponseCode() + ')';
+      blob = r.getBlob().setName('watermark.png');
+    } catch (e2) { return 'عکسِ پروفایل گرفته نشد: ' + String(e2.message).slice(0, 80); }
+  }
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
   // نوعِ فایل از خودِ بلاب، و اگر نگفت از پسوندِ نشانی؛ برچسبِ غلط یعنی ردِ
   // فراخوان، و «image/png» زدن روی یک JPEG دقیقاً همان است.

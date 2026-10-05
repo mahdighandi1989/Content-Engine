@@ -692,6 +692,159 @@ console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ �
      /map\.items\[it\.key\]\.thumb = tu/.test(src) && /map\.items\[it\.key\]\.mode = 'scenes'/.test(src));
 }
 
+console.log('\n══ ۱۳) نوشتهٔ رویِ نقاشی و نشانِ بی‌مربع (۸.۴۵) ══');
+{
+  const OVL = require('../tools/overlay.js');
+  const SKIT = require('../tools/scenekit.js');
+  const CK = require('../tools/cardkit/index.js');
+  const d = fs.mkdtempSync(path.join(TMP, 'ov-'));
+
+  /* ۱۳.۱ — نوشتهٔ نامعتبر `null` است (صحنه بی‌نوشته می‌ماند، نه نیمه‌کاره). */
+  ok('۱۳.۱ نوع‌های ناشناخته و نوشتهٔ ناقص رد؛ جدول فقط ردیفِ «|»دار',
+     OVL.ovNorm({ kind: 'banner', title: 'x' }) === null &&
+     OVL.ovNorm({ kind: 'points', lines: [] }) === null &&
+     OVL.ovNorm({ kind: 'compare', a: 'الف', b: 'ب', lines: ['بی جداکننده'] }) === null &&
+     (OVL.ovNorm({ kind: 'compare', a: 'الف', b: 'ب', lines: ['قوت: قطعی | محتمل'] }) || {}).rows.length === 1 &&
+     /۳/.test(OVL.ovNorm({ kind: 'headline', title: 'سه 3' }).title));
+
+  /* ۱۳.۲ — **جای نوشته از خودِ تصویر:** تصویری با تودهٔ تیره (آدمِ صحنه) در چپ و
+     زمینهٔ آرام در راست ⇒ نوشتهٔ کناری در راست، دور از توده. تصویرِ سراسر شلوغ ⇒
+     نوشته نمی‌نشیند و «شلوغ» گفته می‌شود. */
+  const subj = path.join(d, 'subj.png');
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=1920x1080', '-vf',
+      "geq=r='if(lt(hypot(X-520,Y-560),260),25,222)':g='if(lt(hypot(X-520,Y-560),260),30,218)':b='if(lt(hypot(X-520,Y-560),260),40,208)'",
+      '-frames:v', '1', subj]);
+  const busy = path.join(d, 'busy.png');
+  /* شلوغیِ **به اندازهٔ چیزها**، نه نویز: نویزِ ریز در نسخهٔ کوچکِ میانگین‌گرفته صاف
+     می‌شود (نگارشِ اولِ همین سنجه با `random` انرژیِ ۸ داد — «آرام»). خطوطِ
+     نقاشی و چهارخانهٔ درشت شلوغ می‌مانند، و همین را می‌خواهیم بسنجیم. */
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=1920x1080', '-vf',
+      "geq=r='if(mod(floor(X/40)+floor(Y/40),2),20,230)':g='if(mod(floor(X/40)+floor(Y/40),2),20,230)':b='if(mod(floor(X/40)+floor(Y/40),2),20,230)'",
+      '-frames:v', '1', busy]);
+  const an = OVL.analyze(FF, subj);
+  const pl = OVL.place(an, 700, 420, 'points', '', null);
+  const anB = OVL.analyze(FF, busy);
+  const plB = OVL.place(anB, 700, 420, 'points', '', null);
+  ok('۱۳.۲ نوشتهٔ کناری روی جای آرام می‌نشیند و نه روی تودهٔ تیره؛ تصویرِ شلوغ نوشته نمی‌گیرد',
+     pl && !pl.busy && pl.box.x > 900 && !(pl.box.x < 780 && pl.box.x + pl.box.w > 260) && plB && plB.busy === true,
+     JSON.stringify({ pl: pl && { k: pl.k, x: pl.box.x, y: pl.box.y, e: Math.round(pl.energy) },
+                      busy: plB && { busy: plB.busy, e: Math.round(plB.energy) } }));
+
+  /* ۱۳.۳ — **رنگ از خودِ تصویر:** زمینهٔ روشن نوشتهٔ تیره، زمینهٔ تیره نوشتهٔ روشن. */
+  const palL = OVL.palette(an, { lum: 0.85 }, 0), palD = OVL.palette(an, { lum: 0.2 }, 0);
+  /* ۱۳.۳-ب — **تأکید از زمینه جدا می‌شود:** روی نقاشیِ رنگارنگِ فیروزه‌ای (همان پنلِ
+     صحنهٔ ۵ِ درسِ ۳۸)، فامِ تأکید دست‌کم ۱۲۰ درجه از فامِ غالب فاصله دارد. نگارشِ اول
+     همان فام را ۲۰ درجه می‌چرخاند و واژهٔ کلیدیِ آبی روی فیروزه‌ای داد. */
+  const teal = path.join(d, 'teal.png');
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=1920x1080', '-vf',
+      "geq=r='20+20*sin(X/90)':g='120+30*sin(Y/70)':b='130+30*cos(X/80)'", '-frames:v', '1', teal]);
+  const palT = OVL.palette(OVL.analyze(FF, teal), { lum: 0.3 }, 0);
+  const hA = Number((/hsl\((\d+)/.exec(palT.a1) || [])[1]);
+  const dh = Math.min(Math.abs(hA - palT.hue), 360 - Math.abs(hA - palT.hue));
+  ok('۱۳.۳-ب فامِ تأکید روی نقاشیِ رنگارنگ هم از فامِ غالب دور است', palT.vivid === true && dh >= 120,
+     'غالب ' + palT.hue + ' · تأکید ' + hA + ' · فاصله ' + dh);
+  /* (سنجهٔ پیشینِ ۱۳.۲-ب — «نوشته وسطِ تودهٔ تیرهٔ یکدست نمی‌نشیند» — برداشته شد و
+     این عمدی است: درونِ یک تودهٔ یکدستِ بزرگ، از روی پیکسل با یک زمینهٔ تیره (پنلِ
+     فیروزه‌ایِ صحنهٔ ۵) فرقی ندارد. سنجهٔ «تیره نسبت به کلِ تصویر» آن را می‌گرفت و
+     زمینهٔ صحنهٔ ۵ را هم «توده» می‌خواند؛ سنجهٔ «نسبت به میانگینِ جعبه» زمینه را درست
+     می‌خوانَد و این را نه. جدا کردنشان کارِ داور است که تصویر را می‌بیند (`space`)، و
+     سدِ «روی توده نه» در ۱۳.۲-ت با سمتِ داور سنجیده می‌شود.) */
+  /* ۱۳.۲-پ — و **وقتی جای بهتری هست، همان پیدا می‌شود**، نه «هیچ»: سد (`busy`)
+     جلوی نشستن روی توده را می‌گیرد و این سنجه می‌پرسد که سد جستجو را بی‌جا نمی‌بندد.
+     (جملهٔ توده در امتیاز این‌جا بار ندارد — شکستنش سبز ماند، چون ترجیحِ لبه همان
+     جای خلوت را می‌دهد؛ در کد «ترجیح» برچسب خورده، نه سد.) */
+  const blob2 = path.join(d, 'blob2.png');
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=1920x1080', '-vf',
+      "geq=r='if(lt(X,960),if(mod(floor(X/40)+floor(Y/40),2),20,230),if(lt(hypot(X-1420,Y-250),250),28,226))'" +
+      ":g='if(lt(X,960),if(mod(floor(X/40)+floor(Y/40),2),20,230),if(lt(hypot(X-1420,Y-250),250),30,222))'" +
+      ":b='if(lt(X,960),if(mod(floor(X/40)+floor(Y/40),2),20,230),if(lt(hypot(X-1420,Y-250),250),36,212))'",
+      '-frames:v', '1', blob2]);
+  const plN = OVL.place(OVL.analyze(FF, blob2), 520, 200, 'quote', '', null);
+  const inDisk2 = plN && Math.hypot(plN.box.x + plN.box.w / 2 - 1420, plN.box.y + plN.box.h / 2 - 250) < 250 + 60;
+  ok('۱۳.۲-پ جای خلوتِ کنارِ توده پیدا می‌شود، نه «هیچ»', !!plN && !plN.busy && !inDisk2,
+     JSON.stringify(plN && { x: plN.box.x, y: plN.box.y, busy: plN.busy, inDisk: inDisk2 }));
+  /* ۱۳.۲-ت — **سمتی که داور دید، حرفِ آخر است:** داور گفت «چپ» (جایی که توده
+     هست) ⇒ نوشته به راست نمی‌گریزد؛ همان‌جا شلوغ است پس نمی‌نشیند. بی گفتهٔ داور،
+     جستجو آزاد است و راست را پیدا می‌کند. */
+  const plL = OVL.place(an, 700, 420, 'points', 'left', null);
+  ok('۱۳.۲-ت سمتِ داور محدود می‌کند: «چپ» روی توده ⇒ نه؛ بی سمت ⇒ راست',
+     !!plL && plL.busy === true && plL.box.x + plL.box.w / 2 < 960 && pl && pl.box.x > 900,
+     JSON.stringify(plL && { x: plL.box.x, busy: plL.busy }));
+  ok('۱۳.۳ زمینهٔ روشن ⇒ نوشتهٔ تیره؛ تیره ⇒ روشن', palL.ink !== palD.ink && palL.dark === false && palD.dark === true,
+     palL.ink + ' / ' + palD.ink);
+
+  /* ۱۳.۴ — **از درِ اجرا:** ویدئوی صحنه‌ای با نوشته روی دو صحنه. ویدئو ساخته
+     می‌شود، سنجش هنوز هر صحنه را سرِ جایش می‌بیند (مرجعِ صحنهٔ نوشته‌دار همان
+     نقاشی **با** نوشته است)، و قابِ وسطِ صحنهٔ نوشته‌دار واقعاً با نقاشیِ خام فرق
+     دارد — یعنی نوشته کشیده شده، نه فقط شمرده. */
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,8),0,7.1)':s=24000:d=32", '-ac', '1', wav]);
+  const urls = [serve('ov1.png', subj)];
+  for (let i = 2; i <= 4; i++) urls.push(serve('ov' + i + '.png', mkPng(path.join(d, 'q' + i + '.png'), 1344, 768, i * 7)));
+  const it = { key: 'special:ov', mode: 'scenes',
+    scenes: urls.map((u, i) => ({ n: i + 1, t0: i * 8 + (i ? 0.3 : 0), url: u, caption: 'زیرنویس ' + (i + 1),
+      ov: i === 0 ? { kind: 'points', title: 'دو راهِ انتقال', lines: ['قیاس: نتیجه ضرورتاً می‌آید', 'استقرا: فقط محتمل'], keys: ['ضرورتاً'] }
+        : i === 2 ? { kind: 'headline', title: 'توجیه منتقل می‌شود', keys: ['توجیه'], side: 'top' }
+        : i === 3 ? { kind: 'compare', title: 'دو راه', a: 'قیاس', b: 'استقرا',
+                      lines: ['قوت: قطعی | محتمل', 'خطر: مقدمهٔ غلط | نمونهٔ کم', 'نمونه: هندسه | آمار'] } : null })),
+    coverTitle: 'آزمون', mark: { handle: '@test-channel', name: 'آزمون', everySec: 16, opacity: 0.5 } };
+  const dest = path.join(d, 'ov.mp4');
+  const vr = R.buildVideo(it, null, wav, R.wavSeconds(wav), dest, d);
+  const raw1 = SKIT.gray(FF, path.join(d, 's001.jpg'));
+  const fr1 = SKIT.gray(FF, dest, 4);
+  const diff = SKIT.mad(fr1, raw1);
+  // نوارِ پایینِ قاب (جای زیرنویس): صحنهٔ نوشته‌دار زیرنویس ندارد، صحنهٔ ۲ دارد
+  const low = (a, b) => { let t = 0, n = 0; for (let i = 48 * 22 * 3; i < 48 * 26 * 3; i++) { t += Math.abs(a[i] - b[i]); n++; } return t / n; };
+  const capOv = low(fr1, raw1);
+  /* نوشته **کشیده** شد، نه فقط شمرده: قاب به «نقاشی با نوشته» نزدیک‌تر است تا به
+     نقاشیِ خام. (نگارشِ اول فقط «با خام فرق دارد» می‌پرسید، و حرکتِ آرامِ دوربین
+     به‌تنهایی همان فرق را می‌ساخت — شکستنِ عمدی سبز ماند.) */
+  const ref0 = fs.existsSync(path.join(d, 'ref0.jpg')) ? SKIT.gray(FF, path.join(d, 'ref0.jpg')) : null;
+  const drawn = !!ref0 && SKIT.mad(fr1, ref0) < SKIT.mad(fr1, raw1);
+  const capPlain = low(SKIT.gray(FF, dest, 12), SKIT.gray(FF, path.join(d, 's002.jpg')));
+  ok('۱۳.۴ ویدئو با نوشته ساخته شد؛ سنجش سالم؛ نوشته واقعاً روی قاب است؛ زیرنویسِ همان صحنه برداشته شد',
+     vr.mode === 'scenes' && vr.qa && vr.qa.ok === true && vr.ov && vr.ov.asked === 3 && vr.ov.placed >= 2 &&
+     (vr.ov.kinds.compare || 0) === 1 && diff > 1.0 && drawn && capOv < capPlain / 2 &&
+     vr.refs === vr.ov.placed,
+     JSON.stringify({ mode: vr.mode, qa: vr.qa && { ok: vr.qa.ok, m: vr.qa.matched, why: vr.qa.why },
+                      ov: vr.ov, refs: vr.refs, diff: diff.toFixed(2), drawn: drawn, cap: capOv.toFixed(1) + '/' + capPlain.toFixed(1), notes: vr.notes }));
+
+  /* ۱۳.۵ — **نشان بی مربعِ سیاه:** آواتاری با زمینهٔ سیاه (همان شکلِ عکسِ پروفایلِ
+     کانال: ۸۷٪ سیاه) بریده و بی‌زمینه می‌شود؛ گوشه‌ها شفاف‌اند. */
+  const av = path.join(d, 'av.jpg');
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=240x240', '-vf',
+      "geq=r='if(lt(hypot(X-120,Y-115),55),40,0)':g='if(lt(hypot(X-120,Y-115),55),170,0)':b='if(lt(hypot(X-120,Y-115),55),120,0)'",
+      '-frames:v', '1', av]);
+  const lg = CK.logoClean(serve('av.jpg', av), d, FF);
+  let alphaCorner = -1, lw = 0, lh = 0;
+  if (/^data:image\/png/.test(lg.data)) {
+    const pf = path.join(d, 'lg.png');
+    fs.writeFileSync(pf, Buffer.from(lg.data.split(',')[1], 'base64'));
+    const r = cp.spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-i', pf, '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'],
+                           { maxBuffer: 4 * 1024 * 1024 });
+    const pr = cp.spawnSync(FF, ['-hide_banner', '-i', pf], { encoding: 'utf8' });
+    const m = String(pr.stderr).match(/, (\d+)x(\d+)/); if (m) { lw = +m[1]; lh = +m[2]; }
+    if (r.stdout && r.stdout.length >= 4) alphaCorner = r.stdout[3];
+  }
+  ok('۱۳.۵ نشانِ زمینه‌سیاه بریده و شفاف می‌شود',
+     /بی‌زمینه/.test(lg.how) && lw > 0 && lw < 160 && lh < 160 && alphaCorner === 0,
+     lg.how + ' · ' + lw + '×' + lh + ' · آلفای گوشه ' + alphaCorner);
+  // و عکسی که زمینهٔ ساده ندارد دست نمی‌خورد — و گفته می‌شود
+  const lg2 = CK.logoClean(serve('av2.png', mkPng(path.join(d, 'av2.png'), 240, 240, 3)), d, FF);
+  ok('۱۳.۵-ب عکسِ بی‌زمینهٔ ساده خام می‌ماند و علتش گفته می‌شود', /^data:image/.test(lg2.data) && /خام/.test(lg2.how), lg2.how);
+
+  /* ۱۳.۶ — جوهرِ نشان با روشنیِ زیرِ گوشه عوض می‌شود. */
+  const mL = SKIT.markHtml({ handle: '@x', name: 'x', logo: '' }, 'br', true);
+  const mD = SKIT.markHtml({ handle: '@x', name: 'x', logo: '' }, 'br', false);
+  ok('۱۳.۶ روی گوشهٔ روشن جوهرِ تیره، روی تیره روشن', /#1C2230/.test(mL) && /#FFFFFF/.test(mD) && !/#1C2230/.test(mD));
+
+  /* ۱۳.۷ — و نقشه نوشته و نشان را برای موتور ثبت می‌کند. */
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۳.۷ نقشه آمارِ نوشته و حالِ نشان را می‌نویسد',
+     /map\.items\[it\.key\]\.ov = vr\.ov/.test(src) && /map\.items\[it\.key\]\.logo = vr\.logo/.test(src) &&
+     /CK\.logoClean\(/.test(src));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

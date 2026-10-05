@@ -35,10 +35,13 @@ function box(corner, W, H, M) {
 function draw(opt) {
   const { corner, W, H, M, handle, name, logo, ink } = opt;
   const b = box(corner, W, H, M);
-  const cx = b.x + b.w / 2, top = b.y + 6, s = 62;
+  const cx = b.x + b.w / 2, top = b.y + 4, s = Number(opt.size) || 62;
   const o = ['<!--mark-->'];
+  /* هالهٔ زیرِ نشان: روی زمینهٔ روشن پررنگ‌تر و روشن (۸.۴۵) — نوشتهٔ سفیدِ نشان
+     روی کاغذِ روشن بی هاله دیده نمی‌شد (آزمونِ صحنهٔ ۴۴). */
+  const hc = opt.haloColor || '#000', ho = opt.halo == null ? 0.28 : opt.halo;
   o.push(`<filter id="mkS" x="-40%" y="-40%" width="180%" height="180%">
-    <feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="#000" flood-opacity="0.28"/></filter>`);
+    <feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="${hc}" flood-opacity="${ho}"/></filter>`);
   o.push(`<g opacity="${opt.opacity == null ? 0.62 : opt.opacity}" filter="url(#mkS)">`);
   if (logo) {
     o.push(`<image x="${cx - s / 2}" y="${top}" width="${s}" height="${s}" href="${logo}" preserveAspectRatio="xMidYMid meet"/>`);

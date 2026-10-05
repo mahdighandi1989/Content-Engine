@@ -57,6 +57,16 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends fonts-noto-core
           fc-list :lang=fa | head -3
           test "$(fc-list | grep -ci 'NotoSansArabic')" -gt 0
+          # ۸.۴۵: نوشتهٔ رویِ نقاشی با چند قلم — وزیرمتن (متن)، لاله‌زار (تیترِ درشت).
+          # نبودنشان کار را نمی‌خواباند: زنجیرهٔ قلم به نوتو برمی‌گردد. پس شکست
+          # در دریافت **گفته** می‌شود و ادامه می‌دهد، نه اینکه ویدئو را بگیرد.
+          mkdir -p ~/.fonts
+          for u in ofl/vazirmatn/Vazirmatn%5Bwght%5D.ttf ofl/lalezar/Lalezar-Regular.ttf; do
+            curl -fsSL --max-time 40 -o ~/.fonts/"$(basename "$u" | sed 's/%5B/[/;s/%5D/]/')" \
+              "https://raw.githubusercontent.com/google/fonts/main/$u" || echo "::warning::قلمِ $u نیامد؛ نوتو به‌جایش"
+          done
+          fc-cache -f >/dev/null 2>&1 || true
+          fc-list | grep -i -E 'vazirmatn|lalezar|nastaliq' | head -4 || true
 
       - name: ساختِ ویدئوها
         env:
@@ -72,6 +82,7 @@ jobs:
           git config user.name  "content-engine-render"
           git config user.email "actions@users.noreply.github.com"
           git add docs/renders.json
+          git add docs/brand 2>/dev/null || true     # نشانِ بی‌زمینه برای واترمارک (۸.۴۵)
           git commit -m "رندر: نشانیِ ویدئوهای تازه"
           # اجرای دیگری ممکن است همین بین چیزی push کرده باشد
           for i in 1 2 3 4; do

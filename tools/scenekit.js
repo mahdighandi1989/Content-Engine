@@ -26,6 +26,7 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 const MARK = require('./cardkit/mark.js');
 const K = require('./cardkit/draw.js');
+const OVL = require('./overlay.js');
 
 const SK = {
   w: 1920, h: 1080, fps: 24,
@@ -51,7 +52,8 @@ function scenesOf(it) {
     // file:// فقط برای آزمون است؛ موتور همیشه https می‌نویسد (`ytDlUrl_`)
     if (!/^(https?|file):\/\//i.test(url)) continue;
     out.push({ n: Number(x.n) || out.length + 1, t0: Math.max(0, Number(x.t0) || 0),
-               url: url, fileId: String(x.fileId || ''), caption: String(x.caption || '').trim() });
+               url: url, fileId: String(x.fileId || ''), caption: String(x.caption || '').trim(),
+               ov: (x.ov && typeof x.ov === 'object') ? x.ov : null });
   }
   out.sort((p, q) => p.t0 - q.t0);
   return out.length >= 3 ? out : null;
@@ -132,11 +134,15 @@ function captionHtml(text) {
 }
 
 /** نشانِ کانال در یک گوشه، روی زمینهٔ شفاف — همان طرحِ cardkit، رنگِ روشن. */
-function markHtml(mark, corner) {
+function markHtml(mark, corner, light) {
+  /* روی زمینهٔ روشن جوهرِ تیره و هالهٔ روشن؛ روی تیره برعکس (۸.۴۵). یک رنگِ
+     ثابت یعنی نشانی که در نیمی از صحنه‌ها دیده نمی‌شود. */
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + SK.w + '" height="' + SK.h +
     '" viewBox="0 0 ' + SK.w + ' ' + SK.h + '" font-family="' + K.FONT.replace(/"/g, "'") + '">' +
     MARK.draw({ corner: corner, W: SK.w, H: SK.h, M: 70, handle: mark.handle, name: mark.name,
-                logo: mark.logo, ink: '#FFFFFF', opacity: Math.max(0.55, Number(mark.opacity) || 0.7) }) +
+                logo: mark.logo, ink: light ? '#1C2230' : '#FFFFFF', size: 76,
+                halo: light ? 0.42 : 0.45, haloColor: '#000000',
+                opacity: Math.max(0.35, Number(mark.opacity) || 0.5) }) +
     '</svg>';
   return '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent;' +
     'overflow:hidden}svg{display:block}</style>' + svg;
@@ -215,8 +221,34 @@ function build(it, ctx) {
     ctx.ffRun(['-i', src, '-vf', 'crop=' + w + ':' + h + ':' + x + ':' + y, '-frames:v', '1', out]);
     return out;
   };
+  /* ══ نوشتهٔ رویِ نقاشی (۸.۴۵) ══
+     جای نوشته از خودِ تصویر و دور از گوشهٔ نشانِ همان صحنه. صحنه‌ای که نوشته
+     گرفت، زیرنویسِ پایین نمی‌گیرد — دو نوشته روی یک قاب، شلوغی است نه معنا.
+     تصویری که جای خالی ندارد نوشته نمی‌گیرد و **شمرده** می‌شود (`ovStat`). */
+  const ovFile = {}, ovStat = { asked: 0, placed: 0, busy: 0, failed: 0, kinds: {} };
+  const ovCtx = { ff: ctx.ff, ffRun: ctx.ffRun, dir: ctx.dir,
+                  shoot: (h, png) => shoot(ctx.exe, h, png, SK.w, SK.h, ctx.ffRun) };
   tl.forEach((x, k) => {
     const s = have[x.i];
+    if (!s.ov || x.d < 5) return;
+    ovStat.asked++;
+    let avoid = null;
+    if (ctx.mark && ctx.mark.handle) {
+      const b = MARK.box(MARK.cornerAt(x.t0, ctx.mark.everySec), SK.w, SK.h, 70);
+      avoid = { x: b.x - 24, y: b.y - 24, w: b.w + 48, h: b.h + 60 };
+    }
+    let r = null;
+    try { r = OVL.render(ovCtx, s.ov, ctx.imgs[String(s.n)], k, avoid); }
+    catch (e) { r = null; notes.push('نوشتهٔ صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60)); }
+    if (r && r.file) {
+      ovFile[k] = r; ovStat.placed++;
+      ovStat.kinds[r.kind] = (ovStat.kinds[r.kind] || 0) + 1;
+    } else if (r && r.skip === 'busy') ovStat.busy++;
+    else ovStat.failed++;
+  });
+  tl.forEach((x, k) => {
+    const s = have[x.i];
+    if (ovFile[k]) return;
     if (s.caption && x.d >= 3.5) {
       const full = shoot(ctx.exe, captionHtml(s.caption), path.join(ctx.dir, 'capf' + k + '.png'), SK.w, SK.h, ctx.ffRun);
       capFile[k] = crop(full, 0, SK.capY, SK.w, SK.capH, path.join(ctx.dir, 'cap' + k + '.png'));
@@ -224,14 +256,24 @@ function build(it, ctx) {
   });
   const corners = {};
   if (ctx.mark && ctx.mark.handle) {
-    tl.forEach((x, k) => { corners[k] = MARK.cornerAt(x.t0, ctx.mark.everySec); });
-    for (const c of new Set(Object.values(corners))) {
-      const full = shoot(ctx.exe, markHtml(ctx.mark, c), path.join(ctx.dir, 'markf-' + c + '.png'), SK.w, SK.h, ctx.ffRun);
+    /* کلیدِ هر نشان «گوشه + روشن/تیره»ِ زیرِ همان گوشه در همان صحنه است. */
+    tl.forEach((x, k) => {
+      const c = MARK.cornerAt(x.t0, ctx.mark.everySec);
+      let light = false;
+      try {
+        const an = OVL.analyze(ctx.ff, ctx.imgs[String(have[x.i].n)]);
+        light = !!an && OVL.boxStats(an, MARK.box(c, SK.w, SK.h, 70)).lum > 0.62;
+      } catch (e) { light = false; }
+      corners[k] = c + (light ? '-l' : '-d');
+    });
+    for (const cl of new Set(Object.values(corners))) {
+      const c = cl.split('-')[0];
+      const full = shoot(ctx.exe, markHtml(ctx.mark, c, /-l$/.test(cl)), path.join(ctx.dir, 'markf-' + cl + '.png'), SK.w, SK.h, ctx.ffRun);
       const b = MARK.box(c, SK.w, SK.h, 70);
       const bx = Math.max(0, Math.round(b.x - 24)), by = Math.max(0, Math.round(b.y - 24));
       const bw = Math.min(SK.w - bx, Math.round(b.w + 48)), bh = Math.min(SK.h - by, Math.round(b.h + 60));
-      markFile[c] = crop(full, bx, by, bw, bh, path.join(ctx.dir, 'mark-' + c + '.png'));
-      markPos[c] = { x: bx, y: by };
+      markFile[cl] = crop(full, bx, by, bw, bh, path.join(ctx.dir, 'mark-' + cl + '.png'));
+      markPos[cl] = { x: bx, y: by };
     }
   }
 
@@ -262,6 +304,16 @@ function build(it, ctx) {
                ':alpha=1,fade=t=out:st=' + end.toFixed(2) + ':d=' + SK.capFade + ':alpha=1[c' + k + ']');
         f.push('[' + cur + '][c' + k + ']overlay=0:' + SK.capY + ':shortest=1[bc' + k + ']');
         cur = 'bc' + k;
+      }
+      if (ovFile[gk]) {
+        const o = ovFile[gk];
+        a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', o.file);
+        const io = inIdx++;
+        const st = OVL.OV.fadeIn, end = Math.max(st + 1.2, x.d - 0.7);
+        f.push('[' + io + ':v]format=rgba,fade=t=in:st=' + st + ':d=' + OVL.OV.fade +
+               ':alpha=1,fade=t=out:st=' + end.toFixed(2) + ':d=' + OVL.OV.fade + ':alpha=1[o' + k + ']');
+        f.push('[' + cur + '][o' + k + ']overlay=' + o.x + ':' + o.y + ':shortest=1[bo' + k + ']');
+        cur = 'bo' + k;
       }
       if (corners[gk] && markFile[corners[gk]]) {
         a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', markFile[corners[gk]]);
@@ -296,9 +348,23 @@ function build(it, ctx) {
              '-shortest', '-movflags', '+faststart', ctx.dest]);
   for (const p of parts) { try { fs.unlinkSync(p); } catch (e) {} }
   try { fs.unlinkSync(silent); } catch (e) {}
+  /* مرجعِ سنجش برای صحنهٔ نوشته‌دار: همان نقاشی **با** نوشته‌اش. بی این، قابِ
+     ویدئو با تصویرِ خامِ خودش مقایسه می‌شد و نوشته «صحنه سرِ جایش نیست» می‌خورد. */
+  const ref = {};
+  tl.forEach((x, k) => {
+    if (!ovFile[k]) return;
+    const o = ovFile[k], out = path.join(ctx.dir, 'ref' + k + '.jpg');
+    try {
+      ctx.ffRun(['-y', '-i', ctx.imgs[String(have[x.i].n)], '-i', o.file, '-filter_complex',
+                 '[0:v]scale=' + SK.w + ':' + SK.h + '[b];[b][1:v]overlay=' + o.x + ':' + o.y,
+                 '-q:v', '3', '-frames:v', '1', out]);
+      ref[k] = out;
+    } catch (e) {}
+  });
   return { scenes: tl.length, want: scenes.length, snapped: snapped, silences: sil.length,
-           groups: parts.length, vmax: vmax, tl: tl.map(x => ({ n: have[x.i].n, t0: x.t0, d: x.d,
-           img: ctx.imgs[String(have[x.i].n)] })) };
+           groups: parts.length, vmax: vmax, ov: ovStat,
+           tl: tl.map((x, k) => ({ n: have[x.i].n, t0: x.t0, d: x.d,
+           img: ctx.imgs[String(have[x.i].n)], ref: ref[k] || '' })) };
 }
 
 /* ══ رنگی، نه خاکستری — چیزی که آزمونِ واقعی نشانش داد ══
@@ -352,17 +418,18 @@ function mediaSeconds(ff, file) {
 function qa(ff, dest, tl, durSec) {
   const out = { n: tl.length, matched: 0, miss: [], blank: [], ok: false, why: '', durDiff: 0 };
   const src = {};
-  for (const x of tl) if (!src[x.img]) src[x.img] = gray(ff, x.img);
+  const refOf = x => x.ref || x.img;
+  for (const x of tl) if (!src[refOf(x)]) src[refOf(x)] = gray(ff, refOf(x));
   for (let k = 0; k < tl.length; k++) {
     const x = tl[k];
     const t = x.t0 + Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9));
     const fr = gray(ff, dest, t);
     if (!fr || sd(fr) < SK.qaBlankSd) { out.blank.push(x.n); continue; }
-    const own = mad(fr, src[x.img]);
+    const own = mad(fr, src[refOf(x)]);
     let ok = own <= SK.qaMad;
     for (const j of [k - 1, k + 1]) {
       if (j < 0 || j >= tl.length || tl[j].img === x.img) continue;
-      if (mad(fr, src[tl[j].img]) < own) ok = false;
+      if (mad(fr, src[refOf(tl[j])]) < own) ok = false;
     }
     if (ok) out.matched++; else out.miss.push(x.n);
   }

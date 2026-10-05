@@ -643,6 +643,18 @@ function buildSpecVideo(spec, wav, durSec, dest, dir, notes) {
              CK.mark.cornerAt(Number(c.at) || 0, spec.mark && spec.mark.everySec)))) };
 }
 
+/** نشانِ بریده را در `docs/brand/channel-mark.png` می‌گذارد — فقط اگر واقعاً بریده
+ *  شده و با نسخهٔ موجود فرق دارد؛ گام «commit»ِ گردش‌کار آن را بالا می‌برد. */
+function brandMarkSave(lg) {
+  if (!lg || !/^data:image\/png;base64,/.test(lg.data || '') || !/بی‌زمینه/.test(lg.how || '')) return false;
+  const buf = Buffer.from(lg.data.split(',')[1], 'base64');
+  const out = path.join(__dirname, '..', 'docs', 'brand', 'channel-mark.png');
+  try { if (fs.existsSync(out) && fs.readFileSync(out).equals(buf)) return false; } catch (e) {}
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, buf);
+  return true;
+}
+
 /* ══ صحنه‌های مصور (۸.۳۱) — از همه مقدم ══
  * ردیفِ `mode: 'scenes'` تصویرِ تمام‌صفحهٔ هر صحنه را با ثانیهٔ شروعش دارد.
  * دانلود این‌جاست (مرزِ scenekit: شبکه ندارد)، و بایت‌ها باور می‌شوند نه
@@ -667,7 +679,13 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     }
   }
   const mark = it.mark && it.mark.handle ? Object.assign({}, it.mark) : null;
-  if (mark && mark.logoUrl && !mark.logo) mark.logo = CK.logoData(mark.logoUrl, dir);
+  if (mark && mark.logoUrl && !mark.logo) {
+    const lg = CK.logoClean(mark.logoUrl, dir, ffmpegExe());
+    mark.logo = lg.data; mark.logoClean = lg.how;
+    /* همان نشانِ بی‌زمینه برای واترمارکِ خودِ یوتیوب (۸.۴۵): موتور ابزارِ تصویر
+       ندارد و این فایل را از گیت‌هاب می‌خوانَد. فقط اگر عوض شده نوشته می‌شود. */
+    try { brandMarkSave(lg); } catch (eB) { notes.push('نشانِ واترمارک ذخیره نشد: ' + String(eB.message).slice(0, 60)); }
+  }
   const exe = CK.chromeExe();
   const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
                              dest: dest, dir: dir, imgs: imgs, mark: mark, notes: notes });
@@ -696,7 +714,9 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     }
   } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
-           groups: r.groups, qa: qa, thumbFile: thumb };
+           groups: r.groups, qa: qa, thumbFile: thumb, ov: r.ov,
+           refs: r.tl.filter(x => x.ref).length,     // صحنه‌هایی که سنجش «با نوشته» دیدشان
+           logo: mark ? (mark.logo ? (mark.logoClean || 'خام') : 'بی تصویر') : 'بی نشان' };
 }
 
 function buildVideo(it, cover, wav, durSec, dest, dir) {
@@ -928,6 +948,9 @@ function main() {
         map.items[it.key].snapped = vr.snapped;
         map.items[it.key].seconds = Math.round(durSec);
         map.items[it.key].qa = vr.qa;
+        // نوشته‌های رویِ نقاشی: چند خواسته شد، چند نشست، چند جای خالی نداشت (۸.۴۵)
+        if (vr.ov && vr.ov.asked) map.items[it.key].ov = vr.ov;
+        if (vr.logo) map.items[it.key].logo = vr.logo;
         if (vr.thumbFile) {
           try {
             const tu = uploadAsset(rel, vr.thumbFile, base + '-cover.jpg', 'image/jpeg');

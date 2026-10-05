@@ -724,6 +724,31 @@ console.log('=== ۲۳) تریلر و واترمارک: انتخابِ آدم د�
      global.__FETCHES.some(f => f.url.indexOf('SMALL.png') !== -1), String(r23b));
   ok('۲۳.۶ و بی عکسِ پروفایل، صریح می‌گوید چرا',
      ytWatermarkSet_({ id: 'UCxx', snippet: {} }).indexOf('خوانده نشد') !== -1);
+  /* ۲۳.۷ — **نشانِ بی‌زمینه مقدم است (۸.۴۵):** عکسِ پروفایل ۸۷٪ سیاه است و
+     واترمارک همان مربعِ سیاه را روی همهٔ ویدئوها می‌گذاشت. وقتی رانر نسخهٔ بریده
+     را در گیت‌هاب گذاشته، همان فرستاده می‌شود و عکسِ پروفایل اصلاً گرفته نمی‌شود. */
+  {
+    const stubWas = global.__STUB;
+    const png = [0x89, 0x50, 0x4E, 0x47].concat(new Array(400).fill(7));
+    let sentPng = false;
+    global.__STUB = function (url, body) {
+      if (/docs\/brand\/channel-mark\.png/.test(url)) return { code: 200, bytes: png, mime: 'image/png' };
+      if (/watermarks\/set/.test(url)) {
+        const b = (body && (body.payload || body)) || '';
+        sentPng = /image\/png/.test(String(Array.isArray(b) ? Buffer.from(b.map(x => x & 0xFF)).toString('latin1') : b));
+        return { code: 204, json: {} };
+      }
+      return stubWas ? stubWas(url, body) : { code: 404, json: {} };
+    };
+    const f0 = global.__FETCHES.length;
+    const r7 = ytWatermarkSet_({ id: 'UCxx', snippet: { thumbnails: { high: { url: 'https://yt3.example/AVATAR2.png' } } } });
+    const u7 = global.__FETCHES.slice(f0).map(f => f.url);
+    global.__STUB = stubWas;
+    ok('۲۳.۷ نشانِ بریدهٔ گیت‌هاب به‌جای عکسِ پروفایلِ سیاه فرستاده می‌شود',
+       u7.some(u => /channel-mark\.png/.test(u)) && !u7.some(u => /AVATAR2/.test(u)) &&
+       u7.some(u => /watermarks\/set/.test(u)),
+       String(r7) + ' · ' + u7.join(' | ').slice(0, 160));
+  }
   delete global.YouTube;
 }
 
@@ -4109,9 +4134,18 @@ console.log('=== ۶۲) نشانِ کانال (۸.۰۱) ===');
   let calls = 0;
   global.ytChannelInfo_ = () => { calls++; return { info: { snippet: {
     customUrl: 'truce-trace', title: 'رد پای حقیقت', thumbnails: {} } } }; };
-  ytMarkSpec_(); ytMarkSpec_(); ytMarkSpec_();
+  ytMarkSpec_(); ytMarkSpec_();
+  const fromCache = ytMarkSpec_();
   ok('۶۲.۵ کانال یک بار خوانده می‌شود و نتیجه می‌مانَد',
      calls === 0, calls + ' فراخوانِ تازه پس از ذخیره');
+  /* ۶۲.۵-ب — **و نتیجهٔ کش واقعاً نشان است** (۸.۴۵). ۶۲.۵ فقط شمارِ فراخوان را
+     می‌شمرد؛ کدِ پیش از ۸.۴۵ سرِ کش ReferenceError می‌داد (`daysSince_`)، ‌
+     `ytMarkSpec_` آن را می‌بلعید و `null` برمی‌گرداند — و شمار همان صفر بود.
+     سنجه‌ای که فقط «چند بار» را بپرسد، «چه برگشت» را نمی‌بیند: درسِ ۳۸ همین‌طور
+     بی نشان ساخته شد. */
+  ok('۶۲.۵-ب و نشانِ ساخته‌شده از کش همان شناسه را دارد، نه null',
+     !!fromCache && fromCache.handle === '@truce-trace' && fromCache.logoUrl.indexOf('yt3.example') !== -1,
+     JSON.stringify(fromCache));
 
   /* ۶۲.۶ — و اگر یوتیوب جواب ندهد، **تنظیمِ دستی برنده است**: یک درِ
      پشتی که آدم بتواند بازش کند، برای روزی که خواندن نشود. */
@@ -5887,6 +5921,165 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        r2.ok === true && calls.pub === 1 && okN === 1 &&
        /ytPublicGate_\(/.test(redo) && /gateR\.ok && String\(rec\.privacy/.test(redo),
        JSON.stringify({ r1: r1.why, pub1, th1, q: q1.length, r2: r2.ok, pub: calls.pub, okN }));
+  }
+
+  /* ۷۱.۱۲ — **ویدئوی صحنه‌ای رسیده ⇒ کارت و پس‌زمینهٔ تازه ساخته نمی‌شود (۸.۴۵).**
+     درسِ ۳۸ (قسمتِ ۶۰) پس از ساختِ ویدئو پنج پس‌زمینهٔ پولی و یک اسلایدز گرفت که
+     هیچ‌جا دیده نمی‌شوند. از درِ خودِ آپلود، با یک گواهِ مقابل: بی `_scenes.json`
+     همان مسیر هنوز کارت می‌سازد — وگرنه جاسوس چیزی نمی‌سنجید. */
+  {
+    /* آپلود عمداً می‌شکند: تصمیمِ کارت **پیش از** آپلود گرفته می‌شود، و ویدئوی
+       Unlisted‌ای که این سنجه بسازد، بازسنجیِ گیرکرده‌ها در §۷۴ را پر می‌کرد. */
+    global.YouTube = {
+      Videos: { insert: () => { throw new Error('آزمون: آپلود نه'); }, update: () => {} },
+      Thumbnails: { set: () => {} }, Channels: { list: () => ({ items: [] }) },
+      PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
+    const keepPl = CFG.YT_PLAYLISTS; CFG.YT_PLAYLISTS = false;
+    const keepA = YT_APPROVED_; YT_APPROVED_ = {};
+    const realLv = global.lvBuild_;
+    let lvCalls = 0;
+    global.lvBuild_ = function () { lvCalls++; return realLv.apply(null, arguments); };
+    const mk = (id, ep, withScenes) => {
+      const f = DriveApp.__register(id, 'قسمت 0' + ep + ' — بی‌کارت');
+      f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 38, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+        ep: { title: 'استنتاج', sections: SEC71 } }), 'application/json', '_special.json'));
+      const w = f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(2000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+      w.getSize = () => 300 * 48000 + 44;
+      f.createFile(Utilities.newBlob([0, 0, 0, 24, 102, 116, 121, 112].concat(new Array(9000).fill(1)),
+                                     'video/mp4', 'قسمت 0' + ep + ' — ویدئو.mp4'));
+      if (withScenes) lvSceneWrite_(f, { v: 1, key: 'special:' + ep, done: true, scenes: [
+        { n: 1, t0: 0, fileId: 'S1' }, { n: 2, t0: 20, fileId: 'S2' }, { n: 3, t0: 40, fileId: 'S3' }],
+        cover: { fileId: '' } });
+      ytPlanWrite_(f, { at: 'x', show: 'special', ep: ep, title: 'عنوان', description: 'توضیح', tags: ['الف'],
+                        coverTitle: 'ک', coverKicker: '', chapters: 0,
+                        visuals: [{ at: 1, quote: 'سرچشمه', form: 'تمرکز', headline: 'سرچشمه' }] });
+      _ytMapMemo = {}; _ytMapMemo['special:' + ep] = { url: 'https://x/v.mp4', mode: 'scenes',
+        qa: { ok: true, n: 3, matched: 3 } };
+      return ytUploadOne_({ key: 'special:' + ep, show: 'special', ep: ep, folderId: id, series: 'معرفت‌شناسی' }, null, []);
+    };
+    lvCalls = 0; mk('EP71W', '301', true); const withSc = lvCalls;
+    lvCalls = 0; mk('EP71X', '302', false); const without = lvCalls;
+    global.lvBuild_ = realLv;
+    YT_APPROVED_ = keepA; CFG.YT_PLAYLISTS = keepPl; _ytMapMemo = null; global.YouTube = {};
+    ok('۷۱.۱۲ ویدئوی صحنه‌ایِ رسیده کارتِ تازه نمی‌سازد (و بی صحنه، همان مسیر هنوز می‌سازد)',
+       withSc === 0 && without >= 1, 'با صحنه: ' + withSc + ' · بی صحنه: ' + without);
+  }
+
+  /* ۷۱.۱۳ — **نوشتهٔ رویِ نقاشی (۸.۴۵): خواسته، پاک‌شده، به سهمِ تخته بریده، و به
+     نقاش گفته‌شده که جایش را خلوت بگذارد.** از درِ خودِ `lvScenesBuild_`. */
+  {
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    const base = sceneStub(cnt);
+    const kinds = ['points', 'points', 'headline', 'compare', 'quote', 'steps', 'headline', 'points', 'quote', 'headline'];
+    global.__STUB = function (url, body) {
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      if (sc && sc.properties && sc.properties.scenes) {
+        const pr = body.contents[0].parts[0].text;
+        cnt.plan++; cnt.prompts.push(pr);
+        const ns = []; const re = /^\[(\d+)\]/mg; let m;
+        while ((m = re.exec(pr))) ns.push(m[1]);
+        const ov = (n, i) => {
+          const k = kinds[i % kinds.length];
+          if (k === 'compare') return { ov: k, ovA: 'قیاس', ovB: 'استقرا', ovLines: ['قوت: قطعی | محتمل', 'بی‌جداکننده'], ovKeys: ['قطعی'] };
+          if (k === 'points') return { ov: k, ovTitle: 'دو راه', ovLines: ['یکم ' + n, 'دوم ' + n], ovKeys: ['دوم ' + n, 'نیست'], ovSide: 'left' };
+          if (k === 'steps') return { ov: k, ovLines: ['مقدمه', 'استنتاج', 'نتیجه'] };
+          return { ov: k, ovTitle: 'جملهٔ ' + n + ' 12', ovKeys: ['جملهٔ'] };
+        };
+        const r = { cast: '', cover: 'a lantern', scenes: ns.map((n, i) => Object.assign(
+          { n: n, scene: 'a lantern passing light number ' + n, caption: '' }, ov(n, i))) };
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+      }
+      // داور: صحنهٔ ۴ جای خالی ندارد، بقیه در چپ
+      if (sc && sc.properties && sc.properties.items && JSON.stringify(body).indexOf('inlineData') !== -1) {
+        cnt.judge++;
+        const items = [];
+        body.contents[0].parts.forEach(p => { const m = /^تصویرِ (\d+)/.exec(p.text || ''); if (m) items.push(m[1]); });
+        cnt.spaceAsked = /`space`/.test(JSON.stringify(body));
+        const r = { items: items.map(n => ({ n: n, score: '8', hasText: 'خیر', realFace: 'خیر', why: 'خوب',
+                                              space: n === '4' ? 'none' : 'left' })) };
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+      }
+      return base(url, body);
+    };
+    const E = mkEp71('EP71OV', 'قسمت 0305 — نوشته');
+    const ctx = { show: 'special', epRaw: '305', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
+                  sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم', textLevel: 'خودکار', textShare: 0.45 };
+    let r = null;
+    for (let i = 0; i < 8; i++) { r = lvScenesBuild_(E.f, E.meta, {}, ctx); if (r.done || r.fallback) break; }
+    const d = lvSceneRead_(E.f);
+    const withOv = d.scenes.filter(x => x.ov);
+    const cap = Math.round(d.scenes.length * 0.45);
+    const p0 = cnt.prompts[0] || '';
+    const ovIdx = d.scenes.map((x, i) => x.ov ? i : -1).filter(i => i >= 0);
+    const noAdjSame = ovIdx.every((i, j) => j === 0 || ovIdx[j - 1] !== i - 1 ||
+                                  d.scenes[i].ov.kind !== d.scenes[i - 1].ov.kind);
+    const pts = withOv.filter(x => x.ov.kind === 'points')[0];
+    const cmp = withOv.filter(x => x.ov.kind === 'compare')[0];
+    const spaced = cnt.imgPrompts.filter(t => /keep the .* calm, plain and uncluttered/.test(t)).length;
+    ok('۷۱.۱۳ نوشته خواسته و به سهمِ تخته بریده شد؛ دو صحنهٔ پشتِ‌هم یک نوع نمی‌گیرند',
+       r && r.done && /نوشتهٔ رویِ نقاشی/.test(p0) && withOv.length > 0 && withOv.length <= cap && noAdjSame &&
+       d.ovN - (Number(d.ovDropped) || 0) === withOv.length && r.info.ov === withOv.length,
+       'صحنه ' + d.scenes.length + ' · نوشته‌دار ' + withOv.length + ' · سقف ' + cap + ' · ' +
+       withOv.map(x => x.n + ':' + x.ov.kind).join(' '));
+    /* ۷۱.۱۳-ج — **جای خالی را داور می‌گوید:** صحنه‌ای که داور گفت «هیچ‌جا» نوشته‌اش
+       را از دست می‌دهد (و شمرده می‌شود)؛ بقیه همان سمتی را می‌گیرند که او دید. */
+    const s4 = d.scenes.filter(x => x.n === 4)[0];
+    ok('۷۱.۱۳-ج داور جای خالی را می‌گوید: «هیچ‌جا» ⇒ بی‌نوشته، بقیه سمتِ دیده‌شده',
+       cnt.spaceAsked === true && (!s4 || !s4.ov) && Number(d.ovDropped) >= 1 &&
+       withOv.every(x => x.ov.side === 'left'),
+       JSON.stringify({ asked: cnt.spaceAsked, s4: s4 && s4.ov, dropped: d.ovDropped, sides: withOv.map(x => x.ov.side) }));
+    ok('۷۱.۱۳-ب واژهٔ کلیدیِ نبوده رنگی نمی‌شود، ردیفِ جدولِ بی «|» می‌افتد، رقم فارسی می‌شود',
+       (!pts || (pts.ov.keys.indexOf('نیست') === -1)) &&
+       (!cmp || cmp.ov.lines.length === 1) &&
+       withOv.filter(x => x.ov.kind === 'headline' || x.ov.kind === 'quote').every(x => /۱۲/.test(x.ov.title)),
+       JSON.stringify({ pts: pts && pts.ov, cmp: cmp && cmp.ov }));
+    ok('۷۱.۱۳-پ به نقاش گفته شد جای نوشته را خلوت بگذارد — فقط برای صحنه‌های نوشته‌دار',
+       spaced >= withOv.length && spaced < cnt.imgPrompts.length,
+       spaced + ' از ' + cnt.imgPrompts.length + ' دستورِ تصویر');
+    ok('۷۱.۱۳-ت نوشته تا ردیفِ رندر می‌رسد', r.items.filter(x => x.ov).length === withOv.length &&
+       (function () {
+         const shared = []; const keepS = global.driveShareOn_;
+         global.driveShareOn_ = (id) => { shared.push(id); return true; };
+         ytRenderSave_({ items: [] });
+         ytRenderAsk_({ show: 'special', ep: '305', folderId: 'F', audio: [{ id: 'A1' }], scenes: r.items });
+         global.driveShareOn_ = keepS;
+         const row = ytRenderRead_().items.filter(x => x.key === 'special:305')[0];
+         ytRenderSave_({ items: [] });
+         return !!row && row.scenes.filter(x => x.ov && x.ov.kind).length === withOv.length;
+       })());
+
+    // ۷۱.۱۳-ث «خاموش» یعنی هیچ — و پرسشِ نوشته اصلاً در پرامپت نمی‌آید
+    cnt.prompts.length = 0;
+    const E2 = mkEp71('EP71OV2', 'قسمت 0306 — بی‌نوشته');
+    const ctx2 = Object.assign({}, ctx, { epRaw: '306', textLevel: 'خاموش', textShare: 0 });
+    let r2 = null;
+    for (let i = 0; i < 8; i++) { r2 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2); if (r2.done || r2.fallback) break; }
+    const d2 = lvSceneRead_(E2.f);
+    global.__STUB = BASE_STUB;
+    ok('۷۱.۱۳-ث «خاموش» ⇒ هیچ صحنه‌ای نوشته نمی‌گیرد و پرسشش هم نیست',
+       d2.scenes.every(x => !x.ov) && !/نوشتهٔ رویِ نقاشی/.test(cnt.prompts[0] || ''),
+       d2.scenes.filter(x => x.ov).length + ' نوشته‌دار');
+  }
+
+  /* ۷۱.۱۴ — `lvTextAt_` از تخته می‌خوانَد؛ خالی و ناشناخته ⇒ پیش‌فرض، با علت. */
+  {
+    const hubT = getHub_();
+    const reg = readSeriesReg_(hubT);
+    const rec = reg.rows[0];
+    if (rec) {
+      const keep = reg.sheet.getRange(rec.row, SC.LVTEXT).getValue();
+      reg.sheet.getRange(rec.row, SC.LVTEXT).setValue('زیاد');
+      const a = lvTextAt_(hubT, { seriesKey: rec.key }, null);
+      reg.sheet.getRange(rec.row, SC.LVTEXT).setValue('');
+      const b = lvTextAt_(hubT, { seriesKey: rec.key }, null);
+      reg.sheet.getRange(rec.row, SC.LVTEXT).setValue('خیلی‌زیاد');
+      const c = lvTextAt_(hubT, { seriesKey: rec.key }, null);
+      reg.sheet.getRange(rec.row, SC.LVTEXT).setValue(keep);
+      ok('۷۱.۱۴ نوشتهٔ تخته خوانده می‌شود؛ خالی و ناشناخته ⇒ پیش‌فرض با علت',
+         a.v === 'زیاد' && a.share === CFG.LV_TEXT_SHARE['زیاد'] && a.src === 'تخته' &&
+         b.v === CFG.LV_TEXT_DEFAULT && /خالی/.test(b.src) && /ناشناخته/.test(c.src),
+         JSON.stringify([a, b, c]));
+    } else ok('۷۱.۱۴-پیش (رجیستری ردیفی ندارد — سنجه ممکن نیست)', false);
   }
 
   if (genWas.on === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas.on;
