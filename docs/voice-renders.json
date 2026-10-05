@@ -1,5 +1,5 @@
 {
- "rev": 21,
+ "rev": 23,
  "items": {
   "special:49": {
    "urls": [
@@ -432,8 +432,78 @@
     "lowPct": 1,
     "frames": 1730
    }
+  },
+  "نمونهٔ روح — razavi · گامِ خودکار · مکث به اندازهٔ خودش · مدلِ صبح:ساعت‌ساز": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-ea5a184f.wav"
+   ],
+   "pieceBytes": [
+    24806478
+   ],
+   "bytes": 24806478,
+   "seconds": 310.1,
+   "minutes": 5.2,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "razavi",
+   "at": "2026-10-05T00:54:38Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/razavi-ea5a184f.wav",
+   "pitch": "-4",
+   "loud": {
+    "rawLufs": -22.3,
+    "rawTp": -1.7,
+    "gainDb": 6.32,
+    "limited": true,
+    "lufs": -16.7,
+    "tp": -2.4
+   },
+   "pitchAuto": {
+    "srcHz": 135.6,
+    "targetHz": 106.9,
+    "pitch": -4
+   },
+   "f0Out": {
+    "medianHz": 108.1,
+    "lowPct": 14,
+    "frames": 1609
+   }
+  },
+  "نمونهٔ روح — spk-1g0r95d · گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · مدلِ صبح:ساعت‌ساز": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-efa5ee71.wav"
+   ],
+   "pieceBytes": [
+    24368078
+   ],
+   "bytes": 24368078,
+   "seconds": 304.6,
+   "minutes": 4.5,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-05T00:59:26Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/spk-1g0r95d-efa5ee71.wav",
+   "pitch": "3",
+   "loud": {
+    "rawLufs": -22.2,
+    "rawTp": -0.6,
+    "gainDb": 6.18,
+    "limited": true,
+    "lufs": -16.7,
+    "tp": -2.3
+   },
+   "pitchAuto": {
+    "srcHz": 133.3,
+    "targetHz": 158.0,
+    "pitch": 3
+   },
+   "f0Out": {
+    "medianHz": 148.1,
+    "lowPct": 1,
+    "frames": 1754
+   }
   }
  },
- "at": "2026-10-04T15:39:51Z",
+ "at": "2026-10-05T00:59:26Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
