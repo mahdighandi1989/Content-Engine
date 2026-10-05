@@ -519,7 +519,16 @@ console.log('\n=== ۸) سیم‌کشی و ناظر ===');
   const body = fs.readFileSync(dir + '/' + latest, 'utf8');
   ok('۸.۲ پرامپتِ ناظر وظیفهٔ حالت‌ها را دارد (§۴٫۱۶) و `speakMoods` را می‌خوانَد',
      /§۴٫۱۶/.test(body) && body.indexOf('speakMoods') !== -1 && body.indexOf('speak-moods') !== -1, latest);
-  ok('۸.۳ پرامپتِ ناظر برای همین نسخهٔ موتور است', body.indexOf('برای نسخهٔ موتور: ' + CFG.CODE_VERSION) !== -1, latest);
+  /* ۸.۳ تا ۸.۴۳ «برای همین نسخه» می‌خواست، یعنی هر نسخه — حتی بی هیچ اثری بر
+     ناظر — پرامپتِ تازه لازم داشت؛ درست همان بدهیِ بی‌دلیلی که ۵٫۵۲ برداشت
+     («نسخه‌ای با promptImpactِ خالی بدهی‌ای نمی‌سازد»). آنچه این سنجه نگه
+     می‌دارد این است که پرامپتِ بالا **پس از** ورودِ وظیفهٔ حالت‌ها (۸.۴۰) نوشته
+     شده و از موتور جلو نیفتاده. */
+  const declared = (body.match(/برای نسخهٔ موتور:\s*([0-9]+\.[0-9]+)/) || [])[1] || '';
+  const vnum = (v) => { const m = String(v).split('.'); return Number(m[0]) * 1000 + Number(m[1] || 0); };
+  ok('۸.۳ پرامپتِ ناظر پس از وظیفهٔ حالت‌ها و نه جلوتر از موتور است',
+     !!declared && vnum(declared) >= vnum('8.40') && vnum(declared) <= vnum(CFG.CODE_VERSION),
+     latest + ' · برای ' + (declared || '؟') + ' · موتور ' + CFG.CODE_VERSION);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ حالت‌ها گذشت.');

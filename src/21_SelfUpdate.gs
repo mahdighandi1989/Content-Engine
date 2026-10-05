@@ -728,11 +728,43 @@ function nightDeath_() {
     var v = JSON.parse(props_().getProperty(PK.NIGHT_AT) || 'null');
     if (!v || !v.day) return out;
     out.day = String(v.day); out.at = String(v.at || ''); out.ts = String(v.ts || '');
-    if (out.at === 'پایان') return out;          // آن شب سالم تمام شد
-    if (String(nightDay_()) === out.day) return out;   // امشب هنوز در جریان است
+    // «پایان» و «پایان — …» هر دو یعنی شب خودش ایستاد (سقفِ اجراها هم)
+    if (out.at.indexOf('پایان') === 0) return out;
+    /* ══ «هنوز در جریان» با سنِ ضربان، نه با روزش (۸.۴۴) ══
+       تا ۸.۴۳ این‌جا «همان روز ⇒ هنوز در جریان» بود. کارِ شبانه ۰۲:۳۰ است و
+       تنها پرسنده‌اش وارسیِ سلامتِ ۱۰:۰۰ِ **همان روز**؛ پس شبی که ۰۲:۴۶ کشته
+       شد هر بار «در جریان» خوانده می‌شد، و تا فردا شبِ تازه ضربان را رونویسی
+       می‌کرد. ۵ اکتبر همین شد: «❌ اجرای ناتمام: selfUpdateDaily» در همان ایمیل
+       بود و کنارش «هر شب فهرست تا آخر می‌رود». زنگی که شرطِ به صدا درآمدنش
+       هرگز برقرار نمی‌شود (۷٫۲۲). روزِ دیگر هنوز کافی است؛ سنِ ضربان حالا
+       هم کافی است. */
+    if (String(nightDay_()) === out.day) {
+      var age = parseWhen_(nowStr_()) - parseWhen_(out.ts);
+      var lim = Math.max(10, Number(CFG.NIGHT_DEATH_MIN) || 40) * 60000;
+      if (!(age >= lim)) return out;               // تازه، یا نامعلوم ⇒ ادعا نکن
+    }
     out.died = true;
   } catch (e) {}
   return out;
+}
+
+/**
+ * جملهٔ سالمِ `nightStarve` — فقط وقتی راست است (۸.۴۴).
+ *
+ * `nightStarve` از `nightEnd_` تغذیه می‌شود و شبی که کشته شد به آن نمی‌رسد،
+ * پس فهرستِ خالی‌اش یعنی «گرسنگی ندیدم»، نه «شب تا آخر رفت». ۵ اکتبر همان
+ * ایمیل هم «❌ اجرای ناتمام: selfUpdateDaily» داشت و هم «هر شب فهرست تا آخر
+ * می‌رود». دو شاهد در یک سامانه که هر روز با هم نمی‌خوانند، خودش یافته است
+ * (۷٫۵۷) — و جملهٔ سالم نباید طرفِ دروغِ آن تناقض باشد.
+ */
+function nightHealthyLine_() {
+  var d = null;
+  try { d = nightDeath_(); } catch (e) { d = null; }
+  if (d && d.died) {
+    return 'کارِ شبانه: شبِ ' + d.day + ' به «پایان» نرسید — وسطِ «' + d.at +
+           '» کشته شد (جزئیات در ایرادها).';
+  }
+  return 'کارِ شبانه: هر شب فهرست تا آخر می‌رود.';
 }
 
 /**
@@ -760,6 +792,9 @@ function nightEnd_(runs) {
     m[_nightMore] = r;
     nightStarveSave_(m);
     nightStepClear_();
+    /* شب **خودش** ایستاد و `nightStarve` می‌گویدش؛ بی این مهر، ضربانِ
+       آخرین بلوک فردا صبح «کشته شد» خوانده می‌شد (۸.۴۴). */
+    nightAtSave_('پایان — سقفِ اجراها');
     logLine_('کارِ شبانه: پس از ' + max + ' اجرا هنوز به «' + _nightMore +
              '» نرسیدیم — امشب همین‌جا بس است (' + r.n + ' شبِ پیاپی).');
     return { done: false, runs: runs + 1 };
@@ -779,6 +814,7 @@ function nightEnd_(runs) {
     var q = m[_nightMore] || { n: 0 };
     q.n = (Number(q.n) || 0) + 1; q.at = nowStr_();
     m[_nightMore] = q; nightStarveSave_(m);
+    nightAtSave_('پایان — ادامه زمان‌بندی نشد');   // گرسنگی گفته می‌شود، نه «کشته شد»
     logLine_('کارِ شبانه: ادامه زمان‌بندی نشد (' + eT.message +
              ') — «' + _nightMore + '» امشب اجرا نشد.');
   }
@@ -826,7 +862,7 @@ function nightStarveStatus_(hub, raise) {
          rows.slice(0, 4).map(function (r) {
            return r.what + ' (' + fa(r.nights) + ' شب)';
          }).join(' · '))
-      : 'کارِ شبانه: هر شب فهرست تا آخر می‌رود.'
+      : nightHealthyLine_()
   };
 }
 

@@ -404,4 +404,61 @@ ok('۹.۵ ضربان پیش از کار نوشته می‌شود، نه پس ا�
           body.indexOf('nightAtSave_(what)') < body.indexOf('return true');
  })(), 'وگرنه نشانه فقط وقتی هست که لازمش نداریم');
 
+
+/* ══ ۹.۲۰ شبی که ۰۲:۴۶ کشته شد، ساعتِ ۱۰ِ **همان روز** دیده می‌شود (۸.۴۴) ══
+   تا ۸.۴۳ «همان روز ⇒ هنوز در جریان» بود. تنها پرسنده وارسیِ سلامتِ ۱۰:۰۰
+   همان روز است و تا ۱۰ِ فردا شبِ تازه ضربان را رونویسی کرده — پس `died`
+   هرگز true نمی‌شد. ۵ اکتبر همان ایمیل «❌ اجرای ناتمام: selfUpdateDaily» و
+   «هر شب فهرست تا آخر می‌رود» را کنارِ هم داشت.
+   حالت را **خودِ موتور** می‌سازد (`nightAtSave_`)، و فقط ساعتش را عقب
+   می‌بریم — روزش همان است که موتور نوشت، یعنی همان چیزی که قاعدهٔ قدیم
+   «در جریان» می‌خواند (۷٫۲۲: حالتی که تولید واقعاً می‌سازد). */
+{
+  const P = global.__PROPS;
+  const ago = (min) => Utilities.formatDate(new Date(Date.now() - min * 60000),
+                                            CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  delete P[PK.NIGHT_AT];
+  nightAtSave_('اثر انگشتِ معنایی');
+  const v = JSON.parse(P[PK.NIGHT_AT]);
+  const lim = Number(CFG.NIGHT_DEATH_MIN) || 40;
+  v.ts = ago(lim + 400);                         // ۰۲:۴۱ در برابرِ ۱۰:۰۹
+  P[PK.NIGHT_AT] = JSON.stringify(v);
+  const d6 = nightDeath_();
+  ok('۹.۲۰ شبِ امروز که ساعت‌ها پیش ایستاد و به «پایان» نرسید، مُرده است',
+     d6.died === true && d6.day === nightDay_() && d6.at === 'اثر انگشتِ معنایی',
+     'گرفت: ' + JSON.stringify(d6));
+
+  // و کمی پیش (کمتر از آستانه) هنوز «در جریان» است — ادامه‌ها یک دقیقه فاصله دارند.
+  v.ts = ago(Math.max(1, lim - 20));
+  P[PK.NIGHT_AT] = JSON.stringify(v);
+  ok('۹.۲۰-ب ضربانِ تازه هنوز «در جریان» است', nightDeath_().died === false);
+
+  /* ۹.۲۱ شبی که **خودش** سرِ سقفِ اجراها ایستاد، کشته نشده — `nightStarve`
+     می‌گویدش. مهر را خودِ `nightEnd_` می‌زند، نه دست. */
+  delete P[PK.NIGHT_AT];
+  const keepMax = CFG.NIGHT_MAX_RUNS;
+  CFG.NIGHT_MAX_RUNS = 1;
+  _nightMore = 'بلوکی که نرسید';
+  nightEnd_(0);
+  CFG.NIGHT_MAX_RUNS = keepMax; _nightMore = '';
+  const capd = JSON.parse(P[PK.NIGHT_AT] || 'null');
+  ok('۹.۲۱ ایستادن سرِ سقفِ اجراها مهرِ «پایان» دارد',
+     !!capd && capd.at.indexOf('پایان') === 0, 'گرفت: ' + JSON.stringify(capd));
+  capd.ts = ago(lim + 400); P[PK.NIGHT_AT] = JSON.stringify(capd);
+  ok('۹.۲۱-ب و فردا صبح «کشته شد» خوانده نمی‌شود', nightDeath_().died === false);
+  nightStarveSave_({});
+
+  /* ۹.۲۲ و جملهٔ سالمِ `nightStarve` طرفِ دروغِ تناقض نمی‌شود. */
+  delete P[PK.NIGHT_AT];
+  nightAtSave_('اثر انگشتِ معنایی');
+  const v7 = JSON.parse(P[PK.NIGHT_AT]); v7.ts = ago(lim + 400);
+  P[PK.NIGHT_AT] = JSON.stringify(v7);
+  const line7 = String(nightStarveStatus_().line || '');
+  ok('۹.۲۲ شبِ کشته‌شده با «هر شب فهرست تا آخر می‌رود» گزارش نمی‌شود',
+     line7.indexOf('تا آخر می‌رود') === -1 && line7.indexOf('اثر انگشتِ معنایی') !== -1,
+     line7);
+  delete P[PK.NIGHT_AT];
+  ok('۹.۲۲-ب بی ضربانِ کشته، همان جملهٔ سالم', /تا آخر می‌رود/.test(String(nightStarveStatus_().line || '')));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

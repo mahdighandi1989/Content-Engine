@@ -601,6 +601,127 @@ console.log('\n══ ۲۶) «چقدر می‌خواهم» و «چقدر خرج 
      ' — بیشتر یعنی رد شدن از سقفِ سختِ Apps Script و کشته‌شدنِ nightEnd_');
 }
 
+console.log('\n══ ۲۷) جبرانِ «مشخصات» اجرای خودش را دارد و پیشرفتش را تب‌به‌تب نگه می‌دارد (۸.۴۴) ══');
+/* ۵ اکتبر کارِ شبانه داخلِ جبران کشته شد (مهرِ «جبرانِ مشخصات @ 02:41»):
+   هرچه پس از اثر انگشت بود آن شب اجرا نشد، و چون مکان‌نماها فقط در **آخرِ**
+   تابع نوشته می‌شدند، شبِ بعد همان خواندن‌ها از همان جا تکرار می‌شد. */
+{
+  const P = global.__PROPS;
+  const today = String(nowStr_()).slice(0, 10);
+  const trig = () => global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'embSpecsLater').length;
+  const savedSrc3 = CFG.SOURCES;
+
+  // منبعی با دو تب، هر کدام یک ردیف که در بانک هم هست.
+  const sp3 = SpreadsheetApp.create('RESULT-SPECS-3');
+  global.__SS[sp3.getId()] = sp3;
+  const tA = sp3.insertSheet('Video Analysis A'), tB = sp3.insertSheet('Video Analysis B');
+  [[tA, 'K1', '2026-06-01 09:00:00', '01:11'], [tB, 'K2', '2026-06-02 09:00:00', '02:22']].forEach(([t, id, d, dur]) => {
+    t.appendRow(SPEC_HDR);
+    t.appendRow([d, id, 'https://drive/' + id, dur, 'گوینده', 'بی‌کلام', '720p',
+                 'متن', 'آرام', 'موضوعِ ' + id, 'نکته', 'خلاصه', 'SUCCESS', 'روایت']);
+  });
+  const shK = mkCat('علمی و آموزشی', [
+    row({ id: 'K1', date: '2026-06-01 09:00:00', topic: 'موضوعِ K1' }),
+    row({ id: 'K2', date: '2026-06-02 09:00:00', topic: 'موضوعِ K2' })
+  ]);
+  const rowK1 = shK.getLastRow() - 1, rowK2 = shK.getLastRow();
+  CFG.SOURCES = [{ key: 'k3', id: sp3.getId(), title: 'منبعِ دوتبی', schema: 'auto' }];
+  const reset = () => {
+    delete P[PK.EMB_SPEC]; delete P[PK.EMB_SPEC_DONE]; delete P[PK.EMB_SPECS_ARM];
+    try { clearRetryTriggers_('embSpecsLater'); } catch (e) {}
+    shK.getRange(rowK1, COL.SPECS).setValue(''); shK.getRange(rowK2, COL.SPECS).setValue('');
+  };
+
+  // ۲۷.۱ کارِ شبانه جبران را در همان اجرا نمی‌کند؛ اجرای جدا را زمان‌بندی می‌کند.
+  reset();
+  let inline = 0;
+  const realBf = global.embSpecsBackfill_;
+  global.embSpecsBackfill_ = function () { inline++; return realBf.apply(null, arguments); };
+  const r1 = embNightly_({ cap: 3, budgetMs: 30000, selftest: false });
+  global.embSpecsBackfill_ = realBf;
+  ok('۲۷.۱ کارِ شبانه جبرانِ مشخصات را در اجرای خودش نمی‌کند',
+     inline === 0, 'جبران ' + inline + ' بار در اجرای شبانه صدا زده شد');
+  ok('۲۷.۱-ب و به‌جایش اجرای جدای خودش را زمان‌بندی می‌کند — و می‌گویدش',
+     trig() === 1 && r1.notes.some((n) => /اجرای جدای خودش/.test(String(n))),
+     'تریگر: ' + trig() + ' · ' + r1.notes.join(' | ').slice(0, 120));
+  ok('۲۷.۱-پ زمان‌بندی **پس از** ساخت است، نه پیش از آن',
+     (function () {
+       const src = fs.readFileSync('src/35_Embed.gs', 'utf8');
+       const b = src.slice(src.indexOf('function embNightly_(opts) {'), src.indexOf('function embSelfTestArm_('));
+       return b.indexOf('embRunDue_(') > 0 && b.indexOf('embSpecsArm_(') > b.indexOf('embRunDue_(');
+     })(), 'هم‌پوشانی با ساخت یعنی وضعیتِ ردیفی که ساخته می‌شود عوض شود');
+
+  // ۲۷.۲ یک بار در روز.
+  embNightly_({ cap: 3, budgetMs: 30000, selftest: false });
+  ok('۲۷.۲ اجرای دوم در همان روز دوباره زمان‌بندی نمی‌کند',
+     trig() === 1 && String(P[PK.EMB_SPECS_ARM]) === today + '|1', String(P[PK.EMB_SPECS_ARM]));
+
+  // ۲۷.۳ خودِ اجرای جدا کار را می‌کند، تریگرش را پاک می‌کند و شاهدش بسته می‌شود.
+  const n3 = embSpecsLater();
+  const runAt = JSON.parse(P[PK.RUN_AT] || '{}'), runLast = JSON.parse(P[PK.RUN_LAST] || '{}');
+  ok('۲۷.۳ اجرای جدا مشخصات را در بانک می‌نشاند',
+     String(shK.getRange(rowK1, COL.SPECS).getValue()).indexOf('01:11') !== -1 &&
+     String(shK.getRange(rowK2, COL.SPECS).getValue()).indexOf('02:22') !== -1, n3);
+  ok('۲۷.۳-ب تریگرِ یک‌باره‌اش را پاک کرده و شاهدِ اجرا بسته است',
+     trig() === 0 && !runAt.embSpecsLater && !!runLast.embSpecsLater,
+     JSON.stringify({ t: trig(), at: !!runAt.embSpecsLater, last: !!runLast.embSpecsLater }));
+
+  /* ۲۷.۴ کشته‌شدن میانِ دو تب، پیشرفتِ تبِ اول را نمی‌بَرد.
+     کُشتنِ شش‌دقیقه‌ای گرفتنی نیست؛ نزدیک‌ترین شکلش خطایی است که هیچ
+     `catch`ی نمی‌گیرد — `getLastRow`ِ تبِ دوم بیرونِ `try` است. با کدِ پیش از
+     ۸.۴۴ همین پرتاب پیش از نوشتنِ هر وصله و هر مکان‌نما بیرون می‌رفت. */
+  reset();
+  const keepLR = tB.getLastRow;
+  tB.getLastRow = function () { throw new Error('KILLED'); };
+  let died = '';
+  try { embSpecsBackfill_(500, 30000, hub); } catch (eK) { died = eK.message; }
+  tB.getLastRow = keepLR;
+  const cur4 = JSON.parse(P[PK.EMB_SPEC] || '{}');
+  ok('۲۷.۴ (پیش‌شرط) اجرا واقعاً وسطِ کار ایستاد', died === 'KILLED', died || 'نایستاد');
+  ok('۲۷.۴-ب مشخصاتِ تبِ اول پیش از مرگ در بانک نشسته بود',
+     String(shK.getRange(rowK1, COL.SPECS).getValue()).indexOf('01:11') !== -1,
+     'بی این، شبِ بعد همان کار از همان جا تکرار می‌شود — حلقه‌ای با شرطِ ثابت');
+  ok('۲۷.۴-پ و مکان‌نمای تبِ اول ثبت شده',
+     Number(cur4['k3|Video Analysis A']) >= 2, JSON.stringify(cur4));
+
+  /* ۲۷.۵ نوشتن فقط بازه‌ای را می‌خواند و می‌نویسد که دست می‌خورد، نه کلِ ستون. */
+  const calls = [];
+  const keepGR = shFin.getRange;
+  shFin.getRange = function (r, c, n, w) {
+    if (c === COL.SPECS) calls.push([r, n === undefined ? 1 : n]);
+    return keepGR.apply(shFin, arguments);
+  };
+  const keepCell = shFin.getRange(3, COL.SPECS).getValue();
+  calls.length = 0;
+  const wrote5 = embSpecsApply_(hub, { [shFin.getName()]: { 3: 'مشخصاتِ آزمونِ بازه' } });
+  shFin.getRange = keepGR;
+  ok('۲۷.۵ وصلهٔ یک‌ردیفی فقط همان یک ردیف را می‌خواند و می‌نویسد',
+     wrote5 === 1 && calls.length >= 2 && calls.every(([r, n]) => r === 3 && n === 1),
+     JSON.stringify(calls));
+  shFin.getRange(3, COL.SPECS).setValue(keepCell);
+
+  /* ۲۷.۶ قفلِ گرفته: کاری نمی‌کند و چند دقیقهٔ دیگر دوباره — تا سقفِ روز. */
+  reset();
+  const keepLock = global.LockService;
+  global.LockService = { getScriptLock: () => ({ tryLock: () => false, releaseLock() {} }) };
+  P[PK.EMB_SPECS_ARM] = today + '|1';
+  let bf6 = 0;
+  global.embSpecsBackfill_ = function () { bf6++; return realBf.apply(null, arguments); };
+  const n6 = embSpecsLater();
+  ok('۲۷.۶ قفلِ گرفته: هیچ خواندنی از منبع نمی‌شود', bf6 === 0, n6);
+  ok('۲۷.۶-ب و اجرای بعدی زمان‌بندی می‌شود، نه «امروز هیچ»',
+     trig() === 1 && String(P[PK.EMB_SPECS_ARM]) === today + '|2', String(P[PK.EMB_SPECS_ARM]));
+  P[PK.EMB_SPECS_ARM] = today + '|' + (Number(CFG.EMB_SPECS_LATER_MAX) || 3);
+  try { clearRetryTriggers_('embSpecsLater'); } catch (e) {}
+  const n6c = embSpecsLater();
+  ok('۲۷.۶-پ سرِ سقفِ روزانه دیگر خودش را نمی‌چرخاند', trig() === 0 && /امروز دیگر/.test(n6c), n6c);
+  global.embSpecsBackfill_ = realBf;
+  global.LockService = keepLock;
+
+  reset();
+  CFG.SOURCES = savedSrc3;
+}
+
 console.log('\n══ ۱۹) خاموشی ══');
 CFG.EMB_ON = false;
 ok('۱۹.۱ دور اجرا نمی‌شود', embRunDue_(5, 5000).made === 0);

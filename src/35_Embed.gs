@@ -848,21 +848,32 @@ function embHubKeyMap_(hub) {
  *
  * ۳. **در شیتِ منبع چیزی نمی‌نویسد.** فقط می‌خواند، مثلِ `syncCatalog`.
  */
-function embSpecsBackfill_(cap, budgetMs) {
-  var out = { ok: false, scanned: 0, filled: 0, tabs: 0, done: false, notes: [] };
+function embSpecsBackfill_(cap, budgetMs, hubIn) {
+  var out = { ok: false, scanned: 0, filled: 0, tabs: 0, done: false, commits: 0, notes: [] };
   var t0 = new Date().getTime();
   var deadline = t0 + Math.max(15000, budgetMs || Number(CFG.EMB_SPECS_MS) || 120000);
   cap = Math.max(100, cap || Number(CFG.EMB_SPECS_PER_RUN) || 4000);
 
   var hub, map;
-  try { hub = getHub_(); map = embHubKeyMap_(hub); }
+  try { hub = hubIn || getHub_(); map = embHubKeyMap_(hub); }
   catch (eM) { out.notes.push('نقشهٔ بانک ساخته نشد: ' + eM.message); return out; }
 
   var cursors = {};
   try { cursors = JSON.parse(props_().getProperty(PK.EMB_SPEC) || '{}') || {}; } catch (e0) {}
-  var patch = {};          // نامِ تب -> {ردیف: متن}
   var list = CFG.SOURCES || [];
   var allDone = true;
+
+  /* ══ هر تب جدا ثبت می‌شود، نه همه با هم در پایان (۸.۴۴) ══
+     تا ۸.۴۳ مکان‌نماها فقط در **آخرِ** تابع نوشته می‌شدند، پس از نوشتنِ همهٔ
+     وصله‌ها. اجرایی که هرجای این میان کشته شود — ۵ اکتبر شد — هیچ پیشرفتی
+     نگه نمی‌داشت و شبِ بعد **همان** خواندن‌ها را از **همان** جا تکرار می‌کرد:
+     یک حلقهٔ مرگ با یک شرطِ ثابت. ترتیب هنوز همان است — اول وصله در بانک،
+     بعد مکان‌نما — وگرنه ردیف‌هایی رد می‌شدند که مشخصاتشان هرگز ننشسته. */
+  function commit_(patch) {
+    out.filled += embSpecsApply_(hub, patch);
+    out.commits++;
+    try { props_().setProperty(PK.EMB_SPEC, JSON.stringify(cursors)); } catch (eP) {}
+  }
 
   for (var si = 0; si < list.length; si++) {
     if (new Date().getTime() > deadline || out.scanned >= cap) { allDone = false; break; }
@@ -891,6 +902,7 @@ function embSpecsBackfill_(cap, budgetMs) {
       if (m.fileId === undefined || m.fileId < 0) continue;
       var skip = srcSpecsSkip_(headers, m);
       out.tabs++;
+      var patch = {};          // نامِ تبِ بانک -> {ردیف: متن} — فقط برای همین تبِ منبع
 
       var blk = Math.max(5, Number(CFG.SYNC_CHUNK_WIDE) || 25);
       while (cur < last && out.scanned < cap) {
@@ -914,12 +926,11 @@ function embSpecsBackfill_(cap, budgetMs) {
         cur += n;
         cursors[ck] = cur;
       }
+      commit_(patch);
       if (cur < last) allDone = false;
     }
   }
 
-  out.filled = embSpecsApply_(hub, patch);
-  try { props_().setProperty(PK.EMB_SPEC, JSON.stringify(cursors)); } catch (eP) {}
   if (allDone) {
     out.done = true;
     try { props_().setProperty(PK.EMB_SPEC_DONE, nowStr_()); } catch (eD) {}
@@ -945,15 +956,29 @@ function embSpecsApply_(hub, patch) {
     if (!sh) continue;
     var last = sh.getLastRow();
     if (last < 2) continue;
+    /* ══ فقط بازه‌ای که دست می‌خورد (۸.۴۴) ══
+       تا ۸.۴۳ کلِ ستون — هزاران خانهٔ تا ۷۰۰ نویسه‌ای — خوانده و دوباره
+       نوشته می‌شد، حتی برای یک ردیف. هزینه‌اش با اندازهٔ تب بالا می‌رفت، نه با
+       کار؛ و این نوشتن بیرونِ مهلت بود. حالا از کوچک‌ترین تا بزرگ‌ترین ردیفِ
+       وصله: ردیف‌های یک تبِ منبع در بانک پشتِ‌هم‌اند، پس بازه کوتاه است. */
+    var rows = [];
+    for (var rk in patch[tab]) {
+      if (!Object.prototype.hasOwnProperty.call(patch[tab], rk)) continue;
+      var rn = Number(rk);
+      if (rn >= 2 && rn <= last) rows.push(rn);
+    }
+    if (!rows.length) continue;
+    var lo = rows[0], hi = rows[0];
+    for (var q = 1; q < rows.length; q++) { if (rows[q] < lo) lo = rows[q]; if (rows[q] > hi) hi = rows[q]; }
     var cur, st;
     try {
-      cur = sh.getRange(2, COL.SPECS, last - 1, 1).getValues();
-      st = sh.getRange(2, COL.EMB_ST, last - 1, 1).getValues();
+      cur = sh.getRange(lo, COL.SPECS, hi - lo + 1, 1).getValues();
+      st = sh.getRange(lo, COL.EMB_ST, hi - lo + 1, 1).getValues();
     } catch (e) { continue; }
     var changed = false;
     for (var row in patch[tab]) {
       if (!Object.prototype.hasOwnProperty.call(patch[tab], row)) continue;
-      var i = Number(row) - 2;
+      var i = Number(row) - lo;
       if (i < 0 || i >= cur.length) continue;
       if (String(cur[i][0] || '') === String(patch[tab][row])) continue;
       cur[i][0] = patch[tab][row];
@@ -964,8 +989,8 @@ function embSpecsApply_(hub, patch) {
     }
     if (!changed) continue;
     try {
-      sh.getRange(2, COL.SPECS, cur.length, 1).setValues(cur);
-      sh.getRange(2, COL.EMB_ST, st.length, 1).setValues(st);
+      sh.getRange(lo, COL.SPECS, cur.length, 1).setValues(cur);
+      sh.getRange(lo, COL.EMB_ST, st.length, 1).setValues(st);
     } catch (eW) { logLine_('نوشتنِ مشخصات در «' + tab + '» ناموفق: ' + eW.message); }
   }
   return wrote;
@@ -1495,10 +1520,18 @@ function embNightly_(opts) {
      ترتیب عمدی است: اگر بردارِ یک ردیف پیش از رسیدنِ مشخصاتش ساخته شود،
      همان ردیف فردا دوباره ساخته می‌شود — دو بار هزینه برای یک ردیف. و
      وقتی دورِ جبران تمام شد، این بند خودش کنار می‌رود. */
+  /* ══ …ولی نه در همین اجرا، مگر صریح خواسته شود (۸.۴۴) ══
+     ۵ اکتبر کارِ شبانه داخلِ همین جبران کشته شد و هرچه پس از اثر انگشت بود
+     آن شب اجرا نشد. جبران پنج شیتِ منبعِ چندده‌مگابایتی را باز می‌کند و
+     بخشی از خواندن‌هایش بیرونِ مهلت است؛ جایش اجرای جدای خودش است
+     (`embSpecsLater`، با قفل، پس از ساختِ امشب — پس هرگز هم‌زمان با ساخت
+     وضعیتِ همان ردیف‌ها را عوض نمی‌کند). هزینه‌اش این است که ردیفی که امشب
+     ساخته شد و فردا مشخصات گرفت، یک بار دیگر ساخته می‌شود — همان قراری که
+     `embSpecsApply_` از روزِ اول داشت. */
   var sp = null;
-  if (opts.specs !== false && !embSpecsDone_()) {
+  if (opts.specs === true && !embSpecsDone_()) {
     embStep_('جبرانِ مشخصات');
-    try { sp = embSpecsBackfill_(opts.specsCap, opts.specsMs); }
+    try { sp = embSpecsBackfill_(opts.specsCap, opts.specsMs, hub); }
     catch (eSp) { out.notes.push('جبرانِ مشخصات ناموفق: ' + eSp.message); }
     if (sp && sp.filled) {
       out.notes.push('مشخصاتِ ' + sp.filled + ' ردیف از منبع خوانده شد.');
@@ -1519,7 +1552,14 @@ function embNightly_(opts) {
   embStep_('ساختِ بردارها');
   var run = embRunDue_(opts.cap, opts.budgetMs);
   out.made = run.made; out.failed = run.failed; out.left = run.left;
-  out.notes = run.notes.slice(0);
+  out.notes = out.notes.concat(run.notes);
+
+  // پس از ساخت، نه پیش از آن: اجرای جدا نباید با ساختِ امشب هم‌پوشانی کند.
+  if (opts.specs !== false && opts.specs !== true && !embSpecsDone_()) {
+    var armed = false;
+    try { armed = embSpecsArm_(); } catch (eSa) { out.notes.push('جبرانِ مشخصات زمان‌بندی نشد: ' + eSa.message); }
+    if (armed) out.notes.push('جبرانِ «مشخصات» چند دقیقهٔ دیگر در اجرای جدای خودش.');
+  }
 
   /* ══ شاهد **پیش از** کارِ اختیاری (۷٫۶۴ — قاعدهٔ ۷٫۴۴) ══
      تا امروز این مُهر **پس از** خودآزمون نوشته می‌شد، و خودآزمون یک
@@ -1649,6 +1689,70 @@ function embSelfTestLater() {
                      total: st.total, pct: st.pct, self: note, note: '' });
     } catch (eG) { note += ' · دروازه‌ها: ' + eG.message; }
   } finally { runExit_('embSelfTestLater', note); }
+  return note;
+}
+
+/**
+ * جبرانِ «مشخصات» را به اجرای یک‌بارهٔ خودش می‌سپارد (۸.۴۴).
+ *
+ * سقفِ روزانه همان درسِ `busyRetry_` است: ردِ پیاپیِ قفل نباید یک تریگر را
+ * تا ابد بچرخاند. شمارنده «روز|بار» است و نخستین زمان‌بندیِ هر روز یکی از
+ * همان بارهاست، پس سقف شاملِ تلاش‌های دوبارهٔ قفل هم می‌شود.
+ */
+function embSpecsArm_(retry) {
+  if (embSpecsDone_()) return false;
+  var today = String(nowStr_()).slice(0, 10);
+  var parts = String(props_().getProperty(PK.EMB_SPECS_ARM) || '').split('|');
+  var n = parts[0] === today ? (Number(parts[1]) || 0) : 0;
+  if (!retry && n > 0) return false;                       // امروز یک بار زمان‌بندی شد
+  if (n >= Math.max(1, Number(CFG.EMB_SPECS_LATER_MAX) || 3)) return false;
+  clearRetryTriggers_('embSpecsLater');
+  var mins = retry ? Math.max(2, Number(CFG.BUSY_RETRY_MIN) || 7)
+                   : Math.max(1, Number(CFG.EMB_SPECS_LATER_MIN) || 40);
+  ScriptApp.newTrigger('embSpecsLater').timeBased().after(mins * 60000).create();
+  props_().setProperty(PK.EMB_SPECS_ARM, today + '|' + (n + 1));
+  return true;
+}
+
+/**
+ * اجرای یک‌بارهٔ جبرانِ «مشخصات» — نامِ جدا، تا پاک‌کردنش به تریگرِ دیگری
+ * نخورد، و شاهدِ `runEnter_`/`runExit_` تا اگر کشته شد، فردا به نام گفته شود.
+ *
+ * **قفل می‌گیرد** چون در ستون‌های بانک می‌نویسد و `syncCatalog` هم در همان
+ * تب‌ها ردیف می‌افزاید. قفلِ گرفته یعنی چند دقیقهٔ دیگر، نه امروز هیچ.
+ */
+function embSpecsLater() {
+  runEnter_('embSpecsLater');
+  var note = '', lock = null;
+  try {
+    try { clearRetryTriggers_('embSpecsLater'); } catch (e0) {}
+    if (embSpecsDone_()) { note = 'جبران از قبل تمام شده'; return note; }
+    lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) {
+      lock = null;
+      var again = false;
+      try { again = embSpecsArm_(true); } catch (eA) {}
+      note = 'قفل گرفته بود — ' + (again ? 'چند دقیقهٔ دیگر دوباره' : 'امروز دیگر تلاش نمی‌شود');
+      try { logLine_('جبرانِ مشخصات: ' + note + '.'); } catch (eL) {}
+      return note;
+    }
+    embStep_('جبرانِ مشخصات (اجرای جدا)');
+    var hub = getHub_();
+    var sp = embSpecsBackfill_(Number(CFG.EMB_SPECS_PER_RUN) || 4000,
+                               Number(CFG.EMB_SPECS_LATER_MS) || 180000, hub);
+    note = (sp.ok ? (faDigitsOut_(String(sp.scanned)) + ' ردیفِ منبع خوانده شد · مشخصاتِ ' +
+                     faDigitsOut_(String(sp.filled)) + ' ردیف نشست' +
+                     (sp.done ? ' · جبران تمام شد' : ''))
+                  : ('ناموفق: ' + (sp.notes || []).join(' · ')));
+    try {
+      embLog_(hub, { step: 'جبرانِ مشخصات', scanned: sp.scanned || 0, made: 0, failed: 0,
+                     done: 0, total: 0, pct: null, self: '', note: note });
+    } catch (eLg) {}
+    embStep_('پایان');
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (eR) {} }
+    runExit_('embSpecsLater', note);
+  }
   return note;
 }
 
