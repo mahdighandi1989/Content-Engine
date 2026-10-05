@@ -4417,6 +4417,22 @@ console.log('=== ۶۵) ظاهرِ درس را مدل انتخاب می‌کند�
   ok('۶۵.۹ انتخابِ ظاهر در طرحِ قسمت نوشته می‌شود',
      /look:\s*\(function/.test(src27) && src27.indexOf('plan.look') !== -1,
      'ثبت در ytPlan_ و خواندن از plan.look');
+
+  /* ۶۵.۱۰ — در حالتِ صحنه «سطح» ضرباهنگ است، نه شمارِ کارت (۸.۴۷). تا ۸.۴۶ مدل
+     دربارهٔ کارت‌هایی تصمیم می‌گرفت که از ۸.۳۱ ساخته نمی‌شوند؛ و «درس یا داستان»
+     را از متن بسنجد تا برای قصه سبکِ روایی بردارد. بیرونِ حالتِ صحنه، همان قبلی. */
+  const mkLook = (sm) => ytMetaPrompt_({ show: (CFG.LV_SHOWS || ['special'])[0], showName: 'درس‌نامه',
+                                         epNum: '9', seriesName: 'داستان‌های کوتاه', totalSec: 900,
+                                         sceneMode: sm, sections: [{ heading: 'ب', narration: 'م' }] });
+  const prSc = mkLook(true), prCd = mkLook(false);
+  ok('۶۵.۱۰ حالتِ صحنه ⇒ سطح = ضرباهنگِ صحنه (با ثانیه‌های خودِ کد) و «درس یا داستان» از متن',
+     prSc.indexOf('هر ~' + lvSceneSec_('زیاد') + ' ثانیه') !== -1 &&
+     prSc.indexOf('هر ~' + lvSceneSec_('کم') + ' ثانیه') !== -1 &&
+     prSc.indexOf('برای هر کارت یک تصویرِ ساخته‌شده') === -1 &&
+     /درس است یا داستان/.test(prSc) && /درس است یا داستان/.test(prCd) &&
+     /اگر داستان، حکایت، زندگی‌نامه یا روایتِ تاریخی است، سبکی را بردار/.test(prSc) &&
+     prCd.indexOf('برای هر کارت یک تصویرِ ساخته‌شده') !== -1 && prCd.indexOf('ثانیه یک صحنهٔ تازه') === -1,
+     'صحنه ' + prSc.length + ' · کارت ' + prCd.length);
 }
 
 console.log('=== ۶۶) خانه‌هایی که سوئیپِ دیروز منجمدشان کرده بود (۸٫۱۹) ===');
@@ -6080,6 +6096,128 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
          b.v === CFG.LV_TEXT_DEFAULT && /خالی/.test(b.src) && /ناشناخته/.test(c.src),
          JSON.stringify([a, b, c]));
     } else ok('۷۱.۱۴-پیش (رجیستری ردیفی ندارد — سنجه ممکن نیست)', false);
+  }
+
+  /* ══ ۷۱.۱۵ تا ۷۱.۲۰ — «درس است» فرض بود، نه تشخیص (۸.۴۷) ══
+     او پرسید: اگر خودکار باشد و جای درس یک داستان گفته شود، می‌فهمد دیگر درس
+     نیست که روی عکس «نکته» بنویسد؟ تا ۸.۴۶ نه: پرامپت می‌گفت «صدای ویدئو یک درس
+     است» و سدِ نوشته فقط **سهم** را می‌دید، نه **جنس** را. همه از درِ خودِ
+     `lvScenesBuild_`، با تخته‌ای که «خودکار» و «زیاد» دارد. */
+  const storyStub = (cnt, opt) => {
+    const base = sceneStub(cnt);
+    const kinds = ['points', 'compare', 'steps', 'headline', 'quote', 'points', 'steps', 'headline', 'compare', 'quote'];
+    return function (url, body) {
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      if (sc && sc.properties && sc.properties.scenes) {
+        const pr = body.contents[0].parts[0].text;
+        cnt.plan++; cnt.prompts.push(pr);
+        cnt.schemaNature = !!(sc.properties.nature && sc.properties.scenes.items.properties.beat);
+        const ns = []; const re = /^\[(\d+)\]/mg; let m;
+        while ((m = re.exec(pr))) ns.push(m[1]);
+        const second = cnt.plan > 1;
+        // پرسشِ اول دو صحنهٔ آخر را جا می‌اندازد، تا پرسشِ دوم لازم شود
+        const pick = (opt.drop && !second) ? ns.slice(0, ns.length - 2) : ns;
+        const ov = (n, i) => {
+          const k = kinds[i % kinds.length];
+          if (k === 'compare') return { ov: k, ovA: 'پیش', ovB: 'پس', ovLines: ['حال: شاد | غمگین'] };
+          if (k === 'points') return { ov: k, ovTitle: 'نکته‌ها', ovLines: ['یکم ' + n, 'دوم ' + n] };
+          if (k === 'steps') return { ov: k, ovLines: ['رفت', 'دید', 'برگشت'] };
+          return { ov: k, ovTitle: 'یک شبِ زمستانی ' + n };
+        };
+        const r = { nature: second ? (opt.nature2 || '') : opt.nature, cast: 'an old woman in a grey shawl',
+                    cover: 'a dark road at night',
+                    scenes: pick.map((n, i) => Object.assign(
+                      { n: n, beat: opt.beat(Number(n)), scene: 'a girl gives up her seat in a taxi number ' + n,
+                        caption: '' }, ov(n, i))) };
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+      }
+      if (sc && sc.properties && sc.properties.items && JSON.stringify(body).indexOf('inlineData') !== -1) {
+        cnt.judge++;
+        const items = [];
+        body.contents[0].parts.forEach(p => { const m = /^تصویرِ (\d+)/.exec(p.text || ''); if (m) items.push(m[1]); });
+        cnt.judgeText = JSON.stringify(body.contents[0].parts[0].text || '');
+        const r = { items: items.map(n => ({ n: n, score: '8', hasText: 'خیر', realFace: 'خیر', why: 'خوب', space: 'left' })) };
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
+      }
+      return base(url, body);
+    };
+  };
+  const runStory = (id, ep, opt, ctxOver) => {
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    global.__STUB = storyStub(cnt, opt);
+    const E = mkEp71(id, 'قسمت ' + ep + ' — قصه');
+    const ctx = Object.assign({ show: 'special', epRaw: ep, title: 'صندلیِ تاکسی', seriesName: 'داستان‌های کوتاه',
+                                sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم',
+                                textLevel: 'خودکار', textShare: CFG.LV_TEXT_SHARE['خودکار'] }, ctxOver || {});
+    let r = null;
+    for (let i = 0; i < 8; i++) { r = lvScenesBuild_(E.f, E.meta, {}, ctx); if (r.done || r.fallback) break; }
+    global.__STUB = BASE_STUB;
+    return { r: r, d: lvSceneRead_(E.f), cnt: cnt, ctx: ctx };
+  };
+  const LIST = ['points', 'compare', 'steps'];
+  {
+    /* ۷۱.۱۵ — داستان: هیچ صحنهٔ «روایت» فهرست و جدول و گام نمی‌گیرد — حتی
+       وقتی مدل خودش داد. سد در کد است، نه در امیدِ پرامپت. */
+    const S = runStory('EP71ST', '0311', { nature: 'داستان', beat: () => 'روایت' });
+    const d = S.d, withOv = d.scenes.filter(x => x.ov);
+    const p0 = S.cnt.prompts[0] || '';
+    ok('۷۱.۱۵ داستان ⇒ روی هیچ صحنهٔ روایت «نکته»، جدول یا گام نمی‌نشیند؛ کنارگذاشته‌ها شمرده می‌شوند',
+       S.r && S.r.done && d.nature === 'داستان' && Number(d.ovGenre) >= 1 &&
+       withOv.every(x => LIST.indexOf(x.ov.kind) === -1) &&
+       S.r.info.nature === 'داستان' && S.r.info.ovGenre === d.ovGenre && S.r.info.beats === d.scenes.length &&
+       S.cnt.schemaNature && /`nature`/.test(p0) && /«روایت»/.test(p0) && !/صدای ویدئو یک درس است/.test(p0),
+       JSON.stringify({ nature: d.nature, ovGenre: d.ovGenre, kinds: withOv.map(x => x.ov.kind), info: S.r && S.r.info }));
+    /* ۷۱.۱۶ — «خودکار» برای قصه سهمِ کمتر می‌گیرد، از جدولِ خودش — نه ۴۵٪ِ درس. */
+    const capS = Math.round(d.scenes.length * CFG.LV_TEXT_AUTO['داستان']);
+    ok('۷۱.۱۶ تختهٔ «خودکار» + داستان ⇒ سهمِ نوشتهٔ قصه، نه سهمِ درس',
+       d.ovShare === CFG.LV_TEXT_AUTO['داستان'] && CFG.LV_TEXT_AUTO['داستان'] < CFG.LV_TEXT_SHARE['خودکار'] &&
+       withOv.length <= capS,
+       'سهم ' + d.ovShare + ' · نوشته‌دار ' + withOv.length + ' از ' + d.scenes.length + ' · سقف ' + capS);
+    /* ۷۱.۱۶-ب — ولی سهمی که آدم روی تخته **نوشته** دست نمی‌خورد: «زیاد» زیاد
+       می‌مانَد. فقط **جنس** عوض می‌شود (سدِ ۷۱.۱۵)، نه **مقدار**. */
+    const H = runStory('EP71SH', '0312', { nature: 'داستان', beat: () => 'روایت' },
+                       { textLevel: 'زیاد', textShare: CFG.LV_TEXT_SHARE['زیاد'] });
+    ok('۷۱.۱۶-ب سهمِ دستیِ تخته («زیاد») با داستان هم همان می‌مانَد؛ فقط فهرست و جدول نمی‌گیرد',
+       H.d.ovShare === CFG.LV_TEXT_SHARE['زیاد'] && H.d.scenes.filter(x => x.ov).every(x => LIST.indexOf(x.ov.kind) === -1),
+       'سهم ' + H.d.ovShare + ' · ' + H.d.scenes.filter(x => x.ov).map(x => x.ov.kind).join(' '));
+    /* ۷۱.۱۷ — آمیخته: صحنهٔ «ایده» فهرستش را نگه می‌دارد و «روایت» نه. یعنی سد
+       جنسِ **هر صحنه** را می‌سنجد، نه یک برچسبِ کلی را. */
+    const M = runStory('EP71SM', '0313', { nature: 'آمیخته', beat: n => (n % 2 ? 'ایده' : 'روایت') },
+                       { textLevel: 'زیاد', textShare: 1 });
+    const mOv = M.d.scenes.filter(x => x.ov);
+    ok('۷۱.۱۷ آمیخته ⇒ «ایده» فهرست می‌گیرد، «روایت» نه',
+       M.d.nature === 'آمیخته' &&
+       mOv.some(x => x.beat === 'ایده' && LIST.indexOf(x.ov.kind) !== -1) &&
+       M.d.scenes.filter(x => x.beat === 'روایت' && x.ov).every(x => LIST.indexOf(x.ov.kind) === -1),
+       mOv.map(x => x.n + ':' + x.beat + ':' + x.ov.kind).join(' '));
+    /* ۷۱.۱۸ — پرسشِ دوم فقط چند صحنه را می‌بیند؛ ماهیتِ کل را از پرسشِ اول می‌گیرد،
+       و اگر خودش چیز دیگری بگوید تشخیصِ اول می‌مانَد. */
+    const D = runStory('EP71SD', '0314', { nature: 'داستان', nature2: 'درس', drop: true, beat: () => 'روایت' });
+    const p2 = D.cnt.prompts[1] || '';
+    ok('۷۱.۱۸ پرسشِ دوم ماهیتِ تشخیص‌داده‌شده را می‌شنود و تشخیصِ اول می‌مانَد',
+       D.cnt.plan === 2 && /از پیش تشخیص داده شده: «داستان»/.test(p2) && !/`nature`\):/.test(p2) &&
+       D.d.nature === 'داستان' && D.d.scenes.every(x => x.beat === 'روایت') &&
+       D.d.scenes.filter(x => x.ov).every(x => LIST.indexOf(x.ov.kind) === -1),
+       JSON.stringify({ plan: D.cnt.plan, nature: D.d.nature, beats: D.d.scenes.map(x => x.beat).join(','),
+                        head: p2.slice(0, 300) }));
+    /* ۷۱.۱۹ — تخته به تصویر می‌رسد: سبکِ دستیِ مجموعه زبانِ هنریِ **هر** تصویر
+       است، و سطحِ «زیاد» ضرباهنگِ صحنه‌ها. داستان این را عوض نمی‌کند. */
+    const fs = lvSceneArt_('چاپِ قدیمی');
+    const P = runStory('EP71SP', '0315', { nature: 'داستان', beat: () => 'روایت' }, { style: 'چاپِ قدیمی' });
+    ok('۷۱.۱۹ سبکِ دستیِ تخته در همهٔ تصویرها و سطحِ «زیاد» در ضرباهنگ — با داستان هم',
+       P.d.style === 'چاپِ قدیمی' && P.d.art === fs.art && P.d.target === lvSceneSec_('زیاد') &&
+       P.cnt.imgPrompts.length > 0 && P.cnt.imgPrompts.every(x => x.indexOf('engraving') !== -1) &&
+       (P.cnt.prompts[0] || '').indexOf(fs.art) !== -1,
+       JSON.stringify({ style: P.d.style, target: P.d.target, imgs: P.cnt.imgPrompts.length }));
+    /* ۷۱.۲۰ — نشناختن ⇒ همان رفتارِ درس (۸.۴۶)؛ داور هم «لحظهٔ ماجرا» را می‌شناسد. */
+    ok('۷۱.۲۰ ماهیت/ضربِ ناشناخته ⇒ رفتارِ درس؛ داور لحظهٔ ماجرا را هم می‌سنجد',
+       lvSceneNature_('قصه') === 'داستان' && lvSceneNature_('Story') === 'داستان' &&
+       lvSceneNature_('چیزی') === '' && lvSceneBeat_('narrative') === 'روایت' && lvSceneBeat_('؟') === '' &&
+       lvSceneTextShare_('خودکار', 0.45, '') === CFG.LV_TEXT_AUTO['درس'] &&
+       lvSceneTextShare_('کم', 0.25, 'داستان') === 0.25 &&
+       lvSceneOvGenre_([{ beat: '', ov: { kind: 'points' } }], '') === 0 &&
+       /لحظهٔ ماجرا/.test(S.cnt.judgeText || ''),
+       JSON.stringify({ judge: (S.cnt.judgeText || '').slice(0, 120) }));
   }
 
   if (genWas.on === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas.on;
