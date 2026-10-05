@@ -6343,4 +6343,74 @@ console.log('\n=== ۷۴) ویدئوی گیرکرده: بازسنجی واقعا�
   CFG.YT_THUMB = thumbWas; CFG.YT_QUOTA_UNITS = unitsWas;
 }
 
+console.log('\n=== ۷۵) ویدئوی تأییدشده جلوِ صف است، و درِ دوم دارد (۸.۴۶) ===');
+{
+  /* درسِ ۳۸ (special:60) را صاحبِ برنامه دید و خواست عمومی شود. بازسنجیِ شبانه
+     سقفِ سه دارد و «قدیمی‌ترین اول» می‌رود، و سه ویدئوی قدیمی‌تر به علتِ دیگری
+     Unlisted مانده‌اند — پس ویدئوی تأییدشدهٔ تازه هرگز نوبت نمی‌گرفت. این بند
+     همان حالت را می‌سازد: ردیف‌های گیرکردهٔ §۷۴ (۷۶ و ۷۷) سرِ جایشان‌اند و سه
+     ویدئوی دیگر هم پیش از ویدئوی تأییدشده ثبت می‌شوند. */
+  const hub = getHub_();
+  const thumbWas = CFG.YT_THUMB, unitsWas = CFG.YT_QUOTA_UNITS, maxWas = CFG.YT_REDO_MAX_PER_NIGHT;
+  CFG.YT_THUMB = false; CFG.YT_QUOTA_UNITS = 1e9; CFG.YT_REDO_MAX_PER_NIGHT = 3;
+  const folders = {};
+  const mkEp = (n) => {
+    const f = DriveApp.__register('EPA' + n, 'درس 00' + n);
+    f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 8, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'استنتاج', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: 'ب'.repeat(200) }] } }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob(JSON.stringify({ at: '2026-10-01 05:00', show: 'special', ep: String(n),
+      title: 'عنوانِ ' + n, description: 'کپشنِ پاک', tags: ['معرفت'], coverTitle: 'ک', coverKicker: 'ک',
+      chapters: 3, visuals: [] }), 'application/json', CFG.YT_PLAN_FILE || '_yt.json'));
+    ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: String(n), series: 'معرفت‌شناسی', title: 'عنوانِ ' + n,
+                  videoId: 'VID' + n, url: 'https://www.youtube.com/watch?v=VID' + n,
+                  privacy: 'unlisted', result: 'منتشر نشد (وارسی)' });
+    folders[String(n)] = f;
+  };
+  const calls = { pub: [] };
+  global.YouTube = {
+    Videos: { update: (b) => { if (b.status && b.status.privacyStatus === 'public') calls.pub.push(b.id); } },
+    Thumbnails: { set() {} }, Channels: { list: () => ({ items: [] }) },
+    PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
+  const folderWas = global.ytFolderOf_;
+  global.ytFolderOf_ = (show, ep) => (String(show) === 'special' ? folders[String(ep)] || null : null);
+  const keepA = YT_APPROVED_;
+  delete global.__PROPS[PK.YT_APPR_DONE];
+
+  [81, 82, 83, 84].forEach(mkEp);
+  YT_APPROVED_ = { 'special:84': true };
+  const night = ytRedoStuckNightly_(120000);
+  ok('۷۵.۱ ویدئوی تأییدشده با وجودِ پنج ویدئوی گیرکردهٔ قدیمی‌تر همان شب نوبت می‌گیرد و عمومی می‌شود',
+     calls.pub.indexOf('VID84') !== -1 && ytApprDone_().indexOf('special:84') !== -1,
+     JSON.stringify({ pub: calls.pub, checked: night.checked, done: ytApprDone_() }));
+
+  /* درِ دوم: کارِ شبانه به یوتیوب نرسید — دورِ دوره‌ای همان را عمومی می‌کند. */
+  mkEp(85);
+  /* ۹۹ ردیف دارد ولی ویدئو نه (آپلودِ شکست‌خورده): سد این‌جاست، نه نبودِ ردیف. */
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '99', series: 'معرفت‌شناسی', title: 'عنوانِ 99',
+                videoId: '', url: '', privacy: '', result: 'نشد: quotaExceeded' });
+  YT_APPROVED_ = { 'special:84': true, 'special:85': true, 'special:99': true };
+  const hubWas = global.getHub_;
+  let hubs = 0;
+  global.getHub_ = function () { hubs++; return hubWas.apply(this, arguments); };
+  const r1 = ytApprovedRedo_(120000);
+  const hubs1 = hubs; hubs = 0;
+  ok('۷۵.۲ درِ دوم ویدئوی تأییدشدهٔ Unlisted را عمومی می‌کند؛ کلیدِ بی‌ویدئو (۹۹) نه سنجیده می‌شود نه «انجام» ثبت',
+     calls.pub.indexOf('VID85') !== -1 && r1.cleared === 1 && r1.checked === 1 &&
+     ytApprDone_().indexOf('special:85') !== -1 && ytApprDone_().indexOf('special:99') === -1,
+     JSON.stringify({ r1, done: ytApprDone_() }));
+
+  /* و ارزان است: وقتی هر کلیدِ تأییدشده یا عمومی شده یا هنوز ویدئو ندارد،
+     هاب فقط برای همان کلیدِ بی‌ویدئو باز می‌شود — و بی هیچ کلیدِ باز، هرگز. */
+  YT_APPROVED_ = { 'special:84': true, 'special:85': true };
+  const r2 = ytApprovedRedo_(120000);
+  ok('۷۵.۳ همهٔ کلیدهای تأییدشده عمومی شده‌اند ⇒ هاب باز نمی‌شود و چیزی سنجیده نمی‌شود',
+     hubs === 0 && r2.checked === 0, 'هاب ' + hubs + ' · سنجیده ' + r2.checked + ' (پیش‌تر ' + hubs1 + ')');
+  global.getHub_ = hubWas;
+
+  YT_APPROVED_ = keepA;
+  global.ytFolderOf_ = folderWas; delete global.YouTube;
+  CFG.YT_THUMB = thumbWas; CFG.YT_QUOTA_UNITS = unitsWas; CFG.YT_REDO_MAX_PER_NIGHT = maxWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

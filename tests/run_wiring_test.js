@@ -624,4 +624,35 @@ console.log('\n=== ۱۴) فراخوانِ نامی که هیچ‌جا تعریف
   ok('۱۴.۲ الگو همان خطِ `daysSince_` را می‌گیرد', !!pm && pm[2] === 'daysSince_');
 }
 
+console.log('\n=== ۱۵) دستوری که از اندازه بگذرد خوانده نمی‌شود (۸.۴۶) ===');
+{
+  /* نسخهٔ ۹۲ِ دستورِ ناظر ۳۶۰ کیلوبایت بود و ۲۵۸ کیلوبایتش یادداشتِ تغییرِ هشتاد
+     نسخهٔ گذشته. ۴ و ۵ اکتبر روتین آن را کامل نخواند («بدنهٔ اجرایی‌اش را کامل
+     نخواندم»)، یک دقیقه کار کرد و `_REPORT` ننوشت — و تنها جایی که این را گفت
+     ایمیلی بود که کسی با «ناظر کار می‌کند» اشتباهش می‌گرفت. هیچ سنجه‌ای
+     اندازه را نمی‌پرسید، چون هر نسخه فقط **چند خط** اضافه می‌کرد. سقف از جنسِ
+     خواننده است، نه دیسک: آنچه یک اجرای روتین واقعاً تا آخر می‌خوانَد. */
+  const fs = require('fs');
+  const MAX = 160000;
+  const dir = 'docs/prompts';
+  const fams = {};
+  for (const f of fs.readdirSync(dir)) {
+    const m = /^_PROMPT-([a-z]+)-v(\d+)\.md$/.exec(f);
+    if (!m) continue;
+    if (!fams[m[1]] || Number(m[2]) > fams[m[1]].n) fams[m[1]] = { n: Number(m[2]), f };
+  }
+  const big = Object.keys(fams).map(k => ({ k, f: fams[k].f, b: fs.statSync(dir + '/' + fams[k].f).size }))
+    .filter(x => x.b > MAX);
+  ok('۱۵.۱ تازه‌ترین دستورِ هر خانواده زیرِ ' + MAX + ' بایت است',
+     Object.keys(fams).length >= 2 && big.length === 0,
+     Object.keys(fams).map(k => fams[k].f + '=' + fs.statSync(dir + '/' + fams[k].f).size).join(' · '));
+  const mon = fs.readFileSync(dir + '/' + fams.monitor.f, 'utf8');
+  ok('۱۵.۲ دستورِ ناظر جای تاریخچه را نام می‌برد و آن فایل هست',
+     mon.indexOf('docs/prompts/monitor_history.md') !== -1 && fs.existsSync(dir + '/monitor_history.md'));
+  /* کارِ روزانه نباید پشتِ یادداشت‌ها گم شود: همان علتِ ۹۲. شمارِ یادداشت‌های
+     «تغییرِ نسخه» در دستور محدود است؛ بقیه به تاریخچه می‌روند. */
+  const notes = (mon.match(/══ تغییرِ نسخهٔ/g) || []).length;
+  ok('۱۵.۳ دستورِ ناظر حداکثر پنج یادداشتِ «تغییرِ نسخه» دارد', notes >= 1 && notes <= 5, 'یادداشت ' + notes);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

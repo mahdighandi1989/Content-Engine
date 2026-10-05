@@ -5595,6 +5595,68 @@ function ytApproved_() {
   return out;
 }
 
+/** همان `ytApproved_`، بی پرتاب — ترتیب‌دادن نباید به خواندنِ فایلی از گیت‌هاب بند باشد. */
+function ytApprovedSafe_() {
+  try { return ytApproved_() || {}; } catch (e) { return {}; }
+}
+
+/** کلیدهای تأییدشده‌ای که عمومی شده‌اند (۸.۴۶) — تا درِ دوم هر ساعت سراغشان نرود. */
+function ytApprDone_() {
+  try {
+    var v = JSON.parse(props_().getProperty(PK.YT_APPR_DONE) || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch (e) { return []; }
+}
+function ytApprDoneAdd_(key) {
+  try {
+    var v = ytApprDone_();
+    if (v.indexOf(String(key)) === -1) v.push(String(key));
+    props_().setProperty(PK.YT_APPR_DONE, JSON.stringify(v.slice(-200)));
+  } catch (e) {}
+}
+
+/**
+ * درِ دومِ ویدئوی تأییدشده (۸.۴۶). تنها راهِ عمومی‌شدنِ ویدئوی Unlistedِ منتشرشده
+ * `ytRedoStuckNightly_` بود — در کارِ شبانه، پشتِ `ytLeft()`. شبی که کارِ شبانه
+ * پیش از بلوکِ یوتیوب بمیرد (۴ و ۵ اکتبر هر دو مردند)، ویدئویی که صاحبِ برنامه
+ * خواسته عمومی شود یک روزِ دیگر Unlisted می‌مانَد. ۷٫۴۶ همین را نوشت: درمان
+ * روی راهی که پیموده نمی‌شود.
+ *
+ * ارزان است چون **کم‌کار** است: یک خواندنِ فایلِ کوچکِ گیت‌هاب، و هاب فقط وقتی
+ * باز می‌شود که کلیدِ تأییدشده‌ای هست که هنوز «عمومی شد» ثبت نشده — یعنی فقط
+ * میانِ تأیید و انتشار، نه هر ساعت برای همیشه.
+ */
+function ytApprovedRedo_(budgetMs) {
+  var out = { checked: 0, cleared: 0, why: [] };
+  if (!ytOn_()) return out;
+  var appr = ytApprovedSafe_(), done = ytApprDone_(), want = [];
+  for (var k in appr) {
+    if (Object.prototype.hasOwnProperty.call(appr, k) && done.indexOf(k) === -1) want.push(k);
+  }
+  if (!want.length) return out;
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 60000);
+  var pub = ytPublished_(getHub_());
+  var fin = CFG.YT_PRIVACY_FINAL || 'public';
+  for (var i = 0; i < want.length && out.checked < 2; i++) {
+    var r = pub[want[i]];
+    if (!r || !r.videoId) continue;              // هنوز منتشر نشده: راهِ آپلود خودش سد را می‌پرسد
+    if (String(r.privacy || '') === fin) { ytApprDoneAdd_(want[i]); continue; }
+    if (new Date().getTime() - t0 > budget) break;
+    out.checked++;
+    var parts = want[i].split(':');
+    try {
+      var res = ytRedoOne_(parts[0], parts.slice(1).join(':'), {});
+      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) { out.cleared++; ytApprDoneAdd_(want[i]); }
+      else out.why.push(want[i] + ': ' + String(res.why || 'عمومی نشد، بی علتِ ثبت‌شده').slice(0, 160));
+    } catch (e) { out.why.push(want[i] + ': ' + String(e.message).slice(0, 120)); }
+  }
+  if (out.checked) {
+    logLine_('یوتیوب — ویدئوی تأییدشده: ' + out.checked + ' سنجیده شد، ' + out.cleared + ' عمومی شد' +
+             (out.why.length ? ' · نه: ' + out.why.join(' · ') : '') + '.');
+  }
+  return out;
+}
+
 /** یک ویدئوی حالتِ صحنه عمومی شد ⇒ شمارِ سدِ تأیید. */
 function ytScenesOkAdd_() {
   try {
@@ -7555,6 +7617,11 @@ function ytTick_(budgetMs) {
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
   }
+  /* ویدئوی تأییدشده‌ای که هنوز Unlisted است (۸.۴۶) — درِ دوم، کنارِ کارِ شبانه. */
+  if (left() > 30000) {
+    try { ytApprovedRedo_(Math.max(15000, left() - 20000)); }
+    catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
+  }
   /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. این‌جا
      دومین شانسش است — و چون `ytStatsDue_` هر ~۲۰ ساعت یک بار اجازه می‌دهد،
      دو نوبت در روز یعنی «حتماً یک بار»، نه «دو بار». */
@@ -8632,7 +8699,17 @@ function ytRedoStuckNightly_(budgetMs) {
     stuck.push({ show: parts[0], ep: parts.slice(1).join(':'), at: String(r.at || '') });
   }
   // قدیمی‌ترین اول — همان‌هایی که بیشترین وقت را در unlisted مانده‌اند
-  stuck.sort(function (a, b) { return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0); });
+  /* … مگر کلیدی که در `docs/yt-approve.json` تأیید شده (۸.۴۶). سقفِ شبانه سه
+     است و سه ویدئوی قدیمی‌تر به علتِ دیگری Unlisted مانده‌اند؛ «قدیمی‌ترین اول»
+     یعنی ویدئوی تأییدشدهٔ تازه — درسِ ۳۸، که صاحبِ برنامه «فوق‌العاده» دید و
+     خواست عمومی شود — **هرگز** نوبت نمی‌گرفت. تأییدِ صریح جلوتر از صفِ خودکار
+     است (همان ترتیبِ ۷٫۵۹: آنچه خواسته شده پشتِ آنچه کسی نخواسته نمی‌مانَد). */
+  var appr = ytApprovedSafe_();
+  stuck.sort(function (a, b) {
+    var pa = appr[a.show + ':' + a.ep] ? 0 : 1, pb = appr[b.show + ':' + b.ep] ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return a.at < b.at ? -1 : (a.at > b.at ? 1 : 0);
+  });
   var max = Math.max(1, Number(CFG.YT_REDO_MAX_PER_NIGHT) || 3);
   /* علتِ هر کدام **به نام** نگه داشته می‌شود (۸.۳۵) — `ytStatus_` و خطِ روزانه
      از همین می‌خوانند. تا ۸.۳۴ تنها شاهد «N عمومی شد، M هنوز نشتی دارد» بود،
@@ -8647,7 +8724,11 @@ function ytRedoStuckNightly_(budgetMs) {
               at: nowStr_(), why: '' };
     try {
       var res = ytRedoOne_(stuck[i].show, stuck[i].ep, {});
-      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) { out.cleared++; w = null; }
+      if (res.ok && res.changed.indexOf('عمومی شد') !== -1) {
+        out.cleared++;
+        ytApprDoneAdd_(stuck[i].show + ':' + stuck[i].ep);
+        w = null;
+      }
       else {
         w.why = String(res.why || 'عمومی نشد، بی علتِ ثبت‌شده').slice(0, 220);
         if (/خصوصی/.test(w.why)) out.stillLeak++;
