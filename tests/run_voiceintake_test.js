@@ -816,4 +816,187 @@ console.log('\n=== ۱۴) پوشهٔ «voice cloning» خودش باز بود —
   try { cfF.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE); } catch (e) {}
 }
 
+console.log('\n=== ۲۷) آموزشِ دوبارهٔ یک گویندهٔ آماده — فقط ضبط‌های تازه، قفل، و زیرِ نظر (۸.۴۳) ===');
+{
+  /* او گفت «راهش بنداز … حواست باشد این بار قطع نشود و شکست نخورد، و دائم از
+     تلگرام خبر بده». سه سدِ بی‌صدا سرِ راه بود و هر سه همین‌جا اجرا می‌شوند:
+     «آماده» به صف برنمی‌گشت، پوشه ده روز بعد بایگانی می‌شد، و سدِ نرخِ نمونه
+     کلِ پوشه را با یک ضبطِ قدیمی داوری می‌کرد. */
+  const KEY = vintSlug_('گوینده دوباره');
+  const keepRt = CFG.VOICE_RETRAIN, keepFetch = global.UrlFetchApp.fetch;
+  const keepTg = global.tgSend_, keepMq = global.mailQueue_;
+  const said = [];
+  global.tgSend_ = t => { said.push(String(t)); return true; };
+  global.mailQueue_ = (k, t, b) => { said.push('MAIL:' + String(t) + '\n' + String(b)); return true; };
+  CFG.VOICE_RETRAIN = {}; CFG.VOICE_RETRAIN[KEY] = { tag: 'r2', since: '2026-09-29', why: 'ضبط‌های تازه' };
+  /* سرِ mp3: MPEG2 لایهٔ ۳ = ۲۲۰۵۰ هرتز، MPEG2.5 = ۱۱۰۲۵ هرتز. */
+  const mp3Head = sr => [0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0,
+                         0xFF, sr === 11025 ? 0xE3 : 0xF3, 0x80, 0xC0, 0, 0, 0, 0];
+  const srOf = {};                       // شناسهٔ فایل ⇒ نرخ
+  const rangeAsk = [];
+  const feedR = { rev: 9, speakers: {} };
+  global.UrlFetchApp.fetch = function (url, opt) {
+    const u = String(url);
+    if (u.indexOf('voices.json') !== -1) {
+      return { getResponseCode: () => 200, getContentText: () => JSON.stringify(feedR) };
+    }
+    const m = u.match(/drive\/v3\/files\/([^?]+)\?alt=media/);
+    if (m) {
+      rangeAsk.push({ id: decodeURIComponent(m[1]), range: (opt && opt.headers && opt.headers.Range) || '' });
+      const b = mp3Head(srOf[decodeURIComponent(m[1])] || 22050).map(x => x > 127 ? x - 256 : x);
+      return { getResponseCode: () => 206, getContent: () => b, getContentText: () => '' };
+    }
+    return keepFetch.apply(this, arguments);
+  };
+  try {
+    const dR = vintCloneFolder_().createFolder('گوینده دوباره');
+    const mk = (name, when, sr) => {
+      const f = put(dR, name, 4000); f._created = new Date(when); srOf[f.getId()] = sr; return f;
+    };
+    const old1 = mk('قدیم ۱.mp3', '2026-09-20T10:00:00Z', 11025);
+    const old2 = mk('قدیم ۲.mp3', '2026-09-20T10:00:00Z', 11025);
+    const new1 = mk('۰۱.mp3', '2026-09-29T16:00:00Z', 22050);
+    const new2 = mk('۰۲.mp3', '2026-09-29T16:00:00Z', 22050);
+    const newLow = mk('۰۳-کم.mp3', '2026-09-30T08:00:00Z', 11025);
+    /* حالتِ امروزِ گلدوز: یک بار «آماده» شده، و در گذشته یک «ناموفق» دارد. */
+    vintLog_(hub, { key: KEY, name: 'گوینده دوباره', step: VINT_ST.FAIL, result: VINT_ST.FAIL, note: 'لغوِ گذرا' });
+    vintLog_(hub, { key: KEY, name: 'گوینده دوباره', step: VINT_ST.READY, result: 'ok', sim: '0.708' });
+    feedR.speakers[KEY] = { name: 'گوینده دوباره', stage: VINT_ST.READY, similarity: '0.708', runId: 'OLD' };
+    ok('۲۷.۰ حالتی که می‌سنجیم واقعی است: آماده، با یک «ناموفق» در گذشته',
+       vintState_(hub)[KEY].step === VINT_ST.READY && vintState_(hub)[KEY].tries === 1);
+
+    const qa = vintQueue_(hub, vintScan_(), vintState_(hub));
+    const it = (qa.speakers || []).find(x => x.key === KEY);
+    ok('۲۷.۱ گویندهٔ «آماده» با آموزشِ دوباره به صف برگشت', !!it && it.retrain && it.retrain.tag === 'r2',
+       JSON.stringify(it && it.retrain));
+    const ids = it ? it.files.map(f => f.id).sort() : [];
+    ok('۲۷.۲ فقط ضبط‌های تازه با نرخِ کافی — نه قدیمی‌ها، نه تازهٔ ۱۱ کیلوهرتزی',
+       JSON.stringify(ids) === JSON.stringify([new1.getId(), new2.getId()].sort()),
+       (it ? it.files.map(f => f.name).join('، ') : '—'));
+    ok('۲۷.۳ و کنارگذاشته‌ها گفته می‌شوند: دو قدیمی، و تازهٔ کم‌نرخ با نامش',
+       it.retrain.old === 2 && it.retrain.dropped.length === 1 && it.retrain.dropped[0] === '۰۳-کم.mp3',
+       JSON.stringify(it.retrain));
+    ok('۲۷.۴ نرخ از سرِ فایل سنجیده شد، نه از کلِ فایل (Range)',
+       rangeAsk.length >= 3 && rangeAsk.every(a => /^bytes=0-\d+$/.test(a.range)),
+       JSON.stringify(rangeAsk.slice(0, 2)));
+    ok('۲۷.۵ فقط فایل‌های انتخابی برای رانر باز شدند؛ قدیمی‌ها بسته ماندند',
+       new1.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK &&
+       new2.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK &&
+       old1.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK &&
+       newLow.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK);
+    const st1 = vintState_(hub)[KEY];
+    ok('۲۷.۶ شمارشِ تلاش از صفر: «ناموفق»ِ آموزشِ قبلی به حسابِ این یکی نمی‌آید',
+       st1.tries === 0 && it.tries === 0, 'tries=' + st1.tries);
+    const n1 = vintRows_(hub).filter(r => String(r[VC.KEY - 1]) === KEY && String(r[VC.RESULT - 1]) === VINT_RETRAIN_MARK).length;
+    vintQueue_(hub, vintScan_(), vintState_(hub));
+    const n2 = vintRows_(hub).filter(r => String(r[VC.KEY - 1]) === KEY && String(r[VC.RESULT - 1]) === VINT_RETRAIN_MARK).length;
+    ok('۲۷.۷ ردیفِ نشانه یک بار برای هر tag — نه هر شب', n1 === 1 && n2 === 1, n1 + ' / ' + n2);
+    ok('۲۷.۸ و تا وقتی کار دارد، بایگانی نمی‌شود (پوشه از دیدِ اسکن بیرون نمی‌رود)',
+       vintKeepSet_()[KEY] === 1);
+
+    /* پایان: اکشن retrainDone را می‌نویسد. */
+    feedR.speakers[KEY] = { name: 'گوینده دوباره', stage: VINT_ST.READY, similarity: '0.861', simPitch: '-2',
+                            prevSimilarity: '0.828', retrainTag: 'r2', retrainDone: 'r2', runId: 'NEW', samples: [] };
+    const qb = vintQueue_(hub, vintScan_(), vintState_(hub));
+    ok('۲۷.۹ پس از پایان دیگر به صف نمی‌رود — یک منبع: retrainDone', !(qb.speakers || []).some(x => x.key === KEY));
+    ok('۲۷.۱۰ و دیگر نگه داشته نمی‌شود؛ بایگانیِ عادی سرِ جایش است', !vintKeepSet_()[KEY]);
+
+    /* اعلامِ پایان — `told`ِ اولِ «آماده» جلویش را نمی‌گیرد. */
+    const told = JSON.parse(global.__PROPS[PK.VINT_TOLD] || '{}'); told[KEY] = '2026-09-27 10:00';
+    global.__PROPS[PK.VINT_TOLD] = JSON.stringify(told);
+    vintLog_(hub, { key: KEY, name: 'گوینده دوباره', step: VINT_ST.MEASURE, result: 'ok', run: 'NEW' });
+    said.length = 0;
+    vintIngest_(hub);
+    const ann = said.find(x => /آموزشِ دوبارهٔ «گوینده دوباره» تمام شد/.test(x)) || '';
+    ok('۲۷.۱۱ پایانِ آموزشِ دوباره اعلام می‌شود، با اینکه این گوینده یک بار «آماده» گفته شده بود',
+       !!ann, said.map(x => x.slice(0, 60)).join(' | '));
+    ok('۲۷.۱۲ و دو عدد کنارِ هم: تازه و قبلی روی همان سنجش، با تفاوت و زیروبم',
+       /0\.861/.test(ann) && /0\.828/.test(ann) && /\+0\.033/.test(ann) && /زیروبمِ -2/.test(ann), ann.slice(0, 400));
+    ok('۲۷.۱۳ و می‌گوید مدلِ قبلی پاک نمی‌شود', /پیشین/.test(ann));
+    said.length = 0;
+    vintIngest_(hub);
+    ok('۲۷.۱۴ و دوباره اعلام نمی‌شود', !said.some(x => /آموزشِ دوبارهٔ/.test(x)));
+  } finally {
+    CFG.VOICE_RETRAIN = keepRt; global.UrlFetchApp.fetch = keepFetch;
+    global.tgSend_ = keepTg; global.mailQueue_ = keepMq;
+  }
+}
+
+console.log('\n=== ۲۸) آموزش زیرِ نظر — هر تغییر در تلگرام، و خودِ سکوت هم (۸.۴۳) ===');
+{
+  const keepTg = global.tgSend_, keepHub = global.getHub_;
+  const said = [];
+  let hubs = 0;
+  global.tgSend_ = t => { said.push(String(t)); return true; };
+  global.getHub_ = function () { hubs++; return keepHub.apply(this, arguments); };
+  try {
+    global.__PROPS['VINT_WATCH'] = '{}';
+    const d = { speakers: { g: { name: 'گلدوز', stage: VINT_ST.TRAIN, retrainTag: 'r2', runId: 'R1',
+                                 epochs: 0, targetEpochs: 32, files: 30 },
+                            raz: { name: 'رضوی', stage: VINT_ST.READY, preexisting: true } } };
+    let w = vintTrainWatch_(d);
+    ok('۲۸.۱ شروع: یک خبر، با «آموزشِ دوباره» و شمارِ فایل', w.sent === 1 &&
+       /آموزشِ دوبارهٔ «گلدوز» زیرِ نظر است/.test(said[0]) && /۳۰ فایل/.test(said[0]), said[0]);
+    ok('۲۸.۲ گویندهٔ آماده یا پیش‌ساخته پاییده نمی‌شود', w.watching === 1);
+    said.length = 0; w = vintTrainWatch_(d);
+    ok('۲۸.۳ بی تغییر، بی خبر — هر ساعت یک «هنوز همان» یعنی خبری که خوانده نمی‌شود', said.length === 0);
+    d.speakers.g.epochs = 3; d.speakers.g.runId = 'R2';
+    vintTrainWatch_(d);
+    ok('۲۸.۴ دورِ تازه: شماره، درصد، و برآوردِ پایان', said.length === 1 &&
+       /دورِ ۳ از ۳۲/.test(said[0]) && /برآوردِ پایان/.test(said[0]), said[0]);
+    said.length = 0; d.speakers.g.stall = 1; d.speakers.g.runId = 'R3';
+    vintTrainWatch_(d);
+    ok('۲۸.۵ اجرایی که دوری جلو نبرد گفته می‌شود — همان شکلِ لغوِ اجرای ۶۷',
+       said.length === 1 && /هیچ دوری جلو نبرد/.test(said[0]), said[0]);
+    said.length = 0; d.speakers.g.stall = 2; d.speakers.g.runId = 'R4';
+    vintTrainWatch_(d);
+    ok('۲۸.۶ بارِ دوم دیگر «اتفاق» نیست', /این دیگر اتفاق نیست/.test(said[0] || ''), said[0]);
+    /* سکوت: آخرین تغییر سیزده ساعت پیش. */
+    said.length = 0;
+    const sn = JSON.parse(global.__PROPS['VINT_WATCH']); sn.g.ch -= 13 * 3600000;
+    global.__PROPS['VINT_WATCH'] = JSON.stringify(sn);
+    vintTrainWatch_(d);
+    ok('۲۸.۷ سکوتِ بیش از ۱۲ ساعت خودش خبر است — گردش‌کاری که نمی‌دود هیچ خبری نمی‌فرستد',
+       said.length === 1 && /ساعت است هیچ تغییری نکرده/.test(said[0]), said[0]);
+    said.length = 0; vintTrainWatch_(d);
+    ok('۲۸.۸ و سکوت هر ساعت تکرار نمی‌شود', said.length === 0);
+    ok('۲۸.۹ سطرِ روزانه از همان عکس، بی هیچ خواندنی',
+       /آموزشِ دوبارهٔ «گلدوز»/.test(vintTrainLine_()) && /دورِ ۳ از ۳۲/.test(vintTrainLine_()), vintTrainLine_());
+    {
+      const keepRF = global.UrlFetchApp.fetch;
+      let stL = '';
+      try { stL = String(vintStatus_(getHub_()).line || ''); } finally { global.UrlFetchApp.fetch = keepRF; }
+      ok('۲۸.۹-ب و همان سطر هر روز در خطِ گویندگان می‌آید — نه فقط وقتی چیزی عوض شده (۵٫۹۰)',
+         /آموزشِ دوبارهٔ «گلدوز»: آموزش، دورِ ۳ از ۳۲/.test(stL), stL.slice(-200));
+      hubs = 0;
+    }
+    said.length = 0; d.speakers.g.stage = VINT_ST.MEASURE; d.speakers.g.epochs = 32;
+    vintTrainWatch_(d);
+    ok('۲۸.۱۰ رفتن به سنجش گفته می‌شود — با «مدلِ قبلی روی همان ضبط»', /آموزش تمام شد/.test(said[0] || '') &&
+       /مدلِ قبلی/.test(said[0] || ''), said[0]);
+    said.length = 0; d.speakers.g.stage = VINT_ST.FAIL; d.speakers.g.note = 'artifact نرسید';
+    vintTrainWatch_(d);
+    ok('۲۸.۱۱ شکست همان ساعت، با علتِ خودِ اکشن', /ناموفق ثبت شد: artifact نرسید/.test(said[0] || ''), said[0]);
+    said.length = 0;
+    d.speakers.g = { name: 'گلدوز', stage: VINT_ST.READY, retrainTag: 'r2', retrainDone: 'r2',
+                     similarity: '0.861', prevSimilarity: '0.828' };
+    vintTrainWatch_(d);
+    ok('۲۸.۱۲ پایان: یک خبرِ کوتاه با دو عدد، و پاییدن تمام',
+       said.length === 1 && /0\.861|۰٫۸۶۱|۰.۸۶۱/.test(said[0]) && !JSON.parse(global.__PROPS['VINT_WATCH']).g, said[0]);
+    ok('۲۸.۱۳ هیچ‌کدام هاب را باز نکرد — این روی تریگرِ ساعتی است (۷٫۶۳/۷٫۸۴)', hubs === 0, hubs);
+
+    /* درِ تولید: تریگرِ ساعتی، حتی وقتی پل خاموش است. */
+    global.__PROPS['VINT_WATCH'] = '{}';
+    const keepOn = CFG.VBR_ON, keepFetch = global.UrlFetchApp.fetch;
+    const dd = { speakers: { h: { name: 'تازه', stage: VINT_ST.TRAIN, runId: 'X', epochs: 1, targetEpochs: 32 } } };
+    global.UrlFetchApp.fetch = url => String(url).indexOf('voices.json') !== -1
+      ? { getResponseCode: () => 200, getContentText: () => JSON.stringify(dd) }
+      : keepFetch.apply(null, arguments);
+    CFG.VBR_ON = false; said.length = 0;
+    try { vbrCollectHourly(); } finally { CFG.VBR_ON = keepOn; global.UrlFetchApp.fetch = keepFetch; }
+    ok('۲۸.۱۴ تریگرِ ساعتی آموزش را می‌پاید حتی وقتی پل خاموش است', said.some(x => /«تازه» زیرِ نظر است/.test(x)),
+       said.join(' | ').slice(0, 200));
+  } finally { global.tgSend_ = keepTg; global.getHub_ = keepHub; }
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

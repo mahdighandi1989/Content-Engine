@@ -240,6 +240,47 @@ def plan(q, st):
         ids = [str(f.get("id")) for f in (item.get("files") or []) if f.get("id")]
         cur = sp.get(key) or {}
         stage = cur.get("stage") or ""
+
+        # ══ آموزشِ دوباره (۸.۴۳) ══
+        # گوینده‌ای «آماده» با `retrain` در صف: تصمیمِ صاحبِ برنامه است، نه
+        # حدسِ ما. سه چیز اینجا قطعی می‌شود، هر سه به خاطرِ شکستی که دیده شده:
+        #   • مدلِ قبلی فراموش نمی‌شود (`prev`): سنجش آن را روی همان ضبط و همان
+        #     زیروبم‌ها کنارِ تازه می‌گذارد، وگرنه «شبیه‌تر شد؟» جوابی ندارد.
+        #   • `allow_fresh` یک بار و فقط همین‌جا: کشِ آموزشِ قبلی یا رفته یا
+        #     مالِ دادهٔ دیگری است، و بی این پرچم اجرا می‌ایستد («کش برنگشت»).
+        #   • فهرستِ فایل‌ها **قفل** می‌شود (`retrainIds`): فایلی که وسطِ کار
+        #     به پوشه اضافه شود اثرِ انگشتِ دیتاست را عوض می‌کرد و `freshStart_`
+        #     چند روز آموزش را از صفر می‌گرفت.
+        rt = item.get("retrain") if isinstance(item.get("retrain"), dict) else {}
+        rtag = str(rt.get("tag") or "").strip()
+        if rtag and ids and cur.get("retrainTag") != rtag and stage not in (ST_TRAIN, ST_MEASURE):
+            prev = {}
+            for k in ("similarity", "simPitch", "runId", "epochs", "fileIds", "minutes", "segments"):
+                if cur.get(k) not in (None, ""):
+                    prev[k] = cur.get(k)
+            if prev:
+                cur["prev"] = prev
+            cur["retrainTag"] = rtag
+            cur["retrainIds"] = list(ids)
+            cur["retrainAt"] = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            for k in ("runId", "everDispatched", "stall", "epochs", "samples", "similarity",
+                      "simPitch", "prevSimilarity"):
+                cur.pop(k, None)
+            cur["stage"] = ST_QUEUED
+            cur["note"] = "آموزشِ دوباره (%s): %d فایل." % (rtag, len(ids))
+            stage = ST_QUEUED
+            sp[key] = cur
+            changed = True
+            say("«%s»: آموزشِ دوباره «%s» با %d فایل؛ مدلِ قبلی برای مقایسه نگه داشته شد."
+                % (name, rtag, len(ids)))
+        # قفل تا پایانِ **همان** آموزش، نه تا وقتی tagِ صف همان است: tagِ تازه‌ای
+        # که وسطِ کار تعریف شود، فهرست را عوض می‌کرد و اثرِ انگشت را با آن —
+        # یعنی آموزشِ در جریان از صفر (۲۴.۷-ب گرفتش). tagِ تازه پس از پایانِ
+        # این یکی شروع می‌شود.
+        if cur.get("retrainIds") and cur.get("retrainTag") and \
+           cur.get("retrainDone") != cur.get("retrainTag"):
+            ids = [str(x) for x in cur["retrainIds"]]
+
         if stage in DONE:
             continue
         cur.setdefault("name", name)
@@ -362,6 +403,7 @@ def plan(q, st):
                 rid = dispatch(key, ids, epochs, False)
                 if rid:
                     cur["runId"] = rid
+                    cur["targetEpochs"] = epochs
                     cur["note"] = "ادامهٔ آموزش از دورِ %s." % (
                         (stt or {}).get("epochs_reached", "؟"))
                     if stall:
@@ -394,6 +436,7 @@ def plan(q, st):
         cur["everDispatched"] = True
         rid = dispatch(key, ids, epochs, fresh)
         cur["fileIds"] = ids          # مرجعِ سنجش از همین برداشته می‌شود
+        cur["targetEpochs"] = epochs
         if rid:
             cur["stage"] = ST_TRAIN
             cur["runId"] = rid
@@ -429,6 +472,19 @@ def record(key, sim, samples, note, ok=True):
     cur["stage"] = ST_READY if ok else ST_FAIL
     if sim:
         cur["similarity"] = sim
+    # زیروبمی که بهترین عدد را داد، و عددِ مدلِ قبلی روی همان سنجش (۸.۴۳) —
+    # از محیط، چون فرمانِ ثبت از قبل سه جای ثابت دارد و گردش‌کارهای قدیمی‌تر
+    # همان سه را می‌فرستند.
+    sp_ = (os.environ.get("SIM_PITCH") or "").strip()
+    if sp_:
+        cur["simPitch"] = sp_
+    ps_ = (os.environ.get("PREV_SIM") or "").strip()
+    if ps_:
+        cur["prevSimilarity"] = ps_
+    if ok and cur.get("retrainTag"):
+        # پایانِ آموزشِ دوباره همین‌جا ثبت می‌شود و موتور از همین می‌فهمد دیگر
+        # به صف نفرستد — یک منبع، نه حافظهٔ موتور.
+        cur["retrainDone"] = cur["retrainTag"]
     cur["samples"] = samples
     cur["note"] = note
     st["speakers"][key] = cur
@@ -439,6 +495,44 @@ def runIdOf(key):
     """شناسهٔ اجرای آموزشِ یک گوینده."""
     st = loadState()
     return str((st["speakers"].get(key) or {}).get("runId") or "")
+
+
+def prevRunOf(key):
+    """اجرای آموزشِ مدلِ قبلی — فقط وقتی آموزشِ دوباره است (۸.۴۳)."""
+    st = loadState()
+    cur = st["speakers"].get(key) or {}
+    if not cur.get("retrainTag"):
+        return ""
+    return str(((cur.get("prev") or {}).get("runId")) or "")
+
+
+def bestPitch(lab):
+    """زیروبمِ بهترین گونه — کنارِ عدد، چون عددِ بی‌زیروبم همان ۰٫۷۰۸ است که
+    با گامِ رضوی گرفته شد و برای گلدوز «کم» خوانده شد (۸.۴۳)."""
+    import glob
+    import re
+    best, pitch = None, ""
+    for p in glob.glob(os.path.join(lab, "**", "*.json"), recursive=True):
+        try:
+            d = json.load(io.open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        b = (d.get("rvc") or {}).get("best") or {}
+        try:
+            v = float(b.get("out_vs_ref"))
+        except Exception:
+            continue
+        if best is None or v > best:
+            best = v
+            pv = b.get("pitch")
+            if pv is None:
+                m = re.search(r"rvc-p([+-]?\d+)", str(b.get("file") or b.get("name") or ""))
+                pv = m.group(1) if m else ""
+            try:
+                pitch = str(int(float(pv)))
+            except Exception:
+                pitch = ""
+    return pitch
 
 
 def bestSim(lab):
@@ -474,6 +568,12 @@ def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "--plan"
     if mode == "--runid":
         sys.stdout.write(runIdOf(sys.argv[2]))
+        return 0
+    if mode == "--prevrun":
+        sys.stdout.write(prevRunOf(sys.argv[2]))
+        return 0
+    if mode == "--simpitch":
+        sys.stdout.write(bestPitch(sys.argv[2] if len(sys.argv) > 2 else "lab"))
         return 0
     if mode == "--refid":
         st = loadState()

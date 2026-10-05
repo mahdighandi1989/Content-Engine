@@ -676,7 +676,25 @@ function vbrSoulAutoAdd_(key) {
 
 /** بذرها — یک تعریف برای زمان‌بند و انتخاب‌گر: دستیِ CFG، به‌علاوهٔ خودکار. */
 function vbrSoulSeeds_() {
-  var out = (CFG.VOICE_SOUL_SEED || []).slice();
+  /* ══ هویتِ نمونه مدل را هم دارد (۸.۴۳) ══
+     نمونه با (گوینده، متن، برچسب) شناخته می‌شود (۷٫۸۶). مدلِ تازهٔ همان گوینده —
+     آموزشِ دوباره — هیچ‌کدام را عوض نمی‌کند، پس نمونهٔ «ساعت‌ساز» با صدای تازه
+     «قبلاً ساخته شده» حساب می‌شد و هرگز ساخته نمی‌شد؛ در حالی که خبرِ پایانِ آموزش
+     همین را وعده می‌دهد. مُهرِ تحویلِ مدل (`VMODEL_HAVE`) به برچسب می‌چسبد — فقط
+     وقتی اثرانگشتش تأیید شده — و بی تحویل (مدلِ دستی) برچسب همان می‌مانَد، پس
+     امروز هیچ نمونهٔ تکراری‌ای ساخته نمی‌شود. همان قاعدهٔ ۷٫۸۶: «چیزی که برای
+     سنجیدنِ یک پارامتر ساخته می‌شود، هویتش باید آن پارامتر را داشته باشد». */
+  var have = vbrModelPk_('VMODEL_HAVE');
+  var stamp = function (spk) {
+    var h = have[String(spk || '').trim()];
+    return (h && h.ok && h.sha !== 0 && h.drop) ? ' · مدلِ ' + String(h.drop).slice(0, 10) : '';
+  };
+  var out = (CFG.VOICE_SOUL_SEED || []).map(function (sd) {
+    var c = {};
+    for (var k0 in sd) if (Object.prototype.hasOwnProperty.call(sd, k0)) c[k0] = sd[k0];
+    c.tag = String(sd.tag || '') + stamp(sd.speaker);
+    return c;
+  });
   if (CFG.VOICE_SOUL_AUTO === false) return out;
   var cfg = {};
   for (var i = 0; i < out.length; i++) cfg[String((out[i] || {}).speaker || '').trim()] = 1;
@@ -685,7 +703,7 @@ function vbrSoulSeeds_() {
   for (var j = 0; j < keys.length; j++) {
     if (cfg[keys[j]]) continue;              // دستی برنده است — برچسبش را او گذاشته
     out.push({ speaker: keys[j], show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-               tag: VBR_AUTO_SEED_TAG, auto: 1 });
+               tag: VBR_AUTO_SEED_TAG + stamp(keys[j]), auto: 1 });
   }
   return out;
 }
@@ -1982,6 +2000,14 @@ function vbrCollectHourly() {
      نه — و دقیقاً همان حالتی است که این شاهد برایش ساخته شده. */
   runEnter_('vbrCollectHourly');
   try {
+  /* ══ آموزشِ گویندگان زیرِ نظر، پیش از سدِ پل (۸.۴۳) ══
+     آموزش به روشن‌بودنِ پل ربطی ندارد؛ پشتِ `VBR_ON` بودنش یعنی روزی که پل
+     خاموش است، چند روز آموزش بی هیچ خبری بماند. همان یک خواندنِ
+     `docs/voices.json` به زمان‌بندِ مدل هم داده می‌شود — دو خواندن برای یک
+     فایل در یک اجرا هزینهٔ بی‌دلیل است. */
+  var vdoc = null;
+  try { vdoc = vintReadResult_(); } catch (eVd) { vdoc = null; }
+  try { vintTrainWatch_(vdoc); } catch (eTw) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
@@ -2003,7 +2029,7 @@ function vbrCollectHourly() {
   /* مدلِ گویندهٔ تازه (۸.۴۱): فقط زمان‌بندی — یک خواندنِ کوچکِ gitHub raw،
      بی هاب. هر ساعت، چون هر ساعتِ انتظار یعنی یک ساعتِ دیگر مدل روی
      لینکِ عمومی. */
-  try { vbrModelDropDue_(); } catch (eMd) {
+  try { vbrModelDropDue_(vdoc ? { doc: vdoc } : null); } catch (eMd) {
     try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
   }
   try {

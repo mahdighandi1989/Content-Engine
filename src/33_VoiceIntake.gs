@@ -354,9 +354,12 @@ function vintScan_() {
       var key = vintSlug_(name);
       if (!key) return;
       if (!by[key]) by[key] = { key: key, name: name, source: src, files: [], bytes: 0 };
-      var sz = 0;
+      var sz = 0, cr = 0;
       try { sz = Number(f.getSize()) || 0; } catch (eS) {}
-      by[key].files.push({ id: f.getId(), name: String(f.getName()), bytes: sz });
+      /* زمانِ آمدنِ فایل به پوشه — آموزشِ دوباره (۸.۴۳) با آن ضبط‌های تازه را از
+         قدیمی جدا می‌کند. نبودنش صفر است، یعنی «نمی‌دانیم»، نه «قدیمی». */
+      try { cr = f.getDateCreated ? new Date(f.getDateCreated()).getTime() || 0 : 0; } catch (eC) {}
+      by[key].files.push({ id: f.getId(), name: String(f.getName()), bytes: sz, created: cr });
       by[key].bytes += sz;
     };
 
@@ -498,7 +501,13 @@ function vintState_(hub) {
     if (nm) s.name = nm;
     var step = String(r[VC.STEP - 1] || '').trim();
     if (step) { s.step = step; s.at = String(r[VC.AT - 1] || ''); }
-    if (String(r[VC.RESULT - 1] || '').trim() === VINT_ST.FAIL) s.tries++;
+    var res = String(r[VC.RESULT - 1] || '').trim();
+    if (res === VINT_ST.FAIL) s.tries++;
+    /* ══ آموزشِ دوباره از صفر می‌شمارد (۸.۴۳) ══
+       شکست‌های آموزشِ قبلی (مثلِ لغوِ اجرای ۶۷ که «ناموفق» ثبت شد) مالِ آن
+       دور بودند. بی این، آموزشِ تازه با یک یا دو «تلاش» از پیش شروع می‌کرد
+       و زودتر از سهمش «رهاشده» می‌شد. */
+    if (res === VINT_RETRAIN_MARK) s.tries = 0;
     var mn = String(r[VC.MIN - 1] || '').trim(); if (mn) s.minutes = mn;
     var sm = String(r[VC.SIM - 1] || '').trim(); if (sm) s.sim = sm;
     var rn = String(r[VC.RUN - 1] || '').trim(); if (rn) s.run = rn;
@@ -549,7 +558,107 @@ function vintKeepSet_() {
       var r = doc.speakers[k];
       if (r && (r.preexisting || r.keepShared)) out[k] = 1;
     }
+    /* ══ گوینده‌ای که آموزشِ دوباره دارد بایگانی نمی‌شود (۸.۴۳) ══
+       `vintRetire_` ده روز پس از «آماده» پوشه را به بایگانی می‌برد و
+       اشتراکش را می‌بندد، و `vintScan_` بایگانی را نمی‌بیند. پوشهٔ گلدوز
+       دو روز پیش از این نسخه به همان مرز می‌رسید: آموزشِ دوباره‌اش بی‌صدا
+       هیچ فایلی پیدا نمی‌کرد. */
+    var rt = CFG.VOICE_RETRAIN || {};
+    for (var rk in rt) {
+      if (Object.prototype.hasOwnProperty.call(rt, rk) && vintRetrainPending_(rk, doc)) out[rk] = 1;
+    }
   } catch (e) {}
+  return out;
+}
+
+/* ══════════════ آموزشِ دوبارهٔ یک گویندهٔ آماده (۸.۴۳) ══════════════
+ *
+ * او پرسید «با آموزشِ بیشتر روی آن سی فایل شبیه‌تر می‌شود؟» و گفت «راهش
+ * بنداز … حواست باشد این بار قطع نشود». سه چیز سرِ راه بود که هیچ‌کدام
+ * خطایی نمی‌داد:
+ *   ۱) گویندهٔ «آماده» هرگز به صف برنمی‌گشت (`vintIsDone_`).
+ *   ۲) ده روز پس از «آماده»، پوشه‌اش بایگانی و از دیدِ اسکن بیرون می‌رفت.
+ *   ۳) سدِ نرخِ نمونه فقط **یک** فایل از هر گوینده را می‌سنجد؛ برای گلدوز
+ *      آن یک فایل یکی از ضبط‌های ۱۱ کیلوهرتزیِ قدیم بود، پس کلِ پوشه رد می‌شد.
+ * تصمیم با صاحبِ برنامه است (`VOICE_RETRAIN`)؛ موتور فقط اجرایش می‌کند و
+ * هر قدمش را می‌گوید.
+ */
+var VINT_RETRAIN_MARK = 'آموزشِ دوباره';
+
+function vintRetrainSpec_(key) {
+  var m = CFG.VOICE_RETRAIN || {};
+  var s0 = m && Object.prototype.hasOwnProperty.call(m, key) ? m[key] : null;
+  if (!s0 || !s0.tag) return null;
+  return { tag: String(s0.tag), since: String(s0.since || ''), why: String(s0.why || '') };
+}
+
+/**
+ * هنوز کار دارد؟ از خودِ `docs/voices.json` — همان جایی که پایانش ثبت می‌شود
+ * (`retrainDone`) — نه از حافظهٔ موتور. پاسخِ نخوانده‌شده یعنی «هنوز کار دارد»:
+ * بایگانی‌نکردنِ یک پوشه برای یک شب ارزان است، بایگانی‌کردنِ اشتباهش نه.
+ */
+function vintRetrainPending_(key, doc) {
+  var spec = vintRetrainSpec_(key);
+  if (!spec) return null;
+  var r = doc && doc.speakers && doc.speakers[key];
+  if (r && String(r.retrainDone || '') === spec.tag) return null;
+  return spec;
+}
+
+/**
+ * نرخِ نمونه از سرِ فایل — نه از کلِ فایل.
+ *
+ * `vintProbeOne_` کلِ فایل را می‌آورد؛ برای سی فایلِ هفت‌مگابایتی یعنی ۲۱۰
+ * مگابایت در کارِ شبانه برای جوابی که در چند صد کیلوبایتِ اول هست. همان
+ * کلیدِ نهان را دارد، پس هر فایل یک بار در عمرش سنجیده می‌شود.
+ */
+function vintProbeHead_(fileId, name) {
+  var pk = 'VINT_AUDIO_' + String(fileId);
+  try {
+    var hit = props_().getProperty(pk);
+    if (hit) { var o = JSON.parse(hit); o.cached = true; return o; }
+  } catch (eC) {}
+  var inf;
+  try {
+    var res = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' +
+                                encodeURIComponent(String(fileId)) + '?alt=media&supportsAllDrives=true',
+                                { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(),
+                                             Range: 'bytes=0-393215' },
+                                  muteHttpExceptions: true });
+    var code = res.getResponseCode();
+    if (code !== 200 && code !== 206) return { ok: false, kbps: 0, sr: 0, ch: 0, why: 'HTTP ' + code };
+    var bytes = res.getContent();
+    inf = (vintExt_(name || '') === 'wav') ? vintWavInfo_(bytes) : vintMp3Info_(bytes);
+  } catch (e2) { return { ok: false, kbps: 0, sr: 0, ch: 0, why: e2.message }; }
+  if (inf && inf.ok) { try { props_().setProperty(pk, JSON.stringify(inf)); } catch (eW) {} }
+  return inf;
+}
+
+/**
+ * فایل‌های آموزشِ دوباره: آمده از `since` به بعد، و هر کدام با نرخِ کافی.
+ * `old` شمارِ ضبط‌های پیش از آن روز است (عمداً بیرون)، `dropped` ضبط‌هایی که
+ * نرخشان کم بود، با نام — سدی که بزند و نگوید همان ۷٫۸۰ است.
+ * نسنجیده رد نمی‌شود (۷٫۴۰): فقط مشاهدهٔ مثبتِ «کم» سد است.
+ */
+function vintRetrainFiles_(sp, spec) {
+  var out = { files: [], dropped: [], old: 0 };
+  var since = 0;
+  if (spec.since) {
+    var t = new Date(spec.since + 'T00:00:00Z').getTime();
+    if (isFinite(t)) since = t;
+  }
+  var min = Number(CFG.VOICE_MIN_SR) || 0;
+  var list = (sp && sp.files) || [];
+  for (var i = 0; i < list.length; i++) {
+    var f = list[i];
+    if (since && f.created && f.created < since) { out.old++; continue; }
+    var inf = min ? vintProbeHead_(f.id, f.name) : null;
+    if (inf && inf.ok && inf.sr && inf.sr < min) {
+      out.dropped.push({ name: f.name, sr: inf.sr });
+      continue;
+    }
+    out.files.push(f);
+  }
   return out;
 }
 
@@ -578,11 +687,31 @@ function vintQueue_(hub, scan, state) {
     var prev = null;
     try { prev = vintReadQueue_(); } catch (eP) {}
     q.rev = (prev && Number(prev.rev) || 0) + 1;
+    /* پاسخِ اکشن فقط وقتی خوانده می‌شود که آموزشِ دوباره‌ای تعریف شده — یک
+       خواندنِ gitHub raw در شب، نه برای هر گوینده. */
+    var rdoc, rdocRead = false;
+    var docNow = function () {
+      if (!rdocRead) { rdocRead = true; try { rdoc = vintReadResult_(); } catch (eR) { rdoc = null; } }
+      return rdoc;
+    };
 
     for (var i = 0; i < scan.speakers.length; i++) {
       var sp = scan.speakers[i], cur = state[sp.key] || null;
       var step = cur ? cur.step : '';
-      if (vintIsDone_(step)) continue;              // آماده یا رهاشده: کاری نیست
+      var spec0 = vintRetrainSpec_(sp.key);
+      var rt = spec0 ? vintRetrainPending_(sp.key, docNow()) : null;
+      /* ══ پایانِ آموزشِ دوباره از خودِ پاسخ خوانده می‌شود (۸.۴۳) ══
+         ردیفِ نشانه گامِ کارنامه را «در صف» کرده و تا شبِ بعد که پاسخ خوانده
+         شود همان می‌مانَد. بی این خط، گوینده‌ای که آموزشش همین حالا تمام شده
+         با **همهٔ** فایل‌هایش — ضبط‌های قدیمی هم — دوباره به صف و به اشتراکِ
+         عمومی می‌رفت (۲۷.۹ گرفتش). */
+      if (spec0 && !rt) {
+        var dr = docNow(), drs = dr && dr.speakers && dr.speakers[sp.key];
+        if (drs && String(drs.stage || '') === VINT_ST.READY) continue;
+      }
+      /* «آماده» با آموزشِ دوباره به صف برمی‌گردد؛ «رهاشده» نه — آن تصمیمِ
+         شکست است و دوباره‌فرستادنش همان حلقهٔ بی‌پایانِ ۵٫۸۸. */
+      if (vintIsDone_(step) && !(rt && step === VINT_ST.READY)) continue;
       /* ══ سد پیش از کار، نه بعدش (۷٫۸۰) ══
          پشتِ این ردیف ~۱۵ تا ۲۰ ساعت پردازندهٔ رانر است. صدایی با نرخِ
          نمونهٔ ۱۱ کیلوهرتز، هر چقدر هم زیاد باشد، مدلی نمی‌دهد که شبیهِ
@@ -592,7 +721,10 @@ function vintQueue_(hub, scan, state) {
 
          و **حذفش نمی‌کند**: ردیف در کارنامه می‌مانَد با وضعیتِ خودش، تا
          اگر صاحبِ برنامه ضبطِ بهتری گذاشت همان‌جا ادامه پیدا کند. */
-      var qual = vintQuality_(sp);
+      /* آموزشِ دوباره هر فایل را جدا می‌سنجد؛ سدِ «یک فایل از هر گوینده» برای
+         پوشه‌ای که ضبط‌های قدیم و تازه را با هم دارد، کلِ پوشه را با قدیمی‌ها
+         داوری می‌کرد. */
+      var qual = rt ? null : vintQuality_(sp);
       if (qual) {
         out.lowSr.push({ key: sp.key, name: sp.name, sr: qual.sr,
                          min: qual.min, why: qual.why });
@@ -600,8 +732,34 @@ function vintQueue_(hub, scan, state) {
       }
       var tries = cur ? cur.tries : 0;
       var files = [];
-      for (var j = 0; j < sp.files.length; j++) {
-        var f = sp.files[j];
+      var pick = sp.files, sel = null;
+      if (rt) {
+        sel = vintRetrainFiles_(sp, rt);
+        pick = sel.files;
+        if (!pick.length) {
+          out.retrainEmpty = out.retrainEmpty || [];
+          out.retrainEmpty.push({ key: sp.key, name: sp.name, old: sel.old, dropped: sel.dropped });
+          continue;
+        }
+        /* یک ردیفِ نشانه در کارنامه، یک بار برای هر `tag` — شمارشِ تلاش از
+           همین‌جا از صفر است (`vintState_`). */
+        var mk = 'VINT_RT_' + sp.key;
+        var was = '';
+        try { was = String(props_().getProperty(mk) || ''); } catch (eM0) {}
+        if (was !== rt.tag) {
+          try {
+            vintLog_(hub, { key: sp.key, name: sp.name, step: VINT_ST.QUEUED, result: VINT_RETRAIN_MARK,
+                            files: pick.length,
+                            note: rt.why + ' — ' + pick.length + ' فایل' +
+                                  (sel.old ? '؛ ' + sel.old + ' ضبطِ قدیمی عمداً بیرون' : '') +
+                                  (sel.dropped.length ? '؛ ' + sel.dropped.length + ' ضبط با نرخِ کم کنار رفت' : '') });
+            props_().setProperty(mk, rt.tag);
+            tries = 0;
+          } catch (eM) {}
+        }
+      }
+      for (var j = 0; j < pick.length; j++) {
+        var f = pick[j];
         /* اشتراکِ از قبل باز را دوباره باز نکن: با ۲۰۰ گوینده این حلقه
            هر شب ده‌ها هزار نوشتنِ ACL بود، و کارِ شبانه شش دقیقه بیشتر
            ندارد (قاعدهٔ ۵٫۶۸: هر بلوکِ سنگین جلوی کارهای بعدی را می‌گیرد). */
@@ -613,11 +771,21 @@ function vintQueue_(hub, scan, state) {
         } catch (eS) { try { driveShareOn_(f.id); } catch (eS2) {} }
         files.push({ id: f.id, name: f.name, bytes: f.bytes });
       }
-      q.speakers.push({ key: sp.key, name: sp.name, source: sp.source,
-                        step: step || VINT_ST.QUEUED, tries: tries,
-                        files: files, bytes: sp.bytes,
-                        estMinutes: vintEstMinutes_(sp.bytes, sp.audio) });
+      var item = { key: sp.key, name: sp.name, source: sp.source,
+                   step: step || VINT_ST.QUEUED, tries: tries,
+                   files: files, bytes: sp.bytes,
+                   estMinutes: vintEstMinutes_(sp.bytes, sp.audio) };
+      if (rt) {
+        var by2 = 0;
+        for (var b2 = 0; b2 < files.length; b2++) by2 += Number(files[b2].bytes) || 0;
+        item.bytes = by2;
+        item.estMinutes = vintEstMinutes_(by2, files.length ? vintProbeHead_(files[0].id, files[0].name) : null);
+        item.retrain = { tag: rt.tag, since: rt.since, old: sel.old,
+                         dropped: sel.dropped.map(function (d) { return d.name; }) };
+      }
+      q.speakers.push(item);
     }
+    if (out.retrainEmpty) q.retrainEmpty = out.retrainEmpty;
 
     q.lowSr = out.lowSr;
     /* «رسید»ِ مدل‌ها (۸.۴۱) — بازنویسیِ شبانه نباید پاکش کند، وگرنه
@@ -922,6 +1090,10 @@ function vintIngest_(hub) {
        (وگرنه هر شب دوباره به صف می‌رود) ولی اعلامش نباید برود. */
     if (r.preexisting && !told[key]) { told[key] = nowStr_(); saveTold(); }
 
+    /* ══ «آماده»ِ آموزشِ دوباره خبرِ خودش را دارد (۸.۴۳) ══
+       `told` به کلیدِ گوینده بسته بود؛ گلدوز یک بار «آماده» اعلام شده، پس پایانِ
+       آموزشِ دوباره‌اش هرگز گفته نمی‌شد — چند روز کار و هیچ خبری. */
+    var tk = r.retrainDone ? key + '#' + String(r.retrainDone) : key;
     if (was === step && sameRun) {
       /* ══ ردیف هست ولی اعلام نرفته (۷٫۲۲) ══
          ردیف بی‌درنگ نوشته می‌شود و `told` در ۷٫۲۱ فقط **پس از کلِ حلقه**
@@ -929,7 +1101,7 @@ function vintIngest_(hub) {
          است، چون وسطش چند دانلود هست — ردیف را می‌گذاشت و `told` را نه،
          و از فردا همین `continue` تا ابد جلویش را می‌گرفت: گویندهٔ آماده،
          بی هیچ اعلامی، برای همیشه. دو منبعِ حقیقت برای یک تصمیم. */
-      if (!(step === VINT_ST.READY && !told[key])) continue;
+      if (!(step === VINT_ST.READY && !told[tk])) continue;
     }
 
     var tries = cur ? cur.tries : 0;
@@ -951,7 +1123,7 @@ function vintIngest_(hub) {
       out.moved++;
     }
 
-    if (step === VINT_ST.READY && !told[key]) {
+    if (step === VINT_ST.READY && !told[tk]) {
       var made = vintFetchSamples_(key, name, r.samples || []);
       /* ══ نمونه‌ای که نرسید، فردا دوباره امتحان می‌شود ══
          مسیرِ نمونه‌ها فارسی است و تنها fetchِ غیرِASCIIِ این مخزن؛ اگر
@@ -966,7 +1138,7 @@ function vintIngest_(hub) {
         continue;                       // told مهر نمی‌خورد: فردا دوباره
       }
       if (vintAnnounce_(name, key, r, made)) {
-        told[key] = nowStr_();
+        told[tk] = nowStr_();
         saveTold();                     // بی‌درنگ، نه پس از حلقه
         out.ready.push(name);
       }
@@ -1015,6 +1187,10 @@ function vintSimLow_(r) {
 
 function vintHeadline_(name, r) {
   var low = vintSimLow_(r);
+  if (r && r.retrainDone) {
+    return (low ? '⚠️ آموزشِ دوبارهٔ «' + name + '» تمام شد، ولی شباهتش کم است'
+                : '✅ آموزشِ دوبارهٔ «' + name + '» تمام شد');
+  }
   if (!low) return '✅ گویندهٔ تازه آماده شد: «' + name + '»';
   return '⚠️ گویندهٔ تازه آموزش دید، ولی شباهتش کم است: «' + name + '»';
 }
@@ -1042,8 +1218,21 @@ function vintAnnounce_(name, key, r, samples) {
   if (r.segments) lines.push('• تکه‌های آموزش: ' + r.segments);
   if (r.epochs) lines.push('• دورهای آموزش: ' + r.epochs);
   if (r.similarity) lines.push('• شباهتِ سنجیده‌شده: ' + r.similarity +
+                               (r.simPitch !== undefined && r.simPitch !== '' ? ' (با زیروبمِ ' + r.simPitch + ')' : '') +
                                '  (رضوی روی همین سنجه ۰٫۷۴۴ بود' +
                                (low ? '؛ سدِ ما ' + low.min : '') + ')');
+  /* ══ مدلِ قبلی روی **همان** مرجع و همان زیروبم‌ها (۸.۴۳) ══
+     عددِ تنها نمی‌گوید «شبیه‌تر شد یا نه» — پرسشِ او همین بود. سنجش هر دو مدل
+     را روی یک ضبط و یک فهرستِ زیروبم می‌سنجد، و فقط آن‌وقت دو عدد کنارِ هم
+     معنا دارند. */
+  if (r.retrainDone && r.prevSimilarity) {
+    var dv = Number(r.similarity) - Number(r.prevSimilarity);
+    lines.push('• مدلِ قبلی روی همان ضبط و همان سنجش: ' + r.prevSimilarity +
+               (isFinite(dv) ? '  ⇐ ' + (dv >= 0 ? '+' : '') + dv.toFixed(3) : ''));
+  } else if (r.retrainDone) {
+    lines.push('• مدلِ قبلی این بار سنجیده نشد (artifactش برداشته نشد)، پس عددِ بالا با ' +
+               'عددهای قبلیِ او قابلِ مقایسه نیست: مرجعِ سنجش این بار یک ضبطِ تازه است.');
+  }
   if (r.runId || r.run) lines.push('• اجرای آموزش: ' + (r.runId || r.run));
   if (r.note) lines.push('• یادداشت: ' + r.note);
   lines.push('');
@@ -1070,6 +1259,11 @@ function vintAnnounce_(name, key, r, samples) {
                'ساخته و در تلگرام فرستاده می‌شود.');
   }
   lines.push('');
+  if (r.retrainDone) {
+    lines.push('مدلِ قبلی پاک نمی‌شود: وقتی مدلِ تازه به «' + (CFG.VBR_FOLDER || 'مدل‌های صدا') +
+               '» برسد، قبلی به زیرپوشهٔ «' + (CFG.VBR_MODEL_OLD_FOLDER || 'پیشین') + '» می‌رود. ' +
+               'اگر گوشتان قبلی را بیشتر پسندید، برمی‌گردد.');
+  }
   lines.push('حالا می‌توانید گویندهٔ بعدی را در پوشهٔ «' +
              (CFG.VOICE_CLONE_FOLDER || 'voice cloning') + '» بگذارید.');
   lines.push('');
@@ -1296,6 +1490,10 @@ function vintStatus_(hub) {
                     'بسازدشان؛ ضبطِ بهتر لازم است، نه دادهٔ بیشتر.';
       }
     }
+    /* آموزشِ در جریان، هر روز — حتی وقتی چیزی عوض نشده (۵٫۹۰). */
+    var twl = '';
+    try { twl = vintTrainLine_(); } catch (eTw) { twl = ''; }
+    if (twl) out.line += ' — ' + twl;
     if (out.queueId) {
       out.line += ' ⚠️ شناسهٔ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
                   '» عوض شده — اکشن دنبالِ ' + out.queueId.want + ' می‌گردد ولی ' +
@@ -1317,6 +1515,152 @@ function vintStatus_(hub) {
     out.line = 'گویندهٔ تازه: وارسی ناموفق بود — ' + e.message;
   }
   return out;
+}
+
+/* ══════════════ آموزش زیرِ نظر — هر ساعت، در تلگرام (۸.۴۳) ══════════════
+ *
+ * او گفت «حواست باشد این بار قطع نشود و شکست نخورد، و دائم از تلگرام خبر
+ * بده». آموزشِ یک گوینده چهار تا پنج روز و پانزده تا بیست اجرای گیت‌هاب است،
+ * و تا امروز تنها خبرش «✅ آماده شد» در پایان بود؛ هر چه وسط افتاد — لغوِ
+ * اجرای ۶۷، `state.json`ِ کهنه، «ناموفق»ِ دروغ — را کسی وقتی دید که روزها
+ * گذشته بود.
+ *
+ * هر ساعت `docs/voices.json` (همان یک خواندنِ gitHub raw که تریگرِ ساعتی از
+ * قبل دارد) با عکسِ قبلی مقایسه می‌شود و **فقط تغییر** خبر می‌شود: شروع، هر
+ * دورِ تازه با برآوردِ پایان، اجرایی که دوری جلو نبرد، رفتن به سنجش، شکست، و
+ * پایان. و اگر `VOICE_TRAIN_QUIET_HOURS` هیچ چیز عوض نشد، **خودِ سکوت** گفته
+ * می‌شود: سکوتِ یک آموزش از بیرون عیناً شبیهِ «دارد کار می‌کند» است، و
+ * گردش‌کاری که دیگر نمی‌دود هیچ خبری نمی‌فرستد.
+ *
+ * فقط Script Properties و تلگرام — نه هاب، نه سیاهه (۷٫۶۳/۷٫۸۴): این روی
+ * تریگرِ ساعتی است و کارش ارزان بودن است.
+ */
+function vintTrainWatch_(doc) {
+  var out = { watching: 0, sent: 0, msgs: [] };
+  if (!vintOn_()) return out;
+  if (!doc) { try { doc = vintReadResult_(); } catch (eR) { doc = null; } }
+  var sp = doc && doc.speakers;
+  if (!sp || typeof sp !== 'object' || Object.prototype.toString.call(sp) === '[object Array]') return out;
+  var snap = {};
+  try {
+    var raw = JSON.parse(props_().getProperty('VINT_WATCH') || '{}');
+    if (raw && typeof raw === 'object' && Object.prototype.toString.call(raw) !== '[object Array]') snap = raw;
+  } catch (eS) {}
+  var now = new Date().getTime();
+  var quietMs = Math.max(1, Number(CFG.VOICE_TRAIN_QUIET_HOURS) || 12) * 3600000;
+  var epH = Math.max(0.5, Number(CFG.VOICE_EPOCH_HOURS) || 2.4);
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var ACTIVE = {};
+  ACTIVE[VINT_ST.TRAIN] = 1; ACTIVE[VINT_ST.MEASURE] = 1; ACTIVE[VINT_ST.FAIL] = 1;
+
+  for (var key in sp) {
+    if (!Object.prototype.hasOwnProperty.call(sp, key)) continue;
+    var r = sp[key];
+    if (!r || typeof r !== 'object' || r.preexisting) continue;
+    var st = String(r.stage == null ? '' : r.stage);
+    var prev = snap[key] || null;
+    var name = String(r.name || key);
+    var what = r.retrainTag && String(r.retrainDone || '') !== String(r.retrainTag)
+      ? 'آموزشِ دوبارهٔ «' + name + '»' : 'آموزشِ «' + name + '»';
+    var target = Number(r.targetEpochs) || 32;
+    var ep = (r.epochs === undefined || r.epochs === null || r.epochs === '') ? null : Number(r.epochs);
+    if (!isFinite(ep)) ep = null;
+    var run = String(r.runId || '');
+    var stall = Number(r.stall) || 0;
+
+    if (!ACTIVE[st]) {
+      /* پایان: یک خبرِ کوتاه همان ساعت (اعلامِ کامل شبانه می‌رود)، و دیگر نپا. */
+      if (prev && st === VINT_ST.READY) {
+        var simTxt = r.similarity ? 'شباهت ' + fa(r.similarity) +
+                     (r.prevSimilarity ? ' (مدلِ قبلی روی همان سنجش ' + fa(r.prevSimilarity) + ')' : '') : '';
+        out.msgs.push('✅ ' + what + ' تمام و سنجیده شد' + (simTxt ? ': ' + simTxt : '') +
+                      '. مدل خودکار به درایو می‌آید و نمونهٔ «ساعت‌ساز» با صدای تازه ساخته و همین‌جا فرستاده می‌شود.');
+      }
+      if (prev) delete snap[key];
+      continue;
+    }
+    out.watching++;
+    var cur = { st: st, ep: ep, run: run, stall: stall, name: name, what: what,
+                ch: prev ? prev.ch : now, start: prev ? prev.start : now,
+                ep0: prev ? prev.ep0 : ep, quiet: prev ? prev.quiet : 0,
+                target: target };
+    var changed = false;
+    var eta = function () {
+      var left = Math.max(0, target - (cur.ep || 0));
+      var rate = epH;
+      if (cur.ep !== null && cur.ep0 !== null && cur.ep - cur.ep0 >= 2) {
+        rate = Math.max(0.5, (now - cur.start) / 3600000 / (cur.ep - cur.ep0));
+      }
+      var h = left * rate;
+      return h < 1 ? '' : ' · برآوردِ پایان: حدودِ ' + (h < 36 ? fa(Math.round(h)) + ' ساعتِ دیگر'
+                                                          : fa(Math.round(h / 24 * 10) / 10) + ' روزِ دیگر');
+    };
+    if (!prev) {
+      out.msgs.push('🏋️ ' + what + ' زیرِ نظر است — ' + st +
+                    (ep !== null ? '، دورِ ' + fa(ep) + ' از ' + fa(target) : '') +
+                    (r.files ? '، ' + fa(r.files) + ' فایل' : '') +
+                    '. هر دورِ تازه، هر گیر و هر شکست همین‌جا گفته می‌شود.' + eta());
+      changed = true;
+    } else {
+      if (prev.st !== st) {
+        if (st === VINT_ST.MEASURE) {
+          out.msgs.push('📏 ' + what + ': آموزش تمام شد' + (ep !== null ? ' (دورِ ' + fa(ep) + ')' : '') +
+                        '؛ حالا تبدیلِ آزمایشی و سنجشِ شباهت — هم مدلِ تازه، هم مدلِ قبلی روی همان ضبط.');
+        } else if (st === VINT_ST.FAIL) {
+          out.msgs.push('❌ ' + what + ' ناموفق ثبت شد: ' + String(r.note || 'بی‌توضیح') +
+                        ' — اجرای بعدیِ گردش‌کار دوباره تلاش می‌کند، و علت را همین امروز وارسی می‌کنم.');
+        } else {
+          out.msgs.push('🏋️ ' + what + ': ' + st + (ep !== null ? '، دورِ ' + fa(ep) + ' از ' + fa(target) : '') + eta());
+        }
+        changed = true;
+      } else if (ep !== null && (prev.ep === null || ep > prev.ep)) {
+        var pc = Math.round(100 * ep / target);
+        out.msgs.push('🏋️ ' + what + ': دورِ ' + fa(ep) + ' از ' + fa(target) + ' (' + fa(pc) + '٪)' + eta());
+        changed = true;
+      } else if (stall > (Number(prev.stall) || 0)) {
+        out.msgs.push('⚠️ ' + what + ': اجرای قبلی هیچ دوری جلو نبرد (' + fa(stall) +
+                      ' بارِ پیاپی، هنوز دورِ ' + fa(ep === null ? '؟' : ep) + '). ' +
+                      (stall >= 2 ? 'این دیگر اتفاق نیست؛ علتش را همین امروز پیدا می‌کنم.'
+                                  : 'یک بار می‌تواند لغوِ گذرای گیت‌هاب باشد؛ اگر تکرار شد، علت را می‌گردم.'));
+        changed = true;
+      } else if (run && prev.run !== run) {
+        changed = true;               // اجرای تازه بی دورِ تازه: ثبت، بی خبر
+      }
+    }
+    if (changed) { cur.ch = now; cur.quiet = 0; }
+    else if (now - cur.ch >= quietMs && now - (cur.quiet || 0) >= quietMs) {
+      out.msgs.push('⏳ ' + what + ' ' + fa(Math.round((now - cur.ch) / 3600000)) + ' ساعت است هیچ ' +
+                    'تغییری نکرده (' + st + (ep !== null ? '، دورِ ' + fa(ep) : '') + (run ? '، اجرای ' + run : '') +
+                    '). یک اجرا حدودِ پنج ساعت است و گردش‌کار هر شش ساعت سر می‌زند؛ بیش از این یعنی ' +
+                    'چیزی ایستاده — وارسی می‌کنم.');
+      cur.quiet = now;
+    }
+    snap[key] = cur;
+  }
+
+  for (var m = 0; m < out.msgs.length; m++) {
+    try { if (tgSend_(out.msgs[m]) !== false) out.sent++; } catch (eT) {}
+  }
+  try { props_().setProperty('VINT_WATCH', JSON.stringify(snap)); } catch (eW) {}
+  return out;
+}
+
+/** سطرِ روزانه — فقط از عکسِ ذخیره‌شده، بی هیچ خواندنی (۷٫۶۳). */
+function vintTrainLine_() {
+  var snap = {};
+  try { snap = JSON.parse(props_().getProperty('VINT_WATCH') || '{}') || {}; } catch (e) { snap = {}; }
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e2) { return String(x); } };
+  var L = [], now = new Date().getTime();
+  for (var k in snap) {
+    if (!Object.prototype.hasOwnProperty.call(snap, k) || !snap[k]) continue;
+    var c = snap[k];
+    var hrs = c.ch ? Math.round((now - c.ch) / 3600000) : null;
+    L.push('🏋️ ' + String(c.what || ('آموزشِ «' + (c.name || k) + '»')) + ': ' + String(c.st || '') +
+           (c.ep !== null && c.ep !== undefined ? '، دورِ ' + fa(c.ep) + ' از ' + fa(c.target || 32) : '') +
+           (hrs !== null ? '، آخرین تغییر ' + fa(hrs) + ' ساعت پیش' : '') +
+           (c.stall ? '، ⚠️ ' + fa(c.stall) + ' اجرای بی‌پیشرفت' : ''));
+  }
+  return L.join(' · ');
 }
 
 /**

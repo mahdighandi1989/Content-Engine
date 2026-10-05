@@ -311,7 +311,15 @@ jobs:
           set -euo pipefail
           ARGS=(--engine rvc --ref ref.wav --src src.wav --out lab --rvc-model model.pth)
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
-          ARGS+=(--rvc-pitch -12 --rvc-index-rate 1.0 --rvc-protect 0.33)
+          # ══ زیروبمِ خودِ گوینده، نه گامِ رضوی (۸.۴۳) ══
+          # این خط `-12` ثابت داشت — گامی که برای رضوی سنجیده شده بود، چون
+          # صدای مبدأِ جمینای زن‌گونه است و او مردِ بم. هر گویندهٔ تازه با
+          # همان سنجیده می‌شد: عددِ ۰٫۷۰۸ِ گلدوز در docs/voices.json با همین
+          # گام گرفته شد، در حالی که روی همان مرجع و همان مبدأ با گامِ ‎−۲
+          # ۰٫۸۲۸ است (آزمایشگاه، اجرای ۶۹). ۷٫۸۱ همین اشتباه را در پل بست
+          # و اینجا جا ماند. حالا چند گام سنجیده می‌شود و بهترین — با گامش —
+          # ثبت می‌شود؛ گامِ درست برای هر صدا از پیش دانستنی نیست (voicelab).
+          ARGS+=(--rvc-pitch "0,-2,-4,-6,-8,-10,-12" --rvc-index-rate 1.0 --rvc-protect 0.33)
           # ══ خروجی را بلعیدن ممنوع ══
           # نسخهٔ اول `|| echo "::warning::"` داشت، و چون `cp src.wav …`
           # بعدش همیشه موفق بود، پوشهٔ نمونه‌ها خالی نمی‌ماند و گوینده
@@ -330,8 +338,45 @@ jobs:
           fi
           cp src.wav "docs/voice-samples/$KEY/پیش-از-تبدیل.wav"
           S="$(python3 tools/voiceintake.py --sim lab)"
-          echo "قدرِ شباهت: ${S:-—}"
+          P="$(python3 tools/voiceintake.py --simpitch lab)"
+          echo "قدرِ شباهت: ${S:-—} (گامِ ${P:-؟})"
           echo "sim=$S" >> "$GITHUB_OUTPUT"
+          echo "pitch=$P" >> "$GITHUB_OUTPUT"
+
+      # ══ مدلِ قبلی روی **همان** سنجش (۸.۴۳) ══
+      # پرسشِ آموزشِ دوباره «شبیه‌تر شد؟» است، و عددِ تنها جوابش نیست: مرجعِ
+      # سنجش این بار یک ضبطِ تازه است، پس عددِ قبلی با آن قابلِ مقایسه نیست.
+      # مدلِ قبلی از artifactِ اجرای آموزشِ خودش برداشته و با همان مرجع، همان
+      # مبدأ و همان فهرستِ گام سنجیده می‌شود. هر شکستی اینجا فقط هشدار است:
+      # نبودنِ مقایسه نباید ثبتِ مدلِ تازه را بیندازد.
+      - name: مدلِ قبلی، همان سنجش
+        id: prevsim
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEY: ${{ needs.plan.outputs.measure }}
+        run: |
+          set -uo pipefail
+          PREV="$(python3 tools/voiceintake.py --prevrun "$KEY")"
+          if [ -z "$PREV" ]; then echo "آموزشِ دوباره نیست؛ مقایسه‌ای لازم نیست."; exit 0; fi
+          if ! gh run download "$PREV" -R "$GITHUB_REPOSITORY" -n "voice-$KEY" -D vprev; then
+            echo "::warning title=مدلِ قبلی نرسید::artifactِ اجرای $PREV برداشته نشد؛ مقایسه این بار نیست."
+            exit 0
+          fi
+          M="$(find vprev -name '*.pth' ! -name '*_e*' | head -1)"
+          [ -n "$M" ] || M="$(find vprev -name '*.pth' | sort -V | tail -1)"
+          I="$(find vprev -name '*.index' | head -1)"
+          [ -n "$M" ] || { echo "::warning::در artifactِ قبلی .pth نبود."; exit 0; }
+          A=(--engine rvc --ref ref.wav --src src.wav --out labprev --rvc-model "$M")
+          [ -n "$I" ] && A+=(--rvc-index "$I")
+          A+=(--rvc-pitch "0,-2,-4,-6,-8,-10,-12" --rvc-index-rate 1.0 --rvc-protect 0.33)
+          if ! python3 tools/voicelab.py "${A[@]}"; then
+            echo "::warning title=مدلِ قبلی سنجیده نشد::تبدیل با مدلِ قبلی شکست خورد."
+            exit 0
+          fi
+          PS="$(python3 tools/voiceintake.py --sim labprev)"
+          echo "مدلِ قبلی روی همین سنجش: ${PS:-—}"
+          echo "prev=$PS" >> "$GITHUB_OUTPUT"
 
       # ══ نمونه‌ها artifact می‌شوند، نه کامیت — و کوتاه (۷٫۷۴) ══
       # همان حکمی که `voice-lab.yml` از روزِ اول دارد: «این ریپو عمومی است و
@@ -377,6 +422,8 @@ jobs:
           # می‌آید که voicelab نوشته؛ درجِ مستقیم یعنی هر چیزی که آنجا
           # بنشیند در پوسته اجرا می‌شود.
           SIM: ${{ steps.sim.outputs.sim }}
+          SIM_PITCH: ${{ steps.sim.outputs.pitch }}
+          PREV_SIM: ${{ steps.prevsim.outputs.prev }}
         run: |
           set -euo pipefail
           python3 tools/voiceintake.py --record "$KEY" "$SIM" \

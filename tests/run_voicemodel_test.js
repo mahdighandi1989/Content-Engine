@@ -136,7 +136,7 @@ ok('۲.۵ «رسید» همین حالا در صفِ گویندگان نشست �
 ok('۲.۶ و صف «هرکس با لینک» ماند', outFolder_().getFilesByName(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json')).next().getSharingAccess() === 'ANYONE_WITH_LINK');
 const seeds = vbrSoulSeeds_();
 ok('۲.۷ گوینده بی هیچ نسخهٔ کد یا تیکی به فهرستِ نمونهٔ خودکار رفت',
-   seeds.some(s => s.speaker === 'spk-new1' && s.tag === VBR_AUTO_SEED_TAG && s.text === 'ساعت‌ساز'),
+   seeds.some(s => s.speaker === 'spk-new1' && s.tag === VBR_AUTO_SEED_TAG + ' · مدلِ 2026-10-04' && s.text === 'ساعت‌ساز'),
    seeds.map(s => s.speaker + (s.auto ? '(خودکار)' : '')).join(','));
 const tgT = tg.filter(c => c.m === 'sendMessage').map(c => String(c.body.text || '')).join('\n');
 ok('۲.۸ در تلگرام گفته شد — با «نمونه می‌آید» و «روشن‌کردن تصمیمِ شماست»',
@@ -166,7 +166,7 @@ ok('۳.۳ زمان‌بندِ نمونه همان گویندهٔ تازه را �
   pt.getRange(pt.getLastRow() + 1, 1, 1, row.length).setValues([row]);
   const pk = vbrSoulPick_();
   ok('۳.۴ انتخاب‌گرِ نمونه همان بذرِ خودکار را برمی‌دارد — متنِ آزمون، برچسبِ خودکار',
-     pk.ok && pk.key === 'spk-new1' && pk.seeded && pk.tag === VBR_AUTO_SEED_TAG && pk.item && pk.item.text === 'ساعت‌ساز',
+     pk.ok && pk.key === 'spk-new1' && pk.seeded && pk.tag === VBR_AUTO_SEED_TAG + ' · مدلِ 2026-10-04' && pk.item && pk.item.text === 'ساعت‌ساز',
      JSON.stringify({ ok: pk.ok, key: pk.key, tag: pk.tag, why: pk.why }));
 }
 
@@ -547,6 +547,29 @@ console.log('\n=== ۱۳) ۸.۴۲: «سریع پاک نکنه» — هیچ مدل
   const pyMax = Number((vm.match(/^REDROP_MAX = (\d+)$/m) || [])[1]);
   ok('۱۳.۱۷ سقفِ دوباره‌فرستادن در دو زبان یک عدد است (۷٫۳۰/۷٫۳۱)', pyMax > 0 && pyMax === Number(CFG.VBR_MODEL_REDROP_MAX),
      pyMax + ' / ' + CFG.VBR_MODEL_REDROP_MAX);
+}
+
+console.log('\n=== ۱۳-ب) مدلِ تازه، نمونهٔ تازه (۸.۴۳) ===');
+{
+  /* خبرِ پایانِ آموزشِ دوباره وعده می‌دهد «نمونهٔ ساعت‌ساز با صدای تازه ساخته
+     می‌شود». هویتِ نمونه تا ۸.۴۲ مدل را نداشت، پس آن نمونه «قبلاً ساخته شده»
+     حساب می‌شد. */
+  const keepHave = global.__PROPS['VMODEL_HAVE'];
+  const tagOf = spk => (vbrSoulSeeds_().find(x => x.speaker === spk) || {}).tag || '';
+  const h0 = JSON.parse(keepHave || '{}'); delete h0['spk-1g0r95d'];
+  global.__PROPS['VMODEL_HAVE'] = JSON.stringify(h0);
+  const t0 = tagOf('spk-1g0r95d');
+  ok('۱۳-ب.۱ بی تحویلِ خودکار (مدلِ دستیِ امروزِ گلدوز) برچسبِ بذرِ دستی همان می‌مانَد — امروز نمونهٔ تکراری نه',
+     t0 === CFG.VOICE_SOUL_SEED[0].tag, t0);
+  h0['spk-1g0r95d'] = { ok: 1, sha: 1, drop: '2026-10-10T09:00:00Z' };
+  global.__PROPS['VMODEL_HAVE'] = JSON.stringify(h0);
+  const t1 = tagOf('spk-1g0r95d');
+  ok('۱۳-ب.۲ مدلِ تازه که با اثرانگشت رسید، برچسب عوض می‌شود ⇒ نمونهٔ تازه', t1 === t0 + ' · مدلِ 2026-10-10', t1);
+  h0['spk-1g0r95d'].sha = 0;
+  global.__PROPS['VMODEL_HAVE'] = JSON.stringify(h0);
+  ok('۱۳-ب.۳ ولی تا اثرانگشت تأیید نشده نه — نمونه با مدلی که شاید عوض شود ساخته نمی‌شود',
+     tagOf('spk-1g0r95d') === t0);
+  global.__PROPS['VMODEL_HAVE'] = keepHave;
 }
 
 console.log('\n=== ۱۴) سمتِ گیت‌هاب: `--redrop` از artifactِ آموزش — اجرا، نه خواندن ===');

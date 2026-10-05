@@ -1671,4 +1671,103 @@ console.log('\n=== ۲۳) بلندیِ خروجی، و زیروبمی که دیگ
      /sheet\["medianHz"\] = m\["median_hz"\]/.test(lab23),
      String(r4.stdout || r4.stderr).trim().slice(0, 200));
 }
+console.log('\n=== ۲۴) آموزشِ دوباره — مدلِ قبلی نگه داشته، فهرست قفل، و سنجش با زیروبمِ خودش (۸.۴۳) ===');
+{
+  const planRT = (state, q) => cp.spawnSync('python3', ['-c', [
+    'import sys, json; sys.path.insert(0, "tools"); import voiceintake as V',
+    'V.runInfo = lambda r: {"status": "completed", "conclusion": "success"}',
+    'V.artifactState = lambda r, k, d: {"done": False, "epochs_reached": 5}',
+    'sent = []',
+    'V.dispatch = lambda k, i, e, f: (sent.append([k, sorted(i), e, f]), "RUN-" + str(len(sent)))[1]',
+    'st = json.loads(sys.argv[1]); q = json.loads(sys.argv[2])',
+    'ch, m, sty = V.plan(q, st)',
+    'print(json.dumps({"sent": sent, "st": st["speakers"]}, ensure_ascii=False))',
+  ].join('\n'), JSON.stringify(state), JSON.stringify(q)], { cwd: process.cwd(), encoding: 'utf8' });
+  const lastJ = r => { try { return JSON.parse(r.stdout.trim().split('\n').pop()); } catch (e) { return null; } };
+  const ready = { name: 'گلدوز', stage: 'آماده', similarity: '0.708', runId: 'OLD-RUN', epochs: 32,
+                  fileIds: ['O1', 'O2'], everDispatched: true, style: { cue: 'x' } };
+  const qRT = files => ({ maxActive: 1, speakers: [{ key: 'g', name: 'گلدوز',
+                          files: files.map(id => ({ id })), retrain: { tag: 'r2' } }] });
+
+  const r1 = planRT({ speakers: { g: JSON.parse(JSON.stringify(ready)) } }, qRT(['N1', 'N2']));
+  const j1 = lastJ(r1);
+  ok('۲۴.۰ اجرا شد', r1.status === 0 && !!j1, (r1.stderr || '').slice(-300));
+  ok('۲۴.۱ گویندهٔ «آماده» با retrain دوباره راه افتاد — با فایل‌های تازه و **allow_fresh**',
+     j1.sent.length === 1 && JSON.stringify(j1.sent[0][1]) === '["N1","N2"]' && j1.sent[0][3] === true,
+     JSON.stringify(j1.sent) + ' — بی allow_fresh اجرا می‌ایستد: «کش برنگشت»');
+  const g1 = j1.st.g;
+  ok('۲۴.۲ مدلِ قبلی فراموش نشد: عدد، اجرا و دورهایش در prev', g1.prev && g1.prev.similarity === '0.708' &&
+     g1.prev.runId === 'OLD-RUN' && g1.prev.epochs === 32, JSON.stringify(g1.prev));
+  ok('۲۴.۳ و آموزشِ تازه از صفر شمرده می‌شود: دور و عددِ قبلی روی ردیفِ تازه نمی‌ماند',
+     g1.stage === 'آموزش' && g1.runId === 'RUN-1' && g1.epochs === undefined && g1.similarity === undefined &&
+     g1.retrainTag === 'r2' && g1.targetEpochs === 32, JSON.stringify(g1));
+  ok('۲۴.۴ فهرست قفل شد', JSON.stringify(g1.retrainIds) === '["N1","N2"]');
+
+  /* وسطِ آموزش فایلی به پوشه آمد: فهرستِ صف سه‌تایی شد. */
+  const r2 = planRT({ speakers: { g: g1 } }, qRT(['N1', 'N2', 'N3']));
+  const j2 = lastJ(r2);
+  ok('۲۴.۵ فایلِ تازهٔ وسطِ کار آموزش را از صفر نمی‌گیرد — همان دو فایلِ قفل‌شده می‌روند',
+     j2 && j2.sent.length === 1 && JSON.stringify(j2.sent[0][1]) === '["N1","N2"]' && j2.sent[0][3] === false,
+     JSON.stringify(j2 && j2.sent) + ' — فهرستِ دیگر یعنی اثرِ انگشتِ دیگر یعنی freshStart_');
+  ok('۲۴.۶ و پیشرفت ثبت شد، نه آموزشِ تازه', j2.st.g.epochs === 5 && j2.st.g.retrainTag === 'r2' &&
+     j2.st.g.prev.runId === 'OLD-RUN');
+
+  /* پایان: retrainDone همان tag است ⇒ هیچ کاری. */
+  const done = Object.assign({}, g1, { stage: 'آماده', retrainDone: 'r2', similarity: '0.86' });
+  const j3 = lastJ(planRT({ speakers: { g: done } }, qRT(['N1', 'N2'])));
+  ok('۲۴.۷ آموزشِ تمام‌شده دوباره راه نمی‌افتد، حتی اگر صف هنوز retrain بگوید', j3 && j3.sent.length === 0,
+     JSON.stringify(j3 && j3.sent));
+
+  /* آموزشِ دوبارهٔ تازه‌تری تعریف شد، وسطِ آموزشِ قبلی: کارِ در جریان قطع نمی‌شود. */
+  const mid = Object.assign({}, g1, { retrainTag: 'r1', retrainIds: ['N1', 'N2'], stage: 'آموزش', runId: 'RUN-7', epochs: 9 });
+  const j5 = lastJ(planRT({ speakers: { g: mid } }, qRT(['M1', 'M2'])));
+  ok('۲۴.۷-ب آموزشِ در جریان با tagِ تازه از صفر گرفته نمی‌شود — ادامه می‌دهد، روی فهرستِ خودش',
+     j5 && j5.sent.length === 1 && JSON.stringify(j5.sent[0][1]) === '["N1","N2"]' && j5.st.g.retrainTag === 'r1',
+     JSON.stringify(j5 && j5.sent));
+
+  /* ثبت و دو پرسشِ سنجش، روی یک voices.json در پوشهٔ موقت. */
+  const path = require('path'), os = require('os');
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'vi24-'));
+  fs.mkdirSync(T + '/tools'); fs.mkdirSync(T + '/docs');
+  fs.copyFileSync('tools/voiceintake.py', T + '/tools/voiceintake.py');
+  fs.writeFileSync(T + '/docs/voices.json', JSON.stringify({ rev: 1, speakers: { g: Object.assign({}, g1, { stage: 'سنجش' }) } }));
+  const run = (args, env) => cp.spawnSync('python3', ['tools/voiceintake.py'].concat(args),
+    { cwd: T, encoding: 'utf8', env: Object.assign({}, process.env, env || {}) });
+  ok('۲۴.۸ «--prevrun» اجرای مدلِ قبلی را می‌دهد — سنجش آن را از artifactِ خودش برمی‌دارد',
+     run(['--prevrun', 'g']).stdout === 'OLD-RUN');
+  /* بهترین **عمداً** دومی است که پیدا می‌شود: globِ بازگشتی اول پوشهٔ بالا را
+     می‌دهد. با ترتیبِ برعکس، «اولی را بردار» همان جواب را می‌داد و سنجه هیچ
+     نمی‌گفت — شکستنِ عمدی (P5) همین را نشان داد. */
+  fs.mkdirSync(T + '/lab/a', { recursive: true });
+  fs.writeFileSync(T + '/lab/report-old.json', JSON.stringify({ rvc: { best: { file: 'rvc-p+0-i100-pr33.wav', out_vs_ref: 0.802 } } }));
+  fs.writeFileSync(T + '/lab/a/report-rvc.json', JSON.stringify({ rvc: { best: { file: 'rvc-p-4-i100-pr33.wav', out_vs_ref: 0.861 } } }));
+  ok('۲۴.۹ «--simpitch» گامِ **بهترین** گونه را می‌دهد', run(['--simpitch', 'lab']).stdout === '-4',
+     run(['--simpitch', 'lab']).stdout);
+  /* نمونه‌ای ساخته شده — بی آن، ثبت درست «ناموفق» می‌گوید (همان مرزِ ۷٫۲۲). */
+  fs.mkdirSync(T + '/docs/voice-samples/g', { recursive: true });
+  fs.writeFileSync(T + '/docs/voice-samples/g/نمونه-1.wav', 'RIFF');
+  const rr = run(['--record', 'g', '0.861', 'سنجیده شد'], { SIM_PITCH: '-4', PREV_SIM: '0.828' });
+  const g4 = JSON.parse(fs.readFileSync(T + '/docs/voices.json', 'utf8')).speakers.g;
+  ok('۲۴.۱۰ ثبت: آماده، retrainDone، گامِ عدد، و عددِ مدلِ قبلی روی همان سنجش',
+     rr.status === 0 && g4.stage === 'آماده' && g4.retrainDone === 'r2' && g4.simPitch === '-4' &&
+     g4.prevSimilarity === '0.828' && g4.similarity === '0.861', (rr.stderr || '') + JSON.stringify(g4));
+  ok('۲۴.۱۱ و گویندهٔ بی آموزشِ دوباره «--prevrun» تهی می‌گیرد — مقایسه‌ای ساخته نمی‌شود',
+     (fs.writeFileSync(T + '/docs/voices.json', JSON.stringify({ rev: 1, speakers: { z: { stage: 'سنجش', runId: 'Z' } } })),
+      run(['--prevrun', 'z']).stdout === ''));
+
+  /* سیم‌کشیِ گردش‌کار: سنجش با زیروبمِ خودِ گوینده، و مدلِ قبلی کنارش. */
+  const y = fs.readFileSync('.github/workflows/voice-intake.yml', 'utf8');
+  const meas = y.slice(y.indexOf('\n  measure:'));
+  ok('۲۴.۱۲ سنجش دیگر گامِ ثابتِ رضوی (‎−۱۲) نیست — چند گام و بهترین',
+     !/--rvc-pitch -12 /.test(meas) && /--rvc-pitch "0,-2,-4,-6,-8,-10,-12"/.test(meas) &&
+     /--simpitch lab/.test(meas));
+  const pv = meas.slice(meas.indexOf('id: prevsim'), meas.indexOf('name: ثبتِ نتیجه'));
+  ok('۲۴.۱۳ مدلِ قبلی با همان مرجع و همان گام‌ها، و شکستش ثبت را نمی‌اندازد',
+     /continue-on-error: true/.test(pv) && /--prevrun/.test(pv) && /--ref ref\.wav --src src\.wav/.test(pv) &&
+     /0,-2,-4,-6,-8,-10,-12/.test(pv) && /prev=\$PS/.test(pv));
+  const rec = meas.slice(meas.indexOf('name: ثبتِ نتیجه'), meas.indexOf('name: ثبتِ نتیجه') + 900);
+  ok('۲۴.۱۴ و هر دو عدد به ثبت می‌رسند', /PREV_SIM: \$\{\{ steps\.prevsim\.outputs\.prev \}\}/.test(rec) &&
+     /SIM_PITCH: \$\{\{ steps\.sim\.outputs\.pitch \}\}/.test(rec));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
