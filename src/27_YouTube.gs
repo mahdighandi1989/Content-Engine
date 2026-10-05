@@ -377,11 +377,14 @@ function ytMetaPrompt_(ctx) {
       /* در حالتِ صحنه «سطح» یعنی **ضرباهنگِ تصویر**، نه شمارِ کارت (۸.۴۷). تا ۸.۴۶
          این سه خط کارت‌ها را توصیف می‌کردند، در حالی که از ۸.۳۱ ویدئوی درس‌نامه
          صحنهٔ تمام‌قاب است — مدل دربارهٔ چیزی تصمیم می‌گرفت که ساخته نمی‌شد. */
+      /* و از ۸.۴۹ «سطح» **چگالی** است، نه ثانیه: شمارِ تصویر از خودِ محتوا می‌آید
+         (`lvSceneCuts_`). «هر ۲۰ ثانیه» همان عددِ هاردکدی بود که او نخواست. */
       if (ctx.sceneMode) {
-        L.push('   «زیاد» = هر ~' + lvSceneSec_('زیاد') + ' ثانیه یک صحنهٔ تازه. متنی که ' +
-               'تند پیش می‌رود: داستانی با رویدادهای پیاپی، یا درسی پرمفهوم.');
-        L.push('   «کم» = هر ~' + lvSceneSec_('کم') + ' ثانیه یک صحنه. بحثِ آرام و پیوسته، ' +
+        L.push('   «زیاد» = هر بار که ایده، مثال یا لحظهٔ دیدنیِ تازه‌ای می‌آید، تصویرِ تازه. ' +
+               'متنی که تند پیش می‌رود: داستانی با رویدادهای پیاپی، یا درسی پرمفهوم.');
+        L.push('   «کم» = تصویر فقط سرِ تغییرهای بزرگ عوض می‌شود. بحثِ آرام و پیوسته، ' +
                'یا روایتی که در یک فضا می‌مانَد.');
+        L.push('   شمارِ تصویرها را تو نمی‌گویی و ثابت هم نیست: از خودِ محتوا می‌آید.');
         L.push('   «خاموش» = ویدئوی مصور نه. فقط وقتی تصویر واقعاً چیزی اضافه ' +
                'نمی‌کند. کم پیشش بیاید.');
       } else {
@@ -3138,28 +3141,27 @@ function lvMonthDaysLeft_(now) {
  * ══ بودجهٔ ماه پخش می‌شود، نه اینکه نیمهٔ ماه تمام شود (۸.۴۸) ══
  * او پرسید: «اگر قبل از اتمامِ ماه ۶۰ را رد کنه، بقیهٔ درس‌نامه‌های ماه ساده
  * مثلِ قبل انجام می‌شه؟ … حرفه‌ای بودن رو خراب می‌کنه». جواب «بله» بود: سقف
- * فقط **دیوار** بود. هر درس هرچه تخته می‌خواست می‌ساخت (با ۲.۵-flash-image هر
- * درسِ «زیاد» ~۳.۵ دلار)، و حدودِ روزِ بیستم `lvGenRoom_` صفر می‌شد: صحنه‌ها
- * نیمه‌کاره، `fail` و کارتِ ساده تا اولِ ماه. یعنی کیفیت به **تاریخ** بسته بود.
+ * فقط **دیوار** بود، و حدودِ روزِ بیستم `lvGenRoom_` صفر می‌شد: صحنه‌ها نیمه‌کاره،
+ * `fail` و کارتِ ساده تا اولِ ماه. یعنی کیفیت به **تاریخ** بسته بود.
  *
- * حالا سهمِ هر درس = (ماندهٔ سقف) ÷ (درس‌های ماندهٔ ماه). اگر سطحِ تخته در این
- * سهم جا شود، دست نمی‌خورد؛ اگر نه، **صحنه‌ها بلندتر می‌شوند، نه ساده**: همان
- * سبک، همان نقاشیِ تمام‌قاب، فقط تصویرِ کمتر. چون هر روز از نو و با ماندهٔ
- * واقعی حساب می‌شود، خودش را تصحیح می‌کند: روزی که کمتر خرج شد، سهمِ روزهای
- * بعد بیشتر می‌شود. سقف هنوز سد است و موتور از آن رد نمی‌شود — فقط دیگر به آن
- * نمی‌خورد.
+ * ══ و سقف، هدف نیست (۸.۴۹) ══
+ * او: «این ۱۲۰ یعنی مدل خودش رو ملزم می‌کنه که حتماً برسونه به ۱۲۰؟ … صرفاً از
+ * این جهت گفتم که کم نیاد … طبیعی رفتار کنه». پس این تابع دیگر **شمار** نمی‌دهد؛
+ * فقط **سقفِ این درس** را می‌دهد. شمار از محتوا می‌آید (`lvSceneCuts_`) و این‌جا
+ * فقط وقتی کاری می‌کند که محتوا بیش از سقف بخواهد. هیچ شاخه‌ای در این تابع یا
+ * در نقشه صحنه‌ای **اضافه** نمی‌کند تا به سقف برسد.
  *
- * `slack` روزهای اضافه است (مرورِ بزرگ، ساختِ دوباره): بی آن، روزی که دو درس
- * ساخته شود سهمِ دومی از جیبِ آخرِ ماه می‌رود.
- * @return {{paced:boolean, sec:number, max:number, want:number, allow:number,
- *           left:number, eps:number, per:number, cover:number, days:number, why:string}}
+ * سقفِ درس = کمینهٔ «ماندهٔ ماه» و «سهمِ میانگین × FLEX». سهمِ میانگین =
+ * ماندهٔ سقف ÷ درس‌های ماندهٔ ماه؛ هر روز با ماندهٔ واقعی، پس آنچه درسی نخواست
+ * برای بقیه می‌مانَد و خودش را تصحیح می‌کند.
+ * `slack` روزهای اضافه است (مرورِ بزرگ، ساختِ دوباره).
+ * @return {{max:number, allow:number, ceil:number, left:number, eps:number,
+ *           per:number, cover:number, days:number, flex:number, why:string}}
  */
-function lvScenePace_(level, secs, model, now) {
-  var base = lvSceneSec_(level);
-  var hardMax = Math.max(3, Number(CFG.LV_SCENE_MAX) || 60);
-  var total = Math.max(1, Number(secs) || 0);
-  var out = { paced: false, sec: base, max: hardMax, want: Math.min(hardMax, Math.ceil(total / base)),
-              allow: 0, left: 0, eps: 0, per: 0, cover: 0, days: 0, why: '' };
+function lvScenePace_(model, now) {
+  var hardMax = Math.max(3, Number(CFG.LV_SCENE_MAX) || 150);
+  var out = { max: hardMax, allow: 0, ceil: 0, left: 0, eps: 0, per: 0, cover: 0, days: 0,
+              flex: 1, why: '' };
   try {
     var cap = Math.max(0, Number(CFG.LV_GEN_USD_MONTH) || 0);
     out.left = Math.max(0, cap - lvGenSpend_().usd);
@@ -3168,25 +3170,23 @@ function lvScenePace_(level, secs, model, now) {
     var slack = Math.max(1, Number(CFG.LV_PACE_SLACK) || 1.1);
     out.eps = Math.max(1, Math.ceil(out.days * shows * slack));
     out.allow = out.left / out.eps;
+    out.flex = Math.max(1, Number(CFG.LV_PACE_FLEX) || 2.5);
+    out.ceil = Math.min(out.left, out.allow * out.flex);
     var price = lvGenPrice_(model);
     var redo = Math.max(0, Number(CFG.LV_PACE_REDO_PCT) || 0.2);
     out.per = price * (1 + redo);
     out.cover = Math.max(price, Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
     if (out.per <= 0) return out;
-    var fit = Math.floor(Math.max(0, out.allow - out.cover) / out.per);
-    if (fit >= out.want) return out;
-    /* کف فقط همان سه صحنه‌ای است که نقشه بی آن ساخته نمی‌شود. کفِ بالاتر یعنی
-       قرض از روزهای بعد — همان پرتگاهِ «روزِ بیستم» که این تابع برای برداشتنش
-       نوشته شد. پس اگر سهم کم است، **گفته می‌شود** (خطِ روزانه سقفِ لازم را
-       می‌گوید)، نه اینکه پنهانی از آخرِ ماه برداشته شود. */
+    var fit = Math.floor(Math.max(0, out.ceil - out.cover) / out.per);
+    /* کف فقط همان سه صحنه‌ای است که نقشه بی آن ساخته نمی‌شود، و آن هم فقط اگر
+       پولش واقعاً مانده (`afford`). کفِ بالاتر یعنی قرض از روزهای بعد — همان
+       پرتگاهِ «روزِ بیستم». */
     var afford = Math.floor(Math.max(0, out.left - out.cover) / out.per);
-    var n = Math.min(Math.max(fit, 3), afford, hardMax);
-    out.paced = true;
-    out.max = Math.max(0, n);
-    out.sec = n > 0 ? Math.max(base, Math.ceil(total / n)) : base;
-    out.why = 'بودجهٔ این درس ~' + out.allow.toFixed(2) + ' دلار (' + out.left.toFixed(2) + ' ÷ ' +
-              out.eps + ' درسِ ماندهٔ ماه) ⇒ ' + n + ' صحنه به‌جای ' + out.want;
-  } catch (e) { out.why = 'سهمِ بودجه حساب نشد: ' + e.message; }
+    out.max = Math.max(0, Math.min(hardMax, afford, Math.max(fit, 3)));
+    out.why = 'سقفِ این درس ~' + out.ceil.toFixed(2) + ' دلار (سهمِ میانگین ~' +
+              out.allow.toFixed(2) + ' = ' + out.left.toFixed(2) + ' ÷ ' + out.eps +
+              ' درسِ ماندهٔ ماه، × ' + out.flex + ') ⇒ تا ' + out.max + ' صحنه';
+  } catch (e) { out.why = 'سقفِ بودجهٔ این درس حساب نشد: ' + e.message; }
   return out;
 }
 
@@ -3541,31 +3541,28 @@ function lvGenStatus_() {
           : ' · داوریِ تصویرها: هنوز هیچ') +
         ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
         'است `LV_GEN_PRICES` را عوض کنید).';
-      /* پخشِ بودجه (۸.۴۸) — از آخرین نقشهٔ صحنه، بی هیچ خواندنِ درایو یا هاب
-         (این تابع در `writeStatus_` است؛ ۷.۶۳). هر روز گفته می‌شود، حتی وقتی سطحِ
-         تخته جا می‌شود: سکوت با «جا نمی‌شود ولی کسی نگفت» یکی است. */
+      /* سقف، نه هدف (۸.۴۸/۸.۴۹) — بی هیچ خواندنِ درایو یا هاب (این تابع در
+         `writeStatus_` است؛ ۷.۶۳). هر روز گفته می‌شود، حتی وقتی همه‌چیز جا می‌شود:
+         سکوت با «بودجه بُرید ولی کسی نگفت» یکی است. */
       if (out.model) {
         var lp = null;
         try { lp = JSON.parse(props_().getProperty(PK.LV_PACE_LAST) || 'null'); } catch (eLp) { lp = null; }
-        var lvL = (lp && lp.level) || 'زیاد';
-        var secL = (lp && Number(lp.secs)) || 900;
-        var pc = lvScenePace_(lvL, secL, out.model);
-        var tz = CFG.TIMEZONE || 'Asia/Dubai', now = new Date();
-        var dim = new Date(Date.UTC(Number(Utilities.formatDate(now, tz, 'yyyy')),
-                                    Number(Utilities.formatDate(now, tz, 'MM')), 0)).getUTCDate();
-        var shows = Math.max(1, (CFG.LV_SHOWS || ['special']).length);
-        var full = Math.ceil((pc.want * pc.per + pc.cover) * dim * shows);
-        out.pace = { paced: pc.paced, allow: Math.round(pc.allow * 100) / 100, want: pc.want,
-                     max: pc.max, sec: pc.sec, board: lvSceneSec_(lvL), level: lvL, needMonth: full };
-        out.line += pc.paced
-          ? '\n💵 بودجهٔ ماه پخش می‌شود تا هیچ درسی تا آخرِ ماه ساده نشود: سهمِ هر درس ~' +
-            pc.allow.toFixed(2) + ' دلار ⇒ ~' + faDigitsOut_(String(pc.max)) + ' صحنه (هر ~' +
-            faDigitsOut_(String(pc.sec)) + ' ثانیه) به‌جای ~' + faDigitsOut_(String(pc.want)) +
-            ' صحنهٔ سطحِ «' + lvL + '»ِ تخته (هر ~' + faDigitsOut_(String(lvSceneSec_(lvL))) +
-            ' ثانیه). برای سطحِ کاملِ تخته در همهٔ ماه، سقف باید ~' + faDigitsOut_(String(full)) +
-            ' دلار باشد.'
-          : '\n💵 بودجهٔ ماه پخش می‌شود: سهمِ هر درس ~' + pc.allow.toFixed(2) + ' دلار — سطحِ «' +
-            lvL + '»ِ تخته (~' + faDigitsOut_(String(pc.want)) + ' صحنه) در آن جا می‌شود.';
+        var pc = lvScenePace_(out.model);
+        out.pace = { allow: Math.round(pc.allow * 100) / 100, ceil: Math.round(pc.ceil * 100) / 100,
+                     max: pc.max, last: lp ? { key: String(lp.key || ''), natural: Number(lp.natural) || 0,
+                                               used: Number(lp.used) || 0, paced: !!lp.paced,
+                                               by: String(lp.by || '') } : null };
+        out.line += '\n💵 سقفِ ماه سقف است، نه هدف: هر درس به اندازهٔ محتوایش تصویر می‌گیرد. ' +
+          'سهمِ میانگینِ هر درس ~' + pc.allow.toFixed(2) + ' دلار؛ درسِ پرتصویر تا ~' +
+          pc.ceil.toFixed(2) + ' دلار (~' + faDigitsOut_(String(pc.max)) + ' تصویر).';
+        if (lp && lp.used) {
+          out.line += ' آخرین درس (' + String(lp.key || '') + '): ' +
+            (lp.by === 'زمان' ? 'برشِ محتوایی نشد و برشِ زمانی ' : 'محتوا ') +
+            faDigitsOut_(String(lp.natural || lp.used)) + ' صحنه خواست' +
+            (lp.paced ? ' و سقفِ همان روز ' + faDigitsOut_(String(lp.used)) + ' صحنه داد — ' +
+                        'اگر این زیاد تکرار شود، سقف برای محتوا کم است'
+                      : ' و همان ساخته شد') + '.';
+        }
       }
     }
   } catch (e) { out.line = ''; }
@@ -4984,15 +4981,65 @@ function lvSceneSents_(chunks) {
   return out;
 }
 
+/** پایانِ گروهِ q (شروعِ بعدی، یا پایانِ صوت). روی گروه‌های خام (متنْ آرایه). */
+function lvSceneEnd_(g, q, total) {
+  return (q + 1 < g.length) ? g[q + 1].t0 : total;
+}
+
 /**
- * جمله‌ها ⇒ صحنه‌ها. صحنهٔ تازه روی **مرزِ جمله** شروع می‌شود، هرگز وسطِ آن.
- * سقفِ تعداد با بلندکردنِ صحنه‌ها رعایت می‌شود، نه با بریدنِ آخرِ درس.
+ * گروهِ di را با همسایهٔ **کوتاه‌ترش** یکی می‌کند (روی گروه‌های خام). تنها تعریفِ
+ * «یکی‌کردن» — برای سقفِ تعداد، برای صحنهٔ خیلی کوتاه، و برای سقفِ بودجه (۸.۴۹).
+ */
+function lvSceneMergeAt_(g, di, total) {
+  if (g.length < 2 || di < 0 || di >= g.length) return;
+  var to;
+  if (di === 0) to = 1;
+  else if (di === g.length - 1) to = di - 1;
+  else {
+    var nxt = lvSceneEnd_(g, di + 1, total) - g[di + 1].t0;
+    var prv = g[di].t0 - g[di - 1].t0;
+    to = nxt < prv ? di + 1 : di - 1;
+  }
+  var a = Math.min(di, to), b = Math.max(di, to);
+  g[a].text = g[a].text.concat(g[b].text);
+  if (!g[a].sec && g[b].sec) g[a].sec = g[b].sec;
+  g.splice(b, 1);
+}
+
+/** کوتاه‌ترین را یکی کن تا شمار به سقف برسد. سقف با بلندکردنِ صحنه‌ها، نه بریدنِ آخرِ درس. */
+function lvSceneMergeTo_(g, total, cap) {
+  cap = Math.max(1, Number(cap) || 1);
+  while (g.length > cap) {
+    var di = -1, dv = Infinity;
+    for (var q = 0; q < g.length; q++) {
+      var dur = lvSceneEnd_(g, q, total) - g[q].t0;
+      if (dur < dv) { dv = dur; di = q; }
+    }
+    lvSceneMergeAt_(g, di, total);
+  }
+  return g;
+}
+
+/** گروه‌های خام ⇒ صحنه‌های نهایی: شماره، پایان، متنِ پیوسته؛ صحنهٔ اول از صفر. */
+function lvSceneFinal_(g, total) {
+  if (g.length) g[0].t0 = 0;
+  for (var j = 0; j < g.length; j++) {
+    g[j].n = j + 1;
+    g[j].t1 = (j + 1 < g.length) ? g[j + 1].t0 : Math.round(total * 10) / 10;
+    g[j].text = [].concat(g[j].text).join(' ');
+  }
+  return g;
+}
+
+/**
+ * جمله‌ها ⇒ صحنه‌ها **با ساعت** — حالا فقط راهِ پشتیبان (۸.۴۹): وقتی تدوین‌گر
+ * (`lvSceneCuts_`) جواب نداد. صحنهٔ تازه روی **مرزِ جمله** شروع می‌شود.
+ * `natural` روی آرایه = شمار پیش از سقف.
  */
 function lvSceneGroups_(sents, target, secs, maxN) {
   var total = Math.max(1, Number(secs) || 0);
   var T = Math.max(6, Number(target) || 20);
   var cap = Math.max(3, Number(maxN) || 60);
-  if (total / T > cap) T = total / cap;
   var g = [], cur = null, cut = T * 0.85;
   for (var i = 0; i < (sents || []).length; i++) {
     var s = sents[i];
@@ -5003,33 +5050,159 @@ function lvSceneGroups_(sents, target, secs, maxN) {
   }
   if (cur) g.push(cur);
   // صحنهٔ آخرِ خیلی کوتاه به قبلی می‌پیوندد — تصویری که دو ثانیه بماند دیده نمی‌شود
-  if (g.length > 1 && total - g[g.length - 1].t0 < T * 0.4) {
-    var last = g.pop();
-    g[g.length - 1].text = g[g.length - 1].text.concat(last.text);
-  }
+  if (g.length > 1 && total - g[g.length - 1].t0 < T * 0.4) lvSceneMergeAt_(g, g.length - 1, total);
+  var natural = g.length;
   /* سقف **سخت** است (۸.۴۸): برش در ۰٫۸۵ِ طولِ هدف انجام می‌شود، پس تعداد تا ~۱۸٪
      از سقف بالاتر می‌رفت. وقتی سقف از بودجه می‌آید، هر صحنهٔ اضافه یک تصویرِ
-     بی‌پول است. کوتاه‌ترین صحنه با همسایهٔ کوتاه‌ترش یکی می‌شود تا جا شود. */
-  while (g.length > cap) {
+     بی‌پول است. */
+  lvSceneMergeTo_(g, total, cap);
+  var out = lvSceneFinal_(g, total);
+  out.natural = natural;
+  return out;
+}
+
+/** کوتاه‌ترین و بلندترین صحنهٔ برشِ محتوایی، از سطحِ تخته (۸.۴۹). */
+function lvSceneCutSec_(level) {
+  var hi = String(level || '') === 'زیاد';
+  var mn = Math.max(3, Number(hi ? CFG.LV_CUT_MIN_HIGH : CFG.LV_CUT_MIN_LOW) || (hi ? 6 : 12));
+  var mx = Math.max(mn * 2, Number(hi ? CFG.LV_CUT_MAX_HIGH : CFG.LV_CUT_MAX_LOW) || (hi ? 60 : 120));
+  return { min: mn, max: mx };
+}
+
+var LV_CUT_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    cuts: { type: 'ARRAY', items: { type: 'STRING' } },
+    why: { type: 'STRING' }
+  },
+  required: ['cuts']
+};
+
+/**
+ * پرسشِ تدوین‌گر (۸.۴۹): «تصویر کجا عوض شود؟» — از خودِ محتوا. فقط شمارهٔ
+ * جمله‌ها برمی‌گردد؛ متن و توصیف کارِ پرسشِ بعدی است. سطحِ تخته **چگالی** است،
+ * نه ثانیه: هیچ عددِ «هر N ثانیه» به مدل داده نمی‌شود، چون همان عدد هدف می‌شد.
+ */
+function lvSceneCutPrompt_(sents, ctx, lim) {
+  var mm = function (x) {
+    var s = Math.max(0, Math.round(Number(x) || 0));
+    return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+  };
+  var cap = Math.max(60, Number(CFG.LV_CUT_SENT_CHARS) || 200);
+  var hi = String((ctx && ctx.level) || '') === 'زیاد';
+  var L = [];
+  L.push('تو تدوین‌گرِ یک ویدئوی مصورِ فارسی هستی. روی صدای ویدئو، تمام‌قاب نقاشی‌هایی ' +
+         'می‌نشیند که هر کدام **همان چیزی را نشان می‌دهد که گوینده در آن لحظه می‌گوید**. ' +
+         'کارِ تو فقط این است: بگو **تصویر کجا عوض شود**.');
+  L.push('');
+  L.push('عنوان: «' + String((ctx && ctx.title) || '') + '»' +
+         ((ctx && ctx.seriesName) ? ' — مجموعه: «' + String(ctx.seriesName) + '»' : ''));
+  L.push('');
+  L.push('قاعده: **شمارِ تصویرها از خودِ محتوا می‌آید، نه از ساعت.** تصویرِ تازه وقتی ' +
+         'می‌آید که چیزِ تازه‌ای برای **دیدن** هست: ایده یا تمایزِ تازه، مثال یا تشبیهِ تازه، ' +
+         'شخصیت یا مکان یا رویدادِ تازه در ماجرا، یا چرخشی در استدلال. تا وقتی گوینده همان ' +
+         'یک چیز را باز می‌کند، همان تصویر می‌مانَد — حتی اگر طول بکشد. درسی که مفهوم‌هایش ' +
+         'پشتِ‌هم می‌آیند تصویرِ زیاد می‌گیرد و بحثی که آرام روی یک ایده می‌مانَد کم؛ هیچ ' +
+         'شمارِ از پیش تعیین‌شده‌ای در کار نیست.');
+  L.push(hi
+    ? 'چگالیِ این مجموعه «زیاد» است: **هر** تغییرِ واقعیِ چیزِ دیدنی یک تصویرِ تازه است.'
+    : 'چگالیِ این مجموعه «کم» است: فقط سرِ تغییرهای **بزرگ** (ایده یا مرحلهٔ تازهٔ ماجرا) ' +
+      'تصویر عوض شود؛ جزئیات زیرِ همان تصویر می‌مانند.');
+  L.push('هیچ تصویری کوتاه‌تر از ~' + lim.min + ' ثانیه نماند (دیده نمی‌شود). اگر یک ' +
+         'ایده خیلی طول کشید، سرِ جای طبیعی‌اش (مثال یا گامِ بعدی) عوضش کن.');
+  L.push('');
+  L.push('جمله‌ها به ترتیب، با زمانِ شروع:');
+  for (var i = 0; i < sents.length; i++) {
+    var tx = lvSceneClean_(sents[i].text);
+    if (tx.length > cap) tx = tx.slice(0, cap) + '…';
+    L.push('[' + (i + 1) + '] (' + mm(sents[i].t) + ') ' + tx);
+  }
+  L.push('');
+  L.push('در `cuts` شمارهٔ جمله‌هایی را بنویس که **تصویرِ تازه از آن‌ها شروع می‌شود**، به ' +
+         'ترتیب (جملهٔ ۱ همیشه آغاز است). در `why` یک جملهٔ کوتاهِ فارسی: این درس چرا این ' +
+         'اندازه تصویر می‌خواهد.');
+  return L.join('\n');
+}
+
+/**
+ * نقطه‌های برش از تدوین‌گر. `null` اگر جواب نیامد یا خوانده نشد — آن‌وقت راهِ
+ * زمانی می‌رود و **گفته می‌شود** (`why`).
+ */
+function lvSceneCuts_(sents, ctx, lim) {
+  var out = { starts: null, why: '', note: '' };
+  if (CFG.LV_SCENE_CUT === false) { out.why = 'برشِ محتوایی خاموش است'; return out; }
+  var r = null;
+  try {
+    r = geminiText_(lvSceneCutPrompt_(sents, ctx, lim), LV_CUT_SCHEMA,
+                    Math.max(1024, Number(CFG.LV_CUT_TOKENS) || 6144), { exact: true });
+  } catch (e) { out.why = 'تدوین‌گر جواب نداد: ' + String(e.message).slice(0, 120); return out; }
+  if (!r || !Array.isArray(r.cuts)) { out.why = 'پاسخِ تدوین‌گر برش نداشت'; return out; }
+  var seen = {}, st = [];
+  for (var i = 0; i < r.cuts.length; i++) {
+    var n = Number(String(r.cuts[i] || '').replace(/[^0-9۰-۹]/g, '')
+                   .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }));
+    if (!n || n < 1 || n > sents.length || seen[n]) continue;
+    seen[n] = 1; st.push(n);
+  }
+  if (!seen[1]) st.push(1);
+  st.sort(function (x, y) { return x - y; });
+  out.starts = st;
+  out.note = String(r.why || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  return out;
+}
+
+/**
+ * نقطه‌های برش ⇒ صحنه‌ها (۸.۴۹). شمارِ نهایی از محتوا؛ کد فقط دو مرز را
+ * نگه می‌دارد: بلندتر از `max` سرِ مرزِ جمله نصف می‌شود، و کوتاه‌تر از `min` با
+ * همسایه یکی. و سقفِ `cap` (بودجه یا ایمنی) — که شمار را فقط **پایین** می‌آورد.
+ * `natural` روی آرایه = شمار پیش از سقف.
+ */
+function lvSceneCutGroups_(sents, starts, secs, lim, cap) {
+  var total = Math.max(1, Number(secs) || 0);
+  var g = [];
+  for (var k = 0; k < starts.length; k++) {
+    var a = starts[k] - 1, b = (k + 1 < starts.length) ? starts[k + 1] - 1 : sents.length;
+    if (b <= a) continue;
+    var part = sents.slice(a, b);
+    var t0 = part[0].t, t1 = (b < sents.length) ? sents[b].t : total;
+    var dur = t1 - t0;
+    /* بلندتر از سقف ⇒ چند تکهٔ برابر: هر مرز روی جمله‌ای که به نقطهٔ برابر نزدیک‌تر
+       است. «هر بار که از گام گذشت ببُر» تکهٔ ریزِ اضافه در ته می‌ساخت. */
+    var pieces = dur > lim.max ? Math.ceil(dur / lim.max) : 1;
+    var cutAt = {}, prev = 0;
+    for (var p = 1; p < pieces; p++) {
+      var aim = t0 + dur * p / pieces, bi = -1, bd = Infinity;
+      for (var j0 = prev + 1; j0 < part.length; j0++) {
+        var dd = Math.abs(part[j0].t - aim);
+        if (dd < bd) { bd = dd; bi = j0; }
+      }
+      if (bi > prev) { cutAt[bi] = 1; prev = bi; }
+    }
+    var cur = null;
+    for (var j = 0; j < part.length; j++) {
+      var s = part[j];
+      if (cur && cutAt[j]) { g.push(cur); cur = null; }
+      if (!cur) cur = { t0: s.t, text: [], sec: 0 };
+      cur.text.push(s.text);
+      if (!cur.sec && s.sec) cur.sec = s.sec;
+    }
+    if (cur) g.push(cur);
+  }
+  /* کوتاه‌تر از کف ⇒ با همسایهٔ کوتاه‌تر یکی؛ کوتاه‌ترین اول */
+  for (var guard = 0; guard < 10000 && g.length > 1; guard++) {
     var di = -1, dv = Infinity;
     for (var q = 0; q < g.length; q++) {
-      var end = (q + 1 < g.length) ? g[q + 1].t0 : total;
-      if (end - g[q].t0 < dv) { dv = end - g[q].t0; di = q; }
+      var d = lvSceneEnd_(g, q, total) - g[q].t0;
+      if (d < lim.min && d < dv) { dv = d; di = q; }
     }
-    var to = (di === 0) ? 1 : (di === g.length - 1) ? di - 1 :
-             (((g[di + 2] ? g[di + 2].t0 : total) - g[di + 1].t0) < (g[di].t0 - g[di - 1].t0) ? di + 1 : di - 1);
-    var a = Math.min(di, to), b = Math.max(di, to);
-    g[a].text = g[a].text.concat(g[b].text);
-    if (!g[a].sec && g[b].sec) g[a].sec = g[b].sec;
-    g.splice(b, 1);
+    if (di < 0) break;
+    lvSceneMergeAt_(g, di, total);
   }
-  if (g.length) g[0].t0 = 0;
-  for (var j = 0; j < g.length; j++) {
-    g[j].n = j + 1;
-    g[j].t1 = (j + 1 < g.length) ? g[j + 1].t0 : Math.round(total * 10) / 10;
-    g[j].text = g[j].text.join(' ');
-  }
-  return g;
+  var natural = g.length;
+  lvSceneMergeTo_(g, total, Math.max(1, Number(cap) || 150));
+  var out = lvSceneFinal_(g, total);
+  out.natural = natural;
+  return out;
 }
 
 /** متنِ صحنه برای مدل: بی اعراب و بی نیم‌فاصلهٔ تلفظی — مدل معنا را می‌خوانَد، نه تلفظ را. */
@@ -5058,7 +5231,13 @@ var LV_SCENE_SCHEMA = {
   required: ['scenes']
 };
 
-function lvScenePrompt_(groups, ctx, art, cast, only) {
+/**
+ * `only` = فقط این شماره‌ها. `first` = این دستهٔ **اولِ** پرسش است (۸.۴۹): ماهیت
+ * از همین‌ها تشخیص داده می‌شود و کاور و شخصیت‌ها هم از همین دسته می‌آیند. دسته‌های
+ * بعد و پرسشِ دوم ماهیت را **می‌شنوند** و کاور نمی‌دهند.
+ */
+function lvScenePrompt_(groups, ctx, art, cast, only, first) {
+  var second = !!only && !first;
   var mm = function (x) {
     var s = Math.max(0, Math.round(Number(x) || 0));
     return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
@@ -5079,7 +5258,7 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
   L.push('');
   L.push('عنوان: «' + String((ctx && ctx.title) || '') + '»' +
          ((ctx && ctx.seriesName) ? ' — مجموعه: «' + String(ctx.seriesName) + '»' : ''));
-  if (only && ctx && ctx.nature) {
+  if (second && ctx && ctx.nature) {
     L.push('ماهیتِ این صدا از پیش تشخیص داده شده: «' + String(ctx.nature) + '». همان را نگه دار.');
   } else {
     L.push('');
@@ -5093,7 +5272,9 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
   L.push('زبانِ هنریِ همهٔ تصویرها (ثابت، برای یک‌دستی): ' + art);
   if (cast) L.push('شخصیت‌های ثابتِ این ویدئو (همین توصیف را هر بار عیناً به کار ببر): ' + cast);
   L.push('');
-  L.push(only ? 'فقط برای این صحنه‌ها بنویس:' :
+  L.push(second ? 'فقط برای این صحنه‌ها بنویس:' :
+         only ? 'صحنه‌های **آغازِ** ویدئو پشتِ‌هم‌اند (بقیه جدا پرسیده می‌شوند)؛ کنارِ هر کدام ' +
+                'متنی که **همان موقع** خوانده می‌شود آمده است:' :
          'صحنه‌ها پشتِ‌هم‌اند؛ کنارِ هر کدام متنی که **همان موقع** خوانده می‌شود آمده است:');
   for (var i = 0; i < groups.length; i++) {
     var g = groups[i];
@@ -5121,11 +5302,14 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
          'اگر تصویر خودش گویاست، خالی بگذار.');
   L.push('• `n` — همان شمارهٔ صحنه.');
   var share = Number((ctx && ctx.textShare) || 0);
+  /* شمارِ همین پرسش، نه کلِ ویدئو — دسته‌ای ده‌تایی «حدودِ ۴۵ از ۱۰۰» نمی‌گیرد (۸.۴۹). */
+  var here = 0;
+  for (var h = 0; h < groups.length; h++) if (!only || only.indexOf(groups[h].n) !== -1) here++;
   if (share > 0) {
-    var want = Math.max(1, Math.round(groups.length * share));
+    var want = Math.max(1, Math.round(here * share));
     L.push('');
     L.push('**نوشتهٔ رویِ نقاشی** (`ov` و فیلدهای `ov…`): روی حدودِ ' + want + ' صحنه از ' +
-           groups.length + ' (نه بیشتر)، یک لایهٔ نوشتاریِ کوتاه و زیبا **روی همان نقاشی** ' +
+           here + ' (نه بیشتر)، یک لایهٔ نوشتاریِ کوتاه و زیبا **روی همان نقاشی** ' +
            'می‌نشیند — مثلِ ویدئوهای آموزشیِ خوب: تیتری با واژهٔ کلیدیِ رنگی، چند نکتهٔ کنارِ ' +
            'تصویر، جدولِ مقایسه، نقل‌قول، یا گام‌های پشتِ‌هم. فقط جایی بگذار که **واقعاً چیزی ' +
            'برای دیدن** دارد: تعریف، تمایز، فهرست، روند، جملهٔ کلیدی. تکرارِ واژه‌به‌واژهٔ روایت نیست؛ ' +
@@ -5147,7 +5331,7 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
            'points و compare و steps: قصه فهرست و جدول نیست. و نوشته هم مثلِ تصویر چیزی را ' +
            'که هنوز گفته نشده فاش نمی‌کند. در «داستان» نوشته کمتر از درس است.');
   }
-  if (!only) {
+  if (!second) {
     L.push('و یک `cover` — به انگلیسی، یک تصویرِ چشم‌گیر از ایدهٔ مرکزیِ کلِ ویدئو (برای ' +
            '«داستان»: فضا و شخصیتِ اصلی، **بی لو دادنِ پایان**)، با فضای خلوت و آرام در ' +
            '**سمتِ راستِ** قاب برای عنوان.');
@@ -5167,12 +5351,12 @@ function lvScenePrompt_(groups, ctx, art, cast, only) {
   return L.join('\n');
 }
 
-/** پرسشِ صحنه‌ها. `only` = فقط این شماره‌ها (پرسشِ دوم برای جاافتاده‌ها). */
-function lvSceneAsk_(groups, ctx, art, cast, only) {
+/** پرسشِ صحنه‌ها. `only` = فقط این شماره‌ها (یک دسته، یا پرسشِ دوم برای جاافتاده‌ها). */
+function lvSceneAsk_(groups, ctx, art, cast, only, first) {
   var out = { scenes: {}, cover: '', cast: '', why: '', nature: '' };
   var r = null;
   try {
-    r = geminiText_(lvScenePrompt_(groups, ctx, art, cast, only), LV_SCENE_SCHEMA,
+    r = geminiText_(lvScenePrompt_(groups, ctx, art, cast, only, first), LV_SCENE_SCHEMA,
                     Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384));
   } catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 120); return out; }
   if (!r || !Array.isArray(r.scenes)) { out.why = 'پاسخ صحنه نداشت'; return out; }
@@ -5466,6 +5650,65 @@ function ytSceneMore() {
   return ytPublishTick();
 }
 
+/** توصیف‌های یک پرسش را روی صحنه‌های نقشه می‌نشانَد؛ آنچه قبلاً توصیف شده دست نمی‌خورد. */
+function lvScenePlanTake_(d, ask) {
+  for (var i = 0; i < d.scenes.length; i++) {
+    var sc = d.scenes[i], a = ask.scenes[String(sc.n)];
+    if (!a || sc.scene) continue;
+    sc.scene = a.scene; sc.caption = a.caption; sc.beat = a.beat || ''; sc.ov = a.ov || null;
+  }
+}
+
+/**
+ * توصیفِ صحنه‌ها دسته‌دسته، از همان‌جا که اجرای قبل ماند (۸.۴۹). دستهٔ اول ماهیت،
+ * شخصیت‌ها و کاور را می‌دهد؛ بقیه آن‌ها را **می‌شنوند** — وگرنه نیمهٔ دومِ ویدئو
+ * شخصیت‌ها را جورِ دیگری می‌کشید. دستهٔ بعد فقط با وقتِ کافی؛ وگرنه `more`.
+ * و یک پرسشِ دوم برای جاافتاده‌ها، همان قاعدهٔ ۸.۳۱.
+ */
+function lvScenePlanAsk_(d, ctx, left, fresh) {
+  var out = { more: false, asked: 0 };
+  var batch = Math.max(5, Number(CFG.LV_SCENE_ASK_BATCH) || 50);
+  var askMin = Math.max(5000, Number(CFG.LV_SCENE_ASK_MIN_MS) || 50000);
+  var all = d.scenes;
+  var cur = Math.max(0, Number(d.askAt) || 0);
+  while (cur < all.length) {
+    /* هر اجرا دست‌کم یک دسته می‌پرسد — مگر همین اجرا برش را هم گرفته باشد (آن خودش
+       پیشرفت است و ثبت شده). بی این، مهلتِ کوتاه یعنی ادامه‌ای که هرگز جلو نمی‌رود. */
+    if ((out.asked || fresh) && left() < askMin) { out.more = true; return out; }
+    var first = cur === 0;
+    var slice = all.slice(cur, cur + batch);
+    var only = (first && slice.length === all.length) ? null : slice.map(function (x) { return x.n; });
+    if (!first) ctx.nature = d.nature;
+    var ask = lvSceneAsk_(all, ctx, d.art, d.cast, only, first);
+    out.asked++;
+    lvScenePlanTake_(d, ask);
+    if (first) {
+      d.nature = ask.nature || '';
+      d.cast = ask.cast || '';
+      d.cover = { scene: ask.cover || '', fileId: '' };
+    }
+    if (ask.why) d.askWhy = ask.why;
+    cur += slice.length;
+    d.askAt = cur;
+  }
+  if (!d.retried) {
+    var miss = [];
+    for (var i = 0; i < all.length; i++) if (!all[i].scene) miss.push(all[i].n);
+    if (miss.length && miss.length < all.length) {
+      if ((out.asked || fresh) && left() < askMin) { out.more = true; return out; }
+      d.retried = true;
+      /* پرسشِ دوم فقط چند صحنه را می‌بیند و از آن‌ها ماهیتِ کل را نمی‌شود فهمید؛
+         پس همان تشخیصِ اول به او گفته می‌شود (۸.۴۷). */
+      ctx.nature = d.nature;
+      var ask2 = lvSceneAsk_(all, ctx, d.art, d.cast, miss, false);
+      out.asked++;
+      if (!d.nature && ask2.nature) d.nature = ask2.nature;
+      lvScenePlanTake_(d, ask2);
+    }
+  }
+  return out;
+}
+
 /**
  * نقشه و ساختِ صحنه‌های یک درس — ادامه‌پذیر، در چند اجرا.
  *
@@ -5506,82 +5749,124 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   }
 
   // ── ۱) نقشه: یک بار، و پیش از هر خرجی ثبت می‌شود ──
-  if ((!d || !d.scenes.length) && left() < 60000) {
+  /* از ۸.۴۹ نقشه در چند اجرا ساخته می‌شود: اول برش (تدوین‌گر، کلِ درس) و ثبت؛ بعد
+     توصیف‌ها دسته‌دسته (`asking`). صحنه‌های محتوامحور ممکن است صد تا بشوند و یک
+     پرسشِ صدصحنه‌ای از مهلتِ اجرا می‌گذرد. هیچ تصویری پیش از کامل‌شدنِ نقشه ساخته
+     نمی‌شود. */
+  var planning = !d || !d.scenes.length || !!d.asking;
+  if (planning && left() < 60000) {
     out.why = 'وقتِ این دور برای نقشهٔ صحنه کم است؛ دورِ بعد';
     lvSceneMoreArm_();
     return out;
   }
-  if (!d || !d.scenes.length) {
-    var rp = lvReplayChunks_(folder, meta);
-    if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد');
-    var secs = Number(rp.secs) || 0;
-    var sents = lvSceneSents_(rp.chunks);
-    if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)');
-    /* سطحِ تخته، در **سهمِ امروز از بودجهٔ ماه** (۸.۴۸): جا نشد ⇒ صحنهٔ بلندتر،
-       نه کارتِ ساده در روزِ بیستم. یک بار، پیش از نقشه، و در `_scenes.json`
-       می‌مانَد تا ازسرگیری همان را بخوانَد. */
-    var pace = lvScenePace_(ctx.level, secs, (lvGenModel_() || {}).id);
-    try { props_().setProperty(PK.LV_PACE_LAST, JSON.stringify({ key: key, at: nowStr_(), secs: secs,
-            level: String(ctx.level || ''), want: pace.want, max: pace.max, sec: pace.sec,
-            paced: pace.paced, allow: Math.round(pace.allow * 100) / 100,
-            per: Math.round(pace.per * 1000) / 1000, cover: pace.cover })); } catch (ePl) {}
-    /* پولی نمانده: پیش از هر فراخوانِ مدل، و **بی شمردن** به‌عنوانِ نقشهٔ ناشده —
-       ماهِ بعد پول هست و این درس نباید تا ابد «دو بار نشد» بماند. */
-    if (pace.paced && pace.max < 3) {
-      return fail('سقفِ ماهانهٔ تصویر برای حتی سه صحنه جا ندارد (' + pace.left.toFixed(2) + ' دلار مانده)');
+  var planStep = function () {
+    var fresh = false;
+    if (!d || !d.asking) {
+      fresh = true;
+      var rp = lvReplayChunks_(folder, meta);
+      if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد');
+      var secs = Number(rp.secs) || 0;
+      var sents = lvSceneSents_(rp.chunks);
+      if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)');
+      /* سقفِ این درس از بودجهٔ ماه (۸.۴۸/۸.۴۹) — **سقف، نه شمار**. */
+      var pace = lvScenePace_((lvGenModel_() || {}).id);
+      /* پولی نمانده: پیش از هر فراخوانِ مدل، و **بی شمردن** به‌عنوانِ نقشهٔ ناشده —
+         ماهِ بعد پول هست و این درس نباید تا ابد «دو بار نشد» بماند. */
+      if (pace.max < 3) {
+        return fail('سقفِ ماهانهٔ تصویر برای حتی سه صحنه جا ندارد (' + pace.left.toFixed(2) + ' دلار مانده)');
+      }
+      /* شمار از **محتوا** (۸.۴۹): تدوین‌گر می‌گوید تصویر کجا عوض شود. نشد ⇒ همان
+         برشِ زمانیِ قبلی، و گفته می‌شود. */
+      var lim = lvSceneCutSec_(ctx.level);
+      var cut = lvSceneCuts_(sents, ctx, lim);
+      var groups = null, by = 'محتوا';
+      if (cut.starts) {
+        groups = lvSceneCutGroups_(sents, cut.starts, secs, lim, pace.max);
+        if (groups.length < 3) { cut.why = 'تدوین‌گر فقط ' + groups.length + ' صحنه داد'; groups = null; }
+      }
+      if (!groups) {
+        by = 'زمان';
+        groups = lvSceneGroups_(sents, lvSceneSec_(ctx.level), secs, pace.max);
+      }
+      if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)');
+      var natural = Number(groups.natural) || groups.length;
+      var hardMax = Math.max(3, Number(CFG.LV_SCENE_MAX) || 150);
+      /* «بودجه بُرید» فقط وقتی محتوا بیشتر خواست **و** سقف از بودجه آمد، نه از سقفِ ایمنی. */
+      var paced = natural > groups.length && pace.max < hardMax;
+      try { props_().setProperty(PK.LV_PACE_LAST, JSON.stringify({ key: key, at: nowStr_(), secs: secs,
+              level: String(ctx.level || ''), natural: natural, used: groups.length, max: pace.max,
+              paced: paced, by: by, allow: Math.round(pace.allow * 100) / 100,
+              ceil: Math.round(pace.ceil * 100) / 100 })); } catch (ePl) {}
+      logLine_('صحنه‌های مصورِ ' + key + ': ' +
+               (by === 'محتوا' ? 'محتوا ' + natural + ' صحنه خواست'
+                               : 'برشِ محتوایی نشد (' + (cut.why || 'بی علت') + ') — برشِ زمانی ' + natural + ' صحنه') +
+               (paced ? '؛ ' + pace.why + ' ⇒ ' + groups.length + ' صحنه' : '') + '.');
+      var sc0 = [];
+      for (var s0 = 0; s0 < groups.length; s0++) {
+        sc0.push({ n: groups[s0].n, t0: groups[s0].t0, t1: groups[s0].t1, sec: groups[s0].sec || 0,
+                   text: lvSceneClean_(groups[s0].text).slice(0, 600),
+                   scene: '', caption: '', beat: '', ov: null,
+                   fileId: '', tries: 0, judge: null, redo: 0 });
+      }
+      /* `failed` از نقشهٔ ناشدهٔ قبلی می‌مانَد: `planFail` شمار را از همین `d` می‌خوانَد،
+         و بی آن هر بار از صفر می‌شمرد و «دو بار نشد» هرگز نمی‌رسید. */
+      d = { v: 1, key: key, at: nowStr_(), asking: true, askAt: 0, failed: (d && Number(d.failed)) || 0,
+            level: String(ctx.level || ''), style: art.key, text: String(ctx.textLevel || ''),
+            art: art.art, cast: '', secs: secs, align: rp.how,
+            cutBy: by, cutWhy: String(cut.why || cut.note || ''), natural: natural,
+            pace: { paced: paced, natural: natural, max: pace.max,
+                    allow: Math.round(pace.allow * 100) / 100, ceil: Math.round(pace.ceil * 100) / 100,
+                    why: paced ? pace.why : '' },
+            scenes: sc0, cover: { scene: '', fileId: '' }, nature: '',
+            spent: 0, made: 0, judged: false, done: false, why: '' };
+      if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
     }
-    var groups = lvSceneGroups_(sents, pace.sec, secs, Math.min(Number(CFG.LV_SCENE_MAX) || 60, pace.max));
-    if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)');
-    if (pace.paced) logLine_('صحنه‌های مصورِ ' + key + ': ' + pace.why + ' — هر صحنه ~' + pace.sec + ' ثانیه.');
-    var ask = lvSceneAsk_(groups, ctx, art.art, '', null);
-    var miss = [];
-    for (var g = 0; g < groups.length; g++) if (!ask.scenes[String(groups[g].n)]) miss.push(groups[g].n);
-    if (miss.length && miss.length < groups.length) {
-      /* پرسشِ دوم فقط چند صحنه را می‌بیند و از آن‌ها ماهیتِ کل را نمی‌شود فهمید؛
-         پس همان تشخیصِ اول به او گفته می‌شود (۸.۴۷). */
-      ctx.nature = ask.nature;
-      var ask2 = lvSceneAsk_(groups, ctx, art.art, ask.cast, miss);
-      if (!ask.nature && ask2.nature) ask.nature = ask2.nature;
-      for (var m2 in ask2.scenes) if (!ask.scenes[m2]) ask.scenes[m2] = ask2.scenes[m2];
+    var pa = lvScenePlanAsk_(d, ctx, left, fresh);
+    if (pa.more) {
+      lvSceneWrite_(folder, d);
+      out.want = d.scenes.length;
+      out.why = 'نقشهٔ صحنه: توصیفِ ' + (Number(d.askAt) || 0) + ' از ' + d.scenes.length +
+                ' صحنه پرسیده شد؛ بقیه چند دقیقهٔ دیگر';
+      lvSceneMoreArm_();
+      return out;
     }
-    var scenes = [];
-    for (var s = 0; s < groups.length; s++) {
-      var a = ask.scenes[String(groups[s].n)];
-      scenes.push({ n: groups[s].n, t0: groups[s].t0, t1: groups[s].t1, sec: groups[s].sec || 0,
-                    text: lvSceneClean_(groups[s].text).slice(0, 600),
-                    scene: a ? a.scene : '', caption: a ? a.caption : '',
-                    beat: (a && a.beat) || '',
-                    ov: (a && a.ov) || null,
-                    fileId: '', tries: 0, judge: null, redo: 0 });
-    }
-    var have = scenes.filter(function (x) { return x.scene; }).length;
-    if (have < Math.max(3, Math.ceil(scenes.length * 0.6))) {
-      return planFail('مدل برای ' + have + ' صحنه از ' + scenes.length + ' توصیف داد' +
-                  (ask.why ? ' (' + ask.why + ')' : ''));
+    var have = d.scenes.filter(function (x) { return x.scene; }).length;
+    if (have < Math.max(3, Math.ceil(d.scenes.length * 0.6))) {
+      return planFail('مدل برای ' + have + ' صحنه از ' + d.scenes.length + ' توصیف داد' +
+                      (d.askWhy ? ' (' + d.askWhy + ')' : ''));
     }
     // صحنهٔ بی‌توصیف به قبلی می‌پیوندد: زمانش را تصویرِ قبلی پر می‌کند، نه قابِ خالی
     var kept = [];
-    for (var s2 = 0; s2 < scenes.length; s2++) {
-      if (!scenes[s2].scene && kept.length) { kept[kept.length - 1].t1 = scenes[s2].t1; continue; }
-      if (!scenes[s2].scene) continue;
-      kept.push(scenes[s2]);
+    for (var s2 = 0; s2 < d.scenes.length; s2++) {
+      if (!d.scenes[s2].scene && kept.length) { kept[kept.length - 1].t1 = d.scenes[s2].t1; continue; }
+      if (!d.scenes[s2].scene) continue;
+      kept.push(d.scenes[s2]);
     }
     if (kept.length) kept[0].t0 = 0;
-    var nature = String(ask.nature || '');
-    var ovGenre = lvSceneOvGenre_(kept, nature);
-    var ovShare = lvSceneTextShare_(ctx.textLevel, ctx.textShare, nature);
-    var ovN = lvSceneOvTrim_(kept, ovShare);
-    d = { v: 1, key: key, at: nowStr_(), level: String(ctx.level || ''), style: art.key,
-          text: String(ctx.textLevel || ''), ovShare: ovShare, ovN: ovN,
-          nature: nature, ovGenre: ovGenre,
-          art: art.art, cast: ask.cast, secs: secs, target: pace.sec, align: rp.how,
-          pace: { paced: pace.paced, board: lvSceneSec_(ctx.level), want: pace.want, max: pace.max,
-                  allow: Math.round(pace.allow * 100) / 100, why: pace.why },
-          scenes: kept, cover: { scene: ask.cover || (kept[0] && kept[0].scene) || '', fileId: '' },
-          spent: 0, made: 0, judged: false, done: false, why: '' };
+    var nature = String(d.nature || '');
+    d.ovGenre = lvSceneOvGenre_(kept, nature);
+    d.ovShare = lvSceneTextShare_(ctx.textLevel, ctx.textShare, nature);
+    d.ovN = lvSceneOvTrim_(kept, d.ovShare);
+    d.scenes = kept;
+    /* میانگینِ واقعی، نه عددِ تخته — گزارشِ «هر ~N ثانیه» از آنچه محتوا ساخت. */
+    d.target = Math.round((Number(d.secs) || 0) / Math.max(1, kept.length));
+    d.cover = { scene: (d.cover && d.cover.scene) || (kept[0] && kept[0].scene) || '', fileId: '' };
+    delete d.asking; delete d.askAt; delete d.retried;
+    d.at = nowStr_();
     if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
-    logLine_('صحنه‌های مصورِ ' + key + ': نقشهٔ ' + kept.length + ' صحنه (هر کدام ~' +
-             d.target + ' ثانیه، سبکِ «' + art.key + '»).');
+    logLine_('صحنه‌های مصورِ ' + key + ': نقشهٔ ' + kept.length + ' صحنه (برش از ' + d.cutBy +
+             '، میانگینِ هر صحنه ~' + d.target + ' ثانیه، سبکِ «' + art.key + '»).');
+    return null;
+  };
+  if (planning) {
+    if (!lvSceneLease_(key, 1)) {
+      out.why = 'اجرای دیگری همین حالا نقشهٔ صحنه را می‌پرسد';
+      lvSceneMoreArm_();
+      return out;
+    }
+    var pr = null;
+    try { pr = planStep(); } finally { lvSceneLease_(key, 0); }
+    if (pr) return pr;
   }
   out.want = d.scenes.length;
 
@@ -5753,7 +6038,8 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                ovDropped: Number(d.ovDropped) || 0,
                nature: String(d.nature || ''), ovGenre: Number(d.ovGenre) || 0,
                beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length,
-               paced: !!(d.pace && d.pace.paced), boardSec: (d.pace && d.pace.board) || 0,
+               paced: !!(d.pace && d.pace.paced), natural: Number(d.natural) || d.scenes.length,
+               cutBy: String(d.cutBy || ''),
                capHit: !!d.capHit };
   try { lvSceneVisuals_(folder, d); } catch (eV) {}
   return out;

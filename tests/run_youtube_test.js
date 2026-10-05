@@ -4425,13 +4425,16 @@ console.log('=== ۶۵) ظاهرِ درس را مدل انتخاب می‌کند�
                                          epNum: '9', seriesName: 'داستان‌های کوتاه', totalSec: 900,
                                          sceneMode: sm, sections: [{ heading: 'ب', narration: 'م' }] });
   const prSc = mkLook(true), prCd = mkLook(false);
-  ok('۶۵.۱۰ حالتِ صحنه ⇒ سطح = ضرباهنگِ صحنه (با ثانیه‌های خودِ کد) و «درس یا داستان» از متن',
-     prSc.indexOf('هر ~' + lvSceneSec_('زیاد') + ' ثانیه') !== -1 &&
-     prSc.indexOf('هر ~' + lvSceneSec_('کم') + ' ثانیه') !== -1 &&
+  /* و از ۸.۴۹ «سطح» چگالی است، نه ثانیه: «هر ~۲۰ ثانیه» همان عددِ هاردکدی بود که او نخواست. */
+  ok('۶۵.۱۰ حالتِ صحنه ⇒ سطح = چگالیِ تصویر، بی ثانیهٔ ثابت، و «درس یا داستان» از متن',
+     prSc.indexOf('هر ~' + lvSceneSec_('زیاد') + ' ثانیه') === -1 &&
+     prSc.indexOf('هر ~' + lvSceneSec_('کم') + ' ثانیه') === -1 &&
+     /هر بار که ایده، مثال یا لحظهٔ دیدنیِ تازه‌ای می‌آید/.test(prSc) &&
+     /از خودِ محتوا می‌آید/.test(prSc) && !/از خودِ محتوا می‌آید/.test(prCd) &&
      prSc.indexOf('برای هر کارت یک تصویرِ ساخته‌شده') === -1 &&
      /درس است یا داستان/.test(prSc) && /درس است یا داستان/.test(prCd) &&
      /اگر داستان، حکایت، زندگی‌نامه یا روایتِ تاریخی است، سبکی را بردار/.test(prSc) &&
-     prCd.indexOf('برای هر کارت یک تصویرِ ساخته‌شده') !== -1 && prCd.indexOf('ثانیه یک صحنهٔ تازه') === -1,
+     prCd.indexOf('برای هر کارت یک تصویرِ ساخته‌شده') !== -1 && prCd.indexOf('لحظهٔ دیدنیِ تازه‌ای') === -1,
      'صحنه ' + prSc.length + ' · کارت ' + prCd.length);
 }
 
@@ -5647,12 +5650,26 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
       return { code: 200, json: { candidates: [{ content: { parts: [
         { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png71(20000)) } }] } }] } };
     }
+    /* تدوین‌گر (۸.۴۹): پرامپتش ثبت می‌شود؛ پاسخ فقط اگر آزمون `cutFn` داده —
+       وگرنه همان جوابِ بی‌برشِ پایه، یعنی راهِ زمانی (سنجه‌های قدیمی همان را می‌سنجند). */
+    if (sc && sc.properties && sc.properties.cuts) {
+      const pr = body.contents[0].parts[0].text;
+      cnt.cut = (cnt.cut || 0) + 1; (cnt.cutPrompts = cnt.cutPrompts || []).push(pr);
+      cnt.cutCap = body.generationConfig.maxOutputTokens;
+      if (cnt.cutFn) {
+        const nS = (pr.match(/^\[\d+\] \(/mg) || []).length;
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text:
+          JSON.stringify({ cuts: cnt.cutFn(nS).map(String), why: 'هر مفهوم یک تصویر' }) }] } }] } };
+      }
+      return BASE_STUB(url, body);
+    }
     if (sc && sc.properties && sc.properties.scenes) {
       const pr = body.contents[0].parts[0].text;
       cnt.plan++; cnt.prompts.push(pr);
+      if (cnt.genAtPlan) cnt.genAtPlan.push(cnt.gen);
       const ns = []; const re = /^\[(\d+)\]/mg; let m;
       while ((m = re.exec(pr))) ns.push(m[1]);
-      const r = { cast: 'a curious student in a blue sweater', cover: 'a lantern lighting a path of stones',
+      const r = { nature: cnt.natureOut, cast: 'a curious student in a blue sweater', cover: 'a lantern lighting a path of stones',
                   scenes: ns.map(n => ({ n: n, scene: 'a lantern passing light to the next lantern number ' + n,
                                          caption: 'مفهومِ ' + n })) };
       return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
@@ -6210,11 +6227,14 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        است، و سطحِ «زیاد» ضرباهنگِ صحنه‌ها. داستان این را عوض نمی‌کند. */
     const fs = lvSceneArt_('چاپِ قدیمی');
     const P = runStory('EP71SP', '0315', { nature: 'داستان', beat: () => 'روایت' }, { style: 'چاپِ قدیمی' });
-    ok('۷۱.۱۹ سبکِ دستیِ تخته در همهٔ تصویرها و سطحِ «زیاد» در ضرباهنگ — با داستان هم',
-       P.d.style === 'چاپِ قدیمی' && P.d.art === fs.art && P.d.target === lvSceneSec_('زیاد') &&
+    /* سطح از ۸.۴۹ چگالیِ برش است: به تدوین‌گر می‌رسد، و در راهِ زمانی همان ثانیهٔ تخته. */
+    ok('۷۱.۱۹ سبکِ دستیِ تخته در همهٔ تصویرها و سطحِ «زیاد» در برش — با داستان هم',
+       P.d.style === 'چاپِ قدیمی' && P.d.art === fs.art && P.d.level === 'زیاد' &&
+       /چگالیِ این مجموعه «زیاد» است/.test((P.cnt.cutPrompts || [''])[0]) && P.d.cutBy === 'زمان' &&
        P.cnt.imgPrompts.length > 0 && P.cnt.imgPrompts.every(x => x.indexOf('engraving') !== -1) &&
        (P.cnt.prompts[0] || '').indexOf(fs.art) !== -1,
-       JSON.stringify({ style: P.d.style, target: P.d.target, imgs: P.cnt.imgPrompts.length }));
+       JSON.stringify({ style: P.d.style, level: P.d.level, cutBy: P.d.cutBy, cut: P.cnt.cut,
+                        imgs: P.cnt.imgPrompts.length }));
     /* ۷۱.۲۰ — نشناختن ⇒ همان رفتارِ درس (۸.۴۶)؛ داور هم «لحظهٔ ماجرا» را می‌شناسد. */
     ok('۷۱.۲۰ ماهیت/ضربِ ناشناخته ⇒ رفتارِ درس؛ داور لحظهٔ ماجرا را هم می‌سنجد',
        lvSceneNature_('قصه') === 'داستان' && lvSceneNature_('Story') === 'داستان' &&
@@ -6226,10 +6246,10 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        JSON.stringify({ judge: (S.cnt.judgeText || '').slice(0, 120) }));
   }
 
-  /* ══ ۷۱.۲۱ تا ۷۱.۲۵ — بودجهٔ ماه پخش می‌شود، نه اینکه روزِ بیستم تمام شود (۸.۴۸) ══
-     او پرسید: «اگر قبل از اتمامِ ماه ۶۰ را رد کنه، بقیهٔ درس‌نامه‌های ماه ساده
-     مثلِ قبل انجام می‌شه؟» — بله می‌شد. سقف فقط دیوار بود و هر درس هرچه تخته
-     می‌خواست می‌ساخت. حالا سهمِ هر درس از ماندهٔ ماه است. */
+  /* ══ ۷۱.۲۱ تا ۷۱.۲۹ — سقف، نه هدف؛ و شمار از محتوا، نه از ساعت (۸.۴۸، ۸.۴۹) ══
+     ۸.۴۸: «اگر قبل از اتمامِ ماه ۶۰ را رد کنه، بقیه ساده مثلِ قبل؟» — بله می‌شد.
+     ۸.۴۹: «این ۱۲۰ یعنی مدل خودش رو ملزم می‌کنه که برسونه به ۱۲۰؟ … یه تعداد
+     هاردکدشده نه که هر بیست ثانیه یه عکس … شاید یه ویدیو صد تا، شاید ده تا». */
   {
     const keepCap = CFG.LV_GEN_USD_MONTH;
     const model = CFG.LV_GEN_MODEL || 'gemini-2.5-flash-image';
@@ -6240,43 +6260,56 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
                           (Number(CFG.LV_PACE_SLACK) || 1.1));
     const per = lvGenPrice_(model) * (1 + (Number(CFG.LV_PACE_REDO_PCT) || 0.2));
     const cover = Math.max(lvGenPrice_(model), Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
-
-    /* ۷۱.۲۱ — سهم از ماندهٔ ماه: فراوان ⇒ تخته دست نمی‌خورد؛ تنگ ⇒ صحنهٔ بلندتر،
-       و هرگز بیش از سهمِ امروز خرج نمی‌شود. */
-    global.__PROPS[PK.LV_GEN_SPEND] = '';
-    CFG.LV_GEN_USD_MONTH = 1000;                 // سهمی که سطحِ «زیاد» در آن جا می‌شود
-    const roomy = lvScenePace_('زیاد', 900, model);
-    CFG.LV_GEN_USD_MONTH = keepCap;
-    const allow12 = cover + 12 * per + 0.01;
-    setLeft(allow12 * eps);
-    const tight = lvScenePace_('زیاد', 900, model);
-    ok('۷۱.۲۱ سهمِ هر درس از ماندهٔ ماه: فراوان ⇒ سطحِ تخته؛ تنگ ⇒ صحنهٔ بلندتر و هرگز بیش از سهم',
-       !roomy.paced && roomy.sec === lvSceneSec_('زیاد') && roomy.want === 45 &&
-       tight.paced && tight.max === 12 && tight.sec === Math.ceil(900 / 12) &&
-       tight.max * per + cover <= tight.allow + 1e-9 && /صحنه به‌جای ۴۵|صحنه به‌جای 45/.test(tight.why),
-       JSON.stringify({ roomy: { p: roomy.paced, sec: roomy.sec, want: roomy.want },
-                        tight: { p: tight.paced, max: tight.max, sec: tight.sec, allow: tight.allow, why: tight.why } }));
-
-    /* ۷۱.۲۲ — از درِ ساخت: درسی که در سهم جا نمی‌شود **با نقاشی** ساخته می‌شود، با
-       صحنه‌های کمتر و بلندتر — نه کارتِ ساده، و نه بیش از سهمش. */
-    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
-    global.__STUB = sceneStub(cnt);
-    const allow4 = cover + 4 * per + 0.005;
-    setLeft(allow4 * eps);
-    const spent0 = lvGenSpend_().usd;
-    const E = mkEp71('EP71PC', 'قسمت 0321 — بودجه');
+    const flex = Number(CFG.LV_PACE_FLEX) || 2.5;
     const ctx = { show: 'special', epRaw: '321', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
                   sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم' };
-    let r = null;
-    for (let i = 0; i < 8; i++) { r = lvScenesBuild_(E.f, E.meta, {}, ctx); if (r.done || r.fallback) break; }
-    const d = lvSceneRead_(E.f);
+    const build = (E, c, cnt, n) => {
+      global.__STUB = sceneStub(cnt);
+      const whys = []; let r = null;
+      for (let i = 0; i < (n || 8); i++) {
+        r = lvScenesBuild_(E.f, E.meta, {}, c); whys.push(r.why || '');
+        if (r.done || r.fallback) break;
+      }
+      global.__STUB = BASE_STUB;
+      return { r: r, d: lvSceneRead_(E.f), whys: whys };
+    };
+
+    /* ۷۱.۲۱ — تابعِ بودجه دیگر **شمار** نمی‌دهد، فقط **سقفِ این درس**: سهمِ میانگین ×
+       FLEX. فراوان ⇒ سقفِ ایمنی؛ تنگ ⇒ کمتر، و هرگز بیش از سقفِ درس. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    CFG.LV_GEN_USD_MONTH = 1000;
+    const roomy = lvScenePace_(model);
+    CFG.LV_GEN_USD_MONTH = keepCap;
+    const ceil12 = cover + 12 * per + 0.01;
+    setLeft(ceil12 / flex * eps);
+    const tight = lvScenePace_(model);
+    ok('۷۱.۲۱ سقفِ درس = سهمِ میانگین × FLEX؛ فراوان ⇒ سقفِ ایمنی؛ تنگ ⇒ کمتر و هرگز بیش از سقفِ درس؛ و هیچ «شمارِ هدف»ی',
+       roomy.max === CFG.LV_SCENE_MAX && Math.abs(roomy.ceil - roomy.allow * flex) < 1e-9 &&
+       tight.max === 12 && tight.max * per + cover <= tight.ceil + 1e-9 &&
+       Math.abs(tight.ceil - tight.allow * flex) < 1e-6 &&
+       !('want' in tight) && !('sec' in tight) && !('paced' in tight) &&
+       genWas.usd === 120,                       // تصمیمِ او در ۵ اکتبر: ۱۲۰، سقف — نه هدف
+       JSON.stringify({ roomy: { max: roomy.max, ceil: roomy.ceil },
+                        tight: { max: tight.max, ceil: tight.ceil, allow: tight.allow, why: tight.why } }));
+
+    /* ۷۱.۲۲ — از درِ ساخت: محتوا بیش از سقفِ درس خواست ⇒ **با نقاشی**، صحنه‌های کمتر —
+       نه کارتِ ساده، و نه بیش از سقفش. */
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cnt.cutFn = (n) => Array.from({ length: n }, (_, i) => i + 1);     // هر جمله یک تصویر
+    const ceil4 = cover + 4 * per + 0.005;
+    setLeft(ceil4 / flex * eps);
+    const spent0 = lvGenSpend_().usd;
+    const B = build(mkEp71('EP71PC', 'قسمت 0321 — بودجه'), ctx, cnt);
+    const r = B.r, d = B.d;
     const lessonSpent = lvGenSpend_().usd - spent0;
-    ok('۷۱.۲۲ بودجهٔ تنگ ⇒ همان ویدئوی مصور با صحنه‌های کمتر و بلندتر، نه کارتِ ساده؛ خرجِ درس در سهمش',
+    ok('۷۱.۲۲ محتوا بیش از سقفِ درس ⇒ همان ویدئوی مصور با صحنه‌های کمتر، نه کارتِ ساده؛ خرجِ درس در سقفش',
        r && r.done && !r.fallback && d.pace && d.pace.paced && d.scenes.length <= 4 && d.scenes.length >= 3 &&
-       d.target > lvSceneSec_('زیاد') && r.info.paced === true && r.info.boardSec === lvSceneSec_('زیاد') &&
-       lessonSpent <= allow4 + lvGenPrice_(model) + 1e-9,
+       d.cutBy === 'محتوا' && d.natural > d.scenes.length && r.info.paced === true &&
+       r.info.natural === d.natural && r.info.cutBy === 'محتوا' &&
+       d.target === Math.round(d.secs / d.scenes.length) &&
+       lessonSpent <= ceil4 + lvGenPrice_(model) + 1e-9,
        JSON.stringify({ done: r && r.done, fb: r && r.fallback, why: r && r.why, scenes: d && d.scenes.length,
-                        target: d && d.target, spent: lessonSpent, allow: allow4 }));
+                        natural: d && d.natural, spent: lessonSpent, ceil: ceil4 }));
 
     /* ۷۱.۲۳ — سقف **وسطِ** درس پر شد (قیمتِ مدل عوض شد، سقف پایین آمد): همان چهار
        نقاشیِ ساخته‌شده می‌روند و هر کدام تا صحنهٔ بعدیِ تصویردار ادامه می‌یابد. تا
@@ -6317,26 +6350,138 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     const gq = lvSceneGroups_(ss, 5, 900, 10);
     ok('۷۱.۲۴ شمارِ صحنه از سقف نمی‌گذرد و صحنه‌ها پیوسته از صفر تا پایان‌اند',
        gq.length <= 10 && gq.length >= 9 && gq[0].t0 === 0 && gq[gq.length - 1].t1 === 900 &&
-       gq.every((x, i) => i === 0 || x.t0 === gq[i - 1].t1) &&
+       gq.every((x, i) => i === 0 || x.t0 === gq[i - 1].t1) && gq.natural > gq.length &&
        gq.map(x => x.text).join(' ').split('جملهٔ').length - 1 === ss.length,
-       gq.length + ' صحنه · ' + gq.map(x => x.t0 + '-' + x.t1).join(' '));
+       gq.length + ' صحنه (طبیعی ' + gq.natural + ') · ' + gq.map(x => x.t0 + '-' + x.t1).join(' '));
 
-    /* ۷۱.۲۵ — هر روز گفته می‌شود: سهمِ هر درس، چند صحنه می‌خرد، و برای سطحِ کاملِ تخته
-       سقف باید چند باشد. و جملهٔ «کارت‌ها ساده ساخته می‌شوند تا اولِ ماه» دیگر نیست. */
-    global.__PROPS[PK.LV_PACE_LAST] = JSON.stringify({ secs: 900, level: 'زیاد' });
-    setLeft(allow12 * eps);
-    const stT = lvGenStatus_();
+    /* ۷۱.۲۵ — هر روز گفته می‌شود، به زبانِ خودِ قاعده: سقف است نه هدف، درسِ پرتصویر تا
+       کجا می‌تواند برود، و آخرین درس چقدر خواست و چقدر گرفت. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    global.__PROPS[PK.LV_PACE_LAST] = JSON.stringify({ key: 'special:61', natural: 60, used: 40, paced: true, by: 'محتوا' });
+    const stP = lvGenStatus_();
+    global.__PROPS[PK.LV_PACE_LAST] = JSON.stringify({ key: 'special:62', natural: 18, used: 18, paced: false, by: 'محتوا' });
+    const stN = lvGenStatus_();
+    const pc = lvScenePace_(model);
+    ok('۷۱.۲۵ خطِ روزانه: «سقف است، نه هدف»، سقفِ درسِ پرتصویر، و آنچه آخرین درس خواست و گرفت',
+       /سقف است، نه هدف/.test(stP.line) && stP.line.indexOf(pc.ceil.toFixed(2)) !== -1 &&
+       stP.line.indexOf(faDigitsOut_('60') + ' صحنه خواست') !== -1 &&
+       stP.line.indexOf('سقفِ همان روز ' + faDigitsOut_('40')) !== -1 &&
+       stN.line.indexOf(faDigitsOut_('18') + ' صحنه خواست و همان ساخته شد') !== -1 &&
+       stP.pace.last.paced === true && stN.pace.last.paced === false &&
+       !/از این پس کارت‌ها ساده/.test(fs.readFileSync('src/27_YouTube.gs', 'utf8')),
+       (stP.line || '').split('\n').pop() + ' || ' + (stN.line || '').split('\n').pop());
+    delete global.__PROPS[PK.LV_PACE_LAST];
+
+    /* ۷۱.۲۶ — برشِ محتوایی، از روی خودِ تابع: جای برش از تدوین‌گر؛ کد فقط دو مرز
+       را نگه می‌دارد (کوتاه‌تر از کف یکی، بلندتر از سقف نصف) و سقفِ بودجه فقط **پایین**
+       می‌آورد. و محتوای پرتغییر صحنهٔ بیشتر می‌گیرد از محتوای آرام — همان طول. */
+    const s5 = []; for (let t = 0; t < 300; t += 5) s5.push({ t: t, text: 'ج' + t + '.', sec: 1 });
+    const lim = { min: 6, max: 60 };
+    const cg = lvSceneCutGroups_(s5, [1, 3, 4, 30, 31, 59], 300, lim, 150);
+    const cg4 = lvSceneCutGroups_(s5, [1, 3, 4, 30, 31, 59], 300, lim, 4);
+    const dense = lvSceneCutGroups_(s5, s5.map((_, i) => i + 1), 300, lim, 150);
+    const calm = lvSceneCutGroups_(s5, [1, 20, 40], 300, lim, 150);
+    const dur = (g) => g.map(x => x.t1 - x.t0);
+    /* تکهٔ بلند به تکه‌های **برابر** شکسته می‌شود، نه «هر بار که از گام گذشت» — آن یکی
+       تهِ ریزی می‌ساخت که فقط سدِ کف پنهانش می‌کرد؛ این‌جا کفِ یک‌ثانیه‌ای کنار است. */
+    const eq = lvSceneCutGroups_(s5, [1], 300, { min: 1, max: 100 }, 150);
+    const tset = s5.map(x => x.t);
+    ok('۷۱.۲۶ برش از محتوا: کف و سقفِ طول، مرزِ جمله، پیوستگی، همهٔ متن؛ پرتغییر بیشتر از آرام؛ بودجه فقط کم می‌کند',
+       dur(cg).every(x => x >= lim.min && x <= lim.max) && cg[0].t0 === 0 && cg[cg.length - 1].t1 === 300 &&
+       cg.every((x, i) => i === 0 || x.t0 === cg[i - 1].t1) && cg.slice(1).every(x => tset.indexOf(x.t0) !== -1) &&
+       cg.some(x => x.t0 === 150) && cg.some(x => x.t0 === 290) &&
+       cg.map(x => x.text).join(' ').split('ج').length - 1 === s5.length &&
+       cg.natural === cg.length && cg4.length === 4 && cg4.natural === cg.length &&
+       dense.length >= 25 && calm.length <= 6 && dense.length > calm.length * 4 &&
+       dur(dense).every(x => x >= lim.min) && dur(calm).every(x => x <= lim.max) &&
+       eq.length === 3 && dur(eq).every(x => x === 100),
+       'برش ' + dur(cg).join(',') + ' · برابر ' + dur(eq).join(',') + ' · پرتغییر ' + dense.length + ' · آرام ' + calm.length + ' · سقف۴ ' + cg4.length);
+
+    /* ۷۱.۲۷ — از درِ ساخت، با بودجهٔ فراوان: دو درسِ **هم‌طول**، یکی پرتغییر و یکی
+       آرام. شمار از تدوین‌گر می‌آید (نه از «هر ۲۰ ثانیه»)، هیچ‌کدام تا سقف پر نمی‌شود،
+       و پرسشِ تدوین‌گر هیچ ثانیهٔ هدفی نمی‌گوید. */
     global.__PROPS[PK.LV_GEN_SPEND] = '';
     CFG.LV_GEN_USD_MONTH = 1000;
-    const stR = lvGenStatus_();
+    const paceR = lvScenePace_(model);
+    const cA = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cA.cutFn = (n) => [1, Math.round(n / 3), Math.round(2 * n / 3)];
+    const sA0 = lvGenSpend_().usd;
+    /* کفِ توکنِ به‌خاطرسپرده سقفِ عمدیِ تدوین‌گر را بالا نمی‌بَرد (`exact`، ۸.۳۴) */
+    rememberTokFloor_(textModel_(), 65536);
+    const A = build(mkEp71('EP71CA', 'قسمت 0323 — آرام'), Object.assign({}, ctx, { epRaw: '323' }), cA);
+    const spendA = lvGenSpend_().usd - sA0;
+    const cB = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cB.cutFn = (n) => Array.from({ length: Math.ceil(n / 2) }, (_, i) => 2 * i + 1);
+    const Bd = build(mkEp71('EP71CB', 'قسمت 0324 — پرتغییر'), Object.assign({}, ctx, { epRaw: '324' }), cB);
+    const lastPace = JSON.parse(global.__PROPS[PK.LV_PACE_LAST] || 'null') || {};
+    forgetTokFloor_(textModel_());
+    /* ۷۱.۲۷-ب — «بودجه بُرید» فقط وقتی سقف از بودجه آمد؛ سقفِ ایمنی برچسبِ بودجه نمی‌گیرد،
+       وگرنه خطِ روزانه برای درسی که پولش بود می‌گفت «سقف برای محتوا کم است». */
+    const keepMax = CFG.LV_SCENE_MAX;
+    CFG.LV_SCENE_MAX = 5;
+    const cH = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cH.cutFn = (n) => Array.from({ length: n }, (_, i) => i + 1);
+    const H = build(mkEp71('EP71HM', 'قسمت 0327 — سقفِ ایمنی'), Object.assign({}, ctx, { epRaw: '327' }), cH);
+    CFG.LV_SCENE_MAX = keepMax;
     CFG.LV_GEN_USD_MONTH = keepCap;
-    ok('۷۱.۲۵ خطِ روزانه سهمِ هر درس و سقفِ لازم برای سطحِ کاملِ تخته را می‌گوید؛ «ساده تا اولِ ماه» رفت',
-       stT.pace && stT.pace.paced && stT.pace.needMonth > keepCap &&
-       /💵/.test(stT.line) && /هیچ درسی تا آخرِ ماه ساده نشود/.test(stT.line) &&
-       stT.line.indexOf('سقف باید ~' + faDigitsOut_(String(stT.pace.needMonth)) + ' دلار') !== -1 &&
-       stR.pace && !stR.pace.paced && /جا می‌شود/.test(stR.line) &&
-       !/از این پس کارت‌ها ساده/.test(fs.readFileSync('src/27_YouTube.gs', 'utf8')),
-       (stT.line || '').split('\n').pop() + ' || ' + (stR.line || '').split('\n').pop());
+    const secA = (A.d && A.d.secs) || 0, step = lvSceneSec_('زیاد');
+    const cutPr = (cA.cutPrompts || [''])[0];
+    ok('۷۱.۲۷ شمار از محتوا: درسِ آرام کمتر از «هر ۲۰ ثانیه»، پرتغییر بیشتر؛ هیچ‌کدام پرِ سقف نمی‌شود؛ تدوین‌گر ثانیهٔ هدف نمی‌شنود',
+       A.r.done && Bd.r.done && A.d.cutBy === 'محتوا' && Bd.d.cutBy === 'محتوا' &&
+       A.d.scenes.length === A.d.natural && Bd.d.scenes.length === Bd.d.natural &&
+       !A.d.pace.paced && !Bd.d.pace.paced &&
+       A.d.scenes.length < Math.floor(secA / step) && Bd.d.scenes.length > Math.ceil(secA / step) &&
+       Bd.d.scenes.length < paceR.max && spendA < paceR.ceil / 4 &&
+       !/هر ~?\s*\d+ ثانیه/.test(cutPr) && /شمارِ تصویرها از خودِ محتوا می‌آید/.test(cutPr) &&
+       /چگالیِ این مجموعه «زیاد» است/.test(cutPr) && cA.cutCap === CFG.LV_CUT_TOKENS &&
+       lastPace.by === 'محتوا' && lastPace.natural === Bd.d.natural && lastPace.used === Bd.d.scenes.length,
+       JSON.stringify({ secs: secA, calm: A.d && A.d.scenes.length, dense: Bd.d && Bd.d.scenes.length,
+                        max: paceR.max, spendA: spendA, ceil: paceR.ceil, cap: cA.cutCap, last: lastPace }));
+    ok('۷۱.۲۷-ب سقفِ ایمنی شمار را پایین می‌آورد ولی «بودجه بُرید» گفته نمی‌شود',
+       H.r.done && H.d.scenes.length === 5 && H.d.natural > 5 && !H.d.pace.paced && H.r.info.paced === false,
+       JSON.stringify({ n: H.d && H.d.scenes.length, natural: H.d && H.d.natural, paced: H.d && H.d.pace.paced }));
+
+    /* ۷۱.۲۸ — توصیفِ صحنه‌ها **دسته‌دسته و در چند اجرا** (۸.۴۹): صد صحنه در یک پاسخ
+       از سقفِ توکن و از مهلت می‌گذرد (۸.۳۴). اجرای اول فقط برش را می‌گیرد و ثبت
+       می‌کند؛ هر اجرای بعد یک دسته. دستهٔ اول ماهیت و کاور را می‌دهد؛ بقیه آن‌ها را
+       می‌شنوند. و پیش از کامل‌شدنِ نقشه هیچ تصویری ساخته نمی‌شود. */
+    const keepB = CFG.LV_SCENE_ASK_BATCH, keepM = CFG.LV_SCENE_ASK_MIN_MS;
+    CFG.LV_SCENE_ASK_BATCH = 5; CFG.LV_SCENE_ASK_MIN_MS = 1e12;
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const cC = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [], genAtPlan: [] };
+    cC.cutFn = (n) => Array.from({ length: Math.ceil(n / 4) }, (_, i) => 4 * i + 1);
+    cC.natureOut = 'درس';
+    const C = build(mkEp71('EP71BT', 'قسمت 0325 — دسته‌ها'),
+                    Object.assign({}, ctx, { epRaw: '325', textLevel: 'زیاد', textShare: 0.45 }), cC, 14);
+    CFG.LV_SCENE_ASK_BATCH = keepB; CFG.LV_SCENE_ASK_MIN_MS = keepM;
+    const nC = C.d ? C.d.scenes.length : 0;
+    const lines = (p) => (p.match(/^\[\d+\] \(/mg) || []).length;
+    const pr0 = cC.prompts[0] || '', pr1 = cC.prompts[1] || '';
+    ok('۷۱.۲۸ دسته‌دسته و در چند اجرا: برش اول ثبت، هر اجرا یک دسته، ماهیت و کاور از دستهٔ اول، هیچ تصویری پیش از نقشهٔ کامل',
+       C.r.done && nC > 10 && cC.prompts.length === Math.ceil(nC / 5) &&
+       cC.prompts.every(p => lines(p) <= 5) && /توصیفِ [0۰] از/.test(C.whys[0]) &&
+       /اول تشخیص بده/.test(pr0) && /و یک `cover`/.test(pr0) && /\*\*آغازِ\*\* ویدئو/.test(pr0) &&
+       /ماهیتِ این صدا از پیش تشخیص داده شده: «درس»/.test(pr1) && !/و یک `cover`/.test(pr1) &&
+       pr1.indexOf('a curious student in a blue sweater') !== -1 &&
+       /روی حدودِ 2 صحنه از 5 /.test(pr1) &&
+       cC.genAtPlan.length === cC.prompts.length && cC.genAtPlan.every(x => x === 0) &&
+       C.d.scenes.every(x => x.scene) && !C.d.asking && C.d.nature === 'درس' &&
+       C.d.scenes.every((x, i) => i === 0 || x.t0 === C.d.scenes[i - 1].t1),
+       JSON.stringify({ runs: C.whys.length, scenes: nC, asks: cC.prompts.length, lines: cC.prompts.map(lines),
+                        genAt: cC.genAtPlan, whys: C.whys.slice(0, 3) }));
+
+    /* ۷۱.۲۹ — تدوین‌گر جواب نداد یا کم داد ⇒ همان برشِ زمانیِ قبلی، و **گفته می‌شود**
+       (`cutWhy`، خطِ روزانه «برشِ محتوایی نشد»)، نه بی‌صدا. */
+    const cD = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cD.cutFn = () => [1];
+    const D = build(mkEp71('EP71FB', 'قسمت 0326 — بی‌برش'), Object.assign({}, ctx, { epRaw: '326', level: 'کم' }), cD);
+    const lastD = JSON.parse(global.__PROPS[PK.LV_PACE_LAST] || 'null') || {};
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const stD = lvGenStatus_();
+    ok('۷۱.۲۹ برشِ محتوایی که نشد ⇒ برشِ زمانی، با علتِ نام‌برده در نقشه و خطِ روزانه',
+       D.r.done && D.d.cutBy === 'زمان' && /تدوین‌گر فقط/.test(D.d.cutWhy) && lastD.by === 'زمان' &&
+       /برشِ محتوایی نشد/.test(stD.line) && D.d.scenes.length >= 3,
+       JSON.stringify({ done: D.r && D.r.done, cutBy: D.d && D.d.cutBy, why: D.d && D.d.cutWhy, n: D.d && D.d.scenes.length }));
     delete global.__PROPS[PK.LV_PACE_LAST];
     global.__PROPS[PK.LV_GEN_SPEND] = '';
     CFG.LV_GEN_USD_MONTH = keepCap;
