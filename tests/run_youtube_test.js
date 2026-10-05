@@ -5773,6 +5773,12 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        rB.fallback && /سقفِ ماهانه/.test(rB.why) && cnt.gen === 0 &&
        f1.fallback && f2.fallback && f3.fallback && planCalls === 2 && /توصیف/.test(f1.why),
        rB.why + ' | ' + planCalls + ' پرسش · ' + f3.why);
+    /* ۷۱.۶-ب — بی‌پولی پیش از هر فراخوانِ مدل گفته می‌شود و «نقشهٔ ناشده» شمرده
+       نمی‌شود (۸.۴۸): ماهِ بعد پول هست، و این درس نباید تا ابد «دو بار نشد» بماند. */
+    const dB = lvSceneRead_(E.f);
+    ok('۷۱.۶-ب بی‌پولی ⇒ هیچ پرسشِ نقشه‌ای خرج نمی‌شود و شکستِ نقشه ثبت نمی‌شود',
+       cnt.plan === 0 && (!dB || !(Number(dB.failed) > 0)),
+       'پرسش ' + cnt.plan + ' · ' + JSON.stringify(dB && { failed: dB.failed, n: dB.scenes.length }));
   }
 
   /* ۷۱.۷ — **ردیفِ رندر:** صحنه‌ها با ثانیه و تصویرشان، هر فایل یک بار باز
@@ -6218,6 +6224,122 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        lvSceneOvGenre_([{ beat: '', ov: { kind: 'points' } }], '') === 0 &&
        /لحظهٔ ماجرا/.test(S.cnt.judgeText || ''),
        JSON.stringify({ judge: (S.cnt.judgeText || '').slice(0, 120) }));
+  }
+
+  /* ══ ۷۱.۲۱ تا ۷۱.۲۵ — بودجهٔ ماه پخش می‌شود، نه اینکه روزِ بیستم تمام شود (۸.۴۸) ══
+     او پرسید: «اگر قبل از اتمامِ ماه ۶۰ را رد کنه، بقیهٔ درس‌نامه‌های ماه ساده
+     مثلِ قبل انجام می‌شه؟» — بله می‌شد. سقف فقط دیوار بود و هر درس هرچه تخته
+     می‌خواست می‌ساخت. حالا سهمِ هر درس از ماندهٔ ماه است. */
+  {
+    const keepCap = CFG.LV_GEN_USD_MONTH;
+    const model = CFG.LV_GEN_MODEL || 'gemini-2.5-flash-image';
+    const mon = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM');
+    const setLeft = (usd) => { global.__PROPS[PK.LV_GEN_SPEND] =
+      JSON.stringify({ month: mon, n: 0, usd: Math.max(0, CFG.LV_GEN_USD_MONTH - usd) }); };
+    const eps = Math.ceil(lvMonthDaysLeft_() * Math.max(1, (CFG.LV_SHOWS || ['special']).length) *
+                          (Number(CFG.LV_PACE_SLACK) || 1.1));
+    const per = lvGenPrice_(model) * (1 + (Number(CFG.LV_PACE_REDO_PCT) || 0.2));
+    const cover = Math.max(lvGenPrice_(model), Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
+
+    /* ۷۱.۲۱ — سهم از ماندهٔ ماه: فراوان ⇒ تخته دست نمی‌خورد؛ تنگ ⇒ صحنهٔ بلندتر،
+       و هرگز بیش از سهمِ امروز خرج نمی‌شود. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    CFG.LV_GEN_USD_MONTH = 1000;                 // سهمی که سطحِ «زیاد» در آن جا می‌شود
+    const roomy = lvScenePace_('زیاد', 900, model);
+    CFG.LV_GEN_USD_MONTH = keepCap;
+    const allow12 = cover + 12 * per + 0.01;
+    setLeft(allow12 * eps);
+    const tight = lvScenePace_('زیاد', 900, model);
+    ok('۷۱.۲۱ سهمِ هر درس از ماندهٔ ماه: فراوان ⇒ سطحِ تخته؛ تنگ ⇒ صحنهٔ بلندتر و هرگز بیش از سهم',
+       !roomy.paced && roomy.sec === lvSceneSec_('زیاد') && roomy.want === 45 &&
+       tight.paced && tight.max === 12 && tight.sec === Math.ceil(900 / 12) &&
+       tight.max * per + cover <= tight.allow + 1e-9 && /صحنه به‌جای ۴۵|صحنه به‌جای 45/.test(tight.why),
+       JSON.stringify({ roomy: { p: roomy.paced, sec: roomy.sec, want: roomy.want },
+                        tight: { p: tight.paced, max: tight.max, sec: tight.sec, allow: tight.allow, why: tight.why } }));
+
+    /* ۷۱.۲۲ — از درِ ساخت: درسی که در سهم جا نمی‌شود **با نقاشی** ساخته می‌شود، با
+       صحنه‌های کمتر و بلندتر — نه کارتِ ساده، و نه بیش از سهمش. */
+    const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    global.__STUB = sceneStub(cnt);
+    const allow4 = cover + 4 * per + 0.005;
+    setLeft(allow4 * eps);
+    const spent0 = lvGenSpend_().usd;
+    const E = mkEp71('EP71PC', 'قسمت 0321 — بودجه');
+    const ctx = { show: 'special', epRaw: '321', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
+                  sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم' };
+    let r = null;
+    for (let i = 0; i < 8; i++) { r = lvScenesBuild_(E.f, E.meta, {}, ctx); if (r.done || r.fallback) break; }
+    const d = lvSceneRead_(E.f);
+    const lessonSpent = lvGenSpend_().usd - spent0;
+    ok('۷۱.۲۲ بودجهٔ تنگ ⇒ همان ویدئوی مصور با صحنه‌های کمتر و بلندتر، نه کارتِ ساده؛ خرجِ درس در سهمش',
+       r && r.done && !r.fallback && d.pace && d.pace.paced && d.scenes.length <= 4 && d.scenes.length >= 3 &&
+       d.target > lvSceneSec_('زیاد') && r.info.paced === true && r.info.boardSec === lvSceneSec_('زیاد') &&
+       lessonSpent <= allow4 + lvGenPrice_(model) + 1e-9,
+       JSON.stringify({ done: r && r.done, fb: r && r.fallback, why: r && r.why, scenes: d && d.scenes.length,
+                        target: d && d.target, spent: lessonSpent, allow: allow4 }));
+
+    /* ۷۱.۲۳ — سقف **وسطِ** درس پر شد (قیمتِ مدل عوض شد، سقف پایین آمد): همان چهار
+       نقاشیِ ساخته‌شده می‌روند و هر کدام تا صحنهٔ بعدیِ تصویردار ادامه می‌یابد. تا
+       ۸.۴۷ «۴ از ۱۰ < ۸۰٪» یعنی کارتِ ساده — و پولِ همان چهار تصویر دور ریخته. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    CFG.LV_GEN_USD_MONTH = keepCap;
+    const cnt2 = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    const base2 = sceneStub(cnt2);
+    global.__STUB = function (url, body) {
+      const out = base2(url, body);
+      if (url.indexOf('image:generateContent') !== -1 && cnt2.gen === 4) {
+        CFG.LV_GEN_USD_MONTH = lvGenSpend_().usd + lvGenPrice_(model);   // چهارمی که ثبت شد، جا صفر
+      }
+      return out;
+    };
+    const E2 = mkEp71('EP71CH', 'قسمت 0322 — سقف وسطِ درس');
+    let r2 = null;
+    for (let i = 0; i < 8; i++) {
+      r2 = lvScenesBuild_(E2.f, E2.meta, {}, Object.assign({}, ctx, { epRaw: '322' }));
+      if (r2.done || r2.fallback) break;
+    }
+    CFG.LV_GEN_USD_MONTH = keepCap;
+    global.__STUB = BASE_STUB;
+    const d2 = lvSceneRead_(E2.f);
+    const built = d2 ? d2.scenes.filter(x => x.fileId).length : 0;
+    const items = (r2 && r2.items) || [];
+    const reuse = items.every((x, k) => !!x.fileId && (k === 0 || x.fileId === items[k - 1].fileId ||
+                                                    d2.scenes.some(s => s.fileId === x.fileId)));
+    ok('۷۱.۲۳ سقف وسطِ درس ⇒ همان نقاشی‌های ساخته‌شده می‌روند، نه کارتِ ساده؛ و گفته می‌شود',
+       r2 && r2.done && !r2.fallback && d2.capHit === true && built === 4 && d2.scenes.length > 4 &&
+       items.length === d2.scenes.length && reuse && r2.info.capHit === true,
+       JSON.stringify({ done: r2 && r2.done, fb: r2 && r2.fallback, why: r2 && r2.why, built: built,
+                        scenes: d2 && d2.scenes.length, items: items.length }));
+
+    /* ۷۱.۲۴ — سقفِ صحنه **سخت** است: برش در ۰٫۸۵ِ هدف تعداد را تا ~۱۸٪ بالاتر می‌بُرد،
+       و وقتی سقف از بودجه می‌آید، هر صحنهٔ اضافه یک تصویرِ بی‌پول است. */
+    const ss = []; for (let t = 0; t < 900; t += 10) ss.push({ t: t, text: 'جملهٔ ' + t + '.', sec: 1 });
+    const gq = lvSceneGroups_(ss, 5, 900, 10);
+    ok('۷۱.۲۴ شمارِ صحنه از سقف نمی‌گذرد و صحنه‌ها پیوسته از صفر تا پایان‌اند',
+       gq.length <= 10 && gq.length >= 9 && gq[0].t0 === 0 && gq[gq.length - 1].t1 === 900 &&
+       gq.every((x, i) => i === 0 || x.t0 === gq[i - 1].t1) &&
+       gq.map(x => x.text).join(' ').split('جملهٔ').length - 1 === ss.length,
+       gq.length + ' صحنه · ' + gq.map(x => x.t0 + '-' + x.t1).join(' '));
+
+    /* ۷۱.۲۵ — هر روز گفته می‌شود: سهمِ هر درس، چند صحنه می‌خرد، و برای سطحِ کاملِ تخته
+       سقف باید چند باشد. و جملهٔ «کارت‌ها ساده ساخته می‌شوند تا اولِ ماه» دیگر نیست. */
+    global.__PROPS[PK.LV_PACE_LAST] = JSON.stringify({ secs: 900, level: 'زیاد' });
+    setLeft(allow12 * eps);
+    const stT = lvGenStatus_();
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    CFG.LV_GEN_USD_MONTH = 1000;
+    const stR = lvGenStatus_();
+    CFG.LV_GEN_USD_MONTH = keepCap;
+    ok('۷۱.۲۵ خطِ روزانه سهمِ هر درس و سقفِ لازم برای سطحِ کاملِ تخته را می‌گوید؛ «ساده تا اولِ ماه» رفت',
+       stT.pace && stT.pace.paced && stT.pace.needMonth > keepCap &&
+       /💵/.test(stT.line) && /هیچ درسی تا آخرِ ماه ساده نشود/.test(stT.line) &&
+       stT.line.indexOf('سقف باید ~' + faDigitsOut_(String(stT.pace.needMonth)) + ' دلار') !== -1 &&
+       stR.pace && !stR.pace.paced && /جا می‌شود/.test(stR.line) &&
+       !/از این پس کارت‌ها ساده/.test(fs.readFileSync('src/27_YouTube.gs', 'utf8')),
+       (stT.line || '').split('\n').pop() + ' || ' + (stR.line || '').split('\n').pop());
+    delete global.__PROPS[PK.LV_PACE_LAST];
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    CFG.LV_GEN_USD_MONTH = keepCap;
   }
 
   if (genWas.on === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas.on;

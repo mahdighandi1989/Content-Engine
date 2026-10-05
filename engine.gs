@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.47
+ *  موتور محتوا و پادکست — نسخهٔ 8.48
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -672,6 +672,14 @@ var CFG = {
   LV_SCENE_MORE_MAX: 30,
   LV_SCENE_LEASE_MIN: 8,
   LV_GEN_HQ_MAX_USD: 0.14,      // کاورِ صحنه با بهترین مدلِ تصویرِ زیرِ این قیمت
+  /* ══ بودجهٔ ماه پخش می‌شود (۸.۴۸) ══
+     سهمِ هر درس = ماندهٔ سقف ÷ درس‌های ماندهٔ ماه. سطحِ تخته که در سهم جا نشود،
+     صحنه‌ها بلندتر می‌شوند — هرگز کارتِ ساده. «او: اگر قبل از اتمامِ ماه ۶۰ را رد
+     کنه و بقیه ساده بشه، حرفه‌ای بودن رو خراب می‌کنه.»
+       SLACK: درس‌های اضافه (مرورِ بزرگ، ساختِ دوباره) روی شمارِ روزها.
+       REDO_PCT: سهمِ ساختِ دوباره پس از داوری، روی هزینهٔ هر صحنه. */
+  LV_PACE_SLACK: 1.1,
+  LV_PACE_REDO_PCT: 0.2,
   /* ══ نوشتهٔ رویِ نقاشی (۸.۴۵) ══
      «روی بعضی یا خیلی از تصویرها و نقاشی‌ها حالتِ برداری هم باشه … نه اینکه یه
      اسلاید برداری باشه یکی تصویری». لایه‌ای روی **همان** نقاشی‌ها: سبک و شمارِ
@@ -1703,7 +1711,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.47',
+  CODE_VERSION: '8.48',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2751,6 +2759,7 @@ var PK = {
   LV_GEN_SEEN: 'LV_GEN_MODEL_SEEN',  // آخرین گشتنِ مدلِ تصویر: {at,id,why} (۸.۲۰)
   LV_GEN_ON: 'LV_GEN_ON',          // '1' روشن · '0' خاموش · نبود = پیش‌فرضِ CFG
   LV_GEN_SPEND: 'LV_GEN_SPEND',    // خرجِ این ماه: {month, n, usd}
+  LV_PACE_LAST: 'LV_PACE_LAST',    // سهمِ بودجهٔ آخرین نقشهٔ صحنه (۸.۴۸) — برای خطِ روزانه، بی خواندنِ درایو
   LV_GEN_MODEL: 'LV_GEN_MODEL_ID', // مدلِ تصویرِ پیداشده، تا هر بار فهرست نگیریم
   LV_GEN_NOCFG: 'LV_GEN_NOCFG',    // مدل‌هایی که imageConfig (نسبتِ ۱۶:۹) را رد کردند (۸.۳۱)
   LV_SCENE_MORE: 'LV_SCENE_MORE_DAY', // شمارِ اجرای یک‌بارهٔ ادامهٔ صحنه‌ها، امروز
@@ -47747,6 +47756,73 @@ function lvGenRoom_(model) {
   return Math.max(0, Math.floor((cap - sp.usd) / price));
 }
 
+/** چند روز از این ماه مانده، **با امروز**، به وقتِ موتور. */
+function lvMonthDaysLeft_(now) {
+  var d = now || new Date();
+  var tz = CFG.TIMEZONE || 'Asia/Dubai';
+  var y = Number(Utilities.formatDate(d, tz, 'yyyy'));
+  var m = Number(Utilities.formatDate(d, tz, 'MM'));
+  var day = Number(Utilities.formatDate(d, tz, 'dd'));
+  var dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Math.max(1, dim - day + 1);
+}
+
+/**
+ * ══ بودجهٔ ماه پخش می‌شود، نه اینکه نیمهٔ ماه تمام شود (۸.۴۸) ══
+ * او پرسید: «اگر قبل از اتمامِ ماه ۶۰ را رد کنه، بقیهٔ درس‌نامه‌های ماه ساده
+ * مثلِ قبل انجام می‌شه؟ … حرفه‌ای بودن رو خراب می‌کنه». جواب «بله» بود: سقف
+ * فقط **دیوار** بود. هر درس هرچه تخته می‌خواست می‌ساخت (با ۲.۵-flash-image هر
+ * درسِ «زیاد» ~۳.۵ دلار)، و حدودِ روزِ بیستم `lvGenRoom_` صفر می‌شد: صحنه‌ها
+ * نیمه‌کاره، `fail` و کارتِ ساده تا اولِ ماه. یعنی کیفیت به **تاریخ** بسته بود.
+ *
+ * حالا سهمِ هر درس = (ماندهٔ سقف) ÷ (درس‌های ماندهٔ ماه). اگر سطحِ تخته در این
+ * سهم جا شود، دست نمی‌خورد؛ اگر نه، **صحنه‌ها بلندتر می‌شوند، نه ساده**: همان
+ * سبک، همان نقاشیِ تمام‌قاب، فقط تصویرِ کمتر. چون هر روز از نو و با ماندهٔ
+ * واقعی حساب می‌شود، خودش را تصحیح می‌کند: روزی که کمتر خرج شد، سهمِ روزهای
+ * بعد بیشتر می‌شود. سقف هنوز سد است و موتور از آن رد نمی‌شود — فقط دیگر به آن
+ * نمی‌خورد.
+ *
+ * `slack` روزهای اضافه است (مرورِ بزرگ، ساختِ دوباره): بی آن، روزی که دو درس
+ * ساخته شود سهمِ دومی از جیبِ آخرِ ماه می‌رود.
+ * @return {{paced:boolean, sec:number, max:number, want:number, allow:number,
+ *           left:number, eps:number, per:number, cover:number, days:number, why:string}}
+ */
+function lvScenePace_(level, secs, model, now) {
+  var base = lvSceneSec_(level);
+  var hardMax = Math.max(3, Number(CFG.LV_SCENE_MAX) || 60);
+  var total = Math.max(1, Number(secs) || 0);
+  var out = { paced: false, sec: base, max: hardMax, want: Math.min(hardMax, Math.ceil(total / base)),
+              allow: 0, left: 0, eps: 0, per: 0, cover: 0, days: 0, why: '' };
+  try {
+    var cap = Math.max(0, Number(CFG.LV_GEN_USD_MONTH) || 0);
+    out.left = Math.max(0, cap - lvGenSpend_().usd);
+    out.days = lvMonthDaysLeft_(now);
+    var shows = Math.max(1, (CFG.LV_SHOWS || ['special']).length);
+    var slack = Math.max(1, Number(CFG.LV_PACE_SLACK) || 1.1);
+    out.eps = Math.max(1, Math.ceil(out.days * shows * slack));
+    out.allow = out.left / out.eps;
+    var price = lvGenPrice_(model);
+    var redo = Math.max(0, Number(CFG.LV_PACE_REDO_PCT) || 0.2);
+    out.per = price * (1 + redo);
+    out.cover = Math.max(price, Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
+    if (out.per <= 0) return out;
+    var fit = Math.floor(Math.max(0, out.allow - out.cover) / out.per);
+    if (fit >= out.want) return out;
+    /* کف فقط همان سه صحنه‌ای است که نقشه بی آن ساخته نمی‌شود. کفِ بالاتر یعنی
+       قرض از روزهای بعد — همان پرتگاهِ «روزِ بیستم» که این تابع برای برداشتنش
+       نوشته شد. پس اگر سهم کم است، **گفته می‌شود** (خطِ روزانه سقفِ لازم را
+       می‌گوید)، نه اینکه پنهانی از آخرِ ماه برداشته شود. */
+    var afford = Math.floor(Math.max(0, out.left - out.cover) / out.per);
+    var n = Math.min(Math.max(fit, 3), afford, hardMax);
+    out.paced = true;
+    out.max = Math.max(0, n);
+    out.sec = n > 0 ? Math.max(base, Math.ceil(total / n)) : base;
+    out.why = 'بودجهٔ این درس ~' + out.allow.toFixed(2) + ' دلار (' + out.left.toFixed(2) + ' ÷ ' +
+              out.eps + ' درسِ ماندهٔ ماه) ⇒ ' + n + ' صحنه به‌جای ' + out.want;
+  } catch (e) { out.why = 'سهمِ بودجه حساب نشد: ' + e.message; }
+  return out;
+}
+
 /**
  * دستورِ تصویر — **بی‌واژه، انتزاعی، و بی هیچ شخصِ واقعی.**
  *
@@ -48098,6 +48174,32 @@ function lvGenStatus_() {
           : ' · داوریِ تصویرها: هنوز هیچ') +
         ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
         'است `LV_GEN_PRICES` را عوض کنید).';
+      /* پخشِ بودجه (۸.۴۸) — از آخرین نقشهٔ صحنه، بی هیچ خواندنِ درایو یا هاب
+         (این تابع در `writeStatus_` است؛ ۷.۶۳). هر روز گفته می‌شود، حتی وقتی سطحِ
+         تخته جا می‌شود: سکوت با «جا نمی‌شود ولی کسی نگفت» یکی است. */
+      if (out.model) {
+        var lp = null;
+        try { lp = JSON.parse(props_().getProperty(PK.LV_PACE_LAST) || 'null'); } catch (eLp) { lp = null; }
+        var lvL = (lp && lp.level) || 'زیاد';
+        var secL = (lp && Number(lp.secs)) || 900;
+        var pc = lvScenePace_(lvL, secL, out.model);
+        var tz = CFG.TIMEZONE || 'Asia/Dubai', now = new Date();
+        var dim = new Date(Date.UTC(Number(Utilities.formatDate(now, tz, 'yyyy')),
+                                    Number(Utilities.formatDate(now, tz, 'MM')), 0)).getUTCDate();
+        var shows = Math.max(1, (CFG.LV_SHOWS || ['special']).length);
+        var full = Math.ceil((pc.want * pc.per + pc.cover) * dim * shows);
+        out.pace = { paced: pc.paced, allow: Math.round(pc.allow * 100) / 100, want: pc.want,
+                     max: pc.max, sec: pc.sec, board: lvSceneSec_(lvL), level: lvL, needMonth: full };
+        out.line += pc.paced
+          ? '\n💵 بودجهٔ ماه پخش می‌شود تا هیچ درسی تا آخرِ ماه ساده نشود: سهمِ هر درس ~' +
+            pc.allow.toFixed(2) + ' دلار ⇒ ~' + faDigitsOut_(String(pc.max)) + ' صحنه (هر ~' +
+            faDigitsOut_(String(pc.sec)) + ' ثانیه) به‌جای ~' + faDigitsOut_(String(pc.want)) +
+            ' صحنهٔ سطحِ «' + lvL + '»ِ تخته (هر ~' + faDigitsOut_(String(lvSceneSec_(lvL))) +
+            ' ثانیه). برای سطحِ کاملِ تخته در همهٔ ماه، سقف باید ~' + faDigitsOut_(String(full)) +
+            ' دلار باشد.'
+          : '\n💵 بودجهٔ ماه پخش می‌شود: سهمِ هر درس ~' + pc.allow.toFixed(2) + ' دلار — سطحِ «' +
+            lvL + '»ِ تخته (~' + faDigitsOut_(String(pc.want)) + ' صحنه) در آن جا می‌شود.';
+      }
     }
   } catch (e) { out.line = ''; }
   return out;
@@ -48972,9 +49074,14 @@ function lvHealth_(problems, notes) {
         'یعنی هیچ پس‌زمینه‌ای ساخته نمی‌شود. `LV_GEN_MODEL` را صریح بگذارید ' +
         'یا ببینید حسابِ Gemini مدلِ تصویر دارد.');
     } else if (g.on && g.room <= 0) {
+      /* با پخشِ بودجه (۸.۴۸) این حالت **نباید** پیش بیاید؛ پس اگر آمد، خودش
+         خبر است: قیمتِ مدل عوض شده، سقف پایین آمده، یا چیزی بیرون از سهم خرج
+         کرده. درسِ نیمه‌کاره با همان تصویرهای ساخته‌شده می‌رود؛ درسِ بعدی تا
+         اولِ ماه تصویرِ تازه ندارد — و این را باید گفت، نه پنهان کرد. */
       problems.push('سقفِ ماهانهٔ تصویرِ ساخته‌شده پر شده (~' + g.usd.toFixed(2) +
-        ' از ' + faDigitsOut_(String(g.cap)) + ' دلار) — از این پس کارت‌ها ساده ' +
-        'ساخته می‌شوند تا اولِ ماه یا تا بالا بردنِ `LV_GEN_USD_MONTH`.');
+        ' از ' + faDigitsOut_(String(g.cap)) + ' دلار) با وجودِ پخشِ بودجه — یعنی چیزی ' +
+        'بیرون از سهمِ درس‌ها خرج کرده یا قیمتِ مدل (' + (g.model || '؟') + ') با `LV_GEN_PRICES` ' +
+        'نمی‌خواند. تا اولِ ماه درس‌های تازه تصویرِ تازه نمی‌گیرند؛ علت را پیدا کنید یا سقف را بالا ببرید.');
     }
   } catch (eGh) {}
 
@@ -49533,6 +49640,22 @@ function lvSceneGroups_(sents, target, secs, maxN) {
     var last = g.pop();
     g[g.length - 1].text = g[g.length - 1].text.concat(last.text);
   }
+  /* سقف **سخت** است (۸.۴۸): برش در ۰٫۸۵ِ طولِ هدف انجام می‌شود، پس تعداد تا ~۱۸٪
+     از سقف بالاتر می‌رفت. وقتی سقف از بودجه می‌آید، هر صحنهٔ اضافه یک تصویرِ
+     بی‌پول است. کوتاه‌ترین صحنه با همسایهٔ کوتاه‌ترش یکی می‌شود تا جا شود. */
+  while (g.length > cap) {
+    var di = -1, dv = Infinity;
+    for (var q = 0; q < g.length; q++) {
+      var end = (q + 1 < g.length) ? g[q + 1].t0 : total;
+      if (end - g[q].t0 < dv) { dv = end - g[q].t0; di = q; }
+    }
+    var to = (di === 0) ? 1 : (di === g.length - 1) ? di - 1 :
+             (((g[di + 2] ? g[di + 2].t0 : total) - g[di + 1].t0) < (g[di].t0 - g[di - 1].t0) ? di + 1 : di - 1);
+    var a = Math.min(di, to), b = Math.max(di, to);
+    g[a].text = g[a].text.concat(g[b].text);
+    if (!g[a].sec && g[b].sec) g[a].sec = g[b].sec;
+    g.splice(b, 1);
+  }
   if (g.length) g[0].t0 = 0;
   for (var j = 0; j < g.length; j++) {
     g[j].n = j + 1;
@@ -50027,8 +50150,22 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     var secs = Number(rp.secs) || 0;
     var sents = lvSceneSents_(rp.chunks);
     if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)');
-    var groups = lvSceneGroups_(sents, lvSceneSec_(ctx.level), secs, CFG.LV_SCENE_MAX);
+    /* سطحِ تخته، در **سهمِ امروز از بودجهٔ ماه** (۸.۴۸): جا نشد ⇒ صحنهٔ بلندتر،
+       نه کارتِ ساده در روزِ بیستم. یک بار، پیش از نقشه، و در `_scenes.json`
+       می‌مانَد تا ازسرگیری همان را بخوانَد. */
+    var pace = lvScenePace_(ctx.level, secs, (lvGenModel_() || {}).id);
+    try { props_().setProperty(PK.LV_PACE_LAST, JSON.stringify({ key: key, at: nowStr_(), secs: secs,
+            level: String(ctx.level || ''), want: pace.want, max: pace.max, sec: pace.sec,
+            paced: pace.paced, allow: Math.round(pace.allow * 100) / 100,
+            per: Math.round(pace.per * 1000) / 1000, cover: pace.cover })); } catch (ePl) {}
+    /* پولی نمانده: پیش از هر فراخوانِ مدل، و **بی شمردن** به‌عنوانِ نقشهٔ ناشده —
+       ماهِ بعد پول هست و این درس نباید تا ابد «دو بار نشد» بماند. */
+    if (pace.paced && pace.max < 3) {
+      return fail('سقفِ ماهانهٔ تصویر برای حتی سه صحنه جا ندارد (' + pace.left.toFixed(2) + ' دلار مانده)');
+    }
+    var groups = lvSceneGroups_(sents, pace.sec, secs, Math.min(Number(CFG.LV_SCENE_MAX) || 60, pace.max));
     if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)');
+    if (pace.paced) logLine_('صحنه‌های مصورِ ' + key + ': ' + pace.why + ' — هر صحنه ~' + pace.sec + ' ثانیه.');
     var ask = lvSceneAsk_(groups, ctx, art.art, '', null);
     var miss = [];
     for (var g = 0; g < groups.length; g++) if (!ask.scenes[String(groups[g].n)]) miss.push(groups[g].n);
@@ -50070,7 +50207,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     d = { v: 1, key: key, at: nowStr_(), level: String(ctx.level || ''), style: art.key,
           text: String(ctx.textLevel || ''), ovShare: ovShare, ovN: ovN,
           nature: nature, ovGenre: ovGenre,
-          art: art.art, cast: ask.cast, secs: secs, target: lvSceneSec_(ctx.level), align: rp.how,
+          art: art.art, cast: ask.cast, secs: secs, target: pace.sec, align: rp.how,
+          pace: { paced: pace.paced, board: lvSceneSec_(ctx.level), want: pace.want, max: pace.max,
+                  allow: Math.round(pace.allow * 100) / 100, why: pace.why },
           scenes: kept, cover: { scene: ask.cover || (kept[0] && kept[0].scene) || '', fileId: '' },
           spent: 0, made: 0, judged: false, done: false, why: '' };
     if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
@@ -50090,7 +50229,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       var sc = d.scenes[i];
       if (sc.fileId) continue;
       if (sc.tries >= tryMax) continue;
-      if (lvGenRoom_(mk.id) <= 0) { d.why = 'سقفِ ماهانهٔ تصویر پر شد'; break; }
+      if (lvGenRoom_(mk.id) <= 0) { d.why = 'سقفِ ماهانهٔ تصویر پر شد'; d.capHit = true; break; }
       sc.tries++;
       var r = lvGenOne_(mk.id, lvSceneImgPrompt_(sc.scene, d.art, d.cast, lvSceneOvSpace_(sc.ov)), { aspect: '16:9' });
       out.spent += r.usd; d.spent = Math.round(((Number(d.spent) || 0) + r.usd) * 1000) / 1000;
@@ -50194,9 +50333,14 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   /* سقفِ ماهانه پر شد ⇒ «همه آزموده شد» حساب می‌شود: هرچه ساخته شده یا
      کافی است و می‌رود، یا نیست و مسیرِ قبلی می‌رود — انتظارِ یک‌ماهه نه. */
   var allTried = ready + givenUp >= d.scenes.length || !!d.why;
-  d.done = allTried && ready >= Math.max(3, Math.ceil(d.scenes.length * 0.8)) &&
+  /* سقف وسطِ درس پر شد (۸.۴۸) ⇒ همان صحنه‌های ساخته‌شده می‌روند و هر کدام تا
+     صحنهٔ بعدیِ تصویردار ادامه می‌یابد (بندِ ۵). کارتِ ساده یعنی پولِ همین
+     تصویرها دور ریخته شود و درس شکلِ دیگری بگیرد — بدتر از تصویرِ کمتر. با
+     پخشِ بودجه نباید پیش بیاید؛ اگر آمد، شمرده و گفته می‌شود (`capHit`). */
+  var needN = d.capHit ? 3 : Math.max(3, Math.ceil(d.scenes.length * 0.8));
+  d.done = allTried && ready >= needN &&
            (CFG.LV_SCENE_JUDGE === false || d.judged || !!d.judgeWhy);
-  if (allTried && !d.done && ready < Math.max(3, Math.ceil(d.scenes.length * 0.8))) {
+  if (allTried && !d.done && ready < needN) {
     lvSceneWrite_(folder, d);
     return fail('فقط ' + ready + ' تصویر از ' + d.scenes.length + ' ساخته شد' +
                 (d.why ? ' — ' + d.why : ''));
@@ -50241,7 +50385,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                text: String(d.text || ''), ov: d.scenes.filter(function (x) { return !!x.ov; }).length,
                ovDropped: Number(d.ovDropped) || 0,
                nature: String(d.nature || ''), ovGenre: Number(d.ovGenre) || 0,
-               beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length };
+               beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length,
+               paced: !!(d.pace && d.pace.paced), boardSec: (d.pace && d.pace.board) || 0,
+               capHit: !!d.capHit };
   try { lvSceneVisuals_(folder, d); } catch (eV) {}
   return out;
 }
