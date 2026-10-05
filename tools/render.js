@@ -678,6 +678,20 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
       notes.push('صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60));
     }
   }
+  /* کلیپِ آغاز (۸.۵۱): بایت‌ها باور می‌شوند — «ftyp» در سرِ فایل. نرسید یا ویدئو نبود
+     ⇒ همان نقاشیِ ثابت، و گفته می‌شود؛ ویدئوی درس هرگز برای کلیپ زمین نمی‌خورد. */
+  const clips = {};
+  for (const s of scenes) {
+    if (!s.clip || !imgs[String(s.n)]) continue;
+    const f = path.join(dir, 'c' + String(s.n).padStart(3, '0') + '.mp4');
+    try {
+      fetchTo(s.clip.url, f);
+      if (sniffKind(f) !== 'mp4') { notes.push('کلیپِ صحنهٔ ' + s.n + ': بایت‌ها ویدئو نبود'); continue; }
+      clips[String(s.n)] = f;
+    } catch (e) {
+      notes.push('کلیپِ صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60));
+    }
+  }
   const mark = it.mark && it.mark.handle ? Object.assign({}, it.mark) : null;
   if (mark && mark.logoUrl && !mark.logo) {
     const lg = CK.logoClean(mark.logoUrl, dir, ffmpegExe());
@@ -688,7 +702,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   }
   const exe = CK.chromeExe();
   const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
-                             dest: dest, dir: dir, imgs: imgs, mark: mark, notes: notes });
+                             dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes });
   const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
 
   // کاورِ بندانگشتی از نقاشیِ خودِ درس
@@ -714,7 +728,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     }
   } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
-           groups: r.groups, qa: qa, thumbFile: thumb, ov: r.ov,
+           groups: r.groups, qa: qa, thumbFile: thumb, ov: r.ov, mv: r.mv || 0, clip: r.clip,
            refs: r.tl.filter(x => x.ref).length,     // صحنه‌هایی که سنجش «با نوشته» دیدشان
            logo: mark ? (mark.logo ? (mark.logoClean || 'خام') : 'بی تصویر') : 'بی نشان' };
 }
@@ -951,6 +965,10 @@ function main() {
         // نوشته‌های رویِ نقاشی: چند خواسته شد، چند نشست، چند جای خالی نداشت (۸.۴۵)
         if (vr.ov && vr.ov.asked) map.items[it.key].ov = vr.ov;
         if (vr.logo) map.items[it.key].logo = vr.logo;
+        /* حرکتِ معنادار و کلیپِ آغاز (۸.۵۱): چند صحنه حرکتِ کانون‌دار گرفت، و کلیپ
+           خواسته شد / نشست / چرا نه — تا «ساختیم» از «دیده شد» جدا بماند. */
+        if (vr.mv) map.items[it.key].mv = vr.mv;
+        if (vr.clip && vr.clip.asked) map.items[it.key].clip = vr.clip;
         if (vr.thumbFile) {
           try {
             const tu = uploadAsset(rel, vr.thumbFile, base + '-cover.jpg', 'image/jpeg');

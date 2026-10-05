@@ -1405,6 +1405,10 @@ function ytRenderAsk_(item) {
       var r0 = { n: Number(x.n) || 0, t0: Number(x.t0) || 0, fileId: String(x.fileId || ''),
                  url: ytDlUrl_(x.fileId || ''), caption: String(x.caption || '') };
       if (x.ov) r0.ov = x.ov;                       // نوشتهٔ رویِ نقاشی (۸.۴۵)
+      if (x.mv) r0.mv = x.mv;                       // حرکتِ معنادار (۸.۵۱)
+      if (x.clip && x.clip.fileId) {                // کلیپِ آغاز (۸.۵۱)
+        r0.clip = { fileId: String(x.clip.fileId), url: ytDlUrl_(x.clip.fileId), sec: Number(x.clip.sec) || 0 };
+      }
       return r0; });
     if (item.sceneCover && item.sceneCover.fileId) {
       row.sceneCover = { fileId: String(item.sceneCover.fileId), url: ytDlUrl_(item.sceneCover.fileId) };
@@ -1549,6 +1553,9 @@ function ytRenderShare_(item, on) {
   for (var z = 0; z < ss.length; z++) {
     var fz = ss[z] && ss[z].fileId;
     if (fz && !seen[fz]) { seen[fz] = true; ids.push(fz); }
+    /* کلیپِ آغاز (۸.۵۱) — همان قاعده: بازنشده یعنی رانر صفحهٔ HTML می‌گیرد. */
+    var cz = ss[z] && ss[z].clip && ss[z].clip.fileId;
+    if (cz && !seen[cz]) { seen[cz] = true; ids.push(cz); }
   }
   if (item && item.sceneCover && item.sceneCover.fileId) ids.push(item.sceneCover.fileId);
   var n = 0;
@@ -3031,6 +3038,7 @@ function lvGenModel_() {
       if (String(id).toLowerCase().indexOf('image') === -1) continue;
       all.push(id);
     }
+    lvAudSee_(all);                       // مدلِ تازه ⇒ آزمون کنارِ سنجاق (۸.۵۱)
     all.sort(function (a, b) { return lvGenPrice_(a) - lvGenPrice_(b); });
     /* ══ ارزان‌ترین، **مگر کیفیتش سنجیده و رد شده باشد** (۸.۳۳) ══
        تا ۸.۳۲ این تابع فقط قیمت را می‌دید: مدل‌های متن و صدا هر هفته
@@ -3168,14 +3176,16 @@ function lvGenSpend_() {
     if (c && String(c.month) === mon) {
       d.n = Number(c.n) || 0;
       d.usd = Number(c.usd) || 0;
+      d.clips = Number(c.clips) || 0;
     }
   } catch (e) {}
   return d;
 }
 
-function lvGenSpendAdd_(usd) {
+/** خرج در همان دفترِ ماه. `clip` ⇒ کلیپ شمرده می‌شود، نه تصویر (۸.۵۱) — سقف یکی است. */
+function lvGenSpendAdd_(usd, clip) {
   var d = lvGenSpend_();
-  d.n++;
+  if (clip) d.clips = (Number(d.clips) || 0) + 1; else d.n++;
   d.usd = Math.round((d.usd + (Number(usd) || 0)) * 10000) / 10000;
   try { props_().setProperty(PK.LV_GEN_SPEND, JSON.stringify(d)); } catch (e) {}
   return d;
@@ -3240,6 +3250,8 @@ function lvScenePace_(model, now) {
     var redo = Math.max(0, Number(CFG.LV_PACE_REDO_PCT) || 0.2);
     out.per = price * (1 + redo);
     out.cover = Math.max(price, Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
+    /* کلیپِ آغاز (۸.۵۱) از همان سقفِ درس برداشته می‌شود، پیش از صحنه‌ها — سقفِ ماه یکی است. */
+    if (lvClipOn_()) { out.clip = lvClipCost_(); out.cover += out.clip; }
     if (out.per <= 0) return out;
     var fit = Math.floor(Math.max(0, out.ceil - out.cover) / out.per);
     /* کف فقط همان سه صحنه‌ای است که نقشه بی آن ساخته نمی‌شود، و آن هم فقط اگر
@@ -3642,7 +3654,37 @@ function lvGenStatus_() {
                       : ' و همان ساخته شد') + '.';
         }
       }
+      /* کلیپِ آغاز (۸.۵۱) — هر روز، حتی وقتی هنوز هیچ کلیپی ساخته نشده: سکوت با «ساخته
+         نمی‌شود» یکی است. از Properties، بی درایو (۷.۶۳). */
+      out.clip = lvClipStatus_();
+      if (out.clip.line) out.line += '\n' + out.clip.line;
+      out.aud = lvAudStatus_();
+      if (out.aud.line) out.line += '\n' + out.aud.line;
     }
+  } catch (e) { out.line = ''; }
+  return out;
+}
+
+/** خطِ روزانهٔ کلیپِ آغاز. */
+function lvClipStatus_() {
+  var out = { on: lvClipOn_(), model: String(CFG.LV_CLIP_MODEL || ''), clips: 0, usd: 0, last: null, line: '' };
+  try {
+    out.clips = Number(lvGenSpend_().clips) || 0;
+    out.usd = lvClipCost_();
+    try { out.last = JSON.parse(props_().getProperty(PK.LV_CLIP_LAST) || 'null'); } catch (eL) { out.last = null; }
+    if (!out.on) {
+      out.line = '🎬 کلیپِ آغازِ درس: خاموش.';
+      return out;
+    }
+    var L = out.last;
+    out.line = '🎬 کلیپِ آغازِ درس: روشن با ' + out.model + ' (~' + out.usd.toFixed(2) + ' دلار برای ' +
+      faDigitsOut_(String(lvClipSec_())) + ' ثانیه، از همان سقفِ ماه) · این ماه ' +
+      faDigitsOut_(String(out.clips)) + ' کلیپ' +
+      (L ? ' · آخرین (' + String(L.key || '') + '): ' +
+           (L.state === 'ok' ? '✅ ساخته و داوری شد' :
+            L.state === 'fail' ? '❌ نشد — ' + String(L.why || 'بی علت') + ' — ویدئو با همان نقاشیِ ثابت رفت' :
+            L.state === 'off' ? 'ساخته نشد — ' + String(L.why || '') : String(L.state || ''))
+         : ' · هنوز هیچ درسی با کلیپ ساخته نشده') + '.';
   } catch (e) { out.line = ''; }
   return out;
 }
@@ -5299,6 +5341,8 @@ var LV_SCENE_SCHEMA = {
     scenes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
       n: { type: 'STRING' }, beat: { type: 'STRING' },
       scene: { type: 'STRING' }, caption: { type: 'STRING' },
+      // حرکتِ معنادار (۸.۵۱): کدام عنصرِ تصویر، و دوربین با آن چه کند
+      focus: { type: 'STRING' }, move: { type: 'STRING' },
       // نوشتهٔ رویِ نقاشی (۸.۴۵) — همه رشته، چون این مدل جز رشته نمی‌پذیرد
       ov: { type: 'STRING' }, ovTitle: { type: 'STRING' },
       ovLines: { type: 'ARRAY', items: { type: 'STRING' } },
@@ -5378,6 +5422,15 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
          'در صحنهٔ قبل لو نمی‌رود.');
   L.push('• `caption` — به فارسی، حداکثر شش واژه: **مفهومِ کلیدیِ همان لحظه** (نه جمله). ' +
          'اگر تصویر خودش گویاست، خالی بگذار.');
+  /* حرکتِ معنادار (۸.۵۱): دوربین به‌سوی چیزی می‌رود که گوینده درباره‌اش حرف می‌زند،
+     نه به جهتی که شمارهٔ صحنه می‌گوید. */
+  L.push('• `focus` — به انگلیسی، دو تا شش واژه: **همان عنصرِ دیدنیِ این صحنه که متنِ همین ' +
+         'لحظه درباره‌اش است** (مثلاً the last lantern in the chain). باید در خودِ `scene` باشد. ' +
+         'اگر صحنه یک کانونِ روشن ندارد، خالی.');
+  L.push('• `move` — حرکتِ دوربین در طولِ صحنه، به خدمتِ فهم نه تزئین: «push» = آرام به `focus` ' +
+         'نزدیک شو (وقتی متن روی همان چیز می‌مانَد یا آن را برجسته می‌کند)؛ «reveal» = از نمای ' +
+         'نزدیکِ `focus` عقب برو تا کلِ تصویر دیده شود (وقتی متن از جزء به کل، یا از یک حلقه به ' +
+         'کلِ زنجیره می‌رسد)؛ «drift» = حرکتِ آرامِ معمولی، وقتی کانونِ خاصی نیست.');
   L.push('• `n` — همان شمارهٔ صحنه.');
   var share = Number((ctx && ctx.textShare) || 0);
   /* شمارِ همین پرسش، نه کلِ ویدئو — دسته‌ای ده‌تایی «حدودِ ۴۵ از ۱۰۰» نمی‌گیرد (۸.۴۹). */
@@ -5447,7 +5500,9 @@ function lvSceneAsk_(groups, ctx, art, cast, only, first) {
     out.scenes[String(n)] = { scene: sc.slice(0, 700),
                               caption: ytVisCut_(String(x.caption || ''), 48),
                               beat: lvSceneBeat_(x.beat),
-                              ov: lvSceneOvNorm_(x) };
+                              ov: lvSceneOvNorm_(x),
+                              focus: String(x.focus || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+                              move: lvSceneMove_(x.move) };
   }
   out.nature = lvSceneNature_(r.nature);
   out.cover = String(r.cover || '').replace(/\s+/g, ' ').trim().slice(0, 700);
@@ -5470,6 +5525,45 @@ function lvSceneBeat_(v) {
   if (/^روایت|^داستان|^story|^narrat/i.test(t)) return 'روایت';
   if (/^ایده|^مفهوم|^idea|^concept/i.test(t)) return 'ایده';
   return '';
+}
+
+/** حرکتِ دوربین: push / reveal / drift. ناشناخته ⇒ '' (همان حرکتِ آرامِ پیش‌فرض). */
+function lvSceneMove_(v) {
+  var t = String(v || '').toLowerCase().trim();
+  if (/^push|^zoom.?in|^نزدیک/.test(t)) return 'push';
+  if (/^reveal|^pull|^zoom.?out|^عقب/.test(t)) return 'reveal';
+  if (/^drift|^pan|^آرام/.test(t)) return 'drift';
+  return '';
+}
+
+/**
+ * دستورِ حرکتِ یک صحنه برای رانر (۸.۵۱): فقط وقتی هم «چه کند» (از توصیف) و هم «کجا»
+ * (از داوری روی خودِ تصویر) هست. یکی نباشد ⇒ null، یعنی همان حرکتِ آرامِ پیش‌فرض.
+ */
+function lvSceneMv_(x) {
+  if (CFG.LV_MOTION_ON === false || !x) return null;
+  var k = String(x.move || '');
+  var b = x.judge && x.judge.box;
+  if ((k !== 'push' && k !== 'reveal') || !b) return null;
+  return { k: k, x: b.x, y: b.y, z: Math.max(0.02, Math.min(0.25, Number(CFG.LV_FOCUS_ZOOM) || 0.14)) };
+}
+
+/**
+ * جای عنصرِ کانون، از داوری که **خودِ تصویر** را دیده (۸.۵۱) — قالبِ بومیِ مدل
+ * برای جای‌یابی: «ymin,xmin,ymax,xmax» از ۰ تا ۱۰۰۰. نامطمئن یا نامعقول ⇒ null،
+ * و آن صحنه همان حرکتِ آرامِ پیش‌فرض را می‌گیرد: اشارهٔ نادرست بدتر از هیچ است.
+ */
+function lvSceneBox_(v) {
+  var m = String(v || '').replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); })
+                         .match(/(\d+(?:\.\d+)?)/g);
+  if (!m || m.length < 4) return null;
+  var y0 = Number(m[0]), x0 = Number(m[1]), y1 = Number(m[2]), x1 = Number(m[3]);
+  if ([y0, x0, y1, x1].some(function (q) { return !isFinite(q) || q < 0 || q > 1000; })) return null;
+  if (y1 <= y0 || x1 <= x0) return null;
+  var w = (x1 - x0) / 1000, h = (y1 - y0) / 1000;
+  if (w * h < 0.004 || w * h > 0.85) return null;          // نقطه‌ای بی‌معنا یا کلِ قاب
+  return { x: Math.round(((x0 + x1) / 2000) * 1000) / 1000, y: Math.round(((y0 + y1) / 2000) * 1000) / 1000,
+           w: Math.round(w * 1000) / 1000, h: Math.round(h * 1000) / 1000 };
 }
 
 /**
@@ -5624,16 +5718,20 @@ function lvSceneJudge_(batch) {
     'و جدا بگو آیا در تصویر **هر نوع نوشته، حرف یا عدد** دیده می‌شود (بله/خیر)، و آیا ' +
     'چهرهٔ شناختنیِ یک شخصِ واقعی دارد (بله/خیر). دلیل را در یک جملهٔ کوتاهِ فارسی بنویس. ' +
     'و در `space` بگو کدام بخشِ تصویر **خالی و آرام** است، طوری که نوشته‌ای کوتاه آن‌جا روی هیچ ' +
-    'چهره، آدم یا شیءِ اصلی نیفتد: right یا left یا top — و اگر هیچ‌جا نیست، none.' }];
+    'چهره، آدم یا شیءِ اصلی نیفتد: right یا left یا top — و اگر هیچ‌جا نیست، none. ' +
+    'و اگر کنارِ تصویر «کانون» آمده، در `box` جای همان عنصر را در خودِ تصویر بده، به شکلِ ' +
+    '«ymin,xmin,ymax,xmax» با اعدادِ ۰ تا ۱۰۰۰ از گوشهٔ بالا-چپ. اگر آن عنصر در تصویر روشن ' +
+    'دیده نمی‌شود، خالی بگذار — حدس نزن.' }];
   for (var i = 0; i < batch.length; i++) {
     parts.push({ text: 'تصویرِ ' + batch[i].n + ' — متن: «' +
-                       lvSceneClean_(batch[i].text).slice(0, 300) + '»' });
+                       lvSceneClean_(batch[i].text).slice(0, 300) + '»' +
+                       (batch[i].focus ? ' — کانون: ' + String(batch[i].focus).slice(0, 80) : '') });
     parts.push({ inlineData: { mimeType: batch[i].mime || 'image/png', data: batch[i].b64 } });
   }
   var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: {
     type: 'OBJECT', properties: { n: { type: 'STRING' }, score: { type: 'STRING' },
       hasText: { type: 'STRING' }, realFace: { type: 'STRING' }, why: { type: 'STRING' },
-      space: { type: 'STRING' } },
+      space: { type: 'STRING' }, box: { type: 'STRING' } },
     required: ['n', 'score'] } } }, required: ['items'] };
   /* «فکر»ِ مدل از همان سقفِ توکن می‌خورد؛ سقفِ کوچک بی بودجهٔ فکر یعنی پاسخِ
      خالی — و داوریِ خالی، «تأیید» نیست (۷.۶۸). `geminiShort_` (۸.۳۲) تنها
@@ -5652,7 +5750,8 @@ function lvSceneJudge_(batch) {
                        txt: /بله|yes/i.test(String(items[k].hasText || '')),
                        face: /بله|yes/i.test(String(items[k].realFace || '')),
                        why: String(items[k].why || '').slice(0, 140),
-                       space: ['right', 'left', 'top', 'none'].indexOf(sp) !== -1 ? sp : '' };
+                       space: ['right', 'left', 'top', 'none'].indexOf(sp) !== -1 ? sp : '',
+                       box: lvSceneBox_(items[k].box) };
   }
   return out;
 }
@@ -5728,12 +5827,497 @@ function ytSceneMore() {
   return ytPublishTick();
 }
 
+/* ══ کلیپِ آغازِ درس (۸.۵۱) ══
+ * نقاشیِ صحنهٔ نخست با مدلِ ویدئوی گوگل چند ثانیه جان می‌گیرد. کارِ طولانی است
+ * (از ۱۱ ثانیه تا ۶ دقیقه)، پس آغاز و پرسیدن جدا و در چند اجرا. همهٔ مرزها از
+ * درس‌های پیشین است:
+ *   • پول در **همان دفترِ ماه** و پیش از فراخوان سنجیده می‌شود؛ جا نبود ⇒ نه.
+ *   • بایت‌ها باور می‌شوند، نه نشانی: «ftyp» در سرِ فایل (درسِ `musicFetch_`).
+ *   • داوری کلیپ را **می‌بیند** (ورودیِ ویدئو)؛ نتوانست ببیند ⇒ نه (۷.۶۸).
+ *   • نشد ⇒ همان نقاشیِ ثابت؛ ویدئوی درس هرگز منتظرِ کلیپ نمی‌مانَد (WAIT_MIN).
+ */
+function lvClipPrice_(model) {
+  var s = String(model || '').toLowerCase(), list = CFG.LV_CLIP_PRICES || [], max = 0;
+  for (var i = 0; i < list.length; i++) {
+    var u = Number(list[i].usd) || 0;
+    if (u > max) max = u;
+    if (s.indexOf(String(list[i].match).toLowerCase()) !== -1) return u;
+  }
+  return max || 0.4;
+}
+
+function lvClipSec_() {
+  var n = Number(CFG.LV_CLIP_SEC) || 8;
+  return [4, 6, 8].indexOf(n) !== -1 ? n : 8;
+}
+
+function lvClipCost_(model) {
+  return Math.round(lvClipPrice_(model || CFG.LV_CLIP_MODEL) * lvClipSec_() * 1000) / 1000;
+}
+
+function lvClipOn_() {
+  return CFG.LV_CLIP_ON !== false && !!String(CFG.LV_CLIP_MODEL || '').trim();
+}
+
+/** دستورِ کلیپ: همان نقاشی، همان سبک، حرکتی که همان لحظه را بفهماند — و بی نوشته. */
+function lvClipPrompt_(sc, art, cast, prev) {
+  return 'Animate this exact illustration into a short, calm opening shot. Keep the same art style, ' +
+         'colors, characters and composition as the image' + (art ? ' (' + String(art).slice(0, 240) + ')' : '') + '. ' +
+         'Add gentle, meaningful motion that shows: ' + String(sc.scene || '').slice(0, 500) + '. ' +
+         (cast ? 'Characters stay exactly as described: ' + String(cast).slice(0, 200) + '. ' : '') +
+         'Slow, smooth camera; no cuts; no new characters; no text, letters, numbers, captions, ' +
+         'subtitles, logos or watermarks anywhere.' +
+         (prev ? ' A previous attempt was rejected because: ' + String(prev).slice(0, 200) + ' — avoid that.' : '');
+}
+
+function lvClipUrl_(path) {
+  return 'https://generativelanguage.googleapis.com/v1beta/' + path +
+         (path.indexOf('?') === -1 ? '?' : '&') + 'key=' + encodeURIComponent(apiKey_());
+}
+
+/** آغازِ ساخت. @return {{op:string, err:string}} */
+function lvClipStart_(model, blob, prompt) {
+  var b64 = Utilities.base64Encode(blob.getBytes());
+  var mime = blob.getContentType() || 'image/png';
+  var params = { aspectRatio: '16:9', resolution: String(CFG.LV_CLIP_RES || '1080p'),
+                 durationSeconds: lvClipSec_(), personGeneration: 'allow_adult',
+                 negativePrompt: 'text, letters, captions, subtitles, logo, watermark, distorted face, extra limbs, scene cut' };
+  var shapes = [{ inlineData: { mimeType: mime, data: b64 } },
+                { bytesBase64Encoded: b64, mimeType: mime }];      // شکلِ پیشینِ همان API
+  var last = '', si = 0, adj = [];
+  /* این شکلِ درخواست از مستندِ رسمی است و پیش از نخستین درسِ واقعی هرگز با API
+     آزموده نشده. پس ردِ ۴۰۰ که **یک پارامترِ معیّن** را نام می‌برد، همان یکی را نرم
+     می‌کند و دوباره می‌پرسد (هر پارامتر یک بار)، به‌جای اینکه کلیپِ درس را به
+     نقاشیِ ساکن بیندازد. ردِ مدل، سهمیه یا هر چیزِ دیگر ⇒ بی تکرار، با علت. */
+  for (var k = 0; k < 6; k++) {
+    try {
+      var res = UrlFetchApp.fetch(lvClipUrl_('models/' + model + ':predictLongRunning'), {
+        method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        payload: JSON.stringify({ instances: [{ prompt: prompt, image: shapes[si] }], parameters: params }) });
+      var code = res.getResponseCode(), txt = res.getContentText();
+      if (code === 200) {
+        var j = JSON.parse(txt);
+        if (j && j.name) return { op: String(j.name), err: '', adj: adj };
+        last = 'پاسخ نامِ کار نداشت: ' + txt.slice(0, 160);
+        break;
+      }
+      last = 'HTTP ' + code + ': ' + txt.slice(0, 220);
+      if (code !== 400) break;
+      if (/resolution|1080/i.test(txt) && params.resolution !== '720p' && adj.indexOf('resolution') === -1) {
+        params.resolution = '720p'; adj.push('resolution'); continue;
+      }
+      if (/personGeneration/i.test(txt) && params.personGeneration && adj.indexOf('personGeneration') === -1) {
+        delete params.personGeneration; adj.push('personGeneration'); continue;
+      }
+      if (/negativePrompt/i.test(txt) && params.negativePrompt && adj.indexOf('negativePrompt') === -1) {
+        delete params.negativePrompt; adj.push('negativePrompt'); continue;
+      }
+      /* فقط ردِ **شکلِ** تصویر شکلِ دیگر را می‌آزماید. */
+      if (si === 0 && /image|inlineData|bytesBase64/i.test(txt)) { si = 1; adj.push('imageShape'); continue; }
+      break;
+    } catch (e) { last = String(e.message).slice(0, 200); break; }
+  }
+  return { op: '', err: last, adj: adj };
+}
+
+/** پرسیدنِ کار. @return {{done:boolean, uri:string, err:string}} */
+function lvClipPoll_(op) {
+  try {
+    var res = UrlFetchApp.fetch(lvClipUrl_(op), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) {
+      return { done: false, uri: '', err: 'HTTP ' + res.getResponseCode() + ': ' + res.getContentText().slice(0, 160) };
+    }
+    var j = JSON.parse(res.getContentText());
+    if (!j.done) return { done: false, uri: '', err: '' };
+    if (j.error) return { done: true, uri: '', err: String(j.error.message || JSON.stringify(j.error)).slice(0, 200) };
+    var gv = (j.response && j.response.generateVideoResponse) || {};
+    var smp = gv.generatedSamples || [];
+    var uri = smp.length && smp[0].video ? String(smp[0].video.uri || '') : '';
+    if (!uri) {
+      var why = (gv.raiMediaFilteredReasons || []).join(' · ') || 'پاسخ ویدئو نداشت';
+      return { done: true, uri: '', err: why.slice(0, 200) };
+    }
+    return { done: true, uri: uri, err: '' };
+  } catch (e) { return { done: false, uri: '', err: String(e.message).slice(0, 160) }; }
+}
+
+/** آیا این بایت‌ها MP4 است؟ نشانی و نوعِ اعلام‌شده دروغ می‌گویند؛ «ftyp» نه. */
+function lvClipIsMp4_(bytes) {
+  if (!bytes || bytes.length < 12) return false;
+  var s = '';
+  for (var i = 4; i < 8; i++) s += String.fromCharCode(bytes[i] & 0xFF);
+  return s === 'ftyp';
+}
+
+/** داوری که **خودِ کلیپ** را می‌بیند. نتوانست ببیند ⇒ ok=false با علت (۷.۶۸). */
+function lvClipJudge_(blob, sc) {
+  var bytes = blob.getBytes();
+  if (bytes.length > 14 * 1024 * 1024) return { ok: false, seen: false, why: 'کلیپ برای داوری بزرگ است' };
+  var parts = [{ text:
+    'این کلیپِ کوتاهِ آغازِ یک ویدئوی آموزشی است و از روی یک نقاشی ساخته شده. متنِ همان لحظه: «' +
+    lvSceneClean_(sc.text || '').slice(0, 300) + '». بگو: آیا در هیچ قابی **نوشته، حرف، عدد یا لوگو** ' +
+    'هست (بله/خیر)؟ آیا چهره یا بدنی **کج و معوج یا ناگهان عوض‌شده** هست (بله/خیر)؟ و آیا حرکت آرام ' +
+    'و هم‌خوان با همان لحظه است (بله/خیر)؟ دلیل را در یک جملهٔ کوتاهِ فارسی بنویس.' },
+    { inlineData: { mimeType: 'video/mp4', data: Utilities.base64Encode(bytes) } }];
+  var schema = { type: 'OBJECT', properties: { hasText: { type: 'STRING' }, deformed: { type: 'STRING' },
+                 fits: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['hasText', 'deformed', 'fits'] };
+  var r = null;
+  try {
+    var j = geminiShort_(parts, { min: 2048, think: 256, schema: schema });
+    var txt = String(extractText_(j) || '');
+    try { r = JSON.parse(txt); } catch (eP) { r = repairJson_(txt, eP.message); }
+    if (!r) return { ok: false, seen: false, why: 'داوری جواب نداد' + (j && j._why ? ' (' + j._why + ')' : '') };
+  } catch (e) { return { ok: false, seen: false, why: 'داوری نشد: ' + String(e.message).slice(0, 120) }; }
+  var yes = function (v) { return /بله|yes/i.test(String(v || '')); };
+  var bad = [];
+  if (yes(r.hasText)) bad.push('نوشته در کلیپ');
+  if (yes(r.deformed)) bad.push('چهره یا بدنِ کج');
+  if (!yes(r.fits)) bad.push('با همان لحظه نمی‌خوانَد');
+  return { ok: !bad.length, seen: true, why: (bad.length ? bad.join('، ') + ' — ' : '') + String(r.why || '').slice(0, 140) };
+}
+
+/**
+ * یک گام از ماشینِ حالتِ کلیپ (۸.۵۱). هر بار هر اجرایی صدایش بزند، فقط همان
+ * کاری را می‌کند که نوبتش است. حالت‌ها: '' ⇒ wait ⇒ judge ⇒ ok | fail | off.
+ */
+function lvClipStep_(d, imgFolder, left, key, tryMax) {
+  if (!d || !d.scenes || !d.scenes.length) return;
+  /* نقشه‌ای که پیش از ۸.۵۱ ساخته شده `clip` ندارد و کلیپ نمی‌گیرد: خرجِ تازه روی
+     درسی که دیگر در راهِ انتشار است، بی آنکه کسی خواسته باشد، نه. */
+  var c = d.clip;
+  if (!c || ['ok', 'fail', 'off'].indexOf(c.state) !== -1) return;
+  if (!lvClipOn_()) { c.state = 'off'; c.why = 'کلیپِ آغاز خاموش است'; return; }
+  var model = String(CFG.LV_CLIP_MODEL).trim();
+  var sc = d.scenes[0];
+  var waitMs = Math.max(5, Number(CFG.LV_CLIP_WAIT_MIN) || 45) * 60000;
+  if (c.first && new Date().getTime() - Number(c.first) > waitMs) {
+    c.state = 'fail'; c.why = (c.why ? c.why + ' — ' : '') + 'در ' + (Number(CFG.LV_CLIP_WAIT_MIN) || 45) +
+                              ' دقیقه نرسید؛ همان نقاشیِ ثابت';
+    lvClipNote_(key, c, model); return;
+  }
+  if (c.state === '') {
+    /* فقط از تصویرِ **داوری‌شده**ٔ صحنهٔ نخست: داوری ممکن است آن را از نو بسازد، و
+       کلیپِ تصویرِ دورریخته پولِ دورریخته است. صحنهٔ نخستی که هرگز تصویر نگیرد کلیپ را
+       «نشد» می‌کند، وگرنه ویدئوی درس تا ابد منتظرِ آن می‌ماند. */
+    if (!sc.fileId) {
+      if ((Number(sc.tries) || 0) >= (Number(tryMax) || 2) || d.capHit) {
+        c.state = 'fail'; c.why = 'صحنهٔ نخست تصویر ندارد';
+        lvClipNote_(key, c, model);
+      }
+      return;
+    }
+    if (!(CFG.LV_SCENE_JUDGE === false || sc.judge || d.judgeWhy)) return;
+    if (left() < 15000) return;
+    var cost = lvClipCost_(model);
+    var cap = Math.max(0, Number(CFG.LV_GEN_USD_MONTH) || 0);
+    if (cap - lvGenSpend_().usd < cost) {
+      c.state = 'off'; c.why = 'سقفِ ماهانه برای کلیپ (~' + cost.toFixed(2) + ' دلار) جا ندارد';
+      lvClipNote_(key, c, model); return;
+    }
+    var blob;
+    try { blob = DriveApp.getFileById(sc.fileId).getBlob(); }
+    catch (eB) { c.why = 'تصویرِ صحنهٔ نخست خوانده نشد: ' + eB.message; return; }
+    c.tries = (Number(c.tries) || 0) + 1;
+    if (!c.first) c.first = new Date().getTime();
+    var st;
+    try { st = lvClipStart_(model, blob, lvClipPrompt_(sc, d.art, d.cast, c.judge)); }
+    catch (eS) { st = { op: '', err: 'آغاز نشد: ' + String(eS.message).slice(0, 140) }; }
+    if (!st.op) {
+      c.why = st.err;
+      if (c.tries >= (Number(CFG.LV_CLIP_TRY_MAX) || 2)) { c.state = 'fail'; lvClipNote_(key, c, model); }
+      return;
+    }
+    /* پول پیش از رسیدن شمرده می‌شود: کارِ آغازشده خرج دارد؛ کم‌شماری یعنی رد شدن از سقف. */
+    lvGenSpendAdd_(cost, true);
+    d.spent = Math.round(((Number(d.spent) || 0) + cost) * 1000) / 1000;
+    c.usd = Math.round(((Number(c.usd) || 0) + cost) * 1000) / 1000;
+    c.op = st.op; c.state = 'wait'; c.at = nowStr_(); c.why = ''; c.model = model;
+    if (st.adj && st.adj.length) c.adj = st.adj;   // چه چیزی نرم شد تا API پذیرفت — شاهد برای نسخهٔ بعد
+    c.img = sc.fileId;                       // کلیپ مالِ همین تصویر است، نه تصویرِ بعدی
+    return;
+  }
+  if (c.state === 'wait') {
+    var p = lvClipPoll_(c.op);
+    if (!p.done) { if (p.err) c.why = p.err; return; }
+    if (!p.uri) {
+      c.why = p.err; c.op = '';
+      c.state = c.tries >= (Number(CFG.LV_CLIP_TRY_MAX) || 2) ? 'fail' : '';
+      if (c.state === 'fail') lvClipNote_(key, c, model);
+      return;
+    }
+    try {
+      var res = UrlFetchApp.fetch(p.uri + (p.uri.indexOf('?') === -1 ? '?' : '&') + 'key=' +
+                                  encodeURIComponent(apiKey_()), { muteHttpExceptions: true, followRedirects: true });
+      var by = res.getResponseCode() === 200 ? res.getBlob() : null;
+      if (!by || !lvClipIsMp4_(by.getBytes())) {
+        c.why = 'بایت‌های دریافتی ویدئو نبود (HTTP ' + res.getResponseCode() + ')'; c.op = '';
+        c.state = c.tries >= (Number(CFG.LV_CLIP_TRY_MAX) || 2) ? 'fail' : '';
+        if (c.state === 'fail') lvClipNote_(key, c, model);
+        return;
+      }
+      var nm = 'صحنه ' + faDigitsOut_('01') + ' — کلیپ.mp4';
+      var old = imgFolder.getFilesByName(nm);
+      while (old.hasNext()) old.next().setTrashed(true);
+      c.fileId = imgFolder.createFile(by.setName(nm).setContentType('video/mp4')).getId();
+      c.state = 'judge'; c.op = '';
+    } catch (eD) { c.why = 'کلیپ برداشته نشد: ' + String(eD.message).slice(0, 120); }
+    return;
+  }
+  if (c.state === 'judge') {
+    if (left() < 25000) return;
+    var v;
+    try { v = lvClipJudge_(DriveApp.getFileById(c.fileId).getBlob(), sc); }
+    catch (eJ) { v = { ok: false, seen: false, why: 'کلیپ خوانده نشد: ' + eJ.message }; }
+    c.judge = v.why;
+    if (v.ok) { c.state = 'ok'; c.sec = lvClipSec_(); lvClipNote_(key, c, model); return; }
+    if (!v.seen) {                                   // ندید ⇒ یک بار دیگر، بعد نه
+      c.unseen = (Number(c.unseen) || 0) + 1;
+      if (c.unseen < 3) return;
+    }
+    c.why = v.why;
+    if (c.tries < (Number(CFG.LV_CLIP_TRY_MAX) || 2) && v.seen) { c.state = ''; return; }
+    c.state = 'fail'; lvClipNote_(key, c, model);
+  }
+}
+
+/** آخرین کلیپ، برای خطِ روزانه — از Properties، بی خواندنِ درایو (۷.۶۳). */
+function lvClipNote_(key, c, model) {
+  try {
+    props_().setProperty(PK.LV_CLIP_LAST, JSON.stringify({ key: key, at: nowStr_(), state: c.state,
+      why: String(c.why || c.judge || '').slice(0, 200), model: model, tries: c.tries || 0,
+      usd: Number(c.usd) || 0 }));
+  } catch (e) {}
+}
+
+/** آیا کارِ کلیپ تمام است (هر جوری)؟ ویدئو فقط همین را منتظر می‌مانَد. */
+function lvClipSettled_(d) {
+  var c = d && d.clip;
+  if (!c) return true;                       // نقشهٔ بی‌کلیپ چیزی را منتظر نیست
+  return ['ok', 'fail', 'off'].indexOf(c.state) !== -1;
+}
+
+/* ══ آزمونِ مدلِ تصویرِ تازه (۸.۵۱) ══
+ * او پرسید «یعنی مدل هیچ‌وقت به‌روز نمی‌شه؟ اگر منقضی بشه چی؟». سنجاق یعنی
+ * انتخابِ خودکار سراغِ مدلِ دیگر نمی‌رود؛ پس مدلِ تازه **دیده** می‌شود و **نشان**
+ * داده می‌شود، نه اینکه بی‌صدا جا بیفتد یا بی‌صدا نادیده بماند:
+ *   ۱) فهرستِ مدل‌های تصویرِ حساب (همان گشتنِ هفتگیِ `lvGenModel_`) با فهرستِ
+ *      دیده‌شده مقایسه می‌شود. بارِ اول فقط ثبت است — آنچه امروز هست «تازه» نیست.
+ *   ۲) برای مدلِ تازه، همان چند صحنهٔ آخرین درسی که با سنجاق ساخته شد با مدلِ تازه
+ *      هم ساخته می‌شود، هر دو در **یک** فراخوانِ داوری کنارِ متنشان نمره می‌گیرند،
+ *      و هر جفت کنارِ هم به تلگرام می‌رود — با نمره و قیمت.
+ *   ۳) **هیچ‌چیز خودکار عوض نمی‌شود.** همان راهِ مدل‌های صوتی (۸.۳۹): داور کف است،
+ *      چشمِ او سقف؛ و درسِ ۳۸ نشان داد این دو یکی نیستند.
+ * خرج از همان سقفِ ماه است و پیش از کار سنجیده می‌شود؛ جا نبود ⇒ صبر، و گفته می‌شود. */
+function lvAudSee_(ids) {
+  var out = [];
+  if (CFG.LV_AUD_ON === false || !ids || !ids.length) return out;
+  try {
+    var known = null;
+    try { known = JSON.parse(props_().getProperty(PK.LV_AUD_KNOWN) || 'null'); } catch (eK) { known = null; }
+    if (!known || !known.length) {
+      props_().setProperty(PK.LV_AUD_KNOWN, JSON.stringify(ids.slice(0, 60)));
+      return out;
+    }
+    for (var i = 0; i < ids.length; i++) if (known.indexOf(ids[i]) === -1) out.push(ids[i]);
+    if (!out.length) return out;
+    var due = [];
+    try { due = JSON.parse(props_().getProperty(PK.LV_AUD_DUE) || '[]') || []; } catch (eD) { due = []; }
+    for (var j = 0; j < out.length; j++) if (due.indexOf(out[j]) === -1) due.push(out[j]);
+    props_().setProperty(PK.LV_AUD_DUE, JSON.stringify(due.slice(-12)));
+    props_().setProperty(PK.LV_AUD_KNOWN, JSON.stringify(known.concat(out).slice(-60)));
+    lvAudArm_();
+  } catch (e) {}
+  return out;
+}
+
+/** اجرای یک‌بارهٔ آزمون، چند دقیقه بعد — نه وسطِ ساختِ صحنه‌ها و نه روی مسیرِ گرم. */
+function lvAudArm_() {
+  try {
+    clearRetryTriggers_('lvAuditionLater');
+    ScriptApp.newTrigger('lvAuditionLater').timeBased().after(5 * 60000).create();
+    return true;
+  } catch (e) { return false; }
+}
+
+/** صحنه‌های مرجع: بهترین‌های داوری‌شدهٔ مدلی که بیشترِ این درس را ساخت. */
+function lvAudRefSave_(d, key) {
+  if (CFG.LV_AUD_ON === false || !d || !d.scenes) return false;
+  try {
+    var cand = d.scenes.filter(function (x) {
+      return x.fileId && x.scene && x.judge && x.judge.s >= 0 && !x.judge.txt && !x.judge.face; });
+    if (cand.length < 2) return false;
+    var cnt = {};
+    cand.forEach(function (x) { var m = String(x.model || ''); cnt[m] = (cnt[m] || 0) + 1; });
+    var model = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0];
+    if (!model) return false;
+    var prev = null;
+    try { prev = JSON.parse(props_().getProperty(PK.LV_AUD_REF) || 'null'); } catch (eP) { prev = null; }
+    if (prev && prev.key === key && prev.model === model) return false;     // همان مرجع، بی بازنویسی
+    var n = Math.max(1, Math.min(6, Number(CFG.LV_AUD_SCENES) || 3));
+    cand = cand.filter(function (x) { return String(x.model || '') === model; })
+               .sort(function (a, b) { return b.judge.s - a.judge.s; }).slice(0, n);
+    props_().setProperty(PK.LV_AUD_REF, JSON.stringify({ key: key, at: nowStr_(), model: model,
+      art: String(d.art || '').slice(0, 400), cast: String(d.cast || '').slice(0, 300),
+      scenes: cand.map(function (x) { return { n: x.n, scene: String(x.scene).slice(0, 450),
+        text: lvSceneClean_(x.text || '').slice(0, 220), fileId: x.fileId, s: x.judge.s }; }) }));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** اجرای یک‌بارهٔ آزمونِ مدلِ تصویر — نامِ جدا، تا پاک‌کردنش به تریگرِ دیگری نخورد. */
+function lvAuditionLater() {
+  runEnter_('lvAuditionLater');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('lvAuditionLater'); } catch (e0) {}
+    var r = lvAudition_();
+    note = r.note;
+    try { if (note) logLine_(note); } catch (eL) {}
+  } finally { runExit_('lvAuditionLater', note); }
+  return note;
+}
+
+/**
+ * آزمونِ مدل‌های در صف. @return {{note:string, done:Array}}
+ */
+function lvAudition_() {
+  var out = { note: '', done: [] };
+  var due = [];
+  try { due = JSON.parse(props_().getProperty(PK.LV_AUD_DUE) || '[]') || []; } catch (e) { due = []; }
+  if (!due.length) { out.note = 'آزمونِ مدلِ تصویر: مدلِ تازه‌ای در صف نیست'; return out; }
+  var ref = null;
+  try { ref = JSON.parse(props_().getProperty(PK.LV_AUD_REF) || 'null'); } catch (eR) { ref = null; }
+  if (!ref || !ref.scenes || !ref.scenes.length) {
+    out.note = 'آزمونِ مدلِ تصویر: ' + due.join('، ') + ' در صف است، ولی هنوز درسی با صحنه ساخته نشده که ' +
+               'مرجع باشد — پس از درسِ بعد';
+    return out;
+  }
+  var t0 = new Date().getTime();
+  var max = Math.max(1, Number(CFG.LV_AUD_MAX) || 2);
+  var cap = Math.max(0, Number(CFG.LV_GEN_USD_MONTH) || 0);
+  var log = {};
+  try { log = JSON.parse(props_().getProperty(PK.LV_AUD_LOG) || '{}') || {}; } catch (eG) { log = {}; }
+  var notes = [];
+  while (due.length && out.done.length < max && new Date().getTime() - t0 < 200000) {
+    var model = String(due[0]);
+    var cost = lvGenPrice_(model) * ref.scenes.length;
+    if (cap - lvGenSpend_().usd < cost) {
+      notes.push('«' + model + '» منتظر می‌مانَد: سقفِ ماه برای ' + ref.scenes.length + ' تصویرِ آزمون جا ندارد');
+      break;
+    }
+    var pairs = [], made = 0, why = '';
+    for (var i = 0; i < ref.scenes.length; i++) {
+      var sc = ref.scenes[i];
+      var g = lvGenOne_(model, lvSceneImgPrompt_(sc.scene, ref.art, ref.cast, ''), { aspect: '16:9' });
+      var pin = null;
+      try { pin = DriveApp.getFileById(sc.fileId).getBlob(); } catch (eF) { pin = null; }
+      if (g.blob) made++; else why = g.why;
+      pairs.push({ sc: sc, a: pin, b: g.blob });
+    }
+    /* هر دو در **یک** فراخوانِ داوری: یک داور، یک معیار — نمرهٔ دیروزِ سنجاق با نمرهٔ
+       امروزِ مدلِ تازه از دو داوری مقایسه‌پذیر نیست. */
+    var payload = [];
+    pairs.forEach(function (p, k) {
+      [['a', 10], ['b', 20]].forEach(function (w) {
+        var bl = p[w[0]];
+        if (!bl) return;
+        payload.push({ n: w[1] + k, text: p.sc.text, mime: bl.getContentType() || 'image/png',
+                       b64: Utilities.base64Encode(bl.getBytes()), focus: '' });
+      });
+    });
+    var jr = {};
+    try { jr = payload.length ? lvSceneJudge_(payload) : {}; } catch (eJ) { jr = {}; notes.push('داوری نشد: ' + eJ.message); }
+    var sA = [], sB = [], defB = 0;
+    pairs.forEach(function (p, k) {
+      p.va = jr[String(10 + k)] || null; p.vb = jr[String(20 + k)] || null;
+      if (p.va && p.va.s >= 0) sA.push(p.va.s);
+      if (p.vb && p.vb.s >= 0) sB.push(p.vb.s);
+      if (p.vb && (p.vb.txt || p.vb.face)) defB++;
+    });
+    var avg = function (a) { return a.length ? Math.round(a.reduce(function (x, y) { return x + y; }, 0) / a.length * 10) / 10 : -1; };
+    var rec = { at: nowStr_(), ref: ref.key, pin: ref.model, n: pairs.length, made: made,
+                avgPin: avg(sA), avgNew: avg(sB), def: defB, price: lvGenPrice_(model),
+                pinPrice: lvGenPrice_(ref.model), why: made ? '' : why, sent: false };
+    rec.sent = lvAudSend_(model, ref, pairs, rec);
+    log[model] = rec;
+    out.done.push(model);
+    due.shift();
+  }
+  try {
+    props_().setProperty(PK.LV_AUD_DUE, JSON.stringify(due));
+    var keys = Object.keys(log).sort(function (a, b) { return String(log[b].at).localeCompare(String(log[a].at)); });
+    var keep = {};
+    keys.slice(0, 8).forEach(function (k) { keep[k] = log[k]; });
+    props_().setProperty(PK.LV_AUD_LOG, JSON.stringify(keep));
+  } catch (eS) {}
+  out.note = 'آزمونِ مدلِ تصویر: ' + (out.done.length ? out.done.map(function (m) {
+               var r = log[m];
+               return '«' + m + '» ' + (r.made ? 'میانگین ' + r.avgNew + ' در برابرِ ' + r.avgPin + 'ِ سنجاق' : 'نساخت (' + r.why + ')') +
+                      (r.sent ? '، به تلگرام رفت' : '، تلگرام نرفت'); }).join(' · ') : 'هیچ') +
+             (due.length ? ' · در صف: ' + due.join('، ') : '') + (notes.length ? ' · ' + notes.join(' · ') : '');
+  return out;
+}
+
+/** هر جفت کنارِ هم، به‌صورتِ آلبوم؛ و یک پیامِ جمع‌بندی. */
+function lvAudSend_(model, ref, pairs, rec) {
+  if (!tgEnabled_()) return false;
+  var sent = 0;
+  pairs.forEach(function (p, k) {
+    try {
+      var media = [], pay = { chat_id: tgChat_() };
+      if (p.a) {
+        pay.fa = p.a.setName('pin' + k + '.png');
+        media.push({ type: 'photo', media: 'attach://fa', caption: 'صحنهٔ ' + p.sc.n + ' — سنجاق (' + ref.model + ')' +
+                     (p.va ? ': نمره ' + p.va.s : '') });
+      }
+      if (p.b) {
+        pay.fb = p.b.setName('new' + k + '.png');
+        media.push({ type: 'photo', media: 'attach://fb', caption: 'مدلِ تازه (' + model + ')' +
+                     (p.vb ? ': نمره ' + p.vb.s + (p.vb.txt ? ' · نوشته دارد' : '') + (p.vb.face ? ' · چهره دارد' : '') : '') });
+      }
+      if (media.length === 2) { pay.media = JSON.stringify(media); tgApi_('sendMediaGroup', pay); sent++; }
+    } catch (e) {}
+  });
+  try {
+    tgSend_('🎨 مدلِ تصویرِ تازه پیدا شد: «' + model + '» (~' + rec.price.toFixed(3) + ' دلار هر تصویر؛ سنجاق ~' +
+            rec.pinPrice.toFixed(3) + ').\n' +
+            'همان ' + rec.n + ' صحنه از درسِ ' + ref.key + ' با هر دو ساخته و کنارِ هم داوری شد: میانگینِ مدلِ تازه ' +
+            (rec.avgNew >= 0 ? rec.avgNew : '—') + ' در برابرِ ' + (rec.avgPin >= 0 ? rec.avgPin : '—') + 'ِ سنجاق' +
+            (rec.def ? '؛ ' + rec.def + ' تصویرِ مدلِ تازه نوشته یا چهره داشت' : '') + '.\n' +
+            'هیچ چیزی خودکار عوض نشد. اگر تصویرهای تازه را بیشتر پسندیدید، بگویید سنجاق عوض شود.');
+  } catch (eT) {}
+  return sent > 0;
+}
+
+/** خطِ روزانهٔ آزمون — از Properties، بی درایو (۷.۶۳). */
+function lvAudStatus_() {
+  var out = { on: CFG.LV_AUD_ON !== false, due: [], last: null, ref: '', line: '' };
+  try {
+    try { out.due = JSON.parse(props_().getProperty(PK.LV_AUD_DUE) || '[]') || []; } catch (e1) {}
+    var log = {};
+    try { log = JSON.parse(props_().getProperty(PK.LV_AUD_LOG) || '{}') || {}; } catch (e2) {}
+    var ks = Object.keys(log).sort(function (a, b) { return String(log[b].at).localeCompare(String(log[a].at)); });
+    if (ks.length) out.last = Object.assign({ model: ks[0] }, log[ks[0]]);
+    try { var r = JSON.parse(props_().getProperty(PK.LV_AUD_REF) || 'null'); out.ref = r ? String(r.key || '') : ''; } catch (e3) {}
+    if (!out.on) { out.line = '🧪 آزمونِ مدلِ تصویرِ تازه: خاموش.'; return out; }
+    var L = out.last;
+    out.line = '🧪 آزمونِ مدلِ تصویرِ تازه: ' +
+      (out.due.length ? 'در صف: ' + out.due.join('، ') + (out.ref ? '' : ' (منتظرِ نخستین درسِ صحنه‌دار برای مرجع)')
+                      : 'مدلِ تازه‌ای نیامده') +
+      (L ? ' · آخرین: «' + L.model + '» ' + (L.made ? 'میانگین ' + L.avgNew + ' در برابرِ ' + L.avgPin + 'ِ سنجاق' : 'نساخت') +
+           (L.sent ? '' : ' — ❌ به تلگرام نرفت') : '') +
+      ' · هیچ مدلی خودکار جایگزین نمی‌شود.';
+  } catch (e) { out.line = ''; }
+  return out;
+}
+
 /** توصیف‌های یک پرسش را روی صحنه‌های نقشه می‌نشانَد؛ آنچه قبلاً توصیف شده دست نمی‌خورد. */
 function lvScenePlanTake_(d, ask) {
   for (var i = 0; i < d.scenes.length; i++) {
     var sc = d.scenes[i], a = ask.scenes[String(sc.n)];
     if (!a || sc.scene) continue;
     sc.scene = a.scene; sc.caption = a.caption; sc.beat = a.beat || ''; sc.ov = a.ov || null;
+    sc.focus = a.focus || ''; sc.move = a.move || '';
   }
 }
 
@@ -5883,7 +6467,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       for (var s0 = 0; s0 < groups.length; s0++) {
         sc0.push({ n: groups[s0].n, t0: groups[s0].t0, t1: groups[s0].t1, sec: groups[s0].sec || 0,
                    text: lvSceneClean_(groups[s0].text).slice(0, 600),
-                   scene: '', caption: '', beat: '', ov: null,
+                   scene: '', caption: '', beat: '', ov: null, focus: '', move: '',
                    fileId: '', tries: 0, judge: null, redo: 0 });
       }
       /* `failed` از نقشهٔ ناشدهٔ قبلی می‌مانَد: `planFail` شمار را از همین `d` می‌خوانَد،
@@ -5896,6 +6480,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                     allow: Math.round(pace.allow * 100) / 100, ceil: Math.round(pace.ceil * 100) / 100,
                     why: paced ? pace.why : '' },
             scenes: sc0, cover: { scene: '', fileId: '' }, nature: '',
+            clip: lvClipOn_() ? { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } : null,
             spent: 0, made: 0, judged: false, done: false, why: '' };
       if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
     }
@@ -5954,7 +6539,11 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   if (!mk.id) return fail(mk.why || 'مدلِ تصویر پیدا نشد');
   if (!lvSceneLease_(key, 1)) { out.why = 'اجرای دیگری همین حالا صحنه‌ها را می‌سازد'; return out; }
   var tryMax = 2;
+  /* کلیپِ آغاز (۸.۵۱): یک گام در آغازِ اجرا (کاری که از اجرای قبل در راه است) و یک گام
+     در پایان (آغاز، یا پرسیدنِ دوباره). */
+  var clipStep = function () { lvClipStep_(d, imgFolder, left, key, tryMax); };
   try {
+    clipStep();                                           // کاری که از اجرای قبل در راه است
     for (var i = 0; i < d.scenes.length && left() > 20000; i++) {
       var sc = d.scenes[i];
       if (sc.fileId) continue;
@@ -6006,7 +6595,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
           try {
             var bl = DriveApp.getFileById(batch[b].fileId).getBlob();
             payload.push({ n: batch[b].n, text: batch[b].text, mime: bl.getContentType() || 'image/png',
-                           b64: Utilities.base64Encode(bl.getBytes()) });
+                           b64: Utilities.base64Encode(bl.getBytes()), focus: batch[b].focus || '' });
           } catch (eB) {}
         }
         var jr = {};
@@ -6052,6 +6641,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       }
       d.judged = d.scenes.every(function (x) { return !x.fileId || !!x.judge; });
     }
+    clipStep();                                           // آغاز، یا پرسیدنِ دوباره
   } finally {
     lvSceneLease_(key, 0);
   }
@@ -6068,8 +6658,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
      تصویرها دور ریخته شود و درس شکلِ دیگری بگیرد — بدتر از تصویرِ کمتر. با
      پخشِ بودجه نباید پیش بیاید؛ اگر آمد، شمرده و گفته می‌شود (`capHit`). */
   var needN = d.capHit ? 3 : Math.max(3, Math.ceil(d.scenes.length * 0.8));
+  var clipWait = !lvClipSettled_(d);
   d.done = allTried && ready >= needN &&
-           (CFG.LV_SCENE_JUDGE === false || d.judged || !!d.judgeWhy);
+           (CFG.LV_SCENE_JUDGE === false || d.judged || !!d.judgeWhy) && !clipWait;
   if (allTried && !d.done && ready < needN) {
     lvSceneWrite_(folder, d);
     return fail('فقط ' + ready + ' تصویر از ' + d.scenes.length + ' ساخته شد' +
@@ -6084,8 +6675,12 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   }
   out.done = d.done;
   if (!d.done) {
-    out.why = 'صحنه‌ها: ' + ready + ' از ' + d.scenes.length + ' آماده' + (d.why ? ' — ' + d.why : '');
-    if (!d.why) lvSceneMoreArm_();
+    out.why = 'صحنه‌ها: ' + ready + ' از ' + d.scenes.length + ' آماده' + (d.why ? ' — ' + d.why : '') +
+              (clipWait ? '؛ کلیپِ آغاز: ' + ({ '': 'در نوبت', wait: 'در ساخت', judge: 'در داوری' }[(d.clip || {}).state || ''] ||
+                                              String((d.clip || {}).state || 'نامعلوم')) : '');
+    /* کلیپِ در راه همیشه ادامه می‌خواهد، حتی وقتی سقفِ تصویر پر شده (`d.why`): کارِ آغازشده
+       پولش داده شده و فقط باید برداشته شود. */
+    if (!d.why || clipWait) lvSceneMoreArm_();
     return out;
   }
 
@@ -6098,9 +6693,15 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     lastId = id;
     items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
                  caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0,
-                 ov: x.fileId ? (x.ov || null) : null });
+                 ov: x.fileId ? (x.ov || null) : null,
+                 mv: x.fileId ? lvSceneMv_(x) : null });
   }
   if (items.length) items[0].t0 = 0;
+  lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
+  /* کلیپ فقط روی همان تصویری می‌نشیند که از آن ساخته شد. */
+  if (items.length && d.clip && d.clip.state === 'ok' && d.clip.fileId && items[0].fileId === d.clip.img) {
+    items[0].clip = { fileId: d.clip.fileId, sec: Number(d.clip.sec) || lvClipSec_() };
+  }
   out.items = items;
   if (d.cover.fileId) out.cover = { fileId: d.cover.fileId, url: ytDlUrl_(d.cover.fileId) };
   var sc2 = d.scenes.filter(function (x) { return x.judge && x.judge.s >= 0; });
@@ -6118,7 +6719,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length,
                paced: !!(d.pace && d.pace.paced), natural: Number(d.natural) || d.scenes.length,
                cutBy: String(d.cutBy || ''),
-               capHit: !!d.capHit };
+               capHit: !!d.capHit,
+               mv: items.filter(function (x) { return !!x.mv; }).length,
+               clip: d.clip ? String(d.clip.state || '') : '' };
   try { lvSceneVisuals_(folder, d); } catch (eV) {}
   return out;
 }

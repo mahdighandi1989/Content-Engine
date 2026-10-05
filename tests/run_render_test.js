@@ -845,6 +845,141 @@ console.log('\n══ ۱۳) نوشتهٔ رویِ نقاشی و نشانِ بی�
      /CK\.logoClean\(/.test(src));
 }
 
+console.log('\n══ ۱۴) حرکتِ معنادار و کلیپِ آغاز (۸.۵۱) ══');
+{
+  const SKIT = require('../tools/scenekit.js');
+  const W = 1920, H = 1080;
+  /* ۱۴.۱ — ورودی‌ها: فقط push/reveal با جایِ معقول؛ بزرگ‌نمایی در مرز؛ کلیپ فقط با نشانی. */
+  const a = SKIT.mvOf({ k: 'push', x: 1.4, y: -0.2, z: 0.9 });
+  const b = SKIT.mvOf({ k: 'reveal', x: 0.3, y: 0.6 });
+  ok('۱۴.۱ حرکت فقط با «چه کند» و «کجا»؛ جا و اندازه در مرز؛ کلیپ فقط با نشانی',
+     a && a.x === 1 && a.y === 0 && a.z === 0.25 && b && b.z === SKIT.SK.focusZoom &&
+     SKIT.mvOf({ k: 'drift', x: 0.5, y: 0.5 }) === null && SKIT.mvOf({ k: 'push', x: 'x', y: 0.5 }) === null &&
+     SKIT.mvOf(null) === null && SKIT.clipOf({ url: 'nope', sec: 8 }) === null &&
+     SKIT.clipOf({ url: 'https://a/c.mp4' }).sec === 8,
+     JSON.stringify({ a: a, b: b }));
+
+  /* ۱۴.۲ — حرکتِ کانون‌دار: کانون روی صفحه **ثابت** می‌مانَد (چشم به همان‌جا می‌رود)،
+     قاب هرگز از تصویر بیرون نمی‌زند، push نزدیک می‌شود و reveal دور، و صحنهٔ نوشته‌دار
+     فقط حرکتِ آرام می‌گیرد (نوشته جایش را از تصویرِ ساکن گرفته). */
+  // همان توابعِ عبارتِ ffmpeg که حرکت به کار می‌بَرد
+  const ev = (e, on) => Function('W', 'H', 'on', 'min', 'return (' + String(e) + ');')(W, H, on, Math.min);
+  let fixed = true, inside = true;
+  const N = 240;
+  for (const px of [0, 0.27, 0.8, 1]) {
+    for (const k of ['push', 'reveal']) {
+      const m = SKIT.motion(3, N, { k: k, x: px, y: 0.4, z: 0.2 });
+      for (const on of [0, 60, 120, 240]) {
+        const x0 = ev(m.x0, on), x1 = ev(m.x1, on), y0 = ev(m.y0, on), y2 = ev(m.y2, on);
+        if (!(x0 >= -0.01 && x1 <= W + 0.01 && y0 >= -0.01 && y2 <= H + 0.01 && x0 < x1 && y0 < y2)) inside = false;
+        const sx = (px * W - x0) / (x1 - x0) * W, sy = (0.4 * H - y0) / (y2 - y0) * H;
+        if (Math.abs(sx - px * W) > 0.5 || Math.abs(sy - 0.4 * H) > 0.5) fixed = false;
+      }
+    }
+  }
+  const wOf = (m, on) => ev(m.x1, on) - ev(m.x0, on);
+  const mp = SKIT.motion(3, N, { k: 'push', x: 0.7, y: 0.3, z: 0.2 });
+  const mr = SKIT.motion(3, N, { k: 'reveal', x: 0.7, y: 0.3, z: 0.2 });
+  const mg = SKIT.motion(3, N, { k: 'push', x: 0.7, y: 0.3, z: 0.2 }, SKIT.SK.zoom);
+  ok('۱۴.۲ کانون روی صفحه ثابت، قاب درونِ تصویر، push نزدیک و reveal دور، نوشته‌دار آرام',
+     fixed && inside && Math.abs(wOf(mp, 0) - W) < 0.5 && Math.abs(wOf(mp, N) - W * 0.8) < 0.5 &&
+     Math.abs(wOf(mr, 0) - W * 0.8) < 0.5 && Math.abs(wOf(mr, N) - W) < 0.5 &&
+     Math.abs(wOf(mg, N) - W * (1 - SKIT.SK.zoom)) < 0.5,
+     'ثابت ' + fixed + ' · درون ' + inside + ' · push ' + wOf(mp, 0).toFixed(0) + '⇒' + wOf(mp, N).toFixed(0) +
+     ' · reveal ' + wOf(mr, 0).toFixed(0) + '⇒' + wOf(mr, N).toFixed(0) + ' · آرام ' + wOf(mg, N).toFixed(0));
+
+  /* ۱۴.۳ — **از درِ اجرا:** چهار صحنه؛ نخستین با کلیپِ آغاز (ویدئویی که آشکارا با
+     نقاشی فرق دارد تا دیده شود کدام پخش شد)، دومی push و سومی reveal. */
+  const d = fs.mkdtempSync(path.join(TMP, 'mv-'));
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,6),0,5.1)':s=24000:d=30", '-ac', '1', wav]);
+  const urls = [];
+  for (let i = 1; i <= 4; i++) urls.push(serve('mv' + i + '.png', mkPng(path.join(d, 'p' + i + '.png'), 1344, 768, i * 5 + 2)));
+  const clipSrc = path.join(d, 'clipsrc.mp4');
+  /* ثانیهٔ اولِ کلیپ یک‌رنگ است و بقیه‌اش الگوی متحرک: کلیپی که در طولِ خودش عوض نشود،
+     نمی‌گوید سنجش قابِ **همان ثانیه** را مرجع گرفته یا قابِ اول را (۱۴.۵). */
+  ff(['-f', 'lavfi', '-i', 'color=c=0x8a1c1c:s=1280x720:r=24:d=1', '-f', 'lavfi', '-i', 'testsrc2=s=1280x720:r=24:d=4',
+      '-filter_complex', '[0:v][1:v]concat=n=2:v=1[v]', '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', clipSrc]);
+  const clipUrl = serve('clip1.mp4', clipSrc);
+  const mk = (cu) => ({ key: 'special:mv', mode: 'scenes', coverTitle: 'آزمونِ حرکت',
+    scenes: [{ n: 1, t0: 0, url: urls[0], clip: { url: cu, sec: 5 } },
+             { n: 2, t0: 11.5, url: urls[1], mv: { k: 'push', x: 0.8, y: 0.3, z: 0.25 } },
+             { n: 3, t0: 17.5, url: urls[2], mv: { k: 'reveal', x: 0.2, y: 0.7, z: 0.25 } },
+             { n: 4, t0: 23.5, url: urls[3] }] });
+  const dest = path.join(d, 'out.mp4');
+  const vr = R.buildVideo(mk(clipUrl), null, wav, R.wavSeconds(wav), dest, d);
+  const clipF = path.join(d, 'c001.mp4'), still1 = path.join(d, 's001.jpg');
+  const f2 = SKIT.gray(FF, dest, 2.0), f7 = SKIT.gray(FF, dest, 7.5);
+  const onClip = SKIT.mad(f2, SKIT.gray(FF, clipF, 2.0)), onStill2 = SKIT.mad(f2, SKIT.gray(FF, still1));
+  const late = SKIT.mad(f7, SKIT.gray(FF, still1)), lateClip = SKIT.mad(f7, SKIT.gray(FF, clipF, 4.9));
+  ok('۱۴.۳ کلیپ در آغاز پخش می‌شود و بعد همان نقاشی؛ حرکت‌ها نشستند؛ سنجش هر چهار صحنه را سرِ جایش دید',
+     vr.mode === 'scenes' && vr.qa && vr.qa.ok === true && vr.qa.matched === 4 &&
+     vr.clip && vr.clip.used === 1 && vr.mv === 2 &&
+     onClip < onStill2 && onClip <= SKIT.SK.qaMad && late < lateClip && late <= SKIT.SK.qaMad &&
+     Math.abs(durOf(dest) - 30) < 0.6,
+     'سنجش ' + JSON.stringify(vr.qa) + ' · کلیپ ' + JSON.stringify(vr.clip) + ' · حرکت ' + vr.mv +
+     ' · ثانیهٔ ۲: کلیپ ' + onClip.toFixed(1) + ' / نقاشی ' + onStill2.toFixed(1) +
+     ' · ثانیهٔ ۷٫۵: نقاشی ' + late.toFixed(1) + ' / کلیپ ' + lateClip.toFixed(1) +
+     ((vr.notes || []).length ? ' · ' + vr.notes.join(' | ') : ''));
+
+  /* ۱۴.۴ — حرکت واقعاً به کانون می‌رود: نزدیکِ پایانِ صحنهٔ push، قاب به برشِ حولِ
+     کانون نزدیک‌تر است تا به کلِ تصویر؛ و reveal برعکس، در آغاز. */
+  const cropRef = (img, z, px, py, out) => {
+    const cw = Math.round(W * (1 - z)), ch = Math.round(H * (1 - z));
+    ff(['-i', img, '-vf', 'scale=' + W + ':' + H + ',crop=' + cw + ':' + ch + ':' + Math.round(px * W * z) + ':' +
+        Math.round(py * H * z) + ',scale=' + W + ':' + H, '-frames:v', '1', out]);
+    return SKIT.gray(FF, out);
+  };
+  const s2 = path.join(d, 's002.jpg'), s3 = path.join(d, 's003.jpg');
+  const fPush = SKIT.gray(FF, dest, 11.5 + 5.6);
+  const pushNear = SKIT.mad(fPush, cropRef(s2, 0.25 * 0.95, 0.8, 0.3, path.join(d, 'cr2.jpg')));
+  const pushFull = SKIT.mad(fPush, SKIT.gray(FF, s2));
+  const fRev = SKIT.gray(FF, dest, 17.5 + 0.9);
+  const revNear = SKIT.mad(fRev, cropRef(s3, 0.25 * 0.95, 0.2, 0.7, path.join(d, 'cr3.jpg')));
+  const revFull = SKIT.mad(fRev, SKIT.gray(FF, s3));
+  ok('۱۴.۴ push در پایان روی کانون است و reveal در آغاز؛ هر دو از «کلِ تصویر» دورترند',
+     pushNear < pushFull && revNear < revFull,
+     'push: کانون ' + pushNear.toFixed(1) + ' / کل ' + pushFull.toFixed(1) +
+     ' · reveal: کانون ' + revNear.toFixed(1) + ' / کل ' + revFull.toFixed(1));
+
+  /* ۱۴.۴-ب — مرجعِ سنجشِ صحنهٔ متحرک همان برشی است که **در همان لحظه** دیده می‌شود: به قابِ
+     واقعیِ ویدئو نزدیک‌تر از کلِ تصویر. بی آن، قابِ وسطِ یک صحنهٔ پرجزئیات با ۱۲٪ نزدیک‌شدن
+     «سرِ جایش نیست» می‌خورد و سدِ انتشار ویدئوی سالم را نگه می‌داشت. (تصویرهای این آزمون
+     نرم‌اند و ۱۴.۳ بی این مرجع هم سبز می‌ماند — پس این ادعا جدا سنجیده می‌شود.) */
+  const refm = path.join(d, 'refm1.jpg');
+  const fq = SKIT.gray(FF, dest, 11.55 + 3);
+  const ownCrop = fs.existsSync(refm) ? SKIT.mad(fq, SKIT.gray(FF, refm)) : 255;
+  const ownFull = SKIT.mad(fq, SKIT.gray(FF, s2));
+  ok('۱۴.۴-ب مرجعِ صحنهٔ متحرک برشِ همان لحظه است، نزدیک‌تر از کلِ تصویر به قابِ واقعی',
+     vr.refs === 2 && fs.existsSync(refm) && ownCrop < ownFull / 2,
+     'مرجع‌ها ' + vr.refs + ' · برش ' + ownCrop.toFixed(1) + ' / کل ' + ownFull.toFixed(1));
+
+  /* ۱۴.۵ — مرجعِ سنجش از کلیپ است وقتی لحظهٔ سنجش درونِ کلیپ است، و سنجه واقعاً
+     می‌سنجد: با مرجعِ نقاشی برای همان لحظه رد می‌شود. */
+  const tA = [{ n: 1, t0: 0, d: 11.55, img: still1, ref: clipF, refT: 2, qt: 2 }];
+  const tB = [{ n: 1, t0: 0, d: 11.55, img: still1, qt: 2 }];
+  const qA = SKIT.qa(FF, dest, tA, 30), qB = SKIT.qa(FF, dest, tB, 30);
+  ok('۱۴.۵ سنجش قابِ کلیپ را با خودِ کلیپ می‌سنجد، و نقاشی را برای همان لحظه رد می‌کند',
+     qA.matched === 1 && qB.matched === 0, JSON.stringify({ a: qA.miss, b: qB.miss }));
+
+  /* ۱۴.۶ — کلیپی که بایت‌هایش ویدئو نیست (صفحهٔ HTML، ۷.۳۳) ⇒ همان نقاشی، گفته
+     می‌شود، و ویدئوی درس زمین نمی‌خورد. */
+  const liar = serveRaw('liar.mp4', '<html>not shared</html>' + ' '.repeat(200));
+  const d2 = fs.mkdtempSync(path.join(TMP, 'mv2-'));
+  const dest2 = path.join(d2, 'out.mp4');
+  const vr2 = R.buildVideo(mk(liar), null, wav, R.wavSeconds(wav), dest2, d2);
+  ok('۱۴.۶ کلیپِ خراب ⇒ نقاشیِ ثابت با علت؛ ویدئو سالم',
+     vr2.mode === 'scenes' && vr2.qa && vr2.qa.ok === true && vr2.clip && vr2.clip.used === 0 &&
+     (vr2.notes || []).some(x => /کلیپِ صحنهٔ 1: بایت‌ها ویدئو نبود/.test(x)),
+     JSON.stringify(vr2.clip) + ' · ' + (vr2.notes || []).join(' | '));
+
+  /* ۱۴.۷ — نقشه حرکت و کلیپ را برای موتور ثبت می‌کند. */
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۴.۷ نقشه شمارِ حرکت و حالِ کلیپ را می‌نویسد',
+     /map\.items\[it\.key\]\.mv = vr\.mv/.test(src) && /map\.items\[it\.key\]\.clip = vr\.clip/.test(src) &&
+     /clips: clips/.test(src));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

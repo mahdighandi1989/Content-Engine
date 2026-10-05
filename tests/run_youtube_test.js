@@ -6259,7 +6259,9 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     const eps = Math.ceil(lvMonthDaysLeft_() * Math.max(1, (CFG.LV_SHOWS || ['special']).length) *
                           (Number(CFG.LV_PACE_SLACK) || 1.1));
     const per = lvGenPrice_(model) * (1 + (Number(CFG.LV_PACE_REDO_PCT) || 0.2));
-    const cover = Math.max(lvGenPrice_(model), Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14);
+    /* کلیپِ آغاز (۸.۵۱) از همان سقفِ درس، پیش از صحنه‌ها — §۷۷.۱ آن را جدا می‌سنجد. */
+    const cover = Math.max(lvGenPrice_(model), Number(CFG.LV_GEN_HQ_MAX_USD) || 0.14) +
+                  (lvClipOn_() ? lvClipCost_() : 0);
     const flex = Number(CFG.LV_PACE_FLEX) || 2.5;
     const ctx = { show: 'special', epRaw: '321', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
                   sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم' };
@@ -6485,6 +6487,439 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     delete global.__PROPS[PK.LV_PACE_LAST];
     global.__PROPS[PK.LV_GEN_SPEND] = '';
     CFG.LV_GEN_USD_MONTH = keepCap;
+  }
+
+  console.log('\n=== ۷۷) کلیپِ آغاز، حرکتِ معنادار، و آزمونِ مدلِ تازه (۸.۵۱) ===');
+  /* او: «کلیپ سقفِ ۱۲۰ بمونه / ۲ و ۳ هم بساز … با یک کلیپ در ابتدای درس … در شروعِ هر
+     پادکست». سه چیز، و هر سه از درِ تولید (`lvScenesBuild_`) سنجیده می‌شوند. */
+  {
+    const mp4 = [0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109].concat(new Array(4000).fill(7));
+    const veo = (inner, v) => function (url, body, opt) {
+      if (url.indexOf(':predictLongRunning') !== -1) {
+        v.starts.push({ body: body, judgedBefore: v.cnt.judge, gen: v.cnt.gen });
+        if (v.startFail) return { code: 400, text: JSON.stringify({ error: { message: v.startFail } }) };
+        return { code: 200, json: { name: 'models/veo/operations/op' + v.starts.length } };
+      }
+      if (/\/operations\/op\d+/.test(url)) {
+        v.polls++;
+        if (v.polls % 2 === 1) return { code: 200, json: { done: false } };
+        return { code: 200, json: { done: true, response: { generateVideoResponse: { generatedSamples: [
+          { video: { uri: 'https://generativelanguage.googleapis.com/v1beta/files/clip' + v.starts.length + ':download?alt=media' } }] } } } };
+      }
+      if (/files\/clip\d+:download/.test(url)) {
+        v.downloads++;
+        if (v.html) return { code: 200, bytes: Array.from('<html>no</html>' + ' '.repeat(80)).map(c => c.charCodeAt(0)), mime: 'text/html' };
+        return { code: 200, bytes: mp4, mime: 'video/mp4' };
+      }
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      if (sc && sc.properties && sc.properties.fits) {
+        v.judges.push(JSON.stringify(body).indexOf('video/mp4') !== -1);
+        const r = v.judgeOut ? v.judgeOut(v.judges.length) : { hasText: 'خیر', deformed: 'خیر', fits: 'بله', why: 'آرام و هم‌خوان' };
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: r === null ? '' : JSON.stringify(r) }] } }] } };
+      }
+      const r = inner(url, body, opt);
+      /* حرکت: توصیف‌گر کانون و حرکت می‌دهد، داور جایش را — بدَل فقط اگر schema جایشان را
+         داشته باشد به مقصد می‌رسد (mock صافی می‌کند). */
+      if (v.motion && sc && sc.properties && r && r.json && r.json.candidates) {
+        try {
+          const t = JSON.parse(r.json.candidates[0].content.parts[0].text);
+          if (t.scenes) t.scenes.forEach((x, i) => { x.focus = 'the last lantern'; x.move = i % 3 === 0 ? 'push' : i % 3 === 1 ? 'reveal' : 'drift'; });
+          if (t.items) t.items.forEach((x, i) => { x.box = i % 2 ? '' : '100,600,400,900'; });
+          r.json.candidates[0].content.parts[0].text = JSON.stringify(t);
+        } catch (e) {}
+      }
+      return r;
+    };
+    const ctx77 = { show: 'special', title: 'انتقالِ توجیه', seriesName: 'معرفت‌شناسی',
+                    sections: SEC71, level: 'زیاد', style: 'آبرنگِ گرم' };
+    const run77 = (id, ep, v, n) => {
+      const cnt = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+      v.cnt = cnt; v.starts = v.starts || []; v.polls = v.polls || 0; v.downloads = v.downloads || 0; v.judges = v.judges || [];
+      global.__STUB = veo(sceneStub(cnt), v);
+      const E = mkEp71(id, 'قسمت 0' + ep + ' — کلیپ');
+      const whys = []; let r = null;
+      for (let i = 0; i < (n || 12); i++) {
+        r = lvScenesBuild_(E.f, E.meta, {}, Object.assign({ epRaw: String(ep) }, ctx77, v.ctx || {}));
+        whys.push(r.why || '');
+        if (r.done || r.fallback) break;
+      }
+      global.__STUB = BASE_STUB;
+      return { r: r, d: lvSceneRead_(E.f), whys: whys, cnt: cnt, E: E };
+    };
+    const capWas77 = CFG.LV_GEN_USD_MONTH;
+    CFG.LV_GEN_USD_MONTH = 120;
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    delete global.__PROPS[PK.LV_CLIP_LAST];
+
+    /* ۷۷.۱ — هزینه: هشت ثانیه با veo-3.1-lite در ۱۰۸۰p = ۰٫۶۴ دلار، و **پیش از صحنه‌ها**
+       از سقفِ همان درس برداشته می‌شود — سقفِ ماه یکی است. */
+    const onP = lvScenePace_('gemini-3.1-flash-lite-image');
+    CFG.LV_CLIP_ON = false;
+    const offP = lvScenePace_('gemini-3.1-flash-lite-image');
+    CFG.LV_CLIP_ON = true;
+    ok('۷۷.۱ کلیپ ۰٫۶۴ دلار، از سقفِ همان درس و پیش از صحنه‌ها',
+       Math.abs(lvClipCost_() - 0.64) < 1e-9 && lvClipSec_() === 8 &&
+       Math.abs((onP.cover - offP.cover) - 0.64) < 1e-9 && onP.clip === 0.64 && offP.clip === undefined &&
+       Math.abs(lvClipCost_('veo-3.1-fast-generate-preview') - 0.96) < 1e-9 &&
+       Math.abs(lvClipCost_('veo-9-unknown') - 3.2) < 1e-9,
+       JSON.stringify({ on: onP.cover, off: offP.cover, lite: lvClipCost_() }));
+
+    /* ۷۷.۲ — از درِ ساخت: کلیپ از تصویرِ **داوری‌شدهٔ** صحنهٔ نخست، با ۱۶:۹، ۸ ثانیه، ۱۰۸۰p،
+       بی نوشته؛ پرسیده، برداشته (بایت‌های ftyp)، **دیده‌شده** داوری، و روی همان صحنه
+       نشست. پولش یک بار و در همان دفترِ ماه. */
+    const v2 = {};
+    const A = run77('EP77A', 771, v2);
+    const st0 = v2.starts[0] || {};
+    const inst = ((st0.body || {}).instances || [])[0] || {};
+    const par = (st0.body || {}).parameters || {};
+    const sp2 = lvGenSpend_();
+    ok('۷۷.۲ کلیپ از تصویرِ داوری‌شدهٔ صحنهٔ نخست، دیده و داوری‌شده، روی همان صحنه؛ پول یک بار',
+       A.r && A.r.done && A.d.clip && A.d.clip.state === 'ok' && A.d.clip.img === A.d.scenes[0].fileId &&
+       A.r.items[0].clip && A.r.items[0].clip.fileId === A.d.clip.fileId && A.r.items[0].clip.sec === 8 &&
+       A.r.items.slice(1).every(x => !x.clip) &&
+       v2.starts.length === 1 && st0.judgedBefore > 0 && inst.image && inst.image.inlineData &&
+       /image\//.test(inst.image.inlineData.mimeType) && inst.image.inlineData.data.length > 1000 &&
+       par.aspectRatio === '16:9' && par.durationSeconds === 8 && par.resolution === '1080p' &&
+       /no text/.test(inst.prompt) && v2.downloads === 1 && v2.judges.length === 1 && v2.judges[0] === true &&
+       sp2.clips === 1 && A.d.clip.usd === 0.64 && A.r.info.clip === 'ok',
+       JSON.stringify({ done: A.r && A.r.done, clip: A.d && A.d.clip, starts: v2.starts.length, polls: v2.polls,
+                        judges: v2.judges, spend: sp2, whys: A.whys }));
+
+    /* ۷۷.۲-ب — کلیپ فقط روی همان تصویری می‌نشیند که از آن ساخته شد: تصویرِ صحنه که عوض شد
+       (ساختِ دوباره)، کلیپِ تصویرِ قبلی روی تصویرِ تازه نمی‌رود. */
+    const dA2 = lvSceneRead_(A.E.f);
+    dA2.clip.img = 'IMG-OLD';
+    lvSceneWrite_(A.E.f, dA2);
+    global.__STUB = veo(sceneStub({ gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] }), v2);
+    const rA2 = lvScenesBuild_(A.E.f, A.E.meta, {}, Object.assign({ epRaw: '771' }, ctx77));
+    global.__STUB = BASE_STUB;
+    ok('۷۷.۲-ب کلیپِ تصویرِ قبلی روی تصویرِ تازه نمی‌نشیند',
+       rA2.done && !rA2.items[0].clip && rA2.items[0].fileId === A.r.items[0].fileId,
+       JSON.stringify({ done: rA2.done, clip: rA2.items[0] && rA2.items[0].clip }));
+
+    /* ۷۷.۳ — ویدئو منتظرِ کلیپِ در راه می‌مانَد، می‌گوید چرا، و ادامه را زمان‌بندی می‌کند.
+       (همان ۷۷.۲: پرسشِ نخست «هنوز نه» شنید.) */
+    ok('۷۷.۳ کلیپِ در راه ⇒ «آماده نیست» با علت و ادامه‌ای زمان‌بندی‌شده',
+       A.whys.some(w => /کلیپِ آغاز: در ساخت/.test(w)) && A.whys.length >= 3,
+       JSON.stringify(A.whys));
+
+    /* ۷۷.۳-ب — کلیپِ در راه همیشه ادامه می‌خواهد، حتی وقتی سقفِ تصویر وسطِ درس پر شده
+       (`d.why`): کارِ آغازشده پولش داده شده و فقط باید برداشته شود. */
+    const dW = lvSceneRead_(A.E.f);
+    dW.clip = { state: 'wait', tries: 1, op: 'models/veo/operations/op1', fileId: '', why: '', at: '',
+                first: Date.now(), usd: 0.64, img: dW.scenes[0].fileId };
+    dW.why = 'سقفِ ماهانهٔ تصویر پر شد'; dW.capHit = true;
+    lvSceneWrite_(A.E.f, dW);
+    global.__TRIGGERS = global.__TRIGGERS.filter(t => t.getHandlerFunction() !== 'ytSceneMore');
+    delete global.__PROPS[PK.LV_SCENE_MORE];
+    const vW = { starts: [], polls: 0, downloads: 0, judges: [] };
+    global.__STUB = veo(sceneStub({ gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] }), vW);
+    const rW = lvScenesBuild_(A.E.f, A.E.meta, {}, Object.assign({ epRaw: '771' }, ctx77));
+    global.__STUB = BASE_STUB;
+    const armed = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'ytSceneMore').length;
+    ok('۷۷.۳-ب کلیپِ در راه با سقفِ پرشده ⇒ ادامه زمان‌بندی می‌شود',
+       !rW.done && /سقفِ ماهانهٔ تصویر پر شد؛ کلیپِ آغاز: در (ساخت|داوری)/.test(rW.why) && armed === 1 && vW.polls >= 1,
+       JSON.stringify({ done: rW.done, why: rW.why, armed: armed, polls: vW.polls }));
+
+    /* ۷۷.۴ — شکست‌ها هرگز ویدئو را نگه نمی‌دارند و هرگز بی‌صدا نیستند:
+       (الف) آغاز رد شد (نه ردِ شکلِ تصویر) ⇒ دو تلاش، بی خرج، بعد «نشد».
+       (ب) بایت‌ها ویدئو نبود ⇒ نشد. (پ) داور نوشته دید ⇒ یک بارِ دیگر با علت، بعد نشد.
+       (ت) داور ندید ⇒ سه بار، بعد نشد. در همه: ویدئو با نقاشیِ ثابت، و خطِ روزانه علت را دارد. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const vA = { startFail: 'model not allowed for this project' };
+    const FA = run77('EP77FA', 772, vA);
+    const spA = lvGenSpend_();
+    const vB = { html: true };
+    const FB = run77('EP77FB', 773, vB);
+    const vC = { judgeOut: () => ({ hasText: 'بله', deformed: 'خیر', fits: 'بله', why: 'روی تابلو نوشته آمده' }) };
+    const FC = run77('EP77FC', 774, vC);
+    const vD = { judgeOut: () => null };
+    const FD = run77('EP77FD', 775, vD, 16);
+    const stF = lvClipStatus_();
+    const fine = (X) => X.r && X.r.done && X.d.clip.state === 'fail' && !X.r.items[0].clip;
+    ok('۷۷.۴ هر شکست ⇒ نقاشیِ ثابت، ویدئو منتظر نمی‌مانَد، علت گفته می‌شود؛ ردِ آغاز خرج ندارد؛ نوشته ⇒ تلاشِ دوم با علت',
+       fine(FA) && vA.starts.length === 2 && spA.clips === 0 && /model not allowed/.test(FA.d.clip.why) &&
+       fine(FB) && vB.downloads === 2 && /ویدئو نبود/.test(FB.d.clip.why) &&
+       fine(FC) && vC.starts.length === 2 && /previous attempt was rejected because: نوشته در کلیپ/.test(vC.starts[1].body.instances[0].prompt) &&
+       FC.d.clip.usd === 1.28 &&
+       fine(FD) && vD.judges.length === 3 &&
+       /❌ نشد/.test(stF.line) && /همان نقاشیِ ثابت رفت/.test(stF.line),
+       JSON.stringify({ A: FA.d && FA.d.clip, B: FB.d && FB.d.clip && FB.d.clip.why, C: FC.d && FC.d.clip && FC.d.clip.why,
+                        D: FD.d && FD.d.clip, line: stF.line }));
+
+    /* ۷۷.۴-ب — ردِ ۴۰۰ که یک پارامترِ معیّن را نام می‌برد ⇒ همان یکی نرم می‌شود و دوباره
+       پرسیده می‌شود؛ شکلِ دیگرِ تصویر فقط برای ردِ «تصویر». شکلِ درخواست هرگز با API
+       واقعی آزموده نشده، و نخستین درس نباید برای یک پارامتر کلیپش را از دست بدهد. */
+    const rejects = [];
+    let callsJ = 0;
+    const answers = ['Unsupported resolution 1080p for this model', 'personGeneration allow_adult is not allowed',
+                     'Invalid value at instances[0].image: inlineData not supported'];
+    global.__STUB = function (url, body) {
+      if (url.indexOf(':predictLongRunning') !== -1) {
+        rejects.push(body);
+        const a = answers[callsJ++];
+        if (a) return { code: 400, text: JSON.stringify({ error: { message: a } }) };
+        return { code: 200, json: { name: 'models/veo/operations/opJ' } };
+      }
+      return BASE_STUB(url, body);
+    };
+    const stJ = lvClipStart_('veo-3.1-lite-generate-preview', Utilities.newBlob(png71(20000), 'image/png', 'x.png'), 'p');
+    callsJ = 0; answers.length = 0; answers.push('Quota exceeded for model');
+    const nBefore = rejects.length;
+    const stQ = lvClipStart_('veo-3.1-lite-generate-preview', Utilities.newBlob(png71(20000), 'image/png', 'x.png'), 'p');
+    global.__STUB = BASE_STUB;
+    const lastJ = rejects[3] || {};
+    ok('۷۷.۴-ب ردِ یک پارامترِ معیّن ⇒ همان یکی نرم و دوباره؛ ردِ سهمیه ⇒ بی تکرار با علت',
+       stJ.op === 'models/veo/operations/opJ' && rejects.length - 1 >= 3 &&
+       lastJ.parameters && lastJ.parameters.resolution === '720p' && !('personGeneration' in lastJ.parameters) &&
+       lastJ.instances[0].image.bytesBase64Encoded && JSON.stringify(stJ.adj) === '["resolution","personGeneration","imageShape"]' &&
+       !stQ.op && rejects.length - nBefore === 1 && /Quota exceeded/.test(stQ.err),
+       JSON.stringify({ j: stJ, q: stQ, n: rejects.length }));
+
+    /* ۷۷.۵ — سقفِ ماه برای کلیپ جا ندارد ⇒ «خاموش» **بی فراخوانِ Veo**، و ویدئو منتظرش نیست.
+       سهمِ درس کلیپ را از پیش کنار می‌گذارد (۷۷.۱)؛ این سدِ دوم برای ماهی است که با
+       قیمتِ عوض‌شده یا سقفِ پایین‌آمده وسطِ درس پر شود. */
+    const monthNow = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM');
+    const vE = { starts: [], polls: 0 };
+    global.__STUB = veo(BASE_STUB, Object.assign(vE, { downloads: 0, judges: [], cnt: { judge: 1, gen: 0 } }));
+    global.__PROPS[PK.LV_GEN_SPEND] = JSON.stringify({ month: monthNow, n: 0, usd: CFG.LV_GEN_USD_MONTH - 0.5 });
+    const fE = DriveApp.__register('EP77FE', 'قسمت 0776 — بی‌پول');
+    let gotBlob = 0;
+    const gfWas = DriveApp.getFileById;
+    DriveApp.getFileById = function (id) {
+      if (id === 'IMG1') { gotBlob++; return { getBlob: () => Utilities.newBlob(png71(20000), 'image/png', 'x.png') }; }
+      return gfWas.call(DriveApp, id);
+    };
+    const dE = { scenes: [{ n: 1, fileId: 'IMG1', scene: 'x', text: 'متن', judge: { s: 7 } }, { n: 2 }],
+                 clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+    lvClipStep_(dE, fE, () => 1e9, 'special:776');
+    global.__PROPS[PK.LV_GEN_SPEND] = JSON.stringify({ month: monthNow, n: 0, usd: CFG.LV_GEN_USD_MONTH - 0.7 });
+    const dE2 = { scenes: [{ n: 1, fileId: 'IMG1', scene: 'x', text: 'متن', judge: { s: 7 } }],
+                  clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+    lvClipStep_(dE2, fE, () => 1e9, 'special:776');
+    global.__STUB = BASE_STUB;
+    /* ۷۷.۵-ب — تصویرِ نخستِ **داوری‌نشده** کلیپ نمی‌گیرد (داور ممکن است از نو بسازدش)؛ صحنهٔ
+       نخستی که هرگز تصویر نگرفت کلیپ را «نشد» می‌کند، نه منتظرِ ابدی. */
+    global.__STUB = veo(BASE_STUB, vE);
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const dU = { scenes: [{ n: 1, fileId: 'IMG1', scene: 'x', text: 'متن', judge: null }],
+                 clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+    const startsU = vE.starts.length, blobU = gotBlob;
+    lvClipStep_(dU, fE, () => 1e9, 'special:776', 2);
+    const blobU2 = gotBlob;
+    const dN = { scenes: [{ n: 1, fileId: '', tries: 2, scene: 'x', text: 'متن' }],
+                 clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+    lvClipStep_(dN, fE, () => 1e9, 'special:776', 2);
+    /* ۷۷.۵-پ — کلیپی که از سقفِ انتظار گذشت ⇒ «نشد» با علت؛ ویدئو منتظرِ ابدی نیست. */
+    const dT = { scenes: [{ n: 1, fileId: 'IMG1', scene: 'x', text: 'متن', judge: { s: 7 } }],
+                 clip: { state: 'wait', tries: 1, op: 'models/veo/operations/op77', fileId: '', why: '',
+                         at: '', first: Date.now() - (CFG.LV_CLIP_WAIT_MIN + 1) * 60000 } };
+    const pollsT = vE.polls;
+    lvClipStep_(dT, fE, () => 1e9, 'special:776', 2);
+    DriveApp.getFileById = gfWas;
+    global.__STUB = BASE_STUB;
+    ok('۷۷.۵-پ کلیپی که از سقفِ انتظار گذشت ⇒ «نشد» با علت، بی پرسیدنِ دوباره',
+       dT.clip.state === 'fail' && /دقیقه نرسید/.test(dT.clip.why) && vE.polls === pollsT && lvClipSettled_(dT),
+       JSON.stringify(dT.clip));
+    ok('۷۷.۵-ب تصویرِ داوری‌نشده ⇒ صبر بی فراخوان؛ صحنهٔ نخستِ بی‌تصویر ⇒ «نشد»',
+       dU.clip.state === '' && vE.starts.length === startsU && blobU2 === blobU && dN.clip.state === 'fail' &&
+       /صحنهٔ نخست تصویر ندارد/.test(dN.clip.why) && lvClipSettled_(dN),
+       JSON.stringify({ u: dU.clip.state, n: dN.clip }));
+    ok('۷۷.۵ سقفِ ماه جا ندارد ⇒ «خاموش» بی فراخوان و «سرانجام‌یافته»؛ یک سنت بیشتر ⇒ آغاز',
+       dE.clip.state === 'off' && /سقفِ ماهانه/.test(dE.clip.why) && lvClipSettled_(dE) &&
+       vE.starts.length === 1 && dE2.clip.state === 'wait' && gotBlob >= 1,
+       JSON.stringify({ off: dE.clip, on: dE2.clip.state, starts: vE.starts.length }));
+
+    /* ۷۷.۶ — نقشه‌ای که پیش از ۸.۵۱ ساخته شد (`clip` ندارد) کلیپ نمی‌گیرد و منتظر هم نمی‌ماند:
+       خرجِ تازه روی درسی که در راهِ انتشار است، بی آنکه کسی خواسته باشد، نه. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const vF = {};
+    const Eo = mkEp71('EP77OLD', 'قسمت 0777 — قدیمی');
+    const cntF = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    vF.cnt = cntF; vF.starts = []; vF.polls = 0; vF.downloads = 0; vF.judges = [];
+    CFG.LV_CLIP_ON = false;
+    global.__STUB = veo(sceneStub(cntF), vF);
+    let rO = null;
+    for (let i = 0; i < 4; i++) { rO = lvScenesBuild_(Eo.f, Eo.meta, {}, Object.assign({ epRaw: '777' }, ctx77)); if (rO.done || rO.fallback) break; }
+    CFG.LV_CLIP_ON = true;
+    const dO = lvSceneRead_(Eo.f);
+    const rO2 = lvScenesBuild_(Eo.f, Eo.meta, {}, Object.assign({ epRaw: '777' }, ctx77));
+    global.__STUB = BASE_STUB;
+    ok('۷۷.۶ نقشهٔ بی‌کلیپ با روشن‌شدنِ کلیپ نه کلیپ می‌گیرد و نه منتظر می‌مانَد',
+       rO && rO.done && dO.clip === null && rO2.done && vF.starts.length === 0 &&
+       !!(rO2.items && rO2.items[0]) && !rO2.items[0].clip,
+       JSON.stringify({ done: rO && rO.done, clip: dO && dO.clip, again: rO2 && rO2.done, why: rO2 && rO2.why, starts: vF.starts.length }));
+
+    /* ۷۷.۷ — حرکتِ معنادار از درِ ساخت: توصیف‌گر «کجا و چه» را می‌شنود، داور جای کانون را،
+       و فقط صحنه‌ای که **هر دو** را دارد حرکتِ کانون‌دار می‌گیرد. «drift» یا بی‌جا ⇒ همان
+       حرکتِ آرام. خاموش ⇒ هیچ. */
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const vG = { motion: true };
+    const fzWas = CFG.LV_FOCUS_ZOOM;
+    CFG.LV_FOCUS_ZOOM = 0.2;
+    const G = run77('EP77MV', 778, vG);
+    const planPr = (G.cnt.prompts || [])[0] || '';
+    const mvs = G.r.items.map(x => x.mv || null);
+    const expect = G.d.scenes.map(x => (x.move === 'push' || x.move === 'reveal') && x.judge && x.judge.box);
+    CFG.LV_MOTION_ON = false;
+    const mvOff = lvSceneMv_(G.d.scenes.find(x => x.move === 'push' && x.judge && x.judge.box) || {});
+    CFG.LV_MOTION_ON = true;
+    CFG.LV_FOCUS_ZOOM = fzWas;
+    const boxed = G.d.scenes.find(x => x.judge && x.judge.box) || { judge: {} };
+    ok('۷۷.۷ حرکتِ کانون‌دار فقط با «چه» و «کجا»؛ جای کانون از داوری؛ اندازه از CFG؛ خاموش ⇒ هیچ',
+       G.r.done && /`focus`/.test(planPr) && /`move`/.test(planPr) &&
+       mvs.some(Boolean) && mvs.some(x => !x) &&
+       mvs.every((m, i) => !!m === !!expect[i]) &&
+       mvs.filter(Boolean).every(m => (m.k === 'push' || m.k === 'reveal') && Math.abs(m.x - 0.75) < 1e-6 &&
+                                      Math.abs(m.y - 0.25) < 1e-6 && m.z === 0.2) &&
+       Math.abs(boxed.judge.box.w - 0.3) < 1e-6 && mvOff === null && G.r.info.mv === mvs.filter(Boolean).length,
+       JSON.stringify({ mvs: mvs, moves: G.d.scenes.map(x => x.move), box: boxed.judge.box }));
+
+    /* ۷۷.۸ — جعبهٔ نامعقول حرکت نمی‌سازد: اشارهٔ نادرست بدتر از هیچ است. */
+    ok('۷۷.۸ جعبهٔ نامعقول ⇒ null (وارونه، بیرون از ۰..۱۰۰۰، نقطه، کلِ قاب)',
+       lvSceneBox_('100,600,400,900') && lvSceneBox_('۱۰۰,۶۰۰,۴۰۰,۹۰۰').x === 0.75 &&
+       lvSceneBox_('400,600,100,900') === null && lvSceneBox_('400,900,100,600') === null &&
+       lvSceneBox_('100,600,400,1200') === null &&
+       lvSceneBox_('500,500,505,505') === null && lvSceneBox_('0,0,1000,1000') === null &&
+       lvSceneBox_('') === null && lvSceneMove_('Zoom in') === 'push' && lvSceneMove_('pull back') === 'reveal' &&
+       lvSceneMove_('spin') === '');
+
+    /* ۷۷.۹ — ردیفِ رندر کلیپ و حرکت را می‌بَرد، و اشتراکِ کلیپ مثلِ تصویر باز می‌شود
+       (بسته یعنی رانر صفحهٔ HTML می‌گیرد، ۷.۳۳). از متنِ کد، چون این راه به درایو بند است. */
+    const ytSrc = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+    ok('۷۷.۹ ردیفِ رندر mv و clip را می‌بَرد و اشتراکِ کلیپ باز می‌شود',
+       /if \(x\.mv\) r0\.mv = x\.mv/.test(ytSrc) && /r0\.clip = \{ fileId: String\(x\.clip\.fileId\)/.test(ytSrc) &&
+       /var cz = ss\[z\] && ss\[z\]\.clip && ss\[z\]\.clip\.fileId/.test(ytSrc));
+
+    /* ۷۷.۱۰ — خطِ روزانهٔ کلیپ هر روز، با قیمت و حالِ آخرین. */
+    global.__PROPS[PK.LV_GEN_ON] = '1';
+    const stA = lvGenStatus_();
+    ok('۷۷.۱۰ خطِ روزانه: «🎬 کلیپِ آغازِ درس» با قیمت، شمارِ ماه و حالِ آخرین',
+       /🎬 کلیپِ آغازِ درس: روشن با veo-3\.1-lite-generate-preview \(~0\.64 دلار/.test(stA.line) &&
+       /آخرین \(special:/.test(stA.line) && stA.clip && stA.clip.on === true,
+       (stA.line.split('\n').find(l => /🎬/.test(l)) || '').slice(0, 300));
+
+    /* ══ آزمونِ مدلِ تصویرِ تازه ══ */
+    const lite = 'gemini-3.1-flash-lite-image', nova = 'gemini-4-flash-image-preview';
+    const pinWas77 = CFG.LV_GEN_MODEL_PIN, setWas77 = CFG.LV_GEN_MODEL;
+    CFG.LV_GEN_MODEL = ''; CFG.LV_GEN_MODEL_PIN = lite;
+    delete global.__PROPS[PK.LV_AUD_KNOWN]; delete global.__PROPS[PK.LV_AUD_DUE];
+    delete global.__PROPS[PK.LV_AUD_LOG]; delete global.__PROPS[PK.LV_AUD_REF];
+    global.__TRIGGERS = global.__TRIGGERS.filter(t => t.getHandlerFunction() !== 'lvAuditionLater');
+    let listed77 = [lite, 'gemini-2.5-flash-image'];
+    const aud = { gens: [], judges: [], tg: [] };
+    const audStub = (inner) => function (url, body, opt) {
+      if (url.indexOf('/v1beta/models?') !== -1) {
+        return { code: 200, json: { models: listed77.map(m => ({ name: 'models/' + m, supportedGenerationMethods: ['generateContent'] })) } };
+      }
+      if (url.indexOf('api.telegram.org') !== -1) { aud.tg.push({ url: url, body: body }); return { code: 200, json: { ok: true } }; }
+      if (url.indexOf(nova + ':generateContent') !== -1) {
+        aud.gens.push(body.contents[0].parts[0].text);
+        return { code: 200, json: { candidates: [{ content: { parts: [
+          { inlineData: { mimeType: 'image/png', data: Utilities.base64Encode(png71(20000)) } }] } }] } };
+      }
+      const sc = body && body.generationConfig && body.generationConfig.responseSchema;
+      if (sc && sc.properties && sc.properties.items && JSON.stringify(body).indexOf('inlineData') !== -1) {
+        const ns = []; body.contents[0].parts.forEach(p => { const m = /^تصویرِ (\d+)/.exec(p.text || ''); if (m) ns.push(m[1]); });
+        aud.judges.push(ns);
+        return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ items: ns.map(n => ({
+          n: n, score: Number(n) >= 20 ? '8' : '6', hasText: 'خیر', realFace: 'خیر', why: 'ربط دارد' })) }) }] } }] } };
+      }
+      return inner(url, body, opt);
+    };
+    const trigN = () => global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'lvAuditionLater').length;
+
+    /* ۷۷.۱۱ — بارِ اول فقط ثبت است: آنچه امروز هست «تازه» نیست. بارِ بعد، مدلی که نبود ⇒ صف و
+       یک اجرای یک‌بارهٔ زمان‌بندی‌شده. از درِ تولید: همان گشتنِ `lvGenModel_`. */
+    global.__STUB = audStub(BASE_STUB);
+    global.__PROPS[PK.LV_GEN_MODEL] = '';
+    const g1 = lvGenModel_();
+    const due1 = JSON.parse(global.__PROPS[PK.LV_AUD_DUE] || '[]');
+    const t1 = trigN();
+    listed77 = [lite, 'gemini-2.5-flash-image', nova];
+    global.__PROPS[PK.LV_GEN_MODEL] = '';
+    const g2 = lvGenModel_();
+    const due2 = JSON.parse(global.__PROPS[PK.LV_AUD_DUE] || '[]');
+    ok('۷۷.۱۱ بارِ اول فقط ثبت؛ مدلِ تازه ⇒ صف و اجرای یک‌باره؛ و سنجاق سرِ جایش',
+       g1.id === lite && due1.length === 0 && t1 === 0 && g2.id === lite &&
+       due2.length === 1 && due2[0] === nova && trigN() === 1,
+       JSON.stringify({ g1: g1.id, g2: g2.id, due1, due2, trig: trigN() }));
+
+    /* ۷۷.۱۲ — بی مرجع (هنوز درسی با سنجاق ساخته نشده) ⇒ صبر، صف می‌مانَد، هیچ خرجی. */
+    let n0 = '';
+    try { n0 = lvAuditionLater(); } catch (eA) { n0 = 'پرتاب: ' + eA.message; }
+    ok('۷۷.۱۲ بی مرجع ⇒ صبر با علت، صف می‌مانَد، بی خرج',
+       /هنوز درسی با صحنه ساخته نشده/.test(n0) && JSON.parse(global.__PROPS[PK.LV_AUD_DUE]).length === 1 && aud.gens.length === 0, n0);
+
+    /* ۷۷.۱۳ — مرجع از درسِ واقعی (همان ساختِ ۷۷.۲ با همین سنجاق): بهترین‌های داوری‌شده. */
+    global.__STUB = veo(audStub(sceneStub({ gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] })), { starts: [], polls: 0, downloads: 0, judges: [], cnt: { judge: 1, gen: 0 } });
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    const cntR = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    const vR = { cnt: cntR, starts: [], polls: 0, downloads: 0, judges: [] };
+    global.__STUB = veo(audStub(sceneStub(cntR)), vR);
+    const ER = mkEp71('EP77REF', 'قسمت 0779 — مرجع');
+    let rR = null;
+    for (let i = 0; i < 12; i++) { rR = lvScenesBuild_(ER.f, ER.meta, {}, Object.assign({ epRaw: '779' }, ctx77)); if (rR.done || rR.fallback) break; }
+    const ref = JSON.parse(global.__PROPS[PK.LV_AUD_REF] || 'null');
+    const dR = lvSceneRead_(ER.f);
+    ok('۷۷.۱۳ مرجع از درسی که ساخته شد: تا سه صحنهٔ داوری‌شدهٔ بی‌نوشته، با مدلِ سازنده',
+       rR && rR.done && ref && ref.key === 'special:779' && ref.model === lite && ref.scenes.length === 3 &&
+       ref.scenes.every(x => x.fileId && x.scene && x.s >= 0) &&
+       ref.scenes.every(x => dR.scenes.some(y => y.fileId === x.fileId && y.judge && !y.judge.txt)),
+       JSON.stringify({ ref: ref && { key: ref.key, model: ref.model, n: ref.scenes.length } }));
+
+    /* ۷۷.۱۴ — آزمون: همان سه صحنه با مدلِ تازه، **یک** داوری برای هر شش تصویر، سه آلبومِ
+       جفت‌به‌جفت و یک جمع‌بندی در تلگرام؛ صف خالی؛ و **هیچ چیزی خودکار عوض نمی‌شود**. */
+    global.__PROPS[PK.TG_TOKEN] = 'TOK'; global.__PROPS[PK.TG_CHAT] = 'CHAT';
+    aud.gens = []; aud.judges = []; aud.tg = [];
+    const spBefore = lvGenSpend_().usd;
+    const n1 = lvAuditionLater();
+    const log = JSON.parse(global.__PROPS[PK.LV_AUD_LOG] || '{}')[nova] || {};
+    const albums = aud.tg.filter(x => /sendMediaGroup/.test(x.url));
+    const texts = aud.tg.filter(x => /sendMessage/.test(x.url)).map(x => String((x.body || {}).text || ''));
+    global.__PROPS[PK.LV_GEN_MODEL] = '';
+    const g3 = lvGenModel_();
+    ok('۷۷.۱۴ همان صحنه‌ها با مدلِ تازه، یک داوریِ مشترک، سه آلبومِ جفتی و جمع‌بندی؛ سنجاق دست‌نخورده',
+       aud.gens.length === 3 && aud.judges.length === 1 && aud.judges[0].length === 6 &&
+       ref.scenes.every(x => aud.gens.some(g => g.indexOf(x.scene.slice(0, 40)) !== -1)) &&
+       albums.length === 3 && albums.every(a => (JSON.parse(a.body.media || '[]') || []).length === 2) &&
+       texts.some(t => /مدلِ تصویرِ تازه پیدا شد: «gemini-4-flash-image-preview»/.test(t) && /هیچ چیزی خودکار عوض نشد/.test(t)) &&
+       log.avgNew === 8 && log.avgPin === 6 && log.sent === true &&
+       JSON.parse(global.__PROPS[PK.LV_AUD_DUE]).length === 0 && g3.id === lite &&
+       lvGenSpend_().usd > spBefore,
+       JSON.stringify({ note: n1, gens: aud.gens.length, judges: aud.judges, albums: albums.length, log: log, g3: g3.id }));
+
+    /* ۷۷.۱۵ — سقفِ ماه جا ندارد ⇒ صبر، صف می‌مانَد، بی خرج؛ و خطِ روزانه هر دو را می‌گوید. */
+    listed77 = [lite, 'gemini-2.5-flash-image', nova, 'gemini-5-image'];
+    global.__PROPS[PK.LV_GEN_MODEL] = '';
+    lvGenModel_();
+    const capA = CFG.LV_GEN_USD_MONTH;
+    CFG.LV_GEN_USD_MONTH = lvGenSpend_().usd + 0.01;
+    aud.gens = [];
+    const n2 = lvAuditionLater();
+    CFG.LV_GEN_USD_MONTH = capA;
+    const onW = global.__PROPS[PK.LV_GEN_ON];
+    global.__PROPS[PK.LV_GEN_ON] = '1';
+    const stAud = lvGenStatus_();
+    if (onW === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = onW;
+    ok('۷۷.۱۵ سقف جا ندارد ⇒ صبر با علت، صف می‌مانَد؛ خطِ روزانه صف و آخرین را می‌گوید و «خودکار جایگزین نمی‌شود»',
+       /سقفِ ماه برای 3 تصویرِ آزمون جا ندارد/.test(n2) && aud.gens.length === 0 &&
+       JSON.parse(global.__PROPS[PK.LV_AUD_DUE])[0] === 'gemini-5-image' &&
+       /🧪 آزمونِ مدلِ تصویرِ تازه: در صف: gemini-5-image/.test(stAud.line) &&
+       /آخرین: «gemini-4-flash-image-preview» میانگین 8 در برابرِ 6/.test(stAud.line) &&
+       /هیچ مدلی خودکار جایگزین نمی‌شود/.test(stAud.line),
+       n2 + ' · ' + (stAud.line.split('\n').find(l => /🧪/.test(l)) || 'بی خطِ 🧪'));
+
+    global.__STUB = BASE_STUB;
+    delete global.__PROPS[PK.TG_TOKEN]; delete global.__PROPS[PK.TG_CHAT];
+    delete global.__PROPS[PK.LV_AUD_KNOWN]; delete global.__PROPS[PK.LV_AUD_DUE];
+    delete global.__PROPS[PK.LV_AUD_LOG]; delete global.__PROPS[PK.LV_AUD_REF];
+    delete global.__PROPS[PK.LV_CLIP_LAST];
+    global.__PROPS[PK.LV_GEN_MODEL] = '';
+    global.__TRIGGERS = global.__TRIGGERS.filter(t => t.getHandlerFunction() !== 'lvAuditionLater');
+    CFG.LV_GEN_MODEL_PIN = pinWas77; CFG.LV_GEN_MODEL = setWas77;
+    CFG.LV_GEN_USD_MONTH = capWas77;
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
   }
 
   if (genWas.on === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas.on;

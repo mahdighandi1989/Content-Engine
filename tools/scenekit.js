@@ -32,6 +32,9 @@ const SK = {
   w: 1920, h: 1080, fps: 24,
   xf: 0.6,            // میان‌محوی میانِ دو صحنه (ثانیه)
   zoom: 0.035,        // بیشینهٔ حرکت: ۳٫۵٪ از هر لبه — آرام، نه تبلیغ
+  focusZoom: 0.14,    // حرکتِ معنادار (۸.۵۱): نزدیک‌شدن به کانون — موتور با `mv.z` می‌گوید
+  clipXf: 0.8,        // میان‌محوِ کلیپِ آغاز به نقاشیِ همان صحنه (ثانیه)
+  clipRest: 1.5,      // کلیپ دست‌کم این‌قدر زودتر از پایانِ صحنه تمام می‌شود
   group: 10,          // صحنه در هر دستهٔ ffmpeg (حافظه به دسته بند است، نه به قسمت)
   capFrom: 0.5, capTo: 7.0, capFade: 0.45,
   capY: 820, capH: 220,   // نوارِ زیرنویس: پایینِ قاب (قرصِ زیرنویس ۸۴ پیکسل بالاتر از لبه)
@@ -53,10 +56,36 @@ function scenesOf(it) {
     if (!/^(https?|file):\/\//i.test(url)) continue;
     out.push({ n: Number(x.n) || out.length + 1, t0: Math.max(0, Number(x.t0) || 0),
                url: url, fileId: String(x.fileId || ''), caption: String(x.caption || '').trim(),
-               ov: (x.ov && typeof x.ov === 'object') ? x.ov : null });
+               ov: (x.ov && typeof x.ov === 'object') ? x.ov : null,
+               mv: mvOf(x.mv), clip: clipOf(x.clip) });
   }
   out.sort((p, q) => p.t0 - q.t0);
   return out.length >= 3 ? out : null;
+}
+
+const clamp01 = v => Math.max(0, Math.min(1, v));
+
+/* ══ حرکتِ معنادار (۸.۵۱) ══
+ * موتور فقط وقتی `mv` می‌فرستد که هم «چه کند» (از توصیفِ صحنه: push/reveal) و هم
+ * «کجا» (از داوری که خودِ تصویر را دیده) را دارد. هر چیزِ نامعقول ⇒ null، یعنی
+ * همان حرکتِ آرامِ قبلی: اشارهٔ نادرست بدتر از هیچ است. */
+function mvOf(v) {
+  if (!v || typeof v !== 'object') return null;
+  const k = String(v.k || '');
+  const x = Number(v.x), y = Number(v.y);
+  if ((k !== 'push' && k !== 'reveal') || !isFinite(x) || !isFinite(y)) return null;
+  const z = Number(v.z);
+  return { k: k, x: clamp01(x), y: clamp01(y),
+           z: isFinite(z) && z > 0 ? Math.max(0.02, Math.min(0.25, z)) : SK.focusZoom };
+}
+
+/** کلیپِ آغاز (۸.۵۱): نشانی و مدتش. نامعقول ⇒ null و صحنه همان نقاشیِ ثابت است. */
+function clipOf(v) {
+  if (!v || typeof v !== 'object') return null;
+  const url = String(v.url || '').trim();
+  if (!/^(https?|file):\/\//i.test(url)) return null;
+  const sec = Number(v.sec);
+  return { url: url, sec: isFinite(sec) && sec > 0 ? Math.min(20, sec) : 8 };
 }
 
 /** وسطِ هر مکث در صوت — جایی که عوض‌شدنِ تصویر به چشم «سرِ جمله» می‌آید. */
@@ -174,8 +203,28 @@ function coverHtml(imgData, it) {
     (foot ? '<div class="f">' + esc(foot) + '</div>' : '') + '</div>';
 }
 
-/** حرکتِ آرامِ صحنهٔ g: بزرگ‌نمایی، کوچک‌نمایی، یا لغزشِ افقی — یکی‌درمیان. */
-function motion(g, N) {
+/**
+ * حرکتِ صحنهٔ g.
+ * بی `mv`: حرکتِ آرامِ قبلی — بزرگ‌نمایی، کوچک‌نمایی، یا لغزشِ افقی، یکی‌درمیان.
+ * با `mv` (۸.۵۱): بزرگ‌نمایی **حولِ کانون** — نقطهٔ کانون روی صفحه ثابت می‌مانَد و
+ * بقیهٔ تصویر از آن دور می‌شود، پس چشم به همان چیزی می‌رود که گوینده درباره‌اش
+ * حرف می‌زند. `push` = به کانون نزدیک شو؛ `reveal` = از کانون عقب برو تا کل دیده
+ * شود. برشِ [px·W·s، W−(1−px)·W·s] برای هر px در [۰،۱] درونِ تصویر است، پس
+ * هرگز از قاب بیرون نمی‌زند. نرم‌شدنِ آغاز و پایان (p²(3−2p)) تا حرکت «شروع» و
+ * «تمام» شود، نه اینکه ناگهان بایستد. `amp` سقفِ حرکت را برای صحنهٔ نوشته‌دار
+ * پایین می‌آورد: نوشته جایش را از تصویرِ ساکن گرفته است.
+ */
+function motion(g, N, mv, amp) {
+  if (mv) {
+    const Zf = Math.min(amp || mv.z, mv.z).toFixed(4);
+    const p = 'min(1,(on/' + N + '))';
+    const e = '(' + p + '*' + p + '*(3-2*' + p + '))';
+    const sz = '(' + Zf + '*' + (mv.k === 'reveal' ? '(1-' + e + ')' : e) + ')';
+    const px = mv.x.toFixed(4), py = mv.y.toFixed(4);
+    const L = '(' + px + '*W*' + sz + ')', T = '(' + py + '*H*' + sz + ')';
+    const R = '(W-(1-' + px + ')*W*' + sz + ')', B = '(H-(1-' + py + ')*H*' + sz + ')';
+    return { x0: L, y0: T, x1: R, y1: T, x2: L, y2: B, x3: R, y3: B };
+  }
   const z = SK.zoom.toFixed(4);
   const p = '(on/' + N + ')';
   if (g % 3 === 2) {
@@ -225,12 +274,32 @@ function build(it, ctx) {
      جای نوشته از خودِ تصویر و دور از گوشهٔ نشانِ همان صحنه. صحنه‌ای که نوشته
      گرفت، زیرنویسِ پایین نمی‌گیرد — دو نوشته روی یک قاب، شلوغی است نه معنا.
      تصویری که جای خالی ندارد نوشته نمی‌گیرد و **شمرده** می‌شود (`ovStat`). */
+  /* ══ کلیپِ آغاز (۸.۵۱) ══
+     کلیپ از روی **همان نقاشی** ساخته شده؛ پس می‌آید، و پیش از پایانش با میان‌محو به
+     همان نقاشی برمی‌گردد که بقیهٔ صحنه را پر می‌کند. صحنه‌ای که برای کلیپ کوتاه است،
+     کلیپ نمی‌گیرد و **گفته می‌شود** — کلیپِ بریده‌ای که وسطِ حرکت قطع شود بدتر از نقاشیِ
+     ساکن است. نوشته و زیرنویس پس از کلیپ می‌آیند: روی حرکت، نوشته جایش را گم می‌کند. */
+  const clipPlan = {}, clipStat = { asked: 0, used: 0, why: [] };
+  tl.forEach((x, k) => {
+    const s = have[x.i];
+    if (!s.clip) return;
+    clipStat.asked++;
+    const cfile = ctx.clips && ctx.clips[String(s.n)];
+    if (!cfile) { clipStat.why.push('صحنهٔ ' + s.n + ': کلیپ نرسید'); return; }
+    const cd = Math.min(Number(mediaSeconds(ctx.ff, cfile)) || 0, x.d - SK.clipRest);
+    if (cd < SK.clipXf + 2) { clipStat.why.push('صحنهٔ ' + s.n + ': صحنه برای کلیپ کوتاه است'); return; }
+    clipPlan[k] = { file: cfile, cd: Math.round(cd * 1000) / 1000 };
+    clipStat.used++;
+  });
+  if (clipStat.why.length) notes.push('کلیپ: ' + clipStat.why.join(' · '));
+  const shiftOf = k => clipPlan[k] ? clipPlan[k].cd + 0.3 : 0;
+
   const ovFile = {}, ovStat = { asked: 0, placed: 0, busy: 0, failed: 0, kinds: {} };
   const ovCtx = { ff: ctx.ff, ffRun: ctx.ffRun, dir: ctx.dir,
                   shoot: (h, png) => shoot(ctx.exe, h, png, SK.w, SK.h, ctx.ffRun) };
   tl.forEach((x, k) => {
     const s = have[x.i];
-    if (!s.ov || x.d < 5) return;
+    if (!s.ov || x.d - shiftOf(k) < 5) return;
     ovStat.asked++;
     let avoid = null;
     if (ctx.mark && ctx.mark.handle) {
@@ -249,7 +318,7 @@ function build(it, ctx) {
   tl.forEach((x, k) => {
     const s = have[x.i];
     if (ovFile[k]) return;
-    if (s.caption && x.d >= 3.5) {
+    if (s.caption && x.d - shiftOf(k) >= 3.5) {
       const full = shoot(ctx.exe, captionHtml(s.caption), path.join(ctx.dir, 'capf' + k + '.png'), SK.w, SK.h, ctx.ffRun);
       capFile[k] = crop(full, 0, SK.capY, SK.w, SK.capH, path.join(ctx.dir, 'cap' + k + '.png'));
     }
@@ -279,16 +348,24 @@ function build(it, ctx) {
 
   const vmax = vmaxFor(ctx.durSec);
   const parts = [];
+  const still = {};          // بخشِ ساکنِ هر صحنه: از کِی و چه‌قدر — برای مرجعِ سنجش
+  let mvUsed = 0;
   for (let g0 = 0; g0 < tl.length; g0 += SK.group) {
     const grp = tl.slice(g0, g0 + SK.group);
     const a = [], f = [];
     let inIdx = 0;
     grp.forEach((x, k) => {
       const gk = g0 + k;
+      const s = have[x.i];
       const clip = x.d + (k === grp.length - 1 ? 0 : SK.xf);
-      const N = Math.max(2, Math.round(clip * SK.fps));
-      const m = motion(gk, N);
-      a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', ctx.imgs[String(have[x.i].n)]);
+      const cp = clipPlan[gk];
+      const sLen = cp ? clip - cp.cd + SK.clipXf : clip;
+      const N = Math.max(2, Math.round(sLen * SK.fps));
+      const m = motion(gk, N, s.mv, ovFile[gk] ? SK.zoom : 0);
+      if (s.mv) mvUsed++;
+      still[gk] = { start: cp ? cp.cd - SK.clipXf : 0, len: sLen,
+                    z: s.mv ? Math.min(ovFile[gk] ? SK.zoom : s.mv.z, s.mv.z) : 0 };
+      a.push('-loop', '1', '-framerate', String(SK.fps), '-t', sLen.toFixed(3), '-i', ctx.imgs[String(s.n)]);
       const iv = inIdx++;
       let chain = '[' + iv + ':v]scale=' + SK.w + ':' + SK.h + ':flags=bicubic,' +
         "perspective=x0='" + m.x0 + "':y0='" + m.y0 + "':x1='" + m.x1 + "':y1='" + m.y1 +
@@ -296,11 +373,25 @@ function build(it, ctx) {
         "':interpolation=linear:eval=frame,setsar=1[b" + k + ']';
       f.push(chain);
       let cur = 'b' + k;
+      if (cp) {
+        /* کلیپ (بی صدایش — صدا همان گفتارِ درس است) و بعد میان‌محو به همان نقاشی. */
+        a.push('-i', cp.file);
+        const ia = inIdx++;
+        f.push('[' + ia + ':v]trim=duration=' + cp.cd.toFixed(3) + ',setpts=PTS-STARTPTS,fps=' + SK.fps +
+               ',scale=' + SK.w + ':' + SK.h + ':force_original_aspect_ratio=increase,crop=' + SK.w + ':' + SK.h +
+               ',setsar=1,format=yuv420p,settb=1/' + SK.fps + '[ca' + k + ']');
+        f.push('[' + cur + ']format=yuv420p,settb=1/' + SK.fps + '[bs' + k + ']');
+        f.push('[ca' + k + '][bs' + k + ']xfade=transition=fade:duration=' + SK.clipXf.toFixed(2) +
+               ':offset=' + (cp.cd - SK.clipXf).toFixed(3) + '[bx' + k + ']');
+        cur = 'bx' + k;
+      }
+      const sh = shiftOf(gk);
       if (capFile[gk]) {
         a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', capFile[gk]);
         const ic = inIdx++;
-        const end = Math.max(SK.capFrom + 1, Math.min(SK.capTo, x.d - 0.8));
-        f.push('[' + ic + ':v]format=rgba,fade=t=in:st=' + SK.capFrom + ':d=' + SK.capFade +
+        const cst = SK.capFrom + sh;
+        const end = Math.max(cst + 1, Math.min(SK.capTo + sh, x.d - 0.8));
+        f.push('[' + ic + ':v]format=rgba,fade=t=in:st=' + cst.toFixed(2) + ':d=' + SK.capFade +
                ':alpha=1,fade=t=out:st=' + end.toFixed(2) + ':d=' + SK.capFade + ':alpha=1[c' + k + ']');
         f.push('[' + cur + '][c' + k + ']overlay=0:' + SK.capY + ':shortest=1[bc' + k + ']');
         cur = 'bc' + k;
@@ -309,8 +400,8 @@ function build(it, ctx) {
         const o = ovFile[gk];
         a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', o.file);
         const io = inIdx++;
-        const st = OVL.OV.fadeIn, end = Math.max(st + 1.2, x.d - 0.7);
-        f.push('[' + io + ':v]format=rgba,fade=t=in:st=' + st + ':d=' + OVL.OV.fade +
+        const st = OVL.OV.fadeIn + sh, end = Math.max(st + 1.2, x.d - 0.7);
+        f.push('[' + io + ':v]format=rgba,fade=t=in:st=' + st.toFixed(2) + ':d=' + OVL.OV.fade +
                ':alpha=1,fade=t=out:st=' + end.toFixed(2) + ':d=' + OVL.OV.fade + ':alpha=1[o' + k + ']');
         f.push('[' + cur + '][o' + k + ']overlay=' + o.x + ':' + o.y + ':shortest=1[bo' + k + ']');
         cur = 'bo' + k;
@@ -361,10 +452,47 @@ function build(it, ctx) {
       ref[k] = out;
     } catch (e) {}
   });
+  /* ══ مرجعِ سنجش برای صحنه‌های متحرک (۸.۵۱) ══
+     سنجش قابِ وسطِ صحنه را با تصویرِ همان صحنه می‌سنجد. با نزدیک‌شدنِ ۱۴٪ی، آن قاب
+     دیگر «کلِ تصویر» نیست و صحنهٔ درست «سرِ جایش نیست» می‌خورد — یعنی سدِ انتشار
+     ویدئوی سالم را نگه می‌داشت. پس مرجع همان برشی است که **در همان لحظه** باید دیده
+     شود، و برای صحنهٔ کلیپ‌دار — اگر لحظهٔ سنجش هنوز درونِ کلیپ است — قابِ همان
+     ثانیه از **خودِ کلیپ**. هیچ‌کدام از خودِ خروجی گرفته نمی‌شود؛ آن سنجه را توخالی
+     می‌کرد. */
+  const qt = {}, refT = {};
+  tl.forEach((x, k) => {
+    const cp = clipPlan[k], st = still[k] || { start: 0, len: x.d, z: 0 };
+    let t = Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9));
+    if (cp) {
+      if (x.d - cp.cd >= 3) t = Math.min(x.d - 0.9, cp.cd + (x.d - cp.cd) / 2);
+      else {
+        t = Math.max(0.3, (cp.cd - SK.clipXf) * 0.5);
+        qt[k] = t; ref[k] = cp.file; refT[k] = t;
+        return;
+      }
+      qt[k] = t;
+    }
+    const s = have[x.i];
+    if (!s.mv || ovFile[k] || !st.z) return;
+    const p = clamp01((t - st.start) / Math.max(0.1, st.len));
+    const e = p * p * (3 - 2 * p);
+    const sz = st.z * (s.mv.k === 'reveal' ? 1 - e : e);
+    const cw = Math.max(2, Math.round(SK.w * (1 - sz))), chh = Math.max(2, Math.round(SK.h * (1 - sz)));
+    const cx = Math.round(s.mv.x * SK.w * sz), cy = Math.round(s.mv.y * SK.h * sz);
+    const out = path.join(ctx.dir, 'refm' + k + '.jpg');
+    try {
+      ctx.ffRun(['-y', '-i', ctx.imgs[String(s.n)], '-vf', 'scale=' + SK.w + ':' + SK.h + ',crop=' + cw + ':' + chh +
+                 ':' + cx + ':' + cy + ',scale=' + SK.w + ':' + SK.h, '-q:v', '3', '-frames:v', '1', out]);
+      ref[k] = out; qt[k] = t;
+    } catch (e2) {}
+  });
   return { scenes: tl.length, want: scenes.length, snapped: snapped, silences: sil.length,
-           groups: parts.length, vmax: vmax, ov: ovStat,
-           tl: tl.map((x, k) => ({ n: have[x.i].n, t0: x.t0, d: x.d,
-           img: ctx.imgs[String(have[x.i].n)], ref: ref[k] || '' })) };
+           groups: parts.length, vmax: vmax, ov: ovStat, mv: mvUsed, clip: clipStat,
+           tl: tl.map((x, k) => {
+             const o = { n: have[x.i].n, t0: x.t0, d: x.d, img: ctx.imgs[String(have[x.i].n)], ref: ref[k] || '' };
+             if (qt[k] !== undefined) o.qt = qt[k];
+             if (refT[k] !== undefined) o.refT = refT[k];
+             return o; }) };
 }
 
 /* ══ رنگی، نه خاکستری — چیزی که آزمونِ واقعی نشانش داد ══
@@ -418,18 +546,19 @@ function mediaSeconds(ff, file) {
 function qa(ff, dest, tl, durSec) {
   const out = { n: tl.length, matched: 0, miss: [], blank: [], ok: false, why: '', durDiff: 0 };
   const src = {};
-  const refOf = x => x.ref || x.img;
-  for (const x of tl) if (!src[refOf(x)]) src[refOf(x)] = gray(ff, refOf(x));
+  /* مرجع می‌تواند قابی از یک ویدئو باشد (کلیپِ آغاز، ۸.۵۱): کلید فایل **و** ثانیه است. */
+  const keyOf = x => (x.ref || x.img) + '@' + (x.refT === undefined ? '' : x.refT);
+  for (const x of tl) if (!src[keyOf(x)]) src[keyOf(x)] = gray(ff, x.ref || x.img, x.refT);
   for (let k = 0; k < tl.length; k++) {
     const x = tl[k];
-    const t = x.t0 + Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9));
+    const t = x.t0 + (x.qt !== undefined ? x.qt : Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9)));
     const fr = gray(ff, dest, t);
     if (!fr || sd(fr) < SK.qaBlankSd) { out.blank.push(x.n); continue; }
-    const own = mad(fr, src[refOf(x)]);
+    const own = mad(fr, src[keyOf(x)]);
     let ok = own <= SK.qaMad;
     for (const j of [k - 1, k + 1]) {
       if (j < 0 || j >= tl.length || tl[j].img === x.img) continue;
-      if (mad(fr, src[refOf(tl[j])]) < own) ok = false;
+      if (mad(fr, src[keyOf(tl[j])]) < own) ok = false;
     }
     if (ok) out.matched++; else out.miss.push(x.n);
   }
@@ -444,5 +573,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, scenesOf, silences, timeline, captionHtml, markHtml, coverHtml,
+module.exports = { SK, scenesOf, mvOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };
