@@ -9,8 +9,7 @@
   "ytApprovedRedo_ (درِ دوم، در ytTick_): ویدئوی تأییدشدهٔ Unlisted همان روز عمومی می‌شود حتی وقتی کارِ شبانه به بلوکِ یوتیوب نرسد؛ هاب فقط میانِ تأیید و انتشار باز می‌شود (PK.YT_APPR_DONE).",
   "docs/yt-approve.json: special:60 (درسِ ۳۸) — به خواستِ صریحِ صاحبِ برنامه.",
   "_PROMPT-monitor-v93: کارِ روزانه + پنج یادداشتِ تازه؛ یادداشت‌های ۱۱ تا ۸۸ به docs/prompts/monitor_history.md؛ دستورِ عملیِ آزموده برای قاب‌گیری از ویدئو، _scenes.json، جزوه، حالت‌ها و نوشتنِ _REPORT.",
-  "tests/run_wiring_test.js §۱۵: تازه‌ترین دستورِ هر خانواده زیرِ ۱۶۰ کیلوبایت و حداکثر پنج یادداشتِ تغییر.",
-  "راه‌اندازِ روتین (docs/prompts/bootstrap/monitor-routine.md): خواندنِ کاملِ دستور با Read، و _REPORT پیش از ایمیل با شناسه‌اش در ایمیل."
+  "tests/run_wiring_test.js §۱۵: تازه‌ترین دستورِ هر خانواده زیرِ ۱۶۰ کیلوبایت و حداکثر پنج یادداشتِ تغییر."
  ],
  "sourceReportIds": [],
  "promptImpact": [
