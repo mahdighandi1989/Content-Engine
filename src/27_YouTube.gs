@@ -3003,14 +3003,24 @@ function lvGenPrice_(model) {
 function lvGenModel_() {
   var set = String(CFG.LV_GEN_MODEL || '').trim();
   if (set) return { id: set, why: 'تنظیمِ صریح' };
+  /* سنجاق (۸.۵۰): مدلی که چشمِ او پسندید. حافظه فقط وقتی پذیرفته می‌شود که با
+     همین سنجاق ساخته شده باشد — حافظهٔ پیش از سنجاق (مدلی که داور جایش نشانده)
+     کنار می‌رود و همان دم به سنجاق برمی‌گردد. */
+  var pin = String(CFG.LV_GEN_MODEL_PIN || '').trim();
   try {
     var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
-    if (c && c.id && (new Date().getTime() - (c.at || 0)) / 86400000 <
-        (Number(CFG.MODEL_REFRESH_DAYS) || 7) && !lvGenModelBad_(String(c.id)).bad) {
+    var fresh = c && c.id && (new Date().getTime() - (c.at || 0)) / 86400000 <
+                (Number(CFG.MODEL_REFRESH_DAYS) || 7);
+    if (fresh && pin) {
+      if (String(c.id) === pin && !lvGenPinDefect_(pin).bad) return { id: pin, why: 'سنجاق (از حافظه)' };
+      if (String(c.pinMiss || '') === pin && !lvGenModelBad_(String(c.id)).bad) {
+        return { id: String(c.id), why: 'از حافظه — سنجاقِ «' + pin + '» در دسترس نیست' };
+      }
+    } else if (fresh && !lvGenModelBad_(String(c.id)).bad) {
       return { id: String(c.id), why: 'از حافظه' };
     }
   } catch (e) {}
-  var found = '', all = [];
+  var found = '', all = [], pinMiss = '';
   try {
     var models = listModels_();
     for (var i = 0; i < models.length; i++) {
@@ -3030,6 +3040,14 @@ function lvGenModel_() {
        تصویر زیرِ کف مانده، کنار می‌رود و مدلِ بعدی امتحان می‌شود. اگر همه
        رد شده باشند، فهرست دست نمی‌خورد: بی مدل، هیچ تصویری نیست — بدتر از
        تصویرِ متوسط (همان شکلِ `ttsCueSwitch_`، ۷٫۴۷). */
+    if (pin) {
+      var pd = lvGenPinDefect_(pin);
+      if (all.indexOf(pin) !== -1 && !pd.bad) {
+        lvGenModelKeep_({ id: pin, at: new Date().getTime(), why: 'سنجاق', pin: pin });
+        return { id: pin, why: 'سنجاق — مدلی که درسِ ۳۸ را ساخت و او پسندید' };
+      }
+      pinMiss = all.indexOf(pin) === -1 ? 'در فهرستِ مدل‌های حساب نیست' : pd.why;
+    }
     var good = all.filter(function (x) { return !lvGenModelBad_(x).bad; });
     var skipped = good.length ? all.length - good.length : 0;
     var allBad = !good.length && all.length > 0;
@@ -3039,17 +3057,58 @@ function lvGenModel_() {
   if (!found) return { id: '', why: 'هیچ مدلِ تصویری با generateContent در دسترس نیست' };
   var why = 'ارزان‌ترینِ ' + all.length + ' مدلِ موجود' +
             (skipped ? ' (' + skipped + ' مدل به‌خاطرِ نمرهٔ داوری کنار رفت)' : '') +
-            (allBad ? ' — همهٔ مدل‌ها زیرِ کفِ داوری‌اند؛ ارزان‌ترین ماند چون بی مدل هیچ تصویری نیست' : '');
+            (allBad ? ' — همهٔ مدل‌ها زیرِ کفِ داوری‌اند؛ ارزان‌ترین ماند چون بی مدل هیچ تصویری نیست' : '') +
+            (pinMiss ? ' — سنجاقِ «' + pin + '» ' + pinMiss : '');
+  lvGenModelKeep_({ id: found, at: new Date().getTime(), why: why, pinMiss: pinMiss ? pin : '' },
+                  pinMiss ? pin : '', pinMiss);
+  return { id: found, why: why };
+}
+
+/**
+ * انتخابِ مدل را به خاطر می‌سپارد و **عوض‌شدنش را می‌گوید** (۸.۳۳/۸.۵۰).
+ * تا ۸.۴۹ فقط کنار رفتنِ «بد» گفته می‌شد؛ برگشت به سنجاق یا نبودنِ سنجاق هم
+ * همان‌قدر دیدنی است — سبکِ تصویرِ یک مجموعه با آن عوض می‌شود.
+ */
+function lvGenModelKeep_(rec, pin, pinMiss) {
   try {
     var prev = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
-    props_().setProperty(PK.LV_GEN_MODEL,
-      JSON.stringify({ id: found, at: new Date().getTime(), why: why }));
-    if (prev && prev.id && prev.id !== found && lvGenModelBad_(String(prev.id)).bad) {
+    props_().setProperty(PK.LV_GEN_MODEL, JSON.stringify(rec));
+    if (!prev || !prev.id || prev.id === rec.id) return;
+    if (rec.pin) {
+      mailQueue_('تصویر', 'مدلِ تصویر به سنجاق برگشت',
+                 '«' + prev.id + '» ⇒ «' + rec.id + '» — همان مدلی که درسِ ۳۸ را ساخت. ' +
+                 'داور فقط تصویرِ ضعیف را از نو می‌سازد؛ مدل را عوض نمی‌کند.');
+    } else if (pinMiss) {
+      mailQueue_('تصویر', 'سنجاقِ مدلِ تصویر در دسترس نیست',
+                 '«' + pin + '» ' + pinMiss + ' ⇒ ساختِ تصویر با «' + rec.id + '». ' +
+                 'سبکِ تصویرهای مجموعه ممکن است عوض شود.');
+    } else if (lvGenModelBad_(String(prev.id)).bad) {
       mailQueue_('تصویر', 'مدلِ تصویر عوض شد — کیفیت',
-                 '«' + prev.id + '» ' + lvGenModelBad_(String(prev.id)).why + ' ⇒ «' + found + '».');
+                 '«' + prev.id + '» ' + lvGenModelBad_(String(prev.id)).why + ' ⇒ «' + rec.id + '».');
     }
-  } catch (e3) {}
-  return { id: found, why: why };
+  } catch (e) {}
+}
+
+/**
+ * عیبِ **عینیِ** سنجاق (۸.۵۰): نوشته یا چهرهٔ شناختنی در تصویر — نه میانگینِ نمره.
+ * میانگین سلیقهٔ داور است و درسِ ۳۸ نشان داد با چشمِ او یکی نیست؛ نوشتهٔ ساختگی
+ * روی تصویر یا چهرهٔ واقعی، با هر چشمی عیب است.
+ */
+function lvGenPinDefect_(model) {
+  var out = { bad: false, n: 0, pct: 0, why: '' };
+  try {
+    var m = JSON.parse(props_().getProperty(PK.LV_GEN_SCORES) || '{}') || {};
+    var r = m[String(model || '')];
+    if (!r || !r.n) return out;
+    out.n = r.n;
+    out.pct = Math.round(((Number(r.def) || 0) / r.n) * 100);
+    var needN = Math.max(5, Number(CFG.LV_GEN_MODEL_MIN_N) || 20);
+    if (r.n >= needN && out.pct > (Number(CFG.LV_GEN_PIN_DEFECT_PCT) || 30)) {
+      out.bad = true;
+      out.why = 'در ' + out.pct + '٪ از ' + r.n + ' تصویر نوشته یا چهره داشت';
+    }
+  } catch (e) {}
+  return out;
 }
 
 /**
@@ -3066,7 +3125,12 @@ function lvGenScoreAdd_(model, v) {
     var sc = Number(v.s);
     if (isFinite(sc) && sc >= 0) { r.n++; r.sum += sc; }
     if (v.txt || v.face || (isFinite(sc) && sc >= 0 && sc < minS)) r.bad++;
-    if (r.n > 200) { r.n = Math.round(r.n / 2); r.sum = r.sum / 2; r.bad = Math.round(r.bad / 2); }
+    /* عیبِ عینی جدا شمرده می‌شود (۸.۵۰): سنجاق فقط با همین کنار می‌رود. */
+    if (v.txt || v.face) r.def = (Number(r.def) || 0) + 1;
+    if (r.n > 200) {
+      r.n = Math.round(r.n / 2); r.sum = r.sum / 2; r.bad = Math.round(r.bad / 2);
+      r.def = Math.round((Number(r.def) || 0) / 2);
+    }
     r.at = nowStr_();
     m[model] = r;
     props_().setProperty(PK.LV_GEN_SCORES, JSON.stringify(m));
@@ -3508,6 +3572,15 @@ function lvGenStatus_() {
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
     out.quality = out.model ? lvGenModelBad_(out.model) : null;
+    /* سنجاق (۸.۵۰): برای مدلِ سنجاق‌شده میانگینِ زیرِ کف «ایراد» نیست — تصمیمِ
+       چشمِ او بر داور مقدم است — ولی عددش هر روز گفته می‌شود. */
+    out.pin = String(CFG.LV_GEN_MODEL_PIN || '');
+    out.pinned = !!out.pin && out.model === out.pin && !String(CFG.LV_GEN_MODEL || '');
+    try {
+      var cc = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
+      out.pinMiss = !!(out.pin && cc && String(cc.pinMiss || '') === out.pin);
+      out.pickWhy = String((cc && cc.why) || '');
+    } catch (eCc) { out.pinMiss = false; }
     /* سه حالت، نه دو (۸٫۲۰): مدل داریم · گشتیم و نبود · هنوز نگشته‌ایم.
        فقط حالتِ دوم ایراد است، و علتش **نام برده می‌شود** — «نبود» و
        «فهرستِ مدل‌ها خوانده نشد» دو چارهٔ کاملاً متفاوت دارند (۷٫۳۲). */
@@ -3534,10 +3607,15 @@ function lvGenStatus_() {
         out.usd.toFixed(2) + ' از ' + faDigitsOut_(String(out.cap)) + ' دلار' +
         ' · جای ' + faDigitsOut_(String(out.room)) + ' تصویرِ دیگر' +
         /* کیفیت هم، نه فقط خرج (۸.۳۳): «روشن است» با «خوب می‌سازد» یکی نیست. */
+        (out.pinned ? ' (سنجاق: مدلِ درسِ ۳۸ که شما پسندیدید)' :
+         out.pinMiss ? ' ❌ (سنجاقِ «' + out.pin + '» در دسترس نیست: ' +
+                       (out.pickWhy.split('سنجاقِ «' + out.pin + '» ')[1] || 'علت ثبت نشده') + ')' : '') +
         (out.quality && out.quality.n
           ? ' · داوریِ تصویرها: میانگین ' + faDigitsOut_(String(out.quality.avg)) + ' از ۱۰ در ' +
             faDigitsOut_(String(out.quality.n)) + ' تصویر' +
-            (out.quality.bad ? ' — ❌ زیرِ کفِ داوری؛ اگر مدلِ تصویرِ دیگری باشد، ساختِ بعدی با همان است' : '')
+            (out.quality.bad && out.pinned
+              ? ' — زیرِ کفِ داور است ولی سنجاق است؛ داور فقط تصویرِ ضعیف را از نو می‌سازد'
+              : out.quality.bad ? ' — ❌ زیرِ کفِ داوری؛ اگر مدلِ تصویرِ دیگری باشد، ساختِ بعدی با همان است' : '')
           : ' · داوریِ تصویرها: هنوز هیچ') +
         ' (قیمتِ فرض‌شده هر تصویر ' + out.price.toFixed(3) + ' دلار — اگر غلط ' +
         'است `LV_GEN_PRICES` را عوض کنید).';
@@ -8146,16 +8224,21 @@ function ytTick_(budgetMs) {
     out.collected = c.got;
   } catch (e) { out.why += (out.why ? ' · ' : '') + 'برداشت: ' + String(e.message).slice(0, 60); }
 
+  /* ویدئوی تأییدشده‌ای که هنوز Unlisted است (۸.۴۶) — درِ دوم، کنارِ کارِ شبانه.
+     **پیش از** انتشارِ تازه (۸.۵۰): `ytRunDue_` صحنه‌های درسِ تازه را تا مهلتش
+     می‌سازد، و تا ۸.۴۹ این در پشتِ آن بود با شرطِ «۳۰ ثانیه مانده» — یعنی درست
+     روزی که درسِ تازه ساخته می‌شود، ویدئوی تأییدشده نوبت نمی‌گرفت (۷.۵۹: آنچه
+     خواسته شده پشتِ آنچه کسی نخواسته نمی‌مانَد). ارزان است: بی کلیدِ تأییدشدهٔ
+     باز، فقط یک خواندنِ فایلِ کوچکِ گیت‌هاب. */
+  if (left() > 60000) {
+    try { ytApprovedRedo_(Math.min(60000, left() - 45000)); }
+    catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
+  }
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
-  }
-  /* ویدئوی تأییدشده‌ای که هنوز Unlisted است (۸.۴۶) — درِ دوم، کنارِ کارِ شبانه. */
-  if (left() > 30000) {
-    try { ytApprovedRedo_(Math.max(15000, left() - 20000)); }
-    catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
   }
   /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. این‌جا
      دومین شانسش است — و چون `ytStatsDue_` هر ~۲۰ ساعت یک بار اجازه می‌دهد،

@@ -6524,6 +6524,10 @@ console.log('\n=== ۷۲) مدلِ تصویر با کیفیت هم انتخاب �
      bw.bad === true && bw.avg >= 7 && bw.badPct > 40, JSON.stringify(bw));
 
   const stubWas = global.__STUB;
+  /* این‌جا راهِ **بی سنجاق** سنجیده می‌شود — همان که وقتی سنجاق در دسترس نیست
+     می‌رود (۸.۵۰). سنجاق خودش در §۷۶ است. */
+  const pin72 = CFG.LV_GEN_MODEL_PIN;
+  CFG.LV_GEN_MODEL_PIN = '';
   global.__PROPS[PK.MODELS] = '';
   global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: cheap, at: Date.now() });   // حافظهٔ تازه با مدلِ بد
   CFG.LV_GEN_MODEL = '';
@@ -6563,6 +6567,7 @@ console.log('\n=== ۷۲) مدلِ تصویر با کیفیت هم انتخاب �
      gl.line.slice(-200));
   delete global.__PROPS[PK.LV_GEN_SCORES];
   global.__PROPS[PK.LV_GEN_MODEL] = '';
+  CFG.LV_GEN_MODEL_PIN = pin72;
 }
 
 console.log('\n=== ۷۳) پرسشِ تصویرِ افسارگسیخته دورِ انتشار را نمی‌کُشد (۸.۳۴) ===');
@@ -6816,6 +6821,127 @@ console.log('\n=== ۷۵) ویدئوی تأییدشده جلوِ صف است، و
   YT_APPROVED_ = keepA;
   global.ytFolderOf_ = folderWas; delete global.YouTube;
   CFG.YT_THUMB = thumbWas; CFG.YT_QUOTA_UNITS = unitsWas; CFG.YT_REDO_MAX_PER_NIGHT = maxWas;
+}
+
+console.log('\n=== ۷۶) ممیزیِ ۵ اکتبر: سنجاقِ مدلِ تصویر، کفِ صحنه به اندازهٔ رانر، تأییدشده پیش از انتشار (۸.۵۰) ===');
+{
+  /* سه چیز که ممیزی از **دادهٔ واقعی** پیدا کرد، نه از خواندنِ کد:
+     - `_scenes.json`ِ درسِ ۳۸ (او: «فوق‌العاده») با `gemini-3.1-flash-lite-image`
+       ساخته شده و داور میانگینِ ۵٫۴۹ داده — زیرِ کفِ ۵٫۵. پس کنار رفت؛ درسِ ۳۹ با
+       `gemini-2.5-flash-image` (دو برابر قیمت) ۵٫۳۳ گرفت و آن هم کنار رفت؛ و
+       `_STATUS.json` امروز مدلِ سوم را نشان می‌داد. هر درس سبکی دیگر، هر بار گران‌تر.
+     - کفِ برشِ ۸.۴۹ (۶ ثانیه) زیرِ آن چیزی بود که رانر نگه می‌دارد.
+     - درِ ویدئوی تأییدشده پشتِ ساختِ صحنه‌های درسِ تازه بود. */
+  const lite = 'gemini-3.1-flash-lite-image', mid = 'gemini-2.5-flash-image',
+        prev = 'gemini-3.1-flash-image-preview';
+  const pinWas = CFG.LV_GEN_MODEL_PIN, setWas = CFG.LV_GEN_MODEL, stubWas = global.__STUB;
+  CFG.LV_GEN_MODEL = '';
+  CFG.LV_GEN_MODEL_PIN = lite;
+  let lists = 0, listed = [lite, mid, prev];
+  global.__STUB = function (url, body) {
+    if (url.indexOf('/v1beta/models?') !== -1) {
+      lists++;
+      return { code: 200, json: { models: listed.map(m => ({ name: 'models/' + m,
+                                                               supportedGenerationMethods: ['generateContent'] })) } };
+    }
+    return stubWas(url, body);
+  };
+  /* نمره‌های واقعیِ دو درس، از `_scenes.json`ِ همان دو درس در درایو */
+  const feed = (m, dist) => { for (const k in dist) for (let i = 0; i < dist[k]; i++) lvGenScoreAdd_(m, { s: Number(k), txt: false, face: false }); };
+  delete global.__PROPS[PK.LV_GEN_SCORES];
+  feed(lite, { 6: 23, 5: 10, 7: 8, 4: 6, 3: 4 });          // درسِ ۳۸ — ۵۱ تصویر، میانگینِ ۵٫۴۹
+  /* و هشت تصویری که داور از نو ساخت (`redo: 8`): نمرهٔ نخستشان هم به حساب رفته بود و
+     زیرِ ۵ بود (همین علتِ ساختِ دوباره است). عددِ دقیقش در `_scenes.json` نمی‌مانَد؛
+     ۳ فرض شده. همین است که میانگینِ ۵٫۴۹ را در حسابِ موتور زیرِ ۵٫۵ برد — و شاهدش
+     خودِ عوض‌شدنِ مدل است: ارزان‌ترین مدل جز با «بد» شدن کنار نمی‌رود. */
+  feed(lite, { 3: 8 });
+  feed(mid, { 6: 21, 5: 13, 4: 6, 7: 5, 3: 3, 2: 1 });      // درسِ ۳۹ — ۴۹ تصویر، میانگینِ ۵٫۳۳
+  const liteBad = lvGenModelBad_(lite), midBad = lvGenModelBad_(mid);
+
+  /* ۷۶.۱ — حافظه همان مدلِ سومی است که امروز در `_STATUS.json` بود؛ سنجاق برمی‌گرداند و خبرش می‌رود. */
+  global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: prev, at: Date.now(), why: 'ارزان‌ترین' });
+  const q0 = (JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || []).length;
+  const p1 = lvGenModel_();
+  const q1 = JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || [];
+  ok('۷۶.۱ با نمره‌های واقعیِ دو درس: قاعدهٔ ۸.۳۳ هر دو را «بد» می‌خوانَد — و سنجاق باز مدلِ درسِ ۳۸ را برمی‌گرداند، با خبر',
+     liteBad.bad === true && midBad.bad === true && p1.id === lite && /سنجاق/.test(p1.why) &&
+     q1.length > q0 && /به سنجاق برگشت/.test(JSON.stringify(q1.slice(-1))),
+     JSON.stringify({ lite: liteBad.avg, mid: midBad.avg, pick: p1, mail: q1.slice(-1) }));
+
+  /* ۷۶.۲ — حافظهٔ سنجاق بی فهرست‌خوانی پذیرفته می‌شود (فهرستِ مدل‌ها فراخوانِ شبکه است). */
+  lists = 0;
+  const p2 = lvGenModel_();
+  ok('۷۶.۲ سنجاقِ به‌خاطرسپرده بی خواندنِ دوبارهٔ فهرست', p2.id === lite && lists === 0, JSON.stringify({ p2, lists }));
+
+  /* ۷۶.۳ — عیبِ **عینی** سنجاق را کنار می‌گذارد: نوشته در بیش از ۳۰٪ تصویرها. */
+  for (let i = 0; i < 40; i++) lvGenScoreAdd_(lite, { s: 7, txt: true, face: false });
+  /* حافظه هنوز سنجاقِ تازه را دارد (۷۶.۲): عیب باید **از درِ حافظه هم** دیده شود،
+     وگرنه سنجاقِ نوشته‌دار تا هفت روز از حافظه برمی‌گشت. */
+  const q2 = (JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || []).length;
+  const p3 = lvGenModel_();
+  lists = 0;
+  const p3b = lvGenModel_();
+  const q3 = JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]') || [];
+  ok('۷۶.۳ سنجاقِ نوشته‌دار کنار می‌رود، علتش در «چرا» می‌آید، و جانشین از حافظه بی فهرست‌خوانیِ دوباره',
+     p3.id !== lite && p3.id !== '' && /سنجاقِ «gemini-3\.1-flash-lite-image» در \d+٪/.test(p3.why) &&
+     p3b.id === p3.id && lists === 0 && lvGenPinDefect_(lite).bad === true,
+     JSON.stringify({ p3, p3b, lists, def: lvGenPinDefect_(lite) }));
+
+  /* ۷۶.۴ — سنجاق در فهرستِ حساب نیست ⇒ همان انتخابِ پیشین، گفته‌شده در «چرا» و در خطِ روزانه. */
+  delete global.__PROPS[PK.LV_GEN_SCORES];
+  listed = [mid, prev];
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  global.__PROPS[PK.MODELS] = '';
+  const p4 = lvGenModel_();
+  const onWas = global.__PROPS[PK.LV_GEN_ON];
+  global.__PROPS[PK.LV_GEN_ON] = '1';
+  const st4 = lvGenStatus_();
+  ok('۷۶.۴ سنجاقِ نبوده ⇒ ارزان‌ترینِ موجود، و «در دسترس نیست» در «چرا» و در خطِ روزانه',
+     p4.id !== '' && p4.id !== lite && /در فهرستِ مدل‌های حساب نیست/.test(p4.why) &&
+     st4.pinMiss === true && /سنجاقِ «gemini-3\.1-flash-lite-image» در دسترس نیست/.test(st4.line),
+     JSON.stringify({ p4, line: st4.line.slice(0, 260) }));
+
+  /* ۷۶.۵ — سنجاقِ سرِ جا: میانگینِ زیرِ کف «❌» نمی‌شود، ولی عددش گفته می‌شود. */
+  listed = [lite, mid, prev];
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  feed(lite, { 6: 23, 5: 10, 7: 8, 4: 6, 3: 4 });
+  feed(lite, { 3: 8 });
+  lvGenModel_();
+  const st5 = lvGenStatus_();
+  if (onWas === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = onWas;
+  ok('۷۶.۵ خطِ روزانه: سنجاق نام برده می‌شود، میانگینِ واقعی گفته می‌شود، و «❌ زیرِ کف» برایش نمی‌آید',
+     st5.pinned === true && /سنجاق: مدلِ درسِ ۳۸/.test(st5.line) && /میانگین ۵\.۲ از ۱۰ در ۵۹ تصویر/.test(st5.line) &&
+     !/❌ زیرِ کفِ داوری/.test(st5.line) && /ولی سنجاق است/.test(st5.line),
+     st5.line.slice(0, 400));
+  delete global.__PROPS[PK.LV_GEN_SCORES];
+  global.__PROPS[PK.LV_GEN_MODEL] = '';
+  global.__STUB = stubWas;
+  CFG.LV_GEN_MODEL_PIN = pinWas; CFG.LV_GEN_MODEL = setWas;
+
+  /* ۷۶.۶ — کفِ برش از رانر خوانده می‌شود، نه از سلیقه: کمتر از minSec + 2×snap یعنی
+     صحنه‌ای که هر دو مرزش به مکث کشیده شود زیرِ minSec می‌رود و رانر حذفش می‌کند —
+     تصویرِ پول‌داده‌ای که دیده نمی‌شود. دو عدد در دو فایل، پس از متنِ هر دو. */
+  const skSrc = fs.readFileSync('tools/scenekit.js', 'utf8');
+  const minSec = Number((skSrc.match(/minSec:\s*([0-9.]+)/) || [])[1]);
+  const snap = Number((skSrc.match(/snap:\s*([0-9.]+)/) || [])[1]);
+  ok('۷۶.۶ کفِ صحنه در هر دو سطح ≥ کفِ رانر + دو برابرِ جابه‌جاییِ مرز',
+     minSec > 0 && snap > 0 && lvSceneCutSec_('زیاد').min >= minSec + 2 * snap &&
+     lvSceneCutSec_('کم').min >= minSec + 2 * snap,
+     JSON.stringify({ minSec, snap, hi: lvSceneCutSec_('زیاد'), lo: lvSceneCutSec_('کم') }));
+
+  /* ۷۶.۷ — در دورِ یوتیوب، ویدئوی تأییدشده **پیش از** ساختِ صحنه‌های درسِ تازه نوبت می‌گیرد. */
+  const order = [];
+  const keep = { appr: global.ytApprovedRedo_, due: global.ytRunDue_, col: global.ytRenderCollect_,
+                 back: global.ytBackfill_, stats: global.ytStatsDue_ };
+  global.ytApprovedRedo_ = function () { order.push('تأییدشده'); return { checked: 0, cleared: 0, why: [] }; };
+  global.ytRunDue_ = function () { order.push('انتشار'); return { done: 0, waiting: 0 }; };
+  global.ytRenderCollect_ = function () { return { got: 0 }; };
+  global.ytBackfill_ = function () { return { queued: 0 }; };
+  global.ytStatsDue_ = function () { return false; };
+  ytTick_(200000);
+  global.ytApprovedRedo_ = keep.appr; global.ytRunDue_ = keep.due; global.ytRenderCollect_ = keep.col;
+  global.ytBackfill_ = keep.back; global.ytStatsDue_ = keep.stats;
+  ok('۷۶.۷ دورِ یوتیوب: «تأییدشده» پیش از «انتشار»', order.join(',') === 'تأییدشده,انتشار', order.join(','));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
