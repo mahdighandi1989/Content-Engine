@@ -1465,6 +1465,9 @@ function ytRenderAsk_(item) {
              (row.visuals || []).length + ' تصویر' + (row.spec ? ' و ' + row.spec.cards.length + ' کارتِ برداری' : '') + '.');
   }
   if (okSave) ytQueueShare_();
+  /* رانر همین حالا راه می‌افتد، نه هر وقت زمان‌بندیِ گیت‌هاب یادش آمد (۸.۵۸).
+     بی توکن هیچ کاری نمی‌کند و هیچ فراخوانی نمی‌زند. */
+  if (okSave) { try { ghRenderDue_('درخواستِ رندرِ ' + key); } catch (eGk) {} }
   return okSave;
 }
 
@@ -1476,7 +1479,13 @@ function ytRenderDone_(show, ep) {
     if (String(d.items[i].status) === 'رسید') return false;
     d.items[i].status = 'رسید'; d.items[i].doneAt = nowStr_(); hit = true;
   }
-  return hit ? ytRenderSave_(d) : false;
+  if (!hit) return false;
+  var okD = ytRenderSave_(d);
+  /* آخرین کارِ منتظر برداشته شد ⇒ درِ ساعتی دیگر رانر را راه نمی‌اندازد (۸.۵۸). */
+  if (okD && !d.items.some(function (x) { return String(x.status || '') === 'در انتظار'; })) {
+    try { ghRenderDueClear_(); } catch (eGc) {}
+  }
+  return okD;
 }
 
 /** چند درخواست بی‌جواب مانده و قدیمی‌ترینش چند روز است. */
@@ -9896,6 +9905,8 @@ function ytPublishTick() {
   runEnter_('ytPublishTick');
   try {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
+  /* درِ دومِ «کارِ رندر منتظر است» (۸.۵۸) — فقط Properties، پیش از هر کارِ سنگین. */
+  try { ghRenderKickDue_(); } catch (eGkd) {}
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
     var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));
@@ -10107,6 +10118,7 @@ function ytStatus_() {
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
   try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
+  try { out.kick = ghKickStatus_(); } catch (e9) { out.kick = null; }
   out.line = ytLine_(out);
   return out;
 }
@@ -10169,6 +10181,12 @@ function ytHealth_(problems, notes) {
   if (st.replace && st.replace.line) {
     notes.push(st.replace.line);
     if (st.replace.problem) problems.push(st.replace.problem);
+  }
+  /* راه‌اندازِ رندر (۸.۵۸): هر روز یک جمله، حتی بی توکن — سکوت این‌جا یعنی او
+     نمی‌فهمد ویدئو منتظرِ زمان‌بندیِ گیت‌هاب است. */
+  if (st.kick && st.kick.line) {
+    notes.push(st.kick.line);
+    if (st.kick.problem) problems.push(st.kick.problem);
   }
 
   /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
@@ -11447,7 +11465,10 @@ function ytPlSqWant_(spec) {
     var want = ytPlSqReqs_(m);
     if (JSON.stringify(d.plCovers || []) !== JSON.stringify(want)) {
       d.plCovers = want;
-      if (ytRenderSave_(d)) { try { ytQueueShare_(); } catch (eQs) {} }
+      if (ytRenderSave_(d)) {
+        try { ytQueueShare_(); } catch (eQs) {}
+        try { ghRenderDue_('کاورِ مربعیِ پلی‌لیست'); } catch (eGk) {}
+      }
     }
     return true;
   } catch (e) { return false; }

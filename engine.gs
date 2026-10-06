@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.57
+ *  موتور محتوا و پادکست — نسخهٔ 8.58
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1244,6 +1244,18 @@ var CFG = {
      و «خصوصی» می‌شود — برگشت‌پذیر. */
   YT_REPLACE_FILE: 'docs/yt-replace.json',
   YT_REPLACE_TRY_MAX: 3,
+  /* ══ راه‌اندازِ رندر با توکنِ صاحبِ برنامه (۸.۵۸) ══
+     کرانِ ده‌دقیقه‌ایِ ۸.۵۵ را گیت‌هاب ۶ اکتبر در ~شش ساعت یک بار زد. موتور خودش
+     می‌داند کِی کاری برای رانر نوشته، پس خودش راه می‌اندازد. توکن فقط در Script
+     Properties (`PK.GH_TOKEN`)؛ بی آن، رفتارِ دیروز و هیچ فراخوانی. */
+  GH_KICK_ON: true,
+  GH_RENDER_WF: 'render.yml',
+  GH_KICK_GAP_MIN: 10,         // دو راه‌اندازیِ پشتِ‌هم کمتر از این فاصله نه
+  GH_KICK_RETRY_MIN: 50,       // درِ ساعتی: کارِ منتظر، دوباره پس از این‌قدر
+  GH_KICK_MAX_DAY: 40,         // سقفِ روزانهٔ تلاش برای هر گردش‌کار
+  GH_KICK_BAD_H: 6,            // توکنِ ردشده تا عوض نشده، هر این‌قدر یک بار
+  GH_RENDER_DUE_H: 24,         // نشانهٔ «کارِ منتظر» بیش از این خودش می‌افتد
+  GH_TOKEN_WARN_DAYS: 14,      // انقضای نزدیک‌تر از این ⇒ ایرادِ روز
   /* ══ آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ══
      هر دورِ یوتیوب تا این‌قدر ویدئوی منتشرشده را می‌سنجد: کاورِ عمومیِ خودِ
      یوتیوب (i.ytimg.com) کنارِ نقاشیِ رانر. دفترِ `YT_THUMB_PAINT` می‌گوید ما چه
@@ -1915,7 +1927,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.57',
+  CODE_VERSION: '8.58',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3023,6 +3035,11 @@ var PK = {
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
   YT_PLORD: 'YT_PL_ORDER',         // ترتیبِ پلی‌لیست‌ها: آخرین سنجش، چند جابه‌جا شد، چند مانده (۸.۵۷)
   YT_REPL: 'YT_REPLACE_STATE',     // جایگزینیِ ویدئوی منتشرشده: حالتِ هر کلید (۸.۵۷)
+  /* توکنِ راه‌اندازِ گردش‌کارهای گیت‌هاب — صاحبِ برنامه خودش در Project Settings ⇒
+     Script Properties می‌گذارد. هرگز در کد، سیاهه یا _STATUS.json (۸.۵۸). */
+  GH_TOKEN: 'GITHUB_DISPATCH_TOKEN',
+  GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
+  GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت
   YT_PL_SQ: 'YT_PL_SQ_REQ',        // کاورهای مربعِ پلی‌لیست که از رانر خواسته شده‌اند (۸.۵۵)
   YT_THUMB_AUDIT: 'YT_THUMB_AUDIT', // آنچه بیننده می‌بیند: سنجشِ کاورِ عمومیِ هر ویدئو با نقاشی (۸.۵۵)
   CODE_TASK: 'CODE_TASK',          // کارِ کدِ امروزِ ناظر و چند روز است مانده (۸.۵۵)
@@ -35343,6 +35360,211 @@ function promptImpactNotice_(version) {
   return { sent: true, items: list, kinds: kinds };
 }
 
+/* ────────── راه‌اندازِ گردش‌کارهای گیت‌هاب با توکنِ صاحبِ برنامه (۸.۵۸) ──────────
+ *
+ * ۸.۵۵ کرانِ رندر را ده‌دقیقه‌ای کرد چون «هر ساعت» در عمل هر ۳ تا ۹ ساعت دوید. از
+ * لحظهٔ عوض‌شدنش (۶ اکتبر ۱۳:۱۳ گرینویچ) تا ۱۸:۵۴ گیت‌هاب رندر را **یک بار** خودش
+ * راه انداخت، به‌جای ~۳۴ بار، در حالی که گردش‌کارهای دیگرِ همین مخزن را می‌انداخت. زمان‌بندیِ گیت‌هاب
+ * وعده نیست؛ «بهترین تلاش» است، و این مخزن زیرِ آن دیده نمی‌شود. وعدهٔ ۸.۵۵ از
+ * **تنظیم** می‌آمد، نه از رویداد (۸.۵۴).
+ *
+ * موتور خودش می‌داند کِی کاری برای رانر نوشته؛ پس خودش رانر را راه می‌اندازد —
+ * `workflow_dispatch`، با توکنی که فقط صاحبِ برنامه می‌سازد و فقط در Script
+ * Properties می‌نشیند. ریپو عمومی است؛ توکن **هرگز** در کد، سیاهه، `_STATUS.json`
+ * یا پیام نمی‌آید. سنجهٔ ۸۸.۵ این را از خروجیِ واقعی می‌سنجد.
+ *
+ * مرزها:
+ * - **بی توکن یعنی رفتارِ دیروز**، و هیچ فراخوانِ شبکه‌ای (همهٔ مجموعه‌های قدیمی
+ *   بی توکن‌اند؛ یک فراخوانِ تازه پاسخ‌های بدَل را جابه‌جا می‌کرد، ۷.۶۶).
+ * - **پیامِ شکست علت و کار را به نام می‌گوید** (۴۰۱/۴۰۳/۴۰۴ هر کدام یک کارِ متفاوت
+ *   از او می‌خواهند)، و توکنی که رد شد تا عوض نشده هر ساعت دوباره امتحان نمی‌شود:
+ *   اثرِ انگشتِ کوتاهش نگه داشته می‌شود و توکنِ تازه همان لحظه امتحان می‌شود.
+ * - **انقضا پیش از رسیدن گفته می‌شود**: گیت‌هاب تاریخش را در سرآیندِ هر پاسخ
+ *   می‌دهد؛ توکنی که بی‌صدا منقضی شود همان «زنگی که فقط در حالتِ سالم کار
+ *   می‌کند» است.
+ */
+function ghToken_() {
+  try { return String(props_().getProperty(PK.GH_TOKEN) || '').trim(); } catch (e) { return ''; }
+}
+
+/** اثرِ انگشتِ کوتاهِ توکن — فقط برای «عوض شد یا نه»، هرگز خودِ توکن. */
+function ghTokenFp_(tok) {
+  if (!tok) return '';
+  try {
+    var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, tok, Utilities.Charset.UTF_8);
+    var h = '';
+    for (var i = 0; i < 4; i++) { var b = (d[i] + 256) % 256; h += (b < 16 ? '0' : '') + b.toString(16); }
+    return h;
+  } catch (e) { return String(tok.length); }
+}
+
+function ghKickState_() {
+  try { var s = JSON.parse(props_().getProperty(PK.GH_KICK) || '{}'); return (s && typeof s === 'object') ? s : {}; }
+  catch (e) { return {}; }
+}
+function ghKickSave_(s) { try { props_().setProperty(PK.GH_KICK, JSON.stringify(s)); } catch (e) {} }
+
+/** پاسخِ گیت‌هاب ⇒ جمله‌ای که می‌گوید او چه کند. */
+function ghKickWhy_(code, body) {
+  var msg = '';
+  try { var j = JSON.parse(body || '{}'); msg = String((j && j.message) || ''); } catch (e) { msg = ''; }
+  if (!msg) msg = String(body || '').slice(0, 160);
+  msg = msg.replace(/\s+/g, ' ').slice(0, 160);
+  if (code === 401) return 'گیت‌هاب توکن را نپذیرفت (۴۰۱) — منقضی شده یا ناقص کپی شده؛ توکنِ تازه بسازید و جایش بگذارید.';
+  if (code === 403) return 'توکن اجازهٔ راه‌اندازیِ گردش‌کار ندارد (۴۰۳) — در تنظیماتِ توکن، «Actions» باید «Read and write» باشد.' + (msg ? ' (' + msg + ')' : '');
+  if (code === 404) return 'گیت‌هاب با این توکن مخزن یا گردش‌کار را نمی‌بیند (۴۰۴) — در «Repository access» مخزنِ ' + CFG.GITHUB_REPO + ' انتخاب نشده، یا «Actions» اجازه ندارد.';
+  if (code === 422) return 'گیت‌هاب درخواست را نپذیرفت (۴۲۲): ' + msg;
+  if (code === -1) return 'به گیت‌هاب نرسید: ' + msg;
+  return 'پاسخِ ' + code + ' از گیت‌هاب' + (msg ? ': ' + msg : '');
+}
+
+/** «2026-10-06 12:00:00 UTC» ⇒ زمان؛ نامعلوم ⇒ NaN. */
+function ghExpParse_(s) {
+  s = String(s || '').trim();
+  if (!s) return NaN;
+  var t = Date.parse(s.replace(/\s*UTC$/i, 'Z').replace(' ', 'T'));
+  if (isNaN(t)) t = Date.parse(s);
+  return t;
+}
+
+/**
+ * یک گردش‌کار را راه بینداز. `opt.force` فاصلهٔ کمینه را نادیده می‌گیرد (نه سقفِ
+ * روزانه را). هیچ‌وقت پرتاب نمی‌کند.
+ */
+function ghKick_(wf, why, opt) {
+  opt = opt || {};
+  wf = String(wf || CFG.GH_RENDER_WF || 'render.yml');
+  var tok = ghToken_();
+  if (!tok) return { ok: false, noToken: true, why: 'بی توکن' };
+  var st = ghKickState_(), w = st[wf] || {};
+  var now = new Date(), nowMs = now.getTime(), nowS = nowStr_();
+  var fp = ghTokenFp_(tok);
+  var bad = /^(401|403|404)$/.test(String(w.code || ''));
+  /* توکنی که رد شد، تا عوض نشده هر بار دوباره امتحان نمی‌شود؛ توکنِ تازه
+     (اثرِ انگشتِ دیگر) همان لحظه امتحان می‌شود. */
+  if (bad && w.fp === fp && !opt.force) {
+    var badMs = Math.max(1, Number(CFG.GH_KICK_BAD_H) || 6) * 3600000;
+    var tBad = parseWhen_(String(w.at || ''));
+    if (!isNaN(tBad) && nowMs - tBad < badMs) return { ok: false, skipped: true, why: w.why };
+  }
+  if (!opt.force && !(bad && w.fp !== fp)) {
+    var gapMs = Math.max(1, Number(CFG.GH_KICK_GAP_MIN) || 10) * 60000;
+    var tLast = parseWhen_(String(w.at || ''));
+    if (!isNaN(tLast) && nowMs - tLast < gapMs) return { ok: false, skipped: true, why: 'تازه راه افتاده بود' };
+  }
+  var day = Utilities.formatDate(now, CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  if (w.day !== day) { w.day = day; w.nDay = 0; }
+  var cap = Math.max(1, Number(CFG.GH_KICK_MAX_DAY) || 40);
+  if ((Number(w.nDay) || 0) >= cap) return { ok: false, skipped: true, why: 'سقفِ روزانهٔ ' + cap + ' راه‌اندازی' };
+  var url = 'https://api.github.com/repos/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO +
+            '/actions/workflows/' + encodeURIComponent(wf) + '/dispatches';
+  var code = 0, body = '', res = null;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + tok, Accept: 'application/vnd.github+json',
+                 'X-GitHub-Api-Version': '2022-11-28' },
+      payload: JSON.stringify({ ref: CFG.GITHUB_BRANCH || 'main' }) });
+    code = Number(res.getResponseCode()) || 0;
+    body = String(res.getContentText() || '');
+  } catch (e) { code = -1; body = String((e && e.message) || e); }
+  try {
+    var hd = (res && res.getAllHeaders) ? (res.getAllHeaders() || {}) : {};
+    for (var hk in hd) {
+      if (Object.prototype.hasOwnProperty.call(hd, hk) &&
+          /^github-authentication-token-expiration$/i.test(hk)) st.exp = String(hd[hk]);
+    }
+  } catch (eH) {}
+  w.at = nowS; w.fp = fp; w.code = code;
+  w.nDay = (Number(w.nDay) || 0) + 1;
+  if (code === 204) {
+    w.okAt = nowS; w.n = (Number(w.n) || 0) + 1; w.fail = 0; w.why = String(why || '');
+    st[wf] = w; ghKickSave_(st);
+    return { ok: true };
+  }
+  w.fail = (Number(w.fail) || 0) + 1; w.failAt = nowS; w.why = ghKickWhy_(code, body);
+  st[wf] = w; ghKickSave_(st);
+  try { logLine_('راه‌اندازیِ «' + wf + '» نشد: ' + w.why); } catch (eL) {}
+  return { ok: false, code: code, why: w.why };
+}
+
+/** کاری برای رانر نوشته شد: نشانهٔ «منتظر» و همان لحظه یک راه‌اندازی. */
+function ghRenderDue_(why) {
+  if (CFG.GH_KICK_ON === false) return null;
+  try { props_().setProperty(PK.GH_RENDER_DUE, nowStr_() + '|' + String(why || '').slice(0, 80)); } catch (e) {}
+  return ghKick_(CFG.GH_RENDER_WF || 'render.yml', why);
+}
+
+function ghRenderDueClear_() { try { props_().deleteProperty(PK.GH_RENDER_DUE); } catch (e) {} }
+
+/**
+ * درِ ساعتی: فقط Script Properties (۷.۶۳/۷.۸۴). اگر کاری منتظر مانده و آخرین
+ * راه‌اندازی کهنه است، دوباره — چون راه‌اندازیِ موفق هم ممکن است پشتِ اجرای
+ * دیگری صف بکشد و آن اجرا کارِ تازه را نبیند. نشانه پس از `GH_RENDER_DUE_H`
+ * ساعت خودش می‌افتد؛ برداشتِ ویدئو آن را زودتر پاک می‌کند.
+ */
+function ghRenderKickDue_() {
+  if (CFG.GH_KICK_ON === false) return null;
+  var v = '';
+  try { v = String(props_().getProperty(PK.GH_RENDER_DUE) || ''); } catch (e) { return null; }
+  if (!v) return null;
+  var t = parseWhen_(v.split('|')[0]);
+  var maxMs = Math.max(1, Number(CFG.GH_RENDER_DUE_H) || 24) * 3600000;
+  if (isNaN(t) || new Date().getTime() - t > maxMs) { ghRenderDueClear_(); return null; }
+  if (!ghToken_()) return null;
+  var w = ghKickState_()[CFG.GH_RENDER_WF || 'render.yml'] || {};
+  var tLast = parseWhen_(String(w.at || ''));
+  var retryMs = Math.max(1, Number(CFG.GH_KICK_RETRY_MIN) || 50) * 60000;
+  if (!isNaN(tLast) && new Date().getTime() - tLast < retryMs) return null;
+  return ghKick_(CFG.GH_RENDER_WF || 'render.yml', 'کارِ رندر هنوز منتظر است');
+}
+
+/**
+ * یک جمله برای هر روز، از Properties (بی هیچ خواندنِ شبکه). بی توکن «کارِ شما»
+ * است نه ایراد — تصمیمِ اوست. شکستِ راه‌اندازی و نزدیکیِ انقضا ایراد است.
+ */
+function ghKickStatus_() {
+  var wf = CFG.GH_RENDER_WF || 'render.yml';
+  var out = { on: CFG.GH_KICK_ON !== false, token: !!ghToken_(), line: '', problem: '',
+              exp: '', expDays: null, due: '', render: null };
+  var st = ghKickState_(), w = st[wf] || {};
+  out.render = { at: String(w.at || ''), okAt: String(w.okAt || ''), code: Number(w.code) || 0,
+                 n: Number(w.n) || 0, nDay: Number(w.nDay) || 0, day: String(w.day || ''),
+                 fail: Number(w.fail) || 0, why: String(w.why || '') };
+  try { out.due = String(props_().getProperty(PK.GH_RENDER_DUE) || '').split('|')[0]; } catch (e) {}
+  out.exp = String(st.exp || '');
+  var te = ghExpParse_(out.exp);
+  if (!isNaN(te)) out.expDays = Math.floor((te - new Date().getTime()) / 86400000);
+  if (!out.on) { out.line = 'راه‌اندازِ رندر: خاموش (تنظیم).'; return out; }
+  if (!out.token) {
+    out.line = '⟨شما⟩ راه‌اندازِ رندر: توکنِ گیت‌هاب گذاشته نشده — ویدئوها منتظرِ زمان‌بندیِ ' +
+               'خودِ گیت‌هاب می‌مانند که ساعت‌ها جا می‌اندازد. راهنما: README، «توکنِ راه‌اندازِ رندر».';
+    return out;
+  }
+  var today = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  /* خطای دسترسی همان بارِ اول ایراد است (کاری از او می‌خواهد)؛ خطای شبکه فقط
+     وقتی تکرار شد — یک قطعیِ گذرا نباید ایمیلِ روز را قرمز کند. */
+  var authBad = /^(401|403|404|422)$/.test(String(out.render.code));
+  var failing = out.render.code && out.render.code !== 204 &&
+                (authBad ? out.render.fail > 0 : out.render.fail >= 2);
+  if (failing) {
+    out.problem = 'راه‌اندازِ رندر نشد (' + out.render.fail + ' بارِ پیاپی، آخرین ' + out.render.at + '): ' + out.render.why;
+    out.line = '❌ ' + out.problem;
+    return out;
+  }
+  var warn = Math.max(1, Number(CFG.GH_TOKEN_WARN_DAYS) || 14);
+  if (out.expDays !== null && out.expDays <= warn) {
+    out.problem = 'توکنِ راه‌اندازِ رندر ' + (out.expDays < 0 ? 'منقضی شده' : out.expDays + ' روزِ دیگر منقضی می‌شود') +
+                  ' (' + out.exp + ') — توکنِ تازه بسازید و جایِ قبلی بگذارید.';
+  }
+  out.line = 'راه‌اندازِ رندر: توکن هست · ' +
+    (out.render.okAt ? 'آخرین راه‌اندازی ' + out.render.okAt + ' · امروز ' +
+       (out.render.day === today ? out.render.nDay : 0) + ' بار' : 'هنوز لازم نشده') +
+    (out.due ? ' · کارِ منتظر از ' + out.due : '') +
+    (out.expDays !== null ? ' · انقضا ' + out.expDays + ' روزِ دیگر' : '') + '.';
+  return out;
+}
+
 /* ═══════════════════════════ 22_SourceScripts.gs ═══════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -47465,6 +47687,9 @@ function ytRenderAsk_(item) {
              (row.visuals || []).length + ' تصویر' + (row.spec ? ' و ' + row.spec.cards.length + ' کارتِ برداری' : '') + '.');
   }
   if (okSave) ytQueueShare_();
+  /* رانر همین حالا راه می‌افتد، نه هر وقت زمان‌بندیِ گیت‌هاب یادش آمد (۸.۵۸).
+     بی توکن هیچ کاری نمی‌کند و هیچ فراخوانی نمی‌زند. */
+  if (okSave) { try { ghRenderDue_('درخواستِ رندرِ ' + key); } catch (eGk) {} }
   return okSave;
 }
 
@@ -47476,7 +47701,13 @@ function ytRenderDone_(show, ep) {
     if (String(d.items[i].status) === 'رسید') return false;
     d.items[i].status = 'رسید'; d.items[i].doneAt = nowStr_(); hit = true;
   }
-  return hit ? ytRenderSave_(d) : false;
+  if (!hit) return false;
+  var okD = ytRenderSave_(d);
+  /* آخرین کارِ منتظر برداشته شد ⇒ درِ ساعتی دیگر رانر را راه نمی‌اندازد (۸.۵۸). */
+  if (okD && !d.items.some(function (x) { return String(x.status || '') === 'در انتظار'; })) {
+    try { ghRenderDueClear_(); } catch (eGc) {}
+  }
+  return okD;
 }
 
 /** چند درخواست بی‌جواب مانده و قدیمی‌ترینش چند روز است. */
@@ -55896,6 +56127,8 @@ function ytPublishTick() {
   runEnter_('ytPublishTick');
   try {
   var out = { ok: true, collected: 0, published: 0, queued: 0, waiting: 0, why: '' };
+  /* درِ دومِ «کارِ رندر منتظر است» (۸.۵۸) — فقط Properties، پیش از هر کارِ سنگین. */
+  try { ghRenderKickDue_(); } catch (eGkd) {}
   try {
     if (!ytOn_()) { out.ok = false; out.why = ytOffWhy_(); return out; }
     var r = ytTick_(Math.max(60000, Number(CFG.YT_TICK_MS) || 240000));
@@ -56107,6 +56340,7 @@ function ytStatus_() {
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
   try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
+  try { out.kick = ghKickStatus_(); } catch (e9) { out.kick = null; }
   out.line = ytLine_(out);
   return out;
 }
@@ -56169,6 +56403,12 @@ function ytHealth_(problems, notes) {
   if (st.replace && st.replace.line) {
     notes.push(st.replace.line);
     if (st.replace.problem) problems.push(st.replace.problem);
+  }
+  /* راه‌اندازِ رندر (۸.۵۸): هر روز یک جمله، حتی بی توکن — سکوت این‌جا یعنی او
+     نمی‌فهمد ویدئو منتظرِ زمان‌بندیِ گیت‌هاب است. */
+  if (st.kick && st.kick.line) {
+    notes.push(st.kick.line);
+    if (st.kick.problem) problems.push(st.kick.problem);
   }
 
   /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
@@ -57447,7 +57687,10 @@ function ytPlSqWant_(spec) {
     var want = ytPlSqReqs_(m);
     if (JSON.stringify(d.plCovers || []) !== JSON.stringify(want)) {
       d.plCovers = want;
-      if (ytRenderSave_(d)) { try { ytQueueShare_(); } catch (eQs) {} }
+      if (ytRenderSave_(d)) {
+        try { ytQueueShare_(); } catch (eQs) {}
+        try { ghRenderDue_('کاورِ مربعیِ پلی‌لیست'); } catch (eGk) {}
+      }
     }
     return true;
   } catch (e) { return false; }
@@ -71419,6 +71662,9 @@ function vbrCollectHourly() {
   /* و قسمتی که اجرایش کشته شد و نگهبانش هم نرسید (۸.۵۴) — فقط Properties و
      فهرستِ تریگرها؛ سیاهه را خودِ ادامه می‌نویسد، نه این‌جا (۷٫۸۴). */
   try { epStallKick_(); } catch (eSk) {}
+  /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
+     Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
+  try { ghRenderKickDue_(); } catch (eGk) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

@@ -8316,4 +8316,171 @@ console.log('\n=== ۸۷) جایگزینیِ ویدئوی منتشرشده: تا�
   global.YouTube = {}; global.__STUB = BASE_STUB; global.getHub_ = hubWas;
 }
 
+console.log('\n=== ۸۸) موتور خودش رانر را راه می‌اندازد — توکن فقط در Properties، هرگز بیرون (۸.۵۸) ===');
+{
+  /* کرانِ ده‌دقیقه‌ایِ ۸.۵۵ را گیت‌هاب ۶ اکتبر در ~شش ساعت یک بار زد. این بخش از درِ
+     تولید می‌پرسد: درخواستِ رندر ⇒ یک POST به همان گردش‌کار، و هیچ‌جا توکن. */
+  const TOK = 'github_pat_TESTSECRET_0123456789abcdef';
+  const ago = (min) => Utilities.formatDate(new Date(Date.now() - min * 60000), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const expIn = (days) => new Date(Date.now() + days * 86400000).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+  const clean = () => { delete global.__PROPS[PK.GH_TOKEN]; delete global.__PROPS[PK.GH_KICK];
+                        delete global.__PROPS[PK.GH_RENDER_DUE]; };
+  /* سرآیندِ درخواست را `__FETCHES` نگه نمی‌دارد؛ این‌جا جدا گرفته می‌شود. */
+  const sent = [];
+  const fetchWas = UrlFetchApp.fetch;
+  UrlFetchApp.fetch = function (url, opt) {
+    if (/api\.github\.com\/.*\/dispatches/.test(String(url))) sent.push({ url: String(url), opt: opt || {} });
+    return fetchWas.call(UrlFetchApp, url, opt);
+  };
+  let reply = { code: 204, text: '', headers: {} };
+  global.__STUB = function (url, body) {
+    if (/api\.github\.com\/.*\/dispatches/.test(String(url))) return reply;
+    return BASE_STUB(url, body);
+  };
+  const logs = [];
+  const logWas = global.logLine_;
+  global.logLine_ = function (m) { logs.push(String(m)); try { return logWas(m); } catch (e) { return null; } };
+  const askRow = (ep) => ytRenderAsk_({ show: 'special', ep: String(ep), title: 'درسِ ' + ep, folderId: 'F' + ep,
+                                         visuals: [], audio: [{ id: 'A' + ep, name: 'کامل.wav' }], audioKind: 'کامل',
+                                         outName: 'قسمت — ویدئو.mp4' });
+  ytRenderSave_({ items: [] }); _ytMapMemo = {};
+
+  clean();
+  const a0 = askRow(901);
+  const st0 = ghKickStatus_();
+  ok('۸۸.۱ بی توکن: درخواستِ رندر نوشته می‌شود، هیچ فراخوانی به گیت‌هاب نمی‌رود، و خطِ روز «کارِ شما» است نه ایراد',
+     a0 === true && sent.length === 0 && /⟨شما⟩/.test(st0.line) && !st0.problem && !!global.__PROPS[PK.GH_RENDER_DUE],
+     JSON.stringify({ a0, sent: sent.length, st0 }));
+
+  clean();
+  global.__PROPS[PK.GH_TOKEN] = TOK;
+  reply = { code: 204, text: '', headers: { 'github-authentication-token-expiration': expIn(200) } };
+  const a1 = askRow(902);
+  const s1 = sent[0] || { opt: {} };
+  let pay = {}; try { pay = JSON.parse(s1.opt.payload || '{}'); } catch (e) {}
+  const h1 = s1.opt.headers || {};
+  const ks1 = ghKickStatus_();
+  ok('۸۸.۲ با توکن: درخواستِ رندر ⇒ دقیقاً یک POST به همان گردش‌کار، روی main، با توکن در سرآیند؛ انقضا خوانده می‌شود',
+     a1 === true && sent.length === 1 &&
+     s1.url === 'https://api.github.com/repos/' + CFG.GITHUB_OWNER + '/' + CFG.GITHUB_REPO + '/actions/workflows/render.yml/dispatches' &&
+     String(s1.opt.method).toLowerCase() === 'post' && pay.ref === CFG.GITHUB_BRANCH &&
+     h1.Authorization === 'Bearer ' + TOK && ks1.render.okAt && !ks1.problem && ks1.expDays >= 198,
+     JSON.stringify({ a1, n: sent.length, url: s1.url, pay, ks1 }));
+
+  const a2 = askRow(903);
+  ok('۸۸.۳ درخواستِ دوم در فاصلهٔ کوتاه رانر را دوباره راه نمی‌اندازد (یک اجرا هر دو را می‌سازد)',
+     a2 === true && sent.length === 1, 'n=' + sent.length);
+
+  /* درِ ساعتی: فقط وقتی آخرین راه‌اندازی کهنه است. */
+  const d4a = ghRenderKickDue_();
+  const stK = ghKickState_(); stK['render.yml'].at = ago(70); ghKickSave_(stK);
+  const d4b = ghRenderKickDue_();
+  ok('۸۸.۴ درِ ساعتی: کارِ منتظر با راه‌اندازیِ تازه ⇒ هیچ؛ با راه‌اندازیِ کهنه ⇒ دوباره',
+     d4a === null && d4b && d4b.ok === true && sent.length === 2, JSON.stringify({ d4a, d4b, n: sent.length }));
+
+  /* از درِ تریگرِ ساعتیِ واقعی — نه فقط خودِ تابع (۷.۶۲). */
+  const stK2 = ghKickState_(); stK2['render.yml'].at = ago(70); ghKickSave_(stK2);
+  const vbrWas = CFG.VBR_ON; CFG.VBR_ON = false;
+  const vbrStubs = {};
+  ['vintReadResult_', 'vintTrainWatch_', 'vintQueueDue_', 'musicRehearDue_', 'epStallKick_'].forEach((n) => {
+    vbrStubs[n] = global[n]; global[n] = () => null; });
+  try { vbrCollectHourly(); } catch (eV) {}
+  for (const n in vbrStubs) global[n] = vbrStubs[n];
+  CFG.VBR_ON = vbrWas;
+  ok('۸۸.۴-ب تریگرِ ساعتیِ خودش (`vbrCollectHourly`) کارِ منتظر را راه می‌اندازد، حتی وقتی پل خاموش است',
+     sent.length === 3, 'n=' + sent.length);
+
+  /* درِ دوم: دورِ دوره‌ایِ یوتیوب، پیش از هر کارِ سنگین — حتی وقتی یوتیوب وصل نیست. */
+  const stK3 = ghKickState_(); stK3['render.yml'].at = ago(70); ghKickSave_(stK3);
+  const onWas = global.ytOn_; global.ytOn_ = () => false;
+  try { ytPublishTick(); } catch (eP) {}
+  global.ytOn_ = onWas;
+  ok('۸۸.۴-ت دورِ دوره‌ایِ یوتیوب هم کارِ منتظر را راه می‌اندازد، پیش از هر شرطِ دیگری', sent.length === 4, 'n=' + sent.length);
+
+  global.__PROPS[PK.GH_RENDER_DUE] = ago(60 * 30) + '|کهنه';
+  const nOld = sent.length;
+  const d4c = ghRenderKickDue_();
+  ok('۸۸.۴-پ نشانهٔ کهنه‌تر از سقف خودش می‌افتد و چیزی راه نمی‌اندازد',
+     d4c === null && sent.length === nOld && !global.__PROPS[PK.GH_RENDER_DUE]);
+
+  /* برداشت: آخرین کارِ منتظر برداشته شد ⇒ نشانه پاک؛ تا وقتی یکی مانده ⇒ می‌مانَد. */
+  global.__PROPS[PK.GH_RENDER_DUE] = ago(5) + '|x';
+  ytRenderDone_('special', '901'); ytRenderDone_('special', '902');
+  const keep = !!global.__PROPS[PK.GH_RENDER_DUE];
+  ytRenderDone_('special', '903');
+  ok('۸۸.۵ برداشتِ آخرین ردیفِ منتظر نشانه را پاک می‌کند؛ پیش از آن نه',
+     keep && !global.__PROPS[PK.GH_RENDER_DUE]);
+
+  /* شکست: علت به نام، و توکنِ ردشده تا عوض نشده دوباره امتحان نمی‌شود. */
+  delete global.__PROPS[PK.GH_KICK];
+  reply = { code: 401, text: JSON.stringify({ message: 'Bad credentials' }), headers: {} };
+  const n6 = sent.length;
+  const f1 = ghKick_('render.yml', 'آزمون');
+  const st6 = ghKickStatus_();
+  const stB = ghKickState_(); stB['render.yml'].at = ago(20); ghKickSave_(stB);
+  const f2 = ghKick_('render.yml', 'آزمون');
+  global.__PROPS[PK.GH_TOKEN] = TOK + 'NEW';
+  reply = { code: 204, text: '', headers: {} };
+  const f3 = ghKick_('render.yml', 'آزمون');
+  ok('۸۸.۶ توکنِ ردشده (۴۰۱): ایرادِ روز با کارِ لازم؛ تا عوض نشده دوباره نه؛ توکنِ تازه همان لحظه',
+     f1.ok === false && /۴۰۱/.test(st6.problem) && /تازه بسازید/.test(st6.problem) &&
+     f2.skipped === true && f3.ok === true && sent.length === n6 + 2,
+     JSON.stringify({ f1, f2, f3, p: st6.problem, n: sent.length - n6 }));
+
+  const why403 = ghKickWhy_(403, '{"message":"Resource not accessible by personal access token"}');
+  const why404 = ghKickWhy_(404, '{"message":"Not Found"}');
+  ok('۸۸.۷ ۴۰۳ و ۴۰۴ هر کدام کارِ خودشان را می‌گویند',
+     /Actions/.test(why403) && /Read and write/.test(why403) && /Repository access/.test(why404) && why403 !== why404,
+     why403 + ' | ' + why404);
+
+  delete global.__PROPS[PK.GH_KICK];
+  reply = { code: 204, text: '', headers: { 'GitHub-Authentication-Token-Expiration': expIn(5) } };
+  ghKick_('render.yml', 'آزمون', { force: true });
+  const st8 = ghKickStatus_();
+  ok('۸۸.۸ انقضای نزدیک پیش از رسیدن گفته می‌شود (ایرادِ روز)',
+     /منقضی می‌شود/.test(st8.problem) && st8.expDays !== null && st8.expDays <= 5, JSON.stringify(st8));
+
+  delete global.__PROPS[PK.GH_KICK];
+  reply = { code: 502, text: 'bad gateway', headers: {} };
+  ghKick_('render.yml', 'آزمون', { force: true });
+  const p10a = ghKickStatus_().problem;
+  ghKick_('render.yml', 'آزمون', { force: true });
+  const p10b = ghKickStatus_().problem;
+  ok('۸۸.۹ خطای گذرای گیت‌هاب یک بار ایراد نیست؛ تکرارش هست',
+     !p10a && /(2|۲) بارِ پیاپی/.test(p10b), JSON.stringify({ p10a, p10b }));
+
+  /* و توکن هیچ‌جا: سیاهه، وضعیتِ روز، حافظهٔ راه‌انداز، و پیامِ خطا. */
+  reply = { code: 401, text: JSON.stringify({ message: 'Bad credentials' }), headers: {} };
+  ghKick_('render.yml', 'آزمون', { force: true });
+  let ytS = ''; try { ytS = JSON.stringify(ytStatus_()); } catch (e) { ytS = ''; }
+  const everywhere = logs.join('\n') + JSON.stringify(ghKickState_()) + JSON.stringify(ghKickStatus_()) + ytS;
+  ok('۸۸.۱۰ توکن در هیچ خروجی‌ای نیست — سیاهه، `_STATUS`، حافظه، پیام',
+     everywhere.indexOf('TESTSECRET') === -1 && ytS.length > 0 && everywhere.indexOf('۴۰۱') !== -1,
+     'len=' + everywhere.length);
+
+  /* خطِ روز در ایمیلِ ۱۰ صبح — از درِ خودِ `ytHealth_`، هم بی توکن هم با شکست. */
+  const pr1 = [], no1 = [];
+  ytHealth_(pr1, no1);
+  delete global.__PROPS[PK.GH_TOKEN];
+  const pr2 = [], no2 = [];
+  ytHealth_(pr2, no2);
+  ok('۸۸.۱۱ وارسیِ سلامت هر روز جملهٔ راه‌انداز را می‌گوید: شکست ⇒ ایراد؛ بی توکن ⇒ یادداشتِ «کارِ شما»',
+     pr1.some((x) => /راه‌اندازِ رندر نشد/.test(x)) && no2.some((x) => /⟨شما⟩ راه‌اندازِ رندر/.test(x)) &&
+     !pr2.some((x) => /راه‌اندازِ رندر/.test(x)),
+     JSON.stringify({ pr1: pr1.filter((x) => /رندر/.test(x)), no2: no2.filter((x) => /رندر/.test(x)) }));
+
+  /* کاورِ مربعیِ پلی‌لیست هم کارِ رانر است — همان راه‌اندازی. */
+  global.__PROPS[PK.GH_TOKEN] = TOK; delete global.__PROPS[PK.GH_KICK];
+  reply = { code: 204, text: '', headers: {} };
+  const sqWas = global.__PROPS[PK.YT_PL_SQ];
+  const n12 = sent.length;
+  const okSq = ytPlSqWant_({ key: 'series:آزمون', name: 'آزمون', kicker: 'درس‌نامه', show: 'special', pal: {}, sig: 's-' + Date.now() });
+  ok('۸۸.۱۲ درخواستِ کاورِ مربعیِ پلی‌لیست هم رانر را همان لحظه راه می‌اندازد',
+     okSq === true && sent.length === n12 + 1, 'n=' + (sent.length - n12));
+  if (sqWas === undefined) delete global.__PROPS[PK.YT_PL_SQ]; else global.__PROPS[PK.YT_PL_SQ] = sqWas;
+
+  UrlFetchApp.fetch = fetchWas; global.logLine_ = logWas;
+  global.__STUB = BASE_STUB; clean(); ytRenderSave_({ items: [] }); _ytMapMemo = null;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
