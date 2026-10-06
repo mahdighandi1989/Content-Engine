@@ -967,8 +967,11 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
     /* پلِ «زمینه» پنج ثانیه طنینِ کشیده است و شنونده آن را موسیقی نمی‌شنود (۸.۵۶:
        درسِ ۴۰ سه پل داشت، هر سه «طنین»، و او گفت «موسیقی که نداشت»). زمینه
-       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود. */
-    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 2;
+       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود.
+       ══ و «دیرتر» باید واقعاً دیرتر باشد (۸.۵۷) ══ با +۲، طنینی که یک واژهٔ حال‌وهوا (+۳)
+       را داشت باز جلو می‌افتاد — و «آرام» تقریباً در هر درس‌نامه‌ای هست. پس پلِ ۶ اکتبر
+       باز طنین بود. آهنگ حالا بر هر هم‌خوانیِ تک‌واژه‌ای مقدم است. */
+    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 6;
     return s;
   };
   cands.sort(function (a, b) {
@@ -1042,24 +1045,78 @@ function musicMarkUsed_(hub, picks, epLabel, showName) {
 function pickOf_(track, slot) {
   return { id: track.id, row: track.row, name: track.name, kind: track.kind,
            mood: track.mood, gain: track.gain, sec: track.sec,
-           used: track.used, slot: slot };
+           used: track.used, slot: slot,
+           /* داوریِ شنیداری همراهِ انتخاب (۸.۵۷) — تا «آهنگ داشت یا فقط طنین» از رویداد گفته شود. */
+           heard: String(track.heard || '') };
 }
 
 /**
  * ثبتِ استفاده و حافظهٔ «قسمتِ قبل» — دقیقاً یک بار برای هر قسمت.
  * @return {boolean} آیا این فراخوان واقعاً ثبت کرد
  */
+/* ══ قسمتِ بی‌موسیقی هم ثبت می‌شود (۸.۵۷) ══
+   تا ۸.۵۶ این تابع با «هیچ انتخابی» همان‌جا برمی‌گشت: `MUSIC_LAST` روی قسمتِ قبلی
+   می‌ماند و قسمتی که اصلاً موسیقی نداشت هیچ ردی نمی‌گذاشت. «در پادکستِ از همه جا هیچ
+   جاش موسیقی نیست» را فقط گوشِ او گفت. حالا هر قسمت — با موسیقی یا بی آن — یک بار ثبت
+   می‌شود، و شمارِ قسمت‌های پیاپی بی آهنگ (`musicEdgeMissNote_`) از همین رویداد می‌آید. */
 function musicRecordOnce_(hub, mw, key, epLabel, showName) {
-  if (!mw || !mw.picks || !mw.picks.length) return false;
+  if (!mw) return false;
   var k = String(key || '');
   if (k) {
     var seen = '';
     try { seen = String(props_().getProperty(PK.MUSIC_LOGGED) || ''); } catch (e0) {}
     if (seen === k) return false;
   }
-  try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {}
+  var any = !!(mw.picks && mw.picks.length);
+  if (any) { try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {} }
   try { musicRemember_(mw, epLabel); } catch (eR) {}
+  try { musicEdgeMissNote_(mw, epLabel); } catch (eM) {}
   if (k) { try { props_().setProperty(PK.MUSIC_LOGGED, k); } catch (e1) {} }
+  return any;
+}
+
+/**
+ * چند قسمتِ **پیاپی** بی آغاز و پایان یا بی هیچ آهنگی رفته‌اند (۸.۵۷).
+ * «آهنگ» از داوریِ شنیداریِ خودِ انتخاب می‌آید؛ طنینِ کشیده («زمینه») موسیقی شمرده
+ * نمی‌شود، چون شنونده آن را موسیقی نمی‌شنود — همان چیزی که او دو بار گفت.
+ */
+function musicEdgeMissNote_(mw, epLabel) {
+  var picks = (mw && mw.picks) || [], miss = (mw && mw.missing) || [];
+  var melo = picks.filter(function (p) { return heardSays_(p.heard, 'آهنگ'); }).length;
+  var edges = miss.indexOf('شروع') !== -1 || miss.indexOf('پایان') !== -1;
+  var bad = edges || !melo;
+  var st = musicEdgeMissState_();
+  if (bad) {
+    st.n = (Number(st.n) || 0) + 1;
+    st.eps = (st.eps || []).concat([String(epLabel || '')]).slice(-6);
+    st.why = (edges ? 'بی ' + miss.filter(function (x) { return x !== 'میانه'; }).join(' و ') : '') +
+             (!melo ? (edges ? '؛ ' : '') + (picks.length ? 'فقط طنین (' + picks.length + ' قطعه، هیچ‌کدام آهنگ نبود)' : 'هیچ موسیقی‌ای') : '');
+  } else { st.n = 0; st.eps = []; st.why = ''; }
+  st.at = nowStr_(); st.last = String(epLabel || ''); st.melo = melo;
+  try { props_().setProperty(PK.MUSIC_EDGE_MISS, JSON.stringify(st)); } catch (e) {}
+  return st;
+}
+function musicEdgeMissState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.MUSIC_EDGE_MISS) || 'null'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+
+/** دو قسمتِ پیاپی بی آهنگ ⇒ یافتهٔ کد، نه سطری که فردا جایش را به سطرِ دیگری بدهد. */
+function musicEdgeMissCheck_(hub) {
+  var st = musicEdgeMissState_();
+  if ((Number(st.n) || 0) < Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2)) return false;
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'موسیقی', key: 'music-edge-missing',
+      title: st.n + ' قسمتِ پیاپی بی موسیقیِ آهنگین رفت',
+      detail: (st.eps || []).join('، ') + ' — ' + String(st.why || ''),
+      instruction: 'اول `music.unheard` و شاهدِ بازشنوی (`music.rehear`) را بخوان: اگر بانک هنوز ' +
+                   'نشنیده دارد و بازشنوی جلو نمی‌رود، علت همان‌جاست. اگر شنیده شده‌اند و هیچ‌کدام ' +
+                   '«آهنگ» نیست، بانک آهنگ ندارد — `musicSeek_` باید آهنگ بیاورد (نه طنین). سیاههٔ ' +
+                   '«موسیقیِ میانه/شروع/پایان … همین حالا شنیده» می‌گوید شنیدنِ همان لحظه چه دید.',
+      owner: ROWNER_CODE
+    });
+  } catch (e) { return false; }
   return true;
 }
 
@@ -1267,6 +1324,61 @@ function musicEdgeDiscover_(bank, hub, slot, key, mood, plan, disc) {
 }
 
 /**
+ * نامزدهای نشنیدهٔ «میانه» را همین حالا می‌شنود و تا `need` آهنگ برمی‌گرداند (۸.۵۷).
+ * همان سه سدِ `musicEdgeDiscover_`: داوریِ کلِ قطعه (`musicAccept_`) باید «آهنگ» بگوید،
+ * بازهٔ پخش (`plan.bridgeStart`) هم «آهنگ» شنیده شود، و هر داوری در بانک ثبت شود.
+ * سقف دارد — شمار و زمان — چون مرحلهٔ صدا شش دقیقه دارد و آغاز و پایان هم سهم می‌خواهند.
+ */
+function musicBridgeDiscover_(bank, hub, mood, need, plan, skipIds) {
+  var out = [];
+  if (CFG.MUSIC_EDGE_DISCOVER === false || !(need > 0)) return out;
+  var maxN = Math.max(0, Number(CFG.MUSIC_BRIDGE_DISCOVER_N) || 4);
+  var budget = Math.max(5000, Number(CFG.MUSIC_BRIDGE_DISCOVER_MS) || 45000);
+  var t0 = new Date().getTime(), minSec = Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4;
+  var words = String(mood || '').split(/[\s،,]+/).filter(Boolean), skip = Object.create(null);
+  for (var s0 = 0; s0 < (skipIds || []).length; s0++) skip[skipIds[s0]] = 1;
+  var cands = [];
+  for (var i = 0; i < bank.length; i++) {
+    var b = bank[i];
+    if (skip[b.id] || String(b.kind || '') === 'افکت') continue;
+    if (heardPlayable_(b.heard, b.note)) continue;
+    if (!b.sec || b.sec < minSec) continue;
+    if (b.slots && b.slots.indexOf('میانه') === -1) continue;
+    if (/^❓.*گفتار/.test(String(b.heard || '').trim())) continue;
+    var sc = 0;
+    for (var m = 0; m < words.length; m++) if (b.mood && b.mood.indexOf(words[m]) !== -1) sc += 3;
+    sc -= Math.min(Number(b.used) || 0, 12) / 12;
+    if (b.sec <= 40) sc += 1;                     // قطعهٔ کوتاه معمولاً جینگل است، نه بستر
+    cands.push({ b: b, sc: sc });
+  }
+  cands.sort(function (a, c) { return c.sc - a.sc; });
+  var tried = 0, notes = [], st = Number(plan.bridgeStart) || 0;
+  for (var k = 0; k < cands.length && out.length < need; k++) {
+    if (tried >= maxN) break;
+    if (new Date().getTime() - t0 > budget) { notes.push('وقت تمام شد'); break; }
+    var tr = cands[k].b; tried++;
+    var bytes = null, info = null;
+    try { bytes = DriveApp.getFileById(tr.id).getBlob().getBytes(); info = wavInfo_(bytes); }
+    catch (eB) { notes.push(auditCut_(tr.name, 30) + ': خوانده نشد'); continue; }
+    if (!wavReadable_(info)) { notes.push(auditCut_(tr.name, 30) + ': WAV خوانده نشد'); continue; }
+    var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
+    musicHeardRecord_(hub, tr, acc);
+    if (!acc.ok || acc.heard !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why)); continue; }
+    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - 8)));
+    var h = musicListen_(bytes, info, tr.name, at);
+    if (h !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': بازهٔ پخش «' + (h || 'نشنید') + '»'); continue; }
+    out.push(tr);
+  }
+  plan.heard = plan.heard || {};
+  plan.heard.bridges = out.length + ' آهنگِ تازه از ' + tried + ' شنیده';
+  if (tried) {
+    logLine_('موسیقیِ میانه: ' + tried + ' نامزدِ نشنیده همین حالا شنیده شد، ' + out.length + ' آهنگ پذیرفته شد' +
+             (notes.length ? ' — ' + notes.join(' · ') : '') + '.');
+  }
+  return out;
+}
+
+/**
  * داوریِ تازه را در شناسنامه **و** تب می‌نشانَد (۸.۵۶) — همان شکلی که
  * `musicRecheck_` می‌نویسد، تا بانک یاد بگیرد و قسمتِ بعد دوباره نپرسد.
  * داوریِ ناقطعی فقط شمارِ تلاش را بالا می‌برد؛ هرگز «تأیید» نمی‌شود (۷.۶۸).
@@ -1466,9 +1578,37 @@ function musicWrap_(chunks, hub, opt) {
   var per = Math.max(1, Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS) || 2);
   var minBr = Math.min(maxBr, Math.ceil(bounds.length / per));
   if (!finalBr && want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  /* ══ پلِ آهنگین، همین حالا شنیده (۸.۵۷) ══
+     «یادت نیست اون اوایل موسیقی‌های میانی داشتیم؟» — داشتیم، و حالا هم «داریم»: درسِ ۴۰ سه
+     پل داشت و «از همه جا از همه رنگ»ِ ۶ اکتبر دو تا، هر کدام پنج ثانیه طنینِ کشیده. بانک
+     فقط هفت قطعهٔ شنیده‌شده دارد و همه «زمینه»اند؛ شنونده آن‌ها را موسیقی نمی‌شنود. ۸.۵۶ این
+     را برای آغاز و پایان با «شنیدنِ همان لحظه» بست و پل را جا انداخت. حالا اگر پل‌های
+     آهنگینِ این قسمت از کف کمترند، چند نامزدِ نشنیده همین حالا شنیده می‌شوند و «آهنگ»ها
+     جای طنین‌ها را می‌گیرند. داوری در بانک می‌نشیند، پس قسمتِ بعد دوباره نمی‌پرسد. */
+  var brFresh = Object.create(null);
+  if (hearSeg && !finalBr && bounds.length && minBr > 0) {
+    try {
+      var melo = want.filter(function (w) { return heardSays_(w.track.heard, 'آهنگ'); }).length;
+      var needM = Math.max(1, minBr) - melo;
+      if (needM > 0) {
+        var got = musicBridgeDiscover_(bank, hub, mood, needM, plan,
+                                       want.map(function (w) { return w.track.id; }));
+        for (var gz = 0; gz < got.length; gz++) {
+          brFresh[got[gz].id] = 1;
+          var sw = -1;
+          for (var wz0 = 0; wz0 < want.length; wz0++) {
+            if (!heardSays_(want[wz0].track.heard, 'آهنگ') && !brFresh[want[wz0].track.id]) { sw = wz0; break; }
+          }
+          if (sw >= 0) { want[sw].track = got[gz]; want[sw].why = 'آهنگِ همین حالا شنیده‌شده به‌جای طنین'; }
+          else if (want.length < maxBr) bridgeFill_(want, bounds, [got[gz]], mood, want.length + 1);
+        }
+      }
+    } catch (eBd) { logLine_('شنیدنِ پل‌های تازه نشد: ' + eBd.message); }
+  }
   if (hearSeg && !finalBr) {
     var keptBr = [], dropBr = [];
     for (var hz = 0; hz < want.length; hz++) {
+      if (brFresh[want[hz].track.id]) { keptBr.push(want[hz]); continue; }   // همین حالا، همان بازه، شنیده شد
       var hr = musicSegOk_(want[hz].track, Number(plan.bridgeStart) || 0, 'میانه');
       if (hr.ok) keptBr.push(want[hz]);
       else dropBr.push(String(want[hz].track.name || '') + ' (' + hr.why + ')');
@@ -1730,6 +1870,7 @@ function musicStatus_() {
   } catch (e4) {
     out.sfx = null; out.sfxTarget = null;
   }
+  try { out.edgeMiss = musicEdgeMissState_(); } catch (eEm) { out.edgeMiss = null; }
   out.line = musicLine_(out);
   return out;
 }
@@ -1776,6 +1917,12 @@ function musicLine_(st) {
                    'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
         if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
       }
+    }
+    /* آنچه شنونده شنید، نه آنچه بانک دارد (۸.۵۷): قسمت‌های پیاپی بی آهنگ. */
+    var em = st.edgeMiss || {};
+    if (Number(em.n) > 0) {
+      line += ' ⚠️ ' + fa(em.n) + ' قسمتِ پیاپی بی موسیقیِ آهنگین (آخرین: ' + String(em.last || '') +
+              (em.why ? ' — ' + em.why : '') + ').';
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }

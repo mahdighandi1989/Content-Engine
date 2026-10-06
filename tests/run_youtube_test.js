@@ -8090,4 +8090,230 @@ console.log('\n=== ۸۵) کارت‌های نوشتاری: کف، نه فقط س
      lvSceneMv_({ move: 'drift', judge: { box: { x: 0.7, y: 0.4 } } }) === null);
 }
 
+console.log('\n=== ۸۶) جای پلی‌لیست با کلیدِ واقعیِ تولید؛ ترتیبِ نشسته از خودِ پلی‌لیست درست می‌شود (۸.۵۷) ===');
+{
+  /* `ytWantPos_` از ۶ سپتامبر همیشه صفر می‌داد: کلیدِ `ytPublished_` «special:N» است و
+     تابع با «درس‌نامه» می‌سنجید. سنجه‌های ۱۴.۳ تا ۱۴.۷ کلیدِ نمایشی را دستی می‌ساختند —
+     شکلی که تولید از ۶ سپتامبر نمی‌سازد (۷.۲۲). این بند `pub` را از **`ytLog_` ⇒
+     `ytPublished_`** می‌سازد، همان راهِ تولید. */
+  const hub = new Spread('هاب-ترتیب');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  const log = (show, ep, series, vid) => ytLog_(hub, { show, ep: String(ep), series, title: 'ت' + ep, videoId: vid,
+                                                      url: 'https://youtu.be/' + vid, privacy: 'public', result: 'منتشر شد' });
+  [3, 7, 19, 61].forEach((e) => log(CFG.SPECIAL_SHOW_NAME, e, 'الف', 'S' + e));
+  log(CFG.SPECIAL_SHOW_NAME, 5, 'ب', 'B5');
+  log(CFG.SHOW_NAME, 4, '', 'V4');
+  const pub = ytPublished_(hub);
+  ok('۸۶.۱ جای درس از کلیدِ واقعیِ تولید: ۱۲ پس از ۳ و ۷، و ۶۲ پس از هر چهار — نه صفر',
+     ytWantPos_(pub, { show: 'special', ep: '12' }, 'الف') === 2 &&
+     ytWantPos_(pub, { show: 'special', ep: '62' }, 'الف') === 4 &&
+     ytWantPos_(pub, { show: CFG.SPECIAL_SHOW_NAME, ep: '62' }, 'الف') === 4 &&
+     ytWantPos_(pub, { show: 'variety', ep: '9' }, '') === 1,
+     JSON.stringify(Object.keys(pub)) + ' ⇒ ' + ytWantPos_(pub, { show: 'special', ep: '62' }, 'الف'));
+
+  /* نقشهٔ جابه‌جایی: درست و کمینه، روی هر ترتیبی. */
+  const sim = (cur, moves) => {
+    const a = cur.slice();
+    for (const m of moves) { const i = a.indexOf(m.id); a.splice(i, 1); a.splice(m.pos, 0, m.id); }
+    return a;
+  };
+  const lis = (seq) => { const t = []; for (const x of seq) { let lo = 0, hi = t.length; while (lo < hi) { const md = (lo + hi) >> 1; if (t[md] < x) lo = md + 1; else hi = md; } t[lo] = x; } return t.length; };
+  let bad = '', seed = 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  for (let trial = 0; trial < 300 && !bad; trial++) {
+    const n = 1 + Math.floor(rnd() * 40);
+    const eps = []; for (let i = 0; i < n; i++) eps.push(rnd() < 0.15 ? 0 : 1 + Math.floor(rnd() * 60));
+    const cur = eps.map((e, i) => ({ id: 'I' + i, videoId: 'v' + i, ep: e }));
+    const pl = ytPlOrderPlan_(cur, (vid) => (cur.filter((x) => x.videoId === vid)[0] || {}).ep || 0);
+    const after = sim(cur.map((x) => x.id), pl.moves);
+    if (JSON.stringify(after) !== JSON.stringify(pl.target)) bad = 'ترتیب ' + JSON.stringify(eps);
+    const rank = {}; pl.target.forEach((id, k) => { rank[id] = k; });
+    const need = n - lis(cur.map((x) => rank[x.id]));
+    if (!bad && pl.moves.length > need) bad = 'کمینه نیست ' + pl.moves.length + '>' + need;
+    const known = pl.target.map((id) => cur[Number(id.slice(1))]).filter((x) => x.ep);
+    for (let k = 1; !bad && k < known.length; k++) if (known[k].ep < known[k - 1].ep) bad = 'صعودی نیست';
+    const unk = pl.target.map((id) => cur[Number(id.slice(1))]);
+    const firstUnk = unk.findIndex((x) => !x.ep);
+    if (!bad && firstUnk >= 0 && unk.slice(firstUnk).some((x) => x.ep)) bad = 'ناشناخته پایین نماند';
+  }
+  ok('۸۶.۲ نقشهٔ جابه‌جایی روی ۳۰۰ ترتیبِ تصادفی: به ترتیبِ شماره می‌رسد، کمینه است، ناشناخته‌ها پایین', !bad, bad);
+  const rev = [61, 19, 7, 3].map((e) => ({ id: 'P' + e, videoId: 'S' + e }));
+  ok('۸۶.۲-ب پلی‌لیستِ وارونهٔ تولید (تازه‌ترین بالا) سه جابه‌جایی می‌خواهد',
+     ytPlOrderPlan_(rev, (v) => Number(v.slice(1))).moves.length === 3);
+
+  /* یوتیوبِ بدَل با معنای واقعیِ «position»: قلم به همان جای نهایی می‌رود. */
+  const pl = { id: 'PLX', items: [61, 19, 7, 3, 0].map((e) => ({ id: 'IT' + e, videoId: e ? 'S' + e : 'MANUAL' })) };
+  const calls = { upd: 0, list: 0 };
+  global.YouTube = {
+    PlaylistItems: {
+      list: (part, o) => { calls.list++; return { items: pl.items.map((x, i) => ({ id: x.id, snippet: { position: i, resourceId: { videoId: x.videoId } } })) }; },
+      update: (b) => { calls.upd++; const i = pl.items.findIndex((x) => x.id === b.id); const it = pl.items.splice(i, 1)[0]; pl.items.splice(b.snippet.position, 0, it); }
+    }, Videos: {}, Playlists: {}, Channels: { list: () => ({ items: [] }) }, Thumbnails: {} };
+  const plWas = global.__PROPS[PK.YT_PL], qWas = global.__PROPS[PK.YT_QUOTA], movWas = CFG.YT_PL_ORDER_MOVES;
+  global.__PROPS[PK.YT_PL] = JSON.stringify({ 'series:الف': { id: 'PLX', title: 'الف' } });
+  delete global.__PROPS[PK.YT_QUOTA]; delete global.__PROPS[PK.YT_PLORD];
+  CFG.YT_PL_ORDER_MOVES = 2;
+  const f1 = ytPlOrderFix_(60000, hub);
+  const mid = pl.items.map((x) => x.videoId).join(',');
+  ok('۸۶.۳ سقفِ جابه‌جایی: دو حرکت، بقیه «مانده» و دورِ بعد نوبت دارد',
+     f1.moved === 2 && f1.left === 1 && ytPlOrderDue_() === true && /هنوز سرِ جایش نیست/.test(ytPlOrderLine_()),
+     JSON.stringify(f1) + ' · ' + mid + ' · ' + ytPlOrderLine_());
+  CFG.YT_PL_ORDER_MOVES = movWas;
+  const f2 = ytPlOrderFix_(60000, hub);
+  ok('۸۶.۴ دورِ بعد تمام می‌کند: به ترتیبِ شمارهٔ درس، و ویدئوی دستیِ آدم دست‌نخورده پایین',
+     pl.items.map((x) => x.videoId).join(',') === 'S3,S7,S19,S61,MANUAL' && f2.left === 0 && f2.moved === 1,
+     pl.items.map((x) => x.videoId).join(',') + ' · ' + JSON.stringify(f2));
+  const u0 = calls.upd;
+  ok('۸۶.۵ مرتب ⇒ «نوبت نیست» و دورِ بعد هیچ جابه‌جایی نمی‌فرستد؛ آپلودِ تازه نوبت را باز می‌کند',
+     ytPlOrderDue_() === false && ytPlOrderFix_(60000, hub).moved === 0 && calls.upd === u0 &&
+     (ytPlOrderDirty_(), ytPlOrderDue_() === true) && /✓ همه به ترتیب/.test((ytPlOrderFix_(60000, hub), ytPlOrderLine_())),
+     ytPlOrderLine_());
+  /* سهمیهٔ یک آپلود همیشه کنار می‌مانَد. */
+  pl.items.reverse();
+  global.__PROPS[PK.YT_QUOTA] = JSON.stringify({ day: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'),
+    units: (Number(CFG.YT_QUOTA_UNITS) || 9000) - ytUnitsPerEpisode_() * 3 - 20, uploads: 0, blocked: '' });
+  const f3 = ytPlOrderFix_(60000, hub);
+  ok('۸۶.۶ جای انتشارهای روز کنار می‌مانَد: سهمیهٔ کم ⇒ هیچ جابه‌جایی، با علت',
+     f3.moved === 0 && f3.left > 0 && /سهمیه/.test(f3.why), JSON.stringify(f3));
+  const src27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const up = src27.slice(src27.indexOf('function ytUploadOne_('), src27.indexOf('function ytPlFor_('));
+  const tick = src27.slice(src27.indexOf('function ytTick_('), src27.indexOf('function ytStatus_('));
+  ok('۸۶.۷ آپلود ترتیب را «نوبت‌دار» می‌کند و دورِ یوتیوب پس از انتشار می‌سنجدش',
+     /ytPlPlace_\([^;]*ytWantPos_[\s\S]{0,200}ytPlOrderDirty_\(\)/.test(up) &&
+     tick.indexOf('ytPlOrderFix_(') > tick.indexOf('ytRunDue_(1'));
+  if (plWas === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = plWas;
+  if (qWas === undefined) delete global.__PROPS[PK.YT_QUOTA]; else global.__PROPS[PK.YT_QUOTA] = qWas;
+  delete global.__PROPS[PK.YT_PLORD];
+  global.YouTube = {};
+  global.getHub_ = hubWas;
+}
+
+console.log('\n=== ۸۷) جایگزینیِ ویدئوی منتشرشده: تازه عمومی، بعد قبلی کنار — هرگز پاک (۸.۵۷) ===');
+{
+  const hub = new Spread('هاب-جایگزینی');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '62', series: 'الف', title: 'درسِ ۴۰', videoId: 'OLD62',
+                url: 'https://youtu.be/OLD62', privacy: 'public', result: 'منتشر شد' });
+  const f = DriveApp.__register('EPRPL', 'قسمت 0062 — درس ۴۰');
+  f.createFile(Utilities.newBlob([0, 0, 0, 24, 102, 116, 121, 112].concat(new Array(6000).fill(1)), 'video/mp4', 'قسمت 0062 — ویدئو.mp4'));
+  lvSceneWrite_(f, { v: 1, key: 'special:62', done: true, scenes: [{ n: 1, fileId: 'IMG1', t0: 0 }, { n: 2, fileId: 'IMG2', t0: 9 }],
+                     clip: { state: 'ok', fileId: 'CLIP', img: 'IMG1', sec: 8 }, ovFillAt: '2026-10-06 08:00', ovFill: { asked: 0 } });
+  ytRenderSave_({ items: [{ key: 'special:62', show: 'special', ep: '62', folderId: 'EPRPL', status: 'رسید',
+                            audio: [{ id: 'A1', name: 'کامل.wav' }], at: '2026-10-06 08:30' }] });
+  delete global.__PROPS[PK.YT_DUE]; delete global.__PROPS[PK.YT_REPL]; delete global.__PROPS[PK.YT_QUOTA];
+  const yc = { list: 0, upd: [], rm: [], priv: 'unlisted' };
+  global.YouTube = {
+    Videos: { list: () => { yc.list++; return { items: [{ status: { privacyStatus: yc.priv } }] }; },
+              update: (b) => { yc.upd.push(b.id + '=' + b.status.privacyStatus); } },
+    PlaylistItems: { list: () => ({ items: [{ id: 'PI-OLD', snippet: { position: 0, resourceId: { videoId: 'OLD62' } } },
+                                            { id: 'PI-NEW', snippet: { position: 1, resourceId: { videoId: 'NEW62' } } }] }),
+                     remove: (id) => { yc.rm.push(id); } },
+    Playlists: {}, Channels: { list: () => ({ items: [] }) }, Thumbnails: {} };
+  const plWas = global.__PROPS[PK.YT_PL];
+  global.__PROPS[PK.YT_PL] = JSON.stringify({ 'series:الف': { id: 'PLA', title: 'الف' } });
+  /* فهرست از گیت‌هاب خوانده می‌شود — همان فایلِ `docs/yt-replace.json`. */
+  YT_REPLACE_ = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('yt-replace.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:62': { tag: 'r1', why: 'آزمون' } } }) };
+    return BASE_STUB(url, body);
+  };
+  const t1 = ytReplaceTick_(60000, hub);
+  const st1 = ytReplState_()['special:62'] || {};
+  const d1 = lvSceneRead_(f);
+  const due1 = ytDueList_().filter((x) => x.key === 'special:62')[0] || {};
+  const aside = f.getFoldersByName('ویدئوی پیشین — جایگزین‌شده');
+  const sub = aside.hasNext() ? aside.next() : null;
+  let subMp4 = 0; if (sub) { const it = sub.getFiles(); while (it.hasNext()) if (/\.mp4$/.test(it.next().getName())) subMp4++; }
+  ok('۸۷.۱ آغاز: ویدئوی قبلیِ پوشه کنار می‌رود (نه سطل)، کلیپ و کارت‌ها از نو، قسمت با «replace» در صف؛ به یوتیوب دست نمی‌خورد',
+     t1.prepped === 1 && st1.phase === 'build' && st1.oldVid === 'OLD62' && !ytVideoIn_(f) && subMp4 === 1 &&
+     d1.clip && d1.clip.state === '' && !d1.ovFillAt && due1.replace === 'r1' && due1.folderId === 'EPRPL' &&
+     yc.list === 0 && !yc.upd.length && !yc.rm.length,
+     JSON.stringify({ t1, st1, clip: d1.clip, due1, subMp4 }));
+  ok('۸۷.۲ دورِ دوم پیش از ساخت کاری نمی‌کند — قبلی سرِ جایش، صف همان',
+     ytReplaceTick_(60000, hub).prepped === 0 && ytDueList_().filter((x) => x.key === 'special:62').length === 1 &&
+     !yc.upd.length && ytReplState_()['special:62'].phase === 'build');
+
+  /* ردیفِ «رسید»ِ قبلی بازنویسی می‌شود؛ همان `replace` دوباره خواسته نمی‌شود. */
+  const ask = () => ytRenderAsk_({ show: 'special', ep: '62', title: 'درسِ ۴۰', folderId: 'EPRPL', visuals: [],
+                                   scenes: [{ n: 1, t0: 0, fileId: 'IMG1' }], audio: [{ id: 'A1', name: 'کامل.wav' }],
+                                   audioKind: 'کامل', outName: 'قسمت 0062 — ویدئو.mp4', replace: 'r1' });
+  _ytMapMemo = { 'special:62': { url: 'https://x/old.mp4', mode: 'scenes' } };
+  const a1 = ask(), a2 = ask();
+  const row = ytRenderRead_().items.filter((x) => x.key === 'special:62');
+  ok('۸۷.۳ ردیفِ رندر با «replace» بازنویسی می‌شود و «در انتظار» است؛ درخواستِ دوباره رد',
+     a1 === true && a2 === false && row.length === 1 && row[0].status === 'در انتظار' && row[0].replace === 'r1',
+     JSON.stringify({ a1, a2, row: row.map((x) => [x.status, x.replace]) }));
+  ok('۸۷.۴ نقشهٔ رانر با ویدئوی قبلی «ساخته‌شده» نیست؛ فقط با همان replace',
+     ytRenderBuilt_(row[0], { 'special:62': { url: 'u' } }) === null &&
+     !!ytRenderBuilt_(row[0], { 'special:62': { url: 'u', replace: 'r1' } }) &&
+     !!ytRenderBuilt_({ key: 'special:9' }, { 'special:9': { url: 'u' } }));
+  /* برداشت از همان تعریف: نقشهٔ کهنه ⇒ برداشته نمی‌شود. */
+  const fetched = [];
+  global.__STUB = function (url, body) {
+    if (url.indexOf('renders.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:62': { url: 'https://x/old.mp4' } } }) };
+    if (url.indexOf('old.mp4') !== -1 || url.indexOf('new.mp4') !== -1) { fetched.push(url); return { code: 200, bytes: [0, 0, 0, 24, 102, 116, 121, 112].concat(new Array(6000).fill(2)), mime: 'video/mp4' }; }
+    return BASE_STUB(url, body);
+  };
+  const c1 = ytRenderCollect_(60000);
+  global.__STUB = function (url, body) {
+    if (url.indexOf('renders.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:62': { url: 'https://x/new.mp4', replace: 'r1' } } }) };
+    if (url.indexOf('new.mp4') !== -1) { fetched.push(url); return { code: 200, bytes: [0, 0, 0, 24, 102, 116, 121, 112].concat(new Array(6000).fill(3)), mime: 'video/mp4' }; }
+    return BASE_STUB(url, body);
+  };
+  const c2 = ytRenderCollect_(60000);
+  ok('۸۷.۵ برداشت: ویدئوی قبلیِ نقشه برداشته نمی‌شود؛ ویدئوی همین جایگزینی برداشته و در پوشه می‌نشیند',
+     c1.got === 0 && c2.got === 1 && fetched.length === 1 && /new\.mp4/.test(fetched[0]) && !!ytVideoIn_(f),
+     JSON.stringify({ c1, c2, fetched }));
+
+  /* انتشارِ تازه (همان ردی که `ytUploadOne_` می‌نویسد)، هنوز Unlisted ⇒ قبلی سرِ جایش. */
+  ytDueDrop_('special:62');
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '62', series: 'الف', title: 'درسِ ۴۰', videoId: 'NEW62',
+                url: 'https://youtu.be/NEW62', privacy: 'unlisted', result: 'منتشر نشد (وارسی)' });
+  global.__STUB = BASE_STUB;
+  ytReplaceTick_(60000, hub);
+  const st3 = ytReplState_()['special:62'];
+  ok('۸۷.۶ تازه هنوز عمومی نیست ⇒ قبلی دست نمی‌خورد (از خودِ یوتیوب پرسیده شد، نه از دفتر)',
+     st3.phase === 'swap' && st3.newVid === 'NEW62' && yc.list === 1 && !yc.upd.length && !yc.rm.length &&
+     /هنوز unlisted/.test(st3.why), JSON.stringify(st3));
+  yc.priv = 'public';
+  const tg = [], tgWas = global.tgApi_, tgEnWas = global.tgEnabled_;
+  global.tgEnabled_ = () => true; global.tgApi_ = (m, p) => { tg.push(p.text); };
+  const t4 = ytReplaceTick_(60000, hub);
+  global.tgApi_ = tgWas; global.tgEnabled_ = tgEnWas;
+  const st4 = ytReplState_()['special:62'];
+  ok('۸۷.۷ تازه عمومی ⇒ قبلی از پلی‌لیست بیرون و «خصوصی» — پاک نه؛ تازه دست‌نخورده؛ خبر با نشانیِ تازه',
+     t4.swapped === 1 && st4.phase === 'done' && JSON.stringify(yc.rm) === '["PI-OLD"]' &&
+     JSON.stringify(yc.upd) === '["OLD62=private"]' && tg.some((x) => /youtu\.be\/NEW62/.test(x) && /پاک نشد/.test(x)) &&
+     ytPlOrderDue_() === true,
+     JSON.stringify({ st4, rm: yc.rm, upd: yc.upd, tg }));
+  const n4 = yc.upd.length;
+  ytReplaceTick_(60000, hub);
+  ok('۸۷.۸ انجام‌شده دوباره اجرا نمی‌شود؛ خطِ روزانه می‌گویدش', yc.upd.length === n4 &&
+     /انجام شد/.test(ytReplaceStatus_().line) && !ytReplaceStatus_().problem, ytReplaceStatus_().line);
+
+  /* منتشرنشده ⇒ لازم نیست؛ آپلودِ ناموفقِ پیاپی ⇒ «نشد» با علت، نه چرخهٔ بی‌پایان. */
+  YT_REPLACE_ = { 'special:77': { tag: 't' } };
+  ytReplaceTick_(60000, hub);
+  ok('۸۷.۹ قسمتِ منتشرنشده «لازم نشد» — همان انتشارِ عادی', ytReplState_()['special:77'].phase === 'skip');
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '78', series: 'الف', title: 'ت', videoId: 'OLD78',
+                url: 'https://youtu.be/OLD78', privacy: 'public', result: 'منتشر شد' });
+  const f78 = DriveApp.__register('EPR78', 'قسمت 0078');
+  const q = ytRenderRead_(); q.items.push({ key: 'special:78', show: 'special', ep: '78', folderId: 'EPR78', status: 'رسید' });
+  ytRenderSave_(q);
+  YT_REPLACE_ = { 'special:78': { tag: 't' } };
+  ytReplaceTick_(60000, hub);
+  for (let i = 0; i < Number(CFG.YT_REPLACE_TRY_MAX); i++) { ytDueDrop_('special:78'); ytReplaceTick_(60000, hub); }
+  const s78 = ytReplState_()['special:78'];
+  ok('۸۷.۱۰ آپلودِ ناموفقِ پیاپی ⇒ «نشد» پس از سقف، و مسئله در ایمیل — قبلی سرِ جایش',
+     s78.phase === 'fail' && /نشد/.test(ytReplaceStatus_().problem) && yc.upd.length === n4,
+     JSON.stringify(s78) + ' · ' + ytReplaceStatus_().problem);
+
+  YT_REPLACE_ = null; _ytMapMemo = null;
+  if (plWas === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = plWas;
+  delete global.__PROPS[PK.YT_REPL]; delete global.__PROPS[PK.YT_DUE]; delete global.__PROPS[PK.YT_PLORD];
+  global.YouTube = {}; global.__STUB = BASE_STUB; global.getHub_ = hubWas;
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

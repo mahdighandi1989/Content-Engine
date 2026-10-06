@@ -1378,4 +1378,133 @@ console.log('\n=== ۲۴. لبه‌ای که شنیده‌شده ندارد، ه�
   delete global.__PROPS[PK.MUSIC_PLAN];
 }
 
+console.log('\n=== ۲۵. پلِ آهنگین همان لحظه شنیده می‌شود؛ قسمتِ بی‌آهنگ شمرده می‌شود (۸.۵۷) ===');
+{
+  /* درسِ ۴۰ سه پل داشت و «از همه جا»ِ ۶ اکتبر دو تا — همه طنینِ پنج‌ثانیه‌ای. او گفت «موسیقی
+     ندارد». ۸.۵۶ شنیدنِ همان لحظه را فقط برای لبه‌ها ساخت. */
+  const hub = getHub_();
+  const sh = hub.getSheetByName(CFG.MUSIC_TAB);
+  const F = musicFolder_();
+  const mk = (nm, hz) => F.createFile(Utilities.newBlob(
+    Utilities.newBlob(mkWav(44100, 1, 16, 20, (i) => Math.round(9000 * Math.sin(i / hz)))).getBytes(), 'audio/wav', nm));
+  ['پل-درون.wav', 'پل-طنین.wav', 'پل-آهنگ۱.wav', 'پل-آهنگ۲.wav'].forEach((nm, i) => mk(nm, 31 + i * 5));
+  musicScan_(hub);
+  const rowsAll = () => sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues();
+  const reset = () => {
+    const rows = rowsAll();
+    for (let r = 0; r < rows.length; r++) {
+      const nm = String(rows[r][MC.NAME - 1]);
+      if (/^کشف-/.test(nm)) { sh.getRange(r + 2, MC.HEARD).setValue('✅ مدل شنید: زمینهٔ کشیده'); continue; }
+      /* قطعه‌های بخش‌های پیشین پل نمی‌گیرند، تا نامزدهای این بند همان‌هایی باشند که ساخته شد. */
+      if (!/^پل-/.test(nm)) { sh.getRange(r + 2, MC.SLOTS).setValue('پایان'); continue; }
+      sh.getRange(r + 2, MC.SLOTS).setValue('میانه');
+      sh.getRange(r + 2, MC.NOTE).setValue('');
+      /* طنینِ شنیده‌شده تنها قطعهٔ قابلِ پخشِ میانه است — همان حالتِ ۶ اکتبر. */
+      sh.getRange(r + 2, MC.HEARD).setValue(/درون/.test(nm) ? '✅ مدل شنید: زمینهٔ کشیده' : '❓ نامعلوم');
+      /* طنینِ نشنیده جلوتر رتبه می‌گیرد تا ردش هم سنجیده شود. */
+      sh.getRange(r + 2, MC.MOOD).setValue(/طنین|درون/.test(nm) ? 'آرام' : '');
+      musicMetaWrite_(nm, { title: nm.replace(/\.wav$/, '') });
+    }
+  };
+  reset();
+  const heardOf = (nm) => { const b = musicBank_(hub).filter((x) => x.name === nm)[0]; return b ? b.heard : ''; };
+  const planWas = global.musicPlanModel_, listenWas = global.musicListen_, logWas = global.logLine_;
+  global.musicPlanModel_ = () => ({ bridges: [], mood: 'آرام' });
+  const calls = [];
+  global.musicListen_ = (b, info, name, st) => { calls.push(name + '@' + st); return /پل-آهنگ/.test(name) ? 'آهنگ' : 'زمینه'; };
+  const chunks = []; for (let i = 0; i < 8; i++) chunks.push({ text: 'ت' + i });
+  const bounds = [1, 3, 5, 7].map((at, i) => ({ at: at, kind: 'section', heading: 'بخش ' + i, tone: '' }));
+  const opt = { mood: 'آرام', bounds: bounds, show: 'variety', episode: '960' };
+  const brLabels = (r) => r.chunks.filter((c) => c.pcm && /میانه/.test(c.label)).map((c) => c.label);
+  delete global.__PROPS[PK.MUSIC_PLAN];
+  const r1 = musicWrap_(chunks, hub, Object.assign({}, opt));
+  const B1 = brLabels(r1);
+  ok('۲۵.۱ طنین‌ها جایشان را به آهنگِ همین حالا شنیده‌شده می‌دهند — دو پل، هر دو آهنگ',
+     B1.length === 2 && B1.every((l) => /پل-آهنگ/.test(l)) && !B1.some((l) => /درون/.test(l)),
+     JSON.stringify(B1) + ' · ' + calls.join(' '));
+  ok('۲۵.۲ داوری‌ها در تب می‌نشینند؛ طنینِ نشنیده رد و ثبت شد',
+     /✅.*آهنگ/.test(heardOf('پل-آهنگ۱.wav')) && /✅.*زمینه/.test(heardOf('پل-طنین.wav')) &&
+     calls.some((c) => /پل-طنین/.test(c)), heardOf('پل-آهنگ۱.wav') + ' · ' + heardOf('پل-طنین.wav'));
+  calls.length = 0;
+  global.musicPlanModel_ = () => { throw new Error('ازسرگیری نباید نقشهٔ تازه بخواهد'); };
+  let r2; try { r2 = musicWrap_(chunks, hub, Object.assign({}, opt)); } catch (e) { r2 = { chunks: [] }; calls.push('خطا ' + e.message); }
+  ok('۲۵.۳ ازسرگیری همان پل‌ها را می‌دهد و چیزی نمی‌شنود',
+     calls.length === 0 && JSON.stringify(brLabels(r2)) === JSON.stringify(B1), calls.join(' ') + JSON.stringify(brLabels(r2)));
+  global.musicPlanModel_ = () => ({ bridges: [], mood: 'آرام' });
+
+  /* سقفِ شمار: N=1 ⇒ فقط یک نامزدِ میانه شنیده می‌شود (طنین، که رد می‌شود). */
+  reset();
+  const nWas = CFG.MUSIC_BRIDGE_DISCOVER_N;
+  CFG.MUSIC_BRIDGE_DISCOVER_N = 1;
+  calls.length = 0;
+  const r4 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '961' }));
+  const brCalls = calls.filter((c) => /^پل-/.test(c) && /@undefined/.test(c)).length;
+  ok('۲۵.۴ سقفِ شمارِ پل نگه داشته می‌شود — یک نامزد، و طنین می‌مانَد چون آهنگی پذیرفته نشد',
+     brCalls === 1 && brLabels(r4).every((l) => /درون/.test(l)), calls.join(' ') + ' · ' + JSON.stringify(brLabels(r4)));
+  CFG.MUSIC_BRIDGE_DISCOVER_N = nWas;
+
+  /* آهنگِ شنیده‌شده به اندازهٔ کف هست ⇒ هیچ نامزدی شنیده نمی‌شود. */
+  reset();
+  const rows = rowsAll();
+  for (let r = 0; r < rows.length; r++) {
+    if (/^پل-آهنگ/.test(String(rows[r][MC.NAME - 1]))) sh.getRange(r + 2, MC.HEARD).setValue('✅ مدل شنید: آهنگ (ملودی‌دار)');
+  }
+  calls.length = 0;
+  const r5 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '962' }));
+  ok('۲۵.۵ پلِ آهنگینِ شنیده‌شده کافی است ⇒ شنیدنِ تازه‌ای نیست',
+     !calls.some((c) => /@undefined/.test(c) && /^پل-/.test(c)) && brLabels(r5).every((l) => /پل-آهنگ/.test(l)),
+     calls.join(' ') + JSON.stringify(brLabels(r5)));
+
+  /* شنیدنِ بازه خاموش ⇒ کشفِ پل هم خاموش (همان کلیدِ ۸.۳۳). */
+  reset();
+  const segWas = CFG.MUSIC_HEAR_SEGMENT;
+  CFG.MUSIC_HEAR_SEGMENT = false;
+  calls.length = 0;
+  musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '963' }));
+  CFG.MUSIC_HEAR_SEGMENT = segWas;
+  ok('۲۵.۵-ب شنیدنِ بازه خاموش ⇒ هیچ نامزدِ پلی شنیده نمی‌شود',
+     !calls.some((c) => /^پل-/.test(c)), calls.join(' '));
+
+  /* ── قسمتِ بی‌آهنگ شمرده می‌شود (۸.۵۷) ── */
+  delete global.__PROPS[PK.MUSIC_EDGE_MISS]; delete global.__PROPS[PK.MUSIC_LOGGED];
+  const lastWas = global.__PROPS[PK.MUSIC_LAST];
+  musicRecordOnce_(hub, { picks: [], missing: ['شروع', 'پایان'], mood: 'آرام' }, 'variety#970', 'قسمت 970', 'ش');
+  const last1 = JSON.parse(global.__PROPS[PK.MUSIC_LAST] || '{}');
+  const em1 = musicEdgeMissState_();
+  ok('۲۵.۶ قسمتِ بی هیچ موسیقی هم ثبت می‌شود — «آخرین» همان قسمت است، نه قسمتِ قبلی',
+     last1.episode === 'قسمت 970' && em1.n === 1 && /شروع/.test(em1.why), JSON.stringify(last1) + JSON.stringify(em1));
+  musicRecordOnce_(hub, { picks: [], missing: ['شروع', 'پایان'] }, 'variety#970', 'قسمت 970', 'ش');
+  ok('۲۵.۶-ب همان قسمت دو بار شمرده نمی‌شود', musicEdgeMissState_().n === 1);
+  const drone = { id: 'd', row: 0, name: 'طنین.wav', kind: 'موسیقی', mood: '', gain: 1, sec: 20, used: 0, heard: '✅ مدل شنید: زمینهٔ کشیده' };
+  musicRecordOnce_(hub, { picks: [pickOf_(drone, 'شروع'), pickOf_(drone, 'پایان')], missing: [] }, 'special#971', 'درس‌نامه 971', 'د');
+  const em2 = musicEdgeMissState_();
+  const found = [], fWas = global.logSelfFinding_;
+  global.logSelfFinding_ = (h, f) => { found.push(f); };
+  const fired = musicEdgeMissCheck_(hub);
+  global.logSelfFinding_ = fWas;
+  ok('۲۵.۷ فقط طنین هم «بی‌آهنگ» است؛ دو قسمتِ پیاپی ⇒ یافتهٔ جدیِ کد',
+     em2.n === 2 && /فقط طنین/.test(em2.why) && fired === true &&
+     found.some((f) => f.key === 'music-edge-missing' && f.owner === ROWNER_CODE && f.priority === 'جدی'),
+     JSON.stringify(em2) + ' · ' + JSON.stringify(found.map((f) => f.key)));
+  const lineBad = musicLine_({ enabled: true, playable: 7, unheard: 0, edgeMiss: em2 });
+  const song = { id: 's', row: 0, name: 'آهنگ.wav', kind: 'موسیقی', mood: '', gain: 1, sec: 30, used: 0, heard: '✅ مدل شنید: آهنگ (ملودی‌دار)' };
+  musicRecordOnce_(hub, { picks: [pickOf_(song, 'شروع'), pickOf_(song, 'پایان')], missing: [] }, 'special#972', 'درس‌نامه 972', 'د');
+  const em3 = musicEdgeMissState_();
+  const found2 = []; global.logSelfFinding_ = (h, f) => { found2.push(f); };
+  musicEdgeMissCheck_(hub); global.logSelfFinding_ = fWas;
+  ok('۲۵.۸ قسمتِ آهنگین شمار را صفر می‌کند؛ خطِ روزانه فقط وقتِ ایراد می‌گوید',
+     em3.n === 0 && !found2.length && /۲ قسمتِ پیاپی بی موسیقیِ آهنگین/.test(lineBad) &&
+     !/پیاپی بی موسیقی/.test(musicLine_({ enabled: true, playable: 7, unheard: 0, edgeMiss: em3 })),
+     lineBad + ' · ' + JSON.stringify(em3));
+  const vf = selfVerifyMap_()['music-edge-missing'];
+  ok('۲۵.۹ سنجندهٔ یافته از همان شمار می‌خوانَد؛ نبودنِ شاهد «نمی‌دانیم» است',
+     vf && vf.still({ music: { edgeMiss: { n: 2 } } }) === true && vf.still({ music: { edgeMiss: { n: 0 } } }) === false &&
+     vf.still({ music: {} }) === null);
+  if (lastWas === undefined) delete global.__PROPS[PK.MUSIC_LAST]; else global.__PROPS[PK.MUSIC_LAST] = lastWas;
+  delete global.__PROPS[PK.MUSIC_EDGE_MISS];
+
+  global.musicPlanModel_ = planWas; global.musicListen_ = listenWas; global.logLine_ = logWas;
+  delete global.__PROPS[PK.MUSIC_PLAN];
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

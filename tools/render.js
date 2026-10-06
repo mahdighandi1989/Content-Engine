@@ -899,9 +899,19 @@ function probeWork(queue, map, hold, now) {
 }
 
 /** ردیف‌های ساخته‌نشده و نگه‌داشته‌نشده — یک تعریف برای پروب و برای کار. */
+/* ══ جایگزینی (۸.۵۷) ══ ویدئوی منتشرشده‌ای که صاحبِ برنامه خواست از نو ساخته شود، همان
+   کلید را دارد و نقشه برایش نشانیِ ویدئوی قبلی را. ردیفِ دارای `replace` فقط وقتی «ساخته‌شده»
+   است که ردیفِ نقشه همان `replace` را داشته باشد — همان تعریفِ `ytRenderBuilt_` در موتور. */
+function builtFor(x, map) {
+  const m = map.items[x.key];
+  if (!m) return false;
+  if (x.replace && String(m.replace || '') !== String(x.replace)) return false;
+  return true;
+}
+
 function itemsTodo(queue, map, hold, now) {
   const items = Array.isArray(queue && queue.items) ? queue.items : [];
-  const ready = items.filter(x => String(x.status || '') === 'در انتظار' && !map.items[x.key]);
+  const ready = items.filter(x => String(x.status || '') === 'در انتظار' && !builtFor(x, map));
   const todo = ready.filter(x => !heldNow(x, hold, now));
   return { items: items, ready: ready, todo: todo };
 }
@@ -1035,6 +1045,7 @@ function main() {
 
       map.items[it.key] = { url: url, bytes: size, parts: wavs.length,
                             at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+      if (it.replace) map.items[it.key].replace = String(it.replace);
       /* فیلدهای تازه **فقط وقتی اسلاید ساخته شده** نوشته می‌شوند. ردیفی که
          کاورِ تک‌تصویری گرفته، عیناً همان شکلِ امروز را دارد — یعنی موتورِ
          امروز هم می‌تواند بخوانَدش. */
@@ -1141,5 +1152,5 @@ module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo,
-  plCoversTodo, plCoverSig, buildPlCovers, itemsTodo, slugOf, probeWork
+  plCoversTodo, plCoverSig, buildPlCovers, itemsTodo, slugOf, probeWork, builtFor
 };

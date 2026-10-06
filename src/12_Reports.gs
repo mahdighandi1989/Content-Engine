@@ -1545,6 +1545,12 @@ function selfVerifyMap_() {
       if (typeof o.unheard !== 'number') return null;
       return o.unheard > 0;
     } },
+    /* قسمت‌های پیاپی بی آهنگ (۸.۵۷) — شمارش از رویدادِ خودِ قسمت‌ها. */
+    'music-edge-missing':  { what: 'music', still: function (st) {
+      var o = st && st.music && st.music.edgeMiss;
+      if (!o || typeof o !== 'object' || typeof o.n !== 'number') return null;
+      return o.n >= Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2);
+    } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },

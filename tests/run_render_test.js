@@ -1053,6 +1053,15 @@ console.log('\n══ ۱۵) کاورِ مربعِ پلی‌لیست و پروب 
      pw0 === '0' && pw1 === '1' && pw2 === '1' && pw3 === '0',
      JSON.stringify(T.todo) + ' · ' + [pw0, pw1, pw2, pw3].join(','));
 
+  /* ۱۵.۲-ب — جایگزینی (۸.۵۷): ردیفِ «replace» با ویدئوی قبلیِ همان کلید ساخته‌شده نیست؛
+     فقط ردیفِ نقشه با همان replace. پروب هم همان را می‌گوید، و نقشه replace را ثبت می‌کند. */
+  const qr = { items: [{ key: 'special:62', status: 'در انتظار', replace: 'r1' }] };
+  const mOld = { items: { 'special:62': { url: 'old' } } }, mNew = { items: { 'special:62': { url: 'new', replace: 'r1' } } };
+  ok('۱۵.۲-ب ردیفِ جایگزینی با ویدئوی قبلی ساخته می‌شود، با همان replace نه؛ نقشه replace را می‌نویسد',
+     R.itemsTodo(qr, mOld, {}, new Date()).todo.length === 1 && R.itemsTodo(qr, mNew, {}, new Date()).todo.length === 0 &&
+     R.probeWork(qr, mOld, {}, new Date()) === '1' && R.probeWork(qr, mNew, {}, new Date()) === '0' &&
+     /if \(it\.replace\) map\.items\[it\.key\]\.replace = String\(it\.replace\)/.test(src));
+
   /* ۱۵.۳ — کاورِ مربع واقعاً مربع است، زیرِ دو مگابایت، و نامِ تکراری روی آن نیست. */
   const CK = require('../tools/cardkit/index.js');
   const exe = CK.chromeExe();

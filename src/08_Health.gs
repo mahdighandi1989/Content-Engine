@@ -2266,6 +2266,7 @@ function healthCheck() {
       if (Number(muS.unheard) > 0) problems.push(muS.line); else notes.push(muS.line);
     }
     musicUnheardCheck_(hub, muS);
+    try { musicEdgeMissCheck_(hub); } catch (eEm) {}
   } catch (eMu) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */

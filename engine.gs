@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.56
+ *  موتور محتوا و پادکست — نسخهٔ 8.57
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1229,6 +1229,21 @@ var CFG = {
      سازوکارِ خراب شمرده شدند، تلاش نیستند (۸.۳۲). */
   YT_PL_COVER_VER: 2,
   YT_PL_COVER_MIN: 1280,
+  /* ══ ترتیبِ پلی‌لیست از خودِ پلی‌لیست سنجیده می‌شود (۸.۵۷) ══
+     `ytWantPos_` از ۶ سپتامبر همیشه صفر می‌داد و هر ویدئوی تازه بالای پلی‌لیست
+     نشست. درستیِ تابع کافی نیست: آنچه از قبل نشسته باید جابه‌جا شود (۵.۹۵). هر
+     دور حداکثر این‌قدر جابه‌جایی (هر کدام ۵۰ واحد)، و همیشه جای یک آپلود می‌مانَد. */
+  YT_PL_ORDER: true,
+  YT_PL_ORDER_MOVES: 40,
+  YT_PL_ORDER_HOURS: 20,
+  YT_PL_ORDER_RESERVE_EPS: 3,       // سهمیهٔ چند انتشار همیشه کنار می‌مانَد
+  /* ══ جایگزینیِ ویدئوی منتشرشده (۸.۵۷) ══
+     صاحبِ برنامه خواست درسِ ۴۰ با طراحیِ ۸.۵۶ از نو ساخته و جایگزین شود. فهرستِ
+     کلیدها در `docs/yt-replace.json` است (هر کلید یک `tag`). نسخهٔ تازه پیش از
+     کنار رفتنِ قبلی **عمومی** می‌شود؛ قبلی پاک نمی‌شود، از پلی‌لیست بیرون می‌آید
+     و «خصوصی» می‌شود — برگشت‌پذیر. */
+  YT_REPLACE_FILE: 'docs/yt-replace.json',
+  YT_REPLACE_TRY_MAX: 3,
   /* ══ آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ══
      هر دورِ یوتیوب تا این‌قدر ویدئوی منتشرشده را می‌سنجد: کاورِ عمومیِ خودِ
      یوتیوب (i.ytimg.com) کنارِ نقاشیِ رانر. دفترِ `YT_THUMB_PAINT` می‌گوید ما چه
@@ -1558,6 +1573,9 @@ var CFG = {
   MUSIC_EDGE_DISCOVER: true,
   MUSIC_EDGE_DISCOVER_N: 3,          // نامزد برای هر لبه
   MUSIC_EDGE_DISCOVER_MS: 60000,     // سقفِ زمانِ هر دو لبه با هم — مرحلهٔ صدا شش دقیقه دارد
+  MUSIC_EDGE_MISS_EPS: 2,            // چند قسمتِ پیاپیِ بی آهنگ ⇒ یافتهٔ کد (۸.۵۷)
+  MUSIC_BRIDGE_DISCOVER_N: 4,        // پلِ آهنگین: چند نامزدِ نشنیده همین حالا شنیده شود (۸.۵۷)
+  MUSIC_BRIDGE_DISCOVER_MS: 45000,   // سقفِ زمانِ آن — جدا از لبه‌ها
   MUSIC_MIN_BRIDGE_SEC: 4,     // میانه
   MUSIC_SFX_XFADE_SEC: 0.35,   // افکت کوتاه است؛ لبه‌اش فقط نرم می‌شود
   MUSIC_GAIN: 0.8,             // ضریبِ بلندیِ کلی، روی بلندیِ خودِ ردیف
@@ -1897,7 +1915,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.56',
+  CODE_VERSION: '8.57',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2946,6 +2964,7 @@ var PK = {
   SP_LAST: 'SPECIAL_LAST_EPISODE',  // مدت و تعدادِ فایلِ آخرین درس‌نامه، برای دیده‌شدن در وضعیت
   EP_LAST: 'EPISODE_LAST_AUDIO',    // همان، برای «از همه جا از همه رنگ»
   MUSIC_LAST: 'MUSIC_LAST_USE',     // موسیقیِ آخرین قسمت، برای دیده‌شدن در وضعیت
+  MUSIC_EDGE_MISS: 'MUSIC_EDGE_MISS', // شمارِ قسمت‌های پیاپی بی آغاز/پایان یا بی هیچ آهنگ (۸.۵۷)
   MUSIC_UNHEARD_AT: 'MUSIC_UNHEARD_SINCE',  // از کِی بانک قطعهٔ نشنیده دارد
   MUSIC_LOGGED: 'MUSIC_LOGGED_EP',  // آخرین قسمتی که ثبتِ موسیقی‌اش انجام شد
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
@@ -3002,6 +3021,8 @@ var PK = {
   YT_PLCF: 'YT_PL_COVER_FAILS',    // کاورهای پلی‌لیست که نشستند نه
   YT_DIGEST: 'YT_DIGEST_AT',       // آخرین خلاصهٔ لینک‌ها
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
+  YT_PLORD: 'YT_PL_ORDER',         // ترتیبِ پلی‌لیست‌ها: آخرین سنجش، چند جابه‌جا شد، چند مانده (۸.۵۷)
+  YT_REPL: 'YT_REPLACE_STATE',     // جایگزینیِ ویدئوی منتشرشده: حالتِ هر کلید (۸.۵۷)
   YT_PL_SQ: 'YT_PL_SQ_REQ',        // کاورهای مربعِ پلی‌لیست که از رانر خواسته شده‌اند (۸.۵۵)
   YT_THUMB_AUDIT: 'YT_THUMB_AUDIT', // آنچه بیننده می‌بیند: سنجشِ کاورِ عمومیِ هر ویدئو با نقاشی (۸.۵۵)
   CODE_TASK: 'CODE_TASK',          // کارِ کدِ امروزِ ناظر و چند روز است مانده (۸.۵۵)
@@ -17872,6 +17893,7 @@ function healthCheck() {
       if (Number(muS.unheard) > 0) problems.push(muS.line); else notes.push(muS.line);
     }
     musicUnheardCheck_(hub, muS);
+    try { musicEdgeMissCheck_(hub); } catch (eEm) {}
   } catch (eMu) {}
   /* مدل تنها زیرسامانه‌ای بود که سطرِ روزانه نداشت و فقط وقتی حرف می‌زد که
      خبرِ بدی بود. سکوت را نمی‌شود از مرگ تشخیص داد — همان قاعدهٔ بقیه. */
@@ -21417,6 +21439,12 @@ function selfVerifyMap_() {
       if (!o || typeof o !== 'object') return null;
       if (typeof o.unheard !== 'number') return null;
       return o.unheard > 0;
+    } },
+    /* قسمت‌های پیاپی بی آهنگ (۸.۵۷) — شمارش از رویدادِ خودِ قسمت‌ها. */
+    'music-edge-missing':  { what: 'music', still: function (st) {
+      var o = st && st.music && st.music.edgeMiss;
+      if (!o || typeof o !== 'object' || typeof o.n !== 'number') return null;
+      return o.n >= Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2);
     } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
@@ -37771,8 +37799,11 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
     /* پلِ «زمینه» پنج ثانیه طنینِ کشیده است و شنونده آن را موسیقی نمی‌شنود (۸.۵۶:
        درسِ ۴۰ سه پل داشت، هر سه «طنین»، و او گفت «موسیقی که نداشت»). زمینه
-       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود. */
-    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 2;
+       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود.
+       ══ و «دیرتر» باید واقعاً دیرتر باشد (۸.۵۷) ══ با +۲، طنینی که یک واژهٔ حال‌وهوا (+۳)
+       را داشت باز جلو می‌افتاد — و «آرام» تقریباً در هر درس‌نامه‌ای هست. پس پلِ ۶ اکتبر
+       باز طنین بود. آهنگ حالا بر هر هم‌خوانیِ تک‌واژه‌ای مقدم است. */
+    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 6;
     return s;
   };
   cands.sort(function (a, b) {
@@ -37846,24 +37877,78 @@ function musicMarkUsed_(hub, picks, epLabel, showName) {
 function pickOf_(track, slot) {
   return { id: track.id, row: track.row, name: track.name, kind: track.kind,
            mood: track.mood, gain: track.gain, sec: track.sec,
-           used: track.used, slot: slot };
+           used: track.used, slot: slot,
+           /* داوریِ شنیداری همراهِ انتخاب (۸.۵۷) — تا «آهنگ داشت یا فقط طنین» از رویداد گفته شود. */
+           heard: String(track.heard || '') };
 }
 
 /**
  * ثبتِ استفاده و حافظهٔ «قسمتِ قبل» — دقیقاً یک بار برای هر قسمت.
  * @return {boolean} آیا این فراخوان واقعاً ثبت کرد
  */
+/* ══ قسمتِ بی‌موسیقی هم ثبت می‌شود (۸.۵۷) ══
+   تا ۸.۵۶ این تابع با «هیچ انتخابی» همان‌جا برمی‌گشت: `MUSIC_LAST` روی قسمتِ قبلی
+   می‌ماند و قسمتی که اصلاً موسیقی نداشت هیچ ردی نمی‌گذاشت. «در پادکستِ از همه جا هیچ
+   جاش موسیقی نیست» را فقط گوشِ او گفت. حالا هر قسمت — با موسیقی یا بی آن — یک بار ثبت
+   می‌شود، و شمارِ قسمت‌های پیاپی بی آهنگ (`musicEdgeMissNote_`) از همین رویداد می‌آید. */
 function musicRecordOnce_(hub, mw, key, epLabel, showName) {
-  if (!mw || !mw.picks || !mw.picks.length) return false;
+  if (!mw) return false;
   var k = String(key || '');
   if (k) {
     var seen = '';
     try { seen = String(props_().getProperty(PK.MUSIC_LOGGED) || ''); } catch (e0) {}
     if (seen === k) return false;
   }
-  try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {}
+  var any = !!(mw.picks && mw.picks.length);
+  if (any) { try { musicMarkUsed_(hub, mw.picks, epLabel, showName); } catch (eU) {} }
   try { musicRemember_(mw, epLabel); } catch (eR) {}
+  try { musicEdgeMissNote_(mw, epLabel); } catch (eM) {}
   if (k) { try { props_().setProperty(PK.MUSIC_LOGGED, k); } catch (e1) {} }
+  return any;
+}
+
+/**
+ * چند قسمتِ **پیاپی** بی آغاز و پایان یا بی هیچ آهنگی رفته‌اند (۸.۵۷).
+ * «آهنگ» از داوریِ شنیداریِ خودِ انتخاب می‌آید؛ طنینِ کشیده («زمینه») موسیقی شمرده
+ * نمی‌شود، چون شنونده آن را موسیقی نمی‌شنود — همان چیزی که او دو بار گفت.
+ */
+function musicEdgeMissNote_(mw, epLabel) {
+  var picks = (mw && mw.picks) || [], miss = (mw && mw.missing) || [];
+  var melo = picks.filter(function (p) { return heardSays_(p.heard, 'آهنگ'); }).length;
+  var edges = miss.indexOf('شروع') !== -1 || miss.indexOf('پایان') !== -1;
+  var bad = edges || !melo;
+  var st = musicEdgeMissState_();
+  if (bad) {
+    st.n = (Number(st.n) || 0) + 1;
+    st.eps = (st.eps || []).concat([String(epLabel || '')]).slice(-6);
+    st.why = (edges ? 'بی ' + miss.filter(function (x) { return x !== 'میانه'; }).join(' و ') : '') +
+             (!melo ? (edges ? '؛ ' : '') + (picks.length ? 'فقط طنین (' + picks.length + ' قطعه، هیچ‌کدام آهنگ نبود)' : 'هیچ موسیقی‌ای') : '');
+  } else { st.n = 0; st.eps = []; st.why = ''; }
+  st.at = nowStr_(); st.last = String(epLabel || ''); st.melo = melo;
+  try { props_().setProperty(PK.MUSIC_EDGE_MISS, JSON.stringify(st)); } catch (e) {}
+  return st;
+}
+function musicEdgeMissState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.MUSIC_EDGE_MISS) || 'null'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+
+/** دو قسمتِ پیاپی بی آهنگ ⇒ یافتهٔ کد، نه سطری که فردا جایش را به سطرِ دیگری بدهد. */
+function musicEdgeMissCheck_(hub) {
+  var st = musicEdgeMissState_();
+  if ((Number(st.n) || 0) < Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2)) return false;
+  try {
+    logSelfFinding_(hub || getHub_(), {
+      priority: 'جدی', category: 'موسیقی', key: 'music-edge-missing',
+      title: st.n + ' قسمتِ پیاپی بی موسیقیِ آهنگین رفت',
+      detail: (st.eps || []).join('، ') + ' — ' + String(st.why || ''),
+      instruction: 'اول `music.unheard` و شاهدِ بازشنوی (`music.rehear`) را بخوان: اگر بانک هنوز ' +
+                   'نشنیده دارد و بازشنوی جلو نمی‌رود، علت همان‌جاست. اگر شنیده شده‌اند و هیچ‌کدام ' +
+                   '«آهنگ» نیست، بانک آهنگ ندارد — `musicSeek_` باید آهنگ بیاورد (نه طنین). سیاههٔ ' +
+                   '«موسیقیِ میانه/شروع/پایان … همین حالا شنیده» می‌گوید شنیدنِ همان لحظه چه دید.',
+      owner: ROWNER_CODE
+    });
+  } catch (e) { return false; }
   return true;
 }
 
@@ -38071,6 +38156,61 @@ function musicEdgeDiscover_(bank, hub, slot, key, mood, plan, disc) {
 }
 
 /**
+ * نامزدهای نشنیدهٔ «میانه» را همین حالا می‌شنود و تا `need` آهنگ برمی‌گرداند (۸.۵۷).
+ * همان سه سدِ `musicEdgeDiscover_`: داوریِ کلِ قطعه (`musicAccept_`) باید «آهنگ» بگوید،
+ * بازهٔ پخش (`plan.bridgeStart`) هم «آهنگ» شنیده شود، و هر داوری در بانک ثبت شود.
+ * سقف دارد — شمار و زمان — چون مرحلهٔ صدا شش دقیقه دارد و آغاز و پایان هم سهم می‌خواهند.
+ */
+function musicBridgeDiscover_(bank, hub, mood, need, plan, skipIds) {
+  var out = [];
+  if (CFG.MUSIC_EDGE_DISCOVER === false || !(need > 0)) return out;
+  var maxN = Math.max(0, Number(CFG.MUSIC_BRIDGE_DISCOVER_N) || 4);
+  var budget = Math.max(5000, Number(CFG.MUSIC_BRIDGE_DISCOVER_MS) || 45000);
+  var t0 = new Date().getTime(), minSec = Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4;
+  var words = String(mood || '').split(/[\s،,]+/).filter(Boolean), skip = Object.create(null);
+  for (var s0 = 0; s0 < (skipIds || []).length; s0++) skip[skipIds[s0]] = 1;
+  var cands = [];
+  for (var i = 0; i < bank.length; i++) {
+    var b = bank[i];
+    if (skip[b.id] || String(b.kind || '') === 'افکت') continue;
+    if (heardPlayable_(b.heard, b.note)) continue;
+    if (!b.sec || b.sec < minSec) continue;
+    if (b.slots && b.slots.indexOf('میانه') === -1) continue;
+    if (/^❓.*گفتار/.test(String(b.heard || '').trim())) continue;
+    var sc = 0;
+    for (var m = 0; m < words.length; m++) if (b.mood && b.mood.indexOf(words[m]) !== -1) sc += 3;
+    sc -= Math.min(Number(b.used) || 0, 12) / 12;
+    if (b.sec <= 40) sc += 1;                     // قطعهٔ کوتاه معمولاً جینگل است، نه بستر
+    cands.push({ b: b, sc: sc });
+  }
+  cands.sort(function (a, c) { return c.sc - a.sc; });
+  var tried = 0, notes = [], st = Number(plan.bridgeStart) || 0;
+  for (var k = 0; k < cands.length && out.length < need; k++) {
+    if (tried >= maxN) break;
+    if (new Date().getTime() - t0 > budget) { notes.push('وقت تمام شد'); break; }
+    var tr = cands[k].b; tried++;
+    var bytes = null, info = null;
+    try { bytes = DriveApp.getFileById(tr.id).getBlob().getBytes(); info = wavInfo_(bytes); }
+    catch (eB) { notes.push(auditCut_(tr.name, 30) + ': خوانده نشد'); continue; }
+    if (!wavReadable_(info)) { notes.push(auditCut_(tr.name, 30) + ': WAV خوانده نشد'); continue; }
+    var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
+    musicHeardRecord_(hub, tr, acc);
+    if (!acc.ok || acc.heard !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why)); continue; }
+    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - 8)));
+    var h = musicListen_(bytes, info, tr.name, at);
+    if (h !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': بازهٔ پخش «' + (h || 'نشنید') + '»'); continue; }
+    out.push(tr);
+  }
+  plan.heard = plan.heard || {};
+  plan.heard.bridges = out.length + ' آهنگِ تازه از ' + tried + ' شنیده';
+  if (tried) {
+    logLine_('موسیقیِ میانه: ' + tried + ' نامزدِ نشنیده همین حالا شنیده شد، ' + out.length + ' آهنگ پذیرفته شد' +
+             (notes.length ? ' — ' + notes.join(' · ') : '') + '.');
+  }
+  return out;
+}
+
+/**
  * داوریِ تازه را در شناسنامه **و** تب می‌نشانَد (۸.۵۶) — همان شکلی که
  * `musicRecheck_` می‌نویسد، تا بانک یاد بگیرد و قسمتِ بعد دوباره نپرسد.
  * داوریِ ناقطعی فقط شمارِ تلاش را بالا می‌برد؛ هرگز «تأیید» نمی‌شود (۷.۶۸).
@@ -38270,9 +38410,37 @@ function musicWrap_(chunks, hub, opt) {
   var per = Math.max(1, Number(CFG.MUSIC_BRIDGE_EVERY_SECTIONS) || 2);
   var minBr = Math.min(maxBr, Math.ceil(bounds.length / per));
   if (!finalBr && want.length < minBr) bridgeFill_(want, bounds, bank, mood, minBr);
+  /* ══ پلِ آهنگین، همین حالا شنیده (۸.۵۷) ══
+     «یادت نیست اون اوایل موسیقی‌های میانی داشتیم؟» — داشتیم، و حالا هم «داریم»: درسِ ۴۰ سه
+     پل داشت و «از همه جا از همه رنگ»ِ ۶ اکتبر دو تا، هر کدام پنج ثانیه طنینِ کشیده. بانک
+     فقط هفت قطعهٔ شنیده‌شده دارد و همه «زمینه»اند؛ شنونده آن‌ها را موسیقی نمی‌شنود. ۸.۵۶ این
+     را برای آغاز و پایان با «شنیدنِ همان لحظه» بست و پل را جا انداخت. حالا اگر پل‌های
+     آهنگینِ این قسمت از کف کمترند، چند نامزدِ نشنیده همین حالا شنیده می‌شوند و «آهنگ»ها
+     جای طنین‌ها را می‌گیرند. داوری در بانک می‌نشیند، پس قسمتِ بعد دوباره نمی‌پرسد. */
+  var brFresh = Object.create(null);
+  if (hearSeg && !finalBr && bounds.length && minBr > 0) {
+    try {
+      var melo = want.filter(function (w) { return heardSays_(w.track.heard, 'آهنگ'); }).length;
+      var needM = Math.max(1, minBr) - melo;
+      if (needM > 0) {
+        var got = musicBridgeDiscover_(bank, hub, mood, needM, plan,
+                                       want.map(function (w) { return w.track.id; }));
+        for (var gz = 0; gz < got.length; gz++) {
+          brFresh[got[gz].id] = 1;
+          var sw = -1;
+          for (var wz0 = 0; wz0 < want.length; wz0++) {
+            if (!heardSays_(want[wz0].track.heard, 'آهنگ') && !brFresh[want[wz0].track.id]) { sw = wz0; break; }
+          }
+          if (sw >= 0) { want[sw].track = got[gz]; want[sw].why = 'آهنگِ همین حالا شنیده‌شده به‌جای طنین'; }
+          else if (want.length < maxBr) bridgeFill_(want, bounds, [got[gz]], mood, want.length + 1);
+        }
+      }
+    } catch (eBd) { logLine_('شنیدنِ پل‌های تازه نشد: ' + eBd.message); }
+  }
   if (hearSeg && !finalBr) {
     var keptBr = [], dropBr = [];
     for (var hz = 0; hz < want.length; hz++) {
+      if (brFresh[want[hz].track.id]) { keptBr.push(want[hz]); continue; }   // همین حالا، همان بازه، شنیده شد
       var hr = musicSegOk_(want[hz].track, Number(plan.bridgeStart) || 0, 'میانه');
       if (hr.ok) keptBr.push(want[hz]);
       else dropBr.push(String(want[hz].track.name || '') + ' (' + hr.why + ')');
@@ -38534,6 +38702,7 @@ function musicStatus_() {
   } catch (e4) {
     out.sfx = null; out.sfxTarget = null;
   }
+  try { out.edgeMiss = musicEdgeMissState_(); } catch (eEm) { out.edgeMiss = null; }
   out.line = musicLine_(out);
   return out;
 }
@@ -38580,6 +38749,12 @@ function musicLine_(st) {
                    'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
         if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
       }
+    }
+    /* آنچه شنونده شنید، نه آنچه بانک دارد (۸.۵۷): قسمت‌های پیاپی بی آهنگ. */
+    var em = st.edgeMiss || {};
+    if (Number(em.n) > 0) {
+      line += ' ⚠️ ' + fa(em.n) + ' قسمتِ پیاپی بی موسیقیِ آهنگین (آخرین: ' + String(em.last || '') +
+              (em.why ? ' — ' + em.why : '') + ').';
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }
@@ -47144,6 +47319,19 @@ function ytAudioParts_(folder) {
   return out;
 }
 
+/**
+ * ردیفِ نقشهٔ رانر برای **همین** درخواست — یا null.
+ * جایگزینی (۸.۵۷) کلید را عوض نمی‌کند، پس نقشه برای همان کلید نشانیِ ویدئوی **قبلی** را
+ * دارد. ردیفِ دارای `replace` فقط ردیفِ نقشه با همان `replace` را «ساخته‌شده» می‌شمارد —
+ * یک تعریف، برای سقفِ صف و برای برداشت؛ دو تعریف یعنی یکی ویدئوی قبلی را دوباره برمی‌دارد.
+ */
+function ytRenderBuilt_(row, map) {
+  var rec = map && row ? map[String(row.key)] : null;
+  if (!rec || !rec.url) return null;
+  if (row.replace && String(rec.replace || '') !== String(row.replace)) return null;
+  return rec;
+}
+
 /** یک درخواستِ تازه، بی تکرار. سقف دارد تا صف بی‌نهایت نشود. */
 function ytRenderAsk_(item) {
   var d = ytRenderRead_();
@@ -47151,6 +47339,12 @@ function ytRenderAsk_(item) {
   var replaceAt = -1;
   for (var i = 0; i < d.items.length; i++) {
     if (String(d.items[i].key) !== key) continue;
+    /* ══ جایگزینی (۸.۵۷) ══ ردیفِ «رسید»ِ ویدئوی قبلی، با `replace` تازه بازنویسی می‌شود؛
+       همان `replace` یعنی «قبلاً برای همین جایگزینی خواسته شد». */
+    if (item.replace) {
+      if (String(d.items[i].replace || '') === String(item.replace)) return false;
+      replaceAt = i; break;
+    }
     /* قبلاً خواسته شده — مگر آنکه ردیفِ قبلی نحیف و هنوز ساخته‌نشده باشد و
        این یکی واقعاً بهتر (۸.۳۰). «بهتر» یعنی تصویرِ بیشتر یا مشخصاتِ برداری؛
        بی این شرط، ردیفی بدتر هم می‌توانست جای قبلی را بگیرد. */
@@ -47189,7 +47383,7 @@ function ytRenderAsk_(item) {
     if (ix === replaceAt) return false;     // جایگزین می‌شود، اضافه نمی‌شود
     if (String(x.status || '') !== 'در انتظار') return false;
     // ساخته شده و فقط منتظرِ برداشت است — این دیگر «درخواستِ بی‌جواب» نیست.
-    if (map && map[String(x.key)] && map[String(x.key)].url) return false;
+    if (ytRenderBuilt_(x, map)) return false;
     return true;
   });
   if (pend.length >= cap) return false;
@@ -47213,6 +47407,7 @@ function ytRenderAsk_(item) {
                          name: String((v && v.name) || '') }; }),
               outName: String(item.outName || ''), at: nowStr_(),
               status: 'در انتظار' };
+  if (item.replace) row.replace = String(item.replace);
   /* ══ مشخصاتِ تصویری **در ردیف** — سیمی که از ۸.۰۱ وصل نبود (۸.۲۶) ══
      `ytUploadOne_` مشخصات را از ۸.۰۱ می‌سازد و به همین تابع می‌دهد، و
      `tools/render.js` از ۸.۰۱ اول از همه `it.spec` را می‌خوانَد. ولی همین‌جا،
@@ -47255,7 +47450,8 @@ function ytRenderAsk_(item) {
     try { ytRenderShare_(was, false); } catch (eRs) {}
     row.redo = (Number(was.redo) || 0) + 1;
     row.replaced = String(was.at || '');
-    row.replacedWhy = row.scenes
+    row.replacedWhy = row.replace ? 'جایگزینیِ ویدئوی منتشرشده («' + row.replace + '»)'
+      : row.scenes
       ? 'ردیفِ قبلی کارتِ متنی بود؛ حالا ' + row.scenes.length + ' صحنهٔ مصور'
       : 'ردیفِ قبلی ' + (was.visuals || []).length + ' تصویر داشت' +
         (was.spec ? '' : ' و بی مشخصاتِ برداری بود');
@@ -47564,8 +47760,8 @@ function ytRenderCollect_(budgetMs) {
   var budget = Math.max(20000, Number(budgetMs) || Number(CFG.YT_COLLECT_MS) || 120000);
   for (var i = 0; i < pend.length && out.got < cap; i++) {
     if (new Date().getTime() - t0 > budget) break;
-    var rec = map[pend[i].key];
-    if (!rec || !rec.url) continue;
+    var rec = ytRenderBuilt_(pend[i], map);
+    if (!rec) continue;
     out.tried++;
     var r = ytRenderFetch_(pend[i], rec.url);
     if (r.ok) {
@@ -54623,7 +54819,8 @@ function ytUploadOne_(item, hub, pub) {
                      outName: outName,
                      /* کلیدِ پلی‌لیستِ همین مجموعه: رانر نقاشیِ نخستین درسِ صحنه‌ای را
                         پس‌زمینهٔ کاورِ مربعِ پلی‌لیست می‌کند (۸.۵۵). */
-                     plKey: ytPlKey_(item.show, item.seriesKey, seriesName) });
+                     plKey: ytPlKey_(item.show, item.seriesKey, seriesName),
+                     replace: item.replace ? String(item.replace) : '' });
       res.waiting = true;
       res.why = askedOk
         ? 'ویدئوی صحنه‌ای هنوز ساخته نشده؛ درخواستِ رندر با ' +
@@ -54812,7 +55009,8 @@ function ytUploadOne_(item, hub, pub) {
                      return { id: f.getId(), name: f.getName() }; }),
                    audioKind: aud.kind,
                    coverFileId: cover ? cover.fileId : '',
-                   outName: outName });
+                   outName: outName,
+                   replace: item.replace ? String(item.replace) : '' });
     res.waiting = true;
     res.why = 'ویدئو هنوز ساخته نشده؛ درخواستِ رندر گذاشته شد' +
               (vis.ready ? ' (با ' + faDigitsOut_(String(vis.ready)) + ' تصویر)' : '');
@@ -54902,6 +55100,7 @@ function ytUploadOne_(item, hub, pub) {
         var items = ytPlItems_(pl.id);
         plPos = ytPlPlace_(pl.id, vid, ytWantPos_(pub, item, seriesName), items);
         plName = pl.title;
+        ytPlOrderDirty_();             // سنجشِ ترتیب همین دور، از خودِ پلی‌لیست (۸.۵۷)
       }
     } catch (eP) { plPos = 'نشد: ' + String(eP.message).slice(0, 60); }
   }
@@ -55013,23 +55212,405 @@ function ytPlFor_(item, seriesName, showName) {
  * شکافی در شماره‌ها. یعنی حتی اگر قسمتِ امشب پیش از قسمت‌های گذشته آپلود
  * شود، وقتی آن‌ها برسند خودشان *بالای* آن می‌نشینند.
  */
+/* ══ همیشه صفر بود، از ۶ سپتامبر (۸.۵۷) ══
+ * این تابع کلیدِ `pub` را با **نامِ نمایشی** («درس‌نامه») می‌سنجید، ولی `ytPublished_`
+ * از همان روز کلیدها را با `ytShowKey_` یک‌دست می‌کند («special»). پس هیچ ردیفی
+ * «همین برنامه» شمرده نمی‌شد، جواب همیشه ۰ بود، و هر ویدئوی تازه **بالای**
+ * پلی‌لیست می‌نشست: پلی‌لیستِ مجموعه از نو به کهنه. سنجه‌های ۱۴.۳ تا ۱۴.۷ سبز بودند
+ * چون `pub` را دستی با کلیدِ نمایشی می‌ساختند — شکلی که تولید از ۶ سپتامبر نمی‌سازد
+ * (۷.۲۲). §۸۶ همان را از درِ `ytLog_` ⇒ `ytPublished_` می‌سازد. هر دو طرف از یک
+ * تعریف می‌گذرند تا هر دو شکلِ کلید پذیرفته شود. */
 function ytWantPos_(pub, item, seriesName) {
   var mine = Number(item.ep) || 0;
-  var showName = String(item.show) === ENRICH_SHOW_SPECIAL
-                   ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME;
+  var myShow = ytShowKey_(item.show);
   var n = 0;
   for (var k in pub) {
     if (!Object.prototype.hasOwnProperty.call(pub, k)) continue;
     var rec = pub[k];
     if (!rec || !rec.videoId) continue;
-    var bits = String(k).split(':');
-    if (bits[0] !== showName) continue;                   // برنامهٔ دیگر
-    if (String(item.show) === ENRICH_SHOW_SPECIAL &&
+    var cut = String(k).lastIndexOf(':');
+    var bits = [String(k).slice(0, cut), String(k).slice(cut + 1)];
+    if (ytShowKey_(bits[0]) !== myShow) continue;          // برنامهٔ دیگر
+    if (myShow === ENRICH_SHOW_SPECIAL &&
         String(rec.series || '') !== String(seriesName || '')) continue;   // مجموعهٔ دیگر
     var other = Number(bits[1]) || 0;
     if (other && other < mine) n++;
   }
   return n;
+}
+
+/* ─────────────────── ۱۰-ب) ترتیبِ پلی‌لیست، از خودِ پلی‌لیست (۸.۵۷) ───────────────────
+ *
+ * «مراقب باش بعد از درسِ بعدیش نیفته تو لیست.» — و جوابِ راست این بود که از ۶ سپتامبر
+ * هیچ ویدئویی سرِ جایش ننشسته بود: `ytWantPos_` همیشه صفر می‌داد. درست کردنِ آن تابع
+ * فقط ویدئوی **بعدی** را درست می‌گذارد؛ آنچه از قبل نشسته باید جابه‌جا شود — همان
+ * «پاک‌کردنِ ورودی آنچه نوشته شده را درست نمی‌کند» (۵.۹۵).
+ *
+ * پس ترتیب از **خودِ پلی‌لیست** سنجیده می‌شود، نه از حسابِ ما: هر ویدئوی پلی‌لیست با
+ * شناسه‌اش به شمارهٔ قسمت برگردانده می‌شود (تبِ انتشار، یک خواندن)، و ترتیبِ درست
+ * «شمارهٔ کمتر بالاتر» است. ویدئوی ناشناخته (افزودهٔ دستیِ آدم) دست نمی‌خورد و پایین
+ * می‌مانَد. جابه‌جایی‌ها کمینه‌اند: بلندترین زیررشتهٔ ازپیش‌مرتب سرِ جایش می‌مانَد و
+ * فقط بقیه جابه‌جا می‌شوند — هر جابه‌جایی ۵۰ واحد سهمیه است.
+ */
+
+/** شناسهٔ ویدئو ⇒ {show, ep} از تبِ انتشار — همهٔ ردیف‌ها، نه فقط آخرین هر کلید
+    (ویدئوی جایگزین‌شده هم شمارهٔ خودش را دارد). */
+function ytVidEps_(hub) {
+  var out = Object.create(null);
+  try {
+    var sh = (hub || getHub_()).getSheetByName(CFG.YT_TAB || 'انتشار در یوتیوب');
+    if (!sh || sh.getLastRow() < 2) return out;
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, YT_HEADERS.length).getValues();
+    for (var i = 0; i < v.length; i++) {
+      var vid = String(v[i][YU.VID - 1] || '').trim();
+      var ep = Number(String(v[i][YU.EP - 1] || '').trim()) || 0;
+      if (!vid || !ep) continue;
+      out[vid] = { show: ytShowKey_(v[i][YU.SHOW - 1]), ep: ep };
+    }
+  } catch (e) {}
+  return out;
+}
+
+/**
+ * نقشهٔ جابه‌جایی — تابعِ خالص، تا بشود بی یوتیوب سنجیدش.
+ * @param {Array} cur  اقلامِ پلی‌لیست به ترتیبِ فعلی: {id, videoId}
+ * @param {Function} epOf  شناسهٔ ویدئو ⇒ شمارهٔ قسمت (۰ = ناشناخته)
+ * @return {{target: string[], moves: Array<{id, videoId, pos}>, wrong: number}}
+ *   `moves` به همان ترتیب باید اجرا شوند؛ `pos` جای نهاییِ آن قلم پس از همان حرکت است.
+ */
+function ytPlOrderPlan_(cur, epOf) {
+  var rows = [];
+  for (var i = 0; i < (cur || []).length; i++) {
+    var e = Number(epOf(cur[i].videoId)) || 0;
+    rows.push({ id: String(cur[i].id), videoId: String(cur[i].videoId || ''), i: i, ep: e > 0 ? e : 0 });
+  }
+  var ours = rows.filter(function (r) { return r.ep > 0; });
+  var rest = rows.filter(function (r) { return !(r.ep > 0); });
+  ours.sort(function (a, b) { return (a.ep - b.ep) || (a.i - b.i); });
+  var target = ours.concat(rest), rank = Object.create(null);
+  for (var k = 0; k < target.length; k++) rank[target[k].id] = k;
+  // بلندترین زیررشتهٔ صعودی (رتبه‌ها یکتا) — همین‌ها سرِ جایشان می‌مانند
+  var tails = [], tailAt = [], prev = [];
+  for (var j = 0; j < rows.length; j++) {
+    var x = rank[rows[j].id], lo = 0, hi = tails.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (tails[mid] < x) lo = mid + 1; else hi = mid; }
+    prev[j] = lo > 0 ? tailAt[lo - 1] : -1;
+    tails[lo] = x; tailAt[lo] = j;
+  }
+  var keep = Object.create(null);
+  for (var p = tails.length ? tailAt[tails.length - 1] : -1; p >= 0; p = prev[p]) keep[rows[p].id] = 1;
+  var arr = rows.map(function (r) { return r.id; }), moves = [];
+  for (var t = 0; t < target.length; t++) {
+    var id = target[t].id;
+    if (keep[id]) continue;
+    var from = arr.indexOf(id);
+    arr.splice(from, 1);
+    var pos = t === 0 ? 0 : arr.indexOf(target[t - 1].id) + 1;
+    arr.splice(pos, 0, id);
+    if (pos !== from) moves.push({ id: id, videoId: target[t].videoId, pos: pos });
+  }
+  return { target: target.map(function (r) { return r.id; }), moves: moves, wrong: moves.length };
+}
+
+function ytPlOrderState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.YT_PLORD) || 'null'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+function ytPlOrderSave_(st) {
+  try { props_().setProperty(PK.YT_PLORD, JSON.stringify(st)); } catch (e) {}
+}
+/** پس از هر آپلود یا جایگزینی: دورِ بعد حتماً بسنجد. */
+function ytPlOrderDirty_() {
+  var st = ytPlOrderState_(); st.dirty = true; ytPlOrderSave_(st);
+}
+/** نوبتِ سنجش هست؟ — بی هیچ خواندنی جز Properties. */
+function ytPlOrderDue_() {
+  if (CFG.YT_PL_ORDER === false) return false;
+  var st = ytPlOrderState_();
+  if (st.dirty || Number(st.left) > 0) return true;
+  var t = parseWhen_(String(st.at || ''));
+  if (isNaN(t)) return true;
+  return (new Date().getTime() - t) / 3600000 >= Math.max(1, Number(CFG.YT_PL_ORDER_HOURS) || 20);
+}
+
+/**
+ * ترتیبِ همهٔ پلی‌لیست‌های موتور را با شمارهٔ قسمت می‌سنجد و تا سقف جابه‌جا می‌کند.
+ * سهمیهٔ یک آپلود همیشه کنار می‌مانَد: ترتیب منتظر می‌مانَد، انتشار نه.
+ */
+function ytPlOrderFix_(budgetMs, hubIn) {
+  var out = { checked: 0, wrong: 0, moved: 0, left: 0, failed: 0, why: '', pls: [] };
+  var yt = ytSvc_(); if (!yt || CFG.YT_PL_ORDER === false) { out.why = 'خاموش'; return out; }
+  var t0 = new Date().getTime(), budget = Math.max(10000, Number(budgetMs) || 60000);
+  var q = ytQuota_(), capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+  /* سهمیهٔ انتشارهای همین روز کنار می‌مانَد (دو برنامه + یک جایگزینی): ترتیب یک روز صبر می‌کند،
+     انتشارِ قسمتِ فردا نه. */
+  var reserve = ytUnitsPerEpisode_() * Math.max(1, Number(CFG.YT_PL_ORDER_RESERVE_EPS) || 3);
+  var room = Math.floor((capU - q.units - reserve) / YT_COST.itemsUpdate);
+  var allow = Math.max(0, Math.min(Number(CFG.YT_PL_ORDER_MOVES) || 40, room));
+  var eps = ytVidEps_(hubIn);
+  var map = ytPlMap_();
+  for (var key in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, key)) continue;
+    var rec = map[key] || {};
+    if (!rec.id) continue;
+    if (new Date().getTime() - t0 > budget) { out.why = out.why || 'وقتِ این دور تمام شد'; break; }
+    var items = ytPlItems_(rec.id);
+    out.checked++;
+    var plan = ytPlOrderPlan_(items, function (vid) { return (eps[vid] || {}).ep || 0; });
+    var row = { key: key, n: items.length, wrong: plan.wrong, moved: 0 };
+    out.wrong += plan.wrong;
+    for (var m = 0; m < plan.moves.length; m++) {
+      if (out.moved >= allow) { out.why = out.why || (allow < (Number(CFG.YT_PL_ORDER_MOVES) || 40) ? 'سهمیهٔ امروز' : 'سقفِ جابه‌جاییِ این دور'); break; }
+      if (new Date().getTime() - t0 > budget) { out.why = out.why || 'وقتِ این دور تمام شد'; break; }
+      if (!ytQuotaTake_(YT_COST.itemsUpdate, false)) { out.why = 'سهمیهٔ امروز'; break; }
+      var mv = plan.moves[m];
+      try {
+        yt.PlaylistItems.update({ id: mv.id, snippet: {
+          playlistId: rec.id, position: mv.pos,
+          resourceId: { kind: 'youtube#video', videoId: mv.videoId } } }, 'snippet');
+        out.moved++; row.moved++;
+      } catch (eM) {
+        /* یک جابه‌جاییِ ناموفق، شبیه‌سازی را از واقعیت جدا می‌کند: بقیهٔ همین پلی‌لیست
+           دورِ بعد از فهرستِ تازه حساب می‌شود، نه از حسابی که دیگر درست نیست. */
+        out.failed++; out.why = 'جابه‌جایی نشد: ' + String(eM.message).slice(0, 80);
+        break;
+      }
+    }
+    out.pls.push(row);
+  }
+  out.left = Math.max(0, out.wrong - out.moved);
+  ytPlOrderSave_({ at: nowStr_(), wrong: out.wrong, moved: out.moved, left: out.left,
+                   failed: out.failed, why: out.why, pls: out.pls, dirty: false });
+  if (out.moved || out.failed) {
+    logLine_('ترتیبِ پلی‌لیست‌ها: ' + out.moved + ' ویدئو جابه‌جا شد' +
+             (out.left ? '، ' + out.left + ' مانده' : '') + (out.why ? ' — ' + out.why : '') + '.');
+  }
+  return out;
+}
+
+/** خطِ روزانه: ترتیبِ پلی‌لیست‌ها — از Properties، بی خواندنِ یوتیوب (۷.۶۳). */
+function ytPlOrderLine_() {
+  var st = ytPlOrderState_();
+  if (!st.at) return 'ترتیبِ پلی‌لیست‌ها: هنوز سنجیده نشده';
+  if (!(Number(st.wrong) > 0)) return 'ترتیبِ پلی‌لیست‌ها: ✓ همه به ترتیبِ شمارهٔ قسمت (سنجش ' + st.at + ')';
+  return (Number(st.left) > 0 ? '⚠ ' : '') + 'ترتیبِ پلی‌لیست‌ها: ' + st.moved + ' ویدئو جابه‌جا شد' +
+         (Number(st.left) > 0 ? '، ' + st.left + ' هنوز سرِ جایش نیست' + (st.why ? ' (' + st.why + ')' : '') +
+                                ' — دورِ بعد ادامه می‌یابد' : '؛ حالا به ترتیب') + ' (' + st.at + ')';
+}
+
+/* ─────────────────── ۱۰-پ) جایگزینیِ ویدئوی منتشرشده (۸.۵۷) ───────────────────
+ *
+ * «باز سازی کن و جایگزین کن، فقط مراقب باش بعد از درسِ بعدیش نیفته تو لیست.» — یوتیوب
+ * فایلِ ویدئوی منتشرشده را عوض نمی‌کند، پس «جایگزینی» یعنی ویدئوی تازه + کنار رفتنِ قبلی.
+ * هیچ راهِ تازه‌ای برای ساختن نیست: همان زنجیرهٔ عادی (صحنه‌ها ⇒ رندر ⇒ برداشت ⇒ آپلود)
+ * دوباره راه می‌افتد، فقط با سه دستکاری:
+ *   ۱) ویدئوی قبلیِ پوشه به زیرپوشهٔ «ویدئوی پیشین — جایگزین‌شده» می‌رود (نه سطل): بی آن،
+ *      `ytVideoIn_` همان را می‌یافت و همان را دوباره بالا می‌برد.
+ *   ۲) کلیپ از نو انتخاب می‌شود و کارت‌های کم‌آمده از نو پر می‌شوند — دو کاری که ۸.۵۶ فقط
+ *      برای درس‌های تازه می‌کرد؛ نقاشی‌ها و داوری‌ها همان می‌مانند (پولشان داده شده).
+ *   ۳) ردیفِ رندر و ردیفِ نقشهٔ رانر یک `replace` (همان `tag`) می‌گیرند. بی این، نقشهٔ رانر
+ *      نشانیِ ویدئوی **قبلی** را برای همین کلید داشت و موتور همان را دوباره برمی‌داشت.
+ *
+ * و ترتیبِ کنار رفتن عمدی است: قبلی فقط وقتی کنار می‌رود که تازه **عمومی** است — از خودِ
+ * یوتیوب پرسیده می‌شود، نه از دفترِ ما. قبلی پاک نمی‌شود: از پلی‌لیست بیرون می‌آید و خصوصی
+ * می‌شود؛ اگر تازه بد بود، برگشتنی است. جای تازه در پلی‌لیست از `ytWantPos_` (درست‌شده) و
+ * سپس از `ytPlOrderFix_` می‌آید؛ پس پیش از درسِ بعدی می‌نشیند، با هر ترتیبِ رسیدن.
+ */
+var YT_REPLACE_ = null;
+/** فهرستِ جایگزینی‌ها از گیت‌هاب — یک خواندن در هر اجرا. {کلید: {tag, why}} */
+function ytReplaceList_() {
+  if (YT_REPLACE_) return YT_REPLACE_;
+  var out = {};
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_REPLACE_FILE || 'docs/yt-replace.json'),
+                                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() === 200) {
+      var it = (JSON.parse(res.getContentText()) || {}).items || {};
+      for (var k in it) {
+        if (!Object.prototype.hasOwnProperty.call(it, k) || !it[k]) continue;
+        var tag = String((typeof it[k] === 'object' ? it[k].tag : it[k]) || '').trim();
+        if (tag) out[k] = { tag: tag, why: String((it[k] && it[k].why) || '') };
+      }
+    }
+  } catch (e) {}
+  YT_REPLACE_ = out;
+  return out;
+}
+function ytReplState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.YT_REPL) || '{}'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+function ytReplSave_(st) {
+  try { props_().setProperty(PK.YT_REPL, JSON.stringify(st)); } catch (e) {}
+}
+
+/** ویدئوهای پوشه (فقط سطحِ بالا) به زیرپوشهٔ «پیشین» — برمی‌گرداند چند تا رفت. */
+function ytReplaceAside_(folder) {
+  var nm = 'ویدئوی پیشین — جایگزین‌شده', n = 0, sub = null;
+  var it = folder.getFiles(), vids = [];
+  while (it.hasNext()) { var f = it.next(); if (/\.mp4$/i.test(f.getName())) vids.push(f); }
+  if (!vids.length) return 0;
+  var fi = folder.getFoldersByName(nm);
+  sub = fi.hasNext() ? fi.next() : folder.createFolder(nm);
+  for (var i = 0; i < vids.length; i++) { vids[i].moveTo(sub); n++; }
+  return n;
+}
+
+/** کلیپ و پرکردنِ کارت‌ها از نو؛ نقاشی و داوری همان. */
+function ytReplaceScenes_(folder, tag) {
+  var d = lvSceneRead_(folder);
+  if (!d) return '';
+  var notes = [];
+  if (d.clip) { d.clip = { state: '' }; notes.push('کلیپ از نو انتخاب می‌شود'); }
+  if (d.ovFillAt) { delete d.ovFillAt; delete d.ovFill; notes.push('کارت‌های کم‌آمده از نو'); }
+  d.replaceTag = String(tag);
+  lvSceneWrite_(folder, d);
+  return notes.join('، ');
+}
+
+/** نوبتِ جایگزینی؛ بی کلید در فایل، هیچ خواندنی جز همان فایلِ کوچکِ گیت‌هاب. */
+function ytReplaceTick_(budgetMs, hubIn) {
+  var out = { checked: 0, prepped: 0, swapped: 0, notes: [] };
+  if (!ytOn_()) return out;
+  var list = ytReplaceList_(), keys = Object.keys(list);
+  if (!keys.length) return out;
+  var st = ytReplState_(), hub = null, pub = null, changed = false;
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 60000);
+  var getPub = function () {
+    if (!pub) { hub = hub || hubIn || getHub_(); pub = ytPublished_(hub); }
+    return pub;
+  };
+  for (var i = 0; i < keys.length; i++) {
+    if (new Date().getTime() - t0 > budget) break;
+    var key = keys[i], tag = list[key].tag, cur = st[key] || {};
+    /* میان‌بُر، نه سد (۷.۷۱): حالتِ تمام‌شده به هیچ شاخهٔ پایین نمی‌رسد؛ این فقط شمارش را تمیز نگه می‌دارد. */
+    if (cur.tag === tag && ['done', 'skip', 'fail'].indexOf(String(cur.phase || '')) !== -1) continue;
+    out.checked++;
+    var showK = ytShowKey_(key.slice(0, key.lastIndexOf(':')));
+    var ep = key.slice(key.lastIndexOf(':') + 1);
+    try {
+      if (cur.tag !== tag) {
+        // ── آغاز: قبلی کنار، صحنه‌ها آماده، صف ──
+        var rec = getPub()[showK + ':' + ep];
+        if (!rec || !rec.videoId) {
+          st[key] = { tag: tag, phase: 'skip', at: nowStr_(),
+                      why: 'این قسمت هنوز منتشر نشده؛ انتشارِ عادی همان ویدئوی تازه را می‌سازد' };
+          changed = true; continue;
+        }
+        var rq = ytRenderRead_(), folderId = '';
+        for (var r = 0; r < rq.items.length; r++) if (String(rq.items[r].key) === showK + ':' + ep) folderId = String(rq.items[r].folderId || '');
+        if (!folderId) {
+          st[key] = { tag: tag, phase: 'fail', at: nowStr_(), why: 'پوشهٔ قسمت در صفِ رندر پیدا نشد' };
+          changed = true; continue;
+        }
+        var folder = DriveApp.getFolderById(folderId);
+        var aside = ytReplaceAside_(folder);
+        var scNote = '';
+        try { scNote = ytReplaceScenes_(folder, tag); } catch (eSc) { scNote = 'صحنه‌ها: ' + eSc.message; }
+        var sKey = '';
+        try {
+          var reg = readSeriesReg_(hub);
+          for (var g = 0; g < reg.rows.length; g++) {
+            if (String(reg.rows[g].vals[SC.NAME - 1] || '') === String(rec.series || '')) { sKey = String(reg.rows[g].key || ''); break; }
+          }
+        } catch (eRg) {}
+        ytDueDrop_(showK + ':' + ep);
+        var dl = ytDueList_();
+        dl.push({ key: showK + ':' + ep, show: showK, ep: String(ep), folderId: folderId,
+                  seriesKey: sKey, seriesName: String(rec.series || ''), replace: tag, at: nowStr_() });
+        ytDueSave_(ytDueOrder_(dl));
+        st[key] = { tag: tag, phase: 'build', at: nowStr_(), oldVid: rec.videoId, oldUrl: String(rec.url || ''),
+                    folderId: folderId, seriesKey: sKey, tries: 0, aside: aside, why: list[key].why || '' };
+        changed = true; out.prepped++;
+        logLine_('جایگزینیِ ویدئوی ' + key + ' آغاز شد: ' + aside + ' ویدئوی قبلی به «پیشین» رفت' +
+                 (scNote ? '؛ ' + scNote : '') + '؛ قبلی (' + rec.videoId + ') تا عمومی‌شدنِ تازه سرِ جایش است.');
+        continue;
+      }
+      if (cur.phase === 'build') {
+        var rec2 = getPub()[showK + ':' + ep] || {};
+        if (rec2.videoId && rec2.videoId !== cur.oldVid) {
+          cur.newVid = rec2.videoId; cur.newUrl = String(rec2.url || ''); cur.phase = 'swap'; cur.upAt = nowStr_();
+          changed = true;
+        } else {
+          var inDue = ytDueList_().some(function (x) { return String(x.key) === showK + ':' + ep; });
+          if (!inDue) {
+            cur.tries = (Number(cur.tries) || 0) + 1;
+            if (cur.tries >= Math.max(1, Number(CFG.YT_REPLACE_TRY_MAX) || 3)) {
+              cur.phase = 'fail'; cur.why = 'آپلودِ نسخهٔ تازه ' + cur.tries + ' بار نشد — علت در تبِ انتشار';
+            } else {
+              var dl2 = ytDueList_();
+              dl2.push({ key: showK + ':' + ep, show: showK, ep: String(ep), folderId: cur.folderId,
+                         seriesKey: String(cur.seriesKey || ''), seriesName: String(rec2.series || ''), replace: tag, at: nowStr_() });
+              ytDueSave_(ytDueOrder_(dl2));
+            }
+            changed = true;
+          }
+          st[key] = cur;
+          continue;
+        }
+      }
+      if (cur.phase === 'swap') {
+        var yt = ytSvc_();
+        var priv = '';
+        if (ytQuotaTake_(YT_COST.videosList, false)) {
+          var vl = yt.Videos.list('status', { id: cur.newVid });
+          priv = String((((vl && vl.items) || [])[0] || {}).status ? vl.items[0].status.privacyStatus : '');
+        }
+        if (priv !== 'public') {
+          cur.why = 'نسخهٔ تازه هنوز ' + (priv || 'نامعلوم') + ' است؛ قبلی تا عمومی‌شدنش سرِ جایش می‌مانَد';
+          st[key] = cur; changed = true; continue;
+        }
+        var pulled = 0, pmap = ytPlMap_();
+        for (var pk in pmap) {
+          if (!Object.prototype.hasOwnProperty.call(pmap, pk) || !(pmap[pk] || {}).id) continue;
+          var its = ytPlItems_(pmap[pk].id);
+          for (var q = 0; q < its.length; q++) {
+            if (its[q].videoId !== cur.oldVid) continue;
+            if (!ytQuotaTake_(YT_COST.itemsDelete, false)) break;
+            yt.PlaylistItems.remove(its[q].id); pulled++;
+          }
+        }
+        if (!ytQuotaTake_(YT_COST.videosUpdate, false)) { cur.why = 'سهمیهٔ امروز برای خصوصی‌کردنِ قبلی نماند'; st[key] = cur; changed = true; continue; }
+        yt.Videos.update({ id: cur.oldVid, status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
+        cur.phase = 'done'; cur.doneAt = nowStr_(); cur.pulled = pulled; cur.why = '';
+        st[key] = cur; changed = true; out.swapped++;
+        ytPlOrderDirty_();
+        var msg = '🔁 ویدئوی ' + key + ' جایگزین شد.\nتازه: ' + cur.newUrl + '\nقبلی (' + cur.oldVid +
+                  ') پاک نشد: خصوصی شد و از پلی‌لیست بیرون آمد (' + pulled + ').';
+        logLine_(msg.replace(/\n/g, ' '));
+        try { mailQueue_('یوتیوب', 'ویدئوی ' + key + ' جایگزین شد', msg); } catch (eMq) {}
+        try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: msg, disable_web_page_preview: false }); } catch (eTg) {}
+      }
+    } catch (e) {
+      cur.why = 'خطا: ' + String(e.message).slice(0, 120);
+      cur.errAt = nowStr_();
+      st[key] = cur; changed = true;
+      out.notes.push(key + ': ' + cur.why);
+    }
+  }
+  if (changed) ytReplSave_(st);
+  return out;
+}
+
+/** خطِ روزانهٔ جایگزینی‌ها — از Properties، بی هیچ خواندنی (۷.۶۳). */
+function ytReplaceStatus_() {
+  var st = ytReplState_(), out = { items: [], line: '', problem: '' }, L = [];
+  var label = { build: 'در ساخت', swap: 'منتظرِ عمومی‌شدنِ تازه', done: 'انجام شد', skip: 'لازم نشد', fail: 'نشد' };
+  for (var k in st) {
+    if (!Object.prototype.hasOwnProperty.call(st, k)) continue;
+    var c = st[k] || {};
+    var age = (new Date().getTime() - parseWhen_(String(c.doneAt || c.at || ''))) / 86400000;
+    if (c.phase === 'done' && age > 7) continue;            // هفتهٔ پس از انجام، دیگر خبر نیست
+    out.items.push({ key: k, phase: c.phase, why: c.why || '', newUrl: c.newUrl || '', oldVid: c.oldVid || '' });
+    L.push(k + ': ' + (label[c.phase] || c.phase) + (c.phase === 'done' && c.newUrl ? ' — ' + c.newUrl : '') +
+           (c.why && c.phase !== 'done' ? ' (' + c.why + ')' : ''));
+    if (c.phase === 'fail') out.problem = 'جایگزینیِ ویدئوی ' + k + ' نشد — ' + (c.why || '');
+    else if ((c.phase === 'build' || c.phase === 'swap') && age > 2) {
+      out.problem = 'جایگزینیِ ویدئوی ' + k + ' بیش از دو روز است در «' + label[c.phase] + '» مانده' + (c.why ? ' — ' + c.why : '');
+    }
+  }
+  if (L.length) out.line = '🔁 جایگزینیِ ویدئو: ' + L.join(' · ');
+  return out;
 }
 
 /* ─────────────────── ۱۱) همگام‌سازیِ پلی‌لیست‌ها با رجیستری ───────────────────
@@ -55380,11 +55961,22 @@ function ytTick_(budgetMs) {
     try { ytThumbRestore_(Math.min(40000, left() - 30000)); }
     catch (eTr) { out.why += (out.why ? ' · ' : '') + 'کاورِ نقاشی: ' + String(eTr.message).slice(0, 60); }
   }
+  /* جایگزینیِ ویدئوی منتشرشده (۸.۵۷) — پیش از انتشار، تا قسمتِ آماده‌شده همین دور در صف باشد. */
+  if (left() > 40000) {
+    try { ytReplaceTick_(Math.min(45000, left() - 30000)); }
+    catch (eRpl) { out.why += (out.why ? ' · ' : '') + 'جایگزینی: ' + String(eRpl.message).slice(0, 60); }
+  }
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
+  }
+  /* ══ ترتیبِ پلی‌لیست‌ها (۸.۵۷) ══ پس از انتشار، تا ویدئوی همین دور هم سنجیده شود.
+     بی نوبت (`ytPlOrderDue_` فقط Properties می‌خوانَد) هیچ هزینه‌ای ندارد. */
+  if (left() > 30000 && ytPlOrderDue_()) {
+    try { ytPlOrderFix_(Math.min(60000, left() - 20000)); }
+    catch (ePo) { out.why += (out.why ? ' · ' : '') + 'ترتیبِ پلی‌لیست: ' + String(ePo.message).slice(0, 60); }
   }
   /* ══ درِ دومِ ویدئوهای گیرکرده (۸.۵۴) ══
      `ytRedoStuckNightly_` فقط در کارِ شبانه بود، پشتِ `ytLeft()`؛ و کارِ شبانه از
@@ -55512,6 +56104,9 @@ function ytStatus_() {
   } catch (e4) {}
   try { out.quota = ytQuota_(); } catch (e5) {}
   try { out.channel = ytChannelState_(); } catch (e6) { out.channel = null; }
+  /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
+  try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
+  try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
   out.line = ytLine_(out);
   return out;
 }
@@ -55564,6 +56159,17 @@ function ytHealth_(problems, notes) {
   if (!st.service) notes.push('یوتیوب هنوز وصل نیست: ' + st.why + '.');
   else notes.push(st.line);
   if (st.service && st.thumbAudit) notes.push(st.thumbAudit);
+  /* ترتیبِ پلی‌لیست هر روز گفته می‌شود — «۹۷ منتشرشده» چیزی دربارهٔ اینکه درسِ ۴۰
+     پیش از ۴۱ است نمی‌گوید، و همین سکوت سه هفته پلی‌لیست را وارونه نگه داشت (۸.۵۷). */
+  if (st.service && st.plOrderLine) {
+    notes.push(st.plOrderLine);
+    var po = st.plOrder || {};
+    if (Number(po.failed) > 0) problems.push('جابه‌جاییِ پلی‌لیست شکست خورد — ' + String(po.why || ''));
+  }
+  if (st.replace && st.replace.line) {
+    notes.push(st.replace.line);
+    if (st.replace.problem) problems.push(st.replace.problem);
+  }
 
   /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
      شبیهِ «کار می‌کند» به‌نظر می‌رسد و هیچ ویدئویی هم بالا نمی‌رود. پس
