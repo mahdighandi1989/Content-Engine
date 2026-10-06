@@ -2008,6 +2008,9 @@ function vbrCollectHourly() {
   var vdoc = null;
   try { vdoc = vintReadResult_(); } catch (eVd) { vdoc = null; }
   try { vintTrainWatch_(vdoc); } catch (eTw) {}
+  /* صفِ گویندگان که شبانه نوشته نشد — فقط زمان‌بندی، بی هاب (۸.۵۳). پیش از
+     سدِ پل، به همان دلیلِ بالا: گوینده به پل ربطی ندارد. */
+  try { vintQueueDue_(); } catch (eQd) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

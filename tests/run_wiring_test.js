@@ -317,7 +317,8 @@ console.log('\n══ ۷) کلیدِ تکراری در CFG — خطایی که �
     'engVerdict_',        // داوریِ تعویضِ دیشب — دو بار داوری یعنی دو حکم
     'selfUpdateStep',     // نصب
     'srcNightly_',        // نصبِ تحلیلگرها
-    'auditSourceScripts'  // ورودیِ همان نصب
+    'auditSourceScripts', // ورودیِ همان نصب
+    'nightAtSave_'        // ضربانِ خودِ همین بخش (۸.۵۳) — بیرونش معنایی ندارد
   ];
   const calls = (inside.match(/\b([A-Za-z_][A-Za-z0-9_]*_|[a-z][A-Za-z0-9]+)\(/g) || [])
     .map(x => x.slice(0, -1));

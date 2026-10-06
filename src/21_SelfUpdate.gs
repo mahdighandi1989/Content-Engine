@@ -573,6 +573,11 @@ function outReadmeSync_() {
 var _nightT0 = 0;
 var _nightSkipTo = null;    // تا رسیدن به این بلوک، رد شو (ادامهٔ همین شب)
 var _nightMore = '';        // این‌جا ایستادیم؛ ادامه لازم است
+var _nightKiller = null;    // بلوکی که اجرای پیشینِ همین شب را کُشت؛ این بار رد می‌شود (۸.۵۳)
+/* ضربانِ بخشِ نخست (داوری، نصب، خانه‌داری) — پیش از هر بلوکِ `nightHas_`.
+   ۶ اکتبر اجرای اول همین‌جا کشته شد و ضربانِ دیشب سرِ جایش ماند: شاهدی که
+   بخشی از شب را نمی‌بیند، همان بخش را بی‌نام می‌گذارد (۷.۴۴). */
+var NIGHT_FIRST_AT_ = 'نصب و خانه‌داری';
 
 /* آغازِ یک اجرا: ساعت و **حالتِ همان اجرا** هر دو از نو. اگر `_nightMore`
    بینِ دو اجرا بمانَد، اجرای بعدی از همان اول خودش را تمام‌شده می‌بیند. */
@@ -673,7 +678,78 @@ function nightBegin_() {
   var st = nightStepLoad_();
   if (st && String(st.day || '') !== nightDay_()) { nightStepClear_(); st = null; }
   _nightSkipTo = st ? String(st.next || '') || null : null;
-  return { first: !_nightSkipTo, runs: st ? (Number(st.runs) || 0) : 0 };
+  _nightKiller = null;
+  /* ══ اجرای پیشین کشته شد؟ (۸.۵۳) ══
+     مکان‌نمایی که `guard` دارد را خودِ اجرای پیشین **پیش از کار** نوشت
+     (`nightGuardArm_`)، و اگر آن اجرا به `nightEnd_` رسیده بود، پاک یا
+     بازنویسی‌اش کرده بود. پس رسیدنِ ما به این‌جا با آن مکان‌نما یعنی کشته
+     شد. ضربانی که **پس از** آن مکان‌نما نوشته شده می‌گوید کجا: همان بلوک
+     یک بار رد می‌شود (وگرنه هر ادامه همان‌جا می‌مُرد تا سقفِ اجراها)، و
+     مرگ در بخشِ نخست یعنی بلوک‌های سنگین از سر. */
+  if (st && st.guard) {
+    var hb = null;
+    try { hb = JSON.parse(props_().getProperty(PK.NIGHT_AT) || 'null'); } catch (eH) { hb = null; }
+    var at = hb ? String(hb.at || '') : '';
+    if (hb && String(hb.day || '') === nightDay_() && String(hb.ts || '') >= String(st.ts || '') &&
+        at && at.indexOf('پایان') !== 0 && at !== NIGHT_FIRST_AT_) {
+      _nightSkipTo = at;
+      _nightKiller = at;
+    }
+  }
+  /* «نخستین اجرا» یعنی امشب هنوز مکان‌نمایی نیست — نه «مکان‌نما بلوکی را
+     نام نمی‌برد». مکان‌نمای نگهبانِ اجرایی که در بخشِ نخست کشته شد هیچ
+     بلوکی را نام نمی‌برد؛ با تعریفِ قدیم، ادامه‌اش داوری و نصب و خانه‌داری
+     را از نو می‌دوید و همان‌جا دوباره می‌مُرد. */
+  return { first: !st, runs: st ? (Number(st.runs) || 0) : 0,
+           resumed: !!(st && st.guard), killer: _nightKiller };
+}
+
+/**
+ * نگهبانِ ادامه — پیش از هر کار (۸.۵۳).
+ *
+ * ۶ اکتبر، شبِ نصبِ ۸.۴۳ تا ۸.۵۲: اجرای اول داوری کرد، نصب کرد، و در
+ * خانه‌داری سرِ شش دقیقه کشته شد. `nightEnd_` تنها جایی بود که ادامه را
+ * زمان‌بندی می‌کرد و با همان کشته‌شدن مُرد، پس **هیچ** بلوکِ سنگینی آن شب
+ * اجرا نشد — از جمله صفِ گویندگان، و آموزشِ دوبارهٔ گلدوز که قرار بود همان
+ * شب شروع شود. ۷.۴۴ مرگ را **دیدنی** کرد؛ هیچ‌چیز آن را **جبران** نمی‌کرد.
+ *
+ * پس هر اجرا پیش از هر کار ادامه‌ای برای **پس از** سقفِ شش‌دقیقه می‌گذارد.
+ * اجرایی که به `nightEnd_` برسد آن را برمی‌دارد یا با ادامهٔ عادی عوض می‌کند؛
+ * اجرایی که کشته شود، ادامه‌اش را از پیش دارد. سقفِ اجراها همان است، پس
+ * حلقه ته دارد.
+ */
+function nightGuardArm_(night) {
+  var out = { armed: false, why: '' };
+  try {
+    var max = Math.max(1, Number(CFG.NIGHT_MAX_RUNS) || 8);
+    var runs = Number(night && night.runs) || 0;
+    if (runs + 1 >= max) { out.why = 'سقفِ اجراها'; return out; }
+    nightStepSave_({ day: nightDay_(), next: _nightSkipTo || '', runs: runs + 1,
+                     guard: 1, ts: nowStr_() });
+    clearNightTriggers_();
+    ScriptApp.newTrigger('selfUpdateContinue').timeBased()
+      .after(Math.max(400000, Number(CFG.NIGHT_GUARD_MS) || 420000)).create();
+    out.armed = true;
+  } catch (e) { out.why = String((e && e.message) || e).slice(0, 80); }
+  return out;
+}
+
+/** بلوکی که اجرای پیشین را کُشت، امشب رد می‌شود — و این **شمرده** می‌شود. */
+function nightKilledNote_(what) {
+  try {
+    var m = nightStarve_();
+    var r = m[what] || { n: 0 };
+    r.n = (Number(r.n) || 0) + 1;
+    r.at = nowStr_();
+    r.killed = (Number(r.killed) || 0) + 1;
+    r.killDay = nightDay_();
+    m[what] = r;
+    nightStarveSave_(m);
+  } catch (e) {}
+  try {
+    logLine_('کارِ شبانه: اجرای پیشین وسطِ «' + what + '» کشته شد — این بلوک امشب رد شد ' +
+             'و بقیهٔ فهرست ادامه دارد.');
+  } catch (e2) {}
 }
 
 /**
@@ -688,6 +764,11 @@ function nightHas_(needMs, what) {
   if (_nightSkipTo) {
     if (what !== _nightSkipTo) return false;   // اجرای پیشینِ امشب انجامش داده
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
+    if (_nightKiller && what === _nightKiller) {
+      _nightKiller = null;                     // همین بلوک اجرای پیشین را کُشت (۸.۵۳)
+      nightKilledNote_(what);
+      return false;
+    }
   }
   if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
   if (nightLeft_() >= needMs) {
@@ -779,7 +860,14 @@ function nightEnd_(runs) {
   if (!_nightMore) {
     nightAtSave_('پایان');        // این شب تا آخر رفت — نشانه‌اش بماند
     nightStepClear_();
-    if (Object.keys(m).length) nightStarveSave_({});
+    try { clearNightTriggers_(); } catch (eG) {}   // نگهبانِ ادامه دیگر لازم نیست (۸.۵۳)
+    /* بلوکی که امشب اجرایی را کُشت و رد شد، «تا آخر رفت» نیست: می‌مانَد تا
+       شب‌های پیاپی‌اش شمرده شود. بقیه پاک. */
+    if (Object.keys(m).length) {
+      var keep = {}, today = nightDay_();
+      for (var km in m) if (Object.prototype.hasOwnProperty.call(m, km) && m[km] && m[km].killDay === today) keep[km] = m[km];
+      nightStarveSave_(keep);
+    }
     logLine_('کارِ شبانه: فهرست تا آخر رفت' +
              (runs ? ' (' + (runs + 1) + ' اجرا)' : '') + '.');
     return { done: true, runs: runs + 1 };
@@ -792,6 +880,7 @@ function nightEnd_(runs) {
     m[_nightMore] = r;
     nightStarveSave_(m);
     nightStepClear_();
+    try { clearNightTriggers_(); } catch (eG2) {}
     /* شب **خودش** ایستاد و `nightStarve` می‌گویدش؛ بی این مهر، ضربانِ
        آخرین بلوک فردا صبح «کشته شد» خوانده می‌شد (۸.۴۴). */
     nightAtSave_('پایان — سقفِ اجراها');
@@ -844,7 +933,7 @@ function selfUpdateContinue() {
 function nightStarveStatus_(hub, raise) {
   var m = nightStarve_(), rows = [];
   for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
-    rows.push({ what: k, nights: Number(m[k].n) || 0 });
+    rows.push({ what: k, nights: Number(m[k].n) || 0, killed: Number(m[k].killed) || 0 });
   }
   rows.sort(function (a, b) { return b.nights - a.nights; });
   var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
@@ -860,7 +949,7 @@ function nightStarveStatus_(hub, raise) {
     line: rows.length
       ? ('کارِ شبانه: با همهٔ ادامه‌ها هم به این‌ها نرسید — ' +
          rows.slice(0, 4).map(function (r) {
-           return r.what + ' (' + fa(r.nights) + ' شب)';
+           return r.what + ' (' + fa(r.nights) + ' شب' + (r.killed ? '، اجرا را کُشت و رد شد' : '') + ')';
          }).join(' · '))
       : nightHealthyLine_()
   };
@@ -936,12 +1025,17 @@ function selfUpdateDaily() {
   runEnter_('selfUpdateDaily');
   try {
   var night = nightBegin_();
+  /* نگهبانِ ادامه **پیش از** هر کار (۸.۵۳) — حتی پیش از داوری و نصب، چون
+     ۶ اکتبر اجرای اول در همان بخش کشته شد. */
+  nightGuardArm_(night);
   if (!night.first) {
     logLine_('کارِ شبانه: ادامهٔ همین شب (اجرای ' + (night.runs + 1) +
-             ') — از «' + _nightSkipTo + '».');
+             ') — از «' + (_nightKiller ? 'پس از ' + _nightKiller : (_nightSkipTo || 'آغازِ بلوک‌های سنگین')) +
+             '»' + (night.resumed ? '؛ اجرای پیشین کشته شده بود' : '') + '.');
   }
   var installed = { ok: false };
   if (night.first) {
+  nightAtSave_(NIGHT_FIRST_AT_);   // ضربانِ بخشِ نخست (۸.۵۳)
 
   // ۱) داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب
   // با تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.

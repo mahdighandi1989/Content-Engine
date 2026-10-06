@@ -1,22 +1,19 @@
 {
- "version": "8.52",
+ "version": "8.53",
  "codeFile": "engine.gs",
- "sha256": "a30713bab97643f08bf287c0d2edbec15234098e883767c10924b852f18bef82",
- "releasedAt": "2026-10-05T18:03:15Z",
- "summary": "کلیپ، حرکتِ کانون‌دار و آزمونِ مدلِ تصویرِ تازه زیرِ نظر — نه فقط یک خط: شمارِ پیاپیِ «نشد»، مسئلهٔ روز و یافتهٔ کد با علتِ نام‌دار (lv-clip-fail، lv-motion-none، lv-aud-stuck)، وضعیت در _STATUS.json، کارنامهٔ قابلیت‌ها و سنجندهٔ زنده؛ و پرامپتِ ناظر v94 با کلیدِ دوازدهمِ checks (video-motion).",
+ "sha256": "cbbef8e71ae91cbf600878b3275b1ee68ae6f14632350df7938a153964d95982",
+ "releasedAt": "2026-10-06T01:50:52Z",
+ "summary": "شبی که کشته شد خودش ادامه پیدا می‌کند: نگهبانِ ادامه پیش از هر کار، ادامه‌ای که بلوکِ کُشنده را یک بار رد و شمرده می‌کند و نصب را از نو نمی‌دود؛ و صفِ گویندگان درِ دوم دارد (شاهدِ نوشتن + اجرای جدا از تریگرِ ساعتی) — شبِ ۶ اکتبر اجرای اول پس از نصب کشته شد و آموزشِ دوبارهٔ گلدوز به صف نرسید.",
  "fixes": [
-  "lvClipNote_: شمارِ درس‌های پیاپیِ «نشد» (همان درس یک بار، «خاموش» دست نمی‌زند، «ساخته شد» صفر)، و علتِ آخرین شکست جدا (fail) تا «سقف»ِ درسِ بعد آن را نپوشانَد",
-  "lvMotionNote_/lvMotionStatus_: کانون از توصیف‌گر، حرکتِ push/reveal و جای کانون از داور برای هر درس؛ نقشهٔ پیش از ۸.۵۱ شمرده نمی‌شود",
-  "lvAudSee_/lvAudition_/lvAudStatus_: «از کِی در صف» (LV_AUD_SINCE) و روزهای ماندن",
-  "lvHealth_: دو درسِ پیاپی ⇒ مسئلهٔ روز + یافتهٔ کد (کلیپ جدی، حرکت و آزمون متوسط) با علت و شمارِ هر نیمه",
-  "writeStatus_: lessonClip، lessonMotion، imageAudition؛ CFG.CAPABILITIES سه ردیف (آزمون با due)؛ selfVerifyMap_ سه سنجنده",
-  "CFG.MONITOR_CHECKS: video-motion — ناظر در ویدئوی واقعی قاب می‌گیرد",
-  "docs/prompts/_PROMPT-monitor-v94.md: یادداشتِ ۹۴ و گامِ «ز) کلیپ و حرکت»؛ یادداشتِ ۸۹ به تاریخچه"
+  "nightGuardArm_: هر اجرای شبانه پیش از هر کار مکان‌نمای guard و ادامه‌ای برای NIGHT_GUARD_MS (۷ دقیقه) می‌گذارد؛ nightEnd_ آن را برمی‌دارد",
+  "nightBegin_: first = «امشب مکان‌نمایی نیست»؛ مکان‌نمای guard ⇒ اجرای پیشین کشته شد؛ ضربانِ پس از آن ⇒ بلوکِ کُشنده (_nightKiller)",
+  "nightHas_/nightKilledNote_: بلوکِ کُشنده یک بار رد و با killed/killDay شمرده می‌شود؛ nightEnd_ِ سالم کشته‌های امشب را نگه می‌دارد",
+  "selfUpdateDaily: نگهبان بی‌درنگ پس از nightBegin_؛ ضربانِ بخشِ نخست (NIGHT_FIRST_AT_) پیش از داوری و نصب",
+  "nightStarveStatus_: «اجرا را کُشت و رد شد» در خطِ روزانه",
+  "vintQueue_: شاهدِ نوشتن PK.VINT_QWRITE؛ vintQueueDue_ روی تریگرِ ساعتی (پیش از سدِ پل، بی هاب) ⇒ vintQueueLater با سقفِ روزانه؛ vintStatus_ صفِ کهنه را می‌گوید"
  ],
  "sourceReportIds": [],
- "promptImpact": [
-  "monitor: v94 — کلیدِ دوازدهمِ checks: video-motion؛ کلیپ، حرکت و آزمونِ مدلِ تازه زیرِ نظرِ ناظر؛ یافته‌های lv-clip-fail / lv-motion-none / lv-aud-stuck"
- ],
+ "promptImpact": [],
  "answers": {
   "7.48": [
    "tts-cue-unsupported"
@@ -97,8 +94,5 @@
   "8.35": [
    "capability-idle-recap"
   ]
- },
- "promptImpactKinds": [
-  "monitor"
- ]
+ }
 }

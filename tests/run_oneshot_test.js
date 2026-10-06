@@ -2073,6 +2073,130 @@ console.log('=== ۳۲) کاری که هرگز نوبت نمی‌گیرد، «ک�
      tooBig.length ? ('بزرگ‌تر از ' + budget + ': ' + tooBig.join(', ')) : String(needs.length));
 }
 
+{
+  /* ══ ۴۰) شبی که کشته شد، خودش ادامه پیدا می‌کند (۸.۵۳) ══
+   * ۶ اکتبر، شبِ نصبِ ۸.۴۳ تا ۸.۵۲: اجرای اول داوری کرد، نصب کرد و در خانه‌داری
+   * سرِ شش دقیقه کشته شد. ادامه فقط از `nightEnd_` زمان‌بندی می‌شد، که با همان
+   * کشته‌شدن مُرد — پس هیچ بلوکِ سنگینی آن شب اجرا نشد و آموزشِ دوبارهٔ گلدوز به
+   * صف نرسید. کشته‌شدن را در آزمون نمی‌شود ساخت، پس همان را می‌سازیم که تولید
+   * می‌سازد: اجرایی که **پیش از** `nightEnd_` تمام می‌شود. */
+  const P = global.__PROPS;
+  const quiet = () => { const o = console.log; console.log = () => {}; return () => { console.log = o; }; };
+  const conts = () => global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'selfUpdateContinue').length;
+  const reset = () => { delete P[PK.NIGHT_STEP]; delete P[PK.NIGHT_AT]; delete P[PK.NIGHT_STARVE];
+                        try { clearNightTriggers_(); } catch (e) {} _nightMore = ''; _nightSkipTo = null; _nightKiller = null; };
+  reset();
+
+  // ── اجرای اول، کشته در بخشِ نخست (داوری/نصب/خانه‌داری) ──
+  let q = quiet();
+  const n1 = nightBegin_();
+  const g1 = nightGuardArm_(n1);
+  nightAtSave_(NIGHT_FIRST_AT_);              // همان سطرِ selfUpdateDaily
+  q();
+  const st1 = JSON.parse(P[PK.NIGHT_STEP] || 'null');
+  ok('۴۰.۱ هر اجرا پیش از هر کار ادامه‌ای برای پس از سقفِ شش‌دقیقه می‌گذارد',
+     n1.first === true && g1.armed === true && conts() === 1 && !!st1 && st1.guard === 1 && st1.runs === 1,
+     JSON.stringify({ g1: g1, st1: st1, conts: conts() }));
+  ok('۴۰.۱-ب و آن ادامه پس از سقفِ شش‌دقیقهٔ گوگل است، نه پیش از آن',
+     Number(CFG.NIGHT_GUARD_MS) > 360000, String(CFG.NIGHT_GUARD_MS));
+
+  // ← این‌جا اجرا کشته شد: nightEnd_ هرگز صدا زده نمی‌شود. ادامه می‌رسد:
+  q = quiet();
+  const n2 = nightBegin_();
+  nightGuardArm_(n2);
+  const h2 = nightHas_(1000, 'کارِ یک');
+  q();
+  ok('۴۰.۲ مرگ در بخشِ نخست ⇒ ادامه نصب را از نو نمی‌دود و بلوک‌های سنگین از سر',
+     n2.first === false && n2.resumed === true && n2.killer === null && h2 === true,
+     JSON.stringify({ n2: n2, h2: h2 }));
+
+  /* ضربانی که **پیش از** مکان‌نمای نگهبان نوشته شده مالِ اجرای کشته‌شده نیست — مالِ
+     اجرای پیش‌ترِ همان شب است. اگر خوانده شود، ادامه بلوکی را رد می‌کند که هیچ
+     ربطی به این مرگ ندارد. */
+  reset();
+  P[PK.NIGHT_STEP] = JSON.stringify({ day: nightDay_(), next: 'کارِ سه', runs: 2, guard: 1, ts: nowStr_() });
+  P[PK.NIGHT_AT] = JSON.stringify({ day: nightDay_(), at: 'کارِ دو', ts: '2000-01-01 00:00' });
+  q = quiet();
+  const nS = nightBegin_();
+  q();
+  ok('۴۰.۲-ب ضربانِ کهنه‌تر از مکان‌نما بلوکِ کُشنده شمرده نمی‌شود',
+     nS.killer === null && _nightSkipTo === 'کارِ سه', JSON.stringify({ nS: nS, skip: _nightSkipTo }));
+
+  // ── مرگ وسطِ یک بلوکِ سنگین ──
+  reset();
+  q = quiet();
+  const m1 = nightBegin_();
+  nightGuardArm_(m1);
+  const k1 = nightHas_(1000, 'کارِ یک');
+  const k2 = nightHas_(1000, 'کارِ دو');     // ← این‌جا کشته شد
+  q();
+  q = quiet();
+  const m2 = nightBegin_();
+  nightGuardArm_(m2);
+  const r1 = nightHas_(1000, 'کارِ یک');
+  const r2 = nightHas_(1000, 'کارِ دو');
+  const r3 = nightHas_(1000, 'کارِ سه');
+  q();
+  const sv = JSON.parse(P[PK.NIGHT_STARVE] || '{}')['کارِ دو'] || {};
+  ok('۴۰.۳ ادامه بلوکِ کُشنده را یک بار رد می‌کند و بقیه را می‌دود — نه از سر، نه همان‌جا تا ابد',
+     k1 && k2 && m2.killer === 'کارِ دو' && r1 === false && r2 === false && r3 === true,
+     JSON.stringify({ killer: m2.killer, r: [r1, r2, r3] }));
+  ok('۴۰.۴ و این رد شدن شمرده می‌شود', sv.killed === 1 && sv.n === 1 && sv.killDay === nightDay_(), JSON.stringify(sv));
+
+  q = quiet();
+  const e3 = nightEnd_(m2.runs);
+  q();
+  const hb = JSON.parse(P[PK.NIGHT_AT] || 'null');
+  const keptKill = JSON.parse(P[PK.NIGHT_STARVE] || '{}')['کارِ دو'];
+  ok('۴۰.۵ شبِ تمام‌شده نگهبانِ ادامه را برمی‌دارد — وگرنه شب از نو دویده می‌شد',
+     e3.done === true && conts() === 0 && !P[PK.NIGHT_STEP] && hb && hb.at === 'پایان',
+     JSON.stringify({ e3: e3, conts: conts(), hb: hb }));
+  ok('۴۰.۶ و بلوکی که امشب کُشت و رد شد «تا آخر رفت» شمرده نمی‌شود', !!keptKill && keptKill.killed === 1,
+     P[PK.NIGHT_STARVE]);
+  const line = String(nightStarveStatus_().line || '');
+  ok('۴۰.۷ خطِ روزانه می‌گوید کدام بلوک اجرا را کُشت', /کارِ دو/.test(line) && /کُشت/.test(line), line);
+
+  // فردا شبِ سالم: سابقهٔ کشتنِ دیروز پاک می‌شود (شب‌های **پیاپی** شمرده می‌شوند).
+  const mm = JSON.parse(P[PK.NIGHT_STARVE]); mm['کارِ دو'].killDay = '2000-01-01';
+  P[PK.NIGHT_STARVE] = JSON.stringify(mm);
+  q = quiet(); nightBegin_(); _nightMore = ''; nightEnd_(0); q();
+  ok('۴۰.۸ شبِ سالمِ بعد سابقهٔ کشتنِ شب‌های پیش را پاک می‌کند',
+     !Object.keys(JSON.parse(P[PK.NIGHT_STARVE] || '{}')).length, P[PK.NIGHT_STARVE]);
+
+  // ── ادامهٔ عادی (وقت تمام شد) نگهبان را با ادامهٔ خودش عوض می‌کند، نه دو تا ──
+  reset();
+  q = quiet();
+  const c1 = nightBegin_(); nightGuardArm_(c1);
+  const huge = (Number(CFG.NIGHT_BUDGET_MS) || 270000) + 60000;
+  nightHas_(huge, 'کارِ دو');
+  nightEnd_(c1.runs);
+  q();
+  const stc = JSON.parse(P[PK.NIGHT_STEP] || 'null');
+  ok('۴۰.۹ ادامهٔ عادی یکی است، و مکان‌نمایش نگهبان نیست', conts() === 1 && stc && stc.next === 'کارِ دو' && !stc.guard,
+     JSON.stringify({ conts: conts(), stc: stc }));
+
+  // ── سقفِ اجراها: نگهبان حلقه را بی‌پایان نمی‌کند ──
+  reset();
+  const keepMax = CFG.NIGHT_MAX_RUNS; CFG.NIGHT_MAX_RUNS = 3;
+  q = quiet();
+  const gCap = nightGuardArm_({ runs: 2 });
+  q();
+  CFG.NIGHT_MAX_RUNS = keepMax;
+  ok('۴۰.۱۰ در آخرین اجرای مجاز نگهبانی گذاشته نمی‌شود — حلقه ته دارد', gCap.armed === false && conts() === 0,
+     JSON.stringify(gCap));
+
+  // ── درِ تولید: selfUpdateDaily نگهبان را پیش از داوری و نصب می‌گذارد ──
+  const su = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  const body = su.slice(su.indexOf('function selfUpdateDaily() {'), su.indexOf('function selfUpdateRetry()'));
+  const iBeg = body.indexOf('nightBegin_()'), iArm = body.indexOf('nightGuardArm_(night)'),
+        iFirst = body.indexOf('nightAtSave_(NIGHT_FIRST_AT_)'), iVer = body.indexOf('engVerdict_()'),
+        iInst = body.indexOf('selfUpdateStep(false)');
+  ok('۴۰.۱۱ selfUpdateDaily نگهبان را بی‌درنگ پس از آغاز و پیش از داوری و نصب می‌گذارد، و ضربانِ بخشِ نخست را هم',
+     iBeg > 0 && iArm > iBeg && iFirst > iArm && iVer > iFirst && iInst > iVer,
+     JSON.stringify({ iBeg: iBeg, iArm: iArm, iFirst: iFirst, iVer: iVer, iInst: iInst }));
+  reset();
+}
+
 console.log('=== ۳۳) صفِ بازشنیدن، به ترتیبِ هزینهٔ اشتباه ===');
 {
   /* داوریِ غلط روی قطعه‌ای که کسی پخشش نمی‌کند هزینه‌ای ندارد؛ روی موسیقیِ

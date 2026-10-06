@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.52
+ *  موتور محتوا و پادکست — نسخهٔ 8.53
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1407,6 +1407,12 @@ var CFG = {
      و رسیدن به سقف خودش خبر است. */
   NIGHT_MAX_RUNS: 8,
   NIGHT_CONTINUE_MS: 60000,
+  /* ══ نگهبانِ ادامه (۸.۵۳) ══
+     هر اجرای شبانه پیش از هر کار ادامه‌ای برای این‌قدر بعد می‌گذارد؛ بیش از
+     سقفِ شش‌دقیقه‌ای گوگل، پس فقط اجرایی که **کشته** شد به آن می‌رسد —
+     اجرای سالم در `nightEnd_` برش می‌دارد. ۶ اکتبر اجرای اول پس از نصب کشته
+     شد و هیچ بلوکِ سنگینی آن شب اجرا نشد، چون ادامه فقط از `nightEnd_` بود. */
+  NIGHT_GUARD_MS: 420000,
   // بودجهٔ وارسیِ سلامت. گوگل در شش دقیقه بی‌خطا می‌کشد؛ این عدد جا
   // می‌گذارد تا مُهر و ایمیل — که در انتهای تابع‌اند — همیشه برسند.
   HEALTH_BUDGET_MS: 280000,
@@ -1831,7 +1837,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.52',
+  CODE_VERSION: '8.53',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2303,6 +2309,13 @@ var CFG = {
   VOICE_TRAIN_QUIET_HOURS: 12,
   VOICE_EPOCH_HOURS: 2.4,            // برآوردِ پشتیبانِ ساعت برای هر دور (سنجیده: ۲ تا ۲٫۷)
   VOICE_INTAKE_ON: true,
+  /* ══ صفِ گویندگان درِ دوم دارد (۸.۵۳) ══
+     صف را فقط کارِ شبانه می‌نوشت. ۶ اکتبر شب پیش از بلوکِ گوینده کشته شد و
+     آموزشِ دوبارهٔ گلدوز — که قرار بود همان شب شروع شود — هیچ‌جا ثبت نشد.
+     تریگرِ ساعتی فقط می‌پرسد صف چند ساعت است نوشته نشده (یک خواندنِ Script
+     Properties، بی هاب)؛ بیش از این ⇒ یک اجرای جدا، با سقفِ روزانه. */
+  VINT_QUEUE_STALE_H: 26,
+  VINT_QUEUE_LATER_MAX: 2,
 
   /* ══ بخشِ ۳۴ — جست‌وجو در همهٔ محتوا ══
    *
@@ -2957,6 +2970,7 @@ var PK = {
   RUN_AT: 'RUN_AT',               // {fn:{at,ts}} — اجراهایی که شروع شده و تمام نشده‌اند (۸.۱۱)
   RUN_LAST: 'RUN_LAST',           // {fn:{at,note}} — آخرین پایانِ سالمِ هر تریگر (۸.۱۱)
   NIGHT_AT: 'NIGHT_AT',           // {day, at, ts} — آخرین بلوکِ واردشده
+  VINT_QWRITE: 'VINT_QWRITE',     // آخرین نوشتنِ _VOICE-QUEUE.json — شاهدِ خودِ نوشتن (۸.۵۳)
   PROMPT_DUE: 'PROMPT_REVIEW_DUE',
   // کدام خانواده‌های دستور به بدهیِ جاری مربوط‌اند (خالی = همه)
   PROMPT_DUE_KINDS: 'PROMPT_REVIEW_DUE_KINDS',
@@ -33077,6 +33091,11 @@ function outReadmeSync_() {
 var _nightT0 = 0;
 var _nightSkipTo = null;    // تا رسیدن به این بلوک، رد شو (ادامهٔ همین شب)
 var _nightMore = '';        // این‌جا ایستادیم؛ ادامه لازم است
+var _nightKiller = null;    // بلوکی که اجرای پیشینِ همین شب را کُشت؛ این بار رد می‌شود (۸.۵۳)
+/* ضربانِ بخشِ نخست (داوری، نصب، خانه‌داری) — پیش از هر بلوکِ `nightHas_`.
+   ۶ اکتبر اجرای اول همین‌جا کشته شد و ضربانِ دیشب سرِ جایش ماند: شاهدی که
+   بخشی از شب را نمی‌بیند، همان بخش را بی‌نام می‌گذارد (۷.۴۴). */
+var NIGHT_FIRST_AT_ = 'نصب و خانه‌داری';
 
 /* آغازِ یک اجرا: ساعت و **حالتِ همان اجرا** هر دو از نو. اگر `_nightMore`
    بینِ دو اجرا بمانَد، اجرای بعدی از همان اول خودش را تمام‌شده می‌بیند. */
@@ -33177,7 +33196,78 @@ function nightBegin_() {
   var st = nightStepLoad_();
   if (st && String(st.day || '') !== nightDay_()) { nightStepClear_(); st = null; }
   _nightSkipTo = st ? String(st.next || '') || null : null;
-  return { first: !_nightSkipTo, runs: st ? (Number(st.runs) || 0) : 0 };
+  _nightKiller = null;
+  /* ══ اجرای پیشین کشته شد؟ (۸.۵۳) ══
+     مکان‌نمایی که `guard` دارد را خودِ اجرای پیشین **پیش از کار** نوشت
+     (`nightGuardArm_`)، و اگر آن اجرا به `nightEnd_` رسیده بود، پاک یا
+     بازنویسی‌اش کرده بود. پس رسیدنِ ما به این‌جا با آن مکان‌نما یعنی کشته
+     شد. ضربانی که **پس از** آن مکان‌نما نوشته شده می‌گوید کجا: همان بلوک
+     یک بار رد می‌شود (وگرنه هر ادامه همان‌جا می‌مُرد تا سقفِ اجراها)، و
+     مرگ در بخشِ نخست یعنی بلوک‌های سنگین از سر. */
+  if (st && st.guard) {
+    var hb = null;
+    try { hb = JSON.parse(props_().getProperty(PK.NIGHT_AT) || 'null'); } catch (eH) { hb = null; }
+    var at = hb ? String(hb.at || '') : '';
+    if (hb && String(hb.day || '') === nightDay_() && String(hb.ts || '') >= String(st.ts || '') &&
+        at && at.indexOf('پایان') !== 0 && at !== NIGHT_FIRST_AT_) {
+      _nightSkipTo = at;
+      _nightKiller = at;
+    }
+  }
+  /* «نخستین اجرا» یعنی امشب هنوز مکان‌نمایی نیست — نه «مکان‌نما بلوکی را
+     نام نمی‌برد». مکان‌نمای نگهبانِ اجرایی که در بخشِ نخست کشته شد هیچ
+     بلوکی را نام نمی‌برد؛ با تعریفِ قدیم، ادامه‌اش داوری و نصب و خانه‌داری
+     را از نو می‌دوید و همان‌جا دوباره می‌مُرد. */
+  return { first: !st, runs: st ? (Number(st.runs) || 0) : 0,
+           resumed: !!(st && st.guard), killer: _nightKiller };
+}
+
+/**
+ * نگهبانِ ادامه — پیش از هر کار (۸.۵۳).
+ *
+ * ۶ اکتبر، شبِ نصبِ ۸.۴۳ تا ۸.۵۲: اجرای اول داوری کرد، نصب کرد، و در
+ * خانه‌داری سرِ شش دقیقه کشته شد. `nightEnd_` تنها جایی بود که ادامه را
+ * زمان‌بندی می‌کرد و با همان کشته‌شدن مُرد، پس **هیچ** بلوکِ سنگینی آن شب
+ * اجرا نشد — از جمله صفِ گویندگان، و آموزشِ دوبارهٔ گلدوز که قرار بود همان
+ * شب شروع شود. ۷.۴۴ مرگ را **دیدنی** کرد؛ هیچ‌چیز آن را **جبران** نمی‌کرد.
+ *
+ * پس هر اجرا پیش از هر کار ادامه‌ای برای **پس از** سقفِ شش‌دقیقه می‌گذارد.
+ * اجرایی که به `nightEnd_` برسد آن را برمی‌دارد یا با ادامهٔ عادی عوض می‌کند؛
+ * اجرایی که کشته شود، ادامه‌اش را از پیش دارد. سقفِ اجراها همان است، پس
+ * حلقه ته دارد.
+ */
+function nightGuardArm_(night) {
+  var out = { armed: false, why: '' };
+  try {
+    var max = Math.max(1, Number(CFG.NIGHT_MAX_RUNS) || 8);
+    var runs = Number(night && night.runs) || 0;
+    if (runs + 1 >= max) { out.why = 'سقفِ اجراها'; return out; }
+    nightStepSave_({ day: nightDay_(), next: _nightSkipTo || '', runs: runs + 1,
+                     guard: 1, ts: nowStr_() });
+    clearNightTriggers_();
+    ScriptApp.newTrigger('selfUpdateContinue').timeBased()
+      .after(Math.max(400000, Number(CFG.NIGHT_GUARD_MS) || 420000)).create();
+    out.armed = true;
+  } catch (e) { out.why = String((e && e.message) || e).slice(0, 80); }
+  return out;
+}
+
+/** بلوکی که اجرای پیشین را کُشت، امشب رد می‌شود — و این **شمرده** می‌شود. */
+function nightKilledNote_(what) {
+  try {
+    var m = nightStarve_();
+    var r = m[what] || { n: 0 };
+    r.n = (Number(r.n) || 0) + 1;
+    r.at = nowStr_();
+    r.killed = (Number(r.killed) || 0) + 1;
+    r.killDay = nightDay_();
+    m[what] = r;
+    nightStarveSave_(m);
+  } catch (e) {}
+  try {
+    logLine_('کارِ شبانه: اجرای پیشین وسطِ «' + what + '» کشته شد — این بلوک امشب رد شد ' +
+             'و بقیهٔ فهرست ادامه دارد.');
+  } catch (e2) {}
 }
 
 /**
@@ -33192,6 +33282,11 @@ function nightHas_(needMs, what) {
   if (_nightSkipTo) {
     if (what !== _nightSkipTo) return false;   // اجرای پیشینِ امشب انجامش داده
     _nightSkipTo = null;                       // رسیدیم؛ از این‌جا عادی
+    if (_nightKiller && what === _nightKiller) {
+      _nightKiller = null;                     // همین بلوک اجرای پیشین را کُشت (۸.۵۳)
+      nightKilledNote_(what);
+      return false;
+    }
   }
   if (_nightMore) return false;                // این اجرا تمام است؛ بقیه در ادامه
   if (nightLeft_() >= needMs) {
@@ -33283,7 +33378,14 @@ function nightEnd_(runs) {
   if (!_nightMore) {
     nightAtSave_('پایان');        // این شب تا آخر رفت — نشانه‌اش بماند
     nightStepClear_();
-    if (Object.keys(m).length) nightStarveSave_({});
+    try { clearNightTriggers_(); } catch (eG) {}   // نگهبانِ ادامه دیگر لازم نیست (۸.۵۳)
+    /* بلوکی که امشب اجرایی را کُشت و رد شد، «تا آخر رفت» نیست: می‌مانَد تا
+       شب‌های پیاپی‌اش شمرده شود. بقیه پاک. */
+    if (Object.keys(m).length) {
+      var keep = {}, today = nightDay_();
+      for (var km in m) if (Object.prototype.hasOwnProperty.call(m, km) && m[km] && m[km].killDay === today) keep[km] = m[km];
+      nightStarveSave_(keep);
+    }
     logLine_('کارِ شبانه: فهرست تا آخر رفت' +
              (runs ? ' (' + (runs + 1) + ' اجرا)' : '') + '.');
     return { done: true, runs: runs + 1 };
@@ -33296,6 +33398,7 @@ function nightEnd_(runs) {
     m[_nightMore] = r;
     nightStarveSave_(m);
     nightStepClear_();
+    try { clearNightTriggers_(); } catch (eG2) {}
     /* شب **خودش** ایستاد و `nightStarve` می‌گویدش؛ بی این مهر، ضربانِ
        آخرین بلوک فردا صبح «کشته شد» خوانده می‌شد (۸.۴۴). */
     nightAtSave_('پایان — سقفِ اجراها');
@@ -33348,7 +33451,7 @@ function selfUpdateContinue() {
 function nightStarveStatus_(hub, raise) {
   var m = nightStarve_(), rows = [];
   for (var k in m) if (Object.prototype.hasOwnProperty.call(m, k)) {
-    rows.push({ what: k, nights: Number(m[k].n) || 0 });
+    rows.push({ what: k, nights: Number(m[k].n) || 0, killed: Number(m[k].killed) || 0 });
   }
   rows.sort(function (a, b) { return b.nights - a.nights; });
   var need = Number(CFG.NIGHT_STARVE_NIGHTS) || 3;
@@ -33364,7 +33467,7 @@ function nightStarveStatus_(hub, raise) {
     line: rows.length
       ? ('کارِ شبانه: با همهٔ ادامه‌ها هم به این‌ها نرسید — ' +
          rows.slice(0, 4).map(function (r) {
-           return r.what + ' (' + fa(r.nights) + ' شب)';
+           return r.what + ' (' + fa(r.nights) + ' شب' + (r.killed ? '، اجرا را کُشت و رد شد' : '') + ')';
          }).join(' · '))
       : nightHealthyLine_()
   };
@@ -33440,12 +33543,17 @@ function selfUpdateDaily() {
   runEnter_('selfUpdateDaily');
   try {
   var night = nightBegin_();
+  /* نگهبانِ ادامه **پیش از** هر کار (۸.۵۳) — حتی پیش از داوری و نصب، چون
+     ۶ اکتبر اجرای اول در همان بخش کشته شد. */
+  nightGuardArm_(night);
   if (!night.first) {
     logLine_('کارِ شبانه: ادامهٔ همین شب (اجرای ' + (night.runs + 1) +
-             ') — از «' + _nightSkipTo + '».');
+             ') — از «' + (_nightKiller ? 'پس از ' + _nightKiller : (_nightSkipTo || 'آغازِ بلوک‌های سنگین')) +
+             '»' + (night.resumed ? '؛ اجرای پیشین کشته شده بود' : '') + '.');
   }
   var installed = { ok: false };
   if (night.first) {
+  nightAtSave_(NIGHT_FIRST_AT_);   // ضربانِ بخشِ نخست (۸.۵۳)
 
   // ۱) داوریِ تعویضِ دیشبِ خودِ موتور — پیش از هر نصبِ تازه، وگرنه نصبِ امشب
   // با تعویضِ دیشب قاطی می‌شود و معلوم نیست کدام تولید را خوابانده.
@@ -62408,6 +62516,9 @@ function vintQueue_(hub, scan, state) {
     q.models = vintModelsForQueue_(null);
     q.missing = vintModelsMissing_();
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
+    /* شاهدِ نوشتن را **خودِ نوشتن** می‌زند (۸.۵۳) — نه شمارنده‌ای که کسِ دیگری
+       صفرش کند (۷.۲۲). درِ دومِ ساعتی فقط همین را می‌خوانَد. */
+    try { props_().setProperty(PK.VINT_QWRITE, nowStr_()); } catch (eQw) {}
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
        می‌خورد، اکشن به‌جای JSON یک صفحهٔ HTML می‌گرفت و موتور هیچ‌جا
@@ -63109,6 +63220,20 @@ function vintStatus_(hub) {
     var twl = '';
     try { twl = vintTrainLine_(); } catch (eTw) { twl = ''; }
     if (twl) out.line += ' — ' + twl;
+    /* صفی که یک روز است نوشته نشده (۸.۵۳): گفته می‌شود، چون هر آموزشِ تازه
+       — از جمله آموزشِ دوباره — فقط از همین صف به گیت‌هاب می‌رسد. */
+    try {
+      var qw = String(props_().getProperty(PK.VINT_QWRITE) || '');
+      var qt = qw ? new Date(qw.replace(' ', 'T') + ':00').getTime() : NaN;
+      var qh = isNaN(qt) ? null : Math.round((new Date().getTime() - qt) / 3600000);
+      out.queueWrite = { at: qw, ageH: qh };
+      var stale = Math.max(6, Number(CFG.VINT_QUEUE_STALE_H) || 26);
+      if (qh !== null && qh >= stale) {
+        out.ok = false;
+        out.line += ' ⚠️ صفِ گویندگان ' + fa(qh) + ' ساعت است نوشته نشده (کارِ شبانه به بلوکِ گوینده ' +
+                    'نرسیده) — اجرای جدایش ساعتی زمان‌بندی می‌شود (vintQueueLater).';
+      }
+    } catch (eQw) {}
     if (out.queueId) {
       out.line += ' ⚠️ شناسهٔ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
                   '» عوض شده — اکشن دنبالِ ' + out.queueId.want + ' می‌گردد ولی ' +
@@ -63520,6 +63645,62 @@ function vintNightly_(force) {
     vintStuckCheck_(hub, out.status);
   } catch (e5) {}
   return out;
+}
+
+/**
+ * درِ دومِ صفِ گویندگان (۸.۵۳).
+ *
+ * صف را فقط `vintNightly_` می‌نوشت، از دلِ کارِ شبانه. ۶ اکتبر اجرای اولِ
+ * شب پس از نصب کشته شد، پیش از بلوکِ گوینده؛ پس آموزشِ دوبارهٔ گلدوز که
+ * `VOICE_RETRAIN` همان شب خواسته بود، به صف نرسید و voice-intake چیزی برای
+ * فرستادن نداشت — بی هیچ خطایی. همان شکلِ ۷.۴۶/۷.۶۲: درمانی روی راهی که
+ * آن شب پیموده نشد.
+ *
+ * این‌جا فقط **زمان‌بندی** است و روی تریگرِ ساعتی می‌نشیند: یک خواندنِ Script
+ * Properties، بی هاب و بی درایو (۷.۶۳/۷.۸۴). شاهد را خودِ نوشتن می‌زند، پس
+ * «صف نوشته نشده» یعنی واقعاً نوشته نشده. نبودنِ شاهد (نخستین ساعت پس از نصب)
+ * هم کهنه شمرده می‌شود — همان شبی که این نسخه برایش ساخته شد.
+ */
+function vintQueueDue_() {
+  var out = { scheduled: false, why: '', ageH: null };
+  if (!vintOn_()) { out.why = 'خاموش'; return out; }
+  var hrs = Math.max(6, Number(CFG.VINT_QUEUE_STALE_H) || 26);
+  var last = '';
+  try { last = String(props_().getProperty(PK.VINT_QWRITE) || ''); } catch (e0) { last = ''; }
+  if (last) {
+    var t = new Date(last.replace(' ', 'T') + ':00').getTime();
+    if (!isNaN(t)) out.ageH = Math.max(0, (new Date().getTime() - t) / 3600000);
+  }
+  if (out.ageH !== null && out.ageH < hrs) { out.why = 'تازه است'; return out; }
+  var max = Math.max(1, Number(CFG.VINT_QUEUE_LATER_MAX) || 2);
+  var today = String(nowStr_()).slice(0, 10);
+  var pkey = 'VINT_QLATER_DAY', n = 0;
+  try {
+    var parts = String(props_().getProperty(pkey) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+  try {
+    clearRetryTriggers_('vintQueueLater');
+    ScriptApp.newTrigger('vintQueueLater').timeBased().after(60 * 1000).create();
+    props_().setProperty(pkey, today + '|' + (n + 1));
+    out.scheduled = true;
+  } catch (eT) { out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60); }
+  return out;
+}
+
+/** اجرای جدای صفِ گویندگان — نامِ جدا، تا پاک‌کردنش به تریگرِ روزانه نخورد. */
+function vintQueueLater() {
+  runEnter_('vintQueueLater');
+  try {
+    try { clearRetryTriggers_('vintQueueLater'); } catch (e) {}
+    var r = vintNightly_(false);
+    try {
+      logLine_('صفِ گویندگان بیرون از کارِ شبانه نوشته شد (درِ دوم): ' + (r && r.queued || 0) +
+               ' گوینده در صف.');
+    } catch (eL) {}
+    return r;
+  } finally { runExit_('vintQueueLater'); }
 }
 
 /** منو: «🎤 گویندهٔ تازه — وارسیِ پوشه و صف». */
@@ -68882,6 +69063,9 @@ function vbrCollectHourly() {
   var vdoc = null;
   try { vdoc = vintReadResult_(); } catch (eVd) { vdoc = null; }
   try { vintTrainWatch_(vdoc); } catch (eTw) {}
+  /* صفِ گویندگان که شبانه نوشته نشد — فقط زمان‌بندی، بی هاب (۸.۵۳). پیش از
+     سدِ پل، به همان دلیلِ بالا: گوینده به پل ربطی ندارد. */
+  try { vintQueueDue_(); } catch (eQd) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

@@ -999,4 +999,64 @@ console.log('\n=== ۲۸) آموزش زیرِ نظر — هر تغییر در ت�
   } finally { global.tgSend_ = keepTg; global.getHub_ = keepHub; }
 }
 
+console.log('\n=== ۲۹) صفِ گویندگان درِ دوم دارد — شبی که به بلوکِ گوینده نرسید (۸.۵۳) ===');
+{
+  /* ۶ اکتبر اجرای اولِ شب پس از نصب کشته شد، پیش از بلوکِ گوینده؛ صف آن شب نوشته
+     نشد و آموزشِ دوبارهٔ گلدوز — که VOICE_RETRAIN همان شب خواسته بود — به گیت‌هاب
+     نرسید. درمان یک خواندنِ Script Properties روی تریگرِ ساعتی است، با شاهدی که
+     **خودِ نوشتن** می‌زند. */
+  const P = global.__PROPS;
+  const ago = (h) => Utilities.formatDate(new Date(Date.now() - h * 3600000), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const later = () => global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'vintQueueLater').length;
+  const clr = () => { try { clearRetryTriggers_('vintQueueLater'); } catch (e) {} delete P['VINT_QLATER_DAY']; };
+  clr();
+
+  delete P[PK.VINT_QWRITE];
+  const rev0 = (vintReadQueue_() || {}).rev || 0;
+  vintNightly_(true);
+  const w1 = P[PK.VINT_QWRITE];
+  ok('۲۹.۱ نوشتنِ صف شاهدِ خودش را می‌زند', !!w1 && ((vintReadQueue_() || {}).rev || 0) > rev0,
+     JSON.stringify({ w1: w1, rev0: rev0 }));
+
+  const d0 = vintQueueDue_();
+  ok('۲۹.۲ صفِ تازه‌نوشته اجرای دوم نمی‌خواهد', d0.scheduled === false && later() === 0, JSON.stringify(d0));
+
+  P[PK.VINT_QWRITE] = ago(40);
+  const d1 = vintQueueDue_();
+  ok('۲۹.۳ صفی که بیش از یک روز نوشته نشده ⇒ اجرای جدا زمان‌بندی می‌شود', d1.scheduled === true && later() === 1,
+     JSON.stringify(d1));
+  vintQueueDue_();
+  const d3 = vintQueueDue_();
+  ok('۲۹.۴ با سقفِ روزانه — شکستِ پایدار تریگر را تا ابد نمی‌چرخاند', d3.scheduled === false && /سقف/.test(d3.why) &&
+     later() === 1, JSON.stringify(d3));
+
+  clr(); delete P[PK.VINT_QWRITE];
+  const d4 = vintQueueDue_();
+  ok('۲۹.۵ نبودنِ شاهد (نخستین ساعتِ پس از نصب) هم کهنه است — همان شبی که این نسخه برایش ساخته شد',
+     d4.scheduled === true, JSON.stringify(d4));
+
+  const rq = vintQueueLater();
+  ok('۲۹.۶ اجرای جدا صف را می‌نویسد و تریگرِ خودش را برمی‌دارد',
+     !!P[PK.VINT_QWRITE] && later() === 0 && rq && typeof rq.queued === 'number', JSON.stringify({ q: rq && rq.queued, later: later() }));
+
+  /* درِ تولید: تریگرِ ساعتی، حتی وقتی پل خاموش است — گوینده به پل ربطی ندارد. */
+  clr(); P[PK.VINT_QWRITE] = ago(40);
+  const keepOn = CFG.VBR_ON, keepFetch = global.UrlFetchApp.fetch;
+  global.UrlFetchApp.fetch = url => String(url).indexOf('voices.json') !== -1
+    ? { getResponseCode: () => 200, getContentText: () => JSON.stringify({ speakers: {} }) }
+    : keepFetch.apply(null, arguments);
+  CFG.VBR_ON = false;
+  try { vbrCollectHourly(); } finally { CFG.VBR_ON = keepOn; global.UrlFetchApp.fetch = keepFetch; }
+  ok('۲۹.۷ تریگرِ ساعتی صفِ کهنه را می‌بیند و اجرای جدا را زمان‌بندی می‌کند، پیش از سدِ پل', later() === 1, String(later()));
+
+  P[PK.VINT_QWRITE] = ago(40);
+  const sOld = vintStatus_(h17);
+  P[PK.VINT_QWRITE] = ago(0);
+  const sNew = vintStatus_(h17);
+  ok('۲۹.۸ خطِ روزانه صفِ کهنه را می‌گوید و صفِ تازه را نه',
+     /صفِ گویندگان .* ساعت است نوشته نشده/.test(sOld.line) && sOld.ok === false &&
+     !/ساعت است نوشته نشده/.test(sNew.line), sOld.line.slice(-200));
+  clr();
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

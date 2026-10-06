@@ -793,6 +793,9 @@ function vintQueue_(hub, scan, state) {
     q.models = vintModelsForQueue_(null);
     q.missing = vintModelsMissing_();
     putOutJson_(String(CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json'), q);
+    /* شاهدِ نوشتن را **خودِ نوشتن** می‌زند (۸.۵۳) — نه شمارنده‌ای که کسِ دیگری
+       صفرش کند (۷.۲۲). درِ دومِ ساعتی فقط همین را می‌خوانَد. */
+    try { props_().setProperty(PK.VINT_QWRITE, nowStr_()); } catch (eQw) {}
     /* ══ اشتراک را خاموش نبلع (۷٫۳۳) ══
        این سه خط در یک `catch` خالی بودند. اگر باز کردنِ اشتراک شکست
        می‌خورد، اکشن به‌جای JSON یک صفحهٔ HTML می‌گرفت و موتور هیچ‌جا
@@ -1494,6 +1497,20 @@ function vintStatus_(hub) {
     var twl = '';
     try { twl = vintTrainLine_(); } catch (eTw) { twl = ''; }
     if (twl) out.line += ' — ' + twl;
+    /* صفی که یک روز است نوشته نشده (۸.۵۳): گفته می‌شود، چون هر آموزشِ تازه
+       — از جمله آموزشِ دوباره — فقط از همین صف به گیت‌هاب می‌رسد. */
+    try {
+      var qw = String(props_().getProperty(PK.VINT_QWRITE) || '');
+      var qt = qw ? new Date(qw.replace(' ', 'T') + ':00').getTime() : NaN;
+      var qh = isNaN(qt) ? null : Math.round((new Date().getTime() - qt) / 3600000);
+      out.queueWrite = { at: qw, ageH: qh };
+      var stale = Math.max(6, Number(CFG.VINT_QUEUE_STALE_H) || 26);
+      if (qh !== null && qh >= stale) {
+        out.ok = false;
+        out.line += ' ⚠️ صفِ گویندگان ' + fa(qh) + ' ساعت است نوشته نشده (کارِ شبانه به بلوکِ گوینده ' +
+                    'نرسیده) — اجرای جدایش ساعتی زمان‌بندی می‌شود (vintQueueLater).';
+      }
+    } catch (eQw) {}
     if (out.queueId) {
       out.line += ' ⚠️ شناسهٔ «' + (CFG.VOICE_QUEUE_FILE || '_VOICE-QUEUE.json') +
                   '» عوض شده — اکشن دنبالِ ' + out.queueId.want + ' می‌گردد ولی ' +
@@ -1905,6 +1922,62 @@ function vintNightly_(force) {
     vintStuckCheck_(hub, out.status);
   } catch (e5) {}
   return out;
+}
+
+/**
+ * درِ دومِ صفِ گویندگان (۸.۵۳).
+ *
+ * صف را فقط `vintNightly_` می‌نوشت، از دلِ کارِ شبانه. ۶ اکتبر اجرای اولِ
+ * شب پس از نصب کشته شد، پیش از بلوکِ گوینده؛ پس آموزشِ دوبارهٔ گلدوز که
+ * `VOICE_RETRAIN` همان شب خواسته بود، به صف نرسید و voice-intake چیزی برای
+ * فرستادن نداشت — بی هیچ خطایی. همان شکلِ ۷.۴۶/۷.۶۲: درمانی روی راهی که
+ * آن شب پیموده نشد.
+ *
+ * این‌جا فقط **زمان‌بندی** است و روی تریگرِ ساعتی می‌نشیند: یک خواندنِ Script
+ * Properties، بی هاب و بی درایو (۷.۶۳/۷.۸۴). شاهد را خودِ نوشتن می‌زند، پس
+ * «صف نوشته نشده» یعنی واقعاً نوشته نشده. نبودنِ شاهد (نخستین ساعت پس از نصب)
+ * هم کهنه شمرده می‌شود — همان شبی که این نسخه برایش ساخته شد.
+ */
+function vintQueueDue_() {
+  var out = { scheduled: false, why: '', ageH: null };
+  if (!vintOn_()) { out.why = 'خاموش'; return out; }
+  var hrs = Math.max(6, Number(CFG.VINT_QUEUE_STALE_H) || 26);
+  var last = '';
+  try { last = String(props_().getProperty(PK.VINT_QWRITE) || ''); } catch (e0) { last = ''; }
+  if (last) {
+    var t = new Date(last.replace(' ', 'T') + ':00').getTime();
+    if (!isNaN(t)) out.ageH = Math.max(0, (new Date().getTime() - t) / 3600000);
+  }
+  if (out.ageH !== null && out.ageH < hrs) { out.why = 'تازه است'; return out; }
+  var max = Math.max(1, Number(CFG.VINT_QUEUE_LATER_MAX) || 2);
+  var today = String(nowStr_()).slice(0, 10);
+  var pkey = 'VINT_QLATER_DAY', n = 0;
+  try {
+    var parts = String(props_().getProperty(pkey) || '').split('|');
+    if (parts[0] === today) n = Number(parts[1]) || 0;
+  } catch (eP) {}
+  if (n >= max) { out.why = 'سقفِ امروز پر شد (' + n + ')'; return out; }
+  try {
+    clearRetryTriggers_('vintQueueLater');
+    ScriptApp.newTrigger('vintQueueLater').timeBased().after(60 * 1000).create();
+    props_().setProperty(pkey, today + '|' + (n + 1));
+    out.scheduled = true;
+  } catch (eT) { out.why = 'زمان‌بندی نشد: ' + String((eT && eT.message) || eT).slice(0, 60); }
+  return out;
+}
+
+/** اجرای جدای صفِ گویندگان — نامِ جدا، تا پاک‌کردنش به تریگرِ روزانه نخورد. */
+function vintQueueLater() {
+  runEnter_('vintQueueLater');
+  try {
+    try { clearRetryTriggers_('vintQueueLater'); } catch (e) {}
+    var r = vintNightly_(false);
+    try {
+      logLine_('صفِ گویندگان بیرون از کارِ شبانه نوشته شد (درِ دوم): ' + (r && r.queued || 0) +
+               ' گوینده در صف.');
+    } catch (eL) {}
+    return r;
+  } finally { runExit_('vintQueueLater'); }
 }
 
 /** منو: «🎤 گویندهٔ تازه — وارسیِ پوشه و صف». */
