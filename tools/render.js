@@ -706,7 +706,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
 
   // کاورِ بندانگشتی از نقاشیِ خودِ درس
-  let thumb = '';
+  let thumb = '', artFile = '';
   try {
     let src = '';
     if (it.sceneCover && it.sceneCover.url) {
@@ -725,10 +725,21 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
       const tj = path.join(dir, 'thumb.jpg');
       ff(['-i', png, '-q:v', '3', '-frames:v', '1', tj]);
       if (sniffKind(tj) === 'jpeg' && fs.statSync(tj).size < 2 * 1024 * 1024) thumb = tj;
+      /* نقاشیِ همین درس، مربع و بی نوشته — پس‌زمینهٔ کاورِ پلی‌لیستِ مجموعه (۸.۵۵).
+         فقط برای ردیفی که کلیدِ پلی‌لیست دارد؛ نقشه آن را یک بار برای هر مجموعه
+         نگه می‌دارد، پس کاورِ پلی‌لیست با هر درس عوض نمی‌شود. */
+      if (it.plKey) {
+        try {
+          const aj = path.join(dir, 'art1400.jpg');
+          ff(['-i', src, '-vf', 'scale=1400:1400:force_original_aspect_ratio=increase,crop=1400:1400',
+              '-q:v', '3', '-frames:v', '1', aj]);
+          if (sniffKind(aj) === 'jpeg') artFile = aj;
+        } catch (eA) { notes.push('نقاشیِ مربعِ مجموعه نشد: ' + String(eA.message).split('\n')[0].slice(0, 60)); }
+      }
     }
   } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
-           groups: r.groups, qa: qa, thumbFile: thumb, ov: r.ov, mv: r.mv || 0, clip: r.clip,
+           groups: r.groups, qa: qa, thumbFile: thumb, artFile: artFile, ov: r.ov, mv: r.mv || 0, clip: r.clip,
            refs: r.tl.filter(x => x.ref).length,     // صحنه‌هایی که سنجش «با نوشته» دیدشان
            logo: mark ? (mark.logo ? (mark.logoClean || 'خام') : 'بی تصویر') : 'بی نشان' };
 }
@@ -819,6 +830,82 @@ function heldNow(it, hold, now) {
   return String(h.why || 'نگه‌داشته') + ' (تا ' + new Date(until).toISOString().slice(0, 16) + 'Z)';
 }
 
+/* ── کاورِ مربعِ پلی‌لیست (۸.۵۵) ──────────────────────────────────────────
+ * موتور در `_YT-RENDER.json` فهرستِ `plCovers` می‌گذارد؛ این‌جا هر کدام که امضایش
+ * با نقشه نمی‌خوانَد کشیده می‌شود. امضای نقشه = امضای درخواست + نقاشیِ مجموعه
+ * (اگر هست)، پس رسیدنِ نقاشی کاور را یک بار از نو می‌سازد و بعد دیگر نه.
+ */
+function slugOf(k) { return String(k || '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x'; }
+
+function plCoverSig(pc, map) {
+  const art = (map.art || {})[pc.key];
+  return String(pc.sig || '') + (art && art.from ? '|' + art.from : '');
+}
+
+/** کدام کاورهای پلی‌لیست کشیدن می‌خواهند. یک تعریف برای پروب و برای کار. */
+function plCoversTodo(queue, map) {
+  const list = Array.isArray(queue && queue.plCovers) ? queue.plCovers : [];
+  const have = map.plCovers || {};
+  return list.filter(pc => pc && pc.key && pc.sig &&
+                     String((have[pc.key] || {}).sig || '') !== plCoverSig(pc, map));
+}
+
+function buildPlCovers(todo, map, tmp) {
+  if (!todo.length) return 0;
+  const SKIT = require('./scenekit.js');
+  const CK = require('./cardkit/index.js');
+  const exe = CK.chromeExe();
+  let rel = null, n = 0;
+  for (const pc of todo) {
+    const dir = fs.mkdtempSync(path.join(tmp, 'pl-'));
+    try {
+      let artData = '';
+      const art = (map.art || {})[pc.key];
+      if (art && art.url) {
+        try {
+          const af = path.join(dir, 'art');
+          fetchTo(art.url, af);
+          if (sniffKind(af) === 'jpeg') artData = 'data:image/jpeg;base64,' + fs.readFileSync(af).toString('base64');
+          else if (sniffKind(af) === 'png') artData = 'data:image/png;base64,' + fs.readFileSync(af).toString('base64');
+        } catch (eA) { log('  نقاشیِ ' + pc.key + ' نیامد — کاورِ رنگی: ' + String(eA.message).split('\n')[0]); }
+      }
+      const png = SKIT.shoot(exe, SKIT.plCoverHtml(pc, artData), path.join(dir, 'pl.png'), 1400, 1400, ff);
+      const jpg = path.join(dir, 'pl.jpg');
+      ff(['-i', png, '-q:v', '3', '-frames:v', '1', jpg]);
+      if (sniffKind(jpg) !== 'jpeg') throw new Error('JPEG ساخته نشد');
+      const size = fs.statSync(jpg).size;
+      if (size > 2 * 1024 * 1024) throw new Error('کاور ' + Math.round(size / 1024) + ' کیلوبایت است');
+      if (!rel) rel = ensureRelease();
+      const url = uploadAsset(rel, jpg, 'pl-' + slugOf(pc.key) + '.jpg', 'image/jpeg');
+      if (!url) throw new Error('نشانی برنگشت');
+      map.plCovers = map.plCovers || {};
+      map.plCovers[pc.key] = { url: url, req: String(pc.sig), sig: plCoverSig(pc, map), w: 1400, h: 1400,
+                               art: !!artData, at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+      rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
+      n++;
+      log('  ✔ کاورِ مربعِ پلی‌لیست ' + pc.key + (artData ? ' (با نقاشیِ مجموعه)' : ' (رنگیِ سبکِ مجموعه)'));
+    } catch (e) {
+      log('  ✗ کاورِ مربعِ پلی‌لیست ' + pc.key + ' — ' + e.message);
+    } finally {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
+    }
+  }
+  return n;
+}
+
+/** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
+function probeWork(queue, map, hold, now) {
+  return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length) ? '1' : '0';
+}
+
+/** ردیف‌های ساخته‌نشده و نگه‌داشته‌نشده — یک تعریف برای پروب و برای کار. */
+function itemsTodo(queue, map, hold, now) {
+  const items = Array.isArray(queue && queue.items) ? queue.items : [];
+  const ready = items.filter(x => String(x.status || '') === 'در انتظار' && !map.items[x.key]);
+  const todo = ready.filter(x => !heldNow(x, hold, now));
+  return { items: items, ready: ready, todo: todo };
+}
+
 /* ── کار ────────────────────────────────────────────────────────────────── */
 
 function main() {
@@ -853,19 +940,33 @@ function main() {
     log('موتور در اولین اجرای شبانه بازش می‌کند. QUEUE_ID = ' + QUEUE_ID);
     return;
   }
-  const items = Array.isArray(queue.items) ? queue.items : [];
   const map = readMap();
 
   const hold = readHold();
-  const ready = items.filter(x => String(x.status || '') === 'در انتظار' && !map.items[x.key]);
-  const todo = ready.filter(x => {
+  const T = itemsTodo(queue, map, hold, new Date());
+  const items = T.items, ready = T.ready, todo = T.todo;
+  for (const x of ready) {
     const h = heldNow(x, hold, new Date());
     if (h) log('نگه داشته شد: ' + x.key + ' — ' + h);
-    return !h;
-  });
+  }
+  const plTodo = plCoversTodo(queue, map);
   log('صف: ' + items.length + ' ردیف، ' + todo.length + ' تای ساخته‌نشده' +
-      (ready.length > todo.length ? ' (' + (ready.length - todo.length) + ' نگه داشته)' : '') + '.');
-  if (!todo.length) { log('کاری نیست.'); return; }
+      (ready.length > todo.length ? ' (' + (ready.length - todo.length) + ' نگه داشته)' : '') +
+      (plTodo.length ? ' · ' + plTodo.length + ' کاورِ مربعِ پلی‌لیست' : '') + '.');
+  /* ══ پروب (۸.۵۵) ══
+     گیت‌هاب کرانِ «هر ساعت» را عملاً هر ۳ تا ۹ ساعت اجرا کرد؛ ویدئوی درسِ ۴۰
+     از ۱۳:۲۹ تا ۱۴:۳۷ منتظر ماند تا دستی راه افتاد. کران حالا هر ده دقیقه است،
+     و هر اجرای بی‌کار فقط همین خواندنِ صف را می‌کند: ffmpeg و قلم و کروم فقط
+     وقتی کاری هست نصب می‌شوند. «کاری هست» همان دو تعریفِ بالاست — پروب و کار
+     از یک تابع می‌پرسند، وگرنه روزی یکی «نه» می‌گوید و دیگری کار دارد (۷.۷۸). */
+  if (process.argv.indexOf('--probe') !== -1) {
+    const work = probeWork(queue, map, hold, new Date());
+    log('پروب: ' + (work === '1' ? 'کار هست' : 'کاری نیست') + '.');
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'work=' + work + '\n');
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
+    return;
+  }
+  if (!todo.length && !plTodo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
   const runT0 = Date.now();
@@ -975,6 +1076,16 @@ function main() {
             if (tu) map.items[it.key].thumb = tu;
           } catch (eT) { (vr.notes = vr.notes || []).push('کاور بالا نرفت: ' + String(eT.message).slice(0, 60)); }
         }
+        if (vr.artFile && it.plKey && !(map.art && map.art[it.plKey])) {
+          try {
+            const au = uploadAsset(rel, vr.artFile, 'art-' + slugOf(it.plKey) + '.jpg', 'image/jpeg');
+            if (au) {
+              map.art = map.art || {};
+              map.art[it.plKey] = { url: au, from: it.key,
+                                    at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+            }
+          } catch (eAr) { (vr.notes = vr.notes || []).push('نقاشیِ مجموعه بالا نرفت: ' + String(eAr.message).slice(0, 60)); }
+        }
       }
       if ((vr.notes || []).length) map.items[it.key].notes = vr.notes.slice(0, 6);
       made++;
@@ -995,8 +1106,14 @@ function main() {
     }
   }
 
-  if (made) writeMap(map);
-  log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش');
+  /* کاورهای مربعِ پلی‌لیست پس از ویدئوها: اگر ویدئوی این اجرا نقاشیِ تازه‌ای برای
+     مجموعه آورد، کاورِ پلی‌لیست همین اجرا با آن ساخته می‌شود، نه اجرای بعد. */
+  let plMade = 0;
+  try { plMade = buildPlCovers(plCoversTodo(queue, map), map, tmp); }
+  catch (ePl) { log('کاورهای پلی‌لیست: ' + String(ePl.message).split('\n')[0]); }
+  if (made || plMade) writeMap(map);
+  log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش' +
+      (plMade ? ' · ' + plMade + ' کاورِ پلی‌لیست' : ''));
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
 
   /* ══ یک اجرای سبزِ بی‌محصول، بدترین حالت است ══
@@ -1004,7 +1121,7 @@ function main() {
    * نیست؛ از کلِ محیط است (همان ENOENTِ ffmpeg). آن باید قرمز شود تا دیده
    * شود. ولی یک قسمتِ خرابِ تنها نباید هفته‌ها اکشن را قرمز نگه دارد —
    * هشدارِ همیشه‌قرمز همان هشداری است که آدم یاد می‌گیرد نبیند. */
-  if (todo.length && made === 0) {
+  if (todo.length && made === 0 && !plMade) {
     log('هیچ ویدئویی ساخته نشد در حالی که ' + todo.length + ' تا در صف بود.');
     process.exitCode = 1;
   }
@@ -1021,5 +1138,6 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo
+  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo,
+  plCoversTodo, plCoverSig, buildPlCovers, itemsTodo, slugOf, probeWork
 };

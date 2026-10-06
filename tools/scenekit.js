@@ -204,6 +204,58 @@ function coverHtml(imgData, it) {
 }
 
 /**
+ * کاورِ مربعِ پلی‌لیست (۸.۵۵) — ۱۴۰۰×۱۴۰۰، چون یوتیوب برای `playlistImages`
+ * نسبتِ ۱:۱ می‌خواهد و پادکست بی آن پذیرفته نمی‌شود. اسلایدزِ موتور مربع
+ * نمی‌سازد (اندازه را دور می‌ریزد)، پس این‌جا کشیده می‌شود.
+ *
+ * پس‌زمینه: نقاشیِ نخستین درسِ صحنه‌ایِ همان مجموعه اگر هست (`artData`)، وگرنه
+ * پالتِ سبکِ مجموعه. نامِ مجموعه درشت و پایین، نامِ برنامه کوچک و بالا — در
+ * اندازهٔ تمبرِ پستی همین دو خوانده می‌شوند و بس.
+ */
+function plCoverHtml(pc, artData) {
+  const pal = (pc && pc.pal) || {};
+  const bg = /^#[0-9a-fA-F]{3,8}$/.test(String(pal.bg || '')) ? pal.bg : '#0F172A';
+  const fg = /^#[0-9a-fA-F]{3,8}$/.test(String(pal.fg || '')) ? pal.fg : '#F8FAFC';
+  const ac = /^#[0-9a-fA-F]{3,8}$/.test(String(pal.ac || '')) ? pal.ac : '#38BDF8';
+  const name = String((pc && pc.name) || '').trim();
+  /* نامِ برنامه و سرتیتر فقط وقتی چیزی به نام می‌افزایند: «از همه جا از همه رنگ»
+     هر سه را یکی دارد و تکرارش روی کاور یعنی همان واژه سه بار. */
+  const show0 = String((pc && pc.show) || '').trim();
+  const show = show0 && show0 !== name ? show0 : '';
+  const kicker0 = String((pc && pc.kicker) || '').trim();
+  const kicker = kicker0 && kicker0 !== name && kicker0 !== show ? kicker0 : '';
+  const n = name.length;
+  const fs1 = n > 46 ? 84 : (n > 30 ? 100 : (n > 18 ? 118 : 140));
+  const ink = artData ? '#FFFFFF' : fg;
+  return '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;width:1400px;height:1400px;' +
+    'overflow:hidden;background:' + bg + '}' +
+    (artData
+      ? '.bg{position:absolute;inset:0;background:url(' + artData + ') center/cover no-repeat}' +
+        '.sh{position:absolute;inset:0;background:linear-gradient(0deg,rgba(6,10,20,.90) 0%,' +
+        'rgba(6,10,20,.55) 42%,rgba(6,10,20,.08) 70%,rgba(6,10,20,.30) 100%)}'
+      : '.bg{position:absolute;inset:0;background:radial-gradient(circle at 78% 18%,' + ac + '40 0%,' +
+        bg + ' 62%)}.sh{position:absolute;left:0;right:0;bottom:0;height:22px;background:' + ac + '}' +
+        '.ring{position:absolute;width:820px;height:820px;left:-260px;top:-240px;border-radius:50%;' +
+        'border:64px solid ' + ac + '26}.ring2{position:absolute;width:300px;height:300px;right:150px;' +
+        'top:250px;border-radius:50%;background:' + ac + '1f}') +
+    '.top{position:absolute;top:84px;right:96px;direction:rtl;text-align:right;' +
+    'font-family:\'Vazirmatn\',\'Noto Sans Arabic\',sans-serif;font-size:46px;font-weight:700;color:' +
+    (artData ? '#FFFFFF;background:rgba(6,10,20,.62);padding:10px 30px 16px;border-radius:18px' : ac) + ';' +
+    'letter-spacing:0}' +
+    '.t{position:absolute;right:96px;left:96px;bottom:140px;direction:rtl;text-align:right;' +
+    'font-family:\'Vazirmatn\',\'Noto Sans Arabic\',sans-serif;color:' + ink + '}' +
+    '.k{font-size:44px;font-weight:600;opacity:.88;margin-bottom:22px}' +
+    '.h{font-size:' + fs1 + 'px;font-weight:800;line-height:1.25;' +
+    (artData ? 'text-shadow:0 4px 22px rgba(0,0,0,.5)' : '') + '}' +
+    '.bar{width:180px;height:12px;border-radius:6px;background:' + ac + ';margin-top:40px}</style>' +
+    '<div class="bg"></div><div class="sh"></div>' +
+    (artData ? '' : '<div class="ring"></div><div class="ring2"></div>') +
+    (show ? '<div class="top">' + esc(show) + '</div>' : '') +
+    '<div class="t">' + (kicker && kicker !== show ? '<div class="k">' + esc(kicker) + '</div>' : '') +
+    '<div class="h">' + esc(name) + '</div><div class="bar"></div></div>';
+}
+
+/**
  * حرکتِ صحنهٔ g.
  * بی `mv`: حرکتِ آرامِ قبلی — بزرگ‌نمایی، کوچک‌نمایی، یا لغزشِ افقی، یکی‌درمیان.
  * با `mv` (۸.۵۱): بزرگ‌نمایی **حولِ کانون** — نقطهٔ کانون روی صفحه ثابت می‌مانَد و
@@ -573,5 +625,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, scenesOf, mvOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml,
+module.exports = { SK, scenesOf, mvOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };

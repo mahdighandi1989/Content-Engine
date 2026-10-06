@@ -1009,4 +1009,56 @@ console.log('\n=== ۲۶) فایلِ بایگانیِ قسمت، فهرستِ م�
      String(last.enrichOffered));
 })();
 
+console.log('\n=== شناسه‌ای که بلند خوانده شد، و ارجاعی که به همهٔ بخش‌ها اِسناد شد (۸.۵۵) ===');
+(function () {
+  /* جملهٔ واقعیِ درسِ ۶۰، بخشِ دوم — عیناً. */
+  const real = 'این نکته در خودِ درس نیامده؛ از یک منبعِ دیگرِ آرشیو با شناسهٔ نوزده ال یو اضافه می‌کنم ' +
+               'که در بحثِ انتقالِ معرفت، ماهیتِ فرآیندِ نقل و گواهی نیز وابسته به نبودِ موانع است.';
+  const r = narrIdScrub_(real);
+  ok('شناسهٔ به‌حروف‌خوانده‌شدهٔ درسِ ۶۰ از جمله برداشته می‌شود و جمله سرِ پا می‌ماند',
+     r.n === 1 && r.t.indexOf('شناسه') === -1 && r.t.indexOf('نوزده') === -1 &&
+     r.t.indexOf('از یک منبعِ دیگرِ آرشیو اضافه می‌کنم که') !== -1, r.t);
+  const raw = narrIdScrub_('طبقِ منبعِ (19elyu-5Abe0zEzgnwLNolRr3o5SglTTa) این‌طور است.');
+  ok('شناسهٔ خامِ درایو هم برداشته می‌شود', raw.n === 1 && raw.t.indexOf('19elyu') === -1, raw.t);
+  const clean = 'دو مثال داریم: یک ستونِ پانزده‌تایی و شناسهٔ ملیِ او؛ ای کاش ده بار بررسی می‌کردیم.';
+  ok('متنِ عادی دست نمی‌خورد — حتی با «دو»، «یک»، «او» و «شناسهٔ ملی»',
+     narrIdScrub_(clean).n === 0 && narrIdScrub_(clean).t === clean);
+
+  const enrich = [{ id: '19elyu-5Abe0zEzgnwLNolRr3o5SglTTa', kind: 'صوت', cat: 'سخنرانی', topic: 'نقل', msg: '', summary: '' },
+                  { id: '1kBpXff3z2jvfqoN2MoaHLV0u-BFiGq6X', kind: 'عکس', cat: 'علمی', topic: 'احساس', msg: '', summary: '' }];
+  const ep = { sections: [{ enrichIds: ['E2', 'e1', 'E9', 'جعلی'] }, { enrichIds: ['19elyu-5Abe0zEzgnwLNolRr3o5SglTTa'] }] };
+  specialEnrichIdsBack_(ep, enrich);
+  ok('برچسبِ E⇢شناسهٔ واقعی؛ شناسهٔ واقعیِ آشنا می‌مانَد؛ برچسبِ بیرون از دامنه و ساختگی دور ریخته می‌شوند',
+     JSON.stringify(ep.sections[0].enrichIds) === JSON.stringify([enrich[1].id, enrich[0].id]) &&
+     JSON.stringify(ep.sections[1].enrichIds) === JSON.stringify([enrich[0].id]),
+     JSON.stringify(ep.sections));
+  const pr = buildSpecialPrompt_({ seriesName: 'دوره', covers: [], chunks: [], enrich: enrich.map(x =>
+    Object.assign({ fromSeries: '' }, x)), when: {}, orders: [] });
+  ok('نویسنده شناسهٔ واقعی را اصلاً نمی‌بیند — فقط E1 و E2',
+     pr.indexOf(enrich[0].id) === -1 && pr.indexOf(enrich[1].id) === -1 &&
+     pr.indexOf('شناسه: E1') !== -1 && pr.indexOf('شناسه: E2') !== -1);
+
+  /* ارجاعِ میان‌مجموعه‌ای: داده‌ای به شکلِ درسِ ۶۰ — ارجاع در بخش‌های ۰، ۳ و ۴
+     گفته شده، و بخش‌های ۱، ۲، ۵ از معرفت‌شناسی حرف می‌زنند ولی نه از آن مجموعه. */
+  const ep60 = { sections: [
+    { heading: 'زنجیره‌های استقرایی', narration: 'در مجموعهٔ آموزشیِ معرفت‌شناسی مجتبی مصباح نیز آمده بود که استقراء ناقص به یقین نمی‌رسد.' },
+    { heading: 'توهم انتقال خودکار', narration: 'در اثبات‌های هندسی، معرفت از طریقِ استنتاجِ معتبر منتقل می‌شود.' },
+    { heading: 'صدای موتور', narration: 'مثالِ صدای موتورِ خودرو را در نظر بگیرید؛ معرفت‌شناسی این را می‌پرسد.' },
+    { heading: 'ستون اعداد', narration: 'در مجموعهٔ آموزشیِ معرفت‌شناسی مجتبی مصباح بیان شده که عقل به ترجیحِ قوتِ قرائن حکم می‌کند.' },
+    { heading: 'خطاهای خنثی‌کننده', narration: 'در درس‌های معرفت‌شناسی مجتبی مصباح آمده بود که اگر قیاس معتبر باشد…' },
+    { heading: 'اصل مشروط', narration: 'گزاره‌های فصلی را بازخوانی کنیم.' }] };
+  const blg = { seriesName: 'معرفت شناسی مجتبی مصباح', atHeading: 'سرتیتری که نیست' };
+  const got = specialBridgeSecs_(ep60, blg);
+  ok('ارجاع فقط به بخش‌هایی اِسناد می‌شود که واقعاً از آن مجموعه گفته‌اند — نه به همه',
+     JSON.stringify(got) === '[0,3,4]', JSON.stringify(got));
+  const none = specialBridgeSecs_(ep60, { seriesName: 'فلسفهٔ ذهن', atHeading: 'ستون اعداد' });
+  const zero = specialBridgeSecs_(ep60, { seriesName: 'فلسفهٔ ذهن', atHeading: '' });
+  ok('نامِ مجموعه در متن نیست ⇒ همان سرتیتر؛ سرتیتر هم نیست ⇒ هیچ بخشی (نه همه)',
+     JSON.stringify(none) === '[3]' && JSON.stringify(zero) === '[]',
+     JSON.stringify([none, zero]));
+  const srcSp = fs.readFileSync('src/14_Special.gs', 'utf8');
+  ok('و هیچ «__all»ی دیگر به عکسِ محتوا نمی‌رسد',
+     srcSp.indexOf('bridgeSecIdx.__all') === -1);
+})();
+
 console.log('\n✅ هر ' + pass + ' آزمونِ درس‌نامه گذشت.');

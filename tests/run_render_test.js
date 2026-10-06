@@ -571,8 +571,12 @@ console.log('\n=== ۱۱) نگه‌داشتنِ یک درخواستِ مشخص، 
   const mi = src.indexOf('function main()');
   const body = src.slice(mi, src.indexOf('\nfunction ', mi + 10) > 0 ? src.indexOf('\nfunction ', mi + 10) : undefined);
   ok('۱۱.۲ حلقهٔ ساخت روی فهرستِ پس از نگه‌داشتن می‌چرخد و نگه‌داشته را نام می‌برد',
-     /const todo = ready\.filter\(x => \{[\s\S]{0,120}heldNow\(x, hold/.test(body) &&
-     /for \(const it of todo\)/.test(body) && /نگه داشته شد: /.test(body),
+     /* از ۸.۵۵ فیلتر در `itemsTodo` است — یک تعریف برای پروب و کار؛ پس سنجه می‌پرسد
+        حلقه روی خروجیِ همان تابع می‌چرخد و آن تابع واقعاً نگه‌داشته را کنار می‌گذارد. */
+     /itemsTodo\(queue, map, hold/.test(body) && /const items = T\.items, ready = T\.ready, todo = T\.todo/.test(body) &&
+     /for \(const it of todo\)/.test(body) && /نگه داشته شد: /.test(body) &&
+     R.itemsTodo({ items: [{ key: 'special:59', at: '2026-10-03 09:01', status: 'در انتظار' }] }, { items: {} },
+                 { 'special:59': { at: '2026-10-03 09:01', until: '2026-10-04T08:00:00Z', why: 'آزمون' } }, t0).todo.length === 0,
      'main');
 }
 
@@ -978,6 +982,87 @@ console.log('\n══ ۱۴) حرکتِ معنادار و کلیپِ آغاز (۸
   ok('۱۴.۷ نقشه شمارِ حرکت و حالِ کلیپ را می‌نویسد',
      /map\.items\[it\.key\]\.mv = vr\.mv/.test(src) && /map\.items\[it\.key\]\.clip = vr\.clip/.test(src) &&
      /clips: clips/.test(src));
+}
+
+console.log('\n══ ۱۵) کاورِ مربعِ پلی‌لیست و پروب (۸.۵۵) ══');
+{
+  const SKIT = require('../tools/scenekit.js');
+  /* ۱۵.۱ — «کاری هست» یک تعریف دارد، و امضای نقشه نقاشیِ مجموعه را هم در خود دارد:
+     رسیدنِ نقاشی کاور را یک بار از نو می‌خواهد و بعد دیگر نه. */
+  const q = { items: [], plCovers: [{ key: 'series:a', name: 'الف', sig: 's1', pal: {} }] };
+  const m0 = { items: {} };
+  const t0 = R.plCoversTodo(q, m0).length;
+  const m1 = { items: {}, plCovers: { 'series:a': { sig: 's1', req: 's1' } } };
+  const t1 = R.plCoversTodo(q, m1).length;
+  const m2 = { items: {}, plCovers: { 'series:a': { sig: 's1', req: 's1' } },
+               art: { 'series:a': { url: 'x', from: 'special:62' } } };
+  const t2 = R.plCoversTodo(q, m2).length;
+  const m3 = { items: {}, plCovers: { 'series:a': { sig: R.plCoverSig(q.plCovers[0], m2), req: 's1' } },
+               art: m2.art };
+  const t3 = R.plCoversTodo(q, m3).length;
+  ok('۱۵.۱ کاورِ پلی‌لیست: نخواسته ⇒ می‌سازد، ساخته ⇒ نه، نقاشیِ تازه ⇒ یک بار دیگر',
+     t0 === 1 && t1 === 0 && t2 === 1 && t3 === 0, [t0, t1, t2, t3].join(','));
+
+  /* ۱۵.۲ — پروب و کار از همان دو تابع می‌پرسند (۷.۷۸): ردیفِ ساخته‌شده یا
+     نگه‌داشته کار نیست. */
+  const qi = { items: [{ key: 'special:1', status: 'در انتظار' }, { key: 'special:2', status: 'در انتظار' },
+                       { key: 'special:3', status: 'رسید' }] };
+  const T = R.itemsTodo(qi, { items: { 'special:2': { url: 'u' } } }, {}, new Date());
+  const src = fs.readFileSync('tools/render.js', 'utf8');
+  const probeAt = src.indexOf("process.argv.indexOf('--probe')");
+  const pw0 = R.probeWork({ items: [], plCovers: [] }, { items: {} }, {}, new Date());
+  const pw1 = R.probeWork(q, m0, {}, new Date());                       // فقط کاورِ پلی‌لیست
+  const pw2 = R.probeWork(qi, { items: {} }, {}, new Date());           // فقط ویدئو
+  const pw3 = R.probeWork(qi, { items: { 'special:1': { url: 'u' }, 'special:2': { url: 'u' } } }, {}, new Date());
+  ok('۱۵.۲ پروب همان «ساخته‌نشده و نگه‌داشته‌نشده» را می‌شمارد که کار — و کاورِ پلی‌لیست هم کار است',
+     T.todo.length === 1 && T.todo[0].key === 'special:1' && probeAt !== -1 &&
+     /probeWork\(queue, map, hold/.test(src.slice(probeAt, probeAt + 400)) &&
+     pw0 === '0' && pw1 === '1' && pw2 === '1' && pw3 === '0',
+     JSON.stringify(T.todo) + ' · ' + [pw0, pw1, pw2, pw3].join(','));
+
+  /* ۱۵.۳ — کاورِ مربع واقعاً مربع است، زیرِ دو مگابایت، و نامِ تکراری روی آن نیست. */
+  const CK = require('../tools/cardkit/index.js');
+  const exe = CK.chromeExe();
+  const d = fs.mkdtempSync(path.join(TMP, 'pl-'));
+  const html = SKIT.plCoverHtml({ key: 'show:variety', name: 'از همه جا از همه رنگ',
+                                  kicker: 'از همه جا از همه رنگ', show: 'از همه جا از همه رنگ',
+                                  pal: { bg: '#1E1B4B', fg: '#EEF2FF', ac: '#A78BFA' } }, '');
+  const png = SKIT.shoot(exe, html, path.join(d, 'pl.png'), 1400, 1400, ff);
+  const jpg = path.join(d, 'pl.jpg');
+  ff(['-i', png, '-q:v', '3', '-frames:v', '1', jpg]);
+  const wh = cp.spawnSync(FF.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'stream=width,height',
+                          '-of', 'csv=p=0', jpg], { encoding: 'utf8' });
+  const dims = (wh.stdout || '').trim() || (function () {
+    const b = fs.readFileSync(jpg); let i = 2;
+    while (i < b.length) { if (b[i] !== 0xFF) { i++; continue; } const mk = b[i + 1];
+      if (mk >= 0xC0 && mk <= 0xC2) return ((b[i + 7] << 8) | b[i + 8]) + ',' + ((b[i + 5] << 8) | b[i + 6]);
+      i += 2 + ((b[i + 2] << 8) | b[i + 3]); }
+    return '?'; })();
+  const once = (html.match(/از همه جا از همه رنگ/g) || []).length;
+  ok('۱۵.۳ کاورِ پلی‌لیست ۱۴۰۰×۱۴۰۰، زیرِ ۲ مگابایت، و نامِ برنامه یک بار — نه سه بار',
+     dims === '1400,1400' && fs.statSync(jpg).size < 2 * 1024 * 1024 && R.sniffKind(jpg) === 'jpeg' && once === 1,
+     dims + ' · ' + Math.round(fs.statSync(jpg).size / 1024) + 'KB · نام ' + once + ' بار');
+
+  /* ۱۵.۴ — ویدئوی صحنه‌ای با کلیدِ پلی‌لیست، نقاشیِ مربعِ بی‌نوشته‌اش را هم می‌دهد؛
+     بی کلید، نه (ردیف‌های قدیمی همان شکلِ دیروز). */
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,6),0,5.1)':s=24000:d=30", '-ac', '1', wav]);
+  const pu = serve('plart.png', mkPng(path.join(d, 'p.png'), 1344, 768, 9));
+  const pu2 = serve('plart2.png', mkPng(path.join(d, 'p2.png'), 1344, 768, 23));
+  const pu3 = serve('plart3.png', mkPng(path.join(d, 'p3.png'), 1344, 768, 37));
+  const it = (k) => Object.assign({ key: 'special:pl', mode: 'scenes', coverTitle: 'کاور',
+    sceneCover: { url: pu }, scenes: [{ n: 1, t0: 0, url: pu }, { n: 2, t0: 11.5, url: pu2 },
+                                      { n: 3, t0: 20.5, url: pu3 }] }, k ? { plKey: k } : {});
+  const da = fs.mkdtempSync(path.join(TMP, 'pla-')), db = fs.mkdtempSync(path.join(TMP, 'plb-'));
+  const va = R.buildVideo(it('series:a'), null, wav, R.wavSeconds(wav), path.join(da, 'o.mp4'), da);
+  const vb = R.buildVideo(it(''), null, wav, R.wavSeconds(wav), path.join(db, 'o.mp4'), db);
+  let artWh = '';
+  try { artWh = cp.spawnSync(FF.replace(/ffmpeg$/, 'ffprobe'), ['-v', 'error', '-show_entries', 'stream=width,height',
+          '-of', 'csv=p=0', va.artFile], { encoding: 'utf8' }).stdout.trim(); } catch (e) { artWh = '?'; }
+  ok('۱۵.۴ با کلیدِ پلی‌لیست نقاشیِ مربعِ ۱۴۰۰ هم ساخته می‌شود، بی کلید نه',
+     !!va.artFile && R.sniffKind(va.artFile) === 'jpeg' && (artWh === '1400,1400' || artWh === '') && !vb.artFile,
+     'با کلید ' + (va.artFile ? artWh || 'ساخته شد' : 'نه') + ' · بی کلید ' + (vb.artFile ? 'ساخته شد' : 'نه') +
+     ' · ' + va.mode + ' ' + (va.notes || []).join(' | '));
 }
 
 stopServer();

@@ -2429,6 +2429,16 @@ function healthCheck() {
       if (codeQueueStuck_(hub, cq)) problems.push(cqLine);
       else notes.push(cqLine);
     }
+    /* کارِ کدِ امروزِ ناظر: هر روز گفته می‌شود، و ماندنش ایراد است (۸.۵۵). */
+    var ct = codeTaskTrack_(hub, cq);
+    st.codeTask = { key: ct.task ? ct.task.key : '', title: ct.task ? ct.task.title : '',
+                    days: ct.days, escalated: ct.escalated, line: ct.line };
+    /* سرِ فهرست، نه ته: `health.notes` در `_STATUS.json` به بیست سطر بریده می‌شود
+       و ناظر کارِ امروزش را از همین‌جا برمی‌دارد. */
+    if (ct.line) {
+      if (ct.days > Math.max(1, Number(CFG.CODE_TASK_IGNORE_DAYS) || 2)) problems.unshift(ct.line);
+      else notes.unshift(ct.line);
+    }
   } catch (eCq) {}
 
   /* ══ درِ دومِ همان قفل: ردیفی که بسته شد ولی شرطش هنوز برقرار است ══

@@ -603,8 +603,27 @@ console.log('=== ۱۹) کاورِ پلی‌لیست و شناسنامهٔ کان
   ok('۱۹.۲-پ و شکستش گزارش می‌شود — از ۵٫۹۷ جمع می‌شد و خوانده نمی‌شد',
      src27.indexOf('ytPlCoverFails_()') !== -1 &&
      src27.indexOf('کاورِ ویدئوی اول را نشان می‌دهد') !== -1);
-  ok('۱۹.۲-ت ولی «سهمیه» شکست شمرده نمی‌شود — فردا خودش دوباره می‌رود',
-     plc.indexOf("cv.indexOf('سهمیه') === -1") !== -1);
+  /* ۱۹.۲-ت از ۸.۵۵ رفتاری است، نه متنِ کد: نگارشِ قبلی دنبالِ عبارتِ
+     `cv.indexOf('سهمیه') === -1` می‌گشت و با هر بازنویسیِ درستِ همان قاعده سرخ
+     می‌شد. «سهمیه» و «در راه» (رانر هنوز کاورِ مربع را نکشیده) هیچ‌کدام تلاش
+     نیستند و هیچ‌کدام در فهرستِ شکست نمی‌روند. */
+  {
+    const kCov = global.ytPlaylistCover_, kPod = global.ytPlPodcast_;
+    const kMap = global.__PROPS[PK.YT_PL];
+    global.ytPlPodcast_ = () => 'نشست';
+    for (const why of ['سهمیه', 'در راه']) {
+      global.ytPlMapSave_({ kT: { id: 'PLT', title: 'ت', coverVer: CFG.YT_PL_COVER_VER } });
+      global.ytPlaylistCover_ = () => why;
+      const o = { covers: 0, coverFails: [], podcasts: 0 };
+      ytPlDress_('PLT', 'ت', 'ت', '', '', false, o, 'kT');
+      const r = ytPlMap_()['kT'] || {};
+      ok('۱۹.۲-ت «' + why + '» شکست شمرده نمی‌شود — نه تلاش، نه فهرستِ شکست',
+         !o.coverFails.length && !(Number(r.coverTries) || 0) && r.coverWhy === why,
+         JSON.stringify(r) + ' · ' + JSON.stringify(o.coverFails));
+    }
+    global.ytPlaylistCover_ = kCov; global.ytPlPodcast_ = kPod;
+    if (kMap === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = kMap;
+  }
   ok('۱۹.۳ توضیح و کلیدواژهٔ کانال از پیکربندی ساخته می‌شوند',
      ytChannelDesc_().indexOf(String(CFG.SHOW_NAME)) !== -1);
   ok('۱۹.۴ کلیدواژه‌ها از سقفِ یوتیوب نمی‌گذرند',
@@ -1720,10 +1739,17 @@ console.log('=== ۴۲) پادکست هم کاور و ثبت لازم دارد (�
   /* ── کاورِ پادکست ۱:۱ است، نه ۱۶:۹ ──
      یوتیوب برای پلی‌لیستی که پادکست شده صریح مربع می‌خواهد (۱۲۸۰×۱۲۸۰)؛
      ۱۶:۹ آن‌جا بریده می‌شود. */
-  ok('۴۲.۱ کاورِ پلی‌لیست مربع خواسته می‌شود',
-     src27.indexOf('square: CFG.YT_PODCAST !== false') !== -1);
-  ok('۴۲.۲ و صفحهٔ مربع واقعاً ساخته می‌شود',
-     src27.indexOf('ytPresCreate_(name, 12192000, 12192000)') !== -1);
+  /* ══ ۴۲.۱ و ۴۲.۲ همان باور را قفل کرده بودند که غلط بود (۸.۵۵) ══
+     «مربع خواسته می‌شود» و «صفحهٔ مربع ساخته می‌شود» هر دو متنِ کد را
+     می‌سنجیدند — `ytPresCreate_(name, 12192000, 12192000)` — و هر دو سبز بودند
+     در حالی که اسلایدز اندازه را دور می‌ریخت و کاور ۹۶۰×۵۴۰ درمی‌آمد. سنجه‌ای
+     که **خواستن** را بسنجد، نه **رسیدن** را، باگ را نگه می‌دارد (۷.۶۸). حالا
+     هر دو از درِ رفتار، و جزئیاتش در §۸۲. */
+  ok('۴۲.۱ کاورِ پلی‌لیست دیگر از اسلایدز خواسته نمی‌شود — آنجا مربع ساخته نمی‌شود',
+     src27.indexOf('ytPresCreate_(name, 12192000, 12192000)') === -1 &&
+     typeof ytPlSqSpec_ === 'function' && typeof ytImgSize_ === 'function');
+  ok('۴۲.۲ و آنچه فرستاده می‌شود از بایت‌ها مربع سنجیده می‌شود (§۸۲.۳)',
+     /sz\.w !== sz\.h/.test(src27.slice(src27.indexOf('function ytPlaylistCover_'))));
   /* و نامش جداست، وگرنه کاورِ ۱۶:۹ی همان مجموعه از حافظه برداشته می‌شود و
      پادکست باز هم کاورِ غلط می‌گیرد — یک اشتباهِ بی‌صدا. */
   const n169 = ytCoverName_({ epLabel: 'مجموعه', showName: 'درس‌نامه' });
@@ -2075,8 +2101,15 @@ console.log('\n=== ۴۸) عددِ بی‌علت: بنر و کاور باید *ب
   const out = { covers: 0, coverFails: [], podcasts: 0 };
   ytPlDress_('PL1', 'مجموعهٔ آزمون', 'مجموعهٔ آزمون', '', '', false, out, 'kX');
   const rec = ytPlMap_()['kX'] || {};
-  ok('۴۸.۳ علتِ «سهمیه» روی خودِ رکورد ثبت می‌شود',
-     rec.coverWhy === 'سهمیه' && rec.podWhy === 'سهمیه', JSON.stringify(rec));
+  /* از ۸.۵۵ پادکست پس از کاور است: بی کاور، علتِ پادکست «منتظرِ کاور» است، نه
+     «سهمیه». پس «سهمیه»ی پادکست روی پلی‌لیستی سنجیده می‌شود که کاور دارد. */
+  { const mm = ytPlMap_(); mm.kX2 = { id: 'PL2', title: 'دو', cover: nowStr_(), coverVer: CFG.YT_PL_COVER_VER };
+    global.ytPlMapSave_(mm); }
+  ytPlDress_('PL2', 'دو', 'دو', '', '', false, { covers: 0, coverFails: [], podcasts: 0 }, 'kX2');
+  const rec2 = ytPlMap_()['kX2'] || {};
+  ok('۴۸.۳ علتِ «سهمیه» روی خودِ رکورد ثبت می‌شود — هم کاور، هم پادکستِ پلی‌لیستِ کاوردار',
+     rec.coverWhy === 'سهمیه' && /منتظرِ کاور/.test(String(rec.podWhy || '')) &&
+     rec2.podWhy === 'سهمیه', JSON.stringify(rec) + ' · ' + JSON.stringify(rec2));
   /* ولی سهمیه **ایراد** نیست — فردا خودش می‌آید. پس در فهرستِ شکست‌ها
      نمی‌رود، وگرنه یک هشدارِ روزانه برای چیزی که خودش حل می‌شود. */
   ok('۴۸.۴ ولی ایراد شمرده نمی‌شود — فردا خودش می‌آید',
@@ -3893,8 +3926,10 @@ console.log('=== ۵۸) بازبینیِ هر هفت گام — هشت باگِ �
   /* **هر سه** مسیر، نه دو: آپلود، بازسازی، و کاورِ پلی‌لیست (که کاورِ پادکست
      هم هست). نگارشِ اولِ این سنجه دو تا می‌خواست و سومی را نمی‌دید — و آن
      سومی دیدنی‌ترین تصویرِ سطحِ مجموعه است. */
-  ok('۵۸.۷ هر سه مسیرِ کاور سبک را می‌دهند — یک قابلیت، سه در',
-     epCalls.length === 3 && epCalls.every(c => c.indexOf('style:') !== -1),
+  /* از ۸.۵۵ کاورِ پلی‌لیست از رانر است، نه از `ytCoverCard_`: دو مسیرِ اسلایدز
+     می‌مانند، و سبکِ سومی (پلی‌لیست) در ۵۸.۷-ب از خودِ درخواستِ رانر سنجیده می‌شود. */
+  ok('۵۸.۷ هر دو مسیرِ اسلایدزِ کاور سبک را می‌دهند — و سومی دیگر اسلایدز نیست',
+     epCalls.length === 2 && epCalls.every(c => c.indexOf('style:') !== -1),
      epCalls.length + ' فراخوانِ کاور، ' +
      epCalls.filter(c => c.indexOf('style:') !== -1).length + ' با سبک');
 
@@ -3906,29 +3941,26 @@ console.log('=== ۵۸) بازبینیِ هر هفت گام — هشت باگِ �
      که واقعاً می‌شکند (۷.۴۳). این یکی از درِ `ytPlDress_` می‌رود، همان دری
      که `ytPlaylistSync_` از آن وارد می‌شود، و **رنگِ کشیده‌شده** را
      می‌پرسد، نه متنِ کد را. */
-  const kpPod = global.ytPlPodcast_, kpHttp = global.ytHttp_;
-  const kpMap = global.__PROPS[PK.YT_PLMAP];
+  const kpPod = global.ytPlPodcast_;
+  const kpMap = global.__PROPS[PK.YT_PL], kpSq = global.__PROPS[PK.YT_PL_SQ];
   global.ytPlPodcast_ = () => 'نشست';
-  global.ytHttp_ = () => ({ code: 200, text: '{}' });
   ytPlMapSave_({ kA: { id: 'PLA', title: 'سیرهٔ نبوی' } });
-  global.__PRES_LAST = null;
+  delete global.__PROPS[PK.YT_PL_SQ];
+  global._ytPlSqMemo = {};                     // رانر هنوز چیزی نکشیده
   const outPl = { covers: 0, coverFails: [], podcasts: 0 };
   ytPlDress_('PLA', 'سیرهٔ نبوی', 'سیرهٔ نبوی', 'درس‌نامه', 'تاریخ اسلام',
              false, outPl, 'kA');
-  const plPal = (function () {
-    try { return global.__PRES_LAST.getSlides()[0].getPageElements()[0].fill.color; }
-    catch (e) { return 'کشیده نشد: ' + e.message; }
-  })();
-  ok('۵۸.۷-ب کاورِ پلی‌لیست واقعاً با سبکِ مجموعه کشیده می‌شود',
-     outPl.covers === 1 &&
+  const plReq = (JSON.parse(global.__PROPS[PK.YT_PL_SQ] || '{}') || {})['kA'] || {};
+  const plPal = (plReq.pal || {}).bg || 'خواسته نشد';
+  ok('۵۸.۷-ب کاورِ پلی‌لیست با سبکِ مجموعه از رانر خواسته می‌شود',
      plPal === lvStyleFind_('کاغذبری').pal.bg &&
      plPal !== ytPalette_('تاریخ اسلام').bg,
-     'رنگِ کشیده‌شده ' + plPal + ' · سبک ' + lvStyleFind_('کاغذبری').pal.bg +
+     'رنگِ خواسته‌شده ' + plPal + ' · سبک ' + lvStyleFind_('کاغذبری').pal.bg +
      ' · دستهٔ خالی ' + ytPalette_('تاریخ اسلام').bg);
 
-  global.ytPlPodcast_ = kpPod; global.ytHttp_ = kpHttp;
-  if (kpMap === undefined) delete global.__PROPS[PK.YT_PLMAP];
-  else global.__PROPS[PK.YT_PLMAP] = kpMap;
+  global.ytPlPodcast_ = kpPod; global._ytPlSqMemo = null;
+  if (kpMap === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = kpMap;
+  if (kpSq === undefined) delete global.__PROPS[PK.YT_PL_SQ]; else global.__PROPS[PK.YT_PL_SQ] = kpSq;
 
   if (svcWas === undefined) delete global.YouTube; else global.YouTube = svcWas;
 }
@@ -7677,6 +7709,228 @@ console.log('\n=== ۸۱) یک مدلِ تصویر، یک جواب (۸.۵۴) ==='
      JSON.stringify([g1.model, g0.model, g2.model]));
   CFG.LV_GEN_MODEL_PIN = pinWas; CFG.LV_GEN_MODEL = setWas;
   delete global.__PROPS[PK.LV_GEN_MODEL];
+}
+
+console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پادکست پس از کاور (۸.۵۵) ===');
+{
+  /* سه پلی‌لیست هفته‌ها «کاور: نشد (500)» و «پادکست: نشد (400): Precondition check
+     failed» داشتند و سطرِ سلامت صاحبِ برنامه را به تأییدِ هویت فرستاد. فایلِ ذخیره‌شدهٔ
+     «کاور — مجموعه — درس‌نامه — مربع.png» سرآیندش ۹۶۰×۵۴۰ بود: اسلایدز اندازه را دور
+     می‌ریزد. مستندِ یوتیوب: playlistImages ۱:۱ می‌خواهد، و podcastStatus فقط روی
+     پلی‌لیستِ تصویردار. */
+  const png = (w, h) => [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+    (w >> 24) & 255, (w >> 16) & 255, (w >> 8) & 255, w & 255,
+    (h >> 24) & 255, (h >> 16) & 255, (h >> 8) & 255, h & 255, 8, 2, 0, 0, 0];
+  const jpg = (w, h) => [0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+    0xFF, 0xC0, 0, 17, 8, (h >> 8) & 255, h & 255, (w >> 8) & 255, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1,
+    0xFF, 0xD9];
+  const blob = (b, m) => Utilities.newBlob(b, m, 'x');
+  const s1 = ytImgSize_(blob(png(960, 540), 'image/png'));
+  const s2 = ytImgSize_(blob(jpg(1400, 1400), 'image/jpeg'));
+  const s3 = ytImgSize_(blob(Array.from(Buffer.from('<!doctype html><html>…</html>')), 'text/html'));
+  ok('۸۲.۱ اندازه از بایت‌ها خوانده می‌شود — PNG و JPEG، و صفحهٔ HTML تصویر نیست',
+     s1 && s1.w === 960 && s1.h === 540 && s1.mime === 'image/png' &&
+     s2 && s2.w === 1400 && s2.h === 1400 && s2.mime === 'image/jpeg' && s3 === null,
+     JSON.stringify([s1, s2, s3]));
+
+  const keepStub = global.__STUB;
+  const kMap = global.__PROPS[PK.YT_PL], kSq = global.__PROPS[PK.YT_PL_SQ];
+  const spec = ytPlSqSpec_('kQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', 'درس‌نامه', '');
+  let imgCalls = [], podCalls = 0, runnerImg = null;
+  global.__STUB = (url, body, opt) => {
+    if (/renders\.json/.test(url)) {
+      return { code: 200, json: { items: {}, plCovers: runnerImg
+        ? { kQ: { url: 'https://example.test/pl-kQ.jpg', req: spec.sig, sig: spec.sig + '|special:62' } } : {} } };
+    }
+    if (url === 'https://example.test/pl-kQ.jpg') return { code: 200, bytes: runnerImg.b, mime: runnerImg.m };
+    if (/playlistImages/.test(url)) { imgCalls.push(opt); return { code: 200, json: { id: 'img1' } }; }
+    return keepStub(url, body, opt);
+  };
+  const fresh = () => { global._ytPlSqMemo = null; imgCalls = []; };
+
+  // ۸۲.۲ — رانر هنوز نکشیده: «در راه»، درخواست در صف، و تلاشی شمرده نمی‌شود
+  delete global.__PROPS[PK.YT_PL_SQ];
+  fresh(); runnerImg = null;
+  const r0 = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, 'درس‌نامه', '', 'kQ');
+  const q0 = ytRenderRead_();
+  ok('۸۲.۲ بی کاورِ رانر ⇒ «در راه» و درخواستِ مربع در صفِ رندر می‌نشیند',
+     r0 === 'در راه' && (q0.plCovers || []).some(x => x.key === 'kQ' && x.sig === spec.sig) && !imgCalls.length,
+     r0 + ' · ' + JSON.stringify(q0.plCovers));
+
+  // ۸.۲.۳ — ۹۶۰×۵۴۰ پیش از فرستادن رد می‌شود
+  fresh(); runnerImg = { b: png(960, 540), m: 'image/png' };
+  const r1 = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, 'درس‌نامه', '', 'kQ');
+  ok('۸۲.۳ کاورِ ۹۶۰×۵۴۰ فرستاده نمی‌شود، و علت اندازهٔ واقعی را می‌گوید',
+     /^نشد/.test(r1) && r1.indexOf('960×540') !== -1 && imgCalls.length === 0, r1);
+
+  // ۸۲.۴ — مربعِ ۱۴۰۰ فرستاده می‌شود، با MIME و ابعادِ واقعی
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' };
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی' } });
+  const r2 = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, 'درس‌نامه', '', 'kQ');
+  const sent = imgCalls[0] || {};
+  const head = sent.payload ? Buffer.from(sent.payload.slice(0, 400).map(x => x & 255)).toString('utf8') : '';
+  ok('۸۲.۴ مربعِ ۱۴۰۰ با MIMEِ خودش و ابعادش فرستاده می‌شود و امضایش ثبت می‌شود',
+     r2 === 'نشست' && imgCalls.length === 1 && head.indexOf('Content-Type: image/jpeg') !== -1 &&
+     head.indexOf('"width":1400') !== -1 && (ytPlMap_()['kQ'] || {}).coverSig === spec.sig + '|special:62',
+     r2 + ' · ' + head.slice(0, 160).replace(/\r?\n/g, ' ') + ' · ' + JSON.stringify(ytPlMap_()['kQ']));
+
+  // ۸۲.۵ — پادکست پیش از کاور پرسیده نمی‌شود. شکستنِ عمدیِ همین سد زودتر روی ۴۸.۳
+  // می‌نشیند (همان ادعا: بی کاور، علتِ پادکست «منتظرِ کاور» است) — مجموعه با نخستین سرخ می‌ایستد.
+  const kPod = global.ytPlPodcast_;
+  global.ytPlPodcast_ = () => { podCalls++; return 'نشست'; };
+  fresh(); runnerImg = null;
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverVer: CFG.YT_PL_COVER_VER } });
+  const o5 = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o5, 'kQ');
+  const r5 = ytPlMap_()['kQ'] || {};
+  ok('۸۲.۵ بی کاور، پادکست پرسیده نمی‌شود — و علتش ثبت است، نه تلاش',
+     podCalls === 0 && /منتظرِ کاور/.test(String(r5.podWhy || '')) && !(Number(r5.podTries) || 0),
+     JSON.stringify(r5));
+
+  // ۸۲.۶ — با کاورِ نشسته، همان دور پادکست هم می‌رود
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' };
+  const o6 = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o6, 'kQ');
+  const r6 = ytPlMap_()['kQ'] || {};
+  ok('۸۲.۶ کاور که نشست، همان دور پادکست می‌شود — به همین ترتیب',
+     o6.covers === 1 && podCalls === 1 && !!r6.cover && !!r6.podcast, JSON.stringify(r6));
+
+  // ۸۲.۷ — تلاش‌های سازوکارِ قدیم شمرده نمی‌شوند
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' };
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverTries: 4, coverLastTry: nowStr_(),
+                       podTries: 4, podLastTry: nowStr_(), coverWhy: 'نشد (500)' } });
+  const o7 = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o7, 'kQ');
+  ok('۸۲.۷ چهار «نشد (500)»ِ کاورِ ۹۶۰×۵۴۰ سقفِ تلاش را پر نمی‌کند — همان شب کاورِ درست می‌رود',
+     o7.covers === 1 && imgCalls.length === 1, JSON.stringify(ytPlMap_()['kQ']));
+
+  // ۸۲.۸ — نقاشیِ تازهٔ مجموعه کاورِ نشسته را یک بار به‌روز می‌کند، نه هر دور
+  fresh();
+  const o8 = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o8, 'kQ');
+  ok('۸۲.۸ کاورِ نشسته با همان امضا دوباره فرستاده نمی‌شود',
+     o8.covers === 0 && imgCalls.length === 0);
+
+  // ۸۲.۹ — سطرِ سلامت صاحبِ برنامه را به تأییدِ هویت نمی‌فرستد وقتی کاور هرگز ننشسته
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverVer: CFG.YT_PL_COVER_VER,
+                       coverTries: 4, coverLastTry: nowStr_(), coverWhy: 'نشد (500): Internal error' } });
+  const pr = [], nt = [];
+  try { ytHealth_(pr, nt); } catch (eH) {}
+  const plLine = pr.concat(nt).filter(x => /پلی‌لیست/.test(x) && /رد می‌شود/.test(x))[0] || '';
+  ok('۸۲.۹ شکستِ کاور «کارِ شما» نیست و علتِ خودِ یوتیوب را نقل می‌کند',
+     plLine && plLine.indexOf('youtube.com/features') === -1 && plLine.indexOf('Internal error') !== -1 &&
+     plLine.indexOf('⟨شما⟩') === -1, plLine.slice(0, 220));
+
+  /* ۸۲.۱۰ — دورِ پلی‌لیست‌ها مجموعه‌های بی‌کاور را **رد نمی‌کند**. تا ۸.۵۴ میان‌بُرِ
+     «چیدمان عوض نشده» هر دور را پیش از رسیدگی برمی‌گرداند، پس پلی‌لیستِ درس‌نامه‌ای
+     که یک بار کاورش نشد هرگز دوباره امتحان نمی‌شد. از درِ خودِ `ytPlaylistSync_`. */
+  {
+    const keep = {};
+    for (const f of ['ytSvc_', 'readSeriesReg_', 'ytPublished_', 'ytPlFor_', 'ytPlDress_', 'getHub_'])
+      keep[f] = global[f];
+    const hubS = new Spread('هاب-پلی‌لیست');
+    const ytTab = hubS.insertSheet(CFG.YT_TAB || 'انتشار در یوتیوب');
+    const rowV = new Array(YT_HEADERS.length).fill('');
+    rowV[YU.SERIES - 1] = 'معرفت‌شناسی'; rowV[YU.VID - 1] = 'VID1';
+    ytTab.appendRow(YT_HEADERS.slice()); ytTab.appendRow(rowV);
+    const regVals = []; regVals[SC.NAME - 1] = 'معرفت‌شناسی'; regVals[SC.YT - 1] = ytPlUrl_('PLR');
+    const fakeSheet = { getRange: () => ({ setValue: () => {} }) };
+    global.getHub_ = () => hubS;
+    global.ytSvc_ = () => ({});
+    global.readSeriesReg_ = () => ({ rows: [{ key: 'r1', row: 2, vals: regVals }], sheet: fakeSheet,
+                                     byKey: { r1: { key: 'r1', row: 2, vals: regVals } } });
+    global.ytPublished_ = () => ({});
+    global.ytPlFor_ = () => ({ id: 'PLR', title: 'معرفت‌شناسی — درس‌نامه' });
+    let dressed = 0;
+    global.ytPlDress_ = () => { dressed++; };
+    global.__PROPS[PK.YT_PLSIG] = 'r1=معرفت‌شناسی';             // چیدمان عوض نشده
+    const pk = ytPlKey_(ENRICH_SHOW_SPECIAL, 'r1', 'معرفت‌شناسی');
+    ytPlMapSave_({ [pk]: { id: 'PLR', title: 'معرفت‌شناسی — درس‌نامه' } });   // بی کاور
+    const o1 = ytPlaylistSync_(60000);
+    const d1 = dressed;
+    ytPlMapSave_({ [pk]: { id: 'PLR', title: 'معرفت‌شناسی — درس‌نامه', cover: nowStr_(), podcast: nowStr_() } });
+    const o2 = ytPlaylistSync_(60000);
+    ok('۸۲.۱۰ چیدمانِ ثابت ولی پلی‌لیستِ بی‌کاور ⇒ رسیدگی می‌شود؛ همه کاوردار ⇒ میان‌بُر',
+       d1 === 1 && o1.undressed === 1 && !o1.skipped && dressed === 1 && o2.skipped === true,
+       JSON.stringify({ d1, dressed, o1: { u: o1.undressed, s: o1.skipped }, o2: { s: o2.skipped } }));
+    for (const f in keep) global[f] = keep[f];
+    delete global.__PROPS[PK.YT_PLSIG];
+  }
+
+  global.ytPlPodcast_ = kPod; global.__STUB = keepStub; global._ytPlSqMemo = null;
+  if (kMap === undefined) delete global.__PROPS[PK.YT_PL]; else global.__PROPS[PK.YT_PL] = kMap;
+  if (kSq === undefined) delete global.__PROPS[PK.YT_PL_SQ]; else global.__PROPS[PK.YT_PL_SQ] = kSq;
+}
+
+console.log('\n=== ۸۳) آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ===');
+{
+  /* «اگر نمی‌گفتم، می‌فهمیدی کاورِ درس‌های ۳۸ و ۳۹ عوض شده؟» — نه: هیچ سنجه‌ای کاورِ
+     **عمومیِ** ویدئو را نگاه نمی‌کرد. حالا کاورِ i.ytimg.com کنارِ نقاشیِ رانر به داور
+     نشان داده می‌شود. */
+  const jpg = (w, h) => [0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+    0xFF, 0xC0, 0, 17, 8, (h >> 8) & 255, h & 255, (w >> 8) & 255, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1,
+    0xFF, 0xD9];
+  const keep = {};
+  for (const f of ['ytSvc_', 'ytPublished_', 'getHub_']) keep[f] = global[f];
+  const keepStub = global.__STUB, kMemo = global._ytMapMemo;
+  const kAud = global.__PROPS[PK.YT_THUMB_AUDIT], kPaint = global.__PROPS[PK.YT_THUMB_PAINT];
+  global.ytSvc_ = () => ({});
+  global.ytPublished_ = () => ({ 'special:60': { videoId: 'V60' }, 'special:61': { videoId: 'V61' },
+                                 'special:62': {} });
+  global._ytMapMemo = { 'special:60': { thumb: 'https://example.test/t60.jpg' },
+                        'special:61': { thumb: 'https://example.test/t61.jpg' },
+                        'special:62': { thumb: 'https://example.test/t62.jpg' } };
+  delete global.__PROPS[PK.YT_THUMB_AUDIT];
+  ytThumbPaintSet_('special:60', 'https://example.test/t60.jpg');
+  ytThumbPaintSet_('special:61', 'https://example.test/t61.jpg');
+  let asks = 0, answers = ['بله', 'نه'], fetched = [];
+  global.__STUB = (url, body, opt) => {
+    if (/example\.test\/t6\d\.jpg|i\.ytimg\.com\/vi\/V60\/maxresdefault|i\.ytimg\.com\/vi\/V61\/hqdefault/.test(url)) {
+      fetched.push(url); return { code: 200, bytes: jpg(1280, 720), mime: 'image/jpeg' };
+    }
+    if (/i\.ytimg\.com/.test(url)) { fetched.push(url); return { code: 404, text: 'nope' }; }
+    if (/generativelanguage/.test(url)) {
+      const n = ((body.contents || [])[0] || {}).parts || [];
+      const imgs = n.filter(x => x.inlineData).length;
+      const a = imgs === 2 ? answers[asks++] : 'x';
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: a }] } }] } };
+    }
+    return keepStub(url, body, opt);
+  };
+  const r1 = ytThumbAudit_(60000);
+  const led = ytThumbPaint_();
+  ok('۸۳.۱ کاورِ عمومی کنارِ نقاشی سنجیده می‌شود: «همان» دست نمی‌خورد، «عوض‌شده» از دفتر می‌افتد تا برگردد',
+     r1.checked === 2 && r1.same === 1 && r1.bad === 1 && asks === 2 &&
+     led['special:60'] === 'https://example.test/t60.jpg' && !led['special:61'],
+     JSON.stringify(r1) + ' · دفتر ' + JSON.stringify(led));
+  /* شکستنِ «فقط منتشرشده» روی ۸۳.۳ می‌نشیند، نه این‌جا: با سقفِ دو در هر دور، درسِ منتشرنشده
+     نوبتِ دورِ دوم است — و دورِ دوم دیگر صفر نمی‌سنجد. همان ادعا، یک خانه پایین‌تر. */
+  ok('۸۳.۲ ویدئوی منتشرنشده سنجیده نمی‌شود، و کاورِ hqdefault وقتی maxres نیست',
+     fetched.every(u => !/t62/.test(u)) && fetched.some(u => /V61\/hqdefault/.test(u)),
+     fetched.join(' · '));
+  fetched = [];
+  const r2 = ytThumbAudit_(60000);
+  ok('۸۳.۳ همان روز دوباره سنجیده نمی‌شوند — هر ویدئو هر چند روز یک بار',
+     r2.checked === 0 && fetched.length === 0 && asks === 2);
+  /* «ندیدم» کاری نمی‌کند و گفته می‌شود (۷.۶۸): بازگرداندن سهمیه دارد و حدس دلیلش نیست. */
+  delete global.__PROPS[PK.YT_THUMB_AUDIT];
+  ytThumbPaintSet_('special:61', 'https://example.test/t61.jpg');
+  answers = ['', '']; asks = 0;
+  const r3 = ytThumbAudit_(60000);
+  ok('۸۳.۴ داورِ بی‌جواب ⇒ «نامعلوم»، دفتر دست نمی‌خورد',
+     r3.unsure === 2 && r3.bad === 0 && ytThumbPaint_()['special:61'] === 'https://example.test/t61.jpg',
+     JSON.stringify(r3));
+  const line = ytThumbAuditLine_();
+  ok('۸۳.۵ خطِ روزانه از شاهد می‌گوید چند ویدئو، چند همان، چند نامعلوم',
+     /آنچه بیننده می‌بیند/.test(line) && /نامعلوم/.test(line), line);
+  const tickSrc = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const tk = tickSrc.slice(tickSrc.indexOf('function ytTick_'));
+  ok('۸۳.۶ در دورِ یوتیوب، پیش از برگرداندن — تا عوض‌شده همان دور برگردد',
+     tk.indexOf('ytThumbAudit_(') !== -1 && tk.indexOf('ytThumbAudit_(') < tk.indexOf('ytThumbRestore_('));
+  for (const f in keep) global[f] = keep[f];
+  global.__STUB = keepStub; global._ytMapMemo = kMemo;
+  if (kAud === undefined) delete global.__PROPS[PK.YT_THUMB_AUDIT]; else global.__PROPS[PK.YT_THUMB_AUDIT] = kAud;
+  if (kPaint === undefined) delete global.__PROPS[PK.YT_THUMB_PAINT]; else global.__PROPS[PK.YT_THUMB_PAINT] = kPaint;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

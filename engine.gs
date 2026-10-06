@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.54
+ *  موتور محتوا و پادکست — نسخهٔ 8.55
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1210,6 +1210,21 @@ var CFG = {
      تلاش، فقط هفته‌ای یک بار دوباره امتحان می‌شود (۶٫۵۴). */
   YT_PL_TRY_MAX: 4,
   YT_PL_RETRY_DAYS: 7,
+  /* ══ کاورِ پلی‌لیست مربع است، و اسلایدز مربع نمی‌سازد (۸.۵۵) ══
+     مستندِ یوتیوب: `playlistImages` نسبتِ ۱:۱ می‌خواهد، و `podcastStatus` فقط
+     روی پلی‌لیستی که تصویر دارد «enabled» می‌شود. `presentations.create` اندازه را
+     دور می‌ریزد، پس «کاورِ مربع» ۹۶۰×۵۴۰ درمی‌آمد و یوتیوب ۵۰۰ می‌داد. حالا رانر
+     آن را ۱۴۰۰×۱۴۰۰ می‌کشد. نسخهٔ سازوکار در رکورد می‌نشیند: تلاش‌هایی که با
+     سازوکارِ خراب شمرده شدند، تلاش نیستند (۸.۳۲). */
+  YT_PL_COVER_VER: 2,
+  YT_PL_COVER_MIN: 1280,
+  /* ══ آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ══
+     هر دورِ یوتیوب تا این‌قدر ویدئوی منتشرشده را می‌سنجد: کاورِ عمومیِ خودِ
+     یوتیوب (i.ytimg.com) کنارِ نقاشیِ رانر. دفترِ `YT_THUMB_PAINT` می‌گوید ما چه
+     گذاشتیم؛ این می‌گوید چه آن‌جاست. هر ویدئو هر چند روز یک بار. */
+  YT_THUMB_AUDIT_ON: true,
+  YT_THUMB_AUDIT_N: 2,
+  YT_THUMB_AUDIT_EVERY_DAYS: 7,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
   YT_TRY_MAX: 3,                        // پس از این، آن قسمت رها می‌شود
@@ -1866,7 +1881,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.54',
+  CODE_VERSION: '8.55',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -1983,6 +1998,18 @@ var CFG = {
      بتواند یک شبِ بد بماند. */
   CODE_QUIET_DAYS: 14,
   CODE_NOANSWER_DAYS: 21,
+  /* ══ از «دیده شد» تا «درست شد»: کارِ کدِ امروزِ ناظر (۸.۵۵) ══
+     صاحبِ برنامه پرسید «اگر گزارش‌ها را نمی‌فرستادم، اتوماسیون می‌فهمید و اصلاح
+     می‌کرد؟». جوابِ راست: بیشترش را **می‌دید** و تقریباً هیچ‌کدام را درست
+     نمی‌کرد. ناظر هر روز می‌نوشت «کدی ساخته نشد» و صف ۳۰ ردیفِ در انتظار داشت.
+     تشخیص هرگز نیمهٔ گم‌شده نبود؛ الزام بود (۷٫۱۸).
+     پس موتور هر روز **یک** ردیف را خودش برمی‌گزیند (`codeTaskPick_`) و در
+     `_STATUS.json` می‌گذارد: ناظر انتخاب نمی‌کند، برمی‌دارد. همان ردیف که
+     `CODE_TASK_IGNORE_DAYS` روز بماند، بی آنکه ناظر نسخه بدهد یا با علت کنارش
+     بگذارد، یافتهٔ «جدی» می‌شود و **فوری** به تلگرام می‌رود. علتِ کنارگذاشتن
+     `CODE_TASK_SKIP_DAYS` روز معتبر است و بعد همان ردیف دوباره نوبت می‌گیرد. */
+  CODE_TASK_IGNORE_DAYS: 2,
+  CODE_TASK_SKIP_DAYS: 7,
 
   VOICE_MAX_ACTIVE: 1,
 
@@ -2942,7 +2969,7 @@ var PK = {
   YT_STUCK_WHY: 'YT_STUCK_WHY',       // علتِ هر ویدئوی هنوز-Unlisted از آخرین بازسنجی (۸.۳۵)
   EP_GUARD: 'EP_GUARD_MAP',                 // نگهبانِ ادامهٔ هر برنامه: مسلح؟ کدام قسمت و مرحله؟ چند بار کشته شد؟ (۸.۵۴)
   EP_KICK_LAST: 'EP_KICK_LAST',
-  EP_TRIG_FAIL: 'EP_TRIG_FAIL',             // آخرین بار که ساختنِ تریگرِ ادامهٔ قسمت شکست خورد، با پیامِ خودِ خطا (۸.۵۴)             // آخرین بار که درِ ساعتی قسمتِ گیرکرده را راه انداخت (۸.۵۴)
+  EP_TRIG_FAIL: 'EP_TRIG_FAIL',             // آخرین بار که ساختنِ تریگرِ ادامهٔ قسمت شکست خورد، با پیامِ خودِ خطا (۸.۵۴)
   MUSIC_UNHEARD_N: 'MUSIC_UNHEARD_N',       // شمارِ قطعه‌های شنیده‌نشده، از آخرین وضعیت — زمان‌بندِ ساعتی فقط همین را می‌خوانَد (۸.۵۴)
   MUSIC_REHEAR_LAST: 'MUSIC_REHEAR_LAST',   // شاهدِ آخرین بازشنوی: کِی، چند شنیده، چند رهاشده (۸.۵۴)
   MUSIC_REHEAR_DAY: 'MUSIC_REHEAR_DAY',     // شمارِ اجراهای جدای امروز (۸.۵۴)
@@ -2958,6 +2985,10 @@ var PK = {
   YT_PLCF: 'YT_PL_COVER_FAILS',    // کاورهای پلی‌لیست که نشستند نه
   YT_DIGEST: 'YT_DIGEST_AT',       // آخرین خلاصهٔ لینک‌ها
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
+  YT_PL_SQ: 'YT_PL_SQ_REQ',        // کاورهای مربعِ پلی‌لیست که از رانر خواسته شده‌اند (۸.۵۵)
+  YT_THUMB_AUDIT: 'YT_THUMB_AUDIT', // آنچه بیننده می‌بیند: سنجشِ کاورِ عمومیِ هر ویدئو با نقاشی (۸.۵۵)
+  CODE_TASK: 'CODE_TASK',          // کارِ کدِ امروزِ ناظر و چند روز است مانده (۸.۵۵)
+  CODE_TASK_SKIP: 'CODE_TASK_SKIP', // کارهایی که ناظر با علت کنار گذاشت: {شناسه: {at, why}} (۸.۵۵)
   MAIL_QUEUE: 'MAIL_DIGEST_QUEUE', // خبرهای روزمره تا ایمیلِ روزانه
   // بازنویسیِ موقتِ «سبک روشن» برای ساختِ نمونه — `runStyleProbe` آن را
   // می‌گذارد و در finally برمی‌دارد. اگر بمانَد، موتور تا ابد در حالتی
@@ -10714,6 +10745,59 @@ var EPISODE_SCHEMA = {
   required: ['title', 'hook', 'sections', 'outro', 'summary']
 };
 
+/* ══ شناسه‌ای که بلند خوانده شد (۸.۵۵) ══
+ *
+ * درس‌نامهٔ ۶۰، بخشِ دوم، عیناً: «از یک منبعِ دیگرِ آرشیو **با شناسهٔ نوزده ال یو**
+ * اضافه می‌کنم». شناسهٔ فایلِ درایو (`19elyu-5Abe…`) به حروف خوانده شد و در یک درسِ
+ * منتشرشده رفت. قاعدهٔ ۸ِ پرامپت («در متنِ گفتار هیچ … شناسهٔ فایل نیاور») از اول
+ * بود؛ «سقفی که فقط در پرامپت گفته شود سقف نیست» — این‌جا مرز در کد است.
+ *
+ * دو لایه: (۱) نویسنده دیگر شناسهٔ واقعی را نمی‌بیند (درس‌نامه: «E1» به‌جایش، و
+ * کد برمی‌گرداندش)؛ (۲) این پاک‌کن روی متنِ نهایی: عبارتِ «با شناسهٔ …» با هر
+ * دنباله‌ای از حرف/رقمِ لاتین، عددِ به‌حروف یا نامِ حرفِ لاتین، و هر رشتهٔ
+ * حرف‌وعددیِ بلند (شکلِ شناسهٔ درایو). جملهٔ بی‌شناسه همان جمله است: «از یک منبعِ
+ * دیگرِ آرشیو اضافه می‌کنم».
+ */
+var NARR_ID_WORDS_ = ['صفر', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نه', 'ده',
+  'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'شانزده', 'هفده', 'هجده', 'هیجده', 'نوزده',
+  'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود', 'صد', 'دویست', 'سیصد', 'هزار',
+  'ای', 'بی', 'سی', 'دی', 'اف', 'جی', 'اچ', 'آی', 'کی', 'ال', 'ام', 'ان', 'او', 'پی', 'کیو',
+  'آر', 'اس', 'تی', 'یو', 'وی', 'دبلیو', 'اکس', 'وای', 'زد', 'خط‌تیره', 'زیرخط'];
+
+function narrIdScrub_(text) {
+  var t = String(text == null ? '' : text), n = 0;
+  if (!t) return { t: t, n: 0 };
+  var end = '(?=$|[\\s،.؛:!؟()«»\\-])';
+  var tok = '(?:[A-Za-z0-9_\\-]+|' + NARR_ID_WORDS_.join('|') + ')' + end;
+  var re = new RegExp('\\s*(?:(?:با|به)\\s+)?شناسه(?:ٔ|‌ی|ی)?\\s+' + tok +
+                      '(?:\\s+(?:و\\s+)?' + tok + '){0,8}', 'g');
+  t = t.replace(re, function () { n++; return ''; });
+  /* رشتهٔ حرف‌وعددیِ بلند — شکلِ شناسهٔ درایو — با پرانتزِ دورش، اگر هست. */
+  t = t.replace(/\s*\(?\b[A-Za-z0-9_\-]{25,}\b\)?/g, function () { n++; return ''; });
+  if (n) t = t.replace(/[ \t]{2,}/g, ' ').replace(/\s+([،.؛:!؟])/g, '$1');
+  return { t: t, n: n };
+}
+
+/** همهٔ متنِ یک قسمت. برمی‌گرداند شمارِ برداشته‌ها و نمونه‌ای از متنِ اصلی. */
+function epIdScrub_(ep) {
+  var out = { n: 0, sample: '' };
+  if (!ep) return out;
+  var one = function (obj, k) {
+    if (!obj || typeof obj[k] !== 'string') return;
+    var r = narrIdScrub_(obj[k]);
+    if (r.n) {
+      if (!out.sample) {
+        var m = String(obj[k]).match(/[^.!؟]*شناسه[^.!؟]*[.!؟]?/);
+        out.sample = String(m ? m[0] : obj[k]).trim().slice(0, 160);
+      }
+      out.n += r.n; obj[k] = r.t;
+    }
+  };
+  ['hook', 'outro', 'recap', 'connection', 'summary'].forEach(function (k) { one(ep, k); });
+  for (var i = 0; i < (ep.sections || []).length; i++) one(ep.sections[i], 'narration');
+  return out;
+}
+
 /**
  * وارسی شناسه‌های منبع در متنِ نوشته‌شده.
  * مدل گاهی شناسه‌ای می‌سازد که در فهرست نبوده. اگر دست‌نخورده بماند، جدولِ
@@ -11846,6 +11930,20 @@ function produceEpisode(opt) {
     }
     try { delete ep.__repaired; } catch (eD) { ep.__repaired = undefined; }
     scrubSourceIds_(ep, items, refs);
+    /* شناسهٔ بلندخوانده‌شده در متنِ گفتار — مرز در کد (۸.۵۵). */
+    try {
+      var idsc = epIdScrub_(ep);
+      if (idsc.n) {
+        logLine_('قسمت ' + epNum + ': ' + idsc.n + ' شناسهٔ فایل از متنِ گفتار برداشته شد.');
+        logSelfFinding_(hub, {
+          priority: 'متوسط', category: 'پرامپت', key: 'narr-id-leak',
+          title: 'نویسنده شناسهٔ فایل را در متنِ گفتار آورد (پاک شد)',
+          detail: 'قسمت ' + epNum + ': ' + idsc.n + ' مورد، نمونه: «' + idsc.sample + '».',
+          instruction: 'شناسه فقط در sourceIds می‌نشیند؛ منبع را با نامِ آدم‌فهم بگو.',
+          owner: 'موتور', episode: epNum
+        });
+      }
+    } catch (eIs) {}
     // آیتمی که نویسنده گفت در دستهٔ غلط نشسته — گزارش می‌شود، جابه‌جا نمی‌شود.
     try { misfiledReport_(hub, ep, epNum, picked.title, items); } catch (eMf) {}
 
@@ -17920,6 +18018,16 @@ function healthCheck() {
       if (codeQueueStuck_(hub, cq)) problems.push(cqLine);
       else notes.push(cqLine);
     }
+    /* کارِ کدِ امروزِ ناظر: هر روز گفته می‌شود، و ماندنش ایراد است (۸.۵۵). */
+    var ct = codeTaskTrack_(hub, cq);
+    st.codeTask = { key: ct.task ? ct.task.key : '', title: ct.task ? ct.task.title : '',
+                    days: ct.days, escalated: ct.escalated, line: ct.line };
+    /* سرِ فهرست، نه ته: `health.notes` در `_STATUS.json` به بیست سطر بریده می‌شود
+       و ناظر کارِ امروزش را از همین‌جا برمی‌دارد. */
+    if (ct.line) {
+      if (ct.days > Math.max(1, Number(CFG.CODE_TASK_IGNORE_DAYS) || 2)) problems.unshift(ct.line);
+      else notes.unshift(ct.line);
+    }
   } catch (eCq) {}
 
   /* ══ درِ دومِ همان قفل: ردیفی که بسته شد ولی شرطش هنوز برقرار است ══
@@ -20218,6 +20326,7 @@ function ingestOneReport_(hub, sh, state, file) {
 
   try {
     var nChk = monChecksIngest_(rep, file.getName());
+    try { codeTaskIngest_(rep); } catch (eCt) {}
     if (nChk) logLine_('گزارش نظارت: ' + nChk + ' وارسیِ روزانه ثبت شد.');
   } catch (eChk) {}
 
@@ -20963,7 +21072,7 @@ function codeQueue_(hub) {
     if (isNaN(t)) return -1;
     return Math.floor((now - t) / 86400000);
   };
-  var newestAnswer = -1;
+  var newestAnswer = -1, cand = [];
   for (var i = 0; i < st.rows.length; i++) {
     var r = st.rows[i].vals;
     var stt = String(r[RC.STATUS - 1] || '');
@@ -20985,9 +21094,17 @@ function codeQueue_(hub) {
     if (seenD < 0) seenD = days(r[RC.LOGGED - 1]);
     if (seenD < 0) seenD = days(r[RC.AT - 1]);
     if (seenD > out.oldestDays) out.oldestDays = seenD;
-    if (seenD >= quietDays) out.quiet++; else out.pending++;
+    if (seenD >= quietDays) out.quiet++; else {
+      out.pending++;
+      cand.push({ id: String(r[RC.ID - 1] || ''), pri: String(r[RC.PRI - 1] || ''),
+                  title: String(r[RC.TITLE - 1] || ''), instr: String(r[RC.INSTR - 1] || ''),
+                  seen: Number(r[RC.SEEN - 1]) || 1,
+                  since: String(r[RC.LOGGED - 1] || r[RC.AT - 1] || '') });
+    }
   }
   out.noAnswerDays = newestAnswer < 0 ? -1 : newestAnswer;
+  /* کارِ کدِ امروزِ ناظر — **یک** ردیف، برگزیدهٔ خودِ موتور (۸.۵۵). */
+  try { out.task = codeTaskPick_(cand); } catch (eT) { out.task = null; }
   /* ══ `line` وعده داده می‌شد و همیشه خالی بود (۸.۰۶) ══
    * این کلید از روزِ اول در شیء هست و هیچ‌وقت پر نمی‌شد: جمله را
    * `codeQueueLine_` در `healthCheck` می‌ساخت و همان‌جا مصرف می‌کرد. یعنی
@@ -20996,6 +21113,126 @@ function codeQueue_(hub) {
    * پر کردنش این‌جا و نه در بخشِ ۸، تا یک تعریف بمانَد (قاعدهٔ `srcJoinJs_`). */
   try { out.line = codeQueueLine_(out); } catch (eL) {}
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  کارِ کدِ امروزِ ناظر (۸.۵۵) — از «دیده شد» تا «درست شد»
+ *
+ *  صاحبِ برنامه پرسید: «اگر ایمیل‌ها و گزارش‌ها را نمی‌فرستادم، اتوماسیون
+ *  ایرادها را می‌فهمید و اصلاح می‌کرد؟» جوابِ راست با دادهٔ ۶ اکتبر: بیشترش را
+ *  **می‌دید** — ۳۰ ردیفِ «در انتظار»، ۱۴ ایرادِ مزمن، یافتهٔ کاورِ پلی‌لیست — و
+ *  ناظر همان روز نوشت «کدی ساخته نشد: یافتهٔ تازه‌ای که نسخه بخواهد نبود».
+ *  تشخیص هرگز نیمهٔ گم‌شده نبود؛ **الزام** بود (۷٫۱۸/۷٫۱۹). صفی که ناظر خودش از
+ *  میانش انتخاب کند، صفی است که هر روز «هیچ‌کدام» از آن انتخاب می‌شود.
+ *
+ *  پس انتخاب کارِ موتور است، نه ناظر: هر روز **یک** ردیف — «جدی» پیش از «متوسط»،
+ *  پرتکرارتر پیش از کم‌تکرار، کهنه‌تر پیش از تازه — با کلیدی که همان ردیف را
+ *  می‌بندد. ناظر یا نسخه می‌دهد و کلید را در `answers` می‌آورد، یا با **علت**
+ *  کنارش می‌گذارد (`codeTask` در `_REPORT`). سکوت شمرده می‌شود.
+ * ══════════════════════════════════════════════════════════════════════ */
+function codeTaskSkipMap_() {
+  try { return JSON.parse(props_().getProperty(PK.CODE_TASK_SKIP) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function codeTaskPick_(cand) {
+  var skip = codeTaskSkipMap_(), now = new Date().getTime();
+  var keepMs = Math.max(1, Number(CFG.CODE_TASK_SKIP_DAYS) || 7) * 86400000;
+  var rank = function (p) { p = String(p || ''); return p.indexOf('جدی') !== -1 ? 3 : (p.indexOf('متوسط') !== -1 ? 2 : 1); };
+  var list = (cand || []).filter(function (c) {
+    if (!c.id) return false;
+    var key = selfRowKey_(c.id) || c.id;
+    /* کارِ خودِ این سازوکار کارِ کد نیست — وگرنه زنگِ «نادیده ماند» خودش کارِ فردا می‌شد. */
+    if (/^code-task|^code-queue-stuck/.test(key)) return false;
+    var sk = skip[c.id] || skip[key];
+    if (sk) { var t = parseWhen_(String(sk.at || '')); if (!isNaN(t) && now - t < keepMs) return false; }
+    return true;
+  });
+  list.sort(function (a, b) {
+    var d = rank(b.pri) - rank(a.pri); if (d) return d;
+    d = (b.seen || 1) - (a.seen || 1); if (d) return d;
+    var ta = parseWhen_(a.since), tb = parseWhen_(b.since);
+    if (isNaN(ta)) ta = Infinity; if (isNaN(tb)) tb = Infinity;
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  var c = list[0];
+  if (!c) return null;
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.CODE_TASK) || '{}') || {}; } catch (e) { st = {}; }
+  return { id: c.id, key: selfRowKey_(c.id) || c.id, title: c.title.slice(0, 200),
+           priority: c.pri, seen: c.seen, since: c.since, instruction: c.instr.slice(0, 400),
+           days: String(st.id || '') === c.id ? (Number(st.days) || 1) : 0 };
+}
+
+/**
+ * هر روز از `healthCheck`: همان کار امروز هم هست؟ چند روز است؟ و اگر از
+ * `CODE_TASK_IGNORE_DAYS` گذشت، یافتهٔ «جدی» با مسئولِ کد — که همان دم از درِ
+ * `alertCodeRows_` به تلگرام می‌رود — یک بار برای هر ردیف. فوری، نه در صفِ ایمیل:
+ * خبرِ «ناظر کار را برنداشت» نباید منتظرِ همان چیزی بماند که کار نکرده (۷٫۶۳).
+ */
+function codeTaskTrack_(hub, q) {
+  var out = { task: null, days: 0, escalated: false, line: '' };
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+  try {
+    var task = q && q.task;
+    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+    var st = {};
+    try { st = JSON.parse(props_().getProperty(PK.CODE_TASK) || '{}') || {}; } catch (e0) { st = {}; }
+    if (!task) {
+      props_().deleteProperty(PK.CODE_TASK);
+      out.line = '🔧 کارِ کدِ امروزِ ناظر: صفِ «در انتظار» کاری ندارد.';
+      return out;
+    }
+    if (String(st.id || '') !== task.id) st = { id: task.id, key: task.key, since: today, days: 1, day: today };
+    else if (String(st.day || '') !== today) { st.days = (Number(st.days) || 1) + 1; st.day = today; }
+    props_().setProperty(PK.CODE_TASK, JSON.stringify(st));
+    out.task = task; out.days = Number(st.days) || 1;
+    var lim = Math.max(1, Number(CFG.CODE_TASK_IGNORE_DAYS) || 2);
+    out.line = '🔧 کارِ کدِ امروزِ ناظر: «' + auditCut_(task.title, 110) + '» — کلیدِ بستن `' + task.key +
+               '` (' + (task.priority || 'بی‌اولویت') + '، ' + fa(task.seen) + ' بار دیده شده' +
+               (out.days > 1 ? '، روزِ ' + fa(out.days) + ' روی همین کار' : '') + ').';
+    if (out.days > lim) {
+      out.line += ' ⚠️ ناظر ' + fa(out.days - 1) + ' روز است نه نسخه داده نه علت گفته.';
+      if (String(st.told || '') !== task.id) {
+        try {
+          logSelfFinding_(hub || getHub_(), {
+            priority: 'جدی', category: 'کد', key: 'code-task-ignored',
+            title: 'ناظر ' + (out.days - 1) + ' روز است کارِ کدِ تعیین‌شده را برنداشته',
+            detail: 'کار: «' + auditCut_(task.title, 160) + '» (کلید `' + task.key + '`، از ' + st.since +
+                    '). نه نسخه‌ای آن را بست، نه `codeTask` در `_REPORT` علتِ کنارگذاشتنش را گفت.',
+            instruction: 'نسخه‌ای بده که `answers`ِ manifest کلیدِ `' + task.key + '` را دارد؛ یا اگر ' +
+                         'کارِ کد نیست، در `_REPORT` بنویس `codeTask: {id, verdict: "رد", why}` با علتِ مشخص.',
+            owner: ROWNER_CODE
+          });
+        } catch (eF) {}
+        /* تلگرامِ فوری از همان درِ هر ردیفِ تازهٔ کد می‌رود (`alertCodeRows_` درونِ
+           `logSelfFinding_`) — پیامِ دوم یعنی دو خبر برای یک چیز. */
+        st.told = task.id; out.escalated = true;
+        props_().setProperty(PK.CODE_TASK, JSON.stringify(st));
+      }
+    }
+  } catch (e) { out.line = '🔧 کارِ کدِ امروزِ ناظر: سنجیده نشد (' + e.message + ').'; }
+  return out;
+}
+
+/**
+ * جوابِ ناظر به کارِ امروز، از `_REPORT`: `codeTask: {id, verdict, why}`.
+ * «رد» با علتِ کمتر از ده نویسه پذیرفته نمی‌شود: «نشد» بی علت همان سکوت است.
+ */
+function codeTaskIngest_(rep) {
+  try {
+    var t = rep && rep.codeTask;
+    if (!t || !t.id) return false;
+    var v = String(t.verdict || ''), why = String(t.why || '').trim();
+    if (!/رد|کنار|نشد|نه/.test(v) || why.length < 10) return false;
+    var m = codeTaskSkipMap_();
+    m[String(t.id)] = { at: nowStr_(), why: why.slice(0, 300) };
+    var keys = Object.keys(m);
+    while (keys.length > 40) delete m[keys.shift()];
+    props_().setProperty(PK.CODE_TASK_SKIP, JSON.stringify(m));
+    return true;
+  } catch (e) { return false; }
 }
 
 /**
@@ -23812,6 +24049,73 @@ var SPECIAL_SCHEMA = {
   required: ['title', 'hook', 'goal', 'sections', 'outro', 'summary']
 };
 
+/** برچسبِ کوتاهِ یک مادهٔ مکمل در پرامپت — «E1»، «E2»، … (۸.۵۵). */
+function specialEnrichLabel_(i) { return 'E' + (Number(i) + 1); }
+
+/**
+ * `enrichIds`ِ هر بخش را از برچسب به شناسهٔ واقعی برمی‌گرداند. شناسهٔ واقعیِ آشنا
+ * (پاسخی که از نسخهٔ قبلیِ پرامپت آمده) هم پذیرفته می‌شود؛ ناشناخته دور ریخته
+ * می‌شود — همان قاعدهٔ `scrubSourceIds_`: شناسهٔ ساختگی جدولِ منبع را بی‌صدا خالی
+ * می‌کرد.
+ */
+function specialEnrichIdsBack_(ep, enrich) {
+  var known = Object.create(null);
+  for (var k = 0; k < (enrich || []).length; k++) known[String(enrich[k].id)] = true;
+  for (var i = 0; i < ((ep && ep.sections) || []).length; i++) {
+    var sec = ep.sections[i] || {};
+    var ids = sec.enrichIds || [], out = [];
+    for (var j = 0; j < ids.length; j++) {
+      var v = String(ids[j] || '').trim();
+      var m = v.match(/^[Ee]\s*([0-9۰-۹]+)$/);
+      if (m) {
+        var n = parseInt(faDigits_(m[1]), 10);
+        if (n >= 1 && n <= (enrich || []).length) v = String(enrich[n - 1].id);
+        else continue;
+      }
+      if (known[v] && out.indexOf(v) === -1) out.push(v);
+    }
+    sec.enrichIds = out;
+  }
+  return ep;
+}
+
+/**
+ * کدام بخش‌ها واقعاً از یک ارجاعِ میان‌مجموعه‌ای استفاده کرده‌اند (۸.۵۵).
+ *
+ * تا ۸.۵۴ ارجاعی که `atHeading`ش با هیچ سرتیتری نمی‌خواند به **همهٔ** بخش‌ها
+ * اِسناد داده می‌شد («کم‌سنجیدن از پرگیری بی‌ضررتر است»). نتیجه برعکس بود: درسِ ۶۰
+ * سه ارجاع داشت که هر کدام در یک بخش گفته شده بود (۰، ۳، ۴)، و داور به بخش‌های
+ * ۱، ۲ و ۵ گفته شد «این بخش از ارجاع به مصباح ساخته شده» — و «پیوندِ ساختگی» زد.
+ * سنجهٔ محتوا دو روز «ایرادِ مزمن» بود، برای اِسنادی که خودِ کد ساخته بود.
+ *
+ * حالا: بخشی که نامِ مجموعهٔ مرجع (بیشترِ واژه‌هایش) در متنش هست؛ وگرنه همان
+ * سرتیتر؛ وگرنه هیچ بخشی — ارجاعِ بی‌جا، منبعِ هیچ بخشی نیست.
+ */
+function specialBridgeSecs_(ep, blg) {
+  var norm = function (t) {
+    try { t = txNorm(stripTashkil_(String(t || ''))); } catch (e) { t = String(t || '').toLowerCase(); }
+    return ' ' + t.replace(/[‌‏‎]/g, ' ').replace(/[^ء-ۿa-z0-9]+/g, ' ')
+                  .replace(/\s+/g, ' ').trim() + ' ';
+  };
+  var name = norm(blg && blg.seriesName);
+  var toks = name.trim().split(' ').filter(function (w) { return w.length >= 3; });
+  var need = Math.max(1, Math.ceil(toks.length * 0.6));
+  var out = [], secs = (ep && ep.sections) || [];
+  for (var i = 0; i < secs.length && toks.length; i++) {
+    var nar = norm(secs[i].narration);
+    if (name.trim() && nar.indexOf(name) !== -1) { out.push(i); continue; }
+    var hit = 0;
+    for (var t = 0; t < toks.length; t++) if (nar.indexOf(' ' + toks[t] + ' ') !== -1) hit++;
+    if (hit >= need) out.push(i);
+  }
+  if (!out.length) {
+    var at = -1;
+    try { at = bridgeSectionIndex_(ep, blg && blg.atHeading); } catch (eAt) { at = -1; }
+    if (at >= 0) out.push(at);
+  }
+  return out;
+}
+
 function buildSpecialPrompt_(ctx) {
   var L = [];
   L.push('تو نویسنده و سردبیرِ یک برنامهٔ رادیوییِ آموزشیِ فارسی به نام «' +
@@ -23908,9 +24212,12 @@ function buildSpecialPrompt_(ctx) {
            '«این نکته در خودِ درس نیامده؛ از یک منبع دیگرِ آرشیو اضافه‌اش می‌کنم…».');
     L.push('اجباری نیست همه‌شان را به کار ببری؛ فقط آن‌هایی که واقعاً به مطلبِ همین قطعه‌ها ' +
            'مربوط‌اند. شناسهٔ هر کدام را که به کار بردی در enrichIds همان بخش بنویس.');
+    /* شناسهٔ واقعیِ فایل به نویسنده نشان داده نمی‌شود (۸.۵۵): درسِ ۶۰ آن را به حروف
+       خواند («با شناسهٔ نوزده ال یو»). برچسبِ کوتاهِ E1… می‌بیند و کد برمی‌گرداندش
+       (`specialEnrichIdsBack_`). */
     for (var e = 0; e < ctx.enrich.length; e++) {
       var x = ctx.enrich[e];
-      L.push('- شناسه: ' + x.id + ' | نوع: ' + x.kind + ' | دسته: ' + x.cat +
+      L.push('- شناسه: ' + specialEnrichLabel_(e) + ' | نوع: ' + x.kind + ' | دسته: ' + x.cat +
              (x.fromSeries ? ' | از مجموعهٔ آموزشیِ «' + x.fromSeries + '»' : ' | از آرشیو عمومی') +
              ' | موضوع: ' + String(x.topic).slice(0, 120) +
              ' | پیام: ' + String(x.msg).slice(0, 200) +
@@ -24452,6 +24759,22 @@ function produceSpecialEpisode(opt) {
     ep.sections = ep.sections.filter(function (x) { return x && String(x.narration || '').trim(); });
     if (!ep.sections.length) throw new Error('متن درس‌نامه بدون بخشِ کامل برگشت.');
     try { delete ep.__repaired; } catch (eD) {}
+    /* برچسبِ مکمل ⇒ شناسهٔ واقعی، و شناسه‌ای که با این‌همه در متنِ گفتار آمد
+       برداشته می‌شود (۸.۵۵). پیش از هر بازنویسی و هر نسخهٔ گفتاری. */
+    try { specialEnrichIdsBack_(ep, enrich); } catch (eEb) {}
+    try {
+      var spIdsc = epIdScrub_(ep);
+      if (spIdsc.n) {
+        logLine_('درس‌نامه ' + epNum + ': ' + spIdsc.n + ' شناسهٔ فایل از متنِ گفتار برداشته شد.');
+        logSelfFinding_(hub, {
+          priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-id-leak',
+          title: 'نویسنده شناسهٔ فایل را در متنِ گفتار آورد (پاک شد)',
+          detail: 'قسمت ' + epNum + ': ' + spIdsc.n + ' مورد، نمونه: «' + spIdsc.sample + '».',
+          instruction: 'منبعِ مکمل را با نام یا نوعش بگو («در یک سخنرانیِ دیگر…»)، نه با شناسه.',
+          owner: 'موتور', episode: epNum
+        });
+      }
+    } catch (eSi) {}
 
     /* و قرینه‌اش: متنی که خیلی کوتاه‌تر از هدف است، یک بار با همان منبع
        عمیق‌تر نوشته می‌شود. کف هم مثل سقف باید در کد باشد نه در پرامپت. */
@@ -24579,10 +24902,9 @@ function produceSpecialEpisode(opt) {
      * توضیحی/مثال حل کرده بود، اینجا برای ارجاعِ میان‌مجموعه‌ای دوباره.
      *
      * هر ارجاعِ *واقعاً گفته‌شده* (ctx.__bridgesUsed) یک شناسهٔ منبع می‌گیرد
-     * و به بخشی که atHeading آن را نشانه گرفته وصل می‌شود؛ نبودِ تطبیقِ
-     * عنوان (ارجاعی که در سنجشِ سراسرِ متن پیدا شده، نه در یک بخشِ خاص) را
-     * محافظه‌کارانه به همهٔ بخش‌ها می‌دهیم — کم‌سنجیدنِ داور از پرگیریِ آن
-     * برای موردی که واقعاً منبع دارد، بی‌ضررتر است. */
+     * و به بخش‌هایی وصل می‌شود که واقعاً از آن حرف زده‌اند (`specialBridgeSecs_`).
+     * تا ۸.۵۴ ارجاعِ بی‌سرتیتر به **همهٔ** بخش‌ها داده می‌شد، و همین «پرگیری»
+     * بود که داور را به «پیوندِ ساختگی» در بخش‌های بی‌ارجاع رساند (درسِ ۶۰). */
     var bridgeSrcItems = [];
     var bridgeSecIdx = Object.create(null);
     for (var bg = 0; bg < (ctx.__bridgesUsed || []).length; bg++) {
@@ -24594,9 +24916,10 @@ function produceSpecialEpisode(opt) {
         body: 'آن مجموعه گفته: ' + String(blg.claim || '') +
               (blg.chapter ? ' (فصل: ' + blg.chapter + ')' : '')
       });
-      var bsi = bridgeSectionIndex_(ep, blg.atHeading);
-      if (bsi === -1) { bridgeSecIdx.__all = (bridgeSecIdx.__all || []).concat([bid]); }
-      else { bridgeSecIdx[bsi] = (bridgeSecIdx[bsi] || []).concat([bid]); }
+      var bsis = specialBridgeSecs_(ep, blg);
+      for (var bq = 0; bq < bsis.length; bq++) {
+        bridgeSecIdx[bsis[bq]] = (bridgeSecIdx[bsis[bq]] || []).concat([bid]);
+      }
     }
 
     // عکسِ محتوا — همان کاری که «از همه جا از همه رنگ» می‌کند، با همان تابع.
@@ -24650,7 +24973,7 @@ function produceSpecialEpisode(opt) {
           var ev3 = String(eid3[ea] || '').trim();
           if (ev3) sids.push(ev3);
         }
-        sids = sids.concat(bridgeSecIdx[sa] || []).concat(bridgeSecIdx.__all || []);
+        sids = sids.concat(bridgeSecIdx[sa] || []);
         snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
                         sourceIds: sids });
       }
@@ -46471,8 +46794,9 @@ function ytCoverCard_(c) {
        پلی‌لیستی که پادکست شده صریح همین را می‌گوید، و ۱۶:۹ آن‌جا بریده
        می‌شود. چون چیدمانِ کارت نسبی است (همه‌چیز کسری از W و H)، همان کد با
        صفحهٔ مربع هم درست درمی‌آید. */
-    var mkP = c.square ? ytPresCreate_(name, 12192000, 12192000)
-                       : ytPresCreate_(name, 12192000, 6858000);
+    /* شاخهٔ «مربع» از ۸.۵۵ رفت: اسلایدز اندازه را دور می‌ریزد و آن شاخه هرگز
+       مربع نساخت (۹۶۰×۵۴۰ می‌داد). کاورِ مربعِ پلی‌لیست را رانر می‌کشد. */
+    var mkP = ytPresCreate_(name, 12192000, 6858000);
     if (!mkP.id) { logLine_('کاورِ یوتیوب ساخته نشد: ' + mkP.why); return null; }
     if (!mkP.exact) logLine_('کاورِ یوتیوب با اندازهٔ پیش‌فرض ساخته شد — ' + mkP.why);
     pres = SlidesApp.openById(mkP.id);
@@ -46786,6 +47110,7 @@ function ytRenderAsk_(item) {
     if (item.sceneCover && item.sceneCover.fileId) {
       row.sceneCover = { fileId: String(item.sceneCover.fileId), url: ytDlUrl_(item.sceneCover.fileId) };
     }
+    if (item.plKey) row.plKey = String(item.plKey);
     row.coverTitle = String(item.coverTitle || '');
     row.coverKicker = String(item.coverKicker || '');
     row.coverFoot = String(item.coverFoot || '');
@@ -52543,6 +52868,107 @@ function ytThumbRestore_(budgetMs) {
   return out;
 }
 
+/* ══ آنچه بیننده می‌بیند، نه آنچه ما نوشتیم (۸.۵۵) ══
+ *
+ * صاحبِ برنامه پرسید «اگر نمی‌گفتم، می‌فهمیدی کاورِ درس‌های ۳۸ و ۳۹ عوض شده؟».
+ * نه: هیچ سنجه‌ای کاورِ **عمومیِ** یک ویدئو را نگاه نمی‌کرد. دفترِ ۸.۵۴
+ * (`YT_THUMB_PAINT`) می‌گوید ما چه گذاشتیم — همان راهی که پیش‌تر یک بار بی‌صدا
+ * عوض شد. این تابع کاوری را که یوتیوب **الان** نشان می‌دهد (i.ytimg.com، بی
+ * سهمیه) کنارِ نقاشیِ رانر به مدل نشان می‌دهد و می‌پرسد «همان است؟». «نه» یعنی
+ * از دفتر پاک شود تا `ytThumbRestore_` همان دور برش گرداند. «ندیدم» یعنی کاری نکن
+ * و بگو (۷.۶۸): بازگرداندنِ کاورِ درست هزینهٔ سهمیه دارد و حدس دلیلش نیست.
+ */
+function ytThumbAuditMap_() {
+  try { return JSON.parse(props_().getProperty(PK.YT_THUMB_AUDIT) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function ytThumbAudit_(budgetMs) {
+  var out = { checked: 0, same: 0, bad: 0, unsure: 0, why: [] };
+  if (!ytOn_() || CFG.YT_THUMB === false || CFG.YT_THUMB_AUDIT_ON === false) return out;
+  var rm = null;
+  try { rm = ytRenderMapCached_() || {}; } catch (eR) { return out; }
+  var m = ytThumbAuditMap_(), now = new Date().getTime();
+  var every = Math.max(1, Number(CFG.YT_THUMB_AUDIT_EVERY_DAYS) || 7) * 86400000;
+  var cand = [];
+  for (var k in rm) {
+    if (!Object.prototype.hasOwnProperty.call(rm, k) || k === '__last') continue;
+    if (!(rm[k] && rm[k].thumb)) continue;
+    var last = parseWhen_(String((m[k] || {}).at || ''));
+    if (!isNaN(last) && now - last < every) continue;
+    cand.push({ k: k, t: isNaN(last) ? 0 : last });
+  }
+  if (!cand.length) return out;
+  cand.sort(function (a, b) { return a.t - b.t; });
+  var pub = ytPublished_(getHub_());
+  var t0 = now, budget = Math.max(10000, Number(budgetMs) || 30000);
+  var max = Math.max(1, Number(CFG.YT_THUMB_AUDIT_N) || 2);
+  var fetchImg = function (u) {
+    try {
+      var r = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+      if (r.getResponseCode() !== 200) return null;
+      var b = r.getBlob(), sz = ytImgSize_(b);
+      return sz ? { blob: b, sz: sz } : null;
+    } catch (e) { return null; }
+  };
+  for (var i = 0; i < cand.length && out.checked < max; i++) {
+    var key = cand[i].k, p = pub[key];
+    if (!p || !p.videoId) continue;
+    if (new Date().getTime() - t0 > budget) break;
+    var ours = fetchImg(String(rm[key].thumb));
+    var live = fetchImg('https://i.ytimg.com/vi/' + encodeURIComponent(p.videoId) + '/maxresdefault.jpg') ||
+               fetchImg('https://i.ytimg.com/vi/' + encodeURIComponent(p.videoId) + '/hqdefault.jpg');
+    out.checked++;
+    var rec = { at: nowStr_(), v: '?', why: '' };
+    if (!ours || !live) {
+      rec.why = !ours ? 'نقاشیِ رانر خوانده نشد' : 'کاورِ عمومیِ یوتیوب خوانده نشد';
+      out.unsure++; m[key] = rec; out.why.push(key + ': ' + rec.why); continue;
+    }
+    var verdict = '';
+    try {
+      var parts = [{ text: 'تصویرِ اول کاوری است که برای یک ویدئوی یوتیوب ساخته شده (یک نقاشی با ' +
+        'عنوانِ فارسی). تصویرِ دوم چیزی است که یوتیوب همین حالا برای همان ویدئو نشان می‌دهد. ' +
+        'آیا تصویرِ دوم **همان** تصویرِ اول است (فقط اندازه، کیفیت یا نوارِ سیاهِ کناره فرق دارد)؟ ' +
+        'اگر تصویرِ دوم کارتِ دیگری، رنگِ ساده یا قابی از خودِ ویدئو است، «نه». فقط یک واژه: بله یا نه.' },
+        { inlineData: { mimeType: ours.sz.mime, data: Utilities.base64Encode(ours.blob.getBytes()) } },
+        { inlineData: { mimeType: live.sz.mime, data: Utilities.base64Encode(live.blob.getBytes()) } }];
+      verdict = String(extractText_(geminiShort_(parts, { min: 1024, think: 128 })) || '').trim();
+    } catch (eJ) { verdict = ''; rec.why = 'داوری نشد: ' + String(eJ.message).slice(0, 80); }
+    if (/^\s*(بله|yes)/i.test(verdict)) { rec.v = 'ok'; out.same++; }
+    else if (/^\s*(نه|خیر|no)/i.test(verdict)) {
+      rec.v = 'bad'; rec.why = 'کاورِ عمومی نقاشیِ درس نیست'; out.bad++;
+      out.why.push(key + ': کاورِ عمومی عوض شده بود — برمی‌گردد');
+      ytThumbPaintSet_(key, '');                 // تا `ytThumbRestore_` همین دور برش گرداند
+    } else {
+      rec.why = rec.why || ('داور جوابِ روشن نداد' + (verdict ? ': «' + verdict.slice(0, 30) + '»' : ''));
+      out.unsure++; out.why.push(key + ': ' + rec.why);
+    }
+    m[key] = rec;
+  }
+  m.__last = { at: nowStr_(), checked: out.checked, same: out.same, bad: out.bad, unsure: out.unsure };
+  var ks = Object.keys(m);
+  for (var j = 0; j < ks.length - 160; j++) if (ks[j] !== '__last') delete m[ks[j]];
+  try { props_().setProperty(PK.YT_THUMB_AUDIT, JSON.stringify(m)); } catch (eS) {}
+  if (out.checked) {
+    logLine_('یوتیوب — کاورِ عمومی سنجیده شد: ' + out.checked + ' ویدئو، ' + out.same + ' همان نقاشی، ' +
+             out.bad + ' عوض‌شده' + (out.unsure ? '، ' + out.unsure + ' نامعلوم' : '') +
+             (out.why.length ? ' · ' + out.why.join(' · ') : '') + '.');
+  }
+  return out;
+}
+
+/** خطِ روزانهٔ «آنچه بیننده می‌بیند» — از شاهدِ آخرین سنجش، بی هیچ خواندنِ تازه. */
+function ytThumbAuditLine_() {
+  var m = ytThumbAuditMap_(), L = m.__last;
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+  if (!L) return 'کاورِ عمومیِ ویدئوها: هنوز سنجیده نشده.';
+  var bad = [];
+  for (var k in m) if (k !== '__last' && m[k] && m[k].v === 'bad') bad.push(k);
+  return 'کاورِ عمومیِ ویدئوها (آنچه بیننده می‌بیند): آخرین سنجش ' + L.at + ' — ' + fa(L.checked) +
+         ' ویدئو، ' + fa(L.same) + ' همان نقاشی' + (L.bad ? '، ' + fa(L.bad) + ' عوض‌شده که برگردانده شد' : '') +
+         (L.unsure ? '، ' + fa(L.unsure) + ' نامعلوم' : '') + (bad.length ? ' (' + bad.slice(0, 4).join('، ') + ')' : '') + '.';
+}
+
 /**
  * کاورِ ساخته‌شده در رانر (نقاشی + عنوان)، اگر هست. بایت‌ها سنجیده می‌شوند،
  * نه نشانی؛ و بیش از ۲ مگابایت را یوتیوب نمی‌پذیرد.
@@ -53806,7 +54232,10 @@ function ytUploadOne_(item, hub, pub) {
                      coverFoot: coverEpLabel,
                      audio: aud.parts.map(function (f) { return { id: f.getId(), name: f.getName() }; }),
                      audioKind: aud.kind, coverFileId: cover ? cover.fileId : '',
-                     outName: outName });
+                     outName: outName,
+                     /* کلیدِ پلی‌لیستِ همین مجموعه: رانر نقاشیِ نخستین درسِ صحنه‌ای را
+                        پس‌زمینهٔ کاورِ مربعِ پلی‌لیست می‌کند (۸.۵۵). */
+                     plKey: ytPlKey_(item.show, item.seriesKey, seriesName) });
       res.waiting = true;
       res.why = askedOk
         ? 'ویدئوی صحنه‌ای هنوز ساخته نشده؛ درخواستِ رندر با ' +
@@ -54273,7 +54702,23 @@ function ytPlaylistSync_(budgetMs) {
   var sigStr = sig.join('|');
   var was = '';
   try { was = String(props_().getProperty(PK.YT_PLSIG) || ''); } catch (e3) {}
-  if (sigStr === was) { out.skipped = true; return out; }
+  /* ══ «چیدمان عوض نشده» یعنی «کاری نیست» نبود (۸.۵۵) ══
+     این میان‌بُر هر دورِ پلی‌لیستِ مجموعه‌ها را رد می‌کرد مگر نامی عوض شود —
+     پس پلی‌لیستِ بی‌کاور یا پادکست‌نشده **هرگز** دوباره رسیدگی نمی‌شد؛ فقط
+     پلی‌لیستِ برنامهٔ ترکیبی (که بالاتر و بی این میان‌بُر است) تلاش می‌کرد.
+     حالا فقط وقتی رد می‌شود که هر پلی‌لیستِ زنده کاور و پادکست دارد. */
+  var undressed = 0;
+  try {
+    var mU = ytPlMap_();
+    for (var u0 = 0; u0 < reg.rows.length; u0++) {
+      var nmU = String(reg.rows[u0].vals[SC.NAME - 1] || '');
+      if (!nmU || !live[nmU]) continue;
+      var rU = mU[ytPlKey_(ENRICH_SHOW_SPECIAL, reg.rows[u0].key, nmU)] || {};
+      if (!rU.id || !rU.cover || (CFG.YT_PODCAST !== false && !rU.podcast)) undressed++;
+    }
+  } catch (eU) {}
+  out.undressed = undressed;
+  if (sigStr === was && !undressed) { out.skipped = true; return out; }
 
   for (var q = 0; q < reg.rows.length; q++) {
     if (new Date().getTime() - t0 > budget) break;
@@ -54537,6 +54982,11 @@ function ytTick_(budgetMs) {
   }
   /* کاورِ نقاشی که با عمومی‌شدن پاک شده بود، برمی‌گردد (۸.۵۴). بی نامزد هیچ
      خواندنی ندارد جز نقشهٔ رندرها که همین اجرا از قبل گرفته. */
+  /* آنچه بیننده می‌بیند، پیش از برگرداندن: کاورِ عمومیِ عوض‌شده همین دور برمی‌گردد (۸.۵۵). */
+  if (left() > 70000) {
+    try { ytThumbAudit_(Math.min(30000, left() - 55000)); }
+    catch (eTa) { out.why += (out.why ? ' · ' : '') + 'کاورِ عمومی: ' + String(eTa.message).slice(0, 60); }
+  }
   if (left() > 45000) {
     try { ytThumbRestore_(Math.min(40000, left() - 30000)); }
     catch (eTr) { out.why += (out.why ? ' · ' : '') + 'کاورِ نقاشی: ' + String(eTr.message).slice(0, 60); }
@@ -54601,7 +55051,8 @@ function ytStatus_() {
   var out = { enabled: CFG.YT_ENABLED !== false, service: !!ytSvc_(), why: ytOffWhy_(),
               published: 0, unlisted: 0, failed: 0, due: 0, waitingRender: 0,
               renderOldestDays: 0, playlists: 0, quota: null, last: null, line: '',
-              plWhy: [], feedback: null };
+              plWhy: [], feedback: null, thumbAudit: '' };
+  try { out.thumbAudit = ytThumbAuditLine_(); } catch (eTa) {}
   /* بازخورد داخلِ همین شیء می‌نشیند تا در `_STATUS.json` باشد — تنها فایلی
      که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در یک تب باشد، برای ناظر
      وجود ندارد. */
@@ -54723,6 +55174,7 @@ function ytHealth_(problems, notes) {
   try { st = ytStatus_(); } catch (e) { return null; }
   if (!st.service) notes.push('یوتیوب هنوز وصل نیست: ' + st.why + '.');
   else notes.push(st.line);
+  if (st.service && st.thumbAudit) notes.push(st.thumbAudit);
 
   /* سرویس فعال است ولی کانال خوانده نمی‌شود؟ این بدترین حالت است — از بیرون
      شبیهِ «کار می‌کند» به‌نظر می‌رسد و هیچ ویدئویی هم بالا نمی‌رود. پس
@@ -54841,22 +55293,29 @@ function ytHealth_(problems, notes) {
         ' مجموعه گذاشته نشد: ' + pf.slice(0, 3).join(' · ') +
         '. یوتیوب به‌جایش کاورِ ویدئوی اول را نشان می‌دهد.');
     }
-    /* شکستِ سقف‌خورده دیگر «در دستِ موتور» نیست — موتور هر کاری می‌توانست
-       کرد و هفته‌ای یک بار هم باز امتحان می‌کند. علتِ محتمل حالِ کانال است
-       و بازکردنش فقط از دستِ مالک برمی‌آید (۶٫۵۴). */
-    var mCap = ytPlMap_(), capped = 0;
+    /* ══ شکستِ سقف‌خورده — با علتِ **خودِ یوتیوب**، نه حدس (۸.۵۵) ══
+       تا ۸.۵۴ این سطر «کارِ شما» بود و صاحبِ برنامه را به تأییدِ هویت در
+       youtube.com/features می‌فرستاد. علتِ واقعی کاورِ ۹۶۰×۵۴۰ بود و کارِ کد.
+       حالا سطر فقط آنچه یوتیوب گفته را نقل می‌کند و مالکش موتور است؛ کارِ شما
+       فقط وقتی می‌شود که کاورِ مربعِ درست نشسته و پادکست باز هم رد شود. */
+    var mCap = ytPlMap_(), capped = 0, capWhy = '', ownerJob = false;
     for (var ck in mCap) if (Object.prototype.hasOwnProperty.call(mCap, ck)) {
       var rc = mCap[ck] || {};
-      if ((Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4) ||
-          (Number(rc.podTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4)) capped++;
+      var cT = (Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4);
+      var pT = (Number(rc.podTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4);
+      if (!cT && !pT) continue;
+      capped++;
+      if (!capWhy) capWhy = cT ? 'کاور: ' + String(rc.coverWhy || '') : 'پادکست: ' + String(rc.podWhy || '');
+      if (pT && rc.cover) ownerJob = true;
     }
     if (capped) {
-      problems.push(HY_ + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
-        ' پلی‌لیست پس از چند شب تلاش هنوز از سمتِ یوتیوب رد می‌شود ' +
-        '(playlistImages: 500 · podcastStatus: Precondition check failed). ' +
-        'این معمولاً یعنی «قابلیت‌های پیشرفته» روی کانال باز نیست — در ' +
-        'youtube.com/features هویت را تأیید کنید؛ موتور خودش هفته‌ای یک بار ' +
-        'دوباره امتحان می‌کند و به‌محضِ بازشدن جا می‌اندازد.');
+      problems.push((ownerJob ? HY_ : '') + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
+        ' پلی‌لیست پس از چند تلاش هنوز رد می‌شود — آخرین پاسخِ یوتیوب: «' +
+        auditCut_(capWhy, 140) + '». ' +
+        (ownerJob
+          ? 'کاورِ مربع نشسته و یوتیوب باز هم پادکست را نمی‌پذیرد؛ این دیگر به حالِ کانال بند است. '
+          : 'علت در موتور است، نه در کانال. ') +
+        'موتور هفته‌ای یک بار دوباره امتحان می‌کند.');
     }
   } catch (ePf) {}
 
@@ -55817,12 +56276,11 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
   /* ══ شکستی که هر شب عیناً تکرار می‌شود، بامعناترین نوعِ «کارِ شما»ست (۶٫۵۴) ══
    * کاورِ پلی‌لیست دو روزِ پیاپی «نشد (500)» داد و پادکست‌کردن
    * «نشد (400): Precondition check failed» — هر شب، همان خطا، همان پلی‌لیست.
-   * این دو هر دو به حالِ خودِ کانال بندند (playlistImages و podcastStatus
-   * روی کانالی که قابلیت‌های پیشرفته‌اش باز نشده همین‌ها را برمی‌گردانند) و
-   * کد با تکرارِ شبانه فقط سهمیه می‌سوزاند و ایمیل را پر می‌کند — «هشداری که
-   * برای چیزی که عوض نمی‌شود می‌آید، هشداری است که خوانده نمی‌شود».
-   * پس: چند تلاشِ اول شبانه؛ از آن به بعد هفته‌ای یک بار، تا اگر مالک قابلیت
-   * را باز کرد خودش جا بیفتد؛ و در این میان یک سطرِ «کارِ شما» علت را می‌گوید. */
+   * ۶٫۵۴ نوشت «این دو به حالِ خودِ کانال بندند (قابلیت‌های پیشرفته)» — و
+   * **غلط بود** (۸.۵۵): کاوری که فرستاده می‌شد ۹۶۰×۵۴۰ بود و یوتیوب مربع
+   * می‌خواهد، و پادکست بی تصویرِ پلی‌لیست ناممکن است. حدسی که به‌جای سنجش
+   * نوشته شود، صاحبِ برنامه را سرِ کارِ بی‌اثر می‌فرستد. سقفِ تلاش و تکرارِ
+   * هفتگی سرِ جایشان‌اند، چون شکستِ واقعیِ تکراری هنوز همان‌قدر بی‌فایده است. */
   var giveUp = function (rec, f) {
     var tries = Number(rec[f + 'Tries']) || 0;
     if (tries < (CFG.YT_PL_TRY_MAX || 4)) return false;
@@ -55831,40 +56289,50 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     return (new Date().getTime() - last) <
            (CFG.YT_PL_RETRY_DAYS || 7) * 86400000;
   };
+  /* «سهمیه» و «در راه» تلاش نیستند: اولی فردا خودش می‌آید و دومی یعنی رانر هنوز
+     کاورِ مربع را نکشیده — هیچ‌کدام چیزی دربارهٔ یوتیوب نمی‌گوید (۸.۵۵). */
+  var notTry = function (why) {
+    var w = String(why || '');
+    return w.indexOf('سهمیه') !== -1 || w.indexOf('در راه') !== -1 ||
+           w.indexOf('منتظرِ کاور') !== -1;
+  };
   var bump = function (field, f, why) {
     try {
       var m = ytPlMap_(), rec = m[key] || {};
-      rec[field] = String(why || '').slice(0, 80);
-      if (String(why || '').indexOf('سهمیه') === -1) {
+      rec[field] = String(why || '').slice(0, 120);
+      if (!notTry(why)) {
         rec[f + 'Tries'] = (Number(rec[f + 'Tries']) || 0) + 1;
         rec[f + 'LastTry'] = nowStr_();
       }
       m[key] = rec; ytPlMapSave_(m);
     } catch (eM) {}
   };
+  /* ══ تلاشی که با سازوکارِ خراب شمرده شد، تلاش نیست (۸.۳۲ ⇒ ۸.۵۵) ══
+     چهار «نشد (500)» با کاورِ ۹۶۰×۵۴۰ ثبت شده بود و سقفِ تلاش پر بود — یعنی
+     کاورِ درست هم تا هفتهٔ بعد فرستاده نمی‌شد. نسخهٔ سازوکار در رکورد است و
+     عوض‌شدنش شمارش را از نو می‌کند. */
   var pmap = ytPlMap_(), prec = pmap[key] || {};
-  if (!prec.podcast && CFG.YT_PODCAST !== false && !giveUp(prec, 'pod')) {
-    var pc = ytPlPodcast_(plId, plTitle || name);
-    if (pc === 'نشست') {
-      prec.podcast = nowStr_(); prec.podWhy = '';
-      prec.podTries = 0; prec.podLastTry = '';
-      pmap[key] = prec; ytPlMapSave_(pmap);
-      out.podcasts = (out.podcasts || 0) + 1;
-    } else {
-      bump('podWhy', 'pod', pc);
-      if (pc.indexOf('سهمیه') === -1) {
-        logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
-      }
-    }
+  var ver = Number(CFG.YT_PL_COVER_VER) || 2;
+  if (Number(prec.coverVer) !== ver) {
+    prec.coverTries = 0; prec.coverLastTry = ''; prec.podTries = 0; prec.podLastTry = '';
+    prec.coverWhy = ''; prec.podWhy = ''; prec.coverVer = ver;
+    pmap[key] = prec; ytPlMapSave_(pmap);
   }
-  if ((!prec.cover || renamed) && !giveUp(prec, 'cover')) {
+
+  /* ── اول کاور: پادکست بی تصویرِ پلی‌لیست «Precondition check failed» است ── */
+  var pcNow = null;
+  try { pcNow = (ytRenderPlCoversCached_() || {})[key] || null; } catch (ePc) { pcNow = null; }
+  var stale = !!(prec.cover && pcNow && pcNow.sig && prec.coverSig &&
+                 String(pcNow.sig) !== String(prec.coverSig));
+  if ((!prec.cover || renamed || stale) && !giveUp(prec, 'cover')) {
     var plSty = '';
     try {
       var regP = readSeriesReg_(getHub_());
-      var recP = regP.byKey[String(key || '')] || null;
+      var recP = regP.byKey[String(key || '').replace(/^series:/, '')] ||
+                 regP.byKey[String(key || '')] || null;
       if (recP) plSty = lvStyleOf_(recP.vals).key;
     } catch (ePs) {}
-    var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed, kicker, plSty);
+    var cv = ytPlaylistCover_(plId, name, kicker, cat, renamed || stale, kicker, plSty, key);
     if (cv === 'نشست') {
       out.covers++;
       prec = (ytPlMap_()[key] || prec);
@@ -55873,8 +56341,26 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
       var m2 = ytPlMap_(); m2[key] = prec; ytPlMapSave_(m2);
     } else if (cv) {
       bump('coverWhy', 'cover', cv);
-      if (cv.indexOf('سهمیه') === -1) {
-        out.coverFails.push(name + ': ' + cv);
+      if (!notTry(cv)) out.coverFails.push(name + ': ' + cv);
+    }
+  }
+
+  /* ── بعد پادکست، و فقط روی پلی‌لیستی که کاور دارد ── */
+  prec = ytPlMap_()[key] || prec;
+  if (!prec.podcast && CFG.YT_PODCAST !== false && !giveUp(prec, 'pod')) {
+    if (!prec.cover) {
+      bump('podWhy', 'pod', 'منتظرِ کاورِ مربع — یوتیوب پادکست را فقط روی پلی‌لیستِ تصویردار می‌پذیرد');
+    } else {
+      var pc = ytPlPodcast_(plId, plTitle || name);
+      if (pc === 'نشست') {
+        prec = ytPlMap_()[key] || prec;
+        prec.podcast = nowStr_(); prec.podWhy = '';
+        prec.podTries = 0; prec.podLastTry = '';
+        var m3 = ytPlMap_(); m3[key] = prec; ytPlMapSave_(m3);
+        out.podcasts = (out.podcasts || 0) + 1;
+      } else {
+        bump('podWhy', 'pod', pc);
+        if (!notTry(pc)) logLine_('پادکست‌کردنِ پلی‌لیستِ «' + name + '» نشد: ' + pc);
       }
     }
   }
@@ -55894,48 +56380,193 @@ function ytPlCoverFails_() {
   } catch (e) { return []; }
 }
 
-/** کاورِ پلی‌لیست: همان کارت، ولی با نامِ مجموعه به‌جای عنوانِ قسمت. */
-function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey) {
+/* ══ کاورِ پلی‌لیست مربع است، و اسلایدز مربع نمی‌سازد (۸.۵۵) ══
+ *
+ * سه پلی‌لیست هفته‌ها «کاور: نشد (500)» و «پادکست: نشد (400): Precondition check
+ * failed» داشتند، و سطرِ سلامت علتش را «قابلیت‌های پیشرفتهٔ کانال باز نیست» گفت
+ * و صاحبِ برنامه را به youtube.com/features فرستاد. **آن علت حدس بود، نه سنجش.**
+ * سنجش، از خودِ فایلِ ذخیره‌شده: «کاور — مجموعه — درس‌نامه — مربع.png» سرآیندِ
+ * IHDRش ۹۶۰×۵۴۰ می‌گوید. `presentations.create` اندازه را دور می‌ریزد (۸.۱۲)،
+ * پس «مربع» یک مستطیلِ ۱۶:۹ بود؛ مستندِ یوتیوب برای `playlistImages` نسبتِ ۱:۱
+ * می‌خواهد. و `podcastStatus` را مستندِ همان صفحه شرط کرده: «پلی‌لیست باید
+ * playlist image داشته باشد». یعنی خطای دوم پیامدِ خطای اول بود — و موتور
+ * پادکست را **پیش از** کاور می‌پرسید.
+ *
+ * پس: رانر (که کروم و قلمِ فارسی دارد و کاورِ هر درس را همین حالا می‌کشد) کاورِ
+ * ۱۴۰۰×۱۴۰۰ می‌کشد؛ موتور درخواست را در `_YT-RENDER.json` (`plCovers`) می‌گذارد،
+ * نشانی را از `docs/renders.json` برمی‌دارد، **اندازه را از بایت‌ها** می‌سنجد و فقط
+ * مربعِ دست‌کم `YT_PL_COVER_MIN` را می‌فرستد. پادکست پس از کاور.
+ */
+
+/** امضای کوتاهِ یک رشته — برای «همان درخواست است یا عوض شده». */
+function ytSig8_(s) {
+  var hx = '';
+  try {
+    var dg = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(s), Utilities.Charset.UTF_8);
+    for (var b = 0; b < 6; b++) hx += ('0' + ((dg[b] + 256) % 256).toString(16)).slice(-2);
+  } catch (e) { hx = 'L' + String(String(s).length); }
+  return hx;
+}
+
+/** مشخصاتِ کاورِ مربعِ یک پلی‌لیست — همان سبکِ مجموعه، همان پالت (۷.۹۹). */
+function ytPlSqSpec_(key, title, kicker, cat, showName, styleKey) {
+  var csty = styleKey ? lvStyleResolve_(styleKey) : null;
+  var pal = (csty && csty.pal) || ytPalette_(cat || title || showName);
+  var spec = { key: String(key || ''), name: String(title || ''), kicker: String(kicker || ''),
+               show: String(showName || ''), style: String(styleKey || ''),
+               pal: { bg: String(pal.bg || ''), fg: String(pal.fg || ''), ac: String(pal.ac || '') },
+               v: Number(CFG.YT_PL_COVER_VER) || 2 };
+  spec.sig = ytSig8_(JSON.stringify([spec.name, spec.kicker, spec.show, spec.style, spec.pal, spec.v]));
+  return spec;
+}
+
+function ytPlSqMap_() {
+  try { return JSON.parse(props_().getProperty(PK.YT_PL_SQ) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+/** فهرستِ درخواست‌ها، به همان ترتیبِ کلید — آنچه در صف می‌نشیند. */
+function ytPlSqReqs_(m) {
+  m = m || ytPlSqMap_();
+  return Object.keys(m).sort().map(function (k) {
+    var x = m[k] || {};
+    return { key: k, name: String(x.name || ''), kicker: String(x.kicker || ''),
+             show: String(x.show || ''), pal: x.pal || {}, sig: String(x.sig || '') };
+  });
+}
+
+/**
+ * از رانر بخواه. صف فقط وقتی نوشته می‌شود که فهرست عوض شده باشد — نوشتنِ هر
+ * دور یعنی یک بازنویسیِ درایو برای هیچ.
+ */
+function ytPlSqWant_(spec) {
+  try {
+    var m = ytPlSqMap_();
+    var was = m[spec.key] || null;
+    if (!was || was.sig !== spec.sig) {
+      m[spec.key] = { name: spec.name, kicker: spec.kicker, show: spec.show,
+                      pal: spec.pal, sig: spec.sig, at: nowStr_() };
+      props_().setProperty(PK.YT_PL_SQ, JSON.stringify(m));
+    }
+    var d = ytRenderRead_();
+    var want = ytPlSqReqs_(m);
+    if (JSON.stringify(d.plCovers || []) !== JSON.stringify(want)) {
+      d.plCovers = want;
+      if (ytRenderSave_(d)) { try { ytQueueShare_(); } catch (eQs) {} }
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+/* کاورهای مربعی که رانر ساخته — یک خواندن در هر اجرا، مثلِ نقشهٔ ویدئوها. */
+var _ytPlSqMemo = null;
+function ytRenderPlCoversCached_() {
+  if (_ytPlSqMemo !== null) return _ytPlSqMemo;
+  _ytPlSqMemo = {};
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
+                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() === 200) {
+      var d = JSON.parse(res.getContentText());
+      if (d && d.plCovers && typeof d.plCovers === 'object') _ytPlSqMemo = d.plCovers;
+    }
+  } catch (e) {}
+  return _ytPlSqMemo;
+}
+
+/**
+ * ابعادِ واقعیِ یک تصویر — PNG از IHDR، JPEG از نشانِ SOF. برمی‌گرداند
+ * {w, h, mime} یا null. بایت‌ها، نه نام و نه Content-Type (همان قاعدهٔ `musicFetch_`).
+ */
+function ytImgSize_(blob) {
+  var b;
+  try { b = blob.getBytes(); } catch (e) { return null; }
+  if (!b || b.length < 24) return null;
+  var u = function (i) { return b[i] & 0xFF; };
+  if (u(0) === 0x89 && u(1) === 0x50 && u(2) === 0x4E && u(3) === 0x47) {
+    var p = ytPngSize_(blob);
+    return p ? { w: p.w, h: p.h, mime: 'image/png' } : null;
+  }
+  if (u(0) !== 0xFF || u(1) !== 0xD8) return null;
+  var i = 2;
+  while (i + 9 < b.length) {
+    if (u(i) !== 0xFF) { i++; continue; }
+    var mk = u(i + 1);
+    if (mk === 0xD8 || mk === 0x01 || (mk >= 0xD0 && mk <= 0xD7)) { i += 2; continue; }
+    var len = (u(i + 2) << 8) | u(i + 3);
+    if ((mk >= 0xC0 && mk <= 0xC3) || (mk >= 0xC5 && mk <= 0xC7) ||
+        (mk >= 0xC9 && mk <= 0xCB) || (mk >= 0xCD && mk <= 0xCF)) {
+      var h = (u(i + 5) << 8) | u(i + 6), w = (u(i + 7) << 8) | u(i + 8);
+      return (w > 0 && h > 0) ? { w: w, h: h, mime: 'image/jpeg' } : null;
+    }
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
+}
+
+/**
+ * کاورِ مربعِ پلی‌لیست: از رانر، سنجیده، فرستاده.
+ * برمی‌گرداند «نشست» · «در راه» (رانر هنوز نکشیده؛ نه شکست، نه تلاش) ·
+ * «سهمیه» · یا «نشد …» با علتِ خودِ یوتیوب.
+ */
+function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, key) {
   if (!plId) return '';
-  var cover = ytCoverCard_({ coverTitle: title, kicker: kicker,
-                             showName: showName || CFG.SPECIAL_SHOW_NAME || '',
-                             /* کاورِ پلی‌لیست (که کاورِ پادکست هم هست) سبکِ
-                                همان مجموعه را می‌گیرد — این **دیدنی‌ترین**
-                                تصویرِ سطحِ مجموعه است، و اگر با کارت‌ها و
-                                بندانگشتی‌ها یکی نباشد، همان ناهم‌خوانیِ ۷.۹۹
-                                از سومین راه برمی‌گردد. */
-                             style: String(styleKey || ''),
-                             epLabel: 'مجموعه', cat: cat || title, redo: !!redo,
-                             // پلی‌لیستِ ما پادکست هم می‌شود، و پادکست ۱:۱ می‌خواهد
-                             square: CFG.YT_PODCAST !== false });
-  if (!cover || !cover.blob) return 'کاور ساخته نشد';
+  var spec = ytPlSqSpec_(key || ('pl:' + plId), title, kicker, cat,
+                         showName || CFG.SPECIAL_SHOW_NAME || '', styleKey);
+  ytPlSqWant_(spec);
+  var pcs = ytRenderPlCoversCached_() || {};
+  var pc = pcs[spec.key] || null;
+  if (!pc || !pc.url || String(pc.req || '') !== spec.sig) return 'در راه';
+  var res = null;
+  try {
+    res = UrlFetchApp.fetch(String(pc.url), { muteHttpExceptions: true, followRedirects: true });
+  } catch (eF) { return 'نشد: کاور دانلود نشد — ' + String(eF.message).slice(0, 60); }
+  if (res.getResponseCode() !== 200) return 'نشد: دانلودِ کاور (' + res.getResponseCode() + ')';
+  var blob = null;
+  try { blob = res.getBlob(); } catch (eB) { return 'نشد: بایت‌های کاور خوانده نشد'; }
+  var sz = ytImgSize_(blob);
+  if (!sz) return 'نشد: فایلِ کاور نه JPEG است نه PNG';
+  var min = Number(CFG.YT_PL_COVER_MIN) || 1280;
+  if (sz.w !== sz.h || sz.w < min) {
+    return 'نشد: کاور ' + sz.w + '×' + sz.h + ' است — یوتیوب مربعِ دست‌کم ' +
+           min + '×' + min + ' می‌خواهد';
+  }
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
 
   /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و
      چون `playlistImages` منبعِ تازه‌ای است که سرویسِ پیشرفتهٔ Apps Script
      لزوماً نداردش. بایت‌ها به‌هم چسبانده می‌شوند، نه رشته‌ها: هر تبدیلِ
-     رشته‌ایِ داده‌های دودویی، PNG را خراب می‌کند. */
+     رشته‌ایِ داده‌های دودویی، تصویر را خراب می‌کند. */
   var boundary = '----ytpl' + String(plId).replace(/[^A-Za-z0-9]/g, '').slice(-10);
   var head = '--' + boundary + '\r\n' +
              'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-             JSON.stringify({ snippet: { playlistId: String(plId), type: 'hero' } }) +
+             JSON.stringify({ snippet: { playlistId: String(plId), type: 'hero',
+                                         width: sz.w, height: sz.h } }) +
              '\r\n--' + boundary + '\r\n' +
-             'Content-Type: image/png\r\n\r\n';
+             'Content-Type: ' + sz.mime + '\r\n\r\n';
   var tail = '\r\n--' + boundary + '--\r\n';
   var bytes = Utilities.newBlob(head).getBytes()
-                .concat(cover.blob.getBytes())
+                .concat(blob.getBytes())
                 .concat(Utilities.newBlob(tail).getBytes());
   var r = ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
                   '?uploadType=multipart&part=snippet',
                   'post', Utilities.newBlob(bytes).getBytes(),
                   'multipart/related; boundary=' + boundary);
-  if (r.code === 200 || r.code === 201) return 'نشست';
-  /* نبودنِ این قابلیت روی کانال خرابی نیست — ولی باید گفته شود، وگرنه هر شب
-     بی‌صدا رد می‌شود و کسی نمی‌فهمد چرا پلی‌لیست کاور ندارد. اگر هم نشد،
-     یوتیوب خودش کاورِ اولین ویدئوی پلی‌لیست را می‌گذارد — و چون ترتیب از
-     شمارهٔ درس می‌آید، آن اولی همیشه درسِ یک است. یعنی حتی در بدترین حالت
-     کاورِ پلی‌لیست بی‌ربط نمی‌شود. */
-  return 'نشد (' + r.code + ')';
+  if (r.code === 200 || r.code === 201) {
+    try {
+      var m = ytPlMap_(), rec = m[spec.key] || {};
+      rec.coverSig = String(pc.sig || spec.sig);
+      rec.coverSize = sz.w + '×' + sz.h;
+      m[spec.key] = rec; ytPlMapSave_(m);
+    } catch (eM) {}
+    return 'نشست';
+  }
+  /* «(500)» تنها چیزی بود که تا ۸.۵۴ ثبت می‌شد، و همان بود که حدسِ «قابلیت‌های
+     پیشرفته» را ممکن کرد. پیامِ خودِ یوتیوب علت را نام می‌برد. */
+  var why = '';
+  try { why = String((((r.json || {}).error || {}).message) || ''); } catch (e) {}
+  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 100) : '');
 }
 
 /* ═══════════════ شناسنامهٔ کانال ═══════════════

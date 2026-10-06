@@ -562,6 +562,73 @@ var SPECIAL_SCHEMA = {
   required: ['title', 'hook', 'goal', 'sections', 'outro', 'summary']
 };
 
+/** برچسبِ کوتاهِ یک مادهٔ مکمل در پرامپت — «E1»، «E2»، … (۸.۵۵). */
+function specialEnrichLabel_(i) { return 'E' + (Number(i) + 1); }
+
+/**
+ * `enrichIds`ِ هر بخش را از برچسب به شناسهٔ واقعی برمی‌گرداند. شناسهٔ واقعیِ آشنا
+ * (پاسخی که از نسخهٔ قبلیِ پرامپت آمده) هم پذیرفته می‌شود؛ ناشناخته دور ریخته
+ * می‌شود — همان قاعدهٔ `scrubSourceIds_`: شناسهٔ ساختگی جدولِ منبع را بی‌صدا خالی
+ * می‌کرد.
+ */
+function specialEnrichIdsBack_(ep, enrich) {
+  var known = Object.create(null);
+  for (var k = 0; k < (enrich || []).length; k++) known[String(enrich[k].id)] = true;
+  for (var i = 0; i < ((ep && ep.sections) || []).length; i++) {
+    var sec = ep.sections[i] || {};
+    var ids = sec.enrichIds || [], out = [];
+    for (var j = 0; j < ids.length; j++) {
+      var v = String(ids[j] || '').trim();
+      var m = v.match(/^[Ee]\s*([0-9۰-۹]+)$/);
+      if (m) {
+        var n = parseInt(faDigits_(m[1]), 10);
+        if (n >= 1 && n <= (enrich || []).length) v = String(enrich[n - 1].id);
+        else continue;
+      }
+      if (known[v] && out.indexOf(v) === -1) out.push(v);
+    }
+    sec.enrichIds = out;
+  }
+  return ep;
+}
+
+/**
+ * کدام بخش‌ها واقعاً از یک ارجاعِ میان‌مجموعه‌ای استفاده کرده‌اند (۸.۵۵).
+ *
+ * تا ۸.۵۴ ارجاعی که `atHeading`ش با هیچ سرتیتری نمی‌خواند به **همهٔ** بخش‌ها
+ * اِسناد داده می‌شد («کم‌سنجیدن از پرگیری بی‌ضررتر است»). نتیجه برعکس بود: درسِ ۶۰
+ * سه ارجاع داشت که هر کدام در یک بخش گفته شده بود (۰، ۳، ۴)، و داور به بخش‌های
+ * ۱، ۲ و ۵ گفته شد «این بخش از ارجاع به مصباح ساخته شده» — و «پیوندِ ساختگی» زد.
+ * سنجهٔ محتوا دو روز «ایرادِ مزمن» بود، برای اِسنادی که خودِ کد ساخته بود.
+ *
+ * حالا: بخشی که نامِ مجموعهٔ مرجع (بیشترِ واژه‌هایش) در متنش هست؛ وگرنه همان
+ * سرتیتر؛ وگرنه هیچ بخشی — ارجاعِ بی‌جا، منبعِ هیچ بخشی نیست.
+ */
+function specialBridgeSecs_(ep, blg) {
+  var norm = function (t) {
+    try { t = txNorm(stripTashkil_(String(t || ''))); } catch (e) { t = String(t || '').toLowerCase(); }
+    return ' ' + t.replace(/[‌‏‎]/g, ' ').replace(/[^ء-ۿa-z0-9]+/g, ' ')
+                  .replace(/\s+/g, ' ').trim() + ' ';
+  };
+  var name = norm(blg && blg.seriesName);
+  var toks = name.trim().split(' ').filter(function (w) { return w.length >= 3; });
+  var need = Math.max(1, Math.ceil(toks.length * 0.6));
+  var out = [], secs = (ep && ep.sections) || [];
+  for (var i = 0; i < secs.length && toks.length; i++) {
+    var nar = norm(secs[i].narration);
+    if (name.trim() && nar.indexOf(name) !== -1) { out.push(i); continue; }
+    var hit = 0;
+    for (var t = 0; t < toks.length; t++) if (nar.indexOf(' ' + toks[t] + ' ') !== -1) hit++;
+    if (hit >= need) out.push(i);
+  }
+  if (!out.length) {
+    var at = -1;
+    try { at = bridgeSectionIndex_(ep, blg && blg.atHeading); } catch (eAt) { at = -1; }
+    if (at >= 0) out.push(at);
+  }
+  return out;
+}
+
 function buildSpecialPrompt_(ctx) {
   var L = [];
   L.push('تو نویسنده و سردبیرِ یک برنامهٔ رادیوییِ آموزشیِ فارسی به نام «' +
@@ -658,9 +725,12 @@ function buildSpecialPrompt_(ctx) {
            '«این نکته در خودِ درس نیامده؛ از یک منبع دیگرِ آرشیو اضافه‌اش می‌کنم…».');
     L.push('اجباری نیست همه‌شان را به کار ببری؛ فقط آن‌هایی که واقعاً به مطلبِ همین قطعه‌ها ' +
            'مربوط‌اند. شناسهٔ هر کدام را که به کار بردی در enrichIds همان بخش بنویس.');
+    /* شناسهٔ واقعیِ فایل به نویسنده نشان داده نمی‌شود (۸.۵۵): درسِ ۶۰ آن را به حروف
+       خواند («با شناسهٔ نوزده ال یو»). برچسبِ کوتاهِ E1… می‌بیند و کد برمی‌گرداندش
+       (`specialEnrichIdsBack_`). */
     for (var e = 0; e < ctx.enrich.length; e++) {
       var x = ctx.enrich[e];
-      L.push('- شناسه: ' + x.id + ' | نوع: ' + x.kind + ' | دسته: ' + x.cat +
+      L.push('- شناسه: ' + specialEnrichLabel_(e) + ' | نوع: ' + x.kind + ' | دسته: ' + x.cat +
              (x.fromSeries ? ' | از مجموعهٔ آموزشیِ «' + x.fromSeries + '»' : ' | از آرشیو عمومی') +
              ' | موضوع: ' + String(x.topic).slice(0, 120) +
              ' | پیام: ' + String(x.msg).slice(0, 200) +
@@ -1202,6 +1272,22 @@ function produceSpecialEpisode(opt) {
     ep.sections = ep.sections.filter(function (x) { return x && String(x.narration || '').trim(); });
     if (!ep.sections.length) throw new Error('متن درس‌نامه بدون بخشِ کامل برگشت.');
     try { delete ep.__repaired; } catch (eD) {}
+    /* برچسبِ مکمل ⇒ شناسهٔ واقعی، و شناسه‌ای که با این‌همه در متنِ گفتار آمد
+       برداشته می‌شود (۸.۵۵). پیش از هر بازنویسی و هر نسخهٔ گفتاری. */
+    try { specialEnrichIdsBack_(ep, enrich); } catch (eEb) {}
+    try {
+      var spIdsc = epIdScrub_(ep);
+      if (spIdsc.n) {
+        logLine_('درس‌نامه ' + epNum + ': ' + spIdsc.n + ' شناسهٔ فایل از متنِ گفتار برداشته شد.');
+        logSelfFinding_(hub, {
+          priority: 'متوسط', category: 'پرامپت درس‌نامه', key: 'sp-id-leak',
+          title: 'نویسنده شناسهٔ فایل را در متنِ گفتار آورد (پاک شد)',
+          detail: 'قسمت ' + epNum + ': ' + spIdsc.n + ' مورد، نمونه: «' + spIdsc.sample + '».',
+          instruction: 'منبعِ مکمل را با نام یا نوعش بگو («در یک سخنرانیِ دیگر…»)، نه با شناسه.',
+          owner: 'موتور', episode: epNum
+        });
+      }
+    } catch (eSi) {}
 
     /* و قرینه‌اش: متنی که خیلی کوتاه‌تر از هدف است، یک بار با همان منبع
        عمیق‌تر نوشته می‌شود. کف هم مثل سقف باید در کد باشد نه در پرامپت. */
@@ -1329,10 +1415,9 @@ function produceSpecialEpisode(opt) {
      * توضیحی/مثال حل کرده بود، اینجا برای ارجاعِ میان‌مجموعه‌ای دوباره.
      *
      * هر ارجاعِ *واقعاً گفته‌شده* (ctx.__bridgesUsed) یک شناسهٔ منبع می‌گیرد
-     * و به بخشی که atHeading آن را نشانه گرفته وصل می‌شود؛ نبودِ تطبیقِ
-     * عنوان (ارجاعی که در سنجشِ سراسرِ متن پیدا شده، نه در یک بخشِ خاص) را
-     * محافظه‌کارانه به همهٔ بخش‌ها می‌دهیم — کم‌سنجیدنِ داور از پرگیریِ آن
-     * برای موردی که واقعاً منبع دارد، بی‌ضررتر است. */
+     * و به بخش‌هایی وصل می‌شود که واقعاً از آن حرف زده‌اند (`specialBridgeSecs_`).
+     * تا ۸.۵۴ ارجاعِ بی‌سرتیتر به **همهٔ** بخش‌ها داده می‌شد، و همین «پرگیری»
+     * بود که داور را به «پیوندِ ساختگی» در بخش‌های بی‌ارجاع رساند (درسِ ۶۰). */
     var bridgeSrcItems = [];
     var bridgeSecIdx = Object.create(null);
     for (var bg = 0; bg < (ctx.__bridgesUsed || []).length; bg++) {
@@ -1344,9 +1429,10 @@ function produceSpecialEpisode(opt) {
         body: 'آن مجموعه گفته: ' + String(blg.claim || '') +
               (blg.chapter ? ' (فصل: ' + blg.chapter + ')' : '')
       });
-      var bsi = bridgeSectionIndex_(ep, blg.atHeading);
-      if (bsi === -1) { bridgeSecIdx.__all = (bridgeSecIdx.__all || []).concat([bid]); }
-      else { bridgeSecIdx[bsi] = (bridgeSecIdx[bsi] || []).concat([bid]); }
+      var bsis = specialBridgeSecs_(ep, blg);
+      for (var bq = 0; bq < bsis.length; bq++) {
+        bridgeSecIdx[bsis[bq]] = (bridgeSecIdx[bsis[bq]] || []).concat([bid]);
+      }
     }
 
     // عکسِ محتوا — همان کاری که «از همه جا از همه رنگ» می‌کند، با همان تابع.
@@ -1400,7 +1486,7 @@ function produceSpecialEpisode(opt) {
           var ev3 = String(eid3[ea] || '').trim();
           if (ev3) sids.push(ev3);
         }
-        sids = sids.concat(bridgeSecIdx[sa] || []).concat(bridgeSecIdx.__all || []);
+        sids = sids.concat(bridgeSecIdx[sa] || []);
         snapSecs.push({ heading: sec3.heading, narration: sec3.narration,
                         sourceIds: sids });
       }

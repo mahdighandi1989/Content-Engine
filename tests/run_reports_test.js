@@ -699,6 +699,71 @@ console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌ش�
      !/به‌نام نبسته/.test(codeQueueLine_(q2)), codeQueueLine_(q2));
 }
 
+/* ══ ی-ب) کارِ کدِ امروزِ ناظر — از «دیده شد» تا «درست شد» (۸.۵۵) ══
+ * ۶ اکتبر: ۳۰ ردیفِ «در انتظار»، ۱۴ ایرادِ مزمن — و ناظر نوشت «کدی ساخته نشد:
+ * یافتهٔ تازه‌ای نبود». صفی که ناظر خودش از میانش برگزیند، هر روز «هیچ‌کدام» را
+ * برمی‌گزیند. پس موتور یکی را برمی‌گزیند، روزها را می‌شمارد، و ماندنش زنگ است. */
+{
+  console.log('\n══ ی-ب) کارِ کدِ امروزِ ناظر ══');
+  const P = global.__PROPS;
+  delete P[PK.CODE_TASK]; delete P[PK.CODE_TASK_SKIP];
+  const C = (key, pri, seen, since) => ({ id: 'ENG-20260901-1000#' + key, pri: pri, title: 'کار ' + key,
+                                          instr: 'دستور ' + key, seen: seen, since: since });
+  const cand = [C('alpha', 'متوسط', 9, '2026-08-01 10:00'), C('beta', 'جدی', 2, '2026-08-20 10:00'),
+                C('gamma', 'جدی', 7, '2026-09-01 10:00'), C('delta', 'جدی', 7, '2026-08-25 10:00'),
+                C('code-task-ignored', 'جدی', 99, '2026-07-01 10:00')];
+  const t1 = codeTaskPick_(cand);
+  ok('ی-ب.۱ یکی برگزیده می‌شود: جدی پیش از متوسط، پرتکرار پیش از کم‌تکرار، کهنه پیش از تازه — و زنگِ خودِ این سازوکار کار نیست',
+     t1 && t1.key === 'delta' && t1.id === 'ENG-20260901-1000#delta', JSON.stringify(t1));
+  ok('ی-ب.۲ و ردیفِ «RPT-…#5» کلیدِ عددی ندارد — کلیدِ بستنش خودِ شناسه است (۷.۴۸)',
+     codeTaskPick_([{ id: 'RPT-2026-08-10-1235#5', pri: 'جدی', title: 't', instr: '', seen: 1, since: '' }]).key ===
+     'RPT-2026-08-10-1235#5');
+
+  ok('ی-ب.۳ «رد» بی علتِ مشخص پذیرفته نمی‌شود — «نشد» بی علت همان سکوت است',
+     codeTaskIngest_({ codeTask: { id: t1.id, verdict: 'رد', why: 'نه' } }) === false &&
+     codeTaskPick_(cand).key === 'delta');
+  ok('ی-ب.۴ «رد» با علت، آن کار را تا هفت روز کنار می‌گذارد و نوبت به بعدی می‌رسد',
+     codeTaskIngest_({ codeTask: { id: t1.id, verdict: 'رد', why: 'تصمیمِ پولیِ صاحبِ برنامه است، نه کد' } }) === true &&
+     codeTaskPick_(cand).key === 'gamma', JSON.stringify(codeTaskPick_(cand)));
+  delete P[PK.CODE_TASK_SKIP];
+
+  /* شمارشِ روزها و زنگ — از درِ خودِ `codeTaskTrack_`، با تلگرامِ شمرده‌شده. */
+  const kTg = global.tgSend_, kEn = global.tgEnabled_;
+  let tg = [];
+  global.tgEnabled_ = () => true; global.tgSend_ = (t) => { tg.push(t); return true; };
+  const q = { task: codeTaskPick_(cand) };
+  const a1 = codeTaskTrack_(hub, q);
+  const a1b = codeTaskTrack_(hub, q);                      // اجرای دوم در همان روز
+  ok('ی-ب.۵ روزِ اول: سطر کار و کلیدِ بستن را می‌گوید، زنگی نیست؛ دو اجرا در یک روز یک روز است',
+     a1.days === 1 && a1b.days === 1 && !a1.escalated && tg.length === 0 &&
+     a1.line.indexOf('`delta`') !== -1, a1.line);
+  const stt = JSON.parse(P[PK.CODE_TASK]); stt.day = '2000-01-01'; stt.days = 2; P[PK.CODE_TASK] = JSON.stringify(stt);
+  const findingsBefore = rows().filter(r => /code-task-ignored/.test(String(r[RC.ID-1]))).length;
+  const a3 = codeTaskTrack_(hub, q);
+  const findingsAfter = rows().filter(r => /code-task-ignored/.test(String(r[RC.ID-1]))).length;
+  ok('ی-ب.۶ روزِ سوم روی همان کار ⇒ یافتهٔ «جدی» و تلگرامِ فوری',
+     a3.days === 3 && a3.escalated && tg.length === 1 && findingsAfter === findingsBefore + 1 &&
+     /برنداشته/.test(tg[0]), a3.line + ' · ' + tg.length + ' پیام: ' + (tg[0] || '').slice(0, 120));
+  const st2 = JSON.parse(P[PK.CODE_TASK]); st2.day = '2000-01-02'; P[PK.CODE_TASK] = JSON.stringify(st2);
+  const a4 = codeTaskTrack_(hub, q);
+  ok('ی-ب.۷ و برای همان کار یک بار — زنگی که هر روز بخورد خوانده نمی‌شود',
+     a4.days === 4 && !a4.escalated && tg.length === 1);
+  const a5 = codeTaskTrack_(hub, { task: codeTaskPick_([C('epsilon', 'جدی', 1, '2026-09-01 10:00')]) });
+  ok('ی-ب.۸ کارِ تازه (ردیفِ قبلی بسته شد) شمارش را از نو می‌کند',
+     a5.days === 1 && !a5.escalated && /epsilon/.test(a5.line));
+  const a6 = codeTaskTrack_(hub, { task: null });
+  ok('ی-ب.۹ صفِ خالی هم گفته می‌شود — سکوت شبیهِ سلامت است، نه خودِ آن',
+     /کاری ندارد/.test(a6.line) && !P[PK.CODE_TASK], a6.line);
+  global.tgSend_ = kTg; global.tgEnabled_ = kEn;
+
+  /* و از درِ `codeQueue_`: کار از همان ردیف‌های «در انتظارِ» واقعیِ تب می‌آید. */
+  const qq = codeQueue_(hub);
+  const pendIds = rows().filter(r => String(r[RC.STATUS-1]) === RST.NEEDS_CODE).map(r => String(r[RC.ID-1]));
+  ok('ی-ب.۱۰ `_STATUS.json` (codeQueue.task) یکی از ردیف‌های واقعیِ «نیازمند تعویض کد» را دارد',
+     qq.task && pendIds.indexOf(qq.task.id) !== -1 && !!qq.task.key, JSON.stringify(qq.task));
+  delete P[PK.CODE_TASK];
+}
+
 /* ══ ک) شکافِ «گزارش ← اقدام»: ادعا در برابرِ مشاهده ══
  *
  * تا ۷٫۵۶ یک ردیف **فقط** با نامِ کلیدش در `sourceReportIds` بسته می‌شد، و

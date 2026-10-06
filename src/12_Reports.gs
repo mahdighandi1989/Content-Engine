@@ -471,6 +471,7 @@ function ingestOneReport_(hub, sh, state, file) {
 
   try {
     var nChk = monChecksIngest_(rep, file.getName());
+    try { codeTaskIngest_(rep); } catch (eCt) {}
     if (nChk) logLine_('گزارش نظارت: ' + nChk + ' وارسیِ روزانه ثبت شد.');
   } catch (eChk) {}
 
@@ -1216,7 +1217,7 @@ function codeQueue_(hub) {
     if (isNaN(t)) return -1;
     return Math.floor((now - t) / 86400000);
   };
-  var newestAnswer = -1;
+  var newestAnswer = -1, cand = [];
   for (var i = 0; i < st.rows.length; i++) {
     var r = st.rows[i].vals;
     var stt = String(r[RC.STATUS - 1] || '');
@@ -1238,9 +1239,17 @@ function codeQueue_(hub) {
     if (seenD < 0) seenD = days(r[RC.LOGGED - 1]);
     if (seenD < 0) seenD = days(r[RC.AT - 1]);
     if (seenD > out.oldestDays) out.oldestDays = seenD;
-    if (seenD >= quietDays) out.quiet++; else out.pending++;
+    if (seenD >= quietDays) out.quiet++; else {
+      out.pending++;
+      cand.push({ id: String(r[RC.ID - 1] || ''), pri: String(r[RC.PRI - 1] || ''),
+                  title: String(r[RC.TITLE - 1] || ''), instr: String(r[RC.INSTR - 1] || ''),
+                  seen: Number(r[RC.SEEN - 1]) || 1,
+                  since: String(r[RC.LOGGED - 1] || r[RC.AT - 1] || '') });
+    }
   }
   out.noAnswerDays = newestAnswer < 0 ? -1 : newestAnswer;
+  /* کارِ کدِ امروزِ ناظر — **یک** ردیف، برگزیدهٔ خودِ موتور (۸.۵۵). */
+  try { out.task = codeTaskPick_(cand); } catch (eT) { out.task = null; }
   /* ══ `line` وعده داده می‌شد و همیشه خالی بود (۸.۰۶) ══
    * این کلید از روزِ اول در شیء هست و هیچ‌وقت پر نمی‌شد: جمله را
    * `codeQueueLine_` در `healthCheck` می‌ساخت و همان‌جا مصرف می‌کرد. یعنی
@@ -1249,6 +1258,126 @@ function codeQueue_(hub) {
    * پر کردنش این‌جا و نه در بخشِ ۸، تا یک تعریف بمانَد (قاعدهٔ `srcJoinJs_`). */
   try { out.line = codeQueueLine_(out); } catch (eL) {}
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+ *  کارِ کدِ امروزِ ناظر (۸.۵۵) — از «دیده شد» تا «درست شد»
+ *
+ *  صاحبِ برنامه پرسید: «اگر ایمیل‌ها و گزارش‌ها را نمی‌فرستادم، اتوماسیون
+ *  ایرادها را می‌فهمید و اصلاح می‌کرد؟» جوابِ راست با دادهٔ ۶ اکتبر: بیشترش را
+ *  **می‌دید** — ۳۰ ردیفِ «در انتظار»، ۱۴ ایرادِ مزمن، یافتهٔ کاورِ پلی‌لیست — و
+ *  ناظر همان روز نوشت «کدی ساخته نشد: یافتهٔ تازه‌ای که نسخه بخواهد نبود».
+ *  تشخیص هرگز نیمهٔ گم‌شده نبود؛ **الزام** بود (۷٫۱۸/۷٫۱۹). صفی که ناظر خودش از
+ *  میانش انتخاب کند، صفی است که هر روز «هیچ‌کدام» از آن انتخاب می‌شود.
+ *
+ *  پس انتخاب کارِ موتور است، نه ناظر: هر روز **یک** ردیف — «جدی» پیش از «متوسط»،
+ *  پرتکرارتر پیش از کم‌تکرار، کهنه‌تر پیش از تازه — با کلیدی که همان ردیف را
+ *  می‌بندد. ناظر یا نسخه می‌دهد و کلید را در `answers` می‌آورد، یا با **علت**
+ *  کنارش می‌گذارد (`codeTask` در `_REPORT`). سکوت شمرده می‌شود.
+ * ══════════════════════════════════════════════════════════════════════ */
+function codeTaskSkipMap_() {
+  try { return JSON.parse(props_().getProperty(PK.CODE_TASK_SKIP) || '{}') || {}; }
+  catch (e) { return {}; }
+}
+
+function codeTaskPick_(cand) {
+  var skip = codeTaskSkipMap_(), now = new Date().getTime();
+  var keepMs = Math.max(1, Number(CFG.CODE_TASK_SKIP_DAYS) || 7) * 86400000;
+  var rank = function (p) { p = String(p || ''); return p.indexOf('جدی') !== -1 ? 3 : (p.indexOf('متوسط') !== -1 ? 2 : 1); };
+  var list = (cand || []).filter(function (c) {
+    if (!c.id) return false;
+    var key = selfRowKey_(c.id) || c.id;
+    /* کارِ خودِ این سازوکار کارِ کد نیست — وگرنه زنگِ «نادیده ماند» خودش کارِ فردا می‌شد. */
+    if (/^code-task|^code-queue-stuck/.test(key)) return false;
+    var sk = skip[c.id] || skip[key];
+    if (sk) { var t = parseWhen_(String(sk.at || '')); if (!isNaN(t) && now - t < keepMs) return false; }
+    return true;
+  });
+  list.sort(function (a, b) {
+    var d = rank(b.pri) - rank(a.pri); if (d) return d;
+    d = (b.seen || 1) - (a.seen || 1); if (d) return d;
+    var ta = parseWhen_(a.since), tb = parseWhen_(b.since);
+    if (isNaN(ta)) ta = Infinity; if (isNaN(tb)) tb = Infinity;
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  var c = list[0];
+  if (!c) return null;
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.CODE_TASK) || '{}') || {}; } catch (e) { st = {}; }
+  return { id: c.id, key: selfRowKey_(c.id) || c.id, title: c.title.slice(0, 200),
+           priority: c.pri, seen: c.seen, since: c.since, instruction: c.instr.slice(0, 400),
+           days: String(st.id || '') === c.id ? (Number(st.days) || 1) : 0 };
+}
+
+/**
+ * هر روز از `healthCheck`: همان کار امروز هم هست؟ چند روز است؟ و اگر از
+ * `CODE_TASK_IGNORE_DAYS` گذشت، یافتهٔ «جدی» با مسئولِ کد — که همان دم از درِ
+ * `alertCodeRows_` به تلگرام می‌رود — یک بار برای هر ردیف. فوری، نه در صفِ ایمیل:
+ * خبرِ «ناظر کار را برنداشت» نباید منتظرِ همان چیزی بماند که کار نکرده (۷٫۶۳).
+ */
+function codeTaskTrack_(hub, q) {
+  var out = { task: null, days: 0, escalated: false, line: '' };
+  var fa = function (n) { try { return faDigitsOut_(String(n)); } catch (e) { return String(n); } };
+  try {
+    var task = q && q.task;
+    var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+    var st = {};
+    try { st = JSON.parse(props_().getProperty(PK.CODE_TASK) || '{}') || {}; } catch (e0) { st = {}; }
+    if (!task) {
+      props_().deleteProperty(PK.CODE_TASK);
+      out.line = '🔧 کارِ کدِ امروزِ ناظر: صفِ «در انتظار» کاری ندارد.';
+      return out;
+    }
+    if (String(st.id || '') !== task.id) st = { id: task.id, key: task.key, since: today, days: 1, day: today };
+    else if (String(st.day || '') !== today) { st.days = (Number(st.days) || 1) + 1; st.day = today; }
+    props_().setProperty(PK.CODE_TASK, JSON.stringify(st));
+    out.task = task; out.days = Number(st.days) || 1;
+    var lim = Math.max(1, Number(CFG.CODE_TASK_IGNORE_DAYS) || 2);
+    out.line = '🔧 کارِ کدِ امروزِ ناظر: «' + auditCut_(task.title, 110) + '» — کلیدِ بستن `' + task.key +
+               '` (' + (task.priority || 'بی‌اولویت') + '، ' + fa(task.seen) + ' بار دیده شده' +
+               (out.days > 1 ? '، روزِ ' + fa(out.days) + ' روی همین کار' : '') + ').';
+    if (out.days > lim) {
+      out.line += ' ⚠️ ناظر ' + fa(out.days - 1) + ' روز است نه نسخه داده نه علت گفته.';
+      if (String(st.told || '') !== task.id) {
+        try {
+          logSelfFinding_(hub || getHub_(), {
+            priority: 'جدی', category: 'کد', key: 'code-task-ignored',
+            title: 'ناظر ' + (out.days - 1) + ' روز است کارِ کدِ تعیین‌شده را برنداشته',
+            detail: 'کار: «' + auditCut_(task.title, 160) + '» (کلید `' + task.key + '`، از ' + st.since +
+                    '). نه نسخه‌ای آن را بست، نه `codeTask` در `_REPORT` علتِ کنارگذاشتنش را گفت.',
+            instruction: 'نسخه‌ای بده که `answers`ِ manifest کلیدِ `' + task.key + '` را دارد؛ یا اگر ' +
+                         'کارِ کد نیست، در `_REPORT` بنویس `codeTask: {id, verdict: "رد", why}` با علتِ مشخص.',
+            owner: ROWNER_CODE
+          });
+        } catch (eF) {}
+        /* تلگرامِ فوری از همان درِ هر ردیفِ تازهٔ کد می‌رود (`alertCodeRows_` درونِ
+           `logSelfFinding_`) — پیامِ دوم یعنی دو خبر برای یک چیز. */
+        st.told = task.id; out.escalated = true;
+        props_().setProperty(PK.CODE_TASK, JSON.stringify(st));
+      }
+    }
+  } catch (e) { out.line = '🔧 کارِ کدِ امروزِ ناظر: سنجیده نشد (' + e.message + ').'; }
+  return out;
+}
+
+/**
+ * جوابِ ناظر به کارِ امروز، از `_REPORT`: `codeTask: {id, verdict, why}`.
+ * «رد» با علتِ کمتر از ده نویسه پذیرفته نمی‌شود: «نشد» بی علت همان سکوت است.
+ */
+function codeTaskIngest_(rep) {
+  try {
+    var t = rep && rep.codeTask;
+    if (!t || !t.id) return false;
+    var v = String(t.verdict || ''), why = String(t.why || '').trim();
+    if (!/رد|کنار|نشد|نه/.test(v) || why.length < 10) return false;
+    var m = codeTaskSkipMap_();
+    m[String(t.id)] = { at: nowStr_(), why: why.slice(0, 300) };
+    var keys = Object.keys(m);
+    while (keys.length > 40) delete m[keys.shift()];
+    props_().setProperty(PK.CODE_TASK_SKIP, JSON.stringify(m));
+    return true;
+  } catch (e) { return false; }
 }
 
 /**

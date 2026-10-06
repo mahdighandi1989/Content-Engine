@@ -62,7 +62,14 @@ const WIRED = [
   ['sfxAllow_',         'src/23_Music.gs',     'خویشتن‌داریِ افکت'],
   ['musicWish_',        'src/23_Music.gs',     'خواستهٔ موسیقی'],
   ['outLayoutCheck_',   'src/08_Health.gs',    'وارسیِ چیدمانِ ریشه'],
-  ['musicScan_',        'src/21_SelfUpdate.gs','پویشِ شبانهٔ بانک']
+  ['musicScan_',        'src/21_SelfUpdate.gs','پویشِ شبانهٔ بانک'],
+  // ۸.۵۵: شناسهٔ بلندخوانده‌شده پاک می‌شود — در هر دو برنامه (بخشِ ۳ پایین هم می‌پرسد)
+  ['epIdScrub_',        'src/03_Producer.gs',  'پاک‌کردنِ شناسه از متنِ گفتار در «از همه جا»'],
+  ['epIdScrub_',        'src/14_Special.gs',   'پاک‌کردنِ شناسه از متنِ گفتار در درس‌نامه'],
+  // ۸.۵۵: کارِ کدِ امروزِ ناظر هر روز شمرده می‌شود، و جوابِ ناظر خوانده
+  ['codeTaskTrack_',    'src/08_Health.gs',    'کارِ کدِ امروزِ ناظر'],
+  ['codeTaskIngest_',   'src/12_Reports.gs',   'جوابِ ناظر به کارِ کد'],
+  ['ytThumbAudit_',     'src/27_YouTube.gs',   'کاورِ عمومی، آنچه بیننده می‌بیند']
 ];
 for (const [fn, file, what] of WIRED) {
   const t = fs.readFileSync(file, 'utf8');
@@ -77,7 +84,8 @@ const sp = fs.readFileSync('src/14_Special.gs', 'utf8');
 for (const [key, what] of [['auditSnap_', 'عکسِ محتوا'],
                            ['musicWrap_', 'موسیقی'],
                            ['bounds:', 'مرزِ بخش‌ها برای موسیقیِ میانه'],
-                           ['fidelityCheck_', 'پاسِ وفاداری']]) {
+                           ['fidelityCheck_', 'پاسِ وفاداری'],
+                           ['epIdScrub_(ep)', 'پاک‌کردنِ شناسهٔ بلندخوانده‌شده (۸.۵۵)']]) {
   ok('۳ ' + what + ' در هر دو برنامه هست',
      v.indexOf(key) !== -1 && sp.indexOf(key) !== -1,
      'از‌همه‌جا=' + (v.indexOf(key) !== -1) + ' درس‌نامه=' + (sp.indexOf(key) !== -1));

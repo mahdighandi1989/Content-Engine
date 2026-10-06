@@ -13,8 +13,11 @@ name: render-youtube-video
 
 on:
   schedule:
-    # هر ساعت، دقیقهٔ ۴۰ — بعد از غنی‌سازی (۲۰) تا با آن هم‌زمان نشود
-    - cron: '40 * * * *'
+    # ۸.۵۵: «هر ساعت، دقیقهٔ ۴۰» در عمل هر ۳ تا ۹ ساعت اجرا شد — گیت‌هاب کرانِ
+    # زمان‌بندی‌شده را زیرِ بار جا می‌اندازد. ویدئوی درسِ ۴۰ ساعت‌ها منتظر ماند.
+    # هر ده دقیقه (نه سرِ ساعت، که شلوغ‌ترین لحظه است)، و هر اجرای بی‌کار فقط
+    # پروب است: یک خواندنِ صف، چند ثانیه — ffmpeg و قلم فقط وقتی کاری هست.
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -32,9 +35,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # پروب: همان تعریفِ «کاری هست» که خودِ ساخت دارد (itemsTodo و
+      # plCoversTodo در tools/render.js) — دو تعریف یعنی روزی یکی «نه» بگوید
+      # و دیگری کار داشته باشد. بی‌نیاز به هیچ نصبی.
+      - name: پروب — کاری هست؟
+        id: probe
+        run: node tools/render.js --probe
+
       # ubuntu-latest دیگر ffmpeg ندارد. باینریِ استاتیکِ PyPI در چند ثانیه
       # می‌آید و به sudo هم نیازی ندارد.
       - name: ffmpeg
+        if: steps.probe.outputs.work == '1'
         run: |
           set -euo pipefail
           python3 -m pip install --quiet imageio-ffmpeg
@@ -51,6 +62,7 @@ jobs:
       # کروم روی رانر هست؛ فقط قلمِ فارسی نیست و بی آن متن مربع می‌شود —
       # پس نصبش اینجا یک مرحلهٔ **لازم** است، نه آرایشی.
       - name: قلمِ فارسی
+        if: steps.probe.outputs.work == '1'
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -69,11 +81,13 @@ jobs:
           fc-list | grep -i -E 'vazirmatn|lalezar|nastaliq' | head -4 || true
 
       - name: ساختِ ویدئوها
+        if: steps.probe.outputs.work == '1'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node tools/render.js
 
       - name: ثبتِ نشانی‌ها در ریپو
+        if: steps.probe.outputs.work == '1'
         run: |
           if git diff --quiet -- docs/renders.json; then
             echo "چیزی عوض نشد."
