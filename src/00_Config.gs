@@ -1908,7 +1908,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.58',
+  CODE_VERSION: '8.59',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3114,7 +3114,7 @@ var PK = {
  * drift ساختاراً ممکن نیست. `run_wiring_test.js` هم دوباره می‌شمارد و اگر
  * نخوانَد سرخ می‌شود.
  */
-var BUILD_MENU_ = { total: 60, debt: 34 };   /* ⚙ BUILD-MENU */
+var BUILD_MENU_ = { total: 61, debt: 34 };   /* ⚙ BUILD-MENU */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 

@@ -2274,7 +2274,7 @@ function ghKickStatus_() {
   if (!out.on) { out.line = 'راه‌اندازِ رندر: خاموش (تنظیم).'; return out; }
   if (!out.token) {
     out.line = '⟨شما⟩ راه‌اندازِ رندر: توکنِ گیت‌هاب گذاشته نشده — ویدئوها منتظرِ زمان‌بندیِ ' +
-               'خودِ گیت‌هاب می‌مانند که ساعت‌ها جا می‌اندازد. راهنما: README، «توکنِ راه‌اندازِ رندر».';
+               'خودِ گیت‌هاب می‌مانند که ساعت‌ها جا می‌اندازد. بگذاریدش: منوی موتور ⇐ «۳) توکنِ گیت‌هاب» (ساختنش: README، «توکنِ راه‌اندازِ رندر»).';
     return out;
   }
   var today = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
@@ -2298,5 +2298,76 @@ function ghKickStatus_() {
        (out.render.day === today ? out.render.nDay : 0) + ' بار' : 'هنوز لازم نشده') +
     (out.due ? ' · کارِ منتظر از ' + out.due : '') +
     (out.expDays !== null ? ' · انقضا ' + out.expDays + ' روزِ دیگر' : '') + '.';
+  return out;
+}
+
+/* ══ جای گذاشتنِ توکن، از منو (۸.۵۹) ══
+   ۸.۵۸ گفت «توکن را در Script Properties بگذارید» و همان شب معلوم شد او
+   نمی‌تواند: صفحهٔ تنظیماتِ Apps Script وقتی ویژگی‌ها از ۵۰ بیشتر باشند
+   فهرست را **فقط‌خواندنی** می‌کند و می‌گوید «از راهِ PropertiesService». این
+   پروژه بیش از ۵۰ دارد. پس دستوری که دادیم انجام‌شدنی نبود — همان شکلِ
+   `LV_GEN_ENABLED` در ۸.۱۵: دستوری بی در.
+
+   درِ درست همان است که «۱) ثبت کلید Gemini» از روزِ اول بوده: منو. و ذخیره
+   به‌تنهایی کافی نیست؛ همان لحظه یک بار گیت‌هاب پرسیده می‌شود، چون «ذخیره
+   شد» بی آزمون همان ادعای بی‌ورودی است (۷.۷۹) — او فقط وقتی می‌فهمد توکن
+   درست ساخته شده که گیت‌هاب ۲۰۴ داده باشد.
+
+   مرزها:
+   • توکن هرگز برگردانده، نشان داده یا ثبت نمی‌شود — فقط اثرِ انگشتِ کوتاهش.
+   • متنی که شکلِ توکنِ گیت‌هاب ندارد **رد** می‌شود و چیزی ذخیره نمی‌شود: نامِ
+     توکن یا نیمی از آن که اشتباهی کپی شود، باید همان‌جا گفته شود، نه فردا با ۴۰۱.
+   • توکنِ ردشده (۴۰۱/۴۰۳/۴۰۴) **می‌مانَد**: ۴۰۳ را با عوض‌کردنِ دسترسیِ همان توکن
+     در گیت‌هاب می‌شود درست کرد، بی ساختنِ دوباره؛ و خطِ روزانه کارِ بعدی را می‌گوید.
+   • انقضای توکنِ قبلی پاک می‌شود — توکنِ «بی انقضا» سرآیندی نمی‌فرستد و تاریخِ
+     کهنه وگرنه هشدارِ دروغ می‌داد. */
+function ghTokenSet_(raw) {
+  var s = String(raw == null ? '' : raw).replace(/^[\s"'«»`]+|[\s"'«»`]+$/g, '');
+  if (!s) return { ok: false, saved: false, why: 'چیزی چسبانده نشد.' };
+  if (/^(حذف|پاک|delete|clear)$/i.test(s)) {
+    try { props_().deleteProperty(PK.GH_TOKEN); } catch (eD) {}
+    return { ok: true, saved: false, cleared: true,
+             why: 'توکن برداشته شد؛ از این پس رانرِ ویدئو فقط با زمان‌بندیِ خودِ گیت‌هاب می‌دود.' };
+  }
+  if (/\s/.test(s)) return { ok: false, saved: false,
+    why: 'متن فاصله یا خطِ تازه دارد — احتمالاً چیزِ دیگری هم با توکن کپی شده. فقط خودِ توکن را بچسبانید.' };
+  if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(s)) return { ok: false, saved: false,
+    why: 'این شکلِ توکنِ گیت‌هاب نیست: توکن با github_pat_ شروع می‌شود و ده‌ها نویسه دارد. ' +
+         'نامِ توکن یا تکه‌ای از آن کافی نیست؛ دکمهٔ کپیِ کنارِ خودِ توکن را بزنید.' };
+  props_().setProperty(PK.GH_TOKEN, s);
+  var fp = ghTokenFp_(s);
+  try { var st = ghKickState_(); delete st.exp; ghKickSave_(st); } catch (eS) {}
+  var r = {};
+  try { r = ghKick_(CFG.GH_RENDER_WF || 'render.yml', 'آزمونِ توکن', { force: true }) || {}; }
+  catch (eK) { r = { ok: false, why: String((eK && eK.message) || eK) }; }
+  var out = { ok: !!r.ok, saved: true, fp: fp, code: r.ok ? 204 : (Number(r.code) || 0),
+              skipped: !!r.skipped, why: String(r.why || '') };
+  if (r.ok) {
+    var ks = {};
+    try { ks = ghKickStatus_(); } catch (eT) {}
+    out.why = 'گیت‌هاب پذیرفت (۲۰۴) و رانرِ ویدئو همین حالا یک بار راه افتاد. از این پس موتور هر بار ' +
+              'کاری برای رانر بنویسد خودش راهش می‌اندازد. ' +
+              (ks.expDays !== null && ks.expDays !== undefined ? 'انقضا: ' + ks.expDays + ' روزِ دیگر.' : 'تاریخِ انقضا ندارد.');
+  }
+  try { logLine_('توکنِ راه‌اندازِ رندر گذاشته شد (اثرِ انگشت ' + fp + '): ' +
+                 (r.ok ? 'گیت‌هاب پذیرفت' : 'آزمون: ' + out.why)); } catch (eL) {}
+  return out;
+}
+
+/** درِ منو. پنجره‌ای مثلِ «ثبت کلید Gemini»؛ کار در `ghTokenSet_` است تا آزمودنی باشد. */
+function setGitHubToken() {
+  var ui = ui_();
+  if (!ui) throw new Error('این گزینه را از داخل شیت CONTENT-HUB اجرا کنید.');
+  var cur = ghToken_();
+  var r = ui.prompt('توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو',
+    'توکنی را که در گیت‌هاب ساختید (با github_pat_ شروع می‌شود) این‌جا بچسبانید.\n' +
+    'جای دیگری نچسبانید — نه ایمیل، نه تلگرام، نه شیت.\n' +
+    (cur ? 'توکنی از قبل هست (اثرِ انگشت ' + ghTokenFp_(cur) + ')؛ چسباندنِ تازه جایش را می‌گیرد. ' +
+           'برای برداشتنش بنویسید «حذف».' : ''),
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return null;
+  var out = ghTokenSet_(r.getResponseText());
+  var head = out.cleared ? '🗑 ' : out.ok ? '✅ ذخیره شد. ' : out.saved ? '⚠️ ذخیره شد، ولی: ' : '❌ ذخیره نشد: ';
+  ui.alert(head + out.why + (out.fp ? '\n(اثرِ انگشتِ توکن: ' + out.fp + ')' : ''));
   return out;
 }

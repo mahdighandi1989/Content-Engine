@@ -9,6 +9,9 @@ function onOpen() {
       .createMenu('⚙️ موتور محتوا')
       .addItem('۱) ثبت کلید Gemini', 'setApiKey')
       .addItem('۲) نصب زمان‌بندی خودکار', 'installTriggers')
+      /* ۸.۵۹: صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰ ویژگی فقط‌خواندنی است، پس
+         توکن جز از این در جایی برای نشستن ندارد. */
+      .addItem('۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو', 'setGitHubToken')
       .addSeparator()
       .addItem('اجرای همگام‌سازی همین حالا', 'runSyncNow')
       .addSubMenu(SpreadsheetApp.getUi().createMenu('ساخت یک قسمت همین حالا')

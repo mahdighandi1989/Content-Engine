@@ -8479,6 +8479,85 @@ console.log('\n=== ۸۸) موتور خودش رانر را راه می‌اند�
      okSq === true && sent.length === n12 + 1, 'n=' + (sent.length - n12));
   if (sqWas === undefined) delete global.__PROPS[PK.YT_PL_SQ]; else global.__PROPS[PK.YT_PL_SQ] = sqWas;
 
+
+  /* ══ ۸.۵۹ — جای گذاشتنِ توکن، از منو ══
+     ۸.۵۸ گفت «در Script Properties بگذارید» و صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰
+     ویژگی فقط‌خواندنی است. پس ادعا از **همان دری** سنجیده می‌شود که او فشار می‌دهد:
+     گزینهٔ منو ⇐ پنجره ⇐ ذخیره ⇐ یک POST به گیت‌هاب ⇐ جوابی که او می‌خوانَد. */
+  const setupSrc89 = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const named89 = (setupSrc89.match(/addItem\('[^']*توکنِ گیت‌هاب[^']*',\s*'(\w+)'\)/) || [])[1];
+  ok('۸۸.۱۳ منو گزینهٔ توکن دارد و نامِ تابعِ موجود را صدا می‌زند',
+     named89 === 'setGitHubToken' && typeof global[named89] === 'function', String(named89));
+
+  const TOK2 = 'github_pat_11AAA_TESTSECRET2_zzzzzzzzzzzzzzzzzz';
+  let alerted = '', asked = '', typed = '', button = 'OK';
+  const ui89 = () => ({
+    prompt: function (t, m) { asked = String(m);
+      return { getSelectedButton: () => button, getResponseText: () => typed }; },
+    alert: function () { alerted = Array.prototype.join.call(arguments, ' | '); },
+    ButtonSet: { OK: 'OK', OK_CANCEL: 'OK_CANCEL' }, Button: { OK: 'OK' }
+  });
+  clean(); logs.length = 0;
+  reply = { code: 204, text: '', headers: {} };
+  /* توکنِ قبلی تاریخِ انقضای نزدیک داشت؛ تازه «بی انقضا» است و سرآیندی نمی‌فرستد. */
+  global.__PROPS[PK.GH_KICK] = JSON.stringify({ exp: expIn(3) });
+  const n13 = sent.length;
+  global.__UI = ui89(); typed = '  «' + TOK2 + '»\n'; button = 'OK';
+  const r13 = global[named89]();
+  global.__UI = null;
+  const post13 = sent.slice(n13);
+  ok('۸۸.۱۴ فشارِ منو توکن را (بی فاصله و گیومه) در Properties می‌گذارد و همان لحظه یک بار گیت‌هاب را می‌پرسد',
+     global.__PROPS[PK.GH_TOKEN] === TOK2 && post13.length === 1 &&
+     String(post13[0].opt.headers.Authorization) === 'Bearer ' + TOK2,
+     JSON.stringify({ saved: global.__PROPS[PK.GH_TOKEN] === TOK2, posts: post13.length }));
+  ok('۸۸.۱۵ و جوابِ گیت‌هاب را به او می‌گوید — «ذخیره شد» بی آزمون ادعای بی‌ورودی است (۷.۷۹)',
+     !!r13 && r13.ok === true && /پذیرفت/.test(alerted) && /۲۰۴/.test(alerted), alerted.slice(0, 90));
+  ok('۸۸.۱۵-ب انقضای کهنهٔ توکنِ قبلی پاک شد — بی آن «۳ روزِ دیگر منقضی می‌شود» دروغ بود',
+     ghKickStatus_().expDays === null && !ghKickStatus_().problem && /انقضا ندارد/.test(alerted),
+     JSON.stringify(ghKickStatus_()));
+  const shown13 = alerted + asked + JSON.stringify(r13) + logs.join('\n') + JSON.stringify(ghKickState_());
+  ok('۸۸.۱۶ توکن در پنجره، جواب، سیاهه و حافظهٔ راه‌انداز نیست — فقط اثرِ انگشت',
+     shown13.indexOf('TESTSECRET2') === -1 && r13.fp && alerted.indexOf(r13.fp) !== -1,
+     'fp=' + (r13 && r13.fp));
+
+  /* متنی که توکن نیست ⇒ هیچ ذخیره‌ای و هیچ POSTی، با علتِ نام‌دار. */
+  const n17 = sent.length;
+  global.__UI = ui89(); typed = 'render-kick'; button = 'OK';
+  const r17 = global[named89]();
+  global.__UI = ui89(); typed = TOK2 + ' ' + TOK2;
+  const r17b = global[named89]();
+  global.__UI = null;
+  ok('۸۸.۱۷ نامِ توکن یا دو چیزِ چسبیده رد می‌شود؛ توکنِ قبلی دست نمی‌خورد و گیت‌هاب پرسیده نمی‌شود',
+     r17.saved === false && r17b.saved === false && global.__PROPS[PK.GH_TOKEN] === TOK2 &&
+     sent.length === n17 && /github_pat_/.test(r17.why) && /فاصله/.test(r17b.why),
+     JSON.stringify({ a: r17.why.slice(0, 40), b: r17b.why.slice(0, 40) }));
+
+  /* لغو ⇒ هیچ. */
+  global.__UI = ui89(); typed = 'github_pat_11BBB_TESTSECRET3_yyyyyyyyyyyyyyyyyy'; button = 'CANCEL';
+  const r18 = global[named89]();
+  global.__UI = null;
+  ok('۸۸.۱۸ «لغو» هیچ چیز را عوض نمی‌کند', r18 === null && global.__PROPS[PK.GH_TOKEN] === TOK2);
+
+  /* توکنِ ردشده می‌مانَد — ۴۰۳ با عوض‌کردنِ دسترسیِ همان توکن درست می‌شود — و پنجره کارِ بعدی را می‌گوید. */
+  reply = { code: 403, text: JSON.stringify({ message: 'Resource not accessible by personal access token' }), headers: {} };
+  const TOK4 = 'github_pat_11CCC_TESTSECRET4_xxxxxxxxxxxxxxxxxx';
+  global.__UI = ui89(); typed = TOK4; button = 'OK';
+  const r19 = global[named89]();
+  global.__UI = null;
+  ok('۸۸.۱۹ گیت‌هاب نپذیرفت ⇒ ذخیره می‌مانَد و پنجره همان اصلاحِ نام‌دار را می‌گوید',
+     /* `saved` پرچمِ جواب است؛ آنچه واقعاً در Properties نشست جدا پرسیده می‌شود —
+        نگارشِ اول فقط پرچم را می‌خواند و پاک‌کردنِ توکنِ ردشده را نمی‌دید. */
+     r19.saved === true && global.__PROPS[PK.GH_TOKEN] === TOK4 && r19.ok === false && r19.code === 403 &&
+     /Read and write/.test(alerted) && /ذخیره شد، ولی/.test(alerted) && alerted.indexOf('TESTSECRET4') === -1,
+     alerted.slice(0, 100));
+
+  /* «حذف» ⇒ برمی‌دارد، و خطِ روز به «کارِ شما» برمی‌گردد و درِ درست را نام می‌برد. */
+  global.__UI = ui89(); typed = 'حذف'; button = 'OK';
+  const r20 = global[named89]();
+  global.__UI = null;
+  ok('۸۸.۲۰ «حذف» توکن را برمی‌دارد و خطِ روز همان گزینهٔ منو را نام می‌برد، نه صفحهٔ فقط‌خواندنی را',
+     r20.cleared === true && global.__PROPS[PK.GH_TOKEN] === undefined &&
+     /«۳\) توکنِ گیت‌هاب»/.test(ghKickStatus_().line), ghKickStatus_().line);
   UrlFetchApp.fetch = fetchWas; global.logLine_ = logWas;
   global.__STUB = BASE_STUB; clean(); ytRenderSave_({ items: [] }); _ytMapMemo = null;
 }
