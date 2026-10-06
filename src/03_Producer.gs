@@ -7808,7 +7808,12 @@ function produceEpisode(opt) {
   } finally { runExit_('produceEpisode'); }
 }
 
-function produceEpisodeContinue() { return renderAudioStep_(); }
+function produceEpisodeContinue() {
+  /* شاهدِ اجرا (۸.۵۴): تا امروز ادامه‌ها هیچ شاهدی نداشتند، پس ادامهٔ کشته‌شده
+     در `runs` هم دیده نمی‌شد. */
+  runEnter_('produceEpisodeContinue');
+  try { return renderAudioStep_(); } finally { runExit_('produceEpisodeContinue'); }
+}
 
 /**
  * نگهبان. اگر اجرایی وسط صداگذاری کشته شود، تریگرِ ادامه ساخته نمی‌شود و قسمت
@@ -7863,9 +7868,189 @@ function clearAudioTriggers_() {
 function clearAudioContinuation_() {
   clearAudioTriggers_();
   try { props_().deleteProperty(PK.CONT_DUE); } catch (e) {}
+  epGuardDone_('variety');
+}
+
+/**
+ * ══ نگهبانِ ادامهٔ قسمت (۸.۵۴) — همان نگهبانِ شبانهٔ ۸.۵۳، برای ساختِ قسمت ══
+ *
+ * ۶ اکتبر درس‌نامهٔ ۶۲ (درسِ ۴۰) ساعتِ ۰۸:۳۳ فایلِ دومش را ساخت و ادامهٔ
+ * «تحویل» را زمان‌بندی کرد — و تا ۱۰:۰۷ هیچ اتفاقی نیفتاد. وارسیِ سلامت پیدایش
+ * کرد و تحویل ۱۰:۱۲ تمام شد: ۹۵ دقیقه تأخیر، بی هیچ خطا. تنها جاهایی که «ادامه»
+ * را می‌سازند خودِ اجراها هستند؛ اجرایی که سرِ شش دقیقه کشته شود هیچ ادامه‌ای
+ * نمی‌سازد، و نگهبانِ «نوبت گذشته» فقط وقتی صدا زده می‌شد که همگام‌سازی (هر دو
+ * ساعت) یا وارسیِ سلامت (۱۰ صبح) دویدند.
+ *
+ * پس هر اجرای ادامه، **پیش از هر کاری**، ادامه‌ای برای `EP_GUARD_MS` بعد
+ * می‌گذارد (بیش از سقفِ شش دقیقهٔ گوگل). اجرای سالم آن را با ادامهٔ عادیِ
+ * خودش عوض می‌کند (`scheduleContinue_` نگهبان را برمی‌دارد) یا در پایان پاکش
+ * می‌کند. رسیدن به این‌جا با نگهبانِ هنوز-مسلح یعنی اجرای پیشین کشته شد — و
+ * شمرده می‌شود: همان مرحلهٔ همان قسمت بیش از `EP_GUARD_MAX` بار ⇒ نگهبان دیگر
+ * مسلح نمی‌شود (حلقهٔ کشته‌شدن هر هفت دقیقه پول و سهمیه می‌خورد) و همان نگهبانِ
+ * قدیمیِ «نوبت گذشته» می‌مانَد.
+ *
+ * شاهد در Script Properties است، نه در سیاهه (۸.۱۱): همان سرویسی که کُشت،
+ * نمی‌تواند شاهد را بنویسد.
+ */
+function epGuardMap_() {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.EP_GUARD) || '{}');
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch (e) { return {}; }
+}
+function epGuardSave_(m) {
+  try { props_().setProperty(PK.EP_GUARD, JSON.stringify(m || {})); } catch (e) {}
+}
+
+/** @return {{killed:boolean, armed:boolean, n:number}} */
+function epGuardBegin_(show, ep, phase, sched) {
+  var out = { killed: false, armed: false, n: 0 };
+  if (CFG.EP_GUARD_ON === false) return out;
+  var m = epGuardMap_(), g = m[show] || {};
+  var same = String(g.ep) === String(ep) && String(g.phase) === String(phase || '');
+  if (g.armed) {
+    out.killed = true;
+    g.n = same ? (Number(g.n) || 0) + 1 : 1;
+    g.kill = { at: nowStr_(), ep: String(ep), phase: String(g.phase || '') };
+  } else if (!same) {
+    g.n = 0;
+  }
+  out.n = Number(g.n) || 0;
+  var max = Math.max(1, Number(CFG.EP_GUARD_MAX) || 3);
+  g.ep = String(ep); g.phase = String(phase || '');
+  if (out.n >= max) {
+    g.armed = 0; g.gaveUp = nowStr_();
+    m[show] = g; epGuardSave_(m);
+    return out;
+  }
+  try {
+    sched(Math.max(400000, Number(CFG.EP_GUARD_MS) || 420000));
+    g.armed = new Date().getTime();
+    out.armed = true;
+  } catch (eS) { g.armed = 0; }
+  m[show] = g; epGuardSave_(m);
+  return out;
+}
+
+/**
+ * ساختنِ تریگرِ ادامه شکست خورد (۸.۵۴) — شاهد در Properties. تا امروز این خطا فقط
+ * پرتاب می‌شد و راهِ «قفل گرفته بود» آن را در `catch (eL) {}` می‌بلعید: زنجیره پاره
+ * می‌شد و هیچ‌جا گفته نمی‌شد چرا. علتِ رایجش سقفِ بیست تریگرِ Apps Script است، و
+ * آن را فقط پیامِ خودِ خطا می‌گوید.
+ */
+function epTrigFailNote_(fn, e) {
+  try {
+    props_().setProperty(PK.EP_TRIG_FAIL, JSON.stringify({ at: nowStr_(), fn: String(fn),
+      msg: String((e && e.message) || e || '').slice(0, 160),
+      n: (function () { try { return ScriptApp.getProjectTriggers().length; } catch (eN) { return -1; } })() }));
+  } catch (eS) {}
+}
+
+/** ادامهٔ عادی یا پایان: نگهبان برداشته می‌شود — کشته‌نشدن یعنی همین. */
+function epGuardDisarm_(show) {
+  try {
+    var m = epGuardMap_();
+    if (m[show] && m[show].armed) { m[show].armed = 0; epGuardSave_(m); }
+  } catch (e) {}
+}
+
+/** قسمتِ تمام‌شده: شمارش هم پاک می‌شود، فقط آخرین کشته‌شدن برای گزارش می‌مانَد. */
+function epGuardDone_(show) {
+  try {
+    var m = epGuardMap_();
+    if (m[show]) { m[show] = { kill: m[show].kill || null, armed: 0, n: 0 }; epGuardSave_(m); }
+  } catch (e) {}
+}
+
+/**
+ * درِ دوم، ساعتی (۸.۵۴): ادامه‌ای که هرگز زده نشد (تریگرِ یک‌باره‌ای که گوگل نزد، یا
+ * اجرایی که پیش از رسیدن به نگهبان مرد). فقط Properties و فهرستِ تریگرها — بی هاب،
+ * بی سیاهه، چون روی تریگرِ ساعتی است (۷٫۶۳/۷٫۸۴). اگر نگهبانِ همان مرحله دست
+ * کشیده، این در هم دست می‌کشد؛ وگرنه حلقهٔ هفت‌دقیقه‌ای را ساعتی ادامه می‌داد.
+ */
+function epStallKick_() {
+  var out = [];
+  var specs = [
+    { show: 'variety', pend: PK.PENDING, due: PK.CONT_DUE, fn: 'produceEpisodeContinue',
+      sched: function (ms) { scheduleContinue_(ms); } },
+    { show: 'special', pend: PK.SP_PENDING, due: PK.SP_CONT_DUE, fn: 'produceSpecialContinue',
+      sched: function (ms) { scheduleSpecialContinue_(ms); } }
+  ];
+  var ts = null;
+  for (var i = 0; i < specs.length; i++) {
+    var s = specs[i];
+    try {
+      var raw = props_().getProperty(s.pend);
+      if (!raw) continue;
+      var g = epGuardMap_()[s.show] || {};
+      if (g.gaveUp && (Number(g.n) || 0) >= Math.max(1, Number(CFG.EP_GUARD_MAX) || 3)) continue;
+      var due = Number(props_().getProperty(s.due) || 0), now = new Date().getTime();
+      var grace = Math.max(8, Number(CFG.EP_STALL_GRACE_MIN) || 15) * 60000;
+      if (due > 0 && now < due + grace) continue;
+      if (ts === null) ts = ScriptApp.getProjectTriggers();
+      var has = false;
+      for (var t = 0; t < ts.length; t++) if (ts[t].getHandlerFunction() === s.fn) { has = true; break; }
+      /* تریگرِ زده‌شده هم در فهرست می‌مانَد (۵٫۷)، پس «هست» کافی نیست؛ ملاکِ اصلی
+         «نوبت گذشته» است. ولی نوبتی که بیش از ۱۲ ساعت جلوتر است هم سالم نیست. */
+      s.sched(60 * 1000);
+      out.push(s.show + (has ? ' (تریگر بود ولی نزد)' : ' (بی تریگر)'));
+      try {
+        props_().setProperty(PK.EP_KICK_LAST, JSON.stringify({ at: nowStr_(), show: s.show,
+                             late: due ? Math.round((now - due) / 60000) : -1 }));
+      } catch (eK) {}
+    } catch (e) {}
+  }
+  return out;
+}
+
+/**
+ * خطِ روزانهٔ نگهبان (۸.۵۴) — فقط Properties. «کشته شد و ادامه یافت» ایراد نیست
+ * (`ok` می‌مانَد)، ولی گفته می‌شود: سه بار در یک هفته یعنی مرحله‌ای که جا نمی‌شود.
+ * «دست کشید» ایراد است، چون آن قسمت دوباره به نگهبانِ کُندِ قدیمی سپرده شد.
+ */
+function epGuardStatus_() {
+  var out = { ok: true, line: '', kills: [], gaveUp: [], kick: null };
+  try {
+    var m = epGuardMap_(), now = new Date().getTime();
+    var nm = { variety: CFG.SHOW_NAME, special: CFG.SPECIAL_SHOW_NAME };
+    for (var k in m) {
+      if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+      var g = m[k] || {};
+      var kt = g.kill && g.kill.at ? parseWhen_(String(g.kill.at)) : NaN;
+      if (!isNaN(kt) && now - kt < 48 * 3600000) {
+        out.kills.push((nm[k] || k) + ' ' + g.kill.ep + ' در مرحلهٔ «' + (g.kill.phase || '—') + '» (' + g.kill.at + ')');
+      }
+      if (g.gaveUp && (Number(g.n) || 0) >= Math.max(1, Number(CFG.EP_GUARD_MAX) || 3)) {
+        out.ok = false;
+        out.gaveUp.push((nm[k] || k) + ' ' + g.ep + ' — مرحلهٔ «' + (g.phase || '—') + '» ' + g.n + ' بار پیاپی کشته شد');
+      }
+    }
+    try { out.kick = JSON.parse(props_().getProperty(PK.EP_KICK_LAST) || 'null'); } catch (eK) {}
+    try {
+      var tf = JSON.parse(props_().getProperty(PK.EP_TRIG_FAIL) || 'null');
+      var tft = tf && tf.at ? parseWhen_(String(tf.at)) : NaN;
+      if (!isNaN(tft) && now - tft < 48 * 3600000) { out.trigFail = tf; out.ok = false; }
+    } catch (eTf) {}
+    var L = [];
+    if (out.trigFail) {
+      L.push('❌ ساختنِ تریگرِ ادامه شکست خورد (' + out.trigFail.fn + '، ' + out.trigFail.at +
+             (Number(out.trigFail.n) >= 0 ? '، ' + out.trigFail.n + ' تریگر در پروژه' : '') + '): ' +
+             out.trigFail.msg + ' — زنجیرهٔ قسمت تا درِ ساعتی پاره ماند.');
+    }
+    if (out.gaveUp.length) L.push('❌ نگهبانِ ادامه دست کشید: ' + out.gaveUp.join(' · ') + ' — علتِ کشته‌شدن را پیدا کن.');
+    if (out.kills.length) L.push('اجرای کشته‌شدهٔ قسمت که نگهبان ادامه‌اش داد: ' + out.kills.join(' · ') + '.');
+    var kt2 = out.kick && out.kick.at ? parseWhen_(String(out.kick.at)) : NaN;
+    if (!isNaN(kt2) && now - kt2 < 48 * 3600000) {
+      L.push('درِ ساعتی یک قسمتِ گیرکرده را راه انداخت (' + (nm[out.kick.show] || out.kick.show) + '، ' +
+             out.kick.at + (Number(out.kick.late) > 0 ? '، ' + out.kick.late + ' دقیقه پس از نوبت' : '') + ').');
+    }
+    out.line = L.length ? L.join(' ') : 'نگهبانِ ادامهٔ قسمت‌ها: در ۴۸ ساعتِ اخیر هیچ اجرایی کشته نشد.';
+  } catch (e) { out.line = 'نگهبانِ ادامهٔ قسمت‌ها: وضعیت خوانده نشد.'; }
+  return out;
 }
 
 function scheduleContinue_(ms) {
+  epGuardDisarm_('variety');
   // ترتیب مهم است. اگر اول پاک کنیم و بعد بنویسیم، در آن شکافِ کوتاه
   // «نوبتِ ادامه» وجود ندارد؛ وارسیِ سلامت — که قفل نمی‌گیرد — می‌تواند
   // درست همان‌جا بیفتد، قسمتی را که تازه برای شش ساعت بعد پارک شده «رها‌شده»
@@ -7880,6 +8065,7 @@ function scheduleContinue_(ms) {
     // بی‌راننده مانده. «نوبت» را به گذشته می‌بریم تا نگهبانِ دورِ بعد حتماً
     // دوباره تلاش کند — وگرنه یک خطای گذرا قسمت را برای همیشه می‌کشت.
     try { props_().setProperty(PK.CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
+    epTrigFailNote_('produceEpisodeContinue', eT);
     throw eT;
   }
 }
@@ -7980,6 +8166,13 @@ function renderAudioStep_() {
     }
     var meta = JSON.parse(it.next().getBlob().getDataAsString());
     var ep = meta.ep, items = meta.items, cat = meta.cat, epNum = meta.epNum;
+    /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_`. */
+    var gdV = epGuardBegin_('variety', epNum, st.phase || '', scheduleContinue_);
+    if (gdV.killed) {
+      logLine_('قسمت ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
+               '» کشته شد و نگهبان ادامه‌اش داد' +
+               (gdV.armed ? '' : ' — ' + gdV.n + ' بارِ پیاپی در همین مرحله؛ نگهبان دیگر مسلح نمی‌شود') + '.');
+    }
 
     var pad = ('0000' + epNum).slice(-4);
     // نام فایل با نامِ برنامه شروع می‌شود تا در درایو و در تلگرام هرگز با
@@ -8258,12 +8451,17 @@ function renderAudioStep_() {
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     /* اینجا — و فقط اینجا — هم بایتِ واقعیِ صدا در دست است هم متنِ گفته‌شده.
        سقفِ «یک فایل» فردا از همین اندازه‌گیری می‌آید (۶٫۲۹). */
-    try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
-    try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
-    /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
-    try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
-    /* و همان، خوانا، در پوشهٔ قسمت — کنارِ «متن صوتی»، نه درونش (۸.۴۱). */
-    try { speakMoodFileSave_(folder, baseName, ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMf) {}
+    /* ثبت‌ها یک بار (۸.۵۴) — تحویل ممکن است در دو اجرا تمام شود (پیش از تلگرام). */
+    if (!st.recDone) {
+      try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
+      try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
+      /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
+      try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
+      /* و همان، خوانا، در پوشهٔ قسمت — کنارِ «متن صوتی»، نه درونش (۸.۴۱). */
+      try { speakMoodFileSave_(folder, baseName, ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMf) {}
+      st.recDone = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+    }
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {
@@ -8311,6 +8509,15 @@ function renderAudioStep_() {
     }
     pod.getRange(st.podRow, 11).setValue(st.mailed);
 
+    /* تلگرام با وقتِ کامل (۸.۵۴) — توضیح کنارِ همین بند در درس‌نامه (بخشِ ۱۴). */
+    if (!st.tg && !st.tgSplit &&
+        deadline - new Date().getTime() < Math.max(30000, Number(CFG.TG_MIN_MS) || 120000)) {
+      st.tgSplit = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+      scheduleContinue_(20 * 1000);
+      logLine_('قسمت ' + epNum + ': تلگرام به اجرای بعد رفت تا با وقتِ کامل بارگذاری شود.');
+      return { ok: true, episode: epNum, title: ep.title, duration: 'در حال ارسال', pending: true, tgLater: true };
+    }
     // تلگرام: اگر فایل یکجا داریم، فقط همان یکی می‌رود
     if (!st.tg) {
       // به تلگرام فایلِ یکجا می‌رود، نه تکه‌های کوتاه؛ و اگر قسمت بلندتر از سقفِ

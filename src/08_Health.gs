@@ -596,6 +596,8 @@ function writeStatus_(hub, note) {
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
+    /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
+    epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
@@ -2117,6 +2119,11 @@ function healthCheck() {
        را از دست می‌دهد؛ همان قاعده‌ای که `monChecksStatus_` دارد. */
     var nsS = nightStarveStatus_(hub, true);
     if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
+    /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — هر روز، حتی وقتی چیزی کشته نشده. */
+    try {
+      var egS = epGuardStatus_();
+      if (egS && egS.line) { if (egS.ok) notes.push(egS.line); else problems.push(egS.line); }
+    } catch (eEg) {}
   } catch (eNs) {}
   /* ══ و اگر خاموش است، اینجا کاری هم می‌شود — نه فقط گزارش (۷٫۴۷) ══
      حکمِ «این مدل دستور را نمی‌پذیرد» هفته‌ها فقط گفته می‌شد. حالا اگر

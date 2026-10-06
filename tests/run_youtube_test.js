@@ -7491,4 +7491,192 @@ console.log('\n=== ۷۶) ممیزیِ ۵ اکتبر: سنجاقِ مدلِ تص�
   ok('۷۶.۷ دورِ یوتیوب: «تأییدشده» پیش از «انتشار»', order.join(',') === 'تأییدشده,انتشار', order.join(','));
 }
 
+console.log('\n=== ۷۹) کاورِ نقاشی با عمومی‌شدن پاک نمی‌شود، و آنچه پاک شد برمی‌گردد (۸.۵۴) ===');
+{
+  /* ۶ اکتبر ساعتِ ۰۲:۵۹ موتور درس‌های ۳۸ و ۳۹ را پس از تأیید عمومی کرد و کاورِ نقاشیِ
+     هر دو را با کارتِ سرمه‌ایِ اسلایدز عوض کرد: `ytRedoOne_` همیشه کارت می‌ساخت، و
+     «نقاشی مقدم است» (۸.۳۱) فقط در راهِ آپلود بود. صاحبِ برنامه روزِ قبل کاورِ درست را
+     دیده بود و فردایش در استودیو کاورِ دیگری دید. */
+  const hub = getHub_();
+  const unitsWas = CFG.YT_QUOTA_UNITS, thumbWas = CFG.YT_THUMB;
+  CFG.YT_QUOTA_UNITS = 1e9; CFG.YT_THUMB = true;
+  const jpg = [0xFF, 0xD8, 0xFF, 0xE0].concat(new Array(9000).fill(7)).map(x => x > 127 ? x - 256 : x);
+  const realFetch = global.UrlFetchApp;
+  const fetched = [];
+  global.UrlFetchApp = { fetch: function (u, o) {
+    fetched.push(String(u));
+    if (/-cover\.jpg$/.test(String(u))) {
+      return { getResponseCode: () => 200, getContentText: () => '',
+               getBlob: () => Utilities.newBlob(jpg, 'application/octet-stream', 'c.jpg') };
+    }
+    return realFetch.fetch.apply(realFetch, arguments);
+  } };
+  const rmap = {
+    'special:790': { mode: 'scenes', thumb: 'https://github.com/x/releases/download/renders/special-790-cover.jpg',
+                     qa: { ok: true } },
+    'special:791': { mode: 'cards' }
+  };
+  const mapWas = global.ytRenderMapCached_;
+  global.ytRenderMapCached_ = () => rmap;
+  const sets = [];
+  let cards = 0;
+  const cardWas = global.ytCoverCard_;
+  global.ytCoverCard_ = function () { cards++; return { blob: Utilities.newBlob('PNGCARD', 'image/png', 'card.png') }; };
+  global.YouTube = {
+    Videos: { update: () => ({}) },
+    Thumbnails: { set: (vid, blob) => { sets.push({ vid: vid, first: (blob.getBytes()[0] & 255) }); } },
+    Channels: { list: () => ({ items: [] }) }, PlaylistItems: { list: () => ({ items: [] }) }, Playlists: {} };
+  const folders = {};
+  const folderWas = global.ytFolderOf_;
+  global.ytFolderOf_ = (show, ep) => (String(show) === 'special' ? folders[String(ep)] || null : null);
+  const mkEp = (n, privacy) => {
+    const f = DriveApp.__register('EPC' + n, 'درس 0' + n);
+    f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 9, seriesName: 'معرفت‌شناسی', cat: 'فلسفه',
+      ep: { title: 'حافظه', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: 'الف'.repeat(200) }] } }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob(JSON.stringify({ at: '2026-10-05 05:00', show: 'special', ep: String(n),
+      title: 'عنوانِ ' + n, description: 'کپشنِ پاک', tags: ['معرفت'], coverTitle: 'ک', coverKicker: 'ک',
+      chapters: 3, visuals: [] }), 'application/json', CFG.YT_PLAN_FILE || '_yt.json'));
+    ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: String(n), series: 'معرفت‌شناسی', title: 'عنوانِ ' + n,
+                  videoId: 'VC' + n, url: 'https://www.youtube.com/watch?v=VC' + n,
+                  privacy: privacy || 'unlisted', result: 'منتشر شد' });
+    folders[String(n)] = f;
+  };
+  delete global.__PROPS[PK.YT_THUMB_PAINT];
+
+  mkEp(790);
+  const r1 = ytRedoOne_('special', '790', {});
+  ok('۷۹.۱ بازسازیِ ویدئوی صحنه‌ای کاورِ **نقاشی** را می‌نشانَد، نه کارتِ اسلایدز — و کارتی هم ساخته نمی‌شود',
+     sets.length === 1 && sets[0].vid === 'VC790' && sets[0].first === 0xFF && cards === 0 &&
+     r1.changed.indexOf('کاور (نقاشی)') !== -1,
+     JSON.stringify({ sets: sets, cards: cards, changed: r1.changed }));
+  const led1 = JSON.parse(global.__PROPS[PK.YT_THUMB_PAINT] || '{}');
+  ok('۷۹.۲ و در دفتر می‌نشیند — همان نشانیِ کاورِ رانر',
+     led1['special:790'] === rmap['special:790'].thumb, JSON.stringify(led1));
+
+  mkEp(791);
+  sets.length = 0;
+  ytRedoOne_('special', '791', {});
+  ok('۷۹.۳ ویدئویی که رانر برایش نقاشی نساخته، همان کارتِ اسلایدز را می‌گیرد',
+     sets.length === 1 && sets[0].first !== 0xFF && cards === 1, JSON.stringify({ sets: sets, cards: cards }));
+
+  /* ۷۹.۴ — آنچه پیش از ۸.۵۴ پاک شد برمی‌گردد: ویدئوی منتشرشده با کاورِ نقاشیِ نشسته‌نشده. */
+  rmap['special:792'] = { mode: 'scenes', thumb: 'https://github.com/x/releases/download/renders/special-792-cover.jpg' };
+  rmap['special:793'] = { mode: 'scenes', thumb: 'https://github.com/x/releases/download/renders/special-793-cover.jpg' };
+  mkEp(792, 'public');
+  sets.length = 0; cards = 0;
+  const fx = ytThumbRestore_(60000);
+  ok('۷۹.۴ ویدئوی منتشرشده‌ای که کاورِ نقاشی‌اش در دفتر نیست، آن را برمی‌گرداند — و منتشرنشده دست نمی‌خورد',
+     fx.fixed === 1 && sets.length === 1 && sets[0].vid === 'VC792' && sets[0].first === 0xFF && cards === 0,
+     JSON.stringify({ fx: fx, sets: sets }));
+  sets.length = 0;
+  const fx2 = ytThumbRestore_(60000);
+  /* نادیده‌گرفتنِ دفتر زودتر روی ۷۹.۴ می‌نشیند: درسِ ۷۹۰ که نقاشی‌اش را در ۷۹.۱ گرفت، دوباره
+     سنجیده و نشانده می‌شود — همان ادعا، یک قدم زودتر. */
+  ok('۷۹.۵ بارِ دوم هیچ کاری نمی‌کند — دفتر جلوی تکرار را می‌گیرد',
+     fx2.checked === 0 && sets.length === 0, JSON.stringify(fx2));
+
+  /* ۷۹.۶ — دورِ یوتیوب واقعاً صدایش می‌زند. */
+  const p27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const tick = p27.slice(p27.indexOf('function ytTick_('), p27.indexOf('function ytTick_(') + 9000);
+  ok('۷۹.۶ دورِ یوتیوب کاورِ نقاشی را برمی‌گرداند، گیرکرده‌ها را روزی یک بار می‌سنجد و «نحیف»ِ منتشرشده را پاک می‌کند',
+     /ytThumbRestore_\(/.test(tick) && /ytStuckTickDue_\(\)/.test(tick) && /ytRedoStuckNightly_\(/.test(tick) &&
+     /lvThinPrune_\(\)/.test(tick));
+
+  /* ۷۹.۷ — درِ دومِ گیرکرده‌ها روزی یک بار. */
+  delete global.__PROPS[PK.YT_STUCK_TICK];
+  const due1 = ytStuckTickDue_(); ytStuckTickMark_(); const due2 = ytStuckTickDue_();
+  ok('۷۹.۷ درِ دومِ ویدئوهای گیرکرده امروز یک بار', due1 === true && due2 === false);
+
+  /* ۷۹.۸ — «نحیف» برای درسِ منتشرشده پاک می‌شود، برای منتشرنشده می‌مانَد. */
+  lvThinNote_('special:790', { want: 1, asked: 12 });
+  lvThinNote_('special:799', { want: 1, asked: 12 });
+  const pr = lvThinPrune_();
+  const thin = lvMap_(PK.LV_THIN);
+  ok('۷۹.۸ «نحیف»ِ درسِ منتشرشده از خطِ روزانه می‌رود؛ منتشرنشده می‌مانَد',
+     pr >= 1 && !thin['special:790'] && !!thin['special:799'], JSON.stringify(Object.keys(thin)));
+  lvThinClear_('special:799');
+  ok('۷۹.۹ و انتشار خودش پاکش می‌کند', !lvMap_(PK.LV_THIN)['special:799']);
+  ok('۷۹.۹-ب راهِ آپلود پس از گرفتنِ شناسهٔ ویدئو «نحیف» را پاک می‌کند',
+     /res\.videoId = vid;\s*\n\s*lvThinClear_\(/.test(p27));
+
+  global.UrlFetchApp = realFetch; global.ytRenderMapCached_ = mapWas; global.ytCoverCard_ = cardWas;
+  global.ytFolderOf_ = folderWas; delete global.YouTube;
+  CFG.YT_QUOTA_UNITS = unitsWas; CFG.YT_THUMB = thumbWas;
+}
+
+console.log('\n=== ۸۰) جان‌بخشیِ نقاشی‌ها برای هر مجموعه، روی تخته (۸.۵۴) ===');
+{
+  /* او پرسید «تنظیماتِ هر درس و بورد و مجموعه‌ها قابلیت‌های لازم برای تغییر و ارتقا و
+     کم کردن داره؟». برای کلیپِ آغاز و حرکتِ کانون‌دار جوابِ راست «نه، سراسری است» بود. */
+  const hub = getHub_();
+  const reg = readSeriesReg_(hub);
+  const key = Object.keys(reg.byKey)[0];
+  ok('۸۰.۰ مجموعه‌ای برای آزمون هست', !!key);
+  const set = (v) => reg.sheet.getRange(reg.byKey[key].row, SC.LVMOTION).setValue(v);
+  set('');
+  const a0 = lvMotionAt_(hub, { seriesKey: key }, null);
+  set('بی‌کلیپ');
+  const a1 = lvMotionAt_(hub, { seriesKey: key }, null);
+  set('آرام');
+  const a2 = lvMotionAt_(hub, { seriesKey: key }, null);
+  set('چرند');
+  const a3 = lvMotionAt_(hub, { seriesKey: key }, null);
+  ok('۸۰.۱ خالی ⇒ پیش‌فرضِ «کامل»؛ بی‌کلیپ ⇒ بی کلیپ با کانون؛ آرام ⇒ هیچ‌کدام؛ ناشناخته ⇒ پیش‌فرض',
+     a0.v === 'کامل' && a0.clip && a0.focus && a1.clip === false && a1.focus === true &&
+     a2.clip === false && a2.focus === false && a3.v === 'کامل' && /ناشناخته/.test(a3.src),
+     JSON.stringify([a0, a1, a2, a3]));
+
+  const rs = uiLvMotionSave(key, 'بی‌کلیپ');
+  const rBad = uiLvMotionSave(key, 'چرند');
+  ok('۸۰.۲ دکمهٔ تخته ذخیره می‌کند و رسیدش از همان تعریفِ تولید می‌خوانَد؛ ناشناخته رد می‌شود',
+     rs.ok === true && /کلیپِ آغاز: خاموش/.test(rs.message) &&
+     lvMotionAt_(hub, { seriesKey: key }, null).v === 'بی‌کلیپ' && rBad.ok === false,
+     rs.message + ' | ' + rBad.message);
+
+  const html = uiBoardHtml();
+  ok('۸۰.۳ تخته جعبهٔ جان‌بخشی را دارد و تابعِ کلاینتش همان تابعِ سرور را صدا می‌زند',
+     /data-role="motion"/.test(html) && /function lvMotion\(sel\)/.test(html) && /\.uiLvMotionSave\(k,v\)/.test(html));
+
+  /* ۸۰.۴ — و تولید واقعاً می‌خوانَدش: نقشهٔ تازه با «بی‌کلیپ» کلیپ نمی‌خرد و علتش تخته است. */
+  const p27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۸۰.۴ نقشهٔ صحنه از تخته می‌خوانَد: کلیپِ «off» با علتِ تخته، و حرکتِ کانون‌دار فقط با focusOn',
+     /ctx\.motionClip === false/.test(p27) && /why: 'تخته: جان‌بخشیِ «'/.test(p27) &&
+     /mv: x\.fileId && d\.focusOn !== false \? lvSceneMv_\(x\) : null/.test(p27) &&
+     /var lvMo = lvMotionAt_\(hub, item, meta\)/.test(p27));
+
+  /* ۸۰.۵ — «آرام» به انتخابِ تخته شکست شمرده نمی‌شود. */
+  delete global.__PROPS[PK.LV_MOTION_LAST];
+  const dOff = { clip: null, focusOn: false, motion: 'آرام',
+                 scenes: new Array(10).fill(0).map((_, i) => ({ n: i, fileId: 'F' + i })) };
+  lvMotionNote_('special:801', dOff, dOff.scenes.map(() => ({ mv: null })));
+  lvMotionNote_('special:802', dOff, dOff.scenes.map(() => ({ mv: null })));
+  const ms = lvMotionStatus_();
+  ok('۸۰.۵ درسِ «آرام» شمارِ «بی‌حرکت» را بالا نمی‌برد و خطِ روزانه انتخابِ تخته را می‌گوید',
+     ms.ok === true && Number(ms.zero) === 0 && /انتخابِ تخته/.test(ms.line), ms.line);
+}
+
+console.log('\n=== ۸۱) یک مدلِ تصویر، یک جواب (۸.۵۴) ===');
+{
+  /* ایمیلِ ۶ اکتبر: «روشن با gemini-3.1-flash-image-preview» و دو سطر پایین‌تر «مدلِ
+     تصویرِ ساخته‌شده: gemini-3.1-flash-lite-image». خطِ وضعیت حافظهٔ پیش از سنجاق را
+     عیناً نقل می‌کرد، در حالی که انتخابِ بعدی همان دم به سنجاق برمی‌گردد. */
+  const pinWas = CFG.LV_GEN_MODEL_PIN, setWas = CFG.LV_GEN_MODEL;
+  CFG.LV_GEN_MODEL_PIN = 'gemini-3.1-flash-lite-image'; CFG.LV_GEN_MODEL = '';
+  global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: 'gemini-3.1-flash-image-preview', at: Date.now(), why: 'کیفیت' });
+  const g1 = lvGenStatus_();
+  delete global.__PROPS[PK.LV_GEN_MODEL];
+  const g0 = lvGenStatus_();
+  global.__PROPS[PK.LV_GEN_MODEL] = JSON.stringify({ id: 'gemini-2.5-flash-image', at: Date.now(),
+                                                      pinMiss: 'gemini-3.1-flash-lite-image' });
+  const g2 = lvGenStatus_();
+  /* شکستنِ عمدیِ این قاعده (برگرداندنِ `out.model = c.id`) زودتر روی ۷۱.۲۵ می‌نشیند — همان ادعا:
+     سقفی که خطِ روزانه می‌گوید باید با مدلی حساب شود که تولید واقعاً به کار می‌بَرد. */
+  ok('۸۱.۱ حافظهٔ پیش از سنجاق ⇒ خط سنجاق را می‌گوید؛ نگشته ⇒ «نگشته»؛ سنجاقِ نبوده ⇒ همان حافظه',
+     g1.model === 'gemini-3.1-flash-lite-image' && g0.model === '' && g2.model === 'gemini-2.5-flash-image',
+     JSON.stringify([g1.model, g0.model, g2.model]));
+  CFG.LV_GEN_MODEL_PIN = pinWas; CFG.LV_GEN_MODEL = setWas;
+  delete global.__PROPS[PK.LV_GEN_MODEL];
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

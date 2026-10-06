@@ -1199,6 +1199,19 @@ function selfUpdateDaily() {
                  (rh.moved || 0) + ' کنار گذاشته، ' + (rh.tried || 0) +
                  ' بار مدل جواب نداد.');
       }
+      /* شاهد، همان شکلِ اجرای جدا (۸.۵۴) — خطِ روزانه از همین می‌خوانَد. `skipped`
+         را فقط وقتی می‌نویسد که این اجرا کلِ صف را دیده، وگرنه شمارِ رهاشده‌ها
+         از اجرای جدا کم‌شماری می‌شد. */
+      if (rh && rh.checked) {
+        try {
+          var wPrev = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null') || {};
+          props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify({
+            at: nowStr_(), checked: Number(rh.checked) || 0, heard: Number(rh.heard) || 0,
+            moved: Number(rh.moved) || 0, tried: Number(rh.tried) || 0,
+            skipped: Math.max(Number(rh.skipped) || 0, Number(wPrev.skipped) || 0),
+            left: Number(wPrev.left) || 0, queue: Number(rh.queue) || 0, via: 'کارِ شبانه' }));
+        } catch (eRw) {}
+      }
     } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
   }
 
@@ -1207,6 +1220,13 @@ function selfUpdateDaily() {
      فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
   var mUnheard = 0;
   try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
+  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
+     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
+     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
+  try {
+    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
+    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
+  } catch (eSk) {}
   var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
   if (mUnheard >= mStop) {
     logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +

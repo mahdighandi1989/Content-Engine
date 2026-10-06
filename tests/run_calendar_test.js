@@ -149,8 +149,11 @@ console.log('=== ۷) مرزهایی که نباید شکسته شوند ===');
      /produceEpisode\(\{ manual: true \}\)/.test(p5) &&
      /produceSpecialEpisode\(\{ manual: true \}\)/.test(p5));
   // ادامهٔ کارِ نیمه‌تمام هرگز نباید از دروازه رد شود
+  /* ۸.۵۴ بدنهٔ ادامه را با شاهدِ اجرا (`runEnter_`) پوشاند؛ ادعا همان است — ادامه
+     مستقیم به صداگذاری می‌رود و هیچ دروازه‌ای نمی‌پرسد — پس بدنه سنجیده می‌شود، نه شکلِ یک‌خطی. */
+  const contBody = (p3.match(/function produceEpisodeContinue\(\)\s*\{([\s\S]*?)\n\}/) || [])[1] || '';
   ok('۷.۵ ادامهٔ صداگذاری از دروازه رد نمی‌شود',
-     /function produceEpisodeContinue\(\)\s*\{\s*return renderAudioStep_\(\);/.test(p3));
+     /return renderAudioStep_\(\);/.test(contBody) && !/calGate_/.test(contBody));
   ok('۷.۶ اگر تقویم بترکد، تولید ادامه می‌یابد — سکوتِ ناخواسته بدتر است',
      /catch \(eCal\)[\s\S]{0,120}logLine_/.test(p3));
 }

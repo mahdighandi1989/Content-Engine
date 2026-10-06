@@ -3579,7 +3579,16 @@ function lvGenStatus_() {
     out.usd = sp.usd; out.n = sp.n;
     try {
       var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
-      out.model = String(CFG.LV_GEN_MODEL || (c && c.id) || '');
+      /* همان قاعدهٔ `lvGenModel_`، بی فهرست‌گرفتن (۸.۵۴): حافظه‌ای که پیش از
+         سنجاق نوشته شده، در انتخابِ بعدی کنار می‌رود. تا ۸.۵۳ این خط حافظه را
+         عیناً نقل می‌کرد، پس ایمیلِ ۶ اکتبر در یک سطر «روشن با
+         gemini-3.1-flash-image-preview» می‌گفت و دو سطر پایین‌تر «مدلِ تصویرِ
+         ساخته‌شده: gemini-3.1-flash-lite-image» — دو جوابِ یک پرسش در یک ایمیل. */
+      var pinE = String(CFG.LV_GEN_MODEL_PIN || '').trim();
+      var eff = String(CFG.LV_GEN_MODEL || '').trim();
+      /* فقط وقتی یک بار گشته‌ایم (حافظه هست): «هنوز نگشته‌ایم» حالتِ جدای خودش است (۸.۲۰). */
+      if (!eff && pinE && c && c.id && String(c.pinMiss || '') !== pinE && !lvGenPinDefect_(pinE).bad) eff = pinE;
+      out.model = eff || String((c && c.id) || '');
     } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
@@ -4398,6 +4407,31 @@ function lvThinNote_(key, vis) {
     for (var d = 0; d < keys.length - cap; d++) delete m[keys[d]];
   }
   return lvMapSave_(PK.LV_THIN, m);
+}
+
+/**
+ * «نحیف» یعنی «هنوز جبران‌شدنی» (۸.۱۱) — و درسی که منتشر شده دیگر جبران‌شدنی
+ * نیست. تا ۸.۵۳ هیچ‌جا پاک نمی‌شد: ایمیلِ ۶ اکتبر هنوز می‌گفت «special:58 (1 از
+ * 14)، special:59 (3 از 12) … پیش از انتشار با بازسازیِ تصویرها درست می‌شود»
+ * درباره‌ی دو درسی که روزها پیش منتشر شده بودند. هشداری که برای گذشته بزند،
+ * همان هشداری است که یاد می‌گیرند نخوانند (۷٫۴۰). فقط وقتی حافظه خالی نیست
+ * هاب خوانده می‌شود.
+ */
+function lvThinPrune_() {
+  var m = lvMap_(PK.LV_THIN), ks = Object.keys(m);
+  if (!ks.length) return 0;
+  var pub = ytPublished_(getHub_()), n = 0;
+  for (var i = 0; i < ks.length; i++) {
+    if (pub[ks[i]] && pub[ks[i]].videoId) { delete m[ks[i]]; n++; }
+  }
+  if (n) lvMapSave_(PK.LV_THIN, m);
+  return n;
+}
+function lvThinClear_(key) {
+  try {
+    var m = lvMap_(PK.LV_THIN);
+    if (m[String(key)]) { delete m[String(key)]; lvMapSave_(PK.LV_THIN, m); }
+  } catch (e) {}
 }
 
 /**
@@ -6188,9 +6222,13 @@ function lvMotionNote_(key, d, items) {
                 moves: d.scenes.filter(function (x) { return x.move === 'push' || x.move === 'reveal'; }).length,
                 box: d.scenes.filter(function (x) { return x.judge && x.judge.box; }).length,
                 mv: (items || []).filter(function (x) { return !!x.mv; }).length,
-                zero: Number(prev && prev.zero) || 0 };
+                zero: Number(prev && prev.zero) || 0,
+                off: d.focusOn === false ? String(d.motion || 'آرام') : '' };
     if (!prev || prev.key !== key) {
-      if (rec.mv > 0) rec.zero = 0;
+      /* درسی که تخته‌اش «آرام» گفته، حرکتِ کانون‌دار نمی‌خواهد (۸.۵۴): بی‌حرکتی‌اش
+         انتخاب است، نه شکست — شمار را نه بالا می‌برد نه صفر می‌کند. */
+      if (rec.off) rec.zero = Number(prev && prev.zero) || 0;
+      else if (rec.mv > 0) rec.zero = 0;
       else if (rec.n >= 8 && CFG.LV_MOTION_ON !== false) rec.zero++;
     } else {
       rec.zero = Number(prev.zero) || 0;           // همان درس، دوباره: شمار عوض نمی‌شود
@@ -6210,6 +6248,11 @@ function lvMotionStatus_() {
     out.ok = !(out.on && out.zero >= find);
     if (!out.on) { out.line = '🎥 حرکتِ کانون‌دار: خاموش.'; return out; }
     var L = out.last;
+    if (L && L.off) {
+      out.line = '🎥 حرکتِ کانون‌دار: آخرین درس (' + L.key + ') به انتخابِ تخته («' + L.off +
+                 '») فقط حرکتِ آرام گرفت.';
+      return out;
+    }
     out.line = '🎥 حرکتِ کانون‌دار: ' + (L
       ? 'آخرین درس (' + L.key + ') ' + faDigitsOut_(String(L.mv)) + ' از ' + faDigitsOut_(String(L.n)) +
         ' صحنه — کانون از توصیف‌گر ' + faDigitsOut_(String(L.focus)) + '، حرکتِ push/reveal ' +
@@ -6622,9 +6665,22 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                     allow: Math.round(pace.allow * 100) / 100, ceil: Math.round(pace.ceil * 100) / 100,
                     why: paced ? pace.why : '' },
             scenes: sc0, cover: { scene: '', fileId: '' }, nature: '',
-            clip: lvClipOn_() ? { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } : null,
+            /* جان‌بخشیِ همین مجموعه (۸.۵۴): «بی‌کلیپ» و «آرام» کلیپ نمی‌خرند، و
+               «آرام» حرکتِ کانون‌دار هم نمی‌گیرد. با `state: 'off'` و علت — نه `null` —
+               تا خطِ روزانه بگوید «خاموش به انتخابِ تخته»، نه «نقشهٔ پیش از ۸.۵۱». */
+            motion: String(ctx.motion || ''),
+            focusOn: ctx.motionFocus !== false,
+            clip: lvClipOn_()
+              ? (ctx.motionClip === false
+                  ? { state: 'off', tries: 0, op: '', fileId: '', at: '',
+                      why: 'تخته: جان‌بخشیِ «' + String(ctx.motion || '') + '» — بی کلیپ' }
+                  : { state: '', tries: 0, op: '', fileId: '', why: '', at: '' })
+              : null,
             spent: 0, made: 0, judged: false, done: false, why: '' };
       if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
+      if (d.clip && d.clip.state === 'off') {
+        try { lvClipNote_(key, d.clip, String(CFG.LV_CLIP_MODEL || '')); } catch (eCn) {}
+      }
     }
     var pa = lvScenePlanAsk_(d, ctx, left, fresh);
     if (pa.more) {
@@ -6836,7 +6892,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
                  caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0,
                  ov: x.fileId ? (x.ov || null) : null,
-                 mv: x.fileId ? lvSceneMv_(x) : null });
+                 mv: x.fileId && d.focusOn !== false ? lvSceneMv_(x) : null });
   }
   if (items.length) items[0].t0 = 0;
   lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
@@ -7022,6 +7078,96 @@ function ytScenesOkAdd_() {
     var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
     props_().setProperty(PK.YT_SCENES_OK, String(n + 1));
   } catch (e) {}
+}
+
+/**
+ * ══ کاورِ یک ویدئو — یک تعریف برای آپلود و بازسازی (۸.۵۴) ══
+ *
+ * ۸.۳۱ گفت «کاورِ رانر (نقاشیِ خودِ درس + عنوان) بر کارتِ اسلایدز مقدم است» و
+ * همین را **فقط در مسیرِ آپلود** گذاشت. `ytRedoOne_` — که ویدئوی Unlisted را
+ * عمومی می‌کند — هنوز همیشه کارتِ اسلایدز را می‌ساخت و با `thumbnails.set`
+ * رویِ ویدئو می‌نشاند. ۶ اکتبر ساعتِ ۰۲:۵۹ موتور درس‌های ۳۸ و ۳۹ را پس از
+ * تأیید عمومی کرد و **کاورِ نقاشیِ هر دو را با کارتِ سرمه‌ایِ قدیم عوض کرد**.
+ * صاحبِ برنامه روزِ قبل کاورِ درست را دیده بود و فردایش در استودیو کاورِ دیگری
+ * دید. همان «دوقلویی که یک بار درست شود، یک بار درست شده است» (۵.۹۵).
+ *
+ * حالا هر دو راه از همین تابع می‌پرسند، و کارتِ اسلایدز فقط وقتی ساخته می‌شود
+ * که نقاشی نیست (`cardFn` تنبل است: ساختنِ کارت چند فراخوانِ اسلایدز است).
+ * @return {{blob:Blob, painted:boolean, src:string}|null}
+ */
+function ytThumbFor_(key, cardFn) {
+  var rme = null;
+  try { rme = (ytRenderMapCached_() || {})[String(key)] || null; } catch (eM) { rme = null; }
+  var b = null;
+  try { b = ytRenderThumb_(rme); } catch (eB) { b = null; }
+  if (b) return { blob: b, painted: true, src: String(rme.thumb) };
+  var c = null;
+  try { c = cardFn ? cardFn() : null; } catch (eC) { c = null; }
+  return c && c.blob ? { blob: c.blob, painted: false, src: '' } : null;
+}
+
+/** دفترِ کاورهای نقاشی که واقعاً روی ویدئو نشستند: {کلید: نشانیِ کاور}. */
+function ytThumbPaint_() {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.YT_THUMB_PAINT) || '{}');
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch (e) { return {}; }
+}
+function ytThumbPaintSet_(key, src) {
+  try {
+    var m = ytThumbPaint_();
+    if (src) m[String(key)] = String(src); else delete m[String(key)];
+    var ks = Object.keys(m);
+    var cap = Math.max(20, Number(CFG.YT_THUMB_PAINT_KEEP) || 200);
+    for (var i = 0; i < ks.length - cap; i++) delete m[ks[i]];
+    props_().setProperty(PK.YT_THUMB_PAINT, JSON.stringify(m));
+  } catch (e) {}
+}
+
+/**
+ * ══ برگرداندنِ کاورِ نقاشی روی ویدئوهایی که کاورش گم شد (۸.۵۴) ══
+ * «پاک‌کردنِ ورودی آنچه را نوشته شده درست نمی‌کند» (۵.۹۵): درست‌کردنِ
+ * `ytRedoOne_` درس‌های ۳۸ و ۳۹ را که کاورشان همین امروز عوض شد برنمی‌گرداند.
+ * پس هر ویدئوی منتشرشده‌ای که رانر برایش کاورِ نقاشی ساخته و در دفتر نیست،
+ * یک بار کاورِ نقاشی‌اش را می‌گیرد. هزینه کران دارد: فقط وقتی نامزدی هست هاب
+ * باز می‌شود، و هر اجرا تا `YT_THUMB_FIX_MAX` ویدئو.
+ */
+function ytThumbRestore_(budgetMs) {
+  var out = { checked: 0, fixed: 0, why: [] };
+  if (!ytOn_() || CFG.YT_THUMB === false) return out;
+  var rm = null;
+  try { rm = ytRenderMapCached_() || {}; } catch (eR) { return out; }
+  var led = ytThumbPaint_(), cand = [];
+  for (var k in rm) {
+    if (!Object.prototype.hasOwnProperty.call(rm, k)) continue;
+    var t = rm[k] && rm[k].thumb ? String(rm[k].thumb) : '';
+    if (t && led[k] !== t) cand.push(k);
+  }
+  if (!cand.length) return out;
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 40000);
+  var pub = ytPublished_(getHub_());
+  var yt = ytSvc_();
+  if (!yt) return out;
+  var max = Math.max(1, Number(CFG.YT_THUMB_FIX_MAX) || 2);
+  for (var i = 0; i < cand.length && out.checked < max; i++) {
+    var r = pub[cand[i]];
+    if (!r || !r.videoId) continue;              // هنوز منتشر نشده: راهِ آپلود خودش نقاشی را می‌نشاند
+    if (new Date().getTime() - t0 > budget) break;
+    out.checked++;
+    var th = ytThumbFor_(cand[i], null);
+    if (!th || !th.painted) { out.why.push(cand[i] + ': کاورِ نقاشی خوانده نشد'); continue; }
+    if (!ytQuotaTake_(YT_COST.thumbSet, false)) { out.why.push('سهمیه'); break; }
+    try {
+      yt.Thumbnails.set(r.videoId, th.blob);
+      ytThumbPaintSet_(cand[i], th.src);
+      out.fixed++;
+    } catch (eT) { out.why.push(cand[i] + ': ' + String(eT.message).slice(0, 80)); }
+  }
+  if (out.checked) {
+    logLine_('یوتیوب — کاورِ نقاشی: ' + out.checked + ' ویدئو سنجیده شد، ' + out.fixed +
+             ' کاورش برگشت' + (out.why.length ? ' · نه: ' + out.why.join(' · ') : '') + '.');
+  }
+  return out;
 }
 
 /**
@@ -7237,6 +7383,32 @@ function lvTextAt_(hub, item, meta) {
     }
   } catch (e) {}
   return { v: def, share: shareOf(def), src: 'مجموعه پیدا نشد ⇒ پیش‌فرض' };
+}
+
+/**
+ * جان‌بخشیِ نقاشی‌های یک مجموعه، از ستونِ «جان‌بخشیِ تصویر» (۸.۵۴).
+ * خالی یا «خودکار» ⇒ `LV_MOTION_DEFAULT`؛ نوشتهٔ ناشناخته ⇒ همان پیش‌فرض، نه خطا.
+ * کلیدهای سراسری بالاترند: `LV_CLIP_ON: false` یعنی هیچ کلیپی، هرچه تخته بگوید.
+ * @return {{v:string, clip:boolean, focus:boolean, src:string}}
+ */
+function lvMotionAt_(hub, item, meta) {
+  var def = String(CFG.LV_MOTION_DEFAULT || 'کامل');
+  var tab = CFG.LV_MOTION_WHAT || {};
+  var of = function (v, src) {
+    var w = tab[v] || tab[def] || { clip: true, focus: true };
+    return { v: v, clip: !!w.clip, focus: !!w.focus, src: src };
+  };
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) {
+      var raw = String((rec.vals || [])[SC.LVMOTION - 1] || '').trim();
+      if (raw && tab.hasOwnProperty(raw)) return of(raw, 'تخته');
+      return of(def, raw && raw !== 'خودکار' ? 'تخته: ناشناخته ⇒ پیش‌فرض' : 'تخته: خالی ⇒ پیش‌فرض');
+    }
+  } catch (e) {}
+  return of(def, 'مجموعه پیدا نشد ⇒ پیش‌فرض');
 }
 
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
@@ -8185,6 +8357,10 @@ function ytUploadOne_(item, hub, pub) {
   /* نوشتهٔ رویِ نقاشی: ستونِ خودش در تخته، جدا از سبک و سطح (۸.۴۵). */
   try { var lvTx = lvTextAt_(hub, item, meta); ctx.textLevel = lvTx.v; ctx.textShare = lvTx.share; }
   catch (eTx) { ctx.textLevel = ''; ctx.textShare = 0; }
+  /* جان‌بخشی: ستونِ خودش در تخته (۸.۵۴) — کلیپِ آغاز و حرکتِ کانون‌دار برای همین مجموعه. */
+  try { var lvMo = lvMotionAt_(hub, item, meta); ctx.motion = lvMo.v; ctx.motionClip = lvMo.clip;
+        ctx.motionFocus = lvMo.focus; ctx.motionSrc = lvMo.src; }
+  catch (eMo) { ctx.motion = ''; }
 
   /* در حالتِ صحنه، نقشهٔ کارت‌ها دیگر به کار نمی‌آید (۸.۳۱): پرسشِ دوبارهٔ
      کارت‌ها فقط پولِ مدل است برای چیزی که ساخته نمی‌شود. */
@@ -8499,20 +8675,26 @@ function ytUploadOne_(item, hub, pub) {
   }
   if (!vid) { res.why = 'یوتیوب شناسهٔ ویدئو برنگرداند'; return res; }
   res.videoId = vid;
+  lvThinClear_(String(item.key || (item.show + ':' + item.ep)));   // منتشر شد ⇒ «نحیف» دیگر جبران‌شدنی نیست (۸.۵۴)
   var url = 'https://www.youtube.com/watch?v=' + vid;
 
   // ── کاور ──
   /* کاورِ رانر (نقاشیِ خودِ درس + عنوان) بر کارتِ اسلایدز مقدم است (۸.۳۱)؛
      نبودش یعنی همان کاورِ قبلی. */
+  var thKey = String(item.key || (item.show + ':' + item.ep));
+  /* ردیفِ رندر پایین‌تر هم لازم است (سدِ عمومی‌شدن و شمارِ تأیید) — نگارشِ اولِ ۸.۵۴
+     تعریفش را با جابه‌جاییِ کاور برداشت و فقط مجموعهٔ آزمون نشانش داد. */
   var rme = null;
-  try { rme = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; }
-  catch (eRm) { rme = null; }
-  var thumbBlob = null;
-  try { thumbBlob = ytRenderThumb_(rme); } catch (eTb) { thumbBlob = null; }
+  try { rme = (ytRenderMapCached_() || {})[thKey] || null; } catch (eRm) { rme = null; }
+  var th = ytThumbFor_(thKey, function () { return cover; });
   var thumb = '—';
-  if (CFG.YT_THUMB !== false && (thumbBlob || (cover && cover.blob)) &&
+  if (CFG.YT_THUMB !== false && th && th.blob &&
       ytQuotaTake_(YT_COST.thumbSet, false)) {
-    try { yt.Thumbnails.set(vid, thumbBlob || cover.blob); thumb = thumbBlob ? 'نشست (نقاشی)' : 'نشست'; }
+    try {
+      yt.Thumbnails.set(vid, th.blob);
+      thumb = th.painted ? 'نشست (نقاشی)' : 'نشست';
+      ytThumbPaintSet_(thKey, th.painted ? th.src : '');
+    }
     catch (eT) {
       // کاورِ سفارشی کانالِ تأییدشده می‌خواهد. این ایراد نیست، یک شرط است —
       // ولی باید گفته شود، وگرنه هر روز بی‌صدا رد می‌شود.
@@ -8980,11 +9162,31 @@ function ytTick_(budgetMs) {
     try { ytApprovedRedo_(Math.min(60000, left() - 45000)); }
     catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
   }
+  /* کاورِ نقاشی که با عمومی‌شدن پاک شده بود، برمی‌گردد (۸.۵۴). بی نامزد هیچ
+     خواندنی ندارد جز نقشهٔ رندرها که همین اجرا از قبل گرفته. */
+  if (left() > 45000) {
+    try { ytThumbRestore_(Math.min(40000, left() - 30000)); }
+    catch (eTr) { out.why += (out.why ? ' · ' : '') + 'کاورِ نقاشی: ' + String(eTr.message).slice(0, 60); }
+  }
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
+  }
+  /* ══ درِ دومِ ویدئوهای گیرکرده (۸.۵۴) ══
+     `ytRedoStuckNightly_` فقط در کارِ شبانه بود، پشتِ `ytLeft()`؛ و کارِ شبانه از
+     ۳ اکتبر هر شب پیش از بلوکِ یوتیوب مرد. پس سه ویدئوی قدیمی (`variety:20`،
+     `special:26`، `variety:23`) هفته‌ها Unlisted ماندند و خطِ روزانه هر روز می‌گفت
+     «علتشان پس از بازسنجیِ شبانه این‌جا می‌آید» — وعده‌ای که هیچ راهی برایش
+     پیموده نمی‌شد (۷٫۴۶). روزی یک بار این‌جا هم، فقط وقتی وقت هست. */
+  if (left() > 50000 && ytStuckTickDue_()) {
+    try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
+    catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
+  }
+  /* هشدارِ «نقشهٔ نحیف» برای درسی که منتشر شده، دیگر جبران‌شدنی نیست (۸.۵۴). */
+  if (left() > 15000) {
+    try { lvThinPrune_(); } catch (eTp) {}
   }
   /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. این‌جا
      دومین شانسش است — و چون `ytStatsDue_` هر ~۲۰ ساعت یک بار اجازه می‌دهد،
@@ -9966,7 +10168,11 @@ function ytRedoOne_(show, ep, opt) {
   }
 
   if (CFG.YT_THUMB !== false) {
-    var cover = ytCoverCard_({ title: String(epo.title || ''),
+    /* کاورِ نقاشی، اگر رانر ساخته؛ کارتِ اسلایدز فقط وقتی نیست (۸.۵۴). تا ۸.۵۳
+       این‌جا همیشه کارت ساخته و نشانده می‌شد — و عمومی‌کردنِ درس‌های ۳۸ و ۳۹
+       کاورِ نقاشیِ هر دو را پاک کرد. */
+    var thKeyR = String(show) + ':' + String(ep);
+    var th = ytThumbFor_(thKeyR, function () { return ytCoverCard_({ title: String(epo.title || ''),
                                coverTitle: plan.coverTitle, kicker: plan.coverKicker,
                                showName: showName, seriesName: ctx.seriesName,
                                /* بازسازی هم همان برچسبِ مسیرِ آپلود را می‌گیرد
@@ -9982,9 +10188,13 @@ function ytRedoOne_(show, ep, opt) {
                                   یک‌بار درست شده است» — ۵.۹۵). */
                                style: lvStyleAt_(hub, { seriesKey: meta.seriesKey },
                                                  meta, ctx.seriesName),
-                               redo: opt.recover !== false });
-    if (cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
-      try { yt.Thumbnails.set(rec.videoId, cover.blob); out.changed.push('کاور'); }
+                               redo: opt.recover !== false }); });
+    if (th && th.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
+      try {
+        yt.Thumbnails.set(rec.videoId, th.blob);
+        out.changed.push(th.painted ? 'کاور (نقاشی)' : 'کاور');
+        ytThumbPaintSet_(thKeyR, th.painted ? th.src : '');
+      }
       catch (eT) { out.why = (out.why ? out.why + ' · ' : '') + 'کاور ننشست: ' + String(eT.message).slice(0, 80); }
     }
   }
@@ -10021,7 +10231,8 @@ function ytRedoOne_(show, ep, opt) {
                 videoId: rec.videoId, url: rec.url,
                 privacy: out.changed.indexOf('عمومی شد') !== -1
                            ? (CFG.YT_PRIVACY_FINAL || 'public') : rec.privacy,
-                thumb: out.changed.indexOf('کاور') !== -1 ? 'نشست' : '—',
+                thumb: out.changed.indexOf('کاور (نقاشی)') !== -1 ? 'نشست (نقاشی)'
+                     : (out.changed.indexOf('کاور') !== -1 ? 'نشست' : '—'),
                 chapters: plan.chapters, tags: (plan.tags || []).length,
                 descChars: String(plan.description || '').length,
                 result: 'اصلاح شد', note: out.changed.join('، ') + (out.why ? ' | ' + out.why : '') });
@@ -10047,6 +10258,19 @@ function ytRedoOne_(show, ep, opt) {
  * `_yt.json`ی که هست. قدیمی‌ترین‌ها اول، و سقفِ کوچک تا سهمیهٔ آپلود/به‌روزرسانیِ
  * فردا خالی نماند.
  */
+/** امروز درِ دومِ گیرکرده‌ها رفته؟ — فقط Properties (۸.۵۴). */
+function ytStuckTickDue_() {
+  try {
+    return String(props_().getProperty(PK.YT_STUCK_TICK) || '') !==
+           Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  }
+  catch (e) { return false; }
+}
+function ytStuckTickMark_() {
+  try { props_().setProperty(PK.YT_STUCK_TICK, Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd')); }
+  catch (e) {}
+}
+
 function ytRedoStuckNightly_(budgetMs) {
   var out = { checked: 0, cleared: 0, stillLeak: 0 };
   if (!ytOn_()) return out;

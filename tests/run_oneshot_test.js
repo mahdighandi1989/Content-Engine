@@ -2964,6 +2964,154 @@ console.log('\n=== ۳۹) «تا الانم که افکتی باز نشنیدم»
      h.indexOf("notes.push('افکتِ صوتی هنوز هیچ فایلی") !== -1);
 }
 
+console.log('\n=== ۴۱) قسمتی که اجرایش کشته شد، خودش ادامه پیدا می‌کند (۸.۵۴) ===');
+{
+  /* ۶ اکتبر، درسِ ۴۰: فایلِ دوم ۰۸:۳۳ ساخته شد، تحویل تا ۱۰:۰۷ شروع نشد و ۱۰:۱۲ تمام شد —
+     ۹۵ دقیقه تأخیر بی هیچ خطا. ادامه را فقط خودِ اجراها می‌ساختند، و نگهبانِ «نوبت گذشته»
+     فقط با همگام‌سازی (هر دو ساعت) و وارسیِ سلامت (۱۰ صبح) صدا زده می‌شد. */
+  const P = global.__PROPS;
+  const sp = () => global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'produceSpecialContinue');
+  const quiet = () => { const o = console.log; console.log = () => {}; return () => { console.log = o; }; };
+  delete P[PK.EP_GUARD]; delete P[PK.EP_KICK_LAST];
+  try { clearSpecialTriggers_(); } catch (e) {}
+
+  const t0 = Date.now();
+  const g1 = epGuardBegin_('special', 62, 'deliver', scheduleSpecialContinue_);
+  const due1 = Number(P[PK.SP_CONT_DUE] || 0);
+  const m1 = epGuardMap_().special || {};
+  ok('۴۱.۱ هر اجرای ادامه پیش از کار ادامه‌ای برای پس از سقفِ شش‌دقیقه می‌گذارد',
+     g1.armed === true && g1.killed === false && sp().length === 1 && m1.armed > 0 &&
+     due1 - t0 >= 400000 && due1 - t0 <= 430000,
+     JSON.stringify({ g1: g1, after: Math.round((due1 - t0) / 1000) }));
+
+  scheduleSpecialContinue_(45000);
+  const m2 = epGuardMap_().special || {};
+  ok('۴۱.۲ ادامهٔ عادی نگهبان را برمی‌دارد و جایش می‌نشیند — یک تریگر، نه دو',
+     !m2.armed && sp().length === 1 && Number(P[PK.SP_CONT_DUE]) - Date.now() < 60000);
+
+  /* کشته‌شدن: اجرای بعد نگهبانِ هنوز-مسلح را می‌بیند. */
+  epGuardBegin_('special', 62, 'deliver', scheduleSpecialContinue_);
+  const k1 = epGuardBegin_('special', 62, 'deliver', scheduleSpecialContinue_);
+  ok('۴۱.۳ رسیدن با نگهبانِ مسلح یعنی اجرای پیشین کشته شد — شمرده می‌شود و دوباره مسلح می‌شود',
+     k1.killed === true && k1.n === 1 && k1.armed === true &&
+     (epGuardMap_().special.kill || {}).phase === 'deliver', JSON.stringify(k1));
+  const es1 = epGuardStatus_();
+  ok('۴۱.۴ و خطِ روزانه کشته‌شدن را به نام می‌گوید، بی ایراد',
+     es1.ok === true && /deliver/.test(es1.line) && /ادامه‌اش داد/.test(es1.line), es1.line);
+
+  /* حلقهٔ کشته‌شدن: همان مرحله سه بار ⇒ نگهبان دست می‌کشد، و این ایراد است. */
+  epGuardBegin_('special', 62, 'deliver', scheduleSpecialContinue_);
+  const k3 = epGuardBegin_('special', 62, 'deliver', scheduleSpecialContinue_);
+  const es3 = epGuardStatus_();
+  ok('۴۱.۵ همان مرحله سه بارِ پیاپی ⇒ نگهبان دیگر مسلح نمی‌شود و خطِ روزانه ایراد می‌گوید',
+     k3.killed === true && k3.n >= 3 && k3.armed === false && es3.ok === false && /دست کشید/.test(es3.line),
+     JSON.stringify(k3) + ' | ' + es3.line);
+
+  /* مرحلهٔ تازه شمار را صفر می‌کند — گیرِ یک مرحله نباید نگهبانِ مرحلهٔ بعد را بکُشد. */
+  const k4 = epGuardBegin_('special', 62, 'tg', scheduleSpecialContinue_);
+  ok('۴۱.۶ مرحلهٔ دیگر شمار را از نو می‌شمارد و نگهبان دوباره مسلح می‌شود',
+     k4.armed === true && k4.n <= 1, JSON.stringify(k4));
+
+  clearSpecialContinuation_();
+  const m5 = epGuardMap_().special || {};
+  ok('۴۱.۷ پایانِ قسمت شمار را پاک می‌کند و تریگری نمی‌مانَد',
+     !m5.armed && !m5.n && sp().length === 0);
+
+  /* ۴۱.۸ — درِ ساعتی: نوبتِ گذشته و بی‌تریگر ⇒ ادامه، بی هاب و بی سیاهه. */
+  P[PK.SP_PENDING] = JSON.stringify({ phase: 'deliver', folderId: 'X' });
+  P[PK.SP_CONT_DUE] = String(Date.now() - 40 * 60000);
+  delete P[PK.EP_GUARD];
+  const hubWas = global.getHub_, logWas = global.logLine_;
+  let hubN = 0, logN = 0;
+  global.getHub_ = function () { hubN++; return hubWas.apply(this, arguments); };
+  global.logLine_ = function () { logN++; };
+  const kick = epStallKick_();
+  const kl = JSON.parse(P[PK.EP_KICK_LAST] || 'null') || {};
+  ok('۴۱.۸ درِ ساعتی قسمتِ گیرکرده را راه می‌اندازد — بی خواندنِ هاب و بی سیاهه',
+     kick.length === 1 && sp().length === 1 && hubN === 0 && logN === 0 && kl.show === 'special' && kl.late >= 39,
+     JSON.stringify({ kick: kick, hubN: hubN, logN: logN, kl: kl }));
+  P[PK.SP_CONT_DUE] = String(Date.now() + 60000);
+  const kick2 = epStallKick_();
+  ok('۴۱.۹ نوبتی که هنوز نرسیده دست نمی‌خورد', kick2.length === 0);
+  P[PK.SP_CONT_DUE] = String(Date.now() - 40 * 60000);
+  P[PK.EP_GUARD] = JSON.stringify({ special: { ep: '62', phase: 'deliver', n: 3, armed: 0, gaveUp: 'x' } });
+  const kick3 = epStallKick_();
+  ok('۴۱.۱۰ نگهبانی که دست کشیده، درِ ساعتی هم دست می‌کشد — وگرنه حلقهٔ کشته‌شدن ساعتی ادامه می‌یافت',
+     kick3.length === 0);
+  global.getHub_ = hubWas; global.logLine_ = logWas;
+  delete P[PK.SP_PENDING]; delete P[PK.SP_CONT_DUE]; delete P[PK.EP_GUARD]; delete P[PK.EP_KICK_LAST];
+  try { clearSpecialTriggers_(); } catch (e) {}
+
+  /* ۴۱.۱۱ — از درِ تولید: نگهبان **پیش از** کارِ مرحله مسلح است. کشته‌شدن را نمی‌شود ساخت،
+     پس از درونِ مرحله نگاه می‌کنیم — همان روشِ ۸.۵۳. */
+  const f = DriveApp.__register('EPG41', 'درس‌نامه 041');
+  f.createFile(Utilities.newBlob(JSON.stringify({ epNum: 41, seriesName: 'معرفت‌شناسی',
+    ep: { title: 'ت', sections: [{ heading: 'یک', narration: 'الف' }] } }), 'application/json', '_special.json'));
+  P[PK.SP_PENDING] = JSON.stringify({ phase: 'enrich', folderId: 'EPG41' });
+  const gateWas = global.enrichGate_;
+  let inside = null;
+  global.enrichGate_ = () => { inside = { m: epGuardMap_().special || {}, trig: sp().length,
+                                         due: Number(P[PK.SP_CONT_DUE] || 0) - Date.now(),
+                                         run: !!(JSON.parse(P[PK.RUN_AT] || '{}').produceSpecialContinue) };
+                               return { done: false, waitMs: 60000 }; };
+  let q = quiet();
+  produceSpecialContinue();
+  q();
+  global.enrichGate_ = gateWas;
+  ok('۴۱.۱۱ از درِ produceSpecialContinue: درونِ مرحله نگهبان مسلح است و تریگرش هست',
+     !!inside && inside.m.armed > 0 && inside.trig === 1 && inside.due > 390000,
+     JSON.stringify(inside));
+  ok('۴۱.۱۲ و پایانِ عادیِ مرحله نگهبان را با ادامهٔ خودش عوض کرد',
+     !(epGuardMap_().special || {}).armed && sp().length === 1 && Number(P[PK.SP_CONT_DUE]) - Date.now() <= 61000);
+  const ra = JSON.parse(P[PK.RUN_AT] || '{}');
+  /* از درونِ مرحله: شاهد **در حینِ** اجرا هست — همان چیزی که از کشته‌شدن جان به در می‌برد. */
+  ok('۴۱.۱۳ ادامه‌ها شاهدِ اجرا دارند — درونِ مرحله هست، و اجرای تمام‌شده برش می‌دارد',
+     inside && inside.run === true && !ra.produceSpecialContinue, JSON.stringify({ inside: inside && inside.run }));
+  delete P[PK.SP_PENDING]; delete P[PK.SP_CONT_DUE]; delete P[PK.EP_GUARD];
+  try { clearSpecialTriggers_(); } catch (e) {}
+
+  /* ۴۱.۱۴ — برنامهٔ متنوع همان نگهبان را دارد، از همان تعریف. */
+  const p3 = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  const p14 = fs.readFileSync('src/14_Special.gs', 'utf8');
+  const bodyOf = (srcTxt, fn) => { const i = srcTxt.indexOf('function ' + fn + '('); return i < 0 ? '' : srcTxt.slice(i, i + 4000); };
+  const rv = bodyOf(p3, 'renderAudioStep_'), rs = bodyOf(p14, 'renderSpecialAudioStep_');
+  ok('۴۱.۱۴ هر دو برنامه نگهبان را پیش از نخستین مرحله مسلح می‌کنند',
+     rv.indexOf("epGuardBegin_('variety'") > 0 && rv.indexOf("if (st.phase") > 0 &&
+     rv.indexOf("epGuardBegin_('variety'") < rv.indexOf("if (st.phase") &&
+     rs.indexOf("epGuardBegin_('special'") > 0 && rs.indexOf("epGuardBegin_('special'") < rs.indexOf("if (st.phase === 'enrich')"));
+  ok('۴۱.۱۵ ادامهٔ عادیِ هر دو برنامه نگهبان را برمی‌دارد و پایانشان شمار را پاک می‌کند',
+     /function scheduleContinue_\(ms\) \{\s*epGuardDisarm_\('variety'\)/.test(p3) &&
+     /function scheduleSpecialContinue_\(ms\) \{\s*epGuardDisarm_\('special'\)/.test(p14) &&
+     /epGuardDone_\('variety'\)/.test(p3) && /epGuardDone_\('special'\)/.test(p14));
+
+  /* ۴۱.۱۶ — تلگرام با وقتِ کامل، یک بار؛ و ثبت‌ها یک بار، چون تحویل حالا ممکن است دو اجرا باشد. */
+  const tgSplit = (t) => /if \(!st\.tg && !st\.tgSplit &&\s*\n\s*deadline - new Date\(\)\.getTime\(\) < Math\.max\(30000, Number\(CFG\.TG_MIN_MS\)/.test(t);
+  ok('۴۱.۱۶ هر دو برنامه تلگرام را با وقتِ کم به اجرای بعد می‌برند — فقط یک بار',
+     tgSplit(p3) && tgSplit(p14) && (p3.match(/st\.tgSplit = 1/g) || []).length === 1 &&
+     (p14.match(/st\.tgSplit = 1/g) || []).length === 1);
+  ok('۴۱.۱۷ و ثبت‌های تحویل (کالیبراسیون، اعراب، حالت‌ها) فقط یک بار',
+     /if \(!st\.recDone\) \{[\s\S]{0,400}speechCalibRecord_[\s\S]{0,700}st\.recDone = 1/.test(p3) &&
+     /if \(!st\.recDone\) \{[\s\S]{0,300}speechCalibRecord_[\s\S]{0,700}st\.recDone = 1/.test(p14));
+  const p36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  const iK = p36.indexOf('epStallKick_();'), iG = p36.indexOf("if (CFG.VBR_ON === false) return null;", p36.indexOf('function vbrCollectHourly'));
+  ok('۴۱.۱۸ درِ ساعتی روی تریگرِ ساعتی است، پیش از سدِ پل', iK > 0 && iK < iG);
+
+  /* ۴۱.۱۹ — ساختنِ تریگر که شکست بخورد (سقفِ بیست‌تایی)، شاهد می‌مانَد و خطِ روزانه ایراد می‌گوید.
+     تا امروز راهِ «قفل گرفته بود» این خطا را در `catch (eL) {}` می‌بلعید. */
+  delete P[PK.EP_TRIG_FAIL];
+  const ntWas = ScriptApp.newTrigger;
+  ScriptApp.newTrigger = () => { throw new Error('This script has too many triggers.'); };
+  let threw = false;
+  try { scheduleSpecialContinue_(60000); } catch (e) { threw = true; }
+  ScriptApp.newTrigger = ntWas;
+  const tf = JSON.parse(P[PK.EP_TRIG_FAIL] || 'null') || {};
+  const es = epGuardStatus_();
+  ok('۴۱.۱۹ شکستِ ساختنِ تریگرِ ادامه شاهد دارد و در خطِ روزانه ایراد است — با پیامِ خودِ خطا',
+     threw && tf.fn === 'produceSpecialContinue' && /too many triggers/.test(tf.msg) &&
+     es.ok === false && /too many triggers/.test(es.line), es.line);
+  delete P[PK.EP_TRIG_FAIL]; delete P[PK.SP_CONT_DUE];
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
 
 /* ══ ۶٫۵۵ — شمارهٔ درسِ هر مجموعه از ۱، برچسبِ انتشار ترکیبی ══ */

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.53
+ *  موتور محتوا و پادکست — نسخهٔ 8.54
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -94,6 +94,15 @@ var CFG = {
   // دسته‌ها کوچک‌ترند و در عوض تعدادشان بیشتر.
   SYNC_CHUNK_WIDE: 25,
   MAX_RUNTIME_MS: 4.5 * 60 * 1000,  // سقف امن زیر محدودیت ۶ دقیقه‌ای Apps Script
+  /* نگهبانِ ادامهٔ قسمت (۸.۵۴): هر اجرای ادامه پیش از کار، ادامه‌ای برای این‌قدر
+     بعد می‌گذارد (بیش از سقفِ شش دقیقهٔ گوگل)؛ کشته‌شدنِ همان مرحله بیش از
+     `EP_GUARD_MAX` بار ⇒ نگهبان دست می‌کشد. درِ دومِ ساعتی پس از `EP_STALL_GRACE_MIN`
+     دقیقه از نوبتِ گذشته. تلگرام با کمتر از `TG_MIN_MS` وقتِ مانده به اجرای بعد می‌رود. */
+  EP_GUARD_ON: true,
+  EP_GUARD_MS: 420000,
+  EP_GUARD_MAX: 3,
+  EP_STALL_GRACE_MIN: 15,
+  TG_MIN_MS: 120000,
   CONTINUE_DELAY_MIN: 1,       // فاصله تریگر ادامه‌دار هنگام پرکردن اولیه
 
   // ---- تولید قسمت ----
@@ -732,6 +741,14 @@ var CFG = {
   LV_TEXT_DEFAULT: 'خودکار',
   LV_TEXT_LEVELS: ['خاموش', 'کم', 'زیاد'],
   LV_TEXT_SHARE: { 'خاموش': 0, 'کم': 0.25, 'خودکار': 0.45, 'زیاد': 0.7 },
+  /* جان‌بخشیِ نقاشی‌ها برای هر مجموعه (۸.۵۴) — ستونِ «جان‌بخشیِ تصویر» در تخته.
+     خالی یا «خودکار» ⇒ `LV_MOTION_DEFAULT`. هر سطح می‌گوید کلیپ و حرکتِ کانون‌دار
+     روشن‌اند یا نه؛ کلیدهای سراسریِ `LV_CLIP_ON` و `LV_MOTION_ON` هنوز بالاترند. */
+  LV_MOTION_DEFAULT: 'کامل',
+  LV_MOTION_LEVELS: ['کامل', 'بی‌کلیپ', 'آرام'],
+  LV_MOTION_WHAT: { 'کامل': { clip: true, focus: true },
+                    'بی‌کلیپ': { clip: false, focus: true },
+                    'آرام': { clip: false, focus: false } },
   /* «خودکار» از ماهیتِ همین صدا (۸.۴۷)، نه یک عددِ ثابت برای درس و قصه. قصه
      کمتر نوشته می‌گیرد: نوشته روی صحنهٔ ماجرا یعنی توقفِ ماجرا. ماهیتِ
      ناشناخته = «درس»، همان رفتارِ ۸.۴۶. سهمی که آدم روی تخته نوشته دست نمی‌خورد. */
@@ -1182,6 +1199,10 @@ var CFG = {
   YT_CHANNEL_EVERY_DAYS: 7,             // وارسیِ کامل، حتی وقتی چیزی عوض نشده
   YT_TODO_EVERY_DAYS: 7,                // یادآوریِ کارهای دستی — نه هر روز
   YT_THUMB: true,
+  /* کاورِ نقاشی که با عمومی‌شدن گم شد (۸.۵۴): هر دورِ یوتیوب تا این‌قدر ویدئو را
+     برمی‌گرداند، و دفترش این‌قدر کلید نگه می‌دارد. */
+  YT_THUMB_FIX_MAX: 2,
+  YT_THUMB_PAINT_KEEP: 200,
   /* تبِ Podcasts کانال از همین پر می‌شود: status.podcastStatus روی پلی‌لیست.
      (تبِ Posts هیچ منبعی در API ندارد و کارِ آدم است.) */
   YT_PODCAST: true,
@@ -1291,6 +1312,14 @@ var CFG = {
      می‌مانَد. عقب‌ماندگی‌ای که خودش را جبران نکند، همان قابلیتی است که
      خاموش شده و کسی نفهمیده. */
   MUSIC_REHEAR_MAX: 12,
+  /* بازشنوی اجرای جدای خودش را هم دارد (۸.۵۴)، چون کارِ شبانه پیش از رسیدن به
+     آن بلوک می‌مُرد و صفِ ۷۱ قطعه سه روز یکی ماند. زمان‌بندِ ساعتی روزی تا
+     `RUNS_DAY` اجرا می‌سازد، با دست‌کم `GAP_MIN` دقیقه فاصله؛ هر اجرا تا
+     `LATER_MAX` قطعه در `LATER_MS` میلی‌ثانیه. */
+  MUSIC_REHEAR_RUNS_DAY: 4,
+  MUSIC_REHEAR_GAP_MIN: 50,
+  MUSIC_REHEAR_LATER_MAX: 12,
+  MUSIC_REHEAR_LATER_MS: 210000,
   MUSIC_UNHEARD_DAYS: 5,             // بیش از این، یافتهٔ NEEDS_CODE
   /* چند بار از مدل بپرسیم و جواب نگیریم تا از صفِ شبانه بیرون برود.
      نه پاک می‌شود و نه پخش — فقط هر شب بایت‌هایش خوانده نمی‌شود. */
@@ -1837,7 +1866,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.53',
+  CODE_VERSION: '8.54',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2701,7 +2730,12 @@ var SERIES_HEADERS = [
   'مرورِ هر چند درس',
   /* ══ نوشتهٔ رویِ نقاشیِ صحنه‌ها (۸.۴۵) ══ خاموش/کم/خودکار/زیاد — جدا از «سبک» و
      «سطح»، تا افزودنِ نوشته هیچ‌کدام از آن دو را عوض نکند. در **انتها**. */
-  'نوشته روی تصویر'
+  'نوشته روی تصویر',
+  /* ══ جان‌بخشیِ نقاشی‌ها (۸.۵۴) ══ کامل (کلیپِ آغاز + حرکتِ کانون‌دار) / بی‌کلیپ /
+     آرام (فقط حرکتِ آرامِ قدیم). او پرسید «تنظیماتِ هر درس و تخته قابلیتِ تغییر و
+     ارتقا و کم کردن دارد؟» — برای کلیپ و حرکت جوابِ راست «نه، سراسری است» بود.
+     در **انتها**، به همان دلیلِ ستون‌های بالا. */
+  'جان‌بخشیِ تصویر'
 ];
 var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            LEVEL: 8, TOPIC: 9, ORDER: 10, STATUS: 11, CUR_PART: 12, CUR_CHUNK: 13,
@@ -2709,7 +2743,7 @@ var SC = { KEY: 1, NAME: 2, SRC: 3, TAB: 4, KIND: 5, PARTS: 6, CHUNKS: 7,
            STORY: 18, RELATED: 19, FOLDER: 20, NOTE: 21, CAT: 22,
            IS_COURSE: 23, CSCORE: 24, ABOUT: 25, WHY: 26, JUDGED: 27, MANUAL: 28,
            MORDER: 29, MCAT: 30, MSUB: 31, HANDOUT: 32, YT: 33, XREF: 34,
-           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38 };
+           LVSTYLE: 35, LVLEVEL: 36, RECAP_EVERY: 37, LVTEXT: 38, LVMOTION: 39 };
 
 var SST = { NEW: 'در نوبت', ACTIVE: 'در حال تولید', DONE: 'تمام‌شده',
             REOPENED: 'قسمت تازه اضافه شد', SKIPPED: 'نادیده گرفته شد' };
@@ -2906,6 +2940,14 @@ var PK = {
   LV_SCENE_LEASE: 'LV_SCENE_LEASE',   // اجارهٔ ساختِ صحنه: {key, until} — دو اجرای هم‌زمان نه
   YT_SCENES_OK: 'YT_SCENES_OK_N',     // چند ویدئوی حالتِ صحنه تا حالا عمومی شده
   YT_STUCK_WHY: 'YT_STUCK_WHY',       // علتِ هر ویدئوی هنوز-Unlisted از آخرین بازسنجی (۸.۳۵)
+  EP_GUARD: 'EP_GUARD_MAP',                 // نگهبانِ ادامهٔ هر برنامه: مسلح؟ کدام قسمت و مرحله؟ چند بار کشته شد؟ (۸.۵۴)
+  EP_KICK_LAST: 'EP_KICK_LAST',
+  EP_TRIG_FAIL: 'EP_TRIG_FAIL',             // آخرین بار که ساختنِ تریگرِ ادامهٔ قسمت شکست خورد، با پیامِ خودِ خطا (۸.۵۴)             // آخرین بار که درِ ساعتی قسمتِ گیرکرده را راه انداخت (۸.۵۴)
+  MUSIC_UNHEARD_N: 'MUSIC_UNHEARD_N',       // شمارِ قطعه‌های شنیده‌نشده، از آخرین وضعیت — زمان‌بندِ ساعتی فقط همین را می‌خوانَد (۸.۵۴)
+  MUSIC_REHEAR_LAST: 'MUSIC_REHEAR_LAST',   // شاهدِ آخرین بازشنوی: کِی، چند شنیده، چند رهاشده (۸.۵۴)
+  MUSIC_REHEAR_DAY: 'MUSIC_REHEAR_DAY',     // شمارِ اجراهای جدای امروز (۸.۵۴)
+  YT_THUMB_PAINT: 'YT_THUMB_PAINT',   // کاورِ نقاشی که واقعاً روی هر ویدئو نشست (۸.۵۴): {کلید: نشانی}
+  YT_STUCK_TICK: 'YT_STUCK_TICK',     // روزی که درِ دومِ ویدئوهای گیرکرده در دورِ یوتیوب رفت (۸.۵۴)
   YT_APPR_DONE: 'YT_APPR_DONE',       // کلیدهای تأییدشده‌ای که عمومی شدند (۸.۴۶) — درِ دوم دیگر سراغشان نمی‌رود
   YT_MARK_ID: 'YT_MARK_ID',       // شناسه/نام/تصویرِ کانال، خوانده‌شده از خودِ یوتیوب
   YT_DUE: 'YT_DUE_QUEUE',          // صفِ قسمت‌هایی که باید منتشر شوند
@@ -11956,7 +11998,12 @@ function produceEpisode(opt) {
   } finally { runExit_('produceEpisode'); }
 }
 
-function produceEpisodeContinue() { return renderAudioStep_(); }
+function produceEpisodeContinue() {
+  /* شاهدِ اجرا (۸.۵۴): تا امروز ادامه‌ها هیچ شاهدی نداشتند، پس ادامهٔ کشته‌شده
+     در `runs` هم دیده نمی‌شد. */
+  runEnter_('produceEpisodeContinue');
+  try { return renderAudioStep_(); } finally { runExit_('produceEpisodeContinue'); }
+}
 
 /**
  * نگهبان. اگر اجرایی وسط صداگذاری کشته شود، تریگرِ ادامه ساخته نمی‌شود و قسمت
@@ -12011,9 +12058,189 @@ function clearAudioTriggers_() {
 function clearAudioContinuation_() {
   clearAudioTriggers_();
   try { props_().deleteProperty(PK.CONT_DUE); } catch (e) {}
+  epGuardDone_('variety');
+}
+
+/**
+ * ══ نگهبانِ ادامهٔ قسمت (۸.۵۴) — همان نگهبانِ شبانهٔ ۸.۵۳، برای ساختِ قسمت ══
+ *
+ * ۶ اکتبر درس‌نامهٔ ۶۲ (درسِ ۴۰) ساعتِ ۰۸:۳۳ فایلِ دومش را ساخت و ادامهٔ
+ * «تحویل» را زمان‌بندی کرد — و تا ۱۰:۰۷ هیچ اتفاقی نیفتاد. وارسیِ سلامت پیدایش
+ * کرد و تحویل ۱۰:۱۲ تمام شد: ۹۵ دقیقه تأخیر، بی هیچ خطا. تنها جاهایی که «ادامه»
+ * را می‌سازند خودِ اجراها هستند؛ اجرایی که سرِ شش دقیقه کشته شود هیچ ادامه‌ای
+ * نمی‌سازد، و نگهبانِ «نوبت گذشته» فقط وقتی صدا زده می‌شد که همگام‌سازی (هر دو
+ * ساعت) یا وارسیِ سلامت (۱۰ صبح) دویدند.
+ *
+ * پس هر اجرای ادامه، **پیش از هر کاری**، ادامه‌ای برای `EP_GUARD_MS` بعد
+ * می‌گذارد (بیش از سقفِ شش دقیقهٔ گوگل). اجرای سالم آن را با ادامهٔ عادیِ
+ * خودش عوض می‌کند (`scheduleContinue_` نگهبان را برمی‌دارد) یا در پایان پاکش
+ * می‌کند. رسیدن به این‌جا با نگهبانِ هنوز-مسلح یعنی اجرای پیشین کشته شد — و
+ * شمرده می‌شود: همان مرحلهٔ همان قسمت بیش از `EP_GUARD_MAX` بار ⇒ نگهبان دیگر
+ * مسلح نمی‌شود (حلقهٔ کشته‌شدن هر هفت دقیقه پول و سهمیه می‌خورد) و همان نگهبانِ
+ * قدیمیِ «نوبت گذشته» می‌مانَد.
+ *
+ * شاهد در Script Properties است، نه در سیاهه (۸.۱۱): همان سرویسی که کُشت،
+ * نمی‌تواند شاهد را بنویسد.
+ */
+function epGuardMap_() {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.EP_GUARD) || '{}');
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch (e) { return {}; }
+}
+function epGuardSave_(m) {
+  try { props_().setProperty(PK.EP_GUARD, JSON.stringify(m || {})); } catch (e) {}
+}
+
+/** @return {{killed:boolean, armed:boolean, n:number}} */
+function epGuardBegin_(show, ep, phase, sched) {
+  var out = { killed: false, armed: false, n: 0 };
+  if (CFG.EP_GUARD_ON === false) return out;
+  var m = epGuardMap_(), g = m[show] || {};
+  var same = String(g.ep) === String(ep) && String(g.phase) === String(phase || '');
+  if (g.armed) {
+    out.killed = true;
+    g.n = same ? (Number(g.n) || 0) + 1 : 1;
+    g.kill = { at: nowStr_(), ep: String(ep), phase: String(g.phase || '') };
+  } else if (!same) {
+    g.n = 0;
+  }
+  out.n = Number(g.n) || 0;
+  var max = Math.max(1, Number(CFG.EP_GUARD_MAX) || 3);
+  g.ep = String(ep); g.phase = String(phase || '');
+  if (out.n >= max) {
+    g.armed = 0; g.gaveUp = nowStr_();
+    m[show] = g; epGuardSave_(m);
+    return out;
+  }
+  try {
+    sched(Math.max(400000, Number(CFG.EP_GUARD_MS) || 420000));
+    g.armed = new Date().getTime();
+    out.armed = true;
+  } catch (eS) { g.armed = 0; }
+  m[show] = g; epGuardSave_(m);
+  return out;
+}
+
+/**
+ * ساختنِ تریگرِ ادامه شکست خورد (۸.۵۴) — شاهد در Properties. تا امروز این خطا فقط
+ * پرتاب می‌شد و راهِ «قفل گرفته بود» آن را در `catch (eL) {}` می‌بلعید: زنجیره پاره
+ * می‌شد و هیچ‌جا گفته نمی‌شد چرا. علتِ رایجش سقفِ بیست تریگرِ Apps Script است، و
+ * آن را فقط پیامِ خودِ خطا می‌گوید.
+ */
+function epTrigFailNote_(fn, e) {
+  try {
+    props_().setProperty(PK.EP_TRIG_FAIL, JSON.stringify({ at: nowStr_(), fn: String(fn),
+      msg: String((e && e.message) || e || '').slice(0, 160),
+      n: (function () { try { return ScriptApp.getProjectTriggers().length; } catch (eN) { return -1; } })() }));
+  } catch (eS) {}
+}
+
+/** ادامهٔ عادی یا پایان: نگهبان برداشته می‌شود — کشته‌نشدن یعنی همین. */
+function epGuardDisarm_(show) {
+  try {
+    var m = epGuardMap_();
+    if (m[show] && m[show].armed) { m[show].armed = 0; epGuardSave_(m); }
+  } catch (e) {}
+}
+
+/** قسمتِ تمام‌شده: شمارش هم پاک می‌شود، فقط آخرین کشته‌شدن برای گزارش می‌مانَد. */
+function epGuardDone_(show) {
+  try {
+    var m = epGuardMap_();
+    if (m[show]) { m[show] = { kill: m[show].kill || null, armed: 0, n: 0 }; epGuardSave_(m); }
+  } catch (e) {}
+}
+
+/**
+ * درِ دوم، ساعتی (۸.۵۴): ادامه‌ای که هرگز زده نشد (تریگرِ یک‌باره‌ای که گوگل نزد، یا
+ * اجرایی که پیش از رسیدن به نگهبان مرد). فقط Properties و فهرستِ تریگرها — بی هاب،
+ * بی سیاهه، چون روی تریگرِ ساعتی است (۷٫۶۳/۷٫۸۴). اگر نگهبانِ همان مرحله دست
+ * کشیده، این در هم دست می‌کشد؛ وگرنه حلقهٔ هفت‌دقیقه‌ای را ساعتی ادامه می‌داد.
+ */
+function epStallKick_() {
+  var out = [];
+  var specs = [
+    { show: 'variety', pend: PK.PENDING, due: PK.CONT_DUE, fn: 'produceEpisodeContinue',
+      sched: function (ms) { scheduleContinue_(ms); } },
+    { show: 'special', pend: PK.SP_PENDING, due: PK.SP_CONT_DUE, fn: 'produceSpecialContinue',
+      sched: function (ms) { scheduleSpecialContinue_(ms); } }
+  ];
+  var ts = null;
+  for (var i = 0; i < specs.length; i++) {
+    var s = specs[i];
+    try {
+      var raw = props_().getProperty(s.pend);
+      if (!raw) continue;
+      var g = epGuardMap_()[s.show] || {};
+      if (g.gaveUp && (Number(g.n) || 0) >= Math.max(1, Number(CFG.EP_GUARD_MAX) || 3)) continue;
+      var due = Number(props_().getProperty(s.due) || 0), now = new Date().getTime();
+      var grace = Math.max(8, Number(CFG.EP_STALL_GRACE_MIN) || 15) * 60000;
+      if (due > 0 && now < due + grace) continue;
+      if (ts === null) ts = ScriptApp.getProjectTriggers();
+      var has = false;
+      for (var t = 0; t < ts.length; t++) if (ts[t].getHandlerFunction() === s.fn) { has = true; break; }
+      /* تریگرِ زده‌شده هم در فهرست می‌مانَد (۵٫۷)، پس «هست» کافی نیست؛ ملاکِ اصلی
+         «نوبت گذشته» است. ولی نوبتی که بیش از ۱۲ ساعت جلوتر است هم سالم نیست. */
+      s.sched(60 * 1000);
+      out.push(s.show + (has ? ' (تریگر بود ولی نزد)' : ' (بی تریگر)'));
+      try {
+        props_().setProperty(PK.EP_KICK_LAST, JSON.stringify({ at: nowStr_(), show: s.show,
+                             late: due ? Math.round((now - due) / 60000) : -1 }));
+      } catch (eK) {}
+    } catch (e) {}
+  }
+  return out;
+}
+
+/**
+ * خطِ روزانهٔ نگهبان (۸.۵۴) — فقط Properties. «کشته شد و ادامه یافت» ایراد نیست
+ * (`ok` می‌مانَد)، ولی گفته می‌شود: سه بار در یک هفته یعنی مرحله‌ای که جا نمی‌شود.
+ * «دست کشید» ایراد است، چون آن قسمت دوباره به نگهبانِ کُندِ قدیمی سپرده شد.
+ */
+function epGuardStatus_() {
+  var out = { ok: true, line: '', kills: [], gaveUp: [], kick: null };
+  try {
+    var m = epGuardMap_(), now = new Date().getTime();
+    var nm = { variety: CFG.SHOW_NAME, special: CFG.SPECIAL_SHOW_NAME };
+    for (var k in m) {
+      if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
+      var g = m[k] || {};
+      var kt = g.kill && g.kill.at ? parseWhen_(String(g.kill.at)) : NaN;
+      if (!isNaN(kt) && now - kt < 48 * 3600000) {
+        out.kills.push((nm[k] || k) + ' ' + g.kill.ep + ' در مرحلهٔ «' + (g.kill.phase || '—') + '» (' + g.kill.at + ')');
+      }
+      if (g.gaveUp && (Number(g.n) || 0) >= Math.max(1, Number(CFG.EP_GUARD_MAX) || 3)) {
+        out.ok = false;
+        out.gaveUp.push((nm[k] || k) + ' ' + g.ep + ' — مرحلهٔ «' + (g.phase || '—') + '» ' + g.n + ' بار پیاپی کشته شد');
+      }
+    }
+    try { out.kick = JSON.parse(props_().getProperty(PK.EP_KICK_LAST) || 'null'); } catch (eK) {}
+    try {
+      var tf = JSON.parse(props_().getProperty(PK.EP_TRIG_FAIL) || 'null');
+      var tft = tf && tf.at ? parseWhen_(String(tf.at)) : NaN;
+      if (!isNaN(tft) && now - tft < 48 * 3600000) { out.trigFail = tf; out.ok = false; }
+    } catch (eTf) {}
+    var L = [];
+    if (out.trigFail) {
+      L.push('❌ ساختنِ تریگرِ ادامه شکست خورد (' + out.trigFail.fn + '، ' + out.trigFail.at +
+             (Number(out.trigFail.n) >= 0 ? '، ' + out.trigFail.n + ' تریگر در پروژه' : '') + '): ' +
+             out.trigFail.msg + ' — زنجیرهٔ قسمت تا درِ ساعتی پاره ماند.');
+    }
+    if (out.gaveUp.length) L.push('❌ نگهبانِ ادامه دست کشید: ' + out.gaveUp.join(' · ') + ' — علتِ کشته‌شدن را پیدا کن.');
+    if (out.kills.length) L.push('اجرای کشته‌شدهٔ قسمت که نگهبان ادامه‌اش داد: ' + out.kills.join(' · ') + '.');
+    var kt2 = out.kick && out.kick.at ? parseWhen_(String(out.kick.at)) : NaN;
+    if (!isNaN(kt2) && now - kt2 < 48 * 3600000) {
+      L.push('درِ ساعتی یک قسمتِ گیرکرده را راه انداخت (' + (nm[out.kick.show] || out.kick.show) + '، ' +
+             out.kick.at + (Number(out.kick.late) > 0 ? '، ' + out.kick.late + ' دقیقه پس از نوبت' : '') + ').');
+    }
+    out.line = L.length ? L.join(' ') : 'نگهبانِ ادامهٔ قسمت‌ها: در ۴۸ ساعتِ اخیر هیچ اجرایی کشته نشد.';
+  } catch (e) { out.line = 'نگهبانِ ادامهٔ قسمت‌ها: وضعیت خوانده نشد.'; }
+  return out;
 }
 
 function scheduleContinue_(ms) {
+  epGuardDisarm_('variety');
   // ترتیب مهم است. اگر اول پاک کنیم و بعد بنویسیم، در آن شکافِ کوتاه
   // «نوبتِ ادامه» وجود ندارد؛ وارسیِ سلامت — که قفل نمی‌گیرد — می‌تواند
   // درست همان‌جا بیفتد، قسمتی را که تازه برای شش ساعت بعد پارک شده «رها‌شده»
@@ -12028,6 +12255,7 @@ function scheduleContinue_(ms) {
     // بی‌راننده مانده. «نوبت» را به گذشته می‌بریم تا نگهبانِ دورِ بعد حتماً
     // دوباره تلاش کند — وگرنه یک خطای گذرا قسمت را برای همیشه می‌کشت.
     try { props_().setProperty(PK.CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
+    epTrigFailNote_('produceEpisodeContinue', eT);
     throw eT;
   }
 }
@@ -12128,6 +12356,13 @@ function renderAudioStep_() {
     }
     var meta = JSON.parse(it.next().getBlob().getDataAsString());
     var ep = meta.ep, items = meta.items, cat = meta.cat, epNum = meta.epNum;
+    /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_`. */
+    var gdV = epGuardBegin_('variety', epNum, st.phase || '', scheduleContinue_);
+    if (gdV.killed) {
+      logLine_('قسمت ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
+               '» کشته شد و نگهبان ادامه‌اش داد' +
+               (gdV.armed ? '' : ' — ' + gdV.n + ' بارِ پیاپی در همین مرحله؛ نگهبان دیگر مسلح نمی‌شود') + '.');
+    }
 
     var pad = ('0000' + epNum).slice(-4);
     // نام فایل با نامِ برنامه شروع می‌شود تا در درایو و در تلگرام هرگز با
@@ -12406,12 +12641,17 @@ function renderAudioStep_() {
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     /* اینجا — و فقط اینجا — هم بایتِ واقعیِ صدا در دست است هم متنِ گفته‌شده.
        سقفِ «یک فایل» فردا از همین اندازه‌گیری می‌آید (۶٫۲۹). */
-    try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
-    try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
-    /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
-    try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
-    /* و همان، خوانا، در پوشهٔ قسمت — کنارِ «متن صوتی»، نه درونش (۸.۴۱). */
-    try { speakMoodFileSave_(folder, baseName, ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMf) {}
+    /* ثبت‌ها یک بار (۸.۵۴) — تحویل ممکن است در دو اجرا تمام شود (پیش از تلگرام). */
+    if (!st.recDone) {
+      try { speechCalibRecord_(ep, totalBytes, CFG.SHOW_NAME + ' ' + epNum); } catch (eCal) {}
+      try { speakSkipRecord_(ep, CFG.SHOW_NAME + ' ' + epNum, hub, epNum); } catch (eSk) {}
+      /* حالت‌ها: کجا نشست و چطور، از `times`ِ خودِ صداسازی (۸.۴۰). */
+      try { speakMoodRecord_(ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMo) {}
+      /* و همان، خوانا، در پوشهٔ قسمت — کنارِ «متن صوتی»، نه درونش (۸.۴۱). */
+      try { speakMoodFileSave_(folder, baseName, ep, st.times, CFG.SHOW_NAME + ' ' + epNum); } catch (eMf) {}
+      st.recDone = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+    }
 
     // فایل یکجا، اگر ساخته شد، اولِ فهرست می‌آید
     for (var mi = mgList.length - 1; mi >= 0; mi--) {
@@ -12459,6 +12699,15 @@ function renderAudioStep_() {
     }
     pod.getRange(st.podRow, 11).setValue(st.mailed);
 
+    /* تلگرام با وقتِ کامل (۸.۵۴) — توضیح کنارِ همین بند در درس‌نامه (بخشِ ۱۴). */
+    if (!st.tg && !st.tgSplit &&
+        deadline - new Date().getTime() < Math.max(30000, Number(CFG.TG_MIN_MS) || 120000)) {
+      st.tgSplit = 1;
+      props_().setProperty(PK.PENDING, JSON.stringify(st));
+      scheduleContinue_(20 * 1000);
+      logLine_('قسمت ' + epNum + ': تلگرام به اجرای بعد رفت تا با وقتِ کامل بارگذاری شود.');
+      return { ok: true, episode: epNum, title: ep.title, duration: 'در حال ارسال', pending: true, tgLater: true };
+    }
     // تلگرام: اگر فایل یکجا داریم، فقط همان یکی می‌رود
     if (!st.tg) {
       // به تلگرام فایلِ یکجا می‌رود، نه تکه‌های کوتاه؛ و اگر قسمت بلندتر از سقفِ
@@ -15838,6 +16087,8 @@ function writeStatus_(hub, note) {
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
+    /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
+    epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
@@ -17359,6 +17610,11 @@ function healthCheck() {
        را از دست می‌دهد؛ همان قاعده‌ای که `monChecksStatus_` دارد. */
     var nsS = nightStarveStatus_(hub, true);
     if (nsS && nsS.line) { if (nsS.ok) notes.push(nsS.line); else problems.push(nsS.line); }
+    /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — هر روز، حتی وقتی چیزی کشته نشده. */
+    try {
+      var egS = epGuardStatus_();
+      if (egS && egS.line) { if (egS.ok) notes.push(egS.line); else problems.push(egS.line); }
+    } catch (eEg) {}
   } catch (eNs) {}
   /* ══ و اگر خاموش است، اینجا کاری هم می‌شود — نه فقط گزارش (۷٫۴۷) ══
      حکمِ «این مدل دستور را نمی‌پذیرد» هفته‌ها فقط گفته می‌شد. حالا اگر
@@ -24809,7 +25065,10 @@ function varietyTags_(ep, cat, epNum) {
 
 // ------------------------------------------------------- صداگذاری درس‌نامه
 
-function produceSpecialContinue() { return renderSpecialAudioStep_(); }
+function produceSpecialContinue() {
+  runEnter_('produceSpecialContinue');      // شاهدِ اجرا (۸.۵۴) — توضیح کنارِ produceEpisodeContinue
+  try { return renderSpecialAudioStep_(); } finally { runExit_('produceSpecialContinue'); }
+}
 
 function clearSpecialTriggers_() {
   var ts = ScriptApp.getProjectTriggers();
@@ -24821,10 +25080,12 @@ function clearSpecialTriggers_() {
 function clearSpecialContinuation_() {
   clearSpecialTriggers_();
   try { props_().deleteProperty(PK.SP_CONT_DUE); } catch (e) {}
+  epGuardDone_('special');
 }
 
 /** توضیحِ ترتیب و کارِ بندِ catch را در scheduleContinue_ بخوانید. */
 function scheduleSpecialContinue_(ms) {
+  epGuardDisarm_('special');
   var dueS = new Date().getTime() + ms;
   try { props_().setProperty(PK.SP_CONT_DUE, String(dueS)); } catch (e) {}
   try {
@@ -24832,6 +25093,7 @@ function scheduleSpecialContinue_(ms) {
     ScriptApp.newTrigger('produceSpecialContinue').timeBased().after(ms).create();
   } catch (eT) {
     try { props_().setProperty(PK.SP_CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
+    epTrigFailNote_('produceSpecialContinue', eT);
     throw eT;
   }
 }
@@ -25282,6 +25544,13 @@ function renderSpecialAudioStep_() {
     if (!it.hasNext()) { props_().deleteProperty(PK.SP_PENDING); throw new Error('فایل وضعیت درس‌نامه پیدا نشد.'); }
     var meta = JSON.parse(it.next().getBlob().getDataAsString());
     var ep = meta.ep, epNum = meta.epNum;
+    /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_` در بخشِ ۳. */
+    var gdS = epGuardBegin_('special', epNum, st.phase || '', scheduleSpecialContinue_);
+    if (gdS.killed) {
+      logLine_('درس‌نامه ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
+               '» کشته شد و نگهبان ادامه‌اش داد' +
+               (gdS.armed ? '' : ' — ' + gdS.n + ' بارِ پیاپی در همین مرحله؛ نگهبان دیگر مسلح نمی‌شود') + '.');
+    }
 
     var baseName = CFG.SPECIAL_SHOW_NAME + ' — ' + String(meta.seriesName).slice(0, 40) +
                    ' — قسمت ' + ('000' + epNum).slice(-3) + ' — ' + String(ep.title || '').slice(0, 40);
@@ -25516,10 +25785,16 @@ function renderSpecialAudioStep_() {
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     // قرینهٔ کالیبراسیونِ برنامهٔ متنوع — هر دو برنامه یک سقف دارند، پس هر دو
     // باید به همان اندازه‌گیری غذا بدهند (۶٫۲۹).
-    try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
-    try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
-    try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
-    try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
+    /* ثبت‌ها **یک بار** (۸.۵۴): تحویل حالا ممکن است در دو اجرا تمام شود (پایین، پیش از
+       تلگرام)، و هر کدام از این‌ها به تاریخچه‌ای می‌افزاید — دو بار یعنی آمارِ دوبرابر. */
+    if (!st.recDone) {
+      try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
+      try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
+      try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
+      try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
+      st.recDone = 1;
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+    }
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }
@@ -25556,6 +25831,20 @@ function renderSpecialAudioStep_() {
     }
     sp.getRange(st.row, XC.MAIL).setValue(st.mailed);
 
+    /* ══ تلگرام با وقتِ کامل، نه با ته‌ماندهٔ اجرا (۸.۵۴) ══
+       تحویلِ درس‌نامه هاب را باز می‌کند، ثبت‌ها را می‌نویسد، ایمیل می‌فرستد و بعد
+       دو فایلِ یکجای ۲۵ تا ۳۰ مگابایتی را به تلگرام بارگذاری می‌کند. ۶ اکتبر همین
+       زنجیره پنج دقیقه طول کشید — یک دقیقه زیرِ سقفِ گوگل. وقت کم است ⇒ همین‌جا
+       ذخیره و ادامه در اجرای تازه؛ هر چه پیش از این بود (ایمیل، سند، ثبت‌ها)
+       نشان دارد و دوباره انجام نمی‌شود. */
+    if (!st.tg && !st.tgSplit &&
+        deadline - new Date().getTime() < Math.max(30000, Number(CFG.TG_MIN_MS) || 120000)) {
+      st.tgSplit = 1;
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+      scheduleSpecialContinue_(20 * 1000);
+      logLine_('درس‌نامه ' + epNum + ': تلگرام به اجرای بعد رفت تا با وقتِ کامل بارگذاری شود.');
+      return { ok: true, episode: epNum, pending: true, tgLater: true };
+    }
     if (!st.tg) {
       var tgFiles = mgListSp.length ? mgListSp : st.files;
       var tg = 'تنظیم نشده';
@@ -25772,6 +26061,8 @@ function seriesBoardData_(hub) {
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
       /* «نوشته روی تصویر» (۸.۴۵) — کنارِ سطح، در همان خانه؛ خالی یعنی پیش‌فرض. */
       lvText: String(v[SC.LVTEXT - 1] || '').trim(),
+      /* «جان‌بخشیِ تصویر» (۸.۵۴) — همان خانه؛ خالی یعنی پیش‌فرض. */
+      lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -26583,6 +26874,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ نوشتهٔ رویِ تصویر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvTextSave(k,v);}');
+  H.push('function lvMotion(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ جان‌بخشیِ تصویر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvMotionSave(k,v);}');
   H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
          'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -27665,7 +27960,7 @@ function lvLevelCell_(x) {
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
          opts.join('') + '</select>' +
-         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + '</td>';
+         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + lvMotionBox_(x) + '</td>';
 }
 
 /**
@@ -27694,6 +27989,71 @@ function lvTextBox_(x) {
   return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
          '" data-role="text" onchange="lvText(this)">' + opts.join('') + '</select>' +
          '<div class="sub">نوشتهٔ رویِ نقاشی‌ها — سبک و شمارِ تصویر همان است که بالا انتخاب شده.</div></div>';
+}
+
+/**
+ * «جان‌بخشیِ تصویر» (۸.۵۴) — جعبهٔ سوم در همان خانهٔ سطح، به همان دلیلِ نوشته: ستونِ
+ * تازهٔ جدول `colspan` را کهنه می‌کند (۸.۱۳). او پرسید «تنظیماتِ هر درس و تخته و
+ * مجموعه‌ها قابلیت‌های لازم برای تغییر و ارتقا و کم کردن دارد؟» — برای کلیپِ آغاز و
+ * حرکتِ کانون‌دار جوابِ راست «نه، سراسری است» بود.
+ */
+function lvMotionBox_(x) {
+  var cur = String((x && x.lvMotion) || '');
+  var list = [];
+  try { list = CFG.LV_MOTION_LEVELS || ['کامل', 'بی‌کلیپ', 'آرام']; } catch (e) { list = ['کامل', 'بی‌کلیپ', 'آرام']; }
+  var def = String(CFG.LV_MOTION_DEFAULT || 'کامل');
+  var what = {
+    'کامل': 'کلیپِ هشت‌ثانیه‌ایِ آغاز (~۰٫۶۴ دلار) + دوربینی که به همان چیزِ گفته‌شده نزدیک می‌شود',
+    'بی‌کلیپ': 'بی کلیپِ آغاز؛ فقط دوربینِ کانون‌دار روی نقاشی‌ها',
+    'آرام': 'بی کلیپ و بی کانون؛ فقط حرکتِ آرام و یکنواخت'
+  };
+  var isA = (!cur || cur === 'خودکار' || list.indexOf(cur) === -1);
+  var opts = ['<option value="خودکار"' + (isA ? ' selected' : '') + '>جان‌بخشی: خودکار — همان «' +
+              bEsc_(def) + '»</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (!isA && k === cur ? ' selected' : '') +
+              '>جان‌بخشی: ' + bEsc_(k) + ' — ' + bEsc_(what[k] || '') + '</option>');
+  }
+  return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
+         '" data-role="motion" onchange="lvMotion(this)">' + opts.join('') + '</select>' +
+         '<div class="sub">کلیپ و حرکتِ دوربین روی نقاشی‌ها — سبک، شمار و نوشته همان می‌مانند.</div></div>';
+}
+
+/**
+ * ذخیرهٔ «جان‌بخشیِ تصویر» (۸.۵۴) — همان مرزهای «نوشته»: ناشناخته رد می‌شود و مجازها
+ * گفته می‌شوند، و رسید از همان تعریفی می‌خوانَد که تولید می‌خوانَد (`lvMotionAt_`).
+ */
+function uiLvMotionSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = (CFG.LV_MOTION_LEVELS || ['کامل', 'بی‌کلیپ', 'آرام']).slice();
+    if (v && v !== 'خودکار' && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'مقدارِ ناشناخته', ['مجازها: خودکار · ' + list.join(' · ')]);
+      return { ok: false, message: '«' + v + '» را نمی‌شناسم. مجازها: خودکار · ' + list.join(' · ') };
+    }
+    if (!v) v = 'خودکار';
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVMOTION).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var eff = null;
+    try { eff = lvMotionAt_(hub, { seriesKey: k }, null); } catch (eE) { eff = null; }
+    var note = eff
+      ? ('کلیپِ آغاز: ' + (eff.clip ? (CFG.LV_CLIP_ON === false ? 'خاموش (کلیدِ سراسری)' : 'روشن') : 'خاموش') +
+         ' · دوربینِ کانون‌دار: ' + (eff.focus ? (CFG.LV_MOTION_ON === false ? 'خاموش (کلیدِ سراسری)' : 'روشن') : 'خاموش'))
+      : 'ثبت شد.';
+    boardReceipt_(true, 'جان‌بخشیِ تصویرِ «' + nm + '»: ' + v,
+                  [note, 'سبک، سطح و نوشته دست نخورد. درس‌های بعدی با همین ساخته می‌شوند؛ ' +
+                         'درسی که نقشهٔ صحنه‌اش از قبل ساخته شده عوض نمی‌شود.']);
+    return { ok: true, message: 'جان‌بخشیِ تصویرِ «' + nm + '»: ' + v + ' — ' + note };
+  } catch (e) {
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
+  }
 }
 
 /**
@@ -33717,6 +34077,19 @@ function selfUpdateDaily() {
                  (rh.moved || 0) + ' کنار گذاشته، ' + (rh.tried || 0) +
                  ' بار مدل جواب نداد.');
       }
+      /* شاهد، همان شکلِ اجرای جدا (۸.۵۴) — خطِ روزانه از همین می‌خوانَد. `skipped`
+         را فقط وقتی می‌نویسد که این اجرا کلِ صف را دیده، وگرنه شمارِ رهاشده‌ها
+         از اجرای جدا کم‌شماری می‌شد. */
+      if (rh && rh.checked) {
+        try {
+          var wPrev = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null') || {};
+          props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify({
+            at: nowStr_(), checked: Number(rh.checked) || 0, heard: Number(rh.heard) || 0,
+            moved: Number(rh.moved) || 0, tried: Number(rh.tried) || 0,
+            skipped: Math.max(Number(rh.skipped) || 0, Number(wPrev.skipped) || 0),
+            left: Number(wPrev.left) || 0, queue: Number(rh.queue) || 0, via: 'کارِ شبانه' }));
+        } catch (eRw) {}
+      }
     } catch (eRH) { logLine_('بازبینیِ شنیداری انجام نشد: ' + eRH.message); }
   }
 
@@ -33725,6 +34098,13 @@ function selfUpdateDaily() {
      فقط هر دو را بدتر می‌کند، و از بیرون شبیهِ «داریم کار می‌کنیم» است. */
   var mUnheard = 0;
   try { mUnheard = Number((musicStatus_() || {}).unheard) || 0; } catch (eMu) {}
+  /* رهاشده‌ها (مدل چهار بار نشنیدشان) جلوی آوردنِ قطعهٔ تازه را نمی‌گیرند (۸.۵۴):
+     تا ۸.۵۳ اگر انبار از سقف بالا بود و بخشی از آن هرگز شنیده نمی‌شد، بانک برای
+     همیشه نه شنیده می‌شد نه پُر — قفلی که از بیرون فقط «۷۱ شنیده‌نشده» بود. */
+  try {
+    var wSk = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null');
+    if (wSk && Number(wSk.skipped) > 0) mUnheard = Math.max(0, mUnheard - Number(wSk.skipped));
+  } catch (eSk) {}
   var mStop = Math.max(1, Number(CFG.MUSIC_UNHEARD_STOP) || 25);
   if (mUnheard >= mStop) {
     logLine_('آوردنِ موسیقی امشب رد شد: ' + mUnheard + ' قطعهٔ شنیده‌نشده در بانک ' +
@@ -37672,6 +38052,13 @@ function musicStatus_() {
       }
     }
   } catch (e5) { out.playable = null; out.unheard = null; }
+  /* شمار برای زمان‌بندِ ساعتی (۸.۵۴) — یک نوشتنِ Properties، تا آن زمان‌بند هرگز
+     هاب را نخوانَد (۷٫۶۳/۷٫۸۴). */
+  if (out.unheard !== null && out.unheard !== undefined) {
+    try { props_().setProperty(PK.MUSIC_UNHEARD_N, String(Number(out.unheard) || 0)); } catch (eN) {}
+  }
+  /* و شاهدِ بازشنوی، نه وعده‌اش (۸.۵۴). */
+  try { out.rehear = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eRw) { out.rehear = null; }
   // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
   try {
     out.slots = musicSlotCounts_(null, bk);
@@ -37721,9 +38108,26 @@ function musicLine_(st) {
     if (Number(st.unheard) > 0) {
       /* «از منو بزنید» کار را به صاحبِ برنامه حواله می‌داد، در حالی که
          موتور خودش هر شب می‌شنود — و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما بود،
-         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست. */
-      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. موتور هر شب تا ' +
-              fa(Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3)) + ' تا را خودش می‌شنود.';
+         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست.
+         ══ و آنچه موتور «می‌کند» از شاهد گفته می‌شود، نه از تنظیم (۸.۵۴) ══
+         تا ۸.۵۳ این‌جا نوشته می‌شد «موتور هر شب تا ۱۲ تا را خودش می‌شنود» —
+         عددی از CFG، نه از رویداد. سه روز عددِ ۷۱ تکان نخورد و جمله همان ماند،
+         چون بلوکِ بازشنوی اصلاً اجرا نمی‌شد (۷٫۷۹: ادعای بی‌ورودی). */
+      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند.';
+      var w = st.rehear;
+      var wt = w && w.at ? parseWhen_(String(w.at)) : NaN;
+      if (!w || isNaN(wt)) {
+        line += ' ⚠️ بازشنوی هنوز هیچ شاهدی ندارد — اجرای جدایش از همین ساعت زمان‌بندی می‌شود.';
+      } else {
+        var hrs = Math.floor((new Date().getTime() - wt) / 3600000);
+        line += ' آخرین بازشنوی ' + (hrs < 1 ? 'کمتر از یک ساعت پیش' : fa(hrs) + ' ساعت پیش') +
+                ': ' + fa(Number(w.heard) || 0) + ' تأیید، ' + fa(Number(w.moved) || 0) + ' کنار گذاشته، ' +
+                fa(Number(w.tried) || 0) + ' بی‌جواب' +
+                (Number(w.skipped) > 0 ? ' · ' + fa(w.skipped) + ' رهاشده (مدل ' +
+                   fa(Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید؛ پخش نمی‌شوند و جلوی آوردنِ ' +
+                   'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
+        if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
+      }
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }
@@ -39373,21 +39777,36 @@ function musicRecheck_(hub, opt) {
     };
     todo.sort(function (a, c) { return rank(a) - rank(c); });
   }
+  /* ══ سقف روی «شنیده‌شده‌ها» است، نه روی صف (۸.۵۴) ══
+   * تا ۸.۵۳ صف **پیش از** سدِ تلاش بریده می‌شد: اگر دوازده قطعهٔ اولِ صف هر کدام
+   * چهار بار بی‌جواب مانده بودند، هر اجرا همان دوازده را برمی‌داشت، همه را رد
+   * می‌کرد و هیچ قطعهٔ دیگری هرگز نوبت نمی‌گرفت — بی هیچ خطایی، با عددی که فقط
+   * ثابت می‌مانْد. حالا قطعهٔ رهاشده جای قطعهٔ منتظر را نمی‌گیرد، و شمرده می‌شود
+   * (`skipped`) تا «منتظرِ شنیدن» از «رهاشده» جدا گفته شود (۵.۸۸). */
   var capN = Math.max(0, Number(opt.cap) || 0);
-  if (capN && todo.length > capN) {
-    out.notes.push('این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
-    todo = todo.slice(0, capN);
-  }
+  out.queue = todo.length;
   var rt0 = new Date().getTime();
   var rBudget = Math.max(0, Number(opt.budgetMs) || 0);
 
   for (var i = 0; i < todo.length; i++) {
-    if (rBudget && new Date().getTime() - rt0 > rBudget) {
-      out.notes.push('وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.');
-      break;
-    }
     var f2 = todo[i];
     var mt = null;
+    var full = capN && out.checked >= capN;
+    var late = rBudget && new Date().getTime() - rt0 > rBudget;
+    if ((full || late) && !opt.countAll) {
+      out.notes.push(late ? 'وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.'
+                          : 'این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
+      break;
+    }
+    /* شمارشِ بقیهٔ صف (فقط اجرای جدا): شناسنامه خوانده می‌شود، بایت نه. */
+    if (full || late) {
+      if (rBudget && new Date().getTime() - rt0 > rBudget + 60000) { out.uncounted = todo.length - i; break; }
+      try { mt = musicMeta_(f2.getName()); } catch (eMc) {}
+      var tmx = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
+      if (musicHearTries_(mt) >= tmx) out.skipped = (out.skipped || 0) + 1;
+      else out.waiting = (out.waiting || 0) + 1;
+      continue;
+    }
     try { mt = musicMeta_(f2.getName()); } catch (eMt) {}
 
     /* ══ سقفِ تلاش **پیش از خواندنِ بایت‌ها** (۸.۰۳) ══
@@ -39478,6 +39897,83 @@ function musicRecheck_(hub, opt) {
   // می‌ماند و سدِ افکت باز نمی‌شود.
   if (out.moved || out.heard) { try { musicScan_(hub); } catch (eS) {} }
   return out;
+}
+
+/**
+ * ══ بازشنویِ بانک — اجرای جدای خودش (۸.۵۴) ══
+ *
+ * او پرسید «موسیقی به کجا رسید؟ همچنان حس می‌کنم خیلی چیزها موسیقی ندارد».
+ * درست بود: درسِ ۴۰ (۶ اکتبر) بی آغاز و پایان رفت، و `_STATUS.json` می‌گفت
+ * «قابلِ پخش ۷ · شنیده‌نشده ۷۱ … موتور هر شب تا ۱۲ تا را خودش می‌شنود». آن جمله
+ * **دروغ** بود: بازشنوی پشتِ نُه بلوکِ `nightHas_` در کارِ شبانه است، و کارِ شبانه
+ * از ۳ اکتبر هر شب زودتر مرد. عددِ ۷۱ سه روزِ پیاپی یکی ماند. یافتهٔ
+ * `music-unheard` هم دقیقاً همین را می‌گفت («اول ببین کارِ شبانه به آن بلوک
+ * می‌رسد یا زودتر می‌میرد») و کسی درمانش نکرد.
+ *
+ * همان الگوی `embSpecsLater` (۸.۴۴) و `vintQueueLater` (۸.۵۳): زمان‌بندِ ساعتی فقط
+ * Script Properties می‌خوانَد و یک اجرای یک‌باره می‌سازد؛ خودِ کار در آن اجراست،
+ * با قفل و سقفِ روزانه. کارِ شبانه هم هنوز می‌شنود — دو در، یک صف.
+ */
+function musicRehearDue_() {
+  if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_REHEAR === false) return false;
+  var P = props_();
+  var nRaw = P.getProperty(PK.MUSIC_UNHEARD_N);
+  var w = null;
+  try { w = JSON.parse(P.getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eW) { w = null; }
+  /* «چیزی برای شنیدن هست؟» — از عددِ وضعیت، منهای رهاشده‌هایی که آخرین اجرا شمرد.
+     عددِ نامعلوم (هنوز وضعیتی نوشته نشده) ⇒ یک بار در روز امتحان، تا بفهمیم. */
+  var left = nRaw === null ? -1 : Number(nRaw) || 0;
+  if (left >= 0 && w && Number(w.skipped) >= 0) left = Math.max(0, left - (Number(w.skipped) || 0));
+  if (left === 0) return false;
+  var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var d = null;
+  try { d = JSON.parse(P.getProperty(PK.MUSIC_REHEAR_DAY) || 'null'); } catch (eD) { d = null; }
+  if (!d || d.day !== today) d = { day: today, n: 0, at: 0 };
+  var max = Math.max(1, Number(CFG.MUSIC_REHEAR_RUNS_DAY) || 4);
+  if (left < 0) max = 1;
+  if (d.n >= max) return false;
+  var gap = Math.max(15, Number(CFG.MUSIC_REHEAR_GAP_MIN) || 50) * 60000;
+  if (d.at && new Date().getTime() - Number(d.at) < gap) return false;
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) if (ts[i].getHandlerFunction() === 'musicRehearLater') return false;
+    ScriptApp.newTrigger('musicRehearLater').timeBased().after(60 * 1000).create();
+  } catch (eT) { return false; }
+  d.n++; d.at = new Date().getTime();
+  try { P.setProperty(PK.MUSIC_REHEAR_DAY, JSON.stringify(d)); } catch (eS) {}
+  return true;
+}
+
+function musicRehearLater() {
+  try { clearRetryTriggers_('musicRehearLater'); } catch (eC) {}
+  runEnter_('musicRehearLater');
+  try {
+    var lock = LockService.getScriptLock();
+    /* قفل: پویشِ بانک تبِ موسیقی را بازنویسی می‌کند و ساختِ قسمت همان تب را
+       می‌خوانَد. گرفته نشد ⇒ ساعتِ بعد، بی هیچ کاری. */
+    if (!lock.tryLock(20000)) return { ok: false, why: 'قفل گرفته بود' };
+    try {
+      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true,
+                 cap: Math.max(1, Number(CFG.MUSIC_REHEAR_LATER_MAX) || 12),
+                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 210000) });
+      var w = { at: nowStr_(), checked: Number(r.checked) || 0, heard: Number(r.heard) || 0,
+                moved: Number(r.moved) || 0, tried: Number(r.tried) || 0,
+                skipped: Number(r.skipped) || 0,
+                left: (Number(r.waiting) || 0) + (Number(r.tried) || 0),
+                queue: Number(r.queue) || 0, via: 'اجرای جدا' };
+      if (r.uncounted) w.uncounted = r.uncounted;
+      try { props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify(w)); } catch (eS) {}
+      logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا): ' + w.checked + ' سنجیده شد — ' +
+               w.heard + ' تأیید، ' + w.moved + ' کنار گذاشته، ' + w.tried + ' بی‌جواب' +
+               (w.skipped ? '، ' + w.skipped + ' رهاشده (مدل ' +
+                            (Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید)' : '') +
+               ' · منتظر: ' + w.left + '.');
+      return { ok: true, r: w };
+    } finally { lock.releaseLock(); }
+  } catch (e) {
+    try { logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا) نشد: ' + e.message); } catch (eL) {}
+    return { ok: false, why: e.message };
+  } finally { runExit_('musicRehearLater'); }
 }
 
 /** منو: بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟» */
@@ -48456,7 +48952,16 @@ function lvGenStatus_() {
     out.usd = sp.usd; out.n = sp.n;
     try {
       var c = JSON.parse(props_().getProperty(PK.LV_GEN_MODEL) || 'null');
-      out.model = String(CFG.LV_GEN_MODEL || (c && c.id) || '');
+      /* همان قاعدهٔ `lvGenModel_`، بی فهرست‌گرفتن (۸.۵۴): حافظه‌ای که پیش از
+         سنجاق نوشته شده، در انتخابِ بعدی کنار می‌رود. تا ۸.۵۳ این خط حافظه را
+         عیناً نقل می‌کرد، پس ایمیلِ ۶ اکتبر در یک سطر «روشن با
+         gemini-3.1-flash-image-preview» می‌گفت و دو سطر پایین‌تر «مدلِ تصویرِ
+         ساخته‌شده: gemini-3.1-flash-lite-image» — دو جوابِ یک پرسش در یک ایمیل. */
+      var pinE = String(CFG.LV_GEN_MODEL_PIN || '').trim();
+      var eff = String(CFG.LV_GEN_MODEL || '').trim();
+      /* فقط وقتی یک بار گشته‌ایم (حافظه هست): «هنوز نگشته‌ایم» حالتِ جدای خودش است (۸.۲۰). */
+      if (!eff && pinE && c && c.id && String(c.pinMiss || '') !== pinE && !lvGenPinDefect_(pinE).bad) eff = pinE;
+      out.model = eff || String((c && c.id) || '');
     } catch (eC) { out.model = String(CFG.LV_GEN_MODEL || ''); }
     out.price = lvGenPrice_(out.model);
     out.room = out.on ? lvGenRoom_(out.model) : 0;
@@ -49275,6 +49780,31 @@ function lvThinNote_(key, vis) {
     for (var d = 0; d < keys.length - cap; d++) delete m[keys[d]];
   }
   return lvMapSave_(PK.LV_THIN, m);
+}
+
+/**
+ * «نحیف» یعنی «هنوز جبران‌شدنی» (۸.۱۱) — و درسی که منتشر شده دیگر جبران‌شدنی
+ * نیست. تا ۸.۵۳ هیچ‌جا پاک نمی‌شد: ایمیلِ ۶ اکتبر هنوز می‌گفت «special:58 (1 از
+ * 14)، special:59 (3 از 12) … پیش از انتشار با بازسازیِ تصویرها درست می‌شود»
+ * درباره‌ی دو درسی که روزها پیش منتشر شده بودند. هشداری که برای گذشته بزند،
+ * همان هشداری است که یاد می‌گیرند نخوانند (۷٫۴۰). فقط وقتی حافظه خالی نیست
+ * هاب خوانده می‌شود.
+ */
+function lvThinPrune_() {
+  var m = lvMap_(PK.LV_THIN), ks = Object.keys(m);
+  if (!ks.length) return 0;
+  var pub = ytPublished_(getHub_()), n = 0;
+  for (var i = 0; i < ks.length; i++) {
+    if (pub[ks[i]] && pub[ks[i]].videoId) { delete m[ks[i]]; n++; }
+  }
+  if (n) lvMapSave_(PK.LV_THIN, m);
+  return n;
+}
+function lvThinClear_(key) {
+  try {
+    var m = lvMap_(PK.LV_THIN);
+    if (m[String(key)]) { delete m[String(key)]; lvMapSave_(PK.LV_THIN, m); }
+  } catch (e) {}
 }
 
 /**
@@ -51065,9 +51595,13 @@ function lvMotionNote_(key, d, items) {
                 moves: d.scenes.filter(function (x) { return x.move === 'push' || x.move === 'reveal'; }).length,
                 box: d.scenes.filter(function (x) { return x.judge && x.judge.box; }).length,
                 mv: (items || []).filter(function (x) { return !!x.mv; }).length,
-                zero: Number(prev && prev.zero) || 0 };
+                zero: Number(prev && prev.zero) || 0,
+                off: d.focusOn === false ? String(d.motion || 'آرام') : '' };
     if (!prev || prev.key !== key) {
-      if (rec.mv > 0) rec.zero = 0;
+      /* درسی که تخته‌اش «آرام» گفته، حرکتِ کانون‌دار نمی‌خواهد (۸.۵۴): بی‌حرکتی‌اش
+         انتخاب است، نه شکست — شمار را نه بالا می‌برد نه صفر می‌کند. */
+      if (rec.off) rec.zero = Number(prev && prev.zero) || 0;
+      else if (rec.mv > 0) rec.zero = 0;
       else if (rec.n >= 8 && CFG.LV_MOTION_ON !== false) rec.zero++;
     } else {
       rec.zero = Number(prev.zero) || 0;           // همان درس، دوباره: شمار عوض نمی‌شود
@@ -51087,6 +51621,11 @@ function lvMotionStatus_() {
     out.ok = !(out.on && out.zero >= find);
     if (!out.on) { out.line = '🎥 حرکتِ کانون‌دار: خاموش.'; return out; }
     var L = out.last;
+    if (L && L.off) {
+      out.line = '🎥 حرکتِ کانون‌دار: آخرین درس (' + L.key + ') به انتخابِ تخته («' + L.off +
+                 '») فقط حرکتِ آرام گرفت.';
+      return out;
+    }
     out.line = '🎥 حرکتِ کانون‌دار: ' + (L
       ? 'آخرین درس (' + L.key + ') ' + faDigitsOut_(String(L.mv)) + ' از ' + faDigitsOut_(String(L.n)) +
         ' صحنه — کانون از توصیف‌گر ' + faDigitsOut_(String(L.focus)) + '، حرکتِ push/reveal ' +
@@ -51499,9 +52038,22 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                     allow: Math.round(pace.allow * 100) / 100, ceil: Math.round(pace.ceil * 100) / 100,
                     why: paced ? pace.why : '' },
             scenes: sc0, cover: { scene: '', fileId: '' }, nature: '',
-            clip: lvClipOn_() ? { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } : null,
+            /* جان‌بخشیِ همین مجموعه (۸.۵۴): «بی‌کلیپ» و «آرام» کلیپ نمی‌خرند، و
+               «آرام» حرکتِ کانون‌دار هم نمی‌گیرد. با `state: 'off'` و علت — نه `null` —
+               تا خطِ روزانه بگوید «خاموش به انتخابِ تخته»، نه «نقشهٔ پیش از ۸.۵۱». */
+            motion: String(ctx.motion || ''),
+            focusOn: ctx.motionFocus !== false,
+            clip: lvClipOn_()
+              ? (ctx.motionClip === false
+                  ? { state: 'off', tries: 0, op: '', fileId: '', at: '',
+                      why: 'تخته: جان‌بخشیِ «' + String(ctx.motion || '') + '» — بی کلیپ' }
+                  : { state: '', tries: 0, op: '', fileId: '', why: '', at: '' })
+              : null,
             spent: 0, made: 0, judged: false, done: false, why: '' };
       if (!lvSceneWrite_(folder, d)) return planFail('`_scenes.json` نوشته نشد');
+      if (d.clip && d.clip.state === 'off') {
+        try { lvClipNote_(key, d.clip, String(CFG.LV_CLIP_MODEL || '')); } catch (eCn) {}
+      }
     }
     var pa = lvScenePlanAsk_(d, ctx, left, fresh);
     if (pa.more) {
@@ -51713,7 +52265,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
                  caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0,
                  ov: x.fileId ? (x.ov || null) : null,
-                 mv: x.fileId ? lvSceneMv_(x) : null });
+                 mv: x.fileId && d.focusOn !== false ? lvSceneMv_(x) : null });
   }
   if (items.length) items[0].t0 = 0;
   lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
@@ -51899,6 +52451,96 @@ function ytScenesOkAdd_() {
     var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
     props_().setProperty(PK.YT_SCENES_OK, String(n + 1));
   } catch (e) {}
+}
+
+/**
+ * ══ کاورِ یک ویدئو — یک تعریف برای آپلود و بازسازی (۸.۵۴) ══
+ *
+ * ۸.۳۱ گفت «کاورِ رانر (نقاشیِ خودِ درس + عنوان) بر کارتِ اسلایدز مقدم است» و
+ * همین را **فقط در مسیرِ آپلود** گذاشت. `ytRedoOne_` — که ویدئوی Unlisted را
+ * عمومی می‌کند — هنوز همیشه کارتِ اسلایدز را می‌ساخت و با `thumbnails.set`
+ * رویِ ویدئو می‌نشاند. ۶ اکتبر ساعتِ ۰۲:۵۹ موتور درس‌های ۳۸ و ۳۹ را پس از
+ * تأیید عمومی کرد و **کاورِ نقاشیِ هر دو را با کارتِ سرمه‌ایِ قدیم عوض کرد**.
+ * صاحبِ برنامه روزِ قبل کاورِ درست را دیده بود و فردایش در استودیو کاورِ دیگری
+ * دید. همان «دوقلویی که یک بار درست شود، یک بار درست شده است» (۵.۹۵).
+ *
+ * حالا هر دو راه از همین تابع می‌پرسند، و کارتِ اسلایدز فقط وقتی ساخته می‌شود
+ * که نقاشی نیست (`cardFn` تنبل است: ساختنِ کارت چند فراخوانِ اسلایدز است).
+ * @return {{blob:Blob, painted:boolean, src:string}|null}
+ */
+function ytThumbFor_(key, cardFn) {
+  var rme = null;
+  try { rme = (ytRenderMapCached_() || {})[String(key)] || null; } catch (eM) { rme = null; }
+  var b = null;
+  try { b = ytRenderThumb_(rme); } catch (eB) { b = null; }
+  if (b) return { blob: b, painted: true, src: String(rme.thumb) };
+  var c = null;
+  try { c = cardFn ? cardFn() : null; } catch (eC) { c = null; }
+  return c && c.blob ? { blob: c.blob, painted: false, src: '' } : null;
+}
+
+/** دفترِ کاورهای نقاشی که واقعاً روی ویدئو نشستند: {کلید: نشانیِ کاور}. */
+function ytThumbPaint_() {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.YT_THUMB_PAINT) || '{}');
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch (e) { return {}; }
+}
+function ytThumbPaintSet_(key, src) {
+  try {
+    var m = ytThumbPaint_();
+    if (src) m[String(key)] = String(src); else delete m[String(key)];
+    var ks = Object.keys(m);
+    var cap = Math.max(20, Number(CFG.YT_THUMB_PAINT_KEEP) || 200);
+    for (var i = 0; i < ks.length - cap; i++) delete m[ks[i]];
+    props_().setProperty(PK.YT_THUMB_PAINT, JSON.stringify(m));
+  } catch (e) {}
+}
+
+/**
+ * ══ برگرداندنِ کاورِ نقاشی روی ویدئوهایی که کاورش گم شد (۸.۵۴) ══
+ * «پاک‌کردنِ ورودی آنچه را نوشته شده درست نمی‌کند» (۵.۹۵): درست‌کردنِ
+ * `ytRedoOne_` درس‌های ۳۸ و ۳۹ را که کاورشان همین امروز عوض شد برنمی‌گرداند.
+ * پس هر ویدئوی منتشرشده‌ای که رانر برایش کاورِ نقاشی ساخته و در دفتر نیست،
+ * یک بار کاورِ نقاشی‌اش را می‌گیرد. هزینه کران دارد: فقط وقتی نامزدی هست هاب
+ * باز می‌شود، و هر اجرا تا `YT_THUMB_FIX_MAX` ویدئو.
+ */
+function ytThumbRestore_(budgetMs) {
+  var out = { checked: 0, fixed: 0, why: [] };
+  if (!ytOn_() || CFG.YT_THUMB === false) return out;
+  var rm = null;
+  try { rm = ytRenderMapCached_() || {}; } catch (eR) { return out; }
+  var led = ytThumbPaint_(), cand = [];
+  for (var k in rm) {
+    if (!Object.prototype.hasOwnProperty.call(rm, k)) continue;
+    var t = rm[k] && rm[k].thumb ? String(rm[k].thumb) : '';
+    if (t && led[k] !== t) cand.push(k);
+  }
+  if (!cand.length) return out;
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 40000);
+  var pub = ytPublished_(getHub_());
+  var yt = ytSvc_();
+  if (!yt) return out;
+  var max = Math.max(1, Number(CFG.YT_THUMB_FIX_MAX) || 2);
+  for (var i = 0; i < cand.length && out.checked < max; i++) {
+    var r = pub[cand[i]];
+    if (!r || !r.videoId) continue;              // هنوز منتشر نشده: راهِ آپلود خودش نقاشی را می‌نشاند
+    if (new Date().getTime() - t0 > budget) break;
+    out.checked++;
+    var th = ytThumbFor_(cand[i], null);
+    if (!th || !th.painted) { out.why.push(cand[i] + ': کاورِ نقاشی خوانده نشد'); continue; }
+    if (!ytQuotaTake_(YT_COST.thumbSet, false)) { out.why.push('سهمیه'); break; }
+    try {
+      yt.Thumbnails.set(r.videoId, th.blob);
+      ytThumbPaintSet_(cand[i], th.src);
+      out.fixed++;
+    } catch (eT) { out.why.push(cand[i] + ': ' + String(eT.message).slice(0, 80)); }
+  }
+  if (out.checked) {
+    logLine_('یوتیوب — کاورِ نقاشی: ' + out.checked + ' ویدئو سنجیده شد، ' + out.fixed +
+             ' کاورش برگشت' + (out.why.length ? ' · نه: ' + out.why.join(' · ') : '') + '.');
+  }
+  return out;
 }
 
 /**
@@ -52114,6 +52756,32 @@ function lvTextAt_(hub, item, meta) {
     }
   } catch (e) {}
   return { v: def, share: shareOf(def), src: 'مجموعه پیدا نشد ⇒ پیش‌فرض' };
+}
+
+/**
+ * جان‌بخشیِ نقاشی‌های یک مجموعه، از ستونِ «جان‌بخشیِ تصویر» (۸.۵۴).
+ * خالی یا «خودکار» ⇒ `LV_MOTION_DEFAULT`؛ نوشتهٔ ناشناخته ⇒ همان پیش‌فرض، نه خطا.
+ * کلیدهای سراسری بالاترند: `LV_CLIP_ON: false` یعنی هیچ کلیپی، هرچه تخته بگوید.
+ * @return {{v:string, clip:boolean, focus:boolean, src:string}}
+ */
+function lvMotionAt_(hub, item, meta) {
+  var def = String(CFG.LV_MOTION_DEFAULT || 'کامل');
+  var tab = CFG.LV_MOTION_WHAT || {};
+  var of = function (v, src) {
+    var w = tab[v] || tab[def] || { clip: true, focus: true };
+    return { v: v, clip: !!w.clip, focus: !!w.focus, src: src };
+  };
+  try {
+    var reg = readSeriesReg_(hub || getHub_());
+    var rec = reg.byKey[String((item && item.seriesKey) || '')] ||
+              reg.byKey[String((meta && meta.seriesKey) || '')] || null;
+    if (rec) {
+      var raw = String((rec.vals || [])[SC.LVMOTION - 1] || '').trim();
+      if (raw && tab.hasOwnProperty(raw)) return of(raw, 'تخته');
+      return of(def, raw && raw !== 'خودکار' ? 'تخته: ناشناخته ⇒ پیش‌فرض' : 'تخته: خالی ⇒ پیش‌فرض');
+    }
+  } catch (e) {}
+  return of(def, 'مجموعه پیدا نشد ⇒ پیش‌فرض');
 }
 
 /** تاریخچه، تازه‌ترین اول. برای ناظر و برای `lvUpgrade_`. */
@@ -53062,6 +53730,10 @@ function ytUploadOne_(item, hub, pub) {
   /* نوشتهٔ رویِ نقاشی: ستونِ خودش در تخته، جدا از سبک و سطح (۸.۴۵). */
   try { var lvTx = lvTextAt_(hub, item, meta); ctx.textLevel = lvTx.v; ctx.textShare = lvTx.share; }
   catch (eTx) { ctx.textLevel = ''; ctx.textShare = 0; }
+  /* جان‌بخشی: ستونِ خودش در تخته (۸.۵۴) — کلیپِ آغاز و حرکتِ کانون‌دار برای همین مجموعه. */
+  try { var lvMo = lvMotionAt_(hub, item, meta); ctx.motion = lvMo.v; ctx.motionClip = lvMo.clip;
+        ctx.motionFocus = lvMo.focus; ctx.motionSrc = lvMo.src; }
+  catch (eMo) { ctx.motion = ''; }
 
   /* در حالتِ صحنه، نقشهٔ کارت‌ها دیگر به کار نمی‌آید (۸.۳۱): پرسشِ دوبارهٔ
      کارت‌ها فقط پولِ مدل است برای چیزی که ساخته نمی‌شود. */
@@ -53376,20 +54048,26 @@ function ytUploadOne_(item, hub, pub) {
   }
   if (!vid) { res.why = 'یوتیوب شناسهٔ ویدئو برنگرداند'; return res; }
   res.videoId = vid;
+  lvThinClear_(String(item.key || (item.show + ':' + item.ep)));   // منتشر شد ⇒ «نحیف» دیگر جبران‌شدنی نیست (۸.۵۴)
   var url = 'https://www.youtube.com/watch?v=' + vid;
 
   // ── کاور ──
   /* کاورِ رانر (نقاشیِ خودِ درس + عنوان) بر کارتِ اسلایدز مقدم است (۸.۳۱)؛
      نبودش یعنی همان کاورِ قبلی. */
+  var thKey = String(item.key || (item.show + ':' + item.ep));
+  /* ردیفِ رندر پایین‌تر هم لازم است (سدِ عمومی‌شدن و شمارِ تأیید) — نگارشِ اولِ ۸.۵۴
+     تعریفش را با جابه‌جاییِ کاور برداشت و فقط مجموعهٔ آزمون نشانش داد. */
   var rme = null;
-  try { rme = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; }
-  catch (eRm) { rme = null; }
-  var thumbBlob = null;
-  try { thumbBlob = ytRenderThumb_(rme); } catch (eTb) { thumbBlob = null; }
+  try { rme = (ytRenderMapCached_() || {})[thKey] || null; } catch (eRm) { rme = null; }
+  var th = ytThumbFor_(thKey, function () { return cover; });
   var thumb = '—';
-  if (CFG.YT_THUMB !== false && (thumbBlob || (cover && cover.blob)) &&
+  if (CFG.YT_THUMB !== false && th && th.blob &&
       ytQuotaTake_(YT_COST.thumbSet, false)) {
-    try { yt.Thumbnails.set(vid, thumbBlob || cover.blob); thumb = thumbBlob ? 'نشست (نقاشی)' : 'نشست'; }
+    try {
+      yt.Thumbnails.set(vid, th.blob);
+      thumb = th.painted ? 'نشست (نقاشی)' : 'نشست';
+      ytThumbPaintSet_(thKey, th.painted ? th.src : '');
+    }
     catch (eT) {
       // کاورِ سفارشی کانالِ تأییدشده می‌خواهد. این ایراد نیست، یک شرط است —
       // ولی باید گفته شود، وگرنه هر روز بی‌صدا رد می‌شود.
@@ -53857,11 +54535,31 @@ function ytTick_(budgetMs) {
     try { ytApprovedRedo_(Math.min(60000, left() - 45000)); }
     catch (eAp) { out.why += (out.why ? ' · ' : '') + 'تأییدشده: ' + String(eAp.message).slice(0, 60); }
   }
+  /* کاورِ نقاشی که با عمومی‌شدن پاک شده بود، برمی‌گردد (۸.۵۴). بی نامزد هیچ
+     خواندنی ندارد جز نقشهٔ رندرها که همین اجرا از قبل گرفته. */
+  if (left() > 45000) {
+    try { ytThumbRestore_(Math.min(40000, left() - 30000)); }
+    catch (eTr) { out.why += (out.why ? ' · ' : '') + 'کاورِ نقاشی: ' + String(eTr.message).slice(0, 60); }
+  }
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
       out.published = r.done; out.waiting = r.waiting;
     } catch (e2) { out.why += (out.why ? ' · ' : '') + 'انتشار: ' + String(e2.message).slice(0, 60); }
+  }
+  /* ══ درِ دومِ ویدئوهای گیرکرده (۸.۵۴) ══
+     `ytRedoStuckNightly_` فقط در کارِ شبانه بود، پشتِ `ytLeft()`؛ و کارِ شبانه از
+     ۳ اکتبر هر شب پیش از بلوکِ یوتیوب مرد. پس سه ویدئوی قدیمی (`variety:20`،
+     `special:26`، `variety:23`) هفته‌ها Unlisted ماندند و خطِ روزانه هر روز می‌گفت
+     «علتشان پس از بازسنجیِ شبانه این‌جا می‌آید» — وعده‌ای که هیچ راهی برایش
+     پیموده نمی‌شد (۷٫۴۶). روزی یک بار این‌جا هم، فقط وقتی وقت هست. */
+  if (left() > 50000 && ytStuckTickDue_()) {
+    try { ytRedoStuckNightly_(Math.min(45000, left() - 20000)); ytStuckTickMark_(); }
+    catch (eSt) { out.why += (out.why ? ' · ' : '') + 'گیرکرده‌ها: ' + String(eSt.message).slice(0, 60); }
+  }
+  /* هشدارِ «نقشهٔ نحیف» برای درسی که منتشر شده، دیگر جبران‌شدنی نیست (۸.۵۴). */
+  if (left() > 15000) {
+    try { lvThinPrune_(); } catch (eTp) {}
   }
   /* بازخورد آخرین بندِ کارِ شبانه است و در شبِ شلوغ گرسنه می‌مانَد. این‌جا
      دومین شانسش است — و چون `ytStatsDue_` هر ~۲۰ ساعت یک بار اجازه می‌دهد،
@@ -54843,7 +55541,11 @@ function ytRedoOne_(show, ep, opt) {
   }
 
   if (CFG.YT_THUMB !== false) {
-    var cover = ytCoverCard_({ title: String(epo.title || ''),
+    /* کاورِ نقاشی، اگر رانر ساخته؛ کارتِ اسلایدز فقط وقتی نیست (۸.۵۴). تا ۸.۵۳
+       این‌جا همیشه کارت ساخته و نشانده می‌شد — و عمومی‌کردنِ درس‌های ۳۸ و ۳۹
+       کاورِ نقاشیِ هر دو را پاک کرد. */
+    var thKeyR = String(show) + ':' + String(ep);
+    var th = ytThumbFor_(thKeyR, function () { return ytCoverCard_({ title: String(epo.title || ''),
                                coverTitle: plan.coverTitle, kicker: plan.coverKicker,
                                showName: showName, seriesName: ctx.seriesName,
                                /* بازسازی هم همان برچسبِ مسیرِ آپلود را می‌گیرد
@@ -54859,9 +55561,13 @@ function ytRedoOne_(show, ep, opt) {
                                   یک‌بار درست شده است» — ۵.۹۵). */
                                style: lvStyleAt_(hub, { seriesKey: meta.seriesKey },
                                                  meta, ctx.seriesName),
-                               redo: opt.recover !== false });
-    if (cover && cover.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
-      try { yt.Thumbnails.set(rec.videoId, cover.blob); out.changed.push('کاور'); }
+                               redo: opt.recover !== false }); });
+    if (th && th.blob && ytQuotaTake_(YT_COST.thumbSet, false)) {
+      try {
+        yt.Thumbnails.set(rec.videoId, th.blob);
+        out.changed.push(th.painted ? 'کاور (نقاشی)' : 'کاور');
+        ytThumbPaintSet_(thKeyR, th.painted ? th.src : '');
+      }
       catch (eT) { out.why = (out.why ? out.why + ' · ' : '') + 'کاور ننشست: ' + String(eT.message).slice(0, 80); }
     }
   }
@@ -54898,7 +55604,8 @@ function ytRedoOne_(show, ep, opt) {
                 videoId: rec.videoId, url: rec.url,
                 privacy: out.changed.indexOf('عمومی شد') !== -1
                            ? (CFG.YT_PRIVACY_FINAL || 'public') : rec.privacy,
-                thumb: out.changed.indexOf('کاور') !== -1 ? 'نشست' : '—',
+                thumb: out.changed.indexOf('کاور (نقاشی)') !== -1 ? 'نشست (نقاشی)'
+                     : (out.changed.indexOf('کاور') !== -1 ? 'نشست' : '—'),
                 chapters: plan.chapters, tags: (plan.tags || []).length,
                 descChars: String(plan.description || '').length,
                 result: 'اصلاح شد', note: out.changed.join('، ') + (out.why ? ' | ' + out.why : '') });
@@ -54924,6 +55631,19 @@ function ytRedoOne_(show, ep, opt) {
  * `_yt.json`ی که هست. قدیمی‌ترین‌ها اول، و سقفِ کوچک تا سهمیهٔ آپلود/به‌روزرسانیِ
  * فردا خالی نماند.
  */
+/** امروز درِ دومِ گیرکرده‌ها رفته؟ — فقط Properties (۸.۵۴). */
+function ytStuckTickDue_() {
+  try {
+    return String(props_().getProperty(PK.YT_STUCK_TICK) || '') !==
+           Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  }
+  catch (e) { return false; }
+}
+function ytStuckTickMark_() {
+  try { props_().setProperty(PK.YT_STUCK_TICK, Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd')); }
+  catch (e) {}
+}
+
 function ytRedoStuckNightly_(budgetMs) {
   var out = { checked: 0, cleared: 0, stillLeak: 0 };
   if (!ytOn_()) return out;
@@ -69066,6 +69786,13 @@ function vbrCollectHourly() {
   /* صفِ گویندگان که شبانه نوشته نشد — فقط زمان‌بندی، بی هاب (۸.۵۳). پیش از
      سدِ پل، به همان دلیلِ بالا: گوینده به پل ربطی ندارد. */
   try { vintQueueDue_(); } catch (eQd) {}
+  /* بازشنویِ بانکِ موسیقی (۸.۵۴) — همان شکل: فقط Properties، و کار در اجرای
+     جدای خودش. بخشِ ۲۳ پیش از این بخش است، پس فراخوانِ مستقیم وابستگیِ رو به
+     جلو نیست. پیش از سدِ `VBR_ON`، چون موسیقی به پل ربطی ندارد. */
+  try { musicRehearDue_(); } catch (eMr) {}
+  /* و قسمتی که اجرایش کشته شد و نگهبانش هم نرسید (۸.۵۴) — فقط Properties و
+     فهرستِ تریگرها؛ سیاهه را خودِ ادامه می‌نویسد، نه این‌جا (۷٫۸۴). */
+  try { epStallKick_(); } catch (eSk) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

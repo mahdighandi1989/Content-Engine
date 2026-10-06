@@ -1589,6 +1589,13 @@ function musicStatus_() {
       }
     }
   } catch (e5) { out.playable = null; out.unheard = null; }
+  /* شمار برای زمان‌بندِ ساعتی (۸.۵۴) — یک نوشتنِ Properties، تا آن زمان‌بند هرگز
+     هاب را نخوانَد (۷٫۶۳/۷٫۸۴). */
+  if (out.unheard !== null && out.unheard !== undefined) {
+    try { props_().setProperty(PK.MUSIC_UNHEARD_N, String(Number(out.unheard) || 0)); } catch (eN) {}
+  }
+  /* و شاهدِ بازشنوی، نه وعده‌اش (۸.۵۴). */
+  try { out.rehear = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eRw) { out.rehear = null; }
   // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
   try {
     out.slots = musicSlotCounts_(null, bk);
@@ -1638,9 +1645,26 @@ function musicLine_(st) {
     if (Number(st.unheard) > 0) {
       /* «از منو بزنید» کار را به صاحبِ برنامه حواله می‌داد، در حالی که
          موتور خودش هر شب می‌شنود — و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما بود،
-         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست. */
-      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند. موتور هر شب تا ' +
-              fa(Math.max(1, Number(CFG.MUSIC_REHEAR_MAX) || 3)) + ' تا را خودش می‌شنود.';
+         نه نبودِ دکمه (۸.۳۲). کاری که موتور می‌تواند، «کارِ شما» نیست.
+         ══ و آنچه موتور «می‌کند» از شاهد گفته می‌شود، نه از تنظیم (۸.۵۴) ══
+         تا ۸.۵۳ این‌جا نوشته می‌شد «موتور هر شب تا ۱۲ تا را خودش می‌شنود» —
+         عددی از CFG، نه از رویداد. سه روز عددِ ۷۱ تکان نخورد و جمله همان ماند،
+         چون بلوکِ بازشنوی اصلاً اجرا نمی‌شد (۷٫۷۹: ادعای بی‌ورودی). */
+      line += ' — تا مدل یا آدم نشنودشان پخش نمی‌شوند.';
+      var w = st.rehear;
+      var wt = w && w.at ? parseWhen_(String(w.at)) : NaN;
+      if (!w || isNaN(wt)) {
+        line += ' ⚠️ بازشنوی هنوز هیچ شاهدی ندارد — اجرای جدایش از همین ساعت زمان‌بندی می‌شود.';
+      } else {
+        var hrs = Math.floor((new Date().getTime() - wt) / 3600000);
+        line += ' آخرین بازشنوی ' + (hrs < 1 ? 'کمتر از یک ساعت پیش' : fa(hrs) + ' ساعت پیش') +
+                ': ' + fa(Number(w.heard) || 0) + ' تأیید، ' + fa(Number(w.moved) || 0) + ' کنار گذاشته، ' +
+                fa(Number(w.tried) || 0) + ' بی‌جواب' +
+                (Number(w.skipped) > 0 ? ' · ' + fa(w.skipped) + ' رهاشده (مدل ' +
+                   fa(Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید؛ پخش نمی‌شوند و جلوی آوردنِ ' +
+                   'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
+        if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
+      }
     }
     return line;
   } catch (e) { return 'موسیقی: وضعیت خوانده نشد.'; }
@@ -3290,21 +3314,36 @@ function musicRecheck_(hub, opt) {
     };
     todo.sort(function (a, c) { return rank(a) - rank(c); });
   }
+  /* ══ سقف روی «شنیده‌شده‌ها» است، نه روی صف (۸.۵۴) ══
+   * تا ۸.۵۳ صف **پیش از** سدِ تلاش بریده می‌شد: اگر دوازده قطعهٔ اولِ صف هر کدام
+   * چهار بار بی‌جواب مانده بودند، هر اجرا همان دوازده را برمی‌داشت، همه را رد
+   * می‌کرد و هیچ قطعهٔ دیگری هرگز نوبت نمی‌گرفت — بی هیچ خطایی، با عددی که فقط
+   * ثابت می‌مانْد. حالا قطعهٔ رهاشده جای قطعهٔ منتظر را نمی‌گیرد، و شمرده می‌شود
+   * (`skipped`) تا «منتظرِ شنیدن» از «رهاشده» جدا گفته شود (۵.۸۸). */
   var capN = Math.max(0, Number(opt.cap) || 0);
-  if (capN && todo.length > capN) {
-    out.notes.push('این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
-    todo = todo.slice(0, capN);
-  }
+  out.queue = todo.length;
   var rt0 = new Date().getTime();
   var rBudget = Math.max(0, Number(opt.budgetMs) || 0);
 
   for (var i = 0; i < todo.length; i++) {
-    if (rBudget && new Date().getTime() - rt0 > rBudget) {
-      out.notes.push('وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.');
-      break;
-    }
     var f2 = todo[i];
     var mt = null;
+    var full = capN && out.checked >= capN;
+    var late = rBudget && new Date().getTime() - rt0 > rBudget;
+    if ((full || late) && !opt.countAll) {
+      out.notes.push(late ? 'وقتِ بازبینی تمام شد؛ بقیه دفعهٔ بعد.'
+                          : 'این اجرا ' + capN + ' تا از ' + todo.length + ' بازبینی شد.');
+      break;
+    }
+    /* شمارشِ بقیهٔ صف (فقط اجرای جدا): شناسنامه خوانده می‌شود، بایت نه. */
+    if (full || late) {
+      if (rBudget && new Date().getTime() - rt0 > rBudget + 60000) { out.uncounted = todo.length - i; break; }
+      try { mt = musicMeta_(f2.getName()); } catch (eMc) {}
+      var tmx = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
+      if (musicHearTries_(mt) >= tmx) out.skipped = (out.skipped || 0) + 1;
+      else out.waiting = (out.waiting || 0) + 1;
+      continue;
+    }
     try { mt = musicMeta_(f2.getName()); } catch (eMt) {}
 
     /* ══ سقفِ تلاش **پیش از خواندنِ بایت‌ها** (۸.۰۳) ══
@@ -3395,6 +3434,83 @@ function musicRecheck_(hub, opt) {
   // می‌ماند و سدِ افکت باز نمی‌شود.
   if (out.moved || out.heard) { try { musicScan_(hub); } catch (eS) {} }
   return out;
+}
+
+/**
+ * ══ بازشنویِ بانک — اجرای جدای خودش (۸.۵۴) ══
+ *
+ * او پرسید «موسیقی به کجا رسید؟ همچنان حس می‌کنم خیلی چیزها موسیقی ندارد».
+ * درست بود: درسِ ۴۰ (۶ اکتبر) بی آغاز و پایان رفت، و `_STATUS.json` می‌گفت
+ * «قابلِ پخش ۷ · شنیده‌نشده ۷۱ … موتور هر شب تا ۱۲ تا را خودش می‌شنود». آن جمله
+ * **دروغ** بود: بازشنوی پشتِ نُه بلوکِ `nightHas_` در کارِ شبانه است، و کارِ شبانه
+ * از ۳ اکتبر هر شب زودتر مرد. عددِ ۷۱ سه روزِ پیاپی یکی ماند. یافتهٔ
+ * `music-unheard` هم دقیقاً همین را می‌گفت («اول ببین کارِ شبانه به آن بلوک
+ * می‌رسد یا زودتر می‌میرد») و کسی درمانش نکرد.
+ *
+ * همان الگوی `embSpecsLater` (۸.۴۴) و `vintQueueLater` (۸.۵۳): زمان‌بندِ ساعتی فقط
+ * Script Properties می‌خوانَد و یک اجرای یک‌باره می‌سازد؛ خودِ کار در آن اجراست،
+ * با قفل و سقفِ روزانه. کارِ شبانه هم هنوز می‌شنود — دو در، یک صف.
+ */
+function musicRehearDue_() {
+  if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_REHEAR === false) return false;
+  var P = props_();
+  var nRaw = P.getProperty(PK.MUSIC_UNHEARD_N);
+  var w = null;
+  try { w = JSON.parse(P.getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eW) { w = null; }
+  /* «چیزی برای شنیدن هست؟» — از عددِ وضعیت، منهای رهاشده‌هایی که آخرین اجرا شمرد.
+     عددِ نامعلوم (هنوز وضعیتی نوشته نشده) ⇒ یک بار در روز امتحان، تا بفهمیم. */
+  var left = nRaw === null ? -1 : Number(nRaw) || 0;
+  if (left >= 0 && w && Number(w.skipped) >= 0) left = Math.max(0, left - (Number(w.skipped) || 0));
+  if (left === 0) return false;
+  var today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  var d = null;
+  try { d = JSON.parse(P.getProperty(PK.MUSIC_REHEAR_DAY) || 'null'); } catch (eD) { d = null; }
+  if (!d || d.day !== today) d = { day: today, n: 0, at: 0 };
+  var max = Math.max(1, Number(CFG.MUSIC_REHEAR_RUNS_DAY) || 4);
+  if (left < 0) max = 1;
+  if (d.n >= max) return false;
+  var gap = Math.max(15, Number(CFG.MUSIC_REHEAR_GAP_MIN) || 50) * 60000;
+  if (d.at && new Date().getTime() - Number(d.at) < gap) return false;
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) if (ts[i].getHandlerFunction() === 'musicRehearLater') return false;
+    ScriptApp.newTrigger('musicRehearLater').timeBased().after(60 * 1000).create();
+  } catch (eT) { return false; }
+  d.n++; d.at = new Date().getTime();
+  try { P.setProperty(PK.MUSIC_REHEAR_DAY, JSON.stringify(d)); } catch (eS) {}
+  return true;
+}
+
+function musicRehearLater() {
+  try { clearRetryTriggers_('musicRehearLater'); } catch (eC) {}
+  runEnter_('musicRehearLater');
+  try {
+    var lock = LockService.getScriptLock();
+    /* قفل: پویشِ بانک تبِ موسیقی را بازنویسی می‌کند و ساختِ قسمت همان تب را
+       می‌خوانَد. گرفته نشد ⇒ ساعتِ بعد، بی هیچ کاری. */
+    if (!lock.tryLock(20000)) return { ok: false, why: 'قفل گرفته بود' };
+    try {
+      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true,
+                 cap: Math.max(1, Number(CFG.MUSIC_REHEAR_LATER_MAX) || 12),
+                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 210000) });
+      var w = { at: nowStr_(), checked: Number(r.checked) || 0, heard: Number(r.heard) || 0,
+                moved: Number(r.moved) || 0, tried: Number(r.tried) || 0,
+                skipped: Number(r.skipped) || 0,
+                left: (Number(r.waiting) || 0) + (Number(r.tried) || 0),
+                queue: Number(r.queue) || 0, via: 'اجرای جدا' };
+      if (r.uncounted) w.uncounted = r.uncounted;
+      try { props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify(w)); } catch (eS) {}
+      logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا): ' + w.checked + ' سنجیده شد — ' +
+               w.heard + ' تأیید، ' + w.moved + ' کنار گذاشته، ' + w.tried + ' بی‌جواب' +
+               (w.skipped ? '، ' + w.skipped + ' رهاشده (مدل ' +
+                            (Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید)' : '') +
+               ' · منتظر: ' + w.left + '.');
+      return { ok: true, r: w };
+    } finally { lock.releaseLock(); }
+  } catch (e) {
+    try { logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا) نشد: ' + e.message); } catch (eL) {}
+    return { ok: false, why: e.message };
+  } finally { runExit_('musicRehearLater'); }
 }
 
 /** منو: بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟» */

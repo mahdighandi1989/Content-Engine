@@ -1815,7 +1815,10 @@ function varietyTags_(ep, cat, epNum) {
 
 // ------------------------------------------------------- صداگذاری درس‌نامه
 
-function produceSpecialContinue() { return renderSpecialAudioStep_(); }
+function produceSpecialContinue() {
+  runEnter_('produceSpecialContinue');      // شاهدِ اجرا (۸.۵۴) — توضیح کنارِ produceEpisodeContinue
+  try { return renderSpecialAudioStep_(); } finally { runExit_('produceSpecialContinue'); }
+}
 
 function clearSpecialTriggers_() {
   var ts = ScriptApp.getProjectTriggers();
@@ -1827,10 +1830,12 @@ function clearSpecialTriggers_() {
 function clearSpecialContinuation_() {
   clearSpecialTriggers_();
   try { props_().deleteProperty(PK.SP_CONT_DUE); } catch (e) {}
+  epGuardDone_('special');
 }
 
 /** توضیحِ ترتیب و کارِ بندِ catch را در scheduleContinue_ بخوانید. */
 function scheduleSpecialContinue_(ms) {
+  epGuardDisarm_('special');
   var dueS = new Date().getTime() + ms;
   try { props_().setProperty(PK.SP_CONT_DUE, String(dueS)); } catch (e) {}
   try {
@@ -1838,6 +1843,7 @@ function scheduleSpecialContinue_(ms) {
     ScriptApp.newTrigger('produceSpecialContinue').timeBased().after(ms).create();
   } catch (eT) {
     try { props_().setProperty(PK.SP_CONT_DUE, String(new Date().getTime() - 60 * 60 * 1000)); } catch (e2) {}
+    epTrigFailNote_('produceSpecialContinue', eT);
     throw eT;
   }
 }
@@ -2288,6 +2294,13 @@ function renderSpecialAudioStep_() {
     if (!it.hasNext()) { props_().deleteProperty(PK.SP_PENDING); throw new Error('فایل وضعیت درس‌نامه پیدا نشد.'); }
     var meta = JSON.parse(it.next().getBlob().getDataAsString());
     var ep = meta.ep, epNum = meta.epNum;
+    /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_` در بخشِ ۳. */
+    var gdS = epGuardBegin_('special', epNum, st.phase || '', scheduleSpecialContinue_);
+    if (gdS.killed) {
+      logLine_('درس‌نامه ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
+               '» کشته شد و نگهبان ادامه‌اش داد' +
+               (gdS.armed ? '' : ' — ' + gdS.n + ' بارِ پیاپی در همین مرحله؛ نگهبان دیگر مسلح نمی‌شود') + '.');
+    }
 
     var baseName = CFG.SPECIAL_SHOW_NAME + ' — ' + String(meta.seriesName).slice(0, 40) +
                    ' — قسمت ' + ('000' + epNum).slice(-3) + ' — ' + String(ep.title || '').slice(0, 40);
@@ -2522,10 +2535,16 @@ function renderSpecialAudioStep_() {
     try { ep.__durationSec = Math.round(secondsOf_(totalBytes)); } catch (eDs) {}
     // قرینهٔ کالیبراسیونِ برنامهٔ متنوع — هر دو برنامه یک سقف دارند، پس هر دو
     // باید به همان اندازه‌گیری غذا بدهند (۶٫۲۹).
-    try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
-    try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
-    try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
-    try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
+    /* ثبت‌ها **یک بار** (۸.۵۴): تحویل حالا ممکن است در دو اجرا تمام شود (پایین، پیش از
+       تلگرام)، و هر کدام از این‌ها به تاریخچه‌ای می‌افزاید — دو بار یعنی آمارِ دوبرابر. */
+    if (!st.recDone) {
+      try { speechCalibRecord_(ep, totalBytes, 'درس‌نامه ' + epNum); } catch (eCal) {}
+      try { speakSkipRecord_(ep, 'درس‌نامه ' + epNum, hub, epNum); } catch (eSk) {}
+      try { speakMoodRecord_(ep, st.times, 'درس‌نامه ' + epNum); } catch (eMo) {}
+      try { speakMoodFileSave_(folder, baseName, ep, st.times, 'درس‌نامه ' + epNum); } catch (eMf) {}
+      st.recDone = 1;
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+    }
     for (var mj = mgListSp.length - 1; mj >= 0; mj--) {
       audioLinks.unshift({ name: mgListSp[mj].name, url: mgListSp[mj].url, whole: true });
     }
@@ -2562,6 +2581,20 @@ function renderSpecialAudioStep_() {
     }
     sp.getRange(st.row, XC.MAIL).setValue(st.mailed);
 
+    /* ══ تلگرام با وقتِ کامل، نه با ته‌ماندهٔ اجرا (۸.۵۴) ══
+       تحویلِ درس‌نامه هاب را باز می‌کند، ثبت‌ها را می‌نویسد، ایمیل می‌فرستد و بعد
+       دو فایلِ یکجای ۲۵ تا ۳۰ مگابایتی را به تلگرام بارگذاری می‌کند. ۶ اکتبر همین
+       زنجیره پنج دقیقه طول کشید — یک دقیقه زیرِ سقفِ گوگل. وقت کم است ⇒ همین‌جا
+       ذخیره و ادامه در اجرای تازه؛ هر چه پیش از این بود (ایمیل، سند، ثبت‌ها)
+       نشان دارد و دوباره انجام نمی‌شود. */
+    if (!st.tg && !st.tgSplit &&
+        deadline - new Date().getTime() < Math.max(30000, Number(CFG.TG_MIN_MS) || 120000)) {
+      st.tgSplit = 1;
+      props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
+      scheduleSpecialContinue_(20 * 1000);
+      logLine_('درس‌نامه ' + epNum + ': تلگرام به اجرای بعد رفت تا با وقتِ کامل بارگذاری شود.');
+      return { ok: true, episode: epNum, pending: true, tgLater: true };
+    }
     if (!st.tg) {
       var tgFiles = mgListSp.length ? mgListSp : st.files;
       var tg = 'تنظیم نشده';

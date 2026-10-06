@@ -698,8 +698,12 @@ console.log('\n=== ۱۴. جملهٔ روزانه و یافتهٔ «نشنیده�
   /* «راهِ حل» تا ۸.۳۱ «از منو بزنید» بود — کار به صاحبِ برنامه حواله می‌شد،
      در حالی که موتور خودش هر شب می‌شنود و علتِ انباشت سقفِ ۴۸ توکنیِ خودِ ما
      بود (۸.۳۲). سنجه حالا قراردادِ تازه را می‌گوید: موتور، نه منو. */
-  ok('۱۴.۲ و وقتی نیستند، عدد و راهِ حل هر دو در سطر می‌آیند — راهِ حلِ خودِ موتور، نه منو',
-     /شنیده‌نشده/.test(bad) && /۷/.test(bad) && /موتور هر شب/.test(bad) && !/از منو/.test(bad), bad);
+  /* ══ ۸.۵۴: این سنجه تا امروز یک وعدهٔ دروغ را تضمین می‌کرد ══
+     می‌خواست سطر بگوید «موتور هر شب …» — عددی از CFG، نه از رویداد. سه روز عددِ ۷۱
+     تکان نخورد و همان جمله رفت، چون بلوکِ بازشنوی اصلاً اجرا نمی‌شد (۷٫۶۸: سنجه‌ای
+     که باگ را تضمین کند). حالا: عدد، بی حواله به منو، و **هیچ** وعدهٔ «هر شب». */
+  ok('۱۴.۲ و وقتی نیستند، عدد می‌آید — بی حواله به منو و بی وعدهٔ «هر شب»',
+     /شنیده‌نشده/.test(bad) && /۷/.test(bad) && !/از منو/.test(bad) && !/هر شب تا/.test(bad), bad);
   /* «۴۰ قطعه» کنارِ برنامهٔ بی‌موسیقی گمراه‌کننده است — عددی که باید گفته
      شود «قابلِ پخش» است. */
   ok('۱۴.۳ سطر عددِ قابلِ پخش را می‌گوید، نه شمارِ فایل‌ها',
@@ -1135,6 +1139,125 @@ console.log('\n=== ۲۲. آنچه پخش می‌شود شنیده می‌شود 
 
   global.musicPlanModel_ = planWas; global.musicListen_ = listenWas;
   delete global.__PROPS[PK.MUSIC_PLAN];
+}
+
+console.log('\n=== ۲۳. بازشنوی اجرای جدای خودش را دارد، و رهاشده‌ها صف را نمی‌خورند (۸.۵۴) ===');
+{
+  /* ۶ اکتبر: «قابلِ پخش ۷ · شنیده‌نشده ۷۱ … موتور هر شب تا ۱۲ تا را خودش می‌شنود»، سه
+     روزِ پیاپی همان عدد، و درسِ ۴۰ بی آغاز و پایان. بازشنوی پشتِ نُه بلوکِ کارِ شبانه
+     بود و کارِ شبانه هر شب زودتر مُرد. و زیرش قفلی دیگر: صف **پیش از** سدِ تلاش بریده
+     می‌شد، پس اگر سرِ صف رهاشده‌ها بودند، هیچ قطعهٔ منتظری هرگز نوبت نمی‌گرفت. */
+  const F = musicFolder_();
+  const listenWas = global.musicListen_;
+  const tmaxWas = CFG.MUSIC_HEAR_TRY_MAX;
+  CFG.MUSIC_HEAR_TRY_MAX = 2;
+  const mkTrack = (nm, hz) => F.createFile(Utilities.newBlob(
+    Utilities.newBlob(mkWav(44100, 1, 16, 20, (i) => Math.round(9000 * Math.sin(i / hz)))).getBytes(),
+    'audio/wav', nm));
+  /* سه قطعهٔ رهاشده (مدل دو بار نشنیدشان) و یک قطعهٔ منتظر. */
+  const dead = ['رها ۱.wav', 'رها ۲.wav', 'رها ۳.wav'];
+  dead.forEach((nm, i) => mkTrack(nm, 30 + i));
+  mkTrack('منتظر.wav', 51);
+  musicScan_();
+  dead.forEach((nm) => musicMetaWrite_(nm, { tries: '2', hv: String(CFG.MUSIC_HEAR_VER || ''), title: nm }));
+  /* رهاشده‌ها را عمداً سرِ صف می‌نشانیم — همان «لبهٔ اخیر»ی که رتبهٔ صفر می‌گیرد. */
+  global.__PROPS[PK.MUSIC_LAST] = JSON.stringify({ edges: dead });
+
+  global.musicListen_ = () => 'آهنگ';
+  const r1 = musicRecheck_(null, { onlyUnknown: true, cap: 1, budgetMs: 60000 });
+  /* صفِ این مجموعه از بندهای قبل هم قطعهٔ نشنیده دارد؛ ادعا این است که با سقفِ ۱،
+     **یک قطعهٔ منتظر** شنیده می‌شود و هیچ رهاشده‌ای جایش را نمی‌گیرد. با کدِ ۸.۵۳ صف پیش
+     از سد بریده می‌شد، سه رهاشدهٔ سرِ صف رد می‌شدند و هیچ‌چیز شنیده نمی‌شد. */
+  const deadHeard = dead.filter((nm) => String((musicMeta_(nm) || {}).heard || '')).length;
+  ok('۲۳.۱ رهاشده‌ها سقف را نمی‌خورند: با سقفِ ۱ یک قطعهٔ منتظر شنیده می‌شود',
+     r1.checked === 1 && Number(r1.heard) === 1 && Number(r1.skipped) >= 3 && deadHeard === 0,
+     'سنجیده ' + r1.checked + ' · شنیده ' + r1.heard + ' · رهاشده ' + r1.skipped);
+
+  /* ۲۳.۲ — اجرای جدا کلِ صف را می‌شمارد (شناسنامه، نه بایت) تا «رهاشده» از «منتظر» جدا گفته شود. */
+  mkTrack('منتظرِ دوم.wav', 61);
+  mkTrack('منتظرِ سوم.wav', 71);
+  musicScan_();
+  global.musicListen_ = () => '';
+  const r2 = musicRecheck_(null, { onlyUnknown: true, cap: 1, budgetMs: 60000, countAll: true });
+  ok('۲۳.۲ با countAll بقیهٔ صف شمرده می‌شود — رهاشده و منتظر جدا',
+     Number(r2.skipped) >= 3 && Number(r2.waiting) >= 1 && r2.checked === 1,
+     JSON.stringify({ checked: r2.checked, skipped: r2.skipped, waiting: r2.waiting, tried: r2.tried }));
+
+  /* ۲۳.۳ — زمان‌بند فقط Properties می‌خوانَد و یک اجرای یک‌باره می‌سازد. */
+  global.__TRIGGERS.length = 0;
+  delete global.__PROPS[PK.MUSIC_REHEAR_DAY];
+  delete global.__PROPS[PK.MUSIC_REHEAR_LAST];
+  global.__PROPS[PK.MUSIC_UNHEARD_N] = '5';
+  const hubWas = global.getHub_;
+  let hubCalls = 0;
+  global.getHub_ = function () { hubCalls++; return hubWas.apply(this, arguments); };
+  const d1 = musicRehearDue_();
+  const nT = global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'musicRehearLater').length;
+  ok('۲۳.۳ شنیده‌نشده هست ⇒ اجرای جدا زمان‌بندی می‌شود، بی خواندنِ هاب',
+     d1 === true && nT === 1 && hubCalls === 0, 'زمان‌بندی ' + d1 + ' · تریگر ' + nT + ' · هاب ' + hubCalls);
+  const d2 = musicRehearDue_();
+  ok('۲۳.۴ تا فاصله نرسیده، دوباره زمان‌بندی نمی‌شود',
+     d2 === false && global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'musicRehearLater').length === 1);
+  /* دو قفل که یکدیگر را می‌پوشانند (۷.۴۱): فاصله را کنار می‌گذاریم تا فقط «اجرای قبلی هنوز
+     هست» جلوی تریگرِ دوم را بگیرد. */
+  const dd = JSON.parse(global.__PROPS[PK.MUSIC_REHEAR_DAY]); dd.at = 0;
+  global.__PROPS[PK.MUSIC_REHEAR_DAY] = JSON.stringify(dd);
+  const d2b = musicRehearDue_();
+  ok('۲۳.۴-ب تا اجرای قبلی هنوز در فهرست است، تریگرِ دوم ساخته نمی‌شود',
+     d2b === false && global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'musicRehearLater').length === 1);
+  global.getHub_ = hubWas;
+
+  /* ۲۳.۵ — صفر شنیده‌نشده ⇒ هیچ کاری. */
+  global.__TRIGGERS.length = 0;
+  delete global.__PROPS[PK.MUSIC_REHEAR_DAY];
+  global.__PROPS[PK.MUSIC_UNHEARD_N] = '0';
+  ok('۲۳.۵ صفِ خالی چیزی زمان‌بندی نمی‌کند', musicRehearDue_() === false && global.__TRIGGERS.length === 0);
+
+  /* ۲۳.۶ — و سقفِ روزانه: پس از `RUNS_DAY` اجرا، امروز دیگر نه. */
+  global.__PROPS[PK.MUSIC_UNHEARD_N] = '5';
+  const today = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
+  global.__PROPS[PK.MUSIC_REHEAR_DAY] = JSON.stringify({ day: today, n: Number(CFG.MUSIC_REHEAR_RUNS_DAY) || 4, at: 0 });
+  ok('۲۳.۶ سقفِ روزانهٔ اجراها نگه داشته می‌شود', musicRehearDue_() === false && global.__TRIGGERS.length === 0);
+
+  /* ۲۳.۷ — رهاشده‌ها از عددِ «منتظر» کم می‌شوند: وقتی همهٔ شنیده‌نشده‌ها رهاشده‌اند، اجرایی
+     ساخته نمی‌شود — وگرنه چهار بار در روز همان رهاشده‌ها شمرده می‌شدند. */
+  delete global.__PROPS[PK.MUSIC_REHEAR_DAY];
+  global.__PROPS[PK.MUSIC_UNHEARD_N] = '3';
+  global.__PROPS[PK.MUSIC_REHEAR_LAST] = JSON.stringify({ at: '2026-08-18 01:00', skipped: 3 });
+  ok('۲۳.۷ وقتی همهٔ شنیده‌نشده‌ها رهاشده‌اند، اجرای جدا ساخته نمی‌شود',
+     musicRehearDue_() === false && global.__TRIGGERS.length === 0);
+
+  /* ۲۳.۸ — اجرای جدا شاهد می‌نویسد، و سطرِ روزانه از همان شاهد حرف می‌زند. */
+  delete global.__PROPS[PK.MUSIC_REHEAR_LAST];
+  global.musicListen_ = () => 'آهنگ';
+  const rl = musicRehearLater();
+  const w = JSON.parse(global.__PROPS[PK.MUSIC_REHEAR_LAST] || 'null') || {};
+  ok('۲۳.۸ اجرای جدا شاهدِ خودش را می‌نویسد',
+     rl.ok === true && w.via === 'اجرای جدا' && Number(w.heard) >= 1 && Number(w.skipped) >= 3,
+     JSON.stringify(w));
+  global.__PROPS[PK.MUSIC_UNHEARD_N] = '999';      // عددی که هیچ حالتی نمی‌سازد — تا نوشتنِ تازه دیده شود
+  const st = musicStatus_();
+  ok('۲۳.۹ سطرِ روزانه از شاهد می‌گوید — کِی، چند تأیید، چند رهاشده — نه از تنظیم',
+     /آخرین بازشنوی/.test(st.line) && /رهاشده/.test(st.line) && !/هر شب تا/.test(st.line) &&
+     String(global.__PROPS[PK.MUSIC_UNHEARD_N]) === String(st.unheard), st.line);
+  delete global.__PROPS[PK.MUSIC_REHEAR_LAST];
+  const st0 = musicLine_({ enabled: true, playable: 1, unheard: 4, rehear: null });
+  ok('۲۳.۱۰ بی شاهد، همین را می‌گوید — نه وعده', /هیچ شاهدی/.test(st0), st0);
+
+  /* ۲۳.۱۱ — آوردنِ قطعهٔ تازه پشتِ رهاشده‌ها نمی‌ایستد: کارِ شبانه آن‌ها را از عدد کم می‌کند. */
+  const p21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۲۳.۱۱ سقفِ آوردن رهاشده‌ها را حساب نمی‌کند',
+     /mUnheard = Math\.max\(0, mUnheard - Number\(wSk\.skipped\)\)/.test(p21));
+
+  /* ۲۳.۱۲ — زمان‌بند روی تریگرِ ساعتی است، **پیش از** سدِ پل. */
+  const p36 = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  const iM = p36.indexOf('musicRehearDue_();'), iG = p36.indexOf("if (CFG.VBR_ON === false) return null;", p36.indexOf('function vbrCollectHourly'));
+  ok('۲۳.۱۲ زمان‌بندِ بازشنوی پیش از سدِ VBR_ON در تریگرِ ساعتی است', iM > 0 && iG > 0 && iM < iG,
+     'بازشنوی @' + iM + ' · سد @' + iG);
+
+  global.musicListen_ = listenWas;
+  CFG.MUSIC_HEAR_TRY_MAX = tmaxWas;
+  global.__TRIGGERS.length = 0;
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ بانکِ موسیقی گذشت.');

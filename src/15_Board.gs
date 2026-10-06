@@ -111,6 +111,8 @@ function seriesBoardData_(hub) {
       lvLevel: String(v[SC.LVLEVEL - 1] || '').trim(),
       /* «نوشته روی تصویر» (۸.۴۵) — کنارِ سطح، در همان خانه؛ خالی یعنی پیش‌فرض. */
       lvText: String(v[SC.LVTEXT - 1] || '').trim(),
+      /* «جان‌بخشیِ تصویر» (۸.۵۴) — همان خانه؛ خالی یعنی پیش‌فرض. */
+      lvMotion: String(v[SC.LVMOTION - 1] || '').trim(),
       /* «مرورِ هر چند درس» (۸.۳۶) — خامِ خانه؛ خالی یعنی پیش‌فرض. */
       recapEvery: String(v[SC.RECAP_EVERY - 1] == null ? '' : v[SC.RECAP_EVERY - 1]).trim(),
       order: Number(v[SC.ORDER - 1]) || 999,
@@ -922,6 +924,10 @@ function seriesBoardHtml_(d) {
          'busy();say("ثبتِ نوشتهٔ رویِ تصویر…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
          '.uiLvTextSave(k,v);}');
+  H.push('function lvMotion(sel){var k=sel.dataset.key,v=sel.value;' +
+         'busy();say("ثبتِ جان‌بخشیِ تصویر…",true);' +
+         'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
+         '.uiLvMotionSave(k,v);}');
   H.push('function recapEvery(sel){var k=sel.dataset.key,v=sel.value;' +
          'busy();say("ثبتِ فاصلهٔ مرورِ خودکار…",true);' +
          'google.script.run.withSuccessHandler(done).withFailureHandler(fail)' +
@@ -2004,7 +2010,7 @@ function lvLevelCell_(x) {
   return '<td class="sty">' +
          '<select data-key="' + bEsc_(String(x.key)) + '" onchange="lvLevel(this)">' +
          opts.join('') + '</select>' +
-         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + '</td>';
+         '<div class="sub">' + bEsc_(note) + '</div>' + lvTextBox_(x) + lvMotionBox_(x) + '</td>';
 }
 
 /**
@@ -2033,6 +2039,71 @@ function lvTextBox_(x) {
   return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
          '" data-role="text" onchange="lvText(this)">' + opts.join('') + '</select>' +
          '<div class="sub">نوشتهٔ رویِ نقاشی‌ها — سبک و شمارِ تصویر همان است که بالا انتخاب شده.</div></div>';
+}
+
+/**
+ * «جان‌بخشیِ تصویر» (۸.۵۴) — جعبهٔ سوم در همان خانهٔ سطح، به همان دلیلِ نوشته: ستونِ
+ * تازهٔ جدول `colspan` را کهنه می‌کند (۸.۱۳). او پرسید «تنظیماتِ هر درس و تخته و
+ * مجموعه‌ها قابلیت‌های لازم برای تغییر و ارتقا و کم کردن دارد؟» — برای کلیپِ آغاز و
+ * حرکتِ کانون‌دار جوابِ راست «نه، سراسری است» بود.
+ */
+function lvMotionBox_(x) {
+  var cur = String((x && x.lvMotion) || '');
+  var list = [];
+  try { list = CFG.LV_MOTION_LEVELS || ['کامل', 'بی‌کلیپ', 'آرام']; } catch (e) { list = ['کامل', 'بی‌کلیپ', 'آرام']; }
+  var def = String(CFG.LV_MOTION_DEFAULT || 'کامل');
+  var what = {
+    'کامل': 'کلیپِ هشت‌ثانیه‌ایِ آغاز (~۰٫۶۴ دلار) + دوربینی که به همان چیزِ گفته‌شده نزدیک می‌شود',
+    'بی‌کلیپ': 'بی کلیپِ آغاز؛ فقط دوربینِ کانون‌دار روی نقاشی‌ها',
+    'آرام': 'بی کلیپ و بی کانون؛ فقط حرکتِ آرام و یکنواخت'
+  };
+  var isA = (!cur || cur === 'خودکار' || list.indexOf(cur) === -1);
+  var opts = ['<option value="خودکار"' + (isA ? ' selected' : '') + '>جان‌بخشی: خودکار — همان «' +
+              bEsc_(def) + '»</option>'];
+  for (var i = 0; i < list.length; i++) {
+    var k = String(list[i] || '');
+    opts.push('<option value="' + bEsc_(k) + '"' + (!isA && k === cur ? ' selected' : '') +
+              '>جان‌بخشی: ' + bEsc_(k) + ' — ' + bEsc_(what[k] || '') + '</option>');
+  }
+  return '<div style="margin-top:6px"><select data-key="' + bEsc_(String(x.key)) +
+         '" data-role="motion" onchange="lvMotion(this)">' + opts.join('') + '</select>' +
+         '<div class="sub">کلیپ و حرکتِ دوربین روی نقاشی‌ها — سبک، شمار و نوشته همان می‌مانند.</div></div>';
+}
+
+/**
+ * ذخیرهٔ «جان‌بخشیِ تصویر» (۸.۵۴) — همان مرزهای «نوشته»: ناشناخته رد می‌شود و مجازها
+ * گفته می‌شوند، و رسید از همان تعریفی می‌خوانَد که تولید می‌خوانَد (`lvMotionAt_`).
+ */
+function uiLvMotionSave(key, level) {
+  try {
+    var k = String(key || '').trim();
+    var v = String(level == null ? '' : level).trim();
+    if (!k) return { ok: false, message: 'کلیدِ مجموعه نیامد.' };
+    var list = (CFG.LV_MOTION_LEVELS || ['کامل', 'بی‌کلیپ', 'آرام']).slice();
+    if (v && v !== 'خودکار' && list.indexOf(v) === -1) {
+      boardReceipt_(false, 'مقدارِ ناشناخته', ['مجازها: خودکار · ' + list.join(' · ')]);
+      return { ok: false, message: '«' + v + '» را نمی‌شناسم. مجازها: خودکار · ' + list.join(' · ') };
+    }
+    if (!v) v = 'خودکار';
+    var hub = getHub_();
+    var reg = readSeriesReg_(hub);
+    var row = reg.byKey[k];
+    if (!row) return { ok: false, message: 'مجموعه پیدا نشد.' };
+    reg.sheet.getRange(row.row, SC.LVMOTION).setValue(v);
+    var nm = String(row.vals[SC.NAME - 1] || k);
+    var eff = null;
+    try { eff = lvMotionAt_(hub, { seriesKey: k }, null); } catch (eE) { eff = null; }
+    var note = eff
+      ? ('کلیپِ آغاز: ' + (eff.clip ? (CFG.LV_CLIP_ON === false ? 'خاموش (کلیدِ سراسری)' : 'روشن') : 'خاموش') +
+         ' · دوربینِ کانون‌دار: ' + (eff.focus ? (CFG.LV_MOTION_ON === false ? 'خاموش (کلیدِ سراسری)' : 'روشن') : 'خاموش'))
+      : 'ثبت شد.';
+    boardReceipt_(true, 'جان‌بخشیِ تصویرِ «' + nm + '»: ' + v,
+                  [note, 'سبک، سطح و نوشته دست نخورد. درس‌های بعدی با همین ساخته می‌شوند؛ ' +
+                         'درسی که نقشهٔ صحنه‌اش از قبل ساخته شده عوض نمی‌شود.']);
+    return { ok: true, message: 'جان‌بخشیِ تصویرِ «' + nm + '»: ' + v + ' — ' + note };
+  } catch (e) {
+    return { ok: false, message: 'ثبت نشد: ' + e.message };
+  }
 }
 
 /**
