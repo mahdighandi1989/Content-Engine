@@ -45,7 +45,13 @@ jobs:
       measure: ${{ steps.plan.outputs.measure }}
       style: ${{ steps.plan.outputs.style }}
     steps:
+      # شاخه، نه commitِ راه‌انداز (۷٫۲۲): این کار هم docs/voices.json را push
+      # می‌کند، و دو کارِ دیگرِ همین فایل از قبل ref داشتند — دوقلویی که یک
+      # بار درست شد (۵٫۹۵).
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - name: یک گام برای هر گوینده
         id: plan

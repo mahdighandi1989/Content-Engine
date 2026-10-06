@@ -33,7 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      # شاخه، نه commitِ راه‌انداز (۷٫۲۲): قفل روی main نوشته می‌شود.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'

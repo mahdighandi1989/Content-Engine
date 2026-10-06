@@ -664,4 +664,40 @@ console.log('\n=== ۱۵) دستوری که از اندازه بگذرد خوان
   ok('۱۵.۳ دستورِ ناظر حداکثر پنج یادداشتِ «تغییرِ نسخه» دارد', notes >= 1 && notes <= 5, 'یادداشت ' + notes);
 }
 
+console.log('\n=== ۱۶) کاری که push می‌کند، شاخه را می‌گیرد (۸.۵۷) ===');
+/* ══ ۱۶) کاری که push می‌کند، شاخه را می‌گیرد نه commitِ راه‌انداز ══
+   ۷٫۲۲ این را برای voice-bridge و voice-intake نوشت و سنجه‌اش فقط همان دو
+   فایل را نگاه می‌کرد. render.yml بی آن ماند: اجرای ۲۵۲ِ ۶ اکتبر پشتِ اجرای
+   دیگر صف کشید، نقشهٔ کهنه را دید، درسِ ۴۰ را نوزده دقیقه دوباره ساخت و سرِ
+   ثبت سرخ شد. قاعده به فایل بسته نیست: هر کاری (job) که git push دارد. */
+{
+  const dir = '.github/workflows';
+  const bad = [], seen = [];
+  for (const f of fs.readdirSync(dir).filter(x => /\.ya?ml$/.test(x))) {
+    const lines = fs.readFileSync(dir + '/' + f, 'utf8').split('\n');
+    let job = '', jobs = {};
+    for (let i = 0; i < lines.length; i++) {
+      const m = /^  ([A-Za-z0-9_-]+):\s*$/.exec(lines[i]);
+      if (m && /^jobs:/m.test(lines.slice(0, i).join('\n'))) { job = m[1]; jobs[job] = jobs[job] || { co: [], push: false }; continue; }
+      if (!job) continue;
+      if (/^\s*#/.test(lines[i])) continue;
+      if (/uses:\s*actions\/checkout@/.test(lines[i])) {
+        const after = lines.slice(i + 1, i + 5).join('\n');
+        jobs[job].co.push(/^\s+with:\s*$/m.test(after) && /ref:\s*\$\{\{\s*github\.ref_name\s*\}\}/.test(after));
+      }
+      if (/\bgit push\b/.test(lines[i])) jobs[job].push = true;
+    }
+    for (const j of Object.keys(jobs)) {
+      if (!jobs[j].push) continue;
+      seen.push(f + ':' + j);
+      if (!jobs[j].co.length || jobs[j].co.some(x => !x)) bad.push(f + ':' + j);
+    }
+  }
+  ok('۱۶.۱ هر کاری که push می‌کند، checkoutش ref: github.ref_name دارد',
+     seen.length >= 5 && bad.length === 0, 'push‌کننده‌ها: ' + seen.join(' · ') + ' — بی شاخه: ' + (bad.join(' · ') || '—'));
+  const rw = fs.readFileSync(dir + '/render.yml', 'utf8');
+  ok('۱۶.۲ حلقهٔ ثبتِ رندر پیش از هر تلاش rebaseِ نیمه‌کاره را رها می‌کند',
+     /for i in 1 2 3 4; do\s*\n(?:\s*#.*\n)*\s*git rebase --abort/.test(rw));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

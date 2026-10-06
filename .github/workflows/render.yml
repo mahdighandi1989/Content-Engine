@@ -33,7 +33,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
+      # شاخه، نه commitِ راه‌انداز (۷٫۲۲، همان که voice-bridge و voice-intake
+      # از قبل دارند): پیش‌فرضِ checkout همان commitی است که اجرا را راه
+      # انداخت. اجرای صف‌کشیده پشتِ اجرای دیگر پس نقشهٔ کهنه را می‌دید، همان
+      # ویدئو را دوباره می‌ساخت و سرِ ثبت تضاد می‌گرفت: اجرای ۲۵۲ِ ۶ اکتبر
+      # نوزده دقیقه درسِ ۴۰ را دوباره ساخت و سرخ شد. با کرانِ ده‌دقیقه‌ای (۸.۵۵)
+      # این حالتِ عادی است، نه نادر.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       # پروب: همان تعریفِ «کاری هست» که خودِ ساخت دارد (itemsTodo و
       # plCoversTodo در tools/render.js) — دو تعریف یعنی روزی یکی «نه» بگوید
@@ -99,7 +108,10 @@ jobs:
           git add docs/brand 2>/dev/null || true     # نشانِ بی‌زمینه برای واترمارک (۸.۴۵)
           git commit -m "رندر: نشانیِ ویدئوهای تازه"
           # اجرای دیگری ممکن است همین بین چیزی push کرده باشد
+          # بی abort، rebaseِ تضادخورده درخت را نیمه‌ادغام رها می‌کند و سه تلاشِ
+          # بعد برای علتِ دیگری می‌افتند (همان درسِ voice-intake).
           for i in 1 2 3 4; do
+            git rebase --abort 2>/dev/null || true
             git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
             sleep $((i * 3))
           done
