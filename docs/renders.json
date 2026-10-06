@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-06 21:18",
+ "updatedAt": "2026-10-06 22:24",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -672,6 +672,35 @@
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/art-series-audi-2011-epistemology-a-contemporary-introduction-to-the-theory-of-knowledge.jpg",
    "from": "special:62",
    "at": "2026-10-06 21:18"
+  }
+ },
+ "plCovers": {
+  "series:audi 2011 epistemology a contemporary introduction to the theory of knowledge": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/pl-series-audi-2011-epistemology-a-contemporary-introduction-to-the-theory-of-knowledge.jpg",
+   "req": "ffbf5a38f376",
+   "sig": "ffbf5a38f376|special:62",
+   "w": 1400,
+   "h": 1400,
+   "art": true,
+   "at": "2026-10-06 22:24"
+  },
+  "series:معرفت شناسی مجتبی مصباح": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/pl-series.jpg",
+   "req": "f525a60de139",
+   "sig": "f525a60de139",
+   "w": 1400,
+   "h": 1400,
+   "art": false,
+   "at": "2026-10-06 22:24"
+  },
+  "show:variety": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/pl-show-variety.jpg",
+   "req": "65207badc466",
+   "sig": "65207badc466",
+   "w": 1400,
+   "h": 1400,
+   "art": false,
+   "at": "2026-10-06 22:24"
   }
  }
 }
