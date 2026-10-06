@@ -57,7 +57,8 @@ function scenesOf(it) {
     out.push({ n: Number(x.n) || out.length + 1, t0: Math.max(0, Number(x.t0) || 0),
                url: url, fileId: String(x.fileId || ''), caption: String(x.caption || '').trim(),
                ov: (x.ov && typeof x.ov === 'object') ? x.ov : null,
-               mv: mvOf(x.mv), clip: clipOf(x.clip) });
+               mv: mvOf(x.mv), clip: clipOf(x.clip),
+               fb: fbOf(x.fb), beat: String(x.beat || ''), sec: Number(x.sec) || 0 });
   }
   out.sort((p, q) => p.t0 - q.t0);
   return out.length >= 3 ? out : null;
@@ -73,10 +74,43 @@ function mvOf(v) {
   if (!v || typeof v !== 'object') return null;
   const k = String(v.k || '');
   const x = Number(v.x), y = Number(v.y);
-  if ((k !== 'push' && k !== 'reveal') || !isFinite(x) || !isFinite(y)) return null;
+  if (['push', 'reveal', 'travel'].indexOf(k) === -1 || !isFinite(x) || !isFinite(y)) return null;
   const z = Number(v.z);
   return { k: k, x: clamp01(x), y: clamp01(y),
            z: isFinite(z) && z > 0 ? Math.max(0.02, Math.min(0.25, z)) : SK.focusZoom };
+}
+
+/** جعبهٔ کانون از داور (۸.۵۶): مرکز و اندازه، نسبتی از قاب. نامعقول ⇒ null. */
+function fbOf(v) {
+  if (!v || typeof v !== 'object') return null;
+  const x = Number(v.x), y = Number(v.y), w = Number(v.w), h = Number(v.h);
+  if (![x, y, w, h].every(isFinite) || w <= 0 || h <= 0 || w > 1 || h > 1) return null;
+  return { x: clamp01(x), y: clamp01(y), w: w, h: h };
+}
+
+/**
+ * جعبهٔ پیکسلیِ کانون برای جاگذاریِ کارت — کمی بزرگ‌تر، چون دوربین تا `SK.zoom` به آن
+ * نزدیک می‌شود و لبه‌اش نباید زیرِ کارت برود.
+ */
+function fbBox(fb) {
+  if (!fb) return null;
+  const g = 1.18;
+  const w = fb.w * SK.w * g, h = fb.h * SK.h * g;
+  return { x: fb.x * SK.w - w / 2, y: fb.y * SK.h - h / 2, w: w, h: h };
+}
+
+/**
+ * گذارِ میانِ دو صحنه (۸.۵۶) — از معنا، نه یکی برای همه. تا ۸.۵۵ همه «fade» بود و
+ * همراهِ حرکتِ فقط‌بزرگ‌نمایی، او دید «جلوه‌ها صرفاً در حدِ زوم اوت و زوم این». حالا:
+ * بخشِ تازهٔ درس ⇒ گذر از سیاهیِ کوتاه (فصلِ تازه)؛ لحظهٔ روایت ⇒ حل‌شدن؛ ایدهٔ تازه ⇒
+ * لغزشِ نرم به جهتِ خواندنِ فارسی، یکی‌درمیان با محوِ ساده تا تکراری نشود. مدت همیشه
+ * `SK.xf` است — حسابِ زمان‌بندی به آن بسته است.
+ */
+function xfadeOf(prev, cur, k) {
+  if (!cur) return 'fade';
+  if (prev && cur.sec && prev.sec && cur.sec !== prev.sec) return 'fadeblack';
+  if (cur.beat === 'روایت') return 'dissolve';
+  return k % 2 ? 'smoothright' : 'fade';
 }
 
 /** کلیپِ آغاز (۸.۵۱): نشانی و مدتش. نامعقول ⇒ null و صحنه همان نقاشیِ ثابت است. */
@@ -267,25 +301,53 @@ function plCoverHtml(pc, artData) {
  * پایین می‌آورد: نوشته جایش را از تصویرِ ساکن گرفته است.
  */
 function motion(g, N, mv, amp) {
+  const p = 'min(1,(on/' + N + '))';
+  const e = '(' + p + '*' + p + '*(3-2*' + p + '))';
+  const rect = (L, T, Wc, Hc) => ({ x0: L, y0: T, x1: '(' + L + '+' + Wc + ')', y1: T,
+                                    x2: L, y2: '(' + T + '+' + Hc + ')', x3: '(' + L + '+' + Wc + ')', y3: '(' + T + '+' + Hc + ')' });
+  if (mv && mv.k === 'travel') {
+    /* ══ گذر به‌سوی کانون (۸.۵۶) ══
+       دوربین از سمتِ دیگرِ تصویر راه می‌افتد و به همان عنصری می‌رسد که گوینده درباره‌اش
+       حرف می‌زند — وقتی متن «از این به آن» می‌رود. بزرگ‌نماییِ ثابت، فقط جابه‌جایی؛ پنجره
+       همیشه درونِ تصویر می‌مانَد (`max/min`). */
+    const Z = Math.min(amp || mv.z, mv.z);
+    const Wc = '(W*' + (1 - Z).toFixed(4) + ')', Hc = '(H*' + (1 - Z).toFixed(4) + ')';
+    const fx = mv.x, fy = mv.y;
+    const c0x = (1 - fx).toFixed(4), c0y = (0.5).toFixed(4);
+    const cx = '(' + c0x + '+(' + fx.toFixed(4) + '-' + c0x + ')*' + e + ')';
+    const cy = '(' + c0y + '+(' + fy.toFixed(4) + '-' + c0y + ')*' + e + ')';
+    const L = 'max(0,min(W-' + Wc + ',' + cx + '*W-' + Wc + '/2))';
+    const T = 'max(0,min(H-' + Hc + ',' + cy + '*H-' + Hc + '/2))';
+    return rect(L, T, Wc, Hc);
+  }
   if (mv) {
     const Zf = Math.min(amp || mv.z, mv.z).toFixed(4);
-    const p = 'min(1,(on/' + N + '))';
-    const e = '(' + p + '*' + p + '*(3-2*' + p + '))';
     const sz = '(' + Zf + '*' + (mv.k === 'reveal' ? '(1-' + e + ')' : e) + ')';
     const px = mv.x.toFixed(4), py = mv.y.toFixed(4);
     const L = '(' + px + '*W*' + sz + ')', T = '(' + py + '*H*' + sz + ')';
     const R = '(W-(1-' + px + ')*W*' + sz + ')', B = '(H-(1-' + py + ')*H*' + sz + ')';
     return { x0: L, y0: T, x1: R, y1: T, x2: L, y2: B, x3: R, y3: B };
   }
-  const z = SK.zoom.toFixed(4);
-  const p = '(on/' + N + ')';
-  if (g % 3 === 2) {
-    const zx = '(' + z + '*W)', zy = '(' + z + '*H)';
-    const sx = '(' + z + '*W*0.9*(2*' + p + '-1)*' + (g % 2 ? '1' : '-1') + ')';
-    return { x0: zx + '+' + sx, y0: zy, x1: 'W-' + zx + '+' + sx, y1: zy,
-             x2: zx + '+' + sx, y2: 'H-' + zy, x3: 'W-' + zx + '+' + sx, y3: 'H-' + zy };
+  /* ══ بی کانون: شش حرکتِ آرام، نه دو (۸.۵۶) ══
+     تا ۸.۵۵ صحنه‌ای که کانون نداشت فقط بزرگ‌نمایی، کوچک‌نمایی یا یک لغزشِ افقی می‌گرفت
+     و او دید «جلوه‌ها صرفاً در حدِ زوم این و زوم اوت». حالا: نزدیک‌شدن، گذرِ راست‌به‌چپ
+     (جهتِ خواندنِ فارسی)، دورشدن، پایین‌آمدن، گذرِ چپ‌به‌راست، و نزدیک‌شدنِ مورب —
+     همه نرم‌آغاز و نرم‌پایان، همه درونِ تصویر. */
+  const z = SK.zoom, v = g % 6;
+  if (v === 1 || v === 3 || v === 4) {
+    const Wc = '(W*' + (1 - 2 * z).toFixed(4) + ')', Hc = '(H*' + (1 - 2 * z).toFixed(4) + ')';
+    const span = (2 * z).toFixed(4);
+    if (v === 3) return rect('(W*' + z.toFixed(4) + ')', '(H*' + span + '*' + e + ')', Wc, Hc);
+    const L = v === 1 ? '(W*' + span + '*(1-' + e + '))' : '(W*' + span + '*' + e + ')';
+    return rect(L, '(H*' + z.toFixed(4) + ')', Wc, Hc);
   }
-  const Z = g % 2 === 0 ? '(' + z + '*' + p + ')' : '(' + z + '*(1-' + p + '))';
+  if (v === 5) {
+    const sz = '(' + (2 * z).toFixed(4) + '*' + e + ')';
+    const L = '(0.7*W*' + sz + ')', T = '(0.3*H*' + sz + ')';
+    const R = '(W-0.3*W*' + sz + ')', B = '(H-0.7*H*' + sz + ')';
+    return { x0: L, y0: T, x1: R, y1: T, x2: L, y2: B, x3: R, y3: B };
+  }
+  const Z = v === 0 ? '(' + z.toFixed(4) + '*' + e + ')' : '(' + z.toFixed(4) + '*(1-' + e + '))';
   return { x0: Z + '*W', y0: Z + '*H', x1: 'W-' + Z + '*W', y1: Z + '*H',
            x2: Z + '*W', y2: 'H-' + Z + '*H', x3: 'W-' + Z + '*W', y3: 'H-' + Z + '*H' };
 }
@@ -353,11 +415,14 @@ function build(it, ctx) {
     const s = have[x.i];
     if (!s.ov || x.d - shiftOf(k) < 5) return;
     ovStat.asked++;
-    let avoid = null;
+    const avoid = [];
     if (ctx.mark && ctx.mark.handle) {
       const b = MARK.box(MARK.cornerAt(x.t0, ctx.mark.everySec), SK.w, SK.h, 70);
-      avoid = { x: b.x - 24, y: b.y - 24, w: b.w + 48, h: b.h + 60 };
+      avoid.push({ x: b.x - 24, y: b.y - 24, w: b.w + 48, h: b.h + 60 });
     }
+    /* کارت روی همان چیزی که گوینده درباره‌اش حرف می‌زند نمی‌نشیند (۸.۵۶). */
+    const fbx = fbBox(s.fb);
+    if (fbx) avoid.push(fbx);
     let r = null;
     try { r = OVL.render(ovCtx, s.ov, ctx.imgs[String(s.n)], k, avoid); }
     catch (e) { r = null; notes.push('نوشتهٔ صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60)); }
@@ -400,6 +465,8 @@ function build(it, ctx) {
 
   const vmax = vmaxFor(ctx.durSec);
   const parts = [];
+  const ovWin = {};          // پنجرهٔ دیده‌شدنِ کارتِ هر صحنه — برای مرجعِ سنجش
+  const xfUsed = {};
   const still = {};          // بخشِ ساکنِ هر صحنه: از کِی و چه‌قدر — برای مرجعِ سنجش
   let mvUsed = 0;
   for (let g0 = 0; g0 < tl.length; g0 += SK.group) {
@@ -449,14 +516,34 @@ function build(it, ctx) {
         cur = 'bc' + k;
       }
       if (ovFile[gk]) {
+        /* ══ کارت: می‌لغزد و می‌آید، سطرهایش یکی‌یکی، و می‌رود (۸.۵۶) ══
+           پنجره از `windowOf`: آن‌قدر که خوانده شود، نه تمامِ صحنه. لغزش از سمتِ خودِ
+           کارت، کوتاه و نرم (توانِ سه)؛ مرحله‌ها فقط محو می‌شوند — حرکتِ دوم روی همان
+           کارت شلوغی است. */
         const o = ovFile[gk];
+        const Wn = OVL.windowOf(x.d, OVL.OV.fadeIn + sh, (o.stages || []).length);
         a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', o.file);
         const io = inIdx++;
-        const st = OVL.OV.fadeIn + sh, end = Math.max(st + 1.2, x.d - 0.7);
-        f.push('[' + io + ':v]format=rgba,fade=t=in:st=' + st.toFixed(2) + ':d=' + OVL.OV.fade +
-               ':alpha=1,fade=t=out:st=' + end.toFixed(2) + ':d=' + OVL.OV.fade + ':alpha=1[o' + k + ']');
-        f.push('[' + cur + '][o' + k + ']overlay=' + o.x + ':' + o.y + ':shortest=1[bo' + k + ']');
+        f.push('[' + io + ':v]format=rgba,fade=t=in:st=' + Wn.st.toFixed(2) + ':d=' + OVL.OV.fade +
+               ':alpha=1,fade=t=out:st=' + Wn.end.toFixed(2) + ':d=' + OVL.OV.fade + ':alpha=1[o' + k + ']');
+        const D = OVL.OV.slideDx, S = OVL.OV.slide.toFixed(2);
+        const ease = 'pow(max(0,1-(t-' + Wn.st.toFixed(2) + ')/' + S + '),3)';
+        const dx = o.k === 'right' ? D : (o.k === 'left' ? -D : 0);
+        const dy = dx ? 0 : (o.low ? D : -D);
+        const xe = dx ? "'" + o.x + '+' + dx + '*' + ease + "'" : String(o.x);
+        const ye = dy ? "'" + o.y + '+' + dy + '*' + ease + "'" : String(o.y);
+        f.push('[' + cur + '][o' + k + ']overlay=x=' + xe + ':y=' + ye + ':eval=frame:shortest=1[bo' + k + ']');
         cur = 'bo' + k;
+        (o.stages || []).forEach((sf, si) => {
+          a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', sf);
+          const is = inIdx++;
+          const at = Wn.at[si];
+          f.push('[' + is + ':v]format=rgba,fade=t=in:st=' + at.toFixed(2) + ':d=0.45:alpha=1,fade=t=out:st=' +
+                 Wn.end.toFixed(2) + ':d=' + OVL.OV.fade + ':alpha=1[os' + k + '_' + si + ']');
+          f.push('[' + cur + '][os' + k + '_' + si + ']overlay=' + o.x + ':' + o.y + ':shortest=1[bs' + k + '_' + si + ']');
+          cur = 'bs' + k + '_' + si;
+        });
+        ovWin[gk] = Wn;
       }
       if (corners[gk] && markFile[corners[gk]]) {
         a.push('-loop', '1', '-framerate', String(SK.fps), '-t', clip.toFixed(3), '-i', markFile[corners[gk]]);
@@ -470,7 +557,9 @@ function build(it, ctx) {
     let prev = 'v0', off = grp[0].d;
     for (let k = 1; k < grp.length; k++) {
       const lab = k === grp.length - 1 ? 'vout' : ('x' + k);
-      f.push('[' + prev + '][v' + k + ']xfade=transition=fade:duration=' + SK.xf.toFixed(2) +
+      const tr = xfadeOf(have[grp[k - 1].i], have[grp[k].i], g0 + k);
+      xfUsed[tr] = (xfUsed[tr] || 0) + 1;
+      f.push('[' + prev + '][v' + k + ']xfade=transition=' + tr + ':duration=' + SK.xf.toFixed(2) +
              ':offset=' + off.toFixed(3) + '[' + lab + ']');
       prev = lab; off += grp[k].d;
     }
@@ -493,14 +582,27 @@ function build(it, ctx) {
   try { fs.unlinkSync(silent); } catch (e) {}
   /* مرجعِ سنجش برای صحنهٔ نوشته‌دار: همان نقاشی **با** نوشته‌اش. بی این، قابِ
      ویدئو با تصویرِ خامِ خودش مقایسه می‌شد و نوشته «صحنه سرِ جایش نیست» می‌خورد. */
-  const ref = {};
+  const ref = {}, ovQt = {};
   tl.forEach((x, k) => {
     if (!ovFile[k]) return;
     const o = ovFile[k], out = path.join(ctx.dir, 'ref' + k + '.jpg');
+    /* مرجع = نقاشی با کارت و **همهٔ** سطرهایش، و لحظهٔ سنجش جایی که همه پیدایند و
+       کارت هنوز نرفته (۸.۵۶): کارت دیگر تمامِ صحنه نمی‌مانَد، پس قابِ وسطِ صحنه شاید
+       بی‌کارت باشد و با مرجعِ کارت‌دار «سرِ جایش نیست» بخورد. */
+    const Wn = ovWin[k];
+    if (Wn) {
+      const last = Wn.at.length ? Wn.at[Wn.at.length - 1] + 0.7 : Wn.st + OVL.OV.slide + 0.7;
+      ovQt[k] = Math.round(Math.min(Wn.end - 0.3, Math.max(last, Wn.st + 1.2)) * 100) / 100;
+    }
     try {
-      ctx.ffRun(['-y', '-i', ctx.imgs[String(have[x.i].n)], '-i', o.file, '-filter_complex',
-                 '[0:v]scale=' + SK.w + ':' + SK.h + '[b];[b][1:v]overlay=' + o.x + ':' + o.y,
-                 '-q:v', '3', '-frames:v', '1', out]);
+      const ins = ['-y', '-i', ctx.imgs[String(have[x.i].n)], '-i', o.file];
+      let fc = '[0:v]scale=' + SK.w + ':' + SK.h + '[b];[b][1:v]overlay=' + o.x + ':' + o.y + '[r0]';
+      (o.stages || []).forEach((sf, si) => {
+        ins.push('-i', sf);
+        fc += ';[r' + si + '][' + (si + 2) + ':v]overlay=' + o.x + ':' + o.y + '[r' + (si + 1) + ']';
+      });
+      ctx.ffRun(ins.concat(['-filter_complex', fc, '-map', '[r' + (o.stages || []).length + ']',
+                            '-q:v', '3', '-frames:v', '1', out]));
       ref[k] = out;
     } catch (e) {}
   });
@@ -524,6 +626,7 @@ function build(it, ctx) {
       }
       qt[k] = t;
     }
+    if (ovQt[k] !== undefined) { qt[k] = ovQt[k]; return; }
     const s = have[x.i];
     if (!s.mv || ovFile[k] || !st.z) return;
     const p = clamp01((t - st.start) / Math.max(0.1, st.len));
@@ -539,7 +642,7 @@ function build(it, ctx) {
     } catch (e2) {}
   });
   return { scenes: tl.length, want: scenes.length, snapped: snapped, silences: sil.length,
-           groups: parts.length, vmax: vmax, ov: ovStat, mv: mvUsed, clip: clipStat,
+           groups: parts.length, vmax: vmax, ov: ovStat, mv: mvUsed, clip: clipStat, xf: xfUsed,
            tl: tl.map((x, k) => {
              const o = { n: have[x.i].n, t0: x.t0, d: x.d, img: ctx.imgs[String(have[x.i].n)], ref: ref[k] || '' };
              if (qt[k] !== undefined) o.qt = qt[k];
@@ -625,5 +728,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, scenesOf, mvOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
+module.exports = { SK, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };

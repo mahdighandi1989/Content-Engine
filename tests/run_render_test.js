@@ -604,7 +604,8 @@ console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ �
 
   /* ۱۲.۳ — حرکت آرام است و هرگز از قاب بیرون نمی‌زند: چهار گوشهٔ منبع در هر
      دو سرِ صحنه درونِ تصویر می‌مانند، و سه نوعِ حرکت هر سه هست. */
-  const ev = (e, on, N) => Function('W', 'H', 'on', 'return (' + String(e).replace(/\bon\b/g, 'on') + ');')(1920, 1080, on, N);
+  /* همان تابع‌هایی که عبارتِ ffmpeg دارد (min/max/pow) — حرکتِ نرم‌آغاز از ۸.۵۶ آن‌ها را به کار می‌برد. */
+  const ev = (e, on) => Function('W', 'H', 'on', 'min', 'max', 'pow', 'return (' + String(e) + ');')(1920, 1080, on, Math.min, Math.max, Math.pow);
   let inside = true; const kinds = new Set();
   for (let g = 0; g < 6; g++) {
     const N = 240, m = SKIT.motion(g, N);
@@ -618,6 +619,38 @@ console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ �
   }
   ok('۱۲.۳ حرکتِ آرام در قاب می‌مانَد؛ نزدیک‌شدن، دورشدن و لغزش هر سه هست', inside && kinds.size >= 3,
      [...kinds].join('، '));
+  /* ۱۲.۳-ب — «فقط زوم این و زوم اوت» (۶ اکتبر): بی کانون، شش صحنهٔ پشتِ‌هم دست‌کم چهار
+     حرکتِ متفاوت دارند — گذرِ افقی در هر دو جهت و پایین‌آمدنِ عمودی هم. */
+  const sig = [];
+  for (let g = 0; g < 6; g++) {
+    const m = SKIT.motion(g, 240);
+    const a0 = { x: ev(m.x0, 0), y: ev(m.y0, 0), w: ev(m.x1, 0) - ev(m.x0, 0) };
+    const a1 = { x: ev(m.x0, 240), y: ev(m.y0, 240), w: ev(m.x1, 240) - ev(m.x0, 240) };
+    const dz = Math.sign(Math.round(a1.w - a0.w)), dxx = Math.sign(Math.round(a1.x - a0.x)), dyy = Math.sign(Math.round(a1.y - a0.y));
+    sig.push(dz ? (dz < 0 ? 'نزدیک' : 'دور') + (Math.abs(a1.x - a0.x - (a0.w - a1.w) / 2) > 5 ? '-مورب' : '')
+                : (dxx ? (dxx < 0 ? 'گذر←' : 'گذر→') : (dyy ? 'عمودی' : 'ثابت')));
+  }
+  const kinds2 = new Set(sig);
+  ok('۱۲.۳-ب بی کانون، شش حرکتِ آرامِ متفاوت — نه فقط نزدیک و دور', kinds2.size >= 5 &&
+     kinds2.has('گذر←') && kinds2.has('گذر→') && kinds2.has('عمودی'), sig.join('، '));
+  /* ۱۲.۳-پ — گذر به‌سوی کانون: از سمتِ دیگر راه می‌افتد و به کانون می‌رسد، درونِ قاب. */
+  const tv = SKIT.motion(1, 240, { k: 'travel', x: 0.8, y: 0.4, z: 0.14 });
+  const cx = on => (ev(tv.x0, on) + ev(tv.x1, on)) / 2;
+  let tIn = true;
+  for (const on of [0, 60, 120, 180, 240]) {
+    if (!(ev(tv.x0, on) >= -0.01 && ev(tv.x1, on) <= 1920.01 && ev(tv.y0, on) >= -0.01 && ev(tv.y2, on) <= 1080.01)) tIn = false;
+  }
+  /* پنجرهٔ ۸۶٪ی فقط ۱۴٪ِ پهنا جا دارد؛ «رسیدن» یعنی تا لبهٔ ممکن به سمتِ کانون. */
+  const wc = 1920 * (1 - 0.14);
+  ok('۱۲.۳-پ «travel» از سمتِ دیگر به کانون می‌رسد و در قاب می‌مانَد',
+     tIn && cx(0) < 960 && Math.abs(cx(240) - (1920 - wc / 2)) < 1 && cx(120) > cx(0),
+     [cx(0), cx(120), cx(240)].map(Math.round).join(' → '));
+  /* ۱۲.۳-ت — گذارِ میانِ صحنه‌ها از معنا: بخشِ تازه ⇒ سیاهیِ کوتاه؛ روایت ⇒ حل‌شدن؛ ایده ⇒ نرم و یکی‌درمیان. */
+  ok('۱۲.۳-ت گذار از بخش و ضرب: fadeblack / dissolve / smoothright‌ـfade',
+     SKIT.xfadeOf({ sec: 1 }, { sec: 2, beat: 'ایده' }, 1) === 'fadeblack' &&
+     SKIT.xfadeOf({ sec: 2 }, { sec: 2, beat: 'روایت' }, 1) === 'dissolve' &&
+     SKIT.xfadeOf({ sec: 2 }, { sec: 2, beat: 'ایده' }, 1) === 'smoothright' &&
+     SKIT.xfadeOf({ sec: 2 }, { sec: 2, beat: 'ایده' }, 2) === 'fade');
 
   /* ۱۲.۴ — **از درِ اجرا:** چهار صحنهٔ واقعی روی سرورِ محلی، صوت با مکث،
      زیرنویس و نشانِ کانال. ویدئو ساخته می‌شود، مدتش همان صوت است، سنجشِ خودِ
@@ -867,7 +900,7 @@ console.log('\n══ ۱۴) حرکتِ معنادار و کلیپِ آغاز (۸
      قاب هرگز از تصویر بیرون نمی‌زند، push نزدیک می‌شود و reveal دور، و صحنهٔ نوشته‌دار
      فقط حرکتِ آرام می‌گیرد (نوشته جایش را از تصویرِ ساکن گرفته). */
   // همان توابعِ عبارتِ ffmpeg که حرکت به کار می‌بَرد
-  const ev = (e, on) => Function('W', 'H', 'on', 'min', 'return (' + String(e) + ');')(W, H, on, Math.min);
+  const ev = (e, on) => Function('W', 'H', 'on', 'min', 'max', 'pow', 'return (' + String(e) + ');')(W, H, on, Math.min, Math.max, Math.pow);
   let fixed = true, inside = true;
   const N = 240;
   for (const px of [0, 0.27, 0.8, 1]) {
@@ -1063,6 +1096,126 @@ console.log('\n══ ۱۵) کاورِ مربعِ پلی‌لیست و پروب 
      !!va.artFile && R.sniffKind(va.artFile) === 'jpeg' && (artWh === '1400,1400' || artWh === '') && !vb.artFile,
      'با کلید ' + (va.artFile ? artWh || 'ساخته شد' : 'نه') + ' · بی کلید ' + (vb.artFile ? 'ساخته شد' : 'نه') +
      ' · ' + va.mode + ' ' + (va.notes || []).join(' | '));
+}
+
+console.log('\n══ ۱۶) کارت، نه جملهٔ معلق؛ می‌آید، ساخته می‌شود و می‌رود (۸.۵۶) ══');
+{
+  const OVL = require('../tools/overlay.js');
+  const SKIT = require('../tools/scenekit.js');
+  const d = fs.mkdtempSync(path.join(TMP, 'cd-'));
+  /* ۱۶.۱ — یک قلم، وزیرمتن؛ نه نستعلیقِ اردو (که «مستقیم» را بالاتر از جمله نشانْد)، نه
+     لاله‌زار، و گیومه کشیده نه نویسهٔ «❞». */
+  const pal = OVL.palette(null, { lum: 0.8 }, 0);
+  const kinds = [{ kind: 'headline', title: 'باورها تحت فرمانِ اراده نیستند', lines: ['باور از شواهد می‌آید'] },
+                 { kind: 'quote', title: 'با کشیدنِ بندِ کفش نمی‌توان از زمین بلند شد', lines: [] },
+                 { kind: 'points', title: 'دو راه', lines: ['قیاس', 'استقرا'] },
+                 { kind: 'steps', title: '', lines: ['الف', 'ب', 'ج'] },
+                 { kind: 'compare', title: 'دو راه', a: 'الف', b: 'ب', lines: ['قوت: قطعی | محتمل'] }];
+  const htmls = kinds.map((k, i) => OVL.html(OVL.ovNorm(k), 800, pal, i + 1, true, 'right'));
+  ok('۱۶.۱ همهٔ کارت‌ها وزیرمتن؛ بی نستعلیق و لاله‌زار؛ گیومه کشیده',
+     htmls.every(h => /Vazirmatn/.test(h) && !/Nastaliq|Lalezar|Naskh/.test(h) && !/❞/.test(h)) &&
+     /<svg[^>]*><path/.test(htmls[1]) && htmls.every(h => /class="cd"|display:inline-flex/.test(h)),
+     htmls.map(h => (h.match(/font-family:[^;]+/) || [''])[0]).join(' | ').slice(0, 200));
+  /* ۱۶.۲ — مرحله‌ها: سطرِ k فقط در مرحلهٔ k نمایان است؛ کارت فقط در مرحلهٔ ۰. */
+  const pts = OVL.ovNorm(kinds[2]);
+  const s0 = OVL.html(pts, 800, pal, 1, true, 'right', 0), s2 = OVL.html(pts, 800, pal, 1, true, 'right', 2);
+  const visCount = h => (h.match(/visibility:visible/g) || []).length;
+  ok('۱۶.۲ مرحله‌ها: کارت و تیتر در ۰، سطرِ دوم فقط در ۲',
+     OVL.stagesOf(pts) === 2 && OVL.stagesOf(OVL.ovNorm(kinds[0])) === 0 &&
+     /class="cd" style=""/.test(s0) && /class="cd" style="visibility:hidden;"/.test(s2) && visCount(s2) === 1,
+     JSON.stringify({ v0: visCount(s0), v2: visCount(s2) }));
+  /* ۱۶.۳ — پنجره: آن‌قدر که خوانده شود، نه تمامِ صحنه؛ سطرِ اول پس از نشستنِ کارت؛ همه پیش از پایان. */
+  const w1 = OVL.windowOf(50, 0.9, 3), w2 = OVL.windowOf(8, 0.9, 0);
+  ok('۱۶.۳ کارت روی صحنهٔ ۵۰ ثانیه‌ای ~۱۴ ثانیه می‌مانَد؛ سطرها پشتِ‌هم و پیش از پایان؛ صحنهٔ کوتاه تا پیش از برش',
+     w1.end < 20 && w1.end > 10 && w1.at[0] <= w1.st + 1.2 && w1.at[0] < w1.at[1] && w1.at[2] <= w1.end - 2 &&
+     w2.end <= 8 - 0.7 + 1e-9, JSON.stringify({ w1: w1, w2: w2 }));
+  /* ۱۶.۴ — جای کارت: تودهٔ کوچکِ **رنگی** (سرِ نارنجیِ صحنهٔ ۱۹ِ درسِ ۴۰، روشنیِ نزدیک به کاغذ)
+     و جعبهٔ کانونِ داور هر دو را نمی‌پوشاند. */
+  const paper = path.join(d, 'paper.png');
+  ff(['-f', 'lavfi', '-i', 'nullsrc=s=1920x1080', '-vf',
+      "geq=r='if(lt(hypot(X-430,Y-470),60),210,236)':g='if(lt(hypot(X-430,Y-470),60),150,232)':b='if(lt(hypot(X-430,Y-470),60),70,224)'",
+      '-frames:v', '1', paper]);
+  const anP = OVL.analyze(FF, paper);
+  const plL = OVL.place(anP, 900, 420, 'headline', 'left', null);      // سمتی که فقط با توده جا دارد
+  const plA = OVL.place(anP, 900, 420, 'headline', '', null);
+  const hitHead = b => b && b.x < 490 && b.x + b.w > 370 && b.y < 530 && b.y + b.h > 410;
+  const focus = SKIT.fbBox({ x: 0.75, y: 0.3, w: 0.3, h: 0.4 });
+  const plF = OVL.place(anP, 700, 360, 'points', '', [focus]);
+  const plFr = OVL.place(anP, 700, 360, 'points', 'right', [focus]);   // راست همه زیرِ کانون است
+  const hitF = b => b && b.x < focus.x + focus.w && b.x + b.w > focus.x && b.y < focus.y + focus.h && b.y + b.h > focus.y;
+  ok('۱۶.۴ کارت نه روی تودهٔ کوچکِ رنگی می‌نشیند نه روی کانونِ داور',
+     plL && plL.busy === true && plA && !plA.busy && !hitHead(plA.box) && plF && !plF.busy && !hitF(plF.box) &&
+     (plFr === null || plFr.busy === true),
+     JSON.stringify({ left: plL && plL.busy, a: plA && plA.box, f: plF && plF.box, fr: plFr, focus: focus }));
+
+  /* ۱۶.۵ — **از درِ اجرا:** صحنهٔ ۴۰ ثانیه‌ای با کارتِ سه‌نکته‌ای. در پنجره کارت هست و سطرِ سوم
+     دیرتر از اول می‌آید؛ پس از پنجره کارت رفته و نقاشی تنهاست؛ سنجشِ ویدئو سالم است. */
+  /* زمینهٔ یکدست: حرکتِ دوربین روی آن دیده نمی‌شود، پس هر فرقی با نقاشیِ خام فقط کارت است
+     (نگارشِ اول دیسکی داشت و حرکتِ آرام به‌تنهایی همان فرق را می‌ساخت — «رفتنِ کارت» دیده
+     نمی‌شد؛ همان تلهٔ ۱۳.۴). */
+  const calm = path.join(d, 'calm.png');
+  ff(['-f', 'lavfi', '-i', 'color=c=0xEDEAE4:s=1920x1080', '-frames:v', '1', calm]);
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,9),0,8)':s=24000:d=60", '-ac', '1', wav]);
+  const u2 = serve('cd2.png', mkPng(path.join(d, 'q2.png'), 1344, 768, 5));
+  const u3 = serve('cd3.png', mkPng(path.join(d, 'q3.png'), 1344, 768, 9));
+  const it = { key: 'special:cd', mode: 'scenes', coverTitle: 'آزمون',
+    scenes: [{ n: 1, t0: 0, url: serve('cd1.png', calm), sec: 1, beat: 'ایده',
+               ov: { kind: 'points', title: 'سه نکته', lines: ['نکتهٔ یکم کوتاه', 'نکتهٔ دوم کوتاه', 'نکتهٔ سوم کوتاه'], side: 'left' },
+               fb: { x: 0.78, y: 0.59, w: 0.24, h: 0.42 } },
+             { n: 2, t0: 40, url: u2, sec: 2, beat: 'روایت' }, { n: 3, t0: 50, url: u3, sec: 2, beat: 'ایده' }] };
+  const dest = path.join(d, 'cd.mp4');
+  const vr = R.buildVideo(it, null, wav, R.wavSeconds(wav), dest, d);
+  /* قاب با قاب، هر دو از خودِ ویدئو (نه با PNGِ خام: تبدیلِ رنگِ yuv خودش فرقِ ثابتی می‌سازد). */
+  const Wn = OVL.windowOf(40, OVL.OV.fadeIn, 3);
+  const f0 = SKIT.gray(FF, dest, 0.3);
+  const fA = SKIT.gray(FF, dest, Wn.at[0] + 0.6), fC = SKIT.gray(FF, dest, Wn.at[2] + 0.8), fZ = SKIT.gray(FF, dest, Wn.end + 2.5);
+  const mA = SKIT.mad(fA, f0), mC = SKIT.mad(fC, f0), mZ = SKIT.mad(fZ, f0);
+  /* سطرهای متن در شبکهٔ ۴۸×۲۷ گم می‌شوند؛ «یکی‌یکی» با شمارِ پیکسل‌های تیرهٔ متن در ۹۶۰×۵۴۰ سنجیده می‌شود. */
+  const ink = t => {
+    const r = cp.spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', dest, '-frames:v', '1',
+                                '-vf', 'scale=960:540,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 8 * 1024 * 1024 });
+    let n = 0; for (const v of r.stdout || []) if (v < 110) n++; return n;
+  };
+  const iA = ink(Wn.at[0] + 0.6), iB = ink(Wn.at[1] + 0.6), iC = ink(Wn.at[2] + 0.8);
+  ok('۱۶.۵ کارت می‌آید، سطرها یکی‌یکی ساخته می‌شوند، و پس از پنجره نقاشی تنهاست؛ سنجش سالم',
+     vr.mode === 'scenes' && vr.ov && vr.ov.placed === 1 && vr.qa && vr.qa.ok === true &&
+     mA > 0.6 && mZ < 0.2 && iB > iA * 1.15 && iC > iB * 1.1 && vr.xf && (vr.xf.fadeblack || 0) === 1,
+     JSON.stringify({ mA: mA.toFixed(2), mC: mC.toFixed(2), mZ: mZ.toFixed(2), ink: [iA, iB, iC], ov: vr.ov, xf: vr.xf,
+                      qa: vr.qa && vr.qa.ok, notes: vr.notes }));
+}
+
+console.log('\n══ ۱۷) کارت روی کانونِ داور نمی‌نشیند — از درِ ساختِ ویدئو (۸.۵۶) ══');
+{
+  const OVL = require('../tools/overlay.js');
+  const d = fs.mkdtempSync(path.join(TMP, 'fb-'));
+  /* زمینهٔ یکدست: جای طبیعیِ کارت بالا-چپ است. کانونِ داور را همان‌جا می‌گذاریم؛ کارت باید
+     جای دیگری برود. سنجش با فرقِ قابِ کارت‌دار و قابِ پیش از کارت، درونِ جعبهٔ کانون و بیرونش. */
+  const u = path.join(d, 'u.png');
+  ff(['-f', 'lavfi', '-i', 'color=c=0xEDEAE4:s=1920x1080', '-frames:v', '1', u]);
+  const wav = path.join(d, 'a.wav');
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*220*t)*between(mod(t,9),0,8)':s=24000:d=40", '-ac', '1', wav]);
+  const fb = { x: 0.27, y: 0.2, w: 0.5, h: 0.36 };
+  const it = { key: 'special:fb', mode: 'scenes', coverTitle: 'آزمون',
+    scenes: [{ n: 1, t0: 0, url: serve('fb1.png', u), sec: 1,
+               ov: { kind: 'headline', title: 'کانون را نپوشان', lines: ['کارت جای دیگری می‌نشیند'] }, fb: fb },
+             { n: 2, t0: 22, url: serve('fb2.png', mkPng(path.join(d, 'q2.png'), 1344, 768, 3)), sec: 1 },
+             { n: 3, t0: 31, url: serve('fb3.png', mkPng(path.join(d, 'q3.png'), 1344, 768, 7)), sec: 1 }] };
+  const dest = path.join(d, 'fb.mp4');
+  const vr = R.buildVideo(it, null, wav, R.wavSeconds(wav), dest, d);
+  const grab = t => cp.spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', dest, '-frames:v', '1',
+                                      '-vf', 'scale=480:270,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 4 * 1024 * 1024 }).stdout;
+  const a = grab(0.3), b = grab(OVL.OV.fadeIn + 3);
+  const X0 = Math.floor((fb.x - fb.w / 2) * 480), X1 = Math.ceil((fb.x + fb.w / 2) * 480);
+  const Y0 = Math.floor((fb.y - fb.h / 2) * 270), Y1 = Math.ceil((fb.y + fb.h / 2) * 270);
+  let inside = 0, outside = 0;
+  for (let y = 0; y < 270; y++) for (let x = 0; x < 480; x++) {
+    const dd = Math.abs(a[y * 480 + x] - b[y * 480 + x]) > 25;
+    if (!dd) continue;
+    if (x >= Math.max(0, X0) && x < X1 && y >= Math.max(0, Y0) && y < Y1) inside++; else outside++;
+  }
+  ok('۱۷.۱ کارت نشست ولی نه درونِ جعبهٔ کانون', vr.ov && vr.ov.placed === 1 && outside > 500 && inside < outside * 0.05,
+     JSON.stringify({ inside: inside, outside: outside, ov: vr.ov, notes: vr.notes }));
 }
 
 stopServer();

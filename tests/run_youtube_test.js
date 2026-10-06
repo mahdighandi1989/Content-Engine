@@ -6755,7 +6755,7 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        JSON.stringify(dT.clip));
     ok('۷۷.۵-ب تصویرِ داوری‌نشده ⇒ صبر بی فراخوان؛ صحنهٔ نخستِ بی‌تصویر ⇒ «نشد»',
        dU.clip.state === '' && vE.starts.length === startsU && blobU2 === blobU && dN.clip.state === 'fail' &&
-       /صحنهٔ نخست تصویر ندارد/.test(dN.clip.why) && lvClipSettled_(dN),
+       /تصویر نگرفت|تصویر ندارد/.test(dN.clip.why) && lvClipSettled_(dN),
        JSON.stringify({ u: dU.clip.state, n: dN.clip }));
     ok('۷۷.۵ سقفِ ماه جا ندارد ⇒ «خاموش» بی فراخوان و «سرانجام‌یافته»؛ یک سنت بیشتر ⇒ آغاز',
        dE.clip.state === 'off' && /سقفِ ماهانه/.test(dE.clip.why) && lvClipSettled_(dE) &&
@@ -7931,6 +7931,163 @@ console.log('\n=== ۸۳) آنچه بیننده می‌بیند، نه آنچه �
   global.__STUB = keepStub; global._ytMapMemo = kMemo;
   if (kAud === undefined) delete global.__PROPS[PK.YT_THUMB_AUDIT]; else global.__PROPS[PK.YT_THUMB_AUDIT] = kAud;
   if (kPaint === undefined) delete global.__PROPS[PK.YT_THUMB_PAINT]; else global.__PROPS[PK.YT_THUMB_PAINT] = kPaint;
+}
+
+console.log('\n=== ۸۴) کلیپ روی نخستین لحظهٔ واقعیِ درس، نه روی تاریخ (۸.۵۶) ===');
+{
+  /* ۶ اکتبر، درسِ ۴۰: «اون چند ثانیه متحرک هم همون چند ثانیه‌ای بود که داشت تازه تاریخ و روزِ
+     پادکست می‌گفت». صحنه‌های نخستِ همان درس، عیناً (متن، زمان، نمرهٔ داور). */
+  const S62 = () => [
+    { n: 1, t0: 0, t1: 9.8, text: 'درس‌نامه، سه‌شنبه، چهاردهم مهر هزار و چهارصد و پنج، برابر با ششم اکتبر دو هزار و بیست و شش.',
+      fileId: 'I1', scene: 'desk', judge: { s: 4, txt: false, face: false } },
+    { n: 2, t0: 9.8, t1: 42.2, text: 'در این قسمت، به سراغ بررسی کتاب «معرفت‌شناسی» می‌رویم و فصل نهم را آغاز می‌کنیم.',
+      fileId: 'I2', scene: 'book', judge: { s: 6, txt: false, face: false } },
+    { n: 3, t0: 42.2, t1: 99.5, text: 'امروز از آن پایه‌ها گذر کردیم تا معماری کلی منظومهٔ باورها را بررسی کنیم.',
+      fileId: 'I3', scene: 'pillars', judge: { s: 6, txt: false, face: false } }];
+  ok('۸۴.۱ جملهٔ تاریخ «فقط تاریخ» شناخته می‌شود و جملهٔ درس نه',
+     lvSceneIsCalendar_(S62()[0].text) === true && lvSceneIsCalendar_(S62()[1].text) === false &&
+     lvSceneIsCalendar_('امروز از آن پایه‌ها گذر کردیم و به مهر و محبت رسیدیم') === false);
+  const p1 = lvClipScene_({ scenes: S62() });
+  ok('۸۴.۲ کلیپ برای صحنهٔ ۲ (آغازِ درس)، نه صحنهٔ تاریخ', p1.i === 1 && !p1.wait, JSON.stringify(p1));
+  /* صحنهٔ تاریخِ **بلند** (تاریخ و خوش‌آمد در یک صحنه) هم کلیپ نمی‌گیرد — سدِ تاریخ جدا از سدِ کوتاهی. */
+  const sL = S62(); sL[0].t1 = 16; sL[1].t0 = 16; sL[0].judge.s = 7;    // تصویرش خوب است؛ فقط تاریخ است
+  ok('۸۴.۲-ب صحنهٔ تاریخ حتی وقتی بلند است کلیپ نمی‌گیرد', lvClipScene_({ scenes: sL }).i === 1,
+     JSON.stringify(lvClipScene_({ scenes: sL })));
+  /* داوری‌نشده ⇒ صبر، نه پرش به بعدی — انتخاب باید پیش از خرج و یک بار باشد. */
+  const s2 = S62(); s2[1].judge = null;
+  const p2 = lvClipScene_({ scenes: s2 });
+  ok('۸۴.۳ صحنهٔ نامزدِ داوری‌نشده ⇒ صبر', p2.wait === true && p2.i === -1, JSON.stringify(p2));
+  /* نمرهٔ پایین ⇒ بعدی؛ هیچ‌کدام به کف نرسید ⇒ بهترینِ همان‌ها، با علت. */
+  const s3 = S62(); s3[1].judge.s = 3;
+  const p3 = lvClipScene_({ scenes: s3 });
+  const s4 = S62(); s4[1].judge.s = 3; s4[2].judge.s = 4;
+  const p4 = lvClipScene_({ scenes: s4 });
+  ok('۸۴.۴ تصویرِ ضعیف کلیپ نمی‌گیرد؛ بی هیچ تصویرِ خوب ⇒ بهترینِ نامزدها با علت',
+     p3.i === 2 && p4.i === 2 && /کفِ داوری/.test(p4.why), JSON.stringify({ p3: p3, p4: p4 }));
+  /* صحنهٔ کوتاه‌تر از کلیپ + میان‌محو جا ندارد. */
+  const s5 = S62(); s5[1].t1 = 15.5;
+  ok('۸۴.۵ صحنهٔ کوتاه‌تر از کلیپ نامزد نیست', lvClipScene_({ scenes: s5 }).i === 2);
+
+  /* ۸۴.۶ — از درِ ماشینِ حالت: کلیپ از تصویرِ صحنهٔ ۲ ساخته می‌شود و `n` ثبت می‌شود. */
+  const keepStart = global.lvClipStart_, keepGf = DriveApp.getFileById;
+  let used = null;
+  global.lvClipStart_ = (model, blob, prompt) => { used = { img: blob.__id, prompt: prompt }; return { op: 'op-84', err: '' }; };
+  DriveApp.getFileById = function (id) {
+    if (/^I\d$/.test(id)) return { getBlob: () => { const b = Utilities.newBlob([1, 2, 3], 'image/png', 'x.png'); b.__id = id; return b; } };
+    return keepGf.call(DriveApp, id);
+  };
+  const spWas = global.__PROPS[PK.LV_GEN_SPEND];
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  const d6 = { scenes: S62(), clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+  lvClipStep_(d6, DriveApp.__register('EP84', 'قسمت 0840 — کلیپ'), () => 1e9, 'special:840', 2);
+  ok('۸۴.۶ کلیپ از تصویرِ صحنهٔ ۲ آغاز می‌شود و صحنه‌اش در `clip.n` می‌مانَد',
+     d6.clip.state === 'wait' && d6.clip.n === 2 && d6.clip.img === 'I2' && used && used.img === 'I2' &&
+     /book/.test(used.prompt), JSON.stringify({ c: d6.clip, used: used && used.img }));
+  global.lvClipStart_ = keepStart; DriveApp.getFileById = keepGf;
+  global.__PROPS[PK.LV_GEN_SPEND] = spWas;
+
+  /* ۸۴.۷ — و روی همان صحنه به رانر می‌رسد؛ نقشهٔ پیش از ۸.۵۶ (`n` ندارد) ⇒ صحنهٔ نخست. */
+  const its = () => [{ n: 1, fileId: 'I1' }, { n: 2, fileId: 'I2' }, { n: 3, fileId: 'I3' }];
+  const a1 = its(), at1 = lvClipAttach_(a1, { state: 'ok', fileId: 'C', img: 'I2', n: 2, sec: 8 });
+  const a2 = its(), at2 = lvClipAttach_(a2, { state: 'ok', fileId: 'C', img: 'I1', sec: 8 });
+  const a3 = its(), at3 = lvClipAttach_(a3, { state: 'ok', fileId: 'C', img: 'I-OLD', n: 2, sec: 8 });
+  ok('۸۴.۷ کلیپ روی صحنهٔ انتخاب‌شده می‌نشیند؛ نقشهٔ قدیمی ⇒ نخستین؛ تصویرِ عوض‌شده ⇒ هیچ',
+     at1 === 2 && a1[1].clip && !a1[0].clip && at2 === 1 && a2[0].clip && at3 === 0 && !a3.some(x => x.clip),
+     JSON.stringify({ at1: at1, at2: at2, at3: at3 }));
+}
+
+console.log('\n=== ۸۵) کارت‌های نوشتاری: کف، نه فقط سقف؛ و آنچه نشست شمرده می‌شود (۸.۵۶) ===');
+{
+  /* درسِ ۴۰: سهمِ «خودکار» ۴۵٪، یعنی ~۱۸ کارت از ۴۰ صحنه؛ نقشه ۸ داد، همه تیتر و نقل. */
+  const mkSc = (n) => {
+    const a = [];
+    for (let i = 1; i <= n; i++) a.push({ n: i, t0: (i - 1) * 30, t1: i * 30, fileId: 'F' + i, text: 'متنِ صحنهٔ ' + i + ' دربارهٔ توجیه و باور.',
+      beat: i % 5 === 0 ? 'روایت' : 'ایده', ov: null,
+      judge: { s: 6, space: i % 7 === 0 ? 'none' : (i % 2 ? 'right' : 'top') } });
+    return a;
+  };
+  const d = { scenes: mkSc(40), ovShare: 0.45, nature: 'درس' };
+  for (let i = 0; i < 8; i++) d.scenes[i * 5].ov = { kind: 'headline', title: 'تیتر', lines: [], keys: [], side: 'right' };
+  let asked = null;
+  const gtWas = global.geminiText_;
+  global.geminiText_ = (prompt, schema) => {
+    asked = { prompt: prompt, schema: schema };
+    const ns = (prompt.match(/^\[(\d+)\]/gm) || []).map(x => x.replace(/[\[\]]/g, ''));
+    return { items: ns.map((n, i) => i % 3 === 0 ? { n: n, ov: 'points', ovTitle: 'دو راه', ovLines: ['قیاس: ضروری', 'استقرا: محتمل'] }
+                                       : i % 3 === 1 ? { n: n, ov: 'steps', ovLines: ['باورِ الف', 'از ب', 'از ج'] }
+                                       : { n: n, ov: 'headline', ovTitle: 'تسلسل', ovLines: ['زنجیره‌ای که پایان ندارد'] }) };
+  };
+  const r = lvSceneOvFill_(d, { title: 'معماریِ معرفت' }, () => 1e9);
+  const have = d.scenes.filter(x => x.ov).length;
+  /* شاهدِ بی‌حفاظ مجموعه را می‌اندازد و شکستنِ نشسته را شبیهِ کرش می‌کند (۷.۸۹): ov ممکن است
+     پس از بُرشِ سهم تهی شده باشد. */
+  const filled = d.scenes.filter(x => x.ovFill && x.ov);
+  ok('۸۵.۱ کارت‌های کم ⇒ پس از داوری یک پرسشِ جدا؛ سهم پر می‌شود و از سقف نمی‌گذرد',
+     r.asked > 0 && r.got > 0 && have > 8 && have <= Math.round(40 * 0.45) && !!d.ovFillAt,
+     JSON.stringify({ r: r, have: have }));
+  ok('۸۵.۲ فقط صحنه‌هایی که داور در آن‌ها جای خالی دید؛ جای کارت همان جای داور',
+     filled.length > 0 && filled.every(x => x.judge.space !== 'none' && x.ov.side === x.judge.space) &&
+     !/^\[7\]/m.test(asked.prompt) && !/^\[14\]/m.test(asked.prompt),
+     filled.map(x => x.n + ':' + x.ov.side).join(' '));
+  ok('۸۵.۳ روایت فهرست و گام نمی‌گیرد؛ تیترِ تازه سطرِ توضیح دارد',
+     filled.every(x => x.beat !== 'روایت' || ['headline', 'quote'].indexOf(x.ov.kind) !== -1) &&
+     filled.filter(x => x.ov.kind === 'headline').every(x => x.ov.lines.length >= 1) &&
+     /بیشترشان points، steps یا compare/.test(asked.prompt) && /هرگز تیترِ تنها/.test(asked.prompt) &&
+     /^\[\d+\] \(روایت\)/m.test(asked.prompt) && d.scenes.some(x => x.beat === 'روایت' && !x.ov),
+     filled.map(x => x.n + ':' + x.beat + ':' + x.ov.kind).join(' '));
+  asked = null;
+  const r2 = lvSceneOvFill_(d, { title: 'x' }, () => 1e9);
+  ok('۸۵.۴ یک بار برای هر درس — دوباره پرسیده نمی‌شود', asked === null && r2.asked === 0);
+  /* و وقتی مدل چیزی نداد (هنوز زیرِ کف): باز هم نه — «یک بار» یعنی یک بار، نه «تا کافی شود». */
+  const dE = { scenes: mkSc(20), ovShare: 0.45, nature: 'درس' };
+  let nAsk = 0;
+  global.geminiText_ = () => { nAsk++; return { items: [] }; };
+  lvSceneOvFill_(dE, {}, () => 1e9); lvSceneOvFill_(dE, {}, () => 1e9);
+  global.geminiText_ = (prompt, schema) => { asked = { prompt: prompt, schema: schema }; return { items: [] }; };
+  ok('۸۵.۴-ب مدلِ بی‌جواب ⇒ یک پرسش، نه هر اجرا', nAsk === 1 && !!dE.ovFillAt && dE.ovFill.got === 0,
+     JSON.stringify({ nAsk: nAsk, f: dE.ovFill }));
+  /* کافی ⇒ پرسیده نمی‌شود؛ «خاموش» ⇒ هیچ. */
+  const dOk = { scenes: mkSc(10), ovShare: 0.3 };
+  for (let i = 0; i < 3; i++) dOk.scenes[i * 3].ov = { kind: 'points', title: '', lines: ['a', 'b'], keys: [], side: 'top' };
+  const dOff = { scenes: mkSc(10), ovShare: 0 };
+  asked = null;
+  lvSceneOvFill_(dOk, {}, () => 1e9); lvSceneOvFill_(dOff, {}, () => 1e9);
+  ok('۸۵.۵ نقشهٔ کافی و تختهٔ «خاموش» هیچ پرسشی نمی‌سازند', asked === null && !dOff.ovFillAt && dOk.ovFill.why === 'کافی بود');
+  global.geminiText_ = gtWas;
+
+  /* ۸۵.۶ — آنچه روی ویدئو نشست، از نقشهٔ رانر: یک درسِ نحیف هیچ؛ دو درسِ پیاپی ⇒ مسئله و یافته. */
+  delete global.__PROPS[PK.LV_OV_LAST];
+  const thin = (k) => ({ mode: 'scenes', scenes: 40, ov: { asked: 8, placed: 4, busy: 4, kinds: { headline: 3, quote: 1 } } });
+  lvOvNote_('special:901', thin());
+  const s1 = lvOvStatus_();
+  lvOvNote_('special:901', thin());          // همان درس دوباره شمرده نمی‌شود
+  const s1b = lvOvStatus_();
+  lvOvNote_('special:902', thin());
+  const s2 = lvOvStatus_();
+  const p2 = [], n2 = [];
+  const fWas = global.logSelfFinding_; const found = [];
+  global.logSelfFinding_ = (hub, f) => { found.push(f); };
+  lvHealth_(p2, n2);
+  global.logSelfFinding_ = fWas;
+  ok('۸۵.۶ یک درسِ نحیف ok است؛ همان درس دو بار شمرده نمی‌شود؛ دو درسِ پیاپی ⇒ مسئله و یافتهٔ کد',
+     s1.ok === true && s1b.last.n === 1 && s2.ok === false && /۲ درسِ پیاپی نحیف/.test(s2.line) &&
+     p2.some(x => /کارت‌های نوشتاری/.test(x)) && found.some(f => f.key === 'lv-ov-thin' && f.owner === ROWNER_CODE),
+     JSON.stringify({ s1: s1.line, s2: s2.line, p: p2 }));
+  lvOvNote_('special:903', { mode: 'scenes', scenes: 40, ov: { asked: 18, placed: 15, busy: 3, kinds: { points: 6 } } });
+  ok('۸۵.۷ درسِ پُرکارت شمار را صفر می‌کند و خط می‌گوید چند نشست',
+     lvOvStatus_().ok === true && /۱۵ کارت روی ۴۰ صحنه/.test(lvOvStatus_().line), lvOvStatus_().line);
+  const genWas = global.__PROPS[PK.LV_GEN_ON];
+  global.__PROPS[PK.LV_GEN_ON] = '1';                  // همان حالتِ ۷۸.۵: ساختِ تصویر روشن
+  const lgen = (lvGenStatus_() || {}).line || '';
+  if (genWas === undefined) delete global.__PROPS[PK.LV_GEN_ON]; else global.__PROPS[PK.LV_GEN_ON] = genWas;
+  ok('۸۵.۸ خطِ کارت در خطِ روزانهٔ تصویر است، کنارِ 🎬 و 🎥', /🪧 کارت‌های نوشتاری/.test(lgen) && /🎬/.test(lgen), lgen.slice(-200));
+  delete global.__PROPS[PK.LV_OV_LAST];
+
+  /* ۸۵.۹ — حرکتِ «travel» از توصیف به رانر می‌رسد، با جای کانون از داور. */
+  ok('۸۵.۹ «travel» شناخته می‌شود و با جعبهٔ داور به رانر می‌رود',
+     lvSceneMove_('travel') === 'travel' && lvSceneMove_('pan') === 'travel' &&
+     (lvSceneMv_({ move: 'travel', judge: { box: { x: 0.7, y: 0.4 } } }) || {}).k === 'travel' &&
+     lvSceneMv_({ move: 'drift', judge: { box: { x: 0.7, y: 0.4 } } }) === null);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

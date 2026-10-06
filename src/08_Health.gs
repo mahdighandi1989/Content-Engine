@@ -596,6 +596,7 @@ function writeStatus_(hub, note) {
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
+    lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),

@@ -739,7 +739,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     }
   } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
-           groups: r.groups, qa: qa, thumbFile: thumb, artFile: artFile, ov: r.ov, mv: r.mv || 0, clip: r.clip,
+           groups: r.groups, qa: qa, thumbFile: thumb, artFile: artFile, ov: r.ov, mv: r.mv || 0, clip: r.clip, xf: r.xf || null,
            refs: r.tl.filter(x => x.ref).length,     // صحنه‌هایی که سنجش «با نوشته» دیدشان
            logo: mark ? (mark.logo ? (mark.logoClean || 'خام') : 'بی تصویر') : 'بی نشان' };
 }
@@ -1064,12 +1064,14 @@ function main() {
         map.items[it.key].seconds = Math.round(durSec);
         map.items[it.key].qa = vr.qa;
         // نوشته‌های رویِ نقاشی: چند خواسته شد، چند نشست، چند جای خالی نداشت (۸.۴۵)
-        if (vr.ov && vr.ov.asked) map.items[it.key].ov = vr.ov;
+        /* همیشه، حتی صفر (۸.۵۶): «هیچ کارتی خواسته نشد» خودش خبر است و موتور کفش را می‌سنجد. */
+        map.items[it.key].ov = vr.ov || { asked: 0, placed: 0, busy: 0, failed: 0, kinds: {} };
         if (vr.logo) map.items[it.key].logo = vr.logo;
         /* حرکتِ معنادار و کلیپِ آغاز (۸.۵۱): چند صحنه حرکتِ کانون‌دار گرفت، و کلیپ
            خواسته شد / نشست / چرا نه — تا «ساختیم» از «دیده شد» جدا بماند. */
         if (vr.mv) map.items[it.key].mv = vr.mv;
         if (vr.clip && vr.clip.asked) map.items[it.key].clip = vr.clip;
+        if (vr.xf) map.items[it.key].xf = vr.xf;          // گذارهای به‌کاررفته (۸.۵۶) — شاهدِ «فقط محو» نبودن
         if (vr.thumbFile) {
           try {
             const tu = uploadAsset(rel, vr.thumbFile, base + '-cover.jpg', 'image/jpeg');

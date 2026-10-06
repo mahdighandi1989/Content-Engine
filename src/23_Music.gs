@@ -965,6 +965,10 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     // و قطعهٔ قسمتِ پیش، اگر جایگزینی هست، دوباره پخش نمی‌شود. شنونده‌ای که
     // هر روز همان جینگل را بشنود، بعد از یک هفته آن را نمی‌شنود.
     if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
+    /* پلِ «زمینه» پنج ثانیه طنینِ کشیده است و شنونده آن را موسیقی نمی‌شنود (۸.۵۶:
+       درسِ ۴۰ سه پل داشت، هر سه «طنین»، و او گفت «موسیقی که نداشت»). زمینه
+       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود. */
+    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 2;
     return s;
   };
   cands.sort(function (a, b) {
@@ -1183,6 +1187,110 @@ function musicEdgeHear_(bank, track, slot, key, mood, plan) {
   return null;
 }
 
+/**
+ * ══ لبه‌ای که بانک برایش شنیده‌شده‌ای ندارد — همین حالا بشنو (۸.۵۶) ══
+ *
+ * او درسِ ۴۰ را دید: «موسیقی که نداشت». `_STATUS.json` همان روز می‌گفت
+ * `music.last.missing: ["شروع","پایان"]` — هفت قطعهٔ قابلِ پخش، هیچ‌کدام برای
+ * لبه، و ۵۴ قطعه که برای آغاز/پایان برچسب خورده بودند ولی **هیچ‌کس نشنیده
+ * بودشان**. سه پلِ پنج‌ثانیه‌ایِ «طنینِ کشیده» تنها صدای غیرِگفتاریِ بیست دقیقه بود.
+ *
+ * سدِ ۷.۶۸ (نشنیده پخش نمی‌شود) درست است و می‌مانَد. عیب این بود که شنیدن فقط از
+ * یک راه می‌آمد — بازشنویِ شبانه — و آن راه پشتِ کارِ شبانه‌ای بود که چند شب
+ * پیاپی زودتر مرد. یعنی قسمت **بی‌موسیقی** می‌رفت در حالی که قطعهٔ مناسب در بانک
+ * نشسته بود و فقط یک گوش کم داشت. حالا خودِ قسمت، همان لحظه‌ای که لبه را
+ * لازم دارد، چند نامزدِ نشنیده را **می‌شنود**: همان `musicAccept_` (نرخ، نام،
+ * موج، و گوشِ مدل) و بعد همان بازه‌ای که پخش می‌شود (۸.۳۳). «نه» یا «نشنید» ⇒
+ * نامزدِ بعدی؛ هیچ‌کدام ⇒ همان سکوتِ قبلی، با علت. داوری در شناسنامه و تب
+ * ثبت می‌شود، پس کارِ شنیدن دور ریخته نمی‌شود و قسمتِ بعد هم از آن می‌خورد.
+ *
+ * فقط در ساختِ تازهٔ نقشه (`hearSeg`)، نه در ازسرگیری: نتیجه در خودِ نقشه
+ * می‌نشیند و ازسرگیری همان را می‌خوانَد («Anything rebuilt on resume must be
+ * deterministic»). سقفِ شمار و زمان دارد، چون این در مرحلهٔ صدا است و شش دقیقه
+ * مالِ صداسازی است.
+ */
+function musicEdgeDiscover_(bank, hub, slot, key, mood, plan, disc) {
+  if (CFG.MUSIC_EDGE_DISCOVER === false) return null;
+  disc = disc || { t0: new Date().getTime(), tried: 0, notes: [] };
+  var maxN = Math.max(0, Number(CFG.MUSIC_EDGE_DISCOVER_N) || 3);
+  var budget = Math.max(5000, Number(CFG.MUSIC_EDGE_DISCOVER_MS) || 60000);
+  var need = Number(CFG.MUSIC_MIN_EDGE_SEC) || 8;
+  var words = String(mood || '').split(/[\s،,]+/).filter(Boolean);
+  var cands = [];
+  for (var i = 0; i < bank.length; i++) {
+    var b = bank[i];
+    if (String(b.kind || '') === 'افکت') continue;
+    if (heardPlayable_(b.heard, b.note)) continue;          // شنیده‌شده‌ها را musicPick_ دیده بود
+    if (!b.sec || b.sec < need) continue;
+    if (b.slots && b.slots.indexOf(slot) === -1) continue;
+    if (/^❓.*گفتار/.test(String(b.heard || '').trim())) continue;   // گفتار‌بودنش از پیش گفته شده
+    var sc = 0;
+    for (var m = 0; m < words.length; m++) if (b.mood && b.mood.indexOf(words[m]) !== -1) sc += 3;
+    if (b.slots && b.slots.indexOf(slot) !== -1) sc += 1;
+    sc -= Math.min(Number(b.used) || 0, 12) / 12;
+    cands.push({ b: b, sc: sc });
+  }
+  cands.sort(function (a, c) { return c.sc - a.sc; });
+  plan.heard = plan.heard || {};
+  var mine = 0;                                           // نامزدهای همین لبه — گزارش از رویداد، نه از سقف
+  for (var k = 0; k < cands.length; k++) {
+    if (disc.tried >= maxN * 2) break;
+    if (k >= maxN) break;
+    if (new Date().getTime() - disc.t0 > budget) { disc.notes.push(slot + ': وقتِ شنیدن تمام شد'); break; }
+    var tr = cands[k].b;
+    disc.tried++; mine++;
+    var bytes = null, info = null;
+    try { bytes = DriveApp.getFileById(tr.id).getBlob().getBytes(); info = wavInfo_(bytes); }
+    catch (eB) { disc.notes.push(auditCut_(tr.name, 30) + ': خوانده نشد'); continue; }
+    if (!wavReadable_(info)) { disc.notes.push(auditCut_(tr.name, 30) + ': WAV خوانده نشد'); continue; }
+    var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
+    musicHeardRecord_(hub, tr, acc);
+    if (!acc.ok || acc.heard !== 'آهنگ') {
+      disc.notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why));
+      continue;
+    }
+    /* کلِ قطعه «آهنگ» است؛ ولی آنچه پخش می‌شود سرِ قطعه است (۸.۳۳). */
+    var h0 = musicListen_(bytes, info, tr.name, 0);
+    if (h0 !== 'آهنگ') { disc.notes.push(auditCut_(tr.name, 30) + ': سرش «' + (h0 || 'نشنید') + '»'); continue; }
+    plan[key + 'Id'] = tr.id; plan[key + 'Start'] = 0; plan[key + 'None'] = false;
+    plan.heard[key] = 'آهنگ (همین حالا شنیده شد)';
+    logLine_('موسیقیِ ' + slot + ': بانک شنیده‌شده‌ای نداشت؛ «' + tr.name + '» همین حالا شنیده و پذیرفته شد' +
+             (disc.notes.length ? ' (پیش از آن: ' + disc.notes.join(' · ') + ')' : '') + '.');
+    return tr;
+  }
+  if (cands.length) {
+    plan[key + 'None'] = true; plan.heard[key] = '—';
+    logLine_('موسیقیِ ' + slot + ' این قسمت نشد — ' + mine + ' نامزدِ نشنیده شنیده شدند ' +
+             'و هیچ‌کدام «آهنگ» نبود: ' + (disc.notes.join(' · ') || '—'));
+  }
+  return null;
+}
+
+/**
+ * داوریِ تازه را در شناسنامه **و** تب می‌نشانَد (۸.۵۶) — همان شکلی که
+ * `musicRecheck_` می‌نویسد، تا بانک یاد بگیرد و قسمتِ بعد دوباره نپرسد.
+ * داوریِ ناقطعی فقط شمارِ تلاش را بالا می‌برد؛ هرگز «تأیید» نمی‌شود (۷.۶۸).
+ */
+function musicHeardRecord_(hub, tr, acc) {
+  if (!tr || !acc) return;
+  try {
+    var mt = null;
+    try { mt = musicMeta_(tr.name); } catch (eM) {}
+    var na = mt || {};
+    if (!na.title) na.title = String(tr.name || '').replace(/\.wav$/i, '');
+    if (!na.kind) na.kind = 'موسیقی';
+    na.hv = String(CFG.MUSIC_HEAR_VER || '');
+    na.verdict = String(acc.why || '');
+    if (acc.sure && acc.heard) na.heard = String(acc.heard);
+    else { na.tries = String(musicHearTries_(na) + 1); na.lastTry = nowStr_(); }
+    musicMetaWrite_(tr.name, na);
+    var txt = musicHeardTxt_(na);
+    tr.heard = txt;
+    var sh = (hub || getHub_()).getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+    if (sh && tr.row) sh.getRange(tr.row, MC.HEARD).setValue(txt);
+  } catch (e) { logLine_('داوریِ شنیداری ثبت نشد (' + String(tr.name || '') + '): ' + e.message); }
+}
+
 function musicWrap_(chunks, hub, opt) {
   opt = opt || {};
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
@@ -1292,6 +1400,8 @@ function musicWrap_(chunks, hub, opt) {
 
   var intro = plan.introNone ? null : musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro && hearSeg) intro = musicEdgeHear_(bank, intro, 'شروع', 'intro', mood, plan);
+  var disc = { t0: new Date().getTime(), tried: 0, notes: [] };
+  if (!intro && hearSeg) intro = musicEdgeDiscover_(bank, hub, 'شروع', 'intro', mood, plan, disc);
   if (intro) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
@@ -1397,6 +1507,7 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = plan.outroNone ? null : musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro && hearSeg) outro = musicEdgeHear_(bank, outro, 'پایان', 'outro', mood, plan);
+  if (!outro && hearSeg) outro = musicEdgeDiscover_(bank, hub, 'پایان', 'outro', mood, plan, disc);
   /* و نقشه **حالا** ذخیره می‌شود، با هر سه نتیجه در خودش. */
   if (planFresh && planKey) { try { musicPlanCachePut_(planKey, plan); } catch (ePc) {} }
   if (outro) {

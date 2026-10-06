@@ -29,25 +29,32 @@ const OV = {
   aw: 96, ah: 54,                // ابعادِ نسخهٔ کوچکِ تحلیل
   kinds: ['headline', 'points', 'compare', 'quote', 'steps'],
   fadeIn: 0.9, fade: 0.5,
+  slide: 0.6, slideDx: 70,     // ورودِ کارت: لغزشی کوتاه از سمتِ خودش (۸.۵۶)
+  showMin: 7, showBase: 5.5, showPer: 2.8, showTail: 3.2,   // پنجرهٔ دیده‌شدن (`windowOf`)
   // جاهای ممکن، به مختصاتِ ۱۹۲۰×۱۰۸۰. پایینِ ۸۱۰ مالِ زیرنویس است.
   /* ══ جا از **اندازهٔ واقعیِ نوشته** و **خودِ تصویر** پیدا می‌شود ══
      نگارشِ اول چند جعبهٔ ثابت داشت (راست/چپ/بالا) و میانگینِ شلوغیِ هر جعبه را
      می‌سنجید؛ روی صحنهٔ ۴۴ِ درسِ ۳۸ جعبهٔ چپ «آرام‌ترین» بود و نوشته روی صورتِ
      آدمِ صحنه نشست. حالا نوشته اول کشیده و اندازه‌اش از پیکسل‌های خودش خوانده
      می‌شود، بعد همهٔ جاهای ممکن با همان اندازه روی نقشهٔ شلوغی لغزانده می‌شوند. */
-  width: { headline: 1120, points: 660, quote: 700, compare: 1180, steps: 1320 },
+  /* کارت جای نقاشی را می‌گیرد؛ پس جمع‌وجور (۸.۵۶): نگارشِ اولِ کارتِ نکته‌ها ۶۴۰ پیکسل
+     بلندی داشت — سه‌پنجمِ قاب. */
+  width: { headline: 820, points: 860, quote: 760, compare: 1040, steps: 1240 },
   safe: { x0: 56, y0: 44, x1: 1864, y1: 816 },   // زیرِ ۸۱۶ مالِ زیرنویس است
   calm: 8,       // زیرِ این شلوغی: بی پرده، فقط سایهٔ نوشته
   busy: 16,      // بالای این: نوشتهٔ کناری نمی‌نشیند — تصویر جای خالی ندارد
   busyPanel: 20, // جدول و گام‌ها قاب دارند، ولی روی شلوغی همان «اسلایدِ جدا» می‌شوند
   mass: 0.012,   // سهمِ تودهٔ تیره (آدم، شیءِ اصلی) درونِ جعبه؛ بیشتر ⇒ نه (سرِ آدمِ صحنهٔ ۲۰: ۰٫۰۱۷)
+  /* کارت (۸.۵۶) قابِ خودش را دارد: خط‌های نازکِ نقاشی زیرش خوانایی را نمی‌کشند. آنچه
+     نباید پوشانده شود آدم و کانونِ صحنه است — آدم با این سهمِ توده (سرِ یک آدم ۰٫۱ به بالا)
+     و کانون با جعبهٔ داور (`avoid`). */
+  massCard: 0.05,
+  solidCheck: true,
   origin: 100,   // جای کشیدنِ نوشته در صفحه، پیش از برش
   fonts: {
-    body: "'Vazirmatn','Noto Sans Arabic',sans-serif",
-    display: "'Lalezar','Vazirmatn','Noto Sans Arabic',sans-serif",
-    naskh: "'Noto Naskh Arabic','Vazirmatn',serif",
-    nastaliq: "'Noto Nastaliq Urdu','Noto Naskh Arabic',serif",
-    kufi: "'Noto Kufi Arabic','Vazirmatn',sans-serif"
+    /* یک قلم، با وزن‌های گوناگون (۸.۵۶): نستعلیقِ اردو خطِ کرسیِ فارسی را نمی‌شناسد و
+       «مستقیم» را بالاتر از جمله نشانْد؛ لاله‌زار برای کارتِ آموزشی نمایشی است. */
+    body: "'Vazirmatn','Noto Sans Arabic',sans-serif"
   }
 };
 
@@ -129,8 +136,8 @@ const hit = (a, b) => a && b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y 
  * (به نقاش گفته بود همان‌جا را خلوت بگذارد) و فقط وقتی برنده است که از بهترین
  * خیلی شلوغ‌تر نباشد — تصویر حرفِ آخر را می‌زند، نه وعده.
  */
-function place(an, w, h, kind, side, avoid) {
-  const S = OV.safe, aw = OV.aw, ah = OV.ah, sx = OV.w / aw, sy = OV.h / ah;
+function place(an, w, h, kind, side, avoid, low) {
+  const S = low ? { x0: OV.safe.x0, y0: OV.safe.y0, x1: OV.safe.x1, y1: OV.h - 40 } : OV.safe, aw = OV.aw, ah = OV.ah, sx = OV.w / aw, sy = OV.h / ah;
   const rw = Math.max(1, Math.ceil(w / sx)), rh = Math.max(1, Math.ceil(h / sy));
   // تصویرِ انتگرالیِ شلوغی
   const I = new Float64Array((aw + 1) * (ah + 1));
@@ -168,6 +175,38 @@ function place(an, w, h, kind, side, avoid) {
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (Math.abs(an.g[y * aw + x] - m) > 72) c++;
     return c / n;
   };
+  /* تودهٔ **یکپارچه** (۸.۵۶): سهمِ توده فقط «چه‌قدر» را می‌گوید، نه «کجا»؛ سرِ نارنجیِ
+     صحنهٔ ۱۹ِ درسِ ۴۰ (هفتاد پیکسل) در جعبه‌ای نهصدپیکسلی کمتر از ۱٪ بود و کارت رویش
+     نشست. خانه‌ای که خودش و سه همسایه‌اش (راست، پایین، قطر) همه دور از روشنیِ میانگینِ
+     جعبه‌اند، یعنی چیزی پُر و دست‌کم چهل پیکسلی — نه خطی نازک. یکی کافی است. */
+  /* و **رنگ**، نه فقط روشنی: سرِ نارنجی با روشنیِ ۱۵۹ روی کاغذِ ۲۳۰ تنها ۷۱ فاصله داشت
+     و از سدِ روشنی رد شد. فاصلهٔ رنگی (جمعِ سه کانال) همان را ۲۷۰ می‌بیند. */
+  const C3 = [0, 1, 2].map(c => {
+    const T = new Float64Array((aw + 1) * (ah + 1));
+    for (let y = 0; y < ah; y++) {
+      let row = 0;
+      for (let x = 0; x < aw; x++) {
+        row += an ? an.rgb[(y * aw + x) * 3 + c] : 128;
+        T[(y + 1) * (aw + 1) + x + 1] = T[y * (aw + 1) + x + 1] + row;
+      }
+    }
+    return T;
+  });
+  const solid = (x0, y0, x1, y1) => {
+    if (!an) return false;
+    const n = Math.max(1, (x1 - x0) * (y1 - y0));
+    const box = T => (T[y1 * (aw + 1) + x1] - T[y0 * (aw + 1) + x1] - T[y1 * (aw + 1) + x0] + T[y0 * (aw + 1) + x0]) / n;
+    const m = box(G), mr = box(C3[0]), mg = box(C3[1]), mb = box(C3[2]);
+    const far = (x, y) => {
+      const i = y * aw + x;
+      if (Math.abs(an.g[i] - m) > 72) return true;
+      return Math.abs(an.rgb[i * 3] - mr) + Math.abs(an.rgb[i * 3 + 1] - mg) + Math.abs(an.rgb[i * 3 + 2] - mb) > 150;
+    };
+    for (let y = y0; y < y1 - 1; y++) for (let x = x0; x < x1 - 1; x++) {
+      if (far(x, y) && far(x + 1, y) && far(x, y + 1) && far(x + 1, y + 1)) return true;
+    }
+    return false;
+  };
   const sum = (x0, y0, x1, y1) => I[y1 * (aw + 1) + x1] - I[y0 * (aw + 1) + x1] - I[y1 * (aw + 1) + x0] + I[y0 * (aw + 1) + x0];
   const lum = (x0, y0, x1, y1) => {
     if (!an) return 0.5;
@@ -181,7 +220,7 @@ function place(an, w, h, kind, side, avoid) {
   let best = null, worst = null;     // بهترینِ مجاز، و بهترینِ کل (برای گزارشِ «شلوغ»)
   for (let y = gy0; y <= gy1; y++) for (let x = gx0; x <= gx1; x++) {
     const bx = { x: x * sx, y: y * sy, w: w, h: h };
-    if (avoid && hit(bx, avoid)) continue;
+    if (avoid && (Array.isArray(avoid) ? avoid.some(a => hit(bx, a)) : hit(bx, avoid))) continue;
     /* داور گفته کجای تصویر خالی است ⇒ فقط همان‌جا (۸.۴۵). گفتهٔ داور بر سنجهٔ
        پیکسلی مقدم است، چون او تصویر را **می‌بیند**؛ سنجهٔ پیکسلی بعد فقط جای دقیق
        را درونِ همان نوار پیدا می‌کند و شلوغی را باز هم رد می‌کند. */
@@ -195,14 +234,14 @@ function place(an, w, h, kind, side, avoid) {
     let at = cx > 0.62 ? 'right' : cx < 0.38 ? 'left' : (top < 0.25 ? 'top' : 'center');
     // جدول و گام‌ها قابِ خودشان را دارند و وسط هم می‌نشینند؛ بقیه لبه را می‌خواهند
     const pen = panel ? 0 : 6 * Math.min(edge, kind === 'headline' ? Math.min(edge, top) : edge);
-    const bonus = (side && side === at) ? -1.2 : 0;
+    const bonus = ((side && side === at) ? -1.2 : 0) + (low ? -3 * top : 0);
     const pk = mass(x, y, x + rw, y + rh);
     /* `60 * pk` **ترجیح** است، نه سد: میانِ دو جای هم‌آرام، آنکه توده ندارد را
        برمی‌گزیند. سد همان `busy` پایین است (۱۳.۲-ب). شکستنِ این جمله هیچ سنجه‌ای را
        سرخ نکرد، چون ترجیحِ لبه معمولاً همان جا را می‌دهد (۷٫۷۱: برچسبِ راست). */
     const sc = e + 60 * pk + pen + bonus;
     const cand = { sc: sc, e: e, pk: pk, at: at, x: Math.round(bx.x), y: Math.round(bx.y), gx: x, gy: y };
-    const bz = e > (panel ? OV.busyPanel : OV.busy) || pk > OV.mass;
+    const bz = e > OV.busyPanel || pk > OV.massCard || (OV.solidCheck && solid(x, y, x + rw, y + rh));
     /* بهترین **میانِ جاهای مجاز**، نه بهترین و بعد پرسیدن که مجاز است یا نه:
        صحنهٔ ۳۸ِ درسِ ۳۸ جای خلوتش وسط بود (میانِ قفسه‌ها و آدم) و جستجو لبهٔ راست
        را برمی‌گزید — که آدم آن‌جا بود — و بعد کلِ نوشته را دور می‌انداخت. */
@@ -296,87 +335,123 @@ function shell(inner, w, extraCss, fixed) {
     'direction:rtl}' + (extraCss || '') + '</style><div class="bx">' + inner + '</div>';
 }
 
-/** پرده‌ای نرم از لبهٔ قاب تا نوشته خوانا بماند و نقاشی پیدا. */
-function scrimCss(pal, calm) {
-  /* زمینهٔ آرام پرده نمی‌خواهد: پردهٔ روشن روی کاغذِ روشن فقط نقاشی را
-     کم‌رنگ می‌کند (صحنهٔ ۴۴ در نگارشِ اول). جای شلوغ‌تر یک هالهٔ نرم می‌گیرد،
-     نه یک قابِ لبه‌دار. */
-  if (calm) return '';
-  return '.bx::before{content:"";position:absolute;inset:-34px -44px;z-index:-1;border-radius:40px;' +
-    'background:rgba(' + pal.scrim + ',.62);filter:blur(22px)}';
+/**
+ * ══ کارت، نه جملهٔ معلق (۸.۵۶) ══
+ * ۶ اکتبر، درسِ ۴۰: «اون ترکیبِ متن و تصویر افتضاح بود … یکیش مثلِ این داغون و خراب
+ * و زشت … فقط یه جملهٔ ساده و درهم تنیده». قاب‌ها نشان دادند چرا: تیترهایی که فقط
+ * سایه داشتند و روی نقاشی «معلق» بودند، و نقل‌قولی با قلمِ نستعلیقِ اردو که خطِ کرسیِ
+ * فارسی را نمی‌شناسد — «مستقیم» بالاتر از بقیهٔ جمله نشست و یک «❞»ِ کهربایی کنارش.
+ *
+ * حالا هر نوشته یک **کارت** است: قابِ نیمه‌شفافِ هم‌رنگِ همان ناحیه، نوارِ تأکید در
+ * لبهٔ راست، برچسبِ کوچکِ نوع («مفهومِ کلیدی»، «گام‌به‌گام»…) و یک قلم: وزیرمتن —
+ * قلمی که فارسی را درست می‌نشانَد. نستعلیق و لاله‌زار دیگر به کار نمی‌روند.
+ *
+ * و کارت **ساخته می‌شود**، نه پرتاب: `stage` می‌گوید کدام بخش دیده شود. مرحلهٔ ۰ قاب
+ * و تیتر است؛ مرحلهٔ k (k≥۱) **فقط** سطرِ k‌اُم — همان جای همیشگی‌اش، چون چیدمان با
+ * `visibility` نگه داشته می‌شود — تا رانر نکته‌ها را یکی‌یکی، هم‌پای گفتار، بیاورد.
+ */
+const KICK = { headline: 'مفهومِ کلیدی', points: 'نکته‌ها', steps: 'گام‌به‌گام', compare: 'مقایسه', quote: 'جملهٔ کلیدی' };
+
+/** شمارِ مرحله‌های هر کارت (بی مرحلهٔ ۰). */
+function stagesOf(ov) {
+  if (!ov) return 0;
+  if (ov.kind === 'points' || ov.kind === 'steps') return ov.lines.length;
+  if (ov.kind === 'compare') return (ov.rows || []).length;
+  return 0;
 }
 
-/**
- * HTML هر نوع. چیدمان‌ها برگرفته از نمونه‌هایی که صاحبِ برنامه فرستاد؛ تنوع با
- * شمارهٔ صحنه (`n`) — دو صحنهٔ پشتِ‌هم یک شکل نمی‌گیرند.
- */
-function html(ov, w, pal, n, calm, k) {
-  const mode = ['marker', 'color', 'under'][n % 3];
+function html(ov, w, pal, n, calm, k, stage) {
   const F = OV.fonts;
-  const shadow = pal.dark ? 'text-shadow:0 2px 14px rgba(0,0,0,.55);' : 'text-shadow:0 1px 10px rgba(255,255,255,.6);';
+  const st = (stage === undefined || stage === null) ? -1 : Number(stage);   // -1 = همه
+  /* «نمایان» باید صریح باشد: فرزندِ کارتِ پنهان، پنهانی را به ارث می‌برد (نگارشِ اول
+     همین‌جا سطرهای مرحله را نمی‌کشید — دیدنِ خروجی نشانش داد، نه خواندن). */
+  const vis = i => (st === -1 || st === i) ? 'visibility:visible;' : 'visibility:hidden;';
+  const cardVis = (st === -1 || st === 0) ? '' : 'visibility:hidden;';
+  const accInk = pal.dark ? '#0E1320' : '#FFFFFF';
+  const kicker = ov.kind === 'headline' && /[؟?]\s*$/.test(ov.title) ? 'پرسش' : KICK[ov.kind];
+  const base = '.cd{position:relative;background:' + pal.panel + ';border:1px solid ' + pal.line +
+    ';border-radius:26px;padding:26px 40px 30px 36px;box-shadow:0 18px 54px rgba(0,0,0,' + (pal.dark ? '.34' : '.18') + ');' +
+    'font-family:' + F.body + ';color:' + pal.ink + '}' +
+    '.cd::after{content:"";position:absolute;top:24px;bottom:24px;right:0;width:8px;border-radius:4px;background:' + pal.a1 + '}' +
+    '.kk{display:flex;align-items:center;gap:10px;font-weight:700;font-size:24px;color:' + pal.a1 + ';margin-bottom:8px}' +
+    '.kk i{display:inline-block;width:12px;height:12px;border-radius:50%;background:' + pal.a1 + '}' +
+    '.tt{font-weight:800;line-height:1.38;color:' + pal.ink + '}' +
+    '.sb{margin-top:10px;font-weight:500;font-size:31px;line-height:1.55;color:' + pal.soft + '}' +
+    '.nm{flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:' + pal.a1 + ';color:' + accInk +
+    ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px;margin-top:2px}';
+  const kick = '<div class="kk"><i></i>' + esc(kicker) + '</div>';
   if (ov.kind === 'headline') {
-    const disp = n % 2 === 0 ? F.display : F.body;
     const len = ov.title.length;
-    const fs = len > 30 ? 66 : len > 18 ? 78 : 92;
-    const align = k === 'top' ? 'center' : 'right';
-    const inner = '<div style="font-family:' + disp + ';font-weight:900;font-size:' + fs + 'px;line-height:1.35;color:' +
-      pal.ink + ';text-align:' + align + ';' + shadow + '">' + hl(ov.title, ov.keys, pal, mode) + '</div>' +
-      (ov.lines[0] ? '<div style="margin-top:18px;font-family:' + F.body + ';font-weight:500;font-size:40px;line-height:1.6;color:' +
-        pal.soft + ';text-align:' + align + ';' + shadow + '">' + hl(ov.lines[0], ov.keys, pal, 'color') + '</div>' : '');
-    return shell(inner, w, scrimCss(pal, calm));
+    const fs = len > 30 ? 50 : len > 18 ? 58 : 66;
+    const inner = '<div class="cd" style="' + cardVis + '">' + kick +
+      '<div class="tt" style="font-size:' + fs + 'px">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' +
+      (ov.lines[0] ? '<div class="sb">' + hl(ov.lines[0], ov.keys, pal, 'color') + '</div>' : '') + '</div>';
+    return shell(inner, w, base);
   }
   if (ov.kind === 'points') {
-    const rows = ov.lines.map(l =>
-      '<div style="display:flex;gap:22px;align-items:stretch;margin:16px 0">' +
-      '<div style="flex:0 0 7px;border-radius:4px;background:' + pal.a1 + '"></div>' +
-      '<div style="font-family:' + F.body + ';font-weight:500;font-size:' + (l.length > 60 ? 36 : 40) +
-      'px;line-height:1.62;color:' + pal.ink + ';' + shadow + '">' + hl(l, ov.keys, pal, mode) + '</div></div>').join('');
-    const inner = (ov.title ? '<div style="font-family:' + F.body + ';font-weight:900;font-size:56px;line-height:1.4;' +
-      'color:' + pal.ink + ';margin-bottom:14px;' + shadow + '">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') + rows;
-    return shell(inner, w, scrimCss(pal, calm));
+    const rows = ov.lines.map((l, i) =>
+      '<div style="display:flex;gap:18px;align-items:flex-start;margin-top:16px;' + vis(i + 1) + '">' +
+      '<div class="nm">' + fa(i + 1) + '</div>' +
+      '<div style="font-weight:600;font-size:' + (l.length > 44 ? 31 : 34) + 'px;line-height:1.5;color:' + pal.ink + '">' +
+      hl(l, ov.keys, pal, 'color') + '</div></div>').join('');
+    const inner = '<div class="cd" style="' + cardVis + '">' + kick +
+      (ov.title ? '<div class="tt" style="font-size:44px;' + vis(0) + '">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
+      rows + '</div>';
+    return shell(inner, w, base);
   }
   if (ov.kind === 'quote') {
-    const nast = ov.title.length <= 48 && n % 2 === 1;
-    const fs = nast ? 66 : (ov.title.length > 90 ? 46 : 54);
-    // «❞» آینه نمی‌شود؛ «» در متنِ راست‌به‌چپ وارونه کشیده می‌شود
-    const inner = '<div style="font-family:' + F.body + ';font-weight:900;font-size:140px;line-height:.7;color:' + pal.a1 +
-      ';height:76px">❞</div>' +
-      '<div style="font-family:' + (nast ? F.nastaliq : F.naskh) + ';font-weight:700;font-size:' + fs +
-      'px;line-height:' + (nast ? 2.0 : 1.6) + ';color:' + pal.ink + ';' + shadow + '">' + hl(ov.title, ov.keys, pal, mode) + '</div>' +
-      (ov.lines[0] ? '<div style="margin-top:16px;font-family:' + F.body + ';font-weight:600;font-size:34px;color:' + pal.a1 + '">— ' +
-        esc(ov.lines[0]) + '</div>' : '');
-    return shell(inner, w, scrimCss(pal, calm));
+    const fs = ov.title.length > 80 ? 36 : (ov.title.length > 50 ? 40 : 46);
+    /* گیومه کشیده می‌شود، نه نویسه: «❞» در هر قلمی شکلِ دیگری دارد و در درسِ ۴۰ یک
+       لکهٔ کهربایی شد. دو قطرهٔ گرد، با رنگِ تأکید. */
+    const q = '<svg width="56" height="42" viewBox="0 0 74 56" style="display:block;margin-bottom:8px">' +
+      '<path fill="' + pal.a1 + '" d="M2 56V32C2 14 12 4 30 0l3 8C22 12 17 19 17 28h13v28zM42 56V32C42 14 52 4 70 0l3 8C62 12 57 19 57 28h13v28z"/></svg>';
+    const inner = '<div class="cd" style="' + cardVis + '">' + q +
+      '<div class="tt" style="font-weight:600;font-size:' + fs + 'px;line-height:1.62">«' +
+      hl(ov.title, ov.keys, pal, 'color') + '»</div>' +
+      (ov.lines[0] ? '<div class="sb" style="font-weight:700;font-size:26px;color:' + pal.a1 + '">— ' + esc(ov.lines[0]) + '</div>' : '') +
+      '</div>';
+    return shell(inner, w, base);
   }
   if (ov.kind === 'compare') {
-    const cell = (t, c) => '<div style="font-family:' + F.body + ';font-weight:700;font-size:40px;line-height:1.5;color:' +
-      pal.ink + ';text-align:center">' + (t.lab ? '<span style="opacity:.85">' + esc(t.lab) + ': </span>' : '') +
-      '<span style="color:' + c + '">' + esc(t.v) + '</span></div>';
-    const rows = ov.rows.map(r => '<div style="display:grid;grid-template-columns:1fr 1fr;border-top:2px solid ' + pal.line +
-      ';padding:18px 0">' + cell({ lab: r.lab, v: r.r }, pal.a1) + cell({ lab: r.lab, v: r.l }, pal.a2) + '</div>').join('');
-    const inner = '<div style="background:' + pal.panel + ';border-radius:34px;padding:40px 56px;box-shadow:0 12px 50px rgba(0,0,0,.28)">' +
-      (ov.title ? '<div style="font-family:' + F.display + ';font-size:62px;line-height:1.4;color:' + pal.ink +
-        ';text-align:center;margin-bottom:10px">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;padding-bottom:12px">' +
-      '<div style="font-family:' + F.body + ';font-weight:900;font-size:50px;color:' + pal.a1 + ';text-align:center">' + esc(ov.a) + '</div>' +
-      '<div style="font-family:' + F.body + ';font-weight:900;font-size:50px;color:' + pal.a2 + ';text-align:center;border-right:2px solid ' +
-      pal.line + '">' + esc(ov.b) + '</div></div>' + rows + '</div>';
-    return shell(inner, w, '', true);
+    /* سه ستون: برچسبِ ردیف (راست)، طرفِ اول، طرفِ دوم — برچسب ستونِ خودش را دارد و
+       میانِ دو خط معلق نمی‌مانَد (نگارشِ اولِ همین کارت). */
+    const hasLab = ov.rows.some(r => r.lab);
+    const cols = (hasLab ? 'auto ' : '') + '1fr 1fr';
+    const chip = (t, c) => '<div style="font-weight:800;font-size:32px;text-align:center;color:' + accInk +
+      ';background:' + c + ';border-radius:16px;padding:6px 16px 10px">' + esc(t) + '</div>';
+    const cell = (t, c) => '<div style="font-weight:700;font-size:31px;line-height:1.4;color:' + pal.ink +
+      ';text-align:center;background:' + (pal.dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.035)') +
+      ';border-bottom:3px solid ' + c + ';border-radius:12px;padding:10px 12px 12px">' + esc(t) + '</div>';
+    const lab = (t, i) => hasLab ? '<div style="font-weight:700;font-size:25px;color:' + pal.soft +
+      ';align-self:center;padding-left:8px;' + vis(i) + '">' + esc(t || '') + '</div>' : '';
+    const rows = ov.rows.map((r, i) =>
+      lab(r.lab, i + 1) + '<div style="' + vis(i + 1) + '">' + cell(r.r, pal.a1) + '</div>' +
+      '<div style="' + vis(i + 1) + '">' + cell(r.l, pal.a2) + '</div>').join('');
+    const inner = '<div class="cd" style="' + cardVis + '">' + kick +
+      (ov.title ? '<div class="tt" style="font-size:42px;margin-bottom:14px">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
+      '<div style="display:grid;grid-template-columns:' + cols + ';gap:14px 20px;align-items:stretch">' +
+      (hasLab ? '<div></div>' : '') + chip(ov.a, pal.a1) + chip(ov.b, pal.a2) + rows + '</div></div>';
+    return shell(inner, w, base, true);
   }
   if (ov.kind === 'steps') {
-    const cols = [pal.a1, pal.a2, pal.a1];
-    const card = (t, i) => '<div style="flex:1;background:' + pal.panel + ';border-radius:28px;padding:30px 28px;' +
-      'box-shadow:0 10px 40px rgba(0,0,0,.22);border-top:8px solid ' + cols[i % 3] + '">' +
-      '<div style="font-family:' + F.display + ';font-size:58px;line-height:1;color:' + cols[i % 3] + '">' + fa(i + 1) + '</div>' +
-      '<div style="margin-top:14px;font-family:' + F.body + ';font-weight:700;font-size:38px;line-height:1.5;color:' + pal.ink + '">' +
-      hl(t, ov.keys, pal, 'color') + '</div></div>';
-    const arrow = '<div style="flex:0 0 60px;display:flex;align-items:center;justify-content:center;font-size:56px;color:' +
-      pal.ink + ';' + shadow + '">←</div>';
+    const card = (t, i) => '<div style="flex:1;' + vis(i + 1) + 'background:' + pal.panel + ';border:1px solid ' + pal.line +
+      ';border-radius:22px;padding:20px 22px 24px;box-shadow:0 12px 40px rgba(0,0,0,' + (pal.dark ? '.3' : '.16') + ')">' +
+      '<div class="nm" style="margin:0 0 10px">' + fa(i + 1) + '</div>' +
+      '<div style="font-weight:700;font-size:31px;line-height:1.45;color:' + pal.ink + '">' + hl(t, ov.keys, pal, 'color') + '</div></div>';
+    /* پیکانِ میانِ گام‌ها به چپ — ترتیبِ خواندنِ فارسی؛ کشیده، نه نویسه. */
+    const arrow = i => '<div style="flex:0 0 64px;display:flex;align-items:center;justify-content:center;' + vis(i + 1) + '">' +
+      '<svg width="44" height="44" viewBox="0 0 44 44"><path d="M30 8 14 22l16 14" fill="none" stroke="' + pal.a1 +
+      '" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
     const parts = [];
-    ov.lines.forEach((t, i) => { if (i) parts.push(arrow); parts.push(card(t, i)); });
-    const inner = (ov.title ? '<div style="font-family:' + F.display + ';font-size:64px;line-height:1.4;color:' + pal.ink +
-      ';text-align:center;margin-bottom:26px;' + shadow + '">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
-      '<div style="display:flex;align-items:stretch">' + parts.join('') + '</div>';
-    return shell(inner, w, '', true);
+    ov.lines.forEach((t, i) => { if (i) parts.push(arrow(i)); parts.push(card(t, i)); });
+    const head = '<div style="display:inline-flex;' + cardVis + 'background:' + pal.panel + ';border:1px solid ' + pal.line +
+      ';border-radius:20px;padding:10px 26px 14px;margin-bottom:16px;align-items:center;gap:12px">' +
+      '<span style="width:14px;height:14px;border-radius:50%;background:' + pal.a1 + '"></span>' +
+      '<span style="font-weight:800;font-size:' + (ov.title ? 40 : 28) + 'px;color:' + (ov.title ? pal.ink : pal.a1) + '">' +
+      (ov.title ? hl(ov.title, ov.keys, pal, 'color') : esc(KICK.steps)) + '</span></div>';
+    const inner = '<div style="font-family:' + F.body + '">' + head +
+      '<div style="display:flex;align-items:stretch">' + parts.join('') + '</div></div>';
+    return shell(inner, w, base, true);
   }
   return '';
 }
@@ -399,8 +474,12 @@ function alphaBox(ff, png) {
 /**
  * ساختِ لایهٔ نوشتهٔ یک صحنه: PNGِ شفاف به اندازهٔ نوشته، و جایش.
  * دو بار کشیده می‌شود: بارِ اول فقط برای **اندازه** (جا به اندازه بسته است)،
- * بارِ دوم با رنگ‌هایی که از **همان جای** تصویر خوانده شد.
- * @return {{file, x, y, w, h, k, energy, lum, accent}|{skip}|null}
+ * بارِ دوم با رنگ‌هایی که از **همان جای** تصویر خوانده شد. کارتی که مرحله دارد
+ * (نکته‌ها، گام‌ها، ردیف‌های مقایسه) برای هر مرحله یک PNGِ جدا می‌گیرد با **همان
+ * برش**، تا رانر سطرها را یکی‌یکی بیاورد (۸.۵۶).
+ * `avoid` یک جعبه یا فهرستی از جعبه‌هاست — گوشهٔ نشان، و کانونِ صحنه که داور در
+ * خودِ تصویر پیدا کرد: کارت روی همان چیزی که گوینده درباره‌اش حرف می‌زند نمی‌نشیند.
+ * @return {{file, stages, x, y, w, h, k, energy, lum, accent}|{skip}|null}
  */
 function render(ctx, ov, img, n, avoid) {
   const o = ovNorm(ov);
@@ -414,7 +493,7 @@ function render(ctx, ov, img, n, avoid) {
      باریک نمی‌شوند: ستون‌هایشان معنا دارند. */
   const panelK = (o.kind === 'compare' || o.kind === 'steps');
   const W0 = OV.width[o.kind] || 700;
-  const widths = panelK ? [W0] : [W0, Math.round(W0 * 0.8), Math.max(420, Math.round(W0 * 0.66))];
+  const widths = panelK ? [W0] : [W0, Math.round(W0 * 0.8), Math.max(440, Math.round(W0 * 0.66))];
   let w = W0, bb = null, where = null;
   for (let wi = 0; wi < widths.length; wi++) {
     w = widths[wi];
@@ -424,22 +503,78 @@ function render(ctx, ov, img, n, avoid) {
     try { fs.unlinkSync(m); } catch (e) {}
     if (!bb) return null;
     where = place(an, bb.w + 2 * marg, bb.h + 2 * marg, o.kind, o.side, avoid);
-    if (!where || !where.busy) break;
+    if (where && !where.busy) break;
+  }
+  /* سمتِ داور جا نداشت ⇒ یک جست‌وجوی آزاد، با همان سدهای توده و کانون (۸.۵۶). داور
+     کلِ نقاشی را دیده و قابِ متحرک را نه؛ کارتی که به‌خاطرِ یک سمت دور ریخته شود، همان
+     «سه چهار مورد در بیست دقیقه» است. «هیچ جایی در آن سمت» (`null`، همه زیرِ کانون)
+     هم همین است، نه شکست. */
+  if ((!where || where.busy) && o.side) {
+    for (let wi = 0; wi < widths.length; wi++) {
+      w = widths[wi];
+      const m = ctx.shoot(html(o, w, palette(an, { lum: 0.7 }, n), n, true, 'right'),
+                          path.join(ctx.dir, 'ovm' + n + '.png'));
+      bb = alphaBox(ctx.ff, m);
+      try { fs.unlinkSync(m); } catch (e) {}
+      if (!bb) return null;
+      const w2 = place(an, bb.w + 2 * marg, bb.h + 2 * marg, o.kind, '', avoid);
+      if (w2 && !w2.busy) { where = w2; break; }
+    }
+  }
+  /* و برای تیتر و نقل، نوارِ پایین (lower third) — پهن و کوتاه، همان‌جا که زیرنویس
+     می‌نشست و صحنهٔ کارت‌دار زیرنویس ندارد. سدها همان‌اند. */
+  if ((!where || where.busy) && (o.kind === 'headline' || o.kind === 'quote')) {
+    w = Math.round(W0 * 1.35);
+    const m = ctx.shoot(html(o, w, palette(an, { lum: 0.7 }, n), n, true, 'right'),
+                        path.join(ctx.dir, 'ovm' + n + '.png'));
+    bb = alphaBox(ctx.ff, m);
+    try { fs.unlinkSync(m); } catch (e) {}
+    if (!bb) return null;
+    const w3 = place(an, bb.w + 2 * marg, bb.h + 2 * marg, o.kind, '', avoid, true);
+    if (w3 && !w3.busy) { where = w3; where.low = true; }
   }
   if (!where) return null;
   if (where.busy) return { skip: 'busy', k: where.k, kind: o.kind, energy: Math.round(where.energy * 10) / 10,
                            mass: Math.round(where.peak * 1000) / 1000 };
   const calm = where.energy < OV.calm;
   const pal = palette(an, where, n);
-  const full = ctx.shoot(html(o, w, pal, n, calm, where.k), path.join(ctx.dir, 'ovf' + n + '.png'));
   const cx = Math.max(0, bb.x - pad), cy = Math.max(0, bb.y - pad);
   const cw = Math.min(OV.w - cx, bb.w + 2 * pad), ch = Math.min(OV.h - cy, bb.h + 2 * pad);
-  const out = path.join(ctx.dir, 'ov' + n + '.png');
-  ctx.ffRun(['-y', '-i', full, '-vf', 'crop=' + cw + ':' + ch + ':' + cx + ':' + cy, '-frames:v', '1', out]);
-  try { fs.unlinkSync(full); } catch (e) {}
-  return { file: out, x: where.box.x + marg - (bb.x - cx), y: where.box.y + marg - (bb.y - cy), w: cw, h: ch,
+  const cut = (stage, name) => {
+    const full = ctx.shoot(html(o, w, pal, n, calm, where.k, stage), path.join(ctx.dir, name + 'f.png'));
+    const out = path.join(ctx.dir, name + '.png');
+    ctx.ffRun(['-y', '-i', full, '-vf', 'crop=' + cw + ':' + ch + ':' + cx + ':' + cy, '-frames:v', '1', out]);
+    try { fs.unlinkSync(full); } catch (e) {}
+    return out;
+  };
+  const nSt = stagesOf(o);
+  const file = cut(nSt ? 0 : -1, 'ov' + n);
+  const stages = [];
+  for (let i = 1; i <= nSt; i++) stages.push(cut(i, 'ov' + n + '-s' + i));
+  return { file: file, stages: stages, x: where.box.x + marg - (bb.x - cx), y: where.box.y + marg - (bb.y - cy), w: cw, h: ch,
            k: where.k, kind: o.kind, energy: Math.round(where.energy * 10) / 10, mass: Math.round(where.peak * 1000) / 1000,
            lum: Math.round(where.lum * 100) / 100, accent: pal.a1, vivid: pal.vivid, calm: calm };
 }
 
-module.exports = { OV, ovNorm, analyze, boxStats, place, palette, html, render, alphaBox, hsv };
+/**
+ * پنجرهٔ دیده‌شدنِ کارت در صحنه‌ای به طولِ `d` ثانیه، از `from` (پس از کلیپ) — ۸.۵۶.
+ * تا ۸.۵۵ نوشته تمامِ صحنه می‌ماند: روی صحنهٔ پنجاه‌ثانیه‌ای یعنی یک اسلاید، و نقاشی
+ * هرگز تنها دیده نمی‌شد. حالا آن‌قدر که خوانده شود — پایه + هر مرحله — و بعد نقاشی
+ * دوباره مالِ بیننده است. مرحله‌ها با فاصلهٔ برابر درونِ همان پنجره می‌آیند.
+ * @return {{st:number, end:number, at:number[]}}
+ */
+function windowOf(d, from, nStages) {
+  const st = Math.max(0, from);
+  const want = Math.max(OV.showMin, OV.showBase + OV.showPer * nStages);
+  const end = Math.max(st + 1.2, Math.min(d - 0.7, st + want));
+  /* سطرِ اول درست پس از نشستنِ کارت می‌آید — کارتِ خالی که دو ثانیه منتظر بماند، قابِ
+     بی‌معناست (نخستین ساختِ واقعی نشانش داد) — و آخری پیش از دُمِ پنجره. */
+  const first = st + OV.slide + 0.35, last = Math.max(first, end - OV.showTail);
+  const at = [];
+  for (let i = 0; i < nStages; i++) {
+    at.push(Math.round((nStages > 1 ? first + (last - first) * i / (nStages - 1) : first) * 100) / 100);
+  }
+  return { st: Math.round(st * 100) / 100, end: Math.round(end * 100) / 100, at: at };
+}
+
+module.exports = { OV, ovNorm, analyze, boxStats, place, palette, html, render, alphaBox, hsv, stagesOf, windowOf };

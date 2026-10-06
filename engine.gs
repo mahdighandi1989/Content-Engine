@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.55
+ *  موتور محتوا و پادکست — نسخهٔ 8.56
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -753,6 +753,13 @@ var CFG = {
      کمتر نوشته می‌گیرد: نوشته روی صحنهٔ ماجرا یعنی توقفِ ماجرا. ماهیتِ
      ناشناخته = «درس»، همان رفتارِ ۸.۴۶. سهمی که آدم روی تخته نوشته دست نمی‌خورد. */
   LV_TEXT_AUTO: { 'درس': 0.45, 'آمیخته': 0.35, 'داستان': 0.2 },
+  /* سهمِ نوشته **کف** هم دارد (۸.۵۶): کمتر از این کسر از سهم ⇒ پس از داوری یک پرسشِ
+     جدا فقط برای کارت‌ها، روی صحنه‌هایی که داور در آن‌ها جای خالی دید. درسِ ۴۰ با
+     سهمِ ۴۵٪ فقط ۸ کارت از ۴۰ صحنه گرفت. */
+  LV_OV_FILL: true,
+  LV_OV_FILL_MIN: 0.75,
+  LV_OV_WATCH_FRAC: 0.2,           // کفِ کارتِ نشسته: یک‌پنجمِ صحنه‌ها (و نه کمتر از سه)
+  LV_OV_THIN_FIND: 2,              // چند درسِ نحیفِ پیاپی ⇒ یافتهٔ کد
   /* نخستین ویدئوهای حالتِ تازه Unlisted می‌مانند تا کلیدشان در
      `docs/yt-approve.json` بنشیند (سشنِ کد پس از دیدنِ فریم‌ها می‌نشاندش).
      از آن به بعد سدِ خودکار — سنجشِ رانر و داوریِ تصویر — تصمیم می‌گیرد. */
@@ -817,6 +824,10 @@ var CFG = {
   ],
   LV_CLIP_TRY_MAX: 2,
   LV_CLIP_WAIT_MIN: 45,
+  /* کلیپ روی نخستین لحظهٔ **واقعیِ** درس، نه روی جملهٔ تاریخ (۸.۵۶): از میانِ این‌قدر
+     صحنهٔ نخست، اولی که فقط تاریخ نیست، جای کلیپ دارد و داور دست‌کم این نمره را داده. */
+  LV_CLIP_WINDOW: 4,
+  LV_CLIP_MIN_SCORE: 5,
   /* ══ زیرِ نظر (۸.۵۲) ══
      او پرسید «همه چیز زیرِ نظرِ ناظر می‌ره و بررسی می‌کنه و اقدام و اصلاح می‌کنه و
      پیگیری می‌کنه؟» — و برای کلیپ، حرکت و آزمونِ ۸.۵۱ جوابِ راست «فقط یک خط» بود:
@@ -1542,6 +1553,11 @@ var CFG = {
   // است، موسیقیِ آغاز نیست — و بی این کف، یک فایلِ سه‌ثانیه‌ای می‌توانست
   // موسیقیِ آغازِ قسمت شود چون بارِ استفاده‌اش صفر بود.
   MUSIC_MIN_EDGE_SEC: 8,       // شروع و پایان
+  /* لبه‌ای که شنیده‌شده ندارد، همان لحظه چند نامزدِ نشنیده را می‌شنود (۸.۵۶):
+     درسِ ۴۰ بی آغاز و پایان رفت در حالی که ۵۴ نامزد فقط یک گوش کم داشتند. */
+  MUSIC_EDGE_DISCOVER: true,
+  MUSIC_EDGE_DISCOVER_N: 3,          // نامزد برای هر لبه
+  MUSIC_EDGE_DISCOVER_MS: 60000,     // سقفِ زمانِ هر دو لبه با هم — مرحلهٔ صدا شش دقیقه دارد
   MUSIC_MIN_BRIDGE_SEC: 4,     // میانه
   MUSIC_SFX_XFADE_SEC: 0.35,   // افکت کوتاه است؛ لبه‌اش فقط نرم می‌شود
   MUSIC_GAIN: 0.8,             // ضریبِ بلندیِ کلی، روی بلندیِ خودِ ردیف
@@ -1881,7 +1897,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.55',
+  CODE_VERSION: '8.56',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2958,6 +2974,7 @@ var PK = {
   LV_AUD_KNOWN: 'LV_AUD_KNOWN',    // مدل‌های تصویری که تا امروز دیده شده‌اند
   LV_AUD_DUE: 'LV_AUD_DUE',        // مدل‌های تازه‌ای که هنوز آزموده نشده‌اند
   LV_AUD_LOG: 'LV_AUD_LOG',        // نتیجهٔ آزمون‌ها، برای خطِ روزانه
+  LV_OV_LAST: 'LV_OV_LAST',        // کارت‌های نوشتاریِ آخرین ویدئوی صحنه‌ای: چند نشست، و شمارِ نحیفِ پیاپی (۸.۵۶)
   LV_CLIP_LAST: 'LV_CLIP_LAST',    // آخرین کلیپِ آغاز: چه شد و چرا (۸.۵۱) + شمارِ شکستِ پیاپی (۸.۵۲)
   LV_MOTION_LAST: 'LV_MOTION_LAST', // حرکتِ کانون‌دارِ آخرین درس و شمارِ درس‌های پیاپیِ بی‌حرکت (۸.۵۲)
   LV_AUD_SINCE: 'LV_AUD_SINCE',    // از کِی صفِ آزمونِ مدلِ تصویر خالی نشده (۸.۵۲)
@@ -16185,6 +16202,7 @@ function writeStatus_(hub, note) {
     /* کلیپ، حرکت و آزمونِ مدلِ تازه (۸.۵۲) — هر سه فقط از Properties، بی درایو. */
     lessonClip: (function () { try { return lvClipStatus_(); } catch (e) { return null; } })(),
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
+    lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
@@ -37751,6 +37769,10 @@ function musicPick_(bank, slot, moodWords, wantedId) {
     // و قطعهٔ قسمتِ پیش، اگر جایگزینی هست، دوباره پخش نمی‌شود. شنونده‌ای که
     // هر روز همان جینگل را بشنود، بعد از یک هفته آن را نمی‌شنود.
     if (lastNames.indexOf(String(b.name || '')) !== -1) s -= 4;
+    /* پلِ «زمینه» پنج ثانیه طنینِ کشیده است و شنونده آن را موسیقی نمی‌شنود (۸.۵۶:
+       درسِ ۴۰ سه پل داشت، هر سه «طنین»، و او گفت «موسیقی که نداشت»). زمینه
+       ممنوع نیست؛ فقط وقتی آهنگِ شنیده‌شده هست، دیرتر نوبتش می‌شود. */
+    if (slot === 'میانه' && heardSays_(b.heard, 'آهنگ')) s += 2;
     return s;
   };
   cands.sort(function (a, b) {
@@ -37969,6 +37991,110 @@ function musicEdgeHear_(bank, track, slot, key, mood, plan) {
   return null;
 }
 
+/**
+ * ══ لبه‌ای که بانک برایش شنیده‌شده‌ای ندارد — همین حالا بشنو (۸.۵۶) ══
+ *
+ * او درسِ ۴۰ را دید: «موسیقی که نداشت». `_STATUS.json` همان روز می‌گفت
+ * `music.last.missing: ["شروع","پایان"]` — هفت قطعهٔ قابلِ پخش، هیچ‌کدام برای
+ * لبه، و ۵۴ قطعه که برای آغاز/پایان برچسب خورده بودند ولی **هیچ‌کس نشنیده
+ * بودشان**. سه پلِ پنج‌ثانیه‌ایِ «طنینِ کشیده» تنها صدای غیرِگفتاریِ بیست دقیقه بود.
+ *
+ * سدِ ۷.۶۸ (نشنیده پخش نمی‌شود) درست است و می‌مانَد. عیب این بود که شنیدن فقط از
+ * یک راه می‌آمد — بازشنویِ شبانه — و آن راه پشتِ کارِ شبانه‌ای بود که چند شب
+ * پیاپی زودتر مرد. یعنی قسمت **بی‌موسیقی** می‌رفت در حالی که قطعهٔ مناسب در بانک
+ * نشسته بود و فقط یک گوش کم داشت. حالا خودِ قسمت، همان لحظه‌ای که لبه را
+ * لازم دارد، چند نامزدِ نشنیده را **می‌شنود**: همان `musicAccept_` (نرخ، نام،
+ * موج، و گوشِ مدل) و بعد همان بازه‌ای که پخش می‌شود (۸.۳۳). «نه» یا «نشنید» ⇒
+ * نامزدِ بعدی؛ هیچ‌کدام ⇒ همان سکوتِ قبلی، با علت. داوری در شناسنامه و تب
+ * ثبت می‌شود، پس کارِ شنیدن دور ریخته نمی‌شود و قسمتِ بعد هم از آن می‌خورد.
+ *
+ * فقط در ساختِ تازهٔ نقشه (`hearSeg`)، نه در ازسرگیری: نتیجه در خودِ نقشه
+ * می‌نشیند و ازسرگیری همان را می‌خوانَد («Anything rebuilt on resume must be
+ * deterministic»). سقفِ شمار و زمان دارد، چون این در مرحلهٔ صدا است و شش دقیقه
+ * مالِ صداسازی است.
+ */
+function musicEdgeDiscover_(bank, hub, slot, key, mood, plan, disc) {
+  if (CFG.MUSIC_EDGE_DISCOVER === false) return null;
+  disc = disc || { t0: new Date().getTime(), tried: 0, notes: [] };
+  var maxN = Math.max(0, Number(CFG.MUSIC_EDGE_DISCOVER_N) || 3);
+  var budget = Math.max(5000, Number(CFG.MUSIC_EDGE_DISCOVER_MS) || 60000);
+  var need = Number(CFG.MUSIC_MIN_EDGE_SEC) || 8;
+  var words = String(mood || '').split(/[\s،,]+/).filter(Boolean);
+  var cands = [];
+  for (var i = 0; i < bank.length; i++) {
+    var b = bank[i];
+    if (String(b.kind || '') === 'افکت') continue;
+    if (heardPlayable_(b.heard, b.note)) continue;          // شنیده‌شده‌ها را musicPick_ دیده بود
+    if (!b.sec || b.sec < need) continue;
+    if (b.slots && b.slots.indexOf(slot) === -1) continue;
+    if (/^❓.*گفتار/.test(String(b.heard || '').trim())) continue;   // گفتار‌بودنش از پیش گفته شده
+    var sc = 0;
+    for (var m = 0; m < words.length; m++) if (b.mood && b.mood.indexOf(words[m]) !== -1) sc += 3;
+    if (b.slots && b.slots.indexOf(slot) !== -1) sc += 1;
+    sc -= Math.min(Number(b.used) || 0, 12) / 12;
+    cands.push({ b: b, sc: sc });
+  }
+  cands.sort(function (a, c) { return c.sc - a.sc; });
+  plan.heard = plan.heard || {};
+  var mine = 0;                                           // نامزدهای همین لبه — گزارش از رویداد، نه از سقف
+  for (var k = 0; k < cands.length; k++) {
+    if (disc.tried >= maxN * 2) break;
+    if (k >= maxN) break;
+    if (new Date().getTime() - disc.t0 > budget) { disc.notes.push(slot + ': وقتِ شنیدن تمام شد'); break; }
+    var tr = cands[k].b;
+    disc.tried++; mine++;
+    var bytes = null, info = null;
+    try { bytes = DriveApp.getFileById(tr.id).getBlob().getBytes(); info = wavInfo_(bytes); }
+    catch (eB) { disc.notes.push(auditCut_(tr.name, 30) + ': خوانده نشد'); continue; }
+    if (!wavReadable_(info)) { disc.notes.push(auditCut_(tr.name, 30) + ': WAV خوانده نشد'); continue; }
+    var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
+    musicHeardRecord_(hub, tr, acc);
+    if (!acc.ok || acc.heard !== 'آهنگ') {
+      disc.notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why));
+      continue;
+    }
+    /* کلِ قطعه «آهنگ» است؛ ولی آنچه پخش می‌شود سرِ قطعه است (۸.۳۳). */
+    var h0 = musicListen_(bytes, info, tr.name, 0);
+    if (h0 !== 'آهنگ') { disc.notes.push(auditCut_(tr.name, 30) + ': سرش «' + (h0 || 'نشنید') + '»'); continue; }
+    plan[key + 'Id'] = tr.id; plan[key + 'Start'] = 0; plan[key + 'None'] = false;
+    plan.heard[key] = 'آهنگ (همین حالا شنیده شد)';
+    logLine_('موسیقیِ ' + slot + ': بانک شنیده‌شده‌ای نداشت؛ «' + tr.name + '» همین حالا شنیده و پذیرفته شد' +
+             (disc.notes.length ? ' (پیش از آن: ' + disc.notes.join(' · ') + ')' : '') + '.');
+    return tr;
+  }
+  if (cands.length) {
+    plan[key + 'None'] = true; plan.heard[key] = '—';
+    logLine_('موسیقیِ ' + slot + ' این قسمت نشد — ' + mine + ' نامزدِ نشنیده شنیده شدند ' +
+             'و هیچ‌کدام «آهنگ» نبود: ' + (disc.notes.join(' · ') || '—'));
+  }
+  return null;
+}
+
+/**
+ * داوریِ تازه را در شناسنامه **و** تب می‌نشانَد (۸.۵۶) — همان شکلی که
+ * `musicRecheck_` می‌نویسد، تا بانک یاد بگیرد و قسمتِ بعد دوباره نپرسد.
+ * داوریِ ناقطعی فقط شمارِ تلاش را بالا می‌برد؛ هرگز «تأیید» نمی‌شود (۷.۶۸).
+ */
+function musicHeardRecord_(hub, tr, acc) {
+  if (!tr || !acc) return;
+  try {
+    var mt = null;
+    try { mt = musicMeta_(tr.name); } catch (eM) {}
+    var na = mt || {};
+    if (!na.title) na.title = String(tr.name || '').replace(/\.wav$/i, '');
+    if (!na.kind) na.kind = 'موسیقی';
+    na.hv = String(CFG.MUSIC_HEAR_VER || '');
+    na.verdict = String(acc.why || '');
+    if (acc.sure && acc.heard) na.heard = String(acc.heard);
+    else { na.tries = String(musicHearTries_(na) + 1); na.lastTry = nowStr_(); }
+    musicMetaWrite_(tr.name, na);
+    var txt = musicHeardTxt_(na);
+    tr.heard = txt;
+    var sh = (hub || getHub_()).getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+    if (sh && tr.row) sh.getRange(tr.row, MC.HEARD).setValue(txt);
+  } catch (e) { logLine_('داوریِ شنیداری ثبت نشد (' + String(tr.name || '') + '): ' + e.message); }
+}
+
 function musicWrap_(chunks, hub, opt) {
   opt = opt || {};
   if (CFG.MUSIC_ENABLED === false) return { chunks: chunks, picks: [] };
@@ -38078,6 +38204,8 @@ function musicWrap_(chunks, hub, opt) {
 
   var intro = plan.introNone ? null : musicPick_(bank, 'شروع', mood, plan.introId);
   if (intro && hearSeg) intro = musicEdgeHear_(bank, intro, 'شروع', 'intro', mood, plan);
+  var disc = { t0: new Date().getTime(), tried: 0, notes: [] };
+  if (!intro && hearSeg) intro = musicEdgeDiscover_(bank, hub, 'شروع', 'intro', mood, plan, disc);
   if (intro) {
     // آغازِ قسمت همسایه‌ای ندارد → محوِ کامل؛ انتهایش به گفتار می‌رسد → تلفیق.
     var ib = clipOf(intro, 'intro', Number(CFG.MUSIC_INTRO_SEC) || 8,
@@ -38183,6 +38311,7 @@ function musicWrap_(chunks, hub, opt) {
 
   var outro = plan.outroNone ? null : musicPick_(bank, 'پایان', mood, plan.outroId);
   if (outro && hearSeg) outro = musicEdgeHear_(bank, outro, 'پایان', 'outro', mood, plan);
+  if (!outro && hearSeg) outro = musicEdgeDiscover_(bank, hub, 'پایان', 'outro', mood, plan, disc);
   /* و نقشه **حالا** ذخیره می‌شود، با هر سه نتیجه در خودش. */
   if (planFresh && planKey) { try { musicPlanCachePut_(planKey, plan); } catch (ePc) {} }
   if (outro) {
@@ -49367,6 +49496,9 @@ function lvGenStatus_() {
       if (out.clip.line) out.line += '\n' + out.clip.line;
       out.motion = lvMotionStatus_();
       if (out.motion.line) out.line += '\n' + out.motion.line;
+      /* کارت‌های نوشتاری — آنچه روی ویدئو نشست (۸.۵۶). */
+      out.ov = lvOvStatus_();
+      if (out.ov.line) out.line += '\n' + out.ov.line;
       out.aud = lvAudStatus_();
       if (out.aud.line) out.line += '\n' + out.aud.line;
     }
@@ -49393,7 +49525,7 @@ function lvClipStatus_() {
       faDigitsOut_(String(lvClipSec_())) + ' ثانیه، از همان سقفِ ماه) · این ماه ' +
       faDigitsOut_(String(out.clips)) + ' کلیپ' +
       (L ? ' · آخرین (' + String(L.key || '') + '): ' +
-           (L.state === 'ok' ? '✅ ساخته و داوری شد' :
+           (L.state === 'ok' ? '✅ ساخته و داوری شد' + (L.n ? ' (روی صحنهٔ ' + faDigitsOut_(String(L.n)) + '، نه روی تاریخ)' : '') :
             L.state === 'fail' ? '❌ نشد — ' + String(L.why || 'بی علت') + ' — ویدئو با همان نقاشیِ ثابت رفت' :
             L.state === 'off' ? 'ساخته نشد — ' + String(L.why || '') : String(L.state || ''))
          : ' · هنوز هیچ درسی با کلیپ ساخته نشده') +
@@ -50335,6 +50467,24 @@ function lvHealth_(problems, notes) {
     }
   } catch (eCl) {}
   try {
+    var os = lvOvStatus_();                 // خطش در `lvStatus_().line` است، همراهِ 🎬 و 🎥
+    if (!os.ok && os.last) {
+      var oL = os.last;
+      problems.push('🪧 کارت‌های نوشتاری ' + faDigitsOut_(String(oL.n)) + ' درسِ پیاپی نحیف — آخرین (' + oL.key + '): ' +
+                    faDigitsOut_(String(oL.placed)) + ' از ' + faDigitsOut_(String(oL.scenes)) + ' صحنه');
+      logSelfFinding_(getHub_(), {
+        priority: 'جدی', category: 'تصویرِ درس', key: 'lv-ov-thin',
+        title: 'کارت‌های نوشتاریِ ویدئو پیاپی کم‌اند',
+        detail: oL.key + ': ' + oL.placed + ' کارت روی ' + oL.scenes + ' صحنه (کف ' + oL.need + ')؛ خواسته ' + oL.asked +
+                '، بی‌جا ' + oL.busy + ' · انواع: ' + JSON.stringify(oL.kinds || {}),
+        instruction: 'اگر «خواسته» کم است: `_scenes.json` → `ovShare`، `ovN` و `ovFill` (پرسشِ کارت پس از داوری، ' +
+                     'lvSceneOvFill_). اگر «بی‌جا» زیاد است: tools/overlay.js → place (سدهای busy/massCard/solid) ' +
+                     'و جای خالیِ داور (`judge.space`). قاب‌ها را از خودِ MP4 ببین، نه از نقشه.',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eOs) {}
+  try {
     var ms = lvMotionStatus_();
     if (ms.on && !ms.ok) {
       var ml = ms.last || {};
@@ -50343,7 +50493,7 @@ function lvHealth_(problems, notes) {
         priority: 'متوسط', category: 'تصویرِ درس', key: 'lv-motion-none',
         title: 'حرکتِ کانون‌دار روی هیچ صحنه‌ای نمی‌نشیند',
         detail: 'آخرین درس (' + String(ml.key || '') + '): ' + (ml.n || 0) + ' صحنه — کانون از توصیف‌گر ' +
-                (ml.focus || 0) + '، حرکتِ push/reveal ' + (ml.moves || 0) + '، جای کانون از داور ' + (ml.box || 0) + '.',
+                (ml.focus || 0) + '، حرکتِ push/reveal/travel ' + (ml.moves || 0) + '، جای کانون از داور ' + (ml.box || 0) + '.',
         instruction: 'عددِ صفر نشان می‌دهد کدام نیمه نشد: کانون یا حرکتِ صفر ⇒ پاسخِ lvSceneAsk_ ' +
                      '(schema یا پرامپتِ focus/move)؛ جای کانونِ صفر ⇒ پاسخِ lvSceneJudge_ (فیلدِ box) یا lvSceneBox_ ' +
                      'که قالبِ مدل را نمی‌خوانَد. هر دو با یک `_scenes.json`ِ واقعی بسنج، نه با بدَل.',
@@ -51229,7 +51379,9 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
   L.push('• `move` — حرکتِ دوربین در طولِ صحنه، به خدمتِ فهم نه تزئین: «push» = آرام به `focus` ' +
          'نزدیک شو (وقتی متن روی همان چیز می‌مانَد یا آن را برجسته می‌کند)؛ «reveal» = از نمای ' +
          'نزدیکِ `focus` عقب برو تا کلِ تصویر دیده شود (وقتی متن از جزء به کل، یا از یک حلقه به ' +
-         'کلِ زنجیره می‌رسد)؛ «drift» = حرکتِ آرامِ معمولی، وقتی کانونِ خاصی نیست.');
+         'کلِ زنجیره می‌رسد)؛ «travel» = دوربین از سمتِ دیگرِ تصویر به `focus` می‌رسد (وقتی متن ' +
+         '«از این به آن» می‌رود: از مقدمه به نتیجه، از علت به معلول، از یک شخصیت به دیگری)؛ ' +
+         '«drift» = حرکتِ آرامِ معمولی، وقتی کانونِ خاصی نیست. حرکت‌ها را میانِ صحنه‌ها عوض کن.');
   L.push('• `n` — همان شمارهٔ صحنه.');
   var share = Number((ctx && ctx.textShare) || 0);
   /* شمارِ همین پرسش، نه کلِ ویدئو — دسته‌ای ده‌تایی «حدودِ ۴۵ از ۱۰۰» نمی‌گیرد (۸.۴۹). */
@@ -51245,7 +51397,8 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
            'برای دیدن** دارد: تعریف، تمایز، فهرست، روند، جملهٔ کلیدی. تکرارِ واژه‌به‌واژهٔ روایت نیست؛ ' +
            'چکیده‌ای است که بیننده با یک نگاه بگیرد. صحنه‌ای که نوشته نمی‌خواهد: `ov` خالی.');
     L.push('• `ov` — یکی از: headline · points · compare · quote · steps.');
-    L.push('  headline: `ovTitle` تیترِ کوتاه (≤ ۳۰ نویسه) و اختیاری یک سطرِ زیرتیتر در `ovLines`.');
+    L.push('  headline: `ovTitle` تیترِ کوتاه (≤ ۳۰ نویسه) **و همیشه** یک سطرِ توضیح در `ovLines` ' +
+           '(≤ ۷۰ نویسه) که بگوید این مفهوم یعنی چه — تیترِ تنها فقط یک جملهٔ معلق است، نه کارت.');
     L.push('  points: `ovTitle` اختیاری و ۲ تا ۳ نکتهٔ کوتاه (≤ ۶۰ نویسه) در `ovLines`.');
     L.push('  compare: `ovA` و `ovB` نامِ دو ستون، و ۱ تا ۳ ردیف در `ovLines` به شکلِ «برچسب: مقدارِ ستونِ اول | مقدارِ ستونِ دوم».');
     L.push('  quote: `ovTitle` خودِ جملهٔ کلیدی (≤ ۹۰ نویسه)، و اختیاری گوینده/منبع در `ovLines`.');
@@ -51255,7 +51408,9 @@ function lvScenePrompt_(groups, ctx, art, cast, only, first) {
            'توصیف کن که همان بخشِ قاب خلوت و ساده بماند** (آسمانِ صاف، دیوار، کاغذ) و موضوعِ ' +
            'اصلی در طرفِ دیگر باشد — نوشته نباید روی چهره یا شیءِ اصلی بیفتد.');
     L.push('• صحنه‌های نوشته‌دار را در طولِ ویدئو **پخش** کن و نوعشان را عوض کن؛ دو صحنهٔ ' +
-           'پشتِ‌هم یک نوع نگیرند. واژه‌ها فارسیِ معیار و درست، اعداد فارسی.');
+           'پشتِ‌هم یک نوع نگیرند. در «ایده»ها بیشترِ کارت‌ها points، steps یا compare باشند — ' +
+           'headline و quote روی هم حداکثر یک‌سوم (۸.۵۶: درسی که همهٔ کارت‌هایش تیتر و نقل بود، ' +
+           '«فقط یک جملهٔ ساده و درهم» دیده شد). واژه‌ها فارسیِ معیار و درست، اعداد فارسی.');
     L.push('• روی صحنهٔ «روایت» فقط headline (یک برچسبِ کوتاهِ زمان یا مکان یا نقطهٔ عطف، ' +
            'مثلِ «یک شبِ زمستانی») یا quote (جمله‌ای که در همان لحظه گفته می‌شود) — هرگز ' +
            'points و compare و steps: قصه فهرست و جدول نیست. و نوشته هم مثلِ تصویر چیزی را ' +
@@ -51331,7 +51486,8 @@ function lvSceneMove_(v) {
   var t = String(v || '').toLowerCase().trim();
   if (/^push|^zoom.?in|^نزدیک/.test(t)) return 'push';
   if (/^reveal|^pull|^zoom.?out|^عقب/.test(t)) return 'reveal';
-  if (/^drift|^pan|^آرام/.test(t)) return 'drift';
+  if (/^travel|^pan|^track|^گذر/.test(t)) return 'travel';
+  if (/^drift|^آرام/.test(t)) return 'drift';
   return '';
 }
 
@@ -51343,7 +51499,7 @@ function lvSceneMv_(x) {
   if (CFG.LV_MOTION_ON === false || !x) return null;
   var k = String(x.move || '');
   var b = x.judge && x.judge.box;
-  if ((k !== 'push' && k !== 'reveal') || !b) return null;
+  if ((k !== 'push' && k !== 'reveal' && k !== 'travel') || !b) return null;
   return { k: k, x: b.x, y: b.y, z: Math.max(0.02, Math.min(0.25, Number(CFG.LV_FOCUS_ZOOM) || 0.14)) };
 }
 
@@ -51470,6 +51626,97 @@ function lvSceneOvSpace_(ov) {
   return 'Composition: keep ' + where + ' calm, plain and uncluttered (open sky, soft wall, blank paper or ' +
          'gentle gradient, no figures and no detailed objects there) because text will be placed on it later; ' +
          'put the main subject and every face on ' + other + '.';
+}
+
+/**
+ * ══ کارت‌های نوشتاری، وقتی نقشه کم داد (۸.۵۶) ══
+ *
+ * درسِ ۴۰: تخته «خودکار» بود، یعنی سهمِ ۴۵٪ — حدودِ ۱۸ کارت از ۴۰ صحنه. مدلِ نقشه
+ * **هشت** داد، همه تیتر یا نقل، با سطرِ توضیحِ خالی؛ و صاحبِ برنامه دید «شاید در کلِ
+ * ۲۰ دقیقه سه چهار مورد … فقط یه جملهٔ ساده و درهم». سهم در کد **سقف** بود
+ * (`lvSceneOvTrim_`) و هیچ چیز کفش را نمی‌سنجید: «حدودِ N» فقط در پرامپت بود — و
+ * سقفی که فقط در پرامپت گفته شده سقف نیست (همان قاعدهٔ `specialCondense_`).
+ *
+ * پس از داوری (که می‌گوید کجای هر تصویر خالی است)، اگر کارت‌ها از
+ * `LV_OV_FILL_MIN`ِ سهم کمترند، **یک پرسشِ جدا و کوچک** فقط برای کارت‌ها: صحنه‌های
+ * بی‌کارتی که داور در آن‌ها جای خالی دیده (نه «هیچ‌جا»، نه فقط تاریخ)، با متنِ خودشان.
+ * کد می‌سنجد (`lvSceneOvNorm_`، سدِ ماهیتِ ۸.۴۷)، جایش را از داور می‌گیرد، و سهم را
+ * همان سقفِ قبلی نگه می‌دارد. یک بار برای هر درس (`ovFillAt`)؛ نشد ⇒ گفته می‌شود.
+ * @return {{asked:number, got:number, why:string}}
+ */
+function lvSceneOvFill_(d, ctx, left) {
+  var out = { asked: 0, got: 0, why: '' };
+  if (!d || !d.scenes || d.ovFillAt || CFG.LV_OV_FILL === false) return out;
+  var share = Number(d.ovShare) || 0;
+  if (share <= 0) return out;
+  var n = d.scenes.length;
+  var target = Math.round(n * share);
+  var have = d.scenes.filter(function (x) { return !!x.ov; }).length;
+  var floor = Math.ceil(target * (Number(CFG.LV_OV_FILL_MIN) || 0.75));
+  if (have >= floor) { d.ovFillAt = nowStr_(); d.ovFill = { asked: 0, got: 0, why: 'کافی بود' }; return out; }
+  if (left && left() < 45000) { out.why = 'وقت کم است'; return out; }
+  var story = function (x) { return x.beat === 'روایت' || (d.nature === 'داستان' && x.beat !== 'ایده'); };
+  var cands = d.scenes.filter(function (x) {
+    var sp = x.judge && x.judge.space;
+    return !x.ov && x.fileId && x.judge && sp && sp !== 'none' && !lvSceneIsCalendar_(x.text) &&
+           (Number(x.t1) || 0) - (Number(x.t0) || 0) >= 9;
+  });
+  if (!cands.length) { d.ovFillAt = nowStr_(); d.ovFill = { asked: 0, got: 0, why: 'صحنهٔ جاداری نماند' }; return out; }
+  var want = Math.min(target - have, cands.length);
+  out.asked = want;
+  var L = [];
+  L.push('این‌ها صحنه‌های یک ویدئوی آموزشیِ فارسی‌اند. روی تصویرِ هر صحنه یک کارتِ نوشتاریِ ' +
+         'کوچک و تمیز می‌تواند بنشیند — مثلِ اینفوگرافیکِ ویدئوهای آموزشیِ حرفه‌ای: بیننده با یک ' +
+         'نگاه چکیدهٔ همان لحظه را می‌گیرد. عنوانِ درس: «' + String((ctx && ctx.title) || '') + '».');
+  L.push('');
+  L.push('از صحنه‌های زیر **' + want + '** تا را برگزین که واقعاً چیزی برای دیدن دارند (تعریف، تمایز، ' +
+         'فهرست، روند، استدلالِ چندمرحله‌ای، پرسشِ کلیدی) و برای هر کدام یک کارت بنویس. در طولِ درس ' +
+         'پخش باشند، نه پشتِ‌هم.');
+  for (var i = 0; i < cands.length; i++) {
+    var x = cands[i];
+    L.push('[' + x.n + ']' + (story(x) ? ' (روایت)' : '') + ' ' + lvSceneClean_(x.text).slice(0, 420));
+  }
+  L.push('');
+  L.push('نوعِ کارت (`ov`) — **بیشترشان points، steps یا compare**؛ headline و quote روی هم حداکثر یک‌سوم:');
+  L.push('  points: `ovTitle` کوتاه و ۲ تا ۳ نکته (هر کدام ≤ ۵۰ نویسه) در `ovLines` — نکته‌هایی که **همان لحظه** گفته می‌شوند.');
+  L.push('  steps: ۳ گامِ خیلی کوتاه (≤ ۲۴ نویسه) به ترتیب در `ovLines`، و `ovTitle` اختیاری — برای روند و زنجیرهٔ استدلال.');
+  L.push('  compare: `ovA` و `ovB` نامِ دو طرف، و ۱ تا ۳ ردیف «برچسب: طرفِ اول | طرفِ دوم» در `ovLines`.');
+  L.push('  headline: `ovTitle` (≤ ۳۰ نویسه) **و** یک سطرِ توضیح (≤ ۷۰ نویسه) در `ovLines` — هرگز تیترِ تنها.');
+  L.push('  quote: `ovTitle` جملهٔ کلیدیِ همان لحظه (≤ ۹۰ نویسه)، و اختیاری گوینده/منبع در `ovLines`.');
+  L.push('• صحنهٔ «(روایت)» فقط headline یا quote — قصه فهرست و جدول نیست.');
+  L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان کارت آمده.');
+  L.push('• فارسیِ معیار، جمله‌بندیِ روشن و کامل، اعداد فارسی. تکرارِ واژه‌به‌واژهٔ روایت نه؛ چکیده.');
+  L.push('• `n` همان شمارهٔ صحنه.');
+  var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    n: { type: 'STRING' }, ov: { type: 'STRING' }, ovTitle: { type: 'STRING' },
+    ovLines: { type: 'ARRAY', items: { type: 'STRING' } }, ovA: { type: 'STRING' }, ovB: { type: 'STRING' },
+    ovKeys: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['n', 'ov'] } } }, required: ['items'] };
+  d.ovFillTries = (Number(d.ovFillTries) || 0) + 1;
+  var r = null;
+  try { r = geminiText_(L.join('\n'), schema, 6144, { exact: true }); }
+  catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 100); }
+  if (!out.why && (!r || !Array.isArray(r.items))) out.why = 'پاسخ کارت نداشت';
+  var byN = {};
+  for (var c = 0; c < cands.length; c++) byN[String(cands[c].n)] = cands[c];
+  var got = 0;
+  for (var k = 0; !out.why && k < r.items.length && got < want; k++) {
+    var it = r.items[k] || {};
+    var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (q) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(q); });
+    var sc = byN[String(Number(nn))];
+    if (!sc || sc.ov) continue;
+    var o = lvSceneOvNorm_(it);
+    if (!o) continue;
+    if (story(sc) && ['points', 'compare', 'steps'].indexOf(o.kind) !== -1) continue;
+    o.side = sc.judge.space;
+    sc.ov = o; sc.ovFill = 1; got++;
+  }
+  if (got) d.ovN = lvSceneOvTrim_(d.scenes, share);
+  out.got = got;
+  if (!out.why || d.ovFillTries >= 2) {
+    d.ovFillAt = nowStr_();
+    d.ovFill = { asked: want, got: got, why: out.why, have: have, target: target };
+  }
+  return out;
 }
 
 /** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
@@ -51776,6 +52023,69 @@ function lvClipJudge_(blob, sc) {
 }
 
 /**
+ * آیا متنِ این صحنه فقط تاریخ و روزِ برنامه است؟ (۸.۵۶)
+ * «درس‌نامه، سه‌شنبه، چهاردهم مهر هزار و چهارصد و پنج، برابر با ششم اکتبر…» — نامِ روز
+ * **و** (نامِ ماه یا «برابر با») در متنی کوتاه. صحنه‌ای که چیزی جز این ندارد، جای
+ * کلیپ نیست.
+ */
+function lvSceneIsCalendar_(text) {
+  var t = String(text || '').replace(/[\u200c]/g, ' ');
+  if (t.length > 260) return false;
+  var day = /(?:یک|دو|سه|چهار|پنج)\s*شنبه|شنبه|جمعه|آدینه/.test(t);
+  var month = /فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی\s|بهمن|اسفند|ژانویه|فوریه|مارس|آوریل|مه\s|ژوئن|ژوئیه|اوت|سپتامبر|اکتبر|نوامبر|دسامبر|برابر\s*با/.test(t);
+  return day && month;
+}
+
+/**
+ * کلیپ روی کدام صحنه بنشیند؟ (۸.۵۶)
+ *
+ * ۶ اکتبر، درسِ ۴۰: «اون چند ثانیه متحرک هم همون چند ثانیه‌ای بود که داشت تازه تاریخ
+ * و روزِ پادکست می‌گفت». کلیپ همیشه روی `scenes[0]` بود، و صحنهٔ ۰ آن روز فقط یک جمله
+ * بود: تاریخ. نقاشی‌اش (میزی با چراغ) را داور خودش ۴ از ۱۰ داده بود با «ربطِ مستقیمی به
+ * متنِ تقویمی ندارد». پس گران‌ترین تصویرِ درس — ۰٫۶۴ دلار، تنها لحظهٔ متحرک — روی
+ * کم‌معناترین لحظه‌اش رفت.
+ *
+ * حالا کلیپ مالِ **نخستین لحظهٔ واقعیِ درس** است: صحنه‌ای که فقط تاریخ نیست، آن‌قدر
+ * بلند است که کلیپ و میان‌محوِ برگشت در آن جا شوند، و تصویرش در داوری دست‌کم
+ * `LV_CLIP_MIN_SCORE` گرفته (کلیپِ تصویرِ بی‌ربط، حرکتِ بی‌ربط است). از میانِ
+ * `LV_CLIP_WINDOW` صحنهٔ نخست؛ هیچ‌کدام به کف نرسید ⇒ بهترینِ همان‌ها. صحنه‌ای که هنوز
+ * تصویر یا داوری ندارد ⇒ صبر (`wait`) — انتخاب یک بار و پیش از خرج است و در `clip.n`
+ * می‌مانَد، پس ازسرگیری همان را می‌خوانَد.
+ * @return {{i:number, wait:boolean, why:string}}
+ */
+function lvClipScene_(d) {
+  var sc = (d && d.scenes) || [];
+  var need = lvClipSec_() + 3.5;            // کلیپ + میان‌محو + نفسی پیش از برش
+  var win = Math.max(1, Number(CFG.LV_CLIP_WINDOW) || 4);
+  var minS = Number(CFG.LV_CLIP_MIN_SCORE) || 5;
+  var judgeOff = CFG.LV_SCENE_JUDGE === false;
+  var cands = [], skipped = [];
+  for (var i = 0; i < sc.length && cands.length < win; i++) {
+    var x = sc[i];
+    if (lvSceneIsCalendar_(x.text)) { skipped.push(x.n + ': فقط تاریخ'); continue; }
+    /* زمانِ نامعلوم «کوتاه» نیست — نقشه همیشه t0/t1 دارد؛ این فقط نقشهٔ ناقص را نمی‌اندازد. */
+    if (isFinite(Number(x.t1)) && x.t1 !== '' && x.t1 !== undefined &&
+        (Number(x.t1) || 0) - (Number(x.t0) || 0) < need) { skipped.push(x.n + ': کوتاه'); continue; }
+    cands.push(i);
+  }
+  if (!cands.length) return { i: -1, wait: false, why: 'در ' + win + ' صحنهٔ نخست جای کلیپ نبود (' + skipped.join('، ') + ')' };
+  var best = -1, bs = -99;
+  for (var k = 0; k < cands.length; k++) {
+    var y = sc[cands[k]];
+    if (!y.fileId) {
+      if ((Number(y.tries) || 0) >= 2 || d.capHit) continue;        // هرگز تصویر نمی‌گیرد
+      return { i: -1, wait: true, why: 'صحنهٔ ' + y.n + ' هنوز تصویر ندارد' };
+    }
+    if (!judgeOff && !y.judge && !d.judgeWhy) return { i: -1, wait: true, why: 'صحنهٔ ' + y.n + ' هنوز داوری نشده' };
+    var s0 = (y.judge && y.judge.s >= 0 && !y.judge.txt && !y.judge.face) ? Number(y.judge.s) : (judgeOff || d.judgeWhy ? minS : -1);
+    if (s0 >= minS) return { i: cands[k], wait: false, why: '' };
+    if (s0 > bs) { bs = s0; best = cands[k]; }
+  }
+  if (best < 0) return { i: -1, wait: false, why: 'هیچ‌کدام از صحنه‌های نخست تصویر نگرفت' };
+  return { i: best, wait: false, why: 'هیچ صحنه‌ای به کفِ داوری نرسید؛ بهترینِ آن‌ها' };
+}
+
+/**
  * یک گام از ماشینِ حالتِ کلیپ (۸.۵۱). هر بار هر اجرایی صدایش بزند، فقط همان
  * کاری را می‌کند که نوبتش است. حالت‌ها: '' ⇒ wait ⇒ judge ⇒ ok | fail | off.
  */
@@ -51787,7 +52097,11 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
   if (!c || ['ok', 'fail', 'off'].indexOf(c.state) !== -1) return;
   if (!lvClipOn_()) { c.state = 'off'; c.why = 'کلیپِ آغاز خاموش است'; return; }
   var model = String(CFG.LV_CLIP_MODEL).trim();
-  var sc = d.scenes[0];
+  /* کلیپ مالِ صحنه‌ای است که یک بار انتخاب و در `clip.n` ثبت شد (۸.۵۶). نقشه‌ای که پیش
+     از ۸.۵۶ کلیپش را آغاز کرده `n` ندارد و همان صحنهٔ نخست می‌مانَد. */
+  var sc = null;
+  if (c.n) for (var cz = 0; cz < d.scenes.length; cz++) if (Number(d.scenes[cz].n) === Number(c.n)) sc = d.scenes[cz];
+  if (!sc && c.state !== '') sc = d.scenes[0];
   var waitMs = Math.max(5, Number(CFG.LV_CLIP_WAIT_MIN) || 45) * 60000;
   if (c.first && new Date().getTime() - Number(c.first) > waitMs) {
     c.state = 'fail'; c.why = (c.why ? c.why + ' — ' : '') + 'در ' + (Number(CFG.LV_CLIP_WAIT_MIN) || 45) +
@@ -51795,12 +52109,21 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
     lvClipNote_(key, c, model); return;
   }
   if (c.state === '') {
-    /* فقط از تصویرِ **داوری‌شده**ٔ صحنهٔ نخست: داوری ممکن است آن را از نو بسازد، و
-       کلیپِ تصویرِ دورریخته پولِ دورریخته است. صحنهٔ نخستی که هرگز تصویر نگیرد کلیپ را
-       «نشد» می‌کند، وگرنه ویدئوی درس تا ابد منتظرِ آن می‌ماند. */
+    /* فقط از تصویرِ **داوری‌شده**: داوری ممکن است آن را از نو بسازد، و کلیپِ تصویرِ
+       دورریخته پولِ دورریخته است. انتخاب با `lvClipScene_` است (نخستین لحظهٔ واقعیِ درس،
+       نه تاریخ)؛ صحنه‌ای که هرگز تصویر نگیرد کلیپ را «نشد» می‌کند، وگرنه ویدئوی درس تا
+       ابد منتظرِ آن می‌ماند. */
+    if (!sc) {
+      var pick = lvClipScene_(d);
+      if (pick.wait) return;
+      if (pick.i < 0) { c.state = 'fail'; c.why = pick.why; lvClipNote_(key, c, model); return; }
+      sc = d.scenes[pick.i];
+      c.n = sc.n;
+      if (pick.why) c.pickWhy = pick.why;
+    }
     if (!sc.fileId) {
       if ((Number(sc.tries) || 0) >= (Number(tryMax) || 2) || d.capHit) {
-        c.state = 'fail'; c.why = 'صحنهٔ نخست تصویر ندارد';
+        c.state = 'fail'; c.why = 'صحنهٔ ' + sc.n + ' تصویر ندارد';
         lvClipNote_(key, c, model);
       }
       return;
@@ -51815,7 +52138,7 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
     }
     var blob;
     try { blob = DriveApp.getFileById(sc.fileId).getBlob(); }
-    catch (eB) { c.why = 'تصویرِ صحنهٔ نخست خوانده نشد: ' + eB.message; return; }
+    catch (eB) { c.why = 'تصویرِ صحنهٔ ' + sc.n + ' خوانده نشد: ' + eB.message; return; }
     c.tries = (Number(c.tries) || 0) + 1;
     if (!c.first) c.first = new Date().getTime();
     var st;
@@ -51854,7 +52177,7 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
         if (c.state === 'fail') lvClipNote_(key, c, model);
         return;
       }
-      var nm = 'صحنه ' + faDigitsOut_('01') + ' — کلیپ.mp4';
+      var nm = 'صحنه ' + faDigitsOut_(('0' + (Number(c.n) || 1)).slice(-2)) + ' — کلیپ.mp4';
       var old = imgFolder.getFilesByName(nm);
       while (old.hasNext()) old.next().setTrashed(true);
       c.fileId = imgFolder.createFile(by.setName(nm).setContentType('video/mp4')).getId();
@@ -51879,6 +52202,23 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
   }
 }
 
+/**
+ * کلیپ روی ردیفِ رندر: **همان صحنه‌ای که برایش انتخاب شد** (`clip.n`، ۸.۵۶) و فقط
+ * اگر تصویرش همان باشد که کلیپ از آن ساخته شد. نقشهٔ پیش از ۸.۵۶ (`n` ندارد) ⇒ صحنهٔ نخست.
+ * @return {number} شمارهٔ صحنه‌ای که کلیپ گرفت، یا ۰
+ */
+function lvClipAttach_(items, c) {
+  if (!items || !items.length || !c || c.state !== 'ok' || !c.fileId) return 0;
+  for (var i = 0; i < items.length; i++) {
+    var on = c.n ? Number(items[i].n) === Number(c.n) : i === 0;
+    if (!on) continue;
+    if (items[i].fileId !== c.img) return 0;
+    items[i].clip = { fileId: c.fileId, sec: Number(c.sec) || lvClipSec_() };
+    return Number(items[i].n) || 1;
+  }
+  return 0;
+}
+
 /** آخرین کلیپ، برای خطِ روزانه — از Properties، بی خواندنِ درایو (۷.۶۳). */
 function lvClipNote_(key, c, model) {
   try {
@@ -51899,7 +52239,7 @@ function lvClipNote_(key, c, model) {
     var fail = c.state === 'fail' ? { key: key, at: nowStr_(), why: why, adj: c.adj || [] }
              : (c.state === 'ok' ? null : (prev && prev.fail) || null);
     props_().setProperty(PK.LV_CLIP_LAST, JSON.stringify({ key: key, at: nowStr_(), state: c.state,
-      why: why, model: model, tries: c.tries || 0,
+      why: why, model: model, tries: c.tries || 0, n: Number(c.n) || 0,
       usd: Number(c.usd) || 0, adj: c.adj || [], fails: fails, fail: fail }));
   } catch (e) {}
 }
@@ -51917,7 +52257,7 @@ function lvMotionNote_(key, d, items) {
     try { prev = JSON.parse(props_().getProperty(PK.LV_MOTION_LAST) || 'null'); } catch (eP) { prev = null; }
     var rec = { key: key, at: nowStr_(), n: d.scenes.length,
                 focus: d.scenes.filter(function (x) { return !!x.focus; }).length,
-                moves: d.scenes.filter(function (x) { return x.move === 'push' || x.move === 'reveal'; }).length,
+                moves: d.scenes.filter(function (x) { return x.move === 'push' || x.move === 'reveal' || x.move === 'travel'; }).length,
                 box: d.scenes.filter(function (x) { return x.judge && x.judge.box; }).length,
                 mv: (items || []).filter(function (x) { return !!x.mv; }).length,
                 zero: Number(prev && prev.zero) || 0,
@@ -51937,6 +52277,45 @@ function lvMotionNote_(key, d, items) {
 }
 
 /** خطِ روزانهٔ حرکتِ کانون‌دار — از Properties، بی درایو (۷.۶۳). */
+/**
+ * ══ کارت‌های نوشتاری — آنچه **روی ویدئو نشست**، نه آنچه خواستیم (۸.۵۶) ══
+ * درسِ ۴۰: ۸ کارت خواسته شد، ۷ نشست — روی ۴۰ صحنه، و او دید «سه چهار مورد در بیست
+ * دقیقه». هیچ سنجه‌ای کف نداشت. شمار از نقشهٔ رانر (`docs/renders.json` → `ov`) خوانده
+ * می‌شود — همان که از خودِ ساخت آمده — یک بار برای هر درس. «نحیف» = درسی با دست‌کم ده
+ * صحنه که کمتر از `LV_OV_WATCH_FRAC` صحنه‌هایش کارت گرفت (و نه کمتر از سه).
+ */
+function lvOvNote_(key, rme) {
+  if (!rme || String(rme.mode || '') !== 'scenes') return null;
+  var ov = rme.ov || { asked: 0, placed: 0, busy: 0, kinds: {} };
+  var sc = Number(rme.scenes) || 0;
+  var need = Math.max(3, Math.ceil(sc * (Number(CFG.LV_OV_WATCH_FRAC) || 0.2)));
+  var placed = Number(ov.placed) || 0;
+  var thin = sc >= 10 && placed < need;
+  var P = props_(), prev = null;
+  try { prev = JSON.parse(P.getProperty(PK.LV_OV_LAST) || 'null'); } catch (e) { prev = null; }
+  if (prev && prev.key === key) return prev;                  // همان درس دو بار شمرده نمی‌شود
+  var rec = { key: key, at: nowStr_(), scenes: sc, asked: Number(ov.asked) || 0, placed: placed,
+              busy: Number(ov.busy) || 0, kinds: ov.kinds || {}, need: need, thin: thin,
+              n: thin ? ((prev && Number(prev.n)) || 0) + 1 : 0 };
+  try { P.setProperty(PK.LV_OV_LAST, JSON.stringify(rec)); } catch (e2) {}
+  return rec;
+}
+
+/** خطِ روزانه و سدِ تکرار برای کارت‌ها — از شاهدِ `lvOvNote_`، بی خواندنِ درایو (۷.۶۳). */
+function lvOvStatus_() {
+  var r = null;
+  try { r = JSON.parse(props_().getProperty(PK.LV_OV_LAST) || 'null'); } catch (e) { r = null; }
+  if (!r) return { ok: true, line: '🪧 کارت‌های نوشتاری: هنوز ویدئوی صحنه‌ای‌ای پس از ۸.۵۶ منتشر نشده.', last: null };
+  var kinds = Object.keys(r.kinds || {}).map(function (k) { return k + ' ' + faDigitsOut_(String(r.kinds[k])); }).join('، ');
+  var line = '🪧 کارت‌های نوشتاری: آخرین درس (' + r.key + ') ' + faDigitsOut_(String(r.placed)) + ' کارت روی ' +
+             faDigitsOut_(String(r.scenes)) + ' صحنه نشست (خواسته ' + faDigitsOut_(String(r.asked)) +
+             (r.busy ? '، بی‌جا ' + faDigitsOut_(String(r.busy)) : '') + ')' + (kinds ? ' · ' + kinds : '') +
+             (r.thin ? ' · ❌ کمتر از کفِ ' + faDigitsOut_(String(r.need)) : '');
+  var ok = !(Number(r.n) >= Math.max(1, Number(CFG.LV_OV_THIN_FIND) || 2));
+  if (!ok) line += ' · ❌ ' + faDigitsOut_(String(r.n)) + ' درسِ پیاپی نحیف.';
+  return { ok: ok, line: line, last: r };
+}
+
 function lvMotionStatus_() {
   var out = { on: CFG.LV_MOTION_ON !== false, last: null, zero: 0, ok: true, line: '' };
   try {
@@ -51953,7 +52332,7 @@ function lvMotionStatus_() {
     }
     out.line = '🎥 حرکتِ کانون‌دار: ' + (L
       ? 'آخرین درس (' + L.key + ') ' + faDigitsOut_(String(L.mv)) + ' از ' + faDigitsOut_(String(L.n)) +
-        ' صحنه — کانون از توصیف‌گر ' + faDigitsOut_(String(L.focus)) + '، حرکتِ push/reveal ' +
+        ' صحنه — کانون از توصیف‌گر ' + faDigitsOut_(String(L.focus)) + '، حرکتِ push/reveal/travel ' +
         faDigitsOut_(String(L.moves)) + '، جای کانون از داور ' + faDigitsOut_(String(L.box)) +
         (out.ok ? '' : ' · ❌ ' + faDigitsOut_(String(out.zero)) + ' درسِ پیاپی بی هیچ حرکتِ کانون‌دار')
       : 'هنوز هیچ درسی با نقشهٔ ۸.۵۱ ساخته نشده') + '.';
@@ -52537,6 +52916,12 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
       }
       d.judged = d.scenes.every(function (x) { return !x.fileId || !!x.judge; });
     }
+    /* کارت‌ها پس از داوری — داور گفته کجای هر تصویر خالی است (۸.۵۶). */
+    if ((d.judged || CFG.LV_SCENE_JUDGE === false) && !d.ovFillAt) {
+      var ofl = lvSceneOvFill_(d, ctx, left);
+      if (ofl.asked) logLine_('کارت‌های نوشتاریِ ' + key + ': نقشه کم داده بود؛ ' + ofl.got + ' از ' + ofl.asked +
+                              ' کارتِ تازه' + (ofl.why ? ' — ' + ofl.why : '') + '.');
+    }
     clipStep();                                           // آغاز، یا پرسیدنِ دوباره
   } finally {
     lvSceneLease_(key, 0);
@@ -52590,15 +52975,17 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     items.push({ n: x.n, t0: x.t0, fileId: id, url: ytDlUrl_(id),
                  caption: x.fileId ? String(x.caption || '') : '', sec: x.sec || 0,
                  ov: x.fileId ? (x.ov || null) : null,
-                 mv: x.fileId && d.focusOn !== false ? lvSceneMv_(x) : null });
+                 mv: x.fileId && d.focusOn !== false ? lvSceneMv_(x) : null,
+                 /* جای کانون (داور) و ضربِ صحنه — کارت روی کانون نمی‌نشیند و گذارِ صحنه
+                    از ضرب و بخش انتخاب می‌شود (۸.۵۶). */
+                 fb: x.fileId && x.judge && x.judge.box ? x.judge.box : null,
+                 beat: String(x.beat || '') });
   }
   if (items.length) items[0].t0 = 0;
   lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
   lvMotionNote_(key, d, items);          // حرکتِ کانون‌دار، برای پیگیری (۸.۵۲)
   /* کلیپ فقط روی همان تصویری می‌نشیند که از آن ساخته شد. */
-  if (items.length && d.clip && d.clip.state === 'ok' && d.clip.fileId && items[0].fileId === d.clip.img) {
-    items[0].clip = { fileId: d.clip.fileId, sec: Number(d.clip.sec) || lvClipSec_() };
-  }
+  lvClipAttach_(items, d.clip);
   out.items = items;
   if (d.cover.fileId) out.cover = { fileId: d.cover.fileId, url: ytDlUrl_(d.cover.fileId) };
   var sc2 = d.scenes.filter(function (x) { return x.judge && x.judge.s >= 0; });
@@ -52612,6 +52999,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                judgeWhy: String(d.judgeWhy || ''),
                text: String(d.text || ''), ov: d.scenes.filter(function (x) { return !!x.ov; }).length,
                ovDropped: Number(d.ovDropped) || 0,
+               ovFill: d.ovFill ? (Number(d.ovFill.got) || 0) : 0,
                nature: String(d.nature || ''), ovGenre: Number(d.ovGenre) || 0,
                beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length,
                paced: !!(d.pace && d.pace.paced), natural: Number(d.natural) || d.scenes.length,
@@ -54488,6 +54876,7 @@ function ytUploadOne_(item, hub, pub) {
      تعریفش را با جابه‌جاییِ کاور برداشت و فقط مجموعهٔ آزمون نشانش داد. */
   var rme = null;
   try { rme = (ytRenderMapCached_() || {})[thKey] || null; } catch (eRm) { rme = null; }
+  try { lvOvNote_(thKey, rme); } catch (eOv) {}
   var th = ytThumbFor_(thKey, function () { return cover; });
   var thumb = '—';
   if (CFG.YT_THUMB !== false && th && th.blob &&
