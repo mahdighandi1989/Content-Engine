@@ -3704,6 +3704,8 @@ function lvGenStatus_() {
       /* کارت‌های نوشتاری — آنچه روی ویدئو نشست (۸.۵۶). */
       out.ov = lvOvStatus_();
       if (out.ov.line) out.line += '\n' + out.ov.line;
+      out.fb = lvSceneFbStatus_();
+      if (out.fb.line) out.line += '\n' + out.fb.line;
       out.aud = lvAudStatus_();
       if (out.aud.line) out.line += '\n' + out.aud.line;
     }
@@ -4675,20 +4677,41 @@ function lvHealth_(problems, notes) {
     var os = lvOvStatus_();                 // خطش در `lvStatus_().line` است، همراهِ 🎬 و 🎥
     if (!os.ok && os.last) {
       var oL = os.last;
-      problems.push('🪧 کارت‌های نوشتاری ' + faDigitsOut_(String(oL.n)) + ' درسِ پیاپی نحیف — آخرین (' + oL.key + '): ' +
-                    faDigitsOut_(String(oL.placed)) + ' از ' + faDigitsOut_(String(oL.scenes)) + ' صحنه');
+      problems.push('🪧 کارت‌های نوشتاری ' + faDigitsOut_(String(oL.n)) + ' درسِ پیاپی نحیف یا یکنواخت — آخرین (' + oL.key + '): ' +
+                    faDigitsOut_(String(oL.placed)) + ' از ' + faDigitsOut_(String(oL.scenes)) + ' صحنه' +
+                    (oL.flat ? '، ساختاردار ' + faDigitsOut_(String(oL.struct || 0)) : ''));
       logSelfFinding_(getHub_(), {
         priority: 'جدی', category: 'تصویرِ درس', key: 'lv-ov-thin',
-        title: 'کارت‌های نوشتاریِ ویدئو پیاپی کم‌اند',
+        title: 'کارت‌های نوشتاریِ ویدئو پیاپی کم یا یکنواخت‌اند',
         detail: oL.key + ': ' + oL.placed + ' کارت روی ' + oL.scenes + ' صحنه (کف ' + oL.need + ')؛ خواسته ' + oL.asked +
-                '، بی‌جا ' + oL.busy + ' · انواع: ' + JSON.stringify(oL.kinds || {}),
-        instruction: 'اگر «خواسته» کم است: `_scenes.json` → `ovShare`، `ovN` و `ovFill` (پرسشِ کارت پس از داوری، ' +
+                '، بی‌جا ' + oL.busy + '، ساختاردار ' + (oL.struct || 0) + (oL.flat ? ' (یکنواخت)' : '') +
+                ' · انواع: ' + JSON.stringify(oL.kinds || {}),
+        instruction: 'اگر «یکنواخت» است: `_scenes.json` → `ovFill.up/weak/struct/rejected` (ارتقای تیتر به ' +
+                     'کارتِ ساختاردار در lvSceneOvFill_، سقفِ LV_OV_WEAK_MAX). ' +
+                     'اگر «خواسته» کم است: `_scenes.json` → `ovShare`، `ovN` و `ovFill` (پرسشِ کارت پس از داوری، ' +
                      'lvSceneOvFill_). اگر «بی‌جا» زیاد است: tools/overlay.js → place (سدهای busy/massCard/solid) ' +
                      'و جای خالیِ داور (`judge.space`). قاب‌ها را از خودِ MP4 ببین، نه از نقشه.',
         owner: ROWNER_CODE
       });
     }
   } catch (eOs) {}
+  try {
+    var fbS = lvSceneFbStatus_();
+    if (!fbS.ok && fbS.last) {
+      problems.push('🖼 درسِ ' + fbS.last.key + ' به‌جای صحنهٔ مصور با کارتِ ساده ساخته شد: ' + fbS.last.why);
+      logSelfFinding_(getHub_(), {
+        priority: 'جدی', category: 'تصویرِ درس', key: 'lv-scene-fallback',
+        title: 'ویدئوی درس از صحنهٔ مصور به کارتِ ساده افتاد',
+        detail: fbS.last.key + ' (' + fbS.last.at + '): ' + fbS.last.why +
+                (Number(fbS.last.n) > 1 ? ' · ' + fbS.last.n + ' درسِ پیاپی' : ''),
+        instruction: 'علت در خودِ جزئیات است (lvScenesBuild_ ⇒ fail/planFail). «`_times.json` نبود» یا «زمانِ ' +
+                     'تکه‌ها جور نشد» یعنی lvReplayChunks_/specialTextChunks_ با تولیدِ همان قسمت نمی‌خوانَد — ' +
+                     'برای مرورِ بزرگ (بخشِ ۳۰) جدا بسنج. «سقفِ ماهانه» یعنی lvScenePace_. «خطا: …» یعنی پرتابِ ' +
+                     'بی‌حفاظ. ویدئوی منتشرشده عوض نمی‌شود؛ جایگزینی تصمیمِ صاحبِ برنامه است.',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eFbS) {}
   try {
     var ms = lvMotionStatus_();
     if (ms.on && !ms.ok) {
@@ -5850,7 +5873,7 @@ function lvSceneOvSpace_(ov) {
  * @return {{asked:number, got:number, why:string}}
  */
 function lvSceneOvFill_(d, ctx, left) {
-  var out = { asked: 0, got: 0, why: '' };
+  var out = { asked: 0, got: 0, up: 0, why: '' };
   if (!d || !d.scenes || d.ovFillAt || CFG.LV_OV_FILL === false) return out;
   var share = Number(d.ovShare) || 0;
   if (share <= 0) return out;
@@ -5858,71 +5881,137 @@ function lvSceneOvFill_(d, ctx, left) {
   var target = Math.round(n * share);
   var have = d.scenes.filter(function (x) { return !!x.ov; }).length;
   var floor = Math.ceil(target * (Number(CFG.LV_OV_FILL_MIN) || 0.75));
-  if (have >= floor) { d.ovFillAt = nowStr_(); d.ovFill = { asked: 0, got: 0, why: 'کافی بود' }; return out; }
+  /* «یکنواخت» (۸.۶۰): در درس، تیتر و نقل روی هم حداکثر یک‌سوم. درسِ ۴۰ هشت کارت
+     داشت، شش تیتر و دو نقل — کف را هم نمی‌داد، ولی حتی اگر می‌داد، هجده تیترِ تنها
+     همان «فقط یه جملهٔ ساده» بود. قصه از این سد بیرون است: روایت فهرست نمی‌گیرد. */
+  var lesson = String(d.nature || '') !== 'داستان';
+  var weakMax = lesson ? Math.floor(Math.max(target, have) * (Number(CFG.LV_OV_WEAK_MAX) || 1 / 3)) : Infinity;
+  var weakNow = d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length;
+  var needMore = have < floor;
+  var flat = lesson && have >= 3 && weakNow > Math.max(1, weakMax);
+  if (!needMore && !flat) {
+    d.ovFillAt = nowStr_();
+    d.ovFill = { asked: 0, got: 0, up: 0, why: 'کافی بود', have: have, target: target, weak: weakNow };
+    return out;
+  }
   if (left && left() < 45000) { out.why = 'وقت کم است'; return out; }
   var story = function (x) { return x.beat === 'روایت' || (d.nature === 'داستان' && x.beat !== 'ایده'); };
-  var cands = d.scenes.filter(function (x) {
+  var spaced = function (x) {
     var sp = x.judge && x.judge.space;
-    return !x.ov && x.fileId && x.judge && sp && sp !== 'none' && !lvSceneIsCalendar_(x.text) &&
+    return x.fileId && x.judge && sp && sp !== 'none' && !lvSceneIsCalendar_(x.text) &&
            (Number(x.t1) || 0) - (Number(x.t0) || 0) >= 9;
+  };
+  /* دو جور نامزد: صحنهٔ بی‌کارتی که جای خالی دارد، و — وقتی یکنواخت است — صحنهٔ «ایده»ای
+     که کارتش تیتر یا نقل است و می‌تواند ساختاردار شود. ارتقا فقط با کارتِ ساختاردار. */
+  var cands = d.scenes.filter(function (x) {
+    if (!spaced(x)) return false;
+    if (!x.ov) return true;
+    return flat && lvOvWeak_(x.ov) && !story(x);
   });
-  if (!cands.length) { d.ovFillAt = nowStr_(); d.ovFill = { asked: 0, got: 0, why: 'صحنهٔ جاداری نماند' }; return out; }
-  var want = Math.min(target - have, cands.length);
-  out.asked = want;
-  var L = [];
-  L.push('این‌ها صحنه‌های یک ویدئوی آموزشیِ فارسی‌اند. روی تصویرِ هر صحنه یک کارتِ نوشتاریِ ' +
-         'کوچک و تمیز می‌تواند بنشیند — مثلِ اینفوگرافیکِ ویدئوهای آموزشیِ حرفه‌ای: بیننده با یک ' +
-         'نگاه چکیدهٔ همان لحظه را می‌گیرد. عنوانِ درس: «' + String((ctx && ctx.title) || '') + '».');
-  L.push('');
-  L.push('از صحنه‌های زیر **' + want + '** تا را برگزین که واقعاً چیزی برای دیدن دارند (تعریف، تمایز، ' +
-         'فهرست، روند، استدلالِ چندمرحله‌ای، پرسشِ کلیدی) و برای هر کدام یک کارت بنویس. در طولِ درس ' +
-         'پخش باشند، نه پشتِ‌هم.');
-  for (var i = 0; i < cands.length; i++) {
-    var x = cands[i];
-    L.push('[' + x.n + ']' + (story(x) ? ' (روایت)' : '') + ' ' + lvSceneClean_(x.text).slice(0, 420));
+  var newWant = Math.max(0, target - have);
+  var upWant = flat ? Math.max(0, weakNow - weakMax) : 0;
+  var newC = cands.filter(function (x) { return !x.ov; }).length;
+  var upC = cands.length - newC;
+  var want = Math.min(newWant, newC) + Math.min(upWant, upC);
+  if (!cands.length || !want) {
+    d.ovFillAt = nowStr_();
+    d.ovFill = { asked: 0, got: 0, up: 0, why: 'صحنهٔ جاداری نماند', have: have, target: target, weak: weakNow };
+    return out;
   }
-  L.push('');
-  L.push('نوعِ کارت (`ov`) — **بیشترشان points، steps یا compare**؛ headline و quote روی هم حداکثر یک‌سوم:');
-  L.push('  points: `ovTitle` کوتاه و ۲ تا ۳ نکته (هر کدام ≤ ۵۰ نویسه) در `ovLines` — نکته‌هایی که **همان لحظه** گفته می‌شوند.');
-  L.push('  steps: ۳ گامِ خیلی کوتاه (≤ ۲۴ نویسه) به ترتیب در `ovLines`، و `ovTitle` اختیاری — برای روند و زنجیرهٔ استدلال.');
-  L.push('  compare: `ovA` و `ovB` نامِ دو طرف، و ۱ تا ۳ ردیف «برچسب: طرفِ اول | طرفِ دوم» در `ovLines`.');
-  L.push('  headline: `ovTitle` (≤ ۳۰ نویسه) **و** یک سطرِ توضیح (≤ ۷۰ نویسه) در `ovLines` — هرگز تیترِ تنها.');
-  L.push('  quote: `ovTitle` جملهٔ کلیدیِ همان لحظه (≤ ۹۰ نویسه)، و اختیاری گوینده/منبع در `ovLines`.');
-  L.push('• صحنهٔ «(روایت)» فقط headline یا quote — قصه فهرست و جدول نیست.');
-  L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان کارت آمده.');
-  L.push('• فارسیِ معیار، جمله‌بندیِ روشن و کامل، اعداد فارسی. تکرارِ واژه‌به‌واژهٔ روایت نه؛ چکیده.');
-  L.push('• `n` همان شمارهٔ صحنه.');
+  out.asked = want;
   var schema = { type: 'OBJECT', properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
     n: { type: 'STRING' }, ov: { type: 'STRING' }, ovTitle: { type: 'STRING' },
     ovLines: { type: 'ARRAY', items: { type: 'STRING' } }, ovA: { type: 'STRING' }, ovB: { type: 'STRING' },
     ovKeys: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['n', 'ov'] } } }, required: ['items'] };
   d.ovFillTries = (Number(d.ovFillTries) || 0) + 1;
-  var r = null;
-  try { r = geminiText_(L.join('\n'), schema, 6144, { exact: true }); }
-  catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 100); }
-  if (!out.why && (!r || !Array.isArray(r.items))) out.why = 'پاسخ کارت نداشت';
+  var batch = Math.max(2, Number(CFG.LV_OV_FILL_BATCH) || 8);
+  var maxCalls = Math.max(1, Number(CFG.LV_OV_FILL_CALLS) || 3);
+  var got = 0, up = 0, calls = 0, answered = 0, rejected = 0;
   var byN = {};
   for (var c = 0; c < cands.length; c++) byN[String(cands[c].n)] = cands[c];
-  var got = 0;
-  for (var k = 0; !out.why && k < r.items.length && got < want; k++) {
-    var it = r.items[k] || {};
-    var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (q) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(q); });
-    var sc = byN[String(Number(nn))];
-    if (!sc || sc.ov) continue;
-    var o = lvSceneOvNorm_(it);
-    if (!o) continue;
-    if (story(sc) && ['points', 'compare', 'steps'].indexOf(o.kind) !== -1) continue;
-    o.side = sc.judge.space;
-    sc.ov = o; sc.ovFill = 1; got++;
+  /* دسته‌ها در طولِ درس پخش‌اند: هر دسته از جاهای مختلفِ درس برمی‌دارد، نه هشت صحنهٔ
+     پشتِ‌هم — وگرنه اگر فقط یک دسته وقت شد، همهٔ کارت‌ها اولِ درس می‌نشستند. */
+  var groups = [], nb = Math.ceil(cands.length / batch);
+  for (var g = 0; g < nb; g++) groups.push([]);
+  for (var q = 0; q < cands.length; q++) groups[q % nb].push(cands[q]);
+  for (var gi = 0; gi < groups.length && calls < maxCalls && got + up < want; gi++) {
+    if (calls && left && left() < 45000) { if (!out.why) out.why = 'وقت کم است (پس از ' + calls + ' پرسش)'; break; }
+    var grp = groups[gi];
+    var rest = want - got - up;
+    var leftGroups = groups.length - gi;
+    var ask = Math.max(1, Math.min(grp.length, Math.ceil(rest / Math.min(leftGroups, maxCalls - calls))));
+    var L = [];
+    L.push('این‌ها صحنه‌های یک ویدئوی آموزشیِ فارسی‌اند. روی تصویرِ هر صحنه یک کارتِ نوشتاریِ ' +
+           'کوچک و تمیز می‌تواند بنشیند — مثلِ اینفوگرافیکِ ویدئوهای آموزشیِ حرفه‌ای: بیننده با یک ' +
+           'نگاه چکیدهٔ همان لحظه را می‌گیرد. عنوانِ درس: «' + String((ctx && ctx.title) || '') + '».');
+    L.push('');
+    L.push('از صحنه‌های زیر **' + ask + '** تا را برگزین که واقعاً چیزی برای دیدن دارند (تعریف، تمایز، ' +
+           'فهرست، روند، استدلالِ چندمرحله‌ای، پرسشِ کلیدی) و برای هر کدام یک کارت بنویس.');
+    for (var i = 0; i < grp.length; i++) {
+      var x = grp[i];
+      var cur = x.ov ? ' (کارتِ فعلی: «' + String(x.ov.title || '').slice(0, 60) + '» — اگر برگزیدی، ' +
+                       'به points یا steps یا compare تبدیلش کن)' : '';
+      L.push('[' + x.n + ']' + (story(x) ? ' (روایت)' : '') + cur + ' ' + lvSceneClean_(x.text).slice(0, 420));
+    }
+    L.push('');
+    L.push('نوعِ کارت (`ov`) — **بیشترشان points، steps یا compare**؛ headline و quote روی هم حداکثر یک‌سوم:');
+    L.push('  points: `ovTitle` کوتاه و ۲ تا ۳ نکته (هر کدام ≤ ۵۰ نویسه) در `ovLines` — نکته‌هایی که **همان لحظه** گفته می‌شوند.');
+    L.push('  steps: ۳ گامِ خیلی کوتاه (≤ ۲۴ نویسه) به ترتیب در `ovLines`، و `ovTitle` اختیاری — برای روند و زنجیرهٔ استدلال.');
+    L.push('  compare: `ovA` و `ovB` نامِ دو طرف، و ۱ تا ۳ ردیف «برچسب: طرفِ اول | طرفِ دوم» در `ovLines`.');
+    L.push('  headline: `ovTitle` (≤ ۳۰ نویسه) **و** یک سطرِ توضیح (≤ ۷۰ نویسه) در `ovLines` — هرگز تیترِ تنها.');
+    L.push('  quote: `ovTitle` جملهٔ کلیدیِ همان لحظه (≤ ۹۰ نویسه)، و اختیاری گوینده/منبع در `ovLines`.');
+    L.push('• صحنهٔ «(روایت)» فقط headline یا quote — قصه فهرست و جدول نیست.');
+    L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان کارت آمده.');
+    L.push('• فارسیِ معیار، جمله‌بندیِ روشن و کامل، اعداد فارسی. تکرارِ واژه‌به‌واژهٔ روایت نه؛ چکیده.');
+    L.push('• `n` همان شمارهٔ صحنه.');
+    calls++;
+    var r = null, err = '';
+    try { r = geminiText_(L.join('\n'), schema, 6144, { exact: true }); }
+    catch (e) { err = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 100); }
+    if (!err && (!r || !Array.isArray(r.items))) err = 'پاسخ کارت نداشت';
+    if (err) { if (!out.why) out.why = err; break; }
+    answered++;
+    var gotHere = 0;
+    for (var k = 0; k < r.items.length && got + up < want; k++) {
+      var it = r.items[k] || {};
+      var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (z) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(z); });
+      var sc = byN[String(Number(nn))];
+      if (!sc || sc.__ovNew) continue;
+      var o = lvSceneOvNorm_(it);
+      if (!o) { rejected++; continue; }
+      /* «هرگز تیترِ تنها» — در کد، نه فقط در پرامپت. */
+      if (o.kind === 'headline' && !o.lines.length) { rejected++; continue; }
+      if (story(sc) && lvOvStruct_(o) ) { rejected++; continue; }
+      var upgrade = !!sc.ov;
+      if (upgrade && !lvOvStruct_(o)) { rejected++; continue; }
+      if (!upgrade && lvOvWeak_(o) && weakNow >= weakMax) { rejected++; continue; }
+      o.side = sc.judge.space;
+      if (upgrade) { weakNow--; up++; sc.ovUp = 1; } else { got++; if (lvOvWeak_(o)) weakNow++; }
+      sc.ov = o; sc.ovFill = 1; sc.__ovNew = 1; gotHere++;
+    }
+    /* دسته‌ای که هیچ کارتِ پذیرفتنی نداد، یعنی دسته‌های بعد هم پولِ هدر است — همان «یک
+       بار، نه تا کافی شود» (۸۵.۴-ب). */
+    if (!gotHere) break;
   }
-  if (got) d.ovN = lvSceneOvTrim_(d.scenes, share);
-  out.got = got;
-  if (!out.why || d.ovFillTries >= 2) {
+  for (var z2 = 0; z2 < d.scenes.length; z2++) delete d.scenes[z2].__ovNew;
+  if (got || up) d.ovN = lvSceneOvTrim_(d.scenes, share);
+  out.got = got; out.up = up;
+  if (!out.why && !got && !up) out.why = answered ? 'مدل کارتِ پذیرفتنی نداد' + (rejected ? ' (' + rejected + ' رد شد)' : '') : '';
+  /* شکستِ واقعی (مدل جواب نداد) یک بارِ دیگر در اجرای بعد؛ هر چیزِ دیگر ثبت و تمام. */
+  if (answered || d.ovFillTries >= 2) {
     d.ovFillAt = nowStr_();
-    d.ovFill = { asked: want, got: got, why: out.why, have: have, target: target };
+    d.ovFill = { asked: want, got: got, up: up, why: out.why, have: have, target: target, calls: calls,
+                 weak: d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length,
+                 struct: d.scenes.filter(function (x) { return lvOvStruct_(x.ov); }).length,
+                 rejected: rejected };
   }
   return out;
 }
+
+/** کارتِ «فقط نوشته»: تیتر یا نقل (۸.۶۰). */
+function lvOvWeak_(ov) { return !!ov && (ov.kind === 'headline' || ov.kind === 'quote'); }
+/** کارتِ ساختاردار: فهرست، گام، مقایسه — آنچه چکیدهٔ یک استدلال را می‌کشد. */
+function lvOvStruct_(ov) { return !!ov && ['points', 'steps', 'compare'].indexOf(ov.kind) !== -1; }
 
 /** دستورِ نهاییِ تصویر — انگلیسی، با قیدهای قطعی **در خودِ کد**. */
 function lvSceneImgPrompt_(desc, art, cast, extra) {
@@ -6489,19 +6578,26 @@ function lvMotionNote_(key, d, items) {
  * می‌شود — همان که از خودِ ساخت آمده — یک بار برای هر درس. «نحیف» = درسی با دست‌کم ده
  * صحنه که کمتر از `LV_OV_WATCH_FRAC` صحنه‌هایش کارت گرفت (و نه کمتر از سه).
  */
-function lvOvNote_(key, rme) {
+function lvOvNote_(key, rme, nature) {
   if (!rme || String(rme.mode || '') !== 'scenes') return null;
   var ov = rme.ov || { asked: 0, placed: 0, busy: 0, kinds: {} };
   var sc = Number(rme.scenes) || 0;
   var need = Math.max(3, Math.ceil(sc * (Number(CFG.LV_OV_WATCH_FRAC) || 0.2)));
   var placed = Number(ov.placed) || 0;
   var thin = sc >= 10 && placed < need;
+  /* «یکنواخت» (۸.۶۰): درسی که کارت‌هایش تقریباً همه تیتر و نقل‌اند — درسِ ۴۰: ۸ کارت،
+     ۶ تیتر و ۲ نقل، صفر فهرست/گام/مقایسه. شمار کافی هم باشد، این «فقط نوشته» است.
+     قصه بیرون است: روایت فهرست نمی‌گیرد. */
+  var kinds = ov.kinds || {};
+  var struct = (Number(kinds.points) || 0) + (Number(kinds.steps) || 0) + (Number(kinds.compare) || 0);
+  var flat = String(nature || '') !== 'داستان' && placed >= 4 && struct * 3 < placed;
   var P = props_(), prev = null;
   try { prev = JSON.parse(P.getProperty(PK.LV_OV_LAST) || 'null'); } catch (e) { prev = null; }
   if (prev && prev.key === key) return prev;                  // همان درس دو بار شمرده نمی‌شود
   var rec = { key: key, at: nowStr_(), scenes: sc, asked: Number(ov.asked) || 0, placed: placed,
-              busy: Number(ov.busy) || 0, kinds: ov.kinds || {}, need: need, thin: thin,
-              n: thin ? ((prev && Number(prev.n)) || 0) + 1 : 0 };
+              busy: Number(ov.busy) || 0, kinds: kinds, need: need, thin: thin,
+              struct: struct, flat: flat, nature: String(nature || ''),
+              n: (thin || flat) ? ((prev && Number(prev.n)) || 0) + 1 : 0 };
   try { P.setProperty(PK.LV_OV_LAST, JSON.stringify(rec)); } catch (e2) {}
   return rec;
 }
@@ -6515,10 +6611,45 @@ function lvOvStatus_() {
   var line = '🪧 کارت‌های نوشتاری: آخرین درس (' + r.key + ') ' + faDigitsOut_(String(r.placed)) + ' کارت روی ' +
              faDigitsOut_(String(r.scenes)) + ' صحنه نشست (خواسته ' + faDigitsOut_(String(r.asked)) +
              (r.busy ? '، بی‌جا ' + faDigitsOut_(String(r.busy)) : '') + ')' + (kinds ? ' · ' + kinds : '') +
-             (r.thin ? ' · ❌ کمتر از کفِ ' + faDigitsOut_(String(r.need)) : '');
+             (r.thin ? ' · ❌ کمتر از کفِ ' + faDigitsOut_(String(r.need)) : '') +
+             (r.flat ? ' · ⚠️ یکنواخت: فقط ' + faDigitsOut_(String(r.struct || 0)) +
+                       ' فهرست/گام/مقایسه — بقیه تیتر و نقل' : '');
   var ok = !(Number(r.n) >= Math.max(1, Number(CFG.LV_OV_THIN_FIND) || 2));
-  if (!ok) line += ' · ❌ ' + faDigitsOut_(String(r.n)) + ' درسِ پیاپی نحیف.';
+  if (!ok) line += ' · ❌ ' + faDigitsOut_(String(r.n)) + ' درسِ پیاپی نحیف یا یکنواخت.';
   return { ok: ok, line: line, last: r };
+}
+
+/**
+ * ══ درسی که از صحنهٔ مصور به کارتِ ساده افتاد (۸.۶۰) ══
+ * «مرورِ بزرگِ» درس‌نامه (special:63) با کارتِ اسلایدز ساخته شد، نه صحنه — و علتش
+ * فقط در سیاههٔ درونِ هاب بود: جایی که ناظر و سشنِ کد روزی که درایو در دسترس نیست
+ * نمی‌بینند، و صاحبِ برنامه هرگز. ویدئوی منتشرشده همان نسخهٔ ضعیف‌تر می‌مانَد، پس هر
+ * افتادن یک بار و با علت ثبت می‌شود — همان درس دو بار شمرده نمی‌شود — و ساختِ صحنه‌ایِ
+ * بعدی شمار را صفر می‌کند. فقط Properties (۷.۶۳).
+ * @param {string} why — خالی یعنی «این درس صحنه گرفت»
+ */
+function lvSceneFbNote_(key, why) {
+  var P = props_(), prev = null;
+  try { prev = JSON.parse(P.getProperty(PK.LV_SCENE_FB) || 'null'); } catch (e) { prev = null; }
+  /* دو قفل برای «همان درس یک بار» (۷.۴۱): این خط، و شمارِ پایین که فقط با «درسِ دیگر» بالا
+     می‌رود. شکستنِ یکی سبز می‌مانَد؛ هر دو با هم ۷۱.۹-ب را سرخ می‌کنند. */
+  if (prev && prev.key === key && !!prev.fb === !!why) return prev;
+  var rec = why
+    ? { key: key, at: nowStr_(), fb: true, why: String(why).slice(0, 300),
+        n: (prev && prev.fb && prev.key !== key ? Number(prev.n) || 0 : 0) + 1 }
+    : { key: key, at: nowStr_(), fb: false, why: '', n: 0 };
+  try { P.setProperty(PK.LV_SCENE_FB, JSON.stringify(rec)); } catch (e2) {}
+  return rec;
+}
+
+/** خطِ روزانه و سدِ «افتادن به کارت» — بی درایو. سالم ⇒ خطی نیست (🎬 و 🪧 همان را می‌گویند). */
+function lvSceneFbStatus_() {
+  var r = null;
+  try { r = JSON.parse(props_().getProperty(PK.LV_SCENE_FB) || 'null'); } catch (e) { r = null; }
+  if (!r || !r.fb) return { ok: true, line: '', last: r };
+  return { ok: false, last: r,
+           line: '🖼 ❌ آخرین درس (' + r.key + ') به‌جای صحنهٔ مصور با کارتِ ساده ساخته شد — علت: ' + r.why +
+                 (Number(r.n) > 1 ? ' · ' + faDigitsOut_(String(r.n)) + ' درسِ پیاپی' : '') + '.' };
 }
 
 function lvMotionStatus_() {
@@ -7205,6 +7336,11 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                text: String(d.text || ''), ov: d.scenes.filter(function (x) { return !!x.ov; }).length,
                ovDropped: Number(d.ovDropped) || 0,
                ovFill: d.ovFill ? (Number(d.ovFill.got) || 0) : 0,
+               /* ۸.۶۰: «۰» به‌تنهایی نمی‌گفت چرا — درسِ ۴۰ همین بود. علت، ارتقا و ترکیب. */
+               ovFillWhy: d.ovFill ? String(d.ovFill.why || '') : '',
+               ovUp: d.ovFill ? (Number(d.ovFill.up) || 0) : 0,
+               ovStruct: d.scenes.filter(function (x) { return lvOvStruct_(x.ov); }).length,
+               ovWeak: d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length,
                nature: String(d.nature || ''), ovGenre: Number(d.ovGenre) || 0,
                beats: d.scenes.filter(function (x) { return x.beat === 'روایت'; }).length,
                paced: !!(d.pace && d.pace.paced), natural: Number(d.natural) || d.scenes.length,
@@ -8802,12 +8938,19 @@ function ytUploadOne_(item, hub, pub) {
    * تا ویدئو نرسیده، این درس صحنه می‌گیرد: تصویرِ تمام‌صفحه‌ای که همان چیزی
    * را نشان می‌دهد که در همان لحظه گفته می‌شود. نشد ⇒ با علت به مسیرِ قبلی
    * (کارت‌ها) می‌افتد؛ ویدئوی ساده از ویدئوی نیامده بهتر است. */
+  var sceneFb = '';
   if (ytVisOn_(item.show) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
     var scn = null;
     try { scn = lvScenesBuild_(folder, meta, plan, ctx); }
     catch (eSc) {
       scn = { active: true, fallback: true, why: 'خطا: ' + eSc.message };
       logLine_('صحنه‌های مصورِ ' + item.key + ' نشد: ' + eSc.message);
+    }
+    /* افتادن به کارت با علت، بیرون از هاب (۸.۶۰): در ردیفِ عمومی (`vis.sceneWhy`) و در
+       Properties برای خطِ روزانه و یافته. */
+    if (scn && scn.active && scn.fallback) {
+      sceneFb = String(scn.why || 'بی علت');
+      try { lvSceneFbNote_(String(item.key || (item.show + ':' + item.ep)), sceneFb); } catch (eFb) {}
     }
     if (scn && scn.active && !scn.fallback) {
       if (!scn.done) { res.waiting = true; res.why = scn.why || 'صحنه‌ها در حالِ ساخت'; return res; }
@@ -8830,6 +8973,7 @@ function ytUploadOne_(item, hub, pub) {
                         پس‌زمینهٔ کاورِ مربعِ پلی‌لیست می‌کند (۸.۵۵). */
                      plKey: ytPlKey_(item.show, item.seriesKey, seriesName),
                      replace: item.replace ? String(item.replace) : '' });
+      if (askedOk) { try { lvSceneFbNote_(String(item.key || (item.show + ':' + item.ep)), ''); } catch (eFb0) {} }
       res.waiting = true;
       res.why = askedOk
         ? 'ویدئوی صحنه‌ای هنوز ساخته نشده؛ درخواستِ رندر با ' +
@@ -8981,7 +9125,7 @@ function ytUploadOne_(item, hub, pub) {
        یا ساختن نرسید یا لنگر نگرفت» را بی هیچ دسترسیِ تازه‌ای می‌دهد. فقط
        شمارش و علت — هیچ متنی از درس. */
     var visInfo = null;
-    if (vis.want || (plan.visuals || []).length) {
+    if (vis.want || (plan.visuals || []).length || sceneFb) {
       visInfo = {
         asked: Number(vis.asked) || ytVisWant_(totalSec),
         planned: (plan.visuals || []).length,
@@ -9003,7 +9147,8 @@ function ytUploadOne_(item, hub, pub) {
         reshaped: lvSpec ? Number(lvSpec.reshaped) || 0 : 0,
         spec: lvSpec ? lvSpec.cards.length : 0,
         specMissed: lvSpec ? Number(lvSpec.missed) || 0 : 0,
-        specWhy: lvSpec ? '' : String((spCtx && spCtx.why) || '')
+        specWhy: lvSpec ? '' : String((spCtx && spCtx.why) || ''),
+        sceneWhy: sceneFb || undefined
       };
     }
 
@@ -9083,7 +9228,13 @@ function ytUploadOne_(item, hub, pub) {
      تعریفش را با جابه‌جاییِ کاور برداشت و فقط مجموعهٔ آزمون نشانش داد. */
   var rme = null;
   try { rme = (ytRenderMapCached_() || {})[thKey] || null; } catch (eRm) { rme = null; }
-  try { lvOvNote_(thKey, rme); } catch (eOv) {}
+  /* ماهیت از `_scenes.json`ِ همین درس (۸.۶۰): «یکنواخت» برای درس عیب است و برای قصه نه. یک
+     خواندن، یک بار برای هر انتشار. */
+  try {
+    var natOv = '';
+    try { var sdOv = lvSceneRead_(folder); natOv = sdOv ? String(sdOv.nature || '') : ''; } catch (eNo) {}
+    lvOvNote_(thKey, rme, natOv);
+  } catch (eOv) {}
   var th = ytThumbFor_(thKey, function () { return cover; });
   var thumb = '—';
   if (CFG.YT_THUMB !== false && th && th.blob &&

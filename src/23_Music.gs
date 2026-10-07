@@ -205,7 +205,13 @@ function musicSamples_(b, info, startSec, lenSec) {
     از ۶٫۷۰ محو شیبِ S دارد (xfRc_ در بخشِ ۳)، نه خطی: شیبِ خطی در لحظهٔ
     رسیدن به سکوت هنوز با سرعتِ کامل پایین می‌رود و گوش آن را «قطع»
     می‌شنود؛ S در هر دو سر شیبِ صفر دارد — فرودِ نرم، نه سقوط. */
-function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
+/* شکلِ «دنباله» برای محوِ پایانیِ قسمت (۸.۶۰): u از ۱ به ۰ می‌رود و بلندی u² است — از
+   همان اول آرام کم می‌شود (برحسبِ دسی‌بل تقریباً یکنواخت) و با شیبِ صفر به سکوت می‌رسد.
+   S (xfRc_) تا نیمهٔ محو ۶− دسی‌بل است و نیمهٔ دوم یک‌جا می‌افتد؛ گوش آن را «زود تموم شد»
+   می‌شنود. */
+function tailCurve_(u) { u = Math.max(0, Math.min(1, Number(u) || 0)); return u * u; }
+
+function musicShape_(samples, gain, fadeInSec, fadeOutSec, outCurve) {
   var g = (Number(gain) >= 0) ? Number(gain) : 1;
   var sr = CFG.SAMPLE_RATE || 24000;
   var fi = Math.min(Math.floor((Number(fadeInSec) || 0) * sr), samples.length);
@@ -214,7 +220,7 @@ function musicShape_(samples, gain, fadeInSec, fadeOutSec) {
   for (var i = 0; i < n; i++) {
     var m = g;
     if (fi && i < fi) m *= xfRc_(i / fi);
-    if (fo && i >= n - fo) m *= xfRc_((n - i) / fo);
+    if (fo && i >= n - fo) m *= (outCurve === 'tail') ? tailCurve_((n - i) / fo) : xfRc_((n - i) / fo);
     var v = Math.round(samples[i] * m);
     samples[i] = v > 32767 ? 32767 : (v < -32768 ? -32768 : v);
   }
@@ -281,7 +287,7 @@ function musicClip_(fileId, opt) {
     var len = Math.min(Number(opt.lenSec) || cap, cap);
     var s = musicSamples_(b, info, opt.startSec || 0, len);
     if (!s.length) return '';
-    musicShape_(s, opt.gain, opt.fadeIn, opt.fadeOut);
+    musicShape_(s, opt.gain, opt.fadeIn, opt.fadeOut, opt.fadeCurve);
     // بسترِ پایانی روی سرِ قطعه — بعد از بلندی و محو، که فقط پوششِ حجمی است
     // روی ناحیه‌ای که محوِ ورود نگرفته (fadeIn آن حالت صفر است).
     if (opt.bedIn) musicBedIn_(s, opt.bedIn.under, opt.bedIn.rise, opt.bedIn.bed);
@@ -615,6 +621,132 @@ function bridgeFill_(want, bounds, bank, mood, minBr) {
     drop(fb.id);
   }
   return want;
+}
+
+/**
+ * ══ پلِ میانهٔ کم، از همان آهنگ‌های شنیده‌شده (۸.۶۰) ══
+ *
+ * او پرسید «موسیقی‌های میانی فقط یه دونه پخش میشه؟» — بله: درس‌نامهٔ ۷ اکتبر سه قطعه
+ * داشت، آغاز و پایانش یک آهنگِ پیانو و تنها پلش «طنینِ کشیده». کف (`minBr`) چهار بود؛
+ * `bridgeFill_` فقط قطعه‌ای را برمی‌دارد که برای «میانه» برچسب خورده و **شنیده** شده، و
+ * هیچ قطعه‌ای در یک قسمت دو بار نمی‌آید. بانکی که چند آهنگِ شنیده بیشتر ندارد، یعنی
+ * یک پل — و آن هم طنینی که شنونده موسیقی نمی‌شنود (۸.۵۶/۸.۵۷).
+ *
+ * پس: هر آهنگِ شنیده‌شده (حتی آنچه فقط برای لبه برچسب خورده) **از جای دیگرِ خودش**
+ * پل می‌شود — همان کاری که برنامه‌های رادیویی با تمِ خودشان می‌کنند. ترتیب: اول آنچه
+ * در این قسمت نیامده (تنوع)، بعد آنچه آمده، بعد آهنگِ آغاز. هیچ بازه‌ای دو بار نمی‌آید.
+ * و **هر بازهٔ تازه پیش از پخش شنیده می‌شود** — «آهنگ» یا یادداشتِ آدم، وگرنه نه
+ * (۷.۶۸). اول طنین‌ها با آهنگ عوض می‌شوند، بعد مرزهای خالی پر می‌شوند (دورترین از
+ * پل‌های موجود، مثلِ `bridgeFill_`). سقفِ زمان دارد، چون این در مرحلهٔ صدا است.
+ *
+ * `kept` درجا عوض می‌شود. برمی‌گرداند: {added, swapped, tried, notes}.
+ */
+function musicBridgeReuse_(kept, bounds, bank, intro, minBr, plan, mood) {
+  var out = { added: 0, swapped: 0, tried: 0, notes: [] };
+  if (!bounds || !bounds.length || !(minBr > 0)) return out;
+  var L = Number(CFG.MUSIC_BRIDGE_SEC) || 12;
+  var minSec = Number(CFG.MUSIC_MIN_BRIDGE_SEC) || 4;
+  var budget = Math.max(5000, Number(CFG.MUSIC_BRIDGE_REUSE_MS) || 50000);
+  var t0 = new Date().getTime();
+  var melodic = function (t) { return !!t && heardSays_(t.heard, 'آهنگ'); };
+  var usable = function (t) {
+    return !!t && String(t.kind || '') !== 'افکت' && melodic(t) && (Number(t.sec) || 0) >= minSec;
+  };
+  var needSwap = kept.filter(function (w) { return !melodic(w.track); }).length;
+  if (kept.length >= minBr && !needSwap) return out;
+
+  // ── نامزدها: تنوع اول ──
+  var inEp = Object.create(null);
+  for (var i0 = 0; i0 < kept.length; i0++) inEp[kept[i0].track.id] = 1;
+  if (intro) inEp[intro.id] = 1;
+  var words = String(mood || '').split(/[\s،,]+/).filter(Boolean);
+  var fresh = bank.filter(function (b) { return usable(b) && !inEp[b.id]; });
+  fresh.sort(function (a, b) {
+    var sa = 0, sb = 0;
+    for (var m = 0; m < words.length; m++) {
+      if (a.mood && a.mood.indexOf(words[m]) !== -1) sa += 3;
+      if (b.mood && b.mood.indexOf(words[m]) !== -1) sb += 3;
+    }
+    if (a.slots && a.slots.indexOf('میانه') !== -1) sa += 1;
+    if (b.slots && b.slots.indexOf('میانه') !== -1) sb += 1;
+    sa -= Math.min(Number(a.used) || 0, 12) / 12; sb -= Math.min(Number(b.used) || 0, 12) / 12;
+    return sb - sa;
+  });
+  var cands = fresh.slice(), seen = Object.create(null);
+  for (var c0 = 0; c0 < cands.length; c0++) seen[cands[c0].id] = 1;
+  for (var k0 = 0; k0 < kept.length; k0++) {
+    var tk = kept[k0].track;
+    if (usable(tk) && !seen[tk.id]) { seen[tk.id] = 1; cands.push(tk); }
+  }
+  if (usable(intro) && !seen[intro.id]) { seen[intro.id] = 1; cands.push(intro); }
+  if (!cands.length) { out.notes.push('آهنگِ شنیده‌شده‌ای در بانک نیست'); return out; }
+
+  // ── بازه‌های به‌کاررفته، تا هیچ بازه‌ای دو بار نیاید ──
+  var step = L + 2, used = Object.create(null);
+  var mark = function (id, st) { (used[id] = used[id] || []).push(Number(st) || 0); };
+  for (var u0 = 0; u0 < kept.length; u0++) {
+    var su = kept[u0].start;
+    mark(kept[u0].track.id, (su === null || su === undefined) ? (Number(plan.bridgeStart) || 0) : su);
+  }
+  if (intro) mark(intro.id, Number(plan.introStart) || 0);
+  var nextStart = function (t) {
+    var sec = Number(t.sec) || 0, top = Math.max(0, sec - Math.min(L, sec));
+    for (var st = 0; st <= top + 0.001; st += step) {
+      var clash = (used[t.id] || []).some(function (x) { return Math.abs(x - st) < step; });
+      if (!clash) return Math.round(st * 10) / 10;
+    }
+    return -1;
+  };
+  var cur = 0, maxTry = (minBr + needSwap) * 2 + 2;
+  /* یک بازهٔ شنیده‌شده؛ یا null. نامزدها چرخشی، تا یک قطعه همه را نگیرد. */
+  var take = function () {
+    for (var g = 0; g < cands.length; g++) {
+      if (out.tried >= maxTry || new Date().getTime() - t0 > budget) return null;
+      var t = cands[(cur + g) % cands.length], st = nextStart(t);
+      if (st < 0) continue;
+      mark(t.id, st);
+      out.tried++;
+      var r = musicSegOk_(t, st, 'میانه');
+      if (r.ok && (r.heard === 'آهنگ' || r.heard === 'آدم')) { cur = (cur + g + 1) % cands.length; return { track: t, start: st }; }
+      out.notes.push(String(t.name || '').slice(0, 28) + ' @' + st + 's: ' + (r.why || '«' + r.heard + '»'));
+    }
+    return null;
+  };
+
+  // ── ۱) طنین ⇒ آهنگ ──
+  for (var w = 0; w < kept.length; w++) {
+    if (melodic(kept[w].track)) continue;
+    var got = take();
+    if (!got) break;
+    kept[w].track = got.track; kept[w].start = got.start;
+    kept[w].why = 'آهنگِ شنیده‌شده به‌جای طنین (از ثانیهٔ ' + got.start + ')';
+    out.swapped++;
+  }
+  // ── ۲) مرزهای خالی تا کف ──
+  var guard = 0;
+  while (kept.length < minBr && guard++ <= bounds.length) {
+    var best = -1, bestD = -1;
+    for (var ci = 0; ci < bounds.length; ci++) {
+      var taken = false, d = -1;
+      for (var wz = 0; wz < kept.length; wz++) {
+        var dd = Math.abs(kept[wz].at - bounds[ci].at);
+        if (dd === 0) { taken = true; break; }
+        if (d < 0 || dd < d) d = dd;
+      }
+      if (taken) continue;
+      if (!kept.length) d = Math.min(ci + 1, bounds.length - ci);
+      if (d > bestD) { bestD = d; best = ci; }
+    }
+    if (best < 0) break;
+    var got2 = take();
+    if (!got2) break;
+    kept.push({ at: bounds[best].at, track: got2.track, start: got2.start, head: bounds[best].heading,
+                why: 'آهنگِ شنیده‌شده، از جای دیگرش (ثانیهٔ ' + got2.start + ') — مرزِ «' +
+                     (bounds[best].heading || '—') + '»' });
+    out.added++;
+  }
+  kept.sort(function (a, b) { return a.at - b.at; });
+  return out;
 }
 
 /* ═══════════ افکت، درست بعد از آماده‌شدنِ متن ═══════════
@@ -1093,6 +1225,16 @@ function musicEdgeMissNote_(mw, epLabel) {
              (!melo ? (edges ? '؛ ' : '') + (picks.length ? 'فقط طنین (' + picks.length + ' قطعه، هیچ‌کدام آهنگ نبود)' : 'هیچ موسیقی‌ای') : '');
   } else { st.n = 0; st.eps = []; st.why = ''; }
   st.at = nowStr_(); st.last = String(epLabel || ''); st.melo = melo;
+  /* پل‌های میانه جدا شمرده می‌شوند (۸.۶۰): «یک پل، آن هم طنین» با آهنگِ آغاز و پایان
+     «سالم» خوانده می‌شد چون `melo` لبه‌ها را هم می‌شمارد. کف همان `minBr`ِ خودِ قسمت است. */
+  var brs = picks.filter(function (p) { return p.slot === 'میانه'; });
+  var brMelo = brs.filter(function (p) { return heardSays_(p.heard, 'آهنگ'); }).length;
+  var brFloor = Number(mw && mw.bridgeFloor) || 0;
+  st.br = brs.length; st.brMelo = brMelo; st.brFloor = brFloor;
+  if (brFloor > 0 && brMelo < brFloor) {
+    st.brN = (Number(st.brN) || 0) + 1;
+    st.brEps = (st.brEps || []).concat([String(epLabel || '')]).slice(-6);
+  } else { st.brN = 0; st.brEps = []; }
   try { props_().setProperty(PK.MUSIC_EDGE_MISS, JSON.stringify(st)); } catch (e) {}
   return st;
 }
@@ -1104,6 +1246,21 @@ function musicEdgeMissState_() {
 /** دو قسمتِ پیاپی بی آهنگ ⇒ یافتهٔ کد، نه سطری که فردا جایش را به سطرِ دیگری بدهد. */
 function musicEdgeMissCheck_(hub) {
   var st = musicEdgeMissState_();
+  /* پلِ آهنگینِ کمتر از کف، پیاپی (۸.۶۰) — یافتهٔ جدای خودش، چون درمانش جدا است. */
+  try {
+    if ((Number(st.brN) || 0) >= Math.max(1, Number(CFG.MUSIC_BRIDGE_THIN_EPS) || 2)) {
+      logSelfFinding_(hub || getHub_(), {
+        priority: 'متوسط', category: 'موسیقی', key: 'music-bridge-thin',
+        title: st.brN + ' قسمتِ پیاپی پلِ آهنگینِ میانه کمتر از کف داشت',
+        detail: (st.brEps || []).join('، ') + ' — آخرین: ' + (Number(st.br) || 0) + ' پل، ' +
+                (Number(st.brMelo) || 0) + ' آهنگین، کف ' + (Number(st.brFloor) || 0),
+        instruction: 'سیاههٔ «موسیقیِ میانه: … پلِ تازه و … جایگزینِ طنین» را بخوان: اگر «آهنگِ شنیده‌شده‌ای ' +
+                     'در بانک نیست»، بانک آهنگ کم دارد (`musicSeek_` و بازشنوی). اگر بازه‌ها شنیده شدند و رد شدند، ' +
+                     'علتِ هر کدام همان‌جاست. اگر سقفِ زمان رسید، `MUSIC_BRIDGE_REUSE_MS`.',
+        owner: ROWNER_CODE
+      });
+    }
+  } catch (eBt) {}
   if ((Number(st.n) || 0) < Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2)) return false;
   try {
     logSelfFinding_(hub || getHub_(), {
@@ -1486,6 +1643,11 @@ function musicWrap_(chunks, hub, opt) {
    * نخستین و آخرین صدای قسمت — محوِ کاملِ خودش را نگه می‌دارد. */
   var xfOn = CFG.MUSIC_XFADE !== false;
   var softFade = function (len) { return Math.min(Number(CFG.MUSIC_FADE_SEC) || 2, len / 4); };
+  /* پایانِ قسمت: محوِ بلندِ «دنباله» (۸.۶۰)، نه همان محوِ کوتاهِ S. */
+  var tailFade = function (len) {
+    var fr = Number(CFG.MUSIC_OUTRO_FADE_MAX_FRAC); if (!(fr > 0 && fr < 1)) fr = 0.45;
+    return Math.min(Number(CFG.MUSIC_OUTRO_FADE_SEC) || 10, len * fr);
+  };
   var edgeFade = function (len) { return Math.min(0.25, len / 8); };
 
   var clipOf = function (b, slot, secs, opts) {
@@ -1497,9 +1659,14 @@ function musicWrap_(chunks, hub, opt) {
     // محوِ ورود صفر می‌مانَد وگرنه دو شیب در هم ضرب می‌شوند.
     var fi = (opts.inEdge === 'bed') ? 0
            : (xfOn && opts.inEdge === 'xf') ? edgeFade(len) : softFade(len);
-    var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : softFade(len);
+    var tail = opts.outEdge === 'tail';
+    var fo = (xfOn && opts.outEdge === 'xf') ? edgeFade(len) : (tail ? tailFade(len) : softFade(len));
+    /* شروعِ برش: هر پل جای خودش را دارد (۸.۶۰) — همان آهنگ از جای دیگرش؛ بی آن همه از
+       `bridgeStart`ِ مشترک. */
+    var st0 = (opts.start !== undefined && opts.start !== null && opts.start !== '')
+            ? Number(opts.start) : Number(plan[slot + 'Start']);
     return musicClip_(b.id, {
-      startSec: Number(plan[slot + 'Start']) || 0, lenSec: len,
+      startSec: Number(st0) || 0, lenSec: len, fadeCurve: tail ? 'tail' : '',
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
       fadeIn: fi, fadeOut: fo,
       bedIn: (opts.inEdge === 'bed')
@@ -1550,7 +1717,8 @@ function musicWrap_(chunks, hub, opt) {
   for (var fz = 0; finalBr && fz < plan.bridgesFinal.length; fz++) {
     var fbz = plan.bridgesFinal[fz], ftr = null;
     for (var fy = 0; fy < bank.length; fy++) if (bank[fy].id === fbz.id) ftr = bank[fy];
-    if (ftr) want.push({ at: fbz.at, track: ftr, why: String(fbz.why || ''), head: fbz.head });
+    if (ftr) want.push({ at: fbz.at, track: ftr, why: String(fbz.why || ''), head: fbz.head,
+                         start: (fbz.start === undefined ? null : fbz.start) });
   }
   for (var bi = 0; !finalBr && bi < (plan.bridges || []).length && want.length < maxBr; bi++) {
     var pb = plan.bridges[bi];
@@ -1564,7 +1732,8 @@ function musicWrap_(chunks, hub, opt) {
     for (var dz = 0; dz < want.length; dz++) if (want[dz].at === bounds[k].at) dup = true;
     if (dup) continue;
     want.push({ at: bounds[k].at, track: tr, why: String(pb.why || ''),
-                head: bounds[k].heading });
+                head: bounds[k].heading,
+                start: (pb.start === undefined || pb.start === '' ? null : Number(pb.start)) });
   }
 
   /* ── کف، نه فقط سقف ──
@@ -1609,15 +1778,32 @@ function musicWrap_(chunks, hub, opt) {
     var keptBr = [], dropBr = [];
     for (var hz = 0; hz < want.length; hz++) {
       if (brFresh[want[hz].track.id]) { keptBr.push(want[hz]); continue; }   // همین حالا، همان بازه، شنیده شد
-      var hr = musicSegOk_(want[hz].track, Number(plan.bridgeStart) || 0, 'میانه');
+      var hst = (want[hz].start === null || want[hz].start === undefined) ? (Number(plan.bridgeStart) || 0)
+                                                                           : Number(want[hz].start);
+      var hr = musicSegOk_(want[hz].track, hst, 'میانه');
       if (hr.ok) keptBr.push(want[hz]);
       else dropBr.push(String(want[hz].track.name || '') + ' (' + hr.why + ')');
     }
     if (dropBr.length) logLine_('موسیقیِ میانه: ' + dropBr.length + ' پل حذف شد — بازهٔ پخششان ' +
                                 'موسیقی شنیده نشد: ' + dropBr.join(' · '));
     want = keptBr;
+    /* ══ کف از آهنگ، نه از طنین (۸.۶۰) ══
+       درس‌نامهٔ ۷ اکتبر یک پل داشت، و همان یک پل «طنینِ کشیده» بود: بانک چند آهنگِ شنیده
+       بیشتر ندارد و هیچ قطعه‌ای در یک قسمت دو بار نمی‌آمد. پس پل‌های کم، از **همان
+       آهنگ‌های شنیده‌شده، از جای دیگرِ خودشان** پر می‌شوند و طنین جایش را به آهنگ می‌دهد —
+       هر بازهٔ تازه پیش از پخش شنیده می‌شود (نشنیدن یعنی نه، ۷.۶۸). */
+    if (CFG.MUSIC_BRIDGE_REUSE !== false && bounds.length && minBr > 0) {
+      try {
+        var ru = musicBridgeReuse_(want, bounds, bank, intro, minBr, plan, mood);
+        if (ru.added || ru.swapped || ru.tried) {
+          logLine_('موسیقیِ میانه: ' + ru.added + ' پلِ تازه و ' + ru.swapped + ' جایگزینِ طنین از آهنگ‌های ' +
+                   'شنیده‌شده (' + ru.tried + ' بازه شنیده شد)' + (ru.notes.length ? ' — ' + ru.notes.join(' · ') : '') + '.');
+        }
+      } catch (eRu) { logLine_('پرکردنِ پل‌ها از آهنگ‌های شنیده‌شده نشد: ' + eRu.message); }
+    }
     plan.bridgesFinal = want.map(function (w) {
-      return { at: w.at, id: w.track.id, why: w.why, head: w.head || '' };
+      return { at: w.at, id: w.track.id, why: w.why, head: w.head || '',
+               start: (w.start === null || w.start === undefined) ? null : Number(w.start) };
     });
   }
 
@@ -1632,7 +1818,7 @@ function musicWrap_(chunks, hub, opt) {
     if (w) {
       // میانه هر دو سرش گفتار است → هر دو لبه تلفیق می‌شوند.
       var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
-                      { inEdge: 'xf', outEdge: 'xf' });
+                      { inEdge: 'xf', outEdge: 'xf', start: w.start });
       if (bb) {
         out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
@@ -1658,7 +1844,7 @@ function musicWrap_(chunks, hub, opt) {
        شیب ندهد؛ پایانش آخرین صدای قسمت است → محوِ کامل. */
     var underS = Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 0;
     var ob = clipOf(outro, 'outro', Number(CFG.MUSIC_OUTRO_SEC) || 10,
-                    { inEdge: underS > 0 ? 'bed' : 'xf', outEdge: 'soft' });
+                    { inEdge: underS > 0 ? 'bed' : 'xf', outEdge: 'tail' });
     if (ob) { out.push({ pcm: ob, label: 'موسیقیِ پایان — ' + outro.name,
                          xfade: underS > 0 ? underS : xfEdgeSec_(),
                          xmode: underS > 0 ? 'outro' : '' });
@@ -1756,7 +1942,9 @@ function musicWrap_(chunks, hub, opt) {
       var atIdx = -1;
       for (var bq = 0; bq < bounds.length; bq++) if (bounds[bq].at === want[wq].at) atIdx = bq;
       if (atIdx >= 0) lock.bridges.push({ after: String(atIdx), id: want[wq].track.id,
-                                          why: want[wq].why || '' });
+                                          why: want[wq].why || '',
+                                          start: (want[wq].start === null || want[wq].start === undefined)
+                                                 ? '' : String(want[wq].start) });
     }
     /* ══ نتیجهٔ شنیدن هم در قفل می‌مانَد (۸.۳۳) ══
        این قفل نقشه را از روی انتخاب‌های نهایی **بازنویسی** می‌کند. نگارشِ اولِ
@@ -1768,7 +1956,8 @@ function musicWrap_(chunks, hub, opt) {
     lock.introNone = !!plan.introNone; lock.outroNone = !!plan.outroNone;
     lock.heard = plan.heard || null;
     lock.bridgesFinal = plan.bridgesFinal ? want.map(function (w) {
-      return { at: w.at, id: w.track.id, why: w.why || '', head: w.head || '' };
+      return { at: w.at, id: w.track.id, why: w.why || '', head: w.head || '',
+               start: (w.start === null || w.start === undefined) ? null : Number(w.start) };
     }) : null;
     musicPlanCachePut_(ck2, lock);
   }
@@ -1776,7 +1965,8 @@ function musicWrap_(chunks, hub, opt) {
   if (picks.length) {
     logLine_('موسیقیِ قسمت: ' + picks.map(function (p) { return p.name; }).join(' · '));
   }
-  return { chunks: out, picks: picks, mood: mood, missing: missing };
+  return { chunks: out, picks: picks, mood: mood, missing: missing,
+           bridgeFloor: (bounds.length ? minBr : 0) };
 }
 
 /**
@@ -1920,6 +2110,11 @@ function musicLine_(st) {
     }
     /* آنچه شنونده شنید، نه آنچه بانک دارد (۸.۵۷): قسمت‌های پیاپی بی آهنگ. */
     var em = st.edgeMiss || {};
+    if (em.last && em.brFloor !== undefined) {
+      line += ' · پل‌های میانهٔ آخرین قسمت (' + String(em.last) + '): ' + fa(Number(em.br) || 0) + ' پل، ' +
+              fa(Number(em.brMelo) || 0) + ' آهنگین (کف ' + fa(Number(em.brFloor) || 0) + ')' +
+              (Number(em.brN) > 0 ? ' ⚠️ ' + fa(em.brN) + ' قسمتِ پیاپی کمتر از کف' : '') + '.';
+    }
     if (Number(em.n) > 0) {
       line += ' ⚠️ ' + fa(em.n) + ' قسمتِ پیاپی بی موسیقیِ آهنگین (آخرین: ' + String(em.last || '') +
               (em.why ? ' — ' + em.why : '') + ').';

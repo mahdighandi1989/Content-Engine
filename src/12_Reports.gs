@@ -1551,6 +1551,12 @@ function selfVerifyMap_() {
       if (!o || typeof o !== 'object' || typeof o.n !== 'number') return null;
       return o.n >= Math.max(1, Number(CFG.MUSIC_EDGE_MISS_EPS) || 2);
     } },
+    /* پلِ آهنگینِ کمتر از کف، پیاپی (۸.۶۰). */
+    'music-bridge-thin':   { what: 'music', still: function (st) {
+      var o = st && st.music && st.music.edgeMiss;
+      if (!o || typeof o !== 'object' || typeof o.brN !== 'number') return null;
+      return o.brN >= Math.max(1, Number(CFG.MUSIC_BRIDGE_THIN_EPS) || 2);
+    } },
     'voice-intake-stuck':  { what: 'voiceIntake', still: bad('voiceIntake') },
     'audit-queue-stuck':   { what: 'auditQueue', still: bad('auditQueue') },
     'monitor-check-silent':{ what: 'monChecks', still: bad('monChecks') },
@@ -1573,6 +1579,9 @@ function selfVerifyMap_() {
        به حالِ دیگری بند نباشد. */
     'lv-clip-fail':        { what: 'lessonClip', still: bad('lessonClip') },
     'lv-motion-none':      { what: 'lessonMotion', still: bad('lessonMotion') },
+    /* ۸.۶۰: کارت‌ها (کم یا یکنواخت) و افتادن به کارتِ ساده — هر کدام شاهدِ خودش. */
+    'lv-ov-thin':          { what: 'lessonCards', still: bad('lessonCards') },
+    'lv-scene-fallback':   { what: 'lessonSceneFb', still: bad('lessonSceneFb') },
     'lv-aud-stuck':        { what: 'imageAudition', still: bad('imageAudition') },
     'speak-skipped':       { what: 'speakSkip', still: bad('speakSkip') },
     /* صفی که خالی نمی‌شود، خودش یافته است — و همان شرط، سنجنده‌اش هم هست. */
