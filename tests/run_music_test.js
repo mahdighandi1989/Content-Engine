@@ -1257,6 +1257,54 @@ console.log('\n=== ۲۳. بازشنوی اجرای جدای خودش را دار
   ok('۲۳.۱۲ زمان‌بندِ بازشنوی پیش از سدِ VBR_ON در تریگرِ ساعتی است', iM > 0 && iG > 0 && iM < iG,
      'بازشنوی @' + iM + ' · سد @' + iG);
 
+  /* ۲۳.۱۳ (۸.۶۲) — اجرای جدای ۷ اکتبر ۰۳:۲۴ کشته شد و **هیچ** شاهدی نماند: شاهد پس از پویش نوشته
+     می‌شد و پویش با شنیدن و شمارش از شش دقیقه گذشت (۷٫۶۴). حالا شاهد **پیش از** پویش، و جای پا پیش از هر گام. */
+  const scanWas = global.musicScan_;
+  let scanSeen = [];
+  global.musicScan_ = function () {
+    scanSeen.push({ last: global.__PROPS[PK.MUSIC_REHEAR_LAST] || '', step: global.__PROPS[PK.MUSIC_REHEAR_STEP] || '' });
+    return scanWas.apply(this, arguments);
+  };
+  mkTrack('منتظرِ چهارم.wav', 81);
+  scanWas();
+  delete global.__PROPS[PK.MUSIC_REHEAR_LAST]; delete global.__PROPS[PK.MUSIC_SCAN_DUE];
+  global.musicListen_ = () => 'آهنگ';
+  const rl2 = musicRehearLater();
+  const st13 = JSON.parse(global.__PROPS[PK.MUSIC_REHEAR_STEP] || 'null') || {};
+  ok('۲۳.۱۳ شاهدِ بازشنوی پیش از پویش نشسته، جای پا «پویشِ تب» سرِ پویش و «پایان» در آخر',
+     rl2.ok === true && scanSeen.length === 1 && /اجرای جدا/.test(scanSeen[0].last) &&
+     /پویشِ تب/.test(scanSeen[0].step) && st13.step === 'پایان' && st13.fin === true,
+     JSON.stringify({ scans: scanSeen.length, step: st13, at: scanSeen[0] && scanSeen[0].step }));
+
+  /* ۲۳.۱۴ — وقتِ پویش نماند ⇒ پویش نمی‌شود، «اجرای بعد» ثبت می‌شود، و اجرای بعد **اول** پویش می‌کند. */
+  const byWas = CFG.MUSIC_REHEAR_SCAN_BY_MS;
+  CFG.MUSIC_REHEAR_SCAN_BY_MS = 1;
+  mkTrack('منتظرِ پنجم.wav', 91);
+  scanWas();
+  scanSeen = [];
+  musicRehearLater();
+  const w14 = JSON.parse(global.__PROPS[PK.MUSIC_REHEAR_LAST] || 'null') || {};
+  const due14 = !!global.__PROPS[PK.MUSIC_SCAN_DUE];
+  const scans14 = scanSeen.length;
+  CFG.MUSIC_REHEAR_SCAN_BY_MS = byWas;
+  scanSeen = [];
+  musicRehearLater();
+  ok('۲۳.۱۴ وقتِ پویش نماند ⇒ به اجرای بعد، و اجرای بعد اول پویش می‌کند و نشانه پاک می‌شود',
+     w14.scan === 'اجرای بعد' && due14 && scans14 === 0 && scanSeen.length >= 1 &&
+     /مانده از اجرای قبل/.test(scanSeen[0].step) && !global.__PROPS[PK.MUSIC_SCAN_DUE],
+     JSON.stringify({ scan: w14.scan, due: due14, scans14: scans14, next: scanSeen.map(x => x.step) }));
+  global.musicScan_ = scanWas;
+
+  /* ۲۳.۱۵ — اجرایی که آغاز شد و «پایان» ننوشت، در سطرِ روزانه با نامِ گام می‌آید؛ تازه‌اش نه. */
+  global.__PROPS[PK.MUSIC_REHEAR_STEP] = JSON.stringify({ step: 'شنیدن', at: '2026-08-18 03:24', fin: false });
+  const s15 = musicStatus_();
+  global.__PROPS[PK.MUSIC_REHEAR_STEP] = JSON.stringify({ step: 'شنیدن', at: nowStr_(), fin: false });
+  const s15b = musicStatus_();
+  ok('۲۳.۱۵ اجرای کشته‌شدهٔ بازشنوی با گامش در سطرِ روزانه؛ اجرای در جریان نه',
+     /کشته شد/.test(s15.line) && s15.line.indexOf('«شنیدن»') !== -1 && !/کشته شد/.test(s15b.line),
+     s15.line.slice(-160));
+  delete global.__PROPS[PK.MUSIC_REHEAR_STEP];
+
   global.musicListen_ = listenWas;
   CFG.MUSIC_HEAR_TRY_MAX = tmaxWas;
   global.__TRIGGERS.length = 0;

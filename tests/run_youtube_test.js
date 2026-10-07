@@ -7850,16 +7850,26 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
   const kMap = global.__PROPS[PK.YT_PL], kSq = global.__PROPS[PK.YT_PL_SQ];
   const spec = ytPlSqSpec_('kQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', 'درس‌نامه', '');
   let imgCalls = [], podCalls = 0, runnerImg = null;
+  /* ۸.۶۲: پیش از فرستادن، تصویرِ موجود پرسیده می‌شود (GET با `parent`) — جدا شمرده می‌شود. */
+  let listCalls = [], existingImg = '', imgReply = null, listCode = 200;
   global.__STUB = (url, body, opt) => {
     if (/renders\.json/.test(url)) {
       return { code: 200, json: { items: {}, plCovers: runnerImg
         ? { kQ: { url: 'https://example.test/pl-kQ.jpg', req: spec.sig, sig: spec.sig + '|special:62' } } : {} } };
     }
     if (url === 'https://example.test/pl-kQ.jpg') return { code: 200, bytes: runnerImg.b, mime: runnerImg.m };
-    if (/playlistImages/.test(url)) { imgCalls.push(opt); return { code: 200, json: { id: 'img1' } }; }
+    if (/playlistImages/.test(url)) {
+      if (String((opt || {}).method || 'get').toLowerCase() === 'get') {
+        listCalls.push(url);
+        return { code: listCode, json: listCode === 200
+          ? { items: existingImg ? [{ id: existingImg, snippet: { playlistId: 'PLQ', type: 'hero' } }] : [] }
+          : { error: { message: 'forbidden' } } };
+      }
+      imgCalls.push(opt); return imgReply || { code: 200, json: { id: 'img1' } };
+    }
     return keepStub(url, body, opt);
   };
-  const fresh = () => { global._ytPlSqMemo = null; imgCalls = []; };
+  const fresh = () => { global._ytPlSqMemo = null; imgCalls = []; listCalls = []; };
 
   // ۸۲.۲ — رانر هنوز نکشیده: «در راه»، درخواست در صف، و تلاشی شمرده نمی‌شود
   delete global.__PROPS[PK.YT_PL_SQ];
@@ -7886,6 +7896,32 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
      r2 === 'نشست' && imgCalls.length === 1 && head.indexOf('Content-Type: image/jpeg') !== -1 &&
      head.indexOf('"width":1400') !== -1 && (ytPlMap_()['kQ'] || {}).coverSig === spec.sig + '|special:62',
      r2 + ' · ' + head.slice(0, 160).replace(/\r?\n/g, ' ') + ' · ' + JSON.stringify(ytPlMap_()['kQ']));
+
+  /* ۸۲.۴-ب (۸.۶۲) — پلی‌لیستی که از پیش تصویرِ «hero» دارد: به‌روزرسانی (PUT با همان شناسه)، نه درجِ
+     دوم. یکی از علت‌های ممکنِ «500: Internal error» که با کاورِ درست هم ماند. */
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' }; existingImg = 'HERO1';
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی' } });
+  const r2b = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', true, 'درس‌نامه', '', 'kQ');
+  const sentB = imgCalls[0] || {};
+  const headB = sentB.payload ? Buffer.from(sentB.payload.slice(0, 400).map(x => x & 255)).toString('utf8') : '';
+  ok('۸۲.۴-ب تصویرِ موجود ⇒ PUT با شناسهٔ همان تصویر؛ پرسش با `parent`ِ همان پلی‌لیست',
+     r2b === 'نشست' && imgCalls.length === 1 && String(sentB.method).toLowerCase() === 'put' &&
+     headB.indexOf('"id":"HERO1"') !== -1 && listCalls.length === 1 && /parent=PLQ/.test(listCalls[0]) &&
+     ((ytPlMap_()['kQ'] || {}).coverLast || {}).how === 'به‌روزرسانی',
+     r2b + ' · ' + String(sentB.method) + ' · ' + headB.slice(0, 140).replace(/\r?\n/g, ' ') + ' · ' + listCalls.join(','));
+
+  /* ۸۲.۴-پ — شکست با شاهد: «(500)» دیگر بی زمان و بی شکلِ درخواست نیست؛ و پرسشی که خودش نشد
+     (۴۰۳) جلوی درج را نمی‌گیرد. */
+  fresh(); existingImg = ''; listCode = 403;
+  imgReply = { code: 500, json: { error: { message: 'Internal error encountered.' } } };
+  const r2p = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', true, 'درس‌نامه', '', 'kQ');
+  const lastP = (ytPlMap_()['kQ'] || {}).coverLast || {};
+  ok('۸۲.۴-پ ۵۰۰ ⇒ پیامِ یوتیوب + درج/به‌روزرسانی + اندازه در علت، و شاهدِ تلاش در نقشه؛ پرسشِ ناموفق درج را نمی‌بندد',
+     /^نشد \(500\)/.test(r2p) && r2p.indexOf('درج') !== -1 && r2p.indexOf('1400×1400') !== -1 &&
+     imgCalls.length === 1 && String(imgCalls[0].method).toLowerCase() === 'post' &&
+     lastP.code === 500 && lastP.list === 403 && lastP.how === 'درج' && /Internal error/.test(String(lastP.why)) && !!lastP.at,
+     r2p + ' · ' + JSON.stringify(lastP));
+  listCode = 200; imgReply = null; existingImg = '';
 
   // ۸۲.۵ — پادکست پیش از کاور پرسیده نمی‌شود. شکستنِ عمدیِ همین سد زودتر روی ۴۸.۳
   // می‌نشیند (همان ادعا: بی کاور، علتِ پادکست «منتظرِ کاور» است) — مجموعه با نخستین سرخ می‌ایستد.
@@ -7916,6 +7952,18 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
   ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o7, 'kQ');
   ok('۸۲.۷ چهار «نشد (500)»ِ کاورِ ۹۶۰×۵۴۰ سقفِ تلاش را پر نمی‌کند — همان شب کاورِ درست می‌رود',
      o7.covers === 1 && imgCalls.length === 1, JSON.stringify(ytPlMap_()['kQ']));
+
+  /* ۸۲.۷-ب (۸.۶۲) — سازوکارِ فرستادنِ تازه: سقفِ پرشده با «500»ِ کاورِ **درست** هم صفر می‌شود (همان شب
+     امتحان، نه هفتهٔ بعد) — بی آنکه امضای رانر عوض شود و کاورها از نو کشیده شوند. */
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' };
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverVer: CFG.YT_PL_COVER_VER, coverTries: 4,
+                       coverLastTry: nowStr_(), coverWhy: 'نشد (500): Internal error encountered.' } });
+  const o7b = { covers: 0, coverFails: [], podcasts: 0 };
+  ytPlDress_('PLQ', 'معرفت‌شناسی', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, o7b, 'kQ');
+  const r7b = ytPlMap_()['kQ'] || {};
+  ok('۸۲.۷-ب سقفِ پرشده با سازوکارِ قبلی، با سازوکارِ تازه همان شب دوباره امتحان می‌شود',
+     o7b.covers === 1 && imgCalls.length === 1 && Number(r7b.coverMech) === Number(CFG.YT_PL_COVER_MECH),
+     JSON.stringify(r7b));
 
   // ۸۲.۸ — نقاشیِ تازهٔ مجموعه کاورِ نشسته را یک بار به‌روز می‌کند، نه هر دور
   fresh();

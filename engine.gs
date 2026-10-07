@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.61
+ *  موتور محتوا و پادکست — نسخهٔ 8.62
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1237,6 +1237,11 @@ var CFG = {
      آن را ۱۴۰۰×۱۴۰۰ می‌کشد. نسخهٔ سازوکار در رکورد می‌نشیند: تلاش‌هایی که با
      سازوکارِ خراب شمرده شدند، تلاش نیستند (۸.۳۲). */
   YT_PL_COVER_VER: 2,
+  /* سازوکارِ فرستادن، جدا از نسخهٔ نقشه (۸.۶۲): `YT_PL_COVER_VER` در امضای درخواستِ رانر است و
+     بالا بردنش هر سه کاور را از نو می‌کشاند؛ این یکی فقط تلاش‌های شمرده‌شده را صفر می‌کند. ۸.۵۵ با
+     کاورِ درست هم «500» گرفت و سقفِ تلاش پر شد؛ «پرسیدن و به‌روزرسانی» سازوکارِ تازه است و همان شب
+     امتحان می‌شود، نه هفتهٔ بعد. */
+  YT_PL_COVER_MECH: 2,
   YT_PL_COVER_MIN: 1280,
   /* ══ ترتیبِ پلی‌لیست از خودِ پلی‌لیست سنجیده می‌شود (۸.۵۷) ══
      `ytWantPos_` از ۶ سپتامبر همیشه صفر می‌داد و هر ویدئوی تازه بالای پلی‌لیست
@@ -1381,7 +1386,13 @@ var CFG = {
   MUSIC_REHEAR_RUNS_DAY: 4,
   MUSIC_REHEAR_GAP_MIN: 50,
   MUSIC_REHEAR_LATER_MAX: 12,
-  MUSIC_REHEAR_LATER_MS: 210000,
+  /* اجرای جدا شش دقیقه دارد و سه کار پشتِ‌هم: شنیدن، شمردنِ بقیهٔ صف، پویشِ تب. تا ۸.۶۱ شنیدن ۲۱۰
+     ثانیه بود و شمارش ۶۰ ثانیهٔ دیگر — به‌علاوهٔ یک شنیدنِ نیمه‌راه و پویش، از سقف می‌گذشت: ۷ اکتبر
+     ۰۳:۲۴ کشته شد و هیچ شاهدی نماند (۷٫۶۴). حالا شنیدن ۱۵۰، شمارش تا ۲۰ ثانیهٔ دیگر، و پویش فقط اگر
+     تا `SCAN_BY_MS` از آغازِ اجرا جا بود — وگرنه نخستین کارِ اجرای بعد. */
+  MUSIC_REHEAR_LATER_MS: 150000,
+  MUSIC_REHEAR_COUNT_MS: 20000,
+  MUSIC_REHEAR_SCAN_BY_MS: 250000,
   MUSIC_UNHEARD_DAYS: 5,             // بیش از این، یافتهٔ NEEDS_CODE
   /* چند بار از مدل بپرسیم و جواب نگیریم تا از صفِ شبانه بیرون برود.
      نه پاک می‌شود و نه پخش — فقط هر شب بایت‌هایش خوانده نمی‌شود. */
@@ -1949,7 +1960,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.61',
+  CODE_VERSION: '8.62',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3042,6 +3053,8 @@ var PK = {
   EP_KICK_LAST: 'EP_KICK_LAST',
   EP_TRIG_FAIL: 'EP_TRIG_FAIL',             // آخرین بار که ساختنِ تریگرِ ادامهٔ قسمت شکست خورد، با پیامِ خودِ خطا (۸.۵۴)
   MUSIC_UNHEARD_N: 'MUSIC_UNHEARD_N',       // شمارِ قطعه‌های شنیده‌نشده، از آخرین وضعیت — زمان‌بندِ ساعتی فقط همین را می‌خوانَد (۸.۵۴)
+  MUSIC_REHEAR_STEP: 'MUSIC_REHEAR_STEP',   // جای پای اجرای جدای بازشنوی: کدام گام، کِی، تمام شد یا نه (۸.۶۲)
+  MUSIC_SCAN_DUE: 'MUSIC_SCAN_DUE',         // پویشی که در اجرای قبلی جا نشد؛ نخستین کارِ اجرای بعد (۸.۶۲)
   MUSIC_REHEAR_LAST: 'MUSIC_REHEAR_LAST',   // شاهدِ آخرین بازشنوی: کِی، چند شنیده، چند رهاشده (۸.۵۴)
   MUSIC_REHEAR_DAY: 'MUSIC_REHEAR_DAY',     // شمارِ اجراهای جدای امروز (۸.۵۴)
   YT_THUMB_PAINT: 'YT_THUMB_PAINT',   // کاورِ نقاشی که واقعاً روی هر ویدئو نشست (۸.۵۴): {کلید: نشانی}
@@ -39198,6 +39211,7 @@ function musicStatus_() {
   }
   /* و شاهدِ بازشنوی، نه وعده‌اش (۸.۵۴). */
   try { out.rehear = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eRw) { out.rehear = null; }
+  out.rehearDied = musicRehearDied_();
   // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
   try {
     out.slots = musicSlotCounts_(null, bk);
@@ -39267,6 +39281,10 @@ function musicLine_(st) {
                    fa(Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید؛ پخش نمی‌شوند و جلوی آوردنِ ' +
                    'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
         if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
+      }
+      var dd = st.rehearDied;
+      if (dd && dd.step) {
+        line += ' ❌ آخرین اجرای جدای بازشنوی سرِ «' + dd.step + '» کشته شد (' + dd.at + ').';
       }
     }
     /* آنچه شنونده شنید، نه آنچه بانک دارد (۸.۵۷): قسمت‌های پیاپی بی آهنگ. */
@@ -40951,7 +40969,8 @@ function musicRecheck_(hub, opt) {
     }
     /* شمارشِ بقیهٔ صف (فقط اجرای جدا): شناسنامه خوانده می‌شود، بایت نه. */
     if (full || late) {
-      if (rBudget && new Date().getTime() - rt0 > rBudget + 60000) { out.uncounted = todo.length - i; break; }
+      var cMs = opt.countMs === undefined ? 60000 : Math.max(0, Number(opt.countMs) || 0);
+      if (rBudget && new Date().getTime() - rt0 > rBudget + cMs) { out.uncounted = todo.length - i; break; }
       try { mt = musicMeta_(f2.getName()); } catch (eMc) {}
       var tmx = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
       if (musicHearTries_(mt) >= tmx) out.skipped = (out.skipped || 0) + 1;
@@ -41046,7 +41065,11 @@ function musicRecheck_(hub, opt) {
   // ردیف‌های سهم‌شان در تب هم باید برود، وگرنه بانک هنوز می‌بیندشان
   // پویش هم لازم است وقتی فقط تأییدی ثبت شده — وگرنه ستونِ تب همان «❓»
   // می‌ماند و سدِ افکت باز نمی‌شود.
-  if (out.moved || out.heard) { try { musicScan_(hub); } catch (eS) {} }
+  if (out.moved || out.heard) {
+    /* `noScan` (۸.۶۲): اجرای جدا پویش را خودش و فقط با وقتِ کافی می‌کند. */
+    if (opt.noScan) out.scanDue = true;
+    else { try { musicScan_(hub); } catch (eS) {} }
+  }
   return out;
 }
 
@@ -41095,25 +41118,64 @@ function musicRehearDue_() {
   return true;
 }
 
+/** جای پای اجرای جدا (۸.۶۲): **پیش از** هر گام نوشته می‌شود، تا اجرای کشته‌شده بگوید کجا مُرد (۷٫۶۴). */
+function musicRehearStep_(step, fin) {
+  try {
+    props_().setProperty(PK.MUSIC_REHEAR_STEP,
+      JSON.stringify({ step: String(step || ''), at: nowStr_(), fin: !!fin }));
+  } catch (e) {}
+}
+
+/** اجرای جدایی که آغاز شد و «پایان» ننوشت = کشته شد. `null` یعنی چیزی برای گفتن نیست. */
+function musicRehearDied_() {
+  try {
+    var s = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_STEP) || 'null');
+    if (!s || s.fin) return null;
+    var t = parseWhen_(String(s.at || ''));
+    if (isNaN(t) || new Date().getTime() - t < 10 * 60000) return null;   // شاید هنوز در جریان است
+    return { step: String(s.step || ''), at: String(s.at || '') };
+  } catch (e) { return null; }
+}
+
 function musicRehearLater() {
   try { clearRetryTriggers_('musicRehearLater'); } catch (eC) {}
   runEnter_('musicRehearLater');
+  var t0 = new Date().getTime();
   try {
     var lock = LockService.getScriptLock();
     /* قفل: پویشِ بانک تبِ موسیقی را بازنویسی می‌کند و ساختِ قسمت همان تب را
        می‌خوانَد. گرفته نشد ⇒ ساعتِ بعد، بی هیچ کاری. */
     if (!lock.tryLock(20000)) return { ok: false, why: 'قفل گرفته بود' };
     try {
-      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true,
+      /* پویشی که اجرای قبلی جا نداشت، اول — با شش دقیقهٔ تازه (۸.۶۲). */
+      var P0 = props_();
+      if (P0.getProperty(PK.MUSIC_SCAN_DUE)) {
+        musicRehearStep_('پویشِ مانده از اجرای قبل');
+        try { musicScan_(); P0.deleteProperty(PK.MUSIC_SCAN_DUE); } catch (eS0) {}
+      }
+      musicRehearStep_('شنیدن');
+      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true, noScan: true,
                  cap: Math.max(1, Number(CFG.MUSIC_REHEAR_LATER_MAX) || 12),
-                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 210000) });
+                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 150000),
+                 countMs: Math.max(0, Number(CFG.MUSIC_REHEAR_COUNT_MS) || 20000) });
       var w = { at: nowStr_(), checked: Number(r.checked) || 0, heard: Number(r.heard) || 0,
                 moved: Number(r.moved) || 0, tried: Number(r.tried) || 0,
                 skipped: Number(r.skipped) || 0,
                 left: (Number(r.waiting) || 0) + (Number(r.tried) || 0),
                 queue: Number(r.queue) || 0, via: 'اجرای جدا' };
       if (r.uncounted) w.uncounted = r.uncounted;
+      /* شاهد **پیش از** پویش (۷٫۶۴): شنیدنی که شد، با مرگِ پویش گم نمی‌شود. */
+      if (r.scanDue) {
+        var byMs = Math.max(1, Number(CFG.MUSIC_REHEAR_SCAN_BY_MS) || 250000);
+        if (new Date().getTime() - t0 < byMs) w.scan = 'همین اجرا';
+        else { w.scan = 'اجرای بعد'; try { props_().setProperty(PK.MUSIC_SCAN_DUE, nowStr_()); } catch (eSd) {} }
+      }
       try { props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify(w)); } catch (eS) {}
+      if (w.scan === 'همین اجرا') {
+        musicRehearStep_('پویشِ تب');
+        try { musicScan_(); } catch (eSc) {}
+      }
+      musicRehearStep_('پایان', true);
       logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا): ' + w.checked + ' سنجیده شد — ' +
                w.heard + ' تأیید، ' + w.moved + ' کنار گذاشته، ' + w.tried + ' بی‌جواب' +
                (w.skipped ? '، ' + w.skipped + ' رهاشده (مدل ' +
@@ -56761,7 +56823,8 @@ function ytStatus_() {
       if (!rS.id) continue;
       pls.push({ key: pkS, title: String(rS.title || ''), url: ytPlUrl_(rS.id),
                  cover: !!rS.cover, podcast: !!rS.podcast,
-                 coverWhy: String(rS.coverWhy || ''), podWhy: String(rS.podWhy || '') });
+                 coverWhy: String(rS.coverWhy || ''), podWhy: String(rS.podWhy || ''),
+                 coverLast: rS.coverLast || null });
     }
     out.playlistList = pls;
     out.noCover = pls.filter(function (x) { return !x.cover; }).length;
@@ -58032,6 +58095,12 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     prec.coverWhy = ''; prec.podWhy = ''; prec.coverVer = ver;
     pmap[key] = prec; ytPlMapSave_(pmap);
   }
+  /* سازوکارِ فرستادنِ تازه (۸.۶۲): فقط تلاش‌های کاورِ **ننشسته** صفر می‌شوند — کاوری که نشسته دست نمی‌خورد. */
+  var mech = Number(CFG.YT_PL_COVER_MECH) || 0;
+  if (mech && !prec.cover && Number(prec.coverMech || 0) !== mech) {
+    prec.coverTries = 0; prec.coverLastTry = ''; prec.coverMech = mech;
+    pmap = ytPlMap_(); pmap[key] = prec; ytPlMapSave_(pmap);
+  }
 
   /* ── اول کاور: پادکست بی تصویرِ پلی‌لیست «Precondition check failed» است ── */
   var pcNow = null;
@@ -58251,6 +58320,26 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
   }
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
 
+  /* ══ درج یا به‌روزرسانی (۸.۶۲) ══
+     ۸.۵۵ کاورِ درست (مربعِ ۱۴۰۰، JPEGِ ۵۰ تا ۱۲۰ کیلوبایتی، همان شکلِ درخواستِ سندِ discovery) را
+     فرستاد و یوتیوب باز «500: Internal error encountered» داد. یک علتِ ممکن — **ثابت‌نشده** — این است
+     که پلی‌لیست از پیش تصویرِ «hero» دارد و `insert` دومی می‌سازد. پس اول می‌پرسیم (`list`، یک واحد،
+     با `parent` — نه `playlistId` که در فهرست پارامتر نیست): هست ⇒ `update` با همان شناسه؛ نیست ⇒
+     `insert`. پرسشی که خودش نشد جلوی درج را نمی‌گیرد. و هر تلاش شاهد می‌گذارد (`coverLast`)، چون تا
+     امروز «(500)» بی زمان و بی شکلِ درخواست بود و نمی‌شد گفت با کدام کاور آمد. */
+  var existing = '', listCode = 0;
+  if (ytQuotaTake_(YT_COST.videosList, false)) try {
+    var lr = ytHttp_('https://www.googleapis.com/youtube/v3/playlistImages?part=id,snippet&parent=' +
+                     encodeURIComponent(String(plId)), 'get');
+    listCode = lr.code;
+    var its = (lr.json && lr.json.items) || [];
+    for (var ii = 0; ii < its.length; ii++) {
+      var sn = its[ii].snippet || {};
+      if (its[ii].id && (!sn.type || sn.type === 'hero')) { existing = String(its[ii].id); break; }
+    }
+  } catch (eL) { listCode = -1; }
+  var how = existing ? 'به‌روزرسانی' : 'درج';
+
   /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و
      چون `playlistImages` منبعِ تازه‌ای است که سرویسِ پیشرفتهٔ Apps Script
      لزوماً نداردش. بایت‌ها به‌هم چسبانده می‌شوند، نه رشته‌ها: هر تبدیلِ
@@ -58258,32 +58347,46 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
   var boundary = '----ytpl' + String(plId).replace(/[^A-Za-z0-9]/g, '').slice(-10);
   var head = '--' + boundary + '\r\n' +
              'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-             JSON.stringify({ snippet: { playlistId: String(plId), type: 'hero',
-                                         width: sz.w, height: sz.h } }) +
+             JSON.stringify(ytPlImgBody_(existing, plId, sz)) +
              '\r\n--' + boundary + '\r\n' +
              'Content-Type: ' + sz.mime + '\r\n\r\n';
   var tail = '\r\n--' + boundary + '--\r\n';
   var bytes = Utilities.newBlob(head).getBytes()
                 .concat(blob.getBytes())
                 .concat(Utilities.newBlob(tail).getBytes());
+  var nBytes = blob.getBytes().length;
   var r = ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
                   '?uploadType=multipart&part=snippet',
-                  'post', Utilities.newBlob(bytes).getBytes(),
+                  existing ? 'put' : 'post', Utilities.newBlob(bytes).getBytes(),
                   'multipart/related; boundary=' + boundary);
+  var last = { at: nowStr_(), how: how, code: r.code, list: listCode,
+               size: sz.w + '×' + sz.h, kb: Math.round(nBytes / 1024), mime: sz.mime };
   if (r.code === 200 || r.code === 201) {
     try {
       var m = ytPlMap_(), rec = m[spec.key] || {};
       rec.coverSig = String(pc.sig || spec.sig);
       rec.coverSize = sz.w + '×' + sz.h;
+      rec.coverLast = last;
       m[spec.key] = rec; ytPlMapSave_(m);
     } catch (eM) {}
     return 'نشست';
   }
   /* «(500)» تنها چیزی بود که تا ۸.۵۴ ثبت می‌شد، و همان بود که حدسِ «قابلیت‌های
-     پیشرفته» را ممکن کرد. پیامِ خودِ یوتیوب علت را نام می‌برد. */
+     پیشرفته» را ممکن کرد. پیامِ خودِ یوتیوب علت را نام می‌برد — و از ۸.۶۲ شکلِ همان تلاش هم. */
   var why = '';
   try { why = String((((r.json || {}).error || {}).message) || ''); } catch (e) {}
-  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 100) : '');
+  last.why = why.slice(0, 160);
+  try { var m4 = ytPlMap_(), rec4 = m4[spec.key] || {}; rec4.coverLast = last; m4[spec.key] = rec4; ytPlMapSave_(m4); } catch (eM4) {}
+  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 100) : '') +
+         ' — ' + how + '، ' + (sz.mime === 'image/png' ? 'PNG' : 'JPEG') + ' ' + sz.w + '×' + sz.h +
+         '، ' + last.kb + ' کیلوبایت';
+}
+
+/** بدنهٔ `playlistImages`: درج بی شناسه، به‌روزرسانی با شناسهٔ تصویرِ موجود (سندِ discovery). */
+function ytPlImgBody_(existing, plId, sz) {
+  var b = { snippet: { playlistId: String(plId), type: 'hero', width: sz.w, height: sz.h } };
+  if (existing) b.id = String(existing);
+  return b;
 }
 
 /* ═══════════════ شناسنامهٔ کانال ═══════════════

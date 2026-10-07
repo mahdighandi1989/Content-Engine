@@ -2037,6 +2037,7 @@ function musicStatus_() {
   }
   /* و شاهدِ بازشنوی، نه وعده‌اش (۸.۵۴). */
   try { out.rehear = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_LAST) || 'null'); } catch (eRw) { out.rehear = null; }
+  out.rehearDied = musicRehearDied_();
   // شمارِ هر جایگاه و هدف — بی این، «۴ قطعه» معلوم نمی‌کرد کدام جایگاه لنگ است
   try {
     out.slots = musicSlotCounts_(null, bk);
@@ -2106,6 +2107,10 @@ function musicLine_(st) {
                    fa(Number(CFG.MUSIC_HEAR_TRY_MAX) || 4) + ' بار نشنید؛ پخش نمی‌شوند و جلوی آوردنِ ' +
                    'قطعهٔ تازه را هم نمی‌گیرند)' : '') + '.';
         if (hrs >= 36) line += ' ⚠️ بیش از یک روز است بازشنوی اجرا نشده.';
+      }
+      var dd = st.rehearDied;
+      if (dd && dd.step) {
+        line += ' ❌ آخرین اجرای جدای بازشنوی سرِ «' + dd.step + '» کشته شد (' + dd.at + ').';
       }
     }
     /* آنچه شنونده شنید، نه آنچه بانک دارد (۸.۵۷): قسمت‌های پیاپی بی آهنگ. */
@@ -3790,7 +3795,8 @@ function musicRecheck_(hub, opt) {
     }
     /* شمارشِ بقیهٔ صف (فقط اجرای جدا): شناسنامه خوانده می‌شود، بایت نه. */
     if (full || late) {
-      if (rBudget && new Date().getTime() - rt0 > rBudget + 60000) { out.uncounted = todo.length - i; break; }
+      var cMs = opt.countMs === undefined ? 60000 : Math.max(0, Number(opt.countMs) || 0);
+      if (rBudget && new Date().getTime() - rt0 > rBudget + cMs) { out.uncounted = todo.length - i; break; }
       try { mt = musicMeta_(f2.getName()); } catch (eMc) {}
       var tmx = Math.max(1, Number(CFG.MUSIC_HEAR_TRY_MAX) || 4);
       if (musicHearTries_(mt) >= tmx) out.skipped = (out.skipped || 0) + 1;
@@ -3885,7 +3891,11 @@ function musicRecheck_(hub, opt) {
   // ردیف‌های سهم‌شان در تب هم باید برود، وگرنه بانک هنوز می‌بیندشان
   // پویش هم لازم است وقتی فقط تأییدی ثبت شده — وگرنه ستونِ تب همان «❓»
   // می‌ماند و سدِ افکت باز نمی‌شود.
-  if (out.moved || out.heard) { try { musicScan_(hub); } catch (eS) {} }
+  if (out.moved || out.heard) {
+    /* `noScan` (۸.۶۲): اجرای جدا پویش را خودش و فقط با وقتِ کافی می‌کند. */
+    if (opt.noScan) out.scanDue = true;
+    else { try { musicScan_(hub); } catch (eS) {} }
+  }
   return out;
 }
 
@@ -3934,25 +3944,64 @@ function musicRehearDue_() {
   return true;
 }
 
+/** جای پای اجرای جدا (۸.۶۲): **پیش از** هر گام نوشته می‌شود، تا اجرای کشته‌شده بگوید کجا مُرد (۷٫۶۴). */
+function musicRehearStep_(step, fin) {
+  try {
+    props_().setProperty(PK.MUSIC_REHEAR_STEP,
+      JSON.stringify({ step: String(step || ''), at: nowStr_(), fin: !!fin }));
+  } catch (e) {}
+}
+
+/** اجرای جدایی که آغاز شد و «پایان» ننوشت = کشته شد. `null` یعنی چیزی برای گفتن نیست. */
+function musicRehearDied_() {
+  try {
+    var s = JSON.parse(props_().getProperty(PK.MUSIC_REHEAR_STEP) || 'null');
+    if (!s || s.fin) return null;
+    var t = parseWhen_(String(s.at || ''));
+    if (isNaN(t) || new Date().getTime() - t < 10 * 60000) return null;   // شاید هنوز در جریان است
+    return { step: String(s.step || ''), at: String(s.at || '') };
+  } catch (e) { return null; }
+}
+
 function musicRehearLater() {
   try { clearRetryTriggers_('musicRehearLater'); } catch (eC) {}
   runEnter_('musicRehearLater');
+  var t0 = new Date().getTime();
   try {
     var lock = LockService.getScriptLock();
     /* قفل: پویشِ بانک تبِ موسیقی را بازنویسی می‌کند و ساختِ قسمت همان تب را
        می‌خوانَد. گرفته نشد ⇒ ساعتِ بعد، بی هیچ کاری. */
     if (!lock.tryLock(20000)) return { ok: false, why: 'قفل گرفته بود' };
     try {
-      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true,
+      /* پویشی که اجرای قبلی جا نداشت، اول — با شش دقیقهٔ تازه (۸.۶۲). */
+      var P0 = props_();
+      if (P0.getProperty(PK.MUSIC_SCAN_DUE)) {
+        musicRehearStep_('پویشِ مانده از اجرای قبل');
+        try { musicScan_(); P0.deleteProperty(PK.MUSIC_SCAN_DUE); } catch (eS0) {}
+      }
+      musicRehearStep_('شنیدن');
+      var r = musicRecheck_(null, { onlyUnknown: true, countAll: true, noScan: true,
                  cap: Math.max(1, Number(CFG.MUSIC_REHEAR_LATER_MAX) || 12),
-                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 210000) });
+                 budgetMs: Math.max(30000, Number(CFG.MUSIC_REHEAR_LATER_MS) || 150000),
+                 countMs: Math.max(0, Number(CFG.MUSIC_REHEAR_COUNT_MS) || 20000) });
       var w = { at: nowStr_(), checked: Number(r.checked) || 0, heard: Number(r.heard) || 0,
                 moved: Number(r.moved) || 0, tried: Number(r.tried) || 0,
                 skipped: Number(r.skipped) || 0,
                 left: (Number(r.waiting) || 0) + (Number(r.tried) || 0),
                 queue: Number(r.queue) || 0, via: 'اجرای جدا' };
       if (r.uncounted) w.uncounted = r.uncounted;
+      /* شاهد **پیش از** پویش (۷٫۶۴): شنیدنی که شد، با مرگِ پویش گم نمی‌شود. */
+      if (r.scanDue) {
+        var byMs = Math.max(1, Number(CFG.MUSIC_REHEAR_SCAN_BY_MS) || 250000);
+        if (new Date().getTime() - t0 < byMs) w.scan = 'همین اجرا';
+        else { w.scan = 'اجرای بعد'; try { props_().setProperty(PK.MUSIC_SCAN_DUE, nowStr_()); } catch (eSd) {} }
+      }
       try { props_().setProperty(PK.MUSIC_REHEAR_LAST, JSON.stringify(w)); } catch (eS) {}
+      if (w.scan === 'همین اجرا') {
+        musicRehearStep_('پویشِ تب');
+        try { musicScan_(); } catch (eSc) {}
+      }
+      musicRehearStep_('پایان', true);
       logLine_('بازشنویِ بانکِ موسیقی (اجرای جدا): ' + w.checked + ' سنجیده شد — ' +
                w.heard + ' تأیید، ' + w.moved + ' کنار گذاشته، ' + w.tried + ' بی‌جواب' +
                (w.skipped ? '، ' + w.skipped + ' رهاشده (مدل ' +

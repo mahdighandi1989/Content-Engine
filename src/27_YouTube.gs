@@ -10237,7 +10237,8 @@ function ytStatus_() {
       if (!rS.id) continue;
       pls.push({ key: pkS, title: String(rS.title || ''), url: ytPlUrl_(rS.id),
                  cover: !!rS.cover, podcast: !!rS.podcast,
-                 coverWhy: String(rS.coverWhy || ''), podWhy: String(rS.podWhy || '') });
+                 coverWhy: String(rS.coverWhy || ''), podWhy: String(rS.podWhy || ''),
+                 coverLast: rS.coverLast || null });
     }
     out.playlistList = pls;
     out.noCover = pls.filter(function (x) { return !x.cover; }).length;
@@ -11508,6 +11509,12 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     prec.coverWhy = ''; prec.podWhy = ''; prec.coverVer = ver;
     pmap[key] = prec; ytPlMapSave_(pmap);
   }
+  /* سازوکارِ فرستادنِ تازه (۸.۶۲): فقط تلاش‌های کاورِ **ننشسته** صفر می‌شوند — کاوری که نشسته دست نمی‌خورد. */
+  var mech = Number(CFG.YT_PL_COVER_MECH) || 0;
+  if (mech && !prec.cover && Number(prec.coverMech || 0) !== mech) {
+    prec.coverTries = 0; prec.coverLastTry = ''; prec.coverMech = mech;
+    pmap = ytPlMap_(); pmap[key] = prec; ytPlMapSave_(pmap);
+  }
 
   /* ── اول کاور: پادکست بی تصویرِ پلی‌لیست «Precondition check failed» است ── */
   var pcNow = null;
@@ -11727,6 +11734,26 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
   }
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
 
+  /* ══ درج یا به‌روزرسانی (۸.۶۲) ══
+     ۸.۵۵ کاورِ درست (مربعِ ۱۴۰۰، JPEGِ ۵۰ تا ۱۲۰ کیلوبایتی، همان شکلِ درخواستِ سندِ discovery) را
+     فرستاد و یوتیوب باز «500: Internal error encountered» داد. یک علتِ ممکن — **ثابت‌نشده** — این است
+     که پلی‌لیست از پیش تصویرِ «hero» دارد و `insert` دومی می‌سازد. پس اول می‌پرسیم (`list`، یک واحد،
+     با `parent` — نه `playlistId` که در فهرست پارامتر نیست): هست ⇒ `update` با همان شناسه؛ نیست ⇒
+     `insert`. پرسشی که خودش نشد جلوی درج را نمی‌گیرد. و هر تلاش شاهد می‌گذارد (`coverLast`)، چون تا
+     امروز «(500)» بی زمان و بی شکلِ درخواست بود و نمی‌شد گفت با کدام کاور آمد. */
+  var existing = '', listCode = 0;
+  if (ytQuotaTake_(YT_COST.videosList, false)) try {
+    var lr = ytHttp_('https://www.googleapis.com/youtube/v3/playlistImages?part=id,snippet&parent=' +
+                     encodeURIComponent(String(plId)), 'get');
+    listCode = lr.code;
+    var its = (lr.json && lr.json.items) || [];
+    for (var ii = 0; ii < its.length; ii++) {
+      var sn = its[ii].snippet || {};
+      if (its[ii].id && (!sn.type || sn.type === 'hero')) { existing = String(its[ii].id); break; }
+    }
+  } catch (eL) { listCode = -1; }
+  var how = existing ? 'به‌روزرسانی' : 'درج';
+
   /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و
      چون `playlistImages` منبعِ تازه‌ای است که سرویسِ پیشرفتهٔ Apps Script
      لزوماً نداردش. بایت‌ها به‌هم چسبانده می‌شوند، نه رشته‌ها: هر تبدیلِ
@@ -11734,32 +11761,46 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
   var boundary = '----ytpl' + String(plId).replace(/[^A-Za-z0-9]/g, '').slice(-10);
   var head = '--' + boundary + '\r\n' +
              'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-             JSON.stringify({ snippet: { playlistId: String(plId), type: 'hero',
-                                         width: sz.w, height: sz.h } }) +
+             JSON.stringify(ytPlImgBody_(existing, plId, sz)) +
              '\r\n--' + boundary + '\r\n' +
              'Content-Type: ' + sz.mime + '\r\n\r\n';
   var tail = '\r\n--' + boundary + '--\r\n';
   var bytes = Utilities.newBlob(head).getBytes()
                 .concat(blob.getBytes())
                 .concat(Utilities.newBlob(tail).getBytes());
+  var nBytes = blob.getBytes().length;
   var r = ytHttp_('https://www.googleapis.com/upload/youtube/v3/playlistImages' +
                   '?uploadType=multipart&part=snippet',
-                  'post', Utilities.newBlob(bytes).getBytes(),
+                  existing ? 'put' : 'post', Utilities.newBlob(bytes).getBytes(),
                   'multipart/related; boundary=' + boundary);
+  var last = { at: nowStr_(), how: how, code: r.code, list: listCode,
+               size: sz.w + '×' + sz.h, kb: Math.round(nBytes / 1024), mime: sz.mime };
   if (r.code === 200 || r.code === 201) {
     try {
       var m = ytPlMap_(), rec = m[spec.key] || {};
       rec.coverSig = String(pc.sig || spec.sig);
       rec.coverSize = sz.w + '×' + sz.h;
+      rec.coverLast = last;
       m[spec.key] = rec; ytPlMapSave_(m);
     } catch (eM) {}
     return 'نشست';
   }
   /* «(500)» تنها چیزی بود که تا ۸.۵۴ ثبت می‌شد، و همان بود که حدسِ «قابلیت‌های
-     پیشرفته» را ممکن کرد. پیامِ خودِ یوتیوب علت را نام می‌برد. */
+     پیشرفته» را ممکن کرد. پیامِ خودِ یوتیوب علت را نام می‌برد — و از ۸.۶۲ شکلِ همان تلاش هم. */
   var why = '';
   try { why = String((((r.json || {}).error || {}).message) || ''); } catch (e) {}
-  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 100) : '');
+  last.why = why.slice(0, 160);
+  try { var m4 = ytPlMap_(), rec4 = m4[spec.key] || {}; rec4.coverLast = last; m4[spec.key] = rec4; ytPlMapSave_(m4); } catch (eM4) {}
+  return 'نشد (' + r.code + ')' + (why ? ': ' + why.slice(0, 100) : '') +
+         ' — ' + how + '، ' + (sz.mime === 'image/png' ? 'PNG' : 'JPEG') + ' ' + sz.w + '×' + sz.h +
+         '، ' + last.kb + ' کیلوبایت';
+}
+
+/** بدنهٔ `playlistImages`: درج بی شناسه، به‌روزرسانی با شناسهٔ تصویرِ موجود (سندِ discovery). */
+function ytPlImgBody_(existing, plId, sz) {
+  var b = { snippet: { playlistId: String(plId), type: 'hero', width: sz.w, height: sz.h } };
+  if (existing) b.id = String(existing);
+  return b;
 }
 
 /* ═══════════════ شناسنامهٔ کانال ═══════════════
