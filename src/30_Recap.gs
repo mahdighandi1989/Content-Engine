@@ -487,6 +487,7 @@ function recapScopeBook_(book, mode, opt) {
   } else if (mode === 'since') {
     var after = Number(opt.after) || 0;
     out.mode = 'since';
+    out.after = after;
     out.label = after ? ('فقط درس‌های پس از درسِ ' + faDigitsOut_(String(after)))
                       : RECAP_MODES.all;
     if (after > 0) {
@@ -520,6 +521,33 @@ function recapScopeBook_(book, mode, opt) {
   out.n = kept.length;
   out.upto = recapUpto_(kept);
   return out;
+}
+
+/**
+ * دامنهٔ مرور با شمارهٔ درسِ همین مجموعه (۸.۶۴): `{from, to, label}`، یا null وقتی نمی‌شود گفت.
+ * `lessons` فهرستِ `ytSeriesLessons_` است؛ «درسِ چندم» یک تعریف دارد (`ytLessonOf_`).
+ * «انتخابی» فقط برچسب می‌گیرد، نه بازه: درس‌های ۱ و ۴ «درس‌های ۱ تا ۴» نیستند.
+ */
+function recapLessonScope_(scope, lessons) {
+  if (!scope || !(lessons instanceof Array) || !lessons.length) return null;
+  var fa = function (n) { return faDigitsOut_(String(n)); };
+  if (scope.mode === 'pick') {
+    var L = [];
+    /* فقط قسمتی که خودش درس است؛ مروری که اشتباهی برگزیده شده، «درسِ پیش از خودش» خوانده نمی‌شود. */
+    (scope.eps || []).forEach(function (e) {
+      var isLesson = lessons.some(function (x) { return x && !x.recap && Number(x.ep) === Number(e); });
+      var n = isLesson ? ytLessonOf_(lessons, e) : 0;
+      if (n && L.indexOf(n) === -1) L.push(n);
+    });
+    if (!L.length) return null;
+    L.sort(function (x, y) { return x - y; });
+    return { from: 0, to: 0, label: 'فقط درس‌های ' + L.map(fa).join('، ') };
+  }
+  var to = ytLessonOf_(lessons, Number(scope.upto) || 0);
+  var from = scope.mode === 'since' ? ytLessonOf_(lessons, Number(scope.after) || 0) + 1 : 1;
+  if (!to || to < from) return null;
+  return { from: from, to: to,
+           label: scope.mode === 'since' ? 'فقط درس‌های ' + fa(from) + ' تا ' + fa(to) : String(scope.label || '') };
 }
 
 /** بالاترین شماره‌درسی که در این فصل‌ها هست — «تا کجا» را همین می‌گوید. */
@@ -954,6 +982,16 @@ function runRecapEpisode(opt) {
   var bookAll = book;
   book = scope.book;
 
+  /* ══ برچسبِ دامنه با شمارهٔ درسِ همین مجموعه (۸.۶۴) ══
+     `after` و `upto` شمارهٔ **سراسریِ** قسمت‌اند (`addedIn`ِ جزوه)، و برچسبِ قدیم همان را «درس» می‌خواند:
+     مرورِ بزرگِ آئودی در خودِ صدا گفت «درس‌های بعد از درسِ سی و سه» — یعنی درسِ ۱۲ِ آن مجموعه. این برچسب به
+     نویسنده، ایمیل و تخته می‌رود، پس همان‌جا که ساخته می‌شود درس‌به‌درس برگردانده می‌شود؛ شمارهٔ سراسری فقط
+     برای ماشین می‌مانَد (`recapUpto`، مقایسه با `addedIn`). فهرست نشد ⇒ همان برچسبِ قبلی، بی‌صدا نه: ثبت می‌شود. */
+  var lsc = null;
+  try { lsc = recapLessonScope_(scope, ytSeriesLessons_(folderOf)); }
+  catch (eLs) { logLine_('مرورِ «' + pick.name + '»: شمارهٔ درس‌ها از پوشهٔ مجموعه خوانده نشد — ' + eLs.message); }
+  if (lsc && lsc.label) scope.label = lsc.label;
+
   /* ══ ارجاعِ تازه برای خودِ مرور (۶٫۶۹) ══
      خواستهٔ صریح: تیکِ مرجع برای مرورِ مجموعهٔ تمام‌شده هم معنا داشته
      باشد. هیچ منطقِ تازه‌ای ساخته نمی‌شود — عینِ چهار قطعهٔ مسیرِ درس‌ها:
@@ -1039,6 +1077,7 @@ function runRecapEpisode(opt) {
     /* دامنه در خودِ پروندهٔ قسمت هم می‌ماند: ایمیل، تخته و ناظر همه از
        همین می‌خوانند، و سه کپیِ جدا یعنی روزی یکی کهنه می‌شود. */
     recapMode: scope.mode, recapScope: scope.label,
+    recapLessonFrom: (lsc && lsc.from) || 0, recapLessonTo: (lsc && lsc.to) || 0,
     recapEps: (scope.eps || []).slice(0, 60), recapUpto: scope.upto || 0,
     recapChaptersBook: (bookAll.chapters || []).length,
     bridges: bUsed.map(function (b) {

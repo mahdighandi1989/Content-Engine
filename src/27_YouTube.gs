@@ -739,19 +739,67 @@ function ytTitleCut_(t) {
   return t;
 }
 
-/** برچسبِ مرور از پروندهٔ خودش: «درس‌های ۳۴ تا ۴۰»؛ دامنهٔ نامعلوم ⇒ ''. */
-function ytRecapRange_(meta) {
-  if (!meta || !meta.recap) return '';
-  var upto = Number(meta.recapUpto) || 0, from = 0;
-  var mode = String(meta.recapMode || '');
-  if (mode === 'since') {
-    var m = /(\d+)/.exec(faDigits_(String(meta.recapScope || '')));
-    from = m ? Number(m[1]) + 1 : 0;
-  } else if (mode === 'all' || !mode) {
-    from = 1;
+/**
+ * شمارهٔ درسِ همین مجموعه برای قسمتِ سراسریِ E: شمارِ قسمت‌های **غیرِمرورِ** پوشهٔ مجموعه با شمارهٔ ≤ E.
+ * `lessons` همان فهرستِ `ytSeriesLessons_` است — یک تعریف برای «درسِ چندم»، هم برای پیمایشِ عنوان و هم برای مرور.
+ */
+function ytLessonOf_(lessons, E) {
+  var n = 0, e = Number(E) || 0;
+  if (!e || !(lessons instanceof Array)) return 0;
+  for (var i = 0; i < lessons.length; i++) {
+    var x = lessons[i] || {};
+    if (!x.recap && (Number(x.ep) || 0) > 0 && Number(x.ep) <= e) n++;
   }
-  if (!from || !upto || upto < from) return '';
-  return 'درس‌های ' + faDigitsOut_(String(from)) + ' تا ' + faDigitsOut_(String(upto));
+  return n;
+}
+
+/**
+ * برچسبِ مرور با **شمارهٔ درسِ همین مجموعه**: «درس‌های ۱۳ تا ۳۹».
+ *
+ * ══ ۸.۶۴ — نگارشِ ۸.۶۳ همان شمارهٔ سراسری را دوباره می‌ساخت ══
+ * `recapScope` («پس از درسِ ۳۳») و `recapUpto` (۶۱) از `addedIn`ِ جزوه می‌آیند، و `addedIn` شمارهٔ
+ * **سراسریِ** قسمت است. ۸.۶۳ آن‌ها را مستقیم «درس» خواند، پس مرورِ بزرگِ آئودی «مرورِ درس‌های ۳۴ تا ۶۱»
+ * می‌شد — درست همان شمارهٔ سراسری‌ای که او گفته بود نباید در عنوان بیاید. سنجه‌اش سبز بود چون
+ * `recapUpto: 40` را دستی می‌ساخت: عددی که تولید هرگز نمی‌نویسد (۷.۲۲).
+ *
+ * حالا: اگر پرونده شمارهٔ درس را خودش دارد (`recapLessonFrom/To`، از ۸.۶۴ هنگامِ ساختِ مرور) همان؛ وگرنه
+ * از فهرستِ پوشهٔ مجموعه (`lessons`) برگردانده می‌شود. **بی فهرست هیچ** — شمارهٔ سراسری هرگز «درس» خوانده
+ * نمی‌شود؛ عنوان آن‌وقت فقط «مرورِ بزرگ» می‌گیرد.
+ */
+function ytRecapRange_(meta, lessons) {
+  if (!meta || !meta.recap) return '';
+  var mode = String(meta.recapMode || '');
+  if (mode === 'pick') return '';
+  var from = Number(meta.recapLessonFrom) || 0, to = Number(meta.recapLessonTo) || 0;
+  if (!(from && to)) {
+    /* میان‌بُر، نه سد: بی فهرست `to` صفر می‌شود و همان '' برمی‌گردد (شکستنِ عمدی همین را نشان داد، ۷.۷۱). */
+    if (!(lessons instanceof Array) || !lessons.length) return '';
+    var upto = Number(meta.recapUpto) || 0, after = -1;
+    if (mode === 'since') {
+      var m = /(\d+)/.exec(faDigits_(String(meta.recapScope || '')));
+      after = m ? Number(m[1]) : -1;
+    } else if (mode === 'all' || !mode) {
+      after = 0;
+    }
+    if (after < 0 || !upto) return '';
+    from = ytLessonOf_(lessons, after) + 1;
+    to = ytLessonOf_(lessons, upto);
+  }
+  if (!from || !to || to < from) return '';
+  return 'درس‌های ' + faDigitsOut_(String(from)) + ' تا ' + faDigitsOut_(String(to));
+}
+
+/** همان، از روی پوشهٔ قسمت: پوشهٔ مجموعه پدرِ آن است. فقط برای مرور خوانده می‌شود (کم‌پیش‌آمد). */
+function ytRecapRangeOf_(meta, folder) {
+  if (!meta || !meta.recap) return '';
+  var ls = null;
+  if (!(Number(meta.recapLessonFrom) && Number(meta.recapLessonTo)) && folder) {
+    try {
+      var it = folder.getParents();
+      if (it.hasNext()) ls = ytSeriesLessons_(it.next());
+    } catch (eP) { ls = null; }
+  }
+  return ytRecapRange_(meta, ls);
 }
 
 /**
@@ -9002,7 +9050,7 @@ function ytUploadOne_(item, hub, pub) {
               showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.SHOW_TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
               lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
-              recap: !!meta.recap, recapRange: ytRecapRange_(meta),
+              recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
               title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
@@ -11465,7 +11513,7 @@ function ytRedoOne_(show, ep, opt) {
               /* درسِ پیش از ۶.۵۵ شمارهٔ درس در پرونده ندارد؛ پیمایشِ عنوان‌ها آن را از پوشهٔ مجموعه می‌دهد (۸.۶۳). */
               lesson: (Number(meta.lesson) || Number(opt.lesson) || 0)
                 ? faDigitsOut_(String(Number(meta.lesson) || Number(opt.lesson))) : '',
-              recap: !!meta.recap, recapRange: ytRecapRange_(meta),
+              recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
               cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],

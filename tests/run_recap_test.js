@@ -1469,3 +1469,65 @@ console.log('\n=== ۲۷) «هر ۱۵ درس یک مرور» — عددِ هر م
   delete global.__PROPS[PK.RECAP_AUTO_FAIL];
   delete global.__PROPS[PK.SP_PENDING];
 }
+
+
+console.log('\n=== ۲۸) دامنهٔ مرور با شمارهٔ درسِ همین مجموعه، نه شمارهٔ سراسری (۸.۶۴) ===');
+{
+  /* ══ شکلِ تولید، نه شکلِ آسان (۷.۲۲) ══
+   * مرورِ بزرگِ آئودی (special:63) در صدا گفت «درس‌های بعد از درسِ سی و سه» و ۸.۶۳ عنوانش را «مرورِ
+   * درس‌های ۳۴ تا ۶۱» می‌کرد: `addedIn`ِ جزوه شمارهٔ **سراسریِ** قسمت است. پس پوشهٔ مجموعه همان شکلِ واقعی را
+   * دارد — درس‌ها از قسمتِ ۲۲، مرورِ نخست ۳۴، جزوه تا ۶۱ — و مرور از درِ عمومیِ `runRecapEpisode` ساخته می‌شود. */
+  delete global.__PROPS[PK.SP_PENDING];
+  const af = global.__ROOT_FOLDER.createFolder('۱۱ — آئودیِ آزمون');
+  for (let n = 22; n <= 61; n++) {
+    af.createFolder('قسمت ' + String(n).padStart(3, '0') + ' — 20261001 — ' + (n === 34 ? 'مرورِ بزرگ — مرور' : 'درس'));
+  }
+  const eps = []; for (let n = 22; n <= 61; n++) if (n !== 34) eps.push(n);
+  af.createFile(Utilities.newBlob(JSON.stringify({ seriesKey: 'kA', seriesName: 'آئودیِ آزمون', refs: [], episodes: [],
+    chapters: eps.map(n => ({ id: 'a' + n, title: 'مبحثِ ' + n, addedIn: n,
+      sections: [{ id: 'as' + n, title: 'بخشِ ' + n, addedIn: n, body: ('متنِ درسِ ' + n + '. ').repeat(20) }] })) }),
+    'application/json', handoutJsonName_()));
+  setSeries('kA', 'آئودیِ آزمون', af.getId());
+  addParts('آئودیِ آزمون', 39);
+  delete global.__PROPS[PK.RECAP_DONE];
+  recapMarkDone_('kA', 34, 12, 3, 3, [], { mode: 'all', upto: 33 });
+  global.__PROPS[PK.SP_EP_NUM] = '62';
+  let wp = '';
+  global.__STUB = (url, body) => {
+    let t = '';
+    try { t = String(body.contents[0].parts[0].text); } catch (e) { t = ''; }
+    if (t.indexOf('مبحثِ ') !== -1) wp = t;
+    return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
+      title: 'مرور', hook: 'ه.', sections: [{ heading: 'ی', narration: 'م'.repeat(900) }], outro: 'پ.' }) }] } }] } };
+  };
+  const un = quiet();
+  const r = runRecapEpisode({ key: 'kA', mode: 'since' });
+  un();
+  let meta = null;
+  const fit = af.getFolders();
+  while (fit.hasNext()) {
+    const f = fit.next();
+    if (!/قسمت 063/.test(f.getName())) continue;
+    const j = f.getFilesByName('_special.json');
+    if (j.hasNext()) meta = JSON.parse(j.next().getBlob().getDataAsString());
+  }
+  ok('۲۸.۱ پروندهٔ مرور شمارهٔ درس‌ها را دارد: ۱۳ تا ۳۹ — نه ۳۴ تا ۶۱',
+     r.ok === true && meta && meta.recapLessonFrom === 13 && meta.recapLessonTo === 39 && meta.recapUpto === 61,
+     JSON.stringify({ r: r.reason, m: meta && { f: meta.recapLessonFrom, t: meta.recapLessonTo, u: meta.recapUpto, s: meta.recapScope } }));
+  ok('۲۸.۲ و نویسنده و ایمیل «درس‌های ۱۳ تا ۳۹» می‌شنوند، نه «پس از درسِ ۳۳»',
+     /فقط درس‌های ۱۳ تا ۳۹/.test(wp) && !/پس از درسِ ۳۳/.test(wp) &&
+     meta && meta.recapScope === 'فقط درس‌های ۱۳ تا ۳۹' && /دامنه: فقط درس‌های ۱۳ تا ۳۹/.test(coverRangeText_(meta, meta)),
+     (wp.match(/فقط درس‌های[^.*\n]*/) || [''])[0] + ' · ' + (meta && meta.recapScope));
+  ok('۲۸.۳ عنوانِ یوتیوب همان را می‌گیرد — هم از پرونده و هم از پوشه برای پروندهٔ پیش از ۸.۶۴',
+     meta && ytRecapRange_(meta, null) === 'درس‌های ۱۳ تا ۳۹' &&
+     ytRecapRange_({ recap: true, recapMode: 'since', recapScope: 'فقط درس‌های پس از درسِ ۳۳', recapUpto: 61 },
+                   ytSeriesLessons_(af)) === 'درس‌های ۱۳ تا ۳۹',
+     meta && ytRecapRange_(meta, null));
+  /* «انتخابی» برچسب می‌گیرد و بازه نه: درس‌های ۱ و ۴، «۱ تا ۴» نیستند. */
+  const pk = recapLessonScope_({ mode: 'pick', eps: [22, 25, 34] }, ytSeriesLessons_(af));
+  ok('۲۸.۴ انتخابی ⇒ «فقط درس‌های ۱، ۴»، بی بازه؛ و بی فهرست ⇒ هیچ (شمارهٔ سراسری درس خوانده نمی‌شود)',
+     pk && pk.label === 'فقط درس‌های ۱، ۴' && !pk.from && !pk.to &&
+     recapLessonScope_({ mode: 'since', after: 33, upto: 61 }, []) === null, JSON.stringify(pk));
+  delete global.__PROPS[PK.SP_PENDING];
+  delete global.__PROPS[PK.RECAP_DONE];
+}

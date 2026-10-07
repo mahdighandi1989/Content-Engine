@@ -8856,13 +8856,13 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
      درسِ ۲۰ (special:42) اصلاً نبود. همهٔ عنوان‌های این بخش عیناً از همان صفحه‌اند. */
   const T = (t, o) => ytTitleNum_(t, Object.assign({ show: ENRICH_SHOW_SPECIAL }, o));
   const t63 = 'حافظه، درون‌نگری و استنتاج چگونه کار می‌کنند؟ | معرفت‌شناسی رابرت آئودی - درس ۶۳';
-  const r63 = T(t63, { ep: 63, recap: true, range: 'درس‌های ۳۴ تا ۴۰' });
+  const r63 = T(t63, { ep: 63, recap: true, range: 'درس‌های ۱۳ تا ۳۹' });
   const r34 = T('معرفت‌شناسی رابرت آئودی: مرور بزرگ شناخت و ادراک حسی | درس ۳۴', { ep: 34, recap: true, range: 'درس‌های ۱ تا ۱۲' });
   const r1 = T('معرفت‌شناسی معاصر رابرت آئودی: منابع شناخت و مسئله توجیه | درس‌نامه ۲۲', { ep: 22, lesson: 1 });
   const r2 = T('معرفت‌شناسی رابرت آئودی: تحلیل باورها و ساختار شناخت | درس ۲۳', { ep: 23, lesson: 2 });
   const r3 = T('باور، ادراک حسی و ساختار توجیه معرفتی چیست؟ | معرفت‌شناسی رابرت آئودی ۲۴', { ep: 24, lesson: 3 });
   ok('۹۰.۱ عنوان‌های واقعی: شمارهٔ سراسری ⇒ درسِ همین مجموعه؛ مرور ⇒ «مرور» با دامنه، بی شمارهٔ سراسری، زیرِ سقف',
-     r63.indexOf('۶۳') === -1 && /مرور/.test(r63) && r63.indexOf('۳۴ تا ۴۰') !== -1 && r63.length <= 100 &&
+     r63.indexOf('۶۳') === -1 && /مرور/.test(r63) && r63.indexOf('۱۳ تا ۳۹') !== -1 && r63.length <= 100 &&
      r34.indexOf('۳۴') === -1 && r34.indexOf('۱ تا ۱۲') !== -1 && /\| درس‌های/.test(r34) &&
      /\| درس ۱$/.test(r1) && /\| درس ۲$/.test(r2) && /- درس ۳$/.test(r3),
      [r63, r34, r1, r2, r3].join(' ¦ '));
@@ -8873,15 +8873,23 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
      T('عنوان | درس ۲۲', { ep: 22, lesson: 22 }) === 'عنوان | درس ۲۲' &&
      ytTitleNum_('x | درس ۶۳', { show: ENRICH_SHOW_VARIETY, ep: 63, lesson: 2 }) === 'x | درس ۶۳' &&
      T('احتمالِ ۶۳ درصدی | درس ۸', { ep: 63, lesson: 8 }) === 'احتمالِ ۶۳ درصدی | درس ۸');
-  ok('۹۰.۳ دامنهٔ مرور از پروندهٔ خودش — «پس از درسِ ۳۳» تا آخرین؛ «همه» از ۱؛ نامعلوم ⇒ خالی',
-     ytRecapRange_({ recap: true, recapMode: 'since', recapScope: 'فقط درس‌های پس از درسِ ۳۳', recapUpto: 40 }) === 'درس‌های ۳۴ تا ۴۰' &&
-     ytRecapRange_({ recap: true, recapMode: 'all', recapUpto: 12 }) === 'درس‌های ۱ تا ۱۲' &&
-     ytRecapRange_({ recap: true, recapMode: 'pick', recapUpto: 9 }) === '' && ytRecapRange_({}) === '');
+  /* ۹۰.۳ — شکلِ تولید (۸.۶۴): `recapScope`/`recapUpto` شمارهٔ **سراسری**اند (۳۳ و ۶۱)، نه درس. نگارشِ ۸.۶۳ این‌جا
+     `recapUpto: 40` را دستی می‌ساخت — عددی که تولید هرگز نمی‌نویسد — و «درس‌های ۳۴ تا ۶۱» را نمی‌دید (۷.۲۲). */
+  const LS = [];
+  for (let n = 22; n <= 63; n++) LS.push({ ep: n, recap: n === 34 || n === 63 });
+  const M63 = { recap: true, recapMode: 'since', recapScope: 'فقط درس‌های پس از درسِ ۳۳', recapUpto: 61 };
+  ok('۹۰.۳ دامنهٔ مرور با شمارهٔ درسِ مجموعه: پس از سراسریِ ۳۳ تا ۶۱ ⇒ «۱۳ تا ۳۹»؛ «همه» تا ۳۳ ⇒ «۱ تا ۱۲»؛ بی فهرست یا انتخابی ⇒ هیچ',
+     ytRecapRange_(M63, LS) === 'درس‌های ۱۳ تا ۳۹' &&
+     ytRecapRange_({ recap: true, recapMode: 'all', recapUpto: 33 }, LS) === 'درس‌های ۱ تا ۱۲' &&
+     ytRecapRange_(M63, null) === '' && ytRecapRange_(M63, []) === '' &&
+     ytRecapRange_({ recap: true, recapMode: 'pick', recapUpto: 9 }, LS) === '' && ytRecapRange_({}, LS) === '' &&
+     ytRecapRange_(Object.assign({}, M63, { recapLessonFrom: 13, recapLessonTo: 40 }), null) === 'درس‌های ۱۳ تا ۴۰',
+     ytRecapRange_(M63, LS) + ' · ' + ytRecapRange_(M63, null));
 
   /* ۹۰.۴ — نقشهٔ ذخیره‌شده (همان که آپلودِ جایگزین و `ytRedoOne_` می‌خوانند) از همان مرز می‌گذرد و بازنوشته می‌شود. */
   const fP = global.__ROOT_FOLDER.createFolder('قسمت 063 — آزمونِ عنوان');
   fP.createFile(Utilities.newBlob(JSON.stringify({ title: t63, description: 'd', tags: [] }), 'application/json', ytPlanName_()));
-  const ctxP = { show: ENRICH_SHOW_SPECIAL, epRaw: '63', lesson: '', recap: true, recapRange: 'درس‌های ۳۴ تا ۴۰' };
+  const ctxP = { show: ENRICH_SHOW_SPECIAL, epRaw: '63', lesson: '', recap: true, recapRange: 'درس‌های ۱۳ تا ۳۹' };
   const pP = ytPlan_(fP, ctxP, false);
   const onDisk = ytPlanRead_(fP);
   ok('۹۰.۴ نقشهٔ ذخیره‌شده اصلاح و بازنوشته می‌شود، با عنوانِ قبلی کنارش',
@@ -9012,6 +9020,37 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
 
   global.ytOn_ = keep.on; global.getHub_ = keep.hub; global.ytPublished_ = keep.pub; global.readSeriesReg_ = keep.reg;
   global.ytShowFolder_ = keep.show; CFG.SPECIAL_ENABLED = keep.en; global.ytRedoOne_ = keep.redo;
+
+  /* ۹۰.۱۳ — از درِ تولید (۸.۶۴): `ytRedoOne_` (همان که پیمایشِ عنوان و جایگزینی صدا می‌زنند) برای پروندهٔ مرورِ
+     پیش از ۸.۶۴ — که فقط شمارهٔ سراسری دارد — دامنه را از **پوشهٔ مجموعه** می‌گیرد. `ytPlan_` فقط ctx را می‌گیرد. */
+  {
+    const k13 = { svc: global.ytSvc_, hub: global.getHub_, pub: global.ytPublished_, fo: global.ytFolderOf_, plan: global.ytPlan_ };
+    const aF = global.__ROOT_FOLDER.createFolder('مجموعهٔ آزمونِ دامنهٔ مرور');
+    for (let n = 22; n <= 63; n++) {
+      aF.createFolder('قسمت ' + String(n).padStart(3, '0') + ' — 20261001 — ' + (n === 34 || n === 63 ? 'مرورِ بزرگ — مرور' : 'درس'));
+    }
+    let rf = null; const it13 = aF.getFolders();
+    while (it13.hasNext()) { const f = it13.next(); if (/قسمت 063/.test(f.getName())) rf = f; }
+    rf.createFile(Utilities.newBlob(JSON.stringify({ recap: true, recapMode: 'since', recapScope: 'فقط درس‌های پس از درسِ ۳۳',
+      recapUpto: 61, seriesName: 'آئودی', ep: { title: 'مرور بزرگ', sections: [{ heading: 'ی', narration: 'م' }] } }),
+      'application/json', '_special.json'));
+    let seen = null;
+    global.ytSvc_ = () => ({});
+    global.getHub_ = keep.hub;
+    global.ytPublished_ = () => ({ 'special:63': { videoId: 'vRecap', series: 'آئودی', title: 't' } });
+    global.ytFolderOf_ = () => rf;
+    global.ytPlan_ = (folder, ctx) => { seen = ctx; return null; };
+    let r13;
+    try { r13 = ytRedoOne_(ENRICH_SHOW_SPECIAL, '63', { lesson: 0 }); }
+    finally { Object.assign(global, { ytSvc_: k13.svc, getHub_: k13.hub, ytPublished_: k13.pub, ytFolderOf_: k13.fo, ytPlan_: k13.plan }); }
+    ok('۹۰.۱۳ از درِ `ytRedoOne_`: مرورِ پیش از ۸.۶۴ «درس‌های ۱۳ تا ۳۹» می‌گیرد، نه «۳۴ تا ۶۱»',
+       seen && seen.recap === true && seen.recapRange === 'درس‌های ۱۳ تا ۳۹',
+       JSON.stringify({ why: r13 && r13.why, range: seen && seen.recapRange }));
+    const ySrc = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+    ok('۹۰.۱۳-ب هیچ ctxی دامنه را بی پوشهٔ مجموعه نمی‌سازد (هر دو در: آپلود و `ytRedoOne_`)',
+       (ySrc.match(/recapRange: ytRecapRangeOf_\(meta, folder\)/g) || []).length === 2 &&
+       !/recapRange: ytRecapRange_\(/.test(ySrc));
+  }
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
