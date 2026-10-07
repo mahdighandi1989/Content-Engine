@@ -127,9 +127,18 @@ function auditSnap_(show, meta, ep, items, lex) {
     var iid = String(it.id || '');
     if (!iid) continue;
     if (!used[iid]) { if (extra >= 30) continue; extra++; }
+    /* ══ متنِ خودِ درس کامل ذخیره می‌شود (۸.۶۶) ══
+     * `whole` یعنی «این خودِ متنِ درس است، نه یک قلمِ بانک». داورِ درس‌نامه
+     * بخش را با همین متن می‌سنجد؛ ۱۲۰۰ نویسه از قطعه‌ای چهارده‌هزارنویسه‌ای
+     * یعنی مثالِ خودِ کتاب «فراتر از خام» (درس‌های ۳۹ و ۴۰: باد و بلوط،
+     * پس‌زدنِ خودرو، دارکوب). `len` طولِ واقعی است، تا داوری بداند چه دید. */
+    var whole = it.whole === true;
+    var bMax = whole ? Math.max(bodyMax, Number(CFG.AUDIT_LESSON_BODY_MAX) || 16000) : bodyMax;
+    var bodyS = String(it.body === null || it.body === undefined ? '' : it.body);
     src[iid] = { kind: String(it.kind || ''), topic: auditCut_(it.topic, 300),
                  msg: auditCut_(it.msg, 300), summary: auditCut_(it.summary, bodyMax),
-                 body: auditCut_(it.body, bodyMax) };
+                 body: auditCut_(bodyS, bMax), len: bodyS.length };
+    if (whole) src[iid].whole = true;
   }
 
   var snap = {
@@ -221,12 +230,79 @@ var AUDIT_FIT_BAD = 'نامناسب';
 var AUDIT_LINK_BAD = 'ساختگی';
 var AUDIT_FAITH_BAD = 'فراتر';
 
+/**
+ * متنِ خودِ درس، یک بار و کامل، برای داورِ درس‌نامه (۸.۶۶).
+ *
+ * تا ۸.۶۵ هر بخش متنِ خامش را با `auditSourceText_` می‌گرفت: ۹۰۰ نویسهٔ اول از
+ * ۱۲۰۰ِ ذخیره‌شده، از قطعه‌ای تا چهارده‌هزار نویسه. داور خودش نوشت «مثالِ وزشِ باد
+ * و درختانِ بلوط در متنِ خام (C1 و C2) نیست و از متنِ اصلیِ کتاب که در تکه‌ها
+ * غایب است آمده» — مثالِ خودِ آئودی، که در `_AUDIT-special-062.json` درست در
+ * نویسهٔ ۱۱۰۰ِ C2 شروع می‌شد و بریده شده بود. پس «فراتر از خام» هر شب برای
+ * درسِ وفادار، و دستوری به قسمتِ بعد که «فقط آنچه در خام هست را بگو»: یعنی
+ * مثال‌های کتاب را کنار بگذار (۶٫۱۰، این بار از درِ سقف).
+ *
+ * متنِ درس = منبعی با `whole`، یا در عکس‌های پیش از ۸.۶۶ هر شناسهٔ `C<n>`ِ
+ * درس‌نامه. هر کدام یک بار، به ترتیبِ شماره، و کل زیرِ AUDIT_LESSON_PROMPT_MAX.
+ * آنچه کامل دیده نشد در `cut` می‌آید و کد (نه فقط پرامپت) «فراتر»ِ آن بخش را
+ * «نسنجیده» می‌شمارد: نبودنِ مثال در یک بریده شاهدِ افزودن نیست.
+ */
+function auditLessonText_(snap) {
+  var out = { text: '', ids: [], shown: {}, cut: {} };
+  /* میان‌بُر، نه سد: در «از همه جا» نه `whole` هست نه شناسهٔ C<n> (شناسه‌ها
+     شناسهٔ درایوند)، پس پالایهٔ پایین هم همان را می‌دهد (شکستنش سبز ماند، ۷٫۷۱). */
+  if (!snap || String(snap.show) !== ENRICH_SHOW_SPECIAL) return out;
+  var src = snap.sources || {};
+  var legacy = Number(CFG.AUDIT_BODY_MAX) || 1200;
+  var ids = Object.keys(src).filter(function (k) {
+    return src[k] && (src[k].whole === true || /^C[0-9]+$/.test(k));
+  }).sort(function (a, b) {
+    var na = /^C([0-9]+)$/.exec(a), nb = /^C([0-9]+)$/.exec(b);
+    if (na && nb) return Number(na[1]) - Number(nb[1]);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  if (!ids.length) return out;
+  var total = 0;
+  for (var i = 0; i < ids.length; i++) total += String(src[ids[i]].body || '').length;
+  var cap = Number(CFG.AUDIT_LESSON_PROMPT_MAX) || 48000;
+  var parts = [];
+  for (var j = 0; j < ids.length; j++) {
+    var s = src[ids[j]], body = String(s.body || '');
+    var room = total > cap ? Math.floor(cap * body.length / total) : body.length;
+    var shown = body.slice(0, room);
+    var len = Number(s.len) > 0 ? Number(s.len) : (body.length >= legacy ? 0 : body.length);
+    var whole = len > 0 && shown.length >= len;
+    if (!whole) out.cut[ids[j]] = true;
+    out.shown[ids[j]] = true;
+    out.ids.push(ids[j]);
+    parts.push('• ' + ids[j] + (whole ? '' : ' [بریده: فقط ' + shown.length + ' نویسهٔ اول' +
+               (len ? ' از ' + len : '') + ' دیده می‌شود]') + ':\n' + shown);
+  }
+  out.text = parts.join('\n\n');
+  return out;
+}
+
+/** کدام بخش‌ها دستِ‌کم یک قطعهٔ درس را بریده دیدند (همان `cut`ِ بالا). */
+function auditCutSecs_(snap) {
+  var lt = auditLessonText_(snap), out = [];
+  var secs = (snap && snap.sections) || [];
+  for (var i = 0; i < secs.length; i++) {
+    var ids = secs[i].ids || [], c = false;
+    for (var k = 0; k < ids.length; k++) if (lt.cut[ids[k]]) c = true;
+    out.push(c);
+  }
+  return out;
+}
+
 /** متنِ خامِ یک بخش، همان‌طور که به مدلِ داور نشان داده می‌شود. */
-function auditSourceText_(snap, ids) {
+function auditSourceText_(snap, ids, shown) {
   var out = [];
   for (var i = 0; i < ids.length; i++) {
     var s = (snap.sources || {})[ids[i]];
     if (!s) { out.push('• ' + ids[i] + ' — [این شناسه در منابع نیست]'); continue; }
+    if (shown && shown[ids[i]]) {
+      out.push('• ' + ids[i] + ' — [قطعه‌ای از متنِ خودِ درس؛ متنش بالا در «متنِ خامِ درس» آمده]');
+      continue;
+    }
     var bits = [s.topic, s.msg, s.summary, s.body].filter(function (x) { return x; });
     out.push('• ' + ids[i] + (s.kind ? ' (' + s.kind + ')' : '') + ': ' +
              auditCut_(bits.join(' — '), 900));
@@ -238,13 +314,17 @@ function auditModel_(snap) {
   var secs = (snap.sections || []);
   if (!secs.length) return null;
 
+  var lt = auditLessonText_(snap);
   var blocks = [];
+  if (lt.text) {
+    blocks.push('### متنِ خامِ درس (همهٔ قطعه‌ها، یک بار)\n' + lt.text);
+  }
   for (var i = 0; i < secs.length; i++) {
     var ids = secs[i].ids || [];
     blocks.push(
       '### بخش ' + i + ' — «' + (secs[i].heading || '—') + '»\n' +
       'متنِ خامی که این بخش از آن ساخته شده:\n' +
-      (ids.length ? auditSourceText_(snap, ids) : '[هیچ منبعی به این بخش اِسناد داده نشده]') +
+      (ids.length ? auditSourceText_(snap, ids, lt.shown) : '[هیچ منبعی به این بخش اِسناد داده نشده]') +
       '\n\nمتنِ نهایی که گوینده خوانده:\n' + auditCut_(secs[i].narration, 2500));
   }
 
@@ -291,6 +371,9 @@ function auditModel_(snap) {
     '   حکمی که متن نداده، نسبتی به کسی که متن نداده، عدد یا تاریخ یا نقلی',
     '   که در خام نیست، یا نتیجه‌ای که با خودِ درس ناسازگار است.',
     '   اگر مطلب در درس هست و فقط به زبانِ دیگری گفته شده: «وفادار».',
+    '   متنِ خامِ درس یک بار در بالا آمده؛ پیش از «فراتر» همهٔ آن را بگرد، نه فقط',
+    '   آغازِ قطعه را — مثال‌های کتاب اغلب در میانه یا پایانِ قطعه‌اند. قطعه‌ای که',
+    '   «[بریده]» دارد کامل دیده نمی‌شود؛ نبودنِ مطلب در آن دلیلِ «فراتر» نیست.',
     ''
   ] : [
     '۱) fit — آیا این موادِ خام برای این بخش انتخابِ درستی بوده‌اند؟',
@@ -333,9 +416,12 @@ function auditModel_(snap) {
   }
 }
 
-/** برچسب‌های مدل را می‌شمارد. مدل هرچه بگوید، شمارش کارِ کد است. */
-function auditTally_(judged, secs) {
-  var out = { unfit: 0, fake: 0, unfaith: 0, worst: '', n: 0 };
+/** برچسب‌های مدل را می‌شمارد. مدل هرچه بگوید، شمارش کارِ کد است.
+ *  cutSecs (اختیاری، از `auditCutSecs_`): بخشی که متنِ درسش را بریده دید،
+ *  «فراتر»ش در `unsure` شمرده می‌شود نه `unfaith` — سنجه‌ای که ورودی‌اش ناقص
+ *  بود، شاهدِ افزودن نیست (۸.۶۶). «پیوند» و «انتخاب» همان می‌مانند. */
+function auditTally_(judged, secs, cutSecs) {
+  var out = { unfit: 0, fake: 0, unfaith: 0, unsure: 0, worst: '', n: 0 };
   var rows = (judged && judged.sections) || [];
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i] || {};
@@ -346,7 +432,8 @@ function auditTally_(judged, secs) {
     if (String(r.linked || '').indexOf(AUDIT_LINK_BAD) !== -1 ||
         String(r.linked || '').indexOf('بی‌ربط') !== -1) { out.fake++; bad = bad || 'پیوندِ ساختگی'; }
     if (String(r.faithful || '').indexOf(AUDIT_FAITH_BAD) !== -1) {
-      out.unfaith++; bad = bad || 'فراتر از خام';
+      if (cutSecs && cutSecs[idx]) out.unsure++;
+      else { out.unfaith++; bad = bad || 'فراتر از خام'; }
     }
     out.n++;
     if (bad && !out.worst) {
@@ -624,7 +711,7 @@ function auditMarkDone_(file) {
  * یک دورِ داوری. از کارِ شبانه صدا زده می‌شود.
  * برمی‌گرداند {done, skipped, results:[…]}
  */
-function auditRun_(maxN) {
+function auditRun_(maxN, deadline) {
   var res = { done: 0, skipped: 0, results: [] };
   if (CFG.AUDIT_ENABLED === false) return res;
   var cap = Number(maxN) > 0 ? Number(maxN) : (Number(CFG.AUDIT_MAX_PER_RUN) || 3);
@@ -633,6 +720,9 @@ function auditRun_(maxN) {
 
   var files = auditPending_();
   for (var i = 0; i < files.length && res.done < cap; i++) {
+    /* متنِ کاملِ درس پرسش را بزرگ‌تر کرد (۸.۶۶)؛ پس قسمتِ بعدی فقط وقتی شروع
+       می‌شود که مهلت مانده — نخستین همیشه. خرج ≤ نگهبان (۷٫۳۱). */
+    if (res.done && Number(deadline) > 0 && Date.now() > Number(deadline)) { res.stopped = 'مهلت'; break; }
     var f = files[i];
     var snap = auditReadJson_(f);
     if (!snap || !snap.sections) {
@@ -642,7 +732,7 @@ function auditRun_(maxN) {
     var det = auditDeterministic_(snap);
     var judged = null, tal = null;
     try { judged = auditModel_(snap); } catch (eM) { judged = null; }
-    if (judged) tal = auditTally_(judged, snap.sections);
+    if (judged) tal = auditTally_(judged, snap.sections, auditCutSecs_(snap));
 
     var url = '';
     try { url = f.getUrl(); } catch (eU) {}
@@ -658,6 +748,7 @@ function auditRun_(maxN) {
       attribPct: det.attribPct,
       unfit: tal ? tal.unfit : null, fake: tal ? tal.fake : null,
       unfaith: tal ? tal.unfaith : null,
+      unsure: tal ? tal.unsure : null,
       verdict: judged ? String(judged.verdict || '') : 'داوری نشد',
       worst: tal ? tal.worst : ''
     });

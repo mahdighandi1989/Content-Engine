@@ -1320,8 +1320,9 @@ function produceSpecialEpisode(opt) {
     // موادِ مکمل هم باید در دامنهٔ وفاداری باشند: خودِ پرامپت به مدل گفته از
     // آن‌ها نقل کند. بی این، هر قسمتِ درست یک یافتهٔ «نقل‌قولِ بی‌پشتوانه»ی
     // «جدی» می‌ساخت و قسمت بعد به مدل دستور می‌داد همان قابلیت را کنار بگذارد.
+    // `whole`: این خودِ متنِ درس است — عکسِ محتوا کاملش را نگه می‌دارد (۸.۶۶).
     var fakeItems = stream.map(function (c) {
-      return { id: 'C' + c.idx, topic: '', msg: '', summary: '', body: c.text }; });
+      return { id: 'C' + c.idx, topic: '', msg: '', summary: '', body: c.text, whole: true }; });
     for (var ei = 0; ei < enrich.length; ei++) {
       fakeItems.push({ id: enrich[ei].id, topic: enrich[ei].topic, msg: enrich[ei].msg,
                        summary: enrich[ei].summary, body: enrich[ei].body });

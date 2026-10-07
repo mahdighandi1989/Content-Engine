@@ -1800,7 +1800,8 @@ function healthCheck() {
                         '، پیوندِ ساختگی: ' + (cx.fake || 0) + '.');
         } else if (cx.verdict) {
           notes.push('سنجهٔ محتوا «' + (cx.showName || cx.show) + '» قسمت ' +
-                     cx.episode + ': ' + cx.verdict + ' (اِسناد ' + cx.attribPct + '٪)');
+                     cx.episode + ': ' + cx.verdict + ' (اِسناد ' + cx.attribPct + '٪)' +
+                     (cx.unsure ? ' — ' + cx.unsure + ' «فراتر» روی متنِ بریدهٔ درس، نسنجیده' : ''));
         }
       }
     }

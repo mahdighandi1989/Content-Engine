@@ -1177,7 +1177,8 @@ function selfUpdateDaily() {
      پرکردنِ بانکِ موسیقی و بازشنیدنش دقیقاً از آن جنس‌اند؛ داوریِ قسمتِ
      امشب نیست. هزینه‌اش هم کران دارد: `AUDIT_MAX_PER_RUN` سه قسمت. */
   if (nightHas_(45000, 'سنجهٔ محتوا')) {
-    try { auditRun_(); } catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
+    try { auditRun_(0, Date.now() + (Number(CFG.AUDIT_RUN_MS) || 38000)); }
+    catch (eCA) { logLine_('سنجهٔ محتوا اجرا نشد: ' + eCA.message); }
     try { auditPrune_(); } catch (eCP) {}
   }
 

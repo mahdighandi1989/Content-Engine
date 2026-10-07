@@ -1389,7 +1389,7 @@ console.log('=== ۲۰) کارِ شبانه: نصبِ کد پشتِ صفِ سنگ
      at('pruneReportArchive_()') < at('musicSeek_(miss)') &&
      at('pruneEnrichFiles_()') < at('musicSeek_(miss)'));
   ok('۲۰.۵ سنجهٔ محتوا هنوز در همان اجرا هست',
-     /auditRun_\(\)/.test(p21) && /auditPrune_\(\)/.test(p21));
+     /auditRun_\(/.test(p21) && /auditPrune_\(\)/.test(p21));   // ۸.۶۶: با مهلت صدا زده می‌شود
   ok('۲۰.۶ و نتیجهٔ نصب همچنان برگردانده می‌شود',
      /return installed;/.test(p21));
 

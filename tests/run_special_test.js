@@ -394,6 +394,18 @@ console.log('\n=== ۴) تولید قسمت اولِ درس‌نامه ===');
 un = quiet(); const r1 = produceSpecialEpisode({ manual: true }); un();
 console.log('  نتیجه:', JSON.stringify(r1));
 ok('قسمت اول نوشته شد', r1.ok === true, JSON.stringify(r1));
+/* ۸.۶۶ — عکسِ محتوا متنِ قطعه‌ها را «متنِ خودِ درس» می‌شناسد و کامل نگه می‌دارد،
+   از درِ خودِ تولید. بی `whole` سقفِ ۱۲۰۰ِ قلم‌های بانک رویش می‌نشست و داور
+   مثالِ نیمهٔ دومِ قطعه را «فراتر از خام» می‌خواند (درس‌های ۳۹ و ۴۰). */
+{
+  const aud = global.__FILES.filter(f => /^_AUDIT-special-\d+\.json$/.test(f.getName())).pop();
+  const aj = aud ? JSON.parse(aud.getBlob().getDataAsString()) : null;
+  const cs = aj ? Object.keys(aj.sources).filter(k => /^C\d+$/.test(k)) : [];
+  ok('۸.۶۶ عکسِ محتوای درس قطعه‌ها را «متنِ درس» (whole) و با طولِ واقعی نگه داشت',
+     cs.length >= 2 && cs.every(k => aj.sources[k].whole === true &&
+       aj.sources[k].len === aj.sources[k].body.length),
+     aj ? JSON.stringify(cs.map(k => [k, aj.sources[k].whole, aj.sources[k].len, aj.sources[k].body.length])) : 'عکسی نیست');
+}
 ok('از مجموعهٔ مقدماتی (کتابِ Polya) شروع شد',
    String(r1.series).indexOf('Polya') !== -1, r1.series);
 ok('پرامپت گفته این قسمت اول است و recap ندارد',
