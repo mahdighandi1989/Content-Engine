@@ -1581,7 +1581,8 @@ function ytRenderAsk_(item) {
     try { ytRenderShare_(was, false); } catch (eRs) {}
     row.redo = (Number(was.redo) || 0) + 1;
     row.replaced = String(was.at || '');
-    row.replacedWhy = row.replace ? 'جایگزینیِ ویدئوی منتشرشده («' + row.replace + '»)'
+    row.replacedWhy = row.replace ? (/^prefix-/.test(String(row.replace)) ? 'ساختِ دوباره پیش از انتشار («' + row.replace + '»)'
+                                     : 'جایگزینیِ ویدئوی منتشرشده («' + row.replace + '»)')
       : row.scenes
       ? 'ردیفِ قبلی کارتِ متنی بود؛ حالا ' + row.scenes.length + ' صحنهٔ مصور'
       : 'ردیفِ قبلی ' + (was.visuals || []).length + ' تصویر داشت' +
@@ -3878,7 +3879,9 @@ function lvClipStatus_() {
       faDigitsOut_(String(lvClipSec_())) + ' ثانیه، از همان سقفِ ماه) · این ماه ' +
       faDigitsOut_(String(out.clips)) + ' کلیپ' +
       (L ? ' · آخرین (' + String(L.key || '') + '): ' +
-           (L.state === 'ok' ? '✅ ساخته و داوری شد' + (L.n ? ' (روی صحنهٔ ' + faDigitsOut_(String(L.n)) + '، نه روی تاریخ)' : '') :
+           (L.state === 'ok' ? '✅ ساخته و داوری شد' + (L.n ? ' (روی صحنهٔ ' + faDigitsOut_(String(L.n)) +
+              (L.said === 'lesson' ? '، نه روی تاریخ)' :
+               L.said === 'date' ? ') ⚠️ ولی ثانیه‌های کلیپ همان جملهٔ تاریخ است' : ')') : '') :
             L.state === 'fail' ? '❌ نشد — ' + String(L.why || 'بی علت') + ' — ویدئو با همان نقاشیِ ثابت رفت' :
             L.state === 'off' ? 'ساخته نشد — ' + String(L.why || '') : String(L.state || ''))
          : ' · هنوز هیچ درسی با کلیپ ساخته نشده') +
@@ -5822,16 +5825,22 @@ function lvSceneAsk_(groups, ctx, art, cast, only, first) {
                     Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384), { exact: true });
   } catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 120); return out; }
   if (!r || !Array.isArray(r.scenes)) { out.why = 'پاسخ صحنه نداشت'; return out; }
+  /* متنِ هر صحنه برای سدِ واژهٔ چسبیده (۸.۶۵)؛ کارتی که مدل خواست و رد شد شمرده می‌شود. */
+  var textOf = {};
+  for (var gi = 0; gi < groups.length; gi++) if (groups[gi]) textOf[String(groups[gi].n)] = groups[gi].text;
+  out.ovBad = 0;
   for (var i = 0; i < r.scenes.length; i++) {
     var x = r.scenes[i] || {};
     var n = Number(String(x.n || '').replace(/[^0-9۰-۹]/g, '')
                    .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }));
     var sc = String(x.scene || '').replace(/\s+/g, ' ').trim();
     if (!n || sc.length < 12) continue;
+    var ovN = lvSceneOvNorm_(x, textOf[String(n)]);
+    if (!ovN && /^(headline|points|compare|quote|steps)$/i.test(String(x.ov || '').trim())) out.ovBad++;
     out.scenes[String(n)] = { scene: sc.slice(0, 700),
                               caption: ytVisCut_(String(x.caption || ''), 48),
                               beat: lvSceneBeat_(x.beat),
-                              ov: lvSceneOvNorm_(x),
+                              ov: ovN,
                               focus: String(x.focus || '').replace(/\s+/g, ' ').trim().slice(0, 80),
                               move: lvSceneMove_(x.move) };
   }
@@ -5937,14 +5946,20 @@ function lvSceneTextShare_(textLevel, share, nature) {
  * نوشتهٔ رویِ نقاشی، پاک‌شده (۸.۴۵). نامعتبر ⇒ `null` — صحنه بی‌نوشته می‌ماند، نه
  * با نوشتهٔ نیمه‌کاره. «نه بیشتر از» در پرامپت فقط امید است؛ سقف این‌جا و در
  * `lvSceneOvTrim_` است (یک سقفِ گفته‌شده فقط در پرامپت سقف نیست).
+ *
+ * **بلندتر از سقف ⇒ نامعتبر، نه بریده با «…» (۸.۶۵).** همین توضیح از ۸.۴۵ می‌گفت «نه با
+ * نوشتهٔ نیمه‌کاره» و کد درست همان را می‌ساخت: درسِ ۴۱، نخستین کارتِ ویدئو، «معماری شناخت و
+ * توجیه باورهاایدهاستوار و ساختار…» — تیتری که پرامپت ≤ ۳۰ نویسه خواسته بود، با «…» در وسطِ
+ * عبارت، و یک واژهٔ چسبیده. تیترِ بریده جملهٔ نیمه‌تمام است، و نقلِ بریده دیگر نقل نیست.
+ * `text` = متنِ همان صحنه؛ با آن واژهٔ چسبیده هم رد می‌شود (`lvOvGlued_`).
  */
-function lvSceneOvNorm_(x) {
+function lvSceneOvNorm_(x, text) {
   var kind = String((x && x.ov) || '').trim().toLowerCase();
   if (['headline', 'points', 'compare', 'quote', 'steps'].indexOf(kind) === -1) return null;
   var cut = function (t, n) {
     t = String(t || '').replace(/\s+/g, ' ').trim();
     try { t = faDigitsOut_(t); } catch (e) {}
-    return t.length > n ? t.slice(0, n - 1).trim() + '…' : t;
+    return t.length > n ? '' : t;
   };
   var lines = [];
   var raw = (x && Array.isArray(x.ovLines)) ? x.ovLines : [];
@@ -5959,6 +5974,7 @@ function lvSceneOvNorm_(x) {
     var kk = cut(ks[k], 24);
     if (kk && all.indexOf(kk) !== -1) o.keys.push(kk);   // واژه‌ای که در متن نیست رنگی نمی‌شود
   }
+  if (lvOvGlued_(all, text)) return null;
   if (kind === 'headline' && !o.title) return null;
   if (kind === 'points' && lines.length < 2) return null;
   if (kind === 'quote' && !o.title) return null;
@@ -5969,6 +5985,30 @@ function lvSceneOvNorm_(x) {
     if (!o.lines.length) return null;
   }
   return o;
+}
+
+/**
+ * واژه‌ای چسبیده که در متنِ همان صحنه نیست (۸.۶۵).
+ *
+ * «باورهاایدهاستوار» سه واژه است بی فاصله و بی نیم‌فاصله، و روی نخستین کارتِ درسِ ۴۱ نشست.
+ * هیچ سنجه‌ای آن را نمی‌دید: تیتر را مدل می‌نویسد و کد فقط طولش را می‌سنجید. در متنِ همان
+ * درس (۲۰ دقیقه، ~۱۳۰۰ واژه) بلندترین واژهٔ بی نیم‌فاصله ۱۱ حرف بود؛ پس واژه‌ای
+ * `LV_OV_GLUE_LEN` حرفی یا بلندتر که در متنِ همان صحنه هم نیست، چسبیدنِ چند واژه است، نه
+ * یک واژه. فقط حروفِ فارسی شمرده می‌شوند (نامِ لاتین بحثِ دیگری است)، و نیم‌فاصله و اعراب
+ * از هر دو سو کنار می‌روند. **بی متن داوری نمی‌شود** — شاهد ندارد و کارت را بی‌دلیل نمی‌اندازد.
+ * @return {string} همان واژه، یا ''
+ */
+function lvOvGlued_(s, text) {
+  var src = String(text || '');
+  if (!src) return '';
+  var strip = function (t) { return String(t || '').replace(/[\u200c\u064B-\u0652\u0670]/g, ''); };
+  var hay = strip(src), min = Math.max(8, Number(CFG.LV_OV_GLUE_LEN) || 13);
+  var toks = String(s || '').split(/[\s\u200c،؛:.!؟?«»"'()\[\]…\-–—|]+/);
+  for (var i = 0; i < toks.length; i++) {
+    var w = strip(toks[i]);
+    if (w.length >= min && /^[\u0600-\u06FF]+$/.test(w) && hay.indexOf(w) === -1) return w;
+  }
+  return '';
 }
 
 /**
@@ -6131,7 +6171,7 @@ function lvSceneOvFill_(d, ctx, left) {
       var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (z) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(z); });
       var sc = byN[String(Number(nn))];
       if (!sc || sc.__ovNew) continue;
-      var o = lvSceneOvNorm_(it);
+      var o = lvSceneOvNorm_(it, sc.text);
       if (!o) { rejected++; continue; }
       /* «هرگز تیترِ تنها» — در کد، نه فقط در پرامپت. */
       if (o.kind === 'headline' && !o.lines.length) { rejected++; continue; }
@@ -6485,6 +6525,33 @@ function lvSceneIsCalendar_(text) {
 }
 
 /**
+ * آنچه در ثانیه‌های کلیپ گفته می‌شود (۸.۶۵).
+ *
+ * ۸.۵۶ فقط صحنه‌ای را کنار گذاشت که **جز تاریخ هیچ** نداشت. درسِ ۴۱ همان شکلِ درسِ ۴۰ را از
+ * درِ دیگر ساخت: برش‌زن جملهٔ تاریخ را با پنجاه ثانیهٔ بعدش یکی کرد (صحنهٔ ۱، ۰ تا ۵۸٫۱، ۴۳۳
+ * نویسه)، پس صحنه «فقط تاریخ» نبود و کلیپ گرفت — و کلیپ از آغازِ صحنه پخش می‌شود. شنیدنِ
+ * همان ثانیه‌ها (whisper، ۷ اکتبر): «درس‌نامه، چهارشنبه، پانزدهم مهر…». یعنی دقیقاً همان
+ * چیزی که او ۶ اکتبر گفت نباید باشد.
+ *
+ * پرسشِ درست «این صحنه دربارهٔ چیست» نیست؛ «**وقتی کلیپ پخش می‌شود** چه گفته می‌شود» است.
+ * متن به نسبتِ زمان بریده می‌شود (گفتار در یک صحنه تقریباً یکنواخت است) با ۲۵٪ حاشیه،
+ * چون جملهٔ تاریخ اگر نیمه‌اش هم زیرِ کلیپ باشد، همان عیب است.
+ */
+function lvClipSaid_(x, sec) {
+  var t = String((x && x.text) || '');
+  var d = (Number(x && x.t1) || 0) - (Number(x && x.t0) || 0);
+  if (!t) return '';
+  if (!(d > 0)) return t.slice(0, 220);
+  return t.slice(0, Math.min(220, Math.ceil(t.length * Math.min(1, sec / d) * 1.25)));
+}
+
+/** برچسبِ «زیرِ کلیپ چه گفته می‌شود» — 'date' یا 'lesson' — از همان سنجهٔ انتخاب (۸.۶۵). */
+function lvClipSaidTag_(sc) {
+  if (!sc || !sc.text) return '';
+  return (lvSceneIsCalendar_(sc.text) || lvSceneIsCalendar_(lvClipSaid_(sc, lvClipSec_() + 3.5))) ? 'date' : 'lesson';
+}
+
+/**
  * کلیپ روی کدام صحنه بنشیند؟ (۸.۵۶)
  *
  * ۶ اکتبر، درسِ ۴۰: «اون چند ثانیه متحرک هم همون چند ثانیه‌ای بود که داشت تازه تاریخ
@@ -6511,6 +6578,7 @@ function lvClipScene_(d) {
   for (var i = 0; i < sc.length && cands.length < win; i++) {
     var x = sc[i];
     if (lvSceneIsCalendar_(x.text)) { skipped.push(x.n + ': فقط تاریخ'); continue; }
+    if (lvSceneIsCalendar_(lvClipSaid_(x, need))) { skipped.push(x.n + ': تاریخ در ثانیه‌های کلیپ'); continue; }
     /* زمانِ نامعلوم «کوتاه» نیست — نقشه همیشه t0/t1 دارد؛ این فقط نقشهٔ ناقص را نمی‌اندازد. */
     if (isFinite(Number(x.t1)) && x.t1 !== '' && x.t1 !== undefined &&
         (Number(x.t1) || 0) - (Number(x.t0) || 0) < need) { skipped.push(x.n + ': کوتاه'); continue; }
@@ -6550,6 +6618,9 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
   var sc = null;
   if (c.n) for (var cz = 0; cz < d.scenes.length; cz++) if (Number(d.scenes[cz].n) === Number(c.n)) sc = d.scenes[cz];
   if (!sc && c.state !== '') sc = d.scenes[0];
+  /* «نه روی تاریخ» در خطِ روزانه از همین برچسب خوانده می‌شود، نه از انتخاب (۸.۶۵): ۷ اکتبر همان
+     خط برای درسِ ۴۱ گفت «روی صحنهٔ ۱، نه روی تاریخ» و ثانیه‌های کلیپ دقیقاً جملهٔ تاریخ بود. */
+  if (sc && !c.said) c.said = lvClipSaidTag_(sc);
   var waitMs = Math.max(5, Number(CFG.LV_CLIP_WAIT_MIN) || 45) * 60000;
   if (c.first && new Date().getTime() - Number(c.first) > waitMs) {
     c.state = 'fail'; c.why = (c.why ? c.why + ' — ' : '') + 'در ' + (Number(CFG.LV_CLIP_WAIT_MIN) || 45) +
@@ -6567,6 +6638,7 @@ function lvClipStep_(d, imgFolder, left, key, tryMax) {
       if (pick.i < 0) { c.state = 'fail'; c.why = pick.why; lvClipNote_(key, c, model); return; }
       sc = d.scenes[pick.i];
       c.n = sc.n;
+      c.said = lvClipSaidTag_(sc);
       if (pick.why) c.pickWhy = pick.why;
     }
     if (!sc.fileId) {
@@ -6687,7 +6759,7 @@ function lvClipNote_(key, c, model) {
     var fail = c.state === 'fail' ? { key: key, at: nowStr_(), why: why, adj: c.adj || [] }
              : (c.state === 'ok' ? null : (prev && prev.fail) || null);
     props_().setProperty(PK.LV_CLIP_LAST, JSON.stringify({ key: key, at: nowStr_(), state: c.state,
-      why: why, model: model, tries: c.tries || 0, n: Number(c.n) || 0,
+      why: why, model: model, tries: c.tries || 0, n: Number(c.n) || 0, said: String(c.said || ''),
       usd: Number(c.usd) || 0, adj: c.adj || [], fails: fails, fail: fail }));
   } catch (e) {}
 }
@@ -7095,6 +7167,7 @@ function lvScenePlanAsk_(d, ctx, left, fresh) {
     if (!first) ctx.nature = d.nature;
     var ask = lvSceneAsk_(all, ctx, d.art, d.cast, only, first);
     out.asked++;
+    if (ask.ovBad) d.ovBad = (Number(d.ovBad) || 0) + ask.ovBad;
     lvScenePlanTake_(d, ask);
     if (first) {
       d.nature = ask.nature || '';
@@ -7129,6 +7202,7 @@ function lvScenePlanAsk_(d, ctx, left, fresh) {
       ctx.nature = d.nature;
       var ask2 = lvSceneAsk_(all, ctx, d.art, d.cast, part, false);
       out.asked++;
+      if (ask2.ovBad) d.ovBad = (Number(d.ovBad) || 0) + ask2.ovBad;
       d.retryAsked = d.retryAsked.concat(part);
       if (!d.nature && ask2.nature) d.nature = ask2.nature;
       var had = all.filter(function (x) { return !!x.scene; }).length;
@@ -9140,6 +9214,26 @@ function ytUploadOne_(item, hub, pub) {
    * تا ویدئو نرسیده، این درس صحنه می‌گیرد: تصویرِ تمام‌صفحه‌ای که همان چیزی
    * را نشان می‌دهد که در همان لحظه گفته می‌شود. نشد ⇒ با علت به مسیرِ قبلی
    * (کارت‌ها) می‌افتد؛ ویدئوی ساده از ویدئوی نیامده بهتر است. */
+  /* ══ ساخته‌شده، منتشرنشده، و عیبِ شناخته‌شده دارد ⇒ پیش از انتشار از نو (۸.۶۵) ══
+   * درسِ ۴۱ ساعت ۰۹:۴۵ رندر شد — کلیپ روی جملهٔ تاریخ، نخستین کارت بریده و چسبیده — و چون
+   * سهمیهٔ آن روز تمام بود، منتظرِ آپلود ماند. جایگزینیِ ۸.۵۷ فقط ویدئوی **منتشرشده** را
+   * می‌گیرد («انتشارِ عادی همان ویدئوی تازه را می‌سازد») — ولی این‌جا انتشارِ عادی همان ویدئوی
+   * معیوب را می‌برد. ویدئوی منتشرشده‌ای که جایگزین شود، نشانی‌اش عوض می‌شود؛ ساختنِ دوباره پیش
+   * از انتشار هیچ هزینه‌ای جز رانر و یک کلیپ ندارد. یک بار برای هر درس (`preFix`). */
+  if (!item.replace && ytVideoIn_(folder)) {
+    var pf = null;
+    try { pf = lvScenePreFix_(folder); } catch (ePf) { pf = null; }
+    if (pf && pf.tag) {
+      var dlP = ytDueList_();
+      for (var dq = 0; dq < dlP.length; dq++) if (String(dlP[dq].key) === String(item.key)) dlP[dq].replace = pf.tag;
+      ytDueSave_(dlP);
+      item.replace = pf.tag;
+      logLine_('ویدئوی ' + item.key + ' پیش از انتشار از نو ساخته می‌شود: ' + pf.why);
+      res.waiting = true; res.why = 'پیش از انتشار از نو ساخته می‌شود — ' + pf.why;
+      return res;
+    }
+  }
+
   var sceneFb = '';
   if (ytVisOn_(item.show) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
     var scn = null;
@@ -9847,6 +9941,48 @@ function ytReplaceAside_(folder) {
   sub = fi.hasNext() ? fi.next() : folder.createFolder(nm);
   for (var i = 0; i < vids.length; i++) { vids[i].moveTo(sub); n++; }
   return n;
+}
+
+/**
+ * عیب‌های شناخته‌شدهٔ نقشه‌ای که ویدئویش ساخته شده و هنوز منتشر نشده (۸.۶۵): کلیپی که زیرش
+ * تاریخ خوانده می‌شود، و کارتِ بریده («…») یا چسبیده (`lvOvGlued_`). کارتِ معیوب کنار می‌رود
+ * (نه بازنویسی — متنِ تازه را فقط مدل می‌تواند بدهد و پرکردنِ کارت از نو می‌پرسد)، کلیپ از نو
+ * انتخاب می‌شود، ویدئوی قبلی به «پیشین» می‌رود (نه سطل). نقاشی‌ها و داوری همان می‌مانند.
+ * هیچ عیبی ⇒ هیچ کاری. `preFix` ⇒ دیگر هرگز، حتی اگر بارِ دوم هم عیبی بماند.
+ * @return {{tag:string, why:string}|null}
+ */
+function lvScenePreFix_(folder) {
+  var d = lvSceneRead_(folder);
+  if (!d || !d.scenes || !d.scenes.length || d.preFix) return null;
+  var why = [], c = d.clip;
+  if (c && c.state === 'ok') {
+    var sc = null;
+    for (var i = 0; i < d.scenes.length; i++) if (c.n && Number(d.scenes[i].n) === Number(c.n)) sc = d.scenes[i];
+    if (!sc && !c.n) sc = d.scenes[0];
+    if (sc && lvClipSaidTag_(sc) === 'date') { why.push('کلیپ روی جملهٔ تاریخ بود'); d.clip = { state: '' }; }
+  }
+  var bad = 0;
+  for (var k = 0; k < d.scenes.length; k++) {
+    var x = d.scenes[k], o = x.ov;
+    if (!o) continue;
+    var all = [o.title || ''].concat(o.lines || [], [o.a || '', o.b || '']).join(' ');
+    if (/…/.test(all) || lvOvGlued_(all, x.text)) { x.ov = null; bad++; }
+  }
+  if (bad) {
+    why.push(faDigitsOut_(String(bad)) + ' کارتِ بریده یا چسبیده کنار رفت');
+    delete d.ovFillAt; delete d.ovFill; d.ovFillTries = 0;
+  }
+  if (!why.length) return null;
+  var tag = 'prefix-' + String(CFG.CODE_VERSION || '');
+  /* اول نقشه، بعد ویدئوی قبلی: برعکسش اگر نوشتن نشود، ویدئو رفته و نقشه نمی‌داند چرا — درس بی
+     ویدئو و بی درخواستِ تازه می‌مانَد. این‌طور بدترین حالت همان ویدئوی قبلی است که منتشر می‌شود. */
+  d.preFix = { tag: tag, at: nowStr_(), why: why.join('؛ ') };
+  d.replaceTag = tag;
+  if (!lvSceneWrite_(folder, d)) return null;
+  var aside = 0;
+  try { aside = ytReplaceAside_(folder); } catch (eA) { aside = 0; }
+  if (!aside) return null;
+  return { tag: tag, why: why.join('؛ ') };
 }
 
 /** کلیپ و پرکردنِ کارت‌ها از نو؛ نقاشی و داوری همان. */

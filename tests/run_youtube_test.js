@@ -9053,4 +9053,179 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
   }
 }
 
+console.log('\n=== ۹۱) کلیپ وقتی تاریخ خوانده می‌شود نه؛ کارتِ بریده یا چسبیده نه (۸.۶۵) ===');
+{
+  /* درسِ ۴۱ (special:64)، ۷ اکتبر — متن، زمان و نمرهٔ داورِ سه صحنهٔ نخست، عیناً از `_scenes.json`ِ
+     همان درس. برش‌زن جملهٔ تاریخ را با پنجاه ثانیهٔ بعدش یکی کرده بود؛ کلیپ روی صحنهٔ ۱ رفت و
+     whisper در ثانیه‌های ۰ تا ۸ همان را شنید: «درس‌نامه، چهارشنبه، پانزدهم مهر…». */
+  const T1 = 'درس‌نامه. چهارشنبه، پانزدهم مهر هزار و چهارصد و پنج، برابر با هفتم اکتبر دو هزار و بیست و شش. در این قسمت، به سراغ بخش دیگری از کتاب «معرفت‌شناسی» رابرت آئودی می‌رویم، تا ساختار توجیه و معماری شناخت را بررسی کنیم. در قسمت‌های پیشین شرایط انتقال قیاسی و استقرایی توجیه بررسی شد. نشان دادیم که اراده‌گرایی باوری باطل است و باورها نیازمند توجیه‌اند. در این قسمت، به بررسی ساختار باورها، مسئلهٔ تسلسل، و راهکارهای رهایی از آن می‌پردازیم…';
+  const T2 = 'پیش از هر چیز روشن کنیم این درس به چه دردی می‌خورد. تبیین چگونگی توجیه باورها، بدون سقوط در دور باطل یا تسلسل نامتناهی استنتاجی. انتظار مدرس این است که بعد از این درس، این کار را متفاوت انجام بدهید. شنونده باید بتواند باورهای باواسطه را تا مبانی مستقیم و غیراستنتاجی در تجربه یا عقل ردیابی کند.';
+  const T3 = 'و اگر بخواهیم همهٔ این بخش را در یک جمله بگوییم: معرفت باواسطه برای رهایی از محال علی و تسلسل نامتناهی، ناگزیر باید بر معرفت‌های مستقیم و پایه‌ای لنگر ب‌یندازد…';
+  const S64 = () => [
+    { n: 1, t0: 0, t1: 58.1, text: T1, fileId: 'J1', scene: 'architecture', judge: { s: 7, txt: false, face: false } },
+    { n: 2, t0: 58.1, t1: 91.1, text: T2, fileId: 'J2', scene: 'path', judge: { s: 8, txt: false, face: false } },
+    { n: 3, t0: 91.1, t1: 112.3, text: T3, fileId: 'J3', scene: 'anchor', judge: { s: 8, txt: false, face: false } }];
+  ok('۹۱.۰ پیش‌شرط: صحنهٔ ۱ «فقط تاریخ» نیست — همان راهی که ۸.۵۶ را دور زد',
+     lvSceneIsCalendar_(T1) === false && T1.length > 260);
+  const said = lvClipSaid_(S64()[0], lvClipSec_() + 3.5);
+  ok('۹۱.۱ آنچه زیرِ کلیپِ صحنهٔ ۱ گفته می‌شود همان جملهٔ تاریخ است، نه پنجاه ثانیهٔ بعد',
+     /چهارشنبه/.test(said) && /اکتبر/.test(said) && !/اراده‌گرایی/.test(said), said);
+  const p91 = lvClipScene_({ scenes: S64() });
+  ok('۹۱.۲ درسِ ۴۱: کلیپ روی صحنهٔ ۲ (نخستین ثانیه‌هایش درس است)، نه صحنهٔ ۱', p91.i === 1 && !p91.wait,
+     JSON.stringify(p91));
+  /* تاریخی که **بعد از** ثانیه‌های کلیپ در متنِ صحنه آمده، کلیپ را نمی‌گیرد — سنجه زمانِ گفتن است،
+     نه بودنِ واژه در متن (برشِ ثابتِ ۲۲۰ نویسه همین را رد می‌کرد). */
+  const sLate = S64();
+  sLate[1].text = 'پیش از هر چیز روشن کنیم این درس به چه دردی می‌خورد و چرا ساختار توجیه را از پایه بررسی می‌کنیم. ' +
+    'تبیین چگونگی توجیه باورها بدون سقوط در دور باطل. همان شنبه‌ای که در مهرماه دربارهٔ استقرا گفتیم، ' +
+    'دیدیم که باور باواسطه پشتوانه می‌خواهد؛ امروز همان پشتوانه را تا مبانی مستقیم و غیراستنتاجی در تجربه یا عقل ردیابی می‌کنیم.';
+  sLate[1].t1 = 58.1 + 40;
+  ok('۹۱.۳ تاریخی که پس از ثانیه‌های کلیپ می‌آید کلیپ را نمی‌گیرد',
+     sLate[1].text.length > 260 && sLate[1].text.indexOf('شنبه') < 220 && lvClipScene_({ scenes: sLate }).i === 1,
+     JSON.stringify({ len: sLate[1].text.length, at: sLate[1].text.indexOf('شنبه'), p: lvClipScene_({ scenes: sLate }) }));
+
+  /* ۹۱.۴ — از درِ ماشینِ حالت: کلیپ از تصویرِ صحنهٔ ۲ و `clip.n = 2`. */
+  const keepStart = global.lvClipStart_, keepGf = DriveApp.getFileById;
+  let used = null;
+  global.lvClipStart_ = (model, blob, prompt) => { used = { img: blob.__id, prompt: prompt }; return { op: 'op-91', err: '' }; };
+  DriveApp.getFileById = function (id) {
+    if (/^J\d$/.test(id)) return { getBlob: () => { const b = Utilities.newBlob([1, 2, 3], 'image/png', 'x.png'); b.__id = id; return b; } };
+    return keepGf.call(DriveApp, id);
+  };
+  const spWas = global.__PROPS[PK.LV_GEN_SPEND];
+  global.__PROPS[PK.LV_GEN_SPEND] = '';
+  const d4 = { scenes: S64(), clip: { state: '', tries: 0, op: '', fileId: '', why: '', at: '' } };
+  try { lvClipStep_(d4, DriveApp.__register('EP91', 'قسمت 0910 — کلیپ'), () => 1e9, 'special:910', 2); }
+  finally { global.lvClipStart_ = keepStart; DriveApp.getFileById = keepGf; global.__PROPS[PK.LV_GEN_SPEND] = spWas; }
+  ok('۹۱.۴ از درِ `lvClipStep_`: کلیپ از تصویرِ صحنهٔ ۲ آغاز می‌شود و `clip.n` همان می‌مانَد',
+     d4.clip.n === 2 && d4.clip.img === 'J2' && !!used && used.img === 'J2', JSON.stringify({ c: d4.clip, used: used && used.img }));
+
+  /* ۹۱.۴-ب — «نه روی تاریخ» در خطِ روزانه از رویدادِ همان کلیپ، نه از انتخاب. ۷ اکتبر همان خط برای درسِ ۴۱
+     گفت «روی صحنهٔ ۱، نه روی تاریخ». کلیپِ در راهِ درسِ ۴۱ (`n: 1`، پیش از ۸.۶۵) از درِ ماشینِ حالت برچسب
+     می‌گیرد؛ و کلیپِ تازه (صحنهٔ ۲) برچسبِ «درس». */
+  const lastWas = global.__PROPS[PK.LV_CLIP_LAST];
+  const dOld = { scenes: S64(), clip: { state: 'wait', tries: 1, op: 'op-x', fileId: '', why: '', at: '', n: 1, first: 1 } };
+  lvClipStep_(dOld, DriveApp.__register('EP91b', 'قسمت 0911 — کلیپ'), () => 1e9, 'special:64', 2);
+  dOld.clip.state = 'ok'; lvClipNote_('special:64', dOld.clip, CFG.LV_CLIP_MODEL);
+  const lineOld = lvClipStatus_().line;
+  lvClipNote_('special:65', { state: 'ok', n: 2, said: d4.clip.said }, CFG.LV_CLIP_MODEL);
+  const lineNew = lvClipStatus_().line;
+  if (lastWas === undefined) delete global.__PROPS[PK.LV_CLIP_LAST]; else global.__PROPS[PK.LV_CLIP_LAST] = lastWas;
+  ok('۹۱.۴-ب خطِ روزانه «نه روی تاریخ» را فقط وقتی می‌گوید که زیرِ کلیپ درس گفته می‌شود',
+     dOld.clip.said === 'date' && !/نه روی تاریخ/.test(lineOld) && /همان جملهٔ تاریخ/.test(lineOld) &&
+     d4.clip.said === 'lesson' && /صحنهٔ ۲، نه روی تاریخ/.test(lineNew),
+     JSON.stringify({ old: dOld.clip.said, nw: d4.clip.said, lineOld: lineOld.slice(-120), lineNew: lineNew.slice(-80) }));
+
+  /* ── کارت: «نه با نوشتهٔ نیمه‌کاره» در کد، و واژهٔ چسبیده ── */
+  const H = (title, lines) => ({ ov: 'headline', ovTitle: title, ovLines: lines || ['این مفهوم یعنی پشتوانهٔ باور'] });
+  const glued = lvSceneOvNorm_(H('توجیه باورهاایدهاستوار'), T1);
+  ok('۹۱.۵ واژهٔ چسبیده‌ای که در متنِ صحنه نیست ⇒ کارت رد', glued === null && lvOvGlued_('توجیه باورهاایدهاستوار', T1) === 'باورهاایدهاستوار',
+     JSON.stringify(glued));
+  ok('۹۱.۵-ب بی متن داوری نمی‌شود؛ واژهٔ بلندِ درستی که در متن هست می‌مانَد؛ نامِ لاتین دست نمی‌خورد',
+     lvSceneOvNorm_(H('توجیه باورهاایدهاستوار'), '') !== null &&
+     lvSceneOvNorm_(H('ناسازگارنمایی دو باور'), 'گاهی ناسازگارنمایی دو باور فقط ظاهری است.') !== null &&
+     lvSceneOvNorm_(H('Epistemology contemporaneously'), T1) !== null);
+  const longH = lvSceneOvNorm_(H('معماری شناخت و توجیه باورها و ساختار تسلسل معرفتی در نگاه آئودی'), T1);
+  const longQ = lvSceneOvNorm_({ ov: 'quote', ovTitle: T2.slice(0, 130) }, T2);
+  const pts = lvSceneOvNorm_({ ov: 'points', ovTitle: 'دو راه', ovLines: ['قیاس: ضروری', 'استقرا: محتمل', T2.slice(0, 95)] }, T2);
+  ok('۹۱.۶ بلندتر از سقف ⇒ رد، نه بریده با «…» (تیتر، نقل)؛ سطرِ بلند کنار می‌رود و دو سطرِ درست می‌مانند',
+     longH === null && longQ === null && pts && pts.lines.length === 2 && JSON.stringify(pts).indexOf('…') === -1,
+     JSON.stringify({ longH: longH, longQ: longQ, pts: pts }));
+  ok('۹۱.۶-ب نقلِ درسِ ۴۱ که درست بود می‌مانَد',
+     (lvSceneOvNorm_({ ov: 'quote', ovTitle: 'معرفت باواسطه ناگزیر باید بر معرفت‌های مستقیم و پایه‌ای لنگر بیندازد.' }, T3) || {}).kind === 'quote');
+
+  /* ۹۱.۷ — از درِ تولید: پرسشِ صحنه‌ها (`lvScenePlanAsk_` ⇒ `lvSceneAsk_`) با متنِ همان صحنه می‌سنجد
+     و کارتِ ردشده را در `ovBad` می‌شمارد. */
+  const gtWas = global.geminiText_;
+  global.geminiText_ = (prompt) => ({ nature: 'درس', cast: '', cover: 'a calm cover scene with blocks', scenes: [
+    { n: '1', scene: 'A clean architectural workspace with foundation blocks', ov: 'headline',
+      ovTitle: 'معماری شناخت و توجیه باورهاایدهاستوار', ovLines: ['ساختار باورها'] },
+    { n: '2', scene: 'A path of stepping stones drawn in sand by a kneeling man', ov: '' },
+    { n: '3', scene: 'An anchor gripping dark rocks under a teal dusk sky', ov: 'quote',
+      ovTitle: 'معرفت باواسطه ناگزیر باید بر معرفت‌های مستقیم و پایه‌ای لنگر بیندازد.' }] });
+  const dP = { scenes: S64().map(x => ({ n: x.n, t0: x.t0, t1: x.t1, text: x.text })), art: 'flat', cast: '', retried: true };
+  try { lvScenePlanAsk_(dP, { textShare: 0.45 }, () => 1e9, false); }
+  finally { global.geminiText_ = gtWas; }
+  ok('۹۱.۷ از درِ پرسشِ صحنه‌ها: تیترِ چسبیده نمی‌نشیند و شمرده می‌شود؛ نقلِ درست می‌نشیند؛ «بی‌کارت» رد شمرده نمی‌شود',
+     dP.scenes[0].scene && dP.scenes[0].ov === null && dP.scenes[2].ov && dP.scenes[2].ov.kind === 'quote' &&
+     dP.scenes[1].ov === null && dP.ovBad === 1, JSON.stringify({ ov: dP.scenes.map(x => x.ov && x.ov.kind), bad: dP.ovBad }));
+
+  /* ۹۱.۸ — و از درِ دوم: پرکردنِ کارت پس از داوری (`lvSceneOvFill_`) هم با متنِ همان صحنه می‌سنجد. */
+  const mk8 = () => {
+    const a = [];
+    for (let i = 1; i <= 12; i++) a.push({ n: i, t0: (i - 1) * 30, t1: i * 30, fileId: 'K' + i, beat: 'ایده', ov: null,
+      text: 'متنِ صحنهٔ ' + i + ' دربارهٔ توجیه باورها و ساختار تسلسل.', judge: { s: 6, space: 'right' } });
+    return a;
+  };
+  const d8 = { scenes: mk8(), ovShare: 0.5, nature: 'درس' };
+  global.geminiText_ = (prompt) => ({ items: (prompt.match(/^\[(\d+)\]/gm) || []).map(x => x.replace(/[\[\]]/g, ''))
+    .map(n => ({ n: n, ov: 'points', ovTitle: 'باورهاایدهاستوار', ovLines: ['قیاس: ضروری', 'استقرا: محتمل'] })) });
+  let r8;
+  try { r8 = lvSceneOvFill_(d8, { title: 'معماری' }, () => 1e9); }
+  finally { global.geminiText_ = gtWas; }
+  ok('۹۱.۸ از درِ پرکردنِ کارت: عنوانِ چسبیده هیچ کارتی نمی‌نشانَد و «رد» شمرده می‌شود',
+     r8 && r8.got === 0 && !d8.scenes.some(x => x.ov) && d8.ovFill && d8.ovFill.rejected > 0,
+     JSON.stringify({ r: r8, f: d8.ovFill }));
+
+  /* ── ۹۱.۹ — درسِ ۴۱ ساخته شده و هنوز منتشر نشده (سهمیهٔ آن روز تمام بود). انتشارِ عادی همان ویدئوی
+     معیوب را می‌برد؛ جایگزینیِ ۸.۵۷ فقط منتشرشده را می‌گیرد. از درِ خودِ `ytUploadOne_`. ── */
+  const mkPlan = (clipN, badOv) => {
+    const sc = S64().map(x => ({ n: x.n, t0: x.t0, t1: x.t1, text: x.text, fileId: x.fileId, scene: x.scene, judge: x.judge,
+                                 ov: null, tries: 1 }));
+    sc[0].ov = badOv ? { kind: 'headline', title: 'معماری شناخت و توجیه باورهاایدهاستوار و ساختار…', lines: [], a: '', b: '', keys: [], side: 'right' }
+                     : { kind: 'headline', title: 'معماری شناخت', lines: ['ساختارِ توجیه'], a: '', b: '', keys: [], side: 'right' };
+    sc[2].ov = { kind: 'quote', title: 'معرفت باواسطه ناگزیر باید بر معرفت‌های مستقیم و پایه‌ای لنگر بیندازد.', lines: [], a: '', b: '', keys: [], side: 'right' };
+    return { v: 1, key: 'special:964', done: true, judged: true, scenes: sc, ovFillAt: '2026-10-07 13:00', ovFill: { got: 0 },
+             clip: { state: 'ok', n: clipN, fileId: 'CLIP1', img: 'J' + clipN, sec: 8 } };
+  };
+  const mkEp91 = (id, plan) => {
+    const f = DriveApp.__register(id, 'قسمت 0964 — معماری شناخت');
+    f.createFile(Utilities.newBlob(JSON.stringify({ lesson: 41, seriesName: 'آئودی', cat: 'فلسفه',
+      ep: { title: 'معماری شناخت و مسئله تسلسل معرفتی', hook: 'ق', summary: 'خ',
+            sections: [{ heading: 'یک', narration: T1 }, { heading: 'دو', narration: T2 }] } }), 'application/json', '_special.json'));
+    f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(2000) + 'WAVE', 'audio/wav', 'کامل.wav'));
+    f.createFile(Utilities.newBlob(JSON.stringify(plan), 'application/json', lvSceneFile_()));
+    f.createFile(Utilities.newBlob('ftyp-mp4', 'video/mp4', 'قسمت 0964 — ویدئو.mp4'));
+    return f;
+  };
+  const svc9 = global.YouTube; global.YouTube = {};
+  const dueWas = ytDueList_();
+  const f9 = mkEp91('EP91P', mkPlan(1, true));
+  const it9 = { key: 'special:964', show: 'special', ep: '964', folderId: 'EP91P', series: 'آئودی' };
+  ytDueSave_([Object.assign({}, it9)]);
+  let r9;
+  try { r9 = ytUploadOne_(Object.assign({}, it9), null, []); }
+  finally { global.YouTube = svc9; }
+  const p9 = lvSceneRead_(f9), due9 = ytDueList_().filter(x => x.key === 'special:964')[0] || {};
+  const aside9 = f9.getFoldersByName('ویدئوی پیشین — جایگزین‌شده');
+  ok('۹۱.۹ از درِ `ytUploadOne_`: ویدئوی ساخته‌شدهٔ معیوب منتشر نمی‌شود — کلیپ از نو، کارتِ بریده کنار، ویدئوی قبلی به «پیشین»',
+     r9 && r9.waiting === true && /پیش از انتشار/.test(r9.why) && /تاریخ/.test(r9.why) &&
+     due9.replace === 'prefix-' + CFG.CODE_VERSION && !ytVideoIn_(f9) && aside9.hasNext() &&
+     p9.clip.state === '' && p9.scenes[0].ov === null && p9.scenes[2].ov && p9.scenes[2].ov.kind === 'quote' &&
+     !p9.ovFillAt && p9.preFix && p9.preFix.tag === due9.replace,
+     JSON.stringify({ r: r9, due: due9.replace, clip: p9 && p9.clip, pre: p9 && p9.preFix }));
+  /* حتی اگر عیب پس از ساختنِ دوباره هم بماند (سنجه و انتخاب روزی با هم نخوانند)، دوباره نه — وگرنه
+     حلقهٔ «بساز، کنار بگذار، بساز» بی‌پایان است. */
+  const p9b = lvSceneRead_(f9);
+  p9b.clip = { state: 'ok', n: 1, fileId: 'CLIP2', img: 'J1', sec: 8 };
+  lvSceneWrite_(f9, p9b);
+  f9.createFile(Utilities.newBlob('ftyp-mp4', 'video/mp4', 'قسمت 0964 — ویدئو.mp4'));
+  ok('۹۱.۹-ب یک بار: نقشهٔ ازنوشده — حتی با همان عیب — دوباره دست نمی‌خورد و ویدئوی تازه می‌مانَد',
+     lvScenePreFix_(f9) === null && !!ytVideoIn_(f9));
+  const fOk = mkEp91('EP91Q', mkPlan(2, false));
+  const pOk = lvScenePreFix_(fOk);
+  ok('۹۱.۹-پ نقشهٔ سالم (کلیپ روی درس، کارتِ کامل) ⇒ هیچ کاری؛ ویدئو سرِ جایش',
+     pOk === null && !!ytVideoIn_(fOk) && !lvSceneRead_(fOk).preFix);
+  ytDueSave_(dueWas);
+  /* ۹.۱۰ — ردیفِ رندرِ همین ازنوسازی «جایگزینیِ منتشرشده» خوانده نمی‌شود. */
+  ytRenderSave_({ items: [{ key: 'special:964', show: 'special', ep: '964', status: 'رسید', at: 'x', scenes: [{ n: 1 }] }] });
+  ytRenderAsk_({ show: 'special', ep: '964', title: 't', folderId: 'EP91P', visuals: [], scenes: [{ n: 2 }], audio: [],
+                 replace: 'prefix-' + CFG.CODE_VERSION });
+  const row10 = ytRenderRead_().items.filter(x => x.key === 'special:964')[0] || {};
+  ok('۹۱.۱۰ ردیفِ رندر با همان برچسب بازنویسی می‌شود و علتش «پیش از انتشار» است، نه «جایگزینیِ منتشرشده»',
+     row10.replace === 'prefix-' + CFG.CODE_VERSION && /پیش از انتشار/.test(String(row10.replacedWhy || '')),
+     JSON.stringify({ rep: row10.replace, why: row10.replacedWhy }));
+  ytRenderSave_({ items: [] });
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
