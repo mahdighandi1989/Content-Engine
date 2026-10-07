@@ -5817,20 +5817,41 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     };
     const E2 = mkEp71('EP71D', 'قسمت 0274 — نقشهٔ ناشده');
     const ctx2 = Object.assign({}, ctx, { epRaw: '274' });
+    /* ۸.۶۳: «نشد» دیگر همان دم کارت نیست — صبر، با فاصله، تا `LV_SCENE_FAIL_MAX`؛ پس از آن کارت و دیگر پرسشی نه. */
+    const fmWas = CFG.LV_SCENE_FAIL_MAX; CFG.LV_SCENE_FAIL_MAX = 2;
+    const age = () => { const dd = lvSceneRead_(E2.f); dd.at = '2026-08-17 00:00'; lvSceneWrite_(E2.f, dd); };
     const f1 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
-    const f2 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
-    const f3 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);
+    const c1 = planCalls;
+    const f2 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);        // پیش از فاصله: پرسشی نه
+    const c2 = planCalls;
+    age();
+    const f3 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);        // پس از فاصله: پرسش، و دومین «نشد» ⇒ کارت
+    const f4 = lvScenesBuild_(E2.f, E2.meta, {}, ctx2);        // پس از کارت: دیگر هیچ پرسشی
+    CFG.LV_SCENE_FAIL_MAX = fmWas;
     global.__STUB = BASE_STUB;
-    ok('۷۱.۶ سقفِ پر ⇒ مسیرِ قبلی با علت؛ نقشه‌ای که دو بار نشد بارِ سوم پرسیده نمی‌شود',
+    ok('۷۱.۶ سقفِ پر ⇒ مسیرِ قبلی با علت؛ نقشهٔ ناشده صبر می‌کند و با فاصله دوباره می‌پرسد، و فقط پس از سقف کارت می‌شود',
        rB.fallback && /سقفِ ماهانه/.test(rB.why) && cnt.gen === 0 &&
-       f1.fallback && f2.fallback && f3.fallback && planCalls === 2 && /توصیف/.test(f1.why),
-       rB.why + ' | ' + planCalls + ' پرسش · ' + f3.why);
+       !f1.fallback && /توصیف/.test(f1.why) && /کارتی ساخته نمی‌شود/.test(f1.why) && c1 === 1 &&
+       !f2.fallback && c2 === 1 && /منتظر/.test(f2.why) &&
+       f3.fallback && f4.fallback && planCalls === 2,
+       rB.why + ' | ' + planCalls + ' پرسش · ' + [f1, f2, f3, f4].map(x => (x.fallback ? 'کارت' : 'صبر') + ': ' + String(x.why).slice(0, 60)).join(' / '));
     /* ۷۱.۶-ب — بی‌پولی پیش از هر فراخوانِ مدل گفته می‌شود و «نقشهٔ ناشده» شمرده
        نمی‌شود (۸.۴۸): ماهِ بعد پول هست، و این درس نباید تا ابد «دو بار نشد» بماند. */
     const dB = lvSceneRead_(E.f);
     ok('۷۱.۶-ب بی‌پولی ⇒ هیچ پرسشِ نقشه‌ای خرج نمی‌شود و شکستِ نقشه ثبت نمی‌شود',
        cnt.plan === 0 && (!dB || !(Number(dB.failed) > 0)),
        'پرسش ' + cnt.plan + ' · ' + JSON.stringify(dB && { failed: dB.failed, n: dB.scenes.length }));
+    /* ۷۱.۶-پ (۸.۶۳) — علتی که با تکرار عوض نمی‌شود (زمانِ تکه‌ها با گفتار جور نیست) صبر نمی‌خواهد: همان دم کارت. */
+    const rcWas = global.lvReplayChunks_;
+    global.lvReplayChunks_ = () => ({ chunks: [], why: 'زمانِ تکه‌ها با متنِ گفتار جور نشد (آزمونِ قطعی)' });
+    global.__STUB = sceneStub({ gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] });
+    const E3 = mkEp71('EP71Q', 'قسمت 0275 — قطعی');
+    const q1 = lvScenesBuild_(E3.f, E3.meta, {}, Object.assign({}, ctx, { epRaw: '275' }));
+    global.lvReplayChunks_ = rcWas; global.__STUB = BASE_STUB;
+    const dQ = lvSceneRead_(E3.f) || {};
+    ok('۷۱.۶-پ علتِ قطعی ⇒ همان بارِ اول کارت، بی صبرِ بیهوده؛ و دیگر پرسیده نمی‌شود',
+       q1.fallback === true && /قطعی/.test(q1.why) && Number(dQ.failed) >= (Number(CFG.LV_SCENE_FAIL_MAX) || 4),
+       JSON.stringify({ fb: q1.fallback, why: q1.why, failed: dQ.failed }));
   }
 
   /* ۷۱.۷ — **ردیفِ رندر:** صحنه‌ها با ثانیه و تصویرشان، هر فایل یک بار باز
@@ -8826,6 +8847,171 @@ console.log('\n=== ۸۹) کارت‌ها در درس: ساختاردار، نه 
      s7.ok === false && /یکنواخت/.test(s7.line) && !!v7 && v7.still({ lessonCards: s7 }) === true &&
      v7.still({ lessonCards: { ok: true } }) === false, s7.line);
   delete global.__PROPS[PK.LV_OV_LAST];
+}
+
+console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های پلی‌لیست، و ویدئوی کارتی که خودش جایگزین می‌شود (۸.۶۳) ===');
+{
+  /* او پلی‌لیستِ آئودی را دید: مرورِ بزرگ «درس ۶۳» بعد از «درس ۴۰»، بی نقاشی و با کاورِ اسلایدز. خودِ صفحهٔ
+     عمومیِ پلی‌لیست بیشتر گفت: درس‌های ۱ تا ۳ «درس‌نامه ۲۲»، «درس ۲۳»، «آئودی ۲۴»؛ مرورِ اول «درس ۳۴»؛ و
+     درسِ ۲۰ (special:42) اصلاً نبود. همهٔ عنوان‌های این بخش عیناً از همان صفحه‌اند. */
+  const T = (t, o) => ytTitleNum_(t, Object.assign({ show: ENRICH_SHOW_SPECIAL }, o));
+  const t63 = 'حافظه، درون‌نگری و استنتاج چگونه کار می‌کنند؟ | معرفت‌شناسی رابرت آئودی - درس ۶۳';
+  const r63 = T(t63, { ep: 63, recap: true, range: 'درس‌های ۳۴ تا ۴۰' });
+  const r34 = T('معرفت‌شناسی رابرت آئودی: مرور بزرگ شناخت و ادراک حسی | درس ۳۴', { ep: 34, recap: true, range: 'درس‌های ۱ تا ۱۲' });
+  const r1 = T('معرفت‌شناسی معاصر رابرت آئودی: منابع شناخت و مسئله توجیه | درس‌نامه ۲۲', { ep: 22, lesson: 1 });
+  const r2 = T('معرفت‌شناسی رابرت آئودی: تحلیل باورها و ساختار شناخت | درس ۲۳', { ep: 23, lesson: 2 });
+  const r3 = T('باور، ادراک حسی و ساختار توجیه معرفتی چیست؟ | معرفت‌شناسی رابرت آئودی ۲۴', { ep: 24, lesson: 3 });
+  ok('۹۰.۱ عنوان‌های واقعی: شمارهٔ سراسری ⇒ درسِ همین مجموعه؛ مرور ⇒ «مرور» با دامنه، بی شمارهٔ سراسری، زیرِ سقف',
+     r63.indexOf('۶۳') === -1 && /مرور/.test(r63) && r63.indexOf('۳۴ تا ۴۰') !== -1 && r63.length <= 100 &&
+     r34.indexOf('۳۴') === -1 && r34.indexOf('۱ تا ۱۲') !== -1 && /\| درس‌های/.test(r34) &&
+     /\| درس ۱$/.test(r1) && /\| درس ۲$/.test(r2) && /- درس ۳$/.test(r3),
+     [r63, r34, r1, r2, r3].join(' ¦ '));
+  const k37 = 'چرا احتمال ۹۹ درصد باز هم «معرفت» نیست؟ | معرفت‌شناسی رابرت آئودی - درس ۳۷';
+  const k22 = 'گزاره‌های بدیهی و تحلیلی چیست؟ عقل در معرفت‌شناسی | درس‌نامه ۲۲';
+  ok('۹۰.۲ درست‌ها دست نمی‌خورند: عددی جز شمارهٔ سراسریِ همین قسمت، شمارهٔ درسِ برابر، و «از همه جا»',
+     T(k37, { ep: 59, lesson: 37 }) === k37 && T(k22, { ep: 44, lesson: 22 }) === k22 &&
+     T('عنوان | درس ۲۲', { ep: 22, lesson: 22 }) === 'عنوان | درس ۲۲' &&
+     ytTitleNum_('x | درس ۶۳', { show: ENRICH_SHOW_VARIETY, ep: 63, lesson: 2 }) === 'x | درس ۶۳' &&
+     T('احتمالِ ۶۳ درصدی | درس ۸', { ep: 63, lesson: 8 }) === 'احتمالِ ۶۳ درصدی | درس ۸');
+  ok('۹۰.۳ دامنهٔ مرور از پروندهٔ خودش — «پس از درسِ ۳۳» تا آخرین؛ «همه» از ۱؛ نامعلوم ⇒ خالی',
+     ytRecapRange_({ recap: true, recapMode: 'since', recapScope: 'فقط درس‌های پس از درسِ ۳۳', recapUpto: 40 }) === 'درس‌های ۳۴ تا ۴۰' &&
+     ytRecapRange_({ recap: true, recapMode: 'all', recapUpto: 12 }) === 'درس‌های ۱ تا ۱۲' &&
+     ytRecapRange_({ recap: true, recapMode: 'pick', recapUpto: 9 }) === '' && ytRecapRange_({}) === '');
+
+  /* ۹۰.۴ — نقشهٔ ذخیره‌شده (همان که آپلودِ جایگزین و `ytRedoOne_` می‌خوانند) از همان مرز می‌گذرد و بازنوشته می‌شود. */
+  const fP = global.__ROOT_FOLDER.createFolder('قسمت 063 — آزمونِ عنوان');
+  fP.createFile(Utilities.newBlob(JSON.stringify({ title: t63, description: 'd', tags: [] }), 'application/json', ytPlanName_()));
+  const ctxP = { show: ENRICH_SHOW_SPECIAL, epRaw: '63', lesson: '', recap: true, recapRange: 'درس‌های ۳۴ تا ۴۰' };
+  const pP = ytPlan_(fP, ctxP, false);
+  const onDisk = ytPlanRead_(fP);
+  ok('۹۰.۴ نقشهٔ ذخیره‌شده اصلاح و بازنوشته می‌شود، با عنوانِ قبلی کنارش',
+     pP && pP.title === r63 && onDisk.title === r63 && onDisk.titleWas === t63, JSON.stringify(onDisk && { t: onDisk.title, was: onDisk.titleWas }));
+  const bT = ytTitleBuild_({ title: 'حافظه و استنتاج | درس ۶۳' }, ctxP);
+  ok('۹۰.۵ نقشهٔ تازه هم: مدل «درس ۶۳» بنویسد، کد برمی‌دارد', bT.indexOf('۶۳') === -1 && /مرور/.test(bT), bT);
+  const pr1 = ytMetaPrompt_(Object.assign({ showName: 'درس‌نامه', epNum: '۶۳', title: 't', duration: '1', headings: [] }, ctxP));
+  const pr2 = ytMetaPrompt_({ show: ENRICH_SHOW_SPECIAL, showName: 'درس‌نامه', epNum: '۶۳', lesson: '', title: 't', duration: '1', headings: [] });
+  ok('۹۰.۶ پرامپت: مرور ⇒ «مرورِ بزرگ» و نه «درس N»؛ بی شمارهٔ درس ⇒ شمارهٔ سراسری «درس» خوانده نشود',
+     /مرورِ بزرگ/.test(pr1) && /هیچ\*\* «درس N»/.test(pr1) && /سراسری است، نه شمارهٔ درس/.test(pr2));
+
+  /* ۹۰.۷ — مکان‌نمای کاوشِ گذشته می‌مانَد؛ تا ۸.۶۲ هر بار صفر می‌شد و فقط ۱۲ پوشهٔ اول دیده می‌شد. */
+  const keep = { on: global.ytOn_, hub: global.getHub_, pub: global.ytPublished_, reg: global.readSeriesReg_,
+                 show: global.ytShowFolder_, en: CFG.SPECIAL_ENABLED, redo: global.ytRedoOne_ };
+  const sF = global.__ROOT_FOLDER.createFolder('مجموعهٔ آزمونِ حفره');
+  [10, 22, 23, 24, 25, 26, 27].forEach(n => sF.createFolder('قسمت ' + String(n).padStart(3, '0') + ' — درس'));
+  const sV = new Array(SERIES_HEADERS.length).fill('');
+  sV[SC.FOLDER - 1] = sF.getId(); sV[SC.NAME - 1] = 'حفره';
+  global.ytOn_ = () => true; CFG.SPECIAL_ENABLED = true;
+  global.ytShowFolder_ = () => null;
+  global.readSeriesReg_ = () => ({ rows: [{ key: 'kH', vals: sV }], byKey: { kH: { vals: sV } } });
+  const pubH = {};
+  [22, 23, 25].forEach(n => { pubH['special:' + n] = { videoId: 'V' + n, series: 'حفره', title: 'ت | درس ' + n, tries: 0 }; });
+  global.ytPublished_ = () => pubH;
+  global.getHub_ = () => ({});
+  delete global.__PROPS[PK.YT_SCAN]; delete global.__PROPS[PK.YT_DUE];
+  const b1 = ytBackfill_(3), c1 = Number(global.__PROPS[PK.YT_SCAN] || 0);
+  const b2 = ytBackfill_(3);
+  const dueKeys = ytDueList_().map(x => x.key);
+  ok('۹۰.۷ مکان‌نما می‌مانَد و اجرای دوم پوشه‌های بعدی را می‌بیند: حفرهٔ ۲۴ و تازهٔ ۲۶ به صف؛ ۱۰ (پیش از نخستین انتشار) نه',
+     c1 === 3 && dueKeys.indexOf('special:24') !== -1 && dueKeys.indexOf('special:26') !== -1 &&
+     dueKeys.indexOf('special:10') === -1 && b1.wrapped === false,
+     JSON.stringify({ c1: c1, due: dueKeys, b1: b1.walked, b2: b2.walked }));
+  ytBackfill_(3);
+  ok('۹۰.۷-ب پایانِ فهرست ⇒ از نو، و «دور کامل شد» فقط همان‌جا', Number(global.__PROPS[PK.YT_SCAN] || 0) === 0);
+  delete global.__PROPS[PK.YT_DUE]; delete global.__PROPS[PK.YT_SCAN];
+
+  /* ۹۰.۸ — پیمایشِ عنوان‌های منتشرشده: شمارهٔ درس از پوشه (مرور بیرون)، اصلاح از درِ `ytRedoOne_`، پرونده‌ای که
+     شمارهٔ درسِ دیگری بگوید نگه داشته می‌شود، و پس از یک دور خاموش. */
+  const sA = global.__ROOT_FOLDER.createFolder('مجموعهٔ آزمونِ عنوان');
+  const mk = (n, extra, meta) => {
+    const f = sA.createFolder('قسمت ' + String(n).padStart(3, '0') + ' — ' + (extra || 'درس'));
+    if (meta) f.createFile(Utilities.newBlob(JSON.stringify(Object.assign({ ep: { title: 't' } }, meta)), 'application/json', '_special.json'));
+    return f;
+  };
+  mk(22, '', { lesson: 0 }); mk(23); mk(24, '', { lesson: 7 }); mk(25);
+  mk(26, 'مرورِ بزرگ — مرور', { recap: true, recapMode: 'all', recapUpto: 4 }); mk(27);
+  const vA = new Array(SERIES_HEADERS.length).fill('');
+  vA[SC.FOLDER - 1] = sA.getId(); vA[SC.NAME - 1] = 'عنوان';
+  global.readSeriesReg_ = () => ({ rows: [{ key: 'kT', vals: vA }], byKey: { kT: { vals: vA } } });
+  const pubT = {
+    'special:22': { videoId: 'A', title: 'الف | درس‌نامه ۲۲' },
+    'special:23': { videoId: 'B', title: 'ب | درس ۲۳' },
+    'special:24': { videoId: 'C', title: 'پ | درس ۲۴' },
+    'special:25': { videoId: 'D', title: 'ت | درس ۴' },
+    'special:26': { videoId: 'E', title: 'مرور | درس ۲۶' },
+    'special:27': { videoId: 'F', title: 'ث | درس ۵' }
+  };
+  global.ytPublished_ = () => pubT;
+  const calls = [];
+  global.ytRedoOne_ = (show, ep, opt) => { calls.push({ ep: ep, lesson: opt && opt.lesson }); return { ok: true, changed: ['عنوان و کپشن'] }; };
+  const fmWas = CFG.YT_TITLE_FIX_MAX; CFG.YT_TITLE_FIX_MAX = 2;
+  delete global.__PROPS[PK.YT_TITLE_SWEEP];
+  const w1 = ytTitleSweep_(60000);
+  const st1 = ytTitleSweepState_();
+  const w2 = ytTitleSweep_(60000);
+  const st2 = ytTitleSweepState_();
+  const w3 = ytTitleSweep_(60000);
+  CFG.YT_TITLE_FIX_MAX = fmWas;
+  const eps = calls.map(c => c.ep + ':' + c.lesson).join(',');
+  ok('۹۰.۸ پیمایش: ۲۲⇒درس ۱، ۲۳⇒درس ۲، مرورِ ۲۶ اصلاح؛ ۲۵ و ۲۷ (درست) دست نمی‌خورند؛ ۲۴ (پرونده: درسِ ۷) نگه داشته می‌شود',
+     eps === '22:1,23:2,26:0' && w1.fixed === 2 && st1.done === false && w2.fixed === 1 && st2.done === true &&
+     (st2.held || []).length === 1 && st2.held[0].key === 'special:24' && w3.fixed === 0 && calls.length === 3,
+     JSON.stringify({ eps: eps, w1: w1.fixed, w2: w2.fixed, held: st2.held, done: st2.done }));
+  const ts = ytTitleSweepStatus_();
+  ok('۹۰.۹ خطِ روزانه می‌گوید چند اصلاح شد و کدام‌ها، و تمام شد', /پیمایش تمام شد/.test(ts.line) && /special:26/.test(ts.line) && !ts.problem, ts.line);
+  ok('۹۰.۹-ب و دورِ کاوشِ یوتیوب آن را صدا می‌زند، پشتِ نوبتی که فقط Properties می‌خوانَد',
+     /ytTitleSweepDue_\(\)\) \{\s*\n\s*try \{ ytTitleSweep_\(/.test(fs.readFileSync('src/27_YouTube.gs', 'utf8')));
+  delete global.__PROPS[PK.YT_TITLE_SWEEP];
+
+  /* ۹۰.۱۰ — ویدئوی کارتیِ دورانِ صحنه خودش در فهرستِ جایگزینی می‌نشیند؛ پیش از آن دوران نه؛ صحنه‌ای نه. */
+  const mapWas = global.ytRenderMapCached_, onWas = global.lvSceneOn_;
+  global.ytRenderMapCached_ = () => ({ 'special:63': { mode: 'cards' }, 'special:62': { mode: 'scenes' },
+                                       'special:59': { mode: 'cards' }, 'variety:63': { mode: 'cards' } });
+  global.lvSceneOn_ = () => true;
+  const auto = ytSceneRepairList_();
+  ok('۹۰.۱۰ special:63 (کارتی، پس از ۶۰) خودکار جایگزین می‌شود؛ ۵۹، ۶۲ و «از همه جا» نه',
+     Object.keys(auto).join(',') === 'special:63' && auto['special:63'].auto === true && !!auto['special:63'].tag,
+     JSON.stringify(auto));
+  global.lvSceneOn_ = () => false;
+  ok('۹۰.۱۰-ب صحنه خاموش ⇒ فهرستِ خودکار خالی', Object.keys(ytSceneRepairList_()).length === 0);
+  global.ytRenderMapCached_ = mapWas; global.lvSceneOn_ = onWas;
+
+  /* ۹۰.۱۱ — جایگزینی نقشهٔ ناشده را کنار می‌گذارد؛ وگرنه «دو بار نشد» دوباره همان کارت را می‌ساخت. */
+  const fR = global.__ROOT_FOLDER.createFolder('قسمت 063 — آزمونِ جایگزینی');
+  lvSceneWrite_(fR, { v: 1, key: 'special:63', at: nowStr_(), failed: 2, why: 'مدل برای 2 صحنه از 42 توصیف داد', scenes: [] });
+  const nR = ytReplaceScenes_(fR, 'auto-8.63');
+  const dR = lvSceneRead_(fR);
+  ok('۹۰.۱۱ جایگزینیِ ویدئوی کارتی: نقشهٔ ناشده صفر می‌شود و علتِ قبلی کنارش می‌مانَد',
+     /از نو/.test(nR) && Number(dR.failed) === 0 && dR.scenes.length === 0 && /۴۲|42/.test(String(dR.wasWhy)) && dR.replaceTag === 'auto-8.63',
+     JSON.stringify(dR));
+
+  /* ۹۰.۱۲ — جایگزینیِ خودکار فقط وقتی تخته صحنه می‌خواهد: «خاموش» یعنی کارت خواستهٔ خودِ او بود — و آن‌وقت
+     ویدئو کنار نمی‌رود. */
+  const fX = global.__ROOT_FOLDER.createFolder('قسمت 063 — آزمونِ خودکار');
+  fX.createFile(Utilities.newBlob('x', 'video/mp4', 'v.mp4'));
+  fX.createFile(Utilities.newBlob(JSON.stringify({ ep: { title: 't' }, recap: true }), 'application/json', '_special.json'));
+  const kx = { list: global.ytReplaceList_, rq: global.ytRenderRead_, on2: global.lvSceneOn_, lv: global.lvLevelAt_ };
+  global.ytReplaceList_ = () => ({ 'special:63': { tag: 'auto-8.63', auto: true, why: 'w' } });
+  global.ytPublished_ = () => ({ 'special:63': { videoId: 'OLD', url: 'u', series: 'س' } });
+  global.ytRenderRead_ = () => ({ items: [{ key: 'special:63', folderId: fX.getId() }] });
+  global.readSeriesReg_ = () => ({ rows: [], byKey: {} });
+  global.lvLevelAt_ = () => 'خاموش';
+  global.lvSceneOn_ = (show, lvl) => String(lvl || '') !== 'خاموش';
+  delete global.__PROPS[PK.YT_REPL];
+  ytReplaceTick_(30000, {});
+  const sx = (ytReplState_()['special:63'] || {});
+  const mp4Left = (() => { let n = 0; const it = fX.getFiles(); while (it.hasNext()) { if (/\.mp4$/.test(it.next().getName())) n++; } return n; })();
+  ok('۹۰.۱۲ تختهٔ «خاموش» ⇒ جایگزینیِ خودکار رد می‌شود و ویدئو کنار نمی‌رود',
+     sx.phase === 'skip' && /تخته/.test(String(sx.why)) && mp4Left === 1, JSON.stringify(sx) + ' · mp4 ' + mp4Left);
+  global.lvLevelAt_ = () => 'زیاد';
+  delete global.__PROPS[PK.YT_REPL];
+  ytReplaceTick_(30000, {});
+  const sy = (ytReplState_()['special:63'] || {});
+  ok('۹۰.۱۲-ب تخته صحنه می‌خواهد ⇒ جایگزینی آغاز می‌شود', sy.phase === 'build' && sy.tag === 'auto-8.63', JSON.stringify(sy));
+  delete global.__PROPS[PK.YT_REPL]; delete global.__PROPS[PK.YT_DUE];
+  global.ytReplaceList_ = kx.list; global.ytRenderRead_ = kx.rq; global.lvSceneOn_ = kx.on2; global.lvLevelAt_ = kx.lv;
+
+  global.ytOn_ = keep.on; global.getHub_ = keep.hub; global.ytPublished_ = keep.pub; global.readSeriesReg_ = keep.reg;
+  global.ytShowFolder_ = keep.show; CFG.SPECIAL_ENABLED = keep.en; global.ytRedoOne_ = keep.redo;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

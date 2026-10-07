@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.62
+ *  موتور محتوا و پادکست — نسخهٔ 8.63
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -710,6 +710,12 @@ var CFG = {
   /* ۸.۶۱: ۵۰ ⇒ ۱۲. پنجاه صحنه در یک پاسخ یعنی یک رشتهٔ بازِ افسارگسیخته کلِ دسته را می‌بَرد؛
      مرورِ بزرگِ special:63 با ۴۲ صحنه در یک پرسش «۲ از ۴۲» گرفت و به کارتِ ساده افتاد. */
   LV_SCENE_ASK_BATCH: 12,
+  /* ══ نقشهٔ صحنه‌ای که نشد، ویدئوی کارتی نمی‌سازد — فوراً (۸.۶۳) ══
+     تا ۸.۶۲ **نخستین** «نشد» همان دم به کارتِ ساده می‌افتاد و همان ویدئو عمومی می‌شد (مرورِ بزرگِ ۶۳). حالا
+     نقشه تا `FAIL_MAX` بار، با دست‌کم `RETRY_MIN` دقیقه فاصله، دوباره پرسیده می‌شود و ویدئو منتظر می‌مانَد؛
+     فقط پس از آن کارت — و آن هم خودش بعداً با صحنه جایگزین می‌شود (`LV_SCENE_REPAIR_FROM`). */
+  LV_SCENE_FAIL_MAX: 4,
+  LV_SCENE_RETRY_MIN: 45,
   LV_SCENE_ASK_MIN_MS: 50000,
   LV_SCENE_RUN_MS: 150000,
   LV_SCENE_JUDGE: true,
@@ -1258,6 +1264,16 @@ var CFG = {
      و «خصوصی» می‌شود — برگشت‌پذیر. */
   YT_REPLACE_FILE: 'docs/yt-replace.json',
   YT_REPLACE_TRY_MAX: 3,
+  /* ══ ویدئوی کارتیِ دورانِ صحنه، خودش جایگزین می‌شود (۸.۶۳) ══
+     مرورِ بزرگِ special:63 با کارتِ ساده عمومی شد چون نقشهٔ صحنه‌اش نشد. از این شماره به بعد (نخستین
+     درسِ صحنه‌ای، special:60) هر ویدئوی درس‌نامه‌ای که نقشهٔ رندرش `mode: cards` دارد، یک بار و خودکار با
+     صحنه از نو ساخته و جایگزین می‌شود — با همان سازوکارِ ۸.۵۷ (قبلی خصوصی، نه پاک). */
+  LV_SCENE_REPAIR_FROM: 60,
+  LV_SCENE_REPAIR_TAG: 'auto-8.63',
+  /* ══ عنوان‌های منتشرشده با شمارهٔ سراسری (۸.۶۳) ══ یک دور روی همهٔ درس‌نامه‌های منتشرشده، با مکان‌نما؛
+     هر اجرا تا `FIX_MAX` اصلاح (هر کدام یک videos.update و یک کاور). نسخهٔ تازه ⇒ دورِ تازه. */
+  YT_TITLE_SWEEP_VER: 1,
+  YT_TITLE_FIX_MAX: 3,
   /* ══ راه‌اندازِ رندر با توکنِ صاحبِ برنامه (۸.۵۸) ══
      کرانِ ده‌دقیقه‌ایِ ۸.۵۵ را گیت‌هاب ۶ اکتبر در ~شش ساعت یک بار زد. موتور خودش
      می‌داند کِی کاری برای رانر نوشته، پس خودش راه می‌اندازد. توکن فقط در Script
@@ -1960,7 +1976,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.62',
+  CODE_VERSION: '8.63',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3070,6 +3086,7 @@ var PK = {
   YT_DIGEST: 'YT_DIGEST_AT',       // آخرین خلاصهٔ لینک‌ها
   YT_PLSIG: 'YT_PLAYLIST_SIG',     // اثرانگشتِ آخرین چیدمان، تا بی‌دلیل نچیند
   YT_PLORD: 'YT_PL_ORDER',         // ترتیبِ پلی‌لیست‌ها: آخرین سنجش، چند جابه‌جا شد، چند مانده (۸.۵۷)
+  YT_TITLE_SWEEP: 'YT_TITLE_SWEEP',  // پیمایشِ عنوان‌های منتشرشده: مکان‌نما، اصلاح‌شده‌ها (۸.۶۳)
   YT_REPL: 'YT_REPLACE_STATE',     // جایگزینیِ ویدئوی منتشرشده: حالتِ هر کلید (۸.۵۷)
   /* توکنِ راه‌اندازِ گردش‌کارهای گیت‌هاب — صاحبِ برنامه خودش در Project Settings ⇒
      Script Properties می‌گذارد. هرگز در کد، سیاهه یا _STATUS.json (۸.۵۸). */
@@ -46893,6 +46910,12 @@ function ytMetaPrompt_(ctx) {
   L.push('برنامه: «' + ctx.showName + '»' + (ctx.tagline ? ' — ' + ctx.tagline : ''));
   if (ctx.seriesName) L.push('مجموعه: «' + ctx.seriesName + '»');
   L.push('شمارهٔ قسمت: ' + ctx.epNum);
+  if (ctx.recap) {
+    L.push('این قسمت «مرورِ بزرگ»' + (ctx.recapRange ? 'ِ ' + ctx.recapRange : '') + ' است، نه درسِ تازه: ' +
+           'عنوان باید «مرورِ بزرگ» را بگوید و **هیچ** «درس N» یا شمارهٔ قسمت نیاورد.');
+  } else if (!ctx.lesson && String(ctx.show) === ENRICH_SHOW_SPECIAL) {
+    L.push('شمارهٔ قسمت سراسری است، نه شمارهٔ درس: آن را با «درس» در عنوان نیاور.');
+  }
   if (ctx.lesson) {
     L.push('شمارهٔ این درس در مجموعه‌اش: ' + ctx.lesson +
            ' — اگر در عنوان شماره می‌آوری، **همین** را بیاور («درس ' + ctx.lesson +
@@ -47298,10 +47321,18 @@ function ytVisAsk_(ctx) {
 }
 
 /** عنوان: سقفِ یوتیوب در کد بریده می‌شود، نه در امیدِ به مدل. */
-function ytTitleBuild_(meta, ctx) {
+/* ══ شمارهٔ عنوان: درسِ همین مجموعه، هرگز شمارهٔ سراسری (۸.۶۳) ══
+ * او دو بار گفته بود «برای هر پلی‌لیست همان شمارهٔ درسِ خودش، نه شمارهٔ کلی». ۶.۵۵ این را فقط در
+ * **پرامپت** گذاشت، و فقط وقتی شمارهٔ درس معلوم بود. مرورِ بزرگ شمارهٔ درس ندارد، پس تنها عددی که مدل
+ * دید «۶۳» بود و نوشت «درس ۶۳»؛ درس‌های ۱ تا ۳ (پیش از ۶.۵۵) «درس‌نامه ۲۲»، «درس ۲۳» و «آئودی ۲۴» دارند و
+ * مرورِ اول «درس ۳۴». سقفی که فقط در پرامپت است سقف نیست — این تابع در کد می‌بُرد.
+ *
+ * محافظه‌کار است: فقط **شمارهٔ سراسریِ همین قسمت** را می‌گیرد (با «درس»، «درس‌نامه»، «قسمت» یا عددِ تنهای
+ * آخرِ عنوان)، نه هر عددی را — «احتمالِ ۹۹ درصد» دست نمی‌خورد. درس ⇒ «درس L»؛ مرور ⇒ «درس‌های A تا B» و
+ * «مرورِ بزرگ:» سرِ عنوان اگر نبود. «از همه جا» شمارهٔ قسمت دارد و درست است؛ دست نمی‌خورد. */
+function ytTitleCut_(t) {
   var max = Math.max(20, Number(CFG.YT_TITLE_MAX) || 100);
-  var t = ytScrub_(String((meta && meta.title) || ctx.title || '')).trim();
-  if (!t) t = String(ctx.title || ctx.showName || 'قسمت');
+  t = String(t || '').trim();
   // بریدن سرِ واژه، نه وسطِ واژه — عنوانی که وسطِ کلمه قطع شود بی‌دقت به‌نظر می‌آید
   if (t.length > max) {
     var cut = t.slice(0, max);
@@ -47309,6 +47340,75 @@ function ytTitleBuild_(meta, ctx) {
     t = (sp > max * 0.6 ? cut.slice(0, sp) : cut).trim();
   }
   return t;
+}
+
+/** برچسبِ مرور از پروندهٔ خودش: «درس‌های ۳۴ تا ۴۰»؛ دامنهٔ نامعلوم ⇒ ''. */
+function ytRecapRange_(meta) {
+  if (!meta || !meta.recap) return '';
+  var upto = Number(meta.recapUpto) || 0, from = 0;
+  var mode = String(meta.recapMode || '');
+  if (mode === 'since') {
+    var m = /(\d+)/.exec(faDigits_(String(meta.recapScope || '')));
+    from = m ? Number(m[1]) + 1 : 0;
+  } else if (mode === 'all' || !mode) {
+    from = 1;
+  }
+  if (!from || !upto || upto < from) return '';
+  return 'درس‌های ' + faDigitsOut_(String(from)) + ' تا ' + faDigitsOut_(String(upto));
+}
+
+/**
+ * @param {string} t عنوان
+ * @param {{show:string, ep:(string|number), lesson:(string|number), recap:boolean, range:string}} o
+ */
+function ytTitleNum_(t, o) {
+  t = String(t || '');
+  o = o || {};
+  if (String(o.show || '') !== ENRICH_SHOW_SPECIAL) return t;
+  var E = Number(faDigits_(String(o.ep || ''))) || 0;
+  if (!E) return t;
+  var L = Number(faDigits_(String(o.lesson || ''))) || 0;
+  if (!o.recap && (!L || L === E)) return t;
+  /* عددِ E به هر دو خط، و نه بخشی از عددی بزرگ‌تر */
+  var num = '(?:' + String(E) + '|' + faDigitsOut_(String(E)) + ')(?![0-9۰-۹])';
+  var word = '(?:درس(?:\u200c|\\s)?نامه|درس|قسمت)\\s*';
+  var sep = '\\s*[-–—|،:]?\\s*';
+  var reWord = new RegExp('(' + sep + ')' + word + num, 'g');
+  var reTail = new RegExp('(' + sep + ')(?<![0-9۰-۹])' + num + '\\s*$');
+  var hasM = t.indexOf('مرور') !== -1;
+  /* جداکنندهٔ خودِ عنوان می‌مانَد («|» یا «-»)؛ برچسبِ بلندتر اول، و اگر از سقفِ یوتیوب گذشت کوتاه‌تر —
+     بریدنِ آخرِ عنوان دقیقاً همان دامنه را می‌انداخت که برایش آمده بودیم. */
+  var reps = !o.recap ? ['درس ' + faDigitsOut_(String(L))]
+           : hasM ? [String(o.range || '')]
+           : o.range ? ['مرورِ بزرگِ ' + o.range, 'مرورِ ' + o.range] : ['مرورِ بزرگ'];
+  var max = Math.max(20, Number(CFG.YT_TITLE_MAX) || 100);
+  var apply = function (rep) {
+    var hit = false;
+    var join = function (sp) {
+      if (!rep) return '';
+      var c = (String(sp).match(/[-–—|،:]/) || [''])[0];
+      return (c ? ' ' + c + ' ' : ' - ') + rep;
+    };
+    var x = t.replace(reWord, function (all, sp) { hit = true; return join(sp); });
+    if (!hit) x = t.replace(reTail, function (all, sp) { hit = true; return join(sp); });
+    if (!hit && o.recap && !hasM) x = 'مرورِ بزرگ: ' + t;
+    return x.replace(/[\s\-–—|،:]+$/, '').replace(/\s{2,}/g, ' ').trim();
+  };
+  var out = '';
+  for (var k = 0; k < reps.length; k++) { out = apply(reps[k]); if (out.length <= max) break; }
+  return ytTitleCut_(out);
+}
+
+/** زمینهٔ شمارهٔ عنوان از ctxِ انتشار — یک تعریف برای ساختِ تازه و نقشهٔ ذخیره‌شده. */
+function ytTitleNumCtx_(ctx) {
+  ctx = ctx || {};
+  return { show: ctx.show, ep: ctx.epRaw, lesson: ctx.lesson, recap: !!ctx.recap, range: ctx.recapRange || '' };
+}
+
+function ytTitleBuild_(meta, ctx) {
+  var t = ytScrub_(String((meta && meta.title) || ctx.title || '')).trim();
+  if (!t) t = String(ctx.title || ctx.showName || 'قسمت');
+  return ytTitleNum_(ytTitleCut_(t), ytTitleNumCtx_(ctx));
 }
 
 /**
@@ -48897,6 +48997,18 @@ function ytBackfill_(maxWalk) {
            (Number(ytEpNumOf_(b.folder.getName())) || 0);
   });
 
+  /* ══ مرز: فقط «حفره»ها و تازه‌ترها، نه گذشتهٔ پیش از نخستین انتشار (۸.۶۳) ══
+     هر مجموعه (و «از همه جا») از نخستین قسمتِ منتشرشده‌اش به بعد پر می‌شود. «از همه جا» از قسمتِ ۲۰
+     منتشر شد؛ بی این مرز، درستیِ مکان‌نما ۱۹ قسمتِ قدیمی را یک‌جا به یوتیوب می‌فرستاد. */
+  var minPub = Object.create(null);
+  for (var pk in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, pk) || !(pub[pk] || {}).videoId) continue;
+    var pshow = pk.slice(0, pk.lastIndexOf(':')), pep = Number(pk.slice(pk.lastIndexOf(':') + 1)) || 0;
+    var pser = pshow === ENRICH_SHOW_SPECIAL ? String(pub[pk].series || '') : '';
+    var mk = pshow + '|' + pser;
+    if (pep && (!minPub[mk] || pep < minPub[mk])) minPub[mk] = pep;
+  }
+
   var cur = 0;
   try { cur = Number(props_().getProperty(PK.YT_SCAN) || 0) || 0; } catch (e3) {}
   if (cur >= walk.length) cur = 0;
@@ -48909,6 +49021,8 @@ function ytBackfill_(maxWalk) {
     out.walked++;
     var key = w.show + ':' + ep;
     if (pub[key] && pub[key].videoId) { out.skipped++; continue; }
+    var floor = minPub[w.show + '|' + (w.show === ENRICH_SHOW_SPECIAL ? String(w.series || '') : '')];
+    if (floor && Number(ep) < floor) { out.skipped++; continue; }
     if (ytGaveUp_(pub, w.show, ep)) { out.gaveUp++; continue; }
     if (due[key]) { out.skipped++; continue; }
     if (ytDueAdd_(w.show, ep, w.folder.getId(), w.seriesKey, w.series)) {
@@ -48916,10 +49030,11 @@ function ytBackfill_(maxWalk) {
       if (out.names.length < 5) out.names.push((w.series || CFG.SHOW_NAME) + ' ' + ep);
     }
   }
-  try { props_().setProperty(PK.YT_SCAN, String(i >= walk.length ? 0 : i)); } catch (e4) {}
-
-  try { props_().setProperty(PK.YT_SCAN, '0'); } catch (e5) {}
-  out.wrapped = true;
+  /* ══ مکان‌نما می‌مانَد (۸.۶۳) ══ تا ۸.۶۲ خطِ بعد از این آن را **همیشه** صفر می‌کرد: هر کاوش فقط همان ۱۲
+     پوشهٔ اولِ فهرستِ مرتب را می‌دید و بقیه هرگز نوبت نگرفتند. درسِ ۲۰ِ آئودی (special:42) و درس‌های ۱۳
+     تا ۱۶ِ مصباح ساخته شدند و هیچ‌وقت به یوتیوب نرسیدند، بی هیچ خطایی. */
+  out.wrapped = i >= walk.length;
+  try { props_().setProperty(PK.YT_SCAN, String(out.wrapped ? 0 : i)); } catch (e4) {}
   return out;
 }
 
@@ -53607,17 +53722,37 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
 
   var d = lvSceneRead_(folder);
   var art = lvSceneArt_(ctx.style);
-  /* نقشه‌ای که دو بار نشد، هر دو ساعت یک فراخوانِ مدلِ تازه نمی‌خورد. */
-  var planFail = function (w) {
+  /* ══ نقشه‌ای که نشد، صبر می‌کند — نه کارتِ ساده، فوراً (۸.۶۳) ══
+     تا ۸.۶۲ **نخستین** «نشد» همان دم `fallback` بود: ویدئوی کارتی ساخته و عمومی می‌شد. مرورِ بزرگِ ۶۳
+     دقیقاً همین شد، با پاسخی بریده که دورِ بعد درست می‌آمد. حالا تا `LV_SCENE_FAIL_MAX` بار با فاصلهٔ
+     `LV_SCENE_RETRY_MIN` دوباره پرسیده می‌شود و ویدئو «منتظر» است؛ فقط آخرین «نشد» به کارت می‌رود. */
+  var failMax = Math.max(1, Number(CFG.LV_SCENE_FAIL_MAX) || 4);
+  var gapMs = Math.max(1, Number(CFG.LV_SCENE_RETRY_MIN) || 45) * 60000;
+  /* `final`: علتی که با تکرار عوض نمی‌شود (درسِ کوتاه، زمان‌بندیِ ناجور) — صبر برایش فقط تأخیر است. */
+  var planFail = function (w, final) {
+    var n1 = ((d && Number(d.failed)) || 0) + 1;
+    if (final) n1 = Math.max(n1, failMax);
     try {
-      var n0 = (d && Number(d.failed)) || 0;
-      lvSceneWrite_(folder, { v: 1, key: key, at: nowStr_(), failed: n0 + 1, why: w, scenes: [] });
+      lvSceneWrite_(folder, { v: 1, key: key, at: nowStr_(), failed: n1, why: w, scenes: [],
+                              firstFail: (d && d.firstFail) || nowStr_() });
     } catch (eW) {}
-    return fail(w);
-  };
-  if (d && !d.scenes.length && Number(d.failed) >= 2) {
-    out.fallback = true; out.why = String(d.why || 'نقشهٔ صحنه دو بار نشد');
+    if (n1 >= failMax) return fail(w + ' (' + n1 + ' بار)');
+    out.why = 'نقشهٔ صحنه نشد (' + n1 + ' از ' + failMax + '): ' + w + ' — دوباره پس از ' +
+              Math.round(gapMs / 60000) + ' دقیقه؛ ویدئوی کارتی ساخته نمی‌شود';
+    try { logLine_('صحنه‌های مصورِ ' + key + ': ' + out.why); } catch (eL) {}
     return out;
+  };
+  if (d && !d.scenes.length && Number(d.failed) >= failMax) {
+    out.fallback = true; out.why = String(d.why || ('نقشهٔ صحنه ' + failMax + ' بار نشد'));
+    return out;
+  }
+  if (d && !d.scenes.length && !d.asking && Number(d.failed) > 0) {
+    var lastF = parseWhen_(String(d.at || ''));
+    if (!isNaN(lastF) && new Date().getTime() - lastF < gapMs) {
+      out.why = 'نقشهٔ صحنه ' + Number(d.failed) + ' بار نشد (' + String(d.why || '') + ')؛ تلاشِ بعد پس از ' +
+                Math.round(gapMs / 60000) + ' دقیقه از آخرین — ویدئو منتظر است';
+      return out;
+    }
   }
 
   // ── ۱) نقشه: یک بار، و پیش از هر خرجی ثبت می‌شود ──
@@ -53636,10 +53771,10 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     if (!d || !d.asking) {
       fresh = true;
       var rp = lvReplayChunks_(folder, meta);
-      if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد');
+      if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', true);
       var secs = Number(rp.secs) || 0;
       var sents = lvSceneSents_(rp.chunks);
-      if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)');
+      if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)', true);
       /* سقفِ این درس از بودجهٔ ماه (۸.۴۸/۸.۴۹) — **سقف، نه شمار**. */
       var pace = lvScenePace_((lvGenModel_() || {}).id);
       /* پولی نمانده: پیش از هر فراخوانِ مدل، و **بی شمردن** به‌عنوانِ نقشهٔ ناشده —
@@ -53660,7 +53795,7 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
         by = 'زمان';
         groups = lvSceneGroups_(sents, lvSceneSec_(ctx.level), secs, pace.max);
       }
-      if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)');
+      if (groups.length < 3) return planFail('درس برای صحنه‌بندی کوتاه است (' + groups.length + ' صحنه)', true);
       var natural = Number(groups.natural) || groups.length;
       var hardMax = Math.max(3, Number(CFG.LV_SCENE_MAX) || 150);
       /* «بودجه بُرید» فقط وقتی محتوا بیشتر خواست **و** سقف از بودجه آمد، نه از سقفِ ایمنی. */
@@ -55245,7 +55380,15 @@ function ytVisFill_(vis, ctx, stat, opt) {
 function ytPlan_(folder, ctx, redo) {
   if (!redo) {
     var had = ytPlanRead_(folder);
-    if (had) { had.cached = true; return had; }
+    if (had) {
+      /* نقشهٔ ذخیره‌شده هم از همان مرز می‌گذرد (۸.۶۳): «پاک‌کردنِ ورودی آنچه نوشته شده را درست نمی‌کند» (۵.۹۵). */
+      var tFix = ytTitleNum_(String(had.title || ''), ytTitleNumCtx_(ctx));
+      if (tFix && tFix !== String(had.title || '')) {
+        had.titleWas = String(had.title || ''); had.title = tFix; had.titleFixAt = nowStr_();
+        try { ytPlanWrite_(folder, had); } catch (eTw) {}
+      }
+      had.cached = true; return had;
+    }
   }
   var mm = ytMetaModel_(ctx);
   if (!mm) return null;
@@ -55445,7 +55588,8 @@ function ytUploadOne_(item, hub, pub) {
   var lessonNo = Number(meta.lesson) || 0;
   var epLabel = 'قسمت ' + faDigitsOut_(String(item.ep)) +
                 (lessonNo ? ' — درس ' + faDigitsOut_(String(lessonNo)) : '');
-  var coverEpLabel = lessonNo ? 'درس ' + faDigitsOut_(String(lessonNo)) : epLabel;
+  var coverEpLabel = meta.recap ? 'مرورِ بزرگ'
+                   : lessonNo ? 'درس ' + faDigitsOut_(String(lessonNo)) : epLabel;
 
   var aud = ytAudioParts_(folder);
   if (aud.why) { res.why = aud.why; return res; }
@@ -55461,6 +55605,7 @@ function ytUploadOne_(item, hub, pub) {
               showName: showName, tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.SHOW_TAGLINE,
               seriesName: seriesName, epNum: faDigitsOut_(String(item.ep)),
               lesson: lessonNo ? faDigitsOut_(String(lessonNo)) : '',
+              recap: !!meta.recap, recapRange: ytRecapRange_(meta),
               title: String(ep.title || ''), cat: String(meta.cat || meta.seriesCat || ''),
               duration: ytTime_(totalSec), headings: heads,
               hook: String(ep.hook || ''), summary: String(ep.summary || ''),
@@ -56205,7 +56350,38 @@ function ytReplaceList_() {
       }
     }
   } catch (e) {}
+  /* جایگزینی‌های خودکار (۸.۶۳) — فایلِ گیت‌هاب بر آن‌ها مقدم است. */
+  var auto = ytSceneRepairList_();
+  for (var ak in auto) if (Object.prototype.hasOwnProperty.call(auto, ak) && !out[ak]) out[ak] = auto[ak];
   YT_REPLACE_ = out;
+  return out;
+}
+
+/**
+ * ویدئوی کارتیِ دورانِ صحنه ⇒ جایگزینیِ خودکار، یک بار (۸.۶۳).
+ *
+ * مرورِ بزرگِ special:63 با کارتِ ساده و کاورِ اسلایدز عمومی شد، و تنها راهِ درست‌کردنش نوشتنِ دستیِ
+ * کلید در `docs/yt-replace.json` بود — یعنی «اتوماسیون» تا آدم ندید و نگفت، کاری نمی‌کرد. حالا هر ویدئوی
+ * درس‌نامه از `LV_SCENE_REPAIR_FROM` به بعد که نقشهٔ رندرش `mode: cards` دارد، با `LV_SCENE_REPAIR_TAG`
+ * در فهرستِ جایگزینی می‌نشیند. همان tag یعنی هر کلید فقط یک بار: اگر بارِ دوم هم صحنه نشد، چرخه‌ای نیست.
+ * فقط از نقشهٔ رندرِ گیت‌هاب که همین دور خوانده شده؛ هیچ خواندنِ درایو یا هاب.
+ */
+function ytSceneRepairList_() {
+  var out = {};
+  try {
+    var from = Number(CFG.LV_SCENE_REPAIR_FROM) || 0;
+    if (!from || !lvSceneOn_(ENRICH_SHOW_SPECIAL)) return out;
+    var map = ytRenderMapCached_() || {};
+    var tag = String(CFG.LV_SCENE_REPAIR_TAG || 'auto');
+    for (var k in map) {
+      if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+      var m = /^special:(\d+)$/.exec(String(k));
+      if (!m || Number(m[1]) < from) continue;
+      if (String((map[k] || {}).mode || '') !== 'cards') continue;
+      out[k] = { tag: tag, auto: true,
+                 why: 'ویدئوی ' + k + ' با کارتِ ساده منتشر شد (نقشهٔ صحنه نشد)؛ خودکار با صحنه از نو ساخته و جایگزین می‌شود' };
+    }
+  } catch (e) {}
   return out;
 }
 function ytReplState_() {
@@ -56232,6 +56408,12 @@ function ytReplaceAside_(folder) {
 function ytReplaceScenes_(folder, tag) {
   var d = lvSceneRead_(folder);
   if (!d) return '';
+  /* نقشه‌ای که نشده بود (همان علتِ ویدئوی کارتی) از نو ساخته می‌شود، نه «دو بار نشد» تا ابد (۸.۶۳). */
+  if (!d.scenes || !d.scenes.length) {
+    lvSceneWrite_(folder, { v: 1, key: String(d.key || ''), at: nowStr_(), failed: 0, scenes: [],
+                            replaceTag: String(tag), wasWhy: String(d.why || '') });
+    return 'نقشهٔ ناشدهٔ قبلی کنار رفت؛ صحنه‌ها از نو';
+  }
   var notes = [];
   if (d.clip) { d.clip = { state: '' }; notes.push('کلیپ از نو انتخاب می‌شود'); }
   if (d.ovFillAt) { delete d.ovFillAt; delete d.ovFill; notes.push('کارت‌های کم‌آمده از نو'); }
@@ -56276,6 +56458,15 @@ function ytReplaceTick_(budgetMs, hubIn) {
           changed = true; continue;
         }
         var folder = DriveApp.getFolderById(folderId);
+        /* جایگزینیِ خودکار فقط وقتی تخته صحنه می‌خواهد: سطحِ «خاموش» یعنی کارت خواستهٔ خودِ او بود. */
+        if (list[key].auto) {
+          var lvA = '';
+          try { lvA = lvLevelAt_(hub || hubIn || getHub_(), { show: showK, ep: ep }, ytEpisodeMeta_(folder), null); } catch (eLv) {}
+          if (!lvSceneOn_(showK, lvA)) {
+            st[key] = { tag: tag, phase: 'skip', at: nowStr_(), why: 'تختهٔ این مجموعه صحنه نمی‌خواهد؛ کارت خواستهٔ خودش است' };
+            changed = true; continue;
+          }
+        }
         var aside = ytReplaceAside_(folder);
         var scNote = '';
         try { scNote = ytReplaceScenes_(folder, tag); } catch (eSc) { scNote = 'صحنه‌ها: ' + eSc.message; }
@@ -56361,6 +56552,119 @@ function ytReplaceTick_(budgetMs, hubIn) {
     }
   }
   if (changed) ytReplSave_(st);
+  return out;
+}
+
+/* ══ عنوان‌های منتشرشده با شمارهٔ سراسری — پیمایشِ یک‌دوره (۸.۶۳) ══
+ *
+ * پلی‌لیستِ آئودی، از خودِ یوتیوب: درس‌های ۱ تا ۳ «درس‌نامه ۲۲»، «درس ۲۳» و «آئودی ۲۴»؛ مرورِ اول «درس ۳۴»؛
+ * مرورِ دوم «درس ۶۳». `ytTitleNum_` جلوی تازه‌ها را می‌گیرد؛ این‌ها **پیش** از آن منتشر شده‌اند (۵.۹۵). شمارهٔ
+ * درس از **پوشهٔ مجموعه** می‌آید (قسمت‌ها به ترتیب، مرورها بیرون) — همان قاعدهٔ «کدام قسمت‌ها هستند را پوشه
+ * می‌گوید» — و اگر پروندهٔ قسمت شمارهٔ درسِ دیگری بگوید، دست نمی‌خورد و گفته می‌شود. اصلاح از درِ همیشگیِ
+ * `ytRedoOne_` (videos.update، بی آپلودِ دوباره؛ بازدید و نشانی می‌مانند). یک دور، با مکان‌نما، و پس از پایان
+ * خاموش؛ نسخهٔ `YT_TITLE_SWEEP_VER` دورِ تازه می‌خواهد.
+ */
+function ytTitleSweepState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.YT_TITLE_SWEEP) || 'null'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+function ytTitleSweepDue_() {
+  var s = ytTitleSweepState_();
+  return !(Number(s.ver) === (Number(CFG.YT_TITLE_SWEEP_VER) || 1) && s.done);
+}
+
+/** قسمت‌های یک مجموعه از نامِ پوشه‌ها: [{ep, recap, lesson, folder}] به ترتیب؛ مرورها شمارهٔ درس ندارند. */
+function ytSeriesLessons_(seriesFolder) {
+  var list = [];
+  var it = seriesFolder.getFolders();
+  while (it.hasNext()) {
+    var f = it.next(), nm = String(f.getName() || '');
+    var ep = Number(ytEpNumOf_(nm)) || 0;
+    if (!ep) continue;
+    list.push({ ep: ep, recap: /مرور[ِ]?\s*بزرگ/.test(nm), folder: f, lesson: 0 });
+  }
+  list.sort(function (a, b) { return a.ep - b.ep; });
+  var n = 0;
+  for (var i = 0; i < list.length; i++) if (!list[i].recap) list[i].lesson = ++n;
+  return list;
+}
+
+function ytTitleSweep_(budgetMs, hubIn) {
+  var out = { checked: 0, fixed: 0, failed: 0, held: 0, notes: [] };
+  if (!ytOn_() || !CFG.SPECIAL_ENABLED) return out;
+  var ver = Number(CFG.YT_TITLE_SWEEP_VER) || 1;
+  var s = ytTitleSweepState_();
+  if (Number(s.ver) !== ver) s = { ver: ver, si: 0, done: false, fixed: [], failed: [], held: [] };
+  if (s.done) return out;
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 45000);
+  var fixMax = Math.max(1, Number(CFG.YT_TITLE_FIX_MAX) || 3);
+  var hub = hubIn || getHub_(), pub = ytPublished_(hub), reg = readSeriesReg_(hub);
+  var rows = reg.rows.filter(function (r) { return !!String(r.vals[SC.FOLDER - 1] || ''); });
+  rows.sort(function (a, b) { return String(a.key) < String(b.key) ? -1 : String(a.key) > String(b.key) ? 1 : 0; });
+  var seen = {};
+  (s.fixed || []).concat(s.failed || [], s.held || []).forEach(function (x) { seen[String((x && x.key) || x)] = 1; });
+  var stop = false;
+  while (s.si < rows.length && !stop) {
+    if (new Date().getTime() - t0 > budget) break;
+    var sf = null;
+    try { sf = DriveApp.getFolderById(String(rows[s.si].vals[SC.FOLDER - 1])); } catch (eF) { s.si++; continue; }
+    var eps = [];
+    try { eps = ytSeriesLessons_(sf); } catch (eL) { eps = []; }
+    for (var i = 0; i < eps.length; i++) {
+      var x = eps[i], key = ENRICH_SHOW_SPECIAL + ':' + x.ep;
+      var rec = pub[key];
+      if (!rec || !rec.videoId || seen[key]) continue;
+      var tl = String(rec.title || '');
+      var o = { show: ENRICH_SHOW_SPECIAL, ep: x.ep, lesson: x.lesson, recap: x.recap, range: '' };
+      if (ytTitleNum_(tl, o) === tl) continue;
+      out.checked++;
+      var meta = null;
+      try { meta = ytEpisodeMeta_(x.folder); } catch (eM) { meta = null; }
+      /* شمارهٔ پوشه با پروندهٔ قسمت نمی‌خوانَد ⇒ دست نمی‌زنیم: عنوانِ غلطِ تازه بدتر از کهنه است. */
+      if (!x.recap && meta && Number(meta.lesson) && Number(meta.lesson) !== x.lesson) {
+        s.held = (s.held || []).concat([{ key: key, why: 'پوشه درسِ ' + x.lesson + '، پرونده درسِ ' + meta.lesson }]);
+        seen[key] = 1; out.held++; continue;
+      }
+      if (out.fixed + out.failed >= fixMax) { stop = true; break; }
+      var r = null;
+      try { r = ytRedoOne_(ENRICH_SHOW_SPECIAL, String(x.ep), { lesson: x.lesson }); }
+      catch (eR) { r = { ok: false, why: String(eR.message).slice(0, 120), changed: [] }; }
+      if (r && (r.changed || []).indexOf('عنوان و کپشن') !== -1) {
+        s.fixed = (s.fixed || []).concat([{ key: key, from: tl.slice(0, 100), at: nowStr_() }]).slice(-80);
+        out.fixed++; seen[key] = 1;
+      } else if (/سهمیه/.test(String((r && r.why) || ''))) {
+        out.notes.push(key + ': ' + r.why); stop = true; break;      // فردا همین‌جا
+      } else {
+        s.failed = (s.failed || []).concat([{ key: key, why: String((r && r.why) || 'نامعلوم').slice(0, 120) }]).slice(-40);
+        out.failed++; seen[key] = 1;
+      }
+    }
+    if (!stop) s.si++;
+  }
+  if (s.si >= rows.length) { s.done = true; s.doneAt = nowStr_(); }
+  s.at = nowStr_();
+  try { props_().setProperty(PK.YT_TITLE_SWEEP, JSON.stringify(s)); } catch (eS) {}
+  if (out.fixed || out.failed) {
+    logLine_('یوتیوب — شمارهٔ عنوان‌ها: ' + out.fixed + ' اصلاح شد، ' + out.failed + ' نشد' +
+             (out.held ? '، ' + out.held + ' نگه داشته شد (شمارهٔ پوشه و پرونده نمی‌خوانند)' : '') + '.');
+  }
+  return out;
+}
+
+/** خطِ روزانهٔ پیمایشِ عنوان‌ها — از Properties، بی هیچ خواندنی. */
+function ytTitleSweepStatus_() {
+  var s = ytTitleSweepState_(), out = { line: '', problem: '', fixed: (s.fixed || []).length,
+                                         failed: (s.failed || []).length, held: (s.held || []).length, done: !!s.done };
+  if (Number(s.ver) !== (Number(CFG.YT_TITLE_SWEEP_VER) || 1)) {
+    out.line = '🔢 شمارهٔ عنوان‌های یوتیوب: پیمایش هنوز آغاز نشده';
+    return out;
+  }
+  out.line = '🔢 شمارهٔ عنوان‌های یوتیوب (درسِ مجموعه، نه شمارهٔ سراسری): ' +
+             (s.done ? 'پیمایش تمام شد' : 'پیمایش در جریان') + ' — ' + faDigitsOut_(String(out.fixed)) + ' اصلاح شد' +
+             (out.fixed ? ' (' + (s.fixed || []).slice(-6).map(function (x) { return x.key; }).join('، ') + ')' : '') +
+             (out.failed ? ' · ' + faDigitsOut_(String(out.failed)) + ' نشد' : '') +
+             (out.held ? ' · ' + faDigitsOut_(String(out.held)) + ' نگه داشته شد' : '') + '.';
+  if (out.failed) out.problem = 'اصلاحِ شمارهٔ عنوانِ ' + (s.failed || []).map(function (x) { return x.key + ' (' + x.why + ')'; }).slice(0, 3).join('، ') + ' نشد';
   return out;
 }
 
@@ -56752,6 +57056,11 @@ function ytTick_(budgetMs) {
     try { ytPlOrderFix_(Math.min(60000, left() - 20000)); }
     catch (ePo) { out.why += (out.why ? ' · ' : '') + 'ترتیبِ پلی‌لیست: ' + String(ePo.message).slice(0, 60); }
   }
+  /* عنوان‌های منتشرشده با شمارهٔ سراسری (۸.۶۳) — یک دور، سپس خاموش (`ytTitleSweepDue_` فقط Properties). */
+  if (left() > 50000 && ytTitleSweepDue_()) {
+    try { ytTitleSweep_(Math.min(60000, left() - 25000)); }
+    catch (eTs) { out.why += (out.why ? ' · ' : '') + 'شمارهٔ عنوان‌ها: ' + String(eTs.message).slice(0, 60); }
+  }
   /* ══ درِ دومِ ویدئوهای گیرکرده (۸.۵۴) ══
      `ytRedoStuckNightly_` فقط در کارِ شبانه بود، پشتِ `ytLeft()`؛ و کارِ شبانه از
      ۳ اکتبر هر شب پیش از بلوکِ یوتیوب مرد. پس سه ویدئوی قدیمی (`variety:20`،
@@ -56881,6 +57190,7 @@ function ytStatus_() {
   try { out.channel = ytChannelState_(); } catch (e6) { out.channel = null; }
   /* ترتیبِ پلی‌لیست‌ها و جایگزینی‌ها (۸.۵۷) — از Properties، بی خواندنِ یوتیوب. */
   try { out.plOrder = ytPlOrderState_(); out.plOrderLine = ytPlOrderLine_(); } catch (e7) {}
+  try { out.titleFix = ytTitleSweepStatus_(); } catch (e7b) { out.titleFix = null; }
   try { out.replace = ytReplaceStatus_(); } catch (e8) { out.replace = null; }
   try { out.kick = ghKickStatus_(); } catch (e9) { out.kick = null; }
   out.line = ytLine_(out);
@@ -56937,6 +57247,10 @@ function ytHealth_(problems, notes) {
   if (st.service && st.thumbAudit) notes.push(st.thumbAudit);
   /* ترتیبِ پلی‌لیست هر روز گفته می‌شود — «۹۷ منتشرشده» چیزی دربارهٔ اینکه درسِ ۴۰
      پیش از ۴۱ است نمی‌گوید، و همین سکوت سه هفته پلی‌لیست را وارونه نگه داشت (۸.۵۷). */
+  if (st.service && st.titleFix && st.titleFix.line) {
+    notes.push(st.titleFix.line);
+    if (st.titleFix.problem) problems.push(st.titleFix.problem);
+  }
   if (st.service && st.plOrderLine) {
     notes.push(st.plOrderLine);
     var po = st.plOrder || {};
@@ -57751,7 +58065,10 @@ function ytRedoOne_(show, ep, opt) {
               tagline: isSpecial ? CFG.SPECIAL_TAGLINE : CFG.SHOW_TAGLINE,
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
-              lesson: (Number(meta.lesson) || 0) ? faDigitsOut_(String(meta.lesson)) : '',
+              /* درسِ پیش از ۶.۵۵ شمارهٔ درس در پرونده ندارد؛ پیمایشِ عنوان‌ها آن را از پوشهٔ مجموعه می‌دهد (۸.۶۳). */
+              lesson: (Number(meta.lesson) || Number(opt.lesson) || 0)
+                ? faDigitsOut_(String(Number(meta.lesson) || Number(opt.lesson))) : '',
+              recap: !!meta.recap, recapRange: ytRecapRange_(meta),
               cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),
               sources: (epo.__extSources || []), sections: epo.sections || [],
@@ -57787,8 +58104,8 @@ function ytRedoOne_(show, ep, opt) {
                                /* بازسازی هم همان برچسبِ مسیرِ آپلود را می‌گیرد
                                   (۶٫۵۶) — دو مسیر با دو برچسب یعنی کاورِ
                                   بازسازی‌شده به شکلِ قدیم برمی‌گشت. */
-                               epLabel: (Number(meta.lesson) || 0)
-                                 ? 'درس ' + faDigitsOut_(String(meta.lesson))
+                               epLabel: meta.recap ? 'مرورِ بزرگ'
+                                 : ctx.lesson ? 'درس ' + ctx.lesson
                                  : 'قسمت ' + faDigitsOut_(String(ep)),
                                cat: String(meta.cat || ctx.seriesName || ''),
                                /* و سبک هم — وگرنه بازسازی کاورِ بی‌سبک
