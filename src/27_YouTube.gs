@@ -5669,8 +5669,11 @@ function lvSceneAsk_(groups, ctx, art, cast, only, first) {
   var out = { scenes: {}, cover: '', cast: '', why: '', nature: '' };
   var r = null;
   try {
+    /* سقفِ «دقیق» (۸.۶۱، همان ۸.۳۴): جوابِ افسارگسیخته — رشته‌ای که بسته نمی‌شود — با سقفِ
+       به‌خاطرسپرده تا ده‌ها هزار توکن کش می‌آمد، دقیقه‌ها می‌خورد و «ترمیم» فقط چند صحنهٔ اول را
+       نگه می‌داشت. مرورِ بزرگِ special:63 دو بار «۲ صحنه از ۴۲» گرفت و به کارتِ ساده افتاد. */
     r = geminiText_(lvScenePrompt_(groups, ctx, art, cast, only, first), LV_SCENE_SCHEMA,
-                    Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384));
+                    Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384), { exact: true });
   } catch (e) { out.why = 'مدلِ متن جواب نداد: ' + String(e.message).slice(0, 120); return out; }
   if (!r || !Array.isArray(r.scenes)) { out.why = 'پاسخ صحنه نداشت'; return out; }
   for (var i = 0; i < r.scenes.length; i++) {
@@ -5685,6 +5688,11 @@ function lvSceneAsk_(groups, ctx, art, cast, only, first) {
                               ov: lvSceneOvNorm_(x),
                               focus: String(x.focus || '').replace(/\s+/g, ' ').trim().slice(0, 80),
                               move: lvSceneMove_(x.move) };
+  }
+  /* جوابی که خیلی کمتر از خواسته داد، **گفته می‌شود** — همان علتی که ردیفِ عمومی و یافته باید ببینند. */
+  var want = only ? only.length : groups.length, gotN = Object.keys(out.scenes).length;
+  if (want > 2 && gotN < Math.ceil(want / 2)) {
+    out.why = 'پاسخ فقط ' + gotN + ' از ' + want + ' صحنهٔ خواسته را داشت (بریده یا ناقص)';
   }
   out.nature = lvSceneNature_(r.nature);
   out.cover = String(r.cover || '').replace(/\s+/g, ' ').trim().slice(0, 700);
@@ -6927,7 +6935,7 @@ function lvScenePlanTake_(d, ask) {
  */
 function lvScenePlanAsk_(d, ctx, left, fresh) {
   var out = { more: false, asked: 0 };
-  var batch = Math.max(5, Number(CFG.LV_SCENE_ASK_BATCH) || 50);
+  var batch = Math.max(5, Number(CFG.LV_SCENE_ASK_BATCH) || 12);
   var askMin = Math.max(5000, Number(CFG.LV_SCENE_ASK_MIN_MS) || 50000);
   var all = d.scenes;
   var cur = Math.max(0, Number(d.askAt) || 0);
@@ -6951,20 +6959,38 @@ function lvScenePlanAsk_(d, ctx, left, fresh) {
     cur += slice.length;
     d.askAt = cur;
   }
+  /* دورِ دوم برای جاافتاده‌ها — **دسته‌دسته و کوچک‌تر** (۸.۶۱). تا ۸.۶۰ همهٔ جاافتاده‌ها در
+     **یک** پرسش می‌رفتند: اگر دستهٔ اول بریده شده بود (۲ از ۴۲)، پرسشِ دوم ۴۰ صحنه را یک‌جا
+     می‌خواست و به همان دلیل بریده می‌شد — پس دورِ دوم دقیقاً وقتی لازم بود کار نمی‌کرد. هر
+     صحنه یک بار پرسیده می‌شود (`retryAsked`، در ازسرگیری هم)، و پرسشی که هیچ توصیفی نیاورد
+     بقیه را نمی‌پرسد: مدلی که جواب نمی‌دهد، پولِ پرسشِ بعدی را هم هدر می‌دهد. و نقشه‌ای که
+     **هیچ** صحنه‌اش توصیف نشد دورِ دوم نمی‌گیرد (همان مرزِ پیش از ۸.۶۱): آن مدلی است که جواب
+     نمی‌دهد، نه پاسخی که بریده شد — و درسِ بعد دوباره از اول پرسیده می‌شود. */
+  if (!d.retried && !all.some(function (x) { return !!x.scene; })) d.retried = true;
   if (!d.retried) {
-    var miss = [];
-    for (var i = 0; i < all.length; i++) if (!all[i].scene) miss.push(all[i].n);
-    if (miss.length && miss.length < all.length) {
+    var chunk = Math.max(3, Math.floor(batch / 2));
+    d.retryAsked = Array.isArray(d.retryAsked) ? d.retryAsked : [];
+    while (true) {
+      var askedR = {};
+      for (var q = 0; q < d.retryAsked.length; q++) askedR[String(d.retryAsked[q])] = 1;
+      var miss = [];
+      for (var i = 0; i < all.length; i++) if (!all[i].scene && !askedR[String(all[i].n)]) miss.push(all[i].n);
+      if (!miss.length) break;
       if ((out.asked || fresh) && left() < askMin) { out.more = true; return out; }
-      d.retried = true;
+      var part = miss.slice(0, chunk);
       /* پرسشِ دوم فقط چند صحنه را می‌بیند و از آن‌ها ماهیتِ کل را نمی‌شود فهمید؛
          پس همان تشخیصِ اول به او گفته می‌شود (۸.۴۷). */
       ctx.nature = d.nature;
-      var ask2 = lvSceneAsk_(all, ctx, d.art, d.cast, miss, false);
+      var ask2 = lvSceneAsk_(all, ctx, d.art, d.cast, part, false);
       out.asked++;
+      d.retryAsked = d.retryAsked.concat(part);
       if (!d.nature && ask2.nature) d.nature = ask2.nature;
+      var had = all.filter(function (x) { return !!x.scene; }).length;
       lvScenePlanTake_(d, ask2);
+      if (ask2.why) d.askWhy = ask2.why;
+      if (all.filter(function (x) { return !!x.scene; }).length === had) break;
     }
+    d.retried = true;
   }
   return out;
 }

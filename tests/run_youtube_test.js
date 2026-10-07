@@ -5698,11 +5698,14 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     if (sc && sc.properties && sc.properties.scenes) {
       const pr = body.contents[0].parts[0].text;
       cnt.plan++; cnt.prompts.push(pr);
+      (cnt.planCaps = cnt.planCaps || []).push(Number(body.generationConfig.maxOutputTokens) || 0);
       if (cnt.genAtPlan) cnt.genAtPlan.push(cnt.gen);
       const ns = []; const re = /^\[(\d+)\]/mg; let m;
       while ((m = re.exec(pr))) ns.push(m[1]);
+      /* `sceneCap` (۸.۶۱): پاسخِ بریده — مدل فقط چند صحنهٔ اول را می‌دهد، همان «۲ از ۴۲»ِ مرورِ بزرگ. */
+      const keepN = cnt.sceneCap ? cnt.sceneCap(ns.length) : ns.length;
       const r = { nature: cnt.natureOut, cast: 'a curious student in a blue sweater', cover: 'a lantern lighting a path of stones',
-                  scenes: ns.map(n => ({ n: n, scene: 'a lantern passing light to the next lantern number ' + n,
+                  scenes: ns.slice(0, keepN).map(n => ({ n: n, scene: 'a lantern passing light to the next lantern number ' + n,
                                          caption: 'مفهومِ ' + n })) };
       return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(r) }] } }] } };
     }
@@ -6571,6 +6574,48 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
        C.d.scenes.every((x, i) => i === 0 || x.t0 === C.d.scenes[i - 1].t1),
        JSON.stringify({ runs: C.whys.length, scenes: nC, asks: cC.prompts.length, lines: cC.prompts.map(lines),
                         genAt: cC.genAtPlan, whys: C.whys.slice(0, 3) }));
+
+    /* ۷۱.۲۸-پ (۸.۶۱) — **پاسخِ بریده نقشه را نمی‌کُشد.** مرورِ بزرگِ special:63 دو بار «مدل برای
+       ۲ صحنه از ۴۲ توصیف داد» گرفت و به کارتِ ساده افتاد: یک پرسشِ ۴۲‌صحنه‌ای بریده شد، و پرسشِ دوم
+       ۴۰ جاافتاده را باز **یک‌جا** خواست. این‌جا مدل هر پرسشِ بیش از ۶ صحنه را بریده جواب می‌دهد. */
+    const cT = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cT.cutFn = (n) => Array.from({ length: Math.ceil(n / 3) }, (_, i) => 3 * i + 1);
+    cT.sceneCap = (k) => (k > 6 ? 2 : k);
+    cT.natureOut = 'درس';
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    /* کفِ توکنی که روزی برای همین مدل به خاطر سپرده شد (۶۵۵۳۶) نباید سقفِ پرسشِ صحنه را بالا ببرد:
+       همان کش‌آمدنِ جوابِ بریده تا ده‌ها هزار توکن است که special:63 را کُشت. */
+    const tokKey = 'MODEL_MINTOK_' + String(textModel_()).replace(/[^A-Za-z0-9.-]/g, '_');
+    const keepTok = global.__PROPS[tokKey];
+    global.__PROPS[tokKey] = '65536';
+    const T = build(mkEp71('EP71TR', 'قسمت 0328 — پاسخِ بریده'),
+                    Object.assign({}, ctx, { epRaw: '328', textLevel: 'خاموش', textShare: 0 }), cT, 12);
+    if (keepTok === undefined) delete global.__PROPS[tokKey]; else global.__PROPS[tokKey] = keepTok;
+    const perT = cT.prompts.map(lines);
+    const capT = Math.max(8192, Number(CFG.YT_META_TOKENS) || 16384);
+    ok('۷۱.۲۸-ت سقفِ پرسشِ صحنه «دقیق» است: کفِ به‌خاطرسپردهٔ مدل بالایش نمی‌بَرد',
+       (cT.planCaps || []).length > 0 && cT.planCaps.every(c => c > 0 && c <= capT),
+       JSON.stringify({ caps: cT.planCaps, cap: capT }));
+    ok('۷۱.۲۸-پ پاسخِ بریده ⇒ جاافتاده‌ها دسته‌دسته و کوچک‌تر دوباره پرسیده می‌شوند؛ نقشه کامل، نه کارتِ ساده',
+       !!T.r && T.r.done && !T.r.fallback && T.d.scenes.length > 6 && T.d.scenes.every(x => x.scene) &&
+       Math.max.apply(null, perT) <= CFG.LV_SCENE_ASK_BATCH && perT.slice(1).every(k => k <= 6) &&
+       /بریده/.test(String(T.d.askWhy || '')),
+       JSON.stringify({ done: T.r && T.r.done, fb: T.r && T.r.fallback, why: T.r && T.r.why, n: T.d && T.d.scenes.length,
+                        described: T.d && T.d.scenes.filter(x => x.scene).length, asks: perT, askWhy: T.d && T.d.askWhy }));
+
+    /* ۷۱.۲۸-ث — پرسشِ دومی که **هیچ** توصیفی نیاورد بقیهٔ جاافتاده‌ها را نمی‌پرسد: مدلی که
+       جواب نمی‌دهد، پولِ پرسشِ بعدی را هم هدر می‌دهد. */
+    const cZ = { gen: 0, plan: 0, judge: 0, cfg: [], prompts: [], imgPrompts: [] };
+    cZ.cutFn = cT.cutFn;
+    cZ.sceneCap = (k) => (k > 6 ? 2 : 0);
+    cZ.natureOut = 'درس';
+    global.__PROPS[PK.LV_GEN_SPEND] = '';
+    build(mkEp71('EP71TZ', 'قسمت 0329 — دورِ دومِ بی‌جواب'),
+          Object.assign({}, ctx, { epRaw: '329', textLevel: 'خاموش', textShare: 0 }), cZ, 12);
+    const perZ = cZ.prompts.map(lines);
+    ok('۷۱.۲۸-ث دورِ دومی که هیچ نیاورد ⇒ تکه‌های بعدیِ همان دور پرسیده نمی‌شوند',
+       perZ.length >= 2 && perZ[0] > 6 && perZ.slice(1).length === 1,
+       JSON.stringify({ asks: perZ }));
 
     /* ۷۱.۲۹ — تدوین‌گر جواب نداد یا کم داد ⇒ همان برشِ زمانیِ قبلی، و **گفته می‌شود**
        (`cutWhy`، خطِ روزانه «برشِ محتوایی نشد»)، نه بی‌صدا. */
