@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-08 05:22",
+ "updatedAt": "2026-10-08 06:16",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -668,14 +668,49 @@
   },
   "special:63": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-63.mp4",
-   "bytes": 42599938,
+   "bytes": 45621270,
    "parts": 2,
-   "at": "2026-10-07 05:12",
-   "mode": "cards",
-   "cards": 16,
-   "beats": 32,
-   "bgs": 16,
-   "seconds": 1238
+   "at": "2026-10-08 06:10",
+   "replace": "auto-8.63",
+   "mode": "scenes",
+   "scenes": 38,
+   "want": 38,
+   "snapped": 28,
+   "seconds": 1238,
+   "qa": {
+    "n": 38,
+    "matched": 37,
+    "miss": [
+     42
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0
+   },
+   "ov": {
+    "asked": 12,
+    "placed": 6,
+    "busy": 6,
+    "failed": 0,
+    "kinds": {
+     "points": 3,
+     "quote": 1,
+     "headline": 2
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 31,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 19,
+    "fade": 15
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-63-cover.jpg"
   },
   "variety:65": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-65.mp4",
@@ -749,6 +784,20 @@
    "bytes": 8635862,
    "parts": 1,
    "at": "2026-10-08 05:22"
+  },
+  "variety:48": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-48.mp4",
+   "bytes": 9077050,
+   "parts": 1,
+   "at": "2026-10-08 06:11"
+  },
+  "special:13": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-13.mp4",
+   "bytes": 32714862,
+   "parts": 2,
+   "at": "2026-10-08 06:16",
+   "visuals": 11,
+   "seconds": 799
   }
  },
  "art": {
