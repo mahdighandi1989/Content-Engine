@@ -700,4 +700,21 @@ console.log('\n=== ۱۶) کاری که push می‌کند، شاخه را می�
      /for i in 1 2 3 4; do\s*\n(?:\s*#.*\n)*\s*git rebase --abort/.test(rw));
 }
 
+console.log('\n=== ۱۷) بریفِ CLAUDE.md خواندنی می‌مانَد (۸.۶۷) ===');
+{
+  /* ناظرِ ۸ اکتبر ۲ دقیقه دوید و ۳۰۳ هزار توکن زمینه‌اش پر بود: CLAUDE.md به ۵۳۸ کیلوبایت رسیده
+     بود. یادداشتِ هر نسخه به docs/claude_history.md می‌رود؛ این‌جا فقط سقف و فهرست. */
+  const MAXC = 140000;
+  const cl = fs.readFileSync('CLAUDE.md');
+  ok('۱۷.۱ CLAUDE.md زیرِ ' + MAXC + ' بایت است', cl.length <= MAXC, cl.length + ' بایت');
+  const hist = fs.existsSync('docs/claude_history.md') ? fs.readFileSync('docs/claude_history.md', 'utf8') : '';
+  const txt = cl.toString('utf8');
+  const at = txt.indexOf('## تاریخچهٔ نسخه‌ها');
+  const list = at < 0 ? [] : txt.slice(at).split('\n## ')[0].split('\n')
+    .filter(l => l.startsWith('- ')).map(l => l.slice(2).trim());
+  const lost = list.filter(t => hist.indexOf('## ' + t) === -1);
+  ok('۱۷.۲ هر سطرِ فهرست بخشِ کاملش را در تاریخچه دارد — هیچ‌چیز گم نشد',
+     list.length >= 100 && lost.length === 0, list.length + ' سطر، گم: ' + lost.slice(0, 3).join(' | '));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
