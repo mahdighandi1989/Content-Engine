@@ -754,6 +754,24 @@ function ytLessonOf_(lessons, E) {
 }
 
 /**
+ * شمارهٔ درسِ یک قسمت از **پوشهٔ مجموعه** — پدرِ پوشهٔ قسمت (۸.۶۸). ۰ یعنی «نمی‌دانم» یا مرور.
+ *
+ * ══ چرا پوشه بر پرونده می‌چربد ══ درسِ ۱۳ِ مصباح با «درس ۸» منتشر شد و کاورش «قسمت ۱۳» می‌گفت:
+ * `lesson`ِ پرونده هنگامِ تولید از ستونِ «قسمت‌های پادکست» شمرده شده بود، ستونی که تاریخ به آن
+ * چسبیده است (همان که در بخشِ جزوه نوشته شد). «کدام قسمت‌ها هستند» را پوشه می‌گوید، نه آن ستون.
+ */
+function ytFolderLesson_(folder, ep) {
+  try {
+    if (!folder) return 0;
+    var it = folder.getParents();
+    if (!it.hasNext()) return 0;
+    var ls = ytSeriesLessons_(it.next()), e = Number(ep) || 0;
+    for (var i = 0; i < ls.length; i++) if (ls[i].ep === e) return ls[i].recap ? 0 : ls[i].lesson;
+  } catch (e2) {}
+  return 0;
+}
+
+/**
  * برچسبِ مرور با **شمارهٔ درسِ همین مجموعه**: «درس‌های ۱۳ تا ۳۹».
  *
  * ══ ۸.۶۴ — نگارشِ ۸.۶۳ همان شمارهٔ سراسری را دوباره می‌ساخت ══
@@ -813,7 +831,20 @@ function ytTitleNum_(t, o) {
   var E = Number(faDigits_(String(o.ep || ''))) || 0;
   if (!E) return t;
   var L = Number(faDigits_(String(o.lesson || ''))) || 0;
-  if (!o.recap && (!L || L === E)) return t;
+  if (!o.recap && !L) return t;
+  /* ══ «درس ۸» روی درسِ ۱۳ (۸.۶۸) ══ تا این‌جا فقط شمارهٔ سراسریِ E جایگزین می‌شد؛ پس وقتی E و L برابرند
+     (مصباح: قسمتِ ۱۳ = درسِ ۱۳) هر شمارهٔ غلطِ دیگری در عنوان دیده نمی‌شد و پیمایش هم آن را «درست» می‌دید.
+     حالا هر «درس/قسمت/درس‌نامه + عدد»ی که نه E است نه L، همان L می‌شود. */
+  if (!o.recap && L === E) {
+    var reAny = /(\s*[-–—|،:]?\s*)(?:درس(?:\u200c|\s)?نامه|درس|قسمت)\s*([0-9]+|[۰-۹]+)(?![0-9۰-۹])/g;
+    var fixed = t.replace(reAny, function (all, sp, nn) {
+      var v = Number(faDigits_(nn)) || 0;
+      if (!v || v === L) return all;
+      var c = (String(sp).match(/[-–—|،:]/) || [''])[0];
+      return (c ? ' ' + c + ' ' : ' - ') + 'درس ' + faDigitsOut_(String(L));
+    });
+    return fixed === t ? t : ytTitleCut_(fixed.replace(/\s{2,}/g, ' ').trim());
+  }
   /* عددِ E به هر دو خط، و نه بخشی از عددی بزرگ‌تر */
   var num = '(?:' + String(E) + '|' + faDigitsOut_(String(E)) + ')(?![0-9۰-۹])';
   var word = '(?:درس(?:\u200c|\\s)?نامه|درس|قسمت)\\s*';
@@ -2464,11 +2495,14 @@ function ytBackfill_(maxWalk) {
     var w = walk[i]; i++;
     var ep = ytEpNumOf_(w.folder.getName());
     if (!ep) { out.skipped++; continue; }
-    out.walked++;
     var key = w.show + ':' + ep;
+    /* ══ منتشرشده سهمِ سقف را نمی‌خورد (۸.۶۸) ══ فهرستِ پوشه‌ها بالاتر یک‌جا ساخته شده؛ پرسیدنِ «منتشر شده؟»
+       از نقشه رایگان است. تا ۸.۶۶ هر پوشهٔ منتشرشده یکی از ۱۲ نوبت را می‌خورد، پس با ~۱۳۰ پوشه یک دور
+       چند روز طول می‌کشید — درس‌های ۱۴ تا ۱۶ِ مصباح سه روز پس از ۸.۶۳ هنوز در پلی‌لیست نبودند. */
     if (pub[key] && pub[key].videoId) { out.skipped++; continue; }
     var floor = minPub[w.show + '|' + (w.show === ENRICH_SHOW_SPECIAL ? String(w.series || '') : '')];
     if (floor && Number(ep) < floor) { out.skipped++; continue; }
+    out.walked++;
     if (ytGaveUp_(pub, w.show, ep)) { out.gaveUp++; continue; }
     if (due[key]) { out.skipped++; continue; }
     if (ytDueAdd_(w.show, ep, w.folder.getId(), w.seriesKey, w.series)) {
@@ -9105,6 +9139,13 @@ function ytUploadOne_(item, hub, pub) {
      چون در اندازهٔ بندانگشتی جای دو شماره نیست و آنچه معنا دارد جای درس
      در مجموعه است. */
   var lessonNo = Number(meta.lesson) || 0;
+  if (isSpecial && !meta.recap) {
+    var fLes = ytFolderLesson_(folder, item.ep);
+    if (fLes && fLes !== lessonNo) {
+      logLine_('یوتیوب: درسِ ' + item.key + ' از پوشهٔ مجموعه ' + fLes + ' است، نه ' + (lessonNo || '؟') + 'ِ پرونده — پوشه.');
+      lessonNo = fLes;
+    }
+  }
   var epLabel = 'قسمت ' + faDigitsOut_(String(item.ep)) +
                 (lessonNo ? ' — درس ' + faDigitsOut_(String(lessonNo)) : '');
   var coverEpLabel = meta.recap ? 'مرورِ بزرگ'
@@ -10201,10 +10242,10 @@ function ytTitleSweep_(budgetMs, hubIn) {
       out.checked++;
       var meta = null;
       try { meta = ytEpisodeMeta_(x.folder); } catch (eM) { meta = null; }
-      /* شمارهٔ پوشه با پروندهٔ قسمت نمی‌خوانَد ⇒ دست نمی‌زنیم: عنوانِ غلطِ تازه بدتر از کهنه است. */
+      /* ۸.۶۸: ناهمخوانیِ پوشه و پرونده دیگر «نگه‌داشتن» نیست — پوشه داور است (`ytFolderLesson_`)؛ نگه‌داشتن
+         یعنی همان «درس ۸» روی درسِ ۱۳ تا ابد عمومی بماند. فقط ثبت می‌شود که پرونده چیزِ دیگری می‌گفت. */
       if (!x.recap && meta && Number(meta.lesson) && Number(meta.lesson) !== x.lesson) {
-        s.held = (s.held || []).concat([{ key: key, why: 'پوشه درسِ ' + x.lesson + '، پرونده درسِ ' + meta.lesson }]);
-        seen[key] = 1; out.held++; continue;
+        out.notes.push(key + ': پوشه درسِ ' + x.lesson + '، پرونده درسِ ' + meta.lesson + ' — پوشه');
       }
       if (out.fixed + out.failed >= fixMax) { stop = true; break; }
       var r = null;
@@ -10757,7 +10798,8 @@ function ytStatus_() {
                    privacy: String(v[YU.PRIV - 1]) };
     }
   } catch (e) {}
-  try { out.due = ytDueList_().length; } catch (e2) {}
+  /* کدام قسمت‌ها در صف‌اند، نه فقط چندتا (۸.۶۸): «درس‌های ۱۴ تا ۱۶ِ مصباح کجا هستند؟» با «در صف ۸» جواب ندارد. */
+  try { var dlS = ytDueList_(); out.due = dlS.length; out.dueKeys = dlS.map(function (x) { return String(x.key || ''); }).slice(0, 40); } catch (e2) {}
   try {
     var rp = ytRenderPending_();
     out.waitingRender = rp.n; out.renderOldestDays = rp.oldestDays;
@@ -11647,8 +11689,13 @@ function ytRedoOne_(show, ep, opt) {
               seriesName: String(meta.seriesName || rec.series || ''),
               epNum: faDigitsOut_(String(ep)), title: String(epo.title || ''),
               /* درسِ پیش از ۶.۵۵ شمارهٔ درس در پرونده ندارد؛ پیمایشِ عنوان‌ها آن را از پوشهٔ مجموعه می‌دهد (۸.۶۳). */
-              lesson: (Number(meta.lesson) || Number(opt.lesson) || 0)
-                ? faDigitsOut_(String(Number(meta.lesson) || Number(opt.lesson))) : '',
+              /* ۸.۶۸: پوشه اول، سپس آنچه پیمایش داد، و پرونده آخر — `lesson`ِ پرونده همان است که «درس ۸» را
+                 روی درسِ ۱۳ نشاند؛ تا ۸.۶۶ همین‌جا بر شمارهٔ درستِ پیمایش هم می‌چربید. */
+              lesson: (function () {
+                var L = (isSpecial && !meta.recap ? ytFolderLesson_(folder, ep) : 0) ||
+                        Number(opt.lesson) || Number(meta.lesson) || 0;
+                return L ? faDigitsOut_(String(L)) : '';
+              })(),
               recap: !!meta.recap, recapRange: ytRecapRangeOf_(meta, folder),
               cat: String(meta.cat || meta.seriesCat || ''), duration: ytTime_(audSec),
               headings: heads, hook: String(epo.hook || ''), summary: String(epo.summary || ''),

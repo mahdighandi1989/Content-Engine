@@ -835,11 +835,21 @@ function heldNow(it, hold, now) {
  * با نقشه نمی‌خوانَد کشیده می‌شود. امضای نقشه = امضای درخواست + نقاشیِ مجموعه
  * (اگر هست)، پس رسیدنِ نقاشی کاور را یک بار از نو می‌سازد و بعد دیگر نه.
  */
-function slugOf(k) { return String(k || '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x'; }
+/* ══ نامِ فارسی همه را یکی می‌کرد (۸.۶۸) ══ هر نویسهٔ غیرِلاتین «-» می‌شد، پس «series:معرفت شناسی …»
+   و هر مجموعهٔ فارسیِ دیگری همه «pl-series.jpg» بودند و هر کاور کاورِ قبلی را رونویسی می‌کرد. کلیدی که
+   نویسهٔ غیرِلاتین دارد چند رقم از اثرِ انگشتِ خودش را می‌گیرد؛ کلیدهای لاتین همان نامِ قبلی را دارند. */
+function slugOf(k) {
+  const s = String(k || '');
+  const base = s.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'x';
+  if (!/[^\x00-\x7F]/.test(s)) return base;
+  return base + '-' + require('crypto').createHash('sha1').update(s, 'utf8').digest('hex').slice(0, 10);
+}
+
+const PL_COVER_DRAW = 'f2';   // ۸.۶۸: قاب به بدنه دوخته شد — هر کاورِ کشیده‌شده یک بار از نو
 
 function plCoverSig(pc, map) {
   const art = (map.art || {})[pc.key];
-  return String(pc.sig || '') + (art && art.from ? '|' + art.from : '');
+  return String(pc.sig || '') + (art && art.from ? '|' + art.from : '') + '|' + PL_COVER_DRAW;
 }
 
 /** کدام کاورهای پلی‌لیست کشیدن می‌خواهند. یک تعریف برای پروب و برای کار. */

@@ -1025,7 +1025,8 @@ console.log('\n══ ۱۵) کاورِ مربعِ پلی‌لیست و پروب 
   const q = { items: [], plCovers: [{ key: 'series:a', name: 'الف', sig: 's1', pal: {} }] };
   const m0 = { items: {} };
   const t0 = R.plCoversTodo(q, m0).length;
-  const m1 = { items: {}, plCovers: { 'series:a': { sig: 's1', req: 's1' } } };
+  /* امضای نقشه = امضای درخواست + نقاشی + نسخهٔ کشیدن (۸.۶۸)؛ «ساخته» یعنی با همان امضا ساخته شده. */
+  const m1 = { items: {}, plCovers: { 'series:a': { sig: R.plCoverSig(q.plCovers[0], m0), req: 's1' } } };
   const t1 = R.plCoversTodo(q, m1).length;
   const m2 = { items: {}, plCovers: { 'series:a': { sig: 's1', req: 's1' } },
                art: { 'series:a': { url: 'x', from: 'special:62' } } };
@@ -1225,6 +1226,54 @@ console.log('\n══ ۱۷) کارت روی کانونِ داور نمی‌نش�
   }
   ok('۱۷.۱ کارت نشست ولی نه درونِ جعبهٔ کانون', vr.ov && vr.ov.placed === 1 && outside > 500 && inside < outside * 0.05,
      JSON.stringify({ inside: inside, outside: outside, ov: vr.ov, notes: vr.notes }));
+}
+
+console.log('\n=== ۱۸) قاب به بدنه دوخته، و نامِ فارسی که فایلِ دیگری را رونویسی نمی‌کند (۸.۶۸) ===');
+{
+  /* او کاورِ پلی‌لیستِ مصباح را دید: «مصباح» از پایینِ تصویر بیرون بود. علت در `shoot`: پنجره ۲۴۰ پیکسل بلندتر از
+     قاب است و `position:absolute`ِ بی‌نیا خودش را با پنجره می‌سنجید. همان علت زیرنویسِ هر صحنه را نیمه‌بریده
+     می‌کرد. این سنجه پیکسل‌های واقعیِ خروجیِ کروم را می‌خوانَد، نه رشتهٔ HTML را. */
+  const SKIT = require('../tools/scenekit.js');
+  const CK = require('../tools/cardkit/index.js');
+  const exe = CK.chromeExe();
+  const ffr = a => cp.execFileSync(FF, ['-y', '-loglevel', 'error'].concat(a));
+  const box = (png, w, h, bg) => {      // جعبهٔ پیکسل‌های غیرشفاف/غیرِزمینه
+    const raw = cp.execFileSync(FF, ['-loglevel', 'error', '-i', png, '-f', 'rawvideo', '-pix_fmt', 'rgba', '-'],
+                                { maxBuffer: w * h * 4 + 1024 });
+    let y0 = h, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x += 2) {
+      const i = (y * w + x) * 4;
+      const hit = bg ? (Math.abs(raw[i] - bg[0]) + Math.abs(raw[i + 1] - bg[1]) + Math.abs(raw[i + 2] - bg[2]) > 120) : raw[i + 3] > 10;
+      if (hit) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    return { y0: y0, y1: y1 };
+  };
+  const cap = path.join(TMP, 'cap18.png');
+  SKIT.shoot(exe, SKIT.captionHtml('آزمونِ زیرنویس'), cap, SKIT.SK.w, SKIT.SK.h, ffr);
+  const bc = box(cap, SKIT.SK.w, SKIT.SK.h);
+  ok('۱۸.۱ زیرنویس کامل درونِ قاب است: پایینش حدودِ ۸۴ پیکسل بالای لبه (سایه حساب)، نه بریده روی لبه',
+     bc.y1 > 0 && bc.y1 < SKIT.SK.h - 40 && bc.y0 > SKIT.SK.h - 300, JSON.stringify(bc));
+  const pl = path.join(TMP, 'pl18.png');
+  SKIT.shoot(exe, SKIT.plCoverHtml({ name: 'معرفت شناسی مجتبی مصباح', show: 'درس‌نامه',
+                                     pal: { bg: '#F3EAD3', fg: '#2B2116', ac: '#8C5A2B' } }, ''), pl, 1400, 1400, ffr);
+  const raw = cp.execFileSync(FF, ['-loglevel', 'error', '-i', pl, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1400 * 1400 * 3 + 1024 });
+  let ink = 0;                            // نویسهٔ تیرهٔ نام در نوارِ ۱۳۰ پیکسلیِ پایین
+  for (let y = 1270; y < 1400; y++) for (let x = 0; x < 1400; x += 2) { const i = (y * 1400 + x) * 3; if (raw[i] < 90 && raw[i + 1] < 90) ink++; }
+  let bar = 0;                            // نوارِ رنگیِ زیرِ نام دیده می‌شود
+  for (let y = 1180; y < 1300; y++) { const i = (y * 1400 + 1250) * 3; if (raw[i] > 120 && raw[i] < 160 && raw[i + 2] < 70) bar++; }
+  ok('۱۸.۲ کاورِ پلی‌لیستِ مصباح: هیچ حرفی در ۱۳۰ پیکسلِ پایین نیست و نوارِ زیرِ نام دیده می‌شود',
+     ink < 30 && bar > 4, JSON.stringify({ ink: ink, bar: bar }));
+  const pf = SKIT.pinFrame('<!doctype html><meta charset="utf-8"><style>x{}</style>', 10, 20);
+  ok('۱۸.۳ `pinFrame` بدنه را `relative` و هم‌اندازهٔ قاب می‌کند و همان‌جا پس از charset می‌نشیند',
+     /<meta charset="utf-8"><style>html\{width:10px;height:20px/.test(pf) && /body\{position:relative!important;width:10px!important;height:20px!important/.test(pf) &&
+     /fs\.writeFileSync\(f, pinFrame\(html, w, h\)\)/.test(fs.readFileSync('tools/scenekit.js', 'utf8')));
+  const a = R.slugOf('series:معرفت شناسی مجتبی مصباح'), b = R.slugOf('series:منطق مظفر');
+  ok('۱۸.۴ دو مجموعهٔ فارسی دو نامِ فایل دارند (تا ۸.۶۶ هر دو «series» بودند)؛ لاتین همان نامِ قبلی',
+     a !== b && /^series-[0-9a-f]{10}$/.test(a) && R.slugOf('show:variety') === 'show-variety' &&
+     R.slugOf('series:audi 2011 epistemology') === 'series-audi-2011-epistemology', a + ' ' + b);
+  ok('۱۸.۵ کاورهای کشیده‌شده یک بار از نو کشیده می‌شوند (امضای کشیدن در امضای نقشه)',
+     /\|f2$/.test(R.plCoverSig({ key: 'k', sig: 's' }, {})) &&
+     R.plCoversTodo({ plCovers: [{ key: 'k', sig: 's' }] }, { plCovers: { k: { sig: 's' } } }).length === 1);
 }
 
 stopServer();

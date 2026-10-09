@@ -174,7 +174,7 @@ function timeline(scenes, durSec, sil) {
    پس پنجره بلندتر گرفته و نتیجه دقیقاً به w×h بریده می‌شود. */
 function shoot(exe, html, png, w, h, ffRun) {
   const f = png + '.html';
-  fs.writeFileSync(f, html);
+  fs.writeFileSync(f, pinFrame(html, w, h));
   const raw = png.replace(/\.png$/, '') + '.raw.png';
   execFileSync(exe, ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
     '--force-device-scale-factor=1', '--window-size=' + w + ',' + (h + 240),
@@ -182,6 +182,23 @@ function shoot(exe, html, png, w, h, ffRun) {
   if (ffRun) ffRun(['-i', raw, '-vf', 'crop=' + w + ':' + h + ':0:0', '-frames:v', '1', png]);
   else fs.renameSync(raw, png);
   return png;
+}
+
+/**
+ * قاب را به بدنه بدوز (۸.۶۸).
+ * پنجره ۲۴۰ پیکسل بلندتر از قاب است و بعد بریده می‌شود؛ هر چیزِ `position:absolute`ی که
+ * نیایِ جای‌گیرنده نداشت (`bottom`، `top:50%`، `inset:0`) خودش را با **پنجره** می‌سنجید، نه با
+ * قاب. نتیجه‌اش را بیننده دید: زیرنویسِ صحنه نیمه‌بریده، نامِ مجموعه روی کاورِ پلی‌لیست از پایین
+ * بیرون، و تیترِ کاورِ ویدئو ۱۲۰ پیکسل پایین‌تر از وسط. بدنه با اندازهٔ دقیقِ قاب و `relative`
+ * همان نیاست — یک جا، برای همهٔ صفحه‌هایی که این‌جا کشیده می‌شوند.
+ */
+function pinFrame(html, w, h) {
+  const css = '<style>html{width:' + w + 'px;height:' + h + 'px;overflow:hidden}' +
+    'body{position:relative!important;width:' + w + 'px!important;height:' + h + 'px!important;' +
+    'margin:0!important;overflow:hidden!important}</style>';
+  const s = String(html || '');
+  const m = /<meta charset="utf-8">/i.exec(s);
+  return m ? s.slice(0, m.index + m[0].length) + css + s.slice(m.index + m[0].length) : css + s;
 }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -728,5 +745,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
+module.exports = { SK, pinFrame, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };

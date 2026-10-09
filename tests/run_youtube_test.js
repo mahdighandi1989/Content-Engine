@@ -8919,12 +8919,18 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
   const b1 = ytBackfill_(3), c1 = Number(global.__PROPS[PK.YT_SCAN] || 0);
   const b2 = ytBackfill_(3);
   const dueKeys = ytDueList_().map(x => x.key);
-  ok('۹۰.۷ مکان‌نما می‌مانَد و اجرای دوم پوشه‌های بعدی را می‌بیند: حفرهٔ ۲۴ و تازهٔ ۲۶ به صف؛ ۱۰ (پیش از نخستین انتشار) نه',
-     c1 === 3 && dueKeys.indexOf('special:24') !== -1 && dueKeys.indexOf('special:26') !== -1 &&
-     dueKeys.indexOf('special:10') === -1 && b1.wrapped === false,
-     JSON.stringify({ c1: c1, due: dueKeys, b1: b1.walked, b2: b2.walked }));
-  ytBackfill_(3);
-  ok('۹۰.۷-ب پایانِ فهرست ⇒ از نو، و «دور کامل شد» فقط همان‌جا', Number(global.__PROPS[PK.YT_SCAN] || 0) === 0);
+  /* ۸.۶۸: منتشرشده‌ها و پیش از نخستین انتشار سهمِ سقف را نمی‌خورند — پس با سقفِ ۳ همان اجرای اول هر سه
+     حفره (۲۴، ۲۶، ۲۷) را به صف می‌برد و دور کامل می‌شود؛ تا ۸.۶۶ این دو اجرا لازم داشت و با ۱۳۰ پوشه، روزها. */
+  ok('۹۰.۷ یک اجرا با سقفِ ۳: حفرهٔ ۲۴ و تازه‌های ۲۶ و ۲۷ به صف؛ ۱۰ (پیش از نخستین انتشار) نه؛ منتشرشده‌ها سهم نخوردند',
+     dueKeys.indexOf('special:24') !== -1 && dueKeys.indexOf('special:26') !== -1 && dueKeys.indexOf('special:27') !== -1 &&
+     dueKeys.indexOf('special:10') === -1 && b1.walked === 3 && b1.queued === 3 && b1.wrapped === true && c1 === 0,
+     JSON.stringify({ c1: c1, due: dueKeys, b1: b1, b2: b2.walked }));
+  delete global.__PROPS[PK.YT_DUE]; delete global.__PROPS[PK.YT_SCAN];
+  const b3 = ytBackfill_(2), c3 = Number(global.__PROPS[PK.YT_SCAN] || 0);
+  const b4 = ytBackfill_(2);
+  ok('۹۰.۷-ب سقف هنوز سقف است: با ۲، دو حفره و مکان‌نما می‌مانَد؛ اجرای بعد سومی و پایانِ دور',
+     b3.queued === 2 && b3.wrapped === false && c3 > 0 && b4.queued === 1 && b4.wrapped === true &&
+     Number(global.__PROPS[PK.YT_SCAN] || 0) === 0, JSON.stringify({ b3: b3, c3: c3, b4: b4 }));
   delete global.__PROPS[PK.YT_DUE]; delete global.__PROPS[PK.YT_SCAN];
 
   /* ۹۰.۸ — پیمایشِ عنوان‌های منتشرشده: شمارهٔ درس از پوشه (مرور بیرون)، اصلاح از درِ `ytRedoOne_`، پرونده‌ای که
@@ -8960,10 +8966,13 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
   const w3 = ytTitleSweep_(60000);
   CFG.YT_TITLE_FIX_MAX = fmWas;
   const eps = calls.map(c => c.ep + ':' + c.lesson).join(',');
-  ok('۹۰.۸ پیمایش: ۲۲⇒درس ۱، ۲۳⇒درس ۲، مرورِ ۲۶ اصلاح؛ ۲۵ و ۲۷ (درست) دست نمی‌خورند؛ ۲۴ (پرونده: درسِ ۷) نگه داشته می‌شود',
-     eps === '22:1,23:2,26:0' && w1.fixed === 2 && st1.done === false && w2.fixed === 1 && st2.done === true &&
-     (st2.held || []).length === 1 && st2.held[0].key === 'special:24' && w3.fixed === 0 && calls.length === 3,
-     JSON.stringify({ eps: eps, w1: w1.fixed, w2: w2.fixed, held: st2.held, done: st2.done }));
+  /* ۸.۶۸: ۲۴ (پرونده: درسِ ۷، پوشه: درسِ ۳) دیگر نگه داشته نمی‌شود — پوشه داور است؛ نگه‌داشتن یعنی «درس ۸» روی
+     درسِ ۱۳ِ مصباح تا ابد. */
+  ok('۹۰.۸ پیمایش: ۲۲⇒درس ۱، ۲۳⇒درس ۲، ۲۴⇒درس ۳ (پوشه بر پرونده)، مرورِ ۲۶ اصلاح؛ ۲۵ و ۲۷ (درست) دست نمی‌خورند',
+     eps === '22:1,23:2,24:3,26:0' && w1.fixed === 2 && st1.done === false && w2.fixed === 2 && st2.done === true &&
+     (st2.held || []).length === 0 && w3.fixed === 0 && calls.length === 4 &&
+     w2.notes.some(n => /special:24: پوشه درسِ 3، پرونده درسِ 7/.test(n)),
+     JSON.stringify({ eps: eps, w1: w1.fixed, w2: w2.fixed, held: st2.held, done: st2.done, notes: w2.notes }));
   const ts = ytTitleSweepStatus_();
   ok('۹۰.۹ خطِ روزانه می‌گوید چند اصلاح شد و کدام‌ها، و تمام شد', /پیمایش تمام شد/.test(ts.line) && /special:26/.test(ts.line) && !ts.problem, ts.line);
   ok('۹۰.۹-ب و دورِ کاوشِ یوتیوب آن را صدا می‌زند، پشتِ نوبتی که فقط Properties می‌خوانَد',
@@ -9226,6 +9235,42 @@ console.log('\n=== ۹۱) کلیپ وقتی تاریخ خوانده می‌شود
      row10.replace === 'prefix-' + CFG.CODE_VERSION && /پیش از انتشار/.test(String(row10.replacedWhy || '')),
      JSON.stringify({ rep: row10.replace, why: row10.replacedWhy }));
   ytRenderSave_({ items: [] });
+}
+
+console.log('\n=== ۹۲) «درس ۸» روی درسِ ۱۳ِ مصباح — شمارهٔ درس از پوشه، و شمارهٔ غلطی که سراسری هم نیست (۸.۶۸) ===');
+{
+  /* عنوان‌ها عیناً از صفحهٔ عمومیِ پلی‌لیستِ مصباح، ۹ اکتبر. قسمتِ ۱۳ = درسِ ۱۳، پس تا ۸.۶۶ `L === E` بود و تابع
+     بی‌هیچ نگاهی همان عنوان را برمی‌گرداند. */
+  const T = (t, o) => ytTitleNum_(t, Object.assign({ show: ENRICH_SHOW_SPECIAL }, o));
+  const m13 = 'پیوستگی معرفت‌ها و تله نسبی‌گرایی مطلق | معرفت‌شناسی مصباح - درس ۸';
+  const r13 = T(m13, { ep: 13, lesson: 13 });
+  const ok17 = 'حل تعارض علم و دین و نقد تعدد قرائت‌ها | معرفت‌شناسی درس ۱۷';
+  const ok11 = 'شبهات معرفت‌شناسی: شک‌گرایی و نسبی‌گرایی | درس‌نامه ۱۱';
+  const ok12 = 'معرفت‌شناسی (۱۲): پاسخ به شک‌گرایی و نجات شناخت با علم حضوری | مجتبی مصباح';
+  ok('۹۲.۱ «درس ۸» روی قسمت/درسِ ۱۳ ⇒ «درس ۱۳»؛ درست‌ها (۱۷، ۱۱، و عددِ بی‌برچسبِ ۱۲) دست نمی‌خورند',
+     r13 === 'پیوستگی معرفت‌ها و تله نسبی‌گرایی مطلق | معرفت‌شناسی مصباح - درس ۱۳' &&
+     T(ok17, { ep: 17, lesson: 17 }) === ok17 && T(ok11, { ep: 11, lesson: 11 }) === ok11 &&
+     T(ok12, { ep: 12, lesson: 12 }) === ok12, r13);
+
+  /* ۹۲.۲ — شمارهٔ درس از پوشهٔ مجموعه، با مرورها بیرون: شکلِ واقعیِ مصباح (۱ تا ۱۸، مرورِ ۱۹، درسِ ۲۰، مرورِ ۲۱). */
+  const sM = global.__ROOT_FOLDER.createFolder('مجموعهٔ آزمونِ مصباح');
+  const fM = {};
+  for (let n = 1; n <= 21; n++) {
+    const rc = n === 19 || n === 21;
+    fM[n] = sM.createFolder('قسمت ' + String(n).padStart(3, '0') + ' — ' + (rc ? 'مرور بزرگ — جعبه‌ابزار' : 'درس'));
+  }
+  ok('۹۲.۲ پوشه می‌گوید: ۱۳ ⇒ ۱۳، ۲۰ ⇒ ۱۹، مرورها ⇒ ۰، پوشهٔ بی‌پدر ⇒ ۰',
+     ytFolderLesson_(fM[13], 13) === 13 && ytFolderLesson_(fM[20], 20) === 19 &&
+     ytFolderLesson_(fM[19], 19) === 0 && ytFolderLesson_(fM[21], 21) === 0 && ytFolderLesson_(null, 5) === 0,
+     [13, 19, 20, 21].map(n => ytFolderLesson_(fM[n], n)).join(','));
+
+  /* ۹۲.۳ — هر دو درِ انتشار پوشه را بر `lesson`ِ پرونده مقدم می‌دارند؛ ۸.۶۶ در `ytRedoOne_` برعکس بود. */
+  const src = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const up = src.slice(src.indexOf('function ytUploadOne_('), src.indexOf('function ytUploadOne_(') + 6000);
+  const rd = src.slice(src.indexOf('function ytRedoOne_('), src.indexOf('function ytRedoOne_(') + 4000);
+  ok('۹۲.۳ آپلود و بازنویسی هر دو `ytFolderLesson_` را می‌پرسند، و در بازنویسی پرونده آخرین است',
+     /ytFolderLesson_\(folder, item\.ep\)/.test(up) &&
+     /ytFolderLesson_\(folder, ep\) : 0\) \|\|\s*Number\(opt\.lesson\) \|\| Number\(meta\.lesson\)/.test(rd));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
