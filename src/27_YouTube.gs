@@ -878,13 +878,126 @@ function ytTitleNum_(t, o) {
 /** زمینهٔ شمارهٔ عنوان از ctxِ انتشار — یک تعریف برای ساختِ تازه و نقشهٔ ذخیره‌شده. */
 function ytTitleNumCtx_(ctx) {
   ctx = ctx || {};
-  return { show: ctx.show, ep: ctx.epRaw, lesson: ctx.lesson, recap: !!ctx.recap, range: ctx.recapRange || '' };
+  return { show: ctx.show, ep: ctx.epRaw, lesson: ctx.lesson, recap: !!ctx.recap, range: ctx.recapRange || '',
+           label: ytSeriesLabel_(ctx.show, ctx.seriesName) };
+}
+
+/* ══ عنوانِ یک‌شکل (۸.۶۹) ══
+ *
+ * او صفحهٔ پلی‌لیست‌ها را دید: «درس‌نامه ۱۱»، «معرفت‌شناسی ۳»، «معرفت‌شناسی مجتبی مصباح - درس ۴»،
+ * «معرفت‌شناسی مجتبی مصباح؛ درس ۸: …»، «معرفت‌شناسی (۱۲): … | مجتبی مصباح»، «از همه جا از همه رنگ - قسمت ۲۱: …»،
+ * «… | قسمت ۳۵». هر عنوان را مدل نوشته بود و هر بار دنباله را به شکلِ دیگری. «یک‌شکلش کن، ولی دقیق.»
+ *
+ * دنباله دیگر کارِ مدل نیست؛ مدل فقط **موضوع** را می‌دهد و کد این را می‌چسبانَد:
+ *   درس‌نامه  ⇒ «موضوع | <برچسبِ مجموعه> - درس N»  (مرور: «- مرورِ درس‌های A تا B» یا «- مرورِ بزرگ»)
+ *   از همه جا ⇒ «موضوع | از همه جا از همه رنگ - قسمت N»
+ * موضوع از عنوانِ موجود بیرون کشیده می‌شود: هر تکه‌ای که فقط برچسب و شماره است می‌افتد، و پیشوندی پیش از
+ * «:» یا «؛» فقط وقتی می‌افتد که خودش برچسب باشد — «معرفت‌شناسیِ حافظه: …» موضوع است، «معرفت‌شناسی رابرت
+ * آئودی: …» نیست. سنجه‌اش همهٔ ۱۰۶ عنوانِ واقعیِ ۹ اکتبر است، نه نمونهٔ دست‌ساز.
+ */
+var YT_GENERIC_W_ = ['معرفتشناسی', 'معرفت', 'شناسی', 'درسنامه', 'درس', 'درسهای', 'قسمت', 'قسمتهای', 'مرور',
+                     'بزرگ', 'تا', 'خلاصه'];
+
+/** برچسبِ کوتاهِ مجموعه در دنبالهٔ عنوان: از `CFG.YT_SERIES_LABELS`، وگرنه نامِ فارسیِ مجموعه. */
+function ytSeriesLabel_(show, seriesName) {
+  if (String(show || '') !== ENRICH_SHOW_SPECIAL) return String(CFG.SHOW_NAME || '');
+  var nm = String(seriesName || '').trim();
+  var map = CFG.YT_SERIES_LABELS || {};
+  var low = nm.toLowerCase();
+  for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k) && String(k).toLowerCase() === low) return String(map[k]);
+  return /[\u0600-\u06FF]/.test(nm) ? nm : '';
+}
+
+/** واژه برای سنجیدن: بی نیم‌فاصله، بی اعراب، بی «ِ» */
+function ytTitleWord_(w) {
+  return String(w || '').replace(/[\u200c\u064B-\u0652\u0670]/g, '').replace(/[ي]/g, 'ی').replace(/[ك]/g, 'ک');
+}
+
+/** آیا این تکه فقط برچسب است (نامِ مجموعه/برنامه، درس/قسمت، شماره)؟ */
+function ytTitleIsLabel_(seg, label) {
+  var t = String(seg || '').trim();
+  if (!t || /[؟?]/.test(t) || t.length > 60) return false;
+  var lw = ytTitleWord_(label).split(/\s+/).filter(Boolean);
+  var ok = {}; YT_GENERIC_W_.concat(lw).forEach(function (w) { ok[ytTitleWord_(w)] = 1; });
+  ['از', 'همه', 'جا', 'رنگ', 'معاصر'].forEach(function (w) { ok[w] = 1; });   // «از همه جا از همه رنگ»، «معرفت‌شناسی معاصر رابرت آئودی»
+  var ws = ytTitleWord_(t).replace(/[()\[\]«»"'\-–—|،:؛,.]/g, ' ').split(/\s+/).filter(Boolean);
+  if (!ws.length) return true;
+  var hasName = false, hasNum = false;
+  for (var i = 0; i < ws.length; i++) {
+    var w = ws[i];
+    if (/^[0-9۰-۹]+$/.test(w)) { hasNum = true; continue; }
+    if (!ok[w]) return false;
+    if (YT_GENERIC_W_.indexOf(w) === -1) hasName = true;
+  }
+  /* «از همه جا»ی تنها برچسب نیست مگر کلِ نامِ برنامه باشد؛ «معرفت‌شناسی» تنها هم نه — مگر با شماره. */
+  return hasNum || hasName;
+}
+
+/** موضوعِ عنوان: بی برچسبِ مجموعه/برنامه، بی شمارهٔ درس/قسمت. */
+function ytTitleTopic_(t, label) {
+  var segs = String(t || '').split(/\s*\|\s*/).filter(function (x) { return String(x).trim(); });
+  var keep = segs.filter(function (x) { return !ytTitleIsLabel_(x, label); });
+  var top = (keep.length ? keep : segs).join(' | ').trim();
+  for (var g = 0; g < 3; g++) {                  // «معرفت‌شناسی مجتبی مصباح؛ درس ۸: …» دو پیشوند دارد
+    var m = /^([^:؛]{1,60}?)\s*[:؛]\s*(.+)$/.exec(top);
+    if (m && ytTitleIsLabel_(m[1], label)) { top = m[2].trim(); continue; }
+    var n = /^(.+?)\s*[؛\-–—]\s*([^؛\-–—]{1,60})$/.exec(top);
+    if (n && ytTitleIsLabel_(n[2], label)) { top = n[1].trim(); continue; }
+    break;
+  }
+  return top.replace(/[\s\-–—|،:؛]+$/, '').replace(/^[\s\-–—|،:؛]+/, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+/** عنوانِ یک‌شکل از عنوانِ هر شکلی. بی شمارهٔ درس (و نه مرور) دست نمی‌زند — حدسِ شماره بدتر از دنبالهٔ ناجور است. */
+function ytTitleUniform_(t, o) {
+  t = String(t || ''); o = o || {};
+  var isSp = String(o.show || '') === ENRICH_SHOW_SPECIAL;
+  var label = String(o.label || (isSp ? '' : CFG.SHOW_NAME) || '');
+  var E = Number(faDigits_(String(o.ep || ''))) || 0;
+  var L = Number(faDigits_(String(o.lesson || ''))) || 0;
+  var tag = '';
+  if (!isSp) tag = E ? 'قسمت ' + faDigitsOut_(String(E)) : '';
+  else if (o.recap) tag = o.range ? 'مرورِ ' + String(o.range) : 'مرورِ بزرگ';
+  else tag = L ? 'درس ' + faDigitsOut_(String(L)) : '';
+  if (!tag) return t;
+  /* مجموعه‌ای بی برچسب (نامِ لاتین و نه در `YT_SERIES_LABELS`) دست نمی‌خورد: بی برچسب نمی‌شود دانست کدام تکه
+     نامِ مجموعه است، و حدس یعنی «… | معرفت‌شناسی رابرت آئودی | مرورِ …». */
+  if (isSp && !label) return t;
+  var topic = ytTitleTopic_(t, label);
+  /* مرور: «مرورِ بزرگِ شناخت و …» + «- مرورِ درس‌های …» یعنی «مرور» دو بار. */
+  if (isSp && o.recap) {
+    var rt = topic.replace(/^مرور[ِ]?\s*بزرگ[ِ]?\s*[:؛\-–—]?\s*/, '');
+    if (rt.length >= 8 && rt !== topic) topic = rt;
+  }
+  if (!topic) return t;
+  var tail = (label ? label + ' - ' : '') + tag;
+  var max = Math.max(20, Number(CFG.YT_TITLE_MAX) || 100);
+  var room = max - tail.length - 3;
+  if (topic.length > room) {
+    /* اول سرِ یک جمله یا عبارتِ کامل («؟»، «؛»، «:»)؛ فقط اگر نبود سرِ واژه — و هیچ‌وقت با «و/در/از…» آویزان.
+       ۵۸ِ «از همه جا» با بریدنِ سرِ واژه «… داوری چهره‌ها در شبکه‌های» می‌شد. */
+    var cut = topic.slice(0, room), best = -1;
+    for (var ci = cut.length - 1; ci >= room * 0.4; ci--) if ('؟?؛:'.indexOf(cut.charAt(ci)) !== -1) { best = ci; break; }
+    if (best > 0) topic = cut.slice(0, cut.charAt(best) === '؟' || cut.charAt(best) === '?' ? best + 1 : best);
+    else { var sp = cut.lastIndexOf(' '); topic = sp > room * 0.6 ? cut.slice(0, sp) : cut; }
+    topic = topic.replace(/[\s\-–—|،:؛]+$/, '');
+    for (var dz = 0; dz < 3; dz++) {
+      var d2 = /^(.*\S)\s+(?:و|در|از|به|با|را|که|برای|تا|یا)$/.exec(topic);
+      if (!d2) break; topic = d2[1].replace(/[\s\-–—|،:؛]+$/, '');
+    }
+  }
+  return topic + ' | ' + tail;
+}
+
+/** درِ واحدِ عنوانِ نهایی: شمارهٔ درس (۸.۶۳) و سپس شکلِ یکسان (۸.۶۹). */
+function ytTitleFinal_(t, o) {
+  return ytTitleUniform_(ytTitleNum_(t, o), o);
 }
 
 function ytTitleBuild_(meta, ctx) {
   var t = ytScrub_(String((meta && meta.title) || ctx.title || '')).trim();
   if (!t) t = String(ctx.title || ctx.showName || 'قسمت');
-  return ytTitleNum_(ytTitleCut_(t), ytTitleNumCtx_(ctx));
+  return ytTitleFinal_(ytTitleCut_(t), ytTitleNumCtx_(ctx));
 }
 
 /**
@@ -8935,7 +9048,7 @@ function ytPlan_(folder, ctx, redo) {
     var had = ytPlanRead_(folder);
     if (had) {
       /* نقشهٔ ذخیره‌شده هم از همان مرز می‌گذرد (۸.۶۳): «پاک‌کردنِ ورودی آنچه نوشته شده را درست نمی‌کند» (۵.۹۵). */
-      var tFix = ytTitleNum_(String(had.title || ''), ytTitleNumCtx_(ctx));
+      var tFix = ytTitleFinal_(String(had.title || ''), ytTitleNumCtx_(ctx));
       if (tFix && tFix !== String(had.title || '')) {
         had.titleWas = String(had.title || ''); had.title = tFix; had.titleFixAt = nowStr_();
         try { ytPlanWrite_(folder, had); } catch (eTw) {}
@@ -9972,6 +10085,104 @@ function ytReplSave_(st) {
   try { props_().setProperty(PK.YT_REPL, JSON.stringify(st)); } catch (e) {}
 }
 
+/* ─────────────────── ۱۰-ت) کنار گذاشتنِ ویدئوی تکراری (۸.۶۹) ───────────────────
+ *
+ * «ویدیوی تکراری … اگر هست حتما اصلاح کن.» مصباح دو «مرورِ بزرگ» داشت، یک روز فاصله: قسمتِ ۱۹ (درس‌های ۱ تا
+ * ۱۸) و ۲۱ (۱ تا ۱۹) — دومی همان کار را کامل‌تر کرده بود. جایگزینی (۱۰-پ) این را نمی‌پوشاند: آن‌جا ویدئوی تازه
+ * جای قبلی را می‌گیرد؛ این‌جا ویدئوی دیگری از قبل هست. پس درِ دوم، با همان قاعده‌ها:
+ *   • فهرست از گیت‌هاب (`docs/yt-retire.json`)، نه از حدس — کنار گذاشتنِ ویدئوی عمومی تصمیم است، نه کشف.
+ *   • **پاک نمی‌شود:** از هر پلی‌لیست بیرون می‌آید و خصوصی می‌شود؛ برگشتنی است.
+ *   • رکوردِ انتشار می‌مانَد، پس کاوشِ گذشته آن را «منتشرنشده» نمی‌بیند و دوباره بالا نمی‌برد.
+ */
+var YT_RETIRE_LIST_ = null;
+function ytRetireList_() {
+  if (YT_RETIRE_LIST_) return YT_RETIRE_LIST_;
+  var out = {};
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RETIRE_FILE || 'docs/yt-retire.json'),
+                                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() === 200) {
+      var it = (JSON.parse(res.getContentText()) || {}).items || {};
+      for (var k in it) if (Object.prototype.hasOwnProperty.call(it, k) && it[k]) {
+        out[k] = { why: String((it[k] && it[k].why) || it[k] || ''), keep: String((it[k] && it[k].keep) || '') };
+      }
+    }
+  } catch (e) {}
+  YT_RETIRE_LIST_ = out;
+  return out;
+}
+function ytRetireState_() {
+  try { var j = JSON.parse(props_().getProperty(PK.YT_RETIRE) || '{}'); return (j && typeof j === 'object') ? j : {}; }
+  catch (e) { return {}; }
+}
+/** کلیدهایی که کنار رفته‌اند — پیمایشِ عنوان و هر درِ دیگری که ویدئو را دست می‌زند از این‌ها می‌گذرد. */
+function ytRetireDone_() {
+  var st = ytRetireState_(), out = {};
+  for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k) && (st[k] || {}).phase === 'done') out[k] = 1;
+  return out;
+}
+
+function ytRetireTick_(budgetMs, hubIn) {
+  var out = { checked: 0, done: 0, notes: [] };
+  if (!ytOn_()) return out;
+  var list = ytRetireList_(), keys = Object.keys(list);
+  if (!keys.length) return out;
+  var st = ytRetireState_(), changed = false, yt = null, pub = null;
+  var t0 = new Date().getTime(), budget = Math.max(10000, Number(budgetMs) || 40000);
+  for (var i = 0; i < keys.length; i++) {
+    if (new Date().getTime() - t0 > budget) break;
+    var key = keys[i], cur = st[key] || {};
+    if (cur.phase === 'done' || cur.phase === 'skip') continue;
+    out.checked++;
+    try {
+      if (!pub) pub = ytPublished_(hubIn || getHub_());
+      var showK = ytShowKey_(key.slice(0, key.lastIndexOf(':'))), ep = key.slice(key.lastIndexOf(':') + 1);
+      var rec = pub[showK + ':' + ep] || {};
+      if (!rec.videoId) { st[key] = { phase: 'skip', at: nowStr_(), why: 'منتشر نشده' }; changed = true; continue; }
+      yt = yt || ytSvc_();
+      if (!yt) { out.notes.push(key + ': ' + ytOffWhy_()); break; }
+      var pulled = 0, pmap = ytPlMap_();
+      for (var pk in pmap) {
+        if (!Object.prototype.hasOwnProperty.call(pmap, pk) || !(pmap[pk] || {}).id) continue;
+        var its = ytPlItems_(pmap[pk].id);
+        for (var q = 0; q < its.length; q++) {
+          if (its[q].videoId !== rec.videoId) continue;
+          if (!ytQuotaTake_(YT_COST.itemsDelete, false)) throw new Error('سهمیهٔ امروز');
+          yt.PlaylistItems.remove(its[q].id); pulled++;
+        }
+      }
+      if (!ytQuotaTake_(YT_COST.videosUpdate, false)) throw new Error('سهمیهٔ امروز');
+      yt.Videos.update({ id: rec.videoId, status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
+      st[key] = { phase: 'done', at: nowStr_(), videoId: rec.videoId, url: String(rec.url || ''), pulled: pulled,
+                  why: list[key].why, keep: list[key].keep };
+      changed = true; out.done++;
+      ytPlOrderDirty_();
+      var msg = '🗂 ویدئوی تکراریِ ' + key + ' کنار رفت: خصوصی شد و از ' + pulled + ' پلی‌لیست بیرون آمد (پاک نشد).' +
+                (list[key].keep ? ' می‌مانَد: ' + list[key].keep + '.' : '') + (list[key].why ? ' — ' + list[key].why : '');
+      logLine_(msg);
+      try { mailQueue_('یوتیوب', 'ویدئوی تکراری کنار رفت', msg + '\n' + String(rec.url || '')); } catch (eMq) {}
+    } catch (e) {
+      cur.why = 'خطا: ' + String(e.message).slice(0, 120); cur.errAt = nowStr_(); st[key] = cur; changed = true;
+      out.notes.push(key + ': ' + cur.why);
+      if (/سهمیه/.test(cur.why)) break;
+    }
+  }
+  if (changed) { try { props_().setProperty(PK.YT_RETIRE, JSON.stringify(st)); } catch (eS) {} }
+  return out;
+}
+
+/** خطِ روزانهٔ کنارگذاشته‌ها — از Properties. */
+function ytRetireLine_() {
+  var st = ytRetireState_(), L = [];
+  for (var k in st) {
+    if (!Object.prototype.hasOwnProperty.call(st, k)) continue;
+    var c = st[k] || {};
+    L.push(k + ': ' + (c.phase === 'done' ? 'کنار رفت (خصوصی، ' + (c.pulled || 0) + ' پلی‌لیست)'
+                     : c.phase === 'skip' ? 'لازم نشد — ' + (c.why || '') : 'در انتظار' + (c.why ? ' — ' + c.why : '')));
+  }
+  return L.length ? '🗂 ویدئوی تکراری: ' + L.join(' · ') : '';
+}
+
 /** ویدئوهای پوشه (فقط سطحِ بالا) به زیرپوشهٔ «پیشین» — برمی‌گرداند چند تا رفت. */
 function ytReplaceAside_(folder) {
   var nm = 'ویدئوی پیشین — جایگزین‌شده', n = 0, sub = null;
@@ -10225,9 +10436,21 @@ function ytTitleSweep_(budgetMs, hubIn) {
   rows.sort(function (a, b) { return String(a.key) < String(b.key) ? -1 : String(a.key) > String(b.key) ? 1 : 0; });
   var seen = {};
   (s.fixed || []).concat(s.failed || [], s.held || []).forEach(function (x) { seen[String((x && x.key) || x)] = 1; });
+  var retired = ytRetireDone_();
+  /* ══ سهمیه: انتشار اول (۸.۶۹) ══ هر اصلاح ~۵۰ واحد (عنوان) و ~۵۰ دیگر (کاور)؛ ۱۰۰ ویدئو یعنی ۱۰ هزار
+     واحد، بیش از سهمِ یک روز. پس همان ذخیره‌ای که ترتیبِ پلی‌لیست برای انتشارهای روز کنار می‌گذارد این‌جا هم. */
+  var roomFor = function (thumb) {
+    try {
+      var q = ytQuota_(), capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+      var reserve = ytUnitsPerEpisode_() * Math.max(1, Number(CFG.YT_PL_ORDER_RESERVE_EPS) || 3);
+      var need = YT_COST.videosUpdate + (thumb ? YT_COST.thumbSet : 0) + 10;
+      return q.units + need + reserve <= capU;
+    } catch (eQ) { return true; }
+  };
   var stop = false;
   while (s.si < rows.length && !stop) {
     if (new Date().getTime() - t0 > budget) break;
+    var label = ytSeriesLabel_(ENRICH_SHOW_SPECIAL, String(rows[s.si].vals[SC.NAME - 1] || ''));
     var sf = null;
     try { sf = DriveApp.getFolderById(String(rows[s.si].vals[SC.FOLDER - 1])); } catch (eF) { s.si++; continue; }
     var eps = [];
@@ -10236,23 +10459,27 @@ function ytTitleSweep_(budgetMs, hubIn) {
       var x = eps[i], key = ENRICH_SHOW_SPECIAL + ':' + x.ep;
       var rec = pub[key];
       if (!rec || !rec.videoId || seen[key]) continue;
+      if (retired[key]) continue;
       var tl = String(rec.title || '');
-      var o = { show: ENRICH_SHOW_SPECIAL, ep: x.ep, lesson: x.lesson, recap: x.recap, range: '' };
-      if (ytTitleNum_(tl, o) === tl) continue;
-      out.checked++;
       var meta = null;
-      try { meta = ytEpisodeMeta_(x.folder); } catch (eM) { meta = null; }
+      if (x.recap) { try { meta = ytEpisodeMeta_(x.folder); } catch (eM0) { meta = null; } }
+      var o = { show: ENRICH_SHOW_SPECIAL, ep: x.ep, lesson: x.lesson, recap: x.recap,
+                range: x.recap ? ytRecapRange_(meta, eps) : '', label: label };
+      if (ytTitleFinal_(tl, o) === tl) continue;
+      out.checked++;
+      if (!meta) { try { meta = ytEpisodeMeta_(x.folder); } catch (eM) { meta = null; } }
       /* ۸.۶۸: ناهمخوانیِ پوشه و پرونده دیگر «نگه‌داشتن» نیست — پوشه داور است (`ytFolderLesson_`)؛ نگه‌داشتن
          یعنی همان «درس ۸» روی درسِ ۱۳ تا ابد عمومی بماند. فقط ثبت می‌شود که پرونده چیزِ دیگری می‌گفت. */
       if (!x.recap && meta && Number(meta.lesson) && Number(meta.lesson) !== x.lesson) {
         out.notes.push(key + ': پوشه درسِ ' + x.lesson + '، پرونده درسِ ' + meta.lesson + ' — پوشه');
       }
       if (out.fixed + out.failed >= fixMax) { stop = true; break; }
+      if (!roomFor(true)) { out.notes.push(key + ': سهمیهٔ امروز پس از ذخیرهٔ انتشار'); stop = true; break; }
       var r = null;
       try { r = ytRedoOne_(ENRICH_SHOW_SPECIAL, String(x.ep), { lesson: x.lesson }); }
       catch (eR) { r = { ok: false, why: String(eR.message).slice(0, 120), changed: [] }; }
       if (r && (r.changed || []).indexOf('عنوان و کپشن') !== -1) {
-        s.fixed = (s.fixed || []).concat([{ key: key, from: tl.slice(0, 100), at: nowStr_() }]).slice(-80);
+        s.fixed = (s.fixed || []).concat([{ key: key, from: tl.slice(0, 100), at: nowStr_() }]).slice(-160);
         out.fixed++; seen[key] = 1;
       } else if (/سهمیه/.test(String((r && r.why) || ''))) {
         out.notes.push(key + ': ' + r.why); stop = true; break;      // فردا همین‌جا
@@ -10263,7 +10490,40 @@ function ytTitleSweep_(budgetMs, hubIn) {
     }
     if (!stop) s.si++;
   }
-  if (s.si >= rows.length) { s.done = true; s.doneAt = nowStr_(); }
+  /* ══ «از همه جا» (۸.۶۹) ══ شمارهٔ قسمت همان شمارهٔ سراسری است، پس فقط شکل؛ کاورش از قبل «قسمت N» دارد و
+     دست نمی‌خورد (`thumb: false`) — نیمی از هزینه. */
+  if (s.si >= rows.length && !stop) {
+    var vk = Object.keys(pub).filter(function (k) {
+      return k.indexOf(ENRICH_SHOW_VARIETY + ':') === 0 && (pub[k] || {}).videoId;
+    }).sort(function (a, b) { return (Number(a.split(':')[1]) || 0) - (Number(b.split(':')[1]) || 0); });
+    s.vi = Number(s.vi) || 0;
+    var vLabel = ytSeriesLabel_(ENRICH_SHOW_VARIETY, '');
+    while (s.vi < vk.length && !stop) {
+      if (new Date().getTime() - t0 > budget) break;
+      var kv = vk[s.vi], ev = kv.split(':')[1], tv = String((pub[kv] || {}).title || '');
+      if (seen[kv] || retired[kv] || ytTitleFinal_(tv, { show: ENRICH_SHOW_VARIETY, ep: ev, label: vLabel }) === tv) { s.vi++; continue; }
+      out.checked++;
+      if (out.fixed + out.failed >= fixMax) { stop = true; break; }
+      if (!roomFor(false)) { out.notes.push(kv + ': سهمیهٔ امروز پس از ذخیرهٔ انتشار'); stop = true; break; }
+      var rv = null;
+      try { rv = ytRedoOne_(ENRICH_SHOW_VARIETY, String(ev), { thumb: false }); }
+      catch (eRv) { rv = { ok: false, why: String(eRv.message).slice(0, 120), changed: [] }; }
+      if (rv && (rv.changed || []).indexOf('عنوان و کپشن') !== -1) {
+        s.fixed = (s.fixed || []).concat([{ key: kv, from: tv.slice(0, 100), at: nowStr_() }]).slice(-160);
+        out.fixed++; seen[kv] = 1;
+      } else if (/سهمیه/.test(String((rv && rv.why) || ''))) {
+        out.notes.push(kv + ': ' + rv.why); stop = true; break;
+      } else {
+        s.failed = (s.failed || []).concat([{ key: kv, why: String((rv && rv.why) || 'نامعلوم').slice(0, 120) }]).slice(-40);
+        out.failed++; seen[kv] = 1;
+      }
+      s.vi++;
+    }
+  }
+  if (s.si >= rows.length && (Number(s.vi) || 0) >= Object.keys(pub).filter(function (k) {
+        return k.indexOf(ENRICH_SHOW_VARIETY + ':') === 0 && (pub[k] || {}).videoId; }).length) {
+    s.done = true; s.doneAt = nowStr_();
+  }
   s.at = nowStr_();
   try { props_().setProperty(PK.YT_TITLE_SWEEP, JSON.stringify(s)); } catch (eS) {}
   if (out.fixed || out.failed) {
@@ -10666,6 +10926,10 @@ function ytTick_(budgetMs) {
     try { ytReplaceTick_(Math.min(45000, left() - 30000)); }
     catch (eRpl) { out.why += (out.why ? ' · ' : '') + 'جایگزینی: ' + String(eRpl.message).slice(0, 60); }
   }
+  if (left() > 35000) {
+    try { ytRetireTick_(Math.min(30000, left() - 25000)); }
+    catch (eRt) { out.why += (out.why ? ' · ' : '') + 'کنارگذاشتن: ' + String(eRt.message).slice(0, 60); }
+  }
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));
@@ -10799,6 +11063,7 @@ function ytStatus_() {
     }
   } catch (e) {}
   /* کدام قسمت‌ها در صف‌اند، نه فقط چندتا (۸.۶۸): «درس‌های ۱۴ تا ۱۶ِ مصباح کجا هستند؟» با «در صف ۸» جواب ندارد. */
+  try { out.retire = ytRetireLine_(); } catch (eRl) {}
   try { var dlS = ytDueList_(); out.due = dlS.length; out.dueKeys = dlS.map(function (x) { return String(x.key || ''); }).slice(0, 40); } catch (e2) {}
   try {
     var rp = ytRenderPending_();
@@ -11721,7 +11986,7 @@ function ytRedoOne_(show, ep, opt) {
     } catch (e) { out.why = 'به‌روزرسانیِ متن نشد: ' + String(e.message).slice(0, 150); }
   }
 
-  if (CFG.YT_THUMB !== false) {
+  if (CFG.YT_THUMB !== false && opt.thumb !== false) {
     /* کاورِ نقاشی، اگر رانر ساخته؛ کارتِ اسلایدز فقط وقتی نیست (۸.۵۴). تا ۸.۵۳
        این‌جا همیشه کارت ساخته و نشانده می‌شد — و عمومی‌کردنِ درس‌های ۳۸ و ۳۹
        کاورِ نقاشیِ هر دو را پاک کرد. */

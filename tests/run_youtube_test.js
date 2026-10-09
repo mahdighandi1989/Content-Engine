@@ -8944,7 +8944,8 @@ console.log('\n=== ۹۰) شمارهٔ درس در عنوان، حفره‌های
   mk(22, '', { lesson: 0 }); mk(23); mk(24, '', { lesson: 7 }); mk(25);
   mk(26, 'مرورِ بزرگ — مرور', { recap: true, recapMode: 'all', recapUpto: 4 }); mk(27);
   const vA = new Array(SERIES_HEADERS.length).fill('');
-  vA[SC.FOLDER - 1] = sA.getId(); vA[SC.NAME - 1] = 'عنوان';
+  /* نامِ لاتین و بیرون از `YT_SERIES_LABELS` ⇒ بی برچسب ⇒ شکلِ یک‌شکل (۸.۶۹) دست نمی‌زند؛ این بخش فقط شماره را می‌سنجد. */
+  vA[SC.FOLDER - 1] = sA.getId(); vA[SC.NAME - 1] = 'Number Test';
   global.readSeriesReg_ = () => ({ rows: [{ key: 'kT', vals: vA }], byKey: { kT: { vals: vA } } });
   const pubT = {
     'special:22': { videoId: 'A', title: 'الف | درس‌نامه ۲۲' },
@@ -9271,6 +9272,101 @@ console.log('\n=== ۹۲) «درس ۸» روی درسِ ۱۳ِ مصباح — ش�
   ok('۹۲.۳ آپلود و بازنویسی هر دو `ytFolderLesson_` را می‌پرسند، و در بازنویسی پرونده آخرین است',
      /ytFolderLesson_\(folder, item\.ep\)/.test(up) &&
      /ytFolderLesson_\(folder, ep\) : 0\) \|\|\s*Number\(opt\.lesson\) \|\| Number\(meta\.lesson\)/.test(rd));
+}
+
+console.log('\n=== ۹۳) عنوانِ یک‌شکل روی ۱۰۶ عنوانِ واقعی، کنار گذاشتنِ تکراری، و پیمایشی که انتشار را گرسنه نمی‌گذارد (۸.۶۹) ===');
+{
+  /* «یک‌شکلش کن، ولی دقیق.» ورودی همان ۱۰۶ عنوانِ صفحهٔ عمومیِ ۹ اکتبر است و هر `want` دستی بازبینی شد — نه نمونهٔ
+     دست‌ساز (۷.۲۲). */
+  const FX = JSON.parse(fs.readFileSync('tests/fixtures/yt_titles_20261009.json', 'utf8')).rows;
+  const bad = [], long = [], unstable = [], shape = [];
+  FX.forEach((r) => {
+    const o = Object.assign({}, r.o, { show: r.o.show === 'special' ? ENRICH_SHOW_SPECIAL : ENRICH_SHOW_VARIETY });
+    const got = ytTitleFinal_(r.title, o);
+    if (got !== r.want) bad.push(r.key + ': ' + got);
+    if (got.length > 100) long.push(r.key);
+    if (ytTitleFinal_(got, o) !== got) unstable.push(r.key);
+    if (!/^.+ \| (معرفت‌شناسی مجتبی مصباح|معرفت‌شناسی رابرت آئودی) - (درس [۰-۹]+|مرورِ درس‌های [۰-۹]+ تا [۰-۹]+|مرورِ بزرگ)$|^.+ \| از همه جا از همه رنگ - قسمت [۰-۹]+$/.test(got)) shape.push(r.key + ': ' + got);
+  });
+  ok('۹۳.۱ هر ۱۰۶ عنوان ⇒ همان شکلِ بازبینی‌شده، زیرِ ۱۰۰ نویسه، پایدار (بارِ دوم دست نمی‌خورد)، و یک الگو برای همه',
+     FX.length === 106 && !bad.length && !long.length && !unstable.length && !shape.length,
+     JSON.stringify({ bad: bad.slice(0, 3), long, unstable, shape: shape.slice(0, 3) }));
+  const W = (k) => FX.filter((r) => r.key === k)[0].want;
+  ok('۹۳.۲ موارد سخت: «درس ۸» روی ۱۳ ⇒ ۱۳؛ دو پیشوند (۸)؛ «معرفت‌شناسیِ حافظه:» موضوع است و می‌مانَد؛ ۵۸ سرِ «؟» بریده شد نه وسطِ عبارت',
+     /- درس ۱۳$/.test(W('special:13')) && W('special:8') === 'گذر به جهان خارج و راه‌های شناخت | معرفت‌شناسی مجتبی مصباح - درس ۸' &&
+     /^معرفت‌شناسی حافظه: آیا یادآوری/.test(W('special:38')) &&
+     W('variety:58') === 'چرا حرف سلبریتی‌ها را باور می‌کنیم؟ | از همه جا از همه رنگ - قسمت ۵۸' &&
+     W('special:34') === 'شناخت و ادراک حسی | معرفت‌شناسی رابرت آئودی - مرورِ درس‌های ۱ تا ۱۲');
+  ok('۹۳.۳ بی برچسب (مجموعهٔ لاتینِ ناشناخته) و بی شمارهٔ درس ⇒ دست نمی‌خورد؛ برچسب از تنظیم، و نامِ فارسی خودش',
+     ytTitleUniform_('x | y - درس ۲', { show: ENRICH_SHOW_SPECIAL, ep: 2, lesson: 2, label: '' }) === 'x | y - درس ۲' &&
+     ytTitleUniform_('x | درس ۲', { show: ENRICH_SHOW_SPECIAL, ep: 2, lesson: 0, label: 'ل' }) === 'x | درس ۲' &&
+     ytSeriesLabel_(ENRICH_SHOW_SPECIAL, 'audi (2011) epistemology a contemporary introduction to the theory of knowledge') === 'معرفت‌شناسی رابرت آئودی' &&
+     ytSeriesLabel_(ENRICH_SHOW_SPECIAL, 'منطق مظفر') === 'منطق مظفر' && ytSeriesLabel_(ENRICH_SHOW_SPECIAL, 'Logic') === '' &&
+     ytSeriesLabel_(ENRICH_SHOW_VARIETY, '') === CFG.SHOW_NAME);
+  const srcY = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۹۳.۴ هر سه درِ عنوان (ساختِ تازه، نقشهٔ ذخیره‌شده، پیمایش) از `ytTitleFinal_` می‌گذرند',
+     /return ytTitleFinal_\(ytTitleCut_\(t\), ytTitleNumCtx_\(ctx\)\)/.test(srcY) &&
+     /var tFix = ytTitleFinal_\(String\(had\.title/.test(srcY) && (srcY.match(/ytTitleFinal_\(t[lv], /g) || []).length >= 2);
+
+  /* ۹۳.۵ — کنار گذاشتنِ تکراری: فهرست از گیت‌هاب، بیرون از پلی‌لیست، خصوصی، هرگز پاک؛ بارِ دوم هیچ. */
+  const hub = new Spread('هاب-کنارگذاشتن');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '19', series: 'مصباح', title: 'مرورِ بزرگ', videoId: 'R19',
+                url: 'https://youtu.be/R19', privacy: 'public', result: 'منتشر شد' });
+  delete global.__PROPS[PK.YT_RETIRE]; delete global.__PROPS[PK.YT_QUOTA];
+  const rc = { upd: [], rm: [], del: 0 };
+  global.YouTube = {
+    Videos: { list: () => ({ items: [] }), update: (b) => { rc.upd.push(b.id + '=' + b.status.privacyStatus); },
+              remove: () => { rc.del++; } },
+    PlaylistItems: { list: () => ({ items: [{ id: 'PI-19', snippet: { position: 15, resourceId: { videoId: 'R19' } } },
+                                            { id: 'PI-21', snippet: { position: 16, resourceId: { videoId: 'R21' } } }] }),
+                     remove: (id) => { rc.rm.push(id); } },
+    Playlists: {}, Channels: { list: () => ({ items: [] }) }, Thumbnails: {} };
+  const plWas = global.__PROPS[PK.YT_PL];
+  global.__PROPS[PK.YT_PL] = JSON.stringify({ 'series:مصباح': { id: 'PLM', title: 'مصباح' } });
+  YT_RETIRE_LIST_ = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('yt-retire.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:19': { why: 'تکراری', keep: 'special:21' }, 'special:99': { why: 'نیست' } } }) };
+    return BASE_STUB(url, body);
+  };
+  const r1 = ytRetireTick_(60000, hub), st1 = ytRetireState_();
+  const r2 = ytRetireTick_(60000, hub);
+  ok('۹۳.۵ تکراری: فقط از پلی‌لیست بیرون و «خصوصی» — پاک نه؛ آن که می‌مانَد دست نمی‌خورد؛ منتشرنشده «لازم نشد»؛ بارِ دوم هیچ',
+     r1.done === 1 && JSON.stringify(rc.rm) === '["PI-19"]' && JSON.stringify(rc.upd) === '["R19=private"]' && rc.del === 0 &&
+     st1['special:19'].phase === 'done' && st1['special:99'].phase === 'skip' && r2.checked === 0 &&
+     ytRetireDone_()['special:19'] === 1 && /special:19: کنار رفت/.test(ytRetireLine_()),
+     JSON.stringify({ r1, st1, rc }));
+  /* درِ واقعی: فایلِ ریپو همین را می‌خواهد، و دورِ یوتیوب صدایش می‌زند. */
+  const rj = JSON.parse(fs.readFileSync('docs/yt-retire.json', 'utf8'));
+  ok('۹۳.۶ `docs/yt-retire.json` مرورِ ۱۹ِ مصباح را با «می‌مانَد: ۲۱» می‌خواهد و `ytTick_` آن را پیش از انتشار صدا می‌زند',
+     rj.items['special:19'] && rj.items['special:19'].keep === 'special:21' &&
+     /ytRetireTick_\(Math\.min/.test(srcY.slice(srcY.indexOf('function ytTick_('), srcY.indexOf('function ytTick_(') + 5000)));
+
+  /* ۹۳.۷ — پیمایش: کنارگذاشته را دست نمی‌زند، «از همه جا» را بی کاور، و وقتی سهمِ انتشار نمی‌مانَد می‌ایستد. */
+  const keep7 = { pub: global.ytPublished_, reg: global.readSeriesReg_, redo: global.ytRedoOne_, on: global.ytOn_, q: global.ytQuota_ };
+  global.ytOn_ = () => true; CFG.SPECIAL_ENABLED = true;
+  global.readSeriesReg_ = () => ({ rows: [], byKey: {} });
+  global.ytPublished_ = () => ({
+    'variety:30': { videoId: 'V30', title: 'قضاوت شتاب‌زده و شکنندگی اخلاق در جامعه | از همه جا از همه رنگ ۳۰' },
+    'variety:31': { videoId: 'V31', title: 'پیوند نسل‌ها | از همه جا از همه رنگ - قسمت ۳۱' },
+    'variety:32': { videoId: 'V32', title: 'فریب ویترین | قسمت ۳۲' },
+    'special:19': { videoId: 'R19', title: 'x | مرورِ بزرگ' } });
+  const calls7 = [];
+  global.ytRedoOne_ = (show, ep, opt) => { calls7.push(show + ':' + ep + ':' + JSON.stringify(opt)); return { ok: true, changed: ['عنوان و کپشن'] }; };
+  delete global.__PROPS[PK.YT_TITLE_SWEEP];
+  const w7 = ytTitleSweep_(60000), s7 = ytTitleSweepState_();
+  ok('۹۳.۷ «از همه جا»: ۳۰ و ۳۲ اصلاح (بی کاور)، ۳۱ (درست) نه؛ دور تمام',
+     calls7.join(',') === 'variety:30:{"thumb":false},variety:32:{"thumb":false}' && w7.fixed === 2 && s7.done === true,
+     JSON.stringify({ calls7, w7, s7 }));
+  delete global.__PROPS[PK.YT_TITLE_SWEEP]; calls7.length = 0;
+  global.ytQuota_ = () => ({ day: 'x', units: Number(CFG.YT_QUOTA_UNITS) || 9000, uploads: 0 });
+  const w8 = ytTitleSweep_(60000), s8 = ytTitleSweepState_();
+  ok('۹۳.۸ سهمِ امروز پس از ذخیرهٔ انتشار نمانده ⇒ هیچ اصلاحی، دور تمام‌نشده، علت گفته شد',
+     calls7.length === 0 && w8.fixed === 0 && s8.done === false && w8.notes.some((n) => /سهمیه/.test(n)), JSON.stringify({ w8, s8 }));
+  Object.assign(global, { ytPublished_: keep7.pub, readSeriesReg_: keep7.reg, ytRedoOne_: keep7.redo, ytOn_: keep7.on, ytQuota_: keep7.q });
+  delete global.__PROPS[PK.YT_TITLE_SWEEP]; delete global.__PROPS[PK.YT_RETIRE];
+  global.__PROPS[PK.YT_PL] = plWas; global.__STUB = BASE_STUB; global.getHub_ = hubWas; global.YouTube = {};
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
