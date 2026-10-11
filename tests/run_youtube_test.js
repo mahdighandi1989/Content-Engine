@@ -9369,4 +9369,85 @@ console.log('\n=== ۹۳) عنوانِ یک‌شکل روی ۱۰۶ عنوانِ �
   global.__PROPS[PK.YT_PL] = plWas; global.__STUB = BASE_STUB; global.getHub_ = hubWas; global.YouTube = {};
 }
 
+console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «ماندنی»، و سهمِ روزانهٔ پیمایش (۸.۷۰) ===');
+{
+  /* قسمتِ ۶۶ِ «از همه جا» دو بار در پلی‌لیست نشست و جایگزینیِ مرورِ آئودی دو روز در «در ساخت» ماند: ویدئو بالا
+     رفته بود و ردی نداشت. و پیمایشِ عنوان پس از دو روز «۰ اصلاح» بود — ذخیرهٔ انتشار هرگز جا نگذاشت. */
+  delete global.__PROPS[PK.YT_UP_PENDING];
+  ytUpPendingSet_('variety:66', 'VID66');
+  const p1 = ytUpPending_('variety:66');
+  ytUpPendingClear_('variety:66');
+  global.__PROPS[PK.YT_UP_PENDING] = JSON.stringify({ 'variety:70': { vid: 'OLD', at: 'x', t: Date.now() - 4 * 86400000 } });
+  ok('۹۴.۱ نشانِ آپلودِ ثبت‌نشده: نوشته، خوانده، پاک؛ کهنه‌تر از سه روز فراموش',
+     p1 && p1.vid === 'VID66' && ytUpPending_('variety:66') === null && ytUpPending_('variety:70') === null);
+  delete global.__PROPS[PK.YT_UP_PENDING];
+  const srcY = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const up = srcY.slice(srcY.indexOf('function ytUploadOne_('), srcY.indexOf('function ytUploadOne_(') + 30000);
+  const iIns = up.indexOf('yt.Videos.insert('), iSet = up.indexOf('ytUpPendingSet_(upKey, vid)'),
+        iLog = up.lastIndexOf('ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,\n                videoId: vid'),
+        iClr = up.indexOf('ytUpPendingClear_(upKey)');
+  ok('۹۴.۲ در آپلود: نشانِ قبلی ⇒ همان ویدئو و بی insert؛ نشان درست پس از insert، پاک فقط پس از ثبتِ نهایی',
+     /if \(pend && pend\.vid\) \{\s*\n\s*vid = String\(pend\.vid\)/.test(up) && /if \(!vid\) try \{/.test(up) &&
+     /if \(!vid && !ytQuotaTake_\(YT_COST\.videosInsert/.test(up) &&
+     iIns > 0 && iSet > iIns && iLog > iSet && iClr > iLog, JSON.stringify({ iIns, iSet, iLog, iClr }));
+
+  /* ۹۴.۳ — تکراری با «ماندنی»: فقط `dup` کنار می‌رود (پلی‌لیست + خصوصی)، ماندنی عمومی و — اگر در دفتر نبود — ثبت می‌شود. */
+  const hub = new Spread('هاب-تکراری');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '63', series: 'آئودی', title: 'مرور', videoId: 'OLD63',
+                url: 'https://youtu.be/OLD63', privacy: 'public', result: 'منتشر شد' });
+  delete global.__PROPS[PK.YT_RETIRE]; delete global.__PROPS[PK.YT_QUOTA];
+  const rc = { upd: [], rm: [] };
+  global.YouTube = {
+    Videos: { list: () => ({ items: [] }), update: (b) => { rc.upd.push(b.id + '=' + b.status.privacyStatus); } },
+    PlaylistItems: { list: () => ({ items: [{ id: 'PI-NEW', snippet: { position: 41, resourceId: { videoId: 'NEW63' } } },
+                                            { id: 'PI-OLD', snippet: { position: 42, resourceId: { videoId: 'OLD63' } } }] }),
+                     remove: (id) => { rc.rm.push(id); } },
+    Playlists: {}, Channels: { list: () => ({ items: [] }) }, Thumbnails: {} };
+  const plWas = global.__PROPS[PK.YT_PL];
+  global.__PROPS[PK.YT_PL] = JSON.stringify({ 'series:آئودی': { id: 'PLA', title: 'آئودی' } });
+  YT_RETIRE_LIST_ = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('yt-retire.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:63': { why: 'تکراری', keepVid: 'NEW63', dup: ['OLD63'] } } }) };
+    return BASE_STUB(url, body);
+  };
+  ytUpPendingSet_('special:63', 'NEW63');
+  const r3 = ytRetireTick_(60000, hub);
+  const pub3 = ytPublished_(hub)['special:63'] || {};
+  ok('۹۴.۳ کنار رفت فقط OLD63 (از پلی‌لیست و خصوصی)؛ NEW63 عمومی و ثبت‌شده؛ نشانِ آپلود پاک؛ پیمایش آن را کنارگذاشته نمی‌بیند',
+     r3.done === 1 && JSON.stringify(rc.rm) === '["PI-OLD"]' && rc.upd.indexOf('OLD63=private') !== -1 &&
+     rc.upd.indexOf('NEW63=public') !== -1 && pub3.videoId === 'NEW63' && ytUpPending_('special:63') === null &&
+     !ytRetireDone_()['special:63'], JSON.stringify({ r3, rc, pub3 }));
+
+  /* ۹۴.۴ — سهمِ روزانه: ذخیرهٔ انتشار جا نمی‌گذارد، ولی سهمِ ثابت چرا؛ و پس از پر شدنِ سهم، می‌ایستد. */
+  const keep4 = { pub: global.ytPublished_, reg: global.readSeriesReg_, redo: global.ytRedoOne_, on: global.ytOn_, q: global.ytQuota_ };
+  global.ytOn_ = () => true; CFG.SPECIAL_ENABLED = true;
+  global.readSeriesReg_ = () => ({ rows: [], byKey: {} });
+  const pubV = {};
+  for (let n = 30; n < 60; n++) pubV['variety:' + n] = { videoId: 'V' + n, title: 'موضوع ' + n + ' | از همه جا از همه رنگ ' + n };
+  global.ytPublished_ = () => pubV;
+  const calls4 = [];
+  global.ytRedoOne_ = (show, ep) => { calls4.push(ep); return { ok: true, changed: ['عنوان و کپشن'] }; };
+  const capU = Number(CFG.YT_QUOTA_UNITS) || 9000;
+  global.ytQuota_ = () => ({ day: '2026-10-11', units: capU - 1000, uploads: 4 });   // بی سهم، ذخیره هیچ جا نمی‌گذاشت
+  const fmWas = CFG.YT_TITLE_FIX_MAX; CFG.YT_TITLE_FIX_MAX = 100;
+  delete global.__PROPS[PK.YT_TITLE_SWEEP];
+  const w4 = ytTitleSweep_(60000), s4 = ytTitleSweepState_();
+  const per = YT_COST.videosUpdate + 10, slice = Number(CFG.YT_TITLE_DAY_UNITS) || 0;
+  const w5 = ytTitleSweep_(60000);
+  ok('۹۴.۴ ذخیرهٔ انتشار جا نمی‌گذارد ولی سهمِ روزانه چرا: دقیقاً به اندازهٔ سهم اصلاح، بعد ایست با علت؛ اجرای دوم همان روز هیچ',
+     w4.fixed === Math.floor(slice / per) && w4.fixed > 5 && s4.done === false && w4.notes.some((n) => /سهمیه/.test(n)) &&
+     w5.fixed === 0, JSON.stringify({ w4: w4.fixed, want: Math.floor(slice / per), w5: w5.fixed, u: s4.uUnits }));
+  global.ytQuota_ = () => ({ day: '2026-10-12', units: capU - 1000, uploads: 4 });
+  const w6 = ytTitleSweep_(60000);
+  const s6 = ytTitleSweepState_();
+  ok('۹۴.۵ روزِ تازه ⇒ سهمِ تازه: بقیهٔ ۳۰ عنوان اصلاح و دور تمام', w6.fixed === 30 - w4.fixed && s6.done === true,
+     JSON.stringify({ w6: w6.fixed, left: 30 - w4.fixed, done: s6.done }));
+  CFG.YT_TITLE_FIX_MAX = fmWas;
+  Object.assign(global, { ytPublished_: keep4.pub, readSeriesReg_: keep4.reg, ytRedoOne_: keep4.redo, ytOn_: keep4.on, ytQuota_: keep4.q });
+  delete global.__PROPS[PK.YT_TITLE_SWEEP]; delete global.__PROPS[PK.YT_RETIRE]; delete global.__PROPS[PK.YT_UP_PENDING];
+  global.__PROPS[PK.YT_PL] = plWas; global.__STUB = BASE_STUB; global.getHub_ = hubWas; global.YouTube = {};
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

@@ -9232,6 +9232,32 @@ function ytRenderRedoable_(row, asked) {
   } catch (e) { return false; }
 }
 
+/** آپلودِ ثبت‌نشده — {vid, at} یا null. کهنه‌تر از سه روز فراموش می‌شود (ویدئوی پاک‌شده را از نو نسازد). */
+function ytUpPending_(key) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.YT_UP_PENDING) || '{}') || {};
+    var p = m[String(key)];
+    if (!p || !p.vid) return null;
+    if (Date.now() - (Number(p.t) || 0) > 3 * 86400000) return null;
+    return p;
+  } catch (e) { return null; }
+}
+function ytUpPendingSet_(key, vid) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.YT_UP_PENDING) || '{}') || {};
+    m[String(key)] = { vid: String(vid), at: nowStr_(), t: Date.now() };
+    props_().setProperty(PK.YT_UP_PENDING, JSON.stringify(m));
+  } catch (e) {}
+}
+function ytUpPendingClear_(key) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.YT_UP_PENDING) || '{}') || {};
+    if (!m[String(key)]) return;
+    delete m[String(key)];
+    props_().setProperty(PK.YT_UP_PENDING, JSON.stringify(m));
+  } catch (e) {}
+}
+
 function ytUploadOne_(item, hub, pub) {
   var res = { key: item.key, ok: false, why: '', videoId: '', waiting: false };
   var yt = ytSvc_();
@@ -9641,13 +9667,24 @@ function ytUploadOne_(item, hub, pub) {
   var leaks = ytLeaks_(title + '\n' + desc + '\n' + tags.join(' '));
 
   // ── آپلود، اول unlisted ──
-  if (!ytQuotaTake_(YT_COST.videosInsert, true)) {
+  /* ══ آپلودی که ثبت نشد، دوباره آپلود نمی‌شود (۸.۷۰) ══ قسمتِ ۶۶ِ «از همه جا» دو بار در پلی‌لیست نشست و
+     مرورِ آئودی هم: میانِ `Videos.insert` و `ytLog_` کاور، پلی‌لیست و عمومی‌کردن است، و Apps Script اجرا را
+     سرِ شش دقیقه بی هیچ خطایی می‌کُشد. ویدئو بالا رفته بود و هیچ ردی نداشت، پس دورِ بعد دوباره بالا برد. حالا
+     شناسه همان لحظه در Properties می‌نشیند و دورِ بعد **همان** ویدئو را به پایان می‌رساند؛ جای پلی‌لیست هم
+     تکراری نمی‌سازد (`ytPlPlace_` ویدئوی موجود را جابه‌جا می‌کند، نه دوباره می‌افزاید). */
+  var upKey = String(item.key || (item.show + ':' + item.ep));
+  var pend = ytUpPending_(upKey);
+  var vid = '';
+  if (pend && pend.vid) {
+    vid = String(pend.vid);
+    logLine_('یوتیوب ' + upKey + ': ادامهٔ آپلودِ ثبت‌نشدهٔ ' + pend.at + ' (' + vid + ') — دوباره آپلود نمی‌شود.');
+  }
+  if (!vid && !ytQuotaTake_(YT_COST.videosInsert, true)) {
     res.why = 'سهمیهٔ آپلودِ امروز تمام شد؛ فردا ادامه می‌یابد';
     res.quota = true;
     return res;
   }
-  var vid = '';
-  try {
+  if (!vid) try {
     var made = yt.Videos.insert({
       snippet: { title: title, description: desc, tags: tags,
                  categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27')
@@ -9658,6 +9695,7 @@ function ytUploadOne_(item, hub, pub) {
                 selfDeclaredMadeForKids: false }
     }, 'snippet,status', video.getBlob());
     vid = made && made.id ? String(made.id) : '';
+    if (vid) ytUpPendingSet_(upKey, vid);
   } catch (eU) {
     res.why = 'آپلود نشد: ' + String(eU.message).slice(0, 200);
     ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,
@@ -9780,6 +9818,7 @@ function ytUploadOne_(item, hub, pub) {
                 result: privacy === (CFG.YT_PRIVACY_FINAL || 'public') ? 'منتشر شد' : 'منتشر نشد (وارسی)',
                 note: leaks.length ? 'نشتیِ خصوصی؛ در ' + privacy + ' ماند'
                     : (!gate.ok ? gate.why + '؛ در ' + privacy + ' ماند' : '') });
+  ytUpPendingClear_(upKey);
   logLine_('یوتیوب: «' + title + '» ' +
            (privacy === 'public' ? 'منتشر شد' : 'در ' + privacy + ' ماند') + ' — ' + url);
   res.ok = !leaks.length && gate.ok; res.url = url; res.privacy = privacy; res.title = title;
@@ -10104,7 +10143,8 @@ function ytRetireList_() {
     if (res.getResponseCode() === 200) {
       var it = (JSON.parse(res.getContentText()) || {}).items || {};
       for (var k in it) if (Object.prototype.hasOwnProperty.call(it, k) && it[k]) {
-        out[k] = { why: String((it[k] && it[k].why) || it[k] || ''), keep: String((it[k] && it[k].keep) || '') };
+        out[k] = { why: String((it[k] && it[k].why) || it[k] || ''), keep: String((it[k] && it[k].keep) || ''),
+                   dup: (it[k] && it[k].dup instanceof Array) ? it[k].dup : [], keepVid: String((it[k] && it[k].keepVid) || '') };
       }
     }
   } catch (e) {}
@@ -10118,7 +10158,8 @@ function ytRetireState_() {
 /** کلیدهایی که کنار رفته‌اند — پیمایشِ عنوان و هر درِ دیگری که ویدئو را دست می‌زند از این‌ها می‌گذرد. */
 function ytRetireDone_() {
   var st = ytRetireState_(), out = {};
-  for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k) && (st[k] || {}).phase === 'done') out[k] = 1;
+  /* قسمتی که ویدئوی ماندنی دارد (۸.۷۰) کنار نرفته؛ فقط تکراری‌اش رفته — پیمایش و بقیه باید همان ماندنی را ببینند. */
+  for (var k in st) if (Object.prototype.hasOwnProperty.call(st, k) && (st[k] || {}).phase === 'done' && !(st[k] || {}).keepVid) out[k] = 1;
   return out;
 }
 
@@ -10138,7 +10179,14 @@ function ytRetireTick_(budgetMs, hubIn) {
       if (!pub) pub = ytPublished_(hubIn || getHub_());
       var showK = ytShowKey_(key.slice(0, key.lastIndexOf(':'))), ep = key.slice(key.lastIndexOf(':') + 1);
       var rec = pub[showK + ':' + ep] || {};
-      if (!rec.videoId) { st[key] = { phase: 'skip', at: nowStr_(), why: 'منتشر نشده' }; changed = true; continue; }
+      /* ══ تکراریِ همان قسمت (۸.۷۰) ══ `dup` شناسهٔ ویدئوهایی است که کنار می‌روند و `keepVid` آن که می‌مانَد —
+         وقتی یک قسمت دو بار بالا رفته، «ویدئوی ثبت‌شده» لزوماً همان نیست که باید بماند. ویدئوی ماندنی اگر در
+         دفتر نیست ثبت می‌شود، تا جایگزینی و پیمایش و ترتیب همه همان را ببینند. */
+      var dupIds = (list[key].dup || []).map(String).filter(Boolean);
+      var keepVid = String(list[key].keepVid || '');
+      var gone = dupIds.length ? dupIds : (rec.videoId ? [String(rec.videoId)] : []);
+      if (!gone.length) { st[key] = { phase: 'skip', at: nowStr_(), why: 'منتشر نشده' }; changed = true; continue; }
+      if (keepVid && gone.indexOf(keepVid) !== -1) throw new Error('ویدئوی ماندنی خودش در فهرستِ کنارگذاشتن است');
       yt = yt || ytSvc_();
       if (!yt) { out.notes.push(key + ': ' + ytOffWhy_()); break; }
       var pulled = 0, pmap = ytPlMap_();
@@ -10146,14 +10194,29 @@ function ytRetireTick_(budgetMs, hubIn) {
         if (!Object.prototype.hasOwnProperty.call(pmap, pk) || !(pmap[pk] || {}).id) continue;
         var its = ytPlItems_(pmap[pk].id);
         for (var q = 0; q < its.length; q++) {
-          if (its[q].videoId !== rec.videoId) continue;
+          if (gone.indexOf(String(its[q].videoId)) === -1) continue;
           if (!ytQuotaTake_(YT_COST.itemsDelete, false)) throw new Error('سهمیهٔ امروز');
           yt.PlaylistItems.remove(its[q].id); pulled++;
         }
       }
-      if (!ytQuotaTake_(YT_COST.videosUpdate, false)) throw new Error('سهمیهٔ امروز');
-      yt.Videos.update({ id: rec.videoId, status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
-      st[key] = { phase: 'done', at: nowStr_(), videoId: rec.videoId, url: String(rec.url || ''), pulled: pulled,
+      for (var gi = 0; gi < gone.length; gi++) {
+        if (!ytQuotaTake_(YT_COST.videosUpdate, false)) throw new Error('سهمیهٔ امروز');
+        yt.Videos.update({ id: gone[gi], status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
+      }
+      if (keepVid) {
+        if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+          try { yt.Videos.update({ id: keepVid, status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
+                                                          selfDeclaredMadeForKids: false } }, 'status'); } catch (eK) {}
+        }
+        if (String(rec.videoId || '') !== keepVid) {
+          ytLog_(hubIn || getHub_(), { show: showK === ENRICH_SHOW_SPECIAL ? CFG.SPECIAL_SHOW_NAME : CFG.SHOW_NAME,
+                 ep: ep, series: String(rec.series || ''), title: String(rec.title || ''), videoId: keepVid,
+                 url: 'https://www.youtube.com/watch?v=' + keepVid, privacy: CFG.YT_PRIVACY_FINAL || 'public',
+                 result: 'منتشر شد', note: 'ثبتِ ویدئوی ماندنی پس از کنار گذاشتنِ تکراری (۸.۷۰)' });
+        }
+        ytUpPendingClear_(showK + ':' + ep);
+      }
+      st[key] = { phase: 'done', at: nowStr_(), videoId: gone.join(','), keepVid: keepVid, pulled: pulled,
                   why: list[key].why, keep: list[key].keep };
       changed = true; out.done++;
       ytPlOrderDirty_();
@@ -10439,11 +10502,20 @@ function ytTitleSweep_(budgetMs, hubIn) {
   var retired = ytRetireDone_();
   /* ══ سهمیه: انتشار اول (۸.۶۹) ══ هر اصلاح ~۵۰ واحد (عنوان) و ~۵۰ دیگر (کاور)؛ ۱۰۰ ویدئو یعنی ۱۰ هزار
      واحد، بیش از سهمِ یک روز. پس همان ذخیره‌ای که ترتیبِ پلی‌لیست برای انتشارهای روز کنار می‌گذارد این‌جا هم. */
+  /* ۸.۷۰: «انتشار اول» به‌تنهایی یعنی هرگز — دو روز پس از نصب «۰ اصلاح»، چون انتشارها هر روز تا ۸۰۰۰ واحد را
+     می‌خورند و ذخیرهٔ سه قسمت هیچ جایی نمی‌گذاشت. پس یک سهمِ ثابتِ روزانه (`YT_TITLE_DAY_UNITS`) که فقط سقفِ
+     سهمیه جلویش را می‌گیرد، و بیش از آن فقط از ذخیره. */
+  var today = ytQuota_().day;
+  if (s.uDay !== today) { s.uDay = today; s.uUnits = 0; }
   var roomFor = function (thumb) {
     try {
       var q = ytQuota_(), capU = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
-      var reserve = ytUnitsPerEpisode_() * Math.max(1, Number(CFG.YT_PL_ORDER_RESERVE_EPS) || 3);
       var need = YT_COST.videosUpdate + (thumb ? YT_COST.thumbSet : 0) + 10;
+      if (q.units + need > capU) return false;
+      if ((Number(s.uUnits) || 0) + need <= Math.max(0, Number(CFG.YT_TITLE_DAY_UNITS) || 0)) {
+        s.uUnits = (Number(s.uUnits) || 0) + need; return true;
+      }
+      var reserve = ytUnitsPerEpisode_() * Math.max(1, Number(CFG.YT_PL_ORDER_RESERVE_EPS) || 3);
       return q.units + need + reserve <= capU;
     } catch (eQ) { return true; }
   };
