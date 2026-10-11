@@ -9473,4 +9473,32 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   global.__PROPS[PK.YT_DUE] = dueWas; global.__PROPS[PK.LV_WAIT] = '';
 }
 
+/* ══ ۹۶ — کارت‌ها: یک دستهٔ بد پر کردن را تمام نمی‌کند (۸.۷۲) ══
+   درسِ ۶۶ (داده واقعی): سهم ۱۲ از ۳۴، ۳ داشت، ۹ خواسته شد؛ دستهٔ اول یک جوابِ ردشدنی داد و
+   کار همان‌جا با ۳ کارت تمام شد. */
+{
+  const mk = (n) => { const a = []; for (let i = 1; i <= n; i++) a.push({ n: i, t0: (i - 1) * 30, t1: i * 30, fileId: 'F' + i,
+    text: 'متنِ صحنهٔ ' + i + ' دربارهٔ توجیه.', beat: 'ایده', ov: null, judge: { s: 6, space: i % 2 ? 'left' : 'top' } }); return a; };
+  const d = { scenes: mk(34), ovShare: 0.35, nature: 'آمیخته' };
+  d.scenes[30].ov = { kind: 'compare', title: '', a: 'الف', b: 'ب', lines: ['x: 1 | 2'], keys: [], side: 'left' };
+  d.scenes[31].ov = { kind: 'steps', title: '', lines: ['a', 'b', 'c'], keys: [], side: 'left' };
+  d.scenes[32].ov = { kind: 'headline', title: 'ت', lines: ['س'], keys: [], side: 'left' };
+  const gtWas = global.geminiText_; let calls = 0; const asks = [];
+  global.geminiText_ = (prompt) => {
+    calls++;
+    const ns = (prompt.match(/^\[(\d+)\]/gm) || []).map(x => x.replace(/[\[\]]/g, ''));
+    asks.push((prompt.match(/\*\*(\d+)\*\* تا را برگزین/) || [])[1]);
+    if (calls === 1) return { items: [{ n: '999', ov: 'points', ovTitle: 'ت', ovLines: ['a', 'b'] }] };
+    return { items: ns.map((n) => ({ n: n, ov: 'points', ovTitle: 'دو راه', ovLines: ['قیاس: ضروری', 'استقرا: محتمل'] })) };
+  };
+  const r = lvSceneOvFill_(d, { title: 'معرفت' }, () => 1e9);
+  global.geminiText_ = gtWas;
+  const have = d.scenes.filter(x => x.ov).length;
+  ok('۹۶.۱ دستهٔ اولِ ردشده ⇒ دسته‌های بعد پرسیده می‌شوند و سهم پر می‌شود',
+     calls >= 2 && r.got >= 8 && have >= 11, JSON.stringify({ calls, r, have }));
+  ok('۹۶.۲ شمارهٔ ناشناخته شمرده و با علت ثبت می‌شود', d.ovFill.rejWhy && d.ovFill.rejWhy['شمارهٔ صحنه'] === 1,
+     JSON.stringify(d.ovFill));
+  ok('۹۶.۳ از هر دسته همهٔ کسری پرسیده می‌شود، نه سهمی از آن', Number(asks[0]) === 8, JSON.stringify(asks));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

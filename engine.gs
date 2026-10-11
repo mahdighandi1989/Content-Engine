@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.71
+ *  موتور محتوا و پادکست — نسخهٔ 8.72
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -126,6 +126,7 @@ var CFG = {
   // واقعاً موجودند؛ اگر دسته‌ای سند نداشته باشد، قسمت به‌خاطرش ناقص نمی‌شود.
   // (۳+۳+۱+۱ = ۸ از ۱۲، پس چهار جای آزاد برای انتخابِ سردبیر می‌ماند)
   MIN_KIND_ITEMS: { 'ویدیو': 3, 'عکس': 3, 'صدا': 1, 'سند': 1 },
+  CAT_PREFER_MIX: true,        // دستهٔ برندهٔ تک‌نوع جایش را به دستهٔ تلفیقیِ سه‌تای اول می‌دهد (۸.۷۲، قسمتِ ۶۹)
   TARGET_MINUTES: 10,          // طول هدف قسمت (مجله‌ای ۸ تا ۱۲ دقیقه)
   // تعداد بخش‌های قسمت. صریح گفته می‌شود چون «حدود ۱۵۰۰ کلمه» بدون آن، چهار
   // بخشِ کوتاه می‌شد و قسمت حدود بیست درصد کوتاه‌تر از هدف درمی‌آمد.
@@ -869,6 +870,8 @@ var CFG = {
   HANDOUT_SCAN_MAX: 25,        // چند **پوشه** پیمایش شود؛ ردِ ارزان مجانی است
   HANDOUT_SCAN_MS: 90000,      // نگهبانِ زمانِ کاوش
   HANDOUT_STUCK_DAYS: 3,       // چند روز عقب‌ماندگی تا «ایرادِ کد» شمرده شود
+  HANDOUT_LAG_GRACE: 1,        // درسِ امروز: جزوه‌اش همان شب ساخته می‌شود، پس یک درس «در راه» عقب نیست (۸.۷۲)
+  HANDOUT_NIGHT_NEED_MS: 180000, // کارِ شبانه بی این وقت واردِ بلوکِ جزوه نمی‌شود — ۶۰ ثانیه اجرا را کشت (۸.۷۲)
 
   /* ── دیده‌بانِ کارگرهای بیرونی (۶٫۱۱) ──
      سه کارگر بیرون از موتور کار می‌کنند و هیچ‌کدام تا ۶٫۱۰ دیده‌بان نداشتند.
@@ -1997,7 +2000,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.71',
+  CODE_VERSION: '8.72',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3155,6 +3158,7 @@ var PK = {
   AUDIT_BAD: 'AUDIT_BAD_NIGHTS',    // شمارِ شب‌های پیاپیِ بدِ اِسناد
   AUDIT_QSEEN: 'AUDIT_QUEUE_SEEN',  // بلندترین صفِ داوری و از کِی
   HEALTH_STEP: 'HEALTH_LAST_STEP',  // وارسیِ سلامت کجا رسیده بود — ردِ پا برای اجرای کشته‌شده
+  HEALTH_TAIL: 'HEALTH_TAIL_LIST',  // بخش‌هایی که وارسیِ ۱۰ صبح وقتشان را نداشت و به اجرای پی‌آمد سپرده شد (۸.۷۲)
   HEALTH_DEAD_AT: 'HEALTH_DEAD_REPORTED_DAY',  // آخرین روزی که «گزارش نرفت» خبر داده شد
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
@@ -8404,33 +8408,57 @@ function speakFillBare_(vowelled, words) {
      از ۸.۰۴ این ترمیم هست و پوششِ واژه‌ای ۱۲ تا ۱۳ درصد ماند. سه علتِ
      ممکن با سه درمانِ متفاوت — مدل جواب نداد، جواب داد و سدِ حروف ردش کرد،
      یا پذیرفته شد و جایش در متن پیدا نشد — و هیچ‌کدام شمرده نمی‌شد. */
-  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '' };
+  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '', s: 0, s2: 0 };
   SPEAK_FILL_LAST_ = stat;
+  var map = {};
+  /* یک دور: پاسخ را با فهرست جفت می‌کند و آنچه بی‌تغییر برگشت را برمی‌گرداند. */
+  var take = function (ws, got) {
+    var same = [];
+    for (var i = 0; i < ws.length && i < got.length; i++) {
+      /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
+         بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
+         پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. و نشانهٔ غیرعربی
+         (عبری U+0591–U+05C7، ترکیبیِ لاتین U+0300–U+036F) هم برداشته می‌شود:
+         «روشن ⇒ روֹشَن» به‌خاطرِ یک حولمِ عبری کاملاً رد می‌شد (۸.۷۲) و آن نشانه
+         در گفتارساز هم معنایی ندارد. */
+      var to = String(got[i] || '').trim()
+        .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654\u0591-\u05C7\u0300-\u036F]/g, '');
+      if (!to) continue;
+      if (to === ws[i]) { same.push(ws[i]); continue; }
+      if (bare(to) !== ws[i]) {                  // حروف عوض شده ⇒ دور
+        stat.r++;
+        if (!stat.x) stat.x = ws[i] + ' ⇒ ' + to.slice(0, 30);
+        continue;
+      }
+      stat.k++;
+      /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست: `ws` همیشه بی‌علامت می‌آید، پس جوابی
+         که هم حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار علامت دارد. */
+      map[ws[i]] = to;
+    }
+    return same;
+  };
   var r = null;
   try { r = geminiText_(prompt, SPEAK_FILL_SCHEMA, 4096); } catch (e) { return null; }
   var got = (r && r.w) || [];
   stat.g = got.length;
   if (!got.length) return null;
-
-  var map = {};
-  for (var i = 0; i < words.length && i < got.length; i++) {
-    /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
-       بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
-       پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. */
-    var to = String(got[i] || '').trim()
-      .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654]/g, '');
-    if (!to || to === words[i]) continue;
-    if (bare(to) !== words[i]) {                  // حروف عوض شده ⇒ دور
-      stat.r++;
-      if (!stat.x) stat.x = words[i] + ' ⇒ ' + to.slice(0, 30);
-      continue;
-    }
-    stat.k++;
-    /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست و **نوشتنش کدِ مرده بود**:
-       `words` همیشه بی‌علامت می‌آید (از `speakBareWords_`)، پس جوابی که هم
-       حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار دستِ‌کم یک علامت
-       دارد. شاخه‌ای که هیچ‌وقت اجرا نمی‌شود، سنجه‌اش هم هیچ‌وقت سرخ نمی‌شود. */
-    map[words[i]] = to;
+  var same = take(words, got);
+  stat.s = same.length;
+  /* ══ دورِ دوم برای آنچه بی‌تغییر برگشت (۸.۷۲) ══
+     در ده قسمتِ تا ۱۱ اکتبر از ۱۱۴۲ واژهٔ پرسیده ۴۸۷ تا **عیناً بی‌علامت** برگشتند
+     («این»، «بیست»، «آغاز») — مدل آن‌ها را بدیهی دید — و بی‌صدا کنار می‌رفتند. پوششِ
+     واژه‌ای از همین‌جا بالای سقف ماند. یک پرسشِ کوچکِ دوم فقط برای همان‌ها، با قاعدهٔ
+     صریحِ «بدیهی هم علامت می‌گیرد». */
+  if (same.length) {
+    var p2 = 'این واژه‌های فارسی را **بی هیچ علامتی** برگرداندی. گفتارساز واژهٔ بی‌علامت را ' +
+             'حدس می‌زند، پس هر کدام **باید دست‌کم یک علامت** بگیرد — حتی اگر تلفظش بدیهی است: ' +
+             'سکون روی حرفِ ساکن (بیسْت، اینْ)، فتحه/کسره/ضمه روی حرفِ متحرک.\n' +
+             'حروف، نیم‌فاصله و ترتیب دقیقاً همان؛ فقط نشانهٔ عربیِ اعراب (ً ٌ ٍ َ ُ ِ ّ ْ).\n\n' +
+             'فهرست:\n' + same.join('\n');
+    var r2 = null;
+    try { r2 = geminiText_(p2, SPEAK_FILL_SCHEMA, 4096); } catch (e2) { r2 = null; }
+    var got2 = (r2 && r2.w) || [];
+    if (got2.length) stat.s2 = same.length - take(same, got2).length;
   }
   var keys = [];
   for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) keys.push(k);
@@ -10457,9 +10485,43 @@ function pickCategory_(hub) {
   }
   if (!ranked.length) return null;
 
+  /* ══ تلفیق از همان انتخابِ دسته (۸.۷۲) ══
+     قسمتِ ۶۹ (۱۱ اکتبر) ۱۲ عکس و صفر ویدیو بود: دستهٔ برنده ویدیوی استفاده‌نشده نداشت
+     (تحلیلگرِ ویدیو از ۲۳ سپتامبر ردیفِ تازه ننوشته) و `enforceMix_` فقط از همان دسته
+     می‌تواند پر کند. پس دستهٔ برنده‌ای که فقط یک نوع دارد، جایش را به نفرِ بعدیِ سه‌تای
+     اول می‌دهد اگر او تلفیق دارد؛ اگر هیچ‌کدام نداشت، همان برنده می‌ماند. */
+  var mixOk = function (rows) {
+    var c = {};
+    for (var q = 0; q < rows.length; q++) { var kk = String(rows[q].kind || ''); c[kk] = (c[kk] || 0) + 1; }
+    var kinds = 0;
+    for (var kq in c) if (Object.prototype.hasOwnProperty.call(c, kq) && c[kq] >= 3) kinds++;
+    return kinds >= 2;
+  };
+  var order = [], firstSt = null;
+  for (var t0 = 0; t0 < Math.min(3, ranked.length); t0++) order.push(t0);
+  var stCache = {};
+  if (CFG.CAT_PREFER_MIX !== false && order.length > 1) {
+    var s0 = tabStats_(hub, ranked[0].name, CFG.MIN_PRIORITY);
+    stCache[0] = s0;
+    if (s0.rows.length >= 5 && !mixOk(s0.rows)) {
+      for (var t1 = 1; t1 < order.length; t1++) {
+        var s1 = tabStats_(hub, ranked[t1].name, CFG.MIN_PRIORITY);
+        stCache[t1] = s1;
+        if (s1.rows.length >= 5 && mixOk(s1.rows)) {
+          logLine_('انتخابِ دسته: «' + ranked[0].name + '» فقط یک نوع داشت؛ «' + ranked[t1].name +
+                   '» برای تلفیقِ نوع‌ها برگزیده شد.');
+          order = [t1].concat(order.filter(function (x) { return x !== t1; }));
+          break;
+        }
+      }
+    }
+  }
+  void firstSt;
+
   // فقط تبِ برنده خوانده می‌شود؛ اگر خالی از آب درآمد، سراغ بعدی
-  for (var t = 0; t < Math.min(3, ranked.length); t++) {
-    var st = tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
+  for (var oi = 0; oi < order.length; oi++) {
+    var t = order[oi];
+    var st = stCache[t] || tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
     if (st.rows.length < 5) continue;
     var picked = buildCandidates_(st.rows);
     var items = fetchRows_(st.sheet, ranked[t].name, picked.map(function (x) { return x.row; }));
@@ -17080,6 +17142,58 @@ function healthDeadCheck_(hub) {
   return st;
 }
 
+/* ═══ اجرای پی‌آمدِ وارسیِ سلامت (۸.۷۲) ═══ */
+var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا'];
+
+/** آنچه از `skipped` به اجرای پی‌آمد سپرده شد (فهرستِ نام‌ها؛ خالی یعنی هیچ). */
+function healthTailArm_(skipped) {
+  var take = (skipped || []).filter(function (x) { return HEALTH_TAIL_PARTS_.indexOf(x) !== -1; });
+  if (!take.length) return [];
+  try {
+    props_().setProperty(PK.HEALTH_TAIL, JSON.stringify({ parts: take, at: nowStr_() }));
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) {
+      if (ts[i].getHandlerFunction() === 'healthTail') ScriptApp.deleteTrigger(ts[i]);
+    }
+    ScriptApp.newTrigger('healthTail').timeBased().after(60000).create();
+  } catch (e) {
+    try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت زمان‌بندی نشد: ' + e.message); } catch (e2) {}
+    return [];
+  }
+  return take;
+}
+
+/** تریگرِ یک‌بارمصرف: همان بخش‌هایی که وارسیِ ۱۰ صبح وقتشان را نداشت. */
+function healthTail() {
+  var out = { ran: [], why: '' };
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) {
+      if (ts[i].getHandlerFunction() === 'healthTail') ScriptApp.deleteTrigger(ts[i]);
+    }
+  } catch (eD) {}
+  var job = null;
+  try { job = JSON.parse(props_().getProperty(PK.HEALTH_TAIL) || 'null'); } catch (eJ) { job = null; }
+  try { props_().deleteProperty(PK.HEALTH_TAIL); } catch (eX) {}
+  var parts = (job && job.parts) || [];
+  var t0 = new Date().getTime();
+  var left = function () { return 300000 - (new Date().getTime() - t0); };
+  if (parts.indexOf('دورِ ۱۰ صبحِ یوتیوب') !== -1) {
+    try {
+      var y = ytTick_(Math.min(200000, left() - 60000));
+      out.ran.push('یوتیوب: ' + (y.published || 0) + ' منتشر، ' + (y.collected || 0) + ' برداشته');
+    } catch (eY) { out.why += 'یوتیوب: ' + String(eY.message).slice(0, 80) + ' '; }
+  }
+  if (parts.indexOf('برداشتِ پلِ صدا') !== -1 && left() > 60000) {
+    try {
+      var v = vbrIngest_(getHub_());
+      out.ran.push('پلِ صدا: ' + ((v && v.got && v.got.length) || 0) + ' برداشته');
+    } catch (eV) { out.why += 'پلِ صدا: ' + String(eV.message).slice(0, 80); }
+  }
+  try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت: ' + (out.ran.join(' · ') || 'هیچ') + (out.why ? ' — ' + out.why : '')); } catch (eL) {}
+  return out;
+}
+
 function healthLeft_() {
   if (!_healthT0) healthStart_();
   var budget = Math.max(60000, Number(CFG.HEALTH_BUDGET_MS) || 280000);
@@ -17706,14 +17820,15 @@ function healthCheck() {
   // ۳-ب) حلقهٔ گزارش ← اقدام
   var rp = st.reports;
   if (rp) {
-    if (rp.needsCode) {
-      var noTg = 0;
-      for (var ci = 0; ci < rp.codeItems.length; ci++) {
-        if (String(rp.codeItems[ci].telegram).indexOf('ارسال شد') === -1) noTg++;
-      }
-      problems.push('‏' + rp.needsCode + ' مورد در انتظار تعویض کد است: «' +
-        rp.codeItems[0].title.slice(0, 90) + '»' +
-        (noTg ? ' — و برای ' + noTg + ' موردش هشدار تلگرام نرفته' : '') + '.');
+    /* «در انتظار» یعنی **دیده‌شده در ۱۴ روزِ اخیر** (۸.۷۲) — همان مرزِ `codeQueue_`.
+       تا ۸.۷۱ این جمله همهٔ ردیف‌ها را می‌شمرد، از جمله ۹۹ ردیفِ ساکت (تا ۴۷ روز
+       دیده‌نشده)، پس عدد هرگز پایین نمی‌آمد و هر روز «مزمن» می‌شد؛ ساکت‌ها در خطِ
+       `codeQueue` جدا گفته می‌شوند. */
+    var cqP = (st.codeQueue && typeof st.codeQueue.pending === 'number') ? st.codeQueue.pending : rp.needsCode;
+    if (rp.needsCode && cqP) {
+      problems.push('‏' + cqP + ' مورد در انتظار تعویض کد است (دیده‌شده در ' +
+        (Number(CFG.CODE_QUIET_DAYS) || 14) + ' روزِ اخیر)' +
+        (st.codeQueue && st.codeQueue.task ? ': «' + String(st.codeQueue.task.title || '').slice(0, 90) + '»' : '') + '.');
     }
     if (rp.open) {
       /* ══ جمله‌ای که کارِ نکرده را انجام‌شده نشان می‌داد (۶٫۸۶) ══
@@ -18314,9 +18429,20 @@ function healthCheck() {
   /* کارِ جامانده **گفته می‌شود**. سطرِ روزانه‌ای که بی‌صدا نیاید، خواننده را
      به این نتیجه می‌رساند که آن زیرسامانه ساکت و سالم است — و همان است که
      دو روز هیچ‌کس نفهمید وارسی اصلاً تمام نشده. */
-  if (skipped.length) {
+  /* ══ جاماندنِ پی‌درپی جاماندن نیست، اگر کسی بعدش انجامش دهد (۸.۷۲) ══
+     از ۵ اکتبر هر روز «دورِ ۱۰ صبحِ یوتیوب» و «برداشتِ پلِ صدا» جا ماندند و همین جمله
+     هر روز «ایرادِ مزمن» شد. گفتن کافی نبود — کار انجام نمی‌شد. حالا همان دو بخش به یک
+     اجرای جدا با شش دقیقهٔ تازه سپرده می‌شوند و فقط آنچه سپرده نشد ایراد است. */
+  var tailed = [];
+  if (skipped.length) { try { tailed = healthTailArm_(skipped); } catch (eTa) { tailed = []; } }
+  var still = skipped.filter(function (x) { return tailed.indexOf(x) === -1; });
+  if (tailed.length) {
+    notes.push('وارسیِ سلامت وقتِ این بخش‌ها را نداشت و به اجرای پی‌آمد (یک دقیقه بعد) سپرد: ' +
+               tailed.join('، ') + '.');
+  }
+  if (still.length) {
     problems.push('وارسیِ سلامت وقت کم آورد و این بخش‌ها امروز اجرا نشدند: ' +
-                  skipped.join('، ') + '. (کلِ اجرا ' +
+                  still.join('، ') + '. (کلِ اجرا ' +
                   Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه)');
   }
   /* ══ ایرادِ مزمن (۸.۳۲) ══
@@ -21856,10 +21982,12 @@ function reportStale_(hub, days) {
       if (s !== RST.NEW && s.indexOf('تکرار') === -1) continue;
       if (String(v[RC.OWNER - 1]) === ROWNER_CODE) continue;
       if (!String(v[RC.INSTR - 1] || '').trim()) continue;   // ردیفِ اطلاعاتی
-      var last = String(v[RC.LAST_SEEN - 1] || v[RC.AT - 1] || '');
-      var t = 0;
-      try { t = new Date(last.replace(' ', 'T')).getTime(); } catch (eD) { t = 0; }
-      if (!t || t > cut) { out.kept++; continue; }
+      /* شیت تاریخ را **شیءِ Date** پس می‌دهد، نه متن (۸.۷۲). تا ۸.۷۱ این‌جا
+         `new Date(String(d).replace(' ', 'T'))` بود؛ رشتهٔ «Mon Aug 10 2026 …» با T
+         خراب و NaN می‌شد، و `!t` هر ردیف را «تازه» نگه می‌داشت — یعنی این در هرگز
+         هیچ ردیفی را نبست و ردیف‌های ۱۰ اوت دو ماه بعد هنوز باز بودند. */
+      var t = parseWhen_(v[RC.LAST_SEEN - 1] || v[RC.AT - 1] || '');
+      if (isNaN(t) || t > cut) { out.kept++; continue; }
       try {
         sh.getRange(r.row, RC.STATUS).setValue(RST.CLOSED);
         sh.getRange(r.row, RC.DONE).setValue(
@@ -34614,7 +34742,10 @@ function selfUpdateDaily() {
    * پرداخت می‌شود: قسمتی که وقتِ اجرایش نرسیده بود، یا شبی که مدل جواب نداد.
    * بی این، «به‌روزرسانی با هر تولید» به یک وعده تبدیل می‌شد که هر بار که
    * اجرا شلوغ بود، بی‌صدا شکسته می‌شد. */
-  if (CFG.HANDOUT_ENABLED !== false && nightHas_(60000, 'جزوهٔ مجموعه‌ها')) {
+  /* ۱۸۰ ثانیه، نه ۶۰ (۸.۷۲): یک درسِ آئودی (۱۸ فصل) خودش دو سه دقیقه مدل می‌خواهد، و
+     شبِ ۱۱ اکتبر همین بلوک با ۶۰ ثانیهٔ تضمینی وارد شد، دو درس را پشتِ‌هم و بی سقفِ زمان
+     ساخت و اجرا را سرِ شش دقیقه کشت — جزوه همان شب عقب ماند. */
+  if (CFG.HANDOUT_ENABLED !== false && nightHas_(Number(CFG.HANDOUT_NIGHT_NEED_MS) || 180000, 'جزوهٔ مجموعه‌ها')) {
     /* کاوشِ گذشته اول، و ارزان: هیچ فراخوانِ مدلی ندارد و مکان‌نما دارد، پس
        هر شب چند مجموعه جلو می‌رود تا همه دیده شوند. بی این، جزوه فقط از
        نصبِ ۵٫۸۵ به بعد را می‌شناخت و درس‌های گذشته هرگز وارد نمی‌شدند. */
@@ -34626,7 +34757,10 @@ function selfUpdateDaily() {
       }
     } catch (eBf) { logLine_('کاوشِ قسمت‌های گذشتهٔ جزوه انجام نشد: ' + eBf.message); }
     try {
-      var hd = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2));
+      /* درسِ دوم فقط وقتی شروع می‌شود که پس از اولی هنوز جای یک درسِ کامل هست؛ «دستِ‌کم
+         یکی» را خودِ handoutRunDue_ تضمین می‌کند. بودجهٔ ۱ یعنی «فقط همان یکی». */
+      var hdBudget = Math.max(1, nightLeft_() - (Number(CFG.HANDOUT_NIGHT_NEED_MS) || 180000));
+      var hd = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MAX_PER_RUN) || 2), hdBudget);
       if (hd.tried) {
         logLine_('جزوهٔ شبانه: ' + hd.done + ' به‌روز شد، ' + hd.left + ' در صف' +
                  (hd.notes.length ? ' — ' + hd.notes.join(' · ') : '') + '.');
@@ -46500,7 +46634,11 @@ function handoutHealth_(problems, notes) {
 
   for (var i = 0; i < st.series.length; i++) {
     var r = st.series[i];
-    var lagging = r.missing || r.behind > 0 || r.abandoned > 0;
+    /* درسِ امروز «عقب» نیست (۸.۷۲): جزوه‌اش همان شب ساخته می‌شود و وارسیِ ۱۰ صبح همیشه
+       آن را بیرون می‌بیند. با `behind > 0` هر روز دستِ‌کم یک درس عقب بود، شمارِ روزها هرگز
+       صفر نمی‌شد و «۶ روز عقب» برای جزوه‌ای گزارش می‌شد که هر شب به‌روز شده بود. */
+    var grace = Math.max(0, Number(CFG.HANDOUT_LAG_GRACE) >= 0 ? Number(CFG.HANDOUT_LAG_GRACE) : 1);
+    var lagging = r.missing || r.behind > grace || r.abandoned > 0;
     if (!lagging) { delete lag[r.key]; continue; }
     if (!lag[r.key]) lag[r.key] = today;
     var days = dayNo(today) - dayNo(String(lag[r.key]));
@@ -53007,7 +53145,8 @@ function lvSceneOvFill_(d, ctx, left) {
   d.ovFillTries = (Number(d.ovFillTries) || 0) + 1;
   var batch = Math.max(2, Number(CFG.LV_OV_FILL_BATCH) || 8);
   var maxCalls = Math.max(1, Number(CFG.LV_OV_FILL_CALLS) || 3);
-  var got = 0, up = 0, calls = 0, answered = 0, rejected = 0;
+  var got = 0, up = 0, calls = 0, answered = 0, rejected = 0, why = {};
+  var rej = function (w) { rejected++; why[w] = (why[w] || 0) + 1; };
   var byN = {};
   for (var c = 0; c < cands.length; c++) byN[String(cands[c].n)] = cands[c];
   /* دسته‌ها در طولِ درس پخش‌اند: هر دسته از جاهای مختلفِ درس برمی‌دارد، نه هشت صحنهٔ
@@ -53020,7 +53159,11 @@ function lvSceneOvFill_(d, ctx, left) {
     var grp = groups[gi];
     var rest = want - got - up;
     var leftGroups = groups.length - gi;
-    var ask = Math.max(1, Math.min(grp.length, Math.ceil(rest / Math.min(leftGroups, maxCalls - calls))));
+    /* همهٔ کسری از هر دسته پرسیده می‌شود (۸.۷۲): مدل همیشه کمتر از خواسته می‌دهد، و
+       تقسیمِ کسری میانِ دسته‌ها یعنی هر دسته سه کارت خواست و یکی گرفت. حلقه سرِ `want`
+       می‌ایستد، پس بیش‌پرسیدن چیزی را از سقف رد نمی‌کند. */
+    var ask = Math.max(1, Math.min(grp.length, rest));
+    void leftGroups;
     var L = [];
     L.push('این‌ها صحنه‌های یک ویدئوی آموزشیِ فارسی‌اند. روی تصویرِ هر صحنه یک کارتِ نوشتاریِ ' +
            'کوچک و تمیز می‌تواند بنشیند — مثلِ اینفوگرافیکِ ویدئوهای آموزشیِ حرفه‌ای: بیننده با یک ' +
@@ -53044,7 +53187,8 @@ function lvSceneOvFill_(d, ctx, left) {
     L.push('• صحنهٔ «(روایت)» فقط headline یا quote — قصه فهرست و جدول نیست.');
     L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان کارت آمده.');
     L.push('• فارسیِ معیار، جمله‌بندیِ روشن و کامل، اعداد فارسی. تکرارِ واژه‌به‌واژهٔ روایت نه؛ چکیده.');
-    L.push('• `n` همان شمارهٔ صحنه.');
+    L.push('• **طول سد است، نه پیشنهاد:** `ovTitle` حداکثر ۴۰ نویسه (نقل ۱۰۰)، هر سطر حداکثر ۷۰ نویسه، `ovA`/`ovB` حداکثر ۲۰ — بلندتر کامل رد می‌شود، کوتاه نمی‌شود.');
+    L.push('• `n` همان شمارهٔ صحنه، فقط عدد.');
     calls++;
     var r = null, err = '';
     try { r = geminiText_(L.join('\n'), schema, 6144, { exact: true }); }
@@ -53057,34 +53201,40 @@ function lvSceneOvFill_(d, ctx, left) {
       var it = r.items[k] || {};
       var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (z) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(z); });
       var sc = byN[String(Number(nn))];
-      if (!sc || sc.__ovNew) continue;
+      /* شمارهٔ ناشناخته هم رد است و شمرده می‌شود (۸.۷۲) — تا ۸.۷۱ بی‌صدا کنار می‌رفت، و
+         «۱ رد شد» در درسِ ۶۶ نمی‌گفت بقیهٔ پاسخ کجا رفت. */
+      if (!sc) { rej('شمارهٔ صحنه'); continue; }
+      if (sc.__ovNew) { rej('تکرار'); continue; }
       var o = lvSceneOvNorm_(it, sc.text);
-      if (!o) { rejected++; continue; }
+      if (!o) { rej('شکل یا طول'); continue; }
       /* «هرگز تیترِ تنها» — در کد، نه فقط در پرامپت. */
-      if (o.kind === 'headline' && !o.lines.length) { rejected++; continue; }
-      if (story(sc) && lvOvStruct_(o) ) { rejected++; continue; }
+      if (o.kind === 'headline' && !o.lines.length) { rej('تیترِ تنها'); continue; }
+      if (story(sc) && lvOvStruct_(o) ) { rej('فهرست روی روایت'); continue; }
       var upgrade = !!sc.ov;
-      if (upgrade && !lvOvStruct_(o)) { rejected++; continue; }
-      if (!upgrade && lvOvWeak_(o) && weakNow >= weakMax) { rejected++; continue; }
+      if (upgrade && !lvOvStruct_(o)) { rej('ارتقای بی‌ساختار'); continue; }
+      if (!upgrade && lvOvWeak_(o) && weakNow >= weakMax) { rej('سقفِ تیتر و نقل'); continue; }
       o.side = sc.judge.space;
       if (upgrade) { weakNow--; up++; sc.ovUp = 1; } else { got++; if (lvOvWeak_(o)) weakNow++; }
       sc.ov = o; sc.ovFill = 1; sc.__ovNew = 1; gotHere++;
     }
-    /* دسته‌ای که هیچ کارتِ پذیرفتنی نداد، یعنی دسته‌های بعد هم پولِ هدر است — همان «یک
-       بار، نه تا کافی شود» (۸۵.۴-ب). */
-    if (!gotHere) break;
+    /* **پاسخِ خالی** یعنی مدل چیزی برای گفتن ندارد و دسته‌های بعد پولِ هدر است (۸۵.۴-ب).
+       ولی پاسخی که داشت و همه‌اش رد شد، فقط همان دسته بود: درسِ ۶۶ از ۹ کارتِ خواسته یک
+       جواب گرفت، همان رد شد، و پر کردن همان‌جا با ۳ کارت روی ۳۴ صحنه تمام شد (۸.۷۲). */
+    if (!r.items.length) break;
+    void gotHere;
   }
   for (var z2 = 0; z2 < d.scenes.length; z2++) delete d.scenes[z2].__ovNew;
   if (got || up) d.ovN = lvSceneOvTrim_(d.scenes, share);
   out.got = got; out.up = up;
-  if (!out.why && !got && !up) out.why = answered ? 'مدل کارتِ پذیرفتنی نداد' + (rejected ? ' (' + rejected + ' رد شد)' : '') : '';
+  var whyTxt = Object.keys(why).map(function (w) { return w + ' ' + why[w]; }).join('، ');
+  if (!out.why && !got && !up) out.why = answered ? 'مدل کارتِ پذیرفتنی نداد' + (rejected ? ' (' + rejected + ' رد شد: ' + whyTxt + ')' : '') : '';
   /* شکستِ واقعی (مدل جواب نداد) یک بارِ دیگر در اجرای بعد؛ هر چیزِ دیگر ثبت و تمام. */
   if (answered || d.ovFillTries >= 2) {
     d.ovFillAt = nowStr_();
     d.ovFill = { asked: want, got: got, up: up, why: out.why, have: have, target: target, calls: calls,
                  weak: d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length,
                  struct: d.scenes.filter(function (x) { return lvOvStruct_(x.ov); }).length,
-                 rejected: rejected };
+                 rejected: rejected, rejWhy: why };
   }
   return out;
 }

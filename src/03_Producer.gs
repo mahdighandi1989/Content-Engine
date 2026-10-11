@@ -4052,33 +4052,57 @@ function speakFillBare_(vowelled, words) {
      از ۸.۰۴ این ترمیم هست و پوششِ واژه‌ای ۱۲ تا ۱۳ درصد ماند. سه علتِ
      ممکن با سه درمانِ متفاوت — مدل جواب نداد، جواب داد و سدِ حروف ردش کرد،
      یا پذیرفته شد و جایش در متن پیدا نشد — و هیچ‌کدام شمرده نمی‌شد. */
-  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '' };
+  var stat = { a: words.length, g: 0, k: 0, r: 0, x: '', s: 0, s2: 0 };
   SPEAK_FILL_LAST_ = stat;
+  var map = {};
+  /* یک دور: پاسخ را با فهرست جفت می‌کند و آنچه بی‌تغییر برگشت را برمی‌گرداند. */
+  var take = function (ws, got) {
+    var same = [];
+    for (var i = 0; i < ws.length && i < got.length; i++) {
+      /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
+         بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
+         پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. و نشانهٔ غیرعربی
+         (عبری U+0591–U+05C7، ترکیبیِ لاتین U+0300–U+036F) هم برداشته می‌شود:
+         «روشن ⇒ روֹشَن» به‌خاطرِ یک حولمِ عبری کاملاً رد می‌شد (۸.۷۲) و آن نشانه
+         در گفتارساز هم معنایی ندارد. */
+      var to = String(got[i] || '').trim()
+        .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654\u0591-\u05C7\u0300-\u036F]/g, '');
+      if (!to) continue;
+      if (to === ws[i]) { same.push(ws[i]); continue; }
+      if (bare(to) !== ws[i]) {                  // حروف عوض شده ⇒ دور
+        stat.r++;
+        if (!stat.x) stat.x = ws[i] + ' ⇒ ' + to.slice(0, 30);
+        continue;
+      }
+      stat.k++;
+      /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست: `ws` همیشه بی‌علامت می‌آید، پس جوابی
+         که هم حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار علامت دارد. */
+      map[ws[i]] = to;
+    }
+    return same;
+  };
   var r = null;
   try { r = geminiText_(prompt, SPEAK_FILL_SCHEMA, 4096); } catch (e) { return null; }
   var got = (r && r.w) || [];
   stat.g = got.length;
   if (!got.length) return null;
-
-  var map = {};
-  for (var i = 0; i < words.length && i < got.length; i++) {
-    /* «ي/ك» عربی، کشیده و همزهٔ اضافه حرف نیستند و جوابِ درست را نباید
-       بی‌جهت رد کنند؛ همزهٔ اضافه هم **برداشته** می‌شود، چون واژه بی بافت
-       پرسیده شده و اضافهٔ درست را از این‌جا نمی‌شود دانست. */
-    var to = String(got[i] || '').trim()
-      .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[\u0640\u0654]/g, '');
-    if (!to || to === words[i]) continue;
-    if (bare(to) !== words[i]) {                  // حروف عوض شده ⇒ دور
-      stat.r++;
-      if (!stat.x) stat.x = words[i] + ' ⇒ ' + to.slice(0, 30);
-      continue;
-    }
-    stat.k++;
-    /* سدِ «جوابِ بی‌اعراب» این‌جا لازم نیست و **نوشتنش کدِ مرده بود**:
-       `words` همیشه بی‌علامت می‌آید (از `speakBareWords_`)، پس جوابی که هم
-       حروفش یکی مانده و هم با خودِ واژه یکی نیست، ناچار دستِ‌کم یک علامت
-       دارد. شاخه‌ای که هیچ‌وقت اجرا نمی‌شود، سنجه‌اش هم هیچ‌وقت سرخ نمی‌شود. */
-    map[words[i]] = to;
+  var same = take(words, got);
+  stat.s = same.length;
+  /* ══ دورِ دوم برای آنچه بی‌تغییر برگشت (۸.۷۲) ══
+     در ده قسمتِ تا ۱۱ اکتبر از ۱۱۴۲ واژهٔ پرسیده ۴۸۷ تا **عیناً بی‌علامت** برگشتند
+     («این»، «بیست»، «آغاز») — مدل آن‌ها را بدیهی دید — و بی‌صدا کنار می‌رفتند. پوششِ
+     واژه‌ای از همین‌جا بالای سقف ماند. یک پرسشِ کوچکِ دوم فقط برای همان‌ها، با قاعدهٔ
+     صریحِ «بدیهی هم علامت می‌گیرد». */
+  if (same.length) {
+    var p2 = 'این واژه‌های فارسی را **بی هیچ علامتی** برگرداندی. گفتارساز واژهٔ بی‌علامت را ' +
+             'حدس می‌زند، پس هر کدام **باید دست‌کم یک علامت** بگیرد — حتی اگر تلفظش بدیهی است: ' +
+             'سکون روی حرفِ ساکن (بیسْت، اینْ)، فتحه/کسره/ضمه روی حرفِ متحرک.\n' +
+             'حروف، نیم‌فاصله و ترتیب دقیقاً همان؛ فقط نشانهٔ عربیِ اعراب (ً ٌ ٍ َ ُ ِ ّ ْ).\n\n' +
+             'فهرست:\n' + same.join('\n');
+    var r2 = null;
+    try { r2 = geminiText_(p2, SPEAK_FILL_SCHEMA, 4096); } catch (e2) { r2 = null; }
+    var got2 = (r2 && r2.w) || [];
+    if (got2.length) stat.s2 = same.length - take(same, got2).length;
   }
   var keys = [];
   for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) keys.push(k);
@@ -6105,9 +6129,43 @@ function pickCategory_(hub) {
   }
   if (!ranked.length) return null;
 
+  /* ══ تلفیق از همان انتخابِ دسته (۸.۷۲) ══
+     قسمتِ ۶۹ (۱۱ اکتبر) ۱۲ عکس و صفر ویدیو بود: دستهٔ برنده ویدیوی استفاده‌نشده نداشت
+     (تحلیلگرِ ویدیو از ۲۳ سپتامبر ردیفِ تازه ننوشته) و `enforceMix_` فقط از همان دسته
+     می‌تواند پر کند. پس دستهٔ برنده‌ای که فقط یک نوع دارد، جایش را به نفرِ بعدیِ سه‌تای
+     اول می‌دهد اگر او تلفیق دارد؛ اگر هیچ‌کدام نداشت، همان برنده می‌ماند. */
+  var mixOk = function (rows) {
+    var c = {};
+    for (var q = 0; q < rows.length; q++) { var kk = String(rows[q].kind || ''); c[kk] = (c[kk] || 0) + 1; }
+    var kinds = 0;
+    for (var kq in c) if (Object.prototype.hasOwnProperty.call(c, kq) && c[kq] >= 3) kinds++;
+    return kinds >= 2;
+  };
+  var order = [], firstSt = null;
+  for (var t0 = 0; t0 < Math.min(3, ranked.length); t0++) order.push(t0);
+  var stCache = {};
+  if (CFG.CAT_PREFER_MIX !== false && order.length > 1) {
+    var s0 = tabStats_(hub, ranked[0].name, CFG.MIN_PRIORITY);
+    stCache[0] = s0;
+    if (s0.rows.length >= 5 && !mixOk(s0.rows)) {
+      for (var t1 = 1; t1 < order.length; t1++) {
+        var s1 = tabStats_(hub, ranked[t1].name, CFG.MIN_PRIORITY);
+        stCache[t1] = s1;
+        if (s1.rows.length >= 5 && mixOk(s1.rows)) {
+          logLine_('انتخابِ دسته: «' + ranked[0].name + '» فقط یک نوع داشت؛ «' + ranked[t1].name +
+                   '» برای تلفیقِ نوع‌ها برگزیده شد.');
+          order = [t1].concat(order.filter(function (x) { return x !== t1; }));
+          break;
+        }
+      }
+    }
+  }
+  void firstSt;
+
   // فقط تبِ برنده خوانده می‌شود؛ اگر خالی از آب درآمد، سراغ بعدی
-  for (var t = 0; t < Math.min(3, ranked.length); t++) {
-    var st = tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
+  for (var oi = 0; oi < order.length; oi++) {
+    var t = order[oi];
+    var st = stCache[t] || tabStats_(hub, ranked[t].name, CFG.MIN_PRIORITY);
     if (st.rows.length < 5) continue;
     var picked = buildCandidates_(st.rows);
     var items = fetchRows_(st.sheet, ranked[t].name, picked.map(function (x) { return x.row; }));

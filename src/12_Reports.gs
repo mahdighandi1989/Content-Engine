@@ -1863,10 +1863,12 @@ function reportStale_(hub, days) {
       if (s !== RST.NEW && s.indexOf('تکرار') === -1) continue;
       if (String(v[RC.OWNER - 1]) === ROWNER_CODE) continue;
       if (!String(v[RC.INSTR - 1] || '').trim()) continue;   // ردیفِ اطلاعاتی
-      var last = String(v[RC.LAST_SEEN - 1] || v[RC.AT - 1] || '');
-      var t = 0;
-      try { t = new Date(last.replace(' ', 'T')).getTime(); } catch (eD) { t = 0; }
-      if (!t || t > cut) { out.kept++; continue; }
+      /* شیت تاریخ را **شیءِ Date** پس می‌دهد، نه متن (۸.۷۲). تا ۸.۷۱ این‌جا
+         `new Date(String(d).replace(' ', 'T'))` بود؛ رشتهٔ «Mon Aug 10 2026 …» با T
+         خراب و NaN می‌شد، و `!t` هر ردیف را «تازه» نگه می‌داشت — یعنی این در هرگز
+         هیچ ردیفی را نبست و ردیف‌های ۱۰ اوت دو ماه بعد هنوز باز بودند. */
+      var t = parseWhen_(v[RC.LAST_SEEN - 1] || v[RC.AT - 1] || '');
+      if (isNaN(t) || t > cut) { out.kept++; continue; }
       try {
         sh.getRange(r.row, RC.STATUS).setValue(RST.CLOSED);
         sh.getRange(r.row, RC.DONE).setValue(

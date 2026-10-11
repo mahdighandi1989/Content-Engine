@@ -147,4 +147,25 @@ if (!resumed || !made) throw new Error('watchdog failed');
 global.ScriptApp.newTrigger = realNT;
 global.__PROPS['PENDING_EPISODE'] = '';
 
+console.log('\n=== D) دستهٔ تک‌نوع جایش را به دستهٔ تلفیقی می‌دهد (۸.۷۲) ===');
+{
+  /* قسمتِ ۶۹: ۱۲ عکس، صفر ویدیو — دستهٔ برنده ویدیوی استفاده‌نشده نداشت. */
+  const keep = { ri: global.readIndex_, ts: global.tabStats_, fr: global.fetchRows_ };
+  global.__PROPS[PK.LAST_CATS] = '';
+  global.readIndex_ = () => [{ name: 'تک‌نوع', elig: 300, fresh: 50 }, { name: 'تلفیقی', elig: 200, fresh: 10 }];
+  const rowsOf = (kinds) => kinds.map((k, i) => ({ row: i + 2, kind: k, score: 80, ageDays: 1, fresh: true, used: false, refs: 0 }));
+  global.tabStats_ = (h, name, min, wantUsed) => wantUsed ? { sheet: {}, rows: [] } :
+    { sheet: { name }, rows: name === 'تک‌نوع' ? rowsOf(Array(20).fill('عکس'))
+                                                 : rowsOf(Array(10).fill('عکس').concat(Array(6).fill('ویدیو'))) };
+  global.fetchRows_ = (sh, title, rows) => rows.map((r) => ({ row: r, cat: title, id: title + r, kind: 'عکس', score: 80 }));
+  const p1 = pickCategory_(hub);
+  global.tabStats_ = (h, name, min, wantUsed) => wantUsed ? { sheet: {}, rows: [] } :
+    { sheet: { name }, rows: rowsOf(Array(20).fill('عکس')) };
+  const p2 = pickCategory_(hub);
+  Object.assign(global, { readIndex_: keep.ri, tabStats_: keep.ts, fetchRows_: keep.fr });
+  console.log('  برنده:', p1 && p1.title, '| وقتی هیچ‌کدام تلفیق ندارند:', p2 && p2.title);
+  if (!p1 || p1.title !== 'تلفیقی') throw new Error('single-kind winner kept despite a mixed runner-up');
+  if (!p2 || p2.title !== 'تک‌نوع') throw new Error('fallback must keep the original winner');
+}
+
 console.log('\n✅ همهٔ آزمون‌های مقیاس گذشت.');

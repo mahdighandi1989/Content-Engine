@@ -299,13 +299,21 @@ console.log('=== ۶) مسیرِ واقعی: از فایلِ وضعیتِ قسم�
   /* و جزوه‌ای که عقب مانده باشد، ناظر باید ببیندش. دو قسمتِ **واقعی** اضافه
      می‌شود، نه فقط دو عدد در ستون — چون شمارِ قسمت‌ها از خودِ پوشه خوانده
      می‌شود و ستون در دادهٔ واقعی قابلِ اتکا نیست. */
-  for (const n of [4, 5]) {
+  const mkEp = (n) => {
     const g = sf.createFolder('قسمت ' + n);
     g.createFile(Utilities.newBlob(JSON.stringify({
       epNum: n, seriesKey: 'kEp', seriesName: 'معرفت‌شناسی',
       ep: { title: 'د' + n, sections: [{ heading: 'ب', narration: 'م. د.' }] } }),
       'application/json', '_special.json'));
-  }
+  };
+  /* ۶.۱۵-ب (۸.۷۲) — درسِ امروز «عقب» نیست: جزوه‌اش همان شب ساخته می‌شود. با `behind > 0`
+     وارسیِ ۱۰ صبح هر روز یک درس عقب می‌دید و «۶ روز عقب» برای جزوه‌ای گزارش شد که هر شب
+     به‌روز شده بود. */
+  mkEp(4);
+  const probs1 = [];
+  handoutHealth_(probs1, []);
+  ok('۶.۱۵-ب یک درسِ در راه (امروز) ایراد نیست', probs1.length === 0, probs1.join(' | '));
+  mkEp(5);
   const probs2 = [];
   handoutHealth_(probs2, []);
   ok('۶.۱۶ ولی جزوهٔ عقب‌مانده گزارش می‌شود',
@@ -324,7 +332,12 @@ console.log('=== ۷) وصل‌بودن — وگرنه همهٔ بالا نمای
      ساخت کشته شود یک درس را بی‌صدا از جزوه می‌اندازد. */
   ok('۷.۳ اول بدهی، بعد ساخت', sp.indexOf('handoutDueAdd_(') < sp.indexOf('handoutRunDue_(1)'));
   ok('۷.۴ کارِ شبانه تورِ ایمنی است', su.indexOf('handoutRunDue_(') !== -1 &&
-     /nightHas_\(\d+, 'جزوهٔ مجموعه‌ها'\)/.test(su));
+     /nightHas_\([^,]+, 'جزوهٔ مجموعه‌ها'\)/.test(su));
+  /* ۷.۴-ب (۸.۷۲) — شبِ ۱۱ اکتبر بلوکِ جزوه با ۶۰ ثانیه وارد شد، دو درس بی سقفِ زمان ساخت و
+     اجرا را کشت. حالا با ۱۸۰ ثانیه وارد می‌شود و درسِ دوم فقط با بودجهٔ باقی‌مانده. */
+  ok('۷.۴-ب نگهبانِ ۱۸۰ ثانیه و بودجهٔ زمان برای handoutRunDue_ شبانه',
+     /nightHas_\(Number\(CFG\.HANDOUT_NIGHT_NEED_MS\) \|\| 180000, 'جزوهٔ مجموعه‌ها'\)/.test(su) &&
+     /handoutRunDue_\([^;]*, hdBudget\)/.test(su) && Number(CFG.HANDOUT_NIGHT_NEED_MS) >= 150000);
   ok('۷.۵ وضعیت به _STATUS.json می‌رود', he.indexOf('handoutStatus_()') !== -1);
   ok('۷.۶ و ناظر هر روز می‌سنجدش', he.indexOf('handoutHealth_(problems, notes)') !== -1);
   ok('۷.۷ دکمهٔ دستی هم هست', se.indexOf("'runHandoutBuild'") !== -1);

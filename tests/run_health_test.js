@@ -310,8 +310,28 @@ console.log('\n=== وارسیِ سلامت: بودجه و ردِ پا ===');
   Date.now = realNow;
   CFG.HEALTH_BUDGET_MS = keepB;
   ok('با وقتِ کم، بخش‌های اختیاری اعلام می‌شوند نه اینکه بی‌صدا بیفتند',
-     h3.problems.some(x => String(x).indexOf('وقت کم آورد') !== -1),
+     h3.problems.some(x => String(x).indexOf('وقت کم آورد') !== -1) ||
+     (h3.notes || []).some(x => String(x).indexOf('به اجرای پی‌آمد') !== -1),
      h3.problems.filter(x => String(x).indexOf('وقت کم') !== -1)[0] || 'هیچ');
+  /* ۸.۷۲ — از ۵ اکتبر هر روز «دورِ ۱۰ صبحِ یوتیوب» و «برداشتِ پلِ صدا» جا ماندند و فقط
+     گفته می‌شد. حالا به یک اجرای پی‌آمد سپرده می‌شوند، و آن اجرا واقعاً هر دو را می‌دود. */
+  const tailTrig = global.__TRIGGERS.filter(t => t.fn === 'healthTail' || (t.getHandlerFunction && t.getHandlerFunction() === 'healthTail'));
+  const job = JSON.parse(global.__PROPS[PK.HEALTH_TAIL] || 'null');
+  ok('۸.۷۲-۱ بخش‌های جامانده به تریگرِ پی‌آمد سپرده می‌شوند (نه فقط گفته)',
+     tailTrig.length === 1 && job && job.parts.indexOf('دورِ ۱۰ صبحِ یوتیوب') !== -1 &&
+     !h3.problems.some(x => /وقت کم آورد[^]*دورِ ۱۰ صبحِ یوتیوب/.test(String(x))),
+     JSON.stringify({ n: tailTrig.length, job: job, p: h3.problems.filter(x => /وقت کم/.test(String(x))) }));
+  const ran = { yt: 0, vb: 0 };
+  const keepYt = global.ytTick_, keepVb = global.vbrIngest_;
+  global.ytTick_ = () => { ran.yt++; return { published: 1, collected: 0 }; };
+  global.vbrIngest_ = () => { ran.vb++; return { got: [] }; };
+  global.__PROPS[PK.HEALTH_TAIL] = JSON.stringify({ parts: ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا'] });
+  const tr = healthTail();
+  global.ytTick_ = keepYt; global.vbrIngest_ = keepVb;
+  ok('۸.۷۲-۲ اجرای پی‌آمد هر دو بخش را می‌دود، کارش را پاک می‌کند و تریگرش را برمی‌دارد',
+     ran.yt === 1 && ran.vb === 1 && !global.__PROPS[PK.HEALTH_TAIL] &&
+     !global.__TRIGGERS.some(t => t.fn === 'healthTail' || (t.getHandlerFunction && t.getHandlerFunction() === 'healthTail')),
+     JSON.stringify({ ran, tr }));
   ok('ولی مُهرِ پایانی باز هم زده می‌شود',
      String(global.__PROPS[PK.HEALTH_STEP] || '').indexOf('تمام') === 0,
      String(global.__PROPS[PK.HEALTH_STEP] || ''));

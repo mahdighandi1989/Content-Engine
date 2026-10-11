@@ -6287,7 +6287,8 @@ function lvSceneOvFill_(d, ctx, left) {
   d.ovFillTries = (Number(d.ovFillTries) || 0) + 1;
   var batch = Math.max(2, Number(CFG.LV_OV_FILL_BATCH) || 8);
   var maxCalls = Math.max(1, Number(CFG.LV_OV_FILL_CALLS) || 3);
-  var got = 0, up = 0, calls = 0, answered = 0, rejected = 0;
+  var got = 0, up = 0, calls = 0, answered = 0, rejected = 0, why = {};
+  var rej = function (w) { rejected++; why[w] = (why[w] || 0) + 1; };
   var byN = {};
   for (var c = 0; c < cands.length; c++) byN[String(cands[c].n)] = cands[c];
   /* دسته‌ها در طولِ درس پخش‌اند: هر دسته از جاهای مختلفِ درس برمی‌دارد، نه هشت صحنهٔ
@@ -6300,7 +6301,11 @@ function lvSceneOvFill_(d, ctx, left) {
     var grp = groups[gi];
     var rest = want - got - up;
     var leftGroups = groups.length - gi;
-    var ask = Math.max(1, Math.min(grp.length, Math.ceil(rest / Math.min(leftGroups, maxCalls - calls))));
+    /* همهٔ کسری از هر دسته پرسیده می‌شود (۸.۷۲): مدل همیشه کمتر از خواسته می‌دهد، و
+       تقسیمِ کسری میانِ دسته‌ها یعنی هر دسته سه کارت خواست و یکی گرفت. حلقه سرِ `want`
+       می‌ایستد، پس بیش‌پرسیدن چیزی را از سقف رد نمی‌کند. */
+    var ask = Math.max(1, Math.min(grp.length, rest));
+    void leftGroups;
     var L = [];
     L.push('این‌ها صحنه‌های یک ویدئوی آموزشیِ فارسی‌اند. روی تصویرِ هر صحنه یک کارتِ نوشتاریِ ' +
            'کوچک و تمیز می‌تواند بنشیند — مثلِ اینفوگرافیکِ ویدئوهای آموزشیِ حرفه‌ای: بیننده با یک ' +
@@ -6324,7 +6329,8 @@ function lvSceneOvFill_(d, ctx, left) {
     L.push('• صحنهٔ «(روایت)» فقط headline یا quote — قصه فهرست و جدول نیست.');
     L.push('• `ovKeys` — ۱ یا ۲ واژهٔ کلیدی که **عیناً** در همان کارت آمده.');
     L.push('• فارسیِ معیار، جمله‌بندیِ روشن و کامل، اعداد فارسی. تکرارِ واژه‌به‌واژهٔ روایت نه؛ چکیده.');
-    L.push('• `n` همان شمارهٔ صحنه.');
+    L.push('• **طول سد است، نه پیشنهاد:** `ovTitle` حداکثر ۴۰ نویسه (نقل ۱۰۰)، هر سطر حداکثر ۷۰ نویسه، `ovA`/`ovB` حداکثر ۲۰ — بلندتر کامل رد می‌شود، کوتاه نمی‌شود.');
+    L.push('• `n` همان شمارهٔ صحنه، فقط عدد.');
     calls++;
     var r = null, err = '';
     try { r = geminiText_(L.join('\n'), schema, 6144, { exact: true }); }
@@ -6337,34 +6343,40 @@ function lvSceneOvFill_(d, ctx, left) {
       var it = r.items[k] || {};
       var nn = String(it.n || '').replace(/[^0-9۰-۹]/g, '').replace(/[۰-۹]/g, function (z) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(z); });
       var sc = byN[String(Number(nn))];
-      if (!sc || sc.__ovNew) continue;
+      /* شمارهٔ ناشناخته هم رد است و شمرده می‌شود (۸.۷۲) — تا ۸.۷۱ بی‌صدا کنار می‌رفت، و
+         «۱ رد شد» در درسِ ۶۶ نمی‌گفت بقیهٔ پاسخ کجا رفت. */
+      if (!sc) { rej('شمارهٔ صحنه'); continue; }
+      if (sc.__ovNew) { rej('تکرار'); continue; }
       var o = lvSceneOvNorm_(it, sc.text);
-      if (!o) { rejected++; continue; }
+      if (!o) { rej('شکل یا طول'); continue; }
       /* «هرگز تیترِ تنها» — در کد، نه فقط در پرامپت. */
-      if (o.kind === 'headline' && !o.lines.length) { rejected++; continue; }
-      if (story(sc) && lvOvStruct_(o) ) { rejected++; continue; }
+      if (o.kind === 'headline' && !o.lines.length) { rej('تیترِ تنها'); continue; }
+      if (story(sc) && lvOvStruct_(o) ) { rej('فهرست روی روایت'); continue; }
       var upgrade = !!sc.ov;
-      if (upgrade && !lvOvStruct_(o)) { rejected++; continue; }
-      if (!upgrade && lvOvWeak_(o) && weakNow >= weakMax) { rejected++; continue; }
+      if (upgrade && !lvOvStruct_(o)) { rej('ارتقای بی‌ساختار'); continue; }
+      if (!upgrade && lvOvWeak_(o) && weakNow >= weakMax) { rej('سقفِ تیتر و نقل'); continue; }
       o.side = sc.judge.space;
       if (upgrade) { weakNow--; up++; sc.ovUp = 1; } else { got++; if (lvOvWeak_(o)) weakNow++; }
       sc.ov = o; sc.ovFill = 1; sc.__ovNew = 1; gotHere++;
     }
-    /* دسته‌ای که هیچ کارتِ پذیرفتنی نداد، یعنی دسته‌های بعد هم پولِ هدر است — همان «یک
-       بار، نه تا کافی شود» (۸۵.۴-ب). */
-    if (!gotHere) break;
+    /* **پاسخِ خالی** یعنی مدل چیزی برای گفتن ندارد و دسته‌های بعد پولِ هدر است (۸۵.۴-ب).
+       ولی پاسخی که داشت و همه‌اش رد شد، فقط همان دسته بود: درسِ ۶۶ از ۹ کارتِ خواسته یک
+       جواب گرفت، همان رد شد، و پر کردن همان‌جا با ۳ کارت روی ۳۴ صحنه تمام شد (۸.۷۲). */
+    if (!r.items.length) break;
+    void gotHere;
   }
   for (var z2 = 0; z2 < d.scenes.length; z2++) delete d.scenes[z2].__ovNew;
   if (got || up) d.ovN = lvSceneOvTrim_(d.scenes, share);
   out.got = got; out.up = up;
-  if (!out.why && !got && !up) out.why = answered ? 'مدل کارتِ پذیرفتنی نداد' + (rejected ? ' (' + rejected + ' رد شد)' : '') : '';
+  var whyTxt = Object.keys(why).map(function (w) { return w + ' ' + why[w]; }).join('، ');
+  if (!out.why && !got && !up) out.why = answered ? 'مدل کارتِ پذیرفتنی نداد' + (rejected ? ' (' + rejected + ' رد شد: ' + whyTxt + ')' : '') : '';
   /* شکستِ واقعی (مدل جواب نداد) یک بارِ دیگر در اجرای بعد؛ هر چیزِ دیگر ثبت و تمام. */
   if (answered || d.ovFillTries >= 2) {
     d.ovFillAt = nowStr_();
     d.ovFill = { asked: want, got: got, up: up, why: out.why, have: have, target: target, calls: calls,
                  weak: d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length,
                  struct: d.scenes.filter(function (x) { return lvOvStruct_(x.ov); }).length,
-                 rejected: rejected };
+                 rejected: rejected, rejWhy: why };
   }
   return out;
 }

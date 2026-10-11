@@ -1711,4 +1711,22 @@ console.log('\n=== ۲۶) همزهٔ اضافه و مدارشکن — دو علت
      JSON.stringify({ bare: d.r.dead, sparse: e2.r.dead }));
 }
 
+/* ══ ۳۰ — ترمیمِ اعراب: «بی‌تغییر» دورِ دوم می‌گیرد، و نشانهٔ عبری رد نمی‌کند (۸.۷۲) ══
+   ده قسمتِ تا ۱۱ اکتبر: ۱۱۴۲ واژه پرسیده شد، ۴۸۷ بی‌تغییر برگشت و بی‌صدا کنار رفت؛
+   «روشن ⇒ روֹشَن» به‌خاطرِ حولمِ عبری کامل رد شد. پوششِ واژه‌ای ۸٫۸٪ ماند (سقف ۸). */
+{
+  const gw = global.geminiText_; let n = 0;
+  global.geminiText_ = (prompt) => { n++; return n === 1 ? { w: ['بیست', 'روֹشَن'] } : { w: ['بیسْت'] }; };
+  const r = speakFillBare_('بیست روز روشن', ['بیست', 'روشن']);
+  global.geminiText_ = gw;
+  ok('۳۰.۱ واژهٔ بی‌تغییر دورِ دوم می‌گیرد و می‌نشیند', n === 2 && !!r && r.t.indexOf('بیسْت') !== -1, JSON.stringify({ n, r }));
+  ok('۳۰.۲ نشانهٔ عبری برداشته می‌شود و واژه رد نمی‌شود', !!r && r.t.indexOf('روشَن') !== -1 && r.t.indexOf('ֹ') === -1 &&
+     SPEAK_FILL_LAST_.r === 0 && SPEAK_FILL_LAST_.s === 1 && SPEAK_FILL_LAST_.s2 === 1, JSON.stringify(SPEAK_FILL_LAST_));
+  let n3 = 0;
+  global.geminiText_ = () => { n3++; return { w: ['سَاخْتار'] }; };
+  speakFillBare_('متنِ ساختار', ['ساختار']);
+  global.geminiText_ = gw;
+  ok('۳۰.۳ وقتی همه علامت گرفتند، دورِ دوم پرسیده نمی‌شود', n3 === 1);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

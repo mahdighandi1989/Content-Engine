@@ -494,6 +494,17 @@ console.log('=== درِ خروجِ خودکار برای ردیفِ کهنه (۶
   ok('ردیفِ اطلاعاتیِ بی‌دستور هم نه',
      String(sh.getRange(rInfo, RC.STATUS).getValue()) === RST.NEW);
 
+  /* ۸.۷۲ — شیتِ واقعی تاریخ را **شیءِ Date** پس می‌دهد. سنجهٔ بالا با رشته ساخته شده بود
+     و همین شکلِ دست‌ساز بود که نگذاشت ببینیم این در هیچ ردیفی را نمی‌بست: «Mon Aug 10 …»
+     با replace(' ', 'T') خراب و NaN می‌شد و `!t` ردیف را «تازه» نگه می‌داشت. */
+  const rDate = mkRow('DATEOBJ', 40, ROWNER_ENGINE, 'این را رعایت کن', RST.NEW);
+  const d40 = new Date(Date.now() - 40 * 86400000);
+  sh.getRange(rDate, RC.AT).setValue(d40); sh.getRange(rDate, RC.LAST_SEEN).setValue(d40);
+  const resD = reportStale_(hub, 21);
+  ok('۸.۷۲ ردیفی که تاریخش شیءِ Date است (شکلِ واقعیِ شیت) هم بسته می‌شود',
+     String(sh.getRange(rDate, RC.STATUS).getValue()) === RST.CLOSED && resD.closed === 1,
+     JSON.stringify(resD) + ' ' + String(sh.getRange(rDate, RC.STATUS).getValue()));
+
   /* ══ مهم‌ترین بند: بستن باید بازگشت‌پذیر باشد ══
      رفت‌وبرگشتِ واقعی، نه ردیفِ دست‌ساز — چون اثرِ انگشت را خودِ کد می‌سازد و
      ردیفی که با اثرِ انگشتِ ساختگی بسته شود، هرگز همان ردیف شناخته نمی‌شود

@@ -3344,7 +3344,11 @@ function handoutHealth_(problems, notes) {
 
   for (var i = 0; i < st.series.length; i++) {
     var r = st.series[i];
-    var lagging = r.missing || r.behind > 0 || r.abandoned > 0;
+    /* درسِ امروز «عقب» نیست (۸.۷۲): جزوه‌اش همان شب ساخته می‌شود و وارسیِ ۱۰ صبح همیشه
+       آن را بیرون می‌بیند. با `behind > 0` هر روز دستِ‌کم یک درس عقب بود، شمارِ روزها هرگز
+       صفر نمی‌شد و «۶ روز عقب» برای جزوه‌ای گزارش می‌شد که هر شب به‌روز شده بود. */
+    var grace = Math.max(0, Number(CFG.HANDOUT_LAG_GRACE) >= 0 ? Number(CFG.HANDOUT_LAG_GRACE) : 1);
+    var lagging = r.missing || r.behind > grace || r.abandoned > 0;
     if (!lagging) { delete lag[r.key]; continue; }
     if (!lag[r.key]) lag[r.key] = today;
     var days = dayNo(today) - dayNo(String(lag[r.key]));

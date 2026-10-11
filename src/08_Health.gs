@@ -1357,6 +1357,58 @@ function healthDeadCheck_(hub) {
   return st;
 }
 
+/* ═══ اجرای پی‌آمدِ وارسیِ سلامت (۸.۷۲) ═══ */
+var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا'];
+
+/** آنچه از `skipped` به اجرای پی‌آمد سپرده شد (فهرستِ نام‌ها؛ خالی یعنی هیچ). */
+function healthTailArm_(skipped) {
+  var take = (skipped || []).filter(function (x) { return HEALTH_TAIL_PARTS_.indexOf(x) !== -1; });
+  if (!take.length) return [];
+  try {
+    props_().setProperty(PK.HEALTH_TAIL, JSON.stringify({ parts: take, at: nowStr_() }));
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) {
+      if (ts[i].getHandlerFunction() === 'healthTail') ScriptApp.deleteTrigger(ts[i]);
+    }
+    ScriptApp.newTrigger('healthTail').timeBased().after(60000).create();
+  } catch (e) {
+    try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت زمان‌بندی نشد: ' + e.message); } catch (e2) {}
+    return [];
+  }
+  return take;
+}
+
+/** تریگرِ یک‌بارمصرف: همان بخش‌هایی که وارسیِ ۱۰ صبح وقتشان را نداشت. */
+function healthTail() {
+  var out = { ran: [], why: '' };
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) {
+      if (ts[i].getHandlerFunction() === 'healthTail') ScriptApp.deleteTrigger(ts[i]);
+    }
+  } catch (eD) {}
+  var job = null;
+  try { job = JSON.parse(props_().getProperty(PK.HEALTH_TAIL) || 'null'); } catch (eJ) { job = null; }
+  try { props_().deleteProperty(PK.HEALTH_TAIL); } catch (eX) {}
+  var parts = (job && job.parts) || [];
+  var t0 = new Date().getTime();
+  var left = function () { return 300000 - (new Date().getTime() - t0); };
+  if (parts.indexOf('دورِ ۱۰ صبحِ یوتیوب') !== -1) {
+    try {
+      var y = ytTick_(Math.min(200000, left() - 60000));
+      out.ran.push('یوتیوب: ' + (y.published || 0) + ' منتشر، ' + (y.collected || 0) + ' برداشته');
+    } catch (eY) { out.why += 'یوتیوب: ' + String(eY.message).slice(0, 80) + ' '; }
+  }
+  if (parts.indexOf('برداشتِ پلِ صدا') !== -1 && left() > 60000) {
+    try {
+      var v = vbrIngest_(getHub_());
+      out.ran.push('پلِ صدا: ' + ((v && v.got && v.got.length) || 0) + ' برداشته');
+    } catch (eV) { out.why += 'پلِ صدا: ' + String(eV.message).slice(0, 80); }
+  }
+  try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت: ' + (out.ran.join(' · ') || 'هیچ') + (out.why ? ' — ' + out.why : '')); } catch (eL) {}
+  return out;
+}
+
 function healthLeft_() {
   if (!_healthT0) healthStart_();
   var budget = Math.max(60000, Number(CFG.HEALTH_BUDGET_MS) || 280000);
@@ -1983,14 +2035,15 @@ function healthCheck() {
   // ۳-ب) حلقهٔ گزارش ← اقدام
   var rp = st.reports;
   if (rp) {
-    if (rp.needsCode) {
-      var noTg = 0;
-      for (var ci = 0; ci < rp.codeItems.length; ci++) {
-        if (String(rp.codeItems[ci].telegram).indexOf('ارسال شد') === -1) noTg++;
-      }
-      problems.push('‏' + rp.needsCode + ' مورد در انتظار تعویض کد است: «' +
-        rp.codeItems[0].title.slice(0, 90) + '»' +
-        (noTg ? ' — و برای ' + noTg + ' موردش هشدار تلگرام نرفته' : '') + '.');
+    /* «در انتظار» یعنی **دیده‌شده در ۱۴ روزِ اخیر** (۸.۷۲) — همان مرزِ `codeQueue_`.
+       تا ۸.۷۱ این جمله همهٔ ردیف‌ها را می‌شمرد، از جمله ۹۹ ردیفِ ساکت (تا ۴۷ روز
+       دیده‌نشده)، پس عدد هرگز پایین نمی‌آمد و هر روز «مزمن» می‌شد؛ ساکت‌ها در خطِ
+       `codeQueue` جدا گفته می‌شوند. */
+    var cqP = (st.codeQueue && typeof st.codeQueue.pending === 'number') ? st.codeQueue.pending : rp.needsCode;
+    if (rp.needsCode && cqP) {
+      problems.push('‏' + cqP + ' مورد در انتظار تعویض کد است (دیده‌شده در ' +
+        (Number(CFG.CODE_QUIET_DAYS) || 14) + ' روزِ اخیر)' +
+        (st.codeQueue && st.codeQueue.task ? ': «' + String(st.codeQueue.task.title || '').slice(0, 90) + '»' : '') + '.');
     }
     if (rp.open) {
       /* ══ جمله‌ای که کارِ نکرده را انجام‌شده نشان می‌داد (۶٫۸۶) ══
@@ -2591,9 +2644,20 @@ function healthCheck() {
   /* کارِ جامانده **گفته می‌شود**. سطرِ روزانه‌ای که بی‌صدا نیاید، خواننده را
      به این نتیجه می‌رساند که آن زیرسامانه ساکت و سالم است — و همان است که
      دو روز هیچ‌کس نفهمید وارسی اصلاً تمام نشده. */
-  if (skipped.length) {
+  /* ══ جاماندنِ پی‌درپی جاماندن نیست، اگر کسی بعدش انجامش دهد (۸.۷۲) ══
+     از ۵ اکتبر هر روز «دورِ ۱۰ صبحِ یوتیوب» و «برداشتِ پلِ صدا» جا ماندند و همین جمله
+     هر روز «ایرادِ مزمن» شد. گفتن کافی نبود — کار انجام نمی‌شد. حالا همان دو بخش به یک
+     اجرای جدا با شش دقیقهٔ تازه سپرده می‌شوند و فقط آنچه سپرده نشد ایراد است. */
+  var tailed = [];
+  if (skipped.length) { try { tailed = healthTailArm_(skipped); } catch (eTa) { tailed = []; } }
+  var still = skipped.filter(function (x) { return tailed.indexOf(x) === -1; });
+  if (tailed.length) {
+    notes.push('وارسیِ سلامت وقتِ این بخش‌ها را نداشت و به اجرای پی‌آمد (یک دقیقه بعد) سپرد: ' +
+               tailed.join('، ') + '.');
+  }
+  if (still.length) {
     problems.push('وارسیِ سلامت وقت کم آورد و این بخش‌ها امروز اجرا نشدند: ' +
-                  skipped.join('، ') + '. (کلِ اجرا ' +
+                  still.join('، ') + '. (کلِ اجرا ' +
                   Math.round((new Date().getTime() - _healthT0) / 1000) + ' ثانیه)');
   }
   /* ══ ایرادِ مزمن (۸.۳۲) ══
