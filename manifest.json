@@ -1,104 +1,103 @@
 {
- "version": "8.70",
- "codeFile": "engine.gs",
- "sha256": "1d00dfa439fb84fba9a0dffe36861fa802ed2c43a301b49a244ea443ac125b5c",
- "releasedAt": "2026-10-11",
- "summary": "آپلودِ یوتیوبی که پیش از ثبت کشته شد دوباره آپلود نمی‌شود (قسمتِ ۶۶ دو بار بالا رفت)، تکراری‌های موجود با «ماندنی» کنار می‌روند، و پیمایشِ عنوانِ یک‌شکل سهمِ روزانهٔ ثابت دارد.",
- "fixes": [
-  "ytUpPending_/ytUpPendingSet_/ytUpPendingClear_: شناسهٔ آپلود همان لحظه؛ دورِ بعد همان ویدئو را تمام می‌کند",
-  "ytRetireTick_: dup + keepVid — variety:66 و special:63 (مرورِ آئودی) یک نسخه می‌مانند؛ ماندنی ثبت و عمومی",
-  "ytTitleSweep_: YT_TITLE_DAY_UNITS — سهمِ ثابتِ روزانه، چون ذخیرهٔ انتشار هرگز جا نمی‌گذاشت"
- ],
- "sourceReportIds": [],
- "promptImpact": [],
- "answers": {
-  "7.48": [
-   "tts-cue-unsupported"
+  "version": "8.71",
+  "codeFile": "engine.gs",
+  "sha256": "b5351850ecc729a4a72c5d275666e63fa33acc1806de351dcf746d1d90782f93",
+  "releasedAt": "2026-10-11T07:20:00Z",
+  "summary": "هشدارِ «تصویرهای قسمت کامل نشده» برای قسمتی که ویدئویش رسیده یا منتشر شده بود، پاک می‌شود (special:62 و special:16 چهار روز گزارش می‌شدند).",
+  "fixes": [
+    "ytUploadOne_: با رسیدنِ ویدئو lvWaitClear_ — پاک‌کردن تا ۸.۷۰ فقط در شاخهٔ «ویدئو نیامده» بود",
+    "lvWaitPrune_ در ytTick_: منتظری که دیگر در صفِ انتشار نیست برداشته می‌شود"
   ],
-  "7.49": [
-   "handout-roadmap-title-match-miss"
-  ],
-  "7.53": [
-   "embed-stalled"
-  ],
-  "7.56": [
-   "tts-cue-unsupported"
-  ],
-  "7.57": [
-   "code-queue-stuck"
-  ],
-  "7.66": [
-   "voice-bridge-stuck"
-  ],
-  "7.68": [
-   "music-unheard"
-  ],
-  "7.79": [
-   "tts-cue-unsupported"
-  ],
-  "7.81": [
-   "voice-pitch-global"
-  ],
-  "7.82": [
-   "voice-pitch-manual-only"
-  ],
-  "7.84": [
-   "voice-soul-manual-only"
-  ],
-  "7.89": [
-   "tts-cue-unsupported"
-  ],
-  "7.90": [],
-  "7.91": [],
-  "7.99": [],
-  "8.00": [],
-  "8.01": [],
-  "8.02": [],
-  "8.03": [
-   "music-unheard"
-  ],
-  "8.04": [
-   "speak-bare-words"
-  ],
-  "8.05": [
-   "capability-monitoring-missing"
-  ],
-  "8.06": [
-   "enrich-misattributed",
-   "voice-folder-open"
-  ],
-  "8.07": [
-   "tts-cue-leak",
-   "tts-cue-prefix-readaloud"
-  ],
-  "8.08": [],
-  "8.09": [],
-  "8.10": [],
-  "8.11": [],
-  "8.12": [],
-  "8.13": [],
-  "8.32": [
-   "music-unheard",
-   "monitor-check-silent"
-  ],
-  "8.33": [
-   "sq-empty-photo",
-   "sq-empty-video"
-  ],
-  "8.34": [
-   "run-died"
-  ],
-  "8.35": [
-   "capability-idle-recap"
-  ],
-  "8.54": [
-   "music-unheard"
-  ],
-  "8.64": [
-   "handout-stuck"
-  ],
-  "8.66": [
-   "chronic-9e9343a8"
-  ]
- }
+  "sourceReportIds": [],
+  "promptImpact": [],
+  "answers": {
+    "7.48": [
+      "tts-cue-unsupported"
+    ],
+    "7.49": [
+      "handout-roadmap-title-match-miss"
+    ],
+    "7.53": [
+      "embed-stalled"
+    ],
+    "7.56": [
+      "tts-cue-unsupported"
+    ],
+    "7.57": [
+      "code-queue-stuck"
+    ],
+    "7.66": [
+      "voice-bridge-stuck"
+    ],
+    "7.68": [
+      "music-unheard"
+    ],
+    "7.79": [
+      "tts-cue-unsupported"
+    ],
+    "7.81": [
+      "voice-pitch-global"
+    ],
+    "7.82": [
+      "voice-pitch-manual-only"
+    ],
+    "7.84": [
+      "voice-soul-manual-only"
+    ],
+    "7.89": [
+      "tts-cue-unsupported"
+    ],
+    "7.90": [],
+    "7.91": [],
+    "7.99": [],
+    "8.00": [],
+    "8.01": [],
+    "8.02": [],
+    "8.03": [
+      "music-unheard"
+    ],
+    "8.04": [
+      "speak-bare-words"
+    ],
+    "8.05": [
+      "capability-monitoring-missing"
+    ],
+    "8.06": [
+      "enrich-misattributed",
+      "voice-folder-open"
+    ],
+    "8.07": [
+      "tts-cue-leak",
+      "tts-cue-prefix-readaloud"
+    ],
+    "8.08": [],
+    "8.09": [],
+    "8.10": [],
+    "8.11": [],
+    "8.12": [],
+    "8.13": [],
+    "8.32": [
+      "music-unheard",
+      "monitor-check-silent"
+    ],
+    "8.33": [
+      "sq-empty-photo",
+      "sq-empty-video"
+    ],
+    "8.34": [
+      "run-died"
+    ],
+    "8.35": [
+      "capability-idle-recap"
+    ],
+    "8.54": [
+      "music-unheard"
+    ],
+    "8.64": [
+      "handout-stuck"
+    ],
+    "8.66": [
+      "chronic-9e9343a8"
+    ]
+  }
 }

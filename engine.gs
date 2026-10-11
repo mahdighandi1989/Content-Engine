@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.70
+ *  موتور محتوا و پادکست — نسخهٔ 8.71
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1997,7 +1997,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.70',
+  CODE_VERSION: '8.71',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -51398,6 +51398,26 @@ function lvWaitNote_(key, vis) {
   return lvMapSave_(PK.LV_WAIT, m);
 }
 
+/**
+ * منتظری که دیگر در صفِ انتشار نیست، منتظرِ هیچ چیز نیست (۸.۷۱). قسمتی که از
+ * راهِ دیگری منتشر شد یا از صف افتاد، این‌جا می‌ماند و هشدارِ «تصویر کامل
+ * نشده» را تا ابد نگه می‌داشت — حافظه‌ای که خودش خالی نشود، هشدارش همیشگی
+ * می‌شود. فقط Properties؛ نه درایو، نه شیت.
+ */
+function lvWaitPrune_() {
+  var m = lvMap_(PK.LV_WAIT), due = {}, n = 0;
+  var dl = ytDueList_();
+  for (var i = 0; i < dl.length; i++) {
+    due[String(dl[i].key || (String(dl[i].show) + ':' + String(dl[i].ep)))] = 1;
+  }
+  for (var k in m) {
+    if (!Object.prototype.hasOwnProperty.call(m, k) || due[k]) continue;
+    delete m[k]; n++;
+  }
+  if (n) lvMapSave_(PK.LV_WAIT, m);
+  return n;
+}
+
 function lvWaitClear_(key) {
   var m = lvMap_(PK.LV_WAIT), k = String(key || '');
   if (!m[k]) return false;
@@ -56223,6 +56243,10 @@ function ytUploadOne_(item, hub, pub) {
 
   // ── ویدئو رسیده؟ ──
   var video = ytVideoIn_(folder);
+  /* ویدئو رسیده یعنی انتظارِ تصویر تمام است (۸.۷۱). پاک‌کردن تا ۸.۷۰ فقط درونِ
+     شاخهٔ «ویدئو هنوز نیامده» بود؛ ویدئوی صحنه‌ای که رانر ساخت از آن شاخه
+     نمی‌گذرد، پس special:62 پس از انتشار هم روزها «منتظرِ تصویر» گزارش می‌شد. */
+  if (video) { try { lvWaitClear_(item.key || (String(item.show) + ':' + String(item.ep))); } catch (eWv) {} }
   if (!video) {
     /* مجموعهٔ ناقصِ تصویر درخواست نمی‌شود — ولی بی‌نهایت هم صبر نمی‌کند.
        قسمت همین‌الان منتظرِ ویدئو است، پس یک اجرای دیگر صبر کردن هزینه‌ای
@@ -57722,6 +57746,7 @@ function ytTick_(budgetMs) {
     try { ytRetireTick_(Math.min(30000, left() - 25000)); }
     catch (eRt) { out.why += (out.why ? ' · ' : '') + 'کنارگذاشتن: ' + String(eRt.message).slice(0, 60); }
   }
+  try { lvWaitPrune_(); } catch (eLw) {}
   if (left() > 25000) {
     try {
       var r = ytRunDue_(1, Math.max(20000, left() - 15000));

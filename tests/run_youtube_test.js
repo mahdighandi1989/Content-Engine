@@ -9450,4 +9450,27 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   global.__PROPS[PK.YT_PL] = plWas; global.__STUB = BASE_STUB; global.getHub_ = hubWas; global.YouTube = {};
 }
 
+/* ══ ۹۵ — «منتظرِ تصویر» پس از رسیدنِ ویدئو و پس از افتادن از صف پاک می‌شود (۸.۷۱) ══
+   سلامتِ ۱۱ اکتبر: «تصویرهای ۲ قسمت ۴ روز است کامل نشده: special:62 (16/16) | special:16 (12/12)».
+   special:62 از راهِ جایگزینی منتشر شده بود؛ پاک‌کردن فقط درونِ شاخهٔ «ویدئو نیامده» بود. */
+{
+  const dueWas = global.__PROPS[PK.YT_DUE];
+  global.__PROPS[PK.LV_WAIT] = JSON.stringify({ 'special:62': { at: '2026/10/07 03:00', ready: 16, want: 16 },
+                                                 'special:16': { at: '2026/10/07 03:00', ready: 12, want: 12 } });
+  global.__PROPS[PK.YT_DUE] = JSON.stringify([{ key: 'special:16', show: 'special', ep: '16' }]);
+  const n = lvWaitPrune_();
+  const w = JSON.parse(global.__PROPS[PK.LV_WAIT] || '{}');
+  ok('۹۵.۱ منتظرِ بیرون از صف (special:62، منتشرشده) پاک می‌شود؛ منتظرِ درونِ صف (special:16) می‌مانَد',
+     n === 1 && !w['special:62'] && !!w['special:16'] && lvStatus_().waiting === 1, JSON.stringify({ n, w }));
+  ok('۹۵.۲ بی هیچ تغییری چیزی نوشته نمی‌شود', lvWaitPrune_() === 0);
+  const up = String(ytUploadOne_), iV = up.indexOf('var video = ytVideoIn_(folder);');
+  const after = up.slice(iV, up.indexOf('if (!video)', iV));
+  ok('۹۵.۳ ytUploadOne_: ویدئو که رسیده، منتظرِ تصویر همان‌جا پاک می‌شود — پیش از شاخهٔ «ویدئو نیامده»',
+     iV !== -1 && /if \(video\)[^\n]*lvWaitClear_\(/.test(after), after.slice(0, 200));
+  const tk = String(ytTick_);
+  ok('۹۵.۴ ytTick_ پیش از انتشار lvWaitPrune_ را صدا می‌زند',
+     tk.indexOf('lvWaitPrune_()') !== -1 && tk.indexOf('lvWaitPrune_()') < tk.indexOf('ytRunDue_('));
+  global.__PROPS[PK.YT_DUE] = dueWas; global.__PROPS[PK.LV_WAIT] = '';
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
