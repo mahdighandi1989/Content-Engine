@@ -9501,4 +9501,55 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   ok('۹۶.۳ از هر دسته همهٔ کسری پرسیده می‌شود، نه سهمی از آن', Number(asks[0]) === 8, JSON.stringify(asks));
 }
 
+/* ══ ۹۷ — کنارگذاشتنی که نسخهٔ قدیمی اشتباه انجام داد، دوباره و درست انجام می‌شود (۸.۷۳) ══
+   ۱۱ اکتبر ۸.۶۹ فهرستِ تازه را خواند، ماندنیِ مرورِ آئودی (XNN) را کنار گذاشت و `done` زد؛ نسخهٔ کارتی (HeCZ)
+   در پلی‌لیست ماند. */
+{
+  const hub = new Spread('هاب-۹۷');
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '63', series: 'آئودی', title: 'مرور', videoId: 'XNN',
+                url: 'https://youtu.be/XNN', privacy: 'public', result: 'منتشر شد' });
+  global.__PROPS[PK.YT_RETIRE] = JSON.stringify({ 'special:63': { phase: 'done', at: '2026-10-11 03:00', videoId: 'XNN', pulled: 1 } });
+  delete global.__PROPS[PK.YT_QUOTA];
+  const rc = { upd: [], rm: [], ins: [] };
+  global.YouTube = {
+    Videos: { list: () => ({ items: [] }), update: (b) => { rc.upd.push(b.id + '=' + b.status.privacyStatus); } },
+    PlaylistItems: { list: () => ({ items: [{ id: 'PI-41', snippet: { position: 41, resourceId: { videoId: 'L41' } } },
+                                            { id: 'PI-H', snippet: { position: 42, resourceId: { videoId: 'HECZ' } } }] }),
+                     remove: (id) => { rc.rm.push(id); },
+                     insert: (b) => { rc.ins.push(b.snippet.resourceId.videoId + '@' + b.snippet.position); } },
+    Playlists: {}, Channels: { list: () => ({ items: [] }) }, Thumbnails: {} };
+  const plWas = global.__PROPS[PK.YT_PL];
+  global.__PROPS[PK.YT_PL] = JSON.stringify({ 'series:آئودی': { id: 'PLA', title: 'آئودی' } });
+  YT_RETIRE_LIST_ = null;
+  const stubWas = global.__STUB;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('yt-retire.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:63': { why: 'تکراری', keepVid: 'XNN', dup: ['HECZ'] } } }) };
+    return stubWas(url, body);
+  };
+  const r = ytRetireTick_(60000, hub);
+  const st = JSON.parse(global.__PROPS[PK.YT_RETIRE])['special:63'];
+  ok('۹۷.۱ «done»ِ نسخهٔ قدیمی با دستورِ تازه دوباره اجرا می‌شود: کارتی بیرون و خصوصی، ماندنی عمومی',
+     r.done === 1 && JSON.stringify(rc.rm) === '["PI-H"]' && rc.upd.indexOf('HECZ=private') !== -1 && rc.upd.indexOf('XNN=public') !== -1,
+     JSON.stringify({ r, rc }));
+  ok('۹۷.۲ ماندنیِ بیرون‌مانده جای همان تکراری در پلی‌لیست می‌نشیند', JSON.stringify(rc.ins) === '["XNN@42"]' && st.keepIn === true,
+     JSON.stringify({ ins: rc.ins, st }));
+  rc.rm.length = 0; rc.ins.length = 0;
+  const r2 = ytRetireTick_(60000, hub);
+  ok('۹۷.۳ و با همان دستور، دوباره اجرا نمی‌شود', r2.checked === 0 && !rc.rm.length && !rc.ins.length, JSON.stringify(r2));
+  global.__PROPS[PK.YT_PL] = plWas; global.__STUB = stubWas; global.getHub_ = hubWas; global.YouTube = {};
+  delete global.__PROPS[PK.YT_RETIRE]; YT_RETIRE_LIST_ = null;
+}
+
+/* ══ ۹۸ — درسِ قدیمی پشتِ مجموعهٔ الفبایی‌جلوتر گرسنه نمی‌ماند (۸.۷۳) ══ */
+{
+  const q = ytDueOrder_([
+    { key: 'special:67', show: 'special', ep: '67', seriesName: 'Audi (2011) Epistemology' },
+    { key: 'special:16', show: 'special', ep: '16', seriesName: 'معرفت شناسی مجتبی مصباح' },
+    { key: 'special:68', show: 'special', ep: '68', seriesName: 'Audi (2011) Epistemology' },
+    { key: 'variety:69', show: 'variety', ep: '69' }, { key: 'variety:68', show: 'variety', ep: '68' }]);
+  ok('۹۸.۱ قسمتِ ۱۶ِ مصباح پیش از ۶۷ و ۶۸ِ آئودی؛ برنامه‌ها هنوز یکی‌درمیان؛ درونِ هر برنامه به ترتیبِ شماره',
+     q.map(x => x.key).join(' ') === 'special:16 variety:68 special:67 variety:69 special:68', q.map(x => x.key).join(' '));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

@@ -2455,10 +2455,15 @@ function ytDueOrder_(list) {
   }
   shows.sort();
   for (var g = 0; g < shows.length; g++) {
+    /* ══ قدیمی‌ترین قسمت اول، نه الفبای نامِ مجموعه (۸.۷۳) ══ «Audi…» (لاتین) همیشه پیش از
+       «معرفت…» می‌نشست؛ هر روز درسِ تازهٔ آئودی جلوی درسِ ۱۶ِ مصباح (قسمتِ ۱۶) می‌پرید و او روزها
+       در تهِ صف ماند. جای ویدئو در پلی‌لیست از شمارهٔ درس حساب می‌شود (۵٫۹۸)، نه از ترتیبِ آپلود،
+       پس این ترتیب فقط «چه کسی زودتر» را عوض می‌کند. شمارهٔ قسمت در هر برنامه سراسری است. */
     by[shows[g]].sort(function (a, b) {
+      var d = (Number(a.ep) || 0) - (Number(b.ep) || 0);
+      if (d) return d;
       var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
-      if (ka !== kb) return ka < kb ? -1 : 1;
-      return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+      return ka === kb ? 0 : (ka < kb ? -1 : 1);
     });
   }
   var out = [], idx = 0, more = true;
@@ -10209,7 +10214,13 @@ function ytRetireTick_(budgetMs, hubIn) {
   for (var i = 0; i < keys.length; i++) {
     if (new Date().getTime() - t0 > budget) break;
     var key = keys[i], cur = st[key] || {};
-    if (cur.phase === 'done' || cur.phase === 'skip') continue;
+    /* ══ «انجام‌شده» به نسخهٔ همان دستور بسته است (۸.۷۳) ══ ۱۱ اکتبر ۸.۶۹ (که `keepVid`
+       را نمی‌شناخت) فهرستِ ۸.۷۰ را خواند، ویدئوی **ثبت‌شده** را کنار گذاشت — یعنی همان که
+       باید می‌ماند — و `done` زد؛ ۸.۷۰ هم `done` را می‌دید و دیگر سراغش نمی‌آمد. حالا اگر
+       دستور (ماندنی/تکراری‌ها) با آنچه اجرا شد فرق کند، دوباره اجرا می‌شود. */
+    var sig = String(list[key].keepVid || '') + '|' + (list[key].dup || []).map(String).join(',');
+    var curSig = cur.sig !== undefined ? String(cur.sig) : (cur.keepVid !== undefined ? String(cur.keepVid || '') + '|' : '|');
+    if ((cur.phase === 'done' || cur.phase === 'skip') && curSig === sig) continue;
     out.checked++;
     try {
       if (!pub) pub = ytPublished_(hubIn || getHub_());
@@ -10225,14 +10236,16 @@ function ytRetireTick_(budgetMs, hubIn) {
       if (keepVid && gone.indexOf(keepVid) !== -1) throw new Error('ویدئوی ماندنی خودش در فهرستِ کنارگذاشتن است');
       yt = yt || ytSvc_();
       if (!yt) { out.notes.push(key + ': ' + ytOffWhy_()); break; }
-      var pulled = 0, pmap = ytPlMap_();
+      var pulled = 0, pmap = ytPlMap_(), slots = [], keepIn = false;
       for (var pk in pmap) {
         if (!Object.prototype.hasOwnProperty.call(pmap, pk) || !(pmap[pk] || {}).id) continue;
         var its = ytPlItems_(pmap[pk].id);
         for (var q = 0; q < its.length; q++) {
+          if (keepVid && String(its[q].videoId) === keepVid) keepIn = true;
           if (gone.indexOf(String(its[q].videoId)) === -1) continue;
           if (!ytQuotaTake_(YT_COST.itemsDelete, false)) throw new Error('سهمیهٔ امروز');
           yt.PlaylistItems.remove(its[q].id); pulled++;
+          slots.push({ pl: pmap[pk].id, pos: Number(its[q].position) || 0 });
         }
       }
       for (var gi = 0; gi < gone.length; gi++) {
@@ -10251,9 +10264,17 @@ function ytRetireTick_(budgetMs, hubIn) {
                  result: 'منتشر شد', note: 'ثبتِ ویدئوی ماندنی پس از کنار گذاشتنِ تکراری (۸.۷۰)' });
         }
         ytUpPendingClear_(showK + ':' + ep);
+        /* ماندنی‌ای که در هیچ پلی‌لیستی نیست، **جای همان تکراری** می‌نشیند (۸.۷۳) — وگرنه
+           قسمت از پلی‌لیست ناپدید می‌شد (۸.۶۹ ماندنیِ مرورِ آئودی را بیرون آورده بود). */
+        if (!keepIn) {
+          for (var sl = 0; sl < slots.length; sl++) {
+            var pr = ytPlPlace_(slots[sl].pl, keepVid, slots[sl].pos, []);
+            if (/افزوده/.test(pr)) keepIn = true;
+          }
+        }
       }
       st[key] = { phase: 'done', at: nowStr_(), videoId: gone.join(','), keepVid: keepVid, pulled: pulled,
-                  why: list[key].why, keep: list[key].keep };
+                  why: list[key].why, keep: list[key].keep, sig: sig, keepIn: keepIn };
       changed = true; out.done++;
       ytPlOrderDirty_();
       var msg = '🗂 ویدئوی تکراریِ ' + key + ' کنار رفت: خصوصی شد و از ' + pulled + ' پلی‌لیست بیرون آمد (پاک نشد).' +

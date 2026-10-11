@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.72
+ *  موتور محتوا و پادکست — نسخهٔ 8.73
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2000,7 +2000,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.72',
+  CODE_VERSION: '8.73',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2517,7 +2517,9 @@ var CFG = {
   SEARCH_MAX_COLS: 80,
   // سقفِ یک بلوکِ خواندن، بر حسبِ **سلول**. با ۸۰ ستون یعنی ~۷۵ ردیف.
   // قرینهٔ `SYNC_CHUNK_WIDE` که از روزِ اول برای همین اندازه‌ها بود.
-  SEARCH_BLOCK_CELLS: 6000,
+  // ۸.۷۳: ۶۰۰۰ سلول × تا ۱۱ هزار نویسه = ~۶۶ میلیون نویسه در یک getValues — یکی از دو علتِ
+  // «Out of memory error». ۱۵۰۰ یعنی ~۱۸ ردیف در هر بلوکِ ۸۰ستونی.
+  SEARCH_BLOCK_CELLS: 1500,
   // سقفِ کلِ ردیف‌هایی که در یک جست‌وجو **خوانده** می‌شوند
   SEARCH_ROWS_MAX: 2500,
   /* سقفِ واژه‌ها. تا ۷٫۵۰ دلیلش «۴۳ واژه یعنی ۴۳ پویشِ کامل در هر تب» بود؛
@@ -49313,10 +49315,15 @@ function ytDueOrder_(list) {
   }
   shows.sort();
   for (var g = 0; g < shows.length; g++) {
+    /* ══ قدیمی‌ترین قسمت اول، نه الفبای نامِ مجموعه (۸.۷۳) ══ «Audi…» (لاتین) همیشه پیش از
+       «معرفت…» می‌نشست؛ هر روز درسِ تازهٔ آئودی جلوی درسِ ۱۶ِ مصباح (قسمتِ ۱۶) می‌پرید و او روزها
+       در تهِ صف ماند. جای ویدئو در پلی‌لیست از شمارهٔ درس حساب می‌شود (۵٫۹۸)، نه از ترتیبِ آپلود،
+       پس این ترتیب فقط «چه کسی زودتر» را عوض می‌کند. شمارهٔ قسمت در هر برنامه سراسری است. */
     by[shows[g]].sort(function (a, b) {
+      var d = (Number(a.ep) || 0) - (Number(b.ep) || 0);
+      if (d) return d;
       var ka = String(a.seriesName || a.seriesKey || ''), kb = String(b.seriesName || b.seriesKey || '');
-      if (ka !== kb) return ka < kb ? -1 : 1;
-      return (Number(a.ep) || 0) - (Number(b.ep) || 0);
+      return ka === kb ? 0 : (ka < kb ? -1 : 1);
     });
   }
   var out = [], idx = 0, more = true;
@@ -57067,7 +57074,13 @@ function ytRetireTick_(budgetMs, hubIn) {
   for (var i = 0; i < keys.length; i++) {
     if (new Date().getTime() - t0 > budget) break;
     var key = keys[i], cur = st[key] || {};
-    if (cur.phase === 'done' || cur.phase === 'skip') continue;
+    /* ══ «انجام‌شده» به نسخهٔ همان دستور بسته است (۸.۷۳) ══ ۱۱ اکتبر ۸.۶۹ (که `keepVid`
+       را نمی‌شناخت) فهرستِ ۸.۷۰ را خواند، ویدئوی **ثبت‌شده** را کنار گذاشت — یعنی همان که
+       باید می‌ماند — و `done` زد؛ ۸.۷۰ هم `done` را می‌دید و دیگر سراغش نمی‌آمد. حالا اگر
+       دستور (ماندنی/تکراری‌ها) با آنچه اجرا شد فرق کند، دوباره اجرا می‌شود. */
+    var sig = String(list[key].keepVid || '') + '|' + (list[key].dup || []).map(String).join(',');
+    var curSig = cur.sig !== undefined ? String(cur.sig) : (cur.keepVid !== undefined ? String(cur.keepVid || '') + '|' : '|');
+    if ((cur.phase === 'done' || cur.phase === 'skip') && curSig === sig) continue;
     out.checked++;
     try {
       if (!pub) pub = ytPublished_(hubIn || getHub_());
@@ -57083,14 +57096,16 @@ function ytRetireTick_(budgetMs, hubIn) {
       if (keepVid && gone.indexOf(keepVid) !== -1) throw new Error('ویدئوی ماندنی خودش در فهرستِ کنارگذاشتن است');
       yt = yt || ytSvc_();
       if (!yt) { out.notes.push(key + ': ' + ytOffWhy_()); break; }
-      var pulled = 0, pmap = ytPlMap_();
+      var pulled = 0, pmap = ytPlMap_(), slots = [], keepIn = false;
       for (var pk in pmap) {
         if (!Object.prototype.hasOwnProperty.call(pmap, pk) || !(pmap[pk] || {}).id) continue;
         var its = ytPlItems_(pmap[pk].id);
         for (var q = 0; q < its.length; q++) {
+          if (keepVid && String(its[q].videoId) === keepVid) keepIn = true;
           if (gone.indexOf(String(its[q].videoId)) === -1) continue;
           if (!ytQuotaTake_(YT_COST.itemsDelete, false)) throw new Error('سهمیهٔ امروز');
           yt.PlaylistItems.remove(its[q].id); pulled++;
+          slots.push({ pl: pmap[pk].id, pos: Number(its[q].position) || 0 });
         }
       }
       for (var gi = 0; gi < gone.length; gi++) {
@@ -57109,9 +57124,17 @@ function ytRetireTick_(budgetMs, hubIn) {
                  result: 'منتشر شد', note: 'ثبتِ ویدئوی ماندنی پس از کنار گذاشتنِ تکراری (۸.۷۰)' });
         }
         ytUpPendingClear_(showK + ':' + ep);
+        /* ماندنی‌ای که در هیچ پلی‌لیستی نیست، **جای همان تکراری** می‌نشیند (۸.۷۳) — وگرنه
+           قسمت از پلی‌لیست ناپدید می‌شد (۸.۶۹ ماندنیِ مرورِ آئودی را بیرون آورده بود). */
+        if (!keepIn) {
+          for (var sl = 0; sl < slots.length; sl++) {
+            var pr = ytPlPlace_(slots[sl].pl, keepVid, slots[sl].pos, []);
+            if (/افزوده/.test(pr)) keepIn = true;
+          }
+        }
       }
       st[key] = { phase: 'done', at: nowStr_(), videoId: gone.join(','), keepVid: keepVid, pulled: pulled,
-                  why: list[key].why, keep: list[key].keep };
+                  why: list[key].why, keep: list[key].keep, sig: sig, keepIn: keepIn };
       changed = true; out.done++;
       ytPlOrderDirty_();
       var msg = '🗂 ویدئوی تکراریِ ' + key + ' کنار رفت: خصوصی شد و از ' + pulled + ' پلی‌لیست بیرون آمد (پاک نشد).' +
@@ -68584,7 +68607,7 @@ function srchReadRows_(sh, rows, width, deadline) {
      از روزِ اول برای همین عدد وجود داشت: «با دستهٔ صدوبیستی، یک بار
      خواندن ده‌ها مگابایت می‌شد». پس سقف بر حسبِ سلول بسته می‌شود و با
      پهنای واقعیِ همان تب تقسیم. */
-  var maxCells = Math.max(600, Number(CFG.SEARCH_BLOCK_CELLS) || 6000);
+  var maxCells = Math.max(600, Number(CFG.SEARCH_BLOCK_CELLS) || 1500);
   var span = Math.max(1, Math.floor(maxCells / Math.max(1, w)));
   /* ══ چرا خوانده نشد، نه فقط اینکه نشد (۷٫۷۳) ══
      تا این نسخه دو علتِ کاملاً متفاوت به یک عدد می‌رسیدند: «وقت نرسید» و
@@ -68636,6 +68659,23 @@ function srchReadRows_(sh, rows, width, deadline) {
     i = j + 1;
   }
   return out;
+}
+
+/**
+ * پس از امتیاز، فقط آنچه بعداً خوانده می‌شود نگه داشته شود (۸.۷۳).
+ *
+ * `srchScore_` متنِ کامل را لازم دارد و همان لحظه تمام می‌شود؛ بعد از آن فقط
+ * موضوع/پیام/خلاصه (رتبه‌بندی، `srchRank_`) و `show` یا تکه‌ای از متن (پنجره) خوانده
+ * می‌شوند. ردیفِ منبع تا ~۶۰ هزار نویسه با خودش داشت (`raw` تا ۴۰٬۰۰۰) و تا ۲٬۵۰۰ ردیف تا
+ * پایان می‌ماندند: «Out of memory error» در هر دو حالتِ جست‌وجو، ۱۱ اکتبر.
+ */
+function srchSlim_(it) {
+  if (!it || !it.fields) return it;
+  var f = it.fields, c = function (v, n) { v = String(v == null ? '' : v); return v.length > n ? v.slice(0, n) : v; };
+  if (!it.show) it.show = srchClip_([f.topic, f.summary, f.msg, f.body].filter(Boolean).join(' — '), 420) || srchClip_(f.raw, 420);
+  it.fields = { topic: c(f.topic, 300), msg: c(f.msg, 1200), summary: c(f.summary, 1200),
+                body: c(f.body, 600), vibe: c(f.vibe, 120), raw: '' };
+  return it;
 }
 
 /** یک ردیفِ بانک → نتیجهٔ نمایشی. */
@@ -68803,8 +68843,17 @@ function srchCollect_(terms, phrase, opts) {
          می‌شود، چون «یافته ولی نشان‌داده‌نشده» عددی است که اگر یک روز
          بزرگ شود، تنها نشانهٔ برگشتِ همان باگِ خاموش است. */
       if (it.score <= 0) { r.dropped++; continue; }
+      srchSlim_(it);
       out.items.push(it);
       out.scanned++;
+      /* ══ فهرستِ کران‌دار (۸.۷۳) ══ «Out of memory error» در هر دو حالت (۱۱ اکتبر):
+         تا ۲٬۵۰۰ ردیف با متنِ کاملشان تا پایان نگه داشته می‌شدند. بریدن فقط وقتی
+         فهرست چهار برابرِ سقف شد، و تا دو برابرِ سقف — پس مرزِ مساوی‌ها دور از
+         نتیجهٔ نهایی می‌مانَد (هراسِ ۷٫۲۵ از بریدنِ میانِ راه). */
+      if (out.items.length > capAll * 4) {
+        out.items.sort(function (a1, b1) { return b1.score - a1.score; });
+        out.items.length = capAll * 2;
+      }
     }
     out.dropped += r.dropped;
     if (r.why) out.whys[r.why] = (out.whys[r.why] || 0) + r.missed;

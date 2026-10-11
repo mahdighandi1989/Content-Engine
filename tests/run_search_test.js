@@ -633,4 +633,25 @@ console.log('\n══ ۲۰-پ) مخرج: «۳ تب» با «۳ تب از ۴۰» 
      'گرفت: ' + rOn.sheets + '/' + rOn.sheetsAll);
 }
 
+console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو حالت (۸.۷۳) ══');
+{
+  /* ۱۱ اکتبر، با تیکِ شیت‌های منبع: هر ردیفِ امتیازدار تا ~۶۰ هزار نویسه با خودش داشت و
+     تا ۲٬۵۰۰ ردیف تا پایان نگه داشته می‌شدند. */
+  const huge = 'متن '.repeat(15000);
+  const rows = [];
+  for (let i = 0; i < 300; i++) rows.push(row({ id: 'MEM_' + i, topic: 'حافظه‌آزما ' + i, body: huge }));
+  mkCat('حافظهٔ بزرگ', rows);
+  const capWas = CFG.SEARCH_CAND_MAX; CFG.SEARCH_CAND_MAX = 20;
+  const col = srchCollect_(['حافظه‌آزما'], 'حافظه‌آزما', { sources: false, budgetMs: 200000 });
+  CFG.SEARCH_CAND_MAX = capWas;
+  const maxLen = Math.max.apply(null, col.items.map(it => JSON.stringify(it).length));
+  ok('۳۰.۱ هر نتیجه پس از امتیاز سبک می‌شود (متنِ کامل نگه داشته نمی‌شود)',
+     col.items.length > 0 && maxLen < 6000 && col.items.every(it => !it.fields.raw && it.show),
+     'بیشینهٔ اندازه: ' + maxLen + ' · ' + col.items.length);
+  ok('۳۰.۲ و پاسخِ نهایی همان سقف را دارد', col.items.length <= 20, String(col.items.length));
+  const big = srchSlim_({ fields: { topic: 'ت', raw: 'x'.repeat(40000), body: 'y'.repeat(9000) } });
+  ok('۳۰.۳ srchSlim_ متنِ خام را برمی‌دارد و نمایش را نگه می‌دارد',
+     big.fields.raw === '' && big.fields.body.length <= 600 && !!big.show);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

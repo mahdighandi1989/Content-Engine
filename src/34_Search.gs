@@ -462,7 +462,7 @@ function srchReadRows_(sh, rows, width, deadline) {
      از روزِ اول برای همین عدد وجود داشت: «با دستهٔ صدوبیستی، یک بار
      خواندن ده‌ها مگابایت می‌شد». پس سقف بر حسبِ سلول بسته می‌شود و با
      پهنای واقعیِ همان تب تقسیم. */
-  var maxCells = Math.max(600, Number(CFG.SEARCH_BLOCK_CELLS) || 6000);
+  var maxCells = Math.max(600, Number(CFG.SEARCH_BLOCK_CELLS) || 1500);
   var span = Math.max(1, Math.floor(maxCells / Math.max(1, w)));
   /* ══ چرا خوانده نشد، نه فقط اینکه نشد (۷٫۷۳) ══
      تا این نسخه دو علتِ کاملاً متفاوت به یک عدد می‌رسیدند: «وقت نرسید» و
@@ -514,6 +514,23 @@ function srchReadRows_(sh, rows, width, deadline) {
     i = j + 1;
   }
   return out;
+}
+
+/**
+ * پس از امتیاز، فقط آنچه بعداً خوانده می‌شود نگه داشته شود (۸.۷۳).
+ *
+ * `srchScore_` متنِ کامل را لازم دارد و همان لحظه تمام می‌شود؛ بعد از آن فقط
+ * موضوع/پیام/خلاصه (رتبه‌بندی، `srchRank_`) و `show` یا تکه‌ای از متن (پنجره) خوانده
+ * می‌شوند. ردیفِ منبع تا ~۶۰ هزار نویسه با خودش داشت (`raw` تا ۴۰٬۰۰۰) و تا ۲٬۵۰۰ ردیف تا
+ * پایان می‌ماندند: «Out of memory error» در هر دو حالتِ جست‌وجو، ۱۱ اکتبر.
+ */
+function srchSlim_(it) {
+  if (!it || !it.fields) return it;
+  var f = it.fields, c = function (v, n) { v = String(v == null ? '' : v); return v.length > n ? v.slice(0, n) : v; };
+  if (!it.show) it.show = srchClip_([f.topic, f.summary, f.msg, f.body].filter(Boolean).join(' — '), 420) || srchClip_(f.raw, 420);
+  it.fields = { topic: c(f.topic, 300), msg: c(f.msg, 1200), summary: c(f.summary, 1200),
+                body: c(f.body, 600), vibe: c(f.vibe, 120), raw: '' };
+  return it;
 }
 
 /** یک ردیفِ بانک → نتیجهٔ نمایشی. */
@@ -681,8 +698,17 @@ function srchCollect_(terms, phrase, opts) {
          می‌شود، چون «یافته ولی نشان‌داده‌نشده» عددی است که اگر یک روز
          بزرگ شود، تنها نشانهٔ برگشتِ همان باگِ خاموش است. */
       if (it.score <= 0) { r.dropped++; continue; }
+      srchSlim_(it);
       out.items.push(it);
       out.scanned++;
+      /* ══ فهرستِ کران‌دار (۸.۷۳) ══ «Out of memory error» در هر دو حالت (۱۱ اکتبر):
+         تا ۲٬۵۰۰ ردیف با متنِ کاملشان تا پایان نگه داشته می‌شدند. بریدن فقط وقتی
+         فهرست چهار برابرِ سقف شد، و تا دو برابرِ سقف — پس مرزِ مساوی‌ها دور از
+         نتیجهٔ نهایی می‌مانَد (هراسِ ۷٫۲۵ از بریدنِ میانِ راه). */
+      if (out.items.length > capAll * 4) {
+        out.items.sort(function (a1, b1) { return b1.score - a1.score; });
+        out.items.length = capAll * 2;
+      }
     }
     out.dropped += r.dropped;
     if (r.why) out.whys[r.why] = (out.whys[r.why] || 0) + r.missed;
