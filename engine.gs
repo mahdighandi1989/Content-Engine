@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.73
+ *  موتور محتوا و پادکست — نسخهٔ 8.74
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -950,7 +950,14 @@ var CFG = {
      * می‌کنه؟» — کلیپِ آغاز و حرکتِ کانون‌دار را کد می‌شمارد (چند صحنه، کدام نیمه
      * نشد)، ولی اینکه کلیپ بی‌نوشته و بی‌چهرهٔ کج است و دوربین واقعاً به همان چیزی
      * رفت که گوینده می‌گوید، فقط با دیدنِ قابِ خودِ ویدئو معلوم است. */
-    { key: 'video-motion', title: 'کلیپِ آغاز و حرکتِ کانون‌دار در ویدئوی واقعی دیده شد (§۴٫۱۲-ز)' }
+    { key: 'video-motion', title: 'کلیپِ آغاز و حرکتِ کانون‌دار در ویدئوی واقعی دیده شد (§۴٫۱۲-ز)' },
+    /* ══ خواستهٔ صریحِ ۸.۷۳ ══
+     * «مگه قرار نشد ناظر تمام گزینه‌های منو که الان هست یا بعداً اضافه میشه و اجرای
+     * درستش و اینکه فلسفه و علت ایجادش چی بوده … همیشه نظارت داشته باشه؟» — تا ۸.۷۲
+     * فقط شمارِ بی‌آزمون‌ها ساخته می‌شد و جست‌وجو «Out of memory» داد بی آنکه کسی جز
+     * او ببیند. حالا هر زدن ثبت می‌شود (`_STATUS.json` → `menu`) و این کلید یعنی ناظر
+     * هر روز آن را دید، هر خطا را بازسازی و درمان کرد، و یک گزینهٔ بی‌آزمون را پرداخت. */
+    { key: 'menu', title: 'همهٔ گزینه‌های منو و درهای پنجره دیده شد؛ خطاها درمان و یک بدهی پرداخت شد (§۴٫۱۷)' }
   ],
   MONITOR_CHECK_DAYS: 2,       // چند روز سکوت تا یافته ساخته شود
   /* «نشد» دو روزِ پیاپی = شکست، نه گزارش (۸.۳۲). ۱ تا ۳ اکتبر پنج وارسیِ
@@ -2000,7 +2007,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.73',
+  CODE_VERSION: '8.74',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2619,7 +2626,7 @@ var CFG = {
      هر قطعه یک «مرکز» دارد (میانگینِ نرمال‌شدهٔ بردارهایش) و جست‌وجو فقط
      نزدیک‌ترین‌ها را می‌خوانَد. قطعه‌ای که مرکز ندارد **همیشه** خوانده
      می‌شود — ندانستن دلیلِ رد کردن نیست. */
-  EMB_PROBE_SHARDS: 8,          // چند قطعهٔ نزدیک خوانده شود
+  EMB_PROBE_SHARDS: 0,          // ۰ = همه، نزدیک‌ترین اول، تا ته مهلت (۸.۷۳: با ۸ از ۳۸ خودآزمون ۱ از ۴ بود)
   EMB_CENTROID_MIN: 6,          // زیرِ این تعداد قطعه، همه خوانده می‌شوند
   EMB_CENTROID_FIX: 3,          // چند مرکزِ جامانده در هر شب حساب شود
   // خودآزمون: متنِ خودِ یک ردیف را پرس‌وجو کن؛ اگر خودش برنگردد، ایندکس خراب است
@@ -3161,6 +3168,7 @@ var PK = {
   AUDIT_QSEEN: 'AUDIT_QUEUE_SEEN',  // بلندترین صفِ داوری و از کِی
   HEALTH_STEP: 'HEALTH_LAST_STEP',  // وارسیِ سلامت کجا رسیده بود — ردِ پا برای اجرای کشته‌شده
   HEALTH_TAIL: 'HEALTH_TAIL_LIST',  // بخش‌هایی که وارسیِ ۱۰ صبح وقتشان را نداشت و به اجرای پی‌آمد سپرده شد (۸.۷۲)
+  MENU_LOG: 'MENU_LOG_MAP',          // هر گزینهٔ منو و درِ پنجره: آخرین زدن، نتیجه، خطا (۸.۷۳)
   HEALTH_DEAD_AT: 'HEALTH_DEAD_REPORTED_DAY',  // آخرین روزی که «گزارش نرفت» خبر داده شد
   // «از این نسخه به بعد، دستورِ روتین‌ها باید به‌روز شود». خبرِ زمانِ نصب یک‌بار
   // می‌آید و رد می‌شود؛ این عدد می‌ماند تا فایلِ دستور خودش را با آن هماهنگ کند.
@@ -3216,6 +3224,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 61, debt: 34 };   /* ⚙ BUILD-MENU */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",0,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -13626,6 +13635,7 @@ function onOpen() {
 
 function ui_() { try { return SpreadsheetApp.getUi(); } catch (e) { return null; } }
 
+/** کلیدِ Gemini را در Script Properties می‌گذارد — بی آن هیچ مدلی (نوشتن، گفتار، داوری) کار نمی‌کند. کلید هرگز در شیت یا لاگ نمی‌نشیند. */
 function setApiKey() {
   var ui = ui_();
   if (!ui) throw new Error('این گزینه را از داخل شیت CONTENT-HUB اجرا کنید.');
@@ -13666,6 +13676,7 @@ function trigList_() {
   return t.count + ' مورد\n' + parts.join('\n');
 }
 
+/** همهٔ زمان‌بندی‌های خودکار (همگام‌سازی، دو پادکست، شبانه، سلامت، یوتیوب) را از نو و یک‌بار نصب می‌کند — تا هیچ کاری به دستِ آدم بند نباشد. */
 function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
@@ -13888,6 +13899,7 @@ function ensureScheduledTriggers_() {
   return { checked: want.length, added: added.length, list: added };
 }
 
+/** همهٔ زمان‌بندی‌ها را برمی‌دارد — توقفِ کاملِ خودکار. برای برگشت «نصب زمان‌بندی خودکار». */
 function removeTriggers(silent) {
   /* ══ چرا فهرستِ سفید، نه فهرستِ سیاه (باگِ ۵٫۹۵) ══
    * تا ۵٫۹۴ این‌جا ده نامِ دستی‌نوشته بود و هر قابلیتِ تازه‌ای که زمان‌بندیِ
@@ -13930,6 +13942,7 @@ function removeTriggers(silent) {
   return { removed: gone };
 }
 
+/** همگام‌سازیِ بانک با پنج شیتِ منبع، همین حالا — برای وقتی که محتوای تازه را نمی‌خواهید تا نوبتِ دوساعتهٔ بعد منتظر بمانید. */
 function runSyncNow() {
   var ui = ui_();
   syncCatalog();
@@ -13947,6 +13960,7 @@ function runSyncNow() {
 /** تولید دستی — سه گزینهٔ منو. تولید خودکارِ روزانه جداست و دست نمی‌خورد. */
 function runProduceVariety() { return runProduceNow(); }
 
+/** یک قسمتِ «درس‌نامه» همین حالا، بی‌اعتنا به تقویمِ تولید — دکمهٔ «خودم تصمیم گرفتم». */
 function runProduceSpecial() {
   var ui = ui_();
   // پیش از تولید بگو روی چه چیزی کار می‌شود و چرا — تا معلوم باشد که ادامهٔ
@@ -14014,6 +14028,7 @@ function runProduceSpecial() {
   return r;
 }
 
+/** هر دو پادکست پشتِ‌سرِ هم، همین حالا — برای جبرانِ روزی که تولیدِ خودکار انجام نشد. */
 function runProduceBoth() {
   var a, b;
   try { a = produceEpisode({ manual: true }); } catch (e) { a = { ok: false, reason: 'error', detail: e.message }; }
@@ -14029,6 +14044,7 @@ function runProduceBoth() {
   return { variety: a, special: b };
 }
 
+/** پوشه‌های مجموعه‌های آموزشی را می‌پیماید و رجیستری (تبِ مجموعه‌ها) را به‌روز می‌کند — تا مجموعهٔ تازه بی کارِ دستی دیده شود. */
 function runScanSeries() {
   var r;
   try { r = scanSeries(true); } catch (e) { r = { error: e.message }; }
@@ -14122,6 +14138,7 @@ function runProduceNow() {
   if (ui) ui.alert(m); else console.log(m);
 }
 
+/** خلاصهٔ وضعیتِ موتور در یک پنجره — همان _STATUS.json، برای کسی که درایو را باز نمی‌کند. */
 function showStatus() {
   var hub = getHub_();
   var st = rebuildIndex_(hub);
@@ -14250,6 +14267,136 @@ function initialise() {
   console.log(msg);
   return hub.getUrl();
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * نظارت بر **همهٔ** گزینه‌های منو و درهای پنجره‌ها (۸.۷۳)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * خواستهٔ صاحبِ برنامه، از دو ماه پیش: ناظر همهٔ گزینه‌های منو — آنچه هست و آنچه
+ * بعداً اضافه می‌شود — را همیشه زیرِ نظر داشته باشد: اجرای درستش، و فلسفه‌اش.
+ * آنچه ساخته شده بود فقط یک **شمارش** بود («۳۴ از ۶۱ بی‌آزمون») و یک دستورِ «هفته‌ای
+ * یکی بپرداز» که پرداخت نشد. هیچ‌جا ثبت نمی‌شد کدام گزینه کِی زده شد و چه شد؛ پس
+ * ۱۱ اکتبر جست‌وجو در هر دو حالت «Out of memory error» داد و موتور خبر نداشت —
+ * فقط صاحبِ برنامه دید.
+ *
+ * حالا: فهرستِ کامل را build از خودِ `addItem`ها و درهای پنجره‌ها می‌سازد
+ * (`BUILD_MENU_ITEMS_` — گزینهٔ تازه بی کارِ دستی وارد می‌شود)، `menuWrapAll_` هنگامِ
+ * بارگذاری هر کدام را در `menuRun_` می‌پیچد، و هر زدن — موفق یا ناموفق، و حتی اجرایی
+ * که سرِ شش دقیقه کشته شد — در Properties ثبت می‌شود. خطا همان لحظه یافتهٔ «کد» است
+ * (صفِ NEEDS_CODE)، و `menuStatus_` هر روز در `_STATUS.json` و ایمیلِ سلامت می‌آید.
+ */
+function menuRun_(name, fn, self, args) {
+  var t0 = new Date().getTime();
+  menuNote_(name, { open: t0 });
+  var r, msg = '';
+  try {
+    r = fn.apply(self, args || []);
+  } catch (e) {
+    msg = String((e && e.message) || e).slice(0, 300);
+    menuNote_(name, { ok: false, ms: new Date().getTime() - t0, err: msg });
+    menuFinding_(name, msg);
+    throw e;
+  }
+  /* بیشترِ درهای پنجره خطا را **پرتاب نمی‌کنند** و `{ok:false, message}` برمی‌گردانند —
+     `srchRun` همان «Out of memory» را این‌طور به پنجره داد. پس جوابِ ناموفق هم ثبت می‌شود؛
+     یافتهٔ «کد» فقط وقتی متن شکلِ خطای اجرایی دارد، نه وقتی پیامِ عادیِ «پیدا نشد» است. */
+  if (r && typeof r === 'object' && r.ok === false) {
+    msg = String(r.message || r.error || ((r.notes || [])[0]) || 'ناموفق').slice(0, 300);
+    menuNote_(name, { ok: false, ms: new Date().getTime() - t0, err: msg });
+    if (/error|exception|خطا:|timed out|exceeded|memory/i.test(msg)) menuFinding_(name, msg);
+  } else {
+    menuNote_(name, { ok: true, ms: new Date().getTime() - t0 });
+  }
+  return r;
+}
+
+function menuFinding_(name, msg) {
+    try {
+      var lab = menuLabel_(name);
+      logSelfFinding_(null, {
+        key: 'menu-fail-' + name, priority: 'جدی', category: 'منو',
+        title: 'گزینهٔ «' + lab + '» خطا داد: ' + msg.slice(0, 90),
+        detail: 'تابعِ ' + name + ' هنگامِ اجرا پرتاب کرد: ' + msg +
+                ' — صاحبِ برنامه همین را در پنجره دید.',
+        instruction: 'خطا را با دادهٔ واقعی بازسازی کن، علت را در کد پیدا کن و درست کن؛ ' +
+                     'برای همین مسیر آزمونی بنویس که بی اصلاح سرخ شود.',
+        owner: ROWNER_CODE
+      });
+    } catch (eF) {}
+}
+
+function menuLabel_(name) {
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  for (var i = 0; i < L.length; i++) if (L[i][0] === name) return String(L[i][1] || name);
+  return String(name);
+}
+
+function menuNote_(name, rec) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.MENU_LOG) || '{}');
+    var c = m[name] || { n: 0, fails: 0 };
+    if (rec.open) { c.open = rec.open; }
+    else {
+      delete c.open;
+      c.n = (Number(c.n) || 0) + 1; c.at = nowStr_(); c.ok = !!rec.ok; c.ms = Number(rec.ms) || 0;
+      if (!rec.ok) { c.fails = (Number(c.fails) || 0) + 1; c.err = String(rec.err || ''); c.failAt = c.at; }
+    }
+    m[name] = c;
+    props_().setProperty(PK.MENU_LOG, JSON.stringify(m));
+  } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
+}
+
+/** هر نامِ `BUILD_MENU_ITEMS_` که تابع است، یک بار پیچیده می‌شود. برمی‌گرداند چند تا. */
+function menuWrapAll_(root) {
+  var g = root || (function () { return this; })();
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  var n = 0;
+  for (var i = 0; i < L.length; i++) {
+    (function (name) {
+      var f = g[name];
+      if (typeof f !== 'function' || f.__menuWrapped) return;
+      var w = function () { return menuRun_(name, f, this, arguments); };
+      w.__menuWrapped = true; w.__menuInner = f;
+      try { g[name] = w; if (g[name] === w) n++; } catch (e) {}
+    })(String(L[i][0]));
+  }
+  return n;
+}
+
+/** حالِ همهٔ گزینه‌ها — فقط Properties، بی شیت و بی درایو. */
+function menuStatus_() {
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  var out = { tracked: L.length, menu: 0, dialog: 0, untested: [], used7: 0, fails: [], died: [],
+              never: 0, healthSeen: false, line: '', ok: true };
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.MENU_LOG) || '{}'); } catch (e) { m = {}; }
+  var now = new Date().getTime(), wk = 7 * 86400000;
+  for (var i = 0; i < L.length; i++) {
+    var name = L[i][0], c = m[name];
+    if (L[i][3] === 'پنجره') out.dialog++; else out.menu++;
+    if (!L[i][2]) out.untested.push(name);
+    if (!c || !c.n) { if (!c || !c.open) out.never++; }
+    var at = c && c.at ? parseWhen_(c.at) : NaN;
+    if (c && !isNaN(at) && now - at < wk) out.used7++;
+    if (c && c.failAt && now - parseWhen_(c.failAt) < wk) {
+      out.fails.push({ name: name, label: menuLabel_(name), err: String(c.err || ''), at: c.failAt, fails: c.fails });
+    }
+    if (c && c.open && now - Number(c.open) > 15 * 60000) {
+      out.died.push({ name: name, label: menuLabel_(name), at: new Date(Number(c.open)).toISOString().slice(0, 16) });
+    }
+    if (name === 'healthCheck' && c && !isNaN(at) && now - at < 2 * 86400000) out.healthSeen = true;
+  }
+  out.ok = !out.fails.length && !out.died.length;
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  out.line = '🧭 منو: ' + fa(out.menu) + ' گزینه و ' + fa(out.dialog) + ' درِ پنجره زیرِ نظر · ' +
+             fa(out.used7) + ' تا در ۷ روزِ اخیر زده شد · ' + fa(out.untested.length) + ' گزینه بی‌آزمون' +
+             (out.fails.length ? ' · ❌ خطا: ' + out.fails.map(function (f) { return '«' + f.label + '» (' + f.err.slice(0, 60) + ')'; }).join('، ') : '') +
+             (out.died.length ? ' · ❌ نیمه‌کاره ماند (کشته شد): ' + out.died.map(function (d) { return '«' + d.label + '»'; }).join('، ') : '') +
+             (out.healthSeen ? '' : ' · ⚠ ثبتِ اجرا هنوز شاهد ندارد (وارسیِ سلامت در دو روزِ اخیر ثبت نشد)');
+  return out;
+}
+
+try { menuWrapAll_(); } catch (eMw) {}
 
 /* ═══════════════════════════ 06_Models.gs ═══════════════════════════ */
 
@@ -16402,6 +16549,7 @@ function writeStatus_(hub, note) {
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
     runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
     /* عددِ تولیدشده در build — بی هیچ خواندنی، و بی امکانِ کهنه شدن (۸.۱۳) */
+    menu: (function () { try { return menuStatus_(); } catch (e) { return null; } })(),
     menuCover: (function () {
       try {
         if (typeof BUILD_MENU_ !== 'object' || !BUILD_MENU_) return null;
@@ -17455,6 +17603,7 @@ function capFindings_(hub, cap) {
   return n;
 }
 
+/** وارسیِ سلامتِ روزانه (۱۰ صبح): همهٔ زیرسامانه‌ها را می‌سنجد، ایرادها و یادداشت‌ها را در _STATUS.json می‌نویسد و یک ایمیلِ عملیاتی می‌فرستد. */
 function healthCheck() {
   /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
      به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
@@ -18318,6 +18467,14 @@ function healthCheck() {
     /* و یافته، نه فقط جمله: جمله‌ای در نامهٔ فردا عوض می‌شود، یافته نه. */
     if (cp && (cp.idle.length || cp.wiring.length)) capFindings_(hub, cp);
   } catch (eCp) {}
+
+  /* ══ همهٔ گزینه‌های منو و درهای پنجره (۸.۷۳) ══ هر روز یک خط، حتی روزِ سالم؛ خطا یا
+     اجرای کشته‌شده ⇒ ایراد. یافتهٔ هر خطا را خودِ `menuRun_` همان لحظه ثبت کرده است. */
+  try {
+    var mn = menuStatus_();
+    st.menu = mn;
+    if (mn && mn.line) { if (mn.ok === false) problems.push(mn.line); else notes.push(mn.line); }
+  } catch (eMn) {}
 
   /* ══ درِ دومِ بستنِ پوشهٔ «voice cloning» (۸.۰۶) ══
    * کارِ شبانه ممکن است به بخشِ ۳۳ نرسد (۷٫۴۶ عیناً همین بود، برای صفِ پل)،
@@ -28327,6 +28484,7 @@ function boardReceiptRead_() {
   return null;
 }
 
+/** دکمهٔ «مجموعه‌های مرجع» روی تخته: کلیدهای تیک‌خورده را در ستونِ مرجع‌ها می‌نشاند تا درس‌ها با آن کتاب‌ها پل بزنند. */
 function uiBridgeSave(key, keys) {
   try {
     var hubB = getHub_();
@@ -28368,6 +28526,7 @@ function uiBridgeSave(key, keys) {
   }
 }
 
+/** دکمهٔ «مرورِ بزرگ» روی تخته: مرورِ یک یا چند مجموعه (با بازهٔ درس‌ها) را به صفِ تولید می‌برد. */
 function uiRecapQueue(keys, scopes) {
   try {
     /* رشته‌ای که آدم تایپ کرده، همین‌جا به عدد تبدیل می‌شود — و با فهرستِ
@@ -28408,6 +28567,7 @@ function uiRecapQueue(keys, scopes) {
   } catch (e) { return { ok: false, message: 'سفارشِ مرور ثبت نشد: ' + e.message }; }
 }
 
+/** دکمهٔ «ساختِ همهٔ جزوه‌ها»: درس‌های جامانده را به صف می‌آورد و تا جا هست می‌سازد — بی منتظرِ شب ماندن. */
 function uiHandoutAll() {
   try {
     var b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25);
@@ -28424,6 +28584,7 @@ function uiHandoutAll() {
   } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
 }
 
+/** تقویمِ تولید روی تخته: روشن/خاموش، روزهای هفته و استثناهای هر برنامه را در همان تبی می‌نویسد که calGate_ می‌خوانَد. */
 function uiCalSave(key, on, days, exc) {
   try {
     var r = calBoardSave_(key, !!on, days || [], exc || '');
@@ -28893,6 +29054,7 @@ function uiRecapEverySave(key, every) {
   }
 }
 
+/** سنجاقِ یک مجموعه: درس‌نامهٔ بعدی از همین مجموعه ساخته شود، نه از ترتیبِ خودکار. */
 function uiPinSeries(key, act) {
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
@@ -29077,6 +29239,7 @@ function uiSetManual(key, numStr, cat, sub) {
            (fixed.length ? '<br>' + fixed.map(bEsc_).join('<br>') : '') };
 }
 
+/** برداشتنِ تنظیمِ دستیِ یک مجموعه — برگشت به داوری و نامِ خودکار. */
 function uiClearManual(key) {
   return uiSetManual(key, '', '', '');
 }
@@ -29196,6 +29359,7 @@ function uiJudgeNow() {
   return { ok: true, message: msg };
 }
 
+/** برداشتنِ سنجاق — موتور به ترتیبِ خودکارِ مجموعه‌ها برمی‌گردد. */
 function uiClearPin() {
   clearSeriesPin_();
   logLine_('انتخاب دستی برداشته شد.');
@@ -32326,7 +32490,9 @@ function runProduceEnriched_(show) {
   return r;
 }
 
+/** «از همه جا» با غنی‌سازیِ اینترنتی: درخواست می‌گذارد، منتظرِ جوابِ تسکِ غنی‌سازی می‌ماند و بعد می‌سازد. */
 function runProduceVarietyEnriched() { return runProduceEnriched_(ENRICH_SHOW_VARIETY); }
+/** «درس‌نامه» با غنی‌سازیِ اینترنتی: همان راهِ تولیدِ خودکارِ صبح، ولی با دستِ شما و همین حالا. */
 function runProduceSpecialEnriched() { return runProduceEnriched_(ENRICH_SHOW_SPECIAL); }
 
 /* ═══════════════════════════ 20_Voices.gs ═══════════════════════════ */
@@ -60029,6 +60195,7 @@ function runLvStyleAllAuto() {
   return { ok: true, changed: done };
 }
 
+/** تصویرهای یک قسمتِ درس‌نامه را (به سطل، نه پاک) کنار می‌گذارد و سابقهٔ تلاش را پاک می‌کند تا از نو ساخته شوند — درِ آدم برای کارتِ بد. */
 function runLessonVisualsRebuild() {
   var ui = ui_();
   if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };
@@ -70693,9 +70860,16 @@ function embSearch_(vec, opts) {
     pick.push({ i: q, near: cc ? embDot_(qp, cc) : Infinity });
   }
   var minSh = Math.max(1, Number(CFG.EMB_CENTROID_MIN) || 6);
-  if (pick.length > minSh) {
-    pick.sort(function (a, b) { return b.near - a.near; });
-    var keepSh = Math.max(minSh, Number(CFG.EMB_PROBE_SHARDS) || 8);
+  /* ══ نزدیک‌ترین اول، ولی تا ته مهلت — نه هشت تا و بس (۸.۷۳) ══
+     خودآزمونِ ۱۱ اکتبر: ۱ از ۴. قطعه‌ها به ترتیبِ ردیف پر می‌شوند، پس هر قطعه آمیزه‌ای
+     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید؛ با خواندنِ ۸ قطعه از ۳۸، ردیفِ
+     درست فقط با شانسِ ~۸/۳۸ (۲۱٪) در قطعه‌های خوانده‌شده بود — همان یک‌چهارم. حالا همهٔ
+     قطعه‌ها به ترتیبِ نزدیکی خوانده می‌شوند تا مهلت تمام شود (حلقهٔ پایین مهلت را
+     می‌سنجد و نخوانده‌ها را می‌شمارد). `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
+  var capSh = Number(CFG.EMB_PROBE_SHARDS) || 0;
+  if (pick.length > minSh) pick.sort(function (a, b) { return b.near - a.near; });
+  if (capSh > 0 && pick.length > minSh) {
+    var keepSh = Math.max(minSh, capSh);
     var unknown = 0;
     for (var u = 0; u < pick.length; u++) if (pick[u].near === Infinity) unknown++;
     if (pick.length > keepSh + unknown) pick = pick.slice(0, keepSh + unknown);
@@ -70818,12 +70992,18 @@ function embSelfTest_(n) {
   out.mode = (qs && qs.length === picks.length) ? 'بازنویسی' : 'عنوان';
   if (out.mode === 'عنوان') out.note = 'بازنویسی نشد؛ آزمون با عنوانِ خودِ ردیف — سخت‌گیریِ کمتر.';
 
+  /* مهلتِ کل، تقسیم بر پرسش‌های باقی‌مانده (۸.۷۳): جست‌وجو حالا همهٔ قطعه‌ها را تا ته
+     مهلت می‌خوانَد، پس مهلتِ ثابتِ ۴۵ ثانیه برای هر پرسش از سقفِ شش‌دقیقه می‌گذشت. */
+  var tEnd = new Date().getTime() + Math.max(60000, Number(CFG.EMB_SELFTEST_MS) || 240000);
+  out.shardsRead = 0; out.shardsAll = ix.shards.length;
   for (var p = 0; p < picks.length; p++) {
     var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
     var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
     out.tried++;
-    var r = embSearch_(q.vec, { top: topK, budgetMs: 45000 });
+    var per = Math.max(10000, Math.min(60000, Math.floor((tEnd - new Date().getTime()) / (picks.length - p))));
+    var r = embSearch_(q.vec, { top: topK, budgetMs: per });
+    out.shardsRead += Number(r.shards) || 0;
     for (var k = 0; k < r.items.length; k++) {
       if (r.items[k].id === picks[p].id) { out.hit++; break; }
     }
@@ -71254,8 +71434,15 @@ function embNightly_(opts) {
                    (armed ? 'خودآزمون چند دقیقهٔ دیگر در اجرای جدای خودش.'
                           : 'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.'));
   } else if (st.total && st.done && opts.selftest !== false) {
-    embStep_('خودآزمون');
-    try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
+    /* از ۸.۷۳ خودآزمون همهٔ قطعه‌ها را می‌خوانَد (نه ۸ تا) و هر پرسش تا ~۴۵ ثانیه می‌گیرد؛
+       درونِ کارِ شبانه جا نمی‌شود. پس همیشه اجرای جدای خودش — درونِ همین اجرا فقط اگر
+       زمان‌بندیِ جدا نشد. */
+    var armed2 = false;
+    if (opts.selftestInline !== true) { try { armed2 = embSelfTestArm_(); } catch (eA2) {} }
+    if (opts.selftestInline === true) {
+      embStep_('خودآزمون');
+      try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
+    }
   }
   out.self = self;
 
@@ -74631,6 +74818,7 @@ function runVoiceSoulTest() {
            url: made ? made.getUrl() : '' };
 }
 
+/** پلِ رنگِ صدا: صوتِ یک قسمت را برای تبدیل به صدای گویندهٔ آموزش‌دیده به گیت‌هاب می‌فرستد و نتیجه را برمی‌دارد. */
 function runVoiceBridge() {
   var ui = ui_();
   var r = vbrNightly_(null);

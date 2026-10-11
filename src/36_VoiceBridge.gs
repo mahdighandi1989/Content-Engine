@@ -3140,6 +3140,7 @@ function runVoiceSoulTest() {
            url: made ? made.getUrl() : '' };
 }
 
+/** پلِ رنگِ صدا: صوتِ یک قسمت را برای تبدیل به صدای گویندهٔ آموزش‌دیده به گیت‌هاب می‌فرستد و نتیجه را برمی‌دارد. */
 function runVoiceBridge() {
   var ui = ui_();
   var r = vbrNightly_(null);

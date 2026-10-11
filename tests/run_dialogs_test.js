@@ -619,4 +619,61 @@ console.log('\n══ ۱۲) «خودش انتخاب کند» روی تخته —
   }
 }
 
+console.log('\n══ ۲۰) همهٔ گزینه‌های منو زیرِ نظر — هر زدن ثبت، هر خطا یافته (۸.۷۳) ══');
+{
+  /* ۱۱ اکتبر جست‌وجو در هر دو حالت «Out of memory error» داد و موتور خبر نداشت: فقط شمارِ
+     بی‌آزمون‌ها ساخته می‌شد، نه ردی از زدن و نتیجه. */
+  const menu = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  const fns = []; const re = /addItem\('[^']*',\s*'([A-Za-z_][A-Za-z0-9_]*)'\)/g; let m;
+  while ((m = re.exec(menu))) if (fns.indexOf(m[1]) === -1) fns.push(m[1]);
+  const listed = BUILD_MENU_ITEMS_.map((x) => x[0]);
+  ok('۲۰.۱ هر گزینهٔ منو در فهرستِ زیرِ نظر است (از build، نه دست‌نویس)',
+     fns.every((f) => listed.indexOf(f) !== -1), fns.filter((f) => listed.indexOf(f) === -1).join(','));
+  ok('۲۰.۲ درِ جست‌وجو (srchRun) و درهای تخته هم در فهرست‌اند',
+     listed.indexOf('srchRun') !== -1 && listed.indexOf('uiCalSave') !== -1 && listed.indexOf('personaBoardSave') !== -1);
+  ok('۲۰.۳ هنگامِ بارگذاری پیچیده شده‌اند', global.srchRun && global.srchRun.__menuWrapped === true &&
+     global.healthCheck && global.healthCheck.__menuWrapped === true);
+  delete global.__PROPS[PK.MENU_LOG];
+  const realInner = global.srchRun.__menuInner;
+  global.srchRun.__menuInner = null;
+  // خطای واقعی از درونِ تابعِ پیچیده — با جایگزینیِ موقتِ درونی
+  const saved = global.srchRun;
+  global.srchRun = function () { return menuRun_('srchRun', function () { throw new Error('Out of memory error.'); }, this, arguments); };
+  let threw = false;
+  try { global.srchRun('کس مگو', 'smart', true); } catch (e) { threw = /memory/.test(e.message); }
+  global.srchRun = saved; saved.__menuInner = realInner;
+  const st1 = menuStatus_();
+  ok('۲۰.۴ خطا به پنجره می‌رسد (پرتاب می‌شود) و ثبت می‌شود', threw && st1.fails.length === 1 &&
+     /memory/.test(st1.fails[0].err) && st1.ok === false && /❌ خطا/.test(st1.line), JSON.stringify(st1.fails));
+  const hub = getHub_(); const rep = hub.getSheetByName(CFG.REPORT_TAB);
+  const vals = rep && rep.getLastRow() >= 1 ? rep.getRange(1, 1, rep.getLastRow(), rep.getLastColumn()).getValues().map((r) => r.join(' | ')).join('\n') : '';
+  ok('۲۰.۵ و همان لحظه یافتهٔ «کد» می‌شود (صفِ ساختِ نسخهٔ بعد)', /جست‌وجو|srchRun/.test(vals) && /Out of memory/.test(vals),
+     vals.slice(-300));
+  const m2 = JSON.parse(global.__PROPS[PK.MENU_LOG]);
+  m2.runBackupNow = { n: 0, open: Date.now() - 20 * 60000 };
+  global.__PROPS[PK.MENU_LOG] = JSON.stringify(m2);
+  const st2 = menuStatus_();
+  ok('۲۰.۶ اجرایی که شروع شد و تمام نشد (کشته شد) هم ایراد است', st2.died.some((d) => d.name === 'runBackupNow') && /کشته شد/.test(st2.line),
+     st2.line);
+  delete global.__PROPS[PK.MENU_LOG];
+  const okRun = menuRun_('runSyncNow', function () { return 42; }, null, []);
+  const st3 = menuStatus_();
+  ok('۲۰.۷ زدنِ موفق: مقدار برمی‌گردد، «۷ روز» شمرده می‌شود، و خط بی ❌ است', okRun === 42 && st3.used7 === 1 && st3.ok === true &&
+     !/❌/.test(st3.line) && st3.tracked === BUILD_MENU_ITEMS_.length, st3.line);
+  /* ۲۰.۸ — درِ پنجره‌ای که خطا را **برمی‌گرداند** نه پرتاب می‌کند (srchRun همین بود). */
+  const realSr = global.srchRun.__menuInner;
+  const fakeInner = function () { return { ok: false, items: [], notes: ['خطا: Out of memory error.'] }; };
+  const wrapped = function () { return menuRun_('srchRun', fakeInner, this, arguments); };
+  const r8 = wrapped('x', 'simple', true);
+  const st8 = menuStatus_();
+  ok('۲۰.۸ جوابِ {ok:false} با متنِ خطا هم خطا ثبت می‌شود (و به پنجره همان جواب می‌رسد)',
+     r8.ok === false && st8.fails.length === 1 && /memory/.test(st8.fails[0].err), JSON.stringify(st8.fails));
+  delete global.__PROPS[PK.MENU_LOG];
+  const md = fs.readFileSync('docs/menu.md', 'utf8');
+  ok('۲۰.۹ هر گزینه و درِ پنجره «فلسفه و کار» دارد (docs/menu.md از توضیحِ خودِ تابع)',
+     BUILD_MENU_ITEMS_.every((x) => x[4] === 1) && md.indexOf('بی‌توضیح') === -1,
+     BUILD_MENU_ITEMS_.filter((x) => x[4] !== 1).map((x) => x[0]).join(','));
+  void realSr;
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

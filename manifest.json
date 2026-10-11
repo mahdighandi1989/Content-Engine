@@ -1,17 +1,20 @@
 {
-  "version": "8.73",
+  "version": "8.74",
   "codeFile": "engine.gs",
-  "sha256": "ed12965203ba6be242c61e3a58108b953d5519c7fc5f4571ca3667849b0b96c5",
-  "releasedAt": "2026-10-11T13:30:00Z",
-  "summary": "جست‌وجو دیگر «Out of memory error» نمی‌دهد؛ تکراری‌هایی که ۸.۶۹ وارونه کنار گذاشت درست می‌شوند؛ صفِ یوتیوب قدیمی‌ترین قسمت را اول می‌برد.",
+  "sha256": "7911d099625d96948449604d86d527d5f9a6c398369bcc6adbc97636f0c03f6b",
+  "releasedAt": "2026-10-11T15:30:00Z",
+  "summary": "همهٔ گزینه‌های منو و درهای پنجره زیرِ نظر (هر زدن ثبت، خطا یافته، خطِ روزانه، فلسفهٔ هر گزینه در docs/menu.md)؛ خودآزمونِ اثر انگشت همهٔ قطعه‌ها را می‌خواند.",
   "fixes": [
-    "srchSlim_ + فهرستِ کران‌دار + SEARCH_BLOCK_CELLS ۱۵۰۰: هر ردیف تا ~۶۰ هزار نویسه و تا ۲۵۰۰ ردیف تا پایان نگه داشته می‌شد",
-    "ytRetireTick_: «انجام‌شده» به امضای دستور (keepVid/dup) بسته است؛ ماندنیِ بیرون‌مانده جای تکراری در پلی‌لیست می‌نشیند",
-    "docs/yt-retire.json: variety:66 ماندنی hnNYKUgJ_S0 (همانی که در پلی‌لیست ماند)، special:63 ماندنی XNN_NTigtFo (نسخهٔ صحنه‌ای)",
-    "ytDueOrder_: قدیمی‌ترین قسمت اول درونِ هر برنامه، نه الفبای نامِ مجموعه (درسِ ۱۶ِ مصباح پشتِ آئودی)"
+    "menuRun_/menuWrapAll_/menuStatus_: ۶۱ گزینهٔ منو و ۲۲ درِ پنجره، هر زدن با نتیجه؛ خطا (پرتاب یا ok:false) ⇒ یافتهٔ کد",
+    "tools/build.js: BUILD_MENU_ITEMS_ و docs/menu.md از خودِ addItemها و توضیحِ بالای هر تابع",
+    "MONITOR_CHECKS: کلیدِ اجباریِ menu؛ _PROMPT-monitor-v100 §۴٫۱۷",
+    "embSearch_: EMB_PROBE_SHARDS ۰ = همهٔ قطعه‌ها نزدیک‌ترین‌اول تا ته مهلت (خودآزمون ۱ از ۴ با ۸ از ۳۸)؛ خودآزمون در اجرای جدا با مهلتِ تقسیم‌شده"
   ],
   "sourceReportIds": [],
-  "promptImpact": [],
+  "promptImpact": [
+    "_STATUS.json → menu (کلیدِ تازه)",
+    "MONITOR_CHECKS: menu (اجباری)"
+  ],
   "answers": {
     "7.48": [
       "tts-cue-unsupported"
@@ -101,5 +104,8 @@
     "8.66": [
       "chronic-9e9343a8"
     ]
-  }
+  },
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

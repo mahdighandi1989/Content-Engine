@@ -13169,6 +13169,7 @@ function runLvStyleAllAuto() {
   return { ok: true, changed: done };
 }
 
+/** تصویرهای یک قسمتِ درس‌نامه را (به سطل، نه پاک) کنار می‌گذارد و سابقهٔ تلاش را پاک می‌کند تا از نو ساخته شوند — درِ آدم برای کارتِ بد. */
 function runLessonVisualsRebuild() {
   var ui = ui_();
   if (!ui) return { ok: false, why: 'از داخلِ شیت اجرا کنید' };

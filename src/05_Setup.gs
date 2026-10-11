@@ -89,6 +89,7 @@ function onOpen() {
 
 function ui_() { try { return SpreadsheetApp.getUi(); } catch (e) { return null; } }
 
+/** کلیدِ Gemini را در Script Properties می‌گذارد — بی آن هیچ مدلی (نوشتن، گفتار، داوری) کار نمی‌کند. کلید هرگز در شیت یا لاگ نمی‌نشیند. */
 function setApiKey() {
   var ui = ui_();
   if (!ui) throw new Error('این گزینه را از داخل شیت CONTENT-HUB اجرا کنید.');
@@ -129,6 +130,7 @@ function trigList_() {
   return t.count + ' مورد\n' + parts.join('\n');
 }
 
+/** همهٔ زمان‌بندی‌های خودکار (همگام‌سازی، دو پادکست، شبانه، سلامت، یوتیوب) را از نو و یک‌بار نصب می‌کند — تا هیچ کاری به دستِ آدم بند نباشد. */
 function installTriggers() {
   removeTriggers(true);
   props_().deleteProperty(PK.SCHED_OFF);      // زمان‌بندی عمداً روشن شد
@@ -351,6 +353,7 @@ function ensureScheduledTriggers_() {
   return { checked: want.length, added: added.length, list: added };
 }
 
+/** همهٔ زمان‌بندی‌ها را برمی‌دارد — توقفِ کاملِ خودکار. برای برگشت «نصب زمان‌بندی خودکار». */
 function removeTriggers(silent) {
   /* ══ چرا فهرستِ سفید، نه فهرستِ سیاه (باگِ ۵٫۹۵) ══
    * تا ۵٫۹۴ این‌جا ده نامِ دستی‌نوشته بود و هر قابلیتِ تازه‌ای که زمان‌بندیِ
@@ -393,6 +396,7 @@ function removeTriggers(silent) {
   return { removed: gone };
 }
 
+/** همگام‌سازیِ بانک با پنج شیتِ منبع، همین حالا — برای وقتی که محتوای تازه را نمی‌خواهید تا نوبتِ دوساعتهٔ بعد منتظر بمانید. */
 function runSyncNow() {
   var ui = ui_();
   syncCatalog();
@@ -410,6 +414,7 @@ function runSyncNow() {
 /** تولید دستی — سه گزینهٔ منو. تولید خودکارِ روزانه جداست و دست نمی‌خورد. */
 function runProduceVariety() { return runProduceNow(); }
 
+/** یک قسمتِ «درس‌نامه» همین حالا، بی‌اعتنا به تقویمِ تولید — دکمهٔ «خودم تصمیم گرفتم». */
 function runProduceSpecial() {
   var ui = ui_();
   // پیش از تولید بگو روی چه چیزی کار می‌شود و چرا — تا معلوم باشد که ادامهٔ
@@ -477,6 +482,7 @@ function runProduceSpecial() {
   return r;
 }
 
+/** هر دو پادکست پشتِ‌سرِ هم، همین حالا — برای جبرانِ روزی که تولیدِ خودکار انجام نشد. */
 function runProduceBoth() {
   var a, b;
   try { a = produceEpisode({ manual: true }); } catch (e) { a = { ok: false, reason: 'error', detail: e.message }; }
@@ -492,6 +498,7 @@ function runProduceBoth() {
   return { variety: a, special: b };
 }
 
+/** پوشه‌های مجموعه‌های آموزشی را می‌پیماید و رجیستری (تبِ مجموعه‌ها) را به‌روز می‌کند — تا مجموعهٔ تازه بی کارِ دستی دیده شود. */
 function runScanSeries() {
   var r;
   try { r = scanSeries(true); } catch (e) { r = { error: e.message }; }
@@ -585,6 +592,7 @@ function runProduceNow() {
   if (ui) ui.alert(m); else console.log(m);
 }
 
+/** خلاصهٔ وضعیتِ موتور در یک پنجره — همان _STATUS.json، برای کسی که درایو را باز نمی‌کند. */
 function showStatus() {
   var hub = getHub_();
   var st = rebuildIndex_(hub);
@@ -713,3 +721,133 @@ function initialise() {
   console.log(msg);
   return hub.getUrl();
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * نظارت بر **همهٔ** گزینه‌های منو و درهای پنجره‌ها (۸.۷۳)
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * خواستهٔ صاحبِ برنامه، از دو ماه پیش: ناظر همهٔ گزینه‌های منو — آنچه هست و آنچه
+ * بعداً اضافه می‌شود — را همیشه زیرِ نظر داشته باشد: اجرای درستش، و فلسفه‌اش.
+ * آنچه ساخته شده بود فقط یک **شمارش** بود («۳۴ از ۶۱ بی‌آزمون») و یک دستورِ «هفته‌ای
+ * یکی بپرداز» که پرداخت نشد. هیچ‌جا ثبت نمی‌شد کدام گزینه کِی زده شد و چه شد؛ پس
+ * ۱۱ اکتبر جست‌وجو در هر دو حالت «Out of memory error» داد و موتور خبر نداشت —
+ * فقط صاحبِ برنامه دید.
+ *
+ * حالا: فهرستِ کامل را build از خودِ `addItem`ها و درهای پنجره‌ها می‌سازد
+ * (`BUILD_MENU_ITEMS_` — گزینهٔ تازه بی کارِ دستی وارد می‌شود)، `menuWrapAll_` هنگامِ
+ * بارگذاری هر کدام را در `menuRun_` می‌پیچد، و هر زدن — موفق یا ناموفق، و حتی اجرایی
+ * که سرِ شش دقیقه کشته شد — در Properties ثبت می‌شود. خطا همان لحظه یافتهٔ «کد» است
+ * (صفِ NEEDS_CODE)، و `menuStatus_` هر روز در `_STATUS.json` و ایمیلِ سلامت می‌آید.
+ */
+function menuRun_(name, fn, self, args) {
+  var t0 = new Date().getTime();
+  menuNote_(name, { open: t0 });
+  var r, msg = '';
+  try {
+    r = fn.apply(self, args || []);
+  } catch (e) {
+    msg = String((e && e.message) || e).slice(0, 300);
+    menuNote_(name, { ok: false, ms: new Date().getTime() - t0, err: msg });
+    menuFinding_(name, msg);
+    throw e;
+  }
+  /* بیشترِ درهای پنجره خطا را **پرتاب نمی‌کنند** و `{ok:false, message}` برمی‌گردانند —
+     `srchRun` همان «Out of memory» را این‌طور به پنجره داد. پس جوابِ ناموفق هم ثبت می‌شود؛
+     یافتهٔ «کد» فقط وقتی متن شکلِ خطای اجرایی دارد، نه وقتی پیامِ عادیِ «پیدا نشد» است. */
+  if (r && typeof r === 'object' && r.ok === false) {
+    msg = String(r.message || r.error || ((r.notes || [])[0]) || 'ناموفق').slice(0, 300);
+    menuNote_(name, { ok: false, ms: new Date().getTime() - t0, err: msg });
+    if (/error|exception|خطا:|timed out|exceeded|memory/i.test(msg)) menuFinding_(name, msg);
+  } else {
+    menuNote_(name, { ok: true, ms: new Date().getTime() - t0 });
+  }
+  return r;
+}
+
+function menuFinding_(name, msg) {
+    try {
+      var lab = menuLabel_(name);
+      logSelfFinding_(null, {
+        key: 'menu-fail-' + name, priority: 'جدی', category: 'منو',
+        title: 'گزینهٔ «' + lab + '» خطا داد: ' + msg.slice(0, 90),
+        detail: 'تابعِ ' + name + ' هنگامِ اجرا پرتاب کرد: ' + msg +
+                ' — صاحبِ برنامه همین را در پنجره دید.',
+        instruction: 'خطا را با دادهٔ واقعی بازسازی کن، علت را در کد پیدا کن و درست کن؛ ' +
+                     'برای همین مسیر آزمونی بنویس که بی اصلاح سرخ شود.',
+        owner: ROWNER_CODE
+      });
+    } catch (eF) {}
+}
+
+function menuLabel_(name) {
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  for (var i = 0; i < L.length; i++) if (L[i][0] === name) return String(L[i][1] || name);
+  return String(name);
+}
+
+function menuNote_(name, rec) {
+  try {
+    var m = JSON.parse(props_().getProperty(PK.MENU_LOG) || '{}');
+    var c = m[name] || { n: 0, fails: 0 };
+    if (rec.open) { c.open = rec.open; }
+    else {
+      delete c.open;
+      c.n = (Number(c.n) || 0) + 1; c.at = nowStr_(); c.ok = !!rec.ok; c.ms = Number(rec.ms) || 0;
+      if (!rec.ok) { c.fails = (Number(c.fails) || 0) + 1; c.err = String(rec.err || ''); c.failAt = c.at; }
+    }
+    m[name] = c;
+    props_().setProperty(PK.MENU_LOG, JSON.stringify(m));
+  } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
+}
+
+/** هر نامِ `BUILD_MENU_ITEMS_` که تابع است، یک بار پیچیده می‌شود. برمی‌گرداند چند تا. */
+function menuWrapAll_(root) {
+  var g = root || (function () { return this; })();
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  var n = 0;
+  for (var i = 0; i < L.length; i++) {
+    (function (name) {
+      var f = g[name];
+      if (typeof f !== 'function' || f.__menuWrapped) return;
+      var w = function () { return menuRun_(name, f, this, arguments); };
+      w.__menuWrapped = true; w.__menuInner = f;
+      try { g[name] = w; if (g[name] === w) n++; } catch (e) {}
+    })(String(L[i][0]));
+  }
+  return n;
+}
+
+/** حالِ همهٔ گزینه‌ها — فقط Properties، بی شیت و بی درایو. */
+function menuStatus_() {
+  var L = (typeof BUILD_MENU_ITEMS_ === 'object' && BUILD_MENU_ITEMS_) || [];
+  var out = { tracked: L.length, menu: 0, dialog: 0, untested: [], used7: 0, fails: [], died: [],
+              never: 0, healthSeen: false, line: '', ok: true };
+  var m = {};
+  try { m = JSON.parse(props_().getProperty(PK.MENU_LOG) || '{}'); } catch (e) { m = {}; }
+  var now = new Date().getTime(), wk = 7 * 86400000;
+  for (var i = 0; i < L.length; i++) {
+    var name = L[i][0], c = m[name];
+    if (L[i][3] === 'پنجره') out.dialog++; else out.menu++;
+    if (!L[i][2]) out.untested.push(name);
+    if (!c || !c.n) { if (!c || !c.open) out.never++; }
+    var at = c && c.at ? parseWhen_(c.at) : NaN;
+    if (c && !isNaN(at) && now - at < wk) out.used7++;
+    if (c && c.failAt && now - parseWhen_(c.failAt) < wk) {
+      out.fails.push({ name: name, label: menuLabel_(name), err: String(c.err || ''), at: c.failAt, fails: c.fails });
+    }
+    if (c && c.open && now - Number(c.open) > 15 * 60000) {
+      out.died.push({ name: name, label: menuLabel_(name), at: new Date(Number(c.open)).toISOString().slice(0, 16) });
+    }
+    if (name === 'healthCheck' && c && !isNaN(at) && now - at < 2 * 86400000) out.healthSeen = true;
+  }
+  out.ok = !out.fails.length && !out.died.length;
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  out.line = '🧭 منو: ' + fa(out.menu) + ' گزینه و ' + fa(out.dialog) + ' درِ پنجره زیرِ نظر · ' +
+             fa(out.used7) + ' تا در ۷ روزِ اخیر زده شد · ' + fa(out.untested.length) + ' گزینه بی‌آزمون' +
+             (out.fails.length ? ' · ❌ خطا: ' + out.fails.map(function (f) { return '«' + f.label + '» (' + f.err.slice(0, 60) + ')'; }).join('، ') : '') +
+             (out.died.length ? ' · ❌ نیمه‌کاره ماند (کشته شد): ' + out.died.map(function (d) { return '«' + d.label + '»'; }).join('، ') : '') +
+             (out.healthSeen ? '' : ' · ⚠ ثبتِ اجرا هنوز شاهد ندارد (وارسیِ سلامت در دو روزِ اخیر ثبت نشد)');
+  return out;
+}
+
+try { menuWrapAll_(); } catch (eMw) {}

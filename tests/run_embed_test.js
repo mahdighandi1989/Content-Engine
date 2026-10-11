@@ -256,7 +256,7 @@ ok('۱۳.۱ اجرا شد', t13.ok && t13.tried > 0, JSON.stringify(t13));
 ok('۱۳.۲ ردیف‌ها خودشان را پیدا کردند', t13.ratio >= 0.9, t13.hit + '/' + t13.tried);
 
 console.log('\n══ ۱۴) کارنامه و وضعیت ══');
-const n14 = embNightly_({ cap: 5, budgetMs: 30000 });
+const n14 = embNightly_({ cap: 5, budgetMs: 30000, selftestInline: true });
 const rows14 = embRows_(hub);
 ok('۱۴.۱ هر دور یک ردیف در کارنامه می‌گذارد', rows14.length >= 1, String(rows14.length));
 ok('۱۴.۲ کارنامه پوشش را ثبت می‌کند', /٪/.test(String(rows14[rows14.length - 1][7])),
@@ -774,7 +774,7 @@ CFG.EMB_ON = true;
       stepAtBuild = String(global.__PROPS[PK.EMB_STEP] || '');
       return realRun.apply(null, arguments);
     };
-    embNightly_({ cap: 5, budgetMs: 60000 });
+    embNightly_({ cap: 5, budgetMs: 60000, selftestInline: true });
     global.embSelfTest_ = realSelf; global.embRunDue_ = realRun;
 
     ok('۲۰.۲ وقتی کارِ اختیاری شروع می‌شود، کارِ ساخته‌شده از قبل ثبت شده',
@@ -807,7 +807,7 @@ CFG.EMB_ON = true;
       global.__PROPS[PK.EMB_LAST] = JSON.stringify(L0); delete global.__PROPS[PK.EMB_SELF_ARM]; }
     nightStart_();
     CFG.EMB_TAIL_MS = 10 * 60 * 1000;           // بیش از هر وقتی که بتواند مانده باشد
-    const r = embNightly_({ cap: 5, budgetMs: 60000 });
+    const r = embNightly_({ cap: 5, budgetMs: 60000, selftestInline: true });
     CFG.EMB_TAIL_MS = keepTail;
     global.embSelfTest_ = realSelf;
     nightStart_();
@@ -838,7 +838,7 @@ CFG.EMB_ON = true;
     const tailRun = () => {
       nightStart_();
       CFG.EMB_TAIL_MS = 10 * 60 * 1000;
-      embNightly_({ cap: 5, budgetMs: 60000 });
+      embNightly_({ cap: 5, budgetMs: 60000, selftestInline: true });
       CFG.EMB_TAIL_MS = keepTail;
       nightStart_();
       return global.__TRIGGERS.filter((t) => t.getHandlerFunction() === 'embSelfTestLater').length;
@@ -892,7 +892,7 @@ CFG.EMB_ON = true;
       clockAtBuild = Number(global._nightT0) || 0;
       return realRun.apply(null, arguments);
     };
-    embNightly_({ cap: 3, budgetMs: 30000 });
+    embNightly_({ cap: 3, budgetMs: 30000, selftestInline: true });
     global.embRunDue_ = realRun;
     ok('۲۰.۴-ب از مسیرِ دستی هم ساعت پیش از کار روشن است',
        clockAtBuild > 0,
@@ -910,6 +910,28 @@ CFG.EMB_ON = true;
        st.step.indexOf('ساختِ بردارها') === 0,
        'و در حالتِ گیرکرده در خطِ روزانه هم می‌آید' + (shown ? ' (همین حالا گیرکرده)' : ''));
   }
+}
+
+console.log('\n══ ۳۰) همهٔ قطعه‌ها، نزدیک‌ترین اول — خودآزمونِ ۱ از ۴ (۸.۷۳) ══');
+{
+  /* با ۸ قطعه از ۳۸ و قطعه‌هایی که به ترتیبِ ردیف پر می‌شوند (آمیزهٔ همهٔ موضوع‌ها)، ردیفِ درست
+     فقط با شانسِ ~۲۱٪ خوانده می‌شد. پیش‌فرضِ تازه: همه، تا ته مهلت. */
+  const savedA = { r: CFG.EMB_SHARD_ROWS, m: CFG.EMB_CENTROID_MIN, k: CFG.EMB_PROBE_SHARDS };
+  CFG.EMB_SHARD_ROWS = 2; CFG.EMB_CENTROID_MIN = 2;
+  CFG.EMB_PROBE_SHARDS = savedA.k;          // همان پیش‌فرضِ واقعیِ تنظیمات
+  const s30 = embSearch_(embQueryVec_('آشپزیِ محلیِ گیلان').vec, {});
+  ok('۳۰.۱ پیش‌فرض: همهٔ قطعه‌ها خوانده می‌شوند (نه سقفِ ثابت)', Number(CFG.EMB_PROBE_SHARDS) === 0 &&
+     s30.shards === s30.shardsAll && s30.shardsAll >= 3, s30.shards + ' از ' + s30.shardsAll);
+  ok('۳۰.۲ و ردیفِ درست پیدا می‌شود', s30.items.length >= 1 && s30.items[0].fileId === 'M6',
+     s30.items.map(i => i.fileId).join(','));
+  CFG.EMB_PROBE_SHARDS = 1;
+  const s31 = embSearch_(embQueryVec_('آشپزیِ محلیِ گیلان').vec, {});
+  ok('۳۰.۳ سقفِ صریح هنوز کار می‌کند (برای آزمونِ مقیاس)', s31.shards < s31.shardsAll, s31.shards + ' از ' + s31.shardsAll);
+  CFG.EMB_SHARD_ROWS = savedA.r; CFG.EMB_CENTROID_MIN = savedA.m; CFG.EMB_PROBE_SHARDS = savedA.k;
+  const src35b = fs.readFileSync('src/35_Embed.gs', 'utf8');
+  const nb = src35b.slice(src35b.indexOf('function embNightly_(opts) {'), src35b.indexOf('function embSelfTestArm_('));
+  ok('۳۰.۴ خودآزمون درونِ کارِ شبانه نمی‌دود (همه‌قطعه‌ای جا نمی‌شود) — اجرای جدا',
+     /if \(opts\.selftestInline !== true\) \{ try \{ armed2 = embSelfTestArm_\(\)/.test(nb));
 }
 
 console.log('\nPASS=' + pass);

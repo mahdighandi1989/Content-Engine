@@ -1048,9 +1048,16 @@ function embSearch_(vec, opts) {
     pick.push({ i: q, near: cc ? embDot_(qp, cc) : Infinity });
   }
   var minSh = Math.max(1, Number(CFG.EMB_CENTROID_MIN) || 6);
-  if (pick.length > minSh) {
-    pick.sort(function (a, b) { return b.near - a.near; });
-    var keepSh = Math.max(minSh, Number(CFG.EMB_PROBE_SHARDS) || 8);
+  /* ══ نزدیک‌ترین اول، ولی تا ته مهلت — نه هشت تا و بس (۸.۷۳) ══
+     خودآزمونِ ۱۱ اکتبر: ۱ از ۴. قطعه‌ها به ترتیبِ ردیف پر می‌شوند، پس هر قطعه آمیزه‌ای
+     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید؛ با خواندنِ ۸ قطعه از ۳۸، ردیفِ
+     درست فقط با شانسِ ~۸/۳۸ (۲۱٪) در قطعه‌های خوانده‌شده بود — همان یک‌چهارم. حالا همهٔ
+     قطعه‌ها به ترتیبِ نزدیکی خوانده می‌شوند تا مهلت تمام شود (حلقهٔ پایین مهلت را
+     می‌سنجد و نخوانده‌ها را می‌شمارد). `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
+  var capSh = Number(CFG.EMB_PROBE_SHARDS) || 0;
+  if (pick.length > minSh) pick.sort(function (a, b) { return b.near - a.near; });
+  if (capSh > 0 && pick.length > minSh) {
+    var keepSh = Math.max(minSh, capSh);
     var unknown = 0;
     for (var u = 0; u < pick.length; u++) if (pick[u].near === Infinity) unknown++;
     if (pick.length > keepSh + unknown) pick = pick.slice(0, keepSh + unknown);
@@ -1173,12 +1180,18 @@ function embSelfTest_(n) {
   out.mode = (qs && qs.length === picks.length) ? 'بازنویسی' : 'عنوان';
   if (out.mode === 'عنوان') out.note = 'بازنویسی نشد؛ آزمون با عنوانِ خودِ ردیف — سخت‌گیریِ کمتر.';
 
+  /* مهلتِ کل، تقسیم بر پرسش‌های باقی‌مانده (۸.۷۳): جست‌وجو حالا همهٔ قطعه‌ها را تا ته
+     مهلت می‌خوانَد، پس مهلتِ ثابتِ ۴۵ ثانیه برای هر پرسش از سقفِ شش‌دقیقه می‌گذشت. */
+  var tEnd = new Date().getTime() + Math.max(60000, Number(CFG.EMB_SELFTEST_MS) || 240000);
+  out.shardsRead = 0; out.shardsAll = ix.shards.length;
   for (var p = 0; p < picks.length; p++) {
     var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
     var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
     out.tried++;
-    var r = embSearch_(q.vec, { top: topK, budgetMs: 45000 });
+    var per = Math.max(10000, Math.min(60000, Math.floor((tEnd - new Date().getTime()) / (picks.length - p))));
+    var r = embSearch_(q.vec, { top: topK, budgetMs: per });
+    out.shardsRead += Number(r.shards) || 0;
     for (var k = 0; k < r.items.length; k++) {
       if (r.items[k].id === picks[p].id) { out.hit++; break; }
     }
@@ -1609,8 +1622,15 @@ function embNightly_(opts) {
                    (armed ? 'خودآزمون چند دقیقهٔ دیگر در اجرای جدای خودش.'
                           : 'کارنامه ثبت شد. دروازه‌ها از وارسیِ سلامت هم پرسیده می‌شوند.'));
   } else if (st.total && st.done && opts.selftest !== false) {
-    embStep_('خودآزمون');
-    try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
+    /* از ۸.۷۳ خودآزمون همهٔ قطعه‌ها را می‌خوانَد (نه ۸ تا) و هر پرسش تا ~۴۵ ثانیه می‌گیرد؛
+       درونِ کارِ شبانه جا نمی‌شود. پس همیشه اجرای جدای خودش — درونِ همین اجرا فقط اگر
+       زمان‌بندیِ جدا نشد. */
+    var armed2 = false;
+    if (opts.selftestInline !== true) { try { armed2 = embSelfTestArm_(); } catch (eA2) {} }
+    if (opts.selftestInline === true) {
+      embStep_('خودآزمون');
+      try { self = embSelfTest_(); } catch (eS) { out.notes.push('خودآزمون نشد: ' + eS.message); }
+    }
   }
   out.self = self;
 

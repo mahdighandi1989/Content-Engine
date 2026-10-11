@@ -615,6 +615,7 @@ function writeStatus_(hub, note) {
        نه شیت — چون چیزی که در این خرابی شکست، خودِ شیت بود. */
     runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
     /* عددِ تولیدشده در build — بی هیچ خواندنی، و بی امکانِ کهنه شدن (۸.۱۳) */
+    menu: (function () { try { return menuStatus_(); } catch (e) { return null; } })(),
     menuCover: (function () {
       try {
         if (typeof BUILD_MENU_ !== 'object' || !BUILD_MENU_) return null;
@@ -1668,6 +1669,7 @@ function capFindings_(hub, cap) {
   return n;
 }
 
+/** وارسیِ سلامتِ روزانه (۱۰ صبح): همهٔ زیرسامانه‌ها را می‌سنجد، ایرادها و یادداشت‌ها را در _STATUS.json می‌نویسد و یک ایمیلِ عملیاتی می‌فرستد. */
 function healthCheck() {
   /* شاهدِ اجرا (۸.۱۱): مهر **پیش از** کار، تا از کشته‌شدنِ اجرا جان
      به در ببرد — ۷.۴۴، این بار برای همهٔ تریگرها نه فقط شبانه.
@@ -2531,6 +2533,14 @@ function healthCheck() {
     /* و یافته، نه فقط جمله: جمله‌ای در نامهٔ فردا عوض می‌شود، یافته نه. */
     if (cp && (cp.idle.length || cp.wiring.length)) capFindings_(hub, cp);
   } catch (eCp) {}
+
+  /* ══ همهٔ گزینه‌های منو و درهای پنجره (۸.۷۳) ══ هر روز یک خط، حتی روزِ سالم؛ خطا یا
+     اجرای کشته‌شده ⇒ ایراد. یافتهٔ هر خطا را خودِ `menuRun_` همان لحظه ثبت کرده است. */
+  try {
+    var mn = menuStatus_();
+    st.menu = mn;
+    if (mn && mn.line) { if (mn.ok === false) problems.push(mn.line); else notes.push(mn.line); }
+  } catch (eMn) {}
 
   /* ══ درِ دومِ بستنِ پوشهٔ «voice cloning» (۸.۰۶) ══
    * کارِ شبانه ممکن است به بخشِ ۳۳ نرسد (۷٫۴۶ عیناً همین بود، برای صفِ پل)،

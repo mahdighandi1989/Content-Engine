@@ -44,7 +44,74 @@ const MENU_LINE = "var BUILD_MENU_ = { total: " + MENU_TOTAL + ", debt: " + MENU
     console.error('✗ خطِ ⚙ BUILD-MENU در src/00_Config.gs نیست — بی آن عدد کهنه می‌مانَد.');
     process.exit(1);
   }
-  const after = CFG_SRC.replace(RE_MENU, MENU_LINE);
+  let after = CFG_SRC.replace(RE_MENU, MENU_LINE);
+  /* ══ فهرستِ گزینه‌ها، از خودِ منو (۸.۷۳) ══
+   * «ناظر باید همهٔ گزینه‌های منو — الان و بعداً — را همیشه زیرِ نظر داشته باشد.»
+   * تا ۸.۷۲ فقط **شمارِ** بی‌آزمون‌ها اینجا ساخته می‌شد؛ هیچ‌جا ثبت نمی‌شد کدام
+   * گزینه کِی زده شد و چه شد — جست‌وجو «Out of memory» داد و موتور خبر نداشت.
+   * حالا فهرستِ کامل (نام، برچسب، آزموده؟) از خودِ `addItem`ها و درهای پنجره‌ها
+   * ساخته می‌شود و `menuWrapAll_` هر کدام را در `menuRun_` می‌پیچد. گزینهٔ تازه
+   * بی هیچ کارِ دستی واردِ همین فهرست می‌شود. */
+  const debtNames = (DEBT_M[1].match(/'[^']+'/g) || []).map((x) => x.slice(1, -1));
+  const items = [], seen = {};
+  const reItem = /addItem\('([^']*)',\s*'([A-Za-z_][A-Za-z0-9_]*)'\)/g;
+  let mi;
+  while ((mi = reItem.exec(MENU_SRC))) {
+    if (seen[mi[2]]) continue; seen[mi[2]] = 1;
+    items.push([mi[2], mi[1], debtNames.indexOf(mi[2]) === -1 ? 1 : 0, 'منو']);
+  }
+  const OPENER = { '15_Board.gs': 'showSeriesBoard', '32_Persona.gs': 'showPersonaBoard', '34_Search.gs': 'runContentSearch' };
+  for (const df of ['15_Board.gs', '32_Persona.gs', '34_Search.gs']) {
+    const op = items.find((x) => x[0] === OPENER[df]);
+    const t = fs.readFileSync(DIR + df, 'utf8');
+    const reFn = /\nfunction ([A-Za-z][A-Za-z0-9]*[A-Za-z0-9])\(/g;
+    let mf;
+    while ((mf = reFn.exec(t))) {
+      const nm = mf[1];
+      if (seen[nm] || /_$/.test(nm)) continue;
+      if (t.indexOf('.' + nm + '(') === -1) continue;   // فقط آنچه پنجره صدا می‌زند
+      seen[nm] = 1; items.push([nm, (op ? op[1] + ' › ' : '') + nm, 1, 'پنجره']);
+    }
+  }
+  /* ══ فلسفهٔ هر گزینه — از توضیحِ بالای خودِ تابع، نه یک فایلِ جدا (۸.۷۳) ══
+   * دو نسخه از یک متن یعنی روزی یکی کهنه می‌شود. پس `docs/menu.md` در هر build از
+   * همان توضیحِ کد ساخته می‌شود و `run_dialogs_test` ۲۰.۸ گزینهٔ بی‌توضیح را سرخ می‌کند. */
+  const ALL = FILES.map((f) => [f, fs.readFileSync(DIR + f, 'utf8')]);
+  const purposeOf = (fn) => {
+    for (const [f, t] of ALL) {
+      const i = t.indexOf('\nfunction ' + fn + '(');
+      if (i < 0) continue;
+      const before = t.slice(Math.max(0, i - 3000), i).replace(/\s+$/, '');
+      let txt = '';
+      if (/\*\/$/.test(before)) {
+        const st = before.lastIndexOf('/*');
+        if (st >= 0 && before.indexOf('*/', st) === before.length - 2) txt = before.slice(st + 2, -2).replace(/^\*/, '');
+      } else {
+        const ml = /((?:^|\n)[ \t]*\/\/[^\n]*)+$/.exec(before);
+        if (ml) txt = ml[0];
+      }
+      txt = txt.split('\n').map((l) => l.replace(/^\s*(\*|\/\/)\s?/, '').trim())
+        .filter((l) => l && !/^@/.test(l) && !/^[═─]+$/.test(l)).join(' ')
+        .replace(/══/g, '').replace(/\s+/g, ' ').trim();
+      return { file: f, purpose: txt.slice(0, 400) };
+    }
+    return { file: '', purpose: '' };
+  };
+  const md = ['# گزینه‌های منو و درهای پنجره‌ها', '',
+    '> ساخته‌شده خودکار با `node tools/build.js` از خودِ کد (۸.۷۳) — دستی ویرایش نکنید؛ ' +
+    'توضیحِ بالای تابع را عوض کنید. هر زدن و نتیجه‌اش در `_STATUS.json` → `menu` ثبت می‌شود.', '',
+    '| # | برچسب | تابع | پرونده | آزمون | فلسفه و کار |', '|---|---|---|---|---|---|'];
+  items.forEach((it, k) => {
+    const pu = purposeOf(it[0]);
+    it.push(pu.purpose ? 1 : 0);
+    md.push('| ' + (k + 1) + ' | ' + String(it[1]).replace(/\|/g, '/') + ' | `' + it[0] + '` | ' + pu.file + ' | ' +
+            (it[2] ? '✅' : '❌ بی‌آزمون') + ' | ' + (pu.purpose || '❌ **بی‌توضیح**').replace(/\|/g, '/') + ' |');
+  });
+  fs.writeFileSync(path.join(ROOT, 'docs', 'menu.md'), md.join('\n') + '\n');
+  const ITEMS_LINE = 'var BUILD_MENU_ITEMS_ = ' + JSON.stringify(items) + ';   /* ⚙ BUILD-MENU-ITEMS */';
+  const RE_ITEMS = /var BUILD_MENU_ITEMS_ = \[[\s\S]*?\];\s*\/\* ⚙ BUILD-MENU-ITEMS \*\//;
+  if (RE_ITEMS.test(after)) after = after.replace(RE_ITEMS, ITEMS_LINE);
+  else after = after.replace(MENU_LINE, MENU_LINE + '\n' + ITEMS_LINE);
   if (after !== CFG_SRC) fs.writeFileSync(DIR + '00_Config.gs', after);
 }
 let HEADER = fs.readFileSync(path.join(__dirname, 'build_header.txt'), 'utf8');

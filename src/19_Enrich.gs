@@ -952,5 +952,7 @@ function runProduceEnriched_(show) {
   return r;
 }
 
+/** «از همه جا» با غنی‌سازیِ اینترنتی: درخواست می‌گذارد، منتظرِ جوابِ تسکِ غنی‌سازی می‌ماند و بعد می‌سازد. */
 function runProduceVarietyEnriched() { return runProduceEnriched_(ENRICH_SHOW_VARIETY); }
+/** «درس‌نامه» با غنی‌سازیِ اینترنتی: همان راهِ تولیدِ خودکارِ صبح، ولی با دستِ شما و همین حالا. */
 function runProduceSpecialEnriched() { return runProduceEnriched_(ENRICH_SHOW_SPECIAL); }

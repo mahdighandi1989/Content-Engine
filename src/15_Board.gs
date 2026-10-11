@@ -1770,6 +1770,7 @@ function boardReceiptRead_() {
   return null;
 }
 
+/** دکمهٔ «مجموعه‌های مرجع» روی تخته: کلیدهای تیک‌خورده را در ستونِ مرجع‌ها می‌نشاند تا درس‌ها با آن کتاب‌ها پل بزنند. */
 function uiBridgeSave(key, keys) {
   try {
     var hubB = getHub_();
@@ -1811,6 +1812,7 @@ function uiBridgeSave(key, keys) {
   }
 }
 
+/** دکمهٔ «مرورِ بزرگ» روی تخته: مرورِ یک یا چند مجموعه (با بازهٔ درس‌ها) را به صفِ تولید می‌برد. */
 function uiRecapQueue(keys, scopes) {
   try {
     /* رشته‌ای که آدم تایپ کرده، همین‌جا به عدد تبدیل می‌شود — و با فهرستِ
@@ -1851,6 +1853,7 @@ function uiRecapQueue(keys, scopes) {
   } catch (e) { return { ok: false, message: 'سفارشِ مرور ثبت نشد: ' + e.message }; }
 }
 
+/** دکمهٔ «ساختِ همهٔ جزوه‌ها»: درس‌های جامانده را به صف می‌آورد و تا جا هست می‌سازد — بی منتظرِ شب ماندن. */
 function uiHandoutAll() {
   try {
     var b = handoutBackfill_(Number(CFG.HANDOUT_SCAN_MAX) || 25);
@@ -1867,6 +1870,7 @@ function uiHandoutAll() {
   } catch (e) { return { ok: false, message: 'جزوه‌ها ساخته نشدند: ' + e.message }; }
 }
 
+/** تقویمِ تولید روی تخته: روشن/خاموش، روزهای هفته و استثناهای هر برنامه را در همان تبی می‌نویسد که calGate_ می‌خوانَد. */
 function uiCalSave(key, on, days, exc) {
   try {
     var r = calBoardSave_(key, !!on, days || [], exc || '');
@@ -2336,6 +2340,7 @@ function uiRecapEverySave(key, every) {
   }
 }
 
+/** سنجاقِ یک مجموعه: درس‌نامهٔ بعدی از همین مجموعه ساخته شود، نه از ترتیبِ خودکار. */
 function uiPinSeries(key, act) {
   var hub = getHub_();
   var reg = readSeriesReg_(hub);
@@ -2520,6 +2525,7 @@ function uiSetManual(key, numStr, cat, sub) {
            (fixed.length ? '<br>' + fixed.map(bEsc_).join('<br>') : '') };
 }
 
+/** برداشتنِ تنظیمِ دستیِ یک مجموعه — برگشت به داوری و نامِ خودکار. */
 function uiClearManual(key) {
   return uiSetManual(key, '', '', '');
 }
@@ -2639,6 +2645,7 @@ function uiJudgeNow() {
   return { ok: true, message: msg };
 }
 
+/** برداشتنِ سنجاق — موتور به ترتیبِ خودکارِ مجموعه‌ها برمی‌گردد. */
 function uiClearPin() {
   clearSeriesPin_();
   logLine_('انتخاب دستی برداشته شد.');
