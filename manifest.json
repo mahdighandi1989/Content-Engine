@@ -1,13 +1,13 @@
 {
-  "version": "8.76",
+  "version": "8.77",
   "codeFile": "engine.gs",
-  "sha256": "08e17cba0ee6d126b15098c233667a3349563c5a2b1fe9877892e154a6030bac",
-  "releasedAt": "2026-10-12T07:20:00Z",
-  "summary": "نصبِ ساعتیِ کدِ تازه (نه فقط ۲:۳۰ شب) و جبرانِ روزانهٔ جزوهٔ عقب‌مانده در اجرای جدا؛ همراه با 8.75.",
+  "sha256": "54980d7b7e3184699a009d456db89b3339dc97ec75b09b334be995d4a2a13e02",
+  "releasedAt": "2026-10-12T08:20:00Z",
+  "summary": "جست‌وجو: واژهٔ کوتاه فقط به‌صورتِ واژهٔ جدا («کس» نه درونِ «عکس») — علتِ واقعیِ Out of memory؛ آزادسازیِ حافظه؛ خطا با نامِ تب.",
   "fixes": [
-    "selfUpdateHourly_: تریگرِ ساعتی manifest را می‌خوانَد و با همان selfUpdateStep نصب می‌کند؛ وسطِ کار نه",
-    "handoutCatchUpArm_/handoutCatchUp: بدهیِ جزوه در روز، اجرای جدا، هر ۳ ساعت حداکثر یک بار",
-    "8.75: ytReplaceTick_ حالتِ جایگزینیِ یتیم را می‌بندد"
+    "srchPattern_: مرزِ واژه برای واژهٔ تا ۳ حرف (SEARCH_WORD_EDGE_MAX)",
+    "srchFind_: آزادکردنِ فهرستِ findAll؛ absorb: آزادکردنِ ردیفِ خوانده‌شده",
+    "srchRun: خطا با نامِ آخرین تب (SRCH_AT_)"
   ],
   "sourceReportIds": [],
   "promptImpact": [],

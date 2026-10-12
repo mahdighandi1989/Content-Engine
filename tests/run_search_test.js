@@ -654,4 +654,20 @@ console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو �
      big.fields.raw === '' && big.fields.body.length <= 600 && !!big.show);
 }
 
+/* ══ ۳۱ — «کس» درونِ «عکس» نمی‌خورد (۸.۷۷) ══ «کس مگو» دو روز «Out of memory error» داد:
+   الگوی واژهٔ کوتاه درونِ «عکس» در ده‌ها هزار سلول می‌خورد و findAll همه را یک‌جا می‌ساخت. */
+{
+  const rk = new RegExp(srchPattern_('کس'), 'u');
+  ok('۳۱.۱ «کس» درونِ «عکس» و «کسی» نمی‌خورد', !rk.test('تحلیلِ عکس') && !rk.test('هیچ کسی نیامد') && !rk.test('عکس‌ها'));
+  ok('۳۱.۲ ولی خودِ واژه می‌خورد: آغاز، میان، پایان، با نیم‌فاصله و نشانه',
+     rk.test('کس مگو') && rk.test('به او گفت کس نگو') && rk.test('همین کس') && rk.test('کس‌ها') && rk.test('«کس»'));
+  const rl = new RegExp(srchPattern_('کتابخانه'), 'u');
+  ok('۳۱.۳ واژهٔ بلند همان رفتارِ پیشین را دارد (درونِ واژهٔ دیگر هم می‌خورد)', rl.test('کتابخانه‌ای') && rl.test('درکتابخانه'));
+  const keepRun = global.srchRun_;
+  global.srchRun_ = () => { SRCH_AT_ = 'تبِ «عکس»'; throw new Error('Out of memory error.'); };
+  const er = srchRun('کس مگو', 'smart', true);
+  global.srchRun_ = keepRun;
+  ok('۳۱.۴ خطا جایش را می‌گوید، نه فقط متنش', er.ok === false && /در تبِ «عکس»/.test(er.notes[0]), er.notes[0]);
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -197,6 +197,19 @@ function srchPattern_(term) {
     pat += out[k];
   }
   while (pat.length && pat.slice(-GAP.length) === GAP) pat = pat.slice(0, -GAP.length);
+  /* ══ واژهٔ کوتاه فقط به‌صورتِ واژه، نه تکه‌ای از واژهٔ دیگر (۸.۷۷) ══
+     «کس مگو» در هر دو حالت «Out of memory error» داد، دو روزِ پشتِ‌هم و حتی پس از درمانِ
+     ۸.۷۳. الگوی «کس» درونِ «عکس» هم می‌خورد — و «عکس» در ده‌ها هزار سلولِ بانک و شیت‌های
+     منبع هست (نوعِ ردیف، متنِ تحلیلِ عکس). `findAll` همهٔ آن تطبیق‌ها را یک‌جا در حافظه
+     می‌ساخت. هر دو کوتاه و پرتکرارند: واژهٔ دوسه‌حرفی تقریباً همیشه درونِ واژه‌های دیگر
+     هست، و همان تطبیق‌ها نتیجهٔ بی‌ربط هم بودند. پس واژهٔ تا سه حرف دو طرفش باید «نه‌حرف»
+     باشد (فاصله، نیم‌فاصله، نشانه، آغاز یا پایانِ سلول). ردهٔ «حرف» با نویسهٔ خام نوشته
+     می‌شود نه با `\p{L}`: همان احتیاطِ بالا دربارهٔ RE2ِ شیت. */
+  var letters = t.replace(/[^\p{L}\p{N}]/gu, '');
+  if (pat && letters.length <= Number(CFG.SEARCH_WORD_EDGE_MAX || 3)) {
+    var L = String.fromCharCode(0x0600) + '-' + String.fromCharCode(0x06FF) + 'A-Za-z0-9';
+    pat = '(?:^|[^' + L + '])' + pat + '(?:[^' + L + ']|$)';
+  }
   return pat;
 }
 
@@ -342,6 +355,7 @@ function srchFind_(sh, pattern, cap, deadline) {
         if (n >= cap) { res.cut = true; break; }
       }
     }
+    all = null;                        // ۸.۷۷: فهرستِ تطبیق‌ها تا پایانِ جست‌وجو نگه داشته نشود
   } else {
     res.via = 'findNext';
     try {
@@ -689,6 +703,7 @@ function srchCollect_(terms, phrase, opts) {
     for (var z = 0; z < pick.length; z++) {
       if (out.read >= rowsMax) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; break; }
       var v = vals[pick[z]];
+      vals[pick[z]] = null;            // ۸.۷۷: ردیفِ خوانده‌شده فقط تا ساختنِ نامزد در حافظه
       if (!v) { r.missed++; continue; }
       out.read++; r.read++; r.got[pick[z]] = 1;
       var it = mk(sh, pick[z], v);
@@ -717,6 +732,7 @@ function srchCollect_(terms, phrase, opts) {
 
   var take = function (sh, mk, tabEnd, rowShare) {
     if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
+    try { SRCH_AT_ = 'تبِ «' + sh.getName() + '»'; } catch (eAt) {}
     var tStart = new Date().getTime();
     var rows = {}, order = [], cut = false, err = '';
     for (var q = 0; q < pats.length; q++) {
@@ -1385,11 +1401,19 @@ function srchRun_(query, opts) {
 }
 
 /** همان، برای دکمه‌های پنجره. (نامِ بی‌زیرخط، چون از HTML صدا زده می‌شود.) */
+/* کجای جست‌وجو بودیم (۸.۷۷). «Out of memory error» به‌تنهایی نمی‌گوید کدام تب یا کدام مرحله؛
+   خطا جایی پرتاب می‌شود که حافظه تمام شد، نه جایی که پُرش کرد — ولی نامِ آخرین تب همان شاهدی
+   است که دفعهٔ بعد علت را از حدس به عدد می‌بَرد. */
+var SRCH_AT_ = '';
+
+/** درِ پنجرهٔ جست‌وجو: ساده یا هوشمند، با یا بی شیت‌های منبع؛ هر خطا به‌صورتِ جواب برمی‌گردد (با نامِ تب)، نه استثنا. */
 function srchRun(query, mode, sources) {
+  SRCH_AT_ = '';
   try {
     return srchRun_(query, { mode: mode, sources: sources !== false });
   } catch (e) {
-    return { ok: false, query: String(query || ''), items: [], notes: ['خطا: ' + e.message],
+    return { ok: false, query: String(query || ''), items: [],
+             notes: ['خطا: ' + e.message + (SRCH_AT_ ? ' (در ' + SRCH_AT_ + ')' : '')],
              terms: [], answer: '', scanned: 0, sheets: 0, stopped: '', ms: 0, mode: mode };
   }
 }
