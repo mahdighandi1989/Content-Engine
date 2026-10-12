@@ -1335,6 +1335,7 @@ var CFG = {
   // عددِ کوچک یعنی برای سیزده درس، دوازده تا ساخته شود و یکی بماند — و
   // همان یکی دوباره فشردن می‌خواهد، که هدفِ این تغییر را از بین می‌برد.
   HANDOUT_MANUAL_MAX: 40,
+  HANDOUT_DAY_CATCHUP: true,    // ۸.۷۶: بدهیِ جزوه روزِ روشن هم در اجرای جدا پرداخت می‌شود
   HANDOUT_MANUAL_MS: 180000,
 
   MUSIC_ENABLED: true,
@@ -1988,7 +1989,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.75',
+  CODE_VERSION: '8.76',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -1997,6 +1998,7 @@ var CFG = {
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
   // هر شب خودش وارسی و نصبش می‌کند (21_SelfUpdate.gs). خاموشش: false.
   AUTOUPDATE_ENABLED: true,
+  AUTOUPDATE_HOURLY: true,      // ۸.۷۶: نسخهٔ تازه تا یک ساعت بعد نصب می‌شود، نه فقط ۲:۳۰ شب
   UPDATE_HOUR: 2,                       // ساعتِ بررسیِ شبانه (دبی) — پیش از پشتیبانِ ۳
   CODE_FOLDER: 'کدها — نسخه‌های موتور', // بایگانیِ نسخه‌ها داخل OUTPUT؛ در پشتیبانِ شبانه هم می‌آید
   // ---- منبعِ کد: گیت‌هاب (نسخهٔ ۵٫۱۲) ----
@@ -3043,6 +3045,8 @@ var PK = {
   MUSIC_UNHEARD_AT: 'MUSIC_UNHEARD_SINCE',  // از کِی بانک قطعهٔ نشنیده دارد
   MUSIC_LOGGED: 'MUSIC_LOGGED_EP',  // آخرین قسمتی که ثبتِ موسیقی‌اش انجام شد
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
+  HANDOUT_CATCHUP_AT: 'HANDOUT_CATCHUP_AT',     // ۸.۷۶: آخرین زمان‌بندیِ جبرانِ روزانهٔ جزوه
+  AUTOUPDATE_HOURLY_AT: 'AUTOUPDATE_HOURLY_AT', // ۸.۷۶: آخرین پرسشِ ساعتی از manifest
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه

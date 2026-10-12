@@ -1,11 +1,13 @@
 {
-  "version": "8.75",
+  "version": "8.76",
   "codeFile": "engine.gs",
-  "sha256": "d4d62570aae02cf1fcba72365d56812b7f89ea9e1bfaa47f8628043bd935cdcf",
-  "releasedAt": "2026-10-12T06:45:00Z",
-  "summary": "هشدارِ دروغینِ «جایگزینیِ special:63 در ساخت مانده» بسته شد: حالتِ جایگزینیِ یتیم (کلید بیرون از فهرست) همان‌جا بسته می‌شود، بی آپلود.",
+  "sha256": "08e17cba0ee6d126b15098c233667a3349563c5a2b1fe9877892e154a6030bac",
+  "releasedAt": "2026-10-12T07:20:00Z",
+  "summary": "نصبِ ساعتیِ کدِ تازه (نه فقط ۲:۳۰ شب) و جبرانِ روزانهٔ جزوهٔ عقب‌مانده در اجرای جدا؛ همراه با 8.75.",
   "fixes": [
-    "ytReplaceTick_: حالتِ build/swap با کلیدِ بیرون‌رفته از فهرست ⇒ done (ویدئوی تازه منتشر) یا skip؛ هیچ آپلود"
+    "selfUpdateHourly_: تریگرِ ساعتی manifest را می‌خوانَد و با همان selfUpdateStep نصب می‌کند؛ وسطِ کار نه",
+    "handoutCatchUpArm_/handoutCatchUp: بدهیِ جزوه در روز، اجرای جدا، هر ۳ ساعت حداکثر یک بار",
+    "8.75: ytReplaceTick_ حالتِ جایگزینیِ یتیم را می‌بندد"
   ],
   "sourceReportIds": [],
   "promptImpact": [],

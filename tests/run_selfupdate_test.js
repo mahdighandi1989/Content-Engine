@@ -657,4 +657,51 @@ console.log('\n=== ۱۳. گرسنگیِ کارِ شبانه یافته می‌س
   global.logSelfFinding_ = realFind13;
 }
 
+// ═════ ۱۴. نصبِ ساعتی و جبرانِ روزانهٔ جزوه (۸.۷۶) ═════
+// «تا فردا شب مشخص می‌شود»: کد فقط ۲:۳۰ شب نصب می‌شد و جزوه شبی یک درس می‌گرفت.
+console.log('\n=== ۱۴. نصبِ ساعتی، جزوهٔ روزانه ===');
+{
+  const keep = { rm: global.readCodeManifest_, step: global.selfUpdateStep, busy: global.engineBusyForSwap_,
+                 due: global.handoutDueList_, run: global.handoutRunDue_ };
+  let steps = 0, ver = '5.11', busy = false;
+  global.readCodeManifest_ = () => ({ info: { version: ver } });
+  global.selfUpdateStep = (f) => { steps++; return { ok: true, force: f }; };
+  global.engineBusyForSwap_ = () => busy;
+  delete global.__PROPS[PK.AUTOUPDATE_HOURLY_AT];
+  const un = quiet();
+  const r1 = selfUpdateHourly_();
+  const r2 = selfUpdateHourly_();
+  un();
+  ok('۱۴.۱ نسخهٔ تازه‌تر ⇒ همان selfUpdateStep صدا زده می‌شود؛ ساعتِ بعد نه زودتر', r1.ok === true && steps === 1 && r2.reason === 'recent',
+     JSON.stringify({ r1, r2, steps }));
+  delete global.__PROPS[PK.AUTOUPDATE_HOURLY_AT]; busy = true;
+  const r3 = selfUpdateHourly_();
+  ok('۱۴.۲ وسطِ قسمت ⇒ نصب نه، و تریگرِ «دو ساعت بعد» هم ساخته نمی‌شود', r3.reason === 'busy' && steps === 1 &&
+     !trigsOf('selfUpdateRetry').length, JSON.stringify(r3));
+  delete global.__PROPS[PK.AUTOUPDATE_HOURLY_AT]; busy = false; ver = '5.10';
+  const r4 = selfUpdateHourly_();
+  ok('۱۴.۳ نسخهٔ برابر ⇒ کاری نمی‌کند', r4.reason === 'up-to-date' && steps === 1, JSON.stringify(r4));
+  const hourlyBody = String(global.vbrCollectHourly);
+  ok('۱۴.۴ تریگرِ ساعتی هر دو را صدا می‌زند، پیش از سدِ پل',
+     hourlyBody.indexOf('selfUpdateHourly_()') !== -1 && hourlyBody.indexOf('handoutCatchUpArm_()') !== -1 &&
+     hourlyBody.indexOf('handoutCatchUpArm_()') < hourlyBody.indexOf('CFG.VBR_ON === false'));
+
+  let dueN = 2, ran = null;
+  global.handoutDueList_ = () => new Array(dueN).fill({ s: 'x', ep: 1 });
+  global.handoutRunDue_ = (n, b) => { ran = { n, b }; return { done: 2, left: 0 }; };
+  delete global.__PROPS[PK.HANDOUT_CATCHUP_AT];
+  const a1 = handoutCatchUpArm_(), a2 = handoutCatchUpArm_();
+  ok('۱۴.۵ بدهیِ جزوه ⇒ یک اجرای جدا زمان‌بندی می‌شود، نه دو تا در سه ساعت', a1 === true && a2 === false &&
+     trigsOf('handoutCatchUp').length === 1, JSON.stringify({ a1, a2, n: trigsOf('handoutCatchUp').length }));
+  const un5 = quiet(); const hr = handoutCatchUp(); un5();
+  ok('۱۴.۶ همان handoutRunDue_ با مهلتِ یک اجرای کامل؛ تریگرِ یک‌بارمصرف پاک می‌شود',
+     ran && ran.b >= 200000 && ran.n >= 2 && hr.done === 2 && !trigsOf('handoutCatchUp').length, JSON.stringify(ran));
+  delete global.__PROPS[PK.HANDOUT_CATCHUP_AT]; dueN = 0;
+  ok('۱۴.۷ بی بدهی ⇒ هیچ', handoutCatchUpArm_() === false);
+  delete global.__PROPS[PK.HANDOUT_CATCHUP_AT]; dueN = 2; busy = true;
+  ok('۱۴.۸ وسطِ قسمت ⇒ هیچ', handoutCatchUpArm_() === false);
+  global.readCodeManifest_ = keep.rm; global.selfUpdateStep = keep.step; global.engineBusyForSwap_ = keep.busy;
+  global.handoutDueList_ = keep.due; global.handoutRunDue_ = keep.run;
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

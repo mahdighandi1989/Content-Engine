@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.75
+ *  موتور محتوا و پادکست — نسخهٔ 8.76
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1354,6 +1354,7 @@ var CFG = {
   // عددِ کوچک یعنی برای سیزده درس، دوازده تا ساخته شود و یکی بماند — و
   // همان یکی دوباره فشردن می‌خواهد، که هدفِ این تغییر را از بین می‌برد.
   HANDOUT_MANUAL_MAX: 40,
+  HANDOUT_DAY_CATCHUP: true,    // ۸.۷۶: بدهیِ جزوه روزِ روشن هم در اجرای جدا پرداخت می‌شود
   HANDOUT_MANUAL_MS: 180000,
 
   MUSIC_ENABLED: true,
@@ -2007,7 +2008,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.75',
+  CODE_VERSION: '8.76',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2016,6 +2017,7 @@ var CFG = {
   // وقتی ناظرِ Cowork کدِ کاملِ تازه را با بیانیه‌اش در OUTPUT بگذارد، موتور
   // هر شب خودش وارسی و نصبش می‌کند (21_SelfUpdate.gs). خاموشش: false.
   AUTOUPDATE_ENABLED: true,
+  AUTOUPDATE_HOURLY: true,      // ۸.۷۶: نسخهٔ تازه تا یک ساعت بعد نصب می‌شود، نه فقط ۲:۳۰ شب
   UPDATE_HOUR: 2,                       // ساعتِ بررسیِ شبانه (دبی) — پیش از پشتیبانِ ۳
   CODE_FOLDER: 'کدها — نسخه‌های موتور', // بایگانیِ نسخه‌ها داخل OUTPUT؛ در پشتیبانِ شبانه هم می‌آید
   // ---- منبعِ کد: گیت‌هاب (نسخهٔ ۵٫۱۲) ----
@@ -3062,6 +3064,8 @@ var PK = {
   MUSIC_UNHEARD_AT: 'MUSIC_UNHEARD_SINCE',  // از کِی بانک قطعهٔ نشنیده دارد
   MUSIC_LOGGED: 'MUSIC_LOGGED_EP',  // آخرین قسمتی که ثبتِ موسیقی‌اش انجام شد
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
+  HANDOUT_CATCHUP_AT: 'HANDOUT_CATCHUP_AT',     // ۸.۷۶: آخرین زمان‌بندیِ جبرانِ روزانهٔ جزوه
+  AUTOUPDATE_HOURLY_AT: 'AUTOUPDATE_HOURLY_AT', // ۸.۷۶: آخرین پرسشِ ساعتی از manifest
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
@@ -35449,6 +35453,31 @@ function installCodeRollback() {
 }
 
 /** منو: بررسی و نصبِ همین حالا. */
+/**
+ * نصبِ ساعتی، نه فقط شبانه (۸.۷۶).
+ *
+ * «تا فردا شب مشخص می‌شود» جوابِ هر درمانی بود، چون کد فقط ساعتِ ۲:۳۰ نصب می‌شد — و شبی که نصب می‌شد،
+ * خودِ آن اجرای شبانه هنوز کدِ قبلی بود (۷٫۲۹)؛ پس درمانی که ظهر push شد، دست‌کم ۳۶ ساعت بعد اولین بار
+ * می‌دوید. حالا تریگرِ ساعتی یک بار در ساعت `manifest.json` را می‌خوانَد و اگر نسخهٔ تازه‌تری هست، **همان
+ * `selfUpdateStep`** را صدا می‌زند — همان سه سدِ sha و نسخه و تابع‌های لازم، هیچ راهِ دومی برای نصب.
+ * وسطِ صداگذاری یا پشتیبان کاری نمی‌کند و تریگرِ «دو ساعت بعد» هم نمی‌سازد: ساعتِ بعد خودش دوباره می‌پرسد.
+ */
+function selfUpdateHourly_() {
+  if (CFG.AUTOUPDATE_ENABLED === false || CFG.AUTOUPDATE_HOURLY === false) return { ok: false, reason: 'off' };
+  var p = props_(), now = new Date().getTime();
+  var last = Number(p.getProperty(PK.AUTOUPDATE_HOURLY_AT) || 0);
+  if (last && now - last < 50 * 60000) return { ok: false, reason: 'recent' };
+  p.setProperty(PK.AUTOUPDATE_HOURLY_AT, String(now));
+  if (engineBusyForSwap_()) return { ok: false, reason: 'busy' };
+  var got = readCodeManifest_();
+  if (!got || !got.info) return { ok: false, reason: 'no-manifest' };
+  if (verCmp_(String(got.info.version), String(CFG.CODE_VERSION)) <= 0) return { ok: false, reason: 'up-to-date' };
+  var r = selfUpdateStep(false);
+  try { logLine_('نصبِ ساعتی: نسخهٔ ' + got.info.version + ' — ' + (r.ok ? 'نصب شد' : (r.reason || 'نشد'))); } catch (eL) {}
+  return r;
+}
+
+/** دکمهٔ «نصبِ کدِ تازه (همین حالا)»: همان `selfUpdateStep`، با پیامِ روشن برای هر حالت — برای وقتی که نمی‌خواهید تا نصبِ ساعتی صبر کنید. */
 function runSelfUpdateNow() {
   var r = selfUpdateStep(true);
   var ui = ui_();
@@ -46267,6 +46296,41 @@ function handoutDueAdd_(seriesKey, epNum) {
  * ۲) **گروه‌بندی بر اساسِ مجموعه.** هر مجموعه یک بار پیمایش می‌شود، نه یک
  *    بار به‌ازای هر درس.
  */
+/**
+ * جزوهٔ عقب‌مانده روزِ روشن هم جبران می‌شود، نه فقط شب (۸.۷۶).
+ *
+ * شاهد: جزوهٔ آئودی هفت روز پشتِ سرِ هم «۲ درس عقب» بود. هر شب یک درس وارد می‌شد (۶۴، ۶۵، ۶۶، ۶۷) و هر صبح
+ * یک درسِ تازه تولید می‌شد؛ پایانِ قسمت هم وقتِ ساختن نداشت. یعنی بدهی هرگز صفر نمی‌شد — نه چون چیزی خراب بود،
+ * بلکه چون تنها درِ پرداخت شبی یک بار باز بود. حالا تریگرِ ساعتی، اگر بدهی هست و موتور وسطِ قسمت نیست، یک
+ * اجرای جدا (`handoutCatchUp`) با شش دقیقهٔ خودش زمان‌بندی می‌کند — همان `handoutRunDue_` و همان ترتیبِ درس،
+ * هیچ مسیرِ دوم. هر سه ساعت حداکثر یک بار، تا اجرایی که مدام کشته می‌شود مدام تکرار نشود.
+ */
+function handoutCatchUpArm_() {
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_DAY_CATCHUP === false) return false;
+  if (!handoutDueList_().length) return false;
+  if (engineBusyForSwap_()) return false;
+  var p = props_(), now = new Date().getTime();
+  var last = Number(p.getProperty(PK.HANDOUT_CATCHUP_AT) || 0);
+  if (last && now - last < 3 * 3600000) return false;
+  p.setProperty(PK.HANDOUT_CATCHUP_AT, String(now));
+  clearRetryTriggers_('handoutCatchUp');
+  ScriptApp.newTrigger('handoutCatchUp').timeBased().after(60000).create();
+  return true;
+}
+
+/** تریگرِ یک‌بارمصرف: بدهیِ جزوه، با مهلتِ کاملِ یک اجرا. */
+function handoutCatchUp() {
+  runEnter_('handoutCatchUp');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('handoutCatchUp'); } catch (e0) {}
+    var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MANUAL_MAX) || 12), 270000);
+    note = (r.done || 0) + ' درس وارد شد، ' + (r.left || 0) + ' مانده';
+    logLine_('جبرانِ روزانهٔ جزوه: ' + note);
+    return r;
+  } finally { runExit_('handoutCatchUp', note); }
+}
+
 function handoutRunDue_(maxItems, budgetMs) {
   var res = { tried: 0, done: 0, left: 0, notes: [], ranOut: false };
   if (CFG.HANDOUT_ENABLED === false) return res;
@@ -73721,6 +73785,9 @@ function vbrCollectHourly() {
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}
+  /* نصبِ کدِ تازه و جبرانِ جزوه — هر دو ساعتی، نه فقط شبانه (۸.۷۶). پیش از سدِ پل، چون هیچ‌کدام به پل ربطی ندارد. */
+  try { selfUpdateHourly_(); } catch (eSu) {}
+  try { handoutCatchUpArm_(); } catch (eHc) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

@@ -2809,6 +2809,41 @@ function handoutDueAdd_(seriesKey, epNum) {
  * ۲) **گروه‌بندی بر اساسِ مجموعه.** هر مجموعه یک بار پیمایش می‌شود، نه یک
  *    بار به‌ازای هر درس.
  */
+/**
+ * جزوهٔ عقب‌مانده روزِ روشن هم جبران می‌شود، نه فقط شب (۸.۷۶).
+ *
+ * شاهد: جزوهٔ آئودی هفت روز پشتِ سرِ هم «۲ درس عقب» بود. هر شب یک درس وارد می‌شد (۶۴، ۶۵، ۶۶، ۶۷) و هر صبح
+ * یک درسِ تازه تولید می‌شد؛ پایانِ قسمت هم وقتِ ساختن نداشت. یعنی بدهی هرگز صفر نمی‌شد — نه چون چیزی خراب بود،
+ * بلکه چون تنها درِ پرداخت شبی یک بار باز بود. حالا تریگرِ ساعتی، اگر بدهی هست و موتور وسطِ قسمت نیست، یک
+ * اجرای جدا (`handoutCatchUp`) با شش دقیقهٔ خودش زمان‌بندی می‌کند — همان `handoutRunDue_` و همان ترتیبِ درس،
+ * هیچ مسیرِ دوم. هر سه ساعت حداکثر یک بار، تا اجرایی که مدام کشته می‌شود مدام تکرار نشود.
+ */
+function handoutCatchUpArm_() {
+  if (CFG.HANDOUT_ENABLED === false || CFG.HANDOUT_DAY_CATCHUP === false) return false;
+  if (!handoutDueList_().length) return false;
+  if (engineBusyForSwap_()) return false;
+  var p = props_(), now = new Date().getTime();
+  var last = Number(p.getProperty(PK.HANDOUT_CATCHUP_AT) || 0);
+  if (last && now - last < 3 * 3600000) return false;
+  p.setProperty(PK.HANDOUT_CATCHUP_AT, String(now));
+  clearRetryTriggers_('handoutCatchUp');
+  ScriptApp.newTrigger('handoutCatchUp').timeBased().after(60000).create();
+  return true;
+}
+
+/** تریگرِ یک‌بارمصرف: بدهیِ جزوه، با مهلتِ کاملِ یک اجرا. */
+function handoutCatchUp() {
+  runEnter_('handoutCatchUp');
+  var note = '';
+  try {
+    try { clearRetryTriggers_('handoutCatchUp'); } catch (e0) {}
+    var r = handoutRunDue_(Math.max(1, Number(CFG.HANDOUT_MANUAL_MAX) || 12), 270000);
+    note = (r.done || 0) + ' درس وارد شد، ' + (r.left || 0) + ' مانده';
+    logLine_('جبرانِ روزانهٔ جزوه: ' + note);
+    return r;
+  } finally { runExit_('handoutCatchUp', note); }
+}
+
 function handoutRunDue_(maxItems, budgetMs) {
   var res = { tried: 0, done: 0, left: 0, notes: [], ranOut: false };
   if (CFG.HANDOUT_ENABLED === false) return res;

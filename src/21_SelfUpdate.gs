@@ -1798,6 +1798,31 @@ function installCodeRollback() {
 }
 
 /** منو: بررسی و نصبِ همین حالا. */
+/**
+ * نصبِ ساعتی، نه فقط شبانه (۸.۷۶).
+ *
+ * «تا فردا شب مشخص می‌شود» جوابِ هر درمانی بود، چون کد فقط ساعتِ ۲:۳۰ نصب می‌شد — و شبی که نصب می‌شد،
+ * خودِ آن اجرای شبانه هنوز کدِ قبلی بود (۷٫۲۹)؛ پس درمانی که ظهر push شد، دست‌کم ۳۶ ساعت بعد اولین بار
+ * می‌دوید. حالا تریگرِ ساعتی یک بار در ساعت `manifest.json` را می‌خوانَد و اگر نسخهٔ تازه‌تری هست، **همان
+ * `selfUpdateStep`** را صدا می‌زند — همان سه سدِ sha و نسخه و تابع‌های لازم، هیچ راهِ دومی برای نصب.
+ * وسطِ صداگذاری یا پشتیبان کاری نمی‌کند و تریگرِ «دو ساعت بعد» هم نمی‌سازد: ساعتِ بعد خودش دوباره می‌پرسد.
+ */
+function selfUpdateHourly_() {
+  if (CFG.AUTOUPDATE_ENABLED === false || CFG.AUTOUPDATE_HOURLY === false) return { ok: false, reason: 'off' };
+  var p = props_(), now = new Date().getTime();
+  var last = Number(p.getProperty(PK.AUTOUPDATE_HOURLY_AT) || 0);
+  if (last && now - last < 50 * 60000) return { ok: false, reason: 'recent' };
+  p.setProperty(PK.AUTOUPDATE_HOURLY_AT, String(now));
+  if (engineBusyForSwap_()) return { ok: false, reason: 'busy' };
+  var got = readCodeManifest_();
+  if (!got || !got.info) return { ok: false, reason: 'no-manifest' };
+  if (verCmp_(String(got.info.version), String(CFG.CODE_VERSION)) <= 0) return { ok: false, reason: 'up-to-date' };
+  var r = selfUpdateStep(false);
+  try { logLine_('نصبِ ساعتی: نسخهٔ ' + got.info.version + ' — ' + (r.ok ? 'نصب شد' : (r.reason || 'نشد'))); } catch (eL) {}
+  return r;
+}
+
+/** دکمهٔ «نصبِ کدِ تازه (همین حالا)»: همان `selfUpdateStep`، با پیامِ روشن برای هر حالت — برای وقتی که نمی‌خواهید تا نصبِ ساعتی صبر کنید. */
 function runSelfUpdateNow() {
   var r = selfUpdateStep(true);
   var ui = ui_();

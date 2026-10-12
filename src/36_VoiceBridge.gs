@@ -2021,6 +2021,9 @@ function vbrCollectHourly() {
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}
+  /* نصبِ کدِ تازه و جبرانِ جزوه — هر دو ساعتی، نه فقط شبانه (۸.۷۶). پیش از سدِ پل، چون هیچ‌کدام به پل ربطی ندارد. */
+  try { selfUpdateHourly_(); } catch (eSu) {}
+  try { handoutCatchUpArm_(); } catch (eHc) {}
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
