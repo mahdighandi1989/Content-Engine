@@ -1648,7 +1648,7 @@ function vintTrainWatch_(doc) {
     else if (now - cur.ch >= quietMs && now - (cur.quiet || 0) >= quietMs) {
       out.msgs.push('⏳ ' + what + ' ' + fa(Math.round((now - cur.ch) / 3600000)) + ' ساعت است هیچ ' +
                     'تغییری نکرده (' + st + (ep !== null ? '، دورِ ' + fa(ep) : '') + (run ? '، اجرای ' + run : '') +
-                    '). یک اجرا حدودِ پنج ساعت است و گردش‌کار هر شش ساعت سر می‌زند؛ بیش از این یعنی ' +
+                    '). یک اجرا حدودِ پنج ساعت است و گردش‌کار هر ساعت سر می‌زند؛ بیش از این یعنی ' +
                     'چیزی ایستاده — وارسی می‌کنم.');
       cur.quiet = now;
     }

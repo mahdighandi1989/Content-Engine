@@ -1,13 +1,13 @@
 {
-  "version": "8.77",
+  "version": "8.78",
   "codeFile": "engine.gs",
-  "sha256": "54980d7b7e3184699a009d456db89b3339dc97ec75b09b334be995d4a2a13e02",
-  "releasedAt": "2026-10-12T08:20:00Z",
-  "summary": "جست‌وجو: واژهٔ کوتاه فقط به‌صورتِ واژهٔ جدا («کس» نه درونِ «عکس») — علتِ واقعیِ Out of memory؛ آزادسازیِ حافظه؛ خطا با نامِ تب.",
+  "sha256": "f2d634e7f06dac57d5d4df0c4aef648c2f0fece3e23e2603450288b00bb3e684",
+  "releasedAt": "2026-10-12T09:10:00Z",
+  "summary": "voice-intake ساعتی (آموزشِ صدا بی انتظارِ ۶ ساعته) + متن‌های به‌روز؛ همراه با 8.77 (جست‌وجو).",
   "fixes": [
-    "srchPattern_: مرزِ واژه برای واژهٔ تا ۳ حرف (SEARCH_WORD_EDGE_MAX)",
-    "srchFind_: آزادکردنِ فهرستِ findAll؛ absorb: آزادکردنِ ردیفِ خوانده‌شده",
-    "srchRun: خطا با نامِ آخرین تب (SRCH_AT_)"
+    ".github/workflows/voice-intake.yml: cron هر ساعت",
+    "33/36: متنِ «هر شش ساعت» → «هر ساعت»",
+    "8.77: srchPattern_ مرزِ واژهٔ کوتاه"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
