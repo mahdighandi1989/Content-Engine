@@ -1276,6 +1276,19 @@ console.log('\n=== ۱۸) قاب به بدنه دوخته، و نامِ فارس�
      R.plCoversTodo({ plCovers: [{ key: 'k', sig: 's' }] }, { plCovers: { k: { sig: 's' } } }).length === 1);
 }
 
+{
+  /* ۸.۸۰ — گفتارِ هر صحنه به رانر می‌رسد (برای شنیدنِ هم‌زمانی) و بیرون از اکشن «نشنیدم» است، نه «ناهم‌زمان» */
+  const SK8 = require(path.join(process.cwd(), 'tools/scenekit.js'));
+  const s8 = SK8.scenesOf({ scenes: [{ n: 1, t0: 0, url: 'https://a/1', say: 'سلام دنیا' },
+                                     { n: 2, t0: 9, url: 'https://a/2' }, { n: 3, t0: 19, url: 'https://a/3', say: 'سه' }] });
+  ok('۸.۸۰-۱ scenesOf گفتارِ صحنه را نگه می‌دارد', s8 && s8[0].say === 'سلام دنیا' && s8[1].say === '' && s8[2].say === 'سه');
+  const rj = fs.readFileSync(path.join(process.cwd(), 'tools/render.js'), 'utf8');
+  ok('۸.۸۰-۲ render.js پس از qa، avsync را صدا می‌زند و نتیجه را در qa.sync می‌گذارد',
+     /avsync\.py/.test(rj) && /qa\.sync = sync/.test(rj) && /ok: null/.test(rj));
+  const wf = fs.readFileSync(path.join(process.cwd(), '.github/workflows/render.yml'), 'utf8');
+  ok('۸.۸۰-۳ گردش‌کارِ رندر faster-whisper را نصب و مدلش را کش می‌کند', /faster-whisper/.test(wf) && /avsync-whisper/.test(wf));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

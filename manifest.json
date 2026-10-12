@@ -1,15 +1,19 @@
 {
-  "version": "8.79",
+  "version": "8.80",
   "codeFile": "engine.gs",
-  "sha256": "d5191aa193144e398ed9d48f3c4451757ee4603771b4023c61b142900d4f099e",
-  "releasedAt": "2026-10-12T10:00:00Z",
-  "summary": "جست‌وجو: پویش و خواندنِ اولویت‌دارِ عبارتِ کامل؛ آزمونِ کورِ «با اعراب / بی اعراب» به تلگرام (یک بار، خودکار).",
+  "sha256": "7ae0b3236d17420f4e7b808a058f82fa71c4740b66115486c32be271843af824",
+  "releasedAt": "2026-10-12T11:30:00Z",
+  "summary": "سه وارسیِ ویدئو (تماشا، هم‌زمانیِ گفتار و تصویر، حرکت) خودکار از رانرِ رندر؛ ناظر v101.",
   "fixes": [
-    "srchCollect_: phrasePat + prio — ردیف‌های عبارتِ کامل همیشه خوانده می‌شوند",
-    "speakAbArm_/speakAbTest: دو نمونهٔ کور به تلگرام، کلید زیرِ اسپویلر"
+    "tools/avsync.py + render.js: شنیدنِ سه نقطه با faster-whisper ⇒ qa.sync",
+    "27: say همراهِ صحنه‌ها؛ qaAutoChecks_ روی ytTick_",
+    "render.yml: نصب و کشِ faster-whisper",
+    "lvSceneOvNorm_: علتِ ردِ دقیق؛ lvSceneOvFill_: پاسِ کوتاه‌سازیِ کارت‌های بلند، rejEx"
   ],
   "sourceReportIds": [],
-  "promptImpact": [],
+  "promptImpact": [
+    "MONITOR_CHECKS: video-watch/video-sync/video-motion حالا خودکار نوشته می‌شوند"
+  ],
   "answers": {
     "7.48": [
       "tts-cue-unsupported"
@@ -99,5 +103,8 @@
     "8.66": [
       "chronic-9e9343a8"
     ]
-  }
+  },
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

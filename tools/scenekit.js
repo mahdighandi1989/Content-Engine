@@ -58,7 +58,8 @@ function scenesOf(it) {
                url: url, fileId: String(x.fileId || ''), caption: String(x.caption || '').trim(),
                ov: (x.ov && typeof x.ov === 'object') ? x.ov : null,
                mv: mvOf(x.mv), clip: clipOf(x.clip),
-               fb: fbOf(x.fb), beat: String(x.beat || ''), sec: Number(x.sec) || 0 });
+               fb: fbOf(x.fb), beat: String(x.beat || ''), sec: Number(x.sec) || 0,
+               say: String((x && x.say) || '').trim() });
   }
   out.sort((p, q) => p.t0 - q.t0);
   return out.length >= 3 ? out : null;

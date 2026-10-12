@@ -1700,6 +1700,9 @@ function ytRenderAsk_(item) {
     row.scenes = item.scenes.map(function (x) {
       var r0 = { n: Number(x.n) || 0, t0: Number(x.t0) || 0, fileId: String(x.fileId || ''),
                  url: ytDlUrl_(x.fileId || ''), caption: String(x.caption || '') };
+      /* گفتارِ همان صحنه (۸.۸۰): رانر با تشخیصِ گفتار می‌شنود که در زمانِ این صحنه همین گفته
+         می‌شود یا نه — وارسیِ «هم‌زمانیِ گفتار و تصویر» که ناظر هرگز انجام نداد. */
+      if (x.say) r0.say = String(x.say).slice(0, 240);
       if (x.ov) r0.ov = x.ov;                       // نوشتهٔ رویِ نقاشی (۸.۴۵)
       if (x.mv) r0.mv = x.mv;                       // حرکتِ معنادار (۸.۵۱)
       if (x.clip && x.clip.fileId) {                // کلیپِ آغاز (۸.۵۱)
@@ -6125,36 +6128,45 @@ function lvSceneTextShare_(textLevel, share, nature) {
  * عبارت، و یک واژهٔ چسبیده. تیترِ بریده جملهٔ نیمه‌تمام است، و نقلِ بریده دیگر نقل نیست.
  * `text` = متنِ همان صحنه؛ با آن واژهٔ چسبیده هم رد می‌شود (`lvOvGlued_`).
  */
-function lvSceneOvNorm_(x, text) {
+function lvSceneOvNorm_(x, text, whyOut) {
+  /* چرا رد شد — دقیق (۸.۸۰). درسِ ۴۶ سه کارتِ تازه گرفت و هر سه «شکل یا طول» رد شدند؛
+     همین یک برچسب نمی‌گفت کدام سد، پس درمان حدس می‌شد. */
+  var why = whyOut || {};
+  var no = function (w) { why.w = w; return null; };
   var kind = String((x && x.ov) || '').trim().toLowerCase();
-  if (['headline', 'points', 'compare', 'quote', 'steps'].indexOf(kind) === -1) return null;
-  var cut = function (t, n) {
+  if (['headline', 'points', 'compare', 'quote', 'steps'].indexOf(kind) === -1) return no('نوعِ ناشناخته');
+  var cut = function (t, n, what) {
     t = String(t || '').replace(/\s+/g, ' ').trim();
     try { t = faDigitsOut_(t); } catch (e) {}
-    return t.length > n ? '' : t;
+    if (t.length > n) { why.long = (why.long || []).concat([what + ' ' + t.length + '>' + n]); return ''; }
+    return t;
   };
   var lines = [];
   var raw = (x && Array.isArray(x.ovLines)) ? x.ovLines : [];
-  for (var i = 0; i < raw.length && lines.length < 3; i++) { var l = cut(raw[i], 80); if (l) lines.push(l); }
-  var o = { kind: kind, title: cut(x.ovTitle, kind === 'quote' ? 120 : 48), lines: lines,
-            a: cut(x.ovA, 24), b: cut(x.ovB, 24), keys: [], side: '' };
+  for (var i = 0; i < raw.length && lines.length < 3; i++) { var l = cut(raw[i], 80, 'سطر'); if (l) lines.push(l); }
+  var o = { kind: kind, title: cut(x.ovTitle, kind === 'quote' ? 120 : 48, 'تیتر'), lines: lines,
+            a: cut(x.ovA, 24, 'طرفِ اول'), b: cut(x.ovB, 24, 'طرفِ دوم'), keys: [], side: '' };
   var side = String(x.ovSide || '').trim().toLowerCase();
   if (['right', 'left', 'top'].indexOf(side) !== -1) o.side = side;
   var all = o.title + ' ' + lines.join(' ') + ' ' + o.a + ' ' + o.b;
   var ks = (x && Array.isArray(x.ovKeys)) ? x.ovKeys : [];
   for (var k = 0; k < ks.length && o.keys.length < 2; k++) {
-    var kk = cut(ks[k], 24);
+    var kk = cut(ks[k], 24, 'کلید');
     if (kk && all.indexOf(kk) !== -1) o.keys.push(kk);   // واژه‌ای که در متن نیست رنگی نمی‌شود
   }
-  if (lvOvGlued_(all, text)) return null;
-  if (kind === 'headline' && !o.title) return null;
-  if (kind === 'points' && lines.length < 2) return null;
-  if (kind === 'quote' && !o.title) return null;
-  if (kind === 'steps' && lines.length < 2) return null;
+  var gl = lvOvGlued_(all, text);
+  if (gl) return no('واژهٔ چسبیده «' + gl + '»');
+  var L0 = (why.long && why.long.length) ? 'بلند: ' + why.long.join('، ') : '';
+  if (kind === 'headline' && !o.title) return no(L0 || 'تیتر ندارد');
+  if (kind === 'points' && lines.length < 2) return no(L0 || 'کمتر از دو نکته');
+  if (kind === 'quote' && !o.title) return no(L0 || 'نقل ندارد');
+  if (kind === 'steps' && lines.length < 2) return no(L0 || 'کمتر از دو گام');
   if (kind === 'compare') {
-    if (!o.a || !o.b) return null;
-    o.lines = lines.filter(function (y) { return y.indexOf('|') > 0; });
-    if (!o.lines.length) return null;
+    if (!o.a || !o.b) return no(L0 || 'طرفِ مقایسه ندارد');
+    /* جداکنندهٔ ستون: «|» و هم‌شکل‌هایش (۸.۸۰) — مدل گاهی «｜» یا «¦» می‌نویسد */
+    o.lines = lines.map(function (y) { return y.replace(/[｜¦║]/g, '|'); })
+                   .filter(function (y) { return y.indexOf('|') > 0; });
+    if (!o.lines.length) return no('ردیفِ «… | …» ندارد');
   }
   return o;
 }
@@ -6294,6 +6306,7 @@ function lvSceneOvFill_(d, ctx, left) {
   var maxCalls = Math.max(1, Number(CFG.LV_OV_FILL_CALLS) || 3);
   var got = 0, up = 0, calls = 0, answered = 0, rejected = 0, why = {};
   var rej = function (w) { rejected++; why[w] = (why[w] || 0) + 1; };
+  var ex = [], fix = [];
   var byN = {};
   for (var c = 0; c < cands.length; c++) byN[String(cands[c].n)] = cands[c];
   /* دسته‌ها در طولِ درس پخش‌اند: هر دسته از جاهای مختلفِ درس برمی‌دارد، نه هشت صحنهٔ
@@ -6352,8 +6365,14 @@ function lvSceneOvFill_(d, ctx, left) {
          «۱ رد شد» در درسِ ۶۶ نمی‌گفت بقیهٔ پاسخ کجا رفت. */
       if (!sc) { rej('شمارهٔ صحنه'); continue; }
       if (sc.__ovNew) { rej('تکرار'); continue; }
-      var o = lvSceneOvNorm_(it, sc.text);
-      if (!o) { rej('شکل یا طول'); continue; }
+      var wo = {};
+      var o = lvSceneOvNorm_(it, sc.text, wo);
+      if (!o) {
+        rej(String(wo.w || 'شکل یا طول').replace(/\s*\d+>\d+/g, '').slice(0, 40));
+        if (ex.length < 3) ex.push('[' + sc.n + '] ' + String(it.ov || '') + ': ' + String(wo.w || '').slice(0, 90));
+        if (wo.long && wo.long.length && fix.length < 6) fix.push({ it: it, sc: sc });
+        continue;
+      }
       /* «هرگز تیترِ تنها» — در کد، نه فقط در پرامپت. */
       if (o.kind === 'headline' && !o.lines.length) { rej('تیترِ تنها'); continue; }
       if (story(sc) && lvOvStruct_(o) ) { rej('فهرست روی روایت'); continue; }
@@ -6370,6 +6389,40 @@ function lvSceneOvFill_(d, ctx, left) {
     if (!r.items.length) break;
     void gotHere;
   }
+  /* ══ بلند را کوتاه کن، دور نینداز (۸.۸۰) ══ کارتی که فقط از سقفِ طول گذشته بود، معنایش درست است؛
+     یک بار با همان نوع و همان صحنه پس فرستاده می‌شود تا کوتاه شود — بریدنِ کور نه (۸.۶۵: تیترِ نیمه‌کاره). */
+  if (fix.length && got + up < want && (!left || left() > 40000)) {
+    var F = ['این کارت‌های نوشتاری از سقفِ طول بلندترند و رد شدند. هر کدام را **با همان نوع و همان معنا** ' +
+             'کوتاه بنویس. سقف‌ها سد است: `ovTitle` حداکثر ۴۰ نویسه (نقل ۱۰۰)، هر سطر ۷۰، `ovA`/`ovB` ۲۰. ' +
+             'جملهٔ کامل، نه بریده؛ واژه را کوتاه‌تر انتخاب کن، نه نیمه‌کاره.', ''];
+    for (var f0 = 0; f0 < fix.length; f0++) {
+      var fi = fix[f0].it;
+      F.push('[' + fix[f0].sc.n + '] نوع: ' + String(fi.ov || '') + ' · تیتر: «' + String(fi.ovTitle || '') + '»' +
+             (fi.ovA ? ' · طرفِ اول: «' + fi.ovA + '» · طرفِ دوم: «' + fi.ovB + '»' : '') +
+             ' · سطرها: ' + (Array.isArray(fi.ovLines) ? fi.ovLines.map(function (y) { return '«' + y + '»'; }).join(' ') : ''));
+    }
+    calls++;
+    var rf = null;
+    try { rf = geminiText_(F.join('\n'), schema, 4096, { exact: true }); } catch (eF) { rf = null; }
+    var fixed = 0;
+    for (var f1 = 0; rf && Array.isArray(rf.items) && f1 < rf.items.length && got + up < want; f1++) {
+      var it2 = rf.items[f1] || {};
+      var n2 = String(Number(String(it2.n || '').replace(/[^0-9]/g, '')));
+      var sc2 = null;
+      for (var f2 = 0; f2 < fix.length; f2++) if (String(fix[f2].sc.n) === n2) sc2 = fix[f2].sc;
+      if (!sc2 || sc2.__ovNew) continue;
+      var o2 = lvSceneOvNorm_(it2, sc2.text, {});
+      if (!o2 || (o2.kind === 'headline' && !o2.lines.length)) continue;
+      if (story(sc2) && lvOvStruct_(o2)) continue;
+      var upg2 = !!sc2.ov;
+      if (upg2 && !lvOvStruct_(o2)) continue;
+      if (!upg2 && lvOvWeak_(o2) && weakNow >= weakMax) continue;
+      o2.side = sc2.judge.space;
+      if (upg2) { weakNow--; up++; sc2.ovUp = 1; } else { got++; if (lvOvWeak_(o2)) weakNow++; }
+      sc2.ov = o2; sc2.ovFill = 1; sc2.__ovNew = 1; fixed++;
+    }
+    why['کوتاه‌شده و پذیرفته'] = fixed;
+  }
   for (var z2 = 0; z2 < d.scenes.length; z2++) delete d.scenes[z2].__ovNew;
   if (got || up) d.ovN = lvSceneOvTrim_(d.scenes, share);
   out.got = got; out.up = up;
@@ -6381,7 +6434,7 @@ function lvSceneOvFill_(d, ctx, left) {
     d.ovFill = { asked: want, got: got, up: up, why: out.why, have: have, target: target, calls: calls,
                  weak: d.scenes.filter(function (x) { return lvOvWeak_(x.ov); }).length,
                  struct: d.scenes.filter(function (x) { return lvOvStruct_(x.ov); }).length,
-                 rejected: rejected, rejWhy: why };
+                 rejected: rejected, rejWhy: why, rejEx: ex };
   }
   return out;
 }
@@ -7765,7 +7818,8 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
                  /* جای کانون (داور) و ضربِ صحنه — کارت روی کانون نمی‌نشیند و گذارِ صحنه
                     از ضرب و بخش انتخاب می‌شود (۸.۵۶). */
                  fb: x.fileId && x.judge && x.judge.box ? x.judge.box : null,
-                 beat: String(x.beat || '') });
+                 beat: String(x.beat || ''),
+                 say: String(x.text || '').slice(0, 240) });
   }
   if (items.length) items[0].t0 = 0;
   lvAudRefSave_(d, key);                 // مرجعِ آزمونِ مدلِ تازه: بهترین صحنه‌های همین درس
@@ -11050,6 +11104,7 @@ function ytTick_(budgetMs) {
     var c = ytRenderCollect_(Math.max(15000, left() - 40000));
     out.collected = c.got;
   } catch (e) { out.why += (out.why ? ' · ' : '') + 'برداشت: ' + String(e.message).slice(0, 60); }
+  try { qaAutoChecks_(); } catch (eQa) {}           // ۸.۸۰: وارسی‌های ویدئو از خودِ رندر، نه از ناظر
 
   /* ویدئوی تأییدشده‌ای که هنوز Unlisted است (۸.۴۶) — درِ دوم، کنارِ کارِ شبانه.
      **پیش از** انتشارِ تازه (۸.۵۰): `ytRunDue_` صحنه‌های درسِ تازه را تا مهلتش
@@ -13765,4 +13820,56 @@ function runYouTubeFix() {
   var m = L.join('\n');
   if (ui) ui.alert('عیب‌یابیِ یوتیوب', m, ui.ButtonSet.OK); else console.log(m);
   return d;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   وارسی‌های ویدئو، خودکار و از خودِ فایل (۸.۸۰)
+
+   «یک ویدئوی واقعی تماشا شد»، «هم‌زمانیِ گفتار و تصویر در سه نقطه» و «کلیپِ آغاز و حرکت»
+   را ناظرِ روزانه چهار روزِ پیاپی «نشد» زد — یک بار «whisper نیست» و بار بعد در محیطی که
+   بود، بی آنکه امتحان کند. صاحبِ برنامه: «همه چیز باید درست و اتوماسیون باشه». پس این
+   سه وارسی به جایی رفتند که ابزار و ویدئو هر دو هست: رانرِ رندر. `qa` (هر صحنه از خودِ
+   فایل سرِ جایش؟)، `qa.sync` (سه نقطه با تشخیصِ گفتار، `tools/avsync.py`)، `mv` و `clip`
+   در `docs/renders.json` می‌نشینند و این‌جا، روی تریگرِ ساعتی، به همان `checks` تبدیل
+   می‌شوند که ناظر باید می‌نوشت — با برچسبِ «خودکار». هر ویدئو یک بار.
+   «نشنیدم» (`sync.ok === null`) نوشته نمی‌شود: نبودِ شاهد سالم نیست، و همان سکوت می‌مانَد
+   تا گفته شود.
+   ══════════════════════════════════════════════════════════════════════════ */
+function qaAutoChecks_(mapIn) {
+  var map = mapIn || ytRenderMapCached_() || {};
+  var best = null, bk = '';
+  for (var k in map) {
+    if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+    var it = map[k] || {};
+    if (it.mode !== 'scenes' || !it.qa) continue;
+    if (!best || String(it.at || '') > String(best.at || '')) { best = it; bk = k; }
+  }
+  if (!best) return 0;
+  var sig = bk + '@' + String(best.at || '');
+  var last = String(props_().getProperty(PK.QA_AUTO_LAST) || '');
+  if (last === sig) return 0;
+  var qa = best.qa || {}, checks = [], tag = 'خودکار (رندرِ ' + bk + '): ';
+  checks.push({ key: 'video-watch', verdict: qa.ok ? 'سالم' : 'ایراد',
+                note: tag + (Number(qa.matched) || 0) + ' از ' + (Number(qa.n) || 0) + ' صحنه سرِ جای خود' +
+                      (qa.blank && qa.blank.length ? '، ' + qa.blank.length + ' قابِ خالی' : '') +
+                      ' · اختلافِ مدت ' + (Number(qa.durDiff) || 0) + ' ثانیه' + (qa.why ? ' — ' + qa.why : '') });
+  var sy = qa.sync || null;
+  if (sy && (sy.ok === true || sy.ok === false)) {
+    checks.push({ key: 'video-sync', verdict: sy.ok ? 'سالم' : 'ایراد',
+                  note: tag + (sy.points || []).map(function (p) {
+                    return 'صحنهٔ ' + p.n + ' (' + p.t + 'ث): ' + Math.round((Number(p.own) || 0) * 100) + '٪ خودش / ' +
+                           Math.round((Number(p.nb) || 0) * 100) + '٪ همسایه';
+                  }).join(' · ') + (sy.why ? ' — ' + sy.why : '') });
+  }
+  var cl = best.clip || {}, mv = Number(best.mv) || 0;
+  var clipOk = !cl.asked || Number(cl.used) > 0;
+  checks.push({ key: 'video-motion', verdict: (clipOk && mv > 0) ? 'سالم' : 'ایراد',
+                note: tag + 'کلیپِ آغاز ' + (cl.asked ? (Number(cl.used) > 0 ? 'نشست' : 'خواسته شد و ننشست') : 'خواسته نشد') +
+                      ' · حرکتِ کانون‌دار روی ' + mv + ' صحنه' +
+                      (cl.why && cl.why.length ? ' — ' + String(cl.why[0]).slice(0, 80) : '') });
+  var n = monChecksIngest_({ checks: checks }, 'qa-auto');
+  props_().setProperty(PK.QA_AUTO_LAST, sig);
+  try { logLine_('وارسی‌های خودکارِ ویدئو (' + bk + '): ' + checks.map(function (c) { return c.key + '=' + c.verdict; }).join('، ')); } catch (eL) {}
+  return n;
 }

@@ -704,6 +704,28 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
                              dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes });
   const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
+  /* ══ شنیدنِ هم‌زمانی (۸.۸۰) ══ سه نقطه، با تشخیصِ گفتار: آنچه در زمانِ صحنه گفته می‌شود با
+     گفتارِ خودِ صحنه می‌خواند؟ نبودِ ابزار یعنی «نشنیدم» (ok:null)، نه «ناهم‌زمان». */
+  let sync = null;
+  try {
+    const sayOf = {};
+    for (const x of scenes) if (x.say) sayOf[x.n] = x.say;
+    const pts = r.tl.filter(x => sayOf[x.n]).map(x => ({ n: x.n, t0: x.t0, say: sayOf[x.n] }));
+    if (process.env.GITHUB_ACTIONS !== 'true' && process.env.AVSYNC !== '1') {
+      sync = { ok: null, why: 'بیرون از اکشن شنیده نشد' };
+    } else if (pts.length >= 3) {
+      const sf = path.join(dir, 'avsync.json');
+      fs.writeFileSync(sf, JSON.stringify(pts));
+      const res = execFileSync('python3', [path.join(__dirname, 'avsync.py'), dest, sf, String(durSec)],
+                               { encoding: 'utf8', timeout: 8 * 60 * 1000, maxBuffer: 4 * 1024 * 1024 });
+      sync = JSON.parse(String(res).trim().split('\n').pop());
+    } else {
+      sync = { ok: null, why: 'گفتارِ صحنه‌ها همراهِ درخواست نبود' };
+    }
+  } catch (eS) {
+    sync = { ok: null, why: 'شنیدن نشد: ' + String(eS.message).split('\n')[0].slice(0, 90) };
+  }
+  qa.sync = sync;
 
   // کاورِ بندانگشتی از نقاشیِ خودِ درس
   let thumb = '', artFile = '';

@@ -70,6 +70,19 @@ jobs:
       # خطِ دست‌کشیده، هایلایتر و ظاهرشدنِ تدریجی از پنج شکلِ اسلایدز درنمی‌آید.
       # کروم روی رانر هست؛ فقط قلمِ فارسی نیست و بی آن متن مربع می‌شود —
       # پس نصبش اینجا یک مرحلهٔ **لازم** است، نه آرایشی.
+      # ══ شنیدن (۸.۸۰) ══ faster-whisper برای وارسیِ هم‌زمانیِ گفتار و تصویر در سه نقطه
+      # (tools/avsync.py). مدل در کش می‌ماند تا هر اجرا ۴۸۰ مگ دانلود نکند. نصبِ ناموفق
+      # ساختِ ویدئو را نمی‌خوابانَد: avsync خودش «نشنیدم» می‌نویسد.
+      - name: کشِ مدلِ شنیدن
+        if: steps.probe.outputs.work == '1'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: avsync-whisper-small-v1
+      - name: شنیدن (faster-whisper)
+        if: steps.probe.outputs.work == '1'
+        run: python3 -m pip install --quiet faster-whisper || echo "::warning::faster-whisper نصب نشد؛ هم‌زمانی شنیده نمی‌شود"
+
       - name: قلمِ فارسی
         if: steps.probe.outputs.work == '1'
         run: |

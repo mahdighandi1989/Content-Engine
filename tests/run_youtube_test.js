@@ -9580,4 +9580,60 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   delete global.__PROPS[PK.YT_REPL];
 }
 
+/* ══ ۱۰۰ — وارسی‌های ویدئو از خودِ رندر، خودکار (۸.۸۰) ══ */
+{
+  delete global.__PROPS[PK.QA_AUTO_LAST]; delete global.__PROPS[PK.MON_CHECKS];
+  const map = {
+    'special:67': { mode: 'scenes', at: '2026-10-10 23:35', qa: { n: 27, matched: 26, ok: true, blank: [], durDiff: 0 }, mv: 3, clip: { asked: 1, used: 1 } },
+    'special:68': { mode: 'scenes', at: '2026-10-12 01:34', mv: 0, clip: { asked: 1, used: 0, why: ['داور رد کرد'] },
+                    qa: { n: 27, matched: 26, ok: true, blank: [], durDiff: 0,
+                          sync: { ok: false, why: 'گفتارِ صحنهٔ 9 با تصویرش نمی‌خواند',
+                                  points: [{ n: 9, t: 300.8, own: 0.1, nb: 0.4, ok: false }] } } },
+    'variety:70': { at: '2026-10-12 05:00' }
+  };
+  const n1 = qaAutoChecks_(map);
+  const m = monChecksLoad_();
+  ok('۱۰۰.۱ تازه‌ترین رندرِ صحنه‌ای سه وارسی را خودش ثبت می‌کند، با برچسبِ «خودکار» و نامِ ویدئو',
+     n1 === 3 && m['video-watch'].verdict === 'سالم' && m['video-sync'].verdict === 'ایراد' &&
+     m['video-motion'].verdict === 'ایراد' && /خودکار \(رندرِ special:68\)/.test(m['video-watch'].note), JSON.stringify(m['video-sync']));
+  ok('۱۰۰.۲ همان ویدئو دوباره ثبت نمی‌شود', qaAutoChecks_(map) === 0);
+  map['special:69'] = { mode: 'scenes', at: '2026-10-12 09:00', mv: 4, clip: { asked: 0 },
+                        qa: { n: 20, matched: 20, ok: true, blank: [], durDiff: 0, sync: { ok: null, why: 'نشنیدم' } } };
+  const before = JSON.stringify(monChecksLoad_()['video-sync']);
+  qaAutoChecks_(map);
+  const m2 = monChecksLoad_();
+  ok('۱۰۰.۳ «نشنیدم» سالم نوشته نمی‌شود: وارسیِ هم‌زمانی همان می‌مانَد؛ حرکت بی کلیپِ خواسته سالم است',
+     JSON.stringify(m2['video-sync']) === before && m2['video-motion'].verdict === 'سالم');
+  ok('۱۰۰.۴ گزارشِ خودکار پنجرهٔ «گزارشِ روزانهٔ ناظر» را جعل نمی‌کند', !(m2.__rep && m2.__rep.lastAt));
+  delete global.__PROPS[PK.QA_AUTO_LAST]; delete global.__PROPS[PK.MON_CHECKS];
+}
+
+/* ══ ۱۰۱ — کارتِ بلند کوتاه می‌شود، دور انداخته نمی‌شود؛ و علتِ رد دقیق است (۸.۸۰) ══
+   درسِ ۴۶ (special:68، دادهٔ واقعی): هدف ۹، داشت ۵، سه کارتِ تازه آمد و هر سه «شکل یا طول» رد شدند. */
+{
+  const mk = (n) => { const a = []; for (let i = 1; i <= n; i++) a.push({ n: i, t0: (i - 1) * 30, t1: i * 30, fileId: 'F' + i,
+    text: 'متنِ صحنهٔ ' + i + ' دربارهٔ انسجام‌گرایی و تجربه.', beat: 'ایده', ov: null, judge: { s: 6, space: 'left' } }); return a; };
+  const d = { scenes: mk(12), ovShare: 0.34, nature: 'درس' };
+  const longT = 'انسجام‌گرایی در برابرِ داده‌های تجربی و مسئلهٔ جداافتادگیِ باورها';
+  const gtWas = global.geminiText_; const prompts = [];
+  global.geminiText_ = (prompt) => {
+    prompts.push(prompt);
+    if (/از سقفِ طول بلندترند/.test(prompt)) {
+      const ns = (prompt.match(/^\[(\d+)\]/gm) || []).map(x => x.replace(/[\[\]]/g, ''));
+      return { items: ns.map(n => ({ n: n, ov: 'points', ovTitle: 'انسجام و تجربه', ovLines: ['باور جدا نیست', 'تجربه هم وزن دارد'] })) };
+    }
+    const ns = (prompt.match(/^\[(\d+)\]/gm) || []).map(x => x.replace(/[\[\]]/g, ''));
+    return { items: ns.slice(0, 3).map(n => ({ n: n, ov: 'points', ovTitle: 'انسجام', ovLines: [longT + ' و پیامدهایش برای توجیه', longT] })) };
+  };
+  const r = lvSceneOvFill_(d, { title: 'انسجام' }, () => 1e9);
+  global.geminiText_ = gtWas;
+  const rw = JSON.stringify(d.ovFill.rejWhy || {});
+  ok('۱۰۱.۱ علتِ رد دقیق است («بلند: سطر …»)، با نمونه', /بلند: سطر/.test(rw) && (d.ovFill.rejEx || []).length >= 1, rw);
+  ok('۱۰۱.۲ کارت‌های بلند یک بار برای کوتاه‌شدن پس فرستاده و پذیرفته می‌شوند', r.got >= 3 &&
+     prompts.some(p => /از سقفِ طول بلندترند/.test(p)) && (d.ovFill.rejWhy['کوتاه‌شده و پذیرفته'] || 0) >= 3, JSON.stringify(r));
+  const wo = {};
+  const oc = lvSceneOvNorm_({ ov: 'compare', ovA: 'قیاس', ovB: 'استقرا', ovLines: ['قطعیت: ضروری ｜ محتمل'] }, '', wo);
+  ok('۱۰۱.۳ جداکنندهٔ هم‌شکلِ «|» در مقایسه پذیرفته می‌شود', oc && oc.lines[0].indexOf('|') > 0, JSON.stringify(wo));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
