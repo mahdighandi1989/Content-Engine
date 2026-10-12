@@ -1,14 +1,12 @@
 {
-  "version": "8.80",
+  "version": "8.81",
   "codeFile": "engine.gs",
-  "sha256": "7ae0b3236d17420f4e7b808a058f82fa71c4740b66115486c32be271843af824",
-  "releasedAt": "2026-10-12T11:30:00Z",
-  "summary": "سه وارسیِ ویدئو (تماشا، هم‌زمانیِ گفتار و تصویر، حرکت) خودکار از رانرِ رندر؛ ناظر v101.",
+  "sha256": "5c1bac237cd5b04d773757393341f793be3c3f39e6745026dc282f9b1beac4d5",
+  "releasedAt": "2026-10-12T12:20:00Z",
+  "summary": "جست‌وجو: یادداشتِ صریحِ «عبارتِ کامل هست/نیست»؛ کاوشِ کاملِ یک‌باره در همهٔ تب‌ها (searchProbe)؛ همراه با 8.80.",
   "fixes": [
-    "tools/avsync.py + render.js: شنیدنِ سه نقطه با faster-whisper ⇒ qa.sync",
-    "27: say همراهِ صحنه‌ها؛ qaAutoChecks_ روی ytTick_",
-    "render.yml: نصب و کشِ faster-whisper",
-    "lvSceneOvNorm_: علتِ ردِ دقیق؛ lvSceneOvFill_: پاسِ کوتاه‌سازیِ کارت‌های بلند، rejEx"
+    "srchRun_: یادداشتِ عبارتِ کامل با تعداد و تب",
+    "srchProbeArm_/srchProbeRun: کاوشِ کاملِ عبارت در همهٔ تب‌ها، نتیجه در _STATUS.searchProbe"
   ],
   "sourceReportIds": [],
   "promptImpact": [

@@ -687,4 +687,26 @@ console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو �
   ok('۳۲.۲ و همان بالاترین امتیاز را دارد', best === hit, best && best.title);
 }
 
+/* ══ ۳۳ — «هست یا نیست» صریح، و کاوشِ کاملِ یک‌باره (۸.۸۱) ══ */
+{
+  const rows = [];
+  for (let i = 0; i < 40; i++) rows.push(row({ id: 'PB_' + i, topic: 'کلیپ ' + i, body: 'یک حرف گوآزما شماره ' + i }));
+  rows[17] = row({ id: 'PB_HIT', topic: 'کلیپ طنز', body: 'در پیام نوشت شخ‌آزما گوآزما به‌جای شخ‌آزما نگو' });
+  mkCat('کاوش', rows);
+  const yes = srchRun_('شخ‌آزما گوآزما', { mode: 'ساده', sources: false });
+  ok('۳۳.۱ وقتی عبارتِ کامل هست، اولین یادداشت می‌گوید کجا', /عبارتِ کاملِ «شخ‌آزما گوآزما» در 1 ردیف پیدا شد/.test(yes.notes[0] || ''), yes.notes[0]);
+  const no = srchRun_('گوآزما شخ‌آزما', { mode: 'ساده', sources: false });
+  ok('۳۳.۲ وقتی نیست، صریح می‌گوید «عیناً نیست» و هوشمند را پیشنهاد می‌کند', /عیناً نیست/.test(no.notes[0] || '') && /هوشمند/.test(no.notes[0]), no.notes[0]);
+  const qWas = CFG.SEARCH_PROBE_Q, tWas = CFG.SEARCH_PROBE_TAG;
+  CFG.SEARCH_PROBE_Q = ['شخ‌آزما گوآزما']; CFG.SEARCH_PROBE_TAG = 't1';
+  delete global.__PROPS[PK.SRCH_PROBE];
+  const st = srchProbeRun();
+  const r = (st.res || {})['شخ‌آزما گوآزما'] || {};
+  ok('۳۳.۳ کاوشِ کامل یافته را با تب، ردیف و تکه‌ای از سلول ثبت می‌کند', r.hits >= 1 && r.where.length >= 1 &&
+     /شخ‌آزما گوآزما/.test(r.where[0].cut) && /کاوش/.test(r.where[0].tab), JSON.stringify(r).slice(0, 300));
+  ok('۳۳.۴ و در وضعیت دیده می‌شود؛ برای همان برچسب دوباره مسلح نمی‌شود',
+     (srchProbeStatus_() || {}).tag === 't1' && srchProbeArm_() === false);
+  CFG.SEARCH_PROBE_Q = qWas; CFG.SEARCH_PROBE_TAG = tWas; delete global.__PROPS[PK.SRCH_PROBE];
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

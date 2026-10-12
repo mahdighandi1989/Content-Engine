@@ -2024,7 +2024,8 @@ function vbrCollectHourly() {
   /* نصبِ کدِ تازه و جبرانِ جزوه — هر دو ساعتی، نه فقط شبانه (۸.۷۶). پیش از سدِ پل، چون هیچ‌کدام به پل ربطی ندارد. */
   try { selfUpdateHourly_(); } catch (eSu) {}
   try { handoutCatchUpArm_(); } catch (eHc) {}
-  try { speakAbArm_(); } catch (eAb) {}         // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب، یک بار
+  try { speakAbArm_(); } catch (eAb) {}
+  try { srchProbeArm_(); } catch (ePr) {}        // ۸.۸۱: کاوشِ کاملِ عبارت، یک بار برای هر برچسب         // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب، یک بار
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که

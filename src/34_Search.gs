@@ -686,7 +686,8 @@ function srchCollect_(terms, phrase, opts) {
   var tabRowsMin = Math.max(5, Number(CFG.SEARCH_TAB_ROWS_MIN) || 15);
   var out = { items: [], scanned: 0, sheets: 0, sheetsAll: 0, stopped: '', notes: [],
               read: 0, dropped: 0, trimmed: false, via: '', slow: '', slowMs: 0,
-              sampled: 0, matches: 0, pend: [], left: 0, pass2: 0, whys: {} };
+              sampled: 0, matches: 0, pend: [], left: 0, pass2: 0, whys: {},
+              phraseRows: 0, phraseTabs: 0, phraseWhere: [] };
   var left = function () { return budget - (new Date().getTime() - t0); };
 
   var pats = srchPatGroups_(terms);
@@ -752,6 +753,8 @@ function srchCollect_(terms, phrase, opts) {
           if (!rows[gp.rows[pr]]) { rows[gp.rows[pr]] = 1; order.push(gp.rows[pr]); prio.push(gp.rows[pr]); }
         }
         out.phraseRows = (out.phraseRows || 0) + gp.rows.length;
+        out.phraseTabs = (out.phraseTabs || 0) + 1;
+        if (gp.rows.length && out.phraseWhere.length < 5) out.phraseWhere.push(sh.getName() + ' (' + gp.rows.length + ')');
       }
     }
     for (var q = 0; q < pats.length; q++) {
@@ -1305,6 +1308,19 @@ function srchRun_(query, opts) {
   res.matches = col.matches || 0;
   res.slow = col.slow || ''; res.slowMs = col.slowMs || 0;
   for (var n = 0; n < col.notes.length; n++) res.notes.push(col.notes[n]);
+  /* ══ عبارتِ کامل هست یا نیست — صریح (۸.۸۱) ══ «کس مگو» سه بار جست‌وجو شد و هر بار «یک حرف مگو» بالا آمد؛
+     هیچ‌جا گفته نمی‌شد که خودِ عبارت در هیچ ردیفی هست یا نه. «نبود» جواب است، نه شکست: یعنی متنِ
+     استخراج‌شده آن را عیناً ندارد و باید با معنا (هوشمند) گشت. */
+  res.phraseRows = col.phraseRows || 0;
+  if (col.phraseTabs) {
+    res.notes.unshift(col.phraseRows
+      ? 'عبارتِ کاملِ «' + q + '» در ' + col.phraseRows + ' ردیف پیدا شد (' + col.phraseWhere.join('، ') +
+        ') و همه پیش از بقیه خوانده شدند.'
+      : 'عبارتِ کاملِ «' + q + '» در هیچ‌کدام از ' + col.phraseTabs + ' تبِ گشته‌شده عیناً نیست — یعنی متنِ ' +
+        'استخراج‌شدهٔ هیچ فایلی این عبارت را کلمه‌به‌کلمه ندارد. نتیجه‌ها فقط واژه‌ها را دارند؛ «جست‌وجوی هوشمند» ' +
+        'با معنا می‌گردد.' + (col.phraseTabs < (col.sheetsAll || 0) ? ' (' + (col.sheetsAll - col.phraseTabs) +
+        ' تب به‌خاطرِ وقت گشته نشد.)' : ''));
+  }
 
   /* ادغام: آنچه هر دو لایه آورده‌اند یک ردیف است، نه دو تا — و امتیازِ
      معنایی‌اش روی همان ردیفِ لغوی می‌نشیند، چون «هم واژه‌اش هست هم
@@ -1547,4 +1563,89 @@ function srchHtml_() {
   H.push('document.getElementById("out").innerHTML=H.join("");}');
   H.push('</script></body></html>');
   return H.join('');
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   کاوشِ کاملِ عبارت (۸.۸۱) — شاهد، نه حدس
+
+   صاحبِ برنامه: «می‌دانم فایلی هست که محتوای استخراج‌شده‌اش دقیقاً همین عبارت را دارد». از بیرونِ
+   موتور نمی‌شود این را سنجید (شیت‌ها ده‌ها مگابایت‌اند و نمایهٔ درایو ناقص). پس موتور خودش، در
+   اجرای جدا و بی بودجهٔ جست‌وجو، **همهٔ** تب‌های بانک و منبع را فقط با الگوی عبارتِ کامل می‌گردد و
+   هر یافته را با نامِ تب، ردیف و تکه‌ای از همان سلول در `_STATUS.json` → `searchProbe` می‌گذارد.
+   فقط می‌خوانَد؛ هیچ شیتی نوشته نمی‌شود. یک بار برای هر `SEARCH_PROBE_TAG`.
+   ══════════════════════════════════════════════════════════════════════════ */
+function srchProbeArm_() {
+  var tag = String(CFG.SEARCH_PROBE_TAG || ''), qs = CFG.SEARCH_PROBE_Q || [];
+  if (!tag || !qs.length) return false;
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.SRCH_PROBE) || '{}') || {}; } catch (e) { st = {}; }
+  if (st.tag === tag && (st.at || (Number(st.tries) || 0) >= 3)) return false;
+  if (st.tag === tag && st.armedAt && new Date().getTime() - Number(st.armedAt) < 50 * 60000) return false;
+  st = st.tag === tag ? st : { tag: tag, tries: 0 };
+  st.armedAt = new Date().getTime();
+  props_().setProperty(PK.SRCH_PROBE, JSON.stringify(st));
+  clearRetryTriggers_('srchProbeRun');
+  ScriptApp.newTrigger('srchProbeRun').timeBased().after(60000).create();
+  return true;
+}
+
+/** اجرای یک‌باره: هر عبارت در همهٔ تب‌ها، فقط با الگوی کامل. */
+function srchProbeRun() {
+  runEnter_('srchProbeRun');
+  var st = {}, note = '';
+  try { st = JSON.parse(props_().getProperty(PK.SRCH_PROBE) || '{}') || {}; } catch (e0) { st = {}; }
+  st.tag = String(CFG.SEARCH_PROBE_TAG || st.tag || ''); st.tries = (Number(st.tries) || 0) + 1;
+  try {
+    try { clearRetryTriggers_('srchProbeRun'); } catch (eC) {}
+    var t0 = new Date().getTime(), tabs = [];
+    try { var ht = srchHubTabs_(getHub_()); for (var i = 0; i < ht.length; i++) tabs.push({ sh: ht[i], src: 'بانک' }); } catch (eH) {}
+    var list = CFG.SOURCES || [];
+    for (var s = 0; s < list.length; s++) {
+      try {
+        var shs = SpreadsheetApp.openById(list[s].id).getSheets();
+        for (var u = 0; u < shs.length; u++) tabs.push({ sh: shs[u], src: list[s].title });
+      } catch (eO) {}
+    }
+    var qs = CFG.SEARCH_PROBE_Q || [], res = {};
+    for (var q = 0; q < qs.length; q++) {
+      var pat = srchPattern_(qs[q]), r = { tabs: 0, hits: 0, where: [] };
+      for (var k = 0; k < tabs.length; k++) {
+        if (new Date().getTime() - t0 > 300000) { r.cut = 'وقت'; break; }
+        var tf = null;
+        try { tf = tabs[k].sh.createTextFinder(pat).useRegularExpression(true).matchCase(false); } catch (eT) { continue; }
+        r.tabs++;
+        var all = [];
+        try { all = tf.findAll() || []; } catch (eF) { r.err = String(eF.message).slice(0, 80); continue; }
+        r.hits += all.length;
+        for (var a = 0; a < all.length && r.where.length < 12; a++) {
+          var cell = '';
+          try { cell = String(all[a].getValue() || ''); } catch (eV) {}
+          if (!cell) { try { cell = String(all[a].getDisplayValue() || ''); } catch (eD) {} }
+          var at = -1;
+          try { at = cell.search(new RegExp(pat.replace(/\(\?:\^\|\[\^[^\]]*\]\)|\(\?:\[\^[^\]]*\]\|\$\)/g, ''), 'iu')); } catch (eR) { at = -1; }
+          if (at < 0) at = 0;
+          r.where.push({ tab: tabs[k].src + ' › ' + tabs[k].sh.getName(), row: all[a].getRow(), col: all[a].getColumn(),
+                         cut: cell.slice(Math.max(0, at - 80), Math.max(0, at) + 120) });
+        }
+        all = null;
+      }
+      res[qs[q]] = r;
+    }
+    st.at = nowStr_(); st.res = res; st.tabs = tabs.length; st.why = '';
+    note = 'کاوشِ کاملِ عبارت: ' + Object.keys(res).map(function (x) { return '«' + x + '» ' + res[x].hits + ' یافته در ' + res[x].tabs + ' تب'; }).join('، ');
+  } catch (e) {
+    st.why = String((e && e.message) || e).slice(0, 160);
+    note = 'کاوشِ کاملِ عبارت نشد: ' + st.why;
+  } finally {
+    try { props_().setProperty(PK.SRCH_PROBE, JSON.stringify(st)); } catch (eP) {}
+    try { logLine_(note); } catch (eL) {}
+    runExit_('srchProbeRun', note);
+  }
+  return st;
+}
+
+/** برای `_STATUS.json` — فقط Properties. */
+function srchProbeStatus_() {
+  try { return JSON.parse(props_().getProperty(PK.SRCH_PROBE) || 'null'); } catch (e) { return null; }
 }
