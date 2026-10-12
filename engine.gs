@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.82
+ *  موتور محتوا و پادکست — نسخهٔ 8.83
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2015,7 +2015,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.82',
+  CODE_VERSION: '8.83',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -68864,7 +68864,24 @@ var SRCH_STOP = (function () {
  * نویسه‌ها **عیناً** در الگو می‌نشینند و نه با `\x{...}`: گوگل‌شیت RE2 دارد و
  * هر دو را می‌فهمد، ولی نویسهٔ خام یک جای کمتر برای اشتباه است.
  */
-function srchPattern_(term) {
+/* ══ شکلِ نزدیک: حروفی که با یک نقطه یا یک دندانه جابه‌جا می‌شوند (۸.۸۳) ══
+   کاوشِ کاملِ ۸.۸۱ (۱۲ اکتبر ۱۶:۲۷، هر ۳۹ تب) شاهد را داد: «کس مگو» در **هیچ** ردیفی نیست و «کس نگو» در
+   ۲۵ ردیف هست («کس نگو مومن»). یعنی جست‌وجو درست می‌گفت «عیناً نیست»، ولی جوابِ کامل این بود: «شکلِ
+   نزدیکش این‌جاست». یک حرف — م به‌جای ن — فرقِ پیدا شدن و نشدن بود؛ همین در حافظهٔ آدم هم رایج است و در
+   متنِ استخراج‌شده از تصویر هم (OCR). پس پاسِ عبارت این گروه‌ها را هم‌ارز می‌گیرد — **بی پویشِ اضافه**:
+   همان یک findAll، و دقیق یا نزدیک بودن پس از خواندن در جاوااسکریپت سنجیده می‌شود. */
+var SRCH_NEAR_ = (function () {
+  var G = ['\u0646\u0645', '\u06A9\u0643\u06AF', '\u0633\u0635\u062B', '\u0632\u0630\u0636\u0638',
+           '\u062A\u0637', '\u062D\u0647\u0629\u06C0', '\u0642\u063A', '\u0628\u067E', '\u062C\u0686'];
+  var m = {};
+  for (var i = 0; i < G.length; i++) {
+    var g = JSON.parse('"' + G[i] + '"');
+    for (var j = 0; j < g.length; j++) m[g.charAt(j)] = g;
+  }
+  return m;
+})();
+
+function srchPattern_(term, near) {
   var VAR = {
     '\u0627': '\u0627\u0622\u0623\u0625\u0671',
     '\u06CC': '\u06CC\u064A\u0649\u06D0',
@@ -68893,6 +68910,8 @@ function srchPattern_(term) {
       var d = c.charCodeAt(0) - 48;
       if (d >= 0 && d <= 9) {
         out.push('[' + c + String.fromCharCode(0x06F0 + d) + String.fromCharCode(0x0660 + d) + ']');
+      } else if (near && SRCH_NEAR_[c]) {
+        out.push('[' + SRCH_NEAR_[c] + ']');
       } else if (VAR[c]) {
         out.push('[' + VAR[c] + ']');
       } else {
@@ -69043,6 +69062,15 @@ function srchHubTabs_(hub) {
  * فراخوان شکست، همان حلقهٔ کرانه‌دارِ قدیم اجرا می‌شود. سقوط به سمتِ
  * کندی است، نه به سمتِ جوابِ غلط — و کدام راه رفته، گزارش می‌شود.
  */
+/** «تب (n)» — شمارِ هر تب در یک فهرستِ کوتاه. */
+function srchWhereAdd_(list, tab) {
+  for (var i = 0; i < list.length; i++) {
+    var m = /^(.*) \((\d+)\)$/.exec(list[i]);
+    if (m && m[1] === tab) { list[i] = tab + ' (' + (Number(m[2]) + 1) + ')'; return; }
+  }
+  if (list.length < 5) list.push(tab + ' (1)');
+}
+
 function srchFind_(sh, pattern, cap, deadline) {
   var res = { rows: [], cut: false, via: '', matches: 0 };
   var tf;
@@ -69404,7 +69432,7 @@ function srchCollect_(terms, phrase, opts) {
   var out = { items: [], scanned: 0, sheets: 0, sheetsAll: 0, stopped: '', notes: [],
               read: 0, dropped: 0, trimmed: false, via: '', slow: '', slowMs: 0,
               sampled: 0, matches: 0, pend: [], left: 0, pass2: 0, whys: {},
-              phraseRows: 0, phraseTabs: 0, phraseWhere: [] };
+              phraseRows: 0, phraseTabs: 0, phraseWhere: [], nearRows: 0, nearWhere: [], nearForms: {} };
   var left = function () { return budget - (new Date().getTime() - t0); };
 
   var pats = srchPatGroups_(terms);
@@ -69415,10 +69443,15 @@ function srchCollect_(terms, phrase, opts) {
      دارد؛ در تب‌های پُر فقط نمونه‌ای پخش‌شده خوانده می‌شد (۷٫۵۱) و ردیفِ عبارتِ کامل می‌توانست
      بیرونِ نمونه بماند. ۷٫۵۱ این پویش را «اضافه» دانست چون «هر ردیفِ عبارت، واژه‌هایش را هم دارد» —
      درست برای **یافتن**، غلط برای **خواندن**: یافته‌شده‌ای که خوانده نشود، دیده نمی‌شود. */
-  var phrasePat = '';
+  var phrasePat = '', phraseRe = null, nearRe = null;
   if (terms.length >= 2 && phrase) {
-    try { phrasePat = srchPattern_(phrase); } catch (ePp) { phrasePat = ''; }
+    try {
+      phrasePat = srchPattern_(phrase, true);                 // ۸.۸۳: دقیق + نزدیک، یک پویش
+      phraseRe = new RegExp(srchPattern_(phrase), 'iu');
+      nearRe = new RegExp(phrasePat, 'iu');
+    } catch (ePp) { phrasePat = ''; phraseRe = null; nearRe = null; }
   }
+  var prioSet = {};
 
   /* ══ خواندن و امتیاز دادن، یک جا — چون پاسِ دوم همین کار را می‌کند ══
      دو نسخه از این حلقه یعنی دو جا برای خراب شدن و نصفِ تاریخچه در هرکدام
@@ -69436,6 +69469,25 @@ function srchCollect_(terms, phrase, opts) {
       out.read++; r.read++; r.got[pick[z]] = 1;
       var it = mk(sh, pick[z], v);
       it.score = srchScore_(it.fields, terms, phrase);
+      /* ۸.۸۳: ردیفِ پاسِ عبارت — دقیق یا نزدیک؟ روی متنِ خودِ ردیف، نه حدس. */
+      if (prioSet[sh.getName() + '#' + pick[z]] && nearRe) {
+        try {
+          var rowTxt = srchNorm_([].concat(v).join(' \n '));
+          if (phraseRe.test(rowTxt)) {
+            out.phraseRows++; srchWhereAdd_(out.phraseWhere, sh.getName());
+          } else {
+            var nm = nearRe.exec(rowTxt);
+            if (nm) {
+              /* شکلِ نمایشی از متنِ خام، نه پوست‌کنده — آدم همان را باید بشناسد */
+              try { var nmRaw = nearRe.exec([].concat(v).join(' \n ')); if (nmRaw) nm = nmRaw; } catch (eRw) {}
+              out.nearRows++; srchWhereAdd_(out.nearWhere, sh.getName());
+              var form = String(nm[0]).replace(/[\s\u200C]+/g, function (w) { return /\s/.test(w) ? ' ' : w; }).trim().slice(0, 40);
+              out.nearForms[form] = (out.nearForms[form] || 0) + 1;
+              it.score += 8;                 // نزدیک کمتر از دقیق (۱۰)، بیشتر از تک‌واژه
+            }
+          }
+        } catch (eNr) {}
+      }
       /* الگو خورده ولی امتیاز صفر است. از ۷٫۲۴ این تقریباً همیشه یعنی
          «تطبیق در ستونی بود که وزنی ندارد»، نه یک اشکال — ولی شمرده
          می‌شود، چون «یافته ولی نشان‌داده‌نشده» عددی است که اگر یک روز
@@ -69468,10 +69520,9 @@ function srchCollect_(terms, phrase, opts) {
       if (!gp.err) {
         for (var pr = 0; pr < gp.rows.length; pr++) {
           if (!rows[gp.rows[pr]]) { rows[gp.rows[pr]] = 1; order.push(gp.rows[pr]); prio.push(gp.rows[pr]); }
+          prioSet[sh.getName() + '#' + gp.rows[pr]] = 1;
         }
-        out.phraseRows = (out.phraseRows || 0) + gp.rows.length;
         out.phraseTabs = (out.phraseTabs || 0) + 1;
-        if (gp.rows.length && out.phraseWhere.length < 5) out.phraseWhere.push(sh.getName() + ' (' + gp.rows.length + ')');
       }
     }
     for (var q = 0; q < pats.length; q++) {
@@ -70029,10 +70080,16 @@ function srchRun_(query, opts) {
      هیچ‌جا گفته نمی‌شد که خودِ عبارت در هیچ ردیفی هست یا نه. «نبود» جواب است، نه شکست: یعنی متنِ
      استخراج‌شده آن را عیناً ندارد و باید با معنا (هوشمند) گشت. */
   res.phraseRows = col.phraseRows || 0;
-  if (col.phraseTabs) {
+  res.nearRows = col.nearRows || 0;
+  var nearTop = Object.keys(col.nearForms || {}).sort(function (a, b) { return col.nearForms[b] - col.nearForms[a]; });
+  if (col.phraseTabs && !col.phraseRows && col.nearRows) {
+    res.notes.unshift('عبارتِ «' + q + '» عیناً در هیچ ردیفی نیست؛ ولی شکلِ نزدیکِ ' +
+      nearTop.slice(0, 3).map(function (x) { return '«' + x + '»'; }).join('، ') + ' در ' + col.nearRows +
+      ' ردیف هست (' + (col.nearWhere || []).join('، ') + ') و همان‌ها اول آمدند — شاید منظورتان همین بود.');
+  } else if (col.phraseTabs) {
     res.notes.unshift(col.phraseRows
       ? 'عبارتِ کاملِ «' + q + '» در ' + col.phraseRows + ' ردیف پیدا شد (' + col.phraseWhere.join('، ') +
-        ') و همه پیش از بقیه خوانده شدند.'
+        ') و همه پیش از بقیه خوانده شدند.' + (col.nearRows ? ' شکلِ نزدیک هم در ' + col.nearRows + ' ردیف.' : '')
       : 'عبارتِ کاملِ «' + q + '» در هیچ‌کدام از ' + col.phraseTabs + ' تبِ گشته‌شده عیناً نیست — یعنی متنِ ' +
         'استخراج‌شدهٔ هیچ فایلی این عبارت را کلمه‌به‌کلمه ندارد. نتیجه‌ها فقط واژه‌ها را دارند؛ «جست‌وجوی هوشمند» ' +
         'با معنا می‌گردد.' + (col.phraseTabs < (col.sheetsAll || 0) ? ' (' + (col.sheetsAll - col.phraseTabs) +

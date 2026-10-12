@@ -709,4 +709,21 @@ console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو �
   CFG.SEARCH_PROBE_Q = qWas; CFG.SEARCH_PROBE_TAG = tWas; delete global.__PROPS[PK.SRCH_PROBE];
 }
 
+/* ══ ۳۴ — شکلِ نزدیک: «کس مگو» ← «کس نگو» (۸.۸۳، از کاوشِ واقعیِ ۱۲ اکتبر) ══ */
+{
+  const rows = [];
+  for (let i = 0; i < 60; i++) rows.push(row({ id: 'NR_' + i, topic: 'بی‌ربط ' + i, body: 'یک حرف مگوآزمی شماره ' + i }));
+  rows[23] = row({ id: 'NR_HIT', topic: 'نهی از منکر', body: 'از زیباترین انواع نهی از منکر، همین «کس‌آزمی نگوآزمی مومن» هست' });
+  mkCat('نزدیک', rows);
+  const rn = new RegExp(srchPattern_('کس مگو', true), 'u');
+  ok('۳۴.۱ الگوی نزدیک «کس نگو» را می‌گیرد، الگوی دقیق نه', rn.test('همین «کس نگو مومن» هست') &&
+     !new RegExp(srchPattern_('کس مگو'), 'u').test('همین «کس نگو مومن» هست') && rn.test('کس مگو'));
+  const res = srchRun_('کس‌آزمی مگوآزمی', { mode: 'ساده', sources: false });
+  const top = (res.items || res.results || []).slice().sort((a, b) => (b.score || 0) - (a.score || 0))[0] || {};
+  ok('۳۴.۲ عیناً نیست ⇒ یادداشت شکلِ نزدیک و جایش را می‌گوید',
+     /عیناً در هیچ ردیفی نیست/.test(res.notes[0] || '') && /«کس‌آزمی نگوآزمی»/.test(res.notes[0]) && /نزدیک/.test(res.notes[0]), res.notes[0]);
+  ok('۳۴.۳ و ردیفِ شکلِ نزدیک بالاتر از ردیف‌های تک‌واژه می‌نشیند', res.nearRows === 1 &&
+     /نهی از منکر/.test(JSON.stringify(top)), JSON.stringify(top).slice(0, 200));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

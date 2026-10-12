@@ -1,12 +1,13 @@
 {
-  "version": "8.82",
+  "version": "8.83",
   "codeFile": "engine.gs",
-  "sha256": "37c7b545ff40aab2dcc83b005fe5aa9db5bf60c8689b58e267e3b98037c54631",
-  "releasedAt": "2026-10-12T14:20:00Z",
-  "summary": "گوش‌دادنِ دوباره به هر تکهٔ صدای قسمت: خطای آشکارِ تلفظ ⇒ یک بار ساختِ دوباره و نگه‌داشتنِ کم‌خطاتر؛ اصلاحِ ساختاریِ موفق به تبِ «تلفظ».",
+  "sha256": "abf77e943f3d5fa90e499601d4f242acd636315101b636b428fa7a8cecdfa80e",
+  "releasedAt": "2026-10-12T15:40:00Z",
+  "summary": "جست‌وجو: شکلِ نزدیکِ عبارت (حروفِ هم‌شکل) در همان پاسِ عبارت؛ یادداشتِ «عیناً نیست، شکلِ نزدیک این‌جاست»؛ همراه با 8.82.",
   "fixes": [
-    "ttsListenGuard_/ttsListenCheck_/ttsListenTrim_: شنیدنِ کلِ تکه در برابرِ متنش، فقط در ساختِ قسمت",
-    "ttsListenNote_: شمار در _STATUS.ttsListen و یافتهٔ tts-listen-residual"
+    "srchPattern_(term, near) + SRCH_NEAR_",
+    "srchCollect_: دقیق/نزدیک روی متنِ ردیف، امتیاز ۸ برای نزدیک",
+    "srchRun_: یادداشتِ شکلِ نزدیک"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
@@ -99,6 +100,7 @@
     "8.66": [
       "chronic-9e9343a8"
     ],
-    "8.82": []
+    "8.82": [],
+    "8.83": []
   }
 }
