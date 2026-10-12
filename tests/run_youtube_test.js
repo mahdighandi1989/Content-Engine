@@ -9552,4 +9552,32 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
      q.map(x => x.key).join(' ') === 'special:16 variety:68 special:67 variety:69 special:68', q.map(x => x.key).join(' '));
 }
 
+/* ══ ۹۹ — حالتی که از فهرست بیرون رفت، یتیم نمی‌ماند (۸.۷۵) ══
+   special:63 با نقشهٔ «کارت» وارد فهرستِ جایگزینی شد، نقشه‌اش بعد صحنه شد و از فهرست افتاد؛ حالتش برای همیشه
+   «در ساخت» ماند و سلامت هر روز «بیش از دو روز مانده» گفت. */
+{
+  const kp = { list: global.ytReplaceList_, pub: global.ytPublished_, on: global.ytOn_, hub: global.getHub_ };
+  global.ytOn_ = () => true; global.getHub_ = () => ({});
+  global.ytReplaceList_ = () => ({});
+  const old = new Date(Date.now() - 4 * 86400000);
+  const at = Utilities.formatDate(old, 'GMT', 'yyyy-MM-dd HH:mm');
+  global.__PROPS[PK.YT_REPL] = JSON.stringify({
+    'special:63': { tag: 'auto-8.63', phase: 'build', at: at, oldVid: 'HECZ' },
+    'special:64': { tag: 'auto-8.63', phase: 'build', at: at, oldVid: 'V64' },
+    'special:65': { tag: 't', phase: 'done', at: at, doneAt: at, oldVid: 'A', newVid: 'B' } });
+  global.ytPublished_ = () => ({ 'special:63': { videoId: 'XNN', url: 'uX' }, 'special:64': { videoId: 'V64' } });
+  const before = ytReplaceStatus_().problem;
+  ytReplaceTick_(30000, {});
+  const s9 = ytReplState_();
+  ok('۹۹.۱ پیش از درمان همان هشدارِ واقعی ساخته می‌شود', /special:6[34]/.test(before) && /دو روز/.test(before), before);
+  ok('۹۹.۲ بیرون‌رفته با ویدئوی تازهٔ منتشر ⇒ «انجام شد» با همان ویدئو',
+     s9['special:63'].phase === 'done' && s9['special:63'].newVid === 'XNN', JSON.stringify(s9['special:63']));
+  ok('۹۹.۳ بیرون‌رفته بی ویدئوی تازه ⇒ «لازم نشد»، نه آپلود', s9['special:64'].phase === 'skip' &&
+     !ytDueList_().some(x => x.key === 'special:64'), JSON.stringify(s9['special:64']));
+  ok('۹۹.۴ و هشدارِ «مانده» دیگر ساخته نمی‌شود؛ «انجام‌شده»ٔ کهنه دست نخورد',
+     !ytReplaceStatus_().problem && s9['special:65'].newVid === 'B', ytReplaceStatus_().problem);
+  global.ytReplaceList_ = kp.list; global.ytPublished_ = kp.pub; global.ytOn_ = kp.on; global.getHub_ = kp.hub;
+  delete global.__PROPS[PK.YT_REPL];
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

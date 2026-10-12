@@ -10380,13 +10380,35 @@ function ytReplaceTick_(budgetMs, hubIn) {
   var out = { checked: 0, prepped: 0, swapped: 0, notes: [] };
   if (!ytOn_()) return out;
   var list = ytReplaceList_(), keys = Object.keys(list);
-  if (!keys.length) return out;
   var st = ytReplState_(), hub = null, pub = null, changed = false;
   var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 60000);
   var getPub = function () {
     if (!pub) { hub = hub || hubIn || getHub_(); pub = ytPublished_(hub); }
     return pub;
   };
+  /* کلیدی که وسطِ کار از فهرست بیرون رفت (۸.۷۵). special:63 با نقشهٔ «کارت» وارد شد، بعد نقشه‌اش صحنه شد و
+   * فهرستِ خودکار دیگر نامش را نیاورد — پس این حلقه هرگز به آن نرسید و حالتش برای همیشه «در ساخت» ماند، و
+   * وارسیِ سلامت هر روز «بیش از دو روز مانده» گفت برای کاری که دیگر کسی قرار نبود بکند. حالتی که فقط از درونِ
+   * فهرست بسته می‌شود، با بیرون رفتن از فهرست یتیم می‌ماند. پس همین‌جا بسته می‌شود — با آنچه واقعاً منتشر است. */
+  for (var ok in st) {
+    if (!Object.prototype.hasOwnProperty.call(st, ok) || list[ok]) continue;
+    var oc = st[ok] || {};
+    if (oc.phase !== 'build' && oc.phase !== 'swap') continue;
+    var oRec = {};
+    try {
+      oRec = getPub()[ytShowKey_(ok.slice(0, ok.lastIndexOf(':'))) + ':' + ok.slice(ok.lastIndexOf(':') + 1)] || {};
+    } catch (eOp) { continue; }
+    if (oRec.videoId && oRec.videoId !== oc.oldVid) {
+      oc.phase = 'done'; oc.doneAt = nowStr_(); oc.newVid = oRec.videoId; oc.newUrl = String(oRec.url || '');
+      oc.why = 'از فهرست بیرون رفت؛ نسخهٔ تازه از قبل منتشر بود';
+    } else {
+      oc.phase = 'skip'; oc.at = nowStr_();
+      oc.why = 'از فهرستِ جایگزینی بیرون رفت (نقشهٔ رندرش دیگر «کارت» نیست)؛ کاری نمانده';
+    }
+    st[ok] = oc; changed = true;
+    logLine_('جایگزینیِ ' + ok + ' بسته شد: ' + oc.why);
+  }
+  if (!keys.length) { if (changed) ytReplSave_(st); return out; }
   for (var i = 0; i < keys.length; i++) {
     if (new Date().getTime() - t0 > budget) break;
     var key = keys[i], tag = list[key].tag, cur = st[key] || {};

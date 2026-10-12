@@ -1,20 +1,14 @@
 {
-  "version": "8.74",
+  "version": "8.75",
   "codeFile": "engine.gs",
-  "sha256": "7911d099625d96948449604d86d527d5f9a6c398369bcc6adbc97636f0c03f6b",
-  "releasedAt": "2026-10-11T15:30:00Z",
-  "summary": "همهٔ گزینه‌های منو و درهای پنجره زیرِ نظر (هر زدن ثبت، خطا یافته، خطِ روزانه، فلسفهٔ هر گزینه در docs/menu.md)؛ خودآزمونِ اثر انگشت همهٔ قطعه‌ها را می‌خواند.",
+  "sha256": "d4d62570aae02cf1fcba72365d56812b7f89ea9e1bfaa47f8628043bd935cdcf",
+  "releasedAt": "2026-10-12T06:45:00Z",
+  "summary": "هشدارِ دروغینِ «جایگزینیِ special:63 در ساخت مانده» بسته شد: حالتِ جایگزینیِ یتیم (کلید بیرون از فهرست) همان‌جا بسته می‌شود، بی آپلود.",
   "fixes": [
-    "menuRun_/menuWrapAll_/menuStatus_: ۶۱ گزینهٔ منو و ۲۲ درِ پنجره، هر زدن با نتیجه؛ خطا (پرتاب یا ok:false) ⇒ یافتهٔ کد",
-    "tools/build.js: BUILD_MENU_ITEMS_ و docs/menu.md از خودِ addItemها و توضیحِ بالای هر تابع",
-    "MONITOR_CHECKS: کلیدِ اجباریِ menu؛ _PROMPT-monitor-v100 §۴٫۱۷",
-    "embSearch_: EMB_PROBE_SHARDS ۰ = همهٔ قطعه‌ها نزدیک‌ترین‌اول تا ته مهلت (خودآزمون ۱ از ۴ با ۸ از ۳۸)؛ خودآزمون در اجرای جدا با مهلتِ تقسیم‌شده"
+    "ytReplaceTick_: حالتِ build/swap با کلیدِ بیرون‌رفته از فهرست ⇒ done (ویدئوی تازه منتشر) یا skip؛ هیچ آپلود"
   ],
   "sourceReportIds": [],
-  "promptImpact": [
-    "_STATUS.json → menu (کلیدِ تازه)",
-    "MONITOR_CHECKS: menu (اجباری)"
-  ],
+  "promptImpact": [],
   "answers": {
     "7.48": [
       "tts-cue-unsupported"
@@ -104,8 +98,5 @@
     "8.66": [
       "chronic-9e9343a8"
     ]
-  },
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  }
 }
