@@ -1294,7 +1294,7 @@ function extractAudioText_(j) {
 
 /** یک تکه متن → base64 خام PCM. sectionStyle می‌گوید این تکه چطور اجرا شود. */
 function ttsChunk_(text, sectionStyle, voice, withCue) {
-  try { return ttsGuarded_(text, sectionStyle, voice, withCue); }
+  try { return ttsListenGuard_(ttsGuarded_(text, sectionStyle, voice, withCue), text, sectionStyle, voice); }
   catch (e) {
     // نامِ صدا را API می‌تواند نپذیرد (نامِ تازه، نامِ بازنشسته، غلطِ تایپی در
     // جدول). آن‌وقت نباید کلِ قسمت زمین بخورد: با صدای پشتیبان ادامه می‌دهیم و
@@ -1395,6 +1395,197 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
 
   var clean = ttsChunkTry_(text, sectionStyle, voice, false);
   return clean || b64;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   گوش‌دادنِ دوباره به هر تکه (۸.۸۲) — خروجی سنجیده می‌شود، نه ورودی
+
+   صاحبِ برنامه: «هر دو نمونه درست می‌خواندند … ولی در درس‌نامه‌های طولانی گاهی
+   اشتباه هست … حتی یکی‌دوتایش به کلِ کارِ حرفه‌ای آسیب می‌زند». آزمونِ کورِ
+   ۸.۷۹ همین را نشان داد: اعراب لازم است ولی کافی نیست، چون گفتارساز در هر
+   ساخت کمی متفاوت می‌خوانَد (نمونه‌برداریِ تصادفی) و خطا در تکه‌های بلند
+   **گاهی** پیدا می‌شود — نه همیشه، نه در یک واژهٔ ثابت. هیچ سنجه‌ای روی متن
+   این را نمی‌بیند؛ تنها راه شنیدنِ خودِ صداست.
+
+   پس هر تکهٔ ساخته‌شده (در ساختِ قسمت، نه نمونه‌ها) به مدلِ شنونده می‌رود،
+   همراهِ متنی که باید گفته می‌شد، و مدل فقط **ناهمخوانیِ آشکار** را می‌گوید:
+   واژه‌ای که چیزِ دیگری شنیده شد، جاافتاده یا افزوده. اگر بود:
+     ۱. همان تکه یک بار دوباره ساخته می‌شود — اگر مدل برای واژه شکلِ
+        نوشتاریِ روشن‌تری داد (همان حروف، با اعراب/نیم‌فاصله)، با آن شکل؛
+     ۲. نسخهٔ دوم هم شنیده می‌شود و **کم‌خطاتر** می‌مانَد — نسخهٔ تازه
+        فقط وقتی جای قبلی را می‌گیرد که واقعاً بهتر باشد؛
+     ۳. اصلاحِ ساختاری (نیم‌فاصله، نه فقط اعراب) به تبِ «تلفظ» می‌رود، با
+        همان سدِ `speakHardRows_` — تا بار بعد از اول درست خوانده شود.
+   نشنیدن تأیید نیست، ولی دلیلِ دوباره‌ساختن هم نیست: شمرده و گزارش می‌شود.
+   وقت از مهلتِ همان اجرا گرفته می‌شود؛ تکه‌ای که وقتِ شنیدن ندارد شنیده
+   نمی‌شود و این هم شمرده می‌شود («بی‌وقت») — سکوت نیست.
+   ══════════════════════════════════════════════════════════════════════════ */
+var TTS_LB_DEADLINE_ = 0;
+
+var TTS_LB_SCHEMA_ = {
+  type: 'object',
+  properties: {
+    errs: { type: 'array', items: { type: 'object', properties: {
+      word: { type: 'string' }, heard: { type: 'string' },
+      kind: { type: 'string' }, fix: { type: 'string' } },
+      required: ['word', 'heard', 'kind'] } }
+  },
+  required: ['errs']
+};
+
+/** شنیدنِ یک تکه در برابرِ متنش ⇒ {errs:[{word,heard,kind,fix}], failed}. */
+function ttsListenCheck_(pcmB64, text) {
+  try {
+    var raw = Utilities.base64Decode(pcmB64);
+    var secs = raw.length / (2 * (CFG.SAMPLE_RATE || 24000));
+    var wav = ttsWavOf_(pcmB64, Math.ceil(secs) + 1);
+    raw = null;
+    var j = geminiShort_([
+      { text: 'این صدا باید دقیقاً متنِ زیر را بخوانَد (فارسی؛ اعراب و نیم‌فاصله راهنمای تلفظ‌اند).\n' +
+              'با دقت گوش کن و فقط ناهمخوانی‌های **آشکار** را فهرست کن:\n' +
+              '• «تلفظ»: واژه‌ای که چیزِ دیگری شنیده می‌شود (مثلاً «بایستیم» که «با ایستیم» خوانده شود، ' +
+              'یا مصوتی که معنا را عوض می‌کند)؛\n• «جاافتاده»: واژه‌ای که گفته نشد؛\n• «اضافه»: واژه‌ای که در متن نیست.\n' +
+              'لهجه، لحن، سرعت و مکث را **نگو**. اگر مطمئن نیستی، نگو. اگر همه درست بود، errs خالی.\n' +
+              'word = خودِ واژه همان‌طور که در متن آمده؛ heard = آنچه شنیدی؛ kind = یکی از «تلفظ/جاافتاده/اضافه»؛ ' +
+              'fix (اختیاری، فقط برای «تلفظ») = همان واژه با همان حروف، با اعراب و نیم‌فاصله‌ای که خطا را ناممکن کند.\n\n' +
+              'متن:\n' + String(text || '') },
+      { inlineData: { mimeType: 'audio/wav', data: wav } }
+    ], { min: 2048, think: 512, schema: TTS_LB_SCHEMA_ });
+    wav = null;
+    var t = String(extractText_(j) || '').trim();
+    if (!t) return { errs: [], failed: true, why: String(j && j._why || 'پاسخ خالی') };
+    var o = JSON.parse(t);
+    return { errs: ttsListenTrim_(o && o.errs, text), failed: false };
+  } catch (e) {
+    return { errs: [], failed: true, why: String(e.message || e).slice(0, 100) };
+  }
+}
+
+/** فقط ناهمخوانی‌ای که به متنِ همین تکه بند است — واژهٔ ساختگیِ مدل دور ریخته می‌شود. */
+function ttsListenTrim_(errs, text) {
+  var out = [], seen = {}, kinds = ['تلفظ', 'جاافتاده', 'اضافه'];
+  var bone = speakLetters_(String(text || ''));
+  for (var i = 0; errs && i < errs.length && out.length < 12; i++) {
+    var e = errs[i] || {};
+    var w = String(e.word || '').trim(), h = String(e.heard || '').trim();
+    var k = String(e.kind || '').trim(), f = String(e.fix || '').trim();
+    if (kinds.indexOf(k) === -1) continue;
+    if (k !== 'اضافه') {
+      var wl = speakLetters_(w);
+      if (!wl || bone.indexOf(wl) === -1) continue;      // در متن نیست ⇒ ساختگی
+      if (k === 'تلفظ' && (!h || h === w)) continue;     // «همان را شنیدم» خطا نیست
+    } else if (!h) continue;
+    if (f && speakLetters_(f) !== speakLetters_(w)) f = '';   // اصلاح باید همان حروف باشد
+    var key = k + '|' + w;
+    if (seen[key]) continue;
+    seen[key] = 1;
+    out.push({ word: w.slice(0, 40), heard: h.slice(0, 40), kind: k, fix: f.slice(0, 60) });
+  }
+  return out;
+}
+
+/** متنِ تکه با شکلِ روشن‌ترِ واژه‌های بدخوانده — فقط جایی که حروف یکی است. */
+function ttsListenApplyFix_(text, errs) {
+  var s = String(text || '');
+  for (var i = 0; i < errs.length; i++) {
+    var e = errs[i];
+    if (e.kind !== 'تلفظ' || !e.fix || e.fix === e.word) continue;
+    if (s.indexOf(e.word) !== -1) s = s.split(e.word).join(e.fix);
+  }
+  return s;
+}
+
+/** شمارش و شاهد — `_STATUS.json` → `ttsListen`. */
+function ttsListenNote_(ev) {
+  try {
+    var day = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+    var st = {};
+    try { st = JSON.parse(props_().getProperty(PK.TTS_LISTEN) || '{}') || {}; } catch (e0) { st = {}; }
+    if (st.day !== day) st = { day: day, prev: st.day ? { day: st.day, chunks: st.chunks, clean: st.clean,
+                                                          fixed: st.fixed, residual: st.residual, failed: st.failed,
+                                                          skipped: st.skipped } : (st.prev || null),
+                               chunks: 0, clean: 0, fixed: 0, residual: 0, failed: 0, skipped: 0, learned: 0,
+                               words: (st.words || []) };
+    st[ev.what] = (Number(st[ev.what]) || 0) + 1;
+    if (ev.what !== 'skipped') st.chunks = (Number(st.chunks) || 0) + 1;
+    if (ev.learned) st.learned = (Number(st.learned) || 0) + ev.learned;
+    if (ev.errs && ev.errs.length) {
+      for (var i = 0; i < ev.errs.length; i++) {
+        st.words.unshift({ w: ev.errs[i].word, h: ev.errs[i].heard, k: ev.errs[i].kind,
+                           r: ev.what, at: nowStr_() });
+      }
+      st.words = st.words.slice(0, 30);
+    }
+    if (ev.why) st.lastWhy = ev.why;
+    st.at = nowStr_();
+    props_().setProperty(PK.TTS_LISTEN, JSON.stringify(st));
+    /* خطای باقی‌مانده دیده می‌شود، نه فقط شمرده: روزی یک یافته، کلیدش ثابت تا
+       تکرار تکرار دیده شود (نه ردیفِ تازه هر شب). */
+    if (ev.what === 'residual' && Number(st.residual) === 1) {
+      try {
+        logSelfFinding_(getHub_(), {
+          priority: 'متوسط', category: 'تلفظ', key: 'tts-listen-residual',
+          title: 'گفتارساز واژه‌ای را حتی پس از ساختِ دوباره نادرست خواند',
+          detail: (ev.errs || []).map(function (x) { return '«' + x.word + '» ← شنیده: «' + x.heard + '» (' + x.kind + ')'; })
+                    .join('، ').slice(0, 400) + (ev.why ? ' · ' + ev.why : ''),
+          instruction: 'اگر همان واژه تکرار شد، شکلِ درستش را (همان حروف، با نیم‌فاصله) در تبِ «تلفظ» بنویسید.',
+          owner: ROWNER_ENGINE
+        });
+      } catch (eF) {}
+    }
+    return st;
+  } catch (e) { return null; }
+}
+
+/** برای `_STATUS.json` — فقط Properties. */
+function ttsListenStatus_() {
+  try { return JSON.parse(props_().getProperty(PK.TTS_LISTEN) || 'null'); } catch (e) { return null; }
+}
+
+/** تکهٔ ساخته‌شده ⇒ شنیدن ⇒ در صورتِ خطا یک بار دوباره ⇒ کم‌خطاتر. */
+function ttsListenGuard_(b64, text, sectionStyle, voice) {
+  if (!b64 || CFG.TTS_LISTEN_ON === false || !TTS_LB_DEADLINE_) return b64;
+  var now = new Date().getTime();
+  if (now > TTS_LB_DEADLINE_ - (Number(CFG.TTS_LISTEN_MIN_MS) || 5000)) {
+    ttsListenNote_({ what: 'skipped' });
+    return b64;
+  }
+  var v1 = ttsListenCheck_(b64, text);
+  if (v1.failed) { ttsListenNote_({ what: 'failed', why: v1.why }); return b64; }
+  if (!v1.errs.length) { ttsListenNote_({ what: 'clean' }); return b64; }
+
+  if (new Date().getTime() > TTS_LB_DEADLINE_ - (Number(CFG.TTS_LISTEN_RETRY_MS) || 60000)) {
+    ttsListenNote_({ what: 'residual', errs: v1.errs, why: 'وقتِ ساختِ دوباره نماند' });
+    return b64;
+  }
+  /* دوباره بی‌دستور: دستورِ لحن یک متغیرِ دیگر است و این‌جا فقط درستیِ خواندن
+     مهم است؛ مهرش می‌خورَد تا حالت از راهِ صدا/نشانه بنشیند، نه «دستور». */
+  var t2 = ttsListenApplyFix_(text, v1.errs), b2 = null;
+  try { ttsCueDropMark_(); b2 = ttsChunkTry_(t2, sectionStyle, voice, false); } catch (eT) { b2 = null; }
+  if (!b2) { ttsListenNote_({ what: 'residual', errs: v1.errs, why: 'ساختِ دوباره نشد' }); return b64; }
+  var v2 = ttsListenCheck_(b2, text);
+  var learned = 0;
+  try {
+    var rows = [];
+    for (var i = 0; i < v1.errs.length; i++) {
+      if (v1.errs[i].fix) rows.push(v1.errs[i].word + ' => ' + v1.errs[i].fix);
+    }
+    if (rows.length && !v2.failed) {
+      /* فقط اصلاحی که واقعاً کار کرد: واژه‌ای که در شنیدنِ دوم دیگر خطا نیست. */
+      var still = {};
+      for (var s2 = 0; s2 < v2.errs.length; s2++) still[v2.errs[s2].word] = 1;
+      rows = rows.filter(function (r) { return !still[r.split(' => ')[0]]; });
+      learned = speakLearn_(speakHardRows_(rows.join('\n'), 5), 'شنیدنِ دوباره');
+    }
+  } catch (eL) { learned = 0; }
+  if (!v2.failed && v2.errs.length < v1.errs.length) {
+    ttsListenNote_({ what: v2.errs.length ? 'residual' : 'fixed', errs: v2.errs.length ? v2.errs : v1.errs,
+                     learned: learned });
+    return b2;
+  }
+  ttsListenNote_({ what: 'residual', errs: v1.errs, learned: learned,
+                   why: v2.failed ? 'شنیدنِ دوم نشد' : 'نسخهٔ دوم بهتر نبود' });
+  return b64;
 }
 
 /** آیا این خطا دربارهٔ خودِ فیلدِ دستور است، یا چیزِ دیگری در همان بسته؟ */
@@ -5478,6 +5669,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
      ادامه می‌دهد و بی آن هر اجرا از صفر می‌شمرد. */
   var tAcc = Number(t0) || 0;
   var times = [];
+  TTS_LB_DEADLINE_ = Number(deadline) || 0;   // ۸.۸۲: شنیدنِ دوباره فقط در ساختِ قسمت
   for (; i < chunks.length; i++) {
     // همیشه دست‌کم یک تکه در هر اجرا ساخته می‌شود، وگرنه اگر اجرا با وقتِ تمام‌شده
     // شروع شود، بی‌آنکه پیشرفتی بکند دوباره خودش را زمان‌بندی می‌کند و گیر می‌افتد.
@@ -5596,6 +5788,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     var g = writeWavPart_(buf, baseName, partNo, folder);
     if (g) { files.push(g); partNo++; if (onPart) onPart(files, i, partNo); }
   }
+  TTS_LB_DEADLINE_ = 0;
   return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files,
            times: times, secs: Math.round(tAcc * 100) / 100 };
 }

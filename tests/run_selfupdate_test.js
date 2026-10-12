@@ -737,4 +737,63 @@ console.log('\n=== ۱۵. آزمونِ کورِ تلفظ ===');
   delete global.__PROPS[PK.SPEAK_AB];
 }
 
+// ═════ ۱۶. شنیدنِ دوبارهٔ هر تکه (۸.۸۲) ═════
+console.log('\n=== ۱۶. شنیدنِ دوباره ===');
+{
+  const text = 'ما باید اینجا بِ‌ایستیم و به راهِ دور نگاه کنیم';
+  const tr = ttsListenTrim_([
+    { word: 'بایستیم', heard: 'با ایستیم', kind: 'تلفظ', fix: 'بِ‌ایستیم' },
+    { word: 'کهکشان', heard: 'کهکشون', kind: 'تلفظ' },           // در متن نیست ⇒ ساختگی
+    { word: 'نگاه', heard: 'نگاه', kind: 'تلفظ' },                // همان شنیده شد ⇒ خطا نیست
+    { word: 'دور', heard: 'دیر', kind: 'تلفظ', fix: 'دیوار' },    // اصلاح با حروفِ دیگر ⇒ دور
+    { word: 'راه', heard: '', kind: 'لحن' }                        // نوعِ ناشناخته
+  ], text);
+  ok('۱۶.۱ فقط ناهمخوانیِ بندِ متن می‌مانَد؛ اصلاحِ با حروفِ دیگر کنار می‌رود',
+     tr.length === 2 && tr[0].fix === 'بِ‌ایستیم' && tr[1].word === 'دور' && tr[1].fix === '', JSON.stringify(tr));
+
+  const keep = { gs: global.geminiShort_, tts: global.ttsChunkTry_, learn: global.speakLearn_, f: global.logSelfFinding_ };
+  const pcm = Utilities.base64Encode(new Array(4800).fill(0));
+  let answers = [], asked = 0, ttsIn = [], learned = [], finds = [];
+  global.geminiShort_ = () => { asked++; const a = answers.shift(); return a === null ? {} :
+    { candidates: [{ content: { parts: [{ text: JSON.stringify({ errs: a || [] }) }] } }] }; };
+  global.ttsChunkTry_ = (t) => { ttsIn.push(t); return Utilities.base64Encode(new Array(4802).fill(1)); };
+  global.speakLearn_ = (rows) => { learned = rows; return rows.length; };
+  global.logSelfFinding_ = (h, f) => { finds.push(f); };
+  delete global.__PROPS[PK.TTS_LISTEN];
+
+  TTS_LB_DEADLINE_ = 0;
+  const r0 = ttsListenGuard_(pcm, text, '', 'Kore');
+  ok('۱۶.۲ بیرون از ساختِ قسمت (نمونه‌ها) ⇒ شنیده نمی‌شود', r0 === pcm && asked === 0);
+
+  TTS_LB_DEADLINE_ = Date.now() + 300000;
+  answers = [[{ word: 'بایستیم', heard: 'با ایستیم', kind: 'تلفظ', fix: 'بِ‌ایستیم' }], []];
+  const un = quiet(); const r1 = ttsListenGuard_(pcm, 'ما باید اینجا بایستیم', '', 'Kore'); un();
+  ok('۱۶.۳ خطا ⇒ یک بار دوباره با شکلِ روشن‌تر؛ نسخهٔ سالم می‌مانَد و اصلاحِ ساختاری آموخته می‌شود',
+     r1 !== pcm && ttsIn.length === 1 && ttsIn[0].indexOf('بِ‌ایستیم') !== -1 && asked === 2 &&
+     learned.length === 1 && learned[0][1] === 'بِ‌ایستیم', JSON.stringify({ ttsIn, asked, learned }));
+
+  answers = [[{ word: 'راهِ', heard: 'راه', kind: 'تلفظ' }], [{ word: 'راهِ', heard: 'راه', kind: 'تلفظ' }]];
+  const un2 = quiet(); const r2 = ttsListenGuard_(pcm, text, '', 'Kore'); un2();
+  ok('۱۶.۴ نسخهٔ دوم بهتر نبود ⇒ همان اول می‌مانَد و یافته ثبت می‌شود', r2 === pcm &&
+     finds.some(f => f.key === 'tts-listen-residual'), JSON.stringify(finds.map(f => f.key)));
+
+  answers = [null];
+  const n0 = ttsIn.length;
+  const r3 = ttsListenGuard_(pcm, text, '', 'Kore');
+  ok('۱۶.۵ نشنیدن ⇒ تکه می‌مانَد، دوباره ساخته نمی‌شود، شمرده می‌شود', r3 === pcm && ttsIn.length === n0);
+
+  TTS_LB_DEADLINE_ = Date.now() + 1000;
+  const a0 = asked; ttsListenGuard_(pcm, text, '', 'Kore');
+  const st = ttsListenStatus_();
+  ok('۱۶.۶ بی‌وقت ⇒ شنیده نمی‌شود ولی «بی‌وقت» شمرده می‌شود؛ شمارها درست', asked === a0 &&
+     st.skipped === 1 && st.fixed === 1 && st.residual === 1 && st.failed === 1 && st.chunks === 3, JSON.stringify(st));
+  TTS_LB_DEADLINE_ = 0;
+  ok('۱۶.۷ سیم‌کشی: هر تکهٔ قسمت از نگهبان می‌گذرد و مهلت را synthesizeStep_ می‌دهد و پس می‌گیرد',
+     String(global.ttsChunk_).indexOf('ttsListenGuard_(ttsGuarded_(') !== -1 &&
+     /TTS_LB_DEADLINE_ = Number\(deadline\)/.test(String(global.synthesizeStep_)) &&
+     /TTS_LB_DEADLINE_ = 0;/.test(String(global.synthesizeStep_)));
+  Object.assign(global, { geminiShort_: keep.gs, ttsChunkTry_: keep.tts, speakLearn_: keep.learn, logSelfFinding_: keep.f });
+  delete global.__PROPS[PK.TTS_LISTEN];
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

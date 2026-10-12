@@ -49,7 +49,7 @@ function pcmGaps(spec) {
   return Buffer.concat(parts);
 }
 const PIN = CFG.TTS_MODEL_PIN || 'gemini-3.1-flash-tts-preview';
-const tg = []; const plannerPrompts = []; const ttsBodies = []; let listens = 0;
+const tg = []; const plannerPrompts = []; const ttsBodies = []; let listens = 0, lbListens = 0;
 /* پاسخِ برنامه‌ریزِ حالت: شماره‌ها از خودِ پرامپت می‌آیند، پس جوابی که بیرون
    از متن باشد ساخته نمی‌شود. «لبخند» عمداً هست — منوی قسمت باید ردش کند. */
 let plannerMode = 'ok';
@@ -74,6 +74,10 @@ global.__STUB = function (url, body) {
     { name: 'models/' + PIN, supportedGenerationMethods: ['generateContent'] }] } };
   if (url.indexOf('api.telegram.org') !== -1) { tg.push({ m: url.split('/').pop(), body }); return { code: 200, json: { ok: true, result: { username: 'b' } } }; }
   const t = body.contents ? body.contents[0].parts[0].text : '';
+  if (body.contents && body.contents[0].parts.some(x => x.inlineData) && t.indexOf('این صدا باید دقیقاً متنِ زیر') === 0) {
+    lbListens++;          // ۸.۸۲: شنیدنِ دوبارهٔ کلِ تکه — جدا از وارسیِ دستور
+    return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ errs: [] }) }] } }] } };
+  }
   if (body.contents && body.contents[0].parts.some(x => x.inlineData)) {
     listens++;
     return { code: 200, json: { candidates: [{ content: { parts: [{ text: 'متنِ سالمِ برنامه' }] } }] } };
@@ -185,6 +189,10 @@ ok('۱.۱۰ نوعِ تکه‌ها همان «t»/«m» ماند — همگام�
 /* ۱.۱۱ — دستوری که نرفت، شنیده نمی‌شود: پیش از ۸.۴۰ هر تکهٔ دستوردار، حتی
    وقتی دستور انداخته شده بود، شش ثانیه‌اش به مدلِ شنونده می‌رفت. */
 ok('۱.۱۱ برای دستورِ انداخته‌شده هیچ فراخوانِ شنیدنی نرفت', listens === listens0, listens - listens0);
+/* ۱.۱۱-ب (۸.۸۲) — ولی شنیدنِ دوبارهٔ خودِ تکه، از درِ تولید، رفت: هر تکهٔ گفتار یک بار. */
+const lbSt = ttsListenStatus_() || {};
+ok('۱.۱۱-ب هر تکهٔ گفتارِ قسمت یک بار شنیده و با متنش سنجیده شد', lbListens > 0 && lbSt.clean === lbListens &&
+   times.filter(x => x.k === 't').length === lbListens, JSON.stringify({ lbListens, clean: lbSt.clean, t: times.filter(x => x.k === 't').length }));
 
 const L = JSON.parse(global.__PROPS[PK.SPEAK_MOODS] || '[]');
 const rec = L[L.length - 1] || {};

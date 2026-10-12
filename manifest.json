@@ -1,17 +1,15 @@
 {
-  "version": "8.81",
+  "version": "8.82",
   "codeFile": "engine.gs",
-  "sha256": "5c1bac237cd5b04d773757393341f793be3c3f39e6745026dc282f9b1beac4d5",
-  "releasedAt": "2026-10-12T12:20:00Z",
-  "summary": "جست‌وجو: یادداشتِ صریحِ «عبارتِ کامل هست/نیست»؛ کاوشِ کاملِ یک‌باره در همهٔ تب‌ها (searchProbe)؛ همراه با 8.80.",
+  "sha256": "37c7b545ff40aab2dcc83b005fe5aa9db5bf60c8689b58e267e3b98037c54631",
+  "releasedAt": "2026-10-12T14:20:00Z",
+  "summary": "گوش‌دادنِ دوباره به هر تکهٔ صدای قسمت: خطای آشکارِ تلفظ ⇒ یک بار ساختِ دوباره و نگه‌داشتنِ کم‌خطاتر؛ اصلاحِ ساختاریِ موفق به تبِ «تلفظ».",
   "fixes": [
-    "srchRun_: یادداشتِ عبارتِ کامل با تعداد و تب",
-    "srchProbeArm_/srchProbeRun: کاوشِ کاملِ عبارت در همهٔ تب‌ها، نتیجه در _STATUS.searchProbe"
+    "ttsListenGuard_/ttsListenCheck_/ttsListenTrim_: شنیدنِ کلِ تکه در برابرِ متنش، فقط در ساختِ قسمت",
+    "ttsListenNote_: شمار در _STATUS.ttsListen و یافتهٔ tts-listen-residual"
   ],
   "sourceReportIds": [],
-  "promptImpact": [
-    "MONITOR_CHECKS: video-watch/video-sync/video-motion حالا خودکار نوشته می‌شوند"
-  ],
+  "promptImpact": [],
   "answers": {
     "7.48": [
       "tts-cue-unsupported"
@@ -100,9 +98,7 @@
     ],
     "8.66": [
       "chronic-9e9343a8"
-    ]
-  },
-  "promptImpactKinds": [
-    "monitor"
-  ]
+    ],
+    "8.82": []
+  }
 }

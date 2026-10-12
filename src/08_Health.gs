@@ -616,6 +616,7 @@ function writeStatus_(hub, note) {
     runs: (function () { try { return runStuck_(); } catch (e) { return null; } })(),
     /* عددِ تولیدشده در build — بی هیچ خواندنی، و بی امکانِ کهنه شدن (۸.۱۳) */
     menu: (function () { try { return menuStatus_(); } catch (e) { return null; } })(),
+    ttsListen: (function () { try { return typeof ttsListenStatus_ === 'function' ? ttsListenStatus_() : null; } catch (e) { return null; } })(),
     searchProbe: (function () { try { return typeof srchProbeStatus_ === 'function' ? srchProbeStatus_() : null; } catch (e) { return null; } })(),
     menuCover: (function () {
       try {
