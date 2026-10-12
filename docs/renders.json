@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-11 22:59",
+ "updatedAt": "2026-10-12 01:34",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -994,6 +994,53 @@
    "bytes": 9945066,
    "parts": 1,
    "at": "2026-10-11 22:59"
+  },
+  "special:68": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-68.mp4",
+   "bytes": 45752263,
+   "parts": 2,
+   "at": "2026-10-12 01:34",
+   "mode": "scenes",
+   "scenes": 27,
+   "want": 27,
+   "snapped": 17,
+   "seconds": 1074,
+   "qa": {
+    "n": 27,
+    "matched": 26,
+    "miss": [
+     17
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0
+   },
+   "ov": {
+    "asked": 5,
+    "placed": 5,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "steps": 1,
+     "quote": 1,
+     "compare": 1,
+     "points": 1,
+     "headline": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 22,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 13,
+    "fade": 11
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-68-cover.jpg"
   }
  },
  "art": {
