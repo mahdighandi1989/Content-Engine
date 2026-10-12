@@ -1989,7 +1989,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.78',
+  CODE_VERSION: '8.79',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -1999,6 +1999,9 @@ var CFG = {
   // هر شب خودش وارسی و نصبش می‌کند (21_SelfUpdate.gs). خاموشش: false.
   AUTOUPDATE_ENABLED: true,
   AUTOUPDATE_HOURLY: true,      // ۸.۷۶: نسخهٔ تازه تا یک ساعت بعد نصب می‌شود، نه فقط ۲:۳۰ شب
+  SPEAK_AB_ON: true,            // ۸.۷۹: آزمونِ کورِ «با اعراب / بی اعراب» به تلگرام
+  SPEAK_AB_TAG: '1',            // برچسبِ تازه = آزمونِ تازه (یک بار برای هر برچسب)
+  SPEAK_AB_CHARS: 650,          // اندازهٔ بندِ آزمون (~۴۰ ثانیه)
   UPDATE_HOUR: 2,                       // ساعتِ بررسیِ شبانه (دبی) — پیش از پشتیبانِ ۳
   CODE_FOLDER: 'کدها — نسخه‌های موتور', // بایگانیِ نسخه‌ها داخل OUTPUT؛ در پشتیبانِ شبانه هم می‌آید
   // ---- منبعِ کد: گیت‌هاب (نسخهٔ ۵٫۱۲) ----
@@ -3048,6 +3051,7 @@ var PK = {
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
   HANDOUT_CATCHUP_AT: 'HANDOUT_CATCHUP_AT',     // ۸.۷۶: آخرین زمان‌بندیِ جبرانِ روزانهٔ جزوه
   AUTOUPDATE_HOURLY_AT: 'AUTOUPDATE_HOURLY_AT', // ۸.۷۶: آخرین پرسشِ ساعتی از manifest
+  SPEAK_AB: 'SPEAK_AB_STATE',                   // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه

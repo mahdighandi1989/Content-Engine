@@ -704,4 +704,37 @@ console.log('\n=== ۱۴. نصبِ ساعتی، جزوهٔ روزانه ===');
   global.handoutDueList_ = keep.due; global.handoutRunDue_ = keep.run;
 }
 
+// ═════ ۱۵. آزمونِ شنیداریِ «با اعراب / بی اعراب» (۸.۷۹) ═════
+console.log('\n=== ۱۵. آزمونِ کورِ تلفظ ===');
+{
+  ok('۱۵.۱ برداشتنِ اعراب حروف و نیم‌فاصله را نگه می‌دارد', speakAbStrip_('مِی‌خوانَد بِ‌ایستیم') === 'می‌خواند ب‌ایستیم',
+     speakAbStrip_('مِی‌خوانَد بِ‌ایستیم'));
+  const para = 'بندِ اوّل کوتاه.\n\n' + 'اینْ بَندِ اَصلی‌ِ آزمون اَست که اِعراب دارَد. '.repeat(8) + '\n\nبندِ آخر.';
+  const pk = speakAbPick_(para);
+  ok('۱۵.۲ بندِ اعراب‌دار و هم‌اندازه انتخاب می‌شود', pk.length >= 200 && pk.length <= 650 && /[ً-ْ]/.test(pk), pk.length);
+  const keep = { tg: global.tgApi_, en: global.tgEnabled_, ch: global.tgChat_, tts: global.ttsChunkTry_, src: global.speakAbSource_,
+                 busy: global.engineBusyForSwap_, model: global.ttsModel_ };
+  const sent = [], ttsIn = [];
+  global.tgApi_ = (m, p) => { sent.push({ m, p }); return {}; };
+  global.tgEnabled_ = () => true; global.tgChat_ = () => '1';
+  global.ttsModel_ = () => 'm';
+  global.ttsChunkTry_ = (t) => { ttsIn.push(t); return Utilities.base64Encode([1, 0, 2, 0]); };
+  global.speakAbSource_ = () => ({ getName: () => 'متن صوتی', getBlob: () => ({ getDataAsString: () => para }) });
+  global.engineBusyForSwap_ = () => false;
+  delete global.__PROPS[PK.SPEAK_AB];
+  const a1 = speakAbArm_(), a2 = speakAbArm_();
+  ok('۱۵.۳ تریگرِ ساعتی یک اجرای جدا مسلح می‌کند، نه دو تا', a1 === true && a2 === false && trigsOf('speakAbTest').length === 1);
+  const un = quiet(); const note = speakAbTest(); un();
+  const aud = sent.filter(x => x.m === 'sendAudio');
+  const key = sent.filter(x => x.m === 'sendMessage' && /tg-spoiler/.test(x.p.text));
+  ok('۱۵.۴ دو نمونهٔ صوتی، یکی با اعراب و یکی بی، و کلید زیرِ اسپویلر', aud.length === 2 && key.length === 1 &&
+     ttsIn.length === 2 && ttsIn.some(t => /[ً-ْ]/.test(t)) && ttsIn.some(t => !/[ً-ْ]/.test(t)) &&
+     speakAbStrip_(ttsIn[0]) === speakAbStrip_(ttsIn[1]), note);
+  ok('۱۵.۵ پس از فرستادن، برای همان برچسب دوباره مسلح نمی‌شود؛ هوکِ ساعتی هست',
+     speakAbArm_() === false && String(global.vbrCollectHourly).indexOf('speakAbArm_()') !== -1);
+  Object.assign(global, { tgApi_: keep.tg, tgEnabled_: keep.en, tgChat_: keep.ch, ttsChunkTry_: keep.tts,
+                          speakAbSource_: keep.src, engineBusyForSwap_: keep.busy, ttsModel_: keep.model });
+  delete global.__PROPS[PK.SPEAK_AB];
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

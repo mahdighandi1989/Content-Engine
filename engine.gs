@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.78
+ *  موتور محتوا و پادکست — نسخهٔ 8.79
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2008,7 +2008,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.78',
+  CODE_VERSION: '8.79',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2018,6 +2018,9 @@ var CFG = {
   // هر شب خودش وارسی و نصبش می‌کند (21_SelfUpdate.gs). خاموشش: false.
   AUTOUPDATE_ENABLED: true,
   AUTOUPDATE_HOURLY: true,      // ۸.۷۶: نسخهٔ تازه تا یک ساعت بعد نصب می‌شود، نه فقط ۲:۳۰ شب
+  SPEAK_AB_ON: true,            // ۸.۷۹: آزمونِ کورِ «با اعراب / بی اعراب» به تلگرام
+  SPEAK_AB_TAG: '1',            // برچسبِ تازه = آزمونِ تازه (یک بار برای هر برچسب)
+  SPEAK_AB_CHARS: 650,          // اندازهٔ بندِ آزمون (~۴۰ ثانیه)
   UPDATE_HOUR: 2,                       // ساعتِ بررسیِ شبانه (دبی) — پیش از پشتیبانِ ۳
   CODE_FOLDER: 'کدها — نسخه‌های موتور', // بایگانیِ نسخه‌ها داخل OUTPUT؛ در پشتیبانِ شبانه هم می‌آید
   // ---- منبعِ کد: گیت‌هاب (نسخهٔ ۵٫۱۲) ----
@@ -3067,6 +3070,7 @@ var PK = {
   HANDOUT_DUE: 'HANDOUT_DUE_LIST', // درس‌هایی که هنوز به جزوه نرفته‌اند
   HANDOUT_CATCHUP_AT: 'HANDOUT_CATCHUP_AT',     // ۸.۷۶: آخرین زمان‌بندیِ جبرانِ روزانهٔ جزوه
   AUTOUPDATE_HOURLY_AT: 'AUTOUPDATE_HOURLY_AT', // ۸.۷۶: آخرین پرسشِ ساعتی از manifest
+  SPEAK_AB: 'SPEAK_AB_STATE',                   // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب
   HANDOUT_SCAN: 'HANDOUT_SCAN_CUR', // مکان‌نمای واردکردنِ قسمت‌های گذشته
   HANDOUT_SEEN: 'HANDOUT_SEEN_LAG', // از کِی هر مجموعه عقب مانده — برای یافتهٔ کد
   HANDOUT_STAT: 'HANDOUT_STAT_CUR', // مکان‌نمای پنجرهٔ چرخانِ وارسیِ روزانه
@@ -69090,6 +69094,16 @@ function srchCollect_(terms, phrase, opts) {
 
   var pats = srchPatGroups_(terms);
   if (!pats.length) return out;
+  /* ══ عبارتِ کامل جدا گشته و همیشه خوانده می‌شود (۸.۷۹) ══
+     «کس مگو» پس از ۸.۷۷ دیگر خطا نداد، ولی ردیفی که دقیقاً همین عبارت را دارد در نتیجه نبود و
+     «یک حرف مگو» بالا آمد. علت: الگوی یافتن «یکی از واژه‌ها» است، و «مگو» به‌تنهایی صدها ردیف
+     دارد؛ در تب‌های پُر فقط نمونه‌ای پخش‌شده خوانده می‌شد (۷٫۵۱) و ردیفِ عبارتِ کامل می‌توانست
+     بیرونِ نمونه بماند. ۷٫۵۱ این پویش را «اضافه» دانست چون «هر ردیفِ عبارت، واژه‌هایش را هم دارد» —
+     درست برای **یافتن**، غلط برای **خواندن**: یافته‌شده‌ای که خوانده نشود، دیده نمی‌شود. */
+  var phrasePat = '';
+  if (terms.length >= 2 && phrase) {
+    try { phrasePat = srchPattern_(phrase); } catch (ePp) { phrasePat = ''; }
+  }
 
   /* ══ خواندن و امتیاز دادن، یک جا — چون پاسِ دوم همین کار را می‌کند ══
      دو نسخه از این حلقه یعنی دو جا برای خراب شدن و نصفِ تاریخچه در هرکدام
@@ -69133,7 +69147,16 @@ function srchCollect_(terms, phrase, opts) {
     if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
     try { SRCH_AT_ = 'تبِ «' + sh.getName() + '»'; } catch (eAt) {}
     var tStart = new Date().getTime();
-    var rows = {}, order = [], cut = false, err = '';
+    var rows = {}, order = [], cut = false, err = '', prio = [];
+    if (phrasePat && left() > 8000) {
+      var gp = srchFind_(sh, phrasePat, capSheet, Math.min(tabEnd, t0 + budget - 6000));
+      if (!gp.err) {
+        for (var pr = 0; pr < gp.rows.length; pr++) {
+          if (!rows[gp.rows[pr]]) { rows[gp.rows[pr]] = 1; order.push(gp.rows[pr]); prio.push(gp.rows[pr]); }
+        }
+        out.phraseRows = (out.phraseRows || 0) + gp.rows.length;
+      }
+    }
     for (var q = 0; q < pats.length; q++) {
       if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; cut = true; break; }
       var got = srchFind_(sh, pats[q], capSheet, Math.min(tabEnd, t0 + budget - 6000));
@@ -69169,7 +69192,17 @@ function srchCollect_(terms, phrase, opts) {
        یک منبع نوشته شده، بی‌صدا منبعِ دیگری را می‌بندد. */
     var room = Math.max(0, Math.min(rowShare, rowsMax - out.read));
     if (!room) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; mark(); return true; }
-    var pick = srchSpread_(order, room);
+    var pick;
+    if (prio.length) {
+      /* ردیف‌های عبارتِ کامل اول، همه‌شان (تا سهم)؛ باقیِ سهم نمونهٔ پخش‌شده از بقیه */
+      var isP = {};
+      for (var ip = 0; ip < prio.length; ip++) isP[prio[ip]] = 1;
+      var restO = order.filter(function (x) { return !isP[x]; });
+      pick = prio.slice(0, room).concat(srchSpread_(restO, Math.max(0, room - prio.length)));
+      pick.sort(function (a, b) { return a - b; });
+    } else {
+      pick = srchSpread_(order, room);
+    }
     if (pick.length < order.length) out.sampled++;
     /* ══ همهٔ ستون‌ها، نه بیست‌وچهار تا (۷٫۲۴) ══
        `createTextFinder` در **همهٔ** ستون‌ها می‌گردد ولی نسخهٔ اول فقط ۲۴
@@ -73813,6 +73846,7 @@ function vbrCollectHourly() {
   /* نصبِ کدِ تازه و جبرانِ جزوه — هر دو ساعتی، نه فقط شبانه (۸.۷۶). پیش از سدِ پل، چون هیچ‌کدام به پل ربطی ندارد. */
   try { selfUpdateHourly_(); } catch (eSu) {}
   try { handoutCatchUpArm_(); } catch (eHc) {}
+  try { speakAbArm_(); } catch (eAb) {}         // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب، یک بار
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══
      بذر در کارِ شبانه هم هست، ولی آن بلوک پشتِ `nightHas_` است و شبی که
@@ -74965,4 +74999,122 @@ function runVoiceBridge() {
   if (!ui) { console.log(msg); return msg; }
   ui.alert('پلِ رنگِ صدا', msg, ui.ButtonSet.OK);
   return msg;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   آزمونِ شنیداریِ «با اعراب / بی اعراب» (۸.۷۹)
+
+   صاحبِ برنامه پرسید چرا NotebookLM بی هیچ اعرابی درست می‌خوانَد و ما با اعراب‌گذاری
+   غلط داریم. جوابِ راست این است که نمی‌دانیم اعراب کمک می‌کند یا آسیب: گفتارساز با
+   فارسیِ بی‌اعراب آموزش دیده، و اعرابِ ناقص یا غلط می‌تواند گیجش کند. این را استدلال
+   حل نمی‌کند، گوش حل می‌کند. پس یک بندِ واقعی از تازه‌ترین «متن صوتی (اعراب‌گذاری کامل)»
+   دو بار با همان مدل و همان صدا ساخته می‌شود — یک بار عیناً، یک بار با اعرابِ برداشته — و
+   هر دو **کور** (نمونهٔ ۱ و ۲، به ترتیبِ تصادفی) به تلگرام می‌روند؛ کلید زیرِ اسپویلر است.
+   یک بار برای هر برچسب (`SPEAK_AB_TAG`)؛ تریگرِ ساعتی مسلحش می‌کند، اجرا جداست.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** حرکه‌ها و تنوین و سکون و الفِ کوچک — نیم‌فاصله و حروف دست نمی‌خورند. */
+function speakAbStrip_(t) {
+  return String(t || '').replace(/[ً-ْٰٕٔ]/g, '');
+}
+
+/** بندی از وسطِ متن که هم اعراب دارد و هم اندازه‌اش برای یک نمونهٔ ~۴۰ ثانیه‌ای مناسب است. */
+function speakAbPick_(body) {
+  var paras = String(body || '').split(/\n\s*\n/), best = '', bestN = -1;
+  var max = Number(CFG.SPEAK_AB_CHARS) || 650;
+  for (var i = 0; i < paras.length; i++) {
+    var p = paras[i].trim();
+    if (p.length < 200) continue;
+    if (p.length > max) {
+      var cut = p.lastIndexOf('.', max);
+      p = p.slice(0, cut > 200 ? cut + 1 : max);
+    }
+    var n = (p.match(/[ً-ْ]/g) || []).length;
+    var mid = Math.abs(i - paras.length / 2);
+    var score = n - mid * 3;
+    if (score > bestN) { bestN = score; best = p; }
+  }
+  return best;
+}
+
+/** تازه‌ترین «متن صوتی (اعراب‌گذاری کامل)» در درایو. */
+function speakAbSource_() {
+  var it = DriveApp.searchFiles('title contains "متن صوتی (اعراب‌گذاری کامل)" and trashed = false');
+  var best = null, bt = 0, n = 0;
+  while (it.hasNext() && n++ < 60) {
+    var f = it.next(), t = f.getLastUpdated().getTime();
+    if (t > bt) { bt = t; best = f; }
+  }
+  return best;
+}
+
+/** تریگرِ ساعتی: یک بار برای هر برچسب، اجرای جدا مسلح می‌شود. */
+function speakAbArm_() {
+  var tag = String(CFG.SPEAK_AB_TAG || '');
+  if (!tag || CFG.SPEAK_AB_ON === false) return false;
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.SPEAK_AB) || '{}') || {}; } catch (e) { st = {}; }
+  if (st.tag === tag && (st.sent || (Number(st.tries) || 0) >= 3)) return false;
+  if (st.tag === tag && st.armedAt && new Date().getTime() - Number(st.armedAt) < 50 * 60000) return false;
+  if (engineBusyForSwap_()) return false;
+  st = st.tag === tag ? st : { tag: tag, tries: 0 };
+  st.armedAt = new Date().getTime();
+  props_().setProperty(PK.SPEAK_AB, JSON.stringify(st));
+  clearRetryTriggers_('speakAbTest');
+  ScriptApp.newTrigger('speakAbTest').timeBased().after(60000).create();
+  return true;
+}
+
+/** اجرای یک‌باره: دو نمونه، کور، به تلگرام. */
+function speakAbTest() {
+  runEnter_('speakAbTest');
+  var note = '';
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.SPEAK_AB) || '{}') || {}; } catch (e0) { st = {}; }
+  st.tag = String(CFG.SPEAK_AB_TAG || st.tag || '');
+  st.tries = (Number(st.tries) || 0) + 1;
+  try {
+    try { clearRetryTriggers_('speakAbTest'); } catch (eC) {}
+    if (!tgEnabled_()) throw new Error('تلگرام وصل نیست');
+    var src = speakAbSource_();
+    if (!src) throw new Error('هیچ «متن صوتی (اعراب‌گذاری کامل)» پیدا نشد');
+    var withMarks = speakAbPick_(src.getBlob().getDataAsString('UTF-8'));
+    if (!withMarks) throw new Error('بندِ مناسبی در «' + src.getName() + '» نبود');
+    var bare = speakAbStrip_(withMarks);
+    var marks = withMarks.length - bare.length;
+    var sides = [{ k: 'با اعراب', t: withMarks }, { k: 'بی اعراب', t: bare }];
+    if (Math.random() < 0.5) sides.reverse();
+    var model = ttsModel_();
+    var cap = '🎧 آزمونِ تلفظ — همان بند، همان صدا (' + tgEsc_(model) + ')، دو بار.\n' +
+              'بی آنکه بدانی کدام کدام است، گوش کن و بگو کدام درست‌تر خواند.\n' +
+              'منبع: ' + tgEsc_(src.getName());
+    tgApi_('sendMessage', { chat_id: tgChat_(), text: cap, parse_mode: 'HTML' });
+    for (var i = 0; i < sides.length; i++) {
+      var b64 = ttsChunkTry_(sides[i].t, '', CFG.TTS_VOICE, false);
+      var raw = Utilities.base64Decode(b64);
+      var wav = Utilities.newBlob(wavHeader54_(raw.length).concat(Array.prototype.slice.call(raw)),
+                                  'audio/wav', 'نمونهٔ ' + (i + 1) + '.wav');
+      try {
+        tgApi_('sendAudio', { chat_id: tgChat_(), audio: wav, caption: 'نمونهٔ ' + (i + 1),
+                              title: 'آزمونِ تلفظ — نمونهٔ ' + (i + 1), performer: 'موتور محتوا' });
+      } catch (eA) {
+        tgApi_('sendDocument', { chat_id: tgChat_(), document: wav, caption: 'نمونهٔ ' + (i + 1) });
+      }
+      Utilities.sleep(1200);
+    }
+    tgApi_('sendMessage', { chat_id: tgChat_(), parse_mode: 'HTML',
+      text: '🔑 کلید (اول گوش کن، بعد باز کن): <tg-spoiler>نمونهٔ ۱ = ' + sides[0].k +
+            ' · نمونهٔ ۲ = ' + sides[1].k + '</tg-spoiler>\n📝 متنِ بند:\n' + tgEsc_(withMarks) });
+    st.sent = nowStr_(); st.order = sides[0].k + ' / ' + sides[1].k; st.src = src.getName();
+    st.marks = marks; st.why = '';
+    note = 'آزمونِ تلفظ فرستاده شد (' + st.order + ', ' + marks + ' نشانه)';
+  } catch (e) {
+    st.why = String((e && e.message) || e).slice(0, 160);
+    note = 'آزمونِ تلفظ نشد: ' + st.why;
+  } finally {
+    try { props_().setProperty(PK.SPEAK_AB, JSON.stringify(st)); } catch (eP) {}
+    try { logLine_(note); } catch (eL) {}
+    runExit_('speakAbTest', note);
+  }
+  return note;
 }

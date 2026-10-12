@@ -1,13 +1,12 @@
 {
-  "version": "8.78",
+  "version": "8.79",
   "codeFile": "engine.gs",
-  "sha256": "f2d634e7f06dac57d5d4df0c4aef648c2f0fece3e23e2603450288b00bb3e684",
-  "releasedAt": "2026-10-12T09:10:00Z",
-  "summary": "voice-intake ساعتی (آموزشِ صدا بی انتظارِ ۶ ساعته) + متن‌های به‌روز؛ همراه با 8.77 (جست‌وجو).",
+  "sha256": "d5191aa193144e398ed9d48f3c4451757ee4603771b4023c61b142900d4f099e",
+  "releasedAt": "2026-10-12T10:00:00Z",
+  "summary": "جست‌وجو: پویش و خواندنِ اولویت‌دارِ عبارتِ کامل؛ آزمونِ کورِ «با اعراب / بی اعراب» به تلگرام (یک بار، خودکار).",
   "fixes": [
-    ".github/workflows/voice-intake.yml: cron هر ساعت",
-    "33/36: متنِ «هر شش ساعت» → «هر ساعت»",
-    "8.77: srchPattern_ مرزِ واژهٔ کوتاه"
+    "srchCollect_: phrasePat + prio — ردیف‌های عبارتِ کامل همیشه خوانده می‌شوند",
+    "speakAbArm_/speakAbTest: دو نمونهٔ کور به تلگرام، کلید زیرِ اسپویلر"
   ],
   "sourceReportIds": [],
   "promptImpact": [],

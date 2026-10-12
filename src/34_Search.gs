@@ -691,6 +691,16 @@ function srchCollect_(terms, phrase, opts) {
 
   var pats = srchPatGroups_(terms);
   if (!pats.length) return out;
+  /* ══ عبارتِ کامل جدا گشته و همیشه خوانده می‌شود (۸.۷۹) ══
+     «کس مگو» پس از ۸.۷۷ دیگر خطا نداد، ولی ردیفی که دقیقاً همین عبارت را دارد در نتیجه نبود و
+     «یک حرف مگو» بالا آمد. علت: الگوی یافتن «یکی از واژه‌ها» است، و «مگو» به‌تنهایی صدها ردیف
+     دارد؛ در تب‌های پُر فقط نمونه‌ای پخش‌شده خوانده می‌شد (۷٫۵۱) و ردیفِ عبارتِ کامل می‌توانست
+     بیرونِ نمونه بماند. ۷٫۵۱ این پویش را «اضافه» دانست چون «هر ردیفِ عبارت، واژه‌هایش را هم دارد» —
+     درست برای **یافتن**، غلط برای **خواندن**: یافته‌شده‌ای که خوانده نشود، دیده نمی‌شود. */
+  var phrasePat = '';
+  if (terms.length >= 2 && phrase) {
+    try { phrasePat = srchPattern_(phrase); } catch (ePp) { phrasePat = ''; }
+  }
 
   /* ══ خواندن و امتیاز دادن، یک جا — چون پاسِ دوم همین کار را می‌کند ══
      دو نسخه از این حلقه یعنی دو جا برای خراب شدن و نصفِ تاریخچه در هرکدام
@@ -734,7 +744,16 @@ function srchCollect_(terms, phrase, opts) {
     if (left() < 12000) { out.stopped = out.stopped || 'بودجهٔ زمان'; return false; }
     try { SRCH_AT_ = 'تبِ «' + sh.getName() + '»'; } catch (eAt) {}
     var tStart = new Date().getTime();
-    var rows = {}, order = [], cut = false, err = '';
+    var rows = {}, order = [], cut = false, err = '', prio = [];
+    if (phrasePat && left() > 8000) {
+      var gp = srchFind_(sh, phrasePat, capSheet, Math.min(tabEnd, t0 + budget - 6000));
+      if (!gp.err) {
+        for (var pr = 0; pr < gp.rows.length; pr++) {
+          if (!rows[gp.rows[pr]]) { rows[gp.rows[pr]] = 1; order.push(gp.rows[pr]); prio.push(gp.rows[pr]); }
+        }
+        out.phraseRows = (out.phraseRows || 0) + gp.rows.length;
+      }
+    }
     for (var q = 0; q < pats.length; q++) {
       if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; cut = true; break; }
       var got = srchFind_(sh, pats[q], capSheet, Math.min(tabEnd, t0 + budget - 6000));
@@ -770,7 +789,17 @@ function srchCollect_(terms, phrase, opts) {
        یک منبع نوشته شده، بی‌صدا منبعِ دیگری را می‌بندد. */
     var room = Math.max(0, Math.min(rowShare, rowsMax - out.read));
     if (!room) { out.stopped = out.stopped || 'سقفِ ردیف‌های خوانده‌شده'; mark(); return true; }
-    var pick = srchSpread_(order, room);
+    var pick;
+    if (prio.length) {
+      /* ردیف‌های عبارتِ کامل اول، همه‌شان (تا سهم)؛ باقیِ سهم نمونهٔ پخش‌شده از بقیه */
+      var isP = {};
+      for (var ip = 0; ip < prio.length; ip++) isP[prio[ip]] = 1;
+      var restO = order.filter(function (x) { return !isP[x]; });
+      pick = prio.slice(0, room).concat(srchSpread_(restO, Math.max(0, room - prio.length)));
+      pick.sort(function (a, b) { return a - b; });
+    } else {
+      pick = srchSpread_(order, room);
+    }
     if (pick.length < order.length) out.sampled++;
     /* ══ همهٔ ستون‌ها، نه بیست‌وچهار تا (۷٫۲۴) ══
        `createTextFinder` در **همهٔ** ستون‌ها می‌گردد ولی نسخهٔ اول فقط ۲۴

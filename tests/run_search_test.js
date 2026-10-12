@@ -431,10 +431,10 @@ ok('۲۰.۴ شمارِ پویشِ سمتِ سرور به شمارِ واژه ب�
    scanMany === scanOne && scanOne > 0,
    'یک واژه ' + scanOne + ' پویش، پنج واژه ' + scanMany +
    ' — پیش از ۷٫۵۱ حالتِ هوشمند تا سیزده برابر پویش می‌کرد و کمتر هم وقت داشت');
-ok('۲۰.۵ عبارتِ دوواژه‌ای یک پویش در هر تب است و نه سه',
-   scanTwo === rT.sheetsAll && rT.sheetsAll > 0,
-   'الگوی «عبارتِ کامل» از مرحلهٔ یافتن حذف شد: هر ردیفی که کلِ عبارت را ' +
-   'دارد واژه‌هایش را هم دارد. گرفت: ' + scanTwo + ' پویش در ' + rT.sheetsAll + ' تب');
+ok('۲۰.۵ عبارتِ دوواژه‌ای دو پویش در هر تب است و نه سه: عبارتِ کامل + یک الگوی همهٔ واژه‌ها (۸.۷۹)',
+   scanTwo === rT.sheetsAll * 2 && rT.sheetsAll > 0,
+   '۷٫۵۱ پویشِ عبارت را حذف کرد چون «هر ردیفِ عبارت واژه‌هایش را هم دارد» — درست برای یافتن، غلط برای ' +
+   'خواندن: «کس مگو» در نمونهٔ پخش‌شده جا ماند (۱۲ اکتبر). گرفت: ' + scanTwo + ' پویش در ' + rT.sheetsAll + ' تب');
 ok('۲۰.۶ راهِ رفته findAll است — یک رفت‌وبرگشت به‌جای صدها',
    rA.via === 'findAll', 'گرفت: ' + rA.via);
 {
@@ -668,6 +668,23 @@ console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو �
   const er = srchRun('کس مگو', 'smart', true);
   global.srchRun_ = keepRun;
   ok('۳۱.۴ خطا جایش را می‌گوید، نه فقط متنش', er.ok === false && /در تبِ «عکس»/.test(er.notes[0]), er.notes[0]);
+}
+
+/* ══ ۳۲ — ردیفِ عبارتِ کامل در نمونهٔ پخش‌شده جا نمی‌ماند (۸.۷۹) ══ */
+{
+  const rows = [];
+  for (let i = 0; i < 400; i++) rows.push(row({ id: 'PH_' + i, topic: 'بی‌ربط ' + i, body: 'یک حرف مگوآزما شماره ' + i }));
+  rows[137] = row({ id: 'PH_HIT', topic: 'کلیپ طنز', body: 'او نوشت کس‌آزما مگوآزما به‌جای کس نگو' });
+  mkCat('عبارتِ کامل', rows);
+  const shareWas = CFG.SEARCH_ROWS_MAX; CFG.SEARCH_ROWS_MAX = 200;
+  const col = srchCollect_(['کس‌آزما', 'مگوآزما'], 'کس‌آزما مگوآزما', { sources: false, budgetMs: 200000 });
+  CFG.SEARCH_ROWS_MAX = shareWas;
+  const ids = col.items.map(it => String(it.id || it.title || ''));
+  const hit = col.items.find(it => /کلیپ طنز/.test(String(it.title || '') + String((it.fields || {}).topic || '')));
+  ok('۳۲.۱ ردیفی که عبارتِ کامل را دارد خوانده و برگردانده می‌شود، حتی وقتی تب نمونه‌گیری شد',
+     !!hit && (col.phraseRows || 0) >= 1, 'نمونه‌گیری: ' + col.sampled + ' · عبارت: ' + col.phraseRows + ' · ' + col.items.length);
+  const best = col.items.slice().sort((a, b) => b.score - a.score)[0];
+  ok('۳۲.۲ و همان بالاترین امتیاز را دارد', best === hit, best && best.title);
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
