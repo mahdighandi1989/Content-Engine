@@ -1289,6 +1289,48 @@ console.log('\n=== ۱۸) قاب به بدنه دوخته، و نامِ فارس�
   ok('۸.۸۰-۳ گردش‌کارِ رندر faster-whisper را نصب و مدلش را کش می‌کند', /faster-whisper/.test(wf) && /avsync-whisper/.test(wf));
 }
 
+{
+  /* ۸.۸۶ — avsync صوت را خودش می‌خوانَد (نه با مسیرِ فایل که PyAVِ رانر رویش می‌شکست) و «نشنیدم»
+     را «ناهم‌زمان» نمی‌نویسد. ۱۲ و ۱۳ اکتبر هر سه نقطه با `metadata_errors` شکست و `video-sync`
+     «ایراد» خورد. این‌جا با یک faster_whisperِ ساختگی، همان دو شکل را واقعاً اجرا می‌کنیم. */
+  const AV = fs.mkdtempSync(path.join(TMP, 'avs-'));
+  const bin = path.join(AV, 'bin'); fs.mkdirSync(bin);
+  fs.symlinkSync(FF, path.join(bin, 'ffmpeg'));
+  const vid = path.join(AV, 'v.wav');
+  cp.execFileSync(FF, ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=300:duration=40', '-ac', '1', '-ar', '16000', vid]);
+  const pts = [{ n: 1, t0: 0, say: 'آغاز سخن درباره باور' }, { n: 2, t0: 10, say: 'معرفت باور صادق موجه است' },
+               { n: 3, t0: 20, say: 'شکاکیت پرسش دیگری است' }, { n: 4, t0: 30, say: 'پایان درس امروز' }];
+  const pf = path.join(AV, 'pts.json'); fs.writeFileSync(pf, JSON.stringify(pts));
+  const fake = (mode) => {
+    const d = fs.mkdtempSync(path.join(AV, 'fw-')); fs.mkdirSync(path.join(d, 'faster_whisper'));
+    fs.writeFileSync(path.join(d, 'faster_whisper', '__init__.py'), [
+      'import json, os',
+      'SAY = {int(x["t0"]): x["say"] for x in json.load(open(os.environ["AVS_PTS"], encoding="utf-8"))}',
+      'class _S:',
+      '    def __init__(s, t): s.text = t',
+      'class WhisperModel:',
+      '    def __init__(s, *a, **k): s.k = 0',
+      '    def transcribe(s, audio, **k):',
+      '        if "' + mode + '" == "fail" or isinstance(audio, str):',
+      '            raise TypeError("open() got an unexpected keyword argument \'metadata_errors\'")',
+      '        assert len(audio) > 16000',
+      '        s.k += 1',
+      '        return iter([_S(v) for t, v in sorted(SAY.items())][s.k:s.k + 1]), None',
+      ''].join('\n'));
+    return d;
+  };
+  const run = (mode) => JSON.parse(cp.execFileSync('python3', [path.join(process.cwd(), 'tools/avsync.py'), vid, pf, '40'], {
+    encoding: 'utf8', env: Object.assign({}, process.env, { PYTHONPATH: fake(mode), AVS_PTS: pf,
+      PATH: bin + path.delimiter + process.env.PATH }) }).trim().split('\n').pop());
+  const good = run('ok');
+  ok('۸.۸۶-۱ avsync آرایه به transcribe می‌دهد (نه مسیرِ فایل) و هم‌زمانیِ درست «ok» می‌گیرد',
+     good.ok === true && good.n === 3 && good.points.every(p => p.ok === true && p.own >= 0.2), JSON.stringify(good).slice(0, 300));
+  const bad = run('fail');
+  ok('۸.۸۶-۲ شنیدنِ ناموفق «نشنیدم» است (ok:null) و هیچ صحنه‌ای «با تصویرش نمی‌خواند» نمی‌گیرد',
+     bad.ok === null && bad.points.every(p => p.ok === null) && !/نمی‌خواند/.test(bad.why) && /metadata_errors/.test(bad.why),
+     JSON.stringify(bad).slice(0, 300));
+}
+
 stopServer();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

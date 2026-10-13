@@ -214,6 +214,11 @@ function outLayoutCheck_() {
               oldPrompts: [], openFolders: [], readme: null, error: '' };
   try {
     var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    /* شاهدِ کارنامهٔ قابلیت‌ها (۸.۸۶). تنها تاریخِ این شیء `readme.at` بود — زمانِ آخرین
+       *تغییرِ* نقشه، که فقط وقتی `docs/drive_layout.md` عوض شود جلو می‌رود. پس وارسی‌ای که هر
+       روز درست می‌دوید از ۵ اکتبر «روشن ولی بی‌اثر» خوانده شد. زمانِ همین وارسی شاهد است، و
+       فقط پس از باز شدنِ پوشه — وارسی‌ای که به ریشه نرسید، اثری نگذاشته. */
+    out.checkedAt = nowStr_();
     var pats = outRootFilePatterns_(), okFolders = outRootFolderNames_();
     var now = new Date().getTime();
 

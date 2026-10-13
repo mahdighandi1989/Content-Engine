@@ -353,4 +353,19 @@ console.log('\n=== ۱۰) پوشهٔ بازِ OUTPUT ===');
      (outLayoutCheck_().openFolders || []).indexOf(nm) === -1);
 }
 
+console.log('=== ۱۱) شاهدِ کارنامه: وارسیِ امروز، نه آخرین تغییرِ نقشه (۸.۸۶) ===');
+{
+  /* از ۵ اکتبر `out-layout` «روشن ولی بی‌اثر» خوانده شد چون تنها تاریخِ شیء `readme.at` بود و
+     نقشه عوض نشده بود. شاهد از خودِ `outLayoutCheck_` ساخته می‌شود، نه دست‌نویس (۷.۲۲). */
+  const lay = outLayoutCheck_();
+  const today = nowStr_().slice(0, 10);
+  ok('۱۱.۱ outLayoutCheck_ زمانِ همین وارسی را دارد', String(lay.checkedAt || '').slice(0, 10) === today,
+     String(lay.checkedAt));
+  lay.readme = { at: '2026-01-01 02:00', ageDays: 200 };
+  const cap = capStatus_({ outLayout: lay });
+  const row = (cap.rows || []).filter(r => r.key === 'out-layout')[0];
+  ok('۱۱.۲ نقشهٔ کهنه با وارسیِ امروز «کار می‌کند» است، نه «روشن ولی بی‌اثر»',
+     row && row.verdict === 'کار می‌کند', JSON.stringify(row));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -1,15 +1,18 @@
 {
-  "version": "8.85",
+  "version": "8.86",
   "codeFile": "engine.gs",
-  "sha256": "c7f1e39e6250a388157f97ad9bc25a19a1cee049ea828e9d757618a4ac52ac8e",
-  "releasedAt": "2026-10-13T09:30:00Z",
-  "summary": "اجرای ناتمام با «آخرین مرحله»؛ سینکِ دیرشده _STATUS را به نوبتِ بعد می‌دهد؛ سه وارسیِ سلامت به اجرای پی‌آمد؛ همراه با 8.84.",
+  "sha256": "de52672b56e21add3e7313aa0a9229dad118da90c77d65f153e73d5f54a02ccc",
+  "releasedAt": "2026-10-13T08:45:00Z",
+  "summary": "هم‌زمانیِ ویدئو: نشنیدن دیگر «ناهم‌زمان» نیست و PyAV از راهِ شنیدن بیرون رفت؛ کارتی که نامِ فیلد (ovLines/ovKeys) در متنش دارد رد می‌شود؛ شاهدِ «نقشهٔ OUTPUT» زمانِ وارسی است؛ بدهیِ منو testTelegram.",
   "fixes": [
-    "runStage_ + runStuck_: مرحله و ثانیهٔ مرگ",
-    "syncCatalog: مرحله‌ها و گذشتن از _STATUS پس از مهلت",
-    "HEALTH_TAIL_PARTS_: صفِ داوری، ترتیبِ قسمت‌ها، مدل‌ها؛ ایراد به صفِ ایمیلِ فردا"
+    "tools/avsync.py: صوت با wave+numpy، نقطهٔ نشنیده ok:null",
+    "lvSceneOvNorm_: ردِ کارتِ دارای نامِ فیلد",
+    "outLayoutCheck_.checkedAt: شاهدِ کارنامهٔ قابلیت‌ها",
+    "tests: testTelegram از MENU_DEBT پرداخت شد"
   ],
-  "sourceReportIds": [],
+  "sourceReportIds": [
+    "capability-idle-out-layout"
+  ],
   "promptImpact": [],
   "answers": {
     "7.48": [
@@ -108,6 +111,9 @@
     ],
     "8.85": [
       "health-silent"
+    ],
+    "8.86": [
+      "capability-idle-out-layout"
     ]
   }
 }

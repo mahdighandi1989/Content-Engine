@@ -214,7 +214,7 @@ const MENU_DEBT = [
   'runShowSourceVerdict', 'runSyncNow', 'runVoiceAudition',
   'runVoiceIntake', 'runYouTubeStats',
   'setApiKey', 'showEnrichStatus', 'showPersonaBoard',
-  'showStatus', 'testGemini', 'testTelegram',
+  'showStatus', 'testGemini',   // testTelegram پرداخت شد (۸.۸۶)
 ];
 {
   const menu = fs.readFileSync('src/05_Setup.gs', 'utf8');
@@ -674,6 +674,42 @@ console.log('\n══ ۲۰) همهٔ گزینه‌های منو زیرِ نظر 
      BUILD_MENU_ITEMS_.every((x) => x[4] === 1) && md.indexOf('بی‌توضیح') === -1,
      BUILD_MENU_ITEMS_.filter((x) => x[4] !== 1).map((x) => x[0]).join(','));
   void realSr;
+}
+
+console.log('\n══ ۱۳) بدهیِ منو: «آزمونِ تلگرام» — هر سه راه، با اجرا (۸.۸۶) ══');
+/* سه راهی که صاحبِ برنامه با زدنِ این گزینه می‌بیند: توکن یا چت خالی ⇒ راهنمای Script Properties
+   و **هیچ** فراخوانی به تلگرام؛ اتصالِ سالم ⇒ یک پیامِ آزمایشی و نامِ ربات؛ خطای API ⇒ «ناموفق»
+   با متنِ خطا، نه سکوت. تابعِ واقعیِ منو اجرا می‌شود؛ فقط درِ شبکه (`tgApi_`/`tgSend_`) بدل است. */
+{
+  const alerts = [], calls = [];
+  const uiWas = global.__UI;
+  global.__UI = { alert: (t, m) => { alerts.push(String(t) + '|' + String(m)); }, ButtonSet: { OK: 'OK' } };
+  const apiWas = global.tgApi_, sendWas = global.tgSend_;
+  const tokWas = global.__PROPS[PK.TG_TOKEN], chatWas = global.__PROPS[PK.TG_CHAT];
+  global.tgApi_ = (m) => { calls.push('api:' + m); return { ok: true, result: { username: 'ce_bot' } }; };
+  global.tgSend_ = (t) => { calls.push('send:' + t); return true; };
+  try {
+    delete global.__PROPS[PK.TG_TOKEN]; global.__PROPS[PK.TG_CHAT] = '123';
+    testTelegram();
+    ok('۱۳.۱ توکنِ خالی ⇒ راهنمای Script Properties با «توکن: خالی»، و هیچ فراخوانی به تلگرام',
+       alerts.length === 1 && /TELEGRAM_BOT_TOKEN/.test(alerts[0]) && /توکن: خالی/.test(alerts[0]) &&
+       /شناسهٔ چت: ثبت شده/.test(alerts[0]) && calls.length === 0, JSON.stringify({ alerts, calls }));
+    alerts.length = 0;
+    global.__PROPS[PK.TG_TOKEN] = 'T0K';
+    testTelegram();
+    ok('۱۳.۲ اتصالِ سالم ⇒ getMe و یک پیامِ آزمایشی، و نامِ ربات در پنجره',
+       calls.join(',') === 'api:getMe,send:✅ <b>اتصال برقرار است.</b>\nموتور محتوای آرشیو از این پس قسمت‌ها را همین‌جا می‌فرستد.' &&
+       alerts.length === 1 && /@ce_bot/.test(alerts[0]) && /چت: 123/.test(alerts[0]), JSON.stringify({ alerts, calls }));
+    alerts.length = 0; calls.length = 0;
+    global.tgApi_ = () => { throw new Error('Unauthorized'); };
+    testTelegram();
+    ok('۱۳.۳ خطای API ⇒ «ناموفق» با متنِ خطا، و پیامی فرستاده نمی‌شود',
+       alerts.length === 1 && /ناموفق: Unauthorized/.test(alerts[0]) && calls.length === 0, JSON.stringify({ alerts, calls }));
+  } finally {
+    global.tgApi_ = apiWas; global.tgSend_ = sendWas; global.__UI = uiWas;
+    if (tokWas === undefined) delete global.__PROPS[PK.TG_TOKEN]; else global.__PROPS[PK.TG_TOKEN] = tokWas;
+    if (chatWas === undefined) delete global.__PROPS[PK.TG_CHAT]; else global.__PROPS[PK.TG_CHAT] = chatWas;
+  }
 }
 
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

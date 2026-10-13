@@ -9141,6 +9141,14 @@ console.log('\n=== ۹۱) کلیپ وقتی تاریخ خوانده می‌شود
   ok('۹۱.۶ بلندتر از سقف ⇒ رد، نه بریده با «…» (تیتر، نقل)؛ سطرِ بلند کنار می‌رود و دو سطرِ درست می‌مانند',
      longH === null && longQ === null && pts && pts.lines.length === 2 && JSON.stringify(pts).indexOf('…') === -1,
      JSON.stringify({ longH: longH, longQ: longQ, pts: pts }));
+  /* ۸.۸۶ — درسِ ۷۰، صحنهٔ ۴: مدل `ovKeys`/`ovLines` را درونِ `ovTitle` نوشت و روی ویدئوی عمومی نشست. */
+  const why70 = {};
+  const leak70 = lvSceneOvNorm_({ ov: 'quote', ovTitle: 'معرفت نیازمند توجیهی ابطال‌ناشده است، نه قطعیت ناممکن:ابطال‌ناشده, قطعیت:ovLines:[رابرت آئودی]' }, T3, why70);
+  const leakLine = lvSceneOvNorm_({ ov: 'points', ovTitle: 'دو راه', ovLines: ['قیاس: ضروری', 'استقرا: محتمل ovKeys: [قیاس]'] }, '');
+  ok('۹۱.۶-پ نامِ فیلدِ پاسخ (`ovLines`، `ovKeys`) در نوشتهٔ کارت ⇒ کارت رد، با علتِ به‌نام',
+     leak70 === null && /ovLines/.test(why70.w || '') && leakLine === null &&
+     (lvSceneOvNorm_({ ov: 'quote', ovTitle: 'معرفت نیازمند توجیهی ابطال‌ناشده است، نه قطعیت ناممکن.' }, T3) || {}).kind === 'quote',
+     JSON.stringify({ leak70: leak70, why70: why70 }));
   ok('۹۱.۶-ب نقلِ درسِ ۴۱ که درست بود می‌مانَد',
      (lvSceneOvNorm_({ ov: 'quote', ovTitle: 'معرفت باواسطه ناگزیر باید بر معرفت‌های مستقیم و پایه‌ای لنگر بیندازد.' }, T3) || {}).kind === 'quote');
 

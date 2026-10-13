@@ -9,6 +9,11 @@
 ورودی: argv[1] = ویدئو، argv[2] = فایلِ JSONِ صحنه‌ها [{n,t0,say}], argv[3] = مدتِ صوت.
 خروجی (stdout): JSON {n, ok, points:[...], why, model}. هر خطا ⇒ {ok:null, why} — «نشنیدم»
 با «ناهم‌زمان بود» یکی نیست.
+
+۸.۸۶: صوت را خودمان می‌خوانیم (`wave` + numpy) و آرایه به `transcribe` می‌دهیم. با مسیرِ فایل،
+faster-whisper آن را با PyAV باز می‌کند و `av.open(..., metadata_errors=...)` روی نسخهٔ PyAVِ رانر
+خطا داد — ۱۲ و ۱۳ اکتبر هر سه نقطه «شنیده نشد» و همان را «با تصویرش نمی‌خواند» نوشتیم. و نقطه‌ای که
+شنیده نشد دیگر در داوری شمرده نمی‌شود: کمتر از دو نقطهٔ شنیده‌شده ⇒ ok:null، نه false.
 """
 import json, re, subprocess, sys, tempfile, os
 
@@ -23,6 +28,14 @@ def overlap(heard, said):
     if not h or not s:
         return 0.0
     return len(h & s) / float(min(len(h), len(s)))
+
+def read_wav(path):
+    """صوتِ ۱۶ کیلوهرتزِ تک‌کانالهٔ ffmpeg را بی PyAV می‌خواند (float32 در [-1, 1])."""
+    import wave
+    import numpy as np
+    with wave.open(path, 'rb') as w:
+        raw = w.readframes(w.getnframes())
+    return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
 def main():
     video, scenes_file, dur = sys.argv[1], sys.argv[2], float(sys.argv[3] or 0)
@@ -50,6 +63,7 @@ def main():
         out['why'] = 'مدلِ شنیدن بالا نیامد: ' + str(e)[:120]
         print(json.dumps(out, ensure_ascii=False)); return
     good = 0
+    heard_n = 0
     for i in pick:
         x = scenes[i]
         t0 = float(x['t0']) + 0.8
@@ -58,22 +72,37 @@ def main():
         subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-ss', str(t0), '-t', str(span), '-i', video,
                         '-vn', '-ac', '1', '-ar', '16000', wav], check=False)
         heard = ''
+        failed = False
         try:
-            segs, _ = model.transcribe(wav, language='fa', beam_size=1)
+            segs, _ = model.transcribe(read_wav(wav), language='fa', beam_size=1)
             heard = ' '.join(s.text for s in segs).strip()
         except Exception as e:  # noqa: BLE001
             heard = ''
+            failed = True
             out['why'] = 'شنیدنِ صحنهٔ %s نشد: %s' % (x.get('n'), str(e)[:80])
+        finally:
+            try:
+                os.remove(wav)
+            except OSError:
+                pass
         own = overlap(heard, x['say'])
         nb = max([overlap(heard, scenes[j]['say']) for j in (i - 1, i + 1) if 0 <= j < len(scenes)] or [0])
+        if failed:
+            # نشنیدن، ناهم‌زمانی نیست: این نقطه در داوری شمرده نمی‌شود.
+            out['points'].append({'n': x.get('n'), 't': round(t0, 1), 'own': 0, 'nb': 0,
+                                  'ok': None, 'heard': ''})
+            continue
+        heard_n += 1
         ok = bool(heard) and own >= 0.2 and (own > nb or nb == 0)
         good += 1 if ok else 0
         out['points'].append({'n': x.get('n'), 't': round(t0, 1), 'own': round(own, 2), 'nb': round(nb, 2),
                               'ok': ok, 'heard': heard[:120]})
     out['n'] = len(out['points'])
-    out['ok'] = good >= max(1, out['n'] - 1) if out['n'] else None
+    out['ok'] = good >= max(1, heard_n - 1) if heard_n >= 2 else None
+    if out['ok'] is None and out['n'] and not out['why']:
+        out['why'] = 'کمتر از دو نقطه شنیده شد'
     if out['ok'] is False:
-        bad = [str(p['n']) for p in out['points'] if not p['ok']]
+        bad = [str(p['n']) for p in out['points'] if p['ok'] is False]
         out['why'] = (out['why'] + ' · ' if out['why'] else '') + 'گفتارِ صحنهٔ ' + '، '.join(bad) + ' با تصویرش نمی‌خواند'
     print(json.dumps(out, ensure_ascii=False))
 

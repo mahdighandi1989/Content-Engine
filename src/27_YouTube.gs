@@ -6154,6 +6154,12 @@ function lvSceneOvNorm_(x, text, whyOut) {
     var kk = cut(ks[k], 24, 'کلید');
     if (kk && all.indexOf(kk) !== -1) o.keys.push(kk);   // واژه‌ای که در متن نیست رنگی نمی‌شود
   }
+  /* نشتِ ساختارِ پاسخ در متنِ کارت (۸.۸۶). درسِ ۷۰، صحنهٔ ۴، کارتِ نقل روی ویدئوی عمومی:
+     «… نه قطعیت ناممکن:ابطال‌ناشده, قطعیت:ovLines:[رابرت آئودی]» — مدل `ovKeys` و `ovLines` را
+     درونِ رشتهٔ `ovTitle` نوشته بود و هیچ سدی نامِ فیلد را در نوشته نمی‌جست (طولش زیرِ ۱۲۰ بود و
+     واژهٔ چسبیده‌ای هم نداشت). نامِ فیلدِ ما در نوشتهٔ بیننده هرگز درست نیست ⇒ کارت رد. */
+  var leak = all.match(/ov[A-Z][A-Za-z]*/);
+  if (leak) return no('نامِ فیلد در نوشته «' + leak[0] + '»');
   var gl = lvOvGlued_(all, text);
   if (gl) return no('واژهٔ چسبیده «' + gl + '»');
   var L0 = (why.long && why.long.length) ? 'بلند: ' + why.long.join('، ') : '';
