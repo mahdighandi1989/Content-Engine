@@ -754,8 +754,14 @@ function menuRun_(name, fn, self, args) {
   /* بیشترِ درهای پنجره خطا را **پرتاب نمی‌کنند** و `{ok:false, message}` برمی‌گردانند —
      `srchRun` همان «Out of memory» را این‌طور به پنجره داد. پس جوابِ ناموفق هم ثبت می‌شود؛
      یافتهٔ «کد» فقط وقتی متن شکلِ خطای اجرایی دارد، نه وقتی پیامِ عادیِ «پیدا نشد» است. */
-  if (r && typeof r === 'object' && r.ok === false) {
-    msg = String(r.message || r.error || ((r.notes || [])[0]) || 'ناموفق').slice(0, 300);
+  /* ══ «کاری لازم نبود» شکست نیست (۸.۸۴) ══ «⬆️ بررسی و نصبِ کدِ تازه» در ۱۲ اکتبر ۱۴:۲۶ زده شد، نیم
+     ساعت پس از نصبِ ساعتیِ ۸.۸۰ — جواب `{ok:false, reason:'up-to-date'}` بود و این‌جا «ناموفق» ثبت شد؛
+     ایمیلِ سلامت یک هفته ❌ خطا نشان می‌داد برای دکمه‌ای که درست جواب داده بود. دری که «لازم نبود» یا
+     «موتور مشغول است، خودش دوباره می‌کند» برمی‌گرداند `benign` می‌گذارد. */
+  if (r && typeof r === 'object' && r.ok === false && r.benign) {
+    menuNote_(name, { ok: true, ms: new Date().getTime() - t0 });
+  } else if (r && typeof r === 'object' && r.ok === false) {
+    msg = String(r.message || r.error || ((r.notes || [])[0]) || r.why || r.reason || 'ناموفق').slice(0, 300);
     menuNote_(name, { ok: false, ms: new Date().getTime() - t0, err: msg });
     if (/error|exception|خطا:|timed out|exceeded|memory/i.test(msg)) menuFinding_(name, msg);
   } else {
@@ -832,7 +838,8 @@ function menuStatus_() {
     if (!c || !c.n) { if (!c || !c.open) out.never++; }
     var at = c && c.at ? parseWhen_(c.at) : NaN;
     if (c && !isNaN(at) && now - at < wk) out.used7++;
-    if (c && c.failAt && now - parseWhen_(c.failAt) < wk) {
+    /* `err` تنها «ناموفق» یعنی ثبتِ پیش از ۸.۸۴ که هیچ علتی نداشت — همان شکلِ «لازم نبود»؛ شمرده نمی‌شود. */
+    if (c && c.failAt && now - parseWhen_(c.failAt) < wk && String(c.err || '') !== 'ناموفق') {
       out.fails.push({ name: name, label: menuLabel_(name), err: String(c.err || ''), at: c.failAt, fails: c.fails });
     }
     if (c && c.open && now - Number(c.open) > 15 * 60000) {

@@ -1825,6 +1825,7 @@ function selfUpdateHourly_() {
 /** دکمهٔ «نصبِ کدِ تازه (همین حالا)»: همان `selfUpdateStep`، با پیامِ روشن برای هر حالت — برای وقتی که نمی‌خواهید تا نصبِ ساعتی صبر کنید. */
 function runSelfUpdateNow() {
   var r = selfUpdateStep(true);
+  if (r && (r.reason === 'up-to-date' || r.reason === 'busy')) r.benign = true;   // ۸.۸۴: شکست نیست
   var ui = ui_();
   if (!ui) return r;
   var msg = r.ok ? 'کدِ تازه ذخیره شد؛ راه‌اندازی تا دو دقیقهٔ دیگر و بعدش پیامِ تأیید می‌آید.'

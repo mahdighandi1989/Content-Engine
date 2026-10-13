@@ -1,16 +1,19 @@
 {
-  "version": "8.83",
+  "version": "8.84",
   "codeFile": "engine.gs",
-  "sha256": "abf77e943f3d5fa90e499601d4f242acd636315101b636b428fa7a8cecdfa80e",
-  "releasedAt": "2026-10-12T15:40:00Z",
-  "summary": "جست‌وجو: شکلِ نزدیکِ عبارت (حروفِ هم‌شکل) در همان پاسِ عبارت؛ یادداشتِ «عیناً نیست، شکلِ نزدیک این‌جاست»؛ همراه با 8.82.",
+  "sha256": "8843a0d37742dfe29f29adc57fcd6dde140ec08c7a288c74980056b04a553eb7",
+  "releasedAt": "2026-10-13T07:30:00Z",
+  "summary": "«آئودی» در تبِ تلفظ؛ دکمهٔ نصب «تازه‌ترین» را خطا نمی‌شمرد؛ حاشیهٔ زمانیِ شنیدنِ دوباره؛ دستورِ ناظر v102.",
   "fixes": [
-    "srchPattern_(term, near) + SRCH_NEAR_",
-    "srchCollect_: دقیق/نزدیک روی متنِ ردیف، امتیاز ۸ برای نزدیک",
-    "srchRun_: یادداشتِ شکلِ نزدیک"
+    "PRON_SEED: آئودی ⇒ آئُودی",
+    "menuRun_/runSelfUpdateNow: benign برای up-to-date/busy",
+    "TTS_LISTEN_MIN_MS 30000 / RETRY 120000",
+    "_PROMPT-monitor-v102: ttsListen در جدولِ روزانه"
   ],
   "sourceReportIds": [],
-  "promptImpact": [],
+  "promptImpact": [
+    "_STATUS.ttsListen: شمارِ شنیدنِ دوبارهٔ تکه‌ها"
+  ],
   "answers": {
     "7.48": [
       "tts-cue-unsupported"
@@ -101,6 +104,13 @@
       "chronic-9e9343a8"
     ],
     "8.82": [],
-    "8.83": []
-  }
+    "8.83": [],
+    "8.84": [
+      "menu-fail-runSelfUpdateNow",
+      "tts-listen-residual"
+    ]
+  },
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

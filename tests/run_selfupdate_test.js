@@ -796,4 +796,23 @@ console.log('\n=== ۱۶. شنیدنِ دوباره ===');
   delete global.__PROPS[PK.TTS_LISTEN];
 }
 
+// ═════ ۱۷. «کد تازه‌ترین است» شکست نیست؛ «آئودی» در تبِ تلفظ (۸.۸۴) ═════
+console.log('\n=== ۱۷. دکمهٔ نصب و نامِ آئودی ===');
+if (typeof menuRun_ === 'function') {
+  delete global.__PROPS[PK.MENU_LOG];
+  menuRun_('runSelfUpdateNow', () => ({ ok: false, reason: 'up-to-date', benign: true }), null, []);
+  const st1 = menuStatus_();
+  ok('۱۷.۱ «تازه‌ترین است» در منو خطا ثبت نمی‌شود', !st1.fails.some(f => f.name === 'runSelfUpdateNow'), JSON.stringify(st1.fails));
+  menuRun_('runSelfUpdateNow', () => ({ ok: false, reason: 'package-missing' }), null, []);
+  const st2 = menuStatus_();
+  ok('۱۷.۲ ولی شکستِ واقعی با علتش ثبت می‌شود', st2.fails.some(f => f.name === 'runSelfUpdateNow' && /package-missing/.test(f.err)), JSON.stringify(st2.fails));
+  const m = JSON.parse(global.__PROPS[PK.MENU_LOG]); m.runSelfUpdateNow.err = 'ناموفق';
+  global.__PROPS[PK.MENU_LOG] = JSON.stringify(m);
+  ok('۱۷.۳ ثبتِ قدیمیِ بی‌علتِ «ناموفق» شمرده نمی‌شود', !menuStatus_().fails.length);
+  delete global.__PROPS[PK.MENU_LOG];
+}
+ok('۱۷.۴ دکمهٔ نصب «تازه‌ترین» و «مشغول» را بی‌خطر علامت می‌زند', /reason === 'up-to-date' \|\| r\.reason === 'busy'\)\) r\.benign = true/.test(String(global.runSelfUpdateNow.__menuInner || global.runSelfUpdateNow)));
+const au = PRON_SEED.find(r => r[0] === 'آئودی');
+ok('۱۷.۵ «آئودی» با همان حروف و ضمه در PRON_SEED', !!au && au[2] === 'بله' && speakLetters_(au[1]) === speakLetters_('آئودی') && au[1] !== au[0], JSON.stringify(au));
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);
