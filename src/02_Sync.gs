@@ -490,6 +490,7 @@ function syncCatalog() {
 
       for (var ti = 0; ti < tabs.length && !more; ti++) {
         var sh = tabs[ti], tabName = sh.getName();
+        runStage_('سینک: ' + src.title + ' › ' + tabName);         // ۸.۸۵: کجا مُرد
         var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
         if (lastRow < 2 || lastCol < 2) continue;
 
@@ -642,6 +643,7 @@ function syncCatalog() {
     // بعدی می‌ماند — قطعه‌ها در انبار محفوظند.
     var joined = 0;
     if (!more) {
+      runStage_('سینک: ترکیبِ قطعه‌ها');
       try {
         var asm = assembleChunks_(hub, idCount);
         for (var ai = 0; ai < asm.items.length; ai++) if (emit(asm.items[ai], true)) joined++;
@@ -655,6 +657,7 @@ function syncCatalog() {
       } catch (eAsm) { logLine_('ترکیب قطعه‌ها ناموفق: ' + eAsm.message); }
     }
 
+    runStage_('سینک: نمایه');
     rebuildIndex_(hub);
 
     logLine_('سینک: ' + scanned + ' ردیف بررسی شد، ' + added + ' آیتم جدید افزوده شد' +
@@ -681,11 +684,13 @@ function syncCatalog() {
       // «درس‌نامه» یا «پشتیبان» که در نسخه‌های بعدی اضافه شدند و کاربر «نصب
       // زمان‌بندی» را دوباره نزده باشد)، همین‌جا خودش نصب می‌شود — وگرنه آن
       // قابلیت در سکوتِ کامل هرگز اجرا نمی‌شود.
+      runStage_('سینک: تریگرها و ادامهٔ قسمت‌ها');
       try { ensureScheduledTriggers_(); } catch (eTg) {}
       // آرشیو به‌روز است؛ فرصت خوبی است برای وارسی قسمت‌های نیمه‌تمام
       try { resumeStalledEpisode_(); } catch (e) {}
       try { resumeStalledSpecial_(); } catch (e) {}
       // رجیستری مجموعه‌های آموزشی را تازه کن (خودش هر چند ساعت یک‌بار کار می‌کند)
+      runStage_('سینک: اسکنِ مجموعه‌ها');
       try { scanSeries(false); } catch (e) { logLine_('اسکن مجموعه‌ها ناموفق: ' + e.message); }
       // یکی‌کردنِ نسخه‌های هم‌نامِ _MUSIC-FEED.json — علاوه بر اجرای شبانه.
       // تسکِ غنی‌سازی هر ساعت یک فایلِ تازه می‌سازد (ابزارش نوشتنِ درجا
@@ -700,10 +705,21 @@ function syncCatalog() {
       // که بعدش می‌آیند هرگز اجرا نمی‌شدند.
       var repDeadline = new Date().getTime() +
         Math.max(20000, Math.min(90000, CFG.MAX_RUNTIME_MS + 60000 - (new Date().getTime() - t0)));
+      runStage_('سینک: برداشتِ گزارش‌ها');
       try { ingestReports_(hub, repDeadline); }
       catch (e) { logLine_('برداشت گزارش‌ها ناموفق: ' + e.message); }
+      runStage_('سینک: وارسیِ نسخهٔ کد');
       try { checkCodeUpdate_(hub); } catch (e) {}
-      try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+      /* ۸.۸۵: نوشتنِ `_STATUS.json` خودش ده‌ها ثانیه است (۲۴۰ کیلوبایت، ده‌ها سنجه). اگر تا این‌جا از
+         مهلت گذشته‌ایم، این نوبت کنار می‌رود — سینکِ بعدی (دو ساعت دیگر) و وارسیِ سلامت همان را
+         می‌نویسند. مردن سرِ آن، قفل و شاهد را هم با خودش می‌بُرد. */
+      if (new Date().getTime() - t0 > CFG.MAX_RUNTIME_MS + 30000) {
+        logLine_('سینک: نوشتنِ وضعیت به نوبتِ بعد ماند — اجرا ' +
+                 Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
+      } else {
+        runStage_('سینک: نوشتنِ _STATUS');
+        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+      }
     }
   } catch (err) {
     logLine_('خطای سینک: ' + err.message);

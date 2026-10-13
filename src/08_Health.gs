@@ -1361,7 +1361,10 @@ function healthDeadCheck_(hub) {
 }
 
 /* ═══ اجرای پی‌آمدِ وارسیِ سلامت (۸.۷۲) ═══ */
-var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا'];
+/* ۸.۸۵: سه بخشِ دیگر هم به پی‌آمد سپرده می‌شوند — ۱۳ اکتبر «وقت کم آورد: صفِ داوریِ محتوا، ترتیبِ
+   قسمت‌ها، مدل‌ها (۳۰۸ ثانیه)» خودش یک ایرادِ مزمن شده بود. سرِ ۶ دقیقه گوگل اجرا را می‌کُشد؛ بودجهٔ
+   بزرگ‌تر جواب نیست، اجرای جدا هست. */
+var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا', 'صفِ داوریِ محتوا', 'ترتیبِ قسمت‌ها', 'مدل‌ها'];
 
 /** آنچه از `skipped` به اجرای پی‌آمد سپرده شد (فهرستِ نام‌ها؛ خالی یعنی هیچ). */
 function healthTailArm_(skipped) {
@@ -1408,6 +1411,27 @@ function healthTail() {
       out.ran.push('پلِ صدا: ' + ((v && v.got && v.got.length) || 0) + ' برداشته');
     } catch (eV) { out.why += 'پلِ صدا: ' + String(eV.message).slice(0, 80); }
   }
+  /* سه وارسیِ سطری (۸.۸۵): ایمیلِ امروز رفته، پس ایرادشان به صفِ ایمیلِ فردا می‌رود — نه ایمیلِ تازه
+     (۵٫۹۱: یک ایمیل در روز) — و سطرشان در سیاهه می‌نشیند. سالم بودن هم ثبت می‌شود: سکوت سلامت نیست. */
+  var lineParts = [
+    { name: 'صفِ داوریِ محتوا', run: function () { return auditQueueStatus_(getHub_()); } },
+    { name: 'ترتیبِ قسمت‌ها', run: function () { return seriesOrderStatus_(getHub_()); } },
+    { name: 'مدل‌ها', run: function () { return modelStatus_(); } }
+  ];
+  var bad = [];
+  for (var lp = 0; lp < lineParts.length; lp++) {
+    if (parts.indexOf(lineParts[lp].name) === -1) continue;
+    if (left() < 40000) { out.why += lineParts[lp].name + ': وقت نماند '; continue; }
+    try {
+      var r = lineParts[lp].run();
+      out.ran.push(lineParts[lp].name + ': ' + (r && r.ok === false ? 'ایراد' : 'سالم'));
+      if (r && r.ok === false && r.line) bad.push(r.line);
+    } catch (eP) { out.why += lineParts[lp].name + ': ' + String(eP.message).slice(0, 80) + ' '; }
+  }
+  if (bad.length) {
+    try { mailQueue_('health-tail', 'وارسیِ پی‌آمدِ دیروز', bad.join('\n')); } catch (eQ) {}
+  }
+  out.bad = bad;
   try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت: ' + (out.ran.join(' · ') || 'هیچ') + (out.why ? ' — ' + out.why : '')); } catch (eL) {}
   return out;
 }

@@ -2383,6 +2383,7 @@ function renderSpecialAudioStep_() {
     var ep = meta.ep, epNum = meta.epNum;
     /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_` در بخشِ ۳. */
     var gdS = epGuardBegin_('special', epNum, st.phase || '', scheduleSpecialContinue_);
+    runStage_('مرحلهٔ ' + (st.phase || '—'));
     if (gdS.killed) {
       logLine_('درس‌نامه ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
                '» کشته شد و نگهبان ادامه‌اش داد' +

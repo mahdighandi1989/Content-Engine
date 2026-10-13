@@ -1998,7 +1998,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.84',
+  CODE_VERSION: '8.85',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3290,10 +3290,35 @@ function driveShareOpen_(x) {
  * خراب شده، دقیقاً وقتی لازم است که نمی‌تواند بنویسد — همان درسِ ۷٫۶۳ دربارهٔ
  * `mailQueue_`: صفی که مرده باید تحویلش بدهد، هرگز تحویل نمی‌دهد.
  */
+var RUN_CUR_ = '';
+
 function runEnter_(fn) {
+  RUN_CUR_ = String(fn);
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
+    props_().setProperty(PK.RUN_AT, JSON.stringify(m));
+  } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
+}
+
+/* ══ «کجا مُرد؟» — مرحلهٔ اجرا روی همان مهر (۸.۸۵) ══
+ * «❌ اجرای ناتمام: produceEpisodeContinue (۱۶۴ دقیقه پیش…)» چند روز در ایمیل بود و جوابِ «چرا» همیشه
+ * «در Apps Script ← Executions» بود — صفحه‌ای که نه موتور می‌بیند، نه ناظر، نه من. پس علت هرگز پیدا نشد.
+ * اجرای کشته‌شده `finally` ندارد، ولی مهری که **پیش از** هر گامِ سنگین زده شده، از مرگ جان به در می‌برد
+ * (همان درسِ ۷٫۴۴). هر بار که مرحله عوض می‌شود یک نوشتنِ Properties — نه شیت (۸٫۱۱: شاهد در سرویسی که
+ * خراب شده نمی‌نشیند)، و فقط وقتی مرحله واقعاً عوض شد. */
+var RUN_STAGE_LAST_ = '';
+function runStage_(stage) {
+  var fn = RUN_CUR_;
+  if (!fn) return;
+  var s = String(stage || '').slice(0, 80);
+  if (s === RUN_STAGE_LAST_) return;
+  RUN_STAGE_LAST_ = s;
+  try {
+    var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
+    if (!m[fn]) return;
+    m[fn].st = s;
+    m[fn].stTs = new Date().getTime();
     props_().setProperty(PK.RUN_AT, JSON.stringify(m));
   } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
 }
@@ -3328,19 +3353,27 @@ function runStuck_(nowMs) {
     if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
     var ts = Number((m[k] || {}).ts) || 0;
     if (!ts || (now - ts) < lim) continue;
-    out.items.push({ fn: k, at: String((m[k] || {}).at || ''),
-                     mins: Math.round((now - ts) / 60000) });
+    var it = { fn: k, at: String((m[k] || {}).at || ''), mins: Math.round((now - ts) / 60000) };
+    if ((m[k] || {}).st) {
+      it.stage = String(m[k].st);
+      it.stageSec = Math.round((Number(m[k].stTs || ts) - ts) / 1000);
+    }
+    out.items.push(it);
   }
   out.items.sort(function (a, b) { return b.mins - a.mins; });
   if (out.items.length) {
     var L = [];
     for (var i = 0; i < out.items.length && i < 4; i++) {
       L.push(out.items[i].fn + ' (' + faDigitsOut_(String(out.items[i].mins)) +
-             ' دقیقه پیش شروع شد و تمام نشد)');
+             ' دقیقه پیش شروع شد و تمام نشد' +
+             (out.items[i].stage ? '؛ آخرین مرحله: «' + out.items[i].stage + '»، ' +
+               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') + ')');
     }
     out.line = '❌ اجرای ناتمام: ' + L.join(' · ') +
-               ' — این یعنی آن تریگر وسطِ کار مُرد؛ علتش در Apps Script ← ' +
-               'Executions است.';
+               ' — این یعنی آن تریگر وسطِ کار مُرد' +
+               (out.items.some(function (x) { return x.stage; })
+                 ? '؛ «آخرین مرحله» همان گامی است که سقفِ شش‌دقیقه رویش افتاد.'
+                 : '؛ مرحله‌اش ثبت نشده (اجرای پیش از ۸.۸۵ یا تابعی بی شاهدِ مرحله).');
   } else {
     out.line = '✅ هیچ اجرای ناتمامی نیست.';
   }

@@ -815,4 +815,23 @@ ok('۱۷.۴ دکمهٔ نصب «تازه‌ترین» و «مشغول» را ب�
 const au = PRON_SEED.find(r => r[0] === 'آئودی');
 ok('۱۷.۵ «آئودی» با همان حروف و ضمه در PRON_SEED', !!au && au[2] === 'بله' && speakLetters_(au[1]) === speakLetters_('آئودی') && au[1] !== au[0], JSON.stringify(au));
 
+// ═════ ۱۸. «کجا مُرد؟» — مرحله روی مهرِ اجرا (۸.۸۵) ═════
+console.log('\n=== ۱۸. مرحلهٔ اجرای کشته‌شده ===');
+{
+  delete global.__PROPS[PK.RUN_AT];
+  runEnter_('produceEpisodeContinue');
+  runStage_('صدا: تکهٔ ۳ از ۱۲');
+  runStage_('صدا: شنیدنِ دوبارهٔ تکه');
+  const m = JSON.parse(global.__PROPS[PK.RUN_AT]);
+  ok('۱۸.۱ آخرین مرحله روی مهر می‌نشیند', m.produceEpisodeContinue.st === 'صدا: شنیدنِ دوبارهٔ تکه' && m.produceEpisodeContinue.stTs > 0);
+  const st = runStuck_(Date.now() + 20 * 60000);
+  ok('۱۸.۲ اجرای ناتمام می‌گوید در کدام مرحله مُرد', st.items.length === 1 && /آخرین مرحله: «صدا: شنیدنِ دوبارهٔ تکه»/.test(st.line) && !/Executions/.test(st.line), st.line);
+  runExit_('produceEpisodeContinue');
+  ok('۱۸.۳ پایانِ تمیز مهر و مرحله را با هم برمی‌دارد', !JSON.parse(global.__PROPS[PK.RUN_AT]).produceEpisodeContinue);
+  const syn = String(global.synthesizeStep_), sync = String(global.syncCatalog);
+  ok('۱۸.۴ سیم‌کشی: هر تکهٔ صدا و هر گامِ سنگینِ سینک مرحله می‌زند', /runStage_\('صدا: تکهٔ '/.test(syn) &&
+     /runStage_\('سینک: '/.test(sync) && /runStage_\('سینک: نوشتنِ _STATUS'\)/.test(sync) &&
+     /MAX_RUNTIME_MS \+ 30000/.test(sync));
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

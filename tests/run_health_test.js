@@ -332,6 +332,25 @@ console.log('\n=== وارسیِ سلامت: بودجه و ردِ پا ===');
      ran.yt === 1 && ran.vb === 1 && !global.__PROPS[PK.HEALTH_TAIL] &&
      !global.__TRIGGERS.some(t => t.fn === 'healthTail' || (t.getHandlerFunction && t.getHandlerFunction() === 'healthTail')),
      JSON.stringify({ ran, tr }));
+  /* ۸.۸۵ — سه وارسیِ سطری هم به پی‌آمد سپرده می‌شوند و واقعاً می‌دوند؛ ایرادشان به صفِ ایمیلِ فردا. */
+  const armed = healthTailArm_(['صفِ داوریِ محتوا', 'ترتیبِ قسمت‌ها', 'مدل‌ها', 'بخشِ ناشناخته']);
+  ok('۸.۸۵-۱ «صفِ داوریِ محتوا / ترتیبِ قسمت‌ها / مدل‌ها» به پی‌آمد سپرده می‌شوند، نه «اجرا نشد»',
+     armed.join('|') === 'صفِ داوریِ محتوا|ترتیبِ قسمت‌ها|مدل‌ها', JSON.stringify(armed));
+  const keepA = global.auditQueueStatus_, keepS = global.seriesOrderStatus_, keepM = global.modelStatus_;
+  const keepQ = global.__PROPS[PK.MAIL_QUEUE];
+  const hits = [];
+  global.auditQueueStatus_ = () => { hits.push('aq'); return { ok: false, line: 'صفِ آزمایشی ۴۲ تاست' }; };
+  global.seriesOrderStatus_ = () => { hits.push('so'); return { ok: true, line: 'ترتیب سالم' }; };
+  global.modelStatus_ = () => { hits.push('md'); return { ok: true, line: 'مدل سالم' }; };
+  global.__PROPS[PK.MAIL_QUEUE] = '[]';
+  global.__PROPS[PK.HEALTH_TAIL] = JSON.stringify({ parts: ['صفِ داوریِ محتوا', 'ترتیبِ قسمت‌ها', 'مدل‌ها'] });
+  const tr2 = healthTail();
+  const q2 = JSON.parse(global.__PROPS[PK.MAIL_QUEUE] || '[]');
+  ok('۸.۸۵-۲ پی‌آمد هر سه را می‌دود و فقط ایراد به صفِ ایمیلِ فردا می‌رود',
+     hits.join(',') === 'aq,so,md' && q2.length === 1 && /صفِ آزمایشی ۴۲/.test(q2[0].body) && !/ترتیب سالم/.test(q2[0].body),
+     JSON.stringify({ hits, q2, tr2 }));
+  global.auditQueueStatus_ = keepA; global.seriesOrderStatus_ = keepS; global.modelStatus_ = keepM;
+  global.__PROPS[PK.MAIL_QUEUE] = keepQ;
   ok('ولی مُهرِ پایانی باز هم زده می‌شود',
      String(global.__PROPS[PK.HEALTH_STEP] || '').indexOf('تمام') === 0,
      String(global.__PROPS[PK.HEALTH_STEP] || ''));

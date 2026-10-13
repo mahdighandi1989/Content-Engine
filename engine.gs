@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.84
+ *  موتور محتوا و پادکست — نسخهٔ 8.85
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2017,7 +2017,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.84',
+  CODE_VERSION: '8.85',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3309,10 +3309,35 @@ function driveShareOpen_(x) {
  * خراب شده، دقیقاً وقتی لازم است که نمی‌تواند بنویسد — همان درسِ ۷٫۶۳ دربارهٔ
  * `mailQueue_`: صفی که مرده باید تحویلش بدهد، هرگز تحویل نمی‌دهد.
  */
+var RUN_CUR_ = '';
+
 function runEnter_(fn) {
+  RUN_CUR_ = String(fn);
   try {
     var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
     m[String(fn)] = { at: nowStr_(), ts: new Date().getTime() };
+    props_().setProperty(PK.RUN_AT, JSON.stringify(m));
+  } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
+}
+
+/* ══ «کجا مُرد؟» — مرحلهٔ اجرا روی همان مهر (۸.۸۵) ══
+ * «❌ اجرای ناتمام: produceEpisodeContinue (۱۶۴ دقیقه پیش…)» چند روز در ایمیل بود و جوابِ «چرا» همیشه
+ * «در Apps Script ← Executions» بود — صفحه‌ای که نه موتور می‌بیند، نه ناظر، نه من. پس علت هرگز پیدا نشد.
+ * اجرای کشته‌شده `finally` ندارد، ولی مهری که **پیش از** هر گامِ سنگین زده شده، از مرگ جان به در می‌برد
+ * (همان درسِ ۷٫۴۴). هر بار که مرحله عوض می‌شود یک نوشتنِ Properties — نه شیت (۸٫۱۱: شاهد در سرویسی که
+ * خراب شده نمی‌نشیند)، و فقط وقتی مرحله واقعاً عوض شد. */
+var RUN_STAGE_LAST_ = '';
+function runStage_(stage) {
+  var fn = RUN_CUR_;
+  if (!fn) return;
+  var s = String(stage || '').slice(0, 80);
+  if (s === RUN_STAGE_LAST_) return;
+  RUN_STAGE_LAST_ = s;
+  try {
+    var m = JSON.parse(props_().getProperty(PK.RUN_AT) || '{}');
+    if (!m[fn]) return;
+    m[fn].st = s;
+    m[fn].stTs = new Date().getTime();
     props_().setProperty(PK.RUN_AT, JSON.stringify(m));
   } catch (e) { /* شاهد هرگز نباید خودش اجرا را بیندازد */ }
 }
@@ -3347,19 +3372,27 @@ function runStuck_(nowMs) {
     if (!Object.prototype.hasOwnProperty.call(m, k)) continue;
     var ts = Number((m[k] || {}).ts) || 0;
     if (!ts || (now - ts) < lim) continue;
-    out.items.push({ fn: k, at: String((m[k] || {}).at || ''),
-                     mins: Math.round((now - ts) / 60000) });
+    var it = { fn: k, at: String((m[k] || {}).at || ''), mins: Math.round((now - ts) / 60000) };
+    if ((m[k] || {}).st) {
+      it.stage = String(m[k].st);
+      it.stageSec = Math.round((Number(m[k].stTs || ts) - ts) / 1000);
+    }
+    out.items.push(it);
   }
   out.items.sort(function (a, b) { return b.mins - a.mins; });
   if (out.items.length) {
     var L = [];
     for (var i = 0; i < out.items.length && i < 4; i++) {
       L.push(out.items[i].fn + ' (' + faDigitsOut_(String(out.items[i].mins)) +
-             ' دقیقه پیش شروع شد و تمام نشد)');
+             ' دقیقه پیش شروع شد و تمام نشد' +
+             (out.items[i].stage ? '؛ آخرین مرحله: «' + out.items[i].stage + '»، ' +
+               faDigitsOut_(String(out.items[i].stageSec)) + ' ثانیه پس از شروع' : '') + ')');
     }
     out.line = '❌ اجرای ناتمام: ' + L.join(' · ') +
-               ' — این یعنی آن تریگر وسطِ کار مُرد؛ علتش در Apps Script ← ' +
-               'Executions است.';
+               ' — این یعنی آن تریگر وسطِ کار مُرد' +
+               (out.items.some(function (x) { return x.stage; })
+                 ? '؛ «آخرین مرحله» همان گامی است که سقفِ شش‌دقیقه رویش افتاد.'
+                 : '؛ مرحله‌اش ثبت نشده (اجرای پیش از ۸.۸۵ یا تابعی بی شاهدِ مرحله).');
   } else {
     out.line = '✅ هیچ اجرای ناتمامی نیست.';
   }
@@ -4017,6 +4050,7 @@ function syncCatalog() {
 
       for (var ti = 0; ti < tabs.length && !more; ti++) {
         var sh = tabs[ti], tabName = sh.getName();
+        runStage_('سینک: ' + src.title + ' › ' + tabName);         // ۸.۸۵: کجا مُرد
         var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
         if (lastRow < 2 || lastCol < 2) continue;
 
@@ -4169,6 +4203,7 @@ function syncCatalog() {
     // بعدی می‌ماند — قطعه‌ها در انبار محفوظند.
     var joined = 0;
     if (!more) {
+      runStage_('سینک: ترکیبِ قطعه‌ها');
       try {
         var asm = assembleChunks_(hub, idCount);
         for (var ai = 0; ai < asm.items.length; ai++) if (emit(asm.items[ai], true)) joined++;
@@ -4182,6 +4217,7 @@ function syncCatalog() {
       } catch (eAsm) { logLine_('ترکیب قطعه‌ها ناموفق: ' + eAsm.message); }
     }
 
+    runStage_('سینک: نمایه');
     rebuildIndex_(hub);
 
     logLine_('سینک: ' + scanned + ' ردیف بررسی شد، ' + added + ' آیتم جدید افزوده شد' +
@@ -4208,11 +4244,13 @@ function syncCatalog() {
       // «درس‌نامه» یا «پشتیبان» که در نسخه‌های بعدی اضافه شدند و کاربر «نصب
       // زمان‌بندی» را دوباره نزده باشد)، همین‌جا خودش نصب می‌شود — وگرنه آن
       // قابلیت در سکوتِ کامل هرگز اجرا نمی‌شود.
+      runStage_('سینک: تریگرها و ادامهٔ قسمت‌ها');
       try { ensureScheduledTriggers_(); } catch (eTg) {}
       // آرشیو به‌روز است؛ فرصت خوبی است برای وارسی قسمت‌های نیمه‌تمام
       try { resumeStalledEpisode_(); } catch (e) {}
       try { resumeStalledSpecial_(); } catch (e) {}
       // رجیستری مجموعه‌های آموزشی را تازه کن (خودش هر چند ساعت یک‌بار کار می‌کند)
+      runStage_('سینک: اسکنِ مجموعه‌ها');
       try { scanSeries(false); } catch (e) { logLine_('اسکن مجموعه‌ها ناموفق: ' + e.message); }
       // یکی‌کردنِ نسخه‌های هم‌نامِ _MUSIC-FEED.json — علاوه بر اجرای شبانه.
       // تسکِ غنی‌سازی هر ساعت یک فایلِ تازه می‌سازد (ابزارش نوشتنِ درجا
@@ -4227,10 +4265,21 @@ function syncCatalog() {
       // که بعدش می‌آیند هرگز اجرا نمی‌شدند.
       var repDeadline = new Date().getTime() +
         Math.max(20000, Math.min(90000, CFG.MAX_RUNTIME_MS + 60000 - (new Date().getTime() - t0)));
+      runStage_('سینک: برداشتِ گزارش‌ها');
       try { ingestReports_(hub, repDeadline); }
       catch (e) { logLine_('برداشت گزارش‌ها ناموفق: ' + e.message); }
+      runStage_('سینک: وارسیِ نسخهٔ کد');
       try { checkCodeUpdate_(hub); } catch (e) {}
-      try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+      /* ۸.۸۵: نوشتنِ `_STATUS.json` خودش ده‌ها ثانیه است (۲۴۰ کیلوبایت، ده‌ها سنجه). اگر تا این‌جا از
+         مهلت گذشته‌ایم، این نوبت کنار می‌رود — سینکِ بعدی (دو ساعت دیگر) و وارسیِ سلامت همان را
+         می‌نویسند. مردن سرِ آن، قفل و شاهد را هم با خودش می‌بُرد. */
+      if (new Date().getTime() - t0 > CFG.MAX_RUNTIME_MS + 30000) {
+        logLine_('سینک: نوشتنِ وضعیت به نوبتِ بعد ماند — اجرا ' +
+                 Math.round((new Date().getTime() - t0) / 1000) + ' ثانیه شده بود.');
+      } else {
+        runStage_('سینک: نوشتنِ _STATUS');
+        try { writeStatus_(hub, 'همگام‌سازی کامل شد'); } catch (e) {}
+      }
     }
   } catch (err) {
     logLine_('خطای سینک: ' + err.message);
@@ -5743,6 +5792,7 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
   if (TTS_CUE_DROPPED_) return b64;
   var byPrefix = TTS_LAST_PROMPTED_;
 
+  runStage_('صدا: وارسیِ دستورِ لحن');
   var v = ttsCueLeaked_(b64, ttsCue_(sectionStyle, text), text);
 
   /* ══ نشنیدن، تأییدِ خاموش نیست — ولی فقط آن‌جا که خطر واقعی است (۸.۰۷) ══
@@ -5943,6 +5993,7 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
     ttsListenNote_({ what: 'skipped' });
     return b64;
   }
+  runStage_('صدا: شنیدنِ دوبارهٔ تکه');
   var v1 = ttsListenCheck_(b64, text);
   if (v1.failed) { ttsListenNote_({ what: 'failed', why: v1.why }); return b64; }
   if (!v1.errs.length) { ttsListenNote_({ what: 'clean' }); return b64; }
@@ -5953,6 +6004,7 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
   }
   /* دوباره بی‌دستور: دستورِ لحن یک متغیرِ دیگر است و این‌جا فقط درستیِ خواندن
      مهم است؛ مهرش می‌خورَد تا حالت از راهِ صدا/نشانه بنشیند، نه «دستور». */
+  runStage_('صدا: ساختِ دوبارهٔ تکهٔ خطادار');
   var t2 = ttsListenApplyFix_(text, v1.errs), b2 = null;
   try { ttsCueDropMark_(); b2 = ttsChunkTry_(t2, sectionStyle, voice, false); } catch (eT) { b2 = null; }
   if (!b2) { ttsListenNote_({ what: 'residual', errs: v1.errs, why: 'ساختِ دوباره نشد' }); return b64; }
@@ -10076,6 +10128,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     if (chunks[i] && chunks[i].pcm) {
       b64 = alignB64_(chunks[i].pcm);
     } else {
+      runStage_('صدا: تکهٔ ' + (i + 1) + ' از ' + chunks.length);      // ۸.۸۵: کجا مُرد
       var withCue = ttsCueWanted_(chunks, i);
       b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
       /* ══ حالتِ این تکه رسید یا نه — از رویدادِ همین تکه (۸.۲۷، در قسمت از ۸.۴۰) ══
@@ -10225,6 +10278,7 @@ function mergeOne_(files, outName, folder) {
  * برمی‌گرداند: آرایه‌ای از فایل‌های «یکجا» (یک عضو در حالت عادی)، یا null.
  */
 function mergeGroups_(files, baseName, folder) {
+  runStage_('صدا: چسباندنِ فایل‌ها');
   var plan = planGroups_(files);
   if (!plan) return null;
   var out = [];
@@ -10469,6 +10523,7 @@ function mergeStep_(st, baseName, folder, deadline, pkey, sched, label) {
   try { sched(6 * 60 * 1000); } catch (eS) {}
 
   var one = null, why = '';
+  runStage_('صدا: چسباندنِ گروهِ ' + (gi + 1));
   try { one = mergeGroupOne_(st.files, st.mergePlan, gi, baseName, folder); }
   catch (eM) { why = eM.message; }
   if (!one) {
@@ -12879,6 +12934,7 @@ function renderAudioStep_() {
     var ep = meta.ep, items = meta.items, cat = meta.cat, epNum = meta.epNum;
     /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_`. */
     var gdV = epGuardBegin_('variety', epNum, st.phase || '', scheduleContinue_);
+    runStage_('مرحلهٔ ' + (st.phase || '—'));
     if (gdV.killed) {
       logLine_('قسمت ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
                '» کشته شد و نگهبان ادامه‌اش داد' +
@@ -17521,7 +17577,10 @@ function healthDeadCheck_(hub) {
 }
 
 /* ═══ اجرای پی‌آمدِ وارسیِ سلامت (۸.۷۲) ═══ */
-var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا'];
+/* ۸.۸۵: سه بخشِ دیگر هم به پی‌آمد سپرده می‌شوند — ۱۳ اکتبر «وقت کم آورد: صفِ داوریِ محتوا، ترتیبِ
+   قسمت‌ها، مدل‌ها (۳۰۸ ثانیه)» خودش یک ایرادِ مزمن شده بود. سرِ ۶ دقیقه گوگل اجرا را می‌کُشد؛ بودجهٔ
+   بزرگ‌تر جواب نیست، اجرای جدا هست. */
+var HEALTH_TAIL_PARTS_ = ['دورِ ۱۰ صبحِ یوتیوب', 'برداشتِ پلِ صدا', 'صفِ داوریِ محتوا', 'ترتیبِ قسمت‌ها', 'مدل‌ها'];
 
 /** آنچه از `skipped` به اجرای پی‌آمد سپرده شد (فهرستِ نام‌ها؛ خالی یعنی هیچ). */
 function healthTailArm_(skipped) {
@@ -17568,6 +17627,27 @@ function healthTail() {
       out.ran.push('پلِ صدا: ' + ((v && v.got && v.got.length) || 0) + ' برداشته');
     } catch (eV) { out.why += 'پلِ صدا: ' + String(eV.message).slice(0, 80); }
   }
+  /* سه وارسیِ سطری (۸.۸۵): ایمیلِ امروز رفته، پس ایرادشان به صفِ ایمیلِ فردا می‌رود — نه ایمیلِ تازه
+     (۵٫۹۱: یک ایمیل در روز) — و سطرشان در سیاهه می‌نشیند. سالم بودن هم ثبت می‌شود: سکوت سلامت نیست. */
+  var lineParts = [
+    { name: 'صفِ داوریِ محتوا', run: function () { return auditQueueStatus_(getHub_()); } },
+    { name: 'ترتیبِ قسمت‌ها', run: function () { return seriesOrderStatus_(getHub_()); } },
+    { name: 'مدل‌ها', run: function () { return modelStatus_(); } }
+  ];
+  var bad = [];
+  for (var lp = 0; lp < lineParts.length; lp++) {
+    if (parts.indexOf(lineParts[lp].name) === -1) continue;
+    if (left() < 40000) { out.why += lineParts[lp].name + ': وقت نماند '; continue; }
+    try {
+      var r = lineParts[lp].run();
+      out.ran.push(lineParts[lp].name + ': ' + (r && r.ok === false ? 'ایراد' : 'سالم'));
+      if (r && r.ok === false && r.line) bad.push(r.line);
+    } catch (eP) { out.why += lineParts[lp].name + ': ' + String(eP.message).slice(0, 80) + ' '; }
+  }
+  if (bad.length) {
+    try { mailQueue_('health-tail', 'وارسیِ پی‌آمدِ دیروز', bad.join('\n')); } catch (eQ) {}
+  }
+  out.bad = bad;
   try { logLine_('اجرای پی‌آمدِ وارسیِ سلامت: ' + (out.ran.join(' · ') || 'هیچ') + (out.why ? ' — ' + out.why : '')); } catch (eL) {}
   return out;
 }
@@ -26538,6 +26618,7 @@ function renderSpecialAudioStep_() {
     var ep = meta.ep, epNum = meta.epNum;
     /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_` در بخشِ ۳. */
     var gdS = epGuardBegin_('special', epNum, st.phase || '', scheduleSpecialContinue_);
+    runStage_('مرحلهٔ ' + (st.phase || '—'));
     if (gdS.killed) {
       logLine_('درس‌نامه ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
                '» کشته شد و نگهبان ادامه‌اش داد' +

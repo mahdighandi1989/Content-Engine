@@ -1350,6 +1350,7 @@ function ttsGuarded_(text, sectionStyle, voice, withCue) {
   if (TTS_CUE_DROPPED_) return b64;
   var byPrefix = TTS_LAST_PROMPTED_;
 
+  runStage_('صدا: وارسیِ دستورِ لحن');
   var v = ttsCueLeaked_(b64, ttsCue_(sectionStyle, text), text);
 
   /* ══ نشنیدن، تأییدِ خاموش نیست — ولی فقط آن‌جا که خطر واقعی است (۸.۰۷) ══
@@ -1550,6 +1551,7 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
     ttsListenNote_({ what: 'skipped' });
     return b64;
   }
+  runStage_('صدا: شنیدنِ دوبارهٔ تکه');
   var v1 = ttsListenCheck_(b64, text);
   if (v1.failed) { ttsListenNote_({ what: 'failed', why: v1.why }); return b64; }
   if (!v1.errs.length) { ttsListenNote_({ what: 'clean' }); return b64; }
@@ -1560,6 +1562,7 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
   }
   /* دوباره بی‌دستور: دستورِ لحن یک متغیرِ دیگر است و این‌جا فقط درستیِ خواندن
      مهم است؛ مهرش می‌خورَد تا حالت از راهِ صدا/نشانه بنشیند، نه «دستور». */
+  runStage_('صدا: ساختِ دوبارهٔ تکهٔ خطادار');
   var t2 = ttsListenApplyFix_(text, v1.errs), b2 = null;
   try { ttsCueDropMark_(); b2 = ttsChunkTry_(t2, sectionStyle, voice, false); } catch (eT) { b2 = null; }
   if (!b2) { ttsListenNote_({ what: 'residual', errs: v1.errs, why: 'ساختِ دوباره نشد' }); return b64; }
@@ -5683,6 +5686,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
     if (chunks[i] && chunks[i].pcm) {
       b64 = alignB64_(chunks[i].pcm);
     } else {
+      runStage_('صدا: تکهٔ ' + (i + 1) + ' از ' + chunks.length);      // ۸.۸۵: کجا مُرد
       var withCue = ttsCueWanted_(chunks, i);
       b64 = alignB64_(ttsChunk_(chunks[i].text, chunks[i].style, chunks[i].voice, withCue));
       /* ══ حالتِ این تکه رسید یا نه — از رویدادِ همین تکه (۸.۲۷، در قسمت از ۸.۴۰) ══
@@ -5832,6 +5836,7 @@ function mergeOne_(files, outName, folder) {
  * برمی‌گرداند: آرایه‌ای از فایل‌های «یکجا» (یک عضو در حالت عادی)، یا null.
  */
 function mergeGroups_(files, baseName, folder) {
+  runStage_('صدا: چسباندنِ فایل‌ها');
   var plan = planGroups_(files);
   if (!plan) return null;
   var out = [];
@@ -6076,6 +6081,7 @@ function mergeStep_(st, baseName, folder, deadline, pkey, sched, label) {
   try { sched(6 * 60 * 1000); } catch (eS) {}
 
   var one = null, why = '';
+  runStage_('صدا: چسباندنِ گروهِ ' + (gi + 1));
   try { one = mergeGroupOne_(st.files, st.mergePlan, gi, baseName, folder); }
   catch (eM) { why = eM.message; }
   if (!one) {
@@ -8486,6 +8492,7 @@ function renderAudioStep_() {
     var ep = meta.ep, items = meta.items, cat = meta.cat, epNum = meta.epNum;
     /* نگهبانِ ادامه، پیش از هر کار (۸.۵۴) — توضیح کنارِ `epGuardBegin_`. */
     var gdV = epGuardBegin_('variety', epNum, st.phase || '', scheduleContinue_);
+    runStage_('مرحلهٔ ' + (st.phase || '—'));
     if (gdV.killed) {
       logLine_('قسمت ' + epNum + ': اجرای پیشینِ مرحلهٔ «' + (st.phase || '—') +
                '» کشته شد و نگهبان ادامه‌اش داد' +
