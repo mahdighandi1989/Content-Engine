@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-13 03:32",
+ "updatedAt": "2026-10-13 06:59",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -1124,6 +1124,85 @@
     "fade": 16
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-69-cover.jpg"
+  },
+  "special:70": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-70.mp4",
+   "bytes": 44951939,
+   "parts": 2,
+   "at": "2026-10-13 06:59",
+   "mode": "scenes",
+   "scenes": 32,
+   "want": 32,
+   "snapped": 21,
+   "seconds": 814,
+   "qa": {
+    "n": 32,
+    "matched": 29,
+    "miss": [
+     20,
+     25,
+     28
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": false,
+     "points": [
+      {
+       "n": 9,
+       "t": 195.7,
+       "own": 0,
+       "nb": 0,
+       "ok": false,
+       "heard": ""
+      },
+      {
+       "n": 17,
+       "t": 384.3,
+       "own": 0,
+       "nb": 0,
+       "ok": false,
+       "heard": ""
+      },
+      {
+       "n": 25,
+       "t": 603.5,
+       "own": 0,
+       "nb": 0,
+       "ok": false,
+       "heard": ""
+      }
+     ],
+     "why": "شنیدنِ صحنهٔ 25 نشد: open() got an unexpected keyword argument 'metadata_errors' · گفتارِ صحنهٔ 9، 17، 25 با تصویرش نمی‌خواند",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 6,
+    "placed": 5,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "quote": 1,
+     "headline": 3,
+     "points": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 22,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 16,
+    "fade": 12
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-70-cover.jpg"
   }
  },
  "art": {
