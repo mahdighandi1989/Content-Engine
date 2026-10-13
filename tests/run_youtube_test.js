@@ -344,6 +344,12 @@ console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه 
      ytGaveUp_(pub2, CFG.SPECIAL_SHOW_NAME, '17') === true);
   ok('۱۰.۶ ولی قسمتِ منتشرشده هرگز رها شمرده نمی‌شود',
      ytGaveUp_(pub2, 'درس‌نامه', '16') === false);
+  /* ۸.۸۷ — «رها» تا ابد نیست: هفت روز پس از آخرین تلاش یک بار دیگر به صف برمی‌گردد. */
+  const pubOld = { [ENRICH_SHOW_SPECIAL + ':17']: Object.assign({}, pub2[ENRICH_SHOW_SPECIAL + ':17'],
+                   { at: Utilities.formatDate(new Date(Date.now() - 8 * 86400000), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm') }) };
+  ok('۱۰.۷ (۸.۸۷) رهاشده پس از ۸ روز دوباره امتحان می‌شود؛ تازه‌رهاشده نه',
+     ytGaveUp_(pubOld, ENRICH_SHOW_SPECIAL, '17') === false && ytGaveUp_(pub2, ENRICH_SHOW_SPECIAL, '17') === true,
+     JSON.stringify(pubOld));
 }
 
 console.log('=== ۱۱) دیده‌شدن: خطِ روزانه، همیشه ===');
@@ -7944,6 +7950,25 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
      r2p + ' · ' + JSON.stringify(lastP));
   listCode = 200; imgReply = null; existingImg = '';
 
+  /* ۸۲.۴-ت (۸.۸۷) — تصویری که صاحبِ برنامه دستی در Studio گذاشته، کاور است: نه جایگزین (همان ۵۰۰)، نه درجِ دوم. */
+  fresh(); runnerImg = { b: jpg(1400, 1400), m: 'image/jpeg' }; existingImg = 'HAND1';
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی' } });
+  const r2t = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, 'درس‌نامه', '', 'kQ');
+  ok('۸۲.۴-ت تصویرِ موجودِ دستی بی redo ⇒ «نشست» بی هیچ فرستادن', r2t === 'نشست' && imgCalls.length === 0 &&
+     /دستی/.test(((ytPlMap_()['kQ'] || {}).coverLast || {}).how || ''), r2t + ' · ' + imgCalls.length);
+  existingImg = '';
+  /* ۸۲.۴-ث (۸.۸۷) — کاورِ ۵۰۰خورده کارِ یک‌بارهٔ آدم است، با نشانیِ Studio و کاورِ آماده؛ هر روز دوباره نگاه می‌شود. */
+  ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverTries: 5, coverLastTry: nowStr_(),
+                       coverWhy: 'نشد (500): Internal error encountered. — درج، JPEG 1400×1400' } });
+  global._ytPlSqMemo = { kQ: { url: 'https://example.test/pl-kQ.jpg' } };
+  const hpY = [], hnY = [];
+  try { ytHealth_(hpY, hnY); } catch (eHy) { hpY.push('ERR ' + eHy.message); }
+  const hj = hpY.filter(x => /studio\.youtube\.com\/playlist\/PLQ\/edit/.test(String(x)));
+  ok('۸۲.۴-ث «۵۰۰» ⇒ کارِ شما با نشانیِ Studio و کاورِ آماده، نه «علت در موتور است»',
+     hj.length === 1 && /⟨شما⟩/.test(hj[0]) && /pl-kQ\.jpg/.test(hj[0]) &&
+     !hpY.some(x => /علت در موتور است/.test(String(x))), JSON.stringify(hpY).slice(0, 400));
+  global._ytPlSqMemo = null;
+
   // ۸۲.۵ — پادکست پیش از کاور پرسیده نمی‌شود. شکستنِ عمدیِ همین سد زودتر روی ۴۸.۳
   // می‌نشیند (همان ادعا: بی کاور، علتِ پادکست «منتظرِ کاور» است) — مجموعه با نخستین سرخ می‌ایستد.
   const kPod = global.ytPlPodcast_;
@@ -7998,10 +8023,13 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
                        coverTries: 4, coverLastTry: nowStr_(), coverWhy: 'نشد (500): Internal error' } });
   const pr = [], nt = [];
   try { ytHealth_(pr, nt); } catch (eH) {}
-  const plLine = pr.concat(nt).filter(x => /پلی‌لیست/.test(x) && /رد می‌شود/.test(x))[0] || '';
-  ok('۸۲.۹ شکستِ کاور «کارِ شما» نیست و علتِ خودِ یوتیوب را نقل می‌کند',
-     plLine && plLine.indexOf('youtube.com/features') === -1 && plLine.indexOf('Internal error') !== -1 &&
-     plLine.indexOf('⟨شما⟩') === -1, plLine.slice(0, 220));
+  /* ۸.۸۷: سیاستِ ۸.۵۵ («کارِ شما نیست») برای کاورِ ۹۶۰×۵۴۰ درست بود — علت در موتور بود. با کاورِ درستِ
+     مربع و «۵۰۰»ی که از ۹ اکتبر هر روز آمده، از API راهی نمانده؛ حالا همین سطر کارِ یک‌بارهٔ آدم است، با
+     نشانیِ Studio — و هنوز هرگز به youtube.com/features نمی‌فرستد و علتِ خودِ یوتیوب را نقل می‌کند. */
+  const plLine = pr.concat(nt).filter(x => /پلی‌لیست/.test(x) && /Internal error|نمی‌پذیرد/.test(x))[0] || '';
+  ok('۸۲.۹ کاورِ «۵۰۰»خورده: علتِ یوتیوب نقل می‌شود، نشانیِ Studio داده می‌شود، و هرگز youtube.com/features',
+     plLine && plLine.indexOf('youtube.com/features') === -1 && /500: Internal error/.test(plLine) &&
+     /studio\.youtube\.com\/playlist\/PLQ\/edit/.test(plLine), plLine.slice(0, 220));
 
   /* ۸۲.۱۰ — دورِ پلی‌لیست‌ها مجموعه‌های بی‌کاور را **رد نمی‌کند**. تا ۸.۵۴ میان‌بُرِ
      «چیدمان عوض نشده» هر دور را پیش از رسیدگی برمی‌گرداند، پس پلی‌لیستِ درس‌نامه‌ای

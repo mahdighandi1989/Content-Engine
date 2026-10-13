@@ -1,14 +1,15 @@
 {
-  "version": "8.86",
+  "version": "8.87",
   "codeFile": "engine.gs",
-  "sha256": "de52672b56e21add3e7313aa0a9229dad118da90c77d65f153e73d5f54a02ccc",
-  "releasedAt": "2026-10-13T08:45:00Z",
-  "summary": "هم‌زمانیِ ویدئو: نشنیدن دیگر «ناهم‌زمان» نیست و PyAV از راهِ شنیدن بیرون رفت؛ کارتی که نامِ فیلد (ovLines/ovKeys) در متنش دارد رد می‌شود؛ شاهدِ «نقشهٔ OUTPUT» زمانِ وارسی است؛ بدهیِ منو testTelegram.",
+  "sha256": "7264d7cfa73e9b1026cc19948b2431396f6445a8261312b8634902f5c49ed0f6",
+  "releasedAt": "2026-10-13T20:30:00Z",
+  "summary": "هشدارهای همیشگی درست شدند: تکرارِ فقط-باز، بستنِ ردیف‌های کهنهٔ کد/نصب‌شده، ارجاعِ ایرادداری اخیر، انتشارِ رهاشده هفتگی، کاورِ پلی‌لیست با پذیرشِ تصویرِ دستی.",
   "fixes": [
-    "tools/avsync.py: صوت با wave+numpy، نقطهٔ نشنیده ok:null",
-    "lvSceneOvNorm_: ردِ کارتِ دارای نامِ فیلد",
-    "outLayoutCheck_.checkedAt: شاهدِ کارنامهٔ قابلیت‌ها",
-    "tests: testTelegram از MENU_DEBT پرداخت شد"
+    "reportSummary_: repeated فقط ردیفِ باز",
+    "reportStale_: مالکِ کد و RST.INSTALLED",
+    "bridgeAuditStatus_: recentBad (۱۴ روز)",
+    "ytGaveUp_: بازگشتِ هفتگی + failedKeys",
+    "ytPlaylistCover_: تصویرِ موجود پذیرفته؛ ۵۰۰ ⇒ کارِ یک‌باره با Studio"
   ],
   "sourceReportIds": [
     "capability-idle-out-layout"
@@ -114,6 +115,7 @@
     ],
     "8.86": [
       "capability-idle-out-layout"
-    ]
+    ],
+    "8.87": []
   }
 }

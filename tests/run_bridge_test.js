@@ -576,6 +576,15 @@ console.log('\n=== ۱۳) حلقهٔ داوریِ کیفیت، بی آنکه کس
   const bs = bridgeAuditStatus_(hub);
   ok('۱۳.۱۱ سطرِ روزانه ساخته می‌شود و ایراد را می‌گوید',
      bs.line.indexOf('داوریِ ارجاع‌ها') === 0 && bs.n === 2 && bs.bad === 2, bs.line);
+  /* ۸.۸۷ — «ایراددار» برای همیشه نیست: ایرادِ قدیمی (بیرونِ پنجرهٔ اخیر) سطر را ایراد نمی‌کند. */
+  const shA = hub.getSheetByName(CFG.BRIDGE_AUDIT_TAB || 'داوریِ ارجاع‌ها');
+  const old30 = new Date(Date.now() - 30 * 86400000);
+  for (let r = 2; r <= shA.getLastRow(); r++) shA.getRange(r, 1).setValue(old30);
+  const bsOld = bridgeAuditStatus_(hub);
+  ok('۱۳.۱۱-ب (۸.۸۷) ایرادهای ۳۰روزه شمرده می‌شوند ولی «اخیر» نیستند — پس ایرادِ امروز نیستند',
+     bsOld.bad === 2 && bsOld.recentBad === 0 && /هیچ‌کدام در/.test(bsOld.line), bsOld.line);
+  shA.getRange(2, 1).setValue(new Date());
+  ok('۱۳.۱۱-پ و ایرادِ امروز اخیر است', bridgeAuditStatus_(hub).recentBad === 1);
   const s08b = fs.readFileSync('src/08_Health.gs', 'utf8');
   ok('۱۳.۱۲ و در ایمیل و _STATUS.json می‌نشیند',
      s08b.indexOf('bridgeAuditStatus_(hub)') !== -1 &&

@@ -505,6 +505,28 @@ console.log('=== درِ خروجِ خودکار برای ردیفِ کهنه (۶
      String(sh.getRange(rDate, RC.STATUS).getValue()) === RST.CLOSED && resD.closed === 1,
      JSON.stringify(resD) + ' ' + String(sh.getRange(rDate, RC.STATUS).getValue()));
 
+  /* ۸.۸۷ — دو دری که بسته بود: مالکِ «کد» با وضعیتِ عادی، و «کد نصب شد — در انتظارِ تأیید». */
+  const rOwnC = mkRow('OWNCODE', 60, ROWNER_CODE, 'نسخهٔ 5.1 نصب شود', RST.NEW);
+  const rInst = mkRow('INST', 40, ROWNER_CODE, 'کد عوض شد', RST.INSTALLED);
+  const rInstNew = mkRow('INSTNEW', 3, ROWNER_CODE, 'کد عوض شد', RST.INSTALLED);
+  reportStale_(hub, 21);
+  ok('۸.۸۷-۱ ردیفِ کهنهٔ مالکِ «کد» که «نیازمند تعویض کد» نیست، بسته می‌شود',
+     String(sh.getRange(rOwnC, RC.STATUS).getValue()) === RST.CLOSED);
+  ok('۸.۸۷-۲ «نصب شد — در انتظارِ تأیید» پس از ۲۱ روز بی‌تکرار با «تأیید» بسته می‌شود، تازه‌اش نه',
+     String(sh.getRange(rInst, RC.STATUS).getValue()) === RST.CLOSED &&
+     /تأیید/.test(String(sh.getRange(rInst, RC.DONE).getValue())) &&
+     String(sh.getRange(rInstNew, RC.STATUS).getValue()) === RST.INSTALLED);
+  ok('۸.۸۷-۳ و «نیازمند تعویض کد» همچنان دست نمی‌خورد',
+     String(sh.getRange(rCode, RC.STATUS).getValue()) === RST.NEEDS_CODE);
+  const sm0 = reportSummary_(hub);
+  const rRepC = mkRow('REPCLOSED', 5, ROWNER_ENGINE, 'قاعده', RST.CLOSED);
+  sh.getRange(rRepC, RC.SEEN).setValue(9);
+  const rRepO = mkRow('REPOPEN', 2, ROWNER_ENGINE, 'قاعده', RST.NEW);
+  sh.getRange(rRepO, RC.SEEN).setValue(4);
+  const sm = reportSummary_(hub);
+  ok('۸.۸۷-۴ «تکرارشده» فقط ردیفِ هنوز‌باز را می‌شمرد، نه تاریخچهٔ بسته‌ها',
+     sm.repeated - sm0.repeated === 1 && sm.openItems.some(x => x.id === 'REPOPEN'), JSON.stringify({ rep: sm.repeated, before: sm0.repeated }));
+
   /* ══ مهم‌ترین بند: بستن باید بازگشت‌پذیر باشد ══
      رفت‌وبرگشتِ واقعی، نه ردیفِ دست‌ساز — چون اثرِ انگشت را خودِ کد می‌سازد و
      ردیفی که با اثرِ انگشتِ ساختگی بسته شود، هرگز همان ردیف شناخته نمی‌شود

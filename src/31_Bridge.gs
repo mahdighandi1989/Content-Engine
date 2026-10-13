@@ -1563,7 +1563,7 @@ function bridgeAuditRun_(maxN) {
 
 /** سطرِ روزانه — قاعدهٔ ۵٫۹۰. */
 function bridgeAuditStatus_(hub) {
-  var out = { n: 0, bad: 0, pending: 0, strict: 0, idleNights: 0, line: '' };
+  var out = { n: 0, bad: 0, recentBad: 0, pending: 0, strict: 0, idleNights: 0, line: '' };
   try {
     try { out.idleNights = Number(props_().getProperty(PK.BRIDGE_AUD_BAD) || '0') || 0; }
     catch (eI) { out.idleNights = 0; }
@@ -1574,10 +1574,19 @@ function bridgeAuditStatus_(hub) {
     var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_AUDIT_TAB || 'داوریِ ارجاع‌ها');
     if (sh && sh.getLastRow() > 1) {
       var v = sh.getRange(2, 5, sh.getLastRow() - 1, 3).getValues();
+      /* ۸.۸۷: «۲۲ ایراددار» شمارِ همهٔ تاریخ بود و هرگز پایین نمی‌آمد — هر روز ایراد، حتی وقتی سخت‌گیریِ
+         خودکار کارش را کرده و ارجاع‌های تازه سالم‌اند. ایراد = بدِ **پنجرهٔ اخیر**؛ کلِ تاریخ در جمله می‌مانَد. */
+      var tcol = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+      var win = Math.max(1, Number(CFG.BRIDGE_AUDIT_RECENT_DAYS) || 14) * 86400000, now = new Date().getTime();
       for (var i = 0; i < v.length; i++) {
         out.n++;
         if (String(v[i][0]) === 'خیر' || String(v[i][2]) === 'قاطی شد' ||
-            String(v[i][1]) === 'سطحی') out.bad++;
+            String(v[i][1]) === 'سطحی') {
+          out.bad++;
+          var tb = NaN;
+          try { tb = parseWhen_(tcol[i][0]); } catch (eT) { tb = NaN; }
+          if (isNaN(tb) || now - tb < win) out.recentBad++;
+        }
       }
     }
     /* ══ «۰ داوری‌شده · ۶ در صف» یک جمله بود که کسی نمی‌خواندش (۶٫۸۴) ══
@@ -1585,7 +1594,9 @@ function bridgeAuditStatus_(hub) {
        پس وقتی هیچ داوری‌ای نشده و صف پر است، جمله خودش می‌گوید چه معنایی
        دارد — نه دو عدد که خواننده باید کنارِ هم بگذاردشان. */
     out.line = 'داوریِ ارجاع‌ها: ' + fa(out.n) + ' ارجاع داوری شده' +
-               (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' : ' · بی‌ایراد') +
+               (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' +
+                 ' (' + (out.recentBad ? fa(out.recentBad) : 'هیچ‌کدام') + ' در ' +
+                 fa(Math.max(1, Number(CFG.BRIDGE_AUDIT_RECENT_DAYS) || 14)) + ' روزِ اخیر)' : ' · بی‌ایراد') +
                (out.pending ? ' · ' + fa(out.pending) + ' در صف' : '') +
                (out.strict ? ' · ' + fa(out.strict) + ' مجموعه سخت‌گیریِ خودکار گرفته' : '') + '.';
     if (!out.n && out.pending) {

@@ -2330,7 +2330,7 @@ function healthCheck() {
   } catch (eHv) {}
   try {
     var baS = bridgeAuditStatus_(hub);
-    if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
+    if (baS && baS.line) { if (baS.recentBad) problems.push(baS.line); else notes.push(baS.line); }
   } catch (eBa2) {}
   /* ══ موسیقی، هر روز، حتی وقتی خبری نیست (۷٫۶۸) ══
      تا ۷٫۶۶ موسیقی فقط وقتی حرف می‌زد که بانک خالی بود. «چند قطعه هست»

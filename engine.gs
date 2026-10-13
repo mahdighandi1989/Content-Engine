@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.86
+ *  موتور محتوا و پادکست — نسخهٔ 8.87
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1326,7 +1326,8 @@ var CFG = {
   YT_THUMB_AUDIT_EVERY_DAYS: 7,
   YT_PLAYLISTS: true,
   YT_CHAPTERS: true,
-  YT_TRY_MAX: 3,                        // پس از این، آن قسمت رها می‌شود
+  YT_TRY_MAX: 3,                        // پس از این، آن قسمت تا YT_GIVEUP_RETRY_DAYS کنار می‌رود
+  YT_GIVEUP_RETRY_DAYS: 7,              // ۸.۸۷: «رهاشده» هفته‌ای یک بار دوباره امتحان می‌شود
   YT_STUCK_DAYS: 3,
   /* سهمیهٔ یوتیوب دو سطل دارد و هر دو بی‌صدا بسته می‌شوند (۴۰۳)، پس خودمان
      می‌شماریم: آپلود سطلِ خودش را دارد (حدود ۱۰۰ در روز) و بقیهٔ فراخوان‌ها
@@ -2017,7 +2018,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.86',
+  CODE_VERSION: '8.87',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -18546,7 +18547,7 @@ function healthCheck() {
   } catch (eHv) {}
   try {
     var baS = bridgeAuditStatus_(hub);
-    if (baS && baS.line) { if (baS.bad) problems.push(baS.line); else notes.push(baS.line); }
+    if (baS && baS.line) { if (baS.recentBad) problems.push(baS.line); else notes.push(baS.line); }
   } catch (eBa2) {}
   /* ══ موسیقی، هر روز، حتی وقتی خبری نیست (۷٫۶۸) ══
      تا ۷٫۶۶ موسیقی فقط وقتی حرف می‌زد که بانک خالی بود. «چند قطعه هست»
@@ -22451,8 +22452,15 @@ function reportStale_(hub, days) {
       var r = st.rows[i], v = r.vals, s = String(v[RC.STATUS - 1]);
       /* فقط ردیفِ بازِ بی‌کد. ردیفِ «نیازمند تعویض کد» صفِ ساختِ نسخهٔ بعد
          است و بستنش با گذرِ زمان، عیناً همان اشتباهِ ۵٫۹۳ می‌شود. */
-      if (s !== RST.NEW && s.indexOf('تکرار') === -1) continue;
-      if (String(v[RC.OWNER - 1]) === ROWNER_CODE) continue;
+      /* ══ دو در که بسته بود (۸.۸۷) ══
+         ۱۳ اکتبر صفِ «باز» ۴۳ ردیف داشت و ده‌ها تای آن از ۱۰ تا ۲۴ اوت بودند — «نسخهٔ تازهٔ کد آماده
+         است (5.0 ← 5.1)»، «دستورِ روتین‌ها با نسخهٔ 5.35 هماهنگ نیست» — یعنی دو ماه بی هیچ تکرار.
+         این در آن‌ها را نمی‌دید چون (۱) مالکشان «کوورک (تغییر کد)» بود و هر ردیفِ آن مالک کنار
+         گذاشته می‌شد، و (۲) وضعیتِ «کد نصب شد — در انتظارِ تأییدِ ناظر» اصلاً در فهرست نبود.
+         مرزِ درست وضعیت است، نه مالک: فقط «نیازمند تعویض کد» صفِ ساختِ نسخه است و با زمان بسته
+         نمی‌شود (۵٫۹۳). ردیفِ «نصب شد» که ۲۱ روز نشانه‌اش برنگشته، همان تأییدی است که منتظرش بود. */
+      var stOpen = (s === RST.NEW || s.indexOf('تکرار') !== -1 || s === RST.INSTALLED);
+      if (!stOpen) continue;
       if (!String(v[RC.INSTR - 1] || '').trim()) continue;   // ردیفِ اطلاعاتی
       /* شیت تاریخ را **شیءِ Date** پس می‌دهد، نه متن (۸.۷۲). تا ۸.۷۱ این‌جا
          `new Date(String(d).replace(' ', 'T'))` بود؛ رشتهٔ «Mon Aug 10 2026 …» با T
@@ -22462,8 +22470,9 @@ function reportStale_(hub, days) {
       if (isNaN(t) || t > cut) { out.kept++; continue; }
       try {
         sh.getRange(r.row, RC.STATUS).setValue(RST.CLOSED);
-        sh.getRange(r.row, RC.DONE).setValue(
-          'کهنه — ' + lim + ' روز دیده نشد؛ با تکرارِ دوباره خودش باز می‌شود');
+        sh.getRange(r.row, RC.DONE).setValue(s === RST.INSTALLED
+          ? 'تأیید — کد نصب شد و نشانه ' + lim + ' روز برنگشت؛ با تکرارِ دوباره خودش باز می‌شود'
+          : 'کهنه — ' + lim + ' روز دیده نشد؛ با تکرارِ دوباره خودش باز می‌شود');
         sh.getRange(r.row, RC.DONE_AT).setValue(nowStr_());
         out.closed++;
       } catch (eW) {}
@@ -22488,7 +22497,10 @@ function reportSummary_(hub) {
       var v = st.rows[i].vals, s = String(v[RC.STATUS - 1]);
       var at = String(v[RC.AT - 1]);
       if (at > out.lastReportAt) out.lastReportAt = at;
-      if ((Number(v[RC.SEEN - 1]) || 1) > 1) out.repeated++;
+      /* «تکرارشده» فقط ردیفِ هنوز‌باز (۸.۸۷). تا امروز هر ردیفی که روزی دو بار دیده شده بود — حتی
+         بسته‌شده و اعمال‌شده — شمرده می‌شد؛ عددی که فقط بالا می‌رفت (۱۲۴، ۱۲۵…) و هرگز با رفعِ چیزی
+         پایین نمی‌آمد: هشداری که هیچ کاری خاموشش نمی‌کند، همان است که یاد می‌گیرند نخوانندش. */
+      var rep2 = (Number(v[RC.SEEN - 1]) || 1) > 1;
       // ردیفِ بی‌دستور صرفاً ثبتِ تاریخی است (سرجمعِ گزارش، یادداشت). بسته
       // ثبت می‌شود تا هرس بتواند جا باز کند، ولی در شمارش «اعمال شد» نمی‌آید.
       if (s === RST.APPLIED || s === RST.CLOSED) {
@@ -22500,6 +22512,7 @@ function reportSummary_(hub) {
         // شده — چه با نصبِ خودکار، چه با چسباندنِ دستی.
         if (codeRowSatisfied_(v)) { out.applied++; continue; }
         out.needsCode++;
+        if (rep2) out.repeated++;
         out.codeItems.push({ id: String(v[RC.ID - 1]), title: String(v[RC.TITLE - 1]),
                              at: at, telegram: String(v[RC.TG - 1]) });
         continue;
@@ -22509,6 +22522,7 @@ function reportSummary_(hub) {
       // ندارد، پس نباید در شمارِ «در انتظار اقدام» بیاید.
       if (!String(v[RC.INSTR - 1] || '').trim()) { out.info++; continue; }
       out.open++;
+      if (rep2) out.repeated++;
       out.openItems.push({ id: String(v[RC.ID - 1]), pri: String(v[RC.PRI - 1]),
                            cat: String(v[RC.CAT - 1]), title: String(v[RC.TITLE - 1]),
                            seen: Number(v[RC.SEEN - 1]) || 1 });
@@ -49790,7 +49804,16 @@ function ytGaveUp_(pub, show, ep) {
   // یادش باشد، همان مرزی است که فردا یکی یادش می‌رود.
   var r = pub[ytShowKey_(show) + ':' + String(ep)];
   if (!r || r.videoId) return false;
-  return r.tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3);
+  if (r.tries < Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) return false;
+  /* ══ «رها شد» برای همیشه نبود، فقط تا هفتهٔ بعد (۸.۸۷) ══
+     «انتشار برای ۲ قسمت پس از چند تلاش رها شد» هر روز در ایمیل بود و هیچ دری برای بازگشت نداشت: سه
+     شکستِ پیاپی — گاهی سهمیه یا خطای گذرای یوتیوب — یعنی تا ابد. دری که هیچ‌کس بازش نمی‌کند در نیست.
+     حالا پس از `YT_GIVEUP_RETRY_DAYS` از آخرین تلاش یک بار دیگر به صف برمی‌گردد؛ شکستِ دوباره یعنی
+     هفتهٔ بعد، نه هر شب. */
+  var last = NaN;
+  try { last = parseWhen_(String(r.at || '')); } catch (e) { last = NaN; }
+  if (isNaN(last)) return true;
+  return (new Date().getTime() - last) < Math.max(1, Number(CFG.YT_GIVEUP_RETRY_DAYS) || 7) * 86400000;
 }
 
 /* ─────────────────── ۹) صف و کاوشِ گذشته ───────────────────
@@ -58660,7 +58683,11 @@ function ytStatus_() {
           out.unlisted++;
           (out.unlistedKeys = out.unlistedKeys || []).push(k);
         }
-      } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) out.failed++;
+      } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) {
+        out.failed++;
+        (out.failedKeys = out.failedKeys || []).push({ key: k, at: pub[k].at,
+          why: String(pub[k].result || '').slice(0, 120) });
+      }
     }
     /* چرا هر کدام هنوز عمومی نیست — از آخرین بازسنجیِ شبانه (۸.۳۵). یک
        `getProperty`، نه خواندنِ تازه. */
@@ -58891,7 +58918,9 @@ function ytHealth_(problems, notes) {
        youtube.com/features می‌فرستاد. علتِ واقعی کاورِ ۹۶۰×۵۴۰ بود و کارِ کد.
        حالا سطر فقط آنچه یوتیوب گفته را نقل می‌کند و مالکش موتور است؛ کارِ شما
        فقط وقتی می‌شود که کاورِ مربعِ درست نشسته و پادکست باز هم رد شود. */
-    var mCap = ytPlMap_(), capped = 0, capWhy = '', ownerJob = false;
+    var mCap = ytPlMap_(), capped = 0, capWhy = '', ownerJob = false, handJob = [];
+    var pcsCap = {};
+    try { pcsCap = ytRenderPlCoversCached_() || {}; } catch (ePcC) { pcsCap = {}; }
     for (var ck in mCap) if (Object.prototype.hasOwnProperty.call(mCap, ck)) {
       var rc = mCap[ck] || {};
       var cT = (Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4);
@@ -58900,6 +58929,18 @@ function ytHealth_(problems, notes) {
       capped++;
       if (!capWhy) capWhy = cT ? 'کاور: ' + String(rc.coverWhy || '') : 'پادکست: ' + String(rc.podWhy || '');
       if (pT && rc.cover) ownerJob = true;
+      /* ۸.۸۷: کاوری که یوتیوب با «۵۰۰» رد می‌کند، کارِ یک‌بارهٔ آدم است — با نشانیِ پلی‌لیست و کاورِ آماده. */
+      if (cT && !rc.cover && /\(500\)|Internal error/i.test(String(rc.coverWhy || '')) && rc.id) {
+        handJob.push('«' + String(rc.title || ck).slice(0, 50) + '»: https://studio.youtube.com/playlist/' +
+                     rc.id + '/edit' + ((pcsCap[ck] || {}).url ? ' ← کاورِ آماده: ' + pcsCap[ck].url : ''));
+      }
+    }
+    if (handJob.length) {
+      problems.push(HY_ + 'کاورِ ' + faDigitsOut_(String(handJob.length)) + ' پلی‌لیست را یوتیوب از راهِ API ' +
+        'نمی‌پذیرد («500: Internal error» برای درخواستِ درست، از ۹ اکتبر) — کارِ یک‌باره: در YouTube Studio ' +
+        'کاورِ آماده را روی همان پلی‌لیست بگذارید؛ موتور در تلاشِ هفتگیِ بعد آن را می‌بیند، دیگر جایگزینش ' +
+        'نمی‌کند و پلی‌لیست را پادکست می‌کند. ' + handJob.join(' · '));
+      capped = Math.max(0, capped - handJob.length);
     }
     if (capped) {
       problems.push((ownerJob ? HY_ : '') + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
@@ -58913,9 +58954,13 @@ function ytHealth_(problems, notes) {
   } catch (ePf) {}
 
   if (st.failed) {
+    /* ۸.۸۷: نام و علت در خودِ سطر — «تبِ … ستونِ شرح» حواله به جایی بود که صاحبِ برنامه باز نمی‌کند (۵٫۹۰). */
+    var fk = (st.failedKeys || []).slice(0, 3).map(function (x) {
+      return x.key + (x.why ? ' («' + auditCut_(x.why, 70) + '»)' : '');
+    });
     problems.push('انتشار در یوتیوب برای ' + faDigitsOut_(String(st.failed)) +
-                  ' قسمت پس از چند تلاش رها شد — تبِ «' +
-                  (CFG.YT_TAB || 'انتشار در یوتیوب') + '» ستونِ «شرح» علتش را دارد.');
+                  ' قسمت پس از چند تلاش ایستاد' + (fk.length ? ': ' + fk.join(' · ') : '') +
+                  ' — هفته‌ای یک بار خودش دوباره امتحان می‌کند.');
   }
   if (st.quota && st.quota.blocked) {
     notes.push('سهمیهٔ یوتیوب امروز پر شد (' + st.quota.blocked +
@@ -59887,8 +59932,12 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     if (tries < (CFG.YT_PL_TRY_MAX || 4)) return false;
     var last = parseWhen_(String(rec[f + 'LastTry'] || ''));
     if (isNaN(last)) return false;
-    return (new Date().getTime() - last) <
-           (CFG.YT_PL_RETRY_DAYS || 7) * 86400000;
+    /* ۸.۸۷: کاوری که با «۵۰۰» رد شد هر روز یک بار دوباره نگاه می‌شود، نه هفته‌ای — تا تصویری که
+       صاحبِ برنامه دستی گذاشته همان فردا دیده شود و پادکست‌شدن یک هفته عقب نیفتد. هزینه‌اش یک `list`
+       و، اگر هنوز چیزی نیست، یک درجِ دیگر است. */
+    var days = (f === 'cover' && /\(500\)|Internal error/i.test(String(rec.coverWhy || ''))) ? 1
+             : (CFG.YT_PL_RETRY_DAYS || 7);
+    return (new Date().getTime() - last) < days * 86400000;
   };
   /* «سهمیه» و «در راه» تلاش نیستند: اولی فردا خودش می‌آید و دومی یعنی رانر هنوز
      کاورِ مربع را نکشیده — هیچ‌کدام چیزی دربارهٔ یوتیوب نمی‌گوید (۸.۵۵). */
@@ -60162,6 +60211,20 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
       if (its[ii].id && (!sn.type || sn.type === 'hero')) { existing = String(its[ii].id); break; }
     }
   } catch (eL) { listCode = -1; }
+  /* ══ تصویری که آدم گذاشته، کاور است (۸.۸۷) ══
+     از ۹ اکتبر یوتیوب هر درخواستِ درستِ این‌جا (مربعِ ۱۴۰۰، JPEGِ ۵۵ کیلوبایتی، همان بدنهٔ مستند) را با
+     «500: Internal error encountered» رد کرده — خطای خودِ سرور، نه بدنه؛ از API راهی نمانده. راهِ ماندنی
+     این است که صاحبِ برنامه یک بار کاورِ آماده را در Studio بگذارد. تا امروز موتور آن تصویر را هم
+     «جایگزین» می‌کرد (update ⇒ همان ۵۰۰) و پادکست هرگز نوبت نمی‌گرفت. حالا تصویرِ موجود، اگر پیشتر از
+     این‌جا نشسته نبود و تغییرِ نام/کاور هم در کار نیست، پذیرفته می‌شود و پادکست‌شدن جلو می‌رود. */
+  if (existing && !redo) {
+    try {
+      var mX = ytPlMap_(), recX = mX[spec.key] || {};
+      recX.coverLast = { at: nowStr_(), how: 'موجود در یوتیوب (دستی)', code: 200, list: listCode };
+      mX[spec.key] = recX; ytPlMapSave_(mX);
+    } catch (eX) {}
+    return 'نشست';
+  }
   var how = existing ? 'به‌روزرسانی' : 'درج';
 
   /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و
@@ -65496,7 +65559,7 @@ function bridgeAuditRun_(maxN) {
 
 /** سطرِ روزانه — قاعدهٔ ۵٫۹۰. */
 function bridgeAuditStatus_(hub) {
-  var out = { n: 0, bad: 0, pending: 0, strict: 0, idleNights: 0, line: '' };
+  var out = { n: 0, bad: 0, recentBad: 0, pending: 0, strict: 0, idleNights: 0, line: '' };
   try {
     try { out.idleNights = Number(props_().getProperty(PK.BRIDGE_AUD_BAD) || '0') || 0; }
     catch (eI) { out.idleNights = 0; }
@@ -65507,10 +65570,19 @@ function bridgeAuditStatus_(hub) {
     var sh = (hub || getHub_()).getSheetByName(CFG.BRIDGE_AUDIT_TAB || 'داوریِ ارجاع‌ها');
     if (sh && sh.getLastRow() > 1) {
       var v = sh.getRange(2, 5, sh.getLastRow() - 1, 3).getValues();
+      /* ۸.۸۷: «۲۲ ایراددار» شمارِ همهٔ تاریخ بود و هرگز پایین نمی‌آمد — هر روز ایراد، حتی وقتی سخت‌گیریِ
+         خودکار کارش را کرده و ارجاع‌های تازه سالم‌اند. ایراد = بدِ **پنجرهٔ اخیر**؛ کلِ تاریخ در جمله می‌مانَد. */
+      var tcol = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+      var win = Math.max(1, Number(CFG.BRIDGE_AUDIT_RECENT_DAYS) || 14) * 86400000, now = new Date().getTime();
       for (var i = 0; i < v.length; i++) {
         out.n++;
         if (String(v[i][0]) === 'خیر' || String(v[i][2]) === 'قاطی شد' ||
-            String(v[i][1]) === 'سطحی') out.bad++;
+            String(v[i][1]) === 'سطحی') {
+          out.bad++;
+          var tb = NaN;
+          try { tb = parseWhen_(tcol[i][0]); } catch (eT) { tb = NaN; }
+          if (isNaN(tb) || now - tb < win) out.recentBad++;
+        }
       }
     }
     /* ══ «۰ داوری‌شده · ۶ در صف» یک جمله بود که کسی نمی‌خواندش (۶٫۸۴) ══
@@ -65518,7 +65590,9 @@ function bridgeAuditStatus_(hub) {
        پس وقتی هیچ داوری‌ای نشده و صف پر است، جمله خودش می‌گوید چه معنایی
        دارد — نه دو عدد که خواننده باید کنارِ هم بگذاردشان. */
     out.line = 'داوریِ ارجاع‌ها: ' + fa(out.n) + ' ارجاع داوری شده' +
-               (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' : ' · بی‌ایراد') +
+               (out.bad ? ' · ' + fa(out.bad) + ' ایراددار' +
+                 ' (' + (out.recentBad ? fa(out.recentBad) : 'هیچ‌کدام') + ' در ' +
+                 fa(Math.max(1, Number(CFG.BRIDGE_AUDIT_RECENT_DAYS) || 14)) + ' روزِ اخیر)' : ' · بی‌ایراد') +
                (out.pending ? ' · ' + fa(out.pending) + ' در صف' : '') +
                (out.strict ? ' · ' + fa(out.strict) + ' مجموعه سخت‌گیریِ خودکار گرفته' : '') + '.';
     if (!out.n && out.pending) {

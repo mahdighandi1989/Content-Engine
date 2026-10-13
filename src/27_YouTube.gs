@@ -2389,7 +2389,16 @@ function ytGaveUp_(pub, show, ep) {
   // یادش باشد، همان مرزی است که فردا یکی یادش می‌رود.
   var r = pub[ytShowKey_(show) + ':' + String(ep)];
   if (!r || r.videoId) return false;
-  return r.tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3);
+  if (r.tries < Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) return false;
+  /* ══ «رها شد» برای همیشه نبود، فقط تا هفتهٔ بعد (۸.۸۷) ══
+     «انتشار برای ۲ قسمت پس از چند تلاش رها شد» هر روز در ایمیل بود و هیچ دری برای بازگشت نداشت: سه
+     شکستِ پیاپی — گاهی سهمیه یا خطای گذرای یوتیوب — یعنی تا ابد. دری که هیچ‌کس بازش نمی‌کند در نیست.
+     حالا پس از `YT_GIVEUP_RETRY_DAYS` از آخرین تلاش یک بار دیگر به صف برمی‌گردد؛ شکستِ دوباره یعنی
+     هفتهٔ بعد، نه هر شب. */
+  var last = NaN;
+  try { last = parseWhen_(String(r.at || '')); } catch (e) { last = NaN; }
+  if (isNaN(last)) return true;
+  return (new Date().getTime() - last) < Math.max(1, Number(CFG.YT_GIVEUP_RETRY_DAYS) || 7) * 86400000;
 }
 
 /* ─────────────────── ۹) صف و کاوشِ گذشته ───────────────────
@@ -11259,7 +11268,11 @@ function ytStatus_() {
           out.unlisted++;
           (out.unlistedKeys = out.unlistedKeys || []).push(k);
         }
-      } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) out.failed++;
+      } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) {
+        out.failed++;
+        (out.failedKeys = out.failedKeys || []).push({ key: k, at: pub[k].at,
+          why: String(pub[k].result || '').slice(0, 120) });
+      }
     }
     /* چرا هر کدام هنوز عمومی نیست — از آخرین بازسنجیِ شبانه (۸.۳۵). یک
        `getProperty`، نه خواندنِ تازه. */
@@ -11490,7 +11503,9 @@ function ytHealth_(problems, notes) {
        youtube.com/features می‌فرستاد. علتِ واقعی کاورِ ۹۶۰×۵۴۰ بود و کارِ کد.
        حالا سطر فقط آنچه یوتیوب گفته را نقل می‌کند و مالکش موتور است؛ کارِ شما
        فقط وقتی می‌شود که کاورِ مربعِ درست نشسته و پادکست باز هم رد شود. */
-    var mCap = ytPlMap_(), capped = 0, capWhy = '', ownerJob = false;
+    var mCap = ytPlMap_(), capped = 0, capWhy = '', ownerJob = false, handJob = [];
+    var pcsCap = {};
+    try { pcsCap = ytRenderPlCoversCached_() || {}; } catch (ePcC) { pcsCap = {}; }
     for (var ck in mCap) if (Object.prototype.hasOwnProperty.call(mCap, ck)) {
       var rc = mCap[ck] || {};
       var cT = (Number(rc.coverTries) || 0) >= (CFG.YT_PL_TRY_MAX || 4);
@@ -11499,6 +11514,18 @@ function ytHealth_(problems, notes) {
       capped++;
       if (!capWhy) capWhy = cT ? 'کاور: ' + String(rc.coverWhy || '') : 'پادکست: ' + String(rc.podWhy || '');
       if (pT && rc.cover) ownerJob = true;
+      /* ۸.۸۷: کاوری که یوتیوب با «۵۰۰» رد می‌کند، کارِ یک‌بارهٔ آدم است — با نشانیِ پلی‌لیست و کاورِ آماده. */
+      if (cT && !rc.cover && /\(500\)|Internal error/i.test(String(rc.coverWhy || '')) && rc.id) {
+        handJob.push('«' + String(rc.title || ck).slice(0, 50) + '»: https://studio.youtube.com/playlist/' +
+                     rc.id + '/edit' + ((pcsCap[ck] || {}).url ? ' ← کاورِ آماده: ' + pcsCap[ck].url : ''));
+      }
+    }
+    if (handJob.length) {
+      problems.push(HY_ + 'کاورِ ' + faDigitsOut_(String(handJob.length)) + ' پلی‌لیست را یوتیوب از راهِ API ' +
+        'نمی‌پذیرد («500: Internal error» برای درخواستِ درست، از ۹ اکتبر) — کارِ یک‌باره: در YouTube Studio ' +
+        'کاورِ آماده را روی همان پلی‌لیست بگذارید؛ موتور در تلاشِ هفتگیِ بعد آن را می‌بیند، دیگر جایگزینش ' +
+        'نمی‌کند و پلی‌لیست را پادکست می‌کند. ' + handJob.join(' · '));
+      capped = Math.max(0, capped - handJob.length);
     }
     if (capped) {
       problems.push((ownerJob ? HY_ : '') + 'کاور/پادکست‌شدنِ ' + faDigitsOut_(String(capped)) +
@@ -11512,9 +11539,13 @@ function ytHealth_(problems, notes) {
   } catch (ePf) {}
 
   if (st.failed) {
+    /* ۸.۸۷: نام و علت در خودِ سطر — «تبِ … ستونِ شرح» حواله به جایی بود که صاحبِ برنامه باز نمی‌کند (۵٫۹۰). */
+    var fk = (st.failedKeys || []).slice(0, 3).map(function (x) {
+      return x.key + (x.why ? ' («' + auditCut_(x.why, 70) + '»)' : '');
+    });
     problems.push('انتشار در یوتیوب برای ' + faDigitsOut_(String(st.failed)) +
-                  ' قسمت پس از چند تلاش رها شد — تبِ «' +
-                  (CFG.YT_TAB || 'انتشار در یوتیوب') + '» ستونِ «شرح» علتش را دارد.');
+                  ' قسمت پس از چند تلاش ایستاد' + (fk.length ? ': ' + fk.join(' · ') : '') +
+                  ' — هفته‌ای یک بار خودش دوباره امتحان می‌کند.');
   }
   if (st.quota && st.quota.blocked) {
     notes.push('سهمیهٔ یوتیوب امروز پر شد (' + st.quota.blocked +
@@ -12486,8 +12517,12 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
     if (tries < (CFG.YT_PL_TRY_MAX || 4)) return false;
     var last = parseWhen_(String(rec[f + 'LastTry'] || ''));
     if (isNaN(last)) return false;
-    return (new Date().getTime() - last) <
-           (CFG.YT_PL_RETRY_DAYS || 7) * 86400000;
+    /* ۸.۸۷: کاوری که با «۵۰۰» رد شد هر روز یک بار دوباره نگاه می‌شود، نه هفته‌ای — تا تصویری که
+       صاحبِ برنامه دستی گذاشته همان فردا دیده شود و پادکست‌شدن یک هفته عقب نیفتد. هزینه‌اش یک `list`
+       و، اگر هنوز چیزی نیست، یک درجِ دیگر است. */
+    var days = (f === 'cover' && /\(500\)|Internal error/i.test(String(rec.coverWhy || ''))) ? 1
+             : (CFG.YT_PL_RETRY_DAYS || 7);
+    return (new Date().getTime() - last) < days * 86400000;
   };
   /* «سهمیه» و «در راه» تلاش نیستند: اولی فردا خودش می‌آید و دومی یعنی رانر هنوز
      کاورِ مربع را نکشیده — هیچ‌کدام چیزی دربارهٔ یوتیوب نمی‌گوید (۸.۵۵). */
@@ -12761,6 +12796,20 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
       if (its[ii].id && (!sn.type || sn.type === 'hero')) { existing = String(its[ii].id); break; }
     }
   } catch (eL) { listCode = -1; }
+  /* ══ تصویری که آدم گذاشته، کاور است (۸.۸۷) ══
+     از ۹ اکتبر یوتیوب هر درخواستِ درستِ این‌جا (مربعِ ۱۴۰۰، JPEGِ ۵۵ کیلوبایتی، همان بدنهٔ مستند) را با
+     «500: Internal error encountered» رد کرده — خطای خودِ سرور، نه بدنه؛ از API راهی نمانده. راهِ ماندنی
+     این است که صاحبِ برنامه یک بار کاورِ آماده را در Studio بگذارد. تا امروز موتور آن تصویر را هم
+     «جایگزین» می‌کرد (update ⇒ همان ۵۰۰) و پادکست هرگز نوبت نمی‌گرفت. حالا تصویرِ موجود، اگر پیشتر از
+     این‌جا نشسته نبود و تغییرِ نام/کاور هم در کار نیست، پذیرفته می‌شود و پادکست‌شدن جلو می‌رود. */
+  if (existing && !redo) {
+    try {
+      var mX = ytPlMap_(), recX = mX[spec.key] || {};
+      recX.coverLast = { at: nowStr_(), how: 'موجود در یوتیوب (دستی)', code: 200, list: listCode };
+      mX[spec.key] = recX; ytPlMapSave_(mX);
+    } catch (eX) {}
+    return 'نشست';
+  }
   var how = existing ? 'به‌روزرسانی' : 'درج';
 
   /* multipart دستی، چون شناسهٔ پلی‌لیست در snippet می‌رود نه در query — و

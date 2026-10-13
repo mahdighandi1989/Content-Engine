@@ -1860,8 +1860,15 @@ function reportStale_(hub, days) {
       var r = st.rows[i], v = r.vals, s = String(v[RC.STATUS - 1]);
       /* فقط ردیفِ بازِ بی‌کد. ردیفِ «نیازمند تعویض کد» صفِ ساختِ نسخهٔ بعد
          است و بستنش با گذرِ زمان، عیناً همان اشتباهِ ۵٫۹۳ می‌شود. */
-      if (s !== RST.NEW && s.indexOf('تکرار') === -1) continue;
-      if (String(v[RC.OWNER - 1]) === ROWNER_CODE) continue;
+      /* ══ دو در که بسته بود (۸.۸۷) ══
+         ۱۳ اکتبر صفِ «باز» ۴۳ ردیف داشت و ده‌ها تای آن از ۱۰ تا ۲۴ اوت بودند — «نسخهٔ تازهٔ کد آماده
+         است (5.0 ← 5.1)»، «دستورِ روتین‌ها با نسخهٔ 5.35 هماهنگ نیست» — یعنی دو ماه بی هیچ تکرار.
+         این در آن‌ها را نمی‌دید چون (۱) مالکشان «کوورک (تغییر کد)» بود و هر ردیفِ آن مالک کنار
+         گذاشته می‌شد، و (۲) وضعیتِ «کد نصب شد — در انتظارِ تأییدِ ناظر» اصلاً در فهرست نبود.
+         مرزِ درست وضعیت است، نه مالک: فقط «نیازمند تعویض کد» صفِ ساختِ نسخه است و با زمان بسته
+         نمی‌شود (۵٫۹۳). ردیفِ «نصب شد» که ۲۱ روز نشانه‌اش برنگشته، همان تأییدی است که منتظرش بود. */
+      var stOpen = (s === RST.NEW || s.indexOf('تکرار') !== -1 || s === RST.INSTALLED);
+      if (!stOpen) continue;
       if (!String(v[RC.INSTR - 1] || '').trim()) continue;   // ردیفِ اطلاعاتی
       /* شیت تاریخ را **شیءِ Date** پس می‌دهد، نه متن (۸.۷۲). تا ۸.۷۱ این‌جا
          `new Date(String(d).replace(' ', 'T'))` بود؛ رشتهٔ «Mon Aug 10 2026 …» با T
@@ -1871,8 +1878,9 @@ function reportStale_(hub, days) {
       if (isNaN(t) || t > cut) { out.kept++; continue; }
       try {
         sh.getRange(r.row, RC.STATUS).setValue(RST.CLOSED);
-        sh.getRange(r.row, RC.DONE).setValue(
-          'کهنه — ' + lim + ' روز دیده نشد؛ با تکرارِ دوباره خودش باز می‌شود');
+        sh.getRange(r.row, RC.DONE).setValue(s === RST.INSTALLED
+          ? 'تأیید — کد نصب شد و نشانه ' + lim + ' روز برنگشت؛ با تکرارِ دوباره خودش باز می‌شود'
+          : 'کهنه — ' + lim + ' روز دیده نشد؛ با تکرارِ دوباره خودش باز می‌شود');
         sh.getRange(r.row, RC.DONE_AT).setValue(nowStr_());
         out.closed++;
       } catch (eW) {}
@@ -1897,7 +1905,10 @@ function reportSummary_(hub) {
       var v = st.rows[i].vals, s = String(v[RC.STATUS - 1]);
       var at = String(v[RC.AT - 1]);
       if (at > out.lastReportAt) out.lastReportAt = at;
-      if ((Number(v[RC.SEEN - 1]) || 1) > 1) out.repeated++;
+      /* «تکرارشده» فقط ردیفِ هنوز‌باز (۸.۸۷). تا امروز هر ردیفی که روزی دو بار دیده شده بود — حتی
+         بسته‌شده و اعمال‌شده — شمرده می‌شد؛ عددی که فقط بالا می‌رفت (۱۲۴، ۱۲۵…) و هرگز با رفعِ چیزی
+         پایین نمی‌آمد: هشداری که هیچ کاری خاموشش نمی‌کند، همان است که یاد می‌گیرند نخوانندش. */
+      var rep2 = (Number(v[RC.SEEN - 1]) || 1) > 1;
       // ردیفِ بی‌دستور صرفاً ثبتِ تاریخی است (سرجمعِ گزارش، یادداشت). بسته
       // ثبت می‌شود تا هرس بتواند جا باز کند، ولی در شمارش «اعمال شد» نمی‌آید.
       if (s === RST.APPLIED || s === RST.CLOSED) {
@@ -1909,6 +1920,7 @@ function reportSummary_(hub) {
         // شده — چه با نصبِ خودکار، چه با چسباندنِ دستی.
         if (codeRowSatisfied_(v)) { out.applied++; continue; }
         out.needsCode++;
+        if (rep2) out.repeated++;
         out.codeItems.push({ id: String(v[RC.ID - 1]), title: String(v[RC.TITLE - 1]),
                              at: at, telegram: String(v[RC.TG - 1]) });
         continue;
@@ -1918,6 +1930,7 @@ function reportSummary_(hub) {
       // ندارد، پس نباید در شمارِ «در انتظار اقدام» بیاید.
       if (!String(v[RC.INSTR - 1] || '').trim()) { out.info++; continue; }
       out.open++;
+      if (rep2) out.repeated++;
       out.openItems.push({ id: String(v[RC.ID - 1]), pri: String(v[RC.PRI - 1]),
                            cat: String(v[RC.CAT - 1]), title: String(v[RC.TITLE - 1]),
                            seen: Number(v[RC.SEEN - 1]) || 1 });
