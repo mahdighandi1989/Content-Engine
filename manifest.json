@@ -1,17 +1,13 @@
 {
-  "version": "8.94",
+  "version": "8.95",
   "codeFile": "engine.gs",
-  "sha256": "04f789c442e60342ca517362ed407e269edb8d85702cd7b14e58dcc5acb94524",
-  "releasedAt": "2026-10-14T08:36:00Z",
-  "summary": "خودآزمونِ اثر انگشت هر نمونه را با علتش می‌گوید (نخوانده / رتبه و امتیاز)، و نمونهٔ نخوانده «افتاده» شمرده نمی‌شود؛ پادکستِ «از همه جا» در کارنامهٔ قابلیت‌ها دیگر «نامعلوم» نیست.",
+  "sha256": "67a871abe629e6064de25decec530b8acff66d58d4aca0febd7cfd700022ecca",
+  "releasedAt": "2026-10-14T09:30:00Z",
+  "summary": "انتشارِ ناموفق در یوتیوب علتش را می‌گوید، نه «نشد»ِ تنها (ستونِ یادداشت خوانده می‌شود).",
   "fixes": [
-    "embSearch_ با opts.want: دیده‌شدن، رتبه و امتیازِ ردیفِ خواسته‌شده — بی تغییرِ نتیجه",
-    "embSelfTest_: unread جدا از tried؛ why برای هر نمونه؛ در EMB_LAST.self، سطرِ روزانه و متنِ یافتهٔ embed-quality-low",
-    "capNewest_: قالبِ String(new Date()) («Wed Oct 14 2026 04:09:00 …») شاهد شمرده می‌شود — lastEpisode.producedAt"
+    "ytPublished_ ستونِ «یادداشت» را برمی‌دارد و ytStatus_.failedKeys.why = «نشد: <علت>» — سنجهٔ run_youtube_test ۱۱.۲-ب"
   ],
-  "sourceReportIds": [
-    "ENG-20261010-0245#embed-quality-low"
-  ],
+  "sourceReportIds": [],
   "promptImpact": [],
   "answers": {
     "7.48": [
@@ -123,6 +119,9 @@
     "8.93": "فهرستِ ۳۷ ردیف از این نسخه در _STATUS دیده می‌شود؛ تعیینِ تکلیفِ هرکدام با همین فهرست.",
     "8.94": [
       "embed-quality-low"
+    ],
+    "8.95": [
+      "yt-publish-failed-bare"
     ]
   }
 }

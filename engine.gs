@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.94
+ *  موتور محتوا و پادکست — نسخهٔ 8.95
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2029,7 +2029,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.94',
+  CODE_VERSION: '8.95',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -50010,6 +50010,7 @@ function ytPublished_(hub) {
       cur.tries++;
       cur.at = ytWhen_(v[i][YU.AT - 1]).text;
       cur.result = String(v[i][YU.RESULT - 1] || '');
+      cur.note = String(v[i][YU.NOTE - 1] || '');
       cur.series = String(v[i][YU.SERIES - 1] || '') || cur.series || '';
       var vid = String(v[i][YU.VID - 1] || '');
       if (vid) {
@@ -58944,7 +58945,10 @@ function ytStatus_() {
       } else if (pub[k].tries >= Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) {
         out.failed++;
         (out.failedKeys = out.failedKeys || []).push({ key: k, at: pub[k].at,
-          why: String(pub[k].result || '').slice(0, 120) });
+          /* «نشد» تنها، علت نیست (۸.۹۵): ستونِ «نتیجه» فقط حکم است و علت در «یادداشت» است — ایمیلِ ۱۴
+             اکتبر «variety:71 («نشد»)» نوشت و ناظر نتوانست بگوید چرا. علت اگر هست، همان را بگو. */
+          why: (pub[k].note ? String(pub[k].result || 'نشد') + ': ' + pub[k].note
+                            : String(pub[k].result || '')).slice(0, 160) });
       }
     }
     /* چرا هر کدام هنوز عمومی نیست — از آخرین بازسنجیِ شبانه (۸.۳۵). یک
