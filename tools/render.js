@@ -965,6 +965,22 @@ function buildBanner(bn, map, tmp) {
   }
 }
 
+/* ── شناسهٔ کانال، امروزی (۸.۹۰) ──
+ * نشانِ هر ردیف همان شناسه‌ای را دارد که روزِ درخواست بود. صاحبِ برنامه «@truce-trace» را به
+ * «@truth_trace1» برد؛ ردیف‌های در صف هنوز قدیمی را می‌بردند. `markHandle`ِ صف، که موتور هر بار
+ * می‌نویسد، بر نشانِ هر ردیف (و مشخصاتِ کارت‌هایش) می‌نشیند. برمی‌گرداند چند ردیف عوض شد. */
+function brandMark(queue) {
+  const h = String((queue && queue.markHandle) || '').trim();
+  if (!/^@[A-Za-z0-9._-]{3,}$/.test(h)) return 0;
+  let n = 0;
+  for (const it of (Array.isArray(queue.items) ? queue.items : [])) {
+    for (const m of [it && it.mark, it && it.spec && it.spec.mark]) {
+      if (m && m.handle && m.handle !== h) { m.handle = h; n++; }
+    }
+  }
+  return n;
+}
+
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
 function probeWork(queue, map, hold, now) {
   return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length ||
@@ -1023,6 +1039,8 @@ function main() {
     log('موتور در اولین اجرای شبانه بازش می‌کند. QUEUE_ID = ' + QUEUE_ID);
     return;
   }
+  const nMark = brandMark(queue);
+  if (nMark) log('شناسهٔ کانال روی ' + nMark + ' ردیف به ' + queue.markHandle + ' به‌روز شد.');
   const map = readMap();
 
   const hold = readHold();
@@ -1228,5 +1246,5 @@ module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo,
-  plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, itemsTodo, slugOf, probeWork, builtFor
+  plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor
 };

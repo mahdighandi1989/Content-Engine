@@ -9763,13 +9763,43 @@ console.log('\n=== ۱۰۳) شناسهٔ کانال که عوض شد، نشانِ
      ch === true && now.handle === '@azhamejaa', JSON.stringify(now));
   ok('۱۰۳.۲ و چیزی که عوض نشده دوباره نوشته نمی‌شود',
      ytMarkRefresh_({ snippet: { customUrl: '@azhamejaa', title: 'کانال' } }) === false);
-  ok('۱۰۳.۳ و نشانِ ویدئو همان را می‌کشد', (() => { const k = CFG.YT_MARK; CFG.YT_MARK = true;
-     const m = ytMarkSpec_(); CFG.YT_MARK = k; return m && m.handle === '@azhamejaa'; })());
+  ok('۱۰۳.۳ و نشانِ ویدئو همان را می‌کشد (وقتی تنظیمِ دستی خالی است)', (() => { const k = CFG.YT_MARK, kh = CFG.YT_MARK_HANDLE;
+     CFG.YT_MARK = true; CFG.YT_MARK_HANDLE = '';
+     const m = ytMarkSpec_(); CFG.YT_MARK = k; CFG.YT_MARK_HANDLE = kh; return m && m.handle === '@azhamejaa'; })());
   const cs = fs.readFileSync('src/27_YouTube.gs', 'utf8');
   const sync = cs.slice(cs.indexOf('function ytChannelSync_'), cs.indexOf('function ytChannelStale_'));
   ok('۱۰۳.۴ و وارسیِ شناسنامه هر بار صدایش می‌زند، پیش از نگهبانِ «تازه است»',
      sync.indexOf('ytMarkRefresh_(info)') !== -1 && sync.indexOf('ytMarkRefresh_(info)') < sync.indexOf("'تازه است'"));
   delete global.__PROPS[PK.YT_MARK_ID];
+}
+
+console.log('\n=== ۱۰۴) «truce» غلط بود؛ ویدئوهای بعدی «@truth_trace1» (۸.۹۰) ===');
+{
+  const kMk = CFG.YT_MARK;
+  CFG.YT_MARK = true;
+  global.__PROPS[PK.YT_MARK_ID] = JSON.stringify({ handle: '@truce-trace', name: 'رد پای حقیقت', logoUrl: '', at: nowStr_() });
+  const m = ytMarkSpec_();
+  ok('۱۰۴.۱ با حافظهٔ کهنهٔ «truce-trace» هم نشانِ ویدئو «@truth_trace1» است', m && m.handle === '@truth_trace1', JSON.stringify(m));
+  const d = { items: [] };
+  ytRenderSave_(d);
+  ok('۱۰۴.۲ صفِ رندر شناسهٔ امروز را جدا از ردیف‌ها دارد', d.markHandle === '@truth_trace1', String(d.markHandle));
+  const R = require(require('path').resolve('tools/render.js'));
+  const q = { markHandle: '@truth_trace1', items: [
+    { key: 'a', mark: { handle: '@truce-trace' }, spec: { mark: { handle: '@truce-trace' } } },
+    { key: 'b', mark: null }, { key: 'c', mark: { handle: '@truth_trace1' } }] };
+  const n = R.brandMark(q);
+  ok('۱۰۴.۳ رانر شناسهٔ کهنهٔ ردیف‌های در صف را (نشان و کارت‌ها) عوض می‌کند و ردیفِ بی‌نشان را دست نمی‌زند',
+     n === 2 && q.items[0].mark.handle === '@truth_trace1' && q.items[0].spec.mark.handle === '@truth_trace1' &&
+     q.items[1].mark === null, String(n));
+  ok('۱۰۴.۴ شناسهٔ بدشکل در صف هیچ ردیفی را عوض نمی‌کند',
+     R.brandMark({ markHandle: 'x', items: [{ mark: { handle: '@a_b_c' } }] }) === 0);
+  ok('۱۰۴.۵ اگر یوتیوب شناسهٔ دیگری بگوید، تنظیمِ برنده کهنه اعلام می‌شود',
+     /YT_MARK_HANDLE/.test(ytMarkPinCheck_('@someone_else')) && ytMarkPinCheck_('truth_trace1') === '');
+  const rs = fs.readFileSync('tools/render.js', 'utf8');
+  const mainSrc = rs.slice(rs.indexOf('async function main') !== -1 ? rs.indexOf('async function main') : rs.indexOf('function main'));
+  ok('۱۰۴.۶ و رانر پیش از هر ساخت صدایش می‌زند', mainSrc.indexOf('brandMark(queue)') !== -1 &&
+     mainSrc.indexOf('brandMark(queue)') < mainSrc.indexOf('itemsTodo(queue'));
+  CFG.YT_MARK = kMk; delete global.__PROPS[PK.YT_MARK_ID];
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

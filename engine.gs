@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.89
+ *  موتور محتوا و پادکست — نسخهٔ 8.90
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1222,7 +1222,9 @@ var CFG = {
   YT_VIS_NARR_MAX: 24000,
   LV_VIS_RETRY_MAX: 1,
   YT_MARK: true,
-  YT_MARK_HANDLE: '',            // خالی = از خودِ یوتیوب خوانده می‌شود (customUrl)
+  /* ۸.۹۰: صاحبِ برنامه شناسه را از «@truce-trace» (غلطِ تایپی) به «@truth_trace1» برد و خواست ویدئوهای بعدی
+     همین را داشته باشند. پر بودنش یعنی برنده است؛ اگر یوتیوب روزی چیزِ دیگری بگوید، `ytMarkRefresh_` می‌گوید. */
+  YT_MARK_HANDLE: '@truth_trace1',
   YT_MARK_NAME: '',              // برای تک‌نگاره وقتی تصویرِ نشان نداریم
   YT_MARK_MOVE_SEC: 180,         // هر سه دقیقه یک گوشه، چرخشی بینِ چهار گوشه
   YT_MARK_OPACITY: 0.5,          // ۸.۴۵: «لوگو یه مقدار شفاف‌تر» — و بی مربعِ سیاه (logoClean در رانر)
@@ -2021,7 +2023,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.89',
+  CODE_VERSION: '8.90',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -48899,6 +48901,10 @@ function ytRenderRead_() {
 
 function ytRenderSave_(d) {
   d.updatedAt = nowStr_();
+  /* شناسهٔ امروزِ کانال، بیرون از ردیف‌ها (۸.۹۰): ردیفی که دیروز در صف نشست شناسهٔ دیروز را دارد؛
+     رانر این را بر نشانِ هر ردیف می‌نشاند تا ویدئوی فردا شناسهٔ کهنه نبرد. */
+  try { var mk = ytMarkSpec_(); d.markHandle = mk && mk.handle ? String(mk.handle) : String(d.markHandle || ''); }
+  catch (eMh) {}
   d.note = 'موتور نمی‌تواند ویدئو بسازد (Apps Script نه ffmpeg دارد نه مهلتِ کافی). ' +
            'این فایل را «tools/render.js» در GitHub Actions می‌خواند. برای هر ردیفِ ' +
            'status=«در انتظار»: نشانی‌های audio[].url را **به همان ترتیب** بگیر — ' +
@@ -55710,7 +55716,20 @@ function ytMarkRefresh_(info) {
   if (cached && cached.handle && cached.handle !== h) {
     logLine_('شناسهٔ کانال عوض شد: ' + cached.handle + ' ← ' + h + ' — نشانِ ویدئوهای تازه همین را می‌گیرد.');
   }
+  ytMarkPinCheck_(h);
   return true;
+}
+
+/* ══ تنظیمی که برنده است باید بگوید کی کهنه شد (۸.۹۰) ══ `YT_MARK_HANDLE` بر خوانده‌شده از یوتیوب
+   می‌چربد؛ اگر صاحبِ برنامه شناسه را دوباره عوض کند و این خانه بماند، ویدئوها شناسهٔ مرده را می‌برند —
+   همان چیزی که با «truce-trace» هفته‌ها روی ویدئوها بود. پس ناهمخوانی یک سطرِ ایمیلِ روزانه است. */
+function ytMarkPinCheck_(live) {
+  var pin = String(CFG.YT_MARK_HANDLE || '').trim().replace(/^@?/, '@');
+  var got = String(live || '').trim().replace(/^@?/, '@');
+  if (pin === '@' || got === '@' || pin.toLowerCase() === got.toLowerCase()) return '';
+  var msg = 'شناسهٔ روی ویدئوها «' + pin + '» است ولی یوتیوب «' + got + '» می‌گوید — YT_MARK_HANDLE را هم‌سان کنید.';
+  try { mailQueue_('yt-mark-pin', msg); } catch (e) {}
+  return msg;
 }
 
 /**

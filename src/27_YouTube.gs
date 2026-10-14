@@ -1481,6 +1481,10 @@ function ytRenderRead_() {
 
 function ytRenderSave_(d) {
   d.updatedAt = nowStr_();
+  /* شناسهٔ امروزِ کانال، بیرون از ردیف‌ها (۸.۹۰): ردیفی که دیروز در صف نشست شناسهٔ دیروز را دارد؛
+     رانر این را بر نشانِ هر ردیف می‌نشاند تا ویدئوی فردا شناسهٔ کهنه نبرد. */
+  try { var mk = ytMarkSpec_(); d.markHandle = mk && mk.handle ? String(mk.handle) : String(d.markHandle || ''); }
+  catch (eMh) {}
   d.note = 'موتور نمی‌تواند ویدئو بسازد (Apps Script نه ffmpeg دارد نه مهلتِ کافی). ' +
            'این فایل را «tools/render.js» در GitHub Actions می‌خواند. برای هر ردیفِ ' +
            'status=«در انتظار»: نشانی‌های audio[].url را **به همان ترتیب** بگیر — ' +
@@ -8292,7 +8296,20 @@ function ytMarkRefresh_(info) {
   if (cached && cached.handle && cached.handle !== h) {
     logLine_('شناسهٔ کانال عوض شد: ' + cached.handle + ' ← ' + h + ' — نشانِ ویدئوهای تازه همین را می‌گیرد.');
   }
+  ytMarkPinCheck_(h);
   return true;
+}
+
+/* ══ تنظیمی که برنده است باید بگوید کی کهنه شد (۸.۹۰) ══ `YT_MARK_HANDLE` بر خوانده‌شده از یوتیوب
+   می‌چربد؛ اگر صاحبِ برنامه شناسه را دوباره عوض کند و این خانه بماند، ویدئوها شناسهٔ مرده را می‌برند —
+   همان چیزی که با «truce-trace» هفته‌ها روی ویدئوها بود. پس ناهمخوانی یک سطرِ ایمیلِ روزانه است. */
+function ytMarkPinCheck_(live) {
+  var pin = String(CFG.YT_MARK_HANDLE || '').trim().replace(/^@?/, '@');
+  var got = String(live || '').trim().replace(/^@?/, '@');
+  if (pin === '@' || got === '@' || pin.toLowerCase() === got.toLowerCase()) return '';
+  var msg = 'شناسهٔ روی ویدئوها «' + pin + '» است ولی یوتیوب «' + got + '» می‌گوید — YT_MARK_HANDLE را هم‌سان کنید.';
+  try { mailQueue_('yt-mark-pin', msg); } catch (e) {}
+  return msg;
 }
 
 /**
