@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-14 06:16",
+ "updatedAt": "2026-10-14 07:11",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -1209,6 +1209,81 @@
    "bytes": 10703571,
    "parts": 1,
    "at": "2026-10-14 06:16"
+  },
+  "special:71": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71.mp4",
+   "bytes": 45222548,
+   "parts": 2,
+   "at": "2026-10-14 07:11",
+   "mode": "scenes",
+   "scenes": 34,
+   "want": 34,
+   "snapped": 24,
+   "seconds": 1256,
+   "qa": {
+    "n": 34,
+    "matched": 34,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 9,
+       "t": 178.9,
+       "own": 0.75,
+       "nb": 0.25,
+       "ok": true,
+       "heard": "با وقتی می بینم در قفل است کاملن بر حقم که بگویم از اول میدانستم.  پس دانستن گزاره نیازی به این وارسی موجدت ندارد."
+      },
+      {
+       "n": 18,
+       "t": 377.9,
+       "own": 0.35,
+       "nb": 0.18,
+       "ok": true,
+       "heard": "مورد ایراپ سنجید که تم بمن میگویت جیم اصبانیست.  تم این بار راخست میگویت ولی کلن آدم دروخ گویست."
+      },
+      {
+       "n": 42,
+       "t": 987.4,
+       "own": 0.48,
+       "nb": 0.1,
+       "ok": true,
+       "heard": "این ویدان خوست مسعلی وابستگی پنان به مفهوم سننتی توجی هست.  ویساقتیر آیان تلاش کردند بار ارزشی و هنجاری را از دوشتید."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 12,
+    "placed": 8,
+    "busy": 4,
+    "failed": 0,
+    "kinds": {
+     "headline": 5,
+     "points": 2,
+     "compare": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 29,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 17,
+    "fade": 13
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71-cover.jpg"
   }
  },
  "art": {
