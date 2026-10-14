@@ -998,4 +998,123 @@ console.log('\n=== ل) یافته‌ای که در جای اشتباه فرست�
   } finally { global.getHub_ = realGet; }
 }
 
+console.log('\n=== 8.92) دفترِ درخواست‌های صاحبِ برنامه ===');
+{
+  /* «آیا سیستم به اتوماسیونی رسیده که درخواست‌های جدیدم را بگویم و پیگیریِ اجرایشان را به ناظر بسپاری؟»
+     تعریف در ریپو، داوری از ناظر، وضع از کد — و هر روز در ایمیل. */
+  const RealDate = Date;
+  const onDay = (k, fn) => {
+    const shift = k * 86400000;
+    global.Date = class extends RealDate {
+      constructor(...a) { if (a.length) super(...a); else super(RealDate.now() + shift); }
+      static now() { return RealDate.now() + shift; }
+    };
+    try { return fn(); } finally { global.Date = RealDate; }
+  };
+  const PR = global.__PROPS;
+  delete PR[PK.REQ_CHECKS];
+  const ev = 'نشانِ ویدئوی special:72 «@truth_trace1» است';
+  // ۱) دو «درست» در یک روز یک روز است؛ روزِ دوم «انجام و سنجیده»
+  onDay(-1, () => reqIngest_({ requests: [{ id: 'R-20261014-01', verdict: 'درست', evidence: ev }] }));
+  onDay(-1, () => reqIngest_({ requests: [{ id: 'R-20261014-01', verdict: 'درست', evidence: ev }] }));
+  let m = JSON.parse(PR[PK.REQ_CHECKS]);
+  ok('8.92-1 دو داوریِ «درست» در یک روز یک روز شمرده می‌شود', m['R-20261014-01'].okDays === 1 && !m['R-20261014-01'].doneAt,
+     JSON.stringify(m['R-20261014-01']));
+  reqIngest_({ requests: [{ id: 'R-20261014-01', verdict: 'سالم', evidence: ev }] });
+  m = JSON.parse(PR[PK.REQ_CHECKS]);
+  ok('8.92-2 روزِ جدای دوم ⇒ «انجام و سنجیده» (doneAt)', m['R-20261014-01'].okDays === 2 && !!m['R-20261014-01'].doneAt);
+  // ۲) «درست» بی شاهد «نشد» است؛ «نادرست» شمار را صفر می‌کند؛ شناسهٔ بدشکل کنار می‌رود
+  const n3 = reqIngest_({ requests: [{ id: 'R-20261014-02', verdict: 'درست', evidence: '' },
+                                     { id: 'R-20261014-03', verdict: 'درست', evidence: 'سطرِ صف در health.problems نیست' },
+                                     { id: 'bad-id', verdict: 'درست', evidence: 'xxxxxxxxxxxx' }] });
+  onDay(1, () => reqIngest_({ requests: [{ id: 'R-20261014-03', verdict: 'ایراد', evidence: 'باز ۴۲ تاست' }] }));
+  m = JSON.parse(PR[PK.REQ_CHECKS]);
+  ok('8.92-3 «درست» بی شاهد «نشد» است، «نادرست» صفر می‌کند، شناسهٔ بدشکل ثبت نمی‌شود',
+     n3 === 2 && m['R-20261014-02'].v === 'نشد' && m['R-20261014-03'].v === 'نادرست' &&
+     m['R-20261014-03'].okDays === 0 && !m['bad-id'], JSON.stringify([m['R-20261014-02'], m['R-20261014-03']]));
+
+  // ۳) وضع از کد: انجام، نادرست، در راهِ نصب، کارِ شما، سنجیده‌نشده
+  const keepStub = global.__STUB, keepVer = CFG.CODE_VERSION;
+  CFG.CODE_VERSION = '8.92';
+  const defs = { requests: [
+    { id: 'R-20261014-01', at: '2026-10-14', ask: 'شناسهٔ درست', done: 'x', how: 'y', ver: '8.90' },
+    { id: 'R-20261014-03', at: '2026-10-14', ask: 'صفِ بازبینی', done: 'x', how: 'y', ver: '8.87' },
+    { id: 'R-20261014-07', at: '2026-10-14', ask: 'چیزی که هنوز نصب نشده', done: 'x', how: 'y', ver: '8.99' },
+    { id: 'R-20261014-04', at: '2026-10-14', ask: 'کاورِ پلی‌لیست', done: 'x', how: 'y', owner: true, ownerHow: 'در Studio بگذارید' },
+    { id: 'R-20261001-01', at: '2026-08-01', ask: 'کهنه و سنجیده‌نشده', done: 'x', how: 'y', ver: '8.50' },
+    { id: 'R-20261002-01', at: '2026-10-02', ask: 'بسته به تصمیمِ او', done: 'x', how: 'y', closed: true }] };
+  let fetched = 0;
+  global.__STUB = (url) => {
+    if (/requests\.json/.test(url)) { fetched++; return { code: 200, json: defs }; }
+    return keepStub ? keepStub(url) : { code: 404, text: '' };
+  };
+  _reqDefsMemo = null;
+  const st = reqStatus_();
+  const by = {}; st.items.forEach(x => { by[x.id] = x; });
+  ok('8.92-4 وضعِ هر درخواست از کد: انجام · نادرست · در راهِ نصب · کارِ شما · سنجیده‌نشده — و «بسته» شمرده نمی‌شود',
+     st.n === 5 && /انجام و سنجیده/.test(by['R-20261014-01'].state) && /^نادرست/.test(by['R-20261014-03'].state) &&
+     /در راهِ نصب/.test(by['R-20261014-07'].state) && /کارِ شما/.test(by['R-20261014-04'].state) &&
+     /سنجیده نشده/.test(by['R-20261001-01'].state) && !by['R-20261002-01'],
+     JSON.stringify(st.items.map(x => x.id + ':' + x.state)));
+  ok('8.92-5 نادرست و سنجیده‌نشده ایرادند؛ کارِ شما با «⟨شما⟩»؛ انجام‌شده و در راهِ نصب ایراد نیستند',
+     st.ok === false && st.bad === 1 && st.stale === 1 &&
+     st.problems.some(x => /R-20261014-03/.test(x) && /نادرست/.test(x)) &&
+     st.problems.some(x => /R-20261001-01/.test(x) && /سنجیده نشده/.test(x)) &&
+     st.problems.some(x => /^⟨شما⟩/.test(x) && /R-20261014-04/.test(x)) &&
+     !st.problems.some(x => /R-20261014-01|R-20261014-07/.test(x)), JSON.stringify(st.problems));
+  ok('8.92-6 سطرِ روزانه شمارش و فهرستِ بازها را دارد و انجام‌شده را در فهرست نمی‌آورد',
+     /📒 دفترِ درخواست‌های شما/.test(st.line) && /R-20261014-03/.test(st.line) &&
+     st.line.indexOf('• R-20261014-01') === -1, st.line);
+  reqStatus_();
+  ok('8.92-7 دفتر در هر اجرا یک بار از ریپو خوانده می‌شود', fetched === 1);
+  // ۴) ریپو جواب نداد ⇒ خودش ایراد است، نه سکوت
+  global.__STUB = (url) => /requests\.json/.test(url) ? { code: 404, text: 'nf' } : (keepStub ? keepStub(url) : { code: 404, text: '' });
+  _reqDefsMemo = null;
+  const sf = reqStatus_();
+  ok('8.92-8 دفترِ ناخوانده ایراد است، نه سطرِ خالی', sf.ok === false && sf.problems.length === 1 && /خوانده نشد/.test(sf.line));
+  global.__STUB = keepStub; CFG.CODE_VERSION = keepVer; _reqDefsMemo = null;
+
+  // ۵) سیم‌ها: درِ گزارش، ایمیلِ سلامت، _STATUS
+  const r12 = fs.readFileSync('src/12_Reports.gs', 'utf8'), h08 = fs.readFileSync('src/08_Health.gs', 'utf8');
+  ok('8.92-9 گزارشِ ناظر از همان درِ همیشگی داوری‌ها را می‌دهد؛ سلامت دفتر را می‌سازد و ذخیره می‌کند',
+     /monChecksIngest_\(rep, file\.getName\(\)\);[\s\S]{0,200}reqIngest_\(rep\)/.test(r12) &&
+     /var rqS = reqStatus_\(\);[\s\S]{0,120}reqStatusSave_\(rqS\)[\s\S]{0,120}notes\.push\(rqS\.line\)/.test(h08));
+  /* و _STATUS ریپو را نمی‌خوانَد: آن مسیر پس از هر تریگر می‌دود (نسخهٔ اول همین را کرد و v4 سرخ شد). */
+  ok('8.92-9-ب _STATUS نسخهٔ ذخیره‌شده را نشان می‌دهد، نه خواندنِ تازهٔ ریپو',
+     /requests: \(function \(\) \{ try \{ return reqStatusCached_\(\);/.test(h08) &&
+     !/requests: \(function \(\) \{ try \{ return reqStatus_\(\);/.test(h08));
+  const sv = reqStatusSave_({ ok: false, n: 2, done: 1, bad: 1, stale: 0, line: '📒 خط', items: [{ id: 'R-20261014-01', state: 'نادرست: ' + 'x'.repeat(200) }] });
+  const cached = reqStatusCached_();
+  ok('8.92-9-پ ذخیره و خواندنِ وضعِ دفتر: شمار، خط و وضعِ هر ردیف (کوتاه‌شده)',
+     sv === true && cached && cached.n === 2 && cached.items[0].id === 'R-20261014-01' && cached.items[0].state.length <= 90 &&
+     cached.line === '📒 خط', JSON.stringify(cached).slice(0, 200));
+  delete PR[PK.REQ_STATUS];
+
+  // ۶) دفترِ واقعیِ ریپو خوش‌شکل است
+  const real = JSON.parse(fs.readFileSync('docs/requests.json', 'utf8')).requests;
+  const ids = real.map(x => x.id);
+  ok('8.92-10 docs/requests.json: شناسه‌های یکتا و خوش‌شکل، هر ردیف ask/done/how، و هر غیرِ «کارِ شما» نسخه دارد',
+     real.length >= 1 && new Set(ids).size === ids.length && ids.every(x => /^R-\d{8}-\d{2}$/.test(x)) &&
+     real.every(x => x.ask && x.done && x.how && (x.owner || x.ver)),
+     ids.join(','));
+
+  // ۷) سقفِ ۹ کیلوبایتیِ Property: یادداشت کوتاه می‌شود، کلید و داوری نه
+  const big = {};
+  for (let i = 0; i < 40; i++) big['k' + i] = { at: '2026-10-14 10:00', verdict: 'سالم', note: 'یادداشتِ بلند '.repeat(25) };
+  const js = propFit_(big, 'note');
+  const back = JSON.parse(js);
+  ok('8.92-11 بیش از سقف ⇒ یادداشت‌ها کوتاه می‌شوند تا زیرِ ۸٫۶ کیلوبایت، همهٔ کلیدها و داوری‌ها می‌مانند',
+     Buffer.byteLength(js, 'utf8') <= 8600 && Object.keys(back).length === 40 && back.k39.verdict === 'سالم',
+     Buffer.byteLength(js, 'utf8') + ' بایت');
+  // ۸) قراردادِ دو طرف: دستورِ ناظر همان شکلی را می‌خواهد که موتور می‌خوانَد
+  const pdir = 'docs/prompts';
+  const mons = fs.readdirSync(pdir).map(f => /^_PROMPT-monitor-v(\d+)\.md$/.exec(f)).filter(Boolean)
+    .sort((a, b) => Number(b[1]) - Number(a[1]));
+  const mon = fs.readFileSync(pdir + '/' + mons[0][0], 'utf8');
+  ok('8.92-12 تازه‌ترین دستورِ ناظر «requests» با id/verdict/evidence و `docs/requests.json` را دارد',
+     /"requests":\[\{"id":"R-\d{8}-\d{2}","verdict":"درست\|نادرست\|نشد","evidence"/.test(mon) &&
+     mon.indexOf('docs/requests.json') !== -1, mons[0][0]);
+  delete PR[PK.REQ_CHECKS];
+}
+
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');

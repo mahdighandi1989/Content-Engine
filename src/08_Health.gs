@@ -534,6 +534,9 @@ function writeStatus_(hub, note) {
        می‌شود؛ یافته‌اش در healthCheck ساخته می‌شود تا writeStatus_ که هر دو
        ساعت می‌دود، هر دو ساعت یک ردیف نسازد. */
     monChecks: (function () { try { return monChecksStatus_(null, false); } catch (e) { return null; } })(),
+    /* دفترِ درخواست‌ها (۸.۹۲) — **نسخهٔ ذخیره‌شدهٔ وارسیِ سلامت**، نه خواندنِ ریپو: این‌جا داغ‌ترین مسیرِ
+       موتور است و پس از هر تریگر می‌دود. نسخهٔ اول از همین‌جا ریپو را می‌خواند و v4 سرخ شد. */
+    requests: (function () { try { return reqStatusCached_(); } catch (e) { return null; } })(),
     srcQuality: (function () { try { return sqStatus_(); } catch (e) { return null; } })(),
     speakReview: (function () { try { return speakReviewStatus_(); } catch (e) { return null; } })(),
     speakSkip: (function () { try { return speakSkipStatus_(); } catch (e) { return null; } })(),
@@ -2320,6 +2323,13 @@ function healthCheck() {
   } catch (eRj2) {}
   /* وارسی‌های روزانهٔ ناظر — هر روز یک سطر، حتی وقتی همه گزارش شده‌اند.
      این تنها جایی است که «وارسی نشد» می‌تواند دیده شود. */
+  /* دفترِ درخواست‌های صاحبِ برنامه (۸.۹۲) — هر روز یک سطر، و هر درخواستِ نادرست یا سنجیده‌نشده یک ایراد. */
+  try {
+    var rqS = reqStatus_();
+    try { reqStatusSave_(rqS); } catch (eRs) {}
+    if (rqS && rqS.line) notes.push(rqS.line);
+    if (rqS && rqS.problems) for (var rq = 0; rq < rqS.problems.length; rq++) problems.push(rqS.problems[rq]);
+  } catch (eRq) {}
   try {
     var mcS = monChecksStatus_(hub, true);
     if (mcS && mcS.line) { if (mcS.ok) notes.push(mcS.line); else problems.push(mcS.line); }

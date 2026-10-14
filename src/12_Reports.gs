@@ -472,6 +472,8 @@ function ingestOneReport_(hub, sh, state, file) {
   try {
     var nChk = monChecksIngest_(rep, file.getName());
     try { codeTaskIngest_(rep); } catch (eCt) {}
+    try { var nReq = reqIngest_(rep); if (nReq) logLine_('گزارش نظارت: ' + nReq + ' داوری روی دفترِ درخواست‌ها.'); }
+    catch (eRq) {}
     if (nChk) logLine_('گزارش نظارت: ' + nChk + ' وارسیِ روزانه ثبت شد.');
   } catch (eChk) {}
 
@@ -998,7 +1000,29 @@ function monChecksLoad_() {
 }
 
 function monChecksSave_(m) {
-  try { props_().setProperty(PK.MON_CHECKS, JSON.stringify(m)); } catch (e) {}
+  try { props_().setProperty(PK.MON_CHECKS, propFit_(m, 'note')); } catch (e) {
+    logLine_('وارسی‌های ناظر ذخیره نشد: ' + String(e.message).slice(0, 120));
+  }
+}
+
+/* ══ سقفِ ۹ کیلوبایتیِ هر Property (۸.۹۲) ══
+   `MONITOR_CHECKS_SEEN` به ۶٫۸ کیلوبایت رسیده بود و نوشتنِ بیش از سقف **بی‌صدا** شکست می‌خورد
+   (`catch` خالی) — یعنی روزی همهٔ وارسی‌های ناظر ثبت نمی‌شدند و هیچ‌چیز نمی‌گفت. پیش از نوشتن، اگر
+   از سقف می‌گذرد، یادداشت‌ها (`field`) از بلندترین کوتاه می‌شوند؛ کلیدها و داوری‌ها هرگز. */
+function propFit_(m, field) {
+  var LIM = 8600, js = JSON.stringify(m);
+  var bytes = function (t) { return Utilities.newBlob(t).getBytes().length; };
+  var cut = 200;
+  while (bytes(js) > LIM && cut >= 0) {
+    for (var k in m) {
+      if (m[k] && typeof m[k] === 'object' && typeof m[k][field] === 'string' && m[k][field].length > cut) {
+        m[k][field] = m[k][field].slice(0, cut);
+      }
+    }
+    js = JSON.stringify(m);
+    cut -= 50;
+  }
+  return js;
 }
 
 /**
@@ -1053,6 +1077,154 @@ function monChecksIngest_(rep, fileName) {
   }
   if (n || touched) monChecksSave_(m);
   return n;
+}
+
+/* ═══════════════════════ دفترِ درخواست‌های صاحبِ برنامه (۸.۹۲) ═══════════════════════
+ * صاحبِ برنامه پرسید: «آیا سیستم به اتوماسیونی رسیده که درخواست‌های جدیدم را بگویم، انجام بدهی و پیگیریِ
+ * اجرایشان را به ناظر بسپاری؟» جوابِ راست «بیشترش» بود: ناظر فقط چیزی را می‌پایید که در فهرستِ وارسی‌هایش
+ * نوشته شده بود، پس خواسته‌ای که کدش نصب شد، از فردایش زیرِ نظرِ هیچ‌کس نبود.
+ *
+ * سه نقش، سه جا — و هیچ‌کدام کارِ دیگری را نمی‌کند:
+ *  • **تعریف** در ریپو (`docs/requests.json`)، با همان commitی که کدِ درخواست را می‌آورد: خواسته به زبانِ او
+ *    (`ask`)، معیارِ سنجش‌پذیرِ «انجام شد» (`done`)، و جایی که شاهد هست (`how`).
+ *  • **داوری** از ناظر، از همان درِ همیشگی (`_REPORT-*.json` → `requests`)، با شاهد.
+ *  • **وضع** را کد حساب می‌کند، نه مدل: «انجام و سنجیده» یعنی `REQ_OK_DAYS` روزِ **جدا** «درست»؛ یک
+ *    «نادرست» شمار را صفر می‌کند؛ درخواستِ نصب‌شده‌ای که سنجیده نشد، خودش ایراد است.
+ * و هر روز در ایمیلِ ۱۰ صبح — چون او شیت باز نمی‌کند (۵.۹۰).
+ */
+var _reqDefsMemo = null;
+function reqDefs_() {
+  if (_reqDefsMemo !== null) return _reqDefsMemo;
+  _reqDefsMemo = { ok: false, list: [], why: '' };
+  try {
+    var res = UrlFetchApp.fetch(githubRawUrl_(CFG.REQ_FILE || 'docs/requests.json'),
+                                { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) { _reqDefsMemo.why = 'دریافت نشد (' + res.getResponseCode() + ')'; return _reqDefsMemo; }
+    var d = JSON.parse(res.getContentText());
+    var arr = (d && d.requests) || [];
+    if (Object.prototype.toString.call(arr) !== '[object Array]') { _reqDefsMemo.why = 'requests فهرست نیست'; return _reqDefsMemo; }
+    _reqDefsMemo = { ok: true, list: arr.filter(function (r) { return r && /^R-\d{8}-\d{2}$/.test(String(r.id || '')); }), why: '' };
+  } catch (e) { _reqDefsMemo.why = String(e.message).slice(0, 120); }
+  return _reqDefsMemo;
+}
+
+function reqLoad_() {
+  try { return JSON.parse(props_().getProperty(PK.REQ_CHECKS) || '{}') || {}; } catch (e) { return {}; }
+}
+
+/** «درست/سالم» → درست · «نادرست/ایراد» → نادرست · بقیه → نشد. داوریِ بی‌شاهد «درست» شمرده نمی‌شود. */
+function reqVerdict_(v, ev) {
+  var t = String(v || '').trim();
+  if (/^(نادرست|ایراد)/.test(t)) return 'نادرست';
+  if (/^(درست|سالم)/.test(t)) return String(ev || '').trim().length >= 8 ? 'درست' : 'نشد';
+  return 'نشد';
+}
+
+/**
+ * داوری‌های `requests`ِ یک گزارش را ثبت می‌کند. شکل:
+ *   "requests":[{"id":"R-20261014-01","verdict":"درست|نادرست|نشد","evidence":"…"}]
+ * دو داوری در یک روز یک روز است؛ «نادرست» شمارِ روزهای درست را صفر می‌کند.
+ */
+function reqIngest_(rep) {
+  var arr = (rep && rep.requests) || [];
+  if (Object.prototype.toString.call(arr) !== '[object Array]' || !arr.length) return 0;
+  var m = reqLoad_(), n = 0, now = nowStr_(), today = now.slice(0, 10);
+  for (var i = 0; i < arr.length && i < 60; i++) {
+    var c = arr[i] || {};
+    var id = String(c.id || '').trim();
+    if (!/^R-\d{8}-\d{2}$/.test(id)) continue;
+    var prev = m[id] || {};
+    var ev = String(c.evidence || c.note || '').trim();
+    var v = reqVerdict_(c.verdict, ev);
+    var rec = { at: now, v: v, ev: ev.slice(0, 220), n: (Number(prev.n) || 0) + 1 };
+    if (v === 'درست') {
+      var was = prev.v === 'درست';
+      rec.okDays = !was ? 1 : (String(prev.okDay || '') === today ? (Number(prev.okDays) || 1) : (Number(prev.okDays) || 1) + 1);
+      rec.okDay = today;
+      if (prev.doneAt) rec.doneAt = prev.doneAt;
+      if (!rec.doneAt && rec.okDays >= Math.max(1, Number(CFG.REQ_OK_DAYS) || 2)) rec.doneAt = now;
+    } else {
+      rec.okDays = 0;                       // نادرست/نشد ⇒ «سنجیده» از نو
+      if (v === 'نشد' && prev.v === 'درست') { rec.okDays = Number(prev.okDays) || 0; rec.okDay = prev.okDay; rec.doneAt = prev.doneAt; }
+    }
+    m[id] = rec;
+    n++;
+  }
+  if (n) {
+    try { props_().setProperty(PK.REQ_CHECKS, propFit_(m, 'ev')); }
+    catch (e) { logLine_('داوری‌های دفترِ درخواست‌ها ذخیره نشد: ' + String(e.message).slice(0, 120)); }
+  }
+  return n;
+}
+
+/** وضعِ هر درخواست — از تعریفِ ریپو و داوری‌های ثبت‌شده، با کد. */
+function reqStatus_() {
+  var fa = function (x) { try { return faDigitsOut_(String(x)); } catch (e) { return String(x); } };
+  var defs = reqDefs_();
+  var out = { ok: true, n: 0, done: 0, half: 0, bad: 0, stale: 0, waiting: 0, owner: 0, items: [], line: '', problems: [] };
+  if (!defs.ok) {
+    out.ok = false;
+    out.line = '📒 دفترِ درخواست‌های شما خوانده نشد (' + (defs.why || 'نامعلوم') + ') — یعنی امروز هیچ درخواستی پیگیری نشد.';
+    out.problems.push(out.line);
+    return out;
+  }
+  var m = reqLoad_(), need = Math.max(1, Number(CFG.REQ_OK_DAYS) || 2), staleD = Math.max(1, Number(CFG.REQ_STALE_DAYS) || 2);
+  var running = String(CFG.CODE_VERSION || '');
+  var age = function (at) { var t = parseWhen_(String(at || '')); return isNaN(t) ? null : Math.floor((new Date().getTime() - t) / 86400000); };
+  for (var i = 0; i < defs.list.length; i++) {
+    var d = defs.list[i], rec = m[d.id] || null;
+    if (d.closed) continue;                                    // بسته به تصمیمِ صاحبِ برنامه
+    out.n++;
+    var it = { id: d.id, ask: String(d.ask || '').slice(0, 90), state: '', ev: rec ? String(rec.ev || '') : '', at: rec ? rec.at : '' };
+    if (rec && rec.okDays >= need && rec.v !== 'نادرست') { it.state = 'انجام و سنجیده شد'; out.done++; }
+    else if (d.ver && running && verCmp_(d.ver, running) > 0) { it.state = 'در راهِ نصب (' + d.ver + ')'; out.waiting++; }
+    else if (rec && rec.v === 'نادرست') {
+      it.state = 'نادرست: ' + String(rec.ev || '').slice(0, 120); out.bad++;
+      out.problems.push('📒 درخواستِ ' + d.id + ' («' + it.ask + '») — ناظر نادرست دید: ' + String(rec.ev || '').slice(0, 160));
+    } else {
+      var since = rec ? age(rec.at) : age(d.at);
+      if (d.owner && !(rec && rec.v === 'درست')) { it.state = 'کارِ شما' + (d.ownerHow ? ' — ' + String(d.ownerHow).slice(0, 120) : ''); out.owner++; }
+      else if (rec && rec.v === 'درست') { it.state = 'یک روز درست دیده شد؛ روزِ دوم مانده'; out.half++; }
+      else { it.state = rec ? 'ناظر نتوانست بسنجد' + (rec.ev ? ' (' + String(rec.ev).slice(0, 80) + ')' : '') : 'هنوز سنجیده نشده'; }
+      if (!d.owner && !(rec && rec.v === 'درست') && since !== null && since >= staleD) {
+        out.stale++;
+        out.problems.push('📒 درخواستِ ' + d.id + ' («' + it.ask + '») ' + fa(since) + ' روز است سنجیده نشده — ' +
+                          'ناظر باید آن را با شاهد «درست» یا «نادرست» بزند.');
+      } else if (d.owner && !(rec && rec.v === 'درست')) {
+        out.problems.push((typeof HY_ === 'string' ? HY_ : '') + 'درخواستِ ' + d.id + ': ' + it.ask +
+                          (d.ownerHow ? ' — ' + String(d.ownerHow).slice(0, 160) : ''));
+      }
+    }
+    out.items.push(it);
+  }
+  out.ok = !out.bad && !out.stale;
+  var parts = [];
+  if (out.done) parts.push(fa(out.done) + ' انجام و سنجیده');
+  if (out.half) parts.push(fa(out.half) + ' منتظرِ روزِ دومِ سنجش');
+  if (out.waiting) parts.push(fa(out.waiting) + ' در راهِ نصب');
+  if (out.owner) parts.push(fa(out.owner) + ' کارِ شما');
+  if (out.bad) parts.push(fa(out.bad) + ' نادرست');
+  if (out.stale) parts.push(fa(out.stale) + ' سنجیده‌نشده');
+  var rest = out.n - out.done - out.half - out.waiting - out.owner - out.bad - out.stale;
+  if (rest > 0) parts.push(fa(rest) + ' در انتظارِ سنجشِ ناظر');
+  out.line = '📒 دفترِ درخواست‌های شما: ' + fa(out.n) + ' درخواست' + (parts.length ? ' — ' + parts.join('، ') : '') + '.' +
+    out.items.filter(function (x) { return x.state !== 'انجام و سنجیده شد'; }).slice(0, 12)
+      .map(function (x) { return '\n• ' + x.id + ' «' + x.ask + '» — ' + x.state; }).join('');
+  return out;
+}
+
+/** وضعِ دفتر را فشرده نگه می‌دارد تا `_STATUS.json` بی خواندنِ ریپو آن را داشته باشد. */
+function reqStatusSave_(st) {
+  if (!st) return false;
+  var c = { at: nowStr_(), ok: !!st.ok, n: st.n, done: st.done, half: st.half, bad: st.bad, stale: st.stale,
+            waiting: st.waiting, owner: st.owner, line: String(st.line || '').slice(0, 1800),
+            items: (st.items || []).map(function (x) { return { id: x.id, state: String(x.state || '').slice(0, 90) }; }) };
+  try { props_().setProperty(PK.REQ_STATUS, propFit_({ c: c }, 'line').replace(/^\{"c":/, '').replace(/\}$/, '')); return true; }
+  catch (e) { logLine_('وضعِ دفترِ درخواست‌ها ذخیره نشد: ' + String(e.message).slice(0, 120)); return false; }
+}
+
+function reqStatusCached_() {
+  try { return JSON.parse(props_().getProperty(PK.REQ_STATUS) || 'null'); } catch (e) { return null; }
 }
 
 /** چند روز از آخرین گزارشِ این وارسی گذشته — و «هرگز» را از «دیروز» جدا می‌کند. */
