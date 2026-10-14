@@ -751,6 +751,20 @@ console.log('\n=== ۱۶. شنیدنِ دوباره ===');
   ok('۱۶.۱ فقط ناهمخوانیِ بندِ متن می‌مانَد؛ اصلاحِ با حروفِ دیگر کنار می‌رود',
      tr.length === 2 && tr[0].fix === 'بِ‌ایستیم' && tr[1].word === 'دور' && tr[1].fix === '', JSON.stringify(tr));
 
+  /* ۸.۹۱ — هم‌آوا: «تحدید» شنیده‌شده به‌صورتِ «تهدید» یک صداست، نه بدخوانی؛ اعرابِ دیگر روی همان حروف خطاست. */
+  const hm = ttsListenTrim_([
+    { word: 'تَحْدید', heard: 'تهدید', kind: 'تلفظ' },
+    { word: 'نَقْض', heard: 'نقص', kind: 'تلفظ' },
+    { word: 'هَجو', heard: 'حجو', kind: 'تلفظ' },
+    { word: 'وثاقت', heard: 'وساقت', kind: 'تلفظ' },
+    { word: 'تُوجیه', heard: 'تَوجیه', kind: 'تلفظ' },
+    { word: 'آئُودی', heard: 'اودی', kind: 'تلفظ' },
+    { word: 'بازنَشر', heard: 'بازنَش', kind: 'تلفظ' }
+  ], 'مرزِ تَحْدید و نَقْض و هَجو و وثاقت و تُوجیه و آئُودی و بازنَشر');
+  /* «نقض» (ز) و «نقص» (س) دو صدایند — هم‌آوا نیستند و خطا می‌مانَد. */
+  ok('۱۶.۱-ب هم‌آواها (تحدید/تهدید، هجو/حجو، وثاقت/وساقت) خطا نیستند؛ نقض/نقص، اعراب و حرفِ افتاده هستند',
+     hm.map(x => x.word).join(',') === 'نَقْض,تُوجیه,آئُودی,بازنَشر', JSON.stringify(hm.map(x => x.word)));
+
   const keep = { gs: global.geminiShort_, tts: global.ttsChunkTry_, learn: global.speakLearn_, f: global.logSelfFinding_ };
   const pcm = Utilities.base64Encode(new Array(4800).fill(0));
   let answers = [], asked = 0, ttsIn = [], learned = [], finds = [];

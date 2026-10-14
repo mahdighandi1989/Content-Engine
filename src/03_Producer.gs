@@ -1475,6 +1475,10 @@ function ttsListenTrim_(errs, text) {
       var wl = speakLetters_(w);
       if (!wl || bone.indexOf(wl) === -1) continue;      // در متن نیست ⇒ ساختگی
       if (k === 'تلفظ' && (!h || h === w)) continue;     // «همان را شنیدم» خطا نیست
+      /* هم‌آوا خطا نیست (۸.۹۱): شنونده صدا را «می‌نویسد» و برای «تَحدید» می‌نویسد «تهدید» — در فارسی هر دو
+         یک صدایند. ۱۴ اکتبر از ۸ «خطای مانده» دستِ‌کم دو تا همین بود («نقض/نقص»، «تحدید/تهدید») و هر کدام یک
+         بار ساختِ دوباره خرج کرده بود. حروفِ یکسان با اعرابِ دیگر (توجیه/تُوجیه) خطای واقعی است و می‌ماند. */
+      if (k === 'تلفظ' && h && speakLetters_(h) !== wl && ttsSoundKey_(h) === ttsSoundKey_(w)) continue;
     } else if (!h) continue;
     if (f && speakLetters_(f) !== speakLetters_(w)) f = '';   // اصلاح باید همان حروف باشد
     var key = k + '|' + w;
@@ -1483,6 +1487,13 @@ function ttsListenTrim_(errs, text) {
     out.push({ word: w.slice(0, 40), heard: h.slice(0, 40), kind: k, fix: f.slice(0, 60) });
   }
   return out;
+}
+
+/** کلیدِ صدا: حروفی که در فارسی یک صدا دارند یکی می‌شوند — برای بازشناختنِ هم‌آواها، نه برای مقایسهٔ متن. */
+function ttsSoundKey_(t) {
+  return speakLetters_(t).replace(/[ح]/g, 'ه').replace(/[ثص]/g, 'س').replace(/[ذضظ]/g, 'ز')
+    .replace(/[ط]/g, 'ت').replace(/[غ]/g, 'ق').replace(/[عءأإآئ]/g, 'ا').replace(/[ة]/g, 'ه')
+    .replace(/[ي]/g, 'ی').replace(/[ك]/g, 'ک');
 }
 
 /** متنِ تکه با شکلِ روشن‌ترِ واژه‌های بدخوانده — فقط جایی که حروف یکی است. */
