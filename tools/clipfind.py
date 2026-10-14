@@ -25,22 +25,58 @@ def read_wav(path):
         raw = w.readframes(w.getnframes())
     return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
 
+def _sim(a, b):
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a, b).ratio()
+
+def _score(win, q):
+    """هم‌پوشانیِ **نزدیک**، نه عینی (۸.۹۸). نمونهٔ ۷۲: whisperِ small روی صدای پرسروصدا «باید
+    بپذیرم بخش بسیاری از جامعه» را «باید ببزیرن بخشر بسیاریات جامه» شنید — جای درست، واژه‌های کج.
+    شمارشِ واژهٔ عینی ۰٫۱۱ داد و «پیدا نشد» شد؛ هر شش کلیپِ نمونه همین‌طور، و هر سه لحظه با آن‌ها.
+    هر واژهٔ عبارت با نزدیک‌ترین واژهٔ پنجره، به نسبتِ نویسه‌ای (زیرِ ۰٫۶ صفر)، وزن‌دار به درازای واژه.
+    سنجیده روی پنج کلیپِ واقعی: عبارتِ درست ۰٫۶۶ تا ۰٫۷۸ در برابرِ ۰٫۲۴ تا ۰٫۲۹ جاهای دیگرِ همان کلیپ؛
+    جملهٔ ساختگی تا ۰٫۴۷ (در کلیپِ ۴۶۱ ثانیه‌ای — هرچه کلیپ درازتر، کفِ نویز بالاتر). مقایسهٔ نویسه‌ایِ
+    کلِ پنجره هم آزموده شد و کنار رفت: ساختگی را تا ۰٫۴۶ می‌بُرد."""
+    ws = [w for w, _, _ in win]
+    tot = 0.0
+    W = 0.0
+    for t in q:
+        wt = max(1, len(t) - 1)                 # «با» و «که» همه‌جا جورند؛ واژهٔ بلند شاهدِ بیشتری است
+        W += wt
+        b = max(_sim(t, w) for w in ws)
+        tot += wt * b if b >= 0.6 else 0.0
+    return tot / W
+
 def best_window(words, quote):
-    """words: [(w, start, end)] · بهترین پنجرهٔ هم‌طولِ عبارت (±۳۰٪) با بیشترین واژهٔ مشترک."""
+    """words: [(w, start, end)] · بهترین پنجرهٔ هم‌طولِ عبارت (±۳۰٪)، و **دومین** پنجرهٔ بی‌هم‌پوشانی.
+    بازگشت: (score, start, end, second) یا None."""
     q = norm(quote)
     if not q or not words:
         return None
-    qs = set(q)
     n = len(q)
-    best = None
+    cand = []
     for L in sorted(set([max(2, int(n * 0.7)), n, int(n * 1.3) + 1])):
         for i in range(0, max(1, len(words) - L + 1)):
             win = words[i:i + L]
-            hit = len(set(w for w, _, _ in win) & qs)
-            score = hit / float(len(qs))
-            if best is None or score > best[0]:
-                best = (score, win[0][1], win[-1][2])
-    return best
+            cand.append((_score(win, q), win[0][1], win[-1][2]))
+    cand.sort(key=lambda c: -c[0])
+    best = cand[0]
+    second = 0.0
+    for c in cand[1:]:
+        if c[2] <= best[1] or c[1] >= best[2]:
+            second = c[0]
+            break
+    return (best[0], best[1], best[2], second)
+
+def accept(bw):
+    """پذیرش: ≥ ۰٫۵۵ **و** آشکارا بهتر از هر جای دیگرِ کلیپ (۱٫۵ برابرِ دومی) — یا آن‌قدر روشن (≥ ۰٫۷)
+    که تکرارِ همان جمله در کلیپ (ترجیع‌بند) مانعش نشود. جای غلط بدتر از آغازِ کلیپ است: کلیپِ آرشیوی
+    که بهترینش روی جای غلط افتاده بود، و کلیپِ ۴۶۱ ثانیه‌ای که جای درستش ۰٫۵۴ و جای دیگرش ۰٫۴۷ بود، هر دو
+    رد می‌شوند — «از آغاز» با یادداشت، نه حدس."""
+    if not bw:
+        return False
+    s, second = bw[0], bw[3]
+    return s >= 0.55 and (s >= 1.5 * second or s >= 0.7)
 
 def main():
     reqs = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -76,10 +112,12 @@ def main():
             bw = best_window(cache[f], quote)
             if not bw:
                 out[i] = {'found': False, 'why': 'گفتاری در کلیپ شنیده نشد'}
-            elif bw[0] < 0.5:
-                out[i] = {'found': False, 'score': round(bw[0], 2), 'why': 'عبارت در گفتارِ کلیپ پیدا نشد'}
+            elif not accept(bw):
+                out[i] = {'found': False, 'score': round(bw[0], 2), 'second': round(bw[3], 2),
+                          'why': 'عبارت در گفتارِ کلیپ پیدا نشد (' + str(round(bw[0], 2)) + ' در برابرِ ' + str(round(bw[3], 2)) + ')'}
             else:
-                out[i] = {'found': True, 'from': round(bw[1], 2), 'to': round(bw[2], 2), 'score': round(bw[0], 2), 'why': ''}
+                out[i] = {'found': True, 'from': round(bw[1], 2), 'to': round(bw[2], 2), 'score': round(bw[0], 2),
+                          'second': round(bw[3], 2), 'why': ''}
         except Exception as e:
             out[i] = {'found': False, 'why': 'شنیدن نشد: ' + str(e)[:80]}
     print(json.dumps(out, ensure_ascii=False))

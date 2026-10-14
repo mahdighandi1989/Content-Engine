@@ -317,6 +317,12 @@ console.log('=== ۱۰) نمونهٔ یک‌باره روی قسمتِ منتشر
   ok('۱۰.۴ ساخته شد ⇒ نشانی به تلگرام و ردیف «رسید»', r2 && r2.told && tg.length === 1 && /variety-72-\.mp4/.test(tg[0]) &&
      ytRenderRead_().items.find(x => x.key === 'variety:72-نمونه').status === 'رسید', tg[0]);
   ok('۱۰.۵ و یک بار — نه هر ساعت', vmSampleTick_() === null && tg.length === 1);
+  CFG.VM_SAMPLE = { ep: '72', folderId: 'EPS', rev: 2 };
+  const r3 = vmSampleTick_();
+  const row3 = ytRenderRead_().items.find(x => x.key === 'variety:72-2-نمونه');
+  ok('۱۰.۹ نمونهٔ دوم (rev) با کلیدِ تازه دوباره ساخته می‌شود، و برداشت هنوز ردش می‌کند (پایانِ «-نمونه»)',
+     r3 && r3.asked && built === 2 && row3 && row3.media === true && /-نمونه$/.test(row3.key) &&
+     ytRenderRead_().items.find(x => x.key === 'variety:72-نمونه').status === 'رسید', JSON.stringify(r3));
   CFG.VM_SAMPLE = null;
   ok('۱۰.۶ تنظیمِ خالی ⇒ هیچ', vmSampleTick_() === null);
   CFG.VM_SAMPLE = kSample;
@@ -326,6 +332,34 @@ console.log('=== ۱۰) نمونهٔ یک‌باره روی قسمتِ منتشر
   ok('۱۰.۸ برداشتِ ویدئوها ردیفِ نمونه را برنمی‌دارد (mp4ِ دوم در پوشهٔ قسمتِ منتشرشده نمی‌نشیند)',
      /if \(\/-نمونه\$\/\.test\(String\(pend\[i\]\.key \|\| ''\)\)\) continue;\s*\n\s*var rec = ytRenderBuilt_/.test(y27));
   ok('۱۰.۷ درِ ساعتی صدایش می‌زند', /try \{ vmSampleTick_\(\); \}/.test(vb));
+}
+
+console.log('=== ۱۱) آغازِ ویدئو: کاورِ کوتاه و پیش‌نمایش از رسانه‌های خودِ قسمت (۸.۹۸) ===');
+{
+  /* نمونهٔ واقعیِ قسمتِ ۷۲: نخستین رسانه سرِ ۵۹٫۷ و تمامِ آن یک دقیقه فقط کاور ماند. */
+  const R = [
+    { t0: 59.7, fileId: 'A', media: { kind: 'video', quote: 'x' } },
+    { t0: 174.6, fileId: 'B', media: { kind: 'video', quote: 'y' } },
+    { t0: 309.9, fileId: 'C', media: { kind: 'photo', quote: '' } },
+    { t0: 335.8, fileId: 'A', media: { kind: 'video', quote: '' } },
+    { t0: 396.8, fileId: 'D', media: { kind: 'video', quote: '' } }];
+  const L = vmLead_(R, 'COV');
+  ok('۱۱.۱ کاور از صفر، و حداکثر VM_INTRO_SEC', L[0].fileId === 'COV' && L[0].t0 === 0 && L[0].media.intro &&
+     L[1].t0 === CFG.VM_INTRO_SEC, JSON.stringify(L.slice(0, 2)));
+  const T = L.slice(1);
+  ok('۱۱.۲ باقیِ پیش از نخستین رسانه پیش‌نمایش است، هر کدام از رسانه‌های همین قسمت و نشان‌دار',
+     T.length >= 4 && T.every(x => x.media.teaser && x.media.quote === '' && 'ABCD'.indexOf(x.fileId) !== -1) &&
+     T[T.length - 1].t0 < 59.7, JSON.stringify(T));
+  ok('۱۱.۳ هر رسانه یک بار در پیش‌نمایش (A دو بار در قسمت است)', new Set(T.map(x => x.fileId)).size === T.length);
+  ok('۱۱.۴ هیچ صحنهٔ پیش‌نمایش کوتاه‌تر از VM_TEASER_SEC نیست',
+     T.every((x, i) => ((i + 1 < T.length ? T[i + 1].t0 : 59.7) - x.t0) >= CFG.VM_TEASER_SEC - 0.05));
+  ok('۱۱.۵ فاصلهٔ کوتاه ⇒ فقط کاور', JSON.stringify(vmLead_([{ t0: 12, fileId: 'A', media: { kind: 'video' } }], 'COV').map(x => x.fileId)) === '["COV"]');
+  ok('۱۱.۶ آغازِ زودهنگام ⇒ هیچ', vmLead_([{ t0: 3, fileId: 'A', media: { kind: 'video' } }], 'COV').length === 0);
+  ok('۱۱.۷ بی کاور هم پیش‌نمایش از صفر', (function () { const z = vmLead_(R, ''); return z[0].t0 === 0 && z[0].media.teaser; })());
+  const sk = fs.readFileSync('tools/scenekit.js', 'utf8'), rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۱.۸ scenekit نشانِ teaser را نگه می‌دارد و رانر کلیپِ پیش‌نمایش را از میانه می‌بُرد',
+     /teaser: !!v\.teaser/.test(sk) && /s\.media && s\.media\.teaser\) \{[\s\S]{0,200}g\.info\.dur \* 0\.45/.test(rj));
+  ok('۱۱.۹ vmBuild_ آغاز را از vmLead_ می‌گیرد', /var lead = vmLead_\(ready, d\.cover && d\.cover\.fileId\);/.test(fs.readFileSync('src/37_VarietyMedia.gs', 'utf8')));
 }
 
 console.log('=== ۸) سیم‌کشی: هر دو در و یک تعریف ===');

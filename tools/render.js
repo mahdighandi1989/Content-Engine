@@ -730,7 +730,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
       /* لحظهٔ همین کلیپ درونِ همین صحنه ⇒ کلیپِ بی‌صدا طوری شروع می‌شود که **درست سرِ لحظه** به
          آغازِ تکهٔ با‌صدا برسد؛ لحظه همان‌جا با صدا ادامه‌اش می‌دهد و پس از آن، تصویر از **پسِ**
          همان تکه پی گرفته می‌شود — پیوسته، بی تکرار. */
-      const mc = moCut.find(c => c.ok && c.url === s.url && c.m.at >= s.t0 - 0.6 && c.m.at < end);
+      const mc = !(s.media && s.media.teaser) && moCut.find(c => c.ok && c.url === s.url && c.m.at >= s.t0 - 0.6 && c.m.at < end);
       let from = 0, skip = null;
       if (mc) {
         const rel = Math.max(0, mc.m.at - s.t0);
@@ -741,6 +741,9 @@ function prepMedia(it, scenes, dir, notes, placed) {
         from = Math.max(0, Number(h.from) - MKIT.MK.lead);
         if (from + want > g.info.dur) from = Math.max(0, g.info.dur - want);
         st.found++;
+      } else if (s.media && s.media.teaser) {
+        /* پیش‌نمایشِ آغاز (۸.۹۸): از میانهٔ کلیپ، نه از جایی که صحنهٔ اصلی‌اش بعداً نشان می‌دهد. */
+        from = Math.max(0, Math.min(g.info.dur - want, g.info.dur * 0.45));
       } else {
         /* بی عبارت یا نشنیده ⇒ از آغاز؛ کلیپِ بلند از ثانیهٔ اول، تا قابِ سیاهِ آغاز نیاید. */
         from = g.info.dur > 8 ? 1 : 0;

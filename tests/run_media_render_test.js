@@ -142,6 +142,37 @@ console.log('=== ۳) سرتاسری: ویدئوی رسانه‌ای با یک ل
   console.log('    (ساخت ' + sec + ' ثانیه)');
 }
 
+console.log('=== ۵) یافتنِ عبارت در گفتارِ کلیپ — روی شنیده‌های واقعی (۸.۹۸) ===');
+{
+  /* نمونهٔ ۷۲: شش کلیپ، هر شش «پیدا نشد» و هر سه لحظه با آن‌ها. واژه‌های این‌جا همان است که whisperِ
+     small روی رانر از چهار کلیپِ واقعی شنید؛ پایتونِ رانر (clipfind.py) خودش داوری می‌کند. */
+  const fx = JSON.parse(fs.readFileSync('tests/fixtures/clipwords.json', 'utf8'));
+  const py = `
+import sys, json
+sys.path.insert(0, 'tools')
+import clipfind as C
+fx = json.load(open('tests/fixtures/clipwords.json', encoding='utf-8'))
+out = []
+for c in fx['clips']:
+    words = [(t, s, e) for w, s, e in c['words'] for t in C.norm(w)]
+    r = C.best_window(words, c['quote']); f = C.best_window(words, fx['fake'])
+    out.append({'id': c['id'], 'ok': C.accept(r), 'from': r[1], 's': round(r[0], 2), 'sec': round(r[3], 2),
+                'fake': C.accept(f), 'fs': round(f[0], 2)})
+print(json.dumps(out))
+`;
+  const r = spawnSync('python3', ['-c', py], { encoding: 'utf8' });
+  const got = JSON.parse((r.stdout || '[]').trim().split('\n').pop() || '[]');
+  const byId = {}; got.forEach(g => { byId[g.id] = g; });
+  ok('۵.۰ پایتونِ یابنده اجرا شد', got.length === fx.clips.length, r.stderr);
+  for (const c of fx.clips) {
+    const g = byId[c.id];
+    if (c.expect === null) ok('۵.۱ ' + c.id.slice(0, 6) + ': صدای درهم ⇒ رد، نه جای غلط', g && !g.ok, JSON.stringify(g));
+    else if (c.expect === 'any') ok('۵.۲ ' + c.id.slice(0, 6) + ': پیدا شد', g && g.ok, JSON.stringify(g));
+    else ok('۵.۳ ' + c.id.slice(0, 6) + ': پیدا شد و سرِ جای درست', g && g.ok && g.from >= c.expect[0] && g.from <= c.expect[1], JSON.stringify(g));
+  }
+  ok('۵.۴ جملهٔ ساختگی در هیچ کلیپی پذیرفته نمی‌شود', got.every(g => !g.fake), JSON.stringify(got.map(g => g.fs)));
+}
+
 console.log('=== ۴) سیم‌کشی ===');
 {
   const r = fs.readFileSync('tools/render.js', 'utf8');

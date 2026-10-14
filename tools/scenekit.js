@@ -72,7 +72,7 @@ function mediaOf(v) {
   if (!v || typeof v !== 'object') return null;
   const k = String(v.kind || '');
   if (k !== 'video' && k !== 'photo') return null;
-  return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro };
+  return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro, teaser: !!v.teaser };
 }
 
 /* ══ حرکتِ معنادار (۸.۵۱) ══

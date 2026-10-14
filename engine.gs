@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.97
+ *  موتور محتوا و پادکست — نسخهٔ 8.98
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1173,8 +1173,10 @@ var CFG = {
   VM_OV_MAX: 6,                    // نوشتهٔ برداریِ کنارِ رسانه
   VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر، اگر رسانهٔ دیگری از همان بخش هست، نصف می‌شود
   VM_COVER_GEN: true,              // تنها تصویرِ ساختنی: کاور
+  VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
+  VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA' },
+  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 2 },   // rev ۲ (۸.۹۸): پس از اصلاحِ آغاز و یافتنِ عبارت
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
      ۱۵ دقیقه، چون سقفِ خودِ گوگل ۶ دقیقه است: مهری که ۱۵ دقیقه مانده باشد
@@ -2055,7 +2057,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.97',
+  CODE_VERSION: '8.98',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -76693,6 +76695,43 @@ function vmNote_(key, rec) {
   } catch (e) {}
 }
 
+/** آغازِ ویدئو، پیش از نخستین رسانه‌ای که گوینده درباره‌اش حرف می‌زند (۸.۹۸).
+ * نمونهٔ قسمتِ ۷۲ نشان داد: نخستین رسانه سرِ ثانیهٔ ۵۹٫۷ بود و تمامِ آن یک دقیقه فقط کاور ماند —
+ * تصویرِ ثابت، درست همان‌جا که بیننده تصمیم می‌گیرد بماند یا برود. حالا کاور حداکثر `VM_INTRO_SEC`
+ * و باقی‌اش پیش‌نمایشی از **رسانه‌های خودِ همین قسمت** است، به ترتیبِ آمدن و پخش در کلِ قسمت،
+ * هر کدام ~`VM_TEASER_SEC`. کلیپِ پیش‌نمایش `teaser` دارد تا رانر از میانه‌اش بِبُرد، نه از همان جایی
+ * که صحنهٔ اصلی‌اش بعداً نشان می‌دهد — یک تکه دو بار دیده نشود. چیزی ساخته نمی‌شود؛ فقط همان رسانه‌ها. */
+function vmLead_(ready, coverId) {
+  if (!ready.length) return [];
+  var first = Number(ready[0].t0) || 0;
+  if (first <= 4) return [];
+  var out = [];
+  var introEnd = 0;
+  if (coverId) {
+    introEnd = Math.min(first, Math.max(3, Number(CFG.VM_INTRO_SEC) || 10));
+    out.push({ t0: 0, fileId: coverId, caption: '', say: '', media: { kind: 'photo', quote: '', intro: true } });
+  }
+  var gap = first - introEnd, per = Math.max(3, Number(CFG.VM_TEASER_SEC) || 6);
+  if (gap < per + 2) {
+    if (!coverId) return [];
+    return out;                               // فاصلهٔ کوتاه: همان کاور تا نخستین رسانه
+  }
+  var seen = {}, pool = [];
+  for (var i = 0; i < ready.length; i++) {
+    if (seen[ready[i].fileId]) continue;
+    seen[ready[i].fileId] = 1;
+    pool.push(ready[i]);
+  }
+  var n = Math.max(1, Math.min(pool.length, Math.floor(gap / per)));
+  var slot = gap / n;
+  for (var k = 0; k < n; k++) {
+    var src = pool[Math.floor(k * pool.length / n)];
+    out.push({ t0: Math.round((introEnd + k * slot) * 10) / 10, fileId: src.fileId, caption: '', say: '',
+               media: { kind: src.media.kind, quote: '', teaser: true } });
+  }
+  return out;
+}
+
 /**
  * سازندهٔ رسانه‌های یک قسمت — چنداجرایی، با حالت در `_media.json`:
  *   plan ⇒ (مدل، یک بار) · copy ⇒ (رونوشت‌ها، شاید در چند اجرا) · cover ⇒ ready.
@@ -76796,8 +76835,9 @@ function vmBuild_(folder, meta, plan, ctx) {
     if (sj.ov) r0.ov = sj.ov;
     ready.push(r0);
   }
-  if (d.cover && d.cover.fileId && ready.length && ready[0].t0 > 4) {
-    ready.unshift({ n: 0, t0: 0, fileId: d.cover.fileId, caption: '', say: '', media: { kind: 'photo', quote: '', intro: true } });
+  var lead = vmLead_(ready, d.cover && d.cover.fileId);
+  if (lead.length) {
+    ready = lead.concat(ready);
     for (var r = 0; r < ready.length; r++) ready[r].n = r + 1;
   }
   if (ready.length < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3)) {
@@ -76896,7 +76936,11 @@ function vmHealth_(problems, notes) {
 function vmSampleTick_() {
   var spec = CFG.VM_SAMPLE || null;
   if (!spec || !spec.ep || !spec.folderId) return null;
-  var key = 'variety:' + String(spec.ep) + '-نمونه';
+  /* `rev` (۸.۹۸): نمونهٔ دوم پس از اصلاح، کلیدِ تازه می‌گیرد — کلیدِ پیشین «خبر داده شد» است و نشانیِ
+     ویدئوی قبلی در نقشه می‌ماند تا هر دو کنارِ هم دیده شوند. پایانِ «-نمونه» عمداً ثابت است: برداشتِ
+     ویدئوها با همان پایان ردیف را رد می‌کند (۱۰.۸). */
+  var tag = String(spec.ep) + (Number(spec.rev) > 1 ? '-' + Number(spec.rev) : '') + '-نمونه';
+  var key = 'variety:' + tag;
   var st = {};
   try { st = JSON.parse(props_().getProperty(PK.VM_SAMPLE) || '{}') || {}; } catch (e0) { st = {}; }
   if (st.key === key && st.told) return null;
@@ -76913,7 +76957,7 @@ function vmSampleTick_() {
               ' · سنجشِ قاب: ' + (m.qa && m.qa.ok ? 'سالم' : 'ایراد — ' + String((m.qa && m.qa.why) || ''));
     try {
       var row0 = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
-      ytRenderDone_('variety', String(spec.ep) + '-نمونه');
+      ytRenderDone_('variety', tag);
       if (row0) ytRenderShare_(row0, false);           // رونوشت‌ها و صوت دوباره خصوصی
     } catch (eD) {}
     try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: txt, disable_web_page_preview: false }); } catch (eT) {}
@@ -76940,7 +76984,7 @@ function vmSampleTick_() {
   var aud = ytAudioParts_(folder);
   if (aud.why) return stop(aud.why);
   var totalSec = ytSecondsOf_(aud.parts);
-  var ctx = { show: 'variety', epRaw: String(spec.ep) + '-نمونه', showName: CFG.SHOW_NAME,
+  var ctx = { show: 'variety', epRaw: tag, showName: CFG.SHOW_NAME,
               tagline: CFG.SHOW_TAGLINE, seriesName: '', epNum: faDigitsOut_(String(spec.ep)), lesson: '',
               recap: false, title: String(ep.title || ''), cat: String(meta.cat || ''),
               duration: ytTime_(totalSec), headings: (ep.sections || []).map(function (x) { return String(x.heading || ''); }),
@@ -76953,7 +76997,7 @@ function vmSampleTick_() {
     try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify({ key: key, at: nowStr_(), why: String(r.why || 'ادامه در دورِ بعد') })); } catch (eS4) {}
     return null;
   }
-  var asked = ytRenderAsk_({ show: 'variety', ep: String(spec.ep) + '-نمونه', title: String(ep.title || ''),
+  var asked = ytRenderAsk_({ show: 'variety', ep: tag, title: String(ep.title || ''),
                  folderId: folder.getId(), visuals: [],
                  scenes: r.items, sceneCover: r.cover, sceneInfo: r.info,
                  media: true, moments: r.moments, mute: r.music,
