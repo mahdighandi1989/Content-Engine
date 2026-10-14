@@ -839,6 +839,17 @@ console.log('\n=== ۱۶) کارنامهٔ قابلیت‌ها: «روشن است
     ok16('۱۶.۳ «شاهد خوانده نشد» نامعلوم است، نه سیم‌کشیِ خراب — و ok را پایین نمی‌آورد',
          c3.unknown.length === 1 && c3.wiring.length === 0 && c3.ok === true,
          c3.rows[0].verdict);
+
+    /* ۱۶.۳-الف (۸.۹۴) — شاهدِ «از همه جا از همه رنگ» تاریخش را به شکلِ `String(new Date())`
+       دارد؛ کارنامه آن را نمی‌شناخت و پادکستِ روزانه «نامعلوم» بود. شکلِ داده عیناً از
+       `_STATUS.json`ِ ۱۴ اکتبر است، نه دست‌ساز. */
+    CFG.CAPABILITIES = [{ key: 'podcast-variety', name: 'پادکست', at: 'lastEpisode' }];
+    const cV = capStatus_({ lastEpisode: { number: 72,
+      producedAt: 'Wed Oct 14 2026 04:09:00 GMT+0400 (Gulf Standard Time)',
+      email: 'ارسال شد 2026-10-14 07:27', audioFiles: 1 } });
+    ok16('۱۶.۳-الف تاریخِ قالبِ Date.toString شاهد است — پادکستِ روزانه «نامعلوم» نیست',
+         cV.unknown.length === 0 && cV.rows[0].did === '2026-10-14 04:09',
+         cV.rows[0].verdict + ' · ' + cV.rows[0].did);
     CFG.CAPABILITIES = keep;
   }
 

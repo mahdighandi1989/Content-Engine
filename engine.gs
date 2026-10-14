@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.93
+ *  موتور محتوا و پادکست — نسخهٔ 8.94
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2029,7 +2029,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.93',
+  CODE_VERSION: '8.94',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -17754,9 +17754,18 @@ function capNewest_(o, depth) {
      از یک تاریخِ تازهٔ فاصله‌دار بزرگ‌تر درمی‌آمد. نگارشِ اول **هر دو** را
      داشت، و شاخهٔ الگو کدِ مرده بود: شکستنش هیچ سنجه‌ای را سرخ نکرد. */
   var RE = /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/;
+  /* **و قالبِ سوم (۸.۹۴):** `String(new Date())` — «Wed Oct 14 2026 04:09:00 GMT+0400».
+     `lastEpisode.producedAt` همین شکل را دارد، پس پادکستِ «از همه جا از همه رنگ» — که
+     هر روز ساخته می‌شد — در کارنامه «نامعلوم: هیچ تاریخی در شاهد نیست» بود. ساعتِ
+     دیواریِ همان رشته خوانده می‌شود (منطقهٔ زمانیِ اسکریپت)، نه تبدیلِ دوباره. */
+  var RE_DS = /^[A-Z][a-z]{2} ([A-Z][a-z]{2}) (\d{2}) (\d{4}) (\d{2}:\d{2})/;
+  var MON = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+              Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
   var walk = function (v, d) {
     if (d > 4 || v == null) return;
     if (typeof v === 'string') {
+      var m = RE_DS.exec(v);
+      if (m && MON[m[1]]) { v = m[3] + '-' + MON[m[1]] + '-' + m[2] + ' ' + m[4]; }
       var s = (v.length > 16 ? v.slice(0, 16) : v).replace('T', ' ');
       if (RE.test(s) && s > best) best = s;
       return;
@@ -71881,6 +71890,10 @@ function embSearch_(vec, opts) {
   opts = opts || {};
   var out = { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
               stopped: '', rescored: 0, note: '' };
+  /* `opts.want` (۸.۹۴): شناسه‌ای که خودآزمون دنبالش است. فقط می‌گوید قطعه‌اش در مهلت
+     خوانده شد یا نه و ردیف کجا نشست — ترتیب و نتیجه را عوض نمی‌کند. */
+  var want = opts.want ? String(opts.want) : '';
+  if (want) out.want = { seen: false, probe: null, rank: -1, score: null, best: null };
   var ix = embIndex_();
   out.shardsAll = ix.shards.length;
   if (!ix.shards.length) { out.note = 'هنوز اثر انگشتی ساخته نشده.'; return out; }
@@ -71938,6 +71951,7 @@ function embSearch_(vec, opts) {
     for (var i = 0; i < P.id.length; i++) {
       out.scanned++;
       var sc = embDot_(qp, embUnpack_(P.p[i]));
+      if (want && P.id[i] === want) { out.want.seen = true; out.want.probe = sc; }
       if (sc < minS) continue;
       best.push({ id: P.id[i], tab: P.tb[i], row: P.rw[i], fileId: P.fid[i],
                   kind: P.kd[i], date: P.dt[i], title: P.ti[i],
@@ -71969,6 +71983,12 @@ function embSearch_(vec, opts) {
     }
   }
   best.sort(function (a, b) { return b.score - a.score; });
+  if (want) {
+    out.want.best = best.length ? best[0].score : null;
+    for (var w = 0; w < best.length; w++) {
+      if (best[w].id === want) { out.want.rank = w + 1; out.want.score = best[w].score; break; }
+    }
+  }
 
   /* ══ بریدن **نسبت به بهترین**، نه با یک عددِ ثابت ══
      و بعد از سنجشِ دوباره، نه قبلش — وگرنه موردی که با بردارِ کوتاه
@@ -72001,7 +72021,7 @@ function embSearch_(vec, opts) {
  * به یک دروازه وصل نشود.
  */
 function embSelfTest_(n) {
-  var out = { ok: false, tried: 0, hit: 0, ratio: 0, mode: '', note: '' };
+  var out = { ok: false, tried: 0, hit: 0, ratio: 0, mode: '', note: '', unread: 0, why: '' };
   if (!embOn_()) { out.note = 'خاموش'; return out; }
   var ix = embIndex_();
   if (!ix.shards.length) { out.note = 'ایندکس خالی است'; return out; }
@@ -72043,18 +72063,43 @@ function embSelfTest_(n) {
   /* مهلتِ کل، تقسیم بر پرسش‌های باقی‌مانده (۸.۷۳): جست‌وجو حالا همهٔ قطعه‌ها را تا ته
      مهلت می‌خوانَد، پس مهلتِ ثابتِ ۴۵ ثانیه برای هر پرسش از سقفِ شش‌دقیقه می‌گذشت. */
   var tEnd = new Date().getTime() + Math.max(60000, Number(CFG.EMB_SELFTEST_MS) || 240000);
+  /* ══ هر نمونه با علتش (۸.۹۴) ══
+     ۱۳ و ۱۴ اکتبر: «۰ از ۴»، و یافته نوشت «بردارها وارونه یا ناهم‌جنس‌اند».
+     هر سه علتی که دستورش گفت (نرمال‌سازی، `taskType`، بُعد) در کد درست بود، و
+     شاهدی نبود که بگوید کدام: جست‌وجو قطعه‌ها را تا ته مهلت می‌خوانَد و مرکزِ
+     قطعه‌ها معنایی ندارد (۸.۷۴)، پس نمونه‌ای که قطعه‌اش در مهلتِ ~۶۰ ثانیه نوبت
+     نگرفت **آزموده نشده**، نه «خودش را پیدا نکرد». حالا هر نمونه یکی از سه است:
+     پیدا شد (رتبه) · قطعه‌اش خوانده نشد (`unread`، در `tried` شمرده نمی‌شود) ·
+     خوانده شد و پایین نشست (رتبه، امتیازش و امتیازِ بهترین). سومی تنها شاهدِ
+     «کیفیت» است. */
   out.shardsRead = 0; out.shardsAll = ix.shards.length;
+  var why = [];
   for (var p = 0; p < picks.length; p++) {
     var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
     var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
-    out.tried++;
     var per = Math.max(10000, Math.min(60000, Math.floor((tEnd - new Date().getTime()) / (picks.length - p))));
-    var r = embSearch_(q.vec, { top: topK, budgetMs: per });
+    var r = embSearch_(q.vec, { top: topK, budgetMs: per, want: picks[p].id });
     out.shardsRead += Number(r.shards) || 0;
-    for (var k = 0; k < r.items.length; k++) {
-      if (r.items[k].id === picks[p].id) { out.hit++; break; }
+    var wt = r.want || { seen: false };
+    if (!wt.seen) {
+      out.unread++;
+      why.push('نخوانده (' + (Number(r.shards) || 0) + '/' + (Number(r.shardsAll) || 0) + ' قطعه)');
+      continue;
     }
+    out.tried++;
+    var found = false;
+    for (var k = 0; k < r.items.length; k++) {
+      if (r.items[k].id === picks[p].id) { out.hit++; found = true; break; }
+    }
+    var f2 = function (x) { return (x === null || x === undefined) ? '—' : Number(x).toFixed(2); };
+    if (found) why.push('پیدا، رتبهٔ ' + wt.rank);
+    else why.push('پایین: رتبهٔ ' + (wt.rank > 0 ? wt.rank : '>' + (Number(CFG.EMB_RESCORE) || 120)) +
+                  '، امتیاز ' + f2(wt.score !== null ? wt.score : wt.probe) + ' در برابرِ بهترین ' + f2(wt.best));
+  }
+  out.why = why.join(' · ');
+  if (out.unread && !out.tried) {
+    out.note = (out.note ? out.note + ' · ' : '') + 'هیچ نمونه‌ای در مهلت به قطعه‌اش نرسید — آزمون انجام نشد، نه افتاد.';
   }
   out.ratio = out.tried ? (out.hit / out.tried) : 0;
   out.ok = out.tried > 0;
@@ -72238,7 +72283,10 @@ function embStatus_(hub) {
     if (out.selftest && out.selftest.tried) {
       bits.push('خودآزمون ' + faDigitsOut_(out.selftest.hit) + ' از ' +
                 faDigitsOut_(out.selftest.tried) +
-                (out.selftest.mode ? ' (' + out.selftest.mode + ')' : ''));
+                (out.selftest.mode ? ' (' + out.selftest.mode + ')' : '') +
+                (out.selftest.unread ? ' · ' + faDigitsOut_(out.selftest.unread) + ' نمونه در مهلت خوانده نشد' : ''));
+    } else if (out.selftest && out.selftest.unread) {
+      bits.push('خودآزمون انجام نشد: ' + faDigitsOut_(out.selftest.unread) + ' نمونه در مهلت به قطعه‌شان نرسیدند');
     }
     if (out.oldVer) {
       bits.push(faDigitsOut_(out.oldVer) + ' با دستورِ قدیمی (از نو ساخته می‌شوند)');
@@ -72310,11 +72358,13 @@ function embGates_(hub, st, self) {
           logSelfFinding_(hub, {
             priority: 'جدی', category: 'اثر انگشت', key: 'embed-quality-low',
             title: 'خودآزمونِ اثر انگشت ' + bad + ' شبِ پیاپی افتاد',
-            detail: 'از ' + self.tried + ' ردیفی که متنِ خودشان پرس‌وجو شد، ' +
-                    'فقط ' + self.hit + ' تا خودشان را در نتایج پیدا کردند. ' +
-                    'یعنی بردارها یا وارونه نوشته شده‌اند یا با بردارِ ' +
-                    'پرس‌وجو هم‌جنس نیستند — نتیجهٔ جست‌وجوی معنایی در این ' +
-                    'حالت تصادفی است، نه ضعیف.',
+            detail: 'از ' + self.tried + ' ردیفی که قطعه‌شان خوانده شد و متنِ ' +
+                    'بازنویسی‌شده‌شان پرس‌وجو شد، فقط ' + self.hit + ' تا خودشان را ' +
+                    'در نتایج پیدا کردند' +
+                    (self.unread ? ' (' + self.unread + ' نمونهٔ دیگر در مهلت خوانده نشد و شمرده نشد)' : '') +
+                    '. هر نمونه: ' + (self.why || '—') + '. امتیازِ نزدیک به بهترین یعنی ' +
+                    'بانک ردیف‌های هم‌معنا زیاد دارد؛ امتیازِ خیلی پایین‌تر یعنی بردارها ' +
+                    'با پرس‌وجو هم‌جنس نیستند.',
             instruction: 'سه چیز را به همین ترتیب وارسی کن: (۱) نرمال‌سازی ' +
                          '— هر بُعدی جز ۳۰۷۲ باید دستی نرمال شود؛ (۲) ' +
                          '`taskType` — سندها RETRIEVAL_DOCUMENT و پرس‌وجو ' +
@@ -72496,7 +72546,8 @@ function embNightly_(opts) {
 
   if (self) {
     lastRec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio,
-                     mode: self.mode, note: self.note, at: nowStr_() };
+                     mode: self.mode, note: self.note, unread: self.unread || 0,
+                     why: self.why || '', shardsRead: self.shardsRead || 0, at: nowStr_() };
     try { props_().setProperty(PK.EMB_LAST, JSON.stringify(lastRec)); } catch (eP2) {}
   }
 
@@ -72557,7 +72608,8 @@ function embSelfTestLater() {
       try { rec = JSON.parse(props_().getProperty(PK.EMB_LAST) || 'null'); } catch (e1) {}
       rec = rec || {};
       rec.self = { tried: self.tried, hit: self.hit, ratio: self.ratio, mode: self.mode,
-                   note: self.note, at: nowStr_() };
+                   note: self.note, unread: self.unread || 0, why: self.why || '',
+                   shardsRead: self.shardsRead || 0, at: nowStr_() };
       try { props_().setProperty(PK.EMB_LAST, JSON.stringify(rec)); } catch (eP) {}
       note = self.tried ? (self.hit + '/' + self.tried + ' · ' + (self.mode || '')) : (self.note || '');
     }

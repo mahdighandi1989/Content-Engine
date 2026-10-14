@@ -525,6 +525,39 @@ ok('۲۴.۵ و حالت در سطرِ روزانه دیده می‌شود',
    /بازنویسی|عنوان/.test(embStatus_(hub).line) ||
    !embStatus_(hub).selftest, embStatus_(hub).line);
 
+console.log('\n══ ۲۴-ب) خودآزمون هر نمونه را با علتش می‌گوید (۸.۹۴) ══');
+/* ۱۳ و ۱۴ اکتبر «۰ از ۴» و یافته‌ای که بردارها را متهم کرد، بی شاهدی که بگوید نمونه
+   اصلاً خوانده شد یا نه. نمونه‌ای که قطعه‌اش در مهلت نوبت نگرفت آزموده نشده است. */
+{
+  const ix = embIndex_();
+  const P0 = embGetJson_(embShardName_(ix.shards[0].seq, 'p'));
+  const wid = P0.id[0];
+  const s1 = embSearch_(embNorm_(fakeVec('هرچیز', embDim_())), { top: 5, want: wid });
+  ok('۲۴-ب.۱ جست‌وجو می‌گوید ردیفِ خواسته‌شده دیده شد و کجا نشست',
+     s1.want && s1.want.seen === true && (s1.want.rank > 0 || s1.want.probe !== null),
+     JSON.stringify(s1.want));
+  const s2 = embSearch_(embNorm_(fakeVec('هرچیز', embDim_())), { top: 5, want: 'نیست-چنین-شناسه‌ای' });
+  ok('۲۴-ب.۲ شناسه‌ای که در هیچ قطعهٔ خوانده‌شده نیست «ندیده» است',
+     s2.want && s2.want.seen === false && s2.want.rank === -1, JSON.stringify(s2.want));
+  ok('۲۴-ب.۳ و نتیجهٔ جست‌وجو با `want` عوض نمی‌شود',
+     JSON.stringify(s2.items.map(x => x.id)) ===
+     JSON.stringify(embSearch_(embNorm_(fakeVec('هرچیز', embDim_())), { top: 5 }).items.map(x => x.id)));
+
+  const realSearch = global.embSearch_;
+  global.embSearch_ = function () { return { ok: true, items: [], shards: 12, shardsAll: 44, want: { seen: false } }; };
+  const u = embSelfTest_(3);
+  global.embSearch_ = realSearch;
+  ok('۲۴-ب.۴ نمونه‌ای که قطعه‌اش خوانده نشد «افتاده» شمرده نمی‌شود',
+     u.tried === 0 && u.unread > 0 && u.ok === false, JSON.stringify(u));
+  ok('۲۴-ب.۵ و همین در یادداشت گفته می‌شود — «انجام نشد»، نه «افتاد»',
+     /انجام نشد/.test(u.note) && /نخوانده/.test(u.why), u.note + ' | ' + u.why);
+
+  const r3 = embSelfTest_(3);
+  ok('۲۴-ب.۶ هر نمونهٔ خوانده‌شده رتبه‌اش را دارد', /رتبهٔ/.test(r3.why), r3.why);
+  ok('۲۴-ب.۷ و علت به کارنامهٔ شبانه می‌رسد، نه فقط به خروجیِ تابع',
+     /why: self\.why/.test(String(embNightly_)) && /why: self\.why/.test(String(embSelfTestLater)));
+}
+
 console.log('\n══ ۲۵) مرکزِ قطعه‌ها — ۵۰ هزار ردیف در یک جست‌وجو جا نمی‌شود ══');
 /* عددِ شبِ اولِ واقعی: بانک ۵۰٬۳۶۷ ردیف دارد، پس ایندکسِ کوتاه ~۳۰ مگابایت
    در ~۳۴ قطعه می‌شود. خواندنِ همه‌اش در هر جست‌وجو شدنی نیست. */
