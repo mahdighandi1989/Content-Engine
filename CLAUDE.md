@@ -549,6 +549,37 @@ stock imagery: the channel is meant to earn, and every borrowed image is a licen
 question. Custom thumbnails need a verified channel — if `thumbnails.set` fails the
 row records why instead of failing silently.
 
+## «از همه جا» با رسانه‌های خودِ منبع (section 37, 8.96)
+
+The owner: «… حقیقتش بهره نبردم چون فقط صوتی بود و محتواهایی که اکثراً تصویری بودن رو صوتی داشت می‌گفت.»
+درس‌نامه paints its pictures; variety **has** them — the clips and photos the episode talks about.
+So there is **no second video road**: `vmBuild_` makes `_media.json` and hands درس‌نامه's own scene
+path (`scenekit.build`) the source media instead of paintings — mark, cards, pause-snapping, frame QA
+and avsync all come for free. `row.media` + `scene.media` is the only switch.
+
+- **Source is read, never written.** `makeCopy` into the episode's **«رسانه‌های منبع» subfolder**;
+  sharing only on the copy. A subfolder, never the episode folder: `ytVideoIn_` takes *any* mp4 there
+  as the finished video, so a source clip would be uploaded as the episode (`run_varietymedia_test.js` ۳).
+- **Time from code.** The model names a sentence number; seconds come from `_times.json`
+  (`varietyTextChunks_` = `specialTextChunks_`'s twin, same `speakSegPieces_`). Media the model skipped
+  goes into the middle of the longest scene of **its own section** — never onto another item's start
+  (the first draft split the model's clip in two; the test caught it).
+- **Which part of a clip:** `tools/clipfind.py` (faster-whisper, word timestamps) finds `clipQuote` in the
+  clip's own speech. Not found ⇒ from the start, **said** in `notes`.
+- **Framing:** wide ⇒ fill; vertical/square ⇒ whole, centred, over a blurred dark copy of itself. A crop
+  would throw away two thirds of a 9:16 clip — faces and text.
+- **Moments** (narrator silent, clip with its own sound): placed on a pause, never inside a `k:'m'` music
+  span, ≤ `VM_MOMENT_MAX`, inserted **without re-encoding**: keyframes forced at the moment, video cut by
+  stream copy, audio by sample. The moment time is snapped **to the frame grid** first — a keyframe asked
+  for at 24.3 lands at 24.333 at 24 fps and a copy-cut at 24.3 falls back two seconds to the previous
+  keyframe (real ffmpeg showed it; `run_media_render_test.js` ۳.۱۰). The scene's muted clip **skips** the
+  moment's span, so nothing plays twice. `inserts` go to `docs/renders.json` and `ytDescFinal_` (both
+  publish doors) shifts the chapter times.
+- **Gate:** mode `media` has its own approval counter (`YT_MEDIA_APPROVE`/`PK.YT_MEDIA_OK`): two درس‌نامه
+  approvals say nothing about how a source clip is cut and framed.
+- The only generated image is the cover (`vmCover_`). Watched daily: `_STATUS.varietyMedia`, finding
+  `vm-fallback`, required monitor check `variety-media` (prompt v104), ledger `R-20261014-07..10`.
+
 ## The spoken text: markup, and a mandatory second look (section 3, 6.20)
 
 Every episode has two texts — the readable one (email, doc) and the **spoken**
@@ -876,6 +907,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
 - «۰ از ۴» بی شاهد — خودآزمونی که نمی‌گفت نمونه اصلاً خوانده شد یا نه (8.94)
+- «از همه جا» دیگر صوت و یک عکس نیست — رسانه‌های خودِ منبع، روی همان ثانیه (8.96)
 - «variety:71 («نشد»)» — علت در ستونِ کناری بود و خطِ روزانه نمی‌خواندش (8.95)
 - «۳۷ ردیف را تعیینِ تکلیف کن» — و فهرستشان هیچ‌جا خواندنی نبود (8.93)
 - «درخواست‌هایم را بگویم و پیگیری‌اش را به ناظر بسپارم؟» — دفترِ درخواست‌ها (8.92)

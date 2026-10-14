@@ -606,6 +606,8 @@ function writeStatus_(hub, note) {
     lessonMotion: (function () { try { return lvMotionStatus_(); } catch (e) { return null; } })(),
     lessonCards: (function () { try { return lvOvStatus_(); } catch (e) { return null; } })(),
     lessonSceneFb: (function () { try { return lvSceneFbStatus_(); } catch (e) { return null; } })(),
+    /* «از همه جا» با رسانه‌های منبع (بخشِ ۳۷، ۸.۹۶) — فقط Properties. */
+    varietyMedia: (function () { try { return vmStatus_(); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
@@ -2615,6 +2617,7 @@ function healthCheck() {
      برنامه شیت باز نمی‌کند (۵.۹۰) و سکوت را نمی‌شود از «این قابلیت مرده»
      تشخیص داد. */
   try { lvHealth_(problems, notes); } catch (eLv) {}
+  try { vmHealth_(problems, notes); } catch (eVmH) {}    // بخشِ ۳۷ پس از این بخش است ⇒ درونِ try
   /* ستونِ «سبکِ تصویر» (۷.۹۶): خانه‌های خالی با پیشنهادِ خودِ موتور پر
      می‌شوند — «پیشنهادِ خودت رو هم تو اون مجموعه بنویس» — و خانهٔ ناخوانا
      **با اسم** گزارش می‌شود، چون انتخابی که خوانده نشود یعنی سبکی که او

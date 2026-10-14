@@ -726,7 +726,8 @@ console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ �
   const src = fs.readFileSync('tools/render.js', 'utf8');
   ok('۱۲.۷ نقشه حالت، سنجش و کاورِ صحنه‌ای را برای موتور ثبت می‌کند',
      /map\.items\[it\.key\]\.qa = vr\.qa/.test(src) && /'-cover\.jpg', 'image\/jpeg'\)/.test(src) &&
-     /map\.items\[it\.key\]\.thumb = tu/.test(src) && /map\.items\[it\.key\]\.mode = 'scenes'/.test(src));
+     /map\.items\[it\.key\]\.thumb = tu/.test(src) && /map\.items\[it\.key\]\.mode = vr\.mode/.test(src) &&
+     /vr\.mode === 'scenes' \|\| vr\.mode === 'media'/.test(src));   // ۸.۹۶: حالتِ رسانه هم همان شاخه
 }
 
 console.log('\n══ ۱۳) نوشتهٔ رویِ نقاشی و نشانِ بی‌مربع (۸.۴۵) ══');

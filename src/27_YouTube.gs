@@ -1712,7 +1712,21 @@ function ytRenderAsk_(item) {
       if (x.clip && x.clip.fileId) {                // کلیپِ آغاز (۸.۵۱)
         r0.clip = { fileId: String(x.clip.fileId), url: ytDlUrl_(x.clip.fileId), sec: Number(x.clip.sec) || 0 };
       }
+      /* رسانهٔ منبع (بخشِ ۳۷): رانر خودش کلیپ را می‌بُرد و در قاب می‌نشاند؛ نشانی همان `url`ِ صحنه است. */
+      if (x.media && (x.media.kind === 'video' || x.media.kind === 'photo')) {
+        r0.media = { kind: String(x.media.kind), quote: String(x.media.quote || '').slice(0, 160) };
+        if (x.media.intro) r0.media.intro = true;
+      }
       return r0; });
+    if (item.media) {
+      row.media = true;
+      /* «لحظه»: گوینده ساکت می‌شود و همان کلیپ با صدایش پخش می‌شود. `mute` = بازه‌های موسیقیِ
+         قسمت — رانر لحظه را هرگز آن‌جا نمی‌نشاند (صدای کلیپ روی آهنگ). */
+      row.moments = (item.moments || []).map(function (m) {
+        return { at: Number(m.at) || 0, fileId: String(m.fileId || ''), url: ytDlUrl_(m.fileId || ''),
+                 quote: String(m.quote || '').slice(0, 160), max: Number(m.max) || 12 }; });
+      row.mute = (item.mute || []).slice(0, 40);
+    }
     if (item.sceneCover && item.sceneCover.fileId) {
       row.sceneCover = { fileId: String(item.sceneCover.fileId), url: ytDlUrl_(item.sceneCover.fileId) };
     }
@@ -7913,17 +7927,22 @@ function lvSceneVisuals_(folder, d) {
  */
 function ytPublicGate_(key, m) {
   try {
-    if (!m || String(m.mode || '') !== 'scenes') return { ok: true, why: '' };
+    var md = String((m && m.mode) || '');
+    if (md !== 'scenes' && md !== 'media') return { ok: true, why: '' };
     var qa = m.qa || null;
     if (!qa) return { ok: false, why: 'سنجشِ خودکارِ رانر برای این ویدئو ثبت نشده' };
     if (qa.ok !== true) {
       return { ok: false, why: 'سنجشِ خودکارِ ویدئو رد کرد: ' + String(qa.why || '').slice(0, 160) };
     }
-    var need = Math.max(0, Number(CFG.YT_SCENES_APPROVE) || 0);
-    var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
+    /* هر حالت شمارِ خودش را دارد (۸.۹۶): ویدئوی رسانه‌ایِ «از همه جا» راهِ تازه‌ای است و نخستین‌هایش
+       باید دیده شوند — دو تأییدِ درس‌نامه دربارهٔ برش و قابِ کلیپ‌های منبع هیچ چیزی نمی‌گوید. */
+    var isMedia = md === 'media';
+    var need = Math.max(0, Number(isMedia ? CFG.YT_MEDIA_APPROVE : CFG.YT_SCENES_APPROVE) || 0);
+    var n = Number(props_().getProperty(isMedia ? PK.YT_MEDIA_OK : PK.YT_SCENES_OK) || 0) || 0;
     if (n < need && !ytApproved_()[String(key)]) {
       return { ok: false, approval: true,
-               why: 'منتظرِ تأییدِ نخستین ویدئوهای حالتِ صحنه (' + n + ' از ' + need + ')' };
+               why: 'منتظرِ تأییدِ نخستین ویدئوهای حالتِ ' + (isMedia ? 'رسانه‌های منبع' : 'صحنه') +
+                    ' (' + n + ' از ' + need + ')' };
     }
     return { ok: true, why: '' };
   } catch (e) { return { ok: false, why: 'سدِ انتشار خوانده نشد: ' + e.message }; }
@@ -8023,11 +8042,27 @@ function ytApprovedRedo_(budgetMs) {
   return out;
 }
 
-/** یک ویدئوی حالتِ صحنه عمومی شد ⇒ شمارِ سدِ تأیید. */
-function ytScenesOkAdd_() {
+/**
+ * متنِ نهاییِ توضیح — **یک تعریف** برای هر دو درِ انتشار (آپلود و `ytRedoOne_`).
+ * «لحظه»های ویدئوی رسانه‌ای (بخشِ ۳۷) ویدئو را از صوت بلندتر می‌کنند؛ زمانِ فصل‌ها پس از هر لحظه
+ * جلو می‌رود. `inserts` را رانر از همان ویدئوی ساخته‌شده می‌نویسد. سدی که فقط سرِ یکی از دو در باشد،
+ * از درِ دیگر دور زده می‌شود (۷.۱۴) — همین برای زمانِ فصل‌ها هم.
+ */
+function ytDescFinal_(key, description) {
+  var desc = String(description || '');
   try {
-    var n = Number(props_().getProperty(PK.YT_SCENES_OK) || 0) || 0;
-    props_().setProperty(PK.YT_SCENES_OK, String(n + 1));
+    var m = (ytRenderMapCached_() || {})[String(key)] || null;
+    if (m && m.inserts && m.inserts.length) desc = vmShiftDesc_(desc, m.inserts);
+  } catch (e) {}
+  return desc;
+}
+
+/** یک ویدئوی حالتِ صحنه (یا رسانه) عمومی شد ⇒ شمارِ سدِ تأییدِ همان حالت. */
+function ytScenesOkAdd_(mode) {
+  try {
+    var k = String(mode || '') === 'media' ? PK.YT_MEDIA_OK : PK.YT_SCENES_OK;
+    var n = Number(props_().getProperty(k) || 0) || 0;
+    props_().setProperty(k, String(n + 1));
   } catch (e) {}
 }
 
@@ -9557,6 +9592,41 @@ function ytUploadOne_(item, hub, pub) {
   }
 
   var sceneFb = '';
+  /* ══ «از همه جا» با رسانه‌های خودِ منبع (بخشِ ۳۷، ۸.۹۶) ══
+   * همان مسیرِ صحنه‌ها، با کلیپ و عکسِ منبع به‌جای نقاشیِ ساخته‌شده. نشد ⇒ با علت به مسیرِ قبلی.
+   * بخشِ ۳۷ پس از این بخش است: فراخوان درونِ try تا بارگذارِ جزئیِ آزمون‌ها نشکند. */
+  var vmOk = false;
+  try { vmOk = vmOn_(item.show); } catch (eVo) { vmOk = false; }
+  if (vmOk && !ytVideoIn_(folder)) {
+    var vmr = null;
+    try { vmr = vmBuild_(folder, meta, plan, ctx); }
+    catch (eVm) {
+      vmr = { active: true, fallback: true, why: 'خطا: ' + eVm.message };
+      try { vmNote_(String(item.key || (item.show + ':' + item.ep)), { ok: false, why: vmr.why }); } catch (eVn) {}
+      logLine_('رسانه‌های منبعِ ' + item.key + ' نشد: ' + eVm.message);
+    }
+    if (vmr && vmr.active && vmr.fallback) sceneFb = 'رسانهٔ منبع: ' + String(vmr.why || 'بی علت');
+    if (vmr && vmr.active && !vmr.fallback) {
+      if (!vmr.done) { res.waiting = true; res.why = vmr.why || 'رسانه‌های منبع در حالِ آماده‌شدن'; return res; }
+      var askedVm = ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
+                     folderId: folder.getId(), visuals: [],
+                     scenes: vmr.items, sceneCover: vmr.cover, sceneInfo: vmr.info,
+                     media: true, moments: vmr.moments, mute: vmr.music,
+                     coverTitle: String(plan.coverTitle || ep.title || ''),
+                     coverKicker: String(plan.coverKicker || showName || ''),
+                     coverFoot: coverEpLabel,
+                     audio: aud.parts.map(function (f) { return { id: f.getId(), name: f.getName() }; }),
+                     audioKind: aud.kind, coverFileId: cover ? cover.fileId : '',
+                     outName: outName,
+                     replace: item.replace ? String(item.replace) : '' });
+      res.waiting = true;
+      res.why = askedVm
+        ? 'ویدئو با رسانه‌های منبع هنوز ساخته نشده؛ درخواستِ رندر با ' +
+          faDigitsOut_(String(vmr.items.length)) + ' صحنه گذاشته شد'
+        : 'ویدئو با رسانه‌های منبع منتظرِ رندر است (درخواست از قبل هست یا صفِ رندر پر است)';
+      return res;
+    }
+  }
   if (ytVisOn_(item.show) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
     var scn = null;
     try { scn = lvScenesBuild_(folder, meta, plan, ctx); }
@@ -9804,7 +9874,7 @@ function ytUploadOne_(item, hub, pub) {
 
   // ── متنِ نهایی از همان نقشه ──
   var title = String(plan.title || '');
-  var desc = String(plan.description || '');
+  var desc = ytDescFinal_(String(item.key || (item.show + ':' + item.ep)), plan.description);
   var tags = plan.tags || [];
   var chapters = { length: Number(plan.chapters) || 0 };
   /* وارسیِ نشتی روی متنِ **نهایی** اجرا می‌شود، نه روی پاسخِ مدل — چون این
@@ -9948,7 +10018,7 @@ function ytUploadOne_(item, hub, pub) {
         privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
         selfDeclaredMadeForKids: false } }, 'status');
       privacy = CFG.YT_PRIVACY_FINAL || 'public';
-      if (rme && String(rme.mode || '') === 'scenes') ytScenesOkAdd_();
+      if (rme && /^(scenes|media)$/.test(String(rme.mode || ''))) ytScenesOkAdd_(rme.mode);
     } catch (eV) {
       logLine_('عمومی‌کردنِ ویدئو نشد: ' + eV.message);
     }
@@ -12262,7 +12332,7 @@ function ytRedoOne_(show, ep, opt) {
   if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
     try {
       yt.Videos.update({ id: rec.videoId, snippet: {
-        title: plan.title, description: plan.description, tags: plan.tags,
+        title: plan.title, description: ytDescFinal_(String(show) + ':' + String(ep), plan.description), tags: plan.tags,
         categoryId: isSpecial ? (CFG.YT_CATEGORY_SPECIAL || '27') : (CFG.YT_CATEGORY_VARIETY || '22'),
         defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
       out.changed.push('عنوان و کپشن');
@@ -12325,7 +12395,7 @@ function ytRedoOne_(show, ep, opt) {
                          status: { privacyStatus: CFG.YT_PRIVACY_FINAL || 'public',
                                    selfDeclaredMadeForKids: false } }, 'status');
       out.changed.push('عمومی شد');
-      if (rmeR && String(rmeR.mode || '') === 'scenes') ytScenesOkAdd_();
+      if (rmeR && /^(scenes|media)$/.test(String(rmeR.mode || ''))) ytScenesOkAdd_(rmeR.mode);
     } catch (eP) { out.why = (out.why ? out.why + ' · ' : '') + 'عمومی‌کردن نشد: ' + String(eP.message).slice(0, 120); }
   }
 
@@ -13940,7 +14010,8 @@ function qaAutoChecks_(mapIn) {
   for (var k in map) {
     if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
     var it = map[k] || {};
-    if (it.mode !== 'scenes' || !it.qa) continue;
+    /* ویدئوی رسانه‌ایِ «از همه جا» (۸.۹۶) همان سنجش‌ها را دارد و همان وارسی‌ها را می‌گیرد. */
+    if ((it.mode !== 'scenes' && it.mode !== 'media') || !it.qa) continue;
     if (!best || String(it.at || '') > String(best.at || '')) { best = it; bk = k; }
   }
   if (!best) return 0;

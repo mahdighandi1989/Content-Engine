@@ -9425,7 +9425,9 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
      p1 && p1.vid === 'VID66' && ytUpPending_('variety:66') === null && ytUpPending_('variety:70') === null);
   delete global.__PROPS[PK.YT_UP_PENDING];
   const srcY = fs.readFileSync('src/27_YouTube.gs', 'utf8');
-  const up = srcY.slice(srcY.indexOf('function ytUploadOne_('), srcY.indexOf('function ytUploadOne_(') + 30000);
+  /* کلِ تابع، نه ۳۰۰۰۰ نویسهٔ اول: برشِ با طولِ ثابت با هر افزوده‌ای به تابع کور می‌شد (۸.۹۶ همین را نشان داد). */
+  const u0 = srcY.indexOf('function ytUploadOne_(');
+  const up = srcY.slice(u0, srcY.indexOf('\nfunction ', u0 + 10));
   const iIns = up.indexOf('yt.Videos.insert('), iSet = up.indexOf('ytUpPendingSet_(upKey, vid)'),
         iLog = up.lastIndexOf('ytLog_(hub, { show: showName, ep: item.ep, series: seriesName, title: title,\n                videoId: vid'),
         iClr = up.indexOf('ytUpPendingClear_(upKey)');

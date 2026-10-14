@@ -660,11 +660,148 @@ function brandMarkSave(lg) {
  * دانلود این‌جاست (مرزِ scenekit: شبکه ندارد)، و بایت‌ها باور می‌شوند نه
  * نشانی: فایلی که اشتراکش باز نیست صفحهٔ HTML برمی‌گرداند (۷.۳۳).
  * نشد ⇒ با علت به مسیرِ بعدی؛ هرگز کلِ قسمت زمین نمی‌خورد. */
+/* ══ رسانه‌های خودِ منبع (۸.۹۶) ══
+ * «از همه جا»: تصویرِ هر صحنه خودِ کلیپ یا عکسی است که گوینده درباره‌اش حرف می‌زند. هر نشانی یک
+ * بار دانلود می‌شود (کلیپی که دو صحنه یا یک لحظه هم دارد)، بایت‌ها باور می‌شوند نه پسوند، و هر
+ * کلیپ از همان تکه‌ای بریده می‌شود که عبارتش را موتور گفته (`clipfind.py`). نشد ⇒ صحنه به قبلی
+ * می‌پیوندد (scenekit)، با یادداشت. */
+function prepMedia(it, scenes, dir, notes, placed) {
+  const MKIT = require('./mediakit.js');
+  const FF = ffmpegExe();
+  const got = {}, imgs = {}, clips = {}, full = {};
+  const st = { clips: 0, photos: 0, found: 0, notFound: 0, failed: 0, why: [] };
+  const fileOf = url => {
+    if (got[url] !== undefined) return got[url];
+    const f = path.join(dir, 'm' + String(Object.keys(got).length).padStart(3, '0'));
+    try {
+      fetchTo(url, f);
+      const k = sniffKind(f);
+      const info = MKIT.probe(FF, f);
+      got[url] = (k === 'png' || k === 'jpeg' || k === 'webp' || k === 'gif')
+        ? { file: f, kind: 'photo', info: info }
+        : (info && info.dur > 0.5 ? { file: f, kind: 'video', info: info } : null);
+      if (!got[url]) notes.push('رسانه: بایت‌ها نه تصویر بود نه ویدئو');
+    } catch (e) {
+      got[url] = null;
+      notes.push('رسانه دانلود نشد: ' + String(e.message).split('\n')[0].slice(0, 60));
+    }
+    return got[url];
+  };
+  for (const s of scenes) fileOf(s.url);
+  for (const m of (it.moments || [])) if (m && m.url) fileOf(m.url);
+  /* یک بار شنیدن برای همه: عبارتِ هر کلیپ (صحنه‌ها و لحظه‌ها) */
+  const reqs = [], reqOf = {};
+  const ask = (url, quote) => {
+    const g = got[url];
+    if (!g || g.kind !== 'video' || !quote) return -1;
+    const key = url + '|' + quote;
+    if (reqOf[key] === undefined) { reqOf[key] = reqs.length; reqs.push({ file: g.file, quote: quote }); }
+    return reqOf[key];
+  };
+  const scIdx = scenes.map(s => ask(s.url, s.media && s.media.quote));
+  const moIdx = (placed || []).map(m => ask(m.url, m.quote));
+  const heard = MKIT.find(reqs, dir);
+  /* ══ برشِ هر لحظه، **یک بار** — همان که صحنه دورش می‌بُرد و همان که با صدا لای گفتار می‌نشیند ══
+     دو حسابِ جدا برای «لحظه از کجا تا کجا» یعنی روزی یکی چند ثانیه با دیگری فرق کند و بیننده تکه‌ای
+     را دو بار ببیند یا تکه‌ای را هرگز. */
+  const moCut = (placed || []).map((m, i) => {
+    const g = got[m.url], h = moIdx[i] >= 0 ? heard[moIdx[i]] : null;
+    if (!g || g.kind !== 'video') return { m: m, ok: false, why: 'کلیپ نرسید' };
+    if (!h || !h.found) return { m: m, ok: false, why: 'عبارت در کلیپ پیدا نشد (' + ((h && h.why) || '') + ')' };
+    const from = Math.max(0, Number(h.from) - 0.25);
+    const len = Math.min(Number(m.max) || 12, Number(h.to) - from + MKIT.MK.momentTail, g.info.dur - from);
+    if (len < MKIT.MK.momentMin) return { m: m, ok: false, why: 'تکهٔ شنیده‌شده کوتاه بود' };
+    return { m: m, ok: true, url: m.url, from: from, len: len };
+  });
+  scenes.forEach((s, i) => {
+    const g = got[s.url];
+    if (!g) { st.failed++; return; }
+    const out = path.join(dir, 'ms' + String(s.n).padStart(3, '0'));
+    try {
+      if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
+        if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
+        imgs[String(s.n)] = MKIT.photo(FF, g.file, out + '.jpg');
+        st.photos++;
+        return;
+      }
+      const want = (i + 1 < scenes.length ? scenes[i + 1].t0 - s.t0 : 30) + 2;
+      const end = i + 1 < scenes.length ? scenes[i + 1].t0 : 1e9;
+      const h = scIdx[i] >= 0 ? heard[scIdx[i]] : null;
+      /* لحظهٔ همین کلیپ درونِ همین صحنه ⇒ کلیپِ بی‌صدا طوری شروع می‌شود که **درست سرِ لحظه** به
+         آغازِ تکهٔ با‌صدا برسد؛ لحظه همان‌جا با صدا ادامه‌اش می‌دهد و پس از آن، تصویر از **پسِ**
+         همان تکه پی گرفته می‌شود — پیوسته، بی تکرار. */
+      const mc = moCut.find(c => c.ok && c.url === s.url && c.m.at >= s.t0 - 0.6 && c.m.at < end);
+      let from = 0, skip = null;
+      if (mc) {
+        const rel = Math.max(0, mc.m.at - s.t0);
+        from = Math.max(0, mc.from - rel);
+        skip = { at: mc.from, len: mc.len };
+        st.found++;
+      } else if (h && h.found) {
+        from = Math.max(0, Number(h.from) - MKIT.MK.lead);
+        if (from + want > g.info.dur) from = Math.max(0, g.info.dur - want);
+        st.found++;
+      } else {
+        /* بی عبارت یا نشنیده ⇒ از آغاز؛ کلیپِ بلند از ثانیهٔ اول، تا قابِ سیاهِ آغاز نیاید. */
+        from = g.info.dur > 8 ? 1 : 0;
+        if (scIdx[i] >= 0) { st.notFound++; st.why.push('صحنهٔ ' + s.n + ': ' + ((h && h.why) || 'شنیده نشد')); }
+      }
+      const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip);
+      clips[String(s.n)] = c.file; imgs[String(s.n)] = c.still; full[String(s.n)] = true;
+      st.clips++;
+    } catch (e) {
+      st.failed++;
+      notes.push('صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 70));
+    }
+  });
+  if (st.why.length) notes.push('برشِ کلیپ از آغاز: ' + st.why.slice(0, 4).join(' · '));
+  return { imgs: imgs, clips: clips, full: full, got: got, heard: heard, moCut: moCut, stat: st };
+}
+
+/** لحظه‌ها پس از ساختِ ویدئو و سنجشش: هر کدام همان تکهٔ شنیده‌شده، با صدای خودش. */
+function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
+  const MKIT = require('./mediakit.js');
+  const SKIT = require('./scenekit.js');
+  const FF = ffmpegExe();
+  const enc = ['-c:v', 'libx264', '-preset', 'faster', '-crf', String(SKIT.SK.crf), '-pix_fmt', 'yuv420p',
+               '-r', String(SKIT.SK.fps), '-g', String(SKIT.SK.fps * 10)];
+  const parts = [], st = { asked: (it.moments || []).length, placed: placed.length, made: 0, why: [] };
+  for (const c of (mp.moCut || [])) {
+    const m = c.m;
+    if (!c.ok) { st.why.push(Math.round(m.at) + 's: ' + c.why); continue; }
+    const g = mp.got[c.url];
+    try {
+      const v = path.join(dir, 'mo' + parts.length + '.mp4'), a = path.join(dir, 'mo' + parts.length + '.wav');
+      const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc);
+      parts.push({ at: m.at, v: v, a: a, len: r.len });
+      st.made++;
+    } catch (e) { st.why.push(Math.round(m.at) + 's: ' + String(e.message).split('\n')[0].slice(0, 60)); }
+  }
+  if (!parts.length) { if (st.why.length) notes.push('لحظه‌ها: ' + st.why.join(' · ')); return { stat: st, inserts: [] }; }
+  const tmp = dest + '.mo.mp4';
+  const r = MKIT.splice(FF, silent, wav, parts, tmp, dir);
+  fs.renameSync(tmp, dest);
+  if (st.why.length) notes.push('لحظه‌ها: ' + st.why.join(' · '));
+  return { stat: st, inserts: r.inserts };
+}
+
 function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   const SKIT = require('./scenekit.js');
   const CK = require('./cardkit/index.js');
-  const imgs = {};
-  for (const s of scenes) {
+  /* جای لحظه‌ها **پیش از** هر چیز: هم برشِ کلیپِ صحنه به آن بسته است (تکهٔ لحظه از آن برداشته
+     می‌شود) و هم قابِ کلیدی که لای‌گذاری را بی بازکدگذاری می‌کند. */
+  let placed = [];
+  if (it.media && (it.moments || []).length) {
+    placed = require('./mediakit.js').placeMoments(it.moments, SKIT.silences(ffmpegExe(), wav), it.mute, durSec, notes);
+    /* ══ روی شبکهٔ قاب (آزمونِ واقعی نشانش داد) ══ قابِ کلیدیِ «۲۴٫۳» در ۲۴ قاب بر ثانیه سرِ ۲۴٫۳۳۳
+       می‌نشیند؛ برشِ بی‌بازکدگذاری که ۲۴٫۳ بخواهد به قابِ کلیدیِ **پیشین** (۲۲٫۲۹) برمی‌گردد و دو ثانیه
+       تصویرِ صحنهٔ قبل تکرار می‌شود. پس زمانِ لحظه خودش روی قاب است: قابِ کلیدی، برشِ تصویر، برشِ صوت و
+       `inserts` همه همین یک عدد. */
+    placed.forEach(m => { m.at = Math.ceil(m.at * SKIT.SK.fps - 1e-6) / SKIT.SK.fps; });
+  }
+  const mp = it.media ? prepMedia(it, scenes, dir, notes, placed) : null;
+  const imgs = mp ? mp.imgs : {};
+  for (const s of (mp ? [] : scenes)) {
     const f = path.join(dir, 's' + String(s.n).padStart(3, '0'));
     try {
       fetchTo(s.url, f);
@@ -680,8 +817,8 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   }
   /* کلیپِ آغاز (۸.۵۱): بایت‌ها باور می‌شوند — «ftyp» در سرِ فایل. نرسید یا ویدئو نبود
      ⇒ همان نقاشیِ ثابت، و گفته می‌شود؛ ویدئوی درس هرگز برای کلیپ زمین نمی‌خورد. */
-  const clips = {};
-  for (const s of scenes) {
+  const clips = mp ? mp.clips : {};
+  for (const s of (mp ? [] : scenes)) {
     if (!s.clip || !imgs[String(s.n)]) continue;
     const f = path.join(dir, 'c' + String(s.n).padStart(3, '0') + '.mp4');
     try {
@@ -702,7 +839,10 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   }
   const exe = CK.chromeExe();
   const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
-                             dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes });
+                             dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes,
+                             full: mp ? mp.full : null,
+                             kf: mp ? mp.moCut.filter(c => c.ok).map(c => c.m.at) : [],
+                             keepSilent: !!(mp && mp.moCut.some(c => c.ok)) });
   const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
   /* ══ شنیدنِ هم‌زمانی (۸.۸۰) ══ سه نقطه، با تشخیصِ گفتار: آنچه در زمانِ صحنه گفته می‌شود با
      گفتارِ خودِ صحنه می‌خواند؟ نبودِ ابزار یعنی «نشنیدم» (ok:null)، نه «ناهم‌زمان». */
@@ -760,7 +900,15 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
       }
     }
   } catch (e) { notes.push('کاورِ صحنه‌ای نشد: ' + String(e.message).split('\n')[0].slice(0, 60)); }
-  return { n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
+  /* لحظه‌ها پس از سنجش: سنجش و شنیدنِ هم‌زمانی روی ویدئوی هم‌طولِ صوت است (زمانِ صحنه‌ها همان). */
+  let mo = null;
+  if (mp && placed.length && r.silent) {
+    try { mo = spliceMoments(it, placed, mp, r.silent, wav, dest, dir, notes); }
+    catch (eMo) { notes.push('لای‌گذاریِ لحظه‌ها نشد، ویدئو بی لحظه: ' + String(eMo.message).split('\n')[0].slice(0, 80)); }
+  }
+  const media = mp ? Object.assign({}, mp.stat, { moments: mo ? mo.stat : { asked: (it.moments || []).length, placed: placed.length, made: 0 } }) : null;
+  return { media: media, inserts: mo ? mo.inserts : [],
+           n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
            groups: r.groups, qa: qa, thumbFile: thumb, artFile: artFile, ov: r.ov, mv: r.mv || 0, clip: r.clip, xf: r.xf || null,
            refs: r.tl.filter(x => x.ref).length,     // صحنه‌هایی که سنجش «با نوشته» دیدشان
            logo: mark ? (mark.logo ? (mark.logoClean || 'خام') : 'بی تصویر') : 'بی نشان' };
@@ -773,7 +921,7 @@ function buildVideo(it, cover, wav, durSec, dest, dir) {
   if (sc) {
     try {
       const r = buildScenesVideo(it, sc, wav, durSec, dest, dir, notes);
-      return Object.assign({ mode: 'scenes', notes: notes }, r);
+      return Object.assign({ mode: it.media ? 'media' : 'scenes', notes: notes }, r);
     } catch (e) {
       notes.push('صحنه‌ها نشد، مسیرِ بعدی: ' + String(e.message).split('\n')[0].slice(0, 90));
     }
@@ -1158,8 +1306,12 @@ function main() {
       /* ══ صحنه‌ها و سنجشِ ویدئو (۸.۳۱) ══
          `qa` همان چیزی است که موتور پیش از عمومی‌کردن می‌پرسد: هر صحنه از
          خودِ فایل سرِ جایش دیده شد؟ قابِ خالی نبود؟ */
-      if (vr.mode === 'scenes') {
-        map.items[it.key].mode = 'scenes';
+      if (vr.mode === 'scenes' || vr.mode === 'media') {
+        map.items[it.key].mode = vr.mode;
+        /* رسانه‌های منبع (۸.۹۶): چند کلیپ و عکس، چند برش از جای عبارت، و لحظه‌ها — و `inserts` که
+           موتور با آن زمانِ فصل‌های توضیح را جلو می‌بَرد. */
+        if (vr.media) map.items[it.key].media = vr.media;
+        if (vr.inserts && vr.inserts.length) map.items[it.key].inserts = vr.inserts;
         map.items[it.key].scenes = vr.n;
         map.items[it.key].want = vr.want;
         map.items[it.key].snapped = vr.snapped;
@@ -1197,7 +1349,7 @@ function main() {
           (vr.mode === 'slides' ? ' · ' + vr.n + ' تصویر در ' + vr.groups + ' دسته'
             : vr.mode === 'cards' ? ' · ' + vr.cards + ' کارتِ برداری، ' + vr.n + ' ضرب' +
                                     (vr.bgs ? '، ' + vr.bgs + ' با تصویرِ ساخته‌شده' : '')
-            : vr.mode === 'scenes' ? ' · ' + vr.n + ' صحنهٔ مصور (' + vr.snapped + ' مرز روی مکث) · سنجش: ' +
+            : (vr.mode === 'scenes' || vr.mode === 'media') ? ' · ' + vr.n + (vr.mode === 'media' ? ' صحنهٔ رسانهٔ منبع (' : ' صحنهٔ مصور (') + vr.snapped + ' مرز روی مکث) · سنجش: ' +
                                      (vr.qa && vr.qa.ok ? '✔ ' + vr.qa.matched + '/' + vr.qa.n
                                                          : '✗ ' + ((vr.qa && vr.qa.why) || ''))
             : ' · کاورِ تک‌تصویری'));
@@ -1245,6 +1397,6 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo,
+  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments,
   plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor
 };

@@ -59,13 +59,21 @@ function scenesOf(it) {
                ov: (x.ov && typeof x.ov === 'object') ? x.ov : null,
                mv: mvOf(x.mv), clip: clipOf(x.clip),
                fb: fbOf(x.fb), beat: String(x.beat || ''), sec: Number(x.sec) || 0,
-               say: String((x && x.say) || '').trim() });
+               say: String((x && x.say) || '').trim(), media: mediaOf(x.media) });
   }
   out.sort((p, q) => p.t0 - q.t0);
   return out.length >= 3 ? out : null;
 }
 
 const clamp01 = v => Math.max(0, Math.min(1, v));
+
+/** رسانهٔ منبعِ صحنه («از همه جا»، ۸.۹۶): نوع و تکهٔ گفتارِ کلیپ. نامعقول ⇒ null. */
+function mediaOf(v) {
+  if (!v || typeof v !== 'object') return null;
+  const k = String(v.kind || '');
+  if (k !== 'video' && k !== 'photo') return null;
+  return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro };
+}
 
 /* ══ حرکتِ معنادار (۸.۵۱) ══
  * موتور فقط وقتی `mv` می‌فرستد که هم «چه کند» (از توصیفِ صحنه: push/reveal) و هم
@@ -109,6 +117,14 @@ function fbBox(fb) {
  */
 function xfadeOf(prev, cur, k) {
   if (!cur) return 'fade';
+  /* ══ رسانهٔ منبع: گذارهای بیشتر (۸.۹۶) ══ «جلوه‌ها نه فقط زوم این و زوم اوت، خیلی بیشتر». هر
+     گذار با مدتِ همان `SK.xf` (حسابِ زمان به آن بسته است). از کلیپ به کلیپ «حل‌شدن» (برشِ تند
+     میانِ دو تصویرِ متحرک چشم را می‌زند)، به عکس یا از عکس چرخشی از فهرست. */
+  if (cur.media) {
+    if (prev && prev.media && prev.media.kind === 'video' && cur.media.kind === 'video') return 'dissolve';
+    const L = ['smoothright', 'circleopen', 'fade', 'wiperight', 'zoomin', 'slideright', 'radial', 'dissolve'];
+    return L[k % L.length];
+  }
   if (prev && cur.sec && prev.sec && cur.sec !== prev.sec) return 'fadeblack';
   if (cur.beat === 'روایت') return 'dissolve';
   return k % 2 ? 'smoothright' : 'fade';
@@ -445,19 +461,35 @@ function build(it, ctx) {
      کلیپ نمی‌گیرد و **گفته می‌شود** — کلیپِ بریده‌ای که وسطِ حرکت قطع شود بدتر از نقاشیِ
      ساکن است. نوشته و زیرنویس پس از کلیپ می‌آیند: روی حرکت، نوشته جایش را گم می‌کند. */
   const clipPlan = {}, clipStat = { asked: 0, used: 0, why: [] };
+  /* ══ رسانهٔ منبع (۸.۹۶): کلیپ **خودِ صحنه** است، نه آغازِ آن ══
+     کلیپِ آغازِ درس‌نامه چند ثانیه می‌آید و به نقاشی برمی‌گردد. کلیپِ منبعِ «از همه جا» همان چیزی
+     است که گوینده درباره‌اش حرف می‌زند، پس تا پایانِ صحنه می‌ماند (`only`)؛ فقط اگر کوتاه‌تر از
+     صحنه باشد، به آخرین قابِ خودش (با حرکتِ آرام) میان‌محو می‌شود. نوشته و زیرنویس روی کلیپ
+     می‌نشینند (`shiftOf` صفر): کلیپِ عمودی دو حاشیهٔ تارِ ساکن دارد و جای نوشته همان‌جاست. */
+  const fullOf = k => !!(ctx.full && ctx.full[String(have[tl[k].i].n)]);
   tl.forEach((x, k) => {
     const s = have[x.i];
-    if (!s.clip) return;
+    const full = fullOf(k);
+    if (!s.clip && !full) return;
     clipStat.asked++;
     const cfile = ctx.clips && ctx.clips[String(s.n)];
     if (!cfile) { clipStat.why.push('صحنهٔ ' + s.n + ': کلیپ نرسید'); return; }
-    const cd = Math.min(Number(mediaSeconds(ctx.ff, cfile)) || 0, x.d - SK.clipRest);
+    const len = Number(mediaSeconds(ctx.ff, cfile)) || 0;
+    if (full) {
+      const want = x.d + (k === tl.length - 1 ? 0 : SK.xf);
+      if (len < 1) { clipStat.why.push('صحنهٔ ' + s.n + ': کلیپِ منبع خوانده نشد'); return; }
+      const only = len >= want - 0.05;
+      clipPlan[k] = { file: cfile, cd: Math.round(Math.min(len, want) * 1000) / 1000, full: true, only: only };
+      clipStat.used++;
+      return;
+    }
+    const cd = Math.min(len, x.d - SK.clipRest);
     if (cd < SK.clipXf + 2) { clipStat.why.push('صحنهٔ ' + s.n + ': صحنه برای کلیپ کوتاه است'); return; }
     clipPlan[k] = { file: cfile, cd: Math.round(cd * 1000) / 1000 };
     clipStat.used++;
   });
   if (clipStat.why.length) notes.push('کلیپ: ' + clipStat.why.join(' · '));
-  const shiftOf = k => clipPlan[k] ? clipPlan[k].cd + 0.3 : 0;
+  const shiftOf = k => clipPlan[k] && !clipPlan[k].full ? clipPlan[k].cd + 0.3 : 0;
 
   const ovFile = {}, ovStat = { asked: 0, placed: 0, busy: 0, failed: 0, kinds: {} };
   const ovCtx = { ff: ctx.ff, ffRun: ctx.ffRun, dir: ctx.dir,
@@ -516,6 +548,7 @@ function build(it, ctx) {
 
   const vmax = vmaxFor(ctx.durSec);
   const parts = [];
+  let gStart = 0;
   const ovWin = {};          // پنجرهٔ دیده‌شدنِ کارتِ هر صحنه — برای مرجعِ سنجش
   const xfUsed = {};
   const still = {};          // بخشِ ساکنِ هر صحنه: از کِی و چه‌قدر — برای مرجعِ سنجش
@@ -529,6 +562,16 @@ function build(it, ctx) {
       const s = have[x.i];
       const clip = x.d + (k === grp.length - 1 ? 0 : SK.xf);
       const cp = clipPlan[gk];
+      let cur = 'b' + k;
+      if (cp && cp.only) {
+        /* کلیپِ منبع کلِ صحنه را پر می‌کند (۸.۹۶): نه نقاشی، نه میان‌محو — همان کلیپ، بی صدا. */
+        a.push('-i', cp.file);
+        const ia0 = inIdx++;
+        f.push('[' + ia0 + ':v]trim=duration=' + clip.toFixed(3) + ',setpts=PTS-STARTPTS,fps=' + SK.fps +
+               ',scale=' + SK.w + ':' + SK.h + ':force_original_aspect_ratio=increase,crop=' + SK.w + ':' + SK.h +
+               ',setsar=1,format=yuv420p,settb=1/' + SK.fps + '[b' + k + ']');
+        still[gk] = { start: 0, len: clip, z: 0 };
+      } else {
       const sLen = cp ? clip - cp.cd + SK.clipXf : clip;
       const N = Math.max(2, Math.round(sLen * SK.fps));
       const m = motion(gk, N, s.mv, ovFile[gk] ? SK.zoom : 0);
@@ -542,8 +585,8 @@ function build(it, ctx) {
         "':x2='" + m.x2 + "':y2='" + m.y2 + "':x3='" + m.x3 + "':y3='" + m.y3 +
         "':interpolation=linear:eval=frame,setsar=1[b" + k + ']';
       f.push(chain);
-      let cur = 'b' + k;
-      if (cp) {
+      }
+      if (cp && !cp.only) {
         /* کلیپ (بی صدایش — صدا همان گفتارِ درس است) و بعد میان‌محو به همان نقاشی. */
         a.push('-i', cp.file);
         const ia = inIdx++;
@@ -616,11 +659,17 @@ function build(it, ctx) {
     }
     const last = grp.length > 1 ? 'vout' : 'v0';
     const outp = path.join(ctx.dir, 'sc' + String(parts.length).padStart(3, '0') + '.mp4');
+    /* قابِ کلیدی سرِ «لحظه»ها (۸.۹۶): ویدئو همان‌جا بی بازکدگذاری بریده و لحظه لایش گذاشته می‌شود.
+       زمانِ هر دسته = جمعِ مدتِ صحنه‌هایش (میان‌محو از مدتِ ورودیِ صحنه‌ها می‌خورد، نه از خروجی). */
+    const gLen = grp.reduce((p, q) => p + q.d, 0);
+    const kfs = (ctx.kf || []).map(t => t - gStart).filter(t => t > 0.05 && t < gLen - 0.05);
+    const kfArg = kfs.length ? ['-force_key_frames', kfs.map(t => t.toFixed(3)).join(',')] : [];
     ctx.ffRun(a.concat(['-filter_complex', f.join(';'), '-map', '[' + last + ']',
       '-c:v', 'libx264', '-preset', 'faster', '-crf', String(SK.crf),
       '-maxrate', String(vmax), '-bufsize', String(vmax * 2),
-      '-pix_fmt', 'yuv420p', '-r', String(SK.fps), '-g', String(SK.fps * 10), '-an', outp]));
+      '-pix_fmt', 'yuv420p', '-r', String(SK.fps), '-g', String(SK.fps * 10)].concat(kfArg).concat(['-an', outp])));
     parts.push(outp);
+    gStart += gLen;
   }
   const lst = path.join(ctx.dir, 'scl.txt');
   fs.writeFileSync(lst, parts.map(p => "file '" + p + "'").join('\n'));
@@ -630,7 +679,8 @@ function build(it, ctx) {
              '-t', String(Math.max(1, Number(ctx.durSec) || 1)),
              '-shortest', '-movflags', '+faststart', ctx.dest]);
   for (const p of parts) { try { fs.unlinkSync(p); } catch (e) {} }
-  try { fs.unlinkSync(silent); } catch (e) {}
+  /* ویدئوی بی‌صدا برای «لحظه»ها می‌ماند (۸.۹۶): لایش‌گذاری روی همین، بی بازکدگذاری. */
+  if (!ctx.keepSilent) { try { fs.unlinkSync(silent); } catch (e) {} }
   /* مرجعِ سنجش برای صحنهٔ نوشته‌دار: همان نقاشی **با** نوشته‌اش. بی این، قابِ
      ویدئو با تصویرِ خامِ خودش مقایسه می‌شد و نوشته «صحنه سرِ جایش نیست» می‌خورد. */
   const ref = {}, ovQt = {};
@@ -664,7 +714,7 @@ function build(it, ctx) {
      شود، و برای صحنهٔ کلیپ‌دار — اگر لحظهٔ سنجش هنوز درونِ کلیپ است — قابِ همان
      ثانیه از **خودِ کلیپ**. هیچ‌کدام از خودِ خروجی گرفته نمی‌شود؛ آن سنجه را توخالی
      می‌کرد. */
-  const qt = {}, refT = {};
+  const qt = {}, refT = {}, noQa = {};
   tl.forEach((x, k) => {
     const cp = clipPlan[k], st = still[k] || { start: 0, len: x.d, z: 0 };
     let t = Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9));
@@ -672,6 +722,14 @@ function build(it, ctx) {
       if (x.d - cp.cd >= 3) t = Math.min(x.d - 0.9, cp.cd + (x.d - cp.cd) / 2);
       else {
         t = Math.max(0.3, (cp.cd - SK.clipXf) * 0.5);
+        /* کلیپِ منبعی که کارت رویش نشسته (۸.۹۶): مرجع خودِ کلیپ است، **بی** کارت — پس لحظهٔ سنجش
+           بیرون از پنجرهٔ کارت، وگرنه ویدئوی سالم «سرِ جایش نیست» می‌خورد و سدِ انتشار نگهش می‌دارد. */
+        const Wn = ovWin[k];
+        if (cp.full && Wn) {
+          if (Wn.end + OVL.OV.fade + 0.4 < Math.min(cp.cd, x.d) - 0.4) t = Wn.end + OVL.OV.fade + 0.4;
+          else if (Wn.st - 0.4 >= 0.3) t = Wn.st - 0.4;
+          else { qt[k] = t; ref[k] = cp.file; refT[k] = t; noQa[k] = true; return; }   // جایی بی کارت نیست ⇒ شمرده نمی‌شود، نه «سرِ جایش نیست»
+        }
         qt[k] = t; ref[k] = cp.file; refT[k] = t;
         return;
       }
@@ -692,12 +750,14 @@ function build(it, ctx) {
       ref[k] = out; qt[k] = t;
     } catch (e2) {}
   });
-  return { scenes: tl.length, want: scenes.length, snapped: snapped, silences: sil.length,
+  return { scenes: tl.length, want: scenes.length, snapped: snapped, silences: sil.length, sil: sil,
+           silent: ctx.keepSilent ? silent : '',
            groups: parts.length, vmax: vmax, ov: ovStat, mv: mvUsed, clip: clipStat, xf: xfUsed,
            tl: tl.map((x, k) => {
              const o = { n: have[x.i].n, t0: x.t0, d: x.d, img: ctx.imgs[String(have[x.i].n)], ref: ref[k] || '' };
              if (qt[k] !== undefined) o.qt = qt[k];
              if (refT[k] !== undefined) o.refT = refT[k];
+             if (noQa[k]) o.noQa = true;
              return o; }) };
 }
 
@@ -757,6 +817,7 @@ function qa(ff, dest, tl, durSec) {
   for (const x of tl) if (!src[keyOf(x)]) src[keyOf(x)] = gray(ff, x.ref || x.img, x.refT);
   for (let k = 0; k < tl.length; k++) {
     const x = tl[k];
+    if (x.noQa) { out.n--; continue; }
     const t = x.t0 + (x.qt !== undefined ? x.qt : Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9)));
     const fr = gray(ff, dest, t);
     if (!fr || sd(fr) < SK.qaBlankSd) { out.blank.push(x.n); continue; }
@@ -779,5 +840,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, pinFrame, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml, bannerHtml,
+module.exports = { SK, pinFrame, scenesOf, mediaOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml, bannerHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };
