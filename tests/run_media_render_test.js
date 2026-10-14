@@ -216,8 +216,30 @@ console.log('=== ۶) چیدمان و حرکت (۸.۹۹) — «همه وسط، ر
   ok('۶.۶ چیدمان‌ها به نوبت‌اند، نه همه وسط', ['left', 'center', 'right'].every((L, i) => MKIT.layoutOf(i) === L) && MKIT.layoutOf(3) === 'left');
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۶.۷ رانر عکس را کلیپِ زنده می‌کند و «لحظه» چیدمانِ صحنه‌اش را می‌گیرد',
-     /MKIT\.photoClip\(FF, g\.file, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\] \}\)/.test(rj) &&
+     /MKIT\.photoClip\(FF, g\.file, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: !!\(s\.media && s\.media\.card\) \}\)/.test(rj) &&
      /MKIT\.moment\(FF, g\.file, v, a, c\.from, c\.len, g\.info, enc, \{ layout: c\.layout/.test(rj));
+}
+
+console.log('=== ۷) کارتِ نوشته (۹.۰۱) — «حالت برداری کم استفاده شده بود» ===');
+{
+  const cov = P('cover.png');
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=1280x720:d=1', '-frames:v', '1', cov]);
+  const pk = MKIT.photoClip(FF, cov, P('card.mp4'), 6, { layout: 'right', card: true });
+  const pr = MKIT.probe(FF, pk.file);
+  ok('۷.۱ کارت ⇒ تمام‌قاب ۱۹۲۰×۱۰۸۰ به همان طول', pk.kind === 'card' && pk.layout === 'fill' && pr.w === 1920 &&
+     Math.abs(pr.dur - 6) < 0.2, pk.kind + ' ' + pr.w + ' ' + pr.dur);
+  /* لبه‌های تیز (اختلافِ دو پیکسلِ کنارِ هم > ۱۲) در اندازهٔ واقعی: نوشته و خط در تصویرِ محو نمی‌مانَد. */
+  const sdOf = (f, t) => {
+    const b = Array.from(execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', f, '-frames:v', '1',
+      '-vf', 'crop=480:480:720:300,format=gray', '-f', 'rawvideo', '-']));
+    const m = b.reduce((a, v) => a + v, 0) / b.length;
+    let sharp = 0; for (let i = 1; i < b.length; i++) if (Math.abs(b[i] - b[i - 1]) > 12) sharp++;
+    return { m: Math.round(m), sharp: sharp };
+  };
+  const kb = MKIT.photoClip(FF, cov, P('cardkb.mp4'), 6, { layout: 'right' });
+  const a = sdOf(pk.file, 1), b = sdOf(kb.file, 1);
+  ok('۷.۲ پس‌زمینهٔ کارت محو و تیره‌تر از همان کاور است — جای نوشته', a.sharp < b.sharp * 0.2 && a.m < b.m,
+     JSON.stringify({ card: a, plain: b }));
 }
 
 console.log('=== ۴) سیم‌کشی ===');

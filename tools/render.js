@@ -736,7 +736,8 @@ function prepMedia(it, scenes, dir, notes, placed) {
     try {
       if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
         if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
-        const pc = MKIT.photoClip(FF, g.file, out + '.mp4', want, { layout: layOf[s.n] });
+        const pc = MKIT.photoClip(FF, g.file, out + '.mp4', want, { layout: layOf[s.n], card: !!(s.media && s.media.card) });
+        if (pc.kind === 'card') st.cards = (st.cards || 0) + 1;
         clips[String(s.n)] = pc.file; imgs[String(s.n)] = pc.still; full[String(s.n)] = true;
         st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] = (st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] || 0) + 1;
         if (pc.box) st.cropped = (st.cropped || 0) + 1;

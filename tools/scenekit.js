@@ -72,7 +72,9 @@ function mediaOf(v) {
   if (!v || typeof v !== 'object') return null;
   const k = String(v.kind || '');
   if (k !== 'video' && k !== 'photo') return null;
-  return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro, teaser: !!v.teaser };
+  /* card/outro/bridge (۹.۰۱): کاورِ قسمت — محو با نوشتهٔ برداری، یا خودِ کاور سرِ موسیقیِ پایانی و پل‌ها. */
+  return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro, teaser: !!v.teaser,
+           card: !!v.card, outro: !!v.outro, bridge: !!v.bridge };
 }
 
 /* ══ حرکتِ معنادار (۸.۵۱) ══

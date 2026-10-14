@@ -5690,6 +5690,28 @@ function pronHits_(text) {
 */
 
 /** خواندنِ یک نمونهٔ ۱۶بیتیِ علامت‌دار. بایت‌های Apps Script علامت‌دارند. */
+/**
+ * سکوتِ آغازِ یک تکهٔ PCM (base64، ۱۶ بیتی) را برمی‌دارد و `keepSec` از آن را نگه می‌دارد (۹.۰۱).
+ * فقط سه ثانیهٔ اول وارسی می‌شود؛ اگر در آن هیچ صدایی نبود، تکه دست‌نخورده برمی‌گردد — حرفی که دیر شروع
+ * می‌شود بهتر از حرفی است که به‌اشتباه بریده شود. برش روی مرزِ سه نمونه (۶ بایت = ۸ نویسهٔ base64).
+ */
+function pcmLeadTrim_(b64, keepSec, thr) {
+  var sr = CFG.SAMPLE_RATE || 24000;
+  var th = Number(thr) || 700;
+  if (!b64 || b64.length < 16) return b64;
+  var scan = Math.floor(Math.min(b64.length, Math.floor(sr * 3 / 3) * 8) / 8) * 8;
+  var bytes = Utilities.base64Decode(b64.slice(0, scan));
+  var first = -1;
+  for (var k = 0; k + 1 < bytes.length; k += 2) {
+    var v = rd16_(bytes, k);
+    if (v > th || v < -th) { first = k / 2; break; }
+  }
+  if (first < 0) return b64;
+  var cut = first - Math.floor((Number(keepSec) || 0) * sr);
+  if (cut < 3) return b64;
+  return b64.slice(Math.floor(cut / 3) * 8);
+}
+
 function rd16_(b, i) {
   var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
   var v = u(i) | (u(i + 1) << 8);
@@ -6061,6 +6083,13 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
      * بالا می‌آید. اگر بافر تازه خالی شده باشد (مرزِ فایل) از این اتصال
      * می‌گذریم — دو فایلِ جدا را نمی‌شود در هم برد. */
     var curMusic = !!(chunks[i] && chunks[i].pcm);
+    /* موسیقی → گفتار: سکوتِ آغازِ گفتار برداشته می‌شود (۹.۰۱). نمونهٔ چهارمِ قسمتِ ۷۲ سرِ ۵۷ ثانیه: موسیقی در
+       نیم‌ثانیه از ‎−۲۷ به ‎−۷۶ دسی‌بل افتاد و بعد نیم‌ثانیه سکوت و بعد گوینده — تلفیق روی **سکوتِ** سرِ تکهٔ گفتار
+       (مکثِ پیش از جمله + سکوتِ خودِ گفتارساز) افتاده بود، پس موسیقی زیرِ هیچ محو می‌شد و «یهو قطع» شنیده شد.
+       پس از موسیقی مکث لازم نیست؛ خودِ موسیقی مکث است. */
+    if (!curMusic && prevMusic === true && CFG.MUSIC_XFADE !== false) {
+      try { b64 = pcmLeadTrim_(b64, Number(CFG.MUSIC_SPEECH_LEAD_SEC) || 0.12); } catch (eLt) {}
+    }
     if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
         prevMusic !== curMusic) {
       var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : prevXf;

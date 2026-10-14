@@ -346,7 +346,19 @@ global.DriveApp = {
         getName: () => ss.getName ? ss.getName() : ('SHEET:' + id),
         getUrl: () => 'https://docs.google.com/spreadsheets/d/' + id + '/edit',
         getDateCreated: () => new Date(),
-        moveTo() { return this; },
+        /* شیتِ ساخته‌شده با SpreadsheetApp.create که به پوشه برده شود، در آن پوشه دیده می‌شود
+           (پشتیبانِ بی‌اسکریپت، 17_Backup) — بی این، رونوشت ساخته می‌شد و در پوشه نبود. */
+        moveTo(folder) {
+          /* فقط رونوشتِ پشتیبان: آزمون‌های دیگر __SS را میانِ صحنه‌ها پاک می‌کنند و پوشه‌ها را نه؛
+             هابی که در پوشه بماند و در __SS نباشد، صحنهٔ بعد را با «no such spreadsheet» می‌کُشد. */
+          if (folder && folder._files && /پشتیبان/.test(ss._n || '') && !folder._files.some(x => x._sheetOf === id)) {
+            const b = global.Utilities.newBlob('sheet:' + id, 'application/vnd.google-apps.spreadsheet', ss._n || ('SHEET:' + id));
+            const f2 = new DFile(b, folder); delete global.__FILES_BY_ID[f2._id]; f2._id = id;
+            f2._name = ss._n || ('SHEET:' + id); f2._sheetOf = id;
+            folder._files.push(f2); global.__FILES.push(f2);
+          }
+          return this;
+        },
         getBlob: () => global.Utilities.newBlob('sheet', 'text/plain', 'sheet'),
         makeCopy(name, folder) {
           const tgt = folder || global.__ROOT_FOLDER;

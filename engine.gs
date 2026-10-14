@@ -1185,15 +1185,18 @@ var CFG = {
   VM_PLAN_TOKENS: 12288,
   VM_FAIL_MAX: 3,                  // نقشهٔ ناشده تا این‌قدر دوباره پرسیده می‌شود، بعد ویدئوی ساده با علت
   VM_RETRY_MIN: 45,
-  VM_MOMENT_MAX: 3,                // «لحظه»هایی که کلیپ با صدای خودش پخش می‌شود
-  VM_MOMENT_SEC: 20,               // سقفِ هر لحظه (ثانیه) — ۹.۰۰: از ۱۲؛ لحظه حالا تا پایانِ جملهٔ گوینده می‌رود
+  VM_MOMENT_MAX: 6,                // «لحظه»هایی که کلیپ با صدای خودش پخش می‌شود — ۹.۰۱: از ۳؛ «خیلی کم از صدای خودِ کلیپ پخش می‌کنه»
+  VM_MOMENT_SEC: 30,               // سقفِ هر لحظه (ثانیه) — ۹.۰۰: از ۱۲ به ۲۰؛ ۹.۰۱: ۳۰ — «قسمت‌های اصلیِ خودِ کلیپ»
+  VM_MOMENT_GAP: 20,               // کمترین فاصلهٔ دو لحظه (ثانیه) — ۹.۰۱: از ۳۰ِ ثابت در کد
   VM_OV_MAX: 10,                   // نوشتهٔ برداریِ کنارِ رسانه — ۸.۹۹: از ۶؛ رسانه حالا در چپ/راست می‌نشیند و نیمهٔ دیگر جای همین نوشته است
-  VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر، اگر رسانهٔ دیگری از همان بخش هست، نصف می‌شود
+  VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر با رسانهٔ **دیده‌نشدهٔ** همان بخش نصف می‌شود؛ نبود ⇒ کارتِ نوشته (۹.۰۱)
+  VM_CARDS: true,                  // کارتِ نوشته روی کاورِ محو: پایانِ قسمت، پل‌های موسیقی، و صحنه‌ای که بی رسانهٔ تازه طولانی شد (۹.۰۱)
   VM_COVER_GEN: true,              // تنها تصویرِ ساختنی: کاور
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
   VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 4, replan: true },   // rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
+  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 5, replan: true },   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
+  // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
      ۱۵ دقیقه، چون سقفِ خودِ گوگل ۶ دقیقه است: مهری که ۱۵ دقیقه مانده باشد
@@ -1713,6 +1716,7 @@ var CFG = {
   MUSIC_DUCK_RISE: 0.35,       // در چند درصدِ گذر به بلندیِ کامل می‌رسد
   MUSIC_DUCK_UNDER: 0.5,       // موسیقی زیرِ صدای گوینده تا این ضریب
   MUSIC_XFADE_HOLD: 0.5,       // گفتار→موسیقی: واژه‌های پایانی بریده نشوند
+  MUSIC_SPEECH_LEAD_SEC: 0.12, // موسیقی→گفتار: سکوتِ آغازِ گفتار تا این‌قدر کوتاه می‌شود تا تلفیق روی خودِ صدا بیفتد (۹.۰۱)
   MUSIC_LIMIT_KNEE: 28000,     // از این بالاتر نرم فشرده می‌شود، نه بریده
   // کفِ طولِ قطعه برای هر جایگاه. قطعه‌ای که از تلفیقِ لبه هم کوتاه‌تر
   // است، موسیقیِ آغاز نیست — و بی این کف، یک فایلِ سه‌ثانیه‌ای می‌توانست
@@ -10199,6 +10203,28 @@ function pronHits_(text) {
 */
 
 /** خواندنِ یک نمونهٔ ۱۶بیتیِ علامت‌دار. بایت‌های Apps Script علامت‌دارند. */
+/**
+ * سکوتِ آغازِ یک تکهٔ PCM (base64، ۱۶ بیتی) را برمی‌دارد و `keepSec` از آن را نگه می‌دارد (۹.۰۱).
+ * فقط سه ثانیهٔ اول وارسی می‌شود؛ اگر در آن هیچ صدایی نبود، تکه دست‌نخورده برمی‌گردد — حرفی که دیر شروع
+ * می‌شود بهتر از حرفی است که به‌اشتباه بریده شود. برش روی مرزِ سه نمونه (۶ بایت = ۸ نویسهٔ base64).
+ */
+function pcmLeadTrim_(b64, keepSec, thr) {
+  var sr = CFG.SAMPLE_RATE || 24000;
+  var th = Number(thr) || 700;
+  if (!b64 || b64.length < 16) return b64;
+  var scan = Math.floor(Math.min(b64.length, Math.floor(sr * 3 / 3) * 8) / 8) * 8;
+  var bytes = Utilities.base64Decode(b64.slice(0, scan));
+  var first = -1;
+  for (var k = 0; k + 1 < bytes.length; k += 2) {
+    var v = rd16_(bytes, k);
+    if (v > th || v < -th) { first = k / 2; break; }
+  }
+  if (first < 0) return b64;
+  var cut = first - Math.floor((Number(keepSec) || 0) * sr);
+  if (cut < 3) return b64;
+  return b64.slice(Math.floor(cut / 3) * 8);
+}
+
 function rd16_(b, i) {
   var u = function (k) { return b[k] < 0 ? b[k] + 256 : b[k]; };
   var v = u(i) | (u(i + 1) << 8);
@@ -10570,6 +10596,13 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
      * بالا می‌آید. اگر بافر تازه خالی شده باشد (مرزِ فایل) از این اتصال
      * می‌گذریم — دو فایلِ جدا را نمی‌شود در هم برد. */
     var curMusic = !!(chunks[i] && chunks[i].pcm);
+    /* موسیقی → گفتار: سکوتِ آغازِ گفتار برداشته می‌شود (۹.۰۱). نمونهٔ چهارمِ قسمتِ ۷۲ سرِ ۵۷ ثانیه: موسیقی در
+       نیم‌ثانیه از ‎−۲۷ به ‎−۷۶ دسی‌بل افتاد و بعد نیم‌ثانیه سکوت و بعد گوینده — تلفیق روی **سکوتِ** سرِ تکهٔ گفتار
+       (مکثِ پیش از جمله + سکوتِ خودِ گفتارساز) افتاده بود، پس موسیقی زیرِ هیچ محو می‌شد و «یهو قطع» شنیده شد.
+       پس از موسیقی مکث لازم نیست؛ خودِ موسیقی مکث است. */
+    if (!curMusic && prevMusic === true && CFG.MUSIC_XFADE !== false) {
+      try { b64 = pcmLeadTrim_(b64, Number(CFG.MUSIC_SPEECH_LEAD_SEC) || 0.12); } catch (eLt) {}
+    }
     if (CFG.MUSIC_XFADE !== false && buf.length && prevMusic !== null &&
         prevMusic !== curMusic) {
       var xs = curMusic ? Number(chunks[i] && chunks[i].xfade) : prevXf;
@@ -77020,8 +77053,9 @@ function vmPrompt_(sents, items, ctx) {
   L.push('   دربارهٔ چند رسانه است، هر کدام سرِ جملهٔ خودش.');
   L.push('۳) clipQuote فقط برای کلیپی که گفتار دارد: تکه‌ای **عیناً** از «گفتارِ کلیپ» (۴ تا ۱۵ واژه) که با همان');
   L.push('   چیزی که گوینده می‌گوید می‌خوانَد — تا همان تکهٔ کلیپ نشان داده شود. نبود ⇒ خالی.');
-  L.push('۴) moment = «بله» فقط وقتی صدای خودِ کلیپ چیزی می‌دهد که روایت نمی‌تواند (جملهٔ کلیدیِ خودِ گوینده‌اش،');
-  L.push('   اوجِ یک اجرا، یک واکنش). در کلِ قسمت حداکثر ' + (Number(CFG.VM_MOMENT_MAX) || 3) + ' لحظه. momentAfter = شمارهٔ');
+  L.push('۴) moment = «بله» برای هر کلیپی که صدای خودش چیزی می‌دهد که روایت نمی‌تواند — جملهٔ کلیدیِ گوینده‌اش، نقطهٔ');
+  L.push('   اوجِ طنز یا اجرا، یک واکنش. بیننده می‌خواهد **خودِ کلیپ** را بشنود، نه فقط تعریفش را؛ پس برای بیشترِ کلیپ‌های');
+  L.push('   گفتاردار یکی بگذار. در کلِ قسمت حداکثر ' + (Number(CFG.VM_MOMENT_MAX) || 3) + ' لحظه. momentAfter = شمارهٔ');
   L.push('   جمله‌ای که پس از آن گوینده ساکت می‌شود و کلیپ با صدایش پخش می‌شود (همان clipQuote را می‌شنویم) —');
   L.push('   جایی که شنیدنش طبیعی است، معمولاً پس از معرفیِ آن، نه وسطِ یک فکر. برای لحظه clipQuote لازم است.');
   L.push('۵) ov (حداکثر ' + (Number(CFG.VM_OV_MAX) || 6) + ' در کلِ قسمت): نوشتهٔ کوتاهِ برداری کنارِ رسانه. رسانهٔ عمودی در یک');
@@ -77164,7 +77198,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     var mo = out.moments[m];
     if (vmInMusic_(mo.at, music)) { out.dropped++; continue; }
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
-    if (mm.length && mo.at - mm[mm.length - 1].at < 30) { out.dropped++; continue; }
+    if (mm.length && mo.at - mm[mm.length - 1].at < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
     mm.push(mo);
   }
@@ -77184,7 +77218,8 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
       if (!seenC && !alt) alt = cand;
       if (seenC && !altSeen) altSeen = cand;
     }
-    alt = alt || altSeen;
+    /* ۹.۰۱: رسانهٔ **دیده‌شده** دیگر برنمی‌گردد — «چیزی که توضیح داده شده و دیده شده بارها باز
+       می‌آید و سریع می‌رود». نبودِ رسانهٔ تازه ⇒ این صحنه را `vmCards_` با کارتِ نوشته نصف می‌کند. */
     if (!alt) continue;
     var best = midSent(z);
     if (best < 0) continue;
@@ -77303,6 +77338,89 @@ function vmLead_(ready, coverId) {
 }
 
 /**
+ * کارتِ نوشته روی کاورِ محو — جایی که رسانهٔ تازه‌ای برای نشان دادن نیست (۹.۰۱). تابعِ خالص.
+ *
+ * نمونهٔ چهارمِ قسمتِ ۷۲ را صاحبِ برنامه دید و سه چیز گفت که هر سه از یک ریشه بود: صحنه تا رسانهٔ
+ * **بعدی** می‌ماند، هر چه گوینده بگوید. پس:
+ *   • «آخرِ کار که موسیقیِ پایانی می‌زند هنوز یک کلیپ اجرا می‌شود» — صحنهٔ ۱۲ از ۶۰۴ تا ۶۵۶ بود و
+ *     موسیقیِ پایانی از ۶۲۶٫۹. حالا سرِ موسیقیِ پایانی کاور می‌آید.
+ *   • «بینِ دو کلیپ که صحبت می‌کند هنوز قبلی پخش می‌شود» — صحنهٔ ۱ از ۵۹٫۷ تا ۱۷۴٫۶ (۱۱۵ ثانیه) یک
+ *     کلیپ بود که ۴۰ ثانیه روی آخرین قابش ماند. حالا صحنه‌ای که از `VM_SCENE_MAX_SEC`×۱٫۶ بلندتر است
+ *     سرِ جملهٔ میانه‌اش کارت می‌گیرد: همان جمله‌ای که گوینده آن لحظه می‌گوید، نوشتهٔ برداری روی کاورِ
+ *     محو — «حالت برداری کم استفاده شده بود».
+ *   • پل‌های موسیقیِ میانه: کاور، و پس از پل اگر رسانهٔ تازه تا ۵ ثانیه نیامد، کارت.
+ * کاور نبود ⇒ همان صحنه‌ها، دست‌نخورده.
+ */
+function vmCards_(ready, sents, music, secs, coverId) {
+  var out = { scenes: ready.slice(), added: 0 };
+  if (!coverId || CFG.VM_CARDS === false || !ready.length) return out;
+  var total = Number(secs) || 0;
+  var plain = function (t) {
+    return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
+  };
+  var sentAt = function (a, b) {        // نخستین جملهٔ درونِ [a, b)
+    for (var i = 0; i < sents.length; i++) {
+      var t = Number(sents[i][0]);
+      if (t >= a - 0.3 && t < b) return { t: t, text: plain(sents[i][1]) };
+    }
+    return null;
+  };
+  var card = function (t0, text) {
+    var tx = plain(text);
+    if (tx.length > 140) tx = tx.slice(0, 137).replace(/\s+\S*$/, '') + '…';
+    return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '',
+             media: { kind: 'photo', quote: '', card: true }, ov: { kind: 'quote', title: tx, lines: [] } };
+  };
+  var cover = function (t0, flag) {
+    var m = { kind: 'photo', quote: '' };
+    m[flag] = true;
+    return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '', media: m };
+  };
+  var sc = out.scenes;
+  var push = function (x) { sc.push(x); out.added++; };
+  var mus = (music || []).slice().sort(function (a, b) { return a[0] - b[0]; });
+  for (var i = 0; i < mus.length; i++) {
+    var a = Number(mus[i][0]), b = Number(mus[i][1]);
+    if (!(b > a) || a < 1) continue;                       // موسیقیِ آغاز: کار با کاور/پیش‌نمایشِ vmLead_
+    if (total && b >= total - 1) { push(cover(a, 'outro')); continue; }
+    if (b - a < 6) continue;
+    push(cover(a, 'bridge'));
+    var nextT = null;
+    for (var k = 0; k < ready.length; k++) if (ready[k].t0 >= b - 0.5) { nextT = ready[k].t0; break; }
+    if (nextT === null || nextT - b > 5) {
+      var s1 = sentAt(b, nextT === null ? (total || b + 30) : nextT);
+      if (s1 && s1.text) push(card(s1.t, s1.text));
+    }
+  }
+  sc.sort(function (p, q) { return p.t0 - q.t0; });
+  var maxSec = Math.max(10, Number(CFG.VM_SCENE_MAX_SEC) || 28) * 1.6;
+  for (var guard = 0; guard < 40; guard++) {
+    var hit = -1;
+    for (var z = 0; z < sc.length; z++) {
+      var m0 = sc[z].media || {};
+      if (m0.intro || m0.teaser || m0.outro || m0.bridge || m0.long) continue;
+      var end = z + 1 < sc.length ? sc[z + 1].t0 : total;
+      if (end - sc[z].t0 > maxSec) { hit = z; break; }
+    }
+    if (hit < 0) break;
+    var st = sc[hit].t0, en = hit + 1 < sc.length ? sc[hit + 1].t0 : total, mid = st + (en - st) / 2, best = null;
+    for (var y = 0; y < sents.length; y++) {
+      var ty = Number(sents[y][0]);
+      if (ty < st + 8 || ty > en - 8) continue;
+      if (!best || Math.abs(ty - mid) < Math.abs(best.t - mid)) best = { t: ty, text: sents[y][1] };
+    }
+    if (!best || !plain(best.text)) { sc[hit].media = Object.assign({}, sc[hit].media, { long: true }); continue; }
+    sc.splice(hit + 1, 0, card(best.t, best.text));
+    out.added++;
+  }
+  for (var n = 0; n < sc.length; n++) {
+    sc[n].n = n + 1;
+    if (sc[n].media && sc[n].media.long) delete sc[n].media.long;
+  }
+  return out;
+}
+
+/**
  * سازندهٔ رسانه‌های یک قسمت — چنداجرایی، با حالت در `_media.json`:
  *   plan ⇒ (مدل، یک بار) · copy ⇒ (رونوشت‌ها، شاید در چند اجرا) · cover ⇒ ready.
  * @return {active, done, fallback, why, items, cover, moments, music, info}
@@ -77371,7 +77489,8 @@ function vmBuild_(folder, meta, plan, ctx) {
     d = { v: 1, key: key, at: nowStr_(), phase: 'copy', failed: 0, secs: rp.secs, align: rp.how,
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
           dropped: vs.dropped, added: vs.added, items: items.length, copies: {}, skipped: [],
-          cover: { fileId: '', why: '' } };
+          cover: { fileId: '', why: '' },
+          sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }) };
     if (keepCp) { d.copies = keepCp.copies; d.cover = keepCp.cover; d.skipped = keepCp.skipped; }
     vmWrite_(folder, d);
   }
@@ -77418,6 +77537,8 @@ function vmBuild_(folder, meta, plan, ctx) {
     ready = lead.concat(ready);
     for (var r = 0; r < ready.length; r++) ready[r].n = r + 1;
   }
+  var cards = vmCards_(ready, d.sents || [], d.music || [], Number(d.secs) || 0, d.cover && d.cover.fileId);
+  ready = cards.scenes;
   if (ready.length < Math.max(1, Number(CFG.VM_MIN_SCENES) || 3)) {
     return fail('فقط ' + ready.length + ' رسانه رونوشت شد' +
                 ((d.skipped || []).length ? ' (' + d.skipped.map(function (x) { return x.why; }).slice(0, 2).join('؛ ') + ')' : ''));
@@ -77436,6 +77557,7 @@ function vmBuild_(folder, meta, plan, ctx) {
                moments: moments.length, ov: ready.filter(function (x) { return !!x.ov; }).length,
                items: Number(d.items) || 0, dropped: Number(d.dropped) || 0, added: Number(d.added) || 0,
                skipped: (d.skipped || []).length, cover: d.cover && d.cover.fileId ? 'ساخته شد' : String((d.cover || {}).why || 'نه'),
+               cards: cards.added,
                align: String(d.align || '') };
   vmNote_(key, { ok: true, why: '', scenes: ready.length, clips: nClip, moments: moments.length,
                  cover: !!(d.cover && d.cover.fileId), skipped: (d.skipped || []).length });

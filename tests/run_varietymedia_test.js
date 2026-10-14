@@ -376,4 +376,37 @@ console.log('=== ۸) سیم‌کشی: هر دو در و یک تعریف ===');
   ok('۸.۴ و _STATUS کلیدِ varietyMedia دارد', /varietyMedia: \(function \(\) \{ try \{ return vmStatus_\(\)/.test(h));
 }
 
+console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): کلیپ زیرِ موسیقیِ پایانی، صحنهٔ ۱۱۵ ثانیه‌ای، رسانهٔ تکراری ===');
+{
+  /* صحنه‌ها و موسیقیِ واقعیِ `_media.json`ِ variety:72-4 (۱۴ اکتبر). */
+  const T = [59.7, 174.6, 309.9, 335.8, 374.9, 396.8, 438.6, 460.9, 488.4, 522.6, 544.8, 604.1];
+  const ready = T.map((t, i) => ({ n: i + 1, t0: t, fileId: 'F' + i, caption: '', say: '', media: { kind: i % 3 ? 'video' : 'photo', quote: '' } }));
+  const music = [[0, 18], [47.8, 57], [76.4, 88.4], [286.3, 298.3], [470.4, 478.9], [626.9, 656]];
+  const sl = []; for (let t = 1; t < 656; t += 6.5) sl.push([Math.round(t * 10) / 10, 'جملهٔ گوینده در ثانیهٔ ' + Math.round(t) + ' دَربارهٔ همین ماجرا']);
+  const r = vmCards_(ready, sl, music, 655.98, 'COVER');
+  const sc = r.scenes;
+  const at = t => sc.filter(x => x.t0 <= t).pop();
+  ok('۱۲.۱ سرِ موسیقیِ پایانی (۶۲۶٫۹) کاور است، نه کلیپِ صحنهٔ ۱۲', at(640).fileId === 'COVER' && at(640).media.outro, JSON.stringify(at(640)));
+  ok('۱۲.۲ صحنهٔ ۱۱۵ ثانیه‌ای (۵۹٫۷ → ۱۷۴٫۶) دیگر یک تکه نیست: کارتِ نوشته در میانه‌اش',
+     sc.some(x => x.media.card && x.t0 > 70 && x.t0 < 165 && x.ov && x.ov.kind === 'quote' && x.ov.title.length > 5));
+  const lens = sc.map((x, i) => [x, (i + 1 < sc.length ? sc[i + 1].t0 : 655.98) - x.t0]);
+  ok('۱۲.۳ هیچ صحنه‌ای از ۴۵ ثانیه بلندتر نماند', lens.every(([x, d]) => d <= 28 * 1.6 + 0.01),
+     lens.filter(([x, d]) => d > 44.8).map(([x, d]) => x.t0 + ':' + d.toFixed(0)).join(','));
+  ok('۱۲.۴ پلِ موسیقیِ میانه (۲۸۶٫۳) کاور می‌گیرد', at(290).fileId === 'COVER' && at(290).media.bridge);
+  ok('۱۲.۵ نوشتهٔ کارت بی اعراب است (برای چشم، نه گوش)', sc.filter(x => x.ov && x.media.card).every(x => !/[ً-ْ]/.test(x.ov.title)));
+  ok('۱۲.۶ شماره‌ها پیاپی و ترتیب زمانی', sc.every((x, i) => x.n === i + 1 && (i === 0 || sc[i - 1].t0 <= x.t0)));
+  ok('۱۲.۷ بی کاور ⇒ دست‌نخورده', vmCards_(ready, sl, music, 655.98, '').scenes.length === ready.length);
+  ok('۱۲.۸ جمله‌ای نیست ⇒ حلقه بی‌پایان نمی‌شود و صحنه می‌ماند', vmCards_(ready, [], music, 655.98, 'COVER').scenes.length > ready.length);
+  /* بلندترین صحنه با رسانهٔ دیده‌شده نصف نمی‌شود — همان «دیده‌شده بارها باز می‌آید». */
+  const its = [{ id: 'A', kind: 'video', fileId: 'FA', sec: [1] }, { id: 'B', kind: 'photo', fileId: 'FB', sec: [1] }];
+  const ss = []; for (let i = 0; i < 40; i++) ss.push({ t: i * 5, text: 'ج' + i, sec: 1 });
+  const vs = vmScenes_({ placements: [{ item: 'B', from: '1' }, { item: 'A', from: '3' }, { item: 'B', from: '30' }] }, ss, its, 200, []);
+  ok('۱۲.۹ صحنهٔ بلند با رسانه‌ای که قبلاً دیده شده نصف نمی‌شود', vs.scenes.filter(x => x.id === 'A').length === 1 &&
+     vs.scenes.filter(x => x.id === 'B').length <= 2, JSON.stringify(vs.scenes.map(x => x.id + '@' + x.t0)));
+  const e = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
+  ok('۱۲.۱۰ vmBuild_ کارت‌ها را بعد از آغاز می‌چیند', /var cards = vmCards_\(ready, d\.sents \|\| \[\], d\.music \|\| \[\], Number\(d\.secs\) \|\| 0, d\.cover && d\.cover\.fileId\);/.test(e) &&
+     /sents: sents\.map\(function \(z\)/.test(e));
+  ok('۱۲.۱۱ لحظه‌ها: سقفِ ۶ و ۳۰ ثانیه', CFG.VM_MOMENT_MAX === 6 && CFG.VM_MOMENT_SEC === 30 && CFG.VM_MOMENT_GAP === 20);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');

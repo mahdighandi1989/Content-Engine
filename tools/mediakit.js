@@ -163,7 +163,14 @@ function photoClip(ff, file, out, len, opt) {
   const ar = cw && ch ? cw / ch : 16 / 9;
   const layout = (opt && opt.layout) || 'center';
   let fc, kind;
-  if (!cw || !ch || wideAr(ar) || ar > MK.wideMax) {
+  if (opt && opt.card) {
+    /* کارتِ نوشته (۹.۰۱): کاورِ قسمت، محو و تیره‌تر، با زومِ آرام — نوشتهٔ برداری قهرمانِ قاب است. */
+    kind = 'card';
+    fc = '[0:v]' + crop + 'scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' + MK.h +
+         ',boxblur=40:3,eq=brightness=-0.16:saturation=0.8,scale=' + (MK.w * 2) + ':' + (MK.h * 2) +
+         ",zoompan=z='1+0.05*on/" + N + "':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=" + MK.w + 'x' + MK.h +
+         ':fps=' + MK.fps + ',setsar=1,format=yuv420p[o]';
+  } else if (!cw || !ch || wideAr(ar) || ar > MK.wideMax) {
     kind = 'kb';
     fc = '[0:v]' + crop + 'scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,' +
          "zoompan=z='1+0.08*on/" + N + "':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=" + MK.w + 'x' + MK.h +
@@ -191,7 +198,7 @@ function photoClip(ff, file, out, len, opt) {
            '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]);
   const still = out.replace(/\.mp4$/, '') + '-first.jpg';
   run(ff, ['-i', out, '-frames:v', '1', '-q:v', '3', still]);
-  return { file: out, still: still, len: L, kind: kind, box: box, layout: wideAr(ar) ? 'fill' : layout };
+  return { file: out, still: still, len: L, kind: kind, box: box, layout: kind === 'card' || wideAr(ar) ? 'fill' : layout };
 }
 
 function run(ff, args) {
