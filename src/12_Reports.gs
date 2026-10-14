@@ -1416,10 +1416,18 @@ function codeQueue_(hub) {
       cand.push({ id: String(r[RC.ID - 1] || ''), pri: String(r[RC.PRI - 1] || ''),
                   title: String(r[RC.TITLE - 1] || ''), instr: String(r[RC.INSTR - 1] || ''),
                   seen: Number(r[RC.SEEN - 1]) || 1,
-                  since: String(r[RC.LOGGED - 1] || r[RC.AT - 1] || '') });
+                  since: String(r[RC.LOGGED - 1] || r[RC.AT - 1] || ''), seenD: seenD });
     }
   }
   out.noAnswerDays = newestAnswer < 0 ? -1 : newestAnswer;
+  /* ══ فهرستِ خودِ صف، نه فقط شمارش (۸.۹۳) ══
+     صاحبِ برنامه خواست «۳۷ ردیف را تعیینِ تکلیف کن» — و فهرست فقط در تبِ ۶۵۵ردیفیِ هابِ ۳۹ مگابایتی بود،
+     که نه صادر می‌شود نه از بیرون خواندنی است. شمارِ بی‌نام همان «عددِ بی‌علت» است (۸.۴۸): نمی‌شود دربارهٔ
+     ردیفی که دیده نمی‌شود تصمیم گرفت. همین `cand`ِ بالا، فشرده — بی خواندنِ تازه. */
+  out.items = cand.slice(0, 60).map(function (c) {
+    return { id: c.id, pri: c.pri, title: String(c.title || '').slice(0, 110), seen: c.seen,
+             since: String(c.since || '').slice(0, 16), lastDays: c.seenD };
+  });
   /* کارِ کدِ امروزِ ناظر — **یک** ردیف، برگزیدهٔ خودِ موتور (۸.۵۵). */
   try { out.task = codeTaskPick_(cand); } catch (eT) { out.task = null; }
   /* ══ `line` وعده داده می‌شد و همیشه خالی بود (۸.۰۶) ══

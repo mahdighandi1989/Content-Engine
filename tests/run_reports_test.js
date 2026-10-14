@@ -692,6 +692,11 @@ console.log('\n=== ی) صفِ تعویضِ کد — چرا خالی نمی‌ش�
   rt.getRange(at0, 1, fresh.length, REPORT_HEADERS.length).setValues(fresh);
 
   const q = codeQueue_(hub);
+  /* ۸.۹۳ — فهرستِ خودِ صف با نام: فقط «در انتظار»ها، نه ساکت‌ها، با آخرین دیده‌شدن. */
+  const qi = (q.items || []).filter(x => /^QQ-/.test(x.id));
+  ok('ی.۰ فهرستِ صف با نام می‌آید: QQ-1/QQ-2 (در انتظار) با آخرین دیده‌شدن، و ساکت‌ها نه',
+     qi.length === 2 && qi.some(x => x.id === 'QQ-1' && x.lastDays === 1) && !qi.some(x => /QQ-[34]/.test(x.id)) &&
+     qi.every(x => typeof x.title === 'string' && x.seen >= 1), JSON.stringify(qi));
   ok('ی.۱ «در انتظار» و «ساکت» جدا شمرده می‌شوند',
      q.pending >= 2 && q.quiet >= 2,
      'گرفت: pending=' + q.pending + ' quiet=' + q.quiet +
@@ -1115,6 +1120,14 @@ console.log('\n=== 8.92) دفترِ درخواست‌های صاحبِ برنا�
      /"requests":\[\{"id":"R-\d{8}-\d{2}","verdict":"درست\|نادرست\|نشد","evidence"/.test(mon) &&
      mon.indexOf('docs/requests.json') !== -1, mons[0][0]);
   delete PR[PK.REQ_CHECKS];
+}
+
+console.log('\n=== 8.93) صفِ «نیازمندِ کد» با نام، نه فقط شمار ===');
+{
+  const src12 = fs.readFileSync('src/12_Reports.gs', 'utf8');
+  const fn = src12.slice(src12.indexOf('function codeQueue_'), src12.indexOf('function codeTaskSkipMap_'));
+  ok('8.93-1 codeQueue_ فهرستِ ردیف‌های در انتظار را با شناسه، عنوان، تکرار و آخرین دیده‌شدن برمی‌گرداند',
+     /out\.items = cand\.slice\(0, 60\)\.map/.test(fn) && /lastDays: c\.seenD/.test(fn) && /seenD: seenD/.test(fn));
 }
 
 console.log('\n✅ هر ' + pass + ' آزمونِ حلقهٔ گزارش گذشت.');
