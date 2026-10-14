@@ -18,6 +18,54 @@
 
 var BACKUP_MANIFEST = '_فهرست-پشتیبان.json';
 
+/**
+ * رونوشتِ یک شیت — بی اسکریپتِ چسبیده‌اش (۱۴ اکتبر).
+ *
+ * صاحبِ برنامه در Apps Script هر روز یک «Untitled project» تازه دید. علت: `makeCopy` روی
+ * شیتی که اسکریپتِ چسبیده (container-bound) دارد، **اسکریپت را هم رونوشت می‌کند** — و دو
+ * شیتِ تحلیلگر (`CFG.SOURCE_SCRIPTS`) همین‌اند. هر شب یک پروژهٔ بی‌نام با کدِ تحلیلگر کنارِ
+ * پروژه‌های او می‌نشست؛ بی تریگر و بی اجرا، ولی در فهرستِ او و قابلِ اشتباه با کارِ واقعی.
+ *
+ * برای این شیت‌ها رونوشت تب‌به‌تب ساخته می‌شود (`copyTo` در شیتِ تازه): داده، فرمول و قالب
+ * می‌آید، اسکریپت نه. مبدأ فقط خوانده می‌شود. اگر این راه شکست خورد، شیتِ نیمه‌کارهٔ خودمان
+ * دور ریخته می‌شود و همان `makeCopy` قبلی می‌رود — پشتیبانِ کامل از تمیزیِ فهرست مهم‌تر است،
+ * و علتش در `rec.how` می‌ماند. پروژه‌های بی‌نامِ پیشین با هرسِ پوشه‌های کهنه (`BACKUP_KEEP`) خودشان
+ * می‌روند، چون اسکریپتِ چسبیده با شیتِ خودش می‌رود؛ این کد به هیچ پروژهٔ دیگری دست نمی‌زند.
+ */
+function backupBoundIds_() {
+  var out = {};
+  var list = CFG.SOURCE_SCRIPTS || [];
+  for (var i = 0; i < list.length; i++) if (list[i].sheetId) out[String(list[i].sheetId)] = 1;
+  return out;
+}
+
+function backupCopyOf_(t, name, folder, rec) {
+  if (!backupBoundIds_()[String(t.id)]) {
+    rec.how = 'makeCopy';
+    return DriveApp.getFileById(t.id).makeCopy(name, folder);
+  }
+  var dst = null;
+  try {
+    var src = SpreadsheetApp.openById(t.id);
+    dst = SpreadsheetApp.create(name);
+    var blank = dst.getSheets().slice();
+    var tabs = src.getSheets(), made = [];
+    for (var i = 0; i < tabs.length; i++) made.push([tabs[i].copyTo(dst), tabs[i].getName()]);
+    for (var b = 0; b < blank.length; b++) dst.deleteSheet(blank[b]);
+    for (var m = 0; m < made.length; m++) made[m][0].setName(made[m][1]);
+    var f = DriveApp.getFileById(dst.getId());
+    f.moveTo(folder);
+    rec.how = 'tabs:' + made.length;
+    return f;
+  } catch (e) {
+    if (dst) { try { DriveApp.getFileById(dst.getId()).setTrashed(true); } catch (eT) {} }
+    rec.how = 'makeCopy (تب‌به‌تب نشد: ' + e.message + ')';
+    logLine_('پشتیبانِ «' + t.title + '»: رونوشتِ بی‌اسکریپت نشد (' + e.message +
+             ')؛ با رونوشتِ کامل ادامه می‌دهیم.');
+    return DriveApp.getFileById(t.id).makeCopy(name, folder);
+  }
+}
+
 /** فهرستِ چیزهایی که پشتیبان گرفته می‌شود، با توضیحِ نوعِ محتوا. */
 function backupTargets_() {
   var out = [];
@@ -149,9 +197,8 @@ function runBackupStep(force) {
       try {
         // makeCopy فقط می‌خواند و یک فایلِ تازه در پوشهٔ ما می‌سازد؛ در خودِ
         // فایلِ مبدأ هیچ چیزی نوشته یا عوض نمی‌شود.
-        var src = DriveApp.getFileById(t.id);
         var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd');
-        var copy = src.makeCopy(t.title + ' — پشتیبان ' + stamp, folder2);
+        var copy = backupCopyOf_(t, t.title + ' — پشتیبان ' + stamp, folder2, rec);
         rec.backupId = copy.getId();
         rec.backupUrl = copy.getUrl();
         rec.backupName = copy.getName();

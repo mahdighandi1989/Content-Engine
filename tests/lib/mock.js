@@ -95,6 +95,12 @@ class Range {
 class Sheet {
   constructor(name) { this._n = name; this._d = []; this._id = SHEET_SEQ++; this._max = 1000; }
   getName() { return this._n; }
+  setName(n) { this._n = String(n); return this; }
+  /* رونوشتِ تب در شیتِ دیگر — پشتیبانِ بی‌اسکریپت (17_Backup) از این راه می‌رود. */
+  copyTo(ss) {
+    const c = new Sheet('Copy of ' + this._n); c._p = ss;
+    c._d = this._d.map(r => (r ? r.slice() : r)); ss._s.push(c); return c;
+  }
   getSheetId() { return this._id; }
   getLastRow() { let m = 0; this._d.forEach((r, i) => { if (r && r.some(c => c !== '' && c != null)) m = i + 1; }); return m; }
   getLastColumn() { let m = 0; this._d.forEach(r => { if (r) m = Math.max(m, r.length); }); return m; }
@@ -166,7 +172,8 @@ class Spread {
 global.__SS = {};
 global.SpreadsheetApp = {
   openById(id) { if (!global.__SS[id]) throw new Error('no such spreadsheet ' + id); return global.__SS[id]; },
-  create(name) { const s = new Spread(name); global.__SS[s._id] = s; return s; },
+  /* شیتِ تازهٔ واقعی یک برگهٔ پیش‌فرض دارد؛ کدی که آن را پاک نکند باید این‌جا هم دیده شود. */
+  create(name) { const s = new Spread(name); s.insertSheet('Sheet1'); global.__SS[s._id] = s; return s; },
   getUi() { return global.__UI || null; }
 };
 
