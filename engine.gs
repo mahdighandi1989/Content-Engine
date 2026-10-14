@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 8.88
+ *  موتور محتوا و پادکست — نسخهٔ 8.89
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -230,6 +230,9 @@ var CFG = {
   // برنامهٔ روزانهٔ متنوع: از تلفیقِ کلیپ و صدا و عکس و سند ساخته می‌شود.
   SHOW_NAME: 'از همه جا از همه رنگ',
   SHOW_TAGLINE: 'برنامهٔ روزانهٔ آرشیو',
+  /* بنرِ کانال تا وقتی صاحبِ برنامه طرحش را تأیید نکرده خودکار نمی‌نشیند (۸.۸۹): طرحِ ۸.۸۸ را «زشت» خواند و
+     گفت نباید فقط به پادکست‌های امروز اشاره کند. بنر چهرهٔ کانال است — تصمیمِ آدم، نه پیش‌فرضِ موتور. */
+  YT_BANNER_AUTO: false,
   // برنامهٔ تخصصی: روی مجموعه‌های آموزشیِ بلند و قطعه‌قطعه‌شده تمرکز دارد.
   SPECIAL_SHOW_NAME: 'درس‌نامه',
   SPECIAL_TAGLINE: 'پادکست تخصصیِ مجموعه‌های آموزشی',
@@ -2018,7 +2021,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '8.88',
+  CODE_VERSION: '8.89',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -55692,6 +55695,24 @@ function ytChannelMark_() {
   return out;
 }
 
+/** حافظهٔ نشان را با خواندنِ تازهٔ کانال هم‌سان می‌کند — فقط وقتی شناسه یا نام عوض شده باشد. */
+function ytMarkRefresh_(info) {
+  var sn = (info && info.snippet) || {};
+  var h = String(sn.customUrl || '').trim(), nm = String(sn.title || '').trim();
+  if (!h && !nm) return false;
+  var cached = null;
+  try { cached = JSON.parse(props_().getProperty(PK.YT_MARK_ID) || 'null'); } catch (e) {}
+  if (cached && String(cached.handle || '') === h && String(cached.name || '') === nm) return false;
+  var th = sn.thumbnails || {};
+  var out = { handle: h, name: nm, logoUrl: String((th.medium || th.high || th.default || {}).url || ''),
+              at: nowStr_() };
+  try { props_().setProperty(PK.YT_MARK_ID, JSON.stringify(out)); } catch (e2) { return false; }
+  if (cached && cached.handle && cached.handle !== h) {
+    logLine_('شناسهٔ کانال عوض شد: ' + cached.handle + ' ← ' + h + ' — نشانِ ویدئوهای تازه همین را می‌گیرد.');
+  }
+  return true;
+}
+
 /**
  * نشانِ کانال. خاموش‌بودنش یک **تصمیم** است، نه خرابی.
  * شناسه از یوتیوب می‌آید؛ نبودنش یعنی هنوز نتوانسته‌ایم بخوانیم، و آن‌وقت
@@ -60441,6 +60462,7 @@ function ytBannerCard_() {
 
 /** بنر را می‌نشاند: اول آپلود، بعد نشانی‌اش در شناسنامهٔ کانال. */
 function ytBannerSet_(chId) {
+  if (CFG.YT_BANNER_AUTO !== true) return 'منتظرِ تأییدِ طرح — کارِ شما (Studio ← سفارشی‌سازی ← نشان‌گذاری)';
   var made = ytBannerCard_();
   if (made && made.wait) return 'در راه — ' + made.why;
   if (!made || !made.blob) return made && made.why ? made.why : 'نشد';
@@ -60792,6 +60814,10 @@ function ytChannelSync_(force) {
     return out;
   }
   var info = got.info;
+  /* ══ شناسهٔ کانال که عوض شد (۸.۸۹) ══ نشانِ گوشهٔ ویدئو `@شناسه` را از `customUrl` می‌گیرد و
+     ۱۴ روز در حافظه نگه می‌دارد. صاحبِ برنامه شناسه را عوض می‌کند؛ بی این، ویدئوهای دو هفتهٔ بعد
+     شناسهٔ کهنه را روی تصویر می‌بردند — و شناسهٔ رهاشده را بعد از ۱۴ روز هر کسی می‌تواند بردارد. */
+  try { ytMarkRefresh_(info); } catch (eMk) {}
   out.channelId = String(info.id || '');
   out.title = String((info.snippet || {}).title || '');
 

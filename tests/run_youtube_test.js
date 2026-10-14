@@ -9720,6 +9720,10 @@ console.log('\n=== ۱۰۲) «بنر کو؟» — بنر از رانر، ۲۵۶۰
      !!r3.blob && r3.size.w === 2560 && r3.size.h === 1440 && r3.size.mime === 'image/jpeg', JSON.stringify(r3.size || r3));
 
   reset();
+  const kAuto = CFG.YT_BANNER_AUTO;
+  ok('۱۰۲.۰ بی تأییدِ صاحبِ برنامه هیچ بنری نه خواسته می‌شود نه فرستاده (۸.۸۹)',
+     /تأییدِ طرح/.test(String(ytBannerSet_('UCX'))) && uploads.length === 0 && slides === 0);
+  CFG.YT_BANNER_AUTO = true;
   const kSvc = global.ytSvc_; let chUpd = null;
   global.ytSvc_ = () => ({ Channels: { update: (b) => { chUpd = b; return b; } } });
   const r4 = ytBannerSet_('UCX');
@@ -9732,6 +9736,7 @@ console.log('\n=== ۱۰۲) «بنر کو؟» — بنر از رانر، ۲۵۶۰
 
   reset(); bnImg = null;
   ok('۱۰۲.۶ «در راه» در سطرِ شناسنامه «در راه» خوانده می‌شود، نه شکست', /^در راه/.test(String(ytBannerSet_('UCX'))));
+  CFG.YT_BANNER_AUTO = kAuto;
 
   global.__STUB = keep; global._ytRMapMemo = null;
 
@@ -9747,6 +9752,24 @@ console.log('\n=== ۱۰۲) «بنر کو؟» — بنر از رانر، ۲۵۶۰
   ok('۱۰۲.۸ صفحهٔ بنر ۲۵۶۰×۱۴۴۰ است و نوشته در ناحیهٔ امنِ ۱۵۴۶×۴۲۳ِ وسط',
      /width:2560px;height:1440px/.test(html) && /left:507px;top:508px;width:1546px;height:423px/.test(html) &&
      html.indexOf('از همه جا') !== -1);
+}
+
+console.log('\n=== ۱۰۳) شناسهٔ کانال که عوض شد، نشانِ ویدئو همان روز عوض می‌شود (۸.۸۹) ===');
+{
+  global.__PROPS[PK.YT_MARK_ID] = JSON.stringify({ handle: '@user-x9k2', name: 'کانال', logoUrl: '', at: nowStr_() });
+  const ch = ytMarkRefresh_({ snippet: { customUrl: '@azhamejaa', title: 'کانال', thumbnails: {} } });
+  const now = JSON.parse(global.__PROPS[PK.YT_MARK_ID]);
+  ok('۱۰۳.۱ شناسهٔ تازه جای کهنه را در حافظهٔ نشان می‌گیرد، با وجودِ حافظهٔ ۱۴روزهٔ تازه',
+     ch === true && now.handle === '@azhamejaa', JSON.stringify(now));
+  ok('۱۰۳.۲ و چیزی که عوض نشده دوباره نوشته نمی‌شود',
+     ytMarkRefresh_({ snippet: { customUrl: '@azhamejaa', title: 'کانال' } }) === false);
+  ok('۱۰۳.۳ و نشانِ ویدئو همان را می‌کشد', (() => { const k = CFG.YT_MARK; CFG.YT_MARK = true;
+     const m = ytMarkSpec_(); CFG.YT_MARK = k; return m && m.handle === '@azhamejaa'; })());
+  const cs = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const sync = cs.slice(cs.indexOf('function ytChannelSync_'), cs.indexOf('function ytChannelStale_'));
+  ok('۱۰۳.۴ و وارسیِ شناسنامه هر بار صدایش می‌زند، پیش از نگهبانِ «تازه است»',
+     sync.indexOf('ytMarkRefresh_(info)') !== -1 && sync.indexOf('ytMarkRefresh_(info)') < sync.indexOf("'تازه است'"));
+  delete global.__PROPS[PK.YT_MARK_ID];
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
