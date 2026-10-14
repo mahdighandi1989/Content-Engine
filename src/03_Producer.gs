@@ -188,7 +188,8 @@ function emptyWhy_(j) {
 }
 
 function geminiText_(prompt, schema, maxTokens, opt) {
-  var model = textModel_();
+  /* `opt.model` (۹.۰۰): نظرِ دوم از مدلِ دیگر — اعرابِ دو مدلِ هم‌خانواده خطای هم‌جنس دارد. */
+  var model = (opt && opt.model) || textModel_();
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
             model + ':generateContent?key=' + encodeURIComponent(apiKey_());
   var gen = {
@@ -4097,7 +4098,7 @@ function speakDiff_(plain, vowelled) {
   } catch (e) { return ''; }
 }
 
-function vowelizePiece_(piece) {
+function vowelizePiece_(piece, opt) {
   var marks = CFG.SPEAK_MARKS !== false;
   var prompt =
     'کارِ تو: اعراب‌گذاریِ کامل و نشانه‌گذاریِ آواییِ این متن.\n' +
@@ -4142,7 +4143,7 @@ function vowelizePiece_(piece) {
            : 'فاصله‌ها و نشانه‌ها همان بمانند. ') +
     'خروجی فقط خودِ متنِ علامت‌گذاری‌شده در فیلد v.\n\n' + piece;
   try {
-    var r = geminiText_(prompt, SPEAK_SCHEMA, 8192);
+    var r = geminiText_(prompt, SPEAK_SCHEMA, 8192, opt && opt.model ? { model: opt.model } : undefined);
     // تعمیرِ نیم‌فاصله *پیش از* سد، نه بعدش: عیبی که قابلِ تعمیر است نباید
     // به قیمتِ افتادنِ کلِ اعرابِ این بخش تمام شود (۶٫۲۹).
     var v = speakGraft_(piece, r && r.v ? String(r.v) : '');
@@ -4153,7 +4154,7 @@ function vowelizePiece_(piece) {
     var v1 = v;
     // یک تلاشِ دوم با دمای صفر ذهنی: همان پرامپت، شاید ایندفعه وفادار بماند
     r = geminiText_(prompt + '\n\nیادآوری: خروجی باید واژه‌به‌واژه همین متن باشد، فقط با اعراب و نشانه.',
-                    SPEAK_SCHEMA, 8192);
+                    SPEAK_SCHEMA, 8192, opt && opt.model ? { model: opt.model } : undefined);
     v = speakGraft_(piece, r && r.v ? String(r.v) : '');
     VOWEL_LAST_WHY_ = vowelWhyOf_(piece, v);
     if (!VOWEL_LAST_WHY_) return v;
@@ -4720,6 +4721,15 @@ function speakSkipRecord_(ep, label, hub, epNum) {
       bwx = speakBareWords_(allT.join(' '), 8);
     } catch (eBw) {}
     var fl0 = (ep && ep.__fill) || {};
+    /* ══ نظرِ دوم و داوری (۹.۰۰) ══ چند بخش دو نسخه داشتند، چند واژه سرشان اختلاف بود و داور کدام را برد. */
+    var xs = { n: 0, cw: 0, d: 0, b: 0, c: 0, ex: [] };
+    for (var x0 = 0; x0 < S.length; x0++) {
+      var xx = S[x0] && S[x0].x;
+      if (!xx) continue;
+      xs.n++; if (xx.src === 'cowork') xs.cw++;
+      xs.d += Number(xx.dis) || 0; xs.b += Number(xx.b) || 0; xs.c += Number(xx.c) || 0;
+      if (xx.ex && xx.ex.length && xs.ex.length < 4) xs.ex = xs.ex.concat(xx.ex.slice(0, 4 - xs.ex.length));
+    }
     /* ══ نشانه‌های لحنِ همین قسمت (۸.۴۰) ══ تا امروز هیچ‌جا ثبت نمی‌شد: ترمیم
        زیرِ کف می‌رفت و چگالیِ نهایی با پایانِ اجرا گم می‌شد. «همهٔ متن‌ها
        نشانه‌گذاری بشن» بی این عدد قابلِ وارسی نیست. */
@@ -4738,7 +4748,7 @@ function speakSkipRecord_(ep, label, hub, epNum) {
                 sv: Number(SPEAK_SALVAGE_.pieces) || 0,
                 sk: Number(SPEAK_SALVAGE_.kept) || 0,
                 sd: Number(SPEAK_SALVAGE_.dropped) || 0,
-                f: Number(ep && ep.__speakFails) || 0 };
+                f: Number(ep && ep.__speakFails) || 0, x: xs };
     SPEAK_SALVAGE_ = { pieces: 0, kept: 0, dropped: 0 };
     var raw = props_().getProperty(PK.SPEAK_SKIP);
     var L = [];
@@ -4815,6 +4825,16 @@ function speakSkipStatus_() {
     var pct = out.segs ? Math.round(out.skipped * 100 / out.segs) : 0;
     out.line = 'اعراب‌گذاری: در ' + fa(out.eps) + ' قسمتِ اخیر، ' + fa(out.skipped) +
                ' بخش از ' + fa(out.segs) + ' بی‌اعراب خوانده شد (' + fa(pct) + '٪).';
+    /* ══ دو منبع و داوری (۹.۰۰) — همیشه گفته می‌شود، حتی صفر: «نسنجیده» با «بی‌اختلاف» یکی نیست ══ */
+    var xL = L[L.length - 1] && L[L.length - 1].x;
+    out.xcheck = xL || null;
+    if (xL) {
+      out.line += ' نظرِ دوم در قسمتِ آخر: ' + fa(xL.n) + ' بخش دو نسخه داشت (' + fa(xL.cw) + ' از Cowork)، ' +
+                  fa(xL.d) + ' واژه سرِ اعراب اختلاف داشت؛ داور ' + fa(xL.b) + ' را به نسخهٔ دوم و ' + fa(xL.c) +
+                  ' را به املای سوم داد' + (xL.ex && xL.ex.length ? ' (نمونه: ' + xL.ex.join('، ') + ')' : '') + '.';
+    } else {
+      out.line += ' نظرِ دوم: قسمتِ آخر شاهدی ندارد (پیش از ۹.۰۰ یا اجرا نشد).';
+    }
     /* و آنچه *نجات یافت* — چون همین‌جا بود که سه هفته نامرئی ماند: عدد
        می‌گفت چند بخش افتاد و هیچ‌جا نمی‌گفت چند تا نزدیک بود بیفتد و نیفتاد. */
     if (out.saved) {
@@ -4932,16 +4952,260 @@ function speakReviewStatus_() {
 }
 
 /** اعراب‌گذاریِ یک متنِ کامل (چندجمله‌ای)، تکه‌تکه و با وارسی. '' یعنی نشد. */
-function vowelizeText_(text) {
+function vowelizeText_(text, opt) {
   var pieces = speakPieces_(text, 1500);
   if (!pieces.length) return '';
   var out = [];
   for (var i = 0; i < pieces.length; i++) {
-    var v = vowelizePiece_(pieces[i]);
+    var v = vowelizePiece_(pieces[i], opt);
     if (!v) return '';
     out.push(v);
   }
   return out.join(' ');
+}
+
+/* ═══════════ اعرابِ دو منبعِ مستقل، و داوری فقط روی اختلاف (۹.۰۰) ═══════════
+ *
+ * صاحبِ برنامه در قسمتِ ۷۲ (۹:۰۱) شنید `fohashi`. ریشه‌یابی روی دادهٔ همان قسمت، نه حدس:
+ *
+ * ۱) **اعرابِ درست وجود داشت و دور ریخته شد.** تسکِ غنی‌سازی (Cowork، مدلی دیگر) برای هر پنج بخش اعرابِ
+ *    کامل فرستاده بود و «فَحّاشی‌ها» را **درست** نوشته بود. هر پنج بخش رد شد — `verifySpeak_` واژه‌به‌واژه
+ *    برابری می‌خواهد و آن متن (الف) عنوانِ بخش را اولش داشت و (ب) روی پیش‌نویسِ پیش از ویرایشِ نهایی
+ *    نوشته شده بود (۱۵۸ در برابرِ ۱۹۹ واژه). یعنی این راه عملاً هرگز به کار نمی‌رفت.
+ * ۲) **یک مدل، هر حرف.** پس موتور خودش اعراب گذاشت: یک مدل، روی «همهٔ حروف»، با دمای ۰٫۸۵. واکهٔ «فُحش»
+ *    به «فَحّاش» رفت.
+ * ۳) **بازبین از همان خانواده بود و همه‌چیز را یکجا می‌دید.** ۲۲۰۰ نویسهٔ تمام‌اعراب، با چهارده قاعده، و
+ *    دستورِ «کلِ متن را برگردان». خطایی که نویسنده باورش دارد، بازبینِ هم‌مدل هم باور دارد.
+ *
+ * و یک عدد که همهٔ این‌ها را خلاصه می‌کند: روی همان قسمت، دو نسخهٔ مستقل در **۴۴ از ۶۲۲ واژه (۷٪)**
+ * اختلاف داشتند — و در اختلاف‌ها هر کدام جایی درست بود و جایی غلط (موتور: فُحّاشی، تِرانه؛ Cowork:
+ * مَورد، وَ). یعنی خطا جای مشخصی ندارد که با فهرستِ واژه بسته شود؛ **جای اختلافِ دو منبعِ مستقل** است.
+ *
+ * پس: (الف) اعرابِ Cowork واژه‌به‌واژه روی متنِ نهایی منتقل می‌شود (`speakTransfer_`) — عنوان و واژه‌های
+ * عوض‌شده مانع نیستند؛ (ب) اگر نبود، نظرِ دوم از مدلِ دیگر؛ (ج) فقط واژه‌هایی که دو نسخه سرشان اختلاف دارند،
+ * **هر کدام با جملهٔ خودش**، به داوری می‌روند (`speakAdjudicate_`) — پرسشی کوچک و مشخص به‌جای «همه را
+ * بازبینی کن». حروفِ واژه هرگز عوض نمی‌شود: فقط اعراب از نسخهٔ برگزیده روی حروفِ متن می‌نشیند.
+ * هر دو برنامه و هر برنامهٔ آینده از همین `speakStep_` می‌گذرند.
+ */
+var SPEAK_MRK_ = 'ًٌٍَُِّْٰ';
+function speakIsMrk_(c) { return SPEAK_MRK_.indexOf(c) !== -1; }
+
+/** واژه‌های یک متن با جای‌شان: {s, e, w, b} — b حروفِ متعارف بی اعراب و نیم‌فاصله و کشیده. */
+function speakTok_(t) {
+  var out = [], re = /[ء-يٮ-ۿ‌ًٌٍَُِّْٰـ]+/g, m;
+  t = String(t || '');
+  while ((m = re.exec(t)) !== null) {
+    var w = m[0], b = '';
+    for (var i = 0; i < w.length; i++) {
+      var c = w.charAt(i);
+      if (speakIsMrk_(c) || c === '‌' || c === 'ـ') continue;
+      b += speakCanon_(c);
+    }
+    if (b) out.push({ s: m.index, e: m.index + w.length, w: w, b: b });
+  }
+  return out;
+}
+
+/** اعرابِ واژهٔ `src` روی حروفِ واژهٔ `dst` (همان حروف) — املای `dst` (نیم‌فاصله‌اش) دست نمی‌خورد. */
+function speakMarkMove_(dst, src) {
+  var marks = [], cur = -1, i;
+  for (i = 0; i < src.length; i++) {
+    var c = src.charAt(i);
+    if (speakIsMrk_(c)) { if (cur >= 0) marks[cur] = (marks[cur] || '') + c; continue; }
+    if (c === '‌' || c === 'ـ') continue;
+    cur++;
+  }
+  var out = '', k = -1;
+  for (i = 0; i < dst.length; i++) {
+    var d = dst.charAt(i);
+    if (speakIsMrk_(d)) continue;
+    out += d;
+    if (d === '‌' || d === 'ـ') continue;
+    k++;
+    if (marks[k]) out += marks[k];
+  }
+  return out;
+}
+
+/** هم‌ترازیِ دو دنبالهٔ واژه (بزرگ‌ترین زیردنبالهٔ مشترک روی حروف). جفت‌های [i, j]. */
+function speakAlign_(A, B) {
+  var n = A.length, m = B.length;
+  if (!n || !m || n * m > 400000) return [];
+  var L = [], i, j;
+  for (i = 0; i <= n; i++) { L.push(new Array(m + 1)); for (j = 0; j <= m; j++) L[i][j] = 0; }
+  for (i = n - 1; i >= 0; i--) for (j = m - 1; j >= 0; j--) {
+    L[i][j] = A[i].b === B[j].b ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  }
+  var out = [];
+  i = 0; j = 0;
+  while (i < n && j < m) {
+    if (A[i].b === B[j].b) { out.push([i, j]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) i++;
+    else j++;
+  }
+  return out;
+}
+
+/**
+ * اعرابِ متنِ دیگری (پیشنهادِ Cowork) روی متنِ ساده، واژه‌به‌واژه.
+ * عنوانِ اولِ آن متن، واژه‌های عوض‌شده و نشانه‌گذاریِ متفاوت مانع نیستند — فقط واژه‌های هم‌حرف جفت می‌شوند.
+ * برمی‌گرداند { t, cov } — cov سهمِ واژه‌های متنِ ساده که اعراب گرفتند.
+ */
+function speakTransfer_(plain, other) {
+  var p = String(plain || '');
+  var A = speakTok_(p), B = speakTok_(other);
+  if (!A.length || !B.length) return { t: p, cov: 0 };
+  var pairs = speakAlign_(A, B), got = 0, out = p;
+  for (var k = pairs.length - 1; k >= 0; k--) {
+    var a = A[pairs[k][0]], b = B[pairs[k][1]];
+    if (!/[ًٌٍَُِّْٰ]/.test(b.w)) continue;
+    out = out.slice(0, a.s) + speakMarkMove_(a.w, b.w) + out.slice(a.e);
+    got++;
+  }
+  return { t: out, cov: got / A.length };
+}
+
+/** اعرابِ هر حرفِ واژه: آرایهٔ {ch, v} — v واکه‌ی کوتاه (َ ُ ِ) یا '' ، sh تشدید. */
+function speakLetterMarks_(w) {
+  var out = [];
+  for (var i = 0; i < w.length; i++) {
+    var c = w.charAt(i);
+    if (c === '‌' || c === 'ـ') continue;
+    if (speakIsMrk_(c)) {
+      if (!out.length) continue;
+      var L = out[out.length - 1];
+      if ('َُِ'.indexOf(c) !== -1) L.v = c;
+      else if (c === 'ّ') L.sh = true;
+      continue;
+    }
+    out.push({ ch: speakCanon_(c), v: '', sh: false });
+  }
+  return out;
+}
+
+/**
+ * آیا دو اعرابِ یک واژه **تلفظِ متفاوت** می‌سازند؟ فقط تعارضِ واقعی شمرده می‌شود:
+ * - حرفی که در **هر دو** واکه دارد و واکه‌ها فرق دارند (فُحّاشی / فَحّاشی، پَیرو / پِیرو)؛
+ * - کسرهٔ اضافهٔ حرفِ آخر در یکی و نبودنش در دیگری (مَسیر / مَسیرِ) — مگر حرفِ آخر «هِ»ی بی‌صدا باشد.
+ * علامتِ نبوده در یک طرف تعارض نیست («اَصلی» / «اصلی»)، و سکون و فتحهٔ پیش از «ا» هم نه — اختلافِ
+ * نگارش، نه تلفظ؛ داوری‌شان فقط هزینه است.
+ */
+function speakConflict_(a, b) {
+  var A = speakLetterMarks_(a), B = speakLetterMarks_(b);
+  if (A.length !== B.length || !A.length) return false;
+  var n = A.length;
+  for (var k = 0; k < n - 1; k++) {
+    if (A[k].ch === 'ا' || A[k].ch === 'آ') continue;
+    if (k + 1 < n && A[k + 1].ch === 'ا' && (A[k].v === 'َ' || B[k].v === 'َ') && (!A[k].v || !B[k].v || A[k].v === B[k].v)) continue;
+    if (A[k].v && B[k].v && A[k].v !== B[k].v) return true;
+  }
+  var la = A[n - 1], lb = B[n - 1];
+  if (la.ch === 'ه' || la.ch === 'و' || la.ch === 'ا') return false;
+  return (la.v === 'ِ') !== (lb.v === 'ِ') && (!!la.v || !!lb.v);
+}
+
+/** واژه‌هایی که دو نسخه سرِ اعرابشان اختلاف دارند: [{i, a, b, sent}] — i جای واژه در `va`. */
+function speakDisagree_(va, vb) {
+  var A = speakTok_(va), B = speakTok_(vb);
+  var pairs = speakAlign_(A, B), out = [];
+  var sents = speakSentences_(va), bounds = [], acc = 0, z;
+  /* جملهٔ هر واژه — داور باید معنا را ببیند، نه واژهٔ تنها. */
+  for (z = 0; z < sents.length; z++) { var at = va.indexOf(sents[z], acc); bounds.push([at, at + sents[z].length]); acc = Math.max(acc, at + sents[z].length); }
+  for (var k = 0; k < pairs.length; k++) {
+    var a = A[pairs[k][0]], b = B[pairs[k][1]];
+    if (a.b === 'و') continue;
+    if (!/[ًٌٍَُِّٰ]/.test(a.w) || !/[ًٌٍَُِّٰ]/.test(b.w)) continue;
+    if (!speakConflict_(a.w, speakMarkMove_(a.w, b.w))) continue;
+    var sent = '';
+    for (z = 0; z < bounds.length; z++) if (a.s >= bounds[z][0] && a.s < bounds[z][1]) { sent = sents[z]; break; }
+    out.push({ i: pairs[k][0], s: a.s, e: a.e, a: a.w, b: speakMarkMove_(a.w, b.w), base: a.b, sent: sent || va.slice(Math.max(0, a.s - 80), a.e + 80) });
+  }
+  return out;
+}
+
+var SPEAK_ADJ_SCHEMA = {
+  type: 'object',
+  properties: { picks: { type: 'array', items: { type: 'object',
+    properties: { n: { type: 'string' }, pick: { type: 'string' }, w: { type: 'string' } }, required: ['n', 'pick'] } } },
+  required: ['picks']
+};
+
+/**
+ * داوری روی اختلاف‌ها — **فقط** همان واژه‌ها، هر کدام با جملهٔ خودش. پرسشِ کوچک و مشخص: «در این
+ * جمله، کدام تلفظِ معیارِ تهرانی است؟». پاسخِ «۳» یعنی هیچ‌کدام — با املای اعراب‌دارِ درست؛ حروفش باید
+ * همان حروف باشد وگرنه کنار می‌رود. نشد ⇒ نسخهٔ اول (همان که بود) — بدتر از امروز نمی‌شود.
+ */
+function speakAdjudicate_(dis, model) {
+  if (!dis.length) return [];
+  var L = [
+    'کارِ تو: داوریِ تلفظ. دو اعراب‌گذارِ مستقل سرِ اعرابِ این واژه‌ها اختلاف دارند. برای هر مورد،',
+    'جمله را بخوان، معنای واژه را در **همین جمله** بفهم، و بگو کدام اعراب تلفظِ فارسیِ معیارِ امروزِ تهران است.',
+    'از روی ساختِ واژه تصمیم بگیر، نه از هم‌ریشه‌اش («فُحش» ولی «فَحّاشی»؛ «حُکم» ولی «حُکّام»).',
+    'pick: «1» یا «2»؛ اگر هر دو غلط‌اند «3» و در w املای اعراب‌دارِ درست را بنویس — **با همان حروف**.',
+    'کسرهٔ اضافه هم بخشی از داوری است: اگر واژه در این جمله به واژهٔ بعد اضافه شده، کسره لازم است.',
+    ''
+  ];
+  for (var i = 0; i < dis.length; i++) {
+    L.push((i + 1) + ') جمله: «' + String(dis[i].sent).slice(0, 260) + '»');
+    L.push('   واژه: ' + dis[i].base + ' · گزینهٔ ۱: ' + dis[i].a + ' · گزینهٔ ۲: ' + dis[i].b);
+  }
+  var res = null;
+  try { res = geminiText_(L.join('\n'), SPEAK_ADJ_SCHEMA, 8192, model ? { model: model } : undefined); } catch (e) { res = null; }
+  var picks = (res && res.picks) || [], out = [];
+  for (var k = 0; k < picks.length; k++) {
+    var n = parseInt(String(picks[k].n || '').replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }), 10) - 1;
+    if (!(n >= 0 && n < dis.length)) continue;
+    var pk = String(picks[k].pick || '').replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }).trim();
+    var w = pk === '2' ? dis[n].b : (pk === '3' ? String(picks[k].w || '') : dis[n].a);
+    if (pk === '3') {
+      var tw = speakTok_(w);
+      if (tw.length !== 1 || tw[0].b !== dis[n].base) continue;     // حروفِ دیگر ⇒ کنار
+      w = speakMarkMove_(dis[n].a, tw[0].w);
+    }
+    out.push({ n: n, pick: pk, w: w });
+  }
+  return out;
+}
+
+/**
+ * نظرِ دوم + داوری. `va` اعرابِ برگزیدهٔ فعلی؛ `other` اعرابِ منبعِ دیگر (Cowork، خام) یا ''. اگر پوششِ
+ * انتقال کمتر از `SPEAK_XCHECK_COVER` بود، نظرِ دوم از مدلِ دیگر (`SPEAK_XCHECK_MODEL`).
+ * برمی‌گرداند { t, src, cov, dis, a, b, c, ex } یا null (کاری نشد).
+ */
+function speakXcheck_(plain, va, other, deadline) {
+  if (CFG.SPEAK_XCHECK === false || !va) return null;
+  var src = '', vb = '', cov = 0;
+  if (other) {
+    var tr = speakTransfer_(plain, other);
+    cov = tr.cov;
+    if (cov >= (Number(CFG.SPEAK_XCHECK_COVER) || 0.6)) { vb = tr.t; src = 'cowork'; }
+  }
+  if (!vb) {
+    if (deadline && new Date().getTime() > deadline - 90000) return null;
+    var mdl = String(CFG.SPEAK_XCHECK_MODEL || '');
+    if (mdl && mdl === textModel_()) mdl = '';
+    vb = vowelizeText_(plain, mdl ? { model: mdl } : null);
+    src = mdl ? 'model:' + mdl : 'model';
+    if (!vb) return null;
+  }
+  var dis = speakDisagree_(va, vb);
+  var rep = { t: va, src: src, cov: Math.round(cov * 100) / 100, dis: dis.length, a: 0, b: 0, c: 0, ex: [] };
+  if (!dis.length) return rep;
+  var cap = Math.max(5, Number(CFG.SPEAK_XCHECK_MAX) || 60);
+  var todo = dis.slice(0, cap);
+  if (deadline && new Date().getTime() > deadline - 60000) return rep;
+  var picks = speakAdjudicate_(todo, String(CFG.SPEAK_XCHECK_JUDGE_MODEL || '') || null);
+  var t = va;
+  picks.sort(function (x, y) { return todo[y.n].s - todo[x.n].s; });
+  for (var k = 0; k < picks.length; k++) {
+    var d = todo[picks[k].n];
+    if (picks[k].pick === '2') rep.b++; else if (picks[k].pick === '3') rep.c++; else rep.a++;
+    if (picks[k].w === d.a) continue;
+    t = t.slice(0, d.s) + picks[k].w + t.slice(d.e);
+    if (rep.ex.length < 6) rep.ex.push(d.a + ' ⇒ ' + picks[k].w);
+  }
+  rep.t = t;
+  return rep;
 }
 
 /**
@@ -4982,7 +5246,7 @@ function speakStep_(ep, segs, deadline, persist) {
       return { done: false, did: did, failed: failed };
     }
     touched++;
-    var v = '';
+    var v = '', candRaw = '', fromCt = false;
     // ── پیشنهادِ Cowork — با وارسی، هرگز به اعتماد ──
     if (ct) {
       var cand = '';
@@ -4994,12 +5258,32 @@ function speakStep_(ep, segs, deadline, persist) {
         cand = String(ct.sections[String(segs[i].secIndex)]);
       }
       if (cand) cand = speakSanitize_(cand);
-      if (cand && verifySpeak_(plain, cand) && speakVowelledOk_(plain, cand)) v = cand;
+      candRaw = cand;
+      if (cand && verifySpeak_(plain, cand) && speakVowelledOk_(plain, cand)) { v = cand; fromCt = true; }
     }
     // ── حتی متنی که از قبل اعراب‌دار به نظر می‌رسد دوباره ساخته می‌شود ──
     // «اعراب‌دار بودن» دلیلِ «درست بودن» نیست؛ قاعدهٔ کاربر صریح است.
     if (!v) v = vowelizeText_(plain);
-    if (v) { ep.__speakSegs[i] = { h: h, t: v }; did++; okSoFar++; }
+    /* ── بخشی که اعراب‌گذارِ موتور ردش کرد، دیگر بی‌اعراب خوانده نمی‌شود اگر Cowork دارد (۹.۰۰) ──
+       در ده قسمتِ اخیر ۱۷٪ بخش‌ها (۱۶ از ۹۲) با متنِ خام رفتند؛ قسمتِ ۷۲ بخشِ دومش را برای «جستجوی ←
+       جست‌وجوی» از دست داد، در حالی که اعرابِ Cowork برای همان بخش آماده بود. */
+    if (!v && candRaw) {
+      var trF = speakTransfer_(plain, candRaw);
+      if (trF.cov >= (Number(CFG.SPEAK_XCHECK_COVER) || 0.6) && verifySpeak_(plain, trF.t) && speakVowelledOk_(plain, trF.t)) {
+        v = trF.t; fromCt = true;
+      }
+    }
+    /* ── نظرِ دوم و داوری روی اختلاف (۹.۰۰) ── اگر v خودش از Cowork آمد، نظرِ دوم از مدل است. */
+    var xc = null;
+    if (v) {
+      try { xc = speakXcheck_(plain, v, fromCt ? '' : candRaw, deadline); } catch (eX) { xc = null; }
+      if (xc && xc.t && xc.t !== v && verifySpeak_(plain, xc.t)) v = xc.t;
+    }
+    if (v) {
+      ep.__speakSegs[i] = { h: h, t: v };
+      if (xc) ep.__speakSegs[i].x = { src: xc.src, cov: xc.cov, dis: xc.dis, a: xc.a, b: xc.b, c: xc.c, ex: xc.ex };
+      did++; okSoFar++;
+    }
     else {
       // دو بارِ پیاپی شکست یعنی بس است؛ این بخش با متنِ ساده خوانده می‌شود
       var tries = (have && have.h === h ? Number(have.tries) || 0 : 0) + 1;
@@ -6685,6 +6969,12 @@ function curateItems_(cat, candidates, refPool, orders) {
     '   **هم‌ژانری بخشی از هم‌خانوادگی است:** ده کلیپِ طنز و یک خبرِ مرگ هم‌خانواده نیستند، حتی اگر',
     '   هر دو دربارهٔ «سیاست» باشند — مگر خودِ سیر دربارهٔ همان تضاد باشد و آن را صریح بگوید.',
     '',
+    /* ۹.۰۰ — سیرِ قسمتِ ۷۲ این بود: «هجوِ خطوطِ قرمز (سیاست، امنیت، مناسکِ مذهبی، مرگ و تابوهای اجتماعی)».
+       چتری که هر چیزی زیرش جا می‌شود سیر نیست؛ هیچ آیتمی را رد نمی‌کند — و همان‌طور یک خبرِ مرگ وسطِ
+       طنزها نشست. */
+    '   **سیرِ چتری ممنوع.** اگر سیرت را فقط با کنارِ هم گذاشتنِ چند حوزهٔ جدا می‌شود گفت («سیاست، مذهب،',
+    '   مرگ و تابوها»)، یا آن‌قدر کلی است که نیمی از نامزدها زیرش جا می‌شوند، سیر نیست؛ یکی از آن حوزه‌ها را',
+    '   بردار و فقط اعضای همان را. آزمون: سیر باید دست‌کم نیمی از نامزدها را **بیرون** بگذارد.',
     '۲) قوی‌ترین سیر را در theme بنویس. در connection دقیقاً بگو پیوند از کجا می‌آید — کدام واژه،',
     '   کدام نام، کدام سوژه؟ اگر در یک جملهٔ مشخص نمی‌شود گفت، سیر واقعی نیست؛ دیگری را بردار.',
     '   در route ترتیبِ رفتن را بنویس: «اول … چون …؛ بعد … چون …» — هر گام با دلیلی از دلِ محتوا.',
@@ -6819,6 +7109,9 @@ function curateJudge_(theme, connection, route, chosen) {
     'حال‌وهوایی که در کنارِ بقیه معنا دارد (یک خبرِ مرگ وسطِ چند طنز «بله» نیست مگر سیر صریحاً دربارهٔ',
     'همان تضاد باشد). «خیر» اگر فقط با جمله‌ای ساختگی وصل می‌شود، یا اگر خوانشِ سردبیر با متنِ خودِ آیتم',
     'نمی‌خواند (مثلاً طنزی که جدی خوانده شده). why: یک جمله.',
+    'خودت آیتم را بخوان، نه برچسبش: «حال‌وهوا» را تحلیل‌گرِ منبع نوشته و گاهی غلط است — قسمتِ ۷۲ یک خبرِ',
+    'مرگ را «طنزآمیز» برچسب زده بود. اگر سیر چتری است (چند حوزهٔ جدا کنارِ هم)، فقط اعضای هسته‌ای‌ترین',
+    'حوزه «بله»اند.',
     '',
     lines.join('\n')
   ].join('\n');

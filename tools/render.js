@@ -709,7 +709,10 @@ function prepMedia(it, scenes, dir, notes, placed) {
     if (!g || g.kind !== 'video') return { m: m, ok: false, why: 'کلیپ نرسید' };
     if (!h || !h.found) return { m: m, ok: false, why: 'عبارت در کلیپ پیدا نشد (' + ((h && h.why) || '') + ')' };
     const from = Math.max(0, Number(h.from) - 0.25);
-    const len = Math.min(Number(m.max) || 12, Number(h.to) - from + MKIT.MK.momentTail, g.info.dur - from);
+    /* ۹.۰۰: تا پایانِ جملهٔ گوینده (`h.end` از clipfind)، نه تا آخرین واژهٔ عبارت — «یه قسمتِ خیلی کوتاه
+       بود و سریع قطع می‌شد». */
+    const stop = Number(h.end) > Number(h.to) ? Number(h.end) : Number(h.to);
+    const len = Math.min(Number(m.max) || 20, stop - from + MKIT.MK.momentTail, g.info.dur - from);
     if (len < MKIT.MK.momentMin) return { m: m, ok: false, why: 'تکهٔ شنیده‌شده کوتاه بود' };
     return { m: m, ok: true, url: m.url, from: from, len: len };
   });

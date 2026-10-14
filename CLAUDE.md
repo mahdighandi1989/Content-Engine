@@ -614,6 +614,16 @@ move. And bone replaces marks with a **space**, not with nothing — `speakCmp_`
 eats the spaces around punctuation, so deleting a comma would otherwise fuse two
 words.
 
+**Two independent sources, and judgement only on their disagreement (9.00).** «فحاشی» was read
+`fohashi` because the engine wrote «فُحّاشی» — while Cowork's tashkil for the same section had «فَحّاشی»
+right and was thrown away: `verifySpeak_` wants word-for-word identity and Cowork's text carried the
+heading and an earlier draft, so **every** section of episode 72 was rejected. On that episode the two
+versions disagreed on 44 of 622 words (7%), each side right in some — the error has no fixed place a
+word list can close; it lives where two independent sources disagree. `speakTransfer_` moves Cowork's
+marks word-by-word onto the final text (letters never change), a second model fills in when Cowork is
+missing, and `speakAdjudicate_` asks only about the conflicting words, each with its sentence. The same
+transfer reads a section the engine's diacritizer rejected, instead of sending it bare.
+
 A word that stays wrong even with correct diacritics goes into the «تلفظ» tab and
 stays fixed forever — append only, never overwriting a human row, and only when
 the replacement's *letters* are identical. That tab is applied **after**
@@ -909,6 +919,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «دقیق‌تر ریشه‌یابی کن» — اعرابِ درست بود و دور ریخته شد؛ لحظه‌ای که وسطِ نفس بریده می‌شد؛ سیرِ چتری (9.00)
 - «بعد از یک ماه گوش دادم» — سیرِ معنایی پیش از چیدن، طنز به‌عنوانِ طنز، «فُحّاشی»، و قابی که همه‌اش وسط بود (8.99)
 - نمونهٔ اول دیده شد: یک دقیقه فقط کاور، و هیچ عبارتی پیدا نشد (8.98)
 - «۰ از ۴» بی شاهد — خودآزمونی که نمی‌گفت نمونه اصلاً خوانده شد یا نه (8.94)

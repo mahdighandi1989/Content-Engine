@@ -78,6 +78,27 @@ def accept(bw):
     s, second = bw[0], bw[3]
     return s >= 0.55 and (s >= 1.5 * second or s >= 0.7)
 
+def sentence_end(spans, start, to, min_len=6.0, max_len=20.0):
+    """پایانِ طبیعیِ «لحظه» (۹.۰۰): نه آخرین واژهٔ عبارت، بلکه پایانِ جملهٔ گوینده.
+    صاحبِ برنامه نمونهٔ دوم را دید: «وقتی صدای کلیپ پخش می‌شد یه قسمتِ خیلی کوتاه بود و سریع هم قطع
+    می‌شد». لحظه درست سرِ آخرین واژهٔ عبارت بریده می‌شد — وسطِ نفسِ گوینده. حالا تا پایانِ بخشِ گفتاریِ
+    whisper که عبارت در آن تمام شد، و اگر کوتاه‌تر از `min_len` بود، بخش‌های بعدی هم، تا سقفِ `max_len`.
+    مکث میانِ بخش‌ها جای طبیعیِ بریدن است."""
+    end = to
+    for a, b in spans:
+        if a <= to + 0.05 and b >= to - 0.05:
+            end = max(end, b)
+            break
+    for a, b in spans:
+        if a < end - 0.05:
+            continue
+        if end - start >= min_len:
+            break
+        if b - start > max_len:
+            break
+        end = b
+    return min(end, start + max_len)
+
 def main():
     reqs = json.load(open(sys.argv[1], encoding='utf-8'))
     out = [{'found': False, 'why': 'شنیده نشد'} for _ in reqs]
@@ -102,11 +123,14 @@ def main():
                 segs, _ = model.transcribe(read_wav(tmp), language='fa', word_timestamps=True,
                                            vad_filter=True, beam_size=1)
                 words = []
+                spans = []
                 for s in segs:
+                    spans.append((float(s.start), float(s.end)))
                     for w in (s.words or []):
                         for t in norm(w.word):
                             words.append((t, float(w.start), float(w.end)))
                 cache[f] = words
+                cache[f + '#spans'] = spans
                 try: os.remove(tmp)
                 except Exception: pass
             bw = best_window(cache[f], quote)
@@ -117,7 +141,8 @@ def main():
                           'why': 'عبارت در گفتارِ کلیپ پیدا نشد (' + str(round(bw[0], 2)) + ' در برابرِ ' + str(round(bw[3], 2)) + ')'}
             else:
                 out[i] = {'found': True, 'from': round(bw[1], 2), 'to': round(bw[2], 2), 'score': round(bw[0], 2),
-                          'second': round(bw[3], 2), 'why': ''}
+                          'second': round(bw[3], 2), 'end': round(sentence_end(cache[f + '#spans'], bw[1], bw[2]), 2),
+                          'why': ''}
         except Exception as e:
             out[i] = {'found': False, 'why': 'شنیدن نشد: ' + str(e)[:80]}
     print(json.dumps(out, ensure_ascii=False))

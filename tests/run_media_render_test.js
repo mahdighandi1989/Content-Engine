@@ -170,6 +170,17 @@ print(json.dumps(out))
     else if (c.expect === 'any') ok('۵.۲ ' + c.id.slice(0, 6) + ': پیدا شد', g && g.ok, JSON.stringify(g));
     else ok('۵.۳ ' + c.id.slice(0, 6) + ': پیدا شد و سرِ جای درست', g && g.ok && g.from >= c.expect[0] && g.from <= c.expect[1], JSON.stringify(g));
   }
+  /* ۹.۰۰ — نمونهٔ دوم: لحظهٔ «سروش» ۶٫۷ ثانیه و سرِ آخرین واژهٔ عبارت بریده شد. بخش‌های گفتاریِ واقعیِ کلیپِ
+     «باید بپذیرم…» (whisper): ۴٫۷–۸٫۴، ۸٫۴–۱۲٫۲، ۱۲٫۹–۱۶٫۲. */
+  const se = spawnSync('python3', ['-c', `
+import sys; sys.path.insert(0, 'tools'); import clipfind as C
+sp = [(0.0, 4.7), (4.7, 8.4), (8.4, 12.2), (12.9, 16.2), (16.2, 19.7), (19.7, 40.0)]
+print(C.sentence_end(sp, 4.74, 7.9), C.sentence_end(sp, 4.74, 11.0), C.sentence_end(sp, 4.74, 19.0))`], { encoding: 'utf8' });
+  const ends = String(se.stdout || '').trim().split(/\s+/).map(Number);
+  ok('۵.۵ لحظه تا پایانِ جملهٔ گوینده می‌رود (نه آخرین واژهٔ عبارت)، دست‌کم ۶ ثانیه، حداکثر ۲۰',
+     ends[0] === 12.2 && ends[1] === 12.2 && ends[2] <= 24.74 && ends[2] >= 19.7, se.stdout + se.stderr);
+  const rj5 = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۵.۶ رانر طولِ لحظه را از `end` می‌گیرد', /const stop = Number\(h\.end\) > Number\(h\.to\)/.test(rj5));
   ok('۵.۴ جملهٔ ساختگی در هیچ کلیپی پذیرفته نمی‌شود', got.every(g => !g.fake), JSON.stringify(got.map(g => g.fs)));
 }
 

@@ -581,6 +581,13 @@ function vmBuild_(folder, meta, plan, ctx) {
     }
   }
 
+  /* نمونهٔ تازه با `replan` (۹.۰۰): نقشه از نو — تا قاعده‌های تازهٔ نقشه (نوشتهٔ برداریِ بیشتر، لحظهٔ بلندتر)
+     در نمونه دیده شوند — ولی رونوشت‌ها و کاور همان می‌مانند (نه رونوشتِ دوباره، نه تصویرِ تازه). */
+  var keepCp = null;
+  if (d && ctx.replan && d.key !== key && d.phase !== 'plan') {
+    keepCp = { copies: d.copies || {}, cover: d.cover || { fileId: '', why: '' }, skipped: d.skipped || [] };
+    d = null;
+  }
   // ── ۱) نقشه ──
   if (!d || d.phase === 'plan') {
     var items = vmItems_(meta);
@@ -603,6 +610,7 @@ function vmBuild_(folder, meta, plan, ctx) {
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
           dropped: vs.dropped, added: vs.added, items: items.length, copies: {}, skipped: [],
           cover: { fileId: '', why: '' } };
+    if (keepCp) { d.copies = keepCp.copies; d.cover = keepCp.cover; d.skipped = keepCp.skipped; }
     vmWrite_(folder, d);
   }
 
@@ -792,7 +800,7 @@ function vmSampleTick_() {
   var aud = ytAudioParts_(folder);
   if (aud.why) return stop(aud.why);
   var totalSec = ytSecondsOf_(aud.parts);
-  var ctx = { show: 'variety', epRaw: tag, showName: CFG.SHOW_NAME,
+  var ctx = { show: 'variety', epRaw: tag, replan: !!spec.replan, showName: CFG.SHOW_NAME,
               tagline: CFG.SHOW_TAGLINE, seriesName: '', epNum: faDigitsOut_(String(spec.ep)), lesson: '',
               recap: false, title: String(ep.title || ''), cat: String(meta.cat || ''),
               duration: ytTime_(totalSec), headings: (ep.sections || []).map(function (x) { return String(x.heading || ''); }),
