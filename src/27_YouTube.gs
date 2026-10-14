@@ -12706,16 +12706,30 @@ function ytPlSqWant_(spec) {
 var _ytPlSqMemo = null;
 function ytRenderPlCoversCached_() {
   if (_ytPlSqMemo !== null) return _ytPlSqMemo;
-  _ytPlSqMemo = {};
+  var d = ytRenderDocFetch_();
+  _ytPlSqMemo = (d.plCovers && typeof d.plCovers === 'object') ? d.plCovers : {};
+  return _ytPlSqMemo;
+}
+
+/* بنرِ کانال (۸.۸۸) — همان سند، حافظهٔ جدا: بنر فقط در وارسیِ شناسنامه خوانده می‌شود. */
+var _ytRMapMemo = null;
+function ytRenderBannerCached_() {
+  if (_ytRMapMemo !== null) return _ytRMapMemo;
+  var d = ytRenderDocFetch_();
+  _ytRMapMemo = (d.banner && typeof d.banner === 'object') ? d.banner : {};
+  return _ytRMapMemo;
+}
+
+function ytRenderDocFetch_() {
   try {
     var res = UrlFetchApp.fetch(githubRawUrl_(CFG.YT_RENDER_MAP || 'docs/renders.json'),
                 { muteHttpExceptions: true, followRedirects: true });
     if (res.getResponseCode() === 200) {
       var d = JSON.parse(res.getContentText());
-      if (d && d.plCovers && typeof d.plCovers === 'object') _ytPlSqMemo = d.plCovers;
+      if (d && typeof d === 'object') return d;
     }
   } catch (e) {}
-  return _ytPlSqMemo;
+  return {};
 }
 
 /**
@@ -12957,71 +12971,55 @@ function ytChannelCheck_(info) {
   return out;
 }
 
-/** بنرِ کانال — ۲۵۶۰×۱۴۴۰ خواسته می‌شود، ۲۰۴۸×۱۱۵۲ حداقلِ خودِ یوتیوب است. */
-function ytBannerCard_() {
-  var pres = null;
-  try {
-    var pal = ytPalette_(String(CFG.SHOW_NAME || 'x'));
-    /* ══ یک تعریف، نه دو (۶٫۷) ══
-     * صفحهٔ بزرگ فقط از راهِ REST ساخته می‌شود — `SlidesApp` اندازهٔ صفحه را
-     * نمی‌پذیرد. ۶٫۵ این را فقط برای بنر حل کرد و کاور با اندازهٔ پیش‌فرض
-     * ماند؛ همان «قرینه‌ای که یک بار درست شد» که این ریپو بارها گرفتارش شده.
-     * حالا هر دو از `ytPresCreate_` می‌گذرند.
-     *
-     * و تفاوتِ تصمیم این‌جاست: کاورِ کوچک زشت است ولی کار می‌کند، بنرِ کوچک
-     * را یوتیوب اصلاً **نمی‌پذیرد**. پس بنر با اندازهٔ تقریبی ادامه نمی‌دهد
-     * و به‌جایش نشانیِ روشن‌کردنِ سرویس را می‌دهد. */
-    var mkB = ytPresCreate_('بنرِ کانال — ' + String(CFG.SHOW_NAME || ''),
-                            24384000, 13716000);
-    if (!mkB.exact) {
-      try { if (mkB.id) DriveApp.getFileById(mkB.id).setTrashed(true); } catch (eTb) {}
-      return { why: mkB.why + ' (کاورِ قسمت‌ها بی این هم ساخته می‌شود؛ فقط بنر لازمش دارد)',
-               enableUrl: mkB.enableUrl };
-    }
-    var presId = mkB.id;
-    pres = SlidesApp.openById(presId);
-    var slide = pres.getSlides()[0];
-    try { var els = slide.getPageElements(); for (var e = 0; e < els.length; e++) els[e].remove(); }
-    catch (eEl) {}
-    var W = pres.getPageWidth(), H = pres.getPageHeight();
-    var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, W, H);
-    bg.getFill().setSolidFill(pal.bg); bg.getBorder().setTransparent();
-    var bar = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, H * 0.86, W, H * 0.04);
-    bar.getFill().setSolidFill(pal.ac); bar.getBorder().setTransparent();
+/**
+ * ══ بنرِ کانال از رانر، نه از اسلایدز (۸.۸۸) ══
+ * «بنر کو؟» — جوابِ راست: از ۶٫۵ تا امروز **هیچ‌وقت** ساخته نشده بود. `_STATUS`ِ
+ * ۷ اکتبر: «presentations.create اندازهٔ درخواستی را نادیده گرفت — صفحه با
+ * 9144000…». اسلایدز همیشه ۹۶۰×۵۴۰ می‌سازد (۸.۱۲) و یوتیوب زیرِ ۲۰۴۸×۱۱۵۲ را
+ * نمی‌پذیرد — پس این راه از روزِ اول بسته بود و هر هفته همان دلیل را تکرار می‌کرد.
+ * همان دیوارِ کاورِ مربعِ پلی‌لیست (۸.۵۵)، و همان درمان: رانر کروم و قلمِ فارسی
+ * دارد و ۲۵۶۰×۱۴۴۰ را می‌کشد. موتور درخواست را در `_YT-RENDER.json` (`banner`)
+ * می‌گذارد، نشانی را از `docs/renders.json` برمی‌دارد و **اندازه را از بایت‌ها**
+ * می‌سنجد. برمی‌گرداند {blob, size} یا {why, wait}.
+ */
+function ytBannerSpec_() {
+  var pal = ytPalette_(String(CFG.SHOW_NAME || 'x'));
+  var spec = { name: String(CFG.SHOW_NAME || ''), tagline: String(CFG.SHOW_TAGLINE || ''),
+               special: CFG.SPECIAL_ENABLED
+                 ? String(CFG.SPECIAL_SHOW_NAME || '') + '  ·  ' + String(CFG.SPECIAL_TAGLINE || '') : '',
+               pal: { bg: String(pal.bg || ''), fg: String(pal.fg || ''), ac: String(pal.ac || '') } };
+  spec.sig = ytSig8_(JSON.stringify([spec.name, spec.tagline, spec.special, spec.pal]));
+  return spec;
+}
 
-    /* متن در **ناحیهٔ امنِ** وسط می‌نشیند: یوتیوب همین بنر را روی تلویزیون
-       کامل و روی موبایل فقط وسطش را نشان می‌دهد (۱۵۴۶×۴۲۳ در مرکز). هرچه
-       بیرونِ آن باشد روی گوشی دیده نمی‌شود. */
-    var safeW = W * 0.604, safeH = H * 0.294;
-    var x = (W - safeW) / 2, y = (H - safeH) / 2;
-    var put = function (t, top, h, size, color, bold) {
-      var box = slide.insertTextBox(String(t || ''), x, top, safeW, h);
-      box.getText().getTextStyle().setFontSize(size).setForegroundColor(color).setBold(!!bold);
-      try {
-        box.getText().getParagraphStyle()
-           .setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
-      } catch (eA) {}
-    };
-    put(String(CFG.SHOW_NAME || ''), y, safeH * 0.34, 40, pal.fg, true);
-    put(String(CFG.SHOW_TAGLINE || ''), y + safeH * 0.34, safeH * 0.24, 22, pal.ac, false);
-    if (CFG.SPECIAL_ENABLED) {
-      put(String(CFG.SPECIAL_SHOW_NAME || '') + '  ·  ' + String(CFG.SPECIAL_TAGLINE || ''),
-          y + safeH * 0.62, safeH * 0.3, 20, pal.fg, false);
+function ytBannerCard_() {
+  try {
+    var spec = ytBannerSpec_();
+    var have = ytRenderBannerCached_();
+    if (!have || !have.url || String(have.req || '') !== spec.sig) {
+      var d = ytRenderRead_();
+      if (JSON.stringify(d.banner || null) !== JSON.stringify(spec)) {
+        d.banner = spec;
+        if (ytRenderSave_(d)) {
+          try { ytQueueShare_(); } catch (eQs) {}
+          try { ghRenderDue_('بنرِ کانال'); } catch (eGk) {}
+        }
+      }
+      return { wait: true, why: 'بنر به رانر سپرده شد (۲۵۶۰×۱۴۴۰) — هنوز کشیده نشده' };
     }
-    pres.saveAndClose();
-    var blob = ytSlideExport_(presId, slide.getObjectId(), 'بنرِ کانال.png');
-    if (!blob) return { why: 'خروجیِ PNGِ بنر نشد' };
-    var size = ytPngSize_(blob);
-    if (!size) return { why: 'ابعادِ PNGِ بنر خوانده نشد' };
+    var res = UrlFetchApp.fetch(String(have.url), { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) return { why: 'بنرِ رانر نیامد (' + res.getResponseCode() + ')' };
+    var blob = res.getBlob().setName('channel-banner');
+    var size = ytImgSize_(blob);
+    if (!size) return { why: 'ابعادِ بنر از بایت‌ها خوانده نشد — تصویر نیست' };
     if (size.w < 2048 || size.h < 1152) {
       // نفرستادن بهتر از فرستادن و ردشدن است — و علتش باید عدد داشته باشد
       return { why: 'بنر کوچک درآمد: ' + size.w + '×' + size.h +
                     ' در برابرِ حداقلِ ۲۰۴۸×۱۱۵۲ که یوتیوب می‌خواهد' };
     }
-    try { DriveApp.getFileById(presId).moveTo(ytCoverFolder_()); } catch (eM) {}
+    if (blob.getBytes().length > 6 * 1024 * 1024) return { why: 'بنر از سقفِ ۶ مگِ یوتیوب بزرگ‌تر است' };
     return { blob: blob, size: size };
   } catch (e) {
-    try { if (pres) pres.saveAndClose(); } catch (eS) {}
     return { why: 'بنر ساخته نشد: ' + String(e.message).slice(0, 140) };
   }
 }
@@ -13029,10 +13027,11 @@ function ytBannerCard_() {
 /** بنر را می‌نشاند: اول آپلود، بعد نشانی‌اش در شناسنامهٔ کانال. */
 function ytBannerSet_(chId) {
   var made = ytBannerCard_();
+  if (made && made.wait) return 'در راه — ' + made.why;
   if (!made || !made.blob) return made && made.why ? made.why : 'نشد';
   if (!ytQuotaTake_(YT_COST.thumbSet, false)) return 'سهمیه';
   var up = ytHttp_('https://www.googleapis.com/upload/youtube/v3/channelBanners/insert' +
-                   '?uploadType=media', 'post', made.blob.getBytes(), 'image/png');
+                   '?uploadType=media', 'post', made.blob.getBytes(), made.size.mime || 'image/png');
   if (up.code !== 200 || !up.json || !up.json.url) {
     return 'آپلودِ بنر نشد (' + up.code + ')';
   }

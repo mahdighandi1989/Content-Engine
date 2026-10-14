@@ -308,6 +308,39 @@ function plCoverHtml(pc, artData) {
 }
 
 /**
+ * بنرِ کانال (۸.۸۸) — ۲۵۶۰×۱۴۴۰. اسلایدزِ موتور صفحهٔ بزرگ‌تر از ۹۶۰×۵۴۰ نمی‌سازد
+ * و یوتیوب بنرِ زیرِ ۲۰۴۸×۱۱۵۲ را نمی‌پذیرد؛ پس این‌جا کشیده می‌شود. هر نوشته‌ای
+ * درونِ **ناحیهٔ امنِ** وسط (۱۵۴۶×۴۲۳) است: گوشی فقط همان را نشان می‌دهد.
+ */
+function bannerHtml(bn) {
+  const pal = (bn && bn.pal) || {};
+  const okc = c => /^#[0-9a-fA-F]{3,8}$/.test(String(c || ''));
+  const bg = okc(pal.bg) ? pal.bg : '#0F172A';
+  const fg = okc(pal.fg) ? pal.fg : '#F8FAFC';
+  const ac = okc(pal.ac) ? pal.ac : '#38BDF8';
+  const name = String((bn && bn.name) || '').trim();
+  const tag = String((bn && bn.tagline) || '').trim();
+  const sp = String((bn && bn.special) || '').trim();
+  const fsN = name.length > 30 ? 92 : (name.length > 20 ? 112 : 128);
+  return '<!doctype html><meta charset="utf-8"><style>html,body{margin:0;width:2560px;height:1440px;' +
+    'overflow:hidden;background:' + bg + '}' +
+    '.bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,' + ac + '33 0%,' + bg + ' 58%)}' +
+    '.r1{position:absolute;width:1300px;height:1300px;left:-420px;top:-520px;border-radius:50%;border:90px solid ' + ac + '22}' +
+    '.r2{position:absolute;width:900px;height:900px;right:-260px;bottom:-420px;border-radius:50%;background:' + ac + '1a}' +
+    '.bar{position:absolute;left:0;right:0;top:1238px;height:58px;background:' + ac + '}' +
+    '.safe{position:absolute;left:507px;top:508px;width:1546px;height:423px;display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;direction:rtl;text-align:center;' +
+    'font-family:\'Vazirmatn\',\'Noto Sans Arabic\',sans-serif;color:' + fg + '}' +
+    '.n{font-size:' + fsN + 'px;font-weight:800;line-height:1.2}' +
+    '.t{font-size:54px;font-weight:600;color:' + ac + ';margin-top:18px}' +
+    '.s{font-size:44px;font-weight:500;opacity:.9;margin-top:22px}</style>' +
+    '<div class="bg"></div><div class="r1"></div><div class="r2"></div><div class="bar"></div>' +
+    '<div class="safe"><div class="n">' + esc(name) + '</div>' +
+    (tag ? '<div class="t">' + esc(tag) + '</div>' : '') +
+    (sp ? '<div class="s">' + esc(sp) + '</div>' : '') + '</div>';
+}
+
+/**
  * حرکتِ صحنهٔ g.
  * بی `mv`: حرکتِ آرامِ قبلی — بزرگ‌نمایی، کوچک‌نمایی، یا لغزشِ افقی، یکی‌درمیان.
  * با `mv` (۸.۵۱): بزرگ‌نمایی **حولِ کانون** — نقطهٔ کانون روی صفحه ثابت می‌مانَد و
@@ -746,5 +779,5 @@ function qa(ff, dest, tl, durSec) {
   return out;
 }
 
-module.exports = { SK, pinFrame, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml,
+module.exports = { SK, pinFrame, scenesOf, mvOf, fbOf, fbBox, xfadeOf, clipOf, silences, timeline, captionHtml, markHtml, coverHtml, plCoverHtml, bannerHtml,
                    motion, vmaxFor, build, gray, mad, sd, qa, mediaSeconds, shoot };

@@ -1218,9 +1218,10 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
                             src27.indexOf('function ytBannerSet_'));
   const cvSrc = src27.slice(src27.indexOf('function ytCoverCard_'),
                             src27.indexOf('function ytRenderName_'));
-  ok('۳۴.۵ و هر دو — بنر و کاور — از همان یک تعریف می‌گذرند',
-     bnSrc.indexOf('ytPresCreate_(') !== -1 && cvSrc.indexOf('ytPresCreate_(') !== -1 &&
-     cvSrc.indexOf('SlidesApp.create') === -1);
+  /* ۸.۸۸: بنر دیگر از اسلایدز نمی‌گذرد — اسلایدز هرگز صفحهٔ ۲۵۶۰×۱۴۴۰ نساخت. */
+  ok('۳۴.۵ کاور از همان یک تعریف می‌گذرد و بنر اصلاً سراغِ اسلایدز نمی‌رود',
+     bnSrc.indexOf('ytPresCreate_(') === -1 && bnSrc.indexOf('SlidesApp') === -1 &&
+     cvSrc.indexOf('ytPresCreate_(') !== -1 && cvSrc.indexOf('SlidesApp.create') === -1);
   /* سرویسِ بسته: هر دو باید بفهمند، ولی تصمیمشان یکی نیست. */
   const stubP = global.__STUB;
   global.__STUB = function (url, body) {
@@ -1235,9 +1236,11 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
   const offP = ytPresCreate_('کارتِ آزمون', 24384000, 13716000);
   ok('۳۴.۶ و اگر بسته بود، نشانیِ روشن‌کردنش داده می‌شود',
      offP.exact === false && offP.enableUrl.indexOf('slides.googleapis.com') !== -1, offP.why);
+  global._ytRMapMemo = {};
   const bnOff = ytBannerCard_();
-  ok('۳۴.۷ بنر با اندازهٔ تقریبی ادامه نمی‌دهد — یوتیوب نمی‌پذیردش',
-     !!bnOff.why && bnOff.why.indexOf('کاورِ قسمت‌ها بی این هم') !== -1, bnOff.why);
+  ok('۳۴.۷ بنر با اسلایدزِ بسته هم کارش را به رانر می‌سپارد، نه به اندازهٔ تقریبی',
+     bnOff.wait === true && !bnOff.blob, JSON.stringify(bnOff));
+  global._ytRMapMemo = null;
   global.__STUB = stubP;
 
   /* ── ب-۲) «۲۰۰ موفق» با «اندازه اعمال شد» یکی نیست (۷٫۰۲) ──
@@ -1261,9 +1264,11 @@ console.log('=== ۳۴) سه ایرادِ اولین اجرای واقعی (۶٫�
      realP.exact === false && !!realP.id, JSON.stringify(realP));
   ok('۳۴ب.۲ دلیلش روشن است: چه خواسته شد و چه واقعاً ساخته شد',
      realP.why.indexOf('9144000') !== -1 || realP.why.indexOf('12192000') !== -1, realP.why);
+  global._ytRMapMemo = {};
   const bnReal = ytBannerCard_();
-  ok('۳۴ب.۳ بنر با این تشخیص هم به همان راهِ امنِ «ادامه نمی‌دهد» می‌رود',
-     !!bnReal.why && bnReal.why.indexOf('کاورِ قسمت‌ها بی این هم') !== -1, bnReal.why);
+  ok('۳۴ب.۳ بنر به اسلایدزِ ۹۶۰×۵۴۰ بند نیست — از رانر خواسته می‌شود',
+     bnReal.wait === true && !bnReal.blob, JSON.stringify(bnReal));
+  global._ytRMapMemo = null;
   global.__STUB = stubP2;
 
   /* ── پ) سیاهه باید وضعِ پس از کار را بگوید ──
@@ -9670,6 +9675,78 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   const wo = {};
   const oc = lvSceneOvNorm_({ ov: 'compare', ovA: 'قیاس', ovB: 'استقرا', ovLines: ['قطعیت: ضروری ｜ محتمل'] }, '', wo);
   ok('۱۰۱.۳ جداکنندهٔ هم‌شکلِ «|» در مقایسه پذیرفته می‌شود', oc && oc.lines[0].indexOf('|') > 0, JSON.stringify(wo));
+}
+
+console.log('\n=== ۱۰۲) «بنر کو؟» — بنر از رانر، ۲۵۶۰×۱۴۴۰، اندازه از بایت‌ها (۸.۸۸) ===');
+{
+  /* `_STATUS`ِ ۷ اکتبر: «بنرِ کانال: presentations.create اندازهٔ درخواستی را نادیده گرفت». اسلایدز
+     هرگز صفحهٔ بزرگ نساخت، پس بنر از ۶٫۵ تا امروز یک بار هم نشسته بود. */
+  const jpg = (w, h) => [0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0,
+    0xFF, 0xC0, 0, 17, 8, (h >> 8) & 255, h & 255, (w >> 8) & 255, w & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1,
+    0xFF, 0xD9];
+  const keep = global.__STUB;
+  const spec = ytBannerSpec_();
+  let bnImg = null, bnReq = '', uploads = [], slides = 0;
+  global.__STUB = (url, body, opt) => {
+    if (/renders\.json/.test(url)) {
+      return { code: 200, json: { items: {}, banner: bnImg ? { url: 'https://example.test/bn.jpg', req: bnReq } : undefined } };
+    }
+    if (url === 'https://example.test/bn.jpg') return { code: 200, bytes: bnImg, mime: 'image/jpeg' };
+    if (/slides\.googleapis/.test(url)) { slides++; }
+    if (/channelBanners\/insert/.test(url)) { uploads.push(opt || {}); return { code: 200, json: { url: 'https://yt.test/banner' } }; }
+    return keep(url, body, opt);
+  };
+  const reset = () => { global._ytRMapMemo = null; uploads = []; slides = 0; };
+
+  reset(); bnImg = null;
+  const r0 = ytBannerCard_();
+  const q0 = ytRenderRead_();
+  ok('۱۰۲.۱ رانر هنوز نکشیده ⇒ «در راه»، درخواستِ بنر با امضا در صفِ رندر، و هیچ اسلایدی ساخته نمی‌شود',
+     r0.wait === true && q0.banner && q0.banner.sig === spec.sig && slides === 0,
+     JSON.stringify(r0) + ' · ' + JSON.stringify(q0.banner));
+
+  reset(); bnImg = jpg(2560, 1440); bnReq = 'old-sig';
+  const r1 = ytBannerCard_();
+  ok('۱۰۲.۲ بنری که برای درخواستِ دیگری کشیده شده برداشته نمی‌شود', r1.wait === true && !r1.blob, JSON.stringify(r1));
+
+  reset(); bnImg = jpg(1600, 900); bnReq = spec.sig;
+  const r2 = ytBannerCard_();
+  ok('۱۰۲.۳ بنرِ ۱۶۰۰×۹۰۰ فرستاده نمی‌شود و علت عددِ واقعی را دارد',
+     !r2.blob && /1600×900/.test(String(r2.why)), JSON.stringify(r2));
+
+  reset(); bnImg = jpg(2560, 1440); bnReq = spec.sig;
+  const r3 = ytBannerCard_();
+  ok('۱۰۲.۴ بنرِ ۲۵۶۰×۱۴۴۰ پذیرفته می‌شود، با MIMEِ خودش',
+     !!r3.blob && r3.size.w === 2560 && r3.size.h === 1440 && r3.size.mime === 'image/jpeg', JSON.stringify(r3.size || r3));
+
+  reset();
+  const kSvc = global.ytSvc_; let chUpd = null;
+  global.ytSvc_ = () => ({ Channels: { update: (b) => { chUpd = b; return b; } } });
+  const r4 = ytBannerSet_('UCX');
+  global.ytSvc_ = kSvc;
+  const ct = String(((uploads[0] || {}).contentType) || JSON.stringify((uploads[0] || {}).headers || {}));
+  ok('۱۰۲.۵ و نشاندنش: آپلود با image/jpeg، نه برچسبِ ثابتِ PNG',
+     /^نشست \(2560×1440\)/.test(String(r4)) && uploads.length === 1 && /image\/jpeg/.test(ct) &&
+     ((chUpd || {}).brandingSettings || {}).image.bannerExternalUrl === 'https://yt.test/banner',
+     String(r4) + ' · ' + ct);
+
+  reset(); bnImg = null;
+  ok('۱۰۲.۶ «در راه» در سطرِ شناسنامه «در راه» خوانده می‌شود، نه شکست', /^در راه/.test(String(ytBannerSet_('UCX'))));
+
+  global.__STUB = keep; global._ytRMapMemo = null;
+
+  /* و سمتِ رانر همان قرارداد را دارد: امضای درخواست + نسخهٔ نقاشی. */
+  const R = require(require('path').resolve('tools/render.js'));
+  const SK = require(require('path').resolve('tools/scenekit.js'));
+  const q = { items: [], banner: { sig: 'abc', name: 'از همه جا', tagline: 't', pal: {} } };
+  ok('۱۰۲.۷ رانر: درخواستِ تازه کار دارد، کشیده‌شده دیگر نه، و پروب هم آن را می‌بیند',
+     !!R.bannerTodo(q, { items: {} }) && R.bannerTodo(q, { items: {}, banner: { sig: 'abc|b1' } }) === null &&
+     R.probeWork(q, { items: {} }, {}, new Date()) === '1' &&
+     R.probeWork({ items: [] }, { items: {} }, {}, new Date()) === '0');
+  const html = SK.bannerHtml(q.banner);
+  ok('۱۰۲.۸ صفحهٔ بنر ۲۵۶۰×۱۴۴۰ است و نوشته در ناحیهٔ امنِ ۱۵۴۶×۴۲۳ِ وسط',
+     /width:2560px;height:1440px/.test(html) && /left:507px;top:508px;width:1546px;height:423px/.test(html) &&
+     html.indexOf('از همه جا') !== -1);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

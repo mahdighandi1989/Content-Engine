@@ -1,18 +1,17 @@
 {
-  "version": "8.87",
+  "version": "8.88",
   "codeFile": "engine.gs",
-  "sha256": "7264d7cfa73e9b1026cc19948b2431396f6445a8261312b8634902f5c49ed0f6",
-  "releasedAt": "2026-10-13T20:30:00Z",
-  "summary": "هشدارهای همیشگی درست شدند: تکرارِ فقط-باز، بستنِ ردیف‌های کهنهٔ کد/نصب‌شده، ارجاعِ ایرادداری اخیر، انتشارِ رهاشده هفتگی، کاورِ پلی‌لیست با پذیرشِ تصویرِ دستی.",
+  "sha256": "d9d9e31878e86e219ee636a9aef349707c5aa96427aad22fcfb370bb84dbc001",
+  "releasedAt": "2026-10-14T03:11:00Z",
+  "summary": "بنرِ کانال که هرگز ساخته نشده بود: اسلایدز صفحهٔ بزرگ نمی‌سازد؛ حالا رانر ۲۵۶۰×۱۴۴۰ می‌کشد و موتور با سنجشِ بایت‌ها می‌نشاند. نگهبانِ تابعِ دوبار‌تعریف‌شده.",
   "fixes": [
-    "reportSummary_: repeated فقط ردیفِ باز",
-    "reportStale_: مالکِ کد و RST.INSTALLED",
-    "bridgeAuditStatus_: recentBad (۱۴ روز)",
-    "ytGaveUp_: بازگشتِ هفتگی + failedKeys",
-    "ytPlaylistCover_: تصویرِ موجود پذیرفته؛ ۵۰۰ ⇒ کارِ یک‌باره با Studio"
+    "ytBannerCard_ از رانر (_YT-RENDER.json → docs/renders.json)، نه از presentations.create که اندازه را دور می‌ریزد",
+    "tools/render.js: bannerTodo/buildBanner و پروب؛ scenekit.bannerHtml با ناحیهٔ امنِ ۱۵۴۶×۴۲۳",
+    "ytBannerSet_ با MIMEِ واقعیِ تصویر؛ «در راه» به‌جای شکست",
+    "wiring ۷.۳: هیچ تابعی در engine.gs دو بار تعریف نشود"
   ],
   "sourceReportIds": [
-    "capability-idle-out-layout"
+    "owner-banner-where"
   ],
   "promptImpact": [],
   "answers": {
@@ -116,6 +115,7 @@
     "8.86": [
       "capability-idle-out-layout"
     ],
-    "8.87": []
+    "8.87": [],
+    "8.88": "«بنر کو؟» — از ۶٫۵ هرگز ساخته نشده بود (اسلایدز ۹۶۰×۵۴۰ می‌سازد)؛ حالا رانر ۲۵۶۰×۱۴۴۰ می‌کشد و وارسیِ بعدیِ شناسنامه می‌نشاندش."
   }
 }

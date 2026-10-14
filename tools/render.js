@@ -925,9 +925,50 @@ function buildPlCovers(todo, map, tmp) {
   return n;
 }
 
+/* ── بنرِ کانال (۸.۸۸) ──────────────────────────────────────────────────
+ * همان راهِ کاورِ مربع: موتور `banner` را در `_YT-RENDER.json` می‌گذارد، این‌جا
+ * ۲۵۶۰×۱۴۴۰ کشیده می‌شود و نشانی در `docs/renders.json` (`banner`) می‌نشیند.
+ * موتور فقط وقتی برش می‌دارد که `req` با امضای درخواستِ خودش بخوانَد.
+ */
+const BANNER_DRAW = 'b1';
+
+function bannerTodo(queue, map) {
+  const bn = queue && queue.banner;
+  if (!bn || !bn.sig) return null;
+  const have = map.banner || {};
+  return String(have.sig || '') === String(bn.sig) + '|' + BANNER_DRAW ? null : bn;
+}
+
+function buildBanner(bn, map, tmp) {
+  if (!bn) return 0;
+  const SKIT = require('./scenekit.js');
+  const CK = require('./cardkit/index.js');
+  const dir = fs.mkdtempSync(path.join(tmp, 'bn-'));
+  try {
+    const png = SKIT.shoot(CK.chromeExe(), SKIT.bannerHtml(bn), path.join(dir, 'bn.png'), 2560, 1440, ff);
+    const jpg = path.join(dir, 'bn.jpg');
+    ff(['-i', png, '-q:v', '2', '-frames:v', '1', jpg]);
+    if (sniffKind(jpg) !== 'jpeg') throw new Error('JPEG ساخته نشد');
+    const size = fs.statSync(jpg).size;
+    if (size > 6 * 1024 * 1024) throw new Error('بنر ' + Math.round(size / 1024) + ' کیلوبایت است (سقفِ یوتیوب ۶ مگ)');
+    const url = uploadAsset(ensureRelease(), jpg, 'channel-banner-' + slugOf(bn.sig) + '.jpg', 'image/jpeg');
+    if (!url) throw new Error('نشانی برنگشت');
+    map.banner = { url: url, req: String(bn.sig), sig: String(bn.sig) + '|' + BANNER_DRAW, w: 2560, h: 1440,
+                   at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    log('  ✔ بنرِ کانال ۲۵۶۰×۱۴۴۰');
+    return 1;
+  } catch (e) {
+    log('  ✗ بنرِ کانال — ' + e.message);
+    return 0;
+  } finally {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
+  }
+}
+
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
 function probeWork(queue, map, hold, now) {
-  return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length) ? '1' : '0';
+  return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length ||
+          bannerTodo(queue, map)) ? '1' : '0';
 }
 
 /** ردیف‌های ساخته‌نشده و نگه‌داشته‌نشده — یک تعریف برای پروب و برای کار. */
@@ -1008,7 +1049,7 @@ function main() {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
     return;
   }
-  if (!todo.length && !plTodo.length) { log('کاری نیست.'); return; }
+  if (!todo.length && !plTodo.length && !bannerTodo(queue, map)) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
   const runT0 = Date.now();
@@ -1156,7 +1197,10 @@ function main() {
   let plMade = 0;
   try { plMade = buildPlCovers(plCoversTodo(queue, map), map, tmp); }
   catch (ePl) { log('کاورهای پلی‌لیست: ' + String(ePl.message).split('\n')[0]); }
-  if (made || plMade) writeMap(map);
+  let bnMade = 0;
+  try { bnMade = buildBanner(bannerTodo(queue, map), map, tmp); }
+  catch (eBn) { log('بنرِ کانال: ' + String(eBn.message).split('\n')[0]); }
+  if (made || plMade || bnMade) writeMap(map);
   log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش' +
       (plMade ? ' · ' + plMade + ' کاورِ پلی‌لیست' : ''));
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
@@ -1166,7 +1210,7 @@ function main() {
    * نیست؛ از کلِ محیط است (همان ENOENTِ ffmpeg). آن باید قرمز شود تا دیده
    * شود. ولی یک قسمتِ خرابِ تنها نباید هفته‌ها اکشن را قرمز نگه دارد —
    * هشدارِ همیشه‌قرمز همان هشداری است که آدم یاد می‌گیرد نبیند. */
-  if (todo.length && made === 0 && !plMade) {
+  if (todo.length && made === 0 && !plMade && !bnMade) {
     log('هیچ ویدئویی ساخته نشد در حالی که ' + todo.length + ' تا در صف بود.');
     process.exitCode = 1;
   }
@@ -1184,5 +1228,5 @@ module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo,
-  plCoversTodo, plCoverSig, buildPlCovers, itemsTodo, slugOf, probeWork, builtFor
+  plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, itemsTodo, slugOf, probeWork, builtFor
 };
