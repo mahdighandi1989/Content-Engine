@@ -1553,6 +1553,31 @@ console.log('\n=== ۲۱) گامِ خودکار و زیروبمِ خروجی (۸.
   ok('۲۱.۴ numpy در سطحِ پرونده import نمی‌شود', !/^import numpy|^from numpy/m.test(src));
   ok('۲۱.۵ خروجی هم سنجیده و در نقشه ثبت می‌شود',
      /stOut = f0Stats\(best\)/.test(src) && /rec\["f0Warn"\]/.test(src) && /rec\["f0Out"\]/.test(src));
+
+  /* ۱۴ اکتبر: A/Bِ گلدوز با «۰،۲،۴» رفت — گامِ مبدأِ ۱۲۹ هرتزیِ نمونهٔ ساعت‌ساز، روی مبدأیی
+     ۱۹۸ هرتزی، برای گوینده‌ای ۱۵۱ هرتزی. گامِ درست ‎−۴ بود؛ هر دو مدل زنانه شنیده شدند.
+     همان اعداد، همان مبدأ و مرجع (به‌شکلِ صوتِ هم‌هرتز). */
+  const r3 = run('print(json.dumps([V.pitchResolve(["0","2","4"], tone(198), tone(151)), ' +
+                 'V.pitchResolve(["auto-1","auto","auto+1"], tone(198), tone(151)), ' +
+                 'V.pitchResolve(["auto"], tone(129), None, "158"), ' +
+                 'V.pitchResolve(["0","-12"], tone(120, amp=0.0), tone(151))]))');
+  let p3 = null; try { p3 = JSON.parse(r3.stdout); } catch (e) {}
+  ok('۲۱.۶ (همان A/B) «۰،۲،۴» روی مبدأِ ۱۹۸ و گویندهٔ ۱۵۱ همه کنار رفت؛ گامِ هرتزی (‎−۴ تا ‎−۵) جایش نشست',
+     p3 && [-4, -5].indexOf(p3[0][1].auto) !== -1 && JSON.stringify(p3[0][0]) === JSON.stringify([String(p3[0][1].auto)]) &&
+     p3[0][1].dropped.join() === '0,2,4',
+     (r3.stdout || r3.stderr).slice(0, 300));
+  ok('۲۱.۷ auto±۱ دورِ گامِ هرتزی', p3 && (a7 => JSON.stringify(p3[1][0]) === JSON.stringify([a7 - 1, a7, a7 + 1].map(String)))(p3[1][1].auto), JSON.stringify(p3 && p3[1][0]));
+  ok('۲۱.۸ همان گامِ +۴ِ ساعت‌ساز از مبدأِ ۱۲۹ و هدفِ ۱۵۸ — عدد از مبدأ می‌آید، نه از حافظه',
+     p3 && JSON.stringify(p3[2][0]) === '["4"]', JSON.stringify(p3 && p3[2][1]));
+  ok('۲۱.۹ مبدأ سنجیده نشد ⇒ همان اعداد، و auto=null (هشدار در voicelab)',
+     p3 && JSON.stringify(p3[3][0]) === '["0","-12"]' && p3[3][1].auto === null, JSON.stringify(p3 && p3[3][1]));
+  const lab = fs.readFileSync('tools/voicelab.py', 'utf8'), wf = fs.readFileSync('.github/workflows/voice-lab.yml', 'utf8');
+  ok('۲۱.۱۰ آزمایشگاه گام را از همین در می‌گیرد و پیش‌فرضش auto است، نه ‎−۱۲ِ رضوی',
+     /steps_, pchk_ = pitchResolve\(steps_, src, ref1_/.test(lab) && /default: 'auto-1,auto,auto\+1'/.test(wf) &&
+     !/default: '-12'/.test(wf));
+  /* «--rvc-pitch -3,-4» را argparse پرچم می‌خواند و با کدِ ۲ می‌میرد — اجرای 38613705284. */
+  ok('۲۱.۱۱ گام با «=» به ابزار می‌رسد، چون مقدارِ منفی بی آن پرچم خوانده می‌شود',
+     /"--rvc-pitch=\$\{RVC_PITCH\}"/.test(wf) && !/--rvc-pitch "\$\{RVC_PITCH\}"/.test(wf));
 }
 console.log('\n=== ۲۲) مبدأ با گینِ ثابت، تا حالت‌های بلندی بمانند (۸.۲۷) ===');
 {

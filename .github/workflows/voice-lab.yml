@@ -39,9 +39,13 @@ on:
         required: false
         default: 'بهروز رضوی'
       rvc_pitch:
-        description: 'جابه‌جاییِ گام به نیم‌پرده — چند مقدار با کاما. صدای زن به مردِ بم حدود -12'
+        description: 'گام به نیم‌پرده، با کاما. auto = از هرتزِ همین مبدأ و همین مرجع (auto-1، auto+1 …). عددِ دستیِ بیش از ۳ نیم‌پرده دور از آن کنار می‌رود'
         required: false
-        default: '-12'
+        default: 'auto-1,auto,auto+1'
+      rvc_target_hz:
+        description: 'زیروبمِ هدفِ گوینده (هرتز) — خالی یعنی میانهٔ هرتزِ خودِ مرجع'
+        required: false
+        default: ''
       rvc_index_rate:
         description: 'اثرِ ایندکسِ گوینده (۰ تا ۱) — بالاتر یعنی بیشتر به رنگِ خودِ او تکیه کند'
         required: false
@@ -487,6 +491,7 @@ jobs:
           ALPHABET: ${{ inputs.alphabet }}
           STYLE_NAME: ${{ inputs.style_name }}
           RVC_PITCH: ${{ inputs.rvc_pitch }}
+          RVC_TARGET_HZ: ${{ inputs.rvc_target_hz }}
           RVC_INDEX_RATE: ${{ inputs.rvc_index_rate }}
           RVC_PROTECT: ${{ inputs.rvc_protect }}
         run: |
@@ -526,7 +531,8 @@ jobs:
           if [ -f model.pth ];   then ARGS+=(--rvc-model model.pth); fi
           if [ -f model.index ]; then ARGS+=(--rvc-index model.index); fi
           if [ -n "${STYLE_NAME}" ]; then ARGS+=(--style-name "${STYLE_NAME}"); fi
-          if [ -n "${RVC_PITCH}" ]; then ARGS+=(--rvc-pitch "${RVC_PITCH}"); fi
+          if [ -n "${RVC_PITCH}" ]; then ARGS+=("--rvc-pitch=${RVC_PITCH}"); fi
+          if [ -n "${RVC_TARGET_HZ}" ]; then ARGS+=("--rvc-target-hz=${RVC_TARGET_HZ}"); fi
           if [ -n "${RVC_INDEX_RATE}" ]; then ARGS+=(--rvc-index-rate "${RVC_INDEX_RATE}"); fi
           if [ -n "${RVC_PROTECT}" ];    then ARGS+=(--rvc-protect "${RVC_PROTECT}"); fi
           python3 tools/voicelab.py "${ARGS[@]}"

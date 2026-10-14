@@ -38,6 +38,7 @@ import io
 import json
 import os
 import subprocess
+import re
 import sys
 import urllib.request
 
@@ -452,6 +453,91 @@ def autoPitch(srcHz, targetHz):
     import math
     st = 12.0 * math.log2(float(targetHz) / float(srcHz))
     return int(max(-14, min(6, round(st))))
+
+
+PITCH_SLACK = 3      # نیم‌پرده دورتر از گامِ هرتزی = گامِ صدای دیگری
+
+
+def asWav_(path):
+    """ورودیِ آزمایشگاه mp3 هم هست؛ `f0Stats` فقط WAVِ ۱۶ بیتی می‌خوانَد."""
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        import wave
+        with wave.open(path, "rb") as w:
+            if w.getsampwidth() == 2:
+                return path
+    except Exception:
+        pass
+    dst = path + ".f0.wav"
+    try:
+        subprocess.check_call(["ffmpeg", "-y", "-nostdin", "-loglevel", "error",
+                               "-i", path, "-ac", "1", "-ar", "16000",
+                               "-c:a", "pcm_s16le", dst])
+        return dst
+    except Exception:
+        return None
+
+
+def pitchResolve(tokens, src, ref, targetHz=None):
+    """گام‌های جاروبِ آزمایشگاه — از هرتزِ همین مبدأ، نه از حافظه (۱۴ اکتبر).
+
+    ══ چه شد ══
+    A/Bِ گلدوز با گامِ «۰، +۲، +۴» ساخته شد: +۴ گامِ درستِ نمونهٔ ساعت‌ساز
+    بود که مبدأش ۱۲۹ هرتز بود. این مبدأ ۱۹۸ هرتز است و گلدوز ۱۵۱، پس
+    گامِ درست ‎−۴ است — هر سه نمونه ۴ تا ۸ نیم‌پرده زیر‌تر از خودِ او
+    درآمدند، و صاحبِ برنامه هر دو مدل را «افتضاح» شنید. همان اشتباهِ رضوی
+    (قاعدهٔ ۱۸: «گام برای صدای مبدأ معنا دارد، نه برای گوینده»)، این بار
+    در آزمایشگاه، با دستِ من. پل از ۸.۲۴ گام را از هرتز می‌گیرد؛
+    آزمایشگاه عدد را از ورودیِ فرم برمی‌داشت و هیچ‌چیز نمی‌سنجیدش.
+
+    ══ حالا ══
+    `auto`، `auto-1`، `auto+2` … از هرتزِ همین مبدأ و همین مرجع (یا
+    `targetHz`) حساب می‌شوند، و عددِ دستی‌ای که بیش از `PITCH_SLACK`
+    نیم‌پرده از گامِ هرتزی دور است **کنار می‌رود** و گفته می‌شود — چون
+    نمونهٔ صدای مردی که زنانه درآمده، به شنونده چیزی دربارهٔ مدل
+    نمی‌گوید؛ فقط وقتِ او را می‌گیرد. سنجیده نشد (فایلِ خراب) ⇒ همان
+    عددها، با هشدار؛ `auto` بی سنجش ‎0 می‌شود و گفته می‌شود.
+    """
+    toks = [str(t).strip() for t in tokens if str(t).strip()]
+    sS = f0Stats(asWav_(src) or "") if src else None
+    tHz = None
+    try:
+        tHz = float(targetHz) if targetHz else None
+    except (TypeError, ValueError):
+        tHz = None
+    rS = None
+    if tHz is None and ref:
+        rS = f0Stats(asWav_(ref) or "")
+        tHz = rS["medianHz"] if rS else None
+    chk = {"srcHz": sS["medianHz"] if sS else None, "targetHz": tHz,
+           "auto": None, "dropped": [], "steps": []}
+    if sS and tHz:
+        chk["auto"] = autoPitch(sS["medianHz"], tHz)
+    out = []
+    for t in toks:
+        m = re.match(r"^auto\s*([+-]\s*\d+)?$", t, re.I)
+        if m:
+            off = int(m.group(1).replace(" ", "")) if m.group(1) else 0
+            out.append((chk["auto"] or 0) + off)
+            continue
+        try:
+            v = int(round(float(t)))
+        except ValueError:
+            chk["dropped"].append(t)
+            continue
+        if chk["auto"] is not None and abs(v - chk["auto"]) > PITCH_SLACK:
+            chk["dropped"].append(t)
+            continue
+        out.append(v)
+    if not out:
+        out = [chk["auto"] if chk["auto"] is not None else 0]
+    seen = []
+    for v in out:
+        if v not in seen:
+            seen.append(v)
+    chk["steps"] = [str(v) for v in seen]
+    return chk["steps"], chk
 
 
 def pending(q, mp):

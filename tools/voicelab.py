@@ -2698,7 +2698,21 @@ def run_rvc(ref, src, text, out):
     # همخوان و نفسِ مبدأ محافظت شود. دومی مبادله دارد: پایین‌تر یعنی
     # رضوی‌تر و همخوانِ جویده‌تر، و روی متنِ اعراب‌دار جویده شدنِ
     # همخوان یعنی خنثی کردنِ کلِ کارِ اعراب‌گذاری.
-    steps_ = list_("rvc_pitch", "0")
+    steps_ = list_("rvc_pitch", "auto")
+    # ══ گام از هرتزِ همین مبدأ (۱۴ اکتبر) — `voicebridge.pitchResolve` ══
+    # A/Bِ گلدوز با «۰،۲،۴» رفت (گامِ مبدأیی دیگر) و هر دو مدل زنانه
+    # درآمدند. عددِ دستیِ دور از گامِ هرتزی دیگر به شنونده نمی‌رسد.
+    from voicebridge import pitchResolve
+    ref1_ = ref[0] if isinstance(ref, (list, tuple)) and ref else ref
+    steps_, pchk_ = pitchResolve(steps_, src, ref1_, OPT.get("rvc_target_hz"))
+    print("گام:", json.dumps(pchk_, ensure_ascii=False), flush=True)
+    if pchk_["dropped"]:
+        print("::warning title=گامِ ناسازگار کنار رفت::%s — مبدأ %s هرتز، هدف %s "
+              "هرتز، گامِ هرتزی %s" % (",".join(pchk_["dropped"]), pchk_["srcHz"],
+                                      pchk_["targetHz"], pchk_["auto"]), flush=True)
+    if pchk_["auto"] is None:
+        print("::warning title=گام سنجیده نشد::هرتزِ مبدأ یا مرجع خوانده نشد؛ "
+              "گام‌ها همان‌اند که داده شد.", flush=True)
     idxs_ = list_("rvc_index_rate", "0.66")
     prots_ = list_("rvc_protect", "0.33")
     rep = OPT.get("_rep") or {}
@@ -2707,6 +2721,7 @@ def run_rvc(ref, src, text, out):
                   "conf": {k: v for k, v in conf.items()
                            if k not in ("file_model", "file_index", "tag",
                                         "pitch_lvl")},
+                  "pitchCheck": pchk_,
                   "sweep": {"pitch": steps_, "index_rate": idxs_,
                             "protect": prots_}}
     made_, variants_ = [], []
@@ -3055,7 +3070,10 @@ def main():
                     help="نامِ گوینده روی کارتِ سبک")
     ap.add_argument("--rvc-model", default="", help="فایلِ .pth مدلِ صدا")
     ap.add_argument("--rvc-index", default="", help="فایلِ .index کنارش")
-    ap.add_argument("--rvc-pitch", default="0", help="جابه‌جاییِ گام (نیم‌پرده)")
+    ap.add_argument("--rvc-pitch", default="auto",
+                    help="جابه‌جاییِ گام (نیم‌پرده) — `auto`/`auto-1` از هرتزِ مبدأ و مرجع")
+    ap.add_argument("--rvc-target-hz", default="",
+                    help="زیروبمِ هدف؛ خالی = میانهٔ هرتزِ خودِ مرجع")
     ap.add_argument("--rvc-index-rate", default="0.66")
     ap.add_argument("--rvc-protect", default="0.33",
                     help="محافظِ همخوان و نفس؛ پایین‌تر = رضوی‌تر و جویده‌تر")
@@ -3097,6 +3115,7 @@ def main():
     OPT["rvc_model"] = a.rvc_model
     OPT["rvc_index"] = a.rvc_index
     OPT["rvc_pitch"] = a.rvc_pitch
+    OPT["rvc_target_hz"] = a.rvc_target_hz
     OPT["rvc_index_rate"] = a.rvc_index_rate
     OPT["rvc_protect"] = a.rvc_protect
     OPT["no_sim"] = bool(a.no_sim)
