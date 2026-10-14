@@ -1,6 +1,6 @@
 {
- "rev": 48,
- "at": "2026-10-14T10:46:59Z",
+ "rev": 49,
+ "at": "2026-10-14T15:33:10Z",
  "note": "حالتِ گویندگان. گردش‌کارِ voice-intake می‌نویسد و موتور (بخشِ ۳۳) از gitHub raw می‌خوانَد. دست‌نویس نکنید.",
  "speakers": {
   "spk-19iuegd": {
@@ -134,7 +134,7 @@
    "modelDrop": {
     "v": 1,
     "at": "2026-10-14T10:46:52Z",
-    "state": "منتظرِ موتور",
+    "state": "برداشته شد",
     "expireH": 72.0,
     "pth": {
      "name": "spk-1g0r95d.pth",
@@ -142,12 +142,10 @@
      "sha256": "800475a1b55a9c5fa2cc3b9845f1dd62db8d06416ffdb31f0e97ebcf32212bdc",
      "parts": [
       {
-       "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-model-drop/spk-1g0r95d-d8e25b31.pth.p01of02",
        "size": 33554432,
        "sha256": "7f32f60282e65a4bca52f51380393109793b3ef4d75617ac016f3aeec3b29f6c"
       },
       {
-       "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-model-drop/spk-1g0r95d-d8e25b31.pth.p02of02",
        "size": 21665129,
        "sha256": "a9e6402b6ede81c7187c7145a1d57e3cddc8cf8cb547d73041aa16337d4ea0c5"
       }
@@ -159,12 +157,12 @@
      "sha256": "1a630fc598e7ee09623b8c5a4ebfd1a90631dc652e601c7cbc81752d336acd5f",
      "parts": [
       {
-       "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-model-drop/spk-1g0r95d-d8e25b31.index.p01of01",
        "size": 31588619,
        "sha256": "1a630fc598e7ee09623b8c5a4ebfd1a90631dc652e601c7cbc81752d336acd5f"
       }
      ]
-    }
+    },
+    "closedAt": "2026-10-14T15:33:10Z"
    },
    "similarity": "0.851",
    "simPitch": "-2",
