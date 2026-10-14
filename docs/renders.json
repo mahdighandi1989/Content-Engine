@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-14 07:11",
+ "updatedAt": "2026-10-14 12:41",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -1284,6 +1284,109 @@
     "fade": 13
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-71-cover.jpg"
+  },
+  "variety:72-نمونه": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-72-.mp4",
+   "bytes": 41349941,
+   "parts": 1,
+   "at": "2026-10-14 12:41",
+   "mode": "media",
+   "media": {
+    "clips": 8,
+    "photos": 5,
+    "found": 0,
+    "notFound": 6,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 2: عبارت در گفتارِ کلیپ پیدا نشد",
+     "صحنهٔ 3: عبارت در گفتارِ کلیپ پیدا نشد",
+     "صحنهٔ 5: عبارت در گفتارِ کلیپ پیدا نشد",
+     "صحنهٔ 7: عبارت در گفتارِ کلیپ پیدا نشد",
+     "صحنهٔ 10: عبارت در گفتارِ کلیپ پیدا نشد",
+     "صحنهٔ 11: عبارت در گفتارِ کلیپ پیدا نشد"
+    ],
+    "moments": {
+     "asked": 3,
+     "placed": 3,
+     "made": 0
+    }
+   },
+   "scenes": 13,
+   "want": 13,
+   "snapped": 11,
+   "seconds": 656,
+   "qa": {
+    "n": 13,
+    "matched": 12,
+    "miss": [
+     2
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 5,
+       "t": 336.2,
+       "own": 0.47,
+       "nb": 0.27,
+       "ok": true,
+       "heard": "یه دیر، یک تصویر تاریخی از مصاحب روحلها خومینی در نفل روشاته وجود دارد.  خبرنگار می پرسد، آیا پیروان شا..."
+      },
+      {
+       "n": 8,
+       "t": 441.1,
+       "own": 0.36,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "از از بیر دیگر خبری اینگلیسی در باری از آزمایش سامانی از 400 در ایران باز نش شدست  امروی تصویر زنی با لباس اینگلیسی"
+      },
+      {
+       "n": 11,
+       "t": 523.3,
+       "own": 0.72,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "با لحنی بسیار سبورانه و فلسفی صحبت می کند.  و می گوید باید بب حزیرم بخش بسیاری از جامعه اینگونه بردن."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 5,
+    "placed": 4,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "headline": 3,
+     "quote": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 8,
+    "used": 8,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 1,
+    "dissolve": 3,
+    "wiperight": 2,
+    "zoomin": 2,
+    "slideright": 1,
+    "radial": 1,
+    "smoothright": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-72--cover.jpg",
+   "notes": [
+    "برشِ کلیپ از آغاز: صحنهٔ 2: عبارت در گفتارِ کلیپ پیدا نشد · صحنهٔ 3: عبارت در گفتارِ کلیپ پیدا نشد · صحنهٔ 5: عبارت در گفتارِ کلیپ پیدا نشد · صحنهٔ 7: عبارت در گفتارِ کلیپ پیدا نشد"
+   ]
   }
  },
  "art": {
