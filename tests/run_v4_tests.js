@@ -42,7 +42,8 @@ global.__STUB=function(url,body){
     const cand=[...t.matchAll(/- id: (\S+) \| نامزد/g)].map(m=>m[1]);
     const refs=[...t.matchAll(/- id: (\S+) \| پخش‌شده/g)].map(m=>m[1]);
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({
-      threads:[{thread:'نخ اول',strength:'محکم',memberIds:cand.slice(0,10)}],
+      /* ۸.۹۹: حداقلِ هر نوع فقط از اعضای سیر پر می‌شود — سیرِ این سردبیر عکس‌های هم‌خانواده هم دارد. */
+      threads:[{thread:'نخ اول',strength:'محکم',memberIds:cand}],
       theme:'پیوندِ آزمایشی', connection:'واژهٔ مشترکِ «راه»',
       chosen:cand.slice(0,10).map(id=>({id,role:'نمونهٔ عینی'})),
       referenceIds:refs.slice(0,3), rejected:cand.slice(10,18)})}]}}]}};}
@@ -70,6 +71,10 @@ global.__STUB=function(url,body){
   // «ارجاع‌ها به نویسنده رسید» دوباره همان لحظه سرخ شد.
   if(t.indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند')!==-1){
     return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({spans:[]})}]}}]}};}
+  // و داورِ سیر (۸.۹۹) — همان تله، بارِ **ششم**: «تاریخ در پرامپتِ نویسنده» سرخ شد چون داوری جای نویسنده نشست.
+  if(t.indexOf('تو داورِ سردبیریِ یک برنامهٔ رادیوییِ فارسی هستی')!==-1){
+    const jid=[...t.matchAll(/- id: (\S+) \|/g)].map(m=>m[1]);
+    return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({verdicts:jid.map(id=>({id,belongs:'بله'}))})}]}}]}};}
   writerPrompts.push(t);
   const ids=[...t.matchAll(/شناسه: (\S+)/g)].map(m=>m[1]);
   return{code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({title:'قسمت آزمایشی',

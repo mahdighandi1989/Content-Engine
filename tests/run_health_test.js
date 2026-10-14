@@ -31,8 +31,9 @@ global.__STUB=function(url,body){
        سلامت درست می‌گوید «مدلِ سنجاق‌شده رفته» (۸.۳۹). */
     {name:'models/'+CFG.TTS_MODEL_PIN,supportedGenerationMethods:['generateContent']}]}};
   const t=body.contents?body.contents[0].parts[0].text:'';
+  /* ۸.۹۹: حداقلِ هر نوع فقط از اعضای سیر پر می‌شود؛ سردبیرِ «سالم» سیرش را با اعضایش می‌دهد. */
   if(t.indexOf('سردبیرِ یک برنامهٔ رادیویی')!==-1){const c=[...t.matchAll(/- id: (\S+) \|/g)].map(m=>m[1]);
-    return {code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({theme:'ت',chosen:c.slice(0,12).map(id=>({id})),rejected:[]})}]}}]}};}
+    return {code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({theme:'ت',chosen:c.slice(0,12).map(id=>({id})),threads:[{thread:'ت',memberIds:c}],rejected:[]})}]}}]}};}
   if(url.indexOf('tts')!==-1){const b=Buffer.alloc(60000);return {code:200,json:{candidates:[{content:{parts:[{inlineData:{data:b.toString('base64')}}]}}]}};}
   const ids=[...t.matchAll(/شناسه: (\S+)/g)].map(m=>m[1]);
   return {code:200,json:{candidates:[{content:{parts:[{text:JSON.stringify({title:'ت',hook:'ق.',sections:[{heading:'ب',narration:'متن.',tone:'آرام',sourceIds:ids.slice(0,2)}],outro:'پ.',summary:'خ.',tags:[]})}]}}]}};

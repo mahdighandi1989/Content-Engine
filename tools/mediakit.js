@@ -48,18 +48,150 @@ function probe(ff, file) {
            w: w, h: h, audio: /Stream #[^\n]*Audio:/.test(t) };
 }
 
-/** قاب: افقی ⇒ پر؛ وگرنه کامل در وسط + نسخهٔ تار و تیرهٔ خودش در پس‌زمینه. */
-function frameFilter(w, h, inl, outl) {
-  const ar = w && h ? w / h : 16 / 9;
-  if (ar >= MK.wideMin && ar <= MK.wideMax) {
-    return '[' + inl + ']scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' +
+/* ══ چیدمان (۸.۹۹) ══
+ * صاحبِ برنامه نمونهٔ اول را دید: «همش اون اسکرین و عکس و کلیپ در وسطِ کادر بود و بقیه‌ش رو مات می‌کرد
+ * … گاهی در چپ و راست و گاهی در وسط دیده بشن و در قسمت‌های خالی و مات‌شده حالتِ برداری و نوشتاری».
+ * پس سه جعبه، و رسانهٔ غیرِافقی به نوبت در یکی‌شان می‌نشیند؛ نیمهٔ خالی جای کارتِ برداری است (کارت جای
+ * آرامِ قاب را خودش پیدا می‌کند — `overlay.analyze`). سایهٔ نرم زیرِ رسانه، تا از پس‌زمینه جدا شود. */
+const BOX = {
+  center: { cx: 960, bw: 1700, bh: 1000 },
+  left: { cx: 600, bw: 1000, bh: 1000 },
+  right: { cx: 1320, bw: 1000, bh: 1000 }
+};
+const LAYOUTS = ['left', 'center', 'right'];
+const ev = v => Math.max(2, Math.round(v / 2) * 2);
+const wideAr = ar => ar >= MK.wideMin && ar <= MK.wideMax;
+
+/**
+ * جعبهٔ محتوا (۸.۹۹): «اسکرین‌ها رو خوب برش نمی‌زد و با همون شکلی که تو موبایل گرفته شده بود رو صفحه
+ * می‌آورد … هیچی از عکس و اسکرین دیده نمی‌شد و خیلی همه‌چیز ریز بود». نوارِ وضعیتِ گوشی، نوارِ پایین
+ * (پیام، دکمه‌ها) و حاشیهٔ یکدست بریده می‌شود تا خودِ محتوا بزرگ‌تر بنشیند.
+ * - اسکرین‌شاتِ گوشی (عمودیِ کشیده): ۶٪ بالا و ۱۱٫۵٪ پایین (نوارِ «پیام» و دکمه‌های اینستاگرام در نمونهٔ ۷۲ با ۸٪ می‌ماند)، بعد حاشیهٔ تخت.
+ * - بقیه: فقط حاشیهٔ تخت و یکرنگ با لبه، حداکثر ۱۲٪ از هر سو — آسمانِ صاف بخشی از عکس است.
+ * برشی که بیش از نیمی را ببَرد پذیرفته نمی‌شود (یعنی سنجش اشتباه کرده). بازگشت به پیکسلِ اصلی، یا null.
+ */
+function contentBox(ff, file, info, opt) {
+  const p = info || probe(ff, file);
+  if (!p || !p.w || !p.h) return null;
+  const SW = 160;
+  let buf;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error'].concat(opt && opt.at ? ['-ss', String(opt.at)] : [])
+      .concat(['-i', file, '-frames:v', '1', '-vf', 'scale=' + SW + ':-2,format=gray', '-f', 'rawvideo', '-']),
+      { maxBuffer: 32 * 1024 * 1024 });
+  } catch (e) { return null; }
+  const H = Math.floor(buf.length / SW);
+  if (H < 24) return null;
+  const at = (x, y) => buf[y * SW + x];
+  const stat = (n, f) => { let m = 0, q = 0; for (let i = 0; i < n; i++) { const v = f(i); m += v; q += v * v; } m /= n; return { m, sd: Math.sqrt(Math.max(0, q / n - m * m)) }; };
+  const row = (y, l, r) => stat(r - l + 1, i => at(l + i, y));
+  const col = (x, t, b) => stat(b - t + 1, i => at(x, t + i));
+  const ar = p.w / p.h;
+  const phone = !!(opt && opt.photo) && ar <= 0.62;
+  let top = phone ? Math.round(H * 0.06) : 0, bot = phone ? Math.round(H * 0.885) : H - 1;
+  let left = 0, right = SW - 1;
+  const capY = Math.round(H * (phone ? 0.25 : 0.12)), capX = Math.round(SW * 0.12);
+  const edge = row(top, 0, SW - 1).m;
+  const flat = (st, ref) => st.sd < 4.5 && Math.abs(st.m - ref) < 8;
+  const t0 = top, b0 = bot;
+  while (top < bot && top - t0 < capY && flat(row(top, left, right), edge)) top++;
+  const edgeB = row(bot, 0, SW - 1).m;
+  while (bot > top && b0 - bot < capY && flat(row(bot, left, right), edgeB)) bot--;
+  const edgeL = col(0, top, bot).m, edgeR = col(SW - 1, top, bot).m;
+  while (left < right && left < capX && flat(col(left, top, bot), edgeL)) left++;
+  while (right > left && SW - 1 - right < capX && flat(col(right, top, bot), edgeR)) right--;
+  const w = right - left + 1, h = bot - top + 1;
+  if (w < SW * 0.5 || h < H * 0.5) return null;
+  const kx = p.w / SW, ky = p.h / H;
+  const box = { x: ev(left * kx), y: ev(top * ky), w: ev(w * kx), h: ev(h * ky) };
+  box.w = Math.min(box.w, p.w - box.x); box.h = Math.min(box.h, p.h - box.y);
+  if (box.w >= p.w * 0.97 && box.h >= p.h * 0.97) return null;
+  return box;
+}
+
+/** هندسهٔ رسانه در قاب: اندازه و جایِ نشستن در جعبهٔ چیدمان. */
+function placeIn(cw, ch, layout) {
+  const L = BOX[layout] || BOX.center;
+  const sc = Math.min(L.bw / cw, L.bh / ch);
+  const fw = ev(cw * sc), fh = ev(ch * sc);
+  return { fw: fw, fh: fh, x: ev(L.cx - fw / 2), y: ev(Math.max(40, 540 - fh / 2)), L: L };
+}
+
+const BG = (inl, outl) => '[' + inl + ']scale=480:270:force_original_aspect_ratio=increase,crop=480:270,boxblur=18:2,' +
+  'eq=brightness=-0.12:saturation=0.72,scale=' + MK.w + ':' + MK.h + '[' + outl + ']';
+const SHADOW = (inl, outl, x, y, w, h) => '[' + inl + ']drawbox=x=' + (x + 16) + ':y=' + (y + 20) + ':w=' + w + ':h=' + h +
+  ':color=black@0.55:t=fill,boxblur=14:1[' + outl + ']';
+
+/**
+ * قاب: افقی ⇒ پر؛ وگرنه کامل در جعبهٔ چیدمان + پس‌زمینهٔ تارِ خودش + سایه.
+ * `opt.box` (جعبهٔ محتوا) پیش از هر چیز بریده می‌شود؛ `opt.layout` جعبه را می‌گوید.
+ */
+function frameFilter(w, h, inl, outl, opt) {
+  const o = opt || {};
+  const cw = o.box ? o.box.w : w, ch = o.box ? o.box.h : h;
+  const crop = o.box ? 'crop=' + o.box.w + ':' + o.box.h + ':' + o.box.x + ':' + o.box.y + ',' : '';
+  const ar = cw && ch ? cw / ch : 16 / 9;
+  if (wideAr(ar)) {
+    return '[' + inl + ']' + crop + 'scale=' + MK.w + ':' + MK.h + ':force_original_aspect_ratio=increase,crop=' + MK.w + ':' +
            MK.h + ',setsar=1,format=yuv420p[' + outl + ']';
   }
-  return '[' + inl + ']split=2[' + outl + 'a][' + outl + 'b];' +
-    '[' + outl + 'a]scale=480:270:force_original_aspect_ratio=increase,crop=480:270,boxblur=18:2,' +
-    'eq=brightness=-0.10:saturation=0.75,scale=' + MK.w + ':' + MK.h + '[' + outl + 'g];' +
-    '[' + outl + 'b]scale=' + MK.w + ':' + Math.round(MK.h * 0.96) + ':force_original_aspect_ratio=decrease[' + outl + 'f];' +
-    '[' + outl + 'g][' + outl + 'f]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p[' + outl + ']';
+  const g = placeIn(cw || 9, ch || 16, o.layout || 'center');
+  return '[' + inl + ']' + crop + 'split=2[' + outl + 'a][' + outl + 'b];' +
+    BG(outl + 'a', outl + 'g0') + ';' + SHADOW(outl + 'g0', outl + 'g', g.x, g.y, g.fw, g.fh) + ';' +
+    '[' + outl + 'b]scale=' + g.fw + ':' + g.fh + '[' + outl + 'f];' +
+    '[' + outl + 'g][' + outl + 'f]overlay=' + g.x + ':' + g.y + ',setsar=1,format=yuv420p[' + outl + ']';
+}
+
+/** چیدمانِ صحنهٔ k‌ام از رسانه‌های غیرِافقی — به نوبت، تا هیچ‌وقت همه وسط نباشند. */
+function layoutOf(k) { return LAYOUTS[((k % LAYOUTS.length) + LAYOUTS.length) % LAYOUTS.length]; }
+
+/**
+ * عکس ⇒ کلیپِ زنده (۸.۹۹). «افکت روی تصاویر اصلاً مشاهده نکردم»: پیش‌تر عکس یک قابِ ساکن بود و
+ * کلِ قاب — پس‌زمینهٔ تار هم — کمی جابه‌جا می‌شد. حالا فقط **خودِ عکس** حرکت دارد:
+ * - افقی: کن‌برنز (نزدیک‌شدنِ آرام ۸٪) روی کلِ قاب؛
+ * - اسکرین‌شاتِ بلند: بزرگ (پهنای ۸۶۰) و **پیمایشِ آرام از بالا به پایین** — همان کاری که آدم با
+ *   گوشی می‌کند؛ نوشته خوانا می‌شود، به‌جای اینکه کلِ صفحه ریز در وسط بنشیند؛
+ * - بقیه: در جعبهٔ چیدمان، با نزدیک‌شدنِ آرام ۶٪ و سایه.
+ */
+function photoClip(ff, file, out, len, opt) {
+  const p = probe(ff, file) || { w: 0, h: 0 };
+  const box = contentBox(ff, file, p, { photo: true });
+  const cw = box ? box.w : p.w, ch = box ? box.h : p.h;
+  const crop = box ? 'crop=' + box.w + ':' + box.h + ':' + box.x + ':' + box.y + ',' : '';
+  const L = Math.max(1, len);
+  const N = Math.max(2, Math.round(L * MK.fps));
+  const ar = cw && ch ? cw / ch : 16 / 9;
+  const layout = (opt && opt.layout) || 'center';
+  let fc, kind;
+  if (!cw || !ch || wideAr(ar) || ar > MK.wideMax) {
+    kind = 'kb';
+    fc = '[0:v]' + crop + 'scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,' +
+         "zoompan=z='1+0.08*on/" + N + "':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=" + MK.w + 'x' + MK.h +
+         ':fps=' + MK.fps + ',setsar=1,format=yuv420p[o]';
+  } else {
+    const Bx = BOX[layout] || BOX.center;
+    const fwS = ev(Math.min(Bx.bw, 860)), fhS = ev(ch * fwS / cw);
+    if (ch / cw > 1.25 && fhS > 1000 * 1.12 && L >= 4) {
+      kind = 'scroll';
+      const x = ev(Bx.cx - fwS / 2), travel = fhS - 1000;
+      const yE = "'40-" + travel + '*(0.5-0.5*cos(PI*min(1,max(0,(t-1.0)/' + Math.max(0.5, L - 2.0).toFixed(2) + '))))' + "'";
+      fc = '[0:v]' + crop + 'split=2[a][b];' + BG('a', 'g0') + ';' + SHADOW('g0', 'g', x, 0, fwS, MK.h) + ';' +
+           '[b]scale=' + fwS + ':' + fhS + '[f];[g][f]overlay=x=' + x + ':y=' + yE + ':eval=frame,setsar=1,format=yuv420p[o]';
+    } else {
+      kind = 'kb';
+      const g = placeIn(cw, ch, layout);
+      fc = '[0:v]' + crop + 'split=2[a][b];' + BG('a', 'g0') + ';' + SHADOW('g0', 'g', g.x, g.y, g.fw, g.fh) + ';' +
+           '[b]scale=' + (g.fw * 2) + ':' + (g.fh * 2) + ",zoompan=z='1+0.06*on/" + N +
+           "':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=" + g.fw + 'x' + g.fh + ':fps=' + MK.fps + '[f];' +
+           '[g][f]overlay=' + g.x + ':' + g.y + ',setsar=1,format=yuv420p[o]';
+    }
+  }
+  run(ff, ['-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', file, '-filter_complex', fc,
+           '-map', '[o]', '-an', '-t', L.toFixed(2), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
+           '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]);
+  const still = out.replace(/\.mp4$/, '') + '-first.jpg';
+  run(ff, ['-i', out, '-frames:v', '1', '-q:v', '3', still]);
+  return { file: out, still: still, len: L, kind: kind, box: box, layout: wideAr(ar) ? 'fill' : layout };
 }
 
 function run(ff, args) {
@@ -67,9 +199,10 @@ function run(ff, args) {
 }
 
 /** عکس ⇒ JPEGِ ۱۹۲۰×۱۰۸۰ با همان قاب. */
-function photo(ff, file, out) {
+function photo(ff, file, out, opt) {
   const p = probe(ff, file) || { w: 0, h: 0 };
-  run(ff, ['-i', file, '-frames:v', '1', '-filter_complex', frameFilter(p.w, p.h, '0:v', 'o'), '-map', '[o]',
+  const o = Object.assign({ box: contentBox(ff, file, p, { photo: true }) }, opt || {});
+  run(ff, ['-i', file, '-frames:v', '1', '-filter_complex', frameFilter(p.w, p.h, '0:v', 'o', o), '-map', '[o]',
            '-q:v', '3', out]);
   return out;
 }
@@ -79,7 +212,7 @@ function photo(ff, file, out) {
  * `skip` = {at, len} (زمانِ خودِ کلیپ): همان تکه‌ای که «لحظه» با صدایش پخش می‌کند، از این تکهٔ
  * بی‌صدا **برداشته** می‌شود — وگرنه بیننده پس از لحظه همان را دوباره، بی‌صدا، می‌بیند.
  */
-function clip(ff, file, out, from, len, info, skip) {
+function clip(ff, file, out, from, len, info, skip, opt) {
   const p = info || probe(ff, file);
   if (!p) throw new Error('کلیپ خوانده نشد');
   const L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, p.dur - from)));
@@ -96,7 +229,7 @@ function clip(ff, file, out, from, len, info, skip) {
     const f2 = Math.min(Math.max(0, p.dur - 1), skip.at + skip.len);
     inArgs = ['-ss', f2.toFixed(2), '-t', Math.max(1, Math.min(L, p.dur - f2)).toFixed(2), '-i', file];
   }
-  run(ff, inArgs.concat(['-filter_complex', pre + frameFilter(p.w, p.h, 's', 'o'),
+  run(ff, inArgs.concat(['-filter_complex', pre + frameFilter(p.w, p.h, 's', 'o', opt),
            '-map', '[o]', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
            '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
   const still = out.replace(/\.mp4$/, '') + '-last.jpg';
@@ -105,13 +238,13 @@ function clip(ff, file, out, from, len, info, skip) {
 }
 
 /** «لحظه»: همان تکه، **با صدای خودش** — بلندیِ یکسان، آغاز و پایانِ نرم، صوتِ ۴۸ کیلوهرتزِ دوکاناله. */
-function moment(ff, file, outV, outA, from, len, info, enc) {
+function moment(ff, file, outV, outA, from, len, info, enc, opt) {
   const p = info || probe(ff, file);
   if (!p || !p.audio) throw new Error('کلیپِ لحظه صدا ندارد');
   const L = Math.max(MK.momentMin, Math.min(len, Math.max(1, p.dur - from)));
   const fv = MK.fadeV, fa = MK.fadeA;
   run(ff, ['-ss', from.toFixed(2), '-t', L.toFixed(2), '-i', file,
-           '-filter_complex', '[0:v]fps=' + MK.fps + '[s];' + frameFilter(p.w, p.h, 's', 'f') +
+           '-filter_complex', '[0:v]fps=' + MK.fps + '[s];' + frameFilter(p.w, p.h, 's', 'f', opt) +
            ';[f]fade=t=in:st=0:d=' + fv + ',fade=t=out:st=' + (L - fv).toFixed(2) + ':d=' + fv + '[o]',
            '-map', '[o]', '-an'].concat(enc).concat([outV]));
   run(ff, ['-ss', from.toFixed(2), '-t', L.toFixed(2), '-i', file, '-vn',
@@ -206,4 +339,4 @@ function splice(ff, silent, wav, parts, dest, dir) {
   return { inserts: inserts };
 }
 
-module.exports = { MK, probe, frameFilter, photo, clip, moment, find, placeMoments, splice };
+module.exports = { MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };

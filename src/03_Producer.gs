@@ -2413,6 +2413,13 @@ var SPEAK_TRAPS = [
   'برابرِ «کتابِ خوبی». صفتِ پسین پس از یِ نکره کسره نمی‌گیرد: «درآمدی ' +
   'معاصر»، «نگاهی تازه»، «تجربه‌ای عجیب» — هر سه بی‌کسره وصل می‌شوند.',
 
+  /* ۸.۹۹ — قسمتِ ۷۲: «فُحّاشی» نوشته شد و `fohashi` خوانده شد. اعراب‌گذار واکهٔ «فُحش» را به «فَحّاش»
+     برده بود. همان شکلِ «هم‌نگاشت» نیست — املا فرق دارد — پس جدا گفته می‌شود. */
+  '**هم‌ریشه هم‌واکه نیست.** واکهٔ واژه را از ساختش بگیر، نه از هم‌ریشهٔ آشنایش: «فُحش» ولی ' +
+  '«فَحّاش، فَحّاشی»؛ «عِلم» ولی «عَلّامه»؛ «حُکم» ولی «حاکِم، حُکّام». ساختِ «فَعّال/فَعّالی» (پیشه و ' +
+  'کار: فَحّاشی، نَقّاشی، بَقّالی، قَصّابی، جَرّاحی) **همیشه فتحه** دارد؛ «فُعّال» با ضمه جمع است ' +
+  '(کُفّار، طُلّاب، حُکّام). پیش از گذاشتنِ واکهٔ حرفِ اول بپرس: این واژه کدام ساخت است؟',
+
   'لهجه: فارسیِ معیارِ تهرانِ امروز، یکدست در کلِ متن. نه عربی‌خوانیِ ' +
   'واژه‌های عربی‌تبار، نه کشیدنِ واکه‌ها به سبکِ محلی. اگر اعرابی که ' +
   'می‌گذاری واژه را از تلفظِ معیارِ تهرانی دور می‌کند، همان اعراب غلط است.'
@@ -5295,9 +5302,32 @@ function pronStrip_(s) {
  * با همان نقشهٔ برگشت. علامت‌هایی که به دُمِ واژه چسبیده‌اند هم با خودِ واژه
  * برداشته می‌شوند، وگرنه کسرهٔ اضافه پس از جایگزینی جا می‌ماند.
  */
+/**
+ * الگوی «فَعّالی» — اسمِ پیشه یا کار (۸.۹۹).
+ *
+ * «فحاشی» در قسمتِ ۷۲ `fohashi` خوانده شد چون متنِ صوتی «فُحّاشی» داشت: اعراب‌گذار واکهٔ «فُحش» را از
+ * هم‌ریشه‌اش قرض گرفته بود، و بازبینِ مرحلهٔ دوم — که «همه‌چیز» را می‌سنجد — از آن گذشت. سطرِ تبِ
+ * «تلفظ» همان یک واژه را می‌گیرد؛ این یکی کلِ خانواده را: هر واژهٔ «حرف + ضمه + حرف + تشدید + ا + حرف
+ * + ی» به فتحه برمی‌گردد — فَحّاشی، نَقّاشی، بَقّالی، قَصّابی، حَمّالی، رَمّالی، جَرّاحی. ساختِ «فُعّال»
+ * با ضمه جمعِ مکسّر است (کُفّار، طُلّاب، حُکّام…) و با «ی» تقریباً هرگز پیشه نمی‌شود؛ ریشهٔ آن‌ها
+ * جداگانه کنار گذاشته می‌شود تا قاعده چیزِ درستی را خراب نکند، همراهِ چند مفردِ ضمه‌دار (دُکّان، رُمّان، زُنّار، دُرّاج). فقط ضمه عوض می‌شود — حروف، تشدید و
+ * کسرهٔ اضافهٔ پس از واژه همان می‌مانند.
+ */
+var SPEAK_FUAAL_KEEP = ['کفار', 'طلاب', 'حکام', 'تجار', 'عمال', 'زوار', 'حجاج', 'کتاب', 'سکان', 'جهال', 'عشاق', 'نواب', 'دکان', 'رمان', 'زنار', 'دراج'];
+function speakPatternFix_(text) {
+  var L = '\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06CC';
+  var M = '\u064B-\u0652\u0670';
+  var re = new RegExp('(^|[^' + L + M + '])([' + L + '])\u064F([' + L + '])(\u0651\u064E?|\u064E\u0651)' +
+                      '\u0627([' + L + '])([' + M + ']*)\u06CC(?=[' + M + ']*(?:$|[^' + L + M + ']))', 'g');
+  return String(text).replace(re, function (all, pre, a, b, sh, c, cm) {
+    if (SPEAK_FUAAL_KEEP.indexOf(a + b + 'ا' + c) !== -1) return all;
+    return pre + a + '\u064E' + b + sh + 'ا' + c + cm + 'ی';
+  });
+}
+
 function applyPron_(text) {
   var m = pronMap_();
-  var s = String(text);
+  var s = speakPatternFix_(String(text));
   if (!m.length) return s;
   for (var i = 0; i < m.length; i++) {
     var needle = pronStrip_(String(m[i][0])).text;
@@ -6397,9 +6427,30 @@ function pickCategory_(hub) {
       }
     } catch (eRef) { logLine_('ساخت فهرست ارجاع ناموفق: ' + eRef.message); }
 
-    return { title: ranked[t].name, stats: st, items: items, refs: refs, freshCount: freshN };
+    return { title: ranked[t].name, stats: st, items: items, refs: refs, freshCount: freshN,
+             others: ranked.filter(function (x, ix) { return ix !== t; }).map(function (x) { return x.name; }) };
   }
   return null;
+}
+
+/**
+ * نامزد از چند دستهٔ بعدی هم (۸.۹۹). سیر از معنا می‌آید، نه از برچسبِ بایگانی: «طنزِ سانسور» ممکن است
+ * نیمی در «طنز و سرگرمی» باشد و نیمی در «اجتماعی». فقط `CROSS_TABS` دستهٔ بعدی از رتبه‌بندیِ داشبورد —
+ * خواندنِ همهٔ تب‌ها همان چیزی بود که اجرا را از سقفِ شش دقیقه رد می‌کرد (`run_scale_test` B).
+ */
+function crossCandidates_(hub, picked) {
+  var out = [];
+  var names = (picked && picked.others) || [];
+  var n = Math.max(0, Number(CFG.CROSS_TABS) || 0), per = Math.max(1, Number(CFG.CROSS_TAB_CANDIDATES) || 10);
+  for (var i = 0; i < names.length && i < n; i++) {
+    try {
+      var st = tabStats_(hub, names[i], CFG.MIN_PRIORITY);
+      if (!st.sheet || st.rows.length < 3) continue;
+      var rows = st.rows.slice().sort(function (a, b) { return b.score - a.score; }).slice(0, per);
+      out = out.concat(fetchRows_(st.sheet, names[i], rows.map(function (x) { return x.row; })));
+    } catch (e) { logLine_('نامزدِ دستهٔ «' + names[i] + '» خوانده نشد: ' + e.message); }
+  }
+  return out;
 }
 
 // --------------------------------------------------- یکتاسازی و تضمین تلفیق
@@ -6564,10 +6615,12 @@ var CURATE_SCHEMA = {
     },
     theme: { type: 'string' },
     connection: { type: 'string' },
+    route: { type: 'string' },
     chosen: {
       type: 'array',
       items: { type: 'object',
-               properties: { id: { type: 'string' }, role: { type: 'string' } },
+               properties: { id: { type: 'string' }, role: { type: 'string' },
+                             genre: { type: 'string' }, reading: { type: 'string' } },
                required: ['id'] }
     },
     referenceIds: { type: 'array', items: { type: 'string' } },
@@ -6576,77 +6629,99 @@ var CURATE_SCHEMA = {
   required: ['theme', 'connection', 'chosen']
 };
 
+/** ژانرهایی که خوانشِ آیتم با آن‌ها گفته می‌شود — یک فهرست برای سردبیر، داور و نویسنده. */
+var CURATE_GENRES = ['طنز', 'هجو', 'جدی', 'خبری', 'تراژیک', 'ترسناک', 'احساسی', 'آموزشی', 'مذهبی', 'عجیب'];
+
+/** توصیفِ یک آیتم برای سردبیر و داور. ۸.۹۹: پیش‌تر ۱۷۰ نویسه از هر فیلد و **بی «حال‌وهوا»** — یعنی
+ *  سردبیر طنز را از جدی تشخیص نمی‌داد و از روی برچسب می‌چید. حالا عمیق‌تر، با حال‌وهوا و دسته‌اش. */
+function curateDescribe_(list, tag) {
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var c = list[i];
+    out.push('- id: ' + c.id + ' | ' + tag + ' | نوع: ' + c.kind + ' | دسته: ' + (c.cat || '') +
+      (c.used ? ' | پیش‌تر در قسمتِ ' + c.used + ' آمده' : '') +
+      '\n  موضوع: ' + String(c.topic || '').slice(0, 300) +
+      '\n  پیام: ' + String(c.msg || '').slice(0, 300) +
+      (c.summary ? '\n  خلاصه: ' + String(c.summary).slice(0, 420) : '') +
+      (c.body ? '\n  از متن/گفتارِ خودِ فایل: ' + String(c.body).slice(0, 480) : '') +
+      (c.vibe ? '\n  حال‌وهوا: ' + String(c.vibe).slice(0, 140) : ''));
+  }
+  return out.join('\n');
+}
+
 /**
- * سردبیر — «نخ» را اول پیدا می‌کند، بعد اعضایش را برمی‌دارد.
+ * سردبیر — «سیر» را اول پیدا می‌کند، بعد اعضایش را برمی‌دارد.
  *
- * نسخهٔ قبلی از او می‌خواست ۱۲ آیتم «منسجم» انتخاب کند و بعد نویسنده مجبور بود
- * هر چه به دستش رسید را به هم وصل کند — نتیجه‌اش پیوندهای سرهم‌بندی‌شده بود.
- * اینجا اول چند نخِ ممکن را می‌گوید، قوی‌ترین را می‌چیند، و صریح به او گفته‌ایم
- * که اگر پیوندی واقعی نیست نبندد. همچنین می‌تواند از آیتم‌های قبلاً استفاده‌شده
- * به‌عنوان «حلقهٔ اتصال» استفاده کند تا محتوای تازه به گذشته وصل شود.
+ * ۸.۹۹: سه چیز عوض شد، هر سه از شکایتِ صاحبِ برنامه پس از یک ماه گوش‌دادن («درکِ درستی از محتوای
+ * اصلی نداره … طنز رو فضای معنوی و اجتماعی تفسیر می‌کنه … محتواها هیچ ارتباطِ معنایی ندارن»):
+ * ۱) **اول بفهم، بعد بچین.** برای هر عضو، `genre` و `reading` — این آیتم واقعاً چیست و اگر طنز است
+ *    شوخی‌اش کجاست. همین خوانش به نویسنده می‌رسد؛ نویسنده دیگر طنز را از روی برچسبِ دسته نمی‌خوانَد.
+ * ۲) **سیر، نه فهرست.** `route` ترتیبِ رفتن از یکی به بعدی است، با دلیلِ هر گام از دلِ محتوا.
+ * ۳) **کم ولی هم‌خانواده.** حداقلِ اعضا `CURATE_MIN` است، نه «دوازده منهای چهار» — آن عدد سردبیر را
+ *    وادار می‌کرد چیزِ بی‌ربط بردارد. و آیتمِ پخش‌شده هم می‌تواند عضوِ کامل باشد (معماریِ خودِ او)،
+ *    تا `REUSE_FULL_MAX`، و در ستونِ ارجاع ثبت می‌شود.
  */
 function curateItems_(cat, candidates, refPool, orders) {
-  function describe(list, tag) {
-    var out = [];
-    for (var i = 0; i < list.length; i++) {
-      var c = list[i];
-      out.push('- id: ' + c.id + ' | ' + tag + ' | نوع: ' + c.kind +
-        '\n  موضوع: ' + String(c.topic).slice(0, 180) +
-        '\n  پیام: ' + String(c.msg).slice(0, 170) +
-        (c.body ? '\n  از متن خودِ فایل: ' + String(c.body).slice(0, 160) : ''));
-    }
-    return out.join('\n');
-  }
-
+  var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
+  var reuseMax = Math.max(0, Number(CFG.REUSE_FULL_MAX) || 0);
   var prompt = [
     'تو سردبیرِ یک برنامهٔ رادیوییِ فارسی هستی. کارَت این نیست که چند آیتمِ خوب انتخاب کنی؛',
-    'کارَت این است که «نخِ مشترک» را پیدا کنی.',
+    'کارَت این است که یک «سیرِ معنایی» پیدا کنی و فقط آیتم‌هایی را برداری که واقعاً در آن‌اند.',
     '',
-    'دستهٔ کاری: «' + cat + '»',
+    'دستهٔ اصلیِ امروز: «' + cat + '» — ولی دسته فقط برچسبِ بایگانی است. نامزدها از چند دسته‌اند؛',
+    'سیر از معنا می‌آید، نه از برچسب.',
     '',
     instructionBlock_(filterOrders_(orders, ['گزینش', 'محتوا', 'تنوع', 'تکرار']),
       'اصلاح‌های خواسته‌شده از بازبینیِ قسمت قبل — این‌ها بر قاعده‌های زیر مقدم‌اند:'),
     'مرحله به مرحله:',
     '',
-    '۱) در فیلد threads، دو تا چهار نخِ ممکن را بنویس. نخ یعنی چیزی که واقعاً چند آیتم را',
-    '   به هم می‌بندد: یک پرسش مشترک، یک تضادِ آشکار، یک سیرِ زمانی، یک مفهومِ تکرارشده،',
-    '   یک نامِ مشترک. برای هر نخ، شناسهٔ آیتم‌هایی که واقعاً عضوش هستند را بیاور',
-    '   و در strength بگو چقدر محکم است.',
+    '۰) **اول هر آیتم را بفهم.** پیش از هر انتخابی، برای خودت روشن کن هر آیتم واقعاً چیست:',
+    '   طنز؟ هجو؟ خبرِ جدی؟ تراژدی؟ خاطرهٔ ترسناک؟ «حال‌وهوا» و «متنِ خودِ فایل» را بخوان، نه فقط',
+    '   برچسب را. طنز طنز است: شوخی‌اش کجاست؟ چه چیزی خنده‌دار است؟ اگر نمی‌توانی بگویی شوخی کجاست،',
+    '   آن را نفهمیده‌ای — برش ندار.',
     '',
-    '۲) قوی‌ترین نخ را انتخاب کن و در theme بنویس. در connection دقیقاً توضیح بده',
-    '   پیوند از کجا می‌آید — به کدام واژه، کدام نام، کدام تضاد؟ اگر نتوانستی این را',
-    '   در یک جملهٔ مشخص بگویی، یعنی نخ واقعی نیست؛ نخِ دیگری بردار.',
+    '۱) در threads، دو تا چهار سیرِ ممکن بنویس. سیر یعنی چیزی که چند آیتم را واقعاً به هم می‌بندد:',
+    '   یک پرسشِ مشترک، یک سوژهٔ مشترک، یک تضادِ آشکار، یک سیرِ زمانی، یک نامِ مشترک.',
+    '   **هم‌ژانری بخشی از هم‌خانوادگی است:** ده کلیپِ طنز و یک خبرِ مرگ هم‌خانواده نیستند، حتی اگر',
+    '   هر دو دربارهٔ «سیاست» باشند — مگر خودِ سیر دربارهٔ همان تضاد باشد و آن را صریح بگوید.',
     '',
-    '۳) در chosen اعضای همان نخ را بیاور، بین ' + Math.max(7, CFG.ITEMS_PER_EPISODE - 4) +
-      ' تا ' + (CFG.ITEMS_PER_EPISODE + 2) + ' آیتم.',
-    '   برای هر کدام در role بنویس نقشش در روایت چیست (مثلاً «نقطهٔ شروع»، «مثالِ مخالف»،',
-    '   «نمونهٔ عینی»، «جمع‌بندی»). ترکیبی از نوع‌های مختلف بردار — ویدیو، عکس،',
-    '   فایل صوتی و سند — نه همه از یک نوع.',
+    '۲) قوی‌ترین سیر را در theme بنویس. در connection دقیقاً بگو پیوند از کجا می‌آید — کدام واژه،',
+    '   کدام نام، کدام سوژه؟ اگر در یک جملهٔ مشخص نمی‌شود گفت، سیر واقعی نیست؛ دیگری را بردار.',
+    '   در route ترتیبِ رفتن را بنویس: «اول … چون …؛ بعد … چون …» — هر گام با دلیلی از دلِ محتوا.',
     '',
-    '۴) در referenceIds حداکثر ' + CFG.MAX_REFS_IN_EPISODE + ' آیتم از فهرستِ «قبلاً پخش‌شده»',
-    '   انتخاب کن — فقط اگر واقعاً به بستنِ همین نخ کمک می‌کنند. این‌ها موضوعِ اصلی نیستند؛',
-    '   قرار است روایت با یک اشارهٔ کوتاه به آن‌ها، محتوای تازه را به چیزی که قبلاً گفته شده وصل کند.',
-    '   اگر کمکی نمی‌کنند، خالی بگذار.',
+    '۳) در chosen فقط اعضای همان سیر: دست‌کم ' + minN + ' و حداکثر ' + (CFG.ITEMS_PER_EPISODE + 2) + '.',
+    '   **' + minN + ' آیتمِ واقعاً هم‌خانواده از دوازده آیتمِ چسب‌خورده بهتر است.** عدد را با آیتمِ',
+    '   بی‌ربط پر نکن. برای هر کدام:',
+    '   - role: نقشش در سیر («نقطهٔ شروع»، «اوج»، «مثالِ مخالف»، «جمع‌بندی»)؛',
+    '   - genre: یکی از ' + CURATE_GENRES.join('، ') + '؛',
+    '   - reading: یک تا دو جمله — این آیتم واقعاً چه می‌گوید/نشان می‌دهد، و اگر طنز است شوخی‌اش',
+    '     دقیقاً چیست. این خوانش به نویسنده می‌رسد؛ پس از روی متنِ خودِ آیتم بنویس، نه از روی دسته.',
+    '   اگر نوع‌ها (ویدیو، عکس، صدا، سند) تلفیق شوند خوب است، ولی تلفیق هرگز دلیلِ برداشتنِ آیتمِ',
+    '   بی‌ربط نیست.',
     '',
-    '۵) در rejected شناسهٔ آیتم‌هایی که کنار گذاشتی را بیاور، بدون توضیح.',
+    '۴) آیتم‌های فهرستِ «قبلاً پخش‌شده» را هم می‌توانی بیاوری — این برنامه عمداً اجازه می‌دهد محتوا',
+    '   در چند قسمت به کار برود:',
+    '   - اگر کاملاً در همین سیر است و بی آن سیر ناقص می‌ماند، شناسه‌اش را مثلِ بقیه در chosen بگذار',
+    '     (حداکثر ' + reuseMax + ' تا)؛',
+    '   - اگر فقط برای یک اشارهٔ کوتاه به گذشته به کار می‌آید، در referenceIds (حداکثر ' +
+         CFG.MAX_REFS_IN_EPISODE + ').',
+    '',
+    '۵) در rejected شناسهٔ آیتم‌های تازه‌ای که کنار گذاشتی را بیاور، بدون توضیح.',
     '',
     'قاعدهٔ سخت — این مهم‌ترین دستور است:',
-    'پیوند را نساز؛ پیدا کن. اگر دو آیتم واقعاً به هم مربوط نیستند، با عبارت‌هایی مثل',
-    '«و از سوی دیگر» یا «این ما را می‌رساند به» به‌زور به هم وصلشان نکن. بهتر است',
-    'قسمت هشت آیتمِ واقعاً هم‌خانواده داشته باشد تا دوازده آیتم با چسبِ کلامی.',
-    'آیتمی که در نخ جا نمی‌شود را رد کن، حتی اگر خودش خوب باشد.',
+    'پیوند را نساز؛ پیدا کن. «و از سوی دیگر» و «این ما را می‌رساند به» پیوند نیستند. آیتمی که در سیر',
+    'جا نمی‌شود را رد کن، حتی اگر خودش خوب باشد — روزِ دیگری در سیرِ خودش می‌آید.',
     '',
     'قاطعانه رد کن: اسکرین‌شات رابط کاربری و فهرست فایل، صفحهٔ پروفایل و اطلاعات تماس،',
-    'تبلیغ محصول، آیتمی که تحلیلش برای گفتنِ حرفِ درست کافی نیست، و آیتمی که',
-    'با آیتم دیگرِ همین فهرست تقریباً یکی است.',
+    'تبلیغ محصول، آیتمی که تحلیلش برای فهمیدنش کافی نیست، و آیتمی که با دیگری تقریباً یکی است.',
     '',
     'شناسه‌ها را عیناً و بدون تغییر برگردان.',
     '',
-    '--- آیتم‌های تازه (نامزدِ موضوع اصلی) ---',
-    describe(candidates, 'نامزد'),
+    '--- آیتم‌های تازه (نامزدِ عضویت) ---',
+    curateDescribe_(candidates, 'نامزد'),
     '',
-    '--- آیتم‌های قبلاً پخش‌شده (فقط برای پیوند، نه موضوع اصلی) ---',
-    (refPool && refPool.length ? describe(refPool, 'پخش‌شده') : '(موردی نیست)')
+    '--- آیتم‌های قبلاً پخش‌شده ---',
+    (refPool && refPool.length ? curateDescribe_(refPool, 'پخش‌شده') : '(موردی نیست)')
   ].join('\n');
 
   var res = geminiText_(prompt, CURATE_SCHEMA, 32768);
@@ -6655,14 +6730,19 @@ function curateItems_(cat, candidates, refPool, orders) {
   for (var b = 0; b < candidates.length; b++) byId[String(candidates[b].id)] = candidates[b];
   for (var q = 0; q < (refPool || []).length; q++) refById[String(refPool[q].id)] = refPool[q];
 
-  var chosen = [], seen = {};
+  var chosen = [], seen = {}, reused = [];
   var ch = res.chosen || [];
   for (var k = 0; k < ch.length; k++) {
     var id = String(ch[k].id || '').trim();
-    if (!byId[id] || seen[id]) continue;          // شناسهٔ ساختگی یا تکراری را نپذیر
+    if (seen[id]) continue;
+    var it = byId[id];
+    if (!it && refById[id] && reused.length < reuseMax) { it = refById[id]; it.reused = true; reused.push(it); }
+    if (!it) continue;                             // شناسهٔ ساختگی را نپذیر
     seen[id] = true;
-    byId[id].role = ch[k].role || '';
-    chosen.push(byId[id]);
+    it.role = ch[k].role || '';
+    it.genre = CURATE_GENRES.indexOf(String(ch[k].genre || '').trim()) !== -1 ? String(ch[k].genre).trim() : '';
+    it.reading = String(ch[k].reading || '').trim().slice(0, 400);
+    chosen.push(it);
   }
 
   var references = [];
@@ -6679,9 +6759,84 @@ function curateItems_(cat, candidates, refPool, orders) {
     if (byId[xid] && !seen[xid]) rejected.push(byId[xid]);
   }
 
-  return { theme: res.theme || '', connection: res.connection || '',
-           threads: res.threads || [], chosen: chosen,
+  /* اعضای همان سیر — تنها جایی که «حداقلِ هر نوع» اجازه دارد از آن پر کند (۸.۹۹). سیری که بیشترین
+     هم‌پوشانی را با chosen دارد، همان سیرِ برگزیده است. */
+  var members = [], best = -1;
+  var thr = res.threads || [];
+  for (var t = 0; t < thr.length; t++) {
+    var ids = (thr[t] && thr[t].memberIds) || [], ov = 0;
+    for (var u = 0; u < ids.length; u++) if (seen[String(ids[u]).trim()]) ov++;
+    if (ov > best) {
+      best = ov;
+      members = ids.map(function (x) { return byId[String(x).trim()]; }).filter(Boolean);
+    }
+  }
+
+  return { theme: res.theme || '', connection: res.connection || '', route: String(res.route || ''),
+           threads: thr, chosen: chosen, members: members, reused: reused,
            references: references, rejected: rejected };
+}
+
+var CURATE_JUDGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: { type: 'array', items: { type: 'object',
+      properties: { id: { type: 'string' }, belongs: { type: 'string' }, why: { type: 'string' } },
+      required: ['id', 'belongs'] } }
+  },
+  required: ['verdicts']
+};
+
+/**
+ * داورِ جدا (۸.۹۹): هر عضو واقعاً در همین سیر است؟
+ *
+ * همان قاعدهٔ همیشگیِ این پرونده: یک تماس که هم می‌چیند و هم داوری می‌کند، جوابِ خودش را تأیید می‌کند —
+ * همان شکلی که سه نسخه پشتِ‌هم «درست شد» گفت و نشده بود. داور فقط سیر و خوانش و خودِ آیتم را می‌بیند
+ * و «خیر» می‌گوید یا «بله». «خیر»ها کنار می‌روند، مگر کمتر از سه بماند — آن‌وقت قوی‌ترین‌ها می‌مانند و
+ * علت در سیاهه می‌آید. نشدنِ داوری یعنی بی‌داوری ادامه، نه افتادنِ قسمت.
+ */
+function curateJudge_(theme, connection, route, chosen) {
+  if (CFG.CURATE_JUDGE === false || !chosen || chosen.length < 4) return { keep: chosen, dropped: [], ran: false };
+  var lines = [];
+  for (var i = 0; i < chosen.length; i++) {
+    var c = chosen[i];
+    lines.push('- id: ' + c.id + ' | نوع: ' + c.kind + (c.genre ? ' | ژانر به گفتهٔ سردبیر: ' + c.genre : '') +
+      (c.reading ? '\n  خوانشِ سردبیر: ' + c.reading : '') +
+      '\n  موضوع: ' + String(c.topic || '').slice(0, 260) +
+      '\n  پیام: ' + String(c.msg || '').slice(0, 260) +
+      (c.body ? '\n  از متنِ خودِ فایل: ' + String(c.body).slice(0, 360) : '') +
+      (c.vibe ? '\n  حال‌وهوا: ' + String(c.vibe).slice(0, 120) : ''));
+  }
+  var prompt = [
+    'تو داورِ سردبیریِ یک برنامهٔ رادیوییِ فارسی هستی. کسی دیگر این آیتم‌ها را برای یک قسمت چیده.',
+    'کارِ تو فقط این است: برای **هر** آیتم بگو واقعاً عضوِ همین سیر است یا نه.',
+    '',
+    'سیر: «' + theme + '»',
+    'پیوند به گفتهٔ سردبیر: ' + connection,
+    route ? 'ترتیبِ رفتن: ' + route : '',
+    '',
+    'belongs = «بله» فقط اگر آیتم از دلِ محتوای خودش به همین سیر تعلق دارد — هم‌سوژه یا هم‌پرسش، و با',
+    'حال‌وهوایی که در کنارِ بقیه معنا دارد (یک خبرِ مرگ وسطِ چند طنز «بله» نیست مگر سیر صریحاً دربارهٔ',
+    'همان تضاد باشد). «خیر» اگر فقط با جمله‌ای ساختگی وصل می‌شود، یا اگر خوانشِ سردبیر با متنِ خودِ آیتم',
+    'نمی‌خواند (مثلاً طنزی که جدی خوانده شده). why: یک جمله.',
+    '',
+    lines.join('\n')
+  ].join('\n');
+  var res = null;
+  try { res = geminiText_(prompt, CURATE_JUDGE_SCHEMA, 4096); } catch (e) { res = null; }
+  if (!res || !res.verdicts) return { keep: chosen, dropped: [], ran: false };
+  var no = {}, why = {};
+  for (var v = 0; v < res.verdicts.length; v++) {
+    var x = res.verdicts[v] || {};
+    /* `\b` در JS فقط حرفِ لاتین را «حرف» می‌شمارد — «خیر» با آن هرگز جور نمی‌شد و هر «خیر» بی‌صدا
+       نادیده می‌ماند (سنجهٔ ۳.۱ همین را گرفت). */
+    if (/^\s*(خیر|نه|no)(?![\u0600-\u06FFa-z])/i.test(String(x.belongs || ''))) { no[String(x.id).trim()] = true; why[String(x.id).trim()] = String(x.why || ''); }
+  }
+  var keep = chosen.filter(function (c) { return !no[String(c.id)]; });
+  var dropped = chosen.filter(function (c) { return no[String(c.id)]; });
+  if (keep.length < 3) return { keep: chosen, dropped: [], ran: true, overruled: dropped.length,
+                                why: 'داور ' + dropped.length + ' را رد کرد و کمتر از سه می‌ماند؛ همه ماندند' };
+  return { keep: keep, dropped: dropped.map(function (c) { return { item: c, why: why[String(c.id)] || '' }; }), ran: true };
 }
 
 /** شمارندهٔ ارجاع: آیتمی که به‌عنوان حلقهٔ اتصال آمده، «استفاده‌شده» دوباره نمی‌شود
@@ -7441,7 +7596,7 @@ function kindBreakdown_(items) {
   return out.length ? out.join('، ') : 'بدون منبع';
 }
 
-function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
+function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) {
   function block(list, label) {
     var out = [];
     for (var i = 0; i < list.length; i++) {
@@ -7454,6 +7609,11 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
         // نه از ابتدایشان. نویسنده باید بداند با یک اثرِ بلند طرف است.
         (it.parts ? 'حجم منبع: ' + it.parts + ' (خلاصه از سراسر فایل)\n' : '') +
         (it.role ? 'نقش در روایت: ' + it.role + '\n' : '') +
+        /* خوانشِ سردبیر (۸.۹۹) — این آیتم واقعاً چیست و اگر طنز است شوخی‌اش کجاست. نویسنده پیش‌تر
+           فقط برچسبِ دسته را داشت و طنز را با عینکِ «اجتماعی» و «معنوی» می‌خواند. */
+        (it.genre ? 'ژانر: ' + it.genre + '\n' : '') +
+        (it.reading ? 'خوانشِ سردبیر: ' + it.reading + '\n' : '') +
+        (it.reused ? 'این آیتم پیش‌تر در قسمتِ ' + it.used + ' آمده؛ این‌جا عضوِ کاملِ سیر است.\n' : '') +
         'تاریخ: ' + it.date + '\n' +
         'موضوع: ' + String(it.topic).slice(0, 500) + '\n' +
         'پیام کلیدی: ' + String(it.msg).slice(0, 500) + '\n' +
@@ -7488,6 +7648,7 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
   if (theme) {
     L.push('نخِ مشترکی که سردبیر پیدا کرده: «' + theme + '»');
     if (connection) L.push('پیوند از این‌جا می‌آید: ' + connection);
+    if (route) L.push('ترتیبِ رفتن به پیشنهادِ سردبیر: ' + route);
     L.push('روایت را حولِ همین نخ بساز. این نخ از دلِ خودِ محتوا بیرون آمده، پس');
     L.push('لازم نیست چیزی به آن اضافه کنی تا به هم وصل شود.');
     L.push('');
@@ -7556,6 +7717,15 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
     '   فیلد misfiled بنویس (شناسه + دستهٔ درست به‌نظرت + یک جمله چرا).',
     '   خواندنِ یک خاطرهٔ ترسناک با عینکِ «اجتماعی» دقیقاً همان‌طور خرابش',
     '   می‌کند که تفسیرِ بی‌مبنا.',
+    /* ۸.۹۹ — شکایتِ صاحبِ برنامه پس از یک ماه گوش‌دادن: «چیزی که می‌تونه یه موضوعِ خنده‌دار باشه
+       فضای معنوی و اجتماعی و تفسیرهای آبدوغ‌خیاری و آبکی می‌کنه روش». ۸-خ این را برای خاطرهٔ ترسناک
+       گفته بود؛ طنز جداگانه و صریح لازم است، چون پرتکرارترین ژانرِ این برنامه است. */
+    '۸-ر) **طنز را طنز بخوان.** «ژانر» و «خوانشِ سردبیر»ِ هر آیتم را ببین. آیتمِ طنز و هجو:',
+    '   شوخی را همان‌طور که هست تعریف کن، با ضرب‌آهنگِ شوخی — زمینه، بعد پانچ‌لاین — و بگذار',
+    '   خودش کار کند. **ممنوع:** توضیحِ اینکه چرا خنده‌دار است؛ تفسیرِ معنوی، اخلاقی، روان‌شناختی',
+    '   یا جامعه‌شناختی روی شوخی («این نشان می‌دهد جامعهٔ ما…»، «در واقع این طنز دردی را…»)؛',
+    '   و جدی کردنِ هجو. اگر خودِ آیتم نقدی دارد، همان نقد با زبانِ خودِ آیتم کافی است.',
+    '   قاعدهٔ کلی: هر جمله‌ای که در هیچ آیتمی نیست و فقط «معنا» اضافه می‌کند، حذف.',
     '۸-ح) در متنِ گفتار هیچ لینک، شناسهٔ فایل، یا نامِ فایلِ حرف‌وعددی نیاور و نخوان.',
     '   منبع را با نامِ آدم‌فهم بگو («ویدیویی از سخنرانیِ...»، «سندی دربارهٔ...»).',
     '   شناسه فقط در sourceIds و mustSee.source می‌نشیند و لینک فقط در سندِ قسمت.',
@@ -7601,7 +7771,9 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
     '۱۵) طولِ جمله‌ها را عمداً متغیر کن. جملهٔ کوتاه ضربه می‌زند. جملهٔ بلند فضا می‌سازد.',
     '۱۶) نقل‌قول‌ها را عیناً از فیلد «متن/گفتار داخل فایل» بردار و پیش از هرکدام بگو',
     '    این حرفِ کیست یا از کجاست. هیچ نقل‌قولی از خودت نساز.',
-    '۱۷) پایان را باز نگذار: یک جمع‌بندی و یک نکتهٔ ماندگار.',
+    /* ۸.۹۹: «یک نکتهٔ ماندگار» دقیقاً همان پندی بود که ۸-خ ممنوع کرده — دو قاعده با هم می‌جنگیدند. */
+    '۱۷) پایان را باز نگذار: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — نه پند و نه «درسی که',
+    '    می‌گیریم». قسمتِ طنز با یک بازگشت به یکی از شوخی‌ها بسته شود.',
     '',
     'فارسیِ آمادهٔ گفتار:',
     '۱۸) فارسیِ معیارِ ایران بنویس. جمع فارسی بیاور نه عربی: «نکته‌ها» نه «نکات».',
@@ -7636,16 +7808,20 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders) {
     '  tone باید با حالِ همان بخش بخواند، نه با کل قسمت. نمونه‌ها:',
     '  «آرام و همدلانه، با مکث بیشتر» · «دقیق و توضیحی، با تأکید روی عددها»',
     '  «سرزنده و با لبخند در صدا» · «خبری و بی‌طرف» · «آهسته و سنگین، مثل روایتِ یک خاطره»',
-    '- outro: جمع‌بندی کوتاه و یک نکتهٔ ماندگار',
+    '- outro: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — بی پند (قاعدهٔ ۱۷)',
     '- summary: خلاصهٔ سه‌خطی قسمت برای ایمیل',
     '- tags: پنج برچسب موضوعی',
     '',
     // «حدود هزار و پانصد کلمه» در عمل هزار و دویست درمی‌آمد، چون مدل چهار بخش
     // می‌نوشت و هر بخش را کوتاه می‌بست. حالا سهمِ هر بخش صریح گفته می‌شود.
-    'طول: ' + CFG.SECTIONS_TARGET + ' بخش، و هر بخش دست‌کم ' +
+    'طول: ' + CFG.SECTIONS_TARGET + ' بخش، هر بخش حدود ' +
       Math.round(words / CFG.SECTIONS_TARGET) + ' کلمه.',
-    'مجموع کلمات narration به‌علاوهٔ hook و outro باید دست‌کم ' + Math.round(words * 0.92) +
-      ' و حدود ' + words + ' کلمه باشد (برای حدود ' + targetMin + ' دقیقه صدا).',
+    'مجموع کلمات narration به‌علاوهٔ hook و outro حدود ' + words + ' کلمه باشد (برای حدود ' + targetMin +
+      ' دقیقه صدا) — با **محتوای خودِ آیتم‌ها**: نقل، جزئیات، ماجرا.',
+    /* ۸.۹۹: «دست‌کم ۹۲٪» با هفت‌هشت آیتمِ واقعاً هم‌خانواده یعنی پر کردنِ باقی با تفسیر — همان
+       «تفسیرهای آبکی» که او شنید. کوتاه‌تر بهتر از پرشده است. */
+    'اگر محتوای واقعیِ آیتم‌ها زودتر تمام شد، قسمت را کوتاه‌تر ببند؛ **هرگز** با تفسیر، پند یا جملهٔ',
+    'کلی پرش نکن — قسمتِ کوتاهِ پر بهتر از قسمتِ بلندِ آبکی است.',
     'سقفِ سخت: مجموعِ همهٔ روایت‌ها از ' + capChars + ' نویسه بیشتر نشود. این سقف سلیقه ' +
     'نیست — بالاتر از آن، صدا در یک فایل جا نمی‌شود و قسمت دو تکه می‌شود. ' +
     'کوتاه‌تر از سقف مشکلی ندارد؛ بلندتر یعنی قسمت خراب شده است.',
@@ -7888,23 +8064,54 @@ function produceEpisode(opt) {
     var refPool = dedupeById_(picked.refs || []);
     var items = null, refs = [], theme = '', connection = '', rejected = [];
 
-    // مرحلهٔ سردبیری: پیدا کردن نخِ مشترک، نه فقط انتخاب آیتم‌های خوب
-    if (CFG.CURATE && pool.length > CFG.ITEMS_PER_EPISODE) {
+    // مرحلهٔ سردبیری: پیدا کردن سیرِ مشترک، نه فقط انتخاب آیتم‌های خوب
+    /* ══ ۸.۹۹: هیچ آیتمی بیرون از سیر ══
+       پیش‌تر دو در بود که آیتمِ بی‌ربط می‌آورد: سردبیری که کمتر از شش داد ⇒ «انتخاب بر پایهٔ امتیاز»
+       (یعنی بی هیچ معنایی)، و `enforceMix_` که حداقلِ هر نوع را از **کلِ دسته** پر می‌کرد. حالا پر
+       کردن فقط از اعضای همان سیر است، کم بودن یعنی تلاشِ دوم با نامزدهای دسته‌های بعدی، و داورِ جدا
+       هر عضو را می‌سنجد. گزینشِ بی‌نخ فقط وقتی که هیچ‌کدام نشد — و آن‌وقت بلند گفته می‌شود. */
+    var route = '', curNote = '', reusedIn = [];
+    if (CFG.CURATE && pool.length > 4) {
+      var minN = Math.max(3, Number(CFG.CURATE_MIN) || 5);
+      var wide = pool;
       try {
-        var cur = curateItems_(picked.title, pool, refPool, orders);
-        if (cur.chosen.length >= 6) {
-          items = enforceMix_(cur.chosen, pool, CFG.ITEMS_PER_EPISODE);
-          refs = cur.references || [];
-          theme = cur.theme; connection = cur.connection;
-          rejected = cur.rejected || [];
-          logLine_('نخ: «' + theme + '» — ' + cur.chosen.length + ' آیتم، ' +
-                   refs.length + ' ارجاع به گذشته، ' + cur.rejected.length + ' رد. ' +
-                   'پیوند: ' + String(connection).slice(0, 140));
-        } else {
-          logLine_('گزینش خروجی کافی نداد؛ انتخاب بر پایهٔ امتیاز.');
+        var cross = dedupeById_(crossCandidates_(hub, picked));
+        if (cross.length) {
+          wide = dedupeSimilar_(dedupeById_(pool.concat(cross)));
+          logLine_('نامزد از دسته‌های دیگر: ' + cross.length + ' (' + (picked.others || []).slice(0, CFG.CROSS_TABS).join('، ') + ').');
         }
-      } catch (eCur) {
-        logLine_('گزینش تحریریه‌ای ناموفق بود، انتخاب بر پایهٔ امتیاز: ' + eCur.message);
+      } catch (eCr) { logLine_('نامزدِ دسته‌های دیگر ناموفق: ' + eCr.message); }
+      for (var attempt = 0; attempt < 2 && !items; attempt++) {
+        try {
+          var cur = curateItems_(picked.title, attempt ? wide : (wide.length > pool.length ? wide : pool), refPool, orders);
+          if (cur.chosen.length >= minN || (attempt === 1 && cur.chosen.length >= 4)) {
+            var memberPool = cur.chosen.concat((cur.members || []).filter(function (x) { return cur.chosen.indexOf(x) === -1; }));
+            var mixed = enforceMix_(cur.chosen, memberPool, CFG.ITEMS_PER_EPISODE);
+            var jd = curateJudge_(cur.theme, cur.connection, cur.route, mixed);
+            items = jd.keep;
+            refs = cur.references || [];
+            theme = cur.theme; connection = cur.connection; route = cur.route;
+            rejected = (cur.rejected || []).concat((jd.dropped || []).map(function (x) { return x.item; })
+                         .filter(function (x) { return !x.reused; }));
+            reusedIn = (cur.reused || []).filter(function (x) { return items.indexOf(x) !== -1; });
+            curNote = 'سیر: «' + theme + '» — ' + items.length + ' عضو' +
+                      ((jd.dropped || []).length ? '، داور ' + jd.dropped.length + ' را بیرون گذاشت (' +
+                        jd.dropped.map(function (x) { return String(x.why || '').slice(0, 60); }).join(' · ') + ')' : '') +
+                      (jd.why ? '؛ ' + jd.why : '') +
+                      ((cur.reused || []).length ? '، ' + cur.reused.length + ' بازاستفاده' : '') + '.';
+            logLine_('نخ: ' + curNote + ' ' + refs.length + ' ارجاع، ' + (cur.rejected || []).length + ' رد. پیوند: ' +
+                     String(connection).slice(0, 140));
+          } else {
+            logLine_('سردبیر ' + cur.chosen.length + ' عضو داد (کمتر از ' + minN + ')' +
+                     (attempt ? '' : '؛ تلاشِ دوم با نامزدهای دسته‌های دیگر.'));
+          }
+        } catch (eCur) {
+          logLine_('گزینش تحریریه‌ای ناموفق بود' + (attempt ? '' : '؛ تلاشِ دوم') + ': ' + eCur.message);
+        }
+      }
+      if (!items) {
+        logLine_('⚠ گزینش بی‌نخ: سردبیر سیری با دست‌کم چهار عضو نداد؛ این قسمت بر پایهٔ امتیاز چیده شد.');
+        curNote = 'بی‌نخ';
       }
     }
     if (!items) items = selectItems_(pool);
@@ -7925,7 +8132,7 @@ function produceEpisode(opt) {
              ' آیتم (تازه در این دسته: ' + (picked.freshCount || 0) + ').');
 
     var when = todayWords_();
-    var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders);
+    var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders, route);
     var ep = geminiText_(epPrompt, EPISODE_SCHEMA);
     if (!ep.sections || !ep.sections.length) throw new Error('متن قسمت بدون بخش برگشت.');
 
@@ -8075,13 +8282,13 @@ function produceEpisode(opt) {
 
     // متن و آیتم‌ها را در پوشهٔ قسمت ذخیره می‌کنیم تا اجرای بعدی بتواند ادامه دهد
     writeEpisodeJson_(folder, { ep: ep, items: items, refs: refs, cat: picked.title,
-                       epNum: epNum, theme: theme, connection: connection, date: when,
+                       epNum: epNum, theme: theme, connection: connection, route: route, curate: curNote, date: when,
                        // دستورهای تزریق‌شده همراه قسمت ذخیره می‌شوند تا بستنشان
                        // به بعد از انتشار موکول شود، نه همین‌جا.
                        orders: orders });
 
     markUsed_(hub, items, epNum);
-    bumpRefs_(hub, refs);
+    bumpRefs_(hub, refs.concat(reusedIn));   // بازاستفادهٔ کامل هم در ستونِ ارجاع ثبت می‌شود (۸.۹۹)
     // شمارندهٔ «رد در گزینش» تازه این‌جا بالا می‌رود — بعد از اینکه فایل قسمت
     // ذخیره شد. پیش‌تر بلافاصله بعدِ گزینش نوشته می‌شد و اگر اجرا وسطِ نگارش
     // کشته می‌شد، آیتم‌های ردشده امتیازِ منفی‌شان را نگه می‌داشتند بی آنکه

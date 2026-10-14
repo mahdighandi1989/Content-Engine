@@ -173,6 +173,42 @@ print(json.dumps(out))
   ok('۵.۴ جملهٔ ساختگی در هیچ کلیپی پذیرفته نمی‌شود', got.every(g => !g.fake), JSON.stringify(got.map(g => g.fs)));
 }
 
+console.log('=== ۶) چیدمان و حرکت (۸.۹۹) — «همه وسط، ریز، بی‌افکت» ===');
+{
+  /* اسکرین‌شاتِ ساختگیِ گوشی: نوارِ وضعیتِ خاکستری بالا، حاشیهٔ سفید، محتوای پرجزئیات، نوارِ تیرهٔ پایین. */
+  const shot = P('shot.png');
+  ff(['-f', 'lavfi', '-i', 'color=c=white:s=1080x2400:d=1', '-f', 'lavfi', '-i', 'mandelbrot=s=1000x1500:end_pts=1',
+      '-filter_complex', '[0:v]drawbox=x=0:y=0:w=1080:h=110:color=0x707070:t=fill,drawbox=x=0:y=2180:w=1080:h=220:color=0x202020:t=fill[b];' +
+      '[b][1:v]overlay=40:330,format=rgb24', '-frames:v', '1', shot]);
+  const box = MKIT.contentBox(FF, shot, null, { photo: true });
+  ok('۶.۱ جعبهٔ محتوا: نوارِ وضعیت، حاشیهٔ سفیدِ بالا و نوارِ پایین بریده شد؛ خودِ محتوا ماند',
+     box && box.y >= 300 && box.y <= 345 && box.y + box.h <= 1850 && box.y + box.h >= 1790 && box.x >= 30 && box.x <= 50,
+     JSON.stringify(box));
+  const pc = MKIT.photoClip(FF, shot, P('shot.mp4'), 8, { layout: 'right' });
+  ok('۶.۲ اسکرین‌شاتِ بلند ⇒ «پیمایش»، و ۱۹۲۰×۱۰۸۰ به همان طول', pc.kind === 'scroll' &&
+     Math.abs(MKIT.probe(FF, pc.file).dur - 8) < 0.2 && MKIT.probe(FF, pc.file).w === 1920, JSON.stringify(pc.kind));
+  const lumaAt = (f, t, x, y, w, h) => {
+    const b = execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', f, '-frames:v', '1',
+      '-vf', 'crop=' + w + ':' + h + ':' + x + ':' + y + ',scale=16:16,format=gray', '-f', 'rawvideo', '-']);
+    return Array.from(b);
+  };
+  const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
+  const dScroll = diff(lumaAt(pc.file, 0.5, 900, 100, 800, 800), lumaAt(pc.file, 7.5, 900, 100, 800, 800));
+  ok('۶.۳ خودِ اسکرین‌شات حرکت می‌کند (آغاز و پایان فرق دارند)', dScroll > 8, dScroll.toFixed(1));
+  const dLeft = diff(lumaAt(pc.file, 0.5, 40, 100, 500, 800), lumaAt(pc.file, 7.5, 40, 100, 500, 800));
+  ok('۶.۴ چیدمانِ «راست»: نیمهٔ چپ پس‌زمینهٔ آرام است — جای کارتِ برداری', dLeft < 4, dLeft.toFixed(1));
+  const wide = P('wide.png');
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=1600x900:d=1', '-frames:v', '1', wide]);
+  const pw = MKIT.photoClip(FF, wide, P('wide.mp4'), 6, { layout: 'left' });
+  const dKb = diff(lumaAt(pw.file, 0.3, 560, 240, 800, 600), lumaAt(pw.file, 5.7, 560, 240, 800, 600));
+  ok('۶.۵ عکسِ افقی ⇒ کن‌برنز روی کلِ قاب (افکت دیده می‌شود)', pw.layout === 'fill' && pw.kind === 'kb' && dKb > 3, dKb.toFixed(1));
+  ok('۶.۶ چیدمان‌ها به نوبت‌اند، نه همه وسط', ['left', 'center', 'right'].every((L, i) => MKIT.layoutOf(i) === L) && MKIT.layoutOf(3) === 'left');
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۶.۷ رانر عکس را کلیپِ زنده می‌کند و «لحظه» چیدمانِ صحنه‌اش را می‌گیرد',
+     /MKIT\.photoClip\(FF, g\.file, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\] \}\)/.test(rj) &&
+     /MKIT\.moment\(FF, g\.file, v, a, c\.from, c\.len, g\.info, enc, \{ layout: c\.layout/.test(rj));
+}
+
 console.log('=== ۴) سیم‌کشی ===');
 {
   const r = fs.readFileSync('tools/render.js', 'utf8');

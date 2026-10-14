@@ -566,8 +566,11 @@ and avsync all come for free. `row.media` + `scene.media` is the only switch.
   (the first draft split the model's clip in two; the test caught it).
 - **Which part of a clip:** `tools/clipfind.py` (faster-whisper, word timestamps) finds `clipQuote` in the
   clip's own speech. Not found ⇒ from the start, **said** in `notes`.
-- **Framing:** wide ⇒ fill; vertical/square ⇒ whole, centred, over a blurred dark copy of itself. A crop
-  would throw away two thirds of a 9:16 clip — faces and text.
+- **Framing (8.99):** wide ⇒ fill (photos: Ken Burns). Otherwise `contentBox` cuts the phone status bar,
+  bottom bar and flat margins, and the media sits **in turn left / centre / right** (`layoutOf`) over a
+  blurred copy with a soft shadow — the free half is where the vector card lands. A tall screenshot is
+  shown large and **scrolls** top-to-bottom (`photoClip`); every photo is a moving clip, never a still.
+  The owner saw the first sample: «همش وسط … ریز … افکت ندیدم».
 - **Moments** (narrator silent, clip with its own sound): placed on a pause, never inside a `k:'m'` music
   span, ≤ `VM_MOMENT_MAX`, inserted **without re-encoding**: keyframes forced at the moment, video cut by
   stream copy, audio by sample. The moment time is snapped **to the frame grid** first — a keyframe asked
@@ -906,6 +909,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «بعد از یک ماه گوش دادم» — سیرِ معنایی پیش از چیدن، طنز به‌عنوانِ طنز، «فُحّاشی»، و قابی که همه‌اش وسط بود (8.99)
 - نمونهٔ اول دیده شد: یک دقیقه فقط کاور، و هیچ عبارتی پیدا نشد (8.98)
 - «۰ از ۴» بی شاهد — خودآزمونی که نمی‌گفت نمونه اصلاً خوانده شد یا نه (8.94)
 - «یک نمونه روی قسمتِ منتشرشده، همین امروز» — خودِ موتور، همان راه، بی یوتیوب (8.97)

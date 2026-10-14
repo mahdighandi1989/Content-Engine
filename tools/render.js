@@ -713,18 +713,33 @@ function prepMedia(it, scenes, dir, notes, placed) {
     if (len < MKIT.MK.momentMin) return { m: m, ok: false, why: 'تکهٔ شنیده‌شده کوتاه بود' };
     return { m: m, ok: true, url: m.url, from: from, len: len };
   });
+  /* ══ چیدمان و حرکت (۸.۹۹) ══ هر رسانهٔ غیرِافقی به نوبت چپ/وسط/راست؛ عکس کلیپِ زنده می‌شود (کن‌برنز یا
+     پیمایشِ اسکرین‌شاتِ بلند) و قابِ هر کلیپ از حاشیهٔ تختِ خودش بریده می‌شود. «لحظه» همان چیدمانِ صحنه‌اش
+     را می‌گیرد — وگرنه وسطِ صحنه رسانه از چپ به وسط می‌پرد. */
+  let lay = 0;
+  const layOf = {};
+  scenes.forEach(s => { layOf[s.n] = MKIT.layoutOf(lay++); });
+  st.layouts = {};
+  for (const m of moCut) {
+    if (!m.ok) continue;
+    const sc = scenes.filter(x => x.url === m.url && x.t0 <= m.m.at + 0.6).pop();
+    m.layout = sc ? layOf[sc.n] : 'center';
+  }
   scenes.forEach((s, i) => {
     const g = got[s.url];
     if (!g) { st.failed++; return; }
     const out = path.join(dir, 'ms' + String(s.n).padStart(3, '0'));
+    const want = (i + 1 < scenes.length ? scenes[i + 1].t0 - s.t0 : 30) + 2;
     try {
       if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
         if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
-        imgs[String(s.n)] = MKIT.photo(FF, g.file, out + '.jpg');
+        const pc = MKIT.photoClip(FF, g.file, out + '.mp4', want, { layout: layOf[s.n] });
+        clips[String(s.n)] = pc.file; imgs[String(s.n)] = pc.still; full[String(s.n)] = true;
+        st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] = (st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] || 0) + 1;
+        if (pc.box) st.cropped = (st.cropped || 0) + 1;
         st.photos++;
         return;
       }
-      const want = (i + 1 < scenes.length ? scenes[i + 1].t0 - s.t0 : 30) + 2;
       const end = i + 1 < scenes.length ? scenes[i + 1].t0 : 1e9;
       const h = scIdx[i] >= 0 ? heard[scIdx[i]] : null;
       /* لحظهٔ همین کلیپ درونِ همین صحنه ⇒ کلیپِ بی‌صدا طوری شروع می‌شود که **درست سرِ لحظه** به
@@ -749,7 +764,13 @@ function prepMedia(it, scenes, dir, notes, placed) {
         from = g.info.dur > 8 ? 1 : 0;
         if (scIdx[i] >= 0) { st.notFound++; st.why.push('صحنهٔ ' + s.n + ': ' + ((h && h.why) || 'شنیده نشد')); }
       }
-      const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip);
+      if (g.box === undefined) g.box = MKIT.contentBox(FF, g.file, g.info, { at: Math.min(Math.max(0, g.info.dur - 0.5), from + 1) });
+      const cOpt = { layout: layOf[s.n], box: g.box };
+      const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip, cOpt);
+      const ar = (g.box ? g.box.w / g.box.h : g.info.w / g.info.h);
+      const lk = (ar >= MKIT.MK.wideMin && ar <= MKIT.MK.wideMax) ? 'fill' : layOf[s.n];
+      st.layouts[lk] = (st.layouts[lk] || 0) + 1;
+      if (g.box) st.cropped = (st.cropped || 0) + 1;
       clips[String(s.n)] = c.file; imgs[String(s.n)] = c.still; full[String(s.n)] = true;
       st.clips++;
     } catch (e) {
@@ -775,7 +796,7 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
     const g = mp.got[c.url];
     try {
       const v = path.join(dir, 'mo' + parts.length + '.mp4'), a = path.join(dir, 'mo' + parts.length + '.wav');
-      const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc);
+      const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc, { layout: c.layout || 'center', box: g.box || null });
       parts.push({ at: m.at, v: v, a: a, len: r.len });
       st.made++;
     } catch (e) { st.why.push(Math.round(m.at) + 's: ' + String(e.message).split('\n')[0].slice(0, 60)); }
