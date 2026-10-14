@@ -693,3 +693,85 @@ function vmHealth_(problems, notes) {
     }
   } catch (eVmS) {}
 }
+
+/* ══ نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷) ══
+ * صاحبِ برنامه: «رو یه پادکستِ از قبل منتشرشده یه نسخه درست کن، دقیقاً همون شکلی که قراره رو بعدی‌ها کار کنی …
+ * کاور، همه‌چیز … که اگه ایرادی بود منتظرِ فردا نشم». پس نمونه را **خودِ موتور** می‌سازد، با همان توابع: پروندهٔ
+ * قسمت، صوتِ همان قسمت، `_yt.json`ِ همان قسمت، `vmBuild_` (مدل، رونوشت، کاور) و `ytRenderAsk_` (رانر). فقط کلید
+ * جداست (`<show>:<ep>-نمونه`) و **در فهرستِ انتشار نیست** — پس هیچ‌چیز به یوتیوب نمی‌رود. ساخته که شد، نشانی به
+ * تلگرام و ایمیل می‌رود و ردیفِ صف «رسید» می‌شود تا هشدارِ «رندرِ بی‌جواب» نسازد.
+ * `CFG.VM_SAMPLE` = { ep, folderId } یا خالی. هر نمونه یک بار (`PK.VM_SAMPLE`).
+ */
+function vmSampleTick_() {
+  var spec = CFG.VM_SAMPLE || null;
+  if (!spec || !spec.ep || !spec.folderId) return null;
+  var key = 'variety:' + String(spec.ep) + '-نمونه';
+  var st = {};
+  try { st = JSON.parse(props_().getProperty(PK.VM_SAMPLE) || '{}') || {}; } catch (e0) { st = {}; }
+  if (st.key === key && st.told) return null;
+  // ── ساخته شده؟ ⇒ خبر، و ردیف «رسید» ──
+  var m = null;
+  try { m = (ytRenderMapCached_() || {})[key] || null; } catch (eM) { m = null; }
+  if (m && m.url) {
+    var md = m.media || {};
+    var txt = '🎞 نمونهٔ «از همه جا» (قسمتِ ' + faDigitsOut_(String(spec.ep)) + ') با رسانه‌های منبع ساخته شد — ' +
+              'همان راهی که قسمت‌های بعدی می‌روند؛ به یوتیوب نرفته.\n' +
+              'ویدئو: ' + m.url + '\n' + (m.thumb ? 'کاور: ' + m.thumb + '\n' : '') +
+              'حالت: ' + String(m.mode || '') + ' · ' + (Number(m.scenes) || 0) + ' صحنه · ' + (Number(md.clips) || 0) +
+              ' کلیپ، ' + (Number(md.photos) || 0) + ' عکس · لحظهٔ صدای کلیپ: ' + ((m.inserts || []).length) +
+              ' · سنجشِ قاب: ' + (m.qa && m.qa.ok ? 'سالم' : 'ایراد — ' + String((m.qa && m.qa.why) || ''));
+    try {
+      var row0 = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
+      ytRenderDone_('variety', String(spec.ep) + '-نمونه');
+      if (row0) ytRenderShare_(row0, false);           // رونوشت‌ها و صوت دوباره خصوصی
+    } catch (eD) {}
+    try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: txt, disable_web_page_preview: false }); } catch (eT) {}
+    try { mailQueue_('یوتیوب', 'نمونهٔ ویدئوی «از همه جا» با رسانه‌های منبع', txt); } catch (eQ) {}
+    st = { key: key, told: true, at: nowStr_(), url: m.url };
+    try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(st)); } catch (eS) {}
+    return st;
+  }
+  if (st.key === key && st.asked) return null;          // منتظرِ رانر
+  // ── ساختِ درخواست، با همان توابعِ انتشار ──
+  /* درِ ساعتی هاب نمی‌خوانَد (۷٫۶۳؛ `run_bridge_voice_test` ۲۶.۳ همین را گرفت): شکستِ بی‌درمان فقط در
+     Properties و تلگرام گفته می‌شود و **یک بار** — هر ساعت دوباره‌پرسیدنِ پوشه‌ای که نیست، هزینهٔ بی‌حاصل است. */
+  var stop = function (why) {
+    var s1 = { key: key, told: true, at: nowStr_(), why: String(why) };
+    try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(s1)); } catch (eP) {}
+    try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: '🎞 ❌ نمونهٔ «از همه جا» ساخته نشد — ' + why }); } catch (eT) {}
+    return s1;
+  };
+  var folder = null;
+  try { folder = DriveApp.getFolderById(String(spec.folderId)); } catch (eF) { return stop('پوشهٔ قسمت پیدا نشد'); }
+  var meta = ytEpisodeMeta_(folder);
+  if (!meta || !meta.ep) return stop('پروندهٔ قسمت در پوشه نبود');
+  var ep = meta.ep;
+  var aud = ytAudioParts_(folder);
+  if (aud.why) return stop(aud.why);
+  var totalSec = ytSecondsOf_(aud.parts);
+  var ctx = { show: 'variety', epRaw: String(spec.ep) + '-نمونه', showName: CFG.SHOW_NAME,
+              tagline: CFG.SHOW_TAGLINE, seriesName: '', epNum: faDigitsOut_(String(spec.ep)), lesson: '',
+              recap: false, title: String(ep.title || ''), cat: String(meta.cat || ''),
+              duration: ytTime_(totalSec), headings: (ep.sections || []).map(function (x) { return String(x.heading || ''); }),
+              hook: String(ep.hook || ''), summary: String(ep.summary || ''), sources: (ep.__extSources || []),
+              castSpans: ((ep.__cast || {}).spans) || [], sections: ep.sections || [], totalSec: totalSec };
+  var plan = ytPlan_(folder, ctx, false) || {};
+  var r = vmBuild_(folder, meta, plan, ctx);
+  if (!r.active || r.fallback) return stop(String(r.why || 'خاموش'));
+  if (!r.done) {
+    try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify({ key: key, at: nowStr_(), why: String(r.why || 'ادامه در دورِ بعد') })); } catch (eS4) {}
+    return null;
+  }
+  var asked = ytRenderAsk_({ show: 'variety', ep: String(spec.ep) + '-نمونه', title: String(ep.title || ''),
+                 folderId: folder.getId(), visuals: [],
+                 scenes: r.items, sceneCover: r.cover, sceneInfo: r.info,
+                 media: true, moments: r.moments, mute: r.music,
+                 coverTitle: String(plan.coverTitle || ep.title || ''),
+                 coverKicker: String(plan.coverKicker || CFG.SHOW_NAME || ''),
+                 coverFoot: 'قسمت ' + faDigitsOut_(String(spec.ep)),
+                 audio: aud.parts.map(function (f) { return { id: f.getId(), name: f.getName() }; }),
+                 audioKind: aud.kind, coverFileId: '', outName: 'نمونه — ' + ytVideoName_(String(folder.getName())) });
+  st = { key: key, asked: !!asked, at: nowStr_(), scenes: r.items.length, moments: r.moments.length };
+  try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(st)); } catch (eS3) {}
+  return st;
+}

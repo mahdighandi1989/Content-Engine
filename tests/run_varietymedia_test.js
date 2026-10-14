@@ -283,6 +283,51 @@ console.log('=== ۹) شکلِ **واقعیِ** ذخیره‌شده (قسمتِ �
      sp[2].text.replace(/ /g, '').length === 400 && !/^\S*ب\S+ب/.test(sp[2].text.slice(0, 1)));
 }
 
+console.log('=== ۱۰) نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷) ===');
+{
+  const keep = {};
+  for (const f of ['ytEpisodeMeta_', 'ytAudioParts_', 'ytSecondsOf_', 'ytPlan_', 'vmBuild_', 'ytRenderMapCached_', 'tgEnabled_', 'tgApi_'])
+    keep[f] = global[f];
+  const ep = DriveApp.__register('EPS', 'قسمت ۷۲');
+  const wav = ep.createFile(Utilities.newBlob('RIFF', 'audio/wav', 'a — کامل.wav'));
+  global.__FILES_BY_ID[wav.getId()] = wav;
+  const kSample = CFG.VM_SAMPLE;
+  CFG.VM_SAMPLE = { ep: '72', folderId: 'EPS' };
+  delete global.__PROPS[PK.VM_SAMPLE];
+  let built = 0, tg = [];
+  global.ytEpisodeMeta_ = () => ({ ep: { title: 'هجو', sections: [] }, items: [], cat: 'طنز' });
+  global.ytAudioParts_ = () => ({ parts: [wav], kind: 'کامل', why: '' });
+  global.ytSecondsOf_ = () => 600;
+  global.ytPlan_ = () => ({ coverTitle: 'هجوِ خطوطِ قرمز', coverKicker: 'از همه جا' });
+  global.vmBuild_ = (f, m, p, c) => { built++; return { active: true, done: true, fallback: false,
+    items: [{ n: 1, t0: 0, fileId: wav.getId(), media: { kind: 'video', quote: '' } }], cover: null, moments: [], music: [], info: { media: true },
+    ctxKey: c.show + ':' + c.epRaw }; };
+  global.ytRenderMapCached_ = () => ({});
+  global.tgEnabled_ = () => true; global.tgApi_ = (m, b) => { tg.push(b.text); return {}; };
+  const due0 = JSON.stringify(ytDueList_());
+  const r1 = vmSampleTick_();
+  const row = ytRenderRead_().items.find(x => x.key === 'variety:72-نمونه');
+  ok('۱۰.۱ درخواستِ رندر با کلیدِ جدا و حالتِ رسانه گذاشته شد', r1 && r1.asked && row && row.media === true &&
+     row.mode === 'scenes', JSON.stringify(r1));
+  ok('۱۰.۲ فهرستِ انتشارِ یوتیوب دست نخورد — نمونه هرگز منتشر نمی‌شود', JSON.stringify(ytDueList_()) === due0);
+  ok('۱۰.۳ دورِ بعد (هنوز ساخته نشده) دوباره نمی‌سازد', vmSampleTick_() === null && built === 1);
+  global.ytRenderMapCached_ = () => ({ 'variety:72-نمونه': { url: 'https://x/variety-72-.mp4', thumb: 'https://x/c.jpg',
+    mode: 'media', scenes: 9, media: { clips: 6, photos: 3 }, inserts: [{ at: 100, d: 8 }], qa: { ok: true } } });
+  const r2 = vmSampleTick_();
+  ok('۱۰.۴ ساخته شد ⇒ نشانی به تلگرام و ردیف «رسید»', r2 && r2.told && tg.length === 1 && /variety-72-\.mp4/.test(tg[0]) &&
+     ytRenderRead_().items.find(x => x.key === 'variety:72-نمونه').status === 'رسید', tg[0]);
+  ok('۱۰.۵ و یک بار — نه هر ساعت', vmSampleTick_() === null && tg.length === 1);
+  CFG.VM_SAMPLE = null;
+  ok('۱۰.۶ تنظیمِ خالی ⇒ هیچ', vmSampleTick_() === null);
+  CFG.VM_SAMPLE = kSample;
+  for (const f in keep) global[f] = keep[f];
+  const vb = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  const y27 = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۰.۸ برداشتِ ویدئوها ردیفِ نمونه را برنمی‌دارد (mp4ِ دوم در پوشهٔ قسمتِ منتشرشده نمی‌نشیند)',
+     /if \(\/-نمونه\$\/\.test\(String\(pend\[i\]\.key \|\| ''\)\)\) continue;\s*\n\s*var rec = ytRenderBuilt_/.test(y27));
+  ok('۱۰.۷ درِ ساعتی صدایش می‌زند', /try \{ vmSampleTick_\(\); \}/.test(vb));
+}
+
 console.log('=== ۸) سیم‌کشی: هر دو در و یک تعریف ===');
 {
   const y = fs.readFileSync('src/27_YouTube.gs', 'utf8');

@@ -2066,6 +2066,9 @@ function ytRenderCollect_(budgetMs) {
   var budget = Math.max(20000, Number(budgetMs) || Number(CFG.YT_COLLECT_MS) || 120000);
   for (var i = 0; i < pend.length && out.got < cap; i++) {
     if (new Date().getTime() - t0 > budget) break;
+    /* نمونهٔ یک‌باره (۸.۹۷) هرگز برداشته نمی‌شود: پوشه‌اش پوشهٔ یک قسمتِ منتشرشده است و mp4ِ دوم در آن
+       «ویدئوی قسمت» گرفته می‌شد. خبرش را `vmSampleTick_` می‌دهد و ردیفش را خودش می‌بندد. */
+    if (/-نمونه$/.test(String(pend[i].key || ''))) continue;
     var rec = ytRenderBuilt_(pend[i], map);
     if (!rec) continue;
     out.tried++;

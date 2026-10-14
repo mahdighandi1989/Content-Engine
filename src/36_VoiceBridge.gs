@@ -2023,6 +2023,7 @@ function vbrCollectHourly() {
   try { ghRenderKickDue_(); } catch (eGk) {}
   /* نصبِ کدِ تازه و جبرانِ جزوه — هر دو ساعتی، نه فقط شبانه (۸.۷۶). پیش از سدِ پل، چون هیچ‌کدام به پل ربطی ندارد. */
   try { selfUpdateHourly_(); } catch (eSu) {}
+  try { vmSampleTick_(); } catch (eVs) {}        // ۸.۹۷: نمونهٔ یک‌بارهٔ «از همه جا» با رسانه‌های منبع (بخشِ ۳۷ پس از این بخش ⇒ try)
   try { handoutCatchUpArm_(); } catch (eHc) {}
   try { speakAbArm_(); } catch (eAb) {}
   try { srchProbeArm_(); } catch (ePr) {}        // ۸.۸۱: کاوشِ کاملِ عبارت، یک بار برای هر برچسب         // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب، یک بار
