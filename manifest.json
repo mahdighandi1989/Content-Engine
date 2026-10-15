@@ -1,18 +1,13 @@
 {
-  "version": "9.01",
+  "version": "9.02",
   "codeFile": "engine.gs",
-  "sha256": "e1b528176c7d3230423be6a4ba2de5fcdc580c9453389157fdb663148ab99d42",
-  "releasedAt": "2026-10-14T20:30:00Z",
-  "summary": "ویدئوی «از همه جا»: کاور سرِ موسیقیِ پایانی و پل‌ها، کارتِ نوشته به‌جای صحنهٔ طولانی، بی تکرارِ رسانهٔ دیده‌شده، لحظه‌های بیشتر؛ موسیقی دیگر زیرِ سکوت محو نمی‌شود؛ پشتیبان بی رونوشتِ اسکریپتِ چسبیده.",
+  "sha256": "55cdb80fa0fac6dd101573277fccaa9e7938bc7f61bea5c474678878300a1c45",
+  "releasedAt": "2026-10-15T00:20:00Z",
+  "summary": "اشتراکِ صوتِ ردیفِ در انتظار دیگر با پس‌گرفتنِ اشتراکِ ردیفِ دیگری بسته نمی‌شود؛ نمونهٔ منتظر اشتراکِ خودش را هر ساعت دوباره برقرار می‌کند.",
   "fixes": [
-    "37_VarietyMedia: vmCards_ — کاورِ outro/bridge و کارتِ نوشته (quote) سرِ جملهٔ میانهٔ صحنهٔ بلندتر از VM_SCENE_MAX_SEC×۱٫۶؛ d.sents در نقشه",
-    "37_VarietyMedia: نصف کردنِ صحنهٔ بلند دیگر با رسانهٔ دیده‌شده نیست (altSeen حذف)",
-    "VM_MOMENT_MAX ۶، VM_MOMENT_SEC ۳۰، VM_MOMENT_GAP ۲۰؛ پرامپت لحظه برای بیشترِ کلیپ‌های گفتاردار",
-    "runner: photoClip با card (کاورِ محو و تیره، زومِ آرام)؛ mediaOf پرچم‌های card/outro/bridge",
-    "03_Producer: pcmLeadTrim_ — موسیقی→گفتار، سکوتِ آغازِ گفتار پیش از تلفیق برداشته می‌شود (MUSIC_SPEECH_LEAD_SEC)",
-    "17_Backup: backupCopyOf_ — شیت‌های تحلیلگر تب‌به‌تب، بی رونوشتِ اسکریپتِ چسبیده؛ شکست ⇒ makeCopy",
-    "VM_SAMPLE rev ۵",
-    "tests: run_varietymedia §۱۲، run_media_render §۷، run_music_lead_test، run_backup_noscript_test — هر کدام با شکستنِ عمدی"
+    "27_YouTube: ytShareKeep_ و پارامترِ keep در ytRenderShare_ — جاروی شبانه فایلِ لازمِ ردیف‌های در انتظار را نمی‌بندد",
+    "37_VarietyMedia: پایانِ نمونه با keep؛ نمونهٔ منتظر هر ساعت ytRenderShare_(row, true)",
+    "tests: run_varietymedia_test §۱۳ با شکستنِ عمدی"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
@@ -138,6 +133,9 @@
     "9.01": {
       "R-20261014-17": "makeCopy روی شیتِ دارای اسکریپتِ چسبیده اسکریپت را هم رونوشت می‌کند ⇒ backupCopyOf_",
       "R-20261014-18": "صحنه تا رسانهٔ بعدی می‌ماند و altSeen رسانهٔ دیده‌شده را برمی‌گرداند ⇒ vmCards_؛ موسیقی روی سکوتِ آغازِ گفتار محو می‌شد ⇒ pcmLeadTrim_"
+    },
+    "9.02": {
+      "R-20261014-18": "نمونهٔ ۵ به‌خاطرِ اشتراکِ بسته‌شدهٔ صوت ساخته نشد — درمان: ytShareKeep_"
     }
   }
 }

@@ -863,7 +863,7 @@ function vmSampleTick_() {
     try {
       var row0 = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
       ytRenderDone_('variety', tag);
-      if (row0) ytRenderShare_(row0, false);           // رونوشت‌ها و صوت دوباره خصوصی
+      if (row0) ytRenderShare_(row0, false, ytShareKeep_(ytRenderRead_(), key));   // رونوشت‌ها و صوت دوباره خصوصی — جز آنچه ردیفِ در انتظارِ دیگری لازم دارد (۹.۰۲)
     } catch (eD) {}
     try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: txt, disable_web_page_preview: false }); } catch (eT) {}
     try { mailQueue_('یوتیوب', 'نمونهٔ ویدئوی «از همه جا» با رسانه‌های منبع', txt); } catch (eQ) {}
@@ -871,7 +871,15 @@ function vmSampleTick_() {
     try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(st)); } catch (eS) {}
     return st;
   }
-  if (st.key === key && st.asked) return null;          // منتظرِ رانر
+  if (st.key === key && st.asked) {
+    /* منتظرِ رانر — و هر ساعت اشتراکِ همین ردیف دوباره برقرار می‌شود (۹.۰۲): پس‌گرفتنِ اشتراکِ ردیفِ دیگری
+       (یا دستِ کسی) صوتِ همین نمونه را بسته بود و رانر یک صفحهٔ HTML به‌جای WAV گرفت. */
+    try {
+      var rowW = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
+      if (rowW && String(rowW.status || '') === 'در انتظار') ytRenderShare_(rowW, true);
+    } catch (eW) {}
+    return null;
+  }
   // ── ساختِ درخواست، با همان توابعِ انتشار ──
   /* درِ ساعتی هاب نمی‌خوانَد (۷٫۶۳؛ `run_bridge_voice_test` ۲۶.۳ همین را گرفت): شکستِ بی‌درمان فقط در
      Properties و تلگرام گفته می‌شود و **یک بار** — هر ساعت دوباره‌پرسیدنِ پوشه‌ای که نیست، هزینهٔ بی‌حاصل است. */

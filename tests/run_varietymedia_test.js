@@ -409,4 +409,32 @@ console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): 
   ok('۱۲.۱۱ لحظه‌ها: سقفِ ۶ و ۳۰ ثانیه', CFG.VM_MOMENT_MAX === 6 && CFG.VM_MOMENT_SEC === 30 && CFG.VM_MOMENT_GAP === 20);
 }
 
+console.log('=== ۱۳) پس‌گرفتنِ اشتراک صوتِ ردیفِ در انتظار را نمی‌بندد (۹.۰۲) ===');
+{
+  /* رانرِ ۲۳:۲۳ (۱۴ اکتبر): «variety:72-5-نمونه — بخشِ 1 واقعاً WAV نیست (921458 بایت)». ردیف‌های ۷۲-۲ تا ۷۲-۵ یک صوت
+     دارند؛ ردیفِ «رسید»ِ ۷۲-۴ پس گرفته شد و صوتِ ۷۲-۵ هم بسته شد. */
+  const now = nowStr_();
+  const d = { items: [
+    { key: 'variety:72-4-نمونه', status: 'رسید', shared: true, sharedAt: now, audio: [{ id: 'AUD' }], scenes: [{ fileId: 'C4' }] },
+    { key: 'variety:72-5-نمونه', status: 'در انتظار', shared: true, sharedAt: now, audio: [{ id: 'AUD' }], scenes: [{ fileId: 'C5' }] }
+  ] };
+  const keepRead = global.ytRenderRead_, keepSave = global.ytRenderSave_, kOn = global.ytShareOn_, kOff = global.ytShareOff_;
+  const off = [], on = [];
+  global.ytRenderRead_ = () => d; global.ytRenderSave_ = () => {};
+  global.ytShareOff_ = id => { off.push(id); return true; }; global.ytShareOn_ = id => { on.push(id); return true; };
+  try {
+    ytShareSweep_();
+    ok('۱۳.۱ صوتِ مشترک بسته نشد، فقط فایلِ خودِ ردیفِ رسیده', off.indexOf('AUD') === -1 && off.indexOf('C4') !== -1, JSON.stringify(off));
+    ok('۱۳.۲ ردیفِ در انتظار دست نخورد', d.items[1].shared === true && off.indexOf('C5') === -1);
+    d.items[1].status = 'رسید'; off.length = 0;
+    ytShareSweep_();
+    ok('۱۳.۳ وقتی دیگر کسی لازمش ندارد، بسته می‌شود', off.indexOf('AUD') !== -1 && off.indexOf('C5') !== -1, JSON.stringify(off));
+  } finally {
+    global.ytRenderRead_ = keepRead; global.ytRenderSave_ = keepSave; global.ytShareOn_ = kOn; global.ytShareOff_ = kOff;
+  }
+  const e = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
+  ok('۱۳.۴ نمونهٔ منتظر هر ساعت اشتراکِ ردیفِ خودش را دوباره برقرار می‌کند', /if \(rowW && String\(rowW\.status \|\| ''\) === 'در انتظار'\) ytRenderShare_\(rowW, true\);/.test(e) &&
+     /ytRenderShare_\(row0, false, ytShareKeep_\(ytRenderRead_\(\), key\)\)/.test(e));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');

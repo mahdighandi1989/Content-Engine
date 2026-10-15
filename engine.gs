@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.01
+ *  موتور محتوا و پادکست — نسخهٔ 9.02
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2078,7 +2078,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.01',
+  CODE_VERSION: '9.02',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -50130,7 +50130,7 @@ function ytShareOff_(fileId) {
 }
 
 /** صوت و کاورِ یک ردیف را با هم باز یا بسته می‌کند. */
-function ytRenderShare_(item, on) {
+function ytRenderShare_(item, on, keep) {
   var ids = [], au = (item || {}).audio || [];
   for (var i = 0; i < au.length; i++) if (au[i] && au[i].id) ids.push(au[i].id);
   if (item && item.coverFileId) ids.push(item.coverFileId);
@@ -50161,11 +50161,31 @@ function ytRenderShare_(item, on) {
     if (cz && !seen[cz]) { seen[cz] = true; ids.push(cz); }
   }
   if (item && item.sceneCover && item.sceneCover.fileId) ids.push(item.sceneCover.fileId);
+  if (keep === 'ids') return ids;
   var n = 0;
   for (var j = 0; j < ids.length; j++) {
+    /* ۹.۰۲: فایلی که ردیفِ **در انتظارِ** دیگری هم لازمش دارد بسته نمی‌شود — نمونه‌های ۲ تا ۵ همه یک صوت
+       داشتند و پس‌گرفتنِ اشتراکِ ردیفِ «رسید»ِ نمونهٔ ۴، صوتِ نمونهٔ ۵ را بست («بخشِ ۱ واقعاً WAV نیست»). */
+    if (!on && keep && keep[ids[j]]) continue;
     if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
   }
   return n;
+}
+
+/** شناسه‌هایی که ردیف‌های در انتظار (و هنوز نه کهنه) لازم دارند — هیچ پس‌گرفتنی به این‌ها دست نمی‌زند (۹.۰۲). */
+function ytShareKeep_(d, exceptKey) {
+  var keep = {}, now = new Date().getTime();
+  var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
+  var items = (d && d.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (String(it.status || '') !== 'در انتظار' || (exceptKey && String(it.key) === String(exceptKey))) continue;
+    var t = parseWhen_(String(it.sharedAt || it.at || ''));
+    if (!isNaN(t) && (now - t) / 86400000 > maxD) continue;
+    var ids = ytRenderShare_(it, false, 'ids');
+    for (var j = 0; j < ids.length; j++) keep[ids[j]] = 1;
+  }
+  return keep;
 }
 
 /** خودِ صف هم باید از بیرون خواندنی باشد — وگرنه اکشن نمی‌داند چه بسازد. */
@@ -50377,6 +50397,7 @@ function ytRenderCollect_(budgetMs) {
 function ytShareSweep_() {
   var d = ytRenderRead_(), now = new Date().getTime(), n = 0, changed = false;
   var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
+  var keep = ytShareKeep_(d, '');
   for (var i = 0; i < d.items.length; i++) {
     var it = d.items[i];
     if (!it.shared) continue;
@@ -50384,7 +50405,7 @@ function ytShareSweep_() {
     var t = parseWhen_(String(it.sharedAt || it.at || ''));
     var old = !isNaN(t) && (now - t) / 86400000 > maxD;
     if (!done && !old) continue;
-    ytRenderShare_(it, false);
+    ytRenderShare_(it, false, keep);
     it.shared = false;
     it.unsharedAt = nowStr_();
     changed = true; n++;
@@ -77658,7 +77679,7 @@ function vmSampleTick_() {
     try {
       var row0 = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
       ytRenderDone_('variety', tag);
-      if (row0) ytRenderShare_(row0, false);           // رونوشت‌ها و صوت دوباره خصوصی
+      if (row0) ytRenderShare_(row0, false, ytShareKeep_(ytRenderRead_(), key));   // رونوشت‌ها و صوت دوباره خصوصی — جز آنچه ردیفِ در انتظارِ دیگری لازم دارد (۹.۰۲)
     } catch (eD) {}
     try { if (tgEnabled_()) tgApi_('sendMessage', { chat_id: tgChat_(), text: txt, disable_web_page_preview: false }); } catch (eT) {}
     try { mailQueue_('یوتیوب', 'نمونهٔ ویدئوی «از همه جا» با رسانه‌های منبع', txt); } catch (eQ) {}
@@ -77666,7 +77687,15 @@ function vmSampleTick_() {
     try { props_().setProperty(PK.VM_SAMPLE, JSON.stringify(st)); } catch (eS) {}
     return st;
   }
-  if (st.key === key && st.asked) return null;          // منتظرِ رانر
+  if (st.key === key && st.asked) {
+    /* منتظرِ رانر — و هر ساعت اشتراکِ همین ردیف دوباره برقرار می‌شود (۹.۰۲): پس‌گرفتنِ اشتراکِ ردیفِ دیگری
+       (یا دستِ کسی) صوتِ همین نمونه را بسته بود و رانر یک صفحهٔ HTML به‌جای WAV گرفت. */
+    try {
+      var rowW = (ytRenderRead_().items || []).filter(function (x) { return String(x.key) === key; })[0];
+      if (rowW && String(rowW.status || '') === 'در انتظار') ytRenderShare_(rowW, true);
+    } catch (eW) {}
+    return null;
+  }
   // ── ساختِ درخواست، با همان توابعِ انتشار ──
   /* درِ ساعتی هاب نمی‌خوانَد (۷٫۶۳؛ `run_bridge_voice_test` ۲۶.۳ همین را گرفت): شکستِ بی‌درمان فقط در
      Properties و تلگرام گفته می‌شود و **یک بار** — هر ساعت دوباره‌پرسیدنِ پوشه‌ای که نیست، هزینهٔ بی‌حاصل است. */

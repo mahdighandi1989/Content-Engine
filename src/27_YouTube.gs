@@ -1856,7 +1856,7 @@ function ytShareOff_(fileId) {
 }
 
 /** صوت و کاورِ یک ردیف را با هم باز یا بسته می‌کند. */
-function ytRenderShare_(item, on) {
+function ytRenderShare_(item, on, keep) {
   var ids = [], au = (item || {}).audio || [];
   for (var i = 0; i < au.length; i++) if (au[i] && au[i].id) ids.push(au[i].id);
   if (item && item.coverFileId) ids.push(item.coverFileId);
@@ -1887,11 +1887,31 @@ function ytRenderShare_(item, on) {
     if (cz && !seen[cz]) { seen[cz] = true; ids.push(cz); }
   }
   if (item && item.sceneCover && item.sceneCover.fileId) ids.push(item.sceneCover.fileId);
+  if (keep === 'ids') return ids;
   var n = 0;
   for (var j = 0; j < ids.length; j++) {
+    /* ۹.۰۲: فایلی که ردیفِ **در انتظارِ** دیگری هم لازمش دارد بسته نمی‌شود — نمونه‌های ۲ تا ۵ همه یک صوت
+       داشتند و پس‌گرفتنِ اشتراکِ ردیفِ «رسید»ِ نمونهٔ ۴، صوتِ نمونهٔ ۵ را بست («بخشِ ۱ واقعاً WAV نیست»). */
+    if (!on && keep && keep[ids[j]]) continue;
     if (on ? ytShareOn_(ids[j]) : ytShareOff_(ids[j])) n++;
   }
   return n;
+}
+
+/** شناسه‌هایی که ردیف‌های در انتظار (و هنوز نه کهنه) لازم دارند — هیچ پس‌گرفتنی به این‌ها دست نمی‌زند (۹.۰۲). */
+function ytShareKeep_(d, exceptKey) {
+  var keep = {}, now = new Date().getTime();
+  var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
+  var items = (d && d.items) || [];
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    if (String(it.status || '') !== 'در انتظار' || (exceptKey && String(it.key) === String(exceptKey))) continue;
+    var t = parseWhen_(String(it.sharedAt || it.at || ''));
+    if (!isNaN(t) && (now - t) / 86400000 > maxD) continue;
+    var ids = ytRenderShare_(it, false, 'ids');
+    for (var j = 0; j < ids.length; j++) keep[ids[j]] = 1;
+  }
+  return keep;
 }
 
 /** خودِ صف هم باید از بیرون خواندنی باشد — وگرنه اکشن نمی‌داند چه بسازد. */
@@ -2103,6 +2123,7 @@ function ytRenderCollect_(budgetMs) {
 function ytShareSweep_() {
   var d = ytRenderRead_(), now = new Date().getTime(), n = 0, changed = false;
   var maxD = Math.max(1, Number(CFG.YT_SHARE_DAYS) || 3);
+  var keep = ytShareKeep_(d, '');
   for (var i = 0; i < d.items.length; i++) {
     var it = d.items[i];
     if (!it.shared) continue;
@@ -2110,7 +2131,7 @@ function ytShareSweep_() {
     var t = parseWhen_(String(it.sharedAt || it.at || ''));
     var old = !isNaN(t) && (now - t) / 86400000 > maxD;
     if (!done && !old) continue;
-    ytRenderShare_(it, false);
+    ytRenderShare_(it, false, keep);
     it.shared = false;
     it.unsharedAt = nowStr_();
     changed = true; n++;
