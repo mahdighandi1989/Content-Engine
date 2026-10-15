@@ -1421,6 +1421,13 @@ function selfUpdateDaily() {
         }
       }
     } catch (eYst) { logLine_('بازخوردِ یوتیوب گرفته نشد: ' + eYst.message); }
+    /* ۹.۱۳: «چرا» — ماندگاری، منبعِ بیننده، کلیک روی کاور. */
+    try {
+      if (CFG.YT_ANALYTICS !== false && ytaDue_() && ytLeft() > 25000) {
+        var yga = ytaRun_(Math.min(Number(CFG.YTA_MS) || 60000, Math.max(15000, ytLeft() - 15000)));
+        if (!yga.ok && yga.why) logLine_('آمارِ رشدِ یوتیوب: ' + yga.why);
+      }
+    } catch (eYga) { logLine_('آمارِ رشدِ یوتیوب گرفته نشد: ' + eYga.message); }
     /* و آخر از همه، اشتراک‌های موقت پس گرفته می‌شوند — بعد از آپلود، تا
        ویدئویی که همین اجرا منتشر شد صوتش را زیرِ پا از دست ندهد. */
     try {

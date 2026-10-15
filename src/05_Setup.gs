@@ -56,6 +56,7 @@ function onOpen() {
       .addItem('🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار', 'runLvStyleAllAuto')
       .addItem('📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل', 'runYouTubeChannel')
       .addItem('📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت', 'runYouTubeStats')
+      .addItem('📈 رشدِ کانال — آمار و تشخیص', 'runYouTubeGrowth')
       .addItem('🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها', 'runSourceQuality')
       .addItem('📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده', 'runRecapNow')
       .addItem('🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب', 'runYouTubeFix')

@@ -338,6 +338,9 @@ function ytMetaPrompt_(ctx) {
   var learn = null;
   try { learn = ytLearn_(); } catch (eL) {}
   if (learn && learn.text) { L.push(''); L.push(learn.text); }
+  var lg = '';
+  try { lg = ytaLearnText_(); } catch (eLg) {}
+  if (lg) { L.push(''); L.push(lg); }
 
   L.push('');
   L.push('چه بنویس:');
@@ -11326,6 +11329,10 @@ function ytTick_(budgetMs) {
     try { if (ytStatsDue_()) ytStatsRun_(Math.max(10000, left() - 4000)); }
     catch (e3) { out.why += (out.why ? ' · ' : '') + 'بازخورد: ' + String(e3.message).slice(0, 60); }
   }
+  if (left() > 15000) {
+    try { if (CFG.YT_ANALYTICS !== false && ytaDue_()) ytaRun_(Math.max(10000, left() - 5000)); }
+    catch (e4) { out.why += (out.why ? ' · ' : '') + 'آمارِ رشد: ' + String(e4.message).slice(0, 60); }
+  }
 
   /* ══ سومین بارِ همان شکاف: راه‌اندازیِ سرد (۶٫۱۸) ══
    * پلی‌لیست و شناسنامهٔ کانال فقط در کارِ شبانه بودند. نصبِ کد ۰۲:۳۰ انجام
@@ -11365,6 +11372,7 @@ function ytStatus_() {
      که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در یک تب باشد، برای ناظر
      وجود ندارد. */
   try { out.feedback = ytStatsStatus_(); } catch (eFb0) {}
+  try { out.growth = ytaStatus_(); } catch (eGr0) {}
   /* پلی‌لیست‌ها با وضعِ کاور و پادکستشان در `_STATUS.json` می‌نشینند — تنها
      فایلی که سشنِ ناظر واقعاً می‌خواند. چیزی که فقط در Properties باشد،
      برای ناظر وجود ندارد. */
@@ -11528,6 +11536,8 @@ function ytHealth_(problems, notes) {
   try {
     var fb = ytStatsStatus_();
     if (fb && fb.line) notes.push(fb.line);
+    var gr = ytaStatus_();
+    if (gr && gr.line) notes.push(gr.line);
     if (fb && fb.newComments7d) {
       notes.push('کامنت‌های تازه در تبِ «' + (CFG.YTC_TAB2 || 'کامنت‌های یوتیوب') +
                  '» ثبت شده‌اند — پاسخ‌دادنشان کارِ شماست، موتور جواب نمی‌دهد.');
@@ -12004,6 +12014,366 @@ function ytStatsStatus_() {
                (out.best ? ' · پرمخاطب‌ترین: «' + out.best + '»' : '');
   } catch (e) { out.line = 'بازخوردِ یوتیوب خوانده نشد: ' + e.message; }
   return out;
+}
+
+/* ─────────── ۱۳‑ب۲) رشدِ کانال: آنچه فقط YouTube Analytics می‌داند (۹.۱۳) ───────────
+ *
+ * صاحبِ برنامه، با عکسِ صفحهٔ درآمدزایی (۷۰ مشترک، ۳۶ ساعت تماشا در یک سال، ۲۴۰ ویدئو):
+ * «ببینی چرا رشد نکرده و کاری کنی که محتواها … از ابتدا تا انتها جذاب و دیدنی باشه».
+ *
+ * `ytStatsRun_` (۶٫۷) فقط شمارِ نمایش و پسند را می‌داند — همان عددی که «چقدر» را می‌گوید و «چرا» را
+ * نه. چرا را سه عدد می‌گویند که فقط Analytics دارد: **بیننده تا کجا ماند** (ماندگاری و ۳۰ ثانیهٔ اول)،
+ * **از کجا آمد** (جست‌وجو، پیشنهادِ یوتیوب، یا لینکِ بیرونیِ تبلیغ) و **کاور را که دید، کلیک کرد؟**
+ * این بخش آن‌ها را هر روز می‌خوانَد، تشخیص را **از عدد** می‌سازد (نه حدس) و همان را به همان دری می‌بَرد
+ * که ۶٫۷ ساخت: پرامپتِ عنوان و کاورِ قسمتِ بعد، `_STATUS.json` و ایمیلِ ۱۰ صبح.
+ *
+ * اجازه‌اش (`yt-analytics.readonly`) را فقط صاحبِ حساب می‌دهد — یک بار، از منو. تا ندهد، خطِ روزانه
+ * همین را می‌گوید، نه سکوت و نه خطای هر شب.
+ */
+var YTA_HEADERS = ['تاریخ', 'از', 'تا', 'نمایش', 'ساعتِ تماشا', 'میانگینِ دیدن (ثانیه)',
+                   'درصدِ دیده‌شده', 'مشترکِ تازه', 'مشترکِ رفته', 'جست‌وجو٪', 'پیشنهادِ یوتیوب٪',
+                   'بیرونی٪', 'کلیک روی کاور٪', 'ماندن تا ثانیهٔ ۳۰٪', 'تشخیص'];
+
+/** منابعِ ترافیک، به سه گروهی که تصمیم از آن‌ها درمی‌آید. */
+var YTA_SRC_GROUP = {
+  YT_SEARCH: 'search', RELATED_VIDEO: 'suggest', SUBSCRIBER: 'suggest', YT_CHANNEL: 'suggest',
+  SHORTS: 'suggest', HASHTAGS: 'suggest', NOTIFICATION: 'suggest', END_SCREEN: 'suggest',
+  YT_OTHER_PAGE: 'suggest', PLAYLIST: 'suggest', YT_PLAYLIST_PAGE: 'suggest',
+  EXT_URL: 'external', NO_LINK_OTHER: 'external', NO_LINK_EMBEDDED: 'external'
+};
+
+function ytaDate_(daysAgo) {
+  return Utilities.formatDate(new Date(new Date().getTime() - daysAgo * 86400000), CFG.TIMEZONE, 'yyyy-MM-dd');
+}
+
+/** یک گزارشِ Analytics. شکست با علتش برمی‌گردد: اجازه نیست، API خاموش است، یا خودِ پاسخِ گوگل. */
+function ytaQuery_(q) {
+  var p = ['ids=channel%3D%3DMINE', 'startDate=' + q.start, 'endDate=' + q.end,
+           'metrics=' + encodeURIComponent(q.metrics)];
+  if (q.dims) p.push('dimensions=' + encodeURIComponent(q.dims));
+  if (q.filters) p.push('filters=' + encodeURIComponent(q.filters));
+  if (q.sort) p.push('sort=' + encodeURIComponent(q.sort));
+  if (q.max) p.push('maxResults=' + q.max);
+  var r = ytHttp_('https://youtubeanalytics.googleapis.com/v2/reports?' + p.join('&'), 'get');
+  var out = { ok: false, code: r.code, cols: [], rows: [], why: '' };
+  if (r.code === 200 && r.json) {
+    out.ok = true;
+    out.cols = ((r.json.columnHeaders) || []).map(function (h) { return String(h.name || ''); });
+    out.rows = r.json.rows || [];
+    return out;
+  }
+  var msg = '';
+  try { msg = String((((r.json || {}).error || {}).message) || ''); } catch (e) {}
+  var off = ytApiOff_(msg + ' ' + String(r.text || '').slice(0, 600));
+  if (off.scope || r.code === 401) out.scope = true;
+  else if (off.off) { out.disabled = true; out.url = off.url; }
+  out.why = 'HTTP ' + r.code + (msg ? ': ' + msg.slice(0, 140) : '');
+  return out;
+}
+
+/** ردیفِ i از گزارش، با نامِ ستون‌ها. */
+function ytaRows_(res) {
+  var out = [];
+  for (var i = 0; i < (res.rows || []).length; i++) {
+    var o = {};
+    for (var c = 0; c < res.cols.length; c++) o[res.cols[c]] = res.rows[i][c];
+    out.push(o);
+  }
+  return out;
+}
+
+function ytaDue_() {
+  var everyH = Math.max(1, Number(CFG.YTA_EVERY_H) || 20);
+  var at = '';
+  try { at = String(props_().getProperty(PK.YTA_AT) || ''); } catch (e) {}
+  if (!at) return true;
+  var t = parseWhen_(at);
+  return isNaN(t) || (new Date().getTime() - t) / 3600000 >= everyH;
+}
+
+/** نقطهٔ نزدیک به نسبتِ r از منحنیِ ماندگاری (۱۰۰ نقطه). */
+function ytaRetAt_(curve, r) {
+  var best = null, bd = 1e9;
+  for (var i = 0; i < curve.length; i++) {
+    var d = Math.abs(curve[i][0] - r);
+    if (d < bd) { bd = d; best = curve[i]; }
+  }
+  return best ? best[1] : null;
+}
+
+/**
+ * یک دورِ کامل. ترتیب عمدی است: کلِ کانال (یک فراخوان، و همان که می‌گوید اجازه هست یا نه)، بعد هر
+ * ویدئو، منابع، کلیک روی کاور، و آخر از همه منحنیِ ماندگاری که برای هر ویدئو یک فراخوان است.
+ */
+function ytaRun_(budgetMs) {
+  var out = { ok: false, why: '', calls: 0 };
+  if (CFG.YT_ANALYTICS === false) { out.why = 'خاموش'; return out; }
+  if (!ytOn_()) { out.why = ytOffWhy_(); return out; }
+  var t0 = new Date().getTime(), budget = Math.max(15000, Number(budgetMs) || 60000);
+  var left = function () { return budget - (new Date().getTime() - t0); };
+  var days = Math.max(7, Number(CFG.YTA_DAYS) || 28);
+  var end = ytaDate_(2), start = ytaDate_(1 + days);
+  var snap = { at: nowStr_(), start: start, end: end };
+  var q = function (o) { out.calls++; o.start = o.start || start; o.end = o.end || end; return ytaQuery_(o); };
+
+  var ch = q({ metrics: 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained,subscribersLost' });
+  if (!ch.ok) {
+    snap.need = ch.scope ? 'scope' : (ch.disabled ? 'api' : 'error');
+    snap.url = ch.url || '';
+    snap.why = ch.why;
+    ytaSave_(snap);
+    out.why = snap.need === 'scope' ? 'اجازهٔ خواندنِ آمار هنوز داده نشده'
+            : snap.need === 'api' ? 'YouTube Analytics API در پروژهٔ ابری روشن نیست' : ch.why;
+    return out;
+  }
+  var c0 = ytaRows_(ch)[0] || {};
+  snap.ch = { views: Number(c0.views || 0), hours: Math.round(Number(c0.estimatedMinutesWatched || 0) / 6) / 10,
+              avd: Math.round(Number(c0.averageViewDuration || 0)), avp: Math.round(Number(c0.averageViewPercentage || 0) * 10) / 10,
+              subsIn: Number(c0.subscribersGained || 0), subsOut: Number(c0.subscribersLost || 0) };
+
+  /* کدام ویدئو مالِ این موتور است، و مالِ کدام برنامه — کانال ویدئوهای پیش از موتور هم دارد. */
+  var pub = ytPublished_(), mine = Object.create(null);
+  for (var k in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, k) || !pub[k].videoId) continue;
+    mine[pub[k].videoId] = { show: k.split(':')[0], ep: k.split(':')[1], title: String(pub[k].title || '').slice(0, 70) };
+  }
+
+  var life = null;
+  if (left() > 8000) {
+    life = q({ start: '2015-01-01', dims: 'video', sort: '-views', max: 200,
+               metrics: 'views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained' });
+  }
+  var vids = [];
+  if (life && life.ok) {
+    var lr = ytaRows_(life);
+    for (var i = 0; i < lr.length; i++) {
+      var id = String(lr[i].video || ''), m = mine[id] || null;
+      var avd = Number(lr[i].averageViewDuration || 0), avp = Number(lr[i].averageViewPercentage || 0);
+      vids.push({ id: id, mine: !!m, show: m ? m.show : '', ep: m ? m.ep : '', title: m ? m.title : '',
+                  views: Number(lr[i].views || 0), avd: Math.round(avd), avp: Math.round(avp * 10) / 10,
+                  dur: avp > 0 ? Math.round(avd / (avp / 100)) : 0, subs: Number(lr[i].subscribersGained || 0) });
+    }
+  }
+  /* هر برنامه جدا — «از همه جا» و «درس‌نامه» و ویدئوهای پیش از موتور سه مخاطبِ جدا دارند. */
+  var shows = {};
+  for (var v = 0; v < vids.length; v++) {
+    var key = vids[v].mine ? vids[v].show : 'other';
+    var s = shows[key] || (shows[key] = { n: 0, views: 0, w: 0 });
+    s.n++; s.views += vids[v].views; s.w += vids[v].avp * vids[v].views;
+  }
+  for (var sk in shows) {
+    if (Object.prototype.hasOwnProperty.call(shows, sk)) {
+      shows[sk].avp = shows[sk].views ? Math.round(shows[sk].w / shows[sk].views * 10) / 10 : 0;
+      delete shows[sk].w;
+    }
+  }
+  snap.shows = shows;
+  var minV = Math.max(1, Number(CFG.YTA_MIN_VIEWS) || 10);
+  var ours = vids.filter(function (x) { return x.mine && x.views >= minV && x.title; });
+  ours.sort(function (a, b) { return b.avp - a.avp; });
+  var pick = function (x) { return { t: x.title, ep: x.ep, show: x.show, v: x.views, avp: x.avp, dur: x.dur }; };
+  var half = Math.ceil(ours.length / 2);                 // یک ویدئو هرگز هم بهترین و هم بدترین نیست
+  snap.best = ours.slice(0, Math.min(4, half)).map(pick);
+  snap.worst = ours.slice(Math.max(half, ours.length - 4)).reverse().map(pick);
+
+  if (left() > 6000) {
+    var src = q({ dims: 'insightTrafficSourceType', metrics: 'views', sort: '-views' });
+    if (src.ok) {
+      var g = { search: 0, suggest: 0, external: 0, other: 0 }, tot = 0, list = [];
+      var sr = ytaRows_(src);
+      for (var j = 0; j < sr.length; j++) {
+        var nv = Number(sr[j].views || 0), ty = String(sr[j].insightTrafficSourceType || '');
+        tot += nv; g[YTA_SRC_GROUP[ty] || 'other'] += nv;
+        if (list.length < 6) list.push(ty + ':' + nv);
+      }
+      snap.src = { total: tot, list: list };
+      for (var gk in g) if (Object.prototype.hasOwnProperty.call(g, gk)) snap.src[gk] = tot ? Math.round(g[gk] / tot * 100) : 0;
+    }
+  }
+  /* کلیک روی کاور: همهٔ نسخه‌های API این دو سنجه را ندارند — نبودش ثبت می‌شود، خطا نمی‌شود. */
+  if (left() > 6000) {
+    var ctr = q({ metrics: 'videoThumbnailImpressions,videoThumbnailImpressionsClickRate' });
+    if (ctr.ok) {
+      var cr = ytaRows_(ctr)[0] || {};
+      snap.ctr = { imp: Number(cr.videoThumbnailImpressions || 0),
+                   rate: Math.round(Number(cr.videoThumbnailImpressionsClickRate || 0) * 100) / 100 };
+    } else snap.ctrWhy = ctr.why;
+  }
+  /* منحنیِ ماندگاری برای تازه‌ترین ویدئوهای خودمان که بیننده داشته‌اند. */
+  var rmax = Math.max(0, Number(CFG.YTA_RET_MAX) || 6), ret = [];
+  var recent = vids.filter(function (x) { return x.mine && x.views >= minV && x.dur > 0; })
+                   .sort(function (a, b) { return (Number(b.ep) || 0) - (Number(a.ep) || 0); });
+  for (var rr = 0; rr < recent.length && ret.length < rmax && left() > 5000; rr++) {
+    var rv = recent[rr];
+    var cu = q({ start: '2015-01-01', dims: 'elapsedVideoTimeRatio', filters: 'video==' + rv.id,
+                 metrics: 'audienceWatchRatio,relativeRetentionPerformance' });
+    if (!cu.ok) continue;
+    var pts = ytaRows_(cu).map(function (x) { return [Number(x.elapsedVideoTimeRatio), Number(x.audienceWatchRatio), Number(x.relativeRetentionPerformance)]; });
+    if (pts.length < 5) continue;
+    var r30 = ytaRetAt_(pts, Math.min(1, 30 / rv.dur)), rMid = ytaRetAt_(pts, 0.5);
+    var rel = 0;
+    for (var pi = 0; pi < pts.length; pi++) rel += pts[pi][2] || 0;
+    ret.push({ t: rv.title, ep: rv.ep, show: rv.show, dur: rv.dur,
+               at30: r30 === null ? null : Math.round(r30 * 100), mid: rMid === null ? null : Math.round(rMid * 100),
+               rel: Math.round(rel / pts.length * 100) / 100 });
+  }
+  snap.ret = ret;
+  snap.diag = ytaDiagnose_(snap);
+  ytaSave_(snap);
+
+  try {
+    var a30 = ytaAvg_(ret.map(function (x) { return x.at30; }));
+    appendBlock_(ensureTab_(getHub_(), CFG.YTA_TAB || 'آمارِ رشدِ یوتیوب', YTA_HEADERS),
+      [[nowStr_(), start, end, snap.ch.views, snap.ch.hours, snap.ch.avd, snap.ch.avp, snap.ch.subsIn, snap.ch.subsOut,
+        snap.src ? snap.src.search : '', snap.src ? snap.src.suggest : '', snap.src ? snap.src.external : '',
+        snap.ctr ? snap.ctr.rate : '', a30 === null ? '' : a30,
+        snap.diag.map(function (d) { return d.text; }).join(' | ').slice(0, 4000)]], YTA_HEADERS.length);
+  } catch (eT) { out.why = 'ثبتِ تب نشد: ' + String(eT.message).slice(0, 60); }
+  out.ok = true;
+  return out;
+}
+
+function ytaAvg_(a) {
+  var s = 0, n = 0;
+  for (var i = 0; i < a.length; i++) if (a[i] !== null && a[i] !== undefined && !isNaN(a[i])) { s += Number(a[i]); n++; }
+  return n ? Math.round(s / n) : null;
+}
+
+/** عکسِ فشرده در Properties — جای دیگری که هر روز خوانده شود و به شیت بند نباشد. */
+function ytaSave_(snap) {
+  var s = JSON.stringify(snap);
+  if (s.length > 8500) {
+    snap.ret = (snap.ret || []).slice(0, 3); snap.best = (snap.best || []).slice(0, 3); snap.worst = (snap.worst || []).slice(0, 3);
+    s = JSON.stringify(snap).slice(0, 8900);
+  }
+  try { props_().setProperty(PK.YTA_SNAP, s); props_().setProperty(PK.YTA_AT, nowStr_()); } catch (e) {}
+}
+
+function ytaSnap_() {
+  try { return JSON.parse(String(props_().getProperty(PK.YTA_SNAP) || '')) || null; } catch (e) { return null; }
+}
+
+/**
+ * تشخیص، **از عدد** — هر بند فقط وقتی گفته می‌شود که عددش آن را می‌گوید، و عددش کنارش می‌آید.
+ * آستانه‌ها میانگین‌های عمومیِ یوتیوب‌اند، نه قانون؛ برای همین خودِ عدد هم همیشه چاپ می‌شود.
+ */
+function ytaDiagnose_(s) {
+  var D = [], fa = function (n) { return faDigitsOut_(String(n)); };
+  if (!s || !s.ch) return D;
+  var ch = s.ch;
+  var yearH = Math.round(ch.hours * 365 / Math.max(1, Number(CFG.YTA_DAYS) || 28));
+  D.push({ k: 'pace', text: 'در ' + fa(Number(CFG.YTA_DAYS) || 28) + ' روزِ گذشته ' + fa(ch.views) + ' نمایش و ' +
+           fa(ch.hours) + ' ساعت تماشا — با این آهنگ ~' + fa(yearH) + ' ساعت در سال، از ۴۰۰۰ ساعتِ لازم برای درآمد.' });
+  if (ch.avp && ch.avp < (Number(CFG.YTA_AVP_LOW) || 35)) {
+    D.push({ k: 'retention', bad: true, text: 'بیننده به‌طورِ میانگین فقط ' + fa(ch.avp) + '٪ از هر ویدئو را می‌بیند (' +
+             fa(ch.avd) + ' ثانیه). ساعتِ تماشا از همین‌جا کم است، نه فقط از کمیِ بیننده.' });
+  }
+  var a30 = ytaAvg_((s.ret || []).map(function (x) { return x.at30; }));
+  if (a30 !== null && a30 < (Number(CFG.YTA_AT30_LOW) || 60)) {
+    D.push({ k: 'hook', bad: true, text: 'تا ثانیهٔ ۳۰ فقط ' + fa(a30) + '٪ بیننده‌ها مانده‌اند (میانگینِ ' +
+             fa((s.ret || []).length) + ' ویدئوی تازه) — آغازِ ویدئو همان لحظه دلیلِ ماندن نمی‌دهد.' });
+  }
+  if (s.src && s.src.total) {
+    if (s.src.external >= 50) {
+      D.push({ k: 'external', bad: true, text: fa(s.src.external) + '٪ نمایش‌ها از لینکِ بیرونی (تبلیغِ خودت) است و فقط ' +
+               fa(s.src.suggest) + '٪ از پیشنهادِ خودِ یوتیوب — یوتیوب هنوز این ویدئوها را به کسی پیشنهاد نمی‌دهد.' });
+    }
+    if (s.src.search < 10) {
+      D.push({ k: 'search', bad: true, text: 'جست‌وجو فقط ' + fa(s.src.search) + '٪ نمایش‌ها را آورده — عنوان‌ها و توضیح‌ها ' +
+               'واژه‌ای ندارند که کسی دنبالش بگردد.' });
+    }
+  }
+  if (s.ctr && s.ctr.imp >= 100 && s.ctr.rate < (Number(CFG.YTA_CTR_LOW) || 3)) {
+    D.push({ k: 'ctr', bad: true, text: 'از ' + fa(s.ctr.imp) + ' بار که کاور دیده شد، فقط ' + fa(s.ctr.rate) +
+             '٪ کلیک شد — کاور و عنوان در نگاهِ اول کشش ندارند.' });
+  }
+  if (ch.views >= 100 && ch.subsIn / ch.views * 1000 < 5) {
+    D.push({ k: 'subs', text: 'از هر هزار نمایش ' + fa(Math.round(ch.subsIn / ch.views * 1000)) + ' مشترکِ تازه آمده (' +
+             fa(ch.subsIn) + ' تازه، ' + fa(ch.subsOut) + ' رفته).' });
+  }
+  var sh = s.shows || {}, nm = { variety: CFG.SHOW_NAME || 'از همه جا', special: CFG.SPECIAL_SHOW_NAME || 'درس‌نامه', other: 'ویدئوهای پیش از موتور' };
+  var parts = [];
+  for (var k in sh) {
+    if (Object.prototype.hasOwnProperty.call(sh, k) && sh[k].n) {
+      parts.push((nm[k] || k) + ': ' + fa(sh[k].n) + ' ویدئو، ' + fa(sh[k].views) + ' نمایش، دیده‌شدن ' + fa(sh[k].avp) + '٪');
+    }
+  }
+  if (parts.length) D.push({ k: 'shows', text: 'به تفکیک (از آغاز): ' + parts.join(' · ') + '.' });
+  return D;
+}
+
+/** خطِ روزانه — هر روز، حتی وقتی چیزی عوض نشده یا اجازه هنوز نیامده. */
+function ytaStatus_() {
+  var s = ytaSnap_(), out = { at: '', need: '', line: '', diag: [], best: [], worst: [], ret: [] };
+  if (CFG.YT_ANALYTICS === false) { out.line = 'رشدِ کانال: خاموش (YT_ANALYTICS).'; return out; }
+  if (!s) { out.line = 'رشدِ کانال: آمارِ YouTube Analytics هنوز یک بار هم خوانده نشده.'; return out; }
+  out.at = s.at; out.need = s.need || '';
+  if (s.need === 'scope') {
+    out.line = 'رشدِ کانال: منتظرِ اجازهٔ یک‌بارهٔ تو — در شیت، منوی «📈 رشدِ کانال — آمار و تشخیص» را بزن و Allow کن.';
+  } else if (s.need === 'api') {
+    out.line = 'رشدِ کانال: YouTube Analytics API در پروژهٔ ابری روشن نیست' + (s.url ? ' — Enable: ' + s.url : '') + '.';
+  } else if (s.need) {
+    out.line = 'رشدِ کانال: آمار خوانده نشد (' + String(s.why || '').slice(0, 120) + ').';
+  } else {
+    out.diag = s.diag || []; out.best = s.best || []; out.worst = s.worst || []; out.ret = s.ret || [];
+    out.line = 'رشدِ کانال (' + s.start + ' تا ' + s.end + '): ' +
+               out.diag.map(function (d) { return d.text; }).join(' ');
+  }
+  return out;
+}
+
+/**
+ * **اثر** — همان قاعدهٔ ۶٫۷: عدد اگر به تصمیم نرسد، جدولِ تماشایی است. از ماندگاری (نه نمایش) می‌گوید
+ * کدام قسمت‌ها تا آخر دیده شدند و کدام نه؛ داخلِ همان پرامپتی می‌نشیند که عنوان و کاور را می‌سازد.
+ */
+function ytaLearnText_() {
+  var s = ytaSnap_();
+  if (!s || s.need || !(s.best || []).length) return '';
+  var L = ['از آمارِ ماندگاریِ کانال (YouTube Analytics، نه فقط نمایش):'];
+  L.push('— بیشترین «تا آخر دیده‌شدن»:');
+  for (var i = 0; i < s.best.length; i++) L.push('   • «' + s.best[i].t + '» — ' + s.best[i].avp + '٪ دیده شد');
+  if ((s.worst || []).length) {
+    L.push('— کمترین:');
+    for (var j = 0; j < s.worst.length; j++) L.push('   • «' + s.worst[j].t + '» — ' + s.worst[j].avp + '٪');
+  }
+  var bad = (s.diag || []).filter(function (d) { return d.bad && (d.k === 'ctr' || d.k === 'search'); });
+  for (var b = 0; b < bad.length; b++) L.push('— ' + bad[b].text);
+  L.push('عنوان و کاور را به سمتِ گروهِ اول ببر؛ قولی نده که ویدئو نمی‌دهد — بیننده‌ای که فریب بخورد زود می‌رود و همین عدد بدتر می‌شود.');
+  return L.join('\n');
+}
+
+/** منو: اجازه (یک بار) و بعد خودِ آمار و تشخیص. */
+function runYouTubeGrowth() {
+  var ui = ui_();
+  var d = null;
+  try { d = ytDiagnose_(); } catch (e) {}
+  if (d && !d.anaOk) {
+    var msg = 'برای اینکه موتور بفهمد چرا کانال رشد نمی‌کند، باید آمارِ YouTube Analytics را بخوانَد ' +
+              '(ماندگاری، منبعِ بیننده، کلیک روی کاور). این اجازه فقط «خواندن» است و فقط تو می‌توانی بدهی.\n\n' +
+              'همین حالا به فهرستِ اجازه‌ها اضافه شود؟';
+    if (!ui) { console.log(msg); return { ok: false, need: 'scope' }; }
+    if (ui.alert('رشدِ کانال — اجازهٔ آمار', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return { ok: false };
+    var r = ytAddScopes_();
+    ui.alert('رشدِ کانال — اجازهٔ آمار',
+      (r.ok || r.already ? '✅ آماده شد.' : '❌ ' + r.why) + '\n\n' +
+      '⚠️ **همین حالا** یک بار دیگر همین گزینه («📈 رشدِ کانال») را بزن؛ پنجرهٔ گوگل می‌آید، Allow را بزن. ' +
+      'تا این تأیید نشود، زمان‌بندی‌های خودکارِ موتور هم اجرا نمی‌شوند.', ui.ButtonSet.OK);
+    return r;
+  }
+  var res = ytaRun_(240000);
+  var st = ytaStatus_();
+  var L = ['رشدِ کانال:', ''];
+  if (!res.ok) L.push('❌ ' + res.why);
+  if (st.need === 'api' && st.line) L.push(st.line);
+  for (var i = 0; i < st.diag.length; i++) L.push((st.diag[i].bad ? '⚠️ ' : '• ') + st.diag[i].text);
+  if (st.best.length) {
+    L.push(''); L.push('بیشترین ماندگاری:');
+    for (var b = 0; b < st.best.length; b++) L.push('  • ' + st.best[b].t + ' — ' + faDigitsOut_(String(st.best[b].avp)) + '٪');
+  }
+  if (res.ok) { L.push(''); L.push('از حالا هر روز خودکار خوانده می‌شود و در ایمیلِ ۱۰ صبح و عنوان‌سازیِ قسمت‌ها می‌نشیند.'); }
+  var m = L.join('\n');
+  if (ui) ui.alert('رشدِ کانال', m, ui.ButtonSet.OK); else console.log(m);
+  return res;
 }
 
 /* ─────────── ۱۳‑پ) خلاصهٔ لینک‌ها — ایمیل و تلگرام (۶٫۱۹) ───────────
@@ -13771,7 +14141,10 @@ var YT_API_SCOPES = ['https://www.googleapis.com/auth/youtube',
  * خطای کاور می‌خورد، و باید دوباره تأیید می‌کرد. یک تأیید، نه دو تا. */
 var YT_SLIDES_SCOPE = 'https://www.googleapis.com/auth/presentations';
 
-var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE]);
+/* ۹.۱۳: آمارِ رشد (ماندگاری، منبعِ بیننده، کلیک روی کاور) — فقط خواندن. همان «یک تأیید، نه دو تا». */
+var YT_ANALYTICS_SCOPE = 'https://www.googleapis.com/auth/yt-analytics.readonly';
+
+var YT_SCOPES = YT_API_SCOPES.concat([YT_SLIDES_SCOPE, YT_ANALYTICS_SCOPE]);
 
 /**
  * «این API در پروژهٔ ابری روشن نیست» — یک تشخیص، هر تعداد سرویس.
@@ -13838,6 +14211,8 @@ function ytDiagnose_() {
   d.scopeOk = d.missing.length === 0;
   d.slidesOk = scopes.indexOf(YT_SLIDES_SCOPE) !== -1;
   if (!d.slidesOk) d.missing.push(YT_SLIDES_SCOPE);
+  d.anaOk = scopes.indexOf(YT_ANALYTICS_SCOPE) !== -1;
+  if (!d.anaOk) d.missing.push(YT_ANALYTICS_SCOPE);
 
   // ── ۲) خودِ فراخوان، خام — تا پیامِ گوگل دست‌نخورده دیده شود ──
   var r = ytHttp_('https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true', 'get');
@@ -13861,6 +14236,10 @@ function ytDiagnose_() {
         d.fix = 'اسکوپِ ' + YT_SLIDES_SCOPE + ' را هم اضافه کنید ' +
                 '(از همین منو، یا دستی در appsscript.json) و یک بار دیگر ' +
                 'اجازه‌ها را تأیید کنید.';
+      } else if (!d.anaOk) {
+        d.cause = 'یوتیوب و کاور درست‌اند؛ فقط اجازهٔ خواندنِ آمار (YouTube Analytics) نیست — ' +
+                  'پس موتور نمی‌بیند بیننده تا کجا ماند و از کجا آمد';
+        d.fix = 'منوی «📈 رشدِ کانال — آمار و تشخیص» را بزنید و اجازه بدهید.';
       }
     } else {
       d.cause = 'این حسابِ گوگل کانالِ یوتیوبی ندارد که موتور ببیند';
@@ -13979,6 +14358,7 @@ function runYouTubeFix() {
   L.push('سرویسِ یوتیوب در پروژه: ' + (ytSvc_() ? 'فعال ✅' : 'فعال نیست ❌'));
   L.push('اسکوپِ یوتیوب در توکن: ' + (d.scopeOk ? 'هست ✅' : 'نیست ❌'));
   L.push('اسکوپِ Slides (برای کاور): ' + (d.slidesOk ? 'هست ✅' : 'نیست ❌'));
+  L.push('اسکوپِ آمار (Analytics): ' + (d.anaOk ? 'هست ✅' : 'نیست ❌'));
   L.push('پاسخِ خودِ یوتیوب: HTTP ' + d.code + (d.apiOk ? ' ✅' : ' ❌'));
   if (d.channelOk) L.push('کانال: «' + d.channelTitle + '» ✅');
   if ((d.missing || []).length) {
@@ -13987,7 +14367,7 @@ function runYouTubeFix() {
     for (var mi = 0; mi < d.missing.length; mi++) L.push('   • ' + d.missing[mi]);
   }
   L.push('');
-  if (d.channelOk && d.slidesOk) {
+  if (d.channelOk && d.slidesOk && d.anaOk) {
     L.push('همه‌چیز درست است. «شناسنامهٔ کانال» را بزنید.');
   } else {
     L.push('علت: ' + (d.cause || 'نامعلوم'));
@@ -14001,7 +14381,7 @@ function runYouTubeFix() {
     if (d.raw) { L.push(''); L.push('پاسخِ خامِ گوگل:'); L.push(d.raw); }
   }
 
-  if ((!d.channelOk || !d.slidesOk) && (d.missing || []).length && ui) {
+  if ((!d.channelOk || !d.slidesOk || !d.anaOk) && (d.missing || []).length && ui) {
     var ans = ui.alert('عیب‌یابیِ یوتیوب',
       L.join('\n') + '\n\n──────\nهمین حالا اسکوپ‌های یوتیوب به appsscript.json ' +
       'اضافه شوند؟ (کدِ موتور دست نمی‌خورد؛ فقط فهرستِ اجازه‌ها.)',

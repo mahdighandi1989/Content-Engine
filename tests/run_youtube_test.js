@@ -1115,7 +1115,7 @@ console.log('=== ۳۲) اسکوپِ گم‌شده باید نام برده شو�
      all.scopeOk && all.slidesOk && all.missing.length === 0 && all.channelOk,
      JSON.stringify(all.missing));
 
-  const noSlides = scoped(YT_API_SCOPES);
+  const noSlides = scoped(YT_API_SCOPES.concat([YT_ANALYTICS_SCOPE]));
   ok('۳۲.۲ نبودِ Slides جدا تشخیص داده می‌شود',
      noSlides.scopeOk === true && noSlides.slidesOk === false);
   ok('۳۲.۳ و با نام گفته می‌شود، نه با شمار',
@@ -1129,15 +1129,21 @@ console.log('=== ۳۲) اسکوپِ گم‌شده باید نام برده شو�
      noSlides.fix.indexOf('presentations') !== -1);
 
   const none = scoped(['https://www.googleapis.com/auth/spreadsheets']);
-  ok('۳۲.۶ بی هیچ اسکوپی، هر چهارتا نام برده می‌شوند',
-     none.missing.length === 4, none.missing.length + ' تا');
+  ok('۳۲.۶ بی هیچ اسکوپی، هر پنج‌تا نام برده می‌شوند (۹.۱۳: آمار هم)',
+     none.missing.length === 5, none.missing.length + ' تا');
   ok('۳۲.۷ و scopeOk دروغ نمی‌گوید', none.scopeOk === false);
 
   /* یک اسکوپِ یوتیوب از سه‌تا کافی نیست — نسخهٔ اول با «هر کدام بود، درست
      است» می‌سنجید. */
-  const partial = scoped([YT_API_SCOPES[0], YT_SLIDES_SCOPE]);
+  const partial = scoped([YT_API_SCOPES[0], YT_SLIDES_SCOPE, YT_ANALYTICS_SCOPE]);
   ok('۳۲.۸ یک اسکوپ از سه، «درست است» شمرده نمی‌شود',
      partial.scopeOk === false && partial.missing.length === 2, partial.missing.join('، '));
+  /* ۹.۱۳: یوتیوب و کاور درست، فقط آمار نیست — باید با نام گفته شود و دکمهٔ رشد را نشان دهد. */
+  const noAna = scoped(YT_API_SCOPES.concat([YT_SLIDES_SCOPE]));
+  ok('۳۲.۹ نبودِ اجازهٔ آمار جدا و با نام تشخیص داده می‌شود',
+     noAna.anaOk === false && noAna.slidesOk === true && noAna.missing.length === 1 &&
+     noAna.missing[0] === YT_ANALYTICS_SCOPE && /آمار/.test(noAna.cause) && /رشدِ کانال/.test(noAna.fix), noAna.cause);
+  ok('۳۲.۱۰ و افزودنِ اسکوپ‌ها (ytAddScopes_) آن را هم می‌نویسد', YT_SCOPES.indexOf(YT_ANALYTICS_SCOPE) !== -1);
 }
 
 console.log('=== ۳۳) نشانیِ روشن‌کردنِ API باید بیرون کشیده شود (۶٫۴) ===');
@@ -9816,6 +9822,79 @@ console.log('\n=== ۱۰۴) «truce» غلط بود؛ ویدئوهای بعدی �
   ok('۱۰۴.۶ و رانر پیش از هر ساخت صدایش می‌زند', mainSrc.indexOf('brandMark(queue)') !== -1 &&
      mainSrc.indexOf('brandMark(queue)') < mainSrc.indexOf('itemsTodo(queue'));
   CFG.YT_MARK = kMk; delete global.__PROPS[PK.YT_MARK_ID];
+}
+
+console.log('\n=== ۱۰۵) رشدِ کانال: «چرا رشد نکرده؟» از YouTube Analytics (۹.۱۳) ===');
+{
+  const httpWas = global.ytHttp_, onWas = global.ytOn_, pubWas = global.ytPublished_;
+  global.ytOn_ = () => true;
+  global.ytPublished_ = () => ({ 'variety:70': { videoId: 'V70', title: 'سه کلیپِ امروز', series: '' },
+                                 'variety:71': { videoId: 'V71', title: 'قسمتی که دیده نشد', series: '' },
+                                 'special:12': { videoId: 'S12', title: 'درسِ دوازده', series: 'معرفت' } });
+  const calls = [];
+  let mode = 'ok';
+  global.ytHttp_ = function (url) {
+    calls.push(url);
+    if (url.indexOf('youtubeanalytics') === -1) return httpWas.apply(null, arguments);
+    if (mode === 'scope') return { code: 403, text: '{"error":{"message":"Request had insufficient authentication scopes."}}',
+                                   json: { error: { message: 'Request had insufficient authentication scopes.' } } };
+    const H = n => n.map(x => ({ name: x }));
+    if (/dimensions=elapsedVideoTimeRatio/.test(url)) {
+      const rows = []; for (let i = 1; i <= 100; i++) rows.push([i / 100, i <= 5 ? 1 - i * 0.09 : 0.4 - i * 0.003, 0.4]);
+      return { code: 200, json: { columnHeaders: H(['elapsedVideoTimeRatio', 'audienceWatchRatio', 'relativeRetentionPerformance']), rows: rows } };
+    }
+    if (/dimensions=video/.test(url)) return { code: 200, json: { columnHeaders: H(['video', 'views', 'estimatedMinutesWatched', 'averageViewDuration', 'averageViewPercentage', 'subscribersGained']),
+      rows: [['OLD1', 900, 3000, 200, 40, 3], ['V70', 120, 300, 150, 25, 1], ['V71', 30, 20, 40, 6, 0], ['S12', 60, 200, 200, 33.3, 2]] } };
+    if (/insightTrafficSourceType/.test(url)) return { code: 200, json: { columnHeaders: H(['insightTrafficSourceType', 'views']),
+      rows: [['EXT_URL', 300], ['NO_LINK_OTHER', 100], ['RELATED_VIDEO', 60], ['YT_SEARCH', 20], ['SUBSCRIBER', 20]] } };
+    if (/videoThumbnailImpressions/.test(url)) return { code: 400, json: { error: { message: 'Unknown identifier (videoThumbnailImpressions)' } } };
+    return { code: 200, json: { columnHeaders: H(['views', 'estimatedMinutesWatched', 'averageViewDuration', 'averageViewPercentage', 'subscribersGained', 'subscribersLost']),
+      rows: [[500, 1200, 144, 22.5, 2, 1]] } };
+  };
+  delete global.__PROPS[PK.YTA_SNAP]; delete global.__PROPS[PK.YTA_AT];
+  ok('۱۰۵.۱ پیش از هر دور، خطِ روزانه سکوت نیست', /هنوز یک بار هم/.test(ytaStatus_().line));
+
+  mode = 'scope';
+  const r0 = ytaRun_(60000);
+  const st0 = ytaStatus_();
+  ok('۱۰۵.۲ بی اجازه: شکست با علتِ درست، و خطِ روزانه راهِ دقیقش را می‌گوید (نه خطای هر شب)',
+     !r0.ok && st0.need === 'scope' && /📈 رشدِ کانال/.test(st0.line) && r0.calls === 1, st0.line);
+  ok('۱۰۵.۳ و نوبتِ بعدی ~۲۰ ساعت دیگر است، نه هر اجرا', ytaDue_() === false);
+
+  mode = 'ok'; calls.length = 0;
+  const r1 = ytaRun_(60000);
+  const sn = ytaSnap_();
+  ok('۱۰۵.۴ با اجازه: کانال، هر ویدئو، منابع و منحنیِ ماندگاری خوانده می‌شوند', r1.ok && sn.ch.views === 500 &&
+     sn.ch.hours === 20 && (sn.ret || []).length >= 2, JSON.stringify(sn.ch) + ' ret=' + (sn.ret || []).length);
+  ok('۱۰۵.۵ ویدئوهای پیش از موتور جدا شمرده می‌شوند، نه قاطیِ برنامه‌ها',
+     sn.shows.other && sn.shows.other.n === 1 && sn.shows.variety.n === 2 && sn.shows.special.n === 1, JSON.stringify(sn.shows));
+  ok('۱۰۵.۶ نبودِ سنجهٔ کلیک روی کاور دورِ آمار را نمی‌خوابانَد — فقط ثبت می‌شود', !sn.ctr && /videoThumbnail/.test(sn.ctrWhy || ''));
+  const ks = sn.diag.map(d => d.k);
+  ok('۱۰۵.۷ تشخیص از عدد: ماندگاریِ کم، آغازِ ضعیف، بیشترِ نمایش از لینکِ بیرونی، جست‌وجوی تقریباً صفر',
+     ['pace', 'retention', 'hook', 'external', 'search', 'shows'].every(k => ks.indexOf(k) !== -1), ks.join(','));
+  const ext = sn.diag.filter(d => d.k === 'external')[0];
+  ok('۱۰۵.۸ و عددش کنارش چاپ می‌شود (۴۰۰ از ۵۰۰ = ۸۰٪)', ext && /۸۰٪/.test(ext.text), ext && ext.text);
+  ok('۱۰۵.۹ بهترین و بدترین فقط از ویدئوهای خودِ موتور و به ترتیبِ «تا آخر دیده‌شدن»',
+     sn.best[0].t === 'درسِ دوازده' && sn.worst[0].t === 'قسمتی که دیده نشد' &&
+     sn.best.concat(sn.worst).every(x => x.t), JSON.stringify(sn.best.map(x => x.t)));
+  const st1 = ytaStatus_();
+  ok('۱۰۵.۱۰ خطِ روزانهٔ ایمیل همین تشخیص است', /رشدِ کانال/.test(st1.line) && /لینکِ بیرونی/.test(st1.line));
+  const lt = ytaLearnText_();
+  ok('۱۰۵.۱۱ اثر: پرامپتِ عنوان و کاور ماندگاریِ واقعی را می‌بیند (همان درِ ۶٫۷)',
+     /ماندگاری/.test(lt) && lt.indexOf('درسِ دوازده') !== -1 && /جست‌وجو/.test(lt), lt.slice(0, 120));
+  const ysrc = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۰۵.۱۲ و به آن پرامپت واقعاً وصل است، به ایمیل و _STATUS هم',
+     /ytaLearnText_\(\)/.test(ysrc.slice(ysrc.indexOf('try { learn = ytLearn_(); }'), ysrc.indexOf('try { learn = ytLearn_(); }') + 400)) &&
+     /out\.growth = ytaStatus_\(\)/.test(ysrc) && /var gr = ytaStatus_\(\);/.test(ysrc));
+  const nsrc = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
+  ok('۱۰۵.۱۳ و کارِ شبانه هر روز می‌دواندش', /ytaDue_\(\) && ytLeft\(\) > 25000\) \{\s*var yga = ytaRun_/.test(nsrc));
+  const sm = fs.readFileSync('src/05_Setup.gs', 'utf8');
+  ok('۱۰۵.۱۴ دکمهٔ منو هست و به تابعِ موجود می‌رسد', /'runYouTubeGrowth'\)/.test(sm) && typeof runYouTubeGrowth === 'function');
+  const bigSnap = { at: 'x', ch: { views: 1 }, ret: Array(40).fill({ t: 'ع'.repeat(70), ep: 1 }), best: Array(10).fill({ t: 'ب'.repeat(70) }), worst: [] };
+  ytaSave_(bigSnap);
+  ok('۱۰۵.۱۵ عکسِ بزرگ از سقفِ Properties نمی‌گذرد', String(global.__PROPS[PK.YTA_SNAP]).length <= 9000);
+  global.ytHttp_ = httpWas; global.ytOn_ = onWas; global.ytPublished_ = pubWas;
+  delete global.__PROPS[PK.YTA_SNAP]; delete global.__PROPS[PK.YTA_AT];
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');
