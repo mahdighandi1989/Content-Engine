@@ -707,14 +707,17 @@ function prepMedia(it, scenes, dir, notes, placed) {
   const moCut = (placed || []).map((m, i) => {
     const g = got[m.url], h = moIdx[i] >= 0 ? heard[moIdx[i]] : null;
     if (!g || g.kind !== 'video') return { m: m, ok: false, why: 'کلیپ نرسید' };
-    if (!h || !h.found) return { m: m, ok: false, why: 'عبارت در کلیپ پیدا نشد (' + ((h && h.why) || '') + ')' };
-    const from = Math.max(0, Number(h.from) - 0.25);
+    /* ۹.۰۴: عبارتِ مدل دقیق پیدا نشد ⇒ «بخشِ اصلیِ گفتارِ» خودِ کلیپ (`h.main` از clipfind) با صدایش — نه هیچ.
+       «اولین کلیپ رو که اصلاً پخش هم نکرد چه برسه که بخواد با صدا هم باشه». */
+    const fb = h && !h.found && h.main && Number(h.main.end) > Number(h.main.from) ? h.main : null;
+    if (!h || (!h.found && !fb)) return { m: m, ok: false, why: 'عبارت در کلیپ پیدا نشد (' + ((h && h.why) || '') + ')' };
+    const from = Math.max(0, Number(fb ? fb.from : h.from) - 0.25);
     /* ۹.۰۰: تا پایانِ جملهٔ گوینده (`h.end` از clipfind)، نه تا آخرین واژهٔ عبارت — «یه قسمتِ خیلی کوتاه
        بود و سریع قطع می‌شد». */
-    const stop = Number(h.end) > Number(h.to) ? Number(h.end) : Number(h.to);
+    const stop = fb ? Number(fb.end) : (Number(h.end) > Number(h.to) ? Number(h.end) : Number(h.to));
     const len = Math.min(Number(m.max) || 20, stop - from + MKIT.MK.momentTail, g.info.dur - from);
     if (len < MKIT.MK.momentMin) return { m: m, ok: false, why: 'تکهٔ شنیده‌شده کوتاه بود' };
-    return { m: m, ok: true, url: m.url, from: from, len: len };
+    return { m: m, ok: true, url: m.url, from: from, len: len, fb: fb ? fb.how : '' };
   });
   /* ══ چیدمان و حرکت (۸.۹۹) ══ هر رسانهٔ غیرِافقی به نوبت چپ/وسط/راست؛ عکس کلیپِ زنده می‌شود (کن‌برنز یا
      پیمایشِ اسکرین‌شاتِ بلند) و قابِ هر کلیپ از حاشیهٔ تختِ خودش بریده می‌شود. «لحظه» همان چیدمانِ صحنه‌اش
@@ -736,7 +739,12 @@ function prepMedia(it, scenes, dir, notes, placed) {
     try {
       if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
         if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
-        const pc = MKIT.photoClip(FF, g.file, out + '.mp4', want, { layout: layOf[s.n], card: !!(s.media && s.media.card) });
+        /* ۹.۰۴: کارتِ نوشته روی تصویرِ محوِ **همان رسانه‌ای** که پیشش بود (آخرین قابِ کلیپ یا خودِ عکس)، نه کاور. */
+        const isCard = !!(s.media && s.media.card);
+        const prevImg = isCard && i > 0 ? imgs[String(scenes[i - 1].n)] : '';
+        const srcImg = prevImg && fs.existsSync(prevImg) ? prevImg : g.file;
+        const pc = MKIT.photoClip(FF, srcImg, out + '.mp4', want, { layout: layOf[s.n], card: isCard });
+        if (isCard && srcImg !== g.file) st.cardOwn = (st.cardOwn || 0) + 1;
         if (pc.kind === 'card') st.cards = (st.cards || 0) + 1;
         clips[String(s.n)] = pc.file; imgs[String(s.n)] = pc.still; full[String(s.n)] = true;
         st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] = (st.layouts[pc.kind === 'scroll' ? 'scroll' : pc.layout] || 0) + 1;
@@ -768,6 +776,12 @@ function prepMedia(it, scenes, dir, notes, placed) {
       } else if (s.media && s.media.teaser) {
         /* پیش‌نمایشِ آغاز (۸.۹۸): از میانهٔ کلیپ، نه از جایی که صحنهٔ اصلی‌اش بعداً نشان می‌دهد. */
         from = Math.max(0, Math.min(g.info.dur - want, g.info.dur * 0.45));
+      } else if (h && h.main && Number(h.main.end) > Number(h.main.from)) {
+        /* ۹.۰۴: عبارت دقیق پیدا نشد ولی گفتارِ کلیپ شنیده شد ⇒ از بخشِ اصلیِ گفتار، نه از ثانیهٔ اول. */
+        from = Math.max(0, Number(h.main.from) - MKIT.MK.lead);
+        if (from + want > g.info.dur) from = Math.max(0, g.info.dur - want);
+        st.mainPart = (st.mainPart || 0) + 1;
+        st.why.push('صحنهٔ ' + s.n + ': عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (' + h.main.how + ')');
       } else {
         /* بی عبارت یا نشنیده ⇒ از آغاز؛ کلیپِ بلند از ثانیهٔ اول، تا قابِ سیاهِ آغاز نیاید. */
         from = g.info.dur > 8 ? 1 : 0;
@@ -809,6 +823,7 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
       const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc, { layout: c.layout || 'center', box: g.box || null });
       parts.push({ at: m.at, v: v, a: a, len: r.len });
       st.made++;
+      if (c.fb) st.fallback = (st.fallback || 0) + 1;      // ۹.۰۴: «بخشِ اصلیِ گفتار»، نه عبارتِ دقیق
     } catch (e) { st.why.push(Math.round(m.at) + 's: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   }
   if (!parts.length) { if (st.why.length) notes.push('لحظه‌ها: ' + st.why.join(' · ')); return { stat: st, inserts: [] }; }

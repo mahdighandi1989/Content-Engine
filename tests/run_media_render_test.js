@@ -179,8 +179,26 @@ print(C.sentence_end(sp, 4.74, 7.9), C.sentence_end(sp, 4.74, 11.0), C.sentence_
   const ends = String(se.stdout || '').trim().split(/\s+/).map(Number);
   ok('۵.۵ لحظه تا پایانِ جملهٔ گوینده می‌رود (نه آخرین واژهٔ عبارت)، دست‌کم ۶ ثانیه، حداکثر ۲۰',
      ends[0] === 12.2 && ends[1] === 12.2 && ends[2] <= 24.74 && ends[2] >= 19.7, se.stdout + se.stderr);
+  /* ۹.۰۴ — عبارت دقیق پیدا نشد ⇒ بخشِ اصلیِ گفتارِ خودِ کلیپ، نه سکوت. کلیپِ اولِ قسمتِ ۷۲ (`1sP7uKbZ`، بهترین
+     پنجره ۰٫۵۴ نزدیکِ ثانیهٔ ۴٫۶) در نمونهٔ پنجم اصلاً با صدا پخش نشد. */
+  const mp = spawnSync('python3', ['-c', `
+import sys, json; sys.path.insert(0, 'tools'); import clipfind as C
+sp = [(0.0, 4.7), (4.7, 8.4), (8.4, 12.2), (12.9, 16.2), (16.2, 19.7), (30.0, 35.0)]
+fx = json.load(open('tests/fixtures/clipwords.json', encoding='utf-8'))
+c = [x for x in fx['clips'] if x['id'].startswith('1sP7uKbZ')][0]
+words = [(t, s, e) for w, s, e in c['words'] for t in C.norm(w)]
+bw = C.best_window(words, c['quote'])
+print(json.dumps([C.main_part(sp, None), C.main_part(sp, 9.0), C.main_part([], None), round(bw[0], 2), C.accept(bw)]))`], { encoding: 'utf8' });
+  let M = null; try { M = JSON.parse(String(mp.stdout).trim()); } catch (e) {}
+  ok('۵.۷ بی نشانه ⇒ بلندترین گفتارِ پیوسته، ۶ تا ۲۰ ثانیه، از آغازِ جمله', M && M[0].from === 0 && M[0].end === 8.4 && M[0].how === 'longest', mp.stdout + mp.stderr);
+  ok('۵.۸ نشانهٔ احتمالی ⇒ آغازِ همان جملهٔ گوینده (نه آغازِ کلِ گفتار)', M && M[1].from === 8.4 && M[1].end === 16.2 && M[1].how === 'probable', JSON.stringify(M && M[1]));
+  ok('۵.۹ کلیپِ بی‌گفتار ⇒ هیچ (null)', M && M[2] === null);
+  ok('۵.۱۰ (شاهد) کلیپِ اولِ قسمتِ ۷۲ با سنجشِ دقیق رد می‌شد — همان «اصلاً پخش نشد»', M && M[3] >= 0.45 && M[4] === false, String(M && M[3]));
   const rj5 = fs.readFileSync('tools/render.js', 'utf8');
-  ok('۵.۶ رانر طولِ لحظه را از `end` می‌گیرد', /const stop = Number\(h\.end\) > Number\(h\.to\)/.test(rj5));
+  ok('۵.۱۱ رانر لحظه و آغازِ صحنه را از `main` می‌گیرد وقتی عبارت پیدا نشد',
+     /const fb = h && !h\.found && h\.main/.test(rj5) && /from = Math\.max\(0, Number\(h\.main\.from\) - MKIT\.MK\.lead\)/.test(rj5) &&
+     /'main': main_part\(cache\[f \+ '#spans'\], bw\[1\] if bw\[0\] >= 0\.45 else None\)/.test(fs.readFileSync('tools/clipfind.py', 'utf8')));
+  ok('۵.۶ رانر طولِ لحظه را از `end` می‌گیرد', /const stop = fb \? Number\(fb\.end\) : \(Number\(h\.end\) > Number\(h\.to\)/.test(rj5));
   ok('۵.۴ جملهٔ ساختگی در هیچ کلیپی پذیرفته نمی‌شود', got.every(g => !g.fake), JSON.stringify(got.map(g => g.fs)));
 }
 
@@ -216,7 +234,7 @@ console.log('=== ۶) چیدمان و حرکت (۸.۹۹) — «همه وسط، ر
   ok('۶.۶ چیدمان‌ها به نوبت‌اند، نه همه وسط', ['left', 'center', 'right'].every((L, i) => MKIT.layoutOf(i) === L) && MKIT.layoutOf(3) === 'left');
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۶.۷ رانر عکس را کلیپِ زنده می‌کند و «لحظه» چیدمانِ صحنه‌اش را می‌گیرد',
-     /MKIT\.photoClip\(FF, g\.file, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: !!\(s\.media && s\.media\.card\) \}\)/.test(rj) &&
+     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard \}\)/.test(rj) &&
      /MKIT\.moment\(FF, g\.file, v, a, c\.from, c\.len, g\.info, enc, \{ layout: c\.layout/.test(rj));
 }
 
@@ -240,6 +258,22 @@ console.log('=== ۷) کارتِ نوشته (۹.۰۱) — «حالت برداری
   const a = sdOf(pk.file, 1), b = sdOf(kb.file, 1);
   ok('۷.۲ پس‌زمینهٔ کارت محو و تیره‌تر از همان کاور است — جای نوشته', a.sharp < b.sharp * 0.2 && a.m < b.m,
      JSON.stringify({ card: a, plain: b }));
+  /* ۹.۰۴: سنجهٔ شلوغی تصویرِ صحنه را می‌بیند؛ در نمونهٔ پنجم ده کارت از نوزده «شلوغ» کنار رفتند و کاورِ خالی ماند.
+     shoot بدَل است (مستطیلِ مات روی زمینهٔ شفاف) — آنچه سنجیده می‌شود تصمیمِ جاگذاری است، نه مرورگر. */
+  const OVL = require('../tools/overlay.js');
+  const busy = P('busy.png');
+  ff(['-f', 'lavfi', '-i', 'mandelbrot=s=1920x1080', '-frames:v', '1', busy]);
+  const ctx = { ff: FF, ffRun: a => ff(a), dir: dir, shoot: (h, png) => {
+    ff(['-f', 'lavfi', '-i', 'color=c=black@0:s=1920x1080,format=rgba', '-f', 'lavfi', '-i', 'color=c=white:s=640x420,format=rgba',
+        '-filter_complex', 'overlay=200:200:format=auto', '-frames:v', '1', png]); return png; } };
+  const ov = OVL.ovNorm({ kind: 'points', title: 'تیتر', lines: ['یک', 'دو', 'سه'] });
+  const r0 = OVL.render(ctx, ov, busy, 1, []);
+  const r1 = OVL.render(ctx, ov, busy, 2, [], { force: true });
+  ok('۷.۳ زمینهٔ شلوغ بی force ⇒ کنار می‌رود؛ صحنهٔ کارت (force) ⇒ می‌نشیند، با پنل (نه آرام) و سه مرحلهٔ آشکارشدن',
+     r0 && r0.skip === 'busy' && r1 && r1.file && fs.existsSync(r1.file) && r1.forced === true && r1.calm === false &&
+     (r1.stages || []).length === 3, JSON.stringify({ r0: r0 && r0.skip, r1: r1 && (r1.skip || r1.forced), st: r1 && (r1.stages || []).length }));
+  const sk = fs.readFileSync('tools/scenekit.js', 'utf8');
+  ok('۷.۴ scenekit برای صحنهٔ کارت force می‌فرستد', /OVL\.render\(ovCtx, s\.ov, ctx\.imgs\[String\(s\.n\)\], k, avoid, \{ force: !!\(s\.media && s\.media\.card\) \}\)/.test(sk));
 }
 
 console.log('=== ۴) سیم‌کشی ===');

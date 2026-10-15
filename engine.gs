@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.03
+ *  موتور محتوا و پادکست — نسخهٔ 9.04
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1190,13 +1190,13 @@ var CFG = {
   VM_MOMENT_GAP: 20,               // کمترین فاصلهٔ دو لحظه (ثانیه) — ۹.۰۱: از ۳۰ِ ثابت در کد
   VM_OV_MAX: 10,                   // نوشتهٔ برداریِ کنارِ رسانه — ۸.۹۹: از ۶؛ رسانه حالا در چپ/راست می‌نشیند و نیمهٔ دیگر جای همین نوشته است
   VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر با رسانهٔ **دیده‌نشدهٔ** همان بخش نصف می‌شود؛ نبود ⇒ کارتِ نوشته (۹.۰۱)
-  VM_CARD_SEC: 7,                  // کارتِ وسطِ صحنهٔ بلند همین‌قدر؛ بعد همان کلیپ ادامه می‌یابد (۹.۰۳)
+  VM_CARD_SEC: 9,                  // کارتِ وسطِ صحنهٔ بلند همین‌قدر؛ بعد همان کلیپ ادامه می‌یابد (۹.۰۳؛ ۹.۰۴: از ۷ — سه پارهٔ متحرک وقتِ خواندن می‌خواهند)
   VM_CARDS: true,                  // کارتِ نوشته روی کاورِ محو: پایانِ قسمت، پل‌های موسیقی، و صحنه‌ای که بی رسانهٔ تازه طولانی شد (۹.۰۱)
   VM_COVER_GEN: true,              // تنها تصویرِ ساختنی: کاور
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
   VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 6, replan: true },   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
+  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 7, replan: true },   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
@@ -2079,7 +2079,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.03',
+  CODE_VERSION: '9.04',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -77387,11 +77387,20 @@ function vmCards_(ready, sents, music, secs, coverId) {
   var plain = function (t) {
     return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
   };
-  var card = function (t0, text) {
-    var tx = plain(text);
-    if (tx.length > 140) tx = tx.slice(0, 137).replace(/\s+\S*$/, '') + '…';
+  /* ۹.۰۴: کارت عکس‌نوشتهٔ متحرک است، نه یک نقلِ ثابت — تیترِ همان ماجرا و جملهٔ گوینده در سه پاره که یکی‌یکی
+     می‌آیند (`points`، همان سازوکارِ مرحله‌ایِ `overlay.js`)؛ رانر زمینه‌اش را تصویرِ محوِ **همان رسانه** می‌گذارد. */
+  var card = function (t0, text, title) {
+    var w = plain(text).split(' ').filter(Boolean), lines = [];
+    var per = w.length <= 7 ? w.length : Math.ceil(w.length / Math.min(3, Math.ceil(w.length / 7)));
+    for (var i0 = 0; i0 < w.length && lines.length < 3; i0 += per) {
+      var ln = w.slice(i0, i0 + per).join(' ');
+      if (ln.length > 60) ln = ln.slice(0, 57).replace(/\s+\S*$/, '') + '…';
+      lines.push(ln);
+    }
+    if (lines.length === 3 && w.length > per * 3) lines[2] = lines[2].replace(/…?$/, '…');
     return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '',
-             media: { kind: 'photo', quote: '', card: true }, ov: { kind: 'quote', title: tx, lines: [] } };
+             media: { kind: 'photo', quote: '', card: true },
+             ov: { kind: 'points', title: plain(title || '').slice(0, 60), lines: lines } };
   };
   var sc = out.scenes;
   /* فقط موسیقیِ **پایانی** کاور می‌گیرد. نسخهٔ ۹.۰۱ سرِ پل‌های میانه هم کاور می‌گذاشت و پس از پل کارت — و
@@ -77422,6 +77431,10 @@ function vmCards_(ready, sents, music, secs, coverId) {
     for (var y = 0; y < sents.length; y++) {
       var ty = Number(sents[y][0]);
       if (ty < st + 8 || ty > en - 8 - cardSec) continue;
+      /* کارت روی موسیقیِ میانه نمی‌نشیند: نوشتهٔ جملهٔ گوینده وقتی گوینده ساکت است، معنا ندارد. */
+      var onMus = false;
+      for (var mz = 0; mz < mus.length; mz++) if (ty < Number(mus[mz][1]) && ty + cardSec > Number(mus[mz][0])) onMus = true;
+      if (onMus) continue;
       if (!best || Math.abs(ty - mid) < Math.abs(best.t - mid)) best = { t: ty, text: sents[y][1] };
     }
     if (!best || !plain(best.text)) { sc[hit].media = Object.assign({}, sc[hit].media, { long: true }); continue; }
@@ -77433,7 +77446,7 @@ function vmCards_(ready, sents, music, secs, coverId) {
     if (back === null) back = Math.min(en - 6, best.t + cardSec);
     var cont = { t0: Math.round(back * 10) / 10, fileId: sc[hit].fileId, caption: '', say: '',
                  media: { kind: sc[hit].media.kind, quote: '', cont: true } };
-    sc.splice(hit + 1, 0, card(best.t, best.text), cont);
+    sc.splice(hit + 1, 0, card(best.t, best.text, sc[hit].ov && sc[hit].ov.title), cont);
     out.added += 2;
   }
   for (var n = 0; n < sc.length; n++) {

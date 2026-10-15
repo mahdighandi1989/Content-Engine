@@ -99,6 +99,39 @@ def sentence_end(spans, start, to, min_len=6.0, max_len=20.0):
         end = b
     return min(end, start + max_len)
 
+def main_part(spans, near=None, min_len=6.0, max_len=20.0, gap=0.6):
+    """بخشِ اصلیِ گفتارِ کلیپ، وقتی عبارتِ مدل دقیق پیدا نشد (۹.۰۴).
+    صاحبِ برنامه: «اولین کلیپ رو که اصلاً پخش هم نکرد چه برسه که بخواد با صدا هم باشه». در دو نمونهٔ آخر از هر
+    شش کلیپ دو تا به‌خاطرِ «عبارت پیدا نشد» (۰٫۵۷ در برابرِ ۰٫۴۶) بی‌صدا ماندند — یعنی برای یک نقلِ نه‌چندان دقیق،
+    کلِ صدای کلیپ دور ریخته شد. حالا: اگر بهترین پنجره دست‌کم «احتمالی» است (`near`)، همان بخشِ گفتاری؛ وگرنه
+    بلندترین بخشِ پیوستهٔ گفتار. پایان مثلِ «لحظه»: پایانِ جملهٔ گوینده، ۶ تا ۲۰ ثانیه."""
+    if not spans:
+        return None
+    runs = []
+    for a, b in sorted(spans):
+        if runs and a - runs[-1][1] <= gap:
+            runs[-1][1] = max(runs[-1][1], b)
+        else:
+            runs.append([a, b])
+    pick, how = None, 'longest'
+    if near is not None:
+        for r in runs:
+            if r[0] - 0.3 <= near <= r[1] + 0.3:
+                pick, how = r, 'probable'
+                break
+    if pick is None:
+        pick = max(runs, key=lambda r: r[1] - r[0])
+    start = pick[0]
+    if how == 'probable':
+        # آغازِ همان جملهٔ گوینده (بخشِ whisper) که پنجرهٔ احتمالی در آن است — نه آغازِ کلِ گفتارِ پیوسته،
+        # که می‌تواند ده ثانیه زودتر باشد.
+        for a, b in sorted(spans):
+            if a - 0.3 <= near <= b + 0.3:
+                start = a
+                break
+    end = sentence_end(spans, start, start + 0.1, min_len, max_len)
+    return {'from': round(start, 2), 'end': round(end, 2), 'how': how}
+
 def main():
     reqs = json.load(open(sys.argv[1], encoding='utf-8'))
     out = [{'found': False, 'why': 'شنیده نشد'} for _ in reqs]
@@ -138,7 +171,8 @@ def main():
                 out[i] = {'found': False, 'why': 'گفتاری در کلیپ شنیده نشد'}
             elif not accept(bw):
                 out[i] = {'found': False, 'score': round(bw[0], 2), 'second': round(bw[3], 2),
-                          'why': 'عبارت در گفتارِ کلیپ پیدا نشد (' + str(round(bw[0], 2)) + ' در برابرِ ' + str(round(bw[3], 2)) + ')'}
+                          'why': 'عبارت در گفتارِ کلیپ پیدا نشد (' + str(round(bw[0], 2)) + ' در برابرِ ' + str(round(bw[3], 2)) + ')',
+                          'main': main_part(cache[f + '#spans'], bw[1] if bw[0] >= 0.45 else None)}
             else:
                 out[i] = {'found': True, 'from': round(bw[1], 2), 'to': round(bw[2], 2), 'score': round(bw[0], 2),
                           'second': round(bw[3], 2), 'end': round(sentence_end(cache[f + '#spans'], bw[1], bw[2]), 2),

@@ -481,7 +481,7 @@ function alphaBox(ff, png) {
  * خودِ تصویر پیدا کرد: کارت روی همان چیزی که گوینده درباره‌اش حرف می‌زند نمی‌نشیند.
  * @return {{file, stages, x, y, w, h, k, energy, lum, accent}|{skip}|null}
  */
-function render(ctx, ov, img, n, avoid) {
+function render(ctx, ov, img, n, avoid, opt) {
   const o = ovNorm(ov);
   if (!o) return null;
   const an = analyze(ctx.ff, img);
@@ -534,9 +534,14 @@ function render(ctx, ov, img, n, avoid) {
     if (w3 && !w3.busy) { where = w3; where.low = true; }
   }
   if (!where) return null;
+  /* صحنهٔ کارت («از همه جا»، ۹.۰۴): زمینه خودِ همان رسانه است، محو و تیره — و کارت تنها کارِ آن صحنه است. سنجهٔ
+     شلوغی تصویرِ **تیز** را می‌بیند (پیش از محو)، پس در نمونهٔ پنجم ده کارت از نوزده «شلوغ» کنار رفتند و به جایش
+     کاورِ خالی ماند. این‌جا کمترین‌شلوغِ ممکن برگزیده و نوشته **با پنلِ زیرین** (نه آرام) کشیده می‌شود. */
+  const forced = !!(where.busy && opt && opt.force);
+  if (forced) where.busy = false;
   if (where.busy) return { skip: 'busy', k: where.k, kind: o.kind, energy: Math.round(where.energy * 10) / 10,
                            mass: Math.round(where.peak * 1000) / 1000 };
-  const calm = where.energy < OV.calm;
+  const calm = !forced && where.energy < OV.calm;
   const pal = palette(an, where, n);
   const cx = Math.max(0, bb.x - pad), cy = Math.max(0, bb.y - pad);
   const cw = Math.min(OV.w - cx, bb.w + 2 * pad), ch = Math.min(OV.h - cy, bb.h + 2 * pad);
@@ -553,7 +558,7 @@ function render(ctx, ov, img, n, avoid) {
   for (let i = 1; i <= nSt; i++) stages.push(cut(i, 'ov' + n + '-s' + i));
   return { file: file, stages: stages, x: where.box.x + marg - (bb.x - cx), y: where.box.y + marg - (bb.y - cy), w: cw, h: ch,
            k: where.k, kind: o.kind, energy: Math.round(where.energy * 10) / 10, mass: Math.round(where.peak * 1000) / 1000,
-           lum: Math.round(where.lum * 100) / 100, accent: pal.a1, vivid: pal.vivid, calm: calm };
+           lum: Math.round(where.lum * 100) / 100, accent: pal.a1, vivid: pal.vivid, calm: calm, forced: forced };
 }
 
 /**

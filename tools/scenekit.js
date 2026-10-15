@@ -510,11 +510,12 @@ function build(it, ctx) {
     const fbx = fbBox(s.fb);
     if (fbx) avoid.push(fbx);
     let r = null;
-    try { r = OVL.render(ovCtx, s.ov, ctx.imgs[String(s.n)], k, avoid); }
+    try { r = OVL.render(ovCtx, s.ov, ctx.imgs[String(s.n)], k, avoid, { force: !!(s.media && s.media.card) }); }
     catch (e) { r = null; notes.push('نوشتهٔ صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 60)); }
     if (r && r.file) {
       ovFile[k] = r; ovStat.placed++;
       ovStat.kinds[r.kind] = (ovStat.kinds[r.kind] || 0) + 1;
+      if (r.forced) ovStat.forced = (ovStat.forced || 0) + 1;
     } else if (r && r.skip === 'busy') ovStat.busy++;
     else ovStat.failed++;
   });

@@ -564,11 +564,20 @@ function vmCards_(ready, sents, music, secs, coverId) {
   var plain = function (t) {
     return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
   };
-  var card = function (t0, text) {
-    var tx = plain(text);
-    if (tx.length > 140) tx = tx.slice(0, 137).replace(/\s+\S*$/, '') + '…';
+  /* ۹.۰۴: کارت عکس‌نوشتهٔ متحرک است، نه یک نقلِ ثابت — تیترِ همان ماجرا و جملهٔ گوینده در سه پاره که یکی‌یکی
+     می‌آیند (`points`، همان سازوکارِ مرحله‌ایِ `overlay.js`)؛ رانر زمینه‌اش را تصویرِ محوِ **همان رسانه** می‌گذارد. */
+  var card = function (t0, text, title) {
+    var w = plain(text).split(' ').filter(Boolean), lines = [];
+    var per = w.length <= 7 ? w.length : Math.ceil(w.length / Math.min(3, Math.ceil(w.length / 7)));
+    for (var i0 = 0; i0 < w.length && lines.length < 3; i0 += per) {
+      var ln = w.slice(i0, i0 + per).join(' ');
+      if (ln.length > 60) ln = ln.slice(0, 57).replace(/\s+\S*$/, '') + '…';
+      lines.push(ln);
+    }
+    if (lines.length === 3 && w.length > per * 3) lines[2] = lines[2].replace(/…?$/, '…');
     return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '',
-             media: { kind: 'photo', quote: '', card: true }, ov: { kind: 'quote', title: tx, lines: [] } };
+             media: { kind: 'photo', quote: '', card: true },
+             ov: { kind: 'points', title: plain(title || '').slice(0, 60), lines: lines } };
   };
   var sc = out.scenes;
   /* فقط موسیقیِ **پایانی** کاور می‌گیرد. نسخهٔ ۹.۰۱ سرِ پل‌های میانه هم کاور می‌گذاشت و پس از پل کارت — و
@@ -599,6 +608,10 @@ function vmCards_(ready, sents, music, secs, coverId) {
     for (var y = 0; y < sents.length; y++) {
       var ty = Number(sents[y][0]);
       if (ty < st + 8 || ty > en - 8 - cardSec) continue;
+      /* کارت روی موسیقیِ میانه نمی‌نشیند: نوشتهٔ جملهٔ گوینده وقتی گوینده ساکت است، معنا ندارد. */
+      var onMus = false;
+      for (var mz = 0; mz < mus.length; mz++) if (ty < Number(mus[mz][1]) && ty + cardSec > Number(mus[mz][0])) onMus = true;
+      if (onMus) continue;
       if (!best || Math.abs(ty - mid) < Math.abs(best.t - mid)) best = { t: ty, text: sents[y][1] };
     }
     if (!best || !plain(best.text)) { sc[hit].media = Object.assign({}, sc[hit].media, { long: true }); continue; }
@@ -610,7 +623,7 @@ function vmCards_(ready, sents, music, secs, coverId) {
     if (back === null) back = Math.min(en - 6, best.t + cardSec);
     var cont = { t0: Math.round(back * 10) / 10, fileId: sc[hit].fileId, caption: '', say: '',
                  media: { kind: sc[hit].media.kind, quote: '', cont: true } };
-    sc.splice(hit + 1, 0, card(best.t, best.text), cont);
+    sc.splice(hit + 1, 0, card(best.t, best.text, sc[hit].ov && sc[hit].ov.title), cont);
     out.added += 2;
   }
   for (var n = 0; n < sc.length; n++) {

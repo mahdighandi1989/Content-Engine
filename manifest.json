@@ -1,15 +1,15 @@
 {
-  "version": "9.03",
+  "version": "9.04",
   "codeFile": "engine.gs",
-  "sha256": "a7051f0f49ff44714e94356275ff37dc3d71f0bac06cd30fa5254f53f913b682",
-  "releasedAt": "2026-10-15T03:30:00Z",
-  "summary": "ویدئوی «از همه جا»: همهٔ پرچم‌های صحنه به رانر می‌رسند؛ کاور فقط سرِ موسیقیِ پایانی؛ کارتِ ۷ ثانیه‌ای و بعد ادامهٔ همان کلیپ.",
+  "sha256": "efe71fcd109423953e1f68f6290a0716d4f2f62af1460cd9af198e27f61ac016",
+  "releasedAt": "2026-10-15T07:30:00Z",
+  "summary": "ویدئوی «از همه جا»: کلیپی که عبارتش پیدا نشد بخشِ اصلیِ گفتارِ خودش را با صدا پخش می‌کند؛ کارت‌ها دیگر «شلوغ» کنار نمی‌روند — تیتر و سه عبارتِ یکی‌یکی روی تصویرِ محوِ همان رسانه.",
   "fixes": [
-    "27_YouTube: YT_MEDIA_FLAGS — ytRenderAsk_ همهٔ پرچم‌های media (intro/teaser/card/outro/cont) را رد می‌کند",
-    "37_VarietyMedia: vmCards_ — بی کاورِ پل‌های میانه؛ کارتِ VM_CARD_SEC و صحنهٔ cont از همان رسانه",
-    "runner: cont ادامهٔ کلیپ از usedTo؛ mediaOf پرچمِ cont",
-    "VM_SAMPLE rev ۶",
-    "tests: run_varietymedia §۱۲ بازنوشته، §۱۴ — با شکستنِ عمدی"
+    "clipfind: main_part — جملهٔ محتمل یا بلندترین گفتارِ پیوسته (۶ تا ۲۰ ثانیه) وقتی عبارت پیدا نشد",
+    "runner: لحظه و آغازِ صحنه از main (st.fallback، st.mainPart)؛ کارت روی تصویرِ صحنهٔ پیشین (st.cardOwn)",
+    "overlay: render(..., {force}) برای صحنهٔ کارت — کم‌شلوغ‌ترین جا با پنل؛ scenekit ov.forced را می‌شمارد",
+    "37_VarietyMedia: vmCards_ — کارتِ points (تیتر + سه عبارت)، هرگز روی پلِ موسیقی؛ VM_CARD_SEC ۹؛ VM_SAMPLE rev ۷",
+    "tests: run_media_render §۵.۷–۵.۱۱ و §۷.۳–۷.۴، run_varietymedia ۱۲.۵-ب و ۱۴.۴ — با شکستنِ عمدی"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
@@ -141,6 +141,9 @@
     },
     "9.03": {
       "R-20261014-18": "نمونهٔ ۵: کارت به رانر نرسید (پرچمِ دورریخته) و کاور وقتِ کلیپ را خورد — درمان در YT_MEDIA_FLAGS و vmCards_"
+    },
+    "9.04": {
+      "R-20261015-01": "main_part برای کلیپِ بی‌عبارت؛ کارتِ points با force روی تصویرِ محوِ همان رسانه"
     }
   }
 }

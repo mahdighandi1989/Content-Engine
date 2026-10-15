@@ -389,9 +389,10 @@ console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): 
   ok('۱۲.۱ سرِ موسیقیِ پایانی (۶۲۶٫۹) کاور است، نه کلیپِ صحنهٔ ۱۲', at(640).fileId === 'COVER' && at(640).media.outro, JSON.stringify(at(640)));
   const ci = sc.findIndex(x => x.media.card && x.t0 > 70 && x.t0 < 165);
   ok('۱۲.۲ صحنهٔ ۱۱۵ ثانیه‌ای (۵۹٫۷ → ۱۷۴٫۶): کارتِ نوشته در میانه، **کوتاه**، و بعد همان کلیپ ادامه می‌یابد (۹.۰۳)',
-     ci > 0 && sc[ci].ov && sc[ci].ov.kind === 'quote' && sc[ci].ov.title.length > 5 &&
+     ci > 0 && sc[ci].ov && sc[ci].ov.kind === 'points' && sc[ci].ov.lines.length >= 1 && sc[ci].ov.lines.length <= 3 &&
+     sc[ci].ov.lines.every(l => l.length <= 60) &&
      sc[ci + 1].fileId === sc[ci - 1].fileId && sc[ci + 1].media.cont === true &&
-     sc[ci + 1].t0 - sc[ci].t0 >= 6 && sc[ci + 1].t0 - sc[ci].t0 <= 12,
+     sc[ci + 1].t0 - sc[ci].t0 >= 8 && sc[ci + 1].t0 - sc[ci].t0 <= 16,
      ci > 0 ? JSON.stringify([sc[ci - 1].t0, sc[ci].t0, sc[ci + 1] && sc[ci + 1].t0, sc[ci + 1] && sc[ci + 1].media]) : 'کارت نبود');
   const coverSec = sc.reduce((a, x, i) => a + (x.fileId === 'COVER' && !x.media.outro ? (i + 1 < sc.length ? sc[i + 1].t0 : 655.98) - x.t0 : 0), 0);
   ok('۱۲.۲-ب کاور (جز پایان) روی‌هم کمتر از ۱۵٪ِ زمان — نمونهٔ پنجم بیش از ۴۰٪ بود', coverSec < 0.15 * 655.98, coverSec.toFixed(0) + ' ثانیه');
@@ -399,7 +400,13 @@ console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): 
   ok('۱۲.۳ هیچ صحنه‌ای از ۴۵ ثانیه بلندتر نماند', lens.every(([x, d]) => d <= 28 * 1.6 + 0.01),
      lens.filter(([x, d]) => d > 44.8).map(([x, d]) => x.t0 + ':' + d.toFixed(0)).join(','));
   ok('۱۲.۴ پلِ موسیقیِ میانه (۲۸۶٫۳) کاور نمی‌گیرد — کلیپِ همان بخش زیرِ موسیقی می‌ماند (۹.۰۳)', at(290).fileId !== 'COVER', JSON.stringify(at(290)));
-  ok('۱۲.۵ نوشتهٔ کارت بی اعراب است (برای چشم، نه گوش)', sc.filter(x => x.ov && x.media.card).every(x => !/[ً-ْ]/.test(x.ov.title)));
+  ok('۱۲.۵ نوشتهٔ کارت بی اعراب است (برای چشم، نه گوش)', sc.filter(x => x.ov && x.media.card).every(x => !/[\u064B-\u0652]/.test(x.ov.title + x.ov.lines.join(''))));
+  /* ۹.۰۴: تیترِ کارت = تیترِ همان ماجرا (ovِ صحنه‌ای که نصف شد)؛ جملهٔ بلند در سه پاره، پاره‌ها به ترتیبِ جمله. */
+  const rdy2 = ready.map(x => Object.assign({}, x, x.t0 === 59.7 ? { ov: { kind: 'headline', title: 'طنز خط ۱۱۳ و پرونده‌سازی', lines: [] } } : {}));
+  const sl2 = sl.map(z => [z[0], 'دَر آغازِ مَسیر با یِک ویدیویِ طَنز روبِه‌رو می‌شَویم کِه بِه هَجوِ سازوکارِ گُزارِش‌دِهیِ اَمنیَّتی وُ پَروَندِه‌سازی پَرداختِه اَست']);
+  const c2 = vmCards_(rdy2, sl2, music, 655.98, 'COVER').scenes.filter(x => x.media.card && x.t0 > 70 && x.t0 < 165)[0];
+  ok('۱۲.۵-ب کارت: تیترِ همان ماجرا + سه پارهٔ پیاپی از جملهٔ گوینده', c2 && c2.ov.title === 'طنز خط ۱۱۳ و پرونده‌سازی' &&
+     c2.ov.lines.length === 3 && c2.ov.lines[0].indexOf('در آغاز') === 0, JSON.stringify(c2 && c2.ov));
   ok('۱۲.۶ شماره‌ها پیاپی و ترتیب زمانی', sc.every((x, i) => x.n === i + 1 && (i === 0 || sc[i - 1].t0 <= x.t0)));
   ok('۱۲.۷ بی کاور ⇒ دست‌نخورده', vmCards_(ready, sl, music, 655.98, '').scenes.length === ready.length);
   ok('۱۲.۸ جمله‌ای نیست ⇒ حلقه بی‌پایان نمی‌شود و صحنه می‌ماند', vmCards_(ready, [], music, 655.98, 'COVER').scenes.length > ready.length);
@@ -467,6 +474,10 @@ console.log('=== ۱۴) هر پرچمی که رانر می‌خوانَد از ص
        JSON.stringify(rs.map(x => x.media)));
   } finally { global.ytRenderRead_ = keepR; global.ytRenderSave_ = keepS; global.ytRenderShare_ = keepSh; global.ytRenderMapCached_ = keepM; }
   const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۴.۴ کارت روی تصویرِ محوِ همان رسانه‌ای که پیشش بود، نه کاور (۹.۰۴)',
+     /const prevImg = isCard && i > 0 \? imgs\[String\(scenes\[i - 1\]\.n\)\] : '';/.test(rj) &&
+     /const srcImg = prevImg && fs\.existsSync\(prevImg\) \? prevImg : g\.file;/.test(rj) &&
+     /MKIT\.photoClip\(FF, srcImg, out \+ '\.mp4', want, \{ layout: layOf\[s\.n\], card: isCard \}\)/.test(rj));
   ok('۱۴.۳ رانر صحنهٔ cont را از جایی که صحنهٔ پیشینِ همان کلیپ ایستاد ادامه می‌دهد',
      /const cont = !!\(s\.media && s\.media\.cont\) && usedTo\[s\.url\] !== undefined;/.test(rj) &&
      /usedTo\[s\.url\] = Math\.max\(usedTo\[s\.url\] \|\| 0, from \+ c\.len/.test(rj));
