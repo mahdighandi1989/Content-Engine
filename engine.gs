@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.11
+ *  موتور محتوا و پادکست — نسخهٔ 9.12
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2081,7 +2081,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.11',
+  CODE_VERSION: '9.12',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -61152,6 +61152,9 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
   try { pcNow = (ytRenderPlCoversCached_() || {})[key] || null; } catch (ePc) { pcNow = null; }
   var stale = !!(prec.cover && pcNow && pcNow.sig && prec.coverSig &&
                  String(pcNow.sig) !== String(prec.coverSig));
+  /* ۹.۱۲: کاوری که صاحبِ برنامه در Studio گذاشت («کاورها رو بفرست … قشنگش کن») دیگر با تغییرِ نامِ مجموعه یا
+     طرحِ تازهٔ رانر جایگزین نمی‌شود — `redo` تا امروز همان کاورِ دستی را با کاورِ سادهٔ موتور عوض می‌کرد. */
+  if (prec.coverManual) { renamed = false; stale = false; }
   if ((!prec.cover || renamed || stale) && !giveUp(prec, 'cover')) {
     var plSty = '';
     try {
@@ -61407,6 +61410,7 @@ function ytPlaylistCover_(plId, title, kicker, cat, redo, showName, styleKey, ke
     try {
       var mX = ytPlMap_(), recX = mX[spec.key] || {};
       recX.coverLast = { at: nowStr_(), how: 'موجود در یوتیوب (دستی)', code: 200, list: listCode };
+      recX.coverManual = nowStr_();   // ۹.۱۲: کاورِ دستِ صاحبِ برنامه — هیچ تغییرِ نام یا طرحی رویش نمی‌نویسد
       mX[spec.key] = recX; ytPlMapSave_(mX);
     } catch (eX) {}
     return 'نشست';

@@ -7963,6 +7963,18 @@ console.log('\n=== ۸۲) کاورِ پلی‌لیست مربع است، و پا�
   const r2t = ytPlaylistCover_('PLQ', 'معرفت‌شناسی', 'درس‌نامه', 'فلسفه', false, 'درس‌نامه', '', 'kQ');
   ok('۸۲.۴-ت تصویرِ موجودِ دستی بی redo ⇒ «نشست» بی هیچ فرستادن', r2t === 'نشست' && imgCalls.length === 0 &&
      /دستی/.test(((ytPlMap_()['kQ'] || {}).coverLast || {}).how || ''), r2t + ' · ' + imgCalls.length);
+  ok('۸۲.۴-ت۲ (۹.۱۲) کاورِ دستی در نقشه «دستی» علامت می‌خورد', !!((ytPlMap_()['kQ'] || {}).coverManual));
+  /* ۸۲.۴-ت۳ (۹.۱۲) — پس از آن، تغییرِ نامِ مجموعه یا طرحِ تازهٔ رانر کاورِ دستی را عوض نمی‌کند (ytPlDress_ با renamed=true). */
+  const kCv = global.ytPlaylistCover_; let cvCalls = 0;
+  global.ytPlaylistCover_ = () => { cvCalls++; return 'نشست'; };
+  const mT = ytPlMap_(); mT.kQ = Object.assign(mT.kQ || {}, { cover: nowStr_(), coverSig: 'old', coverVer: CFG.YT_PL_COVER_VER, podcast: nowStr_() });
+  ytPlMapSave_(mT);
+  ytPlDress_('PLQ', 'معرفت‌شناسیِ تازه', 'معرفت‌شناسیِ تازه', 'درس‌نامه', 'فلسفه', true, { covers: 0, coverFails: [], podcasts: 0 }, 'kQ');
+  ok('۸۲.۴-ت۳ کاورِ دستی با تغییرِ نام دوباره فرستاده نمی‌شود', cvCalls === 0, 'فراخوان: ' + cvCalls);
+  const mT2 = ytPlMap_(); delete mT2.kQ.coverManual; ytPlMapSave_(mT2);
+  ytPlDress_('PLQ', 'معرفت‌شناسیِ تازه', 'معرفت‌شناسیِ تازه', 'درس‌نامه', 'فلسفه', true, { covers: 0, coverFails: [], podcasts: 0 }, 'kQ');
+  ok('۸۲.۴-ت۴ و بی علامتِ دستی، تغییرِ نام همچنان کاور را تازه می‌کند (رفتارِ پیشین)', cvCalls === 1, 'فراخوان: ' + cvCalls);
+  global.ytPlaylistCover_ = kCv;
   existingImg = '';
   /* ۸۲.۴-ث (۸.۸۷) — کاورِ ۵۰۰خورده کارِ یک‌بارهٔ آدم است، با نشانیِ Studio و کاورِ آماده؛ هر روز دوباره نگاه می‌شود. */
   ytPlMapSave_({ kQ: { id: 'PLQ', title: 'معرفت‌شناسی', coverTries: 5, coverLastTry: nowStr_(),
