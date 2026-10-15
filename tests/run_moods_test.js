@@ -74,7 +74,7 @@ global.__STUB = function (url, body) {
     { name: 'models/' + PIN, supportedGenerationMethods: ['generateContent'] }] } };
   if (url.indexOf('api.telegram.org') !== -1) { tg.push({ m: url.split('/').pop(), body }); return { code: 200, json: { ok: true, result: { username: 'b' } } }; }
   const t = body.contents ? body.contents[0].parts[0].text : '';
-  if (body.contents && body.contents[0].parts.some(x => x.inlineData) && t.indexOf('این صدا باید دقیقاً متنِ زیر') === 0) {
+  if (body.contents && body.contents[0].parts.some(x => x.inlineData) && t.indexOf('این صدا متنِ فارسیِ زیر را می‌خوانَد') === 0) {
     lbListens++;          // ۸.۸۲: شنیدنِ دوبارهٔ کلِ تکه — جدا از وارسیِ دستور
     return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ errs: [] }) }] } }] } };
   }

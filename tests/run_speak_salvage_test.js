@@ -28,4 +28,18 @@ console.log('=== ۲) جوابی که به متن ربطی ندارد ⇒ هما�
 global.geminiText_ = () => ({ v: vow('این متن کاملاً دیگری است که هیچ ربطی به آن بخش ندارد و فقط شبیه فارسی است') });
 ok('۲.۱ پوششِ کم ⇒ خالی، با علت', vowelizePiece_(P) === '' && /ناهم‌خوان/.test(VOWEL_LAST_WHY_), VOWEL_LAST_WHY_);
 
+console.log('=== ۳) شنونده متنِ بی‌اعراب می‌شنود و اصلاح روی متنِ اعراب‌دار می‌نشیند (۹.۰۷) ===');
+let seen = '';
+global.ttsWavOf_ = () => 'WAV';
+global.geminiShort_ = (parts) => { seen = parts[0].text; return { ok: 1 }; };
+global.extractText_ = () => JSON.stringify({ errs: [{ word: 'جدا', heard: 'جُدا با کسرهٔ اضافه', kind: 'تلفظ', fix: 'جُدا' }] });
+const MT = 'شِنیدَم بَعد اَز دو ماهِ جُدا شُدی';
+const r = ttsListenCheck_(Utilities.base64Encode([0, 0, 0, 0]), MT);
+ok('۳.۱ متنی که به شنونده می‌رسد هیچ اعرابی ندارد', seen.indexOf('دو ماه جدا') !== -1 && !/[ًٌٍَُِّْ]/.test(seen.split('متن:\n')[1] || 'x'), (seen.split('متن:\n')[1] || '').slice(0, 60));
+ok('۳.۲ و از معنا داوری می‌خواهد، نه از اعرابِ ما', /در همین جمله و با همین/.test(seen) && /کسرهٔ اضافه/.test(seen));
+ok('۳.۳ خطای شنیده‌شده با واژهٔ بی‌اعراب پذیرفته می‌شود', r.errs.length === 1 && r.errs[0].word === 'جدا', JSON.stringify(r.errs));
+const fixed = ttsListenApplyFix_(MT, [{ word: 'ماه', kind: 'تلفظ', fix: 'ماه' }]);
+ok('۳.۴ اصلاح روی واژهٔ اعراب‌دار با همان حروف می‌نشیند (کسرهٔ بی‌جای «ماهِ» برداشته شد)',
+   /دو ماه جُدا/.test(fixed) && !/ماهِ/.test(fixed) && verifySpeak_(stripTashkil_(MT), fixed), fixed);
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ نجاتِ واژه‌به‌واژه گذشت.');
