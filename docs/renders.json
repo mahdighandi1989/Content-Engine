@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-15 14:36",
+ "updatedAt": "2026-10-15 21:33",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -2424,6 +2424,141 @@
     "dissolve": 7
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-2--cover.jpg"
+  },
+  "variety:73-3-نمونه": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-3-.mp4",
+   "bytes": 89895281,
+   "parts": 1,
+   "at": "2026-10-15 21:33",
+   "mode": "media",
+   "media": {
+    "clips": 11,
+    "photos": 8,
+    "found": 2,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 9: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable)",
+     "صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "fill": 8,
+     "right": 4,
+     "center": 5,
+     "left": 2
+    },
+    "teaser": 4,
+    "filled": 4,
+    "filledSec": 29,
+    "tailCut": 11,
+    "cardOwn": 6,
+    "cards": 6,
+    "mainPart": 2,
+    "cropped": 3,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 4,
+     "why": [],
+     "sec": 118,
+     "whole": 3,
+     "fallback": 2
+    }
+   },
+   "inserts": [
+    {
+     "at": 70.2,
+     "d": 25.1
+    },
+    {
+     "at": 161.4,
+     "d": 18.3
+    },
+    {
+     "at": 214.1,
+     "d": 41.9
+    },
+    {
+     "at": 308,
+     "d": 32.9
+    }
+   ],
+   "scenes": 23,
+   "want": 23,
+   "snapped": 14,
+   "seconds": 442,
+   "qa": {
+    "n": 23,
+    "matched": 23,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": false,
+     "points": [
+      {
+       "n": 9,
+       "t": 106.7,
+       "own": 0.43,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "خباری هل بوحران با دست خالی.  وقت زبان اداری از زندگی خصوصی فراتر میرود  بپوشت تیریبون سوخنگو میرسد."
+      },
+      {
+       "n": 12,
+       "t": 190,
+       "own": 0.17,
+       "nb": 0.17,
+       "ok": false,
+       "heard": "این تق اجیب در راخروهای شرکتها هم تکرار میشه بات  جای که هرکس نقشی براهده گرفت هست  یکی با بالا ترین دریافدی  ابتده ایتر"
+      },
+      {
+       "n": 15,
+       "t": 253.2,
+       "own": 0,
+       "nb": 0.07,
+       "ok": false,
+       "heard": "این کلیشهای شخلی نتازه هستند و نمودین.  اینگار از اصر سنگ با انسان هم راخ بوده."
+      }
+     ],
+     "why": "گفتارِ صحنهٔ 12، 15 با تصویرش نمی‌خواند",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 10,
+    "placed": 10,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "headline": 2,
+     "points": 6,
+     "quote": 2
+    },
+    "forced": 1
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 23,
+    "used": 23,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 10,
+    "radial": 2,
+    "zoomin": 1,
+    "slideright": 2,
+    "smoothright": 1,
+    "fade": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-3--cover.jpg",
+   "notes": [
+    "برشِ کلیپ از آغاز: صحنهٔ 9: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable) · صحنهٔ 15: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+   ]
   }
  },
  "art": {
