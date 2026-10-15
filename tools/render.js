@@ -37,6 +37,8 @@ const REPO       = process.env.GITHUB_REPOSITORY || 'mahdighandi1989/Content-Eng
 const TOKEN      = process.env.GITHUB_TOKEN || '';
 
 function log(s) { console.log(s); }
+/** ۹.۱۳: هر گامِ سنگینِ ساخت با ساعت و حافظهٔ آزاد — اجرای ۳۶۴/۳۶۵ پانزده دقیقه بی هیچ خطی مردند. */
+function stage(s) { log('  ▸ ' + new Date().toISOString().slice(11, 19) + ' ' + s + ' · حافظهٔ آزاد ' + Math.round(os.freemem() / 1048576) + 'M'); }
 
 function dlUrl(id) {
   return 'https://drive.usercontent.google.com/download?id=' +
@@ -701,6 +703,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
   const scIdx = scenes.map(s => ask(s.url, s.media && s.media.quote));
   const moIdx = (placed || []).map(m => ask(m.url, m.quote));
   const heard = MKIT.find(reqs, dir);
+  stage('شنیدنِ کلیپ‌ها تمام شد (' + reqs.length + ')');
   /* ══ برشِ هر لحظه، **یک بار** — همان که صحنه دورش می‌بُرد و همان که با صدا لای گفتار می‌نشیند ══
      دو حسابِ جدا برای «لحظه از کجا تا کجا» یعنی روزی یکی چند ثانیه با دیگری فرق کند و بیننده تکه‌ای
      را دو بار ببیند یا تکه‌ای را هرگز. */
@@ -742,6 +745,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
   scenes.forEach((s, i) => {
     const g = got[s.url];
     if (!g) { st.failed++; return; }
+    stage('برشِ صحنهٔ ' + s.n + ' (' + g.kind + (s.media && s.media.teaser ? '، پیش‌نمایش' : '') + ')');
     const out = path.join(dir, 'ms' + String(s.n).padStart(3, '0'));
     const want = (i + 1 < scenes.length ? scenes[i + 1].t0 - s.t0 : 30) + 2;
     try {
@@ -899,6 +903,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
        `inserts` همه همین یک عدد. */
     placed.forEach(m => { m.at = Math.ceil(m.at * SKIT.SK.fps - 1e-6) / SKIT.SK.fps; });
   }
+  stage('رسانه‌ها: دانلود، شنیدن و برش');
   const mp = it.media ? prepMedia(it, scenes, dir, notes, placed) : null;
   const imgs = mp ? mp.imgs : {};
   for (const s of (mp ? [] : scenes)) {
@@ -938,11 +943,13 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     try { brandMarkSave(lg); } catch (eB) { notes.push('نشانِ واترمارک ذخیره نشد: ' + String(eB.message).slice(0, 60)); }
   }
   const exe = CK.chromeExe();
+  stage('صحنه‌ها: ساختِ ویدئو');
   const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
                              dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes,
                              full: mp ? mp.full : null,
                              kf: mp ? mp.moCut.filter(c => c.ok).map(c => c.m.at) : [],
                              keepSilent: !!(mp && mp.moCut.some(c => c.ok)) });
+  stage('سنجشِ قاب‌ها');
   const qa = SKIT.qa(ffmpegExe(), dest, r.tl, durSec);
   /* ══ شنیدنِ هم‌زمانی (۸.۸۰) ══ سه نقطه، با تشخیصِ گفتار: آنچه در زمانِ صحنه گفته می‌شود با
      گفتارِ خودِ صحنه می‌خواند؟ نبودِ ابزار یعنی «نشنیدم» (ok:null)، نه «ناهم‌زمان». */
@@ -956,6 +963,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     } else if (pts.length >= 3) {
       const sf = path.join(dir, 'avsync.json');
       fs.writeFileSync(sf, JSON.stringify(pts));
+      stage('شنیدنِ هم‌زمانی (avsync)');
       const res = execFileSync('python3', [path.join(__dirname, 'avsync.py'), dest, sf, String(durSec)],
                                { encoding: 'utf8', timeout: 8 * 60 * 1000, maxBuffer: 4 * 1024 * 1024 });
       sync = JSON.parse(String(res).trim().split('\n').pop());
@@ -1003,6 +1011,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   /* لحظه‌ها پس از سنجش: سنجش و شنیدنِ هم‌زمانی روی ویدئوی هم‌طولِ صوت است (زمانِ صحنه‌ها همان). */
   let mo = null;
   if (mp && placed.length && r.silent) {
+    stage('لحظه‌ها: برش و لای‌گذاری');
     try { mo = spliceMoments(it, placed, mp, r.silent, wav, dest, dir, notes); }
     catch (eMo) { notes.push('لای‌گذاریِ لحظه‌ها نشد، ویدئو بی لحظه: ' + String(eMo.message).split('\n')[0].slice(0, 80)); }
   }

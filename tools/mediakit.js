@@ -419,8 +419,8 @@ function placeMoments(moments, sil, mute, durSec, notes) {
 }
 
 /**
- * لای‌گذاریِ لحظه‌ها، **بی بازکدگذاری**: ویدئوی بی‌صدا سرِ قاب‌های کلیدیِ همان زمان‌ها (scenekit
- * با `kf` گذاشته) بریده می‌شود؛ صوت به نمونه بریده می‌شود؛ تکه‌ها و لحظه‌ها پشتِ‌هم.
+ * لای‌گذاریِ لحظه‌ها: ویدئوی بی‌صدا تکه‌تکه با شمارِ قابِ معین بازکدگذاری می‌شود (۹.۱۳)؛ صوت به
+ * نمونه بریده می‌شود؛ تکه‌ها و لحظه‌ها پشتِ‌هم با copy.
  * @return {{inserts: Array<{at:number, d:number}>}}
  */
 function splice(ff, silent, wav, parts, dest, dir) {
@@ -429,34 +429,45 @@ function splice(ff, silent, wav, parts, dest, dir) {
      از صدایش آمد و لحظهٔ سوم تصویرِ کلیپِ دیگری روی صدای «اونی که بیشترین حقوق رو می‌گیره» نشاند — «صدای کلیپ
      با تصویرش اصلاً سینک نیست». حالا هر تکه با trim/atrim در **یک** گذر بریده و پیوند زده می‌شود: جای هر لحظه
      از ساختار درست است، نه از اینکه قابِ کلیدی کجا افتاده. */
+  /* ۹.۱۳: اجرای ۳۶۴ و ۳۶۵ِ رانر هر دو وسطِ ساختِ نمونهٔ ۷۳ با «shutdown signal» مردند. یک گذرِ همه‌چیز
+     (split به n شاخه + n×۲ ورودی + concat) حافظه‌اش به چیدمانِ صف‌های ffmpeg بسته است، نه به ما. حالا هر تکه
+     جدا و با **شمارِ قابِ معین** ساخته می‌شود (دقت همان: برشِ ورودی با بازکدگذاری روی قاب دقیق است، و لحظه
+     روی شبکهٔ قاب است)، و پیوند با copy — حافظهٔ هر گام کران دارد. */
+  const fps = MK.fps;
   const W = path.join(dir, 'narr48.wav');
   run(ff, ['-i', wav, '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', W]);
-  const inserts = [], f = [], a = ['-i', silent, '-i', W];
-  const n = parts.length + 1;
-  f.push('[0:v]split=' + n + parts.map((_, i) => '[sv' + i + ']').join('') + '[sv' + parts.length + ']');
-  f.push('[1:a]asplit=' + n + parts.map((_, i) => '[sa' + i + ']').join('') + '[sa' + parts.length + ']');
-  const V = 'fps=' + MK.fps + ',scale=' + MK.w + ':' + MK.h + ',setsar=1,format=yuv420p';
-  const A = 'aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo';
-  let prev = 0, seq = '';
-  parts.forEach((p, i) => {
-    f.push('[sv' + i + ']trim=start=' + prev.toFixed(4) + ':end=' + p.at.toFixed(4) + ',setpts=PTS-STARTPTS,' + V + '[v' + i + ']');
-    f.push('[sa' + i + ']atrim=start=' + prev.toFixed(4) + ':end=' + p.at.toFixed(4) + ',asetpts=PTS-STARTPTS,' + A + '[a' + i + ']');
-    a.push('-i', p.v, '-i', p.a);
-    const iv = 2 + i * 2, ia = iv + 1;
-    f.push('[' + iv + ':v]setpts=PTS-STARTPTS,' + V + '[mv' + i + ']');
-    f.push('[' + ia + ':a]asetpts=PTS-STARTPTS,' + A + ',apad=whole_dur=' + p.len.toFixed(4) + ',atrim=end=' + p.len.toFixed(4) + '[ma' + i + ']');
-    seq += '[v' + i + '][a' + i + '][mv' + i + '][ma' + i + ']';
-    inserts.push({ at: Math.round(p.at * 10) / 10, d: Math.round(p.len * 10) / 10 });
+  const V = 'fps=' + fps + ',scale=' + MK.w + ':' + MK.h + ',setsar=1,format=yuv420p';
+  const enc = ['-an', '-c:v', 'libx264', '-preset', 'faster', '-crf', String(MK.crf), '-pix_fmt', 'yuv420p',
+               '-r', String(fps), '-video_track_timescale', '12288'];
+  const AO = ['-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le'];
+  const vl = [], al = [], inserts = [];
+  let prev = 0, k = 0;
+  const piece = (a, b) => {                                   // تکهٔ بی‌صدا + صوتِ گفتار، [a, b)
+    const v = path.join(dir, 'spv' + k + '.mp4'), au = path.join(dir, 'spa' + k + '.wav');
+    const args = ['-ss', a.toFixed(4), '-i', silent, '-vf', V];
+    if (b !== null) args.push('-frames:v', String(Math.round((b - a) * fps)));
+    run(ff, args.concat(enc, [v]));
+    run(ff, ['-i', W, '-af', 'atrim=start=' + a.toFixed(4) + (b !== null ? ':end=' + b.toFixed(4) : '') + ',asetpts=PTS-STARTPTS'].concat(AO, [au]));
+    vl.push(v); al.push(au); k++;
+  };
+  for (const p of parts) {
+    piece(prev, p.at);
+    const n = Math.max(1, Math.round(p.len * fps)), len = n / fps;   // درازای لحظه هم روی شبکهٔ قاب
+    const v = path.join(dir, 'spv' + k + '.mp4'), au = path.join(dir, 'spa' + k + '.wav');
+    run(ff, ['-i', p.v, '-vf', V + ',tpad=stop_mode=clone:stop_duration=2', '-frames:v', String(n)].concat(enc, [v]));
+    run(ff, ['-i', p.a, '-af', 'aresample=48000,apad=whole_dur=' + len.toFixed(4) + ',atrim=end=' + len.toFixed(4)].concat(AO, [au]));
+    vl.push(v); al.push(au); k++;
+    inserts.push({ at: Math.round(p.at * 10) / 10, d: Math.round(len * 10) / 10 });
     prev = p.at;
-  });
-  const L = parts.length;
-  f.push('[sv' + L + ']trim=start=' + prev.toFixed(4) + ',setpts=PTS-STARTPTS,' + V + '[v' + L + ']');
-  f.push('[sa' + L + ']atrim=start=' + prev.toFixed(4) + ',asetpts=PTS-STARTPTS,' + A + '[a' + L + ']');
-  seq += '[v' + L + '][a' + L + ']';
-  f.push(seq + 'concat=n=' + (2 * L + 1) + ':v=1:a=1[ov][oa]');
-  run(ff, a.concat(['-filter_complex', f.join(';'), '-map', '[ov]', '-map', '[oa]',
-                    '-c:v', 'libx264', '-preset', 'faster', '-crf', String(MK.crf), '-pix_fmt', 'yuv420p',
-                    '-r', String(MK.fps), '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', dest]));
+  }
+  piece(prev, null);
+  const lv = path.join(dir, 'spv.txt'), la = path.join(dir, 'spa.txt');
+  fs.writeFileSync(lv, vl.map(x => "file '" + x + "'").join('\n'));
+  fs.writeFileSync(la, al.map(x => "file '" + x + "'").join('\n'));
+  const A = path.join(dir, 'spall.wav');
+  run(ff, ['-f', 'concat', '-safe', '0', '-i', la, '-c', 'copy', A]);
+  run(ff, ['-f', 'concat', '-safe', '0', '-i', lv, '-i', A, '-map', '0:v', '-map', '1:a', '-c:v', 'copy',
+           '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', dest]);
   return { inserts: inserts };
 }
 

@@ -106,7 +106,16 @@ jobs:
         if: steps.probe.outputs.work == '1'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node tools/render.js
+        # ══ ۹.۱۳ ══ اجرای ۳۶۴ و ۳۶۵ هر دو وسطِ ساخت با «runner has received a shutdown signal» مردند و
+        # لاگ هیچ نگفت کجا و چرا — آخرین خط چهار دقیقه پس از شروع بود و پانزده دقیقه سکوت. این پایش هر ۲۰
+        # ثانیه حافظه، دیسک و پرمصرف‌ترین فرآیند را می‌نویسد تا مرگِ بعدی (اگر بود) شاهد داشته باشد.
+        run: |
+          ( while sleep 20; do
+              echo "  ⏱ $(date -u +%T) mem $(free -m | awk '/Mem/{print $3"M used, "$7"M avail"}') · disk $(df -h / | awk 'NR==2{print $4}') · $(ps -eo rss=,comm= --sort=-rss | head -2 | awk '{printf "%s %dM; ", $2, $1/1024}')"
+            done ) &
+          MON=$!
+          node tools/render.js
+          kill $MON 2>/dev/null || true
 
       - name: ثبتِ نشانی‌ها در ریپو
         if: steps.probe.outputs.work == '1'

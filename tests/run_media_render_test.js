@@ -128,6 +128,16 @@ console.log('=== ۱-ج) لای‌گذاریِ لحظه بی وابستگی به 
      'پس از اول ' + after1.toFixed(1) + ' · پس از دوم ' + after2.toFixed(1) + ' · با ثانیهٔ غلط ' + wrong.toFixed(1));
   const ps = MKIT.probe(FF, P('spl.mp4'));
   ok('۱.۱۵ طولِ کل = ۲۰ + ۳ + ۳ و صدا دارد', Math.abs(ps.dur - 26) < 0.2 && ps.audio, JSON.stringify(ps));
+  /* ۹.۱۳: اجرای ۳۶۴/۳۶۵ِ رانر وسطِ ساخت مردند (shutdown signal). لای‌گذاری دیگر یک گذرِ split به همهٔ شاخه‌ها
+     نیست؛ هر تکه یک فرآیندِ جدا با شمارِ قابِ معین — و پیوندِ copy نباید صدا و تصویر را از هم دور کند. */
+  ff(['-i', P('spl.mp4'), '-vn', '-c:a', 'pcm_s16le', P('spl-a.wav')]);
+  ff(['-i', P('spl.mp4'), '-an', '-c:v', 'copy', P('spl-v.mp4')]);
+  const durOf = f => { const m = /Duration: (\d+):(\d+):([\d.]+)/.exec(String(spawnSync(FF, ['-hide_banner', '-i', f]).stderr));
+                       return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : -1; };
+  const da = durOf(P('spl-a.wav')), dv = durOf(P('spl-v.mp4'));
+  ok('۱.۱۵-ب صدا و تصویرِ خروجی هم‌اندازه‌اند (پیوندِ تکه‌ها چیزی جابه‌جا نکرد)', Math.abs(da - dv) < 0.06, 'صدا ' + da + ' · تصویر ' + dv);
+  const spSrc = MKIT.splice.toString();
+  ok('۱.۱۵-پ لای‌گذاری تکه‌تکه است، نه یک گذرِ split به همهٔ شاخه‌ها', !/split=/.test(spSrc) && /-frames:v/.test(spSrc));
 }
 
 console.log('=== ۱-د) اندازهٔ لحظه از خودِ کلیپ، نه یک جمله (۹.۱۱) ===');
