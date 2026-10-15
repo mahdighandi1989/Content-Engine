@@ -608,6 +608,8 @@ function writeStatus_(hub, note) {
     lessonSceneFb: (function () { try { return lvSceneFbStatus_(); } catch (e) { return null; } })(),
     /* «از همه جا» با رسانه‌های منبع (بخشِ ۳۷، ۸.۹۶) — فقط Properties. */
     varietyMedia: (function () { try { return vmStatus_(); } catch (e) { return null; } })(),
+    /* ۹.۱۱: دروازهٔ زمین‌گیری — چند جملهٔ ساختگی (تصویرِ ندیده، پند، ادعا) پیش از صدا حذف شد، یا چرا داوری نشد. */
+    ground: (function () { try { return JSON.parse(props_().getProperty(PK.GROUND_LAST) || 'null'); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),

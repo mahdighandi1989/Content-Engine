@@ -94,6 +94,10 @@ global.__STUB = function (url, body) {
     return { code: 200, json: { candidates: [{ content: { parts: [{
       text: JSON.stringify({ spans: [] }) }] } }] } };
   }
+  // و دروازهٔ زمین‌گیری (۹.۱۱) — همان تله، بارِ هفتم: داور جای پرامپتِ نویسنده می‌نشست.
+  if (t.indexOf('تو داورِ وفاداریِ متنِ یک پادکستِ فارسی هستی') !== -1) {
+    return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({ bad: [] }) }] } }] } };
+  }
   writerPrompt = t;
   const ids = [...t.matchAll(/شناسه: (\S+)/g)].map(m => m[1]);
   // قلاب باید روز و تاریخ را بگوید و تعداد بخش‌ها کامل باشد، وگرنه پاس وفاداری

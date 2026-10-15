@@ -101,6 +101,81 @@ console.log('=== ۱-ب) کارتِ پایانیِ ریل و صحنهٔ بلند�
      String(MKIT.probe(FF, c4.file).dur));
 }
 
+console.log('=== ۱-ج) لای‌گذاریِ لحظه بی وابستگی به قابِ کلیدی (۹.۱۱، نمونهٔ ۷۳: ۳٫۴ ثانیه عقب) ===');
+{
+  /* ویدئوی بی‌صدایی که قابِ کلیدی‌اش فقط هر ۱۰ ثانیه است — سرِ ۵٫۳ و ۱۱٫۷ هیچ قابِ کلیدی نیست */
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=1920x1080:r=24:d=20', '-vf', 'hue=h=t*17', '-c:v', 'libx264', '-g', '240', '-pix_fmt', 'yuv420p', '-an', P('sil.mp4')]);
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*300*t)':s=24000:d=20", '-ac', '1', '-c:a', 'pcm_s16le', P('sn.wav')]);
+  const mk = (c, n) => {
+    ff(['-f', 'lavfi', '-i', 'color=c=' + c + ':s=1920x1080:r=24:d=3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', P(n + '.mp4')]);
+    ff(['-f', 'lavfi', '-i', "aevalsrc='0.3*sin(2*PI*900*t)':s=48000:d=3", '-ac', '2', '-c:a', 'pcm_s16le', P(n + '.wav')]);
+    return { v: P(n + '.mp4'), a: P(n + '.wav'), len: 3 };
+  };
+  const p1 = Object.assign(mk('red', 'm1'), { at: 5.3 }), p2 = Object.assign(mk('blue', 'm2'), { at: 11.7 });
+  const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'spl-'));
+  MKIT.splice(FF, P('sil.mp4'), P('sn.wav'), [p1, p2], P('spl.mp4'), sd);
+  const g = (file, t) => spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', file, '-vf',
+    'scale=64:36,format=rgb24', '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout || Buffer.alloc(0);
+  const dif = (x, y) => { let d = 0; for (let i = 0; i < Math.min(x.length, y.length); i++) d += Math.abs(x[i] - y[i]); return d / Math.max(1, x.length); };
+  const red = b => b.length ? (b[0] > 180 && b[1] < 60) : false, blue = b => b.length ? (b[2] > 180 && b[0] < 60) : false;
+  ok('۱.۱۳ لحظهٔ اول درست سرِ ۵٫۳ و لحظهٔ دوم سرِ ۱۱٫۷+۳ (پس از لحظهٔ اول)',
+     red(g(P('spl.mp4'), 5.5)) && red(g(P('spl.mp4'), 8.1)) && blue(g(P('spl.mp4'), 14.9)) && blue(g(P('spl.mp4'), 17.5)),
+     [5.5, 8.1, 14.9, 17.5].map(t => Array.from(g(P('spl.mp4'), t).slice(0, 3)).join('/')).join(' · '));
+  /* پس از هر لحظه، ویدئو از همان ثانیه‌ای ادامه می‌یابد که پیش از آن ایستاد — نه از قابِ کلیدیِ پیشین */
+  const after1 = dif(g(P('spl.mp4'), 9.5), g(P('sil.mp4'), 6.5)), after2 = dif(g(P('spl.mp4'), 19.0), g(P('sil.mp4'), 13.0));
+  const wrong = dif(g(P('spl.mp4'), 19.0), g(P('sil.mp4'), 10.0));
+  ok('۱.۱۴ پس از لحظه‌ها تصویر همان ثانیهٔ ویدئوی اصلی است (بی جابه‌جاییِ تجمعی)', after1 < 6 && after2 < 6 && wrong > after2 * 2,
+     'پس از اول ' + after1.toFixed(1) + ' · پس از دوم ' + after2.toFixed(1) + ' · با ثانیهٔ غلط ' + wrong.toFixed(1));
+  const ps = MKIT.probe(FF, P('spl.mp4'));
+  ok('۱.۱۵ طولِ کل = ۲۰ + ۳ + ۳ و صدا دارد', Math.abs(ps.dur - 26) < 0.2 && ps.audio, JSON.stringify(ps));
+}
+
+console.log('=== ۱-د) اندازهٔ لحظه از خودِ کلیپ، نه یک جمله (۹.۱۱) ===');
+{
+  const gS = { file: P('vclip.mp4'), info: { dur: 40, end: 40 } };
+  const shortSp = [[1.2, 6.0], [6.4, 12.5], [13.0, 31.8]];
+  const a = R.momentSize(shortSp, 6.15, 12.5, gS, { max: 45, whole: 60 });
+  ok('۱.۱۶ کلیپی که کلِ گفتارش ~۳۱ ثانیه است همه‌اش پخش می‌شود (نه یک جملهٔ ۶ ثانیه‌ای)',
+     a.how === 'whole' && a.from < 1.2 && a.stop > 31.8 && a.stop - a.from > 30, JSON.stringify(a));
+  const gL = { file: P('vclip.mp4'), info: { dur: 200, end: 190 } };
+  const longSp = []; for (let t = 0; t < 185; t += 7) longSp.push([t + 0.5, t + 6.5]);
+  const b = R.momentSize(longSp, 70.25, 76.5, gL, { max: 45, whole: 60 });
+  ok('۱.۱۷ کلیپِ بلند: پنجره‌ای ≥ ۷۰٪ِ سقف که سرِ پایانِ یک جمله می‌ایستد و از سقف نمی‌گذرد',
+     b.how === 'window' && b.stop - b.from >= 31.5 && b.stop - b.from <= 45 && longSp.some(x => Math.abs(x[1] - b.stop) < 0.01),
+     JSON.stringify(b));
+  const c = R.momentSize([], 10, 16, gS, { max: 45 });
+  ok('۱.۱۸ بی فهرستِ گفتار همان رفتارِ پیشین (تا پایانِ جمله)', c.from === 10 && c.stop === 16 && c.how === 'sentence', JSON.stringify(c));
+  const d = R.momentSize([[1, 20], [20.5, 30]], 1, 20, { file: P('vclip.mp4'), info: { dur: 40, end: 24 } }, { max: 45, whole: 60 });
+  ok('۱.۱۹ کارتِ پایانیِ کلیپ جزوِ لحظه نیست', d.stop <= 24, JSON.stringify(d));
+}
+
+console.log('=== ۱-ه) پیش‌نمایش به‌شکلِ کلاژ (۹.۱۱) ===');
+{
+  const tiles = [{ file: P('vclip.mp4'), kind: 'video', from: 3 }, { file: P('hclip.mp4'), kind: 'video', from: 2 },
+                 { file: P('vphoto.jpg'), kind: 'photo', from: 0 }];
+  const c1 = MKIT.collage(FF, tiles, 1, P('col1.mp4'), 6);
+  const pc = MKIT.probe(FF, c1.file);
+  ok('۱.۲۰ کلاژ ۱۹۲۰×۱۰۸۰، بی‌صدا، به طولِ صحنه، با سه کاشی', pc.w === 1920 && pc.h === 1080 && !pc.audio && Math.abs(pc.dur - 6) < 0.2 && c1.tiles === 3,
+     JSON.stringify(Object.assign({ tiles: c1.tiles }, pc)));
+  const fr = t => spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', c1.file, '-vf', 'scale=96:54,format=gray',
+    '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout || Buffer.alloc(0);
+  const col = (b, x0, x1) => { let v = 0, k = 0; for (let y = 8; y < 46; y++) for (let x = x0; x < x1; x++) { v += b[y * 96 + x]; k++; } return v / k; };
+  const f4 = fr(4.0);
+  /* سه ستونِ کاشی (۱/۴، ۲/۴، ۳/۴ِ عرض) هر کدام چیزی جز پس‌زمینهٔ تار دارند: لبهٔ سفیدِ کاشی روشن‌ترش می‌کند */
+  const lanes = [24, 48, 72].map(cx => col(f4, cx - 6, cx + 6)), gapL = col(f4, 0, 6);
+  ok('۱.۲۱ هر سه کاشی در یک قاب دیده می‌شوند (نه یک کلیپِ تمام‌قد)', lanes.every(v => v > gapL + 8),
+     'ستون‌ها ' + lanes.map(Math.round).join(',') + ' · حاشیه ' + Math.round(gapL));
+  const sd = (x, y) => { let d = 0; for (let i = 0; i < x.length; i++) d += Math.abs(x[i] - y[i]); return d / Math.max(1, x.length); };
+  ok('۱.۲۲ کاشی‌ها حرکت دارند (قاب‌ها در زمان عوض می‌شوند)', sd(fr(1.5), fr(3.0)) > 2, sd(fr(1.5), fr(3.0)).toFixed(1));
+  const c2 = MKIT.collage(FF, tiles, 0, P('col2.mp4'), 6);
+  const f4b = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', '4', '-i', c2.file, '-vf', 'scale=96:54,format=gray',
+    '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout;
+  ok('۱.۲۳ صحنهٔ بعدیِ پیش‌نمایش کانون را جابه‌جا می‌کند (قابِ دیگری می‌سازد)', sd(f4, f4b) > 3, sd(f4, f4b).toFixed(1));
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱.۲۴ رانر صحنهٔ پیش‌نمایش را با کلاژ می‌سازد و در شکست به مسیرِ پیشین برمی‌گردد',
+     /if \(s\.media && s\.media\.teaser && teaserPool\.length >= 2\)/.test(rj) && /MKIT\.collage\(FF, tiles/.test(rj) && /کلاژِ پیش‌نمایش نشد/.test(rj));
+}
+
 console.log('=== ۲) جای لحظه: روی مکث، هرگز روی موسیقی، فاصله‌دار ===');
 {
   const sil = [3.8, 7.9, 12.0, 16.1, 20.2, 24.3, 28.4, 44.9];
@@ -232,7 +307,7 @@ print(json.dumps([C.main_part(sp, None), C.main_part(sp, 9.0), C.main_part([], N
   ok('۵.۱۱ رانر لحظه و آغازِ صحنه را از `main` می‌گیرد وقتی عبارت پیدا نشد',
      /const fb = h && !h\.found && h\.main/.test(rj5) && /from = Math\.max\(0, Number\(h\.main\.from\) - MKIT\.MK\.lead\)/.test(rj5) &&
      /'main': main_part\(cache\[f \+ '#spans'\], bw\[1\] if bw\[0\] >= 0\.45 else None\)/.test(fs.readFileSync('tools/clipfind.py', 'utf8')));
-  ok('۵.۶ رانر طولِ لحظه را از `end` می‌گیرد', /const stop = fb \? Number\(fb\.end\) : \(Number\(h\.end\) > Number\(h\.to\)/.test(rj5));
+  ok('۵.۶ رانر طولِ لحظه را از `end` می‌گیرد و (۹.۱۱) به اندازهٔ کلیپ گسترش می‌دهد', /let stop = fb \? Number\(fb\.end\) : \(Number\(h\.end\) > Number\(h\.to\)/.test(rj5) && /const sz = momentSize\(h\.spans, from, stop, g, m\)/.test(rj5));
   ok('۵.۴ جملهٔ ساختگی در هیچ کلیپی پذیرفته نمی‌شود', got.every(g => !g.fake), JSON.stringify(got.map(g => g.fs)));
 }
 

@@ -27,7 +27,8 @@ const MK = {
   wideMin: 1.55, wideMax: 2.1,     // در این بازه قاب را پر می‌کند؛ بیرونش کامل + حاشیهٔ تار
   segMax: 60,
   tailMax: 12, tailMin: 0.8, tailDark: 38, tailStill: 0.6,   // ۹.۱۰: کارتِ پایانیِ ریل جزوِ محتوا نیست
-  fillFrom: 4, fillSeg: 8, fillMax: 8,                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
+  fillFrom: 4, fillSeg: 8, fillMax: 8,
+  collageMax: 4,                                              // ۹.۱۱: کاشی‌های کلاژِ پیش‌نمایش                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
   lead: 0.6,                       // چند ثانیه پیش از عبارت (تا جمله از وسط شروع نشود)
   momentMin: 3, momentTail: 0.7,
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
@@ -203,6 +204,55 @@ function photoClip(ff, file, out, len, opt) {
   return { file: out, still: still, len: L, kind: kind, box: box, layout: kind === 'card' || wideAr(ar) ? 'fill' : layout };
 }
 
+/**
+ * پیش‌نمایشِ آغاز به‌شکلِ کلاژ (۹.۱۱). صاحبِ برنامه: «شکلِ تیزر باید جوری باشه که فکر نکنیم داره همون اول رفته
+ * سراغِ اصلِ مطلب … چند کلیپ و عکس همه تو یه کادر باشه و کم‌کم هرکدوم تکون‌هایی بخورن … برای هر کلیپ متفاوت».
+ * پیش از این هر پیش‌نمایش یک کلیپِ تمام‌قد بود — درست شبیهِ خودِ قسمت. حالا همهٔ رسانه‌های پیش‌نمایش با هم در
+ * یک قاب‌اند: هر کاشی حرکتِ خودش را دارد (دامنه، دوره و فازِ جدا، کمی چرخیده)، به نوبت وارد می‌شوند، و رسانهٔ
+ * همین صحنه بزرگ‌تر و جلوتر است؛ صحنهٔ بعدیِ پیش‌نمایش کانون را به کاشیِ دیگر می‌بَرد.
+ * `tiles` = [{file, kind:'video'|'photo', from}] · `feat` = شمارهٔ کاشیِ این صحنه.
+ */
+function collage(ff, tiles, feat, out, len) {
+  const T = tiles.slice(0, MK.collageMax);
+  if (feat >= T.length) feat = 0;
+  const n = T.length, L = Math.max(2, len);
+  const a = [], f = [];
+  T.forEach(t => {
+    if (t.kind === 'photo') a.push('-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', t.file);
+    else a.push('-ss', Math.max(0, Number(t.from) || 0).toFixed(2), '-t', L.toFixed(2), '-stream_loop', '-1', '-i', t.file);
+  });
+  const ft = T[feat];
+  if (ft.kind === 'photo') a.push('-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', ft.file);
+  else a.push('-ss', Math.max(0, Number(ft.from) || 0).toFixed(2), '-t', L.toFixed(2), '-stream_loop', '-1', '-i', ft.file);
+  f.push('[' + n + ':v]fps=' + MK.fps + ',scale=480:270:force_original_aspect_ratio=increase,crop=480:270,boxblur=20:3,' +
+         'scale=' + MK.w + ':' + MK.h + ',eq=brightness=-0.18:saturation=0.8,setsar=1,format=yuv420p,trim=duration=' + L.toFixed(2) + '[bg]');
+  const gap = MK.w / (n + 1);
+  const order = T.map((_, i) => i).filter(i => i !== feat).concat([feat]);   // کاشیِ این صحنه آخر ⇒ رو
+  let cur = 'bg';
+  order.forEach((i, k) => {
+    const big = i === feat;
+    const w = ev(big ? 470 : 360), h = ev(w * 16 / 9 > 900 ? 900 : w * 16 / 9);
+    const ang = big ? 0 : ((i % 2 ? 1 : -1) * (2 + i)) * Math.PI / 180;
+    const amp = big ? 6 : 14 + 5 * i, per = 3.2 + 1.1 * i, ph = i * 1.3;
+    const x0 = Math.round(gap * (i + 1) - w / 2), y0 = Math.round((MK.h - h) / 2);
+    const dim = big ? '' : ',eq=brightness=-0.10:saturation=0.75';
+    const t0 = big ? 0 : 0.35 * (k + 1);
+    f.push('[' + i + ':v]fps=' + MK.fps + ',scale=' + w + ':' + h + ':force_original_aspect_ratio=increase,crop=' + w + ':' + h + dim +
+           ',pad=' + (w + 10) + ':' + (h + 10) + ':5:5:white,format=rgba,rotate=a=' + ang.toFixed(4) +
+           ':c=none:ow=rotw(' + ang.toFixed(4) + '):oh=roth(' + ang.toFixed(4) + '),fade=t=in:st=' + t0.toFixed(2) +
+           ':d=0.5:alpha=1,trim=duration=' + L.toFixed(2) + ',setpts=PTS-STARTPTS[t' + i + ']');
+    const nx = 'c' + k;
+    f.push('[' + cur + '][t' + i + "]overlay=x='" + x0 + '+' + (amp * 0.6).toFixed(1) + '*sin(2*PI*t/' + (per * 1.7).toFixed(2) + '+' + ph.toFixed(2) +
+           ")':y='" + y0 + '+' + amp.toFixed(1) + '*sin(2*PI*t/' + per.toFixed(2) + '+' + (ph + 0.7).toFixed(2) + ")':eof_action=pass[" + nx + ']');
+    cur = nx;
+  });
+  run(ff, a.concat(['-filter_complex', f.join(';'), '-map', '[' + cur + ']', '-an', '-t', L.toFixed(2),
+                    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf), '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
+  const still = out.replace(/\.mp4$/, '') + '-last.jpg';
+  run(ff, ['-sseof', '-0.2', '-i', out, '-frames:v', '1', '-q:v', '3', still]);
+  return { file: out, still: still, len: L, tiles: n };
+}
+
 function run(ff, args) {
   execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-y'].concat(args), { stdio: ['ignore', 'ignore', 'pipe'] });
 }
@@ -374,40 +424,40 @@ function placeMoments(moments, sil, mute, durSec, notes) {
  * @return {{inserts: Array<{at:number, d:number}>}}
  */
 function splice(ff, silent, wav, parts, dest, dir) {
+  /* ۹.۱۱: بریدن **بی بازکدگذاری** فقط سرِ قابِ کلیدی دقیق است. وقتی قابِ کلیدی سرِ لحظه ننشسته بود، بُرش به
+     قابِ کلیدیِ پیشین برمی‌گشت و ویدئو از آن‌جا به بعد عقب می‌افتاد: در نمونهٔ ۷۳ لحظهٔ دوم ۳٫۴ ثانیه دیرتر
+     از صدایش آمد و لحظهٔ سوم تصویرِ کلیپِ دیگری روی صدای «اونی که بیشترین حقوق رو می‌گیره» نشاند — «صدای کلیپ
+     با تصویرش اصلاً سینک نیست». حالا هر تکه با trim/atrim در **یک** گذر بریده و پیوند زده می‌شود: جای هر لحظه
+     از ساختار درست است، نه از اینکه قابِ کلیدی کجا افتاده. */
   const W = path.join(dir, 'narr48.wav');
   run(ff, ['-i', wav, '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', W]);
-  const vl = [], al = [], inserts = [];
-  let prev = 0, k = 0;
-  const cutV = (a, b, out) => {
-    /* آغاز کمی **پس** از قابِ کلیدی (نیم‌هزارم): گردکردن نباید جست‌وجو را به قابِ کلیدیِ پیشین ببرد. */
-    const args = ['-ss', (a ? a + 0.0005 : 0).toFixed(4)];
-    if (b !== null) args.push('-to', b.toFixed(4));
-    run(ff, args.concat(['-i', silent, '-c', 'copy', '-avoid_negative_ts', 'make_zero', out]));
-  };
-  const cutA = (a, b, out) => {
-    const f = 'atrim=start=' + a.toFixed(4) + (b !== null ? ':end=' + b.toFixed(4) : '') + ',asetpts=PTS-STARTPTS';
-    run(ff, ['-i', W, '-af', f, '-c:a', 'pcm_s16le', out]);
-  };
-  for (const p of parts) {
-    const v = path.join(dir, 'spv' + k + '.mp4'), a = path.join(dir, 'spa' + k + '.wav');
-    cutV(prev, p.at, v); cutA(prev, p.at, a);
-    vl.push(v); al.push(a);
-    vl.push(p.v); al.push(p.a);
+  const inserts = [], f = [], a = ['-i', silent, '-i', W];
+  const n = parts.length + 1;
+  f.push('[0:v]split=' + n + parts.map((_, i) => '[sv' + i + ']').join('') + '[sv' + parts.length + ']');
+  f.push('[1:a]asplit=' + n + parts.map((_, i) => '[sa' + i + ']').join('') + '[sa' + parts.length + ']');
+  const V = 'fps=' + MK.fps + ',scale=' + MK.w + ':' + MK.h + ',setsar=1,format=yuv420p';
+  const A = 'aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo';
+  let prev = 0, seq = '';
+  parts.forEach((p, i) => {
+    f.push('[sv' + i + ']trim=start=' + prev.toFixed(4) + ':end=' + p.at.toFixed(4) + ',setpts=PTS-STARTPTS,' + V + '[v' + i + ']');
+    f.push('[sa' + i + ']atrim=start=' + prev.toFixed(4) + ':end=' + p.at.toFixed(4) + ',asetpts=PTS-STARTPTS,' + A + '[a' + i + ']');
+    a.push('-i', p.v, '-i', p.a);
+    const iv = 2 + i * 2, ia = iv + 1;
+    f.push('[' + iv + ':v]setpts=PTS-STARTPTS,' + V + '[mv' + i + ']');
+    f.push('[' + ia + ':a]asetpts=PTS-STARTPTS,' + A + ',apad=whole_dur=' + p.len.toFixed(4) + ',atrim=end=' + p.len.toFixed(4) + '[ma' + i + ']');
+    seq += '[v' + i + '][a' + i + '][mv' + i + '][ma' + i + ']';
     inserts.push({ at: Math.round(p.at * 10) / 10, d: Math.round(p.len * 10) / 10 });
-    prev = p.at; k++;
-  }
-  const v = path.join(dir, 'spv' + k + '.mp4'), a = path.join(dir, 'spa' + k + '.wav');
-  cutV(prev, null, v); cutA(prev, null, a);
-  vl.push(v); al.push(a);
-  const lv = path.join(dir, 'spv.txt'), la = path.join(dir, 'spa.txt');
-  fs.writeFileSync(lv, vl.map(x => "file '" + x + "'").join('\n'));
-  fs.writeFileSync(la, al.map(x => "file '" + x + "'").join('\n'));
-  const V = path.join(dir, 'spall.mp4'), A = path.join(dir, 'spall.wav');
-  run(ff, ['-f', 'concat', '-safe', '0', '-i', lv, '-c', 'copy', V]);
-  run(ff, ['-f', 'concat', '-safe', '0', '-i', la, '-c', 'copy', A]);
-  run(ff, ['-i', V, '-i', A, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
-           '-shortest', '-movflags', '+faststart', dest]);
+    prev = p.at;
+  });
+  const L = parts.length;
+  f.push('[sv' + L + ']trim=start=' + prev.toFixed(4) + ',setpts=PTS-STARTPTS,' + V + '[v' + L + ']');
+  f.push('[sa' + L + ']atrim=start=' + prev.toFixed(4) + ',asetpts=PTS-STARTPTS,' + A + '[a' + L + ']');
+  seq += '[v' + L + '][a' + L + ']';
+  f.push(seq + 'concat=n=' + (2 * L + 1) + ':v=1:a=1[ov][oa]');
+  run(ff, a.concat(['-filter_complex', f.join(';'), '-map', '[ov]', '-map', '[oa]',
+                    '-c:v', 'libx264', '-preset', 'faster', '-crf', String(MK.crf), '-pix_fmt', 'yuv420p',
+                    '-r', String(MK.fps), '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', dest]));
   return { inserts: inserts };
 }
 
-module.exports = { contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };
+module.exports = { collage, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };

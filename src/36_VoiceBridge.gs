@@ -981,6 +981,11 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
       row.colour.refs.push({ id: cr[c], url: ytDlUrl_(cr[c]) });
     }
   }
+  /* ══ شنیدنِ ورودی و خروجی، و یک تبدیلِ دوم (۹.۱۱) ══ «آنجا» aonja و «زمان» zamoan شنیده شد و از این‌جا
+     نمی‌شد گفت خطا از خواندنِ جمینای است یا از تبدیل: صوتِ پیش از تبدیل بزرگ‌تر از آن است که بیرون از
+     رانر خوانده شود. پس رانر خودش هر دو را می‌شنود (`voicebridge.hearCompare`) و برای نمونه یک تبدیلِ دوم با
+     `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
+  if (o.ab) row.ab = { indexRate: String(o.ab) };
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -1285,6 +1290,8 @@ function vbrIngest_(hub) {
       if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
       if (hit.loud) it.loud = hit.loud;          // بلندیِ پیش و پس (۸.۳۷)
       if (hit.colour) it.colourOut = hit.colour; // ۹.۰۵
+      if (hit.hear) it.hearOut = hit.hear;       // ۹.۱۱
+      if (hit.ab) it.abOut = hit.ab;
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -1395,6 +1402,14 @@ function vbrPitchLine_(item, faD) {
     out += (out ? ' · ' : '') + 'رنگِ ضبط‌های ' + (co.from === 'prev' ? 'قدیمِ ' : '') + 'خودش: فاصلهٔ طیف ' +
            f(Number(co.before).toFixed(1)) + ' ⇒ ' + f(Number(co.after).toFixed(1)) + ' دسی‌بل';
   }
+  var hr = item.hearOut;
+  if (hr && hr.srcOut != null) {
+    out += (out ? ' · ' : '') + 'شنیدن: خروجی با ورودی ' + f(Math.round(Number(hr.srcOut) * 100) + '٪') + ' هم‌خوان' +
+           (hr.alt != null ? '، تبدیلِ دوم ' + f(Math.round(Number(hr.alt) * 100) + '٪') : '') +
+           (hr.worst && hr.worst.length ? ' — بدترین: «' + String(hr.worst[0].src || '').slice(0, 30) + '» ⇐ «' + String(hr.worst[0].out || '').slice(0, 30) + '»' : '');
+  }
+  var ab = item.abOut;
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (index_rate ' + f(String(ab.indexRate)) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
@@ -2702,6 +2717,7 @@ function vbrSoulPick_() {
     var seeded = {};
     var seedTag = {};
     var seedColour = {};
+    var seedAb = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -2717,6 +2733,7 @@ function vbrSoulPick_() {
       set[sk] = 1; seeded[sk] = 1;
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
+      if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -2765,7 +2782,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '' };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3139,6 +3156,7 @@ function runVoiceSoulTest() {
     }
     tagO.spanLine = spanLine;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
+    if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''), tagO);
     res.ok = !!(r && r.ok);

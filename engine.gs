@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.10
+ *  موتور محتوا و پادکست — نسخهٔ 9.11
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1176,6 +1176,7 @@ var CFG = {
   SPEAK_XCHECK_MODEL: 'gemini-2.5-flash',   // نظرِ دوم از خانوادهٔ دیگر؛ همان مدلِ اصلی ⇒ همان مدل با پرسشِ تازه
   SPEAK_XCHECK_JUDGE_MODEL: '',   // خالی = مدلِ اصلی
   SPEAK_XCHECK_MAX: 60,           // سقفِ واژه‌های داوری در هر بخش
+  GROUND_MAX_CUT: 0.4,             // ۹.۱۱: بیشترین سهمِ جمله‌های یک بخش که دروازهٔ زمین‌گیری حذف می‌کند
   VM_ENABLED: true,
   VM_SHOWS: ['variety'],
   VM_FOLDER: 'رسانه‌های منبع',     // زیرپوشه — هرگز خودِ پوشهٔ قسمت: `ytVideoIn_` هر mp4ِ آن را «ویدئوی قسمت» می‌گیرد
@@ -1185,8 +1186,9 @@ var CFG = {
   VM_PLAN_TOKENS: 12288,
   VM_FAIL_MAX: 3,                  // نقشهٔ ناشده تا این‌قدر دوباره پرسیده می‌شود، بعد ویدئوی ساده با علت
   VM_RETRY_MIN: 45,
-  VM_MOMENT_MAX: 6,                // «لحظه»هایی که کلیپ با صدای خودش پخش می‌شود — ۹.۰۱: از ۳؛ «خیلی کم از صدای خودِ کلیپ پخش می‌کنه»
-  VM_MOMENT_SEC: 30,               // سقفِ هر لحظه (ثانیه) — ۹.۰۰: از ۱۲ به ۲۰؛ ۹.۰۱: ۳۰ — «قسمت‌های اصلیِ خودِ کلیپ»
+  VM_MOMENT_MAX: 8,                // ۹.۱۱: از ۶ — تقریباً هر کلیپِ گفتاردار یک لحظه;                // «لحظه»هایی که کلیپ با صدای خودش پخش می‌شود — ۹.۰۱: از ۳؛ «خیلی کم از صدای خودِ کلیپ پخش می‌کنه»
+  VM_MOMENT_SEC: 45,               // ۹.۱۱: از ۳۰ — و دیگر یک جمله نیست: تا پایانِ جمله‌ای که دست‌کم ۷۰٪ِ این را پر کند;
+  VM_MOMENT_WHOLE: 60,             // ۹.۱۱: کلیپی که کلِ گفتارش تا این‌قدر است، همه‌اش با صدای خودش پخش می‌شود — «بیننده بتونه بیشتر از محتوای کلیپ استفاده کنه»;               // سقفِ هر لحظه (ثانیه) — ۹.۰۰: از ۱۲ به ۲۰؛ ۹.۰۱: ۳۰ — «قسمت‌های اصلیِ خودِ کلیپ»
   VM_MOMENT_GAP: 20,               // کمترین فاصلهٔ دو لحظه (ثانیه) — ۹.۰۱: از ۳۰ِ ثابت در کد
   VM_OV_MAX: 10,                   // نوشتهٔ برداریِ کنارِ رسانه — ۸.۹۹: از ۶؛ رسانه حالا در چپ/راست می‌نشیند و نیمهٔ دیگر جای همین نوشته است
   VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر با رسانهٔ **دیده‌نشدهٔ** همان بخش نصف می‌شود؛ نبود ⇒ کارتِ نوشته (۹.۰۱)
@@ -1196,7 +1198,7 @@ var CFG = {
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
   VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '73', folderId: '1nN4VoKToMUy04gGyj739UZIF5mZvSHwj', rev: 2, replan: false },   // ۹.۱۰: همان نقشه، رانرِ تازه — بی کارتِ پایانیِ ریل و بی قابِ ساکنِ بلند;   // ۹.۰۷: «چرا رو پادکستِ امروز کار نمی‌کنی؟» — نمونه روی قسمتِ ۷۳ با همهٔ درمان‌ها؛   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
+  VM_SAMPLE: { ep: '73', folderId: '1nN4VoKToMUy04gGyj739UZIF5mZvSHwj', rev: 3, replan: true },   // ۹.۱۱: پیش‌نمایشِ کلاژی، لحظه‌های بلند به اندازهٔ کلیپ، لای‌گذاریِ هم‌گام — و نقشهٔ تازه تا سقفِ ۸ لحظه دیده شود;   // ۹.۱۰: همان نقشه، رانرِ تازه — بی کارتِ پایانیِ ریل و بی قابِ ساکنِ بلند;   // ۹.۰۷: «چرا رو پادکستِ امروز کار نمی‌کنی؟» — نمونه روی قسمتِ ۷۳ با همهٔ درمان‌ها؛   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
@@ -2079,7 +2081,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.10',
+  CODE_VERSION: '9.11',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2442,7 +2444,7 @@ var CFG = {
        طیفِ ضبط‌های قدیمِ خودِ او می‌بَرد (`voicebridge.colourMatch`)؛ برچسب عوض شد تا نمونهٔ تازه ساخته
        شود (۷٫۸۶). */
     { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · رنگِ ضبط‌های قدیمِ خودش · حالِ بی فریاد', colour: 'prev' },   // ۹.۰۹: دستورِ تازهٔ حالت‌های پرهیجان
+      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · رنگِ ضبط‌های قدیمِ خودش · حالِ بی فریاد · شنیدنِ ورودی و خروجی', colour: 'prev', ab: '0.6' },   // ۹.۱۱: «آنجا»⇐aonja — خواندن یا تبدیل؟ رانر هر دو را می‌شنود؛ تبدیلِ دوم با index_rate ۰٫۶   // ۹.۰۹: دستورِ تازهٔ حالت‌های پرهیجان
     { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
       tag: 'گامِ خودکار · مکث به اندازهٔ خودش · مدلِ صبح' }
   ],
@@ -3188,7 +3190,8 @@ var PK = {
   LV_OV_LAST: 'LV_OV_LAST',        // کارت‌های نوشتاریِ آخرین ویدئوی صحنه‌ای: چند نشست، و شمارِ نحیفِ پیاپی (۸.۵۶)
   LV_SCENE_FB: 'LV_SCENE_FB',      // آخرین درسی که از صحنه به کارتِ ساده افتاد: کدام، کِی، چرا، چند بارِ پیاپی (۸.۶۰)
   VM_LAST: 'VM_LAST',              // آخرین قسمتِ «از همه جا» با رسانهٔ منبع: صحنه‌ها، کلیپ‌ها، لحظه‌ها، یا علتِ نشدن (۸.۹۶)
-  VM_SAMPLE: 'VM_SAMPLE_STATE',   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
+  VM_SAMPLE: 'VM_SAMPLE_STATE',
+  GROUND_LAST: 'GROUND_LAST',      // آخرین دروازهٔ زمین‌گیریِ «از همه جا»: چند جملهٔ ساختگی پیش از صدا حذف شد (۹.۱۱)   // نمونهٔ یک‌باره: خواسته شد / خبر داده شد (۸.۹۷)
   YT_MEDIA_OK: 'YT_MEDIA_OK_N',     // چند ویدئوی حالتِ رسانه تا حالا عمومی شده (۸.۹۶)
   LV_CLIP_LAST: 'LV_CLIP_LAST',    // آخرین کلیپِ آغاز: چه شد و چرا (۸.۵۱) + شمارِ شکستِ پیاپی (۸.۵۲)
   LV_MOTION_LAST: 'LV_MOTION_LAST', // حرکتِ کانون‌دارِ آخرین درس و شمارِ درس‌های پیاپیِ بی‌حرکت (۸.۵۲)
@@ -12286,6 +12289,125 @@ function epScore_(ep) {
          (ep.__repaired ? 6 : 0);
 }
 
+/* ══ زمین‌گیریِ متنِ «از همه جا» پیش از صدا (۹.۱۱) ══
+ * صاحبِ برنامه پس از قسمتِ ۷۳: «باز هم تفسیرهای بیخودی و الکی و دروغی که درکِ درستی گوینده از کلیپ
+ * نداشته». متنِ قسمت با رونوشتِ خودِ کلیپ‌ها سنجیده شد: گفت‌وگوها درست بازگو شده بودند؛ آنچه ساختگی بود
+ * سه شکل داشت — توصیفِ تصویری که نویسنده هرگز ندیده («این حرکتِ بدنی و لمسِ مداومِ هندزفری دقیقاً همان
+ * تصویری است که باید دید»)، پندی که روی طنز چسبانده شد («شکافِ عمیق میانِ صورتِ رسمی و حقیقتِ درون…
+ * زندگی به صحنهٔ یک نمایشِ مضحک تبدیل می‌شود»)، و کلیپِ قسمتِ پیشین که «قبلاً در یک کلیپ دیدیم» خوانده شد.
+ * **هر سه از پیش در پرامپت ممنوع بود** (۸-چ، ۸-خ، ۱۷، و همان جملهٔ «نه قبلاً در یک کلیپ دیدیم»).
+ * قاعده‌ای که فقط در پرامپت است، قاعده نیست؛ و پاسِ وفاداری فقط گزارش می‌داد تا «قسمتِ بعد» درست شود.
+ * پس این دروازه **پیش از صدا** است: یک داورِ جدا هر جمله را کنارِ متنِ کاملِ منبعِ همان بخش می‌گذارد و
+ * جمله‌های ساختگی **حذف** می‌شوند — هرگز بازنویسی نمی‌شوند، چون بازنویسی دوباره چیزی می‌سازد. هیچ بخشی
+ * خالی نمی‌شود، بیش از سهمِ `GROUND_MAX_CUT` از یک بخش نمی‌رود، و نام/تاریخ/خداحافظی دست نمی‌خورد.
+ * مدل در دسترس نبود ⇒ متن همان می‌ماند و گفته می‌شود (باز، نه بسته: بی‌صدا ماندنِ قسمت بدتر است).
+ */
+var GROUND_SCHEMA = {
+  type: 'OBJECT',
+  properties: { bad: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    id: { type: 'STRING' }, kind: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['id', 'kind'] } } },
+  required: ['bad']
+};
+
+function groundSplit_(t) {
+  return (String(t || '').match(/[^.!؟?…]+[.!؟?…]*\s*/g) || []).map(function (x) { return x; })
+    .filter(function (x) { return x.trim(); });
+}
+
+function groundProtected_(sent) {
+  var t = String(sent || '');
+  return t.indexOf(String(CFG.SHOW_NAME || '###')) >= 0 || /سلام|خدا\s*نگه|تا\s*فردا|برنامهٔ?\s*دیگر|امروز\s+\S+\s+\d|۱۴۰\d|۲۰\d\d/.test(t);
+}
+
+/** «قبلاً در یک کلیپ دیدیم» ⇒ «در یکی از قسمت‌های پیشینِ همین برنامه دیده بودیم» — بی مدل. */
+function groundPastRef_(t) {
+  return String(t || '').replace(/قبلاً\s*(?:هم\s*)?(?:در|توی)\s*(?:یک|یه|همین|این)?\s*(?:کلیپ|ویدئو|ویدیو|فیلم)(?:ی)?\s*(?:دیگر|دیگری)?\s*(دیدیم|دیده‌ایم|دیده بودیم|شنیدیم)/g,
+    'در یکی از قسمت‌های پیشینِ همین برنامه $1');
+}
+
+function groundEpisode_(ep, items, opt) {
+  opt = opt || {};
+  var out = { ok: true, judged: false, removed: 0, pastRef: 0, kinds: {}, samples: [], why: '' };
+  if (!ep || !ep.sections) return out;
+  var byId = {};
+  (items || []).forEach(function (it) {
+    byId[String(it.id)] = '[' + it.id + '] ' + [it.topic, it.msg, it.summary, it.body].filter(String).join(' · ').slice(0, 2600);
+  });
+  var allSrc = Object.keys(byId).map(function (k) { return byId[k]; }).join('\n');
+  // ۱) ارجاعِ گذشته — قطعی
+  ['hook', 'outro'].forEach(function (k) {
+    var b = String(ep[k] || ''), a = groundPastRef_(b);
+    if (a !== b) { out.pastRef++; ep[k] = a; }
+  });
+  ep.sections.forEach(function (sec) {
+    var b = String(sec.narration || ''), a = groundPastRef_(b);
+    if (a !== b) { out.pastRef++; sec.narration = a; }
+  });
+  // ۲) داوریِ جمله‌به‌جمله
+  var units = [];                       // {id, where, si, k, text}
+  var L = [];
+  L.push('تو داورِ وفاداریِ متنِ یک پادکستِ فارسی هستی. نویسنده **هیچ کلیپی را ندیده**؛ تنها چیزی که از هر');
+  L.push('رسانه دارد همین «منبع» است (خلاصه و گفتارِ داخلِ آن). هر جمله را با منبعِ بخشِ خودش بسنج و فقط این‌ها را');
+  L.push('در bad بیاور:');
+  L.push('— «تصویر»: جمله‌ای که چیزی دیدنی را توصیف یا تفسیر می‌کند (حرکت، اشاره، چهره، لباس، صحنه، «همان تصویری که باید دید»)');
+  L.push('  که در منبع نیامده.');
+  L.push('— «پند»: نتیجهٔ اخلاقی، درسِ زندگی، تعمیمِ فلسفی یا تشخیصِ اجتماعی که در منبع نیست — به‌ویژه روی محتوای طنز.');
+  L.push('— «ادعا»: واقعیت، انگیزه، احساس یا علتی که در منبع نیست.');
+  L.push('بازگوییِ گفت‌وگوها، معرفیِ کلیپ، گذار به بخشِ بعد، و جمع‌بندیِ «آنچه دیدیم» بد **نیست**. در تردید، بد نیست.');
+  L.push('kind فقط یکی از: تصویر | پند | ادعا. why: یک عبارتِ کوتاه.');
+  L.push('');
+  var addSent = function (where, si, txt, src) {
+    var ss = groundSplit_(txt);
+    for (var k = 0; k < ss.length; k++) {
+      var id = where.charAt(0) + si + '.' + k;
+      units.push({ id: id, where: where, si: si, k: k, text: ss[k] });
+      L.push(id + ') ' + ss[k].trim().slice(0, 400));
+    }
+    return ss.length;
+  };
+  ep.sections.forEach(function (sec, si) {
+    var src = (sec.sourceIds || []).map(function (x) { return byId[String(x)] || ''; }).filter(String).join('\n') || allSrc;
+    L.push('### بخش ' + (si + 1) + ' — منبع:');
+    L.push(src.slice(0, 5000));
+    L.push('جمله‌ها:');
+    addSent('s', si, sec.narration, src);
+    L.push('');
+  });
+  L.push('### پایانِ برنامه — منبع: همهٔ منبع‌های بالا. جمله‌ها:');
+  addSent('outro', 0, ep.outro, allSrc);
+  var r = null;
+  try { r = (opt.judge || geminiText_)(L.join('\n'), GROUND_SCHEMA, 4096); }
+  catch (e) { out.why = 'داور جواب نداد: ' + String(e.message || e).slice(0, 80); return out; }
+  out.judged = true;
+  var bad = {};
+  ((r && r.bad) || []).forEach(function (b) {
+    var k = String(b.kind || '').trim();
+    if (['تصویر', 'پند', 'ادعا'].indexOf(k) < 0) return;
+    bad[String(b.id || '').trim()] = { kind: k, why: String(b.why || '').slice(0, 80) };
+  });
+  var cutMax = Math.max(0, Math.min(0.6, Number(CFG.GROUND_MAX_CUT) || 0.4));
+  var apply = function (where, si, setter, txt) {
+    var us = units.filter(function (u) { return u.where === where && u.si === si; });
+    if (!us.length) return;
+    var flagged = us.filter(function (u) { return bad[u.id] && !groundProtected_(u.text); });
+    var limit = Math.floor(us.length * cutMax);
+    if (where === 'outro') limit = Math.max(limit, us.length - 1);   // پایان: هرچه پند بود برود، دست‌کم یک جمله بماند
+    if (!flagged.length) return;
+    flagged = flagged.slice(0, Math.max(0, Math.min(limit, us.length - 1)));
+    if (!flagged.length) return;
+    var drop = {};
+    flagged.forEach(function (u) {
+      drop[u.k] = 1; out.removed++;
+      out.kinds[bad[u.id].kind] = (out.kinds[bad[u.id].kind] || 0) + 1;
+      if (out.samples.length < 6) out.samples.push('[' + bad[u.id].kind + '] ' + u.text.trim().slice(0, 140));
+    });
+    setter(us.filter(function (u) { return !drop[u.k]; }).map(function (u) { return u.text; }).join('').trim());
+  };
+  ep.sections.forEach(function (sec, si) { apply('s', si, function (t) { sec.narration = t; }); });
+  apply('outro', 0, function (t) { ep.outro = t; });
+  return out;
+}
+
 function fidelityCheck_(ep, items, when, showName, opt) {
   opt = opt || {};
   var byId = {}, allText = '';
@@ -12490,7 +12612,8 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
         'موضوع: ' + String(it.topic).slice(0, 500) + '\n' +
         'پیام کلیدی: ' + String(it.msg).slice(0, 500) + '\n' +
         'خلاصه: ' + String(it.summary).slice(0, 900) + '\n' +
-        (it.body ? 'متن/گفتار داخل فایل: ' + String(it.body).slice(0, 700) + '\n' : '') +
+        /* ۹.۱۱: از ۷۰۰ — گفتارِ یک کلیپِ یک‌دقیقه‌ای بیش از ۷۰۰ نویسه است و نیمهٔ بریده را نویسنده حدس می‌زد. */
+        (it.body ? 'متن/گفتار داخل فایل: ' + String(it.body).slice(0, 1600) + '\n' : '') +
         (it.vibe ? 'حال‌وهوا: ' + String(it.vibe).slice(0, 200) + '\n' : ''));
     }
     return out.join('\n');
@@ -13120,6 +13243,16 @@ function produceEpisode(opt) {
         });
       } catch (eL) {}
     }
+
+    // ۹.۱۱: دروازهٔ زمین‌گیری — جمله‌های ساختگی پیش از صدا حذف می‌شوند، نه «تا قسمتِ بعد» گزارش.
+    try {
+      var gr = groundEpisode_(ep, items.concat(refs));
+      ep.__ground = gr;
+      logLine_('زمین‌گیریِ قسمت ' + epNum + ': ' + (gr.judged ? gr.removed + ' جملهٔ ساختگی حذف شد' : 'داوری نشد — ' + gr.why) +
+               (gr.pastRef ? ' · ' + gr.pastRef + ' ارجاعِ گذشته اصلاح شد' : ''));
+      try { props_().setProperty(PK.GROUND_LAST, JSON.stringify({ ep: epNum, at: nowStr_(), judged: gr.judged, removed: gr.removed,
+                                                                   kinds: gr.kinds, pastRef: gr.pastRef, why: gr.why, samples: gr.samples }).slice(0, 3000)); } catch (eGp) {}
+    } catch (eGr) { logLine_('زمین‌گیری انجام نشد: ' + eGr.message); }
 
     // عکسِ محتوا: همین‌جا و نه جای دیگر، چون فقط در این نقطه متنِ نهایی و
     // متن‌های خام هر دو در حافظه‌اند. داوریِ معناییِ آن‌ها فردا انجام می‌شود
@@ -17474,6 +17607,8 @@ function writeStatus_(hub, note) {
     lessonSceneFb: (function () { try { return lvSceneFbStatus_(); } catch (e) { return null; } })(),
     /* «از همه جا» با رسانه‌های منبع (بخشِ ۳۷، ۸.۹۶) — فقط Properties. */
     varietyMedia: (function () { try { return vmStatus_(); } catch (e) { return null; } })(),
+    /* ۹.۱۱: دروازهٔ زمین‌گیری — چند جملهٔ ساختگی (تصویرِ ندیده، پند، ادعا) پیش از صدا حذف شد، یا چرا داوری نشد. */
+    ground: (function () { try { return JSON.parse(props_().getProperty(PK.GROUND_LAST) || 'null'); } catch (e) { return null; } })(),
     /* نگهبانِ ادامهٔ قسمت‌ها (۸.۵۴) — فقط Properties. */
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
@@ -74544,6 +74679,11 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
       row.colour.refs.push({ id: cr[c], url: ytDlUrl_(cr[c]) });
     }
   }
+  /* ══ شنیدنِ ورودی و خروجی، و یک تبدیلِ دوم (۹.۱۱) ══ «آنجا» aonja و «زمان» zamoan شنیده شد و از این‌جا
+     نمی‌شد گفت خطا از خواندنِ جمینای است یا از تبدیل: صوتِ پیش از تبدیل بزرگ‌تر از آن است که بیرون از
+     رانر خوانده شود. پس رانر خودش هر دو را می‌شنود (`voicebridge.hearCompare`) و برای نمونه یک تبدیلِ دوم با
+     `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
+  if (o.ab) row.ab = { indexRate: String(o.ab) };
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -74848,6 +74988,8 @@ function vbrIngest_(hub) {
       if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
       if (hit.loud) it.loud = hit.loud;          // بلندیِ پیش و پس (۸.۳۷)
       if (hit.colour) it.colourOut = hit.colour; // ۹.۰۵
+      if (hit.hear) it.hearOut = hit.hear;       // ۹.۱۱
+      if (hit.ab) it.abOut = hit.ab;
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -74958,6 +75100,14 @@ function vbrPitchLine_(item, faD) {
     out += (out ? ' · ' : '') + 'رنگِ ضبط‌های ' + (co.from === 'prev' ? 'قدیمِ ' : '') + 'خودش: فاصلهٔ طیف ' +
            f(Number(co.before).toFixed(1)) + ' ⇒ ' + f(Number(co.after).toFixed(1)) + ' دسی‌بل';
   }
+  var hr = item.hearOut;
+  if (hr && hr.srcOut != null) {
+    out += (out ? ' · ' : '') + 'شنیدن: خروجی با ورودی ' + f(Math.round(Number(hr.srcOut) * 100) + '٪') + ' هم‌خوان' +
+           (hr.alt != null ? '، تبدیلِ دوم ' + f(Math.round(Number(hr.alt) * 100) + '٪') : '') +
+           (hr.worst && hr.worst.length ? ' — بدترین: «' + String(hr.worst[0].src || '').slice(0, 30) + '» ⇐ «' + String(hr.worst[0].out || '').slice(0, 30) + '»' : '');
+  }
+  var ab = item.abOut;
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (index_rate ' + f(String(ab.indexRate)) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
@@ -76265,6 +76415,7 @@ function vbrSoulPick_() {
     var seeded = {};
     var seedTag = {};
     var seedColour = {};
+    var seedAb = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -76280,6 +76431,7 @@ function vbrSoulPick_() {
       set[sk] = 1; seeded[sk] = 1;
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
+      if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -76328,7 +76480,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '' };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -76702,6 +76854,7 @@ function runVoiceSoulTest() {
     }
     tagO.spanLine = spanLine;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
+    if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''), tagO);
     res.ok = !!(r && r.ok);
@@ -77308,6 +77461,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
     if (mm.length && mo.at - mm[mm.length - 1].at < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
+    mo.whole = Math.max(mo.max, Number(CFG.VM_MOMENT_WHOLE) || 0);
     mm.push(mo);
   }
   out.moments = mm;

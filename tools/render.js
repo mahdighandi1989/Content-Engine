@@ -711,13 +711,15 @@ function prepMedia(it, scenes, dir, notes, placed) {
        «اولین کلیپ رو که اصلاً پخش هم نکرد چه برسه که بخواد با صدا هم باشه». */
     const fb = h && !h.found && h.main && Number(h.main.end) > Number(h.main.from) ? h.main : null;
     if (!h || (!h.found && !fb)) return { m: m, ok: false, why: 'عبارت در کلیپ پیدا نشد (' + ((h && h.why) || '') + ')' };
-    const from = Math.max(0, Number(fb ? fb.from : h.from) - 0.25);
+    let from = Math.max(0, Number(fb ? fb.from : h.from) - 0.25);
     /* ۹.۰۰: تا پایانِ جملهٔ گوینده (`h.end` از clipfind)، نه تا آخرین واژهٔ عبارت — «یه قسمتِ خیلی کوتاه
        بود و سریع قطع می‌شد». */
-    const stop = fb ? Number(fb.end) : (Number(h.end) > Number(h.to) ? Number(h.end) : Number(h.to));
-    const len = Math.min(Number(m.max) || 20, stop - from + MKIT.MK.momentTail, g.info.dur - from);
+    let stop = fb ? Number(fb.end) : (Number(h.end) > Number(h.to) ? Number(h.end) : Number(h.to));
+    const sz = momentSize(h.spans, from, stop, g, m);
+    from = sz.from; stop = sz.stop;
+    const len = Math.min(sz.cap, stop - from + MKIT.MK.momentTail, (g.info.end || g.info.dur) - from);
     if (len < MKIT.MK.momentMin) return { m: m, ok: false, why: 'تکهٔ شنیده‌شده کوتاه بود' };
-    return { m: m, ok: true, url: m.url, from: from, len: len, fb: fb ? fb.how : '' };
+    return { m: m, ok: true, url: m.url, from: from, len: len, fb: fb ? fb.how : '', how: sz.how };
   });
   /* ══ چیدمان و حرکت (۸.۹۹) ══ هر رسانهٔ غیرِافقی به نوبت چپ/وسط/راست؛ عکس کلیپِ زنده می‌شود (کن‌برنز یا
      پیمایشِ اسکرین‌شاتِ بلند) و قابِ هر کلیپ از حاشیهٔ تختِ خودش بریده می‌شود. «لحظه» همان چیدمانِ صحنه‌اش
@@ -731,12 +733,29 @@ function prepMedia(it, scenes, dir, notes, placed) {
     const sc = scenes.filter(x => x.url === m.url && x.t0 <= m.m.at + 0.6).pop();
     m.layout = sc ? layOf[sc.n] : 'center';
   }
+  const teaserPool = [];
+  scenes.forEach(s => { if (s.media && s.media.teaser && got[s.url] && teaserPool.indexOf(s.url) < 0) teaserPool.push(s.url); });
+  if (teaserPool.length < 2) {
+    /* یک رسانهٔ پیش‌نمایش تنها کلاژ نمی‌شود ⇒ از رسانه‌های بعدیِ قسمت کاشی قرض گرفته می‌شود (فقط برای تصویر). */
+    scenes.forEach(s => { if (teaserPool.length && teaserPool.length < 3 && got[s.url] && teaserPool.indexOf(s.url) < 0) teaserPool.push(s.url); });
+  }
   scenes.forEach((s, i) => {
     const g = got[s.url];
     if (!g) { st.failed++; return; }
     const out = path.join(dir, 'ms' + String(s.n).padStart(3, '0'));
     const want = (i + 1 < scenes.length ? scenes[i + 1].t0 - s.t0 : 30) + 2;
     try {
+      if (s.media && s.media.teaser && teaserPool.length >= 2) {
+        /* ۹.۱۱: پیش‌نمایش = کلاژِ همهٔ رسانه‌های پیش‌نمایش در یک قاب، کانون روی رسانهٔ همین صحنه. */
+        try {
+          const tiles = teaserPool.map(u => ({ file: got[u].file, kind: got[u].kind === 'photo' ? 'photo' : 'video',
+                                               from: got[u].kind === 'photo' ? 0 : Math.max(0, (got[u].info.dur || 0) * 0.45) }));
+          const cl = MKIT.collage(FF, tiles, Math.max(0, teaserPool.indexOf(s.url)), out + '.mp4', want);
+          clips[String(s.n)] = cl.file; imgs[String(s.n)] = cl.still; full[String(s.n)] = true;
+          st.teaser = (st.teaser || 0) + 1;
+          return;
+        } catch (eC) { notes.push('کلاژِ پیش‌نمایش نشد (صحنهٔ ' + s.n + '): ' + String(eC.message).split('\n')[0].slice(0, 60)); }
+      }
       if (g.kind === 'photo' || (s.media && s.media.kind === 'photo')) {
         if (g.kind !== 'photo') { st.failed++; notes.push('صحنهٔ ' + s.n + ': عکس نبود'); return; }
         /* ۹.۰۴: کارتِ نوشته روی تصویرِ محوِ **همان رسانه‌ای** که پیشش بود (آخرین قابِ کلیپ یا خودِ عکس)، نه کاور. */
@@ -809,6 +828,33 @@ function prepMedia(it, scenes, dir, notes, placed) {
   return { imgs: imgs, clips: clips, full: full, got: got, heard: heard, moCut: moCut, stat: st };
 }
 
+/**
+ * اندازهٔ هر «لحظه» از خودِ کلیپ (۹.۱۱). صاحبِ برنامه: «زمانِ خیلی کمی برای پخشِ خودِ کلیپ اختصاص می‌ده …
+ * حسبِ هر کلیپ و پادکست این محدودیت رو تنظیم کن به طوری که بیننده بتونه بیشتر از محتواهای کلیپ استفاده کنه».
+ * پیش از این هر لحظه دقیقاً **یک جمله** از گویندهٔ کلیپ بود (۷ تا ۹ ثانیه در نمونهٔ ۷۳) و سقفِ ۳۰ ثانیه‌ایِ تنظیمات
+ * هرگز به آن نمی‌رسید. حالا: کلیپی که کلِ گفتارش تا `whole` ثانیه است **همه‌اش** با صدای خودش پخش می‌شود؛ کلیپِ
+ * بلندتر از جای عبارت تا پایانِ جمله‌ای که دست‌کم `target` ثانیه را پر کند، حداکثر `cap`. هرگز وسطِ جمله بریده نمی‌شود.
+ */
+function momentSize(spans, from, stop, g, m) {
+  const MKIT = require('./mediakit.js');
+  if (g.info.end === undefined) { try { g.info.end = MKIT.contentEnd(ffmpegExe(), g.file, g.info); } catch (e) { g.info.end = g.info.dur; } }
+  const E = Math.min(g.info.dur, g.info.end || g.info.dur);
+  const cap = Math.max(MKIT.MK.momentMin, Number(m.max) || 20), whole = Math.max(cap, Number(m.whole) || 0);
+  const S = (spans || []).map(x => [Number(x[0]), Number(x[1])]).filter(x => x[1] > x[0] && x[0] < E).sort((a, b) => a[0] - b[0]);
+  if (!S.length) return { from: from, stop: stop, cap: cap, how: 'sentence' };
+  const s0 = Math.max(0, S[0][0] - 0.3), s1 = Math.min(E, S[S.length - 1][1] + 0.5);
+  if (s1 - s0 <= whole) return { from: s0, stop: s1, cap: whole + 1, how: 'whole' };
+  const target = Math.max(cap * 0.7, stop - from);
+  let end = stop;
+  for (const sp of S) {
+    if (sp[1] <= end + 0.05) continue;
+    if (sp[1] - from > cap) break;
+    end = sp[1];
+    if (end - from >= target) break;
+  }
+  return { from: from, stop: Math.min(E, end), cap: cap, how: 'window' };
+}
+
 /** لحظه‌ها پس از ساختِ ویدئو و سنجشش: هر کدام همان تکهٔ شنیده‌شده، با صدای خودش. */
 function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
   const MKIT = require('./mediakit.js');
@@ -826,6 +872,8 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
       const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc, { layout: c.layout || 'center', box: g.box || null });
       parts.push({ at: m.at, v: v, a: a, len: r.len });
       st.made++;
+      st.sec = Math.round((st.sec || 0) + r.len);                       // ۹.۱۱: چند ثانیه از خودِ کلیپ‌ها با صدایشان
+      if (c.how === 'whole') st.whole = (st.whole || 0) + 1;
       if (c.fb) st.fallback = (st.fallback || 0) + 1;      // ۹.۰۴: «بخشِ اصلیِ گفتار»، نه عبارتِ دقیق
     } catch (e) { st.why.push(Math.round(m.at) + 's: ' + String(e.message).split('\n')[0].slice(0, 60)); }
   }
@@ -1450,5 +1498,5 @@ module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments,
-  plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor
+  momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor
 };

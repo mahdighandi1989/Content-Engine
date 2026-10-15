@@ -172,10 +172,12 @@ def main():
             elif not accept(bw):
                 out[i] = {'found': False, 'score': round(bw[0], 2), 'second': round(bw[3], 2),
                           'why': 'عبارت در گفتارِ کلیپ پیدا نشد (' + str(round(bw[0], 2)) + ' در برابرِ ' + str(round(bw[3], 2)) + ')',
-                          'main': main_part(cache[f + '#spans'], bw[1] if bw[0] >= 0.45 else None)}
+                          'main': main_part(cache[f + '#spans'], bw[1] if bw[0] >= 0.45 else None),
+                          'spans': [[round(a, 2), round(b, 2)] for a, b in cache[f + '#spans']][:400]}
             else:
                 out[i] = {'found': True, 'from': round(bw[1], 2), 'to': round(bw[2], 2), 'score': round(bw[0], 2),
                           'second': round(bw[3], 2), 'end': round(sentence_end(cache[f + '#spans'], bw[1], bw[2]), 2),
+                          'spans': [[round(a, 2), round(b, 2)] for a, b in cache[f + '#spans']][:400],   # ۹.۱۱: اندازهٔ لحظه از کلِ گفتارِ کلیپ
                           'why': ''}
         except Exception as e:
             out[i] = {'found': False, 'why': 'شنیدن نشد: ' + str(e)[:80]}

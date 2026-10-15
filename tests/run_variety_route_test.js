@@ -121,4 +121,43 @@ console.log('=== ۵) سیم‌کشی و نامزدِ دسته‌های دیگر 
 }
 global.geminiText_ = realGem;
 
+console.log('=== ۶) دروازهٔ زمین‌گیری پیش از صدا (۹.۱۱، قسمتِ ۷۳) ===');
+{
+  const items = [item('V1', 'ویدیو', { summary: 'دعوای زن و شوهرِ خبرنگار با آدابِ پخشِ زنده', body: 'بدبخت تو هرچی داری صدقه‌سرِ من و خانواده‌مه' })];
+  const mkEp = () => ({ hook: 'از همه جا از همه رنگ. سلام.', sections: [{ heading: 'دعوا', sourceIds: ['V1'], narration:
+    'ماجرا از یک خانه شروع می‌شود. زن داد می‌زند: بدبخت تو هرچی داری صدقه‌سرِ من و خانواده‌مه. ' +
+    'این حرکتِ بدنی و لمسِ مداومِ هندزفری دقیقاً همان تصویری است که باید دید. و در نهایت یک صندلی پرتاب می‌شود. ' +
+    'قبلاً در یک کلیپ دیدیم که مدیرِ رستوران از پیکش می‌خواست کرنش کند.' }],
+    outro: 'امروز دیدیم قالب‌های اداری چطور مضحک می‌شوند. شکافِ عمیق میانِ صورتِ رسمی و حقیقتِ درون آشکار است. تا فردا، خدا نگه‌دار.' });
+  let seen = '';
+  const judge = (p) => { seen = p; return { bad: [{ id: 's0.2', kind: 'تصویر', why: 'تصویرِ ندیده' },
+                                                 { id: 'o0.1', kind: 'پند', why: 'تعمیم' },
+                                                 { id: 'o0.2', kind: 'پند' }, { id: 's0.0', kind: 'نامعلوم' }] }; };
+  const ep = mkEp();
+  const g = groundEpisode_(ep, items, { judge });
+  const nar = ep.sections[0].narration;
+  ok('۶.۱ جملهٔ «تصویری که نویسنده ندیده» حذف شد و بازگوییِ گفت‌وگو ماند',
+     g.judged && !/هندزفری/.test(nar) && /صدقه‌سرِ من/.test(nar) && /صندلی پرتاب/.test(nar), nar);
+  ok('۶.۲ پندِ پایان حذف شد؛ خداحافظی (محافظت‌شده) ماند', !/شکافِ عمیق/.test(ep.outro) && /خدا نگه‌دار/.test(ep.outro), ep.outro);
+  ok('۶.۳ «قبلاً در یک کلیپ دیدیم» بی مدل به «در یکی از قسمت‌های پیشینِ همین برنامه» تبدیل شد',
+     g.pastRef === 1 && /در یکی از قسمت‌های پیشینِ همین برنامه دیدیم/.test(nar) && !/قبلاً در یک کلیپ/.test(nar), nar);
+  ok('۶.۴ نوعِ ساختگیِ داور («نامعلوم») کاری نکرد و شمارش درست است', g.removed === 2 && g.kinds['تصویر'] === 1 && g.kinds['پند'] === 1,
+     JSON.stringify(g.kinds));
+  ok('۶.۵ داور متنِ کاملِ منبعِ همان بخش را می‌بیند، نه فقط برچسب', /صدقه‌سرِ من و خانواده‌مه/.test(seen) && /هیچ کلیپی را ندیده/.test(seen));
+  const ep2 = mkEp();
+  const allBad = () => ({ bad: [0, 1, 2, 3, 4].map(k => ({ id: 's0.' + k, kind: 'ادعا' })) });
+  groundEpisode_(ep2, items, { judge: allBad });
+  const left = groundSplit_(ep2.sections[0].narration).length;
+  ok('۶.۶ هرگز بیش از ۴۰٪ِ جمله‌های یک بخش نمی‌رود و بخش خالی نمی‌شود', left >= 3, left + ' جمله ماند');
+  const ep3 = mkEp(), before = JSON.stringify(ep3);
+  const g3 = groundEpisode_(ep3, items, { judge: () => { throw new Error('quota'); } });
+  ok('۶.۷ داور در دسترس نبود ⇒ متن دست نخورد (جز ارجاعِ قطعی) و علت گفته شد',
+     !g3.judged && /quota/.test(g3.why) && /هندزفری/.test(ep3.sections[0].narration), g3.why);
+  const pr = fs.readFileSync('src/03_Producer.gs', 'utf8');
+  ok('۶.۸ سیم‌کشی: دروازه پیش از ساختِ پوشه و صدا، و نتیجه در _STATUS',
+     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs));') > 0 &&
+     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs));') < pr.indexOf("showFolder_(CFG.VARIETY_FOLDER)") &&
+     /ground: \(function \(\) \{ try \{ return JSON\.parse\(props_\(\)\.getProperty\(PK\.GROUND_LAST\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ سیرِ «از همه جا» گذشت.');

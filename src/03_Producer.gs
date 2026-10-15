@@ -7767,6 +7767,125 @@ function epScore_(ep) {
          (ep.__repaired ? 6 : 0);
 }
 
+/* ══ زمین‌گیریِ متنِ «از همه جا» پیش از صدا (۹.۱۱) ══
+ * صاحبِ برنامه پس از قسمتِ ۷۳: «باز هم تفسیرهای بیخودی و الکی و دروغی که درکِ درستی گوینده از کلیپ
+ * نداشته». متنِ قسمت با رونوشتِ خودِ کلیپ‌ها سنجیده شد: گفت‌وگوها درست بازگو شده بودند؛ آنچه ساختگی بود
+ * سه شکل داشت — توصیفِ تصویری که نویسنده هرگز ندیده («این حرکتِ بدنی و لمسِ مداومِ هندزفری دقیقاً همان
+ * تصویری است که باید دید»)، پندی که روی طنز چسبانده شد («شکافِ عمیق میانِ صورتِ رسمی و حقیقتِ درون…
+ * زندگی به صحنهٔ یک نمایشِ مضحک تبدیل می‌شود»)، و کلیپِ قسمتِ پیشین که «قبلاً در یک کلیپ دیدیم» خوانده شد.
+ * **هر سه از پیش در پرامپت ممنوع بود** (۸-چ، ۸-خ، ۱۷، و همان جملهٔ «نه قبلاً در یک کلیپ دیدیم»).
+ * قاعده‌ای که فقط در پرامپت است، قاعده نیست؛ و پاسِ وفاداری فقط گزارش می‌داد تا «قسمتِ بعد» درست شود.
+ * پس این دروازه **پیش از صدا** است: یک داورِ جدا هر جمله را کنارِ متنِ کاملِ منبعِ همان بخش می‌گذارد و
+ * جمله‌های ساختگی **حذف** می‌شوند — هرگز بازنویسی نمی‌شوند، چون بازنویسی دوباره چیزی می‌سازد. هیچ بخشی
+ * خالی نمی‌شود، بیش از سهمِ `GROUND_MAX_CUT` از یک بخش نمی‌رود، و نام/تاریخ/خداحافظی دست نمی‌خورد.
+ * مدل در دسترس نبود ⇒ متن همان می‌ماند و گفته می‌شود (باز، نه بسته: بی‌صدا ماندنِ قسمت بدتر است).
+ */
+var GROUND_SCHEMA = {
+  type: 'OBJECT',
+  properties: { bad: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    id: { type: 'STRING' }, kind: { type: 'STRING' }, why: { type: 'STRING' } }, required: ['id', 'kind'] } } },
+  required: ['bad']
+};
+
+function groundSplit_(t) {
+  return (String(t || '').match(/[^.!؟?…]+[.!؟?…]*\s*/g) || []).map(function (x) { return x; })
+    .filter(function (x) { return x.trim(); });
+}
+
+function groundProtected_(sent) {
+  var t = String(sent || '');
+  return t.indexOf(String(CFG.SHOW_NAME || '###')) >= 0 || /سلام|خدا\s*نگه|تا\s*فردا|برنامهٔ?\s*دیگر|امروز\s+\S+\s+\d|۱۴۰\d|۲۰\d\d/.test(t);
+}
+
+/** «قبلاً در یک کلیپ دیدیم» ⇒ «در یکی از قسمت‌های پیشینِ همین برنامه دیده بودیم» — بی مدل. */
+function groundPastRef_(t) {
+  return String(t || '').replace(/قبلاً\s*(?:هم\s*)?(?:در|توی)\s*(?:یک|یه|همین|این)?\s*(?:کلیپ|ویدئو|ویدیو|فیلم)(?:ی)?\s*(?:دیگر|دیگری)?\s*(دیدیم|دیده‌ایم|دیده بودیم|شنیدیم)/g,
+    'در یکی از قسمت‌های پیشینِ همین برنامه $1');
+}
+
+function groundEpisode_(ep, items, opt) {
+  opt = opt || {};
+  var out = { ok: true, judged: false, removed: 0, pastRef: 0, kinds: {}, samples: [], why: '' };
+  if (!ep || !ep.sections) return out;
+  var byId = {};
+  (items || []).forEach(function (it) {
+    byId[String(it.id)] = '[' + it.id + '] ' + [it.topic, it.msg, it.summary, it.body].filter(String).join(' · ').slice(0, 2600);
+  });
+  var allSrc = Object.keys(byId).map(function (k) { return byId[k]; }).join('\n');
+  // ۱) ارجاعِ گذشته — قطعی
+  ['hook', 'outro'].forEach(function (k) {
+    var b = String(ep[k] || ''), a = groundPastRef_(b);
+    if (a !== b) { out.pastRef++; ep[k] = a; }
+  });
+  ep.sections.forEach(function (sec) {
+    var b = String(sec.narration || ''), a = groundPastRef_(b);
+    if (a !== b) { out.pastRef++; sec.narration = a; }
+  });
+  // ۲) داوریِ جمله‌به‌جمله
+  var units = [];                       // {id, where, si, k, text}
+  var L = [];
+  L.push('تو داورِ وفاداریِ متنِ یک پادکستِ فارسی هستی. نویسنده **هیچ کلیپی را ندیده**؛ تنها چیزی که از هر');
+  L.push('رسانه دارد همین «منبع» است (خلاصه و گفتارِ داخلِ آن). هر جمله را با منبعِ بخشِ خودش بسنج و فقط این‌ها را');
+  L.push('در bad بیاور:');
+  L.push('— «تصویر»: جمله‌ای که چیزی دیدنی را توصیف یا تفسیر می‌کند (حرکت، اشاره، چهره، لباس، صحنه، «همان تصویری که باید دید»)');
+  L.push('  که در منبع نیامده.');
+  L.push('— «پند»: نتیجهٔ اخلاقی، درسِ زندگی، تعمیمِ فلسفی یا تشخیصِ اجتماعی که در منبع نیست — به‌ویژه روی محتوای طنز.');
+  L.push('— «ادعا»: واقعیت، انگیزه، احساس یا علتی که در منبع نیست.');
+  L.push('بازگوییِ گفت‌وگوها، معرفیِ کلیپ، گذار به بخشِ بعد، و جمع‌بندیِ «آنچه دیدیم» بد **نیست**. در تردید، بد نیست.');
+  L.push('kind فقط یکی از: تصویر | پند | ادعا. why: یک عبارتِ کوتاه.');
+  L.push('');
+  var addSent = function (where, si, txt, src) {
+    var ss = groundSplit_(txt);
+    for (var k = 0; k < ss.length; k++) {
+      var id = where.charAt(0) + si + '.' + k;
+      units.push({ id: id, where: where, si: si, k: k, text: ss[k] });
+      L.push(id + ') ' + ss[k].trim().slice(0, 400));
+    }
+    return ss.length;
+  };
+  ep.sections.forEach(function (sec, si) {
+    var src = (sec.sourceIds || []).map(function (x) { return byId[String(x)] || ''; }).filter(String).join('\n') || allSrc;
+    L.push('### بخش ' + (si + 1) + ' — منبع:');
+    L.push(src.slice(0, 5000));
+    L.push('جمله‌ها:');
+    addSent('s', si, sec.narration, src);
+    L.push('');
+  });
+  L.push('### پایانِ برنامه — منبع: همهٔ منبع‌های بالا. جمله‌ها:');
+  addSent('outro', 0, ep.outro, allSrc);
+  var r = null;
+  try { r = (opt.judge || geminiText_)(L.join('\n'), GROUND_SCHEMA, 4096); }
+  catch (e) { out.why = 'داور جواب نداد: ' + String(e.message || e).slice(0, 80); return out; }
+  out.judged = true;
+  var bad = {};
+  ((r && r.bad) || []).forEach(function (b) {
+    var k = String(b.kind || '').trim();
+    if (['تصویر', 'پند', 'ادعا'].indexOf(k) < 0) return;
+    bad[String(b.id || '').trim()] = { kind: k, why: String(b.why || '').slice(0, 80) };
+  });
+  var cutMax = Math.max(0, Math.min(0.6, Number(CFG.GROUND_MAX_CUT) || 0.4));
+  var apply = function (where, si, setter, txt) {
+    var us = units.filter(function (u) { return u.where === where && u.si === si; });
+    if (!us.length) return;
+    var flagged = us.filter(function (u) { return bad[u.id] && !groundProtected_(u.text); });
+    var limit = Math.floor(us.length * cutMax);
+    if (where === 'outro') limit = Math.max(limit, us.length - 1);   // پایان: هرچه پند بود برود، دست‌کم یک جمله بماند
+    if (!flagged.length) return;
+    flagged = flagged.slice(0, Math.max(0, Math.min(limit, us.length - 1)));
+    if (!flagged.length) return;
+    var drop = {};
+    flagged.forEach(function (u) {
+      drop[u.k] = 1; out.removed++;
+      out.kinds[bad[u.id].kind] = (out.kinds[bad[u.id].kind] || 0) + 1;
+      if (out.samples.length < 6) out.samples.push('[' + bad[u.id].kind + '] ' + u.text.trim().slice(0, 140));
+    });
+    setter(us.filter(function (u) { return !drop[u.k]; }).map(function (u) { return u.text; }).join('').trim());
+  };
+  ep.sections.forEach(function (sec, si) { apply('s', si, function (t) { sec.narration = t; }); });
+  apply('outro', 0, function (t) { ep.outro = t; });
+  return out;
+}
+
 function fidelityCheck_(ep, items, when, showName, opt) {
   opt = opt || {};
   var byId = {}, allText = '';
@@ -7971,7 +8090,8 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
         'موضوع: ' + String(it.topic).slice(0, 500) + '\n' +
         'پیام کلیدی: ' + String(it.msg).slice(0, 500) + '\n' +
         'خلاصه: ' + String(it.summary).slice(0, 900) + '\n' +
-        (it.body ? 'متن/گفتار داخل فایل: ' + String(it.body).slice(0, 700) + '\n' : '') +
+        /* ۹.۱۱: از ۷۰۰ — گفتارِ یک کلیپِ یک‌دقیقه‌ای بیش از ۷۰۰ نویسه است و نیمهٔ بریده را نویسنده حدس می‌زد. */
+        (it.body ? 'متن/گفتار داخل فایل: ' + String(it.body).slice(0, 1600) + '\n' : '') +
         (it.vibe ? 'حال‌وهوا: ' + String(it.vibe).slice(0, 200) + '\n' : ''));
     }
     return out.join('\n');
@@ -8601,6 +8721,16 @@ function produceEpisode(opt) {
         });
       } catch (eL) {}
     }
+
+    // ۹.۱۱: دروازهٔ زمین‌گیری — جمله‌های ساختگی پیش از صدا حذف می‌شوند، نه «تا قسمتِ بعد» گزارش.
+    try {
+      var gr = groundEpisode_(ep, items.concat(refs));
+      ep.__ground = gr;
+      logLine_('زمین‌گیریِ قسمت ' + epNum + ': ' + (gr.judged ? gr.removed + ' جملهٔ ساختگی حذف شد' : 'داوری نشد — ' + gr.why) +
+               (gr.pastRef ? ' · ' + gr.pastRef + ' ارجاعِ گذشته اصلاح شد' : ''));
+      try { props_().setProperty(PK.GROUND_LAST, JSON.stringify({ ep: epNum, at: nowStr_(), judged: gr.judged, removed: gr.removed,
+                                                                   kinds: gr.kinds, pastRef: gr.pastRef, why: gr.why, samples: gr.samples }).slice(0, 3000)); } catch (eGp) {}
+    } catch (eGr) { logLine_('زمین‌گیری انجام نشد: ' + eGr.message); }
 
     // عکسِ محتوا: همین‌جا و نه جای دیگر، چون فقط در این نقطه متنِ نهایی و
     // متن‌های خام هر دو در حافظه‌اند. داوریِ معناییِ آن‌ها فردا انجام می‌شود

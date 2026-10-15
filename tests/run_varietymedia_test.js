@@ -419,7 +419,7 @@ console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): 
   const e = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
   ok('۱۲.۱۰ vmBuild_ کارت‌ها را بعد از آغاز می‌چیند', /var cards = vmCards_\(ready, d\.sents \|\| \[\], d\.music \|\| \[\], Number\(d\.secs\) \|\| 0, d\.cover && d\.cover\.fileId\);/.test(e) &&
      /sents: sents\.map\(function \(z\)/.test(e));
-  ok('۱۲.۱۱ لحظه‌ها: سقفِ ۶ و ۳۰ ثانیه', CFG.VM_MOMENT_MAX === 6 && CFG.VM_MOMENT_SEC === 30 && CFG.VM_MOMENT_GAP === 20);
+  ok('۱۲.۱۱ لحظه‌ها: سقفِ ۸ و ۴۵ ثانیه، کلیپِ تا ۶۰ ثانیه کامل (۹.۱۱)', CFG.VM_MOMENT_MAX === 8 && CFG.VM_MOMENT_SEC === 45 && CFG.VM_MOMENT_WHOLE === 60 && CFG.VM_MOMENT_GAP === 20);
 }
 
 console.log('=== ۱۳) پس‌گرفتنِ اشتراک صوتِ ردیفِ در انتظار را نمی‌بندد (۹.۰۲) ===');

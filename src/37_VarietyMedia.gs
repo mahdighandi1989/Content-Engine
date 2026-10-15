@@ -405,6 +405,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
     if (mm.length && mo.at - mm[mm.length - 1].at < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
+    mo.whole = Math.max(mo.max, Number(CFG.VM_MOMENT_WHOLE) || 0);
     mm.push(mo);
   }
   out.moments = mm;
