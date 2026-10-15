@@ -874,7 +874,8 @@ function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
     try {
       const v = path.join(dir, 'mo' + parts.length + '.mp4'), a = path.join(dir, 'mo' + parts.length + '.wav');
       const r = MKIT.moment(FF, g.file, v, a, c.from, c.len, g.info, enc, { layout: c.layout || 'center', box: g.box || null });
-      parts.push({ at: m.at, v: v, a: a, len: r.len });
+      parts.push({ at: m.at, v: v, a: a, len: r.len, cut: Number(m.cut) || 0 });
+      if (m.cut) st.replaced = (st.replaced || 0) + 1;                  // ۹.۱۴: جای بازگویی، نه کنارش
       st.made++;
       st.sec = Math.round((st.sec || 0) + r.len);                       // ۹.۱۱: چند ثانیه از خودِ کلیپ‌ها با صدایشان
       if (c.how === 'whole') st.whole = (st.whole || 0) + 1;
@@ -901,7 +902,10 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
        می‌نشیند؛ برشِ بی‌بازکدگذاری که ۲۴٫۳ بخواهد به قابِ کلیدیِ **پیشین** (۲۲٫۲۹) برمی‌گردد و دو ثانیه
        تصویرِ صحنهٔ قبل تکرار می‌شود. پس زمانِ لحظه خودش روی قاب است: قابِ کلیدی، برشِ تصویر، برشِ صوت و
        `inserts` همه همین یک عدد. */
-    placed.forEach(m => { m.at = Math.ceil(m.at * SKIT.SK.fps - 1e-6) / SKIT.SK.fps; });
+    placed.forEach(m => {
+      m.at = Math.ceil(m.at * SKIT.SK.fps - 1e-6) / SKIT.SK.fps;
+      if (m.cut) m.cut = Math.round(m.cut * SKIT.SK.fps) / SKIT.SK.fps;   // ۹.۱۴: پایانِ بازه هم روی قاب
+    });
   }
   stage('رسانه‌ها: دانلود، شنیدن و برش');
   const mp = it.media ? prepMedia(it, scenes, dir, notes, placed) : null;
@@ -944,7 +948,7 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   }
   const exe = CK.chromeExe();
   stage('صحنه‌ها: ساختِ ویدئو');
-  const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec,
+  const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec, genre: String(it.genre || ''),
                              dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes,
                              full: mp ? mp.full : null,
                              kf: mp ? mp.moCut.filter(c => c.ok).map(c => c.m.at) : [],

@@ -412,8 +412,21 @@ function placeMoments(moments, sil, mute, durSec, notes) {
     }
     if (best === null) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: مکثی بیرون از موسیقی نزدیکش نبود'); continue; }
     if (best < 3 || best > durSec - 3) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: لبهٔ قسمت'); continue; }
-    if (out.length && best - out[out.length - 1].at < 20) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: نزدیکِ لحظهٔ قبلی'); continue; }
-    out.push(Object.assign({}, m, { at: Math.round(best * 1000) / 1000 }));
+    const prevEnd = out.length ? out[out.length - 1].at + (out[out.length - 1].cut || 0) : -1e9;
+    if (out.length && best - prevEnd < 20) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: نزدیکِ لحظهٔ قبلی'); continue; }
+    /* ۹.۱۴: لحظه‌ای که جای بازگوییِ دیالوگ می‌نشیند (`cut`): پایانِ بازه هم روی مکث، وگرنه وسطِ نفس بریده می‌شود. */
+    let cut = 0;
+    if (Number(m.cut) > 0) {
+      const want = Number(m.at) + Number(m.cut);
+      let be = null, bed = 2.6;
+      for (const s of (sil || [])) {
+        const d = Math.abs(s - want);
+        if (d < bed && s > best + 1 && !inMute(s)) { bed = d; be = s; }
+      }
+      if (be !== null && be < durSec - 3) cut = Math.round((be - best) * 1000) / 1000;
+      else notes.push('لحظهٔ ' + Math.round(m.at) + 's: پایانِ بازگویی روی مکث نیفتاد — لحظه کنارِ گفتار می‌نشیند');
+    }
+    out.push(Object.assign({}, m, { at: Math.round(best * 1000) / 1000, cut: cut }));
   }
   return out;
 }
@@ -457,8 +470,10 @@ function splice(ff, silent, wav, parts, dest, dir) {
     run(ff, ['-i', p.v, '-vf', V + ',tpad=stop_mode=clone:stop_duration=2', '-frames:v', String(n)].concat(enc, [v]));
     run(ff, ['-i', p.a, '-af', 'aresample=48000,apad=whole_dur=' + len.toFixed(4) + ',atrim=end=' + len.toFixed(4)].concat(AO, [au]));
     vl.push(v); al.push(au); k++;
-    inserts.push({ at: Math.round(p.at * 10) / 10, d: Math.round(len * 10) / 10 });
-    prev = p.at;
+    const cut = Math.max(0, Number(p.cut) || 0);              // ۹.۱۴: بازگوییِ همان دیالوگ از گفتار برداشته می‌شود
+    inserts.push(cut ? { at: Math.round(p.at * 10) / 10, d: Math.round(len * 10) / 10, cut: Math.round(cut * 10) / 10 }
+                     : { at: Math.round(p.at * 10) / 10, d: Math.round(len * 10) / 10 });
+    prev = p.at + cut;
   }
   piece(prev, null);
   const lv = path.join(dir, 'spv.txt'), la = path.join(dir, 'spa.txt');

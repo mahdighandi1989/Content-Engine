@@ -202,6 +202,7 @@ function vmItems_(meta) {
                topic: String(it.topic || '').slice(0, 160),
                summary: String(it.summary || '').slice(0, 420),
                words: String(it.body || '').replace(/\s+/g, ' ').slice(0, kind === 'video' ? 900 : 400),
+               allWords: kind === 'video' ? String(it.body || '').replace(/\s+/g, ' ').slice(0, 4000) : '',
                vibe: String(it.vibe || '').slice(0, 160) });
   }
   return out;
@@ -288,6 +289,87 @@ function vmPrompt_(sents, items, ctx) {
   return L.join('\n');
 }
 
+/* ══ «دو بار شنیده می‌شود» (۹.۱۴) ══
+ * نمونهٔ سومِ ۷۳: گوینده دیالوگِ کلیپ را جمله‌به‌جمله بازگو کرد («زن داد می‌زند: بدبخت! … مرد گوشش را می‌گیرد
+ * و می‌گوید: بله»)، بعد خودِ کلیپ همان را با صدایش پخش کرد، و پس از کلیپ گوینده بقیهٔ همان دیالوگ را خواند.
+ * صاحبِ برنامه: «اون دوبار شنیدن درست کن». هم‌زمانی درست بود؛ چیدن غلط بود — لحظه **کنارِ** بازگویی می‌نشست.
+ * حالا لحظه **جای** آن جمله‌ها می‌نشیند: جمله‌هایی که واژه‌هایشان در گفتارِ خودِ کلیپ هست (`vmReciteSpan_`)،
+ * در ویدئو بریده می‌شوند و کلیپ با صدای خودش آن‌جا پخش می‌شود. صوتِ پادکست دست نمی‌خورد — شنونده‌ای که
+ * تصویر ندارد، بازگویی را لازم دارد. */
+function vmNorm_(s) {
+  return String(s || '').replace(/[ً-ْٰـ]/g, '').replace(/‌/g, ' ')
+    .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه').replace(/[أإآ]/g, 'ا')
+    .replace(/[^؀-ۿa-zA-Z0-9]+/g, ' ').trim();
+}
+var VM_STOP = ' و به از که را با در این آن می هم یک تا بر اگر یا ما تو من او هر ای ی ها شد شده است هست بود ';
+function vmToks_(s) {
+  return vmNorm_(s).split(/\s+/).filter(function (w) { return w.length >= 2 && VM_STOP.indexOf(' ' + w + ' ') === -1; });
+}
+/** نزدیکیِ دو واژه به نسبتِ نویسه — «بدبخت»/«بدبخته» و «خودتو»/«خودِتو» یکی‌اند. */
+function vmWordSim_(a, b) {
+  if (a === b) return 1;
+  var m = a.length, n = b.length;
+  if (Math.abs(m - n) > Math.max(m, n) * 0.4) return 0;
+  var prev = [], cur = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    cur = [i];
+    for (var k = 1; k <= n; k++) {
+      cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return 1 - prev[n] / Math.max(m, n);
+}
+/** سهمِ واژه‌های جمله که در گفتارِ کلیپ هست؛ نقل‌قولِ پس از «:» جدا هم سنجیده می‌شود. */
+function vmReciteScore_(text, clipSet) {
+  var part = function (t) {
+    var w = vmToks_(t);
+    if (!w.length) return 0;
+    var hit = 0;
+    for (var i = 0; i < w.length; i++) {
+      if (clipSet[w[i]]) { hit++; continue; }
+      for (var c in clipSet) {
+        if (Object.prototype.hasOwnProperty.call(clipSet, c) && vmWordSim_(w[i], c) >= 0.75) { hit++; break; }
+      }
+    }
+    return hit / w.length;
+  };
+  var whole = part(text), ix = String(text || '').search(/[:：«]/);
+  var q = ix >= 0 ? part(String(text).slice(ix + 1)) : 0;
+  return Math.max(whole, q);
+}
+/**
+ * بازهٔ بازگویی: پیوسته‌ترین دنبالهٔ جمله‌هایی کنارِ لحظه که دیالوگِ کلیپ را بازمی‌گویند (یک جملهٔ میانیِ
+ * صحنه‌آرایی مجاز است — «زن دوباره ژست می‌گیرد»). فقط درونِ همان بخش، و فقط اگر واقعاً بازگویی است
+ * (دست‌کم دو جمله یا شش ثانیه). تابعِ خالص. ⇒ {a, b} اندیسِ صفرپایه، یا null.
+ */
+function vmReciteSpan_(sents, k, clipWords, secs) {
+  var S = sents.length;
+  if (k < 0 || k >= S || !clipWords) return null;
+  var set = {};
+  vmToks_(clipWords).forEach(function (w) { set[w] = 1; });
+  if (Object.keys(set).length < 4) return null;
+  var sec = sents[Math.min(k, S - 1)].sec;
+  var lo = Math.max(0, k - 6), hi = Math.min(S - 1, k + 10);
+  var th = Math.max(0.3, Number(CFG.VM_RECITE_MIN) || 0.5);
+  var hitAt = {};
+  for (var i = lo; i <= hi; i++) {
+    if (sents[i].sec !== sec) continue;
+    hitAt[i] = vmReciteScore_(sents[i].text, set) >= th;
+  }
+  /* دنباله‌ای که از k یا یکی پیش از آن می‌گذرد. */
+  var seed = hitAt[k] ? k : (hitAt[k - 1] ? k - 1 : (hitAt[k + 1] ? k + 1 : -1));
+  if (seed < 0) return null;
+  var a = seed, b = seed;
+  while (a - 1 >= lo && sents[a - 1].sec === sec && (hitAt[a - 1] || (hitAt[a - 2] && sents[a - 2].sec === sec))) a -= hitAt[a - 1] ? 1 : 2;
+  while (b + 1 <= hi && sents[b + 1].sec === sec && (hitAt[b + 1] || (hitAt[b + 2] && sents[b + 2].sec === sec))) b += hitAt[b + 1] ? 1 : 2;
+  var endT = b + 1 < S ? Number(sents[b + 1].t) : Number(secs) || 0;
+  var dur = endT - Number(sents[a].t);
+  if ((b - a + 1 < 2 && dur < 6) || dur <= 0 || dur > Math.max(20, Number(CFG.VM_RECITE_MAX_SEC) || 90)) return null;
+  return { a: a, b: b, at: Math.round(Number(sents[a].t) * 10) / 10, cut: Math.round(dur * 10) / 10 };
+}
+
 function vmNum_(v) {
   var s = String(v === undefined || v === null ? '' : v)
     .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }).replace(/[^0-9]/g, '');
@@ -354,7 +436,11 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     if (c.moment && itm.kind === 'video' && c.quote) {
       var aft = c.after >= 1 && c.after <= S ? c.after : c.n;
       var T = aft < S ? Number(sents[aft].t) : Number(secs) || 0;
-      out.moments.push({ id: c.id, at: Math.round(T * 10) / 10, quote: c.quote, sn: aft });
+      var mo0 = { id: c.id, at: Math.round(T * 10) / 10, quote: c.quote, sn: aft };
+      /* ۹.۱۴: اگر گوینده همین دیالوگ را بازگو می‌کند، لحظه جای بازگویی می‌نشیند (نه کنارش). */
+      var rs = vmReciteSpan_(sents, aft, itm.allWords || itm.words, secs);
+      if (rs && rs.at >= s0.t0 - 0.05) { mo0.at = rs.at; mo0.cut = rs.cut; mo0.sn = rs.a; mo0.recite = rs.b - rs.a + 1; }
+      out.moments.push(mo0);
     }
   }
   var total = Number(secs) || 0;
@@ -403,7 +489,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     var mo = out.moments[m];
     if (vmInMusic_(mo.at, music)) { out.dropped++; continue; }
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
-    if (mm.length && mo.at - mm[mm.length - 1].at < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
+    if (mm.length && mo.at - (mm[mm.length - 1].at + (Number(mm[mm.length - 1].cut) || 0)) < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
     mo.whole = Math.max(mo.max, Number(CFG.VM_MOMENT_WHOLE) || 0);
     mm.push(mo);
@@ -512,8 +598,14 @@ function vmNote_(key, rec) {
  * و باقی‌اش پیش‌نمایشی از **رسانه‌های خودِ همین قسمت** است، به ترتیبِ آمدن و پخش در کلِ قسمت،
  * هر کدام ~`VM_TEASER_SEC`. کلیپِ پیش‌نمایش `teaser` دارد تا رانر از میانه‌اش بِبُرد، نه از همان جایی
  * که صحنهٔ اصلی‌اش بعداً نشان می‌دهد — یک تکه دو بار دیده نشود. چیزی ساخته نمی‌شود؛ فقط همان رسانه‌ها. */
-function vmLead_(ready, coverId) {
+function vmLead_(ready, coverId, hookEnd) {
   if (!ready.length) return [];
+  /* ══ پیش‌نمایش فقط به اندازهٔ آغازِ گوینده (۹.۱۴) ══
+     «طولِ تیزر به همان اندازهٔ توضیحاتِ ابتدایی پیش از شروعِ اولین محتوا باشد»: در نمونهٔ سومِ ۷۳ نخستین
+     رسانه چند جمله پس از آغازِ بخشِ یک نشست، پس کلاژ ادامه داشت در حالی که گوینده ماجرای آیتمِ یک را
+     می‌گفت — «هی تکرار می‌شود». حالا پیش‌نمایش سرِ پایانِ hook می‌ایستد و رسانهٔ نخستین از همان‌جا می‌آید. */
+  var hE = Number(hookEnd) || 0;
+  if (hE > 4 && Number(ready[0].t0) > hE + 1) ready[0].t0 = Math.round(hE * 10) / 10;
   var first = Number(ready[0].t0) || 0;
   if (first <= 4) return [];
   var out = [];
@@ -704,7 +796,8 @@ function vmBuild_(folder, meta, plan, ctx) {
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
           dropped: vs.dropped, added: vs.added, items: items.length, copies: {}, skipped: [],
           cover: { fileId: '', why: '' },
-          sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }) };
+          sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }),
+          hookEnd: (function () { for (var h = 0; h < sents.length; h++) if (Number(sents[h].sec) >= 1) return Number(sents[h].t) || 0; return 0; })() };
     if (keepCp) { d.copies = keepCp.copies; d.cover = keepCp.cover; d.skipped = keepCp.skipped; }
     vmWrite_(folder, d);
   }
@@ -746,7 +839,7 @@ function vmBuild_(folder, meta, plan, ctx) {
     if (sj.ov) r0.ov = sj.ov;
     ready.push(r0);
   }
-  var lead = vmLead_(ready, d.cover && d.cover.fileId);
+  var lead = vmLead_(ready, d.cover && d.cover.fileId, Number(d.hookEnd) || 0);
   if (lead.length) {
     ready = lead.concat(ready);
     for (var r = 0; r < ready.length; r++) ready[r].n = r + 1;
@@ -760,7 +853,12 @@ function vmBuild_(folder, meta, plan, ctx) {
   var okIds = {};
   for (var q = 0; q < d.scenes.length; q++) if ((d.copies || {})[d.scenes[q].id]) okIds[d.scenes[q].id] = (d.copies || {})[d.scenes[q].id];
   var moments = (d.moments || []).filter(function (m) { return !!okIds[m.id]; })
-    .map(function (m) { return { at: m.at, fileId: okIds[m.id], quote: m.quote, max: m.max }; });
+    .map(function (m) {
+      var o = { at: m.at, fileId: okIds[m.id], quote: m.quote, max: m.max };
+      /* ۹.۱۴: `whole` (۹.۱۱) تا امروز این‌جا و در ردیفِ صف دور ریخته می‌شد — کلِ کلیپ هرگز نمی‌رسید. */
+      if (m.whole) o.whole = m.whole;
+      if (Number(m.cut) > 0) o.cut = Number(m.cut);
+      return o; });
   var nClip = ready.filter(function (x) { return x.media.kind === 'video'; }).length;
   out.done = true;
   out.items = ready;
@@ -800,7 +898,8 @@ function vmStatus_() {
  */
 function vmShiftDesc_(desc, inserts) {
   var ins = (inserts || []).filter(function (x) { return x && Number(x.d) > 0; })
-    .map(function (x) { return { at: Number(x.at) || 0, d: Number(x.d) || 0 }; });
+    .map(function (x) { return { at: Number(x.at) || 0, d: Number(x.d) || 0, cut: Math.max(0, Number(x.cut) || 0) }; })
+    .sort(function (a, b) { return a.at - b.at; });
   if (!ins.length) return String(desc || '');
   var toSec = function (s) {
     var p = s.split(':').map(Number);
@@ -811,9 +910,17 @@ function vmShiftDesc_(desc, inserts) {
     if (!m) return line;
     var t = toSec(m[2]);
     if (!t) return line;                       // ۰۰:۰۰ همیشه سرِ جایش
-    var add = 0;
-    for (var i = 0; i < ins.length; i++) if (ins[i].at <= t) add += ins[i].d;
-    return add ? m[1] + ytTime_(t + add) + (m[3] || '') : line;
+    /* ۹.۱۴: لحظه‌ای که جای بازگویی نشست (`cut`) گفتارِ [at, at+cut) را برداشته: پس از آن فقط d−cut جابه‌جا
+       می‌شود، و فصلی که درونِ همان بازه شروع می‌شد پس از کلیپ می‌آید. */
+    var shift = 0, nt = -1;
+    for (var i = 0; i < ins.length && nt < 0; i++) {
+      var I = ins[i];
+      if (I.at > t) break;
+      if (I.cut && t < I.at + I.cut) nt = I.at + shift + I.d;
+      else shift += I.d - I.cut;
+    }
+    var newT = Math.round(nt >= 0 ? nt : t + shift);
+    return newT !== t ? m[1] + ytTime_(newT) + (m[3] || '') : line;
   }).join('\n');
 }
 

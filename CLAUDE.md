@@ -572,12 +572,13 @@ and avsync all come for free. `row.media` + `scene.media` is the only switch.
   shown large and **scrolls** top-to-bottom (`photoClip`); every photo is a moving clip, never a still.
   The owner saw the first sample: «همش وسط … ریز … افکت ندیدم».
 - **Moments** (narrator silent, clip with its own sound): placed on a pause, never inside a `k:'m'` music
-  span, ≤ `VM_MOMENT_MAX`, inserted **without re-encoding**: keyframes forced at the moment, video cut by
-  stream copy, audio by sample. The moment time is snapped **to the frame grid** first — a keyframe asked
-  for at 24.3 lands at 24.333 at 24 fps and a copy-cut at 24.3 falls back two seconds to the previous
-  keyframe (real ffmpeg showed it; `run_media_render_test.js` ۳.۱۰). The scene's muted clip **skips** the
-  moment's span, so nothing plays twice. `inserts` go to `docs/renders.json` and `ytDescFinal_` (both
-  publish doors) shifts the chapter times.
+  span, ≤ `VM_MOMENT_MAX`, spliced **piece by piece with exact frame counts** (9.13 — the stream-copy cut
+  drifted to the previous keyframe, the one-pass split/concat killed the runner). The moment time is snapped
+  to the frame grid. When the narrator **recites the clip's own dialogue** around it (`vmReciteSpan_`, word
+  overlap with the clip's transcript), the moment **replaces** those sentences in the video (`cut`) instead
+  of sitting beside them — «دو بار شنیده می‌شود» (9.14); the podcast audio keeps the recitation. The scene's
+  muted clip skips the moment's span, so nothing plays twice. `inserts` (with `cut`) go to `docs/renders.json`
+  and `ytDescFinal_` shifts the chapter times.
 - **Gate:** mode `media` has its own approval counter (`YT_MEDIA_APPROVE`/`PK.YT_MEDIA_OK`): two درس‌نامه
   approvals say nothing about how a source clip is cut and framed.
 - The only generated image is the cover (`vmCover_`). Watched daily: `_STATUS.varietyMedia`, finding
@@ -919,6 +920,7 @@ mistake shows as a repeat instead of a fresh row every night.
 `run_wiring_test.js` §۱۷ سقفِ اندازهٔ این فایل را نگه می‌دارد. هیچ‌چیز پاک نشد: ۱۱۸ بخشِ پیشین عیناً در
 `docs/claude_history.md` است و هر سطرِ زیر نامِ همان بخش است — پیش از کار روی همان حوزه، بخشش را بخوان.
 
+- «مثلِ کسی که جوک را با سؤالِ فلسفی موشکافی می‌کند» — ژانر قالب را می‌سازد؛ و کلیپ جای بازگوییِ دیالوگش (9.14)
 - «ببین چرا اینقدر راکده» — موتور حالا «چرا» را از YouTube Analytics می‌خوانَد (9.13)
 - «کاورها رو بفرست … قشنگش کن» — و کاورِ دستی دیگر جایگزین نمی‌شود (9.12)
 - «تیزر مثلِ اصلِ مطلب»، «صدای کلیپ با تصویرش سینک نیست»، «تفسیرهای دروغی»، «aonja» (9.11)

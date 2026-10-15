@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.13
+ *  موتور محتوا و پادکست — نسخهٔ 9.14
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1198,6 +1198,10 @@ var CFG = {
   VM_MOMENT_MAX: 8,                // ۹.۱۱: از ۶ — تقریباً هر کلیپِ گفتاردار یک لحظه;                // «لحظه»هایی که کلیپ با صدای خودش پخش می‌شود — ۹.۰۱: از ۳؛ «خیلی کم از صدای خودِ کلیپ پخش می‌کنه»
   VM_MOMENT_SEC: 45,               // ۹.۱۱: از ۳۰ — و دیگر یک جمله نیست: تا پایانِ جمله‌ای که دست‌کم ۷۰٪ِ این را پر کند;
   VM_MOMENT_WHOLE: 60,             // ۹.۱۱: کلیپی که کلِ گفتارش تا این‌قدر است، همه‌اش با صدای خودش پخش می‌شود — «بیننده بتونه بیشتر از محتوای کلیپ استفاده کنه»;               // سقفِ هر لحظه (ثانیه) — ۹.۰۰: از ۱۲ به ۲۰؛ ۹.۰۱: ۳۰ — «قسمت‌های اصلیِ خودِ کلیپ»
+  VARIETY_MODE_SHARE: 0.6,          // ۹.۱۴: سهمِ ژانرِ غالب تا قالبِ قسمت از آن بیاید (طنز، رازآلود، احساسی)
+  VARIETY_STORY_LEN: 0.8,           // و هدفِ طولِ قسمتِ طنز/رازآلود نسبت به معمول — شوخیِ پرشده، شوخیِ کشته‌شده است
+  VM_RECITE_MIN: 0.5,                // ۹.۱۴: سهمِ واژه‌های جمله در گفتارِ کلیپ تا «بازگوییِ دیالوگ» شمرده شود
+  VM_RECITE_MAX_SEC: 90,            // و بلندترین بازگویی‌ای که لحظه جایش می‌نشیند
   VM_MOMENT_GAP: 20,               // کمترین فاصلهٔ دو لحظه (ثانیه) — ۹.۰۱: از ۳۰ِ ثابت در کد
   VM_OV_MAX: 10,                   // نوشتهٔ برداریِ کنارِ رسانه — ۸.۹۹: از ۶؛ رسانه حالا در چپ/راست می‌نشیند و نیمهٔ دیگر جای همین نوشته است
   VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر با رسانهٔ **دیده‌نشدهٔ** همان بخش نصف می‌شود؛ نبود ⇒ کارتِ نوشته (۹.۰۱)
@@ -1205,9 +1209,9 @@ var CFG = {
   VM_CARDS: true,                  // کارتِ نوشته روی کاورِ محو: پایانِ قسمت، پل‌های موسیقی، و صحنه‌ای که بی رسانهٔ تازه طولانی شد (۹.۰۱)
   VM_COVER_GEN: true,              // تنها تصویرِ ساختنی: کاور
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
-  VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
+  VM_TEASER_SEC: 10,               // ۹.۱۴: از ۶ — هر کاشیِ کلاژ کم‌تر عوض شود («هی تکرار می‌شود»)؛                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '73', folderId: '1nN4VoKToMUy04gGyj739UZIF5mZvSHwj', rev: 3, replan: true },   // ۹.۱۱: پیش‌نمایشِ کلاژی، لحظه‌های بلند به اندازهٔ کلیپ، لای‌گذاریِ هم‌گام — و نقشهٔ تازه تا سقفِ ۸ لحظه دیده شود;   // ۹.۱۰: همان نقشه، رانرِ تازه — بی کارتِ پایانیِ ریل و بی قابِ ساکنِ بلند;   // ۹.۰۷: «چرا رو پادکستِ امروز کار نمی‌کنی؟» — نمونه روی قسمتِ ۷۳ با همهٔ درمان‌ها؛   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
+  VM_SAMPLE: { ep: '73', folderId: '1nN4VoKToMUy04gGyj739UZIF5mZvSHwj', rev: 4, replan: true },   // ۹.۱۴: کلیپ جای بازگوییِ همان دیالوگ، پیش‌نمایش تا پایانِ آغاز، کارتِ طنز;   // ۹.۱۱: پیش‌نمایشِ کلاژی، لحظه‌های بلند به اندازهٔ کلیپ، لای‌گذاریِ هم‌گام — و نقشهٔ تازه تا سقفِ ۸ لحظه دیده شود;   // ۹.۱۰: همان نقشه، رانرِ تازه — بی کارتِ پایانیِ ریل و بی قابِ ساکنِ بلند;   // ۹.۰۷: «چرا رو پادکستِ امروز کار نمی‌کنی؟» — نمونه روی قسمتِ ۷۳ با همهٔ درمان‌ها؛   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
@@ -2090,7 +2094,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.13',
+  CODE_VERSION: '9.14',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -9994,6 +9998,14 @@ function speakStats_(ep, segs) {
  */
 function episodeSegments_(ep, cat) {
   var base = TONE_BY_CAT[cat] || TONE_BY_CAT['متفرقه'] || '';
+  /* ۹.۱۴: قالبِ ژانر (`ep.mode`) سرشتِ صدا را می‌گذارد، نه واژه‌های متن — بخشِ طنزِ «نشستِ خبری … بحران»
+     رجیسترِ «هشدار / خبری» می‌گرفت. لحنِ نویسنده فقط وقتی می‌ماند که با همان ژانر بخوانَد. */
+  var vm = (ep && ep.mode && VARIETY_MODES[ep.mode]) || null;
+  var toneFits = function (tn) {
+    if (!vm || !tn) return !!tn;
+    if (ep.mode === 'comedy') return /سرخوش|بازیگوش|شوخ|طنز|لبخند|بامزه|شاد|سرزنده|خنده|تند/.test(tn) && !/رسمی|تحلیل|خبری|تأمل|جدی|سنگین|حزن/.test(tn);
+    return true;
+  };
   var segs = [];
   if (ep.hook) {
     segs.push({ text: ep.hook, kind: 'hook', tone: '',
@@ -10006,16 +10018,17 @@ function episodeSegments_(ep, cat) {
     if (!t.trim()) continue;
     // لحن از سرشتِ خودِ همین بخش می‌آید، نه فقط از دستهٔ کلِ قسمت: یک بندِ سوگ
     // در یک قسمتِ علمی هم باید مثلِ سوگ خوانده شود.
-    var reg = voiceRegister_(cat, sec.tone, t);
+    var reg = vm ? vm.reg : voiceRegister_(cat, sec.tone, t);
+    var secTone = toneFits(String(sec.tone || '')) ? String(sec.tone || '') : (vm ? vm.tone : '');
     // عنوانِ بخش همراهِ قطعه می‌ماند تا موسیقیِ میانه بداند بینِ کدام دو بخش
     // می‌نشیند. بی این، جای موسیقی فقط شمارهٔ تکهٔ صوتی بود.
-    segs.push({ text: t, kind: 'body', tone: String(sec.tone || ''), secIndex: i,
+    segs.push({ text: t, kind: 'body', tone: secTone, secIndex: i,
                 heading: String(sec.heading || ''),
-                style: base + (sec.tone ? ' ' + sec.tone : '') + ' ' + styleForRegister_(reg) });
+                style: base + (secTone ? ' ' + secTone : '') + ' ' + styleForRegister_(reg) });
   }
   if (ep.outro) {
     segs.push({ text: ep.outro, kind: 'outro', tone: '',
-                style: base + ' این پایانِ برنامه است: آرام‌تر، جمع‌بندی‌کننده و ماندگار.' });
+                style: base + ' ' + (vm ? vm.outro : 'این پایانِ برنامه است: آرام‌تر، جمع‌بندی‌کننده و ماندگار.') });
   }
   return segs;
 }
@@ -10081,6 +10094,7 @@ function buildChunks_(ep, cat, epNum) {
     var mw = musicWrap_(out, null, {
       show: 'variety', episode: epNum, sections: (ep && ep.sections) || [], bounds: bounds,
       category: cat, mood: cat, title: String((ep && ep.title) || ''),
+      genre: (ep && ep.mode && VARIETY_MODES[ep.mode]) ? VARIETY_MODES[ep.mode].name + ' — ' + VARIETY_MODES[ep.mode].music : '',
       headings: heads, cast: castTxt, plan: (ep && ep.music) || {} });
     if (mw && mw.chunks && mw.chunks.length) {
       if (mw.picks && mw.picks.length) {
@@ -12364,8 +12378,18 @@ function groundEpisode_(ep, items, opt) {
   L.push('  که در منبع نیامده.');
   L.push('— «پند»: نتیجهٔ اخلاقی، درسِ زندگی، تعمیمِ فلسفی یا تشخیصِ اجتماعی که در منبع نیست — به‌ویژه روی محتوای طنز.');
   L.push('— «ادعا»: واقعیت، انگیزه، احساس یا علتی که در منبع نیست.');
-  L.push('بازگوییِ گفت‌وگوها، معرفیِ کلیپ، گذار به بخشِ بعد، و جمع‌بندیِ «آنچه دیدیم» بد **نیست**. در تردید، بد نیست.');
-  L.push('kind فقط یکی از: تصویر | پند | ادعا. why: یک عبارتِ کوتاه.');
+  var story = opt.mode === 'comedy' || opt.mode === 'eerie';
+  if (story) {
+    /* ۹.۱۴: در قسمتِ طنز/رازآلود، «تفسیر» خودش خطاست — قسمتِ ۷۳ را همین خراب کرد. */
+    L.push('— «تفسیر»: این قسمت ' + (opt.mode === 'comedy' ? 'طنز' : 'رازآلود') + ' است. جمله‌ای که شوخی (یا چرخش) را توضیح');
+    L.push('  می‌دهد، آن را به مفهوم یا «منطق» تبدیل می‌کند، آیتم‌ها را زیرِ یک مفهوم جمع می‌کند («همین منطق … تکرار');
+    L.push('  می‌شود»، «شکافِ میانِ صورت و حقیقت»)، یا لحنِ گزارشِ اجتماعی به آن می‌دهد.');
+    L.push('بازگوییِ گفت‌وگوها، معرفیِ کلیپ و گذارِ ساده بد **نیست**؛ جمع‌بندیِ مفهومی بد است. در تردید، بد نیست.');
+    L.push('kind فقط یکی از: تصویر | پند | ادعا | تفسیر. why: یک عبارتِ کوتاه.');
+  } else {
+    L.push('بازگوییِ گفت‌وگوها، معرفیِ کلیپ، گذار به بخشِ بعد، و جمع‌بندیِ «آنچه دیدیم» بد **نیست**. در تردید، بد نیست.');
+    L.push('kind فقط یکی از: تصویر | پند | ادعا. why: یک عبارتِ کوتاه.');
+  }
   L.push('');
   var addSent = function (where, si, txt, src) {
     var ss = groundSplit_(txt);
@@ -12393,7 +12417,7 @@ function groundEpisode_(ep, items, opt) {
   var bad = {};
   ((r && r.bad) || []).forEach(function (b) {
     var k = String(b.kind || '').trim();
-    if (['تصویر', 'پند', 'ادعا'].indexOf(k) < 0) return;
+    if (['تصویر', 'پند', 'ادعا'].concat(story ? ['تفسیر'] : []).indexOf(k) < 0) return;
     bad[String(b.id || '').trim()] = { kind: k, why: String(b.why || '').slice(0, 80) };
   });
   var cutMax = Math.max(0, Math.min(0.6, Number(CFG.GROUND_MAX_CUT) || 0.4));
@@ -12601,7 +12625,103 @@ function kindBreakdown_(items) {
   return out.length ? out.join('، ') : 'بدون منبع';
 }
 
-function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) {
+/* ══ ژانر، قالب را می‌سازد — نه یک خط در میانِ چهل قاعده (۹.۱۴) ══
+ * صاحبِ برنامه پس از نمونهٔ سومِ ۷۳: «گوینده می‌زند تو ذوقِ آدم — مثلِ کسی که برایش جوک تعریف می‌کنی و با
+ * سؤال‌های فلسفی موشکافی‌اش می‌کند … گویا اصلاً درک نمی‌شود چه نوع محتوایی بیان می‌شود … هم نوعِ گویندگی،
+ * هم متن، هم موسیقی». ریشه‌یابی روی خودِ قسمتِ ۷۳ (هر پنج آیتم «طنز و سرگرمی»، خوانشِ سردبیر طنز):
+ *   ۱) **قالبِ نوشتن یکی بود برای همهٔ ژانرها** — یک مقاله: «روایت را حولِ همین نخ بساز»، پیوندِ معنایی
+ *      میانِ هر دو آیتم، پنج بخشِ هم‌وزن، و «جمع‌بندی». ۸-ر («طنز را طنز بخوان») یک خط بود و قالب بر آن
+ *      غالب شد: عنوان «قالب‌های جدی در آیینهٔ شوخی»، پل‌های «همین منطقِ عجیب … تکرار می‌شود»، و بخشِ پنجمی
+ *      سراسر تفسیر («شکافِ عمیقِ میانِ صورتِ رسمی و حقیقتِ درونِ آن»). و برای پر کردنِ شمارِ واژه، هر
+ *      دیالوگ خط‌به‌خط با صحنه‌آرایی بازگو شد — شوخیِ توضیح‌داده‌شده.
+ *   ۲) **سرشتِ صدا از واژه‌های متن حدس زده می‌شد** (`voiceRegister_`): بخشِ «نشستِ خبری … بحرانِ کم‌آبی …
+ *      خانواده» رجیسترِ «هشدار / خبری / اجتماعی» گرفت — طنز با صدای گزارشِ اجتماعی.
+ *   ۳) **پایانِ همهٔ قسمت‌ها** «آرام‌تر، جمع‌بندی‌کننده و ماندگار» خوانده می‌شد، و موسیقی ژانر را نمی‌دانست.
+ * حالا ژانرِ غالبِ آیتم‌ها (از خوانشِ خودِ سردبیر) **قالب** را انتخاب می‌کند: ساختِ متن، سرشتِ صدا، لحنِ
+ * پایان، و موسیقی — یک تعریف در `VARIETY_MODES`، خوانده از چهار جا. */
+var VARIETY_MODES = {
+  comedy: { genres: ['طنز', 'هجو'], name: 'طنز',
+            tone: 'سرخوش و بازیگوش، با لبخند در صدا؛ ضرب‌آهنگِ تندتر و مکثِ کوتاه پیش از پانچ‌لاین',
+            reg: ['طنز', 'سرزنده', 'سبک'],
+            outro: 'این پایانِ برنامه است: سبک و خندان، با همان حالِ شوخی — نه جمع‌بندیِ جدی و نه لحنِ پندآموز.',
+            music: 'بازیگوش، شاد و کمیک — نه حماسی، نه غمگین، نه رازآلود' },
+  eerie:  { genres: ['ترسناک', 'عجیب'], name: 'رازآلود',
+            tone: 'آهسته و رازآلود، مثلِ قصه‌گوی شب؛ پیش از چرخشِ پایانی مکث کن',
+            reg: ['روایت', 'آرام'],
+            outro: 'این پایانِ برنامه است: آرام و رازآلود، بی پند و بی توضیحِ آنچه گفته شد.',
+            music: 'تعلیقی و رازآلود، کم‌نور — نه شاد' },
+  tender: { genres: ['تراژیک', 'احساسی'], name: 'احساسی',
+            tone: 'نرم و آهسته، محترمانه؛ بی شوخی و بی اغراق',
+            reg: ['احساسی', 'آرام', 'ملایم'],
+            outro: 'این پایانِ برنامه است: آرام و محترمانه، بی پند.',
+            music: 'آرام و احساسی، کم‌حجم' }
+};
+
+/** ژانرِ غالب: سهمِ ≥۶۰٪ از آیتم‌های ژانردار؛ بی ژانر، از برچسبِ دسته (فقط طنز). وگرنه «mixed». */
+function varietyMode_(items, cat) {
+  var n = 0, cnt = {};
+  (items || []).forEach(function (it) {
+    var g = String((it && it.genre) || '').trim();
+    if (!g) return;
+    n++;
+    for (var k in VARIETY_MODES) {
+      if (Object.prototype.hasOwnProperty.call(VARIETY_MODES, k) && VARIETY_MODES[k].genres.indexOf(g) !== -1) cnt[k] = (cnt[k] || 0) + 1;
+    }
+  });
+  var share = Math.max(0.5, Math.min(1, Number(CFG.VARIETY_MODE_SHARE) || 0.6));
+  if (n >= 2) {
+    for (var m in cnt) if (Object.prototype.hasOwnProperty.call(cnt, m) && cnt[m] / n >= share) return m;
+    return 'mixed';
+  }
+  return /طنز|سرگرمی|کمدی/.test(String(cat || '')) ? 'comedy' : 'mixed';
+}
+
+/** قالبِ نوشتن برای هر ژانر — در بالای پرامپت، پیش از قاعده‌های عمومی، چون قالب است نه سلیقه. */
+function varietyFormatLines_(mode) {
+  if (mode === 'comedy') {
+    return [
+      '══ قالبِ این قسمت: بستهٔ طنز — مهم‌تر از هر قاعدهٔ دیگری ══',
+      'آیتم‌های امروز طنزند. برنامه را مثلِ دوستی اجرا کن که کلیپ‌های بامزه را برای جمع تعریف می‌کند — نه مثلِ',
+      'مجری‌ای که دربارهٔ آن‌ها گزارشِ تحلیلی می‌دهد. شنونده برای خندیدن آمده؛ کارِ تو این است که خنده را خراب نکنی.',
+      '• هر بخش یک آیتم (یا دو آیتمِ خیلی کوتاه): یکی دو جمله موقعیت را می‌چیند، بعد خودِ شوخی با ضرب‌آهنگ؛',
+      '  پانچ‌لاین را جلوتر لو نده و پس از آن توضیحش نده.',
+      '• دیالوگ را خط‌به‌خط با صحنه‌آرایی («زن داد می‌زند… مرد گوشش را می‌گیرد و می‌گوید…») بازگو نکن؛ دو سه',
+      '  تکهٔ کلیدیِ همان دیالوگ را عیناً نقل کن و بس. شوخیِ تعریف‌شده‌ی کامل، شوخیِ کشته‌شده است.',
+      '• هیچ جمله‌ای که شوخی را به «مفهوم» تبدیل کند. نمونه‌های واقعی از قسمتِ ۷۳ که دقیقاً همین را خراب کردند و',
+      '  نباید تکرار شوند: عنوانِ «قالب‌های جدی در آیینهٔ شوخی»؛ «همین منطقِ عجیب در راهروهای شرکت‌ها هم تکرار',
+      '  می‌شود»؛ «این حرکت … تضادِ تلخ و خنده‌دارش را آشکار می‌کند»؛ «شکافِ عمیقِ میانِ صورتِ رسمی و حقیقتِ درونِ',
+      '  آن»؛ «زندگی به صحنهٔ یک نمایشِ مضحک تبدیل می‌شود».',
+      '• نخِ سردبیر فقط ترتیبِ چیدن است — آن را بلند نگو، تفسیرش نکن، از آن نتیجه نگیر.',
+      '• گذار میانِ آیتم‌ها: یک جملهٔ کوتاه و بامزه، یا ساده («و اما کلیپِ بعدی…»). پیوندِ مفهومی نساز.',
+      '• هیچ بخشِ «جمع‌بندی» یا «بسته‌بندی» نساز؛ همهٔ بخش‌ها آیتم‌اند. outro یکی دو جمله: برگشت به یکی از',
+      '  شوخی‌ها و خداحافظی.',
+      '• title: بامزه و از دلِ یکی از شوخی‌ها — نه یک عنوانِ مفهومی.',
+      '• tone هر بخش: لحنِ اجرای کمدی، مثلاً «سرخوش و بازیگوش، مکثِ کوتاه پیش از پانچ‌لاین» یا «دستپاچه و',
+      '  بامزه، تند». «رسمی»، «تحلیلی»، «خبری» یا «تأمل‌برانگیز» برای بخشِ طنز ممنوع.',
+      ''];
+  }
+  if (mode === 'eerie') {
+    return [
+      '══ قالبِ این قسمت: قصه‌های رازآلود — مهم‌تر از هر قاعدهٔ دیگری ══',
+      'مثلِ قصه‌گوی شب تعریف کن: موقعیت، تعلیق، و چرخشِ پایانی دست‌نخورده. چرخش را لو نده و پس از آن توضیحش نده.',
+      'هیچ تفسیر، تحلیل یا پندی. گذارها ساده. بخشِ جمع‌بندیِ مفهومی نساز.', ''];
+  }
+  if (mode === 'tender') {
+    return [
+      '══ قالبِ این قسمت: روایتِ احساسی — مهم‌تر از هر قاعدهٔ دیگری ══',
+      'آرام و محترمانه روایت کن؛ نقل‌ها را عیناً بیاور و بگذار خودشان اثر کنند. شوخی ممنوع، پند ممنوع،',
+      'و احساسی که در منبع نیست نساز.', ''];
+  }
+  return [
+    '══ ژانرِ هر آیتم، قالبِ بخشِ همان آیتم است ══',
+    'آیتم‌های امروز ژانرهای گوناگون دارند («ژانر» و «خوانشِ سردبیر» را ببین). هر بخش را با حالِ ژانرِ آیتمِ',
+    'خودش بنویس و tone آن بخش را هم از همان بگیر: طنز با ضرب‌آهنگِ شوخی و بی تفسیر، ماجرای رازآلود با تعلیق،',
+    'خبر خبری، و تلخ با احترام. یک قالبِ تحلیلی روی همه نکش.', ''];
+}
+
+function buildPrompt_(cat, items, theme, connection, refs, when, orders, route, mode) {
+  mode = mode || varietyMode_(items, cat);
+  var comedy = mode === 'comedy', story = comedy || mode === 'eerie';
   function block(list, label) {
     var out = [];
     for (var i = 0; i < list.length; i++) {
@@ -12632,6 +12752,8 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
 
   var targetMin = varietyTargetMin_();
   var words = Math.round(targetMin * speechWpm_());
+  /* طنزِ پرشده با بازگوییِ خط‌به‌خطِ دیالوگ، طنزِ کشته‌شده است: هدفِ کوتاه‌تر، نه سقفِ کوتاه‌تر. */
+  if (story) words = Math.round(words * Math.max(0.5, Math.min(1, Number(CFG.VARIETY_STORY_LEN) || 0.8)));
   var capChars = oneFileMaxChars_();
   var L = [
     'تو نویسندهٔ برنامهٔ رادیوییِ فارسیِ «' + CFG.SHOW_NAME + '» هستی — ' + CFG.SHOW_TAGLINE + '.',
@@ -12651,12 +12773,17 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
     ''
   ];
 
+  L = L.concat(varietyFormatLines_(mode));
   if (theme) {
     L.push('نخِ مشترکی که سردبیر پیدا کرده: «' + theme + '»');
-    if (connection) L.push('پیوند از این‌جا می‌آید: ' + connection);
+    if (connection && !story) L.push('پیوند از این‌جا می‌آید: ' + connection);
     if (route) L.push('ترتیبِ رفتن به پیشنهادِ سردبیر: ' + route);
-    L.push('روایت را حولِ همین نخ بساز. این نخ از دلِ خودِ محتوا بیرون آمده، پس');
-    L.push('لازم نیست چیزی به آن اضافه کنی تا به هم وصل شود.');
+    if (story) {
+      L.push('این نخ فقط ترتیبِ چیدن است: آن را در متن نگو و از آن مفهوم و نتیجه نساز.');
+    } else {
+      L.push('روایت را حولِ همین نخ بساز. این نخ از دلِ خودِ محتوا بیرون آمده، پس');
+      L.push('لازم نیست چیزی به آن اضافه کنی تا به هم وصل شود.');
+    }
     L.push('');
   }
 
@@ -12749,6 +12876,12 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
     '   به شنونده بگوید — چرا و با چه فایده‌ای — بی هیچ شناسه و لینکی.',
     '۸-ذ) وظیفهٔ اول همچنان بی‌نیازکردنِ شنونده است: تا جایی که می‌شود خودِ متن',
     '   منبع را کامل منتقل کند. mustSee فقط برای جایی است که واقعاً نمی‌شود.',
+  ]).concat(story ? [
+    '',
+    'گذار میانِ آیتم‌ها:',
+    '۹) گذار کوتاه و ساده است — یک جملهٔ بامزه یا «و اما مطلبِ بعدی…». پیوندِ مفهومی، «همین منطق … تکرار',
+    '   می‌شود» و چسبِ کلامی («از سوی دیگر»، «در همین راستا») ممنوع.'
+  ] : [
     '',
     'پیوندِ معنایی — این تفاوتِ یک برنامهٔ واقعی با فهرستِ مطالب است:',
     '۹) پیوند را نساز؛ نشان بده. برای هر گذار از یک آیتم به آیتم بعد، پیوند باید از',
@@ -12762,6 +12895,7 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
     '    استفاده از همهٔ آیتم‌ها اجباری نیست. کیفیتِ پیوند مهم‌تر از پوششِ کامل است.',
     '۱۲) اگر دو آیتم با هم تضاد دارند، تضاد را صریح بگو — تضاد خودش یکی از قوی‌ترین',
     '    پیوندهاست. لازم نیست همه‌چیز هم‌جهت باشد.',
+  ]).concat([
     '',
     'آغازِ برنامه:',
     '۱۳) در hook، اول نامِ برنامه را بگو: «' + CFG.SHOW_NAME + '» — ' + CFG.SHOW_TAGLINE +
@@ -12778,8 +12912,9 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
     '۱۶) نقل‌قول‌ها را عیناً از فیلد «متن/گفتار داخل فایل» بردار و پیش از هرکدام بگو',
     '    این حرفِ کیست یا از کجاست. هیچ نقل‌قولی از خودت نساز.',
     /* ۸.۹۹: «یک نکتهٔ ماندگار» دقیقاً همان پندی بود که ۸-خ ممنوع کرده — دو قاعده با هم می‌جنگیدند. */
-    '۱۷) پایان را باز نگذار: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — نه پند و نه «درسی که',
-    '    می‌گیریم». قسمتِ طنز با یک بازگشت به یکی از شوخی‌ها بسته شود.',
+    story ? '۱۷) پایان: یکی دو جمله و خداحافظی — برگشت به یکی از شوخی‌ها (یا سکوتِ پس از چرخش)؛ بی جمع‌بندیِ مفهومی.'
+          : '۱۷) پایان را باز نگذار: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — نه پند و نه «درسی که',
+    story ? '' : '    می‌گیریم». قسمتِ طنز با یک بازگشت به یکی از شوخی‌ها بسته شود.',
     '',
     'فارسیِ آمادهٔ گفتار:',
     '۱۸) فارسیِ معیارِ ایران بنویس. جمع فارسی بیاور نه عربی: «نکته‌ها» نه «نکات».',
@@ -12810,19 +12945,21 @@ function buildPrompt_(cat, items, theme, connection, refs, when, orders, route) 
     '- title: عنوان کوتاه و گیرا برای قسمت (حداکثر ۹ کلمه)',
     '- hook: آغاز برنامه — نامِ «' + CFG.SHOW_NAME + '»، سلام، روز و تاریخ، سپس قلاب. ' +
     'چهار تا پنج جمله.',
-    '- sections: دقیقاً ' + CFG.SECTIONS_TARGET + ' بخش. هر بخش heading کوتاه، narration پیوسته،',
+    '- sections: ' + (story ? 'هر آیتم یک بخش (حداکثر ' + CFG.SECTIONS_TARGET + ')؛ بخشِ جمع‌بندی نه' : 'دقیقاً ' + CFG.SECTIONS_TARGET + ' بخش') +
+      '. هر بخش heading کوتاه، narration پیوسته،',
     '  sourceIds شامل شناسهٔ دقیق آیتم‌هایی که آن بخش بر پایهٔ آن‌ها نوشته شده،',
     '  و tone: یک جملهٔ کوتاهِ فارسی که به گوینده می‌گوید این بخش را «چطور» اجرا کند.',
     '  tone باید با حالِ همان بخش بخواند، نه با کل قسمت. نمونه‌ها:',
     '  «آرام و همدلانه، با مکث بیشتر» · «دقیق و توضیحی، با تأکید روی عددها»',
     '  «سرزنده و با لبخند در صدا» · «خبری و بی‌طرف» · «آهسته و سنگین، مثل روایتِ یک خاطره»',
-    '- outro: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — بی پند (قاعدهٔ ۱۷)',
+    story ? '- outro: یکی دو جمله و خداحافظی — بی جمع‌بندیِ مفهومی (قاعدهٔ ۱۷)'
+          : '- outro: جمع‌بندیِ کوتاهِ همان چیزهایی که گفته شد — بی پند (قاعدهٔ ۱۷)',
     '- summary: خلاصهٔ سه‌خطی قسمت برای ایمیل',
     '- tags: پنج برچسب موضوعی',
     '',
     // «حدود هزار و پانصد کلمه» در عمل هزار و دویست درمی‌آمد، چون مدل چهار بخش
     // می‌نوشت و هر بخش را کوتاه می‌بست. حالا سهمِ هر بخش صریح گفته می‌شود.
-    'طول: ' + CFG.SECTIONS_TARGET + ' بخش، هر بخش حدود ' +
+    'طول: ' + (story ? 'تا ' : '') + CFG.SECTIONS_TARGET + ' بخش، هر بخش حدود ' +
       Math.round(words / CFG.SECTIONS_TARGET) + ' کلمه.',
     'مجموع کلمات narration به‌علاوهٔ hook و outro حدود ' + words + ' کلمه باشد (برای حدود ' + targetMin +
       ' دقیقه صدا) — با **محتوای خودِ آیتم‌ها**: نقل، جزئیات، ماجرا.',
@@ -13140,9 +13277,12 @@ function produceEpisode(opt) {
              ' آیتم (تازه در این دسته: ' + (picked.freshCount || 0) + ').');
 
     var when = todayWords_();
-    var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders, route);
+    var vMode = varietyMode_(items, picked.title);           // ۹.۱۴: ژانرِ غالب ⇒ قالبِ متن، صدا، پایان و موسیقی
+    logLine_('قالبِ قسمت از ژانرِ آیتم‌ها: ' + vMode + ' (' + items.map(function (x) { return x.genre || '—'; }).join('، ') + ').');
+    var epPrompt = buildPrompt_(picked.title, items, theme, connection, refs, when, orders, route, vMode);
     var ep = geminiText_(epPrompt, EPISODE_SCHEMA);
     if (!ep.sections || !ep.sections.length) throw new Error('متن قسمت بدون بخش برگشت.');
+    ep.mode = vMode;
 
     // پاسخِ ترمیم‌شده یا کم‌بخش یعنی متن وسطِ راه بریده شده. یک بار دیگر تلاش
     // می‌کنیم و هر کدام بخش‌های بیشتری داشت می‌ماند؛ اگر باز هم کوتاه بود،
@@ -13257,7 +13397,7 @@ function produceEpisode(opt) {
 
     // ۹.۱۱: دروازهٔ زمین‌گیری — جمله‌های ساختگی پیش از صدا حذف می‌شوند، نه «تا قسمتِ بعد» گزارش.
     try {
-      var gr = groundEpisode_(ep, items.concat(refs));
+      var gr = groundEpisode_(ep, items.concat(refs), { mode: vMode });
       ep.__ground = gr;
       logLine_('زمین‌گیریِ قسمت ' + epNum + ': ' + (gr.judged ? gr.removed + ' جملهٔ ساختگی حذف شد' : 'داوری نشد — ' + gr.why) +
                (gr.pastRef ? ' · ' + gr.pastRef + ' ارجاعِ گذشته اصلاح شد' : ''));
@@ -41437,6 +41577,8 @@ function musicPlanModel_(bank, ctx) {
     'قسمت:',
     '  عنوان: ' + String(ctx.title || '—'),
     '  دسته: ' + String(ctx.category || '—'),
+    /* ۹.۱۴: ژانرِ قسمت (از خوانشِ سردبیر، همان که متن و صدا را می‌سازد) — موسیقی نباید حدسش بزند. */
+    (ctx.genre ? '  ژانر: ' + String(ctx.genre) + ' — موسیقی باید با همین بخوانَد.' : ''),
     '  گویندگان: ' + String(ctx.cast || '—'),
     '',
     '--- بخش‌های این قسمت و وایبِ هرکدام ---',
@@ -50196,11 +50338,13 @@ function ytRenderAsk_(item) {
       return r0; });
     if (item.media) {
       row.media = true;
+      if (item.genre) row.genre = String(item.genre);
       /* «لحظه»: گوینده ساکت می‌شود و همان کلیپ با صدایش پخش می‌شود. `mute` = بازه‌های موسیقیِ
          قسمت — رانر لحظه را هرگز آن‌جا نمی‌نشاند (صدای کلیپ روی آهنگ). */
       row.moments = (item.moments || []).map(function (m) {
         return { at: Number(m.at) || 0, fileId: String(m.fileId || ''), url: ytDlUrl_(m.fileId || ''),
-                 quote: String(m.quote || '').slice(0, 160), max: Number(m.max) || 12 }; });
+                 quote: String(m.quote || '').slice(0, 160), max: Number(m.max) || 12,
+                 whole: Number(m.whole) || 0, cut: Math.max(0, Number(m.cut) || 0) }; });
       row.mute = (item.mute || []).slice(0, 40);
     }
     if (item.sceneCover && item.sceneCover.fileId) {
@@ -58112,6 +58256,8 @@ function ytUploadOne_(item, hub, pub) {
                      folderId: folder.getId(), visuals: [],
                      scenes: vmr.items, sceneCover: vmr.cover, sceneInfo: vmr.info,
                      media: true, moments: vmr.moments, mute: vmr.music,
+                     /* ۹.۱۴: ژانرِ قسمت ⇒ پوستهٔ کارت‌ها (طنز کارتِ درس نمی‌گیرد). قسمتِ پیش از ۹.۱۴ از ژانرِ آیتم‌هایش. */
+                     genre: String(ep.mode || varietyMode_((meta && meta.items) || [], String((meta && (meta.cat || meta.category)) || ''))),
                      coverTitle: String(plan.coverTitle || ep.title || ''),
                      coverKicker: String(plan.coverKicker || showName || ''),
                      coverFoot: coverEpLabel,
@@ -77661,6 +77807,7 @@ function vmItems_(meta) {
                topic: String(it.topic || '').slice(0, 160),
                summary: String(it.summary || '').slice(0, 420),
                words: String(it.body || '').replace(/\s+/g, ' ').slice(0, kind === 'video' ? 900 : 400),
+               allWords: kind === 'video' ? String(it.body || '').replace(/\s+/g, ' ').slice(0, 4000) : '',
                vibe: String(it.vibe || '').slice(0, 160) });
   }
   return out;
@@ -77747,6 +77894,87 @@ function vmPrompt_(sents, items, ctx) {
   return L.join('\n');
 }
 
+/* ══ «دو بار شنیده می‌شود» (۹.۱۴) ══
+ * نمونهٔ سومِ ۷۳: گوینده دیالوگِ کلیپ را جمله‌به‌جمله بازگو کرد («زن داد می‌زند: بدبخت! … مرد گوشش را می‌گیرد
+ * و می‌گوید: بله»)، بعد خودِ کلیپ همان را با صدایش پخش کرد، و پس از کلیپ گوینده بقیهٔ همان دیالوگ را خواند.
+ * صاحبِ برنامه: «اون دوبار شنیدن درست کن». هم‌زمانی درست بود؛ چیدن غلط بود — لحظه **کنارِ** بازگویی می‌نشست.
+ * حالا لحظه **جای** آن جمله‌ها می‌نشیند: جمله‌هایی که واژه‌هایشان در گفتارِ خودِ کلیپ هست (`vmReciteSpan_`)،
+ * در ویدئو بریده می‌شوند و کلیپ با صدای خودش آن‌جا پخش می‌شود. صوتِ پادکست دست نمی‌خورد — شنونده‌ای که
+ * تصویر ندارد، بازگویی را لازم دارد. */
+function vmNorm_(s) {
+  return String(s || '').replace(/[ً-ْٰـ]/g, '').replace(/‌/g, ' ')
+    .replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ة/g, 'ه').replace(/[أإآ]/g, 'ا')
+    .replace(/[^؀-ۿa-zA-Z0-9]+/g, ' ').trim();
+}
+var VM_STOP = ' و به از که را با در این آن می هم یک تا بر اگر یا ما تو من او هر ای ی ها شد شده است هست بود ';
+function vmToks_(s) {
+  return vmNorm_(s).split(/\s+/).filter(function (w) { return w.length >= 2 && VM_STOP.indexOf(' ' + w + ' ') === -1; });
+}
+/** نزدیکیِ دو واژه به نسبتِ نویسه — «بدبخت»/«بدبخته» و «خودتو»/«خودِتو» یکی‌اند. */
+function vmWordSim_(a, b) {
+  if (a === b) return 1;
+  var m = a.length, n = b.length;
+  if (Math.abs(m - n) > Math.max(m, n) * 0.4) return 0;
+  var prev = [], cur = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    cur = [i];
+    for (var k = 1; k <= n; k++) {
+      cur[k] = Math.min(prev[k] + 1, cur[k - 1] + 1, prev[k - 1] + (a.charAt(i - 1) === b.charAt(k - 1) ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return 1 - prev[n] / Math.max(m, n);
+}
+/** سهمِ واژه‌های جمله که در گفتارِ کلیپ هست؛ نقل‌قولِ پس از «:» جدا هم سنجیده می‌شود. */
+function vmReciteScore_(text, clipSet) {
+  var part = function (t) {
+    var w = vmToks_(t);
+    if (!w.length) return 0;
+    var hit = 0;
+    for (var i = 0; i < w.length; i++) {
+      if (clipSet[w[i]]) { hit++; continue; }
+      for (var c in clipSet) {
+        if (Object.prototype.hasOwnProperty.call(clipSet, c) && vmWordSim_(w[i], c) >= 0.75) { hit++; break; }
+      }
+    }
+    return hit / w.length;
+  };
+  var whole = part(text), ix = String(text || '').search(/[:：«]/);
+  var q = ix >= 0 ? part(String(text).slice(ix + 1)) : 0;
+  return Math.max(whole, q);
+}
+/**
+ * بازهٔ بازگویی: پیوسته‌ترین دنبالهٔ جمله‌هایی کنارِ لحظه که دیالوگِ کلیپ را بازمی‌گویند (یک جملهٔ میانیِ
+ * صحنه‌آرایی مجاز است — «زن دوباره ژست می‌گیرد»). فقط درونِ همان بخش، و فقط اگر واقعاً بازگویی است
+ * (دست‌کم دو جمله یا شش ثانیه). تابعِ خالص. ⇒ {a, b} اندیسِ صفرپایه، یا null.
+ */
+function vmReciteSpan_(sents, k, clipWords, secs) {
+  var S = sents.length;
+  if (k < 0 || k >= S || !clipWords) return null;
+  var set = {};
+  vmToks_(clipWords).forEach(function (w) { set[w] = 1; });
+  if (Object.keys(set).length < 4) return null;
+  var sec = sents[Math.min(k, S - 1)].sec;
+  var lo = Math.max(0, k - 6), hi = Math.min(S - 1, k + 10);
+  var th = Math.max(0.3, Number(CFG.VM_RECITE_MIN) || 0.5);
+  var hitAt = {};
+  for (var i = lo; i <= hi; i++) {
+    if (sents[i].sec !== sec) continue;
+    hitAt[i] = vmReciteScore_(sents[i].text, set) >= th;
+  }
+  /* دنباله‌ای که از k یا یکی پیش از آن می‌گذرد. */
+  var seed = hitAt[k] ? k : (hitAt[k - 1] ? k - 1 : (hitAt[k + 1] ? k + 1 : -1));
+  if (seed < 0) return null;
+  var a = seed, b = seed;
+  while (a - 1 >= lo && sents[a - 1].sec === sec && (hitAt[a - 1] || (hitAt[a - 2] && sents[a - 2].sec === sec))) a -= hitAt[a - 1] ? 1 : 2;
+  while (b + 1 <= hi && sents[b + 1].sec === sec && (hitAt[b + 1] || (hitAt[b + 2] && sents[b + 2].sec === sec))) b += hitAt[b + 1] ? 1 : 2;
+  var endT = b + 1 < S ? Number(sents[b + 1].t) : Number(secs) || 0;
+  var dur = endT - Number(sents[a].t);
+  if ((b - a + 1 < 2 && dur < 6) || dur <= 0 || dur > Math.max(20, Number(CFG.VM_RECITE_MAX_SEC) || 90)) return null;
+  return { a: a, b: b, at: Math.round(Number(sents[a].t) * 10) / 10, cut: Math.round(dur * 10) / 10 };
+}
+
 function vmNum_(v) {
   var s = String(v === undefined || v === null ? '' : v)
     .replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }).replace(/[^0-9]/g, '');
@@ -77813,7 +78041,11 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     if (c.moment && itm.kind === 'video' && c.quote) {
       var aft = c.after >= 1 && c.after <= S ? c.after : c.n;
       var T = aft < S ? Number(sents[aft].t) : Number(secs) || 0;
-      out.moments.push({ id: c.id, at: Math.round(T * 10) / 10, quote: c.quote, sn: aft });
+      var mo0 = { id: c.id, at: Math.round(T * 10) / 10, quote: c.quote, sn: aft };
+      /* ۹.۱۴: اگر گوینده همین دیالوگ را بازگو می‌کند، لحظه جای بازگویی می‌نشیند (نه کنارش). */
+      var rs = vmReciteSpan_(sents, aft, itm.allWords || itm.words, secs);
+      if (rs && rs.at >= s0.t0 - 0.05) { mo0.at = rs.at; mo0.cut = rs.cut; mo0.sn = rs.a; mo0.recite = rs.b - rs.a + 1; }
+      out.moments.push(mo0);
     }
   }
   var total = Number(secs) || 0;
@@ -77862,7 +78094,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     var mo = out.moments[m];
     if (vmInMusic_(mo.at, music)) { out.dropped++; continue; }
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
-    if (mm.length && mo.at - mm[mm.length - 1].at < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
+    if (mm.length && mo.at - (mm[mm.length - 1].at + (Number(mm[mm.length - 1].cut) || 0)) < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
     mo.whole = Math.max(mo.max, Number(CFG.VM_MOMENT_WHOLE) || 0);
     mm.push(mo);
@@ -77971,8 +78203,14 @@ function vmNote_(key, rec) {
  * و باقی‌اش پیش‌نمایشی از **رسانه‌های خودِ همین قسمت** است، به ترتیبِ آمدن و پخش در کلِ قسمت،
  * هر کدام ~`VM_TEASER_SEC`. کلیپِ پیش‌نمایش `teaser` دارد تا رانر از میانه‌اش بِبُرد، نه از همان جایی
  * که صحنهٔ اصلی‌اش بعداً نشان می‌دهد — یک تکه دو بار دیده نشود. چیزی ساخته نمی‌شود؛ فقط همان رسانه‌ها. */
-function vmLead_(ready, coverId) {
+function vmLead_(ready, coverId, hookEnd) {
   if (!ready.length) return [];
+  /* ══ پیش‌نمایش فقط به اندازهٔ آغازِ گوینده (۹.۱۴) ══
+     «طولِ تیزر به همان اندازهٔ توضیحاتِ ابتدایی پیش از شروعِ اولین محتوا باشد»: در نمونهٔ سومِ ۷۳ نخستین
+     رسانه چند جمله پس از آغازِ بخشِ یک نشست، پس کلاژ ادامه داشت در حالی که گوینده ماجرای آیتمِ یک را
+     می‌گفت — «هی تکرار می‌شود». حالا پیش‌نمایش سرِ پایانِ hook می‌ایستد و رسانهٔ نخستین از همان‌جا می‌آید. */
+  var hE = Number(hookEnd) || 0;
+  if (hE > 4 && Number(ready[0].t0) > hE + 1) ready[0].t0 = Math.round(hE * 10) / 10;
   var first = Number(ready[0].t0) || 0;
   if (first <= 4) return [];
   var out = [];
@@ -78163,7 +78401,8 @@ function vmBuild_(folder, meta, plan, ctx) {
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
           dropped: vs.dropped, added: vs.added, items: items.length, copies: {}, skipped: [],
           cover: { fileId: '', why: '' },
-          sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }) };
+          sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }),
+          hookEnd: (function () { for (var h = 0; h < sents.length; h++) if (Number(sents[h].sec) >= 1) return Number(sents[h].t) || 0; return 0; })() };
     if (keepCp) { d.copies = keepCp.copies; d.cover = keepCp.cover; d.skipped = keepCp.skipped; }
     vmWrite_(folder, d);
   }
@@ -78205,7 +78444,7 @@ function vmBuild_(folder, meta, plan, ctx) {
     if (sj.ov) r0.ov = sj.ov;
     ready.push(r0);
   }
-  var lead = vmLead_(ready, d.cover && d.cover.fileId);
+  var lead = vmLead_(ready, d.cover && d.cover.fileId, Number(d.hookEnd) || 0);
   if (lead.length) {
     ready = lead.concat(ready);
     for (var r = 0; r < ready.length; r++) ready[r].n = r + 1;
@@ -78219,7 +78458,12 @@ function vmBuild_(folder, meta, plan, ctx) {
   var okIds = {};
   for (var q = 0; q < d.scenes.length; q++) if ((d.copies || {})[d.scenes[q].id]) okIds[d.scenes[q].id] = (d.copies || {})[d.scenes[q].id];
   var moments = (d.moments || []).filter(function (m) { return !!okIds[m.id]; })
-    .map(function (m) { return { at: m.at, fileId: okIds[m.id], quote: m.quote, max: m.max }; });
+    .map(function (m) {
+      var o = { at: m.at, fileId: okIds[m.id], quote: m.quote, max: m.max };
+      /* ۹.۱۴: `whole` (۹.۱۱) تا امروز این‌جا و در ردیفِ صف دور ریخته می‌شد — کلِ کلیپ هرگز نمی‌رسید. */
+      if (m.whole) o.whole = m.whole;
+      if (Number(m.cut) > 0) o.cut = Number(m.cut);
+      return o; });
   var nClip = ready.filter(function (x) { return x.media.kind === 'video'; }).length;
   out.done = true;
   out.items = ready;
@@ -78259,7 +78503,8 @@ function vmStatus_() {
  */
 function vmShiftDesc_(desc, inserts) {
   var ins = (inserts || []).filter(function (x) { return x && Number(x.d) > 0; })
-    .map(function (x) { return { at: Number(x.at) || 0, d: Number(x.d) || 0 }; });
+    .map(function (x) { return { at: Number(x.at) || 0, d: Number(x.d) || 0, cut: Math.max(0, Number(x.cut) || 0) }; })
+    .sort(function (a, b) { return a.at - b.at; });
   if (!ins.length) return String(desc || '');
   var toSec = function (s) {
     var p = s.split(':').map(Number);
@@ -78270,9 +78515,17 @@ function vmShiftDesc_(desc, inserts) {
     if (!m) return line;
     var t = toSec(m[2]);
     if (!t) return line;                       // ۰۰:۰۰ همیشه سرِ جایش
-    var add = 0;
-    for (var i = 0; i < ins.length; i++) if (ins[i].at <= t) add += ins[i].d;
-    return add ? m[1] + ytTime_(t + add) + (m[3] || '') : line;
+    /* ۹.۱۴: لحظه‌ای که جای بازگویی نشست (`cut`) گفتارِ [at, at+cut) را برداشته: پس از آن فقط d−cut جابه‌جا
+       می‌شود، و فصلی که درونِ همان بازه شروع می‌شد پس از کلیپ می‌آید. */
+    var shift = 0, nt = -1;
+    for (var i = 0; i < ins.length && nt < 0; i++) {
+      var I = ins[i];
+      if (I.at > t) break;
+      if (I.cut && t < I.at + I.cut) nt = I.at + shift + I.d;
+      else shift += I.d - I.cut;
+    }
+    var newT = Math.round(nt >= 0 ? nt : t + shift);
+    return newT !== t ? m[1] + ytTime_(newT) + (m[3] || '') : line;
   }).join('\n');
 }
 

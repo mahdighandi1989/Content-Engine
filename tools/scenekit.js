@@ -495,7 +495,7 @@ function build(it, ctx) {
   const shiftOf = k => clipPlan[k] && !clipPlan[k].full ? clipPlan[k].cd + 0.3 : 0;
 
   const ovFile = {}, ovStat = { asked: 0, placed: 0, busy: 0, failed: 0, kinds: {} };
-  const ovCtx = { ff: ctx.ff, ffRun: ctx.ffRun, dir: ctx.dir,
+  const ovCtx = { ff: ctx.ff, ffRun: ctx.ffRun, dir: ctx.dir, genre: ctx.genre || '',
                   shoot: (h, png) => shoot(ctx.exe, h, png, SK.w, SK.h, ctx.ffRun) };
   tl.forEach((x, k) => {
     const s = have[x.i];

@@ -356,10 +356,19 @@ console.log('=== ۱۱) آغازِ ویدئو: کاورِ کوتاه و پیش‌
   ok('۱۱.۵ فاصلهٔ کوتاه ⇒ فقط کاور', JSON.stringify(vmLead_([{ t0: 12, fileId: 'A', media: { kind: 'video' } }], 'COV').map(x => x.fileId)) === '["COV"]');
   ok('۱۱.۶ آغازِ زودهنگام ⇒ هیچ', vmLead_([{ t0: 3, fileId: 'A', media: { kind: 'video' } }], 'COV').length === 0);
   ok('۱۱.۷ بی کاور هم پیش‌نمایش از صفر', (function () { const z = vmLead_(R, ''); return z[0].t0 === 0 && z[0].media.teaser; })());
+  /* ۹.۱۴: «طولِ تیزر به همان اندازهٔ توضیحاتِ ابتدایی» — نخستین رسانه سرِ پایانِ hook، نه چند جمله بعد. */
+  const R2 = R.map(x => Object.assign({}, x, { media: Object.assign({}, x.media) }));
+  const L2 = vmLead_(R2, 'COV', 24.3);
+  const T2 = L2.filter(x => x.media.teaser);
+  ok('۱۱.۷-ب پیش‌نمایش سرِ پایانِ آغاز (۲۴٫۳) می‌ایستد و نخستین رسانه از همان‌جا می‌آید، نه از ۵۹٫۷',
+     R2[0].t0 === 24.3 && T2.length >= 1 && T2.every(x => x.t0 < 24.3) && T2.length <= 2, JSON.stringify(L2.map(x => [x.t0, x.fileId])));
+  ok('۱۱.۷-پ hook بلندتر از نخستین رسانه ⇒ دست نمی‌خورد', (function () { const R3 = [{ t0: 20, fileId: 'A', media: { kind: 'video' } }]; vmLead_(R3, 'COV', 40); return R3[0].t0 === 20; })());
+  const vsrc15 = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
+  ok('۱۱.۷-ت پایانِ hook در نقشه ثبت و به vmLead_ داده می‌شود', /hookEnd: \(function \(\)/.test(vsrc15) && /vmLead_\(ready, d\.cover && d\.cover\.fileId, Number\(d\.hookEnd\) \|\| 0\)/.test(vsrc15));
   const sk = fs.readFileSync('tools/scenekit.js', 'utf8'), rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۱۱.۸ scenekit نشانِ teaser را نگه می‌دارد و رانر کلیپِ پیش‌نمایش را از میانه می‌بُرد',
      /teaser: !!v\.teaser/.test(sk) && /s\.media && s\.media\.teaser\) \{[\s\S]{0,200}g\.info\.dur \* 0\.45/.test(rj));
-  ok('۱۱.۹ vmBuild_ آغاز را از vmLead_ می‌گیرد', /var lead = vmLead_\(ready, d\.cover && d\.cover\.fileId\);/.test(fs.readFileSync('src/37_VarietyMedia.gs', 'utf8')));
+  ok('۱۱.۹ vmBuild_ آغاز را از vmLead_ می‌گیرد', /var lead = vmLead_\(ready, d\.cover && d\.cover\.fileId, Number\(d\.hookEnd\) \|\| 0\);/.test(fs.readFileSync('src/37_VarietyMedia.gs', 'utf8')));
 }
 
 console.log('=== ۸) سیم‌کشی: هر دو در و یک تعریف ===');
@@ -481,6 +490,46 @@ console.log('=== ۱۴) هر پرچمی که رانر می‌خوانَد از ص
   ok('۱۴.۳ رانر صحنهٔ cont را از جایی که صحنهٔ پیشینِ همان کلیپ ایستاد ادامه می‌دهد',
      /const cont = !!\(s\.media && s\.media\.cont\) && usedTo\[s\.url\] !== undefined;/.test(rj) &&
      /usedTo\[s\.url\] = Math\.max\(usedTo\[s\.url\] \|\| 0, from \+ \(c\.played \|\| c\.len\)/.test(rj));   // ۹.۱۰: «ادامه» از آنچه واقعاً پخش شد، نه از طولِ صحنهٔ پُرشده
+}
+
+console.log('\n=== ۱۵) «دو بار شنیده می‌شود»: لحظه جای بازگوییِ دیالوگ (۹.۱۴، نمونهٔ سومِ ۷۳) ===');
+{
+  /* جمله‌های واقعیِ بخشِ اولِ قسمتِ ۷۳ (متنِ صوتی، بی اعراب) و گفتارِ کلیپ به همان شکلی که در شیتِ تحلیل است. */
+  const hook = 'از همه جا از همه رنگ، برنامهٔ روزانهٔ آرشیو! سلام! امروز پنجشنبه است. تصور کنید یک دعوای خانوادگی به ارتباط زنده تلویزیونی تبدیل شود!';
+  const sec1 = 'دعوای خانوادگی با آداب پخش زنده. ماجرا از یک خانه شروع می‌شود؛ جایی که زن و شوهر هر دو خبرنگارند. میان فریادها، ناگهان دست روی گوش می‌رود، انگار ارتباط استودیویی برقرار شده است. زن داد می‌زند: بدبخت! تو هر چی داری صدقه سر من و خانواده‌مه! مرد گوشش را می‌گیرد و با لحن رسمی می‌گوید: بله. جمع کن خودتو بابا، مگه چیکار کردید برای من؟ زن دوباره ژست می‌گیرد: بله! من اگه تو رو جمعت نمی‌کردم، کسی تو رو آدم حساب می‌کرد؟ بچه خوشگل! معطل اون بابای معتادت! مرد باز هم بی‌اختیار می‌گوید: بله! کثافت آشغال، صد دفعه بهت گفتم اسم بابای منو... و در نهایت یک صندلی پرتاب می‌شود. این حرکت بدنی و لمس مداوم هندزفری دقیقاً همان تصویری است که باید دید.';
+  const sec2 = 'نشست خبری حل بحران با دست خالی. وقتی زبان اداری از زندگی خصوصی فراتر می‌رود، به پشت تریبون سخنگو می‌رسد. سخنگو پشت میز می‌نشیند و اعلام می‌کند در خدمت خبرنگاران محترم هستم.';
+  const body = 'بدبخت تو هرچی داری صدقه سر من و خانوادمه. بله. جمع کن خودتو بابا مگه چیکار کردید برای من. بله. من اگه تو رو جمعت نمی‌کردم کسی تو رو آدم حساب می‌کرد بچه خوشگل معطل اون بابای معتادت. بله. کثافت آشغال صد دفعه بهت گفتم اسم بابای منو';
+  const sents = []; let t = 0;
+  for (const [txt, sec] of [[hook, 0], [sec1, 1], [sec2, 2]]) for (const x of speakSentSplit_(txt)) { sents.push({ t: Math.round(t * 10) / 10, text: x, sec: sec }); t += x.length / 14; }
+  const total = Math.round(t);
+  const rs = vmReciteSpan_(sents, 10, body, total);
+  ok('۱۵.۱ بازگوییِ دیالوگ پیدا می‌شود: از «زن داد می‌زند: بدبخت!» تا «… اسم بابای منو»، نه معرفیِ پیش و نه «صندلی پرتاب می‌شود»',
+     rs && /بدبخت/.test(sents[rs.a].text) && /بابای منو/.test(sents[rs.b].text) && rs.cut > 15, JSON.stringify(rs));
+  ok('۱۵.۲ جملهٔ صحنه‌آرایی میانِ دیالوگ («زن دوباره ژست می‌گیرد: بله!») جزوِ همان بازه است',
+     rs && sents.findIndex(x => /دوباره ژست/.test(x.text)) > rs.a && sents.findIndex(x => /دوباره ژست/.test(x.text)) < rs.b);
+  ok('۱۵.۳ لحظه‌ای که کنارِ بازگویی نیست (معرفیِ ماجرا) بازه نمی‌گیرد', vmReciteSpan_(sents, 5, body, total) === null);
+  ok('۱۵.۴ گفتارِ کلیپِ دیگر (بی ربط) هیچ بازه‌ای نمی‌دهد',
+     vmReciteSpan_(sents, 10, 'آتش سوزی جنگل مردم محلی با بیل و کلنگ بروند کمک لباس گرم بپوشن', total) === null);
+  ok('۱۵.۵ بازه هرگز از بخشِ خودش بیرون نمی‌رود', rs && sents[rs.a].sec === 1 && sents[rs.b].sec === 1);
+  /* از پاسخِ مدل تا لحظه: momentAfter = «مرد گوشش را می‌گیرد …: بله.» */
+  const nAfter = sents.findIndex(x => /گوشش را/.test(x.text)) + 1;
+  const items = [{ id: 'C1', kind: 'video', fileId: 'F'.repeat(25), sec: [1], topic: 'دعوا', summary: '', words: body.slice(0, 900), allWords: body },
+                 { id: 'C2', kind: 'video', fileId: 'G'.repeat(25), sec: [2], topic: 'نشست', summary: '', words: 'سخنگو بلبل نیوز', allWords: 'سخنگو بلبل نیوز بفرمایید' }];
+  const firstSec1 = sents.findIndex(x => x.sec === 1) + 1;
+  const vs = vmScenes_({ placements: [{ item: 'C1', from: String(firstSec1), clipQuote: 'جمع کن خودتو بابا', moment: 'بله', momentAfter: String(nAfter) },
+                                       { item: 'C2', from: String(sents.findIndex(x => x.sec === 2) + 1) }] }, sents, items, total, []);
+  const mo = vs.moments[0];
+  ok('۱۵.۶ لحظه از آغازِ بازگویی می‌نشیند و `cut` همان بازه است', mo && mo.at === rs.at && mo.cut === rs.cut && mo.recite >= 8, JSON.stringify(mo));
+  const ins = [{ at: 30, d: 25, cut: 20 }];
+  const desc = '00:00 آغاز\n00:20 پیش از لحظه\n00:40 وسطِ بازگویی\n01:20 پس از آن';
+  const sh = vmShiftDesc_(desc, ins).split('\n');
+  ok('۱۵.۷ زمانِ فصل‌ها: پیش از لحظه دست‌نخورده، فصلِ درونِ بازه پس از کلیپ (۳۰+۲۵)، پس از بازه فقط d−cut (۵ ثانیه)',
+     sh[0] === '00:00 آغاز' && sh[1] === '00:20 پیش از لحظه' && /^0?0?:?0?0?:?55 /.test(sh[2].replace(/^0:/, '00:')) &&
+     ytTime_(55) === sh[2].split(' ')[0] && ytTime_(85) === sh[3].split(' ')[0], sh.join(' | '));
+  const vsrc = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8'), ysrc = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۵.۸ `cut` و `whole` تا ردیفِ صف می‌رسند (۹.۱۱ `whole` را دو جا دور می‌ریخت)',
+     /if \(m\.whole\) o\.whole = m\.whole;/.test(vsrc) && /if \(Number\(m\.cut\) > 0\) o\.cut/.test(vsrc) &&
+     /whole: Number\(m\.whole\) \|\| 0, cut: Math\.max\(0, Number\(m\.cut\) \|\| 0\)/.test(ysrc));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');

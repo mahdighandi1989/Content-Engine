@@ -307,6 +307,32 @@ function palette(an, region, n) {
   };
 }
 
+/**
+ * ══ پوستهٔ ژانر (۹.۱۴) ══
+ * «این حالتِ برداری بیشتر انگار یک مطلبِ علمی پخش می‌شود، در حالی که این یک طنز است و می‌توانست با حالت و
+ * شکل‌های مناسبِ طنز طراحی شود — و برای انواعِ ژانرها باید حسبِ آن باشد». کارت‌ها همه یک لباس داشتند: پنلِ
+ * آرام، نوارِ تأکید، برچسبِ «مفهومِ کلیدی/نکته‌ها» — یعنی کلاسِ درس. حالا ژانرِ قسمت (`ctx.genre`، همان که
+ * متن و صدا را ساخت) لباسِ کارت را می‌گذارد؛ جاگذاری و اندازه دست نمی‌خورند.
+ *   comedy: برچسبِ زرد/سفید با لبهٔ ضخیم و سایهٔ کارتونی، کمی کج، نقل‌قول به شکلِ بادکنکِ گفت‌وگو؛
+ *   eerie: تیره و کم‌نور با تأکیدِ نارنجیِ سوخته؛ tender: کرمیِ نرم. بی ژانر ⇒ همان پوستهٔ پیشین.
+ */
+const SKINS = {
+  comedy: { dark: false, ink: '#1B1B1F', soft: 'rgba(27,27,31,.82)', line: '#1B1B1F', a1: '#FF3D7F', a2: '#14A39A',
+            marker: '#FFFFFF', markerInk: '#1B1B1F', panels: ['#FFE45E', '#FFFFFF', '#9BF6FF'],
+            kick: { headline: 'صحنه', points: 'ماجرا', quote: 'گفت‌وگو', compare: 'این یا آن', steps: 'چی شد؟' } },
+  eerie: { dark: true, ink: '#EDE6DA', soft: 'rgba(237,230,218,.80)', line: 'rgba(224,102,46,.45)', a1: '#E0662E', a2: '#9A7BB0',
+           panels: ['rgba(10,8,12,.88)'], kick: { headline: 'ماجرا', points: 'ماجرا', quote: 'جمله', compare: 'دو روایت', steps: 'چه شد' } },
+  tender: { dark: false, ink: '#3A2E2A', soft: 'rgba(58,46,42,.80)', line: 'rgba(150,110,90,.30)', a1: '#B5651D', a2: '#7A9E7E',
+            panels: ['rgba(255,248,240,.93)'], kick: null }
+};
+function skin(pal, genre, n) {
+  const S = SKINS[String(genre || '')];
+  if (!S) return pal;
+  return Object.assign({}, pal, { dark: S.dark, ink: S.ink, soft: S.soft, line: S.line, a1: S.a1, a2: S.a2,
+    marker: S.marker || pal.marker, markerInk: S.markerInk || pal.markerInk,
+    panel: S.panels[(Number(n) || 0) % S.panels.length], skin: String(genre), kick: S.kick });
+}
+
 /** واژه‌های کلیدی، رنگی یا ماژیکی — فقط اگر واقعاً در متن باشند. */
 function hl(text, keys, pal, mode) {
   let s = esc(text);
@@ -368,7 +394,8 @@ function html(ov, w, pal, n, calm, k, stage) {
   const vis = i => (st === -1 || st === i) ? 'visibility:visible;' : 'visibility:hidden;';
   const cardVis = (st === -1 || st === 0) ? '' : 'visibility:hidden;';
   const accInk = pal.dark ? '#0E1320' : '#FFFFFF';
-  const kicker = ov.kind === 'headline' && /[؟?]\s*$/.test(ov.title) ? 'پرسش' : KICK[ov.kind];
+  const kicker = (pal.kick && pal.kick[ov.kind]) ||
+    (ov.kind === 'headline' && /[؟?]\s*$/.test(ov.title) ? 'پرسش' : KICK[ov.kind]);
   const base = '.cd{position:relative;background:' + pal.panel + ';border:1px solid ' + pal.line +
     ';border-radius:26px;padding:26px 40px 30px 36px;box-shadow:0 18px 54px rgba(0,0,0,' + (pal.dark ? '.34' : '.18') + ');' +
     'font-family:' + F.body + ';color:' + pal.ink + '}' +
@@ -379,6 +406,17 @@ function html(ov, w, pal, n, calm, k, stage) {
     '.sb{margin-top:10px;font-weight:500;font-size:31px;line-height:1.55;color:' + pal.soft + '}' +
     '.nm{flex:0 0 46px;width:46px;height:46px;border-radius:50%;background:' + pal.a1 + ';color:' + accInk +
     ';display:flex;align-items:center;justify-content:center;font-weight:800;font-size:26px;margin-top:2px}';
+  /* پوستهٔ طنز: لبهٔ ضخیم، سایهٔ کارتونیِ بی‌محو، کمی کج، و دُمِ بادکنکِ گفت‌وگو برای نقل‌قول. */
+  const skinCss = pal.skin === 'comedy'
+    ? '.cd{border:5px solid ' + pal.line + ';border-radius:34px;box-shadow:10px 10px 0 ' + pal.line + ';transform:rotate(-1.6deg)}' +
+      '.cd::after{display:none}.kk{display:inline-flex;background:' + pal.line + ';color:' + pal.panel.replace('#FFFFFF', '#FFE45E') +
+      ';padding:4px 18px 9px;border-radius:999px;font-weight:800}.kk i{display:none}' +
+      '.nm{border:3px solid ' + pal.line + ';color:#FFFFFF}' +
+      '.cd.q::before{content:"";position:absolute;bottom:-38px;right:84px;border-style:solid;border-width:38px 0 0 40px;' +
+      'border-color:' + pal.line + ' transparent transparent transparent}'
+    : pal.skin === 'eerie'
+      ? '.cd{border-radius:14px;box-shadow:0 0 70px rgba(224,102,46,.18),0 18px 54px rgba(0,0,0,.55)}.tt{letter-spacing:.01em}'
+      : pal.skin === 'tender' ? '.cd{border-radius:30px}' : '';
   const kick = '<div class="kk"><i></i>' + esc(kicker) + '</div>';
   if (ov.kind === 'headline') {
     const len = ov.title.length;
@@ -386,7 +424,7 @@ function html(ov, w, pal, n, calm, k, stage) {
     const inner = '<div class="cd" style="' + cardVis + '">' + kick +
       '<div class="tt" style="font-size:' + fs + 'px">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' +
       (ov.lines[0] ? '<div class="sb">' + hl(ov.lines[0], ov.keys, pal, 'color') + '</div>' : '') + '</div>';
-    return shell(inner, w, base);
+    return shell(inner, w, base + skinCss);
   }
   if (ov.kind === 'points') {
     const rows = ov.lines.map((l, i) =>
@@ -397,7 +435,7 @@ function html(ov, w, pal, n, calm, k, stage) {
     const inner = '<div class="cd" style="' + cardVis + '">' + kick +
       (ov.title ? '<div class="tt" style="font-size:44px;' + vis(0) + '">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
       rows + '</div>';
-    return shell(inner, w, base);
+    return shell(inner, w, base + skinCss);
   }
   if (ov.kind === 'quote') {
     const fs = ov.title.length > 80 ? 36 : (ov.title.length > 50 ? 40 : 46);
@@ -405,12 +443,12 @@ function html(ov, w, pal, n, calm, k, stage) {
        لکهٔ کهربایی شد. دو قطرهٔ گرد، با رنگِ تأکید. */
     const q = '<svg width="56" height="42" viewBox="0 0 74 56" style="display:block;margin-bottom:8px">' +
       '<path fill="' + pal.a1 + '" d="M2 56V32C2 14 12 4 30 0l3 8C22 12 17 19 17 28h13v28zM42 56V32C42 14 52 4 70 0l3 8C62 12 57 19 57 28h13v28z"/></svg>';
-    const inner = '<div class="cd" style="' + cardVis + '">' + q +
+    const inner = '<div class="cd' + (pal.skin === 'comedy' ? ' q' : '') + '" style="' + cardVis + '">' + (pal.skin === 'comedy' ? '' : q) +
       '<div class="tt" style="font-weight:600;font-size:' + fs + 'px;line-height:1.62">«' +
       hl(ov.title, ov.keys, pal, 'color') + '»</div>' +
       (ov.lines[0] ? '<div class="sb" style="font-weight:700;font-size:26px;color:' + pal.a1 + '">— ' + esc(ov.lines[0]) + '</div>' : '') +
       '</div>';
-    return shell(inner, w, base);
+    return shell(inner, w, base + skinCss);
   }
   if (ov.kind === 'compare') {
     /* سه ستون: برچسبِ ردیف (راست)، طرفِ اول، طرفِ دوم — برچسب ستونِ خودش را دارد و
@@ -431,7 +469,7 @@ function html(ov, w, pal, n, calm, k, stage) {
       (ov.title ? '<div class="tt" style="font-size:42px;margin-bottom:14px">' + hl(ov.title, ov.keys, pal, 'color') + '</div>' : '') +
       '<div style="display:grid;grid-template-columns:' + cols + ';gap:14px 20px;align-items:stretch">' +
       (hasLab ? '<div></div>' : '') + chip(ov.a, pal.a1) + chip(ov.b, pal.a2) + rows + '</div></div>';
-    return shell(inner, w, base, true);
+    return shell(inner, w, base + skinCss, true);
   }
   if (ov.kind === 'steps') {
     const card = (t, i) => '<div style="flex:1;' + vis(i + 1) + 'background:' + pal.panel + ';border:1px solid ' + pal.line +
@@ -451,7 +489,7 @@ function html(ov, w, pal, n, calm, k, stage) {
       (ov.title ? hl(ov.title, ov.keys, pal, 'color') : esc(KICK.steps)) + '</span></div>';
     const inner = '<div style="font-family:' + F.body + '">' + head +
       '<div style="display:flex;align-items:stretch">' + parts.join('') + '</div></div>';
-    return shell(inner, w, base, true);
+    return shell(inner, w, base + skinCss, true);
   }
   return '';
 }
@@ -497,7 +535,7 @@ function render(ctx, ov, img, n, avoid, opt) {
   let w = W0, bb = null, where = null;
   for (let wi = 0; wi < widths.length; wi++) {
     w = widths[wi];
-    const m = ctx.shoot(html(o, w, palette(an, { lum: 0.7 }, n), n, true, 'right'),
+    const m = ctx.shoot(html(o, w, skin(palette(an, { lum: 0.7 }, n), ctx.genre, n), n, true, 'right'),
                         path.join(ctx.dir, 'ovm' + n + '.png'));
     bb = alphaBox(ctx.ff, m);
     try { fs.unlinkSync(m); } catch (e) {}
@@ -512,7 +550,7 @@ function render(ctx, ov, img, n, avoid, opt) {
   if ((!where || where.busy) && o.side) {
     for (let wi = 0; wi < widths.length; wi++) {
       w = widths[wi];
-      const m = ctx.shoot(html(o, w, palette(an, { lum: 0.7 }, n), n, true, 'right'),
+      const m = ctx.shoot(html(o, w, skin(palette(an, { lum: 0.7 }, n), ctx.genre, n), n, true, 'right'),
                           path.join(ctx.dir, 'ovm' + n + '.png'));
       bb = alphaBox(ctx.ff, m);
       try { fs.unlinkSync(m); } catch (e) {}
@@ -525,7 +563,7 @@ function render(ctx, ov, img, n, avoid, opt) {
      می‌نشست و صحنهٔ کارت‌دار زیرنویس ندارد. سدها همان‌اند. */
   if ((!where || where.busy) && (o.kind === 'headline' || o.kind === 'quote')) {
     w = Math.round(W0 * 1.35);
-    const m = ctx.shoot(html(o, w, palette(an, { lum: 0.7 }, n), n, true, 'right'),
+    const m = ctx.shoot(html(o, w, skin(palette(an, { lum: 0.7 }, n), ctx.genre, n), n, true, 'right'),
                         path.join(ctx.dir, 'ovm' + n + '.png'));
     bb = alphaBox(ctx.ff, m);
     try { fs.unlinkSync(m); } catch (e) {}
@@ -542,7 +580,7 @@ function render(ctx, ov, img, n, avoid, opt) {
   if (where.busy) return { skip: 'busy', k: where.k, kind: o.kind, energy: Math.round(where.energy * 10) / 10,
                            mass: Math.round(where.peak * 1000) / 1000 };
   const calm = !forced && where.energy < OV.calm;
-  const pal = palette(an, where, n);
+  const pal = skin(palette(an, where, n), ctx.genre, n);
   const cx = Math.max(0, bb.x - pad), cy = Math.max(0, bb.y - pad);
   const cw = Math.min(OV.w - cx, bb.w + 2 * pad), ch = Math.min(OV.h - cy, bb.h + 2 * pad);
   const cut = (stage, name) => {
@@ -582,4 +620,4 @@ function windowOf(d, from, nStages) {
   return { st: Math.round(st * 100) / 100, end: Math.round(end * 100) / 100, at: at };
 }
 
-module.exports = { OV, ovNorm, analyze, boxStats, place, palette, html, render, alphaBox, hsv, stagesOf, windowOf };
+module.exports = { OV, SKINS, skin, ovNorm, analyze, boxStats, place, palette, html, render, alphaBox, hsv, stagesOf, windowOf };

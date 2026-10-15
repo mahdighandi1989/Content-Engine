@@ -155,9 +155,68 @@ console.log('=== ۶) دروازهٔ زمین‌گیری پیش از صدا (۹.�
      !g3.judged && /quota/.test(g3.why) && /هندزفری/.test(ep3.sections[0].narration), g3.why);
   const pr = fs.readFileSync('src/03_Producer.gs', 'utf8');
   ok('۶.۸ سیم‌کشی: دروازه پیش از ساختِ پوشه و صدا، و نتیجه در _STATUS',
-     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs));') > 0 &&
-     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs));') < pr.indexOf("showFolder_(CFG.VARIETY_FOLDER)") &&
+     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs), { mode: vMode });') > 0 &&
+     pr.indexOf('var gr = groundEpisode_(ep, items.concat(refs), { mode: vMode });') < pr.indexOf("showFolder_(CFG.VARIETY_FOLDER)") &&
      /ground: \(function \(\) \{ try \{ return JSON\.parse\(props_\(\)\.getProperty\(PK\.GROUND_LAST\)/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
+}
+
+console.log('=== ۷) ژانر قالب را می‌سازد: متن، صدا، داور و موسیقی (۹.۱۴، «گوینده می‌زند تو ذوقِ آدم») ===');
+{
+  const G = (g) => ({ genre: g });
+  ok('۷.۱ ژانرِ غالب از خوانشِ سردبیر: پنج طنز/هجو ⇒ comedy؛ دو طنز و دو جدی ⇒ mixed؛ دو ترسناک و یک عجیب ⇒ eerie',
+     varietyMode_(['طنز', 'طنز', 'هجو', 'طنز', 'طنز'].map(G), 'اجتماعی و مردمی') === 'comedy' &&
+     varietyMode_(['طنز', 'طنز', 'جدی', 'خبری'].map(G), 'طنز و سرگرمی') === 'mixed' &&
+     varietyMode_(['ترسناک', 'ترسناک', 'عجیب'].map(G), 'متفرقه') === 'eerie');
+  ok('۷.۲ بی ژانر، برچسبِ دستهٔ طنز ⇒ comedy؛ دستهٔ دیگر ⇒ mixed (هیچ قالبی حدس زده نمی‌شود)',
+     varietyMode_([{}, {}], 'طنز و سرگرمی') === 'comedy' && varietyMode_([{}, {}], 'علمی و آموزشی') === 'mixed');
+  const when = todayWords_();
+  const funny = ['A', 'B', 'C', 'D', 'E'].map(id => Object.assign(item(id, 'ویدیو'), { genre: 'طنز', reading: 'شوخی' }));
+  const pc = buildPrompt_('طنز و سرگرمی', funny, 'قالب‌های جدی در آیینهٔ شوخی', 'هر پنج کلیپ فرمِ رسمی را هجو می‌کنند', [], when, [], 'اول A');
+  ok('۷.۳ قسمتِ طنز: قالبِ «بستهٔ طنز» بالای قاعده‌ها، با نمونه‌های واقعیِ ۷۳ که نباید تکرار شوند',
+     /قالبِ این قسمت: بستهٔ طنز/.test(pc) && pc.indexOf('قالبِ این قسمت: بستهٔ طنز') < pc.indexOf('قواعد سخت‌گیرانه') &&
+     /همین منطقِ عجیب در راهروهای شرکت‌ها/.test(pc) && /شکافِ عمیقِ میانِ صورتِ رسمی/.test(pc) && /خط‌به‌خط با صحنه‌آرایی/.test(pc));
+  ok('۷.۴ … و ساختِ مقاله‌ای از آن برداشته شده: نه «روایت را حولِ همین نخ بساز»، نه بلوکِ پیوندِ معنایی، نه پیوندِ سردبیر، نه بخشِ جمع‌بندی',
+     !/روایت را حولِ همین نخ بساز/.test(pc) && !/پیوندِ معنایی — این تفاوتِ/.test(pc) && !/پیوند از این‌جا می‌آید/.test(pc) &&
+     /نخ فقط ترتیبِ چیدن است/.test(pc) && /هر آیتم یک بخش/.test(pc) && /بخشِ جمع‌بندی نه/.test(pc));
+  const mixed = [Object.assign(item('A', 'ویدیو'), { genre: 'جدی' }), Object.assign(item('B', 'ویدیو'), { genre: 'خبری' })];
+  const pm = buildPrompt_('سیاسی و خبری', mixed, 'نخ', 'پیوند', [], when, []);
+  ok('۷.۵ قسمتِ ناهمگون همان ساختِ پیشین را دارد و هر بخش ژانرِ آیتمِ خودش را می‌گیرد',
+     /پیوندِ معنایی — این تفاوتِ/.test(pm) && /روایت را حولِ همین نخ بساز/.test(pm) && /ژانرِ هر آیتم، قالبِ بخشِ همان آیتم است/.test(pm) &&
+     /دقیقاً \d بخش/.test(pm));
+  const wc = p => Number((p.match(/حدود (\d+) کلمه باشد/) || [])[1]);
+  ok('۷.۶ هدفِ طولِ طنز کوتاه‌تر است (شوخیِ پرشده، شوخیِ کشته‌شده)', wc(pc) < wc(pm) && wc(pc) > 0, wc(pc) + ' در برابرِ ' + wc(pm));
+  /* صدا: همان بخشِ واقعیِ ۷۳ — «نشستِ خبری … بحرانِ کم‌آبی … خانواده» با لحنِ «رسمی و خبری» از نویسنده. */
+  const ep = { mode: 'comedy', hook: 'سلام.', outro: 'تا فردا.', sections: [{ heading: 'نشست خبری حل بحران با دست خالی', tone: 'رسمی و خبری، با کمی طعنه',
+    narration: 'سؤال دربارهٔ بحران کم‌آبی است. سخنگو می‌گوید همه مردم باید به کمک ما بیان. خبرنگار از خانواده‌اش می‌پرسد.' },
+    { heading: 'نقش‌ها', tone: 'سرخوش و بازیگوش', narration: 'زیرآب‌زن به مدیر می‌گوید.' }] };
+  const sg = episodeSegments_(ep, 'طنز و سرگرمی');
+  const b0 = sg.find(x => x.secIndex === 0), b1 = sg.find(x => x.secIndex === 1), out = sg.find(x => x.kind === 'outro');
+  ok('۷.۷ صدای بخشِ طنز از ژانر می‌آید نه از واژه‌های «بحران/خبر/خانواده»: لحنِ کمدی، بی رجیسترِ هشدار و خبری',
+     /سرخوش و بازیگوش/.test(b0.style) && /لبخندِ شنیدنی/.test(b0.style) && !/لحن خبریِ بی‌طرف/.test(b0.style) &&
+     !/لحن قاطع و جدی/.test(b0.style) && b0.tone !== 'رسمی و خبری، با کمی طعنه', b0.style);
+  ok('۷.۸ لحنِ نویسنده که با ژانر می‌خوانَد می‌ماند', b1.tone === 'سرخوش و بازیگوش');
+  ok('۷.۹ پایانِ قسمتِ طنز «جمع‌بندی‌کننده و ماندگار» خوانده نمی‌شود', !/جمع‌بندی‌کننده و ماندگار/.test(out.style) && /خندان/.test(out.style), out.style);
+  const ep0 = JSON.parse(JSON.stringify(ep)); delete ep0.mode;
+  const sg0 = episodeSegments_(ep0, 'طنز و سرگرمی');
+  ok('۷.۱۰ قسمتِ بی قالب (پیش از ۹.۱۴) همان رفتارِ پیشین را دارد', /جمع‌بندی‌کننده و ماندگار/.test(sg0.find(x => x.kind === 'outro').style) &&
+     sg0.find(x => x.secIndex === 0).tone === 'رسمی و خبری، با کمی طعنه');
+  /* داور: در قسمتِ طنز «تفسیر» هم خطاست. */
+  const items = [item('V1', 'ویدیو', { body: 'سخنگو: کلاغ نیوز؟ اجازه بدید. بلبل نیوز بفرمایید.' })];
+  const epG = () => ({ hook: 'سلام.', sections: [{ heading: 'نشست', sourceIds: ['V1'], narration:
+    'سخنگو حرفِ خبرنگار را قطع می‌کند: کلاغ نیوز؟ اجازه بدید. بعد می‌گوید: بلبل نیوز بفرمایید. همین منطقِ عجیب در راهروهای شرکت‌ها هم تکرار می‌شود. و نشست تمام می‌شود.' }], outro: 'تا فردا، خدا نگه‌دار.' });
+  let seenP = '';
+  const judge = p => { seenP = p; return { bad: [{ id: 's0.3', kind: 'تفسیر', why: 'شوخی را مفهوم کرد' }] }; };
+  const e1 = epG(); const g1 = groundEpisode_(e1, items, { judge, mode: 'comedy' });
+  ok('۷.۱۱ داورِ قسمتِ طنز «تفسیر» را می‌شناسد و آن جمله می‌رود', /«تفسیر»/.test(seenP) && g1.kinds['تفسیر'] === 1 &&
+     !/همین منطقِ عجیب/.test(e1.sections[0].narration) && /بلبل نیوز/.test(e1.sections[0].narration), e1.sections[0].narration);
+  const e2 = epG(); const g2 = groundEpisode_(e2, items, { judge });
+  ok('۷.۱۲ در قسمتِ غیرِطنز «تفسیر» نوعِ مجاز نیست و چیزی نمی‌رود', g2.removed === 0 && /همین منطقِ عجیب/.test(e2.sections[0].narration));
+  const pr = fs.readFileSync('src/03_Producer.gs', 'utf8'), mu = fs.readFileSync('src/23_Music.gs', 'utf8');
+  const prod = pr.slice(pr.indexOf('function produceEpisode('), pr.indexOf('function produceEpisodeContinue('));
+  ok('۷.۱۳ سیم‌کشی: ژانر یک بار حساب می‌شود و به نویسنده، پروندهٔ قسمت، داور و موسیقی می‌رسد',
+     /var vMode = varietyMode_\(items, picked\.title\)/.test(prod) && /buildPrompt_\([^)]*, vMode\)/.test(prod) && /ep\.mode = vMode;/.test(prod) &&
+     /groundEpisode_\(ep, items\.concat\(refs\), \{ mode: vMode \}\)/.test(prod) && /genre: \(ep && ep\.mode && VARIETY_MODES/.test(pr) &&
+     /ctx\.genre \? '  ژانر: '/.test(mu));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ سیرِ «از همه جا» گذشت.');

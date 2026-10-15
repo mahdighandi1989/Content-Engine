@@ -1729,11 +1729,13 @@ function ytRenderAsk_(item) {
       return r0; });
     if (item.media) {
       row.media = true;
+      if (item.genre) row.genre = String(item.genre);
       /* «لحظه»: گوینده ساکت می‌شود و همان کلیپ با صدایش پخش می‌شود. `mute` = بازه‌های موسیقیِ
          قسمت — رانر لحظه را هرگز آن‌جا نمی‌نشاند (صدای کلیپ روی آهنگ). */
       row.moments = (item.moments || []).map(function (m) {
         return { at: Number(m.at) || 0, fileId: String(m.fileId || ''), url: ytDlUrl_(m.fileId || ''),
-                 quote: String(m.quote || '').slice(0, 160), max: Number(m.max) || 12 }; });
+                 quote: String(m.quote || '').slice(0, 160), max: Number(m.max) || 12,
+                 whole: Number(m.whole) || 0, cut: Math.max(0, Number(m.cut) || 0) }; });
       row.mute = (item.mute || []).slice(0, 40);
     }
     if (item.sceneCover && item.sceneCover.fileId) {
@@ -9645,6 +9647,8 @@ function ytUploadOne_(item, hub, pub) {
                      folderId: folder.getId(), visuals: [],
                      scenes: vmr.items, sceneCover: vmr.cover, sceneInfo: vmr.info,
                      media: true, moments: vmr.moments, mute: vmr.music,
+                     /* ۹.۱۴: ژانرِ قسمت ⇒ پوستهٔ کارت‌ها (طنز کارتِ درس نمی‌گیرد). قسمتِ پیش از ۹.۱۴ از ژانرِ آیتم‌هایش. */
+                     genre: String(ep.mode || varietyMode_((meta && meta.items) || [], String((meta && (meta.cat || meta.category)) || ''))),
                      coverTitle: String(plan.coverTitle || ep.title || ''),
                      coverKicker: String(plan.coverKicker || showName || ''),
                      coverFoot: coverEpLabel,

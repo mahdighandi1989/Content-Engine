@@ -138,6 +138,20 @@ console.log('=== ۱-ج) لای‌گذاریِ لحظه بی وابستگی به 
   ok('۱.۱۵-ب صدا و تصویرِ خروجی هم‌اندازه‌اند (پیوندِ تکه‌ها چیزی جابه‌جا نکرد)', Math.abs(da - dv) < 0.06, 'صدا ' + da + ' · تصویر ' + dv);
   const spSrc = MKIT.splice.toString();
   ok('۱.۱۵-پ لای‌گذاری تکه‌تکه است، نه یک گذرِ split به همهٔ شاخه‌ها', !/split=/.test(spSrc) && /-frames:v/.test(spSrc));
+  /* ۹.۱۴: «دو بار شنیده می‌شود» — لحظه جای بازگوییِ همان دیالوگ: [at, at+cut) از گفتار و تصویر برداشته می‌شود. */
+  const q1 = Object.assign({}, p1, { at: 5.25, cut: 2.0 }), q2 = Object.assign({}, p2, { at: 11.75, cut: 1.0 });
+  const sd2 = fs.mkdtempSync(path.join(os.tmpdir(), 'spl2-'));
+  const rc = MKIT.splice(FF, P('sil.mp4'), P('sn.wav'), [q1, q2], P('splc.mp4'), sd2);
+  const pc2 = MKIT.probe(FF, P('splc.mp4'));
+  ok('۱.۱۵-ت با `cut` طولِ کل = ۲۰ + ۳ + ۳ − ۲ − ۱', Math.abs(pc2.dur - 23) < 0.2, String(pc2.dur));
+  const aft = dif(g(P('splc.mp4'), 8.75), g(P('sil.mp4'), 7.75)), wrongC = dif(g(P('splc.mp4'), 8.75), g(P('sil.mp4'), 5.75));
+  ok('۱.۱۵-ث پس از لحظه تصویر از پایانِ بازه ادامه می‌یابد (۷٫۲۵)، نه از جایی که لحظه نشست', aft < 6 && wrongC > aft * 2,
+     'درست ' + aft.toFixed(1) + ' · بی برش ' + wrongC.toFixed(1));
+  ok('۱.۱۵-ج `inserts` برش را با خود دارد (برای جابه‌جاییِ فصل‌ها)', rc.inserts[0].cut === 2 && rc.inserts[1].cut === 1, JSON.stringify(rc.inserts));
+  const pm = MKIT.placeMoments([{ at: 5.2, cut: 2.1 }], [5.3, 7.45, 12], [], 20, []);
+  ok('۱.۱۵-چ پایانِ بازه هم روی مکث می‌نشیند', pm.length === 1 && pm[0].at === 5.3 && Math.abs(pm[0].cut - 2.15) < 0.01, JSON.stringify(pm));
+  const notesNo = [], pm2 = MKIT.placeMoments([{ at: 5.2, cut: 3 }], [5.3, 12], [], 20, notesNo);
+  ok('۱.۱۵-ح پایانِ بی‌مکث ⇒ لحظه کنارِ گفتار (بی برش)، و گفته می‌شود', pm2[0].cut === 0 && /پایانِ بازگویی/.test(notesNo.join(' ')));
 }
 
 console.log('=== ۱-د) اندازهٔ لحظه از خودِ کلیپ، نه یک جمله (۹.۱۱) ===');
@@ -402,6 +416,32 @@ console.log('=== ۴) سیم‌کشی ===');
      /map\.items\[it\.key\]\.inserts = vr\.inserts/.test(r) && /map\.items\[it\.key\]\.media = vr\.media/.test(r));
   const w = fs.readFileSync('.github/workflows/render.yml', 'utf8');
   ok('۴.۲ رانر faster-whisper دارد (همان که clipfind.py می‌خواهد)', /faster-whisper/.test(w));
+}
+
+console.log('=== ۹) پوستهٔ کارت از ژانر (۹.۱۴، «این حالتِ برداری انگار مطلبِ علمی است در حالی که طنز است») ===');
+{
+  const OVL = require('../tools/overlay.js');
+  const base = OVL.palette(null, { lum: 0.3 }, 0);
+  const q = OVL.ovNorm({ kind: 'quote', title: 'بدبخت! تو هر چی داری صدقه‌سرِ من و خانواده‌مه!', lines: ['زنِ خبرنگار'] });
+  const h0 = OVL.html(OVL.ovNorm({ kind: 'headline', title: 'کلاغ‌نیوز؟ اجازه بدید شما!', lines: [] }), 820, base, 0, false, 'right', -1);
+  const cp = OVL.skin(base, 'comedy', 0);
+  const h1 = OVL.html(OVL.ovNorm({ kind: 'headline', title: 'کلاغ‌نیوز؟ اجازه بدید شما!', lines: [] }), 820, cp, 0, false, 'right', -1);
+  const hq = OVL.html(q, 760, cp, 0, false, 'right', -1);
+  ok('۹.۱ طنز: لبهٔ ضخیم، سایهٔ کارتونی، کج، زمینهٔ زرد — و برچسبِ «صحنه» به‌جای «مفهومِ کلیدی/پرسش»',
+     /box-shadow:10px 10px 0/.test(h1) && /rotate\(-1\.6deg\)/.test(h1) && cp.panel === '#FFE45E' && /صحنه/.test(h1) &&
+     !/مفهومِ کلیدی|>پرسش</.test(h1));
+  ok('۹.۲ نقل‌قولِ طنز بادکنکِ گفت‌وگوست (دُم دارد، گیومهٔ درسی ندارد)', /class="cd q"/.test(hq) && /\.cd\.q::before/.test(hq) && !/<svg width="56"/.test(hq));
+  ok('۹.۳ بی ژانر همان پوستهٔ پیشین است (هیچ قاعدهٔ تازه‌ای در CSS)', OVL.skin(base, '', 0) === base && !/rotate\(/.test(h0) && /مفهومِ کلیدی|پرسش/.test(h0));
+  ok('۹.۴ کارت‌های پیاپیِ طنز یک‌رنگ نیستند', OVL.skin(base, 'comedy', 1).panel !== OVL.skin(base, 'comedy', 0).panel);
+  const ers = OVL.skin(base, 'eerie', 0);
+  ok('۹.۵ رازآلود: تیره با تأکیدِ نارنجیِ سوخته؛ احساسی: کرمیِ نرم', ers.dark && ers.a1 === '#E0662E' && !OVL.skin(base, 'tender', 0).dark);
+  const ov = fs.readFileSync('tools/overlay.js', 'utf8'), sk = fs.readFileSync('tools/scenekit.js', 'utf8'),
+        rj = fs.readFileSync('tools/render.js', 'utf8'), yt = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  const rend = ov.slice(ov.indexOf('function render('), ov.indexOf('function windowOf('));
+  ok('۹.۶ سیم‌کشی: ژانرِ قسمت ⇒ صفِ رندر ⇒ scenekit ⇒ هر پالتِ کارت (هیچ palette بی پوسته نمانده)',
+     /genre: String\(ep\.mode \|\| varietyMode_\(/.test(yt) && /if \(item\.genre\) row\.genre = String\(item\.genre\);/.test(yt) &&
+     /genre: String\(it\.genre \|\| ''\)/.test(rj) && /genre: ctx\.genre \|\| ''/.test(sk) &&
+     (rend.match(/skin\(palette\(/g) || []).length === 4 && !/[^(]palette\(an/.test(rend.replace(/skin\(palette\(an/g, '')));
 }
 
 if (process.env.KEEP !== '1') { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} } else console.log('    (پوشه ماند: ' + dir + ')');
