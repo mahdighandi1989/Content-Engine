@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.02
+ *  موتور محتوا و پادکست — نسخهٔ 9.03
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1190,12 +1190,13 @@ var CFG = {
   VM_MOMENT_GAP: 20,               // کمترین فاصلهٔ دو لحظه (ثانیه) — ۹.۰۱: از ۳۰ِ ثابت در کد
   VM_OV_MAX: 10,                   // نوشتهٔ برداریِ کنارِ رسانه — ۸.۹۹: از ۶؛ رسانه حالا در چپ/راست می‌نشیند و نیمهٔ دیگر جای همین نوشته است
   VM_SCENE_MAX_SEC: 28,            // صحنهٔ بلندتر با رسانهٔ **دیده‌نشدهٔ** همان بخش نصف می‌شود؛ نبود ⇒ کارتِ نوشته (۹.۰۱)
+  VM_CARD_SEC: 7,                  // کارتِ وسطِ صحنهٔ بلند همین‌قدر؛ بعد همان کلیپ ادامه می‌یابد (۹.۰۳)
   VM_CARDS: true,                  // کارتِ نوشته روی کاورِ محو: پایانِ قسمت، پل‌های موسیقی، و صحنه‌ای که بی رسانهٔ تازه طولانی شد (۹.۰۱)
   VM_COVER_GEN: true,              // تنها تصویرِ ساختنی: کاور
   VM_INTRO_SEC: 10,                // کاور در آغاز حداکثر این‌قدر؛ نمونهٔ ۷۲ یک دقیقهٔ کامل فقط کاور بود (۸.۹۸)
   VM_TEASER_SEC: 6,                // باقیِ پیش از نخستین رسانه: پیش‌نمایشی از رسانه‌های خودِ قسمت، هر کدام ~این‌قدر
   /* نمونهٔ یک‌باره روی قسمتِ منتشرشده (۸.۹۷): همان راه، به یوتیوب نمی‌رود؛ نشانی به تلگرام. خالی ⇒ خاموش. */
-  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 5, replan: true },   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
+  VM_SAMPLE: { ep: '72', folderId: '1T7YNXJLaokiLHi0ujUz_wTdelFlUVMQA', rev: 6, replan: true },   // rev ۵ (۹.۰۱): بی تکرارِ رسانهٔ دیده‌شده، کارتِ نوشته، پایانِ بی کلیپ، لحظه‌های بیشتر
   // پیشین: rev ۴ (۹.۰۰): چیدمان و افکتِ ۸.۹۹ + لحظهٔ تا پایانِ جمله + نقشهٔ تازه (نوشتهٔ برداریِ بیشتر)
   YT_MEDIA_APPROVE: 2,             // نخستین ویدئوهای این حالت پس از دیدنِ قاب‌ها عمومی می‌شوند
   /* ══ شاهدِ اجرا (۸.۱۱) ══
@@ -2078,7 +2079,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.02',
+  CODE_VERSION: '9.03',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -49886,6 +49887,9 @@ function ytRenderBuilt_(row, map) {
 }
 
 /** یک درخواستِ تازه، بی تکرار. سقف دارد تا صف بی‌نهایت نشود. */
+/** پرچم‌های رسانهٔ صحنه که رانر می‌خوانَد — همان فهرستِ `tools/scenekit.js` (mediaOf). */
+var YT_MEDIA_FLAGS = ['intro', 'teaser', 'card', 'outro', 'cont'];
+
 function ytRenderAsk_(item) {
   var d = ytRenderRead_();
   var key = String(item.show) + ':' + String(item.ep);
@@ -49989,7 +49993,10 @@ function ytRenderAsk_(item) {
       /* رسانهٔ منبع (بخشِ ۳۷): رانر خودش کلیپ را می‌بُرد و در قاب می‌نشاند؛ نشانی همان `url`ِ صحنه است. */
       if (x.media && (x.media.kind === 'video' || x.media.kind === 'photo')) {
         r0.media = { kind: String(x.media.kind), quote: String(x.media.quote || '').slice(0, 160) };
-        if (x.media.intro) r0.media.intro = true;
+        /* ۹.۰۳: همهٔ پرچم‌هایی که رانر می‌خوانَد (`scenekit.mediaOf`) — نه فقط `intro`. فهرستِ دستیِ قبلی
+           `teaser` (۸.۹۸) و `card`/`outro` (۹.۰۱) را دور می‌ریخت: کارتِ نوشته به‌صورتِ کاورِ خامِ بی‌نوشته
+           درآمد و پیش‌نمایش از آغازِ کلیپ بریده شد. `run_varietymedia_test` ۱۴ دو فهرست را با هم می‌سنجد. */
+        for (var fl = 0; fl < YT_MEDIA_FLAGS.length; fl++) if (x.media[YT_MEDIA_FLAGS[fl]]) r0.media[YT_MEDIA_FLAGS[fl]] = true;
       }
       return r0; });
     if (item.media) {
@@ -77369,22 +77376,16 @@ function vmLead_(ready, coverId) {
  *     کلیپ بود که ۴۰ ثانیه روی آخرین قابش ماند. حالا صحنه‌ای که از `VM_SCENE_MAX_SEC`×۱٫۶ بلندتر است
  *     سرِ جملهٔ میانه‌اش کارت می‌گیرد: همان جمله‌ای که گوینده آن لحظه می‌گوید، نوشتهٔ برداری روی کاورِ
  *     محو — «حالت برداری کم استفاده شده بود».
- *   • پل‌های موسیقیِ میانه: کاور، و پس از پل اگر رسانهٔ تازه تا ۵ ثانیه نیامد، کارت.
+ *   • ۹.۰۳: کارت کوتاه است و پس از آن همان کلیپ از جایی که ایستاد ادامه می‌یابد؛ پل‌های میانه کاور نمی‌گیرند.
  * کاور نبود ⇒ همان صحنه‌ها، دست‌نخورده.
  */
 function vmCards_(ready, sents, music, secs, coverId) {
   var out = { scenes: ready.slice(), added: 0 };
   if (!coverId || CFG.VM_CARDS === false || !ready.length) return out;
   var total = Number(secs) || 0;
+  var cardSec = Math.max(4, Number(CFG.VM_CARD_SEC) || 7);
   var plain = function (t) {
     return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
-  };
-  var sentAt = function (a, b) {        // نخستین جملهٔ درونِ [a, b)
-    for (var i = 0; i < sents.length; i++) {
-      var t = Number(sents[i][0]);
-      if (t >= a - 0.3 && t < b) return { t: t, text: plain(sents[i][1]) };
-    }
-    return null;
   };
   var card = function (t0, text) {
     var tx = plain(text);
@@ -77392,34 +77393,27 @@ function vmCards_(ready, sents, music, secs, coverId) {
     return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '',
              media: { kind: 'photo', quote: '', card: true }, ov: { kind: 'quote', title: tx, lines: [] } };
   };
-  var cover = function (t0, flag) {
-    var m = { kind: 'photo', quote: '' };
-    m[flag] = true;
-    return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '', media: m };
-  };
   var sc = out.scenes;
-  var push = function (x) { sc.push(x); out.added++; };
+  /* فقط موسیقیِ **پایانی** کاور می‌گیرد. نسخهٔ ۹.۰۱ سرِ پل‌های میانه هم کاور می‌گذاشت و پس از پل کارت — و
+     نمونهٔ پنجم نشان داد این وقتِ خودِ کلیپ را می‌خورد: کلیپِ ۵۹٫۷ فقط ۱۷ ثانیه دیده شد و ۱۰۰ ثانیه کاور بود. */
   var mus = (music || []).slice().sort(function (a, b) { return a[0] - b[0]; });
   for (var i = 0; i < mus.length; i++) {
-    var a = Number(mus[i][0]), b = Number(mus[i][1]);
-    if (!(b > a) || a < 1) continue;                       // موسیقیِ آغاز: کار با کاور/پیش‌نمایشِ vmLead_
-    if (total && b >= total - 1) { push(cover(a, 'outro')); continue; }
-    if (b - a < 6) continue;
-    push(cover(a, 'bridge'));
-    var nextT = null;
-    for (var k = 0; k < ready.length; k++) if (ready[k].t0 >= b - 0.5) { nextT = ready[k].t0; break; }
-    if (nextT === null || nextT - b > 5) {
-      var s1 = sentAt(b, nextT === null ? (total || b + 30) : nextT);
-      if (s1 && s1.text) push(card(s1.t, s1.text));
+    var a0 = Number(mus[i][0]), b0 = Number(mus[i][1]);
+    if (!(b0 > a0) || a0 < 1) continue;
+    if (total && b0 >= total - 1) {
+      sc.push({ t0: Math.round(a0 * 10) / 10, fileId: coverId, caption: '', say: '', media: { kind: 'photo', quote: '', outro: true } });
+      out.added++;
     }
   }
   sc.sort(function (p, q) { return p.t0 - q.t0; });
+  /* صحنهٔ بلند: کارتی **کوتاه** (`VM_CARD_SEC`) سرِ جملهٔ میانه، و بعد **همان رسانه ادامه می‌یابد** (`cont`):
+     رانر کلیپ را از جایی که صحنهٔ پیشینش ایستاد پی می‌گیرد — نه از نو، نه کاورِ طولانی. */
   var maxSec = Math.max(10, Number(CFG.VM_SCENE_MAX_SEC) || 28) * 1.6;
   for (var guard = 0; guard < 40; guard++) {
     var hit = -1;
     for (var z = 0; z < sc.length; z++) {
       var m0 = sc[z].media || {};
-      if (m0.intro || m0.teaser || m0.outro || m0.bridge || m0.long) continue;
+      if (m0.intro || m0.teaser || m0.outro || m0.card || m0.long) continue;
       var end = z + 1 < sc.length ? sc[z + 1].t0 : total;
       if (end - sc[z].t0 > maxSec) { hit = z; break; }
     }
@@ -77427,12 +77421,20 @@ function vmCards_(ready, sents, music, secs, coverId) {
     var st = sc[hit].t0, en = hit + 1 < sc.length ? sc[hit + 1].t0 : total, mid = st + (en - st) / 2, best = null;
     for (var y = 0; y < sents.length; y++) {
       var ty = Number(sents[y][0]);
-      if (ty < st + 8 || ty > en - 8) continue;
+      if (ty < st + 8 || ty > en - 8 - cardSec) continue;
       if (!best || Math.abs(ty - mid) < Math.abs(best.t - mid)) best = { t: ty, text: sents[y][1] };
     }
     if (!best || !plain(best.text)) { sc[hit].media = Object.assign({}, sc[hit].media, { long: true }); continue; }
-    sc.splice(hit + 1, 0, card(best.t, best.text));
-    out.added++;
+    var back = null;
+    for (var y2 = 0; y2 < sents.length; y2++) {
+      var t2 = Number(sents[y2][0]);
+      if (t2 >= best.t + cardSec - 0.5 && t2 <= en - 6) { back = t2; break; }
+    }
+    if (back === null) back = Math.min(en - 6, best.t + cardSec);
+    var cont = { t0: Math.round(back * 10) / 10, fileId: sc[hit].fileId, caption: '', say: '',
+                 media: { kind: sc[hit].media.kind, quote: '', cont: true } };
+    sc.splice(hit + 1, 0, card(best.t, best.text), cont);
+    out.added += 2;
   }
   for (var n = 0; n < sc.length; n++) {
     sc[n].n = n + 1;

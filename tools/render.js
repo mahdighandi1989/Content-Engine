@@ -720,7 +720,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
      پیمایشِ اسکرین‌شاتِ بلند) و قابِ هر کلیپ از حاشیهٔ تختِ خودش بریده می‌شود. «لحظه» همان چیدمانِ صحنه‌اش
      را می‌گیرد — وگرنه وسطِ صحنه رسانه از چپ به وسط می‌پرد. */
   let lay = 0;
-  const layOf = {};
+  const layOf = {}, usedTo = {};
   scenes.forEach(s => { layOf[s.n] = MKIT.layoutOf(lay++); });
   st.layouts = {};
   for (const m of moCut) {
@@ -751,7 +751,12 @@ function prepMedia(it, scenes, dir, notes, placed) {
          همان تکه پی گرفته می‌شود — پیوسته، بی تکرار. */
       const mc = !(s.media && s.media.teaser) && moCut.find(c => c.ok && c.url === s.url && c.m.at >= s.t0 - 0.6 && c.m.at < end);
       let from = 0, skip = null;
-      if (mc) {
+      const cont = !!(s.media && s.media.cont) && usedTo[s.url] !== undefined;
+      if (cont) {
+        /* ادامه (۹.۰۳): پس از کارتِ نوشته، همان کلیپ از جایی که صحنهٔ پیشینش ایستاد — نه از نو (تکرار)، نه کاور.
+           کلیپی که دیگر چیزی ندارد، تکهٔ پایانی‌اش را نشان می‌دهد. */
+        from = Math.min(usedTo[s.url], Math.max(0, g.info.dur - Math.min(want, g.info.dur)));
+      } else if (mc) {
         const rel = Math.max(0, mc.m.at - s.t0);
         from = Math.max(0, mc.from - rel);
         skip = { at: mc.from, len: mc.len };
@@ -771,6 +776,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (g.box === undefined) g.box = MKIT.contentBox(FF, g.file, g.info, { at: Math.min(Math.max(0, g.info.dur - 0.5), from + 1) });
       const cOpt = { layout: layOf[s.n], box: g.box };
       const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip, cOpt);
+      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, from + c.len + (skip ? skip.len : 0));
       const ar = (g.box ? g.box.w / g.box.h : g.info.w / g.info.h);
       const lk = (ar >= MKIT.MK.wideMin && ar <= MKIT.MK.wideMax) ? 'fill' : layOf[s.n];
       st.layouts[lk] = (st.layouts[lk] || 0) + 1;

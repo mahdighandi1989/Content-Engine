@@ -553,22 +553,16 @@ function vmLead_(ready, coverId) {
  *     کلیپ بود که ۴۰ ثانیه روی آخرین قابش ماند. حالا صحنه‌ای که از `VM_SCENE_MAX_SEC`×۱٫۶ بلندتر است
  *     سرِ جملهٔ میانه‌اش کارت می‌گیرد: همان جمله‌ای که گوینده آن لحظه می‌گوید، نوشتهٔ برداری روی کاورِ
  *     محو — «حالت برداری کم استفاده شده بود».
- *   • پل‌های موسیقیِ میانه: کاور، و پس از پل اگر رسانهٔ تازه تا ۵ ثانیه نیامد، کارت.
+ *   • ۹.۰۳: کارت کوتاه است و پس از آن همان کلیپ از جایی که ایستاد ادامه می‌یابد؛ پل‌های میانه کاور نمی‌گیرند.
  * کاور نبود ⇒ همان صحنه‌ها، دست‌نخورده.
  */
 function vmCards_(ready, sents, music, secs, coverId) {
   var out = { scenes: ready.slice(), added: 0 };
   if (!coverId || CFG.VM_CARDS === false || !ready.length) return out;
   var total = Number(secs) || 0;
+  var cardSec = Math.max(4, Number(CFG.VM_CARD_SEC) || 7);
   var plain = function (t) {
     return String(t || '').replace(/[ً-ْٰ]/g, '').replace(/\s+/g, ' ').trim();
-  };
-  var sentAt = function (a, b) {        // نخستین جملهٔ درونِ [a, b)
-    for (var i = 0; i < sents.length; i++) {
-      var t = Number(sents[i][0]);
-      if (t >= a - 0.3 && t < b) return { t: t, text: plain(sents[i][1]) };
-    }
-    return null;
   };
   var card = function (t0, text) {
     var tx = plain(text);
@@ -576,34 +570,27 @@ function vmCards_(ready, sents, music, secs, coverId) {
     return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '',
              media: { kind: 'photo', quote: '', card: true }, ov: { kind: 'quote', title: tx, lines: [] } };
   };
-  var cover = function (t0, flag) {
-    var m = { kind: 'photo', quote: '' };
-    m[flag] = true;
-    return { t0: Math.round(t0 * 10) / 10, fileId: coverId, caption: '', say: '', media: m };
-  };
   var sc = out.scenes;
-  var push = function (x) { sc.push(x); out.added++; };
+  /* فقط موسیقیِ **پایانی** کاور می‌گیرد. نسخهٔ ۹.۰۱ سرِ پل‌های میانه هم کاور می‌گذاشت و پس از پل کارت — و
+     نمونهٔ پنجم نشان داد این وقتِ خودِ کلیپ را می‌خورد: کلیپِ ۵۹٫۷ فقط ۱۷ ثانیه دیده شد و ۱۰۰ ثانیه کاور بود. */
   var mus = (music || []).slice().sort(function (a, b) { return a[0] - b[0]; });
   for (var i = 0; i < mus.length; i++) {
-    var a = Number(mus[i][0]), b = Number(mus[i][1]);
-    if (!(b > a) || a < 1) continue;                       // موسیقیِ آغاز: کار با کاور/پیش‌نمایشِ vmLead_
-    if (total && b >= total - 1) { push(cover(a, 'outro')); continue; }
-    if (b - a < 6) continue;
-    push(cover(a, 'bridge'));
-    var nextT = null;
-    for (var k = 0; k < ready.length; k++) if (ready[k].t0 >= b - 0.5) { nextT = ready[k].t0; break; }
-    if (nextT === null || nextT - b > 5) {
-      var s1 = sentAt(b, nextT === null ? (total || b + 30) : nextT);
-      if (s1 && s1.text) push(card(s1.t, s1.text));
+    var a0 = Number(mus[i][0]), b0 = Number(mus[i][1]);
+    if (!(b0 > a0) || a0 < 1) continue;
+    if (total && b0 >= total - 1) {
+      sc.push({ t0: Math.round(a0 * 10) / 10, fileId: coverId, caption: '', say: '', media: { kind: 'photo', quote: '', outro: true } });
+      out.added++;
     }
   }
   sc.sort(function (p, q) { return p.t0 - q.t0; });
+  /* صحنهٔ بلند: کارتی **کوتاه** (`VM_CARD_SEC`) سرِ جملهٔ میانه، و بعد **همان رسانه ادامه می‌یابد** (`cont`):
+     رانر کلیپ را از جایی که صحنهٔ پیشینش ایستاد پی می‌گیرد — نه از نو، نه کاورِ طولانی. */
   var maxSec = Math.max(10, Number(CFG.VM_SCENE_MAX_SEC) || 28) * 1.6;
   for (var guard = 0; guard < 40; guard++) {
     var hit = -1;
     for (var z = 0; z < sc.length; z++) {
       var m0 = sc[z].media || {};
-      if (m0.intro || m0.teaser || m0.outro || m0.bridge || m0.long) continue;
+      if (m0.intro || m0.teaser || m0.outro || m0.card || m0.long) continue;
       var end = z + 1 < sc.length ? sc[z + 1].t0 : total;
       if (end - sc[z].t0 > maxSec) { hit = z; break; }
     }
@@ -611,12 +598,20 @@ function vmCards_(ready, sents, music, secs, coverId) {
     var st = sc[hit].t0, en = hit + 1 < sc.length ? sc[hit + 1].t0 : total, mid = st + (en - st) / 2, best = null;
     for (var y = 0; y < sents.length; y++) {
       var ty = Number(sents[y][0]);
-      if (ty < st + 8 || ty > en - 8) continue;
+      if (ty < st + 8 || ty > en - 8 - cardSec) continue;
       if (!best || Math.abs(ty - mid) < Math.abs(best.t - mid)) best = { t: ty, text: sents[y][1] };
     }
     if (!best || !plain(best.text)) { sc[hit].media = Object.assign({}, sc[hit].media, { long: true }); continue; }
-    sc.splice(hit + 1, 0, card(best.t, best.text));
-    out.added++;
+    var back = null;
+    for (var y2 = 0; y2 < sents.length; y2++) {
+      var t2 = Number(sents[y2][0]);
+      if (t2 >= best.t + cardSec - 0.5 && t2 <= en - 6) { back = t2; break; }
+    }
+    if (back === null) back = Math.min(en - 6, best.t + cardSec);
+    var cont = { t0: Math.round(back * 10) / 10, fileId: sc[hit].fileId, caption: '', say: '',
+                 media: { kind: sc[hit].media.kind, quote: '', cont: true } };
+    sc.splice(hit + 1, 0, card(best.t, best.text), cont);
+    out.added += 2;
   }
   for (var n = 0; n < sc.length; n++) {
     sc[n].n = n + 1;

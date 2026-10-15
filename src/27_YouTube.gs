@@ -1612,6 +1612,9 @@ function ytRenderBuilt_(row, map) {
 }
 
 /** یک درخواستِ تازه، بی تکرار. سقف دارد تا صف بی‌نهایت نشود. */
+/** پرچم‌های رسانهٔ صحنه که رانر می‌خوانَد — همان فهرستِ `tools/scenekit.js` (mediaOf). */
+var YT_MEDIA_FLAGS = ['intro', 'teaser', 'card', 'outro', 'cont'];
+
 function ytRenderAsk_(item) {
   var d = ytRenderRead_();
   var key = String(item.show) + ':' + String(item.ep);
@@ -1715,7 +1718,10 @@ function ytRenderAsk_(item) {
       /* رسانهٔ منبع (بخشِ ۳۷): رانر خودش کلیپ را می‌بُرد و در قاب می‌نشاند؛ نشانی همان `url`ِ صحنه است. */
       if (x.media && (x.media.kind === 'video' || x.media.kind === 'photo')) {
         r0.media = { kind: String(x.media.kind), quote: String(x.media.quote || '').slice(0, 160) };
-        if (x.media.intro) r0.media.intro = true;
+        /* ۹.۰۳: همهٔ پرچم‌هایی که رانر می‌خوانَد (`scenekit.mediaOf`) — نه فقط `intro`. فهرستِ دستیِ قبلی
+           `teaser` (۸.۹۸) و `card`/`outro` (۹.۰۱) را دور می‌ریخت: کارتِ نوشته به‌صورتِ کاورِ خامِ بی‌نوشته
+           درآمد و پیش‌نمایش از آغازِ کلیپ بریده شد. `run_varietymedia_test` ۱۴ دو فهرست را با هم می‌سنجد. */
+        for (var fl = 0; fl < YT_MEDIA_FLAGS.length; fl++) if (x.media[YT_MEDIA_FLAGS[fl]]) r0.media[YT_MEDIA_FLAGS[fl]] = true;
       }
       return r0; });
     if (item.media) {

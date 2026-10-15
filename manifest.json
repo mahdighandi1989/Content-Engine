@@ -1,13 +1,15 @@
 {
-  "version": "9.02",
+  "version": "9.03",
   "codeFile": "engine.gs",
-  "sha256": "55cdb80fa0fac6dd101573277fccaa9e7938bc7f61bea5c474678878300a1c45",
-  "releasedAt": "2026-10-15T00:20:00Z",
-  "summary": "اشتراکِ صوتِ ردیفِ در انتظار دیگر با پس‌گرفتنِ اشتراکِ ردیفِ دیگری بسته نمی‌شود؛ نمونهٔ منتظر اشتراکِ خودش را هر ساعت دوباره برقرار می‌کند.",
+  "sha256": "a7051f0f49ff44714e94356275ff37dc3d71f0bac06cd30fa5254f53f913b682",
+  "releasedAt": "2026-10-15T03:30:00Z",
+  "summary": "ویدئوی «از همه جا»: همهٔ پرچم‌های صحنه به رانر می‌رسند؛ کاور فقط سرِ موسیقیِ پایانی؛ کارتِ ۷ ثانیه‌ای و بعد ادامهٔ همان کلیپ.",
   "fixes": [
-    "27_YouTube: ytShareKeep_ و پارامترِ keep در ytRenderShare_ — جاروی شبانه فایلِ لازمِ ردیف‌های در انتظار را نمی‌بندد",
-    "37_VarietyMedia: پایانِ نمونه با keep؛ نمونهٔ منتظر هر ساعت ytRenderShare_(row, true)",
-    "tests: run_varietymedia_test §۱۳ با شکستنِ عمدی"
+    "27_YouTube: YT_MEDIA_FLAGS — ytRenderAsk_ همهٔ پرچم‌های media (intro/teaser/card/outro/cont) را رد می‌کند",
+    "37_VarietyMedia: vmCards_ — بی کاورِ پل‌های میانه؛ کارتِ VM_CARD_SEC و صحنهٔ cont از همان رسانه",
+    "runner: cont ادامهٔ کلیپ از usedTo؛ mediaOf پرچمِ cont",
+    "VM_SAMPLE rev ۶",
+    "tests: run_varietymedia §۱۲ بازنوشته، §۱۴ — با شکستنِ عمدی"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
@@ -136,6 +138,9 @@
     },
     "9.02": {
       "R-20261014-18": "نمونهٔ ۵ به‌خاطرِ اشتراکِ بسته‌شدهٔ صوت ساخته نشد — درمان: ytShareKeep_"
+    },
+    "9.03": {
+      "R-20261014-18": "نمونهٔ ۵: کارت به رانر نرسید (پرچمِ دورریخته) و کاور وقتِ کلیپ را خورد — درمان در YT_MEDIA_FLAGS و vmCards_"
     }
   }
 }

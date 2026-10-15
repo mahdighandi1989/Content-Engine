@@ -72,9 +72,10 @@ function mediaOf(v) {
   if (!v || typeof v !== 'object') return null;
   const k = String(v.kind || '');
   if (k !== 'video' && k !== 'photo') return null;
-  /* card/outro/bridge (۹.۰۱): کاورِ قسمت — محو با نوشتهٔ برداری، یا خودِ کاور سرِ موسیقیِ پایانی و پل‌ها. */
+  /* card/outro (۹.۰۱): کاورِ قسمت — محو با نوشتهٔ برداری، یا خودِ کاور سرِ موسیقیِ پایانی. cont (۹.۰۳): ادامهٔ همان
+     کلیپ از جایی که صحنهٔ پیشینِ همین رسانه ایستاد. فهرستِ پرچم‌ها = `YT_MEDIA_FLAGS` در موتور. */
   return { kind: k, quote: String(v.quote || '').trim().slice(0, 160), intro: !!v.intro, teaser: !!v.teaser,
-           card: !!v.card, outro: !!v.outro, bridge: !!v.bridge };
+           card: !!v.card, outro: !!v.outro, cont: !!v.cont };
 }
 
 /* ══ حرکتِ معنادار (۸.۵۱) ══

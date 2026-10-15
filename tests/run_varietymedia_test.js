@@ -387,12 +387,18 @@ console.log('=== ۱۲) نمونهٔ چهارم، همان عددها (۹.۰۱): 
   const sc = r.scenes;
   const at = t => sc.filter(x => x.t0 <= t).pop();
   ok('۱۲.۱ سرِ موسیقیِ پایانی (۶۲۶٫۹) کاور است، نه کلیپِ صحنهٔ ۱۲', at(640).fileId === 'COVER' && at(640).media.outro, JSON.stringify(at(640)));
-  ok('۱۲.۲ صحنهٔ ۱۱۵ ثانیه‌ای (۵۹٫۷ → ۱۷۴٫۶) دیگر یک تکه نیست: کارتِ نوشته در میانه‌اش',
-     sc.some(x => x.media.card && x.t0 > 70 && x.t0 < 165 && x.ov && x.ov.kind === 'quote' && x.ov.title.length > 5));
+  const ci = sc.findIndex(x => x.media.card && x.t0 > 70 && x.t0 < 165);
+  ok('۱۲.۲ صحنهٔ ۱۱۵ ثانیه‌ای (۵۹٫۷ → ۱۷۴٫۶): کارتِ نوشته در میانه، **کوتاه**، و بعد همان کلیپ ادامه می‌یابد (۹.۰۳)',
+     ci > 0 && sc[ci].ov && sc[ci].ov.kind === 'quote' && sc[ci].ov.title.length > 5 &&
+     sc[ci + 1].fileId === sc[ci - 1].fileId && sc[ci + 1].media.cont === true &&
+     sc[ci + 1].t0 - sc[ci].t0 >= 6 && sc[ci + 1].t0 - sc[ci].t0 <= 12,
+     ci > 0 ? JSON.stringify([sc[ci - 1].t0, sc[ci].t0, sc[ci + 1] && sc[ci + 1].t0, sc[ci + 1] && sc[ci + 1].media]) : 'کارت نبود');
+  const coverSec = sc.reduce((a, x, i) => a + (x.fileId === 'COVER' && !x.media.outro ? (i + 1 < sc.length ? sc[i + 1].t0 : 655.98) - x.t0 : 0), 0);
+  ok('۱۲.۲-ب کاور (جز پایان) روی‌هم کمتر از ۱۵٪ِ زمان — نمونهٔ پنجم بیش از ۴۰٪ بود', coverSec < 0.15 * 655.98, coverSec.toFixed(0) + ' ثانیه');
   const lens = sc.map((x, i) => [x, (i + 1 < sc.length ? sc[i + 1].t0 : 655.98) - x.t0]);
   ok('۱۲.۳ هیچ صحنه‌ای از ۴۵ ثانیه بلندتر نماند', lens.every(([x, d]) => d <= 28 * 1.6 + 0.01),
      lens.filter(([x, d]) => d > 44.8).map(([x, d]) => x.t0 + ':' + d.toFixed(0)).join(','));
-  ok('۱۲.۴ پلِ موسیقیِ میانه (۲۸۶٫۳) کاور می‌گیرد', at(290).fileId === 'COVER' && at(290).media.bridge);
+  ok('۱۲.۴ پلِ موسیقیِ میانه (۲۸۶٫۳) کاور نمی‌گیرد — کلیپِ همان بخش زیرِ موسیقی می‌ماند (۹.۰۳)', at(290).fileId !== 'COVER', JSON.stringify(at(290)));
   ok('۱۲.۵ نوشتهٔ کارت بی اعراب است (برای چشم، نه گوش)', sc.filter(x => x.ov && x.media.card).every(x => !/[ً-ْ]/.test(x.ov.title)));
   ok('۱۲.۶ شماره‌ها پیاپی و ترتیب زمانی', sc.every((x, i) => x.n === i + 1 && (i === 0 || sc[i - 1].t0 <= x.t0)));
   ok('۱۲.۷ بی کاور ⇒ دست‌نخورده', vmCards_(ready, sl, music, 655.98, '').scenes.length === ready.length);
@@ -435,6 +441,35 @@ console.log('=== ۱۳) پس‌گرفتنِ اشتراک صوتِ ردیفِ در
   const e = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
   ok('۱۳.۴ نمونهٔ منتظر هر ساعت اشتراکِ ردیفِ خودش را دوباره برقرار می‌کند', /if \(rowW && String\(rowW\.status \|\| ''\) === 'در انتظار'\) ytRenderShare_\(rowW, true\);/.test(e) &&
      /ytRenderShare_\(row0, false, ytShareKeep_\(ytRenderRead_\(\), key\)\)/.test(e));
+}
+
+console.log('=== ۱۴) هر پرچمی که رانر می‌خوانَد از صف می‌گذرد (۹.۰۳) ===');
+{
+  /* نمونهٔ پنجم: ytRenderAsk_ فقط intro را رد می‌کرد؛ card و teaser دور ریخته شدند و کاورِ خام به‌جای کارت آمد. */
+  const sk = fs.readFileSync('tools/scenekit.js', 'utf8');
+  const m = /function mediaOf\(v\) \{[\s\S]*?return \{([\s\S]*?)\};/.exec(sk);
+  const runnerFlags = m ? (m[1].match(/(\w+): !!v\.\w+/g) || []).map(x => x.split(':')[0]).sort() : [];
+  ok('۱۴.۱ YT_MEDIA_FLAGS همان پرچم‌های mediaOf است', runnerFlags.length >= 5 && JSON.stringify(runnerFlags) === JSON.stringify(YT_MEDIA_FLAGS.slice().sort()),
+     JSON.stringify(runnerFlags) + ' / ' + JSON.stringify(YT_MEDIA_FLAGS));
+  const keepR = global.ytRenderRead_, keepS = global.ytRenderSave_, keepSh = global.ytRenderShare_, keepM = global.ytRenderMapCached_;
+  let saved = null;
+  global.ytRenderRead_ = () => ({ items: [] }); global.ytRenderSave_ = d => { saved = d; }; global.ytRenderShare_ = () => 1;
+  global.ytRenderMapCached_ = () => ({});
+  try {
+    ytRenderAsk_({ show: 'variety', ep: '99', title: 't', folderId: 'F', media: true, moments: [], mute: [],
+      scenes: [{ n: 1, t0: 0, fileId: 'A', media: { kind: 'photo', quote: '', card: true } },
+               { n: 2, t0: 9, fileId: 'B', media: { kind: 'video', quote: '', teaser: true } },
+               { n: 3, t0: 20, fileId: 'C', media: { kind: 'video', quote: '', cont: true } },
+               { n: 4, t0: 40, fileId: 'D', media: { kind: 'photo', quote: '', outro: true } }],
+      audio: [{ id: 'AU', name: 'a' }] });
+    const rs = ((saved && saved.items[0]) || {}).scenes || [];
+    ok('۱۴.۲ ردیفِ صف card/teaser/cont/outro را دارد', rs.length === 4 && rs[0].media.card && rs[1].media.teaser && rs[2].media.cont && rs[3].media.outro,
+       JSON.stringify(rs.map(x => x.media)));
+  } finally { global.ytRenderRead_ = keepR; global.ytRenderSave_ = keepS; global.ytRenderShare_ = keepSh; global.ytRenderMapCached_ = keepM; }
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱۴.۳ رانر صحنهٔ cont را از جایی که صحنهٔ پیشینِ همان کلیپ ایستاد ادامه می‌دهد',
+     /const cont = !!\(s\.media && s\.media\.cont\) && usedTo\[s\.url\] !== undefined;/.test(rj) &&
+     /usedTo\[s\.url\] = Math\.max\(usedTo\[s\.url\] \|\| 0, from \+ c\.len/.test(rj));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');
