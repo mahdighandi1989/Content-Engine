@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.07
+ *  موتور محتوا و پادکست — نسخهٔ 9.08
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2079,7 +2079,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.07',
+  CODE_VERSION: '9.08',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -74558,8 +74558,11 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
     if (o.markWhy) row.markWhy = String(o.markWhy);
   }
   d.items.push(row);
-  return vbrSave_(d) ? { ok: true, key: key, parts: row.audio.length }
-                     : { ok: false, why: 'صف ذخیره نشد' };
+  if (!vbrSave_(d)) return { ok: false, why: 'صف ذخیره نشد' };
+  /* ══ رانر همان لحظه راه می‌افتد، نه با cronِ گیت‌هاب (۹.۰۸) ══ همان درسِ ۸.۵۸ برای رندر: cronِ «هر دو
+     ساعت» در عمل هر ۴ تا ۶ ساعت زد (۱۵ اکتبر: ۰۴:۲۴ و بعد هیچ تا ظهر) و نمونهٔ رنگیِ گلدوز ساعت‌ها در صف ماند. */
+  try { ghKick_(String(CFG.GH_VBR_WF || 'voice-bridge.yml'), 'ردیفِ تازه در صفِ پل: ' + key); } catch (eK) {}
+  return { ok: true, key: key, parts: row.audio.length };
 }
 
 /**

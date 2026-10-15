@@ -81,5 +81,13 @@ ok('۳.۳ پل: رنگ پیش از بلندی، و رنگِ نگرفته ردی�
 const vi = fs.readFileSync('src/33_VoiceIntake.gs', 'utf8');
 ok('۳.۴ خبرِ پایانِ آموزش می‌گوید مرجعِ سنجه به نفعِ مدلِ تازه کج است', /به نفعِ ' \+\s*'مدلِ تازه کج است/.test(vi));
 
+console.log('=== ۴) ردیفِ تازه رانر را همان لحظه راه می‌اندازد (۹.۰۸) ===');
+const kicks = [];
+global.ghKick_ = (wf, why) => { kicks.push(wf); return { ok: true }; };
+global.vintReadResult_ = () => ({ speakers: { 'spk-x': { prev: { fileIds: ['O1'] } } } });
+saved = null;
+vbrAsk_('آزمون', '9', 'F', 'spk-x', 't', { soul: 'روشن', colour: 'prev' });
+ok('۴.۱ voice-bridge.yml راه افتاد', kicks.indexOf('voice-bridge.yml') !== -1, kicks.join());
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رنگِ ضبط‌های خودِ گوینده گذشت.');

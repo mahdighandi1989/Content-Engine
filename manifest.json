@@ -1,15 +1,12 @@
 {
-  "version": "9.07",
+  "version": "9.08",
   "codeFile": "engine.gs",
-  "sha256": "de7706c9a40655b0b5c1c2a48763800623c468c4c91d6b2670055acd90c12d19",
-  "releasedAt": "2026-10-15T10:00:00Z",
-  "summary": "ریشهٔ «چرا کسی نفهمید»: شنوندهٔ هر تکهٔ صدا متنِ بی‌اعراب می‌گیرد و از معنای جمله داوری می‌کند، نه از اعرابِ خودمان؛ نمونهٔ ویدئو روی قسمتِ ۷۳.",
+  "sha256": "39a99e9b09f9d4a734f20b588124819d6cb607a6cba44a81c47774090abfd8f3",
+  "releasedAt": "2026-10-15T11:00:00Z",
+  "summary": "پل دیگر منتظرِ cron نیست: ردیفِ تازه در صفِ پل همان لحظه voice-bridge.yml را راه می‌اندازد.",
   "fixes": [
-    "03_Producer: ttsListenCheck_ — متنِ بی‌اعراب و داوریِ گوشِ فارسی‌زبان از معنای جمله (واکه، کسرهٔ اضافه، بخش‌بندی)",
-    "03_Producer: ttsListenApplyFix_ — اصلاح با حروفِ واژه روی متنِ اعراب‌دار (نه زیررشته)؛ fix بی‌اعراب پذیرفته",
-    "03_Producer: ttsListenGuard_ — اصلاحِ فقط-کسرهٔ‌اضافه به تبِ «تلفظ» نمی‌رود",
-    "00_Config: VM_SAMPLE روی قسمتِ ۷۳",
-    "tests: run_speak_salvage_test §۳ (با شکستنِ عمدی)؛ run_moods_test مقلدِ شنونده با متنِ تازه"
+    "36_VoiceBridge: vbrAsk_ پس از ذخیره ghKick_('voice-bridge.yml')",
+    "tests: run_voice_colour_test §۴ (با شکستنِ عمدی)"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
