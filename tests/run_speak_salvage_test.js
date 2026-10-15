@@ -1,0 +1,31 @@
+/* نجاتِ واژه‌به‌واژه (۹.۰۶) — قسمتِ ۷۳: دو بخش از شش بی‌اعراب خوانده شد، چون مدل یک واژهٔ محاوره را
+ * «درست» کرد («بیان» ← «بیاین») و دیگری یک نیم‌فاصله گذاشت («راهروهای» ← «راهروها‌ی»). برای یک واژه، کلِ بخش. */
+require('./lib/root.js');
+const fs = require('fs');
+require('./lib/mock.js');
+const FILES = fs.readdirSync('src').filter(f => f.endsWith('.gs')).sort();
+let src = ''; for (const f of FILES) src += '\n' + fs.readFileSync('src/' + f, 'utf8');
+(0, eval)(src);
+
+let pass = 0;
+const ok = (n, c, info) => {
+  if (!c) { console.log('  ❌ ' + n + (info ? ' — ' + info : '')); throw new Error('FAILED: ' + n); }
+  pass++; console.log('  ✅ ' + n + (info ? ' — ' + String(info).slice(0, 220) : ''));
+};
+global.logLine_ = () => {};
+const vow = t => t.replace(/([آ-ی])(?=[آ-ی])/g, '$1َ');      // اعرابِ ساختگی: فتحه پس از هر حرفِ میانی
+
+console.log('=== ۱) مدل یک واژه را عوض کرد ⇒ بقیهٔ بخش اعراب دارد، حروفِ متن دست نخورده ===');
+const P = 'سخنگو می‌گوید همه مردم باید به کمک ما بیان و کمتر آب بخورن و مصرف آبشون رو در منازل کم کنن تنها راهش همینه';
+const bad = vow(P.replace('بیان', 'بیاین'));
+global.geminiText_ = () => ({ v: bad });
+const out = vowelizePiece_(P);
+ok('۱.۱ بخش بی‌اعراب نماند', !!out && /َ/.test(out), out.slice(0, 120));
+ok('۱.۲ حروفِ خودِ متن ماند («بیان»، نه «بیاین») و وارسی می‌گذرد', verifySpeak_(P, out) && /بیان/.test(out.replace(/[ًٌٍَُِّْٰ]/g, '')) && !/بیاین/.test(out.replace(/[ًٌٍَُِّْٰ]/g, '')));
+ok('۱.۳ علت پاک شد (یافتهٔ speak-skipped نمی‌سازد)', VOWEL_LAST_WHY_ === '');
+
+console.log('=== ۲) جوابی که به متن ربطی ندارد ⇒ همان «نشد» (نجات چیزی نمی‌سازد) ===');
+global.geminiText_ = () => ({ v: vow('این متن کاملاً دیگری است که هیچ ربطی به آن بخش ندارد و فقط شبیه فارسی است') });
+ok('۲.۱ پوششِ کم ⇒ خالی، با علت', vowelizePiece_(P) === '' && /ناهم‌خوان/.test(VOWEL_LAST_WHY_), VOWEL_LAST_WHY_);
+
+console.log('\n✅ همهٔ ' + pass + ' سنجهٔ نجاتِ واژه‌به‌واژه گذشت.');

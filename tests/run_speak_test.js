@@ -1688,10 +1688,11 @@ console.log('\n=== ۲۶) همزهٔ اضافه و مدارشکن — دو علت
      ریز) و مدارشکن کلِ قسمت را بی‌اعراب فرستاد. */
   const NEAR = { v: V(PL).replace(V('نگاه'), V('نگاهی')) };
   const a = run(NEAR);
-  ok('۲۶.۴ چهار ردِ **نزدیک**: مدارشکن نمی‌زند، رد جدا شمرده می‌شود',
-     a.r.done === true && a.r.dead !== true && (a.ep.__speakRejects || 0) >= 3 &&
-     !(a.ep.__speakFails > 0),
-     JSON.stringify({ dead: a.r.dead, rej: a.ep.__speakRejects, fails: a.ep.__speakFails }));
+  /* از ۹.۰۶ جوابِ نزدیک دیگر رد نمی‌شود: اعرابش واژه‌به‌واژه روی حروفِ متن می‌نشیند (قسمتِ ۷۳). */
+  ok('۲۶.۴ چهار جوابِ **نزدیک**: مدارشکن نمی‌زند و هر چهار بخش اعراب می‌گیرند (نجاتِ واژه‌به‌واژه)',
+     a.r.done === true && a.r.dead !== true && !(a.ep.__speakFails > 0) &&
+     a.ep.__speakSegs.filter(x => x && x.t && !x.skip).length === 4,
+     JSON.stringify({ dead: a.r.dead, rej: a.ep.__speakRejects, fails: a.ep.__speakFails, segs: a.ep.__speakSegs.map(x => !!(x && x.t)) }));
 
   /* ۲۶.۵ — مرزِ دیگر: جوابِ بی‌ربط هنوز «در دسترس نیست» است. */
   const b = run({ v: 'چیزِ بی‌ربطی که هیچ ربطی ندارد.' });
