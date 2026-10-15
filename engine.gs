@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.04
+ *  موتور محتوا و پادکست — نسخهٔ 9.05
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2079,7 +2079,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.04',
+  CODE_VERSION: '9.05',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2438,8 +2438,11 @@ var CFG = {
   VOICE_SOUL_SEED: [
     /* برچسب‌ها در ۸.۴۱ عوض شدند: «مکث به اندازهٔ خودش» پارامترِ تازه‌ای است
        که این نمونه باید داشته باشد تا شنیده شود — همان قاعدهٔ ۷٫۸۶. */
+    /* ۹.۰۵: او شنید «قدیمی شبیه‌تره، چون رادیویی‌تره». `colour: 'prev'` خروجیِ مدلِ تازه را به رنگِ
+       طیفِ ضبط‌های قدیمِ خودِ او می‌بَرد (`voicebridge.colourMatch`)؛ برچسب عوض شد تا نمونهٔ تازه ساخته
+       شود (۷٫۸۶). */
     { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · مدلِ صبح' },
+      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · رنگِ ضبط‌های قدیمِ خودش', colour: 'prev' },
     { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
       tag: 'گامِ خودکار · مکث به اندازهٔ خودش · مدلِ صبح' }
   ],
@@ -2456,6 +2459,8 @@ var CFG = {
      بذری که ساخته شد در `have[]` می‌نشیند، پس تلاشِ دوباره خودبه‌خود سراغِ
      همان می‌رود که نیامده. */
   VOICE_SOUL_SEED_MAX_DAY: 4,
+  /* چند ضبطِ مرجع برای رنگ (۹.۰۵) — هر کدام چند دقیقه؛ میانگینِ طیفشان شکلِ هدف است. */
+  VBR_COLOUR_REFS: 3,
   VBR_SEED_ASKS: [
     { show: 'نمونهٔ گام — spk-1g0r95d', ep: '53', speaker: 'spk-1g0r95d',
       folderId: '1eTExdCMET6sMsEwIN_KF2inpKnTXev2Z',
@@ -69120,6 +69125,11 @@ function vintAnnounce_(name, key, r, samples) {
     var dv = Number(r.similarity) - Number(r.prevSimilarity);
     lines.push('• مدلِ قبلی روی همان ضبط و همان سنجش: ' + r.prevSimilarity +
                (isFinite(dv) ? '  ⇐ ' + (dv >= 0 ? '+' : '') + dv.toFixed(3) : ''));
+    /* ۹.۰۵: مرجع `fileIds[0]` است — یکی از همان ضبط‌هایی که مدلِ تازه رویش آموزش دید. گلدوز ۰٫۸۵۱ در
+       برابرِ ۰٫۷۶۶ گرفت و صاحبِ برنامه با گوش درست برعکس شنید: صدایی که او می‌شناسد ضبط‌های قدیم است.
+       عددی که زمینش به نفعِ یک طرف کج است، «شبیه‌تر شد» را جواب نمی‌دهد و نباید بی این جمله برود. */
+    lines.push('  ⚠️ مرجعِ این سنجش یکی از ضبط‌هایی است که مدلِ تازه رویش آموزش دید؛ پس این مقایسه به نفعِ ' +
+               'مدلِ تازه کج است و «شبیه‌تر» را فقط گوش می‌گوید.');
   } else if (r.retrainDone) {
     lines.push('• مدلِ قبلی این بار سنجیده نشد (artifactش برداشته نشد)، پس عددِ بالا با ' +
                'عددهای قبلیِ او قابلِ مقایسه نیست: مرجعِ سنجش این بار یک ضبطِ تازه است.');
@@ -74489,6 +74499,18 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      سرِ تحویل: پروندهٔ قسمت همین حالا در دسترس است و ماه‌ها بعد ممکن است
      نباشد — و اگر سرِ تحویل خوانده شود، یک خطای گذرا ادعا را بی‌صدا به
      «نامعلوم» تنزل می‌دهد. */
+  /* ══ رنگِ ضبط‌های خودِ گوینده (۹.۰۵) ══ چند ضبطِ او موقتاً «هرکس با لینک» می‌شوند — همان راهِ صوتِ
+     قسمت، و همان `vbrUnshare_` پس می‌گیردشان. نبودِ مرجع ردیف را نمی‌سازد: نمونه‌ای با برچسبِ «رنگِ
+     ضبط‌های قدیم» که آن رنگ را ندارد، ادعای نیمه است. */
+  if (o.colour) {
+    var cr = vbrColourRefs_(speaker, o.colour);
+    if (!cr.length) return { ok: false, why: 'ضبطِ مرجعی برای رنگِ «' + o.colour + '» پیدا نشد' };
+    row.colour = { from: String(o.colour), refs: [] };
+    for (var c = 0; c < cr.length; c++) {
+      try { driveShareOn_(cr[c]); } catch (eC) {}
+      row.colour.refs.push({ id: cr[c], url: ytDlUrl_(cr[c]) });
+    }
+  }
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -74727,10 +74749,23 @@ function vbrFetch_(item, hit, speakerName) {
            name: names.join(' + '), bytes: bytes, pieces: ps.length };
 }
 
+/**
+ * ضبط‌های مرجعِ رنگ (۹.۰۵): `prev` = ضبط‌های آموزشِ پیشینِ او (همان صدایی که صاحبِ برنامه از او
+ * می‌شناسد)، `self` = ضبط‌های آموزشِ فعلی. از `docs/voices.json` — همان سیاهه‌ای که گردش‌کار می‌نویسد.
+ */
+function vbrColourRefs_(speaker, from) {
+  var doc = null;
+  try { doc = vintReadResult_(); } catch (e) { doc = null; }
+  var s = doc && doc.speakers && doc.speakers[String(speaker)];
+  if (!s) return [];
+  var ids = String(from) === 'prev' ? ((s.prev && s.prev.fileIds) || []) : (s.fileIds || []);
+  return ids.slice(0, Math.max(1, Number(CFG.VBR_COLOUR_REFS) || 3)).map(String);
+}
+
 /** اشتراکِ موقتِ یک ردیف را پس بگیر — پیش از بستنِ ردیف، نه بعدش. */
 function vbrUnshare_(item) {
   var n = 0;
-  var au = (item && item.audio) || [];
+  var au = ((item && item.audio) || []).concat((item && item.colour && item.colour.refs) || []);
   for (var i = 0; i < au.length; i++) {
     try { if (driveShareOff_(au[i].id)) n++; } catch (e) {}
   }
@@ -74776,6 +74811,7 @@ function vbrIngest_(hub) {
       if (hit.f0Out) it.f0Out = hit.f0Out;
       if (hit.f0Warn) it.f0Warn = String(hit.f0Warn);
       if (hit.loud) it.loud = hit.loud;          // بلندیِ پیش و پس (۸.۳۷)
+      if (hit.colour) it.colourOut = hit.colour; // ۹.۰۵
       out.unshared += vbrUnshare_(it);
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
@@ -74881,6 +74917,11 @@ function vbrPitchLine_(item, faD) {
            f(Number(L.lufs).toFixed(1)) + ' LUFS';
   }
   if (item.f0Warn) out += (out ? ' · ' : '') + '⚠️ ' + String(item.f0Warn);
+  var co = item.colourOut;
+  if (co && co.ok && co.before != null) {
+    out += (out ? ' · ' : '') + 'رنگِ ضبط‌های ' + (co.from === 'prev' ? 'قدیمِ ' : '') + 'خودش: فاصلهٔ طیف ' +
+           f(Number(co.before).toFixed(1)) + ' ⇒ ' + f(Number(co.after).toFixed(1)) + ' دسی‌بل';
+  }
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
@@ -76187,6 +76228,7 @@ function vbrSoulPick_() {
     var set = {};
     var seeded = {};
     var seedTag = {};
+    var seedColour = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -76201,6 +76243,7 @@ function vbrSoulPick_() {
       var sk = String(se.show) + ':' + String(se.ep);
       set[sk] = 1; seeded[sk] = 1;
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
+      if (se.colour) seedColour[sk] = String(se.colour);
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -76249,7 +76292,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -76622,6 +76665,7 @@ function runVoiceSoulTest() {
       } catch (eSl) {}
     }
     tagO.spanLine = spanLine;
+    if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
                     String(pick.item.title || ''), tagO);
     res.ok = !!(r && r.ok);

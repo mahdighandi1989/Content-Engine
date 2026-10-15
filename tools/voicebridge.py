@@ -448,6 +448,93 @@ def loudFix(src, dst):
             "tp": round(m2[1], 1) if m2 else None}
 
 
+# ══ رنگِ ضبط‌های خودِ گوینده (۹.۰۵) ══
+# صاحبِ برنامه دو مدلِ گلدوز را شنید: «قدیمی با اینکه بی‌کیفیت‌تره شبیه‌تره، چون حالتِ رادیویی‌تر
+# شده». مدلِ تازه روی ضبط‌های تمیزِ ۲۲ کیلوهرتزی آموزش دید؛ صدایی که او از گلدوز می‌شناسد ضبط‌های
+# قدیمِ رادیویی است. این تفاوت **رنگِ کانال** است نه هویتِ گوینده، پس با آموزشِ دوباره درمان نمی‌شود
+# — با هم‌رنگ کردنِ طیف درمان می‌شود. حدس نمی‌زنیم «رادیو» یعنی چه: میانگینِ طیفِ بلندمدتِ (LTAS)
+# خودِ ضبط‌های او سنجیده می‌شود و خروجی در ۲۸ نوارِ یک‌سوم‌اکتاو به همان شکل درمی‌آید. بالای پهنای
+# باندِ ضبطِ قدیم، خروجی همان‌قدر خاموش می‌شود — یعنی «بی‌کیفیت» به همان اندازه که او شنیده.
+COLOUR_BANDS = [63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600,
+                2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500]
+COLOUR_SR = 32000
+COLOUR_CUT, COLOUR_BOOST = -30.0, 9.0
+
+
+def ltas(path, maxSec=240, sr=COLOUR_SR):
+    """طیفِ بلندمدت روی **گفتار** (قاب‌های پرانرژی)، به دسی‌بل در هر نوار — یا `None`."""
+    import numpy as np
+    try:
+        raw = subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-t", str(maxSec), "-i", path,
+                              "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                             capture_output=True, timeout=600).stdout
+    except Exception:
+        return None
+    x = np.frombuffer(raw, dtype=np.float32)
+    n, hop = 2048, 1024
+    if x.size < n * 20:
+        return None
+    k = (x.size - n) // hop
+    fr = np.lib.stride_tricks.as_strided(x, shape=(k, n), strides=(x.strides[0] * hop, x.strides[0]))
+    e = (fr ** 2).mean(axis=1)
+    keep = e > np.percentile(e, 50)          # نیمهٔ پرانرژی = گفتار، نه مکث و نفس
+    if keep.sum() < 10:
+        return None
+    P = (np.abs(np.fft.rfft(fr[keep] * np.hanning(n), axis=1)) ** 2).mean(axis=0)
+    f = np.fft.rfftfreq(n, 1.0 / sr)
+    out = []
+    for c in COLOUR_BANDS:
+        lo, hi = c / 2 ** (1 / 6.0), c * 2 ** (1 / 6.0)
+        m = (f >= lo) & (f < hi)
+        out.append(10 * np.log10(P[m].mean() + 1e-12) if m.any() else -120.0)
+    return np.array(out)
+
+
+def colourGains(refDb, outDb):
+    """گینِ هر نوار تا شکلِ مرجع: میانهٔ ۲۵۰ تا ۴۰۰۰ صفر (بلندی کارِ loudFix است)، محدود و نرم."""
+    import numpy as np
+    g = np.asarray(refDb, float) - np.asarray(outDb, float)
+    mid = [i for i, c in enumerate(COLOUR_BANDS) if 250 <= c <= 4000]
+    g = g - float(np.median(g[mid]))
+    g = np.clip(g, COLOUR_CUT, COLOUR_BOOST)
+    sm = g.copy()
+    for i in range(1, len(g) - 1):
+        sm[i] = (g[i - 1] + 2 * g[i] + g[i + 1]) / 4.0
+    return np.clip(sm, COLOUR_CUT, COLOUR_BOOST)
+
+
+def colourDist(refDb, outDb):
+    """فاصلهٔ دو شکلِ طیف (دسی‌بل، پس از هم‌ترازیِ میانه) — عددی که «نزدیک‌تر شد؟» را جواب می‌دهد."""
+    import numpy as np
+    d = np.asarray(refDb, float) - np.asarray(outDb, float)
+    mid = [i for i, c in enumerate(COLOUR_BANDS) if 250 <= c <= 4000]
+    d = np.clip(d - float(np.median(d[mid])), -40, 40)
+    return round(float(np.sqrt((d ** 2).mean())), 2)
+
+
+def colourMatch(src, refs, dst):
+    """خروجی را به رنگِ ضبط‌های مرجع ببر. `{ok, why, ...}` — «نشد» هرگز بی‌صدا «شد» نمی‌شود."""
+    import numpy as np
+    R = [r for r in (ltas(p) for p in refs) if r is not None]
+    if not R:
+        return {"ok": False, "why": "طیفِ هیچ ضبطِ مرجعی خوانده نشد"}
+    ref = 10 * np.log10(np.mean([10 ** (r / 10.0) for r in R], axis=0) + 1e-12)
+    o = ltas(src)
+    if o is None:
+        return {"ok": False, "why": "طیفِ خروجی خوانده نشد"}
+    g = colourGains(ref, o)
+    ent = ";".join("entry(%d,%.1f)" % (c, v) for c, v in zip(COLOUR_BANDS, g))
+    subprocess.check_call(["ffmpeg", "-y", "-nostdin", "-loglevel", "error", "-i", src,
+                           "-af", "firequalizer=gain_entry='%s'" % ent, "-c:a", "pcm_s16le", dst])
+    o2 = ltas(dst)
+    before, after = colourDist(ref, o), (colourDist(ref, o2) if o2 is not None else None)
+    if after is None or after >= before:
+        return {"ok": False, "why": "رنگ نزدیک‌تر نشد (%.1f ⇒ %s دسی‌بل)" % (before, after),
+                "before": before, "after": after}
+    return {"ok": True, "refs": len(R), "before": before, "after": after,
+            "maxCut": round(float(g.min()), 1), "maxBoost": round(float(g.max()), 1)}
+
+
 def autoPitch(srcHz, targetHz):
     """گام به نیم‌پرده از نسبتِ دو زیروبم — محدود، چون عددِ پرت یعنی سنجشِ خراب."""
     import math
@@ -791,6 +878,26 @@ def runOne(it, mp):
             "کلِ قسمت تبدیل نشده، پس ردیف بسته نمی‌شود." % (outSec, srcSec))
         return 1
 
+    # ══ رنگ، پیش از بلندی (۹.۰۵) ══ ردیفی که رنگ خواسته و نگرفته، **بسته نمی‌شود**: فایلی که نامش
+    # «رنگِ ضبط‌های قدیم» است و همان صدای تمیز را دارد، همان ادعای نیمه‌ای است که او باید بگیرد.
+    colour = None
+    cw = it.get("colour") or {}
+    if cw.get("refs"):
+        cref = []
+        for i, r in enumerate(cw["refs"][:4]):
+            p = "vb/cref%d.audio" % i
+            if grab(r.get("url"), p):
+                cref.append(p)
+        colour = colourMatch(best, cref, os.path.join(os.path.dirname(best), "colour-out.wav")) \
+            if cref else {"ok": False, "why": "هیچ ضبطِ مرجعی برداشته نشد"}
+        if not colour.get("ok"):
+            say("::error title=رنگ گرفته نشد::%s — %s" % (key, colour.get("why")))
+            return 1
+        best = os.path.join(os.path.dirname(best), "colour-out.wav")
+        colour["from"] = str(cw.get("from") or "")
+        say("  رنگ: فاصلهٔ طیف با ضبط‌های خودش %.1f ⇒ %.1f دسی‌بل (%d مرجع، بیشترین کاهش %.0f)"
+            % (colour["before"], colour["after"], colour["refs"], colour["maxCut"]))
+
     # بلندی، پیش از بُرش — تا همهٔ تکه‌ها یک گین داشته باشند (۸.۳۷). شکست
     # در سنجش خروجی را نمی‌اندازد: فایلِ خام می‌رود و «نسنجیدم» ثبت می‌شود.
     loud = None
@@ -845,6 +952,8 @@ def runOne(it, mp):
         rec["loud"] = loud
     if pitchAuto:
         rec["pitchAuto"] = pitchAuto
+    if colour:
+        rec["colour"] = colour
     # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══
     # «رضوی مثلِ قبل بود» تنها شاهدِ ۱ اکتبر بود — گوشِ او. این عدد همان را
     # پیش از او می‌گوید: میانهٔ زیرِ ۷۵ یا سهمِ بزرگِ زیرِ ۷۰ هرتز یعنی خروجی
