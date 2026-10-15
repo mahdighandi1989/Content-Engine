@@ -25,7 +25,9 @@ const { spawnSync, execFileSync } = require('child_process');
 const MK = {
   w: 1920, h: 1080, fps: 24,      // همان SK.fps — لحظه و تکه‌های بی‌صدا باید بی بازکدگذاری پشتِ‌هم بنشینند
   wideMin: 1.55, wideMax: 2.1,     // در این بازه قاب را پر می‌کند؛ بیرونش کامل + حاشیهٔ تار
-  segMax: 60,                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
+  segMax: 60,
+  tailMax: 12, tailMin: 0.8, tailDark: 38, tailStill: 0.6,   // ۹.۱۰: کارتِ پایانیِ ریل جزوِ محتوا نیست
+  fillFrom: 4, fillSeg: 8, fillMax: 8,                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
   lead: 0.6,                       // چند ثانیه پیش از عبارت (تا جمله از وسط شروع نشود)
   momentMin: 3, momentTail: 0.7,
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
@@ -219,29 +221,91 @@ function photo(ff, file, out, opt) {
  * `skip` = {at, len} (زمانِ خودِ کلیپ): همان تکه‌ای که «لحظه» با صدایش پخش می‌کند، از این تکهٔ
  * بی‌صدا **برداشته** می‌شود — وگرنه بیننده پس از لحظه همان را دوباره، بی‌صدا، می‌بیند.
  */
+/**
+ * پایانِ محتوای کلیپ (۹.۱۰): ریل‌های اینستاگرام با کارتِ پایانیِ تیره و نشانِ اینستاگرام تمام می‌شوند.
+ * نمونهٔ قسمتِ ۷۳ همان را «آخرین قاب» گرفت و بیست‌وچند ثانیه نگه داشت — دو بار. پس دنبالهٔ تیره یا ساکنِ
+ * انتهای کلیپ (حداکثر `tailMax` ثانیه) جزوِ محتوا حساب نمی‌شود. دنباله‌ای کوتاه‌تر از `tailMin` بریده نمی‌شود.
+ */
+function contentEnd(ff, file, p) {
+  const dur = Number(p && p.dur) || 0;
+  if (dur < 4) return dur;
+  const span = Math.min(MK.tailMax + 1, dur - 2), t0 = dur - span, rate = 4;
+  let buf = null;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-ss', t0.toFixed(2), '-i', file, '-an',
+      '-vf', 'fps=' + rate + ',scale=32:24,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 22 });
+  } catch (e) { return dur; }
+  const fsz = 32 * 24, n = Math.floor(buf.length / fsz);
+  if (n < 3) return dur;
+  const mean = i => { let a = 0; for (let j = 0; j < fsz; j++) a += buf[i * fsz + j]; return a / fsz; };
+  const diff = i => { let a = 0; for (let j = 0; j < fsz; j++) a += Math.abs(buf[i * fsz + j] - buf[(i - 1) * fsz + j]); return a / fsz; };
+  let k = n - 1;
+  while (k > 0 && (mean(k) < MK.tailDark || diff(k) < MK.tailStill)) k--;
+  const cut = t0 + (k + 1) / rate;
+  return (dur - cut >= MK.tailMin) ? Math.max(2, cut) : dur;
+}
+
+/**
+ * صحنه‌ای بلندتر از کلیپ (۹.۱۰): به‌جای نگه‌داشتنِ یک قاب برای ده‌ها ثانیه، چند قابِ **از درونِ همان
+ * تکه**، هر کدام با حرکتِ آرام، با میان‌محو پشتِ کلیپ می‌نشینند. نمونهٔ ۷۳: ۱۱۲ ثانیه از ۴۶۷ عملاً ساکن بود.
+ */
+function fillTail(ff, out, L, rest) {
+  const n = Math.max(1, Math.min(MK.fillMax, Math.ceil(rest / MK.fillSeg)));
+  const xf = 0.5, seg = rest / n + xf;
+  const tmp = out.replace(/\.mp4$/, '') + '-c.mp4';
+  fs.renameSync(out, tmp);
+  const a = ['-i', tmp], f = [];
+  for (let i = 0; i < n; i++) {
+    const at = Math.min(Math.max(0.1, L - 0.3), (i + 0.5) * L / n);
+    const img = out.replace(/\.mp4$/, '') + '-f' + i + '.jpg';
+    run(ff, ['-ss', at.toFixed(2), '-i', tmp, '-frames:v', '1', '-q:v', '3', img]);
+    a.push('-loop', '1', '-framerate', String(MK.fps), '-t', seg.toFixed(3), '-i', img);
+    const z = 1.12, dx = i % 2 ? '(iw-ow)*(1-t/' + seg.toFixed(3) + ')' : '(iw-ow)*t/' + seg.toFixed(3);
+    f.push('[' + (i + 1) + ':v]scale=' + ev(MK.w * z) + ':' + ev(MK.h * z) + ",crop=" + MK.w + ':' + MK.h +
+           ":x='" + dx + "':y='(ih-oh)/2',setsar=1,format=yuv420p,settb=1/" + MK.fps + '[p' + i + ']');
+  }
+  f.push('[0:v]setsar=1,format=yuv420p,settb=1/' + MK.fps + '[p_]');
+  let cur = 'p_', off = L;
+  for (let i = 0; i < n; i++) {
+    off -= xf;
+    f.push('[' + cur + '][p' + i + ']xfade=transition=fade:duration=' + xf + ':offset=' + off.toFixed(3) + '[x' + i + ']');
+    cur = 'x' + i; off += seg;
+  }
+  run(ff, a.concat(['-filter_complex', f.join(';'), '-map', '[' + cur + ']', '-an', '-c:v', 'libx264',
+                    '-preset', 'veryfast', '-crf', String(MK.crf), '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
+  try { fs.unlinkSync(tmp); } catch (e) {}
+  return n;
+}
+
 function clip(ff, file, out, from, len, info, skip, opt) {
   const p = info || probe(ff, file);
   if (!p) throw new Error('کلیپ خوانده نشد');
-  const L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, p.dur - from)));
+  if (p.end === undefined) p.end = contentEnd(ff, file, p);
+  const E = Math.min(p.dur, p.end || p.dur);
+  if (from > E - 1) from = Math.max(0, E - Math.min(len, E));
+  const L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, E - from)));
   let pre = '[0:v]fps=' + MK.fps + '[s];';
   let inArgs = ['-ss', from.toFixed(2), '-t', L.toFixed(2), '-i', file];
-  if (skip && skip.at > from + 0.3 && skip.at + skip.len < p.dur - 0.5) {
+  if (skip && skip.at > from + 0.3 && skip.at + skip.len < E - 0.5) {
     const a = skip.at - from, b = skip.at + skip.len - from;
-    const rest = Math.max(0.5, Math.min(L - a, p.dur - (skip.at + skip.len)));
+    const rest = Math.max(0.5, Math.min(L - a, E - (skip.at + skip.len)));
     inArgs = ['-ss', from.toFixed(2), '-t', (b + rest).toFixed(2), '-i', file];
     pre = '[0:v]fps=' + MK.fps + ',split=2[p1][p2];[p1]trim=end=' + a.toFixed(3) + ',setpts=PTS-STARTPTS[q1];' +
           '[p2]trim=start=' + b.toFixed(3) + ',setpts=PTS-STARTPTS[q2];[q1][q2]concat=n=2:v=1:a=0[s];';
   } else if (skip && skip.at <= from + 0.3) {
     /* لحظه همان آغازِ این تکه است ⇒ تکهٔ بی‌صدا از پایانِ لحظه شروع می‌شود. */
-    const f2 = Math.min(Math.max(0, p.dur - 1), skip.at + skip.len);
-    inArgs = ['-ss', f2.toFixed(2), '-t', Math.max(1, Math.min(L, p.dur - f2)).toFixed(2), '-i', file];
+    const f2 = Math.min(Math.max(0, E - 1), skip.at + skip.len);
+    inArgs = ['-ss', f2.toFixed(2), '-t', Math.max(1, Math.min(L, E - f2)).toFixed(2), '-i', file];
   }
   run(ff, inArgs.concat(['-filter_complex', pre + frameFilter(p.w, p.h, 's', 'o', opt),
            '-map', '[o]', '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(MK.crf),
            '-pix_fmt', 'yuv420p', '-r', String(MK.fps), out]));
   const still = out.replace(/\.mp4$/, '') + '-last.jpg';
   run(ff, ['-sseof', '-0.2', '-i', out, '-frames:v', '1', '-q:v', '3', still]);
-  return { file: out, still: still, len: L };
+  const played = Math.min(L, (probe(ff, out) || {}).dur || L);
+  let filled = 0;
+  if (opt && opt.fill && len - played >= MK.fillFrom) filled = fillTail(ff, out, played, len - played);
+  return { file: out, still: still, len: filled ? len : L, played: L, filled: filled, cut: Math.round((p.dur - E) * 10) / 10 };
 }
 
 /** «لحظه»: همان تکه، **با صدای خودش** — بلندیِ یکسان، آغاز و پایانِ نرم، صوتِ ۴۸ کیلوهرتزِ دوکاناله. */
@@ -346,4 +410,4 @@ function splice(ff, silent, wav, parts, dest, dir) {
   return { inserts: inserts };
 }
 
-module.exports = { MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };
+module.exports = { contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };

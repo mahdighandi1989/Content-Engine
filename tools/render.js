@@ -763,7 +763,8 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (cont) {
         /* ادامه (۹.۰۳): پس از کارتِ نوشته، همان کلیپ از جایی که صحنهٔ پیشینش ایستاد — نه از نو (تکرار)، نه کاور.
            کلیپی که دیگر چیزی ندارد، تکهٔ پایانی‌اش را نشان می‌دهد. */
-        from = Math.min(usedTo[s.url], Math.max(0, g.info.dur - Math.min(want, g.info.dur)));
+        const gE = g.info.end || g.info.dur;   // ۹.۱۰: بی کارتِ پایانیِ ریل
+        from = Math.min(usedTo[s.url], Math.max(0, gE - Math.min(want, gE)));
       } else if (mc) {
         const rel = Math.max(0, mc.m.at - s.t0);
         from = Math.max(0, mc.from - rel);
@@ -788,15 +789,17 @@ function prepMedia(it, scenes, dir, notes, placed) {
         if (scIdx[i] >= 0) { st.notFound++; st.why.push('صحنهٔ ' + s.n + ': ' + ((h && h.why) || 'شنیده نشد')); }
       }
       if (g.box === undefined) g.box = MKIT.contentBox(FF, g.file, g.info, { at: Math.min(Math.max(0, g.info.dur - 0.5), from + 1) });
-      const cOpt = { layout: layOf[s.n], box: g.box };
+      const cOpt = { layout: layOf[s.n], box: g.box, fill: true };   // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک
       const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip, cOpt);
-      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, from + c.len + (skip ? skip.len : 0));
+      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, from + (c.played || c.len) + (skip ? skip.len : 0));
       const ar = (g.box ? g.box.w / g.box.h : g.info.w / g.info.h);
       const lk = (ar >= MKIT.MK.wideMin && ar <= MKIT.MK.wideMax) ? 'fill' : layOf[s.n];
       st.layouts[lk] = (st.layouts[lk] || 0) + 1;
       if (g.box) st.cropped = (st.cropped || 0) + 1;
       clips[String(s.n)] = c.file; imgs[String(s.n)] = c.still; full[String(s.n)] = true;
       st.clips++;
+      if (c.filled) { st.filled = (st.filled || 0) + 1; st.filledSec = Math.round((st.filledSec || 0) + c.len - c.played); }
+      if (c.cut > 0) { st.tailCut = (st.tailCut || 0) + 1; }
     } catch (e) {
       st.failed++;
       notes.push('صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 70));

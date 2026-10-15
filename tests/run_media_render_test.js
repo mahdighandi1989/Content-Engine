@@ -67,6 +67,40 @@ console.log('=== ۱) قاب: افقی پر، عمودی کامل با حاشیه
      String(MKIT.probe(FF, c2.file).dur));
 }
 
+console.log('=== ۱-ب) کارتِ پایانیِ ریل و صحنهٔ بلندتر از کلیپ (۹.۱۰، نمونهٔ ۷۳) ===');
+{
+  /* ریلِ ۸ ثانیه‌ای + ۳ ثانیه کارتِ پایانیِ تیره و ساکن (مثلِ نشانِ اینستاگرام) */
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=720x1280:r=30:d=8', '-f', 'lavfi', '-i', 'color=c=0x1a1a1a:s=720x1280:r=30:d=3',
+      '-filter_complex', '[1:v]drawbox=x=320:y=600:w=80:h=80:color=white:t=fill[e];[0:v][e]concat=n=2:v=1:a=0[v]',
+      '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', P('reel.mp4')]);
+  const pr = MKIT.probe(FF, P('reel.mp4'));
+  const ce = MKIT.contentEnd(FF, P('reel.mp4'), pr);
+  ok('۱.۶ پایانِ محتوا پیش از کارتِ پایانی (~۸ از ۱۱)', ce > 7 && ce < 8.6, String(ce));
+  const ceN = MKIT.contentEnd(FF, P('vclip.mp4'), MKIT.probe(FF, P('vclip.mp4')));
+  ok('۱.۷ کلیپِ بی کارتِ پایانی بریده نمی‌شود', Math.abs(ceN - 14) < 0.3, String(ceN));
+  const lumAt = (file, t) => {
+    const r = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', file, '-vf',
+      'scale=64:36,format=gray', '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 });
+    return r.stdout || Buffer.alloc(0);
+  };
+  const mean = b => b.length ? b.reduce((a, x) => a + x, 0) / b.length : -1;
+  const c3 = MKIT.clip(FF, P('reel.mp4'), P('cr.mp4'), 0, 24, pr, null, { fill: true });
+  const d3 = MKIT.probe(FF, c3.file).dur;
+  ok('۱.۸ صحنهٔ ۲۴ ثانیه‌ای با ریلِ ۸ ثانیه‌ای ⇒ ویدئو تا آخرِ صحنه، با قاب‌های پُرکننده',
+     Math.abs(d3 - 24) < 0.4 && c3.filled >= 2 && c3.played < 8.7, JSON.stringify({ d3, filled: c3.filled, played: c3.played }));
+  const tail = [9, 13, 17, 21, 23.5].map(t => mean(lumAt(c3.file, t)));
+  ok('۱.۹ هیچ‌جای پُرکننده کارتِ تیرهٔ پایانی نیست', tail.every(v => v > 50), tail.map(Math.round).join(','));
+  const sdiff = (a, b) => { let x = 0; for (let i = 0; i < Math.min(a.length, b.length); i++) x += Math.abs(a[i] - b[i]); return x / Math.max(1, a.length); };
+  const mv = [[10, 12], [14, 16], [19, 21]].map(([a, b]) => sdiff(lumAt(c3.file, a), lumAt(c3.file, b)));
+  ok('۱.۱۰ پُرکننده ساکن نیست: هر دو ثانیه قاب عوض می‌شود', mv.every(v => v > 1.5), mv.map(v => v.toFixed(1)).join(','));
+  const st3 = mean(spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-i', c3.still, '-vf', 'scale=64:36,format=gray',
+    '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout || Buffer.alloc(0));
+  ok('۱.۱۱ «آخرین قاب» (برای کارتِ نوشتهٔ بعدی) از محتواست، نه از کارتِ پایانی', st3 > 50, String(Math.round(st3)));
+  const c4 = MKIT.clip(FF, P('reel.mp4'), P('cr4.mp4'), 0, 24, pr, null, {});
+  ok('۱.۱۲ بی `fill` همان رفتارِ پیشین (فقط تکهٔ کلیپ)', c4.filled === 0 && MKIT.probe(FF, c4.file).dur < 8.8,
+     String(MKIT.probe(FF, c4.file).dur));
+}
+
 console.log('=== ۲) جای لحظه: روی مکث، هرگز روی موسیقی، فاصله‌دار ===');
 {
   const sil = [3.8, 7.9, 12.0, 16.1, 20.2, 24.3, 28.4, 44.9];

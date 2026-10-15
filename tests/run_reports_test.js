@@ -295,14 +295,14 @@ ok('تکرارِ یک موردِ همچنان باز، ردیف تازه نمی�
 console.log('\n=== و) اعلام نسخهٔ تازهٔ کد ===');
 TG.length = 0;
 OUT.createFile(CFG.CODE_FILE, JSON.stringify({
-  version: '9.9', releasedAt: '2026-08-11 20:00',
+  version: '99.9', releasedAt: '2026-08-11 20:00',
   summary: 'ترمیم JSON بریده از محل خطا، حذف تکراری محتوایی، و پاس وفاداری.'
 }), 'application/json');
 un = quiet(); const cu = checkCodeUpdate_(hub); un();
 console.log('  نتیجه:', JSON.stringify(cu), '| تلگرام:', TG.length);
-ok('نسخهٔ تازه تشخیص داده شد', cu && cu.to === '9.9');
+ok('نسخهٔ تازه تشخیص داده شد', cu && cu.to === '99.9');
 ok('ردیف «نیازمند تعویض کد» ثبت شد',
-   rows().some(r => String(r[RC.ID-1]) === 'CODE-9.9' && r[RC.STATUS-1] === RST.NEEDS_CODE));
+   rows().some(r => String(r[RC.ID-1]) === 'CODE-99.9' && r[RC.STATUS-1] === RST.NEEDS_CODE));
 ok('پیام تلگرام رفت', TG.length === 1 && TG[0].indexOf('تعویض') !== -1);
 un = quiet(); const cu2 = checkCodeUpdate_(hub); un();
 ok('برای همان نسخه دوباره هشدار نمی‌دهد', cu2 === null && TG.length === 1);
@@ -398,13 +398,13 @@ ok('در codeItems هم نیامدند',
 ok('در عوض «اعمال شد» شمرده شدند', sum1.applied === baseline.applied + 2);
 
 // اما ردیفی که واقعاً جلوتر از نسخهٔ در حالِ اجراست باید باز بماند
-const future = mkCodeRow('CODE-9.9', 'نسخهٔ تازهٔ کد آماده است — کد باید تعویض شود (5.13 ← 9.9)');
+const future = mkCodeRow('CODE-99.9', 'نسخهٔ تازهٔ کد آماده است — کد باید تعویض شود (5.13 ← 99.9)');
 rt.getRange(rt.getLastRow() + 1, 1, 1, REPORT_HEADERS.length).setValues([future]);
 const sum2 = reportSummary_(hub);
 console.log('  پس از افزودنِ ردیفِ واقعاً تازه → needsCode:', sum2.needsCode);
 ok('ردیفِ نسخهٔ بالاتر همچنان باز می‌ماند', sum2.needsCode === baseline.needsCode + 1);
 ok('و در codeItems می‌آید',
-   sum2.codeItems.some(c => String(c.id) === 'CODE-9.9'));
+   sum2.codeItems.some(c => String(c.id) === 'CODE-99.9'));
 ok('ردیفِ بی‌نسخه محافظه‌کارانه باز می‌ماند',
    codeRowSatisfied_(mkCodeRow('RPT#42', 'کد باید عوض شود')) === false);
 
@@ -422,7 +422,7 @@ ok('رقمِ عربی هم',
 ok('و چنین ردیفی بسته می‌شود چون نسخهٔ در حالِ اجرا جلوتر است',
    codeRowSatisfied_(mkCodeRow('RPT#9', 'نسخهٔ ۴٫۳ آماده است')) === true);
 ok('ولی نسخهٔ فارسیِ بالاتر همچنان باز می‌ماند',
-   codeRowSatisfied_(mkCodeRow('RPT#9', 'نسخهٔ ۹٫۹ آماده است')) === false);
+   codeRowSatisfied_(mkCodeRow('RPT#9', 'نسخهٔ ۹۹٫۹ آماده است')) === false);
 ok('رقمِ لاتین مثل قبل کار می‌کند',
    codeRowTargetVer_(mkCodeRow('CODE-5.10', 'x (5.8 ← 5.10)')) === '5.10');
 
