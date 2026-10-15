@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-15 07:47",
+ "updatedAt": "2026-10-15 11:30",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -2205,6 +2205,115 @@
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 10: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable)"
    ]
+  },
+  "variety:73-نمونه": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-.mp4",
+   "bytes": 41447382,
+   "parts": 1,
+   "at": "2026-10-15 11:30",
+   "mode": "media",
+   "media": {
+    "clips": 8,
+    "photos": 0,
+    "found": 3,
+    "notFound": 0,
+    "failed": 0,
+    "why": [],
+    "layouts": {
+     "left": 3,
+     "center": 3,
+     "right": 2
+    },
+    "cropped": 2,
+    "moments": {
+     "asked": 3,
+     "placed": 3,
+     "made": 3,
+     "why": [],
+     "fallback": 2
+    }
+   },
+   "inserts": [
+    {
+     "at": 70.2,
+     "d": 9
+    },
+    {
+     "at": 161.4,
+     "d": 7.3
+    },
+    {
+     "at": 214.1,
+     "d": 8.2
+    }
+   ],
+   "scenes": 8,
+   "want": 8,
+   "snapped": 3,
+   "seconds": 442,
+   "qa": {
+    "n": 8,
+    "matched": 7,
+    "miss": [
+     5
+    ],
+    "blank": [],
+    "ok": false,
+    "why": "فقط 7 از 8 صحنه سرِ جای خودش دیده شد",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": false,
+     "points": [
+      {
+       "n": 6,
+       "t": 106.7,
+       "own": 0.43,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "خباری هل بوحران با دست خالی  وقت زبان اداری از زندگی خصوصی فراتر میرود  بپوشت تیریبون سوخنگو میرسد"
+      },
+      {
+       "n": 7,
+       "t": 190,
+       "own": 0.17,
+       "nb": 0.17,
+       "ok": false,
+       "heard": "این تق اجیب در راخروهای شرکتها هم تکرار میشه بد.  جای که هرکس نقشی بره ده گرفت هست.  یکی با بالا ترین دریافدی، ابتدا ایت"
+      },
+      {
+       "n": 8,
+       "t": 253.2,
+       "own": 0,
+       "nb": 0,
+       "ok": false,
+       "heard": "این کلیشهای شخلی نتازه هستند و نمودین.  اینگار از اصر سنگ با انسان هم راح بوده."
+      }
+     ],
+     "why": "گفتارِ صحنهٔ 7، 8 با تصویرش نمی‌خواند",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 2,
+    "placed": 2,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "headline": 1,
+     "quote": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 8,
+    "used": 8,
+    "why": []
+   },
+   "xf": {
+    "dissolve": 7
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73--cover.jpg"
   }
  },
  "art": {
