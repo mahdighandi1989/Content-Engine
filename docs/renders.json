@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-16 09:13",
+ "updatedAt": "2026-10-16 09:43",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -3031,6 +3031,142 @@
     "zoomin": 1
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-5--cover.jpg",
+   "notes": [
+    "برشِ کلیپ از آغاز: صحنهٔ 8: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+   ]
+  },
+  "variety:73-6-نمونه": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-6-.mp4",
+   "bytes": 73280262,
+   "parts": 1,
+   "at": "2026-10-16 09:43",
+   "mode": "media",
+   "media": {
+    "clips": 14,
+    "photos": 8,
+    "found": 3,
+    "notFound": 0,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 8: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
+    ],
+    "layouts": {
+     "fill": 8,
+     "center": 5,
+     "left": 6,
+     "right": 3
+    },
+    "teaserTiles": 5,
+    "teaserSec": 36.6,
+    "teaser": 3,
+    "filled": 3,
+    "filledSec": 10,
+    "tailCut": 14,
+    "cardOwn": 6,
+    "cards": 6,
+    "mainPart": 1,
+    "cropped": 4,
+    "moments": {
+     "asked": 3,
+     "placed": 3,
+     "made": 3,
+     "why": [],
+     "replaced": 3,
+     "sec": 100,
+     "whole": 2,
+     "fallback": 2
+    }
+   },
+   "inserts": [
+    {
+     "at": 61.3,
+     "d": 25.1,
+     "cut": 29.5
+    },
+    {
+     "at": 196.3,
+     "d": 41.9,
+     "cut": 48.8
+    },
+    {
+     "at": 283.4,
+     "d": 32.6,
+     "cut": 57.3
+    }
+   ],
+   "scenes": 25,
+   "want": 25,
+   "snapped": 17,
+   "seconds": 442,
+   "qa": {
+    "n": 25,
+    "matched": 25,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 11,
+       "t": 190,
+       "own": 0.17,
+       "nb": 0.17,
+       "ok": false,
+       "heard": "این تق اجیب در راخروهای شرکتها هم تکرار میشه بد.  جای که هرکس نقشی بره ده گرفت هست.  یکی با بالا ترین دریافدی، ابتدا ایت"
+      },
+      {
+       "n": 19,
+       "t": 341.4,
+       "own": 0.45,
+       "nb": 0.18,
+       "ok": true,
+       "heard": "برنگارانی که حتا در اوج خشم خانوادگی از قالب فورمالیته یه بلگفتن جودان میشه وند  تا تریبونی که پاسوخه هر فاجه ایرا بپوشی"
+      },
+      {
+       "n": 21,
+       "t": 370.5,
+       "own": 0.4,
+       "nb": 0.13,
+       "ok": true,
+       "heard": "خان قابها رو یک نقط انگوشت می گوزارند.  شکاف امیق میان سورت رسمی و حقیقت درونان."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 9,
+    "placed": 9,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "headline": 1,
+     "points": 6,
+     "quote": 2
+    },
+    "forced": 2
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 25,
+    "used": 25,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 10,
+    "slideright": 1,
+    "radial": 3,
+    "smoothright": 3,
+    "wiperight": 1,
+    "zoomin": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-6--cover.jpg",
    "notes": [
     "برشِ کلیپ از آغاز: صحنهٔ 8: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (longest)"
    ]
