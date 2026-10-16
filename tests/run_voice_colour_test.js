@@ -110,7 +110,7 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
   ok('۵.۲ بدترین جمله با متنِ ورودی و آنچه از خروجی شنیده شد گزارش می‌شود', r.worst[0].out.indexOf('آونجا') >= 0 || r.worst[0].out.indexOf('زموآن') >= 0,
      JSON.stringify(r.worst[0]));
   const seedG = CFG.VOICE_SOUL_SEED.find(s => s.speaker === 'spk-1g0r95d');
-  ok('۵.۳ بذرِ گلدوز تبدیلِ دوم با protect ۰٫۱۵ می‌خواهد و برچسبش تازه است (۹.۲۳)', seedG.ab === 'p0.15' && /«ه» نه «خ»/.test(seedG.tag));
+  ok('۵.۳ بذرِ گلدوز همان تبدیل را بی رنگ هم می‌خواهد و برچسبش تازه است (۹.۲۴)', seedG.ab === 'nc' && /«ه» با و بی رنگ/.test(seedG.tag));
   saved = null;
   global.vintReadResult_ = () => ({ speakers: { 'spk-x': { prev: { fileIds: ['O1'] } } } });
   vbrAsk_('آزمون', '10', 'F', 'spk-x', 't', { soul: 'روشن', colour: 'prev', ab: '0.6' });
@@ -153,9 +153,14 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
      JSON.stringify(saved.items[0].ab));
   const line = vbrPitchLine_({ hearOut: { srcOut: 0.84, alt: 0.9, khOut: 23, khAlt: 2, worst: [] }, abOut: { protect: '0.15', url: 'https://x/ab.wav' } });
   ok('۶.۳ کپشن شمارِ «خ»ِ افزوده را برای هر دو و protectِ تبدیلِ دوم را می‌گوید', /: 23، تبدیلِ دوم 2/.test(line) && /protect/.test(line) && /https:\/\/x\/ab\.wav/.test(line), line);
+  saved = null;
+  vbrAsk_('آزمون', '13', 'F', 'spk-x', 't', { soul: 'روشن', ab: 'nc' });
+  ok('۶.۲-ب «nc» ⇒ نسخهٔ دوم همان تبدیل بی رنگ (۹.۲۴)', saved.items[0].ab && saved.items[0].ab.nocolour === true, JSON.stringify(saved.items[0].ab));
+  ok('۶.۳-ب کپشنِ نسخهٔ بی‌رنگ', /همان تبدیل، بی رنگ/.test(vbrPitchLine_({ abOut: { nocolour: true, url: 'https://x/nc.wav' } })));
   const bp = fs.readFileSync('tools/voicebridge.py', 'utf8');
   ok('۶.۴ پل protectِ تبدیلِ دوم را به جای خودش می‌گذارد', /a2\[a2\.index\("--rvc-protect"\) \+ 1\] = abProt/.test(bp) &&
-     /rec\["ab"\] = \{"indexRate": abRate, "protect": abProt, "url": u\}/.test(bp));
+     /rec\["ab"\] = \{"indexRate": abRate, "protect": abProt, "nocolour": bool\(abIt\.get\("nocolour"\)\), "url": u\}/.test(bp) &&
+     /preColour = best/.test(bp) && /if abIt\.get\("nocolour"\) and preColour != best:/.test(bp));
 }
 
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}

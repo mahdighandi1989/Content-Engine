@@ -162,8 +162,10 @@ function igCaption_(plan, ytUrl, seriesName, lesson) {
   var tags = [];
   base.concat(plan.tags || []).forEach(function (t) { if (t && tags.indexOf(t) === -1 && tags.length < 30) tags.push(t); });
   var s = String(plan.caption || '') + '\n\n' +
-          '🎧 نسخهٔ کاملِ این درس در یوتیوب:\n' + ytUrl + '\n\n' +
-          '📚 مجموعهٔ «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : '') + '\n\n' +
+          /* بی ایموجی (۹.۲۴): «🎧» و «📚» در رونوشتِ درایو «ð§» شدند — نویسهٔ چهاربایتی در یک گام از راه شکست.
+             کپشنی که روی صفحهٔ عمومی می‌نشیند جای «احتمالاً درست است» نیست. */
+          'نسخهٔ کاملِ این درس در یوتیوب:\n' + ytUrl + '\n\n' +
+          'مجموعهٔ «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : '') + '\n\n' +
           tags.map(function (t) { return '#' + t; }).join(' ');
   return s.length > 2200 ? s.slice(0, 2200) : s;
 }
@@ -349,6 +351,12 @@ function igStepOk_(it, plan, st) {
   return { wait: 'منتظرِ تأیید (' + ((Number((st.stats || {}).published) || 0) + 1) + ' از ' + need + ')' };
 }
 
+/** نویسهٔ چهاربایتی (ایموجی) و نیمه‌جفتِ تنها بیرون — کپشنِ برنامه‌هایی که پیش از ۹.۲۴ ساخته شدند هم پاک می‌رود. */
+function igCapClean_(t) {
+  return String(t || '').replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\uD800-\uDFFF]/g, '')
+    .replace(/[ \t]+\n/g, '\n').replace(/(^|\n)[ \t]+/g, '$1');
+}
+
 /** فراخوانِ Graph؛ کلید در سرآیند. ⇒ {code, j} */
 function igApi_(method, path, params) {
   var url = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0') + path;
@@ -383,7 +391,7 @@ function igStepPub_(it, plan, st, deadline) {
   if ((Number(st.stats.dayN) || 0) >= Math.max(1, Number(CFG.IG_PER_DAY) || 4)) return { wait: 'سهمِ امروز پر شد' };
   if (!plan.reelCid) {
     var c = igApi_('post', '/' + a.ig + '/media', { media_type: 'REELS', video_url: plan.video, cover_url: plan.cover,
-                                                    caption: plan.caption, share_to_feed: 'true' });
+                                                    caption: igCapClean_(plan.caption), share_to_feed: 'true' });
     if (!(c.j && c.j.id)) return { fail: 'ظرفِ ریلز ساخته نشد: ' + igErr_(c) };
     plan.reelCid = String(c.j.id);
   }
@@ -770,6 +778,9 @@ function igInsights_(st, deadline) {
     if (g.why) ins.why.msgs = g.why;
   }
   ins.newMsgs = g.n;
+  /* شکستِ خواندن ⇒ ساعتِ بعد دوباره، نه شش ساعتِ دیگر (۹.۲۴): اولین خواندنِ واقعی با «Service Spreadsheets timed out»
+     روی هاب افتاد و تا شش ساعت هیچ عددی نمی‌آمد. */
+  if (ins.why.posts && !ins.posts) ins.ms = Date.now() - every + 3600000;
   /* تازه‌ها به تلگرام — فقط وقتی هست، و کوتاه. */
   var news = p.newComments.slice(0, 5).concat(g.newMsgs.slice(0, 5));
   if (news.length && CFG.IG_INS_TG !== false) {

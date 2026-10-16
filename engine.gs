@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.23
+ *  موتور محتوا و پادکست — نسخهٔ 9.24
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2138,7 +2138,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.23',
+  CODE_VERSION: '9.24',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2501,7 +2501,7 @@ var CFG = {
        طیفِ ضبط‌های قدیمِ خودِ او می‌بَرد (`voicebridge.colourMatch`)؛ برچسب عوض شد تا نمونهٔ تازه ساخته
        شود (۷٫۸۶). */
     { speaker: 'spk-1g0r95d', show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
-      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · رنگِ ضبط‌های قدیمِ خودش · حالِ بی فریاد · شنیدنِ ورودی و خروجی · «ه» نه «خ»', colour: 'prev', ab: 'p0.15' },   // ۹.۲۳: «هم» ⇐ «خم» در تقریباً هر جمله — تبدیلِ دوم با protect ۰٫۱۵، و شمارِ «خ»ِ افزوده در هر دو   // ۹.۱۱: «آنجا»⇐aonja — خواندن یا تبدیل؟ رانر هر دو را می‌شنود؛ تبدیلِ دوم با index_rate ۰٫۶   // ۹.۰۹: دستورِ تازهٔ حالت‌های پرهیجان
+      tag: 'گامِ خودکار ۱۵۸ هرتز · مکث به اندازهٔ خودش · رنگِ ضبط‌های قدیمِ خودش · حالِ بی فریاد · شنیدنِ ورودی و خروجی · «ه» با و بی رنگ', colour: 'prev', ab: 'nc' },   // ۹.۲۴: protect «خ» را نبست (۴۰ در برابرِ ۴۳)؛ همان تبدیل با و بی همسان‌سازیِ طیف   // ۹.۲۳: «هم» ⇐ «خم» در تقریباً هر جمله — تبدیلِ دوم با protect ۰٫۱۵، و شمارِ «خ»ِ افزوده در هر دو   // ۹.۱۱: «آنجا»⇐aonja — خواندن یا تبدیل؟ رانر هر دو را می‌شنود؛ تبدیلِ دوم با index_rate ۰٫۶   // ۹.۰۹: دستورِ تازهٔ حالت‌های پرهیجان
     { speaker: 'razavi',      show: 'آزمون', ep: 'ساعت‌ساز', text: 'ساعت‌ساز',
       tag: 'گامِ خودکار · مکث به اندازهٔ خودش · مدلِ صبح' }
   ],
@@ -75535,7 +75535,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      رانر خوانده شود. پس رانر خودش هر دو را می‌شنود (`voicebridge.hearCompare`) و برای نمونه یک تبدیلِ دوم با
      `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
   /* ۹.۲۳: «p0.15» = تبدیلِ دوم با `protect`ِ دیگر («ه» ⇐ «خ» از محافظِ همخوانِ بی‌واک است)، وگرنه index_rate. */
-  if (o.ab) row.ab = /^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) };
+  /* ۹.۲۴: «nc» = نسخهٔ دوم همان تبدیل بی رنگ (سنجشِ «ه» ⇐ «خ» با و بی همسان‌سازیِ طیف). */
+  if (o.ab) row.ab = String(o.ab) === 'nc' ? { nocolour: true } :
+                     (/^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) });
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -75963,7 +75965,7 @@ function vbrPitchLine_(item, faD) {
     out += (out ? ' · ' : '') + '«خ»ِ افزوده از تبدیل (مثلِ «هم» ⇐ «خم»): ' + f(String(hr.khOut)) +
            (hr.khAlt != null ? '، تبدیلِ دوم ' + f(String(hr.khAlt)) : '');
   }
-  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate))) + '): ' + String(ab.url);
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.nocolour ? 'همان تبدیل، بی رنگ' : (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate)))) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
@@ -79178,8 +79180,10 @@ function igCaption_(plan, ytUrl, seriesName, lesson) {
   var tags = [];
   base.concat(plan.tags || []).forEach(function (t) { if (t && tags.indexOf(t) === -1 && tags.length < 30) tags.push(t); });
   var s = String(plan.caption || '') + '\n\n' +
-          '🎧 نسخهٔ کاملِ این درس در یوتیوب:\n' + ytUrl + '\n\n' +
-          '📚 مجموعهٔ «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : '') + '\n\n' +
+          /* بی ایموجی (۹.۲۴): «🎧» و «📚» در رونوشتِ درایو «ð§» شدند — نویسهٔ چهاربایتی در یک گام از راه شکست.
+             کپشنی که روی صفحهٔ عمومی می‌نشیند جای «احتمالاً درست است» نیست. */
+          'نسخهٔ کاملِ این درس در یوتیوب:\n' + ytUrl + '\n\n' +
+          'مجموعهٔ «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : '') + '\n\n' +
           tags.map(function (t) { return '#' + t; }).join(' ');
   return s.length > 2200 ? s.slice(0, 2200) : s;
 }
@@ -79365,6 +79369,12 @@ function igStepOk_(it, plan, st) {
   return { wait: 'منتظرِ تأیید (' + ((Number((st.stats || {}).published) || 0) + 1) + ' از ' + need + ')' };
 }
 
+/** نویسهٔ چهاربایتی (ایموجی) و نیمه‌جفتِ تنها بیرون — کپشنِ برنامه‌هایی که پیش از ۹.۲۴ ساخته شدند هم پاک می‌رود. */
+function igCapClean_(t) {
+  return String(t || '').replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\uD800-\uDFFF]/g, '')
+    .replace(/[ \t]+\n/g, '\n').replace(/(^|\n)[ \t]+/g, '$1');
+}
+
 /** فراخوانِ Graph؛ کلید در سرآیند. ⇒ {code, j} */
 function igApi_(method, path, params) {
   var url = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0') + path;
@@ -79399,7 +79409,7 @@ function igStepPub_(it, plan, st, deadline) {
   if ((Number(st.stats.dayN) || 0) >= Math.max(1, Number(CFG.IG_PER_DAY) || 4)) return { wait: 'سهمِ امروز پر شد' };
   if (!plan.reelCid) {
     var c = igApi_('post', '/' + a.ig + '/media', { media_type: 'REELS', video_url: plan.video, cover_url: plan.cover,
-                                                    caption: plan.caption, share_to_feed: 'true' });
+                                                    caption: igCapClean_(plan.caption), share_to_feed: 'true' });
     if (!(c.j && c.j.id)) return { fail: 'ظرفِ ریلز ساخته نشد: ' + igErr_(c) };
     plan.reelCid = String(c.j.id);
   }
@@ -79786,6 +79796,9 @@ function igInsights_(st, deadline) {
     if (g.why) ins.why.msgs = g.why;
   }
   ins.newMsgs = g.n;
+  /* شکستِ خواندن ⇒ ساعتِ بعد دوباره، نه شش ساعتِ دیگر (۹.۲۴): اولین خواندنِ واقعی با «Service Spreadsheets timed out»
+     روی هاب افتاد و تا شش ساعت هیچ عددی نمی‌آمد. */
+  if (ins.why.posts && !ins.posts) ins.ms = Date.now() - every + 3600000;
   /* تازه‌ها به تلگرام — فقط وقتی هست، و کوتاه. */
   var news = p.newComments.slice(0, 5).concat(g.newMsgs.slice(0, 5));
   if (news.length && CFG.IG_INS_TG !== false) {

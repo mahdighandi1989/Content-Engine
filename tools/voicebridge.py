@@ -976,6 +976,7 @@ def runOne(it, mp):
     # ══ رنگ، پیش از بلندی (۹.۰۵) ══ ردیفی که رنگ خواسته و نگرفته، **بسته نمی‌شود**: فایلی که نامش
     # «رنگِ ضبط‌های قدیم» است و همان صدای تمیز را دارد، همان ادعای نیمه‌ای است که او باید بگیرد.
     colour = None
+    preColour = best          # ۹.۲۴: همان تبدیل، پیش از رنگ — برای سنجشِ «ه» ⇐ «خ» با و بی رنگ
     cw = it.get("colour") or {}
     if cw.get("refs"):
         cref = []
@@ -1012,6 +1013,16 @@ def runOne(it, mp):
         say("::warning title=بلندیِ خروجی تنظیم نشد::%s" % str(e)[:200])
 
     altOut = None
+    # ۹.۲۴: «nocolour» = تبدیلِ دوم همان تبدیلِ اول است، فقط بی رنگ — بی هیچ تبدیلِ اضافه. protect «خ» را نبست
+    # (۴۰ در برابرِ ۴۳)؛ نامزدِ بعدی همسان‌سازیِ طیف با ضبط‌های ۱۱ کیلوهرتزیِ قدیمِ اوست (تا ‎−۲۷ دسی‌بل): «ه» نفسِ
+    # پهن‌باند است و بی بسامدهای بالا «خ» شنیده می‌شود. حدس نیست تا سنجیده شود.
+    if abIt.get("nocolour") and preColour != best:
+        try:
+            nl0 = os.path.join(os.path.dirname(preColour), "loud-nc.wav")
+            altOut = nl0 if loudFix(preColour, nl0) else preColour
+            abLabel = "بی رنگ"
+        except Exception as e:
+            say("::warning title=نسخهٔ بی‌رنگ ساخته نشد::%s" % str(e)[:200])
     if altRaw:
         try:
             cur = altRaw
@@ -1076,12 +1087,12 @@ def runOne(it, mp):
         rec["colour"] = colour
     if hear:
         rec["hear"] = hear
-    if altOut and (abRate or abProt):
+    if altOut and (abRate or abProt or abIt.get("nocolour")):
         try:
-            nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else ""), 0, 1)
+            nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else ""), 0, 1)
             u = uploadAsset(rel, altOut, nm)
             if u:
-                rec["ab"] = {"indexRate": abRate, "protect": abProt, "url": u}
+                rec["ab"] = {"indexRate": abRate, "protect": abProt, "nocolour": bool(abIt.get("nocolour")), "url": u}
         except Exception as e:
             say("::warning title=تبدیلِ دوم آپلود نشد::%s" % str(e)[:200])
     # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══

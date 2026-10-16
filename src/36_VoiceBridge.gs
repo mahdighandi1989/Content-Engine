@@ -986,7 +986,9 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      رانر خوانده شود. پس رانر خودش هر دو را می‌شنود (`voicebridge.hearCompare`) و برای نمونه یک تبدیلِ دوم با
      `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
   /* ۹.۲۳: «p0.15» = تبدیلِ دوم با `protect`ِ دیگر («ه» ⇐ «خ» از محافظِ همخوانِ بی‌واک است)، وگرنه index_rate. */
-  if (o.ab) row.ab = /^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) };
+  /* ۹.۲۴: «nc» = نسخهٔ دوم همان تبدیل بی رنگ (سنجشِ «ه» ⇐ «خ» با و بی همسان‌سازیِ طیف). */
+  if (o.ab) row.ab = String(o.ab) === 'nc' ? { nocolour: true } :
+                     (/^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) });
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -1414,7 +1416,7 @@ function vbrPitchLine_(item, faD) {
     out += (out ? ' · ' : '') + '«خ»ِ افزوده از تبدیل (مثلِ «هم» ⇐ «خم»): ' + f(String(hr.khOut)) +
            (hr.khAlt != null ? '، تبدیلِ دوم ' + f(String(hr.khAlt)) : '');
   }
-  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate))) + '): ' + String(ab.url);
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.nocolour ? 'همان تبدیل، بی رنگ' : (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate)))) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 

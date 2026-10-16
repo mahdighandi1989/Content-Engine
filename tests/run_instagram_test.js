@@ -175,6 +175,9 @@ console.log('=== ۴) تأیید و انتشار ===');
      reel.body.share_to_feed === 'true' && plan.permalink === 'https://instagram.com/reel/xyz', JSON.stringify(calls.map(c => c.url.split('/').slice(-2).join('/'))));
   ok('۴.۵ استوریِ همان کاور', plan.storyId === 'M2' &&
      calls.some(c => c.body.media_type === 'STORIES' && c.body.image_url === plan.cover));
+  ok('۴.۶-ب کپشنِ فرستاده بی ایموجی، حتی اگر برنامهٔ قدیمی داشت (۹.۲۴)', !/[\uD800-\uDFFF]/.test(reel.body.caption) &&
+     igCapClean_('🎧 نسخهٔ کامل\n📚 مجموعه') === 'نسخهٔ کامل\nمجموعه' && !/[\uD800-\uDFFF]/.test(igCaption_({ caption: 'x', tags: [] }, 'u', 's', 1)),
+     JSON.stringify(igCapClean_('🎧 نسخهٔ کامل\n📚 مجموعه')));
   ok('۴.۶ کلید فقط در سرآیند — هرگز در نشانی', calls.every(c => c.auth === 'Bearer EAAtesttoken123' && c.url.indexOf('EAAtest') === -1));
   ok('۴.۷ شمارِ امروز و کل، و یک ردیف در تب', st2.stats.published === 4 && st2.stats.dayN === 1 && logged === 1);
   calls.length = 0;
@@ -304,6 +307,15 @@ console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲
   ok('۸.۸ دسترسیِ پیام نیست ⇒ آمار و نظرها سرِ جا، و خط می‌گوید چرا', ins2.posts === 2 && /پیام‌ها: نشد — .*instagram_manage_messages/.test(igInsLine_(ins2)),
      igInsLine_(ins2));
   ok('۸.۹ پیش از IG_INS_HOURS دوباره خوانده نمی‌شود', igInsights_(st, Date.now() + 60000) === null);
+  /* ۹.۲۴: خواندنی که افتاد (هاب «timed out») ساعتِ بعد دوباره، نه شش ساعتِ دیگر. */
+  const keepPosts = global.igInsightsPosts_;
+  global.igInsightsPosts_ = () => ({ posts: 0, comments: 0, newComments: [], why: 'Service Spreadsheets timed out' });
+  st.ins.ms = 0;
+  const insF = igInsights_(st, Date.now() + 60000);
+  global.igInsightsPosts_ = keepPosts;
+  const waitH = (Number(CFG.IG_INS_HOURS) * 3600000 - (Date.now() - insF.ms)) / 3600000;
+  ok('۸.۹-ب شکستِ خواندنِ آمار ⇒ تلاشِ دوباره پس از یک ساعت، نه IG_INS_HOURS', waitH > 0.9 && waitH < 1.1, waitH.toFixed(2));
+
   comments = comments.concat([{ id: 'c3', text: 'سؤال دارم', username: 'reza', timestamp: '2026-10-16T12:00:00+0000' }]);
   st.ins.ms = 0;
   igInsights_(st, Date.now() + 60000);
