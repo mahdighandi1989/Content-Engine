@@ -848,4 +848,59 @@ console.log('\n=== ۱۸. مرحلهٔ اجرای کشته‌شده ===');
      /MAX_RUNTIME_MS \+ 30000/.test(sync));
 }
 
+// ═════ ۱۹. اعراب فقط جایی که لازم است، و شنونده‌ای که واکه را می‌بیند (۹.۱۶) ═════
+console.log('\n=== ۱۹. اعرابِ کم و آوانگاری ===');
+{
+  /* جمله‌های عینیِ متنِ صوتیِ قسمتِ ۷۴ (۱۶ اکتبر) — «مدرسه» madrasa و «می‌شکفد» mishakafad شنیده شد. */
+  const t74 = 'پِدَری پِسَرَش را صِدا می‌زَنَد کِه چِرا مُدیرِ مَدرَسِه زَنگ زَده. مُتَّهَمْ گُلْ اَزْ گُلَشْ می‌شِکُفَدْ. ' +
+              'اِعْتِرافِ هَشْتْ هِزارْ صَفْحِه‌ای. هَندِسِه وَ مَردِ کِشتی. تَکالیفِ مَدرِسِه‌اَش';
+  const st = {};
+  const sp = speakSparse_(t74, st);
+  const has = (w) => sp.split(/[\s.،]+/).indexOf(w) !== -1;
+  ok('۱۹.۱ واژهٔ رایج بی‌اعراب: «مَدرَسِه» ⇒ «مدرسه»، «مُتَّهَمْ» ⇒ «متهم»، «اِعْتِرافِ هَشْتْ هِزارْ» ⇒ «اعترافِ هشت هزار»',
+     has('مدرسه') && has('متهم') && has('اعترافِ') && has('هشت') && has('هزار') && has('می‌زند'), sp);
+  ok('۱۹.۲ کسرهٔ اضافه می‌ماند: «مُدیرِ» ⇒ «مدیرِ»، نه «مدیر»', has('مدیرِ') && !has('مدیر'), sp);
+  ok('۱۹.۳ کمیاب و هم‌نگاشت اعرابشان را نگه می‌دارند: «می‌شِکُفَدْ»، «هَندِسِه» (۸.۰۳)، «مَردِ»، «کِشتی»',
+     has('می‌شِکُفَدْ') && has('هَندِسِه') && has('مَردِ') && has('کِشتی'), sp);
+  ok('۱۹.۴ تکه‌های نیم‌فاصله جدا سنجیده می‌شوند: «مَدرِسِه‌اَش» ⇒ «مدرسه‌اش»', has('مدرسه‌اش'), sp);
+  ok('۱۹.۵ حروف و نیم‌فاصله‌ها دست نمی‌خورند؛ قطعی است (ازسرگیری همان تکه‌ها را می‌سازد)',
+     stripTashkil_(sp) === stripTashkil_(t74) && speakSparse_(t74) === sp, stripTashkil_(sp));
+  ok('۱۹.۶ شمار: چند واژهٔ اعراب‌دار، چند تا بی‌اعراب رفت', st.marked >= 20 && st.bared >= 12 && st.bared < st.marked, JSON.stringify(st));
+  const keepS = CFG.SPEAK_SPARSE; CFG.SPEAK_SPARSE = false;
+  ok('۱۹.۷ SPEAK_SPARSE:false ⇒ همان متنِ کامل', speakSparse_(t74) === t74);
+  CFG.SPEAK_SPARSE = keepS;
+  const plain = stripTashkil_(t74);
+  const ep = { __speakSegs: [{ t: t74, h: speakHash_(plain) }] };
+  ok('۱۹.۸ سیم: speakTextOf_ — تنها راهِ متن به گفتارساز — از speakSparse_ می‌گذرد', speakTextOf_(ep, 0, plain) === sp);
+  const L = FA_COMMON_.split('|');
+  ok('۱۹.۹ فهرست: بیش از ده هزار واژه، «مدرسه» و «توجیه» هست، «هندسه» نیست، هم‌نگاشت‌ها کنار رفته‌اند',
+     L.length > 10000 && faCommon_('مدرسه') && faCommon_('توجیه') && !faCommon_('هندسه') && !faCommon_('مرد') &&
+     L.indexOf('مرد') !== -1, L.length);
+
+  /* شنونده: خطِ فارسی «madrasa» و «madrese» را هر دو «مدرسه» می‌نویسد. */
+  const tx = 'چرا مدیرِ مدرسه زنگ زده و گل از گلش می‌شکفد';
+  const lt = ttsListenTrim_([
+    { word: 'مدرسه', heard: 'مدرسه', kind: 'تلفظ', heardLat: 'madrasa', rightLat: 'madrese' },
+    { word: 'می‌شکفد', heard: 'می‌شکفد', kind: 'تلفظ', heardLat: 'mishakafad', rightLat: 'mishekofad' },
+    { word: 'زنگ', heard: 'زنگ', kind: 'تلفظ', heardLat: 'Zang', rightLat: 'zang' },
+    { word: 'گل', heard: 'گل', kind: 'تلفظ', heardLat: 'gōl', rightLat: 'gol' }
+  ], tx);
+  ok('۱۹.۱۰ خطای واکه با همان حروف از آوانگاری دیده می‌شود؛ آوانگاریِ یکسان (با بزرگی/نشانه) خطا نیست',
+     lt.map(x => x.word).join(',') === 'مدرسه,می‌شکفد' && /madrasa ≠ madrese/.test(lt[0].heard), JSON.stringify(lt));
+  const lt2 = ttsListenTrim_([{ word: 'تُوجیه', heard: 'تَوجیه', kind: 'تلفظ' }], 'و تُوجیه');
+  ok('۱۹.۱۱ بی آوانگاری، قاعدهٔ ۸.۹۱ همان است: اعرابِ دیگر روی همان حروف خطاست', lt2.length === 1);
+  const lsrc = String(ttsListenCheck_);
+  ok('۱۹.۱۲ پرسشِ شنونده آوانگاری را می‌خواهد و طرح‌واره دارد', /heardLat/.test(lsrc) && /rightLat/.test(lsrc) &&
+     TTS_LB_SCHEMA_.properties.errs.items.properties.heardLat && TTS_LB_SCHEMA_.properties.errs.items.properties.rightLat);
+
+  const keepP = global.__PROPS[PK.SPEAK_SKIP];
+  global.__PROPS[PK.SPEAK_SKIP] = JSON.stringify([{ n: 6, s: 0, cw: 800, cb: 10, sp: { m: 780, b: 610 } }]);
+  const ss = speakSkipStatus_();
+  ok('۱۹.۱۳ خطِ روزانه می‌گوید چند واژهٔ رایج بی‌اعراب رفت', /اعرابِ کم: از ۷۸۰ واژهٔ اعراب‌دار در قسمتِ آخر، ۶۱۰/.test(ss.line) &&
+     ss.sparse && ss.sparse.b === 610, ss.line);
+  global.__PROPS[PK.SPEAK_SKIP] = JSON.stringify([{ n: 6, s: 0, cw: 800, cb: 10 }]);
+  ok('۱۹.۱۴ قسمتِ بی شاهد «پیش از ۹.۱۶» گفته می‌شود، نه صفر', /اعرابِ کم: قسمتِ آخر شاهدی ندارد/.test(speakSkipStatus_().line));
+  if (keepP === undefined) delete global.__PROPS[PK.SPEAK_SKIP]; else global.__PROPS[PK.SPEAK_SKIP] = keepP;
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);
