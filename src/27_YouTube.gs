@@ -9648,7 +9648,7 @@ function ytUploadOne_(item, hub, pub) {
                      scenes: vmr.items, sceneCover: vmr.cover, sceneInfo: vmr.info,
                      media: true, moments: vmr.moments, mute: vmr.music,
                      /* ۹.۱۴: ژانرِ قسمت ⇒ پوستهٔ کارت‌ها (طنز کارتِ درس نمی‌گیرد). قسمتِ پیش از ۹.۱۴ از ژانرِ آیتم‌هایش. */
-                     genre: String(ep.mode || varietyMode_((meta && meta.items) || [], String((meta && (meta.cat || meta.category)) || ''))),
+                     genre: vmr.genre || '',
                      coverTitle: String(plan.coverTitle || ep.title || ''),
                      coverKicker: String(plan.coverKicker || showName || ''),
                      coverFoot: coverEpLabel,

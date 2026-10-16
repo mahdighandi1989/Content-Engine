@@ -438,8 +438,13 @@ console.log('=== ۹) پوستهٔ کارت از ژانر (۹.۱۴، «این ح�
   const ov = fs.readFileSync('tools/overlay.js', 'utf8'), sk = fs.readFileSync('tools/scenekit.js', 'utf8'),
         rj = fs.readFileSync('tools/render.js', 'utf8'), yt = fs.readFileSync('src/27_YouTube.gs', 'utf8');
   const rend = ov.slice(ov.indexOf('function render('), ov.indexOf('function windowOf('));
+  /* ۹.۱۵: **هر** درِ صفِ رندرِ رسانه‌ای ژانر را از خروجیِ vmBuild_ می‌برد — نمونهٔ چهارمِ ۷۳ از درِ نمونه رفت و بی ژانر ماند. */
+  const vmS = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
+  const asks = (yt + '\n' + vmS).split('ytRenderAsk_({').slice(1).map(x => x.slice(0, 700)).filter(x => /media: true/.test(x));
+  ok('۹.۵-ب هر درخواستِ رندرِ رسانه‌ای (انتشار و نمونه) ژانرِ vmBuild_ را می‌برد، و ژانر یک‌جا حساب می‌شود',
+     asks.length >= 2 && asks.every(x => /genre: (vmr|r)\.genre/.test(x)) && /out\.genre = em === 'mixed'/.test(vmS), asks.length + ' در');
   ok('۹.۶ سیم‌کشی: ژانرِ قسمت ⇒ صفِ رندر ⇒ scenekit ⇒ هر پالتِ کارت (هیچ palette بی پوسته نمانده)',
-     /genre: String\(ep\.mode \|\| varietyMode_\(/.test(yt) && /if \(item\.genre\) row\.genre = String\(item\.genre\);/.test(yt) &&
+     /if \(item\.genre\) row\.genre = String\(item\.genre\);/.test(yt) &&
      /genre: String\(it\.genre \|\| ''\)/.test(rj) && /genre: ctx\.genre \|\| ''/.test(sk) &&
      (rend.match(/skin\(palette\(/g) || []).length === 4 && !/[^(]palette\(an/.test(rend.replace(/skin\(palette\(an/g, '')));
 }

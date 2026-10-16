@@ -344,22 +344,27 @@ function vmReciteScore_(text, clipSet) {
  * صحنه‌آرایی مجاز است — «زن دوباره ژست می‌گیرد»). فقط درونِ همان بخش، و فقط اگر واقعاً بازگویی است
  * (دست‌کم دو جمله یا شش ثانیه). تابعِ خالص. ⇒ {a, b} اندیسِ صفرپایه، یا null.
  */
-function vmReciteSpan_(sents, k, clipWords, secs) {
+function vmReciteSpan_(sents, k, clipWords, secs, secHint) {
   var S = sents.length;
-  if (k < 0 || k >= S || !clipWords) return null;
+  if (k < 0 || k > S || !clipWords) return null;
   var set = {};
   vmToks_(clipWords).forEach(function (w) { set[w] = 1; });
   if (Object.keys(set).length < 4) return null;
-  var sec = sents[Math.min(k, S - 1)].sec;
-  var lo = Math.max(0, k - 6), hi = Math.min(S - 1, k + 10);
+  /* بخشِ خودِ کلیپ (صحنه‌اش)، نه بخشِ جملهٔ k: نمونهٔ چهارمِ ۷۳ — مدل لحظهٔ کلیپِ اداری را «پس از» آخرین جملهٔ
+     بخش گذاشت، پس جملهٔ k آغازِ بخشِ بعد بود و هیچ بازگویی‌ای در آن بخش نبود. */
+  var sec = secHint !== undefined && secHint !== null ? secHint : sents[Math.min(k, S - 1)].sec;
+  var lo = Math.max(0, k - 12), hi = Math.min(S - 1, k + 10);
   var th = Math.max(0.3, Number(CFG.VM_RECITE_MIN) || 0.5);
   var hitAt = {};
   for (var i = lo; i <= hi; i++) {
     if (sents[i].sec !== sec) continue;
     hitAt[i] = vmReciteScore_(sents[i].text, set) >= th;
   }
-  /* دنباله‌ای که از k یا یکی پیش از آن می‌گذرد. */
-  var seed = hitAt[k] ? k : (hitAt[k - 1] ? k - 1 : (hitAt[k + 1] ? k + 1 : -1));
+  /* دنباله‌ای که از k می‌گذرد یا **پیش از آن** تمام شده: مدل لحظه را اغلب پس از پایانِ بازگویی می‌گذارد
+     («… و در نهایت یک صندلی پرتاب می‌شود» ⇒ کلیپ) — نمونهٔ چهارمِ ۷۳ هر دو لحظه‌اش همین بود و بی این، نزدیک‌ترین
+     بازگویی دو تا پنج جمله عقب‌تر بود و دیده نمی‌شد. پیش از k تا چهار جمله؛ پس از k فقط یکی. */
+  var seed = hitAt[k] ? k : (hitAt[k + 1] ? k + 1 : -1);
+  for (var bk = k - 1; seed < 0 && bk >= Math.max(lo, k - 4); bk--) if (hitAt[bk]) seed = bk;
   if (seed < 0) return null;
   var a = seed, b = seed;
   while (a - 1 >= lo && sents[a - 1].sec === sec && (hitAt[a - 1] || (hitAt[a - 2] && sents[a - 2].sec === sec))) a -= hitAt[a - 1] ? 1 : 2;
@@ -438,7 +443,7 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
       var T = aft < S ? Number(sents[aft].t) : Number(secs) || 0;
       var mo0 = { id: c.id, at: Math.round(T * 10) / 10, quote: c.quote, sn: aft };
       /* ۹.۱۴: اگر گوینده همین دیالوگ را بازگو می‌کند، لحظه جای بازگویی می‌نشیند (نه کنارش). */
-      var rs = vmReciteSpan_(sents, aft, itm.allWords || itm.words, secs);
+      var rs = vmReciteSpan_(sents, aft, itm.allWords || itm.words, secs, sents[c.n - 1].sec);
       if (rs && rs.at >= s0.t0 - 0.05) { mo0.at = rs.at; mo0.cut = rs.cut; mo0.sn = rs.a; mo0.recite = rs.b - rs.a + 1; }
       out.moments.push(mo0);
     }
@@ -861,6 +866,12 @@ function vmBuild_(folder, meta, plan, ctx) {
       return o; });
   var nClip = ready.filter(function (x) { return x.media.kind === 'video'; }).length;
   out.done = true;
+  /* ۹.۱۵: ژانر **یک‌جا** حساب می‌شود و هر درِ صفِ رندر همین را می‌برد. ۹.۱۴ آن را فقط به درِ انتشار داد؛ نمونهٔ
+     چهارمِ ۷۳ از درِ نمونه (`vmSampleTick_`) رفت و کارت‌هایش همان لباسِ درس را گرفتند — دوقلویی که یک بار درست شد. */
+  try {
+    var em = (meta && meta.ep && meta.ep.mode) || varietyMode_((meta && meta.items) || [], String((meta && (meta.cat || meta.category)) || ''));
+    out.genre = em === 'mixed' ? '' : String(em || '');
+  } catch (eG) { out.genre = ''; }
   out.items = ready;
   out.cover = d.cover && d.cover.fileId ? { fileId: d.cover.fileId } : null;
   out.moments = moments;
@@ -1029,7 +1040,7 @@ function vmSampleTick_() {
   var asked = ytRenderAsk_({ show: 'variety', ep: tag, title: String(ep.title || ''),
                  folderId: folder.getId(), visuals: [],
                  scenes: r.items, sceneCover: r.cover, sceneInfo: r.info,
-                 media: true, moments: r.moments, mute: r.music,
+                 media: true, moments: r.moments, mute: r.music, genre: r.genre,
                  coverTitle: String(plan.coverTitle || ep.title || ''),
                  coverKicker: String(plan.coverKicker || CFG.SHOW_NAME || ''),
                  coverFoot: 'قسمت ' + faDigitsOut_(String(spec.ep)),

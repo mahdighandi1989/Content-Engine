@@ -532,4 +532,31 @@ console.log('\n=== ۱۵) «دو بار شنیده می‌شود»: لحظه جا
      /whole: Number\(m\.whole\) \|\| 0, cut: Math\.max\(0, Number\(m\.cut\) \|\| 0\)/.test(ysrc));
 }
 
+console.log('\n=== ۱۶) دادهٔ واقعیِ نمونهٔ چهارم: مدل لحظه را «پس از» بازگویی گذاشت (۹.۱۵) ===');
+{
+  /* نمونهٔ چهارمِ ۷۳ بی هیچ `cut` ساخته شد: لحظهٔ اول پس از «… صندلی پرتاب می‌شود» (یک جمله پس از پایانِ دیالوگ) و
+     لحظهٔ دوم پس از آخرین جملهٔ بخش (جملهٔ k در بخشِ بعدی بود). سنجهٔ §۱۵ لحظه را وسطِ دیالوگ گذاشته بود — حالتِ آسان. */
+  const fx = JSON.parse(fs.readFileSync('tests/fixtures/vm73_rev4.json', 'utf8'));
+  const sents = fx.sents.map(x => ({ t: x[0], text: x[1], sec: x[2] }));
+  const at = t => sents.findIndex(x => x.t === t);
+  const m1 = fx.moments[0], m2 = fx.moments[1];
+  const r1 = vmReciteSpan_(sents, m1.momentAfter, fx.clipWords[m1.clip], fx.secs, sents[m1.sceneSn - 1].sec);
+  ok('۱۶.۱ دعوای خانوادگی: با اعراب و با لحظه‌ای که یک جمله پس از پایانِ دیالوگ است، همان دیالوگ (۶۱٫۱ تا ۹۰٫۶) پیدا می‌شود',
+     r1 && r1.a === at(61.1) && r1.b === at(85.8) && r1.at === 61.1 && Math.abs(r1.cut - 29.5) < 0.05, JSON.stringify(r1));
+  const r2 = vmReciteSpan_(sents, m2.momentAfter, fx.clipWords[m2.clip], fx.secs, sents[m2.sceneSn - 1].sec);
+  ok('۱۶.۲ نقش‌های اداره: لحظه پس از آخرین جملهٔ بخش، باز بازگوییِ همان بخش پیدا می‌شود و از بخشش بیرون نمی‌رود',
+     r2 && sents[r2.a].sec === 3 && sents[r2.b].sec === 3 && r2.a <= at(198.4) && r2.b >= at(237.3) && r2.at + r2.cut <= 252.5 + 0.01,
+     JSON.stringify(r2));
+  ok('۱۶.۳ و معرفیِ ماجرا («ماجرا از یک خانه شروع می‌شود») و جملهٔ «همین منطقِ عجیب …» جزوِ بازه نیستند',
+     r1.a > at(49.3) && r2.a > at(191.6));
+  const items = [{ id: 'F', kind: 'video', fileId: 'F'.repeat(25), sec: [1], topic: '', summary: '', words: '', allWords: fx.clipWords.family },
+                 { id: 'O', kind: 'video', fileId: 'O'.repeat(25), sec: [3], topic: '', summary: '', words: '', allWords: fx.clipWords.office }];
+  const vs = vmScenes_({ placements: [
+    { item: 'F', from: String(m1.sceneSn), clipQuote: 'بدبخت', moment: 'بله', momentAfter: String(m1.momentAfter) },
+    { item: 'O', from: String(m2.sceneSn), clipQuote: 'هاندس بیا اینجا', moment: 'بله', momentAfter: String(m2.momentAfter) }] },
+    sents, items, fx.secs, []);
+  ok('۱۶.۴ از پاسخِ واقعیِ مدل تا لحظه: هر دو لحظه `cut` دارند', vs.moments.length === 2 && vs.moments.every(m => m.cut > 10),
+     JSON.stringify(vs.moments.map(m => [m.at, m.cut])));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رسانه‌های منبع گذشت.');
