@@ -33,8 +33,9 @@ var IG_REEL_SCHEMA = { type: 'object', properties: {
   scenes: { type: 'array', items: { type: 'string' } },
   coverTitle: { type: 'string' }, caption: { type: 'string' }, story: { type: 'string' },
   tags: { type: 'array', items: { type: 'string' } },
-  emph: { type: 'array', items: { type: 'string' } }
-}, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph'] };
+  emph: { type: 'array', items: { type: 'string' } },
+  ytDesc: { type: 'string' }
+}, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph', 'ytDesc'] };
 
 /* داورِ پیوستگی — فراخوانِ جدا از نویسنده (همان قاعدهٔ ۶.۲۰: نوشتن و داوری دو کارند). */
 var IG_JUDGE_SCHEMA = { type: 'object', properties: {
@@ -68,23 +69,128 @@ function igDoneMap_(st) {
 }
 
 /**
- * قسمتِ بعدی برای ریلز: کوچک‌ترین شمارهٔ درس‌نامه‌ای که ویدئوی عمومیِ یوتیوب دارد و نه انجام شده، نه در جریان،
- * نه از سقفِ تلاش گذشته. `pub` = خروجیِ `ytPublished_`.
+ * ترتیبِ درس‌ها، مجموعه به مجموعه، **از پوشه‌ها** (۹.۳۰) — [{name, eps:[{ep, recap, lesson}]}].
+ *
+ * صاحبِ برنامه: «از ابتدا درس‌نامهٔ اولِ مصباح باید همه‌ش بدون هیچ جاافتادنی کامل … بعد بری سراغِ آئودی … تا برسی به چیزی
+ * که الان در جریانه و به موازاتش پیش بری … تو پلی‌لیست‌ها قبلاً چند تا جا انداختی … این دیگه نباید تکرار بشه». تا ۹.۲۹ این‌جا
+ * «کوچک‌ترین شمارهٔ سراسریِ منتشرشده» بود: مجموعه‌ها درهم (شمارهٔ سراسریِ مصباح و آئودی یک‌درمیان است)، و درسی که هنوز
+ * در یوتیوب نبود **بی‌صدا رد می‌شد** — همان شکلِ جاافتادنِ پلی‌لیست‌ها. حالا فهرستِ هر مجموعه از پوشهٔ خودش
+ * (`ytSeriesLessons_` — همان تعریفِ «درسِ چندم» که عنوانِ یوتیوب دارد)، مرورهای بزرگ سرِ جای خودشان، و مجموعه‌ها به
+ * ترتیبِ نخستین قسمتشان. هر `IG_ORDER_H` ساعت از نو؛ نشد ⇒ از همان جدولِ یوتیوب (`pub`)، که بدترین حالتش «منتظر ماندن»
+ * است، نه رد شدن.
  */
-function igNextEp_(pub, st) {
-  var done = igDoneMap_(st), busy = {}, fails = (st && st.fails) || {};
-  (st.inflight || []).forEach(function (x) { busy[String(x.ep)] = 1; });
-  var maxTry = Math.max(1, Number(CFG.IG_TRY_MAX) || 3);
-  var best = null;
+function igOrder_(pub, st, force) {
+  var o = st.order;
+  var fresh = o && o.ms && Date.now() - Number(o.ms) < Math.max(1, Number(CFG.IG_ORDER_H) || 6) * 3600000;
+  if (fresh && !force && o.s && o.s.length) return igOrderDec_(o.s);
+  var names = {}, fromPub = {};
   for (var k in pub) {
     if (!Object.prototype.hasOwnProperty.call(pub, k) || k.indexOf(ENRICH_SHOW_SPECIAL + ':') !== 0) continue;
-    var r = pub[k], n = Number(k.split(':')[1]);
-    if (!(n > 0) || !r || !r.videoId || String(r.privacy || '').toLowerCase() !== 'public') continue;
-    if (done[String(n)] || busy[String(n)] || (Number(fails[String(n)]) || 0) >= maxTry) continue;
-    if (!best || n < best.ep) best = { ep: n, url: String(r.url || ('https://youtu.be/' + r.videoId)), series: String(r.series || ''),
-                                       title: String(r.title || '') };
+    var nm = String((pub[k] || {}).series || ''), e = Number(k.split(':')[1]);
+    if (!nm || !(e > 0)) continue;
+    names[nm] = 1;
+    (fromPub[nm] = fromPub[nm] || []).push({ ep: e, recap: /مرور/.test(String((pub[k] || {}).title || '')) ? 1 : 0, lesson: 0 });
   }
-  return best;
+  var series = [], why = [];
+  var reg = null;
+  try { reg = readSeriesReg_(getHub_()); } catch (eR) { why.push('رجیستری: ' + String(eR.message || eR).slice(0, 80)); }
+  Object.keys(names).forEach(function (nm) {
+    var eps = null;
+    try {
+      for (var r = 0; reg && r < reg.rows.length && !eps; r++) {
+        if (String(reg.rows[r].vals[SC.NAME - 1] || '') !== nm) continue;
+        var fid = String(reg.rows[r].vals[SC.FOLDER - 1] || '');
+        if (!fid) continue;
+        eps = ytSeriesLessons_(DriveApp.getFolderById(fid)).map(function (x) { return { ep: x.ep, recap: x.recap ? 1 : 0, lesson: x.lesson }; });
+      }
+    } catch (eF) { why.push(nm + ': ' + String(eF.message || eF).slice(0, 60)); eps = null; }
+    if (!eps || !eps.length) {
+      eps = (fromPub[nm] || []).sort(function (a, b) { return a.ep - b.ep; });
+      var n = 0; eps.forEach(function (x) { if (!x.recap) x.lesson = ++n; });
+      why.push(nm + ': از جدولِ یوتیوب (پوشه خوانده نشد)');
+    }
+    series.push({ name: nm, eps: eps });
+  });
+  series.sort(function (a, b) { return ((a.eps[0] || {}).ep || 1e9) - ((b.eps[0] || {}).ep || 1e9); });
+  /* فشرده در Properties (سقفِ ۹ کیلوبایت با بقیهٔ حالت): «۱۲:۵,۳۴r» یعنی قسمتِ ۱۲ درسِ ۵، قسمتِ ۳۴ مرور. */
+  st.order = { ms: Date.now(), at: nowStr_(), why: why.join(' · ').slice(0, 300),
+               s: series.map(function (S) { return { n: S.name, e: S.eps.map(function (x) { return x.recap ? x.ep + 'r' : x.ep + ':' + x.lesson; }).join(',') }; }) };
+  return series;
+}
+function igOrderDec_(arr) {
+  return (arr || []).map(function (S) {
+    return { name: S.n, eps: String(S.e || '').split(',').filter(Boolean).map(function (t) {
+      var r = /r$/.test(t), a = t.replace(/r$/, '').split(':');
+      return { ep: Number(a[0]) || 0, recap: r ? 1 : 0, lesson: r ? 0 : (Number(a[1]) || 0) };
+    }) };
+  });
+}
+
+/** شکستِ یک درس ⇒ پس از `IG_RETRY_H` ساعت دوباره، نه رها. ⇒ true یعنی هنوز در دورهٔ صبر است. */
+function igFailHold_(st, ep) {
+  var maxTry = Math.max(1, Number(CFG.IG_TRY_MAX) || 3), f = st.fails || {}, at = st.failAt || {};
+  if ((Number(f[String(ep)]) || 0) < maxTry) return false;
+  var t = Number(at[String(ep)]) || 0;
+  if (t && Date.now() - t > Math.max(1, Number(CFG.IG_RETRY_H) || 24) * 3600000) {
+    f[String(ep)] = 0; st.fails = f;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * قسمتِ بعدی برای ریلز (۹.۳۰): مجموعه به مجموعه، درس به درس. در هر مجموعه نخستین درسِ انجام‌نشده:
+ *   • در جریان ⇒ درسِ بعدیِ همان مجموعه می‌تواند هم‌زمان ساخته شود (انتشار به ترتیب می‌ماند — `igEarlierPending_`)؛
+ *   • ویدئوی عمومی دارد ⇒ همین؛
+ *   • ندارد و درسِ بعدی‌اش دارد ⇒ **جاافتاده**: مجموعه همین‌جا می‌ایستد و در `st.gaps` گفته می‌شود — رد نمی‌شود؛
+ *   • ندارد و بعدی‌ها هم ندارند ⇒ به آخرِ منتشرشده رسیده؛ همراهِ تولید جلو می‌رود.
+ * بعد سراغِ مجموعهٔ بعدی. `pub` = خروجیِ `ytPublished_`.
+ */
+function igNextEp_(pub, st, orderIn) {
+  var done = igDoneMap_(st), busy = {};
+  (st.inflight || []).forEach(function (x) { busy[String(x.ep)] = 1; });
+  var order = orderIn || igOrder_(pub, st);
+  var isPub = function (e) {
+    var r = pub[ENRICH_SHOW_SPECIAL + ':' + e];
+    return !!(r && r.videoId && String(r.privacy || '').toLowerCase() === 'public');
+  };
+  var gaps = [], caught = [];
+  for (var s = 0; s < order.length; s++) {
+    var S = order[s], eps = S.eps || [];
+    for (var i = 0; i < eps.length; i++) {
+      var x = eps[i], e = Number(x.ep);
+      if (done[String(e)]) continue;
+      if (busy[String(e)]) continue;
+      var label = x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson;
+      if (igFailHold_(st, e)) { gaps.push('«' + S.name + '» ' + label + ': سه بار نشد، تا ' + (Number(CFG.IG_RETRY_H) || 24) + ' ساعت دیگر دوباره'); break; }
+      if (isPub(e)) {
+        var r = pub[ENRICH_SHOW_SPECIAL + ':' + e];
+        st.gaps = gaps; st.caught = caught;
+        return { ep: e, url: String(r.url || ('https://youtu.be/' + r.videoId)), series: S.name, title: String(r.title || ''),
+                 recap: !!x.recap, lesson: Number(x.lesson) || 0 };
+      }
+      var later = false;
+      for (var j = i + 1; j < eps.length && !later; j++) if (isPub(eps[j].ep)) later = true;
+      if (later) gaps.push('«' + S.name + '» ' + label + ': ویدئوی عمومیِ یوتیوب ندارد، درس‌های بعدی دارند — منتظر می‌ماند');
+      else caught.push(S.name);
+      break;
+    }
+  }
+  st.gaps = gaps; st.caught = caught;
+  return null;
+}
+
+/** درسِ قبلیِ همین مجموعه هنوز منتشر نشده؟ ⇒ برچسبش، یا ''. انتشار همیشه به ترتیب (۹.۳۰). */
+function igEarlierPending_(st, ep) {
+  var done = igDoneMap_(st), order = igOrderDec_((st.order && st.order.s) || []);
+  for (var s = 0; s < order.length; s++) {
+    var eps = order[s].eps || [], at = -1;
+    for (var i = 0; i < eps.length; i++) if (Number(eps[i].ep) === Number(ep)) at = i;
+    if (at < 0) continue;
+    for (var k = 0; k < at; k++) if (!done[String(eps[k].ep)]) return eps[k].recap ? 'مرورِ بزرگ (' + eps[k].ep + ')' : 'درسِ ' + eps[k].lesson;
+    return '';
+  }
+  return '';
 }
 
 /** پوشهٔ «اینستاگرام» درونِ پوشهٔ قسمت — همه‌چیزِ ریلز این‌جاست. */
@@ -117,7 +223,10 @@ function igLessonText_(ep, cap) {
   return t.length > cap ? t.slice(0, cap) : t;
 }
 
-function igPrompt_(ep, seriesName, lesson) {
+function igPrompt_(ep, seriesName, lesson, opt) {
+  opt = opt || {};
+  var W = igWords_(opt);
+  if (opt.recap) return igPromptRecap_(ep, seriesName, opt, W);
   /* ══ یک فکر، نه هفت شعار (۹.۲۵) ══ ریلزِ اول «چنگی به دل نزد … ارتباطِ معنایی محتوا اصلاً خوب نبود». پرامپتِ ۹.۲۱
      «۵ تا ۸ جملهٔ کوتاه، هر کدام با تصویرِ خودش» می‌خواست؛ مدل هم هفت جملهٔ مستقل نوشت: قلاب می‌پرسید «چرا شبهه با زور
      حل نمی‌شود؟»، جملهٔ دوم دربارهٔ «گلِ نازک» بود، سوم دربارهٔ انقلابیان، و جوابِ قلاب در جملهٔ چهارم. حالا یک متنِ
@@ -130,7 +239,7 @@ function igPrompt_(ep, seriesName, lesson) {
     'مجموعه: «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : ''),
     '',
     'اول idea را بنویس: **یک** ایدهٔ مشخص از همین درس که در یک جمله گفتنی است — نه فهرستِ مطالبِ درس.',
-    'بعد script: یک متنِ پیوسته (۸۰ تا ۱۵۰ واژه) که فقط همان یک ایده را باز می‌کند، با این خط:',
+    'بعد script: یک متنِ پیوسته (' + faDigitsOut_(String(W.lo)) + ' تا ' + faDigitsOut_(String(W.hi)) + ' واژه) که فقط همان یک ایده را باز می‌کند، با این خط:',
     '  ۱) قلاب: پرسش یا نکتهٔ شگفتی که شنونده را نگه می‌دارد («آیا می‌دانستید …؟» یا پرسشی تیز) — حداکثر ۱۴ واژه؛',
     '  ۲) چرا مهم است، در یک جمله؛',
     '  ۳) خودِ ایده، گام به گام — هر جمله از جملهٔ قبل بیرون می‌آید («چون…»، «پس…»، «یعنی…»، «اما…»)؛',
@@ -143,7 +252,8 @@ function igPrompt_(ep, seriesName, lesson) {
     '• ادعا و نام و عدد فقط از خودِ درس.',
     '• scenes = ۴ یا ۵ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه، به ترتیبِ همان خط (قلاب، چرایی، ایده، مثال، جواب)؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
     '• coverTitle = عنوانِ کاور، حداکثر ۶ واژه، همان پرسشِ قلاب به کوتاه‌ترین شکل.',
-    '• caption = ۲ تا ۴ جمله که همان ایده را بگوید و به شنیدنِ درسِ کامل دعوت کند (پیوند را ننویس).',
+    '• caption = کپشنِ اینستاگرام: سطرِ اول یک جملهٔ کنجکاوکننده (همان که زیرِ ریلز پیش از «بیشتر» دیده می‌شود، حداکثر ۱۲۰ نویسه)، بعد ۲ تا ۳ جملهٔ ساده که همان ایده را بگوید و به درسِ کامل دعوت کند. پیوند و برچسب ننویس.',
+    '• ytDesc = توضیحِ شورتزِ یوتیوب: ۳ تا ۵ جمله — بیننده در این ویدئو چه می‌فهمد، چرا مهم است، و درسِ کامل چه چیزِ بیشتری می‌دهد؛ واژه‌های کلیدیِ جست‌وجوپذیرِ همین موضوع را طبیعی در جمله‌ها بیاور. پیوند و برچسب ننویس.',
     '• tags = ۸ تا ۱۵ برچسبِ مرتبط، بی #. story = یک جملهٔ کوتاه برای استوری.',
     '• emph = ۴ تا ۸ واژه یا عبارتِ کوتاهِ کلیدی (۱ تا ۳ واژه) که **عیناً** در script آمده‌اند — روی تصویر برجسته می‌شوند.',
     '',
@@ -152,7 +262,43 @@ function igPrompt_(ep, seriesName, lesson) {
   ].join('\n');
 }
 
-/** خروجیِ مدل ⇒ برنامهٔ تمیز، یا null با دلیل. */
+/** بازهٔ واژه: درس ۵۰–۲۱۰ (هدف ۸۰–۱۵۰)، مرور ۲۰۰–۴۰۰؛ `maxWords` وقتی صدای قبلی از سه دقیقه گذشت. */
+function igWords_(opt) {
+  opt = opt || {};
+  var lo = 80, hi = 150, min = 50, max = 210;
+  if (opt.recap) { var R = CFG.IG_RECAP_WORDS || [200, 400]; lo = Number(R[0]) || 200; hi = Number(R[1]) || 400; min = Math.round(lo * 0.75); max = Math.round(hi * 1.1); }
+  var cap = Number(opt.maxWords) || 0;
+  if (cap > 0) { hi = Math.min(hi, cap); max = Math.min(max, cap); lo = Math.min(lo, Math.round(cap * 0.8)); min = Math.min(min, lo); }
+  return { lo: lo, hi: hi, min: min, max: max };
+}
+
+/**
+ * ریلزِ مرورِ بزرگ (۹.۳۰): «برای مرورهای بزرگ زمانِ ریلز و شورت رو کمی بیشتر کن، حدودِ سه دقیقه نهایتاً … ولی چون مرور
+ * دیگه نباید خلاصه‌ش کنی». مرور خودش چکیدهٔ چند درس است؛ ریلزِ یک‌ایده‌ای از آن، خلاصهٔ خلاصه می‌شد. پس این‌جا **مسیر**:
+ * درس‌ها به ترتیب، هر کدام یک گامِ روشن، پیوندِ هر گام به بعدی — با همان زبانِ عام‌فهم.
+ */
+function igPromptRecap_(ep, seriesName, opt, W) {
+  return [
+    'تو نویسندهٔ ریلزِ «مرورِ بزرگ» برای **مخاطبِ عام** هستی. از مرورِ زیر **یک** متنِ گفتاریِ پیوستهٔ ' + (CFG.IG_RECAP_SEC || '120 تا 170') +
+      ' ثانیه‌ای (' + faDigitsOut_(String(W.lo)) + ' تا ' + faDigitsOut_(String(W.hi)) + ' واژه) بنویس.',
+    'مجموعه: «' + seriesName + '»' + (opt.range ? ' — ' + opt.range : ' — مرورِ بزرگ'),
+    'این **خلاصهٔ خلاصه نیست**: مسیرِ درس‌ها را به همان ترتیب بگو — هر درس یا بخش یک گامِ روشن با نکتهٔ اصلی‌اش، و هر گام از گامِ قبلی',
+    'بیرون بیاید («اول…»، «بعد…»، «همین ما را می‌رساند به…»). یک مثالِ روزمره هر جا مفهوم سنگین است. بیننده باید در پایان بداند این',
+    'مسیر از کجا شروع شد، به کجا رسید و چرا هر گام لازم بود — و بخواهد درس‌ها را کامل ببیند.',
+    'زبان: ساده، صمیمی، زنده؛ اصطلاحِ فلسفیِ بی‌توضیح و جملهٔ سنگین ممنوع.',
+    'idea = مسیرِ کلِ مرور در یک جمله. قلاب (جملهٔ اول): پرسشی که کلِ مسیر جوابش است — حداکثر ۱۴ واژه.',
+    '• جمله‌ها کوتاه (حداکثر ۲۲ واژه). هیچ تاریخ، «امروز»، «در این قسمت»، «پادکست» یا شمارهٔ قسمت؛ دعوت به یوتیوب را **ننویس**.',
+    '• ادعا و نام و عدد فقط از خودِ مرور.',
+    '• scenes = ۷ تا ۹ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه به ترتیبِ مسیر؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
+    '• coverTitle = حداکثر ۶ واژه. caption = سطرِ اولِ کنجکاوکننده (حداکثر ۱۲۰ نویسه) + ۲ تا ۳ جمله؛ پیوند و برچسب ننویس.',
+    '• ytDesc = ۴ تا ۶ جمله برای یوتیوب: این مرور کدام درس‌ها را به چه ترتیبی می‌پیماید و هر کدام چه می‌دهد؛ واژه‌های کلیدی طبیعی. پیوند و برچسب ننویس.',
+    '• tags = ۸ تا ۱۵ برچسب، بی #. story = یک جملهٔ کوتاه. emph = ۴ تا ۸ واژهٔ کلیدیِ ۱ تا ۳ واژه‌ای که **عیناً** در script آمده‌اند.',
+    '',
+    'متنِ مرور:',
+    igLessonText_(ep, Math.max(Number(CFG.IG_SRC_CHARS) || 9000, 14000))
+  ].join('\n');
+}
+
 /** متنِ پیوسته ⇒ جمله‌ها (مرزِ جمله «.!؟?…»)؛ جملهٔ خیلی کوتاه به بعدی می‌چسبد. */
 function igSplit_(t) {
   var out = [], cur = '';
@@ -167,7 +313,8 @@ function igSplit_(t) {
 }
 
 /** خروجیِ مدل ⇒ برنامهٔ تمیز، یا {why}. جمله‌ای که تاریخ/«پادکست»/یوتیوب دارد ⇒ کلِ متن رد (متنِ پیوسته را نمی‌شود سوراخ کرد). */
-function igPlanTrim_(r) {
+function igPlanTrim_(r, opt) {
+  var W = igWords_(opt);
   if (!r || !r.script) return { why: 'مدل متنی نداد' };
   var bad = /(یوتیوب|youtube|در این قسمت|این قسمت|پادکست|شنوندگان|\d{4}\/\d|۱۴۰[۰-۹]|20\d\d|سالِ? [۰-۹\d]{4})/;
   var today = function (t) { return /امروز/.test(t.replace(/(تا (به )?|دنیای |جهانِ? |انسانِ? |جامعهٔ )امروز/g, '')); };
@@ -175,9 +322,9 @@ function igPlanTrim_(r) {
   for (var b = 0; b < sents.length; b++) if (bad.test(sents[b]) || today(sents[b])) return { why: 'جملهٔ ناروا: «' + sents[b].slice(0, 60) + '»' };
   var words = sents.join(' ').split(' ').length;
   if (sents.length < 4) return { why: 'کمتر از ۴ جمله (' + sents.length + ')' };
-  if (words < 50) return { why: 'متن کوتاه است (' + words + ' واژه)' };
-  if (words > 210) return { why: 'متن بلند است (' + words + ' واژه)' };
-  var scenes = (r.scenes || []).map(function (x) { return String(x || '').slice(0, 400); }).filter(Boolean).slice(0, 6);
+  if (words < W.min) return { why: 'متن کوتاه است (' + words + ' واژه)' };
+  if (words > W.max) return { why: 'متن بلند است (' + words + ' واژه)' };
+  var scenes = (r.scenes || []).map(function (x) { return String(x || '').slice(0, 400); }).filter(Boolean).slice(0, (opt && opt.recap) ? 10 : 6);
   var lines = sents.map(function (t, i) {
     return { text: t, scene: scenes.length ? scenes[Math.min(scenes.length - 1, Math.floor(i * scenes.length / sents.length))] : '' };
   });
@@ -188,23 +335,29 @@ function igPlanTrim_(r) {
     .filter(function (x) { return x && x.split(' ').length <= 3 && joined.indexOf(x) !== -1; }).slice(0, 8);
   return { idea: String(r.idea || '').trim().slice(0, 200), hook: lines[0].text.slice(0, 140), lines: lines, scenes: scenes, emph: emph,
            coverTitle: String(r.coverTitle || '').trim().slice(0, 60), caption: String(r.caption || '').trim().slice(0, 1200),
-           story: String(r.story || '').trim().slice(0, 140), tags: tags, words: words };
+           story: String(r.story || '').trim().slice(0, 140), tags: tags, words: words,
+           ytDesc: String(r.ytDesc || '').trim().slice(0, 1500) };
 }
 
 /**
  * داورِ پیوستگی (۹.۲۵) — فراخوانِ جدا: یک ایده؟ هر جمله از قبلی می‌آید؟ جملهٔ پایانی جوابِ قلاب است؟ همه از درس؟
  * ⇒ { ok, why, fix } — `fix` متنِ بازنویسی‌شده وقتی ایراد هست (همان قیدها). نشنیدنِ داور ⇒ رد، نه تأییدِ خاموش.
  */
-function igJudge_(p, lesson) {
+function igJudge_(p, lesson, opt) {
+  opt = opt || {};
+  var W = igWords_(opt);
   var L = ['تو داورِ سخت‌گیرِ یک ریلزِ آموزشیِ فارسی هستی. متنِ ریلز را کنارِ درس بخوان و فقط با «بله» یا «خیر» جواب بده:',
-           'oneIdea: کلِ متن **فقط یک** ایده را باز می‌کند؟ (فهرستِ چند نکته = خیر)',
+           opt.recap ? 'oneIdea: متن **یک مسیرِ پیوسته** از درس‌های مرور، به همان ترتیب، است؟ (فهرستِ بی‌پیوند یا جاانداختنِ گامِ اصلی = خیر)'
+                     : 'oneIdea: کلِ متن **فقط یک** ایده را باز می‌کند؟ (فهرستِ چند نکته = خیر)',
            'flows: هر جمله از جملهٔ قبلش بیرون می‌آید؟ (جمله‌ای که بشود برداشت و چیزی کم نشود = خیر)',
            'answersHook: جملهٔ پایانی جوابِ روشنِ پرسشِ جملهٔ اول است؟',
            'faithful: هر ادعا در خودِ درس هست؟',
            'popular: یک بینندهٔ عادی (نه فیلسوف) آن را راحت می‌فهمد و تا آخر نگاه می‌کند؟ (اصطلاحِ سنگین یا لحنِ درسی = خیر)',
            'thirst: بیننده چیزی واقعی یاد گرفت **و** کنجکاوِ درسِ کامل شد؟',
            'weak: ضعیف‌ترین جمله و چرا (یک سطر).',
-           'fix: اگر یکی «خیر» است، کلِ متن را بازنویسی کن — یک ایده، زبانِ ساده و صمیمی برای مخاطبِ عام، خطِ پیوسته (قلاب ⇐ چرایی ⇐ ایده گام‌به‌گام ⇐ مثالِ روزمره ⇐ جوابِ قلاب ⇐ پرسشِ بزرگ‌ترِ درسِ کامل)، ۸۰ تا ۱۵۰ واژه، بی تاریخ و «پادکست» و یوتیوب. اگر همه «بله»، fix خالی.',
+           'fix: اگر یکی «خیر» است، کلِ متن را بازنویسی کن — ' + (opt.recap ? 'مسیرِ درس‌ها به ترتیب، هر گام از قبلی' : 'یک ایده') +
+             '، زبانِ ساده و صمیمی برای مخاطبِ عام، خطِ پیوسته (قلاب ⇐ چرایی ⇐ ' + (opt.recap ? 'گام‌های مسیر' : 'ایده گام‌به‌گام') +
+             ' ⇐ مثالِ روزمره ⇐ جوابِ قلاب ⇐ پرسشِ بزرگ‌ترِ درسِ کامل)، ' + W.lo + ' تا ' + W.hi + ' واژه، بی تاریخ و «پادکست» و یوتیوب. اگر همه «بله»، fix خالی.',
            '', 'ایدهٔ اعلام‌شده: ' + (p.idea || '—'), '', 'متنِ ریلز:', p.lines.map(function (x) { return x.text; }).join(' '),
            '', 'درس:', String(lesson || '').slice(0, 6000)];
   var r = null;
@@ -221,18 +374,55 @@ function igJudge_(p, lesson) {
   return { ok: !miss.length, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
 }
 
-/** کپشنِ نهایی: متنِ مدل + پیوندِ یوتیوب + مجموعه + برچسب‌ها؛ سقفِ ۲۲۰۰ نویسه و ۳۰ برچسب. */
-function igCaption_(plan, ytUrl, seriesName, lesson) {
-  var base = (CFG.IG_TAGS_BASE || []).slice();
+/** برچسبِ درس برای کپشن و عنوان: «درسِ ۵» یا «مرورِ بزرگِ درس‌های ۱ تا ۱۵». */
+function igLessonLabel_(plan) {
+  if (plan.recap) return plan.range ? String(plan.range) : 'مرورِ بزرگ';
+  return plan.lesson ? 'درسِ ' + faDigitsOut_(String(plan.lesson)) : '';
+}
+
+/** برچسب‌ها: پایه + مدل، بی تکرار، تا `max`. */
+function igTags_(plan, max) {
   var tags = [];
-  base.concat(plan.tags || []).forEach(function (t) { if (t && tags.indexOf(t) === -1 && tags.length < 30) tags.push(t); });
-  var s = String(plan.caption || '') + '\n\n' +
-          /* بی ایموجی (۹.۲۴): «🎧» و «📚» در رونوشتِ درایو «ð§» شدند — نویسهٔ چهاربایتی در یک گام از راه شکست.
-             کپشنی که روی صفحهٔ عمومی می‌نشیند جای «احتمالاً درست است» نیست. */
-          'نسخهٔ کاملِ این درس در یوتیوب:\n' + ytUrl + '\n\n' +
-          'مجموعهٔ «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : '') + '\n\n' +
-          tags.map(function (t) { return '#' + t; }).join(' ');
+  (CFG.IG_TAGS_BASE || []).concat(plan.tags || []).forEach(function (t) { if (t && tags.indexOf(t) === -1 && tags.length < max) tags.push(t); });
+  return tags;
+}
+
+/**
+ * کپشنِ اینستاگرام (۹.۳۰ — «کپشن‌ها مناسبِ یوتیوب و اینستاگرام درست تهیه بشه»): سطرِ اول قلابی است که پیش از «بیشتر» دیده
+ * می‌شود؛ بعد متن؛ بعد «کجا کامل است» با نامِ کانال و مجموعه و شمارهٔ درس (پیوندِ کپشنِ اینستاگرام کلیک‌پذیر نیست، پس نام هم
+ * لازم است)؛ و ۱۲ برچسب، نه ۳۰ — برچسبِ بی‌ربطِ زیاد دسترسی را کم می‌کند. بی ایموجی (۹.۲۴).
+ */
+function igCaption_(plan, ytUrl, seriesName, lesson) {
+  var mk = null;
+  try { mk = ytMarkSpec_(); } catch (e) { mk = null; }
+  var chan = (mk && mk.name) || 'رد پای حقیقت';
+  var lab = igLessonLabel_({ recap: plan.recap, range: plan.range, lesson: lesson });
+  var s = String(plan.caption || '').trim() + '\n\n' +
+          'نسخهٔ کامل در یوتیوب، کانالِ «' + chan + '»' + ((mk && mk.handle) ? ' (' + mk.handle + ')' : '') + ':\n' + ytUrl + '\n' +
+          'مجموعهٔ «' + seriesName + '»' + (lab ? ' — ' + lab : '') + '\n\n' +
+          igTags_(plan, 12).map(function (t) { return '#' + t; }).join(' ');
   return s.length > 2200 ? s.slice(0, 2200) : s;
+}
+
+/**
+ * عنوان و توضیحِ شورتزِ یوتیوب (۹.۳۰): عنوان = عنوانِ کاور + مجموعه و درس + #Shorts (≤۱۰۰)؛ توضیح = متنِ ویژهٔ یوتیوب
+ * (`ytDesc`، جست‌وجوپذیر) + پیوندِ درسِ کامل + پیوندِ پلی‌لیستِ مجموعه + پیوندِ کانال + برچسب‌ها (سه تای اول بالای عنوان
+ * دیده می‌شوند؛ بیش از ۱۵ یعنی یوتیوب همه را نادیده می‌گیرد).
+ */
+function igShortMeta_(plan, plUrl) {
+  var mk = null;
+  try { mk = ytMarkSpec_(); } catch (e) { mk = null; }
+  var lab = igLessonLabel_(plan);
+  var head = String(plan.plan.coverTitle || plan.plan.hook || plan.title || '').replace(/[«»]/g, '').trim();
+  var tail = ' | ' + String(plan.series || '').slice(0, 40) + (lab ? '، ' + lab : '') + ' #Shorts';
+  var title = (head.slice(0, Math.max(20, 100 - tail.length)) + tail).slice(0, 100);
+  var tags = igTags_(plan.plan, 14);
+  var desc = igCapClean_(String(plan.plan.ytDesc || plan.plan.caption || '')) + '\n\n' +
+             'نسخهٔ کامل' + (lab ? ' (' + lab + ' از مجموعهٔ «' + plan.series + '»)' : '') + ':\n' + plan.yt + '\n' +
+             (plUrl ? '\nهمهٔ درس‌های «' + plan.series + '» به ترتیب:\n' + plUrl + '\n' : '') +
+             ((mk && mk.handle) ? '\nکانالِ «' + ((mk && mk.name) || 'رد پای حقیقت') + '»: https://www.youtube.com/' + mk.handle + '\n' : '') +
+             '\n#Shorts ' + tags.map(function (t) { return '#' + t; }).join(' ');
+  return { title: title, desc: desc.slice(0, 4900), tags: tags };
 }
 
 /* ───── مراحل ───── */
@@ -242,22 +432,31 @@ function igStepPlan_(it, fo) {
   var meta = ytEpisodeMeta_(epFo);
   var ep = meta && meta.ep;
   if (!ep || !ep.sections) return { fail: '_special.json یا متنِ درس پیدا نشد' };
-  var seriesName = String(meta.seriesName || it.series || ''), lesson = meta.lesson || '';
+  var seriesName = String(meta.seriesName || it.series || '');
+  /* شمارهٔ درس از **پوشهٔ مجموعه** (۸.۶۸ — `lesson`ِ پرونده یک بار «درس ۸» برای درسِ ۱۳ داد)؛ مرورِ بزرگ بازه‌اش را. */
+  var recap = !!(it.recap || meta.recap), lesson = Number(it.lesson) || 0, range = '';
+  try {
+    var par = epFo.getParents(), lessons = par.hasNext() ? ytSeriesLessons_(par.next()) : [];
+    for (var q = 0; q < lessons.length; q++) if (Number(lessons[q].ep) === Number(it.ep)) { recap = recap || !!lessons[q].recap; if (!lesson) lesson = lessons[q].lesson; }
+    if (recap) range = ytRecapRange_(meta, lessons) || '';
+  } catch (eL) {}
+  if (!lesson && !recap) lesson = Number(meta.lesson) || 0;
+  var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0 };
   var r = null;
-  try { r = geminiText_(igPrompt_(ep, seriesName, lesson), IG_REEL_SCHEMA, 8192); }
+  try { r = geminiText_(igPrompt_(ep, seriesName, lesson, opt), IG_REEL_SCHEMA, 8192); }
   catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
-  var p = igPlanTrim_(r);
+  var p = igPlanTrim_(r, opt);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
   /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
-  var lessonTxt = igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
+  var lessonTxt = igLessonText_(ep, recap ? 14000 : (Number(CFG.IG_SRC_CHARS) || 9000));
   var jd = { ok: true, why: '' };
   if (CFG.IG_JUDGE !== false) {
-    jd = igJudge_(p, lessonTxt);
+    jd = igJudge_(p, lessonTxt, opt);
     if (!jd.ok && jd.fix) {
       var p2 = igPlanTrim_({ idea: p.idea, script: jd.fix, scenes: p.scenes, coverTitle: p.coverTitle, caption: p.caption,
-                             story: p.story, tags: p.tags, emph: p.emph });
+                             story: p.story, tags: p.tags, emph: p.emph, ytDesc: p.ytDesc }, opt);
       if (p2.lines) {
-        var jd2 = igJudge_(p2, lessonTxt);
+        var jd2 = igJudge_(p2, lessonTxt, opt);
         if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
         else jd = jd2;
       }
@@ -266,7 +465,9 @@ function igStepPlan_(it, fo) {
   }
   p.judge = jd.why || 'پیوسته';
   p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
-  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson, title: String(ep.title || ''),
+  p.recap = recap; p.range = opt.range;
+  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
+               recap: recap, range: opt.range, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
                caption: igCaption_(p, it.yt, seriesName, lesson),
                voice: (ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE };
@@ -275,7 +476,8 @@ function igStepPlan_(it, fo) {
     var oldT = fo.getFilesByName('ریلز — متن و کپشن.txt');
     while (oldT.hasNext()) oldT.next().setTrashed(true);
     fo.createFile(Utilities.newBlob('ایده: ' + (p.idea || '') + '\nداور: ' + (p.judge || '') + '\n\n' +
-                                    p.lines.map(function (x) { return x.text; }).join('\n') + '\n\n—— کپشن ——\n' + plan.caption,
+                                    p.lines.map(function (x) { return x.text; }).join('\n') + '\n\n—— کپشنِ اینستاگرام ——\n' + plan.caption +
+                                    '\n\n—— توضیحِ شورتزِ یوتیوب ——\n' + (p.ytDesc || ''),
                                     'text/plain', 'ریلز — متن و کپشن.txt'));
   } catch (eT) {}
   return { ok: true, plan: plan };
@@ -331,6 +533,12 @@ function igStepVoice_(it, fo, plan, deadline) {
   plan.audioId = f.getId();
   plan.times = times;
   plan.seconds = Math.round(bytes.length / (sr * 2) * 10) / 10;
+  /* سقفِ سه دقیقه (۹.۳۰): شورتزِ یوتیوب تا ۱۸۰ ثانیه است. بلندتر ⇒ از نو با متنی که به همان نسبت کوتاه‌تر است. */
+  var capS = Math.max(30, Number(CFG.IG_MAX_SEC) || 178);
+  if (plan.seconds > capS) {
+    it.maxWords = Math.max(60, Math.floor((Number(plan.plan.words) || 150) * (capS - 12) / plan.seconds));
+    return { fail: 'صدا ' + plan.seconds + ' ثانیه شد (سقف ' + capS + ') — از نو با حداکثر ' + it.maxWords + ' واژه' };
+  }
   plan.phase = 'img';
   return { ok: true };
 }
@@ -343,7 +551,7 @@ function igIsImg_(f) {
 }
 
 function igStepImages_(it, fo, plan, deadline) {
-  var lines = plan.plan.lines, want = Math.min(Math.max(1, Number(CFG.IG_IMG_N) || 5), lines.length - 1);
+  var lines = plan.plan.lines, want = Math.min(Math.max(1, Number(plan.recap ? CFG.IG_RECAP_IMG_N : CFG.IG_IMG_N) || 5), lines.length - 1);
   var ids = [], how = '';
   /* ۱) نقاشی‌های خودِ درس، اگر هست — به ترتیبِ نام (صحنه ۰۱، ۰۲…)، پخش روی کلِ درس. */
   try {
@@ -529,7 +737,7 @@ function igStepPub_(it, plan, st, deadline) {
     st.media = st.media || {};
     st.media[plan.reelId] = it.key;
     var mk = Object.keys(st.media);
-    if (mk.length > 150) delete st.media[mk[0]];
+    if (mk.length > 80) delete st.media[mk[0]];
     try { plan.permalink = String((igApi_('get', '/' + plan.reelId, { fields: 'permalink' }).j || {}).permalink || ''); } catch (eP) {}
     st.stats.dayN = (Number(st.stats.dayN) || 0) + 1;
     st.stats.published = (Number(st.stats.published) || 0) + 1;
@@ -563,16 +771,12 @@ function igShortPub_(it, plan) {
   if (plan.shortId) return { ok: true };
   var yt = ytSvc_();
   if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
-  var title = (String(plan.plan.coverTitle || plan.plan.hook || plan.title || '').replace(/[«»]/g, '').slice(0, 85) + ' #Shorts').trim();
   var plUrl = '';
   try {
     var pl = ytPlFor_({ show: ENRICH_SHOW_SPECIAL, seriesKey: plan.seriesKey || '' }, plan.series, CFG.SPECIAL_SHOW_NAME);
     if (pl && pl.id) plUrl = 'https://www.youtube.com/playlist?list=' + pl.id;
   } catch (eP) {}
-  var desc = igCapClean_(String(plan.plan.caption || '')) + '\n\n' +
-             'نسخهٔ کاملِ این درس:\n' + plan.yt + '\n' +
-             (plUrl ? '\nهمهٔ درس‌های مجموعهٔ «' + plan.series + '»:\n' + plUrl + '\n' : '') +
-             '\n#Shorts ' + (plan.plan.tags || []).slice(0, 8).map(function (t) { return '#' + t; }).join(' ');
+  var sm = igShortMeta_(plan, plUrl), title = sm.title, desc = sm.desc;
   var leaks = ytLeaks_(title + '\n' + desc);
   if (!ytQuotaTake_(YT_COST.videosInsert, true)) return { wait: 'سهمیهٔ آپلودِ یوتیوب امروز تمام شد' };
   var blob = null;
@@ -583,7 +787,7 @@ function igShortPub_(it, plan) {
   } catch (eD) { plan.shortWhy = 'دانلودِ نسخهٔ شورتز: ' + String(eD.message || eD).slice(0, 100); return { ok: true }; }
   try {
     var made = yt.Videos.insert({
-      snippet: { title: title, description: desc, tags: (plan.plan.tags || []).slice(0, 15),
+      snippet: { title: title, description: desc, tags: sm.tags,
                  categoryId: CFG.YT_CATEGORY_SPECIAL || '27', defaultLanguage: CFG.YT_LANG || 'fa', defaultAudioLanguage: CFG.YT_LANG || 'fa' },
       status: { privacyStatus: 'unlisted', selfDeclaredMadeForKids: false }
     }, 'snippet,status', blob);
@@ -604,10 +808,9 @@ function igShortPub_(it, plan) {
 
 /** یک ردیف در تبِ «انتشار در اینستاگرام». */
 function igLog_(it, plan) {
-  var hub = getHub_(), nm = CFG.IG_TAB || 'انتشار در اینستاگرام';
-  var sh = hub.getSheetByName(nm);
-  if (!sh) { sh = hub.insertSheet(nm); sh.appendRow(['زمان', 'قسمت', 'مجموعه', 'درس', 'قلاب', 'ریلز', 'استوری', 'یوتیوب', 'تصویرها', 'ثانیه', 'شورتزِ یوتیوب', 'ایده']); }
-  sh.appendRow([nowStr_(), it.ep, plan.series, plan.lesson, plan.plan.hook, plan.permalink || plan.reelId || '',
+  var sh = igSheet_(CFG.IG_TAB || 'انتشار در اینستاگرام',
+                    ['زمان', 'قسمت', 'مجموعه', 'درس', 'قلاب', 'ریلز', 'استوری', 'یوتیوب', 'تصویرها', 'ثانیه', 'شورتزِ یوتیوب', 'ایده']);
+  sh.appendRow([nowStr_(), it.ep, plan.series, igLessonLabel_(plan), plan.plan.hook, plan.permalink || plan.reelId || '',
                 plan.storyId ? 'منتشر شد' : (plan.storyWhy || ''), plan.yt, plan.imgHow || '', plan.seconds || '',
                 plan.shortUrl ? plan.shortUrl + (plan.shortPublic ? '' : ' (unlisted)') : (plan.shortWhy || ''), plan.plan.idea || '']);
 }
@@ -641,7 +844,8 @@ function igTick() {
       if (nx) {
         var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, nx.ep, nx.series);
         if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nx.ep, ep: nx.ep, series: nx.series,
-                                    folderId: fo0.getId(), yt: nx.url, phase: 'plan', at: nowStr_() });
+                                    folderId: fo0.getId(), yt: nx.url, phase: 'plan', at: nowStr_(),
+                                    recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0 });
         else { st.fails = st.fails || {}; st.fails[String(nx.ep)] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
     }
@@ -657,7 +861,11 @@ function igTick() {
         st.fails = st.fails || {};
         st.fails[String(it.ep)] = (Number(st.fails[String(it.ep)]) || 0) + 1;
         st.lastWhy = it.key + ': ' + res.fail;
-        if (st.fails[String(it.ep)] >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3)) continue;
+        /* سقفِ تلاش ⇒ کنار تا `IG_RETRY_H`، بعد همان درس دوباره (۹.۳۰) — رها کردن یعنی جاافتادن. */
+        if (st.fails[String(it.ep)] >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3)) {
+          st.failAt = st.failAt || {}; st.failAt[String(it.ep)] = Date.now();
+          continue;
+        }
         it.phase = 'plan';                         // از نو، با مدلِ تازه
       }
       keep.push(it);
@@ -681,7 +889,7 @@ function igStep_(it, st, deadline) {
   if (it.phase !== 'plan' && !plan) it.phase = 'plan';
   /* برنامه‌ای با پرامپتِ کهنه که هنوز منتشر نشده، از نو (۹.۲۵): «ارتباطِ معنایی اصلاً خوب نبود» برای ریلزی گفته شد
      که منتظرِ تأیید بود؛ تأییدِ آن یعنی انتشارِ همان شعارهای جدا. منتشرشده دست نمی‌خورد. */
-  if (plan && !plan.reelId && (Number(plan.v) || 1) < (Number(CFG.IG_PLAN_V) || 2)) {
+  if (plan && !plan.reelId && (Number(plan.v) || 1) < (Number(CFG.IG_PLAN_MIN) || 3)) {
     try { var dq = ytRenderRead_(); var nb = (dq.reels || []).length;
           dq.reels = (dq.reels || []).filter(function (x) { return x && x.key !== it.key; });
           if (dq.reels.length !== nb) ytRenderSave_(dq); } catch (eQ) {}
@@ -695,7 +903,12 @@ function igStep_(it, st, deadline) {
     else if (plan.phase === 'ask') r = igStepAsk_(it, fo, plan);
     else if (plan.phase === 'got') r = igStepGot_(it, fo, plan);
     else if (plan.phase === 'ok') r = igStepOk_(it, plan, st);
-    else if (plan.phase === 'pub') r = igStepPub_(it, plan, st, deadline);
+    else if (plan.phase === 'pub') {
+      /* انتشار به ترتیبِ درس (۹.۳۰): دو ریلز هم‌زمان ساخته می‌شوند، ولی درسِ ۵ پیش از درسِ ۴ منتشر نمی‌شود. */
+      var pend = igEarlierPending_(st, it.ep);
+      if (pend) return { wait: 'منتظرِ انتشارِ ' + pend + ' همین مجموعه' };
+      r = igStepPub_(it, plan, st, deadline);
+    }
     else if (plan.phase === 'yts') {
       r = igShortPub_(it, plan);
       if (r.ok) { plan.phase = 'done'; plan.doneAt = nowStr_(); try { igLog_(it, plan); } catch (eL) {} }
@@ -732,13 +945,20 @@ function igStatus_() {
   var out = { on: on, user: a ? a.user : '', done: done, published: Number((st.stats || {}).published) || 0,
               today: (st.stats || {}).day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(st.stats.dayN) || 0 : 0,
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
-              lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null };
+              lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null,
+              gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(),
+              order: igOrderDec_((st.order && st.order.s) || []).map(function (S) {
+                var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
+                return { series: S.name, done: n, total: S.eps.length };
+              }) };
   out.line = !a ? 'اینستاگرام: کلید ثبت نشده (منوی «۴) کلیدِ اینستاگرام (متا)»).'
     : 'اینستاگرام @' + a.user + ': ' + out.published + ' ریلز منتشر شده، امروز ' + out.today + '؛ در جریان: ' +
       (fl.length ? fl.map(function (x) { return x.key.split(':').pop() + ' (' + x.phase + (x.why ? ' — ' + x.why : '') + ')'; }).join('، ') : 'هیچ') +
       (out.lastWhy ? '. آخرین ایراد: ' + out.lastWhy : '') +
       igInsLine_(st.ins) +
-      '. ⟨شما⟩ هایلایت و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
+      ((st.gaps || []).length ? '. ⚠️ ترتیب: ' + st.gaps.join(' · ') : '') +
+      (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
+      '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
   return out;
 }
 
@@ -761,9 +981,10 @@ function igHealth_(problems, notes) {
     var h = (now - Number(x.since)) / 3600000;
     if (h > (Number(CFG.IG_STUCK_H) || 30)) bad.push(x.key + ' ' + Math.round(h) + ' ساعت در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : ''));
   });
-  var maxTry = Math.max(1, Number(CFG.IG_TRY_MAX) || 3), gave = [];
-  for (var k in (st.fails || {})) if ((Number(st.fails[k]) || 0) >= maxTry) gave.push(k);
-  if (gave.length) bad.push('درس‌های کنارگذاشته پس از ' + maxTry + ' شکست: ' + gave.join('، ') + (st.lastWhy ? ' (آخرین: ' + st.lastWhy + ')' : ''));
+  /* ۹.۳۰: «جاافتادن» دیگر کنار گذاشتنِ بی‌صدا نیست — مجموعه سرِ همان درس می‌ایستد، و این‌جا گفته می‌شود. */
+  (st.gaps || []).forEach(function (g) { bad.push('ترتیب: ' + g); });
+  if ((st.inflight || []).length === 0 && !(st.gaps || []).length && st.order && (st.caught || []).length && igToken_())
+    notes.push('📱 ریلزها به آخرین درسِ منتشرشدهٔ همهٔ مجموعه‌ها رسیده‌اند؛ همراهِ تولید جلو می‌روند.');
   if (bad.length) {
     problems.push('📱 اینستاگرام: ' + bad.join(' · '));
     try {
@@ -798,10 +1019,37 @@ function igHealth_(problems, notes) {
    هر `IG_INS_HOURS` ساعت؛ تازه‌ترین `IG_INS_RECENT` پست هر بار، و بقیه به نوبت (`insCur`) — آمارِ پستِ کهنه کند
    عوض می‌شود و ۲۰۰ فراخوان در ساعت سقفِ متاست. */
 
-/** تبِ هاب با سرستون، اگر نیست ساخته می‌شود. */
+/**
+ * دفترِ اینستاگرام — یک شیتِ **جدا** از هاب (۹.۳۰). صاحبِ برنامه پرسید «اون شیت ببین درست بازدیدها و کامنت‌ها و مسیج‌ها
+ * … رصد می‌کنه یا نه» — نمی‌کرد: از نخستین خواندن هر بار «Service Spreadsheets timed out while accessing document» روی هابِ
+ * ۲۹ مگابایتی، و درمانِ ۹.۲۴ (ساعتِ بعد دوباره) همان دیوار را دوباره می‌زد. سه تبِ آمار/نظر/پیام و دفترِ انتشار حالا در
+ * «اینستاگرام — انتشار، آمار، نظرها و پیام‌ها» زیرِ OUTPUT/«اینستاگرام»اند؛ شناسه در Properties، نه جست‌وجوی نام.
+ */
+function igBook_() {
+  var pr = props_(), id = '';
+  try { id = String(pr.getProperty(PK.IG_BOOK) || ''); } catch (e) { id = ''; }
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (eO) { id = ''; } }
+  var ss = SpreadsheetApp.create(String(CFG.IG_BOOK_NAME || 'اینستاگرام — انتشار، آمار، نظرها و پیام‌ها'));
+  try {
+    var root = outFolder_(), nm = String(CFG.IG_BOOK_FOLDER || 'اینستاگرام');
+    var it = root.getFoldersByName(nm), fo = it.hasNext() ? it.next() : root.createFolder(nm);
+    DriveApp.getFileById(ss.getId()).moveTo(fo);
+  } catch (eM) {}
+  try { pr.setProperty(PK.IG_BOOK, ss.getId()); } catch (eP) {}
+  return ss;
+}
+function igBookUrl_() {
+  try { var id = String(props_().getProperty(PK.IG_BOOK) || ''); return id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : ''; }
+  catch (e) { return ''; }
+}
+
+/** تبِ دفترِ اینستاگرام با سرستون، اگر نیست ساخته می‌شود (برگهٔ پیش‌فرضِ خالی کنار می‌رود). */
 function igSheet_(name, head) {
-  var hub = getHub_(), sh = hub.getSheetByName(name);
-  if (!sh) { sh = hub.insertSheet(name); sh.appendRow(head); try { sh.setFrozenRows(1); } catch (e) {} }
+  var hub = igBook_(), sh = hub.getSheetByName(name);
+  if (!sh) {
+    sh = hub.insertSheet(name); sh.appendRow(head); try { sh.setFrozenRows(1); } catch (e) {}
+    try { var d0 = hub.getSheetByName('Sheet1') || hub.getSheetByName('برگه۱'); if (d0 && d0.getLastRow() === 0) hub.deleteSheet(d0); } catch (eD) {}
+  }
   return sh;
 }
 

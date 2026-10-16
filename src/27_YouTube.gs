@@ -13702,6 +13702,115 @@ function ytSectionsSync_(chId) {
 }
 
 /** توضیحِ کانال — از خودِ پیکربندی، نه دستی. پس با تغییرِ برنامه‌ها تازه می‌شود. */
+/* ─────────────── توضیحِ زنده‌ی پلی‌لیست‌ها و کانال (۹.۳۰) ───────────────
+ * صاحبِ برنامه: «تو یوتیوب اگر می‌شه توضیحات رو اضافه‌تر کن و همیشه به‌روزرسانی کن که چیا هست و چیا اضافه شده و نیاز نباشه
+ * اگر چیزی به مجموعه‌ها اضافه می‌شه یادآوری کنم». توضیحِ هر پلی‌لیست تا ۹.۲۹ یک سطرِ ثابت بود («درس‌به‌درس، به ترتیب.») و
+ * فقط وقتی نام عوض می‌شد دست می‌خورد. حالا شبانه از **پوشهٔ مجموعه** (همان ترتیبِ درس‌ها) و جدولِ انتشار ساخته می‌شود:
+ * شمارِ درس‌ها و مرورها، تازه‌ترین، و فهرستِ کامل با عنوانِ هر درس — و فقط وقتی متن واقعاً عوض شد فرستاده می‌شود (۵۰ واحد).
+ * پیوندِ درایو هرگز (همان مرزِ `ytScrub_`/`ytLeaks_`).
+ */
+
+/** عنوانِ تمیزِ یک قسمت برای فهرست: بی «قسمت N —» و بی «| مجموعه - درس N». */
+function ytListTitle_(t) {
+  return String(t || '').split('|')[0].replace(/^\s*قسمت\s*[\d۰-۹]+\s*[—–-]\s*/, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * متنِ توضیحِ پلی‌لیستِ یک مجموعه — تابعِ خالص (آزمون‌پذیر): نام، `lessons` (همان `ytSeriesLessons_`) و `pub`.
+ * ⇒ {text, n, recaps, last}. سقفِ ۴۵۰۰ نویسه: فهرستِ بلند از وسط کوتاه می‌شود («…»)، سر و تهش می‌ماند.
+ */
+function ytPlDescText_(name, lessons, pub, today) {
+  var rows = [], n = 0, rc = 0, last = '';
+  for (var i = 0; i < (lessons || []).length; i++) {
+    var x = lessons[i], r = pub[ENRICH_SHOW_SPECIAL + ':' + x.ep];
+    if (!r || !r.videoId || String(r.privacy || '').toLowerCase() !== 'public') continue;
+    var lab = x.recap ? 'مرورِ بزرگ' : 'درسِ ' + faDigitsOut_(String(x.lesson));
+    if (x.recap) rc++; else n++;
+    var line = lab + ' — ' + ytListTitle_(r.title).slice(0, 90);
+    rows.push(line);
+    last = line;
+  }
+  var head = [String(name) + ' — ' + String(CFG.SPECIAL_SHOW_NAME || 'درس‌نامه'),
+              String(CFG.SPECIAL_TAGLINE || '').trim(),
+              '',
+              'درس‌به‌درس و به ترتیب؛ از درسِ ۱ شروع کنید. هر چند درس یک «مرورِ بزرگ» همهٔ درس‌های پیشین را یک‌جا مرور می‌کند.',
+              'تا امروز: ' + faDigitsOut_(String(n)) + ' درس' + (rc ? ' و ' + faDigitsOut_(String(rc)) + ' مرورِ بزرگ' : '') +
+                (today ? ' · به‌روزشده: ' + today : ''),
+              last ? 'تازه‌ترین: ' + last : '',
+              '', 'فهرستِ درس‌ها:'].filter(function (x, k) { return x !== '' || k === 2 || k === 6; });
+  var body = rows.slice(), text = head.concat(body).join('\n');
+  while (text.length > 4500 && body.length > 12) {
+    if (body[6] !== '…') body.splice(6, 1, '…');      // نخستین بار: یک سطر جایش را به «…» می‌دهد
+    else body.splice(7, 1);                           // بعد: سطرِ پس از «…» می‌رود — سر و ته می‌مانند
+    text = head.concat(body).join('\n');
+  }
+  return { text: text.slice(0, 4500), n: n, recaps: rc, last: last };
+}
+
+/** متنِ توضیحِ پلی‌لیستِ «از همه جا»: شمار و پانزده قسمتِ تازه. */
+function ytPlDescVariety_(pub, today) {
+  var eps = [];
+  for (var k in pub) {
+    if (!Object.prototype.hasOwnProperty.call(pub, k) || k.indexOf(ENRICH_SHOW_VARIETY + ':') !== 0) continue;
+    var r = pub[k];
+    if (r && r.videoId && String(r.privacy || '').toLowerCase() === 'public') eps.push({ ep: Number(k.split(':')[1]) || 0, t: ytListTitle_(r.title) });
+  }
+  eps.sort(function (a, b) { return b.ep - a.ep; });
+  var L = [String(CFG.SHOW_NAME || ''), String(CFG.SHOW_TAGLINE || '').trim(), '',
+           'هر روز یک قسمت؛ همهٔ قسمت‌ها به ترتیبِ انتشار.',
+           'تا امروز: ' + faDigitsOut_(String(eps.length)) + ' قسمت' + (today ? ' · به‌روزشده: ' + today : ''), '', 'تازه‌ترین‌ها:'];
+  eps.slice(0, 15).forEach(function (x) { L.push('قسمتِ ' + faDigitsOut_(String(x.ep)) + ' — ' + x.t.slice(0, 90)); });
+  return { text: L.join('\n').slice(0, 4500), n: eps.length, last: eps.length ? 'قسمتِ ' + faDigitsOut_(String(eps[0].ep)) + ' — ' + eps[0].t.slice(0, 60) : '' };
+}
+
+/** شبانه: توضیحِ هر پلی‌لیست از روی محتوای واقعی، فقط وقتی عوض شده. ⇒ {checked, updated, why[]} */
+function ytPlDescSync_(budgetMs) {
+  var out = { checked: 0, updated: 0, why: [] };
+  if (!ytOn_() || CFG.YT_PLAYLISTS === false || CFG.YT_PL_DESC === false) return out;
+  var yt = ytSvc_(); if (!yt) return out;
+  var t0 = Date.now(), budget = Math.max(15000, Number(budgetMs) || 40000);
+  var hub = getHub_(), pub = ytPublished_(hub), map = ytPlMap_(), reg = null;
+  var today = '';
+  try { today = faDigitsOut_(String(calToday_().j).replace(/^(\d{4})(\d{2})(\d{2})$/, '$1/$2/$3')); } catch (eT) {}
+  try { reg = readSeriesReg_(hub); } catch (eR) { out.why.push('رجیستری خوانده نشد'); }
+  var summary = { at: nowStr_(), series: [], variety: null };
+  var push = function (key, title, text) {
+    var rec = map[key];
+    if (!rec || !rec.id) return;
+    out.checked++;
+    var sig = sha256Hex_(text).slice(0, 12);
+    if (rec.descSig === sig) return;
+    if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) { out.why.push('سهمیه'); return; }
+    try {
+      yt.Playlists.update({ id: rec.id, snippet: { title: String(rec.title || title).slice(0, 150), description: ytScrub_(text).slice(0, 4500),
+                                                     defaultLanguage: CFG.YT_LANG || 'fa' } }, 'snippet');
+      rec.descSig = sig; rec.descAt = nowStr_(); map[key] = rec; out.updated++;
+    } catch (eU) { out.why.push(String(title).slice(0, 30) + ': ' + String(eU.message || eU).slice(0, 80)); }
+  };
+  try {
+    var v = ytPlDescVariety_(pub, today);
+    summary.variety = { n: v.n, last: v.last };
+    push(ytPlKey_(ENRICH_SHOW_VARIETY, '', ''), String(CFG.SHOW_NAME || ''), v.text);
+  } catch (eV) { out.why.push('از همه جا: ' + String(eV.message || eV).slice(0, 60)); }
+  for (var r = 0; reg && r < reg.rows.length; r++) {
+    if (Date.now() - t0 > budget) { out.why.push('وقت'); break; }
+    var nm = String(reg.rows[r].vals[SC.NAME - 1] || ''), fid = String(reg.rows[r].vals[SC.FOLDER - 1] || '');
+    if (!nm || !fid) continue;
+    var key = ytPlKey_(ENRICH_SHOW_SPECIAL, reg.rows[r].key, nm);
+    if (!map[key] || !map[key].id) continue;
+    try {
+      var d = ytPlDescText_(nm, ytSeriesLessons_(DriveApp.getFolderById(fid)), pub, today);
+      if (!d.n) continue;
+      summary.series.push({ name: nm, n: d.n, recaps: d.recaps, last: d.last.slice(0, 70) });
+      push(key, nm, d.text);
+    } catch (eS) { out.why.push(nm.slice(0, 30) + ': ' + String(eS.message || eS).slice(0, 60)); }
+  }
+  ytPlMapSave_(map);
+  try { props_().setProperty(PK.YT_SUMMARY, JSON.stringify(summary).slice(0, 8000)); } catch (eP) {}
+  if (out.updated) logLine_('توضیحِ پلی‌لیست‌ها: ' + out.updated + ' از ' + out.checked + ' به‌روز شد.');
+  return out;
+}
+
 function ytChannelDesc_() {
   var L = [];
   L.push(String(CFG.SHOW_NAME || '') + ' — ' + String(CFG.SHOW_TAGLINE || ''));
@@ -13712,7 +13821,22 @@ function ytChannelDesc_() {
   L.push('هر روز دو پادکستِ فارسی: یکی از هر دری سخنی، و یکی درسِ دنباله‌دار ' +
          'از یک مجموعهٔ آموزشی. مجموعه‌ها هرکدام پلی‌لیستِ خودشان را دارند و ' +
          'به ترتیب چیده شده‌اند، پس می‌شود از درسِ اول شروع کرد.');
-  return L.join('\n');
+  /* ۹.۳۰: آنچه هست و آنچه تازه آمده، از خلاصهٔ شبانهٔ `ytPlDescSync_` — بی یادآوریِ کسی. */
+  try {
+    var sm = JSON.parse(props_().getProperty(PK.YT_SUMMARY) || 'null');
+    if (sm && sm.series && sm.series.length) {
+      L.push('');
+      L.push('مجموعه‌ها تا امروز:');
+      sm.series.forEach(function (x) {
+        L.push('• ' + String(x.name).slice(0, 60) + ': ' + faDigitsOut_(String(x.n)) + ' درس' +
+               (x.recaps ? ' و ' + faDigitsOut_(String(x.recaps)) + ' مرور' : ''));
+      });
+      if (sm.variety && sm.variety.n) L.push('• ' + String(CFG.SHOW_NAME || '') + ': ' + faDigitsOut_(String(sm.variety.n)) + ' قسمت');
+      L.push('ویدئوهای کوتاه (Shorts): چکیدهٔ هر درس در یک دقیقه.');
+    }
+  } catch (eS) {}
+  var txt = L.join('\n');
+  return txt.length > 990 ? txt.slice(0, 990) : txt;
 }
 
 function ytChannelKeywords_() {

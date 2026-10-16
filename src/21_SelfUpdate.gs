@@ -1402,6 +1402,7 @@ function selfUpdateDaily() {
       }
     } catch (eYr) { logLine_('انتشارِ شبانهٔ یوتیوب نشد: ' + eYr.message); }
     try { if (ytLeft() > 40000) ytPlaylistSync_(Math.min(45000, ytLeft() - 25000)); } catch (eYp) {}
+    try { if (ytLeft() > 45000) ytPlDescSync_(Math.min(40000, ytLeft() - 35000)); } catch (eYpd) { logLine_('توضیحِ پلی‌لیست‌ها نشد: ' + eYpd.message); }
     try { if (ytLeft() > 35000) ytChannelSync_(false); } catch (eYc) {}
     /* ویدئوهایی که به‌خاطرِ نشتی در unlisted مانده‌اند — تنها راهِ دیگرشان
        دکمهٔ دستیِ منو بود که کسی نمی‌زند (۷٫۱۴). */

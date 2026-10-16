@@ -1,19 +1,26 @@
 {
-  "version": "9.29",
+  "version": "9.30",
   "codeFile": "engine.gs",
-  "sha256": "ececb111fe2afcb6a2346ad4b428de0ba0c91fe83167a5f6a078e6a14886fb08",
-  "releasedAt": "2026-10-16T22:00:00+04:00",
-  "summary": "رانر: لحظه‌ای که بازگویی‌اش سرِ پلِ موسیقی تمام می‌شود جای بازگویی می‌نشیند (نمونهٔ ۸ دو کلیپ را کنارِ گفتار گذاشت)؛ ریلز روی «از/که/…» نمی‌بُرد؛ هشدارِ تختهٔ گویندگان فقط برای برخوردِ واقعی روی یک برنامه؛ نمونهٔ ۹ِ ۷۳ با همان نقشه.",
+  "sha256": "c005e5ac96c929536af1b76c2674e402c35c41f1e5240726775c32e3118a9e98",
+  "releasedAt": "2026-10-16T23:30:00+04:00",
+  "summary": "ریلز و شورتز مجموعه به مجموعه و درس به درس از پوشه، بی جاافتادن (درسِ بی‌ویدئو ⇒ ایستادن و گزارش؛ سه شکست ⇒ ۲۴ ساعت و همان درس؛ انتشار فقط به ترتیب)؛ مرورِ بزرگ با متنِ «مسیر» تا سه دقیقه؛ کپشنِ جدا برای اینستاگرام و یوتیوب؛ آمار/نظر/پیامِ اینستاگرام در شیتِ جدا (هاب timed out می‌داد)؛ توضیحِ پلی‌لیست‌ها و کانال هر شب از محتوای واقعی؛ تأییدِ دستی ۳ ⇒ ۱.",
   "fixes": [
-    "tools/mediakit.js: placeMoments — آغازِ پلِ موسیقی مرزِ پذیرفتهٔ پایانِ برش",
-    "tools/reelkit.js: phrasesOf — DANGLE",
-    "src/32_Persona.gs: personaBoardData_ — هشدار به ازای برنامه",
-    "src/00_Config.gs: VM_SAMPLE rev 9 (replan: false)"
+    "src/38_Instagram.gs: igOrder_/igOrderDec_/igNextEp_/igFailHold_/igEarlierPending_ — ترتیب از پوشه، بی رد شدن، انتشار به ترتیب",
+    "src/38_Instagram.gs: igPromptRecap_/igWords_ — مرورِ بزرگ تا ۴۰۰ واژه و ۹ تصویر؛ سقفِ ۱۷۸ ثانیه با بازسازی",
+    "src/38_Instagram.gs: igCaption_/igShortMeta_ — کپشنِ اینستاگرام و عنوان/توضیحِ شورتز (ytDesc)؛ شمارهٔ درس از پوشه",
+    "src/38_Instagram.gs: igBook_ — دفترِ جدای اینستاگرام زیرِ OUTPUT/«اینستاگرام»",
+    "src/27_YouTube.gs: ytPlDescText_/ytPlDescVariety_/ytPlDescSync_ و ytChannelDesc_ — توضیحِ زنده؛ src/21_SelfUpdate.gs: شبانه",
+    "src/00_Config.gs: IG_APPROVE 1، IG_PLAN_V 4، IG_PLAN_MIN 3، IG_RECAP_*، IG_MAX_SEC، IG_RETRY_H، IG_ORDER_H، IG_BOOK_*؛ PK.IG_BOOK، PK.YT_SUMMARY"
   ],
   "sourceReportIds": [],
-  "promptImpact": [],
+  "promptImpact": [
+    "_PROMPT-monitor-v107.md: ترتیب و جاافتادنِ ریلز (instagram.order/gaps)، شورتز، دفترِ جدای اینستاگرام (instagram.book)، توضیحِ زندهٔ پلی‌لیست‌ها؛ یادداشتِ ۱۰۲ به تاریخچه"
+  ],
   "answers": {
-    "R-20261016-11": "۹.۲۹",
-    "R-20261016-14": "۹.۲۹"
-  }
+    "R-20261016-16": "۹.۳۰",
+    "R-20261016-17": "۹.۳۰ (کارِ صاحبِ برنامه)"
+  },
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }

@@ -26,20 +26,47 @@ const sent = [], queued = [];
 global.tgSend_ = m => { sent.push(m); return true; };
 global.mailQueue_ = (k, t, b) => { queued.push(t); return true; };
 
-console.log('=== ۱) کدام درس بعدی است ===');
+console.log('=== ۱) کدام درس بعدی است — مجموعه به مجموعه، درس به درس، بی جاافتادن (۹.۳۰) ===');
 {
-  const pub = {
-    'special:7': { videoId: 'v7', url: 'https://youtu.be/v7', privacy: 'public', series: 'معرفت‌شناسی' },
-    'special:3': { videoId: 'v3', url: 'https://youtu.be/v3', privacy: 'unlisted', series: 'معرفت‌شناسی' },
-    'special:5': { videoId: 'v5', url: 'https://youtu.be/v5', privacy: 'public', series: 'معرفت‌شناسی' },
-    'special:2': { videoId: '', privacy: '', series: 'معرفت‌شناسی' },
-    'variety:1': { videoId: 'x1', url: 'u', privacy: 'public' }
-  };
-  const n0 = igNextEp_(pub, {});
-  ok('۱.۱ کوچک‌ترین درس‌نامهٔ **عمومی** — نه unlisted، نه بی‌ویدئو، نه «از همه جا»', n0 && n0.ep === 5 && n0.url === 'https://youtu.be/v5', JSON.stringify(n0));
-  ok('۱.۲ انجام‌شده و در جریان رد می‌شوند', igNextEp_(pub, { done: '5' }).ep === 7 &&
-     igNextEp_(pub, { inflight: [{ ep: 5 }] }).ep === 7 && igNextEp_(pub, { done: '5,7' }) === null);
-  ok('۱.۳ درسی که به سقفِ تلاش رسید کنار می‌رود', igNextEp_(pub, { fails: { '5': CFG.IG_TRY_MAX } }).ep === 7);
+  /* «از ابتدا مصباح … بدون هیچ جاافتادنی کامل … بعد آئودی … تا برسی به چیزی که الان در جریانه و به موازاتش».
+     مصباح = قسمت‌های ۱، ۲، ۳ و مرورِ بزرگِ ۱۰؛ آئودی = ۴، ۵، ۶ (شماره‌های سراسری یک‌درمیان، همان شکلِ واقعی). */
+  const P = (id, priv) => ({ videoId: id, url: 'https://youtu.be/' + id, privacy: priv || 'public', series: '' });
+  const order = [{ name: 'مصباح', eps: [{ ep: 1, lesson: 1 }, { ep: 2, lesson: 2 }, { ep: 3, lesson: 3 }, { ep: 10, recap: 1, lesson: 0 }] },
+                 { name: 'آئودی', eps: [{ ep: 4, lesson: 1 }, { ep: 5, lesson: 2 }, { ep: 6, lesson: 3 }] }];
+  const pub = { 'special:1': P('a1'), 'special:2': P('a2'), 'special:3': P('a3'), 'special:10': P('a10'),
+                'special:4': P('b1'), 'special:5': P('b2'), 'special:6': P('b3'), 'variety:1': P('x1') };
+  const nx = (st, pb) => igNextEp_(pb || pub, st, order);
+  ok('۱.۱ اول مصباح از درسِ ۱ — نه کوچک‌ترین شمارهٔ سراسری از هر مجموعه', nx({}).ep === 1 && nx({}).series === 'مصباح' && nx({}).lesson === 1);
+  ok('۱.۲ درس به درس، و مرورِ بزرگ سرِ جای خودش؛ بعد از تمام شدنِ مصباح، آئودی از درسِ ۱',
+     nx({ done: '1' }).ep === 2 && nx({ done: '1,2,3' }).ep === 10 && nx({ done: '1,2,3' }).recap === true && nx({ done: '1,2,3,10' }).ep === 4);
+  ok('۱.۳ درسی که در حالِ ساخت است، درسِ بعدیِ همان مجموعه را نمی‌بندد (ساخت هم‌زمان، انتشار به ترتیب)',
+     nx({ inflight: [{ ep: 1 }] }).ep === 2);
+  const gapPub = Object.assign({}, pub, { 'special:2': P('a2', 'unlisted') });
+  const sg = { done: '1' };
+  const g1 = nx(sg, gapPub);
+  ok('۱.۴ جاافتاده (درسِ ۲ عمومی نیست ولی ۳ هست) ⇒ مصباح همان‌جا می‌ایستد، درسِ ۳ **رد نمی‌شود**، و گفته می‌شود',
+     g1.ep === 4 && sg.gaps.length === 1 && /مصباح.*درسِ 2/.test(sg.gaps[0]) && nx({}, gapPub).ep === 1, JSON.stringify([g1, sg.gaps]));
+  const capPub = Object.assign({}, pub); delete capPub['special:10'];
+  const sc = {};
+  ok('۱.۵ به آخرِ منتشرشده رسید (مرورِ ۱۰ هنوز منتشر نشده و بعدش چیزی نیست) ⇒ «همراهِ تولید»، نه جاافتاده',
+     nx(Object.assign(sc, { done: '1,2,3' }), capPub).ep === 4 && !sc.gaps.length && sc.caught.indexOf('مصباح') !== -1);
+  const fNow = { fails: { '2': CFG.IG_TRY_MAX }, failAt: { '2': Date.now() }, done: '1' };
+  const fOld = { fails: { '2': CFG.IG_TRY_MAX }, failAt: { '2': Date.now() - 30 * 3600000 }, done: '1' };
+  ok('۱.۶ سقفِ تلاش ⇒ مجموعه سرِ همان درس می‌ایستد (نه رد)، و پس از IG_RETRY_H همان درس دوباره',
+     nx(fNow).ep === 4 && /سه بار نشد/.test(fNow.gaps[0]) && nx(fOld).ep === 2 && fOld.fails['2'] === 0, JSON.stringify(fNow.gaps));
+  ok('۱.۷ «از همه جا» هرگز', !JSON.stringify(nx({ done: '1,2,3,10,4,5,6' })).includes('x1') && nx({ done: '1,2,3,10,4,5,6' }) === null);
+  /* ترتیبِ مجموعه‌ها از نخستین قسمتشان؛ فهرست فشرده در حالت (سقفِ ۹ کیلوبایتِ Properties). */
+  const st2 = {};
+  const pub2 = { 'special:4': Object.assign(P('b1'), { series: 'آئودی' }), 'special:1': Object.assign(P('a1'), { series: 'مصباح' }),
+                 'special:2': Object.assign(P('a2'), { series: 'مصباح' }) };
+  const o2 = igOrder_(pub2, st2, true);
+  ok('۱.۸ بی رجیستری، فهرست از جدولِ یوتیوب؛ مجموعهٔ زودتر اول؛ ذخیرهٔ فشرده و بازخوانیِ یکسان',
+     o2[0].name === 'مصباح' && o2[1].name === 'آئودی' && /^1:1,2:2$/.test(st2.order.s[0].e) &&
+     JSON.stringify(igOrderDec_(st2.order.s)) === JSON.stringify(o2.map(S => ({ name: S.name, eps: S.eps.map(x => ({ ep: x.ep, recap: x.recap ? 1 : 0, lesson: x.lesson })) }))),
+     JSON.stringify(st2.order));
+  const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
+  ok('۱.۹ انتشار به ترتیب: درسِ ۲ تا وقتی درسِ ۱ منتشر نشده منتظر می‌ماند', igEarlierPending_(stP, 2) === 'درسِ 1' &&
+     igEarlierPending_(Object.assign({}, stP, { done: '1' }), 2) === '' && igEarlierPending_(stP, 1) === '');
 }
 
 console.log('=== ۲) متنِ ریلز: یک متنِ پیوسته، مرزها در کد (۹.۲۵) ===');
@@ -65,8 +92,8 @@ const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه ا�
   ok('۲.۴-ب «تا امروز» محتواست، نه تاریخ', !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' این پرسش تا امروز هم باز مانده است.' })).lines);
   const cap = igCaption_(p, 'https://youtu.be/v5', 'معرفت‌شناسی', 4);
   ok('۲.۵ کپشن: پیوندِ همان ویدئو، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') !== -1 &&
-     cap.indexOf('«معرفت‌شناسی» — درسِ 4') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&
-     cap.split('#فلسفه').length === 2 && cap.length <= 2200, cap.replace(/\n/g, ' ¶ '));
+     cap.indexOf('«معرفت‌شناسی» — درسِ ۴') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&
+     cap.split('#فلسفه').length === 2 && cap.length <= 2200 && (cap.match(/#/g) || []).length <= 12 && /کانالِ «/.test(cap), cap.replace(/\n/g, ' ¶ '));
 }
 
 /* یک قسمتِ درس‌نامه با _special.json و دو نقاشی در «تصویرها». */
@@ -101,7 +128,7 @@ let fo, plan;
   fo = igFolder_(epFo);
   const r = igStepPlan_(it, fo);
   plan = r.plan;
-  ok('۳.۱ برنامه ساخته شد، داور دید، و جملهٔ پایانیِ یوتیوب را **کد** افزود', r.ok && global.__asks.join('') === 'WJ' && plan.v === 3 &&
+  ok('۳.۱ برنامه ساخته شد، داور دید، و جملهٔ پایانیِ یوتیوب را **کد** افزود', r.ok && global.__asks.join('') === 'WJ' && plan.v === CFG.IG_PLAN_V &&
      plan.plan.judge === 'پیوسته' && plan.plan.lines[plan.plan.lines.length - 1].text === IG_CTA_LINE &&
      plan.plan.lines[plan.plan.lines.length - 1].cta === true &&
      plan.plan.lines.filter(x => /یوتیوب/.test(x.text)).length === 1, JSON.stringify(plan && plan.plan.lines.map(x => x.text.slice(0, 10))));
@@ -389,8 +416,14 @@ console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲
   sent.length = 0;
   const st = { media: { M1: 'ig:special:5' } };
   const ins = igInsights_(st, Date.now() + 60000);
-  const tab = n => hub.getSheetByName(n);
+  const book = igBook_();
+  const tab = n => book.getSheetByName(n);
   const S = tab(CFG.IG_STATS_TAB), C = tab(CFG.IG_COMMENTS_TAB), P = tab(CFG.IG_MSGS_TAB);
+  /* ۹.۳۰: هابِ ۲۹ مگابایتی هر بار «Service Spreadsheets timed out» می‌داد و هیچ عددی ثبت نشد. */
+  ok('۸.۰ آمار در دفترِ جدای اینستاگرام (زیرِ OUTPUT/«اینستاگرام»)، نه در هاب؛ همان دفتر دوباره باز می‌شود، دوباره ساخته نمی‌شود',
+     !!S && !hub.getSheetByName(CFG.IG_STATS_TAB) && igBook_().getId() === book.getId() &&
+     outFolder_().getFoldersByName(CFG.IG_BOOK_FOLDER).hasNext() && /docs\.google\.com\/spreadsheets/.test(igBookUrl_()),
+     String(S) + ' ' + igBookUrl_());
   const sv = S.getRange(1, 1, S.getLastRow(), 16).getValues();
   const r1 = sv.find(r => r[0] === 'M1'), r2 = sv.find(r => r[0] === 'M2');
   ok('۸.۱ تبِ آمار: یک ردیف برای هر پست — بازدید، دسترسی، لایک، نظر، میانگینِ تماشا، و قسمت از نقشهٔ انتشار',
@@ -448,6 +481,91 @@ console.log('=== ۷) سیم‌کشی ===');
   ok('۷.۶ نقشهٔ OUTPUT زیرپوشهٔ «اینستاگرام» را می‌شناسد', /زیرپوشهٔ «اینستاگرام»/.test(fs.readFileSync('docs/drive_layout.md', 'utf8')));
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۷.۷ رانر همان کلید و همان امضا را می‌نویسد که موتور می‌خوانَد', /map\.reels\[/.test(rj) && /sig: /.test(rj));
+}
+
+console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ دو سکو، ترتیبِ انتشار، توضیحِ پلی‌لیست (۹.۳۰) ===');
+{
+  const ser = global.__ROOT_FOLDER.createFolder('مجموعهٔ مرور');
+  for (let e = 1; e <= 3; e++) ser.createFolder('قسمت ' + String(e).padStart(4, '0') + ' — درس');
+  const rf = ser.createFolder('قسمت 0004 — مرورِ بزرگ');
+  rf.createFile(Utilities.newBlob(JSON.stringify({ seriesName: 'مصباح', recap: true, recapLessonFrom: 1, recapLessonTo: 3,
+    ep: { title: 'مرورِ بزرگ', sections: [{ heading: 'درسِ ۱', narration: 'الف.' }, { heading: 'درسِ ۲', narration: 'ب.' }, { heading: 'درسِ ۳', narration: 'ج.' }] } }),
+    'application/json', '_special.json'));
+  const itR = { key: 'ig:special:4', ep: 4, series: 'مصباح', folderId: rf.getId(), yt: 'https://youtu.be/r4', phase: 'plan', recap: 1 };
+  const long = Array.from({ length: 18 }, (_, i) => 'گامِ ' + (i + 1) + ' از همین مسیر ما را به گامِ بعدی می‌رساند و یک نکتهٔ تازه می‌دهد.').join(' ');
+  const RAWR = { idea: 'مسیرِ سه درس', script: 'چطور از پرسشِ ساده به یک نظریه رسیدیم؟ ' + long, scenes: Array.from({ length: 9 }, (_, i) => 'r' + i),
+                 coverTitle: 'سه درس در یک مسیر', caption: 'سطرِ اول', story: 's', tags: ['مرور'], emph: [], ytDesc: 'این مرور سه درس را به ترتیب می‌پیماید.' };
+  const asks = [];
+  const keepStub = global.__STUB;
+  global.__STUB = (url, body) => {
+    if (/generateContent/.test(url) && !/tts/.test(url)) {
+      const txt = JSON.stringify(body), isJ = txt.indexOf('داورِ سخت‌گیر') !== -1;
+      asks.push(isJ ? 'J:' + (/مسیرِ پیوسته/.test(txt) ? 'R' : 'L') : 'W:' + (/مرورِ بزرگ/.test(txt) && /خلاصهٔ خلاصه نیست/.test(txt) ? 'R' : 'L'));
+      const out = isJ ? { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' } : RAWR;
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] } };
+    }
+    return keepStub ? keepStub(url, body) : { code: 404, json: {} };
+  };
+  const foR = igFolder_(rf);
+  const rr = igStepPlan_(itR, foR);
+  global.__STUB = keepStub;
+  ok('۹.۱ مرورِ بزرگ: پرامپت و داورِ «مسیر»، متنِ بلند (تا ۴۰۰ واژه) پذیرفته، بازهٔ درس‌ها از پرونده، ۹ تصویر',
+     rr.ok && asks.join(',') === 'W:R,J:R' && rr.plan.recap === true && /درس‌های ۱ تا ۳/.test(rr.plan.range) && rr.plan.plan.words > 210 &&
+     Math.min(CFG.IG_RECAP_IMG_N, rr.plan.plan.lines.length - 1) === 9, JSON.stringify([asks, rr.fail || rr.plan.range, rr.plan && rr.plan.plan.words]));
+  ok('۹.۲ برچسبِ درس از پوشه: «مرورِ بزرگِ درس‌های ۱ تا ۳» در کپشن', /مرورِ بزرگِ درس‌های ۱ تا ۳/.test(rr.plan.caption), rr.plan.caption.slice(0, 200));
+  /* سقفِ سه دقیقه: صدای ۲۰۰ ثانیه ⇒ از نو با واژهٔ کمتر. */
+  const sr = CFG.SAMPLE_RATE || 24000, keepT = global.ttsChunk_, keepV = global.vowelizeText_;
+  global.vowelizeText_ = (x) => x;
+  let nCall = 0;
+  global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 200 : 2)).fill(0));
+  const rv = igStepVoice_(itR, foR, rr.plan, Date.now() + 60000);
+  global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
+  ok('۹.۳ صدا بیش از ' + CFG.IG_MAX_SEC + ' ثانیه ⇒ شکست با «از نو»، و سقفِ واژهٔ تازه به همان نسبت', !!rv.fail && itR.maxWords > 0 &&
+     itR.maxWords < rr.plan.plan.words && igWords_({ recap: true, maxWords: itR.maxWords }).max === itR.maxWords, rv.fail + ' / ' + itR.maxWords);
+  /* کپشنِ شورتز: عنوان ≤۱۰۰ با مجموعه و درس، توضیحِ ویژهٔ یوتیوب و سه پیوند. */
+  const sm = igShortMeta_({ plan: { coverTitle: 'عقلِ ما درست می‌فهمد؟', ytDesc: 'متنِ ویژهٔ یوتیوب.', caption: 'کپشنِ اینستا', tags: ['معرفت_شناسی', 'فلسفه'] },
+                           series: 'معرفت شناسی مجتبی مصباح', lesson: 1, yt: 'https://youtu.be/v1' }, 'https://www.youtube.com/playlist?list=PL1');
+  ok('۹.۴ شورتز: عنوانِ ≤۱۰۰ با مجموعه و «درسِ ۱» و #Shorts؛ توضیحِ ویژهٔ یوتیوب (نه کپشنِ اینستا) + درسِ کامل + پلی‌لیست؛ ≤۱۵ برچسب',
+     sm.title.length <= 100 && /معرفت شناسی مجتبی مصباح، درسِ ۱ #Shorts$/.test(sm.title) && /^متنِ ویژهٔ یوتیوب/.test(sm.desc) &&
+     sm.desc.indexOf('https://youtu.be/v1') !== -1 && sm.desc.indexOf('list=PL1') !== -1 && sm.desc.indexOf('کپشنِ اینستا') === -1 &&
+     (sm.desc.match(/#/g) || []).length <= 15, sm.title + ' ¶ ' + sm.desc.replace(/\n/g, ' ¶ '));
+  /* انتشار به ترتیب: گامِ «pub» درسِ ۲ تا درسِ ۱ منتشر نشده صبر می‌کند. */
+  const fP = igFolder_(ser.createFolder('قسمت 0002 — موقت'));
+  igPlanWrite_(fP, { v: CFG.IG_PLAN_V, key: 'ig:special:2', phase: 'pub', plan: { lines: [] } });
+  const itP = { key: 'ig:special:2', ep: 2, folderId: fP.getParents().next().getId(), phase: 'pub' };
+  const keepPub = global.igStepPub_; let pubCalls = 0;
+  global.igStepPub_ = () => { pubCalls++; return { wait: 'آزمون' }; };
+  const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
+  const rp = igStep_(itP, stP, Date.now() + 60000);
+  stP.done = '1';
+  igStep_(itP, stP, Date.now() + 60000);
+  global.igStepPub_ = keepPub;
+  ok('۹.۵ گامِ انتشارِ درسِ ۲ پیش از درسِ ۱ ⇒ صبر با نامِ درسِ قبلی؛ پس از آن ⇒ انتشار', /منتظرِ انتشارِ درسِ 1/.test(rp.wait || '') && pubCalls === 1, JSON.stringify(rp));
+  /* برنامهٔ نسخهٔ ۳ (تأییدشده) با IG_PLAN_V=۴ از نو ساخته نمی‌شود. */
+  const keepPl = global.igStepPlan_; let rep = 0;
+  global.igStepPlan_ = () => { rep++; return { wait: 'x' }; };
+  igPlanWrite_(fP, { v: 3, key: 'ig:special:2', phase: 'ok', plan: { lines: [] } });
+  igStep_(Object.assign({}, itP, { phase: 'ok' }), { stats: { published: 5 } }, Date.now() + 60000);
+  global.igStepPlan_ = keepPl;
+  ok('۹.۶ ریلزِ تأییدشده با نسخهٔ ۳ دوباره ساخته نمی‌شود (IG_PLAN_MIN)', rep === 0 && CFG.IG_PLAN_V > CFG.IG_PLAN_MIN);
+  /* توضیحِ زندهٔ پلی‌لیست. */
+  const lessons = [{ ep: 1, lesson: 1 }, { ep: 3, lesson: 2 }, { ep: 5, recap: true, lesson: 0 }, { ep: 7, lesson: 3 }];
+  const pubL = { 'special:1': { videoId: 'a', privacy: 'public', title: 'قسمت ۱ — معرفت چیست؟ | مصباح - درس ۱' },
+                 'special:3': { videoId: 'b', privacy: 'public', title: 'قسمت ۳ — ابزارِ شناخت | مصباح - درس ۲' },
+                 'special:5': { videoId: 'c', privacy: 'public', title: 'قسمت ۵ — مرورِ بزرگِ درس‌های ۱ تا ۲' },
+                 'special:7': { videoId: '', privacy: '', title: '' } };
+  const dt = ytPlDescText_('مصباح', lessons, pubL, '۱۴۰۵/۰۷/۲۵');
+  ok('۹.۷ توضیحِ پلی‌لیست: شمار، تازه‌ترین، و فهرستِ به‌ترتیب با عنوانِ تمیز؛ منتشرنشده بیرون', dt.n === 2 && dt.recaps === 1 &&
+     /تا امروز: ۲ درس و ۱ مرورِ بزرگ · به‌روزشده: ۱۴۰۵\/۰۷\/۲۵/.test(dt.text) && /درسِ ۱ — معرفت چیست؟\nدرسِ ۲ — ابزارِ شناخت\nمرورِ بزرگ — مرورِ بزرگِ درس‌های ۱ تا ۲/.test(dt.text) &&
+     !/درسِ ۳/.test(dt.text) && !/\|/.test(dt.text), dt.text.replace(/\n/g, ' ¶ '));
+  const many = Array.from({ length: 200 }, (_, i) => ({ ep: i + 1, lesson: i + 1 })), pubM = {};
+  many.forEach(x => { pubM['special:' + x.ep] = { videoId: 'v' + x.ep, privacy: 'public', title: 'عنوانی نسبتاً بلند برای درسِ شمارهٔ ' + x.ep + ' که فهرست را پر می‌کند' }; });
+  const dm = ytPlDescText_('بلند', many, pubM, '');
+  ok('۹.۸ فهرستِ بلند ≤ ۴۵۰۰ نویسه: سرش و تهش می‌ماند، وسطش «…»', dm.text.length <= 4500 && /درسِ ۱ —/.test(dm.text) && /درسِ ۲۰۰ —/.test(dm.text) && /\n…\n/.test(dm.text),
+     String(dm.text.length));
+  props_().setProperty(PK.YT_SUMMARY, JSON.stringify({ series: [{ name: 'مصباح', n: 12, recaps: 0 }, { name: 'آئودی', n: 48, recaps: 3 }], variety: { n: 74 } }));
+  const cd = ytChannelDesc_();
+  ok('۹.۹ توضیحِ کانال آنچه هست را می‌گوید (≤۹۹۰)', cd.length <= 990 && /مصباح: ۱۲ درس/.test(cd) && /آئودی: ۴۸ درس و ۳ مرور/.test(cd) && /۷۴ قسمت/.test(cd), cd.replace(/\n/g, ' ¶ '));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
