@@ -356,8 +356,11 @@ function vmReciteSpan_(sents, k, clipWords, secs, secHint) {
   var lo = Math.max(0, k - 12), hi = Math.min(S - 1, k + 10);
   var th = Math.max(0.3, Number(CFG.VM_RECITE_MIN) || 0.5);
   var hitAt = {};
+  /* ۹.۲۷: نخستین جملهٔ بخش تیترِ آن است، نه بازگویی — «نشستِ خبریِ حلِ بحران با دستِ خالی» با گفتارِ کاملِ کلیپ
+     درست ۰٫۵ می‌گرفت و لحظهٔ کلیپِ سخنگو از تیتر آغاز می‌شد، ۱۵ ثانیه پس از لحظهٔ قبلی، و سدِ فاصله دورش انداخت. */
+  var head = function (j) { return j <= 0 || sents[j - 1].sec !== sec; };
   for (var i = lo; i <= hi; i++) {
-    if (sents[i].sec !== sec) continue;
+    if (sents[i].sec !== sec || head(i)) continue;
     hitAt[i] = vmReciteScore_(sents[i].text, set) >= th;
   }
   /* دنباله‌ای که از k می‌گذرد یا **پیش از آن** تمام شده: مدل لحظه را اغلب پس از پایانِ بازگویی می‌گذارد
@@ -527,7 +530,29 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     var mo = out.moments[m];
     if (vmInMusic_(mo.at, music)) { out.dropped++; continue; }
     if (mo.at < 5 || mo.at > total - 5) { out.dropped++; continue; }
-    if (mm.length && mo.at - (mm[mm.length - 1].at + (Number(mm[mm.length - 1].cut) || 0)) < Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30)) { out.dropped++; continue; }
+    /* بازگویی‌ای که تا پس از آغازِ یک پلِ موسیقی کشیده شده، سرِ موسیقی می‌ایستد — پل جای بخش‌عوض‌کردن است و
+       نباید همراهِ بازگویی از ویدئو بریده شود (۹.۲۷). */
+    for (var mu = 0; mu < (music || []).length && mo.cut > 0; mu++) {
+      var m0 = Number(music[mu][0]);
+      if (m0 > mo.at + 1 && m0 < mo.at + Number(mo.cut)) mo.cut = Math.round((m0 - mo.at) * 10) / 10;
+    }
+    var gapNeed = Math.max(8, Number(CFG.VM_MOMENT_GAP) || 30);
+    var prevEnd = mm.length ? mm[mm.length - 1].at + (Number(mm[mm.length - 1].cut) || 0) : -1e9;
+    /* ۹.۲۷: لحظه‌ای که جای بازگویی می‌نشیند و آغازش به لحظهٔ قبلی نزدیک است، دور انداخته نمی‌شود — آغازش تا
+       نخستین جملهٔ همان بازگویی که فاصله را نگه می‌دارد جلو می‌رود (پایانِ بازگویی همان می‌ماند). کلیپِ سخنگوی
+       ۷۳ در نمونهٔ ۷ همین‌جا افتاد و «صداش پخش نشد» دوباره شد. */
+    if (mo.at - prevEnd < gapNeed && mo.cut > 0 && mo.sn >= 0) {
+      var endR = mo.at + Number(mo.cut);
+      for (var qg = mo.sn + 1; qg < S && Number(sents[qg].t) < endR - 6; qg++) {
+        if (Number(sents[qg].t) - prevEnd >= gapNeed) {
+          var tq = Math.round(Number(sents[qg].t) * 10) / 10;
+          if (mo.recite) mo.recite = Math.max(1, mo.recite - (qg - mo.sn));
+          mo.cut = Math.round((endR - tq) * 10) / 10; mo.at = tq; mo.sn = qg; mo.shifted = true;
+          break;
+        }
+      }
+    }
+    if (mm.length && mo.at - prevEnd < gapNeed) { out.dropped++; (out.momentDrops = out.momentDrops || []).push(mo.id + '@' + mo.at + ': فاصله'); continue; }
     mo.max = Math.max(3, Number(CFG.VM_MOMENT_SEC) || 12);
     mo.whole = Math.max(mo.max, Number(CFG.VM_MOMENT_WHOLE) || 0);
     mm.push(mo);
@@ -847,7 +872,7 @@ function vmBuild_(folder, meta, plan, ctx) {
     }
     d = { v: 1, key: key, at: nowStr_(), phase: 'copy', failed: 0, secs: rp.secs, align: rp.how,
           scenes: vs.scenes, moments: vs.moments, music: rp.music, coverIdea: vs.cover,
-          dropped: vs.dropped, added: vs.added, items: items.length, copies: {}, skipped: [],
+          dropped: vs.dropped, added: vs.added, autoMoments: vs.autoMoments || 0, momentDrops: vs.momentDrops || [], items: items.length, copies: {}, skipped: [],
           cover: { fileId: '', why: '' },
           sents: sents.map(function (z) { return [Math.round(Number(z.t) * 10) / 10, String(z.text || '').slice(0, 160)]; }),
           hookEnd: (function () { for (var h = 0; h < sents.length; h++) if (Number(sents[h].sec) >= 1) return Number(sents[h].t) || 0; return 0; })() };
