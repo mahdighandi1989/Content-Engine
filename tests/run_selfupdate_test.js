@@ -901,6 +901,10 @@ console.log('\n=== ۱۹. اعرابِ کم و آوانگاری ===');
   global.__PROPS[PK.SPEAK_SKIP] = JSON.stringify([{ n: 6, s: 0, cw: 800, cb: 10 }]);
   ok('۱۹.۱۴ قسمتِ بی شاهد «پیش از ۹.۱۶» گفته می‌شود، نه صفر', /اعرابِ کم: قسمتِ آخر شاهدی ندارد/.test(speakSkipStatus_().line));
   if (keepP === undefined) delete global.__PROPS[PK.SPEAK_SKIP]; else global.__PROPS[PK.SPEAK_SKIP] = keepP;
+  /* ۹.۱۷ — ردِ واقعیِ ۱۶ اکتبر: «قسمت‌های» ← «قسمت‌ھای» (هِ دوچشم). */
+  const gp = 'در قسمت‌های پیشین', gv = 'دَر قِسمَت‌ھایِ پیشین';
+  const gr = speakGraft_(gp, gv);
+  ok('۱۹.۱۵ هِ دوچشمِ عربی پیوند را نمی‌شکند و حرفِ اصل نوشته می‌شود', gr !== gv && stripTashkil_(gr) === gp && /قِسمَت‌هایِ/.test(gr), gr);
 }
 
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

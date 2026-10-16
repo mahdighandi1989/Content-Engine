@@ -1,16 +1,13 @@
 {
-  "version": "9.16",
+  "version": "9.17",
   "codeFile": "engine.gs",
-  "sha256": "e36f995003b8e320b5d65088c377775af013702b01edd561fa7a07e028f0cd26",
-  "releasedAt": "2026-10-16T09:40:00+04:00",
-  "summary": "«مدرسه» را madrasa گفت: اعرابِ غلطِ خودمان روی واژهٔ رایج. حالا واژه‌های رایج بی‌اعراب به گوینده می‌روند (کمیاب، هم‌نگاشت و کسرهٔ اضافه با اعراب)، و شنونده آوانگاریِ لاتین می‌دهد تا خطای واکهٔ کوتاه — که در خطِ فارسی نوشتنی نیست — دیده شود.",
+  "sha256": "a0b9696f3bf46355fb9665a8a096ae270a45c6f35efbba6b6394630a86fb51b2",
+  "releasedAt": "2026-10-16T10:50:00+04:00",
+  "summary": "هِ دوچشمِ عربی («قسمت‌ھای») هم‌ترازیِ اعراب را می‌شکست و ۱۸ بخش از ۹۲ را بی‌اعراب می‌فرستاد؛ حالا «ھ»/«ہ» با «ه» یکی‌اند و حرفِ اصل نوشته می‌شود.",
   "fixes": [
-    "speakSparse_ در speakTextOf_: ۱۰٬۸۸۳ واژهٔ رایج (FrequencyWords، tools/facommon.py) بی‌اعراب؛ کمیاب، ۲۳ هم‌نگاشت و کسرهٔ اضافه می‌مانند؛ SPEAK_SPARSE؛ شمار در _STATUS.speakSkip.sparse.",
-    "ttsListenCheck_/ttsListenTrim_: heardLat/rightLat — madrasa≠madrese با حروفِ یکسان خطا شمرده می‌شود؛ پیش‌تر «همان را شنیدم» دور ریخته می‌شد. selfupdate §۱۹."
+    "speakCanon_: ھ (U+06BE) و ہ (U+06C1) ⇒ ه؛ speakGraft_ بخش را دیگر دور نمی‌ریزد. selfupdate ۱۹.۱۵."
   ],
   "sourceReportIds": [],
   "promptImpact": [],
-  "answers": {
-    "R-20261016-06": "۹.۱۶"
-  }
+  "answers": {}
 }
