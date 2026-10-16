@@ -1,5 +1,5 @@
 {
- "rev": 29,
+ "rev": 31,
  "items": {
   "special:49": {
    "urls": [
@@ -1918,8 +1918,78 @@
     "lowPct": 3,
     "frames": 1609
    }
+  },
+  "variety:73-9-نمونه": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-73-9-95433b6c.wav"
+   ],
+   "pieceBytes": [
+    35148878
+   ],
+   "bytes": 35148878,
+   "seconds": 439.4,
+   "minutes": 4.8,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-16T22:37:01Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-73-9-95433b6c.wav",
+   "pitch": "-3",
+   "loud": {
+    "rawLufs": -18.8,
+    "rawTp": -0.6,
+    "gainDb": 2.81,
+    "limited": true,
+    "lufs": -16.2,
+    "tp": -2.4
+   },
+   "pitchAuto": {
+    "srcHz": 186.0,
+    "targetHz": 158.0,
+    "pitch": -3
+   },
+   "f0Out": {
+    "medianHz": 166.7,
+    "lowPct": 1,
+    "frames": 1869
+   }
+  },
+  "variety:73-8-نمونه": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-73-8-dcb393b1.wav"
+   ],
+   "pieceBytes": [
+    35148878
+   ],
+   "bytes": 35148878,
+   "seconds": 439.4,
+   "minutes": 4.1,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-16T22:41:24Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-73-8-dcb393b1.wav",
+   "pitch": "-3",
+   "loud": {
+    "rawLufs": -18.8,
+    "rawTp": -0.4,
+    "gainDb": 2.81,
+    "limited": true,
+    "lufs": -16.2,
+    "tp": -2.4
+   },
+   "pitchAuto": {
+    "srcHz": 186.0,
+    "targetHz": 158.0,
+    "pitch": -3
+   },
+   "f0Out": {
+    "medianHz": 166.7,
+    "lowPct": 1,
+    "frames": 1859
+   }
   }
  },
- "at": "2026-10-16T15:43:09Z",
+ "at": "2026-10-16T22:41:24Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
