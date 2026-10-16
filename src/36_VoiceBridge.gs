@@ -985,7 +985,8 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      نمی‌شد گفت خطا از خواندنِ جمینای است یا از تبدیل: صوتِ پیش از تبدیل بزرگ‌تر از آن است که بیرون از
      رانر خوانده شود. پس رانر خودش هر دو را می‌شنود (`voicebridge.hearCompare`) و برای نمونه یک تبدیلِ دوم با
      `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
-  if (o.ab) row.ab = { indexRate: String(o.ab) };
+  /* ۹.۲۳: «p0.15» = تبدیلِ دوم با `protect`ِ دیگر («ه» ⇐ «خ» از محافظِ همخوانِ بی‌واک است)، وگرنه index_rate. */
+  if (o.ab) row.ab = /^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) };
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
     try {
@@ -1409,7 +1410,11 @@ function vbrPitchLine_(item, faD) {
            (hr.worst && hr.worst.length ? ' — بدترین: «' + String(hr.worst[0].src || '').slice(0, 30) + '» ⇐ «' + String(hr.worst[0].out || '').slice(0, 30) + '»' : '');
   }
   var ab = item.abOut;
-  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (index_rate ' + f(String(ab.indexRate)) + '): ' + String(ab.url);
+  if (hr && hr.khOut != null) {
+    out += (out ? ' · ' : '') + '«خ»ِ افزوده از تبدیل (مثلِ «هم» ⇐ «خم»): ' + f(String(hr.khOut)) +
+           (hr.khAlt != null ? '، تبدیلِ دوم ' + f(String(hr.khAlt)) : '');
+  }
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate))) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 

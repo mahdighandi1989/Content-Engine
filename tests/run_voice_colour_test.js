@@ -110,7 +110,7 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
   ok('۵.۲ بدترین جمله با متنِ ورودی و آنچه از خروجی شنیده شد گزارش می‌شود', r.worst[0].out.indexOf('آونجا') >= 0 || r.worst[0].out.indexOf('زموآن') >= 0,
      JSON.stringify(r.worst[0]));
   const seedG = CFG.VOICE_SOUL_SEED.find(s => s.speaker === 'spk-1g0r95d');
-  ok('۵.۳ بذرِ گلدوز تبدیلِ دوم می‌خواهد و برچسبش تازه است', seedG.ab === '0.6' && /شنیدنِ ورودی و خروجی/.test(seedG.tag));
+  ok('۵.۳ بذرِ گلدوز تبدیلِ دوم با protect ۰٫۱۵ می‌خواهد و برچسبش تازه است (۹.۲۳)', seedG.ab === 'p0.15' && /«ه» نه «خ»/.test(seedG.tag));
   saved = null;
   global.vintReadResult_ = () => ({ speakers: { 'spk-x': { prev: { fileIds: ['O1'] } } } });
   vbrAsk_('آزمون', '10', 'F', 'spk-x', 't', { soul: 'روشن', colour: 'prev', ab: '0.6' });
@@ -126,6 +126,36 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
   ok('۵.۷ پل: شنیدن فقط برای نمونه، و تبدیلِ دوم شکستش ردیف را نمی‌اندازد',
      /if str\(key\)\.startswith\("نمونه"\):/.test(bp2) && /::warning title=تبدیلِ دوم نشد::/.test(bp2) &&
      /"faster-whisper/.test(fs.readFileSync('.github/workflows/voice-bridge.yml', 'utf8')));
+}
+
+console.log('=== ۶) «ه» ⇐ «خ»: شمارِ «خ»ِ افزوده و تبدیلِ دوم با protect (۹.۲۳) ===');
+{
+  /* داده عینِ نمونهٔ ساعت‌ساز (۱۵ اکتبر): ورودی «همسایه‌ها هم با خنده»، خروجی «خمسایه‌ها خم با خنده». */
+  const r = py(`
+class W:
+    def __init__(s,a,b,w): s.start,s.end,s.word=a,b,w
+class S:
+    def __init__(s,a,b,t,ws): s.start,s.end,s.text,s.words=a,b,t,ws
+class M:
+    def transcribe(s,path,**k):
+        if path=='SRC': return ([S(1.0,3.0,'همسایه‌ها هم با خنده',[W(1.0,1.8,'همسایه‌ها'),W(1.9,2.2,'هم'),W(2.2,2.5,'با'),W(2.5,3.0,'خنده')]),
+                                 S(4.0,5.0,'هیچ وقت',[W(4.0,4.4,'هیچ'),W(4.4,5.0,'وقت')])],None)
+        if path=='OUT': return ([S(1.0,3.0,'',[W(1.0,1.8,'خمسایه‌ها'),W(1.9,2.2,'خم'),W(2.2,2.5,'با'),W(2.5,3.0,'خنده')]),
+                                 S(4.0,5.0,'',[W(4.0,4.4,'خیچ'),W(4.4,5.0,'وقت')])],None)
+        return ([S(1.0,3.0,'',[W(1.0,1.8,'همسایه‌ها'),W(1.9,2.2,'هم'),W(2.2,2.5,'با'),W(2.5,3.0,'خنده')]),
+                 S(4.0,5.0,'',[W(4.0,4.4,'هیچ'),W(4.4,5.0,'وقت')])],None)
+print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))`);
+  ok('۶.۱ «خ»ِ افزوده شمرده می‌شود — «خ»ِ خودِ «خنده» نه', r && r.khOut === 3 && r.khAlt === 0 && r.khSrc === 1, JSON.stringify({ khOut: r && r.khOut, khAlt: r && r.khAlt, khSrc: r && r.khSrc }));
+  saved = null;
+  global.vintReadResult_ = () => ({ speakers: { 'spk-x': { prev: { fileIds: ['O1'] } } } });
+  vbrAsk_('آزمون', '12', 'F', 'spk-x', 't', { soul: 'روشن', ab: 'p0.15' });
+  ok('۶.۲ «p0.15» ⇒ تبدیلِ دوم با protect، نه index_rate', saved.items[0].ab && saved.items[0].ab.protect === '0.15' && !saved.items[0].ab.indexRate,
+     JSON.stringify(saved.items[0].ab));
+  const line = vbrPitchLine_({ hearOut: { srcOut: 0.84, alt: 0.9, khOut: 23, khAlt: 2, worst: [] }, abOut: { protect: '0.15', url: 'https://x/ab.wav' } });
+  ok('۶.۳ کپشن شمارِ «خ»ِ افزوده را برای هر دو و protectِ تبدیلِ دوم را می‌گوید', /: 23، تبدیلِ دوم 2/.test(line) && /protect/.test(line) && /https:\/\/x\/ab\.wav/.test(line), line);
+  const bp = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۶.۴ پل protectِ تبدیلِ دوم را به جای خودش می‌گذارد', /a2\[a2\.index\("--rvc-protect"\) \+ 1\] = abProt/.test(bp) &&
+     /rec\["ab"\] = \{"indexRate": abRate, "protect": abProt, "url": u\}/.test(bp));
 }
 
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}

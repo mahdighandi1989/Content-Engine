@@ -487,6 +487,39 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     sc.sort(function (a, b) { return a.sn - b.sn; });
     out.added++;
   }
+  /* ══ هر کلیپی که گوینده دیالوگش را بازمی‌گوید، صدای خودش را دارد — از کد، نه به انتخابِ مدل (۹.۲۳) ══
+     نمونهٔ ۶ِ ۷۳: «کلیپِ دوم صداش یک ذره هم پخش نشد». مدل برای کلیپِ ۱، ۳ و ۴ لحظه گذاشت و برای کلیپِ سخنگو نه —
+     در حالی که بخشِ دوم سراسر بازگوییِ همان دیالوگ بود («کلاغ‌نیوز؟ … اولاً ما بحران نداریم …»). لحظه فقط از
+     پیشنهادِ مدل می‌آمد؛ یعنی شنیده‌شدنِ کلیپ شانسی بود. حالا هر کلیپِ گفتاریِ نشسته که هنوز لحظه ندارد، درونِ
+     بخشِ خودش دنبالِ بازگویی گشته می‌شود (`vmReciteSpan_`، همان سنجه‌ای که جای بازگویی را می‌گیرد) و لحظه‌اش
+     همان‌جا می‌نشیند؛ نقل‌قول = پرامتیازترین جملهٔ بازگفته (بعد از «:»)، تا `clipfind` همان تکه را در کلیپ بیابد. */
+  if (CFG.VM_MOMENT_AUTO !== false) {
+    var hasMo = {};
+    for (var hm = 0; hm < out.moments.length; hm++) hasMo[out.moments[hm].id] = 1;
+    for (var az = 0; az < sc.length; az++) {
+      var sv = sc[az], iv = byId[sv.id];
+      if (!iv || iv.kind !== 'video' || hasMo[sv.id]) continue;
+      var words = iv.allWords || iv.words;
+      if (!words) continue;
+      hasMo[sv.id] = 1;
+      var secA = secOfSn(sv.sn), span = null;
+      for (var kk = sv.sn - 1; kk < S && !span; kk++) {
+        if (sents[kk].sec !== secA) break;
+        span = vmReciteSpan_(sents, kk, words, secs, secA);
+      }
+      if (!span || span.at < sv.t0 - 0.05) continue;
+      var cset = {}, bestQ = '', bestS = -1;
+      vmToks_(words).forEach(function (w0) { cset[w0] = 1; });
+      for (var qs = span.a; qs <= span.b; qs++) {
+        var tx = String(sents[qs].text || ''), ixq = tx.search(/[:：«]/), qx = ixq >= 0 ? tx.slice(ixq + 1) : tx;
+        var scq = vmReciteScore_(qx, cset);
+        if (scq > bestS) { bestS = scq; bestQ = qx; }
+      }
+      out.moments.push({ id: sv.id, at: span.at, quote: bestQ.replace(/[«»"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160),
+                         sn: span.a, cut: span.cut, recite: span.b - span.a + 1, auto: true });
+      out.autoMoments = (out.autoMoments || 0) + 1;
+    }
+  }
   /* لحظه‌ها: سقف، فاصله، و هرگز روی موسیقی یا ته قسمت. */
   var mm = [], cap = Math.max(0, Number(CFG.VM_MOMENT_MAX) || 3);
   out.moments.sort(function (a, b) { return a.at - b.at; });

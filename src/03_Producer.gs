@@ -1506,7 +1506,8 @@ function ttsListenTrim_(errs, text) {
     /* heard در خطِ فارسی برای «madrasa» همان «مدرسه» است؛ پس جایی که فرق فقط در واکه است، آوانگاری کنارش. */
     if (latDiff) h = (h && h !== w ? h + ' ' : '') + String(e.heardLat).trim().slice(0, 24) +
                      ' ≠ ' + String(e.rightLat).trim().slice(0, 24);
-    out.push({ word: w.slice(0, 40), heard: h.slice(0, 60), kind: k, fix: f.slice(0, 60) });
+    out.push({ word: w.slice(0, 40), heard: h.slice(0, 60), kind: k, fix: f.slice(0, 60),
+               lat: String(e.rightLat || '').trim().slice(0, 30) });
   }
   return out;
 }
@@ -1553,6 +1554,7 @@ function ttsListenNote_(ev) {
     st[ev.what] = (Number(st[ev.what]) || 0) + 1;
     if (ev.what !== 'skipped') st.chunks = (Number(st.chunks) || 0) + 1;
     if (ev.learned) st.learned = (Number(st.learned) || 0) + ev.learned;
+    if (ev.syl) st.syl = (Number(st.syl) || 0) + ev.syl;
     if (ev.errs && ev.errs.length) {
       for (var i = 0; i < ev.errs.length; i++) {
         st.words.unshift({ w: ev.errs[i].word, h: ev.errs[i].heard, k: ev.errs[i].kind,
@@ -1628,14 +1630,82 @@ function ttsListenGuard_(b64, text, sectionStyle, voice) {
       learned = speakLearn_(speakHardRows_(rows.join('\n'), 5), 'شنیدنِ دوباره');
     }
   } catch (eL) { learned = 0; }
-  if (!v2.failed && v2.errs.length < v1.errs.length) {
-    ttsListenNote_({ what: v2.errs.length ? 'residual' : 'fixed', errs: v2.errs.length ? v2.errs : v1.errs,
-                     learned: learned });
-    return b2;
+  var better2 = !v2.failed && v2.errs.length < v1.errs.length;
+  var bestB = better2 ? b2 : b64, bestE = better2 ? v2.errs : v1.errs;
+  /* ══ پلهٔ سوم: بخش‌بندی، وقتی اعراب کافی نبود (۹.۲۳) ══
+     «پُرطُمطُراق» درست اعراب داشت و باز «پورتومترق» گفته شد؛ اصلاحِ شنونده هم اعراب بود، پس نسخهٔ دوم همان شد و
+     واژه «مانده» ثبت شد و هیچ کارِ دیگری نشد — ۱۵ اکتبر ۷ تکه از ۳۸. اعرابِ درست را گفتارساز گاهی نمی‌خوانَد؛
+     ابزاری که کار کرده بود نیم‌فاصله بود («بِ‌ایستیم»). حالا هر واژه‌ای که پس از دو ساخت هنوز غلط است، با **همان
+     حروف**، اعرابِ کامل با سکون و نیم‌فاصله میانِ هجاها ساخته می‌شود (هجاها از آوانگاریِ خودِ شنونده)، تکه دوباره
+     ساخته و شنیده می‌شود، کم‌خطاترین می‌مانَد، و شکلی که واقعاً درست خوانده شد به تبِ «تلفظ» می‌رود — تا آن واژه
+     از این پس همه‌جا از اول درست خوانده شود. فهرستی از واژه‌ها نیست؛ هر واژه‌ای که گوش غلط شنید، همین راه را می‌رود. */
+  var syl = 0;
+  var still3 = bestE.filter(function (e) { return e.kind === 'تلفظ'; });
+  if (still3.length && CFG.TTS_LISTEN_SYL !== false &&
+      new Date().getTime() < TTS_LB_DEADLINE_ - (Number(CFG.TTS_LISTEN_RETRY_MS) || 60000)) {
+    runStage_('صدا: بخش‌بندیِ واژهٔ بدخوانده');
+    var forms = {};
+    try { forms = ttsSyllableForms_(still3); } catch (eF) { forms = {}; }
+    var errs3 = [];
+    for (var f3 = 0; f3 < still3.length; f3++) {
+      var fm = forms[still3[f3].word];
+      if (fm) errs3.push({ word: still3[f3].word, kind: 'تلفظ', fix: fm });
+    }
+    if (errs3.length) {
+      var t3 = ttsListenApplyFix_(text, errs3), b3 = null;
+      try { ttsCueDropMark_(); b3 = ttsChunkTry_(t3, sectionStyle, voice, false); } catch (eT3) { b3 = null; }
+      var v3 = b3 ? ttsListenCheck_(b3, text) : { failed: true, errs: [] };
+      if (!v3.failed && v3.errs.length < bestE.length) {
+        var bad3 = {};
+        for (var q3 = 0; q3 < v3.errs.length; q3++) bad3[v3.errs[q3].word] = 1;
+        var rows3 = errs3.filter(function (e) { return !bad3[e.word]; }).map(function (e) { return e.word + ' => ' + e.fix; });
+        syl = rows3.length;
+        try { if (rows3.length) learned += speakLearn_(speakHardRows_(rows3.join('\n'), 5), 'بخش‌بندی پس از شنیدن'); } catch (eL3) {}
+        bestB = b3; bestE = v3.errs;
+      }
+    }
   }
-  ttsListenNote_({ what: 'residual', errs: v1.errs, learned: learned,
-                   why: v2.failed ? 'شنیدنِ دوم نشد' : 'نسخهٔ دوم بهتر نبود' });
+  if (bestB !== b64) {
+    ttsListenNote_({ what: bestE.length ? 'residual' : 'fixed', errs: bestE.length ? bestE : v1.errs, learned: learned, syl: syl });
+    return bestB;
+  }
+  ttsListenNote_({ what: 'residual', errs: v1.errs, learned: learned, syl: syl,
+                   why: v2.failed ? 'شنیدنِ دوم نشد' : 'نسخهٔ دوم و سوم بهتر نبودند' });
   return b64;
+}
+
+var TTS_SYL_SCHEMA_ = { type: 'object', properties: { forms: { type: 'array', items: { type: 'object', properties: {
+  word: { type: 'string' }, form: { type: 'string' } }, required: ['word', 'form'] } } }, required: ['forms'] };
+
+/**
+ * واژه‌هایی که گفتارساز با اعرابِ درست هم غلط خواند ⇒ شکلِ بخش‌بندی‌شده: **همان حروف**، اعرابِ کامل (سکونِ هجای
+ * بسته هم)، و نیم‌فاصله میانِ هجاها — از روی آوانگاریِ درستی که خودِ شنونده داد (`lat`). سدِ هویتِ حروف: شکلی که
+ * حرفش فرق کند یا نیم‌فاصله و سکون نیاورد، دور ریخته می‌شود. ⇒ { word: form }
+ */
+function ttsSyllableForms_(errs) {
+  var L = ['این واژه‌های فارسی را گفتارساز **با اعرابِ درست هم** غلط خواند. برای هر کدام شکلی بنویس که خواندنِ غلط',
+           'را ناممکن کند — با این قاعده‌ها:',
+           '• **حروف دقیقاً همان**: نه حرفی اضافه، نه کم، نه عوض. «ی» و «ک» فارسی.',
+           '• اعرابِ کامل: فتحه/کسره/ضمه روی هر حرفِ دارای واکه، و **سکون** روی هر حرفِ بی‌واکه.',
+           '• میانِ هجاها نیم‌فاصله (U+200C) بگذار، تا گوینده هجا را از هجا جدا بخوانَد.',
+           '• هجاها را از تلفظِ درستِ داده‌شده (لاتین) بگیر، نه از حدس.',
+           'نمونه‌ها: بایستیم (be-istim) ⇒ بِ‌ایسْ‌تیم · طمطراق (tom-to-rāq) ⇒ طُمْ‌طُ‌راق · مدرسه (mad-re-se) ⇒ مَدْ‌رِ‌سِه',
+           ''];
+  for (var i = 0; i < errs.length && i < 12; i++) {
+    L.push((i + 1) + ') ' + errs[i].word + (errs[i].lat ? ' — تلفظِ درست: ' + errs[i].lat : '') +
+           (errs[i].heard ? ' — غلط خوانده شد: ' + errs[i].heard : ''));
+  }
+  var r = geminiText_(L.join('\n'), TTS_SYL_SCHEMA_, 4096);
+  var out = {}, want = {};
+  for (var w = 0; w < errs.length; w++) want[speakLetters_(errs[w].word)] = errs[w].word;
+  ((r && r.forms) || []).forEach(function (x) {
+    var fm = String((x && x.form) || '').replace(/\s+/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+    var key = speakLetters_(fm), word = want[key];
+    if (!word || out[word]) return;                         // حروفِ دیگر ⇒ کنار
+    if (fm.indexOf('\u200c') === -1 && !/\u0652/.test(fm)) return;   // نه هجا جدا شد، نه سکون ⇒ همان شکلِ پیشین
+    out[word] = fm;
+  });
+  return out;
 }
 
 /** آیا این خطا دربارهٔ خودِ فیلدِ دستور است، یا چیزِ دیگری در همان بسته؟ */

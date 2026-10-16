@@ -394,6 +394,10 @@ function igStepPub_(it, plan, st, deadline) {
     var p = igApi_('post', '/' + a.ig + '/media_publish', { creation_id: plan.reelCid });
     if (!(p.j && p.j.id)) return { fail: 'انتشارِ ریلز: ' + igErr_(p) };
     plan.reelId = String(p.j.id);
+    st.media = st.media || {};
+    st.media[plan.reelId] = it.key;
+    var mk = Object.keys(st.media);
+    if (mk.length > 150) delete st.media[mk[0]];
     try { plan.permalink = String((igApi_('get', '/' + plan.reelId, { fields: 'permalink' }).j || {}).permalink || ''); } catch (eP) {}
     st.stats.dayN = (Number(st.stats.dayN) || 0) + 1;
     st.stats.published = (Number(st.stats.published) || 0) + 1;
@@ -476,6 +480,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     return null;
   } finally {
     st.armedAt = 0;
@@ -510,6 +515,19 @@ function igStep_(it, st, deadline) {
   return { wait: 'ادامه در دورِ بعد' };
 }
 
+/** خطِ آمار برای خطِ روزانه: عدد وقتی هست، دلیل وقتی نیست — هر بخش جدا. */
+function igInsLine_(ins) {
+  if (!ins) return '. آمار و نظرها هنوز خوانده نشده';
+  var w = ins.why || {}, L = [];
+  if (ins.followers !== undefined) L.push(ins.followers + ' دنبال‌کننده');
+  L.push(ins.posts + ' پست در «اینستاگرام — آمار»');
+  L.push(ins.newComments + ' نظرِ تازه');
+  L.push(w.msgs ? 'پیام‌ها: نشد — ' + w.msgs : ins.newMsgs + ' پیامِ تازه');
+  if (w.posts) L.push('آمار/نظرها: ' + w.posts);
+  if (w.account) L.push('حساب: ' + w.account);
+  return '. آمار (' + ins.at + '): ' + L.join('، ');
+}
+
 /** برای `_STATUS.json` — فقط Properties. */
 function igStatus_() {
   var st = igState_(), a = igAcct_();
@@ -519,11 +537,12 @@ function igStatus_() {
   var out = { on: on, user: a ? a.user : '', done: done, published: Number((st.stats || {}).published) || 0,
               today: (st.stats || {}).day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(st.stats.dayN) || 0 : 0,
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
-              lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '' };
+              lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null };
   out.line = !a ? 'اینستاگرام: کلید ثبت نشده (منوی «۴) کلیدِ اینستاگرام (متا)»).'
     : 'اینستاگرام @' + a.user + ': ' + out.published + ' ریلز منتشر شده، امروز ' + out.today + '؛ در جریان: ' +
       (fl.length ? fl.map(function (x) { return x.key.split(':').pop() + ' (' + x.phase + (x.why ? ' — ' + x.why : '') + ')'; }).join('، ') : 'هیچ') +
       (out.lastWhy ? '. آخرین ایراد: ' + out.lastWhy : '') +
+      igInsLine_(st.ins) +
       '. ⟨شما⟩ هایلایت و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
   return out;
 }
@@ -565,4 +584,198 @@ function igHealth_(problems, notes) {
     } catch (eF) {}
   }
   return s;
+}
+
+/* ═══════════════ آمار، نظرها و پیام‌ها (۹.۲۲) ═══════════════
+   صاحبِ برنامه: «… داده‌های اینستاگرام مثلِ بازدیدها و کامنت‌های زیرِ ویدئوها و بازخوردها و مسیج‌ها رو … در شیت
+   ثبت کنه و نشون بده».
+
+   سه تب، سه شکلِ داده — چون سه پرسشِ جدا جوابشان است:
+   • «اینستاگرام — آمار»: یک ردیف برای هر پست (به‌روز می‌شود، نه افزوده): بازدید، دسترسی، لایک، نظر، اشتراک،
+     ذخیره، میانگینِ تماشا. «الان چطور است؟»
+   • «اینستاگرام — نظرها»: فقط افزوده؛ هر نظر یک بار، با شناسه‌اش. «چه کسی چه گفت، و از کِی؟»
+   • «اینستاگرام — پیام‌ها»: فقط افزوده؛ هر پیامِ دایرکت یک بار.
+
+   منبعِ فهرستِ پست‌ها **خودِ حساب** است (`/{ig}/media`)، نه حافظهٔ موتور: پستی که دستی گذاشته شده هم آمار دارد.
+   هر بخش جدا شکست می‌خورد و دلیلش جدا ثبت می‌شود (`st.ins.why`): کلیدی که دسترسیِ پیام ندارد نباید آمار را هم
+   بخواباند — و «پیام‌ها: دسترسی نیست — <پیامِ خودِ متا>» در خطِ روزانه، به‌جای سکوت.
+
+   هر `IG_INS_HOURS` ساعت؛ تازه‌ترین `IG_INS_RECENT` پست هر بار، و بقیه به نوبت (`insCur`) — آمارِ پستِ کهنه کند
+   عوض می‌شود و ۲۰۰ فراخوان در ساعت سقفِ متاست. */
+
+/** تبِ هاب با سرستون، اگر نیست ساخته می‌شود. */
+function igSheet_(name, head) {
+  var hub = getHub_(), sh = hub.getSheetByName(name);
+  if (!sh) { sh = hub.insertSheet(name); sh.appendRow(head); try { sh.setFrozenRows(1); } catch (e) {} }
+  return sh;
+}
+
+/** همهٔ صفحه‌های یک پاسخِ Graph (تا `max`). ⇒ {data[], why} */
+function igPaged_(path, params, max) {
+  var out = [], r = igApi_('get', path, params), guard = 0;
+  while (true) {
+    if (r.code !== 200) return { data: out, why: igErr_(r) };
+    out = out.concat((r.j && r.j.data) || []);
+    var nx = r.j && r.j.paging && r.j.paging.next;
+    if (!nx || out.length >= max || ++guard > 20) break;
+    var res = UrlFetchApp.fetch(String(nx), { method: 'get', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + igToken_() } });
+    var j = {};
+    try { j = JSON.parse(res.getContentText() || '{}'); } catch (e) { j = {}; }
+    r = { code: res.getResponseCode(), j: j };
+  }
+  return { data: out.slice(0, max), why: '' };
+}
+
+/** آمارِ یک پست؛ اگر متا نامِ سنجه‌ای را نشناخت، با فهرستِ کوتاه‌تر دوباره. ⇒ {m:{}, why} */
+function igMediaInsights_(m) {
+  var reel = String(m.media_product_type || '') === 'REELS';
+  var sets = [reel ? 'views,reach,likes,comments,shares,saved,total_interactions,ig_reels_avg_watch_time'
+                   : 'views,reach,likes,comments,shares,saved,total_interactions',
+              'reach,likes,comments,shares,saved'];
+  var why = '';
+  for (var i = 0; i < sets.length; i++) {
+    var r = igApi_('get', '/' + m.id + '/insights', { metric: sets[i] });
+    if (r.code === 200) {
+      var o = {};
+      ((r.j && r.j.data) || []).forEach(function (x) {
+        var v = x && x.values && x.values[0] ? x.values[0].value : (x && x.total_value ? x.total_value.value : '');
+        o[x.name] = v;
+      });
+      return { m: o, why: '' };
+    }
+    why = igErr_(r);
+  }
+  return { m: null, why: why };
+}
+
+/** کدام قسمت: از نقشه‌ای که انتشار نوشت؛ وگرنه از پیوندِ یوتیوبِ کپشن. */
+function igMediaKey_(m, st) {
+  var k = (st.media || {})[String(m.id)];
+  if (k) return k;
+  var mm = /youtu\.?be(?:\.com)?\/(?:watch\?v=)?([A-Za-z0-9_-]{6,})/.exec(String(m.caption || ''));
+  return mm ? 'yt:' + mm[1] : '';
+}
+
+/** آمار و نظرها. ⇒ {posts, comments, why} */
+function igInsightsPosts_(a, st, deadline) {
+  var out = { posts: 0, comments: 0, newComments: [], why: '' };
+  var lst = igPaged_('/' + a.ig + '/media', { fields: 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count', limit: 50 },
+                     Number(CFG.IG_INS_MAX) || 500);
+  if (lst.why && !lst.data.length) { out.why = 'فهرستِ پست‌ها: ' + lst.why; return out; }
+  var all = lst.data.sort(function (x, y) { return String(y.timestamp) < String(x.timestamp) ? -1 : 1; });
+  var nR = Math.max(1, Number(CFG.IG_INS_RECENT) || 25), nW = Math.max(0, Number(CFG.IG_INS_ROTATE) || 15);
+  var pick = all.slice(0, nR), rest = all.slice(nR);
+  if (rest.length && nW) {
+    var c0 = (Number(st.insCur) || 0) % rest.length;
+    for (var w = 0; w < Math.min(nW, rest.length); w++) pick.push(rest[(c0 + w) % rest.length]);
+    st.insCur = (c0 + Math.min(nW, rest.length)) % rest.length;
+  }
+  var HEAD = ['شناسهٔ پست', 'زمانِ انتشار', 'نوع', 'قسمت', 'آغازِ کپشن', 'پیوند', 'بازدید', 'دسترسی', 'لایک', 'نظر',
+              'اشتراک', 'ذخیره', 'کلِ تعامل', 'میانگینِ تماشا (ثانیه)', 'آخرین به‌روزرسانی', 'یادداشت'];
+  var sh = igSheet_(CFG.IG_STATS_TAB || 'اینستاگرام — آمار', HEAD);
+  var last = sh.getLastRow(), rowOf = {};
+  if (last > 1) sh.getRange(2, 1, last - 1, 1).getValues().forEach(function (v, i) { rowOf[String(v[0])] = i + 2; });
+  var csh = igSheet_(CFG.IG_COMMENTS_TAB || 'اینستاگرام — نظرها',
+                     ['شناسهٔ نظر', 'زمان', 'پست', 'قسمت', 'کاربر', 'متن', 'لایک', 'پاسخ به', 'ثبت']);
+  var seen = {}, cl = csh.getLastRow();
+  if (cl > 1) csh.getRange(2, 1, cl - 1, 1).getValues().forEach(function (v) { seen[String(v[0])] = 1; });
+  var cRows = [], insWhy = '', comWhy = '';
+  for (var i = 0; i < pick.length; i++) {
+    if (Date.now() > deadline) { out.why = 'وقت کم آمد پس از ' + i + ' پست'; break; }
+    var m = pick[i], ins = igMediaInsights_(m), I = ins.m || {};
+    if (!ins.m) insWhy = ins.why;
+    var key = igMediaKey_(m, st);
+    var row = [String(m.id), String(m.timestamp || '').replace('T', ' ').slice(0, 16), String(m.media_product_type || m.media_type || ''),
+               key, String(m.caption || '').split('\n')[0].slice(0, 80), String(m.permalink || ''),
+               I.views !== undefined ? I.views : '', I.reach !== undefined ? I.reach : '',
+               I.likes !== undefined ? I.likes : (m.like_count || 0), I.comments !== undefined ? I.comments : (m.comments_count || 0),
+               I.shares !== undefined ? I.shares : '', I.saved !== undefined ? I.saved : '',
+               I.total_interactions !== undefined ? I.total_interactions : '',
+               I.ig_reels_avg_watch_time !== undefined ? Math.round(Number(I.ig_reels_avg_watch_time) / 100) / 10 : '',
+               nowStr_(), ins.m ? '' : 'آمار: ' + ins.why];
+    if (rowOf[row[0]]) sh.getRange(rowOf[row[0]], 1, 1, row.length).setValues([row]);
+    else { sh.appendRow(row); rowOf[row[0]] = sh.getLastRow(); }
+    out.posts++;
+    if ((Number(m.comments_count) || 0) > 0) {
+      var cm = igPaged_('/' + m.id + '/comments', { fields: 'id,text,username,timestamp,like_count,replies{id,text,username,timestamp,like_count}', limit: 50 }, 200);
+      if (cm.why) comWhy = cm.why;
+      cm.data.forEach(function (c) {
+        [c].concat((c.replies && c.replies.data) || []).forEach(function (x, j) {
+          if (!x || !x.id || seen[String(x.id)]) return;
+          seen[String(x.id)] = 1;
+          cRows.push([String(x.id), String(x.timestamp || '').replace('T', ' ').slice(0, 16), String(m.permalink || m.id), key,
+                      String(x.username || ''), String(x.text || ''), Number(x.like_count) || 0, j ? String(c.id) : '', nowStr_()]);
+          out.newComments.push('@' + String(x.username || '?') + ': ' + String(x.text || '').slice(0, 80));
+        });
+      });
+    }
+  }
+  if (cRows.length) csh.getRange(csh.getLastRow() + 1, 1, cRows.length, cRows[0].length).setValues(cRows);
+  out.comments = cRows.length;
+  if (insWhy) out.why = (out.why ? out.why + ' · ' : '') + 'آمار: ' + insWhy;
+  if (comWhy) out.why = (out.why ? out.why + ' · ' : '') + 'نظرها: ' + comWhy;
+  if (lst.why) out.why = (out.why ? out.why + ' · ' : '') + 'فهرست: ' + lst.why;
+  return out;
+}
+
+/** پیام‌های دایرکت — با کلیدِ صفحه (از همان کلید گرفته می‌شود، نه ذخیره، نه چاپ). ⇒ {n, newMsgs[], why} */
+function igInsightsMsgs_(a, deadline) {
+  var out = { n: 0, newMsgs: [], why: '' };
+  if (!a.page) { out.why = 'شناسهٔ صفحهٔ فیسبوک ثبت نیست — کلید را یک بار دیگر از منو بگذارید'; return out; }
+  var pt = igApi_('get', '/' + a.page, { fields: 'access_token' });
+  var ptok = pt.code === 200 && pt.j && pt.j.access_token ? String(pt.j.access_token) : '';
+  if (!ptok) { out.why = 'کلیدِ صفحه داده نشد: ' + igErr_(pt); return out; }
+  var url = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0') + '/' + a.page +
+            '/conversations?platform=instagram&fields=' + encodeURIComponent('id,updated_time,participants,messages.limit(20){id,message,from,created_time}') + '&limit=25';
+  var res = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + ptok } });
+  var j = {};
+  try { j = JSON.parse(res.getContentText() || '{}'); } catch (e) { j = {}; }
+  if (res.getResponseCode() !== 200) { out.why = igErr_({ code: res.getResponseCode(), j: j }); return out; }
+  var sh = igSheet_(CFG.IG_MSGS_TAB || 'اینستاگرام — پیام‌ها', ['شناسهٔ پیام', 'زمان', 'گفت‌وگو', 'از', 'متن', 'ثبت']);
+  var seen = {}, last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, 1).getValues().forEach(function (v) { seen[String(v[0])] = 1; });
+  var rows = [];
+  ((j && j.data) || []).forEach(function (cv) {
+    ((cv.messages && cv.messages.data) || []).forEach(function (m) {
+      if (!m || !m.id || seen[String(m.id)]) return;
+      seen[String(m.id)] = 1;
+      var from = m.from ? String(m.from.username || m.from.name || m.from.id || '') : '';
+      rows.push([String(m.id), String(m.created_time || '').replace('T', ' ').slice(0, 16), String(cv.id || ''), from,
+                 String(m.message || ''), nowStr_()]);
+      if (from !== String(a.user || '')) out.newMsgs.push('@' + from + ': ' + String(m.message || '').slice(0, 80));
+    });
+  });
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+  out.n = rows.length;
+  return out;
+}
+
+/** یک دورِ آمار — درونِ igTick، پس از گام‌های انتشار و فقط اگر وقت مانده. */
+function igInsights_(st, deadline) {
+  var a = igAcct_();
+  if (!a || CFG.IG_INS_ON === false) return null;
+  var every = Math.max(1, Number(CFG.IG_INS_HOURS) || 6) * 3600000;
+  if (st.ins && st.ins.ms && Date.now() - Number(st.ins.ms) < every) return null;
+  var ins = { ms: Date.now(), at: nowStr_(), why: {} };
+  var acc = igApi_('get', '/' + a.ig, { fields: 'followers_count,media_count' });
+  if (acc.code === 200) { ins.followers = Number(acc.j.followers_count) || 0; ins.mediaCount = Number(acc.j.media_count) || 0; }
+  else ins.why.account = igErr_(acc);
+  var p = { posts: 0, comments: 0, newComments: [], why: '' };
+  try { p = igInsightsPosts_(a, st, deadline); } catch (eP) { p.why = String(eP.message || eP).slice(0, 140); }
+  ins.posts = p.posts; ins.newComments = p.comments;
+  if (p.why) ins.why.posts = p.why;
+  var g = { n: 0, newMsgs: [], why: '' };
+  if (CFG.IG_MSGS_ON !== false) {
+    try { g = igInsightsMsgs_(a, deadline); } catch (eM) { g.why = String(eM.message || eM).slice(0, 140); }
+    if (g.why) ins.why.msgs = g.why;
+  }
+  ins.newMsgs = g.n;
+  /* تازه‌ها به تلگرام — فقط وقتی هست، و کوتاه. */
+  var news = p.newComments.slice(0, 5).concat(g.newMsgs.slice(0, 5));
+  if (news.length && CFG.IG_INS_TG !== false) {
+    try { tgSend_('📱 اینستاگرام — ' + (p.comments ? p.comments + ' نظرِ تازه' : '') + (p.comments && g.newMsgs.length ? '، ' : '') +
+                  (g.newMsgs.length ? g.newMsgs.length + ' پیامِ تازه' : '') + '\n' + news.join('\n')); } catch (eT) {}
+  }
+  st.ins = ins;
+  return ins;
 }

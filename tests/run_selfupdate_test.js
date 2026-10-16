@@ -811,6 +811,56 @@ console.log('\n=== ۱۶. شنیدنِ دوباره ===');
 }
 
 // ═════ ۱۷. «کد تازه‌ترین است» شکست نیست؛ «آئودی» در تبِ تلفظ (۸.۸۴) ═════
+console.log('\n=== ۱۶-ب. پلهٔ سوم: بخش‌بندیِ واژه‌ای که با اعرابِ درست هم غلط خوانده شد (۹.۲۳) ===');
+{
+  /* نمونهٔ ۶ِ ۷۳: متنِ صوتی «پُرطُمطُراق» داشت (درست) و صدا «پورتومترق» گفت؛ اصلاحِ شنونده هم اعراب بود، نسخهٔ دوم همان
+     شد و واژه «مانده» ثبت شد — و هیچ کارِ دیگری. */
+  const keep = { gs: global.geminiShort_, gt: global.geminiText_, tts: global.ttsChunkTry_, learn: global.speakLearn_, f: global.logSelfFinding_ };
+  const pcm = Utilities.base64Encode(new Array(4800).fill(0));
+  const text = 'وقتی کَلِماتِ پُرطُمطُراق جایِ حلِ مسئله را می‌گیرند';
+  const E = { word: 'پرطمطراق', heard: 'پورتومترق', kind: 'تلفظ', fix: 'پُرطُمطُراق', heardLat: 'portomtaragh', rightLat: 'portomtorāq' };
+  let answers = [], ttsIn = [], learned = [], forms = [];
+  global.geminiShort_ = () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ errs: answers.shift() || [] }) }] } }] });
+  global.geminiText_ = (prompt) => { global.__sylPrompt = prompt; return { forms: forms }; };
+  global.ttsChunkTry_ = (t) => { ttsIn.push(t); return Utilities.base64Encode(new Array(4802 + ttsIn.length).fill(1)); };
+  global.speakLearn_ = (rows) => { learned = rows; return rows.length; };
+  global.logSelfFinding_ = () => {};
+  delete global.__PROPS[PK.TTS_LISTEN];
+  TTS_LB_DEADLINE_ = Date.now() + 600000;
+
+  answers = [[E], [E], []];
+  forms = [{ word: 'پرطمطراق', form: 'پُرْ‌طُمْ‌طُ‌راق' }];
+  const un = quiet(); const r = ttsListenGuard_(pcm, text, '', 'Kore'); un();
+  ok('۱۶-ب.۱ دو ساخت غلط ⇒ ساختِ سوم با همان حروف، بخش‌بندی‌شده با نیم‌فاصله؛ نسخهٔ سالم می‌مانَد',
+     r !== pcm && ttsIn.length === 2 && ttsIn[1].indexOf('پُرْ‌طُمْ‌طُ‌راق') !== -1, JSON.stringify(ttsIn));
+  ok('۱۶-ب.۲ تلفظِ درستِ شنونده (لاتین) به سازندهٔ هجا رسید', /تلفظِ درست: portomtorāq/.test(global.__sylPrompt || ''));
+  ok('۱۶-ب.۳ شکلی که واقعاً درست خوانده شد به تبِ «تلفظ» می‌رود؛ شمارِ «بخش‌بندی» ثبت', learned.length === 1 &&
+     learned[0][0] === 'پرطمطراق' && learned[0][1] === 'پُرْ‌طُمْ‌طُ‌راق' && ttsListenStatus_().syl === 1, JSON.stringify(learned));
+
+  ttsIn = []; learned = []; answers = [[E], [E]];
+  forms = [{ word: 'پرطمطراق', form: 'پُر‌طُم‌طَراغ' }];       // حرفِ دیگر ⇒ کنار
+  const un2 = quiet(); const r2 = ttsListenGuard_(pcm, text, '', 'Kore'); un2();
+  ok('۱۶-ب.۴ شکلی که حرفش عوض شده ساخته نمی‌شود — سدِ هویتِ حروف', r2 === pcm && ttsIn.length === 1 && !learned.length, JSON.stringify(ttsIn));
+
+  ttsIn = []; learned = []; answers = [[E], [E], [E]];
+  forms = [{ word: 'پرطمطراق', form: 'پُرْ‌طُمْ‌طُ‌راق' }];
+  const un3 = quiet(); const r3 = ttsListenGuard_(pcm, text, '', 'Kore'); un3();
+  ok('۱۶-ب.۵ نسخهٔ سوم هم غلط ⇒ همان اول، و چیزی آموخته نمی‌شود (فقط شکلی که کار کرد)', r3 === pcm && ttsIn.length === 2 && !learned.length);
+
+  ttsIn = []; learned = [];
+  const E2 = { word: 'مسئله', heard: 'مسیله', kind: 'تلفظ', heardLat: 'masile', rightLat: "mas'ale" };
+  answers = [[E, E2], [E, E2], [E2]];
+  forms = [{ word: 'پرطمطراق', form: 'پُرْ‌طُمْ‌طُ‌راق' }, { word: 'مسئله', form: 'مَسْ‌ئَ‌لِه' }];
+  const un4 = quiet(); const r4 = ttsListenGuard_(pcm, text, '', 'Kore'); un4();
+  ok('۱۶-ب.۷ از دو واژه فقط آن‌که در شنیدنِ سوم درست شد آموخته می‌شود', r4 !== pcm && learned.length === 1 && learned[0][0] === 'پرطمطراق',
+     JSON.stringify(learned));
+  ok('۱۶-ب.۶ سدِ تبِ «تلفظ» شکلِ بخش‌بندی را می‌پذیرد و حدسِ فقط‌اعراب را نه',
+     speakHardRows_('پرطمطراق => پُرْ‌طُمْ‌طُ‌راق\nپرطمطراق => پُرطُمطُراق', 5).length === 1);
+  TTS_LB_DEADLINE_ = 0;
+  Object.assign(global, { geminiShort_: keep.gs, geminiText_: keep.gt, ttsChunkTry_: keep.tts, speakLearn_: keep.learn, logSelfFinding_: keep.f });
+  delete global.__PROPS[PK.TTS_LISTEN];
+}
+
 console.log('\n=== ۱۷. دکمهٔ نصب و نامِ آئودی ===');
 if (typeof menuRun_ === 'function') {
   delete global.__PROPS[PK.MENU_LOG];

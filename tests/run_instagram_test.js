@@ -251,6 +251,68 @@ console.log('=== ۶) خطِ وضعیت و سلامت ===');
   ok('۶.۴ بی کلید: خط می‌گوید کجا ثبت شود، و مسئله‌ای نمی‌سازد', /کلید ثبت نشده/.test(nt3[0]) && pr3.length === 0, nt3[0]);
 }
 
+console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲۲) ===');
+{
+  global.__PROPS[PK.IG_TOKEN] = 'EAAtesttoken123';
+  global.__PROPS[PK.IG_ACCT] = JSON.stringify({ ig: '1784', user: 'truth.traces', page: 'PG1' });
+  const calls = [];
+  let comments = [{ id: 'c1', text: 'عالی بود', username: 'ali', timestamp: '2026-10-16T10:00:00+0000', like_count: 2,
+                    replies: { data: [{ id: 'c2', text: 'ممنون', username: 'truth.traces', timestamp: '2026-10-16T10:05:00+0000' }] } }];
+  let msgOk = true;
+  global.__STUB = (url, body, opt) => {
+    calls.push({ url, auth: (opt.headers || {}).Authorization || '' });
+    if (/\/1784\?fields=followers_count/.test(url)) return { code: 200, json: { followers_count: 120, media_count: 2 } };
+    if (/\/1784\/media\?/.test(url)) return { code: 200, json: { data: [
+      { id: 'M1', caption: 'ایده\n🎧 https://youtu.be/v5', media_product_type: 'REELS', permalink: 'https://instagram.com/reel/a', timestamp: '2026-10-16T09:00:00+0000', comments_count: 2 },
+      { id: 'M2', caption: 'دستی', media_product_type: 'FEED', permalink: 'https://instagram.com/p/b', timestamp: '2026-10-15T09:00:00+0000', comments_count: 0, like_count: 3 }] } };
+    if (/\/M1\/insights\?/.test(url)) return { code: 200, json: { data: [{ name: 'views', values: [{ value: 900 }] }, { name: 'reach', values: [{ value: 700 }] },
+      { name: 'likes', values: [{ value: 40 }] }, { name: 'comments', values: [{ value: 2 }] }, { name: 'ig_reels_avg_watch_time', values: [{ value: 12400 }] }] } };
+    if (/\/M2\/insights\?metric=views/.test(url)) return { code: 400, json: { error: { message: 'metric views not supported' } } };
+    if (/\/M2\/insights\?/.test(url)) return { code: 200, json: { data: [{ name: 'reach', values: [{ value: 50 }] }] } };
+    if (/\/M1\/comments\?/.test(url)) return { code: 200, json: { data: comments } };
+    if (/\/PG1\?fields=access_token/.test(url)) return { code: 200, json: { access_token: 'PAGETOKEN' } };
+    if (/\/PG1\/conversations\?platform=instagram/.test(url)) return msgOk
+      ? { code: 200, json: { data: [{ id: 'cv1', messages: { data: [{ id: 'm1', message: 'سلام، درسِ بعدی کِی؟', from: { username: 'sara' }, created_time: '2026-10-16T11:00:00+0000' }] } }] } }
+      : { code: 403, json: { error: { message: '(#200) Requires instagram_manage_messages permission' } } };
+    return { code: 404, json: {} };
+  };
+  sent.length = 0;
+  const st = { media: { M1: 'ig:special:5' } };
+  const ins = igInsights_(st, Date.now() + 60000);
+  const tab = n => hub.getSheetByName(n);
+  const S = tab(CFG.IG_STATS_TAB), C = tab(CFG.IG_COMMENTS_TAB), P = tab(CFG.IG_MSGS_TAB);
+  const sv = S.getRange(1, 1, S.getLastRow(), 16).getValues();
+  const r1 = sv.find(r => r[0] === 'M1'), r2 = sv.find(r => r[0] === 'M2');
+  ok('۸.۱ تبِ آمار: یک ردیف برای هر پست — بازدید، دسترسی، لایک، نظر، میانگینِ تماشا، و قسمت از نقشهٔ انتشار',
+     sv.length === 3 && r1[3] === 'ig:special:5' && r1[6] === 900 && r1[7] === 700 && r1[8] === 40 && r1[9] === 2 && r1[13] === 12.4,
+     JSON.stringify(r1));
+  ok('۸.۲ پستِ دستی هم هست؛ سنجهٔ ناشناخته ⇒ فهرستِ کوتاه‌تر، نه هیچ', r2 && r2[7] === 50 && r2[8] === 3 && r2[15] === '', JSON.stringify(r2));
+  const cv = C.getRange(1, 1, C.getLastRow(), 9).getValues();
+  ok('۸.۳ تبِ نظرها: نظر و پاسخش، با کاربر و متن و پستِ خودش', cv.length === 3 && cv[1][4] === 'ali' && cv[1][5] === 'عالی بود' &&
+     cv[2][7] === 'c1' && cv[1][2] === 'https://instagram.com/reel/a', JSON.stringify(cv.slice(1)));
+  const pv = P.getRange(1, 1, P.getLastRow(), 6).getValues();
+  ok('۸.۴ تبِ پیام‌ها: پیامِ دایرکت با فرستنده', pv.length === 2 && pv[1][3] === 'sara' && /درسِ بعدی/.test(pv[1][4]), JSON.stringify(pv));
+  ok('۸.۵ کلیدِ صفحه فقط برای پیام‌ها، در سرآیند؛ هیچ کلیدی در نشانی', calls.filter(c => /conversations/.test(c.url)).every(c => c.auth === 'Bearer PAGETOKEN') &&
+     calls.every(c => !/EAAtest|PAGETOKEN/.test(c.url)));
+  ok('۸.۶ تازه‌ها به تلگرام، و خطِ روزانه عددها را می‌گوید', sent.length === 1 && /2 نظرِ تازه/.test(sent[0]) && /@sara/.test(sent[0]) &&
+     ins.followers === 120 && /120 دنبال‌کننده/.test(igInsLine_(ins)) && /1 پیامِ تازه/.test(igInsLine_(ins)), sent[0]);
+  /* دورِ دوم: چیزی دوباره افزوده نمی‌شود؛ آمار جایش به‌روز می‌شود. */
+  st.ins.ms = 0; sent.length = 0; msgOk = false;
+  const ins2 = igInsights_(st, Date.now() + 60000);
+  ok('۸.۷ دورِ دوم: ردیفِ آمار به‌روز نه افزوده، نظر و پیام دوباره ثبت نمی‌شوند، تلگرامِ خالی نمی‌رود',
+     S.getLastRow() === 3 && C.getLastRow() === 3 && P.getLastRow() === 2 && sent.length === 0 && ins2.newComments === 0);
+  ok('۸.۸ دسترسیِ پیام نیست ⇒ آمار و نظرها سرِ جا، و خط می‌گوید چرا', ins2.posts === 2 && /پیام‌ها: نشد — .*instagram_manage_messages/.test(igInsLine_(ins2)),
+     igInsLine_(ins2));
+  ok('۸.۹ پیش از IG_INS_HOURS دوباره خوانده نمی‌شود', igInsights_(st, Date.now() + 60000) === null);
+  comments = comments.concat([{ id: 'c3', text: 'سؤال دارم', username: 'reza', timestamp: '2026-10-16T12:00:00+0000' }]);
+  st.ins.ms = 0;
+  igInsights_(st, Date.now() + 60000);
+  ok('۸.۱۰ فقط نظرِ تازه افزوده می‌شود', C.getLastRow() === 4 && C.getRange(4, 5, 1, 1).getValues()[0][0] === 'reza');
+  const src = fs.readFileSync('src/38_Instagram.gs', 'utf8');
+  ok('۸.۱۱ igTick پس از گام‌های انتشار، با وقتِ مانده، آمار را می‌خوانَد؛ انتشار نقشهٔ پست ⇒ قسمت را می‌نویسد',
+     /if \(deadline - Date\.now\(\) > 60000\) \{ try \{ igInsights_\(st, deadline\); \}/.test(src) && /st\.media\[plan\.reelId\] = it\.key;/.test(src));
+}
+
 console.log('=== ۷) سیم‌کشی ===');
 {
   const vb = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');

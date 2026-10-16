@@ -573,6 +573,7 @@ def hearCompare(src, out, alt=None, model=None):
     _, Wo = words(out)
     Wa = words(alt)[1] if alt else None
     segs, so, sa = [], [], []
+    kh = {"src": 0, "out": 0, "alt": 0}
     for a, b, t in S:
         n = _hnorm(t)
         if len(n) < 4:
@@ -581,19 +582,30 @@ def hearCompare(src, out, alt=None, model=None):
         r = difflib.SequenceMatcher(None, n, _hnorm(o), autojunk=False).ratio()
         so.append(r)
         row = {"t": round(a, 1), "src": t[:120], "out": o.strip()[:120], "s": round(r, 2)}
+        # ۹.۲۳: «ه» ⇐ «خ» — «هم» ⇐ «خم»، «همیشه» ⇐ «خمیشه» در تقریباً هر جملهٔ نمونهٔ ساعت‌ساز. «خ»ی که در خروجی
+        # هست و در ورودیِ همان بازه نیست، از تبدیل آمده.
+        ks, ko = n.count("\u062e"), _hnorm(o).count("\u062e")
+        kh["src"] += ks
+        kh["out"] += max(0, ko - ks)
+        if ko > ks:
+            row["kh"] = ko - ks
         if Wa is not None:
             al = window(Wa, a, b)
             ra = difflib.SequenceMatcher(None, n, _hnorm(al), autojunk=False).ratio()
             sa.append(ra)
             row["alt"] = al.strip()[:120]
             row["sa"] = round(ra, 2)
+            kh["alt"] += max(0, _hnorm(al).count("\u062e") - n.count("\u062e"))
         segs.append(row)
     if not so:
         return None
     res = {"srcOut": round(sum(so) / len(so), 3), "n": len(so),
            "worst": sorted(segs, key=lambda x: x["s"])[:6], "segs": segs[:80]}
+    res["khOut"] = kh["out"]
+    res["khSrc"] = kh["src"]
     if sa:
         res["alt"] = round(sum(sa) / len(sa), 3)
+        res["khAlt"] = kh["alt"]
     return res
 
 
@@ -919,18 +931,24 @@ def runOne(it, mp):
     subprocess.check_call(args)
     mins = (__import__("time").time() - t0) / 60.0
     # ══ تبدیلِ دوم برای نمونه (۹.۱۱) ══ همان ورودی، همان گام، فقط `index_rate`ِ دیگر — شکستش ردیف را نمی‌اندازد.
-    altRaw, abRate = None, str(((it.get("ab") or {}).get("indexRate")) or "")
-    if abRate:
+    # ۹.۲۳: تبدیلِ دوم `protect`ِ دیگر هم می‌تواند داشته باشد — محافظِ همخوانِ بی‌واک و نفس، جایی که «ه» ⇐ «خ» از آن است.
+    abIt = it.get("ab") or {}
+    altRaw, abRate, abProt = None, str(abIt.get("indexRate") or ""), str(abIt.get("protect") or "")
+    abLabel = ("index_rate " + abRate if abRate else "") + (" protect " + abProt if abProt else "")
+    if abRate or abProt:
         try:
             a2 = list(args)
             a2[a2.index("--out") + 1] = "vblab-ab"
-            a2[a2.index("--rvc-index-rate") + 1] = abRate
+            if abRate:
+                a2[a2.index("--rvc-index-rate") + 1] = abRate
+            if abProt:
+                a2[a2.index("--rvc-protect") + 1] = abProt
             subprocess.check_call(a2)
             for root, _dirs, files in os.walk("vblab-ab"):
                 for f in files:
                     if f.startswith("rvc-") and f.endswith(".wav"):
                         altRaw = os.path.join(root, f)
-            say("  تبدیلِ دوم (index_rate %s): %s" % (abRate, "ساخته شد" if altRaw else "فایلی نداد"))
+            say("  تبدیلِ دوم (%s): %s" % (abLabel.strip(), "ساخته شد" if altRaw else "فایلی نداد"))
         except Exception as e:
             say("::warning title=تبدیلِ دوم نشد::%s" % str(e)[:200])
 
@@ -1013,8 +1031,8 @@ def runOne(it, mp):
         try:
             hear = hearCompare("vb/src.wav", best, altOut)
             if hear:
-                say("  شنیدن: خروجی با ورودی %.0f٪ هم‌خوان%s" % (hear["srcOut"] * 100,
-                    (" · تبدیلِ دوم %.0f٪" % (hear["alt"] * 100)) if "alt" in hear else ""))
+                say("  شنیدن: خروجی با ورودی %.0f٪ هم‌خوان، «خ»ِ افزوده %d%s" % (hear["srcOut"] * 100, hear.get("khOut", 0),
+                    (" · تبدیلِ دوم %.0f٪، «خ»ِ افزوده %d" % (hear["alt"] * 100, hear.get("khAlt", 0))) if "alt" in hear else ""))
         except Exception as e:
             say("::warning title=شنیدن نشد::%s" % str(e)[:200])
 
@@ -1058,12 +1076,12 @@ def runOne(it, mp):
         rec["colour"] = colour
     if hear:
         rec["hear"] = hear
-    if altOut and abRate:
+    if altOut and (abRate or abProt):
         try:
-            nm = assetName(key + " · ab" + abRate, 0, 1)
+            nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else ""), 0, 1)
             u = uploadAsset(rel, altOut, nm)
             if u:
-                rec["ab"] = {"indexRate": abRate, "url": u}
+                rec["ab"] = {"indexRate": abRate, "protect": abProt, "url": u}
         except Exception as e:
             say("::warning title=تبدیلِ دوم آپلود نشد::%s" % str(e)[:200])
     # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══
