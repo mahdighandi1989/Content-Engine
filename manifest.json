@@ -1,11 +1,12 @@
 {
-  "version": "9.19",
+  "version": "9.20",
   "codeFile": "engine.gs",
-  "sha256": "980e28610ab2f67f79b350b3ca5aa3453ca154a8d369d0647d7199aa483fc2ee",
-  "releasedAt": "2026-10-16T12:50:00+04:00",
-  "summary": "کلیدِ اینستاگرام (system userِ متا) از منوی «۴) کلیدِ اینستاگرام (متا)» ذخیره و همان لحظه بی‌انتشار آزموده می‌شود — صفحه و حسابِ دیده‌شده ثبت می‌شوند؛ کلید فقط در سرآیند، هرگز چاپ. شاملِ ۹.۱۸.",
+  "sha256": "cb715f87c1c58c57386ea588697da1fe1af8e046aa6b4f7def92314aef010913",
+  "releasedAt": "2026-10-16T13:10:00+04:00",
+  "summary": "دو هشدارِ دروغ روی ویدئوی رسانه‌ای «از همه جا»: `say`ِ هر صحنه گفتارِ کلِ صحنه است نه فقط تیترِ نخستش (avsync روی variety:74 دو نقطه از سه را «با تصویرش نمی‌خواند» زد در حالی که شنیدنِ خودِ ویدئو هر دو را درست نشان داد)، و `video-motion` در حالتِ رسانه‌ای از نشستنِ رسانه‌ها داوری می‌شود نه از حرکتِ کانون‌دار که این حالت ندارد.",
   "fixes": [
-    "setInstagramToken / igTokenSet_ / igCheck_ (PK.IG_TOKEN، PK.IG_ACCT، CFG.IG_GRAPH)؛ selfupdate §۲۰."
+    "src/37_VarietyMedia.gs vmScenes_: say = جمله‌های بازهٔ صحنه از جملهٔ آغاز (تا ۲۴۰ نویسه)؛ run_varietymedia_test ۱.۹-ب.",
+    "src/27_YouTube.gs qaAutoChecks_: mode media ⇒ video-motion از clip.used/asked؛ run_youtube_test ۱۰۰.۵–۱۰۰.۶."
   ],
   "sourceReportIds": [],
   "promptImpact": [],

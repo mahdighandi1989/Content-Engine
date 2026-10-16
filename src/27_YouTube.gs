@@ -14451,6 +14451,15 @@ function qaAutoChecks_(mapIn) {
   }
   var cl = best.clip || {}, mv = Number(best.mv) || 0;
   var clipOk = !cl.asked || Number(cl.used) > 0;
+  /* ۹.۱۹: ویدئوی رسانه‌ای «حرکتِ کانون‌دار» ندارد — حرکتش خودِ کلیپ‌ها و عکس‌های متحرکِ منبع است، پس
+     `mv` همیشه صفر است و این وارسی هر بار «ایراد» می‌خورد بی آنکه چیزی خراب باشد. آن‌جا داور `clip` است
+     (چند رسانه خواسته شد و چند نشست). */
+  if (best.mode === 'media') {
+    checks.push({ key: 'video-motion', verdict: (Number(cl.asked) > 0 && Number(cl.used) >= Number(cl.asked)) ? 'سالم' : 'ایراد',
+                  note: tag + 'حالتِ رسانه‌ای: ' + (Number(cl.used) || 0) + ' از ' + (Number(cl.asked) || 0) +
+                        ' رسانهٔ صحنه نشست (حرکت از خودِ کلیپ‌ها؛ حرکتِ کانون‌دار در این حالت نیست)' +
+                        (cl.why && cl.why.length ? ' — ' + String(cl.why[0]).slice(0, 80) : '') });
+  } else
   checks.push({ key: 'video-motion', verdict: (clipOk && mv > 0) ? 'سالم' : 'ایراد',
                 note: tag + 'کلیپِ آغاز ' + (cl.asked ? (Number(cl.used) > 0 ? 'نشست' : 'خواسته شد و ننشست') : 'خواسته نشد') +
                       ' · حرکتِ کانون‌دار روی ' + mv + ' صحنه' +

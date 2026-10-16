@@ -9668,6 +9668,17 @@ console.log('\n=== ۹۴) آپلودی که ثبت نشد، تکراری با «�
   ok('۱۰۰.۳ «نشنیدم» سالم نوشته نمی‌شود: وارسیِ هم‌زمانی همان می‌مانَد؛ حرکت بی کلیپِ خواسته سالم است',
      JSON.stringify(m2['video-sync']) === before && m2['video-motion'].verdict === 'سالم');
   ok('۱۰۰.۴ گزارشِ خودکار پنجرهٔ «گزارشِ روزانهٔ ناظر» را جعل نمی‌کند', !(m2.__rep && m2.__rep.lastAt));
+  /* ۹.۱۹: ویدئوی رسانه‌ای حرکتِ کانون‌دار ندارد (mv همیشه صفر) — داورش نشستنِ رسانه‌هاست. */
+  map['variety:74'] = { mode: 'media', at: '2026-10-16 06:05', clip: { asked: 19, used: 19, why: [] },
+                        qa: { n: 19, matched: 18, ok: false, blank: [14], durDiff: 0 } };
+  qaAutoChecks_(map);
+  const m3 = monChecksLoad_();
+  ok('۱۰۰.۵ ویدئوی رسانه‌ای با همهٔ رسانه‌های نشسته «حرکت» را سالم می‌گیرد، نه «۰ صحنهٔ کانون‌دار»',
+     m3['video-motion'].verdict === 'سالم' && /حالتِ رسانه‌ای: 19 از 19/.test(m3['video-motion'].note), JSON.stringify(m3['video-motion']));
+  map['variety:75'] = { mode: 'media', at: '2026-10-17 06:05', clip: { asked: 19, used: 15, why: ['صحنهٔ 3: دانلود نشد'] },
+                        qa: { n: 19, matched: 19, ok: true, blank: [], durDiff: 0 } };
+  qaAutoChecks_(map);
+  ok('۱۰۰.۶ و رسانه‌ای که ننشست همچنان «ایراد» است', monChecksLoad_()['video-motion'].verdict === 'ایراد');
   delete global.__PROPS[PK.QA_AUTO_LAST]; delete global.__PROPS[PK.MON_CHECKS];
 }
 

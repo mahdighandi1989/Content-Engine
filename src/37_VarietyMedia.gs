@@ -524,6 +524,21 @@ function vmScenes_(raw, sents, items, secs, music, opt) {
     z++;
   }
   for (var e = 0; e < sc.length; e++) sc[e].n = e + 1;
+  /* ══ `say` = گفتارِ کلِ صحنه، از جملهٔ آغازش (۹.۱۹) ══ تا این‌جا فقط جملهٔ نخست بود — و نخستین جملهٔ
+     صحنهٔ رسانه‌ای اغلب تیترِ دوسه‌واژه‌ایِ آیتم است («بازرسِ امورِ تحتانی.»). `tools/avsync.py` از ۰٫۸
+     ثانیه پس از آغاز تا ده ثانیه می‌شنود و با همین `say` می‌سنجد؛ پس جمله‌های بعدیِ **همان** صحنه را
+     می‌شنید و «۰٪ خودش» می‌داد: variety:74 دو نقطه از سه «با تصویرش نمی‌خواند» گرفت در حالی که با
+     faster-whisper روی خودِ ویدئو هر دو درست بودند (کلیپِ ماساژ زیرِ «انیمیشنِ بعدی…»، کلیپِ تیرکمان
+     زیرِ «از اداره که بگذریم…»). جملهٔ آغاز همچنان اولِ `say` است. */
+  for (var q = 0; q < sc.length; q++) {
+    var qEnd = endOf(q), said = [];
+    for (var y = sc[q].sn - 1; y < S; y++) {
+      if (y > sc[q].sn - 1 && Number(sents[y].t) >= qEnd - 0.05) break;
+      said.push(String(sents[y].text || '').trim());
+      if (said.join(' ').length >= 240) break;
+    }
+    sc[q].say = said.join(' ').slice(0, 240);
+  }
   out.scenes = sc;
   out.cover = String((raw && raw.cover) || '').replace(/\s+/g, ' ').trim().slice(0, 400);
   return out;

@@ -54,6 +54,15 @@ console.log('=== ۱) نقشهٔ مدل ⇒ صحنه‌ها: مرزها در کد
      r.scenes.find(x => x.id === 'V1').ov.kind === 'headline');
   ok('۱.۸ ایدهٔ کاور می‌آید', /lighthouse/.test(r.cover));
   ok('۱.۹ عکس clipQuote نمی‌گیرد', r.scenes.filter(x => x.kind === 'photo').every(x => !x.quote));
+  /* ۹.۱۹: avsync ده ثانیه از صحنه را می‌شنود؛ `say` باید گفتارِ همان بازه باشد، نه فقط تیترِ نخستش. */
+  {
+    const v1 = r.scenes.find(x => x.id === 'V1'), k = r.scenes.indexOf(v1);
+    const end = k + 1 < r.scenes.length ? r.scenes[k + 1].t0 : 100;
+    const inSpan = sents.filter(s => s.t >= v1.t0 && s.t < end).map(s => s.text);
+    ok('۱.۹-ب `say`ِ صحنه از جملهٔ آغازش است و جمله‌های بعدیِ **همان** صحنه را هم دارد، نه جملهٔ صحنهٔ بعد',
+       inSpan.length >= 2 && v1.say === inSpan.join(' ').slice(0, 240) && v1.say.indexOf('جملهٔ شمارهٔ 3 ') === 0,
+       JSON.stringify(r.scenes.map(x => [x.t0, x.say])));
+  }
 
   // سقفِ لحظه‌ها و فاصله‌شان
   const many = { placements: [] };
