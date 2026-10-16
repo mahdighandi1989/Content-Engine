@@ -1204,6 +1204,20 @@ function igMediaInsights_(m) {
 }
 
 /** کدام قسمت: از نقشه‌ای که انتشار نوشت؛ وگرنه از پیوندِ یوتیوبِ کپشن. */
+/** «@نام (پیوندِ صفحه‌اش)» — برای تلگرام، تا با یک لمس به صفحهٔ همان کس برسد. */
+function igWhoLine_(u) {
+  u = String(u || '').replace(/^@/, '');
+  return u ? '@' + u + ' (instagram.com/' + u + ')' : '@?';
+}
+
+/** «ig:special:5» ⇒ «درس‌نامه، قسمتِ ۵»؛ «yt:…» یا تهی ⇒ «پستِ دستی». */
+function igKeyLabel_(key) {
+  var m = /^ig:([^:]+):(\d+)$/.exec(String(key || ''));
+  if (!m) return 'پستِ دستی';
+  var show = m[1] === ENRICH_SHOW_SPECIAL ? (CFG.SPECIAL_SHOW_NAME || 'درس‌نامه') : (CFG.SHOW_NAME || m[1]);
+  return show + '، قسمتِ ' + faDigitsOut_(m[2]);
+}
+
 function igMediaKey_(m, st) {
   var k = (st.media || {})[String(m.id)];
   if (k) return k;
@@ -1260,7 +1274,10 @@ function igInsightsPosts_(a, st, deadline) {
           seen[String(x.id)] = 1;
           cRows.push([String(x.id), String(x.timestamp || '').replace('T', ' ').slice(0, 16), String(m.permalink || m.id), key,
                       String(x.username || ''), String(x.text || ''), Number(x.like_count) || 0, j ? String(c.id) : '', nowStr_()]);
-          out.newComments.push('@' + String(x.username || '?') + ': ' + String(x.text || '').slice(0, 80));
+          /* ۹.۳۳: «بهتره مشخص کنه زیر کدوم پست بوده … لینکِ پست با نظر و آیدیِ فرد با هم بیاد» — با زیاد شدنِ پست‌ها،
+             نظرِ بی‌نشانی خوانده نمی‌شود. */
+          out.newComments.push(igWhoLine_(x.username) + ': «' + String(x.text || '').slice(0, 120) + '»' +
+                               (j ? ' (پاسخ)' : '') + '\n   ↳ زیرِ ' + igKeyLabel_(key) + ': ' + String(m.permalink || m.id));
         });
       });
     }
@@ -1297,7 +1314,7 @@ function igInsightsMsgs_(a, deadline) {
       var from = m.from ? String(m.from.username || m.from.name || m.from.id || '') : '';
       rows.push([String(m.id), String(m.created_time || '').replace('T', ' ').slice(0, 16), String(cv.id || ''), from,
                  String(m.message || ''), nowStr_()]);
-      if (from !== String(a.user || '')) out.newMsgs.push('@' + from + ': ' + String(m.message || '').slice(0, 80));
+      if (from !== String(a.user || '')) out.newMsgs.push('✉️ ' + igWhoLine_(from) + ': «' + String(m.message || '').slice(0, 120) + '»');
     });
   });
   if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);

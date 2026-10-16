@@ -1,15 +1,15 @@
 {
-  "version": "9.32",
+  "version": "9.33",
   "codeFile": "engine.gs",
-  "sha256": "3be793e567ea6b83eff2cc36312c52069111980875ab6d68f2a15d19039ff59f",
-  "releasedAt": "2026-10-17T01:00:00+04:00",
-  "summary": "ریلزِ اینستاگرام روزی ۶ و جدا از شورتز: شورتزِ منتظرِ سهمیه به صفِ جدا و به‌ترتیب می‌رود و ریلز را نگه نمی‌دارد؛ شورتز فقط از سهمیه‌ای برمی‌دارد که دو آپلودِ قسمتِ کاملِ امروز جا داشته باشند.",
+  "sha256": "f5552fb7e94b75dc273e188df12c3f3bab8205e41f1e017713642a87a8fe3dc8",
+  "releasedAt": "2026-10-17T01:30:00+04:00",
+  "summary": "نظرِ اینستاگرام در تلگرام با پیوندِ همان پست، نامِ قسمت و صفحهٔ نویسنده؛ پیامِ دایرکت با صفحهٔ فرستنده؛ آمار و نظرها هر ۳ ساعت.",
   "fixes": [
-    "src/38_Instagram.gs: igShortQuotaOk_ / igShortEnqueue_ / igShortQueueRun_ — صفِ به‌ترتیبِ شورتز و ذخیرهٔ سهمیهٔ قسمت‌های کامل؛ igState_/igStateSave_ صف را در کلیدِ جدا",
-    "src/00_Config.gs: IG_PER_DAY 6، IG_SHORT_KEEP_UP 2، PK.IG_SHORTQ"
+    "src/38_Instagram.gs: igWhoLine_ / igKeyLabel_ — نشانیِ پست و نویسنده در خبرِ تلگرام",
+    "src/00_Config.gs: IG_INS_HOURS 6 ⇒ 3"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261016-20": "۹.۳۲"
+    "R-20261016-21": "۹.۳۳"
   }
 }

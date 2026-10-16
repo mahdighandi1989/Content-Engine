@@ -472,6 +472,9 @@ console.log('=== ۸) آمار، نظرها و پیام‌ها در شیت (۹.۲
      calls.every(c => !/EAAtest|PAGETOKEN/.test(c.url)));
   ok('۸.۶ تازه‌ها به تلگرام، و خطِ روزانه عددها را می‌گوید', sent.length === 1 && /2 نظرِ تازه/.test(sent[0]) && /@sara/.test(sent[0]) &&
      ins.followers === 120 && /120 دنبال‌کننده/.test(igInsLine_(ins)) && /1 پیامِ تازه/.test(igInsLine_(ins)), sent[0]);
+  ok('۸.۶-ب هر نظر در تلگرام با پیوندِ همان پست، نامِ قسمت و صفحهٔ نویسنده؛ پیام با صفحهٔ فرستنده (۹.۳۳)',
+     /@ali \(instagram\.com\/ali\): «عالی بود»\n   ↳ زیرِ درس‌نامه، قسمتِ ۵: https:\/\/instagram\.com\/reel\/a/.test(sent[0]) &&
+     /✉️ @sara \(instagram\.com\/sara\)/.test(sent[0]) && CFG.IG_INS_HOURS === 3, sent[0]);
   /* دورِ دوم: چیزی دوباره افزوده نمی‌شود؛ آمار جایش به‌روز می‌شود. */
   st.ins.ms = 0; sent.length = 0; msgOk = false;
   const ins2 = igInsights_(st, Date.now() + 60000);
