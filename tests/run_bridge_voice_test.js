@@ -3430,4 +3430,38 @@ console.log('\n=== ۳۸) زیروبمِ خودِ گوینده و بلندیِ خ
   const qZ = vbrRead_(); qZ.items = []; vbrSave_(qZ);
 }
 
+console.log('=== ۳۹) رضوی «هر ۳» و گلدوز «هر ۱»، هر دو روشن — رنگِ صدا همان کسی که شیوهٔ خواندن را داد (۹.۲۸) ===');
+{
+  /* عیناً تخته‌ای که صاحبِ برنامه ۱۶ اکتبر پیش از ذخیره فرستاد و پرسید «جایی به تناقض نمی‌خوره؟»:
+     رضوی بالا، روشن، هر ۳ قسمت، هر دو برنامه؛ گلدوز پایین، روشن، هر ۱، هر دو برنامه. تا ۹.۲۷ پل «بالاترین
+     ردیفِ روشن» را برمی‌داشت: هر قسمت رنگِ رضوی می‌گرفت، حتی قسمتی که با شیوهٔ گلدوز خوانده شده بود. */
+  const both = knownShows_().map(s => s.name);
+  personaAddFromCard_('spk-1g0r95d', 'محمد تقی پور گلدوز', { cue: 'متعادل بخوان', modes: '' });
+  personaBoardSave_('razavi', true, both, 3, 'آرام و روایی بخوان', '');
+  personaBoardSave_('spk-1g0r95d', true, both, 1, 'متعادل بخوان', '');
+  const R = vbrSpeakerRows_();
+  const ri = R.findIndex(r => String(r[PC.KEY - 1]) === 'razavi'), gi = R.findIndex(r => String(r[PC.KEY - 1]) === 'spk-1g0r95d');
+  ok('۳۹.۰ ترتیبِ ردیف‌ها همان تخته است: رضوی بالای گلدوز', ri >= 0 && gi > ri, ri + ' / ' + gi);
+  const pairs = [];
+  for (const show of ['variety', 'special']) {
+    for (const ep of [72, 73, 74, 75]) {
+      const tmp = {};
+      const per = personaEnsure_(tmp, show, ep);
+      pairs.push([show, ep, per && per.key, vbrSpeakerPick_(R, show, String(ep)).key]);
+    }
+  }
+  ok('۳۹.۱ شیوهٔ خواندن: نوبتِ رضوی (۷۲، ۷۵) رضوی، بقیه گلدوز',
+     pairs.every(p => p[2] === ((p[1] % 3 === 0) ? 'razavi' : 'spk-1g0r95d')), JSON.stringify(pairs));
+  ok('۳۹.۲ و رنگِ صدای پل **همان** گوینده است، در هر قسمت و هر دو برنامه',
+     pairs.every(p => p[2] === p[3]), JSON.stringify(pairs));
+  /* «برنامه‌ها» هم دیده می‌شود: گلدوز فقط برای «از همه جا» ⇒ درس‌نامهٔ ۷۳ هیچ‌کس. */
+  personaBoardSave_('spk-1g0r95d', true, [knownShows_().find(s => s.key === 'variety').name], 1, 'متعادل بخوان', '');
+  const R2 = vbrSpeakerRows_();
+  ok('۳۹.۳ ستونِ «برنامه‌ها» در پل هم خوانده می‌شود',
+     vbrSpeakerPick_(R2, 'special', '73').key === '' && vbrSpeakerPick_(R2, 'variety', '73').key === 'spk-1g0r95d',
+     JSON.stringify([vbrSpeakerPick_(R2, 'special', '73'), vbrSpeakerPick_(R2, 'variety', '73')]));
+  personaBoardSave_('spk-1g0r95d', false, both, 1, 'متعادل بخوان', '');
+  personaBoardSave_('razavi', false, both, 1, 'آرام و روایی بخوان', '');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

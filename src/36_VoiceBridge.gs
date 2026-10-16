@@ -2436,8 +2436,21 @@ function vbrSpeakerPick_(rows, show, epRaw) {
       }
     } catch (eH) {}
   }
-  var on = vbrSpeakerOn_(rs);
-  return on ? { key: on, why: 'دائم' } : { key: '', why: '' };
+  /* ══ دائم: همان چهار شرطِ `personaFor_` — روشن، برنامه، نوبت، کارت (۹.۲۸) ══
+     تا ۹.۲۷ این‌جا «بالاترین ردیفِ روشن» بود و «برنامه‌ها» و «هر چند قسمت» دیده
+     نمی‌شد. با رضوی «هر ۳» بالای گلدوز «هر ۱»، قسمتی که با شیوهٔ خواندنِ **گلدوز**
+     ساخته شده بود با رنگِ صدای **رضوی** تبدیل می‌شد، و رنگِ گلدوز هرگز روی هیچ
+     قسمتی نمی‌نشست — دو بخش، دو قاعده برای یک تصمیم. صاحبِ برنامه پیش از روشن
+     کردنِ هر دو ردیف پرسید «جایی به تناقض نمی‌خوره؟» — همین‌جا می‌خورد. */
+  for (var j = 0; j < rs.length; j++) {
+    var kj = String(rs[j][PC.KEY - 1] || '').trim();
+    if (!kj || !personaOn_(rs[j][PC.ON - 1])) continue;
+    if (!personaShowOk_(rs[j][PC.SHOWS - 1], show, show)) continue;
+    if (!personaTurn_(rs[j][PC.EVERY - 1], e)) continue;
+    if (!String(rs[j][PC.STYLE - 1] || '').trim()) continue;
+    return { key: kj, why: 'دائم' };
+  }
+  return { key: '', why: '' };
 }
 
 /** منو: «🌉 پلِ رنگِ صدا — تبدیلِ آخرین قسمت». */
