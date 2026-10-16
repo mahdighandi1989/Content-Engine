@@ -2189,6 +2189,8 @@ function ytPlEnsure_(key, title, desc) {
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return rec.id;
     try {
       body.id = rec.id;
+      /* ۹.۳۱: `update` بخشِ status را کامل جایگزین می‌کند؛ بی این خط، تغییرِ نامِ یک مجموعه پادکستِ روشن را خاموش می‌کرد. */
+      if (rec.podcast) body.status.podcastStatus = 'enabled';
       yt.Playlists.update(body, 'snippet,status');
       rec.title = body.snippet.title; rec.at = nowStr_();
       map[key] = rec; ytPlMapSave_(map);
@@ -13059,6 +13061,25 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
      چهار «نشد (500)» با کاورِ ۹۶۰×۵۴۰ ثبت شده بود و سقفِ تلاش پر بود — یعنی
      کاورِ درست هم تا هفتهٔ بعد فرستاده نمی‌شد. نسخهٔ سازوکار در رکورد است و
      عوض‌شدنش شمارش را از نو می‌کند. */
+  /* ══ وضعِ زندهٔ یوتیوب، نه حافظهٔ خودمان (۹.۳۱) ══
+   * «پلی‌لیست‌ها رو دو شب پیش با دادنِ کاورِ دستی پادکست کردم … الان تو تبِ پادکست‌ها هستن». موتور هیچ‌وقت
+   * `podcastStatus` را از یوتیوب نمی‌خواند — فقط آنچه خودش نشانده بود را می‌دانست — پس هر سه را «پادکست‌نشده،
+   * بی‌کاور» می‌دید، هر شب کاورِ تازه درج می‌کرد (۵۰۰) و ده روز «ایرادِ مزمن» ساخت برای کاری که انجام شده بود.
+   * یک `playlists.list` (۱ واحد): پادکستِ روشن یعنی تصویر هم هست (یوتیوب بی تصویر نمی‌پذیرد)، و آن تصویر کارِ
+   * دستِ صاحبِ برنامه است ⇒ `coverManual`، که دیگر هرگز جایگزین نمی‌شود. */
+  try {
+    var ytL = ytSvc_(), pmL = ytPlMap_(), prL = pmL[key] || {};
+    if (ytL && plId && !(prL.podcast && prL.cover) && ytQuotaTake_(YT_COST.playlistsList, false)) {
+      var lr = ytL.Playlists.list('status', { id: plId, maxResults: 1 });
+      var ps = (((lr || {}).items || [])[0] || {}).status || {};
+      if (String(ps.podcastStatus || '') === 'enabled') {
+        if (!prL.podcast) { prL.podcast = nowStr_(); out.podcasts = (out.podcasts || 0) + 1; }
+        if (!prL.cover) { prL.cover = nowStr_(); prL.coverManual = prL.coverManual || nowStr_(); }
+        prL.podWhy = ''; prL.coverWhy = ''; prL.podTries = 0; prL.coverTries = 0; prL.live = nowStr_();
+        pmL[key] = prL; ytPlMapSave_(pmL);
+      }
+    }
+  } catch (eL) {}
   var pmap = ytPlMap_(), prec = pmap[key] || {};
   var ver = Number(CFG.YT_PL_COVER_VER) || 2;
   if (Number(prec.coverVer) !== ver) {

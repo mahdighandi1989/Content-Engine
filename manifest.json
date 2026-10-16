@@ -1,26 +1,17 @@
 {
-  "version": "9.30",
+  "version": "9.31",
   "codeFile": "engine.gs",
-  "sha256": "c005e5ac96c929536af1b76c2674e402c35c41f1e5240726775c32e3118a9e98",
-  "releasedAt": "2026-10-16T23:30:00+04:00",
-  "summary": "ریلز و شورتز مجموعه به مجموعه و درس به درس از پوشه، بی جاافتادن (درسِ بی‌ویدئو ⇒ ایستادن و گزارش؛ سه شکست ⇒ ۲۴ ساعت و همان درس؛ انتشار فقط به ترتیب)؛ مرورِ بزرگ با متنِ «مسیر» تا سه دقیقه؛ کپشنِ جدا برای اینستاگرام و یوتیوب؛ آمار/نظر/پیامِ اینستاگرام در شیتِ جدا (هاب timed out می‌داد)؛ توضیحِ پلی‌لیست‌ها و کانال هر شب از محتوای واقعی؛ تأییدِ دستی ۳ ⇒ ۱.",
+  "sha256": "a1f519ab34ac9a5e7aaa51a3712a8b874ab02c075505a7dfb33600b9b4b9ff1a",
+  "releasedAt": "2026-10-17T00:30:00+04:00",
+  "summary": "شورتزِ یوتیوب کاورِ خودِ ریلز را می‌گیرد (و شورتزهای قبلی یک‌بار جبران می‌شوند)؛ موتور podcastStatus را از خودِ یوتیوب می‌خوانَد — پلی‌لیست‌هایی که صاحبِ برنامه دستی پادکست کرد دیگر «پادکست‌نشده/بی‌کاور» نیستند و کاورِ دستی‌شان جایگزین نمی‌شود؛ تغییرِ نامِ مجموعه پادکست را خاموش نمی‌کند.",
   "fixes": [
-    "src/38_Instagram.gs: igOrder_/igOrderDec_/igNextEp_/igFailHold_/igEarlierPending_ — ترتیب از پوشه، بی رد شدن، انتشار به ترتیب",
-    "src/38_Instagram.gs: igPromptRecap_/igWords_ — مرورِ بزرگ تا ۴۰۰ واژه و ۹ تصویر؛ سقفِ ۱۷۸ ثانیه با بازسازی",
-    "src/38_Instagram.gs: igCaption_/igShortMeta_ — کپشنِ اینستاگرام و عنوان/توضیحِ شورتز (ytDesc)؛ شمارهٔ درس از پوشه",
-    "src/38_Instagram.gs: igBook_ — دفترِ جدای اینستاگرام زیرِ OUTPUT/«اینستاگرام»",
-    "src/27_YouTube.gs: ytPlDescText_/ytPlDescVariety_/ytPlDescSync_ و ytChannelDesc_ — توضیحِ زنده؛ src/21_SelfUpdate.gs: شبانه",
-    "src/00_Config.gs: IG_APPROVE 1، IG_PLAN_V 4، IG_PLAN_MIN 3، IG_RECAP_*، IG_MAX_SEC، IG_RETRY_H، IG_ORDER_H، IG_BOOK_*؛ PK.IG_BOOK، PK.YT_SUMMARY"
+    "src/38_Instagram.gs: igShortThumb_ / igShortThumbRetro_ — کاورِ شورتز با thumbnails.set، سقفِ ۲ مگ، جبرانِ یک‌باره",
+    "src/27_YouTube.gs: ytPlDress_ — خواندنِ زندهٔ podcastStatus (۱ واحد) پیش از تلاشِ کاور/پادکست؛ coverManual",
+    "src/27_YouTube.gs: ytPlEnsure_ — update با status، podcastStatus روشن را نگه می‌دارد"
   ],
   "sourceReportIds": [],
-  "promptImpact": [
-    "_PROMPT-monitor-v107.md: ترتیب و جاافتادنِ ریلز (instagram.order/gaps)، شورتز، دفترِ جدای اینستاگرام (instagram.book)، توضیحِ زندهٔ پلی‌لیست‌ها؛ یادداشتِ ۱۰۲ به تاریخچه"
-  ],
   "answers": {
-    "R-20261016-16": "۹.۳۰",
-    "R-20261016-17": "۹.۳۰ (کارِ صاحبِ برنامه)"
-  },
-  "promptImpactKinds": [
-    "monitor"
-  ]
+    "R-20261016-18": "۹.۳۱",
+    "R-20261016-19": "۹.۳۱"
+  }
 }

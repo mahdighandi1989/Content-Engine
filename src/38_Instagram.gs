@@ -768,7 +768,7 @@ function igStepPub_(it, plan, st, deadline) {
 function igShortPub_(it, plan) {
   if (CFG.IG_SHORTS === false) { plan.shortWhy = 'خاموش (IG_SHORTS)'; return { ok: true }; }
   if (!plan.short) { plan.shortWhy = 'رانر نسخهٔ شورتز نداد'; return { ok: true }; }
-  if (plan.shortId) return { ok: true };
+  if (plan.shortId) { igShortThumb_(plan); return { ok: true }; }
   var yt = ytSvc_();
   if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
   var plUrl = '';
@@ -795,6 +795,7 @@ function igShortPub_(it, plan) {
   } catch (eU) { plan.shortWhy = 'آپلودِ شورتز: ' + String(eU.message || eU).slice(0, 160); return { ok: true }; }
   if (!plan.shortId) { plan.shortWhy = 'یوتیوب شناسه برنگرداند'; return { ok: true }; }
   plan.shortUrl = 'https://www.youtube.com/shorts/' + plan.shortId;
+  igShortThumb_(plan);
   if (leaks.length) { plan.shortWhy = 'نشتیِ خصوصی در متن — unlisted ماند'; return { ok: true }; }
   try {
     if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
@@ -804,6 +805,53 @@ function igShortPub_(it, plan) {
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
   try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + (plan.shortWhy || '') + ')')); } catch (eT) {}
   return { ok: true };
+}
+
+/**
+ * کاورِ شورتز (۹.۳۱) — «برای ویدیوهای شورت یوتیوب کاور میخواد … فکر کنم نذاشتی». نگذاشته بودم: `igShortPub_` فقط
+ * `videos.insert` می‌زد و کاوری که رانر برای همین ریلز ساخته بود (`plan.cover`، ۱۰۸۰×۱۹۲۰) فقط به اینستاگرام می‌رفت.
+ * همان کاور با `thumbnails.set` (همان راهی که ویدئوهای کامل می‌روند، همان سهمیهٔ `thumbSet`). شکستش شورتز را «نشد»
+ * نمی‌کند — ویدئو منتشر شده — ولی علت در `shortThumbWhy` می‌ماند و دیگر هر دور تکرار نمی‌شود. سقفِ ۲ مگِ یوتیوب پیش از
+ * فرستادن سنجیده می‌شود، نه با خطای بی‌نامِ API. ⇒ true اگر نشست.
+ */
+function igShortThumb_(plan) {
+  if (!plan || !plan.shortId || plan.shortThumb || plan.shortThumbWhy) return !!(plan && plan.shortThumb);
+  if (CFG.YT_THUMB === false) return false;
+  if (!plan.cover) { plan.shortThumbWhy = 'کاوری از رانر نیامده'; return false; }
+  var yt = ytSvc_();
+  if (!yt) return false;                                   // بعداً دوباره؛ دلیلی ثبت نمی‌شود چون عیبِ کاور نیست
+  if (!ytQuotaTake_(YT_COST.thumbSet, false)) return false;
+  try {
+    var res = UrlFetchApp.fetch(plan.cover, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) { plan.shortThumbWhy = 'دانلودِ کاور: ' + res.getResponseCode(); return false; }
+    var blob = res.getBlob();
+    var n = blob.getBytes().length;
+    if (n > 2 * 1024 * 1024) { plan.shortThumbWhy = 'کاور ' + Math.round(n / 1024) + ' کیلوبایت است؛ سقفِ یوتیوب ۲ مگ'; return false; }
+    yt.Thumbnails.set(plan.shortId, blob.setName('cover.jpg').setContentType('image/jpeg'));
+    plan.shortThumb = true;
+    return true;
+  } catch (e) { plan.shortThumbWhy = 'کاورِ شورتز: ' + String(e.message || e).slice(0, 120); return false; }
+}
+
+/**
+ * جبرانِ شورتزهایی که پیش از ۹.۳۱ بی کاور منتشر شدند — یک‌بار، خودش خاموش می‌شود (`st.thumbRetro`). از روی `_ig.json`ها
+ * (نه فهرستِ دستی): هر برنامه‌ای که `shortId` دارد و نه `shortThumb` نه `shortThumbWhy`. سه تا در هر دور.
+ */
+function igShortThumbRetro_(st, deadline) {
+  if (st.thumbRetro) return 0;
+  var left = 0, did = 0;
+  var it = DriveApp.searchFiles('title = "_ig.json" and trashed = false');
+  while (it.hasNext() && Date.now() < deadline - 20000) {
+    var f = it.next(), p = null;
+    try { p = JSON.parse(f.getBlob().getDataAsString()); } catch (eJ) { continue; }
+    if (!p || !p.shortId || p.shortThumb || p.shortThumbWhy) continue;
+    if (did >= 3) { left++; break; }
+    igShortThumb_(p);
+    if (p.shortThumb || p.shortThumbWhy) { f.setContent(JSON.stringify(p, null, 1)); did++; }
+    else left++;
+  }
+  if (!left && !it.hasNext()) st.thumbRetro = nowStr_();
+  return did;
 }
 
 /** یک ردیف در تبِ «انتشار در اینستاگرام». */
@@ -871,6 +919,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     return null;
   } finally {

@@ -1730,7 +1730,8 @@ console.log('=== ۴۱) تبِ پادکست شدنی است، تبِ پست نه 
   const ens = src27.slice(src27.indexOf('function ytPlEnsure_'),
                           src27.indexOf('function ytPlUrl_'));
   ok('۴۱.۴ ولی ساختِ پلی‌لیست دست‌نخورده می‌مانَد — مسیرِ بحرانیِ انتشار',
-     ens.indexOf('podcastStatus') === -1);
+     ens.slice(ens.indexOf('YT_COST.playlistsInsert')).indexOf('podcastStatus') === -1 &&
+     ens.indexOf('YT_COST.playlistsInsert') !== -1);
   ok('۴۱.۵ و یک بار بس است، با پرچمِ خودش نه پرچمِ کاور',
      src27.indexOf('!prec.podcast') !== -1 && src27.indexOf('prec.podcast = nowStr_()') !== -1);
   global.__STUB = stubW;
@@ -2151,6 +2152,35 @@ console.log('\n=== ۴۸) عددِ بی‌علت: بنر و کاور باید *ب
   ok('۴۸.۶ و وقتی نشست، علتِ کهنه پاک می‌شود',
      !(ytPlMap_()['kX'] || {}).coverWhy && !!(ytPlMap_()['kX'] || {}).cover,
      JSON.stringify(ytPlMap_()['kX']));
+
+  /* ۹.۳۱: صاحبِ برنامه در Studio کاور گذاشت و پادکست کرد؛ موتور هرگز وضعِ زنده را نمی‌خواند. */
+  {
+    const kS = global.ytSvc_, kQ = global.ytQuotaTake_, kYT = global.YouTube;
+    const calls = { cover: 0, pod: 0, list: 0, upd: [] };
+    global.ytPlaylistCover_ = () => { calls.cover++; return 'نشد (500): Internal error encountered.'; };
+    global.ytPlPodcast_ = () => { calls.pod++; return 'نشست'; };
+    const fakeYt = { Playlists: { list: (part, o) => { calls.list++; return { items: [{ id: o.id, status: { privacyStatus: 'public', podcastStatus: o.id === 'PLM' ? 'enabled' : 'disabled' } }] }; },
+                                  update: (b, part) => { calls.upd.push({ b: JSON.parse(JSON.stringify(b)), part }); return b; },
+                                  insert: (b) => ({ id: 'NEW' }) } };
+    global.ytSvc_ = () => fakeYt; global.ytQuotaTake_ = () => true;
+    { const mm = ytPlMap_(); mm.kM = { id: 'PLM', title: 'دستی', coverWhy: 'نشد (500)', podWhy: 'منتظرِ کاورِ مربع', coverVer: CFG.YT_PL_COVER_VER };
+      mm.kN = { id: 'PLN', title: 'نه', coverVer: CFG.YT_PL_COVER_VER }; global.ytPlMapSave_(mm); }
+    const oM = { covers: 0, coverFails: [], podcasts: 0 };
+    ytPlDress_('PLM', 'دستی', 'دستی', '', '', false, oM, 'kM');
+    const rM = ytPlMap_()['kM'] || {};
+    ok('۴۸.۷ پادکستِ روشن در یوتیوب ⇒ «پادکست ✓ و کاور ✓»، کاور دستی شمرده می‌شود و دیگر درج نمی‌شود',
+       !!rM.podcast && !!rM.cover && !!rM.coverManual && !rM.podWhy && !rM.coverWhy && calls.cover === 0 && calls.pod === 0 && calls.list === 1,
+       JSON.stringify(rM) + ' ' + JSON.stringify(calls));
+    ytPlDress_('PLM', 'دستی', 'دستی', '', '', false, oM, 'kM');
+    ok('۴۸.۸ وقتی ثبت شد، هر شب دوباره پرسیده نمی‌شود', calls.list === 1);
+    ytPlDress_('PLN', 'نه', 'نه', '', '', false, { covers: 0, coverFails: [], podcasts: 0 }, 'kN');
+    ok('۴۸.۹ پلی‌لیستِ پادکست‌نشده همان مسیرِ قبلی را می‌رود (کاور تلاش می‌شود)', calls.cover === 1 && !(ytPlMap_()['kN'] || {}).podcast);
+    ytPlEnsure_('kM', 'دستیِ تازه', '');
+    const u = calls.upd[0];
+    ok('۴۸.۱۰ تغییرِ نامِ مجموعه پادکستِ روشن را خاموش نمی‌کند (status کامل جایگزین می‌شود)',
+       u && /status/.test(u.part) && u.b.status.podcastStatus === 'enabled', JSON.stringify(u));
+    Object.assign(global, { ytSvc_: kS, ytQuotaTake_: kQ, YouTube: kYT });
+  }
 
   global.ytPlPodcast_ = keepPod; global.ytPlaylistCover_ = keepCov;
   if (keepMap === undefined) delete global.__PROPS[PK.YT_PLMAP];

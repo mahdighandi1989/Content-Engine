@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.30
+ *  موتور محتوا و پادکست — نسخهٔ 9.31
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2152,7 +2152,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.30',
+  CODE_VERSION: '9.31',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -51108,6 +51108,8 @@ function ytPlEnsure_(key, title, desc) {
     if (!ytQuotaTake_(YT_COST.playlistsUpdate, false)) return rec.id;
     try {
       body.id = rec.id;
+      /* ۹.۳۱: `update` بخشِ status را کامل جایگزین می‌کند؛ بی این خط، تغییرِ نامِ یک مجموعه پادکستِ روشن را خاموش می‌کرد. */
+      if (rec.podcast) body.status.podcastStatus = 'enabled';
       yt.Playlists.update(body, 'snippet,status');
       rec.title = body.snippet.title; rec.at = nowStr_();
       map[key] = rec; ytPlMapSave_(map);
@@ -61978,6 +61980,25 @@ function ytPlDress_(plId, plTitle, name, kicker, cat, renamed, out, key) {
      چهار «نشد (500)» با کاورِ ۹۶۰×۵۴۰ ثبت شده بود و سقفِ تلاش پر بود — یعنی
      کاورِ درست هم تا هفتهٔ بعد فرستاده نمی‌شد. نسخهٔ سازوکار در رکورد است و
      عوض‌شدنش شمارش را از نو می‌کند. */
+  /* ══ وضعِ زندهٔ یوتیوب، نه حافظهٔ خودمان (۹.۳۱) ══
+   * «پلی‌لیست‌ها رو دو شب پیش با دادنِ کاورِ دستی پادکست کردم … الان تو تبِ پادکست‌ها هستن». موتور هیچ‌وقت
+   * `podcastStatus` را از یوتیوب نمی‌خواند — فقط آنچه خودش نشانده بود را می‌دانست — پس هر سه را «پادکست‌نشده،
+   * بی‌کاور» می‌دید، هر شب کاورِ تازه درج می‌کرد (۵۰۰) و ده روز «ایرادِ مزمن» ساخت برای کاری که انجام شده بود.
+   * یک `playlists.list` (۱ واحد): پادکستِ روشن یعنی تصویر هم هست (یوتیوب بی تصویر نمی‌پذیرد)، و آن تصویر کارِ
+   * دستِ صاحبِ برنامه است ⇒ `coverManual`، که دیگر هرگز جایگزین نمی‌شود. */
+  try {
+    var ytL = ytSvc_(), pmL = ytPlMap_(), prL = pmL[key] || {};
+    if (ytL && plId && !(prL.podcast && prL.cover) && ytQuotaTake_(YT_COST.playlistsList, false)) {
+      var lr = ytL.Playlists.list('status', { id: plId, maxResults: 1 });
+      var ps = (((lr || {}).items || [])[0] || {}).status || {};
+      if (String(ps.podcastStatus || '') === 'enabled') {
+        if (!prL.podcast) { prL.podcast = nowStr_(); out.podcasts = (out.podcasts || 0) + 1; }
+        if (!prL.cover) { prL.cover = nowStr_(); prL.coverManual = prL.coverManual || nowStr_(); }
+        prL.podWhy = ''; prL.coverWhy = ''; prL.podTries = 0; prL.coverTries = 0; prL.live = nowStr_();
+        pmL[key] = prL; ytPlMapSave_(pmL);
+      }
+    }
+  } catch (eL) {}
   var pmap = ytPlMap_(), prec = pmap[key] || {};
   var ver = Number(CFG.YT_PL_COVER_VER) || 2;
   if (Number(prec.coverVer) !== ver) {
@@ -79975,7 +79996,7 @@ function igStepPub_(it, plan, st, deadline) {
 function igShortPub_(it, plan) {
   if (CFG.IG_SHORTS === false) { plan.shortWhy = 'خاموش (IG_SHORTS)'; return { ok: true }; }
   if (!plan.short) { plan.shortWhy = 'رانر نسخهٔ شورتز نداد'; return { ok: true }; }
-  if (plan.shortId) return { ok: true };
+  if (plan.shortId) { igShortThumb_(plan); return { ok: true }; }
   var yt = ytSvc_();
   if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
   var plUrl = '';
@@ -80002,6 +80023,7 @@ function igShortPub_(it, plan) {
   } catch (eU) { plan.shortWhy = 'آپلودِ شورتز: ' + String(eU.message || eU).slice(0, 160); return { ok: true }; }
   if (!plan.shortId) { plan.shortWhy = 'یوتیوب شناسه برنگرداند'; return { ok: true }; }
   plan.shortUrl = 'https://www.youtube.com/shorts/' + plan.shortId;
+  igShortThumb_(plan);
   if (leaks.length) { plan.shortWhy = 'نشتیِ خصوصی در متن — unlisted ماند'; return { ok: true }; }
   try {
     if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
@@ -80011,6 +80033,53 @@ function igShortPub_(it, plan) {
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
   try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + (plan.shortWhy || '') + ')')); } catch (eT) {}
   return { ok: true };
+}
+
+/**
+ * کاورِ شورتز (۹.۳۱) — «برای ویدیوهای شورت یوتیوب کاور میخواد … فکر کنم نذاشتی». نگذاشته بودم: `igShortPub_` فقط
+ * `videos.insert` می‌زد و کاوری که رانر برای همین ریلز ساخته بود (`plan.cover`، ۱۰۸۰×۱۹۲۰) فقط به اینستاگرام می‌رفت.
+ * همان کاور با `thumbnails.set` (همان راهی که ویدئوهای کامل می‌روند، همان سهمیهٔ `thumbSet`). شکستش شورتز را «نشد»
+ * نمی‌کند — ویدئو منتشر شده — ولی علت در `shortThumbWhy` می‌ماند و دیگر هر دور تکرار نمی‌شود. سقفِ ۲ مگِ یوتیوب پیش از
+ * فرستادن سنجیده می‌شود، نه با خطای بی‌نامِ API. ⇒ true اگر نشست.
+ */
+function igShortThumb_(plan) {
+  if (!plan || !plan.shortId || plan.shortThumb || plan.shortThumbWhy) return !!(plan && plan.shortThumb);
+  if (CFG.YT_THUMB === false) return false;
+  if (!plan.cover) { plan.shortThumbWhy = 'کاوری از رانر نیامده'; return false; }
+  var yt = ytSvc_();
+  if (!yt) return false;                                   // بعداً دوباره؛ دلیلی ثبت نمی‌شود چون عیبِ کاور نیست
+  if (!ytQuotaTake_(YT_COST.thumbSet, false)) return false;
+  try {
+    var res = UrlFetchApp.fetch(plan.cover, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) { plan.shortThumbWhy = 'دانلودِ کاور: ' + res.getResponseCode(); return false; }
+    var blob = res.getBlob();
+    var n = blob.getBytes().length;
+    if (n > 2 * 1024 * 1024) { plan.shortThumbWhy = 'کاور ' + Math.round(n / 1024) + ' کیلوبایت است؛ سقفِ یوتیوب ۲ مگ'; return false; }
+    yt.Thumbnails.set(plan.shortId, blob.setName('cover.jpg').setContentType('image/jpeg'));
+    plan.shortThumb = true;
+    return true;
+  } catch (e) { plan.shortThumbWhy = 'کاورِ شورتز: ' + String(e.message || e).slice(0, 120); return false; }
+}
+
+/**
+ * جبرانِ شورتزهایی که پیش از ۹.۳۱ بی کاور منتشر شدند — یک‌بار، خودش خاموش می‌شود (`st.thumbRetro`). از روی `_ig.json`ها
+ * (نه فهرستِ دستی): هر برنامه‌ای که `shortId` دارد و نه `shortThumb` نه `shortThumbWhy`. سه تا در هر دور.
+ */
+function igShortThumbRetro_(st, deadline) {
+  if (st.thumbRetro) return 0;
+  var left = 0, did = 0;
+  var it = DriveApp.searchFiles('title = "_ig.json" and trashed = false');
+  while (it.hasNext() && Date.now() < deadline - 20000) {
+    var f = it.next(), p = null;
+    try { p = JSON.parse(f.getBlob().getDataAsString()); } catch (eJ) { continue; }
+    if (!p || !p.shortId || p.shortThumb || p.shortThumbWhy) continue;
+    if (did >= 3) { left++; break; }
+    igShortThumb_(p);
+    if (p.shortThumb || p.shortThumbWhy) { f.setContent(JSON.stringify(p, null, 1)); did++; }
+    else left++;
+  }
+  if (!left && !it.hasNext()) st.thumbRetro = nowStr_();
+  return did;
 }
 
 /** یک ردیف در تبِ «انتشار در اینستاگرام». */
@@ -80078,6 +80147,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     return null;
   } finally {

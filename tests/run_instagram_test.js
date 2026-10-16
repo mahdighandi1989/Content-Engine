@@ -318,6 +318,39 @@ console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو
   ok('۴-ب.۵ سهمیهٔ امروز تمام ⇒ صبر، نه شکست', !!igShortPub_(it, sp3).wait);
   const sp4 = Object.assign(JSON.parse(JSON.stringify(sp)), { short: '', shortId: '' });
   ok('۴-ب.۶ رانر نسخهٔ شورتز نداد ⇒ ریلز تمام می‌شود و علت می‌ماند', igShortPub_(it, sp4).ok && /نداد/.test(sp4.shortWhy));
+  /* کاورِ شورتز (۹.۳۱): همان کاورِ رانر با thumbnails.set، روی همان شناسه. */
+  global.ytQuotaTake_ = () => true;
+  const th = [];
+  global.YouTube.Thumbnails = { set: (id, blob) => { th.push({ id, n: blob.getBytes().length }); return {}; } };
+  global.__STUB = (url) => (/short\.mp4/.test(url) ? { code: 200, bytes: [0, 0, 0, 24, 102, 116, 121, 112], mime: 'video/mp4' }
+                           : /cover\.jpg/.test(url) ? { code: 200, bytes: [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3], mime: 'image/jpeg' } : { code: 404, json: {} });
+  const sp5 = Object.assign(JSON.parse(JSON.stringify(sp)), { shortId: '', shortUrl: '', shortPublic: false, shortThumb: false, shortThumbWhy: '',
+                                                             cover: 'https://example/reel-cover.jpg' });
+  igShortPub_(it, sp5);
+  ok('۴-ب.۷ شورتزِ تازه کاورِ خودِ ریلز را می‌گیرد (thumbnails.set روی همان شناسه)', th.length === 1 && th[0].id === 'SH1' && sp5.shortThumb === true,
+     JSON.stringify(th) + ' ' + sp5.shortThumbWhy);
+  th.length = 0;
+  igShortPub_(it, sp5);
+  ok('۴-ب.۸ دورِ بعد دوباره نمی‌فرستد', th.length === 0);
+  const sp6 = { shortId: 'SH9', cover: 'https://example/big-cover.jpg' };
+  global.__STUB = () => ({ code: 200, bytes: new Array(2 * 1024 * 1024 + 10).fill(1), mime: 'image/jpeg' });
+  ok('۴-ب.۹ کاورِ بیش از ۲ مگ فرستاده نمی‌شود و علت با عدد می‌ماند', !igShortThumb_(sp6) && th.length === 0 && /سقفِ یوتیوب/.test(sp6.shortThumbWhy), sp6.shortThumbWhy);
+  /* جبران: شورتزِ پیش از ۹.۳۱ (بی shortThumb) از روی _ig.json، یک‌بار؛ سپس خاموش. */
+  global.__STUB = (url) => (/cover\.jpg/.test(url) ? { code: 200, bytes: [0xFF, 0xD8, 1], mime: 'image/jpeg' } : { code: 404, json: {} });
+  const files = [{ shortId: 'OLD1', cover: 'https://example/old-cover.jpg', phase: 'done' }, { shortId: '' }, { shortId: 'OK2', shortThumb: true }]
+    .map(p => { const f = { body: JSON.stringify(p), getBlob: () => ({ getDataAsString: () => f.body }), setContent: (b) => { f.body = b; } }; return f; });
+  const kSearch = DriveApp.searchFiles;
+  let q = '';
+  DriveApp.searchFiles = (qq) => { q = qq; let i = 0; return { hasNext: () => i < files.length, next: () => files[i++] }; };
+  const st9 = {};
+  let did;
+  try { did = igShortThumbRetro_(st9, Date.now() + 60000); } finally { DriveApp.searchFiles = kSearch; }
+  const f0 = JSON.parse(files[0].body);
+  ok('۴-ب.۱۰ جبران: شورتزِ قدیمیِ بی کاور کاور می‌گیرد و در _ig.json ثبت می‌شود؛ بقیه دست نمی‌خورند',
+     did === 1 && f0.shortThumb === true && th.some(x => x.id === 'OLD1') && !th.some(x => x.id === 'OK2') && /_ig\.json/.test(q), JSON.stringify(th));
+  ok('۴-ب.۱۱ پس از یک دورِ کامل خودش خاموش می‌شود', !!st9.thumbRetro && igShortThumbRetro_(st9, Date.now() + 60000) === 0);
+  ok('۴-ب.۱۲ igTick جبران را صدا می‌زند', /igShortThumbRetro_\(st, deadline\)/.test(String(igTick)));
+  delete global.YouTube.Thumbnails;
   Object.assign(global, { YouTube: keep.yt, ytQuotaTake_: keep.q, ytPlFor_: keep.pl, __STUB: keep.stub });
 }
 
