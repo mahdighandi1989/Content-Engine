@@ -443,6 +443,14 @@ function placeMoments(moments, sil, mute, durSec, notes) {
         const d = Math.abs(s - want);
         if (d < bed && s > best + 1 && !inMute(s)) { bed = d; be = s; }
       }
+      /* ۹.۲۹: بازگویی‌ای که درست سرِ پلِ موسیقی تمام می‌شود (موتور از ۹.۲۷ آن را همان‌جا می‌بُرد)، مکثی بیرون از موسیقی
+         ندارد — همه درونِ پل‌اند — و نمونهٔ ۸ِ ۷۳ دو لحظه را کنارِ گفتار گذاشت. آغازِ پل خودش مرزِ درستِ برش است. */
+      if (be === null) {
+        for (const mu of (mute || [])) {
+          const m0 = Number(mu[0]);
+          if (Math.abs(m0 - want) <= 0.6 && m0 > best + 1) { be = m0; break; }
+        }
+      }
       if (be !== null && be < durSec - 3) cut = Math.round((be - best) * 1000) / 1000;
       else notes.push('لحظهٔ ' + Math.round(m.at) + 's: پایانِ بازگویی روی مکث نیفتاد — لحظه کنارِ گفتار می‌نشیند');
     }

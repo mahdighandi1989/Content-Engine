@@ -76,6 +76,8 @@ function logoImg(mark, px) {
  * عبارت‌ها: هر جمله به تکه‌های ۲ تا ۴ واژه‌ای (مرز روی «،؛:» اگر هست)، با زمانِ واژه‌ها. ⇒ [{text, a, b, line}]
  * `wt` زمانِ هر واژهٔ همهٔ جمله‌ها پشتِ‌هم (از tools/reelalign.py)؛ نبود ⇒ نسبتِ نویسه درونِ بازهٔ همان جمله.
  */
+const DANGLE = /^(از|به|در|با|تا|که|و|یا|برای|بر|اگر|چون|اما|ولی|یعنی|مثل|مثلِ|این|آن|هر|چه|بی|نه|هم|همین|همان)$/;
+const bareW = w => String(w || '').replace(/[\u064B-\u0652\u0670«»"'،؛:,.!?؟…]/g, '');
 function phrasesOf(lines, wt) {
   const out = [];
   let wi = 0;
@@ -95,7 +97,10 @@ function phrasesOf(lines, wt) {
       cur.push({ w: w, a: times[k][0], b: times[k][1] });
       const brk = /[،؛:,]$/.test(w) && cur.length >= 2;
       const glued = /\u0650$/.test(w) && cur.length < 5 && k + 1 < ws.length;     // «پشتِ | در» از هم جدا نشوند (کسرهٔ اضافه)
-      if (!glued && (cur.length >= 4 || brk || (cur.length >= 3 && k + 2 === ws.length))) flush();
+      /* ۹.۲۹: عبارت روی واژه‌ای که ادامه می‌خواهد تمام نشود — ریلزِ اول «تمامِ تصمیم‌هایمان غلط از» و «درست مثلِ بازاری که»
+         نشان داد: جملهٔ نیمه، خواندنی نیست. */
+      const dangle = DANGLE.test(bareW(w)) && cur.length < 6 && k + 1 < ws.length;
+      if (!glued && !dangle && (cur.length >= 4 || brk || (cur.length >= 3 && k + 2 === ws.length))) flush();
     });
     flush();
   });

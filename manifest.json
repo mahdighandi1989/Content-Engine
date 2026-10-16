@@ -1,16 +1,19 @@
 {
-  "version": "9.28",
+  "version": "9.29",
   "codeFile": "engine.gs",
-  "sha256": "817508e3af705d9948d17a7bbd6e4b704ad6936c9950db23d194bf6c9b091344",
-  "releasedAt": "2026-10-16T21:30:00+04:00",
-  "summary": "پلِ رنگِ صدا گوینده را با همان چهار شرطِ شیوهٔ خواندن انتخاب می‌کند (روشن، برنامه، نوبتِ «هر چند قسمت»، کارت): با رضوی «هر ۳» و گلدوز «هر ۱» پیش‌تر هر قسمت رنگِ رضوی می‌گرفت، حتی قسمتی که با شیوهٔ گلدوز خوانده شده بود.",
+  "sha256": "ececb111fe2afcb6a2346ad4b428de0ba0c91fe83167a5f6a078e6a14886fb08",
+  "releasedAt": "2026-10-16T22:00:00+04:00",
+  "summary": "رانر: لحظه‌ای که بازگویی‌اش سرِ پلِ موسیقی تمام می‌شود جای بازگویی می‌نشیند (نمونهٔ ۸ دو کلیپ را کنارِ گفتار گذاشت)؛ ریلز روی «از/که/…» نمی‌بُرد؛ هشدارِ تختهٔ گویندگان فقط برای برخوردِ واقعی روی یک برنامه؛ نمونهٔ ۹ِ ۷۳ با همان نقشه.",
   "fixes": [
-    "src/36_VoiceBridge.gs: vbrSpeakerPick_ — دائم با personaOn_ + personaShowOk_ + personaTurn_ + کارتِ ناخالی، همان ترتیبِ personaFor_",
-    "tests/run_bridge_voice_test.js §۳۹: تخته‌ای که صاحبِ برنامه فرستاد؛ هر دو تابع روی هشت قسمت"
+    "tools/mediakit.js: placeMoments — آغازِ پلِ موسیقی مرزِ پذیرفتهٔ پایانِ برش",
+    "tools/reelkit.js: phrasesOf — DANGLE",
+    "src/32_Persona.gs: personaBoardData_ — هشدار به ازای برنامه",
+    "src/00_Config.gs: VM_SAMPLE rev 9 (replan: false)"
   ],
   "sourceReportIds": [],
   "promptImpact": [],
   "answers": {
-    "R-20261016-15": "۹.۲۸"
+    "R-20261016-11": "۹.۲۹",
+    "R-20261016-14": "۹.۲۹"
   }
 }

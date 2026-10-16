@@ -479,4 +479,23 @@ console.log('\n══ نامِ فارسیِ برنامه — همان چیزی �
      'آرگومانِ جاافتاده یعنی دکمه بی‌صدا هیچ نمی‌کند (۷٫۴۱)');
 }
 
+console.log('=== هشدارِ «بیش از یک ردیف» فقط برای برخوردِ واقعی (۹.۲۹) ===');
+{
+  const names = knownShows_().map(s => s.name);
+  const vName = knownShows_().find(s => s.key === 'variety').name, sName = knownShows_().find(s => s.key === 'special').name;
+  personaAddFromCard_('n-a', 'گویندهٔ الف', { cue: 'آرام بخوان', modes: '' });
+  personaAddFromCard_('n-b', 'گویندهٔ ب', { cue: 'تند بخوان', modes: '' });
+  personaBoardData_().rows.filter(r => r.on).forEach(r => personaBoardSave_(r.key, false, names, r.every, r.cue || 'آرام', ''));
+  personaBoardSave_('n-a', true, [sName], 1, 'آرام بخوان', '');
+  personaBoardSave_('n-b', true, [vName], 1, 'تند بخوان', '');
+  const d1 = personaBoardData_();
+  ok('ه.۱ دو ردیفِ روشن برای دو برنامهٔ جدا (همان تخته‌ای که صاحبِ برنامه ذخیره کرد) ⇒ هشداری نیست', !d1.note, String(d1.note));
+  personaBoardSave_('n-b', true, names, 1, 'تند بخوان', '');
+  const d2 = personaBoardData_();
+  ok('ه.۲ دو ردیف روی یک برنامه ⇒ هشدار، با نامِ برنامه و گوینده‌ها، بی ستارهٔ خام', /بیش از یک ردیف/.test(d2.note || '') &&
+     (d2.note || '').indexOf(sName) !== -1 && /گویندهٔ الف/.test(d2.note) && (d2.note || '').indexOf('**') === -1, String(d2.note));
+  personaBoardSave_('n-a', false, names, 1, 'آرام بخوان', '');
+  personaBoardSave_('n-b', false, names, 1, 'تند بخوان', '');
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
