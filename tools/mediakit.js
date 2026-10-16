@@ -23,6 +23,7 @@ const path = require('path');
 const { spawnSync, execFileSync } = require('child_process');
 
 const MK = {
+  momentGap: 8,                    // ۹.۳۵: فقط سدِ روی‌هم‌افتادن — فاصلهٔ واقعی (`VM_MOMENT_GAP`) را موتور با زمان‌های خودش می‌سنجد
   w: 1920, h: 1080, fps: 24,      // همان SK.fps — لحظه و تکه‌های بی‌صدا باید بی بازکدگذاری پشتِ‌هم بنشینند
   wideMin: 1.55, wideMax: 2.1,     // در این بازه قاب را پر می‌کند؛ بیرونش کامل + حاشیهٔ تار
   segMax: 60,
@@ -432,8 +433,12 @@ function placeMoments(moments, sil, mute, durSec, notes) {
     }
     if (best === null) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: مکثی بیرون از موسیقی نزدیکش نبود'); continue; }
     if (best < 3 || best > durSec - 3) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: لبهٔ قسمت'); continue; }
+    /* ۹.۳۵: فاصلهٔ دو لحظه را موتور تعیین می‌کند (`VM_MOMENT_GAP`، با زمان‌های خودش)؛ این‌جا فقط جلوی **روی‌هم‌افتادن**
+       گرفته می‌شود. نمونهٔ ۹ِ ۷۳: موتور کلیپِ ۳ را با ۲۰٫۱ ثانیه فاصله پذیرفت، نشاندن روی مکث‌ها هر دو سر را حدودِ یک
+       ثانیه جابه‌جا کرد (۱۷۷٫۳ ⇒ ۱۹۶٫۳ = ۱۹٫۰)، و همان سدِ ۲۰ثانیه‌ای این‌جا دوباره لحظه را انداخت — دو نگهبان با یک عدد
+       روی دو اندازه‌گیریِ متفاوت، همان شکلی که ۹.۲۷ در موتور بست. */
     const prevEnd = out.length ? out[out.length - 1].at + (out[out.length - 1].cut || 0) : -1e9;
-    if (out.length && best - prevEnd < 20) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: نزدیکِ لحظهٔ قبلی'); continue; }
+    if (out.length && best - prevEnd < MK.momentGap) { notes.push('لحظهٔ ' + Math.round(m.at) + 's: نزدیکِ لحظهٔ قبلی'); continue; }
     /* ۹.۱۴: لحظه‌ای که جای بازگوییِ دیالوگ می‌نشیند (`cut`): پایانِ بازه هم روی مکث، وگرنه وسطِ نفس بریده می‌شود. */
     let cut = 0;
     if (Number(m.cut) > 0) {
