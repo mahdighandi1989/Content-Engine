@@ -200,6 +200,26 @@ console.log('=== ۱-ه) پیش‌نمایش به‌شکلِ کلاژ (۹.۱۱) =
      /if \(s\.media && s\.media\.teaser && teaserPool\.length >= 2\)/.test(rj) && /MKIT\.collage\(FF, tiles/.test(rj) && /کلاژِ پیش‌نمایش نشد/.test(rj));
 }
 
+console.log('=== ۱-و) پیش‌نمایش در طولِ مقدمه پیوسته، بی تکرار، با همهٔ کلیپ‌ها (۹.۱۸) ===');
+{
+  /* «… هی پلی میشن و دوباره از اول تکرار میشن تا زمانی که گوینده مقدمات اولی رو بگه … یه دونه کلیپ رو نشون نداد» */
+  const pl = MKIT.teaserPlan([{ kind: 'video', dur: 60 }, { kind: 'video', dur: 40 }, { kind: 'video', dur: 10 }, { kind: 'photo', dur: 0 }], 46);
+  ok('۱.۲۵ کلیپِ بلند: کلِ ۴۶ ثانیه در کلیپ جا می‌شود و از میانه، بی حلقه', pl[0].speed === 1 && pl[0].from > 0 && pl[0].from + 46 <= 60, JSON.stringify(pl[0]));
+  ok('۱.۲۶ کلیپِ کوتاه‌تر از پیش‌نمایش: از آغاز و کندتر، طوری که تا پایانِ مقدمه تمام نشود', pl[1].from === 0 &&
+     Math.abs(pl[1].speed - 40 / 46) < 1e-9 && 46 * pl[1].speed <= 40 + 1e-9, JSON.stringify(pl[1]));
+  ok('۱.۲۷ کندی کف دارد (نه حرکتِ آهسته‌ی بی‌معنا) و عکس دست نمی‌خورد', pl[2].speed === MKIT.MK.teaserSlow && pl[3].speed === 1, JSON.stringify(pl.slice(2)));
+  const rj = fs.readFileSync('tools/render.js', 'utf8');
+  ok('۱.۲۸ هر صحنهٔ پیش‌نمایش کاشی‌ها را از جایی ادامه می‌دهد که صحنهٔ پیش ایستاد (نه از همان ثانیه)',
+     /const el = Math\.max\(0, s\.t0 - tz0\)/.test(rj) && /from: \(tzPlan\[k\]\.from \+ el \* tzPlan\[k\]\.speed\)/.test(rj) &&
+     /MKIT\.teaserPlan\(teaserPool\.map/.test(rj));
+  ok('۱.۲۹ همهٔ کلیپ‌های قسمت (نه فقط برچسب‌دارها) تا سقفِ کاشی‌ها در پیش‌نمایش‌اند — اول ویدئو، بعد عکس',
+     /\['video', 'photo'\]\.forEach\(kd => scenes\.forEach/.test(rj) && /teaserPool\.length < MKIT\.MK\.collageMax/.test(rj) && MKIT.MK.collageMax >= 5);
+  const tl = [{ file: P('vclip.mp4'), kind: 'video', from: 0, speed: 0.6 }, { file: P('hclip.mp4'), kind: 'video', from: 9, speed: 1 }];
+  const cs = MKIT.collage(FF, tl, 0, P('col3.mp4'), 8);
+  const pq = MKIT.probe(FF, cs.file);
+  ok('۱.۳۰ کاشیِ کند و کاشیِ نزدیکِ پایان، کلاژی به طولِ کاملِ صحنه می‌سازند', Math.abs(pq.dur - 8) < 0.2 && cs.tiles === 2, JSON.stringify(pq));
+}
+
 console.log('=== ۲) جای لحظه: روی مکث، هرگز روی موسیقی، فاصله‌دار ===');
 {
   const sil = [3.8, 7.9, 12.0, 16.1, 20.2, 24.3, 28.4, 44.9];

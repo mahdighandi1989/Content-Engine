@@ -28,7 +28,7 @@ const MK = {
   segMax: 60,
   tailMax: 12, tailMin: 0.8, tailDark: 38, tailStill: 0.6,   // ۹.۱۰: کارتِ پایانیِ ریل جزوِ محتوا نیست
   fillFrom: 4, fillSeg: 8, fillMax: 8,
-  collageMax: 4,                                              // ۹.۱۱: کاشی‌های کلاژِ پیش‌نمایش                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
+  collageMax: 5, teaserSlow: 0.6,                                              // ۹.۱۱: کاشی‌های کلاژِ پیش‌نمایش                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
   lead: 0.6,                       // چند ثانیه پیش از عبارت (تا جمله از وسط شروع نشود)
   momentMin: 3, momentTail: 0.7,
   fadeV: 0.35, fadeA: 0.45,      // ۹.۰۰: پایانِ صدا ۰٫۱۲ ثانیه بود — «سریع قطع می‌شد»
@@ -212,18 +212,37 @@ function photoClip(ff, file, out, len, opt) {
  * همین صحنه بزرگ‌تر و جلوتر است؛ صحنهٔ بعدیِ پیش‌نمایش کانون را به کاشیِ دیگر می‌بَرد.
  * `tiles` = [{file, kind:'video'|'photo', from}] · `feat` = شمارهٔ کاشیِ این صحنه.
  */
+/**
+ * برنامهٔ پخشِ هر کاشیِ پیش‌نمایش در **کلِ** پیش‌نمایش (۹.۱۸). صاحبِ برنامه: «… هی پلی میشن و دوباره از اول
+ * تکرار میشن تا زمانی که گوینده مقدمات اولی رو بگه … یه جوری پلی بشن که طول بکشه تا مقدمات تموم شه».
+ * پیش‌نمایش چند صحنهٔ پشتِ‌هم است و هر صحنه کلاژِ جدایی بود که هر کلیپ را از **همان** ثانیه شروع می‌کرد — پس
+ * با هر صحنهٔ تازه همه از اول. حالا هر کاشی یک ثانیهٔ آغاز برای کلِ پیش‌نمایش دارد و هر صحنه از جایی که صحنهٔ
+ * پیش ایستاد ادامه می‌دهد: `from + elapsed·speed`. کلیپی که از کلِ پیش‌نمایش کوتاه‌تر است از آغاز و کندتر پخش
+ * می‌شود (`speed` تا `teaserSlow`) تا تکرار نشود؛ فقط اگر از آن هم کوتاه‌تر باشد ناچار حلقه می‌زند.
+ * `tiles` = [{kind, dur}] · `total` = طولِ کلِ پیش‌نمایش ⇒ [{from, speed}]. */
+function teaserPlan(tiles, total) {
+  const T = Math.max(1, Number(total) || 1);
+  return (tiles || []).map(t => {
+    const d = Number(t && t.dur) || 0;
+    if (!t || t.kind === 'photo' || d <= 0) return { from: 0, speed: 1 };
+    if (d >= T) return { from: Math.max(0, Math.min(d * 0.45, d - T)), speed: 1 };
+    return { from: 0, speed: Math.max(MK.teaserSlow, d / T) };
+  });
+}
+
 function collage(ff, tiles, feat, out, len) {
   const T = tiles.slice(0, MK.collageMax);
   if (feat >= T.length) feat = 0;
   const n = T.length, L = Math.max(2, len);
   const a = [], f = [];
+  const spd = t => (t.kind === 'photo' ? 1 : Math.min(1, Math.max(MK.teaserSlow, Number(t.speed) || 1)));
   T.forEach(t => {
     if (t.kind === 'photo') a.push('-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', t.file);
-    else a.push('-ss', Math.max(0, Number(t.from) || 0).toFixed(2), '-t', L.toFixed(2), '-stream_loop', '-1', '-i', t.file);
+    else a.push('-stream_loop', '-1', '-ss', Math.max(0, Number(t.from) || 0).toFixed(2), '-t', (L * spd(t) + 1).toFixed(2), '-i', t.file);
   });
   const ft = T[feat];
   if (ft.kind === 'photo') a.push('-loop', '1', '-framerate', String(MK.fps), '-t', L.toFixed(2), '-i', ft.file);
-  else a.push('-ss', Math.max(0, Number(ft.from) || 0).toFixed(2), '-t', L.toFixed(2), '-stream_loop', '-1', '-i', ft.file);
+  else a.push('-stream_loop', '-1', '-ss', Math.max(0, Number(ft.from) || 0).toFixed(2), '-t', L.toFixed(2), '-i', ft.file);
   f.push('[' + n + ':v]fps=' + MK.fps + ',scale=480:270:force_original_aspect_ratio=increase,crop=480:270,boxblur=20:3,' +
          'scale=' + MK.w + ':' + MK.h + ',eq=brightness=-0.18:saturation=0.8,setsar=1,format=yuv420p,trim=duration=' + L.toFixed(2) + '[bg]');
   const gap = MK.w / (n + 1);
@@ -237,7 +256,8 @@ function collage(ff, tiles, feat, out, len) {
     const x0 = Math.round(gap * (i + 1) - w / 2), y0 = Math.round((MK.h - h) / 2);
     const dim = big ? '' : ',eq=brightness=-0.10:saturation=0.75';
     const t0 = big ? 0 : 0.35 * (k + 1);
-    f.push('[' + i + ':v]fps=' + MK.fps + ',scale=' + w + ':' + h + ':force_original_aspect_ratio=increase,crop=' + w + ':' + h + dim +
+    const sp = spd(T[i]), slow = sp < 0.999 ? 'setpts=(PTS-STARTPTS)/' + sp.toFixed(3) + ',' : '';
+    f.push('[' + i + ':v]' + slow + 'fps=' + MK.fps + ',scale=' + w + ':' + h + ':force_original_aspect_ratio=increase,crop=' + w + ':' + h + dim +
            ',pad=' + (w + 10) + ':' + (h + 10) + ':5:5:white,format=rgba,rotate=a=' + ang.toFixed(4) +
            ':c=none:ow=rotw(' + ang.toFixed(4) + '):oh=roth(' + ang.toFixed(4) + '),fade=t=in:st=' + t0.toFixed(2) +
            ':d=0.5:alpha=1,trim=duration=' + L.toFixed(2) + ',setpts=PTS-STARTPTS[t' + i + ']');
@@ -486,4 +506,4 @@ function splice(ff, silent, wav, parts, dest, dir) {
   return { inserts: inserts };
 }
 
-module.exports = { collage, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };
+module.exports = { collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };

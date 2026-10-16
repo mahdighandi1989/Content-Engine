@@ -738,10 +738,21 @@ function prepMedia(it, scenes, dir, notes, placed) {
   }
   const teaserPool = [];
   scenes.forEach(s => { if (s.media && s.media.teaser && got[s.url] && teaserPool.indexOf(s.url) < 0) teaserPool.push(s.url); });
-  if (teaserPool.length < 2) {
-    /* یک رسانهٔ پیش‌نمایش تنها کلاژ نمی‌شود ⇒ از رسانه‌های بعدیِ قسمت کاشی قرض گرفته می‌شود (فقط برای تصویر). */
-    scenes.forEach(s => { if (teaserPool.length && teaserPool.length < 3 && got[s.url] && teaserPool.indexOf(s.url) < 0) teaserPool.push(s.url); });
+  /* ۹.۱۸ — «تو اسلاید اول یه دونه کلیپ رو نشون نداد»: کاشی‌ها فقط از رسانه‌های برچسبِ پیش‌نمایش می‌آمدند و کلیپِ
+     «اولین مصاحبهٔ استخدامی» برچسب نداشت. پیش‌نمایش تصویرِ **همهٔ** قسمت است: هر کلیپِ دیگرِ قسمت (اول ویدئوها، بعد
+     عکس‌ها) تا سقفِ کاشی‌ها به آن می‌پیوندد. */
+  if (teaserPool.length) {
+    ['video', 'photo'].forEach(kd => scenes.forEach(s => {
+      if (teaserPool.length < MKIT.MK.collageMax && got[s.url] && got[s.url].kind === kd && teaserPool.indexOf(s.url) < 0) teaserPool.push(s.url);
+    }));
   }
+  /* و هر کاشی یک برنامه برای **کلِ** پیش‌نمایش، نه برای هر صحنه‌اش (MKIT.teaserPlan) — صحنهٔ بعدی ادامه است، نه از نو. */
+  const tzIdx = scenes.map((s, i) => (s.media && s.media.teaser ? i : -1)).filter(i => i >= 0);
+  const tz0 = tzIdx.length ? scenes[tzIdx[0]].t0 : 0;
+  const tzEnd = tzIdx.length ? (tzIdx[tzIdx.length - 1] + 1 < scenes.length ? scenes[tzIdx[tzIdx.length - 1] + 1].t0 : tz0 + 30) : 0;
+  const tzPlan = MKIT.teaserPlan(teaserPool.map(u => ({ kind: got[u].kind, dur: got[u].info.end || got[u].info.dur })), tzEnd - tz0);
+  st.teaserTiles = teaserPool.length;
+  st.teaserSec = Math.round((tzEnd - tz0) * 10) / 10;
   scenes.forEach((s, i) => {
     const g = got[s.url];
     if (!g) { st.failed++; return; }
@@ -752,8 +763,10 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (s.media && s.media.teaser && teaserPool.length >= 2) {
         /* ۹.۱۱: پیش‌نمایش = کلاژِ همهٔ رسانه‌های پیش‌نمایش در یک قاب، کانون روی رسانهٔ همین صحنه. */
         try {
-          const tiles = teaserPool.map(u => ({ file: got[u].file, kind: got[u].kind === 'photo' ? 'photo' : 'video',
-                                               from: got[u].kind === 'photo' ? 0 : Math.max(0, (got[u].info.dur || 0) * 0.45) }));
+          const el = Math.max(0, s.t0 - tz0);
+          const tiles = teaserPool.map((u, k) => ({ file: got[u].file, kind: got[u].kind === 'photo' ? 'photo' : 'video',
+                                                    from: (tzPlan[k].from + el * tzPlan[k].speed) % Math.max(1, got[u].info.end || got[u].info.dur || 1),
+                                                    speed: tzPlan[k].speed }));   // کوتاه‌تر از حتی کند ⇒ حلقه، ولی هرگز جلوتر از پایان
           const cl = MKIT.collage(FF, tiles, Math.max(0, teaserPool.indexOf(s.url)), out + '.mp4', want);
           clips[String(s.n)] = cl.file; imgs[String(s.n)] = cl.still; full[String(s.n)] = true;
           st.teaser = (st.teaser || 0) + 1;

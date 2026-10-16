@@ -1,13 +1,16 @@
 {
-  "version": "9.17",
+  "version": "9.18",
   "codeFile": "engine.gs",
-  "sha256": "a0b9696f3bf46355fb9665a8a096ae270a45c6f35efbba6b6394630a86fb51b2",
-  "releasedAt": "2026-10-16T10:50:00+04:00",
-  "summary": "هِ دوچشمِ عربی («قسمت‌ھای») هم‌ترازیِ اعراب را می‌شکست و ۱۸ بخش از ۹۲ را بی‌اعراب می‌فرستاد؛ حالا «ھ»/«ہ» با «ه» یکی‌اند و حرفِ اصل نوشته می‌شود.",
+  "sha256": "8cc8455535133d7f877c75f23321310e2c50a7eeae200278ce16ffdd1f417716",
+  "releasedAt": "2026-10-16T11:45:00+04:00",
+  "summary": "پیش‌نمایشِ آغازِ ویدئوی «از همه جا» در کلِ مقدمه پیوسته است — هر صحنهٔ کلاژ کلیپ‌ها را از جایی که صحنهٔ قبل ایستاد ادامه می‌دهد (کوتاه‌ها کندتر، نه از اول) — و همهٔ کلیپ‌های قسمت کاشی می‌گیرند. نمونهٔ ۶ِ قسمتِ ۷۳ با همان نقشه.",
   "fixes": [
-    "speakCanon_: ھ (U+06BE) و ہ (U+06C1) ⇒ ه؛ speakGraft_ بخش را دیگر دور نمی‌ریزد. selfupdate ۱۹.۱۵."
+    "tools/mediakit.js teaserPlan + collage(speed)؛ tools/render.js: from + elapsed·speed، استخرِ کاشی از همهٔ کلیپ‌ها تا collageMax ۵؛ run_media_render_test ۱.۲۵–۱.۳۰.",
+    "VM_SAMPLE rev 6, replan:false."
   ],
   "sourceReportIds": [],
   "promptImpact": [],
-  "answers": {}
+  "answers": {
+    "R-20261016-07": "۹.۱۸"
+  }
 }
