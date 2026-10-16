@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.33
+ *  موتور محتوا و پادکست — نسخهٔ 9.34
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2153,7 +2153,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.33',
+  CODE_VERSION: '9.34',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -80206,6 +80206,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    if (!st.hubPtr && deadline - Date.now() > 50000) { try { igHubPointer_(st); } catch (eHp) {} }
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
@@ -80383,6 +80384,27 @@ function igBook_() {
 function igBookUrl_() {
   try { var id = String(props_().getProperty(PK.IG_BOOK) || ''); return id ? 'https://docs.google.com/spreadsheets/d/' + id + '/edit' : ''; }
   catch (e) { return ''; }
+}
+
+/**
+ * نشانیِ دفتر در تب‌های کهنهٔ هاب (۹.۳۴) — «این شیت‌های آمار و نظرها هم خالیه که!!!». خالی بودند چون از ۹.۳۰ دیگر در هاب
+ * نوشته نمی‌شوند؛ ولی همان نام‌ها در هاب ماندند و او همان‌جا را باز کرد — دفترِ جدا پر بود و هیچ نشانی‌ای به آن نمی‌رسید.
+ * تب‌ها پاک نمی‌شوند (قاعده: کنار بگذار، پاک نکن)؛ ردیفِ ۲ِ هر کدام یک بار نشانیِ دفتر را می‌گیرد. هاب گاهی «timed out»
+ * می‌دهد، پس شکست یعنی دورِ بعد دوباره — پرچم فقط پس از نوشتنِ واقعی. ⇒ true اگر نوشت.
+ */
+function igHubPointer_(st) {
+  if (st.hubPtr) return false;
+  var url = igBookUrl_();
+  if (!url) return false;
+  var hub = getHub_(), n = 0;
+  [CFG.IG_TAB, CFG.IG_STATS_TAB, CFG.IG_COMMENTS_TAB, CFG.IG_MSGS_TAB].forEach(function (t) {
+    var sh = t ? hub.getSheetByName(t) : null;
+    if (!sh) return;
+    sh.getRange(2, 1).setValue('⬅ از نسخهٔ ۹.۳۰ این تب پر نمی‌شود. آمار، نظرها، پیام‌ها و فهرستِ انتشارِ اینستاگرام در دفترِ جدا هستند: ' + url);
+    n++;
+  });
+  st.hubPtr = nowStr_();
+  return n > 0;
 }
 
 /** تبِ دفترِ اینستاگرام با سرستون، اگر نیست ساخته می‌شود (برگهٔ پیش‌فرضِ خالی کنار می‌رود). */

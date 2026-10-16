@@ -650,4 +650,20 @@ console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای
   if (kq == null) props_().deleteProperty(PK.YT_QUOTA); else props_().setProperty(PK.YT_QUOTA, kq);
 }
 
+console.log('=== ۱۱) نشانیِ دفتر در تب‌های کهنهٔ هاب (۹.۳۴) ===');
+{
+  const hubX = getHub_();
+  const old1 = hubX.getSheetByName(CFG.IG_STATS_TAB) || hubX.insertSheet(CFG.IG_STATS_TAB);
+  const st = {};
+  const did = igHubPointer_(st);
+  const v = String(old1.getRange(2, 1).getValue());
+  ok('۱۱.۱ تبِ کهنهٔ هاب نشانیِ دفترِ جدا را می‌گیرد، یک بار', did && v.indexOf(igBookUrl_()) !== -1 && !!igBookUrl_() && !!st.hubPtr &&
+     igHubPointer_(st) === false, v);
+  const st2 = {}; const kG = global.getHub_;
+  global.getHub_ = () => { throw new Error('Service Spreadsheets timed out'); };
+  let thrown = false; try { igHubPointer_(st2); } catch (e) { thrown = true; } finally { global.getHub_ = kG; }
+  ok('۱۱.۲ هاب خطا داد ⇒ پرچم نمی‌خورد تا دورِ بعد دوباره', thrown && !st2.hubPtr);
+  ok('۱۱.۳ igTick صدایش می‌زند', /igHubPointer_\(st\)/.test(String(igTick)));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
