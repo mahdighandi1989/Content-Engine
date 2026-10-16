@@ -2075,6 +2075,7 @@ function vbrCollectHourly() {
   try { vmSampleTick_(); } catch (eVs) {}        // ۸.۹۷: نمونهٔ یک‌بارهٔ «از همه جا» با رسانه‌های منبع (بخشِ ۳۷ پس از این بخش ⇒ try)
   try { handoutCatchUpArm_(); } catch (eHc) {}
   try { speakAbArm_(); } catch (eAb) {}
+  try { igArm_(); } catch (eIg) {}             // ۹.۲۱: ریلزِ اینستاگرام — اجرای جدا (بخشِ ۳۸ پس از این بخش ⇒ try)
   try { srchProbeArm_(); } catch (ePr) {}        // ۸.۸۱: کاوشِ کاملِ عبارت، یک بار برای هر برچسب         // ۸.۷۹: آزمونِ شنیداریِ با/بی اعراب، یک بار
   if (CFG.VBR_ON === false) return null;
   /* ══ درِ دومِ درخواستِ بذر — اینجا، نه روی `healthCheck` (۷٫۸۲) ══

@@ -1239,6 +1239,72 @@ function buildBanner(bn, map, tmp) {
   }
 }
 
+/* ── ریلزِ اینستاگرام (۹.۲۱) ──────────────────────────────────────────────
+ * همان راهِ کاورِ پلی‌لیست: موتور فهرستِ `reels` را در `_YT-RENDER.json` می‌گذارد (صدا، تصویرها، جمله‌ها با زمان)،
+ * این‌جا با `reelkit` کشیده می‌شود و نشانیِ MP4 و کاورش در `docs/renders.json` (`reels`) می‌نشیند. جدا از `items`
+ * عمداً: سقفِ صفِ یوتیوب و هشدارِ «درخواستِ مانده»اش نباید با ریلز پر یا روشن شود.
+ */
+const REEL_MAX_PER_RUN = 4;
+function reelsTodo(queue, map) {
+  const list = Array.isArray(queue && queue.reels) ? queue.reels : [];
+  const have = map.reels || {};
+  return list.filter(r => r && r.key && r.sig && r.audio && r.audio.url &&
+                     String((have[r.key] || {}).sig || '') !== String(r.sig));
+}
+
+function buildReels(todo, map, tmp) {
+  if (!todo.length) return 0;
+  const RKIT = require('./reelkit.js');
+  const SKIT = require('./scenekit.js');
+  const CK = require('./cardkit/index.js');
+  const MKIT = require('./mediakit.js');
+  const exe = CK.chromeExe();
+  let rel = null, n = 0;
+  for (const r of todo.slice(0, REEL_MAX_PER_RUN)) {
+    const dir = fs.mkdtempSync(path.join(tmp, 'reel-'));
+    try {
+      const wav = path.join(dir, 'a.wav');
+      fetchTo(r.audio.url, wav);
+      if (!isWav(wav)) throw new Error('صدای ریلز واقعاً WAV نیست — شاید اشتراکش باز نیست');
+      const imgs = (r.imgs || []).map((im, i) => {
+        if (!im || !im.url) return null;
+        try {
+          const f = path.join(dir, 'img' + i);
+          fetchTo(im.url, f);
+          const k = sniffKind(f);
+          if (k !== 'png' && k !== 'jpeg') return null;
+          const pr = MKIT.probe(ffmpegExe(), f) || {};
+          return { file: f, w: Number(pr.w) || 0, h: Number(pr.h) || 0 };
+        } catch (eI) { return null; }
+      });
+      let logo = '';
+      try { if (r.mark && r.mark.logoUrl) logo = CK.logoClean(r.mark.logoUrl, dir, ffmpegExe()).data; } catch (eL) { logo = ''; }
+      const out = path.join(dir, 'reel.mp4');
+      const res = RKIT.build(r, { wav: wav, dur: wavSeconds(wav), imgs: imgs, mark: { logo: logo }, dir: dir, ff: ff,
+        shoot: (html, png, w, h) => SKIT.shoot(exe, html, png, w, h, ff) }, out);
+      const size = fs.statSync(out).size;
+      if (size < 20000) throw new Error('MP4ِ ریلز بسیار کوچک درآمد (' + size + ' بایت)');
+      if (!rel) rel = ensureRelease();
+      const slug = 'reel-' + slugOf(r.key);
+      const url = uploadAsset(rel, out, slug + '.mp4');
+      const cover = uploadAsset(rel, res.cover, slug + '-cover.jpg', 'image/jpeg');
+      if (!url || !cover) throw new Error('نشانیِ فایلِ آپلودشده برنگشت');
+      map.reels = map.reels || {};
+      map.reels[r.key] = { url: url, cover: cover, sig: String(r.sig), seconds: res.seconds, bytes: size,
+                           imgs: imgs.filter(Boolean).length, segs: res.segs, subs: res.subs,
+                           at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+      rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
+      n++;
+      log('  ✔ ریلزِ ' + r.key + ' — ' + res.seconds + ' ثانیه، ' + res.segs + ' تصویر/تکه، ' + Math.round(size / 1048576) + ' مگ');
+    } catch (e) {
+      log('  ✗ ریلزِ ' + r.key + ' — ' + String(e.message).split('\n')[0]);
+    } finally {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
+    }
+  }
+  return n;
+}
+
 /* ── شناسهٔ کانال، امروزی (۸.۹۰) ──
  * نشانِ هر ردیف همان شناسه‌ای را دارد که روزِ درخواست بود. صاحبِ برنامه «@truce-trace» را به
  * «@truth_trace1» برد؛ ردیف‌های در صف هنوز قدیمی را می‌بردند. `markHandle`ِ صف، که موتور هر بار
@@ -1257,7 +1323,7 @@ function brandMark(queue) {
 
 /** پاسخِ پروب: «کاری هست» = ویدئوی ساخته‌نشده یا کاورِ پلی‌لیستِ کشیده‌نشده. */
 function probeWork(queue, map, hold, now) {
-  return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length ||
+  return (itemsTodo(queue, map, hold, now).todo.length || plCoversTodo(queue, map).length || reelsTodo(queue, map).length ||
           bannerTodo(queue, map)) ? '1' : '0';
 }
 
@@ -1341,7 +1407,9 @@ function main() {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
     return;
   }
-  if (!todo.length && !plTodo.length && !bannerTodo(queue, map)) { log('کاری نیست.'); return; }
+  const rlTodo = reelsTodo(queue, map);
+  if (rlTodo.length) log('ریلزِ اینستاگرام: ' + rlTodo.length + ' تا در صف.');
+  if (!todo.length && !plTodo.length && !bannerTodo(queue, map) && !rlTodo.length) { log('کاری نیست.'); return; }
 
   let rel = null, made = 0;
   const runT0 = Date.now();
@@ -1496,7 +1564,10 @@ function main() {
   let bnMade = 0;
   try { bnMade = buildBanner(bannerTodo(queue, map), map, tmp); }
   catch (eBn) { log('بنرِ کانال: ' + String(eBn.message).split('\n')[0]); }
-  if (made || plMade || bnMade) writeMap(map);
+  let rlMade = 0;
+  try { rlMade = buildReels(rlTodo, map, tmp); }
+  catch (eRl) { log('ریلزِ اینستاگرام: ' + String(eRl.message).split('\n')[0]); }
+  if (made || plMade || bnMade || rlMade) writeMap(map);
   log('ساخته شد: ' + made + ' از ' + Math.min(todo.length, MAX_PER_RUN) + ' تلاش' +
       (plMade ? ' · ' + plMade + ' کاورِ پلی‌لیست' : ''));
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) {}
@@ -1506,7 +1577,7 @@ function main() {
    * نیست؛ از کلِ محیط است (همان ENOENTِ ffmpeg). آن باید قرمز شود تا دیده
    * شود. ولی یک قسمتِ خرابِ تنها نباید هفته‌ها اکشن را قرمز نگه دارد —
    * هشدارِ همیشه‌قرمز همان هشداری است که آدم یاد می‌گیرد نبیند. */
-  if (todo.length && made === 0 && !plMade && !bnMade) {
+  if (todo.length && made === 0 && !plMade && !bnMade && !rlMade) {
     log('هیچ ویدئویی ساخته نشد در حالی که ' + todo.length + ' تا در صف بود.');
     process.exitCode = 1;
   }
@@ -1524,5 +1595,6 @@ module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
   specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments,
-  momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor
+  momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
+  reelsTodo, buildReels
 };

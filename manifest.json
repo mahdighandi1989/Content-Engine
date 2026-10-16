@@ -1,16 +1,24 @@
 {
-  "version": "9.20",
+  "version": "9.21",
   "codeFile": "engine.gs",
-  "sha256": "cb715f87c1c58c57386ea588697da1fe1af8e046aa6b4f7def92314aef010913",
-  "releasedAt": "2026-10-16T13:10:00+04:00",
-  "summary": "دو هشدارِ دروغ روی ویدئوی رسانه‌ای «از همه جا»: `say`ِ هر صحنه گفتارِ کلِ صحنه است نه فقط تیترِ نخستش (avsync روی variety:74 دو نقطه از سه را «با تصویرش نمی‌خواند» زد در حالی که شنیدنِ خودِ ویدئو هر دو را درست نشان داد)، و `video-motion` در حالتِ رسانه‌ای از نشستنِ رسانه‌ها داوری می‌شود نه از حرکتِ کانون‌دار که این حالت ندارد.",
+  "sha256": "f06559578dbbcd670f28947020ad548078eeced3f38863825c05c6066311b8ac",
+  "releasedAt": "2026-10-16T17:30:00+04:00",
+  "summary": "ریلزِ اینستاگرامِ درس‌نامه (بخشِ ۳۸): از نخستین درسی که ویدئوی عمومیِ یوتیوب دارد، به ترتیب — مدل از متنِ خودِ درس ریلزِ «آیا می‌دانستید…» می‌نویسد، هر جمله با صدای گویندهٔ همان درس، نقاشی‌های درس یا تصویرِ عمودیِ تازه، رانر ۱۰۸۰×۱۹۲۰ با زیرنویس و کارتِ «نسخهٔ کامل در یوتیوب» می‌سازد، کپشن با پیوند، و استوریِ کاور؛ همه در زیرپوشهٔ «اینستاگرام»ِ هر قسمت؛ سه‌تای اول با تأیید، ۴ در روز؛ ناظر کلیدِ اجباریِ instagram (دستورِ v105).",
   "fixes": [
-    "src/37_VarietyMedia.gs vmScenes_: say = جمله‌های بازهٔ صحنه از جملهٔ آغاز (تا ۲۴۰ نویسه)؛ run_varietymedia_test ۱.۹-ب.",
-    "src/27_YouTube.gs qaAutoChecks_: mode media ⇒ video-motion از clip.used/asked؛ run_youtube_test ۱۰۰.۵–۱۰۰.۶."
+    "src/38_Instagram.gs (تازه): igNextEp_ · igStepPlan_/Voice_/Images_/Ask_/Got_/Ok_/Pub_ · igTick (اجرای جدا) · igArm_ · igStatus_ · igHealth_ (یافتهٔ ig-stuck)؛ run_instagram_test (۴۵).",
+    "tools/reelkit.js (تازه) + tools/render.js buildReels/reelsTodo: ریلزِ ۱۰۸۰×۱۹۲۰ و کاورِ JPEG در docs/renders.json → reels؛ run_reel_test (۱۰، ffmpeg و کرومِ واقعی).",
+    "src/36_VoiceBridge.gs vbrCollectHourly: igArm_ پیش از سدِ پل؛ src/08_Health.gs: _STATUS.instagram و igHealth_.",
+    "src/00_Config.gs: IG_* و PK.IG_STATE؛ MONITOR_CHECKS → instagram. docs/prompts/_PROMPT-monitor-v105.md؛ docs/ig-approve.json؛ docs/drive_layout.md (زیرپوشهٔ «اینستاگرام»)."
   ],
   "sourceReportIds": [],
-  "promptImpact": [],
+  "promptImpact": [
+    "_PROMPT-monitor-v105.md: کلیدِ اجباریِ instagram و کارِ روزانه‌اش؛ یادداشتِ ۱۰۰ به تاریخچه رفت و §۴٫۱۷ در بدنه ماند"
+  ],
   "answers": {
-    "R-20261016-08": "۹.۱۹ (گام ۱)"
-  }
+    "R-20261016-08": "۹.۲۱ (گام ۲)",
+    "R-20261016-09": "۹.۲۱"
+  },
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }
