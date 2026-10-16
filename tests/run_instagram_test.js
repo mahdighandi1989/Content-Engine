@@ -42,25 +42,27 @@ console.log('=== ۱) کدام درس بعدی است ===');
   ok('۱.۳ درسی که به سقفِ تلاش رسید کنار می‌رود', igNextEp_(pub, { fails: { '5': CFG.IG_TRY_MAX } }).ep === 7);
 }
 
-console.log('=== ۲) متنِ ریلز: مرزها در کد ===');
-const LINES = [
-  { text: 'آیا می‌دانستید معرفت‌شناسی با یک پرسشِ ساده آغاز می‌شود که همه هر روز از خود می‌پرسیم؟', scene: 's1' },
-  { text: 'در این قسمت از پادکست امروز می‌شنویم که دانستن چیست.', scene: 's2' },
-  { text: 'پرسش این است که از کجا می‌دانم آنچه باور دارم درست است و فقط گمانی محکم نیست؟', scene: 's3' },
-  { text: 'فیلسوفان سه شرط گذاشتند: باور، صدق، و دلیلی که آن باور را موجه کند و پشتش بایستد.', scene: 's4' },
-  { text: 'اما مثال‌هایی پیدا شد که هر سه شرط بود و باز کسی نمی‌گفت این آدم واقعاً می‌دانست.', scene: 's5' },
-  { text: 'همین گره، راهِ تازه‌ای در فهمِ شناخت باز کرد که تا امروز ادامه دارد و هنوز بسته نشده است.', scene: 's6' },
-  { text: 'نسخهٔ کاملِ درس را در یوتیوب ببینید.', scene: 's7' }
-];
+console.log('=== ۲) متنِ ریلز: یک متنِ پیوسته، مرزها در کد (۹.۲۵) ===');
+/* متنِ پیوسته با یک خط: قلاب ⇐ چرایی ⇐ ایده ⇐ مثال ⇐ جواب. */
+const SCRIPT = 'آیا می‌دانستید پرسشِ «از کجا می‌دانم؟» ستونِ همهٔ شناخت‌های ماست؟ ' +
+  'چون هر باوری که داریم، روزی باید جلوِ همین پرسش بایستد. ' +
+  'فیلسوفان گفتند دانستن یعنی باوری صادق که دلیلی پشتش باشد. ' +
+  'اما مثال‌هایی پیدا شد که هر سه شرط بود و باز کسی نمی‌گفت آن آدم واقعاً می‌دانست. ' +
+  'مثلاً ساعتی که خوابیده و تصادفاً ساعتِ درست را نشان می‌دهد؛ باورِ شما درست است، ولی از روی شانس. ' +
+  'پس دانستن چیزی بیش از باورِ درستِ دلیل‌دار است، و معرفت‌شناسی دقیقاً به دنبالِ همان چیزِ کم است.';
+const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه است', script: SCRIPT, scenes: ['s1', 's2', 's3', 's4', 's5'],
+              coverTitle: 'از کجا می‌دانم؟', caption: 'کپشن', story: 'استوری', tags: ['#معرفت شناسی', 'فلسفه', ''] };
 {
-  const p = igPlanTrim_({ hook: 'آیا می‌دانستید؟', coverTitle: 'از کجا می‌دانم؟', caption: 'کپشن', story: 'استوری',
-                          tags: ['#معرفت شناسی', 'فلسفه', ''], lines: LINES.slice(0, 6) });
-  ok('۲.۱ جملهٔ «در این قسمت / پادکست / امروز» دور ریخته می‌شود', p.lines && p.lines.length === 5 &&
-     p.lines.every(x => !/پادکست|این قسمت/.test(x.text)), JSON.stringify(p.lines && p.lines.map(x => x.text.slice(0, 12))));
+  const p = igPlanTrim_(RAW);
+  ok('۲.۱ متنِ پیوسته به جمله‌ها شکسته می‌شود؛ قلاب = جملهٔ اول؛ تصویر به ترتیبِ خط', p.lines && p.lines.length === 6 &&
+     p.hook === p.lines[0].text && /ستونِ همهٔ شناخت/.test(p.hook) && p.lines[0].scene === 's1' && p.lines[5].scene === 's5' && p.idea,
+     JSON.stringify(p.lines && p.lines.map(x => [x.text.slice(0, 14), x.scene])));
   ok('۲.۲ برچسب بی # و بی فاصله', p.tags.join('|') === 'معرفت_شناسی|فلسفه', p.tags.join('|'));
-  ok('۲.۳ کمتر از چهار جمله پذیرفته نمی‌شود', !igPlanTrim_({ lines: LINES.slice(0, 3) }).lines);
-  const tooYear = igPlanTrim_({ lines: LINES.slice(0, 6).map(x => ({ text: x.text + ' در سال ۱۴۰۵', scene: '' })) });
-  ok('۲.۴ تاریخ (۱۴۰۵) هم بیرون می‌رود', !tooYear.lines, tooYear.why);
+  ok('۲.۳ کمتر از چهار جمله پذیرفته نمی‌شود', !igPlanTrim_(Object.assign({}, RAW, { script: 'آیا می‌دانستید؟ این یک جملهٔ کوتاه است. و این دومی.' })).lines);
+  const bad1 = igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' در این قسمت از پادکست دیدیم.' }));
+  const bad2 = igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT.replace('روزی', 'در سالِ ۱۴۰۵') }));
+  ok('۲.۴ «پادکست/این قسمت» یا تاریخ ⇒ کلِ متن رد (متنِ پیوسته را نمی‌شود سوراخ کرد)', !bad1.lines && !bad2.lines, bad1.why + ' | ' + bad2.why);
+  ok('۲.۴-ب «تا امروز» محتواست، نه تاریخ', !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' این پرسش تا امروز هم باز مانده است.' })).lines);
   const cap = igCaption_(p, 'https://youtu.be/v5', 'معرفت‌شناسی', 4);
   ok('۲.۵ کپشن: پیوندِ همان ویدئو، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') !== -1 &&
      cap.indexOf('«معرفت‌شناسی» — درسِ 4') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&
@@ -83,18 +85,24 @@ const it = { key: 'ig:special:5', ep: 5, series: 'معرفت‌شناسی', fold
 console.log('=== ۳) از مدل تا صف ===');
 let fo, plan;
 {
+  /* نویسنده متنِ پیوسته (با دعوتِ خودش به یوتیوب — باید رد شود و دوباره نوشته شود) می‌دهد؛ داور جدا داوری می‌کند. */
+  const J_OK = { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' };
+  global.__judge = [J_OK]; global.__writer = [Object.assign({}, RAW, { caption: 'دانستن یعنی چه؟' })]; global.__asks = [];
   global.__STUB = (url, body) => {
     if (/generateContent/.test(url) && !/tts/.test(url)) {
-      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify({
-        hook: 'آیا می‌دانستید؟', coverTitle: 'از کجا می‌دانم؟', caption: 'دانستن یعنی چه؟', story: 'یک پرسش',
-        tags: ['فلسفه'], lines: LINES }) }] } }] } };
+      const txt = JSON.stringify(body);
+      const isJ = txt.indexOf('داورِ سخت‌گیر') !== -1;
+      global.__asks.push(isJ ? 'J' : 'W');
+      const out = isJ ? global.__judge.shift() : global.__writer.shift();
+      return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(out || {}) }] } }] } };
     }
     return { code: 404, json: {} };
   };
   fo = igFolder_(epFo);
   const r = igStepPlan_(it, fo);
   plan = r.plan;
-  ok('۳.۱ برنامه ساخته شد و جملهٔ پایانیِ یوتیوب را **کد** افزود (دعوتِ خودِ مدل دور ریخته شد)', r.ok && plan.plan.lines[plan.plan.lines.length - 1].text === IG_CTA_LINE &&
+  ok('۳.۱ برنامه ساخته شد، داور دید، و جملهٔ پایانیِ یوتیوب را **کد** افزود', r.ok && global.__asks.join('') === 'WJ' && plan.v === 3 &&
+     plan.plan.judge === 'پیوسته' && plan.plan.lines[plan.plan.lines.length - 1].text === IG_CTA_LINE &&
      plan.plan.lines[plan.plan.lines.length - 1].cta === true &&
      plan.plan.lines.filter(x => /یوتیوب/.test(x.text)).length === 1, JSON.stringify(plan && plan.plan.lines.map(x => x.text.slice(0, 10))));
   ok('۳.۲ صدای گویندهٔ همان درس، و کپشن با پیوند', plan.voice === 'Charon' && plan.caption.indexOf('https://youtu.be/v5') !== -1);
@@ -102,15 +110,20 @@ let fo, plan;
      fo.getName() === 'اینستاگرام' && fo.getFilesByName('_ig.json').hasNext() && fo.getFilesByName('ریلز — متن و کپشن.txt').hasNext() &&
      !epFo.getFilesByName('_ig.json').hasNext() && igFolder_(epFo) === fo);
 
-  /* صدا: هر جمله جدا؛ زمان از طولِ خودِ صدا. */
+  /* صدا (۹.۲۶): بدنه یک‌جا، با اعراب و دستورِ لحن؛ جملهٔ دعوت جدا. */
   const sr = CFG.SAMPLE_RATE || 24000;
-  let calls = 0;
-  const keepTts = global.ttsChunk_;
-  global.ttsChunk_ = (t, st, v) => { calls++; return Utilities.base64Encode(new Array(sr * 2).fill(0)); };   // یک ثانیه
-  try { ok('۳.۴ صدا ساخته شد', igStepVoice_(it, fo, plan, Date.now() + 60000).ok); } finally { global.ttsChunk_ = keepTts; }
-  ok('۳.۵ یک فراخوان برای هر جمله، و زمان‌ها از طولِ صدا (۱ ثانیه + مکث)', calls === plan.plan.lines.length &&
-     plan.times.length === calls && Math.abs(plan.times[0].t0 - 0.15) < 0.02 && Math.abs(plan.times[0].t1 - 1.15) < 0.02 &&
-     Math.abs(plan.times[1].t0 - 1.43) < 0.02, JSON.stringify(plan.times.slice(0, 2)));
+  const calls = [];
+  const keepTts = global.ttsChunk_, keepVow = global.vowelizeText_;
+  global.vowelizeText_ = (t) => 'اعراب‌دار:' + t;
+  global.ttsChunk_ = (t, st, v, cue) => { calls.push({ t, st, cue }); return Utilities.base64Encode(new Array(sr * 2 * (calls.length === 1 ? 6 : 1)).fill(0)); };
+  try { ok('۳.۴ صدا ساخته شد', igStepVoice_(it, fo, plan, Date.now() + 60000).ok); } finally { global.ttsChunk_ = keepTts; global.vowelizeText_ = keepVow; }
+  const nb = plan.plan.lines.length - 1;
+  ok('۳.۵ دو فراخوان: کلِ بدنه یک‌جا (با اعراب و لحنِ قصه‌گو) و جملهٔ دعوت جدا — نه هر جمله جدا', calls.length === 2 &&
+     /^اعراب‌دار:/.test(calls[0].t) && calls[0].st === CFG.IG_VOICE_STYLE && calls[0].cue === true && calls[1].t.indexOf('یوتیوب') !== -1 &&
+     plan.vowelized === true, JSON.stringify(calls.map(c => c.t.slice(0, 20))));
+  ok('۳.۵-ب زمانِ جمله‌ها پشتِ‌هم درونِ ۶ ثانیهٔ بدنه؛ دعوت پس از مکث', plan.times.length === nb + 1 &&
+     Math.abs(plan.times[0].t0 - 0.15) < 0.02 && Math.abs(plan.times[nb - 1].t1 - 6.15) < 0.03 && plan.times[nb].t0 > 6.5 &&
+     plan.times.every((x, i) => !i || x.t0 >= plan.times[i - 1].t1 - 0.01), JSON.stringify(plan.times));
   ok('۳.۶ «ریلز — صدا.wav» در پوشهٔ اینستاگرام', fo.getFilesByName('ریلز — صدا.wav').hasNext() && plan.phase === 'img');
 
   ok('۳.۷ تصویرها: نقاشی‌های خودِ درس، به ترتیبِ نام، بی کاور، رونوشت در پوشهٔ اینستاگرام',
@@ -133,7 +146,49 @@ let fo, plan;
   ok('۳.۱۰ جمله‌ها با زمان و تصویر؛ جملهٔ پایانی روی تصویرِ آخر', row.lines.length === plan.plan.lines.length &&
      row.lines[0].img === 0 && row.lines[row.lines.length - 1].img === 1 && row.lines[0].t0 === plan.times[0].t0 &&
      row.audio.url && row.imgs.length === 2, JSON.stringify(row.lines.map(x => x.img)));
+  ok('۳.۱۰-ب ردیف: واژه‌های کلیدی، درخواستِ شورتز، نشانِ جملهٔ دعوت؛ کارتِ پایانی بی «لینک در کپشن»', Array.isArray(row.emph) &&
+     row.short === true && row.lines[row.lines.length - 1].cta === true && !row.lines[0].cta && !row.end.l3 && !/لینک در کپشن/.test(JSON.stringify(row)));
   ok('۳.۱۱ صدا و تصویرها موقت به اشتراک رفتند', shared.indexOf(plan.audioId) !== -1 && plan.imgs.every(x => shared.indexOf(x.id) !== -1));
+}
+
+console.log('=== ۳-ب) داورِ پیوستگی: بازنویسی یا رد (۹.۲۵) ===');
+{
+  /* «ارتباطِ معنایی محتوا اصلاً خوب نبود»: هفت شعارِ جدا. داور «خیر» ⇒ یک بازنویسی و داوریِ دوباره؛ باز «خیر» ⇒ رد. */
+  const J_BAD = { oneIdea: 'خیر', flows: 'خیر', answersHook: 'خیر', faithful: 'بله', weak: 'جملهٔ دوم موضوعِ دیگری است',
+                  fix: SCRIPT.replace('آیا می‌دانستید', 'می‌دانستید') };
+  const J_OK = { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' };
+  const fo2 = igFolder_(epFo);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_BAD, J_OK];
+  const r1 = igStepPlan_(it, fo2);
+  ok('۳-ب.۱ داور «خیر» ⇒ متنِ بازنویسی‌شده جایگزین و دوباره داوری شد', r1.ok && global.__asks.join('') === 'WJJ' &&
+     /^می‌دانستید/.test(r1.plan.plan.lines[0].text) && /بازنویسی شد/.test(r1.plan.plan.judge), r1.plan && r1.plan.plan.judge);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_BAD, J_BAD];
+  const r2 = igStepPlan_(it, fo2);
+  ok('۳-ب.۲ باز «خیر» ⇒ رد، با علتِ داور — ضعیف منتشر نمی‌شود', r2.fail && /داورِ پیوستگی نپذیرفت/.test(r2.fail) && /یک ایده نیست/.test(r2.fail), r2.fail);
+  global.__asks = []; global.__writer = [RAW];
+  global.__judge = [Object.assign({}, J_OK, { flows: 'خیر', weak: 'جملهٔ سوم از دوم نمی‌آید' }), Object.assign({}, J_OK, { flows: 'خیر' })];
+  const rF = igStepPlan_(it, fo2);
+  ok('۳-ب.۲-ب فقط «پیوسته نیست» هم بس است برای رد', rF.fail && /پیوسته نیستند/.test(rF.fail), rF.fail);
+  global.__asks = []; global.__writer = [RAW];
+  global.__judge = [Object.assign({}, J_OK, { popular: 'خیر', weak: 'اصطلاحِ «موجه» برای مخاطبِ عام سنگین است' }), Object.assign({}, J_OK, { popular: 'خیر' })];
+  const rP = igStepPlan_(it, fo2);
+  ok('۳-ب.۲-ج «برای مخاطبِ عام سنگین» به‌تنهایی رد می‌کند (۹.۲۶)', rP.fail && /مخاطبِ عام/.test(rP.fail), rP.fail);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [null];
+  const r3 = igStepPlan_(it, fo2);
+  ok('۳-ب.۳ داور جواب نداد ⇒ رد، نه تأییدِ خاموش', !!r3.fail, r3.fail);
+  /* برنامهٔ کهنه (v1) منتظرِ تأیید ⇒ از نو؛ منتشرشده ⇒ دست نمی‌خورد. */
+  const keepStep = { pl: global.igStepPlan_ };
+  let replanned = 0;
+  global.igStepPlan_ = () => { replanned++; return { wait: 'آزمون' }; };
+  igPlanWrite_(fo2, { v: 1, key: it.key, phase: 'ok', plan: { lines: [] } });
+  const itA = Object.assign({}, it, { phase: 'ok' });
+  igStep_(itA, {}, Date.now() + 60000);
+  igPlanWrite_(fo2, { v: 1, key: it.key, phase: 'done', reelId: 'M9', plan: { lines: [] } });
+  const itB = Object.assign({}, it, { phase: 'done' });
+  const rB = igStep_(itB, {}, Date.now() + 60000);
+  global.igStepPlan_ = keepStep.pl;
+  ok('۳-ب.۴ برنامهٔ کهنهٔ منتشرنشده از نو ساخته می‌شود؛ منتشرشده دست نمی‌خورد', replanned === 1 && rB.done === true, 'replanned=' + replanned);
+  igPlanWrite_(fo2, plan);
 }
 
 console.log('=== ۴) تأیید و انتشار ===');
@@ -170,7 +225,7 @@ console.log('=== ۴) تأیید و انتشار ===');
   let r;
   try { r = igStepPub_(it, plan, st2, Date.now() + 60000); } finally { global.igLog_ = kLog; }
   const reel = calls.find(c => /\/media$/.test(c.url) && c.body.media_type === 'REELS');
-  ok('۴.۴ ریلز با ویدئو، کاور، کپشن و اشتراک در فید ساخته و منتشر شد', r.ok && plan.reelId === 'M1' && plan.phase === 'done' &&
+  ok('۴.۴ ریلز با ویدئو، کاور، کپشن و اشتراک در فید ساخته و منتشر شد', r.ok && plan.reelId === 'M1' && plan.phase === 'yts' &&
      reel.body.video_url === plan.video && reel.body.cover_url === plan.cover && reel.body.caption === plan.caption &&
      reel.body.share_to_feed === 'true' && plan.permalink === 'https://instagram.com/reel/xyz', JSON.stringify(calls.map(c => c.url.split('/').slice(-2).join('/'))));
   ok('۴.۵ استوریِ همان کاور', plan.storyId === 'M2' &&
@@ -179,7 +234,7 @@ console.log('=== ۴) تأیید و انتشار ===');
      igCapClean_('🎧 نسخهٔ کامل\n📚 مجموعه') === 'نسخهٔ کامل\nمجموعه' && !/[\uD800-\uDFFF]/.test(igCaption_({ caption: 'x', tags: [] }, 'u', 's', 1)),
      JSON.stringify(igCapClean_('🎧 نسخهٔ کامل\n📚 مجموعه')));
   ok('۴.۶ کلید فقط در سرآیند — هرگز در نشانی', calls.every(c => c.auth === 'Bearer EAAtesttoken123' && c.url.indexOf('EAAtest') === -1));
-  ok('۴.۷ شمارِ امروز و کل، و یک ردیف در تب', st2.stats.published === 4 && st2.stats.dayN === 1 && logged === 1);
+  ok('۴.۷ شمارِ امروز و کل؛ ردیفِ تب پس از شورتز نوشته می‌شود', st2.stats.published === 4 && st2.stats.dayN === 1 && logged === 0);
   calls.length = 0;
   const full = { stats: { published: 9, day: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'), dayN: CFG.IG_PER_DAY } };
   const p2 = JSON.parse(JSON.stringify(plan)); p2.reelCid = ''; p2.reelId = ''; p2.phase = 'pub';
@@ -195,11 +250,63 @@ console.log('=== ۴) تأیید و انتشار ===');
   const p3 = JSON.parse(JSON.stringify(plan)); p3.reelCid = ''; p3.reelId = ''; p3.storyId = ''; p3.phase = 'pub';
   global.igLog_ = () => {};
   try { r = igStepPub_(it, p3, { stats: { published: 5 } }, Date.now() + 60000); } finally { global.igLog_ = kLog; }
-  ok('۴.۹ شکستِ استوری ریلزِ منتشرشده را «نشد» نمی‌کند — علتش ثبت می‌شود', r.ok && p3.phase === 'done' && p3.storyWhy === 'story bad', p3.storyWhy);
+  ok('۴.۹ شکستِ استوری ریلزِ منتشرشده را «نشد» نمی‌کند — علتش ثبت می‌شود', r.ok && p3.phase === 'yts' && p3.storyWhy === 'story bad', p3.storyWhy);
   global.__STUB = (url, body) => (/\/1784\/media$/.test(url) ? { code: 400, json: { error: { message: 'bad video' } } } : { code: 200, json: {} });
   const p4 = JSON.parse(JSON.stringify(plan)); p4.reelCid = ''; p4.reelId = ''; p4.phase = 'pub';
   const r4 = igStepPub_(it, p4, { stats: { published: 5 } }, Date.now() + 60000);
   ok('۴.۱۰ ظرفِ ریلز ساخته نشد ⇒ «نشد» با پیامِ خودِ Graph', r4.fail && /bad video/.test(r4.fail), r4.fail);
+}
+
+console.log('=== ۴-ب) شورتزِ یوتیوب: بی پلی‌لیست، دو پیوند، اول unlisted (۹.۲۶) ===');
+{
+  const keep = { yt: global.YouTube, q: global.ytQuotaTake_, pl: global.ytPlFor_, stub: global.__STUB, leaks: global.ytLeaks_ };
+  const ins = [], upd = [], plAdds = [];
+  global.YouTube = { Videos: { insert: (res, part, blob) => { ins.push({ res, blob }); return { id: 'SH1' }; },
+                               update: (res, part) => { upd.push(res); return res; } },
+                     PlaylistItems: { insert: (x) => { plAdds.push(x); return {}; } } };
+  global.ytQuotaTake_ = () => true;
+  global.ytPlFor_ = (item, name) => ({ id: 'PLX', title: name });
+  global.__STUB = (url) => (/short\.mp4/.test(url) ? { code: 200, bytes: [0, 0, 0, 24, 102, 116, 121, 112], mime: 'video/mp4' } : { code: 404, json: {} });
+  const sp = JSON.parse(JSON.stringify(plan));
+  Object.assign(sp, { short: 'https://example/reel-short.mp4', yt: 'https://youtu.be/v5', series: 'معرفت‌شناسی', seriesKey: 'K1', phase: 'yts' });
+  sp.plan.caption = '🎧 دانستن یعنی چه؟'; sp.plan.coverTitle = 'از کجا می‌دانم؟'; sp.plan.tags = ['فلسفه', 'معرفت_شناسی'];
+  const r = igShortPub_(it, sp);
+  const d = ins[0] && ins[0].res.snippet.description;
+  ok('۴-ب.۱ آپلود با عنوانِ #Shorts و توضیحِ دو پیوند (درسِ کامل + پلی‌لیستِ مجموعه)، بی ایموجی', r.ok && ins.length === 1 &&
+     /#Shorts$/.test(ins[0].res.snippet.title) && d.indexOf('https://youtu.be/v5') !== -1 && d.indexOf('list=PLX') !== -1 &&
+     /«معرفت‌شناسی»/.test(d) && !/[\uD800-\uDFFF]/.test(d), d && d.replace(/\n/g, ' ¶ '));
+  ok('۴-ب.۲ اول unlisted، و پس از وارسیِ نشتی عمومی', ins[0].res.status.privacyStatus === 'unlisted' && upd.length === 1 &&
+     upd[0].status.privacyStatus === 'public' && sp.shortPublic === true && sp.shortUrl === 'https://www.youtube.com/shorts/SH1');
+  ok('۴-ب.۳ به هیچ پلی‌لیستی افزوده نمی‌شود', plAdds.length === 0 && !/PlaylistItems|ytPlPlace_/.test(String(igShortPub_)));
+  /* نشتی ⇒ unlisted می‌مانَد */
+  ins.length = 0; upd.length = 0;
+  global.ytLeaks_ = () => ['drive.google.com/x'];
+  const sp2 = Object.assign(JSON.parse(JSON.stringify(sp)), { shortId: '', shortUrl: '', shortPublic: false });
+  igShortPub_(it, sp2);
+  ok('۴-ب.۴ نشتیِ خصوصی ⇒ unlisted می‌ماند و علت ثبت می‌شود', ins.length === 1 && upd.length === 0 && /نشتی/.test(sp2.shortWhy), sp2.shortWhy);
+  global.ytLeaks_ = keep.leaks;
+  /* سهمیه ⇒ صبر؛ بی نسخهٔ شورتز ⇒ رد نمی‌شود، علت ثبت */
+  global.ytQuotaTake_ = () => false;
+  const sp3 = Object.assign(JSON.parse(JSON.stringify(sp)), { shortId: '' });
+  ok('۴-ب.۵ سهمیهٔ امروز تمام ⇒ صبر، نه شکست', !!igShortPub_(it, sp3).wait);
+  const sp4 = Object.assign(JSON.parse(JSON.stringify(sp)), { short: '', shortId: '' });
+  ok('۴-ب.۶ رانر نسخهٔ شورتز نداد ⇒ ریلز تمام می‌شود و علت می‌ماند', igShortPub_(it, sp4).ok && /نداد/.test(sp4.shortWhy));
+  Object.assign(global, { YouTube: keep.yt, ytQuotaTake_: keep.q, ytPlFor_: keep.pl, __STUB: keep.stub });
+}
+
+{
+  /* igStep_: «yts» ⇒ شورتز ⇒ «done» و ردیفِ تب. */
+  const keep = { sp: global.igShortPub_, lg: global.igLog_ };
+  let called = 0, logged = 0;
+  global.igShortPub_ = (x, pl) => { called++; pl.shortUrl = 'https://www.youtube.com/shorts/Z'; return { ok: true }; };
+  global.igLog_ = () => { logged++; };
+  const fo3 = igFolder_(epFo);
+  igPlanWrite_(fo3, Object.assign(JSON.parse(JSON.stringify(plan)), { v: 3, phase: 'yts', reelId: 'M1' }));
+  const rr = igStep_(Object.assign({}, it, { phase: 'yts' }), {}, Date.now() + 60000);
+  Object.assign(global, { igShortPub_: keep.sp, igLog_: keep.lg });
+  ok('۴-ب.۷ گامِ «yts» شورتز را می‌سازد، بعد «انجام» و ردیفِ تب', rr.done === true && called === 1 && logged === 1 &&
+     igPlanRead_(fo3).phase === 'done' && /shorts\/Z/.test(igPlanRead_(fo3).shortUrl));
+  igPlanWrite_(fo3, plan);
 }
 
 console.log('=== ۵) دورِ جدا: از صف تا انجام ===');

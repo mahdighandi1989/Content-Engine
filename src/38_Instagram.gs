@@ -29,15 +29,23 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 var IG_REEL_SCHEMA = { type: 'object', properties: {
-  hook: { type: 'string' }, coverTitle: { type: 'string' }, caption: { type: 'string' },
-  story: { type: 'string' },
+  idea: { type: 'string' }, script: { type: 'string' },
+  scenes: { type: 'array', items: { type: 'string' } },
+  coverTitle: { type: 'string' }, caption: { type: 'string' }, story: { type: 'string' },
   tags: { type: 'array', items: { type: 'string' } },
-  lines: { type: 'array', items: { type: 'object', properties: {
-    text: { type: 'string' }, scene: { type: 'string' } }, required: ['text', 'scene'] } }
-}, required: ['hook', 'coverTitle', 'caption', 'tags', 'lines'] };
+  emph: { type: 'array', items: { type: 'string' } }
+}, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph'] };
+
+/* داورِ پیوستگی — فراخوانِ جدا از نویسنده (همان قاعدهٔ ۶.۲۰: نوشتن و داوری دو کارند). */
+var IG_JUDGE_SCHEMA = { type: 'object', properties: {
+  oneIdea: { type: 'string' }, flows: { type: 'string' }, answersHook: { type: 'string' },
+  faithful: { type: 'string' }, popular: { type: 'string' }, thirst: { type: 'string' },
+  weak: { type: 'string' }, fix: { type: 'string' }
+}, required: ['oneIdea', 'flows', 'answersHook', 'faithful', 'popular', 'thirst', 'weak', 'fix'] };
 
 /** جملهٔ پایانیِ گفتنی — از کد، تا همیشه باشد. */
-var IG_CTA_LINE = 'نسخهٔ کاملِ این درس را در یوتیوب ببینید؛ پیوندش در کپشن است.';
+/* ۹.۲۶: «لازم نیست بگی لینک در کپشن است … همین که نسخهٔ کامل در یوتیوب هست کافیه». */
+var IG_CTA_LINE = 'نسخهٔ کاملِ این درس در یوتیوب است.';
 
 function igState_() {
   try { var s = JSON.parse(props_().getProperty(PK.IG_STATE) || '{}'); return (s && typeof s === 'object') ? s : {}; }
@@ -110,23 +118,34 @@ function igLessonText_(ep, cap) {
 }
 
 function igPrompt_(ep, seriesName, lesson) {
-  var n = CFG.IG_LINES || [5, 8];
+  /* ══ یک فکر، نه هفت شعار (۹.۲۵) ══ ریلزِ اول «چنگی به دل نزد … ارتباطِ معنایی محتوا اصلاً خوب نبود». پرامپتِ ۹.۲۱
+     «۵ تا ۸ جملهٔ کوتاه، هر کدام با تصویرِ خودش» می‌خواست؛ مدل هم هفت جملهٔ مستقل نوشت: قلاب می‌پرسید «چرا شبهه با زور
+     حل نمی‌شود؟»، جملهٔ دوم دربارهٔ «گلِ نازک» بود، سوم دربارهٔ انقلابیان، و جوابِ قلاب در جملهٔ چهارم. حالا یک متنِ
+     پیوسته با یک خط فکری خواسته می‌شود؛ تکه‌کردن و تصویر را کد انجام می‌دهد. */
   return [
-    'تو نویسندهٔ ریلزِ اینستاگرامِ یک کانالِ آموزشیِ فارسی هستی. از درسِ زیر یک ریلزِ **' + (CFG.IG_SEC || '45 تا 75') + ' ثانیه‌ای** بنویس.',
+    'تو نویسندهٔ ریلزِ اینستاگرام برای **مخاطبِ عام** هستی — کسی که دارد صفحه را رد می‌کند و فلسفه نخوانده. از درسِ زیر **یک** متنِ گفتاریِ پیوستهٔ ' + (CFG.IG_SEC || '45 تا 75') + ' ثانیه‌ای بنویس.',
+    'هدف دو چیز است، با هم: (۱) همین ریلز **خودش یک چیزِ تازه و کامل** به بیننده بدهد که ارزشِ دیدن داشته باشد؛ (۲) او را **تشنهٔ** درسِ کامل کند.',
+    'زبان: ساده، صمیمی، تصویری و زنده — مثلِ کسی که برای دوستش یک کشفِ جالب تعریف می‌کند. اصطلاحِ فلسفی و جملهٔ سنگین ممنوع؛',
+    'اگر مفهومی ناگزیر است، با یک موقعیتِ روزمره (خانه، خیابان، گوشی، کار) نشانش بده، نه با تعریف.',
     'مجموعه: «' + seriesName + '»' + (lesson ? ' — درسِ ' + lesson : ''),
     '',
-    'قاعده‌ها:',
-    '• ریلز **خودش یک محتوای کامل** است، نه آگهیِ درس: یک ایدهٔ مشخص، جالب و درست از همین درس را روشن کن.',
-    '• hook = جملهٔ اول و قلاب: یک پرسش یا نکتهٔ شگفت از خودِ درس، مثلاً «آیا می‌دانستید که …؟» یا پرسشی تیز. حداکثر ۱۴ واژه.',
-    '• lines = ' + n[0] + ' تا ' + n[1] + ' جملهٔ کوتاهِ گفتنی (هر کدام حداکثر ۲۲ واژه). **اولینِ آن‌ها همان hook است.** فارسیِ روان و رسمیِ گفتاری.',
-    '• هیچ تاریخ، روز، «امروز»، «در این قسمت»، «پادکست»، «شنوندگانِ عزیز» یا شمارهٔ قسمت ننویس.',
-    '• چیزی که در متنِ درس نیست نیفزا؛ ادعا و نام و عدد فقط از خودِ درس.',
-    '• دعوت به یوتیوب را **ننویس** — خودِ برنامه آن را به پایان می‌افزاید.',
-    '• scene = برای هر جمله، توصیفِ انگلیسیِ یک تصویرِ نقاشی‌گونه که همان معنا را نشان دهد؛ بی هیچ نوشته، حرف، عدد یا لوگو در تصویر.',
-    '• coverTitle = عنوانِ کاور، حداکثر ۶ واژه، کنجکاوی‌برانگیز.',
-    '• caption = ۲ تا ۴ جملهٔ کپشن که ایدهٔ ریلز را بگوید و به شنیدنِ درسِ کامل دعوت کند (پیوند را ننویس).',
-    '• tags = ۸ تا ۱۵ برچسبِ مرتبط (فارسی یا انگلیسی)، بی #.',
-    '• story = یک جملهٔ کوتاه برای استوری.',
+    'اول idea را بنویس: **یک** ایدهٔ مشخص از همین درس که در یک جمله گفتنی است — نه فهرستِ مطالبِ درس.',
+    'بعد script: یک متنِ پیوسته (۸۰ تا ۱۵۰ واژه) که فقط همان یک ایده را باز می‌کند، با این خط:',
+    '  ۱) قلاب: پرسش یا نکتهٔ شگفتی که شنونده را نگه می‌دارد («آیا می‌دانستید …؟» یا پرسشی تیز) — حداکثر ۱۴ واژه؛',
+    '  ۲) چرا مهم است، در یک جمله؛',
+    '  ۳) خودِ ایده، گام به گام — هر جمله از جملهٔ قبل بیرون می‌آید («چون…»، «پس…»، «یعنی…»، «اما…»)؛',
+    '  ۴) یک مثالِ ملموس از خودِ درس؛',
+    '  ۵) **جوابِ روشنِ همان قلاب** — و در یک جملهٔ پایانیِ کوتاه، پرسشِ بزرگ‌تری که جوابش در درسِ کامل است (کنجکاوی، نه تبلیغ).',
+    '• هر جمله باید بی جملهٔ قبلی‌اش ناقص به نظر برسد؛ اگر جمله‌ای را بشود برداشت و چیزی کم نشود، آن جمله جای ندارد.',
+    '• تشبیه یا مثالِ تازه فقط اگر همان ایده را روشن‌تر کند؛ موضوعِ دوم ممنوع.',
+    '• جمله‌ها کوتاه (حداکثر ۲۲ واژه)، فارسیِ روان و گفتاریِ رسمی.',
+    '• هیچ تاریخ، روز، «امروز»، «در این قسمت»، «پادکست»، «شنوندگانِ عزیز» یا شمارهٔ قسمت ننویس؛ دعوت به یوتیوب را هم **ننویس** — خودِ برنامه می‌افزاید.',
+    '• ادعا و نام و عدد فقط از خودِ درس.',
+    '• scenes = ۴ یا ۵ توصیفِ انگلیسیِ تصویرِ نقاشی‌گونه، به ترتیبِ همان خط (قلاب، چرایی، ایده، مثال، جواب)؛ بی هیچ نوشته، حرف، عدد یا لوگو.',
+    '• coverTitle = عنوانِ کاور، حداکثر ۶ واژه، همان پرسشِ قلاب به کوتاه‌ترین شکل.',
+    '• caption = ۲ تا ۴ جمله که همان ایده را بگوید و به شنیدنِ درسِ کامل دعوت کند (پیوند را ننویس).',
+    '• tags = ۸ تا ۱۵ برچسبِ مرتبط، بی #. story = یک جملهٔ کوتاه برای استوری.',
+    '• emph = ۴ تا ۸ واژه یا عبارتِ کوتاهِ کلیدی (۱ تا ۳ واژه) که **عیناً** در script آمده‌اند — روی تصویر برجسته می‌شوند.',
     '',
     'متنِ درس:',
     igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000)
@@ -134,26 +153,72 @@ function igPrompt_(ep, seriesName, lesson) {
 }
 
 /** خروجیِ مدل ⇒ برنامهٔ تمیز، یا null با دلیل. */
+/** متنِ پیوسته ⇒ جمله‌ها (مرزِ جمله «.!؟?…»)؛ جملهٔ خیلی کوتاه به بعدی می‌چسبد. */
+function igSplit_(t) {
+  var out = [], cur = '';
+  var parts = String(t || '').replace(/\s+/g, ' ').trim().split(/([.!؟?…]+)\s+/);
+  for (var i = 0; i < parts.length; i += 2) {
+    var seg = (parts[i] || '') + (parts[i + 1] || '');
+    cur = cur ? cur + ' ' + seg : seg;
+    if (cur.split(' ').length >= 5 || i + 2 >= parts.length) { if (cur.trim()) out.push(cur.trim()); cur = ''; }
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+/** خروجیِ مدل ⇒ برنامهٔ تمیز، یا {why}. جمله‌ای که تاریخ/«پادکست»/یوتیوب دارد ⇒ کلِ متن رد (متنِ پیوسته را نمی‌شود سوراخ کرد). */
 function igPlanTrim_(r) {
-  if (!r || !r.lines || !r.lines.length) return { why: 'مدل جمله‌ای نداد' };
-  /* «امروز»ِ روزِ پخش بیرون؛ «تا امروز» و «دنیای امروز» محتوای درس‌اند، نه تاریخ. */
+  if (!r || !r.script) return { why: 'مدل متنی نداد' };
   var bad = /(یوتیوب|youtube|در این قسمت|این قسمت|پادکست|شنوندگان|\d{4}\/\d|۱۴۰[۰-۹]|20\d\d|سالِ? [۰-۹\d]{4})/;
   var today = function (t) { return /امروز/.test(t.replace(/(تا (به )?|دنیای |جهانِ? |انسانِ? |جامعهٔ )امروز/g, '')); };
-  var lines = [];
-  for (var i = 0; i < r.lines.length && lines.length < 9; i++) {
-    var t = String((r.lines[i] && r.lines[i].text) || '').replace(/\s+/g, ' ').trim();
-    if (!t || bad.test(t) || today(t)) continue;
-    lines.push({ text: t, scene: String(r.lines[i].scene || '').slice(0, 400) });
-  }
-  var words = lines.reduce(function (a, x) { return a + x.text.split(' ').length; }, 0);
-  if (lines.length < 4) return { why: 'کمتر از ۴ جملهٔ پذیرفتنی (' + lines.length + ')' };
+  var sents = igSplit_(r.script);
+  for (var b = 0; b < sents.length; b++) if (bad.test(sents[b]) || today(sents[b])) return { why: 'جملهٔ ناروا: «' + sents[b].slice(0, 60) + '»' };
+  var words = sents.join(' ').split(' ').length;
+  if (sents.length < 4) return { why: 'کمتر از ۴ جمله (' + sents.length + ')' };
   if (words < 50) return { why: 'متن کوتاه است (' + words + ' واژه)' };
-  while (words > 210 && lines.length > 4) { words -= lines.pop().text.split(' ').length; }
+  if (words > 210) return { why: 'متن بلند است (' + words + ' واژه)' };
+  var scenes = (r.scenes || []).map(function (x) { return String(x || '').slice(0, 400); }).filter(Boolean).slice(0, 6);
+  var lines = sents.map(function (t, i) {
+    return { text: t, scene: scenes.length ? scenes[Math.min(scenes.length - 1, Math.floor(i * scenes.length / sents.length))] : '' };
+  });
   var tags = (r.tags || []).map(function (x) { return String(x || '').replace(/^#/, '').replace(/\s+/g, '_').trim(); })
     .filter(function (x) { return x && x.length < 40; }).slice(0, 15);
-  return { hook: String(r.hook || lines[0].text).trim().slice(0, 140), lines: lines,
+  var joined = sents.join(' ');
+  var emph = (r.emph || []).map(function (x) { return String(x || '').replace(/\s+/g, ' ').trim(); })
+    .filter(function (x) { return x && x.split(' ').length <= 3 && joined.indexOf(x) !== -1; }).slice(0, 8);
+  return { idea: String(r.idea || '').trim().slice(0, 200), hook: lines[0].text.slice(0, 140), lines: lines, scenes: scenes, emph: emph,
            coverTitle: String(r.coverTitle || '').trim().slice(0, 60), caption: String(r.caption || '').trim().slice(0, 1200),
            story: String(r.story || '').trim().slice(0, 140), tags: tags, words: words };
+}
+
+/**
+ * داورِ پیوستگی (۹.۲۵) — فراخوانِ جدا: یک ایده؟ هر جمله از قبلی می‌آید؟ جملهٔ پایانی جوابِ قلاب است؟ همه از درس؟
+ * ⇒ { ok, why, fix } — `fix` متنِ بازنویسی‌شده وقتی ایراد هست (همان قیدها). نشنیدنِ داور ⇒ رد، نه تأییدِ خاموش.
+ */
+function igJudge_(p, lesson) {
+  var L = ['تو داورِ سخت‌گیرِ یک ریلزِ آموزشیِ فارسی هستی. متنِ ریلز را کنارِ درس بخوان و فقط با «بله» یا «خیر» جواب بده:',
+           'oneIdea: کلِ متن **فقط یک** ایده را باز می‌کند؟ (فهرستِ چند نکته = خیر)',
+           'flows: هر جمله از جملهٔ قبلش بیرون می‌آید؟ (جمله‌ای که بشود برداشت و چیزی کم نشود = خیر)',
+           'answersHook: جملهٔ پایانی جوابِ روشنِ پرسشِ جملهٔ اول است؟',
+           'faithful: هر ادعا در خودِ درس هست؟',
+           'popular: یک بینندهٔ عادی (نه فیلسوف) آن را راحت می‌فهمد و تا آخر نگاه می‌کند؟ (اصطلاحِ سنگین یا لحنِ درسی = خیر)',
+           'thirst: بیننده چیزی واقعی یاد گرفت **و** کنجکاوِ درسِ کامل شد؟',
+           'weak: ضعیف‌ترین جمله و چرا (یک سطر).',
+           'fix: اگر یکی «خیر» است، کلِ متن را بازنویسی کن — یک ایده، زبانِ ساده و صمیمی برای مخاطبِ عام، خطِ پیوسته (قلاب ⇐ چرایی ⇐ ایده گام‌به‌گام ⇐ مثالِ روزمره ⇐ جوابِ قلاب ⇐ پرسشِ بزرگ‌ترِ درسِ کامل)، ۸۰ تا ۱۵۰ واژه، بی تاریخ و «پادکست» و یوتیوب. اگر همه «بله»، fix خالی.',
+           '', 'ایدهٔ اعلام‌شده: ' + (p.idea || '—'), '', 'متنِ ریلز:', p.lines.map(function (x) { return x.text; }).join(' '),
+           '', 'درس:', String(lesson || '').slice(0, 6000)];
+  var r = null;
+  try { r = geminiText_(L.join('\n'), IG_JUDGE_SCHEMA, 4096); } catch (e) { return { ok: false, why: 'داور جواب نداد: ' + String(e.message || e).slice(0, 80), fix: '' }; }
+  if (!r) return { ok: false, why: 'داور جواب نداد', fix: '' };
+  var yes = function (v) { return /^(بله|آری|yes)/i.test(String(v || '').trim()); };
+  var miss = [];
+  if (!yes(r.oneIdea)) miss.push('یک ایده نیست');
+  if (!yes(r.flows)) miss.push('جمله‌ها پیوسته نیستند');
+  if (!yes(r.answersHook)) miss.push('جوابِ قلاب نمی‌آید');
+  if (!yes(r.faithful)) miss.push('ادعای بیرون از درس');
+  if (!yes(r.popular)) miss.push('برای مخاطبِ عام سنگین است');
+  if (!yes(r.thirst)) miss.push('چیزی نمی‌دهد یا کنجکاو نمی‌کند');
+  return { ok: !miss.length, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
 }
 
 /** کپشنِ نهایی: متنِ مدل + پیوندِ یوتیوب + مجموعه + برچسب‌ها؛ سقفِ ۲۲۰۰ نویسه و ۳۰ برچسب. */
@@ -183,32 +248,81 @@ function igStepPlan_(it, fo) {
   catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
   var p = igPlanTrim_(r);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
+  /* داوریِ پیوستگی: یک بازنویسی، و دوباره داوری. ضعیف منتشر نمی‌شود — شکست یعنی تلاشِ دوباره با مدلِ تازه. */
+  var lessonTxt = igLessonText_(ep, Number(CFG.IG_SRC_CHARS) || 9000);
+  var jd = { ok: true, why: '' };
+  if (CFG.IG_JUDGE !== false) {
+    jd = igJudge_(p, lessonTxt);
+    if (!jd.ok && jd.fix) {
+      var p2 = igPlanTrim_({ idea: p.idea, script: jd.fix, scenes: p.scenes, coverTitle: p.coverTitle, caption: p.caption,
+                             story: p.story, tags: p.tags, emph: p.emph });
+      if (p2.lines) {
+        var jd2 = igJudge_(p2, lessonTxt);
+        if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
+        else jd = jd2;
+      }
+    }
+    if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
+  }
+  p.judge = jd.why || 'پیوسته';
   p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
-  var plan = { v: 1, key: it.key, ep: it.ep, series: seriesName, lesson: lesson, title: String(ep.title || ''),
+  var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
                caption: igCaption_(p, it.yt, seriesName, lesson),
                voice: (ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE };
   igPlanWrite_(fo, plan);
-  try { fo.createFile(Utilities.newBlob(p.lines.map(function (x) { return x.text; }).join('\n') + '\n\n—— کپشن ——\n' + plan.caption,
-                                        'text/plain', 'ریلز — متن و کپشن.txt')); } catch (eT) {}
+  try {
+    var oldT = fo.getFilesByName('ریلز — متن و کپشن.txt');
+    while (oldT.hasNext()) oldT.next().setTrashed(true);
+    fo.createFile(Utilities.newBlob('ایده: ' + (p.idea || '') + '\nداور: ' + (p.judge || '') + '\n\n' +
+                                    p.lines.map(function (x) { return x.text; }).join('\n') + '\n\n—— کپشن ——\n' + plan.caption,
+                                    'text/plain', 'ریلز — متن و کپشن.txt'));
+  } catch (eT) {}
   return { ok: true, plan: plan };
 }
 
+/**
+ * صدا (۹.۲۶): **کلِ متن یک‌جا**، با اعراب و نشانه‌های لحن (همان `vowelizeText_`ِ پادکست) و دستورِ لحنِ قصه‌گو —
+ * «گویندگی خوب نبود و حالت و روح نداشت»: هر جمله جدا ساخته می‌شد، پس هر جمله مثلِ جملهٔ اولِ یک متن، تخت و بی پیوند،
+ * خوانده می‌شد. جملهٔ دعوت جدا ساخته می‌شود تا نسخهٔ شورتز سرِ آغازش تمیز بریده شود. زمانِ جمله‌ها این‌جا با نسبتِ
+ * نویسه تخمین زده می‌شود؛ رانر زمانِ واقعیِ هر واژه را از خودِ صدا می‌گیرد (tools/reelalign.py).
+ */
 function igStepVoice_(it, fo, plan, deadline) {
-  var sr = Number(CFG.SAMPLE_RATE) || 24000, gap = Math.round(sr * 0.28) * 2, lead = Math.round(sr * 0.15) * 2;
-  var bytes = [], times = [];
+  var sr = Number(CFG.SAMPLE_RATE) || 24000, gap = Math.round(sr * 0.45) * 2, lead = Math.round(sr * 0.15) * 2;
+  var lines = plan.plan.lines, body = [], cta = null;
+  for (var i = 0; i < lines.length; i++) { if (lines[i].cta) cta = lines[i]; else body.push(lines[i]); }
+  var plain = body.map(function (x) { return x.text; }).join(' ');
+  var vow = '';
+  if (CFG.IG_VOWELIZE !== false) { try { vow = vowelizeText_(plain) || ''; } catch (eV) { vow = ''; } }
+  plan.vowelized = !!vow;
+  var b1 = null, b2 = null;
+  try { b1 = ttsChunk_(applyPron_(vow || plain), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); }
+  catch (e) { return { wait: 'گفتارساز: ' + String(e.message || e).slice(0, 120) }; }
+  if (!b1) return { wait: 'گفتارساز صدایی نداد' };
+  if (cta) {
+    if (Date.now() > deadline) return { wait: 'وقت تمام شد (صدای جملهٔ پایانی)' };
+    try { b2 = ttsChunk_(applyPron_(cta.text), String(CFG.IG_VOICE_STYLE || ''), plan.voice, true); } catch (e2) { b2 = null; }
+    if (!b2) return { wait: 'گفتارساز صدای جملهٔ پایانی را نداد' };
+  }
+  var bytes = [];
   for (var z = 0; z < lead; z++) bytes.push(0);
-  var lines = plan.plan.lines;
-  for (var i = 0; i < lines.length; i++) {
-    if (Date.now() > deadline) return { wait: 'وقت تمام شد (صدای جملهٔ ' + (i + 1) + ')' };
-    var b64 = null;
-    try { b64 = ttsChunk_(applyPron_(lines[i].text), '', plan.voice, false); } catch (e) { return { wait: 'گفتارساز: ' + String(e.message || e).slice(0, 120) }; }
-    if (!b64) return { wait: 'گفتارساز صدایی نداد' };
-    var pcm = Utilities.base64Decode(alignB64_(b64));
-    var t0 = bytes.length / (sr * 2);
-    for (var k = 0; k < pcm.length; k++) bytes.push(pcm[k]);
-    times.push({ t0: Math.round(t0 * 100) / 100, t1: Math.round(bytes.length / (sr * 2) * 100) / 100 });
+  var p1 = Utilities.base64Decode(alignB64_(b1));
+  var a0 = bytes.length / (sr * 2);
+  for (var k = 0; k < p1.length; k++) bytes.push(p1[k]);
+  var a1 = bytes.length / (sr * 2);
+  /* نسبتِ نویسه درونِ صدای بدنه — جمله‌ها پشتِ‌هم. */
+  var L = body.map(function (x) { return Math.max(1, String(x.text).replace(/\s+/g, '').length); });
+  var tot = L.reduce(function (a, b) { return a + b; }, 0) || 1, acc = 0, times = [];
+  for (var bi = 0; bi < body.length; bi++) {
+    var t0 = a0 + (a1 - a0) * acc / tot; acc += L[bi];
+    times.push({ t0: Math.round(t0 * 100) / 100, t1: Math.round((a0 + (a1 - a0) * acc / tot) * 100) / 100 });
+  }
+  if (b2) {
     for (var g = 0; g < gap; g++) bytes.push(0);
+    var c0 = bytes.length / (sr * 2), p2 = Utilities.base64Decode(alignB64_(b2));
+    for (var k2 = 0; k2 < p2.length; k2++) bytes.push(p2[k2]);
+    times.push({ t0: Math.round(c0 * 100) / 100, t1: Math.round(bytes.length / (sr * 2) * 100) / 100 });
+    for (var g2 = 0; g2 < lead * 3; g2++) bytes.push(0);
   }
   var wav = Utilities.newBlob(wavHeader54_(bytes.length).concat(bytes), 'audio/wav', 'ریلز — صدا.wav');
   var old = fo.getFilesByName('ریلز — صدا.wav');
@@ -256,7 +370,9 @@ function igStepImages_(it, fo, plan, deadline) {
     if (model && lvGenRoom_(model) >= want) {
       for (var j = 0; j < want; j++) {
         if (Date.now() > deadline) return { wait: 'وقت تمام شد (تصویرِ ' + (j + 1) + ')' };
-        var ln = lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
+        var scs = plan.plan.scenes || [];
+        var ln = scs.length ? { scene: scs[Math.min(scs.length - 1, Math.floor(j * scs.length / want))] }
+                            : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
                  'Absolutely no text, letters, numbers, captions, signs or logos. ' + String(ln.scene || ln.text);
         var g = lvGenOne_(model, pr, { aspect: '9:16' });
@@ -277,7 +393,7 @@ function igStepAsk_(it, fo, plan) {
   var n = (plan.imgs || []).length, L = plan.plan.lines;
   var lines = L.map(function (x, i) {
     var img = n ? Math.min(n - 1, Math.floor(i * n / Math.max(1, L.length - 1))) : -1;
-    return { t0: plan.times[i].t0, t1: plan.times[i].t1, text: x.text, img: img };
+    return { t0: plan.times[i].t0, t1: plan.times[i].t1, text: x.text, img: img, cta: !!x.cta };
   });
   var mk = null;
   try { mk = ytMarkSpec_(); } catch (eM) {}
@@ -286,8 +402,9 @@ function igStepAsk_(it, fo, plan) {
               audio: { id: plan.audioId, url: ytDlUrl_(plan.audioId) },
               imgs: (plan.imgs || []).map(function (x) { return { id: x.id, url: ytDlUrl_(x.id) }; }),
               lines: lines, hook: plan.plan.hook, kicker: plan.series, coverTitle: plan.plan.coverTitle || plan.plan.hook,
+              emph: plan.plan.emph || [], short: CFG.IG_SHORTS !== false,
               end: { l1: 'نسخهٔ کاملِ این درس در یوتیوب', l2: (mk && mk.name) || 'رد پای حقیقت',
-                     handle: (mk && mk.handle) || '', l3: 'لینک در کپشن' },
+                     handle: (mk && mk.handle) || '' },
               mark: { logoUrl: (mk && mk.logoUrl) ? String(mk.logoUrl).replace(/=s\d+-/, '=s800-') : '' } };
   ytShareOn_(plan.audioId);
   (plan.imgs || []).forEach(function (x) { ytShareOn_(x.id); });
@@ -310,11 +427,18 @@ function igStepGot_(it, fo, plan) {
     return { wait: 'رانر هنوز نساخته' + (isFinite(hrs) ? ' (' + Math.round(hrs) + ' ساعت)' : '') };
   }
   plan.video = r.url; plan.cover = r.cover; plan.seconds = r.seconds || plan.seconds;
+  plan.short = String(r.short || ''); plan.shortSeconds = Number(r.shortSeconds) || 0; plan.align = String(r.align || '');
   try {
     var b = UrlFetchApp.fetch(r.url, { muteHttpExceptions: true, followRedirects: true });
     if (b.getResponseCode() === 200) fo.createFile(b.getBlob().setName('ریلز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
     var c = UrlFetchApp.fetch(r.cover, { muteHttpExceptions: true, followRedirects: true });
     if (c.getResponseCode() === 200) fo.createFile(c.getBlob().setName('ریلز — کاور.jpg'));
+    /* نسخهٔ شورتزِ یوتیوب هم در همین پوشه (۹.۲۶: «نسخهٔ شورتز هم ذیلِ همون فولدر») — زیرپوشه، نه خودِ پوشهٔ قسمت:
+       `ytVideoIn_` هر mp4ِ پوشهٔ قسمت را ویدئوی قسمت می‌گیرد. */
+    if (plan.short) {
+      var sh = UrlFetchApp.fetch(plan.short, { muteHttpExceptions: true, followRedirects: true });
+      if (sh.getResponseCode() === 200) fo.createFile(sh.getBlob().setName('شورتز — ' + String(plan.title || it.key).slice(0, 60) + '.mp4'));
+    }
   } catch (eS) { plan.saveWhy = String(eS.message || eS).slice(0, 100); }
   ytShareOff_(plan.audioId);
   (plan.imgs || []).forEach(function (x) { ytShareOff_(x.id); });
@@ -421,10 +545,60 @@ function igStepPub_(it, plan, st, deadline) {
       } else if (ws !== 'wait') plan.storyWhy = ws;
     } else plan.storyWhy = igErr_(s);
   }
-  plan.phase = 'done';
-  plan.doneAt = nowStr_();
-  try { igLog_(it, plan); } catch (eL) {}
+  plan.phase = 'yts';
   try { tgSend_('✅ ریلزِ اینستاگرام منتشر شد: ' + (plan.permalink || plan.reelId) + '\n«' + plan.plan.hook + '»'); } catch (eT) {}
+  return { ok: true };
+}
+
+/**
+ * شورتزِ یوتیوب (۹.۲۶) — همان ریلز بی کارتِ پایانی و بی جملهٔ دعوت. «جوری که قاطیِ پلی‌لیست‌های درس‌نامه و از همه جا
+ * نشه و خودش ویدئوی کوتاه حساب بشه»: ویدئوی عمودیِ زیرِ سه دقیقه را یوتیوب خودش «شورتز» می‌شمرد؛ این‌جا به **هیچ**
+ * پلی‌لیستی افزوده نمی‌شود. توضیح: همان کپشن + نشانیِ ویدئوی کاملِ درس + نشانیِ پلی‌لیستِ مجموعه. اول unlisted،
+ * و فقط پس از وارسیِ نشتی (`ytLeaks_`) عمومی — همان دروازهٔ ویدئوهای کامل. تأیید همان کلیدِ ریلز است: محتوا یکی است.
+ * شکستِ شورتز ریلزِ منتشرشده را برنمی‌گرداند؛ علتش در `shortWhy` و تب می‌نشیند. سهمیه ⇒ صبر تا فردا.
+ */
+function igShortPub_(it, plan) {
+  if (CFG.IG_SHORTS === false) { plan.shortWhy = 'خاموش (IG_SHORTS)'; return { ok: true }; }
+  if (!plan.short) { plan.shortWhy = 'رانر نسخهٔ شورتز نداد'; return { ok: true }; }
+  if (plan.shortId) return { ok: true };
+  var yt = ytSvc_();
+  if (!yt) { plan.shortWhy = ytOffWhy_(); return { ok: true }; }
+  var title = (String(plan.plan.coverTitle || plan.plan.hook || plan.title || '').replace(/[«»]/g, '').slice(0, 85) + ' #Shorts').trim();
+  var plUrl = '';
+  try {
+    var pl = ytPlFor_({ show: ENRICH_SHOW_SPECIAL, seriesKey: plan.seriesKey || '' }, plan.series, CFG.SPECIAL_SHOW_NAME);
+    if (pl && pl.id) plUrl = 'https://www.youtube.com/playlist?list=' + pl.id;
+  } catch (eP) {}
+  var desc = igCapClean_(String(plan.plan.caption || '')) + '\n\n' +
+             'نسخهٔ کاملِ این درس:\n' + plan.yt + '\n' +
+             (plUrl ? '\nهمهٔ درس‌های مجموعهٔ «' + plan.series + '»:\n' + plUrl + '\n' : '') +
+             '\n#Shorts ' + (plan.plan.tags || []).slice(0, 8).map(function (t) { return '#' + t; }).join(' ');
+  var leaks = ytLeaks_(title + '\n' + desc);
+  if (!ytQuotaTake_(YT_COST.videosInsert, true)) return { wait: 'سهمیهٔ آپلودِ یوتیوب امروز تمام شد' };
+  var blob = null;
+  try {
+    var res = UrlFetchApp.fetch(plan.short, { muteHttpExceptions: true, followRedirects: true });
+    if (res.getResponseCode() !== 200) { plan.shortWhy = 'دانلودِ نسخهٔ شورتز: ' + res.getResponseCode(); return { ok: true }; }
+    blob = res.getBlob().setName('short.mp4').setContentType('video/mp4');
+  } catch (eD) { plan.shortWhy = 'دانلودِ نسخهٔ شورتز: ' + String(eD.message || eD).slice(0, 100); return { ok: true }; }
+  try {
+    var made = yt.Videos.insert({
+      snippet: { title: title, description: desc, tags: (plan.plan.tags || []).slice(0, 15),
+                 categoryId: CFG.YT_CATEGORY_SPECIAL || '27', defaultLanguage: CFG.YT_LANG || 'fa', defaultAudioLanguage: CFG.YT_LANG || 'fa' },
+      status: { privacyStatus: 'unlisted', selfDeclaredMadeForKids: false }
+    }, 'snippet,status', blob);
+    plan.shortId = made && made.id ? String(made.id) : '';
+  } catch (eU) { plan.shortWhy = 'آپلودِ شورتز: ' + String(eU.message || eU).slice(0, 160); return { ok: true }; }
+  if (!plan.shortId) { plan.shortWhy = 'یوتیوب شناسه برنگرداند'; return { ok: true }; }
+  plan.shortUrl = 'https://www.youtube.com/shorts/' + plan.shortId;
+  if (leaks.length) { plan.shortWhy = 'نشتیِ خصوصی در متن — unlisted ماند'; return { ok: true }; }
+  try {
+    if (ytQuotaTake_(YT_COST.videosUpdate, false)) {
+      yt.Videos.update({ id: plan.shortId, status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } }, 'status');
+      plan.shortPublic = true;
+    } else plan.shortWhy = 'سهمیهٔ به‌روزرسانی — unlisted ماند';
+  } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
+  try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + (plan.shortWhy || '') + ')')); } catch (eT) {}
   return { ok: true };
 }
 
@@ -432,9 +606,10 @@ function igStepPub_(it, plan, st, deadline) {
 function igLog_(it, plan) {
   var hub = getHub_(), nm = CFG.IG_TAB || 'انتشار در اینستاگرام';
   var sh = hub.getSheetByName(nm);
-  if (!sh) { sh = hub.insertSheet(nm); sh.appendRow(['زمان', 'قسمت', 'مجموعه', 'درس', 'قلاب', 'ریلز', 'استوری', 'یوتیوب', 'تصویرها', 'ثانیه']); }
+  if (!sh) { sh = hub.insertSheet(nm); sh.appendRow(['زمان', 'قسمت', 'مجموعه', 'درس', 'قلاب', 'ریلز', 'استوری', 'یوتیوب', 'تصویرها', 'ثانیه', 'شورتزِ یوتیوب', 'ایده']); }
   sh.appendRow([nowStr_(), it.ep, plan.series, plan.lesson, plan.plan.hook, plan.permalink || plan.reelId || '',
-                plan.storyId ? 'منتشر شد' : (plan.storyWhy || ''), plan.yt, plan.imgHow || '', plan.seconds || '']);
+                plan.storyId ? 'منتشر شد' : (plan.storyWhy || ''), plan.yt, plan.imgHow || '', plan.seconds || '',
+                plan.shortUrl ? plan.shortUrl + (plan.shortPublic ? '' : ' (unlisted)') : (plan.shortWhy || ''), plan.plan.idea || '']);
 }
 
 /* ───── گردانندهٔ اجرای جدا ───── */
@@ -504,6 +679,14 @@ function igStep_(it, st, deadline) {
   var fo = igFolder_(DriveApp.getFolderById(it.folderId));
   var plan = it.phase === 'plan' ? null : igPlanRead_(fo);
   if (it.phase !== 'plan' && !plan) it.phase = 'plan';
+  /* برنامه‌ای با پرامپتِ کهنه که هنوز منتشر نشده، از نو (۹.۲۵): «ارتباطِ معنایی اصلاً خوب نبود» برای ریلزی گفته شد
+     که منتظرِ تأیید بود؛ تأییدِ آن یعنی انتشارِ همان شعارهای جدا. منتشرشده دست نمی‌خورد. */
+  if (plan && !plan.reelId && (Number(plan.v) || 1) < (Number(CFG.IG_PLAN_V) || 2)) {
+    try { var dq = ytRenderRead_(); var nb = (dq.reels || []).length;
+          dq.reels = (dq.reels || []).filter(function (x) { return x && x.key !== it.key; });
+          if (dq.reels.length !== nb) ytRenderSave_(dq); } catch (eQ) {}
+    it.phase = 'plan'; plan = null;
+  }
   var r;
   for (var guard = 0; guard < 8 && Date.now() < deadline; guard++) {
     if (it.phase === 'plan') { r = igStepPlan_(it, fo); if (!r.ok) return r; plan = r.plan; it.phase = plan.phase; continue; }
@@ -513,6 +696,10 @@ function igStep_(it, st, deadline) {
     else if (plan.phase === 'got') r = igStepGot_(it, fo, plan);
     else if (plan.phase === 'ok') r = igStepOk_(it, plan, st);
     else if (plan.phase === 'pub') r = igStepPub_(it, plan, st, deadline);
+    else if (plan.phase === 'yts') {
+      r = igShortPub_(it, plan);
+      if (r.ok) { plan.phase = 'done'; plan.doneAt = nowStr_(); try { igLog_(it, plan); } catch (eL) {} }
+    }
     else if (plan.phase === 'done') return { done: true };
     else { plan.phase = 'voice'; continue; }
     igPlanWrite_(fo, plan);

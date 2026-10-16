@@ -29,16 +29,30 @@ const ff = a => execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y'].co
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reel-'));
 const P = n => path.join(dir, n);
 
-console.log('=== ۱) تکه‌ها و حرکت ===');
+console.log('=== ۱) تکه‌ها، حرکت و عبارت‌ها ===');
 {
   const lines = [{ t0: 0.2, t1: 3, text: 'الف', img: 0 }, { t0: 3.2, t1: 6, text: 'ب', img: 0 },
                  { t0: 6.2, t1: 9, text: 'پ', img: 1 }, { t0: 9.2, t1: 12, text: 'ت', img: -1 }];
   const sg = RK.segmentsOf(lines, 12.5);
   ok('۱.۱ جمله‌های پشتِ‌همِ یک تصویر یک تکه‌اند و تکه‌ها کلِ صدا را بی شکاف می‌پوشانند',
      sg.length === 3 && sg[0].t0 === 0 && sg[0].t1 === 6.2 && sg[1].t1 === 9.2 && sg[2].t1 === 12.5 && sg[2].img === -1, JSON.stringify(sg));
-  const fL = RK.motionFilter(1920, 1080, 5, 0), fP = RK.motionFilter(1080, 1920, 5, 0);
-  ok('۱.۲ تصویرِ افقی در قابِ عمودی پیمایش می‌شود (کلِ نقاشی، نه برشِ وسط)؛ عمودی نزدیک می‌شود',
-     /crop=1080:1920:x='\(\d+\)\*t\/5\.000'/.test(fL) && /scale=3414:1920/.test(fL) && /zoompan/.test(fP), fL + ' | ' + fP);
+  const f = [0, 1, 2].map(k => RK.motionFilter(1920, 1080, 5, k));
+  ok('۱.۲ حرکتِ گوناگون (۹.۲۶): نزدیک‌شدن، پیمایشِ کلِ نقاشیِ افقی، دورشدن', /min\(1\+0\.16/.test(f[0]) &&
+     /crop=1080:1920:x='\(\d+\)\*t\/5\.000'/.test(f[1]) && /scale=3414:1920/.test(f[1]) && /max\(1\.16-0\.16/.test(f[2]), f.join(' | '));
+  const ph = RK.phrasesOf([{ t0: 0, t1: 4, text: 'یک دو سه چهار پنج شش هفت' }, { t0: 4, t1: 6, text: 'هشت، نه ده' }]);
+  const ph2 = RK.phrasesOf([{ t0: 0, t1: 4, text: 'یک دو، سه چهار پنج شش هفت هشت' }]);
+  ok('۱.۳ عبارت‌های ۲ تا ۴ واژه‌ای، مرز روی «،» (نه پس از یک واژهٔ تنها)، و هر عبارت تا عبارتِ بعدیِ همان جمله می‌ماند', ph.length === 3 &&
+     ph[0].text === 'یک دو سه چهار' && ph[1].text === 'پنج شش هفت' && ph[2].text === 'هشت، نه ده' && ph[0].b === ph[1].a && ph[2].line === 1 &&
+     ph2[0].text === 'یک دو،' && ph2.every(x => x.text.split(' ').length <= 4),
+     JSON.stringify(ph.map(x => [x.text, +x.a.toFixed(2), +x.b.toFixed(2)])));
+  const wt = [[0, .5], [.5, 1], [1, 1.5], [1.5, 2], [2, 2.5], [2.5, 3], [3, 3.6], [4.1, 4.6], [4.6, 5], [5, 5.9]];
+  ok('۱.۴ زمانِ واژه از هم‌ترازی (faster-whisper) اگر هست', RK.phrasesOf([{ t0: 0, t1: 4, text: 'یک دو سه چهار پنج شش هفت' },
+     { t0: 4, t1: 6, text: 'هشت، نه ده' }], wt)[2].a === 4.1);
+  const hp = [0, 1, 2].map(li => RK.phraseHtml({ text: 'دانستن یعنی باورِ درست', line: li }, ['دانستن']));
+  ok('۱.۵ هر جمله جای و شکلِ خودش را دارد، بی کادر؛ واژهٔ کلیدی برجسته', new Set(hp.map(h => /top:(\d+)px/.exec(h)[1])).size === 3 &&
+     hp.every(h => !/background:rgba\(9,13,22/.test(h)) && /class="k">دانستن/.test(hp[0]) && /class="hl">دانستن/.test(hp[1]));
+  const eh = RK.endHtml({ l1: 'نسخهٔ کاملِ این درس در یوتیوب', l2: 'رد پای حقیقت', handle: '@x' }, { logo: 'data:x' }, '');
+  ok('۱.۶ کارتِ پایانی بی «لینک در کپشن»، نشان بی مربعِ سیاه (screen)', !/لینک در کپشن/.test(eh) && /mix-blend-mode:screen/.test(eh));
 }
 
 console.log('=== ۲) ساختِ واقعی ===');
@@ -48,11 +62,11 @@ console.log('=== ۲) ساختِ واقعی ===');
   ff(['-f', 'lavfi', '-i', 'mandelbrot=s=768x1344', '-frames:v', '1', P('tall.png')]);
   const exe = CK.chromeExe();
   const reel = { hook: 'آیا می‌دانستید معرفت‌شناسی از پرسشِ «از کجا می‌دانم؟» شروع می‌شود؟', kicker: 'معرفت‌شناسی',
-    coverTitle: 'از کجا می‌دانم؟',
+    coverTitle: 'از کجا می‌دانم؟', emph: ['از کجا می‌دانم', 'شناختی'], short: true,
     lines: [{ t0: 0.1, t1: 3.0, text: 'آیا می‌دانستید معرفت‌شناسی از یک پرسش شروع می‌شود؟', img: 0 },
             { t0: 3.2, t1: 6.0, text: 'پرسشی ساده: از کجا می‌دانم که می‌دانم؟', img: 0 },
             { t0: 6.2, t1: 9.0, text: 'و پاسخش راهِ هر شناختی را روشن می‌کند.', img: 1 },
-            { t0: 9.2, t1: 12.0, text: 'نسخهٔ کاملِ این درس را در یوتیوب ببینید.', img: 1 }],
+            { t0: 9.2, t1: 12.0, text: 'نسخهٔ کاملِ این درس در یوتیوب است.', img: 1, cta: true }],
     end: { l1: 'نسخهٔ کاملِ این درس در یوتیوب', l2: 'رد پای حقیقت', handle: '@truth_trace1' } };
   const io = { wav: P('a.wav'), dur: R.wavSeconds(P('a.wav')),
     imgs: [{ file: P('wide.png'), w: 1920, h: 1080 }, { file: P('tall.png'), w: 768, h: 1344 }],
@@ -60,18 +74,24 @@ console.log('=== ۲) ساختِ واقعی ===');
   const r = RK.build(reel, io, P('reel.mp4'));
   const pr = MKIT.probe(FF, r.file) || {};
   ok('۲.۱ ریلز ۱۰۸۰×۱۹۲۰، با صدا، به طولِ صدا', pr.w === 1080 && pr.h === 1920 && pr.audio && Math.abs(pr.dur - 12) < 0.4, JSON.stringify(pr));
-  const fr = t => spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', r.file, '-vf', 'scale=54:96,format=gray',
+  const fr = (t, f) => spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', f || r.file, '-vf', 'scale=54:96,format=gray',
     '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout || Buffer.alloc(0);
   const sd = (x, y) => { let d = 0; for (let i = 0; i < Math.min(x.length, y.length); i++) d += Math.abs(x[i] - y[i]); return d / Math.max(1, x.length); };
-  ok('۲.۲ تصویرِ افقی در طولِ تکه‌اش حرکت می‌کند (قابِ ۰٫۵ و ۵٫۵ یکی نیستند)', sd(fr(0.5), fr(5.5)) > 3, sd(fr(0.5), fr(5.5)).toFixed(1));
+  ok('۲.۲ تصویر در طولِ تکه‌اش حرکت می‌کند (قابِ ۰٫۵ و ۵٫۵ یکی نیستند)', sd(fr(0.5), fr(5.5)) > 3, sd(fr(0.5), fr(5.5)).toFixed(1));
   const band = (b, y0, y1) => { let v = 0, k = 0; for (let y = y0; y < y1; y++) for (let x = 0; x < 54; x++) { v += b[y * 54 + x]; k++; } return v / k; };
-  /* ۲.۳: کارتِ پایانی (۹ تا ۱۲) تمام‌قاب و تیره است؛ پیش از آن تصویرِ روشنِ ماندلبرو/تست. */
   const endF = fr(11.0), midF = fr(7.5);
-  ok('۲.۳ کارتِ پایانی روی جملهٔ آخر: قابِ تیره و مات، متفاوت از تصویرِ پیش از آن', band(endF, 0, 96) < band(midF, 0, 96) && sd(endF, midF) > 8,
+  ok('۲.۳ کارتِ پایانی روی جملهٔ دعوت: قابِ تیره و مات', band(endF, 0, 96) < band(midF, 0, 96) && sd(endF, midF) > 8,
      band(endF, 0, 96).toFixed(0) + ' < ' + band(midF, 0, 96).toFixed(0));
   const cp = MKIT.probe(FF, r.cover) || {};
   ok('۲.۴ کاورِ JPEGِ ۱۰۸۰×۱۹۲۰ کنارِ ویدئو', cp.w === 1080 && cp.h === 1920 && R.sniffKind(r.cover) === 'jpeg', JSON.stringify(cp));
-  ok('۲.۵ جمله‌های میانی زیرنویس گرفتند؛ جملهٔ اول همان قلابِ بالای قاب است (نه دو بار) و جملهٔ آخر زیرِ کارتِ پایانی', r.subs === 2 && r.segs === 2, JSON.stringify(r));
+  ok('۲.۵ جمله‌های میانی عبارت‌به‌عبارت؛ جملهٔ اول قلاب است؛ دو تصویر با یک گذار', r.phrases >= 4 && r.subs >= 3 && r.segs === 2 && r.trans === 1, JSON.stringify(r));
+  const sp = MKIT.probe(FF, r.short) || {};
+  ok('۲.۶ نسخهٔ شورتز: عمودی، تا آغازِ جملهٔ دعوت، بی کارتِ پایانی', sp.w === 1080 && sp.h === 1920 && sp.audio &&
+     Math.abs(sp.dur - 9.45) < 0.35 && band(fr(9.0, r.short), 0, 96) > band(endF, 0, 96) + 5, JSON.stringify(sp));
+  /* نوارِ پیشرفت: ردیف‌های بالای قاب در ثانیهٔ ۹ زردتر از ثانیهٔ ۱ (پهن‌تر شده). */
+  const top = (t) => { const b = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', r.short, '-vf', 'crop=1080:8:0:0,scale=108:1,format=gray',
+    '-frames:v', '1', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 20 }).stdout; let v = 0; for (const x of b) v += x; return v / b.length; };
+  ok('۲.۷ نوارِ پیشرفت بالای قاب پیش می‌رود', top(8.5) > top(1.0) + 20, top(1.0).toFixed(0) + ' ⇒ ' + top(8.5).toFixed(0));
 }
 
 console.log('=== ۳) سیم‌کشیِ رانر ===');
@@ -84,6 +104,22 @@ console.log('=== ۳) سیم‌کشیِ رانر ===');
   ok('۳.۲ پروب ریلز را «کار» می‌شمرد', R.probeWork({ items: [], reels: q.reels }, map, {}, new Date()) === '1');
   const rj = fs.readFileSync('tools/render.js', 'utf8');
   ok('۳.۳ اجرای اصلی ریلزها را می‌سازد و نقشه را می‌نویسد', /rlMade = buildReels\(rlTodo, map, tmp\)/.test(rj) && /if \(made \|\| plMade \|\| bnMade \|\| rlMade\) writeMap\(map\)/.test(rj));
+}
+
+console.log('=== ۴) هم‌ترازیِ واژه‌ها با صدا (tools/reelalign.py، ۹.۲۶) ===');
+{
+  const out = execFileSync('python3', ['-c', `
+import sys, json; sys.path.insert(0, 'tools')
+import reelalign as r
+words = ['دانستن', 'یعنی', 'باورِ', 'درست']
+heard = [(1.0, 1.5, 'دانستن'), (1.6, 1.9, 'یعنی'), (2.0, 2.4, 'باور'), (2.5, 3.2, 'درس')]
+print(json.dumps({'a': r.align(words, heard), 'p': r.proportional(words, 0, 4)}))`], { encoding: 'utf8' });
+  const j = JSON.parse(out.trim());
+  ok('۴.۱ هر واژهٔ متن روی واژهٔ شنیده‌شدهٔ خودش، با whisperِ کج‌نویس هم («درس» برای «درست»)', j.a.length === 4 &&
+     j.a[0][0] === 1.0 && j.a[1][0] > 1.4 && j.a[1][1] < 2.1 && j.a[3][1] === 3.2 && j.a.every((x, i) => !i || x[0] >= j.a[i - 1][0]), JSON.stringify(j.a));
+  ok('۴.۲ پشتیبانِ نسبتِ نویسه کلِ بازه را بی شکاف می‌پوشاند', j.p[0][0] === 0 && j.p[3][1] === 4 && j.p.every((x, i) => !i || x[0] === j.p[i - 1][1]));
+  ok('۴.۳ رانر هم‌ترازی را پیش از ساختن می‌خواهد و نسخهٔ شورتز را بالا می‌برد', /const wordTimes = reelWordTimes\(r, wav, dir\);/.test(fs.readFileSync('tools/render.js', 'utf8')) &&
+     /slug \+ '-short\.mp4'/.test(fs.readFileSync('tools/render.js', 'utf8')));
 }
 
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}

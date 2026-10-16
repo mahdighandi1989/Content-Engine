@@ -1252,6 +1252,20 @@ function reelsTodo(queue, map) {
                      String((have[r.key] || {}).sig || '') !== String(r.sig));
 }
 
+/** زمانِ واژه‌های متنِ ریلز (بی جملهٔ دعوت) — tools/reelalign.py؛ نشد ⇒ null و رندر نسبتِ نویسه می‌گیرد. */
+function reelWordTimes(r, wav, dir) {
+  const body = (r.lines || []).filter(x => x && !x.cta && String(x.text || '').trim());
+  if (!body.length) return { times: null, how: 'بی جمله' };
+  const words = [].concat.apply([], body.map(x => String(x.text).split(/\s+/).filter(Boolean)));
+  const req = path.join(dir, 'align.json');
+  fs.writeFileSync(req, JSON.stringify({ words: words, t0: Number(body[0].t0) || 0, t1: Number(body[body.length - 1].t1) || 0 }));
+  try {
+    const o = execFileSync('python3', [path.join(__dirname, 'reelalign.py'), wav, req], { encoding: 'utf8', maxBuffer: 1 << 24, timeout: 600000 });
+    const j = JSON.parse(String(o).trim().split('\n').pop());
+    return { times: Array.isArray(j.times) && j.times.length === words.length ? j.times : null, how: String(j.how || '') + (j.why ? ' — ' + j.why : '') };
+  } catch (e) { return { times: null, how: 'هم‌ترازی نشد: ' + String(e.message || e).split('\n')[0].slice(0, 120) }; }
+}
+
 function buildReels(todo, map, tmp) {
   if (!todo.length) return 0;
   const RKIT = require('./reelkit.js');
@@ -1280,8 +1294,10 @@ function buildReels(todo, map, tmp) {
       let logo = '';
       try { if (r.mark && r.mark.logoUrl) logo = CK.logoClean(r.mark.logoUrl, dir, ffmpegExe()).data; } catch (eL) { logo = ''; }
       const out = path.join(dir, 'reel.mp4');
+      /* ۹.۲۶: زمانِ هر واژه از خودِ صدا (کلِ متن یک‌جا خوانده می‌شود) — نوشتهٔ عبارت‌به‌عبارت روی همان ثانیه. */
+      const wordTimes = reelWordTimes(r, wav, dir);
       const res = RKIT.build(r, { wav: wav, dur: wavSeconds(wav), imgs: imgs, mark: { logo: logo }, dir: dir, ff: ff,
-        shoot: (html, png, w, h) => SKIT.shoot(exe, html, png, w, h, ff) }, out);
+        wordTimes: wordTimes.times, shoot: (html, png, w, h) => SKIT.shoot(exe, html, png, w, h, ff) }, out);
       const size = fs.statSync(out).size;
       if (size < 20000) throw new Error('MP4ِ ریلز بسیار کوچک درآمد (' + size + ' بایت)');
       if (!rel) rel = ensureRelease();
@@ -1289,8 +1305,11 @@ function buildReels(todo, map, tmp) {
       const url = uploadAsset(rel, out, slug + '.mp4');
       const cover = uploadAsset(rel, res.cover, slug + '-cover.jpg', 'image/jpeg');
       if (!url || !cover) throw new Error('نشانیِ فایلِ آپلودشده برنگشت');
+      const short = res.short && fs.existsSync(res.short) ? uploadAsset(rel, res.short, slug + '-short.mp4') : '';
       map.reels = map.reels || {};
       map.reels[r.key] = { url: url, cover: cover, sig: String(r.sig), seconds: res.seconds, bytes: size,
+                           short: short || '', shortSeconds: res.shortSeconds || 0, align: wordTimes.how,
+                           phrases: res.phrases || 0, trans: res.trans || 0,
                            imgs: imgs.filter(Boolean).length, segs: res.segs, subs: res.subs,
                            at: new Date().toISOString().slice(0, 16).replace('T', ' ') };
       rel = JSON.parse(gh(['https://api.github.com/repos/' + REPO + '/releases/tags/' + TAG]));
