@@ -1406,7 +1406,8 @@ var CFG = {
   IG_BOOK_NAME: 'اینستاگرام — انتشار، آمار، نظرها و پیام‌ها',
   IG_BOOK_FOLDER: 'اینستاگرام',  // زیرپوشهٔ OUTPUT برای دفترِ اینستاگرام (۹.۳۰ — هابِ ۲۹ مگابایتی «timed out» می‌داد)
   IG_APPROVE_FILE: 'docs/ig-approve.json',
-  IG_PER_DAY: 4,                 // سقفِ متا ۱۰۰ در ۲۴ ساعت است؛ این آهنگِ پرکردنِ صفحه است
+  IG_PER_DAY: 6,                 // ۹.۳۲: «باشه ۶ تا بذار» — آهنگِ رسیدن به جای فعلی؛ سقفِ خودِ متا بسیار بالاتر است
+  IG_SHORT_KEEP_UP: 2,           // ۹.۳۲: شورتز فقط از سهمیه‌ای برمی‌دارد که این‌قدر آپلودِ قسمتِ کاملِ امروز هنوز جا داشته باشد
   IG_STORY: true,                // استوریِ کاورِ همان ریلز
   IG_TAB: 'انتشار در اینستاگرام',
   IG_TRY_MAX: 3,                 // پس از این شمار شکست، آن درس کنار می‌رود (در _STATUS دیده می‌شود)
@@ -2133,7 +2134,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.31',
+  CODE_VERSION: '9.32',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3288,6 +3289,7 @@ var PK = {
   IG_TOKEN: 'IG_TOKEN',            // ۹.۱۹: کلیدِ system userِ متا — فقط از درِ منو، هرگز چاپ
   IG_ACCT: 'IG_ACCOUNT_STATE',     // ۹.۱۹: {ig, user, page, pageName, at, fp} — آنچه آزمونِ کلید دید
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
+  IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت

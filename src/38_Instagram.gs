@@ -48,11 +48,23 @@ var IG_JUDGE_SCHEMA = { type: 'object', properties: {
 /* ۹.۲۶: «لازم نیست بگی لینک در کپشن است … همین که نسخهٔ کامل در یوتیوب هست کافیه». */
 var IG_CTA_LINE = 'نسخهٔ کاملِ این درس در یوتیوب است.';
 
+/* `shortQ` در کلیدِ جدای خودش می‌نشیند (۹.۳۲): با روزی ۶ ریلز و ۲–۳ شورتز، صف تا چند ده ردیف بزرگ می‌شود و کنارِ بقیهٔ
+   حالت از سقفِ ۹ کیلوبایتیِ هر Property می‌گذشت — و `igStateSave_`ی که بی‌صدا شکست بخورد یعنی همهٔ پیشرفت گم. */
 function igState_() {
-  try { var s = JSON.parse(props_().getProperty(PK.IG_STATE) || '{}'); return (s && typeof s === 'object') ? s : {}; }
-  catch (e) { return {}; }
+  var s = {};
+  try { s = JSON.parse(props_().getProperty(PK.IG_STATE) || '{}'); if (!s || typeof s !== 'object') s = {}; } catch (e) { s = {}; }
+  try { var q = JSON.parse(props_().getProperty(PK.IG_SHORTQ) || '[]'); s.shortQ = Array.isArray(q) ? q : []; } catch (eQ) { s.shortQ = []; }
+  return s;
 }
-function igStateSave_(s) { try { props_().setProperty(PK.IG_STATE, JSON.stringify(s)); return true; } catch (e) { return false; } }
+function igStateSave_(s) {
+  try {
+    var c = {};
+    Object.keys(s || {}).forEach(function (k) { if (k !== 'shortQ') c[k] = s[k]; });
+    props_().setProperty(PK.IG_SHORTQ, JSON.stringify((s && s.shortQ) || []));
+    props_().setProperty(PK.IG_STATE, JSON.stringify(c));
+    return true;
+  } catch (e) { return false; }
+}
 
 function igAcct_() {
   try { var a = JSON.parse(props_().getProperty(PK.IG_ACCT) || 'null'); return (a && a.ig) ? a : null; } catch (e) { return null; }
@@ -778,6 +790,7 @@ function igShortPub_(it, plan) {
   } catch (eP) {}
   var sm = igShortMeta_(plan, plUrl), title = sm.title, desc = sm.desc;
   var leaks = ytLeaks_(title + '\n' + desc);
+  if (!igShortQuotaOk_()) return { wait: 'سهمیهٔ یوتیوب برای قسمت‌های کاملِ امروز کنار گذاشته شده' };
   if (!ytQuotaTake_(YT_COST.videosInsert, true)) return { wait: 'سهمیهٔ آپلودِ یوتیوب امروز تمام شد' };
   var blob = null;
   try {
@@ -795,6 +808,7 @@ function igShortPub_(it, plan) {
   } catch (eU) { plan.shortWhy = 'آپلودِ شورتز: ' + String(eU.message || eU).slice(0, 160); return { ok: true }; }
   if (!plan.shortId) { plan.shortWhy = 'یوتیوب شناسه برنگرداند'; return { ok: true }; }
   plan.shortUrl = 'https://www.youtube.com/shorts/' + plan.shortId;
+  try { var qS = ytQuota_(); qS.shorts = (Number(qS.shorts) || 0) + 1; ytQuotaSave_(qS); } catch (eQs) {}
   igShortThumb_(plan);
   if (leaks.length) { plan.shortWhy = 'نشتیِ خصوصی در متن — unlisted ماند'; return { ok: true }; }
   try {
@@ -805,6 +819,49 @@ function igShortPub_(it, plan) {
   } catch (eV) { plan.shortWhy = 'عمومی نشد: ' + String(eV.message || eV).slice(0, 120); }
   try { tgSend_('▶️ شورتزِ یوتیوب: ' + plan.shortUrl + (plan.shortPublic ? '' : ' (هنوز unlisted — ' + (plan.shortWhy || '') + ')')); } catch (eT) {}
   return { ok: true };
+}
+
+/**
+ * سهمیهٔ شورتز (۹.۳۲) — «جداش کن». ریلز دیگر پشتِ شورتز نمی‌ایستد (صفِ `st.shortQ`)، و شورتز هم نباید جای قسمتِ
+ * کاملِ همان روز را بگیرد: یک آپلود ۱۶۰۰ واحد است و سقفِ روزانهٔ موتور ۹۰۰۰. پس شورتز فقط وقتی می‌رود که پس از آن، برای
+ * `IG_SHORT_KEEP_UP` آپلودِ کاملِ **هنوز نرفتهٔ** امروز جا بماند. آپلودهای کامل = همهٔ آپلودها منهای شورتزها (`q.shorts`).
+ */
+function igShortQuotaOk_() {
+  var q = ytQuota_();
+  var cap = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
+  var full = Math.max(0, (Number(q.uploads) || 0) - (Number(q.shorts) || 0));
+  var keep = Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
+  var need = YT_COST.videosInsert + YT_COST.videosUpdate + YT_COST.thumbSet;
+  return (Number(q.units) || 0) + need + keep <= cap;
+}
+
+/** شورتزی که منتظرِ سهمیه است به صف — ریلزِ همان درس تمام‌شده حساب می‌شود و جای ریلزِ بعدی را نمی‌گیرد. */
+function igShortEnqueue_(st, it) {
+  st.shortQ = st.shortQ || [];
+  if (st.shortQ.some(function (x) { return x.key === it.key; })) return;
+  st.shortQ.push({ key: it.key, ep: it.ep, folderId: it.folderId });
+}
+
+/**
+ * صفِ شورتز، **به ترتیب**: فقط سرِ صف؛ اگر منتظرِ سهمیه است، بقیه هم منتظر می‌مانند — شورتزِ درسِ ۵ پیش از درسِ ۴ بالا
+ * نمی‌رود. ⇒ شمارِ شورتزهای رفته در این دور.
+ */
+function igShortQueueRun_(st, deadline) {
+  var q = st.shortQ || [], n = 0;
+  while (q.length && Date.now() < deadline - 30000) {
+    var h = q[0], fo = null, plan = null;
+    try { fo = igFolder_(DriveApp.getFolderById(h.folderId)); plan = igPlanRead_(fo); } catch (eF) {}
+    if (!plan) { q.shift(); continue; }
+    if (plan.shortId) { q.shift(); continue; }
+    var r = igShortPub_(h, plan);
+    if (r.wait) { st.shortWhy = r.wait; break; }
+    plan.shortQueued = '';
+    igPlanWrite_(fo, plan);
+    q.shift(); n++;
+  }
+  st.shortQ = q;
+  if (!q.length) st.shortWhy = '';
+  return n;
 }
 
 /**
@@ -860,7 +917,7 @@ function igLog_(it, plan) {
                     ['زمان', 'قسمت', 'مجموعه', 'درس', 'قلاب', 'ریلز', 'استوری', 'یوتیوب', 'تصویرها', 'ثانیه', 'شورتزِ یوتیوب', 'ایده']);
   sh.appendRow([nowStr_(), it.ep, plan.series, igLessonLabel_(plan), plan.plan.hook, plan.permalink || plan.reelId || '',
                 plan.storyId ? 'منتشر شد' : (plan.storyWhy || ''), plan.yt, plan.imgHow || '', plan.seconds || '',
-                plan.shortUrl ? plan.shortUrl + (plan.shortPublic ? '' : ' (unlisted)') : (plan.shortWhy || ''), plan.plan.idea || '']);
+                plan.shortUrl ? plan.shortUrl + (plan.shortPublic ? '' : ' (unlisted)') : (plan.shortWhy || (plan.shortQueued ? 'در صفِ شورتز' : '')), plan.plan.idea || '']);
 }
 
 /* ───── گردانندهٔ اجرای جدا ───── */
@@ -919,6 +976,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
+    if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
     return null;
@@ -959,7 +1017,10 @@ function igStep_(it, st, deadline) {
       r = igStepPub_(it, plan, st, deadline);
     }
     else if (plan.phase === 'yts') {
-      r = igShortPub_(it, plan);
+      /* ۹.۳۲: شورتزِ منتظرِ سهمیه ریلز را نگه نمی‌دارد — به صف می‌رود و ریلز تمام می‌شود. و اگر صف پُر است، این هم
+         پشتِ آن می‌ایستد، وگرنه شورتزِ درسِ بعد پیش از درسِ قبل بالا می‌رفت. */
+      r = (st.shortQ || []).length ? { wait: 'صف' } : igShortPub_(it, plan);
+      if (r.wait) { plan.shortQueued = nowStr_(); igShortEnqueue_(st, it); r = { ok: true }; }
       if (r.ok) { plan.phase = 'done'; plan.doneAt = nowStr_(); try { igLog_(it, plan); } catch (eL) {} }
     }
     else if (plan.phase === 'done') return { done: true };
@@ -996,6 +1057,7 @@ function igStatus_() {
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
               lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null,
               gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(),
+              shortQ: (st.shortQ || []).map(function (x) { return x.ep; }), shortWhy: st.shortWhy || '',
               order: igOrderDec_((st.order && st.order.s) || []).map(function (S) {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
                 return { series: S.name, done: n, total: S.eps.length };
@@ -1005,6 +1067,7 @@ function igStatus_() {
       (fl.length ? fl.map(function (x) { return x.key.split(':').pop() + ' (' + x.phase + (x.why ? ' — ' + x.why : '') + ')'; }).join('، ') : 'هیچ') +
       (out.lastWhy ? '. آخرین ایراد: ' + out.lastWhy : '') +
       igInsLine_(st.ins) +
+      ((st.shortQ || []).length ? '. شورتزِ در صف: ' + st.shortQ.length + ' (به ترتیب؛ ' + (st.shortWhy || 'دورِ بعد') + ')' : '') +
       ((st.gaps || []).length ? '. ⚠️ ترتیب: ' + st.gaps.join(' · ') : '') +
       (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
       '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';

@@ -1,17 +1,15 @@
 {
-  "version": "9.31",
+  "version": "9.32",
   "codeFile": "engine.gs",
-  "sha256": "a1f519ab34ac9a5e7aaa51a3712a8b874ab02c075505a7dfb33600b9b4b9ff1a",
-  "releasedAt": "2026-10-17T00:30:00+04:00",
-  "summary": "شورتزِ یوتیوب کاورِ خودِ ریلز را می‌گیرد (و شورتزهای قبلی یک‌بار جبران می‌شوند)؛ موتور podcastStatus را از خودِ یوتیوب می‌خوانَد — پلی‌لیست‌هایی که صاحبِ برنامه دستی پادکست کرد دیگر «پادکست‌نشده/بی‌کاور» نیستند و کاورِ دستی‌شان جایگزین نمی‌شود؛ تغییرِ نامِ مجموعه پادکست را خاموش نمی‌کند.",
+  "sha256": "3be793e567ea6b83eff2cc36312c52069111980875ab6d68f2a15d19039ff59f",
+  "releasedAt": "2026-10-17T01:00:00+04:00",
+  "summary": "ریلزِ اینستاگرام روزی ۶ و جدا از شورتز: شورتزِ منتظرِ سهمیه به صفِ جدا و به‌ترتیب می‌رود و ریلز را نگه نمی‌دارد؛ شورتز فقط از سهمیه‌ای برمی‌دارد که دو آپلودِ قسمتِ کاملِ امروز جا داشته باشند.",
   "fixes": [
-    "src/38_Instagram.gs: igShortThumb_ / igShortThumbRetro_ — کاورِ شورتز با thumbnails.set، سقفِ ۲ مگ، جبرانِ یک‌باره",
-    "src/27_YouTube.gs: ytPlDress_ — خواندنِ زندهٔ podcastStatus (۱ واحد) پیش از تلاشِ کاور/پادکست؛ coverManual",
-    "src/27_YouTube.gs: ytPlEnsure_ — update با status، podcastStatus روشن را نگه می‌دارد"
+    "src/38_Instagram.gs: igShortQuotaOk_ / igShortEnqueue_ / igShortQueueRun_ — صفِ به‌ترتیبِ شورتز و ذخیرهٔ سهمیهٔ قسمت‌های کامل؛ igState_/igStateSave_ صف را در کلیدِ جدا",
+    "src/00_Config.gs: IG_PER_DAY 6، IG_SHORT_KEEP_UP 2، PK.IG_SHORTQ"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261016-18": "۹.۳۱",
-    "R-20261016-19": "۹.۳۱"
+    "R-20261016-20": "۹.۳۲"
   }
 }

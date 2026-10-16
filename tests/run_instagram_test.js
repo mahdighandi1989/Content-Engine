@@ -601,4 +601,50 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   ok('۹.۹ توضیحِ کانال آنچه هست را می‌گوید (≤۹۹۰)', cd.length <= 990 && /مصباح: ۱۲ درس/.test(cd) && /آئودی: ۴۸ درس و ۳ مرور/.test(cd) && /۷۴ قسمت/.test(cd), cd.replace(/\n/g, ' ¶ '));
 }
 
+console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای شورتز و سهمیهٔ قسمت‌های کامل (۹.۳۲) ===');
+{
+  ok('۱۰.۰ روزی ۶ ریلز', CFG.IG_PER_DAY === 6);
+  const kq = props_().getProperty(PK.YT_QUOTA);
+  const setQ = (u, up, sh) => props_().setProperty(PK.YT_QUOTA, JSON.stringify({ day: Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd'), units: u, uploads: up, shorts: sh, blocked: '' }));
+  setQ(3564, 1, 0); const a1 = igShortQuotaOk_();
+  setQ(6000, 1, 0); const a2 = igShortQuotaOk_();
+  setQ(7200, 2, 0); const a3 = igShortQuotaOk_();
+  setQ(7200, 2, 1); const a4 = igShortQuotaOk_();
+  ok('۱۰.۱ شورتز جای قسمتِ کاملِ امروز را نمی‌گیرد: ۱ کامل رفته و ۶۰۰۰ مصرف ⇒ نه؛ هر دو کامل رفته ⇒ بله؛ شورتز کامل شمرده نمی‌شود',
+     a1 && !a2 && a3 && !a4, JSON.stringify([a1, a2, a3, a4]));
+  /* yts منتظرِ سهمیه ⇒ ریلز «انجام»، شورتز به صف؛ درسِ بعد پشتِ صف و بی تلاشِ آپلود. */
+  const ser = global.__ROOT_FOLDER.createFolder('مجموعهٔ صف');
+  const mk = (n) => { const ef = ser.createFolder('قسمت ' + n); const f = igFolder_(ef);
+    igPlanWrite_(f, Object.assign(JSON.parse(JSON.stringify(plan)), { v: 4, phase: 'yts', reelId: 'R' + n, shortId: '', short: 'https://x/s' + n + '.mp4' }));
+    return { f, it: { key: 'ig:special:' + n, ep: n, folderId: ef.getId(), phase: 'yts' } }; };
+  const A = mk(11), B = mk(12);
+  const keep = { sp: global.igShortPub_, lg: global.igLog_ };
+  let tries = [], quotaOk = false;
+  global.igShortPub_ = (x, pl) => { tries.push(x.ep); if (!quotaOk) return { wait: 'سهمیه' }; pl.shortId = 'S' + x.ep; return { ok: true }; };
+  global.igLog_ = () => {};
+  const st = { shortQ: [] };
+  const rA = igStep_(A.it, st, Date.now() + 60000);
+  const rB = igStep_(B.it, st, Date.now() + 60000);
+  ok('۱۰.۲ شورتزِ منتظرِ سهمیه ریلز را نگه نمی‌دارد: هر دو «انجام»، صف ۱۱ سپس ۱۲، و درسِ ۱۲ بی تلاشِ آپلود پشتِ صف',
+     rA.done && rB.done && st.shortQ.map(x => x.ep).join(',') === '11,12' && tries.join(',') === '11' &&
+     igPlanRead_(A.f).phase === 'done' && !!igPlanRead_(B.f).shortQueued, JSON.stringify({ q: st.shortQ, tries }));
+  tries = [];
+  igShortQueueRun_(st, Date.now() + 60000);
+  ok('۱۰.۳ صف با سهمیهٔ بسته فقط سرش را می‌پرسد و می‌ایستد', tries.join(',') === '11' && st.shortQ.length === 2 && /سهمیه/.test(st.shortWhy));
+  quotaOk = true; tries = [];
+  const n = igShortQueueRun_(st, Date.now() + 60000);
+  ok('۱۰.۴ سهمیه که باز شد، به ترتیب: ۱۱ بعد ۱۲؛ شناسه در _ig.json هر درس، صف خالی', n === 2 && tries.join(',') === '11,12' &&
+     st.shortQ.length === 0 && igPlanRead_(A.f).shortId === 'S11' && igPlanRead_(B.f).shortId === 'S12' && !st.shortWhy);
+  Object.assign(global, { igShortPub_: keep.sp, igLog_: keep.lg });
+  /* صف در کلیدِ جدا: IG_STATE سقفِ ۹ کیلوبایت دارد. */
+  const big = { done: '1', shortQ: Array.from({ length: 60 }, (_, i) => ({ key: 'ig:special:' + i, ep: i, folderId: 'F'.repeat(33) })) };
+  igStateSave_(big);
+  const raw = JSON.parse(global.__PROPS[PK.IG_STATE]);
+  ok('۱۰.۵ صفِ شورتز در کلیدِ جدای خودش، نه در IG_STATE؛ و برمی‌گردد', !('shortQ' in raw) && igState_().shortQ.length === 60 && igState_().done === '1');
+  igStateSave_({});
+  setQ(100, 0, 0);
+  ok('۱۰.۶ igTick صف را می‌دواند و خطِ روزانه آن را می‌گوید', /igShortQueueRun_\(st, deadline\)/.test(String(igTick)) && /شورتزِ در صف/.test(String(igStatus_)));
+  if (kq == null) props_().deleteProperty(PK.YT_QUOTA); else props_().setProperty(PK.YT_QUOTA, kq);
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

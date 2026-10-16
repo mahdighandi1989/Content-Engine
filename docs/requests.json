@@ -408,6 +408,14 @@
       "done": "`_STATUS.json` ⇒ `youtube.playlistList` هر سه پلی‌لیست podcast:true و cover:true، و `health.chronic` دیگر «پلی‌لیست هنوز پادکست نشده‌اند» ندارد",
       "how": "`_STATUS.json` پس از نخستین دورِ پلی‌لیست‌ها با 9.31",
       "ver": "9.31"
+    },
+    {
+      "id": "R-20261016-20",
+      "at": "2026-10-16",
+      "ask": "روزی ۶ تا ریلز بذار و شورتز رو ازش جدا کن که زود برسیم به جایی که هستیم",
+      "done": "`_STATUS.instagram.today` در روزهای پیاپی به ۶ می‌رسد تا وقتی درسِ منتشرنشده‌ای مانده، `instagram.shortQ` به ترتیبِ درس است، و هیچ روزی قسمتِ کاملی به‌خاطرِ شورتز «سهمیه» نخورده",
+      "how": "`_STATUS.json` ⇒ instagram (today, shortQ, order) و youtube.quota",
+      "ver": "9.32"
     }
   ]
 }
