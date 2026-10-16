@@ -1,16 +1,15 @@
 {
-  "version": "9.18",
+  "version": "9.19",
   "codeFile": "engine.gs",
-  "sha256": "8cc8455535133d7f877c75f23321310e2c50a7eeae200278ce16ffdd1f417716",
-  "releasedAt": "2026-10-16T11:45:00+04:00",
-  "summary": "پیش‌نمایشِ آغازِ ویدئوی «از همه جا» در کلِ مقدمه پیوسته است — هر صحنهٔ کلاژ کلیپ‌ها را از جایی که صحنهٔ قبل ایستاد ادامه می‌دهد (کوتاه‌ها کندتر، نه از اول) — و همهٔ کلیپ‌های قسمت کاشی می‌گیرند. نمونهٔ ۶ِ قسمتِ ۷۳ با همان نقشه.",
+  "sha256": "980e28610ab2f67f79b350b3ca5aa3453ca154a8d369d0647d7199aa483fc2ee",
+  "releasedAt": "2026-10-16T12:50:00+04:00",
+  "summary": "کلیدِ اینستاگرام (system userِ متا) از منوی «۴) کلیدِ اینستاگرام (متا)» ذخیره و همان لحظه بی‌انتشار آزموده می‌شود — صفحه و حسابِ دیده‌شده ثبت می‌شوند؛ کلید فقط در سرآیند، هرگز چاپ. شاملِ ۹.۱۸.",
   "fixes": [
-    "tools/mediakit.js teaserPlan + collage(speed)؛ tools/render.js: from + elapsed·speed، استخرِ کاشی از همهٔ کلیپ‌ها تا collageMax ۵؛ run_media_render_test ۱.۲۵–۱.۳۰.",
-    "VM_SAMPLE rev 6, replan:false."
+    "setInstagramToken / igTokenSet_ / igCheck_ (PK.IG_TOKEN، PK.IG_ACCT، CFG.IG_GRAPH)؛ selfupdate §۲۰."
   ],
   "sourceReportIds": [],
   "promptImpact": [],
   "answers": {
-    "R-20261016-07": "۹.۱۸"
+    "R-20261016-08": "۹.۱۹ (گام ۱)"
   }
 }

@@ -907,4 +907,43 @@ console.log('\n=== ۱۹. اعرابِ کم و آوانگاری ===');
   ok('۱۹.۱۵ هِ دوچشمِ عربی پیوند را نمی‌شکند و حرفِ اصل نوشته می‌شود', gr !== gv && stripTashkil_(gr) === gp && /قِسمَت‌هایِ/.test(gr), gr);
 }
 
+// ═════ ۲۰. کلیدِ اینستاگرام از درِ منو، با آزمونِ بی‌انتشار (۹.۱۹) ═════
+console.log('\n=== ۲۰. کلیدِ اینستاگرام ===');
+{
+  /* «چون تعداد متغیرها زیاد شده دیگه دستی نمیتونم اضافه کنم» — همان درِ منوِ توکنِ گیت‌هاب، برای متا. */
+  const TOKI = 'EAAG' + 'x'.repeat(120);
+  const keep = { uf: global.UrlFetchApp, ui: global.ui_ };
+  let calls = [], reply = { code: 200, body: JSON.stringify({ data: [{ id: '1356', name: 'Truth Trace',
+    instagram_business_account: { id: '1784', username: 'truth.traces' } }] }) };
+  global.UrlFetchApp = { fetch: (u, o) => { calls.push({ u: String(u), o: o || {} });
+    return { getResponseCode: () => reply.code, getContentText: () => reply.body }; } };
+  delete global.__PROPS[PK.IG_TOKEN]; delete global.__PROPS[PK.IG_ACCT];
+  const un = quiet(); const r1 = igTokenSet_('  ' + TOKI + ' '); un();
+  const st = JSON.parse(global.__PROPS[PK.IG_ACCT] || '{}');
+  ok('۲۰.۱ کلید ذخیره و همان لحظه آزموده می‌شود؛ حساب و صفحه ثبت می‌شوند؛ چیزی منتشر نمی‌شود', r1.ok && r1.saved &&
+     global.__PROPS[PK.IG_TOKEN] === TOKI && st.ig === '1784' && st.user === 'truth.traces' && st.page === '1356' &&
+     calls.length === 1 && /\/me\/accounts/.test(calls[0].u) && String((calls[0].o.method) || 'get') === 'get', JSON.stringify(r1));
+  ok('۲۰.۲ کلید در سرآیند می‌رود، نه در نشانی؛ و در پیامِ برگشتی و سیاهه نیست', calls[0].o.headers.Authorization === 'Bearer ' + TOKI &&
+     calls[0].u.indexOf(TOKI) === -1 && JSON.stringify(r1).indexOf(TOKI) === -1);
+  reply = { code: 200, body: JSON.stringify({ data: [{ id: '1356', name: 'Truth Trace', instagram_business_account: {} }] }) };
+  const un2 = quiet(); const r2 = igTokenSet_(TOKI); un2();
+  ok('۲۰.۳ صفحه بی اینستاگرامِ وصل ⇒ ذخیره ولی «ناتمام» با راهِ درست‌کردنش', r2.saved && !r2.ok && /Connected assets/.test(r2.why), r2.why);
+  reply = { code: 400, body: JSON.stringify({ error: { code: 190, message: 'Invalid OAuth access token' } }) };
+  const un3 = quiet(); const r3 = igTokenSet_(TOKI); un3();
+  ok('۲۰.۴ کلیدِ ردشده ⇒ دلیلِ خواندنی', !r3.ok && /نپذیرفت/.test(r3.why), r3.why);
+  const n0 = calls.length;
+  const r4 = igTokenSet_('Truth Trace token'), r5 = igTokenSet_('abc123');
+  ok('۲۰.۵ متنِ ناقص یا چیزِ دیگر ذخیره نمی‌شود و به متا هم نمی‌رود', !r4.saved && !r5.saved && calls.length === n0, r4.why + ' | ' + r5.why);
+  let alerted = '';
+  global.ui_ = () => ({ prompt: () => ({ getSelectedButton: () => 'OK', getResponseText: () => 'حذف' }),
+    alert: (m) => { alerted = String(m); }, ButtonSet: { OK_CANCEL: 1 }, Button: { OK: 'OK' } });
+  const r6 = setInstagramToken();
+  ok('۲۰.۶ درِ منو: پنجره ⇒ igTokenSet_ ⇒ پیامِ خواندنی؛ «حذف» کلید و حساب را برمی‌دارد',
+     r6.cleared && !global.__PROPS[PK.IG_TOKEN] && !global.__PROPS[PK.IG_ACCT] && /برداشته شد/.test(alerted), alerted);
+  const setupSrc = require('fs').readFileSync('src/05_Setup.gs', 'utf8');
+  ok('۲۰.۷ گزینهٔ منو هست و تابعِ موجود را صدا می‌زند', /addItem\('۴\) کلیدِ اینستاگرام \(متا\)', 'setInstagramToken'\)/.test(setupSrc) &&
+     typeof global.setInstagramToken === 'function');
+  global.UrlFetchApp = keep.uf; global.ui_ = keep.ui;
+}
+
 process.exit(summary('نصبِ خودکارِ کد') ? 1 : 0);

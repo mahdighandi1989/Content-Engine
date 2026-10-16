@@ -2394,6 +2394,85 @@ function ghTokenSet_(raw) {
   return out;
 }
 
+/* ══ کلیدِ اینستاگرام (۹.۱۹) ══
+   «چون تعداد متغیرها در اسکریپت زیاد شده دیگه دستی نمیتونم اضافه کنم» — صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰
+   ویژگی فقط‌خواندنی است (۸.۵۹)، پس کلیدِ متا هم از همان درِ منو می‌نشیند که توکنِ گیت‌هاب. و ذخیره «انجام شد» نیست:
+   کلید همان لحظه با Graph API آزموده می‌شود — صفحه‌هایی که می‌بیند و حسابِ اینستاگرامِ وصل به آن — بی هیچ انتشاری.
+   خودِ کلید هیچ‌جا نوشته یا چاپ نمی‌شود: نه در سیاهه، نه در پنجره؛ فقط اثرِ انگشتِ هشت‌حرفی. و در سرآیندِ
+   Authorization می‌رود، نه در نشانی — نشانی در سیاهه‌ها و خطاها می‌ماند. */
+function igToken_() {
+  try { return String(props_().getProperty(PK.IG_TOKEN) || '').trim(); } catch (e) { return ''; }
+}
+
+/** با کلید از Graph می‌پرسد: کدام صفحه‌ها و کدام حسابِ اینستاگرامِ وصل ⇒ {ok, ig, user, page, pageName, code, why}. */
+function igCheck_(tok) {
+  var url = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0') +
+            '/me/accounts?fields=id,name,instagram_business_account%7Bid,username%7D&limit=25';
+  var res;
+  try {
+    res = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true,
+                                   headers: { Authorization: 'Bearer ' + tok } });
+  } catch (e) { return { ok: false, code: -1, why: 'به متا نرسید: ' + String((e && e.message) || e).slice(0, 120) }; }
+  var code = res.getResponseCode(), j = {};
+  try { j = JSON.parse(res.getContentText() || '{}'); } catch (eJ) { j = {}; }
+  if (code !== 200) {
+    var m = String((j.error && j.error.message) || '').replace(/\s+/g, ' ').slice(0, 160);
+    if (code === 401 || (j.error && j.error.code === 190)) return { ok: false, code: code, why: 'متا کلید را نپذیرفت — منقضی یا ناقص کپی شده. (' + m + ')' };
+    return { ok: false, code: code, why: 'پاسخِ ' + code + ' از متا' + (m ? ': ' + m : '') };
+  }
+  var pages = (j.data instanceof Array) ? j.data : [];
+  if (!pages.length) return { ok: false, code: 200, why: 'کلید درست است ولی هیچ صفحهٔ فیسبوکی نمی‌بیند — در System users ← engine-bot ← Assign assets صفحه را با Full control بدهید و کلید را از نو بسازید.' };
+  for (var i = 0; i < pages.length; i++) {
+    var a = pages[i] && pages[i].instagram_business_account;
+    if (a && a.id) return { ok: true, code: 200, ig: String(a.id), user: String(a.username || ''),
+                            page: String(pages[i].id || ''), pageName: String(pages[i].name || '') };
+  }
+  return { ok: false, code: 200, why: 'صفحهٔ «' + String(pages[0].name || '') + '» دیده شد ولی حسابِ اینستاگرامی به آن وصل نیست — در Pages ← Connected assets وصلش کنید.' };
+}
+
+/** چسباندن ⇒ ذخیره ⇒ آزمونِ بی‌انتشار. آزمودنی، جدا از پنجره. */
+function igTokenSet_(raw) {
+  var s = String(raw == null ? '' : raw).replace(/^[\s"'«»`]+|[\s"'«»`]+$/g, '');
+  if (!s) return { ok: false, saved: false, why: 'چیزی چسبانده نشد.' };
+  if (/^(حذف|پاک|delete|clear)$/i.test(s)) {
+    try { props_().deleteProperty(PK.IG_TOKEN); props_().deleteProperty(PK.IG_ACCT); } catch (eD) {}
+    return { ok: true, saved: false, cleared: true, why: 'کلیدِ اینستاگرام برداشته شد.' };
+  }
+  if (/\s/.test(s)) return { ok: false, saved: false,
+    why: 'متن فاصله یا خطِ تازه دارد — احتمالاً چیزِ دیگری هم با کلید کپی شده. فقط خودِ کلید را بچسبانید.' };
+  if (!/^EA[A-Za-z0-9]{40,}$/.test(s)) return { ok: false, saved: false,
+    why: 'این شکلِ کلیدِ متا نیست: کلید با EA شروع می‌شود و صدها نویسه دارد. دکمهٔ Copyِ کنارِ همان کلیدی را بزنید که Generate token ساخت.' };
+  props_().setProperty(PK.IG_TOKEN, s);
+  var fp = ghTokenFp_(s);
+  var r = igCheck_(s);
+  var out = { ok: !!r.ok, saved: true, fp: fp, code: r.code, why: String(r.why || '') };
+  if (r.ok) {
+    try { props_().setProperty(PK.IG_ACCT, JSON.stringify({ ig: r.ig, user: r.user, page: r.page, pageName: r.pageName,
+                                                            at: nowStr_(), fp: fp })); } catch (eS) {}
+    out.ig = r.ig; out.user = r.user;
+    out.why = 'متا پذیرفت: صفحهٔ «' + r.pageName + '» و اینستاگرامِ @' + r.user + ' دیده شد. چیزی منتشر نشد.';
+  }
+  try { logLine_('کلیدِ اینستاگرام گذاشته شد (اثرِ انگشت ' + fp + '): ' + (r.ok ? '@' + r.user : out.why)); } catch (eL) {}
+  return out;
+}
+
+/** درِ منو برای کلیدِ اینستاگرام. */
+function setInstagramToken() {
+  var ui = ui_();
+  if (!ui) throw new Error('این گزینه را از داخل شیت CONTENT-HUB اجرا کنید.');
+  var cur = igToken_();
+  var r = ui.prompt('کلیدِ اینستاگرام (متا)',
+    'کلیدی را که در System users ← engine-bot ← Generate token ساختید (با EA شروع می‌شود) این‌جا بچسبانید.\n' +
+    'جای دیگری نچسبانید — نه ایمیل، نه تلگرام، نه شیت.\n' +
+    (cur ? 'کلیدی از قبل هست (اثرِ انگشت ' + ghTokenFp_(cur) + ')؛ چسباندنِ تازه جایش را می‌گیرد. برای برداشتنش بنویسید «حذف».' : ''),
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return null;
+  var out = igTokenSet_(r.getResponseText());
+  var head = out.cleared ? '🗑 ' : out.ok ? '✅ ذخیره شد. ' : out.saved ? '⚠️ ذخیره شد، ولی: ' : '❌ ذخیره نشد: ';
+  ui.alert(head + out.why + (out.fp ? '\n(اثرِ انگشتِ کلید: ' + out.fp + ')' : ''));
+  return out;
+}
+
 /** درِ منو. پنجره‌ای مثلِ «ثبت کلید Gemini»؛ کار در `ghTokenSet_` است تا آزمودنی باشد. */
 function setGitHubToken() {
   var ui = ui_();

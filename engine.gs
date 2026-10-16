@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.18
+ *  موتور محتوا و پادکست — نسخهٔ 9.19
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1393,6 +1393,7 @@ var CFG = {
      Properties (`PK.GH_TOKEN`)؛ بی آن، رفتارِ دیروز و هیچ فراخوانی. */
   GH_KICK_ON: true,
   GH_RENDER_WF: 'render.yml',
+  IG_GRAPH: 'https://graph.facebook.com/v23.0',   // ۹.۱۹: Graph API برای اینستاگرام (کلیدِ system user، دسترسیِ instagram_content_publish)
   GH_KICK_GAP_MIN: 10,         // دو راه‌اندازیِ پشتِ‌هم کمتر از این فاصله نه
   GH_KICK_RETRY_MIN: 50,       // درِ ساعتی: کارِ منتظر، دوباره پس از این‌قدر
   GH_KICK_MAX_DAY: 40,         // سقفِ روزانهٔ تلاش برای هر گردش‌کار
@@ -2101,7 +2102,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.18',
+  CODE_VERSION: '9.19',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3252,6 +3253,8 @@ var PK = {
   /* توکنِ راه‌اندازِ گردش‌کارهای گیت‌هاب — صاحبِ برنامه خودش در Project Settings ⇒
      Script Properties می‌گذارد. هرگز در کد، سیاهه یا _STATUS.json (۸.۵۸). */
   GH_TOKEN: 'GITHUB_DISPATCH_TOKEN',
+  IG_TOKEN: 'IG_TOKEN',            // ۹.۱۹: کلیدِ system userِ متا — فقط از درِ منو، هرگز چاپ
+  IG_ACCT: 'IG_ACCOUNT_STATE',     // ۹.۱۹: {ig, user, page, pageName, at, fp} — آنچه آزمونِ کلید دید
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت
   YT_PL_SQ: 'YT_PL_SQ_REQ',        // کاورهای مربعِ پلی‌لیست که از رانر خواسته شده‌اند (۸.۵۵)
@@ -3351,8 +3354,8 @@ var PK = {
  * drift ساختاراً ممکن نیست. `run_wiring_test.js` هم دوباره می‌شمارد و اگر
  * نخوانَد سرخ می‌شود.
  */
-var BUILD_MENU_ = { total: 62, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -14868,6 +14871,7 @@ function onOpen() {
       /* ۸.۵۹: صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰ ویژگی فقط‌خواندنی است، پس
          توکن جز از این در جایی برای نشستن ندارد. */
       .addItem('۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو', 'setGitHubToken')
+      .addItem('۴) کلیدِ اینستاگرام (متا)', 'setInstagramToken')
       .addSeparator()
       .addItem('اجرای همگام‌سازی همین حالا', 'runSyncNow')
       .addSubMenu(SpreadsheetApp.getUi().createMenu('ساخت یک قسمت همین حالا')
@@ -37656,6 +37660,85 @@ function ghTokenSet_(raw) {
   }
   try { logLine_('توکنِ راه‌اندازِ رندر گذاشته شد (اثرِ انگشت ' + fp + '): ' +
                  (r.ok ? 'گیت‌هاب پذیرفت' : 'آزمون: ' + out.why)); } catch (eL) {}
+  return out;
+}
+
+/* ══ کلیدِ اینستاگرام (۹.۱۹) ══
+   «چون تعداد متغیرها در اسکریپت زیاد شده دیگه دستی نمیتونم اضافه کنم» — صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰
+   ویژگی فقط‌خواندنی است (۸.۵۹)، پس کلیدِ متا هم از همان درِ منو می‌نشیند که توکنِ گیت‌هاب. و ذخیره «انجام شد» نیست:
+   کلید همان لحظه با Graph API آزموده می‌شود — صفحه‌هایی که می‌بیند و حسابِ اینستاگرامِ وصل به آن — بی هیچ انتشاری.
+   خودِ کلید هیچ‌جا نوشته یا چاپ نمی‌شود: نه در سیاهه، نه در پنجره؛ فقط اثرِ انگشتِ هشت‌حرفی. و در سرآیندِ
+   Authorization می‌رود، نه در نشانی — نشانی در سیاهه‌ها و خطاها می‌ماند. */
+function igToken_() {
+  try { return String(props_().getProperty(PK.IG_TOKEN) || '').trim(); } catch (e) { return ''; }
+}
+
+/** با کلید از Graph می‌پرسد: کدام صفحه‌ها و کدام حسابِ اینستاگرامِ وصل ⇒ {ok, ig, user, page, pageName, code, why}. */
+function igCheck_(tok) {
+  var url = String(CFG.IG_GRAPH || 'https://graph.facebook.com/v23.0') +
+            '/me/accounts?fields=id,name,instagram_business_account%7Bid,username%7D&limit=25';
+  var res;
+  try {
+    res = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true,
+                                   headers: { Authorization: 'Bearer ' + tok } });
+  } catch (e) { return { ok: false, code: -1, why: 'به متا نرسید: ' + String((e && e.message) || e).slice(0, 120) }; }
+  var code = res.getResponseCode(), j = {};
+  try { j = JSON.parse(res.getContentText() || '{}'); } catch (eJ) { j = {}; }
+  if (code !== 200) {
+    var m = String((j.error && j.error.message) || '').replace(/\s+/g, ' ').slice(0, 160);
+    if (code === 401 || (j.error && j.error.code === 190)) return { ok: false, code: code, why: 'متا کلید را نپذیرفت — منقضی یا ناقص کپی شده. (' + m + ')' };
+    return { ok: false, code: code, why: 'پاسخِ ' + code + ' از متا' + (m ? ': ' + m : '') };
+  }
+  var pages = (j.data instanceof Array) ? j.data : [];
+  if (!pages.length) return { ok: false, code: 200, why: 'کلید درست است ولی هیچ صفحهٔ فیسبوکی نمی‌بیند — در System users ← engine-bot ← Assign assets صفحه را با Full control بدهید و کلید را از نو بسازید.' };
+  for (var i = 0; i < pages.length; i++) {
+    var a = pages[i] && pages[i].instagram_business_account;
+    if (a && a.id) return { ok: true, code: 200, ig: String(a.id), user: String(a.username || ''),
+                            page: String(pages[i].id || ''), pageName: String(pages[i].name || '') };
+  }
+  return { ok: false, code: 200, why: 'صفحهٔ «' + String(pages[0].name || '') + '» دیده شد ولی حسابِ اینستاگرامی به آن وصل نیست — در Pages ← Connected assets وصلش کنید.' };
+}
+
+/** چسباندن ⇒ ذخیره ⇒ آزمونِ بی‌انتشار. آزمودنی، جدا از پنجره. */
+function igTokenSet_(raw) {
+  var s = String(raw == null ? '' : raw).replace(/^[\s"'«»`]+|[\s"'«»`]+$/g, '');
+  if (!s) return { ok: false, saved: false, why: 'چیزی چسبانده نشد.' };
+  if (/^(حذف|پاک|delete|clear)$/i.test(s)) {
+    try { props_().deleteProperty(PK.IG_TOKEN); props_().deleteProperty(PK.IG_ACCT); } catch (eD) {}
+    return { ok: true, saved: false, cleared: true, why: 'کلیدِ اینستاگرام برداشته شد.' };
+  }
+  if (/\s/.test(s)) return { ok: false, saved: false,
+    why: 'متن فاصله یا خطِ تازه دارد — احتمالاً چیزِ دیگری هم با کلید کپی شده. فقط خودِ کلید را بچسبانید.' };
+  if (!/^EA[A-Za-z0-9]{40,}$/.test(s)) return { ok: false, saved: false,
+    why: 'این شکلِ کلیدِ متا نیست: کلید با EA شروع می‌شود و صدها نویسه دارد. دکمهٔ Copyِ کنارِ همان کلیدی را بزنید که Generate token ساخت.' };
+  props_().setProperty(PK.IG_TOKEN, s);
+  var fp = ghTokenFp_(s);
+  var r = igCheck_(s);
+  var out = { ok: !!r.ok, saved: true, fp: fp, code: r.code, why: String(r.why || '') };
+  if (r.ok) {
+    try { props_().setProperty(PK.IG_ACCT, JSON.stringify({ ig: r.ig, user: r.user, page: r.page, pageName: r.pageName,
+                                                            at: nowStr_(), fp: fp })); } catch (eS) {}
+    out.ig = r.ig; out.user = r.user;
+    out.why = 'متا پذیرفت: صفحهٔ «' + r.pageName + '» و اینستاگرامِ @' + r.user + ' دیده شد. چیزی منتشر نشد.';
+  }
+  try { logLine_('کلیدِ اینستاگرام گذاشته شد (اثرِ انگشت ' + fp + '): ' + (r.ok ? '@' + r.user : out.why)); } catch (eL) {}
+  return out;
+}
+
+/** درِ منو برای کلیدِ اینستاگرام. */
+function setInstagramToken() {
+  var ui = ui_();
+  if (!ui) throw new Error('این گزینه را از داخل شیت CONTENT-HUB اجرا کنید.');
+  var cur = igToken_();
+  var r = ui.prompt('کلیدِ اینستاگرام (متا)',
+    'کلیدی را که در System users ← engine-bot ← Generate token ساختید (با EA شروع می‌شود) این‌جا بچسبانید.\n' +
+    'جای دیگری نچسبانید — نه ایمیل، نه تلگرام، نه شیت.\n' +
+    (cur ? 'کلیدی از قبل هست (اثرِ انگشت ' + ghTokenFp_(cur) + ')؛ چسباندنِ تازه جایش را می‌گیرد. برای برداشتنش بنویسید «حذف».' : ''),
+    ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return null;
+  var out = igTokenSet_(r.getResponseText());
+  var head = out.cleared ? '🗑 ' : out.ok ? '✅ ذخیره شد. ' : out.saved ? '⚠️ ذخیره شد، ولی: ' : '❌ ذخیره نشد: ';
+  ui.alert(head + out.why + (out.fp ? '\n(اثرِ انگشتِ کلید: ' + out.fp + ')' : ''));
   return out;
 }
 

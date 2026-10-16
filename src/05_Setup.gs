@@ -12,6 +12,7 @@ function onOpen() {
       /* ۸.۵۹: صفحهٔ تنظیماتِ Apps Script با بیش از ۵۰ ویژگی فقط‌خواندنی است، پس
          توکن جز از این در جایی برای نشستن ندارد. */
       .addItem('۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو', 'setGitHubToken')
+      .addItem('۴) کلیدِ اینستاگرام (متا)', 'setInstagramToken')
       .addSeparator()
       .addItem('اجرای همگام‌سازی همین حالا', 'runSyncNow')
       .addSubMenu(SpreadsheetApp.getUi().createMenu('ساخت یک قسمت همین حالا')
