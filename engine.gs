@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.43
+ *  موتور محتوا و پادکست — نسخهٔ 9.44
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.43',
+  CODE_VERSION: '9.44',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -76195,6 +76195,47 @@ function vbrUnshare_(item) {
  * گزارشِ چیزی که هرگز نمی‌افتد به‌عنوانِ «در انتظار» همان است که هشدار
  * را به نویز تبدیل می‌کند (۵٫۸۸).
  */
+/**
+ * خروجی‌ای که با چیدنِ ناهم‌ترازِ ۹.۳۶ تا ۹.۴۳ ساخته شد (۹.۴۴).
+ *
+ * «صوت‌های رضوی و گلدوز رو شنیدم حالم به هم خورد … مثلِ وقتی نوار جمع می‌کنه». سنجیده روی قسمتِ ۷۵: گفتارِ تبدیل ۰٫۸۵
+ * ثانیه جلوتر از ورودی بود و `assemble` هر تکه را با ثانیه‌های ورودی می‌برید — همبستگیِ پوشِ گفتارِ تحویل‌شده با ورودی ۰٫۰۲.
+ * رانر از ۹.۴۴ هم‌تراز می‌کند و `mix.alignCorr` می‌نویسد؛ خروجیِ `mix`دارِ بی `alignCorr` همان دستورِ پختِ کهنه است.
+ */
+function vbrHitStale_(hit) {
+  return !!(hit && hit.mix && typeof hit.mix === 'object' && hit.mix.alignCorr == null);
+}
+
+/**
+ * ردیف‌های «رسید» که خروجی‌شان کهنه است یک بار به صف برمی‌گردند (۹.۴۴): اشتراکِ صوت دوباره باز، فایلِ کهنه با نامِ
+ * «چیدنِ نادرست» کنار (پاک نمی‌شود)، و رانر صدا زده می‌شود. `redo` نمی‌گذارد حلقه شود. ⇒ شمارِ برگشته‌ها.
+ */
+function vbrRedoStale_(mapIn) {
+  var map = mapIn || vbrMapCached_();
+  if (!map) return 0;
+  var d = vbrRead_(), n = 0;
+  for (var i = 0; i < d.items.length; i++) {
+    var it = d.items[i];
+    if (String(it.status || '') !== 'رسید' || it.redo === 'align') continue;
+    if (!vbrHitStale_(map[String(it.key)])) continue;
+    var au = it.audio || [];
+    for (var a = 0; a < au.length; a++) { try { driveShareOn_(au[a].id); } catch (eS) {} }
+    it.shared = true;
+    var olds = (it.outIds && it.outIds.length) ? it.outIds : (it.outId ? [it.outId] : []);
+    for (var o = 0; o < olds.length; o++) {
+      try { var f = DriveApp.getFileById(olds[o]); f.setName(f.getName().replace(/\.wav$/i, '') + ' — چیدنِ نادرست، کنار رفت (۹.۴۴).wav'); } catch (eR) {}
+    }
+    it.status = 'در انتظار'; it.redo = 'align'; it.tries = 0; it.redoAt = nowStr_();
+    n++;
+  }
+  if (n) {
+    vbrSave_(d);
+    try { logLine_('پل: ' + n + ' خروجیِ چیدنِ ناهم‌تراز (۹.۳۶–۹.۴۳) دوباره در صف رفت.'); } catch (eL) {}
+    try { ghKick_(String(CFG.GH_VBR_WF || 'voice-bridge.yml'), 'دوباره‌سازیِ چیدنِ ناهم‌تراز: ' + n); } catch (eK) {}
+  }
+  return n;
+}
+
 function vbrIngest_(hub) {
   var out = { got: [], failed: [], unshared: 0, abandoned: 0, told: 0, tooBig: 0 };
   if (CFG.VBR_ON === false) return out;
@@ -76208,6 +76249,7 @@ function vbrIngest_(hub) {
     if (String(it.status || '') !== 'در انتظار') continue;
     var hit = map[String(it.key)];
     if (!hit || !vbrHitPieces_(hit).length) continue;
+    if (vbrHitStale_(hit)) continue;                 // ۹.۴۴: خروجیِ چیدنِ ناهم‌تراز دوباره برداشته نمی‌شود — تازه‌اش در راه است
     var r = vbrFetch_(it, hit, names[String(it.speaker)] || it.speaker);
     if (r.ok) {
       it.status = 'رسید'; it.doneAt = nowStr_(); it.outId = r.id;
@@ -77042,6 +77084,9 @@ function vbrCollectHourly() {
   }
   try { vbrModelDropDue_(vdoc ? { doc: vdoc } : null); } catch (eMd) {
     try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
+  }
+  try { vbrRedoStale_(null); } catch (eRs) {
+    try { logLine_('دوباره‌سازیِ چیدنِ ناهم‌تراز ناموفق: ' + eRs.message); } catch (eRsb) {}
   }
   try {
     var r = vbrIngest_(null);

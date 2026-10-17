@@ -322,6 +322,40 @@ console.log('\n══ ۱۱-پ) قسمتِ امروز، امروز به پل می
   Utilities.formatDate = realFmt;
 }
 
+console.log('\n══ ۱۱-ت) خروجیِ چیدنِ ناهم‌تراز یک بار دوباره ساخته می‌شود (۹.۴۴) ══');
+/* «حالم به هم خورد … مثلِ وقتی نوار جمع می‌کنه»: گفتارِ تبدیل ۰٫۸۵ ثانیه جابه‌جا چیده شده بود. */
+{
+  const q = vbrRead_(); q.items = []; 
+  const fo = OUT.createFolder('قسمتِ ۷۵-ت');
+  const oldOut = fo.createFile('قسمت 75 — با صدای گلدوز.wav', 'x'.repeat(5000), 'audio/wav');
+  const au = fo.createFile('قسمت 75 — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  q.items.push({ key: 'variety:75', show: 'variety', ep: '75', status: 'رسید', outId: oldOut.getId(), tries: 1,
+                 audio: [{ id: au.getId(), name: au.getName(), url: 'u' }], segs: [[0, 4, 'm'], [4, 9, 't']] });
+  q.items.push({ key: 'special:74', show: 'special', ep: '74', status: 'رسید', outId: 'x', audio: [] });
+  vbrSave_(q);
+  const map = { 'variety:75': { urls: ['https://example/a.wav'], mix: { speechSec: 5, keptSec: 4 } },
+                'special:74': { urls: ['https://example/b.wav'], mix: { speechSec: 5, keptSec: 4, alignCorr: 0.9 } } };
+  const n1 = vbrRedoStale_(map);
+  const it = vbrRead_().items.filter(x => x.key === 'variety:75')[0], it2 = vbrRead_().items.filter(x => x.key === 'special:74')[0];
+  ok('۱۱-ت.۱ فقط خروجیِ بی alignCorr به صف برمی‌گردد؛ هم‌ترازشده دست نمی‌خورد',
+     n1 === 1 && it.status === 'در انتظار' && it.redo === 'align' && it.tries === 0 && it2.status === 'رسید', JSON.stringify([n1, it.status, it2.status]));
+  ok('۱۱-ت.۲ فایلِ کهنه پاک نمی‌شود، با نامِ «چیدنِ نادرست» کنار می‌رود',
+     /چیدنِ نادرست/.test(DriveApp.getFileById(oldOut.getId()).getName()) && !DriveApp.getFileById(oldOut.getId())._trashed);
+  ok('۱۱-ت.۳ و یک بار است — حلقه نمی‌شود', vbrRedoStale_(map) === 0);
+  const realMc = global.vbrMapCached_; global.vbrMapCached_ = () => map;
+  const realF = global.vbrFetch_; let fetched = 0; global.vbrFetch_ = () => { fetched++; return { ok: true, id: 'n', name: 'n', bytes: 1 }; };
+  vbrIngest_(null);
+  global.vbrMapCached_ = realMc; global.vbrFetch_ = realF;
+  ok('۱۱-ت.۴ همان خروجیِ کهنه دوباره برداشته نمی‌شود — منتظرِ تازه می‌مانَد',
+     fetched === 0 && vbrRead_().items.filter(x => x.key === 'variety:75')[0].status === 'در انتظار');
+  const pyOut = require('child_process').execFileSync('python3', ['-c', 'import sys,json;sys.path.insert(0,"tools");import voicebridge as v\n' +
+    'q={"items":[{"key":"variety:75","status":"در انتظار","audio":[{"url":"u"}],"model":{"pth":"p"}},{"key":"special:74","status":"در انتظار","audio":[{"url":"u"}],"model":{"pth":"p"}}]}\n' +
+    'mp={"items":{"variety:75":{"urls":["a"],"mix":{"speechSec":5}},"special:74":{"urls":["b"],"mix":{"alignCorr":0.9}}}}\n' +
+    'print(json.dumps([x["key"] for x in v.pending(q,mp)]))']).toString();
+  ok('۱۱-ت.۵ رانر هم خروجیِ بی alignCorr را «انجام‌نشده» می‌شمارد', JSON.parse(pyOut).join(',') === 'variety:75', pyOut.trim());
+  ok('۱۱-ت.۶ ساعتیِ پل صدایش می‌زند، پیش از برداشت', /vbrRedoStale_\(null\)[\s\S]{0,200}vbrIngest_\(null\)/.test(String(vbrCollectHourly)));
+}
+
 console.log('\n══ ۱۲) اشتراکِ صف — و مسیری که به خودِ صف بند نیست ══');
 /* ══ چرا این بخش هست ══
    ۲۲ سپتامبر، اجرای ۱ِ voice-bridge قرمز شد: «درایو به‌جای JSON یک صفحهٔ

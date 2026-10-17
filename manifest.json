@@ -1,16 +1,17 @@
 {
-  "version": "9.43",
+  "version": "9.44",
   "codeFile": "engine.gs",
-  "sha256": "11d49b32790edf6f623b5142c6b1e4a94e32baf64666884f4ade2e1ad3dcf6de",
-  "releasedAt": "2026-10-17T14:20:00+04:00",
-  "summary": "«از همه جا» ۷۴ دیگر گیر نمی‌کند: تکهٔ کلیپی که بیشترش سیاه است به نزدیک‌ترین تکهٔ روشنِ همان کلیپ می‌رود (رانر)، و ویدئویی که سنجشِ رانر ردش کرد یک بار پیش از آپلود از نو ساخته می‌شود — تا امروز هیچ دری برایش نبود.",
+  "sha256": "8a50018d7e6665ab269dec74718c41428ef444319a33c9cbc28264b435beeecd",
+  "releasedAt": "2026-10-17T15:10:00+04:00",
+  "summary": "صدای گلدوز/رضوی دیگر «مثلِ نوار جمع‌شده» نیست: گفتارِ تبدیل‌شده ۰٫۸۵ ثانیه جلوتر از ورودی بود و تکه‌ها با ثانیه‌های ورودی بریده می‌شدند؛ حالا پیش از چیدن هم‌تراز می‌شود، خروجیِ ناهم‌تراز تحویل نمی‌شود، و ۷۴ و ۷۵ از نو ساخته می‌شوند.",
   "fixes": [
-    "tools/mediakit.js: brightFrom + clip() — تکهٔ بیش از ۲۵٪ تیره ⇒ نزدیک‌ترین آغازِ زیرِ ۱۰٪",
-    "tools/render.js: notes «… ٪ تیره بود ⇒ از ثانیهٔ …»، usedTo از آغازِ واقعی",
-    "src/27_YouTube.gs: ردِ qa ⇒ یک بار replace «qa-<نسخه>» پیش از آپلود",
-    "tests: media_render ۱۳، youtube ۱۰.۱۰"
+    "tools/voicebridge.py: alignLag/_segLag — هم‌ترازیِ کل و هر تکه؛ نگهبانِ alignCorr ≥ ۰٫۶؛ pending: mix بی alignCorr انجام‌نشده",
+    "src/36_VoiceBridge.gs: vbrHitStale_/vbrRedoStale_ — خروجی‌های کهنه یک بار به صف، فایلِ کهنه کنار (نه پاک)، برداشتِ کهنه نه",
+    "tests: voice_colour ۱۰، bridge_voice ۱۱-ت"
   ],
   "sourceReportIds": [],
-  "answers": {},
+  "answers": {
+    "R-20261017-07": "۹.۴۴"
+  },
   "promptImpact": []
 }

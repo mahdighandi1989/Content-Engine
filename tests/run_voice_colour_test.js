@@ -217,5 +217,50 @@ print(json.dumps({"g":g["groups"],"assign":g["assign"],"one":len(one["groups"]),
   try { fs.rmSync(d9, { recursive: true, force: true }); } catch (e) {}
 }
 
+console.log('=== ۱۰) تبدیلی که جلوتر از ورودی است، پیش از چیدن هم‌تراز می‌شود (۹.۴۴) ===');
+{
+  /* ۱۷ اکتبر: «حالم به هم خورد … مثلِ وقتی نوار جمع می‌کنه». گفتارِ تبدیل‌شدهٔ قسمتِ ۷۵ ۰٫۸۵ ثانیه جلوتر از ورودی بود و
+     هر تکه با ثانیه‌های ورودی بریده می‌شد. سنجهٔ ۹ تبدیلِ ساختگی را **هم‌تراز** می‌ساخت — همان شکلِ راحت، نه شکلِ واقعی. */
+  const d10 = fs.mkdtempSync(path.join(os.tmpdir(), 'valign-'));
+  const res = py(`import numpy as np,os
+os.makedirs("vb",exist_ok=True)
+sr=16000
+rng=np.random.default_rng(7)
+def speechish(sec,f):
+    n=int(sec*sr);t=np.arange(n)/sr
+    env=np.zeros(n,dtype=np.float32);i=0
+    while i<n:                                  # هجاهایی با طول و مکثِ ناهمسان، مثلِ گفتار
+        L=int(sr*rng.uniform(0.08,0.3));G=int(sr*rng.uniform(0.03,0.25))
+        env[i:i+L]=np.hanning(max(2,min(L,n-i)))[:max(0,min(L,n-i))];i+=L+G
+    return (0.4*env*np.sin(2*np.pi*f*t)).astype(np.float32)
+mus=lambda sec:(0.15*np.sin(2*np.pi*440*np.arange(int(sec*sr))/sr)).astype(np.float32)
+x=np.concatenate([mus(4),speechish(12,200),mus(4),speechish(10,200)])
+src=${JSON.stringify(path.join(d10, 'src.wav'))};v.writeMono(src,x,sr)
+segs=[[0,4,"m"],[4,10,"t"],[10,16,"t"],[16,20,"m"],[20,30,"t"]]
+sp=[(4.0,10.0),(10.0,16.0),(20.0,30.0)]
+SH=0.85                                          # همان عددِ واقعی
+conv=np.concatenate([x[int(SH*sr):],np.zeros(int(SH*sr),dtype=np.float32)])*1.3   # «تبدیل»: همان گفتار، ۰٫۸۵ ثانیه جلوتر
+cp=${JSON.stringify(path.join(d10, 'c.wav'))};v.writeMono(cp,conv,sr)
+dst=${JSON.stringify(path.join(d10, 'mix.wav'))}
+m=v.assemble(src,[cp],sp,[0,0,0],dst)
+y,_=v.readMono(dst)
+w=lambda a,b:slice(int(a*sr),int(b*sr))
+def corr(a,b):
+    a=a-a.mean();b=b-b.mean();return float((a*b).sum()/np.sqrt((a*a).sum()*(b*b).sum()+1e-12))
+bad=np.random.default_rng(1).standard_normal(len(x)).astype(np.float32)*0.2
+bp=${JSON.stringify(path.join(d10, 'bad.wav'))};v.writeMono(bp,bad,sr)
+err=""
+try: v.assemble(src,[bp],sp,[0,0,0],${JSON.stringify(path.join(d10, 'bad-mix.wav'))})
+except Exception as e: err=str(e)
+print(json.dumps({"m":m,"sp1":corr(y[w(4.5,15.5)],x[w(4.5,15.5)]),"sp2":corr(y[w(20.5,29.5)],x[w(20.5,29.5)]),
+ "mus":corr(y[w(16.2,19.8)],x[w(16.2,19.8)]),"err":err}))`);
+  ok('۱۰.۱ جابه‌جاییِ ۰٫۸۵ ثانیه‌ای پیدا می‌شود', Math.abs(res.m.lagSec[0] + 0.85) <= 0.02 && res.m.lagCorr[0] > 0.9, JSON.stringify(res.m));
+  ok('۱۰.۲ و گفتارِ چیده‌شده همان گفتارِ ورودی در همان ثانیه است — نه واژه‌های تکهٔ بعد',
+     res.sp1 > 0.98 && res.sp2 > 0.98 && res.m.alignCorr > 0.95, res.sp1.toFixed(3) + ' / ' + res.sp2.toFixed(3));
+  ok('۱۰.۳ موسیقیِ میانه دست‌نخورده', res.mus > 0.99, res.mus.toFixed(3));
+  ok('۱۰.۴ تبدیلی که با ورودی نمی‌خواند تحویل نمی‌شود (پرتاب ⇒ ردیف بسته نمی‌شود)', /نمی‌خواند/.test(res.err), res.err.slice(0, 120));
+  try { fs.rmSync(d10, { recursive: true, force: true }); } catch (e) {}
+}
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رنگِ ضبط‌های خودِ گوینده گذشت.');

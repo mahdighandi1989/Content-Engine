@@ -733,6 +733,78 @@ def voiceGroups(segs, x, sr, targetHz):
     return {"groups": groups, "speech": speech, "assign": assign}
 
 
+ALIGN_MAX_SEC = 3.0      # ۹.۴۴: بیشینهٔ جابه‌جاییِ کلِ تبدیل نسبت به ورودی که جست‌وجو می‌شود
+ALIGN_LOCAL_SEC = 0.15   # و برای هر تکه، پالایشِ دورِ همان عدد (رانشِ آرام میانِ تکه‌های تبدیل)
+ALIGN_MIN_CORR = 0.6     # پوشِ گفتارِ چیده‌شده با ورودی کمتر از این بخواند ⇒ تحویل نمی‌شود
+
+
+def _env(x, sr, hop=0.01):
+    import numpy as np
+    h = max(1, int(sr * hop))
+    m = len(x) // h
+    return np.sqrt((x[:m * h].reshape(m, h) ** 2).mean(1)) if m else np.zeros(0, dtype=np.float32)
+
+
+def _ncorr(a, b):
+    import numpy as np
+    a = a - a.mean()
+    b = b - b.mean()
+    d = float(np.sqrt((a * a).sum() * (b * b).sum()))
+    return float((a * b).sum() / d) if d > 1e-12 else 0.0
+
+
+def alignLag(x, v, sr, speech, maxSec=ALIGN_MAX_SEC):
+    """جابه‌جاییِ تبدیل نسبت به ورودی (نمونه): v[i + lag] همان x[i] است. ⇒ (lag، همبستگی).
+
+    ۱۷ اکتبر، قسمتِ ۷۵: گفتارِ تبدیل‌شده ۰٫۸۴ تا ۰٫۸۸ ثانیه **جلوتر** از ورودی بود (پوشِ صدا در نُه نقطه، همبستگی ۰٫۷۶–۰٫۸۹)،
+    و `assemble` هر تکه را با ثانیه‌های **ورودی** از تبدیل می‌برید — هر تکه وسطِ یک واژه شروع و وسطِ واژهٔ بعد تمام می‌شد:
+    «مثلِ وقتی نوار جمع می‌کنه». نمونه‌های ساعت‌ساز این را نداشتند چون کلِ فایل یک‌جا تبدیل می‌شد و چیزی بریده نمی‌شد."""
+    import numpy as np
+    hop = 0.01
+    ex, ev = _env(x, sr, hop), _env(v, sr, hop)
+    mask = np.zeros(len(ex), dtype=bool)
+    for a, b in speech:
+        mask[int(a / hop):int(b / hop)] = True
+    idx = np.nonzero(mask)[0]
+    if len(idx) < 50:
+        return 0, 0.0
+    if float(ex[idx].std()) < 0.1 * float(ex[idx].mean() + 1e-9):
+        return 0, 1.0                       # پوشِ تخت (نه گفتار) چیزی برای هم‌ترازی ندارد
+    mf = int(maxSec / hop)
+    best = (0, -2.0)
+    for L in range(-mf, mf + 1):
+        j = idx + L
+        ok = (j >= 0) & (j < len(ev))
+        if ok.sum() < len(idx) * 0.8:
+            continue
+        c = _ncorr(ex[idx[ok]], ev[j[ok]])
+        if c > best[1]:
+            best = (L, c)
+    return int(best[0] * hop * sr), best[1]
+
+
+def _segLag(x, v, sr, a, b, lag0, span=ALIGN_LOCAL_SEC):
+    """پالایشِ جابه‌جایی برای یک تکه، دورِ `lag0`."""
+    hop = 0.01
+    h = int(sr * hop)
+    i0, i1 = int(a * sr), int(b * sr)
+    ex = _env(x[i0:i1], sr, hop)
+    if len(ex) < 30 or float(ex.std()) < 0.1 * float(ex.mean() + 1e-9):
+        return lag0
+    best = (lag0, -2.0)
+    for d in range(-int(span / hop), int(span / hop) + 1):
+        L = lag0 + d * h
+        j0, j1 = i0 + L, i1 + L
+        if j0 < 0 or j1 > len(v):
+            continue
+        ev = _env(v[j0:j1], sr, hop)
+        n = min(len(ex), len(ev))
+        c = _ncorr(ex[:n], ev[:n])
+        if c > best[1]:
+            best = (L, c)
+    return best[0]
+
+
 def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
     """هر تکهٔ گفتار از تبدیلِ گروهِ خودش (با بلندیِ همان تکه در ورودی)؛ بقیه — موسیقی، آغاز، پایان — از خودِ ورودی."""
     import numpy as np
@@ -746,12 +818,24 @@ def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
     nf = max(1, int(fade * sr))
     ramp = np.linspace(0.0, 1.0, nf, dtype=np.float32)
     swapped = 0.0
+    # ۹.۴۴: هر تبدیل اول با ورودی هم‌تراز می‌شود — کل، بعد هر تکه.
+    lags, cors = [], []
+    for gi, v in enumerate(ys):
+        sp = [speech[i] for i in range(len(speech)) if assign[i] == gi]
+        L, c = alignLag(x, v, sr, sp) if sp else (0, 0.0)
+        lags.append(L)
+        cors.append(c)
     for (a, b), g in zip(speech, assign):
         v = ys[g]
-        i0, i1 = int(a * sr), min(int(b * sr), len(x), len(v))
+        L = _segLag(x, v, sr, a, b, lags[g])
+        i0, i1 = int(a * sr), min(int(b * sr), len(x))
+        if i0 + L < 0:
+            i0 = -L
+        if i1 + L > len(v):
+            i1 = len(v) - L
         if i1 - i0 < 2 * nf:
             continue
-        seg, ref = v[i0:i1].copy(), x[i0:i1]
+        seg, ref = v[i0 + L:i1 + L].copy(), x[i0:i1]
         rs, ro = float(np.sqrt((ref ** 2).mean())), float(np.sqrt((seg ** 2).mean()))
         if ro > 1e-5 and rs > 1e-5:
             seg *= min(4.0, rs / ro)        # بلندیِ همان تکه در ورودی — نسبتِ گفتار و موسیقی همان می‌مانَد
@@ -759,8 +843,25 @@ def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
         seg[-nf:] = seg[-nf:] * (1 - ramp) + ref[-nf:] * ramp
         y[i0:i1] = seg
         swapped += (i1 - i0) / float(sr)
+    # نگهبان: گفتارِ چیده‌شده باید همان گفتارِ ورودی باشد (همان زمان‌بندیِ واژه‌ها) — وگرنه تحویل نمی‌شود.
+    speechAll = [p for p in speech]
+    hop = 0.01
+    ex, ey = _env(x, sr, hop), _env(y, sr, hop)
+    m = np.zeros(len(ex), dtype=bool)
+    for a, b in speechAll:
+        m[int(a / hop):int(b / hop)] = True
+    n = min(len(ex), len(ey))
+    m = m[:n]
+    flat = m.sum() <= 50 or float(ex[:n][m].std()) < 0.1 * float(ex[:n][m].mean() + 1e-9)
+    after = 1.0 if flat else _ncorr(ex[:n][m], ey[:n][m])
+    info = {"speechSec": round(swapped, 1), "keptSec": round(len(x) / float(sr) - swapped, 1),
+            "lagSec": [round(L / float(sr), 3) for L in lags], "lagCorr": [round(c, 2) for c in cors],
+            "alignCorr": round(after, 2)}
+    if after < ALIGN_MIN_CORR:
+        raise RuntimeError("گفتارِ چیده‌شده با ورودی نمی‌خواند (همبستگیِ پوش %.2f، جابه‌جایی %s ثانیه) — تحویل نمی‌شود"
+                           % (after, info["lagSec"]))
     writeMono(dst, y, sr)
-    return {"speechSec": round(swapped, 1), "keptSec": round(len(x) / float(sr) - swapped, 1)}
+    return info
 
 
 def autoPitch(srcHz, targetHz):
@@ -897,6 +998,10 @@ def pending(q, mp):
         if not rec:
             return False
         us = rec.get("urls")
+        # ۹.۴۴: خروجیِ چیده‌شده بی `alignCorr` با چیدنِ ناهم‌تراز ساخته شد (گفتار ۰٫۸۵ ثانیه جابه‌جا) — انجام‌شده نیست.
+        mx = rec.get("mix")
+        if isinstance(mx, dict) and mx.get("alignCorr") is None:
+            return False
         return bool(us) and isinstance(us, list)
     out = [it for it in (q.get("items") or [])
            if str(it.get("status") or "") == "در انتظار"
