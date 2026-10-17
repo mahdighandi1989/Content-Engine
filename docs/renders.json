@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-16 21:42",
+ "updatedAt": "2026-10-17 00:52",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -3554,6 +3554,130 @@
    "notes": [
     "لحظهٔ 198s: نزدیکِ لحظهٔ قبلی"
    ]
+  },
+  "variety:73-10-نمونه": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-10-.mp4",
+   "bytes": 57730394,
+   "parts": 1,
+   "at": "2026-10-17 00:40",
+   "mode": "media",
+   "media": {
+    "clips": 4,
+    "photos": 0,
+    "found": 4,
+    "notFound": 0,
+    "failed": 0,
+    "why": [],
+    "layouts": {
+     "center": 2,
+     "right": 1,
+     "left": 1
+    },
+    "teaserTiles": 4,
+    "teaserSec": 46.6,
+    "teaser": 4,
+    "filled": 3,
+    "filledSec": 84,
+    "tailCut": 4,
+    "cropped": 1,
+    "moments": {
+     "asked": 4,
+     "placed": 4,
+     "made": 4,
+     "why": [],
+     "replaced": 4,
+     "sec": 109,
+     "whole": 3,
+     "fallback": 2
+    }
+   },
+   "inserts": [
+    {
+     "at": 61.3,
+     "d": 25.1,
+     "cut": 29.5
+    },
+    {
+     "at": 116.3,
+     "d": 18.3,
+     "cut": 61
+    },
+    {
+     "at": 196.3,
+     "d": 41.9,
+     "cut": 48.8
+    },
+    {
+     "at": 283.4,
+     "d": 23.7,
+     "cut": 46.8
+    }
+   ],
+   "scenes": 8,
+   "want": 8,
+   "snapped": 3,
+   "seconds": 442,
+   "qa": {
+    "n": 8,
+    "matched": 8,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 6,
+       "t": 106.7,
+       "own": 0.5,
+       "nb": 0.17,
+       "ok": true,
+       "heard": "خباری هل بوحران با دست خالی.  وقت زبان اداری از زندگی خصوصی فراتر میرود  بپوشت تیریبون سوخنگو میرسد."
+      },
+      {
+       "n": 7,
+       "t": 190,
+       "own": 0.32,
+       "nb": 0.16,
+       "ok": true,
+       "heard": "این تق اجیب در راخروهای شرکتها هم تکرار میشه بات  جای که هرکس نقشی براهده گرفت هست  یکی با بالا ترین دریافدی  ابتده ایتر"
+      },
+      {
+       "n": 8,
+       "t": 253.2,
+       "own": 0.47,
+       "nb": 0.13,
+       "ok": true,
+       "heard": "این کلیشهای شخلی نتازه هستند و نمودین.  اینگار از اصر سنگ با انسان هم راخ بوده."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 2,
+    "placed": 2,
+    "busy": 0,
+    "failed": 0,
+    "kinds": {
+     "headline": 1,
+     "quote": 1
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 8,
+    "used": 8,
+    "why": []
+   },
+   "xf": {
+    "dissolve": 7
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-10--cover.jpg"
   }
  },
  "art": {
@@ -3656,6 +3780,22 @@
    "segs": 5,
    "subs": 34,
    "at": "2026-10-16 21:42"
+  },
+  "ig:special:5": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-5.mp4",
+   "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-5-cover.jpg",
+   "sig": "c0071a9bb1f4",
+   "seconds": 63.8,
+   "bytes": 12376562,
+   "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-5-short.mp4",
+   "shortSeconds": 59.9,
+   "align": "faster-whisper",
+   "phrases": 35,
+   "trans": 4,
+   "imgs": 5,
+   "segs": 5,
+   "subs": 30,
+   "at": "2026-10-17 00:52"
   }
  }
 }
