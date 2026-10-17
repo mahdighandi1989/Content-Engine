@@ -675,6 +675,8 @@ console.log('=== ۱۱) تب‌های کهنهٔ اینستاگرام در هاب
   let thrown = false; try { igHubRetire_(st2); } catch (e) { thrown = true; } finally { global.getHub_ = kG; }
   ok('۱۱.۵ هاب خطا داد ⇒ پرچم نمی‌خورد تا دورِ بعد دوباره', thrown && !st2.hubRetired);
   ok('۱۱.۶ igTick صدایش می‌زند', /igHubRetire_\(st\)/.test(String(igTick)));
+  { const src = String(igTick), iR = src.indexOf('igHubRetire_(st)'), iS = src.indexOf('igStep_(');
+    ok('۱۱.۷ پیش از گام‌ها و بی شرطِ وقتِ مانده (۹.۳۹)', iR > 0 && iS > 0 && iR < iS && !/deadline[^;\n]*igHubRetire_/.test(src)); }
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

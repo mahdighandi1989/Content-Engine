@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.38
+ *  موتور محتوا و پادکست — نسخهٔ 9.39
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2153,7 +2153,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.38',
+  CODE_VERSION: '9.39',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -80228,6 +80228,9 @@ function igTick() {
   try {
     try { clearRetryTriggers_('igTick'); } catch (eC) {}
     if (!igOn_()) return null;
+    /* ۹.۳۹: اول، نه پشتِ گام‌ها — پشتِ «اگر ۵۰ ثانیه مانده» بود و گامِ تصویر کلِ ۲۴۰ ثانیه را می‌خورد، پس پس از نصبِ ۹.۳۸
+       تب‌ها سرِ جایشان ماندند («رفرش کردم، هنوز هستن»). کارش چند خواندنِ هاب است و یک بار در عمر. */
+    if (!st.hubRetired) { try { igHubRetire_(st); } catch (eHp) {} }
     st.inflight = st.inflight || [];
     if (st.inflight.length < Math.max(1, Number(CFG.IG_INFLIGHT) || 2)) {
       var nx = igNextEp_(ytPublished_(getHub_()), st);
@@ -80261,7 +80264,6 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
-    if (!st.hubRetired && deadline - Date.now() > 50000) { try { igHubRetire_(st); } catch (eHp) {} }
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }

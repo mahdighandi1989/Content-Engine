@@ -1,14 +1,15 @@
 {
-  "version": "9.38",
+  "version": "9.39",
   "codeFile": "engine.gs",
-  "sha256": "babf570bfcfddaf438bd17d8c053edbc830cf044bc2653bdd4f02faf2e028220",
-  "releasedAt": "2026-10-17T13:30:00+04:00",
-  "summary": "تب‌های کهنهٔ اینستاگرام در هاب کنار رفتند (خالی ⇒ حذف، داده‌دار ⇒ «بایگانی — …»)؛ دفترِ جدای اینستاگرام می‌ماند.",
+  "sha256": "c4182345a1bd912bf09820c40461109fe998b1cb8e6a0f535dcb1a8c793f10b6",
+  "releasedAt": "2026-10-17T10:45:00+04:00",
+  "summary": "تب‌های کهنهٔ اینستاگرام در هاب واقعاً کنار می‌روند: igHubRetire_ اولِ igTick، نه پشتِ گامِ سنگینِ تصویر با شرطِ «۵۰ ثانیه مانده».",
   "fixes": [
-    "src/38_Instagram.gs: igHubRetire_ به‌جای igHubPointer_"
+    "src/38_Instagram.gs: igHubRetire_ به اولِ igTick، بی شرطِ وقت",
+    "tests/run_instagram_test.js ۱۱.۷"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-03": "۹.۳۸"
+    "R-20261017-03": "۹.۳۹"
   }
 }
