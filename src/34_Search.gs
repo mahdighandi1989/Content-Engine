@@ -132,6 +132,9 @@ var SRCH_STOP = (function () {
   var o = Object.create(null);
   var w = ['از', 'به', 'با', 'در', 'که', 'را', 'این', 'آن', 'های', 'ها', 'یک',
            'برای', 'تا', 'هم', 'یا', 'است', 'بود', 'شد', 'می', 'نمی', 'و',
+           /* ۹.۴۷: واژه‌های گفت‌وگویی که در پرسشِ او هست و در هر متنی هم — «… که خیلی هم تعریفش شده چیه» */
+           'شده', 'شود', 'میشه', 'خیلی', 'چیه', 'چی', 'چه', 'یه', 'رو', 'اون', 'هست', 'هستن', 'داره',
+           'دارد', 'کنم', 'باشه', 'ولی', 'اما', 'مثلا',
            'the', 'and', 'for', 'with', 'that', 'this', 'from'];
   for (var i = 0; i < w.length; i++) o[srchNorm_(w[i])] = 1;
   return o;
@@ -1465,13 +1468,11 @@ function srchRun_(query, opts) {
          کاربر هیچ‌وقت نمی‌فهمید بوده. کوتاه‌کردنِ فهرست خوب است — پنهان
          کردنش نه. آنچه مدل نپسندیده ولی امتیازِ لغویِ بالایی دارد، زیرِ
          بقیه و با نشان می‌آید. */
-      var best = picked.length ? picked[0].score : 0;
-      var extra = 0;
-      for (var x = 0; x < picked.length && ordered.length < top; x++) {
-        if (used[x]) continue;
-        if (best > 0 && picked[x].score < best * 0.5) continue;
-        picked[x].why = ''; picked[x].fit = 'مدل کنارش گذاشت';
-        ordered.push(picked[x]); extra++;
+      var keepX = srchKeepRejected_(picked, used, top - ordered.length);
+      var extra = keepX.length;
+      for (var x = 0; x < keepX.length; x++) {
+        keepX[x].why = ''; keepX[x].fit = 'مدل کنارش گذاشت';
+        ordered.push(keepX[x]);
       }
       if (extra) {
         res.notes.push(extra + ' مورد را مدل مرتبط ندانست ولی واژه‌هایشان ' +
@@ -1539,6 +1540,29 @@ function srchRun(query, mode, sources, semantic) {
    گام‌به‌گام می‌خواهد: هر گام چند قطعه، یافته‌هایش همان لحظه نشان داده می‌شوند، و گامِ بعد
    از همان‌جا ادامه می‌دهد **تا آخرین قطعه** — سقفِ کلی ندارد، چون هر گام اجرای جدای خودش است.
    چیزی در شیت‌ها نوشته نمی‌شود؛ فقط خوانده می‌شود. */
+
+
+/**
+ * آنچه مدل نپسندید ولی واژه‌هایش **قوی** بود — کدام برگردد (۷٫۲۴، درست‌شده در ۹.۴۷).
+ *
+ * «قوی» نسبت به **بهترین امتیازِ واژه‌ایِ همین فهرست** سنجیده می‌شود. تا ۹.۴۶ مبنا `picked[0].score` بود، یعنی
+ * امتیازِ واژه‌ایِ **نخستین** مورد — و از وقتی یافته‌های معنایی هم در فهرست‌اند و امتیازِ واژه‌ای‌شان صفر است،
+ * نخستین مورد معمولاً همان یافتهٔ معنایی بود. مبنای صفر سد را کامل باز می‌کرد: ۱۷ اکتبر «بهترین فیلم‌های
+ * پیشنهادی …» یازده یافتهٔ درست آورد و بعد چهارده ردیفِ بی‌ربط (عروس و مادرشوهر، آسترولوژی، اپستین) با امتیازِ
+ * ۷ تا ۱۳ — فقط به‌خاطرِ واژه‌های همه‌جاییِ پرسش — تا سقفِ ۲۵ پر شد.
+ */
+function srchKeepRejected_(picked, used, room) {
+  var bestLex = 0;
+  for (var i = 0; i < picked.length; i++) bestLex = Math.max(bestLex, Number(picked[i].score) || 0);
+  var out = [];
+  if (!(bestLex > 0) || !(room > 0)) return out;
+  for (var x = 0; x < picked.length && out.length < room; x++) {
+    if (used[x]) continue;
+    if ((Number(picked[x].score) || 0) < bestLex * 0.5) continue;
+    out.push(picked[x]);
+  }
+  return out;
+}
 
 /** هاب برای خواندن، بی پاسِ تعمیرِ تب‌ها — هر گام یک بار باز می‌کند و ۲۹ مگابایت تعمیر لازم ندارد. */
 function srchHubLite_() {

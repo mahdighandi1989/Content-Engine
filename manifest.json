@@ -1,16 +1,16 @@
 {
-  "version": "9.46",
+  "version": "9.47",
   "codeFile": "engine.gs",
-  "sha256": "a07b91ee140c45d00583cd0bf7d65d6714bd79f31c3513c329130d441b57f66a",
-  "releasedAt": "2026-10-17T22:30:00+04:00",
-  "summary": "جست‌وجوی هوشمند همهٔ محتوا را می‌گردد: معنا گام‌به‌گام تا آخرین کشوی اثر انگشت، یافته‌ها همان لحظه، نوارِ دقیقِ پیشرفت؛ خودآزمون همهٔ نمونه‌ها را در یک پویش می‌سنجد.",
+  "sha256": "a46685f97448b3d272959522a8d67e22eb8e63210b162f73be383432818800bc",
+  "releasedAt": "2026-10-17T23:10:00+04:00",
+  "summary": "جست‌وجوی هوشمند دیگر ردیف‌های بی‌ربط را ته فهرست نمی‌ریزد: سدِ «واژه‌های قوی» با مبنای صفر (یافتهٔ معنایی در صدر) کاملاً باز بود؛ واژه‌های گفت‌وگوییِ پرسش دیگر جست‌وجو نمی‌شوند.",
   "fixes": [
-    "src/35_Embed.gs: embCore_ — یک پویش برای چند پرسش، با order/from/maxShards/floor؛ embSearch_ و embSelfTest_ روی آن",
-    "src/34_Search.gs: srchSemStart/srchSemStep + srchSemHydrate_ + پنجرهٔ دو رشته‌ای با نوار؛ srchRun(…, semantic=false)",
-    "tests: embed ۳۱، dialogs ۵-ب"
+    "src/34_Search.gs: srchKeepRejected_ — مبنا بیشینهٔ امتیازِ واژه‌ای، نه picked[0]",
+    "src/34_Search.gs: SRCH_STOP + واژه‌های گفت‌وگویی",
+    "tests: search ۳۵"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-09": "۹.۴۶"
+    "R-20261017-10": "۹.۴۷"
   }
 }
