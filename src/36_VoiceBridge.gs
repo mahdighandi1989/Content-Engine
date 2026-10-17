@@ -2135,6 +2135,9 @@ function vbrCollectHourly() {
   /* مدلِ گویندهٔ تازه (۸.۴۱): فقط زمان‌بندی — یک خواندنِ کوچکِ gitHub raw،
      بی هاب. هر ساعت، چون هر ساعتِ انتظار یعنی یک ساعتِ دیگر مدل روی
      لینکِ عمومی. */
+  try { vbrDayAskDue_(); } catch (eDa) {
+    try { logLine_('درخواستِ روزانهٔ پل ناموفق: ' + eDa.message); } catch (eDab) {}
+  }
   try { vbrModelDropDue_(vdoc ? { doc: vdoc } : null); } catch (eMd) {
     try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
   }
@@ -2238,6 +2241,29 @@ function vbrSeedAsk_() {
 }
 
 
+/**
+ * قسمتِ امروز، امروز به پل می‌رود — نه فردا ساعتِ ۰۲:۳۰ (۹.۴۲).
+ *
+ * «گلدوز و رضوی … برای پادکست‌های امروز کی میاد؟» جوابِ راست تا ۹.۴۱: فردا سحر. `vbrAskDue_` فقط در کارِ شبانه بود
+ * و هر دو قسمتِ روز (۰۷:۰۰ و ۰۸:۰۰) **پس از** آن ساخته می‌شوند، پس تبدیلِ قسمتِ امروز همیشه یک شب عقب بود. حالا از
+ * `VBR_DAY_ASK_HOUR` به بعد، روزی یک بار، **فقط تازه‌ترین قسمتِ هر برنامه** خواسته می‌شود (`newestOnly`) — جاروبِ قسمت‌های
+ * کهنه همان کارِ شبانه می‌مانَد، و تکراری با «قبلاً خواسته شده» ِ `vbrAsk_` کنار می‌رود. تا وقتی چیزی خواسته نشده (ردیفِ
+ * رندرِ قسمت هنوز نیامده) هر ساعت دوباره نگاه می‌کند، تا `VBR_DAY_ASK_LAST`؛ بعدش روز بسته است.
+ */
+function vbrDayAskDue_() {
+  var hr = Number(Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'H'));
+  var from = Number(CFG.VBR_DAY_ASK_HOUR); if (!(from >= 0)) from = 10;
+  var last = Number(CFG.VBR_DAY_ASK_LAST); if (!(last >= 0)) last = 20;
+  if (hr < from) return null;
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  var P = props_();
+  if (P.getProperty(PK.VBR_DAY_ASK) === day) return null;
+  var n = vbrAskDue_(null, { newestOnly: true });
+  if (n > 0 || hr >= last) P.setProperty(PK.VBR_DAY_ASK, day);
+  if (n > 0) { try { logLine_('پل: قسمتِ امروز همین امروز خواسته شد (' + n + ').'); } catch (eL) {} }
+  return n;
+}
+
 function vbrNightly_(hub) {
   var out = { on: CFG.VBR_ON !== false, wrote: false, ingest: null, asked: 0, seeded: null, status: null };
   if (!out.on) { out.status = vbrStatus_(); return out; }
@@ -2279,16 +2305,18 @@ function vbrNightly_(hub) {
  * هیچ ردیفی روشن نباشد، پل کاری ندارد — و این درست است، چون انتخابِ
  * گوینده کارِ صاحبِ برنامه است نه حدسِ کد.
  */
-function vbrAskDue_(hub) {
+function vbrAskDue_(hub, opt) {
+  opt = opt || {};
   var rows = vbrSpeakerRows_();
   if (!vbrSpeakerAny_(rows)) return 0;
   var n = 0;
+  var seenShow = {};                                    // `newestOnly` (۹.۴۲): فقط تازه‌ترین قسمتِ هر برنامه
   /* ══ تیک‌های صریح **اول**، پیش از تازه‌ترین‌ها (۷٫۵۹) ══
      ستونِ «قسمت‌های تولیدشده» یعنی او خودش این قسمت را انتخاب کرده.
      انتخابِ صریح بر «تازه‌ترین» مقدم است، وگرنه دو تبدیلِ هر شب را
      ردیف‌های خودکار می‌خورند و چیزی که او تیک زده هفته‌ها در نوبت
      می‌ماند — یعنی دکمه‌ای که کار می‌کند ولی نتیجه‌اش نمی‌آید. */
-  try { n += vbrAskPicked_(rows); } catch (eP) {}
+  if (!opt.newestOnly) { try { n += vbrAskPicked_(rows); } catch (eP) {} }
   if (n >= 2) return n;
   try {
     var d = ytRenderRead_();
@@ -2305,6 +2333,7 @@ function vbrAskDue_(hub) {
       /* ۹.۳۶: فقط قسمتِ واقعی. ردیف‌های «۷۳-۹-نمونه» هم در همین صف‌اند و از همه تازه‌ترند، پس ۱۷ اکتبر هر دو نوبتِ شب
          به نمونه‌های ویدئوی «از همه جا» رسید — «من کی قسمت ۷۳ را خواسته بودم؟». */
       if (!vbrRealEp_(it.ep)) continue;
+      if (opt.newestOnly) { if (seenShow[it.show]) continue; seenShow[it.show] = 1; }
       /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
          «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
       var pick = vbrSpeakerPick_(rows, it.show, it.ep);

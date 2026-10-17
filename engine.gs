@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.41
+ *  موتور محتوا و پادکست — نسخهٔ 9.42
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -947,7 +947,7 @@ var CFG = {
     /* «از همه جا» با رسانه‌های منبع (۸.۹۶): کد می‌سنجد کلیپ بریده و قاب پر شد؛ نمی‌سنجد رسانهٔ روی
        صفحه **همان** چیزی است که در آن ثانیه گفته می‌شود، چهره‌ای بریده نشده، و در لحظه صدای خودِ کلیپ
        شنیده می‌شود. «هر روز» چون هر روز یک قسمتِ تازه است. */
-    { key: 'variety-media', title: 'ویدئوی رسانه‌ایِ «از همه جا» دیده و شنیده شد (نسخهٔ ۱۰۴)' },
+    { key: 'variety-media', title: 'ویدئوی رسانه‌ایِ «از همه جا» پیش و پس از انتشار دیده و شنیده شد (نسخهٔ ۱۰۸)' },
     /* ۹.۲۱: «این رو با تمامِ مواردی که باید همیشه انجام بدی بسپار به ناظر تا همیشه زیرِ نظرش بگیره». هر روز، چون
        ریلزها هر روز می‌روند و صفحهٔ عمومیِ اوست؛ کد شکلِ فایل را می‌سنجد، نه اینکه گفتار درست خوانده شد یا کپشن به
        همان درس اشاره می‌کند. */
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.41',
+  CODE_VERSION: '9.42',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2329,6 +2329,8 @@ var CFG = {
   VBR_FOLDER: 'مدل‌های صدا',          // کپیِ مدل، زیرِ OUTPUT
   VBR_SUFFIX: ' — با صدای ',         // نامِ فایلِ تبدیل‌شده
   VBR_MAX: 4,                        // درخواستِ بی‌جوابِ هم‌زمان
+  VBR_DAY_ASK_HOUR: 10,        // ۹.۴۲: از این ساعت (دبی) قسمتِ امروز همان روز به پل می‌رود، نه سحرِ فردا
+  VBR_DAY_ASK_LAST: 20,        // و تا این ساعت، اگر ردیفِ رندرش هنوز نیامده، هر ساعت دوباره نگاه می‌کند
   VBR_TRY_MAX: 3,                    // بعدش «رهاشده»، جدا شمرده می‌شود
   VBR_STUCK_DAYS: 3,                 // درخواستِ بی‌پاسخ ⇒ یافتهٔ NEEDS_CODE
   VBR_MIN_BYTES: 200000,             // کمتر از این، فایل نیست
@@ -3311,6 +3313,7 @@ var PK = {
   IG_ACCT: 'IG_ACCOUNT_STATE',     // ۹.۱۹: {ig, user, page, pageName, at, fp} — آنچه آزمونِ کلید دید
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
   IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
+  VBR_DAY_ASK: 'VBR_DAY_ASK_DAY',  // ۹.۴۲: روزی که قسمتِ امروز به پل رفت (vbrDayAskDue_)
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
   GH_KICK: 'GH_KICK_STATE',        // {<wf>: {at, okAt, code, n, nDay, day, fail, why, fp}, exp}
   GH_RENDER_DUE: 'GH_RENDER_DUE',  // «کاری برای رانر نوشته شد» — زمان|علت
@@ -77011,6 +77014,9 @@ function vbrCollectHourly() {
   /* مدلِ گویندهٔ تازه (۸.۴۱): فقط زمان‌بندی — یک خواندنِ کوچکِ gitHub raw،
      بی هاب. هر ساعت، چون هر ساعتِ انتظار یعنی یک ساعتِ دیگر مدل روی
      لینکِ عمومی. */
+  try { vbrDayAskDue_(); } catch (eDa) {
+    try { logLine_('درخواستِ روزانهٔ پل ناموفق: ' + eDa.message); } catch (eDab) {}
+  }
   try { vbrModelDropDue_(vdoc ? { doc: vdoc } : null); } catch (eMd) {
     try { logLine_('وارسیِ مدلِ تحویلی ناموفق: ' + eMd.message); } catch (eMdb) {}
   }
@@ -77114,6 +77120,29 @@ function vbrSeedAsk_() {
 }
 
 
+/**
+ * قسمتِ امروز، امروز به پل می‌رود — نه فردا ساعتِ ۰۲:۳۰ (۹.۴۲).
+ *
+ * «گلدوز و رضوی … برای پادکست‌های امروز کی میاد؟» جوابِ راست تا ۹.۴۱: فردا سحر. `vbrAskDue_` فقط در کارِ شبانه بود
+ * و هر دو قسمتِ روز (۰۷:۰۰ و ۰۸:۰۰) **پس از** آن ساخته می‌شوند، پس تبدیلِ قسمتِ امروز همیشه یک شب عقب بود. حالا از
+ * `VBR_DAY_ASK_HOUR` به بعد، روزی یک بار، **فقط تازه‌ترین قسمتِ هر برنامه** خواسته می‌شود (`newestOnly`) — جاروبِ قسمت‌های
+ * کهنه همان کارِ شبانه می‌مانَد، و تکراری با «قبلاً خواسته شده» ِ `vbrAsk_` کنار می‌رود. تا وقتی چیزی خواسته نشده (ردیفِ
+ * رندرِ قسمت هنوز نیامده) هر ساعت دوباره نگاه می‌کند، تا `VBR_DAY_ASK_LAST`؛ بعدش روز بسته است.
+ */
+function vbrDayAskDue_() {
+  var hr = Number(Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'H'));
+  var from = Number(CFG.VBR_DAY_ASK_HOUR); if (!(from >= 0)) from = 10;
+  var last = Number(CFG.VBR_DAY_ASK_LAST); if (!(last >= 0)) last = 20;
+  if (hr < from) return null;
+  var day = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd');
+  var P = props_();
+  if (P.getProperty(PK.VBR_DAY_ASK) === day) return null;
+  var n = vbrAskDue_(null, { newestOnly: true });
+  if (n > 0 || hr >= last) P.setProperty(PK.VBR_DAY_ASK, day);
+  if (n > 0) { try { logLine_('پل: قسمتِ امروز همین امروز خواسته شد (' + n + ').'); } catch (eL) {} }
+  return n;
+}
+
 function vbrNightly_(hub) {
   var out = { on: CFG.VBR_ON !== false, wrote: false, ingest: null, asked: 0, seeded: null, status: null };
   if (!out.on) { out.status = vbrStatus_(); return out; }
@@ -77155,16 +77184,18 @@ function vbrNightly_(hub) {
  * هیچ ردیفی روشن نباشد، پل کاری ندارد — و این درست است، چون انتخابِ
  * گوینده کارِ صاحبِ برنامه است نه حدسِ کد.
  */
-function vbrAskDue_(hub) {
+function vbrAskDue_(hub, opt) {
+  opt = opt || {};
   var rows = vbrSpeakerRows_();
   if (!vbrSpeakerAny_(rows)) return 0;
   var n = 0;
+  var seenShow = {};                                    // `newestOnly` (۹.۴۲): فقط تازه‌ترین قسمتِ هر برنامه
   /* ══ تیک‌های صریح **اول**، پیش از تازه‌ترین‌ها (۷٫۵۹) ══
      ستونِ «قسمت‌های تولیدشده» یعنی او خودش این قسمت را انتخاب کرده.
      انتخابِ صریح بر «تازه‌ترین» مقدم است، وگرنه دو تبدیلِ هر شب را
      ردیف‌های خودکار می‌خورند و چیزی که او تیک زده هفته‌ها در نوبت
      می‌ماند — یعنی دکمه‌ای که کار می‌کند ولی نتیجه‌اش نمی‌آید. */
-  try { n += vbrAskPicked_(rows); } catch (eP) {}
+  if (!opt.newestOnly) { try { n += vbrAskPicked_(rows); } catch (eP) {} }
   if (n >= 2) return n;
   try {
     var d = ytRenderRead_();
@@ -77181,6 +77212,7 @@ function vbrAskDue_(hub) {
       /* ۹.۳۶: فقط قسمتِ واقعی. ردیف‌های «۷۳-۹-نمونه» هم در همین صف‌اند و از همه تازه‌ترند، پس ۱۷ اکتبر هر دو نوبتِ شب
          به نمونه‌های ویدئوی «از همه جا» رسید — «من کی قسمت ۷۳ را خواسته بودم؟». */
       if (!vbrRealEp_(it.ep)) continue;
+      if (opt.newestOnly) { if (seenShow[it.show]) continue; seenShow[it.show] = 1; }
       /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
          «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
       var pick = vbrSpeakerPick_(rows, it.show, it.ep);

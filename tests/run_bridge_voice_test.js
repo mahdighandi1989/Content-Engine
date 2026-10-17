@@ -291,6 +291,37 @@ console.log('\n══ ۱۱-ب) ردیفِ «نمونه» قسمت نیست (۹.�
   ok('۱۱-ب.۳ شمارهٔ قسمت فقط رقم است', vbrRealEp_('74') && vbrRealEp_(74) && !vbrRealEp_('73-9-نمونه') && !vbrRealEp_(''));
 }
 
+console.log('\n══ ۱۱-پ) قسمتِ امروز، امروز به پل می‌رود — فقط تازه‌ترینِ هر برنامه (۹.۴۲) ══');
+/* «گلدوز و رضوی برای پادکست‌های امروز کی میاد؟» — تا ۹.۴۱ فقط ۰۲:۳۰، پیش از ساختِ قسمت‌های روز، یعنی همیشه یک شب عقب. */
+{
+  const q = vbrRead_(); q.items = []; vbrSave_(q);
+  const mk = (n) => { const f = OUT.createFolder('روز-' + n); f.createFile('قسمت ' + n + ' — کامل.wav', 'x'.repeat(9000), 'audio/wav'); return f.getId(); };
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:70', show: 'variety', ep: '70', folderId: mk(70), title: 'کهنه' },
+              { key: 'special:73', show: 'special', ep: '73', folderId: mk(73), title: 'کهنه' },
+              { key: 'special:74', show: 'special', ep: '74', folderId: mk(74), title: 'امروز' },
+              { key: 'variety:74', show: 'variety', ep: '74', folderId: mk(740), title: 'دیروز' },
+              { key: 'variety:75', show: 'variety', ep: '75', folderId: mk(75), title: 'امروز' },
+              { key: 'variety:73-9-نمونه', show: 'variety', ep: '73-9-نمونه', folderId: mk(1), title: 'نمونه' }];
+  ytRenderSave_(rd);
+  personaBoardSave_('razavi', true, knownShows_().map(x => x.name), 1, 'آرام بخوان', '');
+  const realFmt = Utilities.formatDate;
+  let hour = '9';
+  Utilities.formatDate = (d, tz, f) => f === 'H' ? hour : realFmt.call(Utilities, d, tz, f);
+  delete global.__PROPS[PK.VBR_DAY_ASK];
+  const r0 = vbrDayAskDue_();
+  ok('۱۱-پ.۱ پیش از ساعتِ آغاز کاری نمی‌کند', r0 === null && vbrRead_().items.length === 0);
+  hour = '11';
+  const r1 = vbrDayAskDue_();
+  const keys = vbrRead_().items.map(x => x.key).sort();
+  ok('۱۱-پ.۲ از ساعتِ آغاز، فقط تازه‌ترین قسمتِ هر برنامه — نه کهنه‌ها، نه نمونه',
+     r1 === 2 && keys.join(',') === 'special:74,variety:75', JSON.stringify(keys));
+  ok('۱۱-پ.۳ و روز بسته می‌شود — ساعتِ بعد دوباره نمی‌خوانَد',
+     vbrDayAskDue_() === null && global.__PROPS[PK.VBR_DAY_ASK]);
+  ok('۱۱-پ.۴ ساعتیِ پل صدایش می‌زند', /vbrDayAskDue_\(\)/.test(String(vbrCollectHourly)));
+  Utilities.formatDate = realFmt;
+}
+
 console.log('\n══ ۱۲) اشتراکِ صف — و مسیری که به خودِ صف بند نیست ══');
 /* ══ چرا این بخش هست ══
    ۲۲ سپتامبر، اجرای ۱ِ voice-bridge قرمز شد: «درایو به‌جای JSON یک صفحهٔ

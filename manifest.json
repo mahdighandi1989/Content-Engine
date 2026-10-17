@@ -1,26 +1,24 @@
 {
-  "version": "9.41",
+  "version": "9.42",
   "codeFile": "engine.gs",
-  "sha256": "a994330fff831a9bd02a5bbd794c073c9a0bf0d273185dc01a31460a36751e27",
-  "releasedAt": "2026-10-17T12:30:00+04:00",
-  "summary": "نوشتنِ _STATUS می‌گوید کدام بلوکش وقت می‌خورد (هر بلوک پیش از کار مُهرِ مرحله می‌زند و زمانش در statusCost می‌نشیند؛ بیش از ۱۸۰ ثانیه ⇒ مسئلهٔ روز با نامِ بلوک)، و پوشهٔ «اینستاگرام»ِ ریشه دیگر «ناشناخته» نیست.",
+  "sha256": "8a923b802751c7589c67a0328e38ef4aa6f573ee28f6b46ddc7aee3c1bdbc937",
+  "releasedAt": "2026-10-17T13:30:00+04:00",
+  "summary": "صوتِ گلدوز/رضوی برای قسمتِ امروز همان روز: از ساعتِ ۱۰ تازه‌ترین قسمتِ هر برنامه به پل می‌رود، نه سحرِ فردا؛ و ناظر ویدئوی رسانه‌ایِ «از همه جا» را پس از انتشارِ خودکار هم می‌بیند (پرامپتِ ۱۰۸).",
   "fixes": [
-    "src/08_Health.gs: wsB_/wsBegin_/wsEnd_ دورِ بلوک‌های سنگینِ writeStatus_ — مُهرِ مرحله پیش از کار، زمان پس از آن؛ statusCost و PK.STATUS_COST",
-    "src/08_Health.gs: healthCheck هزینهٔ پیشینِ نوشتنِ وضعیت را می‌خوانَد؛ > STATUS_COST_WARN_SEC ⇒ مسئلهٔ روز با نامِ سنگین‌ترین بلوک · healthStep_ مرحلهٔ اجرا را هم می‌زند",
-    "src/08_Health.gs: outRootFolderNames_ پوشهٔ CFG.IG_BOOK_FOLDER را می‌شناسد (outLayout.strays دیگر «اینستاگرام» ندارد)",
-    "tests/run_health_test.js §۱۹ (۷ سنجه)"
+    "src/36_VoiceBridge.gs: vbrDayAskDue_ (ساعتی، روزی یک بار) + vbrAskDue_(…, {newestOnly})",
+    "src/00_Config.gs: VBR_DAY_ASK_HOUR/LAST، PK.VBR_DAY_ASK، عنوانِ variety-media",
+    "docs/prompts/_PROMPT-monitor-v108.md: variety-media پیش و پس از انتشار، سنجشِ موسیقیِ ۹.۴۰، پلِ همان روز؛ بندِ «تأییدِ نخستین‌ها» کهنه اعلام شد",
+    "tests: bridge_voice ۱۱-پ"
   ],
-  "sourceReportIds": [
-    "ENG-20261004-2049#promptimpact-839",
-    "ENG-20261004-2210#promptimpact-840",
-    "ENG-20261005-0231#promptimpact-842",
-    "ENG-20261006-0233#promptimpact-852",
-    "ENG-20261012-0231#promptimpact-874",
-    "ENG-20261012-1400#promptimpact-880",
-    "ENG-20261012-1526#promptimpact-881",
-    "ENG-20261014-1226#promptimpact-892",
-    "ENG-20261016-1426#promptimpact-921",
-    "ENG-20261016-2227#promptimpact-930"
+  "sourceReportIds": [],
+  "answers": {
+    "R-20261017-05": "۹.۴۲",
+    "R-20261017-06": "۹.۴۲"
+  },
+  "promptImpact": [
+    "_PROMPT-monitor-v108.md: variety-media دو نیمه (پیش و پس از انتشار، از ۹.۳۷ عمومی‌شدن خودکار است)، سنجشِ مرزهای موسیقی (۹.۴۰)، پلِ صدای همان روز (۹.۴۲)؛ یادداشتِ ۱۰۳ به تاریخچه"
   ],
-  "answers": {}
+  "promptImpactKinds": [
+    "monitor"
+  ]
 }
