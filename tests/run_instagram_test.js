@@ -650,20 +650,31 @@ console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای
   if (kq == null) props_().deleteProperty(PK.YT_QUOTA); else props_().setProperty(PK.YT_QUOTA, kq);
 }
 
-console.log('=== ۱۱) نشانیِ دفتر در تب‌های کهنهٔ هاب (۹.۳۴) ===');
+console.log('=== ۱۱) تب‌های کهنهٔ اینستاگرام در هاب کنار می‌روند — با دقت (۹.۳۸) ===');
 {
+  /* «اگر این دوتا تب در شیتِ اصلی دیگه کار نمی‌کنن … حذفش کن، ولی با دقتِ بسیار بدون آسیب به جای دیگه». */
   const hubX = getHub_();
-  const old1 = hubX.getSheetByName(CFG.IG_STATS_TAB) || hubX.insertSheet(CFG.IG_STATS_TAB);
+  const mk = (n) => { const o = hubX.getSheetByName(n); if (o) hubX.deleteSheet(o); return hubX.insertSheet(n); };
+  const tS = mk(CFG.IG_STATS_TAB); tS.appendRow(['شناسهٔ پست', 'زمانِ انتشار']); tS.getRange(2, 1).setValue('⬅ از نسخهٔ ۹.۳۰ این تب پر نمی‌شود. … https://x');
+  const tC = mk(CFG.IG_COMMENTS_TAB); tC.appendRow(['شناسهٔ نظر', 'زمان']);
+  const tP = mk(CFG.IG_TAB); tP.appendRow(['زمان', 'قسمت']); tP.appendRow(['2026-10-10 10:00', 7]);   // داده دارد
+  const other = hubX.getSheetByName('یوتیوب — آزمون') || hubX.insertSheet('یوتیوب — آزمون'); other.appendRow(['نباید دست بخورد']);
+  const nBefore = hubX.getSheets().length;
   const st = {};
-  const did = igHubPointer_(st);
-  const v = String(old1.getRange(2, 1).getValue());
-  ok('۱۱.۱ تبِ کهنهٔ هاب نشانیِ دفترِ جدا را می‌گیرد، یک بار', did && v.indexOf(igBookUrl_()) !== -1 && !!igBookUrl_() && !!st.hubPtr &&
-     igHubPointer_(st) === false, v);
+  const r = igHubRetire_(st);
+  ok('۱۱.۱ تبِ خالی (فقط سرستون یا سرستون + نشانیِ ۹.۳۴) حذف شد', !hubX.getSheetByName(CFG.IG_STATS_TAB) && !hubX.getSheetByName(CFG.IG_COMMENTS_TAB) &&
+     r.deleted.length === 2, JSON.stringify(r));
+  ok('۱۱.۲ تبی که داده داشت حذف نشد — فقط «بایگانی — …» شد، داده‌اش سرِ جا', !hubX.getSheetByName(CFG.IG_TAB) &&
+     !!hubX.getSheetByName('بایگانی — ' + CFG.IG_TAB) && hubX.getSheetByName('بایگانی — ' + CFG.IG_TAB).getLastRow() === 2, JSON.stringify(r.renamed));
+  ok('۱۱.۳ هیچ تبِ دیگری دست نخورد، و یک بار است', !!hubX.getSheetByName('یوتیوب — آزمون') && hubX.getSheets().length === nBefore - 2 &&
+     !!st.hubRetired && igHubRetire_(st) === null);
+  ok('۱۱.۴ دفترِ جدا (نه هاب) همان چهار تب را دارد و `igSheet_` هرگز هاب را باز نمی‌کند', !!igBook_().getSheetByName(CFG.IG_STATS_TAB) &&
+     !/getHub_\(\)/.test(String(igSheet_)));
   const st2 = {}; const kG = global.getHub_;
   global.getHub_ = () => { throw new Error('Service Spreadsheets timed out'); };
-  let thrown = false; try { igHubPointer_(st2); } catch (e) { thrown = true; } finally { global.getHub_ = kG; }
-  ok('۱۱.۲ هاب خطا داد ⇒ پرچم نمی‌خورد تا دورِ بعد دوباره', thrown && !st2.hubPtr);
-  ok('۱۱.۳ igTick صدایش می‌زند', /igHubPointer_\(st\)/.test(String(igTick)));
+  let thrown = false; try { igHubRetire_(st2); } catch (e) { thrown = true; } finally { global.getHub_ = kG; }
+  ok('۱۱.۵ هاب خطا داد ⇒ پرچم نمی‌خورد تا دورِ بعد دوباره', thrown && !st2.hubRetired);
+  ok('۱۱.۶ igTick صدایش می‌زند', /igHubRetire_\(st\)/.test(String(igTick)));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');

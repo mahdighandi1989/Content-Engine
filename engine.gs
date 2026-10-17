@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.37
+ *  موتور محتوا و پادکست — نسخهٔ 9.38
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2153,7 +2153,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.37',
+  CODE_VERSION: '9.38',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -80261,7 +80261,7 @@ function igTick() {
       keep.push(it);
     }
     st.inflight = keep;
-    if (!st.hubPtr && deadline - Date.now() > 50000) { try { igHubPointer_(st); } catch (eHp) {} }
+    if (!st.hubRetired && deadline - Date.now() > 50000) { try { igHubRetire_(st); } catch (eHp) {} }
     if ((st.shortQ || []).length) { try { igShortQueueRun_(st, deadline); } catch (eSq) { st.shortWhy = String(eSq.message || eSq).slice(0, 120); } }
     if (deadline - Date.now() > 40000) { try { igShortThumbRetro_(st, deadline); } catch (eTr) { st.thumbWhy = String(eTr.message || eTr).slice(0, 120); } }
     if (deadline - Date.now() > 60000) { try { igInsights_(st, deadline); } catch (eIn) { st.lastWhy = 'آمار: ' + String(eIn.message || eIn).slice(0, 120); } }
@@ -80442,24 +80442,33 @@ function igBookUrl_() {
 }
 
 /**
- * نشانیِ دفتر در تب‌های کهنهٔ هاب (۹.۳۴) — «این شیت‌های آمار و نظرها هم خالیه که!!!». خالی بودند چون از ۹.۳۰ دیگر در هاب
- * نوشته نمی‌شوند؛ ولی همان نام‌ها در هاب ماندند و او همان‌جا را باز کرد — دفترِ جدا پر بود و هیچ نشانی‌ای به آن نمی‌رسید.
- * تب‌ها پاک نمی‌شوند (قاعده: کنار بگذار، پاک نکن)؛ ردیفِ ۲ِ هر کدام یک بار نشانیِ دفتر را می‌گیرد. هاب گاهی «timed out»
- * می‌دهد، پس شکست یعنی دورِ بعد دوباره — پرچم فقط پس از نوشتنِ واقعی. ⇒ true اگر نوشت.
+ * تب‌های کهنهٔ اینستاگرام در هاب، کنار (۹.۳۸) — «اگر این دوتا تب در شیتِ اصلی دیگه کار نمی‌کنن … حذفش کن، ولی با دقتِ بسیار».
+ * از ۹.۳۰ همه‌چیزِ اینستاگرام در دفترِ جداست (هابِ ۲۹ مگابایتی هر نوشتن را «timed out» می‌کرد) و ۹.۳۴ فقط نشانیِ دفتر را در
+ * ردیفِ ۲ِ این تب‌ها گذاشت. حالا: تبی که **جز سرستون و همان نشانی هیچ نداشت** حذف می‌شود؛ تبی که حتی یک ردیفِ دیگر دارد حذف
+ * **نمی‌شود** — فقط نامش «بایگانی — …» می‌شود تا با تبِ دفتر اشتباه نشود (داده‌ای که شاید ارزش داشته باشد، پاک نمی‌شود). هیچ
+ * کدی جز همین تابع این نام‌ها را در هاب نمی‌خوانَد (`igSheet_` فقط دفتر را باز می‌کند). شکستِ هاب ⇒ پرچم نمی‌خورد، دورِ بعد.
+ * ⇒ {deleted, renamed}
  */
-function igHubPointer_(st) {
-  if (st.hubPtr) return false;
-  var url = igBookUrl_();
-  if (!url) return false;
-  var hub = getHub_(), n = 0;
+function igHubRetire_(st) {
+  if (st.hubRetired) return null;
+  var hub = getHub_(), out = { deleted: [], renamed: [] };
   [CFG.IG_TAB, CFG.IG_STATS_TAB, CFG.IG_COMMENTS_TAB, CFG.IG_MSGS_TAB].forEach(function (t) {
     var sh = t ? hub.getSheetByName(t) : null;
     if (!sh) return;
-    sh.getRange(2, 1).setValue('⬅ از نسخهٔ ۹.۳۰ این تب پر نمی‌شود. آمار، نظرها، پیام‌ها و فهرستِ انتشارِ اینستاگرام در دفترِ جدا هستند: ' + url);
-    n++;
+    var last = sh.getLastRow(), empty = last <= 1;
+    if (last === 2) {
+      var r2 = sh.getRange(2, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0];
+      var a2 = String(r2[0] == null ? '' : r2[0]);
+      empty = (!a2 || /^⬅ از نسخهٔ ۹\.۳۰/.test(a2)) && r2.slice(1).every(function (x) { return x === '' || x == null; });
+    }
+    if (empty && hub.getSheets().length > 1) { hub.deleteSheet(sh); out.deleted.push(t); }
+    else { sh.setName('بایگانی — ' + t); out.renamed.push(t); }
   });
-  st.hubPtr = nowStr_();
-  return n > 0;
+  st.hubRetired = nowStr_();
+  if (out.deleted.length || out.renamed.length) {
+    logLine_('تب‌های کهنهٔ اینستاگرام در هاب: حذف ' + out.deleted.length + (out.renamed.length ? '، بایگانی (داده داشت) ' + out.renamed.join('، ') : ''));
+  }
+  return out;
 }
 
 /** تبِ دفترِ اینستاگرام با سرستون، اگر نیست ساخته می‌شود (برگهٔ پیش‌فرضِ خالی کنار می‌رود). */
