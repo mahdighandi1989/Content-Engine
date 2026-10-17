@@ -827,7 +827,8 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (g.box === undefined) g.box = MKIT.contentBox(FF, g.file, g.info, { at: Math.min(Math.max(0, g.info.dur - 0.5), from + 1) });
       const cOpt = { layout: layOf[s.n], box: g.box, fill: true };   // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک
       const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip, cOpt);
-      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, (c.from !== undefined ? c.from : from) + (c.played || c.len) + (skip ? skip.len : 0));
+      if (c.from !== undefined) from = c.from;   // ۹.۴۳: تکهٔ تیره جابه‌جا شد ⇒ «ادامه» و usedTo از آغازِ واقعی
+      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, from + (c.played || c.len) + (skip ? skip.len : 0));
       const ar = (g.box ? g.box.w / g.box.h : g.info.w / g.info.h);
       const lk = (ar >= MKIT.MK.wideMin && ar <= MKIT.MK.wideMax) ? 'fill' : layOf[s.n];
       st.layouts[lk] = (st.layouts[lk] || 0) + 1;

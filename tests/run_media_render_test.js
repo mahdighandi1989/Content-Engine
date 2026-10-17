@@ -516,8 +516,8 @@ console.log('=== ۱۳) تکهٔ تیرهٔ کلیپ (۹.۴۳، صحنهٔ ۱۴ِ
   const fr = SKIT.gray(FF, c.file, 3);
   ok('۱۳.۳ و خودِ کلیپِ ساخته‌شده خالی نیست — همان سنجهٔ qa', c.darkMoved && fr && SKIT.sd(fr) >= SKIT.SK.qaBlankSd,
      'sd=' + (fr ? SKIT.sd(fr).toFixed(1) : 'نه') + ' from=' + c.from);
-  ok('۱۳.۴ رانر جابه‌جایی را در notes می‌گوید و usedTo از آغازِ واقعی حساب می‌شود',
-     /c\.darkMoved/.test(fs.readFileSync('tools/render.js', 'utf8')) && /c\.from !== undefined \? c\.from : from/.test(fs.readFileSync('tools/render.js', 'utf8')));
+  ok('۱۳.۴ رانر جابه‌جایی را در notes می‌گوید و «ادامه»/usedTo از آغازِ واقعی حساب می‌شود',
+     /c\.darkMoved/.test(fs.readFileSync('tools/render.js', 'utf8')) && /if \(c\.from !== undefined\) from = c\.from;/.test(fs.readFileSync('tools/render.js', 'utf8')));
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');
