@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-17 00:52",
+ "updatedAt": "2026-10-17 05:23",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -3678,6 +3678,143 @@
     "dissolve": 7
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-73-10--cover.jpg"
+  },
+  "variety:75": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-75.mp4",
+   "bytes": 88633774,
+   "parts": 1,
+   "at": "2026-10-17 05:23",
+   "mode": "media",
+   "media": {
+    "clips": 11,
+    "photos": 8,
+    "found": 5,
+    "notFound": 0,
+    "failed": 0,
+    "why": [],
+    "layouts": {
+     "fill": 8,
+     "right": 3,
+     "center": 5,
+     "left": 3
+    },
+    "teaserTiles": 5,
+    "teaserSec": 43,
+    "teaser": 4,
+    "cropped": 9,
+    "filled": 2,
+    "filledSec": 0,
+    "tailCut": 4,
+    "cardOwn": 6,
+    "cards": 6,
+    "moments": {
+     "asked": 5,
+     "placed": 5,
+     "made": 5,
+     "why": [],
+     "replaced": 5,
+     "sec": 181,
+     "whole": 1,
+     "fallback": 3
+    }
+   },
+   "inserts": [
+    {
+     "at": 63.1,
+     "d": 53.1,
+     "cut": 46.4
+    },
+    {
+     "at": 129.4,
+     "d": 29,
+     "cut": 20.1
+    },
+    {
+     "at": 170.7,
+     "d": 33.5,
+     "cut": 48.6
+    },
+    {
+     "at": 254.7,
+     "d": 32.4,
+     "cut": 50.3
+    },
+    {
+     "at": 329,
+     "d": 34.2,
+     "cut": 39.2
+    }
+   ],
+   "scenes": 23,
+   "want": 23,
+   "snapped": 18,
+   "seconds": 391,
+   "qa": {
+    "n": 23,
+    "matched": 23,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 9,
+       "t": 110.3,
+       "own": 0.61,
+       "nb": 0.28,
+       "ok": true,
+       "heard": "بار اول و پحرواز روی کول  و امام بشنوید از اولین قرار حزوری  بعد از اشنای توی تین در  پسره میگه"
+      },
+      {
+       "n": 12,
+       "t": 161.6,
+       "own": 0.33,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "اینترنتی که بگزرین میرسیم برسوم سونتی خاستگاری توی برره  کیون گیرداده که من میخوا مز همینجا زم بگیرم  و انتخاب"
+      },
+      {
+       "n": 17,
+       "t": 248.1,
+       "own": 0.14,
+       "nb": 0,
+       "ok": false,
+       "heard": "ارفند سینی چای و نسیهت آگد.  هالا کارب اقدرسید و کلی پبادی قوغ است.  سو خر..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 11,
+    "placed": 10,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "headline": 4,
+     "points": 6
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 23,
+    "used": 23,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 10,
+    "radial": 3,
+    "zoomin": 1,
+    "slideright": 2,
+    "fade": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-75-cover.jpg"
   }
  },
  "art": {
