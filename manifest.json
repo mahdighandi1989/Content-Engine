@@ -1,17 +1,16 @@
 {
-  "version": "9.44",
+  "version": "9.45",
   "codeFile": "engine.gs",
-  "sha256": "8a50018d7e6665ab269dec74718c41428ef444319a33c9cbc28264b435beeecd",
-  "releasedAt": "2026-10-17T15:10:00+04:00",
-  "summary": "صدای گلدوز/رضوی دیگر «مثلِ نوار جمع‌شده» نیست: گفتارِ تبدیل‌شده ۰٫۸۵ ثانیه جلوتر از ورودی بود و تکه‌ها با ثانیه‌های ورودی بریده می‌شدند؛ حالا پیش از چیدن هم‌تراز می‌شود، خروجیِ ناهم‌تراز تحویل نمی‌شود، و ۷۴ و ۷۵ از نو ساخته می‌شوند.",
+  "sha256": "d90ad9c3161acc98e84692e86cccd93fb8c68255fdb613365cfe3497294acb59",
+  "releasedAt": "2026-10-17T19:30:00+04:00",
+  "summary": "نمونهٔ درسِ ۷۴ برای رضوی و گلدوز به روشِ نمونه‌های خوب (صدای آرامِ نمونه + شیوهٔ خواندنِ خودشان، بعد تبدیل)؛ تا تأییدِ صاحبِ برنامه پل قسمتِ تازه‌ای خودکار تبدیل نمی‌کند.",
   "fixes": [
-    "tools/voicebridge.py: alignLag/_segLag — هم‌ترازیِ کل و هر تکه؛ نگهبانِ alignCorr ≥ ۰٫۶؛ pending: mix بی alignCorr انجام‌نشده",
-    "src/36_VoiceBridge.gs: vbrHitStale_/vbrRedoStale_ — خروجی‌های کهنه یک بار به صف، فایلِ کهنه کنار (نه پاک)، برداشتِ کهنه نه",
-    "tests: voice_colour ۱۰، bridge_voice ۱۱-ت"
+    "src/00_Config.gs: دو بذرِ VOICE_SOUL_SEED روی special:74 (متنِ خودِ قسمت، بی text) — گلدوز با colour prev",
+    "src/00_Config.gs + 36_VoiceBridge.gs: VBR_EP_HOLD — vbrAskDue_ پس از تیک‌ها برمی‌گردد (شبانه و روزانه)",
+    "tests: bridge_voice ۱۱-ث"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-07": "۹.۴۴"
-  },
-  "promptImpact": []
+    "R-20261017-08": "۹.۴۵"
+  }
 }

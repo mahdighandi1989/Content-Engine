@@ -266,7 +266,8 @@ console.log('\n=== ۸) شبانه: مدلی که **دستی** گذاشته شد 
   ok('۸.۲ بی مدل، پیش‌ساخته، در آموزش، یا بذرِ دستیِ CFG ⇒ نه — فقط یکی افزوده شد',
      n === 1 && !auto['spk-nomodel'] && !auto['spk-pre'] && !auto['spk-train'] && !auto['spk-1g0r95d'], Object.keys(auto).join(','));
   const s1 = vbrSoulSeeds_().filter(s => s.speaker === 'spk-1g0r95d');
-  ok('۸.۳ بذرِ دستی برنده است: گلدوز یک بذر دارد، با برچسبِ خودِ CFG', s1.length === 1 && !s1[0].auto);
+  const nCfg = (CFG.VOICE_SOUL_SEED || []).filter(s => s.speaker === 'spk-1g0r95d').length;   // ۹.۴۵: دو بذرِ دستی (ساعت‌ساز و درسِ ۷۴)
+  ok('۸.۳ بذرِ دستی برنده است: بذرهای گلدوز همان بذرهای CFG‌اند، هیچ‌کدام خودکار', nCfg >= 1 && s1.length === nCfg && s1.every(x => !x.auto));
   ok('۸.۴ برچسبِ بذرهای دستی «مکث به اندازهٔ خودش» را دارد — نمونهٔ تازه ساخته می‌شود (۷٫۸۶)',
      (CFG.VOICE_SOUL_SEED || []).every(s => /مکث به اندازهٔ خودش/.test(String(s.tag || ''))));
   const k0 = CFG.VOICE_SOUL_AUTO; CFG.VOICE_SOUL_AUTO = false;

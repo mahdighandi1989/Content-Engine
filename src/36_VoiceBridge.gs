@@ -2363,6 +2363,7 @@ function vbrAskDue_(hub, opt) {
      می‌ماند — یعنی دکمه‌ای که کار می‌کند ولی نتیجه‌اش نمی‌آید. */
   if (!opt.newestOnly) { try { n += vbrAskPicked_(rows); } catch (eP) {} }
   if (n >= 2) return n;
+  if (CFG.VBR_EP_HOLD) return n;                        // ۹.۴۵: تا تأییدِ نمونهٔ درسِ ۷۴، قسمتِ خودکار نه — تیکِ او بالا رفت
   try {
     var d = ytRenderRead_();
     /* ══ از آخر، یعنی از تازه‌ترین ══

@@ -30,6 +30,8 @@ const OUT = DriveApp.__register(CFG.OUTPUT_FOLDER_ID, 'OUTPUT');
 const REAL_SOUL_SEED = CFG.VOICE_SOUL_SEED;
 CFG.VOICE_SOUL_SEED = [];
 const hub = getHub_();
+/* ۹.۴۵: پیش‌فرضِ تولید «نگه‌داشته» است؛ سنجه‌های جاروبِ خودکار با پلِ باز. بخشِ ۱۱-ث خودِ نگه‌داشتن را می‌سنجد. */
+const HOLD0 = CFG.VBR_EP_HOLD; CFG.VBR_EP_HOLD = false;
 
 // صوتِ قسمت، در یک پوشهٔ ساختگی
 const epFold = OUT.createFolder('قسمت آزمایشی');
@@ -320,6 +322,28 @@ console.log('\n══ ۱۱-پ) قسمتِ امروز، امروز به پل می
      vbrDayAskDue_() === null && global.__PROPS[PK.VBR_DAY_ASK]);
   ok('۱۱-پ.۴ ساعتیِ پل صدایش می‌زند', /vbrDayAskDue_\(\)/.test(String(vbrCollectHourly)));
   Utilities.formatDate = realFmt;
+}
+
+console.log('\n══ ۱۱-ث) تا تأییدِ نمونه، قسمتِ تازه خودکار به پل نمی‌رود؛ تیکِ او می‌رود (۹.۴۵) ══');
+/* «حالم به هم خورد»: خروجیِ پل روی قسمت‌ها بد بود. تا او نمونهٔ درسِ ۷۴ را نپسندیده، فایلِ بدِ تازه‌ای نیاید. */
+{
+  ok('۱۱-ث.۰ پیش‌فرضِ تولید: نگه‌داشته', HOLD0 === true);
+  const q = vbrRead_(); q.items = []; vbrSave_(q);
+  const f = OUT.createFolder('نگه-۸۰'); f.createFile('قسمت ۸۰ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:80', show: 'variety', ep: '80', folderId: f.getId(), title: 'تازه' }];
+  ytRenderSave_(rd);
+  personaBoardSave_('razavi', true, knownShows_().map(x => x.name), 1, 'آرام بخوان', '');
+  CFG.VBR_EP_HOLD = true;
+  const nH = vbrAskDue_(hub), nHd = vbrAskDue_(null, { newestOnly: true });
+  ok('۱۱-ث.۱ با نگه‌داشتن، نه شبانه نه روزانه چیزی خواسته نمی‌شود', nH === 0 && nHd === 0 && vbrRead_().items.length === 0,
+     nH + '/' + nHd + ' ' + JSON.stringify(vbrRead_().items.map(x => x.key)));
+  CFG.VBR_EP_HOLD = false;
+  const nO = vbrAskDue_(hub);
+  ok('۱۱-ث.۲ و با باز شدن، همان قسمت خواسته می‌شود', nO === 1 && vbrRead_().items.map(x => x.key).join() === 'variety:80');
+  const sd = (REAL_SOUL_SEED || []).filter(x => x.show === 'special' && String(x.ep) === '74' && !x.text);
+  ok('۱۱-ث.۳ بذرِ درسِ ۷۴ برای هر دو گوینده، با متنِ خودِ قسمت (نه متنِ آزمون)',
+     sd.map(x => x.speaker).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => x.tag));
 }
 
 console.log('\n══ ۱۱-ت) خروجیِ چیدنِ ناهم‌تراز یک بار دوباره ساخته می‌شود (۹.۴۴) ══');
