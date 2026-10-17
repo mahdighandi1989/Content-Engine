@@ -1,5 +1,5 @@
 {
- "rev": 31,
+ "rev": 33,
  "items": {
   "special:49": {
    "urls": [
@@ -1988,8 +1988,108 @@
     "lowPct": 1,
     "frames": 1859
    }
+  },
+  "special:74": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-74-1713c856-1of2.wav",
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/special-74-1713c856-2of2.wav"
+   ],
+   "pieceBytes": [
+    41922638,
+    20416588
+   ],
+   "bytes": 62339226,
+   "seconds": 779.2,
+   "minutes": 14.2,
+   "parts": 2,
+   "pieces": 2,
+   "speaker": "razavi",
+   "at": "2026-10-17T09:41:15Z",
+   "pitch": "-5",
+   "loud": {
+    "rawLufs": -17.7,
+    "rawTp": 0.1,
+    "gainDb": 1.73,
+    "limited": true,
+    "lufs": -16.4,
+    "tp": -1.7
+   },
+   "pitchAuto": {
+    "srcHz": 142.9,
+    "targetHz": 106.9,
+    "pitch": -5,
+    "groups": [
+     {
+      "hz": 142.9,
+      "pitch": -5,
+      "secs": 709.0
+     }
+    ],
+    "by": "speech-only"
+   },
+   "mix": {
+    "speechSec": 709.0,
+    "keptSec": 70.3
+   },
+   "f0Out": {
+    "medianHz": 153.8,
+    "lowPct": 2,
+    "frames": 1946
+   }
+  },
+  "variety:75": {
+   "urls": [
+    "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-75-4c21617b.wav"
+   ],
+   "pieceBytes": [
+    31280058
+   ],
+   "bytes": 31280058,
+   "seconds": 391.0,
+   "minutes": 7.1,
+   "parts": 1,
+   "pieces": 1,
+   "speaker": "spk-1g0r95d",
+   "at": "2026-10-17T09:55:54Z",
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-75-4c21617b.wav",
+   "pitch": "-3",
+   "loud": {
+    "rawLufs": -20.2,
+    "rawTp": 0.1,
+    "gainDb": 4.21,
+    "limited": true,
+    "lufs": -16.6,
+    "tp": -1.7
+   },
+   "pitchAuto": {
+    "srcHz": 188.3,
+    "targetHz": 158.0,
+    "pitch": -3,
+    "groups": [
+     {
+      "hz": 188.3,
+      "pitch": -3,
+      "secs": 296.5
+     },
+     {
+      "hz": 135.6,
+      "pitch": 3,
+      "secs": 34.5
+     }
+    ],
+    "by": "speech-only"
+   },
+   "mix": {
+    "speechSec": 331.0,
+    "keptSec": 60.0
+   },
+   "f0Out": {
+    "medianHz": 160.0,
+    "lowPct": 5,
+    "frames": 1886
+   }
   }
  },
- "at": "2026-10-16T22:41:24Z",
+ "at": "2026-10-17T09:55:54Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
