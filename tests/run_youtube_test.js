@@ -350,6 +350,17 @@ console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه 
   ok('۱۰.۷ (۸.۸۷) رهاشده پس از ۸ روز دوباره امتحان می‌شود؛ تازه‌رهاشده نه',
      ytGaveUp_(pubOld, ENRICH_SHOW_SPECIAL, '17') === false && ytGaveUp_(pub2, ENRICH_SHOW_SPECIAL, '17') === true,
      JSON.stringify(pubOld));
+  /* ۹.۳۷: ۷۳ و ۷۴ِ «از همه جا» برای «بزرگ‌تر از سقفِ آپلود» رها شدند — شکستی که از کدِ رانر بود و درمان شد. */
+  const nowS = Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm');
+  const pub3 = { 'variety:74': { tries: 3, videoId: '', at: nowS, result: 'نشد', note: 'نشد: فایلِ ویدئو 76 مگابایت است؛ آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد. با نرخِ کمتر رندر شود.' },
+                 'variety:76': { tries: 3, videoId: '', at: nowS, result: 'نشد', note: 'نشد: فایلِ ویدئو 52 مگابایت است، حتی پس از ساختِ دوباره با سقفِ بیت؛ آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد.' } };
+  ok('۱۰.۸ (۹.۳۷) رهاشده برای اندازه همین حالا برمی‌گردد؛ پس از ساختِ دوباره هنوز بزرگ ⇒ همان صبرِ معمول (حلقهٔ هرروزه نه)',
+     pub3['variety:74'].tries === 3 && ytGaveUp_(pub3, 'variety', '74') === false && ytGaveUp_(pub3, 'variety', '76') === true,
+     JSON.stringify([pub3['variety:74'], pub3['variety:76']]));
+  const src27b = fs.readFileSync('src/27_YouTube.gs', 'utf8');
+  ok('۱۰.۹ (۹.۳۷) ویدئوی بزرگ‌تر از سقف: یک بار به «پیشین» و ساختِ دوباره با `replace`ِ size-، بارِ دوم فقط علت',
+     /if \(!\/\^size-\/\.test\(String\(item\.replace \|\| ''\)\)\) \{\s*var asideS = 0;\s*try \{ asideS = ytReplaceAside_\(folder\)/.test(src27b) &&
+     /item\.replace = szTag;/.test(src27b) && /حتی پس از ساختِ دوباره با سقفِ بیت/.test(src27b));
 }
 
 console.log('=== ۱۱) دیده‌شدن: خطِ روزانه، همیشه ===');

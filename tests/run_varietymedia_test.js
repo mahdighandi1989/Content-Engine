@@ -175,6 +175,14 @@ console.log('=== ۵) صف: رسانه، لحظه و بازه‌های موسیق
 
 console.log('=== ۶) سدِ انتشار: حالتِ رسانه شمارِ تأییدِ خودش را دارد ===');
 {
+  /* ۹.۳۷: صاحبِ برنامه سبک را تأیید کرد و `YT_MEDIA_APPROVE` صفر شد؛ سازوکارِ شمار همچنان سنجیده می‌شود، با ۲ِ همین آزمون. */
+  const shippedApprove = CFG.YT_MEDIA_APPROVE;
+  delete global.__PROPS[PK.YT_MEDIA_OK];
+  YT_APPROVED_ = {};
+  ok('۶.۰ (۹.۳۷) با تنظیمِ تحویلی، نخستین ویدئوی رسانه‌ایِ سالم عمومی می‌شود؛ سنجشِ رانرِ رد هنوز نه',
+     shippedApprove === 0 && ytPublicGate_('variety:75', { mode: 'media', qa: { ok: true } }).ok &&
+     !ytPublicGate_('variety:75', { mode: 'media', qa: { ok: false, why: 'قابِ خالی' } }).ok);
+  CFG.YT_MEDIA_APPROVE = 2;
   global.__PROPS[PK.YT_SCENES_OK] = '9';             // درس‌نامه از سد گذشته
   delete global.__PROPS[PK.YT_MEDIA_OK];
   YT_APPROVED_ = {};
@@ -190,6 +198,7 @@ console.log('=== ۶) سدِ انتشار: حالتِ رسانه شمارِ تأ�
      global.__PROPS[PK.YT_MEDIA_OK] === '2' && global.__PROPS[PK.YT_SCENES_OK] === '9');
   ok('۶.۵ و دیگر تأیید نمی‌خواهد', ytPublicGate_('variety:77', { mode: 'media', qa: { ok: true } }).ok);
   ok('۶.۶ حالتِ کاور (بی رندرِ صحنه) مثلِ قبل آزاد است', ytPublicGate_('variety:78', { mode: 'cover' }).ok);
+  CFG.YT_MEDIA_APPROVE = shippedApprove;
 }
 
 console.log('=== ۷) سرتاسری: نقشه ⇒ رونوشت ⇒ کاور ⇒ صحنه‌های صف ===');

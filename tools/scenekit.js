@@ -550,7 +550,9 @@ function build(it, ctx) {
     }
   }
 
-  const vmax = vmaxFor(ctx.durSec);
+  /* ۹.۳۷: در حالتِ رسانه لحظه‌های کلیپ **پس از** این به ویدئو افزوده می‌شوند؛ بودجهٔ بایت باید روی طولِ نهایی پخش شود، نه
+     طولِ صوت — ۷۳ و ۷۴ با ۵۸ و ۷۶ مگابایت از سقفِ ۵۰ِ آپلود گذشتند و هرگز منتشر نشدند. */
+  const vmax = vmaxFor(Math.max(Number(ctx.durSec) || 0, Number(ctx.vmaxSec) || 0));
   const parts = [];
   let gStart = 0;
   const ovWin = {};          // پنجرهٔ دیده‌شدنِ کارتِ هر صحنه — برای مرجعِ سنجش

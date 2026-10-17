@@ -873,12 +873,42 @@ function momentSize(spans, from, stop, g, m) {
 }
 
 /** لحظه‌ها پس از ساختِ ویدئو و سنجشش: هر کدام همان تکهٔ شنیده‌شده، با صدای خودش. */
+/**
+ * فایل را زیرِ سقفِ آپلودِ موتور می‌آورد (۹.۳۷). زیرِ سقف ⇒ دست نمی‌خورد. بالاتر ⇒ بازکدگذاریِ تصویر با `maxrate`ِ
+ * حساب‌شده از طولِ **خودِ فایل** (صدا کپی)، تا دو بار با سقفِ تنگ‌تر. ⇒ {mb, was?, how}
+ */
+function fitSize(dest, dir, notes, capMB) {
+  const MKIT = require('./mediakit.js');
+  const cap = Number(capMB) || VIS.capMB, lim = cap * 1024 * 1024;
+  const was = fs.statSync(dest).size;
+  if (was <= lim) return { mb: Math.round(was / 104857.6) / 10, how: 'زیرِ سقف' };
+  const p = MKIT.probe(ffmpegExe(), dest);
+  const dur = p && p.dur > 1 ? p.dur : 0;
+  if (!dur) { notes.push('اندازه: طولِ فایل خوانده نشد، بازکدگذاری نشد'); return { mb: Math.round(was / 104857.6) / 10, how: 'نشد' }; }
+  let cur = was;
+  for (const k of [0.92, 0.8]) {
+    const vmax = vmaxFor(dur, cap * k, VIS.audioBps);
+    const tmp = path.join(dir, 'fit.mp4');
+    ff(['-i', dest, '-c:v', 'libx264', '-preset', 'faster', '-crf', String(VIS.crf), '-maxrate', String(vmax), '-bufsize', String(vmax * 2),
+        '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', tmp]);
+    cur = fs.statSync(tmp).size;
+    fs.renameSync(tmp, dest);
+    if (cur <= lim) break;
+  }
+  const out = { mb: Math.round(cur / 104857.6) / 10, was: Math.round(was / 104857.6) / 10, how: cur <= lim ? 'بازکدگذاری' : 'هنوز بزرگ' };
+  notes.push('اندازه: ' + out.was + ' ⇒ ' + out.mb + ' مگابایت' + (cur <= lim ? '' : ' — هنوز بالای سقف'));
+  return out;
+}
+
 function spliceMoments(it, placed, mp, silent, wav, dest, dir, notes) {
   const MKIT = require('./mediakit.js');
   const SKIT = require('./scenekit.js');
   const FF = ffmpegExe();
-  const enc = ['-c:v', 'libx264', '-preset', 'faster', '-crf', String(SKIT.SK.crf), '-pix_fmt', 'yuv420p',
-               '-r', String(SKIT.SK.fps), '-g', String(SKIT.SK.fps * 10)];
+  /* ۹.۳۷: لحظه‌ها هم سقفِ بیت دارند — کلیپِ واقعی پرحرکت است و با `crf` تنها هر ثانیه‌اش چند برابرِ صحنه می‌شد. */
+  const totSec = (Number(wavSeconds(wav)) || 0) + (mp.moCut || []).filter(c => c.ok).reduce((p, c) => p + (Number(c.len) || 0), 0);
+  const moMax = vmaxFor(Math.max(1, totSec || 600), VIS.capMB, VIS.audioBps);
+  const enc = ['-c:v', 'libx264', '-preset', 'faster', '-crf', String(SKIT.SK.crf), '-maxrate', String(moMax), '-bufsize', String(moMax * 2),
+               '-pix_fmt', 'yuv420p', '-r', String(SKIT.SK.fps), '-g', String(SKIT.SK.fps * 10)];
   const parts = [], st = { asked: (it.moments || []).length, placed: placed.length, made: 0, why: [] };
   for (const c of (mp.moCut || [])) {
     const m = c.m;
@@ -961,7 +991,9 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
   }
   const exe = CK.chromeExe();
   stage('صحنه‌ها: ساختِ ویدئو');
-  const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec, genre: String(it.genre || ''),
+  /* ۹.۳۷: طولِ نهاییِ تقریبی = صوت + لحظه‌های کلیپ (برشِ بازگویی حساب نمی‌شود: محافظه‌کارانه). */
+  const moSec = mp ? mp.moCut.filter(c => c.ok).reduce((p, c) => p + (Number(c.len) || 0), 0) : 0;
+  const r = SKIT.build(it, { ff: ffmpegExe(), ffRun: ff, exe: exe, wav: wav, durSec: durSec, vmaxSec: durSec + moSec, genre: String(it.genre || ''),
                              dest: dest, dir: dir, imgs: imgs, clips: clips, mark: mark, notes: notes,
                              full: mp ? mp.full : null,
                              kf: mp ? mp.moCut.filter(c => c.ok).map(c => c.m.at) : [],
@@ -1032,7 +1064,14 @@ function buildScenesVideo(it, scenes, wav, durSec, dest, dir, notes) {
     try { mo = spliceMoments(it, placed, mp, r.silent, wav, dest, dir, notes); }
     catch (eMo) { notes.push('لای‌گذاریِ لحظه‌ها نشد، ویدئو بی لحظه: ' + String(eMo.message).split('\n')[0].slice(0, 80)); }
   }
-  const media = mp ? Object.assign({}, mp.stat, { moments: mo ? mo.stat : { asked: (it.moments || []).length, placed: placed.length, made: 0 } }) : null;
+  /* ۹.۳۷: آخرین سد پیش از تحویل — فایلی که از سقفِ آپلودِ موتور بگذرد، هرگز منتشر نمی‌شود («نشد: فایلِ ویدئو ۵۰ مگابایت
+     است» برای ۷۳ و ۷۴، بی آنکه رانر چیزی گفته باشد). اندازه همین‌جا سنجیده و در صورتِ نیاز با سقفِ بیت بازکدگذاری می‌شود. */
+  let fit = null;
+  if (mp) {
+    stage('اندازهٔ فایل: زیرِ سقفِ آپلود');
+    try { fit = fitSize(dest, dir, notes); } catch (eF) { notes.push('سنجشِ اندازه نشد: ' + String(eF.message).split('\n')[0].slice(0, 80)); }
+  }
+  const media = mp ? Object.assign({}, mp.stat, { moments: mo ? mo.stat : { asked: (it.moments || []).length, placed: placed.length, made: 0 } }, fit ? { fit: fit } : {}) : null;
   return { media: media, inserts: mo ? mo.inserts : [],
            n: r.scenes, want: r.want, snapped: r.snapped, silences: r.silences,
            groups: r.groups, qa: qa, thumbFile: thumb, artFile: artFile, ov: r.ov, mv: r.mv || 0, clip: r.clip, xf: r.xf || null,
@@ -1613,7 +1652,7 @@ if (require.main === module) main();
 module.exports = {
   isWav, isPng, sniffKind, wavSeconds, ffmpegExe, makeMp4,
   vmaxFor, timelineOf, visualsOf, buildSlideshow, buildVideo,
-  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments,
+  specOf, buildSpecVideo, specBackdrops, visFilter, heldNow, readHold, buildScenesVideo, prepMedia, spliceMoments, fitSize,
   momentSize, plCoversTodo, plCoverSig, buildPlCovers, bannerTodo, buildBanner, brandMark, itemsTodo, slugOf, probeWork, builtFor,
   reelsTodo, buildReels
 };

@@ -477,5 +477,26 @@ console.log('=== ۹) پوستهٔ کارت از ژانر (۹.۱۴، «این ح�
      (rend.match(/skin\(palette\(/g) || []).length === 4 && !/[^(]palette\(an/.test(rend.replace(/skin\(palette\(an/g, '')));
 }
 
+console.log('=== ۱۲) زیرِ سقفِ آپلود (۹.۳۷) ===');
+{
+  /* ۷۳ و ۷۴ با ۵۸ و ۷۶ مگابایت ساخته شدند و موتور «نشد: فایلِ ویدئو ۵۰ مگابایت است» گفت — هیچ‌کدام منتشر نشد. */
+  const big = path.join(dir, 'big.mp4');
+  execFileSync(R.ffmpegExe(), ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=4',
+    '-f', 'lavfi', '-i', 'sine=f=300:d=4', '-vf', 'noise=alls=60:allf=t', '-c:v', 'libx264', '-crf', '8', '-c:a', 'aac', '-shortest', big]);
+  const before = fs.statSync(big).size / 1048576;
+  const nt = [];
+  const f = R.fitSize(big, dir, nt, 1);
+  const after = fs.statSync(big).size / 1048576;
+  ok('۱۲.۱ فایلِ بالای سقف بازکدگذاری می‌شود و زیرِ سقف می‌آید، با صدا', before > 1.5 && after <= 1 && f.how === 'بازکدگذاری' &&
+     /Audio:/.test(require('child_process').spawnSync(R.ffmpegExe(), ['-hide_banner', '-i', big], { encoding: 'utf8' }).stderr) && /⇒/.test(nt.join(' ')),
+     before.toFixed(2) + ' ⇒ ' + after.toFixed(2) + ' MB · ' + nt.join(' '));
+  const f2 = R.fitSize(big, dir, [], 1);
+  ok('۱۲.۲ زیرِ سقف ⇒ دست نمی‌خورد', f2.how === 'زیرِ سقف');
+  const rs = fs.readFileSync('tools/render.js', 'utf8'), ks = fs.readFileSync('tools/scenekit.js', 'utf8');
+  ok('۱۲.۳ بودجهٔ بیتِ صحنه‌ها روی طولِ نهایی (صوت + لحظه‌ها)، لحظه‌ها هم سقفِ بیت دارند، و سدِ اندازه پیش از تحویل',
+     /vmaxSec: durSec \+ moSec/.test(rs) && /vmaxFor\(Math\.max\(Number\(ctx\.durSec\) \|\| 0, Number\(ctx\.vmaxSec\) \|\| 0\)\)/.test(ks) &&
+     /'-maxrate', String\(moMax\)/.test(rs) && /fit = fitSize\(dest, dir, notes\)/.test(rs));
+}
+
 if (process.env.KEEP !== '1') { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} } else console.log('    (پوشه ماند: ' + dir + ')');
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

@@ -432,6 +432,14 @@
       "done": "در `docs/voice-renders.json` هیچ کلیدِ «نمونه» پس از ۹.۳۶ نیست؛ هر ردیفِ تازهٔ «از همه جا» `mix` (speechSec/keptSec) و `pitchAuto.groups` دارد؛ قاعده در CLAUDE.md بندِ ۱۸-ج",
       "how": "docs/voice-renders.json؛ CLAUDE.md",
       "ver": "9.36"
+    },
+    {
+      "id": "R-20261017-02",
+      "at": "2026-10-17",
+      "ask": "از فردا «از همه جا از همه رنگ» با همین سبک (رسانه‌های منبع) انجام بشه — با دقت",
+      "done": "هر قسمتِ «از همه جا» از ۱۸ اکتبر در `docs/renders.json` با mode «media»، bytes زیرِ ۴۷٬۱۸۵٬۹۲۰ و در یوتیوب عمومی؛ ۷۳ و ۷۴ هم منتشر شده‌اند",
+      "how": "docs/renders.json؛ `_STATUS.json` ⇒ youtube.failedKeys خالی از «مگابایت»",
+      "ver": "9.37"
     }
   ]
 }

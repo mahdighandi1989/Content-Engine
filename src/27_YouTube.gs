@@ -2446,6 +2446,10 @@ function ytGaveUp_(pub, show, ep) {
   var r = pub[ytShowKey_(show) + ':' + String(ep)];
   if (!r || r.videoId) return false;
   if (r.tries < Math.max(1, Number(CFG.YT_TRY_MAX) || 3)) return false;
+  /* ۹.۳۷: شکستِ «بزرگ‌تر از سقفِ آپلود» از کدِ رانر بود (بودجهٔ بیت روی طولِ صوت، لحظه‌ها بی سقف) و درمان شد؛ صبرِ هفت‌روزه
+     برایش معنا ندارد — ۷۳ و ۷۴ِ «از همه جا» همین حالا برمی‌گردند و یک بار با سقفِ تازه از نو ساخته می‌شوند. شکستِ دوباره
+     پیامِ دیگری دارد (بی «با نرخِ کمتر رندر شود») و همان صبرِ معمول را می‌گیرد، پس حلقهٔ هرروزه نمی‌شود. */
+  if (/با نرخِ کمتر رندر شود/.test(String(r.result || '') + ' ' + String(r.note || ''))) return false;
   /* ══ «رها شد» برای همیشه نبود، فقط تا هفتهٔ بعد (۸.۸۷) ══
      «انتشار برای ۲ قسمت پس از چند تلاش رها شد» هر روز در ایمیل بود و هیچ دری برای بازگشت نداشت: سه
      شکستِ پیاپی — گاهی سهمیه یا خطای گذرای یوتیوب — یعنی تا ابد. دری که هیچ‌کس بازش نمی‌کند در نیست.
@@ -9906,8 +9910,26 @@ function ytUploadOne_(item, hub, pub) {
   var size = 0;
   try { size = video.getSize(); } catch (eS) {}
   if (size > 45 * 1024 * 1024) {
-    res.why = 'فایلِ ویدئو ' + Math.round(size / 1048576) + ' مگابایت است؛ ' +
-              'آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد. با نرخِ کمتر رندر شود.';
+    /* ۹.۳۷: یک بار از نو، با سقفِ بیتِ تازهٔ رانر — همان درِ «پیش از انتشار از نو» (۸.۶۵): ویدئوی بزرگ به «پیشین» می‌رود
+       (نه سطل) و `replace` رانر را وادار به ساختِ دوباره می‌کند. بارِ دوم ⇒ علت با عدد، بی ساختِ سوم. */
+    var mbS = Math.round(size / 1048576);
+    if (!/^size-/.test(String(item.replace || ''))) {
+      var asideS = 0;
+      try { asideS = ytReplaceAside_(folder); } catch (eAs) { asideS = 0; }
+      if (asideS) {
+        var szTag = 'size-' + String(CFG.CODE_VERSION || '');
+        var dlS = ytDueList_();
+        for (var dqS = 0; dqS < dlS.length; dqS++) if (String(dlS[dqS].key) === String(item.key)) dlS[dqS].replace = szTag;
+        ytDueSave_(dlS);
+        item.replace = szTag;
+        logLine_('ویدئوی ' + item.key + ' ' + mbS + ' مگابایت بود؛ با سقفِ بیتِ تازه از نو ساخته می‌شود.');
+        res.waiting = true;
+        res.why = 'ویدئو ' + mbS + ' مگابایت بود (سقفِ آپلود ۴۵)؛ با سقفِ بیتِ تازه از نو ساخته می‌شود';
+        return res;
+      }
+    }
+    res.why = 'فایلِ ویدئو ' + mbS + ' مگابایت است، حتی پس از ساختِ دوباره با سقفِ بیت؛ ' +
+              'آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد.';
     return res;
   }
 

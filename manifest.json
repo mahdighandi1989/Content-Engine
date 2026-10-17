@@ -1,15 +1,17 @@
 {
-  "version": "9.36",
+  "version": "9.37",
   "codeFile": "engine.gs",
-  "sha256": "813d867e742fafb32db244bc83244d1f5b9b9dada0240fa7abd2f6a0c6deb0a5",
-  "releasedAt": "2026-10-17T09:30:00+04:00",
-  "summary": "پلِ صدا: ردیف‌های «نمونه» دیگر تبدیل نمی‌شوند؛ موسیقی از تبدیل نمی‌گذرد و از خودِ ورودی برمی‌گردد؛ زیروبم فقط روی گفتار و برای هر گروهِ صدا جدا سنجیده و تبدیل می‌شود (صدای زن و مرد در «از همه جا» دیگر یک گام نمی‌گیرند).",
+  "sha256": "41e51d9e028487c8fdafc4837904571b4d00927fe3f51fe4cd0938cf926be7a3",
+  "releasedAt": "2026-10-17T12:30:00+04:00",
+  "summary": "«از همه جا» با رسانه‌های منبع منتشرشدنی شد: ۷۳ و ۷۴ با ۵۸ و ۷۶ مگابایت از سقفِ آپلود گذشته و رها شده بودند. بودجهٔ بیت روی طولِ نهایی (با لحظه‌های کلیپ)، سقفِ بیتِ لحظه‌ها، بازکدگذاریِ پیش از تحویل؛ فایلِ بزرگ یک بار از نو ساخته می‌شود و این رهاشده‌ها همین حالا برمی‌گردند. تأییدِ دستیِ این سبک برداشته شد (تأییدِ صاحبِ برنامه)؛ نمونه‌سازی بس.",
   "fixes": [
-    "src/36_VoiceBridge.gs: vbrRealEp_ در vbrAskDue_؛ vbrSegs_ و row.segs",
-    "tools/voicebridge.py: voiceGroups / assemble / readMono / writeMono / f0Frames؛ runOne یک تبدیل برای هر گروه و چیدن"
+    "tools/scenekit.js: vmaxSec",
+    "tools/render.js: fitSize، سقفِ بیتِ لحظه‌ها، vmaxSec",
+    "src/27_YouTube.gs: ساختِ دوبارهٔ یک‌باره برای فایلِ بزرگ (replace size-)؛ ytGaveUp_ برای شکستِ اندازه",
+    "src/00_Config.gs: YT_MEDIA_APPROVE 0، VM_SAMPLE null"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-01": "۹.۳۶"
+    "R-20261017-02": "۹.۳۷"
   }
 }
