@@ -2563,13 +2563,15 @@ function renderSpecialAudioStep_() {
          اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
          صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
       if (!Array.isArray(st.times)) st.times = [];
-      var baseFiles = st.files.slice();
+      var carry = null;                             // ۹.۴۰: مرزِ اجرا کنارِ موسیقی — همان `synthCarry_`ِ برنامهٔ متنوع
+      try { carry = synthCarry_(st, chunks); } catch (eCa) { carry = null; }
+      var baseFiles = carry ? st.files.slice(0, -1) : st.files.slice();
       var save = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files); st.chunkIdx = nextChunk; st.partNo = nextPart;
         props_().setProperty(PK.SP_PENDING, JSON.stringify(st));
       };
       var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo, deadline,
-                                save, Number(st.secs) || 0);
+                                save, Number(st.secs) || 0, carry);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx; st.partNo = res.partNo;
       st.times = st.times.concat(res.times || []);

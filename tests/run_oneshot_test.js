@@ -2407,17 +2407,16 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
   const gMusic = gainCurve(one, zero);   // شیبِ طرفِ رونده (موسیقی)
   const gVoice = gainCurve(zero, one);   // شیبِ طرفِ آینده (گفتار)
 
-  // ۱) گوینده از صفر بالا نمی‌آید — وگرنه نخستین هجای هر بخش نامفهوم است.
-  ok('۳۲.۴ گوینده از صفر شروع نمی‌شود — از کفِ MUSIC_DUCK_FLOOR',
-     gVoice[0] >= Number(CFG.MUSIC_DUCK_FLOOR) - 0.05 && gVoice[0] > 0.3,
-     gVoice[0].toFixed(2));
-  ok('۳۲.۴-ب و خیلی زود به بلندیِ کامل می‌رسد',
-     gVoice[Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE))] > 0.95,
-     gVoice[Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE))].toFixed(2));
+  // ۱) گوینده با بلندیِ کامل وارد می‌شود (۹.۴۰؛ تا ۹.۳۹ از کفِ ۰٫۵۵ و هجای اولش زیرِ موسیقی گم بود).
+  ok('۳۲.۴ گوینده از همان نمونهٔ اول کامل است — نه از صفر، نه از کف',
+     gVoice[0] > 0.99 && gVoice[Math.floor(SR * 0.1)] > 0.99, gVoice[0].toFixed(2));
+  const kDuck = Math.floor(SR * Math.min(0.3, Number(CFG.MUSIC_TALKUP_DUCK_SEC)));
+  ok('۳۲.۴-ب و موسیقی در چند صدم‌ثانیهٔ اول هنوز تقریباً کامل است — افتادن نرم است، نه پله',
+     gMusic[Math.floor(kDuck * 0.1)] > 0.9, gMusic[Math.floor(kDuck * 0.1)].toFixed(2));
 
   // ۲) موسیقی زیرِ صدا می‌رود، نه اینکه بمیرد و بعد حرف شروع شود.
-  const kRise = Math.floor(SR * Number(CFG.MUSIC_DUCK_RISE));
-  ok('۳۲.۵ موسیقی در لحظهٔ اوجِ گوینده هنوز زنده است، فقط زیرش',
+  const kRise = Math.floor(kDuck * 1.2);
+  ok('۳۲.۵ موسیقی پس از افتادن هنوز زنده است، زیرِ حرف (نزدیکِ MUSIC_TALKUP_BED)',
      gMusic[kRise] > 0.2 && gMusic[kRise] < 0.6, gMusic[kRise].toFixed(2));
   ok('۳۲.۶ و در پایانِ ناحیه به صفر می‌رسد', gMusic[SR - 1] < 0.01,
      gMusic[SR - 1].toFixed(3));
@@ -2561,16 +2560,22 @@ console.log('=== ۳۲) تلفیقِ لبهٔ موسیقی و گفتار ===');
        outro.bed.rise === Number(CFG.MUSIC_OUTRO_RISE_SEC) &&
        outro.bed.bed === Number(CFG.MUSIC_OUTRO_BED),
        JSON.stringify(outro.bed || null));
-    ok('۳۲.۲۵-پ و بقیهٔ جایگاه‌ها بستر نمی‌گیرند — بستر فقط مالِ پایان است',
-       seen.slice(0, seen.length - 1).every((x) => !x.bed));
+    /* ۹.۴۰: پل هم بستر می‌گیرد — «از قبل از تموم شدنِ حرفِ گوینده موسیقی با ملایمت زیرِ حرفش شروع به پخش بشه».
+       طولِ زیرِ گفتارش همان تلفیقِ پل است؛ آغاز (که پیش از هر حرفی است) بستر ندارد. */
+    ok('۳۲.۲۵-پ آغاز بستر نمی‌گیرد، و هر پل بسترِ هم‌اندازهٔ تلفیقِ خودش را می‌گیرد (۹.۴۰)',
+       !seen[0].bed && mid.length > 0 &&
+       mid.every((x) => x.bed && x.bed.under === xfBridgeSec_() &&
+                        x.bed.rise === Number(CFG.MUSIC_BED_RISE_SEC) && x.fi === 0),
+       mid.map((x) => JSON.stringify(x.bed || null)).join(' '));
     const mus = r.chunks.filter((c) => c && c.pcm);
     const oc = mus[mus.length - 1];
     ok('۳۲.۲۵-ت تکهٔ پایان حالتش را اعلام می‌کند و هم‌پوشانی‌اش زیرِ گفتار می‌رود',
        !!oc && oc.xmode === 'outro' &&
        oc.xfade === Number(CFG.MUSIC_OUTRO_UNDER_SEC),
        oc ? (String(oc.xmode) + '/' + oc.xfade) : 'نیست');
-    ok('۳۲.۲۵-ث و آغاز و میانه حالتِ بستر ندارند',
-       mus.slice(0, mus.length - 1).every((c) => !c.xmode));
+    ok('۳۲.۲۵-ث آغاز حالتِ بستر ندارد، پل‌ها «bed» اعلام می‌کنند (۹.۴۰)',
+       !mus[0].xmode && mus.slice(1, mus.length - 1).every((c) => c.xmode === 'bed'),
+       mus.map((c) => c.xmode || '-').join(','));
     global.musicClip_ = realClip; global.musicBank_ = realBank; global.musicSegOk_ = realSeg;
     global.musicPlanModel_ = realPlan; global.musicMarkUsed_ = realUsed;
     delete global.__PROPS[PK.MUSIC_PLAN];

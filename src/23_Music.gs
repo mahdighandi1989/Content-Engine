@@ -1670,9 +1670,9 @@ function musicWrap_(chunks, hub, opt) {
       gain: b.gain * (Number(opt.gain) > 0 ? Number(opt.gain) : (Number(CFG.MUSIC_GAIN) || 1)),
       fadeIn: fi, fadeOut: fo,
       bedIn: (opts.inEdge === 'bed')
-          ? { under: Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 6,
-              rise: Number(CFG.MUSIC_OUTRO_RISE_SEC) || 3,
-              bed: Number(CFG.MUSIC_OUTRO_BED) || 0.35 }
+          ? (opts.bed || { under: Number(CFG.MUSIC_OUTRO_UNDER_SEC) || 6,
+                           rise: Number(CFG.MUSIC_OUTRO_RISE_SEC) || 3,
+                           bed: Number(CFG.MUSIC_OUTRO_BED) || 0.35 })
           : null
     });
   };
@@ -1816,13 +1816,17 @@ function musicWrap_(chunks, hub, opt) {
   for (var i = 0; i < chunks.length; i++) {
     var w = atMap[i];
     if (w) {
-      // میانه هر دو سرش گفتار است → هر دو لبه تلفیق می‌شوند.
+      /* میانه هر دو سرش گفتار است. سرِ ورود از ۹.۴۰ «بستر» است، همان شکلِ پایان: «از قبل از تموم شدنِ حرفِ گوینده
+         موسیقی با ملایمت زیرِ حرفش شروع به پخش بشه». تا ۹.۳۹ پل با تلفیقِ معمولی می‌آمد — نیمهٔ اول تقریباً بی‌صدا، و
+         گوینده در نیمهٔ دوم محو می‌شد تا موسیقی بالا بیاید؛ واژهٔ آخر می‌رفت و موسیقی «بعد از حرف» یک‌جا می‌آمد. */
+      var bridgeBed = { under: xfBridgeSec_(), rise: Number(CFG.MUSIC_BED_RISE_SEC) || 2.5,
+                        bed: Number(CFG.MUSIC_OUTRO_BED) || 0.35 };
       var bb = clipOf(w.track, 'bridge', Number(CFG.MUSIC_BRIDGE_SEC) || 4,
-                      { inEdge: 'xf', outEdge: 'xf', start: w.start });
+                      { inEdge: 'bed', bed: bridgeBed, outEdge: 'xf', start: w.start });
       if (bb) {
         out.push({ pcm: bb, label: 'موسیقیِ میانه — ' + w.track.name +
                         (w.head ? ' (پیش از «' + w.head + '»)' : ''),
-                   xfade: xfBridgeSec_() });
+                   xfade: xfBridgeSec_(), xmode: 'bed' });
         picks.push(pickOf_(w.track, 'میانه'));
       }
     }

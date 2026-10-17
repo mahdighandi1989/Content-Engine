@@ -5927,12 +5927,11 @@ function rd16_(b, i) {
    هم‌ارز نیستند: یکی حرف است و یکی موسیقی، و **حرف نباید محو شود.**
    پس دو شکلِ متفاوت، بسته به اینکه کدام طرف موسیقی است:
 
-     موسیقی → گفتار   گوینده از کفِ MUSIC_DUCK_FLOOR وارد می‌شود (نه از
-                      صفر) و در MUSIC_DUCK_RISE از گذر به بلندیِ کامل
-                      می‌رسد؛ موسیقی با شیبِ هم‌توان می‌افتد و ضربدرِ
-                      MUSIC_DUCK_UNDER زیرِ صدا می‌رود. این همان چیزی است
-                      که در رادیو «duck» می‌گویند: موسیقی کنار می‌رود،
-                      نه اینکه بمیرد و بعد حرف شروع شود.
+     موسیقی → گفتار   گوینده با بلندیِ کامل وارد می‌شود؛ موسیقی در
+                      MUSIC_TALKUP_DUCK_SEC تا MUSIC_TALKUP_BED پایین می‌رود و
+                      زیرِ حرف آرام محو می‌شود (۹.۴۰؛ پیش‌تر کفِ گوینده
+                      MUSIC_DUCK_FLOOR بود و موسیقی زود می‌مُرد). «duck» یعنی
+                      موسیقی کنار می‌رود، نه اینکه بمیرد و بعد حرف شروع شود.
 
      گفتار → موسیقی   واژه‌های پایانی تا MUSIC_XFADE_HOLD **دست نمی‌خورند**
                       (اگر گوینده وسطِ جمله محو شود، فاجعه است)، و
@@ -6011,20 +6010,26 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
   var cnt = Math.floor(Math.min(a.length, b.length) / 2);
   if (cnt < 3) return null;
 
-  var floorG = Number(CFG.MUSIC_DUCK_FLOOR); if (!(floorG >= 0)) floorG = 0.55;
-  var rise = Number(CFG.MUSIC_DUCK_RISE); if (!(rise > 0)) rise = 0.35;
   var under = Number(CFG.MUSIC_DUCK_UNDER); if (!(under >= 0)) under = 0.5;
   var hold = Number(CFG.MUSIC_XFADE_HOLD); if (!(hold >= 0 && hold < 1)) hold = 0.5;
 
-  // بسترِ پایانی: دنبالهٔ گفتار فقط در همین چند نمونهٔ آخر نرم می‌نشیند —
-  // جمله‌های پایانی حقِ محو شدن ندارند، آن‌ها خودِ حرفِ آخرند.
-  var tailN = (mode === 'outro')
-      ? Math.max(1, Math.min(Math.floor(sr * 1.2), Math.floor(cnt / 4))) : 0;
+  /* بستر (پایان، و از ۹.۴۰ هر پل): دنبالهٔ گفتار فقط در ۸۰ میلی‌ثانیهٔ آخر — ضدِ تلنگر. تا ۹.۳۹ این ۱٫۲ ثانیه بود و
+     واژهٔ آخر را می‌خورد؛ تکهٔ گفتار خودش با سکوت تمام می‌شود و جملهٔ آخر حقِ محو شدن ندارد. */
+  var bedMode = (mode === 'outro' || mode === 'bed');
+  var tailN = bedMode
+      ? Math.max(1, Math.min(Math.floor(sr * 0.08), Math.floor(cnt / 4))) : 0;
+  /* موسیقی → گفتار (۹.۴۰): «موسیقی داره پخش میشه یهو همه‌چیز قطع میشه و گوینده حرف میزنه … باید یه حالتِ ملایمی بگیره
+     برای قطع شدن در حالتی که گوینده هنوز داره حرف میزنه». گوینده با بلندیِ کامل وارد می‌شود (تا ۹.۳۹ از کفِ ۰٫۵۵ — هجای
+     اولش زیرِ موسیقی گم بود)، موسیقی در `duckN` نرم تا «بستر» پایین می‌رود و **زیرِ حرف** آرام محو می‌شود. تا ۹.۳۹ در یک
+     ثالثِ گذر نصف می‌شد و پیش از جا افتادنِ صدا مرده بود — سنجیده روی درس‌نامهٔ ۷۴: سکوتِ دیجیتال در دو ثانیهٔ اولِ گفتار. */
+  var tuBed = Number(CFG.MUSIC_TALKUP_BED); if (!(tuBed > 0 && tuBed < 1)) tuBed = 0.4;
+  var duckN = Math.max(1, Math.min(Math.floor(cnt * 0.3),
+                                   Math.floor(sr * (Number(CFG.MUSIC_TALKUP_DUCK_SEC) || 0.6))));
 
   var out = [];
   for (var k = 0; k < cnt; k++) {
     var i2 = k * 2, t = k / cnt, ga, gb;
-    if (mode === 'outro' && prevIsMusic === false) {
+    if (bedMode && prevIsMusic === false) {
       // بسترِ پایانی (۶٫۷۰): موسیقی از پیش در خودِ قطعه شکل گرفته (bedIn)
       // و همین‌طور که هست زیرِ آخرین جمله‌ها می‌نشیند؛ گفتار تا نزدیکِ
       // انتها دست‌نخورده می‌مانَد و فقط دنباله‌اش با شیبِ S فرود می‌آید.
@@ -6037,11 +6042,10 @@ function pcmXfade_(prevB64, nextB64, secs, prevIsMusic, mode) {
       ga = t <= hold ? 1 : xfRc_(1 - u);
       gb = xfRc_(t) * (under + (1 - under) * u);
     } else {
-      // موسیقی → گفتار: موسیقی می‌افتد و زیرِ صدا می‌رود — فرودش شیبِ S
-      // است تا لحظهٔ خاموشی شنیده نشود؛ گوینده از کف وارد می‌شود، نه از صفر.
-      var r = rise > 0 ? Math.min(1, t / rise) : 1;
-      ga = xfRc_(1 - t) * (1 - (1 - under) * r);
-      gb = floorG + (1 - floorG) * r;
+      // موسیقی → گفتار (۹.۴۰): پایین تا بستر در duckN، بعد زیرِ حرف با شیبِ S تا صفر؛ گوینده کامل.
+      ga = k < duckN ? 1 - (1 - tuBed) * xfRc_(k / duckN)
+                     : tuBed * xfRc_(1 - (k - duckN) / Math.max(1, cnt - duckN));
+      gb = 1;
     }
     var v = pcmSoft_(rd16_(a, i2) * ga + rd16_(b, i2) * gb);
     if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
@@ -6184,12 +6188,40 @@ function writeWavPart_(parts, baseName, partNo, folder) {
 }
 
 /**
+ * مرزِ دو اجرا که کنارِ موسیقی افتاده: بخشِ پیشین برمی‌گردد تا تلفیق رویش بیفتد (۹.۴۰).
+ *
+ * «فید شدنِ موسیقی … واقعاً هنوز افتضاحه … موسیقی داره پخش میشه یهو همه‌چیز قطع میشه و گوینده حرف میزنه.»
+ * سنجیده روی درس‌نامهٔ ۷۴: «بخش ۱» فقط موسیقیِ آغاز بود (۱۸٫۰ ثانیه) و «بخش ۸» فقط موسیقیِ پایان، و مرزهای دیگرِ بخش‌ها
+ * هم دقیقاً روی ۱۹۰٫۶۶ و ۳۶۰٫۷۳ — لبه‌های موسیقی. `buf` و `prevMusic` در هر اجرا از نو شروع می‌شدند، پس سرِ این چهار مرز
+ * هیچ تلفیقی نبود: سکوتِ دیجیتال (‎−۲۷۰ دسی‌بل) در دو ثانیهٔ اولِ گفتار. و اجرای اول تقریباً همیشه کنارِ موسیقیِ آغاز تمام
+ * می‌شود، چون وقتش صرفِ آماده‌کردنِ موسیقی شده. پس نه «گاهی»، که آغاز و پایانِ **هر** قسمت.
+ *
+ * ⇒ {file, b64, prevMusic, prevXf} یا null. فایل در `st.files` می‌مانَد تا جانشینش نوشته شود؛ اجرا اگر پیش از آن بمیرد،
+ * حالتِ ذخیره‌شده همان قبلی است و اجرای بعد دوباره همین را می‌کند.
+ */
+function synthCarry_(st, chunks) {
+  if (CFG.MUSIC_XFADE === false || !st || !Array.isArray(chunks)) return null;
+  var i = Number(st.chunkIdx) || 0;
+  var files = st.files || [];
+  if (i <= 0 || i >= chunks.length || !files.length) return null;
+  var a = !!(chunks[i - 1] && chunks[i - 1].pcm), b = !!(chunks[i] && chunks[i].pcm);
+  if (a === b) return null;                       // دو گفتار: مرزِ بی‌موسیقی همان بُرشِ قدیم است و بی‌خطر
+  var last = files[files.length - 1];
+  if (!last || !last.id) return null;
+  var bytes = DriveApp.getFileById(last.id).getBlob().getBytes();
+  if (!bytes || bytes.length <= 54 + 6) return null;
+  var b64 = alignB64_(Utilities.base64Encode(bytes.slice(54)));   // سرِ ۵۴ بایتیِ wavHeader54_
+  if (!b64) return null;
+  return { file: last, b64: b64, prevMusic: a, prevXf: Number(chunks[i - 1] && chunks[i - 1].xfade) || 0 };
+}
+
+/**
  * ساخت صدا به‌صورت «ادامه‌پذیر».
  * هر بخش به‌محض آماده‌شدن در درایو نوشته می‌شود، پس اگر اجرا به سقف شش دقیقه‌ای
  * Apps Script بخورد، هیچ کاری هدر نمی‌رود و اجرای بعدی دقیقاً از همان تکه ادامه می‌دهد.
  * @return {{done:boolean, chunkIdx:number, partNo:number, files:Array}}
  */
-function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart, t0) {
+function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadline, onPart, t0, carry) {
   var maxB64 = Math.floor(CFG.MAX_WAV_BYTES / 3) * 4;
   var buf = [], bufChars = 0, files = [];
   var partNo = startPart, i = startChunk;
@@ -6206,6 +6238,19 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   // نیست: تکه‌ای که b64ِ خالی داد اصلاً وارد بافر نشده، پس طولش هم مالِ
   // این اتصال نیست.
   var prevXf = 0;
+  /* ══ مرزِ دو اجرا کنارِ موسیقی (۹.۴۰) ══ — `synthCarry_` بخشِ پیشین را برگردانده؛ همین‌جا ادامه‌اش می‌دهیم تا تلفیق
+     رویش بیفتد. فایلِ کهنه فقط **پس از** نوشتنِ جانشینش به سطل می‌رود. */
+  var carryOld = '';
+  if (carry && carry.b64) {
+    buf.push(carry.b64); bufChars = carry.b64.length;
+    prevMusic = !!carry.prevMusic; prevXf = Number(carry.prevXf) || 0;
+    carryOld = carry.file && carry.file.id ? String(carry.file.id) : '';
+  }
+  var carryDrop = function () {
+    if (!carryOld) return;
+    try { DriveApp.getFileById(carryOld).setTrashed(true); } catch (eCd) {}
+    carryOld = '';
+  };
   /* ══ ثانیهٔ شروعِ هر تکه — رایگان، و همان چیزی که نبودش تصویر را از گفتار
      جدا کرده بود ══
      تا ۸.۰۰ هیچ‌جای این خط تولید نمی‌دانست کدام جمله در کدام ثانیه گفته
@@ -6314,6 +6359,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
         // پیشرفت را همین‌جا ذخیره کن. اگر اجرا وسط تکهٔ بعدی کشته شود، فقط همان
         // یک تکه از دست می‌رود، نه همهٔ بخش‌هایی که تا اینجا ساخته شده‌اند.
         if (onPart) onPart(files, i, partNo);
+        carryDrop();
       }
       buf = []; bufChars = 0;
     }
@@ -6341,7 +6387,7 @@ function synthesizeStep_(chunks, baseName, folder, startChunk, startPart, deadli
   }
   if (buf.length) {
     var g = writeWavPart_(buf, baseName, partNo, folder);
-    if (g) { files.push(g); partNo++; if (onPart) onPart(files, i, partNo); }
+    if (g) { files.push(g); partNo++; if (onPart) onPart(files, i, partNo); carryDrop(); }
   }
   TTS_LB_DEADLINE_ = 0;
   return { done: i >= chunks.length, chunkIdx: i, partNo: partNo, files: files,
@@ -9692,7 +9738,9 @@ function renderAudioStep_() {
          اجرا از صفر می‌شمرد و قسمتی که در سه اجرا ساخته شده، سه بار ثانیهٔ
          صفر می‌گرفت. `st` همان جایی است که بقیهٔ پیشرفت هم ذخیره می‌شود. */
       if (!Array.isArray(st.times)) st.times = [];
-      var baseFiles = st.files.slice();
+      var carry = null;
+      try { carry = synthCarry_(st, chunks); } catch (eCa) { carry = null; }
+      var baseFiles = carry ? st.files.slice(0, -1) : st.files.slice();
       var saveProgress = function (files, nextChunk, nextPart) {
         st.files = baseFiles.concat(files);
         st.chunkIdx = nextChunk;
@@ -9700,7 +9748,7 @@ function renderAudioStep_() {
         props_().setProperty(PK.PENDING, JSON.stringify(st));
       };
       var res = synthesizeStep_(chunks, baseName, folder, st.chunkIdx, st.partNo,
-                                deadline, saveProgress, Number(st.secs) || 0);
+                                deadline, saveProgress, Number(st.secs) || 0, carry);
       st.files = baseFiles.concat(res.files);
       st.chunkIdx = res.chunkIdx;
       st.partNo = res.partNo;

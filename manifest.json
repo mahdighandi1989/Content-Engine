@@ -1,15 +1,18 @@
 {
-  "version": "9.39",
+  "version": "9.40",
   "codeFile": "engine.gs",
-  "sha256": "c4182345a1bd912bf09820c40461109fe998b1cb8e6a0f535dcb1a8c793f10b6",
-  "releasedAt": "2026-10-17T10:45:00+04:00",
-  "summary": "تب‌های کهنهٔ اینستاگرام در هاب واقعاً کنار می‌روند: igHubRetire_ اولِ igTick، نه پشتِ گامِ سنگینِ تصویر با شرطِ «۵۰ ثانیه مانده».",
+  "sha256": "782e54bfa2ad60fc4008545e8fa36ca94f20afe0a6372b732e4e0272e213c941",
+  "releasedAt": "2026-10-17T11:40:00+04:00",
+  "summary": "موسیقی دیگر یک‌جا قطع نمی‌شود: مرزِ اجراها کنارِ موسیقی تلفیق می‌شود (بخشِ پیشین برمی‌گردد)، گوینده با بلندیِ کامل روی موسیقیِ رو‌به‌محو وارد می‌شود، و هر پل مثلِ پایان زیرِ آخرین جمله‌ها نرم شروع می‌شود.",
   "fixes": [
-    "src/38_Instagram.gs: igHubRetire_ به اولِ igTick، بی شرطِ وقت",
-    "tests/run_instagram_test.js ۱۱.۷"
+    "src/03_Producer.gs: synthCarry_ + synthesizeStep_(…, carry) — مرزِ اجرا کنارِ موسیقی تلفیق می‌شود",
+    "src/03_Producer.gs: pcmXfade_ — موسیقی→گفتار: گوینده کامل، موسیقی تا بستر و محوِ S زیرِ حرف؛ بستر: دنبالهٔ گفتار ۸۰ms نه ۱٫۲s",
+    "src/23_Music.gs: پل‌ها inEdge «bed» با xmode «bed»",
+    "src/14_Special.gs: همان ادامه برای درس‌نامه",
+    "tests: run_music_lead ۳–۴، oneshot ۳۲.۴/۳۲.۲۵، music ۲۶"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-03": "۹.۳۹"
+    "R-20261017-04": "۹.۴۰"
   }
 }

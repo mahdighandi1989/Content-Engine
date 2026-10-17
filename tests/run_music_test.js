@@ -1605,7 +1605,7 @@ console.log('\n=== ۲۶. پلِ میانهٔ کم از همان آهنگ‌ها�
   const bounds = [1, 3, 5, 7, 9, 11].map((at, i) => ({ at: at, kind: 'section', heading: 'بخش ' + i, tone: '' }));
   const opt = { mood: 'آرام', bounds: bounds, show: 'special', episode: '980' };
   const brL = (r) => r.chunks.filter((c) => c.pcm && /میانه/.test(c.label)).map((c) => c.label);
-  const brStarts = () => clips.filter((c) => c.id === theme.id && !c.o.bedIn && Number(c.o.lenSec) <= Number(CFG.MUSIC_BRIDGE_SEC))
+  const brStarts = () => clips.filter((c) => c.id === theme.id && (!c.o.bedIn || Number(c.o.bedIn.under) === xfBridgeSec_()) && Number(c.o.lenSec) <= Number(CFG.MUSIC_BRIDGE_SEC))
                               .map((c) => Number(c.o.startSec));
   delete global.__PROPS[PK.MUSIC_PLAN];
   const floor = Math.min(Number(CFG.MUSIC_BRIDGE_MAX) || 0,
@@ -1650,7 +1650,7 @@ console.log('\n=== ۲۶. پلِ میانهٔ کم از همان آهنگ‌ها�
   /* ── پایانِ قسمت: محوِ بلندِ «دنباله» ── */
   clips.length = 0;
   musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '983' }));
-  const oc = clips.filter((c) => c.o && c.o.bedIn)[0];
+  const oc = clips.filter((c) => c.o && c.o.bedIn && Number(c.o.bedIn.under) === Number(CFG.MUSIC_OUTRO_UNDER_SEC))[0];   // ۹.۴۰: پل هم bedIn دارد
   const oLen = Math.min(Number(CFG.MUSIC_OUTRO_SEC), theme.sec || 60);
   ok('۲۶.۷ موسیقیِ پایان با محوِ «دنباله» و بلند تمام می‌شود — نه سه ثانیه S',
      !!oc && oc.o.fadeCurve === 'tail' &&
