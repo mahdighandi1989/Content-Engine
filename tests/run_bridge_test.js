@@ -318,7 +318,7 @@ console.log('\n=== ۸) ارجاع‌ها جزوِ محتوا شده‌اند: ج
   const s08 = fs.readFileSync('src/08_Health.gs', 'utf8');
   ok('۸.۶ و در ایمیلِ روزانه و _STATUS.json می‌نشیند',
      s08.indexOf('bridgeStatus_(hub)') !== -1 &&
-     s08.indexOf('bridge: (function') !== -1);
+     (s08.indexOf('bridge: (function') !== -1 || s08.indexOf("bridge: wsB_('bridge'") !== -1));
 }
 
 console.log('\n=== ۹) نویسندهٔ درس بلوک را می‌گیرد، و تخته دکمه دارد ===');
@@ -588,7 +588,7 @@ console.log('\n=== ۱۳) حلقهٔ داوریِ کیفیت، بی آنکه کس
   const s08b = fs.readFileSync('src/08_Health.gs', 'utf8');
   ok('۱۳.۱۲ و در ایمیل و _STATUS.json می‌نشیند',
      s08b.indexOf('bridgeAuditStatus_(hub)') !== -1 &&
-     s08b.indexOf('bridgeAudit: (function') !== -1);
+     (s08b.indexOf('bridgeAudit: (function') !== -1 || s08b.indexOf("bridgeAudit: wsB_('bridgeAudit'") !== -1));
   const s21 = fs.readFileSync('src/21_SelfUpdate.gs', 'utf8');
   ok('۱۳.۱۳ کارِ شبانه پشتِ نگهبانِ بودجه صدایش می‌زند',
      /nightHas_\(\d+, 'داوریِ ارجاع‌ها'\)/.test(s21) && s21.indexOf('bridgeAuditRun_') !== -1);

@@ -196,7 +196,10 @@ function outRootFolderNames_() {
        هیچ آزمونی هم `outRootFolderNames_().indexOf(CFG.VBR_FOLDER)` را
        مستقیماً نمی‌سنجید، پس رگرسیون دو شب بی‌صدا ماند و هر شب دوباره
        «چیزِ ناشناخته: پوشه «مدل‌های صدا»» در outLayout.strays برگشت. */
-    String(CFG.VBR_FOLDER || '')
+    String(CFG.VBR_FOLDER || ''),
+    /* دفترِ اینستاگرام (۹.۳۰، `igBook_`). نقشهٔ درایو از همان روز ثبتش کرده بود و این فهرست نه — پس از
+       ۱۶ اکتبر هر وارسی «چیزِ ناشناخته: پوشه «اینستاگرام»» گزارش می‌داد، برای پوشه‌ای که خودِ موتور ساخت (۹.۴۱). */
+    String(CFG.IG_BOOK_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 
@@ -470,14 +473,70 @@ function promptPrune_() {
   return moved;
 }
 
+/* ══ «نوشتنِ _STATUS» کجایش سنگین است؟ (۹.۴۱) ══
+ * ۱۶ اکتبر وارسیِ سلامت سرِ «شروع @ 10:05» مُرد — یعنی درونِ همین تابع، که نخستین کارِ healthCheck است — و
+ * ایمیلِ ۱۰ صبحِ آن روز نرفت. ۱۷ اکتبر `syncCatalog`ِ ۰۸:۱۳ سرِ «سینک: نوشتنِ _STATUS» مُرد، ۱۷۳ ثانیه پس از
+ * شروع: یعنی این تابع خودش بیش از سه دقیقه طول کشید. ۸ اکتبر هم وارسیِ سلامت ۳۴۸ ثانیه شد. ولی این تابع
+ * نزدیکِ هفتاد کلید دارد و هیچ‌کدام نمی‌گفت چقدر خرج کرده، پس «کدام بلوک» فقط حدس بود.
+ * حالا هر بلوکِ سنگین (هر چه شیت یا درایو می‌خواند) پیش از اجرا مُهرِ مرحله می‌زند — اجرای کشته‌شده نامِ
+ * همان بلوک را جا می‌گذارد، نه «نوشتنِ _STATUS» — و زمانش شمرده می‌شود. کلِ هزینه با سنگین‌ترین‌ها در
+ * `statusCost` و در Properties (`PK.STATUS_COST`) می‌نشیند: اجرای کامل عدد را می‌دهد، اجرای مرده نام را. */
+var _wsT0 = 0, _wsCost = null, _wsPrevStage = '';
+function wsBegin_() {
+  _wsT0 = new Date().getTime();
+  _wsCost = {};
+  _wsPrevStage = RUN_STAGE_LAST_;
+}
+/** یک بلوکِ وضعیت: مُهرِ مرحله پیش از کار، زمان پس از آن. `raw` یعنی خطا مثلِ پیش بالا برود. */
+function wsB_(name, fn, raw) {
+  var t = new Date().getTime();
+  try { runStage_('وضعیت: ' + name); } catch (eS) {}
+  if (_healthT0) {
+    try {
+      props_().setProperty(PK.HEALTH_STEP, (_healthStep || 'شروع') + ' › وضعیت: ' + name + ' @ ' +
+        Math.round((t - _healthT0) / 1000) + 'ث');
+    } catch (eH) {}
+  }
+  try {
+    if (raw) return fn();
+    try { return fn(); } catch (e) { return null; }
+  } finally {
+    if (_wsCost) _wsCost[name] = (_wsCost[name] || 0) + (new Date().getTime() - t);
+  }
+}
+/** جمعِ هزینه؛ `save` یعنی پایانِ واقعی (پس از نوشتنِ فایل) — آن‌وقت در Properties هم می‌نشیند. */
+function wsEnd_(save) {
+  var out = { at: nowStr_(), totalSec: 0, top: [], line: '' };
+  try {
+    var c = _wsCost || {}, arr = [];
+    for (var k in c) if (Object.prototype.hasOwnProperty.call(c, k)) arr.push([k, c[k]]);
+    arr.sort(function (a, b) { return b[1] - a[1]; });
+    out.totalSec = Math.round((new Date().getTime() - (_wsT0 || new Date().getTime())) / 1000);
+    out.top = arr.slice(0, 6).map(function (x) { return { k: x[0], sec: Math.round(x[1] / 100) / 10 }; });
+    out.line = 'نوشتنِ وضعیت: ' + faDigitsOut_(String(out.totalSec)) + ' ثانیه' +
+      (out.top.length ? ' — سنگین‌ترین: ' + out.top.slice(0, 4).map(function (x) {
+        return x.k + ' ' + faDigitsOut_(String(x.sec)) + 'ث'; }).join('، ') : '') + '.';
+    if (save) {
+      props_().setProperty(PK.STATUS_COST, JSON.stringify(out));
+      if (_wsPrevStage) { try { runStage_(_wsPrevStage); } catch (eR) {} }
+    } else {
+      /* اجرای پیشین هم دیده شود: عددِ کاملِ آن (با نوشتنِ فایل) را کنارِ این بگذار. */
+      try { out.prev = JSON.parse(props_().getProperty(PK.STATUS_COST) || 'null'); } catch (eP) {}
+    }
+  } catch (e) {}
+  return out;
+}
+
 function writeStatus_(hub, note) {
   hub = hub || getHub_();
   var models = {};
   try { var mm = resolveModels_(false); models = { text: mm.text, tts: mm.tts }; } catch (e) {}
 
   // نبضِ هر (منبع، تب): پیشرفت خواندن + الگوی زمانیِ واقعیِ همان تب
+  wsBegin_();
   var pulse = { feeds: [], worst: 0 }, behindMax = 0;
   try {
+    wsB_('pulse', function () { return null; });                 // فقط مُهرِ مرحله، پیش از خواندنِ منابع
     pulse = sourceFeedReport_();
     writePulseTab_(hub, pulse);
     for (var pi = 0; pi < pulse.feeds.length; pi++) {
@@ -487,7 +546,7 @@ function writeStatus_(hub, note) {
   var feeds = pulse.feeds;
 
   var srcErr = { total: 0, last24h: 0, last7d: 0, byType: {}, recent: [] };
-  try { srcErr = srcErrorSummary_(hub, 20); } catch (eE) {}
+  srcErr = wsB_('sourceErrors', function () { return srcErrorSummary_(hub, 20); }) || srcErr;
 
   // شمار ردیف دو منبع اول از همان گزارشِ نبض برداشته می‌شود؛ باز کردن دوبارهٔ
   // آن دو شیتِ بزرگ فقط برای گرفتن یک عدد، دو فراخوانیِ گرانِ اضافه بود.
@@ -510,7 +569,7 @@ function writeStatus_(hub, note) {
 
   /* یک بار خوانده می‌شود و دو جا مصرف — `health` و `healthStale`. دو
      فراخوانِ جدا یعنی دو خواندنِ ۱۲۶ کیلوبایتیِ درایو در هر بار. */
-  var existingHealth = readExistingHealth_();
+  var existingHealth = wsB_('health', function () { return readExistingHealth_(); });
 
   var status = {
     generatedAt: nowStr_(),
@@ -528,12 +587,12 @@ function writeStatus_(hub, note) {
     // دیدبانیِ خودِ شیت‌های منبع — همان چیزی که ناظر روزانه باید ببیند
     sourceErrors: srcErr,
     // حلقهٔ بستهٔ گزارش ← اقدام: چه چیزی باز است و چه چیزی اعمال شده
-    reports: (function () { try { return reportSummary_(hub); } catch (e) { return null; } })(),
+    reports: wsB_('reports', function () { return reportSummary_(hub); }),
     /* کدام وارسیِ روزانهٔ ناظر گزارش شده و کدام نه (۶٫۹۵) — بی این، «انجام
        شد و سالم بود» از «اصلاً انجام نشد» جدا نمی‌شود. اینجا فقط خوانده
        می‌شود؛ یافته‌اش در healthCheck ساخته می‌شود تا writeStatus_ که هر دو
        ساعت می‌دود، هر دو ساعت یک ردیف نسازد. */
-    monChecks: (function () { try { return monChecksStatus_(null, false); } catch (e) { return null; } })(),
+    monChecks: wsB_('monChecks', function () { return monChecksStatus_(null, false); }),
     /* دفترِ درخواست‌ها (۸.۹۲) — **نسخهٔ ذخیره‌شدهٔ وارسیِ سلامت**، نه خواندنِ ریپو: این‌جا داغ‌ترین مسیرِ
        موتور است و پس از هر تریگر می‌دود. نسخهٔ اول از همین‌جا ریپو را می‌خواند و v4 سرخ شد. */
     requests: (function () { try { return reqStatusCached_(); } catch (e) { return null; } })(),
@@ -551,17 +610,17 @@ function writeStatus_(hub, note) {
     speechCalib: (function () { try { return speechCalibStatus_(); } catch (e) { return null; } })(),
     explain: (function () { try { return explainStatus_(); } catch (e) { return null; } })(),
     recap: (function () { try { return recapStatus_(); } catch (e) { return null; } })(),
-    bridge: (function () { try { return bridgeStatus_(hub); } catch (e) { return null; } })(),
-    bridgeAudit: (function () { try { return bridgeAuditStatus_(hub); } catch (e) { return null; } })(),
+    bridge: wsB_('bridge', function () { return bridgeStatus_(hub); }),
+    bridgeAudit: wsB_('bridgeAudit', function () { return bridgeAuditStatus_(hub); }),
     seriesInv: (function () { try { return seriesInvStatus_(); } catch (e) { return null; } })(),
-    seriesRejected: (function () { try { return seriesRejected_(); } catch (e) { return null; } })(),
+    seriesRejected: wsB_('seriesRejected', function () { return seriesRejected_(); }),
     handoutViz: (function () { try { return hvizStatus_(); } catch (e) { return null; } })(),
     models: (function () { try { return modelStatus_(); } catch (e) { return null; } })(),
     codeVersion: CFG.CODE_VERSION,
-    chunks: chunkBacklog_(hub),
-    bank: indexSnapshot_(hub),
-    music: (function () { try { return musicStatus_(); } catch (e) { return null; } })(),
-    lastEpisode: lastEpisode_(hub),
+    chunks: wsB_('chunks', function () { return chunkBacklog_(hub); }, true),
+    bank: wsB_('bank', function () { return indexSnapshot_(hub); }, true),
+    music: wsB_('music', function () { return musicStatus_(); }),
+    lastEpisode: wsB_('lastEpisode', function () { return lastEpisode_(hub); }, true),
     // شمارِ فایل‌های «کلِ قسمت» — از حافظه، چون ستونِ لینک هم بخش‌های خام را دارد
     lastEpisodeAudio: (function () {
       try { return JSON.parse(props_().getProperty(PK.EP_LAST) || 'null'); }
@@ -575,28 +634,28 @@ function writeStatus_(hub, note) {
        ۹ می‌تواند «همه سرِ جایشان» باشد یا «یکی گم و یکی تکراری». ناظر فقط
        همین فایل را می‌خواند، پس چیزی که این‌جا نباشد، دیده نمی‌شود. */
     triggerNames: (function () { try { return trigNames_(); } catch (e) { return null; } })(),
-    special: specialStatus_(hub),
+    special: wsB_('special', function () { return specialStatus_(hub); }, true),
     // داوریِ محتوایی: چند مجموعه آموزشی است، چند تا نه، چند تا داوری‌نشده
-    curation: (function () { try { return judgeSummary_(hub); } catch (e) { return null; } })(),
+    curation: wsB_('curation', function () { return judgeSummary_(hub); }),
     // پشتیبانِ شیت‌ها: آخرین نسخه و شمارِ نسخه‌ها
     backup: (function () { try { return backupStatus_(); } catch (e) { return null; } })(),
     // نصبِ خودکارِ کد — تا ناظرِ Cowork نسخهٔ در حالِ اجرا و وضعِ چرخه را ببیند
     selfUpdate: (function () { try { return selfUpdateStatus_(); } catch (e) { return null; } })(),
-    sourceScripts: (function () { try { return sourceScriptsStatus_(); } catch (e) { return null; } })(),
+    sourceScripts: wsB_('sourceScripts', function () { return sourceScriptsStatus_(); }),
     // وضعیتِ غنی‌سازیِ اینترنتی — تا Cowork در بازبینیِ روزانه ببیند کدام
     // درخواست بی‌پاسخ مانده و چرا.
     enrich: (function () { try { return enrichStatus_(); } catch (e) { return null; } })(),
     // چیدمانِ پوشهٔ OUTPUT — تا ناظر ببیند چه چیزی در ریشه سبز شده
-    outLayout: (function () { try { return outLayoutCheck_(); } catch (e) { return null; } })(),
+    outLayout: wsB_('outLayout', function () { return outLayoutCheck_(); }),
     // سنجهٔ محتوا: متنِ نهایی در برابرِ متنِ خام — انتخاب، پیوند، وفاداری
-    contentAudit: (function () { try { return auditStatus_(); } catch (e) { return null; } })(),
+    contentAudit: wsB_('contentAudit', function () { return auditStatus_(); }),
     // تقویمِ تولید — کدام برنامه امروز ساخته می‌شود و چرا
-    calendar: (function () { try { return calStatus_(); } catch (e) { return null; } })(),
+    calendar: wsB_('calendar', function () { return calStatus_(); }),
     // تازگیِ دستورِ روتین‌ها نسبت به نسخهٔ در حالِ اجرا
     promptFresh: (function () { try { return promptFreshStatus_(); } catch (e) { return null; } })(),
     // جزوهٔ هر مجموعه — چند فصل، چند ارجاع، و کدام مجموعه عقب مانده
-    handout: (function () { try { return handoutStatus_(); } catch (e) { return null; } })(),
-    youtube: (function () { try { return ytStatus_(); } catch (e) { return null; } })(),
+    handout: wsB_('handout', function () { return handoutStatus_(); }),
+    youtube: wsB_('youtube', function () { return ytStatus_(); }),
     /* تصویرهای درس (۷.۹۵). هر دو حافظه‌اش در Properties است، پس این‌جا —
        داغ‌ترین مسیرِ موتور — هیچ فراخوانِ درایو یا شیتی اضافه نمی‌کند
        (۷.۶۳/۷.۷۲، دو بار آموخته). */
@@ -615,11 +674,11 @@ function writeStatus_(hub, note) {
     epGuard: (function () { try { return epGuardStatus_(); } catch (e) { return null; } })(),
     imageAudition: (function () { try { return lvAudStatus_(); } catch (e) { return null; } })(),
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
-    voiceIntake: (function () { try { return vintStatus_(hub); } catch (e) { return null; } })(),
+    voiceIntake: wsB_('voiceIntake', function () { return vintStatus_(hub); }),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
-    embed: (function () { try { return embStatus_(hub); } catch (e) { return null; } })(),
-    codeQueue: (function () { try { return codeQueue_(hub); } catch (e) { return null; } })(),
+    embed: wsB_('embed', function () { return embStatus_(hub); }),
+    codeQueue: wsB_('codeQueue', function () { return codeQueue_(hub); }),
     // سنجشِ ردیف‌های بسته را خودِ `healthCheck` می‌نشاند (نیازِ وضعیتِ زنده
     // به خودش، پیش از ساخته شدنش، حلقه می‌شود).
     nightDeath: (function () { try { return nightDeath_(); } catch (e) { return null; } })(),
@@ -638,7 +697,7 @@ function writeStatus_(hub, note) {
                  covered: BUILD_MENU_.total - BUILD_MENU_.debt };
       } catch (e) { return null; }
     })(),
-    recentLog: recentLog_(hub, 25),
+    recentLog: wsB_('recentLog', function () { return recentLog_(hub, 25); }, true),
     /* کهنگیِ گزارشِ روزانه — از همین `health` بالا حساب می‌شود، پس
        هیچ خواندنِ تازه‌ای به درایو اضافه نمی‌کند. اینجاست چون
        `syncCatalog` هر دو ساعت `writeStatus_` را صدا می‌زند: یعنی
@@ -652,13 +711,16 @@ function writeStatus_(hub, note) {
 
   /* کارنامهٔ قابلیت‌ها **پس از** ساختنِ `status` حساب می‌شود، چون ورودی‌اش
      همین شیء است — و همین است که هزینه‌اش را صفر می‌کند. */
-  try { status.capabilities = capStatus_(status); } catch (eCap) { status.capabilities = null; }
+  status.capabilities = wsB_('capabilities', function () { return capStatus_(status); });
+  status.statusCost = wsEnd_(false);
 
+  wsB_('نوشتنِ فایل', function () { return null; });
   var body = JSON.stringify(status, null, 1);
   var folder = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
   var it = folder.getFilesByName(STATUS_FILE);
   if (it.hasNext()) it.next().setContent(body);
   else folder.createFile(STATUS_FILE, body, 'application/json');
+  wsEnd_(true);
   return status;
 }
 
@@ -1239,6 +1301,7 @@ function healthStart_() {
 /** ردِ پا: کجاییم. اگر اجرا کشته شود، همین آخرین مقدار می‌مانَد. */
 function healthStep_(name) {
   _healthStep = String(name || '');
+  try { runStage_('سلامت: ' + _healthStep); } catch (eRs) {}   // ۹.۴۱: وگرنه شاهدِ اجرا روی آخرین بلوکِ وضعیت می‌ماند
   try {
     props_().setProperty(PK.HEALTH_STEP, _healthStep + ' @ ' +
       Math.round((new Date().getTime() - _healthT0) / 1000) + 'ث');
@@ -1746,6 +1809,17 @@ function healthCheck() {
     try { st.recentLog = recentLog_(hub, 25); } catch (e3) {}
     try { st.sourceErrors = srcErrorSummary_(hub, 20); } catch (e4) {}
   }
+  /* ۹.۴۱: هزینهٔ نوشتنِ وضعیت — عددِ کاملِ اجرای پیشین (با نوشتنِ فایل). بیش از نیمی از شش دقیقه یعنی
+     همین تابع است که سینک و وارسیِ سلامت را می‌کُشد؛ نامِ سنگین‌ترین بلوک‌ها همان‌جاست. */
+  try {
+    var wsc = (st.statusCost && st.statusCost.prev) || st.statusCost;
+    if (wsc && wsc.line) {
+      if (Number(wsc.totalSec) > Number(CFG.STATUS_COST_WARN_SEC || 180)) {
+        problems.push('⏱ ' + wsc.line + ' — بیش از نیمی از سقفِ شش‌دقیقه‌ایِ یک اجرا؛ سینک (۱۷ اکتبر) و ' +
+                      'وارسیِ سلامت (۱۶ اکتبر) درونِ همین تابع کشته شدند. سنگین‌ترین بلوک را باید سبک کرد.');
+      } else notes.push('⏱ ' + wsc.line);
+    }
+  } catch (eWc) {}
 
   // ۰) پشتیبانِ شیت‌ها — سکوت در این مورد از همه خطرناک‌تر است
   try {

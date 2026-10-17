@@ -1,18 +1,26 @@
 {
-  "version": "9.40",
+  "version": "9.41",
   "codeFile": "engine.gs",
-  "sha256": "782e54bfa2ad60fc4008545e8fa36ca94f20afe0a6372b732e4e0272e213c941",
-  "releasedAt": "2026-10-17T11:40:00+04:00",
-  "summary": "موسیقی دیگر یک‌جا قطع نمی‌شود: مرزِ اجراها کنارِ موسیقی تلفیق می‌شود (بخشِ پیشین برمی‌گردد)، گوینده با بلندیِ کامل روی موسیقیِ رو‌به‌محو وارد می‌شود، و هر پل مثلِ پایان زیرِ آخرین جمله‌ها نرم شروع می‌شود.",
+  "sha256": "a994330fff831a9bd02a5bbd794c073c9a0bf0d273185dc01a31460a36751e27",
+  "releasedAt": "2026-10-17T12:30:00+04:00",
+  "summary": "نوشتنِ _STATUS می‌گوید کدام بلوکش وقت می‌خورد (هر بلوک پیش از کار مُهرِ مرحله می‌زند و زمانش در statusCost می‌نشیند؛ بیش از ۱۸۰ ثانیه ⇒ مسئلهٔ روز با نامِ بلوک)، و پوشهٔ «اینستاگرام»ِ ریشه دیگر «ناشناخته» نیست.",
   "fixes": [
-    "src/03_Producer.gs: synthCarry_ + synthesizeStep_(…, carry) — مرزِ اجرا کنارِ موسیقی تلفیق می‌شود",
-    "src/03_Producer.gs: pcmXfade_ — موسیقی→گفتار: گوینده کامل، موسیقی تا بستر و محوِ S زیرِ حرف؛ بستر: دنبالهٔ گفتار ۸۰ms نه ۱٫۲s",
-    "src/23_Music.gs: پل‌ها inEdge «bed» با xmode «bed»",
-    "src/14_Special.gs: همان ادامه برای درس‌نامه",
-    "tests: run_music_lead ۳–۴، oneshot ۳۲.۴/۳۲.۲۵، music ۲۶"
+    "src/08_Health.gs: wsB_/wsBegin_/wsEnd_ دورِ بلوک‌های سنگینِ writeStatus_ — مُهرِ مرحله پیش از کار، زمان پس از آن؛ statusCost و PK.STATUS_COST",
+    "src/08_Health.gs: healthCheck هزینهٔ پیشینِ نوشتنِ وضعیت را می‌خوانَد؛ > STATUS_COST_WARN_SEC ⇒ مسئلهٔ روز با نامِ سنگین‌ترین بلوک · healthStep_ مرحلهٔ اجرا را هم می‌زند",
+    "src/08_Health.gs: outRootFolderNames_ پوشهٔ CFG.IG_BOOK_FOLDER را می‌شناسد (outLayout.strays دیگر «اینستاگرام» ندارد)",
+    "tests/run_health_test.js §۱۹ (۷ سنجه)"
   ],
-  "sourceReportIds": [],
-  "answers": {
-    "R-20261017-04": "۹.۴۰"
-  }
+  "sourceReportIds": [
+    "ENG-20261004-2049#promptimpact-839",
+    "ENG-20261004-2210#promptimpact-840",
+    "ENG-20261005-0231#promptimpact-842",
+    "ENG-20261006-0233#promptimpact-852",
+    "ENG-20261012-0231#promptimpact-874",
+    "ENG-20261012-1400#promptimpact-880",
+    "ENG-20261012-1526#promptimpact-881",
+    "ENG-20261014-1226#promptimpact-892",
+    "ENG-20261016-1426#promptimpact-921",
+    "ENG-20261016-2227#promptimpact-930"
+  ],
+  "answers": {}
 }

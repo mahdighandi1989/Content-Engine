@@ -1268,3 +1268,54 @@ console.log('\n=== ۱۸) ایرادِ مزمن: «گزارش‌شده» با «�
   delete P[PK.HEALTH_CHRONIC];
   console.log('  ✅ بندِ ۱۸: ' + p18 + ' سنجه');
 }
+
+/* ══ ۱۹) «نوشتنِ _STATUS» کجایش سنگین است؟ (۹.۴۱) ══
+   ۱۶ اکتبر وارسیِ سلامت درونِ writeStatus_ مُرد («شروع @ 10:05»)، ۱۷ اکتبر syncCatalog سرِ «نوشتنِ _STATUS».
+   شاهدِ مرحله فقط نامِ کلِ تابع را داشت. حالا هر بلوکِ سنگین پیش از کار مُهر می‌زند و زمانش شمرده می‌شود —
+   و این از درِ خودِ writeStatus_ و healthCheck سنجیده می‌شود، نه با صدا زدنِ کمک‌تابع. */
+{
+  let p19 = 0;
+  const ok19 = (n, c, d) => { console.log('  ' + (c ? '✅' : '❌') + ' ' + n + (d ? ' — ' + d : ''));
+    if (!c) throw new Error('FAILED: ' + n); p19++; };
+  const P = global.__PROPS;
+  const keepYt = global.ytStatus_;
+  let seenStage = '', seenHealthStep = '';
+  /* اجرای سینک که درونِ بلوکِ یوتیوب «کشته» می‌شود: مُهرِ آن لحظه همان است که از مرگ جان به در می‌برد. */
+  runEnter_('syncCatalog');
+  global.ytStatus_ = function () {
+    seenStage = (JSON.parse(P[PK.RUN_AT] || '{}').syncCatalog || {}).st || '';
+    return { line: 'ی' };
+  };
+  const st19 = writeStatus_(hub, 'آزمون ۱۹');
+  runExit_('syncCatalog');
+  ok19('۱۹.۱ پیش از بلوکِ یوتیوب، شاهدِ اجرا نامِ همان بلوک را دارد — نه «نوشتنِ _STATUS»',
+       seenStage === 'وضعیت: youtube', seenStage);
+  const cost = JSON.parse(P[PK.STATUS_COST] || 'null');
+  ok19('۱۹.۲ هزینه با سنگین‌ترین بلوک‌ها در Properties و در خودِ _STATUS می‌نشیند',
+       !!cost && typeof cost.totalSec === 'number' && cost.top.length > 0 &&
+       /^نوشتنِ وضعیت: /.test(cost.line) && !!st19.statusCost && st19.statusCost.top.length > 0,
+       cost && cost.line);
+  /* خطای بلوکِ بی‌try همان‌طور بالا می‌رود (معنای پیشین)، و بلوکِ try‌دار null می‌شود. */
+  global.ytStatus_ = function () { throw new Error('x'); };
+  const st19b = writeStatus_(hub, 'آزمون ۱۹-ب');
+  ok19('۱۹.۳ بلوکی که می‌شکند null می‌شود و بقیهٔ وضعیت نوشته می‌شود',
+       st19b.youtube === null && !!st19b.bank, String(st19b.youtube));
+  /* وارسیِ سلامت: ردِ پایش درونِ writeStatus_ نامِ بلوک را دارد. */
+  global.ytStatus_ = function () { if (!seenHealthStep) seenHealthStep = P[PK.HEALTH_STEP] || ''; return { line: 'ی' }; };   // نخستین فراخوان همان درونِ writeStatus_ است
+  /* و اجرای پیشینِ سنگین، مسئلهٔ روز است — با نامِ بلوک. */
+  P[PK.STATUS_COST] = JSON.stringify({ at: 'x', totalSec: 240, top: [{ k: 'handout', sec: 150 }],
+                                       line: 'نوشتنِ وضعیت: ۲۴۰ ثانیه — سنگین‌ترین: handout ۱۵۰ث.' });
+  const h19 = healthCheck();
+  global.ytStatus_ = keepYt;
+  ok19('۱۹.۴ ردِ پای healthCheck درونِ writeStatus_ نامِ بلوک را دارد',
+       /وضعیت: youtube @ \d+ث$/.test(seenHealthStep), seenHealthStep);
+  ok19('۱۹.۵ نوشتنِ وضعیتِ بیش از سه دقیقه در مسئله‌های healthCheck می‌آید، با نامِ سنگین‌ترین بلوک',
+       (h19.problems || []).some((x) => /⏱ نوشتنِ وضعیت: ۲۴۰ ثانیه.*handout/.test(String(x))),
+       JSON.stringify((h19.problems || []).filter((x) => /⏱/.test(String(x)))));
+  ok19('۱۹.۶ پس از اجرای کامل، عددِ تازه جای عددِ ساختگی را گرفت',
+       JSON.parse(P[PK.STATUS_COST]).totalSec < 240);
+  /* پوشهٔ دفترِ اینستاگرام را خودِ موتور در ریشه می‌سازد؛ «ناشناخته» خواندنش هشدارِ دروغِ هر روز بود. */
+  ok19('۱۹.۷ پوشهٔ «اینستاگرام»ِ ریشه (دفترِ ۹.۳۰) در فهرستِ نام‌های شناختهٔ ریشه است',
+       outRootFolderNames_().indexOf(String(CFG.IG_BOOK_FOLDER)) !== -1, String(CFG.IG_BOOK_FOLDER));
+  console.log('  ✅ بندِ ۱۹: ' + p19 + ' سنجه');
+}
