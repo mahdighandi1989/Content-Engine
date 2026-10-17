@@ -196,6 +196,60 @@ console.log('\n══ ۵-ب) هوشمند: معنا گام‌به‌گام، ی�
      h.calls.filter((c) => c.fn === 'srchSemStep').length === 4);
 }
 
+console.log('\n══ ۵-پ) جمع‌بندیِ حینِ جست‌وجو، نمایشِ همه، خروجی، و حافظه (۹.۴۸) ══');
+{
+  const { html } = ran['srchHtml_'] || {};
+  const h = makeCtx(Object.assign({ html: html }, SEED.srchHtml_));
+  for (const b of scripts(html)) vm.runInContext(b, h.ctx, { timeout: 5000 });
+  const smart = onclicks(html).filter((e) => /هوشمند/.test(e))[0];
+  vm.runInContext('(function(){' + smart + '}).call(null);', h.ctx, { timeout: 5000 });
+  /* حافظه: رشتهٔ واژه‌ها با شیت‌های منبع می‌میرد ⇒ یک بارِ دیگر بی آن‌ها، و گفته می‌شود. */
+  const r0 = h.calls.filter((c) => c.fn === 'srchRun')[0];
+  r0.failure({ message: 'Out of memory error.' });
+  const runs = h.calls.filter((c) => c.fn === 'srchRun');
+  ok('۵-پ.۱ «Out of memory» ⇒ همان جست‌وجو بی شیت‌های منبع، یک بار', runs.length === 2 && runs[0].args[2] === true && runs[1].args[2] === false);
+  h.reply('srchSemStart', { ok: true, vp: 'VP', order: [0, 1], all: 2 });
+  const it = (t, row, sem) => ({ where: 'بانک', tab: 'تب', row: row, title: t, sem: sem, score: 0, fit: 'یافتهٔ معنایی', fields: { summary: 'خلاصهٔ ' + t } });
+  const many = []; for (let i = 0; i < 200; i++) many.push(it('یافته-' + i, 100 + i, 0.9 - i / 1000));
+  h.reply('srchSemStep', { ok: true, items: many, next: 1, all: 2, done: false, best: 0.9 });
+  ok('۵-پ.۲ همهٔ ۲۰۰ یافته نشان داده می‌شوند، نه ۱۵۰', (h.get('sem').innerHTML.match(/id="r\d+"/g) || []).length === 200,
+     String((h.get('sem').innerHTML.match(/id="r\d+"/g) || []).length));
+  ok('۵-پ.۳ هر یافته شمارهٔ ثابت دارد (#۱ …)', /#1 · یافته-0/.test(h.get('sem').innerHTML) && /id=\\?"r1\\?"|id="r1"/.test(h.get('sem').innerHTML));
+  const d1 = h.calls.filter((c) => c.fn === 'srchDigestStep');
+  ok('۵-پ.۴ استخراجِ جمع‌بندی **حینِ** جست‌وجو شروع شد، یک دسته در پرواز', d1.length === 1 && d1[0].args[1].length === 40 &&
+     d1[0].args[1][0].n === '1' && /خلاصهٔ یافته-0/.test(d1[0].args[1][0].t), JSON.stringify(d1.map((c) => c.args[1].length)));
+  ok('۵-پ.۵ دکمهٔ خروجی همان‌جا هست، با شمارِ یافته‌ها', /exportNow\(\)/.test(h.get('exp').innerHTML) && /200 یافته/.test(h.get('exp').innerHTML));
+  /* دسته‌ها یکی‌یکی؛ هر جواب دستهٔ بعد را می‌فرستد، تا ته. */
+  let guard = 0;
+  while (guard++ < 20) {
+    const last = h.calls.filter((c) => c.fn === 'srchDigestStep').pop();
+    if (last.__done) break;
+    last.__done = true;
+    const ns = last.args[1].map((x) => x.n);
+    last.success({ ok: true, found: ns[0] === '1' ? [{ name: 'شاوشنگ', note: 'در دو فهرست', refs: ['1', '2'] }] : [] });
+  }
+  const steps = h.calls.filter((c) => c.fn === 'srchDigestStep');
+  ok('۵-پ.۶ همهٔ ۲۰۰ یافته خوانده شدند (۵ دستهٔ ۴۰تایی)، هیچ‌کدام جا نماند',
+     steps.length === 5 && steps.reduce((a, c) => a + c.args[1].length, 0) === 200, String(steps.length));
+  ok('۵-پ.۷ پیش از پایانِ هر دو رشته، ترتیبِ پایانی خواسته نمی‌شود', !h.calls.some((c) => c.fn === 'srchDigestFinal'));
+  h.reply('srchSemStep', { ok: true, items: [], next: 2, all: 2, done: true, best: 0 });
+  ok('۵-پ.۸ معنا تمام، ولی واژه‌ها هنوز نه ⇒ هنوز نه', !h.calls.some((c) => c.fn === 'srchDigestFinal'));
+  h.reply('srchRun', { ok: true, mode: 'هوشمند', sheets: 3, sheetsAll: 3, read: 1, scanned: 1, ms: 1, items: [], notes: [], terms: [] });
+  ok('۵-پ.۹ و حافظه‌ای که کم آمد گفته شد', /حافظه/.test(h.get('lex').innerHTML));
+  const fin = h.calls.filter((c) => c.fn === 'srchDigestFinal');
+  ok('۵-پ.۱۰ هر دو تمام ⇒ ترتیبِ پایانی با همهٔ اقلام', fin.length === 1 && fin[0].args[1].length === 1 &&
+     fin[0].args[1][0].refs.join() === '1,2', JSON.stringify(fin.map((c) => c.args[1])));
+  h.reply('srchDigestFinal', { ok: true, answer: 'شاوشنگ بیشتر آمد', rows: [{ name: 'شاوشنگ', why: 'دو فهرست', refs: ['1', '2'] }] });
+  const dg = h.get('dig').innerHTML;
+  ok('۵-پ.۱۱ جعبهٔ جمع‌بندی: نام، چرا، و پیوند به همان یافته‌ها', /شاوشنگ/.test(dg) && /href=#r1/.test(dg) && /href=#r2/.test(dg) && /200 یافته/.test(dg), dg.slice(0, 160));
+  vm.runInContext('exportNow()', h.ctx, { timeout: 5000 });
+  const ex = h.calls.filter((c) => c.fn === 'srchExport').pop();
+  ok('۵-پ.۱۲ خروجی همهٔ یافته‌ها و جمع‌بندی را می‌برد', ex && ex.args[1].length === 200 && ex.args[1][0].n === 1 &&
+     ex.args[2].rows[0].name === 'شاوشنگ');
+  ex.success({ ok: true, n: 200, sheetUrl: 'https://docs.google.com/x', xlsxUrl: 'https://docs.google.com/x/export?format=xlsx', htmlUrl: 'https://drive.google.com/h' });
+  ok('۵-پ.۱۳ و پیوندهای شیت، اکسل و HTML نشان داده می‌شوند', /format=xlsx/.test(h.get('exp').innerHTML) && /HTML/.test(h.get('exp').innerHTML));
+}
+
 console.log('\n══ ۶) تختهٔ گویندگان: همان دکمه‌ای که فردا لازم است ══');
 {
   const { html, h } = ran['personaBoardHtml_'] || {};

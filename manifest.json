@@ -1,16 +1,16 @@
 {
-  "version": "9.47",
+  "version": "9.48",
   "codeFile": "engine.gs",
-  "sha256": "a46685f97448b3d272959522a8d67e22eb8e63210b162f73be383432818800bc",
-  "releasedAt": "2026-10-17T23:10:00+04:00",
-  "summary": "جست‌وجوی هوشمند دیگر ردیف‌های بی‌ربط را ته فهرست نمی‌ریزد: سدِ «واژه‌های قوی» با مبنای صفر (یافتهٔ معنایی در صدر) کاملاً باز بود؛ واژه‌های گفت‌وگوییِ پرسش دیگر جست‌وجو نمی‌شوند.",
+  "sha256": "63ff7252d1b854b27b90c3462f0d9dd008b4ba9910362d27b356d250436f051a",
+  "releasedAt": "2026-10-17T23:50:00+04:00",
+  "summary": "جست‌وجو: همهٔ یافته‌ها نشان داده می‌شوند؛ جمع‌بندیِ تا ۲۰ ردیف از درونِ متنِ یافته‌ها، حینِ جست‌وجو، با شمارهٔ هر یافته؛ دکمهٔ «خروجی» (شیت، اکسل، HTML) در OUTPUT؛ «Out of memory» در واژه‌ها ⇒ تکرار بی شیت‌های منبع.",
   "fixes": [
-    "src/34_Search.gs: srchKeepRejected_ — مبنا بیشینهٔ امتیازِ واژه‌ای، نه picked[0]",
-    "src/34_Search.gs: SRCH_STOP + واژه‌های گفت‌وگویی",
-    "tests: search ۳۵"
+    "src/34_Search.gs: srchDigestStep/srchDigestFinal/srchExport/srchExportHtml_؛ پنجره: شمارهٔ ثابت، صفِ جمع‌بندی، جعبهٔ dig، دکمهٔ exp، نمایشِ همه، تکرارِ بی منبع پس از OOM؛ srchSlim_ روی یافته‌های معنایی",
+    "src/08_Health.gs: outRootFolderNames_ + «خروجی‌های جست‌وجو»؛ docs/drive_layout.md",
+    "tests: search ۳۶، dialogs ۵-پ"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-10": "۹.۴۷"
+    "R-20261017-11": "۹.۴۸"
   }
 }

@@ -199,7 +199,9 @@ function outRootFolderNames_() {
     String(CFG.VBR_FOLDER || ''),
     /* دفترِ اینستاگرام (۹.۳۰، `igBook_`). نقشهٔ درایو از همان روز ثبتش کرده بود و این فهرست نه — پس از
        ۱۶ اکتبر هر وارسی «چیزِ ناشناخته: پوشه «اینستاگرام»» گزارش می‌داد، برای پوشه‌ای که خودِ موتور ساخت (۹.۴۱). */
-    String(CFG.IG_BOOK_FOLDER || '')
+    String(CFG.IG_BOOK_FOLDER || ''),
+    /* خروجی‌های دکمهٔ «خروجی» در پنجرهٔ جست‌وجو (۹.۴۸، `srchExport`) — همان کامیت، همان درس. */
+    String(CFG.SEARCH_EXPORT_FOLDER || '')
   ].filter(function (x) { return !!x; });
 }
 

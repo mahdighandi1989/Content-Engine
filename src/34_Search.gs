@@ -1136,6 +1136,7 @@ function srchSemHydrate_(items, seen, deadline, out, hubIn) {
       item.score = 0;
       item.sem = want.score;
       item.fit = 'یافتهٔ معنایی';
+      srchSlim_(item);          // ۹.۴۸: ستونِ «خام» تا ده‌ها هزار نویسه است؛ ۶۰۰ یافتهٔ خام پنجره را سنگین می‌کرد
       out.items.push(item);
       out.added++;
     }
@@ -1619,6 +1620,231 @@ function srchSemStep(vp, order, from, floor) {
   return out;
 }
 
+
+/* ══════════════ جمع‌بندی و خروجی (۹.۴۸) ══════════════
+   «بعد از اینکه نتیجه کامل شد … تا ۲۰ ردیف … از داخلِ هر محتوای هر لیست اون اسامی رو دقیق جدا کنه … و جلوی هر
+   کدوم اشاره کنه مربوط به کدوم ردیف … همون حینِ جست‌وجو باید همه اینها رو ببینه.» و «خروجی … لینک‌ها در سلول‌های
+   جدا … توضیحات در ستون‌های دیگه».
+   استخراج **گام‌به‌گام** است: هر دسته یافتهٔ تازه همان لحظه خوانده می‌شود (`srchDigestStep`)، و جمع‌بندیِ پایانی
+   فقط فهرستِ استخراج‌شده را مرتب می‌کند (`srchDigestFinal`) — هیچ یافته‌ای دو بار خوانده نمی‌شود و هیچ‌کدام
+   جا نمی‌ماند. شمارهٔ هر یافته شمارهٔ ثابتِ خودِ پنجره است (`n`)، نه جایش در فهرست. شمارهٔ ساختگیِ مدل دور ریخته
+   می‌شود. */
+
+var SRCH_DIGEST_SCHEMA = {
+  type: 'object',
+  properties: {
+    found: { type: 'array', items: { type: 'object', properties: {
+      name: { type: 'string' }, note: { type: 'string' },
+      refs: { type: 'array', items: { type: 'string' } } }, required: ['name', 'refs'] } }
+  },
+  required: ['found']
+};
+
+var SRCH_FINAL_SCHEMA = {
+  type: 'object',
+  properties: {
+    answer: { type: 'string' },
+    rows: { type: 'array', items: { type: 'object', properties: {
+      name: { type: 'string' }, why: { type: 'string' } }, required: ['name'] } }
+  },
+  required: ['rows']
+};
+
+/** شمارهٔ فارسی/لاتین ⇒ رشتهٔ رقمِ لاتین. */
+function srchNum_(x) {
+  var t = String(x == null ? '' : x).replace(/[۰-۹]/g, function (d) { return String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); })
+                                      .replace(/[٠-٩]/g, function (d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); });
+  var m = t.match(/\d+/);
+  return m ? String(Number(m[0])) : '';
+}
+
+/** یک دسته یافته ⇒ «چیزهای مشخص» درونِ متنشان که پرسش دنبالشان است، هر کدام با شمارهٔ یافته‌هایش. */
+function srchDigestStep(query, items) {
+  var out = { ok: false, found: [], note: '' };
+  try {
+    var q = String(query || '').trim();
+    items = (items || []).slice(0, Math.max(5, Number(CFG.SEARCH_DIGEST_BATCH) || 40));
+    if (!q || !items.length) { out.ok = true; return out; }
+    var have = {}, lines = [];
+    for (var i = 0; i < items.length; i++) {
+      var n = srchNum_(items[i].n);
+      if (!n) continue;
+      have[n] = 1;
+      lines.push('[' + n + '] ' + srchClip_(String(items[i].t || ''), Number(CFG.SEARCH_DIGEST_CHARS) || 1400));
+    }
+    if (!lines.length) { out.ok = true; return out; }
+    var prompt =
+      'کاربر در بانکِ محتوای خودش این را جست‌وجو کرده:\n\n«' + q.slice(0, 1200) + '»\n\n' +
+      'این‌ها چند یافته‌اند، هر کدام با شماره‌اش در کروشه:\n\n' + lines.join('\n\n') + '\n\n' +
+      'از **درونِ متنِ** هر یافته، چیزهای مشخصی را که کاربر واقعاً دنبالشان است **دقیق** بیرون بکش — مثلاً اگر ' +
+      'فیلم خواسته، نامِ تک‌تکِ فیلم‌هایی که در متن آمده؛ اگر کتاب، نامِ کتاب‌ها؛ اگر روش یا توصیه، خودِ آن روش‌ها. ' +
+      'تیترِ کلیِ فهرست («۱۰ فیلمِ برتر») خودش یک قلم نیست؛ اقلامِ درونش هستند. ' +
+      'هر قلم یک بار، با نامِ کامل و دقیق همان‌طور که در متن آمده (اگر نامِ اصلی/انگلیسی هم هست، کنارش)، و در «refs» ' +
+      'شمارهٔ **همهٔ** یافته‌هایی که آن قلم در متنشان آمده. در «note» یک جملهٔ کوتاه از خودِ متن دربارهٔ آن. ' +
+      'چیزی که در متن نیست نساز. اگر هیچ یافته‌ای قلمِ مشخصی ندارد، found را خالی بده.';
+    var r = geminiText_(prompt, SRCH_DIGEST_SCHEMA, 8192);
+    var j = (typeof r === 'string') ? JSON.parse(r) : r;
+    var f = (j && j.found) || [];
+    for (var k = 0; k < f.length; k++) {
+      var name = String(f[k].name || '').trim();
+      if (!name) continue;
+      var refs = [];
+      for (var z = 0; z < (f[k].refs || []).length; z++) {
+        var rn = srchNum_(f[k].refs[z]);
+        if (rn && have[rn] && refs.indexOf(rn) === -1) refs.push(rn);   // شمارهٔ ساختگی ⇒ کنار
+      }
+      if (!refs.length) continue;
+      out.found.push({ name: name.slice(0, 160), note: String(f[k].note || '').slice(0, 300), refs: refs });
+    }
+    out.ok = true;
+  } catch (e) { out.note = 'استخراج نشد: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
+}
+
+/** فهرستِ همهٔ اقلامِ استخراج‌شده ⇒ تا ۲۰ ردیف به ترتیبِ اولویت. شماره‌ها از همان فهرست می‌آیند، نه از مدل. */
+function srchDigestFinal(query, ents) {
+  var out = { ok: false, rows: [], answer: '', note: '' };
+  var list = (ents || []).filter(function (e) { return e && e.name && e.refs && e.refs.length; });
+  var max = Math.max(5, Number(CFG.SEARCH_DIGEST_TOP) || 20);
+  var byKey = {};
+  for (var i = 0; i < list.length; i++) byKey[srchTight_(list[i].name)] = list[i];
+  var fallback = function () {
+    return list.slice(0).sort(function (a, b) { return b.refs.length - a.refs.length; }).slice(0, max)
+      .map(function (e) { return { name: e.name, why: e.note || '', refs: e.refs }; });
+  };
+  if (!list.length) { out.ok = true; return out; }
+  try {
+    var lines = list.slice(0, 600).map(function (e, k) {
+      return (k + 1) + '. ' + e.name + ' — در ' + e.refs.length + ' یافته' + (e.note ? ' — ' + srchClip_(e.note, 160) : '');
+    });
+    var prompt =
+      'کاربر جست‌وجو کرده: «' + String(query || '').slice(0, 1200) + '»\n\n' +
+      'این اقلام از درونِ همهٔ یافته‌ها بیرون کشیده شده‌اند (هر کدام با شمارِ یافته‌هایی که در آن‌ها آمده):\n\n' +
+      lines.join('\n') + '\n\n' +
+      'حداکثر ' + max + ' قلم را که بیشترین ربط را به خواستهٔ کاربر دارند و بیشتر توصیه/تکرار شده‌اند، به ترتیبِ اولویت ' +
+      'برگردان. «name» را **عیناً** همان‌طور که در فهرست است بنویس. در «why» یک جملهٔ کوتاه که چرا. ' +
+      'در «answer» یک یا دو جمله جمع‌بندی بنویس.';
+    var r = geminiText_(prompt, SRCH_FINAL_SCHEMA, 8192);
+    var j = (typeof r === 'string') ? JSON.parse(r) : r;
+    var rows = (j && j.rows) || [], used = {};
+    for (var k = 0; k < rows.length && out.rows.length < max; k++) {
+      var key = srchTight_(String(rows[k].name || ''));
+      var e = byKey[key];
+      if (!e || used[key]) continue;          // نامی که در فهرست نبود، ساختهٔ مدل است
+      used[key] = 1;
+      out.rows.push({ name: e.name, why: String(rows[k].why || e.note || '').slice(0, 300), refs: e.refs });
+    }
+    out.answer = String((j && j.answer) || '').slice(0, 600);
+    if (!out.rows.length) { out.rows = fallback(); out.note = 'مدل ترتیبِ قابلِ‌اعتمادی نداد؛ بر پایهٔ تکرار مرتب شد.'; }
+    out.ok = true;
+  } catch (e2) {
+    out.rows = fallback(); out.ok = true;
+    out.note = 'ترتیبِ مدل نیامد (' + String((e2 && e2.message) || e2).slice(0, 80) + ')؛ بر پایهٔ تکرار مرتب شد.';
+  }
+  return out;
+}
+
+/** سلولی که با = + - @ شروع شود در شیت فرمول خوانده می‌شود؛ متنِ محتوا هرگز نباید فرمول شود. */
+function srchCell_(v) {
+  var t = String(v == null ? '' : v);
+  if (t.length > 45000) t = t.slice(0, 45000);
+  return /^[=+\-@]/.test(t) ? "'" + t : t;
+}
+function srchLinkCell_(url, label) {
+  var u = String(url || '');
+  if (!/^https?:\/\//i.test(u)) return '';
+  return '=HYPERLINK("' + u.replace(/"/g, '%22') + '","' + String(label || 'باز کن').replace(/"/g, "'") + '")';
+}
+
+/**
+ * خروجی: یک شیت (دو تب: «یافته‌ها»، «جمع‌بندی») و یک صفحهٔ HTML در OUTPUT ⇒ «خروجی‌های جست‌وجو».
+ * فقط در OUTPUT نوشته می‌شود؛ شیت‌های منبع فقط خوانده شده‌اند. پیوندِ xlsx همان شیت است با `export?format=xlsx`.
+ */
+function srchExport(query, items, digest) {
+  var out = { ok: false, sheetUrl: '', xlsxUrl: '', htmlUrl: '', n: 0, note: '' };
+  try {
+    var q = String(query || '').trim();
+    items = items || [];
+    var root = DriveApp.getFolderById(CFG.OUTPUT_FOLDER_ID);
+    var fname = String(CFG.SEARCH_EXPORT_FOLDER || 'خروجی‌های جست‌وجو');
+    var it0 = root.getFoldersByName(fname);
+    var folder = it0.hasNext() ? it0.next() : root.createFolder(fname);
+    var stamp = Utilities.formatDate(new Date(), CFG.TIMEZONE || 'Asia/Dubai', 'yyyy-MM-dd HH-mm');
+    var title = 'جست‌وجو — ' + q.slice(0, 50) + ' — ' + stamp;
+    var ss = SpreadsheetApp.create(title);
+    var file = DriveApp.getFileById(ss.getId());
+    file.moveTo(folder);
+    var H1 = ['شماره', 'تیتر', 'از کجا', 'تب/دسته', 'نوع', 'تاریخ', 'امتیازِ معنا', 'امتیازِ واژه', 'نزدیکی', 'چرا',
+              'خلاصه', 'پیام', 'متن', 'پیوندِ فایل', 'پیوندِ ردیف در شیت'];
+    var rows = [H1];
+    for (var i = 0; i < items.length; i++) {
+      var t = items[i] || {}, f = t.fields || {};
+      rows.push([srchCell_(t.n), srchCell_(t.title), srchCell_(t.where), srchCell_(t.tab), srchCell_(t.kind),
+                 srchCell_(t.date), t.sem ? Number(t.sem).toFixed(2) : '', t.score ? String(t.score) : '',
+                 srchCell_(t.fit), srchCell_(t.why), srchCell_(f.summary), srchCell_(f.msg),
+                 srchCell_(f.body || t.show), srchLinkCell_(t.link, 'بازکردنِ فایل'),
+                 srchLinkCell_(t.sheetLink, 'همان ردیف')]);
+    }
+    var sh = ss.getSheets()[0];
+    sh.setName('یافته‌ها');
+    sh.getRange(1, 1, rows.length, H1.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.setRightToLeft(true);
+    var dg = (digest && digest.rows) || [];
+    var sh2 = ss.insertSheet('جمع‌بندی');
+    var H2 = ['ردیف', 'نام', 'چرا / توضیح', 'شمارهٔ یافته‌ها (در تبِ «یافته‌ها»)'];
+    var rows2 = [H2];
+    for (var d = 0; d < dg.length; d++) {
+      rows2.push([String(d + 1), srchCell_(dg[d].name), srchCell_(dg[d].why), srchCell_((dg[d].refs || []).join('، '))]);
+    }
+    if (digest && digest.answer) rows2.push(['', 'جمع‌بندی', srchCell_(digest.answer), '']);
+    sh2.getRange(1, 1, rows2.length, H2.length).setValues(rows2);
+    sh2.setFrozenRows(1);
+    sh2.setRightToLeft(true);
+    out.sheetUrl = ss.getUrl();
+    out.xlsxUrl = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=xlsx';
+    var html = srchExportHtml_(q, items, digest || {});
+    var hf = folder.createFile(Utilities.newBlob(html, 'text/html', title + '.html'));
+    out.htmlUrl = 'https://drive.google.com/uc?export=download&id=' + hf.getId();
+    out.n = items.length;
+    out.ok = true;
+  } catch (e) { out.note = 'خروجی ساخته نشد: ' + String((e && e.message) || e).slice(0, 160); }
+  return out;
+}
+
+function srchExportHtml_(q, items, digest) {
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  };
+  var link = function (u, l) { u = String(u || ''); return /^https?:\/\//i.test(u) ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(l) + '</a>' : ''; };
+  var H = ['<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+           '<title>' + esc('جست‌وجو — ' + q) + '</title><style>body{font-family:Tahoma,Vazirmatn,sans-serif;margin:16px;color:#1f2430;background:#fff}' +
+           'table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid #d8dde6;padding:6px;vertical-align:top}' +
+           'th{background:#eef2f8}h2{margin-top:28px}.d{background:#eef4ff;padding:10px;border-radius:8px}</style></head><body>',
+           '<h1>' + esc(q) + '</h1>'];
+  var dg = digest.rows || [];
+  if (dg.length) {
+    H.push('<h2>جمع‌بندی</h2>' + (digest.answer ? '<p class="d">' + esc(digest.answer) + '</p>' : ''));
+    H.push('<table><tr><th>ردیف</th><th>نام</th><th>چرا</th><th>یافته‌ها</th></tr>');
+    for (var d = 0; d < dg.length; d++) {
+      H.push('<tr><td>' + (d + 1) + '</td><td>' + esc(dg[d].name) + '</td><td>' + esc(dg[d].why) + '</td><td>' +
+             (dg[d].refs || []).map(function (r) { return '<a href="#r' + esc(r) + '">#' + esc(r) + '</a>'; }).join(' ') + '</td></tr>');
+    }
+    H.push('</table>');
+  }
+  H.push('<h2>همهٔ یافته‌ها (' + items.length + ')</h2><table><tr><th>#</th><th>تیتر</th><th>تب/نوع/تاریخ</th><th>خلاصه</th><th>پیوندها</th></tr>');
+  for (var i = 0; i < items.length; i++) {
+    var t = items[i] || {}, f = t.fields || {};
+    H.push('<tr id="r' + esc(t.n) + '"><td>' + esc(t.n) + '</td><td>' + esc(t.title) + (t.why ? '<br><small>' + esc(t.why) + '</small>' : '') +
+           '</td><td>' + esc([t.tab, t.kind, t.date].filter(Boolean).join(' · ')) + '</td><td>' +
+           esc(f.summary || t.show || '') + '</td><td>' + [link(t.link, 'فایل'), link(t.sheetLink, 'ردیف')].filter(Boolean).join(' · ') + '</td></tr>');
+  }
+  H.push('</table></body></html>');
+  return H.join('');
+}
+
 /** منو: پنجرهٔ جست‌وجو. */
 function runContentSearch() {
   var ui = ui_();
@@ -1670,7 +1896,9 @@ function srchHtml_() {
   H.push('</div>');
   /* سه جعبهٔ ثابت (۹.۴۶): واژه‌ها، نوارِ معنا، یافته‌های معنا — ثابت، تا هر رشته جعبهٔ خودش را
      بنویسد و جوابِ یکی جعبهٔ دیگری را پاک نکند. */
-  H.push('<div id="out" class="res"><div id="lex"></div><div id="semh"></div><div id="sem"></div></div>');
+  /* ۹.۴۸: جعبهٔ «جمع‌بندی» (`dig`) و «خروجی» (`exp`) هم ثابت‌اند — بالای یافته‌ها، جایی که پس از پایان دیده شوند. */
+  H.push('<div id="out" class="res"><div id="semh"></div><div id="dig"></div><div id="exp"></div>' +
+         '<div id="lex"></div><div id="sem"></div></div>');
   H.push('<script>');
   H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){' +
          'return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}');
@@ -1679,45 +1907,111 @@ function srchHtml_() {
      (`srchSemStart` + گام‌های `srchSemStep` تا آخرین قطعه). دومی دیگر داخلِ اولی نیست، چون
      باید یافته‌هایش همان لحظه دیده شوند و سقفِ ۹۰ ثانیه‌ای نداشته باشد. `RUN` جست‌وجوی تازه را
      از جوابِ دیرِ جست‌وجوی قبلی جدا می‌کند. */
-  H.push('var RUN=0,LEX={},SEM=[],SEEN={};');
+  H.push('var RUN=0,LEX={},SEM=[],SEEN={},NUM=0,NO={},ALL=[],DQ=[],DBUSY=false,ENT={},EORD=[],DONE={},DIG=null,DFAIL=0,Q="",MODE="";');
+  /* ══ شمارهٔ ثابت (۹.۴۸) ══ هر یافته یک بار، به ترتیبِ رسیدن، شماره می‌گیرد — جمع‌بندی و خروجی به همین شماره
+     اشاره می‌کنند، نه به جای یافته در فهرست (که با هر گام عوض می‌شود). */
+  H.push('function rkey(t){return t.where==="بانک"?t.tab+"§"+t.row:t.where+"§"+t.tab+"§"+t.row+"§"+t.title;}');
+  H.push('function reg(t){var k=rkey(t);if(NO[k]){t.n=NO[k];return t.n;}NUM++;NO[k]=NUM;t.n=NUM;ALL.push(t);' +
+         'if(MODE==="هوشمند"){DQ.push(t);}return t.n;}');
   H.push('function go(m){var q=document.getElementById("q").value;' +
-         'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};' +
+         'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};NUM=0;NO={};ALL=[];DQ=[];DBUSY=false;ENT={};' +
+         'EORD=[];DIG=null;DFAIL=0;Q=q;MODE=m;DONE={lex:false,sem:m!=="هوشمند"};' +
          'document.getElementById("lex").innerHTML="<p>در حالِ گشتنِ واژه‌ها… ' +
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
          'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
-         'google.script.run.withSuccessHandler(function(r){if(my===RUN){show(r);semDraw();}})' +
-         '.withFailureHandler(function(e){if(my===RUN){document.getElementById("lex").innerHTML=' +
-         '"<div class=warn>خطا: "+esc(e.message)+"</div>";}})' +
-         '.srchRun(q,m,document.getElementById("src").checked,m==="هوشمند"?false:true);' +
+         'document.getElementById("dig").innerHTML="";document.getElementById("exp").innerHTML="";' +
+         'lexGo(q,m,document.getElementById("src").checked,my,false);' +
          'if(m==="هوشمند"){semGo(q,my);}}');
+  /* ══ «Out of memory» در واژه‌ها (۹.۴۸) ══ اجرای Apps Script که حافظه‌اش تمام شود کشته می‌شود و خطا فقط به
+     پنجره می‌رسد. با تیکِ شیت‌های منبع (۱۱۲ مگابایت)، یک بارِ دیگر بی آن‌ها گشته می‌شود — و **گفته می‌شود**. */
+  H.push('function lexGo(q,m,src,my,retried){' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
+         'if(retried){r.notes=(r.notes||[]);r.notes.unshift("گشتنِ واژه‌ها با شیت‌های منبع از حافظهٔ Apps Script بیرون زد؛ ' +
+         'بی شیت‌های منبع دوباره گشتم — یافته‌های معنایی همهٔ بانک را جدا می‌گردند.");}' +
+         'show(r);semDraw();DONE.lex=true;digPump();expDraw();maybeFinal();})' +
+         '.withFailureHandler(function(e){if(my!==RUN){return;}var msg=String(e&&e.message||e);' +
+         'if(!retried&&src&&/memory/i.test(msg)){document.getElementById("lex").innerHTML="<p>حافظه کم آمد؛ ' +
+         'دوباره بی شیت‌های منبع…</p>";lexGo(q,m,false,my,true);return;}' +
+         'document.getElementById("lex").innerHTML="<div class=warn>خطا در گشتنِ واژه‌ها: "+esc(msg)+"</div>";' +
+         'DONE.lex=true;maybeFinal();})' +
+         '.srchRun(q,m,src,m==="هوشمند"?false:true);}');
   H.push('function bar(done,all,n,msg){var p=all?Math.round(done*100/all):0;' +
          'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی معنایی: "+done+" از "+all+' +
          '" کشوی اثر انگشت خوانده شد ("+p+"٪) · "+n+" یافته"+(msg?" · "+esc(msg):"")+"</div>"+' +
          '"<div class=bar><div class=bi style=width:"+p+"%></div></div>";}');
+  H.push('function semEnd(){DONE.sem=true;maybeFinal();}');
   H.push('function semGo(q,my){bar(0,0,0,"در حالِ فهمیدنِ منظورتان…");' +
          'google.script.run.withSuccessHandler(function(s){if(my!==RUN){return;}' +
-         'if(!s.ok){bar(0,s.all||0,0,"انجام نشد: "+s.note);return;}' +
+         'if(!s.ok){bar(0,s.all||0,0,"انجام نشد: "+s.note);semEnd();return;}' +
          'bar(0,s.all,0,"");semStep(s.vp,s.order,0,0,my);})' +
-         '.withFailureHandler(function(e){if(my===RUN){bar(0,0,0,"خطا: "+e.message);}}).srchSemStart(q);}');
+         '.withFailureHandler(function(e){if(my===RUN){bar(0,0,0,"خطا: "+e.message);semEnd();}}).srchSemStart(q);}');
   H.push('function semStep(vp,order,from,best,my){var gap=' + JSON.stringify(Number(CFG.EMB_SCORE_GAP) || 0.25) + ';' +
          'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
          'for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];var k=t.tab+"§"+t.row;' +
-         'if(SEEN[k]){continue;}SEEN[k]=1;SEM.push(t);}' +
-         'var b=Math.max(best,r.best||0);semDraw();' +
-         'if(r.done){bar(r.all,r.all,semShown(),"کامل؛ همهٔ کشوها خوانده شد");return;}' +
-         'if(!r.ok||r.next<=from){bar(r.next,r.all,semShown(),"ایستاد: "+(r.note||"گام جلو نرفت"));return;}' +
+         'if(SEEN[k]){continue;}SEEN[k]=1;reg(t);SEM.push(t);}' +
+         'var b=Math.max(best,r.best||0);semDraw();digPump();expDraw();' +
+         'if(r.done){bar(r.all,r.all,semShown(),"کامل؛ همهٔ کشوها خوانده شد");semEnd();return;}' +
+         'if(!r.ok||r.next<=from){bar(r.next,r.all,semShown(),"ایستاد: "+(r.note||"گام جلو نرفت"));semEnd();return;}' +
          'bar(r.next,r.all,semShown(),"");semStep(vp,order,r.next,b,my);})' +
-         '.withFailureHandler(function(e){if(my===RUN){bar(from,order.length,semShown(),"خطا: "+e.message);}})' +
+         '.withFailureHandler(function(e){if(my===RUN){bar(from,order.length,semShown(),"خطا: "+e.message);semEnd();}})' +
          '.srchSemStep(vp,order,from,best>0?best-gap:0);}');
-  /* آنچه واژه‌ها هم آورده‌اند دوباره نشان داده نمی‌شود؛ بقیه به ترتیبِ امتیازِ معنایی، همان لحظه. */
+  /* آنچه واژه‌ها هم آورده‌اند دوباره نشان داده نمی‌شود؛ بقیه به ترتیبِ امتیازِ معنایی، همان لحظه — **همه‌شان** (۹.۴۸:
+     تا ۹.۴۷ سقفِ ۱۵۰ داشت و نوار «۶۰۸ یافته» می‌گفت). */
   H.push('function semList(){var o=[];for(var i=0;i<SEM.length;i++){' +
          'if(!LEX[SEM[i].tab+"§"+SEM[i].row]){o.push(SEM[i]);}}' +
          'o.sort(function(a,b){return (b.sem||0)-(a.sem||0);});return o;}');
   H.push('function semShown(){return semList().length;}');
   H.push('function semDraw(){var el=document.getElementById("sem");if(!el){return;}var o=semList();' +
-         'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر</h4>");}' +
-         'for(var i=0;i<o.length&&i<' + Math.max(20, Number(CFG.SEARCH_SEM_SHOW) || 150) + ';i++){H.push(card(o[i],i));}' +
+         'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر ("+o.length+")</h4>");}' +
+         'for(var i=0;i<o.length;i++){H.push(card(o[i],i));}' +
          'el.innerHTML=H.join("");}');
+  /* ══ جمع‌بندی، حینِ جست‌وجو (۹.۴۸) ══ هر یافتهٔ تازه در صفِ `DQ` می‌نشیند و دسته‌دسته (یکی در پرواز) خوانده
+     می‌شود؛ وقتی هر دو رشته تمام شدند و صف خالی شد، یک فراخوانِ پایانی فقط اقلامِ استخراج‌شده را مرتب می‌کند. */
+  H.push('function itxt(t){var f=t.fields||{};return [t.title,t.show,f.summary,f.msg,f.body].filter(function(x){return x;}).join(" — ");}');
+  H.push('function digPump(){if(DBUSY||!DQ.length){return;}var my=RUN;var b=DQ.splice(0,40);DBUSY=true;digDraw();' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}DBUSY=false;' +
+         'if(!r||!r.ok){DFAIL+=b.length;}var f=(r&&r.found)||[];' +
+         'for(var i=0;i<f.length;i++){var k=String(f[i].name).replace(/\\s+/g," ").trim().toLowerCase();if(!k){continue;}' +
+         'if(!ENT[k]){ENT[k]={name:f[i].name,note:f[i].note||"",refs:[]};EORD.push(k);}' +
+         'for(var z=0;z<f[i].refs.length;z++){if(ENT[k].refs.indexOf(f[i].refs[z])===-1){ENT[k].refs.push(f[i].refs[z]);}}}' +
+         'digDraw();digPump();maybeFinal();})' +
+         '.withFailureHandler(function(e){if(my!==RUN){return;}DBUSY=false;DFAIL+=b.length;digDraw();digPump();maybeFinal();})' +
+         '.srchDigestStep(Q,b.map(function(t){return {n:String(t.n),t:itxt(t)};}));}');
+  H.push('function ents(){return EORD.map(function(k){return ENT[k];});}');
+  H.push('function maybeFinal(){if(MODE!=="هوشمند"||DIG||!DONE.lex||!DONE.sem||DBUSY||DQ.length){return;}var my=RUN;' +
+         'if(!EORD.length){DIG={rows:[],answer:"",note:"در متنِ یافته‌ها قلمِ مشخصی پیدا نشد."};digDraw();expDraw();return;}' +
+         'DIG={pending:true,rows:[]};digDraw();' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}DIG=r||{rows:[]};digDraw();expDraw();})' +
+         '.withFailureHandler(function(e){if(my!==RUN){return;}DIG={rows:ents().slice(0,20).map(function(x){' +
+         'return {name:x.name,why:x.note,refs:x.refs};}),note:"ترتیبِ پایانی نیامد: "+e.message};digDraw();expDraw();})' +
+         '.srchDigestFinal(Q,ents());}');
+  H.push('function digDraw(){var el=document.getElementById("dig");if(!el||MODE!=="هوشمند"){return;}var H=[];' +
+         'var read=ALL.length-DQ.length-(DBUSY?1:0);' +
+         'if(!DIG||DIG.pending){H.push("<div class=ans>جمع‌بندی در حالِ ساخت: "+EORD.length+" قلم از متنِ "+' +
+         'Math.max(0,ALL.length-DQ.length)+" یافته از "+ALL.length+" بیرون کشیده شد"+(DFAIL?" · "+DFAIL+" یافته خوانده نشد (خطای مدل)":"")+' +
+         '(DIG&&DIG.pending?" · در حالِ مرتب کردن…":"")+"</div>");el.innerHTML=H.join("");return;}' +
+         'H.push("<div class=ans><b>جمع‌بندی از درونِ همهٔ "+ALL.length+" یافته</b>"+(DIG.answer?"<br>"+esc(DIG.answer):"")+' +
+         '(DIG.note?"<br><small>"+esc(DIG.note)+"</small>":"")+(DFAIL?"<br><small>"+DFAIL+" یافته به‌خاطرِ خطای مدل خوانده نشد.</small>":"")+"<ol>");' +
+         'for(var i=0;i<(DIG.rows||[]).length;i++){var w=DIG.rows[i];H.push("<li><b>"+esc(w.name)+"</b>"+(w.why?" — "+esc(w.why):"")+' +
+         '" — یافته‌ها: "+(w.refs||[]).map(function(n){return "<a href=#r"+esc(n)+">#"+esc(n)+"</a>";}).join(" ")+"</li>");}' +
+         'H.push("</ol></div>");el.innerHTML=H.join("");}');
+  /* ══ خروجی (۹.۴۸) ══ هر وقت دست‌کم یک یافته هست — پس از پایان، یا هر جا که ایستاد. */
+  H.push('function expDraw(){var el=document.getElementById("exp");if(!el){return;}if(!ALL.length){el.innerHTML="";return;}' +
+         'if(el.getAttribute&&el.getAttribute("data-busy")==="1"){return;}' +
+         'el.innerHTML="<div class=row><button class=s onclick=exportNow()>⬇️ خروجی — شیت، اکسل و HTML ("+ALL.length+" یافته)</button></div>";}');
+  H.push('function slim(t){var f=t.fields||{};return {n:t.n,title:t.title,where:t.where,tab:t.tab,kind:t.kind,date:t.date,' +
+         'score:t.score,sem:t.sem,fit:t.fit,why:t.why,show:t.show,link:t.link,sheetLink:t.sheetLink,' +
+         'fields:{summary:f.summary,msg:f.msg,body:f.body}};}');
+  H.push('function exportNow(){var el=document.getElementById("exp");var my=RUN;' +
+         'el.innerHTML="<p>در حالِ ساختنِ خروجی ("+ALL.length+" یافته)…</p>";' +
+         'var d=DIG&&!DIG.pending?DIG:{rows:ents().slice(0,20).map(function(x){return {name:x.name,why:x.note,refs:x.refs};}),answer:""};' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
+         'if(!r.ok){el.innerHTML="<div class=warn>"+esc(r.note)+"</div>";return;}' +
+         'el.innerHTML="<div class=ans>خروجی ساخته شد ("+r.n+" یافته): "+' +
+         '"<a href=\\""+esc(r.sheetUrl)+"\\" target=_blank>شیت</a> · <a href=\\""+esc(r.xlsxUrl)+"\\" target=_blank>دانلودِ اکسل</a> · "+' +
+         '"<a href=\\""+esc(r.htmlUrl)+"\\" target=_blank>دانلودِ HTML</a></div>";})' +
+         '.withFailureHandler(function(e){if(my===RUN){el.innerHTML="<div class=warn>خروجی ساخته نشد: "+esc(e.message)+"</div>";}})' +
+         '.srchExport(Q,ALL.map(slim),d);}');
   H.push('function show(r){var H=[];');
   H.push('if(r.answer){H.push("<div class=\\"ans\\">"+esc(r.answer)+"</div>");}');
   H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب از "+' +
@@ -1729,11 +2023,11 @@ function srchHtml_() {
   H.push('for(var i=0;i<(r.notes||[]).length;i++){' +
          'H.push("<div class=\\"warn\\">"+esc(r.notes[i])+"</div>");}');
   H.push('if(!r.items||!r.items.length){H.push("<p>چیزی پیدا نشد.</p>");}');
-  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];' +
+  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];reg(t);' +
          'if(t.where==="بانک"){LEX[t.tab+"§"+t.row]=1;}H.push(card(t,i));}');
   H.push('document.getElementById("lex").innerHTML=H.join("");}');
   H.push('function card(t,i){var H=[];');
-  H.push('H.push("<div class=\\"it\\"><div class=\\"t\\">"+(i+1)+". "+esc(t.title)+"</div>");');
+  H.push('H.push("<div class=\\"it\\" id=\\"r"+esc(t.n)+"\\"><div class=\\"t\\">#"+esc(t.n)+" · "+esc(t.title)+"</div>");');
   H.push('H.push("<div class=\\"m\\">"+esc(t.where)+" · "+esc(t.tab)+(t.kind?" · "+esc(t.kind):"")+' +
          '(t.date?" · "+esc(t.date):"")+" · امتیاز "+(t.sem&&!t.score?Number(t.sem).toFixed(2):t.score)+(t.fit?" · "+esc(t.fit):"")+"</div>");');
   H.push('if(t.why){H.push("<div class=\\"w\\">"+esc(t.why)+"</div>");}');

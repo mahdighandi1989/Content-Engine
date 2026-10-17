@@ -747,4 +747,56 @@ console.log('\n══ ۳۵) «از ردیفِ ۱۲ به بعد هیچ ربطی �
      JSON.stringify(['بهترین', 'فیلم', 'پیشنهادی', 'تعریفش']), JSON.stringify(srchTerms_('بهترین فیلم های پیشنهادی که خیلی هم تعریفش شده چیه')));
 }
 
+console.log('\n══ ۳۶) جمع‌بندی از درونِ یافته‌ها، و خروجی (۹.۴۸) ══');
+{
+  const realG = global.geminiText_;
+  let lastPrompt = '';
+  global.geminiText_ = function (prompt) {
+    lastPrompt = prompt;
+    if (prompt.indexOf('بیرون بکش') !== -1) {
+      return JSON.stringify({ found: [
+        { name: 'رستگاری در شاوشنگ', note: 'در هر دو فهرست', refs: ['3', '۷', '99'] },
+        { name: 'ساخته‌گی', refs: ['42'] },
+        { name: 'ممنتو', refs: ['7'] } ] });
+    }
+    return JSON.stringify({ answer: 'شاوشنگ بیشتر از همه آمد.', rows: [
+      { name: 'نامی که در فهرست نبود', why: 'x' }, { name: 'رستگاری در شاوشنگ', why: 'دو بار' }, { name: 'ممنتو', why: 'یک بار' } ] });
+  };
+  const st = srchDigestStep('بهترین فیلم‌ها', [{ n: '3', t: 'فهرست: رستگاری در شاوشنگ، ...' }, { n: '7', t: 'ممنتو و شاوشنگ' }]);
+  ok('۳۶.۱ استخراج از متنِ همان یافته‌ها، با شماره‌شان در پرسش', st.ok && /\[3\]/.test(lastPrompt) && /\[7\]/.test(lastPrompt));
+  ok('۳۶.۲ شمارهٔ ساختگی (۹۹، ۴۲) دور ریخته می‌شود؛ شمارهٔ فارسی خوانده می‌شود',
+     JSON.stringify(st.found) === JSON.stringify([{ name: 'رستگاری در شاوشنگ', note: 'در هر دو فهرست', refs: ['3', '7'] },
+                                                  { name: 'ممنتو', note: '', refs: ['7'] }]), JSON.stringify(st.found));
+  const fin = srchDigestFinal('بهترین فیلم‌ها', st.found);
+  ok('۳۶.۳ ترتیبِ پایانی: نامِ ساختهٔ مدل کنار، شماره‌ها از خودِ فهرست', fin.ok &&
+     fin.rows.map(r => r.name).join('|') === 'رستگاری در شاوشنگ|ممنتو' && fin.rows[0].refs.join() === '3,7' && /شاوشنگ/.test(fin.answer),
+     JSON.stringify(fin.rows));
+  global.geminiText_ = function () { throw new Error('مدل نیست'); };
+  const fb = srchDigestFinal('x', [{ name: 'الف', refs: ['1'] }, { name: 'ب', refs: ['1', '2', '3'] }]);
+  ok('۳۶.۴ بی مدل: بر پایهٔ تکرار، و گفته می‌شود', fb.ok && fb.rows[0].name === 'ب' && /تکرار/.test(fb.note));
+  global.geminiText_ = realG;
+
+  const ex = srchExport('بهترین فیلم‌ها', [
+    { n: 1, title: '=HYPERLINK("http://bad")', where: 'بانک', tab: 'موسیقی و هنر', link: 'https://drive.google.com/file/d/A/view',
+      sheetLink: 'javascript:alert(1)', sem: 0.81, fields: { summary: 'خلاصه' } },
+    { n: 2, title: 'دومی', where: 'بانک', tab: 'ت', link: '', fields: {} }],
+    { rows: [{ name: 'رستگاری در شاوشنگ', why: 'دو بار', refs: ['1', '2'] }], answer: 'جمع' });
+  ok('۳۶.۵ خروجی ساخته شد: شیت، پیوندِ اکسل و HTML', ex.ok && /\/edit$/.test(ex.sheetUrl) && /format=xlsx/.test(ex.xlsxUrl) && ex.htmlUrl && ex.n === 2, JSON.stringify(ex));
+  const id = ex.sheetUrl.split('/d/')[1].split('/')[0];
+  const ss = global.__SS[id];
+  const sh = ss.getSheetByName('یافته‌ها'), v = sh._d;
+  ok('۳۶.۶ هر یافته یک ردیف؛ پیوند در سلولِ جدا و کلیک‌پذیر', v.length === 3 && /^=HYPERLINK\("https:\/\/drive/.test(String(v[1][13])),
+     JSON.stringify(v[1].slice(13)));
+  ok('۳۶.۷ متنِ محتوا هرگز فرمول نمی‌شود، و پیوندِ غیرِ http نمی‌نشیند', String(v[1][1]).charAt(0) === "'" && v[1][14] === '',
+     JSON.stringify([v[1][1], v[1][14]]));
+  const d = ss.getSheetByName('جمع‌بندی')._d;
+  ok('۳۶.۸ تبِ جمع‌بندی با شمارهٔ یافته‌ها', d.length >= 2 && d[1][1] === 'رستگاری در شاوشنگ' && /1، 2/.test(d[1][3]), JSON.stringify(d[1]));
+  ok('۳۶.۹ فقط در OUTPUT نوشته می‌شود (زیرپوشهٔ «خروجی‌های جست‌وجو»)', /CFG\.OUTPUT_FOLDER_ID/.test(String(srchExport.__menuInner || srchExport)) &&
+     !/SOURCE|BACKUP/.test(String(srchExport.__menuInner || srchExport)));
+  ok('۳۶.۱۱ پوشهٔ خروجی در فهرستِ ریشهٔ شناخته‌شده است (وگرنه هر شب «ناشناخته»)',
+     outRootFolderNames_().indexOf(CFG.SEARCH_EXPORT_FOLDER) !== -1 && !!CFG.SEARCH_EXPORT_FOLDER);
+  const html = srchExportHtml_('q', [{ n: 1, title: '<script>x</script>', link: 'javascript:1' }], { rows: [{ name: 'a', refs: ['1'] }] });
+  ok('۳۶.۱۰ HTML: گریز و لنگرِ شماره', !/<script>x/.test(html) && /href="#r1"/.test(html) && /id="r1"/.test(html) && !/javascript:1/.test(html));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
