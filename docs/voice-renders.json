@@ -1,5 +1,5 @@
 {
- "rev": 33,
+ "rev": 35,
  "items": {
   "special:49": {
    "urls": [
@@ -2000,16 +2000,16 @@
    ],
    "bytes": 62339226,
    "seconds": 779.2,
-   "minutes": 14.2,
+   "minutes": 12.4,
    "parts": 2,
    "pieces": 2,
    "speaker": "razavi",
-   "at": "2026-10-17T09:41:15Z",
+   "at": "2026-10-17T11:40:16Z",
    "pitch": "-5",
    "loud": {
-    "rawLufs": -17.7,
-    "rawTp": 0.1,
-    "gainDb": 1.73,
+    "rawLufs": -17.8,
+    "rawTp": 0.2,
+    "gainDb": 1.76,
     "limited": true,
     "lufs": -16.4,
     "tp": -1.7
@@ -2029,12 +2029,19 @@
    },
    "mix": {
     "speechSec": 709.0,
-    "keptSec": 70.3
+    "keptSec": 70.3,
+    "lagSec": [
+     -1.62
+    ],
+    "lagCorr": [
+     0.69
+    ],
+    "alignCorr": 0.84
    },
    "f0Out": {
     "medianHz": 153.8,
     "lowPct": 2,
-    "frames": 1946
+    "frames": 1924
    }
   },
   "variety:75": {
@@ -2046,16 +2053,16 @@
    ],
    "bytes": 31280058,
    "seconds": 391.0,
-   "minutes": 7.1,
+   "minutes": 6.0,
    "parts": 1,
    "pieces": 1,
    "speaker": "spk-1g0r95d",
-   "at": "2026-10-17T09:55:54Z",
+   "at": "2026-10-17T11:52:50Z",
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/voice-bridge/variety-75-4c21617b.wav",
    "pitch": "-3",
    "loud": {
     "rawLufs": -20.2,
-    "rawTp": 0.1,
+    "rawTp": 0.0,
     "gainDb": 4.21,
     "limited": true,
     "lufs": -16.6,
@@ -2081,15 +2088,24 @@
    },
    "mix": {
     "speechSec": 331.0,
-    "keptSec": 60.0
+    "keptSec": 60.0,
+    "lagSec": [
+     -0.86,
+     -0.87
+    ],
+    "lagCorr": [
+     0.77,
+     0.8
+    ],
+    "alignCorr": 0.84
    },
    "f0Out": {
     "medianHz": 160.0,
-    "lowPct": 5,
-    "frames": 1886
+    "lowPct": 6,
+    "frames": 1881
    }
   }
  },
- "at": "2026-10-17T09:55:54Z",
+ "at": "2026-10-17T11:52:51Z",
  "note": "خروجیِ پلِ رنگِ صدا. گردش‌کارِ voice-bridge می‌نویسد و موتور (بخشِ ۳۶) از gitHub raw می‌خوانَد. دست‌نویس نکنید."
 }
