@@ -361,6 +361,11 @@ console.log('=== ۱۰) حافظهٔ انتشار از تب می‌آید، نه 
   ok('۱۰.۹ (۹.۳۷) ویدئوی بزرگ‌تر از سقف: یک بار به «پیشین» و ساختِ دوباره با `replace`ِ size-، بارِ دوم فقط علت',
      /if \(!\/\^size-\/\.test\(String\(item\.replace \|\| ''\)\)\) \{\s*var asideS = 0;\s*try \{ asideS = ytReplaceAside_\(folder\)/.test(src27b) &&
      /item\.replace = szTag;/.test(src27b) && /حتی پس از ساختِ دوباره با سقفِ بیت/.test(src27b));
+  /* ۹.۴۳: ردِ سنجشِ رانر هم یک بار از نو — **پیش از** آپلود (سهمیه خرج نشود)، و بارِ دوم همان راهِ قبل. */
+  const iQ = src27b.indexOf("!/^qa-/.test(String(item.replace || ''))"), iUp = src27b.indexOf('// ── متنِ نهایی از همان نقشه ──');
+  ok('۱۰.۱۰ (۹.۴۳) ویدئوی ردشده از سنجشِ رانر: یک بار «پیشین» و `replace`ِ qa-، پیش از آپلود؛ بارِ دوم همان Unlisted و یافته',
+     iQ > 0 && iUp > 0 && iQ < iUp && /item\.replace = qTag;/.test(src27b) && /var qTag = 'qa-' \+/.test(src27b) &&
+     /key: 'yt-scene-qa'/.test(src27b));
 }
 
 console.log('=== ۱۱) دیده‌شدن: خطِ روزانه، همیشه ===');

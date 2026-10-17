@@ -827,7 +827,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
       if (g.box === undefined) g.box = MKIT.contentBox(FF, g.file, g.info, { at: Math.min(Math.max(0, g.info.dur - 0.5), from + 1) });
       const cOpt = { layout: layOf[s.n], box: g.box, fill: true };   // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک
       const c = MKIT.clip(FF, g.file, out + '.mp4', from, want, g.info, skip, cOpt);
-      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, from + (c.played || c.len) + (skip ? skip.len : 0));
+      if (!(s.media && s.media.teaser)) usedTo[s.url] = Math.max(usedTo[s.url] || 0, (c.from !== undefined ? c.from : from) + (c.played || c.len) + (skip ? skip.len : 0));
       const ar = (g.box ? g.box.w / g.box.h : g.info.w / g.info.h);
       const lk = (ar >= MKIT.MK.wideMin && ar <= MKIT.MK.wideMax) ? 'fill' : layOf[s.n];
       st.layouts[lk] = (st.layouts[lk] || 0) + 1;
@@ -836,6 +836,7 @@ function prepMedia(it, scenes, dir, notes, placed) {
       st.clips++;
       if (c.filled) { st.filled = (st.filled || 0) + 1; st.filledSec = Math.round((st.filledSec || 0) + c.len - c.played); }
       if (c.cut > 0) { st.tailCut = (st.tailCut || 0) + 1; }
+      if (c.darkMoved) { st.darkMoved = (st.darkMoved || 0) + 1; st.why.push('صحنهٔ ' + s.n + ': تکهٔ برگزیده ' + Math.round(c.darkWas * 100) + '٪ تیره بود ⇒ از ثانیهٔ ' + c.from.toFixed(1)); }   // ۹.۴۳
     } catch (e) {
       st.failed++;
       notes.push('صحنهٔ ' + s.n + ': ' + String(e.message).split('\n')[0].slice(0, 70));

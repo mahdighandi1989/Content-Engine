@@ -15,6 +15,7 @@ const { execFileSync, spawnSync } = require('child_process');
 
 const R = require('../tools/render.js');
 const MKIT = require('../tools/mediakit.js');
+const SKIT = require('../tools/scenekit.js');
 const FF = R.ffmpegExe();
 
 let pass = 0;
@@ -499,4 +500,24 @@ console.log('=== ۱۲) زیرِ سقفِ آپلود (۹.۳۷) ===');
 }
 
 if (process.env.KEEP !== '1') { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {} } else console.log('    (پوشه ماند: ' + dir + ')');
+console.log('=== ۱۳) تکهٔ تیرهٔ کلیپ (۹.۴۳، صحنهٔ ۱۴ِ قسمتِ ۷۴ دو بار «قابِ خالی») ===');
+{
+  const d13 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'dark-'));
+  const src = path.join(d13, 'dk.mp4');
+  execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x060606:s=320x180:r=24:d=10',
+                    '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=24:d=10', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0[v]',
+                    '-map', '[v]', '-pix_fmt', 'yuv420p', src]);
+  const b1 = MKIT.brightFrom(FF, src, 1, 6, 20);
+  ok('۱۳.۱ تکهٔ سیاه (۱ تا ۷) به نزدیک‌ترین تکهٔ روشن می‌رود', b1.was > 0.9 && b1.from >= 9.5 && b1.from <= 10.5 && b1.dark <= 0.1,
+     JSON.stringify(b1));
+  const b2 = MKIT.brightFrom(FF, src, 12, 6, 20);
+  ok('۱۳.۲ تکهٔ روشن دست نمی‌خورد', b2.from === 12 && b2.was === 0, JSON.stringify(b2));
+  const c = MKIT.clip(FF, src, path.join(d13, 'o.mp4'), 1, 6, null, null, { layout: 'center' });
+  const fr = SKIT.gray(FF, c.file, 3);
+  ok('۱۳.۳ و خودِ کلیپِ ساخته‌شده خالی نیست — همان سنجهٔ qa', c.darkMoved && fr && SKIT.sd(fr) >= SKIT.SK.qaBlankSd,
+     'sd=' + (fr ? SKIT.sd(fr).toFixed(1) : 'نه') + ' from=' + c.from);
+  ok('۱۳.۴ رانر جابه‌جایی را در notes می‌گوید و usedTo از آغازِ واقعی حساب می‌شود',
+     /c\.darkMoved/.test(fs.readFileSync('tools/render.js', 'utf8')) && /c\.from !== undefined \? c\.from : from/.test(fs.readFileSync('tools/render.js', 'utf8')));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ ساختِ ویدئوی رسانه‌ای گذشت.');

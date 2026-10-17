@@ -28,6 +28,7 @@ const MK = {
   wideMin: 1.55, wideMax: 2.1,     // در این بازه قاب را پر می‌کند؛ بیرونش کامل + حاشیهٔ تار
   segMax: 60,
   tailMax: 12, tailMin: 0.8, tailDark: 38, tailStill: 0.6,   // ۹.۱۰: کارتِ پایانیِ ریل جزوِ محتوا نیست
+  darkMax: 0.25, darkOk: 0.1, darkSd: 10,   // ۹.۴۳: تکهٔ برگزیده‌ای که بیش از یک‌چهارمش تیره است، به نزدیک‌ترین تکهٔ روشنِ همان کلیپ می‌رود
   fillFrom: 4, fillSeg: 8, fillMax: 8,
   collageMax: 5, teaserSlow: 0.6,                                              // ۹.۱۱: کاشی‌های کلاژِ پیش‌نمایش                        // ۹.۱۰: صحنهٔ بلندتر از کلیپ ⇒ چند قابِ متحرک، نه یک قابِ ساکن                      // بلندترین تکهٔ کلیپ که برای یک صحنه بریده می‌شود
   lead: 0.6,                       // چند ثانیه پیش از عبارت (تا جمله از وسط شروع نشود)
@@ -348,13 +349,59 @@ function fillTail(ff, out, L, rest) {
   return n;
 }
 
+/**
+ * تکهٔ تیره (۹.۴۳): درسِ قسمتِ ۷۴ — صحنهٔ ۱۴ دو بار (۱۶ و ۱۷ اکتبر) «قابِ خالی» خورد و ویدئو منتشر نشد. کلیپ همان‌جا که
+ * گفتارش بود (`main`) تقریباً سیاه است (میانگینِ روشنی ۶ از ۲۵۵) و سنجهٔ رانر درست می‌گفت: بیننده ده ثانیه صفحهٔ سیاه
+ * می‌دید. «جای گفتار» برای کلیپی که زیرِ گوینده **بی‌صدا** پخش می‌شود معیارِ دوم است؛ دیده‌شدن معیارِ اول. پس اگر بیش از
+ * `darkMax` ِ تکه تیره/تخت است، نزدیک‌ترین آغازی از همان کلیپ که تیرگی‌اش زیرِ `darkOk` است برداشته می‌شود — و اگر چنین جایی
+ * نبود، کم‌تیره‌ترین. ⇒ {from, dark, was} (dark/was کسرِ تیره پس و پیش).
+ */
+function brightFrom(ff, file, from, L, E) {
+  const rate = 2, W = 32, H = 24, fsz = W * H;
+  let buf = null;
+  try {
+    buf = execFileSync(ff, ['-hide_banner', '-loglevel', 'error', '-t', E.toFixed(2), '-i', file, '-an',
+      '-vf', 'fps=' + rate + ',scale=' + W + ':' + H + ',format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 26 });
+  } catch (e) { return { from: from, dark: -1, was: -1 }; }
+  const n = Math.floor(buf.length / fsz);
+  if (n < 4) return { from: from, dark: -1, was: -1 };
+  const dk = [];
+  for (let i = 0; i < n; i++) {
+    let a = 0, b = 0;
+    for (let j = 0; j < fsz; j++) { const v = buf[i * fsz + j]; a += v; b += v * v; }
+    const m = a / fsz, sdv = Math.sqrt(Math.max(0, b / fsz - m * m));
+    dk.push(m < MK.tailDark && sdv < MK.darkSd ? 1 : 0);
+  }
+  const frac = (s) => {
+    const i0 = Math.max(0, Math.floor(s * rate)), i1 = Math.min(n, Math.ceil((s + L) * rate));
+    let c = 0; for (let i = i0; i < i1; i++) c += dk[i];
+    return i1 > i0 ? c / (i1 - i0) : 0;
+  };
+  const was = frac(from);
+  if (was <= MK.darkMax) return { from: from, dark: was, was: was };
+  let best = from, bestF = was, near = null;
+  for (let s2 = 0; s2 <= Math.max(0, E - L) + 1e-6; s2 += 0.5) {
+    const f2 = frac(s2);
+    if (f2 < bestF) { bestF = f2; best = s2; }
+    if (f2 <= MK.darkOk && (near === null || Math.abs(s2 - from) < Math.abs(near - from))) near = s2;
+  }
+  const pick = near !== null ? near : best;
+  return { from: pick, dark: frac(pick), was: was };
+}
+
 function clip(ff, file, out, from, len, info, skip, opt) {
   const p = info || probe(ff, file);
   if (!p) throw new Error('کلیپ خوانده نشد');
   if (p.end === undefined) p.end = contentEnd(ff, file, p);
   const E = Math.min(p.dur, p.end || p.dur);
   if (from > E - 1) from = Math.max(0, E - Math.min(len, E));
-  const L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, E - from)));
+  let L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, E - from)));
+  /* تکهٔ تیره (۹.۴۳) — فقط وقتی لحظه‌ای درونِ تکه نیست: جای لحظه را صدای خودِ کلیپ تعیین کرده و جابه‌جا نمی‌شود. */
+  let darkInfo = null;
+  if (!skip && E > L + 1) {
+    darkInfo = brightFrom(ff, file, from, L, E);
+    if (darkInfo.from !== from) { from = darkInfo.from; L = Math.max(1, Math.min(MK.segMax, len, Math.max(1, E - from))); }
+  }
   let pre = '[0:v]fps=' + MK.fps + '[s];';
   let inArgs = ['-ss', from.toFixed(2), '-t', L.toFixed(2), '-i', file];
   if (skip && skip.at > from + 0.3 && skip.at + skip.len < E - 0.5) {
@@ -376,7 +423,8 @@ function clip(ff, file, out, from, len, info, skip, opt) {
   const played = Math.min(L, (probe(ff, out) || {}).dur || L);
   let filled = 0;
   if (opt && opt.fill && len - played >= MK.fillFrom) filled = fillTail(ff, out, played, len - played);
-  return { file: out, still: still, len: filled ? len : L, played: L, filled: filled, cut: Math.round((p.dur - E) * 10) / 10 };
+  return { file: out, still: still, len: filled ? len : L, played: L, filled: filled, cut: Math.round((p.dur - E) * 10) / 10,
+           from: from, darkMoved: !!(darkInfo && darkInfo.was > MK.darkMax), darkWas: darkInfo ? darkInfo.was : -1 };
 }
 
 /** «لحظه»: همان تکه، **با صدای خودش** — بلندیِ یکسان، آغاز و پایانِ نرم، صوتِ ۴۸ کیلوهرتزِ دوکاناله. */
@@ -519,4 +567,4 @@ function splice(ff, silent, wav, parts, dest, dir) {
   return { inserts: inserts };
 }
 
-module.exports = { collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, moment, find, placeMoments, splice };
+module.exports = { collage, teaserPlan, contentEnd, fillTail, MK, BOX, probe, contentBox, placeIn, layoutOf, frameFilter, photo, photoClip, clip, brightFrom, moment, find, placeMoments, splice };

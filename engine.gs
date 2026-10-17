@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.42
+ *  موتور محتوا و پادکست — نسخهٔ 9.43
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.42',
+  CODE_VERSION: '9.43',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -58986,6 +58986,29 @@ function ytUploadOne_(item, hub, pub) {
     res.why = 'فایلِ ویدئو ' + mbS + ' مگابایت است، حتی پس از ساختِ دوباره با سقفِ بیت؛ ' +
               'آپلودِ Apps Script سقفِ ۵۰ مگابایت دارد.';
     return res;
+  }
+  /* ══ سنجشِ رانر رد کرد ⇒ یک بار از نو، پیش از خرجِ سهمیه (۹.۴۳) ══
+     قسمتِ ۷۴: «۱ قابِ خالی (صحنهٔ ۱۴)» دو بار؛ کلیپ همان‌جا تیره بود. تا ۹.۴۲ ویدئوی ردشده Unlisted بالا می‌رفت (۱۶۰۰ واحد) و
+     یافته‌ای می‌خواست «رندر را دوباره بخواه» — ولی جایگزینی (`ytReplaceTick_`) قسمتِ منتشرنشده را رد می‌کند، پس هیچ دری
+     برای ساختِ دوباره نبود. حالا مثلِ حجم: یک بار با `replace: "qa-<نسخه>"` از نو (رانرِ هر نسخه درمانِ خودش را دارد)؛ بارِ دوم
+     همان راهِ قبل — Unlisted و یافته — تا چشم ببیند. */
+  var rmeQ = null;
+  try { rmeQ = (ytRenderMapCached_() || {})[String(item.key || (item.show + ':' + item.ep))] || null; } catch (eRq) { rmeQ = null; }
+  var mdQ = String((rmeQ && rmeQ.mode) || '');
+  if ((mdQ === 'media' || mdQ === 'scenes') && rmeQ.qa && rmeQ.qa.ok !== true && !/^qa-/.test(String(item.replace || ''))) {
+    var asideQ = 0;
+    try { asideQ = ytReplaceAside_(folder); } catch (eAq) { asideQ = 0; }
+    if (asideQ) {
+      var qTag = 'qa-' + String(CFG.CODE_VERSION || '');
+      var dlQ = ytDueList_();
+      for (var dqQ = 0; dqQ < dlQ.length; dqQ++) if (String(dlQ[dqQ].key) === String(item.key)) dlQ[dqQ].replace = qTag;
+      ytDueSave_(dlQ);
+      item.replace = qTag;
+      logLine_('ویدئوی ' + item.key + ' از سنجشِ رانر رد شد (' + String(rmeQ.qa.why || '').slice(0, 80) + ')؛ یک بار از نو ساخته می‌شود.');
+      res.waiting = true;
+      res.why = 'سنجشِ رانر رد کرد (' + String(rmeQ.qa.why || '').slice(0, 80) + ')؛ یک بار از نو ساخته می‌شود';
+      return res;
+    }
   }
 
   // ── متنِ نهایی از همان نقشه ──

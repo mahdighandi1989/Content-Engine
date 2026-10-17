@@ -1,24 +1,16 @@
 {
-  "version": "9.42",
+  "version": "9.43",
   "codeFile": "engine.gs",
-  "sha256": "8a923b802751c7589c67a0328e38ef4aa6f573ee28f6b46ddc7aee3c1bdbc937",
-  "releasedAt": "2026-10-17T13:30:00+04:00",
-  "summary": "صوتِ گلدوز/رضوی برای قسمتِ امروز همان روز: از ساعتِ ۱۰ تازه‌ترین قسمتِ هر برنامه به پل می‌رود، نه سحرِ فردا؛ و ناظر ویدئوی رسانه‌ایِ «از همه جا» را پس از انتشارِ خودکار هم می‌بیند (پرامپتِ ۱۰۸).",
+  "sha256": "11d49b32790edf6f623b5142c6b1e4a94e32baf64666884f4ade2e1ad3dcf6de",
+  "releasedAt": "2026-10-17T14:20:00+04:00",
+  "summary": "«از همه جا» ۷۴ دیگر گیر نمی‌کند: تکهٔ کلیپی که بیشترش سیاه است به نزدیک‌ترین تکهٔ روشنِ همان کلیپ می‌رود (رانر)، و ویدئویی که سنجشِ رانر ردش کرد یک بار پیش از آپلود از نو ساخته می‌شود — تا امروز هیچ دری برایش نبود.",
   "fixes": [
-    "src/36_VoiceBridge.gs: vbrDayAskDue_ (ساعتی، روزی یک بار) + vbrAskDue_(…, {newestOnly})",
-    "src/00_Config.gs: VBR_DAY_ASK_HOUR/LAST، PK.VBR_DAY_ASK، عنوانِ variety-media",
-    "docs/prompts/_PROMPT-monitor-v108.md: variety-media پیش و پس از انتشار، سنجشِ موسیقیِ ۹.۴۰، پلِ همان روز؛ بندِ «تأییدِ نخستین‌ها» کهنه اعلام شد",
-    "tests: bridge_voice ۱۱-پ"
+    "tools/mediakit.js: brightFrom + clip() — تکهٔ بیش از ۲۵٪ تیره ⇒ نزدیک‌ترین آغازِ زیرِ ۱۰٪",
+    "tools/render.js: notes «… ٪ تیره بود ⇒ از ثانیهٔ …»، usedTo از آغازِ واقعی",
+    "src/27_YouTube.gs: ردِ qa ⇒ یک بار replace «qa-<نسخه>» پیش از آپلود",
+    "tests: media_render ۱۳، youtube ۱۰.۱۰"
   ],
   "sourceReportIds": [],
-  "answers": {
-    "R-20261017-05": "۹.۴۲",
-    "R-20261017-06": "۹.۴۲"
-  },
-  "promptImpact": [
-    "_PROMPT-monitor-v108.md: variety-media دو نیمه (پیش و پس از انتشار، از ۹.۳۷ عمومی‌شدن خودکار است)، سنجشِ مرزهای موسیقی (۹.۴۰)، پلِ صدای همان روز (۹.۴۲)"
-  ],
-  "promptImpactKinds": [
-    "monitor"
-  ]
+  "answers": {},
+  "promptImpact": []
 }
