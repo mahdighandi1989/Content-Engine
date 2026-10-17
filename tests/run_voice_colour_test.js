@@ -163,5 +163,59 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
      /preColour = best/.test(bp) && /if abIt\.get\("nocolour"\) and preColour != best:/.test(bp));
 }
 
+console.log('=== ۹) موسیقی از تبدیل نمی‌گذرد، و هر صدا گامِ خودش را دارد (۹.۳۶) ===');
+{
+  /* ۱۷ اکتبر: «صدای گلدوز افتضاح … آهنگِ شروعِ اون قسمت هم داغون». قسمتِ ساختگی، همان شکلِ «از همه جا»:
+     ۰–۴ موسیقی، ۴–۱۰ صدای زن (۲۱۰ هرتز)، ۱۰–۱۶ صدای مرد (۱۲۰)، ۱۶–۲۰ پلِ موسیقی، ۲۰–۲۶ باز صدای زن. */
+  const d9 = fs.mkdtempSync(path.join(os.tmpdir(), 'vgrp-'));
+  const res = py(`import numpy as np,os
+os.makedirs("vb",exist_ok=True)
+sr=16000
+def tone(f,sec,amp=0.3):
+    t=np.arange(int(sec*sr))/sr
+    return (amp*(np.sin(2*np.pi*f*t)+0.5*np.sin(2*np.pi*2*f*t)+0.25*np.sin(2*np.pi*3*f*t))/1.75).astype(np.float32)
+mus=lambda sec:(0.2*np.sin(2*np.pi*440*np.arange(int(sec*sr))/sr)*np.sin(2*np.pi*0.5*np.arange(int(sec*sr))/sr)).astype(np.float32)
+x=np.concatenate([mus(4),tone(210,6),tone(120,6),mus(4),tone(210,6)])
+src=${JSON.stringify(path.join(d9, 'src.wav'))}
+v.writeMono(src,x,sr)
+segs=[[0,4,"m"],[4,7,"t"],[7,10,"t"],[10,13,"t"],[13,16,"t"],[16,20,"m"],[20,23,"t"],[23,26,"t"]]
+g=v.voiceGroups(segs,x,sr,158.0)
+one=v.voiceGroups([[4,7,"t"],[7,10,"t"]],x,sr,158.0)
+# «تبدیل»ِ ساختگیِ هر گروه: صدای دیگر و بلندیِ دیگر، تا معلوم شود هر تکه از کجا آمده
+o0=${JSON.stringify(path.join(d9, 'g0.wav'))};o1=${JSON.stringify(path.join(d9, 'g1.wav'))}
+n=len(x);t=np.arange(n)/sr
+v.writeMono(o0,(0.9*np.sin(2*np.pi*158*t)).astype(np.float32),sr)
+v.writeMono(o1,(0.9*np.sin(2*np.pi*159*t)).astype(np.float32),sr)
+dst=${JSON.stringify(path.join(d9, 'mix.wav'))}
+m=v.assemble(src,[o0,o1],g["speech"],g["assign"],dst)
+y,_=v.readMono(dst)
+def corr(a,b):
+    a=a-a.mean();b=b-b.mean();return float((a*b).sum()/np.sqrt((a*a).sum()*(b*b).sum()+1e-12))
+w=lambda a,b:slice(int(a*sr),int(b*sr))
+c0,_=v.readMono(o0);c1,_=v.readMono(o1)
+rms=lambda z:float(np.sqrt((z*z).mean()))
+print(json.dumps({"g":g["groups"],"assign":g["assign"],"one":len(one["groups"]),"mix":m,
+ "musA":corr(y[w(0.5,3.5)],x[w(0.5,3.5)]),"musB":corr(y[w(16.5,19.5)],x[w(16.5,19.5)]),
+ "fem":corr(y[w(4.5,9.5)],c0[w(4.5,9.5)]),"male":corr(y[w(10.5,15.5)],c1[w(10.5,15.5)]),
+ "fem2":corr(y[w(20.5,25.5)],c0[w(20.5,25.5)]),
+ "lvl":rms(y[w(4.5,9.5)])/rms(x[w(4.5,9.5)])}))`);
+  const g = res.g;
+  ok('۹.۱ دو گروهِ صدا از گفتارِ تنها (موسیقی سنجیده نمی‌شود): زن ~۲۱۰ ⇒ گام منفی، مرد ~۱۲۰ ⇒ گام مثبت؛ بزرگ‌تر اول',
+     g.length === 2 && Math.abs(g[0].hz - 210) < 12 && Math.abs(g[1].hz - 120) < 8 && g[0].pitch <= -4 && g[1].pitch >= 4 &&
+     g[0].secs === 12 && g[1].secs === 6 && res.assign.join(',') === '0,0,1,1,0,0', JSON.stringify(res.g) + ' ' + res.assign);
+  ok('۹.۲ یک صدا ⇒ یک گروه (دو تبدیل برای هیچ نیست)', res.one === 1);
+  ok('۹.۳ موسیقیِ آغاز و پل از خودِ ورودی، دست‌نخورده', res.musA > 0.99 && res.musB > 0.99, res.musA.toFixed(3) + ' / ' + res.musB.toFixed(3));
+  ok('۹.۴ هر تکهٔ گفتار از تبدیلِ گروهِ خودش — زن از گروهِ ۱، مرد از گروهِ ۲، و زنِ پس از پل باز از گروهِ ۱',
+     res.fem > 0.99 && res.male > 0.99 && res.fem2 > 0.99, [res.fem, res.male, res.fem2].map(x => x.toFixed(3)).join(' / '));
+  ok('۹.۵ بلندیِ گفتار همان بلندیِ ورودی (نسبتِ گفتار و موسیقی عوض نمی‌شود)', Math.abs(res.lvl - 1) < 0.05, res.lvl.toFixed(3));
+  ok('۹.۶ چیدن ثبت می‌شود: چند ثانیه از تبدیل، چند ثانیه از ورودی', Math.abs(res.mix.speechSec - 18) < 0.5 && Math.abs(res.mix.keptSec - 8) < 0.5,
+     JSON.stringify(res.mix));
+  const bp9 = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۹.۷ runOne: با نقشه ⇒ گروه‌ها، یک تبدیل برای هر گروه با گامِ خودش، چیدن؛ چیدنِ نشده ردیف را نمی‌بندد',
+     /vg = voiceGroups\(segs, xs, srS, float\(tgt\)\)/.test(bp9) && /a3\[a3\.index\("--rvc-pitch"\) \+ 1\] = str\(g\["pitch"\]\)/.test(bp9) &&
+     /mix = assemble\("vb\/src\.wav", gOuts/.test(bp9) && /چیدنِ گفتار و موسیقی نشد[^\n]*\n\s*return 1/.test(bp9));
+  try { fs.rmSync(d9, { recursive: true, force: true }); } catch (e) {}
+}
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رنگِ ضبط‌های خودِ گوینده گذشت.');

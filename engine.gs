@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.35
+ *  موتور محتوا و پادکست — نسخهٔ 9.36
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2153,7 +2153,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.35',
+  CODE_VERSION: '9.36',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -75617,6 +75617,35 @@ function vbrSoul_(folderId, speakerKey) {
  * بیرون همه‌چیز سالم به نظر می‌رسد. این سقف فقط ردیف‌هایی را می‌شمرد که
  * هنوز خروجی‌شان ساخته نشده.
  */
+/** شمارهٔ قسمتِ واقعی (فقط رقم)، نه «۷۳-۹-نمونه» یا برچسبِ دیگر (۹.۳۶). */
+function vbrRealEp_(ep) { return /^\d+$/.test(String(ep == null ? '' : ep).trim()); }
+
+/**
+ * نقشهٔ گفتار و موسیقیِ قسمت برای رانرِ پل (۹.۳۶) — از `_times.json`ِ خودِ پوشه: `[[آغاز, پایان, 't'|'m'], …]`.
+ * «آهنگِ شروع با قسمتِ اصلی هم افتضاح داغون بود»: پل کلِ فایل را — موسیقی هم — از RVC می‌گذراند، و زیروبمِ ورودی را هم
+ * روی کلِ فایل (موسیقی هم) می‌سنجید. رانر حالا موسیقی را دست‌نخورده برمی‌گرداند و گام را **برای هر گروهِ صدا** از همان
+ * تکه‌های گفتار می‌سنجد — «از همه جا» چند گوینده دارد، زن و مرد، و یک گامِ واحد یکی را درست و دیگری را خراب می‌کرد.
+ * تکه‌های گفتار جدا می‌مانند (هر تکه ممکن است گویندهٔ دیگری باشد)؛ موسیقیِ پشتِ‌هم یکی می‌شود. نبودِ `_times.json` ⇒ [] و
+ * رانر همان راهِ قدیم را می‌رود (گفته می‌شود، بی‌صدا نه).
+ */
+function vbrSegs_(folderId) {
+  var tj = null;
+  try { tj = epTimesRead_(DriveApp.getFolderById(String(folderId))); } catch (e) { tj = null; }
+  if (!tj) return [];
+  var secs = Number(tj.secs) || 0;
+  var T = (tj.times || []).slice().sort(function (a, b) { return Number(a.i) - Number(b.i); });
+  var out = [];
+  for (var m = 0; m < T.length; m++) {
+    var a = Number(T[m].at) || 0, b = (m + 1 < T.length) ? Number(T[m + 1].at) : secs;
+    if (!(b > a)) continue;
+    var k = T[m].k === 'm' ? 'm' : 't';
+    var last = out[out.length - 1];
+    if (k === 'm' && last && last[2] === 'm' && Math.abs(last[1] - a) < 0.05) { last[1] = Math.round(b * 100) / 100; continue; }
+    out.push([Math.round(a * 100) / 100, Math.round(b * 100) / 100, k]);
+  }
+  return out.length > 600 ? [] : out;
+}
+
 function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
   if (CFG.VBR_ON === false) return { ok: false, why: 'پل خاموش است' };
   var key = String(show) + ':' + String(epNum);
@@ -75682,6 +75711,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
     row.audio.push({ id: au[a].id, name: au[a].name, url: ytDlUrl_(au[a].id) });
   }
   row.shared = true;
+  try { var sg = vbrSegs_(folderId); if (sg.length) row.segs = sg; } catch (eSg) {}
   var o = opts || {};
   /* برچسبِ نمایشی، وقتی این ردیف «خودِ قسمت» نیست بلکه نمونه‌ای از آن است
      (۷٫۷۴). بی آن، فایل و کپشنِ تلگرام «قسمت ۴۹ با صدای …» می‌شدند برای
@@ -76995,6 +77025,9 @@ function vbrAskDue_(hub) {
     for (var i = d.items.length - 1; i >= 0; i--) {
       var it = d.items[i];
       if (!it.folderId) continue;
+      /* ۹.۳۶: فقط قسمتِ واقعی. ردیف‌های «۷۳-۹-نمونه» هم در همین صف‌اند و از همه تازه‌ترند، پس ۱۷ اکتبر هر دو نوبتِ شب
+         به نمونه‌های ویدئوی «از همه جا» رسید — «من کی قسمت ۷۳ را خواسته بودم؟». */
+      if (!vbrRealEp_(it.ep)) continue;
       /* گوینده **به ازای هر قسمت** انتخاب می‌شود، نه یک بار برای همه:
          «موردی» دربارهٔ همین یک قسمت است (۷٫۴۵). */
       var pick = vbrSpeakerPick_(rows, it.show, it.ep);

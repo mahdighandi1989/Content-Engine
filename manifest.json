@@ -1,13 +1,15 @@
 {
-  "version": "9.35",
+  "version": "9.36",
   "codeFile": "engine.gs",
-  "sha256": "6c3a483aeb80adea88ed7ba6f583e0e261167e834d9ce717dd5f131e904ad613",
-  "releasedAt": "2026-10-17T02:30:00+04:00",
-  "summary": "نمونهٔ ۹ِ قسمتِ ۷۳ کلیپ‌های ۲ و ۴ را جای بازگویی نشاند، ولی کلیپِ ۳ را رانر با سدِ ۲۰ثانیه‌ایِ دوم انداخت؛ فاصله را حالا فقط موتور می‌سنجد و رانر فقط روی‌هم‌افتادن را می‌گیرد. نمونهٔ ۱۰.",
+  "sha256": "813d867e742fafb32db244bc83244d1f5b9b9dada0240fa7abd2f6a0c6deb0a5",
+  "releasedAt": "2026-10-17T09:30:00+04:00",
+  "summary": "پلِ صدا: ردیف‌های «نمونه» دیگر تبدیل نمی‌شوند؛ موسیقی از تبدیل نمی‌گذرد و از خودِ ورودی برمی‌گردد؛ زیروبم فقط روی گفتار و برای هر گروهِ صدا جدا سنجیده و تبدیل می‌شود (صدای زن و مرد در «از همه جا» دیگر یک گام نمی‌گیرند).",
   "fixes": [
-    "tools/mediakit.js: placeMoments — MK.momentGap ۸ (فقط روی‌هم‌افتادن)",
-    "src/00_Config.gs: VM_SAMPLE rev 10"
+    "src/36_VoiceBridge.gs: vbrRealEp_ در vbrAskDue_؛ vbrSegs_ و row.segs",
+    "tools/voicebridge.py: voiceGroups / assemble / readMono / writeMono / f0Frames؛ runOne یک تبدیل برای هر گروه و چیدن"
   ],
   "sourceReportIds": [],
-  "answers": {}
+  "answers": {
+    "R-20261017-01": "۹.۳۶"
+  }
 }

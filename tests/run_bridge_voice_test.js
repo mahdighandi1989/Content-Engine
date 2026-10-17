@@ -265,6 +265,32 @@ console.log('\n══ ۱۱) تازه‌ترین قسمت اول — چون قض�
      'گرفت: ' + JSON.stringify(keys));
 }
 
+console.log('\n══ ۱۱-ب) ردیفِ «نمونه» قسمت نیست (۹.۳۶) ══');
+/* ۱۷ اکتبر ۰۳:۲۴ دو تبدیلِ گلدوز روی «۷۳-۹-نمونه» و «۷۳-۸-نمونه» آمد: نمونه‌های ویدئوی «از همه جا» در همین صف‌اند و
+   از همه تازه‌ترند، پس هر دو نوبتِ شب را گرفتند. و با نقشهٔ گفتار/موسیقیِ `_times.json` که رانر موسیقی را از تبدیل بیرون نگه دارد. */
+{
+  const q = vbrRead_(); q.items = []; vbrSave_(q);
+  const f3 = OUT.createFolder('قسمتِ ۷۴');
+  f3.createFile('قسمت ۷۴ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  f3.createFile('_times.json', JSON.stringify({ secs: 30, times: [{ i: 0, at: 0, k: 'm' }, { i: 1, at: 4, k: 't' }, { i: 2, at: 12.5, k: 't' },
+                                                                   { i: 3, at: 20, k: 'm' }, { i: 4, at: 22, k: 'm' }, { i: 5, at: 25, k: 't' }] }), 'application/json');
+  const fs1 = OUT.createFolder('نمونه');
+  fs1.createFile('قسمت ۷۳ — کامل.wav', 'x'.repeat(9000), 'audio/wav');
+  const rd = ytRenderRead_();
+  rd.items = [{ key: 'variety:74', show: 'variety', ep: '74', folderId: f3.getId(), title: 'تازه' },
+              { key: 'variety:73-8-نمونه', show: 'variety', ep: '73-8-نمونه', folderId: fs1.getId(), title: 'نمونه' },
+              { key: 'variety:73-9-نمونه', show: 'variety', ep: '73-9-نمونه', folderId: fs1.getId(), title: 'نمونه' }];
+  ytRenderSave_(rd);
+  personaBoardSave_('razavi', true, [knownShows_()[0].name], 1, 'آرام بخوان', '');
+  const made = vbrAskDue_(hub);
+  const items = vbrRead_().items, keys = items.map(x => x.key);
+  ok('۱۱-ب.۱ نمونه‌ها رد شدند، قسمتِ واقعی برداشته شد', made === 1 && keys.join(',') === 'variety:74', JSON.stringify(keys));
+  const sg = (items[0] || {}).segs || [];
+  ok('۱۱-ب.۲ نقشهٔ گفتار/موسیقی با ردیف می‌رود؛ موسیقیِ پشتِ‌هم یکی، گفتار تکه‌به‌تکه',
+     JSON.stringify(sg) === JSON.stringify([[0, 4, 'm'], [4, 12.5, 't'], [12.5, 20, 't'], [20, 25, 'm'], [25, 30, 't']]), JSON.stringify(sg));
+  ok('۱۱-ب.۳ شمارهٔ قسمت فقط رقم است', vbrRealEp_('74') && vbrRealEp_(74) && !vbrRealEp_('73-9-نمونه') && !vbrRealEp_(''));
+}
+
 console.log('\n══ ۱۲) اشتراکِ صف — و مسیری که به خودِ صف بند نیست ══');
 /* ══ چرا این بخش هست ══
    ۲۲ سپتامبر، اجرای ۱ِ voice-bridge قرمز شد: «درایو به‌جای JSON یک صفحهٔ

@@ -609,6 +609,160 @@ def hearCompare(src, out, alt=None, model=None):
     return res
 
 
+# ══ موسیقی از تبدیل نمی‌گذرد، و هر صدا گامِ خودش را دارد (۹.۳۶) ══
+# ۱۷ اکتبر صاحبِ برنامه دو خروجیِ گلدوز را شنید: «صدای گلدوز افتضاح … حتی آهنگِ شروعِ اون قسمت هم داغون بود».
+# دو علت، هر دو در این فایل: (۱) کلِ صوت — موسیقیِ آغاز و پل‌ها هم — از RVC می‌گذشت، و RVC موسیقی را «گلدوز» می‌کند؛
+# (۲) زیروبمِ ورودی روی **کلِ** فایل سنجیده می‌شد (موسیقی هم) و یک گام برای همه بود، در حالی که «از همه جا» چند گوینده
+# دارد — زن و مرد. گامی که صدای زن را به گلدوز می‌رساند، صدای مرد را یک‌سوم اکتاو زیرِ او می‌بَرد. همان درسِ ۱۸ و ۱۸-ب:
+# گام برای صدای **مبدأ** معنا دارد — و مبدأ این‌جا یکی نیست.
+# موتور نقشهٔ `segs` را از `_times.json` می‌فرستد (گفتار/موسیقی، تکه‌به‌تکه). این‌جا: زیروبمِ هر تکهٔ گفتار، گروه‌بندیِ صداها
+# (حداکثر دو گروه — بزرگ‌ترین فاصله در لگاریتمِ هرتز)، یک تبدیل برای هر گروه با گامِ خودش، و چیدنِ خروجی: هر تکهٔ گفتار از
+# تبدیلِ گروهِ خودش، با بلندیِ همان تکه در ورودی، و **موسیقی و هر جای دیگر از خودِ ورودی**.
+
+def readMono(path):
+    """(آرایهٔ float32، نرخ) — WAVِ ۱۶بیتی؛ چندکاناله میانگین می‌شود."""
+    import wave
+    import numpy as np
+    with wave.open(path, "rb") as w:
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        raw = w.readframes(w.getnframes())
+    if sw != 2:
+        raise ValueError("WAVِ %d بایتی" % sw)
+    x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+    if ch > 1:
+        x = x[:len(x) // ch * ch].reshape(-1, ch).mean(1)
+    return x, sr
+
+
+def writeMono(path, x, sr):
+    import wave
+    import numpy as np
+    y = (np.clip(x, -1.0, 1.0) * 32767.0).astype("<i2")
+    with wave.open(path, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(int(sr))
+        w.writeframes(y.tobytes())
+
+
+def f0Frames(x, sr, maxFrames=600):
+    """زیروبمِ قاب‌های واک‌دار — همان روشِ `f0Stats`، روی آرایه."""
+    import numpy as np
+    d = max(1, int(sr // 8000))
+    x = x[:len(x) // d * d].reshape(-1, d).mean(1)
+    sr = float(sr) / d
+    win, hop = int(sr * 0.06), int(sr * 0.02)
+    if len(x) <= win:
+        return []
+    starts = list(range(0, len(x) - win, hop))
+    if len(starts) > maxFrames:
+        starts = [int(v) for v in np.linspace(0, len(x) - win - 1, maxFrames)]
+    lo, hi = int(sr / 300), int(sr / 40)
+    F = []
+    for s0 in starts:
+        fr = x[s0:s0 + win]
+        fr = fr - fr.mean()
+        if float((fr ** 2).mean()) < 4e-4:
+            continue
+        c = np.correlate(fr, fr, "full")[win - 1:]
+        if hi >= len(c) or c[0] <= 0:
+            continue
+        k = lo + int(np.argmax(c[lo:hi]))
+        if c[k] / c[0] > 0.3:
+            F.append(sr / k)
+    return F
+
+
+VOICE_SPLIT = 1.25       # نسبتِ زیروبمِ دو گروه که از آن به بعد «دو صدا»ست، نه نوسانِ یک صدا
+VOICE_MIN_SHARE = 0.08   # گروهی کمتر از این سهم از گفتار، گروهِ جدا نمی‌شود (یک جملهٔ بلند/بم کافی نیست)
+
+
+def voiceGroups(segs, x, sr, targetHz):
+    """⇒ {"groups":[{"hz","pitch","secs"}], "speech":[(a,b)], "assign":[g…]} یا None («نسنجیدم»)."""
+    import math
+    import numpy as np
+    speech = [(float(a), float(b)) for a, b, k in segs if k != "m" and float(b) - float(a) >= 0.3]
+    if not speech or not targetHz:
+        return None
+    meds = []
+    for a, b in speech:
+        F = f0Frames(x[int(a * sr):int(b * sr)], sr)
+        meds.append(float(np.median(F)) if len(F) >= 8 else None)
+    got = [(i, m) for i, m in enumerate(meds) if m]
+    if not got:
+        return None
+    dur = [b - a for a, b in speech]
+    lg = sorted((math.log2(m), i) for i, m in got)
+    cut = None
+    if 2 ** (lg[-1][0] - lg[0][0]) >= VOICE_SPLIT and len(lg) >= 2:
+        gaps = [(lg[j + 1][0] - lg[j][0], j) for j in range(len(lg) - 1)]
+        g, j = max(gaps)
+        if 2 ** g >= 1.08:
+            cut = (lg[j][0] + lg[j + 1][0]) / 2.0
+    assign = [None] * len(speech)
+    for i, m in got:
+        assign[i] = 0 if (cut is None or math.log2(m) < cut) else 1
+    tot = sum(dur)
+    if cut is not None:
+        sh1 = sum(dur[i] for i in range(len(speech)) if assign[i] == 1) / tot
+        if sh1 < VOICE_MIN_SHARE or sh1 > 1 - VOICE_MIN_SHARE:
+            cut = None
+            assign = [0 if a is not None else None for a in assign]
+    last = None
+    for i in range(len(assign)):            # تکهٔ نسنجیده ⇒ گروهِ تکهٔ پیش از خودش (همان گوینده ادامه می‌دهد)
+        if assign[i] is None:
+            assign[i] = last if last is not None else 0
+        last = assign[i]
+    groups = []
+    for gi in sorted(set(assign)):
+        ms = [meds[i] for i in range(len(speech)) if assign[i] == gi and meds[i]]
+        ws = [dur[i] for i in range(len(speech)) if assign[i] == gi and meds[i]]
+        order = np.argsort(ms)
+        cw, half, hz = 0.0, sum(ws) / 2.0, ms[order[0]]
+        for o in order:                     # میانهٔ وزنی (به طولِ تکه)
+            cw += ws[o]
+            if cw >= half:
+                hz = ms[o]
+                break
+        groups.append({"hz": round(float(hz), 1), "pitch": autoPitch(hz, targetHz),
+                       "secs": round(sum(dur[i] for i in range(len(speech)) if assign[i] == gi), 1)})
+    # گروهِ بزرگ‌تر اول: تبدیلِ اصلی و گامِ ثبت‌شده مالِ اوست
+    if len(groups) == 2 and groups[1]["secs"] > groups[0]["secs"]:
+        groups = [groups[1], groups[0]]
+        assign = [1 - a for a in assign]
+    return {"groups": groups, "speech": speech, "assign": assign}
+
+
+def assemble(srcPath, outPaths, speech, assign, dst, fade=0.015):
+    """هر تکهٔ گفتار از تبدیلِ گروهِ خودش (با بلندیِ همان تکه در ورودی)؛ بقیه — موسیقی، آغاز، پایان — از خودِ ورودی."""
+    import numpy as np
+    x, sr = readMono(srcPath)
+    ys = []
+    for i, p in enumerate(outPaths):
+        q = "vb/asm%d.wav" % i
+        subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", p, "-ac", "1", "-ar", str(sr), q])
+        ys.append(readMono(q)[0])
+    y = x.copy()
+    nf = max(1, int(fade * sr))
+    ramp = np.linspace(0.0, 1.0, nf, dtype=np.float32)
+    swapped = 0.0
+    for (a, b), g in zip(speech, assign):
+        v = ys[g]
+        i0, i1 = int(a * sr), min(int(b * sr), len(x), len(v))
+        if i1 - i0 < 2 * nf:
+            continue
+        seg, ref = v[i0:i1].copy(), x[i0:i1]
+        rs, ro = float(np.sqrt((ref ** 2).mean())), float(np.sqrt((seg ** 2).mean()))
+        if ro > 1e-5 and rs > 1e-5:
+            seg *= min(4.0, rs / ro)        # بلندیِ همان تکه در ورودی — نسبتِ گفتار و موسیقی همان می‌مانَد
+        seg[:nf] = ref[:nf] * (1 - ramp) + seg[:nf] * ramp
+        seg[-nf:] = seg[-nf:] * (1 - ramp) + ref[-nf:] * ramp
+        y[i0:i1] = seg
+        swapped += (i1 - i0) / float(sr)
+    writeMono(dst, y, sr)
+    return {"speechSec": round(swapped, 1), "keptSec": round(len(x) / float(sr) - swapped, 1)}
+
+
 def autoPitch(srcHz, targetHz):
     """گام به نیم‌پرده از نسبتِ دو زیروبم — محدود، چون عددِ پرت یعنی سنجشِ خراب."""
     import math
@@ -897,6 +1051,23 @@ def runOne(it, mp):
         else:
             say("::warning title=زیروبمِ ورودی سنجیده نشد::گامِ پشتیبان %s به کار رفت."
                 % pitch)
+    # ══ گروه‌های صدا و نقشهٔ موسیقی (۹.۳۶) ══
+    vg, segs = None, it.get("segs") or []
+    if segs and tgt:
+        try:
+            xs, srS = readMono("vb/src.wav")
+            vg = voiceGroups(segs, xs, srS, float(tgt))
+        except Exception as e:
+            say("::warning title=گروه‌بندیِ صدا نشد::%s" % str(e)[:200])
+            vg = None
+        if vg:
+            pitch = str(vg["groups"][0]["pitch"])
+            pitchAuto = {"srcHz": vg["groups"][0]["hz"], "targetHz": float(tgt), "pitch": int(pitch),
+                         "groups": vg["groups"], "by": "speech-only"}
+            say("  گروه‌های صدا (فقط گفتار، بی موسیقی): " + " · ".join(
+                "%.0f هرتز ⇒ %+d نیم‌پرده (%.0f ثانیه)" % (g["hz"], g["pitch"], g["secs"]) for g in vg["groups"]))
+    elif not segs:
+        say("::warning title=نقشهٔ گفتار/موسیقی نیامد::کلِ فایل با یک گام تبدیل می‌شود و موسیقی هم از تبدیل می‌گذرد.")
     args = ["python3", "tools/voicelab.py", "--engine", "rvc",
             "--ref", "vb/src.wav",          # voicelab مرجع را اجباری می‌داند
             "--src", "vb/src.wav", "--out", "vblab",
@@ -962,6 +1133,29 @@ def runOne(it, mp):
         return 1
     outs.sort(key=lambda p: -os.path.getsize(p))
     best = outs[0]
+    mix = None
+    if vg:
+        try:
+            gOuts = [best]
+            for gi, g in enumerate(vg["groups"][1:], start=1):
+                a3 = list(args)
+                a3[a3.index("--out") + 1] = "vblab-g%d" % gi
+                a3[a3.index("--rvc-pitch") + 1] = str(g["pitch"])
+                subprocess.check_call(a3)
+                o3 = []
+                for root, _dirs, files in os.walk("vblab-g%d" % gi):
+                    o3 += [os.path.join(root, f) for f in files if f.startswith("rvc-") and f.endswith(".wav")]
+                if not o3:
+                    raise RuntimeError("تبدیلِ گروهِ %d فایلی نداد" % (gi + 1))
+                gOuts.append(sorted(o3, key=lambda p: -os.path.getsize(p))[0])
+            mix = assemble("vb/src.wav", gOuts, vg["speech"], vg["assign"], "vb/mixed.wav")
+            best = "vb/mixed.wav"
+            say("  چیدن: %.0f ثانیه گفتار از تبدیل، %.0f ثانیه (موسیقی و باقی) از خودِ ورودی"
+                % (mix["speechSec"], mix["keptSec"]))
+        except Exception as e:
+            # تبدیلِ دوم یا چیدن نشد ⇒ ردیف بسته نمی‌شود: خروجیِ «موسیقیِ گلدوزی» همان چیزی است که این نسخه برای بستنش آمد.
+            say("::error title=چیدنِ گفتار و موسیقی نشد::%s — ردیف بسته نمی‌شود." % str(e)[:200])
+            return 1
     size = os.path.getsize(best)
     outSec = wavSeconds(best)
     # ══ نگهبان باید با **ورودی** سنجیده شود ══
@@ -1083,6 +1277,8 @@ def runOne(it, mp):
         rec["loud"] = loud
     if pitchAuto:
         rec["pitchAuto"] = pitchAuto
+    if mix:
+        rec["mix"] = mix
     if colour:
         rec["colour"] = colour
     if hear:
