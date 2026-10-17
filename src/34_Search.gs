@@ -1085,6 +1085,18 @@ function srchSemantic_(q, have, deadline) {
     if (have[h].where === 'بانک') seen[have[h].tab + '§' + have[h].row] = have[h];
   }
 
+  srchSemHydrate_(sr.items, seen, deadline, out, null);
+  out.ok = true;
+  return out;
+}
+
+
+/**
+ * یافته‌های ایندکس ⇒ ردیف‌های نمایش‌پذیرِ بانک (با وارسیِ شناسه). یک تعریف برای جست‌وجوی
+ * یک‌جا و گام‌های پنجره (۹.۴۶) — دو تعریف یعنی روزی یکی شناسه را نسنجد و لینکِ غلط بدهد.
+ */
+function srchSemHydrate_(items, seen, deadline, out, hubIn) {
+  var sr = { items: items || [] };
   var byTab = {}, order = [];
   for (var i = 0; i < sr.items.length; i++) {
     var it = sr.items[i];
@@ -1094,7 +1106,7 @@ function srchSemantic_(q, have, deadline) {
     byTab[it.tab].push(it);
   }
 
-  var hub = getHub_();
+  var hub = hubIn || getHub_();
   for (var t = 0; t < order.length; t++) {
     if (new Date().getTime() > deadline) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
     var sh = hub.getSheetByName(order[t]);
@@ -1125,8 +1137,6 @@ function srchSemantic_(q, have, deadline) {
       out.added++;
     }
   }
-  out.ok = true;
-  return out;
 }
 
 /* ══════════════ مسیرِ هوش مصنوعی ══════════════ */
@@ -1509,15 +1519,80 @@ function srchRun_(query, opts) {
 var SRCH_AT_ = '';
 
 /** درِ پنجرهٔ جست‌وجو: ساده یا هوشمند، با یا بی شیت‌های منبع؛ هر خطا به‌صورتِ جواب برمی‌گردد (با نامِ تب)، نه استثنا. */
-function srchRun(query, mode, sources) {
+function srchRun(query, mode, sources, semantic) {
   SRCH_AT_ = '';
   try {
-    return srchRun_(query, { mode: mode, sources: sources !== false });
+    /* `semantic === false` (۹.۴۶): پنجره معنا را جدا و گام‌به‌گام می‌گردد (`srchSemStart`/`srchSemStep`). */
+    return srchRun_(query, { mode: mode, sources: sources !== false, semantic: semantic === false ? false : undefined });
   } catch (e) {
     return { ok: false, query: String(query || ''), items: [],
              notes: ['خطا: ' + e.message + (SRCH_AT_ ? ' (در ' + SRCH_AT_ + ')' : '')],
              terms: [], answer: '', scanned: 0, sheets: 0, stopped: '', ms: 0, mode: mode };
   }
+}
+
+
+/* ══════════════ جست‌وجوی معنایی، گام‌به‌گام (۹.۴۶) ══════════════
+   «۹۰ ثانیه کمه … نتیجه‌ها یکی یکی وقتی پیدا میشن نمایش داده بشن … یه نوار پر شونده دقیق.»
+   تا ۹.۴۵ معنا یک فراخوانِ ۹۰ ثانیه‌ای بود و در آن ۱۲ تا ۱۴ قطعه از ۴۸ خوانده می‌شد — یعنی
+   سه‌چهارمِ محتوا هرگز دیده نمی‌شد و پنجره فقط یک خطِ «… تا خوانده شد» می‌گفت. حالا پنجره
+   گام‌به‌گام می‌خواهد: هر گام چند قطعه، یافته‌هایش همان لحظه نشان داده می‌شوند، و گامِ بعد
+   از همان‌جا ادامه می‌دهد **تا آخرین قطعه** — سقفِ کلی ندارد، چون هر گام اجرای جدای خودش است.
+   چیزی در شیت‌ها نوشته نمی‌شود؛ فقط خوانده می‌شود. */
+
+/** هاب برای خواندن، بی پاسِ تعمیرِ تب‌ها — هر گام یک بار باز می‌کند و ۲۹ مگابایت تعمیر لازم ندارد. */
+function srchHubLite_() {
+  var id = '';
+  try { id = String(props_().getProperty(PK.HUB_ID) || ''); } catch (e) { id = ''; }
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e2) {} }
+  return getHub_();
+}
+
+/** گامِ صفر: بردارِ پرس‌وجو و ترتیبِ قطعه‌ها — هر دو در پنجره می‌مانند، تا گام‌ها هم‌خوان باشند. */
+function srchSemStart(query) {
+  var out = { ok: false, vp: '', order: [], all: 0, note: '' };
+  try {
+    var q = String(query || '').trim();
+    if (!q) { out.note = 'چیزی ننوشتید'; return out; }
+    if (CFG.EMB_ON === false) { out.note = 'اثر انگشتِ معنایی خاموش است'; return out; }
+    var ix = embIndex_();
+    out.all = ix.shards.length;
+    if (!ix.shards.length) { out.note = 'هنوز اثر انگشتی ساخته نشده'; return out; }
+    var stale = embIndexStale_(ix);
+    if (stale) { out.note = 'ایندکس کهنه است (' + stale + ')'; return out; }
+    var qv = embQueryVec_(q);
+    if (!qv.ok) { out.note = qv.note || 'بردارِ پرس‌وجو ساخته نشد'; return out; }
+    out.vp = embPack_(embNorm_(qv.vec));
+    var pd = Number(ix.probeDim) || embProbeDim_();
+    out.order = embOrder_(ix, [embUnpack_(embPack_(embTrunc_(qv.vec, pd)))]);
+    out.ok = true;
+  } catch (e) { out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
+}
+
+/** یک گام: از `from` چند قطعه در `EMB_STEP_MS`، با یافته‌های نمایش‌پذیر؛ `floor` = بهترینِ تا این‌جا منهای فاصله. */
+function srchSemStep(vp, order, from, floor) {
+  var out = { ok: false, items: [], next: Number(from) || 0, all: (order || []).length, done: false,
+              best: 0, added: 0, dropped: 0, stopped: '', note: '' };
+  try {
+    var b = embUnpack_(vp);
+    if (!b || !b.length) { out.note = 'بردارِ پرس‌وجو نیامد'; return out; }
+    var vec = [];
+    for (var i = 0; i < b.length; i++) vec.push(b[i] / 127);
+    var t0 = new Date().getTime();
+    var step = Math.max(5000, Number(CFG.EMB_STEP_MS) || 20000);
+    var r = embCore_([vec], { order: order, from: from, budgetMs: step, floor: floor,
+                               maxShards: Math.max(1, Number(CFG.EMB_STEP_SHARDS) || 4) });
+    var o = r.outs[0] || {};
+    out.next = r.next; out.done = r.done; out.all = r.all || out.all;
+    if (!o.ok) { out.note = o.note || 'این گام نتیجه نداد'; out.ok = r.next > (Number(from) || 0); return out; }
+    for (var k = 0; k < (o.items || []).length; k++) out.best = Math.max(out.best, o.items[k].score || 0);
+    if (o.items && o.items.length) {
+      srchSemHydrate_(o.items, {}, t0 + step + 25000, out, srchHubLite_());
+    }
+    out.ok = true;
+  } catch (e) { out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
 }
 
 /** منو: پنجرهٔ جست‌وجو. */
@@ -1551,6 +1626,8 @@ function srchHtml_() {
   H.push('a{color:#1f3864}.warn{color:#8a5a00;background:#fff7e6;padding:7px 10px;' +
          'border-radius:7px;font-size:12px;margin:8px 0}');
   H.push('.ans{background:#eef4ff;padding:9px 12px;border-radius:8px;margin-bottom:10px;line-height:1.9}');
+  H.push('.bar{height:10px;background:#e8ebf1;border-radius:6px;overflow:hidden;margin:4px 0 12px}' +
+         '.bi{height:100%;background:#1f3864;transition:width .4s}.bt{font-size:13px;margin-top:14px}');
   H.push('</style></head><body>');
   H.push('<h3>جست‌وجو در همهٔ محتوا</h3>');
   H.push('<div class="hint">هرچه یادتان هست بنویسید — لازم نیست دقیق باشد. ' +
@@ -1567,17 +1644,56 @@ function srchHtml_() {
          (CFG.SEARCH_SOURCES_DEFAULT === false ? '' : ' checked') + '> ' +
          'شیت‌های منبع هم گشته شوند (کامل‌تر، کمی کندتر)</label>');
   H.push('</div>');
-  H.push('<div id="out" class="res"></div>');
+  /* سه جعبهٔ ثابت (۹.۴۶): واژه‌ها، نوارِ معنا، یافته‌های معنا — ثابت، تا هر رشته جعبهٔ خودش را
+     بنویسد و جوابِ یکی جعبهٔ دیگری را پاک نکند. */
+  H.push('<div id="out" class="res"><div id="lex"></div><div id="semh"></div><div id="sem"></div></div>');
   H.push('<script>');
   H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){' +
          'return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}');
+  /* ══ دو رشته، هم‌زمان (۹.۴۶) ══
+     «هوشمند» دو کار است: واژه‌ها و هم‌معناها (`srchRun`، یک فراخوان، با رتبه‌بندیِ مدل) و معنا
+     (`srchSemStart` + گام‌های `srchSemStep` تا آخرین قطعه). دومی دیگر داخلِ اولی نیست، چون
+     باید یافته‌هایش همان لحظه دیده شوند و سقفِ ۹۰ ثانیه‌ای نداشته باشد. `RUN` جست‌وجوی تازه را
+     از جوابِ دیرِ جست‌وجوی قبلی جدا می‌کند. */
+  H.push('var RUN=0,LEX={},SEM=[],SEEN={};');
   H.push('function go(m){var q=document.getElementById("q").value;' +
-         'if(!q.trim()){return;}' +
-         'document.getElementById("out").innerHTML="<p>در حالِ گشتن… ' +
+         'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};' +
+         'document.getElementById("lex").innerHTML="<p>در حالِ گشتنِ واژه‌ها… ' +
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
-         'google.script.run.withSuccessHandler(show).withFailureHandler(function(e){' +
-         'document.getElementById("out").innerHTML="<div class=\\"warn\\">خطا: "+esc(e.message)+"</div>";})' +
-         '.srchRun(q,m,document.getElementById("src").checked);}');
+         'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
+         'google.script.run.withSuccessHandler(function(r){if(my===RUN){show(r);semDraw();}})' +
+         '.withFailureHandler(function(e){if(my===RUN){document.getElementById("lex").innerHTML=' +
+         '"<div class=warn>خطا: "+esc(e.message)+"</div>";}})' +
+         '.srchRun(q,m,document.getElementById("src").checked,m==="هوشمند"?false:true);' +
+         'if(m==="هوشمند"){semGo(q,my);}}');
+  H.push('function bar(done,all,n,msg){var p=all?Math.round(done*100/all):0;' +
+         'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی معنایی: "+done+" از "+all+' +
+         '" کشوی اثر انگشت خوانده شد ("+p+"٪) · "+n+" یافته"+(msg?" · "+esc(msg):"")+"</div>"+' +
+         '"<div class=bar><div class=bi style=width:"+p+"%></div></div>";}');
+  H.push('function semGo(q,my){bar(0,0,0,"در حالِ فهمیدنِ منظورتان…");' +
+         'google.script.run.withSuccessHandler(function(s){if(my!==RUN){return;}' +
+         'if(!s.ok){bar(0,s.all||0,0,"انجام نشد: "+s.note);return;}' +
+         'bar(0,s.all,0,"");semStep(s.vp,s.order,0,0,my);})' +
+         '.withFailureHandler(function(e){if(my===RUN){bar(0,0,0,"خطا: "+e.message);}}).srchSemStart(q);}');
+  H.push('function semStep(vp,order,from,best,my){var gap=' + JSON.stringify(Number(CFG.EMB_SCORE_GAP) || 0.25) + ';' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
+         'for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];var k=t.tab+"§"+t.row;' +
+         'if(SEEN[k]){continue;}SEEN[k]=1;SEM.push(t);}' +
+         'var b=Math.max(best,r.best||0);semDraw();' +
+         'if(r.done){bar(r.all,r.all,semShown(),"کامل؛ همهٔ کشوها خوانده شد");return;}' +
+         'if(!r.ok||r.next<=from){bar(r.next,r.all,semShown(),"ایستاد: "+(r.note||"گام جلو نرفت"));return;}' +
+         'bar(r.next,r.all,semShown(),"");semStep(vp,order,r.next,b,my);})' +
+         '.withFailureHandler(function(e){if(my===RUN){bar(from,order.length,semShown(),"خطا: "+e.message);}})' +
+         '.srchSemStep(vp,order,from,best>0?best-gap:0);}');
+  /* آنچه واژه‌ها هم آورده‌اند دوباره نشان داده نمی‌شود؛ بقیه به ترتیبِ امتیازِ معنایی، همان لحظه. */
+  H.push('function semList(){var o=[];for(var i=0;i<SEM.length;i++){' +
+         'if(!LEX[SEM[i].tab+"§"+SEM[i].row]){o.push(SEM[i]);}}' +
+         'o.sort(function(a,b){return (b.sem||0)-(a.sem||0);});return o;}');
+  H.push('function semShown(){return semList().length;}');
+  H.push('function semDraw(){var el=document.getElementById("sem");if(!el){return;}var o=semList();' +
+         'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر</h4>");}' +
+         'for(var i=0;i<o.length&&i<' + Math.max(20, Number(CFG.SEARCH_SEM_SHOW) || 150) + ';i++){H.push(card(o[i],i));}' +
+         'el.innerHTML=H.join("");}');
   H.push('function show(r){var H=[];');
   H.push('if(r.answer){H.push("<div class=\\"ans\\">"+esc(r.answer)+"</div>");}');
   H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب از "+' +
@@ -1589,10 +1705,13 @@ function srchHtml_() {
   H.push('for(var i=0;i<(r.notes||[]).length;i++){' +
          'H.push("<div class=\\"warn\\">"+esc(r.notes[i])+"</div>");}');
   H.push('if(!r.items||!r.items.length){H.push("<p>چیزی پیدا نشد.</p>");}');
-  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];');
+  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];' +
+         'if(t.where==="بانک"){LEX[t.tab+"§"+t.row]=1;}H.push(card(t,i));}');
+  H.push('document.getElementById("lex").innerHTML=H.join("");}');
+  H.push('function card(t,i){var H=[];');
   H.push('H.push("<div class=\\"it\\"><div class=\\"t\\">"+(i+1)+". "+esc(t.title)+"</div>");');
   H.push('H.push("<div class=\\"m\\">"+esc(t.where)+" · "+esc(t.tab)+(t.kind?" · "+esc(t.kind):"")+' +
-         '(t.date?" · "+esc(t.date):"")+" · امتیاز "+t.score+(t.fit?" · "+esc(t.fit):"")+"</div>");');
+         '(t.date?" · "+esc(t.date):"")+" · امتیاز "+(t.sem&&!t.score?Number(t.sem).toFixed(2):t.score)+(t.fit?" · "+esc(t.fit):"")+"</div>");');
   H.push('if(t.why){H.push("<div class=\\"w\\">"+esc(t.why)+"</div>");}');
   H.push('var x=t.show||(t.fields&&(t.fields.msg||t.fields.summary||t.fields.body))||"";');
   H.push('if(x){H.push("<div class=\\"x\\">"+esc(x.slice(0,420))+"</div>");}');
@@ -1616,8 +1735,7 @@ function srchHtml_() {
   H.push('if(lf){L.push("<a href=\\""+esc(lf)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">بازکردنِ فایل</a>");}');
   H.push('if(ls){L.push("<a href=\\""+esc(ls)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">همان ردیف در شیت</a>");}');
   H.push('if(L.length){H.push("<div class=\\"m\\">"+L.join(" · ")+"</div>");}');
-  H.push('H.push("</div>");}');
-  H.push('document.getElementById("out").innerHTML=H.join("");}');
+  H.push('H.push("</div>");return H.join("");}');
   H.push('</script></body></html>');
   return H.join('');
 }

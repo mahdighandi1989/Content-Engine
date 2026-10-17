@@ -543,10 +543,11 @@ console.log('\n══ ۲۴-ب) خودآزمون هر نمونه را با علت
      JSON.stringify(s2.items.map(x => x.id)) ===
      JSON.stringify(embSearch_(embNorm_(fakeVec('هرچیز', embDim_())), { top: 5 }).items.map(x => x.id)));
 
-  const realSearch = global.embSearch_;
-  global.embSearch_ = function () { return { ok: true, items: [], shards: 12, shardsAll: 44, want: { seen: false } }; };
+  /* ۹.۴۶: خودآزمون از `embCore_` می‌گذرد (یک پویش برای همهٔ نمونه‌ها)، پس بدل همان‌جاست. */
+  const realCore = global.embCore_;
+  global.embCore_ = function (vecs) { return { outs: vecs.map(() => ({ ok: true, items: [], shards: 12, shardsAll: 44, want: { seen: false } })) }; };
   const u = embSelfTest_(3);
-  global.embSearch_ = realSearch;
+  global.embCore_ = realCore;
   ok('۲۴-ب.۴ نمونه‌ای که قطعه‌اش خوانده نشد «افتاده» شمرده نمی‌شود',
      u.tried === 0 && u.unread > 0 && u.ok === false, JSON.stringify(u));
   ok('۲۴-ب.۵ و همین در یادداشت گفته می‌شود — «انجام نشد»، نه «افتاد»',
@@ -965,6 +966,62 @@ console.log('\n══ ۳۰) همهٔ قطعه‌ها، نزدیک‌ترین ا�
   const nb = src35b.slice(src35b.indexOf('function embNightly_(opts) {'), src35b.indexOf('function embSelfTestArm_('));
   ok('۳۰.۴ خودآزمون درونِ کارِ شبانه نمی‌دود (همه‌قطعه‌ای جا نمی‌شود) — اجرای جدا',
      /if \(opts\.selftestInline !== true\) \{ try \{ armed2 = embSelfTestArm_\(\)/.test(nb));
+}
+
+console.log('\n══ ۳۱) «۹۰ ثانیه کمه» — گام‌به‌گام تا آخرین قطعه، و خودآزمون در یک پویش (۹.۴۶) ══');
+/* ۱۷ اکتبر: «خودآزمون ۲ از ۲ · ۲ نمونه در مهلت خوانده نشد (۱۲/۴۸ و ۱۴/۴۸ قطعه)». */
+{
+  const sv = { r: CFG.EMB_SHARD_ROWS, m: CFG.EMB_CENTROID_MIN, k: CFG.EMB_PROBE_SHARDS, st: CFG.EMB_STEP_SHARDS };
+  CFG.EMB_CENTROID_MIN = 2; CFG.EMB_PROBE_SHARDS = 0;
+  const ix = embIndex_();
+  ok('۳۱.۰ چند قطعه برای سنجش هست', ix.shards.length >= 3, String(ix.shards.length));
+  /* یک پویش برای چند پرسش: هر قطعه یک بار خوانده می‌شود، و هر پرسش همهٔ قطعه‌ها را می‌بیند. */
+  let reads = 0;
+  const realGet = global.embGetJson_;
+  global.embGetJson_ = function (n) { if (/_EMB-P-/.test(String(n))) reads++; return realGet.apply(this, arguments); };
+  const v1 = embQueryVec_('آشپزیِ محلیِ گیلان').vec, v2 = embQueryVec_('ساختِ سد و مهندسیِ آب').vec;
+  const c2 = embCore_([v1, v2], {});
+  global.embGetJson_ = realGet;
+  ok('۳۱.۱ دو پرسش، هر دو همهٔ قطعه‌ها را دیدند', c2.outs.length === 2 &&
+     c2.outs.every(o => o.shards === ix.shards.length) && c2.done, JSON.stringify(c2.outs.map(o => o.shards)));
+  ok('۳۱.۲ و هر قطعه فقط یک بار خوانده شد، نه یک بار برای هر پرسش', reads === ix.shards.length,
+     reads + ' خواندن برای ' + ix.shards.length + ' قطعه');
+  ok('۳۱.۳ نتیجهٔ هر پرسش همان است که تنها می‌گرفت',
+     JSON.stringify(c2.outs[0].items.map(x => x.id)) === JSON.stringify(embSearch_(v1, {}).items.map(x => x.id)) &&
+     JSON.stringify(c2.outs[1].items.map(x => x.id)) === JSON.stringify(embSearch_(v2, {}).items.map(x => x.id)));
+  const t31 = embSelfTest_(3);
+  ok('۳۱.۴ خودآزمون: هر نمونه سنجیده شد و هیچ‌کدام «نخوانده» نمی‌ماند', t31.unread === 0 && t31.picks >= 2 && t31.tried === t31.picks &&
+     t31.shardsRead === t31.shardsAll, JSON.stringify({ p: t31.picks, u: t31.unread, t: t31.tried, r: t31.shardsRead, a: t31.shardsAll }));
+
+  /* گام‌ها: هر گام حداکثر یک قطعه، تا جلو رفتن دیده شود. */
+  CFG.EMB_STEP_SHARDS = 1;
+  const st = srchSemStart('آشپزیِ محلیِ گیلان');
+  ok('۳۱.۵ آغاز: بردار و ترتیبِ همهٔ قطعه‌ها', st.ok && st.vp && st.order.length === ix.shards.length &&
+     st.all === ix.shards.length, JSON.stringify({ ok: st.ok, n: st.order.length, note: st.note }));
+  let from = 0, steps = 0, best = 0, got = [], nexts = [];
+  const seenShards = new Set();
+  while (steps < 50) {
+    const r = srchSemStep(st.vp, st.order, from, best > 0 ? best - 0.25 : 0);
+    steps++;
+    if (!r.ok) break;
+    for (let i = from; i < r.next; i++) seenShards.add(st.order[i]);
+    nexts.push(r.next);
+    for (const it of r.items) got.push(it);
+    best = Math.max(best, r.best || 0);
+    if (r.done) break;
+    if (r.next <= from) break;
+    from = r.next;
+  }
+  ok('۳۱.۶ گام‌ها یکی‌یکی جلو رفتند تا آخرین قطعه', nexts.length === ix.shards.length &&
+     nexts[nexts.length - 1] === ix.shards.length && seenShards.size === ix.shards.length, JSON.stringify(nexts));
+  ok('۳۱.۷ و همان ردیفِ درست پیدا شد، با ردیفِ بانکِ واقعی (لینک و تب)',
+     got.some(it => it.fit === 'یافتهٔ معنایی' && it.where === 'بانک' && it.tab && it.row > 0) &&
+     got.length >= 1, got.map(x => x.title).slice(0, 3).join(' | '));
+  const one = embSearch_(embQueryVec_('آشپزیِ محلیِ گیلان').vec, {});
+  const topRow = one.items[0];
+  ok('۳۱.۸ بهترینِ جست‌وجوی یک‌جا در یافته‌های گام‌به‌گام هست',
+     !!topRow && got.some(it => it.tab === topRow.tab && it.row === topRow.row));
+  CFG.EMB_SHARD_ROWS = sv.r; CFG.EMB_CENTROID_MIN = sv.m; CFG.EMB_PROBE_SHARDS = sv.k; CFG.EMB_STEP_SHARDS = sv.st;
 }
 
 console.log('\nPASS=' + pass);

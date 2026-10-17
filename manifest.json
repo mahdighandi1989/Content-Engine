@@ -1,16 +1,16 @@
 {
-  "version": "9.45",
+  "version": "9.46",
   "codeFile": "engine.gs",
-  "sha256": "d90ad9c3161acc98e84692e86cccd93fb8c68255fdb613365cfe3497294acb59",
-  "releasedAt": "2026-10-17T19:30:00+04:00",
-  "summary": "نمونهٔ درسِ ۷۴ برای رضوی و گلدوز به روشِ نمونه‌های خوب (صدای آرامِ نمونه + شیوهٔ خواندنِ خودشان، بعد تبدیل)؛ تا تأییدِ صاحبِ برنامه پل قسمتِ تازه‌ای خودکار تبدیل نمی‌کند.",
+  "sha256": "a07b91ee140c45d00583cd0bf7d65d6714bd79f31c3513c329130d441b57f66a",
+  "releasedAt": "2026-10-17T22:30:00+04:00",
+  "summary": "جست‌وجوی هوشمند همهٔ محتوا را می‌گردد: معنا گام‌به‌گام تا آخرین کشوی اثر انگشت، یافته‌ها همان لحظه، نوارِ دقیقِ پیشرفت؛ خودآزمون همهٔ نمونه‌ها را در یک پویش می‌سنجد.",
   "fixes": [
-    "src/00_Config.gs: دو بذرِ VOICE_SOUL_SEED روی special:74 (متنِ خودِ قسمت، بی text) — گلدوز با colour prev",
-    "src/00_Config.gs + 36_VoiceBridge.gs: VBR_EP_HOLD — vbrAskDue_ پس از تیک‌ها برمی‌گردد (شبانه و روزانه)",
-    "tests: bridge_voice ۱۱-ث"
+    "src/35_Embed.gs: embCore_ — یک پویش برای چند پرسش، با order/from/maxShards/floor؛ embSearch_ و embSelfTest_ روی آن",
+    "src/34_Search.gs: srchSemStart/srchSemStep + srchSemHydrate_ + پنجرهٔ دو رشته‌ای با نوار؛ srchRun(…, semantic=false)",
+    "tests: embed ۳۱، dialogs ۵-ب"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-08": "۹.۴۵"
+    "R-20261017-09": "۹.۴۶"
   }
 }

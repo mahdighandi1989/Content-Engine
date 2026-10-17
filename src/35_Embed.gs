@@ -1019,45 +1019,29 @@ function embQueryVec_(text) {
  */
 function embSearch_(vec, opts) {
   opts = opts || {};
-  var out = { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
-              stopped: '', rescored: 0, note: '' };
-  /* `opts.want` (۸.۹۴): شناسه‌ای که خودآزمون دنبالش است. فقط می‌گوید قطعه‌اش در مهلت
-     خوانده شد یا نه و ردیف کجا نشست — ترتیب و نتیجه را عوض نمی‌کند. */
-  var want = opts.want ? String(opts.want) : '';
-  if (want) out.want = { seen: false, probe: null, rank: -1, score: null, best: null };
-  var ix = embIndex_();
-  out.shardsAll = ix.shards.length;
-  if (!ix.shards.length) { out.note = 'هنوز اثر انگشتی ساخته نشده.'; return out; }
-  var stale = embIndexStale_(ix);
-  if (stale) { out.note = 'ایندکس کهنه است (' + stale + ').'; return out; }
+  var r = embCore_([vec], { budgetMs: opts.budgetMs, top: opts.top,
+                            wants: opts.want ? [String(opts.want)] : null });
+  return r.outs[0];
+}
 
-  var deadline = new Date().getTime() +
-                 Math.max(10000, Number(opts.budgetMs) || Number(CFG.EMB_SEARCH_MS) || 90000);
-  var probe = embPack_(embTrunc_(vec, Number(ix.probeDim) || embProbeDim_()));
-  var qp = embUnpack_(probe);
-  var minS = Number(CFG.EMB_MIN_SCORE);
-  if (!isFinite(minS)) minS = 0.2;
-  var top = Math.max(5, Number(opts.top) || Number(CFG.EMB_TOP) || 60);
-  var keep = Math.max(top, Number(CFG.EMB_RESCORE) || 120);
-
-  /* ══ کدام قطعه‌ها خوانده شوند ══
-     زیرِ `EMB_CENTROID_MIN` قطعه، همه — خواندنِ همه‌شان ارزان است و
-     دقیق‌تر. بالاتر از آن، فقط نزدیک‌ترین‌ها به پرس‌وجو؛ و قطعه‌ای که
-     مرکز ندارد **همیشه** خوانده می‌شود، چون ندانستن دلیلِ رد کردن نیست.
-     شمارِ خوانده‌شده در برابرِ کل همیشه گزارش می‌شود (`shards`/
-     `shardsAll`), پس ناتمامی هرگز پنهان نمی‌مانَد. */
+/**
+ * ترتیبِ خواندنِ قطعه‌ها برای چند پرس‌وجو: نزدیک‌ترین مرکز به **هر کدام** از آن‌ها اول.
+ * قطعهٔ بی‌مرکز همیشه هست (`Infinity`) — ندانستن دلیلِ رد کردن نیست.
+ */
+function embOrder_(ix, qps) {
   var pick = [];
   for (var q = 0; q < ix.shards.length; q++) {
     var cc = ix.shards[q].c ? embUnpack_(ix.shards[q].c) : null;
-    pick.push({ i: q, near: cc ? embDot_(qp, cc) : Infinity });
+    var near = -Infinity;
+    if (!cc) near = Infinity;
+    else for (var z = 0; z < qps.length; z++) near = Math.max(near, embDot_(qps[z], cc));
+    pick.push({ i: q, near: near });
   }
   var minSh = Math.max(1, Number(CFG.EMB_CENTROID_MIN) || 6);
   /* ══ نزدیک‌ترین اول، ولی تا ته مهلت — نه هشت تا و بس (۸.۷۳) ══
      خودآزمونِ ۱۱ اکتبر: ۱ از ۴. قطعه‌ها به ترتیبِ ردیف پر می‌شوند، پس هر قطعه آمیزه‌ای
-     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید؛ با خواندنِ ۸ قطعه از ۳۸، ردیفِ
-     درست فقط با شانسِ ~۸/۳۸ (۲۱٪) در قطعه‌های خوانده‌شده بود — همان یک‌چهارم. حالا همهٔ
-     قطعه‌ها به ترتیبِ نزدیکی خوانده می‌شوند تا مهلت تمام شود (حلقهٔ پایین مهلت را
-     می‌سنجد و نخوانده‌ها را می‌شمارد). `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
+     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید. پس همهٔ قطعه‌ها به ترتیبِ نزدیکی
+     خوانده می‌شوند تا مهلت تمام شود. `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
   var capSh = Number(CFG.EMB_PROBE_SHARDS) || 0;
   if (pick.length > minSh) pick.sort(function (a, b) { return b.near - a.near; });
   if (capSh > 0 && pick.length > minSh) {
@@ -1065,77 +1049,150 @@ function embSearch_(vec, opts) {
     var unknown = 0;
     for (var u = 0; u < pick.length; u++) if (pick[u].near === Infinity) unknown++;
     if (pick.length > keepSh + unknown) pick = pick.slice(0, keepSh + unknown);
-    out.picked = pick.length;
   }
+  return pick.map(function (x) { return x.i; });
+}
 
-  var best = [];
-  for (var sp = 0; sp < pick.length; sp++) {
-    var s = pick[sp].i;
-    if (new Date().getTime() > deadline) {
-      out.stopped = 'بودجهٔ زمانِ جست‌وجوی معنایی تمام شد؛ ' + out.shards +
-                    ' قطعه از ' + out.shardsAll + ' خوانده شد.';
-      break;
-    }
+/**
+ * نزدیک‌ترین محتواها به یک یا چند بردار — **یک** پویشِ قطعه‌ها برای همه (۹.۴۶).
+ *
+ * دو مرحله: قطعه‌ها با بردارِ کوتاه سنجیده می‌شوند (ارزان)، و بعد نامزدهای بالا با بردارِ
+ * کامل دوباره — ولی فقط تا وقتی بودجه هست. اگر نشد، نتیجه می‌آید و **گفته می‌شود که نشد**؛
+ * جست‌وجویی که ناتمامیِ خود را پنهان کند، به کاربر می‌گوید «نیست» دربارهٔ چیزی که هست.
+ *
+ * ══ چرا چند بردار در یک پویش ══
+ * ۱۷ اکتبر: «خودآزمون ۲ از ۲ · ۲ نمونه در مهلت خوانده نشد» — هر نمونه پویشِ جدای خودش را
+ * داشت و در ۶۰ ثانیه ۱۲ تا ۱۴ قطعه از ۴۸ را می‌خواند. خواندنِ قطعه گران است، سنجیدنش ارزان:
+ * چهار پرسش روی **یک** خواندن یعنی هر چهار همهٔ قطعه‌ها را می‌بینند در همان وقتی که یکی
+ * یک‌چهارمش را می‌دید.
+ *
+ * ══ و چرا `order`/`from` ══
+ * پنجرهٔ جست‌وجو (۹.۴۶) کار را گام‌به‌گام می‌خواهد: هر گام چند قطعه، نتیجه‌اش همان‌جا نشان
+ * داده شود و گامِ بعد از `next` ادامه دهد — تا ته، بی سقفِ ۹۰ ثانیه. ترتیب یک بار ساخته
+ * می‌شود و پنجره نگهش می‌دارد، تا گام‌ها قطعه‌ای را دو بار یا هیچ بار نخوانند.
+ */
+function embCore_(vecs, opts) {
+  opts = opts || {};
+  var res = { outs: [], order: [], next: 0, all: 0, done: false };
+  var mk = function () {
+    return { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
+             stopped: '', rescored: 0, note: '' };
+  };
+  for (var v0 = 0; v0 < vecs.length; v0++) res.outs.push(mk());
+  var wants = opts.wants || [];
+  for (var w0 = 0; w0 < vecs.length; w0++) {
+    if (wants[w0]) res.outs[w0].want = { seen: false, probe: null, rank: -1, score: null, best: null };
+  }
+  var setAll = function (k, val) { for (var z = 0; z < res.outs.length; z++) res.outs[z][k] = val; };
+  var ix = embIndex_();
+  setAll('shardsAll', ix.shards.length);
+  res.all = ix.shards.length;
+  if (!ix.shards.length) { setAll('note', 'هنوز اثر انگشتی ساخته نشده.'); return res; }
+  var stale = embIndexStale_(ix);
+  if (stale) { setAll('note', 'ایندکس کهنه است (' + stale + ').'); return res; }
+
+  var deadline = new Date().getTime() +
+                 Math.max(10000, Number(opts.budgetMs) || Number(CFG.EMB_SEARCH_MS) || 90000);
+  var pd = Number(ix.probeDim) || embProbeDim_();
+  var qps = [], qfs = [];
+  for (var v = 0; v < vecs.length; v++) {
+    qps.push(embUnpack_(embPack_(embTrunc_(vecs[v], pd))));
+    qfs.push(embUnpack_(embPack_(vecs[v])));
+  }
+  var minS = Number(CFG.EMB_MIN_SCORE);
+  if (!isFinite(minS)) minS = 0.2;
+  if (isFinite(Number(opts.floor)) && Number(opts.floor) > minS) minS = Number(opts.floor);
+  var top = Math.max(5, Number(opts.top) || Number(CFG.EMB_TOP) || 60);
+  var keep = Math.max(top, Number(CFG.EMB_RESCORE) || 120);
+
+  var order = (opts.order && opts.order.length) ? opts.order.slice(0) : embOrder_(ix, qps);
+  res.order = order;
+  setAll('picked', order.length);
+  var from = Math.max(0, Number(opts.from) || 0);
+  var bests = [];
+  for (var b0 = 0; b0 < vecs.length; b0++) bests.push([]);
+  var sp = from;
+  for (; sp < order.length; sp++) {
+    var s = Number(order[sp]);
+    if (!(s >= 0 && s < ix.shards.length)) continue;
+    /* گامِ پنجره دست‌کم یک قطعه می‌خوانَد، وگرنه گامی که مهلتش پیش از اولین قطعه تمام شد
+       هرگز جلو نمی‌رود و پنجره بی‌انتها همان گام را می‌خواهد. */
+    if (sp > from && new Date().getTime() > deadline) break;
+    if (opts.maxShards > 0 && sp - from >= opts.maxShards) break;
     var P = embGetJson_(embShardName_(ix.shards[s].seq, 'p'));
     if (!P || !P.id) continue;
-    out.shards++;
+    for (var oi = 0; oi < vecs.length; oi++) res.outs[oi].shards++;
     for (var i = 0; i < P.id.length; i++) {
-      out.scanned++;
-      var sc = embDot_(qp, embUnpack_(P.p[i]));
-      if (want && P.id[i] === want) { out.want.seen = true; out.want.probe = sc; }
-      if (sc < minS) continue;
-      best.push({ id: P.id[i], tab: P.tb[i], row: P.rw[i], fileId: P.fid[i],
-                  kind: P.kd[i], date: P.dt[i], title: P.ti[i],
-                  seq: ix.shards[s].seq, at: i, score: sc });
+      var pv = embUnpack_(P.p[i]);
+      for (var qi = 0; qi < vecs.length; qi++) {
+        res.outs[qi].scanned++;
+        var sc = embDot_(qps[qi], pv);
+        if (wants[qi] && P.id[i] === wants[qi]) { res.outs[qi].want.seen = true; res.outs[qi].want.probe = sc; }
+        if (sc < minS) continue;
+        bests[qi].push({ id: P.id[i], tab: P.tb[i], row: P.rw[i], fileId: P.fid[i],
+                         kind: P.kd[i], date: P.dt[i], title: P.ti[i],
+                         seq: ix.shards[s].seq, at: i, score: sc });
+      }
     }
   }
-  best.sort(function (a, b) { return b.score - a.score; });
-  if (best.length > keep) best = best.slice(0, keep);
-
-  // ── مرحلهٔ دوم: بردارِ کامل، فقط برای قطعه‌هایی که نامزد دارند ──
-  var wanted = {}, order = [];
-  for (var k = 0; k < best.length; k++) {
-    if (!wanted[best[k].seq]) { wanted[best[k].seq] = []; order.push(best[k].seq); }
-    wanted[best[k].seq].push(best[k]);
+  res.next = sp;
+  res.done = sp >= order.length;
+  if (!res.done && !opts.order) {
+    for (var st = 0; st < res.outs.length; st++) {
+      res.outs[st].stopped = 'بودجهٔ زمانِ جست‌وجوی معنایی تمام شد؛ ' + res.outs[st].shards +
+                             ' قطعه از ' + res.outs[st].shardsAll + ' خوانده شد.';
+    }
   }
+
+  // ── مرحلهٔ دوم: بردارِ کامل، فقط برای قطعه‌هایی که نامزد دارند؛ هر قطعه یک بار برای همه ──
   var maxSh = Math.max(0, Number(CFG.EMB_RESCORE_SHARDS) || 4);
-  var qf = embUnpack_(embPack_(vec));
-  for (var o = 0; o < order.length && o < maxSh; o++) {
-    if (new Date().getTime() > deadline) break;
-    var V = embGetJson_(embShardName_(order[o], 'v'));
-    if (!V || !V.v) continue;
-    var grp = wanted[order[o]];
-    for (var g = 0; g < grp.length; g++) {
-      var enc = V.v[grp[g].at];
-      if (!enc || V.id[grp[g].at] !== grp[g].id) continue;   // قطعه جابه‌جا شده
-      grp[g].score = embDot_(qf, embUnpack_(enc));
-      grp[g].exact = true;
-      out.rescored++;
-    }
-  }
-  best.sort(function (a, b) { return b.score - a.score; });
-  if (want) {
-    out.want.best = best.length ? best[0].score : null;
-    for (var w = 0; w < best.length; w++) {
-      if (best[w].id === want) { out.want.rank = w + 1; out.want.score = best[w].score; break; }
-    }
-  }
-
-  /* ══ بریدن **نسبت به بهترین**، نه با یک عددِ ثابت ══
-     و بعد از سنجشِ دوباره، نه قبلش — وگرنه موردی که با بردارِ کوتاه
-     ضعیف به نظر می‌رسید و با بردارِ کامل بهترین بود، پیش از دیده شدن
-     حذف شده بود. */
+  var vCache = {};
   var gap = Number(CFG.EMB_SCORE_GAP);
   if (!isFinite(gap) || gap <= 0) gap = 0.25;
-  var cut = best.length ? (best[0].score - gap) : 0;
-  var kept = [];
-  for (var q2 = 0; q2 < best.length && kept.length < top; q2++) {
-    if (best[q2].score < cut) break;
-    kept.push(best[q2]);
+  for (var qx = 0; qx < vecs.length; qx++) {
+    var out = res.outs[qx], best = bests[qx];
+    best.sort(function (a, b) { return b.score - a.score; });
+    if (best.length > keep) best = best.slice(0, keep);
+    var wanted = {}, ord = [];
+    for (var k = 0; k < best.length; k++) {
+      if (!wanted[best[k].seq]) { wanted[best[k].seq] = []; ord.push(best[k].seq); }
+      wanted[best[k].seq].push(best[k]);
+    }
+    for (var o = 0; o < ord.length && o < maxSh; o++) {
+      if (new Date().getTime() > deadline + 15000) break;
+      var key = String(ord[o]);
+      if (!(key in vCache)) vCache[key] = embGetJson_(embShardName_(ord[o], 'v'));
+      var V = vCache[key];
+      if (!V || !V.v) continue;
+      var grp = wanted[ord[o]];
+      for (var g = 0; g < grp.length; g++) {
+        var enc = V.v[grp[g].at];
+        if (!enc || V.id[grp[g].at] !== grp[g].id) continue;   // قطعه جابه‌جا شده
+        grp[g].score = embDot_(qfs[qx], embUnpack_(enc));
+        grp[g].exact = true;
+        out.rescored++;
+      }
+    }
+    best.sort(function (a, b) { return b.score - a.score; });
+    if (out.want) {
+      out.want.best = best.length ? best[0].score : null;
+      for (var w = 0; w < best.length; w++) {
+        if (best[w].id === wants[qx]) { out.want.rank = w + 1; out.want.score = best[w].score; break; }
+      }
+    }
+    /* ══ بریدن **نسبت به بهترین**، نه با یک عددِ ثابت ══
+       و بعد از سنجشِ دوباره، نه قبلش. در گامِ پنجره «بهترین» بهترینِ **تا این‌جا**ست و
+       پنجره آن را به‌صورتِ `floor` برمی‌گرداند. */
+    var cut = best.length ? (best[0].score - gap) : 0;
+    var kept = [];
+    for (var q2 = 0; q2 < best.length && kept.length < top; q2++) {
+      if (best[q2].score < cut) break;
+      kept.push(best[q2]);
+    }
+    out.items = kept;
+    out.ok = true;
   }
-  out.items = kept;
-  out.ok = true;
-  return out;
+  return res;
 }
 
 // ─────────────────────────────────────────── خودآزمون
@@ -1171,6 +1228,7 @@ function embSelfTest_(n) {
     picks.push({ id: P.id[i], title: String(P.ti[i]) });
   }
   if (!picks.length) { out.note = 'نمونه‌ای با عنوان پیدا نشد'; return out; }
+  out.picks = picks.length;
 
   /* ══ چرا بازنویسی، و چرا نبودش آزمون را توخالی می‌کرد ══
      نسخهٔ اول عنوانِ خودِ ردیف را پرس‌وجو می‌کرد. عنوان **داخلِ همان
@@ -1205,13 +1263,22 @@ function embSelfTest_(n) {
      «کیفیت» است. */
   out.shardsRead = 0; out.shardsAll = ix.shards.length;
   var why = [];
+  /* ══ یک پویش برای همهٔ نمونه‌ها (۹.۴۶) ══
+     تا ۹.۴۵ هر نمونه پویشِ جدای خودش را داشت و مهلت بینشان تقسیم می‌شد: ۱۷ اکتبر دو نمونه از
+     چهار در ۶۰ ثانیه به قطعه‌شان نرسیدند (۱۲ و ۱۴ از ۴۸). حالا همه با هم، هر قطعه یک بار. */
+  var vecs = [], ids = [];
   for (var p = 0; p < picks.length; p++) {
     var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
     var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
-    var per = Math.max(10000, Math.min(60000, Math.floor((tEnd - new Date().getTime()) / (picks.length - p))));
-    var r = embSearch_(q.vec, { top: topK, budgetMs: per, want: picks[p].id });
-    out.shardsRead += Number(r.shards) || 0;
+    vecs.push(q.vec); ids.push(picks[p].id);
+  }
+  var core = vecs.length
+    ? embCore_(vecs, { top: topK, budgetMs: Math.max(30000, tEnd - new Date().getTime()), wants: ids })
+    : { outs: [] };
+  for (var cq = 0; cq < core.outs.length; cq++) {
+    var r = core.outs[cq];
+    if (!cq) out.shardsRead = Number(r.shards) || 0;
     var wt = r.want || { seen: false };
     if (!wt.seen) {
       out.unread++;
@@ -1221,7 +1288,7 @@ function embSelfTest_(n) {
     out.tried++;
     var found = false;
     for (var k = 0; k < r.items.length; k++) {
-      if (r.items[k].id === picks[p].id) { out.hit++; found = true; break; }
+      if (r.items[k].id === ids[cq]) { out.hit++; found = true; break; }
     }
     var f2 = function (x) { return (x === null || x === undefined) ? '—' : Number(x).toFixed(2); };
     if (found) why.push('پیدا، رتبهٔ ' + wt.rank);

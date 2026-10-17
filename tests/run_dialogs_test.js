@@ -133,7 +133,7 @@ console.log('\n══ ۵) جست‌وجو: همان چیزی که او فشار 
      made[0].args[0] === 'هزینه' && made[0].args[1] === 'ساده',
      'گرفت: ' + JSON.stringify(made[0].args));
   ok('۵.۴ و «در حالِ گشتن» را نشان می‌دهد',
-     /گشتن/.test(h.get('out').innerHTML),
+     /گشتن/.test(h.get('lex').innerHTML),
      'بی این، کاربر نمی‌داند فشارش کارگر شد یا نه');
   /* ══ ۵.۵ مخرج، با همان عددهای ۲۳ سپتامبر (۷٫۵۱) ══
      آن روز پنجره نوشت «۳ تب گشته شد» و صاحبِ برنامه آن را «همه‌اش را گشت»
@@ -142,10 +142,58 @@ console.log('\n══ ۵) جست‌وجو: همان چیزی که او فشار 
      می‌سازد: همان تفاوتی که ۷٫۴۳ گران تمام شد. */
   vm.runInContext('show({mode:"ساده",sheets:3,sheetsAll:40,read:658,scanned:658,' +
                   'ms:226000,items:[],notes:[],terms:[]});', h.ctx, { timeout: 5000 });
-  const shown = h.get('out').innerHTML;
+  const shown = h.get('lex').innerHTML;
   ok('۵.۵ نتیجه مخرجِ پوشش را نشان می‌دهد و نه فقط صورت',
      /3\s*تب\s*از\s*40/.test(shown),
      'گرفت: ' + shown.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120));
+}
+
+console.log('\n══ ۵-ب) هوشمند: معنا گام‌به‌گام، یافته‌ها همان لحظه، نوارِ دقیق (۹.۴۶) ══');
+/* «۹۰ ثانیه کمه … نتیجه‌ها یکی یکی وقتی پیدا میشن نمایش داده بشن … یه نوار پر شونده دقیق.» */
+{
+  const { html } = ran['srchHtml_'] || {};
+  const h = makeCtx(Object.assign({ html: html }, SEED.srchHtml_));
+  for (const b of scripts(html)) vm.runInContext(b, h.ctx, { timeout: 5000 });
+  const smart = onclicks(html).filter((e) => /هوشمند/.test(e))[0];
+  vm.runInContext('(function(){' + smart + '}).call(null);', h.ctx, { timeout: 5000 });
+  const fns = h.calls.map((c) => c.fn);
+  ok('۵-ب.۱ هوشمند دو رشته راه می‌اندازد: واژه‌ها (بی معنا درونش) و آغازِ معنا',
+     fns.indexOf('srchRun') !== -1 && fns.indexOf('srchSemStart') !== -1 &&
+     h.calls.filter((c) => c.fn === 'srchRun')[0].args[3] === false, JSON.stringify(h.calls.map((c) => [c.fn, c.args.length])));
+  const it = (t, row, sem) => ({ where: 'بانک', tab: 'تبِ آزمون', row: row, title: t, sem: sem, score: 0, fit: 'یافتهٔ معنایی' });
+  h.reply('srchSemStart', { ok: true, vp: 'VP', order: [5, 2, 9, 0], all: 4 });
+  const s1 = h.calls.filter((c) => c.fn === 'srchSemStep').pop();
+  ok('۵-ب.۲ گامِ اول از کشوی صفر، با همان بردار و ترتیب', !!s1 && s1.args[0] === 'VP' &&
+     JSON.stringify(s1.args[1]) === '[5,2,9,0]' && s1.args[2] === 0);
+  h.reply('srchSemStep', { ok: true, items: [it('یافتهٔ نخست', 7, 0.71)], next: 1, all: 4, done: false, best: 0.71 });
+  ok('۵-ب.۳ یافتهٔ گامِ اول **همان لحظه** دیده می‌شود، پیش از پایان', /یافتهٔ نخست/.test(h.get('sem').innerHTML));
+  ok('۵-ب.۴ نوار عددِ دقیق دارد: ۱ از ۴ (۲۵٪)', /1 از 4/.test(h.get('semh').innerHTML) && /width:25%/.test(h.get('semh').innerHTML),
+     h.get('semh').innerHTML.replace(/<[^>]*>/g, ' ').slice(0, 120));
+  const s2 = h.calls.filter((c) => c.fn === 'srchSemStep').pop();
+  ok('۵-ب.۵ گامِ دوم از همان‌جا ادامه می‌دهد و کفِ امتیاز را با خودش می‌برد',
+     s2 !== s1 && s2.args[2] === 1 && Math.abs(s2.args[3] - (0.71 - 0.25)) < 1e-9, JSON.stringify(s2.args.slice(2)));
+  h.reply('srchSemStep', { ok: true, items: [it('یافتهٔ دوم', 3, 0.9), it('یافتهٔ نخست', 7, 0.71)], next: 3, all: 4, done: false, best: 0.9 });
+  const semH = h.get('sem').innerHTML;
+  ok('۵-ب.۶ یافتهٔ تازه بالاتر می‌نشیند (به ترتیبِ معنا) و تکراری دوباره نمی‌آید',
+     semH.indexOf('یافتهٔ دوم') !== -1 && semH.indexOf('یافتهٔ دوم') < semH.indexOf('یافتهٔ نخست') &&
+     semH.split('یافتهٔ نخست').length === 2);
+  /* واژه‌ها برمی‌گردند و یکی از همان ردیف‌ها را دارند ⇒ در فهرستِ معنا دوباره نشان داده نمی‌شود. */
+  h.reply('srchRun', { ok: true, mode: 'هوشمند', sheets: 3, sheetsAll: 3, read: 10, scanned: 10, ms: 1000,
+                       items: [{ where: 'بانک', tab: 'تبِ آزمون', row: 3, title: 'یافتهٔ دوم', score: 9 }], notes: [], terms: [] });
+  ok('۵-ب.۷ آنچه واژه‌ها هم آوردند از فهرستِ معنا کنار می‌رود (یک بار دیده می‌شود)',
+     /یافتهٔ دوم/.test(h.get('lex').innerHTML) && !/یافتهٔ دوم/.test(h.get('sem').innerHTML) && /یافتهٔ نخست/.test(h.get('sem').innerHTML));
+  h.reply('srchSemStep', { ok: true, items: [], next: 4, all: 4, done: true, best: 0 });
+  ok('۵-ب.۸ پایان: ۴ از ۴، ۱۰۰٪، و «کامل» گفته می‌شود', /4 از 4/.test(h.get('semh').innerHTML) &&
+     /width:100%/.test(h.get('semh').innerHTML) && /کامل/.test(h.get('semh').innerHTML));
+  const nAfter = h.calls.filter((c) => c.fn === 'srchSemStep').length;
+  ok('۵-ب.۹ و پس از پایان گامِ دیگری خواسته نمی‌شود', nAfter === 3, String(nAfter));
+  /* گامی که جلو نرفت ⇒ می‌ایستد و می‌گوید، نه حلقهٔ بی‌انتها. */
+  vm.runInContext('(function(){' + smart + '}).call(null);', h.ctx, { timeout: 5000 });
+  h.reply('srchSemStart', { ok: true, vp: 'VP', order: [1, 2], all: 2 });
+  h.reply('srchSemStep', { ok: false, items: [], next: 0, all: 2, done: false, note: 'خطای آزمون' });
+  ok('۵-ب.۱۰ گامی که جلو نرفت: ایستادن با علت، نه تکرارِ بی‌انتها',
+     /ایستاد/.test(h.get('semh').innerHTML) && /خطای آزمون/.test(h.get('semh').innerHTML) &&
+     h.calls.filter((c) => c.fn === 'srchSemStep').length === 4);
 }
 
 console.log('\n══ ۶) تختهٔ گویندگان: همان دکمه‌ای که فردا لازم است ══');

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.45
+ *  موتور محتوا و پادکست — نسخهٔ 9.46
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.45',
+  CODE_VERSION: '9.46',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2773,6 +2773,8 @@ var CFG = {
   EMB_TAIL_MS: 20000,
   // جست‌وجوی معنایی
   EMB_SEARCH_MS: 90000,
+  EMB_STEP_SHARDS: 4,           // ۹.۴۶: و حداکثر این‌قدر قطعه در هر گام — نوار مرتب جلو می‌رود و هیچ گامی به سقفِ شش‌دقیقه نمی‌رسد
+  EMB_STEP_MS: 20000,           // ۹.۴۶: هر گامِ پنجره چند قطعه در این مدت؛ گام‌ها تا آخرین قطعه ادامه دارند
   EMB_TOP: 60,                  // چند نامزدِ معنایی به فهرستِ لغوی اضافه شود
   /* ══ دو آستانه، و آنکه کار می‌کند نسبی است ══
      کف مطلق (`EMB_MIN_SCORE`) عمداً خیلی پایین است و فقط جلوی آشغال را
@@ -3423,7 +3425,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -72374,6 +72376,18 @@ function srchSemantic_(q, have, deadline) {
     if (have[h].where === 'بانک') seen[have[h].tab + '§' + have[h].row] = have[h];
   }
 
+  srchSemHydrate_(sr.items, seen, deadline, out, null);
+  out.ok = true;
+  return out;
+}
+
+
+/**
+ * یافته‌های ایندکس ⇒ ردیف‌های نمایش‌پذیرِ بانک (با وارسیِ شناسه). یک تعریف برای جست‌وجوی
+ * یک‌جا و گام‌های پنجره (۹.۴۶) — دو تعریف یعنی روزی یکی شناسه را نسنجد و لینکِ غلط بدهد.
+ */
+function srchSemHydrate_(items, seen, deadline, out, hubIn) {
+  var sr = { items: items || [] };
   var byTab = {}, order = [];
   for (var i = 0; i < sr.items.length; i++) {
     var it = sr.items[i];
@@ -72383,7 +72397,7 @@ function srchSemantic_(q, have, deadline) {
     byTab[it.tab].push(it);
   }
 
-  var hub = getHub_();
+  var hub = hubIn || getHub_();
   for (var t = 0; t < order.length; t++) {
     if (new Date().getTime() > deadline) { out.stopped = out.stopped || 'بودجهٔ زمان'; break; }
     var sh = hub.getSheetByName(order[t]);
@@ -72414,8 +72428,6 @@ function srchSemantic_(q, have, deadline) {
       out.added++;
     }
   }
-  out.ok = true;
-  return out;
 }
 
 /* ══════════════ مسیرِ هوش مصنوعی ══════════════ */
@@ -72798,15 +72810,80 @@ function srchRun_(query, opts) {
 var SRCH_AT_ = '';
 
 /** درِ پنجرهٔ جست‌وجو: ساده یا هوشمند، با یا بی شیت‌های منبع؛ هر خطا به‌صورتِ جواب برمی‌گردد (با نامِ تب)، نه استثنا. */
-function srchRun(query, mode, sources) {
+function srchRun(query, mode, sources, semantic) {
   SRCH_AT_ = '';
   try {
-    return srchRun_(query, { mode: mode, sources: sources !== false });
+    /* `semantic === false` (۹.۴۶): پنجره معنا را جدا و گام‌به‌گام می‌گردد (`srchSemStart`/`srchSemStep`). */
+    return srchRun_(query, { mode: mode, sources: sources !== false, semantic: semantic === false ? false : undefined });
   } catch (e) {
     return { ok: false, query: String(query || ''), items: [],
              notes: ['خطا: ' + e.message + (SRCH_AT_ ? ' (در ' + SRCH_AT_ + ')' : '')],
              terms: [], answer: '', scanned: 0, sheets: 0, stopped: '', ms: 0, mode: mode };
   }
+}
+
+
+/* ══════════════ جست‌وجوی معنایی، گام‌به‌گام (۹.۴۶) ══════════════
+   «۹۰ ثانیه کمه … نتیجه‌ها یکی یکی وقتی پیدا میشن نمایش داده بشن … یه نوار پر شونده دقیق.»
+   تا ۹.۴۵ معنا یک فراخوانِ ۹۰ ثانیه‌ای بود و در آن ۱۲ تا ۱۴ قطعه از ۴۸ خوانده می‌شد — یعنی
+   سه‌چهارمِ محتوا هرگز دیده نمی‌شد و پنجره فقط یک خطِ «… تا خوانده شد» می‌گفت. حالا پنجره
+   گام‌به‌گام می‌خواهد: هر گام چند قطعه، یافته‌هایش همان لحظه نشان داده می‌شوند، و گامِ بعد
+   از همان‌جا ادامه می‌دهد **تا آخرین قطعه** — سقفِ کلی ندارد، چون هر گام اجرای جدای خودش است.
+   چیزی در شیت‌ها نوشته نمی‌شود؛ فقط خوانده می‌شود. */
+
+/** هاب برای خواندن، بی پاسِ تعمیرِ تب‌ها — هر گام یک بار باز می‌کند و ۲۹ مگابایت تعمیر لازم ندارد. */
+function srchHubLite_() {
+  var id = '';
+  try { id = String(props_().getProperty(PK.HUB_ID) || ''); } catch (e) { id = ''; }
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e2) {} }
+  return getHub_();
+}
+
+/** گامِ صفر: بردارِ پرس‌وجو و ترتیبِ قطعه‌ها — هر دو در پنجره می‌مانند، تا گام‌ها هم‌خوان باشند. */
+function srchSemStart(query) {
+  var out = { ok: false, vp: '', order: [], all: 0, note: '' };
+  try {
+    var q = String(query || '').trim();
+    if (!q) { out.note = 'چیزی ننوشتید'; return out; }
+    if (CFG.EMB_ON === false) { out.note = 'اثر انگشتِ معنایی خاموش است'; return out; }
+    var ix = embIndex_();
+    out.all = ix.shards.length;
+    if (!ix.shards.length) { out.note = 'هنوز اثر انگشتی ساخته نشده'; return out; }
+    var stale = embIndexStale_(ix);
+    if (stale) { out.note = 'ایندکس کهنه است (' + stale + ')'; return out; }
+    var qv = embQueryVec_(q);
+    if (!qv.ok) { out.note = qv.note || 'بردارِ پرس‌وجو ساخته نشد'; return out; }
+    out.vp = embPack_(embNorm_(qv.vec));
+    var pd = Number(ix.probeDim) || embProbeDim_();
+    out.order = embOrder_(ix, [embUnpack_(embPack_(embTrunc_(qv.vec, pd)))]);
+    out.ok = true;
+  } catch (e) { out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
+}
+
+/** یک گام: از `from` چند قطعه در `EMB_STEP_MS`، با یافته‌های نمایش‌پذیر؛ `floor` = بهترینِ تا این‌جا منهای فاصله. */
+function srchSemStep(vp, order, from, floor) {
+  var out = { ok: false, items: [], next: Number(from) || 0, all: (order || []).length, done: false,
+              best: 0, added: 0, dropped: 0, stopped: '', note: '' };
+  try {
+    var b = embUnpack_(vp);
+    if (!b || !b.length) { out.note = 'بردارِ پرس‌وجو نیامد'; return out; }
+    var vec = [];
+    for (var i = 0; i < b.length; i++) vec.push(b[i] / 127);
+    var t0 = new Date().getTime();
+    var step = Math.max(5000, Number(CFG.EMB_STEP_MS) || 20000);
+    var r = embCore_([vec], { order: order, from: from, budgetMs: step, floor: floor,
+                               maxShards: Math.max(1, Number(CFG.EMB_STEP_SHARDS) || 4) });
+    var o = r.outs[0] || {};
+    out.next = r.next; out.done = r.done; out.all = r.all || out.all;
+    if (!o.ok) { out.note = o.note || 'این گام نتیجه نداد'; out.ok = r.next > (Number(from) || 0); return out; }
+    for (var k = 0; k < (o.items || []).length; k++) out.best = Math.max(out.best, o.items[k].score || 0);
+    if (o.items && o.items.length) {
+      srchSemHydrate_(o.items, {}, t0 + step + 25000, out, srchHubLite_());
+    }
+    out.ok = true;
+  } catch (e) { out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
 }
 
 /** منو: پنجرهٔ جست‌وجو. */
@@ -72840,6 +72917,8 @@ function srchHtml_() {
   H.push('a{color:#1f3864}.warn{color:#8a5a00;background:#fff7e6;padding:7px 10px;' +
          'border-radius:7px;font-size:12px;margin:8px 0}');
   H.push('.ans{background:#eef4ff;padding:9px 12px;border-radius:8px;margin-bottom:10px;line-height:1.9}');
+  H.push('.bar{height:10px;background:#e8ebf1;border-radius:6px;overflow:hidden;margin:4px 0 12px}' +
+         '.bi{height:100%;background:#1f3864;transition:width .4s}.bt{font-size:13px;margin-top:14px}');
   H.push('</style></head><body>');
   H.push('<h3>جست‌وجو در همهٔ محتوا</h3>');
   H.push('<div class="hint">هرچه یادتان هست بنویسید — لازم نیست دقیق باشد. ' +
@@ -72856,17 +72935,56 @@ function srchHtml_() {
          (CFG.SEARCH_SOURCES_DEFAULT === false ? '' : ' checked') + '> ' +
          'شیت‌های منبع هم گشته شوند (کامل‌تر، کمی کندتر)</label>');
   H.push('</div>');
-  H.push('<div id="out" class="res"></div>');
+  /* سه جعبهٔ ثابت (۹.۴۶): واژه‌ها، نوارِ معنا، یافته‌های معنا — ثابت، تا هر رشته جعبهٔ خودش را
+     بنویسد و جوابِ یکی جعبهٔ دیگری را پاک نکند. */
+  H.push('<div id="out" class="res"><div id="lex"></div><div id="semh"></div><div id="sem"></div></div>');
   H.push('<script>');
   H.push('function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){' +
          'return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;"}[c];});}');
+  /* ══ دو رشته، هم‌زمان (۹.۴۶) ══
+     «هوشمند» دو کار است: واژه‌ها و هم‌معناها (`srchRun`، یک فراخوان، با رتبه‌بندیِ مدل) و معنا
+     (`srchSemStart` + گام‌های `srchSemStep` تا آخرین قطعه). دومی دیگر داخلِ اولی نیست، چون
+     باید یافته‌هایش همان لحظه دیده شوند و سقفِ ۹۰ ثانیه‌ای نداشته باشد. `RUN` جست‌وجوی تازه را
+     از جوابِ دیرِ جست‌وجوی قبلی جدا می‌کند. */
+  H.push('var RUN=0,LEX={},SEM=[],SEEN={};');
   H.push('function go(m){var q=document.getElementById("q").value;' +
-         'if(!q.trim()){return;}' +
-         'document.getElementById("out").innerHTML="<p>در حالِ گشتن… ' +
+         'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};' +
+         'document.getElementById("lex").innerHTML="<p>در حالِ گشتنِ واژه‌ها… ' +
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
-         'google.script.run.withSuccessHandler(show).withFailureHandler(function(e){' +
-         'document.getElementById("out").innerHTML="<div class=\\"warn\\">خطا: "+esc(e.message)+"</div>";})' +
-         '.srchRun(q,m,document.getElementById("src").checked);}');
+         'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
+         'google.script.run.withSuccessHandler(function(r){if(my===RUN){show(r);semDraw();}})' +
+         '.withFailureHandler(function(e){if(my===RUN){document.getElementById("lex").innerHTML=' +
+         '"<div class=warn>خطا: "+esc(e.message)+"</div>";}})' +
+         '.srchRun(q,m,document.getElementById("src").checked,m==="هوشمند"?false:true);' +
+         'if(m==="هوشمند"){semGo(q,my);}}');
+  H.push('function bar(done,all,n,msg){var p=all?Math.round(done*100/all):0;' +
+         'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی معنایی: "+done+" از "+all+' +
+         '" کشوی اثر انگشت خوانده شد ("+p+"٪) · "+n+" یافته"+(msg?" · "+esc(msg):"")+"</div>"+' +
+         '"<div class=bar><div class=bi style=width:"+p+"%></div></div>";}');
+  H.push('function semGo(q,my){bar(0,0,0,"در حالِ فهمیدنِ منظورتان…");' +
+         'google.script.run.withSuccessHandler(function(s){if(my!==RUN){return;}' +
+         'if(!s.ok){bar(0,s.all||0,0,"انجام نشد: "+s.note);return;}' +
+         'bar(0,s.all,0,"");semStep(s.vp,s.order,0,0,my);})' +
+         '.withFailureHandler(function(e){if(my===RUN){bar(0,0,0,"خطا: "+e.message);}}).srchSemStart(q);}');
+  H.push('function semStep(vp,order,from,best,my){var gap=' + JSON.stringify(Number(CFG.EMB_SCORE_GAP) || 0.25) + ';' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
+         'for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];var k=t.tab+"§"+t.row;' +
+         'if(SEEN[k]){continue;}SEEN[k]=1;SEM.push(t);}' +
+         'var b=Math.max(best,r.best||0);semDraw();' +
+         'if(r.done){bar(r.all,r.all,semShown(),"کامل؛ همهٔ کشوها خوانده شد");return;}' +
+         'if(!r.ok||r.next<=from){bar(r.next,r.all,semShown(),"ایستاد: "+(r.note||"گام جلو نرفت"));return;}' +
+         'bar(r.next,r.all,semShown(),"");semStep(vp,order,r.next,b,my);})' +
+         '.withFailureHandler(function(e){if(my===RUN){bar(from,order.length,semShown(),"خطا: "+e.message);}})' +
+         '.srchSemStep(vp,order,from,best>0?best-gap:0);}');
+  /* آنچه واژه‌ها هم آورده‌اند دوباره نشان داده نمی‌شود؛ بقیه به ترتیبِ امتیازِ معنایی، همان لحظه. */
+  H.push('function semList(){var o=[];for(var i=0;i<SEM.length;i++){' +
+         'if(!LEX[SEM[i].tab+"§"+SEM[i].row]){o.push(SEM[i]);}}' +
+         'o.sort(function(a,b){return (b.sem||0)-(a.sem||0);});return o;}');
+  H.push('function semShown(){return semList().length;}');
+  H.push('function semDraw(){var el=document.getElementById("sem");if(!el){return;}var o=semList();' +
+         'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر</h4>");}' +
+         'for(var i=0;i<o.length&&i<' + Math.max(20, Number(CFG.SEARCH_SEM_SHOW) || 150) + ';i++){H.push(card(o[i],i));}' +
+         'el.innerHTML=H.join("");}');
   H.push('function show(r){var H=[];');
   H.push('if(r.answer){H.push("<div class=\\"ans\\">"+esc(r.answer)+"</div>");}');
   H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب از "+' +
@@ -72878,10 +72996,13 @@ function srchHtml_() {
   H.push('for(var i=0;i<(r.notes||[]).length;i++){' +
          'H.push("<div class=\\"warn\\">"+esc(r.notes[i])+"</div>");}');
   H.push('if(!r.items||!r.items.length){H.push("<p>چیزی پیدا نشد.</p>");}');
-  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];');
+  H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];' +
+         'if(t.where==="بانک"){LEX[t.tab+"§"+t.row]=1;}H.push(card(t,i));}');
+  H.push('document.getElementById("lex").innerHTML=H.join("");}');
+  H.push('function card(t,i){var H=[];');
   H.push('H.push("<div class=\\"it\\"><div class=\\"t\\">"+(i+1)+". "+esc(t.title)+"</div>");');
   H.push('H.push("<div class=\\"m\\">"+esc(t.where)+" · "+esc(t.tab)+(t.kind?" · "+esc(t.kind):"")+' +
-         '(t.date?" · "+esc(t.date):"")+" · امتیاز "+t.score+(t.fit?" · "+esc(t.fit):"")+"</div>");');
+         '(t.date?" · "+esc(t.date):"")+" · امتیاز "+(t.sem&&!t.score?Number(t.sem).toFixed(2):t.score)+(t.fit?" · "+esc(t.fit):"")+"</div>");');
   H.push('if(t.why){H.push("<div class=\\"w\\">"+esc(t.why)+"</div>");}');
   H.push('var x=t.show||(t.fields&&(t.fields.msg||t.fields.summary||t.fields.body))||"";');
   H.push('if(x){H.push("<div class=\\"x\\">"+esc(x.slice(0,420))+"</div>");}');
@@ -72905,8 +73026,7 @@ function srchHtml_() {
   H.push('if(lf){L.push("<a href=\\""+esc(lf)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">بازکردنِ فایل</a>");}');
   H.push('if(ls){L.push("<a href=\\""+esc(ls)+"\\" target=\\"_blank\\" rel=\\"noopener noreferrer\\">همان ردیف در شیت</a>");}');
   H.push('if(L.length){H.push("<div class=\\"m\\">"+L.join(" · ")+"</div>");}');
-  H.push('H.push("</div>");}');
-  H.push('document.getElementById("out").innerHTML=H.join("");}');
+  H.push('H.push("</div>");return H.join("");}');
   H.push('</script></body></html>');
   return H.join('');
 }
@@ -74019,45 +74139,29 @@ function embQueryVec_(text) {
  */
 function embSearch_(vec, opts) {
   opts = opts || {};
-  var out = { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
-              stopped: '', rescored: 0, note: '' };
-  /* `opts.want` (۸.۹۴): شناسه‌ای که خودآزمون دنبالش است. فقط می‌گوید قطعه‌اش در مهلت
-     خوانده شد یا نه و ردیف کجا نشست — ترتیب و نتیجه را عوض نمی‌کند. */
-  var want = opts.want ? String(opts.want) : '';
-  if (want) out.want = { seen: false, probe: null, rank: -1, score: null, best: null };
-  var ix = embIndex_();
-  out.shardsAll = ix.shards.length;
-  if (!ix.shards.length) { out.note = 'هنوز اثر انگشتی ساخته نشده.'; return out; }
-  var stale = embIndexStale_(ix);
-  if (stale) { out.note = 'ایندکس کهنه است (' + stale + ').'; return out; }
+  var r = embCore_([vec], { budgetMs: opts.budgetMs, top: opts.top,
+                            wants: opts.want ? [String(opts.want)] : null });
+  return r.outs[0];
+}
 
-  var deadline = new Date().getTime() +
-                 Math.max(10000, Number(opts.budgetMs) || Number(CFG.EMB_SEARCH_MS) || 90000);
-  var probe = embPack_(embTrunc_(vec, Number(ix.probeDim) || embProbeDim_()));
-  var qp = embUnpack_(probe);
-  var minS = Number(CFG.EMB_MIN_SCORE);
-  if (!isFinite(minS)) minS = 0.2;
-  var top = Math.max(5, Number(opts.top) || Number(CFG.EMB_TOP) || 60);
-  var keep = Math.max(top, Number(CFG.EMB_RESCORE) || 120);
-
-  /* ══ کدام قطعه‌ها خوانده شوند ══
-     زیرِ `EMB_CENTROID_MIN` قطعه، همه — خواندنِ همه‌شان ارزان است و
-     دقیق‌تر. بالاتر از آن، فقط نزدیک‌ترین‌ها به پرس‌وجو؛ و قطعه‌ای که
-     مرکز ندارد **همیشه** خوانده می‌شود، چون ندانستن دلیلِ رد کردن نیست.
-     شمارِ خوانده‌شده در برابرِ کل همیشه گزارش می‌شود (`shards`/
-     `shardsAll`), پس ناتمامی هرگز پنهان نمی‌مانَد. */
+/**
+ * ترتیبِ خواندنِ قطعه‌ها برای چند پرس‌وجو: نزدیک‌ترین مرکز به **هر کدام** از آن‌ها اول.
+ * قطعهٔ بی‌مرکز همیشه هست (`Infinity`) — ندانستن دلیلِ رد کردن نیست.
+ */
+function embOrder_(ix, qps) {
   var pick = [];
   for (var q = 0; q < ix.shards.length; q++) {
     var cc = ix.shards[q].c ? embUnpack_(ix.shards[q].c) : null;
-    pick.push({ i: q, near: cc ? embDot_(qp, cc) : Infinity });
+    var near = -Infinity;
+    if (!cc) near = Infinity;
+    else for (var z = 0; z < qps.length; z++) near = Math.max(near, embDot_(qps[z], cc));
+    pick.push({ i: q, near: near });
   }
   var minSh = Math.max(1, Number(CFG.EMB_CENTROID_MIN) || 6);
   /* ══ نزدیک‌ترین اول، ولی تا ته مهلت — نه هشت تا و بس (۸.۷۳) ══
      خودآزمونِ ۱۱ اکتبر: ۱ از ۴. قطعه‌ها به ترتیبِ ردیف پر می‌شوند، پس هر قطعه آمیزه‌ای
-     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید؛ با خواندنِ ۸ قطعه از ۳۸، ردیفِ
-     درست فقط با شانسِ ~۸/۳۸ (۲۱٪) در قطعه‌های خوانده‌شده بود — همان یک‌چهارم. حالا همهٔ
-     قطعه‌ها به ترتیبِ نزدیکی خوانده می‌شوند تا مهلت تمام شود (حلقهٔ پایین مهلت را
-     می‌سنجد و نخوانده‌ها را می‌شمارد). `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
+     از همهٔ موضوع‌هاست و مرکزش تقریباً چیزی نمی‌گوید. پس همهٔ قطعه‌ها به ترتیبِ نزدیکی
+     خوانده می‌شوند تا مهلت تمام شود. `EMB_PROBE_SHARDS` > ۰ هنوز سقف می‌گذارد. */
   var capSh = Number(CFG.EMB_PROBE_SHARDS) || 0;
   if (pick.length > minSh) pick.sort(function (a, b) { return b.near - a.near; });
   if (capSh > 0 && pick.length > minSh) {
@@ -74065,77 +74169,150 @@ function embSearch_(vec, opts) {
     var unknown = 0;
     for (var u = 0; u < pick.length; u++) if (pick[u].near === Infinity) unknown++;
     if (pick.length > keepSh + unknown) pick = pick.slice(0, keepSh + unknown);
-    out.picked = pick.length;
   }
+  return pick.map(function (x) { return x.i; });
+}
 
-  var best = [];
-  for (var sp = 0; sp < pick.length; sp++) {
-    var s = pick[sp].i;
-    if (new Date().getTime() > deadline) {
-      out.stopped = 'بودجهٔ زمانِ جست‌وجوی معنایی تمام شد؛ ' + out.shards +
-                    ' قطعه از ' + out.shardsAll + ' خوانده شد.';
-      break;
-    }
+/**
+ * نزدیک‌ترین محتواها به یک یا چند بردار — **یک** پویشِ قطعه‌ها برای همه (۹.۴۶).
+ *
+ * دو مرحله: قطعه‌ها با بردارِ کوتاه سنجیده می‌شوند (ارزان)، و بعد نامزدهای بالا با بردارِ
+ * کامل دوباره — ولی فقط تا وقتی بودجه هست. اگر نشد، نتیجه می‌آید و **گفته می‌شود که نشد**؛
+ * جست‌وجویی که ناتمامیِ خود را پنهان کند، به کاربر می‌گوید «نیست» دربارهٔ چیزی که هست.
+ *
+ * ══ چرا چند بردار در یک پویش ══
+ * ۱۷ اکتبر: «خودآزمون ۲ از ۲ · ۲ نمونه در مهلت خوانده نشد» — هر نمونه پویشِ جدای خودش را
+ * داشت و در ۶۰ ثانیه ۱۲ تا ۱۴ قطعه از ۴۸ را می‌خواند. خواندنِ قطعه گران است، سنجیدنش ارزان:
+ * چهار پرسش روی **یک** خواندن یعنی هر چهار همهٔ قطعه‌ها را می‌بینند در همان وقتی که یکی
+ * یک‌چهارمش را می‌دید.
+ *
+ * ══ و چرا `order`/`from` ══
+ * پنجرهٔ جست‌وجو (۹.۴۶) کار را گام‌به‌گام می‌خواهد: هر گام چند قطعه، نتیجه‌اش همان‌جا نشان
+ * داده شود و گامِ بعد از `next` ادامه دهد — تا ته، بی سقفِ ۹۰ ثانیه. ترتیب یک بار ساخته
+ * می‌شود و پنجره نگهش می‌دارد، تا گام‌ها قطعه‌ای را دو بار یا هیچ بار نخوانند.
+ */
+function embCore_(vecs, opts) {
+  opts = opts || {};
+  var res = { outs: [], order: [], next: 0, all: 0, done: false };
+  var mk = function () {
+    return { ok: false, items: [], shards: 0, shardsAll: 0, picked: 0, scanned: 0,
+             stopped: '', rescored: 0, note: '' };
+  };
+  for (var v0 = 0; v0 < vecs.length; v0++) res.outs.push(mk());
+  var wants = opts.wants || [];
+  for (var w0 = 0; w0 < vecs.length; w0++) {
+    if (wants[w0]) res.outs[w0].want = { seen: false, probe: null, rank: -1, score: null, best: null };
+  }
+  var setAll = function (k, val) { for (var z = 0; z < res.outs.length; z++) res.outs[z][k] = val; };
+  var ix = embIndex_();
+  setAll('shardsAll', ix.shards.length);
+  res.all = ix.shards.length;
+  if (!ix.shards.length) { setAll('note', 'هنوز اثر انگشتی ساخته نشده.'); return res; }
+  var stale = embIndexStale_(ix);
+  if (stale) { setAll('note', 'ایندکس کهنه است (' + stale + ').'); return res; }
+
+  var deadline = new Date().getTime() +
+                 Math.max(10000, Number(opts.budgetMs) || Number(CFG.EMB_SEARCH_MS) || 90000);
+  var pd = Number(ix.probeDim) || embProbeDim_();
+  var qps = [], qfs = [];
+  for (var v = 0; v < vecs.length; v++) {
+    qps.push(embUnpack_(embPack_(embTrunc_(vecs[v], pd))));
+    qfs.push(embUnpack_(embPack_(vecs[v])));
+  }
+  var minS = Number(CFG.EMB_MIN_SCORE);
+  if (!isFinite(minS)) minS = 0.2;
+  if (isFinite(Number(opts.floor)) && Number(opts.floor) > minS) minS = Number(opts.floor);
+  var top = Math.max(5, Number(opts.top) || Number(CFG.EMB_TOP) || 60);
+  var keep = Math.max(top, Number(CFG.EMB_RESCORE) || 120);
+
+  var order = (opts.order && opts.order.length) ? opts.order.slice(0) : embOrder_(ix, qps);
+  res.order = order;
+  setAll('picked', order.length);
+  var from = Math.max(0, Number(opts.from) || 0);
+  var bests = [];
+  for (var b0 = 0; b0 < vecs.length; b0++) bests.push([]);
+  var sp = from;
+  for (; sp < order.length; sp++) {
+    var s = Number(order[sp]);
+    if (!(s >= 0 && s < ix.shards.length)) continue;
+    /* گامِ پنجره دست‌کم یک قطعه می‌خوانَد، وگرنه گامی که مهلتش پیش از اولین قطعه تمام شد
+       هرگز جلو نمی‌رود و پنجره بی‌انتها همان گام را می‌خواهد. */
+    if (sp > from && new Date().getTime() > deadline) break;
+    if (opts.maxShards > 0 && sp - from >= opts.maxShards) break;
     var P = embGetJson_(embShardName_(ix.shards[s].seq, 'p'));
     if (!P || !P.id) continue;
-    out.shards++;
+    for (var oi = 0; oi < vecs.length; oi++) res.outs[oi].shards++;
     for (var i = 0; i < P.id.length; i++) {
-      out.scanned++;
-      var sc = embDot_(qp, embUnpack_(P.p[i]));
-      if (want && P.id[i] === want) { out.want.seen = true; out.want.probe = sc; }
-      if (sc < minS) continue;
-      best.push({ id: P.id[i], tab: P.tb[i], row: P.rw[i], fileId: P.fid[i],
-                  kind: P.kd[i], date: P.dt[i], title: P.ti[i],
-                  seq: ix.shards[s].seq, at: i, score: sc });
+      var pv = embUnpack_(P.p[i]);
+      for (var qi = 0; qi < vecs.length; qi++) {
+        res.outs[qi].scanned++;
+        var sc = embDot_(qps[qi], pv);
+        if (wants[qi] && P.id[i] === wants[qi]) { res.outs[qi].want.seen = true; res.outs[qi].want.probe = sc; }
+        if (sc < minS) continue;
+        bests[qi].push({ id: P.id[i], tab: P.tb[i], row: P.rw[i], fileId: P.fid[i],
+                         kind: P.kd[i], date: P.dt[i], title: P.ti[i],
+                         seq: ix.shards[s].seq, at: i, score: sc });
+      }
     }
   }
-  best.sort(function (a, b) { return b.score - a.score; });
-  if (best.length > keep) best = best.slice(0, keep);
-
-  // ── مرحلهٔ دوم: بردارِ کامل، فقط برای قطعه‌هایی که نامزد دارند ──
-  var wanted = {}, order = [];
-  for (var k = 0; k < best.length; k++) {
-    if (!wanted[best[k].seq]) { wanted[best[k].seq] = []; order.push(best[k].seq); }
-    wanted[best[k].seq].push(best[k]);
+  res.next = sp;
+  res.done = sp >= order.length;
+  if (!res.done && !opts.order) {
+    for (var st = 0; st < res.outs.length; st++) {
+      res.outs[st].stopped = 'بودجهٔ زمانِ جست‌وجوی معنایی تمام شد؛ ' + res.outs[st].shards +
+                             ' قطعه از ' + res.outs[st].shardsAll + ' خوانده شد.';
+    }
   }
+
+  // ── مرحلهٔ دوم: بردارِ کامل، فقط برای قطعه‌هایی که نامزد دارند؛ هر قطعه یک بار برای همه ──
   var maxSh = Math.max(0, Number(CFG.EMB_RESCORE_SHARDS) || 4);
-  var qf = embUnpack_(embPack_(vec));
-  for (var o = 0; o < order.length && o < maxSh; o++) {
-    if (new Date().getTime() > deadline) break;
-    var V = embGetJson_(embShardName_(order[o], 'v'));
-    if (!V || !V.v) continue;
-    var grp = wanted[order[o]];
-    for (var g = 0; g < grp.length; g++) {
-      var enc = V.v[grp[g].at];
-      if (!enc || V.id[grp[g].at] !== grp[g].id) continue;   // قطعه جابه‌جا شده
-      grp[g].score = embDot_(qf, embUnpack_(enc));
-      grp[g].exact = true;
-      out.rescored++;
-    }
-  }
-  best.sort(function (a, b) { return b.score - a.score; });
-  if (want) {
-    out.want.best = best.length ? best[0].score : null;
-    for (var w = 0; w < best.length; w++) {
-      if (best[w].id === want) { out.want.rank = w + 1; out.want.score = best[w].score; break; }
-    }
-  }
-
-  /* ══ بریدن **نسبت به بهترین**، نه با یک عددِ ثابت ══
-     و بعد از سنجشِ دوباره، نه قبلش — وگرنه موردی که با بردارِ کوتاه
-     ضعیف به نظر می‌رسید و با بردارِ کامل بهترین بود، پیش از دیده شدن
-     حذف شده بود. */
+  var vCache = {};
   var gap = Number(CFG.EMB_SCORE_GAP);
   if (!isFinite(gap) || gap <= 0) gap = 0.25;
-  var cut = best.length ? (best[0].score - gap) : 0;
-  var kept = [];
-  for (var q2 = 0; q2 < best.length && kept.length < top; q2++) {
-    if (best[q2].score < cut) break;
-    kept.push(best[q2]);
+  for (var qx = 0; qx < vecs.length; qx++) {
+    var out = res.outs[qx], best = bests[qx];
+    best.sort(function (a, b) { return b.score - a.score; });
+    if (best.length > keep) best = best.slice(0, keep);
+    var wanted = {}, ord = [];
+    for (var k = 0; k < best.length; k++) {
+      if (!wanted[best[k].seq]) { wanted[best[k].seq] = []; ord.push(best[k].seq); }
+      wanted[best[k].seq].push(best[k]);
+    }
+    for (var o = 0; o < ord.length && o < maxSh; o++) {
+      if (new Date().getTime() > deadline + 15000) break;
+      var key = String(ord[o]);
+      if (!(key in vCache)) vCache[key] = embGetJson_(embShardName_(ord[o], 'v'));
+      var V = vCache[key];
+      if (!V || !V.v) continue;
+      var grp = wanted[ord[o]];
+      for (var g = 0; g < grp.length; g++) {
+        var enc = V.v[grp[g].at];
+        if (!enc || V.id[grp[g].at] !== grp[g].id) continue;   // قطعه جابه‌جا شده
+        grp[g].score = embDot_(qfs[qx], embUnpack_(enc));
+        grp[g].exact = true;
+        out.rescored++;
+      }
+    }
+    best.sort(function (a, b) { return b.score - a.score; });
+    if (out.want) {
+      out.want.best = best.length ? best[0].score : null;
+      for (var w = 0; w < best.length; w++) {
+        if (best[w].id === wants[qx]) { out.want.rank = w + 1; out.want.score = best[w].score; break; }
+      }
+    }
+    /* ══ بریدن **نسبت به بهترین**، نه با یک عددِ ثابت ══
+       و بعد از سنجشِ دوباره، نه قبلش. در گامِ پنجره «بهترین» بهترینِ **تا این‌جا**ست و
+       پنجره آن را به‌صورتِ `floor` برمی‌گرداند. */
+    var cut = best.length ? (best[0].score - gap) : 0;
+    var kept = [];
+    for (var q2 = 0; q2 < best.length && kept.length < top; q2++) {
+      if (best[q2].score < cut) break;
+      kept.push(best[q2]);
+    }
+    out.items = kept;
+    out.ok = true;
   }
-  out.items = kept;
-  out.ok = true;
-  return out;
+  return res;
 }
 
 // ─────────────────────────────────────────── خودآزمون
@@ -74171,6 +74348,7 @@ function embSelfTest_(n) {
     picks.push({ id: P.id[i], title: String(P.ti[i]) });
   }
   if (!picks.length) { out.note = 'نمونه‌ای با عنوان پیدا نشد'; return out; }
+  out.picks = picks.length;
 
   /* ══ چرا بازنویسی، و چرا نبودش آزمون را توخالی می‌کرد ══
      نسخهٔ اول عنوانِ خودِ ردیف را پرس‌وجو می‌کرد. عنوان **داخلِ همان
@@ -74205,13 +74383,22 @@ function embSelfTest_(n) {
      «کیفیت» است. */
   out.shardsRead = 0; out.shardsAll = ix.shards.length;
   var why = [];
+  /* ══ یک پویش برای همهٔ نمونه‌ها (۹.۴۶) ══
+     تا ۹.۴۵ هر نمونه پویشِ جدای خودش را داشت و مهلت بینشان تقسیم می‌شد: ۱۷ اکتبر دو نمونه از
+     چهار در ۶۰ ثانیه به قطعه‌شان نرسیدند (۱۲ و ۱۴ از ۴۸). حالا همه با هم، هر قطعه یک بار. */
+  var vecs = [], ids = [];
   for (var p = 0; p < picks.length; p++) {
     var qt = (qs && qs[p]) ? qs[p] : picks[p].title;
     var q = embQueryVec_(qt);
     if (!q.ok) { out.note = q.note; continue; }
-    var per = Math.max(10000, Math.min(60000, Math.floor((tEnd - new Date().getTime()) / (picks.length - p))));
-    var r = embSearch_(q.vec, { top: topK, budgetMs: per, want: picks[p].id });
-    out.shardsRead += Number(r.shards) || 0;
+    vecs.push(q.vec); ids.push(picks[p].id);
+  }
+  var core = vecs.length
+    ? embCore_(vecs, { top: topK, budgetMs: Math.max(30000, tEnd - new Date().getTime()), wants: ids })
+    : { outs: [] };
+  for (var cq = 0; cq < core.outs.length; cq++) {
+    var r = core.outs[cq];
+    if (!cq) out.shardsRead = Number(r.shards) || 0;
     var wt = r.want || { seen: false };
     if (!wt.seen) {
       out.unread++;
@@ -74221,7 +74408,7 @@ function embSelfTest_(n) {
     out.tried++;
     var found = false;
     for (var k = 0; k < r.items.length; k++) {
-      if (r.items[k].id === picks[p].id) { out.hit++; found = true; break; }
+      if (r.items[k].id === ids[cq]) { out.hit++; found = true; break; }
     }
     var f2 = function (x) { return (x === null || x === undefined) ? '—' : Number(x).toFixed(2); };
     if (found) why.push('پیدا، رتبهٔ ' + wt.rank);
