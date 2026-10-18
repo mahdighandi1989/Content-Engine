@@ -1,14 +1,16 @@
 {
-  "version": "9.52",
+  "version": "9.53",
   "codeFile": "engine.gs",
-  "sha256": "f9057e34e7d7afc14ab666db97c62a8c10a401d369b813fcbbd7e0237d39248c",
-  "releasedAt": "2026-10-18T14:20:00+04:00",
-  "summary": "شورتزِ یوتیوبِ ریلزی که دیگر «انجام‌شده» نیست (درسِ ۱ِ آئودی، قسمتِ ۲۲) از صف بیرون می‌رود.",
+  "sha256": "16c3f31e8ee876332429ad78e341a9d8cca678d8af4e58332c64d2101a2477fb",
+  "releasedAt": "2026-10-18T15:30:00+04:00",
+  "summary": "«ه» ⇐ «خ» از خودِ تبدیل است (نه خوانش، نه رنگ، نه protect): نمونهٔ تازه با همخوان‌های بی‌واکِ ورودی کنارِ خروجیِ اصلی، و رضوی با لحن و اعراب و مکث ولی بی حالت‌های هیجانی.",
   "fixes": [
-    "src/38_Instagram.gs: igTick — پالایشِ shortQ با igDoneMap_"
+    "tools/voicebridge.py: uvMask/uvSplice + تبدیلِ دومِ «uv» پیش از hearCompare",
+    "src/36_VoiceBridge.gs: ab «uv»، بذرِ nospans در vbrSoulPick_/runVoiceSoulTest، کپشنِ نسخهٔ uv",
+    "src/00_Config.gs: دو بذرِ درسِ ۷۴ (رضوی nospans+uv، گلدوز uv به‌جای ایندکسِ ۰٫۳)"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-05": "۹.۵۲"
+    "R-20261018-06": "۹.۵۳"
   }
 }

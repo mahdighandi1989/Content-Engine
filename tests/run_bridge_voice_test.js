@@ -1617,6 +1617,26 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
            !!(rPl && rPl.ok) && cues.length > 0 && cues.every(c => c === '') && askedSpan === 0,
            JSON.stringify({ ok: rPl && rPl.ok, why: rPl && rPl.why, cues: cues.slice(0, 2), askedSpan }));
       }
+      /* ۹.۵۳: «بی حالت‌های هیجانی» — دستورِ لحن برمی‌گردد (ساده «تند و بی‌روح» شد)، فقط پرسشِ حالت نه؛ و تبدیلِ دوم «uv». */
+      {
+        const keepSeed = CFG.VOICE_SOUL_SEED;
+        CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '88', tag: 'بی حالت', nospans: true, ab: 'uv' }];
+        const qN = vbrRead_(); qN.items = []; vbrSave_(qN);
+        let askedSpan = 0;
+        const gemKeep = global.geminiText_;
+        global.geminiText_ = function (pq) {
+          if (String(pq).indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) askedSpan++;
+          return gemKeep.apply(null, arguments);
+        };
+        cues.length = 0;
+        const rNs = runVoiceSoulTest();
+        global.geminiText_ = gemKeep;
+        CFG.VOICE_SOUL_SEED = keepSeed;
+        const rowN = (vbrRead_().items || [])[0] || {};
+        ok('۲۴.۱۸-ج بی حالت‌های هیجانی: دستورِ لحن هست، پرسشِ حالت نیست، تبدیلِ دوم «uv» در صف',
+           !!(rNs && rNs.ok) && cues.some(c => c !== '') && askedSpan === 0 && !!(rowN.ab && rowN.ab.uv === true),
+           JSON.stringify({ ok: rNs && rNs.ok, why: rNs && rNs.why, askedSpan, ab: rowN.ab }));
+      }
       /* و مدلی که جواب ندهد، نمونه را نمی‌اندازد — فقط بی حالت، و می‌گوید چرا. */
       const qS2 = vbrRead_(); qS2.items = []; vbrSave_(qS2);
       global.geminiText_ = function (pq) {

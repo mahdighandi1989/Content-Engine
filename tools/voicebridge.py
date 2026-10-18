@@ -542,6 +542,88 @@ def _hnorm(t):
     return re.sub(r"[^\u0600-\u06FF]", "", t)
 
 
+def _wavRead(path):
+    import wave
+    import numpy as np
+    with wave.open(path, "rb") as w:
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        raw = w.readframes(w.getnframes())
+    if sw != 2:
+        raise ValueError("فقط ۱۶ بیتی")
+    x = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+    if ch > 1:
+        x = x[:len(x) // ch * ch].reshape(-1, ch).mean(1)
+    return x, sr
+
+
+def uvMask(x, sr, hopS=0.01, winS=0.03):
+    """قاب‌های **بی‌واکِ صدادار** — همخوانِ بی‌واک و نفس (ه، س، ش، ف، ت…): انرژی دارند ولی تناوب ندارند.
+    خودهمبستگیِ بهنجار در بازهٔ ۷۰ تا ۴۰۰ هرتز زیرِ ۰٫۴۵ ⇒ بی‌واک؛ انرژیِ زیرِ ۴۰ دسی‌بل پایین‌تر از
+    صدک ۹۵ ⇒ سکوت (جا به‌جا نمی‌شود). numpy تنها؛ همان شیوهٔ `f0Stats`."""
+    import numpy as np
+    hop, win = max(1, int(sr * hopS)), max(2, int(sr * winS))
+    n = max(0, (len(x) - win) // hop + 1)
+    if n == 0:
+        return np.zeros(0, bool), hop
+    idx = np.arange(win)[None, :] + hop * np.arange(n)[:, None]
+    F = x[idx] * np.hanning(win)[None, :]
+    rms = np.sqrt((F ** 2).mean(1) + 1e-12)
+    loud = rms > np.percentile(rms, 95) * 10 ** (-40 / 20.0)
+    lo, hi = int(sr / 400.0), min(win - 1, int(sr / 70.0))
+    spec = np.fft.rfft(F, 2 * win)
+    ac = np.fft.irfft(np.abs(spec) ** 2)[:, :win]
+    ac = ac / (ac[:, :1] + 1e-12)
+    per = ac[:, lo:hi].max(1)
+    return loud & (per < 0.45), hop
+
+
+def uvSplice(outPath, srcPath, dstPath, fadeS=0.008):
+    """۹.۵۳ — «ه» ⇐ «خ»: همخوانِ بی‌واکِ خروجی با همان بازهٔ **ورودی** عوض می‌شود.
+    سه درمان روی خودِ تبدیل («protect» ۰٫۱۵: ۴۰ در برابرِ ۴۳؛ بی رنگ: ۴۲ در برابرِ ۳۹؛ خوانشِ ساده: ۳۵) «خ» را نبست —
+    مدل خودش «ه»ِ نفس‌مانند را «خ» می‌سازد. «ه»ِ ورودی درست است (whisper همان بازه را «ه» می‌شنود) و همخوانِ بی‌واک
+    زیروبم ندارد، پس رنگِ گوینده‌ای در آن نیست که از دست برود. تبدیل زمان را نگه می‌دارد، پس همان قاب‌ها جابه‌جا
+    می‌شوند. بلندیِ ورودی با نسبتِ بلندیِ قاب‌های واک‌دارِ دو فایل هم‌تراز می‌شود؛ مرزها با محوِ ۸ میلی‌ثانیه‌ای.
+    ⇒ {ok, frames, pct, gainDb} یا {ok: False, why}."""
+    import wave
+    import numpy as np
+    try:
+        y, sr = _wavRead(outPath)
+        s, ssr = _wavRead(srcPath)
+    except Exception as e:
+        return {"ok": False, "why": str(e)[:120]}
+    if ssr != sr:
+        t = np.arange(int(len(s) * float(sr) / ssr)) * (float(ssr) / sr)
+        s = np.interp(t, np.arange(len(s)), s).astype(np.float32)
+    n = min(len(y), len(s))
+    if n < sr:
+        return {"ok": False, "why": "کوتاه"}
+    y, s = y[:n].copy(), s[:n]
+    m, hop = uvMask(s, sr)
+    if not m.any():
+        return {"ok": False, "why": "قابِ بی‌واکی پیدا نشد"}
+    mOut, _ = uvMask(y, sr)
+    # بلندی از قاب‌های واک‌دارِ هر دو (نه بی‌واک‌ها: آن‌ها همان چیزی‌اند که عوض می‌شوند)
+    voiced = ~m[:len(mOut)] & ~mOut[:len(m)]
+    seg = lambda x_: np.array([np.sqrt((x_[i * hop:(i + 1) * hop] ** 2).mean() + 1e-12) for i in np.nonzero(voiced)[0][:4000]])
+    ry, rs = seg(y), seg(s)
+    g = float(np.median(ry) / max(1e-9, np.median(rs))) if len(ry) and len(rs) else 1.0
+    g = min(4.0, max(0.25, g))
+    w = np.zeros(n, np.float32)
+    for i in np.nonzero(m)[0]:
+        w[i * hop:min(n, (i + 1) * hop)] = 1.0
+    k = max(1, int(sr * fadeS))
+    w = np.convolve(w, np.ones(k, np.float32) / k, mode="same")
+    z = (1.0 - w) * y + w * (s * g)
+    z = np.clip(z, -1.0, 1.0)
+    with wave.open(dstPath, "wb") as wo:
+        wo.setnchannels(1)
+        wo.setsampwidth(2)
+        wo.setframerate(sr)
+        wo.writeframes((z * 32767.0).astype("<i2").tobytes())
+    return {"ok": True, "frames": int(m.sum()), "pct": round(100.0 * m.mean(), 1),
+            "gainDb": round(20 * np.log10(g), 1)}
+
+
 def hearCompare(src, out, alt=None, model=None):
     """۹.۱۱: شنیدنِ ورودی و خروجی روی **همان بازه‌های زمانی** — تبدیل زمان را نگه می‌دارد، پس هر جمله‌ای که
     whisper در صدای جمینای شنید، با همان بازه از خروجی مقایسه می‌شود. واژه‌ای که در ورودی درست و در خروجی خراب
@@ -1322,6 +1404,21 @@ def runOne(it, mp):
             abLabel = "بی رنگ"
         except Exception as e:
             say("::warning title=نسخهٔ بی‌رنگ ساخته نشد::%s" % str(e)[:200])
+    # ۹.۵۳: «uv» = همان خروجیِ اصلی، با همخوان‌های بی‌واکِ ورودی — بی هیچ تبدیلِ اضافه.
+    uvRes = None
+    if abIt.get("uv"):
+        try:
+            uvp = os.path.join(os.path.dirname(best), "uv-out.wav")
+            uvRes = uvSplice(best, "vb/src.wav", uvp)
+            if uvRes.get("ok"):
+                altOut = uvp
+                abLabel = "همخوانِ بی‌واک از ورودی"
+                say("  همخوانِ بی‌واک از ورودی: %d قاب (%.1f٪)، هم‌ترازی %+.1f دسی‌بل"
+                    % (uvRes["frames"], uvRes["pct"], uvRes["gainDb"]))
+            else:
+                say("::warning title=همخوانِ بی‌واک جابه‌جا نشد::%s" % uvRes.get("why", ""))
+        except Exception as e:
+            say("::warning title=همخوانِ بی‌واک جابه‌جا نشد::%s" % str(e)[:200])
     if altRaw:
         try:
             cur = altRaw
@@ -1388,12 +1485,14 @@ def runOne(it, mp):
         rec["colour"] = colour
     if hear:
         rec["hear"] = hear
-    if altOut and (abRate or abProt or abIt.get("nocolour")):
+    if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv")):
         try:
-            nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else ""), 0, 1)
+            nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)
             u = uploadAsset(rel, altOut, nm)
             if u:
                 rec["ab"] = {"indexRate": abRate, "protect": abProt, "nocolour": bool(abIt.get("nocolour")), "url": u}
+                if abIt.get("uv"):
+                    rec["ab"]["uv"] = uvRes
         except Exception as e:
             say("::warning title=تبدیلِ دوم آپلود نشد::%s" % str(e)[:200])
     # ══ خروجی هم سنجیده می‌شود، چون ورودی سنجیدن یعنی امید (۸٫۲۴) ══

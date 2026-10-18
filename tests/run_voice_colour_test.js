@@ -156,6 +156,7 @@ print(json.dumps(v.hearCompare('SRC','OUT','ALT',model=M()),ensure_ascii=False))
   saved = null;
   vbrAsk_('آزمون', '13', 'F', 'spk-x', 't', { soul: 'روشن', ab: 'nc' });
   ok('۶.۲-ب «nc» ⇒ نسخهٔ دوم همان تبدیل بی رنگ (۹.۲۴)', saved.items[0].ab && saved.items[0].ab.nocolour === true, JSON.stringify(saved.items[0].ab));
+  ok('۶.۳-پ کپشنِ نسخهٔ «همخوانِ بی‌واک از ورودی» (۹.۵۳)', /همخوانِ بی‌واک از ورودی/.test(vbrPitchLine_({ abOut: { uv: true, url: 'https://x/uv.wav' } })));
   ok('۶.۳-ب کپشنِ نسخهٔ بی‌رنگ', /همان تبدیل، بی رنگ/.test(vbrPitchLine_({ abOut: { nocolour: true, url: 'https://x/nc.wav' } })));
   const bp = fs.readFileSync('tools/voicebridge.py', 'utf8');
   ok('۶.۴ پل protectِ تبدیلِ دوم را به جای خودش می‌گذارد', /a2\[a2\.index\("--rvc-protect"\) \+ 1\] = abProt/.test(bp) &&
@@ -260,6 +261,34 @@ print(json.dumps({"m":m,"sp1":corr(y[w(4.5,15.5)],x[w(4.5,15.5)]),"sp2":corr(y[w
   ok('۱۰.۳ موسیقیِ میانه دست‌نخورده', res.mus > 0.99, res.mus.toFixed(3));
   ok('۱۰.۴ تبدیلی که با ورودی نمی‌خواند تحویل نمی‌شود (پرتاب ⇒ ردیف بسته نمی‌شود)', /نمی‌خواند/.test(res.err), res.err.slice(0, 120));
   try { fs.rmSync(d10, { recursive: true, force: true }); } catch (e) {}
+}
+
+console.log('=== ۱۱) «ه» ⇐ «خ»: همخوانِ بی‌واک از ورودی (۹.۵۳) ===');
+{
+  /* ورودی: واکهٔ ۱۵۰ هرتزی + نفسِ نویزی در ۰٫۸ تا ۱٫۰؛ خروجیِ «تبدیل‌شده»: واکهٔ ۱۱۰ هرتزی + نویزی دیگر جای همان نفس.
+     نرخِ ورودی ۲۴ کیلوهرتز و خروجی ۱۶ — مثلِ جمینای و RVC. */
+  const d11 = fs.mkdtempSync(path.join(os.tmpdir(), 'vuv-'));
+  const res = py(`import numpy as np, wave
+d=${JSON.stringify(d11)}; sr=16000; rng=np.random.default_rng(1)
+def w(p,x,r):
+  o=wave.open(p,'wb'); o.setnchannels(1); o.setsampwidth(2); o.setframerate(r); o.writeframes((np.clip(x,-1,1)*32767).astype('<i2').tobytes()); o.close()
+t=np.arange(sr*2)/sr
+src=0.3*np.sin(2*np.pi*150*t); src[int(0.8*sr):int(1.0*sr)]=0.05*rng.standard_normal(int(0.2*sr))
+out=0.3*np.sin(2*np.pi*110*t); out[int(0.8*sr):int(1.0*sr)]=0.12*rng.standard_normal(int(0.2*sr))
+w(d+'/s.wav',np.interp(np.arange(48000)/24000.0,t,src),24000); w(d+'/o.wav',out,sr)
+r=v.uvSplice(d+'/o.wav',d+'/s.wav',d+'/z.wav'); z,_=v._wavRead(d+'/z.wav')
+c=lambda a,b: float(np.corrcoef(a,b)[0,1]); W=lambda a,b: slice(int(a*sr),int(b*sr))
+r['breath']=c(z[W(.85,.95)],src[W(.85,.95)]); r['vowel']=c(z[W(.3,.5)],out[W(.3,.5)]); r['n']=len(z)
+r['bad']=v.uvSplice(d+'/o.wav',d+'/nope.wav',d+'/x.wav')
+print(json.dumps(r))`);
+  ok('۱۱.۱ نفسِ خروجی همان نفسِ ورودی شد (نرخِ ۲۴ ⇐ ۱۶ هم‌تراز)، واکهٔ تبدیل‌شده دست‌نخورده', res.ok === true && res.breath > 0.9 && res.vowel > 0.999 &&
+     res.n === 32000 && Math.abs(res.gainDb) < 1, JSON.stringify(res));
+  ok('۱۱.۲ ورودیِ خوانده‌نشده ⇒ «نشد»، خروجیِ اصلی دست‌نخورده می‌مانَد', res.bad.ok === false);
+  const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۱۱.۳ سیم: `ab.uv` ⇒ uvSplice روی همان خروجیِ نهایی، پیش از شنیدن؛ نامِ دارایی و رکورد «uv» دارند',
+     /if abIt\.get\("uv"\):[\s\S]*?uvSplice\(best, "vb\/src\.wav"/.test(vb) && vb.indexOf('uvSplice(best') < vb.indexOf('hear = hearCompare(') &&
+     /rec\["ab"\]\["uv"\] = uvRes/.test(vb));
+  try { fs.rmSync(d11, { recursive: true, force: true }); } catch (e) {}
 }
 
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}

@@ -1017,7 +1017,7 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      `index_rate`ِ پایین‌تر هم می‌سازد — تصمیمِ عدد با گوشِ صاحبِ برنامه است (۷٫۷۳)، نه با کد. */
   /* ۹.۲۳: «p0.15» = تبدیلِ دوم با `protect`ِ دیگر («ه» ⇐ «خ» از محافظِ همخوانِ بی‌واک است)، وگرنه index_rate. */
   /* ۹.۲۴: «nc» = نسخهٔ دوم همان تبدیل بی رنگ (سنجشِ «ه» ⇐ «خ» با و بی همسان‌سازیِ طیف). */
-  if (o.ab) row.ab = String(o.ab) === 'nc' ? { nocolour: true } :
+  if (o.ab) row.ab = String(o.ab) === 'nc' ? { nocolour: true } : String(o.ab) === 'uv' ? { uv: true } :
                      (/^p/.test(String(o.ab)) ? { protect: String(o.ab).slice(1) } : { indexRate: String(o.ab) });
   if (o.soul) { row.soul = String(o.soul); row.soulWhy = String(o.soulWhy || ''); }
   else {
@@ -1488,7 +1488,7 @@ function vbrPitchLine_(item, faD) {
     out += (out ? ' · ' : '') + '«خ»ِ افزوده از تبدیل (مثلِ «هم» ⇐ «خم»): ' + f(String(hr.khOut)) +
            (hr.khAlt != null ? '، تبدیلِ دوم ' + f(String(hr.khAlt)) : '');
   }
-  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.nocolour ? 'همان تبدیل، بی رنگ' : (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate)))) + '): ' + String(ab.url);
+  if (ab && ab.url) out += (out ? '\n' : '') + 'تبدیلِ دوم (' + (ab.nocolour ? 'همان تبدیل، بی رنگ' : ab.uv ? 'همان تبدیل، همخوانِ بی‌واک از ورودی' : (ab.protect ? 'protect ' + f(String(ab.protect)) : 'index_rate ' + f(String(ab.indexRate)))) + '): ' + String(ab.url);
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
@@ -2848,6 +2848,7 @@ function vbrSoulPick_() {
     var seedColour = {};
     var seedAb = {};
     var seedPlain = {};
+    var seedNoSpans = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -2864,7 +2865,8 @@ function vbrSoulPick_() {
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
       if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
-      if (se.plain) seedPlain[sk] = true;              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
+      if (se.plain) seedPlain[sk] = true;
+      if (se.nospans) seedNoSpans[sk] = true;           // ۹.۵۳: لحن و اعراب و مکث سرِ جا، فقط بی حالت‌های هیجانی              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -2913,7 +2915,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k] };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3127,6 +3129,9 @@ function runVoiceSoulTest() {
     /* متنِ آزمون جای حالت‌هایش را خودش دارد: این آزمونِ گوینده است، نه
        آزمونِ انتخاب‌گر — دو گوینده باید روی **همان** جاها سنجیده شوند. */
     if (pick.plain) spanPlan = { spans: [], why: 'خوانشِ ساده (۹.۵۰)' };
+    /* ۹.۵۳: خوانشِ ساده زیرشدن را برد (۱۰۵ هرتز به‌جای ۱۳۵) ولی «تند و بی‌روح» شد — دستورِ لحن، اعراب و مکث با هم رفته
+       بودند. این بار فقط حالت‌های جمله‌به‌جمله (کشیده/بلند/هیجان) کنار می‌روند و بقیه برمی‌گردند. */
+    else if (pick.nospans) spanPlan = { spans: [], why: 'بی حالت‌های جمله‌به‌جمله (۹.۵۳)' };
     else if (vtest) spanPlan = { spans: vtest.spans || [], why: 'متنِ آزمون حالتی ندارد' };
     else if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
       spanPlan = speakSpanPlan_(txt, true);
