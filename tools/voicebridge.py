@@ -556,25 +556,104 @@ def _wavRead(path):
     return x, sr
 
 
-def uvMask(x, sr, hopS=0.01, winS=0.03):
-    """قاب‌های **بی‌واکِ صدادار** — همخوانِ بی‌واک و نفس (ه، س، ش، ف، ت…): انرژی دارند ولی تناوب ندارند.
-    خودهمبستگیِ بهنجار در بازهٔ ۷۰ تا ۴۰۰ هرتز زیرِ ۰٫۴۵ ⇒ بی‌واک؛ انرژیِ زیرِ ۴۰ دسی‌بل پایین‌تر از
-    صدک ۹۵ ⇒ سکوت (جا به‌جا نمی‌شود). numpy تنها؛ همان شیوهٔ `f0Stats`."""
+def uvMask(x, sr, hopS=0.01, winS=0.025, lowMax=0.25, floorDb=-30.0, maxRun=25):
+    """قاب‌های **همخوانِ بی‌واک** (ه، س، ش، ف، خ…) — ۹.۵۴: از طیف، نه از خودهمبستگی.
+    نسخهٔ ۹.۵۳ تناوب را با پنجرهٔ هنینگ می‌سنجید و اریبیِ پنجره را جبران نمی‌کرد؛ واکه‌ها «کم‌تناوب» خوانده شدند و
+    روی خروجیِ واقعیِ رضوی ۴۷٪ قاب‌ها جابه‌جا شد — شنیدن از ۰٫۸۴ به ۰٫۵۵ افتاد. حالا: سهمِ انرژیِ زیرِ ۱ کیلوهرتز
+    کمتر از `lowMax` (همخوانِ بی‌واک انرژی‌اش بالاست، واکه پایین)، بلندی بالای `floorDb` نسبت به صدکِ ۹۵ (نفسِ
+    کم‌جان و سکوت نه)، و رشته‌ای بلندتر از `maxRun` قاب (۲۵۰ میلی‌ثانیه) همخوان نیست — کنار می‌رود. روی همان خروجی
+    ~۱۹٪ از قاب‌های گفتار، که اندازهٔ همخوان‌های بی‌واک در گفتارِ فارسی است."""
     import numpy as np
-    hop, win = max(1, int(sr * hopS)), max(2, int(sr * winS))
+    hop, win = max(1, int(sr * hopS)), max(8, int(sr * winS))
     n = max(0, (len(x) - win) // hop + 1)
     if n == 0:
         return np.zeros(0, bool), hop
-    idx = np.arange(win)[None, :] + hop * np.arange(n)[:, None]
-    F = x[idx] * np.hanning(win)[None, :]
-    rms = np.sqrt((F ** 2).mean(1) + 1e-12)
-    loud = rms > np.percentile(rms, 95) * 10 ** (-40 / 20.0)
-    lo, hi = int(sr / 400.0), min(win - 1, int(sr / 70.0))
-    spec = np.fft.rfft(F, 2 * win)
-    ac = np.fft.irfft(np.abs(spec) ** 2)[:, :win]
-    ac = ac / (ac[:, :1] + 1e-12)
-    per = ac[:, lo:hi].max(1)
-    return loud & (per < 0.45), hop
+    m = np.zeros(n, bool)
+    f = np.fft.rfftfreq(win, 1.0 / sr)
+    w = np.hanning(win)
+    db = np.zeros(n)
+    for a in range(0, n, 4000):                     # تکه‌تکه، نه کلِ فایل در حافظه
+        b = min(n, a + 4000)
+        idx = np.arange(win)[None, :] + hop * np.arange(a, b)[:, None]
+        S = np.abs(np.fft.rfft(x[idx] * w[None, :], axis=1)) ** 2
+        tot = S.sum(1) + 1e-12
+        m[a:b] = (S[:, f < 1000].sum(1) / tot) < lowMax
+        db[a:b] = 10 * np.log10(tot)
+    m &= db > np.percentile(db, 95) + floorDb
+    # رشتهٔ بلند همخوان نیست
+    i = 0
+    while i < n:
+        if m[i]:
+            k = i
+            while k < n and m[k]:
+                k += 1
+            if k - i > maxRun:
+                m[i:k] = False
+            i = k
+        else:
+            i += 1
+    return m, hop
+
+
+def riseScan(path, minPause=0.2):
+    """۹.۵۴ — «جملهٔ خبری را جوری می‌خواند که انگار سؤالیه یا تعجبیه». پیش از هر مکثِ ≥ ۲۰۰ میلی‌ثانیه (۳۰ دسی‌بل زیرِ صدکِ ۹۵)، زیروبمِ
+    ۱۵۰ میلی‌ثانیهٔ آخرِ عبارت با ۶۰۰ میلی‌ثانیهٔ پیش از آن سنجیده می‌شود؛ بیش از ۲ نیم‌پرده بالا رفتن = «پایانِ
+    بالارونده». RVC زیروبمِ ورودی را فقط جابه‌جا می‌کند، پس این را روی **ورودی** می‌سنجیم: عدد می‌گوید از خواندن است
+    یا نه. ⇒ {pauses, rise, pct, at:[ثانیه‌ها]} یا None."""
+    import numpy as np
+    try:
+        x, sr = _wavRead(path)
+    except Exception:
+        return None
+    d = max(1, int(sr // 8000))
+    x = x[:len(x) // d * d].reshape(-1, d).mean(1)
+    sr = float(sr) / d
+    hop, win = int(sr * 0.01), int(sr * 0.04)
+    n = (len(x) - win) // hop + 1
+    if n < 100:
+        return None
+    lo, hi = int(sr / 400), int(sr / 70)
+    rms = np.zeros(n)
+    f0 = np.zeros(n)
+    for i in range(n):
+        fr = x[i * hop:i * hop + win]
+        fr = fr - fr.mean()
+        e = float((fr ** 2).mean())
+        rms[i] = np.sqrt(e)
+        if e < 1e-6:
+            continue
+        c = np.correlate(fr, fr, "full")[win - 1:]
+        nrm = np.sqrt(c[0] * np.array([float((fr[k:] ** 2).sum()) for k in range(lo, hi)]) + 1e-12)
+        r = c[lo:hi] / nrm
+        k = int(np.argmax(r))
+        if r[k] > 0.5:
+            f0[i] = sr / (lo + k)
+    sil = rms < np.percentile(rms, 95) * 10 ** (-30 / 20.0)
+    need = int(minPause / 0.01)
+    pauses, rise, at = 0, 0, []
+    i = 0
+    while i < n:
+        if sil[i]:
+            k = i
+            while k < n and sil[k]:
+                k += 1
+            if k - i >= need and i > 80:
+                seg = f0[max(0, i - 75):i]
+                v = seg[seg > 0]
+                if len(v) >= 12:
+                    pauses += 1
+                    tail, head = np.median(v[-8:]), np.median(v[:-8])
+                    st = 12 * np.log2(tail / head)
+                    if st > 2.0:
+                        rise += 1
+                        if len(at) < 30:
+                            at.append(round(i * 0.01, 1))
+            i = k
+        else:
+            i += 1
+    if not pauses:
+        return None
+    return {"pauses": pauses, "rise": rise, "pct": round(100.0 * rise / pauses, 1), "at": at}
 
 
 def uvSplice(outPath, srcPath, dstPath, fadeS=0.008):
@@ -603,7 +682,7 @@ def uvSplice(outPath, srcPath, dstPath, fadeS=0.008):
         return {"ok": False, "why": "قابِ بی‌واکی پیدا نشد"}
     mOut, _ = uvMask(y, sr)
     # بلندی از قاب‌های واک‌دارِ هر دو (نه بی‌واک‌ها: آن‌ها همان چیزی‌اند که عوض می‌شوند)
-    voiced = ~m[:len(mOut)] & ~mOut[:len(m)]
+    voiced = ~m[:len(mOut)] & ~mOut[:len(m)]   # قاب‌های غیرِ همخوانِ هر دو
     seg = lambda x_: np.array([np.sqrt((x_[i * hop:(i + 1) * hop] ** 2).mean() + 1e-12) for i in np.nonzero(voiced)[0][:4000]])
     ry, rs = seg(y), seg(s)
     g = float(np.median(ry) / max(1e-9, np.median(rs))) if len(ry) and len(rs) else 1.0
@@ -1434,7 +1513,14 @@ def runOne(it, mp):
         except Exception as e:
             say("::warning title=تبدیلِ دوم پرداخت نشد::%s" % str(e)[:200])
     hear = None
+    rise = None
     if str(key).startswith("نمونه"):
+        try:
+            rise = riseScan("vb/src.wav")
+            if rise:
+                say("  پایانِ بالارونده پیش از مکث (ورودی): %d از %d (%.0f٪)" % (rise["rise"], rise["pauses"], rise["pct"]))
+        except Exception as e:
+            say("::warning title=پایانِ عبارت‌ها سنجیده نشد::%s" % str(e)[:200])
         try:
             hear = hearCompare("vb/src.wav", best, altOut)
             if hear:
@@ -1485,6 +1571,8 @@ def runOne(it, mp):
         rec["colour"] = colour
     if hear:
         rec["hear"] = hear
+    if rise:
+        rec["rise"] = rise
     if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv")):
         try:
             nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)

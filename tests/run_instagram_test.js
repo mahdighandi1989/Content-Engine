@@ -74,7 +74,7 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
   ok('۱.۱۲ خطای حساب در انتشار ⇒ صبر، نه شکست؛ شکستِ انتشار ویدئو را از نو نمی‌سازد؛ قسمتِ ۲۲ یک بار از «انجام‌شده» بیرون',
      igAcctErr_('API access blocked.') && igAcctErr_('Invalid OAuth access token') && !igAcctErr_('The video file is too long') &&
      /igAcctErr_\(ce\) \? \{ wait/.test(String(igStepPub_)) && /if \(it\.phase !== 'pub'\) it\.phase = 'plan'/.test(String(igTick)) &&
-     /redo951/.test(String(igTick)));
+     /redo951/.test(String(igTick)) && /redo954/.test(String(igTick)));
   { /* ۹.۵۲: شورتزِ ریلزِ پس‌گرفته از صف بیرون — خودِ igTick، با حالتِ ذخیره‌شده. */
     const kOn = global.igOn_; global.igOn_ = () => false;
     igStateSave_({ done: '1,2', redo951: 1, shortQ: [{ key: 'ig:special:2', ep: 2 }, { key: 'ig:special:22', ep: 22 }] });
@@ -181,6 +181,22 @@ let fo, plan;
      plan.times.every((x, i) => !i || x.t0 >= plan.times[i - 1].t1 - 0.01), JSON.stringify(plan.times));
   ok('۳.۶ «ریلز — صدا.wav» در پوشهٔ اینستاگرام', fo.getFilesByName('ریلز — صدا.wav').hasNext() && plan.phase === 'img');
 
+  /* ۹.۵۴: سدِ تصویر — داورِ بدل: «درسِ ۱۳» نوشته داشت. */
+  const kJ = global.lvSceneJudge_, judged = [];
+  let judgeTxt = true;
+  global.lvSceneJudge_ = batch => { judged.push(batch.length); const o = {}; batch.forEach(b => { o[String(b.n)] = { s: 7, txt: judgeTxt, face: false, why: 'نمودار با برچسب' }; }); return o; };
+  const kGO = global.lvGenOn_; global.lvGenOn_ = () => false;
+  const planT = JSON.parse(JSON.stringify(plan));
+  igStepImages_(it, fo, planT, Date.now() + 60000);
+  global.lvSceneJudge_ = () => { throw new Error('quota'); };
+  const planQ = JSON.parse(JSON.stringify(plan));
+  igStepImages_(it, fo, planQ, Date.now() + 60000);
+  ok('۳.۷-الف تصویرِ درس با نوشته ⇒ هیچ‌کدام برداشته نمی‌شود (و علت ثبت)؛ داورِ غایب هم «نه» است — نشنیدن تأیید نیست',
+     planT.imgs.length === 0 && /نوشته داشت/.test(planT.imgGate) && /نوشته داشت/.test(planT.imgHow + planT.imgGate) &&
+     planQ.imgs.length === 0 && /داورِ تصویر/.test(planQ.imgGate) && judged[0] === 2, JSON.stringify([planT.imgHow, planT.imgGate, planQ.imgGate]));
+  global.lvGenOn_ = kGO;
+  judgeTxt = false;
+  global.lvSceneJudge_ = batch => { const o = {}; batch.forEach(b => { o[String(b.n)] = { s: 7, txt: false, face: false }; }); return o; };
   ok('۳.۷ تصویرها: نقاشی‌های خودِ درس، به ترتیبِ نام، بی کاور، رونوشت در پوشهٔ اینستاگرام',
      igStepImages_(it, fo, plan, Date.now() + 60000).ok && plan.imgs.length === 2 && plan.imgHow === 'نقاشی‌های درس' &&
      global.__FILES_BY_ID[plan.imgs[0].src].getName() === 'صحنه 01.png' && fo.getFilesByName('ریلز — تصویر 1').hasNext(),
@@ -643,6 +659,15 @@ console.log('=== ۱۰) «۶ تا بذار و جداش کن» — صفِ جدای
   setQ(7200, 2, 1); const a4 = igShortQuotaOk_();
   ok('۱۰.۱ شورتز جای قسمتِ کاملِ امروز را نمی‌گیرد: ۱ کامل رفته و ۶۰۰۰ مصرف ⇒ نه؛ هر دو کامل رفته ⇒ بله؛ شورتز کامل شمرده نمی‌شود',
      a1 && !a2 && a3 && !a4, JSON.stringify([a1, a2, a3, a4]));
+  /* ۹.۵۴: ۱۸ اکتبر — دو آپلودِ کامل رفته بود (یکی قسمتِ دیروز) و درسِ امروز تازه در صف آمد. */
+  const kDue = global.ytDueList_;
+  global.ytDueList_ = () => [{ key: 'special:75' }];
+  setQ(6000, 2, 0); const a5 = igShortQuotaOk_();
+  setQ(3000, 1, 0); global.ytDueList_ = () => [{ key: 'special:75' }, { key: 'variety:76' }, { key: 'special:76' }]; const a6 = igShortQuotaOk_();
+  global.ytDueList_ = () => []; setQ(6000, 2, 0); const a7 = igShortQuotaOk_();
+  global.ytDueList_ = kDue;
+  ok('۱۰.۱-ب قسمتِ کاملِ در صف جای خودش را دارد، حتی وقتی «دو کاملِ امروز» رفته (۹.۵۴)؛ صفِ خالی ⇒ همان قاعدهٔ پیشین',
+     !a5 && !a6 && a7, JSON.stringify([a5, a6, a7]));
   /* yts منتظرِ سهمیه ⇒ ریلز «انجام»، شورتز به صف؛ درسِ بعد پشتِ صف و بی تلاشِ آپلود. */
   const ser = global.__ROOT_FOLDER.createFolder('مجموعهٔ صف');
   const mk = (n) => { const ef = ser.createFolder('قسمت ' + n); const f = igFolder_(ef);

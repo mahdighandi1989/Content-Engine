@@ -891,6 +891,9 @@ function styleProbeSet_(on) {
   else props_().deleteProperty(PK.STYLE_PROBE);
 }
 
+/** ۹.۵۴: خاموش‌کنِ یادآورِ سبکِ سراسری برای یک ساخت (نمونهٔ «آرام»)؛ صدازننده در finally برش می‌گرداند. */
+var TTS_DEEP_OFF_ = false;
+
 function ttsCue_(sectionStyle, text) {
   var cap = Number(CFG.TTS_CUE_MAX) || 300;
   // نقطهٔ پایانیِ لحن برداشته می‌شود: کد خودش «. » می‌گذارد و لحنی که به
@@ -912,7 +915,9 @@ function ttsCue_(sectionStyle, text) {
     var pr = styleProbeOn_();
     styleOn = (pr === null) ? !!CFG.SPEAK_STYLE_ON : pr;
   } catch (eS) {}
-  var deep = (styleOn && CFG.SPEAK_STYLE_HINT) ? String(CFG.SPEAK_STYLE_HINT) : '';
+  /* ۹.۵۴: نمونهٔ «آرام» یادآورِ «مکث درونِ جمله» را نمی‌خواهد — همان که جمله را وسطش می‌شکست و پایانِ تکه را بالا
+     رها می‌کرد («جملهٔ خبری را جوری می‌خواند که انگار سؤالیه»). */
+  var deep = (styleOn && CFG.SPEAK_STYLE_HINT && !TTS_DEEP_OFF_) ? String(CFG.SPEAK_STYLE_HINT) : '';
   // «سبک روشن است» با «یادآورِ سبک واقعاً در دستور نشست» یکی نیست، و همین
   // تفاوت یک باگِ جدی می‌ساخت: در شاخهٔ بی‌اعراب عمداً یادآورِ تلفظ انتخاب
   // می‌شود و `deep` کنار گذاشته می‌شود — ولی بلوکِ بازسازیِ پایین اگر به

@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.53
+ *  موتور محتوا و پادکست — نسخهٔ 9.54
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.53',
+  CODE_VERSION: '9.54',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2540,7 +2540,13 @@ var CFG = {
        مکث برمی‌گردند و فقط حالت‌های جمله‌به‌جمله کنار می‌روند (`nospans`)؛ (۲) تبدیلِ دوم = همان خروجی با همخوان‌های بی‌واکِ
        **ورودی** (`ab: 'uv'`، `voicebridge.uvSplice`) — شمارِ «خ»ِ افزودهٔ هر دو در یک اجرا. گلدوز همین درمان، به‌جای ایندکسِ ۰٫۳. */
     { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · لحن بی حالت‌های هیجانی · «ه» از ورودی · مکث به اندازهٔ خودش', nospans: true, ab: 'uv' },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · «ه» از ورودی · مکث به اندازهٔ خودش', colour: 'prev', ab: 'uv' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · «ه» از ورودی · مکث به اندازهٔ خودش', colour: 'prev', ab: 'uv' },
+    /* ۹.۵۴: «بهتر شده بود ولی همچنان ه رو گاهی خ … برای گلدوز بیشتر» و «جملهٔ خبری رو جوری می‌خونه که انگار سؤالیه یا
+       تعجبیه». نسخهٔ uvِ ۹.۵۳ ۴۷٪ قاب‌ها را جابه‌جا کرده بود (شنیدن ۰٫۸۴ ⇐ ۰٫۵۵) — ماسک حالا از طیف است (~۱۹٪). و
+       «آرام» (`calm`): دستورِ «جمله را وسطش بشکن … تعلیق» و کششِ مکثِ درونِ جمله کنار، قاعدهٔ پایانِ خبری اول؛ رانر
+       پایان‌های بالارونده را می‌شمارد (`rise`) — نمونهٔ پیشینِ رضوی ۷ از ۲۶ (۲۷٪). */
+    { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · «ه» از ورودیِ ۲ · مکث به اندازهٔ خودش', nospans: true, calm: true, ab: 'uv' },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · آرام · «ه» از ورودیِ ۲ · مکث به اندازهٔ خودش', nospans: true, calm: true, colour: 'prev', ab: 'uv' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -5523,6 +5529,9 @@ function styleProbeSet_(on) {
   else props_().deleteProperty(PK.STYLE_PROBE);
 }
 
+/** ۹.۵۴: خاموش‌کنِ یادآورِ سبکِ سراسری برای یک ساخت (نمونهٔ «آرام»)؛ صدازننده در finally برش می‌گرداند. */
+var TTS_DEEP_OFF_ = false;
+
 function ttsCue_(sectionStyle, text) {
   var cap = Number(CFG.TTS_CUE_MAX) || 300;
   // نقطهٔ پایانیِ لحن برداشته می‌شود: کد خودش «. » می‌گذارد و لحنی که به
@@ -5544,7 +5553,9 @@ function ttsCue_(sectionStyle, text) {
     var pr = styleProbeOn_();
     styleOn = (pr === null) ? !!CFG.SPEAK_STYLE_ON : pr;
   } catch (eS) {}
-  var deep = (styleOn && CFG.SPEAK_STYLE_HINT) ? String(CFG.SPEAK_STYLE_HINT) : '';
+  /* ۹.۵۴: نمونهٔ «آرام» یادآورِ «مکث درونِ جمله» را نمی‌خواهد — همان که جمله را وسطش می‌شکست و پایانِ تکه را بالا
+     رها می‌کرد («جملهٔ خبری را جوری می‌خواند که انگار سؤالیه»). */
+  var deep = (styleOn && CFG.SPEAK_STYLE_HINT && !TTS_DEEP_OFF_) ? String(CFG.SPEAK_STYLE_HINT) : '';
   // «سبک روشن است» با «یادآورِ سبک واقعاً در دستور نشست» یکی نیست، و همین
   // تفاوت یک باگِ جدی می‌ساخت: در شاخهٔ بی‌اعراب عمداً یادآورِ تلفظ انتخاب
   // می‌شود و `deep` کنار گذاشته می‌شود — ولی بلوکِ بازسازیِ پایین اگر به
@@ -78278,6 +78289,7 @@ function vbrSoulPick_() {
     var seedAb = {};
     var seedPlain = {};
     var seedNoSpans = {};
+    var seedCalm = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -78295,7 +78307,8 @@ function vbrSoulPick_() {
       if (se.colour) seedColour[sk] = String(se.colour);
       if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
       if (se.plain) seedPlain[sk] = true;
-      if (se.nospans) seedNoSpans[sk] = true;           // ۹.۵۳: لحن و اعراب و مکث سرِ جا، فقط بی حالت‌های هیجانی              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
+      if (se.nospans) seedNoSpans[sk] = true;
+      if (se.calm) seedCalm[sk] = true;                 // ۹.۵۴: پایانِ خبری فرود، بی شکستنِ جمله از وسط           // ۹.۵۳: لحن و اعراب و مکث سرِ جا، فقط بی حالت‌های هیجانی              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -78344,7 +78357,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k] };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -78363,6 +78376,22 @@ function vbrSoulPick_() {
        '«شیوهٔ خواندن»ش خالی است — بی آن روحی برای گذاشتن نیست')
     : 'هیچ قسمتی در ستونِ «قسمت‌های تولیدشده» تیک نخورده';
   return out;
+}
+
+/**
+ * ۹.۵۴ — «جمله‌ای که باید با نقطه تموم شه … جوری می‌خونه که انگار سؤالیه یا تعجبیه». کارتِ سبکِ گوینده می‌گوید «جمله را
+ * وسطش بشکن و همان‌جا نگه دار — این چیزی است که به روایت تعلیق می‌دهد»، و یادآورِ سراسری «مکث‌ها را بیشتر درونِ
+ * جمله». گفتارساز پیش از مکثِ وسطِ جمله صدا را بالا نگه می‌دارد (ادامه دارد…)، و کششِ همان مکث آن بالا ماندن را
+ * پرسش می‌کند. نسخهٔ «آرام»: هر جمله‌ای از دستور که شکستن یا تعلیقِ میانِ جمله می‌خواهد کنار می‌رود و قاعدهٔ پایانِ
+ * خبری **اول** می‌آید (تا بریدنِ سقفِ دستور نخوردش). اندازه‌اش `riseScan` در رانر است، نه حدس.
+ */
+var VBR_CALM_LINE = 'جملهٔ خبری را با فرودِ آرامِ صدا تمام کن؛ آهنگِ پرسشی فقط جای «؟» و تعجبی فقط جای «!»؛ مکث سرِ نشانه‌ها، نه وسطِ جمله';
+function vbrCalmCue_(cue) {
+  var parts = String(cue || '').split(/(?<=[.؛\n])\s*|\s*[-•]\s+/);
+  var keep = parts.filter(function (t) {
+    return t && t.trim() && !/(دلِ?\s*جمله|درونِ?\s*جمله|وسطش|وسطِ?\s*جمله|تعلیق|بشکن)/.test(t);
+  });
+  return VBR_CALM_LINE + (keep.length ? '. ' + keep.join(' ').replace(/\s+/g, ' ').trim() : '');
 }
 
 /**
@@ -78610,11 +78639,13 @@ function runVoiceSoulTest() {
        گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
     var perS = { cue: pick.cue, name: pick.name, key: pick.key };
     var pzS = null, gapsS = null;
-    var cueUse = pick.plain ? '' : pick.cue;
+    var cueUse = pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue);
     if (!pick.plain) {
       try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
       try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
+      if (pick.calm && gapsS) gapsS.inS = 0;          // ۹.۵۴: مکثِ درونِ جمله کش نمی‌آید
     }
+    if (pick.calm) TTS_DEEP_OFF_ = true;
     var pieces = (spanPlan.spans && spanPlan.spans.length)
       ? speakSpanPieces_(txt, spanPlan.spans, pzS && pzS.src !== 'پیش‌فرض' ? pzS.sec : 0)
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
@@ -78735,6 +78766,7 @@ function runVoiceSoulTest() {
   } catch (e) {
     res.why = res.why || String((e && e.message) || e).slice(0, 150);
   } finally {
+    TTS_DEEP_OFF_ = false;                           // ۹.۵۴: فقط برای همین ساخت
     try { styleProbeSet_(null); } catch (eD) {}      // برداشتن، نه خاموشِ صریح
     try { if (lock) lock.releaseLock(); } catch (eL) {}
   }
@@ -80645,6 +80677,38 @@ function igIsImg_(f) {
   return /^image\//.test(mt) || /\.(png|jpe?g|webp)$/i.test(String(f.getName() || ''));
 }
 
+/** متنِ ریلز کنارِ تصویرِ q از n — همان پخشی که `igStepAsk_` جمله‌ها را روی تصویرها می‌نشاند. */
+function igImgLine_(plan, q, n) {
+  var L = (plan.plan && plan.plan.lines) || [];
+  var k = Math.min(Math.max(0, L.length - 2), Math.floor(q * Math.max(1, L.length - 1) / Math.max(1, n)));
+  return String((L[k] && L[k].text) || '');
+}
+
+/**
+ * سدِ تصویرِ ریلز (۹.۵۴) ⇒ {ok, why}. هر تصویر ({file} یا {blob}) با متنش به `lvSceneJudge_` می‌رود؛ نوشته، حرف، عدد یا
+ * چهرهٔ واقعی در **یکی** ⇒ رد. داوری که جواب نداد یا تصویری را نسنجید ⇒ رد — نشنیدن تأیید نیست (۷.۶۸).
+ */
+function igImgGate_(items) {
+  if (!items || !items.length) return { ok: false, why: 'تصویری نبود' };
+  var batch = [];
+  for (var i = 0; i < items.length; i++) {
+    var bl = null;
+    try { bl = items[i].blob || items[i].file.getBlob(); } catch (eB) { bl = null; }
+    if (!bl) return { ok: false, why: 'تصویرِ ' + (i + 1) + ' خوانده نشد' };
+    batch.push({ n: i + 1, text: items[i].text || '', mime: bl.getContentType() || 'image/png',
+                 b64: Utilities.base64Encode(bl.getBytes()) });
+  }
+  var v = null;
+  try { v = lvSceneJudge_(batch); } catch (eJ) { return { ok: false, why: 'داورِ تصویر: ' + String(eJ.message || eJ).slice(0, 80) }; }
+  for (var k = 1; k <= batch.length; k++) {
+    var r = v && v[String(k)];
+    if (!r) return { ok: false, why: 'داور تصویرِ ' + k + ' را نسنجید' };
+    if (r.txt) return { ok: false, why: 'تصویرِ ' + k + ' نوشته داشت' + (r.why ? ' (' + r.why + ')' : '') };
+    if (r.face) return { ok: false, why: 'تصویرِ ' + k + ' چهرهٔ واقعی داشت' };
+  }
+  return { ok: true, why: '' };
+}
+
 function igStepImages_(it, fo, plan, deadline) {
   var lines = plan.plan.lines, want = Math.min(Math.max(1, Number(plan.recap ? CFG.IG_RECAP_IMG_N : CFG.IG_IMG_N) || 5), lines.length - 1);
   var ids = [], how = '';
@@ -80656,13 +80720,26 @@ function igStepImages_(it, fo, plan, deadline) {
       while (fi.hasNext()) { var f = fi.next(); if (igIsImg_(f) && !/^کاور/.test(f.getName())) all.push(f); }
       all.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
       if (all.length) {
+        var pick = [];
         for (var i = 0; i < want; i++) {
           var src = all[Math.min(all.length - 1, Math.floor((i + 0.5) * all.length / want))];
-          if (ids.length && ids[ids.length - 1].src === src.getId()) continue;
-          var cp = src.makeCopy('ریلز — تصویر ' + (ids.length + 1), fo);
-          ids.push({ id: cp.getId(), src: src.getId() });
+          if (pick.length && pick[pick.length - 1].getId() === src.getId()) continue;
+          pick.push(src);
         }
-        how = 'نقاشی‌های درس';
+        /* ۹.۵۴: «نه کاور درستی داشت نه نوشته‌هاش درست بودن» — درسِ ۱۳ِ مصباح در «تصویرها» نمودارهای نوشته‌دارِ قدیمی
+           داشت («Apple → نفی»، «… سیب بودن نفی می‌شود»)، نه نقاشی؛ ریلز آن‌ها را عمودی برید و نوشتهٔ خودش رویشان نشست.
+           هر تصویرِ درس پیش از ریلز از داورِ تصویر (`lvSceneJudge_`، همان که صحنه‌ها را می‌سنجد) می‌گذرد: یکی نوشته یا
+           چهرهٔ واقعی داشت ⇒ هیچ‌کدام (سبکِ یک‌دست)، و تصویرِ عمودیِ تازه. داوری که جواب نداد هم «نه» است. */
+        var gate = igImgGate_(pick.map(function (f, q) { return { file: f, text: igImgLine_(plan, q, pick.length) }; }));
+        if (gate.ok) {
+          for (var q = 0; q < pick.length; q++) {
+            var cp = pick[q].makeCopy('ریلز — تصویر ' + (ids.length + 1), fo);
+            ids.push({ id: cp.getId(), src: pick[q].getId() });
+          }
+          how = 'نقاشی‌های درس';
+        } else {
+          plan.imgGate = gate.why;
+        }
       }
     }
   } catch (eL) {}
@@ -80678,10 +80755,19 @@ function igStepImages_(it, fo, plan, deadline) {
                             : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
                  'Absolutely no text, letters, numbers, captions, signs or logos. ' + String(ln.scene || ln.text);
-        var g = lvGenOne_(model, pr, { aspect: '9:16' });
+        var g = null, tries = 0;
+        /* ۹.۵۴: تصویرِ تازه هم همان داوری را می‌گذرد؛ نوشته یا چهره ⇒ یک بار از نو، باز بد ⇒ کنار (کمتر، نه بد). */
+        while (tries < 2 && Date.now() < deadline) {
+          tries++;
+          g = lvGenOne_(model, pr, { aspect: '9:16' });
+          if (!(g && g.blob)) break;
+          var gg = igImgGate_([{ blob: g.blob, text: String(ln.text || ln.scene || '') }]);
+          if (gg.ok) break;
+          plan.imgGate = gg.why; g = null;
+        }
         if (g && g.blob) ids.push({ id: fo.createFile(g.blob.setName('ریلز — تصویر ' + (ids.length + 1) + '.png')).getId(), gen: true });
       }
-      how = 'تصویرهای تازه (' + ids.length + ')';
+      how = 'تصویرهای تازه (' + ids.length + ')' + (plan.imgGate ? ' — ' + plan.imgGate : '');
     } else {
       how = 'بی تصویر — ' + (model ? 'سقفِ هزینهٔ ماهانهٔ تصویرسازی' : 'تصویرسازی خاموش است');
     }
@@ -80913,7 +80999,12 @@ function igShortQuotaOk_() {
   var q = ytQuota_();
   var cap = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
   var full = Math.max(0, (Number(q.uploads) || 0) - (Number(q.shorts) || 0));
-  var keep = Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
+  /* ۹.۵۴: «ویدیو درس‌نامهٔ امروز هنوز منتشر نشده». ۱۸ اکتبر: دو آپلودِ کامل (۷۴ِ دیروز که تازه از سنجش گذشت، و ۷۶) سهمِ
+     «دو قسمتِ امروز» را پر کرد و سه شورتز باقی را خورد؛ درسِ ۷۵ ساعتِ ۱۰:۲۶ آماده شد و سهمیه نبود. ذخیره حالا دست‌کم
+     به اندازهٔ قسمت‌های کاملی است که **همین الان** در صفِ انتشارند (`ytDueList_`)، نه فقط «دو منهای آنچه امروز رفت». */
+  var due = 0;
+  try { due = ytDueList_().length; } catch (eD) { due = 0; }
+  var keep = Math.max(due, Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full)) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
   var need = YT_COST.videosInsert + YT_COST.videosUpdate + YT_COST.thumbSet;
   return (Number(q.units) || 0) + need + keep <= cap;
 }
@@ -81033,6 +81124,12 @@ function igTick() {
     igAcctUnfail_(st);
     /* ۹.۵۱، یک بار: ریلزِ درسِ ۱ِ آئودی (قسمتِ ۲۲) پیش از تمام شدنِ مصباح و با برچسبِ انگلیسی رفت و صاحبِ برنامه بایگانی‌اش
        کرد — نوبتِ خودش دوباره ساخته می‌شود، با برچسبِ فارسی. */
+    /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
+       (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
+    if (!st.redo954) {
+      st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '13'; }).join(',');
+      st.redo954 = 1;
+    }
     if (!st.redo951) {
       st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '22'; }).join(',');
       st.redo951 = 1;

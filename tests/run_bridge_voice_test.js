@@ -1637,6 +1637,24 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
            !!(rNs && rNs.ok) && cues.some(c => c !== '') && askedSpan === 0 && !!(rowN.ab && rowN.ab.uv === true),
            JSON.stringify({ ok: rNs && rNs.ok, why: rNs && rNs.why, askedSpan, ab: rowN.ab }));
       }
+      /* ۹.۵۴: «آرام» — دستورِ شکستنِ جمله از وسط کنار، قاعدهٔ پایانِ خبری اول، یادآورِ سراسری فقط در همین ساخت خاموش. */
+      {
+        const keepSeed = CFG.VOICE_SOUL_SEED;
+        CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '88', tag: 'آرام', nospans: true, calm: true, ab: 'uv' }];
+        const qC = vbrRead_(); qC.items = []; vbrSave_(qC);
+        cues.length = 0;
+        let deepSeen = null;
+        const tcKeep = global.ttsCue_;
+        const rC = runVoiceSoulTest();
+        const cueC = cues.find(c => c) || '';
+        ok('۲۴.۱۸-چ آرام: قاعدهٔ پایانِ خبری در دستور، «وسطش بشکن/تعلیق» نه، و یادآورِ سراسری پس از ساخت دوباره روشن',
+           !!(rC && rC.ok) && cueC.indexOf('فرودِ آرام') !== -1 && !/وسطش بشکن|تعلیق/.test(cueC) && TTS_DEEP_OFF_ === false,
+           JSON.stringify({ ok: rC && rC.ok, why: rC && rC.why, cue: cueC.slice(0, 160) }));
+        CFG.VOICE_SOUL_SEED = keepSeed;
+        const cc = vbrCalmCue_('مکث‌ها را بیشتر درونِ جمله بگذار؛ عبارت‌ها کوتاه. جمله را وسطش بشکن — تعلیق. بلندی یکدست.');
+        ok('۲۴.۱۸-ح vbrCalmCue_: قاعده اول، دستورهای میانِ‌جمله بیرون، بقیه می‌مانند',
+           cc.indexOf(VBR_CALM_LINE) === 0 && !/درونِ جمله|وسطش/.test(cc) && /عبارت‌ها کوتاه/.test(cc) && /بلندی یکدست/.test(cc), cc);
+      }
       /* و مدلی که جواب ندهد، نمونه را نمی‌اندازد — فقط بی حالت، و می‌گوید چرا. */
       const qS2 = vbrRead_(); qS2.items = []; vbrSave_(qS2);
       global.geminiText_ = function (pq) {

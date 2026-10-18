@@ -588,6 +588,38 @@ function igIsImg_(f) {
   return /^image\//.test(mt) || /\.(png|jpe?g|webp)$/i.test(String(f.getName() || ''));
 }
 
+/** متنِ ریلز کنارِ تصویرِ q از n — همان پخشی که `igStepAsk_` جمله‌ها را روی تصویرها می‌نشاند. */
+function igImgLine_(plan, q, n) {
+  var L = (plan.plan && plan.plan.lines) || [];
+  var k = Math.min(Math.max(0, L.length - 2), Math.floor(q * Math.max(1, L.length - 1) / Math.max(1, n)));
+  return String((L[k] && L[k].text) || '');
+}
+
+/**
+ * سدِ تصویرِ ریلز (۹.۵۴) ⇒ {ok, why}. هر تصویر ({file} یا {blob}) با متنش به `lvSceneJudge_` می‌رود؛ نوشته، حرف، عدد یا
+ * چهرهٔ واقعی در **یکی** ⇒ رد. داوری که جواب نداد یا تصویری را نسنجید ⇒ رد — نشنیدن تأیید نیست (۷.۶۸).
+ */
+function igImgGate_(items) {
+  if (!items || !items.length) return { ok: false, why: 'تصویری نبود' };
+  var batch = [];
+  for (var i = 0; i < items.length; i++) {
+    var bl = null;
+    try { bl = items[i].blob || items[i].file.getBlob(); } catch (eB) { bl = null; }
+    if (!bl) return { ok: false, why: 'تصویرِ ' + (i + 1) + ' خوانده نشد' };
+    batch.push({ n: i + 1, text: items[i].text || '', mime: bl.getContentType() || 'image/png',
+                 b64: Utilities.base64Encode(bl.getBytes()) });
+  }
+  var v = null;
+  try { v = lvSceneJudge_(batch); } catch (eJ) { return { ok: false, why: 'داورِ تصویر: ' + String(eJ.message || eJ).slice(0, 80) }; }
+  for (var k = 1; k <= batch.length; k++) {
+    var r = v && v[String(k)];
+    if (!r) return { ok: false, why: 'داور تصویرِ ' + k + ' را نسنجید' };
+    if (r.txt) return { ok: false, why: 'تصویرِ ' + k + ' نوشته داشت' + (r.why ? ' (' + r.why + ')' : '') };
+    if (r.face) return { ok: false, why: 'تصویرِ ' + k + ' چهرهٔ واقعی داشت' };
+  }
+  return { ok: true, why: '' };
+}
+
 function igStepImages_(it, fo, plan, deadline) {
   var lines = plan.plan.lines, want = Math.min(Math.max(1, Number(plan.recap ? CFG.IG_RECAP_IMG_N : CFG.IG_IMG_N) || 5), lines.length - 1);
   var ids = [], how = '';
@@ -599,13 +631,26 @@ function igStepImages_(it, fo, plan, deadline) {
       while (fi.hasNext()) { var f = fi.next(); if (igIsImg_(f) && !/^کاور/.test(f.getName())) all.push(f); }
       all.sort(function (a, b) { return a.getName() < b.getName() ? -1 : 1; });
       if (all.length) {
+        var pick = [];
         for (var i = 0; i < want; i++) {
           var src = all[Math.min(all.length - 1, Math.floor((i + 0.5) * all.length / want))];
-          if (ids.length && ids[ids.length - 1].src === src.getId()) continue;
-          var cp = src.makeCopy('ریلز — تصویر ' + (ids.length + 1), fo);
-          ids.push({ id: cp.getId(), src: src.getId() });
+          if (pick.length && pick[pick.length - 1].getId() === src.getId()) continue;
+          pick.push(src);
         }
-        how = 'نقاشی‌های درس';
+        /* ۹.۵۴: «نه کاور درستی داشت نه نوشته‌هاش درست بودن» — درسِ ۱۳ِ مصباح در «تصویرها» نمودارهای نوشته‌دارِ قدیمی
+           داشت («Apple → نفی»، «… سیب بودن نفی می‌شود»)، نه نقاشی؛ ریلز آن‌ها را عمودی برید و نوشتهٔ خودش رویشان نشست.
+           هر تصویرِ درس پیش از ریلز از داورِ تصویر (`lvSceneJudge_`، همان که صحنه‌ها را می‌سنجد) می‌گذرد: یکی نوشته یا
+           چهرهٔ واقعی داشت ⇒ هیچ‌کدام (سبکِ یک‌دست)، و تصویرِ عمودیِ تازه. داوری که جواب نداد هم «نه» است. */
+        var gate = igImgGate_(pick.map(function (f, q) { return { file: f, text: igImgLine_(plan, q, pick.length) }; }));
+        if (gate.ok) {
+          for (var q = 0; q < pick.length; q++) {
+            var cp = pick[q].makeCopy('ریلز — تصویر ' + (ids.length + 1), fo);
+            ids.push({ id: cp.getId(), src: pick[q].getId() });
+          }
+          how = 'نقاشی‌های درس';
+        } else {
+          plan.imgGate = gate.why;
+        }
       }
     }
   } catch (eL) {}
@@ -621,10 +666,19 @@ function igStepImages_(it, fo, plan, deadline) {
                             : lines[Math.min(lines.length - 2, Math.floor(j * (lines.length - 1) / want))];
         var pr = 'Vertical 9:16 painterly editorial illustration for an educational Persian video. ' +
                  'Absolutely no text, letters, numbers, captions, signs or logos. ' + String(ln.scene || ln.text);
-        var g = lvGenOne_(model, pr, { aspect: '9:16' });
+        var g = null, tries = 0;
+        /* ۹.۵۴: تصویرِ تازه هم همان داوری را می‌گذرد؛ نوشته یا چهره ⇒ یک بار از نو، باز بد ⇒ کنار (کمتر، نه بد). */
+        while (tries < 2 && Date.now() < deadline) {
+          tries++;
+          g = lvGenOne_(model, pr, { aspect: '9:16' });
+          if (!(g && g.blob)) break;
+          var gg = igImgGate_([{ blob: g.blob, text: String(ln.text || ln.scene || '') }]);
+          if (gg.ok) break;
+          plan.imgGate = gg.why; g = null;
+        }
         if (g && g.blob) ids.push({ id: fo.createFile(g.blob.setName('ریلز — تصویر ' + (ids.length + 1) + '.png')).getId(), gen: true });
       }
-      how = 'تصویرهای تازه (' + ids.length + ')';
+      how = 'تصویرهای تازه (' + ids.length + ')' + (plan.imgGate ? ' — ' + plan.imgGate : '');
     } else {
       how = 'بی تصویر — ' + (model ? 'سقفِ هزینهٔ ماهانهٔ تصویرسازی' : 'تصویرسازی خاموش است');
     }
@@ -856,7 +910,12 @@ function igShortQuotaOk_() {
   var q = ytQuota_();
   var cap = Math.max(100, Number(CFG.YT_QUOTA_UNITS) || 9000);
   var full = Math.max(0, (Number(q.uploads) || 0) - (Number(q.shorts) || 0));
-  var keep = Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
+  /* ۹.۵۴: «ویدیو درس‌نامهٔ امروز هنوز منتشر نشده». ۱۸ اکتبر: دو آپلودِ کامل (۷۴ِ دیروز که تازه از سنجش گذشت، و ۷۶) سهمِ
+     «دو قسمتِ امروز» را پر کرد و سه شورتز باقی را خورد؛ درسِ ۷۵ ساعتِ ۱۰:۲۶ آماده شد و سهمیه نبود. ذخیره حالا دست‌کم
+     به اندازهٔ قسمت‌های کاملی است که **همین الان** در صفِ انتشارند (`ytDueList_`)، نه فقط «دو منهای آنچه امروز رفت». */
+  var due = 0;
+  try { due = ytDueList_().length; } catch (eD) { due = 0; }
+  var keep = Math.max(due, Math.max(0, (Number(CFG.IG_SHORT_KEEP_UP) || 0) - full)) * (YT_COST.videosInsert + YT_COST.thumbSet + YT_COST.videosUpdate);
   var need = YT_COST.videosInsert + YT_COST.videosUpdate + YT_COST.thumbSet;
   return (Number(q.units) || 0) + need + keep <= cap;
 }
@@ -976,6 +1035,12 @@ function igTick() {
     igAcctUnfail_(st);
     /* ۹.۵۱، یک بار: ریلزِ درسِ ۱ِ آئودی (قسمتِ ۲۲) پیش از تمام شدنِ مصباح و با برچسبِ انگلیسی رفت و صاحبِ برنامه بایگانی‌اش
        کرد — نوبتِ خودش دوباره ساخته می‌شود، با برچسبِ فارسی. */
+    /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
+       (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
+    if (!st.redo954) {
+      st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '13'; }).join(',');
+      st.redo954 = 1;
+    }
     if (!st.redo951) {
       st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '22'; }).join(',');
       st.redo951 = 1;

@@ -2849,6 +2849,7 @@ function vbrSoulPick_() {
     var seedAb = {};
     var seedPlain = {};
     var seedNoSpans = {};
+    var seedCalm = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -2866,7 +2867,8 @@ function vbrSoulPick_() {
       if (se.colour) seedColour[sk] = String(se.colour);
       if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
       if (se.plain) seedPlain[sk] = true;
-      if (se.nospans) seedNoSpans[sk] = true;           // ۹.۵۳: لحن و اعراب و مکث سرِ جا، فقط بی حالت‌های هیجانی              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
+      if (se.nospans) seedNoSpans[sk] = true;
+      if (se.calm) seedCalm[sk] = true;                 // ۹.۵۴: پایانِ خبری فرود، بی شکستنِ جمله از وسط           // ۹.۵۳: لحن و اعراب و مکث سرِ جا، فقط بی حالت‌های هیجانی              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -2915,7 +2917,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k] };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -2934,6 +2936,22 @@ function vbrSoulPick_() {
        '«شیوهٔ خواندن»ش خالی است — بی آن روحی برای گذاشتن نیست')
     : 'هیچ قسمتی در ستونِ «قسمت‌های تولیدشده» تیک نخورده';
   return out;
+}
+
+/**
+ * ۹.۵۴ — «جمله‌ای که باید با نقطه تموم شه … جوری می‌خونه که انگار سؤالیه یا تعجبیه». کارتِ سبکِ گوینده می‌گوید «جمله را
+ * وسطش بشکن و همان‌جا نگه دار — این چیزی است که به روایت تعلیق می‌دهد»، و یادآورِ سراسری «مکث‌ها را بیشتر درونِ
+ * جمله». گفتارساز پیش از مکثِ وسطِ جمله صدا را بالا نگه می‌دارد (ادامه دارد…)، و کششِ همان مکث آن بالا ماندن را
+ * پرسش می‌کند. نسخهٔ «آرام»: هر جمله‌ای از دستور که شکستن یا تعلیقِ میانِ جمله می‌خواهد کنار می‌رود و قاعدهٔ پایانِ
+ * خبری **اول** می‌آید (تا بریدنِ سقفِ دستور نخوردش). اندازه‌اش `riseScan` در رانر است، نه حدس.
+ */
+var VBR_CALM_LINE = 'جملهٔ خبری را با فرودِ آرامِ صدا تمام کن؛ آهنگِ پرسشی فقط جای «؟» و تعجبی فقط جای «!»؛ مکث سرِ نشانه‌ها، نه وسطِ جمله';
+function vbrCalmCue_(cue) {
+  var parts = String(cue || '').split(/(?<=[.؛\n])\s*|\s*[-•]\s+/);
+  var keep = parts.filter(function (t) {
+    return t && t.trim() && !/(دلِ?\s*جمله|درونِ?\s*جمله|وسطش|وسطِ?\s*جمله|تعلیق|بشکن)/.test(t);
+  });
+  return VBR_CALM_LINE + (keep.length ? '. ' + keep.join(' ').replace(/\s+/g, ' ').trim() : '');
 }
 
 /**
@@ -3181,11 +3199,13 @@ function runVoiceSoulTest() {
        گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
     var perS = { cue: pick.cue, name: pick.name, key: pick.key };
     var pzS = null, gapsS = null;
-    var cueUse = pick.plain ? '' : pick.cue;
+    var cueUse = pick.plain ? '' : (pick.calm ? vbrCalmCue_(pick.cue) : pick.cue);
     if (!pick.plain) {
       try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
       try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
+      if (pick.calm && gapsS) gapsS.inS = 0;          // ۹.۵۴: مکثِ درونِ جمله کش نمی‌آید
     }
+    if (pick.calm) TTS_DEEP_OFF_ = true;
     var pieces = (spanPlan.spans && spanPlan.spans.length)
       ? speakSpanPieces_(txt, spanPlan.spans, pzS && pzS.src !== 'پیش‌فرض' ? pzS.sec : 0)
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
@@ -3306,6 +3326,7 @@ function runVoiceSoulTest() {
   } catch (e) {
     res.why = res.why || String((e && e.message) || e).slice(0, 150);
   } finally {
+    TTS_DEEP_OFF_ = false;                           // ۹.۵۴: فقط برای همین ساخت
     try { styleProbeSet_(null); } catch (eD) {}      // برداشتن، نه خاموشِ صریح
     try { if (lock) lock.releaseLock(); } catch (eL) {}
   }

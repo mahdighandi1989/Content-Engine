@@ -1,16 +1,21 @@
 {
-  "version": "9.53",
+  "version": "9.54",
   "codeFile": "engine.gs",
-  "sha256": "16c3f31e8ee876332429ad78e341a9d8cca678d8af4e58332c64d2101a2477fb",
-  "releasedAt": "2026-10-18T15:30:00+04:00",
-  "summary": "«ه» ⇐ «خ» از خودِ تبدیل است (نه خوانش، نه رنگ، نه protect): نمونهٔ تازه با همخوان‌های بی‌واکِ ورودی کنارِ خروجیِ اصلی، و رضوی با لحن و اعراب و مکث ولی بی حالت‌های هیجانی.",
+  "sha256": "cb1da7cebbe1a036b48dde9579b7ecd6baeaea558f71d20ed96ab40dfce6590d",
+  "releasedAt": "2026-10-18T17:30:00+04:00",
+  "summary": "ماسکِ همخوانِ بی‌واک از طیف (نسخهٔ ۹.۵۳ نیمِ قاب‌ها را جابه‌جا می‌کرد)، نمونهٔ «آرام» بی دستورِ شکستنِ جمله از وسط و بی کششِ مکثِ درونِ جمله، و شمارِ پایان‌های بالارونده پیش از مکث در رانر. و سدِ تصویرِ ریلز: تصویرِ نوشته‌دار یا چهره‌دار به ریلز نمی‌رسد؛ ریلز و شورتزِ درسِ ۱۳ از نو. شورتز دیگر سهمیهٔ قسمتِ کاملِ در صف را نمی‌خورد.",
   "fixes": [
-    "tools/voicebridge.py: uvMask/uvSplice + تبدیلِ دومِ «uv» پیش از hearCompare",
-    "src/36_VoiceBridge.gs: ab «uv»، بذرِ nospans در vbrSoulPick_/runVoiceSoulTest، کپشنِ نسخهٔ uv",
-    "src/00_Config.gs: دو بذرِ درسِ ۷۴ (رضوی nospans+uv، گلدوز uv به‌جای ایندکسِ ۰٫۳)"
+    "tools/voicebridge.py: uvMask از سهمِ انرژیِ زیرِ ۱ کیلوهرتز + سقفِ رشته؛ riseScan روی ورودی و rise در رکورد",
+    "src/03_Producer.gs: TTS_DEEP_OFF_ در ttsCue_",
+    "src/36_VoiceBridge.gs: بذرِ calm، vbrCalmCue_، inS صفر، بازگرداندنِ TTS_DEEP_OFF_ در finally",
+    "src/00_Config.gs: دو بذرِ «آرام · «ه» از ورودیِ ۲» برای درسِ ۷۴",
+    "src/38_Instagram.gs: igImgGate_/igImgLine_ با lvSceneJudge_ روی تصویرهای درس و تازه؛ redo954 برای درسِ ۱۳",
+    "src/38_Instagram.gs: igShortQuotaOk_ — ذخیره ≥ شمارِ ytDueList_"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-06": "۹.۵۳"
+    "R-20261018-07": "۹.۵۴",
+    "R-20261018-08": "۹.۵۴",
+    "R-20261018-09": "۹.۵۴"
   }
 }

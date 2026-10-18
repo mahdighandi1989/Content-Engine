@@ -288,6 +288,30 @@ print(json.dumps(r))`);
   ok('۱۱.۳ سیم: `ab.uv` ⇒ uvSplice روی همان خروجیِ نهایی، پیش از شنیدن؛ نامِ دارایی و رکورد «uv» دارند',
      /if abIt\.get\("uv"\):[\s\S]*?uvSplice\(best, "vb\/src\.wav"/.test(vb) && vb.indexOf('uvSplice(best') < vb.indexOf('hear = hearCompare(') &&
      /rec\["ab"\]\["uv"\] = uvRes/.test(vb));
+  /* ۹.۵۴: ماسک از طیف — واکهٔ ۲۲۰ هرتزیِ پرهارمونیک (مثلِ گفتار) نباید جابه‌جا شود؛ نسخهٔ ۹.۵۳ نیمِ گفتار را جابه‌جا کرد. */
+  const r2 = py(`import numpy as np
+sr=40000; t=np.arange(sr*3)/sr
+v=sum((0.3/k)*np.sin(2*np.pi*220*k*t) for k in range(1,12))
+rng=np.random.default_rng(2); x=v.copy(); x[int(1.0*sr):int(1.12*sr)]=0.08*rng.standard_normal(int(0.12*sr))
+x[int(2.0*sr):int(2.6*sr)]=0.08*rng.standard_normal(int(0.6*sr))
+m,h=v_=v.uvMask(x,sr) if False else v.uvMask(x,sr)
+print(json.dumps({"vowel":float(m[:90].mean()),"fric":float(m[102:110].mean()),"long":float(m[205:255].mean())}))`.replace('v=sum', 'vv=sum').replace('x=v.copy()', 'x=vv.copy()').replace('m,h=v_=v.uvMask(x,sr) if False else v.uvMask(x,sr)', 'm,h=v.uvMask(x,sr)'));
+  ok('۱۱.۴ ماسک از طیف (۹.۵۴): واکهٔ پرهارمونیک نه، همخوانِ ۱۲۰ میلی‌ثانیه‌ای بله، رشتهٔ ۶۰۰ میلی‌ثانیه‌ای نه',
+     r2.vowel < 0.05 && r2.fric > 0.8 && r2.long < 0.05, JSON.stringify(r2));
+  const r3 = py(`import numpy as np, wave
+sr=16000; d=${JSON.stringify(d11)}
+def seg(f0a,f0b,dur):
+  t=np.arange(int(dur*sr))/sr; f=np.linspace(f0a,f0b,len(t)); ph=2*np.pi*np.cumsum(f)/sr
+  return sum((0.25/k)*np.sin(k*ph) for k in range(1,6))
+z=np.zeros(int(0.5*sr))
+x=np.concatenate([z,seg(150,110,1.2),z,seg(120,120,0.9),seg(120,170,0.3),z,seg(140,105,1.2),z])
+o=wave.open(d+'/r.wav','wb'); o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr); o.writeframes((np.clip(x,-1,1)*32767).astype('<i2').tobytes()); o.close()
+print(json.dumps(v.riseScan(d+'/r.wav')))`);
+  ok('۱۱.۵ riseScan (۹.۵۴): سه عبارت پیش از مکث، فقط دومی بالارونده — همان ثانیه', r3 && r3.pauses === 3 && r3.rise === 1 &&
+     Math.abs(r3.at[0] - 3.4) < 0.3, JSON.stringify(r3));
+  ok('۱۱.۶ سیم: riseScan روی ورودی، در رکورد؛ ttsCue_ یادآورِ سراسری را با TTS_DEEP_OFF_ نمی‌گذارد',
+     /rise = riseScan\("vb\/src\.wav"\)/.test(vb) && /rec\["rise"\] = rise/.test(vb) &&
+     /!TTS_DEEP_OFF_/.test(fs.readFileSync('src/03_Producer.gs', 'utf8')));
   try { fs.rmSync(d11, { recursive: true, force: true }); } catch (e) {}
 }
 
