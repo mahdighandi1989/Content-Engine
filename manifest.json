@@ -1,21 +1,15 @@
 {
-  "version": "9.54",
+  "version": "9.55",
   "codeFile": "engine.gs",
-  "sha256": "cb1da7cebbe1a036b48dde9579b7ecd6baeaea558f71d20ed96ab40dfce6590d",
-  "releasedAt": "2026-10-18T17:30:00+04:00",
-  "summary": "ماسکِ همخوانِ بی‌واک از طیف (نسخهٔ ۹.۵۳ نیمِ قاب‌ها را جابه‌جا می‌کرد)، نمونهٔ «آرام» بی دستورِ شکستنِ جمله از وسط و بی کششِ مکثِ درونِ جمله، و شمارِ پایان‌های بالارونده پیش از مکث در رانر. و سدِ تصویرِ ریلز: تصویرِ نوشته‌دار یا چهره‌دار به ریلز نمی‌رسد؛ ریلز و شورتزِ درسِ ۱۳ از نو. شورتز دیگر سهمیهٔ قسمتِ کاملِ در صف را نمی‌خورد.",
+  "sha256": "c3bec585d41e5a70a7d731fc074e6bfaee95619253f78d4a0f9ba63c230f4b2b",
+  "releasedAt": "2026-10-18T22:45:00+04:00",
+  "summary": "جست‌وجوی ساده تب به تب: نوارِ درصد، یافته‌ها همان لحظه، بی سقفِ ۲۳۰ ثانیه‌ای، ردیف‌های نرسیده در گامِ بعدیِ همان تب، و ادامه از همان تب پس از قطع.",
   "fixes": [
-    "tools/voicebridge.py: uvMask از سهمِ انرژیِ زیرِ ۱ کیلوهرتز + سقفِ رشته؛ riseScan روی ورودی و rise در رکورد",
-    "src/03_Producer.gs: TTS_DEEP_OFF_ در ttsCue_",
-    "src/36_VoiceBridge.gs: بذرِ calm، vbrCalmCue_، inS صفر، بازگرداندنِ TTS_DEEP_OFF_ در finally",
-    "src/00_Config.gs: دو بذرِ «آرام · «ه» از ورودیِ ۲» برای درسِ ۷۴",
-    "src/38_Instagram.gs: igImgGate_/igImgLine_ با lvSceneJudge_ روی تصویرهای درس و تازه؛ redo954 برای درسِ ۱۳",
-    "src/38_Instagram.gs: igShortQuotaOk_ — ذخیره ≥ شمارِ ytDueList_"
+    "src/34_Search.gs: srchLexStart/srchLexStep؛ srchCollect_ با opts.plan/rows/rowsMax/capAll؛ پنجره lsGo/lsStep/lsBar/lsDraw با localStorage",
+    "src/00_Config.gs: SEARCH_STEP_MS ۴۰۰۰۰، SEARCH_STEP_ROWS ۶۰۰"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-07": "۹.۵۴",
-    "R-20261018-08": "۹.۵۴",
-    "R-20261018-09": "۹.۵۴"
+    "R-20261018-10": "۹.۵۵"
   }
 }

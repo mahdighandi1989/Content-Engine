@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.54
+ *  موتور محتوا و پادکست — نسخهٔ 9.55
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.54',
+  CODE_VERSION: '9.55',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2712,6 +2712,8 @@ var CFG = {
   SEARCH_BLOCK_CELLS: 1500,
   // سقفِ کلِ ردیف‌هایی که در یک جست‌وجو **خوانده** می‌شوند
   SEARCH_ROWS_MAX: 2500,
+  SEARCH_STEP_MS: 40000,           // ۹.۵۵: جست‌وجوی سادهٔ گام‌به‌گام — بودجهٔ هر گام (یک تب)
+  SEARCH_STEP_ROWS: 600,           // ۹.۵۵: سقفِ ردیفِ خوانده در هر گام؛ باقی در گامِ بعدیِ همان تب
   /* سقفِ واژه‌ها. تا ۷٫۵۰ دلیلش «۴۳ واژه یعنی ۴۳ پویشِ کامل در هر تب» بود؛
      از ۷٫۵۱ همهٔ واژه‌ها در یک الگو می‌روند، پس دلیلش شد طولِ برنامهٔ منظمِ
      RE2 و هزینهٔ امتیازدهیِ هر واژه روی هر ردیف. */
@@ -3446,7 +3448,7 @@ var PK = {
  * نخوانَد سرخ می‌شود.
  */
 var BUILD_MENU_ = { total: 63, debt: 33 };   /* ⚙ BUILD-MENU */
-var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
+var BUILD_MENU_ITEMS_ = [["setApiKey","۱) ثبت کلید Gemini",0,"منو",1],["installTriggers","۲) نصب زمان‌بندی خودکار",1,"منو",1],["setGitHubToken","۳) توکنِ گیت‌هاب — راه‌اندازِ خودکارِ ویدئو",1,"منو",1],["setInstagramToken","۴) کلیدِ اینستاگرام (متا)",1,"منو",1],["runSyncNow","اجرای همگام‌سازی همین حالا",0,"منو",1],["runProduceVariety","فقط «از همه جا از همه رنگ»",1,"منو",1],["runProduceSpecial","فقط «درس‌نامه» (تخصصی)",1,"منو",1],["runProduceBoth","هر دو، پشت سر هم",1,"منو",1],["runProduceVarietyEnriched","🌐 «از همه جا از همه رنگ» با غنی‌سازیِ اینترنتی",0,"منو",1],["runProduceSpecialEnriched","🌐 «درس‌نامه» با غنی‌سازیِ اینترنتی",0,"منو",1],["runContentSearch","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند)",0,"منو",1],["runEmbedBuild","🧠 اثر انگشتِ معنایی — ساخت و ادامه",0,"منو",1],["runEmbedSelfTest","🧪 خودآزمونِ اثر انگشت",0,"منو",1],["runEmbedRebuild","♻️ بازسازیِ کاملِ اثر انگشت‌ها",0,"منو",1],["showSeriesBoard","📊 مجموعه‌های آموزشی و پیشرفت",1,"منو",1],["runScanSeries","اسکن مجموعه‌های آموزشی",1,"منو",1],["runJudgeSeries","داوری و دسته‌بندیِ مجموعه‌ها (از روی محتوا)",0,"منو",1],["runLocalJudgeAll","⚡ مرتب‌سازیِ سریعِ فهرست (بی‌مدل)",0,"منو",1],["runRejudgeAll","داوریِ همهٔ مجموعه‌ها از نو (با مدل)",0,"منو",1],["showEnrichStatus","🌐 وضعیتِ غنی‌سازیِ اینترنتی",0,"منو",1],["runMusicAuto","🎵 بانکِ موسیقی — پویش و برچسبِ خودکار",0,"منو",1],["runMusicFetch","⬇️ موسیقی — گشتن در اینترنت و آوردن",1,"منو",1],["runMusicRecheck","🔎 بازبینیِ بانک — «این‌ها واقعاً موسیقی‌اند؟»",1,"منو",1],["runMusicScan","🎵 پویشِ بانکِ موسیقی (بی برچسب‌زنی)",0,"منو",1],["runVoiceAudition","🎙 آزمونِ شنیداریِ گویندگان",0,"منو",1],["runStyleProbe","🎚 نمونهٔ روحِ خواندن (با و بی کارت)",1,"منو",1],["showPersonaBoard","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست",0,"منو",1],["runVoiceBridge","🌉 پلِ رنگِ صدا — تبدیلِ صوتِ قسمت",1,"منو",1],["runVoiceSoulTest","🎨 نمونهٔ بلند با رنگ و روح (قسمتِ تیک‌خورده)",1,"منو",1],["runBlockVoice","کنار گذاشتنِ یک گوینده",0,"منو",1],["runVoiceIntake","🎤 گویندهٔ تازه — وارسیِ پوشه و صف",0,"منو",1],["runHandoutBuild","📘 جزوهٔ مجموعه‌ها — ساخت، به‌روزرسانی و واردکردنِ گذشته",1,"منو",1],["runContentAudit","🔎 سنجهٔ محتوا — متنِ نهایی در برابرِ متنِ خام",0,"منو",1],["runYouTubePublish","▶️ انتشار در یوتیوب — کپشن، کاور، پلی‌لیست",1,"منو",1],["runYouTubeRedo","🖼 بازسازیِ عنوان و کاورِ یوتیوب (یک قسمت)",1,"منو",1],["runLessonVisualsRebuild","🖼 بازسازیِ تصویرهای یک قسمت (درس‌نامه)",1,"منو",1],["runLvGenToggle","🎨 تصویرِ ساخته‌شده: روشن/خاموش",1,"منو",1],["runLvStyleAllAuto","🎨 سبکِ تصویرِ همهٔ مجموعه‌ها: خودکار",1,"منو",1],["runYouTubeChannel","📺 شناسنامهٔ کانالِ یوتیوب — وارسی و تکمیل",1,"منو",1],["runYouTubeStats","📈 بازخوردِ یوتیوب — نمایش، پسند، کامنت",0,"منو",1],["runYouTubeGrowth","📈 رشدِ کانال — آمار و تشخیص",1,"منو",1],["runSourceQuality","🔬 نظارتِ کیفیِ استخراج — پرامپت و مدلِ تحلیلگرها",1,"منو",1],["runRecapNow","📚 قسمتِ مرورِ بزرگ — همهٔ مفاهیمِ یک مجموعه، ساده",0,"منو",1],["runYouTubeFix","🔧 عیب‌یابی و رفعِ دسترسیِ یوتیوب",1,"منو",1],["runBackupNow","🗄️ پشتیبان‌گیری از شیت‌ها همین حالا",0,"منو",1],["runOrganizeFolders","سامان‌دهیِ پوشهٔ قسمت‌ها",0,"منو",1],["runSelfUpdateNow","⬆️ بررسی و نصبِ کدِ تازه (همین حالا)",1,"منو",1],["runSelfUpdateDiagnose","🔎 عیب‌یابیِ نصبِ خودکار",0,"منو",1],["runAuditSourceScripts","🔍 وارسیِ اسکریپت‌های منبع (فقط تشخیص)",0,"منو",1],["runShowSourceUpdates","🔄 کدِ تازهٔ تحلیلگرهای منبع — چه آماده است؟",1,"منو",1],["runInstallSourceUpdates","⬆️ نصبِ کدِ تحلیلگرهای منبع",0,"منو",1],["runSourceCycleNow","▶️ چرخهٔ تحلیلگرها را همین حالا بدوان",1,"منو",1],["runShowSourceVerdict","📊 چرخهٔ کدِ تحلیلگرها — نتیجهٔ نصب‌ها",0,"منو",1],["installCodeRollback","بازگشت به نسخهٔ پشتیبانِ کد",1,"منو",1],["healthCheck","وارسی سلامت",1,"منو",1],["checkSources","وارسی شیت‌های منبع",0,"منو",1],["runIngestReports","خواندن گزارش‌های نظارت",0,"منو",1],["testGemini","آزمون اتصال Gemini",0,"منو",1],["testTelegram","آزمون ربات تلگرام",1,"منو",1],["refreshModels","به‌روزرسانی فهرست مدل‌ها",0,"منو",1],["showStatus","نمایش وضعیت",0,"منو",1],["removeTriggers","حذف زمان‌بندی",1,"منو",1],["fullRebuild","ساخت دوبارهٔ کامل بانک",0,"منو",1],["uiBoardHtml","📊 مجموعه‌های آموزشی و پیشرفت › uiBoardHtml",1,"پنجره",1],["uiHandoutSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutSeries",1,"پنجره",1],["uiBridgeSave","📊 مجموعه‌های آموزشی و پیشرفت › uiBridgeSave",1,"پنجره",1],["uiRecapQueue","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapQueue",1,"پنجره",1],["uiHandoutAll","📊 مجموعه‌های آموزشی و پیشرفت › uiHandoutAll",1,"پنجره",1],["uiCalSave","📊 مجموعه‌های آموزشی و پیشرفت › uiCalSave",1,"پنجره",1],["uiLvMotionSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvMotionSave",1,"پنجره",1],["uiLvTextSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvTextSave",1,"پنجره",1],["uiLvStyleSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvStyleSave",1,"پنجره",1],["uiLvLevelSave","📊 مجموعه‌های آموزشی و پیشرفت › uiLvLevelSave",1,"پنجره",1],["uiRecapEverySave","📊 مجموعه‌های آموزشی و پیشرفت › uiRecapEverySave",1,"پنجره",1],["uiPinSeries","📊 مجموعه‌های آموزشی و پیشرفت › uiPinSeries",1,"پنجره",1],["uiPinCategory","📊 مجموعه‌های آموزشی و پیشرفت › uiPinCategory",1,"پنجره",1],["uiSetCourse","📊 مجموعه‌های آموزشی و پیشرفت › uiSetCourse",1,"پنجره",1],["uiSetManual","📊 مجموعه‌های آموزشی و پیشرفت › uiSetManual",1,"پنجره",1],["uiClearManual","📊 مجموعه‌های آموزشی و پیشرفت › uiClearManual",1,"پنجره",1],["uiJudgeNow","📊 مجموعه‌های آموزشی و پیشرفت › uiJudgeNow",1,"پنجره",1],["uiClearPin","📊 مجموعه‌های آموزشی و پیشرفت › uiClearPin",1,"پنجره",1],["personaEpisodeLists","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaEpisodeLists",1,"پنجره",1],["personaBoardData","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardData",1,"پنجره",1],["personaBoardSave","🎚 شیوهٔ خواندنِ گویندگان — انتخاب برای پادکست › personaBoardSave",1,"پنجره",1],["srchRun","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchRun",1,"پنجره",1],["srchLexStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStart",1,"پنجره",1],["srchLexStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchLexStep",1,"پنجره",1],["srchSemStart","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStart",1,"پنجره",1],["srchSemStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchSemStep",1,"پنجره",1],["srchDigestStep","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestStep",1,"پنجره",1],["srchDigestFinal","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchDigestFinal",1,"پنجره",1],["srchExport","🔎 جست‌وجو در همهٔ محتوا (ساده و هوشمند) › srchExport",1,"پنجره",1]];   /* ⚙ BUILD-MENU-ITEMS */
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -72030,8 +72032,8 @@ function srchCollect_(terms, phrase, opts) {
      اول می‌دود نباید بتواند همهٔ وقت را بردارد. */
   var budget = Math.max(20000, Number(opts.budgetMs) || Number(CFG.SEARCH_BUDGET_MS) || 230000);
   var capSheet = Math.max(20, Number(CFG.SEARCH_HITS_PER_SHEET) || 400);
-  var capAll = Math.max(20, Number(CFG.SEARCH_CAND_MAX) || 240);
-  var rowsMax = Math.max(200, Number(CFG.SEARCH_ROWS_MAX) || 2500);
+  var capAll = Math.max(20, Number(opts.capAll) || Number(CFG.SEARCH_CAND_MAX) || 240);
+  var rowsMax = Math.max(Number(opts.rowsMax) ? 20 : 200, Number(opts.rowsMax) || Number(CFG.SEARCH_ROWS_MAX) || 2500);
   var tabMsMin = Math.max(1500, Number(CFG.SEARCH_TAB_MS_MIN) || 2500);
   var tabRowsMin = Math.max(5, Number(CFG.SEARCH_TAB_ROWS_MIN) || 15);
   var out = { items: [], scanned: 0, sheets: 0, sheetsAll: 0, stopped: '', notes: [],
@@ -72120,7 +72122,10 @@ function srchCollect_(terms, phrase, opts) {
     try { SRCH_AT_ = 'تبِ «' + sh.getName() + '»'; } catch (eAt) {}
     var tStart = new Date().getTime();
     var rows = {}, order = [], cut = false, err = '', prio = [];
-    if (phrasePat && left() > 8000) {
+    /* ۹.۵۵: گامِ بعدیِ همان تب — ردیف‌ها از گامِ قبل آمده‌اند و دوباره گشته نمی‌شوند. */
+    var given = opts.rows && opts.rows.length ? opts.rows : null;
+    if (given) { for (var gr = 0; gr < given.length; gr++) { var gv = Number(given[gr]); if (gv > 0 && !rows[gv]) { rows[gv] = 1; order.push(gv); } } }
+    if (!given && phrasePat && left() > 8000) {
       var gp = srchFind_(sh, phrasePat, capSheet, Math.min(tabEnd, t0 + budget - 6000));
       if (!gp.err) {
         for (var pr = 0; pr < gp.rows.length; pr++) {
@@ -72130,7 +72135,7 @@ function srchCollect_(terms, phrase, opts) {
         out.phraseTabs = (out.phraseTabs || 0) + 1;
       }
     }
-    for (var q = 0; q < pats.length; q++) {
+    for (var q = 0; !given && q < pats.length; q++) {
       if (left() < 8000) { out.stopped = 'بودجهٔ زمان'; cut = true; break; }
       var got = srchFind_(sh, pats[q], capSheet, Math.min(tabEnd, t0 + budget - 6000));
       if (got.via) out.via = got.via;
@@ -72225,7 +72230,8 @@ function srchCollect_(terms, phrase, opts) {
      خواندنِ فهرستِ تب‌ها فقط فراداده است؛ همان پنج `openById` که پیش از
      این هم داخلِ حلقه انجام می‌شد، حالا یک‌جا و زودتر. */
   var plan = [];
-  try {
+  if (opts.plan) plan = opts.plan;
+  else try {
     var hub = getHub_();
     var htabs = srchHubTabs_(hub);
     if (!htabs.length) out.notes.push('هیچ تبِ دسته‌ای در بانک شناخته نشد.');
@@ -72243,7 +72249,7 @@ function srchCollect_(terms, phrase, opts) {
      و پنجره همان موقع پیشنهاد می‌داد «تیکِ شیت‌های منبع را بردارید»، یعنی
      راهنمایی به خاموش‌کردنِ لایه‌ای که اصلاً گشته نشده بود. حالا منبع در
      همان نقشه می‌نشیند و سهمِ خودش را از زمان و ردیف می‌گیرد. */
-  if (opts.sources !== false) {
+  if (!opts.plan && opts.sources !== false) {
     var list = CFG.SOURCES || [];
     for (var s = 0; s < list.length; s++) {
       var src = list[s], ss = null;
@@ -72851,6 +72857,78 @@ function srchRun(query, mode, sources, semantic) {
 }
 
 
+/* ══════════════ جست‌وجوی ساده، گام‌به‌گام (۹.۵۵) ══════════════
+   «جست‌وجوی ساده‌ش هم باید همون‌طور مثلِ هوشمند حالتِ پرشونده و درصدش رو بشه دید و هم‌زمان هرچی پیدا می‌کنه رو لیست
+   کنه و سقفِ زمانیش بالا بره و هرجا قطع شد از ادامه‌ش کار از سر بگیره.» تا ۹.۵۳ ساده یک فراخوانِ ۲۳۰ ثانیه‌ای بود: چهل‌وچند
+   تب در آن تقسیم می‌شد، هر تب ~۵۵ ردیف می‌خواند و بقیه «خوانده نشد». حالا پنجره نقشهٔ تب‌ها را یک بار می‌گیرد
+   (`srchLexStart`) و تب به تب می‌خواهد (`srchLexStep`) — هر گام اجرای جدای خودش با بودجهٔ خودش؛ ردیف‌هایی که در یک گام
+   نرسید، در گامِ بعدیِ **همان تب** خوانده می‌شوند. سقفِ کلی ندارد؛ فقط خوانده می‌شود، چیزی نوشته نمی‌شود. */
+
+/** نقشهٔ تب‌ها و واژه‌ها برای جست‌وجوی سادهٔ گام‌به‌گام. */
+function srchLexStart(query, sources) {
+  var out = { ok: false, terms: [], plan: [], notes: [], note: '' };
+  try {
+    var q = String(query || '').trim();
+    if (!q) { out.note = 'چیزی ننوشتید'; return out; }
+    if (CFG.SEARCH_ON === false) { out.note = 'جست‌وجو خاموش است'; return out; }
+    var terms = srchTerms_(q);
+    if (!terms.length) { out.note = 'واژهٔ معناداری در متنِ شما نبود'; return out; }
+    var tmax = Math.max(3, Number(CFG.SEARCH_TERMS_MAX) || 12);
+    if (terms.length > tmax) { out.notes.push('از ' + terms.length + ' واژه، ' + tmax + ' واژهٔ نخست گشته می‌شود.'); terms = terms.slice(0, tmax); }
+    out.terms = terms;
+    var hub = srchHubLite_(), hid = hub.getId(), ht = srchHubTabs_(hub);
+    for (var i = 0; i < ht.length; i++) out.plan.push({ id: hid, name: ht[i].getName(), src: '' });
+    if ((ht.skipped || []).length) out.notes.push(ht.skipped.length + ' تبِ بانک وارسی نشد: ' + ht.skipped.slice(0, 3).join(' · '));
+    if (sources !== false) {
+      var list = CFG.SOURCES || [];
+      for (var s = 0; s < list.length; s++) {
+        try {
+          var shs = SpreadsheetApp.openById(list[s].id).getSheets();
+          for (var u = 0; u < shs.length; u++) out.plan.push({ id: list[s].id, name: shs[u].getName(), src: list[s].title });
+        } catch (eS) { out.notes.push('شیتِ «' + list[s].title + '» باز نشد: ' + String(eS.message || eS).slice(0, 80)); }
+      }
+    }
+    out.ok = out.plan.length > 0;
+    if (!out.ok) out.note = 'هیچ تبی برای گشتن نبود';
+  } catch (e) { out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120); }
+  return out;
+}
+
+/**
+ * یک گام: یک تب (`plan[from]`) با بودجهٔ `SEARCH_STEP_MS` و سقفِ ردیفِ `SEARCH_STEP_ROWS`. `rows` = ردیف‌هایی از همین تب
+ * که گامِ قبل یافت و نخواند ⇒ دوباره گشته نمی‌شود، فقط خوانده. ⇒ {items, rest, next, read, phrase, near, notes}.
+ */
+function srchLexStep(query, terms, plan, from, rows) {
+  SRCH_AT_ = '';
+  var out = { ok: false, items: [], rest: [], next: Number(from) || 0, all: (plan || []).length, read: 0,
+              phrase: 0, near: 0, notes: [], note: '' };
+  try {
+    var ent = (plan || [])[out.next];
+    if (!ent) { out.ok = true; return out; }
+    var ss = (ent.src ? SpreadsheetApp.openById(ent.id) : srchHubLite_()), sh = ss.getSheetByName(ent.name);
+    if (!sh) { out.ok = true; out.next++; out.notes.push('تبِ «' + ent.name + '» دیگر نیست.'); return out; }
+    var col = srchCollect_(terms || [], String(query || ''), {
+      plan: [{ sh: sh, src: ent.src || '' }], budgetMs: Math.max(15000, Number(CFG.SEARCH_STEP_MS) || 40000),
+      rowsMax: Math.max(50, Number(CFG.SEARCH_STEP_ROWS) || 600), rows: rows || null, since: new Date().getTime(),
+      capAll: 100000 });   // همهٔ یافته‌ها، نه ۲۴۰ِ برتر — پنجره خودش مرتب می‌کند
+    out.items = col.items; out.read = col.read; out.phrase = col.phraseRows || 0; out.near = col.nearRows || 0;
+    for (var p = 0; p < col.pend.length; p++) out.rest = out.rest.concat(col.pend[p].rows);
+    var fresh = !(rows && rows.length);
+    if (out.rest.length && (col.read > 0 || fresh)) {
+      /* همان تب، گامِ بعد — فقط اگر این گام چیزی خواند؛ تبی که خواندنش جلو نمی‌رود، با یادداشت رد می‌شود. */
+    } else {
+      if (out.rest.length) out.notes.push(out.rest.length + ' ردیفِ یافته در تبِ «' + ent.name + '» خوانده نشد (خواندن جلو نرفت).');
+      out.rest = []; out.next++;
+    }
+    for (var n = 0; n < col.notes.length; n++) if (!/ردیفِ یافته‌شده خوانده نشد|نمونه‌ای پخش‌شده/.test(col.notes[n])) out.notes.push(col.notes[n]);
+    out.ok = true;
+  } catch (e) {
+    out.note = 'خطا: ' + String((e && e.message) || e).slice(0, 120) + (SRCH_AT_ ? ' (در ' + SRCH_AT_ + ')' : '');
+  }
+  return out;
+}
+
+
 /* ══════════════ جست‌وجوی معنایی، گام‌به‌گام (۹.۴۶) ══════════════
    «۹۰ ثانیه کمه … نتیجه‌ها یکی یکی وقتی پیدا میشن نمایش داده بشن … یه نوار پر شونده دقیق.»
    تا ۹.۴۵ معنا یک فراخوانِ ۹۰ ثانیه‌ای بود و در آن ۱۲ تا ۱۴ قطعه از ۴۸ خوانده می‌شد — یعنی
@@ -73232,7 +73310,7 @@ function srchHtml_() {
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
          'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
          'document.getElementById("dig").innerHTML="";document.getElementById("exp").innerHTML="";' +
-         'lexGo(q,m,document.getElementById("src").checked,my,false);' +
+         'if(m==="ساده"){lsGo(q,document.getElementById("src").checked,my);}else{lexGo(q,m,document.getElementById("src").checked,my,false);}' +
          'if(m==="هوشمند"){semGo(q,my);}}');
   /* ══ «Out of memory» در واژه‌ها (۹.۴۸) ══ اجرای Apps Script که حافظه‌اش تمام شود کشته می‌شود و خطا فقط به
      پنجره می‌رسد. با تیکِ شیت‌های منبع (۱۱۲ مگابایت)، یک بارِ دیگر بی آن‌ها گشته می‌شود — و **گفته می‌شود**. */
@@ -73247,6 +73325,48 @@ function srchHtml_() {
          'document.getElementById("lex").innerHTML="<div class=warn>خطا در گشتنِ واژه‌ها: "+esc(msg)+"</div>";' +
          'DONE.lex=true;maybeFinal();})' +
          '.srchRun(q,m,src,m==="هوشمند"?false:true);}');
+  /* ══ ساده، تب به تب (۹.۵۵) ══ نقشه یک بار (`srchLexStart`)، بعد هر تب یک گام (`srchLexStep`)؛ یافته‌ها همان لحظه به
+     فهرست می‌آیند، نوار «تب از تب» را می‌گوید، و پیشرفت در مرورگر می‌ماند (`localStorage`، کلیدِ `srchLex`): همان پرسش
+     با همان تیک دوباره زده شود ⇒ از همان تب ادامه. گامی که خطا داد یک بار دوباره؛ باز خطا ⇒ همان تب با یادداشت رد. */
+  H.push('var LS=null;function lsSave(){try{if(!LS){return;}var it=LS.items.slice(0).sort(function(a,b){return (b.score||0)-(a.score||0);}).slice(0,300).map(slim);' +
+         'localStorage.setItem("srchLex",JSON.stringify({q:LS.q,src:LS.src,from:LS.from,rest:LS.rest,plan:LS.plan,terms:LS.terms,' +
+         'read:LS.read,phrase:LS.phrase,notes:LS.notes.slice(0,30),items:it}));}catch(e){}}');
+  H.push('function lsLoad(q,src){try{var d=JSON.parse(localStorage.getItem("srchLex")||"null");' +
+         'if(d&&d.q===q&&d.src===src&&d.plan&&d.from<d.plan.length){return d;}}catch(e){}return null;}');
+  H.push('function lsClear(){try{localStorage.removeItem("srchLex");}catch(e){}}');
+  H.push('function lsBar(msg){var all=LS.plan.length,p=all?Math.round(LS.from*100/all):0;var cur=LS.plan[LS.from];' +
+         'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی ساده: "+LS.from+" از "+all+" تب گشته شد ("+p+"٪) · "+' +
+         'LS.items.length+" یافته · "+LS.read+" ردیف خوانده شد"+(cur&&LS.from<all?" · اکنون: «"+esc(cur.name)+"»"+(LS.rest.length?" ("+LS.rest.length+" ردیفِ باقی)":""):"")+' +
+         '(msg?" · "+esc(msg):"")+"</div><div class=bar><div class=bi style=width:"+p+"%></div></div>";}');
+  H.push('function lsDraw(){var o=LS.items.slice(0).sort(function(a,b){return (b.score||0)-(a.score||0);});var H=[];' +
+         'if(LS.phrase){H.push("<div class=m>عبارتِ کامل در "+LS.phrase+" ردیف پیدا شد و همان‌ها اول خوانده شدند.</div>");}' +
+         'for(var i=0;i<LS.notes.length;i++){H.push("<div class=warn>"+esc(LS.notes[i])+"</div>");}' +
+         'if(!o.length){H.push(LS.from<LS.plan.length?"<p>هنوز چیزی پیدا نشده…</p>":"<p>چیزی پیدا نشد.</p>");}' +
+         'var N=Math.min(o.length,300);for(var j=0;j<N;j++){H.push(card(o[j],j));}' +
+         'if(o.length>N){H.push("<div class=m>"+(o.length-N)+" یافتهٔ کم‌امتیازتر این‌جا نشان داده نشد — در خروجی هست.</div>");}' +
+         'document.getElementById("lex").innerHTML=H.join("");}');
+  H.push('function lsGo(q,src,my){var d=lsLoad(q,src);' +
+         'if(d){LS={q:q,src:src,from:d.from,rest:d.rest||[],plan:d.plan,terms:d.terms,read:d.read||0,phrase:d.phrase||0,notes:d.notes||[],items:[]};' +
+         'for(var i=0;i<(d.items||[]).length;i++){reg(d.items[i]);LS.items.push(d.items[i]);}' +
+         'lsBar("ادامهٔ همان جست‌وجو از جایی که قطع شد");lsDraw();expDraw();lsStep(my,0);return;}' +
+         'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی ساده: در حالِ خواندنِ فهرستِ تب‌ها…</div>";' +
+         'google.script.run.withSuccessHandler(function(s){if(my!==RUN){return;}' +
+         'if(!s.ok){document.getElementById("lex").innerHTML="<div class=warn>"+esc(s.note||"انجام نشد")+"</div>";return;}' +
+         'LS={q:q,src:src,from:0,rest:[],plan:s.plan,terms:s.terms,read:0,phrase:0,notes:(s.notes||[]).slice(0),items:[]};' +
+         'lsBar("");lsDraw();lsStep(my,0);})' +
+         '.withFailureHandler(function(e){if(my===RUN){document.getElementById("lex").innerHTML="<div class=warn>خطا: "+esc(e.message)+"</div>";}})' +
+         '.srchLexStart(q,src);}');
+  H.push('function lsStep(my,tries){if(my!==RUN||!LS){return;}' +
+         'if(LS.from>=LS.plan.length){lsBar("کامل؛ همهٔ تب‌ها گشته شد");lsClear();DONE.lex=true;expDraw();return;}' +
+         'google.script.run.withSuccessHandler(function(r){if(my!==RUN){return;}' +
+         'if(!r.ok){if(!tries){lsBar("یک بار دیگر…");setTimeout(function(){lsStep(my,1);},2000);return;}' +
+         'LS.notes.push("تبِ «"+LS.plan[LS.from].name+"» گشته نشد: "+(r.note||""));LS.from++;LS.rest=[];lsSave();lsBar("");lsDraw();lsStep(my,0);return;}' +
+         'for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];var k=rkey(t);if(NO[k]){continue;}reg(t);LS.items.push(t);}' +
+         'LS.read+=r.read||0;LS.phrase+=r.phrase||0;for(var n=0;n<(r.notes||[]).length;n++){if(LS.notes.indexOf(r.notes[n])===-1){LS.notes.push(r.notes[n]);}}' +
+         'LS.from=r.next;LS.rest=r.rest||[];lsSave();lsBar("");lsDraw();expDraw();lsStep(my,0);})' +
+         '.withFailureHandler(function(e){if(my!==RUN){return;}if(!tries){lsBar("قطع شد؛ از همین تب دوباره…");setTimeout(function(){lsStep(my,1);},3000);return;}' +
+         'LS.notes.push("تبِ «"+LS.plan[LS.from].name+"» گشته نشد: "+String(e&&e.message||e));LS.from++;LS.rest=[];lsSave();lsBar("");lsDraw();lsStep(my,0);})' +
+         '.srchLexStep(LS.q,LS.terms,LS.plan,LS.from,LS.rest);}');
   H.push('function bar(done,all,n,msg){var p=all?Math.round(done*100/all):0;' +
          'document.getElementById("semh").innerHTML="<div class=bt>جست‌وجوی معنایی: "+done+" از "+all+' +
          '" کشوی اثر انگشت خوانده شد ("+p+"٪) · "+n+" یافته"+(msg?" · "+esc(msg):"")+"</div>"+' +

@@ -123,18 +123,42 @@ console.log('\n══ ۵) جست‌وجو: همان چیزی که او فشار 
   ok('۵.۰ پنجرهٔ جست‌وجو اجرا شد', !!h);
   const simple = onclicks(html).filter((e) => /ساده/.test(e))[0];
   ok('۵.۱ دکمهٔ «جست‌وجوی ساده» پیدا شد', !!simple, String(simple));
+  /* ۹.۵۵: ساده تب به تب — نقشه، گام‌ها، یافته‌ها همان لحظه، نوارِ دقیق، و ادامه از همان‌جا. */
+  const mem = {};
+  h.ctx.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
   const before = h.calls.length;
   vm.runInContext('(function(){' + simple + '}).call(null);', h.ctx, { timeout: 5000 });
   const made = h.calls.slice(before);
-  ok('۵.۲ فشارش `srchRun` را صدا می‌زند',
-     made.length === 1 && made[0].fn === 'srchRun',
+  ok('۵.۲ فشارش نقشهٔ تب‌ها را می‌خواهد (`srchLexStart`)، نه یک فراخوانِ ۲۳۰ ثانیه‌ای',
+     made.length === 1 && made[0].fn === 'srchLexStart',
      'گرفت: ' + JSON.stringify(made.map((c) => c.fn)));
-  ok('۵.۳ و متنِ کاربر و حالت را با خودش می‌برد',
-     made[0].args[0] === 'هزینه' && made[0].args[1] === 'ساده',
+  ok('۵.۳ و متنِ کاربر و تیکِ منبع را با خودش می‌برد',
+     made[0].args[0] === 'هزینه' && made[0].args[1] === true,
      'گرفت: ' + JSON.stringify(made[0].args));
-  ok('۵.۴ و «در حالِ گشتن» را نشان می‌دهد',
-     /گشتن/.test(h.get('lex').innerHTML),
-     'بی این، کاربر نمی‌داند فشارش کارگر شد یا نه');
+  ok('۵.۴ و «در حالِ خواندنِ فهرستِ تب‌ها» را نشان می‌دهد', /تب‌ها/.test(h.get('semh').innerHTML));
+  const PL = [{ id: 'H', name: 'تبِ یک', src: '' }, { id: 'H', name: 'تبِ دو', src: '' }];
+  h.reply('srchLexStart', { ok: true, terms: ['هزینه'], plan: PL, notes: [] });
+  const g1 = h.calls.filter((c) => c.fn === 'srchLexStep').pop();
+  ok('۵.۴-ب گامِ اول: تبِ صفر، با همان واژه‌ها و نقشه', !!g1 && g1.args[3] === 0 && JSON.stringify(g1.args[1]) === '["هزینه"]');
+  const it1 = (t, row, sc) => ({ where: 'بانک', tab: 'تبِ یک', row: row, title: t, score: sc });
+  h.reply('srchLexStep', { ok: true, items: [it1('یافتهٔ کم', 4, 2)], rest: [9, 10], next: 0, all: 2, read: 1, notes: [] });
+  ok('۵.۴-پ یافته همان لحظه، و ردیف‌های ماندهٔ همان تب در گامِ بعد (نه تبِ بعد)', /یافتهٔ کم/.test(h.get('lex').innerHTML) &&
+     h.calls.filter((c) => c.fn === 'srchLexStep').pop().args[3] === 0 &&
+     JSON.stringify(h.calls.filter((c) => c.fn === 'srchLexStep').pop().args[4]) === '[9,10]' && /2 ردیفِ باقی/.test(h.get('semh').innerHTML));
+  h.reply('srchLexStep', { ok: true, items: [it1('یافتهٔ پرامتیاز', 9, 8)], rest: [], next: 1, all: 2, read: 2, notes: [] });
+  const lx = h.get('lex').innerHTML;
+  ok('۵.۴-ت نوار: ۱ از ۲ (۵۰٪)؛ فهرست به ترتیبِ امتیاز', /1 از 2/.test(h.get('semh').innerHTML) && /width:50%/.test(h.get('semh').innerHTML) &&
+     lx.indexOf('یافتهٔ پرامتیاز') < lx.indexOf('یافتهٔ کم'));
+  ok('۵.۴-ث پیشرفت در مرورگر ماند: از تبِ ۱', !!mem.srchLex && JSON.parse(mem.srchLex).from === 1 && JSON.parse(mem.srchLex).items.length === 2);
+  /* قطع ⇒ همان پرسش دوباره ⇒ از تبِ ۱، با یافته‌های قبلی، بی نقشهٔ تازه. */
+  const nStart = h.calls.filter((c) => c.fn === 'srchLexStart').length;
+  vm.runInContext('(function(){' + simple + '}).call(null);', h.ctx, { timeout: 5000 });
+  const g3 = h.calls.filter((c) => c.fn === 'srchLexStep').pop();
+  ok('۵.۴-ج قطع شد و دوباره زد ⇒ از همان تب ادامه، یافته‌های قبلی سرِ جا', h.calls.filter((c) => c.fn === 'srchLexStart').length === nStart &&
+     g3.args[3] === 1 && /یافتهٔ پرامتیاز/.test(h.get('lex').innerHTML) && /ادامه/.test(h.get('semh').innerHTML));
+  h.reply('srchLexStep', { ok: true, items: [], rest: [], next: 2, all: 2, read: 0, notes: [] });
+  ok('۵.۴-چ پایان: ۲ از ۲، ۱۰۰٪، «کامل»، و حافظهٔ ادامه پاک', /2 از 2/.test(h.get('semh').innerHTML) && /width:100%/.test(h.get('semh').innerHTML) &&
+     /کامل/.test(h.get('semh').innerHTML) && !mem.srchLex);
   /* ══ ۵.۵ مخرج، با همان عددهای ۲۳ سپتامبر (۷٫۵۱) ══
      آن روز پنجره نوشت «۳ تب گشته شد» و صاحبِ برنامه آن را «همه‌اش را گشت»
      خواند — درست هم خواند، چون مخرجی نبود. پس این سنجه خودِ `show` را

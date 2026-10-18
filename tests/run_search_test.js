@@ -806,4 +806,31 @@ console.log('\n══ ۳۶) جمع‌بندی از درونِ یافته‌ها�
   ok('۳۶.۱۰ HTML: گریز و لنگرِ شماره', !/<script>x/.test(html) && /href="#r1"/.test(html) && /id="r1"/.test(html) && !/javascript:1/.test(html));
 }
 
+console.log('\n══ ۳۷) ساده، تب به تب (۹.۵۵) ══');
+{
+  /* «سقفِ زمانیش بالا بره و هرجا قطع شد از ادامه‌ش کار از سر بگیره» — هر تب یک گام، و ردیف‌هایی که در یک گام نرسید در
+     گامِ بعدیِ همان تب خوانده می‌شوند، نه رها. */
+  const many = [];
+  for (let i = 0; i < 120; i++) many.push(row({ id: 'G' + i, topic: 'گام‌آزما ' + i }));
+  mkCat('آزمونِ گام', many);
+  const st = srchLexStart('گام‌آزما', false);
+  const at = st.plan.map(x => x.name).indexOf('آزمونِ گام');
+  ok('۳۷.۱ نقشه: همهٔ تب‌های بانک، با واژه‌ها، بی شیتِ منبع وقتی تیک نخورده', st.ok && at !== -1 &&
+     st.plan.every(x => !x.src) && st.terms.length > 0, JSON.stringify(st.plan.map(x => x.name)));
+  const keepR = CFG.SEARCH_STEP_ROWS; CFG.SEARCH_STEP_ROWS = 50;
+  const s1 = srchLexStep('گام‌آزما', st.terms, st.plan, at, null);
+  const s2 = srchLexStep('گام‌آزما', st.terms, st.plan, s1.next, s1.rest);
+  const s3 = srchLexStep('گام‌آزما', st.terms, st.plan, s2.next, s2.rest);
+  CFG.SEARCH_STEP_ROWS = keepR;
+  const ids = [].concat(s1.items, s2.items, s3.items).map(x => x.title + '|' + x.row);
+  ok('۳۷.۲ گامِ اول ۵۰ ردیف می‌خوانَد و ۷۰تای مانده را برای همان تب برمی‌گرداند (نه تبِ بعد)',
+     s1.ok && s1.items.length === 50 && s1.rest.length === 70 && s1.next === at, JSON.stringify([s1.items.length, s1.rest.length, s1.next]));
+  ok('۳۷.۳ گام‌های بعد همان تب را تمام می‌کنند و بعد به تبِ بعد می‌روند؛ هر ۱۲۰ ردیف، هیچ‌کدام دو بار',
+     s3.next === at + 1 && !s3.rest.length && ids.length === 120 && new Set(ids).size === 120, JSON.stringify([s2.items.length, s3.items.length, s3.next]));
+  const sEnd = srchLexStep('گام‌آزما', st.terms, st.plan, st.plan.length, null);
+  ok('۳۷.۴ از تهِ نقشه گذشت ⇒ بی کار، بی خطا', sEnd.ok && !sEnd.items.length && sEnd.next === st.plan.length);
+  const gone = srchLexStep('گام‌آزما', st.terms, [{ id: 'X', name: 'تبی که نیست', src: '' }], 0, null);
+  ok('۳۷.۵ تبی که دیگر نیست ⇒ رد با یادداشت، نه گیر', gone.ok && gone.next === 1 && /دیگر نیست/.test(gone.notes.join(' ')));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');
