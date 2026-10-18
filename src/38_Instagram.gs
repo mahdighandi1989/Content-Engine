@@ -980,6 +980,12 @@ function igTick() {
       st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '22'; }).join(',');
       st.redo951 = 1;
     }
+    /* ۹.۵۲: شورتزِ ریلزی که دیگر «انجام‌شده» نیست بالا نمی‌رود — «اره از صف درش بیار» (شورتزِ همان درسِ ۱ِ آئودی). هر
+       ردیفِ صف هم‌زمان با «انجام‌شده» شدنِ ریلزش می‌آید؛ ردیفی که ریلزش از «انجام‌شده» بیرون رفته، پس‌گرفته شده است. */
+    if ((st.shortQ || []).length) {
+      var dm = igDoneMap_(st);
+      st.shortQ = st.shortQ.filter(function (x) { return x && dm[String(x.ep)]; });
+    }
     if (st.inflight.length < Math.max(1, Number(CFG.IG_INFLIGHT) || 2)) {
       var nx = igNextEp_(ytPublished_(getHub_()), st);
       if (nx) {

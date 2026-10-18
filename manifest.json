@@ -1,19 +1,14 @@
 {
-  "version": "9.51",
+  "version": "9.52",
   "codeFile": "engine.gs",
-  "sha256": "bf7b40993c019ec92acc8eca5fdb8d66dae5eacf511dc9327e20a618f3db4ae4",
-  "releasedAt": "2026-10-18T13:30:00+04:00",
-  "summary": "ریلزِ اینستاگرام مجموعه به مجموعه، واقعاً: مجموعهٔ بعدی فقط پس از تمام شدنِ کاملِ قبلی (تا ۹.۵۰ گیرِ درسِ ۹ِ مصباح آئودی را راه انداخت)؛ خطای حسابِ متا شکستِ درس نیست؛ شکستِ انتشار ویدئو را از نو نمی‌سازد؛ برچسبِ سبز فارسی و کوتاه؛ مرورِ بزرگ ۱۵۰–۱۷۰ ثانیه.",
+  "sha256": "f9057e34e7d7afc14ab666db97c62a8c10a401d369b813fcbbd7e0237d39248c",
+  "releasedAt": "2026-10-18T14:20:00+04:00",
+  "summary": "شورتزِ یوتیوبِ ریلزی که دیگر «انجام‌شده» نیست (درسِ ۱ِ آئودی، قسمتِ ۲۲) از صف بیرون می‌رود.",
   "fixes": [
-    "src/38_Instagram.gs: igNextEp_ — گیر/جاافتادن/رسیدن به آخرِ منتشرشده ⇒ return null (نه رفتن به مجموعهٔ بعدی)",
-    "src/38_Instagram.gs: igAcctErr_/igAcctUnfail_ — خطای حساب در انتشار ⇒ wait؛ شمارشِ شکستِ حسابی پاک؛ st.failWhy",
-    "src/38_Instagram.gs: igTick — شکستِ گامِ pub دیگر phase=plan نمی‌کند؛ igResumePhase_؛ یک بار قسمتِ ۲۲ از done بیرون (redo951)",
-    "src/38_Instagram.gs: igKicker_ + فیلدِ kicker در IG_REEL_SCHEMA — برچسبِ سبز، عنوانِ شورتز و کپشن فارسی و کوتاه",
-    "src/00_Config.gs: IG_RECAP_SEC ۱۵۰ تا ۱۷۰، IG_RECAP_WORDS [260, 400]"
+    "src/38_Instagram.gs: igTick — پالایشِ shortQ با igDoneMap_"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-03": "۹.۵۱",
-    "R-20261018-04": "۹.۵۱"
+    "R-20261018-05": "۹.۵۲"
   }
 }

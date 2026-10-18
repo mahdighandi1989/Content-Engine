@@ -75,6 +75,18 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
      igAcctErr_('API access blocked.') && igAcctErr_('Invalid OAuth access token') && !igAcctErr_('The video file is too long') &&
      /igAcctErr_\(ce\) \? \{ wait/.test(String(igStepPub_)) && /if \(it\.phase !== 'pub'\) it\.phase = 'plan'/.test(String(igTick)) &&
      /redo951/.test(String(igTick)));
+  { /* ۹.۵۲: شورتزِ ریلزِ پس‌گرفته از صف بیرون — خودِ igTick، با حالتِ ذخیره‌شده. */
+    const kOn = global.igOn_; global.igOn_ = () => false;
+    igStateSave_({ done: '1,2', redo951: 1, shortQ: [{ key: 'ig:special:2', ep: 2 }, { key: 'ig:special:22', ep: 22 }] });
+    global.igOn_ = () => true;
+    const kNx = global.igNextEp_, kPub = global.ytPublished_; global.igNextEp_ = () => null; global.ytPublished_ = () => ({});
+    const kRun = global.igShortQueueRun_, kTh = global.igShortThumbRetro_, kIn = global.igInsights_;
+    global.igShortQueueRun_ = () => 0; global.igShortThumbRetro_ = () => 0; global.igInsights_ = () => 0;
+    try { igTick(); } finally { global.igOn_ = kOn; global.igNextEp_ = kNx; global.ytPublished_ = kPub;
+                                global.igShortQueueRun_ = kRun; global.igShortThumbRetro_ = kTh; global.igInsights_ = kIn; }
+    const sq = igState_().shortQ;
+    ok('۱.۱۳ شورتزی که ریلزش دیگر «انجام‌شده» نیست از صف بیرون می‌رود؛ بقیه می‌مانند (۹.۵۲)', sq.length === 1 && sq[0].ep === 2, JSON.stringify(sq));
+  }
   const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
   ok('۱.۹ انتشار به ترتیب: درسِ ۲ تا وقتی درسِ ۱ منتشر نشده منتظر می‌ماند', igEarlierPending_(stP, 2) === 'درسِ 1' &&
      igEarlierPending_(Object.assign({}, stP, { done: '1' }), 2) === '' && igEarlierPending_(stP, 1) === '');
