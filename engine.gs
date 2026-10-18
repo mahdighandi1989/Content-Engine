@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.50
+ *  موتور محتوا و پادکست — نسخهٔ 9.51
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1417,8 +1417,8 @@ var CFG = {
   IG_TAGS_BASE: ['درسنامه', 'رد_پای_حقیقت', 'آیا_میدانستید', 'آموزش'],
   IG_APPROVE: 1,                 // «چند تای اول با تأییدِ شما» — `docs/ig-approve.json`. ۹.۳۰: ۳ ⇒ ۱ — ریلزِ اول را دید و گفت «خوب بود، منتشر کن … ایرادها را در درس‌های بعد اعمال کن»
   IG_PLAN_MIN: 3,                // ۹.۳۰: برنامهٔ منتشرنشده با نسخهٔ کمتر از این از نو نوشته می‌شود (نه با هر بالا رفتنِ IG_PLAN_V — ریلزِ تأییدشده دوباره ساخته نشود)
-  IG_RECAP_SEC: '120 تا 170',    // ۹.۳۰: مرورِ بزرگ — «حدودِ سه دقیقه نهایتاً … چون مرور دیگه نباید خلاصه‌ش کنی»
-  IG_RECAP_WORDS: [200, 400],
+  IG_RECAP_SEC: '150 تا 170',    // ۹.۵۱: «حدودِ سه دقیقه ولی نه بیشتر» (پیش‌تر ۱۲۰ تا ۱۷۰). ۹.۳۰: مرورِ بزرگ — «حدودِ سه دقیقه نهایتاً … چون مرور دیگه نباید خلاصه‌ش کنی»
+  IG_RECAP_WORDS: [260, 400],
   IG_RECAP_IMG_N: 9,
   IG_MAX_SEC: 178,               // سقفِ ریلز و شورتز (شورتز تا ۱۸۰ ثانیه)؛ بلندتر ⇒ از نو با متنِ کوتاه‌تر
   IG_RETRY_H: 24,                // درسی که به سقفِ تلاش رسید، پس از این همان درس دوباره — رها نمی‌شود (ترتیب بی جاافتادگی)
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.50',
+  CODE_VERSION: '9.51',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -80081,8 +80081,24 @@ var IG_REEL_SCHEMA = { type: 'object', properties: {
   coverTitle: { type: 'string' }, caption: { type: 'string' }, story: { type: 'string' },
   tags: { type: 'array', items: { type: 'string' } },
   emph: { type: 'array', items: { type: 'string' } },
-  ytDesc: { type: 'string' }
-}, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph', 'ytDesc'] };
+  ytDesc: { type: 'string' }, kicker: { type: 'string' }
+}, required: ['idea', 'script', 'scenes', 'coverTitle', 'caption', 'tags', 'emph', 'ytDesc', 'kicker'] };
+
+/**
+ * برچسبِ سبزِ روی ریلز و کاور (۹.۵۱). «اون متن تو باکس برای ائودی رو هم نباید انگلیسی بنویسه که معرفی کتاب بشه باید
+ * فارسی و کوتاه باشه … که مخاطب فارسی فرار نکنه». تا ۹.۵۰ نامِ خامِ مجموعه بود — برای آئودی عنوانِ انگلیسیِ کامل کتاب.
+ * نامِ فارسیِ کوتاه ⇒ همان؛ وگرنه پیشنهادِ مدل اگر فارسی و کوتاه است؛ وگرنه **هیچ** برچسبی — برچسبِ لاتین هرگز.
+ */
+function igKicker_(series, k) {
+  var ok = function (t) { t = String(t || '').replace(/[«»"]/g, '').replace(/\s+/g, ' ').trim();
+                          return (t.length >= 2 && t.length <= 32 && !/[A-Za-z]/.test(t)) ? t : ''; };
+  return ok(series) || ok(k);
+}
+
+/** خطای حساب/دسترسی، نه خطای این درس (۹.۵۱): «API access blocked» سه بار به حسابِ درسِ ۹ِ مصباح نوشته شد. */
+function igAcctErr_(t) {
+  return /access blocked|oauth|access token|session has expired|permission|rate limit|request limit|too many|try again later|temporar|unavailable|unexpected error/i.test(String(t || ''));
+}
 
 /* داورِ پیوستگی — فراخوانِ جدا از نویسنده (همان قاعدهٔ ۶.۲۰: نوشتن و داوری دو کارند). */
 var IG_JUDGE_SCHEMA = { type: 'object', properties: {
@@ -80203,7 +80219,7 @@ function igFailHold_(st, ep) {
  *   • ویدئوی عمومی دارد ⇒ همین؛
  *   • ندارد و درسِ بعدی‌اش دارد ⇒ **جاافتاده**: مجموعه همین‌جا می‌ایستد و در `st.gaps` گفته می‌شود — رد نمی‌شود؛
  *   • ندارد و بعدی‌ها هم ندارند ⇒ به آخرِ منتشرشده رسیده؛ همراهِ تولید جلو می‌رود.
- * بعد سراغِ مجموعهٔ بعدی. `pub` = خروجیِ `ytPublished_`.
+ * مجموعهٔ بعدی فقط وقتی که همهٔ درس‌ها و مرورهای این یکی انجام شده (۹.۵۱) — گیر، جاافتادن یا رسیدن به آخرِ منتشرشده همه می‌ایستند. `pub` = خروجیِ `ytPublished_`.
  */
 function igNextEp_(pub, st, orderIn) {
   var done = igDoneMap_(st), busy = {};
@@ -80221,7 +80237,10 @@ function igNextEp_(pub, st, orderIn) {
       if (done[String(e)]) continue;
       if (busy[String(e)]) continue;
       var label = x.recap ? 'مرورِ بزرگ (' + e + ')' : 'درسِ ' + x.lesson;
-      if (igFailHold_(st, e)) { gaps.push('«' + S.name + '» ' + label + ': سه بار نشد، تا ' + (Number(CFG.IG_RETRY_H) || 24) + ' ساعت دیگر دوباره'); break; }
+      /* ۹.۵۱: مجموعه‌ای که گیر کرده، مجموعهٔ بعدی را **راه نمی‌دهد** — «مگه ریلزها برای مصباح تموم شده؟ … برای ائودی
+         داره ریلز میذاره». تا ۹.۵۰ `break` فقط از همین مجموعه بیرون می‌رفت و حلقه سراغِ آئودی می‌رفت. فقط مجموعه‌ای که
+         به آخرِ منتشرشده‌اش رسیده (`caught`) مجموعهٔ بعدی را هم‌زمان راه می‌دهد. */
+      if (igFailHold_(st, e)) { gaps.push('«' + S.name + '» ' + label + ': سه بار نشد، تا ' + (Number(CFG.IG_RETRY_H) || 24) + ' ساعت دیگر دوباره'); st.gaps = gaps; st.caught = caught; return null; }
       if (isPub(e)) {
         var r = pub[ENRICH_SHOW_SPECIAL + ':' + e];
         st.gaps = gaps; st.caught = caught;
@@ -80230,9 +80249,13 @@ function igNextEp_(pub, st, orderIn) {
       }
       var later = false;
       for (var j = i + 1; j < eps.length && !later; j++) if (isPub(eps[j].ep)) later = true;
-      if (later) gaps.push('«' + S.name + '» ' + label + ': ویدئوی عمومیِ یوتیوب ندارد، درس‌های بعدی دارند — منتظر می‌ماند');
-      else caught.push(S.name);
-      break;
+      if (later) { gaps.push('«' + S.name + '» ' + label + ': ویدئوی عمومیِ یوتیوب ندارد، درس‌های بعدی دارند — منتظر می‌ماند');
+                   st.gaps = gaps; st.caught = caught; return null; }
+      /* ۹.۵۱: «باید یه مجموعه کامل تموم بشه بره بعدی». رسیدن به آخرِ منتشرشده هم مجموعهٔ بعدی را راه نمی‌دهد — مجموعه
+         می‌ایستد تا درسِ بعدی‌اش در یوتیوب عمومی شود. */
+      caught.push(S.name);
+      st.gaps = gaps; st.caught = caught;
+      return null;
     }
   }
   st.gaps = gaps; st.caught = caught;
@@ -80314,6 +80337,7 @@ function igPrompt_(ep, seriesName, lesson, opt) {
     '• caption = کپشنِ اینستاگرام: سطرِ اول یک جملهٔ کنجکاوکننده (همان که زیرِ ریلز پیش از «بیشتر» دیده می‌شود، حداکثر ۱۲۰ نویسه)، بعد ۲ تا ۳ جملهٔ ساده که همان ایده را بگوید و به درسِ کامل دعوت کند. پیوند و برچسب ننویس.',
     '• ytDesc = توضیحِ شورتزِ یوتیوب: ۳ تا ۵ جمله — بیننده در این ویدئو چه می‌فهمد، چرا مهم است، و درسِ کامل چه چیزِ بیشتری می‌دهد؛ واژه‌های کلیدیِ جست‌وجوپذیرِ همین موضوع را طبیعی در جمله‌ها بیاور. پیوند و برچسب ننویس.',
     '• tags = ۸ تا ۱۵ برچسبِ مرتبط، بی #. story = یک جملهٔ کوتاه برای استوری.',
+    '• kicker = نامِ مجموعه برای برچسبِ روی تصویر: **فارسی**، ۲ تا ۴ واژه، بی هیچ حرفِ لاتین — اگر نامِ مجموعه انگلیسی یا عنوانِ کتاب است، موضوعش را کوتاه به فارسی بگو (مثلاً «معرفت‌شناسیِ آئودی»).',
     '• emph = ۴ تا ۸ واژه یا عبارتِ کوتاهِ کلیدی (۱ تا ۳ واژه) که **عیناً** در script آمده‌اند — روی تصویر برجسته می‌شوند.',
     '',
     'متنِ درس:',
@@ -80395,7 +80419,7 @@ function igPlanTrim_(r, opt) {
   return { idea: String(r.idea || '').trim().slice(0, 200), hook: lines[0].text.slice(0, 140), lines: lines, scenes: scenes, emph: emph,
            coverTitle: String(r.coverTitle || '').trim().slice(0, 60), caption: String(r.caption || '').trim().slice(0, 1200),
            story: String(r.story || '').trim().slice(0, 140), tags: tags, words: words,
-           ytDesc: String(r.ytDesc || '').trim().slice(0, 1500) };
+           ytDesc: String(r.ytDesc || '').trim().slice(0, 1500), kicker: String(r.kicker || '').trim().slice(0, 60) };
 }
 
 /**
@@ -80473,11 +80497,12 @@ function igShortMeta_(plan, plUrl) {
   try { mk = ytMarkSpec_(); } catch (e) { mk = null; }
   var lab = igLessonLabel_(plan);
   var head = String(plan.plan.coverTitle || plan.plan.hook || plan.title || '').replace(/[«»]/g, '').trim();
-  var tail = ' | ' + String(plan.series || '').slice(0, 40) + (lab ? '، ' + lab : '') + ' #Shorts';
+  var sn = igKicker_(plan.series, plan.plan.kicker) || String(plan.series || '');
+  var tail = ' | ' + sn.slice(0, 40) + (lab ? '، ' + lab : '') + ' #Shorts';
   var title = (head.slice(0, Math.max(20, 100 - tail.length)) + tail).slice(0, 100);
   var tags = igTags_(plan.plan, 14);
   var desc = igCapClean_(String(plan.plan.ytDesc || plan.plan.caption || '')) + '\n\n' +
-             'نسخهٔ کامل' + (lab ? ' (' + lab + ' از مجموعهٔ «' + plan.series + '»)' : '') + ':\n' + plan.yt + '\n' +
+             'نسخهٔ کامل' + (lab ? ' (' + lab + ' از مجموعهٔ «' + sn + '»)' : '') + ':\n' + plan.yt + '\n' +
              (plUrl ? '\nهمهٔ درس‌های «' + plan.series + '» به ترتیب:\n' + plUrl + '\n' : '') +
              ((mk && mk.handle) ? '\nکانالِ «' + ((mk && mk.name) || 'رد پای حقیقت') + '»: https://www.youtube.com/' + mk.handle + '\n' : '') +
              '\n#Shorts ' + tags.map(function (t) { return '#' + t; }).join(' ');
@@ -80513,7 +80538,7 @@ function igStepPlan_(it, fo) {
     jd = igJudge_(p, lessonTxt, opt);
     if (!jd.ok && jd.fix) {
       var p2 = igPlanTrim_({ idea: p.idea, script: jd.fix, scenes: p.scenes, coverTitle: p.coverTitle, caption: p.caption,
-                             story: p.story, tags: p.tags, emph: p.emph, ytDesc: p.ytDesc }, opt);
+                             story: p.story, tags: p.tags, emph: p.emph, ytDesc: p.ytDesc, kicker: p.kicker }, opt);
       if (p2.lines) {
         var jd2 = igJudge_(p2, lessonTxt, opt);
         if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
@@ -80525,10 +80550,11 @@ function igStepPlan_(it, fo) {
   p.judge = jd.why || 'پیوسته';
   p.lines.push({ text: IG_CTA_LINE, scene: '', cta: true });
   p.recap = recap; p.range = opt.range;
+  p.kicker = igKicker_(seriesName, p.kicker);
   var plan = { v: Number(CFG.IG_PLAN_V) || 2, key: it.key, ep: it.ep, series: seriesName, seriesKey: String(meta.seriesKey || ''), lesson: lesson,
                recap: recap, range: opt.range, title: String(ep.title || ''),
                yt: it.yt, at: nowStr_(), phase: 'voice', plan: p,
-               caption: igCaption_(p, it.yt, seriesName, lesson),
+               caption: igCaption_(p, it.yt, p.kicker || seriesName, lesson),
                voice: (ep.__cast && ep.__cast.lead) || CFG.TTS_VOICE_SPECIAL || CFG.TTS_VOICE };
   igPlanWrite_(fo, plan);
   try {
@@ -80668,7 +80694,7 @@ function igStepAsk_(it, fo, plan) {
   var row = { key: it.key, sig: sig, at: nowStr_(),
               audio: { id: plan.audioId, url: ytDlUrl_(plan.audioId) },
               imgs: (plan.imgs || []).map(function (x) { return { id: x.id, url: ytDlUrl_(x.id) }; }),
-              lines: lines, hook: plan.plan.hook, kicker: plan.series, coverTitle: plan.plan.coverTitle || plan.plan.hook,
+              lines: lines, hook: plan.plan.hook, kicker: igKicker_(plan.series, plan.plan.kicker), coverTitle: plan.plan.coverTitle || plan.plan.hook,
               emph: plan.plan.emph || [], short: CFG.IG_SHORTS !== false,
               end: { l1: 'نسخهٔ کاملِ این درس در یوتیوب', l2: (mk && mk.name) || 'رد پای حقیقت',
                      handle: (mk && mk.handle) || '' },
@@ -80783,7 +80809,7 @@ function igStepPub_(it, plan, st, deadline) {
   if (!plan.reelCid) {
     var c = igApi_('post', '/' + a.ig + '/media', { media_type: 'REELS', video_url: plan.video, cover_url: plan.cover,
                                                     caption: igCapClean_(plan.caption), share_to_feed: 'true' });
-    if (!(c.j && c.j.id)) return { fail: 'ظرفِ ریلز ساخته نشد: ' + igErr_(c) };
+    if (!(c.j && c.j.id)) { var ce = igErr_(c); return igAcctErr_(ce) ? { wait: 'حساب/دسترسی: ' + ce } : { fail: 'ظرفِ ریلز ساخته نشد: ' + ce }; }
     plan.reelCid = String(c.j.id);
   }
   if (!plan.reelId) {
@@ -80791,7 +80817,7 @@ function igStepPub_(it, plan, st, deadline) {
     if (w === 'wait') return { wait: 'ویدئو در متا هنوز آماده نیست' };
     if (w) { plan.reelCid = ''; return { fail: w }; }
     var p = igApi_('post', '/' + a.ig + '/media_publish', { creation_id: plan.reelCid });
-    if (!(p.j && p.j.id)) return { fail: 'انتشارِ ریلز: ' + igErr_(p) };
+    if (!(p.j && p.j.id)) { var pe = igErr_(p); return igAcctErr_(pe) ? { wait: 'حساب/دسترسی: ' + pe } : { fail: 'انتشارِ ریلز: ' + pe }; }
     plan.reelId = String(p.j.id);
     st.media = st.media || {};
     st.media[plan.reelId] = it.key;
@@ -80994,12 +81020,19 @@ function igTick() {
        تب‌ها سرِ جایشان ماندند («رفرش کردم، هنوز هستن»). کارش چند خواندنِ هاب است و یک بار در عمر. */
     if (!st.hubRetired) { try { igHubRetire_(st); } catch (eHp) {} }
     st.inflight = st.inflight || [];
+    igAcctUnfail_(st);
+    /* ۹.۵۱، یک بار: ریلزِ درسِ ۱ِ آئودی (قسمتِ ۲۲) پیش از تمام شدنِ مصباح و با برچسبِ انگلیسی رفت و صاحبِ برنامه بایگانی‌اش
+       کرد — نوبتِ خودش دوباره ساخته می‌شود، با برچسبِ فارسی. */
+    if (!st.redo951) {
+      st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '22'; }).join(',');
+      st.redo951 = 1;
+    }
     if (st.inflight.length < Math.max(1, Number(CFG.IG_INFLIGHT) || 2)) {
       var nx = igNextEp_(ytPublished_(getHub_()), st);
       if (nx) {
         var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, nx.ep, nx.series);
         if (fo0) st.inflight.push({ key: 'ig:' + ENRICH_SHOW_SPECIAL + ':' + nx.ep, ep: nx.ep, series: nx.series,
-                                    folderId: fo0.getId(), yt: nx.url, phase: 'plan', at: nowStr_(),
+                                    folderId: fo0.getId(), yt: nx.url, phase: igResumePhase_(fo0), at: nowStr_(),
                                     recap: nx.recap ? 1 : 0, lesson: nx.lesson || 0 });
         else { st.fails = st.fails || {}; st.fails[String(nx.ep)] = 9; st.lastWhy = 'پوشهٔ قسمتِ ' + nx.ep + ' پیدا نشد'; }
       }
@@ -81016,12 +81049,14 @@ function igTick() {
         st.fails = st.fails || {};
         st.fails[String(it.ep)] = (Number(st.fails[String(it.ep)]) || 0) + 1;
         st.lastWhy = it.key + ': ' + res.fail;
+        st.failWhy = st.failWhy || {}; st.failWhy[String(it.ep)] = String(res.fail).slice(0, 120);
         /* سقفِ تلاش ⇒ کنار تا `IG_RETRY_H`، بعد همان درس دوباره (۹.۳۰) — رها کردن یعنی جاافتادن. */
         if (st.fails[String(it.ep)] >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3)) {
           st.failAt = st.failAt || {}; st.failAt[String(it.ep)] = Date.now();
           continue;
         }
-        it.phase = 'plan';                         // از نو، با مدلِ تازه
+        /* از نو با مدلِ تازه — جز شکستِ انتشار (۹.۵۱): ویدئوی ساخته‌شده دوباره ساخته نمی‌شد، فقط انتشار دوباره. */
+        if (it.phase !== 'pub') it.phase = 'plan';
       }
       keep.push(it);
     }
@@ -81037,6 +81072,30 @@ function igTick() {
     igStateSave_(st);
     runExit_('igTick');
   }
+}
+
+/**
+ * شکستی که از حساب بود، شکستِ درس نیست (۹.۵۱): شمارش و نگه‌داشتنش پاک می‌شود — درسِ ۹ِ مصباح با «API access blocked»
+ * سه بار شمرده شد و ۲۴ ساعت کنار رفت، در حالی که خودِ درس هیچ ایرادی نداشت. پیش از ۹.۵۱ علت فقط در `lastWhy` بود.
+ */
+function igAcctUnfail_(st) {
+  var f = st.fails || {}, fw = st.failWhy || {}, n = 0;
+  Object.keys(f).forEach(function (e) {
+    var why = fw[e] || (String(st.lastWhy || '').indexOf(':' + e + ':') !== -1 ? st.lastWhy : '');
+    if (Number(f[e]) < 9 && igAcctErr_(why)) { delete f[e]; delete fw[e]; if (st.failAt) delete st.failAt[e]; n++; }
+  });
+  st.fails = f; st.failWhy = fw;
+  return n;
+}
+
+/** درسی که دوباره به صف می‌آید از همان گامی ادامه می‌دهد که برنامه‌اش دارد (۹.۵۱) — ویدئوی آماده دوباره ساخته نمی‌شود. */
+function igResumePhase_(fo0) {
+  try {
+    var pl = igPlanRead_(igFolder_(fo0));
+    if (pl && !pl.reelId && (Number(pl.v) || 1) >= (Number(CFG.IG_PLAN_MIN) || 3) &&
+        ['voice', 'img', 'ask', 'got', 'ok', 'pub'].indexOf(String(pl.phase)) !== -1) return String(pl.phase);
+  } catch (e) {}
+  return 'plan';
 }
 
 /** یک گامِ یک ریلز. ⇒ {done} | {ok} | {wait} | {fail} */

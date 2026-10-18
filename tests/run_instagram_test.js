@@ -44,16 +44,16 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
   const gapPub = Object.assign({}, pub, { 'special:2': P('a2', 'unlisted') });
   const sg = { done: '1' };
   const g1 = nx(sg, gapPub);
-  ok('۱.۴ جاافتاده (درسِ ۲ عمومی نیست ولی ۳ هست) ⇒ مصباح همان‌جا می‌ایستد، درسِ ۳ **رد نمی‌شود**، و گفته می‌شود',
-     g1.ep === 4 && sg.gaps.length === 1 && /مصباح.*درسِ 2/.test(sg.gaps[0]) && nx({}, gapPub).ep === 1, JSON.stringify([g1, sg.gaps]));
+  ok('۱.۴ جاافتاده (درسِ ۲ عمومی نیست ولی ۳ هست) ⇒ مصباح همان‌جا می‌ایستد، درسِ ۳ **رد نمی‌شود**، آئودی هم شروع نمی‌شود (۹.۵۱)',
+     g1 === null && sg.gaps.length === 1 && /مصباح.*درسِ 2/.test(sg.gaps[0]) && nx({}, gapPub).ep === 1, JSON.stringify([g1, sg.gaps]));
   const capPub = Object.assign({}, pub); delete capPub['special:10'];
   const sc = {};
-  ok('۱.۵ به آخرِ منتشرشده رسید (مرورِ ۱۰ هنوز منتشر نشده و بعدش چیزی نیست) ⇒ «همراهِ تولید»، نه جاافتاده',
-     nx(Object.assign(sc, { done: '1,2,3' }), capPub).ep === 4 && !sc.gaps.length && sc.caught.indexOf('مصباح') !== -1);
+  ok('۱.۵ به آخرِ منتشرشده رسید (مرورِ ۱۰ هنوز منتشر نشده) ⇒ «همراهِ تولید»، نه جاافتاده — و آئودی منتظرِ تمام شدنِ مصباح (۹.۵۱)',
+     nx(Object.assign(sc, { done: '1,2,3' }), capPub) === null && !sc.gaps.length && sc.caught.indexOf('مصباح') !== -1);
   const fNow = { fails: { '2': CFG.IG_TRY_MAX }, failAt: { '2': Date.now() }, done: '1' };
   const fOld = { fails: { '2': CFG.IG_TRY_MAX }, failAt: { '2': Date.now() - 30 * 3600000 }, done: '1' };
   ok('۱.۶ سقفِ تلاش ⇒ مجموعه سرِ همان درس می‌ایستد (نه رد)، و پس از IG_RETRY_H همان درس دوباره',
-     nx(fNow).ep === 4 && /سه بار نشد/.test(fNow.gaps[0]) && nx(fOld).ep === 2 && fOld.fails['2'] === 0, JSON.stringify(fNow.gaps));
+     nx(fNow) === null && /سه بار نشد/.test(fNow.gaps[0]) && nx(fOld).ep === 2 && fOld.fails['2'] === 0, JSON.stringify(fNow.gaps));
   ok('۱.۷ «از همه جا» هرگز', !JSON.stringify(nx({ done: '1,2,3,10,4,5,6' })).includes('x1') && nx({ done: '1,2,3,10,4,5,6' }) === null);
   /* ترتیبِ مجموعه‌ها از نخستین قسمتشان؛ فهرست فشرده در حالت (سقفِ ۹ کیلوبایتِ Properties). */
   const st2 = {};
@@ -64,6 +64,17 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
      o2[0].name === 'مصباح' && o2[1].name === 'آئودی' && /^1:1,2:2$/.test(st2.order.s[0].e) &&
      JSON.stringify(igOrderDec_(st2.order.s)) === JSON.stringify(o2.map(S => ({ name: S.name, eps: S.eps.map(x => ({ ep: x.ep, recap: x.recap ? 1 : 0, lesson: x.lesson })) }))),
      JSON.stringify(st2.order));
+  /* ۹.۵۱: «مگه ریلزها برای مصباح تموم شده؟ … برای ائودی داره ریلز میذاره». */
+  ok('۱.۱۰ مجموعهٔ بعدی فقط پس از تمام شدنِ کاملِ قبلی — نه با گیر، نه با جاافتادن، نه با رسیدن به آخرِ منتشرشده',
+     nx({ done: '1,2,3,10' }).ep === 4 && nx({ done: '1,2,3' }, capPub) === null && nx(fNow) === null);
+  const sA = { done: '1', fails: { '2': 3 }, failAt: { '2': Date.now() }, lastWhy: 'ig:special:2: ظرفِ ریلز ساخته نشد: API access blocked.' };
+  const sB = { done: '1', fails: { '2': 3 }, failAt: { '2': Date.now() }, failWhy: { '2': 'داورِ پیوستگی نپذیرفت' } };
+  ok('۱.۱۱ شکستِ حساب («API access blocked») شکستِ درس نیست: پاک می‌شود و همان درس فوراً؛ شکستِ واقعی می‌ماند',
+     igAcctUnfail_(sA) === 1 && nx(sA).ep === 2 && igAcctUnfail_(sB) === 0 && nx(sB) === null);
+  ok('۱.۱۲ خطای حساب در انتشار ⇒ صبر، نه شکست؛ شکستِ انتشار ویدئو را از نو نمی‌سازد؛ قسمتِ ۲۲ یک بار از «انجام‌شده» بیرون',
+     igAcctErr_('API access blocked.') && igAcctErr_('Invalid OAuth access token') && !igAcctErr_('The video file is too long') &&
+     /igAcctErr_\(ce\) \? \{ wait/.test(String(igStepPub_)) && /if \(it\.phase !== 'pub'\) it\.phase = 'plan'/.test(String(igTick)) &&
+     /redo951/.test(String(igTick)));
   const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
   ok('۱.۹ انتشار به ترتیب: درسِ ۲ تا وقتی درسِ ۱ منتشر نشده منتظر می‌ماند', igEarlierPending_(stP, 2) === 'درسِ 1' &&
      igEarlierPending_(Object.assign({}, stP, { done: '1' }), 2) === '' && igEarlierPending_(stP, 1) === '');
@@ -90,6 +101,11 @@ const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه ا�
   const bad2 = igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT.replace('روزی', 'در سالِ ۱۴۰۵') }));
   ok('۲.۴ «پادکست/این قسمت» یا تاریخ ⇒ کلِ متن رد (متنِ پیوسته را نمی‌شود سوراخ کرد)', !bad1.lines && !bad2.lines, bad1.why + ' | ' + bad2.why);
   ok('۲.۴-ب «تا امروز» محتواست، نه تاریخ', !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' این پرسش تا امروز هم باز مانده است.' })).lines);
+  ok('۲.۶ برچسبِ سبز (۹.۵۱): نامِ فارسیِ کوتاه همان؛ نامِ انگلیسیِ کتاب ⇒ پیشنهادِ فارسیِ مدل؛ لاتین یا بلند ⇒ هیچ',
+     igKicker_('معرفت شناسی مجتبی مصباح', 'x') === 'معرفت شناسی مجتبی مصباح' &&
+     igKicker_('Audi (2011) Epistemology A Contemporary Introduction to the Theory of Knowledge', 'معرفت‌شناسیِ آئودی') === 'معرفت‌شناسیِ آئودی' &&
+     igKicker_('Audi (2011) Epistemology', 'Audi Epistemology') === '' && igKicker_('Audi (2011) Epistemology', '') === '' &&
+     /kicker: igKicker_\(plan\.series, plan\.plan\.kicker\)/.test(String(igStepAsk_)) && IG_REEL_SCHEMA.required.indexOf('kicker') !== -1);
   const cap = igCaption_(p, 'https://youtu.be/v5', 'معرفت‌شناسی', 4);
   ok('۲.۵ کپشن: پیوندِ همان ویدئو، نامِ مجموعه و درس، برچسبِ پایه و درس بی تکرار', cap.indexOf('https://youtu.be/v5') !== -1 &&
      cap.indexOf('«معرفت‌شناسی» — درسِ ۴') !== -1 && /#درسنامه/.test(cap) && /#فلسفه/.test(cap) &&

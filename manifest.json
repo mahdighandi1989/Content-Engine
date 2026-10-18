@@ -1,16 +1,19 @@
 {
-  "version": "9.50",
+  "version": "9.51",
   "codeFile": "engine.gs",
-  "sha256": "58cc0eb8cb593bfab8abdf3ac5710e2380e51c6812acfa895ca54b58d562990e",
-  "releasedAt": "2026-10-18T11:40:00+04:00",
-  "summary": "دو نمونهٔ سنجشیِ صدا: رضوی با خوانشِ ساده (بی دستورِ لحن/حالت/کششِ مکث) تا علتِ «زیر شدن» و «قطع» تفکیک شود؛ گلدوز با تبدیلِ دومِ index_rate ۰٫۳ برای «ه⇐خ».",
+  "sha256": "bf7b40993c019ec92acc8eca5fdb8d66dae5eacf511dc9327e20a618f3db4ae4",
+  "releasedAt": "2026-10-18T13:30:00+04:00",
+  "summary": "ریلزِ اینستاگرام مجموعه به مجموعه، واقعاً: مجموعهٔ بعدی فقط پس از تمام شدنِ کاملِ قبلی (تا ۹.۵۰ گیرِ درسِ ۹ِ مصباح آئودی را راه انداخت)؛ خطای حسابِ متا شکستِ درس نیست؛ شکستِ انتشار ویدئو را از نو نمی‌سازد؛ برچسبِ سبز فارسی و کوتاه؛ مرورِ بزرگ ۱۵۰–۱۷۰ ثانیه.",
   "fixes": [
-    "src/36_VoiceBridge.gs: بذرِ plain در vbrSoulPick_/runVoiceSoulTest — بی cue، بی speakMarkUp_، بی spans، بی کششِ مکث",
-    "src/00_Config.gs: دو بذرِ تازهٔ درسِ ۷۴",
-    "tests: bridge_voice ۲۴.۱۸-ث، ۱۱-ث.۳"
+    "src/38_Instagram.gs: igNextEp_ — گیر/جاافتادن/رسیدن به آخرِ منتشرشده ⇒ return null (نه رفتن به مجموعهٔ بعدی)",
+    "src/38_Instagram.gs: igAcctErr_/igAcctUnfail_ — خطای حساب در انتشار ⇒ wait؛ شمارشِ شکستِ حسابی پاک؛ st.failWhy",
+    "src/38_Instagram.gs: igTick — شکستِ گامِ pub دیگر phase=plan نمی‌کند؛ igResumePhase_؛ یک بار قسمتِ ۲۲ از done بیرون (redo951)",
+    "src/38_Instagram.gs: igKicker_ + فیلدِ kicker در IG_REEL_SCHEMA — برچسبِ سبز، عنوانِ شورتز و کپشن فارسی و کوتاه",
+    "src/00_Config.gs: IG_RECAP_SEC ۱۵۰ تا ۱۷۰، IG_RECAP_WORDS [260, 400]"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-02": "۹.۵۰"
+    "R-20261018-03": "۹.۵۱",
+    "R-20261018-04": "۹.۵۱"
   }
 }
