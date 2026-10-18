@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-17 22:42",
+ "updatedAt": "2026-10-18 06:11",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -3920,6 +3920,151 @@
     "fade": 10
    },
    "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-74-cover.jpg"
+  },
+  "variety:76": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-76.mp4",
+   "bytes": 39170361,
+   "parts": 1,
+   "at": "2026-10-18 05:52",
+   "mode": "media",
+   "media": {
+    "clips": 8,
+    "photos": 7,
+    "found": 3,
+    "notFound": 1,
+    "failed": 0,
+    "why": [
+     "صحنهٔ 5: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable)",
+     "صحنهٔ 16: گفتاری در کلیپ شنیده نشد"
+    ],
+    "layouts": {
+     "fill": 5,
+     "center": 4,
+     "left": 3,
+     "scroll": 2,
+     "right": 1
+    },
+    "teaserTiles": 5,
+    "teaserSec": 36.6,
+    "teaser": 3,
+    "mainPart": 1,
+    "cropped": 7,
+    "tailCut": 7,
+    "cardOwn": 3,
+    "cards": 3,
+    "filled": 4,
+    "filledSec": 72,
+    "moments": {
+     "asked": 4,
+     "placed": 3,
+     "made": 3,
+     "why": [],
+     "replaced": 3,
+     "sec": 84,
+     "whole": 3,
+     "fallback": 1
+    },
+    "fit": {
+     "mb": 37.4,
+     "was": 62.3,
+     "how": "بازکدگذاری"
+    }
+   },
+   "inserts": [
+    {
+     "at": 123.2,
+     "d": 55.3,
+     "cut": 43.8
+    },
+    {
+     "at": 193.8,
+     "d": 13,
+     "cut": 18.5
+    },
+    {
+     "at": 266.6,
+     "d": 16.3,
+     "cut": 39.9
+    }
+   ],
+   "scenes": 18,
+   "want": 18,
+   "snapped": 13,
+   "seconds": 393,
+   "qa": {
+    "n": 18,
+    "matched": 18,
+    "miss": [],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 8,
+       "t": 106.3,
+       "own": 0.56,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "قبلند ار یکی از قسمتهای پیشین همین برنامه در باری زاگی شدن دون افر سر قرار حزوری شنیدیم."
+      },
+      {
+       "n": 12,
+       "t": 217.1,
+       "own": 0.4,
+       "nb": 0.05,
+       "ok": true,
+       "heard": "روسته اینستگرامی که اسکرین شات اشتعسبدس میشه  یکی نشست نوزخه یه ایرانیزه یه پیدا کردن هامی مطمعبل رو آموز اشتاده.  نبشته"
+      },
+      {
+       "n": 16,
+       "t": 307.3,
+       "own": 0.42,
+       "nb": 0.12,
+       "ok": true,
+       "heard": "این بیغا مثل کلی پر آخر که حوصلیگ بعد از چهل سالی گیرونشون میده.  ترف پیان میده دو ست دارم ازیزم.  اون یکی قلب نمیزاله. "
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 8,
+    "placed": 7,
+    "busy": 1,
+    "failed": 0,
+    "kinds": {
+     "points": 3,
+     "quote": 1,
+     "headline": 3
+    },
+    "forced": 2
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "clip": {
+    "asked": 18,
+    "used": 18,
+    "why": []
+   },
+   "xf": {
+    "circleopen": 3,
+    "dissolve": 6,
+    "slideright": 2,
+    "radial": 2,
+    "smoothright": 1,
+    "wiperight": 1,
+    "zoomin": 1
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/variety-76-cover.jpg",
+   "notes": [
+    "لحظهٔ 49s: مکثی بیرون از موسیقی نزدیکش نبود",
+    "برشِ کلیپ از آغاز: صحنهٔ 5: عبارت دقیق نبود ⇒ بخشِ اصلیِ گفتار (probable) · صحنهٔ 16: گفتاری در کلیپ شنیده نشد",
+    "اندازه: 62.3 ⇒ 37.4 مگابایت"
+   ]
   }
  },
  "art": {
@@ -4090,18 +4235,18 @@
   "ig:special:9": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-9.mp4",
    "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-9-cover.jpg",
-   "sig": "e9c115544c27",
-   "seconds": 62.9,
-   "bytes": 13325351,
+   "sig": "057a11a2b4cb",
+   "seconds": 61.7,
+   "bytes": 12241459,
    "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-9-short.mp4",
-   "shortSeconds": 59,
+   "shortSeconds": 57.3,
    "align": "faster-whisper",
-   "phrases": 38,
+   "phrases": 35,
    "trans": 4,
    "imgs": 5,
    "segs": 5,
-   "subs": 34,
-   "at": "2026-10-17 22:42"
+   "subs": 30,
+   "at": "2026-10-18 06:11"
   },
   "ig:special:10": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-10.mp4",
