@@ -355,10 +355,9 @@ global.geminiText_ = function (prompt) {
   return JSON.stringify({ hits: [{ id: '2', why: 'این', fit: 'نزدیک' }] });
 };
 const r17b = srchRun_('زیان‌گریزی', { mode: 'هوشمند', sources: false });
-ok('۱۷.۲ موردِ پرامتیازی که مدل نگفت، پنهان نمی‌شود',
-   r17b.items.length >= 1 &&
-   (r17b.items.some(i => i.fit === 'مدل کنارش گذاشت') || r17b.notes.length > 0),
-   'کوتاه‌کردنِ فهرست خوب است، پنهان‌کردن نه');
+ok('۱۷.۲ (۹.۴۹) آنچه مدل نامربوط دانست نشان داده نمی‌شود، ولی شمارش گفته می‌شود',
+   r17b.items.every(i => i.fit !== 'مدل کنارش گذاشت') && r17b.notes.some(n => /نشان داده نشدند/.test(n)),
+   JSON.stringify(r17b.notes));
 global.geminiText_ = function (prompt) {
   if (prompt.indexOf('عیناً در متنِ آن') !== -1) return JSON.stringify({ terms: [] });
   return JSON.stringify({ hits: [{ id: '-1', why: 'x' }] });
@@ -728,20 +727,6 @@ console.log('\n══ ۳۰) حافظه: «Out of memory error» در هر دو �
 
 console.log('\n══ ۳۵) «از ردیفِ ۱۲ به بعد هیچ ربطی نداشت» — سدِ «واژه‌های قوی» با مبنای درست (۹.۴۷) ══');
 {
-  /* شکلِ واقعیِ ۱۷ اکتبر: نخستین مورد یافتهٔ معنایی است (امتیازِ واژه‌ای صفر)، بقیه واژه‌ای. */
-  const picked = [
-    { title: 'فیلم‌های ۱۰۰٪ راتن تومیتوز', score: 0, sem: 0.82 },
-    { title: 'فهرستِ برترین فیلم‌ها', score: 30 },
-    { title: 'عروس و مادرشوهر', score: 13 },
-    { title: 'آسترولوژی مالی', score: 10 },
-    { title: 'فیلمِ تحسین‌شده', score: 18 }
-  ];
-  const kept = srchKeepRejected_(picked, { 0: 1 }, 25);
-  ok('۳۵.۱ فقط واژه‌ایِ قوی برمی‌گردد (≥ نیمِ بهترینِ واژه‌ای)، نه هر چه مانده',
-     kept.map(x => x.score).join(',') === '30,18', JSON.stringify(kept.map(x => x.title)));
-  ok('۳۵.۲ وقتی هیچ امتیازِ واژه‌ای نیست، چیزی به‌زور برنمی‌گردد',
-     srchKeepRejected_([{ score: 0 }, { score: 0 }], {}, 25).length === 0);
-  ok('۳۵.۳ و جای خالی رعایت می‌شود', srchKeepRejected_(picked, {}, 1).length === 1);
   ok('۳۵.۴ واژه‌های گفت‌وگوییِ پرسش واژهٔ جست‌وجو نیستند',
      JSON.stringify(srchTerms_('بهترین فیلم های پیشنهادی که خیلی هم تعریفش شده چیه')) ===
      JSON.stringify(['بهترین', 'فیلم', 'پیشنهادی', 'تعریفش']), JSON.stringify(srchTerms_('بهترین فیلم های پیشنهادی که خیلی هم تعریفش شده چیه')));
@@ -762,12 +747,34 @@ console.log('\n══ ۳۶) جمع‌بندی از درونِ یافته‌ها�
     return JSON.stringify({ answer: 'شاوشنگ بیشتر از همه آمد.', rows: [
       { name: 'نامی که در فهرست نبود', why: 'x' }, { name: 'رستگاری در شاوشنگ', why: 'دو بار' }, { name: 'ممنتو', why: 'یک بار' } ] });
   };
+  global.geminiText_ = function (prompt) {
+    lastPrompt = prompt;
+    return JSON.stringify({ found: [], keep: ['7', '۵۰۰'] });
+  };
+  const jd = srchDigestStep('بهترین سریال‌ها', [{ n: '3', t: 'تلاوتِ قرآن' }, { n: '7', t: 'معرفیِ سریالِ بریکینگ بد' }]);
+  ok('۳۶.۰-آ داوری: فقط آنچه خودش همان خواسته است نگه داشته می‌شود؛ شمارهٔ ساختگی کنار',
+     JSON.stringify(jd.keep) === '["7"]' && /keep/.test(lastPrompt) && /واژهٔ مشترک دلیلِ نگه‌داشتن نیست/.test(lastPrompt), JSON.stringify(jd.keep));
+  global.geminiText_ = function () { return JSON.stringify({ found: [] }); };
+  ok('۳۶.۰-ب داوریِ نیامده ⇒ هیچ‌چیز رد نمی‌شود (keep: null)', srchDigestStep('x', [{ n: '1', t: 'a' }]).keep === null);
+  global.geminiText_ = function (prompt) {
+    lastPrompt = prompt;
+    if (prompt.indexOf('بیرون بکش') !== -1) {
+      return JSON.stringify({ found: [
+        { name: 'رستگاری در شاوشنگ', note: 'در هر دو فهرست', refs: ['3', '۷', '99'] },
+        { name: 'ساخته‌گی', refs: ['42'] },
+        { name: 'ممنتو', refs: ['7'] } ] });
+    }
+    return JSON.stringify({ answer: 'شاوشنگ بیشتر از همه آمد.', rows: [
+      { name: 'نامی که در فهرست نبود', why: 'x' }, { name: 'رستگاری در شاوشنگ', why: 'دو بار' }, { name: 'ممنتو', why: 'یک بار' } ] });
+  };
   const st = srchDigestStep('بهترین فیلم‌ها', [{ n: '3', t: 'فهرست: رستگاری در شاوشنگ، ...' }, { n: '7', t: 'ممنتو و شاوشنگ' }]);
   ok('۳۶.۱ استخراج از متنِ همان یافته‌ها، با شماره‌شان در پرسش', st.ok && /\[3\]/.test(lastPrompt) && /\[7\]/.test(lastPrompt));
   ok('۳۶.۲ شمارهٔ ساختگی (۹۹، ۴۲) دور ریخته می‌شود؛ شمارهٔ فارسی خوانده می‌شود',
      JSON.stringify(st.found) === JSON.stringify([{ name: 'رستگاری در شاوشنگ', note: 'در هر دو فهرست', refs: ['3', '7'] },
                                                   { name: 'ممنتو', note: '', refs: ['7'] }]), JSON.stringify(st.found));
   const fin = srchDigestFinal('بهترین فیلم‌ها', st.found);
+  ok('۳۶.۳-ب ترتیبِ پایانی بر پایهٔ قیدهای خودِ کاربر است، نه شمارِ تکرار', /قیدهای خودِ خواستهٔ کاربر/.test(lastPrompt) &&
+     /فقط نشانهٔ کمکی است، نه معیار/.test(lastPrompt));
   ok('۳۶.۳ ترتیبِ پایانی: نامِ ساختهٔ مدل کنار، شماره‌ها از خودِ فهرست', fin.ok &&
      fin.rows.map(r => r.name).join('|') === 'رستگاری در شاوشنگ|ممنتو' && fin.rows[0].refs.join() === '3,7' && /شاوشنگ/.test(fin.answer),
      JSON.stringify(fin.rows));

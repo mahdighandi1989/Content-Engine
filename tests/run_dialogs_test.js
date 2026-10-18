@@ -250,6 +250,32 @@ console.log('\n══ ۵-پ) جمع‌بندیِ حینِ جست‌وجو، نم
   ok('۵-پ.۱۳ و پیوندهای شیت، اکسل و HTML نشان داده می‌شوند', /format=xlsx/.test(h.get('exp').innerHTML) && /HTML/.test(h.get('exp').innerHTML));
 }
 
+console.log('\n══ ۵-ت) داوری: یافتهٔ نامربوط از فهرست و خروجی کنار می‌رود (۹.۴۹) ══');
+{
+  const { html } = ran['srchHtml_'] || {};
+  const h = makeCtx(Object.assign({ html: html }, SEED.srchHtml_));
+  for (const b of scripts(html)) vm.runInContext(b, h.ctx, { timeout: 5000 });
+  const smart = onclicks(html).filter((e) => /هوشمند/.test(e))[0];
+  vm.runInContext('(function(){' + smart + '}).call(null);', h.ctx, { timeout: 5000 });
+  h.reply('srchSemStart', { ok: true, vp: 'VP', order: [0], all: 1 });
+  const it = (t, row) => ({ where: 'بانک', tab: 'تب', row: row, title: t, sem: 0.8, score: 0, fit: 'یافتهٔ معنایی', fields: {} });
+  h.reply('srchSemStep', { ok: true, items: [it('سریالِ بریکینگ بد', 1), it('تلاوتِ قرآن', 2), it('معامله‌گری', 3)], next: 1, all: 1, done: true });
+  h.reply('srchRun', { ok: true, mode: 'هوشمند', sheets: 1, sheetsAll: 1, read: 1, scanned: 1, ms: 1,
+                       items: [{ where: 'بانک', tab: 'ت۲', row: 9, title: 'انرژیِ همنشین', score: 15 }], notes: [], terms: [] });
+  for (let g = 0; g < 5; g++) {
+    const d = h.calls.filter((c) => c.fn === 'srchDigestStep').pop();
+    if (d.__done) break; d.__done = true;
+    d.success({ ok: true, found: [], keep: d.args[1].map((x) => x.n).filter((n) => n === '1') });
+  }
+  const semH = h.get('sem').innerHTML, lexH = h.get('lex').innerHTML;
+  ok('۵-ت.۱ فقط یافتهٔ مربوط می‌ماند — در معنا و در واژه‌ها', /بریکینگ بد/.test(semH) && !/تلاوت/.test(semH) && !/معامله‌گری/.test(semH) &&
+     !/انرژیِ همنشین/.test(lexH), lexH.replace(/<[^>]*>/g, ' ').slice(0, 120));
+  ok('۵-ت.۲ و شمارِ کنارگذاشته‌ها گفته می‌شود', /3 یافته را داور با خواستهٔ شما نامربوط دانست/.test(semH));
+  vm.runInContext('exportNow()', h.ctx, { timeout: 5000 });
+  const ex = h.calls.filter((c) => c.fn === 'srchExport').pop();
+  ok('۵-ت.۳ خروجی فقط یافته‌های مربوط را می‌برد', ex.args[1].length === 1 && ex.args[1][0].title === 'سریالِ بریکینگ بد');
+}
+
 console.log('\n══ ۶) تختهٔ گویندگان: همان دکمه‌ای که فردا لازم است ══');
 {
   const { html, h } = ran['personaBoardHtml_'] || {};

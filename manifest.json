@@ -1,16 +1,15 @@
 {
-  "version": "9.48",
+  "version": "9.49",
   "codeFile": "engine.gs",
-  "sha256": "63ff7252d1b854b27b90c3462f0d9dd008b4ba9910362d27b356d250436f051a",
-  "releasedAt": "2026-10-17T23:50:00+04:00",
-  "summary": "جست‌وجو: همهٔ یافته‌ها نشان داده می‌شوند؛ جمع‌بندیِ تا ۲۰ ردیف از درونِ متنِ یافته‌ها، حینِ جست‌وجو، با شمارهٔ هر یافته؛ دکمهٔ «خروجی» (شیت، اکسل، HTML) در OUTPUT؛ «Out of memory» در واژه‌ها ⇒ تکرار بی شیت‌های منبع.",
+  "sha256": "ec0c6df285e16161882756de62dbdbc0e323bb4bc142f703b25dde9c89ce9a61",
+  "releasedAt": "2026-10-18T00:30:00+04:00",
+  "summary": "جست‌وجوی هوشمند فقط آنچه واقعاً همان خواسته است: هر یافته در همان فراخوانِ جمع‌بندی داوری می‌شود و نامربوط‌ها نه در فهرست می‌آیند نه در خروجی؛ ردِ مدل دیگر برنمی‌گردد؛ ترتیبِ جمع‌بندی بر پایهٔ قیدهای خودِ پرسش.",
   "fixes": [
-    "src/34_Search.gs: srchDigestStep/srchDigestFinal/srchExport/srchExportHtml_؛ پنجره: شمارهٔ ثابت، صفِ جمع‌بندی، جعبهٔ dig، دکمهٔ exp، نمایشِ همه، تکرارِ بی منبع پس از OOM؛ srchSlim_ روی یافته‌های معنایی",
-    "src/08_Health.gs: outRootFolderNames_ + «خروجی‌های جست‌وجو»؛ docs/drive_layout.md",
-    "tests: search ۳۶، dialogs ۵-پ"
+    "src/34_Search.gs: srchDigestStep ⇒ keep (داوریِ هر یافته)؛ پنجره: OFF، redraw، خروجیِ فقط مربوط؛ srchRun_: ردِ مدل نشان داده نمی‌شود (srchKeepRejected_ حذف)؛ srchDigestFinal: ترتیب با قیدهای پرسش",
+    "tests: search ۱۷.۲/۳۶.۰/۳۶.۳-ب، dialogs ۵-ت"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261017-11": "۹.۴۸"
+    "R-20261018-01": "۹.۴۹"
   }
 }

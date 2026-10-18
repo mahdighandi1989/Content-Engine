@@ -1469,15 +1469,13 @@ function srchRun_(query, opts) {
          کاربر هیچ‌وقت نمی‌فهمید بوده. کوتاه‌کردنِ فهرست خوب است — پنهان
          کردنش نه. آنچه مدل نپسندیده ولی امتیازِ لغویِ بالایی دارد، زیرِ
          بقیه و با نشان می‌آید. */
-      var keepX = srchKeepRejected_(picked, used, top - ordered.length);
-      var extra = keepX.length;
-      for (var x = 0; x < keepX.length; x++) {
-        keepX[x].why = ''; keepX[x].fit = 'مدل کنارش گذاشت';
-        ordered.push(keepX[x]);
-      }
-      if (extra) {
-        res.notes.push(extra + ' مورد را مدل مرتبط ندانست ولی واژه‌هایشان ' +
-                       'قوی بود؛ با نشانِ «مدل کنارش گذاشت» در انتها آمده‌اند.');
+      /* ۹.۴۹: آنچه مدل نامربوط دانست **نشان داده نمی‌شود** — به خواستِ صریحِ صاحبِ برنامه («هوشمند یعنی مفهوم را
+         کامل درک کند … نه اینکه ببیند یک یا چند کلمهٔ مشترک دارد»). ۷٫۲۴ آن‌ها را با نشانِ «مدل کنارش گذاشت» نگه
+         می‌داشت؛ در پرسشِ ۵۳واژه‌ایِ ۱۷ اکتبر همان‌ها «تلاوتِ قرآن» و «معامله‌گری» را زیرِ «بهترین سریال» آوردند. فقط
+         شمارشان گفته می‌شود — پنهان نیست، نشان هم داده نمی‌شود. */
+      var dropped = picked.length - ordered.length;
+      if (dropped > 0) {
+        res.notes.push(dropped + ' نامزد که فقط واژهٔ مشترک داشتند و مدل آن‌ها را به خواستهٔ شما مربوط ندانست، نشان داده نشدند.');
       }
       res.items = ordered;
     } else {
@@ -1542,28 +1540,6 @@ function srchRun(query, mode, sources, semantic) {
    از همان‌جا ادامه می‌دهد **تا آخرین قطعه** — سقفِ کلی ندارد، چون هر گام اجرای جدای خودش است.
    چیزی در شیت‌ها نوشته نمی‌شود؛ فقط خوانده می‌شود. */
 
-
-/**
- * آنچه مدل نپسندید ولی واژه‌هایش **قوی** بود — کدام برگردد (۷٫۲۴، درست‌شده در ۹.۴۷).
- *
- * «قوی» نسبت به **بهترین امتیازِ واژه‌ایِ همین فهرست** سنجیده می‌شود. تا ۹.۴۶ مبنا `picked[0].score` بود، یعنی
- * امتیازِ واژه‌ایِ **نخستین** مورد — و از وقتی یافته‌های معنایی هم در فهرست‌اند و امتیازِ واژه‌ای‌شان صفر است،
- * نخستین مورد معمولاً همان یافتهٔ معنایی بود. مبنای صفر سد را کامل باز می‌کرد: ۱۷ اکتبر «بهترین فیلم‌های
- * پیشنهادی …» یازده یافتهٔ درست آورد و بعد چهارده ردیفِ بی‌ربط (عروس و مادرشوهر، آسترولوژی، اپستین) با امتیازِ
- * ۷ تا ۱۳ — فقط به‌خاطرِ واژه‌های همه‌جاییِ پرسش — تا سقفِ ۲۵ پر شد.
- */
-function srchKeepRejected_(picked, used, room) {
-  var bestLex = 0;
-  for (var i = 0; i < picked.length; i++) bestLex = Math.max(bestLex, Number(picked[i].score) || 0);
-  var out = [];
-  if (!(bestLex > 0) || !(room > 0)) return out;
-  for (var x = 0; x < picked.length && out.length < room; x++) {
-    if (used[x]) continue;
-    if ((Number(picked[x].score) || 0) < bestLex * 0.5) continue;
-    out.push(picked[x]);
-  }
-  return out;
-}
 
 /** هاب برای خواندن، بی پاسِ تعمیرِ تب‌ها — هر گام یک بار باز می‌کند و ۲۹ مگابایت تعمیر لازم ندارد. */
 function srchHubLite_() {
@@ -1635,9 +1611,10 @@ var SRCH_DIGEST_SCHEMA = {
   properties: {
     found: { type: 'array', items: { type: 'object', properties: {
       name: { type: 'string' }, note: { type: 'string' },
-      refs: { type: 'array', items: { type: 'string' } } }, required: ['name', 'refs'] } }
+      refs: { type: 'array', items: { type: 'string' } } }, required: ['name', 'refs'] } },
+    keep: { type: 'array', items: { type: 'string' } }
   },
-  required: ['found']
+  required: ['found', 'keep']
 };
 
 var SRCH_FINAL_SCHEMA = {
@@ -1681,7 +1658,11 @@ function srchDigestStep(query, items) {
       'تیترِ کلیِ فهرست («۱۰ فیلمِ برتر») خودش یک قلم نیست؛ اقلامِ درونش هستند. ' +
       'هر قلم یک بار، با نامِ کامل و دقیق همان‌طور که در متن آمده (اگر نامِ اصلی/انگلیسی هم هست، کنارش)، و در «refs» ' +
       'شمارهٔ **همهٔ** یافته‌هایی که آن قلم در متنشان آمده. در «note» یک جملهٔ کوتاه از خودِ متن دربارهٔ آن. ' +
-      'چیزی که در متن نیست نساز. اگر هیچ یافته‌ای قلمِ مشخصی ندارد، found را خالی بده.';
+      'چیزی که در متن نیست نساز. اگر هیچ یافته‌ای قلمِ مشخصی ندارد، found را خالی بده.\n\n' +
+      '**و داوری:** در «keep» فقط شمارهٔ یافته‌هایی را بنویس که **خودشان** همان چیزی‌اند که کاربر خواسته — با همهٔ ' +
+      'قیدهایش (مثلاً اگر «بهترین سریال‌هایی که همه دوستشان دارند» خواسته، یافته‌ای که سریال معرفی/توصیه/نقد می‌کند؛ ' +
+      'نه یافته‌ای که فقط واژهٔ «بهترین» یا «دوست داشتن» دارد، نه فیلم وقتی سریال خواسته، نه موضوعی کناری). ' +
+      'در شک، نگه ندار. داشتنِ واژهٔ مشترک دلیلِ نگه‌داشتن نیست؛ معنا هست.';
     var r = geminiText_(prompt, SRCH_DIGEST_SCHEMA, 8192);
     var j = (typeof r === 'string') ? JSON.parse(r) : r;
     var f = (j && j.found) || [];
@@ -1696,6 +1677,15 @@ function srchDigestStep(query, items) {
       if (!refs.length) continue;
       out.found.push({ name: name.slice(0, 160), note: String(f[k].note || '').slice(0, 300), refs: refs });
     }
+    /* داوریِ نیامده ⇒ هیچ‌چیز پنهان نمی‌شود (`keep: null`). نبودِ داور، ردِ همه نیست. */
+    out.keep = null;
+    var kp = (j && Object.prototype.toString.call(j.keep) === '[object Array]') ? j.keep : null;
+    if (kp) out.keep = [];
+    if (kp) for (var kq = 0; kq < kp.length; kq++) {
+      var kn = srchNum_(kp[kq]);
+      if (kn && have[kn] && out.keep.indexOf(kn) === -1) out.keep.push(kn);
+    }
+    out.judged = Object.keys(have);
     out.ok = true;
   } catch (e) { out.note = 'استخراج نشد: ' + String((e && e.message) || e).slice(0, 120); }
   return out;
@@ -1721,8 +1711,11 @@ function srchDigestFinal(query, ents) {
       'کاربر جست‌وجو کرده: «' + String(query || '').slice(0, 1200) + '»\n\n' +
       'این اقلام از درونِ همهٔ یافته‌ها بیرون کشیده شده‌اند (هر کدام با شمارِ یافته‌هایی که در آن‌ها آمده):\n\n' +
       lines.join('\n') + '\n\n' +
-      'حداکثر ' + max + ' قلم را که بیشترین ربط را به خواستهٔ کاربر دارند و بیشتر توصیه/تکرار شده‌اند، به ترتیبِ اولویت ' +
-      'برگردان. «name» را **عیناً** همان‌طور که در فهرست است بنویس. در «why» یک جملهٔ کوتاه که چرا. ' +
+      'حداکثر ' + max + ' قلم را به ترتیبِ اولویت برگردان. **اولویت یعنی تطابق با قیدهای خودِ خواستهٔ کاربر** (هر قیدی که ' +
+      'گفته — مثلاً «همه‌ی سلیقه‌ها دوستش دارند»، «خسته‌کننده نیست»، «همیشه یادم بماند») — با تکیه بر آنچه در «note»ها ' +
+      'از خودِ متنِ یافته‌ها آمده. شمارِ یافته‌ها فقط نشانهٔ کمکی است، نه معیار: یک اسکرین‌شاتِ تکراری چیزی را بهتر نمی‌کند. ' +
+      'قلمی که به قیدها نمی‌خورد (مثلاً فیلم وقتی سریال خواسته) نیاور. «name» را **عیناً** همان‌طور که در فهرست است بنویس. ' +
+      'در «why» یک جملهٔ کوتاه که **کدام قیدِ کاربر** را برآورده می‌کند. ' +
       'در «answer» یک یا دو جمله جمع‌بندی بنویس.';
     var r = geminiText_(prompt, SRCH_FINAL_SCHEMA, 8192);
     var j = (typeof r === 'string') ? JSON.parse(r) : r;
@@ -1907,7 +1900,7 @@ function srchHtml_() {
      (`srchSemStart` + گام‌های `srchSemStep` تا آخرین قطعه). دومی دیگر داخلِ اولی نیست، چون
      باید یافته‌هایش همان لحظه دیده شوند و سقفِ ۹۰ ثانیه‌ای نداشته باشد. `RUN` جست‌وجوی تازه را
      از جوابِ دیرِ جست‌وجوی قبلی جدا می‌کند. */
-  H.push('var RUN=0,LEX={},SEM=[],SEEN={},NUM=0,NO={},ALL=[],DQ=[],DBUSY=false,ENT={},EORD=[],DONE={},DIG=null,DFAIL=0,Q="",MODE="";');
+  H.push('var RUN=0,LEX={},SEM=[],SEEN={},NUM=0,NO={},ALL=[],DQ=[],DBUSY=false,ENT={},EORD=[],DONE={},DIG=null,DFAIL=0,Q="",MODE="",OFF={},NOFF=0;');
   /* ══ شمارهٔ ثابت (۹.۴۸) ══ هر یافته یک بار، به ترتیبِ رسیدن، شماره می‌گیرد — جمع‌بندی و خروجی به همین شماره
      اشاره می‌کنند، نه به جای یافته در فهرست (که با هر گام عوض می‌شود). */
   H.push('function rkey(t){return t.where==="بانک"?t.tab+"§"+t.row:t.where+"§"+t.tab+"§"+t.row+"§"+t.title;}');
@@ -1915,7 +1908,7 @@ function srchHtml_() {
          'if(MODE==="هوشمند"){DQ.push(t);}return t.n;}');
   H.push('function go(m){var q=document.getElementById("q").value;' +
          'if(!q.trim()){return;}RUN++;var my=RUN;LEX={};SEM=[];SEEN={};NUM=0;NO={};ALL=[];DQ=[];DBUSY=false;ENT={};' +
-         'EORD=[];DIG=null;DFAIL=0;Q=q;MODE=m;DONE={lex:false,sem:m!=="هوشمند"};' +
+         'EORD=[];DIG=null;DFAIL=0;OFF={};NOFF=0;Q=q;MODE=m;DONE={lex:false,sem:m!=="هوشمند"};' +
          'document.getElementById("lex").innerHTML="<p>در حالِ گشتنِ واژه‌ها… ' +
          'برای جست‌وجوی کامل تا چند دقیقه طول می‌کشد.</p>";' +
          'document.getElementById("semh").innerHTML="";document.getElementById("sem").innerHTML="";' +
@@ -1958,11 +1951,14 @@ function srchHtml_() {
   /* آنچه واژه‌ها هم آورده‌اند دوباره نشان داده نمی‌شود؛ بقیه به ترتیبِ امتیازِ معنایی، همان لحظه — **همه‌شان** (۹.۴۸:
      تا ۹.۴۷ سقفِ ۱۵۰ داشت و نوار «۶۰۸ یافته» می‌گفت). */
   H.push('function semList(){var o=[];for(var i=0;i<SEM.length;i++){' +
-         'if(!LEX[SEM[i].tab+"§"+SEM[i].row]){o.push(SEM[i]);}}' +
+         'if(!LEX[SEM[i].tab+"§"+SEM[i].row]&&!OFF[SEM[i].n]){o.push(SEM[i]);}}' +
          'o.sort(function(a,b){return (b.sem||0)-(a.sem||0);});return o;}');
   H.push('function semShown(){return semList().length;}');
+  /* ۹.۴۹: داوریِ هر دسته (`keep`) یافته‌های نامربوط را از هر دو فهرست برمی‌دارد — واژه‌ها هم. */
+  H.push('var LASTR=null;function redraw(){semDraw();if(LASTR){show(LASTR);}}');
   H.push('function semDraw(){var el=document.getElementById("sem");if(!el){return;}var o=semList();' +
          'var H=[];if(o.length){H.push("<h4>یافته‌های معنایی — همان معنا، با واژه‌های دیگر ("+o.length+")</h4>");}' +
+         'if(NOFF){H.push("<div class=m>"+NOFF+" یافته را داور با خواستهٔ شما نامربوط دانست و نشان داده نشد.</div>");}' +
          'for(var i=0;i<o.length;i++){H.push(card(o[i],i));}' +
          'el.innerHTML=H.join("");}');
   /* ══ جمع‌بندی، حینِ جست‌وجو (۹.۴۸) ══ هر یافتهٔ تازه در صفِ `DQ` می‌نشیند و دسته‌دسته (یکی در پرواز) خوانده
@@ -1974,6 +1970,8 @@ function srchHtml_() {
          'for(var i=0;i<f.length;i++){var k=String(f[i].name).replace(/\\s+/g," ").trim().toLowerCase();if(!k){continue;}' +
          'if(!ENT[k]){ENT[k]={name:f[i].name,note:f[i].note||"",refs:[]};EORD.push(k);}' +
          'for(var z=0;z<f[i].refs.length;z++){if(ENT[k].refs.indexOf(f[i].refs[z])===-1){ENT[k].refs.push(f[i].refs[z]);}}}' +
+         'if(r&&r.ok&&r.keep){for(var y=0;y<b.length;y++){if(r.keep.indexOf(String(b[y].n))===-1){OFF[b[y].n]=1;NOFF++;}}' +
+         'redraw();}' +
          'digDraw();digPump();maybeFinal();})' +
          '.withFailureHandler(function(e){if(my!==RUN){return;}DBUSY=false;DFAIL+=b.length;digDraw();digPump();maybeFinal();})' +
          '.srchDigestStep(Q,b.map(function(t){return {n:String(t.n),t:itxt(t)};}));}');
@@ -1998,7 +1996,7 @@ function srchHtml_() {
   /* ══ خروجی (۹.۴۸) ══ هر وقت دست‌کم یک یافته هست — پس از پایان، یا هر جا که ایستاد. */
   H.push('function expDraw(){var el=document.getElementById("exp");if(!el){return;}if(!ALL.length){el.innerHTML="";return;}' +
          'if(el.getAttribute&&el.getAttribute("data-busy")==="1"){return;}' +
-         'el.innerHTML="<div class=row><button class=s onclick=exportNow()>⬇️ خروجی — شیت، اکسل و HTML ("+ALL.length+" یافته)</button></div>";}');
+         'el.innerHTML="<div class=row><button class=s onclick=exportNow()>⬇️ خروجی — شیت، اکسل و HTML ("+(ALL.length-NOFF)+" یافته)</button></div>";}');
   H.push('function slim(t){var f=t.fields||{};return {n:t.n,title:t.title,where:t.where,tab:t.tab,kind:t.kind,date:t.date,' +
          'score:t.score,sem:t.sem,fit:t.fit,why:t.why,show:t.show,link:t.link,sheetLink:t.sheetLink,' +
          'fields:{summary:f.summary,msg:f.msg,body:f.body}};}');
@@ -2011,8 +2009,8 @@ function srchHtml_() {
          '"<a href=\\""+esc(r.sheetUrl)+"\\" target=_blank>شیت</a> · <a href=\\""+esc(r.xlsxUrl)+"\\" target=_blank>دانلودِ اکسل</a> · "+' +
          '"<a href=\\""+esc(r.htmlUrl)+"\\" target=_blank>دانلودِ HTML</a></div>";})' +
          '.withFailureHandler(function(e){if(my===RUN){el.innerHTML="<div class=warn>خروجی ساخته نشد: "+esc(e.message)+"</div>";}})' +
-         '.srchExport(Q,ALL.map(slim),d);}');
-  H.push('function show(r){var H=[];');
+         '.srchExport(Q,ALL.filter(function(t){return !OFF[t.n];}).map(slim),d);}');
+  H.push('function show(r){LASTR=r;var H=[];');
   H.push('if(r.answer){H.push("<div class=\\"ans\\">"+esc(r.answer)+"</div>");}');
   H.push('H.push("<div class=\\"m\\">حالت: "+esc(r.mode)+" · "+r.sheets+" تب از "+' +
          '(r.sheetsAll||r.sheets)+" گشته شد · "+r.scanned+" ردیفِ نامزد از "+' +
@@ -2024,7 +2022,7 @@ function srchHtml_() {
          'H.push("<div class=\\"warn\\">"+esc(r.notes[i])+"</div>");}');
   H.push('if(!r.items||!r.items.length){H.push("<p>چیزی پیدا نشد.</p>");}');
   H.push('for(var i=0;i<(r.items||[]).length;i++){var t=r.items[i];reg(t);' +
-         'if(t.where==="بانک"){LEX[t.tab+"§"+t.row]=1;}H.push(card(t,i));}');
+         'if(t.where==="بانک"){LEX[t.tab+"§"+t.row]=1;}if(!OFF[t.n]){H.push(card(t,i));}}');
   H.push('document.getElementById("lex").innerHTML=H.join("");}');
   H.push('function card(t,i){var H=[];');
   H.push('H.push("<div class=\\"it\\" id=\\"r"+esc(t.n)+"\\"><div class=\\"t\\">#"+esc(t.n)+" · "+esc(t.title)+"</div>");');
