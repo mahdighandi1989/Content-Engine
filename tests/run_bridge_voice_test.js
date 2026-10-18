@@ -343,7 +343,8 @@ console.log('\n══ ۱۱-ث) تا تأییدِ نمونه، قسمتِ تاز�
   ok('۱۱-ث.۲ و با باز شدن، همان قسمت خواسته می‌شود', nO === 1 && vbrRead_().items.map(x => x.key).join() === 'variety:80');
   const sd = (REAL_SOUL_SEED || []).filter(x => x.show === 'special' && String(x.ep) === '74' && !x.text);
   ok('۱۱-ث.۳ بذرِ درسِ ۷۴ برای هر دو گوینده، با متنِ خودِ قسمت (نه متنِ آزمون)',
-     sd.map(x => x.speaker).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => x.tag));
+     Array.from(new Set(sd.map(x => x.speaker))).sort().join() === 'razavi,spk-1g0r95d' && sd.every(x => x.tag) &&
+     new Set(sd.map(x => x.speaker + '|' + x.tag)).size === sd.length);
 }
 
 console.log('\n══ ۱۱-ت) خروجیِ چیدنِ ناهم‌تراز یک بار دوباره ساخته می‌شود (۹.۴۴) ══');
@@ -1596,6 +1597,26 @@ console.log('\n══ ۲۴) رنگ و روح روی یک قسمتِ ساخته�
          /آرام/.test(String(rowS.spanLine)) && /مکث/.test(String(rowS.spanLine)) &&
          /کمی‌بلند/.test(String(rowS.spanLine)),
          String(rowS.spanLine));
+      /* ۹.۵۰: نمونهٔ «خوانشِ ساده» — همان مدلِ حالت‌دار در دسترس است، ولی هیچ دستور و حالتی به گفتارساز نمی‌رسد،
+         تا «خیلی زیر شدنِ» رضوی میانِ خوانش و تبدیل تفکیک شود. */
+      {
+        const keepSeed = CFG.VOICE_SOUL_SEED;
+        CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: 'variety', ep: '88', tag: 'خوانشِ ساده', plain: true }];
+        const qP = vbrRead_(); qP.items = []; vbrSave_(qP);
+        let askedSpan = 0;
+        const gemKeep = global.geminiText_;
+        global.geminiText_ = function (pq) {
+          if (String(pq).indexOf('کدام جمله‌ها حالِ خاصی می‌خواهند') !== -1) askedSpan++;
+          return gemKeep.apply(null, arguments);
+        };
+        cues.length = 0; saidTexts.length = 0;
+        const rPl = runVoiceSoulTest();
+        global.geminiText_ = gemKeep;
+        CFG.VOICE_SOUL_SEED = keepSeed;
+        ok('۲۴.۱۸-ث خوانشِ ساده: ساخته شد، بی هیچ دستورِ لحن و بی پرسشِ حالت',
+           !!(rPl && rPl.ok) && cues.length > 0 && cues.every(c => c === '') && askedSpan === 0,
+           JSON.stringify({ ok: rPl && rPl.ok, why: rPl && rPl.why, cues: cues.slice(0, 2), askedSpan }));
+      }
       /* و مدلی که جواب ندهد، نمونه را نمی‌اندازد — فقط بی حالت، و می‌گوید چرا. */
       const qS2 = vbrRead_(); qS2.items = []; vbrSave_(qS2);
       global.geminiText_ = function (pq) {

@@ -1,15 +1,16 @@
 {
-  "version": "9.49",
+  "version": "9.50",
   "codeFile": "engine.gs",
-  "sha256": "ec0c6df285e16161882756de62dbdbc0e323bb4bc142f703b25dde9c89ce9a61",
-  "releasedAt": "2026-10-18T00:30:00+04:00",
-  "summary": "جست‌وجوی هوشمند فقط آنچه واقعاً همان خواسته است: هر یافته در همان فراخوانِ جمع‌بندی داوری می‌شود و نامربوط‌ها نه در فهرست می‌آیند نه در خروجی؛ ردِ مدل دیگر برنمی‌گردد؛ ترتیبِ جمع‌بندی بر پایهٔ قیدهای خودِ پرسش.",
+  "sha256": "58cc0eb8cb593bfab8abdf3ac5710e2380e51c6812acfa895ca54b58d562990e",
+  "releasedAt": "2026-10-18T11:40:00+04:00",
+  "summary": "دو نمونهٔ سنجشیِ صدا: رضوی با خوانشِ ساده (بی دستورِ لحن/حالت/کششِ مکث) تا علتِ «زیر شدن» و «قطع» تفکیک شود؛ گلدوز با تبدیلِ دومِ index_rate ۰٫۳ برای «ه⇐خ».",
   "fixes": [
-    "src/34_Search.gs: srchDigestStep ⇒ keep (داوریِ هر یافته)؛ پنجره: OFF، redraw، خروجیِ فقط مربوط؛ srchRun_: ردِ مدل نشان داده نمی‌شود (srchKeepRejected_ حذف)؛ srchDigestFinal: ترتیب با قیدهای پرسش",
-    "tests: search ۱۷.۲/۳۶.۰/۳۶.۳-ب، dialogs ۵-ت"
+    "src/36_VoiceBridge.gs: بذرِ plain در vbrSoulPick_/runVoiceSoulTest — بی cue، بی speakMarkUp_، بی spans، بی کششِ مکث",
+    "src/00_Config.gs: دو بذرِ تازهٔ درسِ ۷۴",
+    "tests: bridge_voice ۲۴.۱۸-ث، ۱۱-ث.۳"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-01": "۹.۴۹"
+    "R-20261018-02": "۹.۵۰"
   }
 }

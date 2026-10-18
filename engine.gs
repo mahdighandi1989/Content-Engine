@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.49
+ *  موتور محتوا و پادکست — نسخهٔ 9.50
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.49',
+  CODE_VERSION: '9.50',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -2529,7 +2529,13 @@ var CFG = {
     /* ۹.۴۵: متنِ خودِ درسِ ۷۴، ولی **به روشِ نمونه‌ها** — صدای آرامِ نمونه‌ها و شیوهٔ خواندنِ خودِ گوینده، بعد تبدیل.
        روی خودِ قسمت، مبدأ صدای زنِ ۱۸۸ هرتزی و دامنهٔ ۸۰ تا ۲۸۰ هرتز بود و خروجی «خروسی» و «ه⇐خ» شد. */
     { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ به روشِ نمونه‌ها · مکث به اندازهٔ خودش' },
-    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ به روشِ نمونه‌ها · مکث به اندازهٔ خودش', colour: 'prev' }
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ به روشِ نمونه‌ها · مکث به اندازهٔ خودش', colour: 'prev' },
+    /* ۹.۵۰: او شنید — رضوی «خیلی زیر می‌شد» و «بینِ واژه‌ها کسری از ثانیه قطع» (خروجی ۱۳۶ هرتز با گامِ ‎−۴، در حالی که
+       خودش ۱۰۷)، و گلدوز سه جا «ه⇐خ» (hear: همیشه⇐خمیشه، هفدهم⇐خفدهم). سنجش، نه حدس: رضوی همان متن با **خوانشِ
+       ساده** (بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث) — اگر درست شد، علت لایه‌های خوانش است نه تبدیل؛
+       گلدوز همان ساختِ قبلی + تبدیلِ دوم با index_rate ۰٫۳ (protect ۰٫۱۵ در ۹.۲۳ «خ» را نبست؛ ایندکس هنوز آزموده نشده). */
+    { speaker: 'razavi',      show: 'special', ep: '74', tag: 'درسِ ۷۴ · خوانشِ ساده · مکث به اندازهٔ خودش', plain: true },
+    { speaker: 'spk-1g0r95d', show: 'special', ep: '74', tag: 'درسِ ۷۴ · «ه» با ایندکسِ ۰٫۳ · مکث به اندازهٔ خودش', colour: 'prev', ab: '0.3' }
   ],
   /* ══ سقف، شمارندهٔ **زمان‌بندی** است نه شمارندهٔ موفقیت (۷٫۹۱) ══
      `vbrSoulSeedDue_` شمارنده را همان‌جا که کار را زمان‌بندی می‌کند یک
@@ -78265,6 +78271,7 @@ function vbrSoulPick_() {
     var seedTag = {};
     var seedColour = {};
     var seedAb = {};
+    var seedPlain = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -78281,6 +78288,7 @@ function vbrSoulPick_() {
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
       if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
+      if (se.plain) seedPlain[sk] = true;              // ۹.۵۰: خوانشِ ساده — بی دستورِ لحن، بی نشانه‌گذاری، بی حالت، بی کششِ مکث
       /* متنِ آزمون پوشهٔ قسمت ندارد و در `_YT-RENDER.json` نیست (۸٫۲۵)؛
          شیءِ خودش را می‌سازد. */
       if (se.text) {
@@ -78329,7 +78337,7 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '' };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k] };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -78461,7 +78469,9 @@ function runVoiceSoulTest() {
   try {
     var needP = Number(CFG.SPEAK_PROSODY_MIN);
     if (!isFinite(needP) || needP <= 0) needP = 3;
-    if (CFG.SPEAK_MARKS !== false && typeof speakMarkUp_ === 'function') {
+    /* ۹.۵۰: نمونهٔ «ساده» عمداً هیچ لایه‌ای روی خوانش نمی‌گذارد — تا معلوم شود «خیلی زیر شدن» و «قطع بینِ واژه‌ها»ی
+       رضوی از تبدیل است یا از دستورهای لحن/حالت/کششِ مکث. */
+    if (!pick.plain && CFG.SPEAK_MARKS !== false && typeof speakMarkUp_ === 'function') {
       var pA = speakProsody_(txt);
       /* ══ سقف این‌جا چگالی نیست، **پوشش** است (۸٫۱۰) ══
          در قسمت، نشانه جایی می‌نشیند که معنا بخواهد و چگالی سنجهٔ درستی است.
@@ -78540,7 +78550,8 @@ function runVoiceSoulTest() {
   try {
     /* متنِ آزمون جای حالت‌هایش را خودش دارد: این آزمونِ گوینده است، نه
        آزمونِ انتخاب‌گر — دو گوینده باید روی **همان** جاها سنجیده شوند. */
-    if (vtest) spanPlan = { spans: vtest.spans || [], why: 'متنِ آزمون حالتی ندارد' };
+    if (pick.plain) spanPlan = { spans: [], why: 'خوانشِ ساده (۹.۵۰)' };
+    else if (vtest) spanPlan = { spans: vtest.spans || [], why: 'متنِ آزمون حالتی ندارد' };
     else if (CFG.SPEAK_SPANS !== false && typeof speakSpanPlan_ === 'function') {
       spanPlan = speakSpanPlan_(txt, true);
     }
@@ -78557,7 +78568,7 @@ function runVoiceSoulTest() {
      نمونه ساخته می‌شود، با برچسبی که راستش را می‌گوید. اگر هیچ‌کدام نیست،
      امتناع همان‌قدر درست است که در ۷٫۷۹ بود: چهار دقیقه خرج کردن برای
      فایلی که دیروز هم همان بود. */
-  if (cueChk && cueChk.ok === false && !prMarks) {
+  if (cueChk && cueChk.ok === false && !prMarks && !pick.plain) {
     say('⚠️ الان **شیوهٔ خواندن به مدل نمی‌رسد** و متنِ این قسمت هم نشانهٔ ' +
         'لحن ندارد، پس این نمونه فقط رنگِ صدا می‌گرفت — همان چیزی که دیروز ' +
         'گرفتید.\n\n' + String(cueChk.line || '') +
@@ -78589,8 +78600,11 @@ function runVoiceSoulTest() {
        گذاشت، کشیده. تا او همان چیزی را بشنود که قسمتِ واقعی خواهد داشت. */
     var perS = { cue: pick.cue, name: pick.name, key: pick.key };
     var pzS = null, gapsS = null;
-    try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
-    try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
+    var cueUse = pick.plain ? '' : pick.cue;
+    if (!pick.plain) {
+      try { pzS = speakMoodPause_(perS); } catch (ePz) { pzS = null; }
+      try { gapsS = speakStyleGaps_(perS); } catch (eGp) { gapsS = null; }
+    }
     var pieces = (spanPlan.spans && spanPlan.spans.length)
       ? speakSpanPieces_(txt, spanPlan.spans, pzS && pzS.src !== 'پیش‌فرض' ? pzS.sec : 0)
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
@@ -78624,7 +78638,7 @@ function runVoiceSoulTest() {
          نگهبان داشته باشد که چیزی که منتشر می‌شود؛ وگرنه عیبی که در
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
       var b1 = ttsChunk_(pieces[i].t,
-                         pieces[i].k ? speakSpanStyle_(pieces[i].k, pick.cue) : pick.cue,
+                         pieces[i].k ? speakSpanStyle_(pieces[i].k, cueUse) : cueUse,
                          CFG.TTS_VOICE);
       if (!b1) { cut = pieces.length - i; break; }
       /* ══ حالت رسید یا نه — از رویدادِ همین تکه، نه از امید (۸.۲۷) ══
