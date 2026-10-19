@@ -1,16 +1,12 @@
 {
-  "version": "9.63",
+  "version": "9.64",
   "codeFile": "engine.gs",
-  "sha256": "8ac7e27b3ff729314d2a370481d6d3d0851f61499a729e28ec389414eeb7d2c7",
-  "releasedAt": "2026-10-19T21:00:00+04:00",
-  "summary": "نمونه‌های صدا: «خ»ی که تبدیل افزود از تفاوتِ دو فایل به ورودی برمی‌گردد (fricSplice)؛ دو بذرِ یک گوینده روی یک قسمت (مقایسهٔ صدای مبدأ Charon/Alnilam)؛ سرعت و دستور و مدلِ هر تکه ثبت و گفته می‌شود؛ صدای پیش از تبدیل به تلگرام؛ پایانِ جملهٔ بالارونده بالای ۱۵٪ نمونه را نگه می‌دارد و از نو می‌سازد.",
+  "sha256": "88901568934a890f1f2e5dfd01dea23bba20f1886719935e9ed3c9b7fe3d5e16",
+  "releasedAt": "2026-10-19T23:00:00+04:00",
+  "summary": "ریلز: «امروز» فقط وقتی ناروا است که به همین قسمت اشاره کند («درسِ امروز»، «امروز می‌خواهیم») — «خیلی‌ها امروز می‌گویند» و «امروزه» دیگر کلِ متنِ ریلز را رد نمی‌کنند (درسِ ۱۵ِ مصباح پشتِ همین ایستاده بود و ۱۶ و ۱۷ پشتِ آن).",
   "fixes": [
-    "tools/voicebridge.py: fricSplice، hx روی خروجیِ اصلی، riseEnd",
-    "src/36_VoiceBridge.gs: کلیدِ جدای بذرها، voice/hx/tagBase، vbrSpeedLine_، vbrRiseHold_، vbrTgMeasure_",
-    "src/00_Config.gs: VBR_RISE_MAX، VBR_RISE_RETRY، سه بذرِ تازه"
+    "src/38_Instagram.gs: igPlanTrim_ (امروز)"
   ],
   "sourceReportIds": [],
-  "answers": {
-    "R-20261019-10": "۹.۶۳"
-  }
+  "answers": {}
 }

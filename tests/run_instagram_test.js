@@ -149,6 +149,11 @@ const RAW = { idea: 'دانستن بیش از باورِ صادقِ موجه ا�
   const bad1 = igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' در این قسمت از پادکست دیدیم.' }));
   const bad2 = igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT.replace('روزی', 'در سالِ ۱۴۰۵') }));
   ok('۲.۴ «پادکست/این قسمت» یا تاریخ ⇒ کلِ متن رد (متنِ پیوسته را نمی‌شود سوراخ کرد)', !bad1.lines && !bad2.lines, bad1.why + ' | ' + bad2.why);
+  ok('۲.۴-پ (۹.۶۴) «خیلی‌ها امروز می‌گویند» و «امروزه» یعنی این روزها — پذیرفته؛ «درسِ امروز» و «امروز می‌خواهیم» نه',
+     !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' این پرسش مهم است، چون خیلی‌ها امروز می‌گویند حقیقتی وجود ندارد.' })).lines &&
+     !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' امروزه همه این را می‌دانند و کسی شک ندارد.' })).lines &&
+     !igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' در درسِ امروز این را با هم می‌بینیم و جلو می‌رویم.' })).lines &&
+     !igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' امروز می‌خواهیم دربارهٔ حقیقت حرف بزنیم و ببینیم.' })).lines);
   ok('۲.۴-ب «تا امروز» محتواست، نه تاریخ', !!igPlanTrim_(Object.assign({}, RAW, { script: SCRIPT + ' این پرسش تا امروز هم باز مانده است.' })).lines);
   ok('۲.۶ برچسبِ سبز (۹.۵۱): نامِ فارسیِ کوتاه همان؛ نامِ انگلیسیِ کتاب ⇒ پیشنهادِ فارسیِ مدل؛ لاتین یا بلند ⇒ هیچ',
      igKicker_('معرفت شناسی مجتبی مصباح', 'x') === 'معرفت شناسی مجتبی مصباح' &&
