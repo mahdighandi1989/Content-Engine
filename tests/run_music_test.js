@@ -293,8 +293,28 @@ console.log('\n=== ۷. انتخابِ خودکار با مدل ===');
      musicPick_(onlyDrone, 'شروع', 'آرام') === null);
   ok('۷.۱۲-ب و برای «پایان» هم نه',
      musicPick_(onlyDrone, 'پایان', 'آرام') === null);
-  ok('۷.۱۲-پ ولی برای «میانه» بله — زیرِ حرف نشستن کارِ همین است',
-     (musicPick_(onlyDrone, 'میانه', 'آرام') || {}).id === 'D');
+  /* ۹.۵۷ وارونه شد: پل زیرِ حرف نمی‌نشیند، تنها پخش می‌شود — «چیزای خیلی زشت که اصلاً موسیقی نبودن». */
+  ok('۷.۱۲-پ و برای «میانه» هم نه (۹.۵۷) — پل تنها پخش می‌شود و زمینه آن‌جا «موسیقی» شنیده نمی‌شود',
+     musicPick_(onlyDrone, 'میانه', 'آرام') === null);
+  const song = Object.assign({}, drone, { id: 'S', heard: '✅ مدل تأیید کرد آهنگ است' });
+  ok('۷.۱۲-پ۲ آهنگِ شنیده‌شده برای «میانه» برداشته می‌شود، حتی کنارِ زمینه',
+     (musicPick_([drone, song], 'میانه', 'آرام') || {}).id === 'S');
+  const unk = Object.assign({}, drone, { id: 'U', heard: '✅ مدل شنید: نامعلوم' });
+  ok('۷.۱۲-پ۳ داوریِ بی «آهنگ» (نه ❓) هم پخش نمی‌شود', musicPick_([unk], 'میانه', '') === null);
+  {
+    /* بازه‌ای که شنیده می‌شود همان طولِ پخش است و «زمینه» برای پل رد است. */
+    const kL = global.musicListen_, kD = DriveApp.getFileById, kW = global.wavInfo_, kR = global.wavReadable_;
+    let secs = 0, ans = 'زمینه';
+    global.musicListen_ = (b, i, n, st, s) => { secs = s; return ans; };
+    DriveApp.getFileById = () => ({ getBlob: () => ({ getBytes: () => [] }) });
+    global.wavInfo_ = () => ({ seconds: 100 }); global.wavReadable_ = () => true;
+    try {
+      const r1 = musicSegOk_({ id: 'X', name: 'x', note: '' }, 30, 'میانه');
+      ok('۷.۱۲-پ۴ پل: «زمینه» رد، و کلِ ۱۲ ثانیهٔ پخش شنیده شد', !r1.ok && secs === (Number(CFG.MUSIC_BRIDGE_SEC) || 12), JSON.stringify(r1) + ' secs=' + secs);
+      ans = 'آهنگ';
+      ok('۷.۱۲-پ۵ پل: «آهنگ» پذیرفته', musicSegOk_({ id: 'X', name: 'x', note: '' }, 30, 'میانه').ok);
+    } finally { global.musicListen_ = kL; DriveApp.getFileById = kD; global.wavInfo_ = kW; global.wavReadable_ = kR; }
+  }
 
   // و اگر آدم خودش نوشته باشد، انتخابِ او می‌مانَد: سلیقهٔ کاربر پاک نمی‌شود.
   const human = [Object.assign({}, drone, { note: 'خودم گوش دادم، برای شروع خوب است' })];
@@ -1051,9 +1071,10 @@ console.log('\n=== ۲۲. آنچه پخش می‌شود شنیده می‌شود 
   const introL = L1.filter((l) => /آغاز/.test(l))[0] || '';
   const outroL = L1.filter((l) => /پایان/.test(l))[0] || '';
   const heardNoisy = calls.filter((c) => /noisy/.test(c.name));
+  /* ۹.۵۷: کلِ بازهٔ پخش شنیده می‌شود، و پخش هم شروع را عقب می‌کشد تا طول جا شود (musicSamples_) — ۳ ⇒ ۲ روی فایلِ ۲۰ثانیه‌ای. */
   ok('۲۲.۱ بازهٔ پخشِ آغاز شنیده می‌شود (همان ثانیهٔ برشِ نقشه) و قطعهٔ نامناسب جانشین می‌گیرد',
      introL && !/noisy/.test(introL) && outroL && !/noisy/.test(outroL) &&
-     heardNoisy.some((c) => c.st === 3) && !L1.some((l) => /noisy/.test(l)) &&
+     heardNoisy.some((c) => c.st === Math.min(3, 20 - Math.min(20, Number(CFG.MUSIC_INTRO_SEC) || 18))) && !L1.some((l) => /noisy/.test(l)) &&
      calls.some((c) => /noisy-bed/.test(c.name)),
      'آغاز «' + introL + '» · پایان «' + outroL + '» · شنیده‌ها ' +
      JSON.stringify(calls.map((c) => c.name + '@' + c.st)));
@@ -1073,7 +1094,7 @@ console.log('\n=== ۲۲. آنچه پخش می‌شود شنیده می‌شود 
   global.musicPlanModel_ = () => ({ introId: noisy.id, outroId: noisy.id, bridges: [], mood: 'آرام' });
   /* لبه‌ها شنیده نمی‌شوند، ولی پلِ بستر شنیده می‌شود — پس قسمت موسیقی دارد و
      «قفلِ دوم» نقشه را بازنویسی می‌کند؛ «حذف شد»ِ لبه‌ها باید از آن جان به در ببرد. */
-  global.musicListen_ = (b, info, name) => (/bed-pad/.test(name) ? 'زمینه' : '');
+  global.musicListen_ = (b, info, name) => (/bed-pad/.test(name) ? 'آهنگ' : '');   // ۹.۵۷: پل فقط با «آهنگ»
   const edges = (r) => labels(r).filter((l) => /آغاز|پایان/.test(l));
   const r3 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '902' }));
   const cached3 = (JSON.parse(global.__PROPS[PK.MUSIC_PLAN] || '{}') || {})['variety#902'] || {};
@@ -1136,8 +1157,9 @@ console.log('\n=== ۲۲. آنچه پخش می‌شود شنیده می‌شود 
   const bed = musicBank_(hub).filter((b) => b.name === 'bed-pad.wav')[0];
   global.musicListen_ = () => 'زمینه';
   const sEdge = musicSegOk_(bed, 0, 'شروع'), sMid = musicSegOk_(bed, 0, 'میانه');
-  ok('۲۲.۶ «زمینه» برای پل بس است، برای آغاز نه',
-     sEdge.ok === false && sMid.ok === true, JSON.stringify({ edge: sEdge, mid: sMid }));
+  /* ۹.۵۷ وارونه شد: «زمینه» برای پل هم بس نیست — او همین را «زشت، اصلاً موسیقی نبود» شنید. */
+  ok('۲۲.۶ «زمینه» نه برای آغاز، نه برای پل (۹.۵۷)',
+     sEdge.ok === false && sMid.ok === false, JSON.stringify({ edge: sEdge, mid: sMid }));
 
   global.musicPlanModel_ = planWas; global.musicListen_ = listenWas;
   delete global.__PROPS[PK.MUSIC_PLAN];
@@ -1644,8 +1666,9 @@ console.log('\n=== ۲۶. پلِ میانهٔ کم از همان آهنگ‌ها�
   CFG.MUSIC_BRIDGE_REUSE = false;
   const r4 = musicWrap_(chunks, hub, Object.assign({}, opt, { episode: '982' }));
   CFG.MUSIC_BRIDGE_REUSE = reWas;
-  ok('۲۶.۶ کلیدِ خاموش ⇒ همان رفتارِ دیروز: یک پل، طنین',
-     brL(r4).length === 1 && /طنین/.test(brL(r4)[0]), JSON.stringify(brL(r4)));
+  /* ۹.۵۷: پیش‌تر «یک پل، طنین» — حالا طنین اصلاً پل نمی‌شود؛ بی این قابلیت، پلی نیست (سکوت، نه صدای نازیبا). */
+  ok('۲۶.۶ کلیدِ خاموش ⇒ هیچ پلِ طنین (۹.۵۷)',
+     !brL(r4).some((l) => /طنین/.test(l)), JSON.stringify(brL(r4)));
 
   /* ── پایانِ قسمت: محوِ بلندِ «دنباله» ── */
   clips.length = 0;

@@ -260,6 +260,28 @@ console.log('=== ۳-ب) داورِ پیوستگی: بازنویسی یا رد (�
   global.__asks = []; global.__writer = [RAW]; global.__judge = [J_SOFT, J_SOFT];
   const rE = igStepPlan_(Object.assign({}, it, { tryN: 0 }), fo2);
   ok('۳-ب.۲-ز تلاشِ اول با ایرادِ نرم ⇒ هنوز رد (سخت‌گیری سرِ جایش)', !!rE.fail, rE.fail);
+  /* ۹.۵۷: سخت‌گیری با سنِ درس نرم می‌شود — «هی نگران باشم که چرا دیر شد یا گیر کرد». */
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_SOFT, J_SOFT];
+  const rLen = igStepPlan_(Object.assign({}, it, { tryN: 0, ageH: 13 }), fo2);
+  ok('۳-ب.۲-ح پس از ۱۲ ساعت، ایرادِ نرم در تلاشِ اول هم مانع نیست', rLen.ok && /پس از 13 ساعت/.test(rLen.plan.plan.judge), rLen.fail || rLen.plan.plan.judge);
+  const J_HARD = Object.assign({}, J_OK, { flows: 'خیر', oneIdea: 'خیر', weak: 'گسسته' });
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_HARD, J_HARD];
+  const rLen2 = igStepPlan_(Object.assign({}, it, { tryN: 0, ageH: 13 }), fo2);
+  ok('۳-ب.۲-ط ولی ایرادِ سخت پیش از ۲۴ ساعت هنوز رد', !!rLen2.fail, rLen2.fail);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_HARD, J_HARD];
+  const rF2 = igStepPlan_(Object.assign({}, it, { tryN: 0, ageH: 25 }), fo2);
+  ok('۳-ب.۲-ی پس از ۲۴ ساعت، داور مشاور: ایرادِ سخت هم منتشر می‌شود', rF2.ok && /داور مشاور شد/.test(rF2.plan.plan.judge), rF2.fail || rF2.plan.plan.judge);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [Object.assign({}, J_HARD, { faithful: 'خیر' }), Object.assign({}, J_HARD, { faithful: 'خیر' })];
+  const rF3 = igStepPlan_(Object.assign({}, it, { tryN: 0, ageH: 99 }), fo2);
+  ok('۳-ب.۲-ک ولی «ادعای بیرون از درس» هرگز — حتی پس از ۹۹ ساعت', rF3.fail && /بیرون از درس/.test(rF3.fail), rF3.fail);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [null];
+  const rF4 = igStepPlan_(Object.assign({}, it, { tryN: 0, ageH: 99 }), fo2);
+  ok('۳-ب.۲-ل و داورِ بی‌جواب هم تأییدِ خاموش نیست', !!rF4.fail, rF4.fail);
+  {
+    const stH = { fails: { '13': 3, '20': 9, '14': 1 }, failWhy: { '13': 'داورِ پیوستگی نپذیرفت: سنگین' }, firstAt: { '13': Date.now() - 30 * 3600000 } };
+    const hl = igHeld_(stH);
+    ok('۳-ب.۲-م درسِ کنارگذاشته دیده می‌شود (نه ۹ِ «پوشه نیست»، نه زیرِ سقف)', hl.length === 1 && hl[0].ep === 13 && hl[0].ageH === 30 && /سنگین/.test(hl[0].why), JSON.stringify(hl));
+  }
   global.__asks = []; global.__writer = [RAW]; global.__judge = [null];
   const r3 = igStepPlan_(it, fo2);
   ok('۳-ب.۳ داور جواب نداد ⇒ رد، نه تأییدِ خاموش', !!r3.fail, r3.fail);

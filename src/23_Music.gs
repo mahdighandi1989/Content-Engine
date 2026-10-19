@@ -557,6 +557,12 @@ function heardPlayable_(cell, note) {
   return !!(nt && nt.indexOf('خودکار') !== 0);     // یا آدم گفته
 }
 
+/** یادداشتِ آدم (نه «خودکار …») — تنها تأییدی که بی «آهنگ»ِ مدل پذیرفته می‌شود. */
+function musicHumanOk_(note) {
+  var nt = String(note || '').trim();
+  return !!(nt && nt.indexOf('خودکار') !== 0);
+}
+
 function heardSays_(cell, word) {
   var t = String(cell || '').trim();
   if (!t || t.charAt(0) === '❓') return false;
@@ -1060,6 +1066,12 @@ function musicPick_(bank, slot, moodWords, wantedId) {
      * می‌توانست آغازِ برنامه باشد. */
     if (!heardPlayable_(b.heard, b.note)) continue;
     if ((slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
+    /* ── فقط آهنگ، در هر جایگاه — پل هم (۹.۵۷) ──
+     * او شنید «یکی دوجا تو موسیقی‌های میانی … چیزای خیلی زشت که اصلاً موسیقی نبودن». علت از خودِ این بخش بود:
+     * «زمینه» (drone، گرانولار، غرّشِ یکنواخت) از لبه دور می‌شد ولی **به پل فرستاده می‌شد** — `musicAutoTag_`
+     * جایگاهِ هر زمینه را عمداً «میانه» می‌کرد، با این فرض که میانه «بی‌ضررترین جا»ست. نیست: پل تنها جایی است که
+     * هیچ گفتاری رویش نیست و شنونده فقط همان را می‌شنود. حالا هر جایگاه فقط «آهنگ»ِ شنیده‌شده یا یادداشتِ آدم. */
+    if (!heardSays_(b.heard, 'آهنگ') && !musicHumanOk_(b.note)) continue;
     if (!b.sec) continue;
     /* ── کفِ طول ──
      * ۲۴ اوت فایلی سه‌ثانیه‌ای با نامِ «freemusicarchive public domain» وارد
@@ -1356,10 +1368,15 @@ function musicSegOk_(track, startSec, slot) {
     var info = wavInfo_(b);
     if (!wavReadable_(info)) { out.why = 'WAV خوانده نشد'; return out; }
     var st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - 8)));
-    var h = musicListen_(b, info, track.name, st);
-    out.heard = h;
     var edge = (slot === 'شروع' || slot === 'پایان');
-    out.ok = edge ? h === 'آهنگ' : (h === 'آهنگ' || h === 'زمینه');
+    /* کلِ بازه‌ای که پخش می‌شود شنیده می‌شود، نه هشت ثانیهٔ اولش (۹.۵۷) — پلِ ۱۲ثانیه‌ای از وسطِ یک قطعه
+       می‌توانست در ثانیهٔ نهم به بخشِ بی‌ملودی برسد. سقفِ ۲۰ ثانیه، هزینهٔ شنیدن کوچک می‌ماند. */
+    var playS = Math.min(20, slot === 'شروع' ? (Number(CFG.MUSIC_INTRO_SEC) || 18)
+                            : slot === 'پایان' ? (Number(CFG.MUSIC_OUTRO_SEC) || 30) : (Number(CFG.MUSIC_BRIDGE_SEC) || 12));
+    st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - playS)));
+    var h = musicListen_(b, info, track.name, st, playS);
+    out.heard = h;
+    out.ok = h === 'آهنگ';                 // ۹.۵۷: «زمینه» دیگر برای پل هم کافی نیست
     if (!out.ok) out.why = h ? 'شنیده شد: «' + h + '»' : 'مدل نشنید';
   } catch (e) { out.why = 'خطا: ' + String(e.message).slice(0, 60); }
   return out;
@@ -1521,8 +1538,9 @@ function musicBridgeDiscover_(bank, hub, mood, need, plan, skipIds) {
     var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
     musicHeardRecord_(hub, tr, acc);
     if (!acc.ok || acc.heard !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why)); continue; }
-    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - 8)));
-    var h = musicListen_(bytes, info, tr.name, at);
+    var brS = Number(CFG.MUSIC_BRIDGE_SEC) || 12;
+    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - brS)));
+    var h = musicListen_(bytes, info, tr.name, at, brS);
     if (h !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': بازهٔ پخش «' + (h || 'نشنید') + '»'); continue; }
     out.push(tr);
   }
@@ -2312,7 +2330,7 @@ function musicAutoTag_(hub) {
      * شک یعنی نه. جایگاهِ ناشناخته «میانه» است — بی‌ضررترین جا.
      * و اگر مدل شنیده باشد «زمینه»، حدسِ برچسب‌زن اصلاً وزنی ندارد. */
     var slots = String(it.slots || '').trim() || 'میانه';
-    if (heardSays_(need[q].heard, 'زمینه')) slots = 'میانه';
+    if (heardSays_(need[q].heard, 'زمینه')) slots = 'میانه';   // ۹.۵۷: برچسب است، نه پروانهٔ پخش — musicPick_ فقط «آهنگ» برمی‌دارد
     sh.getRange(need[q].row, MC.MOOD).setValue(String(it.mood || '').slice(0, 80));
     sh.getRange(need[q].row, MC.SLOTS).setValue(slots.slice(0, 60));
     sh.getRange(need[q].row, MC.GAIN).setValue(gain);
@@ -4615,10 +4633,10 @@ function musicExcerpt_(b, info, secs, startSec) {
  * این تنها سنجه‌ای است که واقعاً *می‌شنود*. بقیه از روی عدد حدس می‌زنند.
  * اگر در دسترس نبود، حکمِ اندازه‌ها می‌ماند — ولی نبودش سکوتِ تأیید نیست.
  */
-function musicListen_(b, info, name, startSec) {
+function musicListen_(b, info, name, startSec, secs) {
   try {
     if (!info || !(info.seconds > 0)) return '';
-    var b64 = musicExcerpt_(b, info, 8, startSec);
+    var b64 = musicExcerpt_(b, info, Number(secs) || 8, startSec);
     if (!b64) return '';
     /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
        تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،

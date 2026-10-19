@@ -509,7 +509,19 @@ function igStepPlan_(it, fo) {
     /* تلاشِ آخر (۹.۵۶): ایرادِ فقط-نرم مانعِ انتشار نیست — درستی، یک‌ایدگی، پیوستگی و جوابِ قلاب هنوز شرط‌اند. وگرنه درسی
        ذاتاً نظری (معرفت‌شناسی) هر ۲۴ ساعت سه بار رد می‌شد و کلِ مجموعه پشتش می‌ماند. */
     var lastTry = (Number(it.tryN) || 0) >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
-    if (!jd.ok && lastTry && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: 'تلاشِ آخر، فقط ایرادِ نرم: ' + jd.why }; }
+    /* ══ سخت‌گیری با گذرِ زمان نرم می‌شود (۹.۵۷) — «اینطور نباشه هی نگران باشم که چرا دیر شد یا گیر کرد» ══
+       ترتیب اجباری است، پس یک درسِ گیرکرده کلِ مجموعه را نگه می‌دارد. سه پله، از نخستین تلاشِ همین درس:
+       • تا `IG_LENIENT_H`: داور کامل؛ • پس از آن (یا تلاشِ آخر): ایرادِ فقط-نرم مانع نیست؛
+       • پس از `IG_FORCE_H`: داور فقط مشاور است — تنها «ادعای بیرون از درس» جلوی انتشار را می‌گیرد، چون نادرست
+         منتشرکردن جبران‌پذیر نیست و دیرکرد هست. */
+    var ageH = Number(it.ageH) || 0;
+    var force = ageH >= (Number(CFG.IG_FORCE_H) || 24);
+    var lenient = lastTry || force || ageH >= (Number(CFG.IG_LENIENT_H) || 12);
+    if (!jd.ok && lenient && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: (lastTry ? 'تلاشِ آخر' : 'پس از ' + Math.round(ageH) + ' ساعت') + '، فقط ایرادِ نرم: ' + jd.why }; }
+    if (!jd.ok && force && !/ادعای بیرون از درس|داور جواب نداد/.test(jd.why)) {
+      if (jd.p) p = jd.p;
+      jd = { ok: true, why: 'پس از ' + Math.round(ageH) + ' ساعت گیر، داور مشاور شد (درست بود؛ ایراد: ' + jd.why + ')' };
+    }
     if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
   }
   p.judge = jd.why || 'پیوسته';
@@ -1050,6 +1062,12 @@ function igTick() {
     /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
        (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
     /* ۹.۵۶: درسِ ۱۳ از نگه‌داشتنِ ۲۴ساعته بیرون، یک‌راست به تلاشِ آخر (با علتِ ردِ قبلی و پذیرشِ ایرادِ نرم). */
+    /* ۹.۵۷: درسی که پیش از این نسخه گیر کرد، سنش را از همان گیر می‌شمارد، نه از امروز. */
+    if (!st.redo957) {
+      st.firstAt = st.firstAt || {};
+      Object.keys(st.failAt || {}).forEach(function (e) { if (!st.firstAt[e]) st.firstAt[e] = Number(st.failAt[e]) || Date.now(); });
+      st.redo957 = 1;
+    }
     if (!st.redo956) {
       if (st.failAt && st.failAt['13']) delete st.failAt['13'];
       if (st.fails && Number(st.fails['13']) >= 1 && Number(st.fails['13']) < 9) st.fails['13'] = Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
@@ -1083,12 +1101,15 @@ function igTick() {
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
+      st.firstAt = st.firstAt || {};
+      if (!st.firstAt[String(it.ep)]) st.firstAt[String(it.ep)] = Date.now();
+      it.ageH = (Date.now() - Number(st.firstAt[String(it.ep)])) / 3600000;
       it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
       it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }
-      if (res.done) { st.done = (st.done ? st.done + ',' : '') + it.ep; st.lastAt = nowStr_(); continue; }
+      if (res.done) { st.done = (st.done ? st.done + ',' : '') + it.ep; st.lastAt = nowStr_(); if (st.firstAt) delete st.firstAt[String(it.ep)]; continue; }
       if (res.fail) {
         st.fails = st.fails || {};
         st.fails[String(it.ep)] = (Number(st.fails[String(it.ep)]) || 0) + 1;
@@ -1209,7 +1230,7 @@ function igStatus_() {
               today: (st.stats || {}).day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(st.stats.dayN) || 0 : 0,
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
               lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null,
-              gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(),
+              gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(), held: igHeld_(st),
               shortQ: (st.shortQ || []).map(function (x) { return x.ep; }), shortWhy: st.shortWhy || '',
               order: igOrderDec_((st.order && st.order.s) || []).map(function (S) {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
@@ -1222,8 +1243,26 @@ function igStatus_() {
       igInsLine_(st.ins) +
       ((st.shortQ || []).length ? '. شورتزِ در صف: ' + st.shortQ.length + ' (به ترتیب؛ ' + (st.shortWhy || 'دورِ بعد') + ')' : '') +
       ((st.gaps || []).length ? '. ⚠️ ترتیب: ' + st.gaps.join(' · ') : '') +
+      (out.held.length ? '. ⏸ کنار تا تلاشِ بعد: ' + out.held.map(function (h) { return 'درسِ ' + h.ep + ' (' + h.tries + ' بار، ' + h.ageH + ' ساعت؛ ' + h.why + ')'; }).join(' · ') : '') +
       (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
       '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
+  return out;
+}
+
+/**
+ * درس‌هایی که به سقفِ تلاش رسیده‌اند و تا `IG_RETRY_H` کنارند (۹.۵۷). پیش از این هیچ‌جا دیده نمی‌شدند: درس از
+ * `inflight` بیرون می‌رفت، پس نه خطِ روزانه نامش را می‌برد نه `igHealth_` (که فقط `inflight` را می‌پایید) — درسِ ۱۳ِ
+ * مصباح همین‌طور یک روزِ کامل ریلزها را نگه داشت و تنها نشانه‌اش «امروز ۰» بود.
+ */
+function igHeld_(st) {
+  var maxTry = Math.max(1, Number(CFG.IG_TRY_MAX) || 3), f = st.fails || {}, out = [];
+  Object.keys(f).forEach(function (e) {
+    var n = Number(f[e]) || 0;
+    if (n < maxTry || n >= 9) return;
+    var fa = Number((st.firstAt || {})[e]) || 0;
+    out.push({ ep: Number(e), tries: n, ageH: fa ? Math.round((Date.now() - fa) / 3600000) : 0,
+               why: String((st.failWhy || {})[e] || '').slice(0, 90) });
+  });
   return out;
 }
 
@@ -1246,6 +1285,8 @@ function igHealth_(problems, notes) {
     var h = (now - Number(x.since)) / 3600000;
     if (h > (Number(CFG.IG_STUCK_H) || 30)) bad.push(x.key + ' ' + Math.round(h) + ' ساعت در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : ''));
   });
+  /* ۹.۵۷: درسی که کنار رفته هم دیده می‌شود — همان درس کلِ مجموعه را نگه می‌دارد. */
+  (s.held || []).forEach(function (h) { bad.push('درسِ ' + h.ep + ' پس از ' + h.tries + ' تلاش کنار رفت (' + h.ageH + ' ساعت از نخستین تلاش) — ' + h.why); });
   /* ۹.۳۰: «جاافتادن» دیگر کنار گذاشتنِ بی‌صدا نیست — مجموعه سرِ همان درس می‌ایستد، و این‌جا گفته می‌شود. */
   (st.gaps || []).forEach(function (g) { bad.push('ترتیب: ' + g); });
   if ((st.inflight || []).length === 0 && !(st.gaps || []).length && st.order && (st.caught || []).length && igToken_())

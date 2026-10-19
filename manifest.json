@@ -1,18 +1,17 @@
 {
-  "version": "9.56",
+  "version": "9.57",
   "codeFile": "engine.gs",
-  "sha256": "1cf56e2e9aa8d4f7de877c0f4464a982458ce23a39f0226e9f5f3c6d0213d453",
-  "releasedAt": "2026-10-19T08:30:00+04:00",
-  "summary": "صدای نمونه‌های پل از فهرستِ کنارگذاشته‌ها (ttsVoiceFree_) و فهرست در _STATUS.ttsVoices؛ داورِ ریلز علتِ ردش را به نویسنده می‌دهد و در تلاشِ آخر ایرادِ فقط-نرم مانع نیست؛ درسِ ۱۳ از نگه‌داشتن بیرون.",
+  "sha256": "d9962be1bcff03c1e3a0a7dd9f9e6d18ab5c20ded47b14810ad8bf852ac9eee7",
+  "releasedAt": "2026-10-19T10:30:00+04:00",
+  "summary": "ریلز: سخت‌گیریِ داور با سنِ درس نرم می‌شود (۱۲ ساعت ⇒ ایرادِ نرم آزاد، ۲۴ ساعت ⇒ داور مشاور جز ادعای بیرون از درس)، تلاشِ دوباره هر ۶ ساعت، درسِ کنارگذاشته دیده می‌شود؛ موسیقی: هر جایگاه فقط «آهنگ»ِ شنیده‌شده، و کلِ بازهٔ پخش شنیده می‌شود.",
   "fixes": [
-    "src/20_Voices.gs: ttsVoiceFree_/ttsVoicesStatus_؛ نمونهٔ سبک",
-    "src/36_VoiceBridge.gs: نمونهٔ روح و آزمونِ تلفظ با ttsVoiceFree_",
-    "src/08_Health.gs: _STATUS.ttsVoices",
-    "src/38_Instagram.gs: prevWhy در پرسشِ نویسنده، hard/soft در igJudge_، پذیرشِ نرم در تلاشِ آخر، redo956"
+    "src/38_Instagram.gs: st.firstAt/ageH، IG_LENIENT_H/IG_FORCE_H در igStepPlan_، igHeld_ در igStatus_/igHealth_، redo957",
+    "src/00_Config.gs: IG_RETRY_H 6، IG_LENIENT_H، IG_FORCE_H",
+    "src/23_Music.gs: musicPick_ فقط آهنگ/آدم، musicSegOk_ فقط آهنگ با کلِ بازه، musicListen_ با secs، musicHumanOk_"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-01": "۹.۵۶",
-    "R-20261019-02": "۹.۵۶"
+    "R-20261019-03": "۹.۵۷",
+    "R-20261019-04": "۹.۵۷"
   }
 }

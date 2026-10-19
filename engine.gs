@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.56
+ *  موتور محتوا و پادکست — نسخهٔ 9.57
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1421,7 +1421,10 @@ var CFG = {
   IG_RECAP_WORDS: [260, 400],
   IG_RECAP_IMG_N: 9,
   IG_MAX_SEC: 178,               // سقفِ ریلز و شورتز (شورتز تا ۱۸۰ ثانیه)؛ بلندتر ⇒ از نو با متنِ کوتاه‌تر
-  IG_RETRY_H: 24,                // درسی که به سقفِ تلاش رسید، پس از این همان درس دوباره — رها نمی‌شود (ترتیب بی جاافتادگی)
+  IG_RETRY_H: 6,                 // ۹.۵۷: از ۲۴ — هر تلاش چند فراخوانِ متنیِ ارزان است و درسِ کنارگذاشته کلِ مجموعه را نگه می‌دارد
+  IG_LENIENT_H: 12,              // ۹.۵۷: از نخستین تلاشِ درس؛ پس از آن ایرادِ فقط-نرمِ داور مانعِ انتشار نیست
+  IG_FORCE_H: 24,                // ۹.۵۷: پس از آن داور مشاور است؛ فقط «ادعای بیرون از درس» جلوی انتشار را می‌گیرد
+  // IG_RETRY_H: درسی که به سقفِ تلاش رسید، پس از این همان درس دوباره — رها نمی‌شود (ترتیب بی جاافتادگی)
   IG_ORDER_H: 6,                 // فهرستِ درس‌های هر مجموعه از پوشه‌ها، هر چند ساعت از نو
   IG_BOOK_NAME: 'اینستاگرام — انتشار، آمار، نظرها و پیام‌ها',
   IG_BOOK_FOLDER: 'اینستاگرام',  // زیرپوشهٔ OUTPUT برای دفترِ اینستاگرام (۹.۳۰ — هابِ ۲۹ مگابایتی «timed out» می‌داد)
@@ -2155,7 +2158,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.56',
+  CODE_VERSION: '9.57',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -40128,6 +40131,12 @@ function heardPlayable_(cell, note) {
   return !!(nt && nt.indexOf('خودکار') !== 0);     // یا آدم گفته
 }
 
+/** یادداشتِ آدم (نه «خودکار …») — تنها تأییدی که بی «آهنگ»ِ مدل پذیرفته می‌شود. */
+function musicHumanOk_(note) {
+  var nt = String(note || '').trim();
+  return !!(nt && nt.indexOf('خودکار') !== 0);
+}
+
 function heardSays_(cell, word) {
   var t = String(cell || '').trim();
   if (!t || t.charAt(0) === '❓') return false;
@@ -40631,6 +40640,12 @@ function musicPick_(bank, slot, moodWords, wantedId) {
      * می‌توانست آغازِ برنامه باشد. */
     if (!heardPlayable_(b.heard, b.note)) continue;
     if ((slot === 'شروع' || slot === 'پایان') && !heardCanEdge_(b.heard, b.note)) continue;
+    /* ── فقط آهنگ، در هر جایگاه — پل هم (۹.۵۷) ──
+     * او شنید «یکی دوجا تو موسیقی‌های میانی … چیزای خیلی زشت که اصلاً موسیقی نبودن». علت از خودِ این بخش بود:
+     * «زمینه» (drone، گرانولار، غرّشِ یکنواخت) از لبه دور می‌شد ولی **به پل فرستاده می‌شد** — `musicAutoTag_`
+     * جایگاهِ هر زمینه را عمداً «میانه» می‌کرد، با این فرض که میانه «بی‌ضررترین جا»ست. نیست: پل تنها جایی است که
+     * هیچ گفتاری رویش نیست و شنونده فقط همان را می‌شنود. حالا هر جایگاه فقط «آهنگ»ِ شنیده‌شده یا یادداشتِ آدم. */
+    if (!heardSays_(b.heard, 'آهنگ') && !musicHumanOk_(b.note)) continue;
     if (!b.sec) continue;
     /* ── کفِ طول ──
      * ۲۴ اوت فایلی سه‌ثانیه‌ای با نامِ «freemusicarchive public domain» وارد
@@ -40927,10 +40942,15 @@ function musicSegOk_(track, startSec, slot) {
     var info = wavInfo_(b);
     if (!wavReadable_(info)) { out.why = 'WAV خوانده نشد'; return out; }
     var st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - 8)));
-    var h = musicListen_(b, info, track.name, st);
-    out.heard = h;
     var edge = (slot === 'شروع' || slot === 'پایان');
-    out.ok = edge ? h === 'آهنگ' : (h === 'آهنگ' || h === 'زمینه');
+    /* کلِ بازه‌ای که پخش می‌شود شنیده می‌شود، نه هشت ثانیهٔ اولش (۹.۵۷) — پلِ ۱۲ثانیه‌ای از وسطِ یک قطعه
+       می‌توانست در ثانیهٔ نهم به بخشِ بی‌ملودی برسد. سقفِ ۲۰ ثانیه، هزینهٔ شنیدن کوچک می‌ماند. */
+    var playS = Math.min(20, slot === 'شروع' ? (Number(CFG.MUSIC_INTRO_SEC) || 18)
+                            : slot === 'پایان' ? (Number(CFG.MUSIC_OUTRO_SEC) || 30) : (Number(CFG.MUSIC_BRIDGE_SEC) || 12));
+    st = Math.max(0, Math.min(Number(startSec) || 0, Math.max(0, info.seconds - playS)));
+    var h = musicListen_(b, info, track.name, st, playS);
+    out.heard = h;
+    out.ok = h === 'آهنگ';                 // ۹.۵۷: «زمینه» دیگر برای پل هم کافی نیست
     if (!out.ok) out.why = h ? 'شنیده شد: «' + h + '»' : 'مدل نشنید';
   } catch (e) { out.why = 'خطا: ' + String(e.message).slice(0, 60); }
   return out;
@@ -41092,8 +41112,9 @@ function musicBridgeDiscover_(bank, hub, mood, need, plan, skipIds) {
     var acc = musicAccept_(bytes, info, tr.name, 'موسیقی');
     musicHeardRecord_(hub, tr, acc);
     if (!acc.ok || acc.heard !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': ' + (acc.heard ? '«' + acc.heard + '»' : acc.why)); continue; }
-    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - 8)));
-    var h = musicListen_(bytes, info, tr.name, at);
+    var brS = Number(CFG.MUSIC_BRIDGE_SEC) || 12;
+    var at = Math.max(0, Math.min(st, Math.max(0, info.seconds - brS)));
+    var h = musicListen_(bytes, info, tr.name, at, brS);
     if (h !== 'آهنگ') { notes.push(auditCut_(tr.name, 30) + ': بازهٔ پخش «' + (h || 'نشنید') + '»'); continue; }
     out.push(tr);
   }
@@ -41883,7 +41904,7 @@ function musicAutoTag_(hub) {
      * شک یعنی نه. جایگاهِ ناشناخته «میانه» است — بی‌ضررترین جا.
      * و اگر مدل شنیده باشد «زمینه»، حدسِ برچسب‌زن اصلاً وزنی ندارد. */
     var slots = String(it.slots || '').trim() || 'میانه';
-    if (heardSays_(need[q].heard, 'زمینه')) slots = 'میانه';
+    if (heardSays_(need[q].heard, 'زمینه')) slots = 'میانه';   // ۹.۵۷: برچسب است، نه پروانهٔ پخش — musicPick_ فقط «آهنگ» برمی‌دارد
     sh.getRange(need[q].row, MC.MOOD).setValue(String(it.mood || '').slice(0, 80));
     sh.getRange(need[q].row, MC.SLOTS).setValue(slots.slice(0, 60));
     sh.getRange(need[q].row, MC.GAIN).setValue(gain);
@@ -44186,10 +44207,10 @@ function musicExcerpt_(b, info, secs, startSec) {
  * این تنها سنجه‌ای است که واقعاً *می‌شنود*. بقیه از روی عدد حدس می‌زنند.
  * اگر در دسترس نبود، حکمِ اندازه‌ها می‌ماند — ولی نبودش سکوتِ تأیید نیست.
  */
-function musicListen_(b, info, name, startSec) {
+function musicListen_(b, info, name, startSec, secs) {
   try {
     if (!info || !(info.seconds > 0)) return '';
-    var b64 = musicExcerpt_(b, info, 8, startSec);
+    var b64 = musicExcerpt_(b, info, Number(secs) || 8, startSec);
     if (!b64) return '';
     /* ══ ۴۸ توکن، و مدلی که پیش از جواب فکر می‌کند (۸.۳۲) ══
        تا ۸.۳۱ این‌جا `maxOutputTokens: 48` بود. فکرِ مدل از همان سقف می‌خورد،
@@ -80743,7 +80764,19 @@ function igStepPlan_(it, fo) {
     /* تلاشِ آخر (۹.۵۶): ایرادِ فقط-نرم مانعِ انتشار نیست — درستی، یک‌ایدگی، پیوستگی و جوابِ قلاب هنوز شرط‌اند. وگرنه درسی
        ذاتاً نظری (معرفت‌شناسی) هر ۲۴ ساعت سه بار رد می‌شد و کلِ مجموعه پشتش می‌ماند. */
     var lastTry = (Number(it.tryN) || 0) >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
-    if (!jd.ok && lastTry && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: 'تلاشِ آخر، فقط ایرادِ نرم: ' + jd.why }; }
+    /* ══ سخت‌گیری با گذرِ زمان نرم می‌شود (۹.۵۷) — «اینطور نباشه هی نگران باشم که چرا دیر شد یا گیر کرد» ══
+       ترتیب اجباری است، پس یک درسِ گیرکرده کلِ مجموعه را نگه می‌دارد. سه پله، از نخستین تلاشِ همین درس:
+       • تا `IG_LENIENT_H`: داور کامل؛ • پس از آن (یا تلاشِ آخر): ایرادِ فقط-نرم مانع نیست؛
+       • پس از `IG_FORCE_H`: داور فقط مشاور است — تنها «ادعای بیرون از درس» جلوی انتشار را می‌گیرد، چون نادرست
+         منتشرکردن جبران‌پذیر نیست و دیرکرد هست. */
+    var ageH = Number(it.ageH) || 0;
+    var force = ageH >= (Number(CFG.IG_FORCE_H) || 24);
+    var lenient = lastTry || force || ageH >= (Number(CFG.IG_LENIENT_H) || 12);
+    if (!jd.ok && lenient && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: (lastTry ? 'تلاشِ آخر' : 'پس از ' + Math.round(ageH) + ' ساعت') + '، فقط ایرادِ نرم: ' + jd.why }; }
+    if (!jd.ok && force && !/ادعای بیرون از درس|داور جواب نداد/.test(jd.why)) {
+      if (jd.p) p = jd.p;
+      jd = { ok: true, why: 'پس از ' + Math.round(ageH) + ' ساعت گیر، داور مشاور شد (درست بود؛ ایراد: ' + jd.why + ')' };
+    }
     if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
   }
   p.judge = jd.why || 'پیوسته';
@@ -81284,6 +81317,12 @@ function igTick() {
     /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
        (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
     /* ۹.۵۶: درسِ ۱۳ از نگه‌داشتنِ ۲۴ساعته بیرون، یک‌راست به تلاشِ آخر (با علتِ ردِ قبلی و پذیرشِ ایرادِ نرم). */
+    /* ۹.۵۷: درسی که پیش از این نسخه گیر کرد، سنش را از همان گیر می‌شمارد، نه از امروز. */
+    if (!st.redo957) {
+      st.firstAt = st.firstAt || {};
+      Object.keys(st.failAt || {}).forEach(function (e) { if (!st.firstAt[e]) st.firstAt[e] = Number(st.failAt[e]) || Date.now(); });
+      st.redo957 = 1;
+    }
     if (!st.redo956) {
       if (st.failAt && st.failAt['13']) delete st.failAt['13'];
       if (st.fails && Number(st.fails['13']) >= 1 && Number(st.fails['13']) < 9) st.fails['13'] = Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
@@ -81317,12 +81356,15 @@ function igTick() {
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
+      st.firstAt = st.firstAt || {};
+      if (!st.firstAt[String(it.ep)]) st.firstAt[String(it.ep)] = Date.now();
+      it.ageH = (Date.now() - Number(st.firstAt[String(it.ep)])) / 3600000;
       it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
       it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }
-      if (res.done) { st.done = (st.done ? st.done + ',' : '') + it.ep; st.lastAt = nowStr_(); continue; }
+      if (res.done) { st.done = (st.done ? st.done + ',' : '') + it.ep; st.lastAt = nowStr_(); if (st.firstAt) delete st.firstAt[String(it.ep)]; continue; }
       if (res.fail) {
         st.fails = st.fails || {};
         st.fails[String(it.ep)] = (Number(st.fails[String(it.ep)]) || 0) + 1;
@@ -81443,7 +81485,7 @@ function igStatus_() {
               today: (st.stats || {}).day === Utilities.formatDate(new Date(), CFG.TIMEZONE, 'yyyy-MM-dd') ? Number(st.stats.dayN) || 0 : 0,
               inflight: fl.map(function (x) { return { key: x.key, phase: x.phase, why: x.why || '' }; }),
               lastAt: st.lastAt || '', lastWhy: st.lastWhy || '', ranAt: st.ranAt || '', ins: st.ins || null,
-              gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(),
+              gaps: st.gaps || [], caught: st.caught || [], book: igBookUrl_(), held: igHeld_(st),
               shortQ: (st.shortQ || []).map(function (x) { return x.ep; }), shortWhy: st.shortWhy || '',
               order: igOrderDec_((st.order && st.order.s) || []).map(function (S) {
                 var dn = igDoneMap_(st), n = S.eps.filter(function (x) { return dn[String(x.ep)]; }).length;
@@ -81456,8 +81498,26 @@ function igStatus_() {
       igInsLine_(st.ins) +
       ((st.shortQ || []).length ? '. شورتزِ در صف: ' + st.shortQ.length + ' (به ترتیب؛ ' + (st.shortWhy || 'دورِ بعد') + ')' : '') +
       ((st.gaps || []).length ? '. ⚠️ ترتیب: ' + st.gaps.join(' · ') : '') +
+      (out.held.length ? '. ⏸ کنار تا تلاشِ بعد: ' + out.held.map(function (h) { return 'درسِ ' + h.ep + ' (' + h.tries + ' بار، ' + h.ageH + ' ساعت؛ ' + h.why + ')'; }).join(' · ') : '') +
       (igBookUrl_() ? '. دفتر: ' + igBookUrl_() : '') +
       '. ⟨شما⟩ هایلایت، بیو و برچسبِ پیوندِ استوری از API در دسترس نیست — از خودِ اپ.';
+  return out;
+}
+
+/**
+ * درس‌هایی که به سقفِ تلاش رسیده‌اند و تا `IG_RETRY_H` کنارند (۹.۵۷). پیش از این هیچ‌جا دیده نمی‌شدند: درس از
+ * `inflight` بیرون می‌رفت، پس نه خطِ روزانه نامش را می‌برد نه `igHealth_` (که فقط `inflight` را می‌پایید) — درسِ ۱۳ِ
+ * مصباح همین‌طور یک روزِ کامل ریلزها را نگه داشت و تنها نشانه‌اش «امروز ۰» بود.
+ */
+function igHeld_(st) {
+  var maxTry = Math.max(1, Number(CFG.IG_TRY_MAX) || 3), f = st.fails || {}, out = [];
+  Object.keys(f).forEach(function (e) {
+    var n = Number(f[e]) || 0;
+    if (n < maxTry || n >= 9) return;
+    var fa = Number((st.firstAt || {})[e]) || 0;
+    out.push({ ep: Number(e), tries: n, ageH: fa ? Math.round((Date.now() - fa) / 3600000) : 0,
+               why: String((st.failWhy || {})[e] || '').slice(0, 90) });
+  });
   return out;
 }
 
@@ -81480,6 +81540,8 @@ function igHealth_(problems, notes) {
     var h = (now - Number(x.since)) / 3600000;
     if (h > (Number(CFG.IG_STUCK_H) || 30)) bad.push(x.key + ' ' + Math.round(h) + ' ساعت در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : ''));
   });
+  /* ۹.۵۷: درسی که کنار رفته هم دیده می‌شود — همان درس کلِ مجموعه را نگه می‌دارد. */
+  (s.held || []).forEach(function (h) { bad.push('درسِ ' + h.ep + ' پس از ' + h.tries + ' تلاش کنار رفت (' + h.ageH + ' ساعت از نخستین تلاش) — ' + h.why); });
   /* ۹.۳۰: «جاافتادن» دیگر کنار گذاشتنِ بی‌صدا نیست — مجموعه سرِ همان درس می‌ایستد، و این‌جا گفته می‌شود. */
   (st.gaps || []).forEach(function (g) { bad.push('ترتیب: ' + g); });
   if ((st.inflight || []).length === 0 && !(st.gaps || []).length && st.order && (st.caught || []).length && igToken_())
