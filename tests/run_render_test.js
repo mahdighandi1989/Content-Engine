@@ -715,6 +715,13 @@ console.log('\n══ ۱۲) صحنه‌های مصور (۸.۳۱): تصویرِ �
      'اختلافِ خود ' + ownNear.toFixed(1) + ' (سقف ' + SKIT.SK.qaMad + ') · نامطابق ' + JSON.stringify(qNear.miss) +
      ' · سیاه: خالی ' + qBlack.blank.length + ' — ' + qBlack.why);
 
+  /* ۱۲.۵-پ (۹.۵۹) — یک لحظهٔ تیره درست وسطِ صحنه، صحنه را «خالی» نمی‌کند؛ ویدئوی سراسر سیاه هنوز خالی است (۱۲.۵-ب). */
+  const dip = path.join(d, 'dip.mp4');
+  ff(['-i', dest, '-vf', "drawbox=c=black:t=fill:enable='between(t,8.6,10.0)'", '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', dip]);
+  const qDip = SKIT.qa(FF, dip, tlOk, 24);
+  ok('۱۲.۵-پ تیرگیِ لحظه‌ای وسطِ صحنهٔ ۲ «خالی» نیست — یک‌چهارم و سه‌چهارمِ صحنه هم دیده می‌شود',
+     qDip.blank.indexOf(2) === -1 && qBlack.blank.length === 4, JSON.stringify({ blank: qDip.blank, miss: qDip.miss, why: qDip.why }));
+
   /* ۱۲.۶ — نگه‌داشتنِ «فقط کارت» صحنه‌ها را نگه نمی‌دارد (درسِ ۶۰). */
   const hC = { 'special:60': { until: '2099-01-01T00:00:00Z', why: 'کارت', cardsOnly: true } };
   ok('۱۲.۶ نگه‌داشتنِ «فقط کارت» ردیفِ کارتی را نگه می‌دارد و ردیفِ صحنه‌ای را نه',

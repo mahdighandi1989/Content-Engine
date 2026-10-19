@@ -338,6 +338,22 @@ console.log('\n══ ۸) روزی یک قسمتِ تازه — و تلاشِ د
      'همان سوراخ، از درِ دیگر');
   clearMade();
   delete P[PK.EP_MADE_DAY];
+  /* ۹.۵۹: ۱۹ اکتبر — مُهرِ ۰۵:۰۲، اجرای کشته‌شده پیش از نوشتن، و ۰۸:۰۰ «امروز ساخته شده». */
+  const spN = P[PK.SP_EP_NUM], spP = P[PK.SP_PENDING];
+  P[PK.SP_EP_NUM] = '75'; delete P[PK.SP_PENDING];
+  epMarkMade_(ENRICH_SHOW_SPECIAL, 76);
+  ok('۸.۹ مُهر با شماره، ولی قسمتِ ۷۶ نه نوشته شد نه در جریان ⇒ «ساخته نشده» — درس‌نامهٔ آن روز ساخته می‌شود',
+     epMadeToday_(ENRICH_SHOW_SPECIAL) === false);
+  P[PK.SP_PENDING] = '{"ep":76}';
+  ok('۸.۹-ب همان مُهر با قسمتِ در جریان ⇒ «ساخته شده» (ادامه کارِ PENDING است، دومی نه)', epMadeToday_(ENRICH_SHOW_SPECIAL) === true);
+  delete P[PK.SP_PENDING]; P[PK.SP_EP_NUM] = '76';
+  ok('۸.۹-پ شماره ثبت شده ⇒ «ساخته شده»', epMadeToday_(ENRICH_SHOW_SPECIAL) === true);
+  ok('۸.۹-ت هر دو درِ ساخت شماره را در مُهر می‌گذارند',
+     /epMarkMade_\(ENRICH_SHOW_SPECIAL, epNum\)/.test(fs.readFileSync('src/14_Special.gs', 'utf8')) &&
+     /epMarkMade_\(ENRICH_SHOW_VARIETY, epNum\)/.test(fs.readFileSync('src/03_Producer.gs', 'utf8')));
+  if (spN === undefined) delete P[PK.SP_EP_NUM]; else P[PK.SP_EP_NUM] = spN;
+  if (spP === undefined) delete P[PK.SP_PENDING]; else P[PK.SP_PENDING] = spP;
+  clearMade();
 }
 /* و قرینه‌اش در درس‌نامه — باگی که در یکی از دو قرینه پیدا شود، در هر دو
    درست می‌شود (۵٫۹۵). این سنجه از متن می‌پرسد چون اجرای کاملِ درس‌نامه

@@ -1,14 +1,16 @@
 {
-  "version": "9.58",
+  "version": "9.59",
   "codeFile": "engine.gs",
-  "sha256": "7d2ffc16954c77404dc952af7d3224b9279b16ad3bb0ab8e80c2cb4d7501e3b1",
-  "releasedAt": "2026-10-19T11:30:00+04:00",
-  "summary": "بن‌بستِ ریلز: ریلزِ آماده‌ای که فقط منتظرِ درسِ پیشین است جای IG_INFLIGHT را نمی‌گیرد (igWaitsEarlier_)، و igHealth_ بن‌بست را به نام می‌گوید.",
+  "sha256": "ee3ba2e353fa31d58c9a0d9ca4caa9c92d456cca033315ea0074de8fde132594",
+  "releasedAt": "2026-10-19T12:30:00+04:00",
+  "summary": "مُهرِ «امروز ساخته شد» شمارهٔ قسمت را دارد و بی قسمتِ نوشته‌شده یا در جریان «ساخته شده» نیست (درس‌نامهٔ ۱۹ اکتبر)؛ سنجهٔ رانر سه قاب از هر صحنه را پیش از «خالی» می‌بیند.",
   "fixes": [
-    "src/38_Instagram.gs: igWaitsEarlier_، سقفِ inflight بر پایهٔ کارهای فعال (کل ≤ ۳ برابر)، بن‌بست در igHealth_"
+    "src/03_Producer.gs: epMarkMade_(show, num)، epMadeToday_ با وارسیِ شماره/در جریان",
+    "src/14_Special.gs: مُهر با epNum",
+    "tools/scenekit.js: qa — یک‌چهارم و سه‌چهارمِ صحنه پیش از حکمِ خالی"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-03": "۹.۵۸"
+    "R-20261019-05": "۹.۵۹"
   }
 }

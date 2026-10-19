@@ -825,7 +825,17 @@ function qa(ff, dest, tl, durSec) {
     const x = tl[k];
     if (x.noQa) { out.n--; continue; }
     const t = x.t0 + (x.qt !== undefined ? x.qt : Math.min(x.d * 0.5, Math.max(0.3, x.d - 0.9)));
-    const fr = gray(ff, dest, t);
+    let fr = gray(ff, dest, t);
+    /* یک قاب ≠ یک صحنه (۹.۵۹): «از همه جا» ۷۴ بارها «۱ قابِ خالی (صحنهٔ ۱۴)» خورد — یک قاب از وسطِ کلیپی که لحظه‌ای
+       تیره می‌شد. «خالی» یعنی صحنه چیزی نشان نمی‌دهد، پس پیش از این حکم، یک‌چهارم و سه‌چهارمِ همان صحنه هم دیده می‌شود
+       (`qt`ِ صریح دست نمی‌خورد — آن زمان را خودِ نقشه خواسته است). */
+    if ((!fr || sd(fr) < SK.qaBlankSd) && x.qt === undefined && x.d > 1) {
+      for (const f of [0.25, 0.75]) {
+        const t2 = x.t0 + Math.max(0.2, Math.min(x.d - 0.2, x.d * f));
+        const f2 = gray(ff, dest, t2);
+        if (f2 && sd(f2) >= SK.qaBlankSd) { fr = f2; break; }
+      }
+    }
     if (!fr || sd(fr) < SK.qaBlankSd) { out.blank.push(x.n); continue; }
     const own = mad(fr, src[keyOf(x)]);
     let ok = own <= SK.qaMad;

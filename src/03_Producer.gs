@@ -8786,7 +8786,21 @@ function epMadeToday_(show) {
       var p = String(v == null ? '' : v).split('|');
       return p[0] === String(show) && p[1] === today;
     };
-    if (hit(props_().getProperty(epMadeKey_(show)))) return true;
+    var own = String(props_().getProperty(epMadeKey_(show)) || '');
+    if (hit(own)) {
+      /* ══ مُهری که قسمتی پشتش نیست (۹.۵۹) ══ ۱۹ اکتبر `prepareSpecialEpisode` ساعتِ ۰۵:۰۲ مُهر زد، پیش از نوشتن
+         سرِ سقفِ شش دقیقه کشته شد، و اجرای ۰۸:۰۰ «امروز ساخته شده» دید — درس‌نامهٔ آن روز ساخته نشد. مُهرِ پیش از نوشتن
+         درست است (اجرای کشته‌شدهٔ **پس** از نوشتن نباید دومی بسازد)، ولی مُهر شمارهٔ قسمتی را که قرار بود ساخته شود
+         هم دارد: نه آن شماره ثبت شده و نه قسمتی در جریان است ⇒ چیزی ساخته نشد، و این «ساخته شده» نیست. */
+      var want = Number(own.split('|')[2]) || 0;
+      if (!want) return true;                                   // مُهرِ قدیمی، بی شماره: همان رفتارِ پیشین
+      var sp = String(show) === String(ENRICH_SHOW_SPECIAL);
+      var cur = Number(props_().getProperty(sp ? PK.SP_EP_NUM : PK.EP_NUM) || 0) || 0;
+      if (cur >= want || props_().getProperty(sp ? PK.SP_PENDING : PK.PENDING)) return true;
+      logLine_((sp ? 'درس‌نامه' : 'تولید') + ': مُهرِ «امروز ساخته شد» بود ولی قسمتِ ' + want + ' نه نوشته شد نه در جریان است — ' +
+               'اجرای قبلی پیش از نوشتن مُرد؛ این بار ساخته می‌شود.');
+      return false;
+    }
     /* ══ خانهٔ مشترکِ ۷٫۴۴ فقط **خوانده** می‌شود، و هرگز پاک نمی‌شود ══
        موتور می‌تواند وسطِ روز نصب شود — ۷٫۴۶ روزِ ۲۳ سپتامبر ساعتِ
        ۰۹:۴۳ نصب شد، یعنی پس از قسمت‌های آن صبح. بی این خط، برنامه‌ای
@@ -8801,10 +8815,10 @@ function epMadeToday_(show) {
   } catch (e) { return false; }   // نشد ≠ ساخته شده
 }
 
-function epMarkMade_(show) {
+function epMarkMade_(show, num) {
   try {
     props_().setProperty(epMadeKey_(show),
-      String(show) + '|' + String(nowStr_()).slice(0, 10));
+      String(show) + '|' + String(nowStr_()).slice(0, 10) + (Number(num) > 0 ? '|' + Number(num) : ''));
   } catch (e) {}
 }
 
@@ -8942,7 +8956,7 @@ function produceEpisode(opt) {
        شود مُهری نمی‌گذارد و تلاشِ بعدی باز یکی از نو می‌سازد — یعنی
        همان باگ، فقط کمیاب‌تر. مُهر از همین‌جا یعنی «امروز تصمیم به
        ساخت گرفته شد»، و ادامهٔ نیمه‌تمام کارِ `PK.PENDING` است. */
-    epMarkMade_(ENRICH_SHOW_VARIETY);
+    epMarkMade_(ENRICH_SHOW_VARIETY, epNum);
     logLine_('تولید قسمت ' + epNum + ' از دستهٔ «' + picked.title + '» با ' + items.length +
              ' آیتم (تازه در این دسته: ' + (picked.freshCount || 0) + ').');
 

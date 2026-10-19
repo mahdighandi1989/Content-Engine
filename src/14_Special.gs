@@ -1194,8 +1194,8 @@ function produceSpecialEpisode(opt) {
       }
     }
 
-    epMarkMade_(ENRICH_SHOW_SPECIAL);   // پیش از نوشتن — همان دلیلِ بخشِ ۳
     var epNum = (parseInt(props_().getProperty(PK.SP_EP_NUM) || '0', 10)) + 1;
+    epMarkMade_(ENRICH_SHOW_SPECIAL, epNum);   // پیش از نوشتن — همان دلیلِ بخشِ ۳؛ با شماره (۹.۵۹)
     /* ══ شمارهٔ درس، جدا از شمارهٔ سراسری (۶٫۵۵) ══
      * شمارهٔ قسمت سراسری است و باید بماند — گزارش‌ها و مکان‌نما به آن بندند.
      * ولی درسِ اولِ یک مجموعهٔ تازه «قسمت ۲۲» خوانده می‌شد، چون مجموعهٔ
