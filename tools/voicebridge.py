@@ -703,6 +703,95 @@ def uvSplice(outPath, srcPath, dstPath, fadeS=0.008):
             "gainDb": round(20 * np.log10(g), 1)}
 
 
+def fricSplice(outPath, srcPath, dstPath, thrDb=8.0, maxPct=12.0, maxRun=18, fadeS=0.01):
+    """۹.۶۳ — «ه» ⇐ «خ»، این بار از **تفاوتِ دو فایل**، نه از ماسکِ ورودی. `uvSplice` (۹.۵۳/۹.۵۴) قاب‌هایی را عوض می‌کرد که
+    در ورودی بی‌واک‌اند؛ «ه»ِ فارسی میانِ دو واکه بیشتر واک‌دار و نفس‌آلود است ([ɦ])، پس از ماسک بیرون می‌ماند — روی نمونه‌های
+    ۱۸ اکتبر فقط ۱۱–۱۲٪ قاب‌ها عوض شد و «خ»ِ افزوده ۳۲⇐۳۰ و ۴۶⇐۴۰ ماند. «خ» سایشِ نرم‌کامی است: انرژیِ نویزیِ ۱٫۲ تا ۶
+    کیلوهرتز که در ورودیِ همان لحظه نیست. پس: انرژیِ همان باند در هر دو فایل، هر کدام نسبت به میانهٔ گفتارِ خودش (تا رنگِ
+    کلیِ دو صدا داوری نکند)؛ قابی که خروجی‌اش `thrDb` بیشتر از ورودی سایش دارد و سایش سهمِ بزرگِ خودِ قاب است، از ورودی
+    برمی‌گردد. «س» و «ش» در هر دو فایل‌اند، پس تفاوت نمی‌سازند و دست نمی‌خورند. تبدیل زمان را نگه می‌دارد، پس جابه‌جا کردن
+    هرگز واژهٔ دیگری نمی‌آورد — بدترین حالتش چند ده میلی‌ثانیه رنگِ جمینای است. رشتهٔ بلندتر از `maxRun` قاب سایش نیست
+    (ناهم‌ترازی است) و کنار می‌رود؛ و اگر بیش از `maxPct` درصدِ گفتار نشان شد، آستانه بالا می‌رود تا همان سقف.
+    ⇒ {ok, frames, pct, gainDb, thrDb} یا {ok: False, why}."""
+    import wave
+    import numpy as np
+    try:
+        y, sr = _wavRead(outPath)
+        s, ssr = _wavRead(srcPath)
+    except Exception as e:
+        return {"ok": False, "why": str(e)[:120]}
+    if ssr != sr:
+        t = np.arange(int(len(s) * float(sr) / ssr)) * (float(ssr) / sr)
+        s = np.interp(t, np.arange(len(s)), s).astype(np.float32)
+    n = min(len(y), len(s))
+    if n < sr:
+        return {"ok": False, "why": "کوتاه"}
+    y, s = y[:n].copy(), s[:n]
+    hop, win = max(1, int(sr * 0.01)), max(8, int(sr * 0.025))
+    nf = (n - win) // hop + 1
+    f = np.fft.rfftfreq(win, 1.0 / sr)
+    band = (f >= 1200) & (f <= min(6000, sr / 2 - 1))
+    w = np.hanning(win)
+
+    def feats(x):
+        tot, fb = np.zeros(nf), np.zeros(nf)
+        for a in range(0, nf, 4000):
+            b = min(nf, a + 4000)
+            idx = np.arange(win)[None, :] + hop * np.arange(a, b)[:, None]
+            S = np.abs(np.fft.rfft(x[idx] * w[None, :], axis=1)) ** 2
+            tot[a:b] = S.sum(1) + 1e-12
+            fb[a:b] = S[:, band].sum(1) + 1e-12
+        return 10 * np.log10(tot), 10 * np.log10(fb), fb / tot
+    to, bo, so = feats(y)
+    ts, bs, ss = feats(s)
+    speech = (to > np.percentile(to, 95) - 35) & (ts > np.percentile(ts, 95) - 35)
+    if speech.sum() < 50:
+        return {"ok": False, "why": "گفتار پیدا نشد"}
+    diff = (bo - np.median(bo[speech])) - (bs - np.median(bs[speech]))
+    cand = speech & (so > 0.35)
+
+    def mark(th):
+        m = cand & (diff > th)
+        m = m | np.r_[m[1:], False] | np.r_[False, m[:-1]] | np.r_[m[2:], False, False] | np.r_[False, False, m[:-2]]
+        i = 0
+        while i < nf:
+            if m[i]:
+                k = i
+                while k < nf and m[k]:
+                    k += 1
+                if k - i > maxRun:
+                    m[i:k] = False
+                i = k
+            else:
+                i += 1
+        return m
+    th = float(thrDb)
+    m = mark(th)
+    while 100.0 * m.sum() / max(1, speech.sum()) > maxPct and th < 30:
+        th += 2.0
+        m = mark(th)
+    if not m.any():
+        return {"ok": False, "why": "سایشِ افزوده‌ای پیدا نشد"}
+    voiced = speech & ~m
+    seg = lambda x_: np.array([np.sqrt((x_[i * hop:i * hop + win] ** 2).mean() + 1e-12) for i in np.nonzero(voiced)[0][:4000]])
+    ry, rs = seg(y), seg(s)
+    g = float(np.median(ry) / max(1e-9, np.median(rs))) if len(ry) and len(rs) else 1.0
+    g = min(4.0, max(0.25, g))
+    wv = np.zeros(n, np.float32)
+    for i in np.nonzero(m)[0]:
+        wv[i * hop:min(n, i * hop + win)] = 1.0
+    k = max(1, int(sr * fadeS))
+    wv = np.convolve(wv, np.ones(k, np.float32) / k, mode="same")
+    z = np.clip((1.0 - wv) * y + wv * (s * g), -1.0, 1.0)
+    with wave.open(dstPath, "wb") as wo:
+        wo.setnchannels(1)
+        wo.setsampwidth(2)
+        wo.setframerate(sr)
+        wo.writeframes((z * 32767.0).astype("<i2").tobytes())
+    return {"ok": True, "frames": int(m.sum()), "pct": round(100.0 * m.sum() / max(1, speech.sum()), 1),
+            "gainDb": round(20 * np.log10(g), 1), "thrDb": th}
+
+
 def hearCompare(src, out, alt=None, model=None):
     """۹.۱۱: شنیدنِ ورودی و خروجی روی **همان بازه‌های زمانی** — تبدیل زمان را نگه می‌دارد، پس هر جمله‌ای که
     whisper در صدای جمینای شنید، با همان بازه از خروجی مقایسه می‌شود. واژه‌ای که در ورودی درست و در خروجی خراب
@@ -1512,13 +1601,37 @@ def runOne(it, mp):
             altOut = cur
         except Exception as e:
             say("::warning title=تبدیلِ دوم پرداخت نشد::%s" % str(e)[:200])
+    # ۹.۶۳: «خ»ی که تبدیل افزود، روی **خروجیِ اصلی** درمان می‌شود (نه نسخهٔ دوم) — همان فایلی که او می‌شنود؛ و نسخهٔ
+    # بی‌درمان «تبدیلِ دوم» می‌شود تا شنیدن هر دو را در یک اجرا بشمارد (`khOut` با درمان، `khAlt` بی آن).
+    hxRes = None
+    if it.get("hx"):
+        try:
+            hxp = os.path.join(os.path.dirname(best), "hx-out.wav")
+            hxRes = fricSplice(best, "vb/src.wav", hxp)
+            if hxRes.get("ok"):
+                if not altOut:
+                    altOut = best
+                    abLabel = "بی درمانِ «خ»"
+                best = hxp
+                say("  سایشِ افزوده از ورودی: %d قاب (%.1f٪ گفتار)، آستانه %.0f دسی‌بل"
+                    % (hxRes["frames"], hxRes["pct"], hxRes["thrDb"]))
+            else:
+                say("::warning title=درمانِ «خ» نشد::%s" % hxRes.get("why", ""))
+        except Exception as e:
+            hxRes = {"ok": False, "why": str(e)[:120]}
+            say("::warning title=درمانِ «خ» نشد::%s" % str(e)[:200])
     hear = None
     rise = None
+    riseEnd = None
     if str(key).startswith("نمونه"):
         try:
             rise = riseScan("vb/src.wav")
             if rise:
                 say("  پایانِ بالارونده پیش از مکث (ورودی): %d از %d (%.0f٪)" % (rise["rise"], rise["pauses"], rise["pct"]))
+            # ۹.۶۳: مکثِ ≥ ۴۰۰ میلی‌ثانیه = پایانِ جمله؛ کاما بالا رفتنِ طبیعیِ «ادامه دارد» است و در این عدد نیست.
+            riseEnd = riseScan("vb/src.wav", minPause=0.4)
+            if riseEnd:
+                say("  پایانِ جمله‌ها بالارونده: %d از %d (%.0f٪)" % (riseEnd["rise"], riseEnd["pauses"], riseEnd["pct"]))
         except Exception as e:
             say("::warning title=پایانِ عبارت‌ها سنجیده نشد::%s" % str(e)[:200])
         try:
@@ -1573,7 +1686,11 @@ def runOne(it, mp):
         rec["hear"] = hear
     if rise:
         rec["rise"] = rise
-    if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv")):
+    if riseEnd:
+        rec["riseEnd"] = riseEnd
+    if hxRes:
+        rec["hx"] = hxRes
+    if altOut and (abRate or abProt or abIt.get("nocolour") or abIt.get("uv") or (hxRes and hxRes.get("ok"))):
         try:
             nm = assetName(key + " · ab" + (abRate or "") + ("p" + abProt if abProt else "") + ("nc" if abIt.get("nocolour") else "") + ("uv" if abIt.get("uv") else ""), 0, 1)
             u = uploadAsset(rel, altOut, nm)

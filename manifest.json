@@ -1,15 +1,16 @@
 {
-  "version": "9.62",
+  "version": "9.63",
   "codeFile": "engine.gs",
-  "sha256": "d070abbaf193350ddd2ef0791441374f34788697c5b19b2e07158dc373ec09b2",
-  "releasedAt": "2026-10-19T18:50:00+04:00",
-  "summary": "کفِ مرورِ بزرگِ ریلز: مرورِ کوتاه‌تر از IG_RECAP_MIN_SEC (۱۴۰ ثانیه) از نو با واژهٔ بیشتر — سقف همان ۱۷۸؛ پس از دو تلاش پذیرفته تا مرور گیر نکند.",
+  "sha256": "8ac7e27b3ff729314d2a370481d6d3d0851f61499a729e28ec389414eeb7d2c7",
+  "releasedAt": "2026-10-19T21:00:00+04:00",
+  "summary": "نمونه‌های صدا: «خ»ی که تبدیل افزود از تفاوتِ دو فایل به ورودی برمی‌گردد (fricSplice)؛ دو بذرِ یک گوینده روی یک قسمت (مقایسهٔ صدای مبدأ Charon/Alnilam)؛ سرعت و دستور و مدلِ هر تکه ثبت و گفته می‌شود؛ صدای پیش از تبدیل به تلگرام؛ پایانِ جملهٔ بالارونده بالای ۱۵٪ نمونه را نگه می‌دارد و از نو می‌سازد.",
   "fixes": [
-    "src/38_Instagram.gs: igWords_ (minWords)، igStepPlan_، igStepVoice_ (کفِ مرور)",
-    "src/00_Config.gs: IG_RECAP_MIN_SEC"
+    "tools/voicebridge.py: fricSplice، hx روی خروجیِ اصلی، riseEnd",
+    "src/36_VoiceBridge.gs: کلیدِ جدای بذرها، voice/hx/tagBase، vbrSpeedLine_، vbrRiseHold_، vbrTgMeasure_",
+    "src/00_Config.gs: VBR_RISE_MAX، VBR_RISE_RETRY، سه بذرِ تازه"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-09": "۹.۶۲"
+    "R-20261019-10": "۹.۶۳"
   }
 }

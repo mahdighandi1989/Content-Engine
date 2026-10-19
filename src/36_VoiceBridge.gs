@@ -689,10 +689,15 @@ function vbrSoulSeeds_() {
     var h = have[String(spk || '').trim()];
     return (h && h.ok && h.sha !== 0 && h.drop) ? ' · مدلِ ' + String(h.drop).slice(0, 10) : '';
   };
+  /* ۹.۶۳: نمونه‌ای که پایان‌های خبری‌اش بالارونده بود به او نمی‌رسد و از نو ساخته می‌شود — شمارِ بارِ ساخت به برچسب می‌چسبد
+     تا هویتِ تازه داشته باشد (همان قاعدهٔ ۷٫۸۶). `tagBase` برچسبِ بی‌پسوند است: شمارنده با آن کلید می‌خورد. */
+  var retry = vbrModelPk_('VSOUL_RETRY');
   var out = (CFG.VOICE_SOUL_SEED || []).map(function (sd) {
     var c = {};
     for (var k0 in sd) if (Object.prototype.hasOwnProperty.call(sd, k0)) c[k0] = sd[k0];
-    c.tag = String(sd.tag || '') + stamp(sd.speaker);
+    var nR = Number(retry[String(sd.speaker || '').trim() + '|' + String(sd.tag || '')]) || 0;
+    c.tagBase = String(sd.tag || '');
+    c.tag = String(sd.tag || '') + (nR > 0 ? ' · بارِ ' + (nR + 1) : '') + stamp(sd.speaker);
     return c;
   });
   if (CFG.VOICE_SOUL_AUTO === false) return out;
@@ -1031,6 +1036,11 @@ function vbrAsk_(show, epNum, folderId, speaker, title, opts) {
      رشتهٔ خالی روی آن یعنی کپشن هر شب دربارهٔ چیزی حرف بزند که سنجیده نشده —
      و «نسنجیده» با «نبودن» یکی نیست (۸٫۰۵). */
   if (o.spanLine) row.spanLine = String(o.spanLine).slice(0, 260);
+  if (o.speedLine) row.speedLine = String(o.speedLine).slice(0, 400);   // ۹.۶۳
+  if (o.srcId) row.srcId = String(o.srcId);
+  if (o.srcVoice) row.srcVoice = String(o.srcVoice);
+  if (o.hx) row.hx = true;
+  if (o.tagBase) row.tagBase = String(o.tagBase);
   if (o.markHave != null || o.markMiss != null) {
     row.markHave = String(o.markHave == null ? '' : o.markHave);
     row.markMiss = String(o.markMiss == null ? '' : o.markMiss);
@@ -1367,7 +1377,20 @@ function vbrIngest_(hub) {
       if (hit.colour) it.colourOut = hit.colour; // ۹.۰۵
       if (hit.hear) it.hearOut = hit.hear;       // ۹.۱۱
       if (hit.ab) it.abOut = hit.ab;
+      if (hit.riseEnd) it.riseEnd = hit.riseEnd;  // ۹.۶۳
+      if (hit.hx) it.hxOut = hit.hx;
       out.unshared += vbrUnshare_(it);
+      /* ══ سدِ پایانِ بالارونده (۹.۶۳) ══ «جمله‌های خبری را جوری تموم می‌کرد که اصلاً مناسب نبود» — اندازه‌اش (۴۳٪ گلدوز)
+         در رکورد بود و هیچ تصمیمی رویش نبود. نمونه‌ای که از `VBR_RISE_MAX` بیشتر دارد به او نمی‌رسد و از نو ساخته
+         می‌شود، تا `VBR_RISE_RETRY` بار؛ بعد با همان عدد می‌رود — نمونه‌ای که هرگز نرسد بدتر از نمونهٔ بد است. */
+      var rh = vbrRiseHold_(it);
+      if (rh.hold) {
+        vbrLog_(hub, it, 'رسید', r.name + ' · نگه داشته شد: ' + rh.why);
+        out.got.push({ key: it.key, name: r.name, bytes: r.bytes, seconds: it.seconds, minutes: it.jobMinutes,
+                       told: false, how: 'نگه داشته شد — ' + rh.why });
+        changed = true;
+        continue;
+      }
       /* خبر در تلگرام، **پس از** بسته‌شدنِ ردیف و داخلِ try: یک قطعیِ
          تلگرام نباید ردیفی را که واقعاً رسیده ناموفق کند. */
       var tell = { sent: false, how: '', why: 'صدا زده نشد' };
@@ -1644,7 +1667,7 @@ function vbrTgTell_(item, speakerName, got) {
        می‌کنیم، نه اینکه «رفت» بگوییم. */
     else { okAny = false; break; }
   }
-  if (okAny) { out.sent = true; return out; }
+  if (okAny) { out.sent = true; try { vbrTgMeasure_(item, who); } catch (eMs) {} return out; }
 
   /* آخرین پله: حجم از سقف رد شده یا بایت‌ها خوانده نشدند. لینک همیشه
      می‌رود، وگرنه او اصلاً خبردار نمی‌شود که فایلی آمده. */
@@ -1654,6 +1677,76 @@ function vbrTgTell_(item, speakerName, got) {
     out.sent = true; out.how = 'لینک'; return out;
   } catch (e3) { out.why = String(e3 && e3.message || e3).slice(0, 80); }
   return out;
+}
+
+/**
+ * سرعتِ تکه‌ها در یک سطر (۹.۶۳) — میانهٔ نویسه بر ثانیه، تکه‌هایی که ۲۵٪ تندتر یا کندتر از میانه‌اند با ثانیهٔ شروعشان،
+ * تکه‌هایی که دستورِ لحنشان دور افتاد، و اگر مدل وسطِ کار عوض شد. «بعد از دقیقهٔ ۴ تند شد» دیگر حدس نمی‌ماند.
+ */
+function vbrSpeedLine_(pst) {
+  var P = (pst || []).filter(function (x) { return x && x.s > 0.5 && x.c > 0; });
+  if (!P.length) return '';
+  var r = P.map(function (x) { return x.c / x.s; }).sort(function (a, b) { return a - b; });
+  var med = r[Math.floor(r.length / 2)], fast = [], slow = [], drop = [], mods = {};
+  var mm = function (s) { var m = Math.floor(s / 60), ss = Math.round(s % 60); return m + ':' + (ss < 10 ? '0' : '') + ss; };
+  P.forEach(function (x) {
+    var v = x.c / x.s;
+    if (v > med * 1.25) fast.push(mm(x.at) + ' (' + Math.round(v / med * 100) + '٪)');
+    else if (v < med * 0.75) slow.push(mm(x.at) + ' (' + Math.round(v / med * 100) + '٪)');
+    if (x.d) drop.push(mm(x.at));
+    if (x.m) mods[x.m] = 1;
+  });
+  var mk = Object.keys(mods);
+  return 'سرعت: میانه ' + (Math.round(med * 10) / 10) + ' نویسه در ثانیه در ' + P.length + ' تکه' +
+         (fast.length ? ' · تندتر: ' + fast.slice(0, 6).join('، ') : '') +
+         (slow.length ? ' · کندتر: ' + slow.slice(0, 6).join('، ') : '') +
+         (drop.length ? ' · بی دستورِ لحن: ' + drop.slice(0, 6).join('، ') : '') +
+         (mk.length > 1 ? ' · مدل وسطِ کار عوض شد: ' + mk.join(' ⇐ ') : '');
+}
+
+/** ⇒ {hold, why}. نگه می‌دارد و بارِ بعد را می‌شمارد (۹.۶۳). فقط نمونه‌ها؛ قسمتِ واقعی هرگز. */
+function vbrRiseHold_(it) {
+  var out = { hold: false, why: '' };
+  var re = it && it.riseEnd, max = Number(CFG.VBR_RISE_MAX) || 0;
+  if (!re || !(max > 0) || !/^نمونه/.test(String(it.key || '')) || !it.tagBase) return out;
+  if (!(Number(re.pct) > max)) return out;
+  var k = String(it.speaker || '').trim() + '|' + String(it.tagBase);
+  var mp = vbrModelPk_('VSOUL_RETRY'), n = Number(mp[k]) || 0;
+  if (n >= Math.max(0, Number(CFG.VBR_RISE_RETRY) || 0)) {
+    it.riseWarn = 'پایانِ بالارونده ' + re.pct + '٪ (سقف ' + max + '٪) — پس از ' + (n + 1) + ' بار ساخت همین ماند';
+    return out;
+  }
+  mp[k] = n + 1;
+  try { props_().setProperty('VSOUL_RETRY', JSON.stringify(mp)); } catch (e) { return out; }
+  out.hold = true;
+  out.why = 'پایانِ جمله‌ها ' + re.pct + '٪ بالارونده (سقف ' + max + '٪) — بارِ ' + (n + 2) + ' ساخته می‌شود';
+  return out;
+}
+
+/**
+ * پس از صوتِ نمونه (۹.۶۳): سنجش‌ها در یک پیامِ جدا — کپشن سقفِ ۱۰۲۴ نویسه دارد و همین عددها اول بریده می‌شدند — و
+ * صدای جمینای **پیش از تبدیل**: «آ» را «آو» می‌گوید یا نه، یک بار شنیدن جواب می‌دهد کار از خواندن است یا از تبدیل.
+ */
+function vbrTgMeasure_(item, who) {
+  if (!item || !/^نمونه/.test(String(item.key || ''))) return false;
+  var L = [], h = item.hearOut || {}, x = item.hxOut || {};
+  if (item.speedLine) L.push('⏱ ' + item.speedLine);
+  if (item.riseEnd) L.push('📈 پایانِ جمله‌ها: ' + item.riseEnd.rise + ' از ' + item.riseEnd.pauses + ' بالارونده (' + item.riseEnd.pct + '٪)' +
+                           (item.riseWarn ? ' — ' + item.riseWarn : ''));
+  if (h.khOut != null) L.push('«خ»ِ افزوده از تبدیل: ' + h.khOut + (h.khAlt != null ? (item.hx ? ' (پیش از درمان ' + h.khAlt + ')' : ' · تبدیلِ دوم ' + h.khAlt) : '') +
+                              (x.ok ? ' · درمان ' + x.frames + ' قاب (' + x.pct + '٪)' : (x.why ? ' · درمان نشد: ' + x.why : '')));
+  if (item.srcVoice) L.push('صدای مبدأِ جمینای: ' + item.srcVoice);
+  if (L.length) tgSend_('🔬 سنجشِ همین نمونه (' + who + ')\n' + L.join('\n'));
+  if (item.srcId) {
+    var b = null;
+    try { b = DriveApp.getFileById(String(item.srcId)).getBlob(); } catch (eB) { b = null; }
+    if (b) {
+      var cap = '🎧 همان متن، صدای جمینای (' + String(item.srcVoice || '') + ') **پیش از تبدیل** — اگر «آ» این‌جا هم «آو» است، از گویندهٔ جمیناست، نه از تبدیل.';
+      try { tgApi_('sendAudio', { chat_id: tgChat_(), audio: b, caption: cap.replace(/\*\*/g, ''), title: 'پیش از تبدیل — ' + who }); }
+      catch (eA) { try { tgApi_('sendDocument', { chat_id: tgChat_(), document: b, caption: cap.replace(/\*\*/g, '') }); } catch (eD) {} }
+    }
+  }
+  return true;
 }
 
 /** نامِ فارسیِ هر گوینده، از همان `docs/voices.json` که بخشِ ۳۳ می‌خوانَد. */
@@ -2889,6 +2982,9 @@ function vbrSoulPick_() {
     var seedPlain = {};
     var seedNoSpans = {};
     var seedCalm = {};
+    var seedVoice = {};
+    var seedHx = {};
+    var seedBase = {};
     var seedItem = {};
     /* ══ بذرِ موتور، کنارِ تیکِ او — نه به‌جایش (۷٫۸۴) ══
        تیک یعنی «دکمه را که زدم، این را بساز» و ۷٫۷۴ همین را تعریف کرد؛
@@ -2900,8 +2996,13 @@ function vbrSoulPick_() {
       var se = sd[sdi] || {};
       if (String(se.speaker || '').trim() !== key) continue;
       if (!se.show || !se.ep) continue;
-      var sk = String(se.show) + ':' + String(se.ep);
+      /* ۹.۶۳: کلیدِ هر بذر جدا (`#شماره`) — پیش از این دو بذرِ یک گوینده روی یک قسمت یکی می‌شدند و فقط آخری
+         ساخته می‌شد؛ مقایسهٔ دو صدای مبدأ روی یک متن ممکن نبود. */
+      var sk = String(se.show) + ':' + String(se.ep) + '#' + sdi;
       set[sk] = 1; seeded[sk] = 1;
+      if (se.voice) seedVoice[sk] = String(se.voice);   // ۹.۶۳: صدای مبدأِ جمینای برای همین نمونه
+      if (se.hx) seedHx[sk] = true;                     // ۹.۶۳: «خ»ی که تبدیل افزود، از ورودی
+      seedBase[sk] = String(se.tagBase == null ? (se.tag || '') : se.tagBase);
       seedTag[sk] = String(se.tag == null ? '' : se.tag).trim();
       if (se.colour) seedColour[sk] = String(se.colour);
       if (se.ab) seedAb[sk] = String(se.ab);           // ۹.۱۱: تبدیلِ دوم با index_rateِ دیگر، فقط برای نمونه
@@ -2944,7 +3045,7 @@ function vbrSoulPick_() {
     }
     for (var k in set) {
       if (!Object.prototype.hasOwnProperty.call(set, k)) continue;
-      var item = seedItem[k] || map[k];
+      var item = seedItem[k] || map[String(k).split('#')[0]];
       if (!item) continue;                       // پوشه‌اش شناخته نیست
       /* برچسبِ بذر بخشی از شناسه است (۷٫۸۶): نمونه‌ای که با گامِ دیگری
          ساخته شده، «همان نمونه» نیست. تیکِ او برچسب ندارد، پس رفتارش
@@ -2956,7 +3057,8 @@ function vbrSoulPick_() {
         continue;                                // این یکی ساخته شده
       }
       return { ok: true, key: key, name: name, cue: cue, item: item,
-               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k] };
+               seeded: !!seeded[k], tag: tg, colour: seedColour[k] || '', ab: seedAb[k] || '', plain: !!seedPlain[k], nospans: !!seedNoSpans[k], calm: !!seedCalm[k],
+               voice: seedVoice[k] || '', hx: !!seedHx[k], tagBase: seedBase[k] || '' };
     }
   }
   /* «همه‌اش ساخته شده» با «چیزی تیک نخورده» یکی نیست، و گفتنِ دومی به‌جای
@@ -3250,6 +3352,7 @@ function runVoiceSoulTest() {
       : splitForTts_(txt).map(function (x) { return { t: x, k: '' }; });
     var accB64 = '', spanAt = [], bps = (Number(CFG.SAMPLE_RATE) || 24000) * 2;
     var gy = { n: 0, add: 0, v: 0, t: 0 }, prevSpeech = false;
+    var srcVoice = pick.voice || ttsVoiceFree_(CFG.TTS_VOICE), pst = [];
     for (var i = 0; i < pieces.length; i++) {
       if (new Date().getTime() > deadline) { cut = pieces.length - i; break; }
       var atSec = Math.round(((alignB64_(accB64).length / 4) * 3) / bps);
@@ -3279,8 +3382,14 @@ function runVoiceSoulTest() {
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
       var b1 = ttsChunk_(pieces[i].t,
                          pieces[i].k ? speakSpanStyle_(pieces[i].k, cueUse) : cueUse,
-                         ttsVoiceFree_(CFG.TTS_VOICE));
+                         srcVoice);
       if (!b1) { cut = pieces.length - i; break; }
+      /* ۹.۶۳: «۴ دقیقهٔ اول خوب، بعد تند و بد» — از این‌جا دیده نمی‌شد چرا. هر تکه با سرعت، دستورِ دورافتاده و مدل. */
+      try {
+        var mdlP = ''; try { mdlP = String(ttsModel_() || ''); } catch (eMd) {}
+        pst.push({ at: atSec, c: String(pieces[i].t || '').replace(/\s+/g, '').length,
+                   s: Math.round(((alignB64_(b1).length / 4) * 3) / bps * 10) / 10, d: !!TTS_CUE_DROPPED_, m: mdlP });
+      } catch (ePs) {}
       /* ══ حالت رسید یا نه — از رویدادِ همین تکه، نه از امید (۸.۲۷) ══
          حالت روی دستورِ لحن سوار است؛ اگر دستورِ **همین تکه** دور انداخته شد،
          بلندی و سرعتش در خودِ صدا ساخته می‌شود، و آنچه در صدا ساختنی نیست
@@ -3356,6 +3465,11 @@ function runVoiceSoulTest() {
       } catch (eSl) {}
     }
     tagO.spanLine = spanLine;
+    tagO.speedLine = vbrSpeedLine_(pst);                 // ۹.۶۳
+    tagO.srcId = made.getId();                           // ۹.۶۳: صدای جمینای پیش از تبدیل — برای جدا کردنِ «آو»
+    tagO.srcVoice = srcVoice;
+    if (pick.hx) tagO.hx = true;
+    if (pick.tagBase) tagO.tagBase = pick.tagBase;
     if (pick.colour) tagO.colour = pick.colour;          // ۹.۰۵
     if (pick.ab) tagO.ab = pick.ab;                      // ۹.۱۱
     var r = vbrAsk_(vbrSoulShow_(pick.key, pick.tag), pick.item.ep, sub.getId(), pick.key,
@@ -3378,6 +3492,7 @@ function runVoiceSoulTest() {
           '\nطولِ ساخته‌شده: ' + dur +
           (prMsg ? '\n' + prMsg : '') +
           (spanLine ? '\n🎭 ' + spanLine : '') +
+          (tagO && tagO.speedLine ? '\n⏱ ' + tagO.speedLine : '') +
           (cut ? '\n⚠️ ' + faDigitsOut_(String(cut)) + ' تکه ساخته نشد (وقت یا مدل).' : '') +
           (made ? '\n' + made.getUrl() : '') +
           (res.why ? '\nپیام: ' + res.why : '') +

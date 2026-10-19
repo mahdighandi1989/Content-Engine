@@ -2589,6 +2589,36 @@ console.log('\n══ ۲۸) شباهتِ کم «آماده» نیست (۷٫۷۹)
        JSON.stringify({ ok: pk.ok, seeded: pk.seeded, why: pk.why }));
   }
 
+  /* ── ۳۱.۱-ب (۹.۶۳) دو بذرِ یک گوینده روی یک قسمت، هر دو ساخته می‌شوند — پیش‌تر دومی جای اولی را می‌گرفت ── */
+  {
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: known.show, ep: String(known.ep), tag: 'الف', hx: true },
+                           { speaker: 'razavi', show: known.show, ep: String(known.ep), tag: 'ب', voice: 'Alnilam', hx: true }];
+    const q = vbrRead_(); q.items = []; vbrSave_(q);
+    const p1 = vbrSoulPick_();
+    const q2 = vbrRead_(); q2.items = [{ key: vbrSoulShow_('razavi', p1.tag) + ':' + String(known.ep), status: 'در انتظار' }]; vbrSave_(q2);
+    const p2 = vbrSoulPick_();
+    ok('۳۱.۱-ب دو بذرِ یک گوینده و یک قسمت: اول «الف» (Charon)، بعد «ب» با صدای مبدأِ Alnilam — هر دو با درمانِ «خ»',
+       p1.ok && /^الف/.test(p1.tag) && !p1.voice && p1.hx === true && p2.ok && /^ب/.test(p2.tag) && p2.voice === 'Alnilam' && p2.hx === true &&
+       p2.tagBase === 'ب', JSON.stringify([p1.tag, p1.voice, p2.tag, p2.voice, p2.tagBase]));
+    /* سدِ پایانِ بالارونده: نگه داشتن، شمردن، برچسبِ تازه؛ پس از سقف رها با هشدار. */
+    try { props_().deleteProperty('VSOUL_RETRY'); } catch (e) {}
+    const itR = { key: 'نمونهٔ روح — razavi · ب:' + known.ep, speaker: 'razavi', tagBase: 'ب', riseEnd: { pct: 40, rise: 8, pauses: 20 } };
+    const h1 = vbrRiseHold_(itR), tg2 = vbrSoulSeeds_().filter(x => x.tagBase === 'ب')[0].tag;
+    const h2 = vbrRiseHold_(itR), h3 = vbrRiseHold_(itR);
+    const okLow = vbrRiseHold_({ key: itR.key, speaker: 'razavi', tagBase: 'ب', riseEnd: { pct: 10 } });
+    const notSample = vbrRiseHold_({ key: 'special:74', speaker: 'razavi', tagBase: 'ب', riseEnd: { pct: 90 } });
+    ok('۳۱.۱-پ (۹.۶۳) پایانِ بالارونده بالای سقف ⇒ نگه داشته و «بارِ ۲» ساخته می‌شود؛ پس از ' + CFG.VBR_RISE_RETRY + ' بار با هشدار می‌رود؛ زیرِ سقف و قسمتِ واقعی هرگز',
+       h1.hold && /بارِ 2/.test(tg2) && h2.hold && !h3.hold && /پس از/.test(itR.riseWarn || '') && !okLow.hold && !notSample.hold,
+       JSON.stringify([h1, tg2, h2, h3, itR.riseWarn]));
+    try { props_().deleteProperty('VSOUL_RETRY'); } catch (e) {}
+    const sl = vbrSpeedLine_([{ at: 0, c: 100, s: 10 }, { at: 30, c: 100, s: 10 }, { at: 60, c: 100, s: 10, m: 'a' },
+                              { at: 245, c: 150, s: 10, d: true, m: 'b' }]);
+    ok('۹۶۳.۱ سرعتِ تکه‌ها: تکهٔ ۴:۰۵ تندتر و بی دستور، و عوض شدنِ مدل گفته می‌شود', /تندتر: 4:05 \(150٪\)/.test(sl) &&
+       /بی دستورِ لحن: 4:05/.test(sl) && /مدل وسطِ کار عوض شد/.test(sl), sl);
+    const q3 = vbrRead_(); q3.items = []; vbrSave_(q3);
+    CFG.VOICE_SOUL_SEED = [{ speaker: 'razavi', show: known.show, ep: String(known.ep) }];
+  }
+
   /* ── ۳۱.۲ تیکِ او خودکار ساخته نمی‌شود ──
      ۷٫۷۴ معنای آن ستون را «دکمه را که زدم» گذاشت. اگر موتور خودش روی تیک
      عمل کند، معنای ستون بی‌خبر عوض شده — و او نمونه‌ای می‌گیرد که نخواسته.
@@ -3506,15 +3536,22 @@ console.log('\n══ ۳۷) متنِ آزمونِ گویندگان — همان 
     let ttlSeen = '', capSeen7 = '';
     const rA = global.tgApi_, rE = global.tgEnabled_;
     global.tgEnabled_ = () => true;
+    const titles7 = [], sent7 = [];
+    const rS = global.tgSend_;
+    global.tgSend_ = (t) => { sent7.push(String(t)); return true; };
     global.tgApi_ = function (m, prm) {
-      if (prm && prm.title) ttlSeen = String(prm.title);
-      if (prm && prm.caption) capSeen7 = String(prm.caption);
+      if (prm && prm.title) titles7.push(String(prm.title));
+      if (prm && prm.title && !ttlSeen) ttlSeen = String(prm.title);
+      if (prm && prm.caption && !capSeen7) capSeen7 = String(prm.caption);
       return { ok: true };
     };
     const it7 = Object.assign({}, row34, { pitchAuto: { srcHz: 113, targetHz: 106.9, pitch: -1 },
                                            f0Out: { medianHz: 104, lowPct: 3 } });
     try { vbrTgTell_(it7, 'بهروز رضوی', { id: fW.getId() }); } catch (eT7) {}
-    global.tgApi_ = rA; global.tgEnabled_ = rE;
+    global.tgApi_ = rA; global.tgEnabled_ = rE; global.tgSend_ = rS;
+    ok('۳۷.۷-پ (۹.۶۳) پس از نمونه: صدای جمینای «پیش از تبدیل» جدا، و پیامِ سنجش با سرعتِ تکه‌ها و صدای مبدأ',
+       titles7.length === 2 && /^پیش از تبدیل/.test(titles7[1]) && !!row34.srcId && sent7.some(t => /🔬/.test(t) && /سرعت: میانه/.test(t) && /صدای مبدأ/.test(t)),
+       JSON.stringify([titles7, sent7.map(t => t.slice(0, 160))]));
     ok('۳۷.۷ عنوانِ فایل در تلگرام «متنِ آزمون» می‌گوید، نه «قسمت ساعت‌ساز»',
        /متنِ آزمون/.test(ttlSeen) && ttlSeen.indexOf('قسمت ساعت') === -1, ttlSeen);
     ok('۳۷.۷-ب و کپشن گامِ خودکار و زیروبمِ خروجی را دارد، و حالت‌ها را',

@@ -315,5 +315,40 @@ print(json.dumps(v.riseScan(d+'/r.wav')))`);
   try { fs.rmSync(d11, { recursive: true, force: true }); } catch (e) {}
 }
 
+console.log('=== ۱۲) «ه» ⇐ «خ» از تفاوتِ دو فایل (۹.۶۳) ===');
+{
+  /* ورودی: واکه + «ه»ِ نفس‌آلود (نویزِ کم و بم) + «س» (نویزِ تیزِ ۴–۶ کیلوهرتز). خروجی: واکهٔ تبدیل‌شده + «خ» (نویزِ قویِ ۱٫۵–۳
+     کیلوهرتز) جای همان «ه» + همان «س» با نویزِ دیگر. فقط «خ» باید به «ه»ِ ورودی برگردد. */
+  const d12 = fs.mkdtempSync(path.join(os.tmpdir(), 'vhx-'));
+  const res = py(`import numpy as np, wave
+d=${JSON.stringify(d12)}; sr=16000; rng=np.random.default_rng(3); n=sr*3; t=np.arange(n)/sr
+def w(p,x,r):
+  o=wave.open(p,'wb'); o.setnchannels(1); o.setsampwidth(2); o.setframerate(r); o.writeframes((np.clip(x,-1,1)*32767).astype('<i2').tobytes()); o.close()
+def bandnoise(lo,hi,m,amp):
+  F=np.fft.rfft(rng.standard_normal(m)); f=np.fft.rfftfreq(m,1/sr); F[(f<lo)|(f>hi)]=0; x=np.fft.irfft(F,m); return amp*x/np.abs(x).max()
+vow=lambda f0: sum((0.25/k)*np.sin(2*np.pi*f0*k*t) for k in range(1,10))
+S=slice(int(0.8*sr),int(0.9*sr)); Z=slice(int(2.0*sr),int(2.12*sr)); m1=S.stop-S.start; m2=Z.stop-Z.start
+src=vow(120); src[S]=0.1*src[S]+bandnoise(100,900,m1,0.05); src[Z]=bandnoise(4000,6000,m2,0.3)
+out=vow(110); out[S]=bandnoise(1500,3000,m1,0.35); out[Z]=bandnoise(4000,6000,m2,0.3)
+w(d+'/s.wav',src,sr); w(d+'/o.wav',out,sr)
+r=v.fricSplice(d+'/o.wav',d+'/s.wav',d+'/z.wav'); z,_=v._wavRead(d+'/z.wav')
+c=lambda a,b: float(np.corrcoef(a,b)[0,1]); W=lambda a,b: slice(int(a*sr),int(b*sr))
+r['h']=c(z[W(.82,.88)],src[W(.82,.88)]); r['s']=c(z[W(2.02,2.1)],out[W(2.02,2.1)]); r['vowel']=c(z[W(.3,.5)],out[W(.3,.5)])
+r['bad']=v.fricSplice(d+'/o.wav',d+'/nope.wav',d+'/x.wav')
+print(json.dumps(r))`);
+  ok('۱۲.۱ «خ»ی که فقط در خروجی است به «ه»ِ ورودی برمی‌گردد؛ «س» که در هر دو هست و واکه دست نمی‌خورند',
+     res.ok === true && res.h > 0.9 && res.s > 0.99 && res.vowel > 0.999 && res.pct < 12, JSON.stringify(res));
+  ok('۱۲.۲ ورودیِ خوانده‌نشده ⇒ «نشد»', res.bad.ok === false);
+  const vb = fs.readFileSync('tools/voicebridge.py', 'utf8');
+  ok('۱۲.۳ سیم: `hx` روی خروجیِ اصلی پیش از شنیدن، نسخهٔ بی‌درمان «تبدیلِ دوم» برای شمردن؛ پایانِ جمله‌ها (مکثِ ۰٫۴) در رکورد',
+     /if it\.get\("hx"\):[\s\S]*?fricSplice\(best, "vb\/src\.wav"/.test(vb) && vb.indexOf('fricSplice(best') < vb.indexOf('hear = hearCompare(') &&
+     /altOut = best/.test(vb) && /riseEnd = riseScan\("vb\/src\.wav", minPause=0\.4\)/.test(vb) && /rec\["riseEnd"\] = riseEnd/.test(vb) &&
+     /rec\["hx"\] = hxRes/.test(vb));
+  const eng = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8');
+  ok('۱۲.۴ سیم در موتور: سدِ پایانِ بالارونده پیش از تلگرام، و `hx` به صفِ رانر می‌رسد',
+     eng.indexOf('vbrRiseHold_(it)') > 0 && eng.indexOf('vbrRiseHold_(it)') < eng.indexOf('tell = vbrTgTell_(it') && /if \(o\.hx\) row\.hx = true/.test(eng));
+  try { fs.rmSync(d12, { recursive: true, force: true }); } catch (e) {}
+}
+
 try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ رنگِ ضبط‌های خودِ گوینده گذشت.');
