@@ -143,7 +143,17 @@ console.log('\n=== 5. خاموش‌کردن و کنار گذاشتنِ یک صد
   ok('5.2 صدای کنارگذاشته‌شده انتخاب نمی‌شود',
      c.all.indexOf('Kore') === -1 && c.all.indexOf('Charon') === -1 &&
      c.all.indexOf('Aoede') === -1, c.all.join('/'));
+  /* ۹.۵۶: نمونه‌های پل همیشه با `CFG.TTS_VOICE` ساخته می‌شدند و فهرست را نمی‌دیدند. */
+  const fv = ttsVoiceFree_(CFG.TTS_VOICE), fvG = (TTS_VOICES.find(v => v.n === fv) || {}).g;
+  ok('5.2-ب صدای ثابتِ کنارگذاشته (Charon) ⇒ صدای مجازِ هم‌جنس', fv !== 'Charon' && fvG === 'm' && !/Kore|Aoede/.test(fv), fv);
+  const vs = ttsVoicesStatus_();
+  ok('5.2-پ وضعیت: فهرستِ کنارگذاشته‌ها و صدای نمونه', vs.blocked.length === 3 && vs.sample === fv && /به‌جای Charon/.test(vs.line), vs.line);
+  const fs = require('fs'); const vbS = fs.readFileSync('src/36_VoiceBridge.gs', 'utf8'), vS = fs.readFileSync('src/20_Voices.gs', 'utf8');
+  ok('5.2-ت سیم: نمونهٔ روح، آزمونِ تلفظ و نمونهٔ سبک از ttsVoiceFree_، نه CFG.TTS_VOICE خام',
+     !/ttsChunk(Try)?_\([^;]*,\s*CFG\.TTS_VOICE(,|\))/.test(vbS) && !/ttsChunk_\(pieces\[ci\], st, CFG\.TTS_VOICE\)/.test(vS) &&
+     /ttsVoices: \(function/.test(fs.readFileSync('src/08_Health.gs', 'utf8')));
   delete global.__PROPS[PK.VOICE_BLOCK];
+  ok('5.2-ث بی فهرست ⇒ همان صدای ثابت', ttsVoiceFree_('Charon') === 'Charon');
 
   // همهٔ صداها کنار گذاشته شوند: باید بازگردد، نه بشکند
   global.__PROPS[PK.VOICE_BLOCK] = TTS_VOICES.map(v => v.n).join(',');

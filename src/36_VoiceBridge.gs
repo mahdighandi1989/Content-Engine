@@ -3240,7 +3240,7 @@ function runVoiceSoulTest() {
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
       var b1 = ttsChunk_(pieces[i].t,
                          pieces[i].k ? speakSpanStyle_(pieces[i].k, cueUse) : cueUse,
-                         CFG.TTS_VOICE);
+                         ttsVoiceFree_(CFG.TTS_VOICE));
       if (!b1) { cut = pieces.length - i; break; }
       /* ══ حالت رسید یا نه — از رویدادِ همین تکه، نه از امید (۸.۲۷) ══
          حالت روی دستورِ لحن سوار است؛ اگر دستورِ **همین تکه** دور انداخته شد،
@@ -3488,7 +3488,7 @@ function speakAbTest() {
               'منبع: ' + tgEsc_(src.getName());
     tgApi_('sendMessage', { chat_id: tgChat_(), text: cap, parse_mode: 'HTML' });
     for (var i = 0; i < sides.length; i++) {
-      var b64 = ttsChunkTry_(sides[i].t, '', CFG.TTS_VOICE, false);
+      var b64 = ttsChunkTry_(sides[i].t, '', ttsVoiceFree_(CFG.TTS_VOICE), false);
       var raw = Utilities.base64Decode(b64);
       var wav = Utilities.newBlob(wavHeader54_(raw.length).concat(Array.prototype.slice.call(raw)),
                                   'audio/wav', 'نمونهٔ ' + (i + 1) + '.wav');

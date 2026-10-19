@@ -118,6 +118,30 @@ function blockedVoices_() {
 }
 
 /**
+ * صدای ثابتی که کنار گذاشته نشده باشد (۹.۵۶). نمونه‌های روح و آزمون‌های پل همیشه با `CFG.TTS_VOICE` (Charon) ساخته
+ * می‌شدند و فهرستِ کنارگذاشته‌ها را نمی‌دیدند — یعنی گوینده‌ای که او در «آزمونِ شنیداری» برای «آ»ی گرد رد کرد، هنوز مبدأِ
+ * همان نمونه‌هایی بود که می‌شنید. کنارگذاشته ⇒ نخستین صدای مجازِ هم‌جنس از جدول، وگرنه هر صدای مجاز، وگرنه همان.
+ */
+function ttsVoiceFree_(want) {
+  var b = blockedVoices_(), w = String(want || CFG.TTS_VOICE || 'Charon');
+  if (!b[w]) return w;
+  var g = '';
+  for (var i = 0; i < TTS_VOICES.length; i++) if (TTS_VOICES[i].n === w) g = TTS_VOICES[i].g;
+  for (var j = 0; j < TTS_VOICES.length; j++) if (!b[TTS_VOICES[j].n] && (!g || TTS_VOICES[j].g === g)) return TTS_VOICES[j].n;
+  for (var k = 0; k < TTS_VOICES.length; k++) if (!b[TTS_VOICES[k].n]) return TTS_VOICES[k].n;
+  return w;
+}
+
+/** برای `_STATUS.json` (۹.۵۶): کنارگذاشته‌ها و صدایی که نمونه‌ها واقعاً با آن ساخته می‌شوند — فهرست تا امروز فقط در ویژگی‌های اسکریپت بود. */
+function ttsVoicesStatus_() {
+  var b = Object.keys(blockedVoices_());
+  var sample = ttsVoiceFree_(CFG.TTS_VOICE);
+  return { blocked: b, sample: sample, special: ttsVoiceFree_(CFG.TTS_VOICE_SPECIAL),
+           line: 'گویندگانِ کنارگذاشته: ' + (b.length ? b.join('، ') : 'هیچ') + ' · نمونه‌های پل با «' + sample + '»' +
+                 (sample !== CFG.TTS_VOICE ? ' (به‌جای ' + CFG.TTS_VOICE + ' که کنار گذاشته شده)' : '') };
+}
+
+/**
  * نقش‌گزینیِ یک قسمت.
  *
  * @param show  'variety' یا 'special' — فقط برای گردشِ مستقل و صدای پشتیبان
@@ -879,7 +903,7 @@ function runStyleProbe() {
     var cueOfProbe_ = function (on) {
       styleProbeSet_(on);
       try {
-        var p = ttsPayloads_(line, null, st, CFG.TTS_VOICE, true);
+        var p = ttsPayloads_(line, null, st, ttsVoiceFree_(CFG.TTS_VOICE), true);
         var si = p && p.generateContent && p.generateContent.body &&
                  p.generateContent.body.systemInstruction;
         return (si && si.parts && si.parts[0] && si.parts[0].text) || '';
@@ -922,7 +946,7 @@ function runStyleProbe() {
           styleProbeSet_(plan[i].on);                 // مهرِ تازه، پیش از هر تکه
           /* نگهبانِ لو‌رفتنِ دستور، همان که تولید دارد (۸.۰۷) — نمونهٔ سبک
              هم شنیده می‌شود و روی همان قضاوت می‌شود. */
-          var b1 = ttsChunk_(pieces[ci], st, CFG.TTS_VOICE);
+          var b1 = ttsChunk_(pieces[ci], st, ttsVoiceFree_(CFG.TTS_VOICE));
           if (!b1) { cut = pieces.length - ci; break; }
           accB64 += alignB64_(b1);
         }

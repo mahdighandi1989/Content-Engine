@@ -407,7 +407,9 @@ function igJudge_(p, lesson, opt) {
   if (!yes(r.faithful)) miss.push('ادعای بیرون از درس');
   if (!yes(r.popular)) miss.push('برای مخاطبِ عام سنگین است');
   if (!yes(r.thirst)) miss.push('چیزی نمی‌دهد یا کنجکاو نمی‌کند');
-  return { ok: !miss.length, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
+  /* سخت = نادرست یا گسسته؛ نرم = سلیقهٔ «عامه‌پسند/کنجکاوی» (۹.۵۶) — فقط سخت جلوی تلاشِ آخر را می‌گیرد. */
+  var hard = miss.filter(function (x) { return x !== 'برای مخاطبِ عام سنگین است' && x !== 'چیزی نمی‌دهد یا کنجکاو نمی‌کند'; }).length;
+  return { ok: !miss.length, hard: hard, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
 }
 
 /** برچسبِ درس برای کپشن و عنوان: «درسِ ۵» یا «مرورِ بزرگِ درس‌های ۱ تا ۱۵». */
@@ -480,7 +482,13 @@ function igStepPlan_(it, fo) {
   if (!lesson && !recap) lesson = Number(meta.lesson) || 0;
   var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0 };
   var r = null;
-  try { r = geminiText_(igPrompt_(ep, seriesName, lesson, opt), IG_REEL_SCHEMA, 8192); }
+  /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار با «برای مخاطبِ عام سنگین است» رد شد و هر بار از صفر و کور نوشته شد — درس‌های ۱۴ و ۱۵ِ
+     آماده پشتش ایستادند و آن روز هیچ ریلزی نرفت. حالا علتِ ردِ قبلی به نویسنده گفته می‌شود. */
+  var prevWhy = String(it.prevWhy || '').replace(/^داورِ پیوستگی نپذیرفت:\s*/, '').trim();
+  var prompt = igPrompt_(ep, seriesName, lesson, opt) +
+    (prevWhy && /داور/.test(String(it.prevWhy || '')) ? '\n\nنسخهٔ پیشینِ همین ریلز را داور رد کرد، به این دلیل: «' + prevWhy +
+      '». همان خطا را تکرار نکن: ساده‌تر، با مثالِ روزمره، و اصطلاحِ سنگین را یا کنار بگذار یا با زبانِ کوچه توضیح بده.' : '');
+  try { r = geminiText_(prompt, IG_REEL_SCHEMA, 8192); }
   catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
   var p = igPlanTrim_(r, opt);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
@@ -495,9 +503,13 @@ function igStepPlan_(it, fo) {
       if (p2.lines) {
         var jd2 = igJudge_(p2, lessonTxt, opt);
         if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
-        else jd = jd2;
+        else { jd = jd2; jd.p = p2; }
       }
     }
+    /* تلاشِ آخر (۹.۵۶): ایرادِ فقط-نرم مانعِ انتشار نیست — درستی، یک‌ایدگی، پیوستگی و جوابِ قلاب هنوز شرط‌اند. وگرنه درسی
+       ذاتاً نظری (معرفت‌شناسی) هر ۲۴ ساعت سه بار رد می‌شد و کلِ مجموعه پشتش می‌ماند. */
+    var lastTry = (Number(it.tryN) || 0) >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
+    if (!jd.ok && lastTry && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: 'تلاشِ آخر، فقط ایرادِ نرم: ' + jd.why }; }
     if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
   }
   p.judge = jd.why || 'پیوسته';
@@ -1037,6 +1049,12 @@ function igTick() {
        کرد — نوبتِ خودش دوباره ساخته می‌شود، با برچسبِ فارسی. */
     /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
        (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
+    /* ۹.۵۶: درسِ ۱۳ از نگه‌داشتنِ ۲۴ساعته بیرون، یک‌راست به تلاشِ آخر (با علتِ ردِ قبلی و پذیرشِ ایرادِ نرم). */
+    if (!st.redo956) {
+      if (st.failAt && st.failAt['13']) delete st.failAt['13'];
+      if (st.fails && Number(st.fails['13']) >= 1 && Number(st.fails['13']) < 9) st.fails['13'] = Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
+      st.redo956 = 1;
+    }
     if (!st.redo954) {
       st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '13'; }).join(',');
       st.redo954 = 1;
@@ -1065,6 +1083,8 @@ function igTick() {
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
+      it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
+      it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }

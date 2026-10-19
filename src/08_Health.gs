@@ -678,6 +678,7 @@ function writeStatus_(hub, note) {
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: wsB_('voiceIntake', function () { return vintStatus_(hub); }),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
+    ttsVoices: (function () { try { return ttsVoicesStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: wsB_('embed', function () { return embStatus_(hub); }),
     codeQueue: wsB_('codeQueue', function () { return codeQueue_(hub); }),

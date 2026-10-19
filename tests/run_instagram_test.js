@@ -148,6 +148,7 @@ let fo, plan;
       const txt = JSON.stringify(body);
       const isJ = txt.indexOf('داورِ سخت‌گیر') !== -1;
       global.__asks.push(isJ ? 'J' : 'W');
+      if (!isJ) global.__wtxt = txt;
       const out = isJ ? global.__judge.shift() : global.__writer.shift();
       return { code: 200, json: { candidates: [{ content: { parts: [{ text: JSON.stringify(out || {}) }] } }] } };
     }
@@ -244,6 +245,21 @@ console.log('=== ۳-ب) داورِ پیوستگی: بازنویسی یا رد (�
   global.__judge = [Object.assign({}, J_OK, { popular: 'خیر', weak: 'اصطلاحِ «موجه» برای مخاطبِ عام سنگین است' }), Object.assign({}, J_OK, { popular: 'خیر' })];
   const rP = igStepPlan_(it, fo2);
   ok('۳-ب.۲-ج «برای مخاطبِ عام سنگین» به‌تنهایی رد می‌کند (۹.۲۶)', rP.fail && /مخاطبِ عام/.test(rP.fail), rP.fail);
+  /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار «سنگین» رد شد و ۱۴ و ۱۵ِ آماده پشتش ماندند. علتِ ردِ قبلی به نویسنده؛ و در تلاشِ آخر ایرادِ
+     فقط-نرم (عامه‌پسند/کنجکاوی) مانع نیست — ایرادِ سخت (پیوستگی، درستی) هنوز هست. */
+  const J_SOFT = Object.assign({}, J_OK, { popular: 'خیر', weak: 'سنگین' });
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_SOFT, J_SOFT];
+  const itL = Object.assign({}, it, { tryN: 2, prevWhy: 'داورِ پیوستگی نپذیرفت: برای مخاطبِ عام سنگین است — جملهٔ فلسفی' });
+  const rL = igStepPlan_(itL, fo2);
+  ok('۳-ب.۲-د تلاشِ آخر + فقط ایرادِ نرم ⇒ پذیرفته، با علتش در داوری', rL.ok && /تلاشِ آخر/.test(rL.plan.plan.judge), rL.fail || rL.plan.plan.judge);
+  ok('۳-ب.۲-ه علتِ ردِ قبلی در پرسشِ نویسنده آمد', /نسخهٔ پیشینِ همین ریلز را داور رد کرد/.test(global.__wtxt) && /جملهٔ فلسفی/.test(global.__wtxt));
+  global.__asks = []; global.__writer = [RAW];
+  global.__judge = [Object.assign({}, J_SOFT, { flows: 'خیر' }), Object.assign({}, J_SOFT, { flows: 'خیر' })];
+  const rH = igStepPlan_(itL, fo2);
+  ok('۳-ب.۲-و تلاشِ آخر با ایرادِ سخت ⇒ هنوز رد', rH.fail && /پیوسته نیستند/.test(rH.fail), rH.fail);
+  global.__asks = []; global.__writer = [RAW]; global.__judge = [J_SOFT, J_SOFT];
+  const rE = igStepPlan_(Object.assign({}, it, { tryN: 0 }), fo2);
+  ok('۳-ب.۲-ز تلاشِ اول با ایرادِ نرم ⇒ هنوز رد (سخت‌گیری سرِ جایش)', !!rE.fail, rE.fail);
   global.__asks = []; global.__writer = [RAW]; global.__judge = [null];
   const r3 = igStepPlan_(it, fo2);
   ok('۳-ب.۳ داور جواب نداد ⇒ رد، نه تأییدِ خاموش', !!r3.fail, r3.fail);

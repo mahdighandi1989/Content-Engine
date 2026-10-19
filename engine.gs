@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.55
+ *  موتور محتوا و پادکست — نسخهٔ 9.56
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2155,7 +2155,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.55',
+  CODE_VERSION: '9.56',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -18150,6 +18150,7 @@ function writeStatus_(hub, note) {
     // گویندهٔ تازه — از نمونه در درایو تا مدلِ آماده (بخشِ ۳۳)
     voiceIntake: wsB_('voiceIntake', function () { return vintStatus_(hub); }),
     voiceBridge: (function () { try { return vbrStatus_(); } catch (e) { return null; } })(),
+    ttsVoices: (function () { try { return ttsVoicesStatus_(); } catch (e) { return null; } })(),
     // اثر انگشتِ معنایی — چند ردیف شناسه و بردار دارند، و خودآزمون چه گفت
     embed: wsB_('embed', function () { return embStatus_(hub); }),
     codeQueue: wsB_('codeQueue', function () { return codeQueue_(hub); }),
@@ -34531,6 +34532,30 @@ function blockedVoices_() {
 }
 
 /**
+ * صدای ثابتی که کنار گذاشته نشده باشد (۹.۵۶). نمونه‌های روح و آزمون‌های پل همیشه با `CFG.TTS_VOICE` (Charon) ساخته
+ * می‌شدند و فهرستِ کنارگذاشته‌ها را نمی‌دیدند — یعنی گوینده‌ای که او در «آزمونِ شنیداری» برای «آ»ی گرد رد کرد، هنوز مبدأِ
+ * همان نمونه‌هایی بود که می‌شنید. کنارگذاشته ⇒ نخستین صدای مجازِ هم‌جنس از جدول، وگرنه هر صدای مجاز، وگرنه همان.
+ */
+function ttsVoiceFree_(want) {
+  var b = blockedVoices_(), w = String(want || CFG.TTS_VOICE || 'Charon');
+  if (!b[w]) return w;
+  var g = '';
+  for (var i = 0; i < TTS_VOICES.length; i++) if (TTS_VOICES[i].n === w) g = TTS_VOICES[i].g;
+  for (var j = 0; j < TTS_VOICES.length; j++) if (!b[TTS_VOICES[j].n] && (!g || TTS_VOICES[j].g === g)) return TTS_VOICES[j].n;
+  for (var k = 0; k < TTS_VOICES.length; k++) if (!b[TTS_VOICES[k].n]) return TTS_VOICES[k].n;
+  return w;
+}
+
+/** برای `_STATUS.json` (۹.۵۶): کنارگذاشته‌ها و صدایی که نمونه‌ها واقعاً با آن ساخته می‌شوند — فهرست تا امروز فقط در ویژگی‌های اسکریپت بود. */
+function ttsVoicesStatus_() {
+  var b = Object.keys(blockedVoices_());
+  var sample = ttsVoiceFree_(CFG.TTS_VOICE);
+  return { blocked: b, sample: sample, special: ttsVoiceFree_(CFG.TTS_VOICE_SPECIAL),
+           line: 'گویندگانِ کنارگذاشته: ' + (b.length ? b.join('، ') : 'هیچ') + ' · نمونه‌های پل با «' + sample + '»' +
+                 (sample !== CFG.TTS_VOICE ? ' (به‌جای ' + CFG.TTS_VOICE + ' که کنار گذاشته شده)' : '') };
+}
+
+/**
  * نقش‌گزینیِ یک قسمت.
  *
  * @param show  'variety' یا 'special' — فقط برای گردشِ مستقل و صدای پشتیبان
@@ -35292,7 +35317,7 @@ function runStyleProbe() {
     var cueOfProbe_ = function (on) {
       styleProbeSet_(on);
       try {
-        var p = ttsPayloads_(line, null, st, CFG.TTS_VOICE, true);
+        var p = ttsPayloads_(line, null, st, ttsVoiceFree_(CFG.TTS_VOICE), true);
         var si = p && p.generateContent && p.generateContent.body &&
                  p.generateContent.body.systemInstruction;
         return (si && si.parts && si.parts[0] && si.parts[0].text) || '';
@@ -35335,7 +35360,7 @@ function runStyleProbe() {
           styleProbeSet_(plan[i].on);                 // مهرِ تازه، پیش از هر تکه
           /* نگهبانِ لو‌رفتنِ دستور، همان که تولید دارد (۸.۰۷) — نمونهٔ سبک
              هم شنیده می‌شود و روی همان قضاوت می‌شود. */
-          var b1 = ttsChunk_(pieces[ci], st, CFG.TTS_VOICE);
+          var b1 = ttsChunk_(pieces[ci], st, ttsVoiceFree_(CFG.TTS_VOICE));
           if (!b1) { cut = pieces.length - ci; break; }
           accB64 += alignB64_(b1);
         }
@@ -78800,7 +78825,7 @@ function runVoiceSoulTest() {
          تولید گرفته می‌شود، در همان فایلی که قرار است قضاوت شود می‌مانَد. */
       var b1 = ttsChunk_(pieces[i].t,
                          pieces[i].k ? speakSpanStyle_(pieces[i].k, cueUse) : cueUse,
-                         CFG.TTS_VOICE);
+                         ttsVoiceFree_(CFG.TTS_VOICE));
       if (!b1) { cut = pieces.length - i; break; }
       /* ══ حالت رسید یا نه — از رویدادِ همین تکه، نه از امید (۸.۲۷) ══
          حالت روی دستورِ لحن سوار است؛ اگر دستورِ **همین تکه** دور انداخته شد،
@@ -79048,7 +79073,7 @@ function speakAbTest() {
               'منبع: ' + tgEsc_(src.getName());
     tgApi_('sendMessage', { chat_id: tgChat_(), text: cap, parse_mode: 'HTML' });
     for (var i = 0; i < sides.length; i++) {
-      var b64 = ttsChunkTry_(sides[i].t, '', CFG.TTS_VOICE, false);
+      var b64 = ttsChunkTry_(sides[i].t, '', ttsVoiceFree_(CFG.TTS_VOICE), false);
       var raw = Utilities.base64Decode(b64);
       var wav = Utilities.newBlob(wavHeader54_(raw.length).concat(Array.prototype.slice.call(raw)),
                                   'audio/wav', 'نمونهٔ ' + (i + 1) + '.wav');
@@ -80616,7 +80641,9 @@ function igJudge_(p, lesson, opt) {
   if (!yes(r.faithful)) miss.push('ادعای بیرون از درس');
   if (!yes(r.popular)) miss.push('برای مخاطبِ عام سنگین است');
   if (!yes(r.thirst)) miss.push('چیزی نمی‌دهد یا کنجکاو نمی‌کند');
-  return { ok: !miss.length, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
+  /* سخت = نادرست یا گسسته؛ نرم = سلیقهٔ «عامه‌پسند/کنجکاوی» (۹.۵۶) — فقط سخت جلوی تلاشِ آخر را می‌گیرد. */
+  var hard = miss.filter(function (x) { return x !== 'برای مخاطبِ عام سنگین است' && x !== 'چیزی نمی‌دهد یا کنجکاو نمی‌کند'; }).length;
+  return { ok: !miss.length, hard: hard, why: miss.join('، ') + (r.weak ? ' — ' + String(r.weak).slice(0, 120) : ''), fix: String(r.fix || '').trim() };
 }
 
 /** برچسبِ درس برای کپشن و عنوان: «درسِ ۵» یا «مرورِ بزرگِ درس‌های ۱ تا ۱۵». */
@@ -80689,7 +80716,13 @@ function igStepPlan_(it, fo) {
   if (!lesson && !recap) lesson = Number(meta.lesson) || 0;
   var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0 };
   var r = null;
-  try { r = geminiText_(igPrompt_(ep, seriesName, lesson, opt), IG_REEL_SCHEMA, 8192); }
+  /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار با «برای مخاطبِ عام سنگین است» رد شد و هر بار از صفر و کور نوشته شد — درس‌های ۱۴ و ۱۵ِ
+     آماده پشتش ایستادند و آن روز هیچ ریلزی نرفت. حالا علتِ ردِ قبلی به نویسنده گفته می‌شود. */
+  var prevWhy = String(it.prevWhy || '').replace(/^داورِ پیوستگی نپذیرفت:\s*/, '').trim();
+  var prompt = igPrompt_(ep, seriesName, lesson, opt) +
+    (prevWhy && /داور/.test(String(it.prevWhy || '')) ? '\n\nنسخهٔ پیشینِ همین ریلز را داور رد کرد، به این دلیل: «' + prevWhy +
+      '». همان خطا را تکرار نکن: ساده‌تر، با مثالِ روزمره، و اصطلاحِ سنگین را یا کنار بگذار یا با زبانِ کوچه توضیح بده.' : '');
+  try { r = geminiText_(prompt, IG_REEL_SCHEMA, 8192); }
   catch (e) { return { wait: 'مدلِ متن: ' + String(e.message || e).slice(0, 120) }; }
   var p = igPlanTrim_(r, opt);
   if (!p.lines) return { fail: 'متنِ ریلز پذیرفته نشد: ' + p.why };
@@ -80704,9 +80737,13 @@ function igStepPlan_(it, fo) {
       if (p2.lines) {
         var jd2 = igJudge_(p2, lessonTxt, opt);
         if (jd2.ok) { p = p2; jd = { ok: true, why: 'بازنویسی شد: ' + jd.why }; }
-        else jd = jd2;
+        else { jd = jd2; jd.p = p2; }
       }
     }
+    /* تلاشِ آخر (۹.۵۶): ایرادِ فقط-نرم مانعِ انتشار نیست — درستی، یک‌ایدگی، پیوستگی و جوابِ قلاب هنوز شرط‌اند. وگرنه درسی
+       ذاتاً نظری (معرفت‌شناسی) هر ۲۴ ساعت سه بار رد می‌شد و کلِ مجموعه پشتش می‌ماند. */
+    var lastTry = (Number(it.tryN) || 0) >= Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
+    if (!jd.ok && lastTry && jd.hard === 0) { if (jd.p) p = jd.p; jd = { ok: true, why: 'تلاشِ آخر، فقط ایرادِ نرم: ' + jd.why }; }
     if (!jd.ok) return { fail: 'داورِ پیوستگی نپذیرفت: ' + jd.why };
   }
   p.judge = jd.why || 'پیوسته';
@@ -81246,6 +81283,12 @@ function igTick() {
        کرد — نوبتِ خودش دوباره ساخته می‌شود، با برچسبِ فارسی. */
     /* ۹.۵۴، یک بار: ریلزِ درسِ ۱۳ِ مصباح با نمودارهای نوشته‌دار رفت و صاحبِ برنامه بایگانی‌اش کرد — از «انجام‌شده» بیرون
        (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
+    /* ۹.۵۶: درسِ ۱۳ از نگه‌داشتنِ ۲۴ساعته بیرون، یک‌راست به تلاشِ آخر (با علتِ ردِ قبلی و پذیرشِ ایرادِ نرم). */
+    if (!st.redo956) {
+      if (st.failAt && st.failAt['13']) delete st.failAt['13'];
+      if (st.fails && Number(st.fails['13']) >= 1 && Number(st.fails['13']) < 9) st.fails['13'] = Math.max(1, Number(CFG.IG_TRY_MAX) || 3) - 1;
+      st.redo956 = 1;
+    }
     if (!st.redo954) {
       st.done = String(st.done || '').split(',').filter(function (x) { return x && x !== '13'; }).join(',');
       st.redo954 = 1;
@@ -81274,6 +81317,8 @@ function igTick() {
     for (var i = 0; i < st.inflight.length; i++) {
       var it = st.inflight[i], res = null;
       if (Date.now() > deadline) { keep.push(it); continue; }
+      it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
+      it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }

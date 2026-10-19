@@ -1,15 +1,18 @@
 {
-  "version": "9.55",
+  "version": "9.56",
   "codeFile": "engine.gs",
-  "sha256": "c3bec585d41e5a70a7d731fc074e6bfaee95619253f78d4a0f9ba63c230f4b2b",
-  "releasedAt": "2026-10-18T22:45:00+04:00",
-  "summary": "جست‌وجوی ساده تب به تب: نوارِ درصد، یافته‌ها همان لحظه، بی سقفِ ۲۳۰ ثانیه‌ای، ردیف‌های نرسیده در گامِ بعدیِ همان تب، و ادامه از همان تب پس از قطع.",
+  "sha256": "1cf56e2e9aa8d4f7de877c0f4464a982458ce23a39f0226e9f5f3c6d0213d453",
+  "releasedAt": "2026-10-19T08:30:00+04:00",
+  "summary": "صدای نمونه‌های پل از فهرستِ کنارگذاشته‌ها (ttsVoiceFree_) و فهرست در _STATUS.ttsVoices؛ داورِ ریلز علتِ ردش را به نویسنده می‌دهد و در تلاشِ آخر ایرادِ فقط-نرم مانع نیست؛ درسِ ۱۳ از نگه‌داشتن بیرون.",
   "fixes": [
-    "src/34_Search.gs: srchLexStart/srchLexStep؛ srchCollect_ با opts.plan/rows/rowsMax/capAll؛ پنجره lsGo/lsStep/lsBar/lsDraw با localStorage",
-    "src/00_Config.gs: SEARCH_STEP_MS ۴۰۰۰۰، SEARCH_STEP_ROWS ۶۰۰"
+    "src/20_Voices.gs: ttsVoiceFree_/ttsVoicesStatus_؛ نمونهٔ سبک",
+    "src/36_VoiceBridge.gs: نمونهٔ روح و آزمونِ تلفظ با ttsVoiceFree_",
+    "src/08_Health.gs: _STATUS.ttsVoices",
+    "src/38_Instagram.gs: prevWhy در پرسشِ نویسنده، hard/soft در igJudge_، پذیرشِ نرم در تلاشِ آخر، redo956"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261018-10": "۹.۵۵"
+    "R-20261019-01": "۹.۵۶",
+    "R-20261019-02": "۹.۵۶"
   }
 }
