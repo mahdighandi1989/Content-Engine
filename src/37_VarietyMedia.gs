@@ -855,7 +855,15 @@ function vmBuild_(folder, meta, plan, ctx) {
   // ── ۱) نقشه ──
   if (!d || d.phase === 'plan') {
     var items = vmItems_(meta);
-    if (!items.length) return fail('این قسمت کلیپ یا عکسِ منبع ندارد');
+    /* ۹.۶۰: قسمتی که منبعش فقط صدا یا متن است (قسمتِ ۷۷، ۱۹ اکتبر: ۴ صدا، ۰ ویدیو، ۰ عکس) چیزی برای نشان دادن
+       ندارد؛ ویدئوی ساده همان پاسخِ درست است، نه خرابی. `none` تا خطِ روزانه آن را از افتادنِ واقعی جدا کند و
+       یافتهٔ «جدی»ِ کد برای چیزی که هیچ کدی عوضش نمی‌کند ساخته نشود. */
+    if (!items.length) {
+      out.fallback = true; out.why = 'این قسمت کلیپ یا عکسِ منبع ندارد';
+      vmNote_(key, { ok: false, none: true, why: out.why });
+      try { logLine_('رسانه‌های منبعِ ' + key + ': منبعِ تصویری ندارد — ویدئوی ساده، همان که باید.'); } catch (eN) {}
+      return out;
+    }
     if (left() < 70000) { out.why = 'وقتِ این دور برای نقشهٔ رسانه کم است؛ دورِ بعد'; return out; }
     var rp = vmReplay_(folder, meta);
     if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', true);
@@ -967,6 +975,9 @@ function vmStatus_() {
   if (!vmOn_('variety')) return { on: false, ok: true, line: '' };
   if (!r) return { on: true, ok: true, last: null,
                    line: '🎞 «از همه جا» با رسانه‌های منبع: روشن — هنوز هیچ قسمتی از این راه نرفته.' };
+  if (!r.ok && r.none) return { on: true, ok: true, none: true, last: r,
+    line: '🎞 «از همه جا» (' + r.key + '، ' + r.at + '): منبعِ این قسمت کلیپ یا عکس نداشت (فقط صدا/متن) — ' +
+          'ویدئوی ساده رفت و درست همین است؛ ایراد نیست.' };
   var line = r.ok
     ? '🎞 «از همه جا» با رسانه‌های منبع — آخرین (' + r.key + '، ' + r.at + '): ' + faDigitsOut_(String(r.scenes || 0)) +
       ' صحنه، ' + faDigitsOut_(String(r.clips || 0)) + ' کلیپ، ' + faDigitsOut_(String(r.moments || 0)) +

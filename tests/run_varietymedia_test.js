@@ -260,7 +260,16 @@ console.log('=== ۷) سرتاسری: نقشه ⇒ رونوشت ⇒ کاور ⇒ 
   const ep2 = DriveApp.__register('EP8', 'قسمت ۸۰');
   const r2 = vmBuild_(ep2, { ep: epObj, items: [metaItems[4]], cat: '' }, {}, { show: 'variety', epRaw: '80' });
   ok('۷.۹ قسمتِ بی کلیپ و عکس ⇒ ویدئوی ساده، با علت', r2.fallback && /ندارد/.test(r2.why), r2.why);
-  ok('۷.۱۰ و خطِ روزانه ❌ با علت می‌گوید', /❌/.test(vmStatus_().line) && /ندارد/.test(vmStatus_().line));
+  /* ۹.۶۰: قسمتِ ۷۷ (۱۹ اکتبر) فقط صدا داشت و یافتهٔ «جدی»ِ vm-fallback ساخت — برای چیزی که هیچ کدی عوضش نمی‌کند. */
+  ok('۷.۱۰ قسمتِ بی رسانهٔ تصویری: خطِ روزانه علت را می‌گوید ولی ❌ و «ناسالم» نیست',
+     !/❌/.test(vmStatus_().line) && /نداشت/.test(vmStatus_().line) && vmStatus_().ok === true && vmStatus_().none === true,
+     vmStatus_().line);
+  const pr0 = [], nt0 = [];
+  vmHealth_(pr0, nt0);
+  ok('۷.۱۰-ب و سلامتِ روزانه: خط در یادداشت‌ها، بی مسئله و بی یافته', nt0.some(x => /🎞/.test(x)) && !pr0.some(x => /🎞/.test(x)),
+     JSON.stringify([pr0, nt0]));
+  vmNote_('variety:81', { ok: false, why: 'زمانِ تکه‌ها با متنِ گفتار جور نشد' });   // افتادنِ واقعی
+  ok('۷.۱۰-پ افتادنِ واقعی همچنان ❌ با علت', /❌/.test(vmStatus_().line) && /جور نشد/.test(vmStatus_().line) && vmStatus_().ok === false);
   const pr = [], nt = [];
   vmHealth_(pr, nt);
   ok('۷.۱۱ سلامتِ روزانه: خط در یادداشت‌ها و افتادن در مسئله‌ها', nt.some(x => /🎞/.test(x)) && pr.some(x => /🎞/.test(x)),
