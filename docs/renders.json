@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-19 04:59",
+ "updatedAt": "2026-10-19 09:49",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4397,18 +4397,18 @@
   "ig:special:13": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-13.mp4",
    "cover": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-13-cover.jpg",
-   "sig": "bd484e5b09d6",
-   "seconds": 56.6,
-   "bytes": 6877639,
+   "sig": "182ca660a13a",
+   "seconds": 68.7,
+   "bytes": 13965989,
    "short": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-13-short.mp4",
-   "shortSeconds": 52.7,
+   "shortSeconds": 64.9,
    "align": "faster-whisper",
-   "phrases": 31,
-   "trans": 4,
-   "imgs": 5,
-   "segs": 5,
-   "subs": 28,
-   "at": "2026-10-18 15:38"
+   "phrases": 40,
+   "trans": 2,
+   "imgs": 3,
+   "segs": 3,
+   "subs": 35,
+   "at": "2026-10-19 09:49"
   },
   "ig:special:14": {
    "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/reel-ig-special-14.mp4",
