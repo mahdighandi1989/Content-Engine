@@ -1,20 +1,16 @@
 {
   "version": "9.60",
   "codeFile": "engine.gs",
-  "sha256": "7ec7fb86af19662a4e859dcd7d4ac7cc0ed85f750b0f456458095f9874d7094c",
-  "releasedAt": "2026-10-19T12:45:00+04:00",
-  "summary": "قسمتی که منبعش کلیپ یا عکس ندارد (فقط صدا/متن) دیگر «افتادنِ ویدئوی رسانه‌ای» و یافتهٔ «جدی»ِ vm-fallback نمی‌سازد؛ خطِ روزانه علت را صریح و بی ❌ می‌گوید. افتادنِ واقعی همان ❌ و یافته را دارد.",
+  "sha256": "0a6b98b38daf16c4883683fc7fa9404be5dd0653263f99f9925caf61080030d6",
+  "releasedAt": "2026-10-19T12:00:00+04:00",
+  "summary": "epCatchUp_: قسمتِ امروزی که قسمتِ تحویل‌شده‌ای با تاریخِ امروز ندارد (EP_LAST/SP_LAST، بی خواندنِ هاب) و در جریان نیست، ساعتی خودش از درِ تلاشِ دوباره راه می‌افتد (مُهرِ بی‌پشتوانه برداشته می‌شود؛ سقف دو بار در روز).",
   "fixes": [
-    "src/37_VarietyMedia.gs: vmBuild_ — شاخهٔ بی‌رسانه با none:true؛ vmStatus_ آن را ok می‌خوانَد، پس vmHealth_ مسئله و یافته نمی‌سازد",
-    "tests/run_varietymedia_test.js: ۷.۱۰ / ۷.۱۰-ب / ۷.۱۰-پ — قسمتِ صوتی در برابرِ افتادنِ واقعی"
+    "src/03_Producer.gs: epCatchUp_",
+    "src/36_VoiceBridge.gs: فراخوان در vbrCollectHourly",
+    "src/00_Config.gs: EP_CATCHUP، EP_CATCHUP_MAX، EP_CATCHUP_LAST_H"
   ],
-  "sourceReportIds": [
-    "ENG-20261019-1010#vm-fallback"
-  ],
+  "sourceReportIds": [],
   "answers": {
-    "R-20261019-05": "۹.۵۹",
-    "9.60": [
-      "vm-fallback"
-    ]
+    "R-20261019-06": "۹.۶۰"
   }
 }

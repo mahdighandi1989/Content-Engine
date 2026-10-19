@@ -363,6 +363,45 @@ ok('۸.۷ درس‌نامه هم همین نگهبان را دارد',
      fs.readFileSync('src/14_Special.gs', 'utf8')),
    'وگرنه فردا همان دو قسمت برای درس‌نامه تکرار می‌شود');
 
+console.log('\n══ ۸-ب) قسمتی که امروز ساخته نشد، خودش جبران می‌شود (۹.۶۰) ══');
+{
+  /* ۱۹ اکتبر: مُهرِ «ساخته شد» بی‌شماره (کدِ قدیم)، هیچ ردیفی با تاریخِ امروز در تبِ درس‌نامه، و پیامِ ناظر «از منو بزنید». */
+  const P = global.__PROPS;
+  const td = '2026-10-19';
+  const kSpL = P[PK.SP_LAST], kEpL = P[PK.EP_LAST];
+  P[PK.SP_LAST] = JSON.stringify({ episode: 75, at: '2026-10-18 08:44' });     // دیروز
+  P[PK.EP_LAST] = JSON.stringify({ episode: 77, at: '2026-10-19 07:21' });     // امروز
+  for (const k of Object.keys(P)) if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+  delete P[PK.SP_PENDING]; delete P[PK.PENDING];
+  P[PK.EP_MADE_DAY + '_' + ENRICH_SHOW_SPECIAL] = ENRICH_SHOW_SPECIAL + '|' + td;   // مُهرِ بی‌شمارهٔ کدِ قدیم
+  global.__TRIGGERS.length = 0;
+  const kNow = global.nowStr_; global.nowStr_ = () => td + ' 11:40';
+  const early = epCatchUp_({ hour: 8, today: td });
+  ok('۸-ب.۱ پیش از «ساعتِ برنامه + ۱» هیچ کاری نمی‌کند', early.length === 0 && global.__TRIGGERS.length === 0);
+  const r1 = epCatchUp_({ hour: 11, today: td });
+  const fns = global.__TRIGGERS.map(t => t.getHandlerFunction());
+  ok('۸-ب.۲ درس‌نامهٔ بی‌قسمتِ امروز ⇒ مُهرِ بی‌پشتوانه برداشته و تلاشِ دوباره خودش زمان‌بندی شد', r1.length === 1 &&
+     r1[0].show === ENRICH_SHOW_SPECIAL && r1[0].stamped === true && fns.indexOf('produceSpecialEpisodeRetry') !== -1 &&
+     epMadeToday_(ENRICH_SHOW_SPECIAL) === false, JSON.stringify(r1) + ' ' + JSON.stringify(fns));
+  ok('۸-ب.۳ «از همه جا» که قسمتِ امروزش تحویل شده دست نمی‌خورد — دومی ساخته نمی‌شود', fns.indexOf('produceEpisodeRetry') === -1);
+  epCatchUp_({ hour: 12, today: td }); epCatchUp_({ hour: 13, today: td });
+  const nRetry = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'produceSpecialEpisodeRetry').length;
+  ok('۸-ب.۴ سقفِ روزانه: اجرایی که هر بار می‌میرد چرخه نمی‌شود', String(P[PK.EP_MADE_DAY + '_cu_' + ENRICH_SHOW_SPECIAL]) === td + '|2' && nRetry === 1,
+     String(P[PK.EP_MADE_DAY + '_cu_' + ENRICH_SHOW_SPECIAL]));
+  P[PK.SP_PENDING] = '{"ep":76}';
+  delete P[PK.EP_MADE_DAY + '_cu_' + ENRICH_SHOW_SPECIAL]; global.__TRIGGERS.length = 0;
+  ok('۸-ب.۵ قسمتِ در جریان ⇒ کارِ جبران نیست (ادامه‌اش با epStallKick_)', epCatchUp_({ hour: 11, today: td }).length === 0);
+  delete P[PK.SP_PENDING];
+  ok('۸-ب.۶ سیم: ساعتیِ همیشگی صدایش می‌زند', /epCatchUp_\(\)/.test(String(vbrCollectHourly)));
+  ok('۸-ب.۷ ساعتی است، پس هاب را باز نمی‌کند — شاهد از Properties', !/getHub_/.test(String(epCatchUp_)));
+  delete P[PK.SP_LAST]; delete P[PK.EP_LAST]; delete P[PK.EP_MADE_DAY + '_cu_' + ENRICH_SHOW_SPECIAL]; global.__TRIGGERS.length = 0;
+  ok('۸-ب.۸ بی هیچ قسمتِ تحویل‌شدهٔ ثبت‌شده، داوری نمی‌کند', epCatchUp_({ hour: 11, today: td }).length === 0 && global.__TRIGGERS.length === 0);
+  if (kSpL === undefined) delete P[PK.SP_LAST]; else P[PK.SP_LAST] = kSpL;
+  if (kEpL === undefined) delete P[PK.EP_LAST]; else P[PK.EP_LAST] = kEpL;
+  global.nowStr_ = kNow; global.__TRIGGERS.length = 0;
+  for (const k of Object.keys(P)) if (k.indexOf(PK.EP_MADE_DAY) === 0) delete P[k];
+}
+
 console.log('\n══ ۹) شبی که کشته شد — نشانه‌ای که از کشته‌شدن جان به در ببرد ══');
 /* ══ ۲۱ تا ۲۳ سپتامبر ══
    از بلوکِ «اثر انگشتِ معنایی» به بعد هیچ‌چیز اجرا نشد — نه اثر انگشت،

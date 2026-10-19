@@ -9352,6 +9352,66 @@ function epGuardDone_(show) {
  * بی سیاهه، چون روی تریگرِ ساعتی است (۷٫۶۳/۷٫۸۴). اگر نگهبانِ همان مرحله دست
  * کشیده، این در هم دست می‌کشد؛ وگرنه حلقهٔ هفت‌دقیقه‌ای را ساعتی ادامه می‌داد.
  */
+/**
+ * ══ قسمتی که امروز ساخته نشد، خودش جبران می‌شود (۹.۶۰) ══
+ * ۱۹ اکتبر درس‌نامه ساخته نشد (اجرای ۰۵:۰۲ پیش از نوشتن مُرد و مُهرش ماند)، و تنها چیزی که پیش آمد پیامِ ناظر بود:
+ * «برای امروز دکمهٔ ساختِ درس‌نامه را از منو بزنید». او: «هر بار باید یه سورپرایز داشته باشم … پس کی این اتوماسیون
+ * درست کار می‌کنه». کاری که موتور می‌تواند، کارِ او نیست. ۹.۵۹ مُهرِ بی‌قسمت را در آینده نمی‌پذیرد؛ این‌جا، ساعتی، هر
+ * برنامه‌ای که ساعتش گذشته، چیزی در جریان ندارد و **قسمتِ تحویل‌شده‌ای با تاریخِ امروز** ندارد (`EP_LAST`/`SP_LAST` — شاهدِ واقعیِ ساخت، نه مُهر)،
+ * یک بار دیگر راه می‌افتد — از همان درِ تلاشِ دوبارهٔ همیشگی، پس تقویم همچنان تصمیم می‌گیرد. مُهرِ امروزِ همان برنامه
+ * که پشتش قسمتی نیست برداشته می‌شود؛ سقف `EP_CATCHUP_MAX` تلاش در روز، تا اجرایی که هر بار می‌میرد چرخه نشود.
+ * `opt` فقط برای آزمون: {hour, today}.
+ */
+function epCatchUp_(opt) {
+  opt = opt || {};
+  var out = [];
+  if (CFG.EP_CATCHUP === false) return out;
+  var P = props_();
+  var today = opt.today || String(nowStr_()).slice(0, 10);
+  var h = (opt.hour !== undefined) ? Number(opt.hour)
+        : Number(Utilities.formatDate(new Date(), CFG.TIMEZONE, 'H'));
+  var shows = [
+    { show: ENRICH_SHOW_VARIETY, hour: Number(CFG.EPISODE_HOUR) || 7, pend: PK.PENDING, fn: 'produceEpisodeRetry',
+      last: PK.EP_LAST, name: CFG.SHOW_NAME },
+    { show: ENRICH_SHOW_SPECIAL, hour: Number(CFG.SPECIAL_HOUR) || 8, pend: PK.SP_PENDING, fn: 'produceSpecialEpisodeRetry',
+      last: PK.SP_LAST, name: CFG.SPECIAL_SHOW_NAME }];
+  for (var i = 0; i < shows.length; i++) {
+    var s = shows[i];
+    if (h < s.hour + 1 || h >= (Number(CFG.EP_CATCHUP_LAST_H) || 20)) continue;
+    if (P.getProperty(s.pend)) continue;                                   // در جریان ⇒ کارِ epStallKick_
+    var okKey = PK.EP_MADE_DAY + '_ok_' + s.show;
+    if (String(P.getProperty(okKey) || '') === today) continue;           // امروز یک بار دیده شد ⇒ بی خواندنِ هاب
+    var tryKey = PK.EP_MADE_DAY + '_cu_' + s.show, tp = String(P.getProperty(tryKey) || '').split('|');
+    var n = tp[0] === today ? (Number(tp[1]) || 0) : 0;
+    if (n >= Math.max(1, Number(CFG.EP_CATCHUP_MAX) || 2)) continue;
+    /* شاهد از Properties، نه هاب: این ساعتی است و هابِ ۲۹ مگابایتی را باز نمی‌کند (۷٫۶۳؛ `run_bridge_voice_test` ۲۶.۳ همین
+       را گرفت). `EP_LAST`/`SP_LAST` را پایانِ هر قسمتِ تحویل‌شده می‌نویسد — از کدهای قدیم هم، پس روزِ نصب هم درست است. */
+    var lastRaw = P.getProperty(s.last);
+    if (!lastRaw) continue;                                               // هیچ قسمتِ تحویل‌شده‌ای ثبت نیست ⇒ داوری ممکن نیست
+    var made = false;
+    try {
+      var last = JSON.parse(lastRaw || 'null');
+      made = !!(last && String(last.at || '').slice(0, 10) === today);
+    } catch (eH) { continue; }                                            // نخواندن ≠ ساخته نشد؛ دورِ بعد
+    if (made) { P.setProperty(okKey, today); continue; }
+    var stamped = epMadeToday_(s.show);
+    if (stamped) {
+      try { P.deleteProperty(epMadeKey_(s.show)); } catch (eD) {}
+      var sharedV = String(P.getProperty(PK.EP_MADE_DAY) || '');
+      if (sharedV === String(s.show) + '|' + today) { try { P.deleteProperty(PK.EP_MADE_DAY); } catch (eD2) {} }
+    }
+    P.setProperty(tryKey, today + '|' + (n + 1));
+    try { clearRetryTriggers_(s.fn); ScriptApp.newTrigger(s.fn).timeBased().after(60000).create(); }
+    catch (eT) { logLine_('جبرانِ «' + s.name + '»: تریگر ساخته نشد — ' + eT.message); continue; }
+    var why = '«' + s.name + '» امروز ساخته نشده بود' + (stamped ? ' (مُهرِ «ساخته شد» بود ولی هیچ ردیفی با تاریخِ امروز نه)' : '') +
+              '؛ موتور خودش دوباره راهش انداخت (تلاشِ ' + (n + 1) + ').';
+    logLine_('جبران: ' + why);
+    try { mailQueue_('ep-catchup-' + s.show, 'جبرانِ خودکار: ' + s.name, why); } catch (eM) {}
+    out.push({ show: s.show, stamped: stamped, n: n + 1 });
+  }
+  return out;
+}
+
 function epStallKick_() {
   var out = [];
   var specs = [
