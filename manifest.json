@@ -1,16 +1,15 @@
 {
-  "version": "9.61",
+  "version": "9.62",
   "codeFile": "engine.gs",
-  "sha256": "7cacdd62a6f9674304193de8dfb21c9fe22186e9602a00d87b4a896ba55628ca",
-  "releasedAt": "2026-10-19T17:30:00+04:00",
-  "summary": "سدِ تصویرِ ریلز سرِ در: ریلزِ منتشرنشده با تصویرِ درس و بی مُهرِ imgOk پیش از ساخت و انتشار به گامِ تصویر برمی‌گردد؛ ریلزِ بی‌تصویر ساخته نمی‌شود؛ ۱۴ و ۱۵ِ مصباح یک بار از نو (شورتزشان از صف بیرون، بالارفته خصوصی)؛ آخرین نمونهٔ هر گوینده یک بار به تلگرام.",
+  "sha256": "d070abbaf193350ddd2ef0791441374f34788697c5b19b2e07158dc373ec09b2",
+  "releasedAt": "2026-10-19T18:50:00+04:00",
+  "summary": "کفِ مرورِ بزرگِ ریلز: مرورِ کوتاه‌تر از IG_RECAP_MIN_SEC (۱۴۰ ثانیه) از نو با واژهٔ بیشتر — سقف همان ۱۷۸؛ پس از دو تلاش پذیرفته تا مرور گیر نکند.",
   "fixes": [
-    "src/38_Instagram.gs: igImgUnchecked_، igImgReset_، imgOk، noLessonImg، igRedo961_، ریلزِ بی‌تصویر منتظر",
-    "src/36_VoiceBridge.gs: vbrResendLatest_ از vbrCollectHourly"
+    "src/38_Instagram.gs: igWords_ (minWords)، igStepPlan_، igStepVoice_ (کفِ مرور)",
+    "src/00_Config.gs: IG_RECAP_MIN_SEC"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-07": "۹.۶۱",
-    "R-20261019-08": "۹.۶۱"
+    "R-20261019-09": "۹.۶۲"
   }
 }

@@ -690,6 +690,22 @@ console.log('=== ۹) مرورِ بزرگ، سقفِ سه دقیقه، کپشنِ
   global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
   ok('۹.۳ صدا بیش از ' + CFG.IG_MAX_SEC + ' ثانیه ⇒ شکست با «از نو»، و سقفِ واژهٔ تازه به همان نسبت', !!rv.fail && itR.maxWords > 0 &&
      itR.maxWords < rr.plan.plan.words && igWords_({ recap: true, maxWords: itR.maxWords }).max === itR.maxWords, rv.fail + ' / ' + itR.maxWords);
+  /* ۹.۶۱: کفِ مرور — صدای ۹۰ ثانیه ⇒ از نو با واژهٔ بیشتر؛ تلاشِ سوم پذیرفته می‌شود. */
+  {
+    nCall = 0;
+    global.vowelizeText_ = (x) => x;
+    global.ttsChunk_ = () => Utilities.base64Encode(new Array(sr * 2 * (++nCall === 1 ? 90 : 1)).fill(0));
+    const itF = Object.assign({}, itR, { tryN: 0, maxWords: 0 }), pF = JSON.parse(JSON.stringify(rr.plan)); pF.phase = 'voice';
+    const rF = igStepVoice_(itF, foR, pF, Date.now() + 60000);
+    nCall = 0;
+    const itG = Object.assign({}, itR, { tryN: 2, maxWords: 0 }), pG = JSON.parse(JSON.stringify(rr.plan)); pG.phase = 'voice';
+    const rG = igStepVoice_(itG, foR, pG, Date.now() + 60000);
+    global.ttsChunk_ = keepT; global.vowelizeText_ = keepV;
+    const wF = igWords_({ recap: true, minWords: itF.minWords });
+    ok('۹.۳-ب مرورِ کوتاه‌تر از ' + CFG.IG_RECAP_MIN_SEC + ' ثانیه ⇒ از نو با دست‌کم واژهٔ بیشتر؛ پس از دو تلاش پذیرفته (مرور گیر نمی‌کند)',
+       !!rF.fail && itF.minWords > rr.plan.plan.words && wF.lo === itF.minWords && wF.hi >= wF.lo && rG.ok && pG.phase === 'img',
+       JSON.stringify([rF.fail, itF.minWords, wF, rG]));
+  }
   /* کپشنِ شورتز: عنوان ≤۱۰۰ با مجموعه و درس، توضیحِ ویژهٔ یوتیوب و سه پیوند. */
   const sm = igShortMeta_({ plan: { coverTitle: 'عقلِ ما درست می‌فهمد؟', ytDesc: 'متنِ ویژهٔ یوتیوب.', caption: 'کپشنِ اینستا', tags: ['معرفت_شناسی', 'فلسفه'] },
                            series: 'معرفت شناسی مجتبی مصباح', lesson: 1, yt: 'https://youtu.be/v1' }, 'https://www.youtube.com/playlist?list=PL1');

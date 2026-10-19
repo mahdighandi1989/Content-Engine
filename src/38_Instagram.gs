@@ -308,6 +308,8 @@ function igWords_(opt) {
   opt = opt || {};
   var lo = 80, hi = 150, min = 50, max = 210;
   if (opt.recap) { var R = CFG.IG_RECAP_WORDS || [200, 400]; lo = Number(R[0]) || 200; hi = Number(R[1]) || 400; min = Math.round(lo * 0.75); max = Math.round(hi * 1.1); }
+  var flo = Number(opt.minWords) || 0;
+  if (flo > 0) { lo = Math.max(lo, flo); min = Math.max(min, Math.round(flo * 0.9)); hi = Math.max(hi, lo); max = Math.max(max, Math.round(hi * 1.1)); }
   var cap = Number(opt.maxWords) || 0;
   if (cap > 0) { hi = Math.min(hi, cap); max = Math.min(max, cap); lo = Math.min(lo, Math.round(cap * 0.8)); min = Math.min(min, lo); }
   return { lo: lo, hi: hi, min: min, max: max };
@@ -485,7 +487,8 @@ function igStepPlan_(it, fo) {
     if (recap) range = ytRecapRange_(meta, lessons) || '';
   } catch (eL) {}
   if (!lesson && !recap) lesson = Number(meta.lesson) || 0;
-  var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0 };
+  var opt = { recap: recap, range: range ? 'مرورِ بزرگِ ' + range.replace(/^مرورِ\s*(بزرگِ\s*)?/, '') : '', maxWords: Number(it.maxWords) || 0,
+              minWords: Number(it.minWords) || 0 };
   var r = null;
   /* ۹.۵۶: درسِ ۱۳ِ مصباح سه بار با «برای مخاطبِ عام سنگین است» رد شد و هر بار از صفر و کور نوشته شد — درس‌های ۱۴ و ۱۵ِ
      آماده پشتش ایستادند و آن روز هیچ ریلزی نرفت. حالا علتِ ردِ قبلی به نویسنده گفته می‌شود. */
@@ -604,7 +607,16 @@ function igStepVoice_(it, fo, plan, deadline) {
   var capS = Math.max(30, Number(CFG.IG_MAX_SEC) || 178);
   if (plan.seconds > capS) {
     it.maxWords = Math.max(60, Math.floor((Number(plan.plan.words) || 150) * (capS - 12) / plan.seconds));
+    it.minWords = 0;
     return { fail: 'صدا ' + plan.seconds + ' ثانیه شد (سقف ' + capS + ') — از نو با حداکثر ' + it.maxWords + ' واژه' };
+  }
+  /* ۹.۶۱: کفِ مرورِ بزرگ — «حدودِ سه دقیقه ولی نه بیشتر». سقف بود و کف نبود: مرورِ ۹۰ ثانیه‌ای هم می‌گذشت. کوتاه‌تر از
+     `IG_RECAP_MIN_SEC` ⇒ از نو با واژهٔ بیشتر، به همان نسبت — فقط دو بارِ نخست، تا مدلی که بلندتر نمی‌نویسد مرور را نگه ندارد. */
+  var floS = Number(CFG.IG_RECAP_MIN_SEC) || 0;
+  if (plan.recap && floS > 0 && plan.seconds < floS && (Number(it.tryN) || 0) < 2) {
+    it.minWords = Math.ceil((Number(plan.plan.words) || 300) * (floS + 10) / Math.max(1, plan.seconds));
+    it.maxWords = 0;
+    return { fail: 'مرور ' + plan.seconds + ' ثانیه شد (کف ' + floS + ') — از نو با دست‌کم ' + it.minWords + ' واژه' };
   }
   plan.phase = 'img';
   return { ok: true };
