@@ -1,17 +1,14 @@
 {
-  "version": "9.57",
+  "version": "9.58",
   "codeFile": "engine.gs",
-  "sha256": "d9962be1bcff03c1e3a0a7dd9f9e6d18ab5c20ded47b14810ad8bf852ac9eee7",
-  "releasedAt": "2026-10-19T10:30:00+04:00",
-  "summary": "ریلز: سخت‌گیریِ داور با سنِ درس نرم می‌شود (۱۲ ساعت ⇒ ایرادِ نرم آزاد، ۲۴ ساعت ⇒ داور مشاور جز ادعای بیرون از درس)، تلاشِ دوباره هر ۶ ساعت، درسِ کنارگذاشته دیده می‌شود؛ موسیقی: هر جایگاه فقط «آهنگ»ِ شنیده‌شده، و کلِ بازهٔ پخش شنیده می‌شود.",
+  "sha256": "7d2ffc16954c77404dc952af7d3224b9279b16ad3bb0ab8e80c2cb4d7501e3b1",
+  "releasedAt": "2026-10-19T11:30:00+04:00",
+  "summary": "بن‌بستِ ریلز: ریلزِ آماده‌ای که فقط منتظرِ درسِ پیشین است جای IG_INFLIGHT را نمی‌گیرد (igWaitsEarlier_)، و igHealth_ بن‌بست را به نام می‌گوید.",
   "fixes": [
-    "src/38_Instagram.gs: st.firstAt/ageH، IG_LENIENT_H/IG_FORCE_H در igStepPlan_، igHeld_ در igStatus_/igHealth_، redo957",
-    "src/00_Config.gs: IG_RETRY_H 6، IG_LENIENT_H، IG_FORCE_H",
-    "src/23_Music.gs: musicPick_ فقط آهنگ/آدم، musicSegOk_ فقط آهنگ با کلِ بازه، musicListen_ با secs، musicHumanOk_"
+    "src/38_Instagram.gs: igWaitsEarlier_، سقفِ inflight بر پایهٔ کارهای فعال (کل ≤ ۳ برابر)، بن‌بست در igHealth_"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-03": "۹.۵۷",
-    "R-20261019-04": "۹.۵۷"
+    "R-20261019-03": "۹.۵۸"
   }
 }

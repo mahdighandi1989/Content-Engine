@@ -228,6 +228,11 @@ function igEarlierPending_(st, ep) {
   return '';
 }
 
+/** ریلزِ آماده‌ای که فقط منتظرِ انتشارِ درسِ پیشینِ همان مجموعه است (۹.۵۸) — جای کار نمی‌گیرد. */
+function igWaitsEarlier_(st, x) {
+  return !!x && String(x.phase) === 'pub' && !!igEarlierPending_(st, x.ep);
+}
+
 /** پوشهٔ «اینستاگرام» درونِ پوشهٔ قسمت — همه‌چیزِ ریلز این‌جاست. */
 function igFolder_(epFolder) {
   var nm = CFG.IG_FOLDER || 'اینستاگرام';
@@ -1087,7 +1092,12 @@ function igTick() {
       var dm = igDoneMap_(st);
       st.shortQ = st.shortQ.filter(function (x) { return x && dm[String(x.ep)]; });
     }
-    if (st.inflight.length < Math.max(1, Number(CFG.IG_INFLIGHT) || 2)) {
+    /* ══ بن‌بست (۹.۵۸) ══ درسِ ۱۳ِ مصباح پس از ۹.۵۶/۹.۵۷ هم نیامد: ۱۴ و ۱۵ِ آماده هر دو جای `IG_INFLIGHT` (۲) را گرفته
+       بودند و «منتظرِ انتشارِ درسِ ۱۳» بودند، و ۱۳ چون جا نبود هرگز وارد نمی‌شد. هیچ درمانی روی داور به این‌جا نمی‌رسید.
+       ریلزی که فقط منتظرِ درسِ پیشین است کار نمی‌کند، پس جا نمی‌گیرد؛ سقفِ کل سه برابر، تا صف بی‌حد نشود. */
+    var capIn = Math.max(1, Number(CFG.IG_INFLIGHT) || 2);
+    var activeIn = st.inflight.filter(function (x) { return !igWaitsEarlier_(st, x); }).length;
+    if (activeIn < capIn && st.inflight.length < capIn * 3) {
       var nx = igNextEp_(ytPublished_(getHub_()), st);
       if (nx) {
         var fo0 = ytFolderOf_(ENRICH_SHOW_SPECIAL, nx.ep, nx.series);
@@ -1284,6 +1294,13 @@ function igHealth_(problems, notes) {
     if (!x.since || x.sincePhase !== x.phase) return;
     var h = (now - Number(x.since)) / 3600000;
     if (h > (Number(CFG.IG_STUCK_H) || 30)) bad.push(x.key + ' ' + Math.round(h) + ' ساعت در گامِ «' + x.phase + '»' + (x.why ? ' — ' + x.why : ''));
+  });
+  /* ۹.۵۸: منتظرِ درسی که نه در جریان است نه کنار رفته ⇒ بن‌بست — دیده می‌شود، هرچند ۹.۵۸ راهش را بسته. */
+  (st.inflight || []).forEach(function (x) {
+    if (!igWaitsEarlier_(st, x)) return;
+    if (!x.since || (now - Number(x.since)) < 3 * 3600000) return;
+    var anyEarlierBusy = (st.inflight || []).some(function (y) { return Number(y.ep) < Number(x.ep) && !igWaitsEarlier_(st, y); });
+    if (!anyEarlierBusy && !(s.held || []).length) bad.push(x.key + ' ' + (x.why || 'منتظرِ درسِ پیشین') + '، ولی آن درس نه در جریان است نه کنار رفته (بن‌بست)');
   });
   /* ۹.۵۷: درسی که کنار رفته هم دیده می‌شود — همان درس کلِ مجموعه را نگه می‌دارد. */
   (s.held || []).forEach(function (h) { bad.push('درسِ ' + h.ep + ' پس از ' + h.tries + ' تلاش کنار رفت (' + h.ageH + ' ساعت از نخستین تلاش) — ' + h.why); });

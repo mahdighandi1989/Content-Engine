@@ -87,6 +87,26 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
     const sq = igState_().shortQ;
     ok('۱.۱۳ شورتزی که ریلزش دیگر «انجام‌شده» نیست از صف بیرون می‌رود؛ بقیه می‌مانند (۹.۵۲)', sq.length === 1 && sq[0].ep === 2, JSON.stringify(sq));
   }
+  { /* ۹.۵۸: بن‌بستِ واقعیِ ۱۹ اکتبر — ۱۴ و ۱۵ِ آماده هر دو جا را گرفته و منتظرِ ۱۳، و ۱۳ بیرون. خودِ igTick. */
+    const kOn = global.igOn_; global.igOn_ = () => false;
+    const O = { s: [{ n: 'مصباح', e: '12:12,13:13,14:14,15:15' }] };
+    igStateSave_({ done: '12', redo951: 1, redo954: 1, redo956: 1, redo957: 1, order: O,
+                   inflight: [{ key: 'ig:special:14', ep: 14, phase: 'pub', folderId: 'x' }, { key: 'ig:special:15', ep: 15, phase: 'pub', folderId: 'y' }] });
+    global.igOn_ = () => true;
+    let asked = 0;
+    const kNx = global.igNextEp_, kPub = global.ytPublished_, kFo = global.ytFolderOf_, kSt = global.igStep_, kRp = global.igResumePhase_;
+    global.igNextEp_ = () => { asked++; return { ep: 13, series: 'مصباح', url: 'u', lesson: 13 }; };
+    global.ytPublished_ = () => ({}); global.ytFolderOf_ = () => ({ getId: () => 'f13' }); global.igResumePhase_ = () => 'plan';
+    global.igStep_ = (it, st) => (it.phase === 'pub' && igEarlierPending_(st, it.ep) ? { wait: 'منتظرِ انتشارِ ' + igEarlierPending_(st, it.ep) + ' همین مجموعه' } : { wait: 'کار' });
+    const kRun = global.igShortQueueRun_, kTh = global.igShortThumbRetro_, kIn = global.igInsights_;
+    global.igShortQueueRun_ = () => 0; global.igShortThumbRetro_ = () => 0; global.igInsights_ = () => 0;
+    try { igTick(); } finally { global.igOn_ = kOn; global.igNextEp_ = kNx; global.ytPublished_ = kPub; global.ytFolderOf_ = kFo;
+                                global.igStep_ = kSt; global.igResumePhase_ = kRp;
+                                global.igShortQueueRun_ = kRun; global.igShortThumbRetro_ = kTh; global.igInsights_ = kIn; }
+    const fl = igState_().inflight.map(x => x.ep);
+    ok('۱.۱۴ بن‌بست (۹.۵۸): ریلزهای منتظرِ درسِ پیشین جا نمی‌گیرند، پس درسِ ۱۳ وارد می‌شود', asked === 1 && fl.indexOf(13) !== -1 && fl.length === 3, JSON.stringify(fl));
+    ok('۱.۱۵ و در سلامت دیده می‌شود اگر باز رخ دهد', /بن‌بست/.test(String(igHealth_)) && /igWaitsEarlier_\(st, x\)/.test(String(igTick)));
+  }
   const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
   ok('۱.۹ انتشار به ترتیب: درسِ ۲ تا وقتی درسِ ۱ منتشر نشده منتظر می‌ماند', igEarlierPending_(stP, 2) === 'درسِ 1' &&
      igEarlierPending_(Object.assign({}, stP, { done: '1' }), 2) === '' && igEarlierPending_(stP, 1) === '');
