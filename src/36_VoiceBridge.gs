@@ -1492,6 +1492,41 @@ function vbrPitchLine_(item, faD) {
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
+/**
+ * آخرین نمونهٔ «رنگ و روحِ» هر گوینده، یک بار به ازای هر نشانه (۹.۶۱) ⇒ شمارِ فرستاده‌ها، یا -1 اگر قبلاً رفته بود.
+ * «گلدوز و رضوی هم آخرین نمونه‌هاش بفرست نظر بدم» — نمونه‌ها ساخته و یک بار فرستاده شده بودند و در گفت‌وگوی تلگرام گم؛
+ * فهرست از نامِ خودِ فایل‌ها («… — با صدای <نام>.wav»)، نه فهرستی دستی که با نمونهٔ بعدی کهنه شود.
+ */
+function vbrResendLatest_(tag) {
+  var key = 'VBR_RESEND_' + String(tag || '');
+  var P = props_();
+  if (P.getProperty(key)) return -1;
+  if (!tgEnabled_()) return 0;
+  P.setProperty(key, nowStr_());                       // پیش از فرستادن: اجرای کشته‌شده دو بار نفرستد
+  var best = {}, it = DriveApp.searchFiles("title contains 'نمونهٔ رنگ و روح' and title contains 'با صدای' and trashed = false");
+  while (it.hasNext()) {
+    var f = it.next(), nm = String(f.getName() || ''), m = nm.match(/با صدای\s+(.+?)\.wav$/i);
+    if (!m) continue;
+    var who = m[1].trim(), t = f.getDateCreated().getTime();
+    if (!best[who] || best[who].t < t) best[who] = { f: f, t: t, nm: nm };
+  }
+  var n = 0;
+  Object.keys(best).forEach(function (who) {
+    var b = best[who], cap = '🎙 <b>آخرین نمونهٔ ' + tgEsc_(who) + '</b> (' +
+      tgEsc_(Utilities.formatDate(new Date(b.t), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm')) + ')\n' +
+      tgEsc_(b.nm.replace(/^نمونهٔ رنگ و روح —\s*/, '').replace(/\s*— با صدای.+$/, '')).slice(0, 700) +
+      '\n\nنظرتان را بگویید: «ه» هنوز «خ» است؟ پایانِ جمله‌ها سؤالی است؟ «آ» درست است؟';
+    try {
+      try { tgApi_('sendAudio', { chat_id: tgChat_(), audio: b.f.getBlob(), caption: cap, parse_mode: 'HTML', title: 'نمونهٔ ' + who }); }
+      catch (eA) { tgApi_('sendDocument', { chat_id: tgChat_(), document: b.f.getBlob(), caption: cap, parse_mode: 'HTML' }); }
+      n++;
+    } catch (eD) {
+      try { tgSend_(cap.replace(/<[^>]+>/g, '') + '\n' + driveLink_(b.f.getId())); n++; } catch (eL) {}
+    }
+  });
+  return n;
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -2148,6 +2183,8 @@ function vbrCollectHourly() {
   try { epStallKick_(); } catch (eSk) {}
   /* و قسمتی که امروز اصلاً ساخته نشد (۹.۶۰) — ساعتی، با شاهدِ ردیفِ امروز، نه مُهر. */
   try { epCatchUp_(); } catch (eCu) {}
+  /* و یک بار (۹.۶۱): آخرین نمونهٔ هر گوینده دوباره در تلگرام — «آخرین نمونه‌هاش بفرست نظر بدم». */
+  try { vbrResendLatest_('961'); } catch (eRs) {}
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}

@@ -1,16 +1,16 @@
 {
-  "version": "9.60",
+  "version": "9.61",
   "codeFile": "engine.gs",
-  "sha256": "0a6b98b38daf16c4883683fc7fa9404be5dd0653263f99f9925caf61080030d6",
-  "releasedAt": "2026-10-19T12:00:00+04:00",
-  "summary": "epCatchUp_: قسمتِ امروزی که قسمتِ تحویل‌شده‌ای با تاریخِ امروز ندارد (EP_LAST/SP_LAST، بی خواندنِ هاب) و در جریان نیست، ساعتی خودش از درِ تلاشِ دوباره راه می‌افتد (مُهرِ بی‌پشتوانه برداشته می‌شود؛ سقف دو بار در روز).",
+  "sha256": "7cacdd62a6f9674304193de8dfb21c9fe22186e9602a00d87b4a896ba55628ca",
+  "releasedAt": "2026-10-19T17:30:00+04:00",
+  "summary": "سدِ تصویرِ ریلز سرِ در: ریلزِ منتشرنشده با تصویرِ درس و بی مُهرِ imgOk پیش از ساخت و انتشار به گامِ تصویر برمی‌گردد؛ ریلزِ بی‌تصویر ساخته نمی‌شود؛ ۱۴ و ۱۵ِ مصباح یک بار از نو (شورتزشان از صف بیرون، بالارفته خصوصی)؛ آخرین نمونهٔ هر گوینده یک بار به تلگرام.",
   "fixes": [
-    "src/03_Producer.gs: epCatchUp_",
-    "src/36_VoiceBridge.gs: فراخوان در vbrCollectHourly",
-    "src/00_Config.gs: EP_CATCHUP، EP_CATCHUP_MAX، EP_CATCHUP_LAST_H"
+    "src/38_Instagram.gs: igImgUnchecked_، igImgReset_، imgOk، noLessonImg، igRedo961_، ریلزِ بی‌تصویر منتظر",
+    "src/36_VoiceBridge.gs: vbrResendLatest_ از vbrCollectHourly"
   ],
   "sourceReportIds": [],
   "answers": {
-    "R-20261019-06": "۹.۶۰"
+    "R-20261019-07": "۹.۶۱",
+    "R-20261019-08": "۹.۶۱"
   }
 }

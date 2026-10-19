@@ -3638,4 +3638,21 @@ console.log('=== ۳۹) رضوی «هر ۳» و گلدوز «هر ۱»، هر د�
   personaBoardSave_('razavi', false, both, 1, 'آرام و روایی بخوان', '');
 }
 
+{ /* ۹.۶۱: «گلدوز و رضوی هم آخرین نمونه‌هاش بفرست» — آخرینِ هر گوینده، یک بار. */
+  const mkF = (id, nm, d) => ({ getName: () => nm, getId: () => id, getDateCreated: () => new Date(d), getBlob: () => ({ id }) });
+  const files = [mkF('r1', 'نمونهٔ رنگ و روح — قسمت 74 · قدیمی — با صدای razavi.wav', '2026-10-17T10:00:00Z'),
+                 mkF('r2', 'نمونهٔ رنگ و روح — قسمت 74 · آرام — با صدای razavi.wav', '2026-10-18T21:24:00Z'),
+                 mkF('g1', 'نمونهٔ رنگ و روح — قسمت 74 · آرام — با صدای محمد تقی پور گلدوز.wav', '2026-10-18T22:24:00Z'),
+                 mkF('x', 'نمونهٔ رنگ و روح — قسمت 74 — محمد تقی پور گلدوز — کامل.wav', '2026-10-19T00:00:00Z')];
+  const kS = DriveApp.searchFiles, kT = global.tgApi_, kE = global.tgEnabled_, sent = [];
+  DriveApp.searchFiles = () => { let i = 0; return { hasNext: () => i < files.length, next: () => files[i++] }; };
+  global.tgApi_ = (m, p) => { sent.push(p.audio.id); return {}; }; global.tgEnabled_ = () => true;
+  let n1, n2;
+  try { n1 = vbrResendLatest_('t961'); n2 = vbrResendLatest_('t961'); }
+  finally { DriveApp.searchFiles = kS; global.tgApi_ = kT; global.tgEnabled_ = kE; }
+  ok('۹۶۱.۱ آخرین نمونهٔ هر گوینده (نه «کامل»ها، نه قدیمی‌تر) یک بار به تلگرام؛ بارِ دوم هیچ',
+     n1 === 2 && sent.sort().join(',') === 'g1,r2' && n2 === -1, JSON.stringify([n1, n2, sent]));
+  ok('۹۶۱.۲ سیم: ساعتیِ همیشگی صدایش می‌زند', /vbrResendLatest_\('961'\)/.test(String(vbrCollectHourly)));
+}
+
 console.log('\n✅ همه گذشت (' + pass + ' سنجه)');

@@ -77,7 +77,7 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
      /redo951/.test(String(igTick)) && /redo954/.test(String(igTick)));
   { /* ۹.۵۲: شورتزِ ریلزِ پس‌گرفته از صف بیرون — خودِ igTick، با حالتِ ذخیره‌شده. */
     const kOn = global.igOn_; global.igOn_ = () => false;
-    igStateSave_({ done: '1,2', redo951: 1, shortQ: [{ key: 'ig:special:2', ep: 2 }, { key: 'ig:special:22', ep: 22 }] });
+    igStateSave_({ done: '1,2', redo951: 1, redo961: 1, shortQ: [{ key: 'ig:special:2', ep: 2 }, { key: 'ig:special:22', ep: 22 }] });
     global.igOn_ = () => true;
     const kNx = global.igNextEp_, kPub = global.ytPublished_; global.igNextEp_ = () => null; global.ytPublished_ = () => ({});
     const kRun = global.igShortQueueRun_, kTh = global.igShortThumbRetro_, kIn = global.igInsights_;
@@ -90,7 +90,7 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
   { /* ۹.۵۸: بن‌بستِ واقعیِ ۱۹ اکتبر — ۱۴ و ۱۵ِ آماده هر دو جا را گرفته و منتظرِ ۱۳، و ۱۳ بیرون. خودِ igTick. */
     const kOn = global.igOn_; global.igOn_ = () => false;
     const O = { s: [{ n: 'مصباح', e: '12:12,13:13,14:14,15:15' }] };
-    igStateSave_({ done: '12', redo951: 1, redo954: 1, redo956: 1, redo957: 1, order: O,
+    igStateSave_({ done: '12', redo951: 1, redo954: 1, redo956: 1, redo957: 1, redo961: 1, order: O,
                    inflight: [{ key: 'ig:special:14', ep: 14, phase: 'pub', folderId: 'x' }, { key: 'ig:special:15', ep: 15, phase: 'pub', folderId: 'y' }] });
     global.igOn_ = () => true;
     let asked = 0;
@@ -106,6 +106,23 @@ console.log('=== ۱) کدام درس بعدی است — مجموعه به مج�
     const fl = igState_().inflight.map(x => x.ep);
     ok('۱.۱۴ بن‌بست (۹.۵۸): ریلزهای منتظرِ درسِ پیشین جا نمی‌گیرند، پس درسِ ۱۳ وارد می‌شود', asked === 1 && fl.indexOf(13) !== -1 && fl.length === 3, JSON.stringify(fl));
     ok('۱.۱۵ و در سلامت دیده می‌شود اگر باز رخ دهد', /بن‌بست/.test(String(igHealth_)) && /igWaitsEarlier_\(st, x\)/.test(String(igTick)));
+  }
+  { /* ۹.۶۱: ۱۴ و ۱۵ِ منتشرشده با قاب‌های متنی — از «انجام‌شده»، صفِ شورتز و در جریان بیرون؛ شورتزِ بالارفته خصوصی. */
+    const fo15 = global.__ROOT_FOLDER.createFolder('قسمت ۱۵'), ig15 = igFolder_(fo15);
+    igPlanWrite_(ig15, { v: 4, phase: 'yts', reelId: 'R15', permalink: 'P15', shortId: 'S15', plan: { hook: 'h', lines: [] } });
+    const st = { done: '12,13,14,15', shortQ: [{ key: 'ig:special:14', ep: 14, folderId: 'nope' }, { key: 'ig:special:9', ep: 9 }],
+                 inflight: [{ key: 'ig:special:15', ep: 15, phase: 'yts', folderId: fo15.getId() }, { key: 'ig:special:16', ep: 16, phase: 'pub' }],
+                 fails: { '15': 2 } };
+    const upd = [], kYt = global.ytSvc_, kQ = global.ytQuotaTake_;
+    global.ytSvc_ = () => ({ Videos: { update: (o) => upd.push(o) } }); global.ytQuotaTake_ = () => true;
+    try { igRedo961_(st); } finally { global.ytSvc_ = kYt; global.ytQuotaTake_ = kQ; }
+    const p15 = igPlanRead_(ig15);
+    ok('۱.۱۶ ۹.۶۱: ۱۴ و ۱۵ دوباره ساخته می‌شوند — بیرون از انجام‌شده/صفِ شورتز/در جریان، بی «تصویرها»ی درس؛ ۱۶ و ۹ دست نمی‌خورند',
+       st.done === '12,13' && st.shortQ.length === 1 && st.shortQ[0].ep === 9 && st.inflight.length === 1 && st.inflight[0].ep === 16 &&
+       st.noLessonImg['14'] && st.noLessonImg['15'] && !st.fails['15'], JSON.stringify(st));
+    ok('۱.۱۷ شورتزی که بالا رفته بود خصوصی می‌شود (نه پاک)، و پیوندِ ریلزِ پیشین می‌ماند', upd.length === 1 && upd[0].id === 'S15' &&
+       upd[0].status.privacyStatus === 'private' && p15.shortHidden === 'S15' && p15.archivedReel === 'P15', JSON.stringify(upd));
+    ok('۱.۱۸ یک بار، از خودِ igTick', /if \(!st\.redo961\)/.test(String(igTick)) && /igRedo961_\(st\)/.test(String(igTick)));
   }
   const stP = { done: '', order: { s: [{ n: 'مصباح', e: '1:1,2:2,3:3' }] } };
   ok('۱.۹ انتشار به ترتیب: درسِ ۲ تا وقتی درسِ ۱ منتشر نشده منتظر می‌ماند', igEarlierPending_(stP, 2) === 'درسِ 1' &&
@@ -222,6 +239,19 @@ let fo, plan;
      igStepImages_(it, fo, plan, Date.now() + 60000).ok && plan.imgs.length === 2 && plan.imgHow === 'نقاشی‌های درس' &&
      global.__FILES_BY_ID[plan.imgs[0].src].getName() === 'صحنه 01.png' && fo.getFilesByName('ریلز — تصویر 1').hasNext(),
      JSON.stringify(plan.imgs));
+  /* ۹.۶۱: ۱۴ و ۱۵ِ مصباح با قاب‌های متنیِ درس منتشر شدند — تصویرشان پیش از سدِ ۹.۵۴ برداشته شده بود و هرگز از سد نگذشت. */
+  ok('۳.۷-ب گذر از سد مُهر می‌خورد (`imgOk`)؛ ردشده بی‌تصویر جلو نمی‌رود — منتظر، نه ریلزِ خالی',
+     plan.imgOk === 1 && planT.imgOk === 0 && planT.phase === 'img' && planQ.phase === 'img', JSON.stringify([plan.imgOk, planT.phase]));
+  const planN = JSON.parse(JSON.stringify(plan)); planN.phase = 'img';
+  const rN = igStepImages_(Object.assign({}, it, { noLesson: 1 }), fo, planN, Date.now() + 60000);
+  ok('۳.۷-پ درسی که تصویرش یک بار رد شد (`noLesson`) دیگر سراغِ «تصویرها»ی درس نمی‌رود', !!rN.wait && planN.imgs.length === 0 &&
+     planN.phase === 'img', JSON.stringify(rN));
+  const old = { phase: 'pub', imgs: [{ id: 'a', src: 'b' }], video: 'v', cover: 'c', short: 's', sig: 'x' };
+  ok('۳.۷-ت سرِ در: ریلزِ منتشرنشده با تصویرِ درس و بی مُهر ⇒ به گامِ تصویر (ویدئو و کاور و شورتز کنار)؛ تصویرِ تازه یا منتشرشده دست نمی‌خورد',
+     igImgUnchecked_(old) && igImgReset_(old).phase === 'img' && !old.video && !old.cover && !old.short && !old.imgs.length &&
+     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', gen: true }] }) &&
+     !igImgUnchecked_({ phase: 'pub', imgs: [{ id: 'a', src: 'b' }], imgOk: 1 }) &&
+     !igImgUnchecked_({ phase: 'yts', reelId: 'r', imgs: [{ id: 'a', src: 'b' }] }), JSON.stringify(old));
 
   /* صف: ردیفی در `reels`، نه `items`؛ اشتراکِ موقت. */
   let saved = null; const shared = [];

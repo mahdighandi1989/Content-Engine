@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.60
+ *  موتور محتوا و پادکست — نسخهٔ 9.61
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -2161,7 +2161,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.60',
+  CODE_VERSION: '9.61',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -77175,6 +77175,41 @@ function vbrPitchLine_(item, faD) {
   return out ? '\n🎚 ' + tgEsc_(out) : '';
 }
 
+/**
+ * آخرین نمونهٔ «رنگ و روحِ» هر گوینده، یک بار به ازای هر نشانه (۹.۶۱) ⇒ شمارِ فرستاده‌ها، یا -1 اگر قبلاً رفته بود.
+ * «گلدوز و رضوی هم آخرین نمونه‌هاش بفرست نظر بدم» — نمونه‌ها ساخته و یک بار فرستاده شده بودند و در گفت‌وگوی تلگرام گم؛
+ * فهرست از نامِ خودِ فایل‌ها («… — با صدای <نام>.wav»)، نه فهرستی دستی که با نمونهٔ بعدی کهنه شود.
+ */
+function vbrResendLatest_(tag) {
+  var key = 'VBR_RESEND_' + String(tag || '');
+  var P = props_();
+  if (P.getProperty(key)) return -1;
+  if (!tgEnabled_()) return 0;
+  P.setProperty(key, nowStr_());                       // پیش از فرستادن: اجرای کشته‌شده دو بار نفرستد
+  var best = {}, it = DriveApp.searchFiles("title contains 'نمونهٔ رنگ و روح' and title contains 'با صدای' and trashed = false");
+  while (it.hasNext()) {
+    var f = it.next(), nm = String(f.getName() || ''), m = nm.match(/با صدای\s+(.+?)\.wav$/i);
+    if (!m) continue;
+    var who = m[1].trim(), t = f.getDateCreated().getTime();
+    if (!best[who] || best[who].t < t) best[who] = { f: f, t: t, nm: nm };
+  }
+  var n = 0;
+  Object.keys(best).forEach(function (who) {
+    var b = best[who], cap = '🎙 <b>آخرین نمونهٔ ' + tgEsc_(who) + '</b> (' +
+      tgEsc_(Utilities.formatDate(new Date(b.t), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm')) + ')\n' +
+      tgEsc_(b.nm.replace(/^نمونهٔ رنگ و روح —\s*/, '').replace(/\s*— با صدای.+$/, '')).slice(0, 700) +
+      '\n\nنظرتان را بگویید: «ه» هنوز «خ» است؟ پایانِ جمله‌ها سؤالی است؟ «آ» درست است؟';
+    try {
+      try { tgApi_('sendAudio', { chat_id: tgChat_(), audio: b.f.getBlob(), caption: cap, parse_mode: 'HTML', title: 'نمونهٔ ' + who }); }
+      catch (eA) { tgApi_('sendDocument', { chat_id: tgChat_(), document: b.f.getBlob(), caption: cap, parse_mode: 'HTML' }); }
+      n++;
+    } catch (eD) {
+      try { tgSend_(cap.replace(/<[^>]+>/g, '') + '\n' + driveLink_(b.f.getId())); n++; } catch (eL) {}
+    }
+  });
+  return n;
+}
+
 function vbrTgTell_(item, speakerName, got) {
   var out = { sent: false, how: '', why: '' };
   try {
@@ -77831,6 +77866,8 @@ function vbrCollectHourly() {
   try { epStallKick_(); } catch (eSk) {}
   /* و قسمتی که امروز اصلاً ساخته نشد (۹.۶۰) — ساعتی، با شاهدِ ردیفِ امروز، نه مُهر. */
   try { epCatchUp_(); } catch (eCu) {}
+  /* و یک بار (۹.۶۱): آخرین نمونهٔ هر گوینده دوباره در تلگرام — «آخرین نمونه‌هاش بفرست نظر بدم». */
+  try { vbrResendLatest_('961'); } catch (eRs) {}
   /* و رانرِ ویدئو، وقتی کاری برایش نوشته شده و هنوز برداشته نشده (۸.۵۸) — فقط
      Properties و یک POSTِ کوچک؛ پیش از سدِ پل، چون ویدئو به پل ربطی ندارد. */
   try { ghRenderKickDue_(); } catch (eGk) {}
@@ -80997,8 +81034,10 @@ function igImgGate_(items) {
 function igStepImages_(it, fo, plan, deadline) {
   var lines = plan.plan.lines, want = Math.min(Math.max(1, Number(plan.recap ? CFG.IG_RECAP_IMG_N : CFG.IG_IMG_N) || 5), lines.length - 1);
   var ids = [], how = '';
-  /* ۱) نقاشی‌های خودِ درس، اگر هست — به ترتیبِ نام (صحنه ۰۱، ۰۲…)، پخش روی کلِ درس. */
-  try {
+  /* ۱) نقاشی‌های خودِ درس، اگر هست — به ترتیبِ نام (صحنه ۰۱، ۰۲…)، پخش روی کلِ درس. ۹.۶۱: درسی که تصویرهایش یک بار
+     رد شد (`it.noLesson`) دیگر سراغِ «تصویرها»ی درس نمی‌رود — همان قاب‌های نوشته‌دار دوباره به داور نمی‌روند. */
+  plan.imgOk = 0;
+  if (!it.noLesson) try {
     var epFo = DriveApp.getFolderById(it.folderId), lvf = epFo.getFoldersByName(CFG.LV_FOLDER || 'تصویرها');
     if (lvf.hasNext()) {
       var all = [], fi = lvf.next().getFiles();
@@ -81022,6 +81061,7 @@ function igStepImages_(it, fo, plan, deadline) {
             ids.push({ id: cp.getId(), src: pick[q].getId() });
           }
           how = 'نقاشی‌های درس';
+          plan.imgOk = 1;
         } else {
           plan.imgGate = gate.why;
         }
@@ -81052,11 +81092,14 @@ function igStepImages_(it, fo, plan, deadline) {
         }
         if (g && g.blob) ids.push({ id: fo.createFile(g.blob.setName('ریلز — تصویر ' + (ids.length + 1) + '.png')).getId(), gen: true });
       }
+      if (ids.length) plan.imgOk = 1;   // هر تصویرِ تازه‌ای که ماند، از سد گذشته است
       how = 'تصویرهای تازه (' + ids.length + ')' + (plan.imgGate ? ' — ' + plan.imgGate : '');
     } else {
       how = 'بی تصویر — ' + (model ? 'سقفِ هزینهٔ ماهانهٔ تصویرسازی' : 'تصویرسازی خاموش است');
     }
   }
+  /* ۹.۶۱: ریلزِ بی‌تصویر ساخته نمی‌شود — همان پس‌زمینهٔ خالی که «داغون» دیده شد. منتظر می‌ماند و علت در `why` است. */
+  if (!ids.length) { plan.imgs = []; plan.imgHow = how; return { wait: 'تصویرِ پذیرفته‌شده نیست — ' + how }; }
   plan.imgs = ids;
   plan.imgHow = how;
   plan.phase = 'ask';
@@ -81413,6 +81456,10 @@ function igTick() {
        (شورتزِ در صفش را قاعدهٔ ۹.۵۲ برمی‌دارد) و از نو، با سدِ تصویر؛ درسِ ۱۴ تا آن منتشر نشود منتظر می‌ماند. */
     /* ۹.۵۶: درسِ ۱۳ از نگه‌داشتنِ ۲۴ساعته بیرون، یک‌راست به تلاشِ آخر (با علتِ ردِ قبلی و پذیرشِ ایرادِ نرم). */
     /* ۹.۵۷: درسی که پیش از این نسخه گیر کرد، سنش را از همان گیر می‌شمارد، نه از امروز. */
+    /* ۹.۶۱، یک بار: ریلزهای ۱۴ و ۱۵ِ مصباح با قاب‌های متنیِ درس (نه نقاشی) منتشر شدند — صاحبِ برنامه ۱۴ را بایگانی کرد.
+       هر دو از «انجام‌شده» بیرون و از نو، بی «تصویرها»ی درس؛ شورتزِ در صف یا در راهشان برداشته می‌شود، و اگر شورتزی
+       همین حالا بالا رفته بود، خصوصی (نه پاک) — همان ویدئوی زشت. ۱۶ تا این دو منتشر نشوند منتظر می‌ماند (ترتیب). */
+    if (!st.redo961) { try { igRedo961_(st); } catch (eR) { st.lastWhy = 'redo961: ' + String(eR.message || eR).slice(0, 100); } st.redo961 = 1; }
     if (!st.redo957) {
       st.firstAt = st.firstAt || {};
       Object.keys(st.failAt || {}).forEach(function (e) { if (!st.firstAt[e]) st.firstAt[e] = Number(st.failAt[e]) || Date.now(); });
@@ -81461,6 +81508,7 @@ function igTick() {
       it.ageH = (Date.now() - Number(st.firstAt[String(it.ep)])) / 3600000;
       it.tryN = Number((st.fails || {})[String(it.ep)]) || 0;
       it.prevWhy = (st.failWhy || {})[String(it.ep)] || '';
+      it.noLesson = (st.noLessonImg || {})[String(it.ep)] ? 1 : 0;
       try { res = igStep_(it, st, deadline); } catch (e) { res = { wait: String(e.message || e).slice(0, 140) }; }
       it.why = res.wait || res.fail || '';
       if (it.sincePhase !== it.phase) { it.sincePhase = it.phase; it.since = Date.now(); }
@@ -81494,6 +81542,39 @@ function igTick() {
   }
 }
 
+function igRedo961_(st) {
+  var eps = ['14', '15'], arch = { '14': 'https://www.instagram.com/reel/DerQYQUiZtR/', '15': 'https://www.instagram.com/reel/DerQmhmDI5e/' };
+  var fid = {};
+  (st.inflight || []).concat(st.shortQ || []).forEach(function (x) { if (x && eps.indexOf(String(x.ep)) !== -1) fid[String(x.ep)] = x.folderId; });
+  st.done = String(st.done || '').split(',').filter(function (x) { return x && eps.indexOf(x) === -1; }).join(',');
+  st.shortQ = (st.shortQ || []).filter(function (x) { return x && eps.indexOf(String(x.ep)) === -1; });
+  st.inflight = (st.inflight || []).filter(function (x) { return x && eps.indexOf(String(x.ep)) === -1; });
+  st.noLessonImg = st.noLessonImg || {};
+  st.archived = st.archived || {};
+  eps.forEach(function (e) {
+    st.noLessonImg[e] = 1;
+    st.archived[e] = arch[e];
+    if (st.fails) delete st.fails[e];
+    if (st.failAt) delete st.failAt[e];
+    if (st.firstAt) delete st.firstAt[e];
+    if (!fid[e]) return;
+    try {
+      var fo = igFolder_(DriveApp.getFolderById(fid[e])), plan = igPlanRead_(fo);
+      if (!plan) return;
+      if (plan.shortId) {
+        var yt = ytSvc_();
+        if (yt && ytQuotaTake_(YT_COST.videosUpdate, false)) {
+          yt.Videos.update({ id: plan.shortId, status: { privacyStatus: 'private', selfDeclaredMadeForKids: false } }, 'status');
+          plan.shortHidden = plan.shortId;
+        }
+      }
+      plan.archivedReel = plan.permalink || arch[e];
+      igPlanWrite_(fo, plan);
+    } catch (eF) { st.lastWhy = 'redo961 (' + e + '): ' + String(eF.message || eF).slice(0, 100); }
+  });
+  return true;
+}
+
 /**
  * شکستی که از حساب بود، شکستِ درس نیست (۹.۵۱): شمارش و نگه‌داشتنش پاک می‌شود — درسِ ۹ِ مصباح با «API access blocked»
  * سه بار شمرده شد و ۲۴ ساعت کنار رفت، در حالی که خودِ درس هیچ ایرادی نداشت. پیش از ۹.۵۱ علت فقط در `lastWhy` بود.
@@ -81518,6 +81599,26 @@ function igResumePhase_(fo0) {
   return 'plan';
 }
 
+/**
+ * سدِ تصویر روی درِ انتشار (۹.۶۱) — «ریلزِ درسِ ۱۴ باز داغون بود … مگه نگفتی درستش کردی». سدِ ۹.۵۴ فقط در گامِ تصویر بود؛
+ * ۱۴ و ۱۵ِ مصباح تصویرشان را **پیش از** نصبِ آن گام برداشته بودند (قاب‌های متنیِ «تصویرها»ی درس، نه نقاشی) و از همان
+ * گامِ بعدی ادامه دادند — هیچ‌وقت از سد نگذشتند و منتشر شدند. ریلزِ منتشرنشده‌ای که تصویرِ درس دارد و مُهرِ گذر از سد
+ * (`imgOk`) ندارد، پیش از ساخت و انتشار به گامِ تصویر برمی‌گردد. سد باید سرِ در باشد، نه روی یکی از راه‌های رسیدن به آن.
+ */
+function igImgUnchecked_(plan) {
+  if (!plan || plan.reelId || plan.imgOk) return false;
+  if (['ask', 'got', 'ok', 'pub'].indexOf(String(plan.phase)) === -1) return false;
+  return (plan.imgs || []).some(function (x) { return x && x.src; });
+}
+
+/** برنامه به گامِ تصویر — ویدئو، کاور و شورتزِ ساخته‌شده از تصویرهای ردشده کنار می‌روند. */
+function igImgReset_(plan) {
+  plan.imgs = []; plan.imgOk = 0; plan.imgHow = '';
+  ['video', 'cover', 'short', 'shortSeconds', 'sig', 'askedAt', 'align', 'reelCid'].forEach(function (k) { delete plan[k]; });
+  plan.phase = 'img';
+  return plan;
+}
+
 /** یک گامِ یک ریلز. ⇒ {done} | {ok} | {wait} | {fail} */
 function igStep_(it, st, deadline) {
   var fo = igFolder_(DriveApp.getFolderById(it.folderId));
@@ -81530,6 +81631,15 @@ function igStep_(it, st, deadline) {
           dq.reels = (dq.reels || []).filter(function (x) { return x && x.key !== it.key; });
           if (dq.reels.length !== nb) ytRenderSave_(dq); } catch (eQ) {}
     it.phase = 'plan'; plan = null;
+  }
+  if (plan && igImgUnchecked_(plan)) {
+    try { var dq2 = ytRenderRead_(); var nb2 = (dq2.reels || []).length;
+          dq2.reels = (dq2.reels || []).filter(function (x) { return x && x.key !== it.key; });
+          if (dq2.reels.length !== nb2) ytRenderSave_(dq2); } catch (eQ2) {}
+    igImgReset_(plan);
+    st.noLessonImg = st.noLessonImg || {}; st.noLessonImg[String(it.ep)] = 1; it.noLesson = 1;
+    igPlanWrite_(fo, plan);
+    it.phase = plan.phase;
   }
   var r;
   for (var guard = 0; guard < 8 && Date.now() < deadline; guard++) {
