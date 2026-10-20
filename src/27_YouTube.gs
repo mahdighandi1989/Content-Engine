@@ -8147,6 +8147,14 @@ function ytDescFinal_(key, description) {
     var m = (ytRenderMapCached_() || {})[String(key)] || null;
     if (m && m.inserts && m.inserts.length) desc = vmShiftDesc_(desc, m.inserts);
   } catch (e) {}
+  /* ۹.۷۹: موسیقیِ CC BY بی ذکرِ نام خلافِ مجوزِ خودش است — «جوری نباشه که … یوتیوب ویدئو رو ممنوع کنه». */
+  try {
+    var kp = String(key || '').split(':');
+    if (desc.indexOf('🎵 موسیقی:') === -1 && kp.length === 2) {
+      var cr = musicCreditsFor_(kp[0], kp[1]);
+      if (cr.length) desc += '\n\n🎵 موسیقی:\n' + cr.map(function (x) { return '• ' + x; }).join('\n');
+    }
+  } catch (eCr) {}
   return desc;
 }
 

@@ -50,7 +50,7 @@ console.log('=== ۱) کارت‌های امروز ===');
 {
   CFG.MR_PER_RUN = 3;
   const out = tgPollTick();
-  const aud = calls('sendAudio');
+  const aud = calls('sendDocument');   // ۹.۷۹: WAV مستقیم به sendDocument — sendAudio نمی‌پذیردش
   const map = mrMap_(hub);
   ok('۱.۱ بیشترپخش‌شده اول (A، C، D) — هر کدام صوت با دکمه، و ردیفِ «فرستاده‌شده» با شناسهٔ پیام',
      out.sent === 3 && aud.length === 3 && map[fA.getId()].msg && map[fC.getId()].sent && !map[fB.getId()],
@@ -63,7 +63,7 @@ console.log('=== ۱) کارت‌های امروز ===');
   ok('۱.۴ کپشن: نام، بارِ پخش، شنیدنِ مدل و «معلق»', /A<\/b>/.test(aud[0].b.caption) && /بار پخش شده/.test(aud[0].b.caption) && /⏳ معلق/.test(aud[0].b.caption));
   CFG.MR_FIRST_BATCH = 3;
   tg.length = 0; tgPollTick();
-  ok('۱.۵ سهمِ روز پر ⇒ کارتِ تازه نه', calls('sendAudio').length === 0 && /سهمِ امروز/.test(mrState_().sendWhy), mrState_().sendWhy);
+  ok('۱.۵ سهمِ روز پر ⇒ کارتِ تازه نه', calls('sendDocument').length === 0 && /سهمِ امروز/.test(mrState_().sendWhy), mrState_().sendWhy);
 }
 
 const cq = (data, msgId, chat) => ({ update_id: ++mid, callback_query: { id: 'q' + mid, data: data,
@@ -160,10 +160,15 @@ console.log('=== ۵-ب) تلگرامِ واقعی: WAVِ ردشده از sendAud
     return keep(url, body);
   };
   tg.length = 0;
-  const midD = mrSendOne_({ id: fD.getId(), name: 'D.wav', sec: 30, used: 3, heard: 'آهنگ' }, null);
+  const fM = global.__ROOT_FOLDER.createFile(Utilities.newBlob(new Array(400).fill(1), 'audio/mpeg', 'M.mp3'));
+  const midD = mrSendOne_({ id: fM.getId(), name: 'M.mp3', sec: 30, used: 3, heard: 'آهنگ' }, null);
+  const docAfterMp3 = calls('sendDocument').length;
+  tg.length = 0; audioCalls = 0;
+  const midW = mrSendOne_({ id: fD.getId(), name: 'D.wav', sec: 30, used: 3, heard: 'آهنگ' }, null);
   global.__STUB = keep;
-  ok('۵-ب.۱ sendAudio رد کرد ⇒ همان فایل با sendDocument و همان دکمه‌ها، نه پیوندِ خالی', audioCalls === 1 && !!midD &&
-     calls('sendDocument').length === 1 && /inline_keyboard/.test(calls('sendDocument')[0].b.reply_markup) && calls('sendMessage').length === 0);
+  ok('۵-ب.۰ WAV یک بار بارگذاری می‌شود، مستقیم با sendDocument (۹.۷۹)', audioCalls === 0 && !!midW && calls('sendDocument').length === 1);
+  ok('۵-ب.۱ غیرِ WAV: sendAudio رد کرد ⇒ همان فایل با sendDocument و همان دکمه‌ها، نه پیوندِ خالی', !!midD && docAfterMp3 === 1 &&
+     /inline_keyboard/.test(calls('sendDocument')[0].b.reply_markup) && calls('sendMessage').length === 0);
   tg.length = 0;
   ups.push({ update_id: ++mid, channel_post: { message_id: 10, chat: { id: 777 }, text: '/music' } });
   tgPollTick();
@@ -278,6 +283,109 @@ console.log('=== ۸) «دیر و نامشخص و نامفهوم» و «ستار�
   tgPollTick();
   const polls = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'tgPollTick');
   ok('۸.۷ نخستین اجرای تریگرِ کهنه پس از نصبِ دستی ⇒ تریگرِ یک‌دقیقه‌ای', polls.length === 1 && polls[0] !== old && global.__PROPS[PK.TRIG_POLL] === '1');
+}
+
+console.log('=== ۹) «فقط ۲۶ جلوه در دو ماه … باید بیش از هزار جمع می‌کرد … بر اساسِ اسمی که تو اون کتابخونه‌ها داره» (۹.۷۹) ===');
+{
+  ok('۹.۱ هدفِ بانکِ افکت دیگر ۸ نیست — گشتنِ عمومی با ۲۶ افکت می‌ایستاد', CFG.MUSIC_SFX_TARGET >= 1000 && CFG.MUSIC_SFX_SEEK_MAX >= 20, CFG.MUSIC_SFX_TARGET);
+
+  /* archive.org: یک اثرِ کتابخانهٔ جلوه با چند فایل، عنوانِ هر فایل در شناسنامه. */
+  const keep = global.__STUB, asked = [];
+  global.__STUB = (url, body) => {
+    if (/advancedsearch\.php/.test(url)) { asked.push(decodeURIComponent(url)); return { code: 200, json: { response: { docs: [{ identifier: 'bbc-sfx-1', title: 'Sound Effects Library', licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' }] } } }; }
+    if (/\/metadata\/bbc-sfx-1/.test(url)) return { code: 200, json: { metadata: { title: 'Sound Effects Library', subject: ['foley', 'weather'], licenseurl: 'https://creativecommons.org/publicdomain/zero/1.0/' },
+      files: [{ name: 'rain_roof_01.wav', size: 400000, title: 'Rain on tin roof' }, { name: 'door_creak.wav', size: 300000, title: 'Old wooden door creak' },
+              { name: 'thunder.wav', size: 500000 }, { name: 'album_full.wav', size: 90000000, title: 'Full album' }, { name: 'notes.txt', size: 100 }] } };
+    return keep(url, body);
+  };
+  const before = (musicFeedRead_().items || []).length;
+  try { musicSeek_(null, true); } finally { global.__STUB = keep; }
+  const items = (musicFeedRead_().items || []).slice(before).filter(x => x.kind === 'افکت');
+  const byT = t => items.filter(x => x.title === t)[0];
+  ok('۹.۲ از یک اثر چند فایل، نه فقط کوچک‌ترین؛ فایلِ آلبومیِ ۹۰ مگابایتی نه', items.length === 3 && !items.some(x => /album/i.test(x.url)), items.map(x => x.title).join(' | '));
+  ok('۹.۳ نامِ هر جلوه همان عنوانِ کتابخانه است و دسته از همان می‌آید', byT('Rain on tin roof') && /^باران/.test(byT('Rain on tin roof').mood) &&
+     byT('Old wooden door creak') && /^در/.test(byT('Old wooden door creak').mood) && byT('thunder') && /رعد/.test(byT('thunder').mood) &&
+     byT('Rain on tin roof').lib === 'Sound Effects Library', JSON.stringify(items.map(x => [x.title, x.mood])));
+  ok('۹.۴ و پرسشِ جست‌وجو بی خواسته هم چند دسته را با هم می‌گردد', asked.length && (asked[0].match(/\) OR \(/g) || []).length >= 1, asked[0] && asked[0].slice(-140));
+
+  /* اجرای جدای افکت فقط افکت می‌آورد. */
+  const feed = musicFeedRead_();
+  feed.items.push({ url: 'https://example.org/song.wav', title: 'song', kind: 'موسیقی' });
+  putOutJson_(MUSIC_FEED_(), feed);
+  const got = [];
+  const keep2 = global.__STUB;
+  global.__STUB = (url, body) => { if (/example\.org|archive\.org\/download/.test(url)) { got.push(url); return { code: 404, json: {} }; } return keep2(url, body); };
+  try { musicFetch_({ only: 'افکت', cap: 10 }); } finally { global.__STUB = keep2; }
+  ok('۹.۵ musicFetch_({only:"افکت"}) موسیقی را دست نمی‌زند', got.length >= 3 && !got.some(u => /song\.wav/.test(u)), got.join(' , '));
+
+  /* زنگِ اجرای جدا: هر دو ساعت، تا وقتی بانک به هدف نرسیده. */
+  global.__TRIGGERS.length = 0;
+  delete global.__PROPS[PK.SFX_BULK];
+  global.engineBusyForSwap_ = () => false;
+  const a1 = sfxBulkArm_(), t1 = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'sfxBulkRun').length;
+  global.__TRIGGERS.length = 0;
+  global.__PROPS[PK.SFX_BULK] = JSON.stringify({ at: Date.now() - 10 * 60000, have: 30 });
+  const a2 = sfxBulkArm_();
+  global.__PROPS[PK.SFX_BULK] = JSON.stringify({ at: 0, have: 5000 });
+  const a3 = sfxBulkArm_();
+  ok('۹.۶ اجرای جدا: زده می‌شود، ده دقیقه بعد نه، و پس از رسیدن به هدف هرگز', a1 === true && t1 === 1 && a2 === false && a3 === false);
+  ok('۹.۷ و از تریگرِ ساعتی صدا زده می‌شود', /sfxBulkArm_\(\)/.test(fs.readFileSync('src/36_VoiceBridge.gs', 'utf8')));
+
+  /* کارتِ تلگرام برای افکت. */
+  const map = {}, q = mrQueue_([{ id: 'm1', name: 'a', kind: 'موسیقی', used: 3 }, { id: 'm2', name: 'b', kind: 'موسیقی', used: 2 }, { id: 'm3', name: 'c', kind: 'موسیقی', used: 1 },
+    { id: 'm4', name: 'd', kind: 'موسیقی', used: 0 }, { id: 's1', name: 'rain', kind: 'افکت', used: 0 }, { id: 's2', name: 'door', kind: 'افکت', used: 0 }], map);
+  ok('۹.۸ افکت‌ها هم در صفِ کارت، هر چهارمی یکی', q.map(x => x.id).join(',') === 'm1,m2,m3,s2,m4,s1', q.map(x => x.id).join(','));
+  const kbS = [].concat.apply([], mrKeyboard_('s1', {}, 'افکت').inline_keyboard).map(x => x.text).join(' ');
+  const capS = mrCaption_({ id: 's1', name: 'Rain on tin roof.wav', kind: 'افکت', sec: 4, mood: 'باران · rain on tin roof' }, {});
+  ok('۹.۹ کارتِ افکت: 🔊، دسته و نامِ کتابخانه؛ بی وایب و جایگاه', /🔊/.test(capS) && /دسته و نامِ کتابخانه: باران/.test(capS) && !/وایبِ دیگر/.test(kbS) && !/شروع/.test(kbS) && /✅ تأیید/.test(kbS) &&
+     /با نامش نمی‌خواند/.test(kbS) && !/موسیقی نیست/.test(kbS), kbS);
+
+  /* «داستانی … درست سرِ جای خودش؟» — یک خبرِ داستانی با باران؛ افکتِ تأییدشده بی شنیدنِ مدل و بی شناسنامه. */
+  const secs = [{ heading: 'شبِ بارانی', tone: 'رازآلود', narration: 'آن شب باران می‌بارید. زیرِ باران قدم می‌زد و صدای باران روی سقف می‌آمد. ناگهان در باز شد.' }];
+  const sfxB = { id: 'S1', name: 'Rain on tin roof', kind: 'افکت', mood: 'باران · rain on tin roof', heard: '', src: '', sec: 4 };
+  const pick = [{ section: 0, word: 'باران', id: 'S1', anchor: 'صدای باران روی سقف', when: 'روی' }];
+  const off = sfxAllow_(secs, pick, 'variety', [sfxB]);
+  const on = sfxAllow_(secs, pick, 'variety', [Object.assign({}, sfxB, { rev: { ok: true } })]);
+  ok('۹.۱۰ بی شنیدن و بی شناسنامه نه؛ با تأییدِ شما در کارت، بله — با لنگرِ همان جمله', off.length === 0 && on.length === 1 && on[0].anchor === 'صدای باران روی سقف' && on[0].when === 'روی', JSON.stringify(on));
+  const spec = sfxAllow_(secs, pick, 'special', [Object.assign({}, sfxB, { rev: { ok: true } })]);
+  ok('۹.۱۱ درس‌نامه همچنان بی‌جلوه', spec.length === 0);
+}
+
+console.log('=== ۱۰) «۵ تای بعدی رو زدم و ده دقیقه گذشته» و «غیرقانونی نباشه … یوتیوب ممنوع نکنه» و «۹۰ نباید اکتفا بشه» (۹.۷۹) ===');
+{
+  /* حالتِ واقعی: دستهٔ اولِ ۲۵تایی رفته؛ دکمه سقف را ۱۰ می‌کرد و dayN ۲۰ می‌ماند ⇒ هیچ. */
+  const fX = [1, 2, 3, 4, 5, 6].map(i => mk('X' + i + '.wav'));
+  const b0 = mus.getLastRow();
+  mus.getRange(b0 + 1, 1, 6, MUSIC_HEADERS.length).setValues(fX.map((f, i) => row(f, 'X' + i + '.wav', 0, 'آهنگ — ویولن', 'میانه')));
+  const st = mrState_(); st.day = String(nowStr_()).slice(0, 10); st.dayN = 25; st.first = 0; st.sendTry = Date.now(); mrSave_(st);
+  CFG.MR_FIRST_BATCH = 25; CFG.MR_PER_DAY = 10; CFG.MR_PER_RUN = 4;
+  tg.length = 0;
+  ups.push({ update_id: ++mid, callback_query: { id: 'qm', data: 'mm|more', message: { message_id: 1, chat: { id: 777 } } } });
+  tgPollTick();
+  const n1 = calls('sendDocument').length;
+  tg.length = 0; tgPollTick();
+  const n2 = calls('sendDocument').length;
+  ok('۱۰.۱ «۵ تای بعدی» پس از دستهٔ اول واقعاً می‌فرستد: چهار همین اجرا، پنجمی اجرای بعد — بی انتظارِ ده‌دقیقه‌ای', n1 === 4 && n2 === 1 && !mrState_().more, n1 + ' + ' + n2);
+
+  ok('۱۰.۲ مجوز: NC و ND ممنوع، CC0 و BY مجاز (BY با ذکرِ نام)، بی‌نشان نامعلوم',
+     musicLicense_('x (https://creativecommons.org/licenses/by-nc/3.0/)').ok === false && musicLicense_('https://creativecommons.org/licenses/by-nd/4.0/').ok === false &&
+     musicLicense_('https://creativecommons.org/publicdomain/zero/1.0/').ok === true && musicLicense_('https://creativecommons.org/licenses/by/3.0/').credit === true &&
+     musicLicense_('http://creativecommons.org/licenses/by-sa/3.0/').ok === true && musicLicense_('').ok === null);
+  const fN = mk('NC.wav'), fB2 = mk('BY.wav');
+  const b1 = mus.getLastRow();
+  const rN = row(fN, 'NC.wav', 0, 'آهنگ — پیانو', 'میانه'); rN[MC.SRC - 1] = 'Song — https://archive.org/details/x (https://creativecommons.org/licenses/by-nc-sa/3.0/)';
+  const rB = row(fB2, 'BY.wav', 0, 'آهنگ — پیانو', 'میانه'); rB[MC.SRC - 1] = 'Nice Song — https://archive.org/details/nice (https://creativecommons.org/licenses/by/3.0/)';
+  mus.getRange(b1 + 1, 1, 2, MUSIC_HEADERS.length).setValues([rN, rB]);
+  const bank = musicBank_(hub);
+  ok('۱۰.۳ قطعهٔ NC که پیش از این سد آمده بود هم دیگر پخش نمی‌شود', !bank.some(b => b.id === fN.getId()) && bank.some(b => b.id === fB2.getId() && b.licCredit));
+  ok('۱۰.۴ جست‌وجو هم NC/ND را نمی‌آورد (موسیقی و افکت)', (fs.readFileSync('src/23_Music.gs', 'utf8').match(/musicLicense_\((s?lic)\)\.ok === false\) continue/g) || []).length === 2);
+
+  /* ذکرِ نام در توضیحِ یوتیوب برای قطعهٔ CC BY که در همان قسمت پخش شده. */
+  musicMarkUsed_(hub, [{ row: b1 + 2, id: fB2.getId(), name: 'BY.wav', kind: 'موسیقی', slot: 'میانه', used: 0, mood: '', gain: 1, sec: 30 }], 'درس‌نامه 78', CFG.SPECIAL_SHOW_NAME);
+  const d = ytDescFinal_('special:78', 'توضیح');
+  ok('۱۰.۵ توضیحِ یوتیوب نام و منبعِ قطعهٔ CC BY را می‌آورد، و نه پیوندِ درایو', /🎵 موسیقی:/.test(d) && /Nice Song/.test(d) && /archive\.org\/details\/nice/.test(d) && !/drive\.google/.test(d), d);
+  ok('۱۰.۶ و برای قسمتی که این قطعه را نداشت، نه', !/Nice Song/.test(ytDescFinal_('special:79', 'توضیح')) && !/Nice Song/.test(ytDescFinal_('variety:78', 'توضیح')));
+  ok('۱۰.۷ بانک سقفِ ۹۰تایی ندارد — رشد ادامه دارد', !CFG.MUSIC_BANK_MAX);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

@@ -1253,7 +1253,7 @@ function selfUpdateDaily() {
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {
-    try { musicScan_(); musicAutoTag_(); }
+    try { musicScan_(); musicAutoTag_(); try { musicLicenseCount_(); } catch (eLc) {} }
     catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
   }
 

@@ -1015,8 +1015,9 @@ console.log('=== ۱۳) تنوعِ بانک، و جلوه‌های صوتی که 
   // ج) و گشتن واقعاً دنبالِ افکت هم می‌رود
   const p23 = fs.readFileSync('src/23_Music.gs', 'utf8');
   ok('۱۳.۱۰ پرسشِ جداگانه برای جلوهٔ صوتی هست', /function sfxSeekQuery_/.test(p23));
+  /* ۹.۷۹: mood از دستهٔ کتابخانه می‌آید (رفتارش: run_musicreview ۹.۳) */
   ok('۱۳.۱۱ و نامزدِ افکت با kind درست در فهرست می‌نشیند',
-     /kind: 'افکت', mood: '', slots: 'میانه'/.test(p23));
+     /kind: 'افکت', mood: [^\n]*slots: 'میانه'/.test(p23));
   ok('۱۳.۱۲ افکت فقط تا رسیدن به هدف گشته می‌شود',
      /sfxHave < sfxWant/.test(p23));
   ok('۱۳.۱۳ و دانلود سقفِ زمانی دارد تا کارِ شبانه کشته نشود',
@@ -1463,23 +1464,25 @@ console.log('=== ۲۱) شناسنامهٔ بی‌صدا، و افکتی که «a
   ok('۲۱.۶ و هر اجرا سراغِ صدای بعدی می‌رود', first !== second,
      first + ' / ' + second);
 
-  // صدایی که بانک از قبل دارد، دوباره گشته نمی‌شود
-  global.musicBank_ = () => SFX_STARTER.map(x => ({
-    id: 'E' + x[1], name: x[1], kind: 'افکت', mood: '', slots: 'میانه',
-    sec: 3, gain: 1, used: 0, heard: ''
-  }));
-  ok('۲۱.۷ وقتی همهٔ صداهای پایه‌ای هست، چیزی نمی‌گردد',
+  /* ۹.۷۹: «یکی داریم ⇒ بس است» برای بانکِ هزارتایی غلط بود؛ هر دسته تا MUSIC_SFX_PER_CATEGORY. */
+  const PER = CFG.MUSIC_SFX_PER_CATEGORY;
+  const many = (w) => Array.from({ length: PER }, (_, i) => ({ id: 'E' + w + i, name: w + ' ' + i, kind: 'افکت', mood: '', slots: 'میانه', sec: 3, gain: 1, used: 0, heard: '' }));
+  global.musicBank_ = () => [].concat.apply([], SFX_STARTER.map(x => many(x[1])));
+  ok('۲۱.۷ وقتی همهٔ دسته‌های پایه به سقفِ خود رسیده‌اند، چیزی نمی‌گردد',
      sfxStarterTerms_() === '', JSON.stringify(sfxStarterTerms_()));
 
-  global.musicBank_ = () => [{ id: 'E1', name: 'rain drops loop', kind: 'افکت',
-    mood: '', slots: 'میانه', sec: 3, gain: 1, used: 0, heard: '' }];
+  global.musicBank_ = () => many('rain drops loop');
   global.__PROPS[PK.SFX_TURN] = '0';
-  ok('۲۱.۸ و صدایی که هست رد می‌شود، نه اینکه دوباره بیاید',
+  ok('۲۱.۸ و دسته‌ای که پر است رد می‌شود',
      sfxStarterTerms_().indexOf('rain') === -1, String(sfxStarterTerms_()));
+  global.musicBank_ = () => [{ id: 'E1', name: 'rain drops loop', kind: 'افکت', mood: '', slots: 'میانه', sec: 3, gain: 1, used: 0, heard: '' }];
+  global.__PROPS[PK.SFX_TURN] = '0';
+  ok('۲۱.۸-ب ولی یک باران هنوز «بس» نیست (۹.۷۹: هدف بیش از هزار است)',
+     sfxStarterTerms_().indexOf('rain') !== -1, String(sfxStarterTerms_()));
   global.musicBank_ = realBank;
 
   ok('۲۱.۹ خواستهٔ ثبت‌شده بر صدای پایه‌ای مقدم است',
-     p23c.indexOf('sfxWantedTerms_().join') < p23c.indexOf('sfxTerms = sfxStarterTerms_()'));
+     p23c.indexOf('sfxWantedTerms_().join') < p23c.indexOf('var t3 = sfxStarterTerms_()') && p23c.indexOf('var t3 = sfxStarterTerms_()') > 0);
 }
 
 console.log('=== ۲۲) «نمی‌خواهم دستی چیزی بگذارم» — و نباید هم بگذارد ===');

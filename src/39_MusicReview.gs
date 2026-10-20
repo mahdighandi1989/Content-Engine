@@ -24,6 +24,8 @@ var MRL_HEADERS = ['زمان', 'شناسهٔ فایل', 'نام', 'کار', 'م�
 
 /** دسته‌های رد — `nm` همان است که ریشه‌یابی می‌خواهد. */
 var MR_WHY = [{ k: 'nm', t: 'موسیقی نیست / ناهنجار' }, { k: 'vb', t: 'حس و وایب بد' }, { k: 'q', t: 'کیفیتِ بد' }];
+/* افکت (۹.۷۹): «موسیقی نیست» برایش بی‌معناست؛ پرسشِ درست این است که صدا با **نامِ کتابخانه‌اش** می‌خواند یا نه. */
+var MR_WHY_SFX = [{ k: 'wl', t: 'با نامش نمی‌خواند' }, { k: 'ug', t: 'ناخوشایند' }, { k: 'q', t: 'کیفیتِ بد' }];
 var MR_SLOTS = [{ k: 's', t: 'شروع', ic: '🎬' }, { k: 'm', t: 'میانه', ic: '🔀' }, { k: 'e', t: 'پایان', ic: '🏁' }];
 
 function mrOn_() { return CFG.MR_ON !== false && tgEnabled_(); }
@@ -143,22 +145,23 @@ function mrLog_(hub, id, name, op, val, why) {
 
 /* ───── کارت ───── */
 
-function mrKeyboard_(id, r) {
+function mrKeyboard_(id, r, kind) {
   r = r || {};
+  var isSfx = String(kind || '') === 'افکت';
   var cb = function (op, a) { return 'm|' + id + '|' + op + (a == null ? '' : '|' + a); };
   var rows = [];
   var st = [];
   /* ۹.۷۸: «به اندازهٔ همون ستاره‌ای که می‌زنم تا اونجا روشن باشه» — ستاره‌های زده‌شده پر، بقیه خالی. */
   for (var s = 1; s <= 5; s++) st.push({ text: (s <= (r.stars || 0) ? '⭐' : '☆') + faDigitsOut_(String(s)), callback_data: cb('s', s) });
   rows.push(st);
-  var vb = mrVibes_(), have = String(r.vibe || '').split(/[،,]\s*/);
+  var vb = isSfx ? [] : mrVibes_(), have = String(r.vibe || '').split(/[،,]\s*/);   // افکت وایب و جایگاه ندارد؛ جایش را واژه تعیین می‌کند
   for (var i = 0; i < vb.length; i += 4) {
     rows.push(vb.slice(i, i + 4).map(function (t, j) {
       return { text: (have.indexOf(t) !== -1 ? '✅ ' : '') + t, callback_data: cb('v', i + j) };
     }));
   }
-  rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
-  rows.push(MR_SLOTS.map(function (x) {
+  if (!isSfx) rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
+  if (!isSfx) rows.push(MR_SLOTS.map(function (x) {
     return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
   if (r.verdict === 'رد') {
@@ -166,7 +169,7 @@ function mrKeyboard_(id, r) {
   } else {
     rows.push([{ text: r.verdict === 'تأیید' ? '✅ تأیید شد' : '✅ تأیید', callback_data: cb('a') },
                { text: '⏳ بعداً', callback_data: cb('u') }]);
-    rows.push(MR_WHY.map(function (w) { return { text: '❌ ' + w.t, callback_data: cb('r', w.k) }; }));
+    rows.push((isSfx ? MR_WHY_SFX : MR_WHY).map(function (w) { return { text: '❌ ' + w.t, callback_data: cb('r', w.k) }; }));
     rows.push([{ text: '✍️ رد با توضیح', callback_data: cb('rx') }]);
   }
   return { inline_keyboard: rows };
@@ -175,11 +178,15 @@ function mrKeyboard_(id, r) {
 function mrCaption_(b, r) {
   r = r || {};
   var d = function (x) { return faDigitsOut_(String(x)); };
-  var L = ['🎵 <b>' + tgEsc_(String(b.name || '').replace(/\.wav$/i, '')) + '</b>',
+  var sfx = String(b.kind || '') === 'افکت';
+  var L = [(sfx ? '🔊 جلوهٔ صوتی · ' : '🎵 ') + '<b>' + tgEsc_(String(b.name || '').replace(/\.wav$/i, '')) + '</b>',
            d(Math.round(b.sec || 0)) + ' ثانیه' + (b.used ? ' · ' + d(b.used) + ' بار پخش شده' : ' · هنوز پخش نشده') +
            (b.lastAt ? ' · آخرین: ' + tgEsc_(String(b.lastAt).slice(0, 10)) : ''),
            'شنیدنِ مدل: ' + tgEsc_(String(b.heard || '—').slice(0, 120)),
-           'برچسبِ فعلی: ' + tgEsc_((String(b.mood || '—') + ' · ' + String(b.slots || '—')).slice(0, 160)), ''];
+           /* ۹.۷۹: «باید بررسی شه و برچسب بخوره از نظرِ اینکه مجازه یا نه» */
+           '⚖️ مجوز: ' + tgEsc_(b.lic || (typeof musicLicense_ === 'function' ? musicLicense_(String(b.src || '') + ' ' + String(b.note || '')).label : '—')),
+           (sfx ? 'دسته و نامِ کتابخانه: ' + tgEsc_(String(b.mood || '—').slice(0, 160))
+                : 'برچسبِ فعلی: ' + tgEsc_((String(b.mood || '—') + ' · ' + String(b.slots || '—')).slice(0, 160))), ''];
   var vd = r.verdict === 'تأیید' ? '✅ تأییدشده' : r.verdict === 'رد' ? '❌ رد — دیگر هرگز پخش نمی‌شود' : '⏳ معلق';
   L.push('<b>داوریِ شما:</b> ' + vd + (r.stars ? ' · ' + new Array(r.stars + 1).join('⭐') : '') +
          (r.vibe ? '\nوایب: ' + tgEsc_(r.vibe) : '') + (r.slots ? '\nجایگاه: ' + tgEsc_(r.slots) : '') +
@@ -191,15 +198,20 @@ function mrCaption_(b, r) {
 
 /** کارتِ یک قطعه ⇒ شناسهٔ پیام یا ''. صوت اگر زیرِ سقف است، وگرنه پیوندِ درایو با همان دکمه‌ها. */
 function mrSendOne_(b, r) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r)), cap = mrCaption_(b, r), res = null;
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r), res = null;
   var maxB = Math.max(1, Number(CFG.MR_MAX_MB) || 45) * 1048576, f = null;
   try { f = DriveApp.getFileById(b.id); } catch (e) { f = null; }
-  if (f && f.getSize() <= maxB) {
+  /* ۹.۷۹: «چند بار ۵ تای بعدی رو زدم و ده دقیقه گذشته» — هر کارتِ WAV دو بار بارگذاری می‌شد: یک بار به sendAudio که
+     WAV را نمی‌پذیرد، و دوباره به sendDocument. فایلِ ده‌مگابایتی دو بار یعنی سهمِ ۴۰ ثانیه‌ایِ هر اجرا برای یکی‌دو کارت. */
+  var isWav = f && /\.wav$/i.test(String(f.getName() || b.name || ''));
+  if (f && f.getSize() <= maxB && !isWav) {
     try {
       res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: f.getBlob(), caption: cap, parse_mode: 'HTML',
                                   title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), reply_markup: kb });
     } catch (eA) { res = null; }
     /* `sendAudio` رسماً MP3/M4A است؛ WAVی که نپذیرد، به‌صورتِ فایل همان‌جا پخش می‌شود — پیش از افتادن به پیوند. */
+  }
+  if (f && f.getSize() <= maxB) {
     if (!res || !res.result) {
       try { res = tgApi_('sendDocument', { chat_id: tgChat_(), document: f.getBlob(), caption: cap, parse_mode: 'HTML', reply_markup: kb }); }
       catch (eD) { res = null; }
@@ -214,7 +226,7 @@ function mrSendOne_(b, r) {
 
 /** کارت را با وضعِ تازه بازمی‌نویسد (پیامِ صوتی ⇒ caption، پیامِ متنی ⇒ text). */
 function mrRefresh_(chatId, msgId, b, r, isText) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r)), cap = mrCaption_(b, r);
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r);
   try {
     if (isText) tgApi_('editMessageText', { chat_id: chatId, message_id: Number(msgId), text: cap + '\n\n' + musicUrl_(b.id),
                                            parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: kb });
@@ -226,11 +238,18 @@ function mrRefresh_(chatId, msgId, b, r, isText) {
 
 /** نوبتِ ارسال: آنچه بیشتر پخش شده جلوتر (روی شنونده اثرِ بیشتری دارد)، بی افکت، بی آنچه قبلاً فرستاده یا داوری شده. */
 function mrQueue_(bank, map) {
-  return (bank || []).filter(function (b) {
-    if (String(b.kind || '') === 'افکت') return false;
-    var r = map[b.id];
-    return !(r && (r.sent || r.verdict));
-  }).sort(function (a, b) { return (b.used || 0) - (a.used || 0) || String(a.name).localeCompare(String(b.name)); });
+  var open = (bank || []).filter(function (b) { var r = map[b.id]; return !(r && (r.sent || r.verdict)); });
+  var by = function (a, b) { return (b.used || 0) - (a.used || 0) || String(a.name).localeCompare(String(b.name)); };
+  var mus = open.filter(function (b) { return String(b.kind || '') !== 'افکت'; }).sort(by);
+  /* ۹.۷۹: جلوه‌های صوتی هم با همان کارت — هر چهارمین کارت یکی، تا بانکِ هزارتاییِ افکت صفِ موسیقی را نبلعد. */
+  var sfx = open.filter(function (b) { return String(b.kind || '') === 'افکت'; }).sort(by);
+  var out = [];
+  while (mus.length || sfx.length) {
+    for (var k = 0; k < 3 && mus.length; k++) out.push(mus.shift());
+    if (sfx.length) out.push(sfx.shift());
+    if (!mus.length) { out = out.concat(sfx); sfx = []; }
+  }
+  return out;
 }
 
 function mrSendDue_(hub, st, budgetMs) {
@@ -238,11 +257,14 @@ function mrSendDue_(hub, st, budgetMs) {
   var today = String(nowStr_()).slice(0, 10);
   if (st.day !== today) { st.day = today; st.dayN = 0; }
   var cap = st.first ? (Number(CFG.MR_PER_DAY) || 10) : (Number(CFG.MR_FIRST_BATCH) || 25);
-  if ((Number(st.dayN) || 0) >= cap) { out.why = 'سهمِ امروز (' + cap + ') فرستاده شد'; return out; }
+  /* «۵ تای بعدی» (۹.۷۹) از سقفِ روز جداست. تا ۹.۷۸ دکمه `dayN` را پنج‌تا کم می‌کرد و هم‌زمان `first` را می‌زد — سقف از ۲۵ به
+     ۱۰ می‌افتاد و `dayN`ِ ۲۰ همچنان بالای آن بود، پس دکمه هیچ کارتی نمی‌فرستاد. */
+  var more = Number(st.more) || 0;
+  if ((Number(st.dayN) || 0) >= cap && !more) { out.why = 'سهمِ امروز (' + cap + ') فرستاده شد'; return out; }
   var map = mrMap_(hub), q = mrQueue_(musicBank_(hub), map);
   if (!q.length) { st.left = 0; out.why = 'همهٔ قطعه‌ها فرستاده یا داوری شده‌اند'; return out; }
   var per = Math.max(1, Number(CFG.MR_PER_RUN) || 4);
-  for (var i = 0; i < q.length && out.sent < per && (st.dayN || 0) < cap; i++) {
+  for (var i = 0; i < q.length && out.sent < per && ((st.dayN || 0) < cap || out.sent < more); i++) {
     if (Date.now() - t0 > budgetMs) break;
     var b = q[i], mid = '';
     try { mid = mrSendOne_(b, null); } catch (e) { out.why = 'ارسال نشد: ' + String(e.message || e).slice(0, 80); break; }
@@ -304,7 +326,7 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
   else if (op === 'a') { patch.verdict = 'تأیید'; patch.why = ''; patch.whyK = ''; logOp = 'تأیید'; reply = 'تأیید شد'; }
   else if (op === 'u') { patch.verdict = ''; logOp = 'معلق'; reply = 'معلق ماند'; }
   else if (op === 'r') {
-    var w = (MR_WHY.filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
+    var w = (MR_WHY.concat(MR_WHY_SFX).filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
     patch.verdict = 'رد'; patch.whyK = w.k; patch.why = w.t; logOp = 'رد'; logVal = w.t; reply = 'رد شد — دیگر پخش نمی‌شود';
   }
   else if (op === 'vx' || op === 'rx') {
@@ -473,7 +495,7 @@ function tgPollRun_() {
             if (!mrChatOk_(m.chat)) continue;
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
             st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
-            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; }
+            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; st.more = (Number(st.more) || 0) + 5; }
             else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             st.clickAt = Date.now();
             out.got++;
@@ -492,12 +514,16 @@ function tgPollRun_() {
     var today = String(nowStr_()).slice(0, 10);
     if (st.day !== today) { st.day = today; st.dayN = 0; }
     var cap = st.first ? (Number(CFG.MR_PER_DAY) || 10) : (Number(CFG.MR_FIRST_BATCH) || 25);
-    if ((Number(st.dayN) || 0) >= cap) st.sendWhy = 'سهمِ امروز (' + cap + ') فرستاده شد';
-    else if (Date.now() - t0 < maxRun && Date.now() - (Number(st.sendTry) || 0) > 10 * 60000) {
+    /* «۵ تای بعدی» (۹.۷۹): تا آن پنج‌تا برسند، نه سقفِ روز جلویشان را می‌گیرد نه فاصلهٔ ده‌دقیقه‌ای. */
+    var more = Number(st.more) || 0;
+    if ((Number(st.dayN) || 0) >= cap && !more) st.sendWhy = 'سهمِ امروز (' + cap + ') فرستاده شد';
+    else if (Date.now() - t0 < maxRun && (more || Date.now() - (Number(st.sendTry) || 0) > 10 * 60000)) {
       st.sendTry = Date.now();
       var sd = mrSendDue_(getHub(), st, 40000);
       out.sent = sd.sent; st.sendWhy = sd.why;
       if (sd.sent) st.lastSentAt = Date.now();
+      if (more) st.more = Math.max(0, more - (sd.sent || 0));
+      if (sd.why && /همهٔ قطعه‌ها/.test(sd.why)) st.more = 0;
     }
     mrNag_(st);
     st.polledAt = Date.now();

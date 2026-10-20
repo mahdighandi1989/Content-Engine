@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.78
+ *  موتور محتوا و پادکست — نسخهٔ 9.79
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1555,10 +1555,18 @@ var CFG = {
   // جلوه‌های صوتی: تا ۵٫۶۴ هیچ‌وقت جست‌وجو نمی‌شدند. ساز و کارِ پخششان از
   // ۵٫۴۹ کامل بود ولی بانک صفر افکت داشت، پس sfxAllow_ چیزی برای اجازه‌دادن
   // نداشت — همان بن‌بستی که موسیقی داشت.
-  MUSIC_SFX_TARGET: 8,
+  /* ۹.۷۹: «فقط ۲۶ تا در دو ماه … باید بیش از هزار جلوهٔ صوتی جمع می‌کرد.» علت همین عدد بود: بانکِ ۸تایی پر می‌شد و
+     گشتنِ عمومی می‌ایستاد (`sfxHave < sfxWant`)؛ از آن پس فقط خواستهٔ معیّنِ یک قسمت گشته می‌شد. */
+  MUSIC_SFX_TARGET: 1200,
+  MUSIC_SFX_PER_ITEM: 8,       // هر اثرِ کتابخانهٔ جلوه معمولاً ده‌ها فایل دارد؛ تا ۹.۷۸ فقط کوچک‌ترینش برداشته می‌شد
+  MUSIC_SFX_PER_CATEGORY: 40,  // هر دستهٔ پایه (باران، در، …) تا این‌قدر، بعد نوبتِ دستهٔ بعد
+  SFX_BULK_ON: true,           // اجرای جدای پرکردنِ بانکِ افکت — جدا از کارِ شبانه، تا بودجهٔ آن را نخورد
+  SFX_BULK_GAP_MIN: 120,       // هر دو ساعت یک بار
+  SFX_BULK_SEC: 100,           // مهلتِ هر اجرا (سهمیهٔ روزانهٔ اجرای تریگرها محدود است)
+  SFX_BULK_MAX: 14,            // سقفِ فایلِ هر اجرا
   // و بودجهٔ گشتنِ افکت، **جدا** از موسیقی. با سقفِ مشترک، موسیقی که همیشه
   // اول می‌دود می‌توانست همه‌اش را مصرف کند و افکت هرگز گشته نشود.
-  MUSIC_SFX_SEEK_MAX: 3,
+  MUSIC_SFX_SEEK_MAX: 40,
   // ── افکت، درست بعد از آماده‌شدنِ متن ──
   // تا ۵٫۷۴ افکت شبِ قبل و بی‌خبر از متنِ فردا گشته می‌شد، پس صدا همیشه
   // برای قسمتِ *بعدی* می‌رسید. حالا در پنجرهٔ میانِ آماده‌شدنِ متن و شروعِ
@@ -1674,7 +1682,12 @@ var CFG = {
   MUSIC_ROTATE: true,
   MUSIC_ROTATE_USED: 4,       // قطعه‌ای که این‌قدر پخش شده «فرسوده» است
   MUSIC_ROTATE_SLOTS: 1,      // شبی که کمبودی نیست، فقط این تعداد جایگاه
-  MUSIC_BANK_MAX: 90,         // سقفِ مطلقِ بانک — رشدِ بی‌پایان هم درست نیست
+  /* ۹.۷۹: «این ۹۰ خورده‌ای نباید اصلاً اکتفا بشه و همیشه باید اضافه بشه.» سقف برداشته شد (۰ = بی‌سقف)؛ چرخشِ خانواده‌های
+     فرسوده همیشه روشن است و جست‌وجو از ۹.۷۸ با سلیقهٔ ستاره‌ها جهت می‌گیرد. */
+  MUSIC_BANK_MAX: 0,
+  /* مجوز (۹.۷۹): «جوری نباشه که غیرقانونی باشه و بعداً یوتیوب ویدئو رو ممنوع کنه.» غیرتجاری (NC) و بی‌تغییر (ND) نه آورده
+     می‌شوند نه پخش. «نامعلوم» برچسب می‌خورد و در کارت پرسیده می‌شود؛ با true حتی پخش هم نمی‌شود. */
+  MUSIC_LICENSE_STRICT: false,
   // اشباعِ امتیازِ «کم‌مصرف‌تر جلوتر». تا ۵٫۶۴ عددش ۵ بود، پس وقتی همهٔ
   // قطعه‌ها پنج بار پخش می‌شدند این معیار از کار می‌افتاد و نوبت‌دهی کور
   // می‌شد — دقیقاً همان‌جا که تازه لازم می‌شد.
@@ -2187,7 +2200,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.78',
+  CODE_VERSION: '9.79',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3457,7 +3470,8 @@ var PK = {
   // نسخه‌ای که ردهای ناحقش یک بار باز شده — تا هر شب تکرار نشود
   MUSIC_UNBLOCK: 'MUSIC_UNBLOCK_AT',
   // نوبتِ صدای پایه‌ای — تا هر اجرا سراغِ یکی برود، نه همیشه همان
-  SFX_TURN: 'SFX_STARTER_TURN'
+  SFX_TURN: 'SFX_STARTER_TURN',
+  SFX_BULK: 'SFX_BULK_STATE'       // ۹.۷۹: {at, runs, added, failed, have, why}
 };
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -37011,7 +37025,7 @@ function selfUpdateDaily() {
   // پویش جداست: ارزان‌تر از آوردن است و فایلی که کاربر دستی گذاشته را هم
   // می‌بیند، پس حتی در شبِ شلوغ هم ارزشِ تلاش دارد.
   if (nightHas_(30000, 'پویش و برچسبِ بانکِ موسیقی')) {
-    try { musicScan_(); musicAutoTag_(); }
+    try { musicScan_(); musicAutoTag_(); try { musicLicenseCount_(); } catch (eLc) {} }
     catch (eMU) { logLine_('پویشِ شبانهٔ موسیقی ناموفق: ' + eMU.message); }
   }
 
@@ -40771,6 +40785,10 @@ function musicBank_(hub) {
     if (fmt.indexOf('ناسازگار') !== -1 || fmt.indexOf('نیست') !== -1) continue;
     var rvi = rv[String(v[i][MC.ID - 1])];
     if (rvi && rvi.verdict === 'رد') continue;
+    /* ۹.۷۹: مجوزی که کانالِ درآمددار را به خطر می‌اندازد هرگز پخش نمی‌شود — قطعه‌هایی که پیش از این سد آمده‌اند هم. */
+    var licI = musicLicense_(String(v[i][MC.SRC - 1] || '') + ' ' + String(v[i][MC.NOTE - 1] || ''));
+    if (licI.ok === false) continue;
+    if (licI.ok === null && CFG.MUSIC_LICENSE_STRICT === true && !(rvi && rvi.verdict === 'تأیید')) continue;
     out.push({
       row: i + 2, id: String(v[i][MC.ID - 1]), name: String(v[i][MC.NAME - 1] || ''),
       kind: String(v[i][MC.KIND - 1] || 'موسیقی'),
@@ -40783,7 +40801,8 @@ function musicBank_(hub) {
       used: Number(v[i][MC.USED - 1]) || 0,
       heard: String(v[i][MC.HEARD - 1] || ''),
       note: String(v[i][MC.NOTE - 1] || ''),
-      lastAt: String(v[i][MC.LAST - 1] || '')
+      lastAt: String(v[i][MC.LAST - 1] || ''),
+      lic: licI.label, licCredit: !!licI.credit
     });
     if (rvi && typeof mrApply_ === 'function') {
       var ap = mrApply_(out[out.length - 1], rvi);
@@ -41852,6 +41871,8 @@ function musicStatus_() {
     out.sfxTarget = Number(cov.sfxTarget) || 0;
     out.sfxEnabled = CFG.MUSIC_SFX_ENABLED !== false;
     out.sfxPerEpisode = Math.max(0, Number(CFG.MUSIC_SFX_MAX_PER_EP) || 0);
+    try { out.sfxBulk = JSON.parse(props_().getProperty(PK.SFX_BULK) || 'null'); } catch (eSb) { out.sfxBulk = null; }
+    try { out.license = JSON.parse(props_().getProperty('MUSIC_LICENSE_COUNT') || 'null'); } catch (eLc) { out.license = null; }
   } catch (e4) {
     out.sfx = null; out.sfxTarget = null;
   }
@@ -42706,7 +42727,8 @@ function musicFeedDedup_() {
  * فهرستِ پیشنهادها را می‌خواند، دانلود می‌کند و در بانک می‌نشاند.
  * برمی‌گرداند {read, added, failed, notes:[…]}
  */
-function musicFetch_() {
+function musicFetch_(opt) {
+  opt = opt || {};
   var out = { read: 0, added: 0, failed: 0, notes: [] };
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_FETCH === false) return out;
 
@@ -42714,13 +42736,13 @@ function musicFetch_() {
   try { feed = musicFeedRead_(); } catch (e) { return out; }
   if (!feed || !feed.items || !feed.items.length) return out;
 
-  var cap = Number(CFG.MUSIC_FETCH_MAX_PER_RUN) || 3;
+  var cap = Number(opt.cap) || Number(CFG.MUSIC_FETCH_MAX_PER_RUN) || 3;
   var maxB = Number(CFG.MUSIC_FETCH_MAX_BYTES) || 12000000;
   // سقفِ واقعی زمان است، نه شمار: کارِ شبانه مهلتِ شش‌دقیقه‌ای دارد و هر
   // دانلود چند ده ثانیه می‌برد. با سقفِ ثابتِ کوچک، بانک بی‌دلیل آرام پر
   // می‌شد؛ با سقفِ بزرگ و بی‌مهلت، کلِ کارِ شبانه وسط کشته می‌شد.
   var t0 = new Date().getTime();
-  var budget = Math.max(20000, Number(CFG.MUSIC_FETCH_BUDGET_MS) || 150000);
+  var budget = Math.max(20000, Number(opt.budget) || Number(CFG.MUSIC_FETCH_BUDGET_MS) || 150000);
   var done = musicFetchedUrls_();
   var folder = musicFolder_();
   var changed = false;
@@ -42735,7 +42757,8 @@ function musicFetch_() {
   for (var q0 = 0; q0 < feed.items.length; q0++) {
     if (String((feed.items[q0] || {}).kind || '') === 'افکت') order.push(q0);
   }
-  for (var q1 = 0; q1 < feed.items.length; q1++) {
+  /* `only` (۹.۷۹): اجرای جدای بانکِ افکت فقط افکت می‌آورد — موسیقی کارِ شبانه است. */
+  for (var q1 = 0; q1 < feed.items.length && opt.only !== 'افکت'; q1++) {
     if (String((feed.items[q1] || {}).kind || '') !== 'افکت') order.push(q1);
   }
 
@@ -42833,6 +42856,7 @@ function musicFetch_() {
         title: String(it.title || name.replace(/\.wav$/i, '')),
         url: url, license: String(it.license || ''),
         kind: String(it.kind || 'موسیقی'), mood: String(it.mood || ''),
+        lib: String(it.lib || ''), libTitle: String(it.libTitle || ''),
         slots: String(it.slots || ''), gain: String(it.gain || ''),
         source: String(it.source || ''), at: nowStr_(),
         // «چطور تأیید شد» — تا در تب دیده شود و کاربر فقط به همان‌هایی که
@@ -43083,8 +43107,99 @@ var SFX_STARTER = [
   ['باد', 'wind gust'],
   ['کاغذ', 'paper page turn'],
   ['دریا', 'ocean waves'],
-  ['تایپ', 'typewriter keys']
+  ['تایپ', 'typewriter keys'],
+  /* ۹.۷۹ — بانکِ هزارتایی به دسته‌های بیشتر نیاز دارد، نه به هزار باران */
+  ['رعد', 'thunder storm'], ['پرنده', 'birds chirping'], ['سگ', 'dog bark'], ['گربه', 'cat meow'],
+  ['خودرو', 'car engine pass'], ['بوق', 'car horn'], ['قطار', 'train passing'], ['زنگ', 'bell ring'],
+  ['شیشه', 'glass break'], ['آب', 'water splash'], ['آتش', 'fire crackling'], ['انفجار', 'explosion boom'],
+  ['در زدن', 'knock knock'], ['خنده', 'laughter crowd'], ['تشویق', 'applause'], ['ضربانِ قلب', 'heartbeat'],
+  ['گذر', 'whoosh swoosh'], ['کلیک', 'click button'], ['دوربین', 'camera shutter'], ['آژیر', 'siren'],
+  ['اسب', 'horse gallop'], ['نوزاد', 'baby cry'], ['سرفه', 'cough'], ['آشپزخانه', 'kitchen cooking'],
+  ['بازار', 'market crowd'], ['جنگل', 'forest ambience'], ['هواپیما', 'airplane'], ['قاشق', 'cutlery spoon'],
+  ['نفس', 'breathing'], ['کوبیدن', 'hammer hit'], ['کلید', 'keys jingle'], ['آسانسور', 'elevator ding'],
+  ['ضبط', 'radio static'], ['تلویزیون', 'tv static'], ['مسجد', 'mosque ambience'], ['کلاس', 'classroom']
 ];
+
+/* دستهٔ فارسیِ یک جلوه از روی **عنوانِ خودِ کتابخانه** (عنوانِ فایل، عنوانِ اثر، موضوع‌ها) — نه حدس از نامِ فایلی که ما ساختیم.
+   «دقیق بر اساس اسمی که تو اون کتابخونه‌ها داره ببینه.» چند دسته ممکن است؛ هیچ‌کدام ⇒ ''. */
+var SFX_CATS = [
+  [/\brain|drizzle|downpour/i, 'باران'], [/\bthunder|lightning|storm/i, 'رعد و طوفان'], [/\bwind|gust|breeze/i, 'باد'],
+  [/\bdoor|gate|creak/i, 'در'], [/\bknock/i, 'در زدن'], [/phone|telephone|ringtone|dial/i, 'تلفن'],
+  [/footstep|walking|steps|running/i, 'قدم'], [/crowd|murmur|chatter|people talking/i, 'جمعیت'], [/applause|clapping/i, 'تشویق'],
+  [/laugh/i, 'خنده'], [/scream|yell|shout/i, 'جیغ و فریاد'], [/clock|tick/i, 'ساعت'], [/paper|page|book/i, 'کاغذ'],
+  [/ocean|sea\b|waves|beach|surf/i, 'دریا'], [/water|splash|drip|river|stream|pour/i, 'آب'], [/typewriter|typing|keyboard/i, 'تایپ'],
+  [/bird|chirp|crow\b|owl/i, 'پرنده'], [/\bdog|bark/i, 'سگ'], [/\bcat\b|meow|purr/i, 'گربه'], [/horse|gallop/i, 'اسب'],
+  [/\bcar\b|engine|traffic|vehicle|motor/i, 'خودرو'], [/horn|honk/i, 'بوق'], [/train|railway/i, 'قطار'],
+  [/airplane|aircraft|jet|plane/i, 'هواپیما'], [/\bbell|chime|ding/i, 'زنگ'], [/glass|shatter/i, 'شیشه'],
+  [/\bfire\b|crackl|flame/i, 'آتش'], [/explosion|explode|boom|blast/i, 'انفجار'], [/\bgun|shot|rifle|pistol/i, 'شلیک'],
+  [/heart ?beat/i, 'ضربانِ قلب'], [/whoosh|swoosh|swish/i, 'گذر'], [/click|button|switch/i, 'کلیک'], [/camera|shutter/i, 'دوربین'],
+  [/siren|alarm/i, 'آژیر'], [/baby|infant/i, 'نوزاد'], [/cough|sneeze/i, 'سرفه'], [/breath/i, 'نفس'],
+  [/kitchen|cook|fry|sizzl/i, 'آشپزخانه'], [/market|bazaar/i, 'بازار'], [/forest|jungle|woods/i, 'جنگل'],
+  [/hammer|hit|punch|impact|thud/i, 'ضربه'], [/keys|jingle/i, 'کلید'], [/static|radio|tv\b|television/i, 'پارازیت و رادیو'],
+  [/spoon|fork|cutlery|plate|dish/i, 'ظرف'], [/elevator|lift/i, 'آسانسور'], [/classroom|school/i, 'کلاس'],
+  [/mosque|azan|prayer/i, 'مسجد'], [/church|organ/i, 'کلیسا']
+];
+
+/* ═══ مجوزِ یک قطعه، برای کانالی که قرار است درآمد داشته باشد (۹.۷۹) ═══
+ * تا ۹.۷۸ جست‌وجو فقط «creativecommons یا publicdomain» می‌خواست — و CC BY-NC و CC BY-ND هم creativecommons‌اند.
+ * NC یعنی کارِ تجاری نه (کانالِ درآمددار تجاری است)؛ ND یعنی بی‌تغییر (ما می‌بُریم و محو می‌کنیم). هیچ‌کدام. */
+function musicLicense_(txt) {
+  var t = String(txt || '').toLowerCase();
+  if (!/creativecommons|publicdomain|cc0|cc-by|cc by|public domain|مالکیتِ عمومی|مجوز/.test(t)) return { ok: null, label: 'نامعلوم' };
+  if (/noncommercial|by-nc|\/nc[\/-]|cc[ -]by[ -]nc|غیرتجاری/.test(t)) return { ok: false, label: 'غیرتجاری (NC) — برای یوتیوبِ درآمددار ممنوع' };
+  if (/noderiv|by-nd|\/nd[\/-]|cc[ -]by[ -]nd/.test(t)) return { ok: false, label: 'بی‌تغییر (ND) — بریدن و میکس مجاز نیست' };
+  if (/publicdomain|\/zero\/|cc0|public domain|مالکیتِ عمومی/.test(t)) return { ok: true, label: 'مالکیتِ عمومی', credit: false };
+  if (/licenses\/by(-sa)?\/|cc[ -]by( |-sa|$)|cc-by/.test(t)) return { ok: true, label: 'CC BY — با ذکرِ نام', credit: true };
+  return { ok: null, label: 'نامعلوم' };
+}
+
+/** شمارِ مجوزها در کلِ تبِ «موسیقی» — ممنوع‌ها هم، که از بانک بیرون‌اند و جای دیگری دیده نمی‌شوند. شبانه، پس از پویش
+    (وضعیتِ سلامت تب را دوباره نمی‌خوانَد؛ run_health ۱۱.۱). */
+function musicLicenseCount_() {
+  var sh = getHub_().getSheetByName(CFG.MUSIC_TAB || 'موسیقی'), out = { ok: 0, credit: 0, banned: 0, unknown: 0, at: nowStr_() };
+  if (sh && sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, MUSIC_HEADERS.length).getValues().forEach(function (r) {
+      if (!r[MC.ID - 1]) return;
+      var l = musicLicense_(String(r[MC.SRC - 1] || '') + ' ' + String(r[MC.NOTE - 1] || ''));
+      if (l.ok === false) out.banned++; else if (l.ok === null) out.unknown++; else { out.ok++; if (l.credit) out.credit++; }
+    });
+  }
+  try { props_().setProperty('MUSIC_LICENSE_COUNT', JSON.stringify(out)); } catch (e) {}
+  return out;
+}
+
+/**
+ * ذکرِ نامِ موسیقیِ یک قسمت (۹.۷۹) — CC BY یعنی «با ذکرِ نام»؛ بی این خطِ توضیح، استفاده خلافِ همان مجوز است.
+ * از «کاربردِ موسیقی» (کدام قطعه در کدام قسمت) و ستونِ «منبع» در «موسیقی» (عنوان، نشانیِ منبع، مجوز). پیوندِ درایو هرگز.
+ */
+function musicCreditsFor_(show, ep, hub) {
+  hub = hub || getHub_();
+  var hs = hub.getSheetByName(CFG.MUSE_TAB || 'کاربردِ موسیقی'), ms = hub.getSheetByName(CFG.MUSIC_TAB || 'موسیقی');
+  if (!hs || !ms || hs.getLastRow() < 2 || ms.getLastRow() < 2) return [];
+  var showName = enrichShowName_(show), n = String(Number(ep));
+  var names = {};
+  hs.getRange(2, 1, hs.getLastRow() - 1, MUSE_HEADERS.length).getValues().forEach(function (r) {
+    var m = /(\d+)\s*$/.exec(String(r[MU.EP - 1] || ''));
+    if (m && String(Number(m[1])) === n && String(r[MU.SHOW - 1] || '') === showName) names[String(r[MU.NAME - 1] || '')] = 1;
+  });
+  var out = [];
+  ms.getRange(2, 1, ms.getLastRow() - 1, MUSIC_HEADERS.length).getValues().forEach(function (r) {
+    if (!names[String(r[MC.NAME - 1] || '')]) return;
+    var src = String(r[MC.SRC - 1] || ''), l = musicLicense_(src);
+    if (!l.credit) return;
+    var url = (/https:\/\/\S+/.exec(src) || [''])[0].replace(/[)\]]+$/, '');
+    if (/drive\.google|docs\.google/.test(url)) url = '';
+    var title = src.split(' — ')[0].trim() || String(r[MC.NAME - 1] || '').replace(/\.wav$/i, '');
+    out.push('«' + title + '»' + (url ? ' — ' + url : '') + ' (CC BY)');
+  });
+  return out;
+}
+
+function sfxCategory_(text) {
+  var t = String(text || ''), out = [];
+  for (var i = 0; i < SFX_CATS.length; i++) if (SFX_CATS[i][0].test(t) && out.indexOf(SFX_CATS[i][1]) === -1) out.push(SFX_CATS[i][1]);
+  return out.slice(0, 3).join('، ');
+}
 
 /** نخستین صدای پایه‌ای که بانک هنوز ندارد. '' یعنی همه را دارد. */
 function sfxStarterTerms_() {
@@ -43102,7 +43217,8 @@ function sfxStarterTerms_() {
   for (var k = 0; k < SFX_STARTER.length; k++) {
     var idx = (n + k) % SFX_STARTER.length;
     var word = SFX_STARTER[idx][1].split(' ')[0];
-    if (have.indexOf(word) !== -1) continue;         // از قبل هست
+    /* تا ۹.۷۸ «یکی داریم ⇒ بس است». بانکِ هزارتایی از هر دسته چند ده تا می‌خواهد (۹.۷۹). */
+    if (have.split(word).length - 1 >= Math.max(1, Number(CFG.MUSIC_SFX_PER_CATEGORY) || 40)) continue;
     try { props_().setProperty(PK.SFX_TURN, String((idx + 1) % SFX_STARTER.length)); } catch (e3) {}
     return SFX_STARTER[idx][1];
   }
@@ -43176,6 +43292,7 @@ function musicSeek_(slots, sfxOnly) {
       if (!meta || !meta.files) continue;
       var lic = String((meta.metadata && meta.metadata.licenseurl) || docs[di].licenseurl || '');
       if (!lic) continue;                       // مجوزِ نامعلوم = رد
+      if (musicLicense_(lic).ok === false) continue;   // ۹.۷۹: غیرتجاری (NC) و بی‌تغییر (ND) هم رد
       var title = String((meta.metadata && meta.metadata.title) || docs[di].title || id);
       // ارزان‌ترین سد: نامی که خودش می‌گوید گفتار است، اصلاً دانلود نشود
       var pre = musicIsSpeech_(null, null, title + ' ' + id);
@@ -43250,11 +43367,17 @@ function musicSeek_(slots, sfxOnly) {
     var sfxTerms = '';
     try { sfxTerms = sfxWantedTerms_().join(' OR '); } catch (eST) {}
     // خواسته‌ای نبود؟ سراغِ صدای پایه‌ایِ مشخص، نه «ambience»ی کلی.
-    if (!sfxTerms) { try { sfxTerms = sfxStarterTerms_(); } catch (eSS2) {} }
+    if (!sfxTerms) {
+      try {
+        var st3 = [];
+        for (var k3 = 0; k3 < 3; k3++) { var t3 = sfxStarterTerms_(); if (t3 && st3.indexOf(t3) === -1) st3.push(t3); }
+        sfxTerms = st3.map(function (x) { return '(' + x + ')'; }).join(' OR ');
+      } catch (eSS2) {}
+    }
     out.notes.push('افکت ← گشته شد با: ' + (sfxTerms || 'واژه‌های عمومی (خواسته‌ای ثبت نشده)'));
     var su = base + '/advancedsearch.php?q=' + encodeURIComponent(sfxSeekQuery_(sfxTerms)) +
              '&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl' +
-             '&rows=25&page=1&output=json';
+             '&rows=50&page=1&output=json';
     var sres = musicApiJson_(su);
     var sdocs = (sres && sres.response && sres.response.docs) || [];
     out.looked += sdocs.length;
@@ -43268,28 +43391,41 @@ function musicSeek_(slots, sfxOnly) {
       if (!smeta || !smeta.files) continue;
       var slic = String((smeta.metadata && smeta.metadata.licenseurl) || sdocs[sd].licenseurl || '');
       if (!slic) continue;
-      // افکت کوتاه است؛ فایلِ چندمگابایتی احتمالاً یک آلبومِ کامل است
-      var sbest = null;
+      if (musicLicense_(slic).ok === false) continue;            // ۹.۷۹: NC/ND هرگز
+      /* افکت کوتاه است؛ فایلِ چندمگابایتی احتمالاً یک آلبومِ کامل است.
+         ۹.۷۹: تا ۸ فایل از هر اثر (کتابخانه‌های جلوه ده‌ها فایل دارند و تا ۹.۷۸ فقط یکی برداشته می‌شد)، و هر کدام با
+         **عنوانِ خودِ کتابخانه** — عنوانِ فایل در شناسنامهٔ اثر، وگرنه نامِ فایل بی پسوند — و دسته‌ای که از همان عنوان و
+         موضوع‌های اثر درمی‌آید، نه از نامی که ما می‌سازیم. */
+      var sfiles = [];
       for (var sf = 0; sf < smeta.files.length; sf++) {
         var ff = smeta.files[sf] || {};
         if (!/\.wav$/i.test(String(ff.name || ''))) continue;
         var fsz = Number(ff.size || 0);
         if (!(fsz > 0) || fsz > Math.min(maxB, 3000000)) continue;
-        if (!sbest || fsz < sbest.size) sbest = { name: String(ff.name), size: fsz };
+        sfiles.push({ name: String(ff.name), size: fsz, title: String(ff.title || '') });
       }
-      if (!sbest) continue;
-      var sdl = base + '/download/' + encodeURIComponent(sid) + '/' +
-                encodeURIComponent(sbest.name);
-      if (already[sdl]) continue;
-      already[sdl] = 1;
-      feed.items.push({
-        url: sdl,
-        title: auditCut_(String((smeta.metadata && smeta.metadata.title) || sid), 60),
-        license: slic, kind: 'افکت', mood: '', slots: 'میانه', gain: '',
-        source: base + '/details/' + sid, by: 'موتور — گشتنِ خودکار'
-      });
-      out.added++; sfxAdded++;
-      out.notes.push('افکت: ' + auditCut_(sbest.name, 40));
+      if (!sfiles.length) continue;
+      sfiles.sort(function (a, b) { return a.size - b.size; });
+      var itTitle = String((smeta.metadata && smeta.metadata.title) || sid);
+      var subj = (smeta.metadata && smeta.metadata.subject) || '';
+      subj = Object.prototype.toString.call(subj) === '[object Array]' ? subj.join(' ') : String(subj);
+      var perItem = Math.max(1, Number(CFG.MUSIC_SFX_PER_ITEM) || 8);
+      for (var sk = 0, took = 0; sk < sfiles.length && took < perItem && sfxAdded < sfxCap; sk++) {
+        var sdl = base + '/download/' + encodeURIComponent(sid) + '/' + encodeURIComponent(sfiles[sk].name);
+        if (already[sdl]) continue;
+        already[sdl] = 1;
+        var lib = (sfiles[sk].title || sfiles[sk].name.split('/').pop().replace(/\.wav$/i, '').replace(/[_]+/g, ' ')).trim();
+        var cat = sfxCategory_(lib) || sfxCategory_(lib + ' ' + itTitle + ' ' + subj);
+        feed.items.push({
+          url: sdl,
+          title: auditCut_(lib || itTitle, 60),
+          license: slic, kind: 'افکت', mood: (cat ? cat + ' · ' : '') + auditCut_(lib, 60).toLowerCase(), slots: 'میانه', gain: '',
+          lib: auditCut_(itTitle, 80), libTitle: auditCut_(lib, 80),
+          source: base + '/details/' + sid, by: 'موتور — گشتنِ خودکار'
+        });
+        out.added++; sfxAdded++; took++;
+        out.notes.push('افکت: ' + auditCut_(lib, 40) + (cat ? ' (' + cat + ')' : ''));
+      }
     }
   }
 
@@ -43721,6 +43857,60 @@ function musicRecheck_(hub, opt) {
  * Script Properties می‌خوانَد و یک اجرای یک‌باره می‌سازد؛ خودِ کار در آن اجراست،
  * با قفل و سقفِ روزانه. کارِ شبانه هم هنوز می‌شنود — دو در، یک صف.
  */
+/* ═══ پرکردنِ بانکِ افکت در اجرای جدا (۹.۷۹) ═══
+ * «فقط ۲۶ تا در دو ماه» — کارِ شبانه هشت فایل در هر شب و آن هم پس از موسیقی می‌آورد؛ هزار جلوه با آن ریتم سه سال است.
+ * پس هر دو ساعت یک اجرای کوتاهِ جدا: اگر فهرستِ نامزدها کم است بگرد، بعد فقط افکت بیاور — هر فایل از همان سه سدِ
+ * `musicFetch_` (هدرِ WAV، گفتار نبودن، شنیدنِ مدل) می‌گذرد. فهرست‌نویسی در تبِ «موسیقی» همان پویشِ شبانه است. */
+function sfxBulkArm_() {
+  if (CFG.SFX_BULK_ON === false || CFG.MUSIC_SFX_ENABLED === false || CFG.MUSIC_ENABLED === false) return false;
+  var P = props_(), st = null;
+  try { st = JSON.parse(P.getProperty(PK.SFX_BULK) || 'null'); } catch (e) { st = null; }
+  st = st || {};
+  var target = Math.max(0, Number(CFG.MUSIC_SFX_TARGET) || 0);
+  if (st.have != null && Number(st.have) >= target) return false;
+  var gap = Math.max(30, Number(CFG.SFX_BULK_GAP_MIN) || 120) * 60000;
+  if (st.at && Date.now() - Number(st.at) < gap) return false;
+  try { if (engineBusyForSwap_()) return false; } catch (eB) {}
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < ts.length; i++) if (ts[i].getHandlerFunction() === 'sfxBulkRun') return false;
+    ScriptApp.newTrigger('sfxBulkRun').timeBased().after(60 * 1000).create();
+  } catch (eT) { return false; }
+  st.armedAt = Date.now();
+  try { P.setProperty(PK.SFX_BULK, JSON.stringify(st)); } catch (eS) {}
+  return true;
+}
+
+function sfxBulkRun() {
+  runEnter_('sfxBulkRun');
+  var P = props_(), st = {};
+  try { st = JSON.parse(P.getProperty(PK.SFX_BULK) || 'null') || {}; } catch (e) { st = {}; }
+  try {
+    try { clearRetryTriggers_('sfxBulkRun'); } catch (eC) {}
+    st.at = Date.now(); st.runs = (Number(st.runs) || 0) + 1;
+    P.setProperty(PK.SFX_BULK, JSON.stringify(st));
+    var budget = Math.max(30, Number(CFG.SFX_BULK_SEC) || 100) * 1000, t0 = Date.now();
+    var feed = null, pending = 0;
+    try { feed = musicFeedRead_(); } catch (eF) {}
+    ((feed && feed.items) || []).forEach(function (it) { if (it && !it.status && String(it.kind || '') === 'افکت') pending++; });
+    var seek = null;
+    if (pending < (Number(CFG.SFX_BULK_MAX) || 14) * 2) { try { seek = musicSeek_(null, true); } catch (eSk) { st.why = 'گشتن: ' + eSk.message; } }
+    var r = musicFetch_({ only: 'افکت', cap: Number(CFG.SFX_BULK_MAX) || 14, budget: Math.max(20000, budget - (Date.now() - t0)) });
+    st.added = (Number(st.added) || 0) + (r.added || 0);
+    st.failed = (Number(st.failed) || 0) + (r.failed || 0);
+    st.last = { at: nowStr_(), sought: seek ? seek.added : 0, got: r.added || 0, rejected: r.failed || 0, pending: pending };
+    try { st.have = Number(musicCoverage_().sfx) || 0; } catch (eH) {}
+    st.why = '';
+    return st.last;
+  } catch (eR) {
+    st.why = String(eR.message || eR).slice(0, 140);
+    return null;
+  } finally {
+    try { P.setProperty(PK.SFX_BULK, JSON.stringify(st)); } catch (eS) {}
+    runExit_('sfxBulkRun');
+  }
+}
+
 function musicRehearDue_() {
   if (CFG.MUSIC_ENABLED === false || CFG.MUSIC_REHEAR === false) return false;
   var P = props_();
@@ -44045,7 +44235,9 @@ function sfxAllow_(sections, picks, showKind, bank) {
                     !!String(tr.src || '').trim() &&
                     Number(tr.sec) > 0 &&
                     Number(tr.sec) <= (Number(CFG.MUSIC_SFX_MAX_SEC) || 10);
-        if (!okHeard && !okSrc) continue;
+        /* ۹.۷۹: تأییدِ صاحبِ برنامه در کارتِ تلگرام خودش شنیدن است. */
+        var okHuman = !!(tr.rev && tr.rev.ok);
+        if (!okHeard && !okSrc && !okHuman) continue;
       }
     }
     var clash = sfxToneClash_(String(sec.tone || ''),
@@ -57539,6 +57731,14 @@ function ytDescFinal_(key, description) {
     var m = (ytRenderMapCached_() || {})[String(key)] || null;
     if (m && m.inserts && m.inserts.length) desc = vmShiftDesc_(desc, m.inserts);
   } catch (e) {}
+  /* ۹.۷۹: موسیقیِ CC BY بی ذکرِ نام خلافِ مجوزِ خودش است — «جوری نباشه که … یوتیوب ویدئو رو ممنوع کنه». */
+  try {
+    var kp = String(key || '').split(':');
+    if (desc.indexOf('🎵 موسیقی:') === -1 && kp.length === 2) {
+      var cr = musicCreditsFor_(kp[0], kp[1]);
+      if (cr.length) desc += '\n\n🎵 موسیقی:\n' + cr.map(function (x) { return '• ' + x; }).join('\n');
+    }
+  } catch (eCr) {}
   return desc;
 }
 
@@ -78250,6 +78450,7 @@ function vbrCollectHourly() {
      جدای خودش. بخشِ ۲۳ پیش از این بخش است، پس فراخوانِ مستقیم وابستگیِ رو به
      جلو نیست. پیش از سدِ `VBR_ON`، چون موسیقی به پل ربطی ندارد. */
   try { musicRehearDue_(); } catch (eMr) {}
+  try { sfxBulkArm_(); } catch (eSb) {}           // ۹.۷۹: بانکِ افکت تا بیش از هزار، در اجرای جدا
   /* و قسمتی که اجرایش کشته شد و نگهبانش هم نرسید (۸.۵۴) — فقط Properties و
      فهرستِ تریگرها؛ سیاهه را خودِ ادامه می‌نویسد، نه این‌جا (۷٫۸۴). */
   try { epStallKick_(); } catch (eSk) {}
@@ -82807,6 +83008,8 @@ var MRL_HEADERS = ['زمان', 'شناسهٔ فایل', 'نام', 'کار', 'م�
 
 /** دسته‌های رد — `nm` همان است که ریشه‌یابی می‌خواهد. */
 var MR_WHY = [{ k: 'nm', t: 'موسیقی نیست / ناهنجار' }, { k: 'vb', t: 'حس و وایب بد' }, { k: 'q', t: 'کیفیتِ بد' }];
+/* افکت (۹.۷۹): «موسیقی نیست» برایش بی‌معناست؛ پرسشِ درست این است که صدا با **نامِ کتابخانه‌اش** می‌خواند یا نه. */
+var MR_WHY_SFX = [{ k: 'wl', t: 'با نامش نمی‌خواند' }, { k: 'ug', t: 'ناخوشایند' }, { k: 'q', t: 'کیفیتِ بد' }];
 var MR_SLOTS = [{ k: 's', t: 'شروع', ic: '🎬' }, { k: 'm', t: 'میانه', ic: '🔀' }, { k: 'e', t: 'پایان', ic: '🏁' }];
 
 function mrOn_() { return CFG.MR_ON !== false && tgEnabled_(); }
@@ -82926,22 +83129,23 @@ function mrLog_(hub, id, name, op, val, why) {
 
 /* ───── کارت ───── */
 
-function mrKeyboard_(id, r) {
+function mrKeyboard_(id, r, kind) {
   r = r || {};
+  var isSfx = String(kind || '') === 'افکت';
   var cb = function (op, a) { return 'm|' + id + '|' + op + (a == null ? '' : '|' + a); };
   var rows = [];
   var st = [];
   /* ۹.۷۸: «به اندازهٔ همون ستاره‌ای که می‌زنم تا اونجا روشن باشه» — ستاره‌های زده‌شده پر، بقیه خالی. */
   for (var s = 1; s <= 5; s++) st.push({ text: (s <= (r.stars || 0) ? '⭐' : '☆') + faDigitsOut_(String(s)), callback_data: cb('s', s) });
   rows.push(st);
-  var vb = mrVibes_(), have = String(r.vibe || '').split(/[،,]\s*/);
+  var vb = isSfx ? [] : mrVibes_(), have = String(r.vibe || '').split(/[،,]\s*/);   // افکت وایب و جایگاه ندارد؛ جایش را واژه تعیین می‌کند
   for (var i = 0; i < vb.length; i += 4) {
     rows.push(vb.slice(i, i + 4).map(function (t, j) {
       return { text: (have.indexOf(t) !== -1 ? '✅ ' : '') + t, callback_data: cb('v', i + j) };
     }));
   }
-  rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
-  rows.push(MR_SLOTS.map(function (x) {
+  if (!isSfx) rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
+  if (!isSfx) rows.push(MR_SLOTS.map(function (x) {
     return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
   if (r.verdict === 'رد') {
@@ -82949,7 +83153,7 @@ function mrKeyboard_(id, r) {
   } else {
     rows.push([{ text: r.verdict === 'تأیید' ? '✅ تأیید شد' : '✅ تأیید', callback_data: cb('a') },
                { text: '⏳ بعداً', callback_data: cb('u') }]);
-    rows.push(MR_WHY.map(function (w) { return { text: '❌ ' + w.t, callback_data: cb('r', w.k) }; }));
+    rows.push((isSfx ? MR_WHY_SFX : MR_WHY).map(function (w) { return { text: '❌ ' + w.t, callback_data: cb('r', w.k) }; }));
     rows.push([{ text: '✍️ رد با توضیح', callback_data: cb('rx') }]);
   }
   return { inline_keyboard: rows };
@@ -82958,11 +83162,15 @@ function mrKeyboard_(id, r) {
 function mrCaption_(b, r) {
   r = r || {};
   var d = function (x) { return faDigitsOut_(String(x)); };
-  var L = ['🎵 <b>' + tgEsc_(String(b.name || '').replace(/\.wav$/i, '')) + '</b>',
+  var sfx = String(b.kind || '') === 'افکت';
+  var L = [(sfx ? '🔊 جلوهٔ صوتی · ' : '🎵 ') + '<b>' + tgEsc_(String(b.name || '').replace(/\.wav$/i, '')) + '</b>',
            d(Math.round(b.sec || 0)) + ' ثانیه' + (b.used ? ' · ' + d(b.used) + ' بار پخش شده' : ' · هنوز پخش نشده') +
            (b.lastAt ? ' · آخرین: ' + tgEsc_(String(b.lastAt).slice(0, 10)) : ''),
            'شنیدنِ مدل: ' + tgEsc_(String(b.heard || '—').slice(0, 120)),
-           'برچسبِ فعلی: ' + tgEsc_((String(b.mood || '—') + ' · ' + String(b.slots || '—')).slice(0, 160)), ''];
+           /* ۹.۷۹: «باید بررسی شه و برچسب بخوره از نظرِ اینکه مجازه یا نه» */
+           '⚖️ مجوز: ' + tgEsc_(b.lic || (typeof musicLicense_ === 'function' ? musicLicense_(String(b.src || '') + ' ' + String(b.note || '')).label : '—')),
+           (sfx ? 'دسته و نامِ کتابخانه: ' + tgEsc_(String(b.mood || '—').slice(0, 160))
+                : 'برچسبِ فعلی: ' + tgEsc_((String(b.mood || '—') + ' · ' + String(b.slots || '—')).slice(0, 160))), ''];
   var vd = r.verdict === 'تأیید' ? '✅ تأییدشده' : r.verdict === 'رد' ? '❌ رد — دیگر هرگز پخش نمی‌شود' : '⏳ معلق';
   L.push('<b>داوریِ شما:</b> ' + vd + (r.stars ? ' · ' + new Array(r.stars + 1).join('⭐') : '') +
          (r.vibe ? '\nوایب: ' + tgEsc_(r.vibe) : '') + (r.slots ? '\nجایگاه: ' + tgEsc_(r.slots) : '') +
@@ -82974,15 +83182,20 @@ function mrCaption_(b, r) {
 
 /** کارتِ یک قطعه ⇒ شناسهٔ پیام یا ''. صوت اگر زیرِ سقف است، وگرنه پیوندِ درایو با همان دکمه‌ها. */
 function mrSendOne_(b, r) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r)), cap = mrCaption_(b, r), res = null;
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r), res = null;
   var maxB = Math.max(1, Number(CFG.MR_MAX_MB) || 45) * 1048576, f = null;
   try { f = DriveApp.getFileById(b.id); } catch (e) { f = null; }
-  if (f && f.getSize() <= maxB) {
+  /* ۹.۷۹: «چند بار ۵ تای بعدی رو زدم و ده دقیقه گذشته» — هر کارتِ WAV دو بار بارگذاری می‌شد: یک بار به sendAudio که
+     WAV را نمی‌پذیرد، و دوباره به sendDocument. فایلِ ده‌مگابایتی دو بار یعنی سهمِ ۴۰ ثانیه‌ایِ هر اجرا برای یکی‌دو کارت. */
+  var isWav = f && /\.wav$/i.test(String(f.getName() || b.name || ''));
+  if (f && f.getSize() <= maxB && !isWav) {
     try {
       res = tgApi_('sendAudio', { chat_id: tgChat_(), audio: f.getBlob(), caption: cap, parse_mode: 'HTML',
                                   title: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), reply_markup: kb });
     } catch (eA) { res = null; }
     /* `sendAudio` رسماً MP3/M4A است؛ WAVی که نپذیرد، به‌صورتِ فایل همان‌جا پخش می‌شود — پیش از افتادن به پیوند. */
+  }
+  if (f && f.getSize() <= maxB) {
     if (!res || !res.result) {
       try { res = tgApi_('sendDocument', { chat_id: tgChat_(), document: f.getBlob(), caption: cap, parse_mode: 'HTML', reply_markup: kb }); }
       catch (eD) { res = null; }
@@ -82997,7 +83210,7 @@ function mrSendOne_(b, r) {
 
 /** کارت را با وضعِ تازه بازمی‌نویسد (پیامِ صوتی ⇒ caption، پیامِ متنی ⇒ text). */
 function mrRefresh_(chatId, msgId, b, r, isText) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r)), cap = mrCaption_(b, r);
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r);
   try {
     if (isText) tgApi_('editMessageText', { chat_id: chatId, message_id: Number(msgId), text: cap + '\n\n' + musicUrl_(b.id),
                                            parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: kb });
@@ -83009,11 +83222,18 @@ function mrRefresh_(chatId, msgId, b, r, isText) {
 
 /** نوبتِ ارسال: آنچه بیشتر پخش شده جلوتر (روی شنونده اثرِ بیشتری دارد)، بی افکت، بی آنچه قبلاً فرستاده یا داوری شده. */
 function mrQueue_(bank, map) {
-  return (bank || []).filter(function (b) {
-    if (String(b.kind || '') === 'افکت') return false;
-    var r = map[b.id];
-    return !(r && (r.sent || r.verdict));
-  }).sort(function (a, b) { return (b.used || 0) - (a.used || 0) || String(a.name).localeCompare(String(b.name)); });
+  var open = (bank || []).filter(function (b) { var r = map[b.id]; return !(r && (r.sent || r.verdict)); });
+  var by = function (a, b) { return (b.used || 0) - (a.used || 0) || String(a.name).localeCompare(String(b.name)); };
+  var mus = open.filter(function (b) { return String(b.kind || '') !== 'افکت'; }).sort(by);
+  /* ۹.۷۹: جلوه‌های صوتی هم با همان کارت — هر چهارمین کارت یکی، تا بانکِ هزارتاییِ افکت صفِ موسیقی را نبلعد. */
+  var sfx = open.filter(function (b) { return String(b.kind || '') === 'افکت'; }).sort(by);
+  var out = [];
+  while (mus.length || sfx.length) {
+    for (var k = 0; k < 3 && mus.length; k++) out.push(mus.shift());
+    if (sfx.length) out.push(sfx.shift());
+    if (!mus.length) { out = out.concat(sfx); sfx = []; }
+  }
+  return out;
 }
 
 function mrSendDue_(hub, st, budgetMs) {
@@ -83021,11 +83241,14 @@ function mrSendDue_(hub, st, budgetMs) {
   var today = String(nowStr_()).slice(0, 10);
   if (st.day !== today) { st.day = today; st.dayN = 0; }
   var cap = st.first ? (Number(CFG.MR_PER_DAY) || 10) : (Number(CFG.MR_FIRST_BATCH) || 25);
-  if ((Number(st.dayN) || 0) >= cap) { out.why = 'سهمِ امروز (' + cap + ') فرستاده شد'; return out; }
+  /* «۵ تای بعدی» (۹.۷۹) از سقفِ روز جداست. تا ۹.۷۸ دکمه `dayN` را پنج‌تا کم می‌کرد و هم‌زمان `first` را می‌زد — سقف از ۲۵ به
+     ۱۰ می‌افتاد و `dayN`ِ ۲۰ همچنان بالای آن بود، پس دکمه هیچ کارتی نمی‌فرستاد. */
+  var more = Number(st.more) || 0;
+  if ((Number(st.dayN) || 0) >= cap && !more) { out.why = 'سهمِ امروز (' + cap + ') فرستاده شد'; return out; }
   var map = mrMap_(hub), q = mrQueue_(musicBank_(hub), map);
   if (!q.length) { st.left = 0; out.why = 'همهٔ قطعه‌ها فرستاده یا داوری شده‌اند'; return out; }
   var per = Math.max(1, Number(CFG.MR_PER_RUN) || 4);
-  for (var i = 0; i < q.length && out.sent < per && (st.dayN || 0) < cap; i++) {
+  for (var i = 0; i < q.length && out.sent < per && ((st.dayN || 0) < cap || out.sent < more); i++) {
     if (Date.now() - t0 > budgetMs) break;
     var b = q[i], mid = '';
     try { mid = mrSendOne_(b, null); } catch (e) { out.why = 'ارسال نشد: ' + String(e.message || e).slice(0, 80); break; }
@@ -83087,7 +83310,7 @@ function mrOnButton_(hub, st, data, chatId, msgId, isText) {
   else if (op === 'a') { patch.verdict = 'تأیید'; patch.why = ''; patch.whyK = ''; logOp = 'تأیید'; reply = 'تأیید شد'; }
   else if (op === 'u') { patch.verdict = ''; logOp = 'معلق'; reply = 'معلق ماند'; }
   else if (op === 'r') {
-    var w = (MR_WHY.filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
+    var w = (MR_WHY.concat(MR_WHY_SFX).filter(function (x) { return x.k === a; })[0] || { k: a, t: a });
     patch.verdict = 'رد'; patch.whyK = w.k; patch.why = w.t; logOp = 'رد'; logVal = w.t; reply = 'رد شد — دیگر پخش نمی‌شود';
   }
   else if (op === 'vx' || op === 'rx') {
@@ -83256,7 +83479,7 @@ function tgPollRun_() {
             if (!mrChatOk_(m.chat)) continue;
             try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
             st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
-            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; }
+            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; st.more = (Number(st.more) || 0) + 5; }
             else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
             st.clickAt = Date.now();
             out.got++;
@@ -83275,12 +83498,16 @@ function tgPollRun_() {
     var today = String(nowStr_()).slice(0, 10);
     if (st.day !== today) { st.day = today; st.dayN = 0; }
     var cap = st.first ? (Number(CFG.MR_PER_DAY) || 10) : (Number(CFG.MR_FIRST_BATCH) || 25);
-    if ((Number(st.dayN) || 0) >= cap) st.sendWhy = 'سهمِ امروز (' + cap + ') فرستاده شد';
-    else if (Date.now() - t0 < maxRun && Date.now() - (Number(st.sendTry) || 0) > 10 * 60000) {
+    /* «۵ تای بعدی» (۹.۷۹): تا آن پنج‌تا برسند، نه سقفِ روز جلویشان را می‌گیرد نه فاصلهٔ ده‌دقیقه‌ای. */
+    var more = Number(st.more) || 0;
+    if ((Number(st.dayN) || 0) >= cap && !more) st.sendWhy = 'سهمِ امروز (' + cap + ') فرستاده شد';
+    else if (Date.now() - t0 < maxRun && (more || Date.now() - (Number(st.sendTry) || 0) > 10 * 60000)) {
       st.sendTry = Date.now();
       var sd = mrSendDue_(getHub(), st, 40000);
       out.sent = sd.sent; st.sendWhy = sd.why;
       if (sd.sent) st.lastSentAt = Date.now();
+      if (more) st.more = Math.max(0, more - (sd.sent || 0));
+      if (sd.why && /همهٔ قطعه‌ها/.test(sd.why)) st.more = 0;
     }
     mrNag_(st);
     st.polledAt = Date.now();
