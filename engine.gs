@@ -1,5 +1,5 @@
 /* ============================================================================
- *  موتور محتوا و پادکست — نسخهٔ 9.76
+ *  موتور محتوا و پادکست — نسخهٔ 9.77
  *  (همهٔ بخش‌ها در یک فایل. این فایل با tools/build.js از src/ ساخته می‌شود و
  *   موتور خودش شبانه از گیت‌هاب نصبش می‌کند — چسباندنِ دستی لازم نیست.)
  *
@@ -1737,7 +1737,7 @@ var CFG = {
   MR_FIRST_BATCH: 25,           // روزِ اول (امشب)
   MR_PER_DAY: 10,
   MR_PER_RUN: 4,                // هر اجرای tgPollTick حداکثر این‌قدر کارت
-  MR_POLL_MIN: 5,               // تریگرِ خواندنِ دکمه‌ها، دقیقه
+  MR_POLL_MIN: 1,               // تریگرِ خواندنِ دکمه‌ها، دقیقه — ۹.۷۷: یک، نه پنج؛ کلیکی که پنج دقیقه جواب نگیرد «کار نمی‌کند»
   MR_HOT_MIN: 10,               // پس از هر کلیک، این‌قدر دقیقه گوشِ تیز (long-poll)
   MR_HOT_RUN_SEC: 50,
   MR_NAG_H: 24,
@@ -2187,7 +2187,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.76',
+  CODE_VERSION: '9.77',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3374,6 +3374,7 @@ var PK = {
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
   IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
   VBR_DAY_ASK: 'VBR_DAY_ASK_DAY',  // ۹.۴۲: روزی که قسمتِ امروز به پل رفت (vbrDayAskDue_)
+  TRIG_POLL: 'TGPOLL_TRIGGER_MIN',  // ۹.۷۷: فاصلهٔ تریگرِ دکمه‌ها — عوض شد ⇒ تریگرِ قدیم برداشته و از نو
   TRIG_VER: 'TRIGGERS_ENSURED_FOR',  // ۹.۷۶: نسخه‌ای که تریگرهایش وارسی شد — نصبِ دستی هم تریگرِ تازه می‌سازد
   MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}
@@ -15494,6 +15495,17 @@ function trigEnsureForVersion_() {
   var p = props_(), v = String(CFG.CODE_VERSION);
   if (p.getProperty(PK.TRIG_VER) === v) return false;
   trigDedupe_();
+  /* فاصلهٔ تریگر از روی خودِ تریگر خواندنی نیست؛ وقتی عوض شد، تریگرِ کهنه برداشته می‌شود تا با فاصلهٔ تازه ساخته شود. */
+  var pm = String(trigMinutes_(CFG.MR_POLL_MIN || 5));
+  /* همین‌جا از نو ساخته می‌شود، نه با `ensureScheduledTriggers_` — آن «جاافتاده» می‌شمردش و یافتهٔ دروغینِ «ترمیم شد» می‌نوشت. */
+  if (p.getProperty(PK.TRIG_POLL) !== pm && !p.getProperty(PK.SCHED_OFF)) {
+    try {
+      var had = false;
+      ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'tgPollTick') { ScriptApp.deleteTrigger(t); had = true; } });
+      if (had) ScriptApp.newTrigger('tgPollTick').timeBased().everyMinutes(Number(pm)).create();
+      p.setProperty(PK.TRIG_POLL, pm);
+    } catch (eP) {}
+  }
   ensureScheduledTriggers_();
   p.setProperty(PK.TRIG_VER, v);
   return true;
@@ -83118,9 +83130,30 @@ function tgPollTick() {
   try { return tgPollRun_(); } finally { runExit_('tgPollTick'); }
 }
 
+/**
+ * «دکمه‌ها رو می‌زنم هیچ تأثیری نداره» (۹.۷۷): این‌جا قفلِ **مشترکِ پروژه** گرفته می‌شد — همان قفلی که ساختِ صدا،
+ * پل، جاسازی و همگام‌سازی چند دقیقه نگهش می‌دارند. هر بار یکی از آن‌ها می‌دوید، این تابع بی‌صدا `null` برمی‌گرداند
+ * و کلیک‌ها در صفِ تلگرام می‌ماندند. حالا یک اجاره (lease) فقط میانِ خودِ همین تریگر — جز خودش با کسی برخورد ندارد.
+ */
+function mrLease_(take) {
+  var p = props_(), k = 'MUSIC_REVIEW_LEASE', now = Date.now();
+  if (!take) { try { p.deleteProperty(k); } catch (e) {} return true; }
+  var held = Number(p.getProperty(k)) || 0;
+  if (held && now - held < ((Number(CFG.MR_HOT_RUN_SEC) || 50) + 40) * 1000) return false;
+  p.setProperty(k, String(now));
+  return true;
+}
+
+/** جوابِ فوریِ دکمه — پیش از هر خواندنِ هاب، تا چرخشِ دکمه همان لحظه بایستد. */
+function mrAckText_(data) {
+  var p = String(data || '').split('|');
+  if (p[0] === 'mm') return 'تا چند دقیقهٔ دیگر';
+  return ({ s: '⭐ ستاره ثبت شد', v: 'وایب ثبت شد', o: 'جایگاه ثبت شد', a: '✅ تأیید شد', u: 'معلق ماند',
+            r: '❌ رد شد — دیگر پخش نمی‌شود', vx: 'منتظرِ نوشتهٔ شما', rx: 'منتظرِ نوشتهٔ شما' })[p[2]] || '';
+}
+
 function tgPollRun_() {
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) return null;
+  if (!mrLease_(true)) return null;
   var st = mrState_(), out = { got: 0, sent: 0 };
   try {
     var t0 = Date.now(), hub = null;
@@ -83143,10 +83176,11 @@ function tgPollRun_() {
           if (u.callback_query) {
             var cq = u.callback_query, m = cq.message || {};
             if (!mrChatOk_(m.chat)) continue;
-            var ans = { text: '' };
-            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; ans = { text: 'تا چند دقیقهٔ دیگر' }; st.hotUntil = Date.now() + 600000; }
-            else ans = mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
-            try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: ans.text || '' }); } catch (eA) {}
+            try { tgApi_('answerCallbackQuery', { callback_query_id: cq.id, text: mrAckText_(cq.data) }); } catch (eA) {}
+            st.hotUntil = Date.now() + (Number(CFG.MR_HOT_MIN) || 10) * 60000;
+            if (String(cq.data || '') === 'mm|more') { st.dayN = Math.max(0, (Number(st.dayN) || 0) - 5); st.first = 1; st.sendTry = 0; }
+            else mrOnButton_(getHub(), st, cq.data, m.chat.id, m.message_id, !m.audio && !m.document);
+            st.clickAt = Date.now();
             out.got++;
           } else {
             /* چتِ موتور ممکن است کانال باشد: آنجا نوشتهٔ او `channel_post` است، نه `message`. */
@@ -83158,7 +83192,14 @@ function tgPollRun_() {
       mrSave_(st);
       if (idle) break;
     } while (hot() && Date.now() - t0 < maxRun - 8000);
-    if (Date.now() - t0 < maxRun) {
+    /* تریگر هر دقیقه است (۹.۷۷)؛ بازکردنِ هابِ ۲۹ مگابایتی هر دقیقه سهمیهٔ روزانهٔ اجرا را می‌خورد. پس فرستادن فقط
+       وقتی سهمِ امروز پر نیست و ده دقیقه از تلاشِ قبلی گذشته — و سهمِ پر بی هیچ خواندنی دانسته می‌شود. */
+    var today = String(nowStr_()).slice(0, 10);
+    if (st.day !== today) { st.day = today; st.dayN = 0; }
+    var cap = st.first ? (Number(CFG.MR_PER_DAY) || 10) : (Number(CFG.MR_FIRST_BATCH) || 25);
+    if ((Number(st.dayN) || 0) >= cap) st.sendWhy = 'سهمِ امروز (' + cap + ') فرستاده شد';
+    else if (Date.now() - t0 < maxRun && Date.now() - (Number(st.sendTry) || 0) > 10 * 60000) {
+      st.sendTry = Date.now();
       var sd = mrSendDue_(getHub(), st, 40000);
       out.sent = sd.sent; st.sendWhy = sd.why;
       if (sd.sent) st.lastSentAt = Date.now();
@@ -83168,7 +83209,7 @@ function tgPollRun_() {
     mrSave_(st);
   } catch (e) {
     st.lastWhy = String(e.message || e).slice(0, 140); mrSave_(st);
-  } finally { lock.releaseLock(); }
+  } finally { mrLease_(false); }
   return out;
 }
 
@@ -83208,6 +83249,7 @@ function mrRejectStreak_(hub, st) {
 function mrStatus_() {
   var st = mrState_(), out = { on: mrOn_(), day: st.day || '', dayN: st.dayN || 0, offset: st.offset || 0,
                                polledAt: st.polledAt ? Utilities.formatDate(new Date(st.polledAt), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm') : '',
+                               clickAt: st.clickAt ? Utilities.formatDate(new Date(st.clickAt), CFG.TIMEZONE, 'yyyy-MM-dd HH:mm') : '',
                                sendWhy: st.sendWhy || '', pollWhy: st.pollWhy || '', lastWhy: st.lastWhy || '', notMusic: (st.nm || []).length };
   try {
     var n = mrSummary_(null);

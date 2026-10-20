@@ -1,18 +1,16 @@
 {
- "version": "9.76",
- "codeFile": "engine.gs",
- "sha256": "12a79cf961ea88028c7c042d4a25a3357b4fc68f25514c82d284553774f43911",
- "releasedAt": "2026-10-20T17:02:27Z",
- "summary": "تریگرِ نسخهٔ تازه پس از نصبِ دستی هم ساخته می‌شود (و تکراری‌ها کنار)؛ کارتِ موسیقی با sendDocument اگر sendAudio نپذیرد؛ چتِ کانال",
- "fixes": [
-  "trigEnsureForVersion_ در سرِ selfUpdateHourly_: یک بار برای هر نسخه trigDedupe_ و ensureScheduledTriggers_ — tgPollTick پس از نصبِ دستیِ ۹.۷۵ ساخته نشده بود",
-  "mrSendOne_: sendAudio ⇒ sendDocument ⇒ پیوند؛ getUpdates با channel_post؛ force_reply ⇒ پیامِ ساده در کانال",
-  "بخشِ ۳۹ (src/39_MusicReview.gs): tgPollTick با getUpdates (تریگرِ ۵ دقیقه‌ای، long-poll پس از هر کلیک)، کارت‌های روزانه (امشب ۲۵، بعد ۱۰)، تب‌های «بازبینیِ موسیقی» و «بازخوردِ موسیقی»",
-  "musicBank_/musicPick_: ردشده هرگز؛ تأییدشده بی سدِ شنیدنِ مدل و جلوتر؛ ستاره، وایب و جایگاهِ او",
-  "mrRootCause_: دومین «موسیقی نیست» برای «آهنگ»ِ مدل ⇒ یافتهٔ کد music-not-music و تلگرام؛ mrNag_ (۲۴ ساعت بی‌جواب) و mrRejectStreak_ (۸ از ۱۰ رد)",
-  "tgMusicLine_: نامِ موسیقی‌های پخش‌شده با پیوندِ فایل و جایگاه (MUSIC_LAST.ids/slots)",
-  "wantedTriggers_: نوعِ minutes (trigMinutes_) در نصب و وارسی"
- ],
- "sourceReportIds": [],
- "answers": []
+  "version": "9.77",
+  "codeFile": "engine.gs",
+  "sha256": "a147a2fd0fdb824393a3d93147a705875a6f8908cec868b59a5981d60d171821",
+  "releasedAt": "2026-10-20T17:16:08Z",
+  "summary": "دکمه‌های تلگرامِ موسیقی: دیگر پشتِ قفلِ کارهای سنگین نمی‌مانند؛ تریگرِ یک‌دقیقه‌ای و جوابِ فوریِ دکمه",
+  "fixes": [
+    "tgPollRun_ قفلِ مشترکِ پروژه می‌گرفت و هر بار ساختِ صدا/پل/جاسازی می‌دوید، کلیک‌ها بی‌صدا خوانده نمی‌شدند — حالا اجارهٔ خودش (mrLease_)",
+    "answerCallbackQuery پیش از بازکردنِ هاب و با متنِ همان کار (mrAckText_)",
+    "MR_POLL_MIN ۵ ⇒ ۱؛ trigEnsureForVersion_ تریگرِ کهنه را با فاصلهٔ تازه از نو می‌سازد (PK.TRIG_POLL)، بی یافتهٔ دروغینِ «ترمیم»",
+    "دقیقهٔ بی‌کلیک هاب را باز نمی‌کند: سهمِ پر از حافظه، تلاشِ فرستادن حداکثر هر ده دقیقه",
+    "_STATUS.musicReview.clickAt — آخرین کلیکِ خوانده‌شده"
+  ],
+  "sourceReportIds": [],
+  "answers": []
 }

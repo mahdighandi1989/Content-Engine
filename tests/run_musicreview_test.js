@@ -141,7 +141,7 @@ console.log('=== ۵) یادآوری، منو، تریگر، وضعیت ===');
   tgPollTick();
   ok('۵.۲ «/music» آمارِ بانک را می‌دهد', calls('sendMessage').some(x => /بانکِ موسیقی/.test(x.b.text) && /ردشده/.test(x.b.text)));
   const w = wantedTriggers_().filter(x => x.fn === 'tgPollTick')[0];
-  ok('۵.۳ تریگرِ چنددقیقه‌ای در همان فهرستی که نصب و وارسی می‌شود', w && w.kind === 'minutes' && trigMinutes_(w.every) === 5 &&
+  ok('۵.۳ تریگرِ چنددقیقه‌ای در همان فهرستی که نصب و وارسی می‌شود', w && w.kind === 'minutes' && trigMinutes_(w.every) === 1 &&
      trigMinutes_(7) === 10 && (fs.readFileSync('src/05_Setup.gs', 'utf8').match(/everyMinutes\(trigMinutes_/g) || []).length === 2);
   const s = mrStatus_();
   ok('۵.۴ وضعیت و سلامت', s.line && /بازبینیِ موسیقی/.test(s.line) && /musicReview: \(function/.test(fs.readFileSync('src/08_Health.gs', 'utf8')) &&
@@ -189,6 +189,55 @@ console.log('=== ۶) نصبِ دستی: تریگرِ تازه همان ساعت 
      new Set(names).size === names.length, names.join(','));
   const before = global.__TRIGGERS.length;
   ok('۶.۳ یک بار برای هر نسخه — گذرِ بعدی دست نمی‌زند', trigEnsureForVersion_() === false && global.__TRIGGERS.length === before);
+}
+
+console.log('=== ۷) «دکمه‌ها رو می‌زنم هیچ تأثیری نداره» (۹.۷۷) ===');
+{
+  /* علتِ واقعی: قفلِ مشترکِ پروژه — ساختِ صدا و پل چند دقیقه نگهش می‌دارند و کلیک‌ها بی‌صدا در صف می‌ماندند. */
+  const body = String(tgPollRun_);
+  const realLock = LockService.getScriptLock;
+  LockService.getScriptLock = () => ({ tryLock: () => false, waitLock: () => { throw new Error('busy'); }, releaseLock: () => {}, hasLock: () => false });
+  const idA = fA.getId(), mA = Number(mrMap_(hub)[idA].msg);
+  tg.length = 0;
+  ups.push(cq('m|' + idA + '|s|2', mA));
+  let out;
+  try { out = tgPollTick(); } finally { LockService.getScriptLock = realLock; }
+  ok('۷.۱ وقتی کارِ سنگینی قفلِ پروژه را دارد، کلیک باز هم خوانده و ثبت می‌شود', out && out.got === 1 && mrMap_(hub)[idA].stars === 2 &&
+     !/getScriptLock/.test(body), JSON.stringify(out));
+  ok('۷.۲ و اجاره پس از اجرا آزاد است (اجرای بعدی بسته نمی‌ماند)', !global.__PROPS['MUSIC_REVIEW_LEASE']);
+  global.__PROPS['MUSIC_REVIEW_LEASE'] = String(Date.now());
+  ok('۷.۳ دو اجرای هم‌زمانِ خودِ همین تریگر نه (offset یکی است)', tgPollTick() === null);
+  delete global.__PROPS['MUSIC_REVIEW_LEASE'];
+
+  /* جوابِ دکمه پیش از هر خواندنِ هاب: چرخشِ دکمه همان لحظه می‌ایستد. */
+  const order = [], kHub = global.getHub_, kStub = global.__STUB;
+  global.getHub_ = () => { order.push('hub'); return hub; };
+  global.__STUB = (url, b) => { if (/answerCallbackQuery/.test(url)) order.push('ack:' + b.text); return kStub(url, b); };
+  ups.push(cq('m|' + idA + '|r|vb', mA));
+  try { tgPollTick(); } finally { global.getHub_ = kHub; global.__STUB = kStub; }
+  ok('۷.۴ answerCallbackQuery پیش از بازکردنِ هاب، با متنِ همان کار', /^ack:❌ رد شد/.test(order[0]) && order.indexOf('hub') > 0, order.join(' → '));
+  mrSet_(hub, idA, { verdict: 'تأیید' });
+
+  /* تریگرِ دقیقه‌ای ارزان: سهمِ پر یا تلاشِ اخیر ⇒ هاب باز نمی‌شود. */
+  let opened = 0;
+  global.getHub_ = () => { opened++; return hub; };
+  const st = mrState_(); st.day = String(nowStr_()).slice(0, 10); st.dayN = 99; mrSave_(st);
+  try { tgPollTick(); } finally { global.getHub_ = kHub; }
+  ok('۷.۵ دقیقهٔ بی‌کلیک با سهمِ پر ⇒ هیچ بازکردنِ هاب', opened === 0 && /سهمِ امروز/.test(mrState_().sendWhy), mrState_().sendWhy);
+  const st2 = mrState_(); st2.dayN = 0; st2.sendTry = Date.now(); mrSave_(st2);
+  global.getHub_ = () => { opened++; return hub; };
+  try { tgPollTick(); } finally { global.getHub_ = kHub; }
+  ok('۷.۶ تلاشِ فرستادنِ کمتر از ده دقیقه پیش ⇒ باز هم نه', opened === 0);
+
+  /* تریگرِ پنج‌دقیقه‌ایِ موجود ⇒ نسخهٔ تازه برش می‌دارد و یک‌دقیقه‌ای می‌سازد. */
+  global.__TRIGGERS.length = 0;
+  ScriptApp.newTrigger('tgPollTick').timeBased().everyMinutes(5).create();
+  const tOld = global.__TRIGGERS[0];
+  delete global.__PROPS[PK.TRIG_VER]; delete global.__PROPS[PK.TRIG_POLL];
+  trigEnsureForVersion_();
+  const polls = global.__TRIGGERS.filter(t => t.getHandlerFunction() === 'tgPollTick');
+  ok('۷.۷ فاصلهٔ تازه ⇒ تریگرِ قدیم برداشته و تازه ساخته شد', polls.length === 1 && polls[0] !== tOld && global.__PROPS[PK.TRIG_POLL] === '1',
+     polls.length + ' / ' + global.__PROPS[PK.TRIG_POLL]);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

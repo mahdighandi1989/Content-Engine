@@ -1718,7 +1718,7 @@ var CFG = {
   MR_FIRST_BATCH: 25,           // روزِ اول (امشب)
   MR_PER_DAY: 10,
   MR_PER_RUN: 4,                // هر اجرای tgPollTick حداکثر این‌قدر کارت
-  MR_POLL_MIN: 5,               // تریگرِ خواندنِ دکمه‌ها، دقیقه
+  MR_POLL_MIN: 1,               // تریگرِ خواندنِ دکمه‌ها، دقیقه — ۹.۷۷: یک، نه پنج؛ کلیکی که پنج دقیقه جواب نگیرد «کار نمی‌کند»
   MR_HOT_MIN: 10,               // پس از هر کلیک، این‌قدر دقیقه گوشِ تیز (long-poll)
   MR_HOT_RUN_SEC: 50,
   MR_NAG_H: 24,
@@ -2168,7 +2168,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.76',
+  CODE_VERSION: '9.77',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
@@ -3355,6 +3355,7 @@ var PK = {
   IG_BOOK: 'IG_BOOK_ID',          // ۹.۳۰: شناسهٔ دفترِ اینستاگرام (شیتِ جدا از هاب)
   IG_SHORTQ: 'IG_SHORTS_QUEUE',   // ۹.۳۲: صفِ شورتزهای منتظرِ سهمیه — کلیدِ جدا، چون IG_STATE سقفِ ۹ کیلوبایت دارد
   VBR_DAY_ASK: 'VBR_DAY_ASK_DAY',  // ۹.۴۲: روزی که قسمتِ امروز به پل رفت (vbrDayAskDue_)
+  TRIG_POLL: 'TGPOLL_TRIGGER_MIN',  // ۹.۷۷: فاصلهٔ تریگرِ دکمه‌ها — عوض شد ⇒ تریگرِ قدیم برداشته و از نو
   TRIG_VER: 'TRIGGERS_ENSURED_FOR',  // ۹.۷۶: نسخه‌ای که تریگرهایش وارسی شد — نصبِ دستی هم تریگرِ تازه می‌سازد
   MR_STATE: 'MUSIC_REVIEW_STATE',  // ۹.۷۵: {offset, day, dayN, first, hotUntil, answeredAt, lastSentAt, nagAt, nm[], polledAt}
   IG_STATE: 'IG_REELS_STATE',      // ۹.۲۱: {done, inflight[], fails{}, stats{published, day, dayN}, armedAt, ranAt, lastWhy}

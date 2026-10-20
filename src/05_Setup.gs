@@ -313,6 +313,17 @@ function trigEnsureForVersion_() {
   var p = props_(), v = String(CFG.CODE_VERSION);
   if (p.getProperty(PK.TRIG_VER) === v) return false;
   trigDedupe_();
+  /* فاصلهٔ تریگر از روی خودِ تریگر خواندنی نیست؛ وقتی عوض شد، تریگرِ کهنه برداشته می‌شود تا با فاصلهٔ تازه ساخته شود. */
+  var pm = String(trigMinutes_(CFG.MR_POLL_MIN || 5));
+  /* همین‌جا از نو ساخته می‌شود، نه با `ensureScheduledTriggers_` — آن «جاافتاده» می‌شمردش و یافتهٔ دروغینِ «ترمیم شد» می‌نوشت. */
+  if (p.getProperty(PK.TRIG_POLL) !== pm && !p.getProperty(PK.SCHED_OFF)) {
+    try {
+      var had = false;
+      ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'tgPollTick') { ScriptApp.deleteTrigger(t); had = true; } });
+      if (had) ScriptApp.newTrigger('tgPollTick').timeBased().everyMinutes(Number(pm)).create();
+      p.setProperty(PK.TRIG_POLL, pm);
+    } catch (eP) {}
+  }
   ensureScheduledTriggers_();
   p.setProperty(PK.TRIG_VER, v);
   return true;
