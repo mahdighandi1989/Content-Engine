@@ -5334,12 +5334,15 @@ function lvAlignTimes_(tc, times, secs) {
  * تصویر از آن زمان می‌گیرد (کارت‌ها و صحنه‌ها هر دو).
  * @return {{chunks:Array, secs:number, how:string, why:string}}
  */
-function lvReplayChunks_(folder, meta) {
+function lvReplayChunks_(folder, meta, show) {
   var out = { chunks: [], secs: 0, how: '', why: '' };
   var tj = epTimesRead_(folder);
   if (!tj) { out.why = '`_times.json` در پوشهٔ قسمت نبود'; return out; }
   var tc = null;
-  try { tc = specialTextChunks_((meta && meta.ep) || {}, (meta && (meta.cat || meta.seriesCat)) || ''); }
+  /* ۹.۶۵: «از همه جا»ی بی رسانه هم صحنهٔ مصور می‌گیرد — تکه‌هایش از دوقلوی خودش. */
+  var vari = String(show || '') === ENRICH_SHOW_VARIETY;
+  try { tc = vari ? varietyTextChunks_((meta && meta.ep) || {}, (meta && meta.cat) || '')
+                  : specialTextChunks_((meta && meta.ep) || {}, (meta && (meta.cat || meta.seriesCat)) || ''); }
   catch (e) { out.why = 'تکه‌های گفتار دوباره ساخته نشد: ' + e.message; return out; }
   if (!tc || !tc.length) { out.why = 'تکه‌های گفتار دوباره ساخته نشد'; return out; }
   var secs = Number(tj.secs) || 0;
@@ -7186,7 +7189,9 @@ function lvSceneFbStatus_() {
   try { r = JSON.parse(props_().getProperty(PK.LV_SCENE_FB) || 'null'); } catch (e) { r = null; }
   if (!r || !r.fb) return { ok: true, line: '', last: r };
   return { ok: false, last: r,
-           line: '🖼 ❌ آخرین درس (' + r.key + ') به‌جای صحنهٔ مصور با کارتِ ساده ساخته شد — علت: ' + r.why +
+           line: '🖼 ❌ آخرین قسمت (' + r.key + ') صحنهٔ مصور نگرفت — ' +
+                 (CFG.YT_PLAIN_HOLD !== false ? 'ویدئوی ساده منتشر نشد و منتظرِ ساختِ دوباره است' : 'با کارتِ ساده ساخته شد') +
+                 ' — علت: ' + r.why +
                  (Number(r.n) > 1 ? ' · ' + faDigitsOut_(String(r.n)) + ' درسِ پیاپی' : '') + '.' };
 }
 
@@ -7539,7 +7544,11 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
   var out = { active: false, done: false, fallback: false, why: '', want: 0, ready: 0,
               items: [], cover: null, info: null, made: 0, spent: 0, judged: 0, redo: 0 };
   var key = String((ctx && ctx.show) || '') + ':' + String((ctx && ctx.epRaw) || '');
-  if (!lvSceneOn_(ctx && ctx.show, ctx && ctx.level)) return out;
+  /* `forceScene` (۹.۶۵): «از همه جا»ی بی کلیپ و عکس — همان نقاشی‌های درس‌نامه، نه ویدئوی ساده. */
+  var sceneOk = (ctx && ctx.forceScene)
+    ? (CFG.LV_SCENES !== false && lvGenOn_() === true)
+    : lvSceneOn_(ctx && ctx.show, ctx && ctx.level);
+  if (!sceneOk) return out;
   out.active = true;
   var t0 = new Date().getTime();
   var deadline = t0 + Math.max(30000, Number(CFG.LV_SCENE_RUN_MS) || 150000);
@@ -7574,8 +7583,15 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     return out;
   };
   if (d && !d.scenes.length && Number(d.failed) >= failMax) {
-    out.fallback = true; out.why = String(d.why || ('نقشهٔ صحنه ' + failMax + ' بار نشد'));
-    return out;
+    /* ۹.۶۵: حالا که ویدئوی ساده منتشر نمی‌شود، «نشد» باید دوباره در بزند — هر `LV_SCENE_HOLD_RETRY_H` ساعت یک دورِ تازه. */
+    var lastH = parseWhen_(String(d.at || ''));
+    var holdMs = Math.max(1, Number(CFG.LV_SCENE_HOLD_RETRY_H) || 12) * 3600000;
+    if (CFG.YT_PLAIN_HOLD !== false && !isNaN(lastH) && new Date().getTime() - lastH >= holdMs) {
+      d.failed = failMax - 1;
+    } else {
+      out.fallback = true; out.why = String(d.why || ('نقشهٔ صحنه ' + failMax + ' بار نشد'));
+      return out;
+    }
   }
   if (d && !d.scenes.length && !d.asking && Number(d.failed) > 0) {
     var lastF = parseWhen_(String(d.at || ''));
@@ -7601,8 +7617,9 @@ function lvScenesBuild_(folder, meta, plan, ctx) {
     var fresh = false;
     if (!d || !d.asking) {
       fresh = true;
-      var rp = lvReplayChunks_(folder, meta);
-      if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', true);
+      var rp = lvReplayChunks_(folder, meta, ctx && ctx.show);
+      /* ۹.۶۵: نبودنِ `_times.json` **منتظرماندنی** است، نه نهایی — صدا ممکن است هنوز در ساخت باشد (special:76). */
+      if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', !/_times\.json/.test(String(rp.why || '')));
       var secs = Number(rp.secs) || 0;
       var sents = lvSceneSents_(rp.chunks);
       if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند (' + rp.chunks.length + ' تکه)', true);
@@ -9476,6 +9493,19 @@ function ytUpPendingClear_(key) {
   } catch (e) {}
 }
 
+/**
+ * این پوشه همین حالا در ساخت است؟ (۹.۶۵) — از حالتِ نیمه‌تمامِ همان برنامه، بی درایو.
+ * «تحویل» یعنی صدا تمام است؛ پیش از آن، تکه‌های صوتی کامل نیستند و `_times.json` نیست.
+ */
+function ytEpInProd_(show, folderId) {
+  try {
+    var pk = String(show) === ENRICH_SHOW_SPECIAL ? PK.SP_PENDING : PK.PENDING;
+    var st = JSON.parse(props_().getProperty(pk) || 'null');
+    if (!st || String(st.folderId || '') !== String(folderId)) return false;
+    return String(st.phase || '') !== 'deliver' && String(st.phase || '') !== 'done';
+  } catch (e) { return false; }
+}
+
 function ytUploadOne_(item, hub, pub) {
   var res = { key: item.key, ok: false, why: '', videoId: '', waiting: false };
   var yt = ytSvc_();
@@ -9485,6 +9515,13 @@ function ytUploadOne_(item, hub, pub) {
   try { folder = DriveApp.getFolderById(String(item.folderId)); }
   catch (e) { res.why = 'پوشهٔ قسمت پیدا نشد'; return res; }
 
+  /* ══ قسمتی که هنوز در ساخت است، به یوتیوب دست نمی‌خورد (۹.۶۵) ══
+     «هر دو بدون تصویرن و مانند اوایل شدن». درسِ ۵۳ِ آئودی (special:76): کاوشِ پوشه‌ها (`ytBackfill_`) پوشه را
+     وسطِ صداگذاری دید — «بخش N.wav»ها بودند، `_times.json` هنوز نه — و نقشهٔ صحنه همان دم «نهایی» نشد و به
+     کارتِ ساده افتاد. ساعت ۱۱:۰۵ زمان‌ها رسیدند؛ دیر بود. */
+  if (ytEpInProd_(item.show, folder.getId())) {
+    res.waiting = true; res.why = 'قسمت هنوز در ساخت است (صدا تمام نشده)'; return res;
+  }
   var meta = ytEpisodeMeta_(folder);
   if (!meta || !meta.ep) { res.why = 'پروندهٔ قسمت (‌_episode/_special.json) نبود'; return res; }
   var ep = meta.ep;
@@ -9647,6 +9684,8 @@ function ytUploadOne_(item, hub, pub) {
       logLine_('رسانه‌های منبعِ ' + item.key + ' نشد: ' + eVm.message);
     }
     if (vmr && vmr.active && vmr.fallback) sceneFb = 'رسانهٔ منبع: ' + String(vmr.why || 'بی علت');
+    /* ۹.۶۵: منبعِ بی تصویر ⇒ نقاشی، همان راهِ درس‌نامه (قسمتِ ۷۷: «بدون تصویر … مانند اوایل»). */
+    if (vmr && vmr.active && vmr.fallback && vmr.none) { ctx.forceScene = true; sceneFb = ''; }
     if (vmr && vmr.active && !vmr.fallback) {
       if (!vmr.done) { res.waiting = true; res.why = vmr.why || 'رسانه‌های منبع در حالِ آماده‌شدن'; return res; }
       var askedVm = ytRenderAsk_({ show: item.show, ep: item.ep, title: String(ep.title || ''),
@@ -9670,7 +9709,7 @@ function ytUploadOne_(item, hub, pub) {
       return res;
     }
   }
-  if (ytVisOn_(item.show) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
+  if ((ytVisOn_(item.show) || ctx.forceScene) && lvLvl !== 'خاموش' && !ytVideoIn_(folder)) {
     var scn = null;
     try { scn = lvScenesBuild_(folder, meta, plan, ctx); }
     catch (eSc) {
@@ -9682,6 +9721,14 @@ function ytUploadOne_(item, hub, pub) {
     if (scn && scn.active && scn.fallback) {
       sceneFb = String(scn.why || 'بی علت');
       try { lvSceneFbNote_(String(item.key || (item.show + ':' + item.ep)), sceneFb); } catch (eFb) {}
+      /* ══ کارتِ ساده خودکار منتشر نمی‌شود (۹.۶۵) ══
+         «تو دیگه دیونم کردی … هر دو بدون تصویرن و مانند اوایل شدن». ویدئوی کارتی/ساده در عمل «خراب» است، نه
+         «جایگزین»: منتظر می‌مانَد و خطِ روزانه علت را می‌گوید. */
+      if (CFG.YT_PLAIN_HOLD !== false) {
+        res.waiting = true; res.held = true;
+        res.why = 'صحنهٔ مصور نشد — ویدئوی ساده منتشر نمی‌شود، منتظرِ ساختِ دوباره: ' + sceneFb;
+        return res;
+      }
     }
     if (scn && scn.active && !scn.fallback) {
       if (!scn.done) { res.waiting = true; res.why = scn.why || 'صحنه‌ها در حالِ ساخت'; return res; }
@@ -10634,6 +10681,8 @@ function ytReplaceScenes_(folder, tag) {
   return notes.join('، ');
 }
 
+function showK0_(key) { return ytShowKey_(String(key).slice(0, String(key).lastIndexOf(':'))); }
+
 /** نوبتِ جایگزینی؛ بی کلید در فایل، هیچ خواندنی جز همان فایلِ کوچکِ گیت‌هاب. */
 function ytReplaceTick_(budgetMs, hubIn) {
   var out = { checked: 0, prepped: 0, swapped: 0, notes: [] };
@@ -10672,7 +10721,14 @@ function ytReplaceTick_(budgetMs, hubIn) {
     if (new Date().getTime() - t0 > budget) break;
     var key = keys[i], tag = list[key].tag, cur = st[key] || {};
     /* میان‌بُر، نه سد (۷.۷۱): حالتِ تمام‌شده به هیچ شاخهٔ پایین نمی‌رسد؛ این فقط شمارش را تمیز نگه می‌دارد. */
-    if (cur.tag === tag && ['done', 'skip', 'fail'].indexOf(String(cur.phase || '')) !== -1) continue;
+    /* `notPub` (۹.۶۵): «هنوز منتشر نشده» پایان نیست — special:76 همین‌جا «لازم نشد» گرفت و ساعتی بعد با کارتِ ساده
+       منتشر شد، و همان tag دیگر هرگز به آن نرسید. */
+    if (cur.tag === tag && !cur.notPub && ['done', 'skip', 'fail'].indexOf(String(cur.phase || '')) !== -1) continue;
+    if (cur.tag === tag && cur.notPub) {
+      var recNp = getPub()[showK0_(key) + ':' + key.slice(key.lastIndexOf(':') + 1)];
+      if (!recNp || !recNp.videoId) continue;
+      cur = {};
+    }
     out.checked++;
     var showK = ytShowKey_(key.slice(0, key.lastIndexOf(':')));
     var ep = key.slice(key.lastIndexOf(':') + 1);
@@ -10681,7 +10737,7 @@ function ytReplaceTick_(budgetMs, hubIn) {
         // ── آغاز: قبلی کنار، صحنه‌ها آماده، صف ──
         var rec = getPub()[showK + ':' + ep];
         if (!rec || !rec.videoId) {
-          st[key] = { tag: tag, phase: 'skip', at: nowStr_(),
+          st[key] = { tag: tag, phase: 'skip', at: nowStr_(), notPub: true,
                       why: 'این قسمت هنوز منتشر نشده؛ انتشارِ عادی همان ویدئوی تازه را می‌سازد' };
           changed = true; continue;
         }

@@ -727,6 +727,9 @@ var CFG = {
      نقشه تا `FAIL_MAX` بار، با دست‌کم `RETRY_MIN` دقیقه فاصله، دوباره پرسیده می‌شود و ویدئو منتظر می‌مانَد؛
      فقط پس از آن کارت — و آن هم خودش بعداً با صحنه جایگزین می‌شود (`LV_SCENE_REPAIR_FROM`). */
   LV_SCENE_FAIL_MAX: 4,
+  // ۹.۶۵: ویدئوی کارتی/ساده خودکار منتشر نمی‌شود؛ صحنهٔ ناشده هر LV_SCENE_HOLD_RETRY_H ساعت دوباره.
+  YT_PLAIN_HOLD: true,
+  LV_SCENE_HOLD_RETRY_H: 12,
   LV_SCENE_RETRY_MIN: 45,
   LV_SCENE_ASK_MIN_MS: 50000,
   LV_SCENE_RUN_MS: 150000,
@@ -2143,7 +2146,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.64',
+  CODE_VERSION: '9.65',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,

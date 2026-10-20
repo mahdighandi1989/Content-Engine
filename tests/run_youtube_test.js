@@ -6023,6 +6023,16 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     const wav = E.f.createFile(Utilities.newBlob('RIFF' + 'x'.repeat(2000) + 'WAVE', 'audio/wav', 'کامل.wav'));
     wav.getSize = () => Math.round(E.secs * 48000) + 44;
     _ytMapMemo = {};
+    /* ۹.۶۵: با نگه‌داشتن (پیش‌فرض) هیچ ردیفِ کارتی نوشته نمی‌شود — «هر دو بدون تصویرن و مانند اوایل شدن». */
+    let heldR = null;
+    for (let k = 0; k < 3; k++) heldR = ytUploadOne_({ key: 'special:296', show: 'special', ep: '296', folderId: 'EP71FB', series: 'معرفت‌شناسی' }, null, []);
+    const heldRow = ytRenderRead_().items.filter(x => x.key === 'special:296')[0] || null;
+    const heldFb = lvSceneFbStatus_();
+    ok('۷۱.۹-ث (۹.۶۵) صحنه نشد ⇒ ویدئوی کارتی/ساده نه خواسته می‌شود نه منتشر؛ منتظر با علت',
+       !heldRow && heldR.waiting === true && heldR.held === true && /جور نشد/.test(heldR.why) &&
+       /منتشر نشد/.test(heldFb.line), JSON.stringify({ heldR, line: heldFb.line }));
+    delete global.__PROPS[PK.LV_SCENE_FB];
+    const holdWas = CFG.YT_PLAIN_HOLD; CFG.YT_PLAIN_HOLD = false;
     let row = null;
     for (let k = 0; k < 6 && !row; k++) {
       ytUploadOne_({ key: 'special:296', show: 'special', ep: '296', folderId: 'EP71FB', series: 'معرفت‌شناسی' }, null, []);
@@ -6033,6 +6043,7 @@ console.log('=== ۷۱) صحنه‌های مصور (۸.۳۱): تصویر خودِ
     global.lvScenesBuild_ = keepSB;
     global.__STUB = BASE_STUB;
     const fb = lvSceneFbStatus_();
+    CFG.YT_PLAIN_HOLD = holdWas;
     ok('۷۱.۹-ب صحنه نشد ⇒ علت در ردیفِ عمومی و خطِ روزانه، همان درس یک بار',
        !!row && row.mode !== 'scenes' && !!row.vis && /جور نشد/.test(row.vis.sceneWhy || '') &&
        fb.ok === false && /special:296/.test(fb.line) && /کارتِ ساده/.test(fb.line) && /جور نشد/.test(fb.line) &&
@@ -9952,6 +9963,74 @@ console.log('\n=== ۱۰۵) رشدِ کانال: «چرا رشد نکرده؟» �
   ok('۱۰۵.۱۵ عکسِ بزرگ از سقفِ Properties نمی‌گذرد', String(global.__PROPS[PK.YTA_SNAP]).length <= 9000);
   global.ytHttp_ = httpWas; global.ytOn_ = onWas; global.ytPublished_ = pubWas;
   delete global.__PROPS[PK.YTA_SNAP]; delete global.__PROPS[PK.YTA_AT];
+}
+
+console.log('\n=== ۱۰۶) ویدئوی بی‌تصویر خودکار منتشر نمی‌شود (۹.۶۵) ===');
+{
+  /* «هر دو بدون تصویرن و مانند اوایل شدن». special:76 وسطِ صداگذاری دیده شد و نبودِ `_times.json` «نهایی» شد. */
+  const P = global.__PROPS;
+  const spWas = P[PK.SP_PENDING], vWas = P[PK.PENDING];
+  P[PK.SP_PENDING] = JSON.stringify({ epNum: 76, folderId: 'F76', phase: 'audio' });
+  ok('۱۰۶.۱ قسمتِ درس‌نامه‌ای که هنوز صدا می‌گیرد «در ساخت» است', ytEpInProd_('special', 'F76') === true);
+  P[PK.SP_PENDING] = JSON.stringify({ epNum: 76, folderId: 'F76', phase: 'merge' });
+  ok('۱۰۶.۲ ادغام هم هنوز ساخت است', ytEpInProd_('special', 'F76') === true);
+  P[PK.SP_PENDING] = JSON.stringify({ epNum: 76, folderId: 'F76', phase: 'deliver' });
+  ok('۱۰۶.۳ «تحویل» یعنی صدا تمام است', ytEpInProd_('special', 'F76') === false);
+  P[PK.SP_PENDING] = JSON.stringify({ epNum: 76, folderId: 'F76', phase: 'audio' });
+  ok('۱۰۶.۴ پوشهٔ دیگر یا برنامهٔ دیگر در ساخت نیست',
+     ytEpInProd_('special', 'F75') === false && ytEpInProd_('variety', 'F76') === false);
+  P[PK.PENDING] = JSON.stringify({ epNum: 77, folderId: 'F77', phase: 'audio' });
+  ok('۱۰۶.۵ «از همه جا» از حالتِ خودش', ytEpInProd_('variety', 'F77') === true);
+  const pubHit = [];
+  const r = ytUploadOne_({ key: 'special:76', show: 'special', ep: '76', folderId: (function () {
+    const f = DriveApp.__register('F76', 'قسمت 076 — آزمون'); return f.getId(); })() }, null, {});
+  ok('۱۰۶.۶ ytUploadOne_ پیش از هر کاری منتظر می‌مانَد', r.waiting === true && /در ساخت/.test(r.why), JSON.stringify(r));
+  if (spWas === undefined) delete P[PK.SP_PENDING]; else P[PK.SP_PENDING] = spWas;
+  if (vWas === undefined) delete P[PK.PENDING]; else P[PK.PENDING] = vWas;
+
+  const ysrc = fs.readFileSync('src/27_YouTube.gs', 'utf8'), vsrc = fs.readFileSync('src/37_VarietyMedia.gs', 'utf8');
+  const fin = /planFail\(rp\.why \|\| '[^']*', !\/_times\\\.json\/\.test\(String\(rp\.why \|\| ''\)\)\)/;
+  ok('۱۰۶.۷ نبودِ _times.json «نهایی» نیست — نه در صحنه، نه در رسانهٔ منبع', fin.test(ysrc) && fin.test(vsrc));
+  ok('۱۰۶.۸ صحنهٔ ناشده ⇒ منتظر (held)، نه کارتِ ساده', /if \(CFG\.YT_PLAIN_HOLD !== false\) \{\s*res\.waiting = true; res\.held = true;/.test(ysrc) &&
+     CFG.YT_PLAIN_HOLD === true);
+  ok('۱۰۶.۹ «از همه جا»ی بی رسانه ⇒ نقاشی', /vmr\.fallback && vmr\.none\) \{ ctx\.forceScene = true;/.test(ysrc) &&
+     /out\.fallback = true; out\.none = true;/.test(vsrc) && /\(ytVisOn_\(item\.show\) \|\| ctx\.forceScene\)/.test(ysrc));
+
+  // صحنه‌ای که چهار بار نشد، پس از ۱۲ ساعت دوباره در می‌زند
+  const fH = DriveApp.__register('FH', 'قسمت 090 — آزمون');
+  const lvOnWas = global.lvSceneOn_; global.lvSceneOn_ = () => true;
+  lvSceneWrite_(fH, { v: 1, key: 'special:90', at: '2026-01-01 00:00', failed: 4, why: 'آزمون', scenes: [] });
+  const rH = lvScenesBuild_(fH, { ep: {} }, {}, { show: 'special', epRaw: '90', level: 'کم' });
+  ok('۱۰۶.۱۰ نشدِ کهنه دوباره امتحان می‌شود (نه «نشد» تا ابد)', !(rH.fallback && rH.why === 'آزمون'), JSON.stringify(rH).slice(0, 200));
+  lvSceneWrite_(fH, { v: 1, key: 'special:90', at: nowStr_(), failed: 4, why: 'آزمون', scenes: [] });
+  const rH2 = lvScenesBuild_(fH, { ep: {} }, {}, { show: 'special', epRaw: '90', level: 'کم' });
+  ok('۱۰۶.۱۱ ولی نه زودتر از ۱۲ ساعت', rH2.fallback === true && rH2.why === 'آزمون');
+  global.lvSceneOn_ = lvOnWas;
+}
+
+{
+  /* جایگزینیِ خودکاری که «هنوز منتشر نشده» گرفت، پس از انتشار برمی‌گردد */
+  const hub = new Spread('هاب-۹۶۵');
+  global.__SS = { [CFG.HUB_ID || 'HUB']: hub };
+  const hubWas = global.getHub_; global.getHub_ = () => hub;
+  delete global.__PROPS[PK.YT_REPL]; delete global.__PROPS[PK.YT_DUE];
+  YT_REPLACE_ = null;
+  global.__STUB = function (url, body) {
+    if (url.indexOf('yt-replace.json') !== -1) return { code: 200, text: JSON.stringify({ items: { 'special:91': { tag: 'r9', why: 'آزمون' } } }) };
+    return BASE_STUB(url, body);
+  };
+  ytReplaceTick_(60000, hub);
+  const s1 = ytReplState_()['special:91'] || {};
+  ok('۱۰۶.۱۲ هنوز منتشر نشده ⇒ skip با notPub', s1.phase === 'skip' && s1.notPub === true, JSON.stringify(s1));
+  ytLog_(hub, { show: CFG.SPECIAL_SHOW_NAME, ep: '91', series: 'الف', title: 'درس', videoId: 'V91',
+                url: 'https://youtu.be/V91', privacy: 'public', result: 'منتشر شد' });
+  ytRenderSave_({ items: [] });
+  YT_REPLACE_ = null;
+  ytReplaceTick_(60000, hub);
+  const s2 = ytReplState_()['special:91'] || {};
+  ok('۱۰۶.۱۳ پس از انتشار، همان tag دوباره بررسی می‌شود (نه «لازم نشد» تا ابد)', !s2.notPub && s2.phase !== 'skip',
+     JSON.stringify(s2));
+  global.getHub_ = hubWas;
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ یوتیوب گذشت.');

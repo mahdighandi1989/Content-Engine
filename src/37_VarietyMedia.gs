@@ -859,14 +859,15 @@ function vmBuild_(folder, meta, plan, ctx) {
        ندارد؛ ویدئوی ساده همان پاسخِ درست است، نه خرابی. `none` تا خطِ روزانه آن را از افتادنِ واقعی جدا کند و
        یافتهٔ «جدی»ِ کد برای چیزی که هیچ کدی عوضش نمی‌کند ساخته نشود. */
     if (!items.length) {
-      out.fallback = true; out.why = 'این قسمت کلیپ یا عکسِ منبع ندارد';
+      out.fallback = true; out.none = true; out.why = 'این قسمت کلیپ یا عکسِ منبع ندارد';
       vmNote_(key, { ok: false, none: true, why: out.why });
       try { logLine_('رسانه‌های منبعِ ' + key + ': منبعِ تصویری ندارد — ویدئوی ساده، همان که باید.'); } catch (eN) {}
       return out;
     }
     if (left() < 70000) { out.why = 'وقتِ این دور برای نقشهٔ رسانه کم است؛ دورِ بعد'; return out; }
     var rp = vmReplay_(folder, meta);
-    if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', true);
+    /* ۹.۶۵: نبودنِ `_times.json` **منتظرماندنی** است، نه نهایی — صدا ممکن است هنوز در ساخت باشد (special:76). */
+    if (!rp.chunks.length) return planFail(rp.why || 'زمانِ تکه‌ها با متنِ گفتار جور نشد', !/_times\.json/.test(String(rp.why || '')));
     var sents = lvSceneSents_(rp.chunks);
     if (sents.length < 3) return planFail('جمله‌ای برای صحنه نماند', true);
     var raw = null;

@@ -1,12 +1,15 @@
 {
-  "version": "9.64",
-  "codeFile": "engine.gs",
-  "sha256": "88901568934a890f1f2e5dfd01dea23bba20f1886719935e9ed3c9b7fe3d5e16",
-  "releasedAt": "2026-10-19T23:00:00+04:00",
-  "summary": "ریلز: «امروز» فقط وقتی ناروا است که به همین قسمت اشاره کند («درسِ امروز»، «امروز می‌خواهیم») — «خیلی‌ها امروز می‌گویند» و «امروزه» دیگر کلِ متنِ ریلز را رد نمی‌کنند (درسِ ۱۵ِ مصباح پشتِ همین ایستاده بود و ۱۶ و ۱۷ پشتِ آن).",
-  "fixes": [
-    "src/38_Instagram.gs: igPlanTrim_ (امروز)"
-  ],
-  "sourceReportIds": [],
-  "answers": {}
+ "version": "9.65",
+ "codeFile": "engine.gs",
+ "sha256": "98aad7fbed2bd40bb9e22649a946763c2b1cccdb237ba8c2faf8d6aa6622c1bb",
+ "releasedAt": "2026-10-20T12:00:00+04:00",
+ "summary": "یوتیوب: ویدئوی بی‌تصویر خودکار منتشر نمی‌شود — قسمتِ در ساخت (پیش از تحویلِ صدا) به صفِ انتشار دست نمی‌خورد، نبودِ _times.json منتظرماندنی است نه نهایی، صحنهٔ ناشده نگه داشته و هر ۱۲ ساعت دوباره امتحان می‌شود، «از همه جا»ی بی رسانه نقاشی می‌گیرد، و جایگزینیِ «هنوز منتشر نشده» پس از انتشار برمی‌گردد (special:76 و variety:77).",
+ "fixes": [
+  "src/27_YouTube.gs: ytEpInProd_, ytUploadOne_ (hold), lvScenesBuild_ (forceScene, retry), lvReplayChunks_ (variety), ytReplaceTick_ (notPub)",
+  "src/37_VarietyMedia.gs: vmBuild_ (none, _times wait)",
+  "src/00_Config.gs: YT_PLAIN_HOLD, LV_SCENE_HOLD_RETRY_H",
+  "docs/yt-replace.json: variety:77"
+ ],
+ "sourceReportIds": [],
+ "answers": {}
 }
