@@ -1,5 +1,5 @@
 {
- "updatedAt": "2026-10-20 07:28",
+ "updatedAt": "2026-10-20 09:12",
  "note": "این فایل را tools/render.js می‌نویسد و موتور (ytRenderMap_) می‌خواند. کلید همان key در _YT-RENDER.json است. دستی ویرایشش نکنید.",
  "items": {
   "special:1": {
@@ -4318,6 +4318,88 @@
    "bytes": 10446173,
    "parts": 1,
    "at": "2026-10-20 07:28"
+  },
+  "special:77": {
+   "url": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-77.mp4",
+   "bytes": 69080055,
+   "parts": 4,
+   "at": "2026-10-20 09:12",
+   "mode": "scenes",
+   "scenes": 89,
+   "want": 89,
+   "snapped": 67,
+   "seconds": 2277,
+   "qa": {
+    "n": 89,
+    "matched": 84,
+    "miss": [
+     18,
+     33,
+     42,
+     51,
+     86
+    ],
+    "blank": [],
+    "ok": true,
+    "why": "",
+    "durDiff": 0,
+    "sync": {
+     "n": 3,
+     "ok": true,
+     "points": [
+      {
+       "n": 23,
+       "t": 575.3,
+       "own": 0.55,
+       "nb": 0.27,
+       "ok": true,
+       "heard": "این نظری را میتوان برحص به شرایت سادق بودن باورها هم صورت پندی کرد.  اما چونین بایانی ممکن است با اصحق خلط نظری."
+      },
+      {
+       "n": 45,
+       "t": 1135,
+       "own": 0.58,
+       "nb": 0.11,
+       "ok": true,
+       "heard": "این مفهوم بهت کمک میکنه همیشی یه مرض باریق بزاری بین شواهی دیگه خیلی قشنگ به هم میخورن و چیزی..."
+      },
+      {
+       "n": 67,
+       "t": 1702,
+       "own": 0.63,
+       "nb": 0.32,
+       "ok": true,
+       "heard": "این در حالی است که, وصاقت گراویان ویجگی وصاقت را با استلاحات تحبیت گراویان صورت بندی می کنند  وان挙ا تا حر..."
+      }
+     ],
+     "why": "",
+     "model": "small"
+    }
+   },
+   "ov": {
+    "asked": 32,
+    "placed": 19,
+    "busy": 13,
+    "failed": 0,
+    "kinds": {
+     "headline": 4,
+     "points": 10,
+     "quote": 3,
+     "compare": 2
+    }
+   },
+   "logo": "بریده و بی‌زمینه (157×145 از ۲۴۰)",
+   "mv": 74,
+   "clip": {
+    "asked": 1,
+    "used": 1,
+    "why": []
+   },
+   "xf": {
+    "smoothright": 44,
+    "fade": 36
+   },
+   "thumb": "https://github.com/mahdighandi1989/Content-Engine/releases/download/renders/special-77-cover.jpg"
   }
  },
  "art": {
