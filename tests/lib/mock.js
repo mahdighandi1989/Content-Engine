@@ -45,6 +45,11 @@ global.Utilities = {
                     .update(Buffer.from(String(value), 'utf8')).digest();
     // Apps Script بایت‌های علامت‌دار برمی‌گرداند (‎-128..127)
     return Array.from(h).map(b => (b > 127 ? b - 256 : b));
+  },
+  /* ۹.۸۳: امضای پیوندِ صفحهٔ پخش‌کننده — مثلِ Apps Script، بایت‌های علامت‌دار */
+  computeHmacSha256Signature(value, key) {
+    const h = require('crypto').createHmac('sha256', Buffer.from(String(key), 'utf8')).update(Buffer.from(String(value), 'utf8')).digest();
+    return Array.from(h).map(b => (b > 127 ? b - 256 : b));
   }
 };
 

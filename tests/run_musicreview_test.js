@@ -419,8 +419,8 @@ console.log('=== ۱۱) «رد با توضیح … بهش حتماً توجه ب�
   mus.getRange(b1 + 1, 1, 1, MUSIC_HEADERS.length).setValues([rr]);
   mrSet_(hub, fR.getId(), { name: 'Long.wav', sent: nowStr_(), msg: '901' });
   const kbR = [].concat.apply([], mrKeyboard_(fR.getId(), {}).inline_keyboard).map(x => x.text);
-  ok('۱۱.۵ کارت دکمهٔ «✂️ بازهٔ استفاده» دارد (موسیقی و افکت)', kbR.indexOf('✂️ بازهٔ استفاده') !== -1 &&
-     [].concat.apply([], mrKeyboard_('x', {}, 'افکت').inline_keyboard).some(x => x.text === '✂️ بازهٔ استفاده'));
+  ok('۱۱.۵ کارت دکمهٔ «⌨️ بازه با نوشتن» دارد (موسیقی و افکت)', kbR.indexOf('⌨️ بازه با نوشتن') !== -1 &&
+     [].concat.apply([], mrKeyboard_('x', {}, 'افکت').inline_keyboard).some(x => x.text === '⌨️ بازه با نوشتن'));
   tg.length = 0;
   ups.push(cq('m|' + fR.getId() + '|ux', 901));
   tgPollTick();
@@ -508,6 +508,46 @@ console.log('=== ۱۲) «منوی ثابت … دسترسی‌هاش وسیع»�
   try { musicPlanModel_(musicBank_(hub), { bounds: [], sections: [], show: 'variety', title: 'x' }); } catch (e) {} finally { global.geminiText_ = kG; }
   ok('۱۲.۱۱ هر بار که موسیقی انتخاب می‌شود، یادداشتِ او در پرسش هست', bA && /ترسناک/.test(bA.ownerNote) && /یادداشتِ صاحبِ برنامه: «[^»]*ترسناک/.test(asked));
   ok('۱۲.۱۲ کارت دکمهٔ «📝 یادداشت» دارد — حتی ردشده', [].concat.apply([], mrKeyboard_('x', { verdict: 'رد' }).inline_keyboard).some(x => /📝 یادداشت/.test(x.text)));
+}
+
+console.log('=== ۱۳) «بازه رو از روی خودِ موسیقی و پلیر انتخاب کنم جای تایپ» (۹.۸۳) ===');
+{
+  global.__PROPS['TG_BOT_USERNAME'] = 'TestBot';
+  const fX = mk('Pick.wav'), b0 = mus.getLastRow();
+  const rx = row(fX, 'Pick.wav', 0, 'آهنگ — سنتور', 'میانه'); rx[MC.SEC - 1] = 95;
+  mus.getRange(b0 + 1, 1, 1, MUSIC_HEADERS.length).setValues([rx]);
+  tg.length = 0;
+  const mX = mrSendOne_({ id: fX.getId(), name: 'Pick.wav', kind: 'موسیقی', sec: 95, used: 0 }, {});
+  mrSet_(hub, fX.getId(), { name: 'Pick.wav', sent: nowStr_(), msg: String(mX) });
+  const kb = JSON.parse(calls('sendDocument')[0].b.reply_markup).inline_keyboard, btn = [].concat.apply([], kb).filter(x => x.url)[0];
+  ok('۱۳.۱ کارت دکمهٔ «✂️ بازه با پخش‌کننده» دارد که صفحهٔ پخش را با شناسه، طول، ربات و کلید باز می‌کند',
+     btn && /range\.html\?/.test(btn.url) && btn.url.indexOf('id=' + fX.getId()) !== -1 && /bot=TestBot/.test(btn.url) && /d=95/.test(btn.url) && /k=[0-9a-f]{6}/.test(btn.url), btn && btn.url);
+  ok('۱۳.۲ صفحه در ریپو هست، پخش از درایو، و «ثبت» پیامِ start با همان قالب می‌سازد', fs.existsSync('docs/webapp/range.html') &&
+     /uc\?export=download&id=/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')) && /\?start=' \+ p/.test(fs.readFileSync('docs/webapp/range.html', 'utf8')));
+
+  /* همان محاسبهٔ صفحه، این‌جا: شروع ۱۲٫۵، پایان ۴۷ */
+  const k = /k=([0-9a-f]{6})/.exec(btn.url)[1];
+  const payload = 'r' + fX.getId() + '_' + Math.round(12.5 * 10).toString(36) + '_' + Math.round(47 * 10).toString(36) + '_' + k;
+  const longId = '1' + 'x'.repeat(43), worst = 'r' + longId + '_' + Math.round(599.9 * 10).toString(36) + '_' + Math.round(1800 * 10).toString(36) + '_' + k;
+  ok('۱۳.۳ پیامِ start زیرِ سقفِ ۶۴ نویسهٔ تلگرام، حتی با شناسهٔ ۴۴ نویسه‌ای و بازهٔ نیم‌ساعته، و فقط با نویسه‌های مجاز',
+     worst.length <= 64 && /^[A-Za-z0-9_-]+$/.test(payload) && /^[A-Za-z0-9_-]+$/.test(worst), worst.length);
+  tg.length = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 800, chat: { id: 555, type: 'private' }, text: '/start ' + payload } });
+  tgPollTick();
+  const rX = mrMap_(hub)[fX.getId()];
+  ok('۱۳.۴ بازگشت از صفحه ⇒ بازهٔ ۱۲٫۵–۴۷ در تب، حتی از چتِ خصوصیِ ربات', rX.range === '12.5-47', rX.range);
+  ok('۱۳.۵ و پاسخ با زمانِ دقیق، و کارت عوض شد', calls('sendMessage').some(x => x.b.chat_id === 555 && /بازه ثبت شد: از ۰:۱۲٫?۵ تا ۰:۴۷/.test(x.b.text.replace('.', '٫'))) &&
+     calls('editMessageCaption').some(x => /✂️ فقط ثانیهٔ/.test(x.b.caption)), (calls('sendMessage').filter(x => x.b.chat_id === 555)[0] || {}).b);
+  ok('۱۳.۶ بانک همان بازه را می‌گیرد', (musicBank_(hub).filter(b => b.id === fX.getId())[0] || {}).range.to === 47);
+  /* کلیدِ جعلی */
+  tg.length = 0;
+  ups.push({ update_id: ++mid, message: { message_id: 801, chat: { id: 999, type: 'private' }, text: '/start r' + fX.getId() + '_0_10_abcdef' } });
+  tgPollTick();
+  ok('۱۳.۷ کلیدِ نادرست ⇒ هیچ تغییری، فقط پیامِ «معتبر نیست»', mrMap_(hub)[fX.getId()].range === '12.5-47' && calls('sendMessage').some(x => /معتبر نیست/.test(x.b.text)));
+  /* «بی‌بازه» */
+  ups.push({ update_id: ++mid, message: { message_id: 802, chat: { id: 555, type: 'private' }, text: '/start r' + fX.getId() + '_0_0_' + k } });
+  tgPollTick();
+  ok('۱۳.۸ «بی‌بازه» ⇒ برمی‌گردد به تشخیصِ خودکار', mrMap_(hub)[fX.getId()].range === '' && !(musicBank_(hub).filter(b => b.id === fX.getId())[0] || {}).range);
 }
 
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ بازبینیِ موسیقی گذشت.');

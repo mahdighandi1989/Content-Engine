@@ -150,7 +150,7 @@ function mrLog_(hub, id, name, op, val, why) {
 
 /* ───── کارت ───── */
 
-function mrKeyboard_(id, r, kind) {
+function mrKeyboard_(id, r, kind, rangeUrl) {
   r = r || {};
   var isSfx = String(kind || '') === 'افکت';
   var cb = function (op, a) { return 'm|' + id + '|' + op + (a == null ? '' : '|' + a); };
@@ -166,7 +166,9 @@ function mrKeyboard_(id, r, kind) {
     }));
   }
   if (!isSfx) rows.push([{ text: '✍️ وایبِ دیگر', callback_data: cb('vx') }]);
-  rows.push([{ text: '📝 یادداشت' + (r.note ? ' (+)' : ''), callback_data: cb('nx') }, { text: '✂️ بازهٔ استفاده', callback_data: cb('ux') }]);
+  rows.push([{ text: '📝 یادداشت' + (r.note ? ' (+)' : ''), callback_data: cb('nx') }, { text: '⌨️ بازه با نوشتن', callback_data: cb('ux') }]);
+  /* ۹.۸۳: بازه از روی خودِ پخش — صفحهٔ پخش‌کننده؛ نشانی نیست (ربات یا صفحه نامعلوم) ⇒ فقط نوشتن. */
+  if (rangeUrl) rows.push([{ text: '✂️ بازه با پخش‌کننده' + (r.range ? ' (✓)' : ''), url: rangeUrl }]);
   if (!isSfx) rows.push(MR_SLOTS.map(function (x) {
     return { text: (String(r.slots || '').indexOf(x.t) !== -1 ? '✅ ' : '') + x.ic + ' ' + x.t, callback_data: cb('o', x.k) };
   }));
@@ -207,7 +209,8 @@ function mrCaption_(b, r) {
 
 /** کارتِ یک قطعه ⇒ شناسهٔ پیام یا ''. صوت اگر زیرِ سقف است، وگرنه پیوندِ درایو با همان دکمه‌ها. */
 function mrSendOne_(b, r) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r), res = null;
+  var ru = ''; try { ru = mrRangeUrl_(b, r, true); } catch (eRu) { ru = ''; }
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind, ru)), cap = mrCaption_(b, r), res = null;
   var maxB = Math.max(1, Number(CFG.MR_MAX_MB) || 45) * 1048576, f = null;
   try { f = DriveApp.getFileById(b.id); } catch (e) { f = null; }
   /* ۹.۷۹: «چند بار ۵ تای بعدی رو زدم و ده دقیقه گذشته» — هر کارتِ WAV دو بار بارگذاری می‌شد: یک بار به sendAudio که
@@ -235,7 +238,8 @@ function mrSendOne_(b, r) {
 
 /** کارت را با وضعِ تازه بازمی‌نویسد (پیامِ صوتی ⇒ caption، پیامِ متنی ⇒ text). */
 function mrRefresh_(chatId, msgId, b, r, isText) {
-  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind)), cap = mrCaption_(b, r);
+  var ru = ''; try { ru = mrRangeUrl_(b, r, false); } catch (eRu) { ru = ''; }
+  var kb = JSON.stringify(mrKeyboard_(b.id, r, b.kind, ru)), cap = mrCaption_(b, r);
   try {
     if (isText) tgApi_('editMessageText', { chat_id: chatId, message_id: Number(msgId), text: cap + '\n\n' + musicUrl_(b.id),
                                            parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: kb });
@@ -549,6 +553,65 @@ function mrSummary_(hub, withBank) {
 }
 
 
+/* ═══ بازه با خودِ پخش‌کننده (۹.۸۳) ═══
+ * «این قسمتِ برش … جوری باشه که بتونم با زدنش از رو خودِ اون موسیقی و پلیرِ تلگرام بازه رو انتخاب کنم جای تایپ کردن.»
+ * پخش‌کنندهٔ تلگرام جای پخش را به ربات نمی‌دهد، پس دکمه یک صفحهٔ پخش‌کننده باز می‌کند (`docs/webapp/range.html`): «شروع اینجا»،
+ * «پایان اینجا»، پیش‌نمایشِ همان بازه، و «ثبت» — که با پیوندِ `t.me/<ربات>?start=…` یک پیام به ربات می‌فرستد و همان مسیرِ
+ * همیشگی آن را می‌خوانَد. پیام با کلیدی از شناسهٔ فایل امضا شده است (`mrRangeKey_`)، پس فقط پیوندِ کارتِ خودِ او کار می‌کند. */
+function mrRangeKey_(id) {
+  var sig = Utilities.computeHmacSha256Signature(String(id), String(tgToken_() || 'k'));
+  var h = '';
+  for (var i = 0; i < 3; i++) { var b = (sig[i] + 256) % 256; h += (b < 16 ? '0' : '') + b.toString(16); }
+  return h;
+}
+
+function mrBotName_() {
+  var P = props_(), u = P.getProperty('TG_BOT_USERNAME');
+  if (u) return u;
+  try { var r = tgApi_('getMe', {}); u = r && r.result && r.result.username; } catch (e) { u = ''; }
+  if (u) P.setProperty('TG_BOT_USERNAME', u);
+  return u || '';
+}
+
+/** نشانیِ صفحهٔ پخش‌کننده برای یک قطعه؛ '' اگر ربات یا صفحه معلوم نیست. `share` فایل را با پیوند قابلِ پخش می‌کند (فقط پوشهٔ موسیقیِ خودمان). */
+function mrRangeUrl_(b, r, share) {
+  var page = String(CFG.MR_RANGE_PAGE || ''), bot = mrBotName_();
+  if (!page || !bot || !b || !b.id) return '';
+  if (share) { try { DriveApp.getFileById(b.id).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (eS) {} }
+  var rg = mrRangeParse_((r || {}).range);
+  var q = { id: b.id, n: String(b.name || '').replace(/\.wav$/i, '').slice(0, 60), d: Math.round(Number(b.sec) || 0), bot: bot, k: mrRangeKey_(b.id) };
+  if (rg) { q.s = rg.from; q.e = rg.to; }
+  return page + '?' + Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&');
+}
+
+/** «/start r<id>_<از>_<تا>_<کلید>» از صفحهٔ پخش‌کننده ⇒ بازه در تب، کارت عوض و پاسخ. از هر چتی، چون امضا دارد. */
+function mrStartRange_(hub, st, msg) {
+  var m = /^\/start\s+r([A-Za-z0-9_-]+)$/.exec(String((msg && msg.text) || '').trim());
+  if (!m) return false;
+  var parts = m[1].split('_');
+  if (parts.length < 4) return false;
+  var k = parts.pop(), e = parseInt(parts.pop(), 36) / 10, s = parseInt(parts.pop(), 36) / 10, id = parts.join('_');
+  if (k !== mrRangeKey_(id) || !(s >= 0) || !(e >= 0)) {
+    try { tgApi_('sendMessage', { chat_id: msg.chat.id, text: 'این پیوند معتبر نیست — از دکمهٔ «✂️ بازه با پخش‌کننده» روی همان کارت باز کنید.' }); } catch (eX) {}
+    return true;
+  }
+  var r = mrMap_(hub)[id] || {}, b = mrBankItem_(hub, id), clear = !(e > s);
+  var rangeTxt = clear ? '' : s + '-' + e;
+  var say = clear ? 'بازه برداشته شد — از این به بعد مثلِ قبل، به تشخیصِ خودِ موتور'
+                  : 'بازه ثبت شد: از ' + mrClock_(s) + ' تا ' + mrClock_(e) + ' (' + faDigitsOut_(String(Math.round((e - s) * 10) / 10)) + ' ثانیه) — فقط همین تکه پخش می‌شود';
+  var r2 = mrSet_(hub, id, { name: b.name || r.name, range: rangeTxt, read: say });
+  mrLog_(hub, id, b.name || r.name, 'بازه با پخش‌کننده', rangeTxt || 'برداشته شد', '');
+  if (r2 && r2.msg) mrRefresh_(tgChat_(), r2.msg, b, r2, false);
+  try { tgApi_('sendMessage', { chat_id: msg.chat.id, text: '✂️ «' + String(b.name || r.name || '').replace(/\.wav$/i, '') + '»: ' + say + '.' }); } catch (eR) {}
+  st.answeredAt = Date.now();
+  return true;
+}
+
+function mrClock_(t) {
+  var m = Math.floor(t / 60), s = Math.round((t - m * 60) * 10) / 10;
+  return faDigitsOut_(m + ':' + (s < 10 ? '0' : '') + s);
+}
+
 /* ═══ منوی ثابت، مرورِ بانک، و یادداشت روی هر کارت (۹.۸۲) ═══
  * «یه منوی ثابت زیرش بذاره تا هی مجبور به تایپِ دستورها نشم … دسترسی‌هاش وسیع باشه و تنوع زیاد داشته باشه»؛
  * «اگر تأیید هم می‌زنم یا معلق می‌ذارم، باز توضیحاتی بدم که ثبت بشه و بعداً که می‌خواد معرفی کنه با توجه به توضیحاتم باشه»؛
@@ -694,7 +757,8 @@ function mrFixedMenu_(st) {
 var MR_HELP = ['❓ راهنمای بانکِ موسیقی',
   '• هر روز چند کارت می‌آید؛ زیرِ هر کارت: ستاره، وایب، جایگاه، تأیید، «⏳ بعداً»، رد.',
   '• «📝 یادداشت» روی هر کارت — تأییدشده، معلق یا ردشده — هر بار که آن قطعه برای قسمتی انتخاب می‌شود خوانده می‌شود.',
-  '• «✂️ بازهٔ استفاده»: فقط همان تکه پخش می‌شود. در یادداشت یا توضیحِ رد هم می‌شود نوشت «از ثانیهٔ ۱۰ تا ۴۰».',
+  '• «✂️ بازه با پخش‌کننده»: صفحه‌ای باز می‌شود؛ پخش کنید، «شروع اینجا» و «پایان اینجا» را بزنید، بعد «ثبت» (و در تلگرام «Start»). فقط همان تکه پخش می‌شود.',
+  '• «⌨️ بازه با نوشتن»، یا در یادداشت و توضیحِ رد: «از ثانیهٔ ۱۰ تا ۴۰». قطعهٔ بی‌بازه مثلِ قبل به تشخیصِ موتور بریده می‌شود.',
   '• «✍️ رد با توضیح» خوانده می‌شود: «این جلوهٔ صوتی است» یعنی به بانکِ جلوه برود، نه دور ریخته شود.',
   '• دکمه‌های پایینِ صفحه هر فهرست را باز می‌کنند؛ روی هر قطعه بزنید تا کارتش دوباره بیاید.'].join('\n');
 
@@ -802,7 +866,9 @@ function tgPollRun_() {
           } else {
             /* چتِ موتور ممکن است کانال باشد: آنجا نوشتهٔ او `channel_post` است، نه `message`. */
             var um = u.message || u.channel_post;
-            if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
+            /* بازه از صفحهٔ پخش‌کننده (۹.۸۳): از چتِ خصوصیِ ربات می‌آید، نه لزوماً چتِ موتور — امضای پیام جای سدِ چت است. */
+            if (um && /^\/start\s+r/.test(String(um.text || ''))) { if (mrStartRange_(getHub(), st, um)) out.got++; }
+            else if (um && mrChatOk_(um.chat) && mrOnText_(getHub(), st, um)) out.got++;
           }
         } catch (eH) { st.lastWhy = String(eH.message || eH).slice(0, 120); }
       }

@@ -1,13 +1,13 @@
 {
-  "version": "9.82",
+  "version": "9.83",
   "codeFile": "engine.gs",
-  "sha256": "0caa5e462c7c70f044ba660f91260728c01ced5d5fbfe81663c0ddb7594adff7",
-  "releasedAt": "2026-10-20T19:55:17Z",
-  "summary": "منوی ثابتِ تلگرام؛ فهرست‌های بانک با کارتِ دوباره؛ یادداشت روی هر قطعه که در انتخاب خوانده می‌شود",
+  "sha256": "0f3cb08a89edb6b55a5144f9750fa573a3c33f220c6482dd107ea54c80d56b4b",
+  "releasedAt": "2026-10-20T20:06:09Z",
+  "summary": "بازه با پخش‌کننده: صفحهٔ پخش با شروع/پایان اینجا و پیش‌نمایش؛ بازگشت به ربات با پیامِ امضاشده",
   "fixes": [
-    "mrFixedMenu_: صفحه‌کلیدِ ماندگار + setMyCommands؛ سنجاق در کانال",
-    "mrRows_/mrFilter_/mrBrowse_/mrResend_: ۱۰ فهرست و هر وایب، ورق در همان پیام",
-    "یادداشت («📝»، ستونِ «یادداشتِ شما») روی هر کارت؛ در سلیقه و پرسشِ musicPlanModel_"
+    "docs/webapp/range.html + MR_RANGE_PAGE؛ دکمهٔ «✂️ بازه با پخش‌کننده» روی هر کارت",
+    "mrStartRange_: /start r<id>_<از>_<تا>_<کلید> با HMAC، از هر چت",
+    "فایلِ کارت هنگامِ فرستادن با پیوند قابلِ پخش"
   ],
   "sourceReportIds": [],
   "answers": []

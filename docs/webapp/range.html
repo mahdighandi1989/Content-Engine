@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بازهٔ استفاده</title>
+<!-- ۹.۸۳ — «بازه رو از روی خودِ موسیقی و پلیر انتخاب کنم، جای تایپ کردن». تلگرام جای پخش را به ربات نمی‌دهد، پس
+     این صفحه پخش‌کننده است: هر جا هستید «شروع اینجا» و «پایان اینجا» را بزنید؛ «ثبت» شما را با یک پیام به ربات برمی‌گرداند. -->
+<style>
+  :root { --bg:#0f1720; --card:#17212b; --fg:#e8eef4; --mut:#8fa3b5; --acc:#4fa3e0; --ok:#3cb371; --warn:#e0a84f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:Vazirmatn,Tahoma,sans-serif; padding:16px; }
+  h1 { font-size:17px; margin:0 0 4px; } .mut { color:var(--mut); font-size:13px; }
+  .card { background:var(--card); border-radius:14px; padding:14px; margin-top:12px; }
+  audio { width:100%; margin-top:8px; }
+  .now { font-size:34px; text-align:center; font-variant-numeric:tabular-nums; margin:6px 0; direction:ltr; }
+  .bar { direction:ltr; position:relative; height:34px; background:#22303c; border-radius:8px; margin:10px 0; touch-action:none; }
+  .sel { position:absolute; top:0; bottom:0; background:rgba(79,163,224,.35); border-left:2px solid var(--ok); border-right:2px solid var(--warn); }
+  .head { position:absolute; top:-4px; bottom:-4px; width:2px; background:#fff; }
+  .row { display:flex; gap:8px; margin-top:8px; } .row > * { flex:1; }
+  button { font:inherit; font-size:15px; border:0; border-radius:10px; padding:12px 6px; background:#2b3a48; color:var(--fg); }
+  button.ok { background:var(--ok); color:#06210f; font-weight:bold; } button.acc { background:var(--acc); color:#04121d; }
+  .val { text-align:center; font-size:20px; direction:ltr; font-variant-numeric:tabular-nums; }
+  .lab { text-align:center; color:var(--mut); font-size:12px; }
+  .err { color:#ff8a8a; font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1 id="name">—</h1>
+<div class="mut">پخش کنید؛ هر جا خواستید «شروع اینجا» و «پایان اینجا» را بزنید. بعد «ثبت».</div>
+<div class="card">
+  <audio id="au" controls preload="auto"></audio>
+  <div class="now" id="now">0:00.0</div>
+  <div class="bar" id="bar"><div class="sel" id="sel"></div><div class="head" id="head"></div></div>
+  <div class="row">
+    <div><div class="lab">شروع</div><div class="val" id="sv">—</div></div>
+    <div><div class="lab">پایان</div><div class="val" id="ev">—</div></div>
+    <div><div class="lab">طول</div><div class="val" id="lv">—</div></div>
+  </div>
+  <div class="row"><button onclick="setS()">📍 شروع اینجا</button><button onclick="setE()">🏁 پایان اینجا</button></div>
+  <div class="row"><button onclick="nud('s',-1)">شروع −۱</button><button onclick="nud('s',1)">شروع +۱</button>
+                   <button onclick="nud('e',-1)">پایان −۱</button><button onclick="nud('e',1)">پایان +۱</button></div>
+  <div class="row"><button onclick="jump(-5)">⏪ ۵ ثانیه</button><button class="acc" onclick="preview()">▶️ پخشِ همین بازه</button><button onclick="jump(5)">۵ ثانیه ⏩</button></div>
+  <div class="row"><button class="ok" onclick="send(false)">✓ ثبت در تلگرام</button></div>
+  <div class="row"><button onclick="send(true)">↺ بی‌بازه — تشخیصِ خودکار مثلِ قبل</button></div>
+  <div class="err" id="err"></div>
+</div>
+<script>
+var Q = {}; location.search.replace(/^\?/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) Q[p[0]] = decodeURIComponent((p[1] || '').replace(/\+/g, ' ')); });
+var au = document.getElementById('au'), S = Q.s ? Number(Q.s) : null, E = Q.e ? Number(Q.e) : null, stopAt = null;
+document.getElementById('name').textContent = Q.n || 'قطعه';
+au.src = 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(Q.id || '');
+au.onerror = function () { document.getElementById('err').textContent = 'فایل باز نشد. چند لحظه بعد دوباره امتحان کنید (پخش از درایو).'; };
+function dur() { return isFinite(au.duration) && au.duration > 0 ? au.duration : (Number(Q.d) || 0); }
+function fmt(t) { if (t == null || !isFinite(t)) return '—'; var m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); }
+function draw() {
+  var D = dur() || 1, bar = document.getElementById('bar').clientWidth;
+  document.getElementById('now').textContent = fmt(au.currentTime || 0);
+  document.getElementById('head').style.left = (100 * (au.currentTime || 0) / D) + '%';
+  var s = S == null ? 0 : S, e = E == null ? D : E;
+  var sel = document.getElementById('sel'); sel.style.left = (100 * s / D) + '%'; sel.style.width = (100 * Math.max(0, e - s) / D) + '%';
+  document.getElementById('sv').textContent = fmt(S); document.getElementById('ev').textContent = fmt(E);
+  document.getElementById('lv').textContent = (S != null && E != null && E > S) ? fmt(E - S) : '—';
+  if (stopAt != null && au.currentTime >= stopAt) { au.pause(); stopAt = null; }
+}
+setInterval(draw, 100);
+function setS() { S = Math.round(au.currentTime * 10) / 10; if (E != null && E <= S) E = null; draw(); }
+function setE() { E = Math.round(au.currentTime * 10) / 10; if (S != null && E <= S) S = null; draw(); }
+function nud(w, d) { if (w === 's') S = Math.max(0, Math.round(((S || 0) + d) * 10) / 10); else E = Math.max(0, Math.round(((E == null ? dur() : E) + d) * 10) / 10); draw(); }
+function jump(d) { au.currentTime = Math.max(0, Math.min(dur(), au.currentTime + d)); }
+function preview() { au.currentTime = S || 0; stopAt = E; au.play(); }
+document.getElementById('bar').addEventListener('click', function (ev) {
+  var r = this.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width; au.currentTime = Math.max(0, Math.min(1, x)) * dur();
+});
+function send(clear) {
+  var s = clear ? 0 : (S == null ? 0 : S), e = clear ? 0 : (E == null ? dur() : E);
+  if (!clear && !(e > s)) { document.getElementById('err').textContent = 'پایان باید بعد از شروع باشد.'; return; }
+  var p = 'r' + Q.id + '_' + Math.round(s * 10).toString(36) + '_' + Math.round(e * 10).toString(36) + '_' + Q.k;
+  location.href = 'https://t.me/' + encodeURIComponent(Q.bot) + '?start=' + p;
+}
+</script>
+</body>
+</html>

@@ -1731,6 +1731,8 @@ var CFG = {
   MR_FIRST_BATCH: 25,           // روزِ اول (امشب)
   MR_PER_DAY: 10,
   MR_PER_RUN: 4,                // هر اجرای tgPollTick حداکثر این‌قدر کارت
+  /* ۹.۸۳: صفحهٔ پخش‌کننده برای انتخابِ بازه — از خودِ این ریپو (docs/webapp/range.html)، با نوعِ HTML. */
+  MR_RANGE_PAGE: 'https://raw.githack.com/mahdighandi1989/Content-Engine/main/docs/webapp/range.html',
   MR_POLL_MIN: 1,               // تریگرِ خواندنِ دکمه‌ها، دقیقه — ۹.۷۷: یک، نه پنج؛ کلیکی که پنج دقیقه جواب نگیرد «کار نمی‌کند»
   MR_HOT_MIN: 10,               // پس از هر کلیک، این‌قدر دقیقه گوشِ تیز (long-poll)
   MR_HOT_RUN_SEC: 50,
@@ -2181,7 +2183,7 @@ var CFG = {
   // «نه پیش از ساعتِ مقرر» هم به آن تکیه می‌کند.
   EPISODE_HOUR: 7,
 
-  CODE_VERSION: '9.82',
+  CODE_VERSION: '9.83',
   /* سقفِ اندازهٔ engine.gs که نصب می‌پذیرد (۸.۳۶) — سدِ «نامعقول»، نه حدِ
      گوگل. `tools/build.js` در ۹۰٪ آن می‌ایستد تا سقف پیش از رسیدن دیده شود. */
   ENGINE_MAX_CHARS: 6000000,
