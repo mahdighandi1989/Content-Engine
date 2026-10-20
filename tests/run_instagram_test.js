@@ -981,4 +981,21 @@ console.log('=== ۱۶) مرورِ ۱۹: «مرور» روی کاور و در آ�
   ok('۱۶.۱۰ یک بار، از خودِ igTick', /if \(!st\.redo973\)/.test(String(igTick)) && /igRedoEps_\(st, \['19', '20'\]/.test(String(igTick)));
 }
 
+console.log('=== ۱۷) «ریلزِ اینستاگرام گیر کرده: درسِ ۱۹ پس از ۳ تلاش … جمله‌ها پیوسته نیستند، ادعای بیرون از درس» (۹.۸۰) ===');
+{
+  let asked = '';
+  const kG = global.geminiText_;
+  global.geminiText_ = (prompt) => { asked = prompt; return { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' }; };
+  const p = { idea: 'مسیر', lines: [{ text: 'مروری بر درس‌های ۱ تا ۱۸.' }, { text: 'چطور بفهمیم چیزی را واقعاً می‌دانیم؟' }, { text: 'اول دیدیم حس خطا می‌کند.' },
+                                   { text: 'بعد عقل آمد.' }, { text: 'و این ما را به یقین رساند.' }] };
+  try { igJudge_(p, 'متنِ مرورِ مجموعه', { recap: true, range: 'مرورِ بزرگِ درس‌های ۱ تا ۱۸' }); } finally { global.geminiText_ = kG; }
+  const body = asked.split('متنِ ریلز:')[1] || '';
+  ok('۱۷.۱ جملهٔ اعلامِ «مروری بر …» در متنِ داوری نیست — داور جملهٔ اول را قلاب می‌خوانَد', !/مروری بر/.test(body.split('متنِ مرور:')[0]) && /^\s*چطور بفهمیم/.test(body), body.slice(0, 80));
+  ok('۱۷.۲ و بازهٔ مرور به داور گفته می‌شود — «درس‌های ۱ تا ۱۸» دیگر «ادعای بیرون از درس» نیست', /این ریلزِ مرورِ درس‌های ۱ تا ۱۸ است/.test(asked) && /جزوِ داوری نیست/.test(asked));
+  global.geminiText_ = (prompt) => { asked = prompt; return { oneIdea: 'بله', flows: 'بله', answersHook: 'بله', faithful: 'بله', popular: 'بله', thirst: 'بله', weak: '', fix: '' }; };
+  try { igJudge_({ idea: 'x', lines: [{ text: 'مروری بر حس.' }, { text: 'جملهٔ دوم.' }] }, 'درس', {}); } finally { global.geminiText_ = kG; }
+  ok('۱۷.۳ ریلزِ درسِ عادی دست نمی‌خورد', /مروری بر حس/.test(asked.split('متنِ ریلز:')[1] || ''));
+  ok('۱۷.۴ ۱۹ِ گیرکرده یک بار از شمارِ شکست آزاد می‌شود', /if \(st\.redo973 && !st\.unfail980\)/.test(String(igTick)) && /\['fails', 'failAt', 'firstAt', 'failWhy'\]/.test(String(igTick)));
+}
+
 console.log('\n✅ همهٔ ' + pass + ' سنجهٔ اینستاگرام گذشت.');
